@@ -13,6 +13,21 @@ npm run preview:website
 
 开发服务监听 `0.0.0.0:5189`，构建预览监听 `0.0.0.0:5190`，均支持局域网访问。生产产物为 `apps/website/dist/`，可独立部署到静态托管平台的域名根路径。根目录 `npm run build` 构建所有提供 build 脚本的工作区。
 
+## Cloudflare Workers 部署
+
+仓库根目录的 [`wrangler.jsonc`](../../wrangler.jsonc) 将 Worker 名称设为 `molr`，静态资源目录设为 `apps/website/dist/`。Cloudflare Workers Builds 使用以下设置：
+
+| 设置 | 值 |
+| --- | --- |
+| 根目录 | 仓库根目录 |
+| 构建命令 | `npm run build:website` |
+| 部署命令 | `npx wrangler deploy` |
+| 预览命令 | `npx wrangler preview` |
+
+在构建环境变量中设置 `VITE_SITE_MODE=live` 可发布完整官网；未设置时仍为 `coming-soon`。本地运行 Wrangler 前先构建官网。配置仅部署官网静态资源；Runtime 仍按[部署指南](../../docs/deployment/README.md)独立部署。
+
+Wrangler 的 `.wrangler/` 本地状态和 `.dev.vars*` 本地变量文件已被 Git 忽略，凭据由 Cloudflare 构建环境或本地登录提供。部署和预览命令的含义见 [Cloudflare Workers Builds 配置](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)。
+
 ## 网站状态开关
 
 将 `apps/website/.env.example` 复制为同目录下的 `.env.local`，设置 `VITE_SITE_MODE`：

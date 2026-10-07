@@ -17,6 +17,8 @@ internal-docs/
 .env.*
 !.env.example
 !.env.*.example
+.dev.vars
+.dev.vars.*
 *.env
 .aws/
 .ssh/
@@ -67,6 +69,7 @@ node_modules/
 .venv/
 __pycache__/
 .cache/
+.wrangler/
 dist/
 build/
 coverage/
