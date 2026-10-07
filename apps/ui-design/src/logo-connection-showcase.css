@@ -1,0 +1,21 @@
+.logo-connection { margin-top: 32px; padding-top: 28px; border-top: 1px solid var(--color-border); }
+.logo-connection__heading h3 { margin: 0 0 8px; font-size: var(--text-lg); font-weight: 550; }
+.logo-connection__heading p { margin: 0; color: var(--color-text-muted); font-size: var(--text-sm); }
+.logo-connection__controls { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-top: 20px; }
+.logo-connection__controls .switch-field { font-size: var(--text-xs); }
+.logo-connection__status { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; margin: 16px 0; min-height: 24px; font-size: var(--text-xs); }
+.logo-connection__status strong { font-weight: 550; }
+.logo-connection__status[data-connection='failed'] strong { color: var(--color-danger); }
+.logo-connection__status span { color: var(--color-text-muted); }
+.logo-connection__panel { min-width: 0; padding: 20px; border-radius: var(--radius-card); }
+.logo-connection__panel--light { background: var(--color-logo-paper); color: var(--color-logo-ink); --color-focus: var(--color-logo-ink); }
+.logo-connection__panel--dark { background: var(--color-logo-ink); color: var(--color-logo-paper); --color-focus: var(--color-accent); }
+.logo-connection__caption { font-size: 10px; }
+.logo-connection__samples { display: flex; align-items: center; justify-content: space-around; flex-wrap: wrap; gap: 24px; padding: 24px 0 4px; }
+.logo-connection__samples > div { display: flex; flex-direction: column; align-items: center; gap: 14px; min-width: 0; }
+.logo-connection__samples small { font-size: 10px; opacity: .75; }
+.logo-connection__target { display: flex; align-items: center; justify-content: center; border-radius: var(--radius-control); }
+.logo-connection__target--navigation { width: 44px; height: 44px; --logo-symbol-size: 35px; }
+.logo-connection__target--large { height: 60px; --logo-width: 168px; --logo-symbol-size: 56px; }
+.logo-connection__note { margin: 14px 0 0; color: var(--color-text-muted); font-size: var(--text-xs); }
+@media (--molr-mobile) { .logo-connection > .logo-examples { grid-template-columns: minmax(0, 1fr); }.logo-connection__controls > .ui-choice-list { max-width: 100%; } }

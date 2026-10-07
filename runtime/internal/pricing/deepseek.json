@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "version": "2026-09-25",
+  "currency": "USD",
+  "providers": [
+    {
+      "id": "deepseek",
+      "origins": [
+        "https://api.deepseek.com"
+      ],
+      "source_url": "https://api-docs.deepseek.com/quick_start/pricing/",
+      "schedule": {
+        "peak_weekdays_utc": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "peak_windows_utc": [
+          {
+            "start": "01:00",
+            "end": "04:00"
+          },
+          {
+            "start": "06:00",
+            "end": "10:00"
+          }
+        ],
+        "holiday_timezone": "Asia/Shanghai",
+        "holiday_source_url": "https://www.gov.cn/zhengce/zhengceku/202511/content_7047091.htm",
+        "holiday_years": [
+          2026
+        ],
+        "holidays": [
+          "2026-01-01",
+          "2026-01-02",
+          "2026-01-03",
+          "2026-02-15",
+          "2026-02-16",
+          "2026-02-17",
+          "2026-02-18",
+          "2026-02-19",
+          "2026-02-20",
+          "2026-02-21",
+          "2026-02-22",
+          "2026-02-23",
+          "2026-04-04",
+          "2026-04-05",
+          "2026-04-06",
+          "2026-05-01",
+          "2026-05-02",
+          "2026-05-03",
+          "2026-05-04",
+          "2026-05-05",
+          "2026-06-19",
+          "2026-06-20",
+          "2026-06-21",
+          "2026-09-25",
+          "2026-09-26",
+          "2026-09-27",
+          "2026-10-01",
+          "2026-10-02",
+          "2026-10-03",
+          "2026-10-04",
+          "2026-10-05",
+          "2026-10-06",
+          "2026-10-07"
+        ]
+      },
+      "models": [
+        {
+          "id": "deepseek-flash",
+          "aliases": [
+            "deepseek-v4-flash",
+            "deepseek-v4-flash-vision-exp"
+          ],
+          "off_peak": {
+            "input_micros_per_million": 150000,
+            "output_micros_per_million": 600000,
+            "cached_input_micros_per_million": 3000
+          },
+          "peak": {
+            "input_micros_per_million": 300000,
+            "output_micros_per_million": 1200000,
+            "cached_input_micros_per_million": 6000
+          }
+        },
+        {
+          "id": "deepseek-v4-pro",
+          "aliases": [],
+          "off_peak": {
+            "input_micros_per_million": 660000,
+            "output_micros_per_million": 1980000,
+            "cached_input_micros_per_million": 22000
+          },
+          "peak": {
+            "input_micros_per_million": 1320000,
+            "output_micros_per_million": 3960000,
+            "cached_input_micros_per_million": 44000
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "name": "@molr/ui",
+  "private": true,
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./styles.css": "./src/styles.css",
+    "./tokens.css": "./src/tokens.css",
+    "./brand/*": "./public/brand/*",
+    "./postcss-breakpoints": "./postcss-breakpoints.mjs",
+    "./breakpoints.json": "./breakpoints.json",
+    "./themed-brand-plugin": "./themed-brand-plugin.ts",
+    "./palettes.css": "./src/palettes.css",
+    "./palettes": "./src/palettes.ts"
+  },
+  "scripts": {
+    "brand:generate": "node scripts/generate-logos.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "peerDependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "postcss": "^8.5.28",
+    "typescript": "~5.9.3",
+    "vite": "^8.3.0"
+  },
+  "dependencies": {
+    "katex": "^0.16.47",
+    "lucide-react": "^1.20.0",
+    "react-markdown": "^10.1.0",
+    "rehype-katex": "^7.0.1",
+    "remark-breaks": "^4.0.0",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0"
+  }
+}

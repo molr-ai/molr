@@ -1,0 +1,12 @@
+{
+  "debug": { "enabled": false, "retention_days": 7, "max_runs": 1000, "max_bytes": 67108864, "max_payload_bytes": 4194304 },
+  "pricing": { "rules_file": "", "exchange_rates_file": "" },
+  "data_dir": "/tmp/molr-dev",
+  "network": { "allowed_private_ips": ["127.0.0.1"] },
+  "http": {
+    "listen": "127.0.0.1:8080",
+    "public_url": "http://127.0.0.1:8080",
+    "tls_mode": "local",
+    "allowed_origins": ["http://127.0.0.1:5188"]
+  }
+}

@@ -1,0 +1,13 @@
+.assistant-notifications { flex-shrink: 0; margin: 8px 20px; }
+.assistant-notice { padding: 12px 14px; gap: 10px; line-height: 1.5; animation: assistant-notice-in 140ms ease-out; }
+.assistant-notice p { margin: 4px 0; }
+.assistant-notice .ui-alert__action { padding-top: 4px; }
+.assistant-notice__help { font-size: var(--text-xs); line-height: 1.45; }
+@keyframes assistant-notice-in { from { opacity: 0; } to { opacity: 1; } }
+:root[data-reduced-motion='true'] .assistant-notice { animation: none; }
+@media (prefers-reduced-motion: reduce) { .assistant-notice { animation: none; } }
+
+@media (max-height: 600px) {
+  .assistant-notifications { margin-block: 4px; }
+  .assistant-notice { padding-block: 8px; }
+}

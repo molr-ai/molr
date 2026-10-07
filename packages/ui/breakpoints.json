@@ -1,0 +1,9 @@
+{
+  "tiny": 380,
+  "small": 500,
+  "mobile": 700,
+  "navigation": 800,
+  "compact": 1000,
+  "wide": 1180,
+  "chatPanel": 1420
+}

@@ -1,0 +1,59 @@
+@import '@fontsource-variable/dm-sans';
+@import '@molr/ui/styles.css';
+@import './home.css';
+@import './docs.css';
+
+* { box-sizing: border-box; }
+html { background: var(--color-background); }
+body { margin: 0; background: var(--color-background); color: var(--color-text); font-family: var(--font-sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+button { font: inherit; -webkit-tap-highlight-color: transparent; }
+::selection { background: var(--color-accent); color: var(--color-on-accent); }
+:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 4px; }
+
+.website-shell { display: grid; width: min(1120px, calc(100% - 96px)); min-height: 100svh; margin: 0 auto; }
+.website-main { position: relative; isolation: isolate; display: grid; place-items: center; min-height: 100svh; padding: 80px 24px; }
+.website-main::before { content: ''; position: absolute; z-index: -1; inset: 0; background: radial-gradient(ellipse at 50% 46%, color-mix(in srgb, var(--color-accent) 12.5%, transparent), transparent 60%); pointer-events: none; }
+.launch-grid { position: absolute; z-index: -1; inset: 0; opacity: 0.35; background-image: linear-gradient(var(--color-border) 1px, transparent 1px), linear-gradient(90deg, var(--color-border) 1px, transparent 1px); background-size: 80px 80px; background-position: center; mask-image: radial-gradient(ellipse at center, var(--color-white) 8%, transparent 68%); pointer-events: none; }
+.launch-content { display: flex; flex-direction: column; align-items: center; width: 100%; text-align: center; }
+.launch-content > .logo { --logo-width: clamp(230px, 40vw, 430px); }
+.launch-message { display: grid; place-items: center; width: 100%; height: 88px; margin: 30px 0 0; font-size: clamp(28px, 3.5vw, 42px); font-weight: 400; line-height: 1.7; }
+.home-message { max-width: 100%; margin: 38px 0 0; font-size: clamp(25px, 3.2vw, 38px); font-weight: 400; line-height: 1.5; letter-spacing: -0.035em; text-wrap: balance; }
+.home-message:lang(zh) { letter-spacing: 0.12em; padding-left: 0.12em; }
+.launch-phrase { display: block; max-width: 100%; white-space: nowrap; letter-spacing: -0.025em; animation-name: launch-greeting; animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1); animation-fill-mode: both; }
+.launch-phrase:lang(zh) { letter-spacing: 0.16em; padding-left: 0.16em; }
+.launch-phrase:lang(ja), .launch-phrase:lang(ko) { letter-spacing: 0.035em; padding-left: 0.035em; }
+.launch-phrase:lang(fr) { font-size: 0.87em; }
+.launch-phrase:lang(ar) { letter-spacing: normal; }
+@keyframes launch-greeting {
+  0% { opacity: 0; transform: translateY(8px); filter: blur(7px); }
+  16%, 78% { opacity: 1; transform: translateY(0); filter: blur(0); }
+  100% { opacity: 0; transform: translateY(-6px); filter: blur(6px); }
+}
+.launch-accent { width: 32px; height: 4px; margin-top: 30px; border-radius: 2px; background: var(--color-accent); }
+.launch-mark { position: absolute; width: 13px; height: 13px; color: var(--color-control-border); opacity: 0.6; pointer-events: none; }
+.launch-mark::before, .launch-mark::after { content: ''; position: absolute; background: currentColor; }
+.launch-mark::before { top: 6px; width: 13px; height: 1px; }
+.launch-mark::after { left: 6px; width: 1px; height: 13px; }
+.launch-mark--start { top: 19%; left: 11%; }
+.launch-mark--end { right: 11%; bottom: 19%; }
+.website-fallback { display: grid; align-content: center; justify-items: center; min-height: 100svh; padding: 24px; text-align: center; }
+.website-fallback > span { font-size: 56px; font-weight: 550; letter-spacing: -0.04em; }
+.website-fallback h1 { margin: 16px 0 0; font-size: 28px; font-weight: 500; }
+.website-fallback h1 > span { display: block; }
+:root[data-locale='zh'] .website-fallback [lang='en'],
+:root[data-locale='en'] .website-fallback [lang='zh-CN'] { display: none; }
+
+@media (--molr-mobile) {
+  .website-shell { width: calc(100% - 40px); }
+  .website-main { padding: 48px 12px; }
+  .launch-content > .logo { --logo-width: min(76vw, 340px); }
+  .launch-message { height: 72px; margin-top: 22px; font-size: 30px; }
+  .launch-accent { margin-top: 24px; }
+  .launch-mark--start { left: 2%; top: 13%; }
+  .launch-mark--end { right: 2%; bottom: 13%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; }
+  .launch-phrase { animation: none; }
+}

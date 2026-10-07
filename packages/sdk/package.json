@@ -1,0 +1,20 @@
+{
+  "name": "@molr/sdk",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./ui": "./src/ui.ts",
+    "./host": "./src/host.ts",
+    "./plugins": "./src/plugins.ts",
+    "./plugin-host": "./src/plugin-host.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3"
+  }
+}

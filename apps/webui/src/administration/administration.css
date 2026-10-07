@@ -1,0 +1,23 @@
+.group-resource-list, .admin-quota-sections { display: grid; gap: 12px; min-width: 0; }
+.group-resource-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; min-width: 0; border-bottom: 1px solid var(--color-border); }
+.group-resource-row > :first-child { min-width: 0; overflow-wrap: anywhere; }
+.group-resource-row > button { flex-shrink: 0; }
+.admin-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.admin-statistics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; }
+.admin-statistics > div { display: grid; gap: 4px; min-width: 0; }
+.admin-statistics dt { color: var(--color-text-muted); font-size: 12px; }
+.admin-statistics dd { margin: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 480px) { .admin-form-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.retention-settings { gap: 24px; }
+.retention-settings-note { margin: 0; font-size: 12px; line-height: 1.7; color: var(--color-text-muted); }
+.retention-settings .settings-group { gap: 0; }
+.retention-settings .settings-label { flex-wrap: wrap; }
+.retention-setting-control { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.retention-setting-input { width: 112px; }
+.retention-setting-input > label { display: none; }
+.retention-setting-input .input { min-height: 32px; height: 32px; font-size: 13px; }
+.retention-setting-unit { width: 28px; font-size: 12px; color: var(--color-text-muted); }
+@media (--molr-mobile) {
+  .retention-setting-input { width: 84px; }
+}

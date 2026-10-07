@@ -1,0 +1,31 @@
+.ui-chat-markdown { min-width: 0; font-size: var(--text-sm); line-height: 1.85; }
+.ui-chat-markdown > :first-child { margin-top: 0; }
+.ui-chat-markdown > :last-child { margin-bottom: 0; }
+.ui-chat-markdown p, .ui-chat-markdown ul, .ui-chat-markdown ol, .ui-chat-markdown blockquote, .ui-chat-markdown pre, .ui-chat-markdown__table { margin: 12px 0; }
+.ui-chat-markdown :is(h1, h2, h3, h4, h5, h6) { margin: 20px 0 8px; font-weight: 600; line-height: 1.45; }
+.ui-chat-markdown h1 { font-size: 1.35em; }
+.ui-chat-markdown h2 { font-size: 1.2em; }
+.ui-chat-markdown :is(h3, h4, h5, h6) { font-size: 1.05em; }
+.ui-chat-markdown :is(ul, ol) { padding-left: 1.6em; }
+.ui-chat-markdown li + li { margin-top: 4px; }
+.ui-chat-markdown li > :is(ul, ol) { margin-block: 4px; }
+.ui-chat-markdown li > p { margin-block: 4px; }
+.ui-chat-markdown a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.ui-chat-markdown blockquote { margin-inline: 0; padding-left: 14px; border-left: 3px solid currentColor; opacity: .85; }
+.ui-chat-markdown blockquote > :first-child { margin-top: 0; }
+.ui-chat-markdown blockquote > :last-child { margin-bottom: 0; }
+.ui-chat-markdown code { padding: 2px 5px; border-radius: 4px; background: color-mix(in srgb, currentColor 8%, transparent); font: .9em/1.7 var(--font-mono); }
+.ui-chat-markdown pre { max-width: 100%; padding: 14px; overflow-x: auto; border-radius: var(--radius-control); background: color-mix(in srgb, currentColor 6%, transparent); white-space: pre; overflow-wrap: normal; }
+.ui-chat-markdown pre code { padding: 0; border: 0; background: none; }
+.ui-chat-markdown__table { max-width: 100%; overflow-x: auto; }
+.ui-chat-markdown table { width: 100%; border-collapse: collapse; font-size: .95em; }
+.ui-chat-markdown :is(th, td) { min-width: 90px; padding: 8px 12px; border: 1px solid color-mix(in srgb, currentColor 20%, transparent); text-align: left; }
+.ui-chat-markdown th { background: color-mix(in srgb, currentColor 6%, transparent); font-weight: 600; }
+.ui-chat-markdown hr { margin: 18px 0; border: 0; border-top: 1px solid currentColor; opacity: .2; }
+.ui-chat-markdown img { max-width: 100%; height: auto; border-radius: var(--radius-control); }
+.ui-chat-markdown .contains-task-list { list-style: none; padding-left: 0; }
+.ui-chat-markdown .task-list-item input { margin-right: 8px; accent-color: var(--color-accent); }
+.ui-chat-markdown .katex { font-size: 1.05em; }
+.ui-chat-markdown .katex-display { max-width: 100%; padding-block: 6px; overflow-x: auto; overflow-y: hidden; }
+.ui-chat-markdown .katex-display > .katex { text-align: left; }
+.ui-chat-markdown .katex-error { white-space: pre-wrap; overflow-wrap: anywhere; }

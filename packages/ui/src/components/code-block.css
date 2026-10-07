@@ -1,0 +1,10 @@
+.ui-code-block { min-width: 0; max-width: 100%; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-background); color: var(--color-text); overflow: hidden; }
+.ui-code-block > pre { margin: 0; padding: 12px; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; tab-size: 2; white-space: pre; font: 12px/1.75 var(--font-mono); outline-offset: -2px; }
+.ui-code-block > pre:focus-visible { outline: 2px solid var(--color-focus); }
+.ui-code-block code { font: inherit; color: inherit; }
+.ui-code-block[data-wrap='true'] > pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.ui-code-token--property { color: var(--color-code-property); }
+.ui-code-token--string { color: var(--color-code-string); }
+.ui-code-token--number { color: var(--color-code-number); }
+.ui-code-token--boolean, .ui-code-token--null { color: var(--color-code-literal); }
+.ui-code-token--punctuation { color: var(--color-text-muted); }

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 183 54" fill="none">
+  <title>Molr — Abstract cat, light, idle</title>
+  <desc>A compact M with subtly splayed legs contains two eyes. The original rounded o is uniformly reduced; the tail tip aligns with the tops of M and l.</desc>
+  <style>
+    [data-idle-still]{display:none}
+    @media (prefers-reduced-motion:reduce){[data-idle-motion]{display:none}[data-idle-still]{display:inline}}
+  </style>
+  <g data-idle-motion="">
+  <g stroke="#f5f6ef" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path data-letter="M" d="M8.75 41L10 12L24 22Q31 28 38 22L52 12L53.25 41">
+      <animate attributeName="d" dur="2.8s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.5;1" keySplines="0.45 0 0.55 1;0.45 0 0.55 1" values="M8.75 41L10 12L24 22Q31 28 38 22L52 12L53.25 41;M8.75 41L13 17L24 22Q31 28 38 22L49 17L53.25 41;M8.75 41L10 12L24 22Q31 28 38 22L52 12L53.25 41"/>
+    </path>
+    <path data-letter="o" d="M92 30.583333C92 23.5 87.833333 20.166667 82 20.166667C76.166667 20.166667 72 23.5 72 30.583333C72 37.666667 76.166667 41 82 41C87.833333 41 92 37.666667 92 30.583333Z"/>
+    <path data-letter="l" d="M112 12V32Q112 41 121 41"/>
+    <path data-letter="r" d="M134 41V31C134 24 141 21 151 21H157Q167 21 169 12">
+      <animate attributeName="d" dur="2.8s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.5;1" keySplines="0.45 0 0.55 1;0.45 0 0.55 1" values="M134 41V31C134 24 141 21 151 21H157Q167 21 169 12;M134 41V31C134 24 141 21 151 21H157Q166 21 165 17;M134 41V31C134 24 141 21 151 21H157Q167 21 169 12"/>
+    </path>
+  </g>
+  <g fill="#d5f478">
+    <circle data-eye="left" cx="23" cy="36" r="4"/>
+    <circle data-eye="right" cx="39" cy="36" r="4"/>
+  </g>
+  </g>
+  <g data-idle-still="">
+  <g stroke="#f5f6ef" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path data-letter="M" d="M8.75 41L10 12L24 22Q31 28 38 22L52 12L53.25 41"/>
+    <path data-letter="o" d="M92 30.583333C92 23.5 87.833333 20.166667 82 20.166667C76.166667 20.166667 72 23.5 72 30.583333C72 37.666667 76.166667 41 82 41C87.833333 41 92 37.666667 92 30.583333Z"/>
+    <path data-letter="l" d="M112 12V32Q112 41 121 41"/>
+    <path data-letter="r" d="M134 41V31C134 24 141 21 151 21H157Q167 21 169 12"/>
+  </g>
+  <g fill="#d5f478">
+    <circle data-eye="left" cx="23" cy="36" r="4"/>
+    <circle data-eye="right" cx="39" cy="36" r="4"/>
+  </g>
+  </g>
+</svg>

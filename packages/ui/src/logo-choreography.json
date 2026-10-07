@@ -1,0 +1,177 @@
+{
+  "motions": {
+    "sleepy": {
+      "label": "打盹",
+      "duration": 24,
+      "description": "双眼慢慢眯成弧线，猫耳与尾梢放松，眯眼保持约 20 秒后睁开。24 秒，播放一次。"
+    },
+    "look": {
+      "label": "张望",
+      "duration": 3.6,
+      "description": "双眼一起望向两侧，头部轻轻跟随，再看回前方。3.6 秒，播放一次。"
+    },
+    "listen": {
+      "label": "侧耳听",
+      "duration": 2,
+      "description": "一只耳朵竖起、轻动一下，像是听到了远处的声音。2 秒，播放一次。"
+    },
+    "stretch": {
+      "label": "伸懒腰",
+      "duration": 3.2,
+      "description": "先轻轻收身，再伸展猫耳和字形，尾梢最后舒展开。3.2 秒，播放一次。"
+    },
+    "nuzzle": {
+      "label": "轻蹭",
+      "duration": 2.6,
+      "description": "眯起眼睛，头部向一侧轻靠，尾梢收拢，再慢慢回正。2.6 秒，播放一次。"
+    },
+    "earflick": {
+      "label": "抖耳",
+      "duration": 1.6,
+      "description": "耳尖先后轻抖一下，再自然眨眼，像注意到了一点小动静。1.6 秒，播放一次。"
+    },
+    "peek": {
+      "label": "探头",
+      "duration": 2.8,
+      "description": "微微探出头，眼睛睁大一点、尾尖轻抬，停一下再收回。2.8 秒，播放一次。"
+    }
+  },
+  "sequences": {
+    "alive": {
+      "label": "安静好奇",
+      "steps": [
+        {
+          "motion": "greet",
+          "label": "招呼",
+          "duration": 2.4,
+          "cycles": 1,
+          "pause": 20
+        },
+        {
+          "motion": "look",
+          "label": "张望",
+          "duration": 3.6,
+          "cycles": 1,
+          "pause": 25
+        },
+        {
+          "motion": "sleepy",
+          "label": "打盹",
+          "duration": 24,
+          "cycles": 1,
+          "pause": 30
+        },
+        {
+          "motion": "listen",
+          "label": "侧耳听",
+          "duration": 2,
+          "cycles": 1,
+          "pause": 20
+        },
+        {
+          "motion": "curious",
+          "label": "好奇",
+          "duration": 1.8,
+          "cycles": 1,
+          "pause": 25
+        },
+        {
+          "motion": "idle",
+          "label": "休闲",
+          "duration": 2.8,
+          "cycles": 5,
+          "pause": 25
+        },
+        {
+          "motion": "stretch",
+          "label": "伸懒腰",
+          "duration": 3.2,
+          "cycles": 1,
+          "pause": 30
+        },
+        {
+          "motion": "nuzzle",
+          "label": "轻蹭",
+          "duration": 2.6,
+          "cycles": 1,
+          "pause": 25
+        },
+        {
+          "motion": "blink",
+          "label": "眨眼",
+          "duration": 4,
+          "cycles": 4,
+          "pause": 30
+        }
+      ]
+    },
+    "playful": {
+      "label": "亲近俏皮",
+      "steps": [
+        {
+          "motion": "greet",
+          "label": "招呼",
+          "duration": 2.4,
+          "cycles": 1,
+          "pause": 15
+        },
+        {
+          "motion": "peek",
+          "label": "探头",
+          "duration": 2.8,
+          "cycles": 1,
+          "pause": 18
+        },
+        {
+          "motion": "earflick",
+          "label": "抖耳",
+          "duration": 1.6,
+          "cycles": 1,
+          "pause": 15
+        },
+        {
+          "motion": "blink",
+          "label": "眨眼",
+          "duration": 4,
+          "cycles": 3,
+          "pause": 25
+        },
+        {
+          "motion": "nuzzle",
+          "label": "轻蹭",
+          "duration": 2.6,
+          "cycles": 1,
+          "pause": 20
+        },
+        {
+          "motion": "look",
+          "label": "张望",
+          "duration": 3.6,
+          "cycles": 1,
+          "pause": 18
+        },
+        {
+          "motion": "greet",
+          "label": "招呼",
+          "duration": 2.4,
+          "cycles": 1,
+          "pause": 20
+        },
+        {
+          "motion": "stretch",
+          "label": "伸懒腰",
+          "duration": 3.2,
+          "cycles": 1,
+          "pause": 22
+        },
+        {
+          "motion": "curious",
+          "label": "好奇",
+          "duration": 1.8,
+          "cycles": 1,
+          "pause": 15
+        }
+      ]
+    }
+  }
+}

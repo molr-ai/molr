@@ -1,0 +1,13 @@
+{
+  "debug": { "enabled": false, "retention_days": 7, "max_runs": 1000, "max_bytes": 67108864, "max_payload_bytes": 4194304 },
+  "pricing": { "rules_file": "", "exchange_rates_file": "" },
+  "data_dir": "/var/lib/molr",
+  "network": { "allowed_private_ips": ["127.0.0.1"] },
+  "http": {
+    "listen": "0.0.0.0:8080",
+    "public_url": "https://molr.example.com",
+    "tls_mode": "direct",
+    "cert_file": "/etc/molr/tls/fullchain.pem",
+    "key_file": "/etc/molr/tls/key.pem"
+  }
+}

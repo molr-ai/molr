@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en" data-site-mode="__SITE_MODE__">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f5f6ef" />
+    <script src="/theme-init.js"></script>
+    <title>__SITE_TITLE__</title>
+    <meta name="description" content="__SITE_DESCRIPTION__" />
+    <link rel="canonical" href="https://molr.ai/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Molr" />
+    <meta property="og:title" content="__SITE_TITLE__" />
+    <meta property="og:description" content="__SITE_DESCRIPTION__" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:url" content="https://molr.ai/" />
+    <script>
+      (() => {
+        const languages = navigator.languages.length ? navigator.languages : [navigator.language];
+        let locale = languages.map(language => language.toLowerCase().split(/[-_]/)[0]).find(language => language === 'zh' || language === 'en') || 'en';
+        if (document.documentElement.dataset.siteMode === 'live') {
+          try {
+            const saved = localStorage.getItem('molr-website-locale');
+            if (saved === 'zh' || saved === 'en') locale = saved;
+          } catch {}
+        }
+        document.documentElement.lang = locale === 'zh' ? 'zh-CN' : 'en';
+        document.documentElement.dataset.locale = locale;
+        if (document.documentElement.dataset.siteMode === 'live' && /^\/docs(?:\/|$)/.test(location.pathname)) return;
+        const { title, description } = __SITE_COPY__[locale];
+        document.title = title;
+        document.querySelector('meta[name="description"]').setAttribute('content', description);
+        document.querySelector('meta[property="og:title"]').setAttribute('content', title);
+        document.querySelector('meta[property="og:description"]').setAttribute('content', description);
+        document.querySelector('meta[property="og:locale"]').setAttribute('content', locale === 'zh' ? 'zh_CN' : 'en_US');
+      })();
+    </script>
+    <link rel="icon" type="image/svg+xml" href="/brand/molr-icon.svg" />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div id="root">
+      <main class="website-fallback"><span>Molr</span><h1><span lang="zh-CN">__SITE_ZH_HEADING__</span><span lang="en">__SITE_EN_HEADING__</span></h1></main>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

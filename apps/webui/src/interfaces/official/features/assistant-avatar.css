@@ -1,0 +1,15 @@
+.assistant-avatar-field { margin: 0; padding: 0; border: 0; min-width: 0; display: grid; gap: 10px; }
+.assistant-avatar-field legend { padding: 0; margin-bottom: 10px; font-size: var(--text-sm); font-weight: 550; }
+.assistant-avatar-current { display: flex; align-items: center; gap: 12px; }
+.assistant-avatar-preview { display: grid; place-items: center; width: 64px; height: 64px; flex-shrink: 0; border-radius: 50%; background: var(--color-primary); color: var(--color-on-primary); font-size: 24px; overflow: hidden; }
+.assistant-avatar-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.assistant-avatar-input { display: none; }
+.assistant-avatar-field p { margin: 0; font-size: 12px; }
+.assistant-avatar-presets { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.assistant-avatar-presets button { min-width: 0; padding: 3px; border: 2px solid transparent; border-radius: 50%; background: transparent; cursor: pointer; aspect-ratio: 1; }
+.assistant-avatar-presets button:hover { background: var(--color-selected-bg); }
+.assistant-avatar-presets button[aria-pressed='true'] { border-color: var(--color-primary); }
+.assistant-avatar-presets button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.assistant-avatar-presets button:disabled { cursor: wait; opacity: 0.6; }
+
+.assistant-avatar-preview:has(> .assistant-avatar-art) { background: transparent; overflow: visible; }

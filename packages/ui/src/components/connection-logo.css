@@ -1,0 +1,13 @@
+.connection-logo { display: inline-flex; align-items: center; justify-content: center; max-width: 100%; }
+.connection-logo__trigger { position: relative; display: inline-flex; align-items: center; justify-content: inherit; width: 100%; height: 100%; max-width: 100%; border-radius: var(--radius-control); }
+.connection-logo__retry { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; border-radius: inherit; background: transparent; cursor: pointer; }
+.connection-logo__art { display: grid; max-width: 100%; transition: opacity 180ms ease; }
+.connection-logo__art > * { grid-area: 1 / 1; }
+.connection-logo__still { display: flex; }
+.connection-logo__motion:not([data-ready]) { visibility: hidden; }
+.connection-logo__art:has(> .connection-logo__motion[data-ready]) .connection-logo__still { visibility: hidden; }
+.connection-logo:is([data-connection='disconnected'], [data-connection='failed']) .connection-logo__art { opacity: .24; }
+.connection-logo[data-connection='failed'] .connection-logo__art { animation: molr-connection-failed 420ms ease-out 1; }
+@keyframes molr-connection-failed { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-2px); } 40% { transform: translateX(2px); } 60% { transform: translateX(-1px); } 80% { transform: translateX(1px); } }
+.connection-logo[data-reduced-motion] .connection-logo__art { transition: none; animation: none; }
+@media (prefers-reduced-motion: reduce) { .connection-logo__art { transition: none; animation: none !important; } }

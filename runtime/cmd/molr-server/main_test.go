@@ -1,0 +1,202 @@
+package main
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"molr.ai/runtime/internal/app"
+	"molr.ai/runtime/internal/auth"
+	"molr.ai/runtime/internal/business/todo"
+	"molr.ai/runtime/internal/config"
+	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/storage/sqlite"
+	"molr.ai/runtime/tests/testkit"
+)
+
+func cliConfig(t *testing.T) (config.Config, string) {
+	t.Helper()
+	root := t.TempDir()
+	cfg := config.Defaults(filepath.Join(root, "data"))
+	cfg.HTTP.PublicURL = "https://runtime.example"
+	cfg.HTTP.TLSMode = config.TrustedProxy
+	cfg.HTTP.TrustedProxies = []string{"127.0.0.1/32"}
+	data, err := json.Marshal(cfg)
+	testkit.RequireNoError(t, err)
+	path := filepath.Join(root, "server.json")
+	testkit.RequireNoError(t, os.WriteFile(path, data, 0600))
+	return cfg, path
+}
+func invokeCLI(t *testing.T, ctx context.Context, args []string, input string) (string, error) {
+	t.Helper()
+	var out, diagnostics bytes.Buffer
+	err := run(ctx, args, strings.NewReader(input), &out, &diagnostics)
+	secret := strings.TrimSpace(input)
+	if secret != "" && (strings.Contains(out.String(), secret) || strings.Contains(diagnostics.String(), secret)) {
+		t.Fatal("CLI exposed stdin password")
+	}
+	return out.String(), err
+}
+func cliLogin(t *testing.T, b *app.Bundle, password string) (core.Principal, core.Secret) {
+	t.Helper()
+	login, err := b.Services.Auth.Login(testkit.Context(t), auth.LoginRequest{Username: "owner", Password: core.NewSecret(password)})
+	testkit.RequireNoError(t, err)
+	if login.Session == nil {
+		t.Fatal("expected owner session")
+	}
+	p, err := b.Services.Auth.Authenticate(testkit.Context(t), auth.Authentication{Session: login.Session.Token})
+	testkit.RequireNoError(t, err)
+	return p, login.Session.Token
+}
+func TestCLIInitRecoverBackupRestoreLifecycleWithoutListener(t *testing.T) {
+	cfg, path := cliConfig(t)
+	ctx := testkit.Context(t)
+	oldPassword := "cli-original-password-12345!"
+	newPassword := "cli-recovered-password-67890!"
+	output, err := invokeCLI(t, ctx, []string{"init", "-config", path, "-password-stdin"}, oldPassword+"\n")
+	testkit.RequireNoError(t, err)
+	var account auth.Account
+	testkit.RequireNoError(t, json.Unmarshal([]byte(output), &account))
+	if account.ID == "" || account.Username != "owner" {
+		t.Fatal("init did not persist owner")
+	}
+	_, err = invokeCLI(t, ctx, []string{"init", "-config", path, "-password-stdin"}, oldPassword)
+	if err == nil {
+		t.Fatal("second init overwrote existing owner")
+	}
+	b, err := app.Build(ctx, cfg)
+	testkit.RequireNoError(t, err)
+	p, oldSession := cliLogin(t, b, oldPassword)
+	proof, err := b.Services.Auth.Reauthenticate(ctx, p, auth.ReauthenticateRequest{Password: core.NewSecret(oldPassword), Purpose: "token.create"})
+	testkit.RequireNoError(t, err)
+	issued, err := b.Services.Auth.CreateToken(ctx, p, auth.CreateTokenRequest{Name: "before-backup", Scopes: []string{"read"}, ExpiresAt: time.Now().Add(time.Hour), Verification: proof})
+	testkit.RequireNoError(t, err)
+	testkit.RequireNoError(t, b.Database.Within(ctx, func(r sqlite.Repositories) error {
+		return r.Todos().Insert(ctx, todo.Todo{ID: "before-backup", OwnerID: p.OwnerID, Title: "Keep this", Version: 1})
+	}))
+	testkit.RequireNoError(t, b.Close())
+	output, err = invokeCLI(t, ctx, []string{"backup", "-config", path}, "")
+	testkit.RequireNoError(t, err)
+	var backup sqlite.Backup
+	testkit.RequireNoError(t, json.Unmarshal([]byte(output), &backup))
+	if backup.ID == "" {
+		t.Fatal("backup emitted no descriptor")
+	}
+	manifest := filepath.Join(filepath.Dir(path), "backup.json")
+	testkit.RequireNoError(t, os.WriteFile(manifest, []byte(output), 0600))
+	b, err = app.Build(ctx, cfg)
+	testkit.RequireNoError(t, err)
+	testkit.RequireNoError(t, b.Database.Within(ctx, func(r sqlite.Repositories) error {
+		return r.Todos().Insert(ctx, todo.Todo{ID: "after-backup", OwnerID: p.OwnerID, Title: "Remove on restore", Version: 1})
+	}))
+	testkit.RequireNoError(t, b.Close())
+	_, err = invokeCLI(t, ctx, []string{"recover", "-config", path, "-password-stdin", "-reset-mfa"}, newPassword)
+	testkit.RequireNoError(t, err)
+	b, err = app.Build(ctx, cfg)
+	testkit.RequireNoError(t, err)
+	_, err = b.Services.Auth.Login(ctx, auth.LoginRequest{Username: "owner", Password: core.NewSecret(oldPassword)})
+	testkit.RequireCode(t, err, core.Unauthenticated)
+	_, _ = cliLogin(t, b, newPassword)
+	_, err = b.Services.Auth.Authenticate(ctx, auth.Authentication{Session: oldSession})
+	testkit.RequireCode(t, err, core.Unauthenticated)
+	_, err = b.Services.Auth.Authenticate(ctx, auth.Authentication{Bearer: issued.Value})
+	testkit.RequireCode(t, err, core.Unauthenticated)
+	testkit.RequireNoError(t, b.Close())
+	_, err = invokeCLI(t, ctx, []string{"restore", "-config", path, "-backup-manifest", manifest}, "")
+	testkit.RequireNoError(t, err)
+	b, err = app.Build(ctx, cfg)
+	testkit.RequireNoError(t, err)
+	t.Cleanup(func() { _ = b.Close() })
+	_, err = b.Services.Auth.Authenticate(ctx, auth.Authentication{Session: oldSession})
+	testkit.RequireCode(t, err, core.Unauthenticated)
+	_, err = b.Services.Auth.Authenticate(ctx, auth.Authentication{Bearer: issued.Value})
+	testkit.RequireCode(t, err, core.Unauthenticated)
+	restored, _ := cliLogin(t, b, oldPassword)
+	if restored.OwnerID != p.OwnerID {
+		t.Fatal("restore changed owner identity")
+	}
+	testkit.RequireNoError(t, b.Database.Within(ctx, func(r sqlite.Repositories) error {
+		before, err := r.Todos().Get(ctx, p.OwnerID, "before-backup")
+		if err != nil {
+			return err
+		}
+		if before.Title != "Keep this" {
+			t.Fatal("restored data changed")
+		}
+		_, err = r.Todos().Get(ctx, p.OwnerID, "after-backup")
+		testkit.RequireCode(t, err, core.NotFound)
+		return nil
+	}))
+}
+func TestCLIRejectsUnsafeInputsAndCanceledCommands(t *testing.T) {
+	cfg, path := cliConfig(t)
+	ctx := testkit.Context(t)
+	_, err := invokeCLI(t, ctx, []string{"init", "-config", path}, "ignored-password")
+	testkit.RequireCode(t, err, core.InvalidArgument)
+	_, err = invokeCLI(t, ctx, []string{"init", "-config", path, "-password-stdin"}, strings.Repeat("x", 4097))
+	testkit.RequireCode(t, err, core.InvalidArgument)
+	_, err = invokeCLI(t, ctx, []string{"restore", "-config", path}, "")
+	testkit.RequireCode(t, err, core.InvalidArgument)
+	malformed := filepath.Join(filepath.Dir(path), "bad-manifest.json")
+	testkit.RequireNoError(t, os.WriteFile(malformed, []byte(`{} {}`), 0600))
+	_, err = invokeCLI(t, ctx, []string{"restore", "-config", path, "-backup-manifest", malformed}, "")
+	testkit.RequireCode(t, err, core.InvalidArgument)
+	canceled, cancel := context.WithCancel(ctx)
+	cancel()
+	_, err = invokeCLI(t, canceled, []string{"backup", "-config", path}, "")
+	testkit.RequireCode(t, err, core.Canceled)
+	// The canceled setup must release its process/database locks.
+	b, err := app.Build(ctx, cfg)
+	testkit.RequireNoError(t, err)
+	testkit.RequireNoError(t, b.Close())
+}
+
+func TestCLIHostToolsDoesNotRequireSeparateAccountService(t *testing.T) {
+	for _, legacy := range []string{"", "current", "molr-sandbox"} {
+		t.Run("identity_"+legacy, func(t *testing.T) {
+			cfg, path := cliConfig(t)
+			cfg.Sandbox.HostTools = legacy == ""
+			cfg.Sandbox.HostToolsUser = legacy
+			data, err := json.Marshal(cfg)
+			testkit.RequireNoError(t, err)
+			testkit.RequireNoError(t, os.WriteFile(path, data, 0600))
+			_, err = invokeCLI(t, testkit.Context(t), []string{"init", "-config", path, "-password-stdin"}, "runtime-identity-test-password-123!")
+			testkit.RequireNoError(t, err)
+			info, err := os.Stat(filepath.Join(cfg.DataDir, "runtime.db"))
+			testkit.RequireNoError(t, err)
+			if info.Size() == 0 {
+				t.Fatal("Runtime was not initialized")
+			}
+		})
+	}
+}
+
+func TestBootstrapGeneratesPrivateCredentialsOnce(t *testing.T) {
+	cfg, path := cliConfig(t)
+	text, err := invokeCLI(t, t.Context(), []string{"bootstrap", "-config", path}, "")
+	testkit.RequireNoError(t, err)
+	passwordPath := filepath.Join(cfg.DataDir, "initial-password")
+	password, err := os.ReadFile(passwordPath)
+	testkit.RequireNoError(t, err)
+	info, err := os.Stat(passwordPath)
+	testkit.RequireNoError(t, err)
+	if len(password) < 32 || info.Mode().Perm() != 0600 || strings.Contains(text, string(password)) {
+		t.Fatal("unsafe generated credentials")
+	}
+	_, err = invokeCLI(t, t.Context(), []string{"bootstrap", "-config", path}, "")
+	testkit.RequireNoError(t, err)
+	again, err := os.ReadFile(passwordPath)
+	testkit.RequireNoError(t, err)
+	if !bytes.Equal(password, again) {
+		t.Fatal("repeat bootstrap replaced credentials")
+	}
+	b, err := app.Build(t.Context(), cfg)
+	testkit.RequireNoError(t, err)
+	defer b.Close()
+	_, _ = cliLogin(t, b, string(password))
+}

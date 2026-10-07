@@ -1,0 +1,17 @@
+.feedback-study { display: grid; gap: 24px; }
+.feedback-study__states { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.feedback-study__state { display: grid; justify-items: center; gap: 16px; padding: 24px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); }
+.feedback-study__state > span { color: var(--color-text-muted); font-size: var(--text-sm); }
+.feedback-study__state .message-feedback__button { width: 44px; height: 44px; }
+.feedback-study__state .message-feedback__motion { width: 26px; height: 26px; }
+.feedback-study__state .message-feedback__accent { inset: 7px; }
+.feedback-study__conversation { padding: 24px; background: var(--color-background); border-radius: var(--radius-control); }
+.feedback-study__hint { margin: 0; color: var(--color-text-muted); font-size: var(--text-sm); }
+@media (--molr-mobile) {
+  .feedback-study__states { gap: 6px; }
+  .feedback-study__state { padding: 20px 4px; gap: 12px; }
+  .feedback-study__state .message-feedback__button { width: 36px; height: 36px; }
+  .feedback-study__state .message-feedback__motion { width: 22px; height: 22px; }
+  .feedback-study__state .message-feedback__accent { inset: 3px; }
+  .feedback-study__conversation { padding: 16px; }
+}

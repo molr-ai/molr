@@ -1,0 +1,74 @@
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Local editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Internal planning, research and private acceptance records
+internal-docs/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.env
+.aws/
+.ssh/
+.gnupg/
+.codex/
+.agents/
+.private/
+.npmrc
+.netrc
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+id_rsa
+id_ed25519
+credentials.json
+initial-password
+owner-password
+*login-link*.json
+*login-link*.txt
+*login-url*
+delivery-login.json
+server.json
+sandbox.json
+*.local.json
+/data/
+/runtime/data/
+/runtime/configs/*.json
+!/runtime/configs/*.example.json
+
+# Runtime databases, snapshots, and local backups
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.bak
+*.backup
+
+# Logs
+*.log
+*.log.*
+
+# Dependencies, caches, and generated output
+node_modules/
+.venv/
+__pycache__/
+.cache/
+dist/
+build/
+coverage/
+playwright-report/
+test-results/

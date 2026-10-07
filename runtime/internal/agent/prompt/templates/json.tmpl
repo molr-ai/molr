@@ -1,0 +1,1 @@
+{{define "value"}}{{if eq .Kind "object"}}{ {{- range $i, $f := .Fields}}{{if $i}},{{end}}{{quote $f.Key}}:{{template "value" $f.Value}}{{end}} }{{else if eq .Kind "array"}}[{{range $i, $v := .Items}}{{if $i}},{{end}}{{template "value" $v}}{{end}}]{{else}}{{quote .Scalar}}{{end}}{{end}}{{template "value" .}}

@@ -1,0 +1,51 @@
+.usage-page { display: grid; gap: 20px; min-width: 0; }
+.usage-toolbar, .usage-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.usage-toolbar > p, .usage-section-heading p, .usage-note { margin: 0; color: var(--color-text-muted); font-size: 12px; line-height: 1.7; }
+.usage-toolbar > button { flex-shrink: 0; }
+.usage-section-heading h3 { margin: 0 0 4px; font-size: 15px; }
+.usage-overview { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden; }
+.usage-metric { min-width: 0; padding: 16px; }
+.usage-metric dt { margin-bottom: 8px; font-size: 12px; color: var(--color-text-muted); }
+.usage-metric dd { margin: 0; font-size: 18px; font-weight: 600; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.usage-money { display: inline-flex; flex-direction: column; gap: 4px; }
+.usage-allowances, .usage-resources { display: grid; gap: 16px; min-width: 0; }
+.usage-resource { border-top: 1px solid var(--color-border); padding-top: 18px; }
+.usage-resource > header { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.usage-resource h4 { margin: 0; overflow-wrap: anywhere; font-size: 14px; }
+.usage-resource header p { margin: 6px 0 0; color: var(--color-text-muted); font-size: 12px; }
+.usage-resource-body { display: grid; gap: 14px; margin-top: 16px; }
+.usage-resource-body p { margin: 0; font-size: 12px; line-height: 1.7; }
+.usage-allowance > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 12px; }
+.usage-allowance strong { font-weight: 500; font-variant-numeric: tabular-nums; }
+.usage-allowance progress { display: block; width: 100%; height: 5px; margin-top: 8px; border: 0; border-radius: 4px; overflow: hidden; appearance: none; color: var(--color-primary); background: var(--color-border); }
+.usage-allowance progress::-webkit-progress-bar { background: var(--color-border); }
+.usage-allowance progress::-webkit-progress-value { background: var(--color-primary); }
+.usage-allowance progress::-moz-progress-bar { background: var(--color-primary); }
+.usage-allowance .usage-limit-reached::-webkit-progress-value { background: var(--color-warning); }
+.usage-allowance .usage-limit-reached::-moz-progress-bar { background: var(--color-warning); }
+.usage-costs { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); margin: 0; }
+.usage-costs .usage-metric { padding: 4px 8px 4px 0; }
+.usage-costs dd { font-size: 14px; }
+.usage-held-note { color: var(--color-text-muted); }
+.usage-filters { display: grid; grid-template-columns: minmax(0, 1fr) minmax(160px, .65fr); gap: 16px; }
+.usage-member { border-top: 1px solid var(--color-border); }
+.usage-member > summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0; cursor: pointer; list-style: none; }
+.usage-member > summary::-webkit-details-marker { display: none; }
+.usage-member > summary::after { content: '+'; color: var(--color-text-muted); font-size: 18px; flex-shrink: 0; }
+.usage-member[open] > summary::after { content: '−'; }
+.usage-member > summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.usage-member-identity { display: grid; gap: 5px; min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.usage-member-identity strong { font-size: 14px; }
+.usage-member-identity span, .usage-member-spend > span:first-child { color: var(--color-text-muted); font-size: 12px; }
+.usage-member-spend { display: grid; gap: 4px; min-width: 0; font-size: 13px; text-align: right; }
+.usage-member-details { display: grid; gap: 12px; padding-bottom: 18px; }
+@media (max-width: 640px) {
+ .usage-overview { grid-template-columns: repeat(2,minmax(0,1fr)); }
+ .usage-metric { padding: 12px; }
+ .usage-metric dd { font-size: 16px; }
+ .usage-section-heading { align-items: stretch; flex-direction: column; gap: 10px; }
+ .usage-filters { grid-template-columns: minmax(0,1fr); gap: 12px; }
+ .usage-toolbar { align-items: flex-start; }
+ .usage-costs { grid-template-columns: minmax(0,1fr); }
+ .usage-member-spend { max-width: 45%; }
+}

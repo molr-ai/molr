@@ -1,0 +1,22 @@
+{
+  "sandbox": {
+    "enabled": true,
+    "timeout": "2m",
+    "memory_bytes": 536870912,
+    "processes": 64,
+    "cpu_percent": 100,
+    "temp_bytes": 67108864,
+    "max_output_bytes": 65536,
+    "max_file_bytes": 1073741824,
+    "min_free_disk_bytes": 268435456,
+    "restrict_directories": false,
+    "networks": [],
+    "network_presets": [
+      "internet",
+      "lan",
+      "host"
+    ],
+    "network_bytes": 67108864,
+    "network_connections": 16
+  }
+}

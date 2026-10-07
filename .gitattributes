@@ -1,0 +1,4 @@
+* text=auto eol=lf
+
+# Preserve original upstream formatting in the collected license/notice texts.
+THIRD_PARTY_NOTICES.md -whitespace

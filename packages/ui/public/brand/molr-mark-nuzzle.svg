@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <title>Molr — Cat-ear M, nuzzle</title>
+  <style>
+    [data-motion-still]{display:none}
+    @media (prefers-reduced-motion:reduce){[data-motion-art]{display:none}[data-motion-still]{display:inline}}
+  </style>
+  <g transform="translate(1 4)">
+  <g data-motion-art="">
+<g data-head=""><g data-motion-channel="x"><animateTransform attributeName="transform" type="translate" dur="2.6s" repeatCount="1" fill="freeze" calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1" keyTimes="0;0.35;0.5;0.7;1" values="0 0;2 0;2 0;1.2 0;0 0"/><g data-motion-channel="angle"><animateTransform attributeName="transform" type="rotate" dur="2.6s" repeatCount="1" fill="freeze" calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1" keyTimes="0;0.35;0.5;0.7;1" values="0 31 36;3.5 31 36;3.5 31 36;2 31 36;0 31 36"/><g stroke="#263b31" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"><path data-letter="M" d="M8.75 41L10 12L24 22Q31 28 38 22L52 12L53.25 41"><animate attributeName="d" dur="2.6s" repeatCount="1" fill="freeze" calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1" keyTimes="0;0.3;0.68;1" values="M8.75 41L10 12L24 22Q31 28 38 22L52 12L53.25 41;M8.75 41L12 16L24 22Q31 28 38 22L50 16L53.25 41;M8.75 41L12 16L24 22Q31 28 38 22L50 16L53.25 41;M8.75 41L10 12L24 22Q31 28 38 22L52 12L53.25 41"/></path></g><g fill="#263b31"><path data-eye="left" d="M27 36C27 38.2091389992 25.2091389992 40 23 40C20.7908610008 40 19 38.2091389992 19 36C19 33.7908610008 20.7908610008 32 23 32C25.2091389992 32 27 33.7908610008 27 36Z"><animate attributeName="d" dur="2.6s" repeatCount="1" fill="freeze" calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1" keyTimes="0;0.26;0.68;1" values="M27 36C27 38.2091389992 25.2091389992 40 23 40C20.7908610008 40 19 38.2091389992 19 36C19 33.7908610008 20.7908610008 32 23 32C25.2091389992 32 27 33.7908610008 27 36Z;M27 35.644C25.756 37.067 24.511 37.778 23 37.778C21.489 37.778 20.244 37.067 19 35.644C19.978 36.089 21.311 36.444 23 36.444C24.689 36.444 26.022 36.089 27 35.644Z;M27 35.644C25.756 37.067 24.511 37.778 23 37.778C21.489 37.778 20.244 37.067 19 35.644C19.978 36.089 21.311 36.444 23 36.444C24.689 36.444 26.022 36.089 27 35.644Z;M27 36C27 38.2091389992 25.2091389992 40 23 40C20.7908610008 40 19 38.2091389992 19 36C19 33.7908610008 20.7908610008 32 23 32C25.2091389992 32 27 33.7908610008 27 36Z"/></path>
+<path data-eye="right" d="M43 36C43 38.2091389992 41.2091389992 40 39 40C36.7908610008 40 35 38.2091389992 35 36C35 33.7908610008 36.7908610008 32 39 32C41.2091389992 32 43 33.7908610008 43 36Z"><animate attributeName="d" dur="2.6s" repeatCount="1" fill="freeze" calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1" keyTimes="0;0.26;0.68;1" values="M43 36C43 38.2091389992 41.2091389992 40 39 40C36.7908610008 40 35 38.2091389992 35 36C35 33.7908610008 36.7908610008 32 39 32C41.2091389992 32 43 33.7908610008 43 36Z;M43 35.644C41.756 37.067 40.511 37.778 39 37.778C37.489 37.778 36.244 37.067 35 35.644C35.978 36.089 37.311 36.444 39 36.444C40.689 36.444 42.022 36.089 43 35.644Z;M43 35.644C41.756 37.067 40.511 37.778 39 37.778C37.489 37.778 36.244 37.067 35 35.644C35.978 36.089 37.311 36.444 39 36.444C40.689 36.444 42.022 36.089 43 35.644Z;M43 36C43 38.2091389992 41.2091389992 40 39 40C36.7908610008 40 35 38.2091389992 35 36C35 33.7908610008 36.7908610008 32 39 32C41.2091389992 32 43 33.7908610008 43 36Z"/></path></g></g></g></g>
+
+  </g>
+  <g data-motion-still="">
+  <g stroke="#263b31" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path data-letter="M" d="M8.75 41L10 12L24 22Q31 28 38 22L52 12L53.25 41"/>
+  </g>
+  <g fill="#263b31">
+    <circle data-eye="left" cx="23" cy="36" r="4"/>
+    <circle data-eye="right" cx="39" cy="36" r="4"/>
+  </g>
+  </g>
+  </g>
+</svg>

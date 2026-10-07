@@ -1,0 +1,581 @@
+// Package debugtrace records optional, owner-only execution diagnostics.
+// Recording never authorizes or replays a business operation.
+package debugtrace
+
+import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
+	"log"
+	"sort"
+	"strconv"
+	"sync/atomic"
+	"time"
+
+	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/persistence"
+)
+
+type Options struct {
+	ResetContext                                               func(context.Context, core.Principal, core.ID, core.Mutation, uint64) error
+	Enabled                                                    bool
+	RetentionDays, MaxRuns, MaxBytes, MaxPayloadBytes, MinRuns int
+	Administrator                                              func(context.Context, core.Principal) error
+	Authorize                                                  func(context.Context, core.Principal) error
+	Now                                                        func() time.Time
+}
+type Step struct {
+	Summary     *ToolSummary `json:",omitempty"`
+	LogicalID   core.ID      `json:",omitempty"`
+	Attempt     int          `json:",omitempty"`
+	MaxAttempts int          `json:",omitempty"`
+	NextRetryAt *time.Time   `json:",omitempty"`
+	ErrorReason string       `json:",omitempty"`
+	HTTPStatus  int          `json:",omitempty"`
+	Sequence    int
+	Revision    uint64
+	Kind, State string
+	OperationID core.ID
+	At          time.Time
+	DataStatus  string
+	Preview     string
+	Name        string
+}
+type Run struct {
+	ID, OwnerID, AssistantID, EventID, ExecutionID core.ID
+	Trigger                                        string
+	Attempt                                        int
+	State, Reason                                  string
+	StartedAt                                      time.Time
+	FinishedAt                                     *time.Time
+	Incomplete                                     bool
+	Steps                                          []Step
+	Bytes                                          int
+	FirstRevision, LastRevision                    uint64
+	Source                                         *SourceContent `json:",omitempty"`
+}
+type Query struct {
+	AssistantID core.ID
+	Page        core.PageRequest
+}
+type Payload struct {
+	Status string
+	Data   json.RawMessage
+}
+type Reader interface {
+	Retention(context.Context, core.Principal) (RetentionStatus, error)
+	Trajectory(context.Context, core.Principal, TrajectoryQuery) (TrajectoryPage, error)
+	Runs(context.Context, core.Principal, Query) (core.Page[Run], error)
+	Get(context.Context, core.Principal, core.ID) (Run, error)
+	Detail(context.Context, core.Principal, core.ID, int) (Payload, error)
+	Checkpoint(context.Context, core.Principal, core.ID) (Payload, error)
+	Revision(context.Context, core.Principal) (uint64, error)
+}
+type ResetRequest struct {
+	Mutation         core.Mutation
+	ExpectedSequence *uint64
+}
+type Control interface {
+	Reader
+	AdminRetention(context.Context, core.Principal) (RetentionSettings, error)
+	SetRetention(context.Context, core.Principal, RetentionRequest) (Retention, error)
+	ResetContext(context.Context, core.Principal, core.ID, ResetRequest) error
+}
+
+type Service struct {
+	store   persistence.Store
+	options Options
+}
+type reference struct {
+	owner, assistant, id core.ID
+	incomplete           atomic.Bool
+}
+type contextKey struct{}
+
+func New(store persistence.Store, options Options) *Service {
+	if options.Now == nil {
+		options.Now = time.Now
+	}
+	if options.RetentionDays == 0 {
+		options.RetentionDays = 7
+	}
+	if options.MaxRuns == 0 {
+		options.MaxRuns = 1000
+	}
+	if options.MaxBytes == 0 {
+		options.MaxBytes = 64 << 20
+	}
+	if options.MaxPayloadBytes == 0 {
+		options.MaxPayloadBytes = 4 << 20
+	}
+	if options.MinRuns == 0 {
+		options.MinRuns = min(10, options.MaxRuns)
+	}
+	return &Service{store, options}
+}
+func (s *Service) enabled(ctx context.Context, owner core.ID) bool {
+	if s == nil || !s.options.Enabled {
+		return false
+	}
+	pref, err := persistence.Load[struct{ WorkbenchEnabled bool }](ctx, s.store, "business.settings", string(owner))
+	return err == nil && pref.WorkbenchEnabled
+}
+func (s *Service) authorize(ctx context.Context, p core.Principal) error {
+	if p.RequireOwner() != nil || s.options.Authorize == nil {
+		return core.NewError(core.Forbidden, "owner debug access required")
+	}
+	if err := s.options.Authorize(ctx, p); err != nil {
+		return err
+	}
+	if !s.enabled(ctx, p.OwnerID) {
+		return core.NewError(core.Forbidden, "workbench disabled")
+	}
+	return nil
+}
+func (s *Service) bump(ctx context.Context, tx persistence.Tx, owner core.ID) error {
+	var revision uint64
+	err := tx.Get(ctx, "debug.revisions", string(owner), &revision)
+	if err != nil && !persistence.Missing(err) {
+		return err
+	}
+	return tx.Put(ctx, "debug.revisions", string(owner), revision+1)
+}
+func (s *Service) prune(ctx context.Context, tx persistence.Tx, owner, keep core.ID, extra int) error {
+	all, err := persistence.Scan[Run](ctx, tx.Store(), "debug.summaries")
+	if err != nil {
+		return err
+	}
+	policy, err := s.retention(ctx, tx.Store())
+	if err != nil {
+		return err
+	}
+	runs := ownerRuns(all, owner)
+	protected := protectedRuns(runs, policy.MinRuns)
+	total := extra
+	for _, r := range runs {
+		total += r.Bytes
+	}
+	count := len(runs)
+	cutoff := s.options.Now().AddDate(0, 0, -policy.RetentionDays)
+	for i := len(runs) - 1; i >= 0; i-- {
+		run := runs[i]
+		if run.ID == keep || protected[run.ID] {
+			continue
+		}
+		if !run.StartedAt.Before(cutoff) && count <= policy.MaxRuns && total <= policy.MaxBytes {
+			continue
+		}
+		full, err := persistence.Load[Run](ctx, tx.Store(), "debug.runs", persistence.Key(owner, run.ID))
+		if err != nil {
+			return err
+		}
+		for _, step := range full.Steps {
+			if err := tx.Delete(ctx, "debug.payloads", payloadKey(owner, run.ID, step.Sequence)); err != nil {
+				return err
+			}
+		}
+		for _, bucket := range []string{"debug.runs", "debug.summaries"} {
+			if err := tx.Delete(ctx, bucket, persistence.Key(owner, run.ID)); err != nil {
+				return err
+			}
+		}
+		if err := tx.Put(ctx, "debug.cleanup", persistence.Key(owner, run.AssistantID), CleanupEvent{At: s.options.Now().UTC(), Policy: policy}); err != nil {
+			return err
+		}
+		count--
+		total -= run.Bytes
+	}
+	// Protected history wins over the byte target. Refuse new payloads, never
+	// remove protected data or prevent execution metadata from being recorded.
+	if extra > 0 && total > policy.MaxBytes {
+		return core.NewError(core.FailedPrecondition, "trace capacity reached")
+	}
+
+	return nil
+}
+
+// Begin binds a distinct attempt to this context. It is called only by the trusted Loop.
+func (s *Service) Begin(ctx context.Context, owner, assistant, event, execution core.ID, trigger string, attempt int, data any) context.Context {
+	if !s.enabled(ctx, owner) {
+		return ctx
+	}
+	var id [16]byte
+	if _, err := rand.Read(id[:]); err != nil {
+		return ctx
+	}
+	if attempt < 1 {
+		attempt = 1
+	}
+	run := Run{ID: core.ID(hex.EncodeToString(id[:])), OwnerID: owner, AssistantID: assistant, EventID: event, ExecutionID: execution, Trigger: trigger, Attempt: attempt, State: "running", StartedAt: s.options.Now().UTC(), Steps: []Step{}}
+	err := s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		if err := saveRun(ctx, tx, run); err != nil {
+			return err
+		}
+		if trigger != "dream_due" {
+			if err := s.prune(ctx, tx, owner, run.ID, 0); err != nil {
+				return err
+			}
+		}
+		return s.bump(ctx, tx, owner)
+	})
+	if err != nil {
+		log.Printf("debug trace start unavailable: %s", core.CodeOf(err))
+		return ctx
+	}
+	ctx = context.WithValue(ctx, contextKey{}, &reference{owner: owner, assistant: assistant, id: run.ID})
+	assistantRow, _ := persistence.Load[json.RawMessage](ctx, s.store, "business.assistants", persistence.Key(owner, assistant))
+	grants, _ := persistence.Scan[json.RawMessage](ctx, s.store, "security.grants")
+	permissions := []json.RawMessage{}
+	for _, raw := range grants {
+		var g struct{ OwnerID, AssistantID core.ID }
+		if json.Unmarshal(raw, &g) == nil && g.OwnerID == owner && g.AssistantID == assistant {
+			permissions = append(permissions, raw)
+		}
+	}
+	source := SourceContent{Status: "unavailable", Origin: "capture"}
+	eventData, _ := json.Marshal(data)
+	_ = s.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		source = s.sourceContent(ctx, tx, owner, assistant, eventData, "capture")
+		return nil
+	})
+	s.Record(ctx, "run.start", "started", "", map[string]any{"Event": data, "Source": source, "Assistant": assistantRow, "Permissions": permissions})
+	return ctx
+}
+
+// RecordCheckpoint records a successful save inside the caller's transaction.
+// Owner controls and legacy migrations have no active loop trace, so they get
+// a separate, bounded recording. Diagnostic failures never fail the save.
+func (s *Service) RecordCheckpoint(ctx context.Context, owner, assistant, event, execution core.ID, data any) {
+	if !s.enabled(ctx, owner) {
+		return
+	}
+	ref, _ := ctx.Value(contextKey{}).(*reference)
+	if ref != nil && ref.owner == owner && ref.assistant == assistant {
+		s.Record(ctx, "checkpoint.saved", "succeeded", "", data)
+		return
+	}
+	ctx = context.WithValue(ctx, contextKey{}, (*reference)(nil))
+	ctx = s.Begin(ctx, owner, assistant, event, execution, "checkpoint", 1, nil)
+	s.Record(ctx, "checkpoint.saved", "succeeded", "", data)
+	s.Finish(ctx, "succeeded", "")
+}
+
+func payloadKey(owner, id core.ID, sequence int) string {
+	return persistence.Key(owner, id) + "/" + strconv.Itoa(sequence)
+}
+
+// Record accepts data before credentials are added to provider requests. It sanitizes
+// diagnostic fields and keeps failures or payload limits explicit in step metadata.
+func (s *Service) Record(ctx context.Context, kind, state string, operation core.ID, data any) {
+	ref, _ := ctx.Value(contextKey{}).(*reference)
+	if s == nil || ref == nil {
+		return
+	}
+	if !s.enabled(ctx, ref.owner) {
+		ref.incomplete.Store(true)
+		return
+	}
+	encoded, status := sanitize(data, s.options.MaxPayloadBytes)
+	if status == "too_large" || status == "unavailable" {
+		ref.incomplete.Store(true)
+	}
+	capture, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
+	defer cancel()
+	err := s.store.Write(capture, func(ctx context.Context, tx persistence.Tx) error {
+		run, err := persistence.Load[Run](ctx, tx.Store(), "debug.runs", persistence.Key(ref.owner, ref.id))
+		if err != nil {
+			return err
+		}
+		if len(run.Steps) >= 1000 {
+			ref.incomplete.Store(true)
+			return nil
+		}
+		if run.Trigger != "dream_due" {
+			if err := s.prune(ctx, tx, ref.owner, ref.id, len(encoded)); err != nil {
+				if core.CodeOf(err) != core.FailedPrecondition {
+					return err
+				}
+				encoded = nil
+				status = "capacity_reached"
+				ref.incomplete.Store(true)
+			}
+		}
+		sequence := len(run.Steps) + 1
+		step := Step{Sequence: sequence, Kind: kind, State: state, OperationID: operation, At: s.options.Now().UTC(), DataStatus: status}
+		var revision uint64
+		if err := tx.Get(ctx, "debug.revisions", string(ref.owner), &revision); err != nil && !persistence.Missing(err) {
+			return err
+		}
+		step.Revision = revision + 1
+		step.Name, step.Preview = trajectoryPreview(kind, encoded)
+		step.Summary = toolSummary(kind, state, encoded)
+		if len(kind) >= 6 && kind[:6] == "model." {
+			var metadata struct {
+				LogicalID                    core.ID
+				Attempt, MaxAttempts, Status int
+				NextAt                       *time.Time
+				Reason                       string
+				Failure                      *struct{ Status int }
+			}
+			if json.Unmarshal(encoded, &metadata) == nil {
+				step.LogicalID, step.Attempt, step.MaxAttempts, step.NextRetryAt, step.ErrorReason, step.HTTPStatus = metadata.LogicalID, metadata.Attempt, metadata.MaxAttempts, metadata.NextAt, metadata.Reason, metadata.Status
+				if metadata.Failure != nil {
+					step.HTTPStatus = metadata.Failure.Status
+				}
+			}
+		}
+		if kind == "run.start" {
+			var value struct{ Source *SourceContent }
+			if json.Unmarshal(encoded, &value) == nil && value.Source != nil {
+				run.Source = sourceSummary(*value.Source)
+				if value.Source.Status == "redacted" {
+					status = "redacted"
+					step.DataStatus = status
+				}
+			} else {
+				run.Source = &SourceContent{Status: status}
+			}
+		}
+		run.Steps = append(run.Steps, step)
+		run.Bytes += len(encoded)
+		run.Incomplete = run.Incomplete || ref.incomplete.Load()
+		if err := tx.Put(ctx, "debug.payloads", payloadKey(ref.owner, ref.id, sequence), Payload{Status: status, Data: encoded}); err != nil {
+			return err
+		}
+		if err := saveRun(ctx, tx, run); err != nil {
+			return err
+		}
+		return s.bump(ctx, tx, ref.owner)
+	})
+	if err != nil {
+		ref.incomplete.Store(true)
+		log.Printf("debug trace capture unavailable: %s", core.CodeOf(err))
+	}
+}
+func (s *Service) Finish(ctx context.Context, state, reason string) {
+	ref, _ := ctx.Value(contextKey{}).(*reference)
+	if s == nil || ref == nil {
+		return
+	}
+	s.Record(ctx, "run.end", state, "", map[string]string{"Reason": reason})
+	finish, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
+	defer cancel()
+	_ = s.store.Write(finish, func(ctx context.Context, tx persistence.Tx) error {
+		run, err := persistence.Load[Run](ctx, tx.Store(), "debug.runs", persistence.Key(ref.owner, ref.id))
+		if err != nil {
+			return err
+		}
+		now := s.options.Now().UTC()
+		run.FinishedAt = &now
+		run.State = state
+		run.Reason = reason
+		run.Incomplete = run.Incomplete || ref.incomplete.Load()
+		if err := saveRun(ctx, tx, run); err != nil {
+			return err
+		}
+		if run.Trigger != "dream_due" {
+			if err := s.prune(ctx, tx, ref.owner, "", 0); err != nil {
+				return err
+			}
+		}
+		return s.bump(ctx, tx, ref.owner)
+	})
+}
+func (s *Service) Runs(ctx context.Context, p core.Principal, q Query) (core.Page[Run], error) {
+	if err := s.authorize(ctx, p); err != nil {
+		return core.Page[Run]{}, err
+	}
+	page, err := q.Page.Normalize()
+	if err != nil {
+		return core.Page[Run]{}, err
+	}
+	all, err := persistence.Scan[Run](ctx, s.store, "debug.summaries")
+	if err != nil {
+		return core.Page[Run]{}, err
+	}
+	policy, err := s.retention(ctx, s.store)
+	if err != nil {
+		return core.Page[Run]{}, err
+	}
+	protected := protectedRuns(ownerRuns(all, p.OwnerID), policy.MinRuns)
+	runs := []Run{}
+	for _, run := range all {
+		if run.OwnerID == p.OwnerID && (q.AssistantID == "" || run.AssistantID == q.AssistantID) && visibleRun(run, policy, protected, s.options.Now()) {
+			run.Steps = nil
+			runs = append(runs, run)
+		}
+	}
+	sort.Slice(runs, func(i, j int) bool {
+		if runs[i].StartedAt.Equal(runs[j].StartedAt) {
+			return runs[i].ID > runs[j].ID
+		}
+		return runs[i].StartedAt.After(runs[j].StartedAt)
+	})
+	start := 0
+	if page.Cursor != "" {
+		found := false
+		for i, run := range runs {
+			if string(run.ID) == page.Cursor {
+				start = i + 1
+				found = true
+				break
+			}
+		}
+		if !found {
+			return core.Page[Run]{}, core.Invalid("cursor", "expired run cursor")
+		}
+	}
+	end := start + page.Limit
+	if end > len(runs) {
+		end = len(runs)
+	}
+	out := core.Page[Run]{Items: runs[start:end]}
+	if end < len(runs) {
+		out.NextCursor = string(runs[end-1].ID)
+	}
+	return out, nil
+}
+func (s *Service) Get(ctx context.Context, p core.Principal, id core.ID) (Run, error) {
+	if err := s.authorize(ctx, p); err != nil {
+		return Run{}, err
+	}
+	run, err := persistence.Load[Run](ctx, s.store, "debug.runs", persistence.Key(p.OwnerID, id))
+	if err != nil {
+		return Run{}, err
+	}
+	policy, err := s.retention(ctx, s.store)
+	if err != nil {
+		return Run{}, err
+	}
+	all, err := persistence.Scan[Run](ctx, s.store, "debug.summaries")
+	if err != nil {
+		return Run{}, err
+	}
+	if run.OwnerID != p.OwnerID || !visibleRun(run, policy, protectedRuns(ownerRuns(all, p.OwnerID), policy.MinRuns), s.options.Now()) {
+		return Run{}, core.NewError(core.NotFound, "run unavailable")
+	}
+	return run, nil
+}
+func (s *Service) Detail(ctx context.Context, p core.Principal, id core.ID, sequence int) (Payload, error) {
+	run, err := s.Get(ctx, p, id)
+	if err != nil {
+		return Payload{}, err
+	}
+	if sequence < 1 || sequence > len(run.Steps) {
+		return Payload{}, core.NewError(core.NotFound, "step unavailable")
+	}
+	var payload Payload
+	err = s.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		if err := tx.Get(ctx, "debug.payloads", payloadKey(p.OwnerID, id, sequence), &payload); err != nil {
+			return err
+		}
+		if sequence != 1 || (payload.Status != "captured" && payload.Status != "redacted") {
+			return nil
+		}
+		var data map[string]json.RawMessage
+		if json.Unmarshal(payload.Data, &data) != nil || data["Source"] != nil {
+			return nil
+		}
+		source := s.sourceForRun(ctx, tx, run)
+		data["Source"], _ = json.Marshal(source)
+		encoded, status := sanitize(data, s.options.MaxPayloadBytes)
+		if status == "captured" || status == "redacted" {
+			payload.Data = encoded
+			if status == "redacted" || source.Status == "redacted" {
+				payload.Status = "redacted"
+			}
+		}
+		return nil
+	})
+	return payload, err
+}
+func (s *Service) Checkpoint(ctx context.Context, p core.Principal, id core.ID) (Payload, error) {
+	if err := s.authorize(ctx, p); err != nil {
+		return Payload{}, err
+	}
+	if _, err := persistence.Load[json.RawMessage](ctx, s.store, "business.assistants", persistence.Key(p.OwnerID, id)); err != nil {
+		return Payload{}, err
+	}
+	raw, err := persistence.Load[json.RawMessage](ctx, s.store, "agent.checkpoints", persistence.Key(p.OwnerID, id))
+	if persistence.Missing(err) {
+		raw, err = json.Marshal(map[string]any{"AssistantID": id, "Sequence": 0, "Context": map[string]any{"Inputs": []any{}}})
+	}
+	if err != nil {
+		return Payload{}, err
+	}
+	data, status := sanitize(raw, s.options.MaxPayloadBytes)
+	return Payload{Status: status, Data: data}, nil
+}
+func (s *Service) Revision(ctx context.Context, p core.Principal) (uint64, error) {
+	if err := s.authorize(ctx, p); err != nil {
+		return 0, err
+	}
+	n, err := persistence.Load[uint64](ctx, s.store, "debug.revisions", string(p.OwnerID))
+	if persistence.Missing(err) {
+		return 0, nil
+	}
+	return n, err
+}
+
+// Recover marks recordings left open by a previous process; it never changes jobs.
+func (s *Service) Recover(ctx context.Context) error {
+	return s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		runs, err := persistence.Scan[Run](ctx, tx.Store(), "debug.summaries")
+		if err != nil {
+			return err
+		}
+		for _, run := range runs {
+			if run.State == "running" {
+				var err error
+				run, err = persistence.Load[Run](ctx, tx.Store(), "debug.runs", persistence.Key(run.OwnerID, run.ID))
+				if err != nil {
+					return err
+				}
+				now := s.options.Now().UTC()
+				run.State = "interrupted"
+				run.Incomplete = true
+				run.FinishedAt = &now
+				if err := saveRun(ctx, tx, run); err != nil {
+					return err
+				}
+				if err := s.bump(ctx, tx, run.OwnerID); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+}
+
+func saveRun(ctx context.Context, tx persistence.Tx, run Run) error {
+	if len(run.Steps) > 0 {
+		run.FirstRevision = run.Steps[0].Revision
+		run.LastRevision = run.Steps[len(run.Steps)-1].Revision
+	}
+	if err := tx.Put(ctx, "debug.runs", persistence.Key(run.OwnerID, run.ID), run); err != nil {
+		return err
+	}
+	run.Steps = nil
+	return tx.Put(ctx, "debug.summaries", persistence.Key(run.OwnerID, run.ID), run)
+}
+
+// ResetContext is gated independently of the normal assistant/chat API.
+func (s *Service) ResetContext(ctx context.Context, p core.Principal, id core.ID, req ResetRequest) error {
+	if err := s.authorize(ctx, p); err != nil {
+		return err
+	}
+	if err := id.Validate(); err != nil {
+		return err
+	}
+	if req.ExpectedSequence == nil {
+		return core.Invalid("expected_sequence", "required")
+	}
+	if s.options.ResetContext == nil {
+		return core.NewError(core.FailedPrecondition, "context reset unavailable")
+	}
+	if err := s.options.ResetContext(ctx, p, id, req.Mutation, *req.ExpectedSequence); err != nil {
+		return err
+	}
+	return s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error { return s.bump(ctx, tx, p.OwnerID) })
+}

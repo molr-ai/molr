@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 183 54" fill="none">
+  <title>Molr — Abstract cat, light, blinking</title>
+  <desc>A compact M with subtly splayed legs contains two eyes. The original rounded o is uniformly reduced; the tail tip aligns with the tops of M and l.</desc>
+  <style>
+    [data-eye]{animation:molr-blink 4s infinite;transform-box:fill-box;transform-origin:center}
+    @keyframes molr-blink{0%,93%{transform:scaleY(1)}95%{transform:scaleY(.1)}98%,100%{transform:scaleY(1)}}
+    @media (prefers-reduced-motion:reduce){[data-eye]{animation:none}}
+  </style>
+  <g stroke="#f5f6ef" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path data-letter="M" d="M8.75 41L10 12L24 22Q31 28 38 22L52 12L53.25 41"/>
+    <path data-letter="o" d="M92 30.583333C92 23.5 87.833333 20.166667 82 20.166667C76.166667 20.166667 72 23.5 72 30.583333C72 37.666667 76.166667 41 82 41C87.833333 41 92 37.666667 92 30.583333Z"/>
+    <path data-letter="l" d="M112 12V32Q112 41 121 41"/>
+    <path data-letter="r" d="M134 41V31C134 24 141 21 151 21H157Q167 21 169 12"/>
+  </g>
+  <g fill="#d5f478">
+    <circle data-eye="left" cx="23" cy="36" r="4"/>
+    <circle data-eye="right" cx="39" cy="36" r="4"/>
+  </g>
+</svg>

@@ -1,0 +1,111 @@
+import { test, expect } from '@playwright/test';
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => { if (!localStorage.getItem('molr-ui-design-locale')) localStorage.setItem('molr-ui-design-locale', 'en'); });
+  await page.goto('/#interfaces');
+});
+
+for (const version of ['Web', 'Desktop', 'Mobile']) {
+  test(`${version} search combines sources, filters them, and restores focus`, async ({ page }, info) => {
+    await page.locator('#interfaces').getByRole('tab', { name: version, exact: true }).click();
+    const shell = page.locator('.interface-preview.ip-shell:visible');
+    const trigger = shell.getByRole('button', { name: 'Search', exact: true });
+    await trigger.click();
+    const dialog = page.getByRole('dialog', { name: 'Search', exact: true });
+    const search = dialog.getByRole('searchbox');
+    await expect(search).toBeFocused();
+    await expect(dialog.locator('.ui-dialog__footer')).toHaveCount(version === 'Mobile' ? 0 : 1);
+    const filter = dialog.getByRole('combobox', { name: 'Filter search types', exact: true });
+    const clear = dialog.getByRole('button', { name: 'Clear search', exact: true });
+    await expect(filter).toBeVisible();
+    await expect(clear).toHaveCount(0);
+    await filter.click();
+    const filters = dialog.getByRole('listbox', { name: 'Filter search types', exact: true });
+    await expect(filters).toHaveAttribute('aria-multiselectable', 'true');
+    await expect(filters.getByRole('option', { name: 'All', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await expect(dialog.locator(':scope > .ui-dialog__header > button')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(filters).not.toBeVisible();
+    await expect(dialog).toBeVisible();
+    await expect(filter).toBeFocused();
+    await expect(dialog.getByRole('region', { name: 'Quick navigation' }).getByRole('button')).toHaveCount(4);
+    await dialog.screenshot({ path: `/tmp/molr-search-home-${version}-${info.project.name}.png` });
+    const before = await page.evaluate(() => localStorage.getItem('molr-assistant-prototype-v1'));
+    await search.fill('travel');
+    const inputBox = (await search.boundingBox())!, clearBox = (await clear.boundingBox())!, filterBox = (await filter.boundingBox())!;
+    expect(clearBox.x).toBeGreaterThan(inputBox.x);
+    expect(clearBox.x + clearBox.width).toBeLessThanOrEqual(filterBox.x);
+    expect(filterBox.x + filterBox.width).toBeLessThanOrEqual(inputBox.x + inputBox.width);
+    for (const name of ['Chats', 'Assistants', 'Resources', 'Todos']) await expect(dialog.getByRole('region', { name, exact: true })).toBeVisible();
+    await expect(dialog.locator('mark').first()).toBeVisible();
+    await dialog.screenshot({ path: `/tmp/molr-search-results-${version}-${info.project.name}.png` });
+    await filter.click();
+    await filters.getByRole('option', { name: 'Resources', exact: true }).click();
+    await filters.getByRole('option', { name: 'Assistants', exact: true }).click();
+    await expect(filters.getByRole('option', { name: 'Resources', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await expect(filters.getByRole('option', { name: 'Assistants', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await expect(filters.getByRole('checkbox')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(filters).not.toBeVisible();
+    await expect(filter).toHaveAttribute('data-filter-active', 'true');
+    await expect(dialog.getByRole('region', { name: 'Resources', exact: true })).toBeVisible();
+    await expect(dialog.getByRole('region', { name: 'Chats', exact: true })).toHaveCount(0);
+    await search.fill('no-match-at-all-123');
+    await expect(dialog.getByRole('heading', { name: 'No matching results' })).toBeVisible();
+    await dialog.getByRole('button', { name: 'Start a new search', exact: true }).click();
+    await expect(search).toHaveValue('');
+    await expect(search).toBeFocused();
+    await expect(clear).toHaveCount(0);
+    await expect(filter).toHaveAttribute('data-filter-active', 'false');
+    expect(await page.evaluate(() => localStorage.getItem('molr-assistant-prototype-v1'))).toBe(before);
+    const bounds = (await dialog.boundingBox())!;
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+    expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(dialog).not.toBeVisible();
+    await expect(trigger).toBeFocused();
+  });
+}
+
+test('search quick navigation and result navigation open the existing preview pages', async ({ page }, info) => {
+  if (info.project.name === 'mobile') await page.locator('#interfaces').getByRole('tab', { name: 'Mobile', exact: true }).click();
+  const shell = page.locator('.interface-preview.ip-shell:visible');
+  const dialog = page.getByRole('dialog', { name: 'Search', exact: true });
+  await shell.getByRole('button', { name: 'Search', exact: true }).click();
+  await dialog.getByRole('searchbox').press('ArrowDown');
+  await expect(dialog.getByRole('region', { name: 'Quick navigation' }).getByRole('button').first()).toBeFocused();
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  await expect(dialog).not.toBeVisible();
+  await expect(shell.locator('.ip-page-heading h3')).toHaveText('Resources');
+  await shell.getByRole('navigation', { name: 'Workspace navigation' }).getByRole('button', { name: 'Assistant', exact: true }).click();
+  await shell.getByRole('button', { name: 'Search', exact: true }).click();
+  await dialog.getByRole('searchbox').fill('travel');
+  await dialog.getByRole('combobox', { name: 'Filter search types', exact: true }).click();
+  await dialog.getByRole('listbox', { name: 'Filter search types', exact: true }).getByRole('option', { name: 'Resources', exact: true }).click();
+  await page.keyboard.press('Escape');
+  await dialog.getByRole('searchbox').press('Enter');
+  await expect(shell.locator('.ip-page-heading h3')).toHaveText('Travel notes');
+  await shell.getByRole('navigation', { name: 'Workspace navigation' }).getByRole('button', { name: 'Assistant', exact: true }).click();
+  await shell.getByRole('button', { name: 'Search', exact: true }).click();
+  await dialog.getByRole('region', { name: 'Quick navigation' }).getByRole('button', { name: /^Plans/ }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(shell.locator('.ip-page-heading h3')).toHaveText('Plans');
+});
+
+test('Chinese search fits narrow screens and searching does not mark unread chats as read', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.evaluate(() => localStorage.setItem('molr-ui-design-locale', 'zh'));
+  await page.reload();
+  await page.locator('#interfaces').getByRole('tab', { name: 'Mobile', exact: true }).click();
+  const shell = page.locator('.interface-preview.ip-shell:visible');
+  await shell.getByRole('button', { name: '搜索', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '搜索', exact: true });
+  await dialog.getByRole('searchbox').fill('旅行');
+  for (const name of ['聊天记录', '助理', '资源']) await expect(dialog.getByRole('region', { name, exact: true })).toBeVisible();
+  expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await dialog.screenshot({ path: `/tmp/molr-search-zh-320-${test.info().project.name}.png` });
+  await page.keyboard.press('Escape');
+  await expect(shell.getByRole('list', { name: '助理列表' }).getByRole('button', { name: '旅行助理', exact: true }).locator('.assistant-unread')).toHaveText('1');
+});

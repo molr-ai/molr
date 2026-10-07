@@ -1,0 +1,107 @@
+import { MobileAccountButton } from './components/MobileAccountButton';
+import { ChatChannelDialog } from './features/WeixinChannel';
+import { useUIHost } from '../../ui-host/store';
+import { useEffect, useId, useState } from 'react';
+import { AssistantList, Button, EmptyState, IconButton, Logo, SearchField, Select, useBreakpoint, useTheme } from '@molr/ui';
+import { MessagesSquare, Pin, Plus, Search as SearchIcon } from 'lucide-react';
+import type { Assistant, Conversation, Model, RuntimeInfo, Settings as SettingsDTO } from '../../api/types';
+import { api } from '../../api/client';
+import { useCopy, useQuery } from '../../state';
+import { useNavigation } from '../../navigation';
+import type { RoutePage } from '../../navigation';
+import { Confirm, ErrorNotice, Loading, useAction } from './components/common';
+import { Chat } from './features/Chat';
+import { AssistantMessagePreview } from './features/AssistantMessagePreview';
+import type { AssistantAction } from './features/Chat';
+import { CloneAssistant, HireAssistant } from './features/AssistantDialogs';
+import { Plans } from './features/Plans';
+import { Resources } from './features/Resources';
+import { Settings } from './features/Settings';
+import { Workbench } from './features/Workbench';
+import { AssistantInfo } from './features/AssistantInfo';
+import { Tasks } from './features/Tasks';
+import { ShellTasks } from './features/ShellTasks';
+import { Search } from './features/Search';
+import { usePanelDocking } from '../../use-panel-docking';
+import { ChatSidePanel, isChatPanel } from './components/ChatSidePanel';
+
+export function OfficialPage({ chatLayout = 'default' }: { chatLayout?: 'default' | 'focus' } = {}) {
+  const { t } = useCopy(), { theme } = useTheme(), mobile = useBreakpoint('mobile');
+  const { page, id, turnID, messageID, panel, taskID, navigate } = useNavigation(), action = useAction();
+  const assistants = useQuery<Assistant[]>('/api/assistants', true), conversations = useQuery<Conversation[]>('/api/conversations', true), models = useQuery<Model[]>('/api/models'), settings = useQuery<SettingsDTO>('/api/settings');
+  const runtime = useQuery<RuntimeInfo>('/api/status');
+  const workbenchEnabled = !!runtime.data?.workbench_available && !!settings.data?.WorkbenchEnabled;
+  const [search, setSearch] = useState(false), [hire, setHire] = useState(false), [dialog, setDialog] = useState<{ kind: AssistantAction; assistant: Assistant } | null>(null), [taskCard, setTaskCard] = useState('');
+  const [assistantQuery, setAssistantQuery] = useState('');
+  const [chatWorkspace, setChatWorkspace] = useState<HTMLDivElement | null>(null);
+  const panelDocked = usePanelDocking(chatWorkspace) && !mobile && chatLayout === 'default';
+  const assistantSearchId = useId();
+  const [pendingTask, setPendingTask] = useState<{ assistantID: string; taskID?: string } | null>(null);
+  const { drafts, setDrafts } = useUIHost();
+  const selection = useQuery<Assistant>(page === 'assistants' && id ? `/api/assistants/${id}` : null);
+  const allAssistants = selection.data && !assistants.data?.some(row => row.ID === selection.data?.ID) ? [...(assistants.data ?? []), selection.data] : assistants.data ?? [];
+  const active = allAssistants.filter(assistant => assistant.State === 'active');
+  const selected = selection.data ?? allAssistants.find(assistant => assistant.ID === id);
+  useEffect(() => { const open = () => setSearch(true); window.addEventListener('molr:search', open); return () => window.removeEventListener('molr:search', open); }, []);
+  useEffect(() => { setDialog(null); setTaskCard(''); }, [page, id]);
+  useEffect(()=>{if(panel&&selected?.ID===id){setTaskCard(taskID);setDialog({kind:panel,assistant:selected});}},[panel,taskID,id,selected?.ID]);
+  useEffect(() => {
+    if (pendingTask && page === 'assistants' && id === pendingTask.assistantID && selected?.ID === pendingTask.assistantID) {
+      setTaskCard(pendingTask.taskID ?? ''); setDialog({ kind: 'tasks', assistant: selected }); setPendingTask(null);
+    }
+  }, [pendingTask, page, id, selected]);
+  const entries = (members: Assistant[]) => members.map(assistant => {
+    const conversation = conversations.data?.find(row => row.ID === assistant.ConversationID);
+    return { id: assistant.ID, name: assistant.Name, avatar: assistant.Avatar, preview: <AssistantActivityPreview assistant={assistant} conversation={conversation} />, pinned: assistant.Pinned, unread: conversation?.UnreadCount ?? 0 };
+  });
+  const normalizedQuery = assistantQuery.trim().toLowerCase();
+  const visibleAssistants = active.filter(assistant => assistant.Name.toLowerCase().includes(normalizedQuery));
+  function assistantAction(kind: AssistantAction) {
+    if (!selected) return;
+    if (kind === 'pin') void action.run(() => api.mutate('/api/assistants/place', { ID: selected.ID, GroupID: selected.GroupID, Pinned: !selected.Pinned }, selected.Version), undefined, false);
+    else void action.run(async () => {
+      const current = await api.get<Assistant>(`/api/assistants/${selected.ID}`);
+      setDialog({ kind, assistant: current });
+    }, undefined, false);
+  }
+  const go = (next: RoutePage, objectID?: string, turnID?: string, messageID?: string) => { setSearch(false); navigate(next, objectID, turnID, messageID); };
+  const canHire = models.data?.some(model => model.SupportsTools) ?? false;
+  const searchEmpty = active.length > 0 && !!normalizedQuery;
+  const emptyTitle = searchEmpty ? t.assistants.noMatches : t.assistants.none;
+  function clearAssistantSearch() { setAssistantQuery(''); document.getElementById(assistantSearchId)?.focus(); }
+  function startHiring() { if (!models.data) return; setAssistantQuery(''); if (canHire) setHire(true); else go('resources'); }
+  const emptyList = <EmptyState title={emptyTitle}
+    description={searchEmpty ? t.assistants.noMatchesHelp : canHire ? t.assistants.emptyListHelp : t.assistants.noModels}
+    illustration={searchEmpty ? <SearchIcon /> : <MessagesSquare />}
+    action={searchEmpty ? <Button variant="secondary" size="sm" onClick={clearAssistantSearch}>{t.assistants.clearSearch}</Button>
+      : <Button variant="secondary" size="sm" onClick={startHiring}>{canHire ? t.assistants.hire : t.assistants.configure}</Button>} />;
+  return <>
+        <ErrorNotice error={assistants.error || selection.error || conversations.error || models.error || action.error} retry={assistants.reload} />
+        {page === 'assistants' ? <div className={`assistant-workspace${chatLayout === 'focus' ? ' assistant-workspace--focus' : ''}`} ref={setChatWorkspace}>
+          {(chatLayout === 'focus' || !mobile || !selected) && <aside className="workspace-sidebar" aria-label={t.assistants.list}>
+            {mobile && chatLayout === 'focus' && <header className="assistant-toolbar"><MobileAccountButton /><IconButton label={t.search} aria-haspopup="dialog" onClick={() => setSearch(true)}><SearchIcon size={20} /></IconButton></header>}
+            {chatLayout === 'focus' ? (assistants.loading && !assistants.data ? <Loading /> : !allAssistants.length ? emptyList : <Select label={t.assistants.list} value={selected?.ID ?? ''} onValueChange={value => go('assistants', value)} options={allAssistants.filter(assistant => assistant.State === 'active' || assistant.ID === selected?.ID).map(assistant => ({ value: assistant.ID, label: assistant.Name }))} />) : <>
+            <header className="assistant-toolbar">{mobile && <MobileAccountButton />}<SearchField id={assistantSearchId} className="assistant-search" label={t.assistants.search} hideLabel placeholder={t.assistants.search} value={assistantQuery} onValueChange={setAssistantQuery} />{mobile && <IconButton label={t.search} aria-haspopup="dialog" onClick={() => setSearch(true)}><SearchIcon size={20} /></IconButton>}</header>
+            {assistants.loading && !assistants.data ? <Loading /> : assistants.data ? <AssistantList label={t.assistants.list} entries={entries(visibleAssistants)} selectedID={selected?.ID} onSelect={value => go('assistants', value)} mobile={mobile} pinnedLabel={t.assistants.pinned} unreadLabel={t.assistants.unread} emptyLabel={emptyTitle} emptyState={emptyList} pinIcon={<Pin size={12} />} /> : null}
+            </>}
+            {active.length > 0 && <footer className="sidebar-footer"><Button variant="secondary" disabled={!models.data} onClick={startHiring}><Plus size={18} />{t.assistants.hire}</Button></footer>}
+          </aside>}
+          {selected && (chatLayout === 'focus' || !mobile || id) ? <Chat targetMessageID={messageID} onClearTarget={() => go('assistants', selected.ID)} timeZone={settings.data?.Timezone} onAutomatic={() => assistantAction('tasks')} onDebug={workbenchEnabled ? turnID => go('workbench', selected.ID, turnID) : undefined} key={selected.ID} assistant={selected} conversation={conversations.data?.find(conversation => conversation.ID === selected.ConversationID)} draft={drafts[selected.ID] ?? { text: '', files: [] }} updateDraft={draft => setDrafts(previous => ({ ...previous, [selected.ID]: draft }))} onBack={mobile && chatLayout === 'default' ? () => go('assistants') : undefined} onAction={assistantAction} onCard={(kind, target) => { if (kind === 'task') { setTaskCard(target); setDialog({ kind: 'tasks', assistant: selected }); } else go(kind === 'resource' ? 'resources' : kind === 'settings' ? 'settings' : 'schedules', target); }} /> : !mobile && <div className="workspace-empty"><EmptyState title={t.chat.workspaceTitle} illustration={<Logo markOnly animation="static" variant={theme === 'dark' ? 'light' : 'dark'} className="workspace-empty__logo" />} /></div>}
+          <ChatSidePanel panel={isChatPanel(dialog) ? dialog : null} docked={panelDocked}>{panel => <>
+            {(panel.kind === 'info' || panel.kind === 'permissions') && <AssistantInfo docked={panelDocked} assistant={assistants.data?.find(item => item.ID === panel.assistant.ID) ?? panel.assistant} models={models.data ?? []} initialTab={panel.kind === 'permissions' ? 'permissions' : 'overview'} onClose={() => setDialog(null)} onDebug={workbenchEnabled ? () => { setDialog(null); go('workbench', panel.assistant.ID); } : undefined} />}
+            {panel.kind === 'shell_tasks' && <ShellTasks key={panel.assistant.ID} docked={panelDocked} assistantID={panel.assistant.ID} onClose={() => setDialog(null)} />}
+            {panel.kind === 'tasks' && <Tasks docked={panelDocked} assistantID={panel.assistant.ID} taskID={taskCard} onClose={() => setDialog(null)} />}
+          </>}</ChatSidePanel>
+        </div> : page === 'plans' || page === 'todos' || page === 'schedules' ? <Plans key={id} assistantID={id.startsWith('assistant-') ? id.slice(10) : undefined} selectedID={id} assistants={assistants.data ?? []} /> : page === 'resources' ? <Resources resourceID={id} /> : page === 'workbench' ? <Workbench turnID={turnID} timezone={settings.data?.Timezone} enabled={workbenchEnabled} available={!!runtime.data?.workbench_available} assistants={assistants.data ?? []} assistantID={id} onSelectAssistant={value => go('workbench', value)} onSettings={() => go('account', 'general')} /> : <Settings initialTab={id} onSelectSection={value => go('account', value)} models={models.data ?? []} assistants={assistants.data ?? []} openAssistant={value => go('assistants', value)} />}
+      <Search open={search} onClose={() => setSearch(false)} navigate={go} taskAssistantID={selected?.ID ?? active[0]?.ID} onOpenTasks={(assistantID, taskID) => { go('assistants', assistantID); setPendingTask({ assistantID, taskID }); }} />{hire && <HireAssistant defaultModelID={settings.data?.DefaultModelID} models={models.data ?? []} onClose={() => setHire(false)} onCreated={value => go('assistants', value)} />}
+      {dialog?.kind === 'channel' && <ChatChannelDialog key={dialog.assistant.ID} assistant={assistants.data?.find(item => item.ID === dialog.assistant.ID) ?? dialog.assistant} onClose={() => setDialog(null)} />}
+      {dialog?.kind === 'clone' && <CloneAssistant assistant={dialog.assistant} onClose={() => setDialog(null)} onCreated={value => go('assistants', value)} />}
+      {dialog?.kind === 'dismiss' && <Confirm title={t.assistants.dismiss} description={t.assistants.dismissHelp} danger onClose={() => setDialog(null)} onConfirm={async () => { await api.mutate('/api/assistants/dismiss', { ID: dialog.assistant.ID }, dialog.assistant.Version); go('assistants'); }} />}
+
+  </>;
+}
+
+function AssistantActivityPreview({ assistant, conversation }: { assistant: Assistant; conversation?: Conversation }) {
+ const {t}=useCopy();const status=useQuery<import('../../api/types').AgentStatus>(assistant.State==='active'?`/api/assistants/${assistant.ID}/status`:null);
+ return status.data?.State==='dreaming'?<span className="assistant-dreaming-label">☾ {t.chat.dreaming}</span>:<AssistantMessagePreview conversation={conversation}/>;
+}

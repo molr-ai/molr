@@ -1,0 +1,39 @@
+{
+  "name": "molr",
+  "private": true,
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @molr/ui-design --",
+    "dev:website": "npm run dev --workspace @molr/website --",
+    "brand:generate": "npm run brand:generate --workspace @molr/ui",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test:ui": "npm run test --workspace @molr/ui-design --",
+    "test:website": "npm run test --workspace @molr/website --",
+    "build": "npm run build --workspaces --if-present",
+    "build:website": "npm run build --workspace @molr/website --",
+    "preview": "npm run preview --workspace @molr/ui-design --",
+    "preview:website": "npm run preview --workspace @molr/website --",
+    "dev:webui": "npm run dev --workspace @molr/webui --",
+    "build:webui": "npm run build --workspace @molr/webui --",
+    "preview:webui": "npm run preview --workspace @molr/webui --",
+    "test:webui": "npm run test --workspace @molr/webui --",
+    "dev:ui-example": "npm run dev --workspace @molr/ui-example --",
+    "build:release": "node scripts/build-release.mjs",
+    "test:quick-start": "node scripts/test-quick-start.mjs",
+    "check:licenses": "node scripts/check-license-review.mjs",
+    "notices:update": "python3 scripts/update-third-party-notices.py",
+    "notices:check": "python3 scripts/update-third-party-notices.py --check",
+    "check:release": "python3 scripts/release_safety.py check",
+    "build:source": "python3 scripts/release_safety.py source",
+    "test:release": "python3 scripts/test_release_safety.py"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

@@ -1,0 +1,99 @@
+import type { FileInfo, Page } from './types';
+import type { RuntimeTransport } from './transport';
+const scopedCookieName = (name: string, port: string) => `${name}_p${port}`;
+
+export class APIError extends Error {
+  constructor(public code: string, public requestID = '', public status = 0, public retryAt = 0) { super(code); }
+}
+export function mutationKey() { return Array.from(crypto.getRandomValues(new Uint8Array(24)), byte => byte.toString(16).padStart(2, '0')).join(''); }
+
+export function createClient(transport?: RuntimeTransport) {
+  const sessionEvents = new EventTarget();
+  function onMutation(callback: (path: string) => void) { const changed = (event: Event) => callback((event as CustomEvent<string>).detail); sessionEvents.addEventListener('mutation', changed); return () => sessionEvents.removeEventListener('mutation', changed); }
+  function onSessionExpired(callback: () => void) { sessionEvents.addEventListener('expired', callback); return () => sessionEvents.removeEventListener('expired', callback); }
+  function csrfToken() {
+    const names = ['__Host-molr_csrf', 'molr_dev_csrf', 'molr_lan_csrf'];
+    const port = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
+    // Vite scopes cookies; production static deployments use Runtime's names.
+    for (const name of [...names.map(name => scopedCookieName(name, port)), ...names]) {
+      const value = document.cookie.split('; ').find(cookie => cookie.startsWith(`${name}=`))?.slice(name.length + 1);
+      if (value) return decodeURIComponent(value);
+    }
+    return '';
+  }
+
+  const attempts = new Map<string, string>();
+  let cooldown: { identity: string; error: APIError } | undefined;
+  function clearClientState() { attempts.clear(); cooldown = undefined; }
+
+  async function request<T>(path: string, init: RequestInit = {}, csrf?: string, binary = false): Promise<T> {
+    if (!/^\/api\/[A-Za-z0-9/_-]+(?:\?[^#]*)?$/.test(path) || path.includes('..') || path.includes('\\')) throw new APIError('invalid_argument');
+    if (transport) {
+      try {
+        const result = await transport<T>(path, init, binary);
+        if (init.method && init.method !== 'GET') sessionEvents.dispatchEvent(new CustomEvent('mutation', { detail: path }));
+        return result;
+      } catch (error) {
+        if (error instanceof APIError && error.status === 401) sessionEvents.dispatchEvent(new Event('expired'));
+        throw error;
+      }
+    }
+    const headers = new Headers(init.headers);
+    if (init.body && typeof init.body === 'string') headers.set('Content-Type', 'application/json');
+    if (init.method && init.method !== 'GET') headers.set('X-CSRF-Token', csrf ?? csrfToken());
+    const requestIdentity = csrfToken();
+    if ((!init.method || init.method === 'GET') && !path.startsWith('/api/auth/') && cooldown?.identity === requestIdentity && cooldown.error.retryAt > Date.now()) throw cooldown.error;
+    let response: Response;
+    try { response = await fetch(path, { ...init, headers, credentials: 'same-origin', cache: 'no-store' }); }
+    catch (error) { if (error instanceof DOMException && error.name === 'AbortError') throw error; throw new APIError('unavailable'); }
+    let data: any;
+    try { data = binary && response.ok ? await response.blob() : await response.json(); } catch { if (response.ok) throw new APIError('invalid_response', '', response.status); }
+    if (!response.ok) {
+      if (response.status === 401 && requestIdentity === csrfToken() && path !== '/api/auth/me' && !path.startsWith('/api/auth/login') && !path.startsWith('/api/auth/mfa/complete') && path !== '/api/auth/reauthenticate' && path !== '/api/auth/mfa/confirm') sessionEvents.dispatchEvent(new Event('expired'));
+      const retryAfter = response.headers.get('Retry-After');
+      const seconds = retryAfter && /^\d+$/.test(retryAfter) ? Number(retryAfter) : NaN;
+      const retryAt = response.status === 429 ? Number.isFinite(seconds) ? Date.now() + seconds * 1000 : Math.max(Date.now() + 1000, Date.parse(retryAfter ?? '') || Date.now() + 60000) : 0;
+      const error = new APIError(data?.code ?? 'unavailable', data?.request_id ?? '', response.status, retryAt);
+      if (response.status === 429 && !path.startsWith('/api/auth/')) cooldown = { identity: requestIdentity, error };
+      throw error;
+    }
+    if (init.method && init.method !== 'GET') sessionEvents.dispatchEvent(new CustomEvent('mutation', { detail: path }));
+    return data as T;
+  }
+  const api = {
+    download: (path: string, signal?: AbortSignal) => request<Blob>(path, { signal }, undefined, true),
+    get: <T,>(path: string, signal?: AbortSignal) => request<T>(path, { signal }),
+    post: <T,>(path: string, body: unknown = {}, csrf?: string) => request<T>(path, { method: 'POST', body: JSON.stringify(body) }, csrf),
+    remove: (path: string) => request<null>(path, { method: 'DELETE' }),
+    async mutate<T>(path: string, body: object, version: number | string = 0): Promise<T> {
+      const sensitive = path.startsWith('/api/credentials') || 'verification' in body;
+      const fingerprint = sensitive ? '' : JSON.stringify([path, body, version]);
+      const key = attempts.get(fingerprint) ?? mutationKey();
+      if (!sensitive) attempts.set(fingerprint, key);
+      try {
+        const value = await this.post<T>(path, { ...body, Mutation: { IdempotencyKey: key, ExpectedVersion: version || undefined } });
+        attempts.delete(fingerprint); return value;
+      } catch (error) {
+        // Retry an uncertain operation with its original key, never as a duplicate.
+        if (error instanceof APIError && error.status >= 400 && error.status < 500) attempts.delete(fingerprint);
+        throw error;
+      }
+    },
+    async all<T>(path: string, signal?: AbortSignal): Promise<T[]> {
+      const result: T[] = []; let cursor = ''; const seen = new Set<string>();
+      do {
+        const params = new URLSearchParams(path.split('?')[1]); params.set('limit', '200'); if (cursor) params.set('cursor', cursor);
+        const page = await this.get<Page<T>>(`${path.split('?')[0]}?${params}`, signal);
+        result.push(...(page.Items ?? [])); cursor = page.NextCursor;
+        if (cursor && seen.has(cursor)) throw new APIError('invalid_response');
+        seen.add(cursor);
+      } while (cursor);
+      return result;
+    },
+    upload: (file: File, key: string) => request<FileInfo>('/api/files', { method: 'POST', body: file, headers: { 'Content-Type': file.type || 'application/octet-stream', 'X-File-Name': encodeURIComponent(file.name), 'X-File-Name-Encoding': 'percent', 'Idempotency-Key': key } }),
+  };
+
+  return { api, csrfToken, clearClientState, onMutation, onSessionExpired };
+}
+export const { api, csrfToken, clearClientState, onMutation, onSessionExpired } = createClient();
+export type RuntimeClient = ReturnType<typeof createClient>['api'];

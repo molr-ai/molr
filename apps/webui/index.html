@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="frame-src blob:" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="description" content="Molr — 你的个人助理空间" />
+    <link rel="icon" type="image/svg+xml" href="/brand/molr-icon.svg" />
+    <title>Molr</title>
+    <style>
+      html { --color-page-background: #ffffff; background: var(--color-page-background); color-scheme: light; }
+      html[data-theme='dark'] { --color-page-background: #181818; color-scheme: dark; }
+      @media (prefers-color-scheme: dark) {
+        html:not([data-theme]) { --color-page-background: #181818; color-scheme: dark; }
+      }
+      body { margin: 0; background: var(--color-page-background); }
+    </style>
+    <link rel="stylesheet" href="/src/appearance.css" />
+    <script src="/theme-init.js"></script>
+    <script src="/palette-init.js" data-storage-key="molr-webui-palette"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
