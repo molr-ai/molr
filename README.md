@@ -28,8 +28,7 @@ molr.ai/
 ├── apps/
 │   ├── webui/           # 连接真实 Runtime 的产品 WebUI
 │   ├── website/         # 独立产品官网
-│   ├── ui-design/       # 品牌、组件和模拟交互展示
-│   └── ui-example/      # UI Host 开发参考，未开放产品安装
+│   └── ui-design/       # 品牌、组件和模拟交互展示
 ├── packages/
 │   ├── sdk/             # Runtime 客户端、DTO 与 UI/Host 协议
 │   ├── ui/              # 官方共享组件、设计变量与 Logo

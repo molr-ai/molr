@@ -1,10 +1,10 @@
 # MIT 许可证与第三方分发
 
-审查日期：2026-10-07。代码基线：`e1c0401`，本任务继续完成 MIT 声明、第三方兼容性、通知交付及不附带 BusyBox 的发行流程。
+依赖许可审查日期：2026-10-07；工作区清单核对日期：2026-10-08。本文说明当前 MIT 授权范围、第三方兼容性、通知交付及不附带 BusyBox 的发行流程。
 
 ## 授权范围与目录约定
 
-Molr 自有代码、文档和原创资源采用根目录 [MIT License](../LICENSE)。第三方代码、字体和品牌标志保留各自许可，不被重新授权为 MIT。根目录和七个 npm 工作区的 `license` 字段只描述 Molr 自有内容。
+Molr 自有代码、文档和原创资源采用根目录 [MIT License](../LICENSE)。第三方代码、字体和品牌标志保留各自许可，不被重新授权为 MIT。根目录和六个 npm 工作区的 `license` 字段只描述 Molr 自有内容。
 
 **不建立第三方源码目录，也不使用 Git submodule。** 完整的原始许可证、版权声明、必要 NOTICE 和对应源码入口集中放在 [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)。该文件适用于当前前端与 Linux Runtime 分发内容的并集；列出某个组件不代表每个产物都包含它。
 
@@ -33,7 +33,7 @@ Molr 自有代码、文档和原创资源采用根目录 [MIT License](../LICENS
 
 ## 清单与维护
 
-[license-inventory.json](license-inventory.json) 记录 337 条 npm 第三方安装位置记录和 22 个 Go 模块，覆盖直接、传递、开发及平台可选依赖；七个工作区链接不计入第三方记录。Linux x64 实际安装 301 个位置；其他 36 个平台可选构建工具按同版本包族及锁文件核对，未逐个检验其二进制。当前 Linux amd64 Runtime 引用其中 20 个 Go 模块；通知收集另外遍历 amd64/arm64 的实际依赖包目录，保留更具体的嵌套许可证。
+[license-inventory.json](license-inventory.json) 记录 337 条 npm 第三方安装位置记录和 22 个 Go 模块，覆盖直接、传递、开发及平台可选依赖；六个工作区链接不计入第三方记录。Linux x64 实际安装 301 个位置；其他 36 个平台可选构建工具按同版本包族及锁文件核对，未逐个检验其二进制。当前 Linux amd64 Runtime 引用其中 20 个 Go 模块；通知收集另外遍历 amd64/arm64 的实际依赖包目录，保留更具体的嵌套许可证。
 
 更新方式：
 
@@ -51,7 +51,7 @@ npm run check:licenses
 
 ## 构建与安装交付
 
-- 四个 Vite 应用共用 `scripts/license-assets.ts`，构建与开发服务都提供 `/LICENSE`、`/THIRD_PARTY_NOTICES.md`，HTML 带许可证链接元数据。WebUI 文件随页面内嵌到 Runtime。
+- 三个 Vite 应用共用 `scripts/license-assets.ts`，构建与开发服务都提供 `/LICENSE`、`/THIRD_PARTY_NOTICES.md`，HTML 带许可证链接元数据。WebUI 文件随页面内嵌到 Runtime。
 - `scripts/build-release.mjs` 在归档根目录复制这两个文件，不再打包 BusyBox，也不再要求 `MOLR_BUSYBOX` 或 `MOLR_BUSYBOX_LICENSE`。
 - 安装器从完整发行包或源码树读取这两个固定文件，用原子写入保存到安装前缀根目录，权限为 `0644`；缺少完整材料会报错，不静默忽略。它不复制任意目录，也不改变原文件正文。
 - 安装器检查系统 BusyBox 必须为静态、可执行且不允许组/其他用户写入的普通文件。只有动态版本时也会提示安装 `busybox-static`。提供 `--install-deps` 时可通过 apt 安装；不支持 apt 或离线时，用户提前安装系统依赖。

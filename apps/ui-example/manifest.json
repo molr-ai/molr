@@ -1,9 +1,0 @@
-{
-  "id": "example.focus",
-  "name": "Focus",
-  "version": "1.0.0",
-  "apiVersion": 1,
-  "description": "A minimal chat interface built with the Molr SDK and plain HTML. Other pages keep their current interface.",
-  "pages": { "assistants": "http://127.0.0.1:5311/" },
-  "permissions": ["chat.read", "chat.write"]
-}

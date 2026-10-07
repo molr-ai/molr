@@ -23,7 +23,6 @@
 - `apps/webui/src/ui-host/ThemeSelector.tsx`：主题设置中的主题选择器。
 - `apps/webui/src/interfaces/official`：默认主题和原有产品组件。
 - `apps/webui/src/interfaces/test`：仅声明聊天页的测试主题。
-- `apps/ui-example`：不依赖官方组件库的开发参考，尚未开放产品接入。
 
 `@molr/ui` 继续作为稳定的官方组件底层。未来不兼容的组件可以新增版本导出；组件、CSS 变量和资源都需要保持已有版本的兼容性。
 
