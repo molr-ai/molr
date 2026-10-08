@@ -321,3 +321,47 @@ func TestChatChannelContextReachesModelAndIsRemovedOnDisconnect(t *testing.T) {
 		t.Fatal("stale channel context retained", next)
 	}
 }
+
+func TestWorkspaceContextSurvivesCompactionAndRefreshesAfterRecovery(t *testing.T) {
+	f, _ := makeLoopFixture(t, nil)
+	e := f.Runtime.(*Engine)
+	e.options.ContextWindow = func(context.Context, core.Principal, core.ID) (int, error) { return 65536, nil }
+	document := ContextDocument{Kind: "workspace", Source: "runtime/workspace", Scope: "assistant", Content: `{"Path":"/work","Available":true,"Lifetime":"assistant"}`}
+	e.options.ContextSources = func(context.Context, ContextRequest) ([]ContextDocument, error) {
+		return []ContextDocument{document}, nil
+	}
+	execution := core.Execution{Principal: f.Turn.Principal, AssistantID: f.Turn.Event.AssistantID, OperationID: "workspace-refresh"}
+	history := []model.Input{{Role: model.System, Text: loopInstructions}, {Role: model.User, Text: strings.Repeat("historical work ", 4000)}}
+	inputs, definitions, automatic, err := e.refreshContext(t.Context(), execution, history, nil)
+	testkit.RequireNoError(t, err)
+	p := turnProgress{Inputs: inputs, Definitions: definitions, Automatic: automatic}
+	p.Usage = &contextUsage{ModelID: "model", Tokens: 63000, Inputs: usageInputs(inputs), Tools: contextHash(definitions)}
+	interrupted, err := e.prepareContext(t.Context(), f.Turn, "model", &p)
+	testkit.RequireNoError(t, err)
+	if interrupted || p.Automatic == nil || p.Automatic.Version != automatic.Version {
+		t.Fatal("compaction lost workspace metadata")
+	}
+	snapshotFrom(t, p.Inputs)
+	checkpoint, err := f.Checkpoints.Load(t.Context(), f.Turn.Principal.OwnerID, f.Turn.Event.AssistantID)
+	testkit.RequireNoError(t, err)
+	restored, err := decodeState(checkpoint)
+	testkit.RequireNoError(t, err)
+	resumed, _, unchanged, err := e.refreshContext(t.Context(), execution, restored.Inputs, restored.Automatic)
+	testkit.RequireNoError(t, err)
+	if unchanged.Version != automatic.Version {
+		t.Fatal("restoration changed stable workspace metadata")
+	}
+	snapshotFrom(t, resumed)
+	document.Content = `{"Path":"/work","Available":false,"Reason":"sandbox_disabled","Lifetime":"assistant"}`
+	refreshed, _, changed, err := e.refreshContext(t.Context(), execution, resumed, unchanged)
+	testkit.RequireNoError(t, err)
+	if changed.Version == unchanged.Version {
+		t.Fatal("availability change was not injected")
+	}
+	snapshot := snapshotFrom(t, refreshed)
+	for _, source := range snapshot.Sources {
+		if source.Kind == "workspace" && !strings.Contains(source.Content, `"Available":false`) {
+			t.Fatal("stale workspace availability")
+		}
+	}
+}

@@ -23,14 +23,20 @@ func (f *resourceFileTools) contextSources(ctx context.Context, request agent.Co
 	if err := (access{f.adapters.store}).execution(ctx, request.Execution); err != nil {
 		return nil, err
 	}
-	if _, err := groupReference(ctx, f.adapters.store, request.Execution.Principal.OwnerID, "sandbox", "local"); err != nil {
-		if core.ReasonOf(err) == "group_resource_denied" {
-			prefs, err := ownerPreferencesContext(ctx, f.adapters.store, request.Execution.Principal.OwnerID)
-			return []agent.ContextDocument{prefs}, err
-		}
+	reason, err := f.workspaceAvailability(ctx, request.Execution)
+	if err != nil {
 		return nil, err
 	}
+	workspace := workspaceDocument(reason)
+	if reason != "" {
+		prefs, err := ownerPreferencesContext(ctx, f.adapters.store, request.Execution.Principal.OwnerID)
+		return []agent.ContextDocument{workspace, prefs}, err
+	}
+
 	root := platform.AssistantWorkspace(f.adapters.dataDir, f.adapters.storageConfig.WorkRoot, request.Execution.Principal.OwnerID, request.Execution.AssistantID)
+	if err := platform.EnsureWorkspace(root); err != nil {
+		return nil, err
+	}
 	sources, err := workspaceContext(ctx, root, request)
 	if err != nil {
 		return nil, err
@@ -50,15 +56,33 @@ func (f *resourceFileTools) contextSources(ctx context.Context, request agent.Co
 	if err != nil {
 		return nil, err
 	}
-	return append(append(append(global, sources...), preferences), revisions...), nil
+	return append(append(append(global, sources...), workspace, preferences), revisions...), nil
 }
 
 type sourceScan struct {
 	root        string
-	visited     int
 	bytes       int
 	versions    map[string]string
 	directories map[string]bool
+}
+
+// Pin directory revisions even when AGENTS.md/SKILL.md is absent, so a
+// concurrent create/delete cannot silently become an incomplete snapshot.
+func (s *sourceScan) directory(name string) (bool, error) {
+	dir, err := openResourceDirectory(s.root, name)
+	if core.CodeOf(err) == core.NotFound {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	defer dir.Close()
+	version, err := resourceFileVersion(dir)
+	if err != nil {
+		return false, err
+	}
+	s.versions[name], s.directories[name] = version, true
+	return true, nil
 }
 
 func (s *sourceScan) read(ctx context.Context, name string) (string, bool, error) {
@@ -184,93 +208,79 @@ func scanRootContext(ctx context.Context, root string, request agent.ContextRequ
 			loaded[path.Join(prefix, name)] = true
 		}
 	}
-	var walk func(string, int) error
-	walk = func(directory string, depth int) error {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		if depth > 32 {
-			return core.Invalid("context_source", "workspace context scan depth exceeded")
-		}
-		dir, err := openResourceDirectory(root, directory)
-		if core.CodeOf(err) == core.NotFound {
-			return nil
-		}
+	// Read fixed instruction paths instead of recursively enumerating work files.
+	if start == "." {
+		directories, err := instructionDirectories(request, prefix)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		defer dir.Close()
-		version, err := resourceFileVersion(dir)
-		if err != nil {
-			return err
-		}
-		// Bounded enumeration, including ignored entries, avoids unbounded reads.
-		entries, err := dir.ReadDir(4097 - scan.visited)
-		if err != nil && err != io.EOF {
-			return core.NewError(core.Unavailable, "workspace context listing failed")
-		}
-		scan.visited += len(entries)
-		if scan.visited > 4096 {
-			return core.Invalid("context_source", "workspace context scan entry limit exceeded")
-		}
-		scan.versions[directory] = version
-		scan.directories[directory] = true
-		for _, entry := range entries {
-			name := path.Join(directory, entry.Name())
-			if entry.Name() == "AGENTS.md" {
-				body, exists, err := scan.read(ctx, name)
-				if err != nil {
-					return err
-				}
-				if exists {
-					documents = append(documents, agent.ContextDocument{Kind: "project_instruction", Source: path.Join(prefix, name), Scope: path.Join(prefix, directory), Revision: sourceRevision(body), Content: body})
-				}
+		for _, directory := range directories {
+			exists, err := scan.directory(directory)
+			if err != nil {
+				return nil, err
 			}
-			if directory == ".agents/skills" && entry.IsDir() {
-				skillDir, err := openResourceDirectory(root, name)
-				if err != nil {
-					return err
-				}
-				skillVersion, err := resourceFileVersion(skillDir)
-				skillDir.Close()
-				if err != nil {
-					return err
-				}
-				scan.versions[name], scan.directories[name] = skillVersion, true
-				source := path.Join(name, "SKILL.md")
-				body, exists, err := scan.read(ctx, source)
-				if err != nil {
-					return err
-				}
-				if exists {
-					source = path.Join(prefix, source)
-					content := skillDiscovery(entry.Name(), source, body)
-					if loaded[source] {
-						content = body
-					}
-					documents = append(documents, agent.ContextDocument{Kind: "skill", Source: source, Scope: prefix, Revision: sourceRevision(body), Content: content, Loaded: loaded[source]})
-				}
+			if !exists {
 				continue
 			}
+			name := path.Join(directory, "AGENTS.md")
+			body, exists, err := scan.read(ctx, name)
+			if err != nil {
+				return nil, err
+			}
+			if exists {
+				documents = append(documents, agent.ContextDocument{Kind: "project_instruction", Source: path.Join(prefix, name), Scope: path.Join(prefix, directory), Revision: sourceRevision(body), Content: body})
+			}
+		}
+	}
+	// Only the shallow skill catalog is enumerated. Ordinary files, dependency
+	// trees, imports and runtime artifacts cannot consume its entry budget.
+	dir, err := openResourceDirectory(root, ".agents/skills")
+	if core.CodeOf(err) != core.NotFound {
+		if err != nil {
+			return nil, err
+		}
+		version, err := resourceFileVersion(dir)
+		if err != nil {
+			dir.Close()
+			return nil, err
+		}
+		entries, err := dir.ReadDir(4097)
+		dir.Close()
+		if err != nil && err != io.EOF {
+			return nil, core.NewError(core.Unavailable, "skill catalog listing failed")
+		}
+		if len(entries) > 4096 {
+			return nil, core.Invalid("context_source", "skill catalog entry limit exceeded")
+		}
+		scan.versions[".agents/skills"], scan.directories[".agents/skills"] = version, true
+		for _, entry := range entries {
 			if !entry.IsDir() {
 				continue
 			}
-			switch entry.Name() {
-			case ".git", "node_modules", ".cache", ".venv", "vendor", "dist", "build":
+			exists, err := scan.directory(path.Join(".agents/skills", entry.Name()))
+			if err != nil {
+				return nil, err
+			}
+			if !exists {
+				return nil, fileChanged()
+			}
+			name := path.Join(".agents/skills", entry.Name(), "SKILL.md")
+			body, exists, err := scan.read(ctx, name)
+			if err != nil {
+				return nil, err
+			}
+			if !exists {
 				continue
 			}
-			if directory == ".agents" && entry.Name() != "skills" {
-				continue
+			source := path.Join(prefix, name)
+			content := skillDiscovery(entry.Name(), source, body)
+			if loaded[source] {
+				content = body
 			}
-			if err := walk(name, depth+1); err != nil {
-				return err
-			}
+			documents = append(documents, agent.ContextDocument{Kind: "skill", Source: source, Scope: prefix, Revision: sourceRevision(body), Content: content, Loaded: loaded[source]})
 		}
-		return nil
 	}
-	if err := walk(start, 0); err != nil {
-		return nil, err
-	}
+
 	// Detect edits/replacements during collection. Fail instead of reporting a
 	// partial snapshot as removals. Retry at the next normal scheduler attempt.
 	for name, version := range scan.versions {

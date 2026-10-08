@@ -35,7 +35,7 @@ func TestWorkspaceContextDiscoversScopesAndRefreshesLoadedSkills(t *testing.T) {
 	write("src/AGENTS.md", "src rules")
 	write("node_modules/pkg/AGENTS.md", "must not inject dependency")
 	write(".agents/skills/review/SKILL.md", "---\nname: review\ndescription: Review code\n---\nprivate skill workflow v1")
-	docs, err := workspaceContext(t.Context(), root, agent.ContextRequest{})
+	docs, err := workspaceContext(t.Context(), root, directoryVisit("/work/src"))
 	need(t, err)
 	if len(docs) != 3 {
 		t.Fatalf("sources=%+v", docs)
@@ -114,7 +114,7 @@ func TestWorkspaceContextAuthorizesIdentityAndSkillReads(t *testing.T) {
 	fs := &resourceFileTools{adapters: f.ad}
 	sources, err := fs.contextSources(t.Context(), agent.ContextRequest{Execution: f.execution})
 	need(t, err)
-	if len(sources) != 3 {
+	if len(sources) != 4 {
 		t.Fatal("composition did not read workspace context")
 	}
 	forged := f.execution
@@ -251,7 +251,16 @@ func TestLoopLoadsAndUpdatesWorkspaceContextThroughRealTools(t *testing.T) {
 			}
 			need(t, json.Unmarshal([]byte(strings.SplitN(strings.TrimPrefix(text, "Runtime context_changed: "), "\n", 2)[0]), &snapshot))
 			found := false
+			workspaceFound := false
 			for _, source := range snapshot.Sources {
+				if source.Kind == "workspace" {
+					workspaceFound = true
+					var workspace workspaceDescription
+					need(t, json.Unmarshal(source.Content, &workspace))
+					if !workspace.Available || workspace.Path != "/work" || len(workspace.Directories) != 8 {
+						t.Fatalf("invalid workspace context: %s", source.Content)
+					}
+				}
 				if source.Kind == "time_context" || strings.Contains(string(source.Content), "current_time") {
 					t.Fatal("volatile time source survived")
 				}
@@ -269,8 +278,8 @@ func TestLoopLoadsAndUpdatesWorkspaceContextThroughRealTools(t *testing.T) {
 					t.Fatalf("request %d preferences = %+v", step, value)
 				}
 			}
-			if !found {
-				t.Fatal("provider request missing user preferences")
+			if !found || !workspaceFound {
+				t.Fatal("provider request missing user preferences or workspace")
 			}
 			if step == 3 {
 				stableContext = text
@@ -332,5 +341,101 @@ func TestGlobalContextDiscoveryAndExplicitSkillRead(t *testing.T) {
 		if d.Kind == "skill" && d.Loaded {
 			t.Fatal("remote reply activated local shared skill")
 		}
+	}
+}
+
+func directoryVisit(name string) agent.ContextRequest {
+	args, _ := json.Marshal(map[string]string{"path": name})
+	result, _ := json.Marshal(map[string]string{"Path": name, "SandboxID": "local"})
+	return agent.ContextRequest{Inputs: []model.Input{
+		{Role: model.Assistant, Calls: []model.ToolCall{{ID: "visit", Name: "file_list", Arguments: args}}},
+		{Role: model.Tool, ReplyTo: "visit", Text: string(result)},
+	}}
+}
+
+func TestInstructionDiscoveryIgnoresBulkDataAndLoadsVisitedAncestors(t *testing.T) {
+	root := t.TempDir()
+	write := func(name, body string) {
+		t.Helper()
+		need(t, os.MkdirAll(filepath.Dir(filepath.Join(root, name)), 0700))
+		need(t, os.WriteFile(filepath.Join(root, name), []byte(body), 0600))
+	}
+	write("AGENTS.md", "workspace rules")
+	for _, name := range []string{"inbox", "outputs", ".local/state/molr", ".cache", "projects/large/node_modules/pkg"} {
+		write(name+"/AGENTS.md", "untrusted data")
+	}
+	write("projects/AGENTS.md", "project defaults")
+	write("projects/large/AGENTS.md", "large project")
+	write("projects/large/src/AGENTS.md", "src overrides")
+	write("projects/unrelated/AGENTS.md", "unrelated instructions")
+	for i := 0; i < 4200; i++ {
+		write(fmt.Sprintf("projects/large/data/%d.txt", i), "data")
+	}
+	for i := 0; i < 4200; i++ {
+		write(fmt.Sprintf(".local/state/molr/%d.txt", i), "output")
+	}
+	docs, err := workspaceContext(t.Context(), root, agent.ContextRequest{})
+	need(t, err)
+	if len(docs) != 1 || docs[0].Content != "workspace rules" {
+		t.Fatalf("initial context=%+v", docs)
+	}
+	visited, err := workspaceContext(t.Context(), root, directoryVisit("/work/projects/large/src"))
+	need(t, err)
+	if len(visited) != 4 {
+		t.Fatalf("visited sources=%+v", visited)
+	}
+	archived := directoryVisit("/work/projects/large/src")
+	archived.Inputs[1].Text = `{"full_result_path":"/work/.local/state/molr/tool-result-example.json","details":{"Path":"/work/projects/large/src","SandboxID":"local"}}`
+	archivedDocs, err := workspaceContext(t.Context(), root, archived)
+	need(t, err)
+	if len(archivedDocs) != 4 {
+		t.Fatal("archived listing lost instruction scope")
+	}
+
+	write("projects/large/src/AGENTS.md", "new src overrides")
+	restored, err := workspaceContext(t.Context(), root, agent.ContextRequest{Previous: visited})
+	need(t, err)
+	if len(restored) != 4 {
+		t.Fatal("lost scope after restore")
+	}
+	for _, d := range restored {
+		if d.Scope == "/work/projects/large/src" && d.Content != "new src overrides" {
+			t.Fatal("stale scoped instruction")
+		}
+	}
+	for _, name := range []string{"/work/inbox", "/work/outputs", "/work/.local/state/molr", "/work/.cache", "/work/projects/large/node_modules/pkg"} {
+		docs, err = workspaceContext(t.Context(), root, directoryVisit(name))
+		need(t, err)
+		if len(docs) != 1 {
+			t.Fatalf("data directory activated instructions: %s %+v", name, docs)
+		}
+	}
+}
+
+func TestInstructionDiscoveryRequiresSuccessfulLocalWorkspaceRead(t *testing.T) {
+	root := t.TempDir()
+	need(t, os.MkdirAll(filepath.Join(root, "project"), 0700))
+	need(t, os.WriteFile(filepath.Join(root, "project/AGENTS.md"), []byte("local only"), 0600))
+	for _, variant := range []string{"remote", "external", "failed", "uncompleted", "full-access"} {
+		t.Run(variant, func(t *testing.T) {
+			request := directoryVisit("/work/project")
+			switch variant {
+			case "remote":
+				request.Inputs[1].Text = `{"Path":"/work/project","SandboxID":"remote"}`
+			case "external":
+				request.Inputs[0].Calls[0].Arguments = json.RawMessage(`{"path":"/work/project","resource_id":"external"}`)
+			case "failed":
+				request.Inputs[1].Text = `{"ok":false,"error":{"message":"failed"},"Path":"/work/project"}`
+			case "uncompleted":
+				request.Inputs = request.Inputs[:1]
+			case "full-access":
+				request.Inputs[0].Calls[0].Arguments = json.RawMessage(`{"path":"/work/project","full_access":true}`)
+			}
+			docs, err := workspaceContext(t.Context(), root, request)
+			need(t, err)
+			if len(docs) != 0 {
+				t.Fatalf("unexpected sources: %+v", docs)
+			}
+		})
 	}
 }

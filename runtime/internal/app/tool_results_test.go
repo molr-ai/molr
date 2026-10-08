@@ -28,7 +28,7 @@ func TestLargeToolResultIsSavedAndReadableInChunks(t *testing.T) {
 		Details        map[string]json.RawMessage `json:"details"`
 	}
 	need(t, json.Unmarshal(result.Content, &envelope))
-	if !strings.HasPrefix(envelope.FullResultPath, "/work/") || envelope.Details["Exit"] == nil {
+	if !strings.HasPrefix(envelope.FullResultPath, "/work/.local/state/molr/tool-result-") || envelope.Details["Exit"] == nil {
 		t.Fatal("result metadata missing")
 	}
 	var collected bytes.Buffer
@@ -114,5 +114,32 @@ func TestToolEnvelopeBoundsEscapedJSON(t *testing.T) {
 	need(t, err)
 	if len(result.Content) > toolInlineLimit || !json.Valid(result.Content) {
 		t.Fatal("escaped envelope exceeded limit")
+	}
+}
+
+func TestShellArchiveCanBeReadFromStateDirectory(t *testing.T) {
+	root := t.TempDir()
+	e := core.Execution{Principal: core.Principal{OwnerID: "owner"}, OperationID: "capture"}
+	stdout, stderr, outPath, errPath, err := createShellTaskOutputs(root, 1<<20, e)
+	need(t, err)
+	_, err = stdout.Write([]byte("saved stdout"))
+	need(t, err)
+	_, err = stderr.Write([]byte("saved stderr"))
+	need(t, err)
+	stdout.close()
+	stderr.close()
+	for _, stream := range []string{"stdout", "stderr"} {
+		raw, err := readShellOutput(root, outPath, errPath, tools.ShellTaskRequest{Stream: stream})
+		need(t, err)
+		var result struct{ Output, Path string }
+		need(t, json.Unmarshal(raw, &result))
+		if result.Output != "saved "+stream || !strings.HasPrefix(result.Path, "/work/.local/state/molr/") {
+			t.Fatalf("wrong archive: %s", raw)
+		}
+	}
+	entries, err := os.ReadDir(root)
+	need(t, err)
+	if len(entries) != 1 || entries[0].Name() != ".local" {
+		t.Fatal("shell polluted workspace root")
 	}
 }

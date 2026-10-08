@@ -129,7 +129,7 @@ func (e *Engine) refreshContext(ctx context.Context, execution core.Execution, i
 			return nil, nil, nil, err
 		}
 		for _, d := range sources {
-			if d.Kind != "chat_channel" && d.Kind != "profile" && d.Kind != "project_instruction" && d.Kind != "skill" && d.Kind != "user_preferences" && d.Kind != "memory" && d.Kind != "permission_requests" && d.Kind != "permissions" {
+			if d.Kind != "workspace" && d.Kind != "chat_channel" && d.Kind != "profile" && d.Kind != "project_instruction" && d.Kind != "skill" && d.Kind != "user_preferences" && d.Kind != "memory" && d.Kind != "permission_requests" && d.Kind != "permissions" {
 				return nil, nil, nil, core.Invalid("context", "unsupported automatic context source")
 			}
 		}

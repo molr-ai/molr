@@ -8,7 +8,6 @@ import (
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/platform"
 	"molr.ai/runtime/internal/policy"
-	"os"
 	"path/filepath"
 	"strings"
 )
@@ -71,7 +70,7 @@ func (s *sandboxRouter) requireFullAccess(ctx context.Context, e core.Execution,
 }
 func directFilePath(data, work string, e core.Execution, t tools.FileTarget) (string, string, error) {
 	root := platform.AssistantWorkspace(data, work, e.Principal.OwnerID, e.AssistantID)
-	if err := os.MkdirAll(root, 0700); err != nil {
+	if err := platform.EnsureWorkspace(root); err != nil {
 		return "", "", err
 	}
 	name := t.Path

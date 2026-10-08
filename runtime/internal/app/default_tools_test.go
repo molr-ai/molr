@@ -228,15 +228,15 @@ func TestConversationToolsAttachmentRoundTripAndIsolation(t *testing.T) {
 	if !bytes.Contains(raw, []byte("sample.bin")) {
 		t.Fatalf("attachment metadata absent: %s", raw)
 	}
-	_, err = call("conversation_attachment", map[string]any{"conversation_id": "chat", "file_id": file.ID, "path": "sample.bin"})
+	_, err = call("conversation_attachment", map[string]any{"conversation_id": "chat", "file_id": file.ID, "path": "inbox/sample.bin"})
 	need(t, err)
 	root := platform.AssistantWorkspace(f.ad.dataDir, f.ad.storageConfig.WorkRoot, f.owner.OwnerID, f.execution.AssistantID)
-	got, err := os.ReadFile(filepath.Join(root, "sample.bin"))
+	got, err := os.ReadFile(filepath.Join(root, "inbox/sample.bin"))
 	need(t, err)
 	if !bytes.Equal(got, payload) {
 		t.Fatal("binary attachment damaged")
 	}
-	_, err = call("conversation_attachment", map[string]any{"conversation_id": "chat", "file_id": file.ID, "path": "sample.bin"})
+	_, err = call("conversation_attachment", map[string]any{"conversation_id": "chat", "file_id": file.ID, "path": "inbox/sample.bin"})
 	if core.CodeOf(err) != core.Conflict {
 		t.Fatalf("overwrote existing file: %v", err)
 	}
@@ -248,7 +248,7 @@ func TestConversationToolsAttachmentRoundTripAndIsolation(t *testing.T) {
 	if _, err = call("conversation_attachment", map[string]any{"conversation_id": "chat", "file_id": private.ID, "path": "private.bin"}); core.CodeOf(err) != core.NotFound {
 		t.Fatalf("unattached owner file read: %v", err)
 	}
-	raw, err = call("conversation_publish", map[string]any{"conversation_id": "chat", "attachments": []map[string]any{{"path": "sample.bin", "name": "result.bin"}}})
+	raw, err = call("conversation_publish", map[string]any{"conversation_id": "chat", "attachments": []map[string]any{{"path": "inbox/sample.bin", "name": "result.bin"}}})
 	need(t, err)
 	var message conversation.Message
 	need(t, json.Unmarshal(raw, &message))

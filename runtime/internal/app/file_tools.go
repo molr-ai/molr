@@ -159,18 +159,9 @@ func (f *resourceFileTools) resolve(ctx context.Context, e core.Execution, targe
 				return "", "", err
 			}
 		}
-		if err = os.MkdirAll(filepath.Dir(root), 0700); err != nil {
-			return "", "", core.NewError(core.Unavailable, "assistant workspace unavailable")
-		}
-		if err = os.Mkdir(root, 0700); err != nil && !os.IsExist(err) {
-			return "", "", core.NewError(core.Unavailable, "assistant workspace unavailable")
-		}
-		// Validate the root itself before any subsequent file access.
-		dir, err := openResourceDirectory(root, ".")
-		if err != nil {
+		if err := platform.EnsureWorkspace(root); err != nil {
 			return "", "", err
 		}
-		dir.Close()
 		return root, name, nil
 	}
 	name, err := resourcePath(target.Path)

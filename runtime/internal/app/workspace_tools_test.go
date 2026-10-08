@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"molr.ai/runtime/internal/agent"
 	"molr.ai/runtime/internal/agent/operation"
 	"molr.ai/runtime/internal/agent/scheduler"
 	"molr.ai/runtime/internal/agent/tools"
@@ -40,19 +41,19 @@ func TestWorkspaceFileToolsNeedNoStorageOrComputeGrant(t *testing.T) {
 			}
 			_, err := call("file_list", map[string]any{"path": "."}, "list-empty")
 			need(t, err)
-			_, err = call("file_write", map[string]any{"path": "note.txt", "text": "hello", "overwrite": false}, "write-workspace")
+			_, err = call("file_write", map[string]any{"path": "outputs/note.txt", "text": "hello", "overwrite": false}, "write-workspace")
 			need(t, err)
-			raw, err := call("file_read", map[string]any{"path": "/work/note.txt"}, "read-workspace")
+			raw, err := call("file_read", map[string]any{"path": "/work/outputs/note.txt"}, "read-workspace")
 			need(t, err)
 			var read fileReadResult
 			need(t, json.Unmarshal(raw, &read))
 			if read.Text != "hello" || read.ResourceID != "" {
 				t.Fatal("workspace read failed")
 			}
-			_, err = call("file_edit", map[string]any{"path": "note.txt", "old_text": "hello", "new_text": "edited", "expected_version": read.Version}, "edit-workspace")
+			_, err = call("file_edit", map[string]any{"path": "outputs/note.txt", "old_text": "hello", "new_text": "edited", "expected_version": read.Version}, "edit-workspace")
 			need(t, err)
 			root := platform.AssistantWorkspace(f.ad.dataDir, f.ad.storageConfig.WorkRoot, f.owner.OwnerID, f.execution.AssistantID)
-			data, err := os.ReadFile(filepath.Join(root, "note.txt"))
+			data, err := os.ReadFile(filepath.Join(root, "outputs/note.txt"))
 			need(t, err)
 			if string(data) != "edited" {
 				t.Fatal("wrong workspace path")
@@ -137,5 +138,40 @@ func TestGlobalFilesReadSameOwnerMemoryAndRejectWrites(t *testing.T) {
 	need(t, err)
 	if len(page.Items) != 1 || page.Items[0].Text != read.Text || page.Items[0].Path != "MEMORY.md" {
 		t.Fatal("tools and memory see different files", page)
+	}
+}
+
+func TestWorkspaceContextAvailabilityAndStableContract(t *testing.T) {
+	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { c.Sandbox.Enabled = true })
+	fs := &resourceFileTools{adapters: f.ad, router: &sandboxRouter{adapters: f.ad}}
+	request := agent.ContextRequest{Execution: f.execution}
+	read := func() agent.ContextDocument {
+		t.Helper()
+		docs, err := fs.contextSources(t.Context(), request)
+		need(t, err)
+		for _, doc := range docs {
+			if doc.Kind == "workspace" {
+				return doc
+			}
+		}
+		t.Fatal("missing workspace context")
+		return agent.ContextDocument{}
+	}
+	first := read()
+	var value workspaceDescription
+	need(t, json.Unmarshal([]byte(first.Content), &value))
+	if !value.Available || value.Path != "/work" || value.Shared.Path != "/global" || value.Temporary.Lifetime != "single execution" {
+		t.Fatal(value)
+	}
+	root := platform.AssistantWorkspace(f.ad.dataDir, f.ad.storageConfig.WorkRoot, f.owner.OwnerID, f.execution.AssistantID)
+	need(t, os.WriteFile(filepath.Join(root, "outputs/result.txt"), []byte("work"), 0600))
+	if next := read(); next.Content != first.Content || next.Revision != first.Revision {
+		t.Fatal("ordinary file changed workspace metadata")
+	}
+	fs.adapters.storageConfig.Enabled = false
+	disabled := read()
+	need(t, json.Unmarshal([]byte(disabled.Content), &value))
+	if value.Available || value.Reason != "sandbox_disabled" || first.Revision == disabled.Revision {
+		t.Fatal("disabled workspace still advertised", value)
 	}
 }

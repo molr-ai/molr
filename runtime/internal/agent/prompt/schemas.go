@@ -27,6 +27,7 @@ var permissions = object("CurrentTime Truncated RequestableTruncated",
 	nested("Sandboxes", array(object("ID Name Default Storage Description", nested("FullAccessComputeIDs", array(scalar)), nested("Capabilities", capabilities)))))
 
 var schemas = map[string]*shape{
+	"workspace":               object("SandboxID Path Available Reason Lifetime", nested("Shared", object("Path Access Lifetime")), nested("Temporary", object("Path Access Lifetime")), nested("Directories", array(object("Path Purpose")))),
 	"profile":                 profile,
 	"profile_update":          object("Changed", nested("Profile", profile)),
 	"user_preferences":        object("timezone language currency", nested("sources", object("timezone language currency"))),

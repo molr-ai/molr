@@ -8,7 +8,6 @@ import (
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/platform"
 	sm "molr.ai/runtime/internal/sandboxmanager"
-	"os"
 	"path/filepath"
 	"time"
 )
@@ -54,7 +53,7 @@ func (s *sandboxRouter) mirrorShellLogs(ctx context.Context, e core.Execution, i
 		return err
 	}
 	root := platform.AssistantWorkspace(s.adapters.dataDir, s.adapters.storageConfig.WorkRoot, e.Principal.OwnerID, e.AssistantID)
-	if err = os.MkdirAll(root, 0700); err != nil {
+	if err = platform.EnsureWorkspace(root); err != nil {
 		return err
 	}
 	limits, err := workspaceConstraints(ctx, s.adapters.store, e.Principal.OwnerID, e.AssistantID, "local")
@@ -102,7 +101,7 @@ func (s *sandboxRouter) mirrorShellLogs(ctx context.Context, e core.Execution, i
 				if len(chunk.Data) > 64<<10 || chunk.NextCursor != offset+int64(len(chunk.Data)) || chunk.NextCursor > maxBytes {
 					return core.Invalid("output", "invalid remote output chunk")
 				}
-				if err = appendOutputChunk(root, name, offset, chunk.Data); err != nil {
+				if err = appendOutputChunk(filepath.Join(root, platform.WorkspaceStateDirectory), filepath.Base(name), offset, chunk.Data); err != nil {
 					return err
 				}
 				offset = chunk.NextCursor

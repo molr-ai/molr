@@ -110,7 +110,7 @@ Runtime 和服务使用 `/v2/sandbox/*` HTTPS 协议，证书指纹固定信任�
 
 `file_transfer` 在本地与一个显式远程节点之间传输单个文件，支持二进制，单次最多 20 MiB。源和目标独立授权，父目录必须存在；必须指定 `overwrite`，覆盖还须给出目标 `expected_version`。不支持远程之间直传、目录同步或自动覆盖。先下载到本地，再用于聊天附件或助理头像。
 
-远程 Shell 的 stdout/stderr 通过分段读取归档到本地 `/work/tool-shell-*.txt`。执行节点由 `SandboxID` 标识，输出节点为 `OutputSandboxID=local`；不要拿执行节点去读取本地日志。断线后按原任务读取日志，不重复执行命令。日志回收不完整时 `OutputComplete=false`。
+远程 Shell 的 stdout/stderr 通过分段读取归档到本地 `/work/.local/state/molr/tool-shell-*.txt`。执行节点由 `SandboxID` 标识，输出节点为 `OutputSandboxID=local`；不要拿执行节点去读取本地日志。断线后按原任务读取日志，不重复执行命令。日志回收不完整时 `OutputComplete=false`。
 
 远端内部输出缓冲按操作保存，不向助理作为存储目录开放。每次 Shell 输出最多 64 MiB（同时受部署文件上限限制），最多保留 128 个操作目录；非运行中目录在超过七天后于下次执行前清理，达到条目上限时先淘汰最旧的非运行中目录；全部在运行时拒绝新命令。回执仍独立保存，日志过期不代表命令未执行。媒体快照仍是有界私有缓存。
 

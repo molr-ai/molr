@@ -574,7 +574,7 @@ func readShellOutput(root, out, stderr string, q tools.ShellTaskRequest) (json.R
 	if q.Stream == "stderr" {
 		path = stderr
 	}
-	if !strings.HasPrefix(path, "/work/tool-shell-") {
+	if !strings.HasPrefix(path, "/work/"+platform.WorkspaceStateDirectory+"/tool-shell-") {
 		return nil, core.NewError(core.NotFound, "output not ready")
 	}
 	f, err := openResourceFile(root, strings.TrimPrefix(path, "/work/"))

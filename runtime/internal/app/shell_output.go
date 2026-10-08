@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"molr.ai/runtime/internal/agent/tools"
@@ -13,6 +14,7 @@ import (
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/platform"
 	"molr.ai/runtime/internal/policy"
+	"molr.ai/runtime/internal/textfiles"
 )
 
 // Disk capture is separate from the in-memory preview budget. If the shared
@@ -78,18 +80,21 @@ func archiveLimit(c config.Sandbox, full bool) int64 {
 	return c.MaxFileBytes
 }
 func shellOutputPrefix(e core.Execution) string {
-	return "tool-shell-" + digestBytes([]byte(string(e.Principal.OwnerID) + "/" + string(e.OperationID)))[:32]
+	return platform.WorkspaceStateDirectory + "/tool-shell-" + digestBytes([]byte(string(e.Principal.OwnerID) + "/" + string(e.OperationID)))[:32]
 }
 func createShellTaskOutputs(root string, maxBytes int64, e core.Execution) (*shellOutput, *shellOutput, string, string, error) {
 	return createShellOutputsNamed(root, maxBytes, shellOutputPrefix(e))
 }
 func createShellOutputsNamed(root string, maxBytes int64, prefix string) (*shellOutput, *shellOutput, string, string, error) {
+	if err := textfiles.MkdirAll(root, platform.WorkspaceStateDirectory); err != nil {
+		return nil, nil, "", "", err
+	}
 	outName, errName := prefix+"-stdout.txt", prefix+"-stderr.txt"
-	out, err := createOutputFile(root, outName)
+	out, err := createOutputFile(filepath.Join(root, platform.WorkspaceStateDirectory), filepath.Base(outName))
 	if err != nil {
 		return nil, nil, "", "", err
 	}
-	stderr, err := createOutputFile(root, errName)
+	stderr, err := createOutputFile(filepath.Join(root, platform.WorkspaceStateDirectory), filepath.Base(errName))
 	if err != nil {
 		out.Close()
 		return nil, nil, "", "", err

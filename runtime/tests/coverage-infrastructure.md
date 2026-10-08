@@ -35,6 +35,7 @@
 | `internal/config` | `Duration.MarshalJSON` | `TestTDDConfigDurationRoundTripAndInvalidInput` |
 | `internal/config` | `Duration.UnmarshalJSON` | `TestTDDConfigDurationRoundTripAndInvalidInput` |
 | `internal/platform` | `AssistantWorkspace` | `TestAssistantWorkspaceIdentityAndOverrides` |
+| `internal/platform` | `EnsureWorkspace`, `WorkspaceDirectories` | `TestWorkspaceLayoutPreservesFilesAndRejectsLinks` |
 | `internal/platform` | `Runner.Capabilities` | `TestTDDPlatformCapabilitiesAndProcessStreams` |
 | `internal/platform` | `Runner.Start` | `TestTDDPlatformCapabilitiesAndProcessStreams` |
 | `internal/platform` | `Process.Stdout` | `TestTDDPlatformCapabilitiesAndProcessStreams` |

@@ -14,7 +14,9 @@ import (
 
 	"molr.ai/runtime/internal/agent/tools"
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/platform"
 	"molr.ai/runtime/internal/policy"
+	"molr.ai/runtime/internal/textfiles"
 )
 
 const toolInlineLimit = 16 << 10
@@ -37,9 +39,12 @@ func (f *resourceFileTools) boundResult(ctx context.Context, e core.Execution, r
 	}
 	sum := sha256.Sum256(result.Content)
 	// Content addressing makes repeated receipt delivery reuse the same artifact.
-	name := "tool-result-" + hex.EncodeToString(sum[:]) + ".json"
+	name := platform.WorkspaceStateDirectory + "/tool-result-" + hex.EncodeToString(sum[:]) + ".json"
 	root, _, err := f.resolve(ctx, e, tools.FileTarget{Path: name}, policy.Write)
 	if err != nil {
+		return result, err
+	}
+	if err := textfiles.MkdirAll(root, platform.WorkspaceStateDirectory); err != nil {
 		return result, err
 	}
 	unlock, err := f.lock(ctx, root+"/"+name)

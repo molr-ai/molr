@@ -156,9 +156,9 @@ func eventText(e event.AssistantEvent, conversation core.ID) string {
 }
 func contextText(snapshot *automaticContext) string {
 	view := struct {
-		Sources                            []string
-		Removed                            []contextReference
-		Preferences, Permissions, Requests bool
+		Sources                                       []string
+		Removed                                       []contextReference
+		Preferences, Permissions, Requests, Workspace bool
 	}{}
 	for _, entry := range snapshot.Sources {
 		d := entry.ContextDocument
@@ -181,7 +181,7 @@ func contextText(snapshot *automaticContext) string {
 			} else {
 				content, _ = prompt.Structured("skill", d.Content)
 			}
-		case "profile", "permissions", "permission_requests", "user_preferences":
+		case "workspace", "profile", "permissions", "permission_requests", "user_preferences":
 			content, _ = prompt.Structured(d.Kind, d.Content)
 		default:
 			continue // obsolete source kinds are removed by refreshContext
@@ -192,6 +192,7 @@ func contextText(snapshot *automaticContext) string {
 		if content == "" {
 			content = prompt.String("Source unavailable; do not infer permissions or reuse earlier content.")
 		}
+		view.Workspace = view.Workspace || d.Kind == "workspace"
 		view.Preferences = view.Preferences || d.Kind == "user_preferences"
 		view.Permissions = view.Permissions || d.Kind == "permissions"
 		view.Requests = view.Requests || d.Kind == "permission_requests"
@@ -208,7 +209,7 @@ func contextText(snapshot *automaticContext) string {
 	return prompt.Text("context", view)
 }
 func validateContextPresentation(d ContextDocument) error {
-	if d.Kind == "profile" || d.Kind == "user_preferences" || d.Kind == "permissions" || d.Kind == "permission_requests" || d.Kind == "skill" && !d.Loaded {
+	if d.Kind == "workspace" || d.Kind == "profile" || d.Kind == "user_preferences" || d.Kind == "permissions" || d.Kind == "permission_requests" || d.Kind == "skill" && !d.Loaded {
 		if _, err := prompt.Structured(d.Kind, d.Content); err != nil {
 			return core.Invalid("context", "invalid structured context source: "+d.Kind)
 		}
