@@ -22,7 +22,7 @@
 | --- | --- | --- |
 | `im/conversation` | `Client`、`Publisher`、`Service` | 查询会话／消息、用户发送、助理发布、已读和反馈 |
 | 同上 | `Repository`、`Outbox` | 事务内消息持久化与可靠消息创建事件 |
-| `im/realtime` | `Feed`、`Subscription`、`Store` | 有权限的实时订阅、持续鉴权、持久事件与重放 |
+| `im/realtime` | `Feed`、`Subscription`、`Store` | 有权限的实时订阅、提交后唤醒、持续鉴权、持久事件与批量重放 |
 
 用户和助理写入共用 `Message`、`Content` 与仓储。两个入口的区别是身份与业务触发语义，不是两套 IM：发送者不能由请求指定；用户输入可唤醒 Agent，助理发布不应再次唤醒自己。
 

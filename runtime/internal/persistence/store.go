@@ -25,6 +25,20 @@ type Tx interface {
 	Scan(context.Context, string) ([]Record, error)
 	Query(context.Context, string, Query) ([]Record, error)
 	Store() Store
+	// NotifyAfterCommit registers a coalescible wakeup, discarded on rollback.
+	NotifyAfterCommit(context.Context, SignalKey) error
+}
+
+// SignalKey identifies a process-local wakeup scope, not an event payload.
+type SignalKey struct{ Namespace, Key string }
+
+// Watch broadcasts committed changes independently to every subscriber.
+// Changes coalesces notifications; Done closes on Close or backing-store shutdown.
+// Close is idempotent. Callers must close their watch when finished.
+type Watch interface {
+	Changes() <-chan struct{}
+	Done() <-chan struct{}
+	Close()
 }
 
 // Store passes a transaction-bearing context to each callback. Nested calls
@@ -33,6 +47,7 @@ type Tx interface {
 // callback decides whether to continue or propagate the failure.
 // No callback may perform external effects or retain its Tx after completion.
 type Store interface {
+	Watch(SignalKey) (Watch, error)
 	Read(context.Context, func(context.Context, Tx) error) error
 	Write(context.Context, func(context.Context, Tx) error) error
 }

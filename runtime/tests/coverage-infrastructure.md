@@ -113,6 +113,9 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/persistence/sqlitestore` | `Open`, `Store.Close`, `Store.Path`, `Store.Read`, `Store.Write` | `TestStoreCommitRollbackAndReopen` |
 | `internal/persistence/sqlitestore` | `Store.FailNextCommit` | `TestStoreReadOnlyCanceledAndCommitFailure` |
 | `internal/persistence/sqlitestore` | `Store.Snapshot` | `TestStoreScanDeleteAndSnapshot` |
+| `internal/persistence` | `Store.Watch`, `Tx.NotifyAfterCommit` | `internal/persistence/sqlitestore.TestCommitNotificationsSavepointsAndFailures` |
+| `internal/persistence` | `Watch.Changes`, `Watch.Close`, `Watch.Done` | `internal/persistence/sqlitestore.TestWatchLifecycleAndScope` |
+| `internal/persistence/sqlitestore` | `Store.Watch` | `TestCommitNotificationsSavepointsAndFailures`、`TestWatchLifecycleAndScope`、`TestConcurrentWatchCloseAndPublish` |
 | `internal/platform` | `NewRunner`, `ProcessRunner.Capabilities`, `ProcessRunner.Start` | `TestTDDPlatformCapabilitiesAndProcessStreams` |
 | `internal/platform` | `NewLocker`, `FileLocker.Acquire` | `TestTDDPlatformLockExcludesConcurrentInstanceAndReleases` |
 | `internal/platform` | `NewNetworkGuard`, `Guard.Check` | `TestTDDPlatformNetworkRejectsSSRFAndRebinding` |

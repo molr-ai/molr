@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/persistence"
 )
 
 // Visible contains safe references, never prompts, credentials or raw tool output.
@@ -40,6 +41,7 @@ type Subscription interface {
 // Store is trusted-internal. Append participates in the business transaction.
 // Each client has its own cursor; replay never consumes another client's events.
 type Store interface {
+	Watch(core.ID) (persistence.Watch, error)
 	Append(context.Context, Visible) error
 	Replay(context.Context, core.ID, Query) (core.Page[Visible], error)
 }

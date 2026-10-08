@@ -52,6 +52,7 @@
 | `internal/im/realtime` | `Subscription.Close` | `TestTDDRealtimeSubscriptionCancellationAndClose` |
 | `internal/im/realtime` | `Store.Append` | `TestTDDRealtimeReplayIsOwnerScopedAndDoesNotConsume`、`TestTDDRealtimeEverySubscriberReceivesLiveEventAndRevocationStopsDelivery` |
 | `internal/im/realtime` | `Store.Replay` | `TestTDDRealtimeReplayIsOwnerScopedAndDoesNotConsume` |
+| `internal/im/realtime` | `Store.Watch` | `TestIdempotentAppendDoesNotNotify`、`TestIdleAuthorizationDoesNotReplay` |
 
 重点：逐客户端重放、游标不可跨用户使用、主题过滤、多个客户端都收到实时事件、凭证撤销即停止、取消和关闭不挂起。
 

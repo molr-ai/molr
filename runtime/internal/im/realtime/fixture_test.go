@@ -46,7 +46,7 @@ func init() {
 			return nil
 		}))
 		store := NewStore(db)
-		return contractFixture{Store: store, Feed: NewFeed(store, Options{Authorizer: fixtureAuthorizer{db}, PollInterval: time.Millisecond}), Owner: owner, Other: other, Revoke: func(p core.Principal) {
+		return contractFixture{Store: store, Feed: NewFeed(store, Options{Authorizer: fixtureAuthorizer{db}, AuthorizationInterval: time.Millisecond}), Owner: owner, Other: other, Revoke: func(p core.Principal) {
 			testkit.RequireNoError(t, db.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 				return tx.Put(ctx, "test.sessions", persistence.Key(p.OwnerID, p.SessionID), false)
 			}))

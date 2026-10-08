@@ -27,6 +27,8 @@ type Store struct {
 	faultMu     sync.Mutex
 	commitFault error
 	path        string
+	wakeMu      sync.Mutex
+	watches     map[persistence.SignalKey]map[*watch]struct{}
 }
 
 type contextKey struct{}
@@ -37,6 +39,8 @@ type transaction struct {
 	writable  bool
 	active    atomic.Bool
 	savepoint uint64
+	signals   []persistence.SignalKey
+	failure   error
 }
 type boundStore struct{ tx *transaction }
 
@@ -88,6 +92,7 @@ func (s *Store) Close() error {
 	if s.closed.Swap(true) {
 		return nil
 	}
+	s.closeWatches()
 	s.gate <- struct{}{}
 	defer func() { <-s.gate }()
 	return s.db.Close()
@@ -123,9 +128,10 @@ func (s *Store) run(ctx context.Context, write bool, fn func(context.Context, pe
 	if tx, ok := ctx.Value(contextKey{}).(*transaction); ok && tx.store == s {
 		return tx.run(ctx, write, fn)
 	}
+	var committed []persistence.SignalKey
 	select {
 	case s.gate <- struct{}{}:
-		defer func() { <-s.gate }()
+		defer func() { <-s.gate; s.publish(committed) }()
 	case <-ctx.Done():
 		return persistence.CheckContext(ctx)
 	}
@@ -151,7 +157,14 @@ func (s *Store) run(ctx context.Context, write bool, fn func(context.Context, pe
 			return err
 		}
 	}
-	return translate(ctx, sqlTx.Commit())
+	if tx.failure != nil {
+		return tx.failure
+	}
+	if err := sqlTx.Commit(); err != nil {
+		return translate(ctx, err)
+	}
+	committed = tx.signals
+	return nil
 }
 func (tx *transaction) run(ctx context.Context, write bool, fn func(context.Context, persistence.Tx) error) error {
 	if err := tx.check(ctx); err != nil {
@@ -169,16 +182,26 @@ func (tx *transaction) run(ctx context.Context, write bool, fn func(context.Cont
 	if _, err := tx.sql.ExecContext(ctx, "SAVEPOINT "+name); err != nil {
 		return translate(ctx, err)
 	}
+	mark := len(tx.signals)
 	err := fn(nested, tx)
 	if err == nil {
 		err = persistence.CheckContext(ctx)
 	}
 	if err != nil {
-		_, _ = tx.sql.ExecContext(ctx, "ROLLBACK TO "+name)
-		_, _ = tx.sql.ExecContext(ctx, "RELEASE "+name)
+		tx.signals = tx.signals[:mark]
+		if _, rollbackErr := tx.sql.ExecContext(ctx, "ROLLBACK TO "+name); rollbackErr != nil {
+			tx.failure = translate(ctx, rollbackErr)
+		}
+		if _, releaseErr := tx.sql.ExecContext(ctx, "RELEASE "+name); releaseErr != nil {
+			tx.failure = translate(ctx, releaseErr)
+		}
 		return err
 	}
 	_, err = tx.sql.ExecContext(ctx, "RELEASE "+name)
+	if err != nil {
+		tx.signals = tx.signals[:mark]
+		tx.failure = translate(ctx, err)
+	}
 	return translate(ctx, err)
 }
 func (tx *transaction) check(ctx context.Context) error {

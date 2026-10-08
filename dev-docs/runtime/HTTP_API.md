@@ -63,7 +63,7 @@ Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugi
 - `GET /api/status` 需要认证，返回 `name`（Molr Runtime）、`status`（running）和配置中的 `public_url`，供连接设置展示实际 Runtime 地址。
 - 消息列表默认升序；`order=desc` 从最新消息开始，继续使用返回的 `NextCursor` 加载更早消息。游标绑定方向，不能混用。消息包含当前持久化的 `Feedback`（`like` / `dislike` / `none`）。
 - `http.requests_per_minute` 控制每个可信来源地址的通用请求限额，默认 600；登录/MFA 完成请求独立使用 `auth.login_attempts_per_minute`（默认 5）。两者都必须为正。
-- SSE：`GET /api/events/stream`，事件的 `id` 是绑定所有者及 topic 的不透明游标，可通过 `Last-Event-ID` 重连。服务持续核验会话，撤销或过期会关闭连接。`GET /api/events` 用于有限分页补取。
+- SSE：`GET /api/events/stream`，事件的 `id` 是绑定所有者及 topic 的不透明游标，可通过 `Last-Event-ID` 重连。服务持续核验会话，撤销或过期会关闭连接。`GET /api/events` 用于有限分页补取。两个入口的 `topic` 参数最多 16 个，要求非空、不重复且每个不超过 128 字节；游标绑定账号和规范化后的主题集合。实时交付由事务提交通知唤醒，断线按游标补读；网络中断边界可能重复投递，客户端应按事件 ID／游标幂等处理。
 - 上传：`POST /api/files` 使用原始 body、`Content-Length`、`Content-Type`、`X-File-Name`、`Idempotency-Key`，可选 `X-Task-ID`。非 ASCII 文件名可将 `X-File-Name` 百分号编码并设置 `X-File-Name-Encoding: percent`；旧的未编码头保持兼容。下载仅通过鉴权后的 `/api/files/{id}/content`，使用 attachment、application/octet-stream 与 sandbox CSP，不暴露磁盘路径。
 - 本机开发可显式配置 `tls_mode: "local"`：仅数字回环监听，HTTP 回环 URL，不接受代理转发头。开发会话/预登录 Cookie 为 `molr_dev_session` / `molr_dev_login`，保留 HttpOnly/SameSite=Strict，省略 Secure；独立 proof Cookie 为可读的 `molr_dev_csrf`；认证与 CSRF 流程相同。
 - HTTPS 直接终止或显式可信代理。Host 必须匹配 PublicURL；代理模式只信任配置网段，验证代理 HTTPS 头并从右向左剥离可信代理地址。跨域来源必须显式配置，不使用通配符。

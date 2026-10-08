@@ -18,6 +18,15 @@ type stored struct{ store persistence.Store }
 
 // NewStore uses the caller's transaction when its context or Store is bound.
 func NewStore(store persistence.Store) Store { return &stored{store: store} }
+func signalKey(owner core.ID) persistence.SignalKey {
+	return persistence.SignalKey{Namespace: visibleBucket, Key: string(owner)}
+}
+func (s *stored) Watch(owner core.ID) (persistence.Watch, error) {
+	if err := owner.Validate(); err != nil {
+		return nil, err
+	}
+	return s.store.Watch(signalKey(owner))
+}
 func (s *stored) Append(ctx context.Context, e Visible) error {
 	for _, id := range []core.ID{e.ID, e.OwnerID, e.Object.ID} {
 		if err := id.Validate(); err != nil {
@@ -54,7 +63,10 @@ func (s *stored) Append(ctx context.Context, e Visible) error {
 		if err = tx.Put(ctx, visibleBucket, key, e); err != nil {
 			return err
 		}
-		return tx.Put(ctx, countersBucket, counter, e.Sequence)
+		if err := tx.Put(ctx, countersBucket, counter, e.Sequence); err != nil {
+			return err
+		}
+		return tx.NotifyAfterCommit(ctx, signalKey(e.OwnerID))
 	})
 }
 
@@ -65,6 +77,9 @@ type cursor struct {
 }
 
 func normalizedTopics(topics []string) ([]string, error) {
+	if len(topics) > 16 {
+		return nil, core.Invalid("topics", "at most 16 topics allowed")
+	}
 	result := append([]string{}, topics...)
 	sort.Strings(result)
 	for i, topic := range result {
@@ -85,7 +100,8 @@ func parseCursor(value string, owner core.ID, topics []string) (uint64, error) {
 	if value == "" {
 		return 0, nil
 	}
-	if len(value) > 2048 {
+	// Covers 16 JSON-escaped 128-byte topics plus owner and sequence.
+	if len(value) > 32<<10 {
 		return 0, core.Invalid("cursor", "invalid cursor")
 	}
 	data, err := base64.RawURLEncoding.DecodeString(value)
@@ -99,49 +115,41 @@ func parseCursor(value string, owner core.ID, topics []string) (uint64, error) {
 	return c.Sequence, nil
 }
 func (s *stored) Replay(ctx context.Context, owner core.ID, q Query) (result core.Page[Visible], err error) {
-	if err = owner.Validate(); err != nil {
-		return result, err
-	}
-	q.Page, err = q.Page.Normalize()
+	q, seq, err := normalizeQuery(owner, q)
 	if err != nil {
 		return result, err
 	}
-	topics, err := normalizedTopics(q.Topics)
-	if err != nil {
-		return result, err
-	}
-	after := q.After
-	if q.Page.Cursor != "" {
-		if after != "" && after != q.Page.Cursor {
-			return result, core.Invalid("cursor", "conflicting cursors")
-		}
-		after = q.Page.Cursor
-	}
-	seq, err := parseCursor(after, owner, topics)
-	if err != nil {
-		return result, err
-	}
+	topics := q.Topics
 	err = s.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		rows, err := tx.Scan(ctx, visibleBucket)
-		if err != nil {
-			return err
-		}
 		items := []Visible{}
-		for _, row := range rows {
-			e, err := persistence.Decode[Visible](row)
+		read := func(topic string) error {
+			filters := []persistence.Filter{persistence.Eq("OwnerID", owner), {Field: "Sequence", Op: ">", Value: seq}}
+			if topic != "" {
+				filters = append(filters, persistence.Eq("Topic", topic))
+			}
+			rows, err := tx.Query(ctx, visibleBucket, persistence.Query{Where: filters, OrderBy: "Sequence", Limit: q.Page.Limit + 1})
 			if err != nil {
 				return err
 			}
-			if e.OwnerID != owner || e.Sequence <= seq {
-				continue
+			for _, row := range rows {
+				e, err := persistence.Decode[Visible](row)
+				if err != nil {
+					return err
+				}
+				items = append(items, e)
 			}
-			if len(topics) > 0 {
-				i := sort.SearchStrings(topics, e.Topic)
-				if i == len(topics) || topics[i] != e.Topic {
-					continue
+			return nil
+		}
+		if len(topics) == 0 {
+			if err := read(""); err != nil {
+				return err
+			}
+		} else {
+			for _, topic := range topics {
+				if err := read(topic); err != nil {
+					return err
 				}
 			}
-			items = append(items, e)
 		}
 		sort.Slice(items, func(i, j int) bool { return items[i].Sequence < items[j].Sequence })
 		if len(items) > q.Page.Limit {
@@ -165,4 +173,28 @@ func Cursor(owner core.ID, topics []string, sequence uint64) (string, error) {
 		return "", err
 	}
 	return encodeCursor(owner, normalized, sequence), nil
+}
+
+// normalizeQuery validates cursors without reading event history.
+func normalizeQuery(owner core.ID, q Query) (Query, uint64, error) {
+	if err := owner.Validate(); err != nil {
+		return q, 0, err
+	}
+	var err error
+	q.Page, err = q.Page.Normalize()
+	if err != nil {
+		return q, 0, err
+	}
+	q.Topics, err = normalizedTopics(q.Topics)
+	if err != nil {
+		return q, 0, err
+	}
+	if q.Page.Cursor != "" {
+		if q.After != "" && q.After != q.Page.Cursor {
+			return q, 0, core.Invalid("cursor", "conflicting cursors")
+		}
+		q.After = q.Page.Cursor
+	}
+	seq, err := parseCursor(q.After, owner, q.Topics)
+	return q, seq, err
 }

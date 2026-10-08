@@ -107,3 +107,49 @@ func TestQuotaQueryPlans(t *testing.T) {
 		}
 	}
 }
+
+func TestRealtimeQueryPlansUseBoundedSequenceIndexes(t *testing.T) {
+	s, err := Open(filepath.Join(t.TempDir(), "realtime.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	for _, topic := range []string{"", "message.created"} {
+		filters := []persistence.Filter{persistence.Eq("OwnerID", "owner"), {Field: "Sequence", Op: ">", Value: 100}}
+		want := "records_query_12"
+		if topic != "" {
+			filters = append(filters, persistence.Eq("Topic", topic))
+			want = "records_query_13"
+		}
+		query, args, err := querySQL("im.visible", persistence.Query{Where: filters, OrderBy: "Sequence", Limit: 101})
+		if err != nil {
+			t.Fatal(err)
+		}
+		rows, err := s.db.QueryContext(t.Context(), "EXPLAIN QUERY PLAN "+query, args...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for rows.Next() {
+			var a, b, c int
+			var detail string
+			if err := rows.Scan(&a, &b, &c, &detail); err != nil {
+				t.Fatal(err)
+			}
+			t.Log(detail)
+			if strings.Contains(detail, "SEARCH") && strings.Contains(detail, want) && strings.Contains(detail, "<expr>>?") {
+				found = true
+			}
+			if strings.Contains(detail, "TEMP B-TREE") {
+				t.Fatal("unbounded sort", detail)
+			}
+		}
+		if err := rows.Err(); err != nil {
+			t.Fatal(err)
+		}
+		rows.Close()
+		if !found {
+			t.Fatal("sequence range index not used", topic)
+		}
+	}
+}
