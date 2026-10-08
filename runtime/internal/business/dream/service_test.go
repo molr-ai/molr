@@ -163,7 +163,7 @@ func TestUncertainAndForgedSources(t *testing.T) {
 		t.Fatal("inference became fact", rows, err)
 	}
 	page, _ = f.memories.List(t.Context(), f.p, memory.Query{})
-	if len(page.Items) != 1 || page.Items[0].State != memory.Pending {
+	if len(page.Items) != 0 {
 		t.Fatal(page)
 	}
 }
@@ -195,7 +195,7 @@ func TestBoundedReplayAndOfflineCatchup(t *testing.T) {
 		t.Fatal(last)
 	}
 }
-func TestConflictConfirmationPreservesOwnerEdit(t *testing.T) {
+func TestConflictRemainsInReviewWithoutConfirmationQueue(t *testing.T) {
 	f := setup(t)
 	f.message(t, 1)
 	old, err := f.memories.Create(t.Context(), f.p, memory.CreateRequest{Mutation: memory.Mutation{IdempotencyKey: "old"}, Text: "项目汇报先写风险", Ref: memory.Ref{Scope: memory.Assistant, AssistantID: "assistant", Path: ".agents/memory/old.md"}})
@@ -207,35 +207,21 @@ func TestConflictConfirmationPreservesOwnerEdit(t *testing.T) {
 	json.Unmarshal([]byte(output(r, "explicit")), &result)
 	result.Memories[0].Replaces = &old.Ref
 	result.Memories[0].ExpectedVersion = old.Version
-	b, _ := json.Marshal(result)
-	if err = f.s.Commit(t.Context(), f.ap, ev(r), string(b)); err != nil {
+	raw, _ := json.Marshal(result)
+	if err = f.s.Commit(t.Context(), f.ap, ev(r), string(raw)); err != nil {
 		t.Fatal(err)
 	}
 	page, _ := f.memories.List(t.Context(), f.p, memory.Query{State: memory.Pending})
-	if len(page.Items) != 1 {
-		t.Fatal(page)
+	if len(page.Items) != 0 {
+		t.Fatal("routine dream created a confirmation queue", page)
 	}
-	candidate := page.Items[0]
-	committed, err := f.s.GetRun(t.Context(), f.p, r.ID)
-	if err != nil || len(committed.Decisions) != 1 {
-		t.Fatal("missing committed decision", committed, err)
+	actual, _ := f.memories.Get(t.Context(), f.p, old.Ref)
+	if actual.Version != old.Version {
+		t.Fatal("owner memory overwritten")
 	}
-	decision := committed.Decisions[0]
-	if decision.Action != "pending" || (decision.Replaces == nil || *decision.Replaces != old.Ref) || decision.PreviousText != old.Text || decision.Text != candidate.Text {
-		t.Fatal("replacement must retain its original text and pending status", decision)
-	}
-	old, err = f.memories.Update(t.Context(), f.p, memory.UpdateRequest{Mutation: memory.Mutation{IdempotencyKey: "owner-edit", ExpectedVersion: old.Version}, Ref: old.Ref, Text: "项目汇报先写成本"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	committed, err = f.s.GetRun(t.Context(), f.p, r.ID)
-	if err != nil || committed.Decisions[0].PreviousText != "项目汇报先写风险" {
-		t.Fatal("later owner edit changed dream history", committed, err)
-	}
-	active := memory.Active
-	_, err = f.memories.Update(t.Context(), f.p, memory.UpdateRequest{Mutation: memory.Mutation{IdempotencyKey: "confirm", ExpectedVersion: candidate.Version}, Ref: candidate.Ref, Text: candidate.Text, Sources: candidate.Sources, State: &active})
-	if core.CodeOf(err) != core.Conflict {
-		t.Fatal("overwrote owner revision", err)
+	run, _ := f.s.GetRun(t.Context(), f.p, r.ID)
+	if len(run.Decisions) != 1 || run.Decisions[0].Action != "deferred" {
+		t.Fatal(run.Decisions)
 	}
 }
 func TestSourceChangedAndAssistantIsolation(t *testing.T) {
@@ -441,17 +427,18 @@ func TestSemanticPathsAndExplicitUpdate(t *testing.T) {
 		{name: "same path create conflicts", action: "create", want: core.Conflict},
 		{name: "explicit update", action: "update"},
 		{name: "stale version conflicts", action: "update", stale: true, want: core.Conflict},
-		{name: "confirmed requires proposal", action: "update", confirmed: true, want: core.Conflict},
+		{name: "confirmed remains protected", action: "update", confirmed: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := setup(t)
 			f.message(t, 1)
 			r := f.request(t, "path-test")
 			ref := memory.Ref{Scope: memory.Assistant, AssistantID: "assistant", Path: ".agents/memory/用户偏好/项目汇报.md"}
-			old, err := f.s.options.Files.Put(t.Context(), memory.Memory{Ref: ref, OwnerID: "owner", Text: "旧的汇报方式", State: memory.Active, Confirmed: tc.confirmed}, "", nil)
+			old, err := f.s.options.Files.Put(t.Context(), memory.Memory{Ref: ref, OwnerID: "owner", Text: "旧的汇报方式", State: memory.Active, Confirmed: tc.confirmed, DreamID: "prior-dream"}, "", nil)
 			if err != nil {
 				t.Fatal(err)
 			}
+			put(t, f.db, runs, "owner/prior-dream", Run{ID: "prior-dream", OwnerID: "owner", AssistantID: "assistant", MemoryVersions: map[string]string{ref.Path: old.Version}})
 			candidate := Candidate{Action: tc.action, Path: ref.Path, Text: "项目汇报先写结论", Evidence: "explicit", Sources: []core.Object{r.Sources[0].Source}}
 			if tc.action == "update" {
 				candidate.ExpectedVersion = old.Version
@@ -474,6 +461,13 @@ func TestSemanticPathsAndExplicitUpdate(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			if tc.confirmed {
+				current, _ := f.memories.Get(t.Context(), f.p, ref)
+				if current.Version != old.Version {
+					t.Fatal("owner memory overwritten")
+				}
+				return
+			}
 			updated, err := f.memories.Get(t.Context(), f.p, ref)
 			if err != nil || updated.Text != candidate.Text || updated.ReplacesVersion != "" {
 				t.Fatal(updated, err)
@@ -485,8 +479,8 @@ func TestSemanticPathsAndExplicitUpdate(t *testing.T) {
 				t.Fatal(err)
 			}
 			retained, err := f.memories.Get(t.Context(), f.p, ref)
-			if err != nil || retained.Version != updated.Version {
-				t.Fatal("undo must retain overwritten files", err)
+			if err != nil || retained.Version != old.Version {
+				t.Fatal("undo must restore the original bytes of automatic updates", err)
 			}
 		})
 	}

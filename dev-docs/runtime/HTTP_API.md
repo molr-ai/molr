@@ -70,7 +70,7 @@ Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugi
 
 ## 路由清单
 
-2026-10-03 按 `runtime/internal/api/*_routes.go` 的注册项核对，含沙盒动作路由。新增或调整路由时同步本表；路径存在不表示当前身份有权访问，部署能力开关仍然生效。认证和通用字段见本文，专项行为见[插件](PLUGINS.md#http-入口)、[做梦](DREAM_MEMORY.md#接口)、[工作台](WORKBENCH.md#runtime-实现)、[成员配额](MULTI_USER.md)及[资源额度](RESOURCE_QUOTAS.md)。
+2026-10-03 按 `runtime/internal/api/*_routes.go` 的注册项核对，含沙盒动作路由。新增或调整路由时同步本表；路径存在不表示当前身份有权访问，部署能力开关仍然生效。认证和通用字段见本文，专项行为见[插件](PLUGINS.md#http-入口)、[做梦](DREAM_MEMORY.md#接口与验证)、[工作台](WORKBENCH.md#runtime-实现)、[成员配额](MULTI_USER.md)及[资源额度](RESOURCE_QUOTAS.md)。
 
 | 方法 | 路径 |
 | --- | --- |

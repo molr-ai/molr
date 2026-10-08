@@ -624,7 +624,7 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 	}, OutputLimit: func(ctx context.Context, p core.Principal, id core.ID) (int, error) {
 		provider, err := adapters.provider(ctx, p, id)
 		return provider.Model.OutputWindow(), err
-	}, PrepareToolResult: fileTools.boundResult, Conversations: chat, DreamDeadline: dreams.Deadline, DreamActive: dreams.Active, DreamStop: dreams.Cancel, DreamPrepare: dreams.Prepare, DreamCommit: func(ctx context.Context, p core.Principal, e event.AssistantEvent, output string) error {
+	}, PrepareToolResult: fileTools.boundResult, Conversations: chat, DreamDeadline: dreams.Deadline, DreamActive: dreams.Active, DreamStop: dreams.Cancel, DreamPrepare: dreams.Prepare, DreamOutput: dreams.SavedOutput, DreamCommit: func(ctx context.Context, p core.Principal, e event.AssistantEvent, output string) error {
 		if err := dreams.Commit(ctx, p, e, output); err != nil {
 			return err
 		}

@@ -74,6 +74,7 @@ type metadata struct {
 	Replaces        *Ref          `yaml:"replaces,omitempty"`
 	ReplacesVersion string        `yaml:"replaces_version,omitempty"`
 	Sources         []core.Object `yaml:"sources,omitempty"`
+	Dependencies    []Dependency  `yaml:"dependencies,omitempty"`
 	CreatedAt       time.Time     `yaml:"created_at,omitempty"`
 	UpdatedAt       time.Time     `yaml:"updated_at,omitempty"`
 }
@@ -105,6 +106,14 @@ func decode(data []byte, m *Memory) error {
 	if h.State != "" && h.State != Active && h.State != Pending && h.State != Superseded {
 		return invalid("state")
 	}
+	if len(h.Dependencies) > 40 {
+		return invalid("dependencies")
+	}
+	for _, d := range h.Dependencies {
+		if d.Ref.Validate(false) != nil || d.Ref.Path == "MEMORY.md" || len(d.Version) != 64 {
+			return invalid("dependencies")
+		}
+	}
 	m.Text = string(body)
 	m.State = state(h.State)
 	m.Confirmed = h.Confirmed
@@ -114,6 +123,7 @@ func decode(data []byte, m *Memory) error {
 	m.Replaces = h.Replaces
 	m.ReplacesVersion = h.ReplacesVersion
 	m.Sources = h.Sources
+	m.Dependencies = h.Dependencies
 	if !h.CreatedAt.IsZero() {
 		m.CreatedAt = h.CreatedAt
 	}
@@ -123,7 +133,7 @@ func decode(data []byte, m *Memory) error {
 	return nil
 }
 func encode(m Memory) ([]byte, error) {
-	h := metadata{m.State, m.Confirmed, m.Context, m.Evidence, m.DreamID, m.Replaces, m.ReplacesVersion, m.Sources, m.CreatedAt, m.UpdatedAt}
+	h := metadata{State: m.State, Confirmed: m.Confirmed, Context: m.Context, Evidence: m.Evidence, DreamID: m.DreamID, Replaces: m.Replaces, ReplacesVersion: m.ReplacesVersion, Sources: m.Sources, Dependencies: m.Dependencies, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt}
 	data, err := yaml.Marshal(h)
 	if err != nil {
 		return nil, err
@@ -286,7 +296,7 @@ func (f *Files) Put(ctx context.Context, m Memory, expected string, check func()
 	return f.put(ctx, m, expected, check)
 }
 func (f *Files) put(ctx context.Context, m Memory, expected string, check func() error) (Memory, error) {
-	if !validText(m.Text, 65536) || !utf8.ValidString(m.Text) || len(m.Sources) > 16 {
+	if !validText(m.Text, 65536) || !utf8.ValidString(m.Text) || len(m.Sources) > 256 || len(m.Dependencies) > 40 {
 		return m, invalid("memory")
 	}
 	if err := validateMetadata(m.Context); err != nil {

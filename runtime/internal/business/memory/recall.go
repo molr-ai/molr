@@ -42,8 +42,9 @@ func scrubHistory(ctx context.Context, store persistence.Store, m Memory) error 
 		}
 		for _, row := range rows {
 			var r struct {
-				OwnerID core.ID
-				Sources []struct{ Source core.Object }
+				OwnerID       core.ID
+				MemorySources []core.Object
+				Sources       []struct{ Source core.Object }
 			}
 			if json.Unmarshal(row.Data, &r) != nil {
 				return core.NewError(core.Internal, "invalid dream record")
@@ -52,6 +53,13 @@ func scrubHistory(ctx context.Context, store persistence.Store, m Memory) error 
 				continue
 			}
 			affected := false
+			for _, a := range r.MemorySources {
+				for _, b := range m.Sources {
+					if a == b {
+						affected = true
+					}
+				}
+			}
 			for _, src := range r.Sources {
 				for _, ref := range m.Sources {
 					if src.Source == ref {

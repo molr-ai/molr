@@ -37,6 +37,19 @@ func (s *Coordinator) run(ctx context.Context, p core.Principal, e event.Assista
 	}
 	return r, nil
 }
+
+// SavedOutput resumes a durable file plan without asking the provider to regenerate it.
+func (s *Coordinator) SavedOutput(ctx context.Context, p core.Principal, e event.AssistantEvent) (string, error) {
+	r, err := s.run(ctx, p, e)
+	if err != nil {
+		return "", err
+	}
+	if r.State == "completed" && r.Output == "" {
+		return `{"Summary":"Previously completed; retained output cleared.","Memories":[]}`, nil
+	}
+	return r.Output, nil
+}
+
 func (s *Coordinator) ensureOpen(ctx context.Context, r Run) error {
 	if err := persistence.CheckContext(ctx); err != nil {
 		return err
@@ -64,42 +77,59 @@ func (s *Coordinator) Prepare(ctx context.Context, p core.Principal, e event.Ass
 	if err != nil {
 		return "", err
 	}
+	// Files and batch progress are already durable; only Agent bookkeeping remains.
+	if r.State == "completed" {
+		return "{}", nil
+	}
+
 	if err = s.ensureOpen(ctx, r); err != nil {
 		return "", err
 	}
 	if err = s.checkSources(ctx, p, r); err != nil {
 		return "", err
 	}
-	existing := []memory.Memory{}
-	for _, scope := range []memory.Scope{memory.Assistant, memory.Global} {
-		page, err := s.options.Memories.List(ctx, p, memory.Query{Scope: scope, Page: core.PageRequest{Limit: 200}})
+	existing, err := s.memories(ctx, p)
+	if err != nil {
+		return "", err
+	}
+	relevant, currentCore := comparison(r, existing)
+	if r.Compared != nil && r.Output == "" {
+		relevant = nil
+		currentCore = nil
+		for _, d := range r.Compared {
+			m, err := s.options.Memories.Get(ctx, p, d.Ref)
+			if err != nil || m.Version != d.Version {
+				return "", core.NewError(core.Conflict, "comparison changed after preparation")
+			}
+			if m.Scope == memory.Assistant && m.Summary {
+				currentCore = &m
+			} else {
+				relevant = append(relevant, m)
+			}
+		}
+	}
+	protected := []memory.Ref{}
+	inspect := append([]memory.Memory{}, relevant...)
+	if currentCore != nil {
+		inspect = append(inspect, *currentCore)
+	}
+	for _, m := range inspect {
+		held, err := s.userMaintained(ctx, m)
 		if err != nil {
 			return "", err
 		}
-		existing = append(existing, page.Items...)
-	}
-	// Bound comparison context independently of the evidence batch.
-	relevant := []memory.Memory{}
-	comparisonBytes := 0
-	query := ""
-	for _, v := range r.Sources {
-		query += " " + v.Text
-	}
-	for _, m := range existing {
-		if len(relevant) >= 40 {
-			break
-		}
-		encoded, _ := json.Marshal(m)
-		if memory.Score(query, m.Text+" "+m.Context) > 0 && comparisonBytes+len(encoded) < 16<<10 {
-			comparisonBytes += len(encoded)
-			relevant = append(relevant, m)
+		if held {
+			protected = append(protected, m.Ref)
 		}
 	}
 	payload, _ := json.Marshal(struct {
-		Day      string
-		Sources  []Evidence
-		Existing []memory.Memory
-	}{r.Day, r.Sources, relevant})
+		Day         string
+		Maintenance bool
+		Sources     []Evidence
+		Existing    []memory.Memory
+		Core        *memory.Memory
+		Protected   []memory.Ref
+	}{r.Day, r.Maintenance, r.Sources, relevant, currentCore, protected})
 	err = s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		current, err := s.run(ctx, p, e)
 		if err != nil {
@@ -116,6 +146,15 @@ func (s *Coordinator) Prepare(ctx context.Context, p core.Principal, e event.Ass
 			v.Started = true
 			if err := saveSession(ctx, tx, v); err != nil {
 				return err
+			}
+		}
+		if current.Output == "" && current.Compared == nil {
+			current.Compared = []memory.Dependency{}
+			for _, m := range relevant {
+				current.Compared = append(current.Compared, memory.Dependency{Ref: m.Ref, Version: m.Version})
+			}
+			if currentCore != nil {
+				current.Compared = append(current.Compared, memory.Dependency{Ref: currentCore.Ref, Version: currentCore.Version})
 			}
 		}
 		current.State = "running"
@@ -156,7 +195,7 @@ func (s *Coordinator) Commit(ctx context.Context, p core.Principal, e event.Assi
 	var result Result
 	decoder := json.NewDecoder(strings.NewReader(output))
 	decoder.DisallowUnknownFields()
-	if len(output) > 32<<10 || decoder.Decode(&result) != nil || !json.Valid([]byte(output)) || strings.TrimSpace(result.Summary) == "" || len(result.Summary) > 8000 || len(result.Memories) > 8 || sensitive(result.Summary) {
+	if len(output) > 64<<10 || decoder.Decode(&result) != nil || !json.Valid([]byte(output)) || strings.TrimSpace(result.Summary) == "" || len(result.Summary) > 8000 || len(result.Memories) > 8 || sensitive(result.Summary) {
 		return core.Invalid("dream", "invalid consolidation result")
 	}
 	s.commitMu.Lock()
@@ -182,13 +221,19 @@ func (s *Coordinator) Commit(ctx context.Context, p core.Principal, e event.Assi
 		for _, src := range r.Sources {
 			allowed[src.Source] = src
 		}
-		existing := []memory.Memory{}
-		for _, scope := range []memory.Scope{memory.Assistant, memory.Global} {
-			page, err := s.options.Memories.List(ctx, p, memory.Query{Scope: scope, Page: core.PageRequest{Limit: 200}})
-			if err != nil {
-				return err
+		existing, err := s.memories(ctx, p)
+		if err != nil {
+			return err
+		}
+		for _, m := range existing {
+			if m.State != memory.Active || !compared(r, m.Ref, m.Version) {
+				continue
 			}
-			existing = append(existing, page.Items...)
+			for _, source := range m.Sources {
+				if _, ok := allowed[source]; !ok {
+					allowed[source] = Evidence{Source: source, Kind: "memory_" + m.Evidence}
+				}
+			}
 		}
 		if s.options.Files == nil {
 			return core.NewError(core.Unavailable, "memory file storage unavailable")
@@ -197,6 +242,14 @@ func (s *Coordinator) Commit(ctx context.Context, p core.Principal, e event.Assi
 		expected := map[string]string{}
 		prior := r
 		r.MemoryFiles = nil
+		r.MemorySources = nil
+		provenance := map[core.Object]bool{}
+		retainSource := func(ref core.Object) {
+			if !provenance[ref] {
+				r.MemorySources = append(r.MemorySources, ref)
+				provenance[ref] = true
+			}
+		}
 		r.Decisions = nil
 		r.MemoryVersions = map[string]string{}
 		r.MemoryUpdated = map[string]bool{}
@@ -211,17 +264,22 @@ func (s *Coordinator) Commit(ctx context.Context, p core.Principal, e event.Assi
 		}
 		seen := map[string]bool{}
 		for _, c := range result.Memories {
-			if sensitive(c.Text+" "+c.Context) || strings.TrimSpace(c.Text) == "" || len(c.Text) > 4800 || len(c.Context) > 1024 || len(c.Sources) == 0 || len(c.Sources) > 16 {
+			if sensitive(c.Text+" "+c.Context+" "+c.Reason) || strings.TrimSpace(c.Text) == "" || len(c.Text) > 4800 || len(c.Context) > 1024 || len(c.Sources) == 0 || len(c.Sources) > 256 || len(c.Reason) > 1024 {
 				return core.Invalid("memory", "invalid dream memory")
 			}
 			explicit, verified := false, false
 			for _, ref := range c.Sources {
 				src, ok := allowed[ref]
+				if !ok && prior.Output == output && prior.MemoryVersions[c.Path] != "" {
+					src = Evidence{Kind: "memory_" + c.Evidence}
+					ok = true
+				}
 				if !ok {
 					return core.Invalid("sources", "source outside evidence snapshot")
 				}
-				explicit = explicit || src.Kind == "user"
-				verified = verified || src.Kind == "task_completed"
+				retainSource(ref)
+				explicit = explicit || src.Kind == "user" || src.Kind == "memory_explicit"
+				verified = verified || src.Kind == "task_completed" || src.Kind == "memory_verified"
 			}
 			state := memory.Pending
 			switch c.Evidence {
@@ -237,6 +295,10 @@ func (s *Coordinator) Commit(ctx context.Context, p core.Principal, e event.Assi
 			default:
 				return core.Invalid("evidence", "invalid evidence kind")
 			}
+			if state == memory.Pending || c.Replaces != nil {
+				r.Decisions = append(r.Decisions, Decision{Text: c.Text, Action: "deferred", Reason: "insufficient_or_conflicting_evidence"})
+				continue
+			}
 			ref := memory.Ref{Scope: memory.Assistant, AssistantID: p.SubjectID, Path: c.Path}
 			if err := ref.Validate(false); err != nil {
 				return err
@@ -248,34 +310,36 @@ func (s *Coordinator) Commit(ctx context.Context, p core.Principal, e event.Assi
 				return core.Invalid("path", "duplicate candidate path")
 			}
 			seen[c.Path] = true
-			if c.Action != "create" && c.Action != "update" {
-				return core.Invalid("action", "create or update required")
+			if c.Action != "create" && c.Action != "update" && c.Action != "retire" {
+				return core.Invalid("action", "create, update or retire required")
 			}
-			if c.Action == "update" && c.Replaces != nil {
-				return core.Invalid("replaces", "revision proposals must use a separate create path")
-			}
-			if c.Action == "update" && len(c.ExpectedVersion) != 64 {
+			if c.Action != "create" && len(c.ExpectedVersion) != 64 {
 				return core.Invalid("expected_version", "existing file version required")
 			}
 			if c.Action == "create" && c.Replaces == nil && c.ExpectedVersion != "" {
 				return core.Invalid("expected_version", "creation has no previous version")
 			}
-			if c.Action == "update" && prior.MemoryVersions[c.Path] == "" {
+			if c.Action != "create" && prior.MemoryVersions[c.Path] == "" {
 				old, err := s.options.Memories.Get(ctx, p, ref)
 				if err != nil {
 					return err
 				}
-				if old.Version != c.ExpectedVersion {
+				if old.Version != c.ExpectedVersion || !compared(r, ref, old.Version) {
 					return core.NewError(core.Conflict, "comparison file changed")
 				}
-				if state == memory.Pending && old.State != memory.Pending {
-					return core.NewError(core.Conflict, "uncertain changes require a separate proposal file")
+				protected, err := s.userMaintained(ctx, old)
+				if err != nil {
+					return err
 				}
-				if old.Confirmed {
-					return core.NewError(core.Conflict, "confirmed file requires a separate semantic revision proposal")
+				if protected {
+					r.Decisions = append(r.Decisions, Decision{Text: c.Text, Action: "deferred", Reason: "user_maintained", Memory: &ref})
+					continue
 				}
 			}
 			m := memory.Memory{Ref: ref, OwnerID: p.OwnerID, Text: c.Text, Context: c.Context, Evidence: c.Evidence, State: state, Sources: c.Sources, DreamID: r.ID, Replaces: c.Replaces, ReplacesVersion: c.ExpectedVersion, CreatedAt: r.CreatedAt, UpdatedAt: r.CreatedAt}
+			if c.Action == "retire" {
+				m.State = memory.Superseded
+			}
 
 			blocked, err := s.options.Files.Suppressed(ctx, m)
 			if err != nil {
@@ -287,6 +351,14 @@ func (s *Coordinator) Commit(ctx context.Context, p core.Principal, e event.Assi
 			}
 			duplicate := false
 			previousText := ""
+			if c.Action != "create" {
+				for _, old := range existing {
+					if old.Ref == ref {
+						previousText = old.Text
+						break
+					}
+				}
+			}
 			for _, old := range existing {
 				if old.DreamID == r.ID || prior.MemoryVersions[old.Path] != "" {
 					continue
@@ -303,20 +375,6 @@ func (s *Coordinator) Commit(ctx context.Context, p core.Principal, e event.Assi
 				r.Decisions = append(r.Decisions, Decision{Text: c.Text, Action: "discarded", Reason: "duplicate"})
 				continue
 			}
-			if c.Replaces != nil {
-				old, err := s.options.Memories.Get(ctx, p, *c.Replaces)
-				if err != nil {
-					return err
-				}
-				if old.Version != c.ExpectedVersion {
-					return core.NewError(core.Conflict, "comparison file changed")
-				}
-				if old.Ref == ref {
-					return core.Invalid("path", "proposal requires a different file")
-				}
-				m.State = memory.Pending
-				previousText = old.Text
-			}
 			if c.Action == "create" && prior.MemoryVersions[c.Path] == "" {
 				if _, err := s.options.Memories.Get(ctx, p, ref); err == nil {
 					return core.NewError(core.Conflict, "semantic filename already exists")
@@ -325,7 +383,7 @@ func (s *Coordinator) Commit(ctx context.Context, p core.Principal, e event.Assi
 				}
 			}
 
-			if c.Action == "update" && c.Replaces == nil {
+			if c.Action != "create" && c.Replaces == nil {
 				m.ReplacesVersion = ""
 			}
 			m, err = s.options.Files.Preview(ctx, m)
@@ -333,7 +391,7 @@ func (s *Coordinator) Commit(ctx context.Context, p core.Principal, e event.Assi
 				return err
 			}
 			planned = append(planned, m)
-			if c.Action == "update" {
+			if c.Action != "create" {
 				r.MemoryUpdated[m.Path] = true
 				expected[m.Path] = c.ExpectedVersion
 				m.ReplacesVersion = ""
@@ -342,7 +400,48 @@ func (s *Coordinator) Commit(ctx context.Context, p core.Principal, e event.Assi
 
 			existing = append(existing, m)
 			r.MemoryFiles = append(r.MemoryFiles, m.Ref)
-			r.Decisions = append(r.Decisions, Decision{Text: c.Text, Action: string(m.State), Reason: m.Evidence, Memory: &m.Ref, Replaces: m.Replaces, PreviousText: previousText})
+			r.Decisions = append(r.Decisions, Decision{Text: c.Text, Action: string(m.State), Reason: func() string {
+				if c.Reason != "" {
+					return c.Reason
+				}
+				return m.Evidence
+			}(), Memory: &m.Ref, Replaces: m.Replaces, PreviousText: previousText})
+		}
+		if result.Core != nil {
+			coreRef := memory.Ref{Scope: memory.Assistant, AssistantID: p.SubjectID, Path: "MEMORY.md"}
+			old, readErr := s.options.Memories.Get(ctx, p, coreRef)
+			if readErr != nil && !persistence.Missing(readErr) {
+				return readErr
+			}
+			protected := false
+			if readErr == nil {
+				protected, err = s.userMaintained(ctx, old)
+				if err != nil {
+					return err
+				}
+			}
+			if protected && prior.MemoryVersions[coreRef.Path] != "" {
+				return core.NewError(core.Conflict, "core memory was edited after partial commit")
+			}
+			if protected {
+				r.Decisions = append(r.Decisions, Decision{Text: result.Core.Text, Action: "deferred", Reason: "user_maintained", Memory: &coreRef})
+			} else {
+				m, err := s.coreMemory(ctx, p, prior, *result.Core, existing, planned)
+				if err != nil {
+					return err
+				}
+				for _, source := range m.Sources {
+					retainSource(source)
+				}
+				planned = append(planned, m)
+				if result.Core.ExpectedVersion != "" {
+					r.MemoryUpdated[m.Path] = true
+					expected[m.Path] = result.Core.ExpectedVersion
+				}
+				r.MemoryVersions[m.Path] = m.Version
+				r.MemoryFiles = append(r.MemoryFiles, m.Ref)
+				r.Decisions = append(r.Decisions, Decision{Text: m.Text, Action: "core", Reason: result.Core.Reason, Memory: &m.Ref, PreviousText: old.Text})
+			}
 		}
 		r.Output = output
 		r.Summary = result.Summary
@@ -373,6 +472,15 @@ func (s *Coordinator) Commit(ctx context.Context, p core.Principal, e event.Assi
 			if err = s.checkSources(ctx, p, current); err != nil {
 				return err
 			}
+			for _, d := range r.Compared {
+				actual, err := s.options.Memories.Get(ctx, p, d.Ref)
+				if err != nil {
+					return core.NewError(core.Conflict, "comparison file disappeared")
+				}
+				if actual.Version != d.Version && !(r.MemoryStarted[d.Ref.Path] && d.Ref.Scope == memory.Assistant && actual.Version == r.MemoryVersions[d.Ref.Path]) {
+					return core.NewError(core.Conflict, "comparison file changed during commit")
+				}
+			}
 			return s.options.Authorizer.Require(ctx, p, policy.CheckRequest{Target: core.Object{Kind: "memory"}, Action: policy.Write})
 		}
 		if err = save(); err != nil {
@@ -392,6 +500,11 @@ func (s *Coordinator) Commit(ctx context.Context, p core.Principal, e event.Assi
 			if err = check(ctx); err != nil {
 				return err
 			}
+			if r.MemoryUpdated[m.Path] {
+				if err = s.options.Files.BackupDream(ctx, r.ID, m, expected[m.Path], func() error { return check(ctx) }); err != nil {
+					return err
+				}
+			}
 			r.MemoryStarted[m.Path] = true
 			if err = save(); err != nil {
 				return err
@@ -406,11 +519,17 @@ func (s *Coordinator) Commit(ctx context.Context, p core.Principal, e event.Assi
 			}
 		}
 		r.ReviewPath = fmt.Sprintf(".agents/reviews/%s/第%d批回顾.md", r.Day, r.Batch)
-		refs := []core.Object{}
+		refs := append([]core.Object{}, r.MemorySources...)
 		for _, source := range r.Sources {
 			refs = append(refs, source.Source)
 		}
-		r.ReviewVersion, err = s.options.Files.WriteReview(ctx, p.OwnerID, p.SubjectID, r.ID, r.ReviewPath, "# "+r.Day+" 回顾\n\n"+result.Summary, refs, func() error { return check(ctx) })
+		reviewText := "# " + r.Day + " 回顾\n\n" + result.Summary
+		for _, decision := range r.Decisions {
+			if decision.Action == "deferred" {
+				reviewText += "\n\n## 未沉淀的观察 / Unconsolidated observation\n\n" + decision.Text + "\n\n" + decision.Reason
+			}
+		}
+		r.ReviewVersion, err = s.options.Files.WriteReview(ctx, p.OwnerID, p.SubjectID, r.ID, r.ReviewPath, reviewText, refs, func() error { return check(ctx) })
 		if err != nil {
 			return err
 		}

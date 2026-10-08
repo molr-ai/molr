@@ -32,6 +32,16 @@ func (s *Coordinator) Undo(ctx context.Context, p core.Principal, req UndoReques
 			return core.NewError(core.FailedPrecondition, "only completed dreams can be reverted")
 		}
 		for _, ref := range r.MemoryFiles {
+			if r.MemoryUpdated[ref.Path] {
+				restored, err := s.options.Files.RestoreDream(ctx, p.OwnerID, r.ID, ref, r.MemoryVersions[ref.Path], func() error { return s.authorize(ctx, p, r.AssistantID, true) })
+				if err != nil {
+					return err
+				}
+				if !restored {
+					r.UndoRetained = append(r.UndoRetained, ref)
+				}
+				continue
+			}
 			m, err := s.options.Memories.Get(ctx, p, ref)
 			if persistence.Missing(err) {
 				continue
@@ -39,7 +49,7 @@ func (s *Coordinator) Undo(ctx context.Context, p core.Principal, req UndoReques
 			if err != nil {
 				return err
 			}
-			if r.MemoryUpdated[ref.Path] || m.DreamID != r.ID || m.Version != r.MemoryVersions[ref.Path] || m.Confirmed {
+			if m.DreamID != r.ID || m.Version != r.MemoryVersions[ref.Path] || m.Confirmed {
 				r.UndoRetained = append(r.UndoRetained, ref)
 				continue
 			}

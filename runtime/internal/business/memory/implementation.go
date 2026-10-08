@@ -177,6 +177,8 @@ func (s *service) Update(ctx context.Context, p core.Principal, req UpdateReques
 		}
 		if p.Kind == core.ActorOwner {
 			v.Confirmed = true
+			// Owner-maintained cognition no longer follows automatic dependencies.
+			v.Dependencies = nil
 		}
 		if req.ReplacesVersion != nil {
 			if p.Kind != core.ActorOwner {

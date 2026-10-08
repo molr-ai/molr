@@ -190,3 +190,6 @@ Clone/返聘授权契约细化：新授权具有新 ID，并绑定目标助理�
 | `internal/business/memory` | `Files.RemoveReview` | `TestReviewFilesUseSemanticPathsAndForgetSourceReferences` |
 
 | `internal/avatar` | `Normalize` | `internal/auth.TestProfileAvatarLifecycleAndIsolation`、`internal/business/assistant.TestAvatarImageCropAndLimits` |
+
+| `internal/business/dream` | `Coordinator.SavedOutput` | `TestDurablePlanSurvivesFinalTransactionFailure` |
+| `internal/business/memory` | `Files.BackupDream`, `Files.RestoreDream` | `TestDreamHistoryRestoresExactBytesAndProtectsLaterEdits` |

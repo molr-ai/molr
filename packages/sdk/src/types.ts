@@ -27,7 +27,7 @@ export type ResourceConstraints = {
 export type TemporaryConstraints = { limits: ResourceConstraints; until: string };
 export type Grant = { Constraints?: ResourceConstraints; Temporary?: TemporaryConstraints; ID: ID; AssistantID: ID; ResourceID: ID; Actions: string[]; Scope: { FullAccess?: boolean; ModelID: ID; PathPrefixes: string[] | null; ReadOnly: boolean }; RevokedAt: string | null; ExpiresAt: string | null; Version: number };
 export type MemoryRef = { Scope: 'assistant' | 'global'; AssistantID: ID; Path: string };
-export type Memory = MemoryRef & { State: 'active' | 'pending' | 'superseded'; Context?: string; Evidence?: string; Confirmed?: boolean; DreamID?: ID; Replaces?: MemoryRef; ReplacesVersion?: string; UpdatedAt?: string; Text: string; Sources: { Kind: string; ID: string }[] | null; Version: string; Summary: boolean };
+export type Memory = MemoryRef & { Dependencies?: { Ref: MemoryRef; Version: string }[]; State: 'active' | 'pending' | 'superseded'; Context?: string; Evidence?: string; Confirmed?: boolean; DreamID?: ID; Replaces?: MemoryRef; ReplacesVersion?: string; UpdatedAt?: string; Text: string; Sources: { Kind: string; ID: string }[] | null; Version: string; Summary: boolean };
 export type MemoryEntry = MemoryRef & { Kind: 'file' | 'directory'; Version: string; State?: Memory['State']; UpdatedAt?: string };
 export type MemoryDirectory = MemoryRef & { Version: string; Entries: MemoryEntry[] };
 
@@ -73,7 +73,7 @@ export type TurnMetrics = {
 };
 
 export type DreamConfig = { MaxDurationSeconds: number; AssistantID: ID; Enabled: boolean; Hour: number; Minute: number; Timezone: string; NextDay: string; Version: number };
-export type DreamRun = { ReviewPath?: string; ReviewRetained?: boolean; UndoRetained?: MemoryRef[]; SessionID?: ID; SessionState?: string; Deadline?: string; Batch?: number; Backfill?: boolean; Decisions?: { Text: string; Action: string; Reason: string; Memory?: MemoryRef; Replaces?: MemoryRef; PreviousText?: string }[]; ID: ID; AssistantID: ID; Day: string; Timezone: string; State: string; Summary: string; Sources: { Source: { Kind: string; ID: ID }; At: string; Kind: string }[]; MemoryFiles: MemoryRef[]; FailureCode: string; UpdatedAt: string };
+export type DreamRun = { Maintenance?: boolean; ReviewPath?: string; ReviewRetained?: boolean; UndoRetained?: MemoryRef[]; SessionID?: ID; SessionState?: string; Deadline?: string; Batch?: number; Backfill?: boolean; Decisions?: { Text: string; Action: string; Reason: string; Memory?: MemoryRef; Replaces?: MemoryRef; PreviousText?: string }[]; ID: ID; AssistantID: ID; Day: string; Timezone: string; State: string; Summary: string; Sources: { Source: { Kind: string; ID: ID }; At: string; Kind: string }[]; MemoryFiles: MemoryRef[]; FailureCode: string; UpdatedAt: string };
 
 export type DreamWindow = { AssistantID: ID; Start: string; End: string; Timezone: string; State: string; Manual: boolean; SessionID: ID };
 

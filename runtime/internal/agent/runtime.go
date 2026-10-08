@@ -34,6 +34,7 @@ type Options struct {
 	DreamDeadline        func(context.Context, core.Principal, event.AssistantEvent) (time.Time, error)
 	DreamActive          func(context.Context, core.Principal, event.AssistantEvent) (bool, error)
 	DreamStop            func(context.Context, core.Principal, core.ID) error
+	DreamOutput          func(context.Context, core.Principal, event.AssistantEvent) (string, error)
 	DreamPrepare         func(context.Context, core.Principal, event.AssistantEvent) (string, error)
 	DreamCommit          func(context.Context, core.Principal, event.AssistantEvent, string) error
 	Conversations        conversation.Service
@@ -446,9 +447,11 @@ func (e *Engine) Handle(ctx context.Context, t Turn) (outcome Outcome, resultErr
 		if err != nil {
 			return Outcome{}, err
 		}
-		var stop context.CancelFunc
-		runCtx, stop = context.WithTimeout(runCtx, deadline.Sub(e.options.Now()))
-		defer stop()
+		if !deadline.IsZero() {
+			var stop context.CancelFunc
+			runCtx, stop = context.WithTimeout(runCtx, deadline.Sub(e.options.Now()))
+			defer stop()
+		}
 		defer func() {
 			if runCtx.Err() == context.DeadlineExceeded && outcome.Checkpoint.LastEventID == "" {
 				resultErr = core.NewError(core.DeadlineExceeded, "dream deadline reached")
@@ -487,6 +490,17 @@ func (e *Engine) Handle(ctx context.Context, t Turn) (outcome Outcome, resultErr
 			progress = previous
 		} else if !persistence.Missing(loadErr) {
 			return Outcome{}, loadErr
+		}
+		if e.options.DreamOutput != nil {
+			saved, err := e.options.DreamOutput(runCtx, t.Principal, t.Event)
+			if err != nil {
+				return Outcome{}, err
+			}
+			if saved != "" {
+				progress.Inputs = []model.Input{{Role: model.System, Text: prompt.Text("dream", nil)}, {Role: model.User, Text: prompt.Text("dream-evidence", evidence)}, {Role: model.Assistant, Text: saved}}
+				progress.Finished = true
+				progress.Response = nil
+			}
 		}
 	} else {
 		checkpoint, progress, err = e.prepareExecution(runCtx, t)
@@ -755,6 +769,19 @@ resume:
 		return Outcome{}, err
 	}
 	out := Outcome{Status: Status{AssistantID: t.Event.AssistantID, State: state, ActiveTaskID: t.Event.TaskID, ExecutionID: t.Principal.ExecutionID, WaitingReason: waiting, UpdatedAt: e.options.Now().UTC()}, Checkpoint: Checkpoint{OwnerID: t.Principal.OwnerID, AssistantID: t.Event.AssistantID, ExecutionID: t.Principal.ExecutionID, FormatVersion: 1, Sequence: checkpoint.Sequence + 1, Context: private, LastEventID: t.Event.ID, SavedAt: e.options.Now().UTC()}}
+	// Dream files have their own durable commit plan. Never place filesystem
+	// effects inside the status/checkpoint transaction: its rollback cannot undo files.
+	if t.Event.Kind == event.DreamDue {
+		if !progress.Finished {
+			return Outcome{}, core.NewError(core.FailedPrecondition, "dream incomplete")
+		}
+		if err := e.authorize(runCtx, t.Principal, t.Event.AssistantID, policy.Execute); err != nil {
+			return Outcome{}, err
+		}
+		if err := e.options.DreamCommit(runCtx, t.Principal, t.Event, progress.Inputs[len(progress.Inputs)-1].Text); err != nil {
+			return Outcome{}, err
+		}
+	}
 	err = e.store.Write(runCtx, func(ctx context.Context, tx persistence.Tx) error {
 		if err := e.authorize(ctx, t.Principal, t.Event.AssistantID, policy.Execute); err != nil {
 			return err
@@ -788,12 +815,6 @@ resume:
 			}
 		}
 		if t.Event.Kind == event.DreamDue {
-			if !progress.Finished {
-				return core.NewError(core.FailedPrecondition, "dream incomplete")
-			}
-			if err := e.options.DreamCommit(ctx, t.Principal, t.Event, progress.Inputs[len(progress.Inputs)-1].Text); err != nil {
-				return err
-			}
 			if e.options.DreamActive != nil {
 				active, err := e.options.DreamActive(ctx, t.Principal, t.Event)
 				if err != nil {

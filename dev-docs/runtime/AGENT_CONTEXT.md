@@ -140,4 +140,4 @@ Checkpoint 的私有 JSON 增加 `Current`（当前事件、执行 ID、工具�
 
 ## 本地共享文件来源
 
-Runtime 同时从本地 `/global` 与 `/work` 按上述固定入口和访问范围发现 AGENTS.md，并浅层发现 `.agents/skills/*/SKILL.md`，路径及作用范围保留原前缀，共享来源在助理来源之前组合。Skill 只有对应本地 file_read 成功才加载正文，远程结果不能激活本地技能。记忆独立作为参考数据，仅根目录 MEMORY.md 摘要自动加载；详细文件通过通用 file_search/file_read 主动检索。最近的文件读取／搜索引用按路径核验版本，变更或删除后旧片段失效。远程电脑不参与自动发现。详见 [文件记忆](DREAM_MEMORY.md#文件是唯一事实来源)。
+Runtime 同时从本地 `/global` 与 `/work` 按上述固定入口和访问范围发现 AGENTS.md，并浅层发现 `.agents/skills/*/SKILL.md`，路径及作用范围保留原前缀，共享来源在助理来源之前组合。Skill 只有对应本地 file_read 成功才加载正文，远程结果不能激活本地技能。记忆独立作为参考数据，仅根目录 MEMORY.md 摘要自动加载；详细文件通过通用 file_search/file_read 主动检索。最近的文件读取／搜索引用按路径核验版本，变更或删除后旧片段失效。远程电脑不参与自动发现。详见 [文件记忆](DREAM_MEMORY.md#三层文件模型)。

@@ -139,8 +139,58 @@ func (f *Files) forgetReviews(ctx context.Context, m Memory, check func() error)
 	return nil
 }
 func (s *service) scrub(ctx context.Context, p core.Principal, m Memory) error {
+	if err := s.repo.forgetDerived(ctx, m, func() error { return s.access(ctx, p, m.Ref, true, false) }); err != nil {
+		return err
+	}
+
+	if err := s.repo.forgetDreamHistory(ctx, m, func() error { return s.access(ctx, p, m.Ref, true, false) }); err != nil {
+		return err
+	}
 	if err := s.repo.forgetReviews(ctx, m, func() error { return s.access(ctx, p, m.Ref, true, false) }); err != nil {
 		return err
 	}
 	return scrubHistory(ctx, s.store, m)
+}
+
+// Generated core cognition must not retain an explicitly forgotten topic.
+func (f *Files) forgetDerived(ctx context.Context, m Memory, check func() error) error {
+	roots, err := f.roots(ctx, m.OwnerID)
+	if err != nil {
+		return err
+	}
+	for _, root := range roots {
+		if root.Scope != Assistant || (m.Scope == Assistant && root.AssistantID != m.AssistantID) {
+			continue
+		}
+		ref := Ref{Scope: root.Scope, AssistantID: root.AssistantID, Path: "MEMORY.md"}
+		current, err := f.Get(ctx, m.OwnerID, ref)
+		if core.CodeOf(err) == core.NotFound {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if current.Confirmed || current.DreamID == "" {
+			continue
+		}
+		affected := false
+		for _, dep := range current.Dependencies {
+			if dep.Ref == m.Ref {
+				affected = true
+			}
+		}
+		for _, a := range current.Sources {
+			for _, b := range m.Sources {
+				if a == b {
+					affected = true
+				}
+			}
+		}
+		if affected {
+			if err = f.Delete(ctx, current, current.Version, false, check); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

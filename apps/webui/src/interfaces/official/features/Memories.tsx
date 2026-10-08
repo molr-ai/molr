@@ -21,6 +21,10 @@ const baseName = (p: string) => p.slice(p.lastIndexOf('/') + 1);
 export function Memories({ assistants }: { assistants: Assistant[] }) {
   const { t } = useCopy(), c = useMemoryCopy(), action = useAction();
   const [assistant, setAssistant] = useState(''), [directory, setDirectory] = useState(memoryRoot);
+  const activeAssistants = assistants.filter(a => a.State === 'active');
+  useEffect(() => {
+    if (assistants.some(a => a.ID === assistant && a.State !== 'active')) { setAssistant(''); setDirectory(memoryRoot); }
+  }, [assistant, assistants]);
   const ref: MemoryRef = { Scope: assistant ? 'assistant' : 'global', AssistantID: assistant, Path: directory };
   const query = useQuery<MemoryDirectory>(`/api/memories/directory?${refQuery(ref)}`);
   const [editing, setEditing] = useState<{ ref: MemoryRef; memory?: Memory } | null>(null);
@@ -43,12 +47,12 @@ export function Memories({ assistants }: { assistants: Assistant[] }) {
   }, []);
   const crumbs = directory.slice(memoryRoot.length).split('/').filter(Boolean);
   return <div className="settings-section memory-workspace">
-    <p className="muted">{c.zh ? '按目录管理 Markdown 记忆。MEMORY.md 摘要自动加载，详细文件由助理按需检索；文件名用于表达主题。' : 'Organize Markdown memories in folders. MEMORY.md summaries load automatically; the assistant searches detailed files when needed. Name files by topic.'}</p>
-    <Select size="sm" label={c.zh ? '所属范围' : 'Location'} value={assistant} onValueChange={value => { setAssistant(value); setDirectory(memoryRoot); }} options={[{ value: '', label: c.zh ? '全局 · 当前账号共享' : 'Global · shared within your account' }, ...assistants.map(a => ({ value: a.ID, label: a.Name }))]} />
+    <p className="muted">{c.zh ? '经历与回顾沉淀为主题记忆，再提炼到 MEMORY.md 核心记忆。核心记忆自动加载，主题文件按需检索；做梦会自动维护，无需逐条确认。' : 'Experiences become topic memories, then stable core cognition in MEMORY.md. Core memory loads automatically; topics are read when needed. Dreams maintain these layers without routine approvals.'}</p>
+    <Select size="sm" label={c.zh ? '选择助理' : 'Select assistant'} value={assistant} onValueChange={value => { setAssistant(value); setDirectory(memoryRoot); }} options={[{ value: '', label: c.zh ? '全局 · 当前账号共享' : 'Global · shared within your account' }, ...activeAssistants.map(a => ({ value: a.ID, label: a.Name }))]} />
     <div className="settings-toolbar">
       <Button variant="secondary" onClick={() => setEditing({ ref: { ...ref, Path: directory + '/' } })}><Plus size={16} />{c.zh ? '新建文件' : 'New file'}</Button>
       <Button variant="secondary" onClick={() => setMkdir(true)}><Folder size={16} />{c.zh ? '新建目录' : 'New folder'}</Button>
-      <Button variant="ghost" onClick={() => void action.run(() => open({ ...ref, Path: 'MEMORY.md' }, true), undefined, false)}>{c.zh ? '编辑摘要' : 'Edit summary'}</Button>
+      <Button variant="ghost" onClick={() => void action.run(() => open({ ...ref, Path: 'MEMORY.md' }, true), undefined, false)}>{c.zh ? '查看 / 编辑核心记忆' : 'View / edit core memory'}</Button>
       <Button variant="ghost" onClick={query.reload}>{t.refresh}</Button>
     </div>
     <nav className="memory-breadcrumbs" aria-label={c.zh ? '记忆目录' : 'Memory folders'}>
@@ -62,7 +66,7 @@ export function Memories({ assistants }: { assistants: Assistant[] }) {
       <p className="muted memory-path"><code>{assistant ? '/work/' : '/global/'}{row.Path}</code></p>
       <div className="memory-actions"><Button size="sm" variant="ghost" onClick={() => setMoving(row)}>{c.zh ? '重命名 / 移动' : 'Rename / move'}</Button><Button size="sm" variant="ghost" onClick={() => setDeleting({ entry: row, forget: false })}>{c.zh ? '删除' : 'Delete'}</Button>{row.Kind === 'file' && <><Button size="sm" variant="ghost" onClick={() => setDeleting({ entry: row, forget: true })}>{c.zh ? '遗忘' : 'Forget'}</Button><Button size="sm" variant="ghost" onClick={() => void action.run(async () => { setSources(await api.get<Memory>(`/api/memories/file?${refQuery(row)}`)); }, undefined, false)}>{c.zh ? '来源' : 'Sources'}</Button></>}</div>
     </article>)}</div>}
-    {assistant && <Dreams assistants={assistants} assistantID={assistant} />}
+    {activeAssistants.some(a => a.ID === assistant) && <Dreams key={assistant} assistantID={assistant} />}
     {editing && <MemoryEditor refValue={editing.ref} memory={editing.memory} onClose={() => { setEditing(null); query.reload(); }} />}
     {mkdir && <DirectoryEditor refValue={ref} onClose={() => { setMkdir(false); query.reload(); }} />}
     {moving && <MoveEditor entry={moving} onClose={() => { setMoving(null); query.reload(); }} />}
@@ -78,6 +82,7 @@ function MemoryEditor({ refValue, memory, onClose }: { refValue: MemoryRef; memo
   return <EditDialog title={memory ? t.edit : c.zh ? '新建记忆文件' : 'New memory file'} onClose={onClose} onSubmit={() => api.mutate(memory ? '/api/memories/update' : '/api/memories', { ...refValue, Path: path, Text: text, Context: condition, Sources: memory?.Sources ?? [], ...(memory ? { State: state, ...(previous.data ? { ReplacesVersion: previous.data.Version } : {}) } : {}) }, memory?.Version)}>
     {!memory && refValue.Path !== 'MEMORY.md' && <TextField label={c.zh ? '语义文件名（含 .md）' : 'Descriptive filename (including .md)'} value={name} onChange={e => setName(e.target.value)} placeholder={c.zh ? '沟通偏好.md' : 'communication-preferences.md'} required maxLength={240} />}
     <p className="muted memory-path"><code>{refValue.Scope === 'global' ? '/global/' : '/work/'}{path}</code></p>
+    <p className="muted">{c.zh ? '手动保存后，这份文件将受保护，不再由做梦自动改写。编辑、确认和遗忘用于必要时纠正记忆。' : 'Saving manually protects this file from automatic dream revisions. Editing, confirmation and forgetting are fallback controls.'}</p>
     <Textarea label={t.settings.memoryText} value={text} onChange={e => setText(e.target.value)} required maxLength={65536} />
     <TextField label={c.zh ? '适用条件' : 'Conditions'} value={condition} onChange={e => setCondition(e.target.value)} maxLength={1024} />
     {memory && <Select size="sm" label={c.zh ? '状态' : 'Status'} value={state} onValueChange={v => setState(v as Memory['State'])} options={Object.entries(c.states).map(([value, label]) => ({ value, label }))} />}
@@ -92,20 +97,18 @@ function MoveEditor({ entry, onClose }: { entry: MemoryEntry; onClose: () => voi
   const c = useMemoryCopy(), [path, setPath] = useState(entry.Path.slice(memoryRoot.length + 1));
   return <EditDialog title={c.zh ? '重命名 / 移动' : 'Rename / move'} onClose={onClose} onSubmit={() => api.mutate('/api/memories/move', { ...fileRef(entry), Directory: entry.Kind === 'directory', ToPath: memoryRoot + '/' + path }, entry.Version)}><TextField label={c.zh ? '新路径（相对记忆目录）' : 'New path (relative to memory folder)'} value={path} onChange={e => setPath(e.target.value)} required maxLength={1024} /><p className="muted">{c.zh ? '目标父目录必须存在。同名文件不会被覆盖；旧路径的历史引用会失效。' : 'The destination folder must exist. Existing files are never replaced; historical references to the old path expire.'}</p></EditDialog>;
 }
-function Dreams({ assistants, assistantID }: { assistants: Assistant[]; assistantID: string }) {
-  const { t } = useCopy(), c = useMemoryCopy(), action = useAction(), [selected, setSelected] = useState(assistantID || assistants.find(a => a.State === 'active')?.ID || '');
-  useEffect(() => { if (assistantID) setSelected(assistantID); else if (!selected) setSelected(assistants.find(a => a.State === 'active')?.ID || ''); }, [assistantID, assistants, selected]);
-  const config = useQuery<DreamConfig>(selected ? `/api/dreams/config?assistant_id=${selected}` : null), runs = useQuery<DreamRun[]>(selected ? `/api/dreams?assistant_id=${selected}` : null);
+function Dreams({ assistantID }: { assistantID: string }) {
+  const { t } = useCopy(), c = useMemoryCopy(), action = useAction();
+  const config = useQuery<DreamConfig>(`/api/dreams/config?assistant_id=${assistantID}`), runs = useQuery<DreamRun[]>(`/api/dreams?assistant_id=${assistantID}`);
   const { invalidateTopics } = useData();
   const [editing, setEditing] = useState(false), [result, setResult] = useState(''), [undo, setUndo] = useState<DreamRun | null>(null);
   useEffect(() => { const timer = setInterval(() => { invalidateTopics(['dreams', 'memories']); }, 5000); return () => clearInterval(timer); }, [invalidateTopics]);
   return <section className="dream-panel"><div className="settings-row-item-head"><Moon size={18} /><h3>{c.zh ? '做梦' : 'Dreaming'}</h3></div>
-    <Select size="sm" label={c.zh ? '整理哪位助理的记忆' : 'Assistant to consolidate'} value={selected} onValueChange={value => { setSelected(value); setResult(''); }} options={assistants.filter(a => a.State === 'active').map(a => ({ value: a.ID, label: a.Name }))} />
-    {config.data && <p className="muted">{config.data.Enabled ? `${c.zh ? '每天' : 'Daily at'} ${String(config.data.Hour).padStart(2, '0')}:${String(config.data.Minute).padStart(2, '0')} · ${config.data.Timezone}` : c.zh ? '自动整理已关闭' : 'Automatic dreams are off'} · {c.zh ? '整理前一个完整自然日；费用计入助理预算。' : 'Reviews complete prior days; uses the assistant budget.'}</p>}
-    <div className="memory-actions"><Button size="sm" variant="secondary" disabled={!config.data} onClick={() => setEditing(true)}>{c.zh ? '整理设置' : 'Dream settings'}</Button><Button size="sm" disabled={!selected} loading={action.busy} onClick={() => void action.run(async () => { const run = await api.mutate<DreamRun>('/api/dreams/run', { AssistantID: selected }); setResult(c.runs(run.State)); }, undefined, false)}>{c.zh ? '立即整理 / 重试' : 'Consolidate / retry'}</Button></div>{result && <p role="status">{result}</p>}
+    {config.data && <p className="muted">{config.data.Enabled ? `${c.zh ? '每天' : 'Daily at'} ${String(config.data.Hour).padStart(2, '0')}:${String(config.data.Minute).padStart(2, '0')} · ${config.data.Timezone}` : c.zh ? '自动整理已关闭' : 'Automatic dreams are off'} · {c.zh ? '回顾前一个完整自然日并维护长期记忆；没有新聊天时也可沉淀已有主题。费用计入助理预算。' : 'Reviews the previous complete day and maintains long-term memory, including quiet days with existing topics. Uses the assistant budget.'}</p>}
+    <div className="memory-actions"><Button size="sm" variant="secondary" disabled={!config.data} onClick={() => setEditing(true)}>{c.zh ? '整理设置' : 'Dream settings'}</Button><Button size="sm" loading={action.busy} onClick={() => void action.run(async () => { const run = await api.mutate<DreamRun>('/api/dreams/run', { AssistantID: assistantID }); setResult(c.runs(run.State)); }, undefined, false)}>{c.zh ? '立即整理 / 重试' : 'Consolidate / retry'}</Button></div>{result && <p role="status">{result}</p>}
     <ErrorNotice error={config.error || runs.error || action.error} retry={runs.reload} />
-    {runs.data?.slice(0, 10).map(run => <details className="dream-run" key={run.ID}><summary>{run.Day} · {c.runs(run.State)}{run.SessionState && run.SessionState !== run.State ? ` / ${c.runs(run.SessionState)}` : ''} · {c.zh ? `${run.MemoryFiles?.length ?? 0} 条记忆` : `${run.MemoryFiles?.length ?? 0} memories`}</summary><p className="muted">{run.Batch ? `${c.zh ? '批次' : 'Batch'} ${run.Batch}` : ''}{run.Backfill ? (c.zh ? ' · 一次补处理' : ' · One-time backfill') : ''}{run.Deadline ? ` · ${c.zh ? '截止' : 'Deadline'} ${new Date(run.Deadline).toLocaleString()}` : ''}</p>{run.Summary && <p className="pre-wrap">{run.Summary}</p>}{run.ReviewPath && (run.State !== 'undone' || run.ReviewRetained) && <p className="muted memory-path"><code>/work/{run.ReviewPath}</code></p>}{run.State === 'undone' && !!run.UndoRetained?.length && <p className="muted memory-path">{c.zh ? '保留的文件：' : 'Retained files: '}{run.UndoRetained.map(ref => ref.Path).join(', ')}</p>}{run.FailureCode && <p role="status">{t.errors[run.FailureCode as keyof typeof t.errors] ?? run.FailureCode}</p>}<p className="muted">{run.Sources.length} {c.zh ? '项来源' : 'sources'} · {run.Timezone}</p>{run.State === 'completed' && <Button size="sm" variant="ghost" onClick={() => setUndo(run)}>{c.zh ? '撤销这次整理' : 'Revert this dream'}</Button>}</details>)}
-    {undo && <Confirm title={c.zh ? '撤销这次整理' : 'Revert this dream'} description={c.zh ? '删除本次新建且未被修改或确认的文件及回顾。整理前已存在的文件、后来修改或确认的文件会保留。' : 'Remove unchanged, unconfirmed files created by this dream and its unchanged review. Previously existing files and later edits or confirmations are preserved.'} onClose={() => setUndo(null)} onConfirm={() => api.mutate('/api/dreams/undo', { ID: undo.ID })} />}
+    {runs.data?.slice(0, 10).map(run => <details className="dream-run" key={run.ID}><summary>{run.Day} · {c.runs(run.State)}{run.SessionState && run.SessionState !== run.State ? ` / ${c.runs(run.SessionState)}` : ''} · {c.zh ? `${run.MemoryFiles?.length ?? 0} 条记忆` : `${run.MemoryFiles?.length ?? 0} memories`}</summary><p className="muted">{run.Batch ? `${c.zh ? '批次' : 'Batch'} ${run.Batch}` : ''}{run.Maintenance ? (c.zh ? ' · 长期记忆维护' : ' · Long-term maintenance') : ''}{run.Backfill ? (c.zh ? ' · 一次补处理' : ' · One-time backfill') : ''}{run.Deadline ? ` · ${c.zh ? '截止' : 'Deadline'} ${new Date(run.Deadline).toLocaleString()}` : ''}</p>{run.Summary && <p className="pre-wrap">{run.Summary}</p>}{run.ReviewPath && (run.State !== 'undone' || run.ReviewRetained) && <p className="muted memory-path"><code>/work/{run.ReviewPath}</code></p>}{run.State === 'undone' && !!run.UndoRetained?.length && <p className="muted memory-path">{c.zh ? '保留的文件：' : 'Retained files: '}{run.UndoRetained.map(ref => ref.Path).join(', ')}</p>}{run.FailureCode && <p role="status">{t.errors[run.FailureCode as keyof typeof t.errors] ?? run.FailureCode}</p>}<p className="muted">{run.Sources.length} {c.zh ? '项来源' : 'sources'} · {run.Timezone}</p>{run.State === 'completed' && <Button size="sm" variant="ghost" onClick={() => setUndo(run)}>{c.zh ? '撤销这次整理' : 'Revert this dream'}</Button>}</details>)}
+    {undo && <Confirm title={c.zh ? '撤销这次整理' : 'Revert this dream'} description={c.zh ? '删除本次新建的自动记忆，并恢复本次更新前的主题和核心记忆；后来修改、确认或遗忘的内容会受到保护。未修改的回顾同时删除。' : 'Remove new automatic memories and restore updated topics and core memory to their prior versions. Later edits, confirmations and forgotten content are protected. The unchanged review is also removed.'} onClose={() => setUndo(null)} onConfirm={() => api.mutate('/api/dreams/undo', { ID: undo.ID })} />}
     {editing && config.data && <DreamEditor config={config.data} onClose={() => setEditing(false)} />}
   </section>;
 }

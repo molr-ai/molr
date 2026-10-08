@@ -16,10 +16,11 @@ export function DreamInspection({ id }: { id: string }) {
       {run.Summary && <div className="workbench-prose">{run.Summary}</div>}
       {decisions.some(decision => decision.Replaces && decision.Action === 'pending') && <p className="workbench-section-note">{c.pendingHelp}</p>}
       {decisions.map((decision, index) => <details className="workbench-disclosure" key={index} open>
-        <summary><ChevronRight size={14} aria-hidden="true" /><h3>{decision.Action === 'discarded' ? c.discarded : decision.Replaces ? c.replacement : decision.Action === 'active' ? c.added : c.pending}</h3></summary>
+        <summary><ChevronRight size={14} aria-hidden="true" /><h3>{decision.Action === 'core' ? (locale.startsWith('zh') ? '核心记忆更新' : 'Core cognition updated') : decision.Action === 'deferred' ? (locale.startsWith('zh') ? '留在回顾中' : 'Retained in review') : decision.Action === 'superseded' ? (locale.startsWith('zh') ? '已停止使用' : 'Retired') : decision.Action === 'discarded' ? c.discarded : decision.Replaces ? c.replacement : decision.Action === 'active' ? c.added : c.pending}</h3></summary>
         <div className="workbench-disclosure-body">
-          {decision.Replaces && <><span className="muted">{c.before}</span><div className="workbench-prose">{decision.PreviousText || decision.Replaces.Path}</div><span className="muted">{c.after}</span></>}
+          {(decision.Replaces || decision.PreviousText) && <><span className="muted">{c.before}</span><div className="workbench-prose">{decision.PreviousText || decision.Replaces?.Path}</div><span className="muted">{c.after}</span></>}
           <div className="workbench-prose">{decision.Text}</div>
+          {decision.Memory && <a href={`#/account/memory?${new URLSearchParams({ scope: decision.Memory.Scope, assistant_id: decision.Memory.AssistantID ?? '', path: decision.Memory.Path })}`}>{decision.Memory.Path}</a>}
           <small className="muted">{(c.reasons as Record<string, string>)[decision.Reason] ?? decision.Reason}</small>
         </div>
       </details>)}

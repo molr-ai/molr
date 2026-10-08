@@ -108,6 +108,11 @@ func (f *Files) Clone(ctx context.Context, p core.Principal, source, target core
 			return err
 		}
 		for _, m := range items {
+			// A derived core belongs to exact source-workspace topic versions.
+			// Let the new assistant form its own core from the copied topics.
+			if m.Summary && len(m.Dependencies) > 0 {
+				continue
+			}
 			sourceRef, sourceVersion := m.Ref, m.Version
 			m.AssistantID = target
 			m.DreamID = ""

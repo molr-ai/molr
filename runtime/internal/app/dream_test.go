@@ -56,7 +56,7 @@ func TestDreamRealModelFormationAndFileSearch(t *testing.T) {
 			if len(req.Tools) != 0 {
 				t.Error("dream had executable tools")
 			}
-			data, _ := json.Marshal(dream.Result{Summary: "用户希望项目周报先写结论。", Memories: []dream.Candidate{{Text: "项目周报先写结论", Action: "create", Path: ".agents/memory/用户偏好/项目周报.md", Context: "项目周报", Evidence: "explicit", Sources: []core.Object{{Kind: "message", ID: core.ID(sourceID)}}}}})
+			data, _ := json.Marshal(dream.Result{Core: &dream.CoreUpdate{Text: "工作汇报先说明结论，再提供依据。", Topics: []string{".agents/memory/用户偏好/项目周报.md"}, Reason: "用户明确的长期汇报约定"}, Summary: "用户希望项目周报先写结论。", Memories: []dream.Candidate{{Text: "项目周报先写结论", Action: "create", Path: ".agents/memory/用户偏好/项目周报.md", Context: "项目周报", Evidence: "explicit", Sources: []core.Object{{Kind: "message", ID: core.ID(sourceID)}}}}})
 			msg["content"] = string(data)
 		} else {
 			count := 0
@@ -143,7 +143,7 @@ func TestDreamRealModelFormationAndFileSearch(t *testing.T) {
 	if !persistence.Missing(err) {
 		t.Fatal("dream overwrote ordinary checkpoint", err)
 	}
-	page, err := b.Services.Memories.List(ctx, p, memory.Query{AssistantID: a.ID})
+	page, err := b.Services.Memories.List(ctx, p, memory.Query{AssistantID: a.ID, Text: "项目周报先写结论"})
 	need(t, err)
 	if len(page.Items) != 1 || page.Items[0].Path != ".agents/memory/用户偏好/项目周报.md" {
 		t.Fatal(page)
@@ -185,6 +185,9 @@ func TestDreamRealModelFormationAndFileSearch(t *testing.T) {
 		} else if req.Messages[0].Content != normalSystem {
 			t.Fatal("normal system instruction changed between tool steps")
 		}
+	}
+	if !strings.Contains(requests[1], "工作汇报先说明结论，再提供依据。") {
+		t.Fatal("dream core cognition did not enter subsequent conversation")
 	}
 	if strings.Contains(requests[1], "项目周报先写结论") || !strings.Contains(requests[1], "file_search") {
 		t.Fatal("details were implicitly recalled or file search missing")

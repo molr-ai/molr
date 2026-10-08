@@ -63,6 +63,12 @@ func (r Ref) LogicalPath() string {
 	return "/work/" + r.Path
 }
 
+// Dependency binds derived core memory to the exact active topic used to form it.
+type Dependency struct {
+	Ref     Ref    `yaml:"ref"`
+	Version string `yaml:"version"`
+}
+
 type Memory struct {
 	Ref
 	OwnerID              core.ID
@@ -74,6 +80,7 @@ type Memory struct {
 	Replaces             *Ref
 	ReplacesVersion      string
 	Text                 string
+	Dependencies         []Dependency
 	Sources              []core.Object
 	Version              string
 	CreatedAt, UpdatedAt time.Time

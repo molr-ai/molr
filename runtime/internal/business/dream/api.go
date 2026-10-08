@@ -57,9 +57,12 @@ type Run struct {
 	Summary                           string
 	Sources                           []Evidence
 	MemoryFiles                       []memory.Ref
+	MemorySources                     []core.Object
 	MemoryVersions                    map[string]string
 	MemoryStarted                     map[string]bool
 	MemoryUpdated                     map[string]bool
+	Compared                          []memory.Dependency
+	Maintenance                       bool
 	FailureCode                       string
 	CreatedAt, UpdatedAt              time.Time
 }
@@ -67,13 +70,24 @@ type Candidate struct {
 	Text              string
 	Action, Path      string
 	Context, Evidence string
+	Reason            string
 	Sources           []core.Object
 	Replaces          *memory.Ref
 	ExpectedVersion   string
 }
+
+// CoreUpdate rewrites the bounded core cognition from active topic files.
+// An empty Text explicitly demotes the generated summary; nil leaves it alone.
+type CoreUpdate struct {
+	ExpectedVersion string
+	Text            string
+	Topics          []string
+	Reason          string
+}
 type Result struct {
 	Summary  string
 	Memories []Candidate
+	Core     *CoreUpdate
 }
 type UndoRequest struct {
 	Mutation core.Mutation

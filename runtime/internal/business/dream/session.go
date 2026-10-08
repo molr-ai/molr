@@ -158,7 +158,22 @@ func (s *Coordinator) startSession(ctx context.Context, c Config, manual bool, n
 		carry, _ = takeEvidence(carry, 80, 96<<10)
 		v.Sources = append(v.Sources, carry...)
 	}
+	maintenance := false
 	if len(v.Sources) == 0 {
+		// Scheduling has no Agent execution identity yet. Read only this
+		// already-authorized assistant's file metadata through the local store.
+		page, err := s.options.Files.List(ctx, c.OwnerID, memory.Query{Scope: memory.Assistant, AssistantID: c.AssistantID, State: memory.Active, Page: core.PageRequest{Limit: 1}})
+		if err != nil {
+			return Run{}, err
+		}
+		for _, m := range page.Items {
+			if !m.Summary {
+				maintenance = true
+			}
+		}
+	}
+
+	if len(v.Sources) == 0 && !maintenance {
 		v.State = "skipped"
 		v.FinishedAt = &now
 		return s.emptySession(ctx, v, now)
@@ -175,7 +190,7 @@ func (s *Coordinator) startSession(ctx context.Context, c Config, manual bool, n
 }
 func (s *Coordinator) batch(v Session, now time.Time) Run {
 	end := len(v.Sources)
-	backfill := v.Offset >= v.FreshCount
+	backfill := len(v.Sources) > 0 && v.Offset >= v.FreshCount
 	if !backfill {
 		end = v.FreshCount
 	}
@@ -194,7 +209,7 @@ func (s *Coordinator) batch(v Session, now time.Time) Run {
 		}
 	}
 	runID := id(string(v.ID), "batch", time.Duration(v.Batch).String())
-	return Run{ID: runID, EventID: id(string(runID), "event"), SessionID: v.ID, Deadline: v.Deadline, Batch: v.Batch + 1, Backfill: backfill, OwnerID: v.OwnerID, AssistantID: v.AssistantID, Manual: v.Manual, Day: v.Start.In(mustLocation(v.Timezone)).Format("2006-01-02"), Timezone: v.Timezone, Start: start, End: until, State: "queued", Sources: sources, MemoryFiles: []memory.Ref{}, CreatedAt: now.UTC(), UpdatedAt: now.UTC()}
+	return Run{ID: runID, EventID: id(string(runID), "event"), SessionID: v.ID, Deadline: v.Deadline, Batch: v.Batch + 1, Maintenance: len(v.Sources) == 0, Backfill: backfill, OwnerID: v.OwnerID, AssistantID: v.AssistantID, Manual: v.Manual, Day: v.Start.In(mustLocation(v.Timezone)).Format("2006-01-02"), Timezone: v.Timezone, Start: start, End: until, State: "queued", Sources: sources, MemoryFiles: []memory.Ref{}, CreatedAt: now.UTC(), UpdatedAt: now.UTC()}
 }
 func mustLocation(zone string) *time.Location {
 	loc, err := time.LoadLocation(zone)
@@ -278,6 +293,9 @@ func (s *Coordinator) Deadline(ctx context.Context, p core.Principal, e event.As
 	r, err := s.run(ctx, p, e)
 	if err != nil {
 		return time.Time{}, err
+	}
+	if r.State == "completed" {
+		return time.Time{}, nil
 	}
 	if r.Deadline.IsZero() {
 		r.Deadline = r.CreatedAt.Add(10 * time.Minute)
