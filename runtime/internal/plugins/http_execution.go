@@ -577,7 +577,7 @@ func (s *Service) RevalidateRunning(ctx context.Context) {
 }
 func (s *Service) RecoverHTTP(ctx context.Context) error {
 	return s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		rows, err := persistence.Scan[HTTPCall](ctx, s.store, "plugins.http-calls")
+		rows, err := persistence.Select[HTTPCall](ctx, s.store, "plugins.http-calls", persistence.Query{Any: [][]persistence.Filter{{persistence.Eq("State", "prepared")}, {persistence.Eq("State", "running")}}})
 		if err != nil {
 			return err
 		}

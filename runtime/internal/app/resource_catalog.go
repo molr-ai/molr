@@ -106,7 +106,7 @@ func (c resourceCatalog) list(ctx context.Context, p core.Principal) (json.RawMe
 	}
 	out := resourceListing{CurrentTime: time.Now().UTC(), Resources: []resourceCapability{}, BuiltInStorage: []builtinStorage{}, Limit: 200}
 	err := a.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		grants, err := persistence.Scan[policy.Grant](ctx, a.store, "security.grants")
+		grants, err := persistence.Select[policy.Grant](ctx, a.store, "security.grants", persistence.Query{Where: []persistence.Filter{persistence.Eq("RevokedAt", nil), persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("AssistantID", p.SubjectID)}, Any: [][]persistence.Filter{{persistence.Eq("ExpiresAtKey", "")}, {{Field: "ExpiresAtKey", Op: ">", Value: persistence.TimeKey(time.Now())}}}})
 		if err != nil {
 			return err
 		}

@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"log"
-	"sort"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -142,7 +141,7 @@ func (s *Service) bump(ctx context.Context, tx persistence.Tx, owner core.ID) er
 	return tx.Put(ctx, "debug.revisions", string(owner), revision+1)
 }
 func (s *Service) prune(ctx context.Context, tx persistence.Tx, owner, keep core.ID, extra int) error {
-	all, err := persistence.Scan[Run](ctx, tx.Store(), "debug.summaries")
+	all, err := persistence.Select[Run](ctx, tx.Store(), "debug.summaries", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner)}})
 	if err != nil {
 		return err
 	}
@@ -225,7 +224,7 @@ func (s *Service) Begin(ctx context.Context, owner, assistant, event, execution 
 	}
 	ctx = context.WithValue(ctx, contextKey{}, &reference{owner: owner, assistant: assistant, id: run.ID})
 	assistantRow, _ := persistence.Load[json.RawMessage](ctx, s.store, "business.assistants", persistence.Key(owner, assistant))
-	grants, _ := persistence.Scan[json.RawMessage](ctx, s.store, "security.grants")
+	grants, _ := persistence.Select[json.RawMessage](ctx, s.store, "security.grants", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner), persistence.Eq("AssistantID", assistant)}})
 	permissions := []json.RawMessage{}
 	for _, raw := range grants {
 		var g struct{ OwnerID, AssistantID core.ID }
@@ -382,59 +381,51 @@ func (s *Service) Finish(ctx context.Context, state, reason string) {
 		return s.bump(ctx, tx, ref.owner)
 	})
 }
-func (s *Service) Runs(ctx context.Context, p core.Principal, q Query) (core.Page[Run], error) {
-	if err := s.authorize(ctx, p); err != nil {
-		return core.Page[Run]{}, err
+func (s *Service) Runs(ctx context.Context, p core.Principal, q Query) (out core.Page[Run], err error) {
+	if err = s.authorize(ctx, p); err != nil {
+		return
 	}
 	page, err := q.Page.Normalize()
 	if err != nil {
-		return core.Page[Run]{}, err
+		return out, err
 	}
-	all, err := persistence.Scan[Run](ctx, s.store, "debug.summaries")
-	if err != nil {
-		return core.Page[Run]{}, err
-	}
-	policy, err := s.retention(ctx, s.store)
-	if err != nil {
-		return core.Page[Run]{}, err
-	}
-	protected := protectedRuns(ownerRuns(all, p.OwnerID), policy.MinRuns)
-	runs := []Run{}
-	for _, run := range all {
-		if run.OwnerID == p.OwnerID && (q.AssistantID == "" || run.AssistantID == q.AssistantID) && visibleRun(run, policy, protected, s.options.Now()) {
-			run.Steps = nil
-			runs = append(runs, run)
+	err = s.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		policy, err := s.retention(ctx, tx.Store())
+		if err != nil {
+			return err
 		}
-	}
-	sort.Slice(runs, func(i, j int) bool {
-		if runs[i].StartedAt.Equal(runs[j].StartedAt) {
-			return runs[i].ID > runs[j].ID
+		protected, err := s.protected(ctx, tx.Store(), p.OwnerID, policy)
+		if err != nil {
+			return err
 		}
-		return runs[i].StartedAt.After(runs[j].StartedAt)
-	})
-	start := 0
-	if page.Cursor != "" {
-		found := false
-		for i, run := range runs {
-			if string(run.ID) == page.Cursor {
-				start = i + 1
-				found = true
-				break
+		query := visibleQuery(p.OwnerID, protected, persistence.TimeKey(s.options.Now().AddDate(0, 0, -policy.RetentionDays)))
+		if q.AssistantID != "" {
+			query.Where = append(query.Where, persistence.Eq("AssistantID", q.AssistantID))
+		}
+		query.OrderBy = "StartedAtKey"
+		query.Descending = true
+		query.ThenBy = "ID"
+		query.ThenDescending = true
+		query.Limit = page.Limit + 1
+		if page.Cursor != "" {
+			anchor, err := persistence.Load[Run](ctx, tx.Store(), "debug.summaries", persistence.Key(p.OwnerID, core.ID(page.Cursor)))
+			if err != nil || q.AssistantID != "" && anchor.AssistantID != q.AssistantID || !visibleRun(anchor, policy, protected, s.options.Now()) {
+				return core.Invalid("cursor", "expired run cursor")
 			}
+			query.After = []any{persistence.TimeKey(anchor.StartedAt), string(anchor.ID), persistence.Key(p.OwnerID, anchor.ID)}
 		}
-		if !found {
-			return core.Page[Run]{}, core.Invalid("cursor", "expired run cursor")
+		rows, err := persistence.Select[Run](ctx, tx.Store(), "debug.summaries", query)
+		if err != nil {
+			return err
 		}
-	}
-	end := start + page.Limit
-	if end > len(runs) {
-		end = len(runs)
-	}
-	out := core.Page[Run]{Items: runs[start:end]}
-	if end < len(runs) {
-		out.NextCursor = string(runs[end-1].ID)
-	}
-	return out, nil
+		if len(rows) > page.Limit {
+			rows = rows[:page.Limit]
+			out.NextCursor = string(rows[len(rows)-1].ID)
+		}
+		out.Items = rows
+		return nil
+	})
+	return
 }
 func (s *Service) Get(ctx context.Context, p core.Principal, id core.ID) (Run, error) {
 	if err := s.authorize(ctx, p); err != nil {
@@ -448,11 +439,17 @@ func (s *Service) Get(ctx context.Context, p core.Principal, id core.ID) (Run, e
 	if err != nil {
 		return Run{}, err
 	}
-	all, err := persistence.Scan[Run](ctx, s.store, "debug.summaries")
+	if run.OwnerID != p.OwnerID {
+		return Run{}, core.NewError(core.NotFound, "run unavailable")
+	}
+	if run.Trigger == "dream_due" || run.State == "running" || !run.StartedAt.Before(s.options.Now().AddDate(0, 0, -policy.RetentionDays)) {
+		return run, nil
+	}
+	protected, err := s.protected(ctx, s.store, p.OwnerID, policy)
 	if err != nil {
 		return Run{}, err
 	}
-	if run.OwnerID != p.OwnerID || !visibleRun(run, policy, protectedRuns(ownerRuns(all, p.OwnerID), policy.MinRuns), s.options.Now()) {
+	if !protected[run.ID] {
 		return Run{}, core.NewError(core.NotFound, "run unavailable")
 	}
 	return run, nil
@@ -521,7 +518,7 @@ func (s *Service) Revision(ctx context.Context, p core.Principal) (uint64, error
 // Recover marks recordings left open by a previous process; it never changes jobs.
 func (s *Service) Recover(ctx context.Context) error {
 	return s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		runs, err := persistence.Scan[Run](ctx, tx.Store(), "debug.summaries")
+		runs, err := persistence.Select[Run](ctx, tx.Store(), "debug.summaries", persistence.Query{Where: []persistence.Filter{persistence.Eq("State", "running")}})
 		if err != nil {
 			return err
 		}

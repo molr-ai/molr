@@ -35,33 +35,31 @@ func (r *repository) Append(ctx context.Context, v Record) error {
 	})
 }
 func (r *repository) List(ctx context.Context, owner core.ID, q Query) (core.Page[Record], error) {
-	all, e := persistence.Scan[Record](ctx, r.store, "security.audit")
-	if e != nil {
-		return core.Page[Record]{}, e
+	filters := []persistence.Filter{persistence.Eq("OwnerID", owner)}
+	if q.Action != "" {
+		filters = append(filters, persistence.Eq("Action", q.Action))
 	}
-	items := []Record{}
-	for _, v := range all {
-		if v.OwnerID != owner || (q.Action != "" && v.Action != q.Action) || (q.Outcome != "" && v.Outcome != q.Outcome) || (!q.From.IsZero() && v.At.Before(q.From)) || (!q.Until.IsZero() && !v.At.Before(q.Until)) {
-			continue
-		}
-		items = append(items, v)
+	if q.Outcome != "" {
+		filters = append(filters, persistence.Eq("Outcome", q.Outcome))
 	}
-	sort.Slice(items, func(i, j int) bool {
-		if items[i].At.Equal(items[j].At) {
-			return items[i].ID < items[j].ID
-		}
-		return items[i].At.After(items[j].At)
-	})
-	binding := fmt.Sprintf("%s/%s/%s/%s/%s", owner, q.Action, q.Outcome, q.From.UTC(), q.Until.UTC())
-	return pageSlice(items, q.Page, binding)
+	if !q.From.IsZero() {
+		filters = append(filters, persistence.Filter{Field: "AtKey", Op: ">=", Value: persistence.TimeKey(q.From)})
+	}
+	if !q.Until.IsZero() {
+		filters = append(filters, persistence.Filter{Field: "AtKey", Op: "<", Value: persistence.TimeKey(q.Until)})
+	}
+	request := q.Page
+	q.Page = core.PageRequest{}
+	return persistence.Page[Record](ctx, r.store, "security.audit", persistence.Query{Where: filters, OrderBy: "AtKey", Descending: true, ThenBy: "ID"}, request, q, nil)
 }
+
 func (r *repository) Prune(ctx context.Context, before time.Time, limit int) (int64, error) {
 	if limit <= 0 || limit > 10000 {
 		return 0, core.Invalid("limit", "1..10000 required")
 	}
 	var n int64
 	e := r.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		all, e := persistence.Scan[Record](ctx, tx.Store(), "security.audit")
+		all, e := persistence.Select[Record](ctx, tx.Store(), "security.audit", persistence.Query{Where: []persistence.Filter{{Field: "AtKey", Op: "<", Value: persistence.TimeKey(before)}}, OrderBy: "AtKey", Limit: limit})
 		if e != nil {
 			return e
 		}

@@ -197,11 +197,7 @@ func (e *Engine) Lifecycle(ctx context.Context, p core.Principal, id core.ID, ac
 			}
 			// Cancel both already-materialized jobs and pending durable event inputs.
 			// Rehiring must not resurrect an old execution identity or pending work.
-			jobs, loadErr := persistence.Scan[scheduler.Job](ctx, e.store, "agent.jobs")
-			if loadErr != nil {
-				return loadErr
-			}
-			events, loadErr := persistence.Scan[event.AssistantEvent](ctx, e.store, "agent.events")
+			jobs, loadErr := persistence.Select[scheduler.Job](ctx, e.store, "agent.jobs", persistence.Query{Where: []persistence.Filter{persistence.Eq("Event.OwnerID", p.OwnerID), persistence.Eq("Event.AssistantID", id), {Field: "State", Op: "in", Value: []scheduler.State{scheduler.Queued, scheduler.Running, scheduler.Retry, scheduler.NeedsReview}}}})
 			if loadErr != nil {
 				return loadErr
 			}
@@ -211,13 +207,6 @@ func (e *Engine) Lifecycle(ctx context.Context, p core.Principal, id core.ID, ac
 					byID[job.Event.ID] = job
 				}
 			}
-			for _, source := range events {
-				if source.OwnerID == p.OwnerID && source.AssistantID == id && source.Kind != event.UserStopped {
-					if _, ok := byID[source.ID]; !ok {
-						byID[source.ID] = scheduler.Job{Event: source, State: scheduler.Queued, NotBefore: source.CreatedAt, Version: 1}
-					}
-				}
-			}
 			// A message can still be in the IM outbox when Stop commits. Fence it
 			// now so draining the outbox after a new message cannot revive old work.
 			if e.options.ConversationID != nil {
@@ -225,7 +214,7 @@ func (e *Engine) Lifecycle(ctx context.Context, p core.Principal, id core.ID, ac
 				if err != nil {
 					return err
 				}
-				pending, err := persistence.Scan[conversation.MessageCreated](ctx, e.store, "im.outbox")
+				pending, err := persistence.Select[conversation.MessageCreated](ctx, e.store, "im.outbox", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("ConversationID", chatID), persistence.Eq("Sender", conversation.User)}})
 				if err != nil {
 					return err
 				}

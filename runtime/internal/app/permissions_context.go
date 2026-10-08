@@ -26,7 +26,7 @@ type contextGrant struct {
 func permissionsContext(ctx context.Context, store persistence.Store, p core.Principal, now time.Time) (agent.ContextDocument, error) {
 	var document agent.ContextDocument
 	err := store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		grants, err := persistence.Scan[policy.Grant](ctx, store, "security.grants")
+		grants, err := persistence.Select[policy.Grant](ctx, store, "security.grants", persistence.Query{Where: []persistence.Filter{persistence.Eq("RevokedAt", nil), persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("AssistantID", p.SubjectID)}, Any: [][]persistence.Filter{{persistence.Eq("ExpiresAtKey", "")}, {{Field: "ExpiresAtKey", Op: ">", Value: persistence.TimeKey(now)}}}})
 		if err != nil {
 			return err
 		}

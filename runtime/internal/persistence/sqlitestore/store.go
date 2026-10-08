@@ -81,7 +81,15 @@ func Open(path string) (*Store, error) {
 		return nil, err
 	}
 	s := &Store{db: db, gate: make(chan struct{}, 1), path: path}
+	if err := s.createTermIndexes(); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
 	if err := s.createIndexes(); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+	if err := s.initializeQueryProjections(); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
@@ -253,6 +261,10 @@ func (tx *transaction) Put(ctx context.Context, bucket, key string, value any) e
 	data, err := json.Marshal(value)
 	if err != nil {
 		return core.Wrap(core.InvalidArgument, "cannot encode stored value", err)
+	}
+	data, err = queryProjections(bucket, data)
+	if err != nil {
+		return core.Wrap(core.InvalidArgument, "invalid query timestamp", err)
 	}
 	limit := 32 << 20
 	if strings.HasPrefix(bucket, "agent.") {

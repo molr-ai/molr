@@ -252,20 +252,18 @@ func (r *repository) List(ctx context.Context, owner core.ID, q Query) (core.Pag
 	if err != nil {
 		return core.Page[Resource]{}, err
 	}
-	rows, err := persistence.Scan[Resource](ctx, r.store, bucket)
-	if err != nil {
-		return core.Page[Resource]{}, err
+	filters := []persistence.Filter{persistence.Eq("OwnerID", owner)}
+	if q.Kind != "" {
+		filters = append(filters, persistence.Eq("Kind", q.Kind))
 	}
-	items := []Resource{}
-	for _, v := range rows {
-		if v.OwnerID == owner && (q.Kind == "" || v.Kind == q.Kind) && (q.Name == "" || strings.Contains(strings.ToLower(v.Name), strings.ToLower(q.Name))) {
-			items = append(items, v)
-		}
-	}
-	p := q.Page
+
+	request := q.Page
 	q.Page = core.PageRequest{}
-	return paginate(items, owner, q, p)
+	return persistence.Page[Resource](ctx, r.store, bucket, persistence.Query{Where: filters}, request, q, func(v Resource) bool {
+		return q.Name == "" || strings.Contains(strings.ToLower(v.Name), strings.ToLower(q.Name))
+	})
 }
+
 func (r *repository) Insert(ctx context.Context, v Resource, b Binding) error {
 	return r.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		var err error

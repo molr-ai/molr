@@ -104,7 +104,7 @@ func (s *Service) Retention(ctx context.Context, p core.Principal) (RetentionSta
 			return err
 		}
 		out.Policy = policy
-		all, err := persistence.Scan[Run](ctx, tx.Store(), "debug.summaries")
+		all, err := persistence.Select[Run](ctx, tx.Store(), "debug.summaries", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID)}})
 		if err != nil {
 			return err
 		}

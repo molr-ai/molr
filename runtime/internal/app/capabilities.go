@@ -30,7 +30,7 @@ func inspectCapabilities(ctx context.Context, store persistence.Store, catalog t
 		if err != nil {
 			return err
 		}
-		grants, err := persistence.Scan[policy.Grant](ctx, store, "security.grants")
+		grants, err := persistence.Select[policy.Grant](ctx, store, "security.grants", persistence.Query{Where: []persistence.Filter{persistence.Eq("RevokedAt", nil), persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("AssistantID", id)}, Any: [][]persistence.Filter{{persistence.Eq("ExpiresAtKey", "")}, {{Field: "ExpiresAtKey", Op: ">", Value: persistence.TimeKey(now)}}}})
 		if err != nil {
 			return err
 		}

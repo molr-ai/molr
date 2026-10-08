@@ -145,19 +145,9 @@ func (s *fileService) upload(ctx context.Context, p core.Principal, request Uplo
 		if !persistence.Missing(err) {
 			return err
 		}
-		all, err := tx.Scan(ctx, Bucket)
+		used, err := tx.Sum(ctx, Bucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("State", Ready)}}, "Size")
 		if err != nil {
 			return err
-		}
-		var used int64
-		for _, record := range all {
-			row, err := persistence.Decode[File](record)
-			if err != nil {
-				return err
-			}
-			if row.State == Ready {
-				used += row.Size
-			}
 		}
 		quota := s.options.DiskQuota()
 		if quota < 0 || staged.Size > quota || used > quota-staged.Size {

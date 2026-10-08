@@ -109,7 +109,7 @@ func (s *Service) list(ctx context.Context, owner core.ID) ([]Installation, erro
 	if e != nil {
 		return nil, e
 	}
-	all, err := persistence.Scan[Installation](ctx, s.store, "plugins.installations")
+	all, err := persistence.Select[Installation](ctx, s.store, "plugins.installations", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner)}})
 	out := []Installation{}
 	for _, v := range all {
 		if v.OwnerID == owner && !v.Deleted {
@@ -206,7 +206,7 @@ func (s *Service) Install(ctx context.Context, p core.Principal, pkg Package) (I
 			return nil
 		}
 		if old.ID == "" {
-			rows, e := persistence.Scan[Installation](ctx, s.store, "plugins.installations")
+			rows, e := persistence.Select[Installation](ctx, s.store, "plugins.installations", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", catalogOwner)}, Limit: 32})
 			all := []Installation{}
 			for _, row := range rows {
 				if row.OwnerID == catalogOwner {

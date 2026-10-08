@@ -257,3 +257,9 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/voicecodec` | `WAV` | `TestWAVMatchesReferenceDecoderAndHasNoHostImports`、`TestWAVRejectsMalformedOversizedAndCanceledInput` |
 
 | `internal/persistence` | `TimeKey` | `internal/business/schedule.TestDueQueryBoundsHistoryAndPreservesExactInstants`、`internal/business/dream.TestExpiryUsesOnlyDueActiveSessionsAcrossBatches` |
+
+| 包 | 公开入口 | 验证入口 |
+| --- | --- | --- |
+| `internal/persistence` | `Page` | `internal/persistence/sqlitestore.TestTimeKeysAndKeysetPagePreserveNanosecondsAndOffsets`、`internal/auth.TestCredentialLookupsAndSessionPagesBoundHistory` |
+| `internal/persistence` | `SelectCatalog` | `TestCatalogSelectionKeepsPrivateNamespaces` |
+| `internal/persistence` | `Tx.Sum`, `Tx.DeleteMatching` | `internal/persistence/sqlitestore.TestScopedAggregateAndDeletionRespectTransactions` |

@@ -3,9 +3,7 @@ package scheduler
 import (
 	"context"
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/hex"
-	"encoding/json"
 	"sort"
 	"time"
 
@@ -19,42 +17,19 @@ const jobsBucket = "agent.jobs"
 type queue struct{ store persistence.Store }
 
 func NewQueue(store persistence.Store) Queue { return &queue{store} }
-func allJobs(ctx context.Context, store persistence.Store) ([]Job, error) {
-	jobs, err := persistence.Scan[Job](ctx, store, jobsBucket)
-	if err != nil {
-		return nil, err
+func visibleJob(ctx context.Context, store persistence.Store, job Job) (Job, error) {
+	job.Event.DeliveryMode = job.Event.Delivery()
+	if job.State == Done || job.State == Canceled {
+		return job, nil
 	}
-	boundaries := map[string]event.InterruptBoundary{}
-	for i := range jobs {
-		job := &jobs[i]
-		job.Event.DeliveryMode = job.Event.Delivery()
-		if job.State == Done || job.State == Canceled {
-			continue
-		}
-		key := persistence.Key(job.Event.OwnerID, job.Event.AssistantID)
-		boundary, ok := boundaries[key]
-		if !ok {
-			var err error
-			boundary, err = persistence.Load[event.InterruptBoundary](ctx, store, "agent.interrupt_boundaries", key)
-			if err != nil && !persistence.Missing(err) {
-				return nil, err
-			}
-			boundaries[key] = boundary
-		}
-		if boundary.Blocks(job.Event) {
-			job.State = Canceled
-		}
+	boundary, err := persistence.Load[event.InterruptBoundary](ctx, store, "agent.interrupt_boundaries", persistence.Key(job.Event.OwnerID, job.Event.AssistantID))
+	if err != nil && !persistence.Missing(err) {
+		return job, err
 	}
-	sort.Slice(jobs, func(i, j int) bool {
-		if (jobs[i].Event.Kind == event.DreamDue) != (jobs[j].Event.Kind == event.DreamDue) {
-			return jobs[i].Event.Kind != event.DreamDue
-		}
-		if jobs[i].NotBefore.Equal(jobs[j].NotBefore) {
-			return jobs[i].Event.ID < jobs[j].Event.ID
-		}
-		return jobs[i].NotBefore.Before(jobs[j].NotBefore)
-	})
-	return jobs, nil
+	if boundary.Blocks(job.Event) {
+		job.State = Canceled
+	}
+	return job, nil
 }
 func (q *queue) Claim(ctx context.Context, now time.Time) (Claim, error) {
 	claim, _, err := q.claim(ctx, now)
@@ -258,83 +233,62 @@ func (q *queue) Retry(ctx context.Context, p core.Principal, r RetryRequest) err
 	})
 }
 func (q *queue) List(ctx context.Context, owner core.ID, r Query) (page core.Page[Job], err error) {
-	r.Page, err = r.Page.Normalize()
-	if err != nil {
-		return
+	filters := []persistence.Filter{persistence.Eq("Event.OwnerID", owner)}
+	if r.AssistantID != "" {
+		filters = append(filters, persistence.Eq("Event.AssistantID", r.AssistantID))
 	}
-	type cursor struct {
-		Owner     core.ID
-		Assistant core.ID
-		States    string
-		After     core.ID
-	}
-	states, _ := json.Marshal(r.States)
-	position := cursor{Owner: owner, Assistant: r.AssistantID, States: string(states)}
-	if r.Page.Cursor != "" {
-		data, e := base64.RawURLEncoding.DecodeString(r.Page.Cursor)
-		if e != nil {
-			return page, core.Invalid("cursor", "invalid cursor")
-		}
-		var c cursor
-		if json.Unmarshal(data, &c) != nil || c.Owner != owner || c.Assistant != r.AssistantID || c.States != string(states) {
-			return page, core.Invalid("cursor", "cursor query mismatch")
-		}
-		position.After = c.After
-	}
+	request := r.Page
+	r.Page = core.PageRequest{}
 	err = q.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		jobs, e := allJobs(ctx, q.store)
-		if e != nil {
-			return e
-		}
-		page.Items = []Job{}
-		for _, job := range jobs {
-			if job.Event.OwnerID != owner || job.Event.ID <= position.After || (r.AssistantID != "" && job.Event.AssistantID != r.AssistantID) {
-				continue
+		var readErr error
+		normalized := map[core.ID]Job{}
+		page, readErr = persistence.Page[Job](ctx, q.store, jobsBucket, persistence.Query{Where: filters}, request, r, func(raw Job) bool {
+			job, e := visibleJob(ctx, q.store, raw)
+			if e != nil {
+				err = e
+				return true
 			}
-			if len(r.States) > 0 {
-				found := false
-				for _, state := range r.States {
-					if state == job.State {
-						found = true
-					}
-				}
-				if !found {
-					continue
+			if len(r.States) == 0 {
+				normalized[job.Event.ID] = job
+				return true
+			}
+			for _, state := range r.States {
+				if state == job.State {
+					normalized[job.Event.ID] = job
+					return true
 				}
 			}
-			page.Items = append(page.Items, job)
+			return false
+		})
+		if err != nil {
+			return err
 		}
-		sort.Slice(page.Items, func(i, j int) bool { return page.Items[i].Event.ID < page.Items[j].Event.ID })
-		if len(page.Items) > r.Page.Limit {
-			page.Items = page.Items[:r.Page.Limit]
-			position.After = page.Items[len(page.Items)-1].Event.ID
-			data, _ := json.Marshal(position)
-			page.NextCursor = base64.RawURLEncoding.EncodeToString(data)
+		for i, job := range page.Items {
+			page.Items[i] = normalized[job.Event.ID]
 		}
-		return nil
+		return readErr
 	})
 	return
 }
 func (q *queue) Cancel(ctx context.Context, owner, id core.ID) error {
 	return q.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		jobs, err := allJobs(ctx, q.store)
+		job, err := persistence.Load[Job](ctx, q.store, jobsBucket, persistence.Key(owner, id))
 		if err != nil {
 			return err
 		}
-		for _, job := range jobs {
-			if job.Event.OwnerID == owner && job.Event.ID == id {
-				if job.State == Done {
-					return core.NewError(core.FailedPrecondition, "job already complete")
-				}
-				if job.State == Canceled {
-					return nil
-				}
-				job.State = Canceled
-				job.Version++
-				return saveJob(ctx, tx, job)
-			}
+		job, err = visibleJob(ctx, q.store, job)
+		if err != nil {
+			return err
 		}
-		return core.NewError(core.NotFound, "job not found")
+		if job.State == Done {
+			return core.NewError(core.FailedPrecondition, "job already complete")
+		}
+		if job.State == Canceled {
+			return nil
+		}
+		job.State = Canceled
+		job.Version++
+		return saveJob(ctx, tx, job)
 	})
 }
 

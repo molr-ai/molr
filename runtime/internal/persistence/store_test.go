@@ -111,3 +111,37 @@ func TestSharedCatalogKeepsPrivateNamespaces(t *testing.T) {
 		t.Fatal("private data namespace changed", err)
 	}
 }
+
+func TestCatalogSelectionKeepsPrivateNamespaces(t *testing.T) {
+	store, err := sqlitestore.Open(filepath.Join(t.TempDir(), "catalog.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	type row struct{ OwnerID, ID string }
+	err = store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
+		if err := tx.Put(ctx, "system.catalog", "enabled", true); err != nil {
+			return err
+		}
+		if err := tx.Put(ctx, "auth.bootstrap", "owner", struct{ AccountID string }{"admin"}); err != nil {
+			return err
+		}
+		for _, owner := range []string{"admin", "member"} {
+			if err := tx.Put(ctx, "resources", owner+"/one", row{owner, "one"}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := persistence.SelectCatalog[row](t.Context(), store, "resources", "member", persistence.Query{})
+	if err != nil || len(rows) != 1 || rows[0].OwnerID != "admin" {
+		t.Fatal(rows, err)
+	}
+	rows, err = persistence.Select[row](t.Context(), store, "resources", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "member")}})
+	if err != nil || len(rows) != 1 || rows[0].OwnerID != "member" {
+		t.Fatal(rows, err)
+	}
+}

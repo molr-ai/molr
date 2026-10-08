@@ -452,7 +452,7 @@ func (s *Service) confirm(ctx context.Context, p core.Principal, id core.ID, r L
 		if !a.Active {
 			return core.NewError(core.FailedPrecondition, "assistant inactive")
 		}
-		rows, err := persistence.Scan[Binding](ctx, s.store, bindingsBucket)
+		rows, err := persistence.Select[Binding](ctx, s.store, bindingsBucket, persistence.Query{Any: [][]persistence.Filter{{persistence.Eq("BotID", r.BotID)}, {persistence.Eq("UserID", r.UserID)}}})
 		if err != nil {
 			return err
 		}

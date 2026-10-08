@@ -156,7 +156,7 @@ func (s *sandboxRouter) remote(ctx context.Context, e core.Execution, id core.ID
 			relevant[shell.ComputeID] = true
 		}
 	}
-	grants, grantErr := persistence.Scan[policy.Grant](ctx, s.adapters.store, "security.grants")
+	grants, grantErr := persistence.Select[policy.Grant](ctx, s.adapters.store, "security.grants", persistence.Query{Where: []persistence.Filter{persistence.Eq("RevokedAt", nil), persistence.Eq("OwnerID", e.Principal.OwnerID), persistence.Eq("AssistantID", e.AssistantID)}, Any: [][]persistence.Filter{{persistence.Eq("ExpiresAtKey", "")}, {{Field: "ExpiresAtKey", Op: ">", Value: persistence.TimeKey(time.Now())}}}})
 	if grantErr != nil {
 		return nil, grantErr
 	}
@@ -616,7 +616,7 @@ func (s *sandboxRouter) available(ctx context.Context, p core.Principal) (bool, 
 			return true, nil
 		}
 	}
-	rows, err := persistence.Scan[resource.Resource](ctx, s.adapters.store, "business.resources")
+	rows, err := persistence.SelectCatalog[resource.Resource](ctx, s.adapters.store, "business.resources", p.OwnerID, persistence.Query{Where: []persistence.Filter{persistence.Eq("Kind", resource.Compute), persistence.Eq("State", resource.Available)}})
 	if err != nil {
 		return false, err
 	}
@@ -642,7 +642,7 @@ func (s *sandboxRouter) available(ctx context.Context, p core.Principal) (bool, 
 	return false, nil
 }
 func (s *sandboxRouter) cancel(ctx context.Context, e core.Execution, id core.ID) error {
-	rows, err := persistence.Scan[sandboxConnection](ctx, s.adapters.store, "sandbox.connections")
+	rows, err := persistence.SelectCatalog[sandboxConnection](ctx, s.adapters.store, "sandbox.connections", e.Principal.OwnerID, persistence.Query{})
 	if err != nil {
 		return err
 	}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
+	"reflect"
 	"regexp"
 	"strings"
 )
@@ -12,6 +13,9 @@ import (
 var fieldName = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)*$`)
 
 func fieldSQL(field string) (string, error) {
+	if field == "RevisionScope" {
+		return "substr(key,1,instr(key,'/')+instr(substr(key,instr(key,'/')+1),'/')-1)", nil
+	}
 	if field == "OwnerKey" {
 		return "substr(key,1,instr(key,'/')-1)", nil
 	}
@@ -61,10 +65,121 @@ func (s *Store) createIndexes() error {
 		{"agent.jobs", []string{"Event.OwnerID", "Event.AssistantID", "ExecutionID"}},
 		{"agent.operations", []string{"OwnerID", "AssistantID", "ExecutionID"}},
 	}
+	// New indexes include key for deterministic scoped pagination without a full-bucket sort.
+	indexes = append(indexes, []struct {
+		bucket string
+		fields []string
+	}{
+		{"", []string{"OwnerID", "key"}},
+		{"auth.accounts", []string{"Account.Username", "key"}},
+		{"auth.accounts", []string{"Account.GroupID", "Account.Disabled", "key"}},
+		{"auth.sessions", []string{"TokenDigest", "key"}},
+		{"auth.sessions", []string{"Session.AccountID", "key"}},
+		{"auth.tokens", []string{"Digest", "key"}},
+		{"auth.tokens", []string{"AccountID", "key"}},
+		{"auth.login-links", []string{"AccountID", "Link.ID", "key"}},
+		{"auth.challenges", []string{"AccountID", "key"}},
+		{"security.credentials", []string{"Metadata.OwnerID", "key"}},
+		{"agent.jobs", []string{"Event.OwnerID", "Event.AssistantID", "key"}},
+		{"agent.jobs", []string{"Event.OwnerID", "JoinedTo", "key"}},
+		{"agent.events", []string{"OwnerID", "AssistantID", "Kind", "key"}},
+		{"agent.events", []string{"OwnerID", "AssistantID", "key"}},
+		{"agent.operations", []string{"OwnerID", "ExecutionID", "key"}},
+		{"agent.operations", []string{"State", "key"}},
+		{"security.grants", []string{"OwnerID", "AssistantID", "ResourceID", "key"}},
+		{"security.grants", []string{"OwnerID", "AssistantID", "key"}},
+		{"business.assistants", []string{"State", "key"}},
+		{"business.assistants", []string{"OwnerID", "GroupID", "key"}},
+		{"business.assistants", []string{"OwnerID", "State", "key"}},
+		{"business.tasks", []string{"OwnerID", "AssistantID", "key"}},
+		{"business.tasks", []string{"Plan.ID", "key"}},
+		{"business.todos", []string{"OwnerID", "AssistantID", "key"}},
+		{"business.schedules", []string{"OwnerID", "AssistantID", "key"}},
+		{"business.resources", []string{"OwnerID", "Kind", "key"}},
+		{"business.resources", []string{"Kind", "State", "key"}},
+		{"business.resources", []string{"OwnerID", "Provider", "key"}},
+		{"business.resources", []string{"SandboxID", "key"}},
+		{"business.bindings", []string{"CredentialID", "key"}},
+		{"business.dream_runs", []string{"OwnerID", "AssistantID", "key"}},
+		{"business.dream_sessions", []string{"OwnerID", "AssistantID", "State", "key"}},
+		{"business.dream_sessions", []string{"OwnerID", "AssistantID", "key"}},
+		{"sandbox.connections", []string{"OwnerID", "View.Endpoint", "key"}},
+		{"plugins.connections", []string{"OwnerID", "PluginID", "key"}},
+		{"plugins.http-calls", []string{"State", "key"}},
+		{"plugins.http-calls", []string{"Connection.ID", "CreatedAt", "key"}},
+		{"debug.summaries", []string{"State", "key"}},
+		{"im.outbox", []string{"ID", "key"}},
+		{"im.outbox", []string{"OwnerID", "ConversationID", "key"}},
+		{"weixin.bindings", []string{"BotID", "key"}},
+		{"weixin.bindings", []string{"UserID", "key"}},
+		{"weixin.deliveries", []string{"BindingID", "State", "key"}},
+		{"storage.files", []string{"State", "key"}},
+		{"sandbox.operations", []string{"Reply.State", "key"}},
+	}...)
+	indexes = append(indexes, []struct {
+		bucket string
+		fields []string
+	}{
+		{"im.outbox", []string{"AtKey", "ID", "key"}},
+		{"security.audit", []string{"AtKey", "ID", "key"}},
+		{"security.audit", []string{"OwnerID", "AtKey", "ID", "key"}},
+		{"im.messages", []string{"OwnerKey", "ConversationID", "CreatedAtKey", "key"}},
+		{"business.tasks", []string{"OwnerID", "AssistantID", "UpdatedAtKey", "key"}},
+		{"auth.login-links", []string{"AccountID", "CreatedAtKey", "Link.ID", "key"}},
+		{"debug.summaries", []string{"OwnerID", "StartedAtKey", "FirstRevision", "ID", "key"}},
+		{"debug.summaries", []string{"OwnerID", "StartedAtKey", "ID", "key"}},
+		{"plugins.http-calls", []string{"Connection.ID", "CreatedAtKey", "key"}},
+		{"security.permission_requests", []string{"OwnerID", "AssistantID", "key"}},
+		{"sandbox.shell_tasks", []string{"OwnerID", "AssistantID", "key"}},
+		{"business.groups", []string{"OwnerID", "Position", "key"}},
+	}...)
+	indexes = append(indexes, []struct {
+		bucket string
+		fields []string
+	}{
+		{"weixin.bindings", []string{"State", "key"}},
+		{"weixin.deliveries", []string{"State", "key"}},
+		{"sandbox.shell_tasks", []string{"State", "key"}},
+		{"agent.jobs", []string{"Event.Kind", "State", "key"}},
+		{"agent.jobs", []string{"Event.OwnerID", "Event.AssistantID", "State", "key"}},
+		{"agent.jobs", []string{"Event.OwnerID", "key"}},
+		{"business.plan-links", []string{"OwnerID", "Ref.Kind", "Ref.ID", "key"}},
+		{"business.dream_runs", []string{"OwnerID", "AssistantID", "State", "key"}},
+		{"business.dream_sessions", []string{"OwnerID", "AssistantID", "EndKey", "key"}},
+		{"business.dream_sessions", []string{"OwnerID", "AssistantID", "State", "DeadlineKey", "key"}},
+		{"business.dream_sessions", []string{"OwnerID", "DeadlineKey", "key"}},
+		{"business.dream_sessions", []string{"OwnerID", "AssistantID", "DeadlineKey", "key"}},
+		{"business.revisions", []string{"RevisionScope", "Number", "key"}},
+		{"storage.files", []string{"State", "Size"}},
+	}...)
+	indexes = append(indexes, []struct {
+		bucket string
+		fields []string
+	}{
+		{"debug.summaries", []string{"OwnerID", "State", "key"}},
+		{"debug.summaries", []string{"OwnerID", "StartedAtKey", "FirstRevision", "key"}},
+		{"debug.summaries", []string{"OwnerID", "Trigger", "key"}},
+		{"debug.summaries", []string{"OwnerID", "ID", "key"}},
+	}...)
+	indexes = append(indexes, struct {
+		bucket string
+		fields []string
+	}{"security.audit", []string{"OwnerID", "AtKey DESC", "ID", "key DESC"}})
+	indexes = append(indexes, []struct {
+		bucket string
+		fields []string
+	}{
+		{"security.grants", []string{"OwnerID", "AssistantID", "ResourceID", "RevokedAt", "ExpiresAtKey", "key"}},
+		{"security.grants", []string{"OwnerID", "AssistantID", "RevokedAt", "ExpiresAtKey", "key"}},
+	}...)
 	for i, index := range indexes {
 		parts := []string{"bucket"}
 		for _, field := range index.fields {
-			expr, err := fieldSQL(field)
+			name, desc := strings.CutSuffix(field, " DESC")
+			expr, err := fieldSQL(name)
+			if desc {
+				expr += " DESC"
+			}
 			if err != nil {
 				return err
 			}
@@ -102,6 +217,28 @@ func querySQL(bucket string, q persistence.Query) (string, []any, error) {
 			expr, err := fieldSQL(f.Field)
 			if err != nil {
 				return "", err
+			}
+			if f.Op == "has" {
+				term, ok := f.Value.(string)
+				if !ok {
+					return "", core.Invalid("query", "string membership required")
+				}
+				parts = append(parts, "key IN (SELECT key FROM record_terms WHERE bucket=? AND field=? AND term=?)")
+				args = append(args, bucket, f.Field, term)
+				continue
+			}
+			if f.Op == "in" {
+				values := reflect.ValueOf(f.Value)
+				if !values.IsValid() || values.Kind() != reflect.Slice || values.Len() == 0 || values.Len() > 16384 {
+					return "", core.Invalid("query", "invalid membership filter")
+				}
+				parameters := make([]string, values.Len())
+				for i := range parameters {
+					parameters[i] = "?"
+					args = append(args, values.Index(i).Interface())
+				}
+				parts = append(parts, expr+" IN ("+strings.Join(parameters, ",")+")")
+				continue
 			}
 			switch f.Op {
 			case "=", "!=", "<", "<=", ">", ">=":
@@ -151,17 +288,72 @@ func querySQL(bucket string, q persistence.Query) (string, []any, error) {
 		clauses = []string{"bucket=?", "key IN (" + strings.Join(union, " UNION ALL ") + ")"}
 		args = unionArgs
 	}
-	order := "key"
-	if q.OrderBy != "" {
-		var err error
-		order, err = fieldSQL(q.OrderBy)
+	orders := []struct {
+		field string
+		desc  bool
+	}{}
+	if q.OrderBy != "" && q.OrderBy != "key" {
+		orders = append(orders, struct {
+			field string
+			desc  bool
+		}{q.OrderBy, q.Descending})
+	}
+	if q.ThenBy != "" && q.ThenBy != "key" {
+		orders = append(orders, struct {
+			field string
+			desc  bool
+		}{q.ThenBy, q.ThenDescending})
+	}
+	if q.OrderBy == "" || q.OrderBy == "key" || q.ThenBy != "" || len(q.After) > 0 {
+		orders = append(orders, struct {
+			field string
+			desc  bool
+		}{"key", q.Descending})
+	}
+	orderParts := []string{}
+	for _, o := range orders {
+		expr, err := fieldSQL(o.field)
 		if err != nil {
 			return "", nil, err
 		}
+		if o.desc {
+			expr += " DESC"
+		}
+		orderParts = append(orderParts, expr)
 	}
-	if q.Descending {
-		order += " DESC"
+	if len(q.After) > 0 {
+		if len(q.After) != len(orders) {
+			return "", nil, core.Invalid("cursor", "invalid order position")
+		}
+		branches := []string{}
+		for i, o := range orders {
+			terms := []string{}
+			for j := 0; j < i; j++ {
+				expr, _ := fieldSQL(orders[j].field)
+				terms = append(terms, expr+"=?")
+				args = append(args, q.After[j])
+			}
+			expr, _ := fieldSQL(o.field)
+			op := ">"
+			if o.desc {
+				op = "<"
+			}
+			terms = append(terms, expr+op+"?")
+			args = append(args, q.After[i])
+			branches = append(branches, "("+strings.Join(terms, " AND ")+")")
+		}
+		clauses = append(clauses, "("+strings.Join(branches, " OR ")+")")
+		if len(orders) > 1 {
+			expr, _ := fieldSQL(orders[0].field)
+			op := ">="
+			if orders[0].desc {
+				op = "<="
+			}
+			clauses = append(clauses, expr+op+"?")
+			args = append(args, q.After[0])
+		}
 	}
+	order := strings.Join(orderParts, ",")
 	selection := "value"
 	if len(q.Fields) > 0 {
 		if len(q.Fields) > 32 {
@@ -210,4 +402,45 @@ func (tx *transaction) Query(ctx context.Context, bucket string, q persistence.Q
 		out = append(out, row)
 	}
 	return out, translate(ctx, rows.Err())
+}
+
+// Sum aggregates in SQLite without decoding each matching record in the caller.
+func (tx *transaction) Sum(ctx context.Context, bucket string, q persistence.Query, field string) (int64, error) {
+	if err := tx.check(ctx); err != nil {
+		return 0, err
+	}
+	expr, err := fieldSQL(field)
+	if err != nil {
+		return 0, err
+	}
+	q.Unordered = true
+	q.Fields = nil
+	query, args, err := querySQL(bucket, q)
+	if err != nil {
+		return 0, err
+	}
+	var total int64
+	err = tx.sql.QueryRowContext(ctx, "SELECT COALESCE(SUM("+expr+"),0) FROM ("+query+")", args...).Scan(&total)
+	return total, translate(ctx, err)
+}
+
+// DeleteMatching is used for whole-scope cleanup without loading discarded values.
+func (tx *transaction) DeleteMatching(ctx context.Context, bucket string, q persistence.Query) (int64, error) {
+	if err := tx.check(ctx); err != nil {
+		return 0, err
+	}
+	if !tx.writable {
+		return 0, core.NewError(core.FailedPrecondition, "read-only transaction")
+	}
+	query, args, err := querySQL(bucket, q)
+	if err != nil {
+		return 0, err
+	}
+	args = append([]any{bucket}, args...)
+	result, err := tx.sql.ExecContext(ctx, "DELETE FROM records WHERE bucket=? AND key IN (SELECT key FROM ("+query+"))", args...)
+	if err != nil {
+		return 0, translate(ctx, err)
+	}
+	n, err := result.RowsAffected()
+	return n, translate(ctx, err)
 }

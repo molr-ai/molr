@@ -2,10 +2,7 @@ package operation
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
-	"reflect"
-	"sort"
 	"time"
 
 	"molr.ai/runtime/internal/core"
@@ -34,63 +31,22 @@ func (r *repository) FindByKey(ctx context.Context, owner core.ID, key string) (
 	}
 	return Operation{}, core.NewError(core.NotFound, "operation not found")
 }
-func (r *repository) List(ctx context.Context, owner core.ID, q Query) (page core.Page[Operation], err error) {
-	q.Page, err = q.Page.Normalize()
-	if err != nil {
-		return
+func (r *repository) List(ctx context.Context, owner core.ID, q Query) (core.Page[Operation], error) {
+	filters := []persistence.Filter{persistence.Eq("OwnerID", owner)}
+	if q.AssistantID != "" {
+		filters = append(filters, persistence.Eq("AssistantID", q.AssistantID))
 	}
-	states := append([]State{}, q.States...)
-	sort.Slice(states, func(i, j int) bool { return states[i] < states[j] })
-	type cursor struct {
-		Owner     core.ID
-		Assistant core.ID
-		Task      core.ID
-		States    []State
-		After     core.ID
+	if q.TaskID != "" {
+		filters = append(filters, persistence.Eq("TaskID", q.TaskID))
 	}
-	position := cursor{Owner: owner, Assistant: q.AssistantID, Task: q.TaskID, States: states}
-	if q.Page.Cursor != "" {
-		data, e := base64.RawURLEncoding.DecodeString(q.Page.Cursor)
-		if e != nil {
-			return page, core.Invalid("cursor", "invalid cursor")
-		}
-		var c cursor
-		if json.Unmarshal(data, &c) != nil || c.Owner != owner || c.Assistant != q.AssistantID || c.Task != q.TaskID || !reflect.DeepEqual(c.States, states) {
-			return page, core.Invalid("cursor", "cursor query mismatch")
-		}
-		position.After = c.After
+	if len(q.States) > 0 {
+		filters = append(filters, persistence.Filter{Field: "State", Op: "in", Value: q.States})
 	}
-	items, err := persistence.Scan[Operation](ctx, r.store, bucket)
-	if err != nil {
-		return page, err
-	}
-	page.Items = []Operation{}
-	for _, op := range items {
-		if op.OwnerID != owner || op.ID <= position.After || (q.AssistantID != "" && op.AssistantID != q.AssistantID) || (q.TaskID != "" && op.TaskID != q.TaskID) {
-			continue
-		}
-		if len(states) > 0 {
-			found := false
-			for _, s := range states {
-				if op.State == s {
-					found = true
-				}
-			}
-			if !found {
-				continue
-			}
-		}
-		page.Items = append(page.Items, op)
-	}
-	sort.Slice(page.Items, func(i, j int) bool { return page.Items[i].ID < page.Items[j].ID })
-	if len(page.Items) > q.Page.Limit {
-		page.Items = page.Items[:q.Page.Limit]
-		position.After = page.Items[len(page.Items)-1].ID
-		data, _ := json.Marshal(position)
-		page.NextCursor = base64.RawURLEncoding.EncodeToString(data)
-	}
-	return page, nil
+	request := q.Page
+	q.Page = core.PageRequest{}
+	return persistence.Page[Operation](ctx, r.store, bucket, persistence.Query{Where: filters}, request, q, nil)
 }
+
 func valid(op Operation) error {
 	for _, id := range []core.ID{op.ID, op.OwnerID, op.AssistantID, op.ExecutionID} {
 		if err := id.Validate(); err != nil {

@@ -127,7 +127,7 @@ func (a adapters) discoverLocalProviders(ctx context.Context, p core.Principal) 
 	if err != nil {
 		return nil, err
 	}
-	rows, err := persistence.Scan[resource.Resource](ctx, a.store, "business.resources")
+	rows, err := persistence.Select[resource.Resource](ctx, a.store, "business.resources", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner), persistence.Eq("Kind", resource.Model)}})
 	if err != nil {
 		return nil, err
 	}

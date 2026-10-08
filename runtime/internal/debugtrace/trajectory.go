@@ -98,16 +98,25 @@ func (s *Service) Trajectory(ctx context.Context, p core.Principal, q Trajectory
 	out.Items = []TrajectoryEntry{}
 	out.Runs = []Run{}
 	err = s.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		summaries, err := persistence.Scan[Run](ctx, tx.Store(), "debug.summaries")
-		if err != nil {
-			return err
-		}
-		entries := []TrajectoryEntry{}
 		policy, err := s.retention(ctx, tx.Store())
 		if err != nil {
 			return err
 		}
-		protected := protectedRuns(ownerRuns(summaries, p.OwnerID), policy.MinRuns)
+		protected, err := s.protected(ctx, tx.Store(), p.OwnerID, policy)
+		if err != nil {
+			return err
+		}
+		query := visibleQuery(p.OwnerID, protected, persistence.TimeKey(s.options.Now().AddDate(0, 0, -policy.RetentionDays)))
+		if q.AssistantID != "" {
+			query.Where = append(query.Where, persistence.Eq("AssistantID", q.AssistantID))
+		}
+		summaries, err := persistence.Select[Run](ctx, tx.Store(), "debug.summaries", query)
+		if err != nil {
+			return err
+		}
+		entries := []TrajectoryEntry{}
+		// Inspect newest candidates first; older runs cannot contribute to a filled page.
+		sort.Slice(summaries, func(i, j int) bool { return summaries[i].LastRevision > summaries[j].LastRevision })
 		for _, summary := range summaries {
 			if summary.OwnerID != p.OwnerID || (q.AssistantID != "" && summary.AssistantID != q.AssistantID) || !visibleRun(summary, policy, protected, s.options.Now()) {
 				continue
@@ -124,6 +133,13 @@ func (s *Service) Trajectory(ctx context.Context, p core.Principal, q Trajectory
 			}
 			if page.Cursor != "" && summary.FirstRevision > 0 && summary.FirstRevision >= boundary.Revision {
 				continue
+			}
+			if q.After == "" && summary.LastRevision > 0 && len(entries) > page.Limit {
+				sort.Slice(entries, func(i, j int) bool { return compareTrajectory(cursorFor(entries[i]), cursorFor(entries[j])) > 0 })
+				entries = entries[:page.Limit+1]
+				if entries[page.Limit].Step.Revision > 0 && summary.LastRevision < entries[page.Limit].Step.Revision {
+					continue
+				}
 			}
 			var run Run
 			if err := tx.Get(ctx, "debug.runs", persistence.Key(p.OwnerID, summary.ID), &run); err != nil {

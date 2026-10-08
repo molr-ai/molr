@@ -233,7 +233,7 @@ func (a adapters) credentialAccess(ctx context.Context, q credential.Access) err
 }
 func (a adapters) estimate(ctx context.Context, id core.ID, inputs []model.Input, max int) (core.Money, error) {
 	// Resolve the owner from persisted resources; model IDs never grant access.
-	rows, err := persistence.Scan[resource.Resource](ctx, a.store, "business.resources")
+	rows, err := persistence.Select[resource.Resource](ctx, a.store, "business.resources", persistence.Query{Where: []persistence.Filter{persistence.Eq("Kind", resource.Model), persistence.Eq("State", resource.Available)}})
 	if err != nil {
 		return core.Money{}, err
 	}

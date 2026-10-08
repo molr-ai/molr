@@ -41,3 +41,13 @@ func LoadCatalog[T any](ctx context.Context, store Store, bucket string, owner, 
 	}
 	return Load[T](ctx, store, bucket, Key(owner, id))
 }
+
+// SelectCatalog binds shared catalog reads to the installation's resource owner.
+func SelectCatalog[T any](ctx context.Context, store Store, bucket string, caller core.ID, q Query) ([]T, error) {
+	owner, err := CatalogOwner(ctx, store, caller)
+	if err != nil {
+		return nil, err
+	}
+	q.Where = append(q.Where, Eq("OwnerID", owner))
+	return Select[T](ctx, store, bucket, q)
+}

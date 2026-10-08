@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"molr.ai/runtime/internal/notification"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -213,26 +212,18 @@ func (r *repository) Get(ctx context.Context, owner, id core.ID) (Task, error) {
 	return persistence.Load[Task](ctx, r.store, bucket, persistence.Key(owner, id))
 }
 func (r *repository) List(ctx context.Context, owner core.ID, q Query) (core.Page[Task], error) {
-	rows, err := persistence.Scan[Task](ctx, r.store, bucket)
-	if err != nil {
-		return core.Page[Task]{}, err
+	filters := []persistence.Filter{persistence.Eq("OwnerID", owner)}
+	if q.AssistantID != "" {
+		filters = append(filters, persistence.Eq("AssistantID", q.AssistantID))
 	}
-	items := []Task{}
-	for _, v := range rows {
-		state := len(q.States) == 0
-		for _, wanted := range q.States {
-			if v.State == wanted {
-				state = true
-			}
-		}
-		if v.OwnerID == owner && state && (q.AssistantID == "" || q.AssistantID == v.AssistantID) {
-			items = append(items, v)
-		}
+	if len(q.States) > 0 {
+		filters = append(filters, persistence.Filter{Field: "State", Op: "in", Value: q.States})
 	}
-	p := q.Page
+	request := q.Page
 	q.Page = core.PageRequest{}
-	return paginate(items, owner, q, p)
+	return persistence.Page[Task](ctx, r.store, bucket, persistence.Query{Where: filters}, request, q, func(v Task) bool { return true })
 }
+
 func (r *repository) Insert(ctx context.Context, v Task) error {
 	return insert(ctx, r.store, bucket, persistence.Key(v.OwnerID, v.ID), v)
 }
@@ -259,32 +250,18 @@ func (r *repository) AppendRevision(ctx context.Context, owner, id core.ID, v Re
 	})
 }
 func (r *repository) Revisions(ctx context.Context, owner, id core.ID, p core.PageRequest) (core.Page[Revision], error) {
-	var result core.Page[Revision]
+	var out core.Page[Revision]
 	err := r.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		if _, err := r.Get(ctx, owner, id); err != nil {
 			return err
 		}
-		rows, err := tx.Scan(ctx, revisionBucket)
-		if err != nil {
-			return err
-		}
-		items := []Revision{}
-		prefix := persistence.Key(owner, id) + "/"
-		for _, row := range rows {
-			if strings.HasPrefix(row.Key, prefix) {
-				v, err := persistence.Decode[Revision](row)
-				if err != nil {
-					return err
-				}
-				items = append(items, v)
-			}
-		}
-		sort.Slice(items, func(i, j int) bool { return items[i].Number < items[j].Number })
-		result, err = paginate(items, owner, id, p)
+		var err error
+		out, err = persistence.Page[Revision](ctx, r.store, revisionBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("RevisionScope", persistence.Key(owner, id))}, OrderBy: "Number"}, p, id, nil)
 		return err
 	})
-	return result, err
+	return out, err
 }
+
 func (s *service) emit(ctx context.Context, p core.Principal, v Task, event string) error {
 	if s.options.Emit == nil {
 		return core.NewError(core.Unavailable, "task event writer not configured")

@@ -371,7 +371,7 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 	resources = remoteSandboxResources{Service: resources, router: sandboxRouter}
 	memoryFiles := memory.NewFiles(memory.FileOptions{JournalRoot: filepath.Join(cfg.DataDir, "memory-operations"), Roots: func(ctx context.Context, owner core.ID) ([]memory.Root, error) {
 		roots := []memory.Root{{Scope: memory.Global, Directory: platform.UserGlobal(cfg.DataDir, owner)}}
-		rows, err := persistence.Scan[assistant.Assistant](ctx, store, "business.assistants")
+		rows, err := persistence.Select[assistant.Assistant](ctx, store, "business.assistants", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner)}})
 		if err != nil {
 			return nil, err
 		}

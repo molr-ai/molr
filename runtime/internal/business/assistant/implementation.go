@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	avatarutil "molr.ai/runtime/internal/avatar"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -225,20 +224,21 @@ func (r *repository) Get(ctx context.Context, owner, id core.ID) (Assistant, err
 	return persistence.Load[Assistant](ctx, r.store, bucket, persistence.Key(owner, id))
 }
 func (r *repository) List(ctx context.Context, owner core.ID, q Query) (core.Page[Assistant], error) {
-	rows, err := persistence.Scan[Assistant](ctx, r.store, bucket)
-	if err != nil {
-		return core.Page[Assistant]{}, err
+	filters := []persistence.Filter{persistence.Eq("OwnerID", owner)}
+	if q.State != "" {
+		filters = append(filters, persistence.Eq("State", q.State))
 	}
-	items := []Assistant{}
-	for _, v := range rows {
-		if v.OwnerID == owner && (q.State == "" || v.State == q.State) && (q.GroupID == "" || v.GroupID == q.GroupID) && (q.Name == "" || strings.Contains(strings.ToLower(v.Name), strings.ToLower(q.Name))) {
-			items = append(items, v)
-		}
+	if q.GroupID != "" {
+		filters = append(filters, persistence.Eq("GroupID", q.GroupID))
 	}
-	p := q.Page
+
+	request := q.Page
 	q.Page = core.PageRequest{}
-	return paginate(items, owner, q, p)
+	return persistence.Page[Assistant](ctx, r.store, bucket, persistence.Query{Where: filters}, request, q, func(v Assistant) bool {
+		return q.Name == "" || strings.Contains(strings.ToLower(v.Name), strings.ToLower(q.Name))
+	})
 }
+
 func (r *repository) Insert(ctx context.Context, v Assistant) error {
 	return insert(ctx, r.store, bucket, persistence.Key(v.OwnerID, v.ID), v)
 }
@@ -246,19 +246,9 @@ func (r *repository) Save(ctx context.Context, v Assistant, expected core.Versio
 	return save(ctx, r.store, bucket, persistence.Key(v.OwnerID, v.ID), v, expected, func(v Assistant) core.Version { return v.Version })
 }
 func (r *repository) Groups(ctx context.Context, owner core.ID, p core.PageRequest) (core.Page[Group], error) {
-	rows, err := persistence.Scan[Group](ctx, r.store, groupBucket)
-	if err != nil {
-		return core.Page[Group]{}, err
-	}
-	items := []Group{}
-	for _, v := range rows {
-		if v.OwnerID == owner {
-			items = append(items, v)
-		}
-	}
-	sort.SliceStable(items, func(i, j int) bool { return items[i].Position < items[j].Position })
-	return paginate(items, owner, "groups", p)
+	return persistence.Page[Group](ctx, r.store, groupBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner)}, OrderBy: "Position"}, p, owner, nil)
 }
+
 func (r *repository) PutGroup(ctx context.Context, v Group, expected core.Version) error {
 	if expected == 0 {
 		return insert(ctx, r.store, groupBucket, persistence.Key(v.OwnerID, v.ID), v)
@@ -468,7 +458,7 @@ func (s *service) Dismiss(ctx context.Context, p core.Principal, req LifecycleRe
 			return v, err
 		}
 		archive := archivedState{Grants: grants}
-		schedules, err := persistence.Scan[schedule.Schedule](ctx, s.store, "business.schedules")
+		schedules, err := persistence.Select[schedule.Schedule](ctx, s.store, "business.schedules", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("AssistantID", v.ID), persistence.Eq("Enabled", true)}})
 		if err != nil {
 			return v, err
 		}
@@ -484,7 +474,7 @@ func (s *service) Dismiss(ctx context.Context, p core.Principal, req LifecycleRe
 				}
 			}
 		}
-		tasks, err := persistence.Scan[task.Task](ctx, s.store, "business.tasks")
+		tasks, err := persistence.Select[task.Task](ctx, s.store, "business.tasks", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("AssistantID", v.ID)}})
 		if err != nil {
 			return v, err
 		}
@@ -695,7 +685,7 @@ func (s *service) DeleteGroup(ctx context.Context, p core.Principal, req Lifecyc
 		if err := s.repo.DeleteGroup(ctx, p.OwnerID, req.ID, req.Mutation.ExpectedVersion); err != nil {
 			return struct{}{}, err
 		}
-		rows, err := persistence.Scan[Assistant](ctx, s.store, bucket)
+		rows, err := persistence.Select[Assistant](ctx, s.store, bucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("GroupID", req.ID)}})
 		if err != nil {
 			return struct{}{}, err
 		}

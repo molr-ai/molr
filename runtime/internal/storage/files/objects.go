@@ -196,7 +196,7 @@ func (o *ObjectStore) Recover(ctx context.Context) error {
 	}
 	ready := map[string]bool{}
 	if o.store != nil {
-		rows, err := persistence.Scan[File](ctx, o.store, Bucket)
+		rows, err := persistence.Select[File](ctx, o.store, Bucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("State", Ready)}})
 		if err != nil {
 			return err
 		}

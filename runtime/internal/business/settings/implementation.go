@@ -353,7 +353,7 @@ func (s *service) Export(ctx context.Context, p core.Principal, req ExportReques
 		}
 		err := s.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
 			for _, bucket := range buckets {
-				records, err := tx.Scan(ctx, bucket)
+				records, err := tx.Query(ctx, bucket, persistence.Query{Any: [][]persistence.Filter{{persistence.Eq("key", string(p.OwnerID))}, {{Field: "key", Op: ">=", Value: string(p.OwnerID) + "/"}, {Field: "key", Op: "<", Value: string(p.OwnerID) + "/\U0010ffff"}}}})
 				if err != nil {
 					return err
 				}

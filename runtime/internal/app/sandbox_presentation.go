@@ -167,7 +167,7 @@ func (s *sandboxRouter) sandboxResourceDetails(ctx context.Context, p core.Princ
 				return denied()
 			}
 		}
-		rows, err := persistence.Scan[resource.Resource](ctx, s.adapters.store, "business.resources")
+		rows, err := persistence.SelectCatalog[resource.Resource](ctx, s.adapters.store, "business.resources", p.OwnerID, persistence.Query{})
 		if err != nil {
 			return err
 		}

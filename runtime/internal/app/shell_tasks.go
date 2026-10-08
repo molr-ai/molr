@@ -373,19 +373,21 @@ func (s *shellTasks) disarmLocked(owner, id core.ID) {
 	delete(s.reminders, persistence.Key(owner, id))
 }
 func (s *shellTasks) start(ctx context.Context) error {
-	rows, err := persistence.Scan[shellTask](ctx, s.store, shellTasksBucket)
+	// Only unfinished reminders and commands need recovery; completed command history is immutable.
+	reminders, err := persistence.Select[event.Job](ctx, s.store, "agent.jobs", persistence.Query{Where: []persistence.Filter{persistence.Eq("Event.Kind", event.ShellTasksRunning), {Field: "State", Op: "in", Value: []event.JobState{event.Queued, event.Retry}}}})
 	if err != nil {
 		return err
 	}
-	seen := map[string]bool{}
-	for _, t := range rows {
-		key := persistence.Key(t.OwnerID, t.AssistantID)
-		if !seen[key] {
-			if err := refreshShellReminder(ctx, s.store, t.OwnerID, t.AssistantID, time.Now(), nil); err != nil {
-				return err
-			}
-			seen[key] = true
+	for _, j := range reminders {
+		if err := refreshShellReminder(ctx, s.store, j.Event.OwnerID, j.Event.AssistantID, time.Now(), nil); err != nil {
+			return err
 		}
+	}
+	rows, err := persistence.Select[shellTask](ctx, s.store, shellTasksBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("State", "running")}})
+	if err != nil {
+		return err
+	}
+	for _, t := range rows {
 		if t.State == "running" {
 			now := time.Now().UTC()
 			t.FinishedAt = &now
@@ -470,7 +472,7 @@ func (s *shellTasks) manage(ctx context.Context, p core.Principal, id core.ID, q
 		return nil, err
 	}
 	if q.Action == "list" {
-		rows, err := persistence.Scan[shellTask](ctx, s.store, shellTasksBucket)
+		rows, err := persistence.Select[shellTask](ctx, s.store, shellTasksBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("AssistantID", id)}})
 		if err != nil {
 			return nil, err
 		}

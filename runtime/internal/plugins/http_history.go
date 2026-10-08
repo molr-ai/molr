@@ -34,7 +34,7 @@ func (s *Service) HTTPHistory(ctx context.Context, p core.Principal, q Connectio
 	if c.PluginID != q.PluginID {
 		return nil, core.NewError(core.NotFound, "connection not found")
 	}
-	rows, err := persistence.Scan[HTTPCall](ctx, s.store, "plugins.http-calls")
+	rows, err := persistence.Select[HTTPCall](ctx, s.store, "plugins.http-calls", persistence.Query{Where: []persistence.Filter{persistence.Eq("Connection.ID", c.ID)}, OrderBy: "CreatedAtKey", Descending: true, Limit: 100})
 	if err != nil {
 		return nil, err
 	}

@@ -59,8 +59,8 @@ func (e *Engine) Compress(ctx context.Context, p core.Principal, id core.ID, r C
 
 func (e *Engine) enqueueCompression(ctx context.Context, owner, id core.ID, manual bool) (source event.AssistantEvent, err error) {
 	err = e.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		// Scan all records rather than allowing pagination to create duplicate work.
-		events, err := persistence.Scan[event.AssistantEvent](ctx, e.store, "agent.events")
+		// The event and job are committed together; completed jobs cannot deduplicate new work.
+		jobs, err := persistence.Select[scheduler.Job](ctx, e.store, "agent.jobs", persistence.Query{Where: []persistence.Filter{persistence.Eq("Event.OwnerID", owner), persistence.Eq("Event.AssistantID", id), persistence.Eq("Event.Kind", event.ContextCompressionRequested), {Field: "State", Op: "in", Value: []scheduler.State{scheduler.Queued, scheduler.Running, scheduler.Retry}}}})
 		if err != nil {
 			return err
 		}
@@ -68,15 +68,9 @@ func (e *Engine) enqueueCompression(ctx context.Context, owner, id core.ID, manu
 		if err != nil && !persistence.Missing(err) {
 			return err
 		}
-		for _, existing := range events {
+		for _, job := range jobs {
+			existing := job.Event
 			if existing.OwnerID != owner || existing.AssistantID != id || existing.Kind != event.ContextCompressionRequested || boundary.Blocks(existing) {
-				continue
-			}
-			job, err := persistence.Load[scheduler.Job](ctx, e.store, "agent.jobs", persistence.Key(owner, existing.ID))
-			if err != nil && !persistence.Missing(err) {
-				return err
-			}
-			if err == nil && job.State != scheduler.Queued && job.State != scheduler.Running && job.State != scheduler.Retry {
 				continue
 			}
 			var receipt CompressionResult

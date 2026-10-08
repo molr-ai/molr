@@ -129,7 +129,7 @@ func (s *permissionRequests) create(ctx context.Context, e core.Execution, input
 }
 
 func (s *permissionRequests) rows(ctx context.Context, owner, assistantID core.ID) ([]policy.PermissionRequest, error) {
-	all, err := persistence.Scan[policy.PermissionRequest](ctx, s.store, permissionRequestsBucket)
+	all, err := persistence.Select[policy.PermissionRequest](ctx, s.store, permissionRequestsBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner), persistence.Eq("AssistantID", assistantID)}})
 	rows := []policy.PermissionRequest{}
 	for _, row := range all {
 		if row.OwnerID == owner && row.AssistantID == assistantID {

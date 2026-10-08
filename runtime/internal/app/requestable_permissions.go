@@ -32,7 +32,7 @@ type requestablePermission struct {
 }
 
 func requestablePermissions(ctx context.Context, store persistence.Store, owner core.ID) ([]requestablePermission, bool, error) {
-	resources, err := persistence.Scan[resource.Resource](ctx, store, "business.resources")
+	resources, err := persistence.SelectCatalog[resource.Resource](ctx, store, "business.resources", owner, persistence.Query{})
 	if err != nil {
 		return nil, false, err
 	}

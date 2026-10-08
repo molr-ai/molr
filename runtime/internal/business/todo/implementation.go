@@ -203,20 +203,18 @@ func (r *repository) Get(ctx context.Context, owner, id core.ID) (Todo, error) {
 	return persistence.Load[Todo](ctx, r.store, bucket, persistence.Key(owner, id))
 }
 func (r *repository) List(ctx context.Context, owner core.ID, q Query) (core.Page[Todo], error) {
-	rows, err := persistence.Scan[Todo](ctx, r.store, bucket)
-	if err != nil {
-		return core.Page[Todo]{}, err
+	filters := []persistence.Filter{persistence.Eq("OwnerID", owner)}
+	if q.AssistantID != "" {
+		filters = append(filters, persistence.Eq("AssistantID", q.AssistantID))
 	}
-	items := []Todo{}
-	for _, v := range rows {
-		if v.OwnerID == owner && (q.AssistantID == "" || v.AssistantID == q.AssistantID) && (q.Completed == nil || v.Completed == *q.Completed) {
-			items = append(items, v)
-		}
+	if q.Completed != nil {
+		filters = append(filters, persistence.Eq("Completed", *q.Completed))
 	}
-	p := q.Page
+	request := q.Page
 	q.Page = core.PageRequest{}
-	return paginate(items, owner, q, p)
+	return persistence.Page[Todo](ctx, r.store, bucket, persistence.Query{Where: filters}, request, q, func(v Todo) bool { return true })
 }
+
 func (r *repository) Insert(ctx context.Context, v Todo) error {
 	return insert(ctx, r.store, bucket, persistence.Key(v.OwnerID, v.ID), v)
 }
@@ -335,10 +333,10 @@ func validTimeBlock(start, end *time.Time) bool {
 }
 
 func checkPlanReferences(ctx context.Context, store persistence.Store, owner core.ID, ref core.Object) error {
-	tasks, err := persistence.Scan[struct {
+	tasks, err := persistence.Select[struct {
 		OwnerID core.ID
 		Plan    core.Object
-	}](ctx, store, "business.tasks")
+	}](ctx, store, "business.tasks", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner), persistence.Eq("Plan.Kind", ref.Kind), persistence.Eq("Plan.ID", ref.ID)}, Limit: 1, Unordered: true})
 	if err != nil {
 		return err
 	}
@@ -347,12 +345,12 @@ func checkPlanReferences(ctx context.Context, store persistence.Store, owner cor
 			return core.NewError(core.FailedPrecondition, "pause a plan with execution history")
 		}
 	}
-	links, err := persistence.Scan[struct {
+	links, err := persistence.Select[struct {
 		OwnerID      core.ID
 		Ref          core.Object
 		Dependencies []core.Object
 		Runs         []json.RawMessage
-	}](ctx, store, "business.plan-links")
+	}](ctx, store, "business.plan-links", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner)}, Any: [][]persistence.Filter{{persistence.Eq("Ref.Kind", ref.Kind), persistence.Eq("Ref.ID", ref.ID)}, {{Field: "Dependencies", Op: "has", Value: ref.Kind + "/" + string(ref.ID)}}}})
 	if err != nil {
 		return err
 	}

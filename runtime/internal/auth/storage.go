@@ -48,7 +48,7 @@ func (r *repository) AccountByID(ctx context.Context, id core.ID) (StoredAccount
 }
 
 func (r *repository) AccountByUsername(ctx context.Context, username string) (StoredAccount, error) {
-	rows, err := persistence.Scan[accountRecord](ctx, r.store, "auth.accounts")
+	rows, err := persistence.Select[accountRecord](ctx, r.store, "auth.accounts", persistence.Query{Where: []persistence.Filter{persistence.Eq("Account.Username", username)}, Limit: 1, Unordered: true})
 	if err != nil {
 		return StoredAccount{}, err
 	}
@@ -62,7 +62,11 @@ func (r *repository) AccountByUsername(ctx context.Context, username string) (St
 }
 func (r *repository) InsertAccount(ctx context.Context, a StoredAccount) error {
 	return r.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		rows, err := persistence.Scan[accountRecord](ctx, tx.Store(), "auth.accounts")
+		existing, err := tx.Query(ctx, "auth.accounts", persistence.Query{Limit: 1})
+		if err != nil {
+			return err
+		}
+		rows, err := persistence.Select[accountRecord](ctx, tx.Store(), "auth.accounts", persistence.Query{Any: [][]persistence.Filter{{persistence.Eq("key", string(a.Account.ID))}, {persistence.Eq("Account.Username", a.Account.Username)}}})
 		if err != nil {
 			return err
 		}
@@ -72,7 +76,7 @@ func (r *repository) InsertAccount(ctx context.Context, a StoredAccount) error {
 			}
 		}
 		if a.Account.GroupID == "" {
-			if len(rows) == 0 {
+			if len(existing) == 0 {
 				a.Account.GroupID = AdminGroupID
 			} else {
 				return core.Invalid("group", "user group required")
@@ -83,7 +87,7 @@ func (r *repository) InsertAccount(ctx context.Context, a StoredAccount) error {
 		if err := ensureGroups(ctx, tx); err != nil {
 			return err
 		}
-		if len(rows) == 0 {
+		if len(existing) == 0 {
 			if err := tx.Put(ctx, "auth.bootstrap", "owner", struct{ AccountID core.ID }{a.Account.ID}); err != nil {
 				return err
 			}
@@ -100,7 +104,7 @@ func (r *repository) SaveAccount(ctx context.Context, a StoredAccount, v core.Ve
 		if old.Version != v {
 			return persistence.Conflict("account version mismatch")
 		}
-		rows, err := persistence.Scan[accountRecord](ctx, tx.Store(), "auth.accounts")
+		rows, err := persistence.Select[accountRecord](ctx, tx.Store(), "auth.accounts", persistence.Query{Where: []persistence.Filter{persistence.Eq("Account.Username", a.Account.Username)}})
 		if err != nil {
 			return err
 		}
@@ -115,7 +119,7 @@ func (r *repository) SaveAccount(ctx context.Context, a StoredAccount, v core.Ve
 	})
 }
 func (r *repository) FindSession(ctx context.Context, digest string) (StoredSession, error) {
-	items, e := persistence.Scan[StoredSession](ctx, r.store, "auth.sessions")
+	items, e := persistence.Select[StoredSession](ctx, r.store, "auth.sessions", persistence.Query{Where: []persistence.Filter{persistence.Eq("TokenDigest", digest)}, Limit: 1, Unordered: true})
 	if e != nil {
 		return StoredSession{}, e
 	}
@@ -132,18 +136,14 @@ func (r *repository) SaveSession(ctx context.Context, s StoredSession) error {
 	})
 }
 func (r *repository) Sessions(ctx context.Context, owner core.ID, p core.PageRequest) (core.Page[Session], error) {
-	items, e := persistence.Scan[StoredSession](ctx, r.store, "auth.sessions")
-	if e != nil {
-		return core.Page[Session]{}, e
+	rows, err := persistence.Page[StoredSession](ctx, r.store, "auth.sessions", persistence.Query{Where: []persistence.Filter{persistence.Eq("Session.AccountID", owner)}}, p, owner, nil)
+	out := core.Page[Session]{Items: []Session{}, NextCursor: rows.NextCursor}
+	for _, row := range rows.Items {
+		out.Items = append(out.Items, row.Session)
 	}
-	out := []Session{}
-	for _, s := range items {
-		if s.Session.AccountID == owner {
-			out = append(out, s.Session)
-		}
-	}
-	return pageSlice(out, p, "sessions:"+string(owner))
+	return out, err
 }
+
 func (r *repository) RevokeSession(ctx context.Context, owner, id core.ID, at time.Time) error {
 	return r.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		var s StoredSession
@@ -156,7 +156,7 @@ func (r *repository) RevokeSession(ctx context.Context, owner, id core.ID, at ti
 	})
 }
 func (r *repository) FindToken(ctx context.Context, digest string) (StoredToken, error) {
-	items, e := persistence.Scan[StoredToken](ctx, r.store, "auth.tokens")
+	items, e := persistence.Select[StoredToken](ctx, r.store, "auth.tokens", persistence.Query{Where: []persistence.Filter{persistence.Eq("Digest", digest)}, Limit: 1, Unordered: true})
 	if e != nil {
 		return StoredToken{}, e
 	}
@@ -173,18 +173,14 @@ func (r *repository) SaveToken(ctx context.Context, s StoredToken) error {
 	})
 }
 func (r *repository) Tokens(ctx context.Context, owner core.ID, p core.PageRequest) (core.Page[Token], error) {
-	items, e := persistence.Scan[StoredToken](ctx, r.store, "auth.tokens")
-	if e != nil {
-		return core.Page[Token]{}, e
+	rows, err := persistence.Page[StoredToken](ctx, r.store, "auth.tokens", persistence.Query{Where: []persistence.Filter{persistence.Eq("AccountID", owner)}}, p, owner, nil)
+	out := core.Page[Token]{Items: []Token{}, NextCursor: rows.NextCursor}
+	for _, row := range rows.Items {
+		out.Items = append(out.Items, row.Token)
 	}
-	out := []Token{}
-	for _, s := range items {
-		if s.AccountID == owner {
-			out = append(out, s.Token)
-		}
-	}
-	return pageSlice(out, p, "tokens:"+string(owner))
+	return out, err
 }
+
 func (r *repository) RevokeToken(ctx context.Context, owner, id core.ID, at time.Time) error {
 	return r.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		var s StoredToken
@@ -198,7 +194,7 @@ func (r *repository) RevokeToken(ctx context.Context, owner, id core.ID, at time
 }
 func (r *repository) RevokeAll(ctx context.Context, owner core.ID, at time.Time) error {
 	return r.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		sessions, e := persistence.Scan[StoredSession](ctx, tx.Store(), "auth.sessions")
+		sessions, e := persistence.Select[StoredSession](ctx, tx.Store(), "auth.sessions", persistence.Query{Where: []persistence.Filter{persistence.Eq("Session.AccountID", owner)}})
 		if e != nil {
 			return e
 		}
@@ -210,7 +206,7 @@ func (r *repository) RevokeAll(ctx context.Context, owner core.ID, at time.Time)
 				}
 			}
 		}
-		tokens, e := persistence.Scan[StoredToken](ctx, tx.Store(), "auth.tokens")
+		tokens, e := persistence.Select[StoredToken](ctx, tx.Store(), "auth.tokens", persistence.Query{Where: []persistence.Filter{persistence.Eq("AccountID", owner)}})
 		if e != nil {
 			return e
 		}
@@ -222,7 +218,7 @@ func (r *repository) RevokeAll(ctx context.Context, owner core.ID, at time.Time)
 				}
 			}
 		}
-		links, e := persistence.Scan[storedLoginLink](ctx, tx.Store(), loginLinksBucket)
+		links, e := persistence.Select[storedLoginLink](ctx, tx.Store(), loginLinksBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("AccountID", owner)}})
 		if e != nil {
 			return e
 		}

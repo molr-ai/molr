@@ -35,12 +35,25 @@ type Tombstone struct {
 }
 
 func scrubHistory(ctx context.Context, store persistence.Store, m Memory) error {
+	if len(m.Sources) == 0 {
+		return nil
+	}
 	return store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		rows, err := tx.Scan(ctx, "business.dream_runs")
-		if err != nil {
-			return err
+		// Source membership is indexed; erased content never requires loading unrelated dreams.
+		matching := map[string]persistence.Record{}
+		for _, source := range m.Sources {
+			for _, field := range []string{"MemorySources", "Sources.Source"} {
+				rows, err := tx.Query(ctx, "business.dream_runs", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", m.OwnerID), {Field: field, Op: "has", Value: source.Kind + "/" + string(source.ID)}}})
+				if err != nil {
+					return err
+				}
+				for _, row := range rows {
+					matching[row.Key] = row
+				}
+			}
 		}
-		for _, row := range rows {
+
+		for _, row := range matching {
 			var r struct {
 				OwnerID       core.ID
 				MemorySources []core.Object

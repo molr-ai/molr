@@ -261,15 +261,10 @@ func (r *restorer) Restore(ctx context.Context, backup Backup) error {
 	}
 	if err = candidate.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		for _, bucket := range []string{"auth.sessions", "auth.tokens", "auth.login-links", "auth.challenges", "auth.totp_used"} {
-			records, err := tx.Scan(ctx, bucket)
-			if err != nil {
+			if _, err := tx.DeleteMatching(ctx, bucket, persistence.Query{Unordered: true}); err != nil {
 				return err
 			}
-			for _, record := range records {
-				if err = tx.Delete(ctx, bucket, record.Key); err != nil {
-					return err
-				}
-			}
+
 		}
 		return nil
 	}); err != nil {

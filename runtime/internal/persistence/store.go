@@ -24,6 +24,8 @@ type Tx interface {
 	Delete(context.Context, string, string) error
 	Scan(context.Context, string) ([]Record, error)
 	Query(context.Context, string, Query) ([]Record, error)
+	Sum(context.Context, string, Query, string) (int64, error)
+	DeleteMatching(context.Context, string, Query) (int64, error)
 	Store() Store
 	// NotifyAfterCommit registers a coalescible wakeup, discarded on rollback.
 	NotifyAfterCommit(context.Context, SignalKey) error

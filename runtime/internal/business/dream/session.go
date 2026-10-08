@@ -63,7 +63,7 @@ func (s *Coordinator) startSession(ctx context.Context, c Config, manual bool, n
 	}
 	end := dayStart(at, loc)
 	start := end.AddDate(0, 0, -1)
-	all, err := persistence.Scan[Session](ctx, s.store, sessions)
+	all, err := persistence.Select[Session](ctx, s.store, sessions, persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", c.OwnerID), persistence.Eq("AssistantID", c.AssistantID)}, Any: [][]persistence.Filter{{persistence.Eq("State", "active"), {Field: "DeadlineKey", Op: ">", Value: persistence.TimeKey(now)}}, {persistence.Eq("EndKey", persistence.TimeKey(end))}}})
 	if err != nil {
 		return Run{}, err
 	}
@@ -121,17 +121,22 @@ func (s *Coordinator) startSession(ctx context.Context, c Config, manual bool, n
 	if err != nil {
 		return Run{}, err
 	}
-	prior, err := persistence.Scan[Run](ctx, s.store, runs)
-	if err != nil {
+	old, err := persistence.Load[backlog](ctx, s.store, backlogs, persistence.Key(c.OwnerID, c.AssistantID))
+	if err != nil && !persistence.Missing(err) {
 		return Run{}, err
 	}
 	seen := map[string]bool{}
-	for _, r := range prior {
-		if r.OwnerID == c.OwnerID && r.AssistantID == c.AssistantID && (r.State == "completed" || r.State == "undone") {
-			for _, src := range r.Sources {
-				seen[evidenceKey(src)] = true
-			}
+	candidates := append(append([]Evidence{}, fresh...), old.Sources...)
+	for _, src := range candidates {
+		key := evidenceKey(src)
+		if _, checked := seen[key]; checked {
+			continue
 		}
+		prior, err := persistence.Select[Run](ctx, s.store, runs, persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", c.OwnerID), persistence.Eq("AssistantID", c.AssistantID), {Field: "State", Op: "in", Value: []string{"completed", "undone"}}, {Field: "Sources.Evidence", Op: "has", Value: key}}, Limit: 1, Fields: []string{"ID"}})
+		if err != nil {
+			return Run{}, err
+		}
+		seen[key] = len(prior) > 0
 	}
 	filtered := []Evidence{}
 	for _, src := range fresh {
@@ -144,10 +149,6 @@ func (s *Coordinator) startSession(ctx context.Context, c Config, manual bool, n
 	v.FreshCount = len(chosen)
 	v.Deferred, _ = takeEvidence(remaining, 80, 96<<10)
 	v.Unprocessed = len(remaining)
-	old, err := persistence.Load[backlog](ctx, s.store, backlogs, persistence.Key(c.OwnerID, c.AssistantID))
-	if err != nil && !persistence.Missing(err) {
-		return Run{}, err
-	}
 	if old.EligibleOn.Equal(end) {
 		carry := []Evidence{}
 		for _, src := range old.Sources {
@@ -371,7 +372,7 @@ func (s *Coordinator) Cancel(ctx context.Context, p core.Principal, a core.ID) e
 	if err := s.authorize(ctx, p, a, true); err != nil {
 		return err
 	}
-	all, err := persistence.Scan[Session](ctx, s.store, sessions)
+	all, err := persistence.Select[Session](ctx, s.store, sessions, persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("AssistantID", a), persistence.Eq("State", "active")}})
 	if err != nil {
 		return err
 	}
@@ -426,7 +427,11 @@ func (s *Coordinator) Windows(ctx context.Context, p core.Principal, a core.ID, 
 			out = append(out, Window{AssistantID: person.ID, Start: at, End: at.Add(time.Duration(c.MaxDurationSeconds) * time.Second), Timezone: c.Timezone, State: "reserved"})
 		}
 	}
-	all, err := persistence.Scan[Session](ctx, s.store, sessions)
+	filters := []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), {Field: "DeadlineKey", Op: ">", Value: persistence.TimeKey(from)}, {Field: "WindowStartKey", Op: "<", Value: persistence.TimeKey(to)}}
+	if a != "" {
+		filters = append(filters, persistence.Eq("AssistantID", a))
+	}
+	all, err := persistence.Select[Session](ctx, s.store, sessions, persistence.Query{Where: filters})
 	if err != nil {
 		return nil, err
 	}

@@ -101,7 +101,7 @@ func (s *service) SaveProvider(ctx context.Context, p core.Principal, req SavePr
 				var version core.Version
 				if id != "" {
 					// Do not rotate a key still referenced by another connection.
-					bindings, err := persistence.Scan[Binding](ctx, s.store, bindingBucket)
+					bindings, err := persistence.Select[Binding](ctx, s.store, bindingBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("CredentialID", id), {Field: "ResourceID", Op: "!=", Value: r.ID}}, Limit: 1})
 					if err != nil {
 						return r, err
 					}

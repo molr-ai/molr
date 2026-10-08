@@ -100,7 +100,7 @@ func (a adapters) provider(ctx context.Context, p core.Principal, id core.ID) (m
 	if err != nil {
 		return model.Provider{}, err
 	}
-	rows, err := persistence.Scan[resource.Resource](ctx, a.store, "business.resources")
+	rows, err := persistence.Select[resource.Resource](ctx, a.store, "business.resources", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", catalogOwner), persistence.Eq("Kind", resource.Model), persistence.Eq("Provider", "openai-compatible"), persistence.Eq("State", resource.Available)}})
 	if err != nil {
 		return model.Provider{}, err
 	}
@@ -128,7 +128,7 @@ func (a adapters) models(ctx context.Context, p core.Principal) ([]model.Model, 
 	if err != nil {
 		return nil, err
 	}
-	rows, err := persistence.Scan[resource.Resource](ctx, a.store, "business.resources")
+	rows, err := persistence.Select[resource.Resource](ctx, a.store, "business.resources", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", catalogOwner), persistence.Eq("Kind", resource.Model), persistence.Eq("State", resource.Available)}})
 	if err != nil {
 		return nil, err
 	}

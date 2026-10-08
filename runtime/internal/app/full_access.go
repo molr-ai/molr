@@ -57,7 +57,7 @@ func (s *sandboxRouter) requireFullAccess(ctx context.Context, e core.Execution,
 	if err := groupFullAccess(ctx, s.adapters.store, e.Principal.OwnerID, id); err != nil {
 		return err
 	}
-	rows, err := persistence.Scan[resource.Resource](ctx, s.adapters.store, "business.resources")
+	rows, err := persistence.SelectCatalog[resource.Resource](ctx, s.adapters.store, "business.resources", e.Principal.OwnerID, persistence.Query{Where: []persistence.Filter{persistence.Eq("Kind", resource.Compute), persistence.Eq("State", resource.Available)}})
 	if err != nil {
 		return err
 	}

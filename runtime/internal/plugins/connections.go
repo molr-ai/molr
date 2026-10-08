@@ -136,7 +136,7 @@ func (s *Service) Connections(ctx context.Context, p core.Principal, id, digest 
 	if !admin && !v.Enabled {
 		return nil, core.NewError(core.Forbidden, "plugin disabled")
 	}
-	rows, err := persistence.Scan[Connection](ctx, s.store, "plugins.connections")
+	rows, err := persistence.Select[Connection](ctx, s.store, "plugins.connections", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", v.OwnerID), persistence.Eq("PluginID", id)}})
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +219,7 @@ func (s *Service) SaveConnection(ctx context.Context, p core.Principal, q SaveCo
 			return err
 		}
 		if q.ID == "" {
-			rows, err := persistence.Scan[Connection](ctx, s.store, "plugins.connections")
+			rows, err := persistence.Select[Connection](ctx, s.store, "plugins.connections", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", v.OwnerID), persistence.Eq("PluginID", v.ID)}, Limit: 32})
 			if err != nil {
 				return err
 			}

@@ -46,7 +46,7 @@ func (o *outbox) Pending(ctx context.Context, limit int) (items []MessageCreated
 	if limit < 1 || limit > 1000 {
 		return nil, core.Invalid("limit", "limit must be between 1 and 1000")
 	}
-	items, err = persistence.Scan[MessageCreated](ctx, o.store, outboxBucket)
+	items, err = persistence.Select[MessageCreated](ctx, o.store, outboxBucket, persistence.Query{OrderBy: "AtKey", ThenBy: "ID", Limit: limit})
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func (o *outbox) Acknowledge(ctx context.Context, id core.ID) error {
 		return err
 	}
 	return o.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		rows, err := tx.Scan(ctx, outboxBucket)
+		rows, err := tx.Query(ctx, outboxBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("ID", id)}, Limit: 1})
 		if err != nil {
 			return err
 		}

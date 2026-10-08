@@ -88,12 +88,12 @@ func (m *Manager) LoginLinks(ctx context.Context, p core.Principal, q core.PageR
 		if err := m.ownerSession(ctx, p); err != nil {
 			return err
 		}
-		records, err := persistence.Scan[storedLoginLink](ctx, tx.Store(), loginLinksBucket)
+		records, err := persistence.Page[storedLoginLink](ctx, tx.Store(), loginLinksBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("AccountID", p.OwnerID)}, OrderBy: "CreatedAtKey", Descending: true, ThenBy: "Link.ID", ThenDescending: true}, q, p.OwnerID, nil)
 		if err != nil {
 			return err
 		}
 		links := []LoginLink{}
-		for _, record := range records {
+		for _, record := range records.Items {
 			if record.AccountID == p.OwnerID {
 				links = append(links, record.Link)
 			}
@@ -104,7 +104,7 @@ func (m *Manager) LoginLinks(ctx context.Context, p core.Principal, q core.PageR
 			}
 			return links[i].CreatedAt.After(links[j].CreatedAt)
 		})
-		out, err = pageSlice(links, q, "login-links:"+string(p.OwnerID))
+		out = core.Page[LoginLink]{Items: links, NextCursor: records.NextCursor}
 		return err
 	})
 	return out, err
@@ -114,7 +114,7 @@ func (m *Manager) RevokeLoginLink(ctx context.Context, p core.Principal, id core
 		if err := m.ownerSession(ctx, p); err != nil {
 			return err
 		}
-		records, err := persistence.Scan[storedLoginLink](ctx, tx.Store(), loginLinksBucket)
+		records, err := persistence.Select[storedLoginLink](ctx, tx.Store(), loginLinksBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("AccountID", p.OwnerID), persistence.Eq("Link.ID", id)}, Limit: 1})
 		if err != nil {
 			return err
 		}

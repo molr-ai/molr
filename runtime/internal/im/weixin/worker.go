@@ -100,7 +100,7 @@ func (s *Service) Run(ctx context.Context) error {
 		}
 	}()
 	for ctx.Err() == nil {
-		rows, err := persistence.Scan[Binding](ctx, s.store, bindingsBucket)
+		rows, err := persistence.Select[Binding](ctx, s.store, bindingsBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("State", "connected")}})
 		if err != nil {
 			return err
 		}
@@ -351,7 +351,7 @@ func (s *Service) ingest(ctx context.Context, b Binding, r Updates) error {
 			return err
 		}
 		if freshContext {
-			rows, err := persistence.Scan[Delivery](ctx, s.store, deliveriesBucket)
+			rows, err := persistence.Select[Delivery](ctx, s.store, deliveriesBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("BindingID", b.ID), persistence.Eq("State", "waiting")}})
 			if err != nil {
 				return err
 			}

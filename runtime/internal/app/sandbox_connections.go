@@ -157,7 +157,7 @@ func (s *sandboxRouter) admin(ctx context.Context, p core.Principal, action stri
 		if !out[0].Info.Enabled {
 			out[0].State = "disabled"
 		}
-		rows, err := persistence.Scan[sandboxConnection](ctx, s.adapters.store, "sandbox.connections")
+		rows, err := persistence.SelectCatalog[sandboxConnection](ctx, s.adapters.store, "sandbox.connections", p.OwnerID, persistence.Query{})
 		if err != nil {
 			return nil, err
 		}
@@ -269,7 +269,7 @@ func (s *sandboxRouter) admin(ctx context.Context, p core.Principal, action stri
 		secret := s.cipher.Seal(nonce, nonce, []byte(q.Token), []byte(persistence.Key(catalogOwner, id)))
 		v := sandboxView{ID: id, Name: q.Name, Endpoint: q.Endpoint, Fingerprint: q.Fingerprint, State: "available", Version: 1, Info: info}
 		err = s.adapters.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-			rows, err := persistence.Scan[sandboxConnection](ctx, s.adapters.store, "sandbox.connections")
+			rows, err := persistence.Select[sandboxConnection](ctx, s.adapters.store, "sandbox.connections", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("View.Endpoint", q.Endpoint)}})
 			if err != nil {
 				return err
 			}
@@ -478,7 +478,7 @@ func (s *sandboxRouter) invalidate(ctx context.Context, p core.Principal) error 
 	if err != nil {
 		return err
 	}
-	rows, err := persistence.Scan[sandboxConnection](ctx, s.adapters.store, "sandbox.connections")
+	rows, err := persistence.SelectCatalog[sandboxConnection](ctx, s.adapters.store, "sandbox.connections", p.OwnerID, persistence.Query{})
 	if err != nil {
 		return err
 	}
@@ -499,7 +499,7 @@ func (s *sandboxRouter) invalidate(ctx context.Context, p core.Principal) error 
 // Legacy resources remain addressable by their original IDs and grants.
 func (s *sandboxRouter) migrate(ctx context.Context) error {
 	return s.adapters.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		rows, err := tx.Scan(ctx, "business.resources")
+		rows, err := tx.Query(ctx, "business.resources", persistence.Query{Any: [][]persistence.Filter{{persistence.Eq("SandboxID", "")}, {persistence.Eq("SandboxID", nil)}}})
 		if err != nil {
 			return err
 		}

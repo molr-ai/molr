@@ -37,7 +37,7 @@ type Manager struct {
 func New(ctx context.Context, store persistence.Store, backend Backend) (*Manager, error) {
 	m := &Manager{Backend: backend, Store: store, active: map[string]*active{}}
 	err := store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		rows, err := tx.Scan(ctx, operationsBucket)
+		rows, err := tx.Query(ctx, operationsBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("Reply.State", "running")}})
 		if err != nil {
 			return err
 		}

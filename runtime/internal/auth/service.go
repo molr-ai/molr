@@ -219,7 +219,7 @@ func (m *Manager) Recover(ctx context.Context, r RecoveryRequest) error {
 		if e = m.repo.RevokeAll(ctx, a.Account.ID, m.options.Now()); e != nil {
 			return e
 		}
-		records, e := tx.Scan(ctx, "auth.challenges")
+		records, e := tx.Query(ctx, "auth.challenges", persistence.Query{Where: []persistence.Filter{persistence.Eq("AccountID", a.Account.ID)}})
 		if e != nil {
 			return e
 		}

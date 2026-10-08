@@ -232,7 +232,7 @@ func (s *service) defaultDocuments(ctx context.Context, owner core.ID) ([]Docume
 			source Source
 			kind   string
 		}{{"business.assistants", Assistants, "assistant"}, {"business.resources", Resources, "resource"}, {"business.tasks", Tasks, "task"}, {"im.messages", Messages, "message"}} {
-			records, err := tx.Scan(ctx, source.bucket)
+			records, err := tx.Query(ctx, source.bucket, persistence.Query{Prefix: string(owner) + "/"})
 			if err != nil {
 				return err
 			}
@@ -448,7 +448,7 @@ func (s *service) Rebuild(ctx context.Context, p core.Principal) (core.ID, error
 		if err != nil {
 			return err
 		}
-		old, err := tx.Scan(ctx, indexBucket)
+		old, err := tx.Query(ctx, indexBucket, persistence.Query{Prefix: string(p.OwnerID) + "/"})
 		if err != nil {
 			return err
 		}

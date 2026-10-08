@@ -166,12 +166,12 @@ func (m *Manager) Users(ctx context.Context, p core.Principal, q core.PageReques
 	if err := m.RequireAdministrator(ctx, p); err != nil {
 		return core.Page[UserInfo]{}, err
 	}
-	rows, err := persistence.Scan[accountRecord](ctx, m.store, "auth.accounts")
+	rows, err := persistence.Page[accountRecord](ctx, m.store, "auth.accounts", persistence.Query{}, q, p.OwnerID, nil)
 	if err != nil {
 		return core.Page[UserInfo]{}, err
 	}
 	items := []UserInfo{}
-	for _, row := range rows {
+	for _, row := range rows.Items {
 		g, err := persistence.Load[UserGroup](ctx, m.store, "auth.groups", string(row.Account.GroupID))
 		if err != nil {
 			return core.Page[UserInfo]{}, err
@@ -179,7 +179,7 @@ func (m *Manager) Users(ctx context.Context, p core.Principal, q core.PageReques
 		row.Account.Version = row.Version
 		items = append(items, UserInfo{Account: row.Account, Administrator: g.Administrator, GroupName: g.Name})
 	}
-	return pageSlice(items, q, "admin-users:"+string(p.OwnerID))
+	return core.Page[UserInfo]{Items: items, NextCursor: rows.NextCursor}, nil
 }
 func (m *Manager) CreateUser(ctx context.Context, p core.Principal, r CreateUserRequest) (Account, error) {
 	if err := m.RequireAdministrator(ctx, p); err != nil {
@@ -259,7 +259,7 @@ func (m *Manager) UpdateUser(ctx context.Context, p core.Principal, r UpdateUser
 			return err
 		}
 		if a.Account.GroupID == AdminGroupID && !a.Account.Disabled && (r.Disabled || !g.Administrator) {
-			rows, err := persistence.Scan[accountRecord](ctx, tx.Store(), "auth.accounts")
+			rows, err := persistence.Select[accountRecord](ctx, tx.Store(), "auth.accounts", persistence.Query{Where: []persistence.Filter{persistence.Eq("Account.GroupID", AdminGroupID), persistence.Eq("Account.Disabled", false)}})
 			if err != nil {
 				return err
 			}
@@ -423,7 +423,7 @@ func (m *Manager) DeleteGroup(ctx context.Context, p core.Principal, id core.ID,
 		if g.Version != version {
 			return persistence.Conflict("group changed")
 		}
-		users, err := persistence.Scan[accountRecord](ctx, tx.Store(), "auth.accounts")
+		users, err := persistence.Select[accountRecord](ctx, tx.Store(), "auth.accounts", persistence.Query{Where: []persistence.Filter{persistence.Eq("Account.GroupID", id)}, Limit: 1})
 		if err != nil {
 			return err
 		}

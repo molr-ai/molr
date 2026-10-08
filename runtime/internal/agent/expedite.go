@@ -195,7 +195,7 @@ func (e *Engine) Expedite(ctx context.Context, p core.Principal, id core.ID, r E
 		if err := tx.Put(ctx, "agent.expedite_receipts", receiptKey, expediteReceipt{ConversationID: r.ConversationID, ThroughSequence: r.ThroughSequence}); err != nil {
 			return err
 		}
-		jobs, err := persistence.Scan[scheduler.Job](ctx, e.store, "agent.jobs")
+		jobs, err := persistence.Select[scheduler.Job](ctx, e.store, "agent.jobs", persistence.Query{Where: []persistence.Filter{persistence.Eq("Event.OwnerID", p.OwnerID), persistence.Eq("Event.AssistantID", id), persistence.Eq("ExecutionID", status.ExecutionID), persistence.Eq("State", scheduler.Retry)}})
 		if err != nil {
 			return err
 		}
@@ -366,7 +366,7 @@ func (e *Engine) intakeExpedite(ctx context.Context, t Turn, p *turnProgress) er
 }
 func (e *Engine) finishExpedite(ctx context.Context, t Turn, p turnProgress) error {
 	return e.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		jobs, err := persistence.Scan[scheduler.Job](ctx, e.store, "agent.jobs")
+		jobs, err := persistence.Select[scheduler.Job](ctx, e.store, "agent.jobs", persistence.Query{Where: []persistence.Filter{persistence.Eq("Event.OwnerID", t.Principal.OwnerID), persistence.Eq("JoinedTo", t.Event.ID)}})
 		if err != nil {
 			return err
 		}

@@ -164,11 +164,11 @@ func (s *Coordinator) List(ctx context.Context, p core.Principal, from, to time.
 		if !from.IsZero() && (!to.After(from) || to.Sub(from) > 125*24*time.Hour) {
 			return core.Invalid("range", "maximum calendar range is 125 days")
 		}
-		todos, err := persistence.Scan[todo.Todo](ctx, s.store, "business.todos")
+		todos, err := persistence.Select[todo.Todo](ctx, s.store, "business.todos", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID)}})
 		if err != nil {
 			return err
 		}
-		schedules, err := persistence.Scan[schedule.Schedule](ctx, s.store, "business.schedules")
+		schedules, err := persistence.Select[schedule.Schedule](ctx, s.store, "business.schedules", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID)}})
 		if err != nil {
 			return err
 		}
@@ -479,7 +479,7 @@ func (s *Coordinator) Execute(ctx context.Context, p core.Principal, req Execute
 // Migrate wraps legacy standalone tasks once, preserving execution IDs and history.
 func (s *Coordinator) Migrate(ctx context.Context) error {
 	return s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		rows, err := persistence.Scan[task.Task](ctx, s.store, "business.tasks")
+		rows, err := persistence.Select[task.Task](ctx, s.store, "business.tasks", persistence.Query{Any: [][]persistence.Filter{{persistence.Eq("Plan.ID", "")}, {persistence.Eq("Plan.ID", nil)}}})
 		if err != nil {
 			return err
 		}

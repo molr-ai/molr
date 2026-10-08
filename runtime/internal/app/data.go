@@ -221,7 +221,7 @@ func cleanupObject(ctx context.Context, store persistence.Store, a access, p cor
 			return clearMessages(ctx, tx, p.OwnerID, o)
 		}
 		if o.Kind == "task" {
-			rows, err := tx.Scan(ctx, "business.revisions")
+			rows, err := tx.Query(ctx, "business.revisions", persistence.Query{Prefix: persistence.Key(p.OwnerID, o.ID) + "/"})
 			if err != nil {
 				return err
 			}
@@ -255,7 +255,7 @@ func clearMessages(ctx context.Context, tx persistence.Tx, owner core.ID, o core
 	if err := tx.Get(ctx, "im.conversations", persistence.Key(owner, chatID), &c); err != nil {
 		return err
 	}
-	rows, err := tx.Scan(ctx, "im.messages")
+	rows, err := tx.Query(ctx, "im.messages", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerKey", owner), persistence.Eq("ConversationID", chatID)}})
 	if err != nil {
 		return err
 	}
@@ -293,7 +293,7 @@ func clearMessages(ctx context.Context, tx persistence.Tx, owner core.ID, o core
 		}
 	}
 	// Remove still-pending notifications for deleted user messages atomically.
-	pending, err := tx.Scan(ctx, "im.outbox")
+	pending, err := tx.Query(ctx, "im.outbox", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner), persistence.Eq("ConversationID", chatID)}})
 	if err != nil {
 		return err
 	}
@@ -315,11 +315,21 @@ func clearMessages(ctx context.Context, tx persistence.Tx, owner core.ID, o core
 	return tx.Put(ctx, "im.conversations", persistence.Key(owner, chatID), c)
 }
 func collectFiles(ctx context.Context, store persistence.Store, objects files.Objects) error {
-	ids, err := persistence.Scan[core.ID](ctx, store, "files.gc")
+	var rows []persistence.Record
+	err := store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		var err error
+		// Every pending deletion must be attempted, including failures from earlier passes.
+		rows, err = tx.Scan(ctx, "files.gc")
+		return err
+	})
 	if err != nil {
 		return err
 	}
-	for _, id := range ids {
+	for _, row := range rows {
+		id, err := persistence.Decode[core.ID](row)
+		if err != nil {
+			return err
+		}
 		if id.Validate() != nil {
 			return core.NewError(core.Internal, "invalid garbage collection record")
 		}
@@ -327,22 +337,7 @@ func collectFiles(ctx context.Context, store persistence.Store, objects files.Ob
 			continue
 		}
 		if err := store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-			rows, err := tx.Scan(ctx, "files.gc")
-			if err != nil {
-				return err
-			}
-			for _, row := range rows {
-				v, err := persistence.Decode[core.ID](row)
-				if err != nil {
-					return err
-				}
-				if v == id {
-					if err = tx.Delete(ctx, "files.gc", row.Key); err != nil {
-						return err
-					}
-				}
-			}
-			return nil
+			return tx.Delete(ctx, "files.gc", row.Key)
 		}); err != nil {
 			return err
 		}

@@ -205,7 +205,7 @@ func (s *shellService) plan(ctx context.Context, e core.Execution, req tools.She
 				}
 			}
 		}
-		grants, err := persistence.Scan[policy.Grant](ctx, s.store, "security.grants")
+		grants, err := persistence.Select[policy.Grant](ctx, s.store, "security.grants", persistence.Query{Where: []persistence.Filter{persistence.Eq("RevokedAt", nil), persistence.Eq("OwnerID", e.Principal.OwnerID), persistence.Eq("AssistantID", e.AssistantID)}, Any: [][]persistence.Filter{{persistence.Eq("ExpiresAtKey", "")}, {{Field: "ExpiresAtKey", Op: ">", Value: persistence.TimeKey(time.Now())}}}})
 		if err != nil {
 			return err
 		}
@@ -411,7 +411,7 @@ func (s *shellService) available(ctx context.Context, p core.Principal) (bool, e
 	if err != nil || (!caps.Shell && !caps.FullAccess) {
 		return false, err
 	}
-	resources, err := persistence.Scan[resource.Resource](ctx, s.store, "business.resources")
+	resources, err := persistence.SelectCatalog[resource.Resource](ctx, s.store, "business.resources", p.OwnerID, persistence.Query{Where: []persistence.Filter{persistence.Eq("Kind", resource.Compute), persistence.Eq("Provider", "local-sandbox"), persistence.Eq("State", resource.Available)}})
 	if err != nil {
 		return false, err
 	}
@@ -447,7 +447,7 @@ func (s *shellService) ensureCompute(ctx context.Context) error {
 		if err := ensureWorkspaceResource(ctx, s.store, account.Account.ID, "local"); err != nil {
 			return err
 		}
-		resources, err := persistence.Scan[resource.Resource](ctx, s.store, "business.resources")
+		resources, err := persistence.Select[resource.Resource](ctx, s.store, "business.resources", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", account.Account.ID), persistence.Eq("Provider", "local-sandbox")}, Limit: 1})
 		if err != nil {
 			return err
 		}

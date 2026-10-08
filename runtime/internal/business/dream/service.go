@@ -163,7 +163,7 @@ func (s *Coordinator) Runs(ctx context.Context, p core.Principal, a core.ID) ([]
 	if err := s.authorize(ctx, p, a, false); err != nil {
 		return nil, err
 	}
-	rows, err := persistence.Scan[Run](ctx, s.store, runs)
+	rows, err := persistence.Select[Run](ctx, s.store, runs, persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("AssistantID", a)}})
 	if err != nil {
 		return nil, err
 	}
@@ -239,7 +239,7 @@ func (s *Coordinator) Tick(ctx context.Context, now time.Time) error {
 	if !s.lastTick.IsZero() && !now.Before(s.lastTick) && now.Sub(s.lastTick) < time.Minute {
 		return nil
 	}
-	rows, err := persistence.Scan[assistant.Assistant](ctx, s.store, "business.assistants")
+	rows, err := persistence.Select[assistant.Assistant](ctx, s.store, "business.assistants", persistence.Query{Where: []persistence.Filter{persistence.Eq("State", assistant.Active)}})
 	if err != nil {
 		return err
 	}
@@ -269,7 +269,7 @@ func (s *Coordinator) saveEvent(ctx context.Context, r Run) error {
 	})
 }
 func (s *Coordinator) collect(ctx context.Context, c Config, a assistant.Assistant, start, end time.Time) ([]Evidence, error) {
-	messages, err := persistence.Scan[conversation.Message](ctx, s.store, "im.messages")
+	messages, err := persistence.Select[conversation.Message](ctx, s.store, "im.messages", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerKey", c.OwnerID), persistence.Eq("ConversationID", a.ConversationID), {Field: "CreatedAtKey", Op: ">=", Value: persistence.TimeKey(start)}, {Field: "CreatedAtKey", Op: "<", Value: persistence.TimeKey(end)}}})
 	if err != nil {
 		return nil, err
 	}
@@ -298,7 +298,7 @@ func (s *Coordinator) collect(ctx context.Context, c Config, a assistant.Assista
 		}
 		out = append(out, Evidence{ref, string(id(text)), m.CreatedAt, string(m.Sender), text})
 	}
-	tasks, err := persistence.Scan[task.Task](ctx, s.store, "business.tasks")
+	tasks, err := persistence.Select[task.Task](ctx, s.store, "business.tasks", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", c.OwnerID), persistence.Eq("AssistantID", a.ID), {Field: "UpdatedAtKey", Op: ">=", Value: persistence.TimeKey(start)}, {Field: "UpdatedAtKey", Op: "<", Value: persistence.TimeKey(end)}}})
 	if err != nil {
 		return nil, err
 	}

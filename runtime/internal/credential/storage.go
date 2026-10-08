@@ -19,23 +19,18 @@ func (r *repository) Get(ctx context.Context, owner, id core.ID) (EncryptedValue
 	return persistence.LoadCatalog[EncryptedValue](ctx, r.store, "security.credentials", owner, id)
 }
 func (r *repository) List(ctx context.Context, owner core.ID, p core.PageRequest) (core.Page[Credential], error) {
-	var err error
-	owner, err = persistence.CatalogOwner(ctx, r.store, owner)
+	owner, err := persistence.CatalogOwner(ctx, r.store, owner)
 	if err != nil {
 		return core.Page[Credential]{}, err
 	}
-	all, e := persistence.Scan[EncryptedValue](ctx, r.store, "security.credentials")
-	if e != nil {
-		return core.Page[Credential]{}, e
+	rows, err := persistence.Page[EncryptedValue](ctx, r.store, "security.credentials", persistence.Query{Where: []persistence.Filter{persistence.Eq("Metadata.OwnerID", owner)}, Fields: []string{"Metadata"}}, p, owner, nil)
+	out := core.Page[Credential]{Items: []Credential{}, NextCursor: rows.NextCursor}
+	for _, row := range rows.Items {
+		out.Items = append(out.Items, row.Metadata)
 	}
-	items := []Credential{}
-	for _, v := range all {
-		if v.Metadata.OwnerID == owner {
-			items = append(items, v.Metadata)
-		}
-	}
-	return pageSlice(items, p, string(owner))
+	return out, err
 }
+
 func (r *repository) Save(ctx context.Context, v EncryptedValue, version core.Version) error {
 	if v.Metadata.ID.Validate() != nil || v.Metadata.OwnerID.Validate() != nil || len(v.Ciphertext) == 0 || v.KeyID == "" || v.FormatVersion != 1 {
 		return core.Invalid("encrypted_value", "invalid encrypted envelope")

@@ -300,7 +300,7 @@ func (s *service) recover(ctx context.Context) error {
 				return err
 			}
 		} else {
-			operations, err := persistence.Scan[operation.Operation](ctx, s.store, "agent.operations")
+			operations, err := persistence.Select[operation.Operation](ctx, s.store, "agent.operations", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", job.Event.OwnerID), persistence.Eq("ExecutionID", job.ExecutionID)}})
 			if err != nil {
 				return err
 			}

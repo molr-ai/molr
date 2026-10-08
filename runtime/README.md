@@ -145,3 +145,9 @@ Runtime 内嵌本机 sandbox_manager；可另行构建 `./cmd/molr-sandbox` 在�
 ### 本轮信息查询性能回归
 
 `go test ./internal/agent ./internal/persistence/sqlitestore` 覆盖本轮统计的动态结算、缺失回执、账号／助理／执行隔离和索引查询计划，存储观测断言无关历史不被全量读取。`go test ./internal/agent -run '^$' -bench '^BenchmarkTurnMetricsHistory$' -benchmem` 在固定本轮调用数量下，对比 1 千、1 万和 10 万条无关执行历史的完整统计查询耗时及内存分配；基准不包含模型推理或浏览器渲染。
+
+### 持久化查询性能回归
+
+认证凭据按摘要查询；执行身份和结算按所属账号、助理及执行 ID 查询；授权快照排除已撤销和过期记录。普通业务列表、认证列表、审计、操作历史及调试运行列表在数据库中分页。附件、依赖和梦境来源使用事务内维护的数组成员索引。保留的全范围遍历及设计边界见[架构说明](../dev-docs/runtime/ARCHITECTURE.md#持久化查询与全量读取边界)。
+
+`go test ./internal/persistence/... ./internal/auth ./internal/app ./tests/architecture ./tests/contractcoverage` 包含查询计划、读取量、游标隔离、数组索引事务一致性和全量读取例外检查。`go test ./internal/auth -run '^$' -bench '^BenchmarkSessionLookupHistory$' -benchmem` 比较 1 千、1 万和 10 万条会话历史下的全量读取与摘要索引查询；测量仅包含存储查询，不代表端到端模型响应时间。

@@ -26,31 +26,18 @@ func shellReminder(ctx context.Context, store persistence.Store, owner, id core.
 		if err != nil && !persistence.Missing(err) {
 			return err
 		}
-		rows, err := persistence.Scan[event.AssistantEvent](ctx, store, "agent.events")
+		rows, err := persistence.Select[scheduler.Job](ctx, store, "agent.jobs", persistence.Query{Where: []persistence.Filter{persistence.Eq("Event.OwnerID", owner), persistence.Eq("Event.AssistantID", id), persistence.Eq("Event.Kind", event.ShellTasksRunning), {Field: "State", Op: "in", Value: []scheduler.State{scheduler.Queued, scheduler.Retry}}}})
 		if err != nil {
 			return err
 		}
-		for _, e := range rows {
-			if e.OwnerID != owner || e.AssistantID != id || e.Kind != event.ShellTasksRunning {
-				continue
-			}
+		for _, job := range rows {
+			e := job.Event
 			key := persistence.Key(owner, e.ID)
-			var job scheduler.Job
-			err := tx.Get(ctx, "agent.jobs", key, &job)
-			if err != nil && !persistence.Missing(err) {
-				return err
-			}
-			exists := err == nil
-			if exists && job.State != scheduler.Queued && job.State != scheduler.Retry {
-				continue
-			}
 			if len(data) == 0 || boundary.Blocks(e) {
-				if exists {
-					job.State = scheduler.Canceled
-					job.Version++
-					if err := event.SaveJob(ctx, tx, job); err != nil {
-						return err
-					}
+				job.State = scheduler.Canceled
+				job.Version++
+				if err := event.SaveJob(ctx, tx, job); err != nil {
+					return err
 				}
 				if err := tx.Delete(ctx, "agent.events", key); err != nil {
 					return err
@@ -61,12 +48,9 @@ func shellReminder(ctx context.Context, store persistence.Store, owner, id core.
 			if err := tx.Put(ctx, "agent.events", key, e); err != nil {
 				return err
 			}
-			if exists {
-				job.Event = e
-				job.Version++
-				return event.SaveJob(ctx, tx, job)
-			}
-			return nil
+			job.Event = e
+			job.Version++
+			return event.SaveJob(ctx, tx, job)
 		}
 		if len(data) == 0 || !create {
 			return nil

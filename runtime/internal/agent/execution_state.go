@@ -185,7 +185,7 @@ func (e *Engine) migrateProgress(ctx context.Context, t Turn, prior Status) erro
 	}
 	candidates := []Turn{}
 	if prior.ExecutionID != "" && (prior.State == Waiting || prior.State == Working) {
-		jobs, err := persistence.Scan[scheduler.Job](ctx, e.store, "agent.jobs")
+		jobs, err := persistence.Select[scheduler.Job](ctx, e.store, "agent.jobs", persistence.Query{Where: []persistence.Filter{persistence.Eq("Event.OwnerID", t.Principal.OwnerID), persistence.Eq("Event.AssistantID", t.Event.AssistantID), persistence.Eq("ExecutionID", prior.ExecutionID)}})
 		if err != nil {
 			return err
 		}

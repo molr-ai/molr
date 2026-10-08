@@ -24,7 +24,7 @@ type groupCatalogItem struct {
 
 func groupCatalog(ctx context.Context, p core.Principal, a adapters, s *sandboxRouter, t tools.Catalog) ([]groupCatalogItem, error) {
 	out := []groupCatalogItem{}
-	installed, err := persistence.Scan[plugins.Installation](ctx, a.store, "plugins.installations")
+	installed, err := persistence.SelectCatalog[plugins.Installation](ctx, a.store, "plugins.installations", p.OwnerID, persistence.Query{})
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func groupCatalog(ctx context.Context, p core.Principal, a adapters, s *sandboxR
 	for _, m := range models {
 		out = append(out, groupCatalogItem{Kind: "model", ID: m.ID, Name: m.Name})
 	}
-	shared, err := persistence.Scan[resource.Resource](ctx, a.store, "business.resources")
+	shared, err := persistence.SelectCatalog[resource.Resource](ctx, a.store, "business.resources", p.OwnerID, persistence.Query{Where: []persistence.Filter{persistence.Eq("Kind", resource.Connection), persistence.Eq("State", resource.Available)}})
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func groupCatalog(ctx context.Context, p core.Principal, a adapters, s *sandboxR
 		limit := info.AuthorizationCeilings
 		out = append(out, groupCatalogItem{Kind: "sandbox", ID: "local", Name: "Local sandbox", Limits: &limit, FullAccessAvailable: info.Capabilities.FullAccess, WorkspaceQuotaSupported: info.WorkspaceProjectQuotas})
 	}
-	connections, err := persistence.Scan[sandboxConnection](ctx, a.store, "sandbox.connections")
+	connections, err := persistence.SelectCatalog[sandboxConnection](ctx, a.store, "sandbox.connections", p.OwnerID, persistence.Query{})
 	if err != nil {
 		return nil, err
 	}

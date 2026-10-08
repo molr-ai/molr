@@ -89,7 +89,7 @@ func (a access) liveAssistant(ctx context.Context, p core.Principal) error {
 	if managedPrincipal(ctx, p) {
 		return nil
 	}
-	jobs, err := persistence.Scan[scheduler.Job](ctx, a.store, "agent.jobs")
+	jobs, err := persistence.Select[scheduler.Job](ctx, a.store, "agent.jobs", persistence.Query{Where: []persistence.Filter{persistence.Eq("Event.OwnerID", p.OwnerID), persistence.Eq("Event.AssistantID", p.SubjectID), persistence.Eq("ExecutionID", p.ExecutionID), persistence.Eq("State", scheduler.Running)}, Limit: 1, Unordered: true})
 	if err != nil {
 		return err
 	}
@@ -220,7 +220,7 @@ func (a access) owns(ctx context.Context, p core.Principal, o core.Object) error
 		}
 		// A file is visible to an assistant only through an attachment in its own
 		// conversation; mere owner equality is insufficient.
-		messages, err := persistence.Scan[conversation.Message](ctx, a.store, "im.messages")
+		messages, err := persistence.Select[conversation.Message](ctx, a.store, "im.messages", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerKey", p.OwnerID), {Field: "Content.AttachmentIDs", Op: "has", Value: string(o.ID)}}})
 		if err != nil {
 			return err
 		}
@@ -269,7 +269,7 @@ func (a access) historicalExecution(ctx context.Context, e core.Execution) error
 	if err := e.Validate(); err != nil {
 		return err
 	}
-	jobs, err := persistence.Scan[scheduler.Job](ctx, a.store, "agent.jobs")
+	jobs, err := persistence.Select[scheduler.Job](ctx, a.store, "agent.jobs", persistence.Query{Where: []persistence.Filter{persistence.Eq("Event.OwnerID", e.Principal.OwnerID), persistence.Eq("Event.AssistantID", e.AssistantID), persistence.Eq("ExecutionID", e.Principal.ExecutionID), persistence.Eq("Event.TaskID", e.TaskID)}, Limit: 1, Unordered: true})
 	if err != nil {
 		return err
 	}

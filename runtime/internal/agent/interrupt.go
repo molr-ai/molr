@@ -44,7 +44,7 @@ func (e *Engine) Stop(ctx context.Context, p core.Principal, id core.ID) error {
 			if err := e.options.DreamStop(ctx, p, id); err != nil {
 				return err
 			}
-			jobs, err := persistence.Scan[scheduler.Job](ctx, e.store, "agent.jobs")
+			jobs, err := persistence.Select[scheduler.Job](ctx, e.store, "agent.jobs", persistence.Query{Where: []persistence.Filter{persistence.Eq("Event.OwnerID", p.OwnerID), persistence.Eq("Event.AssistantID", id), persistence.Eq("Event.Kind", event.DreamDue)}})
 			if err != nil {
 				return err
 			}
@@ -87,7 +87,7 @@ func (e *Engine) Stop(ctx context.Context, p core.Principal, id core.ID) error {
 				activeEvent = active.eventID
 			}
 		}
-		jobs, err := persistence.Scan[scheduler.Job](ctx, e.store, "agent.jobs")
+		jobs, err := persistence.Select[scheduler.Job](ctx, e.store, "agent.jobs", persistence.Query{Where: []persistence.Filter{persistence.Eq("Event.OwnerID", p.OwnerID), persistence.Eq("Event.AssistantID", id), {Field: "State", Op: "in", Value: []scheduler.State{scheduler.Queued, scheduler.Running, scheduler.Retry, scheduler.NeedsReview}}}})
 		if err != nil {
 			return err
 		}
@@ -113,21 +113,6 @@ func (e *Engine) Stop(ctx context.Context, p core.Principal, id core.ID) error {
 		}
 		if err := tx.Put(ctx, "agent.interrupt_boundaries", key, boundary); err != nil {
 			return err
-		}
-		sources, err := persistence.Scan[event.AssistantEvent](ctx, e.store, "agent.events")
-		if err != nil {
-			return err
-		}
-		existing := map[core.ID]bool{}
-		for _, job := range jobs {
-			if job.Event.OwnerID == p.OwnerID {
-				existing[job.Event.ID] = true
-			}
-		}
-		for _, source := range sources {
-			if source.OwnerID == p.OwnerID && source.AssistantID == id && source.Kind != event.UserStopped && !existing[source.ID] {
-				jobs = append(jobs, scheduler.Job{Event: source, State: scheduler.Queued, NotBefore: source.CreatedAt, Version: 1})
-			}
 		}
 		for _, job := range jobs {
 			if job.Event.OwnerID != p.OwnerID || job.Event.AssistantID != id || job.Event.Kind == event.UserStopped {

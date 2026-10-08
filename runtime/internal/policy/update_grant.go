@@ -90,7 +90,7 @@ func (m *Manager) UpdateGrant(ctx context.Context, p core.Principal, r UpdateGra
 			}
 		}
 		if out.Scope.FullAccess && !r.Scope.FullAccess && r.Constraints != nil {
-			rows, err := persistence.Scan[Grant](ctx, m.store, "security.grants")
+			rows, err := persistence.Select[Grant](ctx, m.store, "security.grants", persistence.Query{Where: []persistence.Filter{persistence.Eq("RevokedAt", nil), persistence.Eq("OwnerID", out.OwnerID), persistence.Eq("AssistantID", out.AssistantID), persistence.Eq("ResourceID", out.ResourceID)}, Any: [][]persistence.Filter{{persistence.Eq("ExpiresAtKey", "")}, {{Field: "ExpiresAtKey", Op: ">", Value: persistence.TimeKey(m.options.Now())}}}})
 			if err != nil {
 				return err
 			}
