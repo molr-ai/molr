@@ -55,6 +55,26 @@ func (s *Coordinator) authorize(ctx context.Context, p core.Principal, ref core.
 	}
 	return s.authorizer.Require(ctx, p, policy.CheckRequest{Target: ref, Action: action})
 }
+
+// The candidate flag is derived and saved atomically with its source fields.
+// Existing notices are reconciled separately even after a plan stops being a candidate.
+func saveLinks(ctx context.Context, tx persistence.Tx, v Links) error {
+	pending := !v.Paused && !v.Dispatched && len(v.Dependencies) > 0 && len(v.Runs) == 0 &&
+		(v.Handoff == "notify" || v.Handoff == "automatic" && v.Ref.Kind == "todo")
+	if pending {
+		tasks, err := persistence.Select[task.Task](ctx, tx.Store(), "business.tasks", persistence.Query{
+			Where: []persistence.Filter{persistence.Eq("OwnerID", v.OwnerID), persistence.Eq("Plan.Kind", v.Ref.Kind), persistence.Eq("Plan.ID", v.Ref.ID)}, Unordered: true, Limit: 1,
+		})
+		if err != nil {
+			return err
+		}
+		pending = len(tasks) == 0
+	}
+	return tx.Put(ctx, bucket, key(v.OwnerID, v.Ref), struct {
+		Links
+		HandoffPending bool
+	}{v, pending})
+}
 func (s *Coordinator) links(ctx context.Context, owner core.ID, ref core.Object) (Links, error) {
 	v, err := persistence.Load[Links](ctx, s.store, bucket, key(owner, ref))
 	if persistence.Missing(err) {
@@ -96,7 +116,9 @@ func taskRun(t task.Task) Execution {
 }
 func (s *Coordinator) runs(ctx context.Context, owner core.ID, p Plan) ([]Execution, error) {
 	out := append([]Execution{}, p.Links.Runs...)
-	rows, err := persistence.Scan[task.Task](ctx, s.store, "business.tasks")
+	rows, err := persistence.Select[task.Task](ctx, s.store, "business.tasks", persistence.Query{
+		Where: []persistence.Filter{persistence.Eq("OwnerID", owner), persistence.Eq("Plan.Kind", p.Ref.Kind), persistence.Eq("Plan.ID", p.Ref.ID)}, Unordered: true,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -283,7 +305,7 @@ func (s *Coordinator) Configure(ctx context.Context, p core.Principal, req Confi
 		v.Handoff = req.Handoff
 		v.Paused = req.Paused
 		v.Version++
-		return v, tx.Put(ctx, bucket, key(p.OwnerID, req.Ref), v)
+		return v, saveLinks(ctx, tx, v)
 	})
 }
 func instructions(p Plan) string {
@@ -439,7 +461,7 @@ func (s *Coordinator) Execute(ctx context.Context, p core.Principal, req Execute
 			v.Runs[index].Result = strings.TrimSpace(req.Result)
 		}
 		v.Version++
-		if err := tx.Put(ctx, bucket, key(p.OwnerID, req.Ref), v); err != nil {
+		if err := saveLinks(ctx, tx, v); err != nil {
 			return Execution{}, err
 		}
 		if source.Todo != nil {
@@ -528,13 +550,30 @@ func (s *Coordinator) StartScheduled(ctx context.Context, source schedule.Schedu
 
 // Tick performs explicitly enabled handoffs exactly once. Notify mode remains visible as Ready.
 func (s *Coordinator) Tick(ctx context.Context, now time.Time) error {
-	all, err := persistence.Scan[Links](ctx, s.store, bucket)
+	// Include unresolved notices (also dismissed ones) so pause, dependency removal,
+	// execution and deletion still resolve the old occurrence.
+	notices, err := notification.Unresolved(ctx, s.store, "plan.ready")
+	if err != nil {
+		return err
+	}
+	synced := map[string]bool{}
+	for _, n := range notices {
+		if err := s.syncHandoff(ctx, Links{OwnerID: n.OwnerID, Ref: n.Source}); err != nil {
+			return err
+		}
+		synced[key(n.OwnerID, n.Source)] = true
+	}
+	all, err := persistence.Select[Links](ctx, s.store, bucket, persistence.Query{
+		Where: []persistence.Filter{persistence.Eq("HandoffPending", true)}, Unordered: true,
+	})
 	if err != nil {
 		return err
 	}
 	for _, entry := range all {
-		if err := s.syncHandoff(ctx, entry); err != nil {
-			return err
+		if !synced[key(entry.OwnerID, entry.Ref)] {
+			if err := s.syncHandoff(ctx, entry); err != nil {
+				return err
+			}
 		}
 		if entry.Handoff != "automatic" || entry.Paused || entry.Dispatched || len(entry.Dependencies) == 0 || entry.Ref.Kind != "todo" {
 			continue
@@ -568,7 +607,7 @@ func (s *Coordinator) Tick(ctx context.Context, now time.Time) error {
 			}
 			p.Links.Dispatched = true
 			p.Links.Version++
-			return tx.Put(ctx, bucket, key(entry.OwnerID, entry.Ref), p.Links)
+			return saveLinks(ctx, tx, p.Links)
 		})
 		if err != nil {
 			return err
@@ -599,6 +638,9 @@ func (s *Coordinator) syncHandoff(ctx context.Context, entry Links) error {
 		}
 		in.Label = p.Title
 		in.AssistantID = p.AssistantID
+		if p.Links.Handoff != "notify" || p.Links.Paused || p.Links.Dispatched || len(p.Links.Dependencies) == 0 || len(p.Links.Runs) > 0 {
+			return notification.Sync(ctx, s.store, entry.OwnerID, in, false)
+		}
 		blocked, err := s.ready(ctx, entry.OwnerID, p)
 		if err != nil {
 			return err
@@ -606,6 +648,11 @@ func (s *Coordinator) syncHandoff(ctx context.Context, entry Links) error {
 		runs, err := s.runs(ctx, entry.OwnerID, p)
 		if err != nil {
 			return err
+		}
+		if len(runs) > 0 {
+			if err := saveLinks(ctx, tx, p.Links); err != nil {
+				return err
+			}
 		}
 		ready := p.Links.Handoff == "notify" && !p.Links.Paused && !p.Links.Dispatched && len(p.Links.Dependencies) > 0 && len(blocked) == 0 && len(runs) == 0
 		return notification.Sync(ctx, s.store, entry.OwnerID, in, ready)

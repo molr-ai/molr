@@ -314,12 +314,16 @@ func (s *Coordinator) Active(ctx context.Context, p core.Principal, e event.Assi
 	return err == nil && v.State == "active" && s.options.Now().Before(v.Deadline), err
 }
 func (s *Coordinator) expire(ctx context.Context, now time.Time) error {
-	all, err := persistence.Scan[Session](ctx, s.store, "business.dream_sessions_index")
-	if err != nil {
-		return err
-	}
-	for _, v := range all {
-		if v.State == "active" && !now.Before(v.Deadline) {
+	for {
+		due, err := persistence.Select[Session](ctx, s.store, "business.dream_sessions_index", persistence.Query{
+			Where: []persistence.Filter{persistence.Eq("State", "active"),
+				{Field: "DeadlineKey", Op: "<=", Value: persistence.TimeKey(now)}},
+			OrderBy: "DeadlineKey", Limit: 100,
+		})
+		if err != nil {
+			return err
+		}
+		for _, v := range due {
 			state := "timed_out"
 			if !v.Started {
 				state = "missed_window"
@@ -328,9 +332,12 @@ func (s *Coordinator) expire(ctx context.Context, now time.Time) error {
 				return err
 			}
 		}
+		if len(due) < 100 {
+			return nil
+		}
 	}
-	return nil
 }
+
 func (s *Coordinator) closeSession(ctx context.Context, owner, id core.ID, state string, now time.Time) error {
 	return s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		v, err := persistence.Load[Session](ctx, s.store, sessions, persistence.Key(owner, id))
@@ -506,8 +513,9 @@ func saveSession(ctx context.Context, tx persistence.Tx, v Session) error {
 		ID, OwnerID, AssistantID core.ID
 		State                    string
 		Deadline                 time.Time
+		DeadlineKey              string
 		Started                  bool
-	}{v.ID, v.OwnerID, v.AssistantID, v.State, v.Deadline, v.Started}); err != nil {
+	}{v.ID, v.OwnerID, v.AssistantID, v.State, v.Deadline, persistence.TimeKey(v.Deadline), v.Started}); err != nil {
 		return err
 	}
 	return tx.NotifyAfterCommit(ctx, event.DispatchSignal())

@@ -279,3 +279,5 @@
 | `internal/event` | `DispatchSignal` | `TestJobCommitSignalAndStoppedOutboxFence` |
 | `internal/event` | `SaveJob` | `TestJobCommitSignalAndStoppedOutboxFence` |
 | `internal/im/conversation` | `OutboxSignal` | `TestOutboxSignalsOnlyCommittedNewMessages` |
+
+| `internal/notification` | `Unresolved` | `internal/business/plan.TestFilteredHandoffsStillResolveNotices` |

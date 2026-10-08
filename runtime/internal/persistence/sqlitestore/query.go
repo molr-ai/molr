@@ -52,6 +52,11 @@ func (s *Store) createIndexes() error {
 		{"agent.jobs", []string{"State", "QueueKey"}},
 		{"agent.jobs", []string{"Event.OwnerID", "Event.AssistantID", "State", "QueueKey"}},
 		{"business.dream_sessions_index", []string{"OwnerID", "AssistantID", "State"}},
+		{"business.schedules", []string{"Enabled", "NextAtKey"}},
+		{"business.dream_sessions_index", []string{"State", "DeadlineKey"}},
+		{"business.plan-links", []string{"HandoffPending", "key"}},
+		{"business.tasks", []string{"OwnerID", "Plan.Kind", "Plan.ID"}},
+		{"notifications.records", []string{"Kind", "ResolvedAt"}},
 	}
 	for i, index := range indexes {
 		parts := []string{"bucket"}
@@ -99,6 +104,14 @@ func querySQL(bucket string, q persistence.Query) (string, []any, error) {
 			case "=", "!=", "<", "<=", ">", ">=":
 			default:
 				return "", core.Invalid("query.operator", "unsupported operator")
+			}
+			if f.Value == nil && (f.Op == "=" || f.Op == "!=") {
+				op := " IS NULL"
+				if f.Op == "!=" {
+					op = " IS NOT NULL"
+				}
+				parts = append(parts, expr+op)
+				continue
 			}
 			parameter := "?"
 			if f.Field == "CreatedAt" {

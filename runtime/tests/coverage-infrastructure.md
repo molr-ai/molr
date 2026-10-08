@@ -255,3 +255,5 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/storage/files` | `ChannelStore.UploadChannel`、`ChannelStore.ValidateChannelFile`、`ChannelStore.OpenChannel` | `internal/app.TestWeixinMediaAndContextUseLiveBinding`、`internal/im/weixin.TestMediaIngressDeduplicationAndIndependentDelivery` |
 
 | `internal/voicecodec` | `WAV` | `TestWAVMatchesReferenceDecoderAndHasNoHostImports`、`TestWAVRejectsMalformedOversizedAndCanceledInput` |
+
+| `internal/persistence` | `TimeKey` | `internal/business/schedule.TestDueQueryBoundsHistoryAndPreservesExactInstants`、`internal/business/dream.TestExpiryUsesOnlyDueActiveSessionsAcrossBatches` |

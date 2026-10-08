@@ -274,3 +274,11 @@ func (s *Service) Get(ctx context.Context, p core.Principal, id core.ID) (Notice
 	}
 	return persistence.Load[Notice](ctx, s.store, bucket, persistence.Key(p.OwnerID, id))
 }
+
+// Unresolved supplies current source conditions to trusted background reconcilers.
+// Dismissed notices remain included until the source condition clears.
+func Unresolved(ctx context.Context, store persistence.Store, kind string) ([]Notice, error) {
+	return persistence.Select[Notice](ctx, store, bucket, persistence.Query{
+		Where: []persistence.Filter{persistence.Eq("Kind", kind), persistence.Eq("ResolvedAt", nil)}, Unordered: true,
+	})
+}

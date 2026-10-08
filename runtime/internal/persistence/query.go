@@ -1,6 +1,9 @@
 package persistence
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // Query is a trusted repository query, never an HTTP request or SQL fragment.
 // Where is conjunctive; Any adds a disjunction of conjunctive alternatives.
@@ -40,3 +43,6 @@ func Select[T any](ctx context.Context, store Store, bucket string, q Query) ([]
 	})
 	return values, err
 }
+
+// TimeKey preserves instant ordering, including offsets and nanoseconds, in private indexes.
+func TimeKey(at time.Time) string { return at.UTC().Format("2006-01-02T15:04:05.000000000Z") }

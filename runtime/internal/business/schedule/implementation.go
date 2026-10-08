@@ -218,11 +218,25 @@ func (r *repository) List(ctx context.Context, owner core.ID, q Query) (core.Pag
 	q.Page = core.PageRequest{}
 	return paginate(items, owner, q, p)
 }
+
+// Keep the sortable timestamp private; public timestamps retain their original precision and zone.
+type scheduleRecord struct {
+	Schedule
+	NextAtKey string
+}
+
+func record(v Schedule) scheduleRecord {
+	out := scheduleRecord{Schedule: v}
+	if v.NextAt != nil {
+		out.NextAtKey = persistence.TimeKey(*v.NextAt)
+	}
+	return out
+}
 func (r *repository) Insert(ctx context.Context, v Schedule) error {
-	return insert(ctx, r.store, bucket, persistence.Key(v.OwnerID, v.ID), v)
+	return insert(ctx, r.store, bucket, persistence.Key(v.OwnerID, v.ID), record(v))
 }
 func (r *repository) Save(ctx context.Context, v Schedule, expected core.Version) error {
-	return save(ctx, r.store, bucket, persistence.Key(v.OwnerID, v.ID), v, expected, func(v Schedule) core.Version { return v.Version })
+	return save(ctx, r.store, bucket, persistence.Key(v.OwnerID, v.ID), record(v), expected, func(v scheduleRecord) core.Version { return v.Version })
 }
 func (r *repository) Delete(ctx context.Context, owner, id core.ID, expected core.Version) error {
 	return remove[Schedule](ctx, r.store, bucket, persistence.Key(owner, id), expected, func(v Schedule) core.Version { return v.Version })
@@ -364,20 +378,12 @@ func (r *repository) Due(ctx context.Context, now time.Time, limit int) ([]Sched
 	if limit < 1 || limit > 200 {
 		return nil, invalid("limit")
 	}
-	all, err := persistence.Scan[Schedule](ctx, r.store, bucket)
-	if err != nil {
-		return nil, err
-	}
-	result := []Schedule{}
-	for _, v := range all {
-		if v.Enabled && v.NextAt != nil && !v.NextAt.After(now) {
-			result = append(result, v)
-			if len(result) == limit {
-				break
-			}
-		}
-	}
-	return result, nil
+	return persistence.Select[Schedule](ctx, r.store, bucket, persistence.Query{
+		Where: []persistence.Filter{persistence.Eq("Enabled", true),
+			{Field: "NextAtKey", Op: ">", Value: ""},
+			{Field: "NextAtKey", Op: "<=", Value: persistence.TimeKey(now)}},
+		OrderBy: "NextAtKey", Limit: limit,
+	})
 }
 func (r *repository) RecordOccurrence(ctx context.Context, owner core.ID, v Occurrence) (bool, error) {
 	inserted := false

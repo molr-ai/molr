@@ -192,3 +192,54 @@ func TestDispatchCandidatesUseOrderedStateIndex(t *testing.T) {
 		t.Fatal("candidate query did not use dispatch index")
 	}
 }
+
+func TestBackgroundQueriesUseSelectiveIndexes(t *testing.T) {
+	s, err := Open(filepath.Join(t.TempDir(), "background.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	for _, tc := range []struct {
+		bucket, index string
+		q             persistence.Query
+	}{
+		{"business.schedules", "records_query_17", persistence.Query{Where: []persistence.Filter{persistence.Eq("Enabled", true), {Field: "NextAtKey", Op: ">", Value: ""}, {Field: "NextAtKey", Op: "<=", Value: "2026-10-09T00:00:00.000000000Z"}}, OrderBy: "NextAtKey", Limit: 200}},
+		{"business.dream_sessions_index", "records_query_18", persistence.Query{Where: []persistence.Filter{persistence.Eq("State", "active"), {Field: "DeadlineKey", Op: "<=", Value: "2026-10-09T00:00:00.000000000Z"}}, OrderBy: "DeadlineKey", Limit: 100}},
+		{"business.plan-links", "records_query_19", persistence.Query{Where: []persistence.Filter{persistence.Eq("HandoffPending", true)}, Unordered: true}},
+		{"business.tasks", "records_query_20", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), persistence.Eq("Plan.Kind", "todo"), persistence.Eq("Plan.ID", "plan")}, Unordered: true}},
+		{"notifications.records", "records_query_21", persistence.Query{Where: []persistence.Filter{persistence.Eq("Kind", "plan.ready"), persistence.Eq("ResolvedAt", nil)}, Unordered: true}},
+	} {
+		t.Run(tc.bucket, func(t *testing.T) {
+			statement, args, err := querySQL(tc.bucket, tc.q)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rows, err := s.db.QueryContext(t.Context(), "EXPLAIN QUERY PLAN "+statement, args...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer rows.Close()
+			found := false
+			for rows.Next() {
+				var a, b, c int
+				var detail string
+				if err = rows.Scan(&a, &b, &c, &detail); err != nil {
+					t.Fatal(err)
+				}
+				t.Log(detail)
+				if strings.Contains(detail, "SEARCH") && strings.Contains(detail, tc.index) {
+					found = true
+				}
+				if strings.Contains(detail, "TEMP B-TREE") {
+					t.Fatal("unbounded sort", detail)
+				}
+			}
+			if err = rows.Err(); err != nil {
+				t.Fatal(err)
+			}
+			if !found {
+				t.Fatal("selective index not used")
+			}
+		})
+	}
+}
