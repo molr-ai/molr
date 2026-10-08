@@ -59,10 +59,10 @@ test('Weixin binding keeps WebUI chat until confirmation and restores it on disc
  await expect(page.getByRole('button', { name: 'Disconnect Weixin', exact: true })).toBeVisible();
  // Channel management is an independent dialog, not the assistant drawer.
  await page.getByRole('dialog', { name: 'Chat channel', exact: true }).getByRole('button', { name: 'Close', exact: true }).click();
- await expect(page.locator('.weixin-readonly')).toContainText('Send messages in Weixin');
+ await expect(page.locator('.chat-input .message-composer--locked')).toContainText('Send messages in Weixin');
  await expect(page.locator('.chat-input textarea')).toHaveCount(0);
  await page.reload();
- await expect(page.locator('.weixin-readonly')).toBeVisible();
+ await expect(page.locator('.chat-input .message-composer--locked')).toBeVisible();
  await page.getByRole('button', { name: 'Manage Weixin connection', exact: true }).click();
  await expect(page.getByRole('dialog', { name: 'Chat channel', exact: true })).toContainText('Weixin chat');
  await expect(page.getByRole('tab', { name: 'Overview', exact: true })).toHaveCount(0);
@@ -116,7 +116,7 @@ test('successful deliveries stay quiet while abnormal outcomes remain visible', 
   Deliveries: [{ ID: deliveryID, BindingID: 'binding', MessageID: 'message', Sequence: 1, Part: 0, State: state, Error: error, Attempts: attempts, CreatedAt: new Date().toISOString() }],
  } }));
  await page.goto(`/#/assistants/${assistant.ID}`);
- await expect(page.locator('.weixin-readonly')).toBeVisible();
+ await expect(page.locator('.chat-input .message-composer--locked')).toBeVisible();
  await expect(page.getByText('Weixin delivery', { exact: true })).toHaveCount(0);
  for (const [next, reason, label] of [
   ['unknown', 'unknown', 'Delivery unconfirmed'],

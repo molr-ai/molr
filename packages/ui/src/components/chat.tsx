@@ -107,6 +107,7 @@ export function ChatTypingIndicator({ label }: { label?: string }) {
 
 export type ChatComposerCommand = { name: string; description: string; keywords?: readonly string[]; disabled?: boolean };
 export type ChatComposerProps = {
+  lock?: { title: string; description?: ReactNode; action?: ReactNode };
   commands?: readonly ChatComposerCommand[];
   value: string; onValueChange: (value: string) => void; onSubmit: () => void; label?: string; placeholder?: string; maxLength?: number;
   attachments?: readonly ChatAttachment[]; onAttachFiles?: (files: File[]) => void; onRemoveAttachment?: (id: string) => void;
@@ -114,10 +115,11 @@ export type ChatComposerProps = {
   onVoiceInput?: () => void; recording?: boolean; disabled?: boolean; sendDisabled?: boolean; sending?: boolean; allowSendWhileSending?: boolean; onStop?: () => void;
   hint?: string; notice?: string; processingLabel?: string; className?: string;
 };
-export function ChatComposer({ commands = [], value, onValueChange, onSubmit, label, placeholder, maxLength = 4000, attachments = [], onAttachFiles, onRemoveAttachment, models, model, onModelChange, onVoiceInput, recording = false, disabled = false, sendDisabled = false, sending = false, allowSendWhileSending = false, onStop, hint, notice, processingLabel, className = '' }: ChatComposerProps) {
+export function ChatComposer({ lock, commands = [], value, onValueChange, onSubmit, label, placeholder, maxLength = 4000, attachments = [], onAttachFiles, onRemoveAttachment, models, model, onModelChange, onVoiceInput, recording = false, disabled = false, sendDisabled = false, sending = false, allowSendWhileSending = false, onStop, hint, notice, processingLabel, className = '' }: ChatComposerProps) {
   const { messages } = useUILocale();
+  const locked = !!lock;
   const id = useId(); const textarea = useRef<HTMLTextAreaElement>(null); const fileInput = useRef<HTMLInputElement>(null);
-  useLayoutEffect(() => { if (textarea.current) resizeComposer(textarea.current); }, [value]);
+  useLayoutEffect(() => { if (textarea.current) resizeComposer(textarea.current); }, [value, locked]);
   useLayoutEffect(() => {
     const el = textarea.current; if (!el) return;
     let width = el.clientWidth, frame = 0;
@@ -129,9 +131,10 @@ export function ChatComposer({ commands = [], value, onValueChange, onSubmit, la
       }
     });
     observer.observe(el); return () => { observer.disconnect(); cancelAnimationFrame(frame); };
-  }, []);
+  }, [locked]);
   const [focused, setFocused] = useState(false), [dismissed, setDismissed] = useState<string | null>(null), [activeCommand, setActiveCommand] = useState(0), [caret, setCaret] = useState(0);
   useLayoutEffect(() => { if (textarea.current && document.activeElement === textarea.current) setCaret(textarea.current.selectionStart); }, [value]);
+  useLayoutEffect(() => { if (locked) setFocused(false); }, [locked]);
   const query = /^\/([^\s/]*)$/.exec(value)?.[1];
   const commandMatches = query === undefined ? [] : commands.filter(command => [command.name, ...(command.keywords ?? [])].some(word => word.toLocaleLowerCase().includes(query.toLocaleLowerCase())));
   const commandMenu = focused && !disabled && !recording && commands.length > 0 && query !== undefined && caret === value.length && dismissed !== value;
@@ -143,6 +146,10 @@ export function ChatComposer({ commands = [], value, onValueChange, onSubmit, la
   }
   const cannotSend = disabled || sendDisabled || recording || (sending && !allowSendWhileSending) || (!value.trim() && !attachments.length);
   function submit() { if (!cannotSend) onSubmit(); }
+  if (lock) return <div className={`message-composer-wrap ${className}`}><div className="message-composer message-composer--locked" role="group" aria-labelledby={`${id}-lock-title`} aria-describedby={lock.description ? `${id}-lock-description` : undefined}>
+    <div className="message-composer__lock-copy" role="status"><UIIcon name="lock" /><div><strong id={`${id}-lock-title`}>{lock.title}</strong>{lock.description && <div id={`${id}-lock-description`} className="message-composer__lock-description">{lock.description}</div>}</div></div>
+    {lock.action && <div className="message-composer__lock-action">{lock.action}</div>}
+  </div></div>;
   return <div className={`message-composer-wrap ${className}`}><form className="message-composer" aria-label={messages.chat.messageComposer} onClick={event => {
     if (disabled || event.defaultPrevented || !(event.target instanceof Element) || event.target.closest('button, input, textarea, select, .select, a, label, [role="button"], [contenteditable="true"]')) return;
     textarea.current?.focus();

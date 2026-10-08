@@ -27,6 +27,18 @@ test('chat composer handles drafts, IME, attachments and disabled states without
   await composer.getByRole('button', { name: 'Remove attachment extra.txt' }).click();
   await expect(composer.locator('.composer-attachments')).not.toContainText('extra.txt');
   await chooseOption(composer.getByRole('combobox', { name: 'Select model' }), 'Fast · Demo');
+  await composer.getByRole('switch', { name: 'Lock composer' }).check();
+  const locked = composer.getByRole('group', { name: 'Message input is locked' });
+  await expect(locked).toBeVisible();
+  await expect(input).toHaveCount(0);
+  await expect(composer.getByRole('button', { name: 'Send', exact: true })).toHaveCount(0);
+  await expect(composer.locator('input[type=file]')).toHaveCount(0);
+  await expect(composer.locator('.composer-attachments')).toHaveCount(0);
+  await locked.getByRole('button', { name: 'Unlock composer' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(input).toHaveValue('A quiet outing\nWith time to rest\nNear a park');
+  expect((await input.boundingBox())!.height).toBeGreaterThan(initialHeight);
+  await expect(composer.locator('.composer-attachments')).toContainText('notes.txt');
   await composer.getByRole('switch', { name: 'Disable composer' }).check();
   await expect(input).toBeDisabled();
   await expect(composer.getByRole('button', { name: 'Send', exact: true })).toBeDisabled();

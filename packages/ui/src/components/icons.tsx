@@ -1,7 +1,8 @@
 import type { SVGProps } from 'react';
 
-export function UIIcon({ name, ...props }: SVGProps<SVGSVGElement> & { name: 'copy' | 'close' | 'search' | 'check' | 'minus' | 'chevron-left' | 'chevron-right' | 'chevron-down' | 'info' | 'warning' | 'arrow-up' | 'arrow-down' | 'arrow-up-right' | 'filter' | 'paperclip' | 'mic' | 'stop' | 'thumbs-up' | 'thumbs-down' | 'tool' | 'sparkles' | 'clock' | 'calendar' }) {
+export function UIIcon({ name, ...props }: SVGProps<SVGSVGElement> & { name: 'copy' | 'close' | 'search' | 'check' | 'minus' | 'chevron-left' | 'chevron-right' | 'chevron-down' | 'info' | 'warning' | 'arrow-up' | 'arrow-down' | 'arrow-up-right' | 'filter' | 'paperclip' | 'mic' | 'stop' | 'thumbs-up' | 'thumbs-down' | 'tool' | 'sparkles' | 'clock' | 'calendar' | 'lock' }) {
   const paths = {
+    lock: 'M7 10V7a5 5 0 0 1 10 0v3M6 10h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2ZM12 15v3',
     copy: 'M9 9h12v12H9ZM5 15H3V3h12v2',
     close: 'm6 6 12 12M6 18 18 6', search: 'm21 21-4.5-4.5', check: 'm5 12 4 4L19 6', minus: 'M5 12h14',
     'chevron-left': 'm14 6-6 6 6 6', 'chevron-right': 'm10 6 6 6-6 6', 'chevron-down': 'm6 9 6 6 6-6',

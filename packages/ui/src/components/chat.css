@@ -54,9 +54,16 @@
 .message-info-note { font-size: 11px; color: var(--color-text-muted); line-height: 1.6; }
 .message-composer-wrap { min-width: 0; width: 100%; }
 .message-composer { padding: var(--chat-composer-inset, 12px); border: 1px solid var(--color-control-border); border-radius: var(--radius-control); background: var(--color-surface); cursor: text; transition: border-color var(--duration-fast) var(--ease-out); }
-.message-composer:hover:not(:has(textarea:disabled)) { border-color: var(--color-control-border-hover); }
-.message-composer:focus-within:not(:has(textarea:disabled)) { border-color: var(--color-focus); box-shadow: inset 0 0 0 1px var(--color-focus); }
+.message-composer:hover:not(.message-composer--locked):not(:has(textarea:disabled)) { border-color: var(--color-control-border-hover); }
+.message-composer:focus-within:not(.message-composer--locked):not(:has(textarea:disabled)) { border-color: var(--color-focus); box-shadow: inset 0 0 0 1px var(--color-focus); }
 .message-composer:has(textarea:disabled) { opacity: .55; cursor: not-allowed; }
+.message-composer--locked { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-height: 96px; cursor: default; color: var(--color-text); }
+.message-composer__lock-copy { display: flex; align-items: flex-start; flex: 1 1 240px; gap: 10px; min-width: 0; font-size: var(--chat-composer-font-size, 14px); line-height: 1.6; overflow-wrap: anywhere; }
+.message-composer__lock-copy > svg { flex-shrink: 0; margin-top: 3px; color: var(--color-text-muted); }
+.message-composer__lock-copy > div { min-width: 0; }
+.message-composer__lock-copy strong { font-weight: 500; }
+.message-composer__lock-description { margin-top: 4px; color: var(--color-text-muted); font-size: var(--text-xs); }
+.message-composer__lock-action { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; max-width: 100%; }
 .message-composer-wrap .message-composer textarea { display: block; box-sizing: border-box; width: 100%; min-height: 28px; height: 28px; max-height: 180px; padding: 2px 4px; resize: none; overflow: hidden; border: 0; border-radius: 0; background: transparent; color: var(--color-text); font: inherit; font-size: var(--chat-composer-font-size, 14px); line-height: 24px; box-shadow: none; }
 .message-composer textarea:is(:focus, :focus-visible) { border: 0; outline: none; box-shadow: none; }
 .message-composer textarea::placeholder { color: var(--color-text-muted); }

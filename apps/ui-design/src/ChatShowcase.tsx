@@ -100,6 +100,7 @@ function StatusExample() {
 export function ChatShowcase({ active }: { active: boolean }) {
   const t = useCopy(); const draft = useDraft(active);
   const [showAvatar, setShowAvatar] = useState(true); const [showSender, setShowSender] = useState(true); const [showInfo, setShowInfo] = useState(true); const [feedback, setFeedback] = useState<'up' | 'down'>();
+  const [locked, setLocked] = useState(false);
   const [disabled, setDisabled] = useState(false); const [sent, setSent] = useState<{ text: string; files: ChatAttachment[] } | null>(null);
   const [progress, setProgress] = useState(50); const [drawer, setDrawer] = useState<'task' | 'file' | null>(null);
   const narrow = useBreakpoint('mobile');
@@ -115,9 +116,10 @@ export function ChatShowcase({ active }: { active: boolean }) {
       <div className="chat-example-options"><Switch label={t.chatShowcase.showAvatars} checked={showAvatar} onChange={event => setShowAvatar(event.target.checked)} /><Switch label={t.chatShowcase.showSender} checked={showSender} onChange={event => setShowSender(event.target.checked)} /><Switch label={t.chatShowcase.showInformationIcon} checked={showInfo} onChange={event => setShowInfo(event.target.checked)} /></div>
       <div className="chat-example-messages"><ChatMessage role="user" readStatus="read" sender={t.common.you} showSender={showSender} showAvatar={showAvatar} text={t.chatShowcase.keepWalkingToAMinimumAndLeaveSomeFree} /><ChatMessage sender="Molr" showSender={showSender} showAvatar={showAvatar} text={t.chatShowcase.understoodIWillKeepTheRouteWithinOneArea} footer={<ChatMessageMeta metrics={demoMetrics} metricsNote={t.chatShowcase.sampleMeasurementsToDemonstrateTheLayout} showMetrics={showInfo} feedback={feedback} onFeedback={value => setFeedback(current => current === value ? undefined : value)} />} /></div>
     </Example>
-    <Example title={t.chatShowcase.messageComposer} description={t.chatShowcase.startsAtOneLineAndGrowsWithContentAttach}>
+    <Example id="message-composer" title={t.chatShowcase.messageComposer} description={t.chatShowcase.startsAtOneLineAndGrowsWithContentAttach}>
       <Switch label={t.chatShowcase.disableComposer} checked={disabled} onChange={event => { setDisabled(event.target.checked); draft.setRecording(false); }} />
-      <ChatComposer {...draft.props} disabled={disabled} onSubmit={() => { if (draft.handleCommand()) return; setSent({ text: draft.value, files: draft.attachments }); draft.clear(); }} />
+      <Switch label={t.chatShowcase.lockComposer} checked={locked} onChange={event => { setLocked(event.target.checked); draft.setRecording(false); }} />
+      <ChatComposer {...draft.props} lock={locked ? { title: t.chatShowcase.composerLocked, description: t.chatShowcase.composerLockedHelp, action: <Button variant="secondary" size="sm" onClick={() => setLocked(false)}>{t.chatShowcase.unlockComposer}</Button> } : undefined} disabled={disabled} onSubmit={() => { if (draft.handleCommand()) return; setSent({ text: draft.value, files: draft.attachments }); draft.clear(); }} />
       {sent ? <div className="chat-sent-preview" role="status"><small>{t.chatShowcase.lastSampleMessage}</small><ChatMessage role="user" readStatus="unread" text={sent.text} attachments={sent.files} /></div> : <p className="component-copy">{t.chatShowcase.tryMultipleLinesOrAttachAFileTheVoice}</p>}
     </Example>
     <ChatCommandExample active={active} />
