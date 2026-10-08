@@ -22,14 +22,15 @@ func (r *repository) Get(ctx context.Context, owner, id core.ID) (Operation, err
 	return persistence.Load[Operation](ctx, r.store, bucket, persistence.Key(owner, id))
 }
 func (r *repository) FindByKey(ctx context.Context, owner core.ID, key string) (Operation, error) {
-	items, err := persistence.Scan[Operation](ctx, r.store, bucket)
+	items, err := persistence.Select[Operation](ctx, r.store, bucket, persistence.Query{
+		Where:     []persistence.Filter{persistence.Eq("OwnerID", owner), persistence.Eq("IdempotencyKey", key)},
+		Unordered: true, Limit: 1,
+	})
 	if err != nil {
 		return Operation{}, err
 	}
-	for _, op := range items {
-		if op.OwnerID == owner && op.IdempotencyKey == key {
-			return op, nil
-		}
+	if len(items) > 0 {
+		return items[0], nil
 	}
 	return Operation{}, core.NewError(core.NotFound, "operation not found")
 }

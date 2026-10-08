@@ -137,3 +137,7 @@ Runtime 内嵌本机 sandbox_manager；可另行构建 `./cmd/molr-sandbox` 在�
 ### 后台查询性能回归
 
 `go test ./internal/business/schedule ./internal/business/dream ./internal/business/plan ./internal/persistence/sqlitestore` 覆盖到期边界、跨时区、过期批处理、自动交接去重和提醒消除；存储观测与查询计划断言检查无关历史不会被全量加载。`go test ./internal/business/schedule -run '^$' -bench BenchmarkDueHistory -benchmem` 对比 1 千和 10 万条无关日程下的全量扫描与当前索引查询。具体耗时依赖机器与负载，不作为固定性能承诺。
+
+### 操作幂等查询性能回归
+
+模型和工具操作的幂等检查通过账号与幂等键的复合索引精确读取，最多返回一条操作；创建事务仍负责重复请求去重和参数冲突校验。`go test ./internal/agent/operation ./internal/persistence/sqlitestore` 覆盖账号隔离、并发去重、无关历史读取数量及索引查询计划。`go test ./internal/agent/operation -run '^$' -bench BenchmarkIdempotencyLookupHistory -benchmem` 对比 1 千、1 万和 10 万条历史下，原全量扫描与索引查询的命中、未命中开销；基准仅度量幂等查询，不代表模型推理或完整执行耗时。
