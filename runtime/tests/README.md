@@ -62,3 +62,9 @@ make -C runtime test-existing
 需要允许测试创建本机 socket。容器或受限沙箱若禁止监听，应使用允许本机测试网络的环境；不应把这些用例改为 Skip。生产权限边界测试不能证明所有浏览器、供应商和操作系统的行为，也不等于独立安全审计。
 
 完整检查使用 `make -C runtime check`；并发检查可另行运行 `go test -race -p 4 ./...`。实际结果须注明日期、提交、环境和跳过项；本地实例记录保存在不提交的内部文档目录。
+
+## 调度唤醒与历史规模
+
+`internal/agent/scheduler/wakeup_test.go` 覆盖空闲无队列轮询、回滚与提交失败不唤醒、重试到期唤醒、完成释放后续输入、做梦截止释放，以及越过多页受阻任务且不扫描历史。`sqlitestore.TestDispatchCandidatesUseOrderedStateIndex` 检查 SQLite 查询计划使用状态／顺序索引且不额外排序。
+
+在 Runtime 目录运行 `go test ./internal/agent/scheduler -run '^$' -bench BenchmarkIdleClaimHistory -benchmem`，比较 1 千与 10 万条历史任务下的空领取开销。基准只衡量领取路径，不代表模型响应延迟或整个服务的 CPU；记录结果时注明日期和环境。

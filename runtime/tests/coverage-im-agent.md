@@ -273,3 +273,9 @@
 | `internal/im/weixin` | `Client.Check`、`HTTPClient.Check` | `TestExistingCredentialCheckAndLosslessSendReceipt`、`TestAlreadyBoundResponseNeedsMatchingLiveCredential` |
 
 | `internal/notification` | `New`、`Sync`、`Service.List`、`Service.Get`、`Service.Update` | `TestLifecycleIsolationReplayAndRestart`、`TestSourceAndNoticeRollbackTogether` |
+
+| 包 | 接口 / 方法 | 测试 |
+| --- | --- | --- |
+| `internal/event` | `DispatchSignal` | `TestJobCommitSignalAndStoppedOutboxFence` |
+| `internal/event` | `SaveJob` | `TestJobCommitSignalAndStoppedOutboxFence` |
+| `internal/im/conversation` | `OutboxSignal` | `TestOutboxSignalsOnlyCommittedNewMessages` |

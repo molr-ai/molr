@@ -52,7 +52,7 @@ func (e *Engine) Stop(ctx context.Context, p core.Principal, id core.ID) error {
 				if job.Event.OwnerID == p.OwnerID && job.Event.AssistantID == id && job.Event.Kind == event.DreamDue && (job.State == scheduler.Running || job.State == scheduler.Queued || job.State == scheduler.Retry) {
 					job.State = scheduler.Canceled
 					job.Version++
-					if err := tx.Put(ctx, "agent.jobs", persistence.Key(p.OwnerID, job.Event.ID), job); err != nil {
+					if err := event.SaveJob(ctx, tx, job); err != nil {
 						return err
 					}
 				}
@@ -138,7 +138,7 @@ func (e *Engine) Stop(ctx context.Context, p core.Principal, id core.ID) error {
 			}
 			job.State = scheduler.Canceled
 			job.Version++
-			if err := tx.Put(ctx, "agent.jobs", persistence.Key(p.OwnerID, job.Event.ID), job); err != nil {
+			if err := event.SaveJob(ctx, tx, job); err != nil {
 				return err
 			}
 		}

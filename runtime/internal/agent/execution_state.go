@@ -475,7 +475,7 @@ func (e *Engine) prepareExecution(ctx context.Context, t Turn) (Checkpoint, turn
 				job.State = scheduler.Canceled
 				job.FailureCode = core.Canceled
 				job.Version++
-				if err = tx.Put(ctx, "agent.jobs", persistence.Key(t.Principal.OwnerID, old.Event.ID), job); err != nil {
+				if err = event.SaveJob(ctx, tx, job); err != nil {
 					return err
 				}
 			}

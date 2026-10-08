@@ -9,29 +9,20 @@ import (
 	"molr.ai/runtime/internal/event"
 )
 
-type State string
+type State = event.JobState
 
 const (
-	Queued      State = "queued"
-	Running     State = "running"
-	Done        State = "done"
-	Retry       State = "retry"
-	Failed      State = "failed"
-	NeedsReview State = "needs_review"
-	Canceled    State = "canceled"
+	Queued      = event.Queued
+	Running     = event.Running
+	Done        = event.Done
+	Retry       = event.Retry
+	Failed      = event.Failed
+	NeedsReview = event.NeedsReview
+	Canceled    = event.Canceled
 )
 
-type Job struct {
-	// JoinedTo binds expedited input to its existing turn until checkpoint commit.
-	JoinedTo    core.ID `json:",omitempty"`
-	Event       event.AssistantEvent
-	State       State
-	ExecutionID core.ID
-	Attempts    int
-	NotBefore   time.Time
-	FailureCode core.Code
-	Version     core.Version
-}
+type Job = event.Job
+
 type Claim struct {
 	Job       Job
 	Principal core.Principal

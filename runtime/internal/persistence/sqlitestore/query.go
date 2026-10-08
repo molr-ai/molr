@@ -49,6 +49,9 @@ func (s *Store) createIndexes() error {
 		{"im.messages", []string{"OwnerKey", "ConversationID", "Sequence"}},
 		{"im.visible", []string{"OwnerID", "Sequence"}},
 		{"im.visible", []string{"OwnerID", "Topic", "Sequence"}},
+		{"agent.jobs", []string{"State", "QueueKey"}},
+		{"agent.jobs", []string{"Event.OwnerID", "Event.AssistantID", "State", "QueueKey"}},
+		{"business.dream_sessions_index", []string{"OwnerID", "AssistantID", "State"}},
 	}
 	for i, index := range indexes {
 		parts := []string{"bucket"}

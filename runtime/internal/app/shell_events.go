@@ -48,7 +48,7 @@ func shellReminder(ctx context.Context, store persistence.Store, owner, id core.
 				if exists {
 					job.State = scheduler.Canceled
 					job.Version++
-					if err := tx.Put(ctx, "agent.jobs", key, job); err != nil {
+					if err := event.SaveJob(ctx, tx, job); err != nil {
 						return err
 					}
 				}
@@ -64,7 +64,7 @@ func shellReminder(ctx context.Context, store persistence.Store, owner, id core.
 			if exists {
 				job.Event = e
 				job.Version++
-				return tx.Put(ctx, "agent.jobs", key, job)
+				return event.SaveJob(ctx, tx, job)
 			}
 			return nil
 		}

@@ -9,7 +9,7 @@ import (
 )
 
 func saveJob(ctx context.Context, tx persistence.Tx, job Job) error {
-	if err := tx.Put(ctx, jobsBucket, persistence.Key(job.Event.OwnerID, job.Event.ID), job); err != nil {
+	if err := event.SaveJob(ctx, tx, job); err != nil {
 		return err
 	}
 	// Chat failures already have an assistant-blocked notice. Background runs need a durable result.

@@ -93,7 +93,7 @@ func (e *Engine) enqueueCompression(ctx context.Context, owner, id core.ID, manu
 				if job.Event.ID != "" {
 					job.Event = existing
 					job.Version++
-					if err := tx.Put(ctx, "agent.jobs", persistence.Key(owner, existing.ID), job); err != nil {
+					if err := event.SaveJob(ctx, tx, job); err != nil {
 						return err
 					}
 				}
@@ -178,7 +178,7 @@ func (e *Engine) finishCompression(ctx context.Context, t Turn, source event.Ass
 				job.State = scheduler.Failed
 			}
 			job.Version++
-			if err := tx.Put(ctx, "agent.jobs", persistence.Key(t.Principal.OwnerID, source.ID), job); err != nil {
+			if err := event.SaveJob(ctx, tx, job); err != nil {
 				return err
 			}
 		}

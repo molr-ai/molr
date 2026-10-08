@@ -153,3 +153,42 @@ func TestRealtimeQueryPlansUseBoundedSequenceIndexes(t *testing.T) {
 		}
 	}
 }
+
+func TestDispatchCandidatesUseOrderedStateIndex(t *testing.T) {
+	s, err := Open(filepath.Join(t.TempDir(), "dispatch.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	q := persistence.Query{Where: []persistence.Filter{persistence.Eq("State", "queued"), {Field: "QueueKey", Op: ">", Value: "0/"}}, OrderBy: "QueueKey", Limit: 100}
+	statement, args, err := querySQL("agent.jobs", q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := s.db.QueryContext(t.Context(), "EXPLAIN QUERY PLAN "+statement, args...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	found := false
+	for rows.Next() {
+		var id, parent, unused int
+		var detail string
+		if err := rows.Scan(&id, &parent, &unused, &detail); err != nil {
+			t.Fatal(err)
+		}
+		t.Log(detail)
+		if strings.Contains(detail, "records_query_14") && strings.Contains(detail, "SEARCH") {
+			found = true
+		}
+		if strings.Contains(detail, "TEMP B-TREE") {
+			t.Fatal("candidate order requires full sort", detail)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if !found {
+		t.Fatal("candidate query did not use dispatch index")
+	}
+}

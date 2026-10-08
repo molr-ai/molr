@@ -85,7 +85,7 @@ func (e *Engine) intakeEvents(ctx context.Context, t Turn, p *turnProgress) erro
 			}
 			job.State, job.ExecutionID = scheduler.Done, t.Principal.ExecutionID
 			job.Version++
-			if err := tx.Put(ctx, "agent.jobs", persistence.Key(t.Principal.OwnerID, job.Event.ID), job); err != nil {
+			if err := event.SaveJob(ctx, tx, job); err != nil {
 				return err
 			}
 			changed = true

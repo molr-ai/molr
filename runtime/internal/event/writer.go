@@ -17,7 +17,7 @@ const sourcesBucket = "agent.event_sources"
 type writer struct{ store persistence.Store }
 
 // NewWriter persists assistant inputs and their source identity in the caller's
-// transaction. Scheduler state belongs in a separate agent.jobs keyspace.
+// transaction, together with the initial durable job.
 func NewWriter(store persistence.Store) Writer { return &writer{store: store} }
 func (w *writer) AppendAssistant(ctx context.Context, e AssistantEvent) error {
 	e.DeliveryMode = e.Delivery()
@@ -75,6 +75,20 @@ func (w *writer) AppendAssistant(ctx context.Context, e AssistantEvent) error {
 		if err = tx.Put(ctx, eventsBucket, key, e); err != nil {
 			return err
 		}
-		return tx.Put(ctx, sourcesBucket, sourceKey, e.ID)
+		if err := tx.Put(ctx, sourcesBucket, sourceKey, e.ID); err != nil {
+			return err
+		}
+		if e.Kind == UserStopped {
+			return nil
+		}
+		// Stop can fence an IM input before its outbox event is consumed.
+		// Materializing that source must never revive the canceled job.
+		var job Job
+		if err := tx.Get(ctx, "agent.jobs", key, &job); err == nil {
+			return nil
+		} else if !persistence.Missing(err) {
+			return err
+		}
+		return SaveJob(ctx, tx, Job{Event: e, State: Queued, NotBefore: e.CreatedAt, Version: 1})
 	})
 }

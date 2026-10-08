@@ -759,7 +759,7 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 						return err
 					}
 					job.Event.TaskID = taskID
-					if err := tx.Put(ctx, "agent.jobs", persistence.Key(c.Principal.OwnerID, job.Event.ID), job); err != nil {
+					if err := event.SaveJob(ctx, tx, job); err != nil {
 						return err
 					}
 					if err := tx.Put(ctx, "agent.events", persistence.Key(c.Principal.OwnerID, job.Event.ID), job.Event); err != nil {
@@ -786,17 +786,23 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 			}
 		}
 		return err
-	}, Tick: func(ctx context.Context, now time.Time) error {
-		sandboxRouter.pollRemoteWaits(ctx, now)
-		pending, err := conversation.NewOutbox(store).Pending(ctx, 100)
-		if err != nil {
-			return err
-		}
-		for _, m := range pending {
-			if err = consumer.AcceptMessage(ctx, m); err != nil {
+	}, DrainMessages: func(ctx context.Context) error {
+		for {
+			pending, err := conversation.NewOutbox(store).Pending(ctx, 100)
+			if err != nil {
 				return err
 			}
+			for _, m := range pending {
+				if err := consumer.AcceptMessage(ctx, m); err != nil {
+					return err
+				}
+			}
+			if len(pending) < 100 {
+				return nil
+			}
 		}
+	}, Tick: func(ctx context.Context, now time.Time) error {
+		sandboxRouter.pollRemoteWaits(ctx, now)
 		if err := plans.Tick(ctx, now); err != nil {
 			return err
 		}

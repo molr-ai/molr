@@ -24,22 +24,6 @@ func allJobs(ctx context.Context, store persistence.Store) ([]Job, error) {
 	if err != nil {
 		return nil, err
 	}
-	seen := map[string]bool{}
-	for _, job := range jobs {
-		seen[persistence.Key(job.Event.OwnerID, job.Event.ID)] = true
-	}
-	events, err := persistence.Scan[event.AssistantEvent](ctx, store, "agent.events")
-	if err != nil {
-		return nil, err
-	}
-	for _, e := range events {
-		if e.Kind == event.UserStopped {
-			continue
-		}
-		if !seen[persistence.Key(e.OwnerID, e.ID)] {
-			jobs = append(jobs, Job{Event: e, State: Queued, NotBefore: e.CreatedAt, Version: 1})
-		}
-	}
 	boundaries := map[string]event.InterruptBoundary{}
 	for i := range jobs {
 		job := &jobs[i]
@@ -72,89 +56,159 @@ func allJobs(ctx context.Context, store persistence.Store) ([]Job, error) {
 	})
 	return jobs, nil
 }
-func (q *queue) Claim(ctx context.Context, now time.Time) (claim Claim, err error) {
-	err = q.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		jobs, err := allJobs(ctx, q.store)
-		if err != nil {
-			return err
+func (q *queue) Claim(ctx context.Context, now time.Time) (Claim, error) {
+	claim, _, err := q.claim(ctx, now)
+	return claim, err
+}
+
+// claim reads only active candidates in bounded pages. next is the earliest
+// time at which a currently blocked candidate can become eligible without a write.
+func (q *queue) claim(ctx context.Context, now time.Time) (claim Claim, next time.Time, err error) {
+	remember := func(at time.Time) {
+		if at.After(now) && (next.IsZero() || at.Before(next)) {
+			next = at
 		}
+	}
+	err = q.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		type dreamSession struct {
 			ID, OwnerID, AssistantID core.ID
 			State                    string
 			Deadline                 time.Time
 			Started                  bool
 		}
-		type dreamRun struct{ ID, OwnerID, SessionID core.ID }
-		dreams, err := persistence.Scan[dreamSession](ctx, q.store, "business.dream_sessions_index")
-		if err != nil {
-			return err
+		type assistantState struct {
+			boundary event.InterruptBoundary
+			running  bool
+			retry    core.ID
+			dream    dreamSession
 		}
-		dreamRuns, err := persistence.Scan[dreamRun](ctx, q.store, "business.dream_run_sessions")
-		if err != nil {
-			return err
-		}
-		activeDreams := map[string]core.ID{}
-		endedDreams := map[string]bool{}
-		runSessions := map[string]core.ID{}
-		for _, d := range dreams {
-			if d.State == "active" && now.Before(d.Deadline) {
-				if d.Started {
-					activeDreams[persistence.Key(d.OwnerID, d.AssistantID)] = d.ID
+		states := map[string]assistantState{}
+		after := ""
+		for {
+			// Read each state through its own ordered index, then merge at most
+			// two pages. An OR/IN query would sort the whole active queue.
+			var jobs []Job
+			for _, status := range []State{Queued, Retry} {
+				query := persistence.Query{OrderBy: "QueueKey", Limit: 100, Where: []persistence.Filter{persistence.Eq("State", status)}}
+				if after != "" {
+					query.Where = append(query.Where, persistence.Filter{Field: "QueueKey", Op: ">", Value: after})
 				}
-			} else {
-				endedDreams[persistence.Key(d.OwnerID, d.ID)] = true
+				page, err := persistence.Select[Job](ctx, q.store, jobsBucket, query)
+				if err != nil {
+					return err
+				}
+				jobs = append(jobs, page...)
 			}
-		}
-		for _, r := range dreamRuns {
-			runSessions[persistence.Key(r.OwnerID, r.ID)] = r.SessionID
-		}
-		busy := map[string]bool{}
-		retrying := map[string]core.ID{}
-		for _, job := range jobs {
-			if job.State == Retry {
-				retrying[persistence.Key(job.Event.OwnerID, job.Event.AssistantID)] = job.Event.ID
+			sort.Slice(jobs, func(i, j int) bool { return jobs[i].QueueKey < jobs[j].QueueKey })
+			if len(jobs) > 100 {
+				jobs = jobs[:100]
 			}
-			if job.State == Running {
-				busy[persistence.Key(job.Event.OwnerID, job.Event.AssistantID)] = true
-			}
-		}
-		for _, job := range jobs {
-			if id := retrying[persistence.Key(job.Event.OwnerID, job.Event.AssistantID)]; id != "" && id != job.Event.ID {
-				continue
-			}
-			if job.Event.Kind == event.UserStopped || job.JoinedTo != "" || (job.State != Queued && job.State != Retry) || job.NotBefore.After(now) || busy[persistence.Key(job.Event.OwnerID, job.Event.AssistantID)] {
-				continue
-			}
-			sessionID := runSessions[persistence.Key(job.Event.OwnerID, job.Event.OperationID)]
-			if job.Event.Kind == event.DreamDue && sessionID != "" && endedDreams[persistence.Key(job.Event.OwnerID, sessionID)] {
-				job.State = Canceled
+
+			for _, job := range jobs {
+				after = job.QueueKey
+				key := persistence.Key(job.Event.OwnerID, job.Event.AssistantID)
+				state, known := states[key]
+				if !known {
+					state.boundary, err = persistence.Load[event.InterruptBoundary](ctx, q.store, "agent.interrupt_boundaries", key)
+					if err != nil && !persistence.Missing(err) {
+						return err
+					}
+					for _, status := range []State{Running, Retry} {
+						active, err := persistence.Select[Job](ctx, q.store, jobsBucket, persistence.Query{
+							Where: []persistence.Filter{persistence.Eq("Event.OwnerID", job.Event.OwnerID), persistence.Eq("Event.AssistantID", job.Event.AssistantID), persistence.Eq("State", status)}, OrderBy: "QueueKey"})
+						if err != nil {
+							return err
+						}
+						for _, j := range active {
+							if state.boundary.Blocks(j.Event) {
+								continue
+							}
+							if status == Running {
+								state.running = true
+							} else {
+								state.retry = j.Event.ID
+							}
+						}
+					}
+					dreams, err := persistence.Select[dreamSession](ctx, q.store, "business.dream_sessions_index", persistence.Query{
+						Where: []persistence.Filter{persistence.Eq("OwnerID", job.Event.OwnerID), persistence.Eq("AssistantID", job.Event.AssistantID), persistence.Eq("State", "active")}})
+					if err != nil {
+						return err
+					}
+					for _, dream := range dreams {
+						if dream.Started && now.Before(dream.Deadline) {
+							state.dream = dream
+						}
+					}
+					states[key] = state
+				}
+				if state.boundary.Blocks(job.Event) || job.Event.Kind == event.UserStopped {
+					job.State = Canceled
+					job.Version++
+					if err := saveJob(ctx, tx, job); err != nil {
+						return err
+					}
+					continue
+				}
+				if job.JoinedTo != "" || state.running || (state.retry != "" && state.retry != job.Event.ID) {
+					continue
+				}
+				var sessionID core.ID
+				if job.Event.Kind == event.DreamDue {
+					var run struct{ SessionID core.ID }
+					err := tx.Get(ctx, "business.dream_run_sessions", persistence.Key(job.Event.OwnerID, job.Event.OperationID), &run)
+					if err != nil && !persistence.Missing(err) {
+						return err
+					}
+					sessionID = run.SessionID
+					if sessionID != "" {
+						var session dreamSession
+						err := tx.Get(ctx, "business.dream_sessions_index", persistence.Key(job.Event.OwnerID, sessionID), &session)
+						if err != nil && !persistence.Missing(err) {
+							return err
+						}
+						if err == nil && (session.State != "active" || !now.Before(session.Deadline)) {
+							job.State = Canceled
+							job.Version++
+							if err := saveJob(ctx, tx, job); err != nil {
+								return err
+							}
+							continue
+						}
+					}
+				}
+				if state.dream.ID != "" && (job.Event.Kind != event.DreamDue || sessionID != state.dream.ID) {
+					remember(state.dream.Deadline)
+					continue
+				}
+				if job.NotBefore.After(now) {
+					remember(job.NotBefore)
+					continue
+				}
+				id := make([]byte, 16)
+				if _, err := rand.Read(id); err != nil {
+					return err
+				}
+				job.State = Running
+				if job.ExecutionID == "" {
+					job.ExecutionID = core.ID(hex.EncodeToString(id))
+				}
+				job.Attempts++
 				job.Version++
 				if err := saveJob(ctx, tx, job); err != nil {
 					return err
 				}
-				continue
+				claim = Claim{Job: job, Principal: core.Principal{OwnerID: job.Event.OwnerID, SubjectID: job.Event.AssistantID, Kind: core.ActorAssistant, ExecutionID: job.ExecutionID}}
+				return nil
 			}
-			if active := activeDreams[persistence.Key(job.Event.OwnerID, job.Event.AssistantID)]; active != "" && (job.Event.Kind != event.DreamDue || sessionID != active) {
-				continue
+			if len(jobs) < 100 {
+				return nil
 			}
-			id := make([]byte, 16)
-			if _, err := rand.Read(id); err != nil {
-				return err
-			}
-			job.State = Running
-			if job.ExecutionID == "" {
-				job.ExecutionID = core.ID(hex.EncodeToString(id))
-			}
-			job.Attempts++
-			job.Version++
-			if err = saveJob(ctx, tx, job); err != nil {
-				return err
-			}
-			claim = Claim{Job: job, Principal: core.Principal{OwnerID: job.Event.OwnerID, SubjectID: job.Event.AssistantID, Kind: core.ActorAssistant, ExecutionID: job.ExecutionID}}
-			return nil
 		}
-		return core.NewError(core.NotFound, "no eligible job")
 	})
+	if err == nil && claim.Job.Event.ID == "" {
+		err = core.NewError(core.NotFound, "no eligible job")
+	}
 	return
 }
 func bound(ctx context.Context, tx persistence.Tx, p core.Principal, id core.ID, version core.Version) (Job, error) {
@@ -288,13 +342,18 @@ func (q *queue) Cancel(ctx context.Context, owner, id core.ID) error {
 // Call inside the checkpoint transaction when consuming; the scheduler uses the
 // same job records and stop boundaries, preventing double dispatch.
 func Pending(ctx context.Context, store persistence.Store, owner, assistant, current core.ID, now time.Time, interruptOnly bool) ([]Job, error) {
-	jobs, err := allJobs(ctx, store)
+	jobs, err := persistence.Select[Job](ctx, store, jobsBucket, persistence.Query{Where: []persistence.Filter{
+		persistence.Eq("Event.OwnerID", owner), persistence.Eq("Event.AssistantID", assistant), persistence.Eq("State", Queued)}, OrderBy: "QueueKey"})
 	if err != nil {
+		return nil, err
+	}
+	boundary, err := persistence.Load[event.InterruptBoundary](ctx, store, "agent.interrupt_boundaries", persistence.Key(owner, assistant))
+	if err != nil && !persistence.Missing(err) {
 		return nil, err
 	}
 	var out []Job
 	for _, job := range jobs {
-		if job.Event.OwnerID != owner || job.Event.AssistantID != assistant || job.Event.ID == current || job.State != Queued || job.JoinedTo != "" || job.NotBefore.After(now) {
+		if boundary.Blocks(job.Event) || job.Event.OwnerID != owner || job.Event.AssistantID != assistant || job.Event.ID == current || job.State != Queued || job.JoinedTo != "" || job.NotBefore.After(now) {
 			continue
 		}
 		mode := job.Event.Delivery()

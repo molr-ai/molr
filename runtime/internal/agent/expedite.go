@@ -166,7 +166,7 @@ func (e *Engine) Expedite(ctx context.Context, p core.Principal, id core.ID, r E
 				if err == nil && job.State == scheduler.Queued {
 					job.Event = stored
 					job.Version++
-					if err := tx.Put(ctx, "agent.jobs", sourceKey, job); err != nil {
+					if err := event.SaveJob(ctx, tx, job); err != nil {
 						return err
 					}
 				}
@@ -203,7 +203,7 @@ func (e *Engine) Expedite(ctx context.Context, p core.Principal, id core.ID, r E
 			if job.Event.OwnerID == p.OwnerID && job.Event.AssistantID == id && job.ExecutionID == status.ExecutionID && job.State == scheduler.Retry {
 				job.NotBefore = e.options.Now()
 				job.Version++
-				if err := tx.Put(ctx, "agent.jobs", persistence.Key(p.OwnerID, job.Event.ID), job); err != nil {
+				if err := event.SaveJob(ctx, tx, job); err != nil {
 					return err
 				}
 			}
@@ -352,7 +352,7 @@ func (e *Engine) intakeExpedite(ctx context.Context, t Turn, p *turnProgress) er
 			}
 			job.JoinedTo = t.Event.ID
 			job.Version++
-			if err := tx.Put(ctx, "agent.jobs", key, job); err != nil {
+			if err := event.SaveJob(ctx, tx, job); err != nil {
 				return err
 			}
 		}
@@ -385,7 +385,7 @@ func (e *Engine) finishExpedite(ctx context.Context, t Turn, p turnProgress) err
 			job.JoinedTo = ""
 			job.ExecutionID = t.Principal.ExecutionID
 			job.Version++
-			if err := tx.Put(ctx, "agent.jobs", persistence.Key(t.Principal.OwnerID, job.Event.ID), job); err != nil {
+			if err := event.SaveJob(ctx, tx, job); err != nil {
 				return err
 			}
 		}

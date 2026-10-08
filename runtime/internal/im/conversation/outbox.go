@@ -11,6 +11,10 @@ import (
 
 type outbox struct{ store persistence.Store }
 
+func OutboxSignal() persistence.SignalKey {
+	return persistence.SignalKey{Namespace: "im.outbox", Key: "pending"}
+}
+
 func NewOutbox(store persistence.Store) Outbox { return &outbox{store: store} }
 func (o *outbox) Append(ctx context.Context, e MessageCreated) error {
 	if err := validIDs(e.ID, e.OwnerID, e.ConversationID, e.MessageID, e.SenderID); err != nil {
@@ -32,7 +36,10 @@ func (o *outbox) Append(ctx context.Context, e MessageCreated) error {
 		if !persistence.Missing(err) {
 			return err
 		}
-		return tx.Put(ctx, outboxBucket, key, e)
+		if err := tx.Put(ctx, outboxBucket, key, e); err != nil {
+			return err
+		}
+		return tx.NotifyAfterCommit(ctx, OutboxSignal())
 	})
 }
 func (o *outbox) Pending(ctx context.Context, limit int) (items []MessageCreated, err error) {

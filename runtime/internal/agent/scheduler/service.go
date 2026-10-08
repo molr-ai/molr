@@ -22,8 +22,10 @@ type Options struct {
 	Authorizer   policy.Authorizer
 	Now          func() time.Time
 	Concurrency  int
-	PollInterval time.Duration
+	TickInterval time.Duration
 	Handle       func(context.Context, Claim) error
+	// DrainMessages consumes the IM outbox after committed message arrivals.
+	DrainMessages func(context.Context) error
 	// Tick persists due schedule occurrences; it does not publish virtual messages.
 	Tick          func(context.Context, time.Time) error
 	Reconcile     func(context.Context, Job) (State, error)
@@ -35,7 +37,7 @@ type activeClaim struct {
 }
 type service struct {
 	store   persistence.Store
-	queue   Queue
+	queue   *queue
 	options Options
 	mu      sync.Mutex
 	cancel  context.CancelFunc
@@ -47,8 +49,8 @@ func NewService(store persistence.Store, options Options) Service {
 	if options.Now == nil {
 		options.Now = time.Now
 	}
-	if options.PollInterval <= 0 {
-		options.PollInterval = 100 * time.Millisecond
+	if options.TickInterval <= 0 {
+		options.TickInterval = time.Second
 	}
 	if options.Concurrency <= 0 {
 		options.Concurrency = 2
@@ -56,7 +58,7 @@ func NewService(store persistence.Store, options Options) Service {
 	if options.Concurrency > 32 {
 		options.Concurrency = 32
 	}
-	return &service{store: store, queue: NewQueue(store), options: options, active: map[string]activeClaim{}}
+	return &service{store: store, queue: &queue{store: store}, options: options, active: map[string]activeClaim{}}
 }
 func (s *service) authorize(ctx context.Context, p core.Principal, action policy.Action) error {
 	if err := p.RequireOwner(); err != nil {
@@ -107,11 +109,38 @@ func (s *service) Run(ctx context.Context) error {
 		return err
 	}
 	var workers sync.WaitGroup
-	failure := make(chan error, s.options.Concurrency+1)
+	failure := make(chan error, s.options.Concurrency+2)
+	if s.options.DrainMessages != nil {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			watch, err := s.store.Watch(conversation.OutboxSignal())
+			if err != nil {
+				failure <- err
+				return
+			}
+			defer watch.Close()
+			for {
+				consumeWake(watch)
+				if err := s.options.DrainMessages(runCtx); err != nil {
+					if runCtx.Err() == nil {
+						failure <- err
+					}
+					return
+				}
+				if err := waitForWork(runCtx, watch, time.Time{}, s.options.Now()); err != nil {
+					if runCtx.Err() == nil {
+						failure <- err
+					}
+					return
+				}
+			}
+		}()
+	}
 	workers.Add(1)
 	go func() {
 		defer workers.Done()
-		ticker := time.NewTicker(s.options.PollInterval)
+		ticker := time.NewTicker(s.options.TickInterval)
 		defer ticker.Stop()
 		for {
 			if s.options.Tick != nil {
@@ -134,21 +163,28 @@ func (s *service) Run(ctx context.Context) error {
 		workers.Add(1)
 		go func() {
 			defer workers.Done()
+			watch, err := s.store.Watch(event.DispatchSignal())
+			if err != nil {
+				failure <- err
+				return
+			}
+			defer watch.Close()
 			for {
+				// Register before reading and consume notifications only before the query.
+				consumeWake(watch)
 				if runCtx.Err() != nil {
 					return
 				}
 				if s.options.Ready != nil && !s.options.Ready(runCtx) {
-					timer := time.NewTimer(time.Second)
-					select {
-					case <-runCtx.Done():
-						timer.Stop()
+					if err := waitForWork(runCtx, watch, s.options.Now().Add(time.Second), s.options.Now()); err != nil {
+						if runCtx.Err() == nil {
+							failure <- err
+						}
 						return
-					case <-timer.C:
 					}
 					continue
 				}
-				claim, err := s.queue.Claim(runCtx, s.options.Now())
+				claim, next, err := s.queue.claim(runCtx, s.options.Now())
 				if err != nil {
 					if runCtx.Err() != nil {
 						return
@@ -160,12 +196,11 @@ func (s *service) Run(ctx context.Context) error {
 						}
 						return
 					}
-					timer := time.NewTimer(s.options.PollInterval)
-					select {
-					case <-runCtx.Done():
-						timer.Stop()
+					if err := waitForWork(runCtx, watch, next, s.options.Now()); err != nil {
+						if runCtx.Err() == nil {
+							failure <- err
+						}
 						return
-					case <-timer.C:
 					}
 					continue
 				}
@@ -250,7 +285,7 @@ func (s *service) Recover(ctx context.Context) error {
 	return s.recover(ctx)
 }
 func (s *service) recover(ctx context.Context) error {
-	jobs, err := persistence.Scan[Job](ctx, s.store, jobsBucket)
+	jobs, err := persistence.Select[Job](ctx, s.store, jobsBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("State", Running)}})
 	if err != nil {
 		return err
 	}
@@ -358,4 +393,30 @@ func (m *messageConsumer) AcceptMessage(ctx context.Context, e conversation.Mess
 func UserMessageEvent(owner, assistant core.ID, m conversation.Message) event.AssistantEvent {
 	sum := sha256.Sum256([]byte(string(owner) + "/" + string(assistant) + "/" + string(m.ID)))
 	return event.AssistantEvent{ID: core.ID(hex.EncodeToString(sum[:])), OwnerID: owner, AssistantID: assistant, Kind: event.UserMessage, DeliveryMode: event.WhenIdle, MessageID: m.ID, MessageSequence: m.Sequence, CreatedAt: m.CreatedAt}
+}
+
+func consumeWake(w persistence.Watch) {
+	select {
+	case <-w.Changes():
+	default:
+	}
+}
+
+func waitForWork(ctx context.Context, w persistence.Watch, at, now time.Time) error {
+	var deadline <-chan time.Time
+	if !at.IsZero() {
+		timer := time.NewTimer(at.Sub(now))
+		defer timer.Stop()
+		deadline = timer.C
+	}
+	select {
+	case <-ctx.Done():
+		return persistence.CheckContext(ctx)
+	case <-w.Done():
+		return core.NewError(core.Unavailable, "scheduler event store closed")
+	case <-w.Changes():
+		return nil
+	case <-deadline:
+		return nil
+	}
 }

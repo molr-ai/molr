@@ -502,10 +502,13 @@ func saveSession(ctx context.Context, tx persistence.Tx, v Session) error {
 	if err := tx.Put(ctx, sessions, persistence.Key(v.OwnerID, v.ID), v); err != nil {
 		return err
 	}
-	return tx.Put(ctx, "business.dream_sessions_index", persistence.Key(v.OwnerID, v.ID), struct {
+	if err := tx.Put(ctx, "business.dream_sessions_index", persistence.Key(v.OwnerID, v.ID), struct {
 		ID, OwnerID, AssistantID core.ID
 		State                    string
 		Deadline                 time.Time
 		Started                  bool
-	}{v.ID, v.OwnerID, v.AssistantID, v.State, v.Deadline, v.Started})
+	}{v.ID, v.OwnerID, v.AssistantID, v.State, v.Deadline, v.Started}); err != nil {
+		return err
+	}
+	return tx.NotifyAfterCommit(ctx, event.DispatchSignal())
 }

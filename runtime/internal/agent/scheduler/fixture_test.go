@@ -44,7 +44,7 @@ func init() {
 		completion := make(chan struct{}, 10)
 		release := make(chan struct{})
 		var releaseOnce sync.Once
-		service := NewService(db, Options{Authorizer: fixtureAuthorizer{}, Now: func() time.Time { return now }, PollInterval: time.Millisecond, Handle: func(ctx context.Context, claim Claim) error {
+		service := NewService(db, Options{Authorizer: fixtureAuthorizer{}, Now: func() time.Time { return now }, TickInterval: time.Millisecond, Handle: func(ctx context.Context, claim Claim) error {
 			mu.Lock()
 			active[claim.Job.Event.AssistantID]++
 			if active[claim.Job.Event.AssistantID] > maxActive[claim.Job.Event.AssistantID] {
@@ -73,7 +73,7 @@ func init() {
 		return contractFixture{Service: service, Queue: NewQueue(db), Consumer: NewMessageConsumer(db, Options{Conversations: repo}), Outbox: conversation.NewOutbox(db), Owner: owner, Other: other, AssistantID: "assistant", ConversationID: "chat", Now: now,
 			SeedJob: func(job Job) {
 				testkit.RequireNoError(t, db.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-					if err := tx.Put(ctx, jobsBucket, persistence.Key(job.Event.OwnerID, job.Event.ID), job); err != nil {
+					if err := event.SaveJob(ctx, tx, job); err != nil {
 						return err
 					}
 					if job.State == Running {

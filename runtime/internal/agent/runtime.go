@@ -239,13 +239,13 @@ func (e *Engine) Lifecycle(ctx context.Context, p core.Principal, id core.ID, ac
 					}
 				}
 			}
-			for jobID, job := range byID {
+			for _, job := range byID {
 				if job.State == scheduler.Done || job.State == scheduler.Failed || job.State == scheduler.Canceled {
 					continue
 				}
 				job.State = scheduler.Canceled
 				job.Version++
-				if err := tx.Put(ctx, "agent.jobs", persistence.Key(p.OwnerID, jobID), job); err != nil {
+				if err := event.SaveJob(ctx, tx, job); err != nil {
 					return err
 				}
 			}

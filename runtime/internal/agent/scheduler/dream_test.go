@@ -28,7 +28,7 @@ func TestDreamPinsQueueBetweenBatchesUntilDeadline(t *testing.T) {
 			return err
 		}
 		for _, e := range []event.AssistantEvent{{ID: "message", OwnerID: "owner", AssistantID: "assistant", Kind: event.UserMessage, CreatedAt: now}, {ID: "dream", OwnerID: "owner", AssistantID: "assistant", Kind: event.DreamDue, OperationID: "batch", CreatedAt: now.Add(time.Second)}} {
-			if err := tx.Put(ctx, "agent.events", persistence.Key(e.OwnerID, e.ID), e); err != nil {
+			if err := event.SaveJob(ctx, tx, Job{Event: e, State: Queued, NotBefore: e.CreatedAt, Version: 1}); err != nil {
 				return err
 			}
 		}
