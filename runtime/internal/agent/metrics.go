@@ -124,21 +124,17 @@ func (e *Engine) MessageMetrics(ctx context.Context, p core.Principal, conversat
 		if out.TurnID == "" {
 			return nil
 		}
-		jobs, err := persistence.Scan[scheduler.Job](ctx, e.store, "agent.jobs")
+		jobs, err := persistence.Select[scheduler.Job](ctx, e.store, "agent.jobs", persistence.Query{
+			Where:     []persistence.Filter{persistence.Eq("Event.OwnerID", p.OwnerID), persistence.Eq("Event.AssistantID", chat.PeerID), persistence.Eq("ExecutionID", out.TurnID)},
+			Unordered: true, Limit: 1,
+		})
 		if err != nil {
 			return err
 		}
-		var job *scheduler.Job
-		for i := range jobs {
-			candidate := &jobs[i]
-			if candidate.Event.OwnerID == p.OwnerID && candidate.Event.AssistantID == chat.PeerID && candidate.ExecutionID == out.TurnID {
-				job = candidate
-				break
-			}
-		}
-		if job == nil {
+		if len(jobs) == 0 {
 			return nil
 		}
+		job := jobs[0]
 		out.State = string(job.State)
 		out.Retries = max(0, job.Attempts-1)
 		terminal := job.State == scheduler.Done || job.State == scheduler.Canceled || job.State == scheduler.Failed
@@ -159,26 +155,14 @@ func (e *Engine) MessageMetrics(ctx context.Context, p core.Principal, conversat
 			out.ElapsedMs = &elapsed
 			timingSettled = timing.EndedAt != nil
 		}
-		operations, err := persistence.Scan[operation.Operation](ctx, e.store, "agent.operations")
+		operations, err := persistence.Select[operation.Operation](ctx, e.store, "agent.operations", persistence.Query{
+			Where:     []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("AssistantID", chat.PeerID), persistence.Eq("ExecutionID", out.TurnID)},
+			Unordered: true,
+		})
 		if err != nil {
 			return err
 		}
-		// One scan avoids an O(calls * all receipts) lookup on each click.
-		records, err := tx.Scan(ctx, "agent.model_receipts")
-		if err != nil {
-			return err
-		}
-		receipts := map[core.ID]model.Receipt{}
-		for _, record := range records {
-			if len(record.Key) <= len(p.OwnerID) || record.Key[:len(p.OwnerID)+1] != string(p.OwnerID)+"/" {
-				continue
-			}
-			receipt, err := persistence.Decode[model.Receipt](record)
-			if err != nil {
-				return err
-			}
-			receipts[receipt.OperationID] = receipt
-		}
+		receipts := model.NewReceipts(e.store)
 		usage := model.Usage{AudioUsageKnown: true}
 		out.UsageComplete, out.CostComplete = true, true
 		charges := map[string]int64{}
@@ -187,9 +171,6 @@ func (e *Engine) MessageMetrics(ctx context.Context, p core.Principal, conversat
 		var timedOutput int64
 		operationsSettled := true
 		for _, op := range operations {
-			if op.OwnerID != p.OwnerID || op.AssistantID != chat.PeerID || op.ExecutionID != out.TurnID {
-				continue
-			}
 			if op.State == operation.Running || op.State == operation.Prepared || op.State == operation.Unknown {
 				operationsSettled = false
 			}
@@ -199,7 +180,11 @@ func (e *Engine) MessageMetrics(ctx context.Context, p core.Principal, conversat
 			}
 			out.ModelCalls++
 			call := ModelCallMetrics{OperationID: op.ID, State: op.State, CreatedAt: op.CreatedAt}
-			receipt, found := receipts[op.ID]
+			receipt, err := receipts.ByOperation(ctx, p.OwnerID, op.ID)
+			if err != nil && !persistence.Missing(err) {
+				return err
+			}
+			found := err == nil
 			if found {
 				call.ModelName, call.Timing = receipt.ModelName, receipt.Timing
 				if receipt.ModelName != "" {

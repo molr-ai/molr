@@ -58,6 +58,8 @@ func (s *Store) createIndexes() error {
 		{"business.tasks", []string{"OwnerID", "Plan.Kind", "Plan.ID"}},
 		{"notifications.records", []string{"Kind", "ResolvedAt"}},
 		{"agent.operations", []string{"OwnerID", "IdempotencyKey"}},
+		{"agent.jobs", []string{"Event.OwnerID", "Event.AssistantID", "ExecutionID"}},
+		{"agent.operations", []string{"OwnerID", "AssistantID", "ExecutionID"}},
 	}
 	for i, index := range indexes {
 		parts := []string{"bucket"}

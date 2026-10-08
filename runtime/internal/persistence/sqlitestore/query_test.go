@@ -209,6 +209,8 @@ func TestBackgroundQueriesUseSelectiveIndexes(t *testing.T) {
 		{"business.tasks", "records_query_20", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), persistence.Eq("Plan.Kind", "todo"), persistence.Eq("Plan.ID", "plan")}, Unordered: true}},
 		{"notifications.records", "records_query_21", persistence.Query{Where: []persistence.Filter{persistence.Eq("Kind", "plan.ready"), persistence.Eq("ResolvedAt", nil)}, Unordered: true}},
 		{"agent.operations", "records_query_22", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), persistence.Eq("IdempotencyKey", "key")}, Unordered: true, Limit: 1}},
+		{"agent.jobs", "records_query_23", persistence.Query{Where: []persistence.Filter{persistence.Eq("Event.OwnerID", "owner"), persistence.Eq("Event.AssistantID", "assistant"), persistence.Eq("ExecutionID", "turn")}, Unordered: true, Limit: 1}},
+		{"agent.operations", "records_query_24", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), persistence.Eq("AssistantID", "assistant"), persistence.Eq("ExecutionID", "turn")}, Unordered: true}},
 	} {
 		t.Run(tc.bucket, func(t *testing.T) {
 			statement, args, err := querySQL(tc.bucket, tc.q)

@@ -45,7 +45,7 @@ func TestTurnMetricsDynamicAggregationFinalizationAndIsolation(t *testing.T) {
 	}
 	first, gen := 100.0, 1000.0
 	receipt := model.Receipt{ID: "r1", OperationID: "model1", OutcomeKnown: true, CreatedAt: start, ModelName: "Model", Usage: model.Usage{InputTokens: 100, CachedTokens: 60, OutputTokens: 20}, Charged: &core.Money{Currency: "USD", Micros: 200}, Timing: &model.Timing{FirstTokenMs: &first, GenerationMs: &gen}}
-	put("agent.model_receipts", "owner/r1", receipt)
+	testkit.RequireNoError(t, model.NewReceipts(store).Record(t.Context(), "owner", receipt))
 	query := func() TurnMetrics {
 		t.Helper()
 		out, err := engine.MessageMetrics(t.Context(), owner, "chat", "message")
@@ -67,10 +67,31 @@ func TestTurnMetricsDynamicAggregationFinalizationAndIsolation(t *testing.T) {
 	receipt.Usage.OutputTokens = 40
 	first2, gen2 := 300.0, 3000.0
 	receipt.Timing = &model.Timing{FirstTokenMs: &first2, GenerationMs: &gen2}
-	put("agent.model_receipts", "owner/r2", receipt)
+	testkit.RequireNoError(t, model.NewReceipts(store).Record(t.Context(), "owner", receipt))
 	out = query()
 	if !out.Finalized || out.Usage.InputTokens != 200 || out.Usage.CachedTokens != 120 || out.Usage.OutputTokens != 60 || out.Charges[0].Micros != 400 || *out.FirstTokenMs != 200 || *out.TokensPerSecond != 15 {
 		t.Fatalf("final=%+v", out)
+	}
+	// Completed receipts do not finalize a turn with unsettled operations.
+	for _, state := range []operation.State{operation.Prepared, operation.Running, operation.Unknown} {
+		op.ID, op.State = "model2", state
+		put("agent.operations", "owner/model2", op)
+		if query().Finalized {
+			t.Fatalf("finalized %s operation", state)
+		}
+	}
+	op.State = operation.Succeeded
+	put("agent.operations", "owner/model2", op)
+	receipt.OutcomeKnown = false
+	put("agent.model_receipts", "owner/r2", receipt)
+	if partial := query(); partial.Finalized || partial.UsageComplete || partial.CompletedCalls != 1 {
+		t.Fatalf("unknown usage: %+v", partial)
+	}
+	receipt.OutcomeKnown = true
+	receipt.Charged = nil
+	put("agent.model_receipts", "owner/r2", receipt)
+	if partial := query(); partial.Finalized || partial.CostComplete || !partial.UsageComplete {
+		t.Fatalf("unknown charge: %+v", partial)
 	}
 	// No backend aggregate cache: a subsequent query reads fresh evidence.
 	receipt.Charged = &core.Money{Currency: "CNY", Micros: 500}

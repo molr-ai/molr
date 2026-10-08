@@ -126,7 +126,7 @@ DeepSeek 规则在 [`internal/pricing/deepseek.json`](internal/pricing/deepseek.
 
 ### Turn metrics and provider timing
 
-Conversation message metrics are exposed through the authorized Agent observer. The message's trusted execution identity associates every publication with its logical turn; older messages resolve through the publication operation. Metrics are calculated from lifecycle evidence, operations and model receipts on every request. The backend does not cache aggregates. `Finalized` requires a terminal job, a finished Runtime attempt, settled operations, known usage and known charges. Missing historical timing remains null.
+Conversation message metrics are exposed through the authorized Agent observer. The message's trusted execution identity associates every publication with its logical turn; older messages resolve through the publication operation. Metrics are calculated from lifecycle evidence, operations and model receipts on every request. The backend does not cache aggregates. Jobs and operations are selected through owner/assistant/execution indexes; model receipts use the existing operation lookup index. These reads share one transaction snapshot and do not load unrelated execution history. `Finalized` requires a terminal job, a finished Runtime attempt, settled operations, known usage and known charges. Missing historical timing remains null.
 
 OpenAI-compatible and DeepSeek chat requests use SSE with `stream_options.include_usage`; JSON responses remain supported. The transport records request duration, first meaningful generation fragment and first-to-last generation duration before replay to the Loop. One-fragment responses have no decode-speed sample. Raw SSE is retained separately from the assembled completion. Stream termination and usage handling follow the [official streaming guide](https://developers.openai.com/api/docs/guides/streaming-responses) and [usage example](https://developers.openai.com/cookbook/examples/how_to_stream_completions). This does not change the rule that only `conversation_publish` sends visible messages.
 
@@ -141,3 +141,7 @@ Runtime 内嵌本机 sandbox_manager；可另行构建 `./cmd/molr-sandbox` 在�
 ### 操作幂等查询性能回归
 
 模型和工具操作的幂等检查通过账号与幂等键的复合索引精确读取，最多返回一条操作；创建事务仍负责重复请求去重和参数冲突校验。`go test ./internal/agent/operation ./internal/persistence/sqlitestore` 覆盖账号隔离、并发去重、无关历史读取数量及索引查询计划。`go test ./internal/agent/operation -run '^$' -bench BenchmarkIdempotencyLookupHistory -benchmem` 对比 1 千、1 万和 10 万条历史下，原全量扫描与索引查询的命中、未命中开销；基准仅度量幂等查询，不代表模型推理或完整执行耗时。
+
+### 本轮信息查询性能回归
+
+`go test ./internal/agent ./internal/persistence/sqlitestore` 覆盖本轮统计的动态结算、缺失回执、账号／助理／执行隔离和索引查询计划，存储观测断言无关历史不被全量读取。`go test ./internal/agent -run '^$' -bench '^BenchmarkTurnMetricsHistory$' -benchmem` 在固定本轮调用数量下，对比 1 千、1 万和 10 万条无关执行历史的完整统计查询耗时及内存分配；基准不包含模型推理或浏览器渲染。
