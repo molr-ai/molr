@@ -2,6 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
 import { Resvg } from '@resvg/resvg-js';
 import appIconSizes from '../src/app-icon-sizes.json' with { type: 'json' };
+import { headContour, tailContour } from './logo-contours.mjs';
 import { choreographyAnimations, choreographyArtwork } from './logo-choreography.mjs';
 
 const destination = new URL('../public/brand/', import.meta.url);
@@ -44,22 +45,22 @@ const presets = [
 // are uniformly scaled by 5/6 and translated by (12, 3.5), retaining a
 // seven-unit stroke like every other letter; eyes are eight units wide.
 const cat = {
-  M: 'M8.75 41L10 12L24 22Q31 28 38 22L52 12L53.25 41',
+  M: headContour(),
   o: 'M92 30.583333C92 23.5 87.833333 20.166667 82 20.166667C76.166667 20.166667 72 23.5 72 30.583333C72 37.666667 76.166667 41 82 41C87.833333 41 92 37.666667 92 30.583333Z',
   l: 'M112 12V32Q112 41 121 41',
-  r: 'M134 41V31C134 24 141 21 151 21H157Q167 21 169 12',
+  r: tailContour(),
 };
 
 // Keep the face still while the ear tips fold inward and the tail curls.
 // Matching path commands let SVG interpolate the contours smoothly.
 const idleContours = {
   M: {
-    rest: 'M8.75 41L10 12L24 22Q31 28 38 22L52 12L53.25 41',
-    flex: 'M8.75 41L13 17L24 22Q31 28 38 22L49 17L53.25 41',
+    rest: cat.M,
+    flex: headContour({ leftEar: [13, 17], rightEar: [49, 17] }),
   },
   r: {
     rest: cat.r,
-    flex: 'M134 41V31C134 24 141 21 151 21H157Q166 21 165 17',
+    flex: tailContour({ bendX: 166, tip: [165, 17] }),
   },
 };
 
@@ -126,12 +127,12 @@ function characterArtwork(preset, markOnly, animation) {
 
   if (animation === 'curious') {
     const times = [0, 0.15, 0.42, 0.65, 1];
-    const perk = 'M8.75 41L10 14L24 22Q31 28 38 22L52 9L53.25 41';
+    const perk = headContour({ leftEar: [10, 14], rightEar: [52, 9] });
     head = morph('M', [rest, rest, perk, perk, rest], 1.8, times, { repeat: '1' });
     headMotion = animate('transform', ['0 31 36', '0 31 36', '6 31 36', '6 31 36', '0 31 36'], 1.8, times, { repeat: '1', transform: 'rotate' });
   } else if (animation === 'greet') {
-    const left = 'M134 41V31C134 24 141 21 151 21H157Q168 20 164 10';
-    const right = 'M134 41V31C134 24 141 21 151 21H157Q168 23 174 15';
+    const left = tailContour({ bendX: 168, tip: [164, 10] });
+    const right = tailContour({ bendX: 168, tip: [174, 15] });
     tail = morph('r', [cat.r, left, right, left, right, cat.r, cat.r], 2.4, [0, 0.18, 0.34, 0.5, 0.66, 0.82, 1], { repeat: '1' });
     headMotion = animate('transform', ['0 0', '0 1.5', '0 0', '0 0'], 2.4, [0, 0.22, 0.48, 1], { repeat: '1', transform: 'translate' });
   }
@@ -154,11 +155,11 @@ function loadingArtwork(preset, markOnly) {
   // The closed o carries the loading loop. Head and tail move more slowly,
   // with a slight lag in the tail; eyes stay anchored inside the face.
   const rest = idleContours.M.rest;
-  const soft = 'M8.75 41L11.5 14L24 22Q31 28 38 22L50.5 14L53.25 41';
+  const soft = headContour({ leftEar: [11.5, 14], rightEar: [50.5, 14] });
   const headValues = [rest, soft, rest];
   const headTimes = [0, 0.5, 1];
   const head = morph('M', headValues, 3.2, headTimes);
-  const sway = 'M134 41V31C134 24 141 21 151 21H157Q169 22 171 15';
+  const sway = tailContour({ bendX: 169, tip: [171, 15] });
   const tail = morph('r', [cat.r, sway, cat.r], 3.2, [0, 0.6, 1]);
 
   // The standalone M has no o, so its trace follows the same morph as its

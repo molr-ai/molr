@@ -3,7 +3,7 @@
   <rect width="80" height="80" rx="0" fill="#d5f478"/>
   <g transform="translate(9 12)">
   <g stroke="#263b31" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
-    <path data-letter="M" d="M8.75 41L10 12L24 22Q31 28 38 22L52 12L53.25 41"/>
+    <path data-letter="M" d="M8.75 41L10 12L24 22C28.666667 25.333333 33.333333 25.333333 38 22L52 12L53.25 41"/>
   </g>
   <g fill="#263b31">
     <circle data-eye="left" cx="23" cy="36" r="4"/>

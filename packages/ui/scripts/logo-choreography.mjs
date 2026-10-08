@@ -1,3 +1,4 @@
+import { headContour, tailContour } from './logo-contours.mjs';
 import choreography from '../src/logo-choreography.json' with { type: 'json' };
 
 export const choreographyAnimations = [...Object.keys(choreography.motions), ...Object.keys(choreography.sequences)];
@@ -117,21 +118,21 @@ export function choreographyArtwork(preset, markOnly, animation, { cat, idleCont
     head: {
       rest: idleContours.M.rest,
       idle: idleContours.M.flex,
-      soft: 'M8.75 41L12 16L24 22Q31 28 38 22L50 16L53.25 41',
-      curious: 'M8.75 41L10 14L24 22Q31 28 38 22L52 9L53.25 41',
-      listen: 'M8.75 41L10 10.5L24 22Q31 28 38 22L50 16L53.25 41',
-      rightEar: 'M8.75 41L12 16L24 22Q31 28 38 22L52 10.5L53.25 41',
-      stretch: 'M7.75 41L9 10L23 21Q31 26 39 21L53 10L54.25 41',
+      soft: headContour({ leftEar: [12, 16], rightEar: [50, 16] }),
+      curious: headContour({ leftEar: [10, 14], rightEar: [52, 9] }),
+      listen: headContour({ leftEar: [10, 10.5], rightEar: [50, 16] }),
+      rightEar: headContour({ leftEar: [12, 16], rightEar: [52, 10.5] }),
+      stretch: headContour({ leftEar: [9, 10], rightEar: [53, 10], leftBend: [23, 21], rightBend: [39, 21], leftFoot: [7.75, 41], rightFoot: [54.25, 41] }),
     },
     tail: {
       rest: cat.r,
       idle: idleContours.r.flex,
-      sleepy: 'M134 41V31C134 24 141 21 151 21H157Q168 23 169 19',
-      left: 'M134 41V31C134 24 141 21 151 21H157Q168 20 164 10',
-      right: 'M134 41V31C134 24 141 21 151 21H157Q168 23 174 15',
-      stretch: 'M134 41V30C134 23 141 19 151 19H157Q169 18 172 10',
-      curl: 'M134 41V31C134 24 141 21 151 21H157Q165 26 162 20',
-      alert: 'M134 41V31C134 24 141 21 151 21H157Q168 19 170 10',
+      sleepy: tailContour({ bendX: 168, tip: [169, 19] }),
+      left: tailContour({ bendX: 168, tip: [164, 10] }),
+      right: tailContour({ bendX: 168, tip: [174, 15] }),
+      stretch: tailContour({ bendX: 169, tip: [172, 10], top: 19, stem: 30 }),
+      curl: tailContour({ bendX: 165, tip: [162, 20] }),
+      alert: tailContour({ bendX: 168, tip: [170, 10] }),
     },
     o: { rest: cat.o, stretch: 'M92.833333 30.166667C92.833333 22.666667 87.833333 18.5 82 18.5C76.166667 18.5 71.166667 22.666667 71.166667 30.166667C71.166667 37.666667 76.166667 41 82 41C87.833333 41 92.833333 37.666667 92.833333 30.166667Z' },
     l: { rest: cat.l, stretch: 'M112 10V31Q112 41 121 41' },
