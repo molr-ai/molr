@@ -59,10 +59,43 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 [data-reduced-motion='true'] *, [data-reduced-motion='true'] *::before, [data-reduced-motion='true'] *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 @media (--molr-compact) { .workspace { --workspace-sidebar-width: 224px; }.chat-header { padding: 12px 18px; }.chat-history { padding: 20px; }.chat-input { padding: 10px 20px 20px; } }
 @media (--molr-mobile) {
-  .workspace > .ui-modal-scope-content { flex-direction: column-reverse; }.workspace-nav { width: 100%; height: calc(64px + env(safe-area-inset-bottom)); flex-direction: row; justify-content: space-around; gap: 0; padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); border-right: 0; border-top: 1px solid var(--color-border); }.nav-button { height: 48px; width: 56px; flex-direction: column; gap: 2px; }.nav-button span { display: block; font-size: 10px; }.nav-account-actions { margin: 0; flex-direction: row; gap: 0; } .workspace-nav > .nav-button, .nav-account-actions .nav-button { width: auto; min-width: 40px; flex: 1; }
+  .workspace { position: relative; --mobile-nav-height: 64px; --mobile-nav-gap: 12px; }
+  .workspace > .ui-modal-scope-content { flex-direction: column; }
+  .assistant-workspace { display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); }
+  .assistant-workspace > .workspace-sidebar, .mobile-chat-presence { grid-area: 1 / 1; min-height: 0; }
+  .mobile-chat-presence { display: flex; min-width: 0; z-index: 1; }
+  .mobile-chat-presence[data-state='closing'] { opacity: 0; pointer-events: none; }
+  .assistant-workspace--focus { grid-template-rows: auto minmax(0, 1fr); }
+  .assistant-workspace--focus > .mobile-chat-presence { grid-area: 2 / 1; }
+
+  .workspace--mobile-nav { --mobile-nav-clearance: calc(var(--mobile-nav-height) + var(--mobile-nav-gap) * 2 + env(safe-area-inset-bottom)); }
+  /* Keep the viewport behind the floating menu; clearance belongs to the scrollable content. */
+  .workspace--mobile-nav .workspace-main :is(.assistant-list, .settings-body, .resources-master, .plans-master, .trajectory-scroll, .plugin-market, .plugin-detail-settings, .page-body),
+  .workspace--mobile-nav .resources-workspace > .ui-tabs > .ui-tabs__panel:not([hidden]),
+  .workspace--mobile-nav .workspace-main > .page:not(.page--with-header, .workbench),
+  .workspace--mobile-nav .workspace-main > .ui-frame-notice {
+    padding-bottom: var(--mobile-nav-clearance);
+    scroll-padding-bottom: var(--mobile-nav-clearance);
+  }
+  .workspace--mobile-nav .assistant-workspace--focus:not(:has(.chat-panel)) { overflow-y: auto; padding-bottom: var(--mobile-nav-clearance); }
+  /* Isolated plugin frames own their scrolling, so keep their viewport above the menu. */
+  .workspace--mobile-nav .workspace-main > :is(.plugin-frame, .ui-frame-page) { padding-bottom: var(--mobile-nav-clearance); }
+
+  .workspace-nav { position: absolute; z-index: 10; bottom: calc(var(--mobile-nav-gap) + env(safe-area-inset-bottom)); left: max(var(--mobile-nav-gap), env(safe-area-inset-left)); right: max(var(--mobile-nav-gap), env(safe-area-inset-right)); width: auto; max-width: 440px; margin-inline: auto; height: var(--mobile-nav-height); flex-direction: row; gap: 4px; padding: 7px; border: 1px solid var(--color-border); border-radius: 24px; box-shadow: var(--shadow-popover); opacity: 1; transform: translateY(0); visibility: visible; transition: transform 220ms cubic-bezier(.22, 1, .36, 1), opacity 180ms ease, visibility 0s; }
+  .workspace--mobile:not(.workspace--mobile-nav) .workspace-nav { opacity: 0; transform: translateY(8px); visibility: hidden; pointer-events: none; transition-delay: 0s, 0s, 220ms; }
+  .workspace-nav .nav-button { flex: 1; min-width: 0; width: auto; height: 48px; padding: 0 8px; gap: 0; border-radius: 17px; transition: flex 180ms ease, background-color 180ms ease, color 180ms ease; }
+  .workspace-nav .nav-button[aria-current] { flex: 1.8; gap: 6px; }
+  .workspace-nav .nav-button > span:last-child { display: block; min-width: 0; max-width: 0; overflow: hidden; text-overflow: ellipsis; opacity: 0; white-space: nowrap; font-size: 12px; font-weight: 600; transition: max-width 180ms ease, opacity 180ms ease; }
+  .workspace-nav .nav-button[aria-current] > span:last-child { max-width: 100px; opacity: 1; }
+
   .workspace-sidebar { width: 100%; border: 0; }.assistant-toolbar { flex-wrap: wrap; padding: 8px 12px 16px; }.assistant-toolbar > .assistant-search { order: 1; flex-basis: 100%; }.assistant-search .input { height: 44px; min-height: 44px; font-size: 16px; }.mobile-account-button { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; height: 44px; margin-right: auto; padding: 0; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-text); text-align: left; }.mobile-account-button .user-avatar { width: 36px; height: 36px; flex-shrink: 0; font-size: 16px !important; }.mobile-account-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; font-weight: 600; }.assistant-list--mobile { padding-inline: 12px; }.assistant-list--mobile button[data-assistant-id] { padding-inline: 0; }.assistant-list--mobile .assistant-list__copy strong { font-size: 14px; }.assistant-list--mobile .assistant-list__copy small { font-size: 12px; }.sidebar-footer { padding-inline: 12px; }
   .chat-header { padding: 12px; gap: 8px; }.chat-identity { gap: 8px; }.chat-identity h1 { max-width: 36vw; }.chat-header > .form-actions { gap: 2px; flex-wrap: nowrap; }.chat-header .ui-chat-status__label { font-size: 10px; }.chat-history { padding: 18px 12px; }.chat-input { padding: 8px 12px 12px; }.chat-history .ui-chat-message { --chat-message-width: 94%; }
   .page { padding: 24px 16px; }.login-card { padding: 28px 20px; }
+}
+
+[data-reduced-motion='true'] .workspace-nav { transition: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .workspace-nav, .workspace-nav .nav-button, .workspace-nav .nav-button > span:last-child { transition: none; }
 }
 
 .settings-general, .settings-connection { max-width: 760px; padding-top: 0; }

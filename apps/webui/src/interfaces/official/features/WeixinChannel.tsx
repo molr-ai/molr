@@ -22,9 +22,9 @@ export function ChatChannelDialog({ assistant, onClose }: { assistant: Assistant
  <section className="weixin-settings" aria-label={t.current}>
   <div className="record-heading"><h3>{t.current}</h3>{status.data && <Badge tone={bound ? 'positive' : 'neutral'}>{bound ? t.weixin : t.webui}</Badge>}</div>
   <p className="muted">{t.help}</p><p className="muted">{t.mediaSupport}</p>
-  {recognized && <p role="status">{t.states.already_connected}</p>}
+  {recognized && <Alert tone="positive" title={t.states.already_connected} />}
   {!login && !disconnect && <ErrorNotice error={action.error || status.error} retry={action.error ? begin : status.reload} />}
-  {bound && status.data && <>{status.data.State === 'connected' ? <p role="status">{t.states.connected}</p> : <Alert tone="warning" title={t.states[status.data.State]} />}{status.data.State === 'connected' && !status.data.LastInboundAt && <p>{t.firstMessage}</p>}</>}
+  {bound && status.data && <>{status.data.State === 'connected' ? <Alert tone="positive" title={t.states.connected} /> : <Alert tone="warning" title={t.states[status.data.State]} />}{status.data.State === 'connected' && !status.data.LastInboundAt && <p>{t.firstMessage}</p>}</>}
   <div className="form-actions">
    {(!bound || status.data?.State === 'login_required') && <Button variant="secondary" disabled={assistant.State !== 'active' || !status.data} loading={action.busy} onClick={() => void begin()}>{bound ? t.reconnect : t.connect}</Button>}
    {bound && <Button variant="secondary" onClick={() => setDisconnect(true)}>{t.disconnect}</Button>}

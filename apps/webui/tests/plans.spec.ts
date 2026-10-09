@@ -65,6 +65,16 @@ test('month fills the workspace; cell capacity resizes and overflow opens every 
  const taller=Number(await cell.getAttribute('data-capacity'));await expect(cell.locator('.plans-month-event')).toHaveCount(taller>=9?9:taller-1);if(taller<9)await expect(cell.locator('.plans-month-more')).toHaveText(`+${10-taller}`);else await expect(cell.locator('.plans-month-more')).toHaveCount(0);
  await page.setViewportSize(info.project.name==='desktop'?{width:1440,height:1000}:{width:393,height:851});await expect.poll(async()=>Number(await cell.getAttribute('data-capacity'))).toBe(capacity);
  await page.getByRole('button',{name:'Next month',exact:true}).click();const next=new Date(at.getFullYear(),at.getMonth()+1,1);await expect(page.locator('.plans-month-calendar')).toHaveAttribute('data-month',dateKey(next).slice(0,7));await page.getByRole('button',{name:'Today',exact:true}).click();await expect(page.locator('.plans-month-calendar')).toHaveAttribute('data-month',dateKey(new Date()).slice(0,7));
+ if(info.project.name==='mobile') {
+  for(const height of [851,420]) {
+   await page.setViewportSize({width:393,height});
+   await page.locator('.plans-master').evaluate(el=>{el.scrollTop=el.scrollHeight;});
+   await expect.poll(()=>page.evaluate(()=>{
+    const grid=document.querySelector('.plans-month-grid')!.getBoundingClientRect(), footer=document.querySelector('.plans-statusbar')!.getBoundingClientRect(), menu=document.querySelector('.workspace-nav')!.getBoundingClientRect();
+    return grid.bottom<=footer.top+1 && footer.bottom<menu.top;
+   })).toBe(true);
+  }
+ }
  await expect(page.locator('.plans-month-calendar')).not.toContainText('Reserved for dreaming');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath('month-calendar.png')});
 });
 

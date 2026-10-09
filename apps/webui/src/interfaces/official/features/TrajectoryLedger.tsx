@@ -69,14 +69,14 @@ export function TrajectoryLedger({ runs, entries, records, query, filter, axisFi
   useLayoutEffect(() => {
     const el = panel.current; if (!el) return;
     const previous = previousRows.current;
-    if (follow) el.scrollTop = Math.max(0, totalHeight - el.clientHeight);
+    if (follow) el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight);
     else if (previous.length && previous !== layout) {
       let oldIndex = rowIndexAt(previous, lastTop.current);
       if (previous[oldIndex].top < lastTop.current && oldIndex < previous.length - 1) oldIndex++;
       const anchor = previous[oldIndex], offset = anchor.top - lastTop.current;
       const next = layout.find(row => row.id === anchor.id);
       if (next) el.scrollTop = next.top - offset;
-      else el.scrollTop = Math.min(el.scrollTop, Math.max(0, totalHeight - el.clientHeight));
+      else el.scrollTop = Math.min(el.scrollTop, Math.max(0, el.scrollHeight - el.clientHeight));
     }
     previousRows.current = layout; lastTop.current = el.scrollTop; setScrollTop(el.scrollTop);
   }, [layout, totalHeight, follow, height]);
@@ -101,6 +101,7 @@ export function TrajectoryLedger({ runs, entries, records, query, filter, axisFi
   const start = Math.max(0, rowIndexAt(layout, scrollTop) - 4), end = Math.min(layout.length, rowIndexAt(layout, scrollTop + height) + 5);
   const visibleRows = layout.slice(start, end);
   const select = (record: TrajectoryRecord) => { onFollow(false); onSelect(record); };
+  const footer = <footer className="trajectory-ledger-footer"><span title={t.workbench.loadedOnly}>{t.workbench.loaded} {records.length} {records[0]?.kind === 'event' ? t.workbench.eventsShort : t.workbench.calls}</span><span className="trajectory-footer-follow" data-follow={follow}>{follow ? <><i />{t.workbench.tailMode}</> : <button type="button" onClick={() => onFollow(true)}><ArrowDownToLine size={12} />{t.workbench.followShort}</button>}</span></footer>;
   return <section className="trajectory-ledger" aria-label={t.workbench.timeline}>
     {hasOlder && <div className="trajectory-history"><Button size="sm" variant="ghost" disabled={loadingOlder} onClick={() => { onFollow(false); loadOlder(); }}><ArrowUp size={12} />{loadingOlder ? t.loading : t.workbench.olderEvents}</Button></div>}
     <div ref={panel} className="trajectory-scroll" role="list" aria-label={t.workbench.trajectory} tabIndex={0}
@@ -132,7 +133,8 @@ export function TrajectoryLedger({ runs, entries, records, query, filter, axisFi
           </div>}
         </div>)}
       </div>
+      {mobile && footer}
     </div>
-    <footer className="trajectory-ledger-footer"><span title={t.workbench.loadedOnly}>{t.workbench.loaded} {records.length} {records[0]?.kind === 'event' ? t.workbench.eventsShort : t.workbench.calls}</span><span className="trajectory-footer-follow" data-follow={follow}>{follow ? <><i />{t.workbench.tailMode}</> : <button type="button" onClick={() => onFollow(true)}><ArrowDownToLine size={12} />{t.workbench.followShort}</button>}</span></footer>
+    {!mobile && footer}
   </section>;
 }

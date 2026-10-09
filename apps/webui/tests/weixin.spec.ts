@@ -57,6 +57,7 @@ test('Weixin binding keeps WebUI chat until confirmation and restores it on disc
  await page.getByLabel('Pairing code', { exact: true }).fill('123456');
  await page.getByRole('button', { name: 'Submit code', exact: true }).click();
  await expect(page.getByRole('button', { name: 'Disconnect Weixin', exact: true })).toBeVisible();
+ await expect(page.locator('.weixin-settings .ui-alert--positive')).toContainText('Connected');
  // Channel management is an independent dialog, not the assistant drawer.
  await page.getByRole('dialog', { name: 'Chat channel', exact: true }).getByRole('button', { name: 'Close', exact: true }).click();
  await expect(page.locator('.chat-input .message-composer--locked')).toContainText('Send messages in Weixin');

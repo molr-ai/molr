@@ -189,6 +189,16 @@
   .plans-filters > .select { flex: 1; max-width: 100%; }
   .plans-filters .select__trigger { width: 100%; height: 36px; min-height: 36px; padding-inline: 7px; font-size: 11px; }
   .plans-master { scrollbar-gutter: auto; }
+  /* Let each view size its full content before the trailing menu clearance. */
+  .plans-workspace:not(.plans-workspace--embedded) .plans-master { display: flex; flex-direction: column; }
+  .plans-workspace:not(.plans-workspace--embedded) .plans-master > .plans-list { flex-shrink: 0; }
+  .plans-workspace:not(.plans-workspace--embedded) .plans-master > .plans-list:empty { display: none; }
+  .plans-workspace:not(.plans-workspace--embedded) .plans-calendar-section { flex: 1 0 auto; min-height: auto; }
+  /* Visible event count follows the cell height, not the other way around. */
+  .plans-workspace:not(.plans-workspace--embedded) .plans-month-events { contain: size; }
+  .plans-workspace:not(.plans-workspace--embedded) .plans-empty { flex: 1 0 auto; min-height: auto; padding-block: 24px; }
+  .plans-master > .plans-statusbar { margin-top: auto; }
+
   .plans-list.plan-list { padding: 4px 6px 18px; }
   .plans-row-summary { min-height: 76px; gap: 8px; padding: 9px 8px; }
   .plans-row-copy h2 { font-size: 13px; }

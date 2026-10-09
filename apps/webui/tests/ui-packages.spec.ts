@@ -66,7 +66,7 @@ test('theme settings have one theme selector, persists its choice and exposes no
   await expect(page.locator('.ui-manager')).toHaveCount(0);
 });
 
-test('test theme replaces chat only and shares drafts and real messages with the default theme', async ({ page }) => {
+test('test theme replaces chat only and shares drafts and real messages with the default theme', async ({ page }, info) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await login(page); await chooseTheme(page, 'Molr default theme'); const selected = await assistant(page);
   await page.goto(`/#/assistants/${selected.ID}`);
@@ -79,6 +79,7 @@ test('test theme replaces chat only and shares drafts and real messages with the
   await page.locator('.chat-input textarea').press('Enter');
   await expect(page.locator('.chat-history')).toContainText('A shared draft');
   await page.locator('.chat-input textarea').fill('Back to default');
+  if (info.project.name === 'mobile') await page.getByRole('button', { name: 'Back to assistants', exact: true }).click();
   await page.getByRole('navigation', { name: 'Molr' }).getByRole('button', { name: 'Resources', exact: true }).click();
   await expect(page.locator('.resources-workspace')).toBeVisible();
   await page.goto('/#/account/theme');
@@ -128,13 +129,16 @@ for (const theme of ['Molr default theme', 'Molr test theme']) {
     await expect.poll(fitsViewport).toBe(true);
   });
 
-  test(`${theme}: assistant selection follows the URL including the unselected entry`, async ({ page }) => {
+  test(`${theme}: assistant selection follows the URL including the unselected entry`, async ({ page }, info) => {
     await login(page); await chooseTheme(page, theme);
     const first = await assistant(page), second = await assistant(page);
     const focus = theme === 'Molr test theme';
+    const nav = page.getByRole('navigation', { name: 'Molr' });
+    const mobile = info.project.name === 'mobile';
     const selector = page.getByRole('combobox', { name: 'Assistant list', exact: true });
     async function expectUnselected() {
       await expect(page).toHaveURL(/#\/assistants$/);
+      await expect(nav).toBeVisible();
       if (focus) {
         await expect(selector).toBeVisible();
         await expect(selector).not.toContainText(first.Name);
@@ -158,6 +162,8 @@ for (const theme of ['Molr default theme', 'Molr test theme']) {
       }
       await expect(page).toHaveURL(new RegExp(`/assistants/${target.ID}$`));
       await expect(page.locator('.chat-input textarea')).toBeVisible();
+      if (mobile) await expect(nav).toHaveCount(0);
+      else await expect(nav).toBeVisible();
     }
     // API fixture writes bypass the open page's query invalidation. Start a fresh document.
     await page.goto('/#/assistants');
@@ -174,7 +180,10 @@ for (const theme of ['Molr default theme', 'Molr test theme']) {
     await expect(page.locator('.chat-input textarea')).toHaveValue('Route-owned draft');
     await page.reload();
     await expect(page.locator('.chat-input textarea')).toHaveValue('Route-owned draft');
-    await page.getByRole('navigation', { name: 'Molr' }).getByRole('button', { name: 'Assistants', exact: true }).click();
+    if (mobile) {
+      await expect(nav).toHaveCount(0);
+      await page.getByRole('button', { name: 'Back to assistants', exact: true }).click();
+    } else await nav.getByRole('button', { name: 'Assistants', exact: true }).click();
     await expectUnselected();
     await select(second);
     await expect(page.locator('.chat-input textarea')).toHaveValue('');
@@ -232,7 +241,7 @@ test('theme, palette and display mode sync to a separate browser; remote theme c
   } finally { await other.close(); }
 });
 
-test('official hire waits for the model catalog instead of navigating to resources', async ({ page }) => {
+test('official hire waits for the model catalog instead of navigating to resources', async ({ page }, info) => {
   await login(page); await assistant(page);
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
@@ -240,7 +249,17 @@ test('official hire waits for the model catalog instead of navigating to resourc
   try {
     await page.goto('/#/assistants'); await page.reload();
     const hire = page.getByRole('button', { name: 'Hire new assistant', exact: true }).first();
-    await expect(hire).toBeDisabled(); release();
+    await expect(hire).toBeDisabled();
+    if (info.project.name === 'mobile') {
+      await expect(hire).toHaveClass(/button--ghost/);
+      await expect(hire).toHaveText('');
+      const search = page.getByRole('button', { name: 'Search', exact: true });
+      const searchBox = (await search.boundingBox())!, hireBox = (await hire.boundingBox())!;
+      expect(hireBox.x).toBeGreaterThanOrEqual(searchBox.x + searchBox.width);
+      expect(hireBox.y).toBe(searchBox.y);
+      await expect(page.locator('.sidebar-footer')).toHaveCount(0);
+    }
+    release();
     await expect(hire).toBeEnabled(); await hire.click();
     await expect(page.getByRole('dialog', { name: 'Hire new assistant', exact: true })).toBeVisible();
   } finally { release(); }
