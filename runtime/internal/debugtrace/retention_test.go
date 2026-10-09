@@ -100,7 +100,7 @@ func TestRetentionCountUsesExactLimitAndAccountScope(t *testing.T) {
 	foreign.OwnerID = "other"
 	foreign.SubjectID = "other"
 	if err := s.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
-		return tx.Put(ctx, "business.settings", "other", map[string]bool{"WorkbenchEnabled": true})
+		return tx.Put(ctx, "business.settings", "other", map[string]bool{"WorkbenchVisible": true})
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -252,7 +252,7 @@ func TestTrajectoryCleanupRecordsActualPolicyAndAssistantScope(t *testing.T) {
 	foreign.OwnerID = "other"
 	foreign.SubjectID = "other"
 	if err := s.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
-		return tx.Put(ctx, "business.settings", "other", map[string]bool{"WorkbenchEnabled": true})
+		return tx.Put(ctx, "business.settings", "other", map[string]bool{"WorkbenchVisible": true})
 	}); err != nil {
 		t.Fatal(err)
 	}

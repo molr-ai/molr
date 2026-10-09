@@ -102,7 +102,7 @@ func TestTrajectoryPagingLiveBackfillAndScopedCursors(t *testing.T) {
 			t.Fatalf("invalid cursor accepted: %v", e)
 		}
 	}
-	setEnabled(t, s, false)
+	s.options.Enabled = false
 	if _, e := s.Trajectory(t.Context(), p, TrajectoryQuery{}); core.CodeOf(e) != core.Forbidden {
 		t.Fatal("disabled endpoint accessible")
 	}
@@ -171,7 +171,7 @@ func TestTrajectoryOwnerIsolationAndPreviewBounds(t *testing.T) {
 	foreign.OwnerID = "foreign"
 	foreign.SubjectID = "foreign"
 	if err := s.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
-		return tx.Put(ctx, "business.settings", "foreign", map[string]bool{"WorkbenchEnabled": true})
+		return tx.Put(ctx, "business.settings", "foreign", map[string]bool{"WorkbenchVisible": true})
 	}); err != nil {
 		t.Fatal(err)
 	}

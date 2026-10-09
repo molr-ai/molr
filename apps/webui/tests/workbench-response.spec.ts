@@ -13,7 +13,7 @@ for (const mode of ['stream', 'json', 'tools', 'empty', 'interrupted']) test(`mo
     expect(response.status(), await response.text()).toBe(200); return response.json();
   };
   const settings = await (await page.request.get('/api/settings')).json();
-  await post('/api/settings', { Settings: { ...settings, WorkbenchEnabled: true } }, settings.Version);
+  await post('/api/settings', { Settings: { ...settings, WorkbenchVisible: true } }, settings.Version);
   const name = `Response tabs ${mode} ${info.project.name}-${Date.now()}`, origin = `http://127.0.0.1:${process.env.MOLR_E2E_MODEL_PORT ?? 18882}`;
   const resource = await post('/api/resources', { Name: name, Kind: 'model', Provider: 'openai-compatible', Binding: { Endpoint: origin, AllowedOrigins: [origin], Models: [{ Name: name, ContextLimit: 32768, SupportsTools: true, Pricing: { Currency: 'USD', InputMicrosPerMillion: 0, CachedInputMicrosPerMillion: 0, OutputMicrosPerMillion: 0 } }] } });
   const models = await (await page.request.get('/api/models')).json();

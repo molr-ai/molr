@@ -154,7 +154,7 @@ func TestLoopLoadsAndUpdatesWorkspaceContextThroughRealTools(t *testing.T) {
 	need(t, err)
 	defer b.Close()
 	p, _ := ownerSession(t, b)
-	need(t, enableWorkbench(t, b, p, true))
+	need(t, showWorkbench(t, b, p, true))
 	pref, err := b.Services.Settings.Get(t.Context(), p)
 	need(t, err)
 	pref.Timezone, pref.Language, pref.Currency = "Asia/Shanghai", "zh", "CNY"

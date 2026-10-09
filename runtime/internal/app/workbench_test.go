@@ -22,13 +22,13 @@ import (
 	"molr.ai/runtime/internal/persistence"
 )
 
-func enableWorkbench(t *testing.T, b *Bundle, p core.Principal, enabled bool) error {
+func showWorkbench(t *testing.T, b *Bundle, p core.Principal, enabled bool) error {
 	t.Helper()
 	pref, err := b.Services.Settings.Get(t.Context(), p)
 	if err != nil {
 		return err
 	}
-	pref.WorkbenchEnabled = enabled
+	pref.WorkbenchVisible = enabled
 	_, err = b.Services.Settings.Update(t.Context(), p, settings.UpdateRequest{Mutation: core.Mutation{IdempotencyKey: string(core.ID(time.Now().Format("150405.000000000"))), ExpectedVersion: pref.Version}, Settings: pref})
 	return err
 }
@@ -41,12 +41,12 @@ func debugRequest(b *Bundle, token core.Secret, path string) *httptest.ResponseR
 	b.HTTP.Handler().ServeHTTP(response, request)
 	return response
 }
-func TestWorkbenchDisabledByDeploymentCannotBeEnabledByOwner(t *testing.T) {
+func TestWorkbenchDisabledByDeploymentCannotBeShownByOwner(t *testing.T) {
 	b, err := Build(t.Context(), testConfig(t))
 	need(t, err)
 	defer b.Close()
 	p, token := ownerSession(t, b)
-	if err := enableWorkbench(t, b, p, true); core.CodeOf(err) != core.FailedPrecondition {
+	if err := showWorkbench(t, b, p, true); core.CodeOf(err) != core.FailedPrecondition {
 		t.Fatalf("deployment boundary bypassed: %v", err)
 	}
 	for _, path := range []string{"/api/debug/trajectory", "/api/debug/runs", "/api/debug/stream", "/api/debug/assistants/missing/checkpoint"} {
@@ -63,10 +63,9 @@ func TestWorkbenchCapturesActualLoopAndKeepsPrivateDataOutOfChat(t *testing.T) {
 	defer b.Close()
 	p, token := ownerSession(t, b)
 	ctx := t.Context()
-	if r := debugRequest(b, token, "/api/debug/runs"); r.Code != 403 {
-		t.Fatal("user opt-in bypassed")
+	if r := debugRequest(b, token, "/api/debug/runs"); r.Code != 200 {
+		t.Fatal("hidden workbench denied reading")
 	}
-	need(t, enableWorkbench(t, b, p, true))
 	var calls atomic.Int32
 	var chatID atomic.Value
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -164,6 +163,7 @@ func TestWorkbenchCapturesActualLoopAndKeepsPrivateDataOutOfChat(t *testing.T) {
 	if found["model.request"] != 3 || found["model.response"] != 3 || found["tool.complete"] != 1 || found["checkpoint.saved"] != int(out.Checkpoint.Sequence) || savedSequence < 3 || found["context.build"] != 1 || found["budget.decision"] != 3 {
 		t.Fatalf("missing stages: %+v", found)
 	}
+	need(t, showWorkbench(t, b, p, true))
 	response := debugRequest(b, token, "/api/debug/runs/"+string(run.ID))
 	if response.Code != 200 {
 		t.Fatal("trace HTTP read denied", response.Code)
@@ -195,14 +195,14 @@ func TestWorkbenchCapturesActualLoopAndKeepsPrivateDataOutOfChat(t *testing.T) {
 	streamed := httptest.NewRecorder()
 	done := make(chan struct{})
 	go func() { b.HTTP.Handler().ServeHTTP(streamed, request); close(done) }()
-	time.AfterFunc(200*time.Millisecond, func() { _ = enableWorkbench(t, b, p, false) })
+	time.AfterFunc(200*time.Millisecond, func() { _ = showWorkbench(t, b, p, false) })
 	<-done
 	body, _ := io.ReadAll(streamed.Result().Body)
-	if !strings.Contains(string(body), "event: change") || !strings.Contains(string(body), "event: disabled") || strings.Contains(string(body), "PRIVATE_MODEL_OUTPUT") {
-		t.Fatalf("unsafe or unrevoked stream: %s", body)
+	if !strings.Contains(string(body), "event: change") || strings.Contains(string(body), "event: disabled") || strings.Contains(string(body), "PRIVATE_MODEL_OUTPUT") {
+		t.Fatalf("unsafe or visibility-gated stream: %s", body)
 	}
-	if debugRequest(b, token, "/api/debug/trajectory").Code != 403 || debugRequest(b, token, "/api/debug/runs/"+string(run.ID)).Code != 403 {
-		t.Fatal("disabled trace remained readable")
+	if debugRequest(b, token, "/api/debug/trajectory").Code != 200 || debugRequest(b, token, "/api/debug/runs/"+string(run.ID)).Code != 200 {
+		t.Fatal("hidden trace became unreadable")
 	}
 }
 

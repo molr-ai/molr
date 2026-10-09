@@ -114,7 +114,7 @@ DeepSeek 规则在 [`internal/pricing/deepseek.json`](internal/pricing/deepseek.
 
 ### 开发工作台
 
-通过部署配置 `debug.enabled` 开启能力，再由所有者在 WebUI 常规设置启用采集。工作台展示真实 Agent 时间线、调用上下文、请求／响应、工具结果与费用；默认关闭，不通过普通聊天事件流公开私有执行数据。入口、采集限制和 API 见 [开发工作台](../dev-docs/runtime/WORKBENCH.md)。
+通过部署配置 `debug.enabled` 开启所有账号的执行采集，默认关闭。WebUI 常规设置「显示开发工作台」只控制入口显示，隐藏入口仍采集，显示后可查看保留范围内的历史。工作台展示真实 Agent 时间线、调用上下文、请求／响应、工具结果与费用，不通过普通聊天事件流公开私有执行数据。入口、采集限制和 API 见 [开发工作台](../dev-docs/runtime/WORKBENCH.md)。
 
 ### 助理默认工具
 

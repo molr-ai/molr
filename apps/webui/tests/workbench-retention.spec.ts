@@ -46,7 +46,7 @@ test('admin retention UI persists, protects recent executions and rejects member
     await expect.poll(async () => (await (await page.request.get('/api/admin/debug/retention')).json()).RetentionDays).toBe(14);
     expect((await post('/api/admin/debug/retention', { Policy: initial.Configured }, initial.Version)).status()).toBe(409);
     const settings = await (await page.request.get('/api/settings')).json();
-    await mutate('/api/settings', { Settings: { ...settings, WorkbenchEnabled: true } }, settings.Version);
+    await mutate('/api/settings', { Settings: { ...settings, WorkbenchVisible: true } }, settings.Version);
     const name = `Retention ${info.project.name}-${Date.now()}`, origin = `http://127.0.0.1:${process.env.MOLR_E2E_MODEL_PORT ?? 18882}`;
     const resource = await mutate('/api/resources', { Name: name, Kind: 'model', Provider: 'openai-compatible', Binding: { Endpoint: origin, AllowedOrigins: [origin], Models: [{ Name: name, ContextLimit: 32768, SupportsTools: true, Pricing: { Currency: 'USD', InputMicrosPerMillion: 0, CachedInputMicrosPerMillion: 0, OutputMicrosPerMillion: 0 } }] } });
     const models = await (await page.request.get('/api/models')).json();

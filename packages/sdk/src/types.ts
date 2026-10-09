@@ -31,7 +31,7 @@ export type Memory = MemoryRef & { Dependencies?: { Ref: MemoryRef; Version: str
 export type MemoryEntry = MemoryRef & { Kind: 'file' | 'directory'; Version: string; State?: Memory['State']; UpdatedAt?: string };
 export type MemoryDirectory = MemoryRef & { Version: string; Entries: MemoryEntry[] };
 
-export type Settings = { OwnerID: ID; Language: string; Timezone: string; Currency: CurrencyCode; Theme: 'system' | 'light' | 'dark'; UITheme: string; Palette: Palette; DefaultModelID: ID; AnswerPreferences: string; ReducedMotion: boolean; WorkbenchEnabled: boolean; Version: number };
+export type Settings = { OwnerID: ID; Language: string; Timezone: string; Currency: CurrencyCode; Theme: 'system' | 'light' | 'dark'; UITheme: string; Palette: Palette; DefaultModelID: ID; AnswerPreferences: string; ReducedMotion: boolean; WorkbenchVisible: boolean; Version: number };
 export type Task = { Plan?: PlanRef; PlanTitle?: string; PlanInstructions?: string; PlanVersion?: number; OccurrenceAt?: string | null; CreatedAt?: string; UpdatedAt?: string; ID: ID; AssistantID: ID; Goal: string; State: string; Revision: number; Spent: Money; ArtifactIDs: ID[] | null; WaitingReason: string; Version: number };
 export type Revision = { Number: number; Instructions: string; AcceptanceCriteria: string[] | null; ArtifactIDs: ID[] | null };
 export type FileInfo = { ID: ID; Name: string; Size: number; MediaType: string; State: string };

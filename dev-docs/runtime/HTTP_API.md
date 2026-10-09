@@ -274,7 +274,7 @@ WebUI 按原因显示对应说明及操作入口：模型权限、选择模型�
 
 `Usage.Spent` / `Reserved` 汇总为当前展示币种，同时通过 `OriginalSpent` / `OriginalReserved` 返回按原币种分组的金额，`Exchange` 标注此次汇总的汇率快照。异币种展示为「约 换算金额 币种（原始金额 币种）」；混合币种汇总保留每个原币种小计。预算比较采用同一次汇率快照，预留记录中的 `Reserved` 和结算 `Settled` 始终保留原币种；`BudgetEstimate` 与 `Exchange` 保存预算校验时的换算结果和版本。后续规则更新不修改这些凭据。
 
-调试工作台：`GET /api/status` 增加布尔字段 `workbench_available`，`Settings.WorkbenchEnabled` 控制用户启用状态。部署未开启时拒绝保存启用值。专用调试接口及记录边界见 [开发工作台](WORKBENCH.md)，检查点和完整请求不进入普通状态／聊天 SSE。
+调试工作台：`GET /api/status` 增加布尔字段 `workbench_available`，`Settings.WorkbenchVisible` 只控制用户界面入口显示，不影响采集和调试接口权限。采集只受部署配置 `debug.enabled` 控制；部署未开启时拒绝保存显示值 `true`。专用调试接口及记录边界见 [开发工作台](WORKBENCH.md)，检查点和完整请求不进入普通状态／聊天 SSE。
 
 保留策略：`GET /api/debug/retention` 需要所有者及 `debug.read` 作用域，不需要个人工作台开关；返回 `Policy`（`Version`、`RetentionDays`、`MaxRuns`、`MaxBytes`、`MinRuns`）及当前所有者的 `Runs`、`Bytes`、`ProtectedRuns`、`CapacityReached`。`GET /api/admin/debug/retention` 返回安装级生效策略，并提供 `Configured`（各字段为数值或 `null`）与 `Defaults`（部署默认值）；`POST` 请求为 `{Policy: {RetentionDays, MaxRuns, MaxBytes, MinRuns}, Mutation: {IdempotencyKey, ExpectedVersion}}`，两者均需管理员及 `admin` 作用域。请求 `Policy` 中字段为 `null` 或省略表示未设置、恢复默认；显式 0 不合法。输入框只显示 `Configured`，未设置时留空，默认值通过 placeholder 展示。保存立即持久化并通知已有工作台客户端，清理在后续写入时发生。重复幂等键和相同请求返回原结果；过期版本或相同键不同请求返回冲突。最低保留已完成执行和运行中执行优先于清理上限；容量不足的新详情使用 `capacity_reached`，与单负载超限 `too_large` 区分。
 

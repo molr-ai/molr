@@ -18,11 +18,11 @@ import './workbench.css';
 import { contextRoleShares } from './context-role-shares';
 import { DreamInspection } from './DreamInspection';
 
-type Props = { turnID?: string; eventID?: string; timezone?: string; enabled: boolean; available: boolean; assistants: Assistant[]; assistantID: string; onSelectAssistant: (id: string) => void; onSettings: () => void };
+type Props = { turnID?: string; eventID?: string; timezone?: string; available: boolean; assistants: Assistant[]; assistantID: string; onSelectAssistant: (id: string) => void; onSettings: () => void };
 type Selection = { runID: string; sequence: number; recordID: string } | 'checkpoint' | null;
 export function Workbench(props: Props) {
   const { t } = useCopy();
-  if (!props.enabled) return <section className="page page--with-header"><PageHeader title={t.workbench.title} icon={<FlaskConical />} /><div className="page-body"><EmptyState title={t.workbench.disabled} description={props.available ? t.workbench.enableHelp : t.workbench.runtimeDisabled} illustration={<FlaskConical />} action={<Button variant="secondary" onClick={props.onSettings}>{t.nav.settings}</Button>} /></div></section>;
+  if (!props.available) return <section className="page page--with-header"><PageHeader title={t.workbench.title} icon={<FlaskConical />} /><div className="page-body"><EmptyState title={t.workbench.disabled} description={t.workbench.runtimeDisabled} illustration={<FlaskConical />} action={<Button variant="secondary" onClick={props.onSettings}>{t.nav.settings}</Button>} /></div></section>;
   const assistantID = props.assistantID || props.assistants.find(item => item.State === 'active')?.ID || props.assistants[0]?.ID || '';
   if (!assistantID) return <section className="page page--with-header"><PageHeader title={t.workbench.title} icon={<FlaskConical />} /><div className="page-body"><EmptyState title={t.assistants.none} description={t.workbench.empty} /></div></section>;
   return <WorkbenchSession key={`${assistantID}:${props.turnID ?? ''}:${props.eventID ?? ''}`} {...props} assistantID={assistantID} />;
@@ -67,7 +67,7 @@ function WorkbenchSession({ assistants, assistantID, onSelectAssistant, onSettin
     setFollow(false); setSelection({ runID: run.ID, sequence: start?.Step.Sequence ?? entries[0].Step.Sequence, recordID: id });
     setFocusID({ id }); setTurnLocated(true);
   }, [turnID, eventID, turnLocated, trajectory.loading, trajectory.loadingOlder, trajectory.error, trajectory.runs, trajectory.entries, trajectory.older, trajectory.loadOlder]);
-  if (revoked || (trajectory.error instanceof APIError && [401, 403].includes(trajectory.error.status))) return <section className="page page--with-header"><PageHeader title={t.workbench.title} icon={<FlaskConical />} /><div className="page-body"><EmptyState title={t.workbench.disabled} description={t.workbench.enableHelp} action={<Button onClick={onSettings}>{t.nav.settings}</Button>} /></div></section>;
+  if (revoked || (trajectory.error instanceof APIError && [401, 403].includes(trajectory.error.status))) return <section className="page page--with-header"><PageHeader title={t.workbench.title} icon={<FlaskConical />} /><div className="page-body"><EmptyState title={t.workbench.disabled} description={t.workbench.accessDenied} action={<Button onClick={onSettings}>{t.nav.settings}</Button>} /></div></section>;
   const changeFollow = (value: boolean) => { setFollow(value); if (value) { setQuery(''); setFilter('all'); setRange(null); setFocusID(undefined); } };
   return <section className="page workbench">
     <PageHeader className="workbench-header" title={t.workbench.title} icon={<FlaskConical />} actions={<div className="workbench-header-actions">

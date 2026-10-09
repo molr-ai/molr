@@ -113,12 +113,8 @@ func New(store persistence.Store, options Options) *Service {
 	}
 	return &Service{store, options}
 }
-func (s *Service) enabled(ctx context.Context, owner core.ID) bool {
-	if s == nil || !s.options.Enabled {
-		return false
-	}
-	pref, err := persistence.Load[struct{ WorkbenchEnabled bool }](ctx, s.store, "business.settings", string(owner))
-	return err == nil && pref.WorkbenchEnabled
+func (s *Service) enabled() bool {
+	return s != nil && s.options.Enabled
 }
 func (s *Service) authorize(ctx context.Context, p core.Principal) error {
 	if p.RequireOwner() != nil || s.options.Authorize == nil {
@@ -127,7 +123,7 @@ func (s *Service) authorize(ctx context.Context, p core.Principal) error {
 	if err := s.options.Authorize(ctx, p); err != nil {
 		return err
 	}
-	if !s.enabled(ctx, p.OwnerID) {
+	if !s.enabled() {
 		return core.NewError(core.Forbidden, "workbench disabled")
 	}
 	return nil
@@ -143,7 +139,7 @@ func (s *Service) bump(ctx context.Context, tx persistence.Tx, owner core.ID) er
 
 // Begin binds a distinct attempt to this context. It is called only by the trusted Loop.
 func (s *Service) Begin(ctx context.Context, owner, assistant, event, execution core.ID, trigger string, attempt int, data any) context.Context {
-	if !s.enabled(ctx, owner) {
+	if !s.enabled() {
 		return ctx
 	}
 	var id [16]byte
@@ -193,7 +189,7 @@ func (s *Service) Begin(ctx context.Context, owner, assistant, event, execution 
 // Owner controls and legacy migrations have no active loop trace, so they get
 // a separate, bounded recording. Diagnostic failures never fail the save.
 func (s *Service) RecordCheckpoint(ctx context.Context, owner, assistant, event, execution core.ID, data any) {
-	if !s.enabled(ctx, owner) {
+	if !s.enabled() {
 		return
 	}
 	ref, _ := ctx.Value(contextKey{}).(*reference)
@@ -218,7 +214,7 @@ func (s *Service) Record(ctx context.Context, kind, state string, operation core
 	if s == nil || ref == nil {
 		return
 	}
-	if !s.enabled(ctx, ref.owner) {
+	if !s.enabled() {
 		ref.incomplete.Store(true)
 		return
 	}

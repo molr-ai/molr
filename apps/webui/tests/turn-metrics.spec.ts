@@ -26,7 +26,7 @@ test('turn info queries lazily, updates the whole turn and shares finalized cach
   await expect(page.getByRole('navigation', { name: 'Molr' })).toBeVisible();
   const setWorkbench = async (enabled: boolean) => {
     const settings = await (await page.request.get('/api/settings')).json();
-    await post(page, '/api/settings', { Settings: { ...settings, WorkbenchEnabled: enabled }, Mutation: { ExpectedVersion: settings.Version } });
+    await post(page, '/api/settings', { Settings: { ...settings, WorkbenchVisible: enabled }, Mutation: { ExpectedVersion: settings.Version } });
   };
   await setWorkbench(false);
   const name = `Turn metrics ${info.project.name}-${Date.now()}`, origin = `http://127.0.0.1:${process.env.MOLR_E2E_MODEL_PORT ?? 18882}`;
@@ -71,11 +71,11 @@ test('turn info queries lazily, updates the whole turn and shares finalized cach
     await expect(panel.getByText('Per-call details', { exact: true })).toHaveCount(0);
     await panel.getByRole('button', { name: 'View in developer workbench', exact: true }).click();
     await expect(page).toHaveURL(`${base}/#/workbench/${assistant.ID}?turn=${final.TurnID}`);
-    await expect(page.getByText('No workbench recording is available for this turn.', { exact: false })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Step details', exact: true })).toContainText('Exercise turn statistics');
     await expect(page.getByRole('heading', { name: 'Workbench', exact: true })).toBeVisible();
     await expect(page.getByRole('combobox', { name: 'Assistant', exact: true })).toContainText(assistant.Name);
     await expect(panel).not.toBeVisible();
-    // Deployment capability must also be present, even with the account opt-in.
+    // Deployment capability must also be present, even when the account shows workbench entries.
     await page.route('**/api/status', async route => { const response = await route.fetch(); await route.fulfill({ json: { ...await response.json(), workbench_available: false } }); });
     await page.goto(`/#/assistants/${assistant.ID}`); await page.reload(); await icons.nth(born.length).click();
     await expect(panel).toBeVisible();
@@ -95,7 +95,7 @@ test('turn info locates an older recorded turn across pages and survives reload'
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('navigation', { name: 'Molr' })).toBeVisible();
   const settings = await (await page.request.get('/api/settings')).json();
-  await post(page, '/api/settings', { Settings: { ...settings, WorkbenchEnabled: true }, Mutation: { ExpectedVersion: settings.Version } });
+  await post(page, '/api/settings', { Settings: { ...settings, WorkbenchVisible: true }, Mutation: { ExpectedVersion: settings.Version } });
   try {
     const name = `Turn navigation ${info.project.name}-${Date.now()}`, origin = `http://127.0.0.1:${process.env.MOLR_E2E_MODEL_PORT ?? 18882}`;
     const resource = await post(page, '/api/resources', { Name: name, Kind: 'model', Provider: 'openai-compatible', Binding: { Endpoint: origin, AllowedOrigins: [origin], Models: [{ Name: name, ContextLimit: 32768, SupportsTools: true, Pricing: { Currency: 'USD', InputMicrosPerMillion: 0, CachedInputMicrosPerMillion: 0, OutputMicrosPerMillion: 0 } }] } });
@@ -137,6 +137,6 @@ test('turn info locates an older recorded turn across pages and survives reload'
   } finally {
     await page.unrouteAll({ behavior: 'wait' });
     const latest = await (await page.request.get('/api/settings')).json();
-    await post(page, '/api/settings', { Settings: { ...latest, WorkbenchEnabled: settings.WorkbenchEnabled }, Mutation: { ExpectedVersion: latest.Version } });
+    await post(page, '/api/settings', { Settings: { ...latest, WorkbenchVisible: settings.WorkbenchVisible }, Mutation: { ExpectedVersion: latest.Version } });
   }
 });

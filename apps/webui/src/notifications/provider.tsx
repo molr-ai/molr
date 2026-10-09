@@ -44,7 +44,7 @@ export function NotificationProvider({ children, createAdapter = createBrowserNo
   const current = useRef({ noticeText, value, copy: notificationCopy[locale], toast });
   current.current = { noticeText, value, copy: notificationCopy[locale], toast };
   const refreshNoticeActions = useRef<() => void>(() => {});
-  useEffect(() => { refreshNoticeActions.current(); }, [noticeText.workbenchEnabled, locale]);
+  useEffect(() => { refreshNoticeActions.current(); }, [noticeText.workbenchVisible, locale]);
   const adapter = useRef<NotificationAdapter | null>(null), audio = useRef<MessageSound | null>(null);
   const applyPreferences = useRef<(previous: NotificationPreferences, next: NotificationPreferences) => void>(() => {});
   function change(patch: Partial<NotificationPreferences>) {
@@ -59,7 +59,7 @@ export function NotificationProvider({ children, createAdapter = createBrowserNo
     let active = true;
     const controller = new AbortController(), claims = new NotificationClaims();
     const openNoticeRoute = (route: string) => {
-      if (route.startsWith('#/workbench/') && !current.current.noticeText.workbenchEnabled) return;
+      if (route.startsWith('#/workbench/') && !current.current.noticeText.workbenchVisible) return;
       openRoute(route);
     };
     const device = createAdapter(account, openNoticeRoute); adapter.current = device;
@@ -92,7 +92,7 @@ export function NotificationProvider({ children, createAdapter = createBrowserNo
     }
     refreshNoticeActions.current = () => {
       for (const { id, notice } of executionToasts.values()) current.current.toast.update(id, { action: noticeToastAction(notice) });
-      if (!current.current.noticeText.workbenchEnabled) {
+      if (!current.current.noticeText.workbenchVisible) {
         for (const [group, tag] of noticeGroups) if (group.startsWith('notice-group:execution.failed:')) void device.close(tag);
       }
     };

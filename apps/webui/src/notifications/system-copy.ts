@@ -9,9 +9,9 @@ export const systemCopy = {
 export function useNoticeText() {
  const { t, locale } = useCopy(), copy = systemCopy[locale], weixin = weixinCopy[locale];
  const runtime = useQuery<RuntimeInfo>('/api/status'), settings = useQuery<Settings>('/api/settings');
- const workbenchEnabled = !!runtime.data?.workbench_available && !!settings.data?.WorkbenchEnabled;
- return { copy, workbenchEnabled, action: (n: SystemNotice) => {
-  const route = noticeRoute(n, workbenchEnabled);
+ const workbenchVisible = !!runtime.data?.workbench_available && !!settings.data?.WorkbenchVisible;
+ return { copy, workbenchVisible, action: (n: SystemNotice) => {
+  const route = noticeRoute(n, workbenchVisible);
   return route ? { route, label: n.Kind === 'execution.failed' ? t.turnMetrics.viewWorkbench : copy.open } : undefined;
  }, text: (n:SystemNotice) => {
   if(n.Kind==='weixin.delivery') { const [state,error]=n.Code.split(':');return { title:weixin.delivery, description:state==='failed'&&error==='rate_limited'?weixin.retryExhausted:weixin.deliveryErrors[error as keyof typeof weixin.deliveryErrors]??weixin.deliveries[state as keyof typeof weixin.deliveries]??state, help:state==='unknown'?weixin.deliveryHelp:'' }; }
@@ -21,11 +21,11 @@ export function useNoticeText() {
   return {title:({'permission.request':copy.permission,'plan.ready':copy.ready,'task.failed':copy.failed,'execution.failed':copy.failed} as Record<string,string>)[n.Kind]??copy.unknown,description:n.Label||''};
  } };
 }
-export function noticeRoute(n:SystemNotice, workbenchEnabled = false) {
+export function noticeRoute(n:SystemNotice, workbenchVisible = false) {
  if(n.Kind==='plan.ready')return `#/plans/${n.Source.ID}`;
  // Source.ID is the triggering event ID, not an ExecutionID. The workbench
  // resolves it against retained runs before loading the corresponding steps.
- if(n.Kind==='execution.failed')return workbenchEnabled && n.AssistantID && n.Source.ID ? `#/workbench/${n.AssistantID}?event=${n.Source.ID}` : '';
+ if(n.Kind==='execution.failed')return workbenchVisible && n.AssistantID && n.Source.ID ? `#/workbench/${n.AssistantID}?event=${n.Source.ID}` : '';
  if(n.Kind==='task.failed'&&n.AssistantID)return `#/assistants/${n.AssistantID}?panel=tasks&task=${n.Source.ID}`;
  if(n.AssistantID){const panel=n.Kind.startsWith('weixin.')?'channel':n.Kind==='permission.request'?'permissions':n.Kind==='assistant.waiting'?'info':'tasks';return `#/assistants/${n.AssistantID}?panel=${panel}`;}
  return '#/assistants';

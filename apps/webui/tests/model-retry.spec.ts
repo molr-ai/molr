@@ -17,7 +17,7 @@ async function prepare(page: Page, name: string) {
  await page.getByRole('button',{name:'Sign in',exact:true}).click();
  await expect(page.getByRole('navigation',{name:'Molr'})).toBeVisible();
  const settings=await (await page.request.get('/api/settings')).json();
- await post(page,'/api/settings',{Settings:{...settings,WorkbenchEnabled:true},Mutation:{IdempotencyKey:crypto.randomUUID(),ExpectedVersion:settings.Version}},false);
+ await post(page,'/api/settings',{Settings:{...settings,WorkbenchVisible:true},Mutation:{IdempotencyKey:crypto.randomUUID(),ExpectedVersion:settings.Version}},false);
  const resource=await post(page,'/api/resources',{Name:name,Kind:'model',Provider:'openai-compatible',Binding:{Endpoint:modelOrigin,AllowedOrigins:[modelOrigin],Models:[{Name:name,ContextLimit:32768,SupportsTools:true,Pricing:{Currency:'USD',InputMicrosPerMillion:0,OutputMicrosPerMillion:0,CachedInputMicrosPerMillion:0}}]}});
  const models=await(await page.request.get('/api/models')).json();
  const assistant=await post(page,'/api/assistants',{Name:name,ModelID:models.find((m:any)=>m.ResourceID===resource.ID).ID,Budget:{Limit:{Currency:'USD',Micros:0},Period:'daily'}});

@@ -38,7 +38,7 @@ async function failure(page: Page, suffix: string) {
 test('background execution notices locate real recorded events across pages in both themes', async ({ page }, info) => {
   await login(page);
   const original = await (await page.request.get('/api/settings')).json();
-  await settings(page, { WorkbenchEnabled: true });
+  await settings(page, { WorkbenchVisible: true });
   try {
     const { assistant, notice } = await failure(page, info.project.name);
     const runs: DebugRun[] = (await (await page.request.get(`/api/debug/runs?assistant_id=${assistant.ID}`)).json()).Items;
@@ -71,23 +71,25 @@ test('background execution notices locate real recorded events across pages in b
     expect(olderRequests).toBeGreaterThan(0);
     const stored = await (await page.request.get(`/api/notifications/${notice.ID}`)).json();
     expect(stored.ReadAt).toBeTruthy(); expect(stored.DismissedAt).toBeNull();
-  } finally { await page.unrouteAll({ behavior: 'wait' }); await settings(page, { WorkbenchEnabled: original.WorkbenchEnabled, UITheme: original.UITheme }); }
+  } finally { await page.unrouteAll({ behavior: 'wait' }); await settings(page, { WorkbenchVisible: original.WorkbenchVisible, UITheme: original.UITheme }); }
 });
 
-test('execution action requires both workbench switches and missing recordings are explicit', async ({ page }, info) => {
+test('execution action follows visibility and exposes previously hidden recordings', async ({ page }, info) => {
   await login(page);
   const original = await (await page.request.get('/api/settings')).json();
-  await settings(page, { WorkbenchEnabled: false });
+  await settings(page, { WorkbenchVisible: false });
   try {
-    const { assistant } = await failure(page, info.project.name);
+    const { assistant, notice } = await failure(page, info.project.name);
     await page.goto(`/#/assistants/${assistant.ID}`); await page.reload();
     const banner = page.locator('.assistant-notice');
     await expect(banner).toContainText('Background execution failed');
     await expect(banner.getByRole('button', { name: actionLabel })).toHaveCount(0);
     await expect(banner.getByRole('button', { name: 'View details', exact: true })).toHaveCount(0);
     await expect(banner.getByRole('button', { name: 'Close', exact: true })).toBeVisible();
-    await settings(page, { WorkbenchEnabled: true }); await page.reload();
+    await settings(page, { WorkbenchVisible: true }); await page.reload();
     await banner.getByRole('button', { name: actionLabel }).click();
+    await expect(page.getByRole('region', { name: 'Step details', exact: true })).toContainText(notice.Source.ID);
+    await page.goto(`/#/workbench/${assistant.ID}?event=missing-event`);
     await expect(page.getByText('No workbench recording is available for this turn.', { exact: false })).toBeVisible();
     await page.route('**/api/status', async route => {
       const response = await route.fetch(); await route.fulfill({ json: { ...await response.json(), workbench_available: false } });
@@ -95,7 +97,7 @@ test('execution action requires both workbench switches and missing recordings a
     await page.goto(`/#/assistants/${assistant.ID}`); await page.reload();
     await expect(banner).toContainText('Background execution failed');
     await expect(banner.getByRole('button', { name: actionLabel })).toHaveCount(0);
-  } finally { await page.unrouteAll({ behavior: 'wait' }); await settings(page, { WorkbenchEnabled: original.WorkbenchEnabled }); }
+  } finally { await page.unrouteAll({ behavior: 'wait' }); await settings(page, { WorkbenchVisible: original.WorkbenchVisible }); }
 });
 
 test('execution toast actions follow workbench settings and navigate to their event', async ({ page }, info) => {
@@ -103,7 +105,7 @@ test('execution toast actions follow workbench settings and navigate to their ev
   const original = await (await page.request.get('/api/settings')).json();
   const principal = await (await page.request.get('/api/auth/me')).json();
   await page.evaluate(owner => localStorage.setItem(`molr-notifications:${owner}`, JSON.stringify({ enabled: true, preview: true, system: false })), principal.OwnerID);
-  await settings(page, { WorkbenchEnabled: true });
+  await settings(page, { WorkbenchVisible: true });
   await page.goto('/#/plans'); await page.reload();
   try {
     const { assistant, notice } = await failure(page, info.project.name);
@@ -114,7 +116,7 @@ test('execution toast actions follow workbench settings and navigate to their ev
     const setInApp = async (enabled: boolean) => page.evaluate(async enabled => {
       const modulePath = '/src/api/client.ts'; const { api } = await import(modulePath);
       const current = await api.get('/api/settings');
-      await api.mutate('/api/settings', { Settings: { ...current, WorkbenchEnabled: enabled } }, current.Version);
+      await api.mutate('/api/settings', { Settings: { ...current, WorkbenchVisible: enabled } }, current.Version);
     }, enabled);
     await setInApp(false);
     await expect(toast.getByRole('button', { name: actionLabel })).toHaveCount(0);
@@ -125,5 +127,5 @@ test('execution toast actions follow workbench settings and navigate to their ev
     await expect(page.getByRole('region', { name: 'Step details', exact: true })).toContainText(notice.Source.ID);
     const stored = await (await page.request.get(`/api/notifications/${notice.ID}`)).json();
     expect(stored.ReadAt).toBeTruthy(); expect(stored.DismissedAt).toBeNull();
-  } finally { await settings(page, { WorkbenchEnabled: original.WorkbenchEnabled }); await page.evaluate(owner => localStorage.removeItem(`molr-notifications:${owner}`), principal.OwnerID); }
+  } finally { await settings(page, { WorkbenchVisible: original.WorkbenchVisible }); await page.evaluate(owner => localStorage.removeItem(`molr-notifications:${owner}`), principal.OwnerID); }
 });

@@ -37,7 +37,7 @@ func retryFixture(t *testing.T, handler http.HandlerFunc) (*Bundle, core.Princip
 	need(t, err)
 	t.Cleanup(func() { b.Close() })
 	p, _ := ownerSession(t, b)
-	need(t, enableWorkbench(t, b, p, true))
+	need(t, showWorkbench(t, b, p, true))
 	binding := resource.Binding{Endpoint: server.URL, AllowedOrigins: []string{server.URL}, Models: []resource.ModelConfig{{Name: "retry-model", ContextLimit: 32768, SupportsTools: true, Pricing: &resource.ModelPricing{Currency: "USD", InputMicrosPerMillion: 1000000, OutputMicrosPerMillion: 1000000}}}}
 	r, err := b.Services.Resources.Connect(t.Context(), p, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "provider"}, Name: "provider", Kind: resource.Model, Provider: "openai-compatible", Binding: binding})
 	need(t, err)

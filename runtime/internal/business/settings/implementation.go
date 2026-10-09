@@ -257,7 +257,7 @@ func (s *service) Get(ctx context.Context, p core.Principal) (Settings, error) {
 			return nil
 		}
 		if !s.options.WorkbenchAvailable {
-			result.WorkbenchEnabled = false
+			result.WorkbenchVisible = false
 		}
 		if result.Palette == "" {
 			result.Palette = Forest
@@ -275,7 +275,7 @@ func (s *service) Get(ctx context.Context, p core.Principal) (Settings, error) {
 func (s *service) Update(ctx context.Context, p core.Principal, req UpdateRequest) (Settings, error) {
 	return mutate(ctx, s, p, "update", p.OwnerID, req.Mutation, req, req.Mutation.ExpectedVersion != 0, true, func(ctx context.Context) (Settings, error) {
 		v := req.Settings
-		if v.WorkbenchEnabled && !s.options.WorkbenchAvailable {
+		if v.WorkbenchVisible && !s.options.WorkbenchAvailable {
 			return v, core.NewError(core.FailedPrecondition, "runtime workbench is disabled")
 		}
 		if v.Currency != "USD" && v.Currency != "CNY" {

@@ -44,7 +44,7 @@ type Settings struct {
 
 	AnswerPreferences string
 	ReducedMotion     bool
-	WorkbenchEnabled  bool
+	WorkbenchVisible  bool
 	Version           core.Version
 }
 type UpdateRequest struct {

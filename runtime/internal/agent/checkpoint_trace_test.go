@@ -19,7 +19,7 @@ func TestCheckpointTraceCommitsAtomicallyAndRejectsStaleSaves(t *testing.T) {
 	f, db := makeLoopFixture(t, nil)
 	trace := debugtrace.New(db, debugtrace.Options{Enabled: true, Authorize: func(context.Context, core.Principal) error { return nil }})
 	testkit.RequireNoError(t, db.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
-		return tx.Put(ctx, "business.settings", string(f.Owner.OwnerID), map[string]bool{"WorkbenchEnabled": true})
+		return tx.Put(ctx, "business.settings", string(f.Owner.OwnerID), map[string]bool{"WorkbenchVisible": true})
 	}))
 	repo := &checkpoints{store: db, trace: trace}
 	cp := Checkpoint{OwnerID: f.Owner.OwnerID, AssistantID: f.Turn.Event.AssistantID, ExecutionID: f.Turn.Principal.ExecutionID, LastEventID: f.Turn.Event.ID, FormatVersion: 1, Sequence: 1, SavedAt: time.Now().UTC(), Context: json.RawMessage(`{"Inputs":[]}`)}
@@ -113,7 +113,7 @@ func TestCheckpointLoadTracePrecedesNewEvent(t *testing.T) {
 	f, db := makeLoopFixture(t, nil)
 	trace := debugtrace.New(db, debugtrace.Options{Enabled: true, Authorize: func(context.Context, core.Principal) error { return nil }})
 	testkit.RequireNoError(t, db.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
-		return tx.Put(ctx, "business.settings", string(f.Owner.OwnerID), map[string]bool{"WorkbenchEnabled": true})
+		return tx.Put(ctx, "business.settings", string(f.Owner.OwnerID), map[string]bool{"WorkbenchVisible": true})
 	}))
 	e := f.Runtime.(*Engine)
 	e.options.Trace = trace
@@ -158,7 +158,7 @@ func TestCheckpointTraceKeepsSmallSaveEventsAndFullRecoveryState(t *testing.T) {
 	f, db := makeLoopFixture(t, nil)
 	trace := debugtrace.New(db, debugtrace.Options{Enabled: true, Authorize: func(context.Context, core.Principal) error { return nil }})
 	testkit.RequireNoError(t, db.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
-		return tx.Put(ctx, "business.settings", string(f.Owner.OwnerID), map[string]bool{"WorkbenchEnabled": true})
+		return tx.Put(ctx, "business.settings", string(f.Owner.OwnerID), map[string]bool{"WorkbenchVisible": true})
 	}))
 	repo := &checkpoints{store: db, trace: trace}
 	raw, _ := json.Marshal(map[string]any{"Inputs": []any{map[string]string{"Role": "user", "Text": strings.Repeat("context text ", 100000)}}})

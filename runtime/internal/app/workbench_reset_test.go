@@ -16,7 +16,7 @@ import (
 	"molr.ai/runtime/internal/debugtrace"
 )
 
-func TestWorkbenchResetRequiresOptInWriteScopeAndFreshCheckpoint(t *testing.T) {
+func TestWorkbenchResetRequiresWriteScopeAndFreshCheckpointWhileHidden(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Debug.Enabled = true
 	b, err := Build(t.Context(), cfg)
@@ -31,10 +31,6 @@ func TestWorkbenchResetRequiresOptInWriteScopeAndFreshCheckpoint(t *testing.T) {
 	need(t, b.Services.Agent.(*agent.Engine).Lifecycle(ctx, p, a.ID, "initialize"))
 	sequence := uint64(0)
 	req := debugtrace.ResetRequest{Mutation: core.Mutation{IdempotencyKey: "reset"}, ExpectedSequence: &sequence}
-	if core.CodeOf(b.Trace.ResetContext(ctx, p, a.ID, req)) != core.Forbidden {
-		t.Fatal("opt-in bypassed")
-	}
-	need(t, enableWorkbench(t, b, p, true))
 	for _, tc := range []struct {
 		name   string
 		scopes []string
@@ -102,9 +98,9 @@ func TestWorkbenchResetRequiresOptInWriteScopeAndFreshCheckpoint(t *testing.T) {
 	if core.CodeOf(b.Trace.ResetContext(ctx, p, a.ID, req)) != core.InvalidArgument {
 		t.Fatal("missing expected sequence accepted")
 	}
-	need(t, enableWorkbench(t, b, p, false))
-	if core.CodeOf(b.Trace.ResetContext(ctx, p, a.ID, req)) != core.Forbidden {
-		t.Fatal("reset after opt-out")
+	need(t, showWorkbench(t, b, p, false))
+	if core.CodeOf(b.Trace.ResetContext(ctx, p, a.ID, req)) != core.InvalidArgument {
+		t.Fatal("visibility changed reset validation")
 	}
 }
 

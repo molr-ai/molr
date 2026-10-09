@@ -24,13 +24,12 @@ func fixture(t *testing.T) (*Service, core.Principal, *time.Time) {
 	now := time.Date(2026, 9, 25, 0, 0, 0, 0, time.UTC)
 	p := core.Principal{OwnerID: "owner", SubjectID: "owner", Kind: core.ActorOwner, SessionID: "session"}
 	s := New(db, Options{Enabled: true, MinRuns: 1, MaxRuns: 3, MaxPayloadBytes: 2048, Now: func() time.Time { return now }, Authorize: func(_ context.Context, p core.Principal) error { return p.Validate() }})
-	setEnabled(t, s, true)
 	return s, p, &now
 }
-func setEnabled(t *testing.T, s *Service, enabled bool) {
+func setVisible(t *testing.T, s *Service, enabled bool) {
 	t.Helper()
 	if err := s.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
-		return tx.Put(ctx, "business.settings", "owner", struct{ WorkbenchEnabled bool }{enabled})
+		return tx.Put(ctx, "business.settings", "owner", struct{ WorkbenchVisible bool }{enabled})
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -72,17 +71,14 @@ func TestCaptureIsolationRedactionAndSnapshots(t *testing.T) {
 	if err != nil || revision < 3 {
 		t.Fatal("revision did not advance")
 	}
-	setEnabled(t, s, false)
-	if _, err = s.Detail(t.Context(), p, run.ID, 2); core.CodeOf(err) != core.Forbidden {
-		t.Fatal("disabled reader remained accessible")
+	setVisible(t, s, false)
+	if _, err = s.Detail(t.Context(), p, run.ID, 2); err != nil {
+		t.Fatal("hidden workbench lost detail access", err)
 	}
-	if _, err = s.Revision(t.Context(), p); core.CodeOf(err) != core.Forbidden {
-		t.Fatal("disabled stream remained accessible")
+	if _, err = s.Revision(t.Context(), p); err != nil {
+		t.Fatal("hidden workbench lost stream access", err)
 	}
-	if s.Begin(t.Context(), "owner", "assistant", "new-event", "exec", "user_message", 1, nil).Value(contextKey{}) != nil {
-		t.Fatal("disabled recorder captured data")
-	}
-	setEnabled(t, s, true)
+	setVisible(t, s, true)
 	s.options.Enabled = false
 	if _, err = s.Runs(t.Context(), p, Query{}); core.CodeOf(err) != core.Forbidden {
 		t.Fatal("runtime disabled access")
@@ -178,7 +174,7 @@ func TestResetControlGatesMutationAndNotifiesOnlyOnSuccess(t *testing.T) {
 	if err != nil || revision != 1 {
 		t.Fatal("successful reset did not notify")
 	}
-	setEnabled(t, s, false)
+	s.options.Enabled = false
 	if core.CodeOf(control.ResetContext(t.Context(), p, "assistant", req)) != core.Forbidden || calls != 2 {
 		t.Fatal("disabled workbench reached reset callback")
 	}
@@ -210,7 +206,7 @@ func TestDreamDebugRecordsSurviveNormalRetention(t *testing.T) {
 	}
 }
 
-func TestCheckpointRecordingScopeAndOptIn(t *testing.T) {
+func TestCheckpointRecordingScopeAndDeploymentGate(t *testing.T) {
 	s, p, _ := fixture(t)
 	ctx := s.Begin(t.Context(), p.OwnerID, "assistant", "event", "execution", "user_message", 1, nil)
 	s.RecordCheckpoint(ctx, p.OwnerID, "assistant", "event", "execution", map[string]any{"Sequence": 1})
@@ -246,11 +242,56 @@ func TestCheckpointRecordingScopeAndOptIn(t *testing.T) {
 			t.Fatalf("save count: %d", count)
 		}
 	}
-	setEnabled(t, s, false)
-	s.RecordCheckpoint(ctx, p.OwnerID, "assistant", "event", "execution", nil)
-	setEnabled(t, s, true)
+	s.options.Enabled = false
+	s.RecordCheckpoint(t.Context(), p.OwnerID, "assistant", "new-event", "new-execution", nil)
+	s.options.Enabled = true
 	after, err := s.Runs(t.Context(), p, Query{})
 	if err != nil || len(after.Items) != 2 {
-		t.Fatal("opt-out created trace")
+		t.Fatal("disabled deployment created trace")
+	}
+}
+
+func TestCaptureIgnoresVisibilityAndStopsOnlyWithDeployment(t *testing.T) {
+	s, p, _ := fixture(t)
+	// The fixture has no settings row: new accounts record before visiting settings.
+	ctx := s.Begin(t.Context(), p.OwnerID, "assistant", "event", "execution", "user_message", 1, nil)
+	s.Record(ctx, "model.start", "started", "op", map[string]string{"Text": "before showing"})
+	setVisible(t, s, true)
+	s.Record(ctx, "model.response", "succeeded", "op", map[string]string{"Text": "while shown"})
+	setVisible(t, s, false)
+	s.Record(ctx, "model.complete", "succeeded", "op", map[string]string{"Text": "after hiding"})
+	s.Finish(ctx, "succeeded", "")
+	setVisible(t, s, true)
+	runs, err := s.Runs(t.Context(), p, Query{})
+	if err != nil || len(runs.Items) != 1 {
+		t.Fatal(runs, err)
+	}
+	run, err := s.Get(t.Context(), p, runs.Items[0].ID)
+	if err != nil || run.Incomplete || len(run.Steps) != 5 {
+		t.Fatal(run, err)
+	}
+	for i, want := range []string{"before showing", "while shown", "after hiding"} {
+		payload, err := s.Detail(t.Context(), p, run.ID, i+2)
+		if err != nil || !strings.Contains(string(payload.Data), want) {
+			t.Fatal(payload, err)
+		}
+	}
+	s.options.Enabled = false
+	before, err := persistence.Scan[Payload](t.Context(), s.store, "debug.payloads")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Record(ctx, "model.response", "succeeded", "op", "disabled deployment")
+	blocked := s.Begin(t.Context(), p.OwnerID, "assistant", "new-event", "new-execution", "user_message", 1, nil)
+	if blocked.Value(contextKey{}) != nil {
+		t.Fatal("disabled deployment started recording")
+	}
+	s.RecordCheckpoint(t.Context(), p.OwnerID, "assistant", "checkpoint", "checkpoint", nil)
+	after, err := persistence.Scan[Payload](t.Context(), s.store, "debug.payloads")
+	if err != nil || len(after) != len(before) {
+		t.Fatal("disabled deployment wrote payloads", err)
+	}
+	if _, err := s.Detail(t.Context(), p, run.ID, 2); core.CodeOf(err) != core.Forbidden {
+		t.Fatal("disabled deployment allowed reading")
 	}
 }

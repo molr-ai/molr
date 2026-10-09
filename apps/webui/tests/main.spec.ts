@@ -1642,50 +1642,53 @@ test('currency preferences preserve native budgets and prices and show the confi
   } finally { await restore(); }
 });
 
-test('developer workbench follows real loops and protects its opt-in boundary', async ({ page }, info) => {
+test('developer workbench records hidden executions and only gates entry visibility', async ({ page }, info) => {
   test.setTimeout(90_000);
   await login(page);
   const before = await (await page.request.get('/api/settings')).json();
-  const setEnabled = async (enabled: boolean) => {
-    const latest = await (await page.request.get('/api/settings')).json();
-    await post(page, '/api/settings', { Settings: { ...latest, WorkbenchEnabled: enabled }, Mutation: { IdempotencyKey: crypto.randomUUID(), ExpectedVersion: latest.Version } }, false);
-  };
+  const setVisible = async (visible: boolean) => page.evaluate(async visible => {
+    const modulePath = '/src/api/client.ts'; const { api } = await import(modulePath);
+    const current = await api.get('/api/settings');
+    await api.mutate('/api/settings', { Settings: { ...current, WorkbenchVisible: visible } }, current.Version);
+  }, visible);
   try {
-    await setEnabled(false);
-    await page.getByRole('navigation').getByRole('button', { name: 'User settings', exact: true }).click();
+    await setVisible(false);
+    await page.goto('/#/account/general');
     await openSettingsSection(page, 'General');
-    expect((await page.request.get('/api/debug/runs')).status()).toBe(403);
-    expect((await page.request.get('/api/debug/trajectory')).status()).toBe(403);
+    expect((await page.request.get('/api/debug/runs')).status()).toBe(200);
+    expect((await page.request.get('/api/debug/trajectory')).status()).toBe(200);
     await page.route('**/api/status', async route => { const response = await route.fetch(); await route.fulfill({ json: { ...await response.json(), workbench_available: false } }); });
     await page.reload(); await openSettingsSection(page, 'General');
-    await expect(page.getByRole('switch', { name: 'Enable developer workbench', exact: true })).toBeDisabled();
-    const help = page.getByRole('button', { name: 'Enable developer workbench information', exact: true });
+    await expect(page.getByRole('switch', { name: 'Show developer workbench', exact: true })).toBeDisabled();
+    const help = page.getByRole('button', { name: 'Show developer workbench information', exact: true });
     const tip = page.getByRole('tooltip').filter({ hasText: 'This Runtime has not enabled debugging.' });
     await expect(tip).not.toBeVisible();
     await help.click();
     await expect(tip).toBeVisible();
-    await expect(page.getByRole('switch', { name: 'Enable developer workbench', exact: true })).toBeDisabled();
+    await expect(page.getByRole('switch', { name: 'Show developer workbench', exact: true })).toBeDisabled();
     await help.click();
     await expect(tip).not.toBeVisible();
     await help.click();
     await page.keyboard.press('Escape');
     await expect(tip).not.toBeVisible();
     await page.unrouteAll({ behavior: 'wait' }); await page.reload(); await openSettingsSection(page, 'General');
-    await page.getByRole('switch', { name: 'Enable developer workbench', exact: true }).click();
-    await expect.poll(async () => (await (await page.request.get('/api/settings')).json()).WorkbenchEnabled).toBe(true);
-    await expect(page.getByRole('navigation').getByRole('button', { name: 'Workbench', exact: true })).toBeVisible();
+    // Capture a complete execution before the owner ever shows the workbench.
     const assistant = await seedAssistant(page, `Debug ${info.project.name}-${Date.now()}`);
+    await expect.poll(async () => (await (await page.request.get(`/api/debug/runs?assistant_id=${assistant.ID}`)).json()).Items.find((run: { Trigger: string }) => run.Trigger === 'born')?.State, { timeout: 15000 }).toBe('succeeded');
+    await post(page, '/api/conversations/messages', { ConversationID: assistant.ConversationID, Content: { Kind: 'text', Text: 'Debug context source check' } });
+    await expect.poll(async () => (await (await page.request.get(`/api/debug/runs?assistant_id=${assistant.ID}`)).json()).Items.find((run: { Trigger: string }) => run.Trigger === 'user_message')?.State, { timeout: 15000 }).toBe('succeeded');
+    await expect(page.getByRole('navigation').getByRole('button', { name: 'Workbench', exact: true })).toHaveCount(0);
+    await page.getByRole('switch', { name: 'Show developer workbench', exact: true }).click();
+    await expect.poll(async () => (await (await page.request.get('/api/settings')).json()).WorkbenchVisible).toBe(true);
+    await expect(page.getByRole('navigation').getByRole('button', { name: 'Workbench', exact: true })).toBeVisible();
     await page.goto(`/#/assistants/${assistant.ID}`); await page.reload();
     await expect(page.locator('.chat-context-usage')).toHaveCount(0);
     await assistantMenu(page, 'Debug this assistant');
     await expect(page.getByRole('heading', { name: 'Workbench', exact: true })).toBeVisible();
     await expect(page.getByRole('combobox', { name: 'Assistant', exact: true })).toContainText(assistant.Name);
-    await expect(page.getByText('No recordings yet.', { exact: false })).toBeVisible();
-    await post(page, '/api/conversations/messages', { ConversationID: assistant.ConversationID, Content: { Kind: 'text', Text: 'Debug context source check' } });
-    await expect.poll(async () => (await (await page.request.get(`/api/debug/runs?assistant_id=${assistant.ID}`)).json()).Items[0]?.State, { timeout: 15000 }).toBe('succeeded');
     const timeline = page.getByRole('region', { name: 'Execution timeline', exact: true });
     const inspector = page.getByRole('region', { name: 'Step details', exact: true });
-    await expect(timeline.locator('.trajectory-record--model')).toHaveCount(3);
+    await expect(timeline.locator('.trajectory-record--model')).toHaveCount(6);
     await timeline.locator('.trajectory-record--model .trajectory-record-body').last().click();
     await expect(page.getByRole('switch', { name: 'Follow live execution', exact: true })).not.toBeChecked();
     await inspector.getByRole('tab', { name: 'Context', exact: true }).click();
@@ -1739,7 +1742,7 @@ test('developer workbench follows real loops and protects its opt-in boundary', 
     await expect(inspector.getByRole('heading', { name: 'Latest checkpoint', exact: true })).toBeVisible();
     await expect(inspector.getByRole('progressbar')).toHaveCount(4);
     await expect(inspector).toContainText('Runtime delivered this reply through conversation_publish.');
-    await page.reload(); await expect(timeline.locator('.trajectory-record--model')).toHaveCount(3);
+    await page.reload(); await expect(timeline.locator('.trajectory-record--model')).toHaveCount(6);
     await expect.poll(() => timeline.locator('.trajectory-scroll').evaluate(panel => panel.scrollHeight - panel.clientHeight - panel.scrollTop < 2)).toBe(true);
     if (process.env.MOLR_CAPTURE_WORKBENCH) await page.screenshot({ path: `/tmp/molr-workbench-${info.project.name}.png`, fullPage: true });
     await page.getByRole('button', { name: 'Latest checkpoint', exact: true }).click();
@@ -1760,12 +1763,13 @@ test('developer workbench follows real loops and protects its opt-in boundary', 
     expect(checkpointAfter.Data.Context.Inputs).toEqual([]);
     expect(await (await page.request.get(`/api/conversations/${assistant.ConversationID}/messages`)).json()).toEqual(messagesBefore);
 
-    await setEnabled(false);
+    await setVisible(false);
     await expect(page.getByRole('navigation').getByRole('button', { name: 'Workbench', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'Workbench is disabled', exact: true })).toBeVisible();
-    expect((await page.request.get(`/api/debug/runs?assistant_id=${assistant.ID}`)).status()).toBe(403);
-    await expect(page.getByText('Internal reasoning is not a chat message.', { exact: false })).toHaveCount(0);
-  } finally { await setEnabled(before.WorkbenchEnabled ?? false); }
+    await expect(page.getByRole('heading', { name: 'Workbench', exact: true })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Workbench', exact: true })).toBeVisible();
+    expect((await page.request.get(`/api/debug/runs?assistant_id=${assistant.ID}`)).status()).toBe(200);
+  } finally { await setVisible(before.WorkbenchVisible ?? false); }
 });
 
 test('assistant information unifies settings, real tools, permissions and Skills', async ({ page }, info) => {
@@ -1950,7 +1954,7 @@ test('trajectory spans runs, pages older history and preserves inspection while 
   const before = await (await page.request.get('/api/settings')).json();
   const enable = async (value: boolean) => {
     const latest = await (await page.request.get('/api/settings')).json();
-    await post(page, '/api/settings', { Settings: { ...latest, WorkbenchEnabled: value }, Mutation: { IdempotencyKey: crypto.randomUUID(), ExpectedVersion: latest.Version } }, false);
+    await post(page, '/api/settings', { Settings: { ...latest, WorkbenchVisible: value }, Mutation: { IdempotencyKey: crypto.randomUUID(), ExpectedVersion: latest.Version } }, false);
   };
   try {
     await enable(true);
@@ -2107,7 +2111,7 @@ test('trajectory spans runs, pages older history and preserves inspection while 
       await page.screenshot({ path: `/tmp/molr-trajectory-${info.project.name}.png`, fullPage: true });
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  } finally { await enable(before.WorkbenchEnabled ?? false); }
+  } finally { await enable(before.WorkbenchVisible ?? false); }
 });
 
 
@@ -2116,7 +2120,7 @@ test('trajectory groups multiple tools under one model and only parents have fol
   const before = await (await page.request.get('/api/settings')).json();
   const enable = async (value: boolean) => {
     const latest = await (await page.request.get('/api/settings')).json();
-    await post(page, '/api/settings', { Settings: { ...latest, WorkbenchEnabled: value }, Mutation: { IdempotencyKey: crypto.randomUUID(), ExpectedVersion: latest.Version } }, false);
+    await post(page, '/api/settings', { Settings: { ...latest, WorkbenchVisible: value }, Mutation: { IdempotencyKey: crypto.randomUUID(), ExpectedVersion: latest.Version } }, false);
   };
   try {
     await enable(true);
@@ -2161,7 +2165,7 @@ test('trajectory groups multiple tools under one model and only parents have fol
     await overview.locator('.trajectory-time-bar--tool').nth(1).click();
     await inspector.getByRole('tab', { name: 'Overview', exact: true }).click();
     await expect(inspector).toContainText('"limit": 2');
-  } finally { await enable(before.WorkbenchEnabled ?? false); }
+  } finally { await enable(before.WorkbenchVisible ?? false); }
 });
 
 test('clipboard images upload to Runtime, persist as thumbnails and open a multi-image gallery', async ({ page }, info) => {

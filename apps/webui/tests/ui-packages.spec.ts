@@ -280,7 +280,7 @@ test('settings rows only activate their controls and keep theme controls togethe
     await select.locator('..').locator('.select__label').click();
     await expect(select).toHaveAttribute('aria-expanded', 'false');
   }
-  const workbench = page.getByRole('switch', { name: 'Enable developer workbench', exact: true });
+  const workbench = page.getByRole('switch', { name: 'Show developer workbench', exact: true });
   const before = await workbench.isChecked();
   await page.locator('.settings-row').filter({ has: workbench }).locator('.settings-label > span').click();
   await expect(workbench).toBeChecked({ checked: before });
