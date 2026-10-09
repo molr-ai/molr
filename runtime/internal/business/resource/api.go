@@ -172,4 +172,5 @@ type Repository interface {
 	Insert(context.Context, Resource, Binding) error
 	Save(context.Context, Resource, core.Version) error
 	Binding(context.Context, core.ID, core.ID) (Binding, error)
+	BindingForModel(context.Context, core.ID, core.ID) (Binding, error)
 }

@@ -45,6 +45,8 @@
 | `internal/business/resource` | `Repository.Insert` | `TestTDDResourceRepositoryBindingIsolation` |
 | `internal/business/resource` | `Repository.Save` | `TestTDDResourceRepositoryBindingIsolation` |
 | `internal/business/resource` | `Repository.Binding` | `TestTDDResourceRepositoryBindingIsolation` |
+| `internal/business/resource` | `Repository.BindingForModel` | `TestModelBindingIndexTracksLifecycleAndRollback`、`TestModelBindingIndexSurvivesReopenAndSharedCatalog` |
+| `internal/business/resource` | `ModelID` | `TestModelIDRemainsStable` |
 | `internal/business/schedule` | `Service.Create` | `TestTDDServiceCRUD`, `TestTDDServiceOwnershipAndValidation`, `TestTDDCreateCommitFailureLeavesNoObject`, `TestTDDPersonalScheduleDoesNotWakeAssistant` |
 | `internal/business/schedule` | `Service.Get` | `TestTDDServiceCRUD`, `TestTDDServiceOwnershipAndValidation` |
 | `internal/business/schedule` | `Service.List` | `TestTDDServiceCRUD`, `TestTDDServiceOwnershipAndValidation`, `TestTDDCreateCommitFailureLeavesNoObject` |

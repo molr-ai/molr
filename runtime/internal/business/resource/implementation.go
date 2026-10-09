@@ -277,7 +277,7 @@ func (r *repository) Insert(ctx context.Context, v Resource, b Binding) error {
 		if err := insert(ctx, r.store, bucket, persistence.Key(v.OwnerID, v.ID), v); err != nil {
 			return err
 		}
-		return tx.Put(ctx, bindingBucket, persistence.Key(v.OwnerID, v.ID), b)
+		return putBinding(ctx, tx, v.OwnerID, b)
 	})
 }
 func (r *repository) Save(ctx context.Context, v Resource, expected core.Version) error {
@@ -391,7 +391,7 @@ func (s *service) RefreshModels(ctx context.Context, p core.Principal, req Refre
 			return v, err
 		}
 		err = s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-			return tx.Put(ctx, bindingBucket, persistence.Key(v.OwnerID, v.ID), binding)
+			return putBinding(ctx, tx, v.OwnerID, binding)
 		})
 		return v, err
 	})
@@ -441,7 +441,7 @@ func (s *service) ConfigureModel(ctx context.Context, p core.Principal, req Conf
 			return v, err
 		}
 		err = s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-			return tx.Put(ctx, bindingBucket, persistence.Key(v.OwnerID, v.ID), binding)
+			return putBinding(ctx, tx, v.OwnerID, binding)
 		})
 		return v, err
 	})

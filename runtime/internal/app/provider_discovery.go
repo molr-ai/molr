@@ -2,8 +2,6 @@ package app
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -30,8 +28,7 @@ type modelEntry struct {
 func modelEntries(r resource.Resource, b resource.Binding) []modelEntry {
 	entries := []modelEntry{}
 	for _, m := range b.Models {
-		sum := sha256.Sum256([]byte(string(r.ID) + "\x00" + m.Name))
-		entries = append(entries, modelEntry{core.ID("model_" + hex.EncodeToString(sum[:16])), m})
+		entries = append(entries, modelEntry{resource.ModelID(r.ID, m.Name), m})
 	}
 	return entries
 }
@@ -95,34 +92,39 @@ func (a adapters) resolvedModel(r resource.Resource, b resource.Binding, entry m
 	}
 	return model.Provider{Protocol: protocol, Model: model.Model{ID: entry.id, ResourceID: r.ID, Name: m.Name, SupportsTools: m.SupportsTools, SupportsImages: m.SupportsImages, SupportsAudio: m.SupportsAudio && protocol == model.OpenAIChat, ContextLimit: manual, ProviderContextLimit: declared, EffectiveContextLimit: effective, ContextLimitSource: source, OutputLimit: m.OutputLimit, ProviderOutputLimit: m.ProviderOutputLimit, EffectiveOutputLimit: output, OutputLimitSource: outputSource, Pricing: price, PricingInfo: info}, Endpoint: b.Endpoint, CredentialID: b.CredentialID, Pricing: price, ReservePricing: reserve}
 }
-func (a adapters) provider(ctx context.Context, p core.Principal, id core.ID) (model.Provider, error) {
-	catalogOwner, err := persistence.CatalogOwner(ctx, a.store, p.OwnerID)
-	if err != nil {
-		return model.Provider{}, err
-	}
-	rows, err := persistence.Select[resource.Resource](ctx, a.store, "business.resources", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", catalogOwner), persistence.Eq("Kind", resource.Model), persistence.Eq("Provider", "openai-compatible"), persistence.Eq("State", resource.Available)}})
-	if err != nil {
-		return model.Provider{}, err
-	}
-	for _, r := range rows {
-		if r.OwnerID != catalogOwner || r.Kind != resource.Model || r.Provider != "openai-compatible" || r.State != resource.Available {
-			continue
-		}
-		b, err := resource.NewRepository(a.store).Binding(ctx, p.OwnerID, r.ID)
+func (a adapters) provider(ctx context.Context, p core.Principal, id core.ID) (out model.Provider, err error) {
+	err = a.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		catalogOwner, err := persistence.CatalogOwner(ctx, tx.Store(), p.OwnerID)
 		if err != nil {
-			return model.Provider{}, err
+			return err
 		}
-		for _, entry := range modelEntries(r, b) {
-			if entry.id == id {
-				if _, err := groupReference(ctx, a.store, p.OwnerID, "model", id); err != nil {
-					return model.Provider{}, err
-				}
-				return a.resolvedModel(r, b, entry), nil
+		repo := resource.NewRepository(tx.Store())
+		binding, err := repo.BindingForModel(ctx, p.OwnerID, id)
+		if err != nil {
+			return err
+		}
+		r, err := repo.Get(ctx, p.OwnerID, binding.ResourceID)
+		if err != nil {
+			return err
+		}
+		if r.OwnerID != catalogOwner || r.Kind != resource.Model || r.Provider != "openai-compatible" || r.State != resource.Available {
+			return core.NewError(core.NotFound, "model unavailable")
+		}
+		for _, entry := range modelEntries(r, binding) {
+			if entry.id != id {
+				continue
 			}
+			if _, err := groupReference(ctx, tx.Store(), p.OwnerID, "model", id); err != nil {
+				return err
+			}
+			out = a.resolvedModel(r, binding, entry)
+			return nil
 		}
-	}
-	return model.Provider{}, core.NewError(core.NotFound, "model unavailable")
+		return core.NewError(core.NotFound, "model unavailable")
+	})
+	return out, err
 }
+
 func (a adapters) models(ctx context.Context, p core.Principal) ([]model.Model, error) {
 	catalogOwner, err := persistence.CatalogOwner(ctx, a.store, p.OwnerID)
 	if err != nil {

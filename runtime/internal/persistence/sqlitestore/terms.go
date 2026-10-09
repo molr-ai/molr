@@ -22,6 +22,7 @@ func (s *Store) createTermIndexes() error {
 		return err
 	}
 	for _, spec := range []struct{ bucket, field, path, expression string }{
+		{"business.bindings", "ModelIDs", "$.ModelIDs", "CAST(j.value AS TEXT)"},
 		{"im.messages", "Content.AttachmentIDs", "$.Content.AttachmentIDs", "CAST(j.value AS TEXT)"},
 		{"business.plan-links", "Dependencies", "$.Dependencies", "json_extract(j.value,'$.Kind') || '/' || json_extract(j.value,'$.ID')"},
 		{"business.dream_runs", "MemorySources", "$.MemorySources", "json_extract(j.value,'$.Kind') || '/' || json_extract(j.value,'$.ID')"},

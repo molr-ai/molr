@@ -103,16 +103,28 @@ test('model setup, automatic hire permission, real agent reply, attachments and 
   // Birth publishes its own reply. Finish that turn before testing user feedback.
   await expect(page.locator('.ui-chat-message--assistant')).toHaveCount(1, { timeout: 20000 });
   await expect(page.locator('.chat-header [data-status="idle"]')).toBeVisible();
+  const assistantID = new URL(page.url()).hash.match(/^#\/assistants\/([^?]+)/)![1];
+  const assistant = await (await page.request.get(`/api/assistants/${assistantID}`)).json();
+  await expect.poll(async () => (await (await page.request.get(`/api/assistants/${assistantID}/status`)).json()).State).toBe('idle');
+  const before = await (await page.request.get(`/api/conversations/${assistant.ConversationID}`)).json();
   await page.getByRole('textbox', { name: 'Message your assistant', exact: true }).fill('Please acknowledge this real message.');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   await expect(page.locator('.ui-chat-message--assistant')).toHaveCount(2, { timeout: 20000 });
-  const reply = page.locator('.ui-chat-message--assistant').nth(1).getByText('Runtime delivered this reply through conversation_publish.', { exact: true });
-  await expect(reply).toBeVisible({ timeout: 20000 });
+  // Birth and user-turn responses can have identical fixture text. Bind feedback
+  // assertions to the new persisted message rather than the last visible text.
+  let replyID = '';
+  await expect.poll(async () => {
+    const messages = await (await page.request.get(`/api/conversations/${assistant.ConversationID}/messages?after_sequence=${before.LastSequence}`)).json();
+    replyID = messages.Items.find((message: { ID: string; Sender: string }) => message.Sender === 'assistant')?.ID ?? '';
+    return replyID;
+  }, { timeout: 20000 }).not.toBe('');
+  const replyArticle = page.locator(`[data-message-id="${replyID}"] .ui-chat-message--assistant`);
+  const reply = replyArticle.getByText('Runtime delivered this reply through conversation_publish.', { exact: true });
+  await expect(reply).toBeVisible();
   await expect(page.getByText('Internal reasoning is not a chat message.', { exact: true })).toHaveCount(0);
-  const replyArticle = page.locator('.ui-chat-message--assistant').last();
   await replyArticle.getByRole('button', { name: 'Like', exact: true }).click(); await expect(replyArticle.getByRole('button', { name: 'Like', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(replyArticle.locator('.message-feedback')).toHaveAttribute('aria-busy', 'false');
-  await page.reload(); await expect(reply).toBeVisible(); await expect(page.locator('.ui-chat-message--assistant').last().getByRole('button', { name: 'Like', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await page.reload(); await expect(reply).toBeVisible(); await expect(replyArticle.getByRole('button', { name: 'Like', exact: true })).toHaveAttribute('aria-pressed', 'true');
   const like = replyArticle.getByRole('button', { name: 'Like', exact: true });
   const dislike = replyArticle.getByRole('button', { name: 'Dislike', exact: true });
   await expect(replyArticle.locator('[data-animate]')).toHaveCount(0);

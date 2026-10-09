@@ -137,7 +137,7 @@ func (s *service) SaveProvider(ctx context.Context, p core.Principal, req SavePr
 			return r, err
 		}
 		err = s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-			return tx.Put(ctx, bindingBucket, persistence.Key(r.OwnerID, r.ID), binding)
+			return putBinding(ctx, tx, r.OwnerID, binding)
 		})
 		return r, err
 	})

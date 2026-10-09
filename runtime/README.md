@@ -175,3 +175,7 @@ Runtime 内嵌本机 sandbox_manager；可另行构建 `./cmd/molr-sandbox` 在�
 ### 模型等待期间的输入唤醒
 
 `go test ./internal/agent ./internal/agent/scheduler ./internal/event ./internal/persistence/sqlitestore` 覆盖提交后中断、无事件时不重复读取、账号／助理隔离、查询与等待之间的提交、未来输入到期、事务回滚及暂时读取失败重试。`npm run test:webui -- expedite.spec.ts` 验证桌面／移动端加急、跨标签已读更新和停止后恢复；测试模型先完成出生事件，再阻塞待加急的用户请求。
+
+### 模型定位性能回归
+
+`go test ./internal/business/resource ./internal/app ./internal/persistence/...` 覆盖模型 ID 稳定性、提供商生命周期、索引回滚／重启、共享目录与用户组撤销；读取量测试断言只加载目标配置，查询计划检查成员索引命中。`go test ./internal/app -run '^$' -bench '^BenchmarkModelResolutionProviders$' -benchmem` 比较 10、100 和 1,000 个提供商下定位末尾模型的开销，不包含模型网络响应。

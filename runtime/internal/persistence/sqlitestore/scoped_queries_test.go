@@ -25,6 +25,7 @@ func TestScopedQueriesUseIndexes(t *testing.T) {
 		q            persistence.Query
 		ordered      bool
 	}{
+		{"model binding", "business.bindings", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerKey", "owner"), {Field: "ModelIDs", Op: "has", Value: "model-target"}}, Limit: 1, Unordered: true}, false},
 		{"session", "auth.sessions", persistence.Query{Where: []persistence.Filter{persistence.Eq("TokenDigest", "digest")}, Limit: 1, Unordered: true}, false},
 		{"token", "auth.tokens", persistence.Query{Where: []persistence.Filter{persistence.Eq("Digest", "digest")}, Limit: 1, Unordered: true}, false},
 		{"username", "auth.accounts", persistence.Query{Where: []persistence.Filter{persistence.Eq("Account.Username", "name")}, Limit: 1}, true},
