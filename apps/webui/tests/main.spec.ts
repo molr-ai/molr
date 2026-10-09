@@ -1257,28 +1257,34 @@ test('search matches the shared design, filters real results and opens tasks', a
   await expect(panel).not.toBeVisible(); await expect(page.getByRole('heading', { name: 'Resources', exact: true })).toBeVisible();
 });
 
-test('connection logo tracks real offline recovery and keeps its cached artwork', async ({ page, context }) => {
+test('connection logo tracks real offline recovery and keeps its cached artwork', async ({ page, context }, info) => {
+  const mobile = info.project.name === 'mobile';
   await login(page);
   const logo = page.locator('.connection-logo:visible');
-  await expect(logo).toHaveAttribute('data-connection', 'connected');
+  if (!mobile) await expect(logo).toHaveAttribute('data-connection', 'connected');
   await expect(page.locator('.connection-dot')).toHaveCount(0);
   const still = logo.locator('.connection-logo__still img');
-  await expect.poll(() => still.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  if (!mobile) await expect.poll(() => still.evaluate(el => (el as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
   // Interrupt the actual browser transport; offline must not depend on fetching
   // a new SVG, and an online event must restore the real authenticated SSE.
   await context.setOffline(true);
-  await expect(logo).toHaveAttribute('data-connection', 'disconnected');
-  await expect(logo.locator('.connection-logo__art')).toHaveCSS('opacity', '0.24');
-  await expect(logo.locator('.connection-logo__still')).toBeVisible();
-  expect(await still.evaluate(el => (el as HTMLImageElement).complete && (el as HTMLImageElement).naturalWidth > 0)).toBe(true);
+  await expect(mobile ? page.locator('.connection-banner') : logo).toHaveAttribute('data-connection', 'disconnected');
+  if (!mobile) {
+    await expect(logo.locator('.connection-logo__art')).toHaveCSS('opacity', '0.24');
+    await expect(logo.locator('.connection-logo__still')).toBeVisible();
+    expect(await still.evaluate(el => (el as HTMLImageElement).complete && (el as HTMLImageElement).naturalWidth > 0)).toBe(true);
+  }
   await context.setOffline(false);
-  await expect(logo).toHaveAttribute('data-connection', 'recovered');
-  await expect(logo.locator('.connection-logo__motion img')).toHaveAttribute('src', /-greet\.svg/);
-  await expect(logo).toHaveAttribute('data-connection', 'connected');
+  if (!mobile) {
+    await expect(logo).toHaveAttribute('data-connection', 'recovered');
+    await expect(logo.locator('.connection-logo__motion img')).toHaveAttribute('src', /-greet\.svg/);
+    await expect(logo).toHaveAttribute('data-connection', 'connected');
+  }
   await expect(page.locator('.connection-banner')).toHaveCount(0);
 });
 
-test('a stalled connection times out and clicking the logo retries the real stream', async ({ page }) => {
+test('a stalled connection times out and clicking the logo retries the real stream', async ({ page }, info) => {
+  const mobile = info.project.name === 'mobile';
   await page.clock.install();
   await page.route('**/api/events/stream*', () => {});
   const failedQueries = new Set<string>();
@@ -1289,10 +1295,11 @@ test('a stalled connection times out and clicking the logo retries the real stre
   });
   await login(page);
   const logo = page.locator('.connection-logo:visible');
-  await expect(logo).toHaveAttribute('data-connection', 'reconnecting');
-  await expect(logo.locator('.connection-logo__motion img')).toHaveAttribute('src', /-loading\.svg/);
+  const indicator = mobile ? page.locator('.connection-banner') : logo;
+  await expect(indicator).toHaveAttribute('data-connection', 'reconnecting');
+  if (!mobile) await expect(logo.locator('.connection-logo__motion img')).toHaveAttribute('src', /-loading\.svg/);
   await page.clock.fastForward(21_000);
-  await expect(logo).toHaveAttribute('data-connection', 'failed');
+  await expect(indicator).toHaveAttribute('data-connection', 'failed');
   await expect(page.locator('.connection-banner')).toContainText('Reconnection failed');
   const dangerColors = await page.evaluate(() => {
     const reference = document.createElement('div'); reference.className = 'ui-alert ui-alert--danger'; document.body.append(reference);
@@ -1301,7 +1308,7 @@ test('a stalled connection times out and clicking the logo retries the real stre
   });
   await expect(page.locator('.connection-banner')).toHaveCSS('background-color', dangerColors.backgroundColor);
   await expect(page.locator('.connection-banner')).toHaveCSS('color', dangerColors.color);
-  await expect(logo.locator('.connection-logo__art')).toHaveCSS('opacity', '0.24');
+  if (!mobile) await expect(logo.locator('.connection-logo__art')).toHaveCSS('opacity', '0.24');
   // Both the workspace and the active page fail, but the shared banner is
   // sufficient. The banner uses Alert's danger colors in either theme.
   await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click();
@@ -1310,10 +1317,10 @@ test('a stalled connection times out and clicking the logo retries the real stre
   await page.unroute(unavailableQueries);
   await page.getByRole('navigation').getByRole('button', { name: 'Assistants', exact: true }).click();
   await page.unroute('**/api/events/stream*');
-  await logo.getByRole('button', { name: /Retry connection/ }).click();
-  await expect(logo).toHaveAttribute('data-connection', 'recovered');
+  await indicator.getByRole('button', { name: /Retry connection/ }).click();
+  if (!mobile) await expect(logo).toHaveAttribute('data-connection', 'recovered');
   await page.clock.fastForward(2500);
-  await expect(logo).toHaveAttribute('data-connection', 'connected');
+  if (!mobile) await expect(logo).toHaveAttribute('data-connection', 'connected');
   await expect(page.locator('.connection-banner')).toHaveCount(0);
   // A specific service error while the connection is healthy still needs
   // its own feedback; suppression must not silence normal operation errors.
