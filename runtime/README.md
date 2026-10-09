@@ -195,3 +195,7 @@ Chat Completions 的文本与工具字段使用增量缓冲组装，避免长输
 ### 工作台保留检查
 
 `go test ./internal/debugtrace ./internal/persistence/... ./tests/contractcoverage` 覆盖保留数量下限、运行中记录保护、容量上限、账号和梦境隔离、精确排序、统计事务语义及分批读取上限。`go test ./internal/debugtrace -run '^$' -bench '^BenchmarkTraceRetentionCheckHistory$' -benchmem` 测量 100、1000 和 10000 条历史下无须删除记录的保留检查；不包含模型推理和页面渲染。`npm run test:webui -- workbench-retention.spec.ts` 验证设置持久化、轨迹清理提示与成员权限。
+
+### 诊断脱敏性能回归
+
+`go test ./internal/debugtrace` 覆盖采集隔离、凭证移除、嵌套 JSON、并发采集和负载限制；保留优化前实现作为测试对照，逐字节比较脱敏内容与状态。`go test ./internal/debugtrace -run '^$' -fuzz '^FuzzSanitizeMatchesReference$' -fuzztime=10s` 扩展边界输入；`go test ./internal/debugtrace -run '^$' -bench '^BenchmarkTraceSanitization$' -benchmem` 测量 50、500 和 2,000 条合成模型输入的脱敏开销，不包含持久化和模型网络调用。

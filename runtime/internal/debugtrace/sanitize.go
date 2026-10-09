@@ -9,6 +9,9 @@ import (
 
 var credentialPattern = regexp.MustCompile(`(?i)\bBearer\s+[a-z0-9._~+/=-]+|\bsk-[a-z0-9_-]{12,}`)
 
+// Replacer is safe for concurrent use; its compiled table is shared by captures.
+var credentialKeySeparators = strings.NewReplacer("_", "", "-", "")
+
 func sanitize(value any, limit int) (json.RawMessage, string) {
 	data, err := json.Marshal(value)
 	if err != nil {
@@ -33,7 +36,7 @@ func sanitize(value any, limit int) (json.RawMessage, string) {
 		switch value := v.(type) {
 		case map[string]any:
 			for key, item := range value {
-				normalized := strings.ToLower(strings.NewReplacer("_", "", "-", "").Replace(key))
+				normalized := strings.ToLower(credentialKeySeparators.Replace(key))
 				switch normalized {
 				case "authorization", "apikey", "password", "secret", "accesstoken", "refreshtoken", "cookie", "setcookie":
 					value[key] = "[REDACTED]"
