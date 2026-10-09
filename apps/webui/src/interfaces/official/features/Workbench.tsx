@@ -18,19 +18,19 @@ import './workbench.css';
 import { contextRoleShares } from './context-role-shares';
 import { DreamInspection } from './DreamInspection';
 
-type Props = { turnID?: string; timezone?: string; enabled: boolean; available: boolean; assistants: Assistant[]; assistantID: string; onSelectAssistant: (id: string) => void; onSettings: () => void };
+type Props = { turnID?: string; eventID?: string; timezone?: string; enabled: boolean; available: boolean; assistants: Assistant[]; assistantID: string; onSelectAssistant: (id: string) => void; onSettings: () => void };
 type Selection = { runID: string; sequence: number; recordID: string } | 'checkpoint' | null;
 export function Workbench(props: Props) {
   const { t } = useCopy();
   if (!props.enabled) return <section className="page page--with-header"><PageHeader title={t.workbench.title} icon={<FlaskConical />} /><div className="page-body"><EmptyState title={t.workbench.disabled} description={props.available ? t.workbench.enableHelp : t.workbench.runtimeDisabled} illustration={<FlaskConical />} action={<Button variant="secondary" onClick={props.onSettings}>{t.nav.settings}</Button>} /></div></section>;
   const assistantID = props.assistantID || props.assistants.find(item => item.State === 'active')?.ID || props.assistants[0]?.ID || '';
   if (!assistantID) return <section className="page page--with-header"><PageHeader title={t.workbench.title} icon={<FlaskConical />} /><div className="page-body"><EmptyState title={t.assistants.none} description={t.workbench.empty} /></div></section>;
-  return <WorkbenchSession key={`${assistantID}:${props.turnID ?? ''}`} {...props} assistantID={assistantID} />;
+  return <WorkbenchSession key={`${assistantID}:${props.turnID ?? ''}:${props.eventID ?? ''}`} {...props} assistantID={assistantID} />;
 }
-function WorkbenchSession({ assistants, assistantID, onSelectAssistant, onSettings, timezone, turnID }: Props) {
+function WorkbenchSession({ assistants, assistantID, onSelectAssistant, onSettings, timezone, turnID, eventID }: Props) {
   const { t } = useCopy(), { invalidateTopics } = useData();
   const trajectory = useTrajectory(assistantID), compact = useBreakpoint('wide');
-  const [follow, setFollow] = useState(!turnID), [selection, setSelection] = useState<Selection>(null), [focusID, setFocusID] = useState<{ id: string }>();
+  const [follow, setFollow] = useState(!turnID && !eventID), [selection, setSelection] = useState<Selection>(null), [focusID, setFocusID] = useState<{ id: string }>();
   const [query, setQuery] = useState(''), [filter, setFilter] = useState('all'), [raw, setRaw] = useState(false), [range, setRange] = useState<AxisRange | null>(null), [axisMode, setAxisMode] = useState<AxisMode>('time');
   const [streaming, setStreaming] = useState(false), [revoked, setRevoked] = useState(false), [confirmStop, setConfirmStop] = useState(false);
   const status = useQuery<AgentStatus>(`/api/assistants/${assistantID}/status`);
@@ -55,9 +55,9 @@ function WorkbenchSession({ assistants, assistantID, onSelectAssistant, onSettin
   }, [invalidateTopics]);
   const [turnLocated, setTurnLocated] = useState(false), [turnMissing, setTurnMissing] = useState(false);
   useEffect(() => {
-    if (!turnID || turnLocated || trajectory.loading || trajectory.loadingOlder || trajectory.error) return;
+    if ((!turnID && !eventID) || turnLocated || trajectory.loading || trajectory.loadingOlder || trajectory.error) return;
     // Runs contains all retained summaries, even when its steps are on older pages.
-    const run = trajectory.runs.find(run => run.ExecutionID === turnID);
+    const run = trajectory.runs.find(run => turnID ? run.ExecutionID === turnID : run.EventID === eventID);
     if (!run) { setTurnMissing(true); setTurnLocated(true); return; }
     const entries = trajectory.entries.filter(entry => entry.RunID === run.ID);
     const start = entries.find(entry => entry.Step.Kind === 'run.start');
@@ -66,7 +66,7 @@ function WorkbenchSession({ assistants, assistantID, onSelectAssistant, onSettin
     const id = `run:${run.ID}`;
     setFollow(false); setSelection({ runID: run.ID, sequence: start?.Step.Sequence ?? entries[0].Step.Sequence, recordID: id });
     setFocusID({ id }); setTurnLocated(true);
-  }, [turnID, turnLocated, trajectory.loading, trajectory.loadingOlder, trajectory.error, trajectory.runs, trajectory.entries, trajectory.older, trajectory.loadOlder]);
+  }, [turnID, eventID, turnLocated, trajectory.loading, trajectory.loadingOlder, trajectory.error, trajectory.runs, trajectory.entries, trajectory.older, trajectory.loadOlder]);
   if (revoked || (trajectory.error instanceof APIError && [401, 403].includes(trajectory.error.status))) return <section className="page page--with-header"><PageHeader title={t.workbench.title} icon={<FlaskConical />} /><div className="page-body"><EmptyState title={t.workbench.disabled} description={t.workbench.enableHelp} action={<Button onClick={onSettings}>{t.nav.settings}</Button>} /></div></section>;
   const changeFollow = (value: boolean) => { setFollow(value); if (value) { setQuery(''); setFilter('all'); setRange(null); setFocusID(undefined); } };
   return <section className="page workbench">
@@ -85,7 +85,7 @@ function WorkbenchSession({ assistants, assistantID, onSelectAssistant, onSettin
       else setSelection({ runID: item.run.ID, sequence: 1, recordID: item.id });
       setFocusID({ id: item.id });
     }} />
-    {turnID && !turnLocated && !trajectory.error && <p className="workbench-turn-notice muted" role="status">{t.workbench.locatingTurn}</p>}
+    {(turnID || eventID) && !turnLocated && !trajectory.error && <p className="workbench-turn-notice muted" role="status">{t.workbench.locatingTurn}</p>}
     {turnMissing && <Alert title={t.workbench.turnNotCaptured} />}
     <ErrorNotice error={trajectory.error} retry={trajectory.reload} />
     <div className="trajectory-controls">

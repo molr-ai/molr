@@ -1,4 +1,4 @@
-import { noticeRoute, useNoticeText } from './system-copy';
+import { useNoticeText } from './system-copy';
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useToast } from '@molr/ui';
@@ -20,7 +20,7 @@ function preferences(key: string): NotificationPreferences {
 type Controls = { preferences: NotificationPreferences; change: (value: Partial<NotificationPreferences>) => void; capability: NotificationCapability; soundState: SoundState; testSound: () => Promise<boolean>; requestPermission: () => Promise<void>; test: () => Promise<boolean> };
 const NotificationContext = createContext<Controls | null>(null);
 export const useNotifications = () => useContext(NotificationContext)!;
-const openRoute = (route: string) => { if (/^#\/(?:assistants(?:\/[A-Za-z0-9_-]{1,128}(?:\?panel=(?:info|permissions|channel|tasks)(?:&task=[A-Za-z0-9_-]{1,128})?)?)|plans\/[A-Za-z0-9_-]{1,128})$/.test(route)) location.hash = route; };
+const openRoute = (route: string) => { if (/^#\/(?:assistants(?:\/[A-Za-z0-9_-]{1,128}(?:\?panel=(?:info|permissions|channel|tasks)(?:&task=[A-Za-z0-9_-]{1,128})?)?)|plans\/[A-Za-z0-9_-]{1,128}|workbench\/[A-Za-z0-9_-]{1,128}\?event=[A-Za-z0-9_-]{1,128})$/.test(route)) location.hash = route; };
 const focused = () => document.visibilityState === 'visible' && document.hasFocus();
 const reading = (id: string) => focused() && location.hash === `#/assistants/${id}` && !document.querySelector('dialog[open]');
 
@@ -43,6 +43,8 @@ export function NotificationProvider({ children, createAdapter = createBrowserNo
   const [soundState, setSoundState] = useState<SoundState>('blocked');
   const current = useRef({ noticeText, value, copy: notificationCopy[locale], toast });
   current.current = { noticeText, value, copy: notificationCopy[locale], toast };
+  const refreshNoticeActions = useRef<() => void>(() => {});
+  useEffect(() => { refreshNoticeActions.current(); }, [noticeText.workbenchEnabled, locale]);
   const adapter = useRef<NotificationAdapter | null>(null), audio = useRef<MessageSound | null>(null);
   const applyPreferences = useRef<(previous: NotificationPreferences, next: NotificationPreferences) => void>(() => {});
   function change(patch: Partial<NotificationPreferences>) {
@@ -56,9 +58,14 @@ export function NotificationProvider({ children, createAdapter = createBrowserNo
     let noticeBaseline: Set<string> | null = null;
     let active = true;
     const controller = new AbortController(), claims = new NotificationClaims();
-    const device = createAdapter(account, openRoute); adapter.current = device;
+    const openNoticeRoute = (route: string) => {
+      if (route.startsWith('#/workbench/') && !current.current.noticeText.workbenchEnabled) return;
+      openRoute(route);
+    };
+    const device = createAdapter(account, openNoticeRoute); adapter.current = device;
     const sound = new MessageSound(state => { if (active) setSoundState(state); }); audio.current = sound; setSoundState(sound.state());
     const toasts = new Map<string, number>(), pending = new Map<string, { assistant: Assistant; messages: Message[]; timer: ReturnType<typeof setTimeout> }>();
+    const executionToasts = new Map<string, { id: number; notice: SystemNotice }>();
     const noticeGroups = new Map<string,string>();
     const suppressed = new Set<string>(), revisions = new Map<string, number>();
     let revision = 0;
@@ -70,9 +77,25 @@ export function NotificationProvider({ children, createAdapter = createBrowserNo
     function close(conversation?: string) {
       if (conversation) revisions.set(conversation, (revisions.get(conversation) ?? 0) + 1); else revision++;
       void device.close(conversation);
+      if (conversation) executionToasts.delete(conversation); else executionToasts.clear();
       for (const [id, entry] of toasts) if (!conversation || conversation === id) { current.current.toast.dismiss(entry); toasts.delete(id); }
       for (const [id, entry] of pending) if (!conversation || conversation === id) { clearTimeout(entry.timer); pending.delete(id); }
     }
+    function noticeToastAction(n: SystemNotice) {
+      const target = current.current.noticeText.action(n);
+      return target && { label: target.label, onClick: () => {
+        const latest = current.current.noticeText.action(n);
+        if (!latest) return;
+        void api.post('/api/notifications/update', { IDs: [n.ID], Action: 'read' }).catch(() => {});
+        openNoticeRoute(latest.route);
+      } };
+    }
+    refreshNoticeActions.current = () => {
+      for (const { id, notice } of executionToasts.values()) current.current.toast.update(id, { action: noticeToastAction(notice) });
+      if (!current.current.noticeText.workbenchEnabled) {
+        for (const [group, tag] of noticeGroups) if (group.startsWith('notice-group:execution.failed:')) void device.close(tag);
+      }
+    };
     applyPreferences.current = (previous, next) => {
       if (!next.enabled || previous.preview && !next.preview) close();
       if (!next.enabled || !next.sound) sound.stop();
@@ -133,21 +156,23 @@ export function NotificationProvider({ children, createAdapter = createBrowserNo
         if(!active)return;
         if(n.ReadAt||n.DismissedAt||n.ResolvedAt){close(tag);return;}
         const prefs=current.current.value;
-        if(!prefs.enabled||!noticeBaseline||noticeBaseline.has(n.ID)||focused()&&(n.AssistantID&&reading(n.AssistantID)||location.hash===noticeRoute(n)))return;
+        if(!prefs.enabled||!noticeBaseline||noticeBaseline.has(n.ID)||focused()&&(n.AssistantID&&reading(n.AssistantID)||location.hash===current.current.noticeText.action(n)?.route))return;
         if(!await claims.claim(account,tag,1)||!active)return;
         const group=`notice-group:${n.Kind}:${n.AssistantID||n.Source.ID}`;
         if(!await claims.claim(account,group,Math.floor(Date.now()/5000))||canceled())return;
         const latest=await api.get<SystemNotice>(`/api/notifications/${id}`,controller.signal);
         if(canceled()||latest.ReadAt||latest.DismissedAt||latest.ResolvedAt||!current.current.value.enabled)return;
         const previous=noticeGroups.get(group);if(previous&&previous!==tag)close(previous);noticeGroups.set(group,tag);
-        const content=current.current.noticeText.text(n), route=noticeRoute(n);
+        const content=current.current.noticeText.text(n), route=current.current.noticeText.action(n)?.route ?? '';
         const title=prefs.preview?content.title:'Molr',body=prefs.preview?content.description:current.current.noticeText.copy.unknown;
         if(prefs.sound&&sound.state()==='ready'&&await claims.claimSound(account)&&!canceled())sound.play();
         if(canceled())return;
         if(!focused()&&prefs.system&&device.capability()==='granted'){
           try{await device.show({tag,title,body,route,silent:true});if(canceled())await device.close(tag);return;}catch{/* Fall back to an in-app reminder. */}
         }
-        toasts.set(tag,current.current.toast.toast({title,description:body,duration:8000,action:{label:current.current.noticeText.copy.open,onClick:()=>{void api.post('/api/notifications/update',{IDs:[n.ID],Action:'read'}).catch(()=>{});openRoute(route);}}}));
+        const toastID = current.current.toast.toast({ title, description: body, duration: 8000, action: noticeToastAction(n) });
+        toasts.set(tag, toastID);
+        if (n.Kind === 'execution.failed') executionToasts.set(tag, { id: toastID, notice: n });
       }catch{/* Never display inaccessible or stale data. */}
     }
     async function event(event: RuntimeEvent) {
@@ -174,7 +199,7 @@ export function NotificationProvider({ children, createAdapter = createBrowserNo
     }
     const unsubscribe = subscribeEvents(event);
     return () => {
-      active = false; clearTimeout(retryNotices); unsubscribe(); controller.abort(); channel?.close(); claims.close(); close(); sound.dispose(); audio.current = null; device.dispose(); adapter.current = null;
+      active = false; refreshNoticeActions.current = () => {}; clearTimeout(retryNotices); unsubscribe(); controller.abort(); channel?.close(); claims.close(); close(); sound.dispose(); audio.current = null; device.dispose(); adapter.current = null;
       window.removeEventListener('click', unlockSound); window.removeEventListener('keydown', unlockSound);
       window.removeEventListener('focus', sync); document.removeEventListener('visibilitychange', sync); window.removeEventListener('storage', storage);
     };

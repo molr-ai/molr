@@ -20,7 +20,7 @@ export function createBrowserNotifications(account: string, open: (route: string
     return value;
   }).catch(error => { registration = undefined; throw error; });
   const clicked = (event: MessageEvent) => {
-    if (event.data?.type === 'molr.notification.open' && event.data.account === account && /^#\/(?:assistants(?:\/[A-Za-z0-9_-]{1,128}(?:\?panel=(?:info|permissions|channel|tasks)(?:&task=[A-Za-z0-9_-]{1,128})?)?)|plans\/[A-Za-z0-9_-]{1,128})$/.test(event.data.route)) open(event.data.route);
+    if (event.data?.type === 'molr.notification.open' && event.data.account === account && /^#\/(?:assistants(?:\/[A-Za-z0-9_-]{1,128}(?:\?panel=(?:info|permissions|channel|tasks)(?:&task=[A-Za-z0-9_-]{1,128})?)?)|plans\/[A-Za-z0-9_-]{1,128}|workbench\/[A-Za-z0-9_-]{1,128}\?event=[A-Za-z0-9_-]{1,128})$/.test(event.data.route)) open(event.data.route);
   };
   navigator.serviceWorker?.addEventListener('message', clicked);
   async function close(tag?: string) {
@@ -49,7 +49,7 @@ export function createBrowserNotifications(account: string, open: (route: string
       } else {
         active.get(value.tag)?.close();
         const notification = new Notification(value.title, { body: value.body, tag: prefix + value.tag, silent: value.silent ?? true });
-        notification.onclick = () => { if (!disposed) { window.focus(); open(value.route); notification.close(); } };
+        notification.onclick = () => { if (!disposed) { if (value.route) { window.focus(); open(value.route); } notification.close(); } };
         active.set(value.tag, notification);
       }
     },

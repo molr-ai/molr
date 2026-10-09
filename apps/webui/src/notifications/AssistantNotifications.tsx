@@ -5,7 +5,7 @@ import { api } from '../api/client';
 import { useCopy, useData, useQuery } from '../state';
 import { ErrorNotice, useAction } from '../interfaces/official/components/common';
 import { AssistantWaitingNotice } from '../interfaces/official/features/AssistantWaitingNotice';
-import { noticeRoute, useNoticeText } from './system-copy';
+import { useNoticeText } from './system-copy';
 import './assistant-notifications.css';
 
 export function AssistantNotifications({ assistant, status, onAction, onNavigate }: {
@@ -13,7 +13,7 @@ export function AssistantNotifications({ assistant, status, onAction, onNavigate
  onAction: (kind: 'info' | 'permissions' | 'channel') => void;
  onNavigate: (kind: string, id: string) => void;
 }) {
- const { copy, text } = useNoticeText(), { t } = useCopy(), { invalidateTopics } = useData(), action = useAction();
+ const { copy, text, action: noticeAction } = useNoticeText(), { t } = useCopy(), { invalidateTopics } = useData(), action = useAction();
  const models = useQuery<Model[]>('/api/models');
  const query = useQuery<SystemNotice[]>(`/api/notifications?filter=active&assistant_id=${assistant.ID}&limit=100`, true);
  const [currentID, setCurrentID] = useState('');
@@ -31,7 +31,8 @@ export function AssistantNotifications({ assistant, status, onAction, onNavigate
  }, [current?.ID]);
  if (!current) return <><ErrorNotice error={action.error || query.error} retry={query.reload}/>{status?.ModelRetry && <AssistantWaitingNotice assistant={assistant} status={status} />}</>;
  const n = current, content = text(n);
- let label = copy.open, open = () => { location.hash = noticeRoute(n); };
+ const target = noticeAction(n);
+ let label = target?.label ?? copy.open, open = () => { if (target) location.hash = target.route; };
  if (n.Kind.startsWith('weixin.')) open = () => onAction('channel');
  else if (n.Kind === 'permission.request' || n.Code === 'model_not_authorized') { label = t.waiting.permissions; open = () => onAction('permissions'); }
  else if (n.Kind === 'assistant.waiting') {
@@ -52,7 +53,7 @@ export function AssistantNotifications({ assistant, status, onAction, onNavigate
  }
  return <section ref={region} className="assistant-notifications" aria-label={copy.queue} data-notification-id={n.ID}>
   <ErrorNotice error={action.error || query.error} retry={query.reload}/>
-  <Alert key={n.ID} className="assistant-notice" title={content.title} tone={n.Severity} onDismiss={() => { if (!action.busy) void update('dismiss'); }} action={<div className="form-actions"><Button size="sm" variant="secondary" onClick={() => { void update('read'); open(); }}>{label}</Button>{rows.length > 1 && <small>{copy.remaining(rows.length - 1)}</small>}</div>}>
+  <Alert key={n.ID} className="assistant-notice" title={content.title} tone={n.Severity} onDismiss={() => { if (!action.busy) void update('dismiss'); }} action={(target || rows.length > 1) && <div className="form-actions">{target && <Button size="sm" variant="secondary" onClick={() => { void update('read'); open(); }}>{label}</Button>}{rows.length > 1 && <small>{copy.remaining(rows.length - 1)}</small>}</div>}>
    {content.description && <p>{content.description}</p>}{content.help && <p className="assistant-notice__help">{content.help}</p>}
   </Alert>
  </section>;

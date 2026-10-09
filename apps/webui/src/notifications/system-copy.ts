@@ -1,6 +1,6 @@
-import type { SystemNotice } from '@molr/sdk';
+import type { RuntimeInfo, Settings, SystemNotice } from '@molr/sdk';
 import { weixinCopy } from '../weixin-copy';
-import { useCopy } from '../state';
+import { useCopy, useQuery } from '../state';
 
 export const systemCopy = {
  zh: { queue: '助理提醒', open: '查看详情', unknown: '有一条需要关注的通知', failed: '后台执行失败', permission: '有新的授权请求', ready: '计划已可交接', connection: '微信需要重新连接', remaining: (n:number) => `还有 ${n} 条提醒` },
@@ -8,7 +8,12 @@ export const systemCopy = {
 };
 export function useNoticeText() {
  const { t, locale } = useCopy(), copy = systemCopy[locale], weixin = weixinCopy[locale];
- return { copy, text: (n:SystemNotice) => {
+ const runtime = useQuery<RuntimeInfo>('/api/status'), settings = useQuery<Settings>('/api/settings');
+ const workbenchEnabled = !!runtime.data?.workbench_available && !!settings.data?.WorkbenchEnabled;
+ return { copy, workbenchEnabled, action: (n: SystemNotice) => {
+  const route = noticeRoute(n, workbenchEnabled);
+  return route ? { route, label: n.Kind === 'execution.failed' ? t.turnMetrics.viewWorkbench : copy.open } : undefined;
+ }, text: (n:SystemNotice) => {
   if(n.Kind==='weixin.delivery') { const [state,error]=n.Code.split(':');return { title:weixin.delivery, description:state==='failed'&&error==='rate_limited'?weixin.retryExhausted:weixin.deliveryErrors[error as keyof typeof weixin.deliveryErrors]??weixin.deliveries[state as keyof typeof weixin.deliveries]??state, help:state==='unknown'?weixin.deliveryHelp:'' }; }
   if(n.Kind==='weixin.connection')return {title:copy.connection,description:weixin.states.login_required};
   if(n.Kind==='assistant.waiting')return {title:t.waiting.title,description:(t.waiting.reasons as Record<string,string>)[n.Code]??t.waiting.unknown};
@@ -16,9 +21,11 @@ export function useNoticeText() {
   return {title:({'permission.request':copy.permission,'plan.ready':copy.ready,'task.failed':copy.failed,'execution.failed':copy.failed} as Record<string,string>)[n.Kind]??copy.unknown,description:n.Label||''};
  } };
 }
-export function noticeRoute(n:SystemNotice) {
+export function noticeRoute(n:SystemNotice, workbenchEnabled = false) {
  if(n.Kind==='plan.ready')return `#/plans/${n.Source.ID}`;
- if(n.Kind==='execution.failed'&&n.AssistantID)return `#/assistants/${n.AssistantID}`;
+ // Source.ID is the triggering event ID, not an ExecutionID. The workbench
+ // resolves it against retained runs before loading the corresponding steps.
+ if(n.Kind==='execution.failed')return workbenchEnabled && n.AssistantID && n.Source.ID ? `#/workbench/${n.AssistantID}?event=${n.Source.ID}` : '';
  if(n.Kind==='task.failed'&&n.AssistantID)return `#/assistants/${n.AssistantID}?panel=tasks&task=${n.Source.ID}`;
  if(n.AssistantID){const panel=n.Kind.startsWith('weixin.')?'channel':n.Kind==='permission.request'?'permissions':n.Kind==='assistant.waiting'?'info':'tasks';return `#/assistants/${n.AssistantID}?panel=${panel}`;}
  return '#/assistants';

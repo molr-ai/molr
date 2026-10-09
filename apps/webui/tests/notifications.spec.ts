@@ -246,7 +246,7 @@ test('notification adapter cancels pending delivery, scopes cleanup and validate
     navigator.serviceWorker.dispatchEvent(new MessageEvent('message', { data: { type: 'molr.notification.open', account: 'other', route: '#/assistants/one' } }));
     navigator.serviceWorker.dispatchEvent(new MessageEvent('message', { data: { type: 'molr.notification.open', account: 'account', route: 'https://evil.invalid' } }));
     navigator.serviceWorker.dispatchEvent(new MessageEvent('message', { data: { type: 'molr.notification.open', account: 'account', route: '#/assistants/two' } }));
-    for (const route of ['#/plans/plan1', '#/assistants/two?panel=channel', '#/assistants/two?panel=tasks&task=task1', '#/notifications/old', '#/account/security', '#/plans/../../account']) {
+    for (const route of ['#/plans/plan1', '#/assistants/two?panel=channel', '#/assistants/two?panel=tasks&task=task1', '#/workbench/two?event=event1', '#/workbench/two?event=../../account', '#/workbench/two?event=event1&redirect=evil', '#/workbench/two?event=', '#/notifications/old', '#/account/security', '#/plans/../../account']) {
       navigator.serviceWorker.dispatchEvent(new MessageEvent('message', { data: { type: 'molr.notification.open', account: 'account', route } }));
     }
     await adapter.close(); adapter.dispose();
@@ -254,5 +254,5 @@ test('notification adapter cancels pending delivery, scopes cleanup and validate
   });
   expect(result.canceled).toBe(true); expect(result.shown).toBe(1);
   expect(result.closed).toContain('molr:account:one'); expect(result.closed).toContain('molr:account:two');
-  expect(result.closed).not.toContain('molr:other:one'); expect(result.routes).toEqual(['#/assistants/two', '#/plans/plan1', '#/assistants/two?panel=channel', '#/assistants/two?panel=tasks&task=task1']);
+  expect(result.closed).not.toContain('molr:other:one'); expect(result.routes).toEqual(['#/assistants/two', '#/plans/plan1', '#/assistants/two?panel=channel', '#/assistants/two?panel=tasks&task=task1', '#/workbench/two?event=event1']);
 });
