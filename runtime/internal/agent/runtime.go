@@ -599,9 +599,9 @@ resume:
 					continue
 				}
 			}
-			// A committed model response may precede its local progress write.
-			// Preserve that request's exact inputs/definitions for replay; a
-			// pending expedite will supersede it before any tools are started.
+			// Persist the exact inputs before dispatch. If no response reaches
+			// the checkpoint, a later attempt can repeat the request; a pending
+			// expedite supersedes it before any tools are started.
 
 			if err := e.saveProgress(runCtx, t, &progress); err != nil {
 				return Outcome{}, err

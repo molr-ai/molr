@@ -13,7 +13,7 @@ import (
 func TestModelDetailProjectsSharedContextAndPrunesReferences(t *testing.T) {
 	s, p, now := fixture(t)
 	s.options.MaxRuns = 1
-	inputs := []map[string]any{{"Role": "user", "Text": "input"}, {"Role": "assistant", "Text": "shared model answer", "Calls": []any{}, "ProviderState": map[string]any{"Payload": map[string]any{"reasoning_content": "shared reasoning"}}}}
+	inputs := []map[string]any{{"Role": "user", "Text": "input"}, {"Role": "assistant", "Text": "shared model answer", "Calls": []any{}, "ProviderState": map[string]any{"Payload": map[string]any{"reasoning_content": "shared reasoning", "tool_calls": []any{map[string]any{"function": map[string]any{"arguments": `{ "z": 2, "a": 1 }`}}}}}}}
 	ref := contextstore.Reference{OwnerID: p.OwnerID, AssistantID: "assistant", Kind: "checkpoint", ID: "assistant"}
 	if err := s.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
 		return contextstore.Save(ctx, tx, ref, map[string]any{"Inputs": inputs})

@@ -75,3 +75,24 @@ func FuzzSanitizeMatchesReference(f *testing.F) {
 		}
 	})
 }
+
+func TestSanitizePreservesUnchangedJSONStringPrefixes(t *testing.T) {
+	value := `{ "z": 2, "a": { "text": "hello" } }`
+	for _, payload := range []any{value, map[string]any{"secret": "remove", "Inputs": []any{map[string]any{"Role": "tool", "Text": value}}}} {
+		raw, status := sanitize(payload, 4096)
+		var result any
+		if err := json.Unmarshal(raw, &result); err != nil {
+			t.Fatal(err)
+		}
+		if text, ok := result.(string); ok {
+			if text != value || status != "captured" {
+				t.Fatal("unchanged JSON string rewritten", string(raw))
+			}
+		} else {
+			row := result.(map[string]any)
+			if row["secret"] != "[REDACTED]" || row["Inputs"].([]any)[0].(map[string]any)["Text"] != value || status != "redacted" {
+				t.Fatal("sibling redaction changed context", string(raw))
+			}
+		}
+	}
+}

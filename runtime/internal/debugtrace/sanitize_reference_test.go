@@ -1,4 +1,4 @@
-// Pre-optimization reference used only to check redaction compatibility.
+// Reference with per-field key normalization, used to check redaction semantics.
 package debugtrace
 
 import (
@@ -52,8 +52,16 @@ func legacySanitize(value any, limit int) (json.RawMessage, string) {
 			nestedDecoder := json.NewDecoder(strings.NewReader(value))
 			nestedDecoder.UseNumber()
 			if (strings.HasPrefix(value, "{") || strings.HasPrefix(value, "[")) && nestedDecoder.Decode(&nested) == nil {
-				encoded, _ := json.Marshal(walk(nested, depth+1))
-				value = string(encoded)
+				// Keep untouched JSON strings byte-for-byte so context prefixes
+				// remain reusable across checkpoint and diagnostic references.
+				prior := redacted
+				redacted = false
+				clean := walk(nested, depth+1)
+				if redacted {
+					encoded, _ := json.Marshal(clean)
+					value = string(encoded)
+				}
+				redacted = redacted || prior
 			}
 			clean := legacyCredentialPattern.ReplaceAllString(value, "[REDACTED]")
 			if clean != value {
