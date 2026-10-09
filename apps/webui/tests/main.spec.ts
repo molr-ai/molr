@@ -64,7 +64,7 @@ test('real authentication restores across reload and tabs; proxy preserves CSRF 
   const bad = await page.request.post('/api/todos', { headers: { Origin: 'https://attacker.invalid', 'X-CSRF-Token': cookies.find(c => c.name === csrfCookie)!.value }, data: {} });
   expect(bad.status()).toBe(403);
   const missing = await page.request.post('/api/todos', { headers: { Origin: base }, data: {} }); expect(missing.status()).toBe(403);
-  await page.getByRole('navigation').getByRole('button', { name: 'User settings', exact: true }).click();
+  await page.evaluate(() => { location.hash = '#/account/security'; });
   await openSettingsSection(page, 'Security'); await page.getByRole('button', { name: 'Sign out', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
   await expect(second.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible({ timeout: 15000 });
@@ -100,9 +100,11 @@ test('model setup, automatic hire permission, real agent reply, attachments and 
   await hire.getByRole('spinbutton', { name: 'Spending limit (USD)', exact: true }).fill('0');
   await hire.getByRole('button', { name: 'Hire new assistant', exact: true }).click(); await expect(hire).not.toBeVisible();
   await expect(page.locator('.chat-header h1')).toHaveText(assistantName);
+  await expect(page.locator('.ui-chat-message--assistant')).toHaveCount(1); // Born greeting completes before testing the user reply.
   await page.getByRole('textbox', { name: 'Message your assistant', exact: true }).fill('Please acknowledge this real message.');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
-  const reply = page.getByRole('log', { name: 'Assistant conversation' }).getByText('Runtime delivered this reply through conversation_publish.', { exact: true });
+  await expect(page.locator('.ui-chat-message--assistant')).toHaveCount(2);
+  const reply = page.getByRole('log', { name: 'Assistant conversation' }).getByText('Runtime delivered this reply through conversation_publish.', { exact: true }).last();
   await expect(reply).toBeVisible({ timeout: 20000 });
   await expect(page.getByText('Internal reasoning is not a chat message.', { exact: true })).toHaveCount(0);
   const replyArticle = page.locator('.ui-chat-message--assistant').last();
@@ -1411,7 +1413,7 @@ test('fast pages skip skeletons, slow first reads show them, and revisits retain
   const todo = await post(page, '/api/todos', { Title: title });
   await pauseLoadingClock(page);
   const quick = await holdRead(page, '**/api/plans?*');
-  await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await quick.started;
+  await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await page.getByRole('button', { name: /^No date/ }).click(); await quick.started;
   await page.clock.runFor(100); await expect(page.locator('.ui-skeleton')).toHaveCount(0);
   await quick.release(); await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
   await page.clock.runFor(500); await expect(page.locator('.ui-skeleton')).toHaveCount(0);
@@ -1419,12 +1421,12 @@ test('fast pages skip skeletons, slow first reads show them, and revisits retain
   const updatedTitle = `${title} updated`;
   await post(page, '/api/todos/update', { ID: todo.ID, Title: updatedTitle, Mutation: { ExpectedVersion: todo.Version, IdempotencyKey: crypto.randomUUID() } }, false);
   const revisit = await holdRead(page, '**/api/plans?*');
-  await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await revisit.started;
+  await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await page.getByRole('button', { name: /^No date/ }).click(); await revisit.started;
   await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
   await page.clock.runFor(1000); await expect(page.locator('.ui-skeleton')).toHaveCount(0);
   await revisit.release(); await expect(page.getByRole('heading', { name: updatedTitle, exact: true })).toBeVisible();
   const slow = await holdRead(page, '**/api/plans?*');
-  await page.getByRole('group', { name: 'Plan view' }).getByRole('button', { name: 'Calendar', exact: true }).click(); await page.getByRole('button', { name: 'Next 3 months', exact: true }).click(); await slow.started;
+  await page.getByRole('group', { name: 'Plan view' }).getByRole('button', { name: 'Calendar', exact: true }).click(); await page.getByRole('button', { name: 'Next month', exact: true }).click(); await slow.started;
   await page.clock.runFor(250); await expect(page.locator('.ui-skeleton')).toHaveCount(0);
   await page.clock.runFor(100); await expect(page.locator('.ui-skeleton').first()).toBeVisible();
   if (info.project.name === 'desktop') await expect(page.locator('.ui-skeleton').first()).toHaveCSS('background-image', /linear-gradient/);
@@ -1434,21 +1436,21 @@ test('fast pages skip skeletons, slow first reads show them, and revisits retain
 test('cached content is discarded on access denial and when disconnecting', async ({ page }, info) => {
   await login(page); const title = `Private snapshot ${info.project.name}-${Date.now()}`;
   await post(page, '/api/todos', { Title: title });
-  await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await page.getByRole('button', { name: /^No date/ }).click();
   await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
   await page.getByRole('navigation').getByRole('button', { name: 'Resources', exact: true }).click();
   await page.route('**/api/plans?*', route => route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ code: 'forbidden' }) }));
-  await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await page.getByRole('button', { name: /^No date/ }).click();
   await expect(page.getByRole('alert')).toContainText('Permission or security verification failed');
   await expect(page.getByRole('heading', { name: title, exact: true })).toHaveCount(0);
   await page.unroute('**/api/plans?*');
   await page.getByRole('navigation').getByRole('button', { name: 'Resources', exact: true }).click();
   const denied = await holdRead(page, '**/api/plans?*');
-  await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await denied.started;
+  await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await page.getByRole('button', { name: /^No date/ }).click(); await denied.started;
   await expect(page.getByRole('heading', { name: title, exact: true })).toHaveCount(0);
   await expect(page.locator('.ui-skeleton').first()).toBeVisible();
   await denied.release(); await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
-  await page.getByRole('navigation').getByRole('button', { name: 'User settings', exact: true }).click();
+  await page.evaluate(() => { location.hash = '#/account/connection'; });
   await openSettingsSection(page, 'Connection');
   await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
@@ -1459,7 +1461,7 @@ test('cached content is discarded on access denial and when disconnecting', asyn
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('navigation', { name: 'Molr' })).toBeVisible();
   const fresh = await holdRead(page, '**/api/plans?*');
-  await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await fresh.started;
+  await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await page.getByRole('button', { name: /^No date/ }).click(); await fresh.started;
   await expect(page.getByRole('heading', { name: title, exact: true })).toHaveCount(0);
   await expect(page.locator('.ui-skeleton').first()).toBeVisible();
   await fresh.release(); await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();

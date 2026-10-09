@@ -85,6 +85,7 @@ Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugi
 | GET | `/api/admin/usage` |
 | GET | `/api/admin/users` |
 | GET | `/api/assistants` |
+| GET | `/api/assistants/activity` |
 | GET | `/api/assistants/groups` |
 | GET | `/api/assistants/{id}` |
 | GET | `/api/assistants/{id}/capabilities` |
@@ -413,3 +414,9 @@ WebUI 支持上传 10 MB / 4000 万像素以内的 PNG、JPEG、WebP，浏览器
 - `POST /api/notifications/update`：`{ "IDs": ["通知ID"], "Action": "read" | "dismiss" }`，一次最多 100 个 ID，整批事务提交。重复确认无额外效果；忽略同时记录已读，不改变业务源状态。接口沿用会话、Origin 和 CSRF 校验，不能创建通知或客户端标记已解决。
 
 记录包含 `Kind`、`Code`、`Source`、`AssistantID`、`Label`、`Severity`、创建／更新时间、`ReadAt`、`DismissedAt`、`ResolvedAt`、`Version`。来源变化通过 `notification.changed` SSE 事件通知刷新；断线期间的通知可经列表恢复。
+
+### 助理列表活动摘要
+
+`GET /api/assistants/activity` 返回当前账号活跃助理的分页摘要，使用通用 `limit`（默认 50，最大 200）与 `cursor`，返回 `Items`、`NextCursor`。每项包含 `AssistantID`、`ConversationID`、`Dreaming` 和可空的 `Preview: { Kind, Text }`。文本合并空白后保留前 80 个 Unicode 字符，超出部分以省略号表示；卡片取标题或摘要，空文本由客户端按类型显示占位文案。解雇助理不包含在结果中。
+
+该接口沿用助理与会话服务的账号归属检查。执行状态按本页明确授权的助理键批量投影，只读取做梦判断所需字段，每页检查一次运行环境；不加载上下文、加急或中断详情。消息只查询各会话最新一条，不遍历历史。当前聊天的完整状态仍使用 `/api/assistants/{id}/status`。

@@ -24,6 +24,7 @@ import (
 // reflection or arbitrary method name can invoke internal execution methods.
 func (s *HTTPServer) businessRoutes() {
 	s.weixinRoutes()
+	s.handle("GET /api/assistants/activity", s.assistantActivity)
 	s.handle("GET /api/plans/events", func(r *http.Request) (any, error) {
 		q := r.URL.Query()
 		from, err := time.Parse(time.RFC3339Nano, q.Get("from"))

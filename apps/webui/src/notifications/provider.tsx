@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { useToast } from '@molr/ui';
 import type { Assistant, Conversation, Message, Page, SystemNotice } from '@molr/sdk';
 import { api } from '../api/client';
-import { useCopy, useData, useSession } from '../state';
+import { useCopy, useData, useQuery, useSession } from '../state';
 import { createBrowserNotifications } from './browser';
 import { NotificationClaims } from './coordinator';
 import { MessageSound } from './sound';
@@ -27,6 +27,17 @@ const reading = (id: string) => focused() && location.hash === `#/assistants/${i
 export function NotificationProvider({ children, createAdapter = createBrowserNotifications }: { children: ReactNode; createAdapter?: typeof createBrowserNotifications }) {
   const noticeText = useNoticeText();
   const account = useSession().principal!.OwnerID, key = `molr-notifications:${account}`;
+  const conversations = useQuery<Conversation[]>('/api/conversations', true);
+  const baseline = useRef<Map<string, number> | null>(null);
+  useEffect(() => {
+    // Capture only the first authorized snapshot. Updating this baseline on
+    // every live refresh could suppress a new message before it is notified.
+    if (!baseline.current && conversations.data) baseline.current = new Map(conversations.data.map(item => [item.ID, item.LastSequence]));
+    if (!baseline.current && conversations.error) {
+      const timer = setTimeout(conversations.reload, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [conversations.data, conversations.error, conversations.reload]);
   const { subscribeEvents } = useData(), { locale } = useCopy(), toast = useToast();
   const [value, setValue] = useState(() => preferences(key)), [capability, setCapability] = useState<NotificationCapability>('unsupported');
   const [soundState, setSoundState] = useState<SoundState>('blocked');
@@ -43,7 +54,7 @@ export function NotificationProvider({ children, createAdapter = createBrowserNo
   }
   useEffect(() => {
     let noticeBaseline: Set<string> | null = null;
-    let active = true, baseline: Map<string, number> | null = null;
+    let active = true;
     const controller = new AbortController(), claims = new NotificationClaims();
     const device = createAdapter(account, openRoute); adapter.current = device;
     const sound = new MessageSound(state => { if (active) setSoundState(state); }); audio.current = sound; setSoundState(sound.state());
@@ -75,12 +86,6 @@ export function NotificationProvider({ children, createAdapter = createBrowserNo
     function sync() { if (active) setCapability(device.capability()); }
     function storage(event: StorageEvent) { if (event.key === key || event.key === null) { const previous = current.current.value, next = preferences(key); current.current.value = next; setValue(next); applyPreferences.current(previous, next); } }
     window.addEventListener('focus', sync); document.addEventListener('visibilitychange', sync); window.addEventListener('storage', storage); sync();
-    // Snapshot before considering events: history/replay never becomes a new alert.
-    let retryBaseline: ReturnType<typeof setTimeout> | undefined;
-    function initialize() {
-      void api.all<Conversation>('/api/conversations', controller.signal).then(items => { if (active) baseline = new Map(items.map(item => [item.ID, item.LastSequence])); }, () => { if (active) retryBaseline = setTimeout(initialize, 5000); });
-    }
-    initialize();
     let retryNotices: ReturnType<typeof setTimeout> | undefined;
     function initializeNotices() {
       void api.all<SystemNotice>('/api/notifications?filter=active', controller.signal).then(items => {
@@ -149,14 +154,14 @@ export function NotificationProvider({ children, createAdapter = createBrowserNo
       if(event.Topic==='notification.changed'&&event.Object?.ID){await deliverNotice(event.Object.ID);return;}
       if (event.Topic === 'conversation.read') { const id = event.ConversationID ?? event.Object?.ID; if (id) close(id); return; }
       const prefs = current.current.value, conversation = event.ConversationID, id = event.Object?.ID;
-      if (!baseline || !prefs.enabled || event.Topic !== 'message.created' || !conversation || !id) return;
+      if (!baseline.current || !prefs.enabled || event.Topic !== 'message.created' || !conversation || !id) return;
       try {
         const [page, assistants] = await Promise.all([
           api.get<Page<Message>>(`/api/conversations/${encodeURIComponent(conversation)}/messages?message_id=${encodeURIComponent(id)}`, controller.signal),
           api.all<Assistant>('/api/assistants', controller.signal),
         ]);
         const message = page.Items?.find(item => item.ID === id), assistant = assistants.find(item => item.ConversationID === conversation);
-        if (!active || !message || message.Sender !== 'assistant' || message.Content.Card?.Kind === 'permission_request' || message.Sequence <= (baseline.get(conversation) ?? 0) || !assistant || assistant.State !== 'active') return;
+        if (!active || !message || message.Sender !== 'assistant' || message.Content.Card?.Kind === 'permission_request' || message.Sequence <= (baseline.current?.get(conversation) ?? 0) || !assistant || assistant.State !== 'active') return;
         let batch = pending.get(conversation);
         if (!batch) {
           suppressed.delete(conversation);
@@ -169,7 +174,7 @@ export function NotificationProvider({ children, createAdapter = createBrowserNo
     }
     const unsubscribe = subscribeEvents(event);
     return () => {
-      active = false; clearTimeout(retryBaseline); clearTimeout(retryNotices); unsubscribe(); controller.abort(); channel?.close(); claims.close(); close(); sound.dispose(); audio.current = null; device.dispose(); adapter.current = null;
+      active = false; clearTimeout(retryNotices); unsubscribe(); controller.abort(); channel?.close(); claims.close(); close(); sound.dispose(); audio.current = null; device.dispose(); adapter.current = null;
       window.removeEventListener('click', unlockSound); window.removeEventListener('keydown', unlockSound);
       window.removeEventListener('focus', sync); document.removeEventListener('visibilitychange', sync); window.removeEventListener('storage', storage);
     };

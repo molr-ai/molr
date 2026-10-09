@@ -28,7 +28,7 @@ export function useMessageFeedback(message: Message, revision: number) {
     setLocal({ value: next, revision, pending: direction });
     try {
       await api.mutate('/api/conversations/feedback', { MessageID: message.ID, Value: next === 'up' ? 'like' : next === 'down' ? 'dislike' : 'none' });
-      const confirmedRevision = invalidateMessage(message.ID);
+      const confirmedRevision = invalidateMessage(message.ID, message.ConversationID);
       if (mounted.current) setLocal({ value: next, revision: confirmedRevision });
     } catch {
       if (mounted.current) {
@@ -36,7 +36,7 @@ export function useMessageFeedback(message: Message, revision: number) {
         toast({ title: t.chat.feedbackFailed, tone: 'danger' });
       }
       // A lost response may still have committed; reconcile with Runtime.
-      invalidateMessage(message.ID);
+      invalidateMessage(message.ID, message.ConversationID);
     } finally { writing.current = false; }
   }
   return { feedback: value, feedbackPending: local?.pending, onFeedback: change };

@@ -281,3 +281,5 @@
 | `internal/im/conversation` | `OutboxSignal` | `TestOutboxSignalsOnlyCommittedNewMessages` |
 
 | `internal/notification` | `Unresolved` | `internal/business/plan.TestFilteredHandoffsStillResolveNotices` |
+
+| `internal/agent` | `Engine.Activities`, `Observer.Activities`, `Runtime.Activities` | `TestActivitiesBoundedProjectionAndDreamDeadline` |

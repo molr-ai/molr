@@ -113,3 +113,6 @@ export type WeixinLogin = { ID: ID; Status: 'wait' | 'scaned' | 'confirmed' | 'a
 
 export type SystemNotice = { ID: ID; OwnerID: ID; Kind: string; Code: string; Source: { Kind: string; ID: ID }; AssistantID: ID; Label: string; Severity: 'neutral' | 'warning' | 'danger'; CreatedAt: string; UpdatedAt: string; ReadAt: string | null; DismissedAt: string | null; ResolvedAt: string | null; Version: number };
 export type NotificationPage = { Items: SystemNotice[]; NextCursor: string; UnreadCount: number; PendingCount: number };
+
+/** Bounded assistant-list projection; it contains no execution internals. */
+export type AssistantActivity = { AssistantID: ID; ConversationID: ID; Dreaming: boolean; Preview: { Kind: 'text' | 'card'; Text: string } | null };

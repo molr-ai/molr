@@ -1,6 +1,6 @@
 import type { RuntimeEvent } from './notifications/types';
 import { TurnMetricsCache } from './turn-metrics-cache';
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import { UIProvider, ToastProvider, useTheme, usePalettePreference, paletteAssetBase } from '@molr/ui';
 import type { ConnectionState, UILocale, Palette } from '@molr/ui';
@@ -9,6 +9,7 @@ import type { Principal } from './api/types';
 import { messages } from './messages';
 import { useRuntimeConnection } from './use-runtime-connection';
 import { QueryCache } from './query-cache';
+import { QueryStore } from './query-store';
 import { batchTopics } from './batch-topics';
 
 const PaletteContext = createContext({ palette: 'forest' as Palette, changePalette: (_: Palette) => {} });
@@ -70,22 +71,25 @@ function queryTopic(path: string) {
   if (/\/assistants\/[^/]+\/weixin/.test(path)) return 'weixin';
   if (path === '/api/account/quotas' || path === '/api/admin/usage') return 'usage';
   if (/\/debug\/runs\/[^/]+\/steps\//.test(path)) return 'debug-payload';
-  if (/\/assistants\/[^/]+\/capabilities/.test(path)) return 'capabilities';
-  if (/\/assistants\/[^/]+\/status/.test(path)) return 'status';
-  if (path.includes('/messages')) return 'messages';
+  const assistant = path.match(/^\/api\/assistants\/([^/]+)\/(capabilities|status)$/);
+  if (assistant) return `${assistant[2]}:${assistant[1]}`;
+  const conversation = path.match(/^\/api\/conversations\/([^/]+)\/messages/);
+  if (conversation) return `messages:${conversation[1]}`;
+  if (path.startsWith('/api/assistants/activity')) return 'activity';
   return path.split('/')[2]?.split('?')[0] ?? '';
 }
-const DataContext = createContext({ subscribeEvents: (_listener: (event: RuntimeEvent) => void): (() => void) => () => {}, version: (_topic: string): number => 0, invalidate: () => {}, invalidateTopics: (_topics: string[]) => {}, connection: 'reconnecting' as ConnectionState, hasConnectionNotice: false, retryConnection: () => {}, cache: new QueryCache(), turnMetrics: new TurnMetricsCache(), messageChanges: new Map<string, number>(), invalidateMessage: (_id: string): number => 0 });
+const DataContext = createContext({ subscribeEvents: (_listener: (event: RuntimeEvent) => void): (() => void) => () => {}, version: (_topic: string): number => 0, invalidate: () => {}, invalidateTopics: (_topics: string[]) => {}, connection: 'reconnecting' as ConnectionState, hasConnectionNotice: false, retryConnection: () => {}, cache: new QueryCache(), queries: new QueryStore(), turnMetrics: new TurnMetricsCache(), messageChanges: new Map<string, number>(), invalidateMessage: (_id: string, _conversationID?: string): number => 0 });
 export function DataProvider({ children }: { children: ReactNode }) {
   const [eventListeners] = useState(() => new Set<(event: RuntimeEvent) => void>());
   const subscribeEvents = useCallback((listener: (event: RuntimeEvent) => void) => { eventListeners.add(listener); return () => { eventListeners.delete(listener); }; }, [eventListeners]);
   const [versions, setVersions] = useState<Record<string, number>>({});
   const [cache] = useState(() => new QueryCache());
+  const [queries] = useState(() => new QueryStore());
   const [turnMetrics] = useState(() => new TurnMetricsCache());
   const [messageChanges] = useState(() => new Map<string, number>());
   const publish = useRef<(topics: string[]) => void>(() => {});
   const invalidate = useCallback(() => setVersions(previous => ({ ...previous, all: (previous.all ?? 0) + 1 })), []);
-  const invalidateMessage = useCallback((id: string) => { const revision = cache.next(); messageChanges.set(id, revision); publish.current(['messages']); return revision; }, [cache, messageChanges]);
+  const invalidateMessage = useCallback((id: string, conversationID?: string) => { const revision = cache.next(); messageChanges.set(id, revision); publish.current([conversationID ? `messages:${conversationID}` : 'messages']); return revision; }, [cache, messageChanges]);
   const { connection, retryConnection } = useRuntimeConnection(event => {
     try {
       const visible = JSON.parse(event.data) as RuntimeEvent;
@@ -93,13 +97,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (visible.Topic === 'notification.changed') publish.current(['notifications']);
       else if (visible.Topic === 'weixin.changed') publish.current(['weixin']);
       else if (visible.Topic === 'assistant.profile') publish.current(['assistants', 'conversations']);
+      else if (visible.Topic.startsWith('assistant.') && visible.Object?.ID) publish.current([`status:${visible.Object.ID}`, 'activity', 'tasks', 'memories', 'usage']);
       else if (visible.Topic === 'permission.request') publish.current(['permission-requests', 'grants', 'status']);
       else if (visible.Topic === 'conversation.read') publish.current(['conversations']);
       else if (['message.feedback', 'message.accepted', 'message.read'].includes(visible.Topic) && visible.Object?.ID) {
-        invalidateMessage(visible.Object.ID);
+        invalidateMessage(visible.Object.ID, visible.ConversationID);
         if (visible.Topic === 'message.accepted' || visible.Topic === 'message.read') publish.current(['status', 'conversations', 'tasks', 'memories', 'usage']);
       }
-      else publish.current(['messages', 'conversations', 'status', 'tasks', 'memories', 'usage']);
+      else publish.current([visible.ConversationID ? `messages:${visible.ConversationID}` : 'messages', 'activity', 'conversations', 'status', 'tasks', 'memories', 'usage']);
     } catch { invalidate(); }
   }, invalidate);
   useEffect(() => {
@@ -111,6 +116,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }));
     function changed(topics: string[]) {
       const expanded = new Set(topics);
+      for (const topic of topics) if (topic.startsWith('status:')) expanded.add(`capabilities:${topic.slice(7)}`);
+      if (topics.some(topic => ['assistants', 'status', 'messages'].includes(topic) || topic.startsWith('messages:'))) expanded.add('activity');
       if (topics.some(topic => ['admin', 'account', 'grants'].includes(topic))) expanded.add('usage');
       if (topics.some(topic => ['todos', 'schedules', 'tasks', 'plans'].includes(topic))) expanded.add('plans');
       if (topics.some(topic => ['grants', 'resources', 'assistants', 'status', 'tasks'].includes(topic))) expanded.add('capabilities');
@@ -121,8 +128,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (path === '/api/weixin/poll' || path === '/api/weixin/cancel') return;
       if (path.startsWith('/api/weixin/')) changed(['weixin']);
       else if (path.includes('/conversations/read')) changed(['conversations']);
-      else if (path.includes('/conversations/feedback')) changed(['messages']);
-      else if (path.includes('/conversations/messages')) changed(['messages', 'conversations', 'status']);
+      else if (path.includes('/conversations/feedback')) return; // Message feedback reconciles its exact conversation.
+      else if (path.includes('/conversations/messages')) changed(['conversations', 'status']); // The caller and SSE invalidate the affected conversation.
       else if (path.includes('/assistants/')) changed(['assistants', 'conversations', 'status', 'schedules', 'grants']);
       else if (path === '/api/assistants') changed(['assistants', 'conversations']);
       else if (path.startsWith('/api/sandboxes')) changed(['sandboxes', 'resources', 'grants', 'capabilities', 'assistants']);
@@ -137,38 +144,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const snapshots = setInterval(resume, 30_000);
     const agent = setInterval(() => { if (document.visibilityState === 'visible') changed(['status']); }, 5_000);
     window.addEventListener('online', invalidate); document.addEventListener('visibilitychange', resume);
-    return () => { unsubscribe(); publish.current = () => {}; cache.clear(); turnMetrics.clear(); messageChanges.clear(); batch.cancel(); clearInterval(snapshots); clearInterval(agent); window.removeEventListener('online', invalidate); document.removeEventListener('visibilitychange', resume); };
-  }, [invalidate, cache, messageChanges]);
+    return () => { unsubscribe(); publish.current = () => {}; cache.clear(); queries.clear(); turnMetrics.clear(); messageChanges.clear(); batch.cancel(); clearInterval(snapshots); clearInterval(agent); window.removeEventListener('online', invalidate); document.removeEventListener('visibilitychange', resume); };
+  }, [invalidate, cache, queries, messageChanges]);
   const invalidateTopics = useCallback((topics: string[]) => publish.current(topics), []);
-  const version = (topic: string) => (versions.all ?? 0) + (versions[topic] ?? 0);
+  const version = (topic: string) => (versions.all ?? 0) + (versions[topic] ?? 0) + (topic.includes(':') ? versions[topic.split(':')[0]] ?? 0 : 0);
   const hasConnectionNotice = connection !== 'connected' && connection !== 'recovered';
-  return <DataContext.Provider value={{ subscribeEvents, version, invalidate, invalidateTopics, connection, hasConnectionNotice, retryConnection, cache, turnMetrics, messageChanges, invalidateMessage }}>{children}</DataContext.Provider>;
+  return <DataContext.Provider value={{ subscribeEvents, version, invalidate, invalidateTopics, connection, hasConnectionNotice, retryConnection, cache, queries, turnMetrics, messageChanges, invalidateMessage }}>{children}</DataContext.Provider>;
 }
 export const useData = () => useContext(DataContext);
 export const useTopicVersion = (topic: string) => useData().version(topic);
 export function useQuery<T>(path: string | null, list = false) {
-  const { version, cache } = useData();
-  const [attempt, setAttempt] = useState(0);
-  const reload = useCallback(() => setAttempt(value => value + 1), []);
+  const { version, queries } = useData();
   const revision = version(queryTopic(path ?? ''));
   const key = path ? `${list ? 'list' : 'item'}:${path}` : null;
-  const cached = key ? cache.get<T>(key) : undefined;
-  const [state, setState] = useState<{ key: string | null; data?: T; error?: unknown; loading: boolean }>(() => ({ key, data: cached, loading: !!path }));
-  useEffect(() => {
-    if (!path || !key) return;
-    const controller = new AbortController();
-    const order = cache.next();
-    setState(previous => ({ key, data: previous.key === key ? previous.data : cache.get<T>(key), error: previous.key === key ? previous.error : undefined, loading: true }));
-    const promise = list ? api.all(path, controller.signal) as Promise<T> : api.get<T>(path, controller.signal);
-    void promise.then(data => {
-      if (!controller.signal.aborted) { cache.set(key, data, order); setState({ key, data, loading: false }); }
-    }, error => {
-      if (controller.signal.aborted) return;
-      const inaccessible = error instanceof APIError && [401, 403, 404].includes(error.status);
-      if (inaccessible) cache.delete(key);
-      setState(previous => ({ ...previous, data: inaccessible ? undefined : previous.data, error, loading: false }));
-    });
-    return () => controller.abort();
-  }, [path, key, list, revision, attempt, cache]);
-  return { data: state.key === key ? state.data : cached, error: state.key === key ? state.error : null, loading: path !== null && (state.key !== key || state.loading), reload };
+  const subscribe = useCallback((listener: () => void) => key ? queries.subscribe(key, listener) : () => {}, [queries, key]);
+  const snapshot = useCallback(() => queries.snapshot<T>(key), [queries, key]);
+  const state = useSyncExternalStore(subscribe, snapshot);
+  const load = useCallback((signal: AbortSignal) => list ? api.all(path!, signal) as Promise<T> : api.get<T>(path!, signal), [path, list]);
+  useEffect(() => { if (key) queries.refresh(key, revision, load); }, [queries, key, revision, load]);
+  const reload = useCallback(() => { if (key) queries.refresh(key, revision, load, true); }, [queries, key, revision, load]);
+  return { data: state.data, error: state.error, loading: !!path && (state.loading || !state.started), reload };
 }

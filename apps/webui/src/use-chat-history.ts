@@ -7,7 +7,7 @@ type Snapshot = { messages: Message[]; olderCursor: string; metadataVersions: Re
 type History = { messages: Message[]; metadataVersions: Record<string, number>; more: boolean; loaded: boolean; loading: boolean; loadingOlder: boolean; error: unknown };
 
 export function useChatHistory(conversationID: string, targetMessageID = '') {
-  const { cache, messageChanges } = useData(), revision = useTopicVersion('messages');
+  const { cache, messageChanges } = useData(), revision = useTopicVersion(`messages:${conversationID}`);
   const key = `chat:${conversationID}`;
   const initial = cache.get<Snapshot>(key);
   const [history, setHistory] = useState<History>(() => ({ messages: initial?.messages ?? [], metadataVersions: initial?.metadataVersions ?? {}, more: !!initial?.olderCursor, loaded: !!initial, loading: true, loadingOlder: false, error: null }));

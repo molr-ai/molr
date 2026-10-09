@@ -76,6 +76,7 @@ type Outcome struct {
 // ensures no concurrent turns for the same assistant. Handle must not silently
 // acknowledge an event whose checkpoint/effects have not been committed.
 type Observer interface {
+	Activities(context.Context, core.Principal, []core.ID) ([]Activity, error)
 	Compress(context.Context, core.Principal, core.ID, CompressionRequest) (CompressionResult, error)
 	Expedite(context.Context, core.Principal, core.ID, ExpediteRequest) (ExpediteStatus, error)
 	MessageMetrics(context.Context, core.Principal, core.ID, core.ID) (TurnMetrics, error)

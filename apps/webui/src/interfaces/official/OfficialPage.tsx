@@ -4,7 +4,7 @@ import { useUIHost } from '../../ui-host/store';
 import { useEffect, useId, useState } from 'react';
 import { AssistantList, Button, EmptyState, IconButton, Logo, SearchField, Select, useBreakpoint, useTheme } from '@molr/ui';
 import { MessagesSquare, Pin, Plus, Search as SearchIcon } from 'lucide-react';
-import type { Assistant, Conversation, Model, RuntimeInfo, Settings as SettingsDTO } from '../../api/types';
+import type { Assistant, AssistantActivity, Conversation, Model, RuntimeInfo, Settings as SettingsDTO } from '../../api/types';
 import { api } from '../../api/client';
 import { useCopy, useQuery } from '../../state';
 import { useNavigation } from '../../navigation';
@@ -29,6 +29,8 @@ export function OfficialPage({ chatLayout = 'default' }: { chatLayout?: 'default
   const { t } = useCopy(), { theme } = useTheme(), mobile = useBreakpoint('mobile');
   const { page, id, turnID, messageID, panel, taskID, navigate } = useNavigation(), action = useAction();
   const assistants = useQuery<Assistant[]>('/api/assistants', true), conversations = useQuery<Conversation[]>('/api/conversations', true), models = useQuery<Model[]>('/api/models'), settings = useQuery<SettingsDTO>('/api/settings');
+  const activity = useQuery<AssistantActivity[]>(page === 'assistants' && chatLayout === 'default' && (!mobile || !id) ? '/api/assistants/activity' : null, true);
+  const activityByID = new Map(activity.data?.map(item => [item.AssistantID, item]));
   const runtime = useQuery<RuntimeInfo>('/api/status');
   const workbenchEnabled = !!runtime.data?.workbench_available && !!settings.data?.WorkbenchEnabled;
   const [search, setSearch] = useState(false), [hire, setHire] = useState(false), [dialog, setDialog] = useState<{ kind: AssistantAction; assistant: Assistant } | null>(null), [taskCard, setTaskCard] = useState('');
@@ -52,7 +54,7 @@ export function OfficialPage({ chatLayout = 'default' }: { chatLayout?: 'default
   }, [pendingTask, page, id, selected]);
   const entries = (members: Assistant[]) => members.map(assistant => {
     const conversation = conversations.data?.find(row => row.ID === assistant.ConversationID);
-    return { id: assistant.ID, name: assistant.Name, avatar: assistant.Avatar, preview: <AssistantActivityPreview assistant={assistant} conversation={conversation} />, pinned: assistant.Pinned, unread: conversation?.UnreadCount ?? 0 };
+    return { id: assistant.ID, name: assistant.Name, avatar: assistant.Avatar, preview: <AssistantActivityPreview activity={activityByID.get(assistant.ID)} />, pinned: assistant.Pinned, unread: conversation?.UnreadCount ?? 0 };
   });
   const normalizedQuery = assistantQuery.trim().toLowerCase();
   const visibleAssistants = active.filter(assistant => assistant.Name.toLowerCase().includes(normalizedQuery));
@@ -76,7 +78,7 @@ export function OfficialPage({ chatLayout = 'default' }: { chatLayout?: 'default
     action={searchEmpty ? <Button variant="secondary" size="sm" onClick={clearAssistantSearch}>{t.assistants.clearSearch}</Button>
       : <Button variant="secondary" size="sm" onClick={startHiring}>{canHire ? t.assistants.hire : t.assistants.configure}</Button>} />;
   return <>
-        <ErrorNotice error={assistants.error || selection.error || conversations.error || models.error || action.error} retry={assistants.reload} />
+        <ErrorNotice error={assistants.error || activity.error || selection.error || conversations.error || models.error || action.error} retry={assistants.reload} />
         {page === 'assistants' ? <div className={`assistant-workspace${chatLayout === 'focus' ? ' assistant-workspace--focus' : ''}`} ref={setChatWorkspace}>
           {(chatLayout === 'focus' || !mobile || !selected) && <aside className="workspace-sidebar" aria-label={t.assistants.list}>
             {mobile && chatLayout === 'focus' && <header className="assistant-toolbar"><MobileAccountButton /><IconButton label={t.search} aria-haspopup="dialog" onClick={() => setSearch(true)}><SearchIcon size={20} /></IconButton></header>}
@@ -101,7 +103,7 @@ export function OfficialPage({ chatLayout = 'default' }: { chatLayout?: 'default
   </>;
 }
 
-function AssistantActivityPreview({ assistant, conversation }: { assistant: Assistant; conversation?: Conversation }) {
- const {t}=useCopy();const status=useQuery<import('../../api/types').AgentStatus>(assistant.State==='active'?`/api/assistants/${assistant.ID}/status`:null);
- return status.data?.State==='dreaming'?<span className="assistant-dreaming-label">☾ {t.chat.dreaming}</span>:<AssistantMessagePreview conversation={conversation}/>;
+function AssistantActivityPreview({ activity }: { activity?: AssistantActivity }) {
+ const { t } = useCopy();
+ return activity?.Dreaming ? <span className="assistant-dreaming-label">☾ {t.chat.dreaming}</span> : <AssistantMessagePreview activity={activity} />;
 }

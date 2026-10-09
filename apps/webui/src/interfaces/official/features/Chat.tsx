@@ -21,7 +21,7 @@ export function Chat({ assistant, conversation, timeZone, draft, updateDraft, on
   assistant: Assistant; conversation?: Conversation; timeZone?: string; draft: Draft; updateDraft: (draft: Draft) => void;
   onAutomatic: () => void; onDebug?: (turnID?: string) => void; onAction: (action: AssistantAction) => void; onBack?: () => void; onCard: (kind: string, id: string) => void;
 }) {
-  const { t, locale } = useCopy(), { invalidate } = useData(); const action = useAction();
+  const { t, locale } = useCopy(), { invalidate, invalidateTopics } = useData(); const action = useAction();
   const status = useQuery<AgentStatus>(assistant.State === 'active' ? `/api/assistants/${assistant.ID}/status` : null);
   const channel = useQuery<WeixinStatus>(`/api/assistants/${assistant.ID}/weixin`);
   const weixin = channel.data?.Channel === 'weixin';
@@ -70,6 +70,7 @@ export function Chat({ assistant, conversation, timeZone, draft, updateDraft, on
     }
     await action.run(async () => {
       await api.mutate('/api/conversations/messages', { ConversationID: assistant.ConversationID, Content: { Kind: 'text', Text: sent.text, AttachmentIDs: sent.files.map(file => file.ID) } });
+      invalidateTopics([`messages:${assistant.ConversationID}`]);
       updateDraft({ text: '', files: [] }); bottom.current = true; onClearTarget();
     }, undefined, false);
   }
