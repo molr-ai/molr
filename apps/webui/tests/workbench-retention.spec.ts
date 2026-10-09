@@ -60,12 +60,14 @@ test('admin retention UI persists, protects recent executions and rejects member
     await expect(page.locator('.trajectory-table-heading, .trajectory-time-labels, .workbench-retention, .trajectory-cleanup')).toHaveCount(0);
     await expect(page.locator('.trajectory-boundary[data-boundary="start"]')).toHaveText('No earlier events');
     await expect(page.locator('.workbench-view-heading, .trajectory-history')).toHaveCount(0);
+    // Birth is a separate execution; wait for the exact user event in each iteration.
+    await expect.poll(async () => (await (await page.request.get(`/api/assistants/${assistant.ID}/status`)).json()).State).toBe('idle');
     const seen: string[] = [];
     for (let i = 0; i < 3; i++) {
       await mutate('/api/conversations/messages', { ConversationID: assistant.ConversationID, Content: { Kind: 'text', Text: `Retention event ${i}` } });
       await expect.poll(async () => {
         const rows = (await (await page.request.get(`/api/debug/runs?assistant_id=${assistant.ID}`)).json()).Items;
-        const fresh = rows.find((r: { ID: string; State: string }) => !seen.includes(r.ID) && r.State === 'succeeded');
+        const fresh = rows.find((r: { ID: string; State: string; Source?: { Text?: string } }) => r.Source?.Text === `Retention event ${i}` && !seen.includes(r.ID) && r.State === 'succeeded');
         if (fresh) { seen.push(fresh.ID); return true; } return false;
       }).toBe(true);
     }

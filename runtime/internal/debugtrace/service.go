@@ -140,59 +140,6 @@ func (s *Service) bump(ctx context.Context, tx persistence.Tx, owner core.ID) er
 	}
 	return tx.Put(ctx, "debug.revisions", string(owner), revision+1)
 }
-func (s *Service) prune(ctx context.Context, tx persistence.Tx, owner, keep core.ID, extra int) error {
-	all, err := persistence.Select[Run](ctx, tx.Store(), "debug.summaries", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner)}})
-	if err != nil {
-		return err
-	}
-	policy, err := s.retention(ctx, tx.Store())
-	if err != nil {
-		return err
-	}
-	runs := ownerRuns(all, owner)
-	protected := protectedRuns(runs, policy.MinRuns)
-	total := extra
-	for _, r := range runs {
-		total += r.Bytes
-	}
-	count := len(runs)
-	cutoff := s.options.Now().AddDate(0, 0, -policy.RetentionDays)
-	for i := len(runs) - 1; i >= 0; i-- {
-		run := runs[i]
-		if run.ID == keep || protected[run.ID] {
-			continue
-		}
-		if !run.StartedAt.Before(cutoff) && count <= policy.MaxRuns && total <= policy.MaxBytes {
-			continue
-		}
-		full, err := persistence.Load[Run](ctx, tx.Store(), "debug.runs", persistence.Key(owner, run.ID))
-		if err != nil {
-			return err
-		}
-		for _, step := range full.Steps {
-			if err := tx.Delete(ctx, "debug.payloads", payloadKey(owner, run.ID, step.Sequence)); err != nil {
-				return err
-			}
-		}
-		for _, bucket := range []string{"debug.runs", "debug.summaries"} {
-			if err := tx.Delete(ctx, bucket, persistence.Key(owner, run.ID)); err != nil {
-				return err
-			}
-		}
-		if err := tx.Put(ctx, "debug.cleanup", persistence.Key(owner, run.AssistantID), CleanupEvent{At: s.options.Now().UTC(), Policy: policy}); err != nil {
-			return err
-		}
-		count--
-		total -= run.Bytes
-	}
-	// Protected history wins over the byte target. Refuse new payloads, never
-	// remove protected data or prevent execution metadata from being recorded.
-	if extra > 0 && total > policy.MaxBytes {
-		return core.NewError(core.FailedPrecondition, "trace capacity reached")
-	}
-
-	return nil
-}
 
 // Begin binds a distinct attempt to this context. It is called only by the trusted Loop.
 func (s *Service) Begin(ctx context.Context, owner, assistant, event, execution core.ID, trigger string, attempt int, data any) context.Context {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
-	"sort"
 	"time"
 
 	"molr.ai/runtime/internal/core"
@@ -104,17 +103,16 @@ func (s *Service) Retention(ctx context.Context, p core.Principal) (RetentionSta
 			return err
 		}
 		out.Policy = policy
-		all, err := persistence.Select[Run](ctx, tx.Store(), "debug.summaries", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID)}})
+		count, total, err := retentionUsage(ctx, tx, p.OwnerID)
 		if err != nil {
 			return err
 		}
-		runs := ownerRuns(all, p.OwnerID)
-		out.ProtectedRuns = len(protectedRuns(runs, policy.MinRuns))
-		for _, r := range runs {
-			out.Runs++
-			out.Bytes += r.Bytes
+		protected, err := s.protected(ctx, tx.Store(), p.OwnerID, policy)
+		if err != nil {
+			return err
 		}
-		out.CapacityReached = out.Bytes >= policy.MaxBytes
+		out.Runs, out.Bytes, out.ProtectedRuns = int(count), int(total), len(protected)
+		out.CapacityReached = total >= int64(policy.MaxBytes)
 		return nil
 	})
 	return out, err
@@ -188,34 +186,6 @@ func (s *Service) SetRetention(ctx context.Context, p core.Principal, q Retentio
 		return nil
 	})
 	return out, err
-}
-func ownerRuns(all []Run, owner core.ID) []Run {
-	runs := []Run{}
-	for _, r := range all {
-		if r.OwnerID == owner && r.Trigger != "dream_due" {
-			runs = append(runs, r)
-		}
-	}
-	sort.Slice(runs, func(i, j int) bool {
-		if runs[i].StartedAt.Equal(runs[j].StartedAt) {
-			return runs[i].FirstRevision > runs[j].FirstRevision || (runs[i].FirstRevision == runs[j].FirstRevision && runs[i].ID > runs[j].ID)
-		}
-		return runs[i].StartedAt.After(runs[j].StartedAt)
-	})
-	return runs
-}
-func protectedRuns(runs []Run, min int) map[core.ID]bool {
-	out := map[core.ID]bool{}
-	n := 0
-	for _, r := range runs {
-		if r.State == "running" {
-			out[r.ID] = true
-		} else if n < min {
-			out[r.ID] = true
-			n++
-		}
-	}
-	return out
 }
 func visibleRun(r Run, policy Retention, protected map[core.ID]bool, now time.Time) bool {
 	return r.Trigger == "dream_due" || protected[r.ID] || !r.StartedAt.Before(now.AddDate(0, 0, -policy.RetentionDays))

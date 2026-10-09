@@ -192,6 +192,13 @@ func (s *Store) createIndexes() error {
 		bucket string
 		fields []string
 	}{"im.conversations", []string{"OwnerID", "PeerID", "key"}})
+	// Retention aggregates must not read source previews from every summary.
+	indexes = append(indexes, struct {
+		bucket string
+		fields []string
+	}{
+		"debug.summaries", []string{"OwnerID", "Trigger", "Bytes"},
+	})
 	for i, index := range indexes {
 		parts := []string{"bucket"}
 		for _, field := range index.fields {

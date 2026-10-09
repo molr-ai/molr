@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"molr.ai/runtime/internal/core"
@@ -85,5 +86,45 @@ func TestCountRespectsScopeLimitAndTransactions(t *testing.T) {
 	}
 	if _, err := expired.Count(t.Context(), "count.rows", persistence.Query{}); core.CodeOf(err) != core.FailedPrecondition {
 		t.Fatal(err)
+	}
+}
+
+func TestRetentionAggregatesUseCoveringExpressionIndex(t *testing.T) {
+	db, err := Open(filepath.Join(t.TempDir(), "aggregate-plan.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var index string
+	if err := db.db.QueryRow("SELECT name FROM sqlite_master WHERE type='index' AND sql LIKE '%$.OwnerID%$.Trigger%$.Bytes%'").Scan(&index); err != nil {
+		t.Fatal(err)
+	}
+	query, args, err := querySQL("debug.summaries", persistence.Query{Unordered: true, Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), {Field: "Trigger", Op: "!=", Value: "dream_due"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, aggregate := range []string{"COUNT(*)", "COALESCE(SUM(json_extract(value, '$.Bytes')),0)"} {
+		rows, err := db.db.Query("EXPLAIN QUERY PLAN SELECT "+aggregate+" FROM ("+query+")", args...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		usesIndex := false
+		for rows.Next() {
+			var id, parent, unused int
+			var detail string
+			if err := rows.Scan(&id, &parent, &unused, &detail); err != nil {
+				t.Fatal(err)
+			}
+			t.Log(aggregate, detail)
+			usesIndex = usesIndex || strings.Contains(detail, index)
+		}
+		err = rows.Err()
+		rows.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !usesIndex {
+			t.Fatal("retention aggregate reads historical source records", aggregate)
+		}
 	}
 }
