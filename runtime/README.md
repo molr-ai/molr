@@ -57,7 +57,7 @@ WebUI 开发联调见 [应用 README](../apps/webui/README.md)。Dockerfile 提�
 
 Linux Shell 已接入 Bubblewrap、seccomp、cgroup v2、直接目录挂载和受控网络出口。部署、配置与真实隔离测试见 [Sandbox 使用说明](../docs/deployment/sandbox.md)，架构与未来 Windows/macOS 边界见 [设计](../dev-docs/runtime/SANDBOX.md)。
 
-任务交付需要可信检查操作的证据，模型声称完成不能直接验收。当前内置工具不提供通用任务验收器。搜索目前扫描授权源记录；持久化投影可重建，但还没有 FTS/向量检索优化。私有上下文按模型 token 窗口管理，未声明且未手动设置时兜底 256K；默认 90% 自动压缩并保留原始历史。单轮执行默认及引擎最大步数均为 999。模型请求默认超时 10 分钟（含等待响应头和读取响应），Shell 前台最多等待 60 秒，未结束转为后台；命令可用 `timeout_seconds` 设置运行截止时间，实际运行还受计算授权及用户组时长限额约束，不限时须显式授权。
+任务交付需要可信检查操作的证据，模型声称完成不能直接验收。当前内置工具不提供通用任务验收器。搜索在读取前应用来源、助理和归档范围，按有界批次扫描选中的授权源记录；消息按会话及序号索引遍历。持久化投影可重建，但还没有 FTS/向量检索优化。私有上下文按模型 token 窗口管理，未声明且未手动设置时兜底 256K；默认 90% 自动压缩并保留原始历史。单轮执行默认及引擎最大步数均为 999。模型请求默认超时 10 分钟（含等待响应头和读取响应），Shell 前台最多等待 60 秒，未结束转为后台；命令可用 `timeout_seconds` 设置运行截止时间，实际运行还受计算授权及用户组时长限额约束，不限时须显式授权。
 
 模型最大输出长度按手动 `OutputLimit` → 服务商 `ProviderOutputLimit` → 32K（32,768 tokens）解析，默认值不写入手动设置。模型发现读取 `max_output_tokens`、`max_completion_tokens` 或 `top_provider.max_completion_tokens`，刷新保留手动覆盖；清空覆盖恢复服务商值或默认值。WebUI 模型配置可修改，列表显示生效值与来源。每次请求按模型输出上限与剩余上下文空间的较小值发送并预留预算，避免小上下文模型因 32K 默认值无法执行；上下文仍在默认 90% 阈值自动压缩，摘要请求另有精简目标且不超过模型上限。自动上下文的版本刷新、来源范围及限制见[上下文更新机制](../dev-docs/runtime/AGENT_CONTEXT.md)。文件导出上限 20 MiB，超限明确失败。
 
@@ -187,3 +187,7 @@ Chat Completions 的文本与工具字段使用增量缓冲组装，避免长输
 ### 通知查询性能回归
 
 `go test ./internal/notification ./internal/persistence/...` 覆盖筛选、账号隔离、纳秒及跨时区排序、分页完整性、全局计数和事务回滚；读取量及查询计划断言检查已解决历史不会被全量加载。`go test ./internal/notification -run '^$' -bench '^BenchmarkActiveNotificationsHistory$' -benchmem` 在固定 5 条活动通知下比较 100、1 千和 1 万条已解决历史的列表查询开销，测量不包含浏览器与网络。
+
+### 搜索读取范围回归
+
+`go test ./internal/search ./internal/persistence/sqlitestore` 检查来源与助理过滤在读取阶段生效、归档与账号隔离、分页排序、授权撤销和查询计划。`go test ./internal/search -run '^$' -bench BenchmarkSearchAssistantHistory -benchmem` 比较 1 千与 1 万条无关消息历史下的助理名称搜索；无关消息不会被加载，具体耗时取决于运行环境。

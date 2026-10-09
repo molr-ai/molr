@@ -226,70 +226,8 @@ func (s *service) documents(ctx context.Context, owner core.ID) ([]Document, err
 }
 func (s *service) defaultDocuments(ctx context.Context, owner core.ID) ([]Document, error) {
 	result := []Document{}
-	err := s.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		for _, source := range []struct {
-			bucket string
-			source Source
-			kind   string
-		}{{"business.assistants", Assistants, "assistant"}, {"business.resources", Resources, "resource"}, {"business.tasks", Tasks, "task"}, {"im.messages", Messages, "message"}} {
-			records, err := tx.Query(ctx, source.bucket, persistence.Query{Prefix: string(owner) + "/"})
-			if err != nil {
-				return err
-			}
-			for _, record := range records {
-				if !strings.HasPrefix(record.Key, string(owner)+"/") {
-					continue
-				}
-				var row struct {
-					ID, OwnerID, AssistantID, ConversationID core.ID
-					Name, Title, Goal, Text, State           string
-					Version                                  core.Version
-					Sequence                                 uint64
-					Content                                  struct {
-						Text          string
-						Card          *struct{ Title, Summary string }
-						AttachmentIDs []core.ID
-					}
-				}
-				if err = json.Unmarshal(record.Data, &row); err != nil {
-					return err
-				}
-				doc := Document{OwnerID: owner, Object: core.Object{Kind: source.kind, ID: row.ID}, Source: source.source, AssistantID: row.AssistantID, Version: row.Version}
-				switch source.source {
-				case Assistants:
-					doc.Title = row.Name
-					doc.Archived = row.State == "dismissed"
-					doc.AssistantID = row.ID
-				case Resources:
-					doc.Title = row.Name
-				case Tasks:
-					doc.Title = row.Goal
-				case Messages:
-					var convo struct {
-						OwnerID, PeerID core.ID
-						Archived        bool
-					}
-					if err = tx.Get(ctx, "im.conversations", persistence.Key(owner, row.ConversationID), &convo); err != nil {
-						if persistence.Missing(err) {
-							continue
-						}
-						return err
-					}
-					doc.AssistantID = convo.PeerID
-					doc.Archived = convo.Archived
-					doc.Text = row.Content.Text
-					if row.Content.Card != nil {
-						doc.Title = row.Content.Card.Title
-						doc.Text = row.Content.Card.Summary
-					}
-					doc.Version = core.Version(row.Sequence)
-					if len(row.Content.AttachmentIDs) > 0 {
-						doc.FileID = row.Content.AttachmentIDs[0]
-					}
-				}
-				result = append(result, doc)
-			}
-		}
+	err := s.walkDocuments(ctx, owner, Query{IncludeArchived: true}, func(doc Document) error {
+		result = append(result, doc)
 		return nil
 	})
 	return result, err
@@ -308,68 +246,28 @@ func (s *service) Search(ctx context.Context, p core.Principal, q Query) (Result
 		return result, err
 	}
 	err := s.read(ctx, p, "", policy.Read, false, func(ctx context.Context) error {
-		documents, err := s.documents(ctx, p.OwnerID)
-		if err == nil && s.options.Memories != nil {
-			scopes := []memory.Scope{memory.Assistant, memory.Global}
-			for _, scope := range scopes {
-				q := memory.Query{Scope: scope, AssistantID: q.AssistantID, Page: core.PageRequest{Limit: 200}}
-				if scope == memory.Global {
-					q.AssistantID = ""
-				}
-				total := 0
-				for {
-					page, e := s.options.Memories.List(ctx, p, q)
-					if e != nil {
-						return e
-					}
-					for _, m := range page.Items {
-						total += len(m.Text)
-						if total > 8<<20 {
-							return core.NewError(core.FailedPrecondition, "memory content scan limit exceeded")
-						}
-						documents = append(documents, Document{OwnerID: p.OwnerID, Object: core.Object{Kind: "memory"}, Memory: &m.Ref, Source: Memories, AssistantID: m.AssistantID, Title: m.Path, Text: m.Text})
-					}
-					if page.NextCursor == "" {
-						break
-					}
-					q.Page.Cursor = page.NextCursor
-				}
-			}
-		}
-		if err != nil {
-			return err
-		}
 		hits := []Hit{}
 		needle := strings.ToLower(strings.TrimSpace(q.Text))
-		for _, doc := range documents {
-			if doc.OwnerID != p.OwnerID || doc.Deleted || doc.Archived && !q.IncludeArchived || q.AssistantID != "" && q.AssistantID != doc.AssistantID {
-				continue
-			}
-			selected := len(q.Sources) == 0
-			for _, source := range q.Sources {
-				if source == doc.Source {
-					selected = true
-				}
-			}
-			if !selected {
-				continue
+		accept := func(doc Document) error {
+			if doc.OwnerID != p.OwnerID || doc.Deleted || doc.Archived && !q.IncludeArchived || q.AssistantID != "" && q.AssistantID != doc.AssistantID || !selectedSource(q, doc.Source) {
+				return nil
 			}
 			target := doc.Object
 			if doc.Source == Memories {
 				if p.Kind == core.ActorAssistant && doc.AssistantID != "" && doc.AssistantID != p.SubjectID {
-					continue
+					return nil
 				}
 				target = core.Object{Kind: "memory"}
 			}
-			if err = s.options.Authorizer.Require(ctx, p, policy.CheckRequest{Target: target, Action: policy.Read}); err != nil {
+			if err := s.options.Authorizer.Require(ctx, p, policy.CheckRequest{Target: target, Action: policy.Read}); err != nil {
 				if core.CodeOf(err) == core.Forbidden || core.CodeOf(err) == core.NotFound {
-					continue
+					return nil
 				}
 				return err
 			}
 			text := strings.ToLower(doc.Title + " " + doc.Text)
 			if needle != "" && !strings.Contains(text, needle) {
-				continue
+				return nil
 			}
 			snippet := []rune(doc.Text)
 			if len(snippet) > 240 {
@@ -381,6 +279,49 @@ func (s *service) Search(ctx context.Context, p core.Principal, q Query) (Result
 			}
 			hits = append(hits, Hit{Memory: doc.Memory, Source: doc.Source, Object: doc.Object, AssistantID: doc.AssistantID, Title: doc.Title, Snippet: string(snippet), FileID: doc.FileID, Score: score})
 			result.Counts[doc.Source]++
+			return nil
+		}
+		if s.options.Documents != nil {
+			documents, err := s.options.Documents(ctx, p.OwnerID)
+			if err != nil {
+				return err
+			}
+			for _, doc := range documents {
+				if err := accept(doc); err != nil {
+					return err
+				}
+			}
+		} else if err := s.walkDocuments(ctx, p.OwnerID, q, accept); err != nil {
+			return err
+		}
+		if s.options.Memories != nil && selectedSource(q, Memories) {
+			scopes := []memory.Scope{memory.Assistant}
+			if q.AssistantID == "" {
+				scopes = append(scopes, memory.Global)
+			}
+			for _, scope := range scopes {
+				query := memory.Query{Scope: scope, AssistantID: q.AssistantID, Page: core.PageRequest{Limit: 200}}
+				total := 0
+				for {
+					page, err := s.options.Memories.List(ctx, p, query)
+					if err != nil {
+						return err
+					}
+					for _, m := range page.Items {
+						total += len(m.Text)
+						if total > 8<<20 {
+							return core.NewError(core.FailedPrecondition, "memory content scan limit exceeded")
+						}
+						if err := accept(Document{OwnerID: p.OwnerID, Object: core.Object{Kind: "memory"}, Memory: &m.Ref, Source: Memories, AssistantID: m.AssistantID, Title: m.Path, Text: m.Text}); err != nil {
+							return err
+						}
+					}
+					if page.NextCursor == "" {
+						break
+					}
+					query.Page.Cursor = page.NextCursor
+				}
+			}
 		}
 		sort.Slice(hits, func(i, j int) bool {
 			if hits[i].Score != hits[j].Score {
@@ -397,6 +338,7 @@ func (s *service) Search(ctx context.Context, p core.Principal, q Query) (Result
 		})
 		page := q.Page
 		q.Page = core.PageRequest{}
+		var err error
 		result.Hits, err = paginate(hits, p.OwnerID, q, page)
 		return err
 	})

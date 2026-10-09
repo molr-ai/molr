@@ -26,6 +26,8 @@ func TestScopedQueriesUseIndexes(t *testing.T) {
 		ordered      bool
 	}{
 		{"model binding", "business.bindings", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerKey", "owner"), {Field: "ModelIDs", Op: "has", Value: "model-target"}}, Limit: 1, Unordered: true}, false},
+		{"search conversations", "im.conversations", persistence.Query{Prefix: "owner/", Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), persistence.Eq("PeerID", "assistant")}, Any: [][]persistence.Filter{{persistence.Eq("Archived", false)}, {persistence.Eq("Archived", nil)}}, After: []any{"owner/chat"}, Limit: 200}, true},
+		{"search messages", "im.messages", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerKey", "owner"), persistence.Eq("ConversationID", "chat"), {Field: "Sequence", Op: ">", Value: 200}}, OrderBy: "Sequence", Limit: 200}, true},
 		{"session", "auth.sessions", persistence.Query{Where: []persistence.Filter{persistence.Eq("TokenDigest", "digest")}, Limit: 1, Unordered: true}, false},
 		{"token", "auth.tokens", persistence.Query{Where: []persistence.Filter{persistence.Eq("Digest", "digest")}, Limit: 1, Unordered: true}, false},
 		{"username", "auth.accounts", persistence.Query{Where: []persistence.Filter{persistence.Eq("Account.Username", "name")}, Limit: 1}, true},
