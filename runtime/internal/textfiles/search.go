@@ -254,12 +254,15 @@ func Search(ctx context.Context, root, name string, o SearchOptions, authorize f
 			out.Skipped["binary"]++
 			return nil
 		}
-		lines := strings.Split(string(data), "\n")
-		if len(lines) > 0 && lines[len(lines)-1] == "" {
-			lines = lines[:len(lines)-1]
-		}
-		for i, line := range lines {
-			line = strings.TrimSuffix(line, "\r")
+		// Keep only the current line and the maximum five preceding context
+		// lines. Slice the validated file bytes so an early match does not
+		// allocate a line table or copy the entire file into a string.
+		var previous [6][]byte
+		for i, remaining := 0, data; len(remaining) > 0; i++ {
+			raw, tail, _ := bytes.Cut(remaining, []byte{'\n'})
+			remaining = tail
+			previous[i%len(previous)] = raw
+			line := bytes.TrimSuffix(raw, []byte{'\r'})
 			if err := check(); err != nil {
 				return err
 			}
@@ -271,22 +274,25 @@ func Search(ctx context.Context, root, name string, o SearchOptions, authorize f
 				out.Complete = false
 				continue
 			}
-			if !re.MatchString(line) {
+			if !re.Match(line) {
 				continue
 			}
 			if o.Mode == "files" {
 				add(SearchMatch{Path: current, Version: version})
 				return nil
 			}
-			m := SearchMatch{Path: current, Line: i + 1, Text: strings.TrimSuffix(line, "\r"), Version: version}
+			m := SearchMatch{Path: current, Line: i + 1, Text: string(bytes.TrimSuffix(line, []byte{'\r'})), Version: version}
 			for n := max(0, i-o.ContextLines); n < i; n++ {
-				if len(lines[n]) <= 4096 {
-					m.Before = append(m.Before, SearchLine{n + 1, strings.TrimSuffix(lines[n], "\r")})
+				context := previous[n%len(previous)]
+				if len(context) <= 4096 {
+					m.Before = append(m.Before, SearchLine{n + 1, string(bytes.TrimSuffix(context, []byte{'\r'}))})
 				}
 			}
-			for n := i + 1; n < min(len(lines), i+1+o.ContextLines); n++ {
-				if len(lines[n]) <= 4096 {
-					m.After = append(m.After, SearchLine{n + 1, strings.TrimSuffix(lines[n], "\r")})
+			for n, rest := i+1, remaining; n <= i+o.ContextLines && len(rest) > 0; n++ {
+				context, tail, _ := bytes.Cut(rest, []byte{'\n'})
+				rest = tail
+				if len(context) <= 4096 {
+					m.After = append(m.After, SearchLine{n + 1, string(bytes.TrimSuffix(context, []byte{'\r'}))})
 				}
 			}
 			add(m)
