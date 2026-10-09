@@ -276,7 +276,7 @@ const [range, setRange] = useState<[number, number]>([20, 80]);
 
 ## 代码高亮
 
-`CodeBlock` 接受 `code: string`，`language` 支持 `json` 与 `text`（默认 `text`），`wrap` 默认 `true`，`maxHeight` 默认 `28rem`，`label` 提供滚动区域的可访问名称。使用项目圆角、背景与明暗主题语法色；键名、字符串、数字、布尔值、null 和标点分别标记。
+`CodeBlock` 接受 `code: string`，`language` 支持 `json` 与 `text`（默认 `text`），`wrap` 默认 `true`，`maxHeight` 默认 `28rem`，`label` 提供滚动区域的可访问名称。使用项目圆角、背景与明暗主题语法色；键名、字符串、数字、布尔值、null 和标点分别标记。 内容与显示属性未变化时复用当前实例的渲染结果，避免父级更新反复生成高亮节点；属性或界面语言变化仍正常更新。
 
 ```tsx
 <CodeBlock language="json" code={JSON.stringify(payload, null, 2)} label="工具参数" />
