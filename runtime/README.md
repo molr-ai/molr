@@ -136,6 +136,10 @@ OpenAI-compatible and DeepSeek chat requests use SSE with `stream_options.includ
 
 Runtime 内嵌本机 sandbox_manager；可另行构建 `./cmd/molr-sandbox` 在其他 Linux 机器上提供存储、计算和网络。WebUI 资源页分为模型、工具、沙盒，助理可设置默认沙盒。部署配置、独立服务安全边界和当前限制见 [远程沙盒部署](../docs/deployment/remote-sandbox.md)。
 
+### 实时连接鉴权回归
+
+`go test ./internal/auth ./internal/im/realtime ./internal/api -run 'TestPrincipalWatch|TestAuthorization|TestStreamIdle|TestTDDServerSSE'` 覆盖真实认证与 SQLite 下的 1／10／50 条空闲连接、HTTP 层无重复身份轮询、撤销通知、账号隔离、事务回滚、截止时间续期、并发提交不丢唤醒，以及撤权后关闭连接。计时测试只反映运行测试时的环境；不作为部署延迟保证。
+
 ### 后台查询性能回归
 
 `go test ./internal/business/schedule ./internal/business/dream ./internal/business/plan ./internal/persistence/sqlitestore` 覆盖到期边界、跨时区、过期批处理、自动交接去重和提醒消除；存储观测与查询计划断言检查无关历史不会被全量加载。`go test ./internal/business/schedule -run '^$' -bench BenchmarkDueHistory -benchmem` 对比 1 千和 10 万条无关日程下的全量扫描与当前索引查询。具体耗时依赖机器与负载，不作为固定性能承诺。

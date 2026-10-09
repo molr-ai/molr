@@ -487,27 +487,22 @@ func (s *HTTPServer) sse(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}()
-	ticker := time.NewTicker(250 * time.Millisecond)
+	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
 	a, _ := s.authentication(r)
-	lastHeartbeat := time.Now()
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err = s.checkStreamPrincipal(ctx, principal(r), a); err != nil {
+			// The subscription observes revocation and expiry. Heartbeats only keep
+			// the transport alive; event delivery still revalidates the identity.
+			_ = control.SetWriteDeadline(time.Now().Add(s.config.HTTP.StreamWriteTimeout.Value()))
+			if _, err = io.WriteString(w, ": heartbeat\n\n"); err != nil {
 				return
 			}
-			if time.Since(lastHeartbeat) >= 15*time.Second {
-				_ = control.SetWriteDeadline(time.Now().Add(s.config.HTTP.StreamWriteTimeout.Value()))
-				if _, err = io.WriteString(w, ": heartbeat\n\n"); err != nil {
-					return
-				}
-				if err = control.Flush(); err != nil {
-					return
-				}
-				lastHeartbeat = time.Now()
+			if err = control.Flush(); err != nil {
+				return
 			}
 		case next := <-events:
 			if next.err != nil {

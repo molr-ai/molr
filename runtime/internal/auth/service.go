@@ -97,10 +97,17 @@ func (m *Manager) ownerSession(ctx context.Context, p core.Principal) error {
 	return nil
 }
 func (m *Manager) ValidatePrincipal(ctx context.Context, p core.Principal) error {
+	_, err := m.principalValidity(ctx, p)
+	return err
+}
+
+// principalValidity returns the remaining lifetime using the authentication clock.
+func (m *Manager) principalValidity(ctx context.Context, p core.Principal) (time.Duration, error) {
 	if e := p.Validate(); e != nil {
-		return e
+		return 0, e
 	}
-	return m.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
+	var remaining time.Duration
+	err := m.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		a, e := m.repo.AccountByID(ctx, p.OwnerID)
 		if e != nil {
 			if persistence.Missing(e) {
@@ -126,7 +133,12 @@ func (m *Manager) ValidatePrincipal(ctx context.Context, p core.Principal) error
 				}
 				return e
 			}
-			if s.RevokedAt != nil || !now.Before(s.Session.ExpiresAt) || !now.Before(s.Session.LastSeenAt.Add(m.options.SessionIdle)) {
+			deadline := s.Session.ExpiresAt
+			if idle := s.Session.LastSeenAt.Add(m.options.SessionIdle); idle.Before(deadline) {
+				deadline = idle
+			}
+			remaining = deadline.Sub(now)
+			if s.RevokedAt != nil || remaining <= 0 {
 				return denied()
 			}
 			return nil
@@ -138,11 +150,13 @@ func (m *Manager) ValidatePrincipal(ctx context.Context, p core.Principal) error
 			}
 			return e
 		}
-		if token.RevokedAt != nil || !now.Before(token.Token.ExpiresAt) {
+		remaining = token.Token.ExpiresAt.Sub(now)
+		if token.RevokedAt != nil || remaining <= 0 {
 			return denied()
 		}
 		return nil
 	})
+	return remaining, err
 }
 func (m *Manager) CheckScope(ctx context.Context, p core.Principal, scope string) error {
 	if e := m.ValidatePrincipal(ctx, p); e != nil {

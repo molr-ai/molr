@@ -201,3 +201,5 @@
 | `internal/auth` | `GroupFor`, `Manager.CreateUser`, `Manager.CurrentUser`, `Manager.RequireAdministrator`, `Manager.Groups`, `Manager.SaveGroup`, `Repository.AccountByID`, `Repository.AccountByUsername` | `TestMultipleUsersHaveIndependentAuthenticationAndSecurity`, `TestMultiUserProfileAndGroupLifecycle` |
 | `internal/auth` | `Manager.UpdateUser`, `Manager.Users` | `TestDisableAccountRevokesSessionsAndLinksAndProtectsLastAdmin`, `TestMultipleUsersHaveIndependentAuthenticationAndSecurity` |
 | `internal/auth` | `Manager.UpdateProfile`, `Manager.DeleteGroup` | `TestMultiUserProfileAndGroupLifecycle` |
+
+| `internal/auth` | `Manager.WatchPrincipal`, `PrincipalWatch.Check` | `TestPrincipalWatchCommitRollbackAndOwnerScope`, `TestPrincipalWatchExpiryAndActivity`, `TestPrincipalWatchAccountTokenAndRevokeAll` |

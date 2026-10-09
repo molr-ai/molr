@@ -10,7 +10,15 @@ import (
 	"molr.ai/runtime/internal/policy"
 )
 
+// AuthorizationWatch checks persisted identity and returns a positive duration
+// until the next expiry. Changes must cover every mutation that can revoke access.
+type AuthorizationWatch interface {
+	persistence.Watch
+	Check(context.Context) (time.Duration, error)
+}
+
 type Options struct {
+	WatchAuthorization    func(core.Principal) (AuthorizationWatch, error)
 	Authorizer            policy.Authorizer
 	AuthorizationInterval time.Duration
 }
@@ -20,7 +28,7 @@ type feed struct {
 }
 
 // NewFeed fails closed unless a current-principal authorizer is configured.
-// Committed writes wake subscribers. Only authorization is checked periodically.
+// Committed writes wake subscribers. Authorization watches replace idle polling.
 func NewFeed(store Store, options Options) Feed {
 	if options.AuthorizationInterval <= 0 {
 		options.AuthorizationInterval = 100 * time.Millisecond
@@ -59,27 +67,44 @@ func (f *feed) Subscribe(ctx context.Context, p core.Principal, q Query) (Subscr
 	if err != nil {
 		return nil, err
 	}
+	var authorization AuthorizationWatch
+	if f.options.WatchAuthorization != nil {
+		authorization, err = f.options.WatchAuthorization(p)
+		if err != nil {
+			watch.Close()
+			return nil, err
+		}
+	}
 	subscriptionCtx, cancel := context.WithCancel(ctx)
-	stopWatch := context.AfterFunc(subscriptionCtx, watch.Close)
-	return &subscription{feed: f, principal: p, query: q, ctx: subscriptionCtx, cancel: cancel, watch: watch, stopWatch: stopWatch}, nil
+	stopWatch := context.AfterFunc(subscriptionCtx, func() {
+		watch.Close()
+		if authorization != nil {
+			authorization.Close()
+		}
+	})
+	return &subscription{feed: f, principal: p, query: q, ctx: subscriptionCtx, cancel: cancel, watch: watch, authorization: authorization, stopWatch: stopWatch}, nil
 }
 
 type subscription struct {
-	feed      *feed
-	principal core.Principal
-	query     Query
-	ctx       context.Context
-	cancel    context.CancelFunc
-	mu        sync.Mutex
-	watch     persistence.Watch
-	stopWatch func() bool
-	buffer    []Visible
+	feed          *feed
+	principal     core.Principal
+	query         Query
+	ctx           context.Context
+	cancel        context.CancelFunc
+	mu            sync.Mutex
+	watch         persistence.Watch
+	stopWatch     func() bool
+	authorization AuthorizationWatch
+	buffer        []Visible
 }
 
 func (s *subscription) Close() error {
 	s.cancel()
 	s.stopWatch()
 	s.watch.Close()
+	if s.authorization != nil {
+		s.authorization.Close()
+	}
 	return nil
 }
 func (s *subscription) check(ctx context.Context) error {
@@ -140,6 +165,48 @@ func (s *subscription) Next(ctx context.Context) (Visible, error) {
 	return e, nil
 }
 func (s *subscription) wait(ctx context.Context) error {
+	if s.authorization != nil {
+		return s.waitAuthorization(ctx)
+	}
+	return s.pollAuthorization(ctx)
+}
+
+func (s *subscription) waitAuthorization(ctx context.Context) error {
+	timer := time.NewTimer(time.Hour)
+	defer timer.Stop()
+	for {
+		// Consume before checking; a commit racing the read stays pending.
+		select {
+		case <-s.authorization.Changes():
+		default:
+		}
+		if err := s.check(ctx); err != nil {
+			return err
+		}
+		remaining, err := s.authorization.Check(ctx)
+		if err != nil {
+			return err
+		}
+		if remaining <= 0 {
+			return core.NewError(core.Unauthenticated, "authorization expired")
+		}
+		timer.Reset(remaining)
+		select {
+		case <-ctx.Done():
+			return persistence.CheckContext(ctx)
+		case <-s.watch.Done():
+			return core.NewError(core.Unavailable, "event store closed")
+		case <-s.authorization.Done():
+			return core.NewError(core.Unavailable, "authorization watch closed")
+		case <-s.watch.Changes():
+			return s.check(ctx)
+		case <-s.authorization.Changes():
+		case <-timer.C:
+		}
+	}
+}
+
+func (s *subscription) pollAuthorization(ctx context.Context) error {
 	ticker := time.NewTicker(s.feed.options.AuthorizationInterval)
 	defer ticker.Stop()
 	for {

@@ -115,7 +115,10 @@ func (r *repository) SaveAccount(ctx context.Context, a StoredAccount, v core.Ve
 		}
 		a.Version = v + 1
 		a.Account.Version = a.Version
-		return tx.Put(ctx, "auth.accounts", string(a.Account.ID), encodeAccount(a))
+		if err := tx.Put(ctx, "auth.accounts", string(a.Account.ID), encodeAccount(a)); err != nil {
+			return err
+		}
+		return tx.NotifyAfterCommit(ctx, principalSignal(a.Account.ID))
 	})
 }
 func (r *repository) FindSession(ctx context.Context, digest string) (StoredSession, error) {
@@ -152,7 +155,10 @@ func (r *repository) RevokeSession(ctx context.Context, owner, id core.ID, at ti
 			return e
 		}
 		s.RevokedAt = &at
-		return tx.Put(ctx, "auth.sessions", key, s)
+		if err := tx.Put(ctx, "auth.sessions", key, s); err != nil {
+			return err
+		}
+		return tx.NotifyAfterCommit(ctx, principalSignal(owner))
 	})
 }
 func (r *repository) FindToken(ctx context.Context, digest string) (StoredToken, error) {
@@ -189,7 +195,10 @@ func (r *repository) RevokeToken(ctx context.Context, owner, id core.ID, at time
 			return e
 		}
 		s.RevokedAt = &at
-		return tx.Put(ctx, "auth.tokens", key, s)
+		if err := tx.Put(ctx, "auth.tokens", key, s); err != nil {
+			return err
+		}
+		return tx.NotifyAfterCommit(ctx, principalSignal(owner))
 	})
 }
 func (r *repository) RevokeAll(ctx context.Context, owner core.ID, at time.Time) error {
@@ -231,7 +240,7 @@ func (r *repository) RevokeAll(ctx context.Context, owner core.ID, at time.Time)
 			}
 		}
 
-		return nil
+		return tx.NotifyAfterCommit(ctx, principalSignal(owner))
 	})
 }
 func (r *repository) PutChallenge(ctx context.Context, c StoredChallenge) error {

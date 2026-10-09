@@ -284,3 +284,6 @@
 | `internal/notification` | `Unresolved` | `internal/business/plan.TestFilteredHandoffsStillResolveNotices` |
 
 | `internal/agent` | `Engine.Activities`, `Observer.Activities`, `Runtime.Activities` | `TestActivitiesBoundedProjectionAndDreamDeadline` |
+
+| `internal/im/realtime` | `AuthorizationWatch.Changes`, `AuthorizationWatch.Check` | `TestAuthorizationWatchIdleConnections`, `TestAuthorizationCommitDuringCheckIsNotLost`, `TestAuthorizationWatchExpiryRechecksWithoutReplay` |
+| `internal/im/realtime` | `AuthorizationWatch.Close`, `AuthorizationWatch.Done` | `TestAuthorizationWatchReleasedOnCancellationAndStoreClose` |
