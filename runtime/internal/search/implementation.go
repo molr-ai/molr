@@ -249,6 +249,9 @@ func (s *service) Search(ctx context.Context, p core.Principal, q Query) (Result
 		hits := []Hit{}
 		needle := strings.ToLower(strings.TrimSpace(q.Text))
 		accept := func(doc Document) error {
+			if err := persistence.CheckContext(ctx); err != nil {
+				return err
+			}
 			if doc.OwnerID != p.OwnerID || doc.Deleted || doc.Archived && !q.IncludeArchived || q.AssistantID != "" && q.AssistantID != doc.AssistantID || !selectedSource(q, doc.Source) {
 				return nil
 			}
@@ -259,15 +262,17 @@ func (s *service) Search(ctx context.Context, p core.Principal, q Query) (Result
 				}
 				target = core.Object{Kind: "memory"}
 			}
+			// Text filtering cannot publish a result. Only matching candidates need
+			// the object check below; counts, snippets and ranking remain authorized.
+			text := strings.ToLower(doc.Title + " " + doc.Text)
+			if needle != "" && !strings.Contains(text, needle) {
+				return nil
+			}
 			if err := s.options.Authorizer.Require(ctx, p, policy.CheckRequest{Target: target, Action: policy.Read}); err != nil {
 				if core.CodeOf(err) == core.Forbidden || core.CodeOf(err) == core.NotFound {
 					return nil
 				}
 				return err
-			}
-			text := strings.ToLower(doc.Title + " " + doc.Text)
-			if needle != "" && !strings.Contains(text, needle) {
-				return nil
 			}
 			snippet := []rune(doc.Text)
 			if len(snippet) > 240 {
