@@ -22,7 +22,7 @@ func TestSanitizeKeepsSensitiveKeysNestedValuesAndLimits(t *testing.T) {
 	for range 68 {
 		nested = map[string]any{"child": nested}
 	}
-	cases := []any{nil, map[string]any{}, payload, nested, "plain text", `{"API_KEY":"fake"} trailing data`, `["Bearer fake-token",{"secret":"fake"}]`, "{invalid JSON Bearer fake-token", json.RawMessage(`{"broken":`), func() {}}
+	cases := []any{nil, map[string]any{}, payload, nested, "plain text", `{} {"password":"trailing-value"}`, `{"API_KEY":"fake"} trailing data`, `["Bearer fake-token",{"secret":"fake"}]`, "{invalid JSON Bearer fake-token", json.RawMessage(`{"broken":`), func() {}}
 	for i, value := range cases {
 		for _, limit := range []int{-1, 0, 8, 64, 1024, 1 << 20} {
 			got, gs := sanitize(value, limit)

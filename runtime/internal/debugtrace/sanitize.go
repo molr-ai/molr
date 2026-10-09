@@ -59,7 +59,7 @@ func sanitize(value any, limit int) (json.RawMessage, string) {
 				prior := redacted
 				redacted = false
 				clean := walk(nested, depth+1)
-				if redacted {
+				if redacted || strings.TrimSpace(value[nestedDecoder.InputOffset():]) != "" {
 					encoded, _ := json.Marshal(clean)
 					value = string(encoded)
 				}
