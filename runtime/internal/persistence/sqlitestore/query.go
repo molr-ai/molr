@@ -172,6 +172,19 @@ func (s *Store) createIndexes() error {
 		{"security.grants", []string{"OwnerID", "AssistantID", "ResourceID", "RevokedAt", "ExpiresAtKey", "key"}},
 		{"security.grants", []string{"OwnerID", "AssistantID", "RevokedAt", "ExpiresAtKey", "key"}},
 	}...)
+
+	indexes = append(indexes, []struct {
+		bucket string
+		fields []string
+	}{
+		{"agent.operations", []string{"OwnerID", "Action", "CreatedAtKey", "State", "ID"}},
+		{"agent.operations", []string{"OwnerID", "Action", "State", "CreatedAtKey", "ID"}},
+		{"plugins.http-calls", []string{"Connection.ID", "OwnerID", "CreatedAtKey", "State", "ID"}},
+		{"plugins.http-calls", []string{"Connection.ID", "OwnerID", "State", "CreatedAtKey", "ID"}},
+		{"plugins.http-calls", []string{"Connection.ID", "State", "OwnerID", "CreatedAtKey", "ID"}},
+		{"plugins.http-calls", []string{"OwnerID", "State", "Connection.ID", "CreatedAtKey", "ID"}},
+		{"plugins.http-calls", []string{"Connection.ID", "CreatedAtKey", "State", "OwnerID", "ID"}},
+	}...)
 	for i, index := range indexes {
 		parts := []string{"bucket"}
 		for _, field := range index.fields {
@@ -402,6 +415,22 @@ func (tx *transaction) Query(ctx context.Context, bucket string, q persistence.Q
 		out = append(out, row)
 	}
 	return out, translate(ctx, rows.Err())
+}
+
+// Count applies the same scope and limit as Query without loading its records.
+func (tx *transaction) Count(ctx context.Context, bucket string, q persistence.Query) (int64, error) {
+	if err := tx.check(ctx); err != nil {
+		return 0, err
+	}
+	q.Unordered = true
+	q.Fields = nil
+	query, args, err := querySQL(bucket, q)
+	if err != nil {
+		return 0, err
+	}
+	var total int64
+	err = tx.sql.QueryRowContext(ctx, "SELECT COUNT(*) FROM ("+query+")", args...).Scan(&total)
+	return total, translate(ctx, err)
 }
 
 // Sum aggregates in SQLite without decoding each matching record in the caller.

@@ -263,3 +263,4 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/persistence` | `Page` | `internal/persistence/sqlitestore.TestTimeKeysAndKeysetPagePreserveNanosecondsAndOffsets`、`internal/auth.TestCredentialLookupsAndSessionPagesBoundHistory` |
 | `internal/persistence` | `SelectCatalog` | `TestCatalogSelectionKeepsPrivateNamespaces` |
 | `internal/persistence` | `Tx.Sum`, `Tx.DeleteMatching` | `internal/persistence/sqlitestore.TestScopedAggregateAndDeletionRespectTransactions` |
+| `internal/persistence` | `Tx.Count` | `internal/persistence/sqlitestore.TestCountRespectsScopeLimitAndTransactions` |

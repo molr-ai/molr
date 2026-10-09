@@ -133,7 +133,7 @@ func ModelTotals(ctx context.Context, store persistence.Store, owner, model core
 	return out, nil
 }
 
-// CallTotals reads only accounting fields, never arguments, outputs or credentials.
+// CallTotals counts through accounting indexes, never loading call records.
 // Connection owner may be empty when enforcing the shared connection ceiling.
 func CallTotals(ctx context.Context, store persistence.Store, kind string, owner, resource, exclude core.ID, from, until time.Time) (Totals, error) {
 	out := emptyTotals()
@@ -153,41 +153,56 @@ func CallTotals(ctx context.Context, store persistence.Store, kind string, owner
 	if exclude != "" {
 		filters = append(filters, persistence.Filter{Field: "ID", Op: "!=", Value: exclude})
 	}
+	if kind == "tool" {
+		// Prepared operations have not consumed a call; model calls are accounted
+		// for by ModelTotals. These fields are required on operation records.
+		filters = append(filters, persistence.Filter{Field: "Action", Op: "!=", Value: "model.generate"}, persistence.Filter{Field: "State", Op: "!=", Value: "prepared"})
+	}
 	pending := []string{"running"}
 	if kind == "connection" {
 		pending = append(pending, "prepared")
 	}
-	q := periodQuery(filters, from, until, "State", pending)
-	q.Fields = []string{"ID", "Action", "State", "CreatedAt"}
-	rows, err := persistence.Select[struct {
-		ID            core.ID
-		Action, State string
-		CreatedAt     time.Time
-	}](ctx, store, bucket, q)
-	if err != nil {
-		return out, err
+	active := persistence.Filter{Field: "State", Op: "in", Value: pending}
+	period := []persistence.Filter{}
+	if !from.IsZero() {
+		period = append(period, persistence.Filter{Field: "CreatedAtKey", Op: ">=", Value: persistence.TimeKey(from)})
 	}
-	for _, row := range rows {
-		if kind == "tool" && (row.Action == "model.generate" || row.State == "prepared") {
-			continue
+	if !until.IsZero() {
+		period = append(period, persistence.Filter{Field: "CreatedAtKey", Op: "<", Value: persistence.TimeKey(until)})
+	}
+	err := store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		count := func(extra ...persistence.Filter) (int64, error) {
+			where := append(append([]persistence.Filter{}, filters...), extra...)
+			return tx.Count(ctx, bucket, persistence.Query{Where: where})
 		}
-		active := row.State == "running" || (kind == "connection" && row.State == "prepared")
-		if !active && !InPeriod(row.CreatedAt, from, until) {
-			continue
+		calls, err := count(period...)
+		if err != nil {
+			return err
 		}
-		out.Calls++
-		if active {
-			out.Active++
-			if !InPeriod(row.CreatedAt, from, until) {
-				out.Carried++
+		activeCount, err := count(active)
+		if err != nil {
+			return err
+		}
+		activeInPeriod := activeCount
+		if len(period) > 0 {
+			activeInPeriod, err = count(append(append([]persistence.Filter{}, period...), active)...)
+			if err != nil {
+				return err
 			}
 		}
-		if row.State == "unknown" {
-			out.Unknown++
+		unknown, err := count(append(append([]persistence.Filter{}, period...), persistence.Eq("State", "unknown"))...)
+		if err != nil {
+			return err
 		}
-	}
-	return out, nil
+		// Active calls outside the requested period still occupy allowance. Add
+		// only those carried calls, so active calls in the period count once.
+		out.Carried = int(activeCount - activeInPeriod)
+		out.Calls, out.Active, out.Unknown = calls+int64(out.Carried), int(activeCount), int(unknown)
+		return nil
+	})
+	return out, err
 }
+
 func Exceeded() error {
 	return core.WithReason(core.NewError(core.BudgetExceeded, "user group quota exceeded"), "group_quota_exceeded")
 }

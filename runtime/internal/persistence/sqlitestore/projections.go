@@ -17,7 +17,7 @@ func queryProjections(bucket string, data []byte) ([]byte, error) {
 		fields = []string{"ExpiresAt"}
 	case "im.outbox", "security.audit":
 		fields = []string{"At"}
-	case "im.messages":
+	case "im.messages", "agent.operations":
 		fields = []string{"CreatedAt"}
 	case "business.tasks":
 		fields = []string{"UpdatedAt"}
@@ -68,16 +68,24 @@ func queryProjections(bucket string, data []byte) ([]byte, error) {
 // when these indexes are first installed. The marker and all derived keys commit
 // together; subsequent opens do only a primary-key marker lookup.
 func (s *Store) initializeQueryProjections() error {
+	if err := s.initializeProjectionGroup("timestamp-keys-v1", []string{"security.grants", "im.outbox", "security.audit", "im.messages", "business.tasks", "business.dream_sessions", "debug.summaries", "auth.login-links", "plugins.http-calls"}); err != nil {
+		return err
+	}
+	// Installing the call accounting indexes derives only operation time keys.
+	return s.initializeProjectionGroup("call-accounting-v1", []string{"agent.operations"})
+}
+
+func (s *Store) initializeProjectionGroup(marker string, buckets []string) error {
 	return s.Write(context.Background(), func(ctx context.Context, tx persistence.Tx) error {
 		var initialized bool
-		err := tx.Get(ctx, "system.query_indexes", "timestamp-keys-v1", &initialized)
+		err := tx.Get(ctx, "system.query_indexes", marker, &initialized)
 		if err == nil && initialized {
 			return nil
 		}
 		if err != nil && !persistence.Missing(err) {
 			return err
 		}
-		for _, bucket := range []string{"security.grants", "im.outbox", "security.audit", "im.messages", "business.tasks", "business.dream_sessions", "debug.summaries", "auth.login-links", "plugins.http-calls"} {
+		for _, bucket := range buckets {
 			after := ""
 			for {
 				rows, err := tx.Query(ctx, bucket, persistence.Query{Where: []persistence.Filter{{Field: "key", Op: ">", Value: after}}, Limit: 100})
@@ -101,6 +109,6 @@ func (s *Store) initializeQueryProjections() error {
 				}
 			}
 		}
-		return tx.Put(ctx, "system.query_indexes", "timestamp-keys-v1", true)
+		return tx.Put(ctx, "system.query_indexes", marker, true)
 	})
 }

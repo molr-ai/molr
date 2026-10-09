@@ -91,8 +91,9 @@ test('unknown model costs end holds automatically and remain visible as history'
   const provider = await mutate(page, '/api/resources', { Kind: 'model', Name: `Unknown usage ${suffix}`, Provider: 'openai-compatible', Binding: { Endpoint: origin, AllowedOrigins: [origin], Models: [{ Name: `Retry unknown ${suffix}`, SupportsTools: true, ContextLimit: 32768, Pricing: { Currency: 'USD', InputMicrosPerMillion: 1000000, OutputMicrosPerMillion: 1000000, CachedInputMicrosPerMillion: 0 } }] } });
   const model = (await request(page, '/api/models')).find((m: any) => m.ResourceID === provider.ID);
   const assistant = await mutate(page, '/api/assistants', { Name: `Unknown usage ${suffix}`, ModelID: model.ID, Budget: { Limit: { Currency: 'USD', Micros: 1000000 }, Period: 'daily' } });
-  await mutate(page, '/api/conversations/messages', { ConversationID: assistant.ConversationID, Content: { Kind: 'text', Text: 'Simulate an unknown provider outcome.' } });
-  await expect.poll(async () => (await request(page, `/api/jobs?assistant_id=${assistant.ID}`)).Items[0]?.State).toBe('needs_review');
+  // Hiring already starts a model call. Sending immediately can cancel that
+  // birth execution and adds a second unknown outcome to this accounting test.
+  await expect.poll(async () => (await request(page, `/api/jobs?assistant_id=${assistant.ID}`)).Items.some((job: any) => job.State === 'needs_review')).toBe(true);
   const after = (await request(page, '/api/account/quotas')).Summary;
   expect(after.Unknown).toBe(before.Unknown + 1);
   expect(after.ModelCalls).toBe(before.ModelCalls + 1);
@@ -106,7 +107,8 @@ test('unknown model costs end holds automatically and remain visible as history'
   await page.goto('/#/account/usage');
   await expect(page.locator('.usage-page')).not.toContainText('no manual action is needed');
   await expect(page.getByRole('heading', { name: 'Current member allowances' })).toHaveCount(0);
-  await expect(page.locator('.usage-page [role="alert"]')).toHaveCount(0);
+  await expect(page.locator('.usage-overview')).toBeVisible();
+  await expect(page.locator('.usage-page').getByRole('alert')).toBeHidden();
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
   expect((await request(page, '/api/account/quotas')).Summary.ModelCalls).toBe(after.ModelCalls);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
