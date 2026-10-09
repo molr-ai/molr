@@ -95,7 +95,7 @@ await command(process.env.GO_BINARY ?? (existsSync('/snap/go/current/bin/go') ? 
 await chmod(binary, 0o755);
 await command(binary, ['init', '-config', join(directory, 'server.json'), '-username', 'owner', '-password-stdin'], directory, 'webui-e2e-password-2026!\n');
 children.push(startRuntime(binary, join(directory, 'server.json'), 'primary'));
-children.push(spawn(process.execPath, [resolve(root, 'node_modules/vite/bin/vite.js'), '--host', '0.0.0.0', '--port', String(uiPort)], { cwd: resolve(root, 'apps/webui'), env: { ...env, MOLR_RUNTIME_URL: runtimeURL }, stdio: 'inherit' }));
+children.push(spawn(process.execPath, [resolve(root, 'node_modules/vite/bin/vite.js'), ...(process.env.MOLR_E2E_PREVIEW === '1' ? ['preview'] : []), '--host', '0.0.0.0', '--port', String(uiPort)], { cwd: resolve(root, 'apps/webui'), env: { ...env, MOLR_RUNTIME_URL: runtimeURL }, stdio: 'inherit' }));
 // A second independent Runtime reproduces same-host, different-port login
 // collisions in one browser context. It shares neither accounts nor data.
 const secondUIPort = Number(process.env.MOLR_TEST_SECOND_PORT ?? uiPort + 1), secondRuntimePort = Number(process.env.MOLR_TEST_SECOND_RUNTIME_PORT ?? runtimePort + 2);
@@ -109,7 +109,7 @@ await writeFile(secondConfig, JSON.stringify({ ...config, data_dir: join(secondD
 ] }, http: { ...config.http, listen: `127.0.0.1:${secondRuntimePort}`, public_url: secondRuntimeURL, allowed_origins: [`http://127.0.0.1:${secondUIPort}`] } }), { mode: 0o600 });
 await command(binary, ['init', '-config', secondConfig, '-username', 'second-owner', '-password-stdin'], secondDirectory, 'second-webui-e2e-password-2026!\n');
 children.push(startRuntime(binary, secondConfig, 'secondary'));
-children.push(spawn(process.execPath, [resolve(root, 'node_modules/vite/bin/vite.js'), '--host', '0.0.0.0', '--port', String(secondUIPort)], { cwd: resolve(root, 'apps/webui'), env: { ...env, MOLR_RUNTIME_URL: secondRuntimeURL }, stdio: 'inherit' }));
+children.push(spawn(process.execPath, [resolve(root, 'node_modules/vite/bin/vite.js'), ...(process.env.MOLR_E2E_PREVIEW === '1' ? ['preview'] : []), '--host', '0.0.0.0', '--port', String(secondUIPort)], { cwd: resolve(root, 'apps/webui'), env: { ...env, MOLR_RUNTIME_URL: secondRuntimeURL }, stdio: 'inherit' }));
 let closing = false;
 async function close() { if (closing) return; closing = true; for (const unit of runtimeUnits) await command('/usr/bin/systemctl', ['--user', 'stop', unit], directory); for (const child of children) child.kill('SIGTERM'); model.close(); pluginProvider?.close(); await Promise.all(children.map(child => child.exitCode !== null || child.signalCode !== null ? Promise.resolve() : new Promise(resolve => child.once('exit', resolve)))); await rm(directory, { recursive: true, force: true }); process.exit(0); }
 process.on('SIGINT', close); process.on('SIGTERM', close);

@@ -168,3 +168,7 @@ import { Select } from '@molr/ui';
 ### 配色主题
 
 `PalettePicker` 提供六套主题预览卡，UI Design 与 WebUI 复用同一组件和 `palettes.css`。`usePalettePreference(storageKey, theme, brandBase)` 在应用根部应用配色、同步浏览器偏好与 SVG Logo 地址；账号级持久化由应用完成。配色样式仅匹配 `data-palette`，未启用的官网保持原样。Vite 应用通过 `@molr/ui/themed-brand-plugin` 提供主题 SVG 资源并输出静态构建文件，PNG 原始资产不变。
+
+## 构建副作用边界
+
+包清单使用 `sideEffects: ["**/*.css"]`，保留所有显式 CSS 导入，同时允许构建器移除未使用的组件及其依赖。组件模块没有必须在导入时执行的全局初始化；浏览器事件监听和运行时状态初始化应留在组件生命周期或显式调用中。新增不可移除的初始化模块时，必须将其加入清单，不能依赖偶然的导入顺序。SSR 导入与组件行为测试、三个应用的生产构建共同检查这一边界。

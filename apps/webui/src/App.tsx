@@ -1,11 +1,8 @@
 import { ErrorNoticeProvider } from './error-notices';
 import { SetupGate } from './setup';
-import { AdminSettings } from './administration/AdminSettings';
-import { ExtensionPages } from './plugins/Plugins';
-import { PluginFrame } from './plugins/PluginFrame';
 import { pluginCopy } from './plugins/copy';
 import { NotificationProvider } from './notifications/provider';
-import { Component, useEffect, useMemo, useState } from 'react';
+import { Component, lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AssistantAvatar, Button, ConnectionLogo, IconButton, ModalScope, Tooltip, UIProvider, useBreakpoint, useTheme } from '@molr/ui';
 import { Puzzle, CalendarClock, FlaskConical, Folder, MessagesSquare, Search as SearchIcon } from 'lucide-react';
@@ -17,13 +14,17 @@ import { useNavigation } from './navigation';
 import { ErrorNotice, Loading } from './interfaces/official/components/common';
 import { Login } from './interfaces/official/features/Login';
 import { LoginLinkLogin } from './interfaces/official/features/LoginLinkLogin';
-import { OfficialPage } from './interfaces/official/OfficialPage';
 import { useLoginLink } from './login-link';
 import { UIHostProvider, useUIHost } from './ui-host/store';
-import { TestChatPage } from './interfaces/test/TestChatPage';
-import { FramePage } from './ui-host/FramePage';
 import { hostCopy } from './ui-host/copy';
 import './ui-host/host.css';
+
+const OfficialPage = lazy(() => import('./interfaces/official/OfficialPage').then(module => ({ default: module.OfficialPage })));
+const TestChatPage = lazy(() => import('./interfaces/test/TestChatPage').then(module => ({ default: module.TestChatPage })));
+const AdminSettings = lazy(() => import('./administration/AdminSettings').then(module => ({ default: module.AdminSettings })));
+const ExtensionPages = lazy(() => import('./plugins/Plugins').then(module => ({ default: module.ExtensionPages })));
+const PluginFrame = lazy(() => import('./plugins/PluginFrame').then(module => ({ default: module.PluginFrame })));
+const FramePage = lazy(() => import('./ui-host/FramePage').then(module => ({ default: module.FramePage })));
 
 export function App() { return <LocaleProvider><SessionProvider><NoticeScope /></SessionProvider></LocaleProvider>; }
 function NoticeScope() {
@@ -75,8 +76,8 @@ function WorkspaceHost() {
     </nav>
     <main className="workspace-main" data-page={page}>
       {hasConnectionNotice && <div className="connection-banner" data-connection={connection} role="status"><span>{connection === 'failed' ? t.connectionFailed : connection === 'disconnected' ? t.offline : t.reconnecting}</span>{connection !== 'reconnecting' && <Button variant="ghost" size="sm" onClick={retryConnection}>{t.retryConnection}</Button>}</div>}
-      <PageBoundary key={`${packageKey(selected.manifest)}:${recoveryAttempt}`} routeKey={`${uiPage}:${id}`} fallback={<div className="ui-frame-notice" role="alert"><h2>{copy.failed}</h2><p>{copy.failedHelp}</p><Button onClick={recover}>{copy.recover}</Button><Button variant="secondary" onClick={() => navigate('account', 'theme')}>{copy.manage}</Button></div>}>
-        {page === 'settings' ? <AdminSettings initialTab={id} onSelectSection={value => navigate('settings', value)} /> : page === 'resources' && !administrator ? <div className="ui-frame-notice" role="alert">{locale === 'zh' ? '此页面仅管理员可访问' : 'Administrator access required'}</div> : page === 'account' ? <OfficialPage /> : page === 'extensions' ? <ExtensionPages id={id} /> : selected.plugin ? <PluginFrame reference={{ ...selected.plugin, Page: uiPage }} title={selected.manifest.name} /> : selected.runtime === 'builtin' ? <NativePage /> : <FramePage manifest={selected.manifest} context={context} navigate={navigate} recover={recover} />}
+      <PageBoundary key={`${packageKey(selected.manifest)}:${recoveryAttempt}`} routeKey={`${uiPage}:${id}`} fallback={<div className="ui-frame-notice" role="alert"><h2>{copy.failed}</h2><p>{copy.failedHelp}</p><Button onClick={() => location.reload()}>{copy.retry}</Button><Button onClick={recover}>{copy.recover}</Button><Button variant="secondary" onClick={() => navigate('account', 'theme')}>{copy.manage}</Button></div>}>
+        <Suspense fallback={<Loading />}>{page === 'settings' ? <AdminSettings initialTab={id} onSelectSection={value => navigate('settings', value)} /> : page === 'resources' && !administrator ? <div className="ui-frame-notice" role="alert">{locale === 'zh' ? '此页面仅管理员可访问' : 'Administrator access required'}</div> : page === 'account' ? <OfficialPage /> : page === 'extensions' ? <ExtensionPages id={id} /> : selected.plugin ? <PluginFrame reference={{ ...selected.plugin, Page: uiPage }} title={selected.manifest.name} /> : selected.runtime === 'builtin' ? <NativePage /> : <FramePage manifest={selected.manifest} context={context} navigate={navigate} recover={recover} />}</Suspense>
       </PageBoundary>
     </main>
   </ModalScope></div></UIProvider>;
