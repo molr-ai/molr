@@ -85,14 +85,43 @@ func contextInput(snapshot *automaticContext) model.Input {
 	return model.Input{Role: model.User, RuntimeContext: true, Text: contextText(snapshot)}
 }
 func checkContextSize(inputs []model.Input) error {
-	encoded, err := json.Marshal(inputs)
-	if err != nil {
-		return err
+	return checkContextSizeLimit(inputs, 256<<20)
+}
+
+// The encoder reuses its buffer per input instead of allocating one copy of
+// the complete history. Each Encode adds a newline: for a nonempty JSON array,
+// their total length plus one equals the array brackets and comma separators.
+func checkContextSizeLimit(inputs []model.Input, limit int) error {
+	budget := contextSizeBudget{remaining: limit - 1}
+	if len(inputs) == 0 {
+		size := 2 // []
+		if inputs == nil {
+			size = 4 // null
+		}
+		budget.remaining = limit - size
+	} else {
+		encoder := json.NewEncoder(&budget)
+		for i := range inputs {
+			if err := encoder.Encode(&inputs[i]); err != nil {
+				return err
+			}
+		}
 	}
-	if len(encoded) > 256<<20 {
+	if budget.remaining < 0 {
 		return core.WithReason(core.NewError(core.FailedPrecondition, "private context requires compaction"), core.ContextLimit)
 	}
 	return nil
+}
+
+type contextSizeBudget struct{ remaining int }
+
+func (b *contextSizeBudget) Write(data []byte) (int, error) {
+	// Saturate once over budget, but keep validating later inputs so malformed
+	// JSON/provider state retains the same error precedence as json.Marshal.
+	if b.remaining >= 0 {
+		b.remaining -= len(data)
+	}
+	return len(data), nil
 }
 
 // refreshContext runs only at model request boundaries, after all tool replies.

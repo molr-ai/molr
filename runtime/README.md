@@ -155,3 +155,7 @@ Runtime 内嵌本机 sandbox_manager；可另行构建 `./cmd/molr-sandbox` 在�
 ### 调用配额查询性能回归
 
 `go test ./internal/quota ./internal/plugins ./internal/app ./internal/agent/tools ./internal/persistence/...` 覆盖工具和 HTTP 连接的周期计数、跨周期占用、账号／资源隔离、当前操作排除及准入事务回滚；覆盖索引和读取量断言检查统计不解码历史调用。`go test ./internal/quota -run '^$' -bench '^BenchmarkCallQuotaHistory$' -benchmem` 比较 100、1 千和 1 万条本周期历史下的配额计算开销，不包含模型或外部 HTTP 延迟。
+
+### 上下文大小检查性能回归
+
+`go test ./internal/agent ./internal/agent/model` 覆盖上下文 JSON 大小边界、工具参数、服务商状态、多模态元数据、256 MiB 防护、压缩和执行恢复。`go test ./internal/agent -run '^$' -fuzz '^FuzzContextSizeMatchesJSON$' -fuzztime=10s` 对照完整 JSON 编码验证边界；`go test ./internal/agent -run '^$' -bench '^BenchmarkContextSizeCheck$' -benchmem` 测量 1、8、32 MiB 多条输入的检查开销，不包含模型网络调用或检查点持久化。
