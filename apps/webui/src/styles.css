@@ -38,10 +38,10 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 /* Join the desktop search toolbar to the chat header while retaining column widths. */
 .workspace:not(.workspace--mobile) .workspace-sidebar { position: relative; border-right-color: transparent; }
 .workspace:not(.workspace--mobile) .workspace-sidebar::after { content: ''; position: absolute; right: -1px; top: var(--workspace-header-height); bottom: 0; width: 1px; background: var(--color-border); pointer-events: none; }
-.workspace:not(.workspace--mobile) .assistant-toolbar { position: relative; height: var(--workspace-header-height); min-height: var(--workspace-header-height); flex-shrink: 0; border-bottom: 1px solid var(--color-border); }
-.workspace:not(.workspace--mobile) .assistant-toolbar::after { content: ''; position: absolute; right: -1px; top: 18px; height: 28px; width: 1px; background: var(--color-border); pointer-events: none; }
+.workspace:not(.workspace--mobile) .assistant-toolbar { position: relative; margin-right: -1px; height: var(--workspace-header-height); min-height: var(--workspace-header-height); flex-shrink: 0; border-bottom: 1px solid var(--color-border); }
+.workspace:not(.workspace--mobile) .assistant-toolbar::after { content: ''; position: absolute; right: 0; top: 18px; height: 28px; width: 1px; background: var(--color-border); pointer-events: none; }
 .workspace:not(.workspace--mobile) .workspace-empty { position: relative; }
-.workspace:not(.workspace--mobile) .workspace-empty::before { content: ''; position: absolute; inset: 0 0 auto; height: var(--workspace-header-height); border-bottom: 1px solid var(--color-border); background: var(--color-surface); pointer-events: none; }
+.workspace:not(.workspace--mobile) .workspace-empty::before { box-sizing: border-box; content: ''; position: absolute; inset: 0 0 auto; height: var(--workspace-header-height); border-bottom: 1px solid var(--color-border); background: var(--color-surface); pointer-events: none; }
 .workspace-empty__logo { --logo-symbol-size: 72px; opacity: 0.25; }
 .workspace-empty .ui-empty h3 { opacity: 0.25; }
 .workspace-empty .ui-empty__art { margin-bottom: 24px; }
