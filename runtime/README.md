@@ -159,3 +159,7 @@ Runtime 内嵌本机 sandbox_manager；可另行构建 `./cmd/molr-sandbox` 在�
 ### 上下文大小检查性能回归
 
 `go test ./internal/agent ./internal/agent/model` 覆盖上下文 JSON 大小边界、工具参数、服务商状态、多模态元数据、256 MiB 防护、压缩和执行恢复。`go test ./internal/agent -run '^$' -fuzz '^FuzzContextSizeMatchesJSON$' -fuzztime=10s` 对照完整 JSON 编码验证边界；`go test ./internal/agent -run '^$' -bench '^BenchmarkContextSizeCheck$' -benchmem` 测量 1、8、32 MiB 多条输入的检查开销，不包含模型网络调用或检查点持久化。
+
+### 文件搜索 glob 性能回归
+
+`go test ./internal/textfiles` 覆盖 glob 匹配、排除目录、授权及扫描边界；`go test ./internal/app -run 'TestFileSearchWorkspaceGlobalAndExternalScope|TestRemoteSandboxStorageRoutingAuthorizationAndContext'` 验证本地和远程工具接线。`go test ./internal/textfiles -run '^$' -fuzz '^FuzzCompiledGlobMatchesRecursive$' -fuzztime=15s` 对照原递归实现；`go test ./internal/textfiles -run '^$' -bench '^BenchmarkFileSearchGlobFiltering$' -benchmem` 测量 2,000／8,000 个文件、12 条模式且路径均未命中的遍历过滤开销，不包含文件正文读取。

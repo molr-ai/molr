@@ -89,6 +89,8 @@ file_search 沿用 FileTarget：默认本地 `/work`，`/global` 只读，外部
 
 必填 path。pattern 默认普通字符串，regex 开启逐行正则；case_sensitive 默认 true。glob/exclude_glob 为相对路径模式，支持 **、*、?、字符组；不解释 .gitignore。mode=content 返回路径、行号、片段及 context_lines（0–5）上下文；mode=files 只返回匹配路径，不传 pattern 时按路径筛选。include_hidden 默认 false，但显式选择的隐藏目录会遍历，例如 `/work/.agents/memory`。
 
+每次搜索先拆分 glob 的路径段，遍历期间复用模式；`**` 按路径段逐步回退匹配，不为每个候选建立递归状态表。模式仅在本次搜索内保留，包含／排除顺序、目录剪枝和逐路径授权检查保持不变。
+
 默认 50 条、最多 200 条结果；最多扫描 10,000 项、32 层目录、每文件 2 MiB、累计 64 MiB，5 秒预算及 32 KiB 结果预算。超过 4096 字节的行、非 UTF-8、二进制和链接按原因计入 Skipped；长行和过大文件使 Complete=false。Complete、Truncated、StopReason 及扫描统计明确结果边界，不提供可能漏项的分页游标。目录或文件扫描期间变化也报告不完整。结果只用于定位，修改前 file_read 获取当前内容与版本。
 
 文件搜索不解析记忆状态，也不特殊处理某个目录为“记忆库”。记忆规则由系统提示词说明，memory_* 工具均已移除。远程搜索随 Sandbox 协议 6 提供，需要配套更新节点。

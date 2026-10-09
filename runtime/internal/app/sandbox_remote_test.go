@@ -91,7 +91,7 @@ func TestRemoteSandboxStorageRoutingAuthorizationAndContext(t *testing.T) {
 	grant := f.grant(t, storage.ID, "remote-read-grant", []policy.Action{policy.Read}, policy.Scope{PathPrefixes: []string{"/allowed"}}, nil)
 	e.OperationID = "allowed"
 	e.OperationID = "remote-search"
-	searchRaw, err := files.search(t.Context(), e, tools.FileSearchRequest{FileTarget: tools.FileTarget{SandboxID: connection.ID, ResourceID: storage.ID, Path: "/allowed"}, Pattern: "allowed"})
+	searchRaw, err := files.search(t.Context(), e, tools.FileSearchRequest{FileTarget: tools.FileTarget{SandboxID: connection.ID, ResourceID: storage.ID, Path: "/allowed"}, Pattern: "allowed", Glob: []string{"**/fi?e"}})
 	need(t, err)
 	var searched struct {
 		Matches  []struct{ Path, Text string }

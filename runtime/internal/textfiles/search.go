@@ -73,33 +73,53 @@ func (o SearchOptions) Validate() error {
 	}
 	return nil
 }
-func globMatch(pattern, name string) bool {
-	a, b := strings.Split(pattern, "/"), strings.Split(name, "/")
-	memo := map[[2]int]bool{}
-	seen := map[[2]int]bool{}
-	var match func(int, int) bool
-	match = func(i, j int) (result bool) {
-		key := [2]int{i, j}
-		if seen[key] {
-			return memo[key]
+
+type pathGlob []string
+
+func compileGlobs(patterns []string) []pathGlob {
+	out := make([]pathGlob, len(patterns))
+	for i, pattern := range patterns {
+		out[i] = strings.Split(pattern, "/")
+	}
+	return out
+}
+
+func (pattern pathGlob) matches(parts []string) bool {
+	i, j, star, retry := 0, 0, -1, 0
+	for j < len(parts) {
+		if i < len(pattern) && pattern[i] == "**" {
+			// A directory wildcard first consumes nothing. On a later mismatch,
+			// extend the latest wildcard by one component and retry its suffix.
+			star, retry = i, j
+			i++
+			continue
 		}
-		defer func() { seen[key] = true; memo[key] = result }()
-		if i == len(a) {
-			return j == len(b)
-		}
-		if a[i] == "**" {
-			if match(i+1, j) {
-				return true
+		if i < len(pattern) {
+			if ok, _ := path.Match(pattern[i], parts[j]); ok {
+				i++
+				j++
+				continue
 			}
-			return j < len(b) && match(i, j+1)
 		}
-		if j == len(b) {
+		if star < 0 {
 			return false
 		}
-		ok, _ := path.Match(a[i], b[j])
-		return ok && match(i+1, j+1)
+		retry++
+		i, j = star+1, retry
 	}
-	return match(0, 0)
+	for i < len(pattern) && pattern[i] == "**" {
+		i++
+	}
+	return i == len(pattern)
+}
+
+func matchGlobs(patterns []pathGlob, parts []string) bool {
+	for _, pattern := range patterns {
+		if pattern.matches(parts) {
+			return true
+		}
+	}
+	return false
 }
 
 // Search reads through the same confined descriptors as file tools. It never
@@ -142,27 +162,16 @@ func Search(ctx context.Context, root, name string, o SearchOptions, authorize f
 		pattern = "(?i)" + pattern
 	}
 	re := regexp.MustCompile(pattern)
+	includeGlobs, excludeGlobs := compileGlobs(o.Glob), compileGlobs(o.ExcludeGlob)
 	excluded := func(rel string) bool {
-		for _, g := range o.ExcludeGlob {
-			if globMatch(g, rel) {
-				return true
-			}
-		}
-		return false
+		return len(excludeGlobs) > 0 && matchGlobs(excludeGlobs, strings.Split(rel, "/"))
 	}
 	selected := func(rel string) bool {
-		if excluded(rel) {
-			return false
-		}
-		if len(o.Glob) == 0 {
+		if len(includeGlobs) == 0 && len(excludeGlobs) == 0 {
 			return true
 		}
-		for _, g := range o.Glob {
-			if globMatch(g, rel) {
-				return true
-			}
-		}
-		return false
+		parts := strings.Split(rel, "/")
+		return !matchGlobs(excludeGlobs, parts) && (len(includeGlobs) == 0 || matchGlobs(includeGlobs, parts))
 	}
 	add := func(m SearchMatch) {
 		encoded, _ := json.Marshal(m)
