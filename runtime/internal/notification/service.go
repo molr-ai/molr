@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"sort"
 	"time"
 
 	"molr.ai/runtime/internal/core"
@@ -179,36 +178,42 @@ func (s *Service) List(ctx context.Context, p core.Principal, q Query) (Page, er
 		c = previous
 	}
 	err = s.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		rows, e := persistence.Select[Notice](ctx, s.store, bucket, persistence.Query{Prefix: string(p.OwnerID) + "/"})
+		// Counts are account-wide, independent of item filters and the page cursor.
+		active := persistence.Query{Where: []persistence.Filter{
+			persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("ResolvedAt", nil), persistence.Eq("DismissedAt", nil),
+		}}
+		pending, e := tx.Count(ctx, bucket, active)
 		if e != nil {
 			return e
 		}
-		for _, n := range rows {
-			active := n.ResolvedAt == nil && n.DismissedAt == nil
-			if active {
-				out.PendingCount++
-				if n.ReadAt == nil {
-					out.UnreadCount++
-				}
-			}
-			if q.Kind != "" && n.Kind != q.Kind || q.AssistantID != "" && n.AssistantID != q.AssistantID {
-				continue
-			}
-			if (q.Filter == "active" || q.Filter == "pending") && !active || q.Filter == "unread" && (!active || n.ReadAt != nil) {
-				continue
-			}
-			if !c.At.IsZero() && (n.CreatedAt.After(c.At) || n.CreatedAt.Equal(c.At) && n.ID >= c.ID) {
-				continue
-			}
-			out.Items = append(out.Items, n)
+		unread := active
+		unread.Where = append(append([]persistence.Filter{}, active.Where...), persistence.Eq("ReadAt", nil))
+		unreadCount, e := tx.Count(ctx, bucket, unread)
+		if e != nil {
+			return e
 		}
-		sort.Slice(out.Items, func(i, j int) bool {
-			a, b := out.Items[i], out.Items[j]
-			if !a.CreatedAt.Equal(b.CreatedAt) {
-				return a.CreatedAt.After(b.CreatedAt)
-			}
-			return a.ID > b.ID
-		})
+		out.PendingCount, out.UnreadCount = int(pending), int(unreadCount)
+		query := persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID)}, OrderBy: "CreatedAtKey", Descending: true, ThenBy: "ID", ThenDescending: true, Limit: page.Limit + 1}
+		if q.Filter == "active" || q.Filter == "pending" {
+			query.Where = active.Where
+		}
+		if q.Filter == "unread" {
+			query.Where = unread.Where
+		}
+		if q.Kind != "" {
+			query.Where = append(query.Where, persistence.Eq("Kind", q.Kind))
+		}
+		if q.AssistantID != "" {
+			query.Where = append(query.Where, persistence.Eq("AssistantID", q.AssistantID))
+		}
+		if !c.At.IsZero() {
+			query.After = []any{persistence.TimeKey(c.At), c.ID, persistence.Key(p.OwnerID, c.ID)}
+		}
+		rows, e := persistence.Select[Notice](ctx, tx.Store(), bucket, query)
+		if e != nil {
+			return e
+		}
+		out.Items = rows
 		if len(out.Items) > page.Limit {
 			out.Items = out.Items[:page.Limit]
 			last := out.Items[len(out.Items)-1]

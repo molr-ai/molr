@@ -39,6 +39,9 @@ func TestScopedQueriesUseIndexes(t *testing.T) {
 		{"dream evidence", "business.dream_runs", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), {Field: "Sources.Evidence", Op: "has", Value: "message/one/hash"}}, Limit: 1}, false},
 		{"message time range", "im.messages", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerKey", "owner"), persistence.Eq("ConversationID", "chat"), {Field: "CreatedAtKey", Op: ">=", Value: "2026"}}, Unordered: true}, false},
 		{"audit page", "security.audit", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner")}, OrderBy: "AtKey", Descending: true, ThenBy: "ID", Limit: 51}, true},
+		{"notification page", "notifications.records", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner")}, OrderBy: "CreatedAtKey", Descending: true, ThenBy: "ID", ThenDescending: true, Limit: 51}, true},
+		{"notification active", "notifications.records", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), persistence.Eq("ResolvedAt", nil), persistence.Eq("DismissedAt", nil)}, OrderBy: "CreatedAtKey", Descending: true, ThenBy: "ID", ThenDescending: true, Limit: 51}, true},
+		{"notification unread", "notifications.records", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), persistence.Eq("ResolvedAt", nil), persistence.Eq("DismissedAt", nil), persistence.Eq("ReadAt", nil)}, OrderBy: "CreatedAtKey", Descending: true, ThenBy: "ID", ThenDescending: true, Limit: 51}, true},
 		{"debug protected", "debug.summaries", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), {Field: "State", Op: "!=", Value: "running"}, {Field: "Trigger", Op: "!=", Value: "dream_due"}}, OrderBy: "StartedAtKey", Descending: true, ThenBy: "FirstRevision", ThenDescending: true, Limit: 20}, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

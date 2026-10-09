@@ -183,3 +183,7 @@ Runtime 内嵌本机 sandbox_manager；可另行构建 `./cmd/molr-sandbox` 在�
 ### 模型流式组装性能回归
 
 Chat Completions 的文本与工具字段使用增量缓冲组装，避免长输出的反复字符串复制。`go test ./internal/agent/model -run '^$' -bench BenchmarkChatStreamAssembly -benchmem` 覆盖正文、推理和工具参数的片段数增长；语义和证据校验见 [模型适配](../dev-docs/runtime/MODEL_ADAPTERS.md#流式响应组装)。
+
+### 通知查询性能回归
+
+`go test ./internal/notification ./internal/persistence/...` 覆盖筛选、账号隔离、纳秒及跨时区排序、分页完整性、全局计数和事务回滚；读取量及查询计划断言检查已解决历史不会被全量加载。`go test ./internal/notification -run '^$' -bench '^BenchmarkActiveNotificationsHistory$' -benchmem` 在固定 5 条活动通知下比较 100、1 千和 1 万条已解决历史的列表查询开销，测量不包含浏览器与网络。

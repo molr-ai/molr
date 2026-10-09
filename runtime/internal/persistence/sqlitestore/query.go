@@ -184,6 +184,9 @@ func (s *Store) createIndexes() error {
 		{"plugins.http-calls", []string{"Connection.ID", "State", "OwnerID", "CreatedAtKey", "ID"}},
 		{"plugins.http-calls", []string{"OwnerID", "State", "Connection.ID", "CreatedAtKey", "ID"}},
 		{"plugins.http-calls", []string{"Connection.ID", "CreatedAtKey", "State", "OwnerID", "ID"}},
+		{"notifications.records", []string{"OwnerID", "CreatedAtKey DESC", "ID DESC", "key DESC"}},
+		{"notifications.records", []string{"OwnerID", "ResolvedAt", "DismissedAt", "CreatedAtKey DESC", "ID DESC", "key DESC"}},
+		{"notifications.records", []string{"OwnerID", "ResolvedAt", "DismissedAt", "ReadAt", "CreatedAtKey DESC", "ID DESC", "key DESC"}},
 	}...)
 	for i, index := range indexes {
 		parts := []string{"bucket"}

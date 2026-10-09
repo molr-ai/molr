@@ -17,7 +17,7 @@ func queryProjections(bucket string, data []byte) ([]byte, error) {
 		fields = []string{"ExpiresAt"}
 	case "im.outbox", "security.audit":
 		fields = []string{"At"}
-	case "im.messages", "agent.operations":
+	case "im.messages", "agent.operations", "notifications.records":
 		fields = []string{"CreatedAt"}
 	case "business.tasks":
 		fields = []string{"UpdatedAt"}
@@ -72,7 +72,11 @@ func (s *Store) initializeQueryProjections() error {
 		return err
 	}
 	// Installing the call accounting indexes derives only operation time keys.
-	return s.initializeProjectionGroup("call-accounting-v1", []string{"agent.operations"})
+	if err := s.initializeProjectionGroup("call-accounting-v1", []string{"agent.operations"}); err != nil {
+		return err
+	}
+	// Installing the notification order index derives only its own sort keys.
+	return s.initializeProjectionGroup("notification-order-v1", []string{"notifications.records"})
 }
 
 func (s *Store) initializeProjectionGroup(marker string, buckets []string) error {
