@@ -179,3 +179,7 @@ Runtime 内嵌本机 sandbox_manager；可另行构建 `./cmd/molr-sandbox` 在�
 ### 模型定位性能回归
 
 `go test ./internal/business/resource ./internal/app ./internal/persistence/...` 覆盖模型 ID 稳定性、提供商生命周期、索引回滚／重启、共享目录与用户组撤销；读取量测试断言只加载目标配置，查询计划检查成员索引命中。`go test ./internal/app -run '^$' -bench '^BenchmarkModelResolutionProviders$' -benchmem` 比较 10、100 和 1,000 个提供商下定位末尾模型的开销，不包含模型网络响应。
+
+### 模型流式组装性能回归
+
+Chat Completions 的文本与工具字段使用增量缓冲组装，避免长输出的反复字符串复制。`go test ./internal/agent/model -run '^$' -bench BenchmarkChatStreamAssembly -benchmem` 覆盖正文、推理和工具参数的片段数增长；语义和证据校验见 [模型适配](../dev-docs/runtime/MODEL_ADAPTERS.md#流式响应组装)。

@@ -62,3 +62,11 @@ Runtime 当前只有一条基础系统指令，不拆分成多条。触发事件
 DeepSeek 协议依据：[Chat Completions](https://api-docs.deepseek.com/api/create-chat-completion/)、[思考模式](https://api-docs.deepseek.com/guides/thinking_mode/)。
 
 预设与协议测试使用可控服务验证请求格式、错误处理及配置保留，不代表所有供应商、模型版本或 GPU 部署均经过在线验收。
+
+## 流式响应组装
+
+模型客户端将 Chat Completions SSE 组装为统一完成响应，再交给协议适配器。正文、推理内容、拒绝说明以及工具调用的 ID、名称和参数使用增量缓冲，流结束时生成字段值，避免每个小片段都复制此前累积的完整字符串。多个工具按供应商的调用索引分别组装，最终仍要求连续索引；供应商扩展字段的非字符串值替换旧值，后续字符串重新开始累积，null 不覆盖已有内容。
+
+原始 SSE、用量与计时继续由模型客户端记录，接收总量上限仍为 8 MiB。流结束标记、请求身份、结束原因、用量和工具索引校验沿用现有边界。这里优化的是响应组装，不把模型内部流直接发布到聊天。原始响应和已知费用证据的持久化、幂等重放与未知结果核对继续走同一模型调用流程。
+
+`go test ./internal/agent/model` 覆盖大量片段、Unicode、交错工具调用、扩展字段替换、异常流、计时与计费证据。`go test ./internal/agent/model -run '^$' -bench BenchmarkChatStreamAssembly -benchmem` 按正文、推理和工具参数分别比较 256、1,024、4,096 个片段的时间与分配量；性能数值依赖机器，不作为固定响应时间承诺。

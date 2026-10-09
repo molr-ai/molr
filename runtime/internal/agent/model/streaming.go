@@ -11,6 +11,12 @@ import (
 	"molr.ai/runtime/internal/core"
 )
 
+// Builders remain behind pointers: copying a live strings.Builder is invalid.
+// Each field is materialized once at the end of assembly.
+type streamCall struct {
+	id, name, arguments strings.Builder
+}
+
 // readChatStream assembles a normal completion for the existing protocol adapters
 // while observing arrival times at the network reader. Raw SSE remains billing
 // evidence; neither replay nor UI delivery contributes to timing measurements.
@@ -26,7 +32,8 @@ func readChatStream(reader io.Reader, started time.Time, now func() time.Time) (
 	}()
 	invalid := func() error { return core.NewError(core.Unavailable, "invalid or incomplete provider stream") }
 	message := map[string]any{"role": "assistant", "content": ""}
-	calls := map[int]*wireCall{}
+	calls := map[int]*streamCall{}
+	texts := map[string]*strings.Builder{}
 	var id, finish string
 	var usage json.RawMessage
 	var first, last time.Time
@@ -104,28 +111,33 @@ func readChatStream(reader io.Reader, started time.Time, now func() time.Time) (
 						}
 						call := calls[part.Index]
 						if call == nil {
-							call = &wireCall{Type: "function"}
+							call = &streamCall{}
 							calls[part.Index] = call
 						}
-						call.ID += part.ID
+						call.id.WriteString(part.ID)
 						if part.Type != "" && part.Type != "function" {
 							return invalid()
 						}
-						call.Function.Name += part.Function.Name
-						call.Function.Arguments += part.Function.Arguments
+						call.name.WriteString(part.Function.Name)
+						call.arguments.WriteString(part.Function.Arguments)
 						generated = generated || part.Function.Arguments != ""
 					}
 				default:
 					var text string
 					if json.Unmarshal(value, &text) == nil {
-						previous, _ := message[key].(string)
-						message[key] = previous + text
+						builder := texts[key]
+						if builder == nil {
+							builder = &strings.Builder{}
+							texts[key] = builder
+						}
+						builder.WriteString(text)
 						if key == "content" || key == "reasoning_content" || key == "refusal" {
 							generated = generated || text != ""
 						}
 					} else {
 						// Keep vendor continuation fields without allowing them to replace the
 						// role or tools assembled above. The raw stream is also retained.
+						delete(texts, key)
 						message[key] = value
 					}
 				}
@@ -167,13 +179,18 @@ func readChatStream(reader io.Reader, started time.Time, now func() time.Time) (
 	if !done || id == "" || finish == "" || len(usage) == 0 {
 		return nil, nil, timing, invalid()
 	}
+	for key, text := range texts {
+		message[key] = text.String()
+	}
 	if len(calls) > 0 {
 		ordered := make([]wireCall, len(calls))
 		for i := range ordered {
 			if calls[i] == nil {
 				return nil, nil, timing, invalid()
 			}
-			ordered[i] = *calls[i]
+			ordered[i] = wireCall{ID: calls[i].id.String(), Type: "function"}
+			ordered[i].Function.Name = calls[i].name.String()
+			ordered[i].Function.Arguments = calls[i].arguments.String()
 		}
 		message["tool_calls"] = ordered
 	}

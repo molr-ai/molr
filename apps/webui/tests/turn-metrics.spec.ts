@@ -7,6 +7,17 @@ async function post(page: Page, path: string, data: Record<string, unknown> & { 
   const response = await page.request.post(path, { headers: { Origin: base, 'X-CSRF-Token': csrf }, data: { ...data, Mutation: { IdempotencyKey: crypto.randomUUID(), ...data.Mutation } } });
   expect(response.status(), await response.text()).toBe(200); return response.json();
 }
+async function waitForBorn(page: Page, assistant: { ID: string; ConversationID: string }) {
+  let replies: any[] = [];
+  await expect.poll(async () => {
+    const messages = await (await page.request.get(`/api/conversations/${assistant.ConversationID}/messages`)).json();
+    replies = (messages.Items ?? []).filter((message: any) => message.Sender === 'assistant');
+    const status = await (await page.request.get(`/api/assistants/${assistant.ID}/status`)).json();
+    return replies.length > 0 && status.State === 'idle';
+  }, { timeout: 20000 }).toBe(true);
+  return replies;
+}
+
 test('turn info queries lazily, updates the whole turn and shares finalized cache across bubbles', async ({ page }, info) => {
   await page.goto('/');
   await page.getByLabel('Username', { exact: true }).fill('owner');
@@ -22,6 +33,7 @@ test('turn info queries lazily, updates the whole turn and shares finalized cach
   const resource = await post(page, '/api/resources', { Name: name, Kind: 'model', Provider: 'openai-compatible', Binding: { Endpoint: origin, AllowedOrigins: [origin], Models: [{ Name: name, ContextLimit: 32768, SupportsTools: true, Pricing: { Currency: 'USD', InputMicrosPerMillion: 100000, CachedInputMicrosPerMillion: 10000, OutputMicrosPerMillion: 200000 } }] } });
   const models = await (await page.request.get('/api/models')).json();
   const assistant = await post(page, '/api/assistants', { Name: name, ModelID: models.find((m: any) => m.ResourceID === resource.ID).ID, Budget: { Limit: { Currency: 'USD', Micros: 1000000 }, Period: 'daily' } });
+  const born = await waitForBorn(page, assistant);
   await page.goto(`/#/assistants/${assistant.ID}`);
   let requests = 0; let final: any;
   page.on('request', request => { if (request.url().endsWith('/metrics')) requests++; });
@@ -29,9 +41,9 @@ test('turn info queries lazily, updates the whole turn and shares finalized cach
   await page.getByRole('textbox', { name: 'Message your assistant', exact: true }).fill('Exercise turn statistics');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   const icons = page.getByRole('button', { name: 'Turn information', exact: true });
-  await expect(icons).toHaveCount(2);
+  await expect(icons).toHaveCount(born.length + 2);
   expect(requests).toBe(0);
-  await icons.first().click();
+  await icons.nth(born.length).click();
   const panel = page.getByRole('dialog', { name: 'Turn information', exact: true });
   await expect(panel).toBeVisible();
   await expect(panel).toContainText('Partial statistics');
@@ -51,11 +63,11 @@ test('turn info queries lazily, updates the whole turn and shares finalized cach
   await page.waitForTimeout(2300);
   expect(requests).toBe(completedRequests);
   await page.reload();
-  await page.getByRole('button', { name: 'Turn information', exact: true }).first().click();
+  await icons.nth(born.length).click();
   await expect.poll(() => requests).toBeGreaterThan(completedRequests);
   await setWorkbench(true);
   try {
-    await page.reload(); await icons.first().click();
+    await page.reload(); await icons.nth(born.length).click();
     await expect(panel.getByText('Per-call details', { exact: true })).toHaveCount(0);
     await panel.getByRole('button', { name: 'View in developer workbench', exact: true }).click();
     await expect(page).toHaveURL(`${base}/#/workbench/${assistant.ID}?turn=${final.TurnID}`);
@@ -65,7 +77,7 @@ test('turn info queries lazily, updates the whole turn and shares finalized cach
     await expect(panel).not.toBeVisible();
     // Deployment capability must also be present, even with the account opt-in.
     await page.route('**/api/status', async route => { const response = await route.fetch(); await route.fulfill({ json: { ...await response.json(), workbench_available: false } }); });
-    await page.goto(`/#/assistants/${assistant.ID}`); await page.reload(); await icons.first().click();
+    await page.goto(`/#/assistants/${assistant.ID}`); await page.reload(); await icons.nth(born.length).click();
     await expect(panel).toBeVisible();
     await expect(panel.getByRole('button', { name: 'View in developer workbench', exact: true })).toHaveCount(0);
   } finally {
@@ -89,13 +101,17 @@ test('turn info locates an older recorded turn across pages and survives reload'
     const resource = await post(page, '/api/resources', { Name: name, Kind: 'model', Provider: 'openai-compatible', Binding: { Endpoint: origin, AllowedOrigins: [origin], Models: [{ Name: name, ContextLimit: 32768, SupportsTools: true, Pricing: { Currency: 'USD', InputMicrosPerMillion: 0, CachedInputMicrosPerMillion: 0, OutputMicrosPerMillion: 0 } }] } });
     const models = await (await page.request.get('/api/models')).json();
     const assistant = await post(page, '/api/assistants', { Name: name, ModelID: models.find((m: any) => m.ResourceID === resource.ID).ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } });
+    await waitForBorn(page, assistant);
     let runs: any[] = [];
     for (let i = 1; i <= 3; i++) {
       await post(page, '/api/conversations/messages', { ConversationID: assistant.ConversationID, Content: { Kind: 'text', Text: `Locate turn ${i}` } });
-      await expect.poll(async () => { runs = (await (await page.request.get(`/api/debug/runs?assistant_id=${assistant.ID}`)).json()).Items; return runs.length === i && runs.every(run => run.State === 'succeeded'); }).toBe(true);
+      await expect.poll(async () => { runs = (await (await page.request.get(`/api/debug/runs?assistant_id=${assistant.ID}`)).json()).Items.filter((run: any) => run.Source?.Text?.startsWith('Locate turn ')); return runs.length === i && runs.every(run => run.State === 'succeeded'); }).toBe(true);
     }
     const first = runs.find(run => run.Source?.Text === 'Locate turn 1');
     expect(first).toBeTruthy();
+    const history = await (await page.request.get(`/api/conversations/${assistant.ConversationID}/messages`)).json();
+    const target = history.Items.find((message: any) => message.Sender === 'assistant' && message.Source?.ExecutionID === first.ExecutionID);
+    expect(target).toBeTruthy();
     let olderRequests = 0;
     // Keep real API data while forcing the target outside the initial page.
     await page.route('**/api/debug/trajectory?*', async route => {
@@ -104,7 +120,7 @@ test('turn info locates an older recorded turn across pages and survives reload'
       const response = await route.fetch({ url: url.toString() }); await route.fulfill({ response });
     });
     await page.goto(`/#/assistants/${assistant.ID}`); await page.reload();
-    await page.getByRole('button', { name: 'Turn information', exact: true }).first().click();
+    await page.locator(`[data-message-id="${target.ID}"]`).getByRole('button', { name: 'Turn information', exact: true }).click();
     await page.getByRole('button', { name: 'View in developer workbench', exact: true }).click();
     await expect(page).toHaveURL(`${base}/#/workbench/${assistant.ID}?turn=${first.ExecutionID}`);
     const inspector = page.getByRole('region', { name: 'Step details', exact: true });
