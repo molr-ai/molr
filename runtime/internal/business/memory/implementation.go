@@ -181,6 +181,12 @@ func (s *service) Delete(ctx context.Context, p core.Principal, req DeleteReques
 		if err != nil {
 			return struct{}{}, err
 		}
+		if req.Forget {
+			v.Sources, _, err = s.repo.fileSources(ctx, p.OwnerID, v.Ref, v.Version, v.Sources)
+			if err != nil {
+				return struct{}{}, err
+			}
+		}
 		if err = s.repo.Delete(ctx, v, req.Mutation.ExpectedVersion, req.Forget, func() error { return s.access(ctx, p, req.Ref, true, false) }); err != nil {
 			return struct{}{}, err
 		}

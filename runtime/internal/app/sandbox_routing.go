@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"path"
 	"reflect"
 	"time"
 
@@ -210,7 +211,7 @@ func (s *sandboxRouter) remote(ctx context.Context, e core.Execution, id core.ID
 
 	// Freeze routing and execution identity before effects. A recovered Runtime
 	// attempt must query the original operation rather than overwrite its identity.
-	if q.Method == "file_write" || q.Method == "file_edit" || q.Method == "shell_execute" || q.Method == "upload" {
+	if q.Method == "file_write" || q.Method == "file_edit" || q.Method == "file_move" || q.Method == "file_delete" || q.Method == "shell_execute" || q.Method == "upload" {
 		type target struct {
 			SandboxID core.ID
 			Identity  sm.Identity
@@ -243,6 +244,13 @@ func (s *sandboxRouter) remote(ctx context.Context, e core.Execution, id core.ID
 	return client.Execute(ctx, q, check)
 }
 func (s *sandboxRouter) file(ctx context.Context, e core.Execution, method string, t tools.FileTarget, args any, modelID core.ID) (json.RawMessage, bool, error) {
+	action := policy.Read
+	if method == "file_write" || method == "file_edit" || method == "file_move" || method == "file_delete" || method == "upload" {
+		action = policy.Write
+	}
+	if err := checkFilePolicy(ctx, e, t, action); err != nil {
+		return nil, true, err
+	}
 	id, err := s.location(ctx, e, t)
 	if err != nil {
 		return nil, true, err
@@ -256,7 +264,7 @@ func (s *sandboxRouter) file(ctx context.Context, e core.Execution, method strin
 		return nil, false, nil
 	}
 	actions := []policy.Action{policy.Read}
-	if method == "file_write" || method == "upload" {
+	if method == "file_write" || method == "file_move" || method == "file_delete" || method == "upload" {
 		actions = []policy.Action{policy.Write}
 	}
 	if method == "file_edit" {
@@ -279,6 +287,49 @@ func (s *sandboxRouter) file(ctx context.Context, e core.Execution, method strin
 	}
 	if t.ResourceID != "" {
 		q.Scopes = []sm.Scope{scope}
+	}
+	var moveDestination *tools.FileTarget
+	if move, ok := args.(tools.FileMoveRequest); ok {
+		dest := t
+		dest.Path = move.ToPath
+		moveDestination = &dest
+		if !t.FullAccess || t.ResourceID != "" {
+			destinationScope, err := s.scope(ctx, e, id, dest, policy.Write)
+			if err != nil {
+				return nil, true, err
+			}
+			q.Scopes = append(q.Scopes, destinationScope)
+		}
+	}
+	parentTargets := []tools.FileTarget{}
+	var createTarget *tools.FileTarget
+	if write, ok := args.(tools.FileWriteRequest); ok && write.CreateParents {
+		v := t
+		createTarget = &v
+	}
+	if move, ok := args.(tools.FileMoveRequest); ok && move.CreateParents {
+		v := t
+		v.Path = move.ToPath
+		createTarget = &v
+	}
+	if createTarget != nil && !t.FullAccess {
+		for name := path.Dir(createTarget.Path); name != "."; name = path.Dir(name) {
+			v := *createTarget
+			v.Path = name
+			parentScope, err := s.scope(ctx, e, id, v, policy.Write)
+			if err == nil {
+				parentTargets = append(parentTargets, v)
+				q.Scopes = append(q.Scopes, parentScope)
+			} else if core.CodeOf(err) != core.Forbidden && core.CodeOf(err) != core.NotFound {
+				return nil, true, err
+			}
+			if name == "/" {
+				break
+			}
+			if len(q.Scopes) > 32 {
+				return nil, true, core.Invalid("path", "too many parent scopes")
+			}
+		}
 	}
 	if modelID != "" {
 		provider, err := s.adapters.provider(ctx, e.Principal, modelID)
@@ -304,7 +355,17 @@ func (s *sandboxRouter) file(ctx context.Context, e core.Execution, method strin
 		if t.FullAccess {
 			return s.requireFullAccess(ctx, e, id)
 		}
-		_, err = s.scope(ctx, e, id, t, actions...)
+		if _, err = s.scope(ctx, e, id, t, actions...); err != nil {
+			return err
+		}
+		for _, parent := range parentTargets {
+			if _, err = s.scope(ctx, e, id, parent, policy.Write); err != nil {
+				return err
+			}
+		}
+		if moveDestination != nil {
+			_, err = s.scope(ctx, e, id, *moveDestination, policy.Write)
+		}
 		return err
 	})
 	if err == nil && method == "file_read" {

@@ -7,6 +7,7 @@
 - [公开内容与内部资料](dev-docs/DEVELOPMENT.md#公开内容与内部资料)
 - [Worktree 开发规范](dev-docs/DEVELOPMENT.md#worktree-开发规范)
 - [Worktree 独立验收服务](dev-docs/DEVELOPMENT.md#worktree-独立验收服务)
+- [真实模型测试](dev-docs/DEVELOPMENT.md#真实模型测试)
 - [Runtime 构建与沙盒验收](dev-docs/DEVELOPMENT.md#runtime-构建与沙盒验收)
 - [合并后的服务生效](dev-docs/DEVELOPMENT.md#合并后的服务生效)
 - [开发与预览服务](dev-docs/DEVELOPMENT.md#开发与预览服务)

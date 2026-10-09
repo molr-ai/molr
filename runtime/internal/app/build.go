@@ -576,7 +576,7 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		}
 		return cancelTool(ctx, e, id)
 	}, ShellAvailable: shellAvailable, ShellExecute: shellExecute, ShellTask: b.shellTasks.tool, Authorizer: permissions, Operations: operations, Conversations: chat,
-		FileSearch: fileTools.search, FileTransfer: fileTools.transfer, FileRead: fileTools.read, FileList: fileTools.list, FileWrite: fileTools.write, FileEdit: fileTools.edit,
+		FileSearch: fileTools.search, FileTransfer: fileTools.transfer, FileRead: fileTools.read, FileList: fileTools.list, FileWrite: fileTools.write, FileEdit: fileTools.edit, FileMove: fileTools.move, FileDelete: fileTools.delete,
 		Plan:                    planTools{store: store, plans: plans, todos: todo.NewService(store, todo.Options{Authorizer: permissions, CheckAssistant: access.assistant}), schedules: schedule.NewService(store, schedule.Options{Authorizer: permissions, CheckAssistant: access.assistant})}.execute,
 		ConversationAttachments: &conversationAttachments{files: fileService, workspace: fileTools, conversations: chat, maxBytes: cfg.Execution.MaxUploadBytes},
 	})
@@ -624,7 +624,9 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 	}, OutputLimit: func(ctx context.Context, p core.Principal, id core.ID) (int, error) {
 		provider, err := adapters.provider(ctx, p, id)
 		return provider.Model.OutputWindow(), err
-	}, PrepareToolResult: fileTools.boundResult, Conversations: chat, DreamDeadline: dreams.Deadline, DreamActive: dreams.Active, DreamStop: dreams.Cancel, DreamPrepare: dreams.Prepare, DreamOutput: dreams.SavedOutput, DreamCommit: func(ctx context.Context, p core.Principal, e event.AssistantEvent, output string) error {
+	}, PrepareToolResult: fileTools.boundResult, Conversations: chat, DreamDeadline: dreams.Deadline, DreamActive: dreams.Active, DreamStop: dreams.Cancel, DreamPrepare: dreams.Prepare, DreamOutput: dreams.SavedOutput, DreamTools: []string{"file_list", "file_search", "file_read", "file_write", "file_edit", "file_move", "file_delete"}, DreamContext: func(ctx context.Context, p core.Principal, e event.AssistantEvent) context.Context {
+		return dreamFileContext(ctx, dreams, p, e)
+	}, DreamCommit: func(ctx context.Context, p core.Principal, e event.AssistantEvent, output string) error {
 		if err := dreams.Commit(ctx, p, e, output); err != nil {
 			return err
 		}
@@ -632,7 +634,7 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		if err != nil {
 			return err
 		}
-		b.Trace.Record(ctx, "dream.memory_changes", "succeeded", "", map[string]any{"SessionID": r.SessionID, "Batch": r.Batch, "MemoryFiles": r.MemoryFiles, "Decisions": r.Decisions})
+		b.Trace.Record(ctx, "dream.memory_changes", "succeeded", "", map[string]any{"SessionID": r.SessionID, "Batch": r.Batch, "MemoryFiles": r.MemoryFiles, "FileChanges": r.FileChanges})
 		return nil
 	}, ContextSources: func(ctx context.Context, r agent.ContextRequest) ([]agent.ContextDocument, error) {
 		docs, err := fileTools.contextSources(ctx, r)

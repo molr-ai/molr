@@ -48,7 +48,7 @@ func testDreamQueueRelease(t *testing.T, stop bool) {
 		msg := map[string]any{"role": "assistant", "content": "done"}
 		finish := "stop"
 		if strings.Contains(string(raw), "private dream memory consolidation") {
-			if len(req.Messages) != 2 || req.Messages[0].Role != "system" || req.Messages[1].Role != "user" {
+			if len(req.Messages) < 2 || req.Messages[0].Role != "system" || req.Messages[1].Role != "user" {
 				t.Error("dream requires system + user messages in every batch")
 				http.Error(w, "No user query found in messages.", http.StatusBadRequest)
 				return
@@ -56,21 +56,27 @@ func testDreamQueueRelease(t *testing.T, stop bool) {
 			requestMu.Lock()
 			if dreamSystem == "" {
 				dreamSystem, dreamEvidence = req.Messages[0].Content, req.Messages[1].Content
-			} else if dreamSystem != req.Messages[0].Content || dreamEvidence == req.Messages[1].Content {
+			} else if dreamSystem != req.Messages[0].Content || (len(req.Messages) == 2 && dreamEvidence == req.Messages[1].Content) {
 				t.Error("dream system must remain stable while batch evidence changes")
 			}
 			requestMu.Unlock()
-			if dreaming.Add(1) == 1 {
-				msg["content"] = `{"Summary":"first batch","Memories":[{"Text":"Weekly reports lead with conclusions.","Action":"create","Path":".agents/memory/工作约定/周报格式.md","Context":"weekly report","Evidence":"explicit","Sources":[{"Kind":"message","ID":"yesterday-000"}]}]}`
-			} else {
+			switch dreaming.Add(1) {
+			case 1:
+				args, _ := json.Marshal(map[string]any{"path": ".agents/memory/工作约定/周报格式.md", "text": "Weekly reports lead with conclusions.", "expected_version": "", "overwrite": false, "create_parents": true})
+				msg["tool_calls"] = []any{map[string]any{"id": "dream-file", "type": "function", "function": map[string]any{"name": "file_write", "arguments": string(args)}}}
+				finish = "tool_calls"
+			case 2:
+				msg["content"] = "first batch completed"
+			default:
 				close(started)
 				select {
 				case <-r.Context().Done():
 					return
 				case <-time.After(8 * time.Second):
 				}
-				msg["content"] = `{"Summary":"late","Memories":[]}`
+				msg["content"] = "late summary"
 			}
+
 		} else {
 			normal.Add(1)
 			eventIndex := -1
@@ -171,7 +177,7 @@ func testDreamQueueRelease(t *testing.T, stop bool) {
 	if len(mem.Items) != 1 {
 		t.Fatal("committed memory lost or late result written", mem)
 	}
-	if dreaming.Load() != 2 {
+	if dreaming.Load() != 3 {
 		t.Fatal("second batch never executed", dreaming.Load())
 	}
 	checkpoint, err := agent.NewCheckpoints(b.store).Load(ctx, p.OwnerID, a.ID)

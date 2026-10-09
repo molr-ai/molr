@@ -38,6 +38,7 @@ type FileListRequest struct {
 	ExpectedVersion string `json:"expected_version,omitempty"`
 }
 type FileWriteRequest struct {
+	CreateParents bool `json:"create_parents,omitempty"`
 	FileTarget
 	Text            string `json:"text"`
 	Overwrite       bool   `json:"overwrite"`
@@ -49,6 +50,17 @@ type FileEditRequest struct {
 	NewText         string `json:"new_text"`
 	ExpectedVersion string `json:"expected_version"`
 	ReplaceAll      bool   `json:"replace_all,omitempty"`
+}
+
+type FileMoveRequest struct {
+	FileTarget
+	ToPath          string `json:"to_path"`
+	ExpectedVersion string `json:"expected_version"`
+	CreateParents   bool   `json:"create_parents,omitempty"`
+}
+type FileDeleteRequest struct {
+	FileTarget
+	ExpectedVersion string `json:"expected_version"`
 }
 
 func fileArguments(call Call) (arguments, error) {
@@ -77,6 +89,16 @@ func fileArguments(call Call) (arguments, error) {
 		target = &args.fileWrite.FileTarget
 		value = args.fileWrite
 		required = append(required, "text", "overwrite")
+	case "file_move":
+		args.fileMove = &FileMoveRequest{}
+		target = &args.fileMove.FileTarget
+		value = args.fileMove
+		required = append(required, "to_path", "expected_version")
+	case "file_delete":
+		args.fileDelete = &FileDeleteRequest{}
+		target = &args.fileDelete.FileTarget
+		value = args.fileDelete
+		required = append(required, "expected_version")
 	case "file_edit":
 		args.fileEdit = &FileEditRequest{}
 		target = &args.fileEdit.FileTarget
@@ -215,6 +237,31 @@ func fileArguments(call Call) (arguments, error) {
 			return args, core.Invalid("edit", "nonempty old text and expected version required; text must be bounded UTF-8")
 		}
 	}
+	if r := args.fileMove; r != nil {
+		// Normalize the destination using the same target parser. Moves cannot
+		// cross resource or sandbox boundaries; file_transfer handles copies.
+		dest := *target
+		dest.Path = r.ToPath
+		raw, _ := json.Marshal(struct {
+			FileTarget
+			Text      string `json:"text"`
+			Overwrite bool   `json:"overwrite"`
+		}{dest, "", false})
+		parsed, err := fileArguments(Call{Name: "file_write", Arguments: raw})
+		if err != nil {
+			return args, err
+		}
+		if parsed.ResourceID != target.ResourceID || parsed.Path == canonical {
+			return args, core.Invalid("to_path", "distinct destination in the same resource required")
+		}
+		r.ToPath = parsed.Path
+		if r.ExpectedVersion == "" || len(r.ExpectedVersion) > 128 {
+			return args, core.Invalid("expected_version", "current file version required")
+		}
+	}
+	if r := args.fileDelete; r != nil && (r.ExpectedVersion == "" || len(r.ExpectedVersion) > 128) {
+		return args, core.Invalid("expected_version", "current file version required")
+	}
 	args.ResourceID = target.ResourceID
 	args.Path = canonical
 	target.Path = canonical
@@ -240,10 +287,16 @@ func (e *executor) fileDefinitions() []Definition {
 		defs = append(defs, Definition{Name: "file_list", Description: "List a workspace or authorized storage directory without recursion or following symlinks. Default limit 100, maximum 200. Entries use filesystem order. Continue using NextOffset and the returned Version as expected_version; directory changes require restarting pagination." + base, InputSchema: schema(ref+`,"offset":{"type":"integer","minimum":0,"maximum":100000},"limit":{"type":"integer","minimum":1,"maximum":200},`+version, `"path"`), RequiredActions: []string{"read"}})
 	}
 	if e.options.FileWrite != nil {
-		defs = append(defs, Definition{Name: "file_write", Description: "Create or fully replace a UTF-8 file, up to 1 MiB, using atomic replacement. overwrite is required: false never replaces an existing file; true explicitly allows replacement. Pass expected_version from file_read to prevent overwriting changes since that read. Parent directory must exist. Use file_edit for targeted changes." + base, InputSchema: schema(ref+`,"text":{"type":"string","maxLength":1048576},"overwrite":{"type":"boolean"},`+version, `"path","text","overwrite"`), RequiredActions: []string{"write"}, SideEffect: true})
+		defs = append(defs, Definition{Name: "file_write", Description: "Create or fully replace a UTF-8 file, up to 1 MiB, using atomic replacement. overwrite is required: false never replaces an existing file; true explicitly allows replacement. Pass expected_version from file_read to prevent overwriting changes since that read. Set create_parents=true to create missing authorized parent directories. Use file_edit for targeted changes." + base, InputSchema: schema(ref+`,"text":{"type":"string","maxLength":1048576},"overwrite":{"type":"boolean"},"create_parents":{"type":"boolean"},`+version, `"path","text","overwrite"`), RequiredActions: []string{"write"}, SideEffect: true})
 	}
 	if e.options.FileEdit != nil {
 		defs = append(defs, Definition{Name: "file_edit", Description: "Atomically replace exact old_text with new_text in a UTF-8 file up to 1 MiB. Requires read and write permission and expected_version from file_read. Missing/stale matches fail without changes; multiple matches fail unless replace_all=true. No regex or fuzzy matching." + base, InputSchema: schema(ref+`,"old_text":{"type":"string","minLength":1,"maxLength":1048576},"new_text":{"type":"string","maxLength":1048576},"replace_all":{"type":"boolean"},`+version, `"path","old_text","new_text","expected_version"`), RequiredActions: []string{"read", "write"}, SideEffect: true})
+	}
+	if e.options.FileMove != nil {
+		defs = append(defs, Definition{Name: "file_move", Description: "Atomically move or rename one regular file to an absent path in the same workspace or storage resource. Requires write permission on both source and destination and the current expected_version from file_read. Destination is interpreted in the same resource as path; cross-resource moves and directory moves are not supported. Set create_parents=true to create missing authorized destination parents. No existing destination is overwritten." + base, InputSchema: schema(ref+`,"to_path":{"type":"string","maxLength":4096},"create_parents":{"type":"boolean"},`+version, `"path","to_path","expected_version"`), RequiredActions: []string{"write"}, SideEffect: true})
+	}
+	if e.options.FileDelete != nil {
+		defs = append(defs, Definition{Name: "file_delete", Description: "Delete one regular file using its current expected_version from file_read. Requires write permission. Does not remove directories, recurse, follow symbolic links or erase source history. A stale version leaves the file untouched." + base, InputSchema: schema(ref+`,`+version, `"path","expected_version"`), RequiredActions: []string{"write"}, SideEffect: true})
 	}
 	return defs
 }

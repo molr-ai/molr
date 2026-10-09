@@ -86,7 +86,7 @@ func toolSummary(kind, state string, encoded json.RawMessage) *ToolSummary {
 			return summary
 		}
 		return count("attachments", args["attachments"])
-	case "file_read", "file_list", "file_write", "file_edit", "file_transfer":
+	case "file_read", "file_list", "file_write", "file_edit", "file_move", "file_delete", "file_transfer":
 		return text(args, "path")
 	case "shell_execute":
 		return text(args, "script")

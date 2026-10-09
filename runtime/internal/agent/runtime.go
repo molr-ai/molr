@@ -35,6 +35,8 @@ type Options struct {
 	DreamActive          func(context.Context, core.Principal, event.AssistantEvent) (bool, error)
 	DreamStop            func(context.Context, core.Principal, core.ID) error
 	DreamOutput          func(context.Context, core.Principal, event.AssistantEvent) (string, error)
+	DreamTools           []string
+	DreamContext         func(context.Context, core.Principal, event.AssistantEvent) context.Context
 	DreamPrepare         func(context.Context, core.Principal, event.AssistantEvent) (string, error)
 	DreamCommit          func(context.Context, core.Principal, event.AssistantEvent, string) error
 	Conversations        conversation.Service
@@ -393,7 +395,7 @@ func (e *Engine) Handle(ctx context.Context, t Turn) (outcome Outcome, resultErr
 			defer traceCancel()
 		}
 		if t.Event.Kind == event.DreamDue && resultErr != nil && !scheduler.IsDeferred(resultErr) {
-			e.options.Trace.Record(traceCtx, "dream.ended", state, "", map[string]any{"Reason": reason, "UncommittedResult": "discarded"})
+			e.options.Trace.Record(traceCtx, "dream.ended", state, "", map[string]any{"Reason": reason, "FileChanges": "successful file operations retained", "Error": resultErr.Error()})
 		}
 		e.options.Trace.Finish(traceCtx, state, reason)
 	}()
@@ -469,6 +471,17 @@ func (e *Engine) Handle(ctx context.Context, t Turn) (outcome Outcome, resultErr
 		evidence, prepareErr := e.options.DreamPrepare(runCtx, t.Principal, t.Event)
 		if prepareErr != nil {
 			return Outcome{}, prepareErr
+		}
+		runCtx = tools.WithVisibleTools(runCtx, e.options.DreamTools)
+		if e.options.DreamContext != nil {
+			runCtx = e.options.DreamContext(runCtx, t.Principal, t.Event)
+		}
+		definitions, err := e.options.Dependencies.Tools.Definitions(runCtx, t.Principal)
+		if err != nil {
+			return Outcome{}, err
+		}
+		for _, d := range definitions {
+			progress.Definitions = append(progress.Definitions, model.ToolDefinition{Name: d.Name, Description: d.Description, InputSchema: d.InputSchema})
 		}
 		progress.Inputs = []model.Input{
 			{Role: model.System, Text: prompt.Text("dream", nil)},
@@ -606,9 +619,6 @@ resume:
 				continue
 			}
 			pendingRetry = ""
-			if t.Event.Kind == event.DreamDue && len(response.Calls) > 0 {
-				return Outcome{}, core.Invalid("dream", "tools forbidden during consolidation")
-			}
 			progress.Handled = append([]core.ID{}, progress.Joined...)
 			progress.Usage = e.measureContext(runCtx, t, modelID, progress, response)
 			progress.Inputs = append(progress.Inputs, response)

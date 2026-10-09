@@ -143,7 +143,7 @@ func (s *service) scrub(ctx context.Context, p core.Principal, m Memory) error {
 		return err
 	}
 
-	if err := s.repo.forgetDreamHistory(ctx, m, func() error { return s.access(ctx, p, m.Ref, true, false) }); err != nil {
+	if err := s.repo.forgetFileOperations(ctx, m, func() error { return s.access(ctx, p, m.Ref, true, false) }); err != nil {
 		return err
 	}
 	if err := s.repo.forgetReviews(ctx, m, func() error { return s.access(ctx, p, m.Ref, true, false) }); err != nil {
@@ -170,7 +170,12 @@ func (f *Files) forgetDerived(ctx context.Context, m Memory, check func() error)
 		if err != nil {
 			return err
 		}
-		if current.Confirmed || current.DreamID == "" {
+		sources, generated, err := f.fileSources(ctx, m.OwnerID, ref, current.Version, current.Sources)
+		if err != nil {
+			return err
+		}
+		current.Sources = sources
+		if current.Confirmed || (current.DreamID == "" && !generated) {
 			continue
 		}
 		affected := false

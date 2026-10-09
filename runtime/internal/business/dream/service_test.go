@@ -2,8 +2,6 @@ package dream
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"molr.ai/runtime/internal/business/assistant"
 	"molr.ai/runtime/internal/business/memory"
@@ -14,7 +12,6 @@ import (
 	"molr.ai/runtime/internal/persistence/sqlitestore"
 	"molr.ai/runtime/internal/policy"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 )
@@ -34,6 +31,7 @@ type fixture struct {
 	memories           memory.Service
 	p, ap              core.Principal
 	now                time.Time
+	root               string
 	beforeMemoryCommit func() error
 }
 
@@ -65,7 +63,7 @@ func setup(t *testing.T) *fixture {
 	}})
 	m := memory.NewService(db, memory.Options{Files: files, Authorizer: allow{}, Now: clock, CheckAssistant: func(context.Context, core.Principal, core.ID) error { return nil }})
 	s := New(db, Options{Files: files, Authorizer: allow{}, Memories: m, Now: clock})
-	f = &fixture{s: s, db: db, memories: m, p: p, ap: ap, now: now}
+	f = &fixture{s: s, db: db, memories: m, p: p, ap: ap, now: now, root: root}
 	put(t, db, "business.assistants", "owner/assistant", assistant.Assistant{ID: "assistant", OwnerID: "owner", State: assistant.Active, ConversationID: "chat", CreatedAt: now.AddDate(0, 0, -2)})
 	return f
 }
@@ -90,83 +88,7 @@ func (f *fixture) request(t *testing.T, key string) Run {
 func ev(r Run) event.AssistantEvent {
 	return event.AssistantEvent{ID: r.EventID, OwnerID: r.OwnerID, AssistantID: r.AssistantID, Kind: event.DreamDue, OperationID: r.ID, OccurrenceAt: r.End, CreatedAt: r.CreatedAt}
 }
-func output(r Run, evidence string) string {
-	b, _ := json.Marshal(Result{Summary: "用户要求项目汇报先写结论。", Memories: []Candidate{{Text: "项目汇报先写结论", Action: "create", Path: ".agents/memory/用户偏好/项目汇报.md", Context: "项目汇报", Evidence: evidence, Sources: []core.Object{r.Sources[0].Source}}}})
-	return string(b)
-}
-func TestFormationRecallForgetAndIdempotency(t *testing.T) {
-	f := setup(t)
-	f.message(t, 1)
-	r := f.request(t, "first")
-	again := f.request(t, "duplicate-trigger")
-	if r.ID != again.ID {
-		t.Fatal("duplicate pending run")
-	}
-	prompt, err := f.s.Prepare(t.Context(), f.ap, ev(r))
-	if err != nil || !strings.Contains(prompt, "以后项目汇报") {
-		t.Fatal(err, prompt)
-	}
-	var evidence struct {
-		Day      string
-		Sources  []Evidence
-		Existing []memory.Memory
-	}
-	if err := json.Unmarshal([]byte(prompt), &evidence); err != nil || evidence.Day != r.Day || len(evidence.Sources) != 1 || evidence.Sources[0].Source != r.Sources[0].Source {
-		t.Fatal("Prepare must return the batch evidence as JSON, without system instructions", err, prompt)
-	}
-	if err = f.s.Commit(t.Context(), f.ap, ev(r), output(r, "explicit")); err != nil {
-		t.Fatal(err)
-	}
-	if err = f.s.Commit(t.Context(), f.ap, ev(r), output(r, "explicit")); err != nil {
-		t.Fatal(err)
-	}
-	page, err := f.memories.List(t.Context(), f.ap, memory.Query{State: memory.Active})
-	rows := page.Items
-	if err != nil || len(rows) != 1 || rows[0].Path != ".agents/memory/用户偏好/项目汇报.md" {
-		t.Fatal(err, rows)
-	}
-	m := rows[0]
-	if err = f.memories.Delete(t.Context(), f.p, memory.DeleteRequest{Forget: true, Mutation: memory.Mutation{IdempotencyKey: "forget", ExpectedVersion: m.Version}, Ref: m.Ref}); err != nil {
-		t.Fatal(err)
-	}
-	reviews, err := f.s.Runs(t.Context(), f.p, "assistant")
-	if err != nil || reviews[0].Summary != "" {
-		t.Fatal("forgotten fact retained in review", err, reviews)
-	}
-	next := f.request(t, "next")
-	if next.State != "up_to_date" {
-		t.Fatal("forgotten sources replayed", next)
-	}
-	suppressed, err := f.s.options.Files.Suppressed(t.Context(), memory.Memory{OwnerID: "owner", Text: "不同措辞", Sources: m.Sources, Ref: memory.Ref{AssistantID: "assistant", Path: ".agents/memory/记忆.md"}})
-	if err != nil || !suppressed {
-		t.Fatal("paraphrase not suppressed", err)
-	}
-}
-func TestUncertainAndForgedSources(t *testing.T) {
-	f := setup(t)
-	f.message(t, 1)
-	r := f.request(t, "first")
-	bad := strings.Replace(output(r, "explicit"), "msg-001", "other-assistant-message", 1)
-	if err := f.s.Commit(t.Context(), f.ap, ev(r), bad); core.CodeOf(err) != core.InvalidArgument {
-		t.Fatal(err)
-	}
-	page, err := f.memories.List(t.Context(), f.p, memory.Query{})
-	if err != nil || len(page.Items) != 0 {
-		t.Fatal("invalid result partially committed", err)
-	}
-	if err = f.s.Commit(t.Context(), f.ap, ev(r), output(r, "inferred")); err != nil {
-		t.Fatal(err)
-	}
-	active, err := f.memories.List(t.Context(), f.ap, memory.Query{State: memory.Active})
-	rows := active.Items
-	if err != nil || len(rows) != 0 {
-		t.Fatal("inference became fact", rows, err)
-	}
-	page, _ = f.memories.List(t.Context(), f.p, memory.Query{})
-	if len(page.Items) != 0 {
-		t.Fatal(page)
-	}
-}
+func output(_ Run, _ string) string { return "已整理本批经历。" }
 func TestBoundedReplayAndOfflineCatchup(t *testing.T) {
 	f := setup(t)
 	for i := 0; i < 83; i++ {
@@ -176,14 +98,14 @@ func TestBoundedReplayAndOfflineCatchup(t *testing.T) {
 	if len(r.Sources) != 80 {
 		t.Fatal(len(r.Sources))
 	}
-	if err := f.s.Commit(t.Context(), f.ap, ev(r), `{"Summary":"first batch","Memories":[]}`); err != nil {
+	if err := f.s.Commit(t.Context(), f.ap, ev(r), "first batch"); err != nil {
 		t.Fatal(err)
 	}
 	second := f.request(t, "second")
 	if len(second.Sources) != 3 || second.ID == r.ID {
 		t.Fatal(second)
 	}
-	if err := f.s.Commit(t.Context(), f.ap, ev(second), `{"Summary":"second batch","Memories":[]}`); err != nil {
+	if err := f.s.Commit(t.Context(), f.ap, ev(second), "second batch"); err != nil {
 		t.Fatal(err)
 	}
 	third := f.request(t, "third")
@@ -195,35 +117,7 @@ func TestBoundedReplayAndOfflineCatchup(t *testing.T) {
 		t.Fatal(last)
 	}
 }
-func TestConflictRemainsInReviewWithoutConfirmationQueue(t *testing.T) {
-	f := setup(t)
-	f.message(t, 1)
-	old, err := f.memories.Create(t.Context(), f.p, memory.CreateRequest{Mutation: memory.Mutation{IdempotencyKey: "old"}, Text: "项目汇报先写风险", Ref: memory.Ref{Scope: memory.Assistant, AssistantID: "assistant", Path: ".agents/memory/old.md"}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	r := f.request(t, "first")
-	var result Result
-	json.Unmarshal([]byte(output(r, "explicit")), &result)
-	result.Memories[0].Replaces = &old.Ref
-	result.Memories[0].ExpectedVersion = old.Version
-	raw, _ := json.Marshal(result)
-	if err = f.s.Commit(t.Context(), f.ap, ev(r), string(raw)); err != nil {
-		t.Fatal(err)
-	}
-	page, _ := f.memories.List(t.Context(), f.p, memory.Query{State: memory.Pending})
-	if len(page.Items) != 0 {
-		t.Fatal("routine dream created a confirmation queue", page)
-	}
-	actual, _ := f.memories.Get(t.Context(), f.p, old.Ref)
-	if actual.Version != old.Version {
-		t.Fatal("owner memory overwritten")
-	}
-	run, _ := f.s.GetRun(t.Context(), f.p, r.ID)
-	if len(run.Decisions) != 1 || run.Decisions[0].Action != "deferred" {
-		t.Fatal(run.Decisions)
-	}
-}
+
 func TestSourceChangedAndAssistantIsolation(t *testing.T) {
 	f := setup(t)
 	f.message(t, 1)
@@ -242,6 +136,7 @@ func TestSourceChangedAndAssistantIsolation(t *testing.T) {
 		t.Fatal("deleted source accepted", err)
 	}
 }
+
 func TestNightlyScheduleUsesConfiguredTimezone(t *testing.T) {
 	f := setup(t)
 	f.message(t, 1)
@@ -269,32 +164,6 @@ func TestNightlyScheduleUsesConfiguredTimezone(t *testing.T) {
 	}
 }
 
-func TestUndoPreservesLaterUserEdits(t *testing.T) {
-	f := setup(t)
-	f.message(t, 1)
-	r := f.request(t, "first")
-	if err := f.s.Commit(t.Context(), f.ap, ev(r), output(r, "explicit")); err != nil {
-		t.Fatal(err)
-	}
-	page, _ := f.memories.List(t.Context(), f.p, memory.Query{})
-	m := page.Items[0]
-	_, err := f.memories.Update(t.Context(), f.p, memory.UpdateRequest{Mutation: memory.Mutation{IdempotencyKey: "edit", ExpectedVersion: m.Version}, Ref: m.Ref, Text: "用户已修订的偏好", Sources: m.Sources})
-	if err != nil {
-		t.Fatal(err)
-	}
-	out, err := f.s.Undo(t.Context(), f.p, UndoRequest{Mutation: core.Mutation{IdempotencyKey: "undo"}, ID: r.ID})
-	if err != nil || out.State != "undone" || len(out.UndoRetained) != 1 {
-		t.Fatal(out, err)
-	}
-	page, _ = f.memories.List(t.Context(), f.p, memory.Query{})
-	if len(page.Items) != 1 || page.Items[0].Text != "用户已修订的偏好" {
-		t.Fatal(page)
-	}
-	_, err = f.s.Undo(t.Context(), f.p, UndoRequest{Mutation: core.Mutation{IdempotencyKey: "undo"}, ID: r.ID})
-	if err != nil {
-		t.Fatal(err)
-	}
-}
 func TestFailedDreamManualRetry(t *testing.T) {
 	f := setup(t)
 	f.message(t, 1)
@@ -313,6 +182,7 @@ func TestFailedDreamManualRetry(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
 func TestSensitiveRecordsExcluded(t *testing.T) {
 	f := setup(t)
 	f.message(t, 1)
@@ -321,167 +191,7 @@ func TestSensitiveRecordsExcluded(t *testing.T) {
 	if len(r.Sources) != 1 {
 		t.Fatal("credential record included", r.Sources)
 	}
-	if err := f.s.Commit(t.Context(), f.ap, ev(r), `{"Summary":"password=do-not-retain","Memories":[]}`); core.CodeOf(err) != core.InvalidArgument {
+	if err := f.s.Commit(t.Context(), f.ap, ev(r), "password=do-not-retain"); core.CodeOf(err) != core.InvalidArgument {
 		t.Fatal("credential result accepted", err)
-	}
-}
-
-func TestDreamRecoversFilesAfterFinalDatabaseFailure(t *testing.T) {
-	f := setup(t)
-	f.message(t, 1)
-	r := f.request(t, "recover")
-	text := output(r, "explicit")
-	f.beforeMemoryCommit = func() error {
-		f.beforeMemoryCommit = nil
-		f.db.FailNextCommit(errors.New("final record failure"))
-		return nil
-	}
-	if err := f.s.Commit(t.Context(), f.ap, ev(r), text); err == nil {
-		t.Fatal("expected final DB failure")
-	}
-	page, err := f.memories.List(t.Context(), f.p, memory.Query{})
-	if err != nil || len(page.Items) != 1 {
-		t.Fatal("committed file missing", page, err)
-	}
-	hash := page.Items[0].Version
-	if err = f.s.Commit(t.Context(), f.ap, ev(r), text); err != nil {
-		t.Fatal("recovery failed", err)
-	}
-	page, err = f.memories.List(t.Context(), f.p, memory.Query{})
-	if err != nil || len(page.Items) != 1 || page.Items[0].Version != hash {
-		t.Fatal("recovery rewrote file", page, err)
-	}
-}
-func TestDreamPartialRecoveryRetainsUserEditedFile(t *testing.T) {
-	f := setup(t)
-	f.message(t, 1)
-	r := f.request(t, "partial")
-	var result Result
-	if err := json.Unmarshal([]byte(output(r, "explicit")), &result); err != nil {
-		t.Fatal(err)
-	}
-	second := result.Memories[0]
-	second.Text = "另一个独立的长期偏好"
-	second.Path = ".agents/memory/用户偏好/其他长期偏好.md"
-	result.Memories = append(result.Memories, second)
-	raw, _ := json.Marshal(result)
-	count := 0
-	f.beforeMemoryCommit = func() error {
-		count++
-		if count == 2 {
-			return errors.New("second file unavailable")
-		}
-		return nil
-	}
-	if err := f.s.Commit(t.Context(), f.ap, ev(r), string(raw)); err == nil {
-		t.Fatal("expected partial commit")
-	}
-	page, err := f.memories.List(t.Context(), f.p, memory.Query{})
-	if err != nil || len(page.Items) != 1 {
-		t.Fatal(page, err)
-	}
-	m := page.Items[0]
-	changed, err := f.memories.Update(t.Context(), f.p, memory.UpdateRequest{Ref: m.Ref, Text: "用户保留的编辑", Mutation: memory.Mutation{IdempotencyKey: "edit-partial", ExpectedVersion: m.Version}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	f.beforeMemoryCommit = nil
-	if err = f.s.Commit(t.Context(), f.ap, ev(r), string(raw)); core.CodeOf(err) != core.Conflict {
-		t.Fatal("expected edit conflict", err)
-	}
-	got, err := f.memories.Get(t.Context(), f.p, m.Ref)
-	if err != nil || got.Version != changed.Version {
-		t.Fatal("recovery replaced user edit", got, err)
-	}
-}
-
-func TestUndoRemovesUnchangedFileAndClearsOutput(t *testing.T) {
-	f := setup(t)
-	f.message(t, 1)
-	r := f.request(t, "undo-file")
-	if err := f.s.Commit(t.Context(), f.ap, ev(r), output(r, "explicit")); err != nil {
-		t.Fatal(err)
-	}
-	result, err := f.s.Undo(t.Context(), f.p, UndoRequest{ID: r.ID, Mutation: core.Mutation{IdempotencyKey: "undo"}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.State != "undone" || result.Summary != "" || result.Output != "" || len(result.Decisions) != 0 {
-		t.Fatal("undo retained generated review", result)
-	}
-	page, err := f.memories.List(t.Context(), f.p, memory.Query{})
-	if err != nil || len(page.Items) != 0 {
-		t.Fatal("undo retained original file", page, err)
-	}
-	if _, err = f.s.Undo(t.Context(), f.p, UndoRequest{ID: r.ID, Mutation: core.Mutation{IdempotencyKey: "undo"}}); err != nil {
-		t.Fatal("undo replay", err)
-	}
-}
-
-func TestSemanticPathsAndExplicitUpdate(t *testing.T) {
-	for _, tc := range []struct {
-		name, action     string
-		confirmed, stale bool
-		want             core.Code
-	}{
-		{name: "same path create conflicts", action: "create", want: core.Conflict},
-		{name: "explicit update", action: "update"},
-		{name: "stale version conflicts", action: "update", stale: true, want: core.Conflict},
-		{name: "confirmed remains protected", action: "update", confirmed: true},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			f := setup(t)
-			f.message(t, 1)
-			r := f.request(t, "path-test")
-			ref := memory.Ref{Scope: memory.Assistant, AssistantID: "assistant", Path: ".agents/memory/用户偏好/项目汇报.md"}
-			old, err := f.s.options.Files.Put(t.Context(), memory.Memory{Ref: ref, OwnerID: "owner", Text: "旧的汇报方式", State: memory.Active, Confirmed: tc.confirmed, DreamID: "prior-dream"}, "", nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			put(t, f.db, runs, "owner/prior-dream", Run{ID: "prior-dream", OwnerID: "owner", AssistantID: "assistant", MemoryVersions: map[string]string{ref.Path: old.Version}})
-			candidate := Candidate{Action: tc.action, Path: ref.Path, Text: "项目汇报先写结论", Evidence: "explicit", Sources: []core.Object{r.Sources[0].Source}}
-			if tc.action == "update" {
-				candidate.ExpectedVersion = old.Version
-			}
-			if tc.stale {
-				candidate.ExpectedVersion = strings.Repeat("0", 64)
-			}
-			encoded, _ := json.Marshal(Result{Summary: "更新汇报约定", Memories: []Candidate{candidate}})
-			err = f.s.Commit(t.Context(), f.ap, ev(r), string(encoded))
-			if tc.want != "" {
-				if core.CodeOf(err) != tc.want {
-					t.Fatalf("got %v", err)
-				}
-				current, _ := f.memories.Get(t.Context(), f.p, ref)
-				if current.Version != old.Version {
-					t.Fatal("conflicting operation changed file")
-				}
-				return
-			}
-			if err != nil {
-				t.Fatal(err)
-			}
-			if tc.confirmed {
-				current, _ := f.memories.Get(t.Context(), f.p, ref)
-				if current.Version != old.Version {
-					t.Fatal("owner memory overwritten")
-				}
-				return
-			}
-			updated, err := f.memories.Get(t.Context(), f.p, ref)
-			if err != nil || updated.Text != candidate.Text || updated.ReplacesVersion != "" {
-				t.Fatal(updated, err)
-			}
-			if err = f.s.Commit(t.Context(), f.ap, ev(r), string(encoded)); err != nil {
-				t.Fatal("retry", err)
-			}
-			if _, err = f.s.Undo(t.Context(), f.p, UndoRequest{ID: r.ID, Mutation: core.Mutation{IdempotencyKey: "undo-update"}}); err != nil {
-				t.Fatal(err)
-			}
-			retained, err := f.memories.Get(t.Context(), f.p, ref)
-			if err != nil || retained.Version != old.Version {
-				t.Fatal("undo must restore the original bytes of automatic updates", err)
-			}
-		})
 	}
 }

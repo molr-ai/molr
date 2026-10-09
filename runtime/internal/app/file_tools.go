@@ -69,6 +69,9 @@ func (f *resourceFileTools) lock(ctx context.Context, key string) (func(), error
 	}
 }
 func (f *resourceFileTools) resolve(ctx context.Context, e core.Execution, target tools.FileTarget, actions ...policy.Action) (string, string, error) {
+	if err := checkFilePolicy(ctx, e, target, actions...); err != nil {
+		return "", "", err
+	}
 	if f.resolveOverride != nil {
 		return f.resolveOverride(ctx, e, target, actions...)
 	}
@@ -264,6 +267,9 @@ func (f *resourceFileTools) readText(ctx context.Context, e core.Execution, r to
 		if _, _, err = f.resolve(ctx, e, r.FileTarget, policy.Read); err != nil {
 			return nil, err
 		}
+		if err = observeFileRead(ctx, e, r.FileTarget); err != nil {
+			return nil, err
+		}
 		return json.Marshal(struct {
 			Path, Version, Text        string
 			ByteOffset, NextByteOffset int64
@@ -328,6 +334,9 @@ func (f *resourceFileTools) readText(ctx context.Context, e core.Execution, r to
 	}
 	// Recheck live grant after reading, before exposing content.
 	if _, _, err = f.resolve(ctx, e, r.FileTarget, policy.Read); err != nil {
+		return nil, err
+	}
+	if err = observeFileRead(ctx, e, r.FileTarget); err != nil {
 		return nil, err
 	}
 	out.Text = content.String()
@@ -462,9 +471,21 @@ func (f *resourceFileTools) write(ctx context.Context, e core.Execution, r tools
 	if err := f.checkWorkspaceFileSize(ctx, e, r.FileTarget, int64(len(r.Text))); err != nil {
 		return nil, err
 	}
+	if r.CreateParents {
+		if err = f.makeParents(ctx, e, r.FileTarget, root, name); err != nil {
+			return nil, err
+		}
+	}
+	done, err := prepareFileMutation(ctx, e, "file_write", r.FileTarget, nil, r.ExpectedVersion, []byte(r.Text))
+	if err != nil {
+		return nil, err
+	}
 	version, err := replaceResourceFile(ctx, root, name, r.Text, r.Overwrite, r.ExpectedVersion, recheck)
 	if err != nil {
 		return nil, err
+	}
+	if err = done(); err != nil {
+		return nil, core.Wrap(core.Unavailable, "file committed; history update failed", err)
 	}
 	return json.Marshal(fileMutationResult{ResourceID: r.ResourceID, Path: fileVirtualPath(r.FileTarget), Version: version, Bytes: len(r.Text)})
 }
@@ -532,9 +553,16 @@ func (f *resourceFileTools) edit(ctx context.Context, e core.Execution, r tools.
 	if err := f.checkWorkspaceFileSize(ctx, e, r.FileTarget, int64(len(replacement))); err != nil {
 		return nil, err
 	}
+	done, err := prepareFileMutation(ctx, e, "file_edit", r.FileTarget, nil, r.ExpectedVersion, []byte(replacement))
+	if err != nil {
+		return nil, err
+	}
 	version, err = replaceResourceFile(ctx, root, name, replacement, true, r.ExpectedVersion, recheck)
 	if err != nil {
 		return nil, err
+	}
+	if err = done(); err != nil {
+		return nil, core.Wrap(core.Unavailable, "file committed; history update failed", err)
 	}
 	return json.Marshal(fileMutationResult{ResourceID: r.ResourceID, Path: fileVirtualPath(r.FileTarget), Version: version, Bytes: len(replacement), Replacements: count})
 }

@@ -368,6 +368,7 @@ func (f *Files) Delete(ctx context.Context, m Memory, expected string, forget bo
 	// Tombstone first: a crash may retain the current file, but cannot allow the
 	// next dream to silently resurrect forgotten evidence.
 	if forget {
+		current.Sources = m.Sources
 		if err = f.forget(ctx, r, current, check); err != nil {
 			return err
 		}

@@ -241,7 +241,7 @@ func (s *sandboxRouter) list(ctx context.Context, p core.Principal) (json.RawMes
 		if shellReason == "" && len(compute[id]) == 0 {
 			shellReason = "compute_permission_required"
 		}
-		ops := []resourceOperation{{policy.Read, "file_search", reason == "", reason}, {policy.Read, "file_read", reason == "", reason}, {policy.Read, "file_list", reason == "", reason}, {policy.Write, "file_write", reason == "", reason}, {policy.Write, "file_edit", reason == "", reason}, {policy.Execute, "shell_execute", shellReason == "", shellReason}}
+		ops := []resourceOperation{{policy.Read, "file_search", reason == "", reason}, {policy.Read, "file_read", reason == "", reason}, {policy.Read, "file_list", reason == "", reason}, {policy.Write, "file_write", reason == "", reason}, {policy.Write, "file_edit", reason == "", reason}, {policy.Write, "file_move", reason == "", reason}, {policy.Write, "file_delete", reason == "", reason}, {policy.Execute, "shell_execute", shellReason == "", shellReason}}
 		if id != "local" {
 			continue
 		}
@@ -263,7 +263,7 @@ func (s *sandboxRouter) inspect(ctx context.Context, p core.Principal, id core.I
 	for i := range out.Tools {
 		tool := &out.Tools[i]
 		switch tool.Name {
-		case "shell_execute", "file_search", "file_read", "file_list", "file_write", "file_edit":
+		case "shell_execute", "file_search", "file_read", "file_list", "file_write", "file_edit", "file_move", "file_delete":
 			available := false
 			ids := []core.ID{}
 			for _, resourceID := range tool.ResourceIDs {

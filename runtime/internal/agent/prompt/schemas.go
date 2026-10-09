@@ -45,6 +45,8 @@ var schemas = map[string]*shape{
 	"file_list":               object("SandboxID ResourceID Path Version NextOffset NextCursor Truncated", required("Entries", array(object("Name Path Type Size Version")))),
 	"file_write":              object("SandboxID ResourceID Path Version Bytes"),
 	"file_edit":               object("SandboxID ResourceID Path Version Bytes Replacements"),
+	"file_move":               object("Path ToPath Version"),
+	"file_delete":             object("Path Deleted"),
 	"permission_list":         permissions,
 	"permission_request":      request,
 	"shell_execute":           shell,

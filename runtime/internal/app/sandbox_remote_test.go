@@ -113,6 +113,35 @@ func TestRemoteSandboxStorageRoutingAuthorizationAndContext(t *testing.T) {
 	if core.CodeOf(err) != core.InvalidArgument {
 		t.Fatal("implicit remote routing accepted", err)
 	}
+	// Common move/delete apply both remote path scopes and return usable versions.
+	moveWriteGrant := f.grant(t, storage.ID, "remote-write", []policy.Action{policy.Write}, policy.Scope{PathPrefixes: []string{"/allowed"}}, nil)
+	source := tools.FileTarget{SandboxID: connection.ID, ResourceID: storage.ID, Path: "/allowed/moving"}
+	need(t, os.WriteFile(filepath.Join(remoteRoot, "allowed/moving"), []byte("move me"), 0600))
+	e.OperationID = "remote-moving-read"
+	raw, err := files.read(t.Context(), e, tools.FileReadRequest{FileTarget: source})
+	need(t, err)
+	var original struct{ Version string }
+	need(t, json.Unmarshal(raw, &original))
+	e.OperationID = "remote-move-denied"
+	_, err = files.move(t.Context(), e, tools.FileMoveRequest{FileTarget: source, ToPath: "/secret/moving", ExpectedVersion: original.Version})
+	if core.CodeOf(err) != core.Forbidden {
+		t.Fatal("remote destination grant missing", err)
+	}
+	e.OperationID = "remote-move"
+	raw, err = files.move(t.Context(), e, tools.FileMoveRequest{FileTarget: source, ToPath: "/allowed/nested/moved", ExpectedVersion: original.Version, CreateParents: true})
+	need(t, err)
+	var moved struct{ Version string }
+	need(t, json.Unmarshal(raw, &moved))
+	e.OperationID = "remote-delete"
+	source.Path = "/allowed/nested/moved"
+	_, err = files.delete(t.Context(), e, tools.FileDeleteRequest{FileTarget: source, ExpectedVersion: moved.Version})
+	need(t, err)
+	if _, err = os.Stat(filepath.Join(remoteRoot, "allowed/nested/moved")); !os.IsNotExist(err) {
+		t.Fatal("remote deletion failed", err)
+	}
+
+	need(t, f.b.Services.Grants.Revoke(t.Context(), f.owner, policy.RevokeRequest{Mutation: core.Mutation{IdempotencyKey: "revoke-move-write", ExpectedVersion: moveWriteGrant.Version}, GrantID: moveWriteGrant.ID}))
+
 	// Media snapshots retain their remote directory provenance.
 	provider := mediaTestModel(t, f)
 	png := testPNG(t, color.White)

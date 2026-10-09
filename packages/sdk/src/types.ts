@@ -73,7 +73,7 @@ export type TurnMetrics = {
 };
 
 export type DreamConfig = { MaxDurationSeconds: number; AssistantID: ID; Enabled: boolean; Hour: number; Minute: number; Timezone: string; NextDay: string; Version: number };
-export type DreamRun = { Maintenance?: boolean; ReviewPath?: string; ReviewRetained?: boolean; UndoRetained?: MemoryRef[]; SessionID?: ID; SessionState?: string; Deadline?: string; Batch?: number; Backfill?: boolean; Decisions?: { Text: string; Action: string; Reason: string; Memory?: MemoryRef; Replaces?: MemoryRef; PreviousText?: string }[]; ID: ID; AssistantID: ID; Day: string; Timezone: string; State: string; Summary: string; Sources: { Source: { Kind: string; ID: ID }; At: string; Kind: string }[]; MemoryFiles: MemoryRef[]; FailureCode: string; UpdatedAt: string };
+export type DreamRun = { Maintenance?: boolean; ReviewPath?: string; ReviewRetained?: boolean; UndoRetained?: MemoryRef[]; SessionID?: ID; SessionState?: string; Deadline?: string; Batch?: number; Backfill?: boolean; FileChanges?: { OperationID: ID; Tool: string; Path: string; ToPath?: string }[]; ID: ID; AssistantID: ID; Day: string; Timezone: string; State: string; Summary: string; Sources: { Source: { Kind: string; ID: ID }; At: string; Kind: string }[]; MemoryFiles: MemoryRef[]; FailureCode: string; UpdatedAt: string };
 
 export type DreamWindow = { AssistantID: ID; Start: string; End: string; Timezone: string; State: string; Manual: boolean; SessionID: ID };
 

@@ -41,7 +41,7 @@ func inspectCapabilities(ctx context.Context, store persistence.Store, catalog t
 		for _, definition := range definitions {
 			item := agent.ToolCapability{Definition: definition, Available: true, Reason: "available", ResourceIDs: []core.ID{}}
 			switch definition.Name {
-			case "file_read", "file_list", "file_write", "file_edit", "shell_execute":
+			case "file_read", "file_list", "file_write", "file_edit", "file_move", "file_delete", "shell_execute":
 				action := policy.Read
 				kind := resource.Storage
 				if definition.Name == "shell_execute" {

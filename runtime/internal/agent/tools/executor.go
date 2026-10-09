@@ -39,6 +39,8 @@ type Options struct {
 	FileRead          func(context.Context, core.Execution, FileReadRequest) (json.RawMessage, error)
 	FileList          func(context.Context, core.Execution, FileListRequest) (json.RawMessage, error)
 	FileWrite         func(context.Context, core.Execution, FileWriteRequest) (json.RawMessage, error)
+	FileMove          func(context.Context, core.Execution, FileMoveRequest) (json.RawMessage, error)
+	FileDelete        func(context.Context, core.Execution, FileDeleteRequest) (json.RawMessage, error)
 	FileEdit          func(context.Context, core.Execution, FileEditRequest) (json.RawMessage, error)
 	Cancel            func(context.Context, core.Execution, core.ID) error
 }
@@ -63,6 +65,8 @@ type arguments struct {
 	fileList     *FileListRequest
 	fileWrite    *FileWriteRequest
 	fileEdit     *FileEditRequest
+	fileMove     *FileMoveRequest
+	fileDelete   *FileDeleteRequest
 	shellTask    *ShellTaskRequest
 	shell        *ShellRequest
 	ResourceID   core.ID
@@ -150,6 +154,9 @@ func (e *executor) Definitions(ctx context.Context, p core.Principal) ([]Definit
 	}
 	result := []Definition{}
 	for _, d := range e.definitions() {
+		if !visibleTool(ctx, d.Name) {
+			continue
+		}
 		if d.Name == "shell_execute" && e.options.ShellAvailable != nil {
 			ok, err := e.options.ShellAvailable(ctx, p)
 			if err != nil {
@@ -170,7 +177,11 @@ func (e *executor) Definitions(ctx context.Context, p core.Principal) ([]Definit
 		if err != nil {
 			return nil, err
 		}
-		result = append(result, extra...)
+		for _, d := range extra {
+			if visibleTool(ctx, d.Name) {
+				result = append(result, d)
+			}
+		}
 	}
 	return result, nil
 }
@@ -188,7 +199,7 @@ func parse(call Call) (arguments, error) {
 	if strings.HasPrefix(call.Name, "conversation_") {
 		return args, validateConversationArguments(call)
 	}
-	if call.Name == "file_search" || call.Name == "file_read" || call.Name == "file_list" || call.Name == "file_write" || call.Name == "file_edit" {
+	if call.Name == "file_search" || call.Name == "file_read" || call.Name == "file_list" || call.Name == "file_write" || call.Name == "file_edit" || call.Name == "file_move" || call.Name == "file_delete" {
 		return fileArguments(call)
 	}
 	if call.Name == "profile_update" {
@@ -222,6 +233,9 @@ func parse(call Call) (arguments, error) {
 }
 
 func (e *executor) execute(ctx context.Context, call Call) (_ Result, runErr error) {
+	if !visibleTool(ctx, call.Name) {
+		return Result{}, core.NewError(core.Forbidden, "tool is not available in this turn")
+	}
 	if err := call.Execution.Validate(); err != nil {
 		return Result{}, err
 	}
@@ -276,6 +290,11 @@ func (e *executor) execute(ctx context.Context, call Call) (_ Result, runErr err
 			if err = e.options.Authorizer.Require(ctx, call.Execution.Principal, policy.CheckRequest{Target: core.Object{Kind: "resource", ID: args.ResourceID}, ResourceID: args.ResourceID, Action: policy.Read, Destination: args.Path}); err != nil {
 				return Result{}, err
 			}
+		}
+	}
+	if args.fileMove != nil && args.ResourceID != "" {
+		if err = e.options.Authorizer.Require(ctx, call.Execution.Principal, policy.CheckRequest{Target: core.Object{Kind: "resource", ID: args.ResourceID}, ResourceID: args.ResourceID, Action: policy.Write, Destination: args.fileMove.ToPath}); err != nil {
+			return Result{}, err
 		}
 	}
 	if e.options.Operations == nil {
@@ -349,7 +368,7 @@ func (e *executor) execute(ctx context.Context, call Call) (_ Result, runErr err
 		// File mutations reject these errors before commit; plan mutations run
 		// in one transaction. Other side effects remain unknown on failure.
 		rejected := strings.HasPrefix(call.Name, "plg_") && core.ReasonOf(err) == "plugin_http_failed"
-		if call.Name == "profile_update" || call.Name == "file_write" || call.Name == "file_edit" || call.Name == "file_transfer" || call.Name == "conversation_attachment" || (strings.HasPrefix(call.Name, "plan_") || call.Name == "permission_request") {
+		if call.Name == "profile_update" || call.Name == "file_write" || call.Name == "file_edit" || call.Name == "file_move" || call.Name == "file_delete" || call.Name == "file_transfer" || call.Name == "conversation_attachment" || (strings.HasPrefix(call.Name, "plan_") || call.Name == "permission_request") {
 			switch core.CodeOf(err) {
 			case core.Conflict, core.InvalidArgument, core.Forbidden, core.NotFound, core.FailedPrecondition:
 				rejected = true
@@ -406,6 +425,10 @@ func (e *executor) dispatch(ctx context.Context, call Call, args arguments) (jso
 		return e.options.FileList(ctx, call.Execution, *args.fileList)
 	case "file_write":
 		return e.options.FileWrite(ctx, call.Execution, *args.fileWrite)
+	case "file_move":
+		return e.options.FileMove(ctx, call.Execution, *args.fileMove)
+	case "file_delete":
+		return e.options.FileDelete(ctx, call.Execution, *args.fileDelete)
 	case "file_edit":
 		return e.options.FileEdit(ctx, call.Execution, *args.fileEdit)
 

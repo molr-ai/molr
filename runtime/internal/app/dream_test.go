@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"molr.ai/runtime/internal/agent"
 	"molr.ai/runtime/internal/agent/scheduler"
@@ -15,6 +16,7 @@ import (
 	"molr.ai/runtime/internal/persistence"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -45,19 +47,36 @@ func TestDreamRealModelFormationAndFileSearch(t *testing.T) {
 		msg := map[string]any{"role": "assistant", "content": "done"}
 		finish := "stop"
 		if strings.Contains(string(raw), "private dream memory consolidation") {
-			if len(req.Messages) != 2 || req.Messages[0].Role != "system" || req.Messages[1].Role != "user" {
-				t.Error("dream requires one system instruction and one user evidence batch")
-				http.Error(w, "No user query found in messages.", http.StatusBadRequest)
-				return
+			if len(req.Messages) < 2 || req.Messages[0].Role != "system" || req.Messages[1].Role != "user" {
+				t.Error("dream requires stable instructions and evidence")
 			}
-			if strings.Contains(req.Messages[0].Content, sourceID) || !strings.Contains(req.Messages[1].Content, sourceID) || !strings.Contains(req.Messages[1].Content, "以后项目周报先写结论") {
-				t.Error("dream evidence must be preserved exclusively in the user message")
+			if len(req.Tools) != 7 {
+				t.Errorf("dream file tools: %d", len(req.Tools))
 			}
-			if len(req.Tools) != 0 {
-				t.Error("dream had executable tools")
+			if len(req.Messages) == 2 {
+				calls := []any{}
+				for i, item := range []struct{ path, text string }{
+					{".agents/memory/用户偏好/草稿.md", "项目周报先写结论"},
+					{"MEMORY.md", "工作汇报先说明结论，再提供依据。"},
+				} {
+					args, _ := json.Marshal(map[string]any{"path": item.path, "text": item.text, "expected_version": "", "overwrite": false, "create_parents": true})
+					calls = append(calls, map[string]any{"id": fmt.Sprintf("dream-write-%d", i), "type": "function", "function": map[string]any{"name": "file_write", "arguments": string(args)}})
+				}
+				msg["tool_calls"], finish = calls, "tool_calls"
+			} else if len(req.Messages) == 5 {
+				var saved struct{ Version string }
+				if err := json.Unmarshal([]byte(req.Messages[3].Content), &saved); err != nil || saved.Version == "" {
+					t.Error("Dream mutation receipt lost on the actual model wire", req.Messages[3].Content)
+					http.Error(w, "missing receipt", 500)
+					return
+				}
+				args, _ := json.Marshal(map[string]any{"path": ".agents/memory/用户偏好/草稿.md", "to_path": ".agents/memory/用户偏好/项目周报.md", "expected_version": saved.Version, "create_parents": true})
+				msg["tool_calls"] = []any{map[string]any{"id": "dream-move", "type": "function", "function": map[string]any{"name": "file_move", "arguments": string(args)}}}
+				finish = "tool_calls"
+			} else {
+				msg["content"] = "已创建周报主题并整理核心认知。"
 			}
-			data, _ := json.Marshal(dream.Result{Core: &dream.CoreUpdate{Text: "工作汇报先说明结论，再提供依据。", Topics: []string{".agents/memory/用户偏好/项目周报.md"}, Reason: "用户明确的长期汇报约定"}, Summary: "用户希望项目周报先写结论。", Memories: []dream.Candidate{{Text: "项目周报先写结论", Action: "create", Path: ".agents/memory/用户偏好/项目周报.md", Context: "项目周报", Evidence: "explicit", Sources: []core.Object{{Kind: "message", ID: core.ID(sourceID)}}}}})
-			msg["content"] = string(data)
+
 		} else {
 			count := 0
 			for _, v := range req.Messages {
@@ -168,11 +187,31 @@ func TestDreamRealModelFormationAndFileSearch(t *testing.T) {
 	})
 	mu.Lock()
 	defer mu.Unlock()
-	if len(requests) != 6 {
+	if len(requests) != 8 {
 		t.Fatalf("unexpected model calls: %d", len(requests))
 	}
+	var dreamWire, normalWire struct {
+		Tools []struct {
+			Function struct {
+				Name       string
+				Parameters any
+			}
+		}
+	}
+	need(t, json.Unmarshal([]byte(requests[0]), &dreamWire))
+	need(t, json.Unmarshal([]byte(requests[3]), &normalWire))
+	schemas := map[string]any{}
+	for _, tool := range normalWire.Tools {
+		schemas[tool.Function.Name] = tool.Function.Parameters
+	}
+	for _, tool := range dreamWire.Tools {
+		if !reflect.DeepEqual(schemas[tool.Function.Name], tool.Function.Parameters) {
+			t.Fatal("Dream duplicated or altered a common tool schema", tool.Function.Name)
+		}
+	}
+
 	var normalSystem string
-	for _, raw := range requests[1:] {
+	for _, raw := range requests[3:] {
 		var req struct {
 			Messages []struct{ Role, Content string }
 		}
@@ -186,16 +225,16 @@ func TestDreamRealModelFormationAndFileSearch(t *testing.T) {
 			t.Fatal("normal system instruction changed between tool steps")
 		}
 	}
-	if !strings.Contains(requests[1], "工作汇报先说明结论，再提供依据。") {
+	if !strings.Contains(requests[3], "工作汇报先说明结论，再提供依据。") {
 		t.Fatal("dream core cognition did not enter subsequent conversation")
 	}
-	if strings.Contains(requests[1], "项目周报先写结论") || !strings.Contains(requests[1], "file_search") {
+	if strings.Contains(requests[3], "项目周报先写结论") || !strings.Contains(requests[3], "file_search") {
 		t.Fatal("details were implicitly recalled or file search missing")
 	}
-	if strings.Contains(requests[1], "private dream memory consolidation") {
+	if strings.Contains(requests[3], "private dream memory consolidation") {
 		t.Fatal("dream polluted normal execution")
 	}
-	if !strings.Contains(requests[4], "explicit") {
-		t.Fatal("memory tool did not return evidence")
+	if !strings.Contains(requests[6], "项目周报先写结论") {
+		t.Fatal("file tool did not return memory content")
 	}
 }

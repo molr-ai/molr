@@ -34,6 +34,9 @@ func previewText(data []byte, limit int) string {
 	return string(data)
 }
 func (f *resourceFileTools) boundResult(ctx context.Context, e core.Execution, result tools.Result) (tools.Result, error) {
+	// Output artifacts are Runtime-owned writes to a fixed directory, not
+	// model-requested file mutations. Keep identity and deadlines intact.
+	ctx = context.WithValue(ctx, filePolicyKey{}, (*filePolicy)(nil))
 	if len(result.Content) <= toolInlineLimit {
 		return result, nil
 	}

@@ -7,24 +7,20 @@ export function DreamInspection({ id }: { id: string }) {
   const { t, locale } = useCopy(), c = t.workbench.dream;
   const query = useQuery<DreamRun>(`/api/dreams/runs/${id}`), run = query.data;
   const state = (value: string) => (c.states as Record<string, string>)[value] ?? value;
-  const decisions = run?.Decisions ?? [];
+  const changes = run?.FileChanges ?? [];
+  const zh = locale.startsWith('zh');
+  const labels: Record<string, string> = { file_write: zh ? '写入文件' : 'Write file', file_edit: zh ? '编辑文件' : 'Edit file', file_move: zh ? '移动文件' : 'Move file', file_delete: zh ? '删除文件' : 'Delete file' };
   return <section className="workbench-content-block dream-inspection">
     <div className="workbench-section-heading"><h3>{c.title}</h3></div>
     <ErrorNotice error={query.error} retry={query.reload} />
     {query.loading && !run && <Loading />}
     {run && <div className="workbench-response-content">
       {run.Summary && <div className="workbench-prose">{run.Summary}</div>}
-      {decisions.some(decision => decision.Replaces && decision.Action === 'pending') && <p className="workbench-section-note">{c.pendingHelp}</p>}
-      {decisions.map((decision, index) => <details className="workbench-disclosure" key={index} open>
-        <summary><ChevronRight size={14} aria-hidden="true" /><h3>{decision.Action === 'core' ? (locale.startsWith('zh') ? '核心记忆更新' : 'Core cognition updated') : decision.Action === 'deferred' ? (locale.startsWith('zh') ? '留在回顾中' : 'Retained in review') : decision.Action === 'superseded' ? (locale.startsWith('zh') ? '已停止使用' : 'Retired') : decision.Action === 'discarded' ? c.discarded : decision.Replaces ? c.replacement : decision.Action === 'active' ? c.added : c.pending}</h3></summary>
-        <div className="workbench-disclosure-body">
-          {(decision.Replaces || decision.PreviousText) && <><span className="muted">{c.before}</span><div className="workbench-prose">{decision.PreviousText || decision.Replaces?.Path}</div><span className="muted">{c.after}</span></>}
-          <div className="workbench-prose">{decision.Text}</div>
-          {decision.Memory && <a href={`#/account/memory?${new URLSearchParams({ scope: decision.Memory.Scope, assistant_id: decision.Memory.AssistantID ?? '', path: decision.Memory.Path })}`}>{decision.Memory.Path}</a>}
-          <small className="muted">{(c.reasons as Record<string, string>)[decision.Reason] ?? decision.Reason}</small>
-        </div>
-      </details>)}
-      {!decisions.length && <p className="workbench-empty">{['completed', 'skipped', 'up_to_date', 'undone'].includes(run.State) ? c.empty : c.unfinished}</p>}
+      {changes.map(change => <div className="workbench-disclosure-body" key={change.OperationID}>
+        <strong>{labels[change.Tool] ?? change.Tool}</strong>
+        <p className="memory-path"><code>{change.Path}</code>{change.ToPath && <> → <code>{change.ToPath}</code></>}</p>
+      </div>)}
+      {!changes.length && <p className="workbench-empty">{['completed', 'skipped', 'up_to_date', 'undone'].includes(run.State) ? (zh ? '本批没有文件变更。' : 'No file changes in this batch.') : c.unfinished}</p>}
       <details className="workbench-disclosure">
         <summary><ChevronRight size={14} aria-hidden="true" /><h3>{c.batch}</h3></summary>
         <div className="workbench-disclosure-body">

@@ -136,7 +136,7 @@ func TestTimezoneEditKeepsAnAdmittedBatchWindow(t *testing.T) {
 	if len(first.Sources) != 80 {
 		t.Fatal(first)
 	}
-	if err := f.s.Commit(t.Context(), f.ap, ev(first), `{"Summary":"batch one","Memories":[]}`); err != nil {
+	if err := f.s.Commit(t.Context(), f.ap, ev(first), "batch one"); err != nil {
 		t.Fatal(err)
 	}
 	c, _ := f.s.Get(t.Context(), f.p, "assistant")
@@ -157,7 +157,7 @@ func TestTimezoneEditKeepsAnAdmittedBatchWindow(t *testing.T) {
 	if len(second.Sources) != 3 || !second.Start.Equal(first.Start) || !second.End.Equal(first.End) || second.Timezone != first.Timezone {
 		t.Fatal("timezone changed an active replay window", first, second)
 	}
-	if err := f.s.Commit(t.Context(), f.ap, ev(second), `{"Summary":"batch two","Memories":[]}`); err != nil {
+	if err := f.s.Commit(t.Context(), f.ap, ev(second), "batch two"); err != nil {
 		t.Fatal(err)
 	}
 	if err := f.s.Tick(t.Context(), f.now.Add(2*time.Minute)); err != nil {

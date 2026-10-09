@@ -23,6 +23,7 @@ func TestSessionDeadlinePreservesCommittedMemoryAndBoundsBackfill(t *testing.T) 
 	if _, err := f.s.Deadline(t.Context(), f.ap, ev(first)); err != nil {
 		t.Fatal(err)
 	}
+	writeFile(t, f, first, "first-topic", ".agents/memory/约定.md", "项目汇报先写结论", "")
 	if err := f.s.Commit(t.Context(), f.ap, ev(first), output(first, "explicit")); err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +70,7 @@ func TestSessionDeadlinePreservesCommittedMemoryAndBoundsBackfill(t *testing.T) 
 	if fresh.Backfill || len(fresh.Sources) != 1 {
 		t.Fatal("old work displaced new work", fresh)
 	}
-	if err := f.s.Commit(t.Context(), f.ap, ev(fresh), `{"Summary":"new day","Memories":[]}`); err != nil {
+	if err := f.s.Commit(t.Context(), f.ap, ev(fresh), "new day"); err != nil {
 		t.Fatal(err)
 	}
 	carry := f.request(t, "carry")

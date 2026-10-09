@@ -20,6 +20,7 @@
 
 - [许可证与第三方兼容性](LICENSING.md)：MIT 范围、依赖版本清单、单文件分发材料与维护方式。
 - [开发协作与验收](DEVELOPMENT.md)：worktree 隔离、验收入口、Runtime 构建与沙盒、合并生效、服务与端口约定。
+- [真实模型测试](DEVELOPMENT.md#真实模型测试)：优先使用主环境已配置的本地模型，保持验收数据隔离，并区分真实模型与模拟测试结果。
 
 - [Runtime 开发与测试](../runtime/README.md)、[WebUI 开发](../apps/webui/README.md)、[UI Design](../apps/ui-design/README.md)、[官网](../apps/website/README.md)。
 - [产品范围](PRODUCT_SCOPE.md)：当前能力、原型边界和实现入口。

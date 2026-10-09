@@ -201,7 +201,7 @@ func (c resourceCatalog) list(ctx context.Context, p core.Principal) (json.RawMe
 		}
 		workspaceOps := []resourceOperation{
 			{policy.Read, "file_search", true, ""}, {policy.Read, "file_read", true, ""}, {policy.Read, "file_list", true, ""},
-			{policy.Write, "file_write", true, ""}, {policy.Write, "file_edit", true, ""},
+			{policy.Write, "file_write", true, ""}, {policy.Write, "file_edit", true, ""}, {policy.Write, "file_move", true, ""}, {policy.Write, "file_delete", true, ""},
 			{policy.Read, "shell_execute", executionReason == "", executionReason}, {policy.Write, "shell_execute", executionReason == "", executionReason},
 		}
 		out.BuiltInStorage = append(out.BuiltInStorage, builtinStorage{Kind: "workspace", Source: "runtime", Operations: workspaceOps, Path: "/work", Lifetime: "assistant", Available: true, Actions: []policy.Action{policy.Read, policy.Write}, ShellComputeIDs: computeIDs})
@@ -307,7 +307,7 @@ func (c resourceCatalog) list(ctx context.Context, p core.Principal) (json.RawMe
 								editReason = "read_permission_required_for_edit"
 							}
 						}
-						item.Operations = append(item.Operations, resourceOperation{action, "file_edit", editReason == "", editReason})
+						item.Operations = append(item.Operations, resourceOperation{action, "file_edit", editReason == "", editReason}, resourceOperation{action, "file_move", reason == "", reason}, resourceOperation{action, "file_delete", reason == "", reason})
 					}
 					if reason == "" {
 						reason = executionReason

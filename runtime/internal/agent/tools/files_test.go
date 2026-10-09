@@ -101,3 +101,27 @@ func TestUnifiedPathsAndMediaOptions(t *testing.T) {
 		}
 	}
 }
+
+func TestMoveDeleteArgumentsUseCommonFileTargets(t *testing.T) {
+	for _, tc := range []struct {
+		name, raw string
+		valid     bool
+	}{
+		{"file_move", `{"path":"a","to_path":"dir/b","expected_version":"v"}`, true},
+		{"file_move", `{"path":"a","to_path":"/resources/other/b","expected_version":"v"}`, false},
+		{"file_move", `{"resource_id":"store","path":"a","to_path":"/resources/store/b","expected_version":"v"}`, true},
+		{"file_move", `{"resource_id":"store","path":"a","to_path":"/resources/other/b","expected_version":"v"}`, false},
+		{"file_move", `{"path":"a","to_path":"../b","expected_version":"v"}`, false},
+		{"file_move", `{"path":"a","to_path":"a","expected_version":"v"}`, false},
+		{"file_move", `{"path":"a","to_path":"b"}`, false},
+		{"file_delete", `{"path":"a","expected_version":"v"}`, true},
+		{"file_delete", `{"path":"a","expected_version":""}`, false},
+		{"file_delete", `{"path":"a","expected_version":null}`, false},
+		{"file_delete", `{"path":"a","expected_version":"v","recursive":true}`, false},
+	} {
+		_, err := fileArguments(Call{Name: tc.name, Arguments: json.RawMessage(tc.raw)})
+		if (err == nil) != tc.valid {
+			t.Errorf("%s %s: %v", tc.name, tc.raw, err)
+		}
+	}
+}

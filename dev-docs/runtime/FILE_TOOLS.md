@@ -47,14 +47,16 @@ Shell 只挂载请求中选择的资源范围。`permission_list` 返回稳定�
 | `/work/.local/state/molr/` | 按 XDG state 语义保存大工具结果和 Shell 全文输出等执行记录，跨命令和重启保留；当前不自动清理 |
 | `/work/.cache/` | 可重新生成的缓存，跨命令保留；当前没有自动清理 |
 
-业务目录是默认约定，用户可以指定其他位置；系统目录保留既定用途。默认目录不需要 Shell 授权即可使用，任意新建子目录仍须预先存在。目录用途和生命周期通过 workspace 自动来源说明，具体文件列表、正文及运行产物继续按需读取。指令加载范围见[上下文更新](AGENT_CONTEXT.md#来源与加载)。
+业务目录是默认约定，用户可以指定其他位置；系统目录保留既定用途。默认目录不需要 Shell 授权即可使用。写入或移动到新子目录时，可显式设置 `create_parents=true`；每个缺失父目录都须位于已授权的写入范围内，否则应先通过其他已授权方式创建。目录用途和生命周期通过 workspace 自动来源说明，具体文件列表、正文及运行产物继续按需读取。指令加载范围见[上下文更新](AGENT_CONTEXT.md#来源与加载)。
 
 | 工具 | 参数和行为 | 外部存储权限（自身工作区默认允许） |
 | --- | --- | --- |
 | `file_list` | 列出单个目录，`offset` 从 0 开始，默认 `limit=100`、最多 200。返回 `Entries`、`Version`、`Truncated`、`NextOffset`。下一页必须传上一页的 `Version` 作为 `expected_version`；使用文件系统顺序，不递归、不跟随符号链接 | read |
 | `file_read` | 读取 UTF-8 文本，`offset` 为从 1 开始的行号，默认 `limit=200`、最多 2000。返回原始换行格式的 `Text`、`StartLine/EndLine`、`Version`、`Truncated`、`NextOffset`；只有读到末尾才给出 `TotalLines` | read |
-| `file_write` | 创建或完整替换 UTF-8 文件。必须显式传 `overwrite`；`false` 禁止覆盖已有文件，`true` 允许覆盖。可携带 `expected_version` 防止覆盖读取后发生的变化；父目录须已存在 | write |
+| `file_write` | 创建或完整替换 UTF-8 文件。必须显式传 `overwrite`；`false` 禁止覆盖已有文件，`true` 允许覆盖。可携带 `expected_version` 防止覆盖读取后发生的变化；默认要求父目录存在，`create_parents=true` 可创建缺失且有写权限的父目录 | write |
 | `file_edit` | 使用 `old_text`、`new_text` 精确替换，必须传读取返回的 `expected_version`。零匹配、版本过期或多处匹配均拒绝修改；显式 `replace_all=true` 才替换所有匹配，不使用正则或模糊匹配 | 同一路径的 read + write |
+| `file_move` | 原子移动或重命名单个普通文件；`to_path` 使用与源路径相同的工作区／存储资源，目标必须不存在，必须传源文件当前 `expected_version`。不移动目录或跨资源移动；可用 `create_parents=true` 创建有写权限的目标父目录 | 源路径及目标路径的 write |
+| `file_delete` | 按 `expected_version` 删除单个普通文件；版本过期、符号链接及目录均拒绝，不提供递归删除 | 目标路径的 write |
 
 读取输出最多 64 KiB、单次扫描最多 64 MiB；单行过长、二进制和无效 UTF-8 返回明确错误。写入、局部编辑的文件与文本最多 1 MiB，更大的批量或二进制处理使用 Shell。目录分页的偏移上限为 100,000，超大目录可用 Shell 分批处理。
 
@@ -94,3 +96,6 @@ file_search 沿用 FileTarget：默认本地 `/work`，`/global` 只读，外部
 默认 50 条、最多 200 条结果；最多扫描 10,000 项、32 层目录、每文件 2 MiB、累计 64 MiB，5 秒预算及 32 KiB 结果预算。超过 4096 字节的行、非 UTF-8、二进制和链接按原因计入 Skipped；长行和过大文件使 Complete=false。Complete、Truncated、StopReason 及扫描统计明确结果边界，不提供可能漏项的分页游标。目录或文件扫描期间变化也报告不完整。结果只用于定位，修改前 file_read 获取当前内容与版本。
 
 文件搜索不解析记忆状态，也不特殊处理某个目录为“记忆库”。记忆规则由系统提示词说明，memory_* 工具均已移除。远程搜索随 Sandbox 协议 6 提供，需要配套更新节点。
+
+
+Dream 直接复用上述通用文件工具，仅通过执行上下文限制可见工具和记忆路径范围；普通助理也可使用 `file_move`、`file_delete`，本机与远程存储使用相同参数及权限规则。移动、删除与其他有副作用工具共用操作回执，成功操作重放不会再次移动或删除后来出现的文件。Dream 的撤销与来源记录由观察回调维护，不另设工具 schema 或执行器。详见[做梦与文件记忆](DREAM_MEMORY.md)。

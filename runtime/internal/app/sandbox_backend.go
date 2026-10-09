@@ -246,6 +246,18 @@ func (b *linuxSandboxBackend) Call(ctx context.Context, q sm.Request) (json.RawM
 			return nil, err
 		}
 		return f.edit(ctx, e, r)
+	case "file_move":
+		var r tools.FileMoveRequest
+		if err := decodeSandboxArgs(q.Arguments, &r); err != nil {
+			return nil, err
+		}
+		return f.move(ctx, e, r)
+	case "file_delete":
+		var r tools.FileDeleteRequest
+		if err := decodeSandboxArgs(q.Arguments, &r); err != nil {
+			return nil, err
+		}
+		return f.delete(ctx, e, r)
 	case "download":
 		var r sandboxDownload
 		if err := decodeSandboxArgs(q.Arguments, &r); err != nil {

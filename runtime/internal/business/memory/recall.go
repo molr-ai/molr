@@ -89,7 +89,7 @@ func scrubHistory(ctx context.Context, store persistence.Store, m Memory) error 
 			}
 			data["Summary"] = json.RawMessage(`""`)
 			data["Output"] = json.RawMessage(`""`)
-			data["Decisions"] = json.RawMessage(`[]`)
+			data["FileChanges"] = json.RawMessage(`[]`)
 			var sources []map[string]json.RawMessage
 			if err := json.Unmarshal(data["Sources"], &sources); err != nil {
 				return err
