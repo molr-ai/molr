@@ -18,6 +18,7 @@ type ObjectStore struct {
 	root          *os.Root
 	store         persistence.Store
 	mu            sync.Mutex
+	locks         map[core.ID]*objectLock
 	commitFailure error
 }
 
@@ -47,6 +48,14 @@ func (o *ObjectStore) FailNextCommit(err error) {
 	o.commitFailure = err
 }
 
+func (o *ObjectStore) takeCommitFailure() error {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	err := o.commitFailure
+	o.commitFailure = nil
+	return err
+}
+
 type contextReader struct {
 	ctx    context.Context
 	reader io.Reader
@@ -68,8 +77,11 @@ func (o *ObjectStore) Put(ctx context.Context, id core.ID, reader io.Reader, lim
 	if reader == nil || limit < 0 || limit > 1<<40 {
 		return StagedObject{}, core.Invalid("upload", "invalid stream or byte limit")
 	}
-	o.mu.Lock()
-	defer o.mu.Unlock()
+	release, err := o.lock(ctx, id)
+	if err != nil {
+		return StagedObject{}, err
+	}
+	defer release()
 	name := "staging/" + string(id)
 	if _, err := o.root.Lstat("objects/" + string(id)); err == nil {
 		return StagedObject{}, persistence.Conflict("object already exists")
@@ -128,11 +140,12 @@ func (o *ObjectStore) Commit(ctx context.Context, object StagedObject) error {
 	if err := object.ID.Validate(); err != nil {
 		return err
 	}
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	if o.commitFailure != nil {
-		err := o.commitFailure
-		o.commitFailure = nil
+	release, err := o.lock(ctx, object.ID)
+	if err != nil {
+		return err
+	}
+	defer release()
+	if err := o.takeCommitFailure(); err != nil {
 		return err
 	}
 	target := "objects/" + string(object.ID)
@@ -178,8 +191,11 @@ func (o *ObjectStore) Remove(ctx context.Context, id core.ID) error {
 	if err := id.Validate(); err != nil {
 		return err
 	}
-	o.mu.Lock()
-	defer o.mu.Unlock()
+	release, err := o.lock(ctx, id)
+	if err != nil {
+		return err
+	}
+	defer release()
 	for _, prefix := range []string{"objects/", "staging/"} {
 		if err := o.root.Remove(prefix + string(id)); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err

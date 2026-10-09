@@ -100,11 +100,13 @@ test('model setup, automatic hire permission, real agent reply, attachments and 
   await hire.getByRole('spinbutton', { name: 'Spending limit (USD)', exact: true }).fill('0');
   await hire.getByRole('button', { name: 'Hire new assistant', exact: true }).click(); await expect(hire).not.toBeVisible();
   await expect(page.locator('.chat-header h1')).toHaveText(assistantName);
-  await expect(page.locator('.ui-chat-message--assistant')).toHaveCount(1); // Born greeting completes before testing the user reply.
+  // Birth publishes its own reply. Finish that turn before testing user feedback.
+  await expect(page.locator('.ui-chat-message--assistant')).toHaveCount(1, { timeout: 20000 });
+  await expect(page.locator('.chat-header [data-status="idle"]')).toBeVisible();
   await page.getByRole('textbox', { name: 'Message your assistant', exact: true }).fill('Please acknowledge this real message.');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
-  await expect(page.locator('.ui-chat-message--assistant')).toHaveCount(2);
-  const reply = page.getByRole('log', { name: 'Assistant conversation' }).getByText('Runtime delivered this reply through conversation_publish.', { exact: true }).last();
+  await expect(page.locator('.ui-chat-message--assistant')).toHaveCount(2, { timeout: 20000 });
+  const reply = page.locator('.ui-chat-message--assistant').nth(1).getByText('Runtime delivered this reply through conversation_publish.', { exact: true });
   await expect(reply).toBeVisible({ timeout: 20000 });
   await expect(page.getByText('Internal reasoning is not a chat message.', { exact: true })).toHaveCount(0);
   const replyArticle = page.locator('.ui-chat-message--assistant').last();

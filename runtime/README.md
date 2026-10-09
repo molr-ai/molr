@@ -163,3 +163,7 @@ Runtime 内嵌本机 sandbox_manager；可另行构建 `./cmd/molr-sandbox` 在�
 ### 文件搜索 glob 性能回归
 
 `go test ./internal/textfiles` 覆盖 glob 匹配、排除目录、授权及扫描边界；`go test ./internal/app -run 'TestFileSearchWorkspaceGlobalAndExternalScope|TestRemoteSandboxStorageRoutingAuthorizationAndContext'` 验证本地和远程工具接线。`go test ./internal/textfiles -run '^$' -fuzz '^FuzzCompiledGlobMatchesRecursive$' -fuzztime=15s` 对照原递归实现；`go test ./internal/textfiles -run '^$' -bench '^BenchmarkFileSearchGlobFiltering$' -benchmem` 测量 2,000／8,000 个文件、12 条模式且路径均未命中的遍历过滤开销，不包含文件正文读取。
+
+### 附件上传并发
+
+`go test ./internal/storage/files` 覆盖慢上传期间无关文件提交与数据库读取、同对象串行操作、等待取消、并发配额竞争、幂等去重和失败暂存清理。`go test -race ./internal/storage/files -run 'Test(SlowUpload|ObjectWaiters|SameObject|ConcurrentUploads)'` 检查并发路径；竞态检测只用于测试程序，Runtime 验收仍使用 `CGO_ENABLED=0` 静态构建。
