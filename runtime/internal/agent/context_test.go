@@ -335,7 +335,7 @@ func TestWorkspaceContextSurvivesCompactionAndRefreshesAfterRecovery(t *testing.
 	inputs, definitions, automatic, err := e.refreshContext(t.Context(), execution, history, nil)
 	testkit.RequireNoError(t, err)
 	p := turnProgress{Inputs: inputs, Definitions: definitions, Automatic: automatic}
-	p.Usage = &contextUsage{ModelID: "model", Tokens: 63000, Inputs: usageInputs(inputs), Tools: contextHash(definitions)}
+	p.Usage = &contextUsage{ModelID: "model", Tokens: 63000, Inputs: usageInputs(inputs, model.StateSource{}), Tools: contextHash(definitions)}
 	interrupted, err := e.prepareContext(t.Context(), f.Turn, "model", &p)
 	testkit.RequireNoError(t, err)
 	if interrupted || p.Automatic == nil || p.Automatic.Version != automatic.Version {

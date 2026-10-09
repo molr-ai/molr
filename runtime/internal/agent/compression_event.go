@@ -107,14 +107,18 @@ func (e *Engine) enqueueCompression(ctx context.Context, owner, id core.ID, manu
 
 // Automatic detection only enqueues; the same consumer handles both sources.
 func (e *Engine) detectCompression(ctx context.Context, t Turn, id core.ID, p *turnProgress) error {
-	if t.Event.Kind == event.DreamDue || t.Event.Kind == event.ContextCompressionRequested {
+	if t.Event.Kind == event.DreamDue || t.Event.Kind == event.ContextCompressionRequested || (p.Usage != nil && p.Usage.AwaitingMeasurement) {
 		return nil
 	}
 	limit, err := e.contextWindow(ctx, t, id)
 	if err != nil {
 		return err
 	}
-	tokens, source := contextTokens(*p, id)
+	modelSource, err := e.modelSource(ctx, t, id)
+	if err != nil {
+		return err
+	}
+	tokens, source := contextTokens(*p, id, modelSource)
 	if err := e.recordContextStatus(ctx, t, ContextStatus{ModelID: id, Limit: limit, Tokens: tokens, Source: source, CompressionThreshold: e.options.CompressionThreshold}); err != nil {
 		return err
 	}

@@ -615,7 +615,10 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 	environment := localEnvironment(cfg)
 	b.remote = sandboxRouter
 	queue := scheduler.NewQueue(store)
-	engine := agent.NewRuntime(store, agent.Options{CheckEnvironment: environment, CompressionThreshold: cfg.Execution.ContextCompressionThreshold, ContextWindow: func(ctx context.Context, p core.Principal, id core.ID) (int, error) {
+	engine := agent.NewRuntime(store, agent.Options{ModelSource: func(ctx context.Context, p core.Principal, id core.ID) (model.StateSource, error) {
+		provider, err := adapters.provider(ctx, p, id)
+		return provider.StateSource(), err
+	}, CheckEnvironment: environment, CompressionThreshold: cfg.Execution.ContextCompressionThreshold, ContextWindow: func(ctx context.Context, p core.Principal, id core.ID) (int, error) {
 		provider, err := adapters.provider(ctx, p, id)
 		if core.CodeOf(err) == core.NotFound {
 			err = core.WithReason(core.NewError(core.FailedPrecondition, "model unavailable"), core.ModelUnavailable)

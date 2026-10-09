@@ -25,6 +25,7 @@ import (
 var loopInstructions = prompt.Text("loop", nil)
 
 type Options struct {
+	ModelSource          func(context.Context, core.Principal, core.ID) (model.StateSource, error)
 	CheckEnvironment     func(context.Context) error
 	ModelRetry           RetryPolicy
 	ContextWindow        func(context.Context, core.Principal, core.ID) (int, error)
@@ -72,7 +73,7 @@ type Engine struct {
 
 func NewRuntime(store persistence.Store, options Options) *Engine {
 	if options.CompressionThreshold <= 0 || options.CompressionThreshold >= 1 {
-		options.CompressionThreshold = 0.9
+		options.CompressionThreshold = 0.8
 	}
 	if options.Now == nil {
 		options.Now = time.Now
@@ -620,14 +621,15 @@ resume:
 			}
 			pendingRetry = ""
 			progress.Handled = append([]core.ID{}, progress.Joined...)
-			progress.Usage = e.measureContext(runCtx, t, modelID, progress, response)
+			progress.Usage = e.measureContext(runCtx, t, modelID, progress)
 			progress.Inputs = append(progress.Inputs, response)
 			if t.Event.Kind != event.DreamDue && progress.Usage != nil {
 				limit, err := e.contextWindow(runCtx, t, modelID)
 				if err != nil {
 					return Outcome{}, err
 				}
-				if err = e.recordContextStatus(runCtx, t, ContextStatus{ModelID: modelID, Limit: limit, Tokens: progress.Usage.Tokens, Source: "provider", CompressionThreshold: e.options.CompressionThreshold}); err != nil {
+				tokens, source := contextTokens(progress, modelID, progress.Usage.Source)
+				if err = e.recordContextStatus(runCtx, t, ContextStatus{ModelID: modelID, Limit: limit, Tokens: tokens, Source: source, CompressionThreshold: e.options.CompressionThreshold}); err != nil {
 					return Outcome{}, err
 				}
 			}

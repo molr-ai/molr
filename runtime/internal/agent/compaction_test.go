@@ -24,7 +24,7 @@ func TestCompactionRetainsOriginalHistoryAndResumes(t *testing.T) {
 		history = append(history, model.Input{Role: model.User, Text: "Original evidence 原始消息 " + strings.Repeat("history ", 650)})
 	}
 	p := turnProgress{Inputs: history}
-	before, _ := contextTokens(p, "model")
+	before, _ := contextTokens(p, "model", model.StateSource{})
 	if before < 32768*9/10 {
 		t.Fatal("test did not reach threshold")
 	}
@@ -74,17 +74,17 @@ func TestCompactionFailureKeepsInputs(t *testing.T) {
 
 func TestContextTokensUseProviderAndNewContent(t *testing.T) {
 	inputs := []model.Input{{Role: model.User, Text: "hello"}}
-	p := turnProgress{Inputs: inputs, Usage: &contextUsage{ModelID: "m", Tokens: 250000, Inputs: usageInputs(inputs), Tools: contextHash([]model.ToolDefinition(nil))}}
-	tokens, source := contextTokens(p, "m")
+	p := turnProgress{Inputs: inputs, Usage: &contextUsage{ModelID: "m", Tokens: 250000, Inputs: usageInputs(inputs, model.StateSource{}), Tools: contextHash([]model.ToolDefinition(nil))}}
+	tokens, source := contextTokens(p, "m", model.StateSource{})
 	if tokens != 250000 || source != "provider" {
 		t.Fatal(tokens, source)
 	}
 	p.Inputs = append(p.Inputs, model.Input{Role: model.Tool, Text: "new output"})
-	tokens, source = contextTokens(p, "m")
+	tokens, source = contextTokens(p, "m", model.StateSource{})
 	if tokens <= 250000 || source != "provider_with_estimate" {
 		t.Fatal(tokens, source)
 	}
-	tokens, source = contextTokens(p, "other")
+	tokens, source = contextTokens(p, "other", model.StateSource{})
 	if tokens >= 250000 || source != "estimated" {
 		t.Fatal("reused usage from another model", tokens, source)
 	}
@@ -148,7 +148,7 @@ func TestCompactionDoesNotInjectSummaryReasoningIntoContinuation(t *testing.T) {
 	e := f.Runtime.(*Engine)
 	e.options.ContextWindow = func(context.Context, core.Principal, core.ID) (int, error) { return 32768, nil }
 	p := turnProgress{Inputs: []model.Input{{Role: model.System, Text: loopInstructions}, {Role: model.User, Text: strings.Repeat("historical data ", 4000)}}}
-	p.Usage = &contextUsage{ModelID: "model", Tokens: 31000, Inputs: usageInputs(p.Inputs), Tools: contextHash(p.Definitions)}
+	p.Usage = &contextUsage{ModelID: "model", Tokens: 31000, Inputs: usageInputs(p.Inputs, model.StateSource{}), Tools: contextHash(p.Definitions)}
 	_, err := e.prepareContext(t.Context(), f.Turn, "model", &p)
 	if err != nil {
 		t.Fatalf("prepare context: %v (reason: %s)", err, core.ReasonOf(err))
@@ -196,7 +196,7 @@ func TestContextStatusSurvivesTurnsAndResetsExplicitly(t *testing.T) {
 	}
 }
 
-func TestSingleSummaryRejectsIncompleteOrIneffectiveOutput(t *testing.T) {
+func TestSingleSummaryRejectsIncompleteOutput(t *testing.T) {
 	for _, tc := range []struct {
 		name, finish, text string
 		calls              bool
@@ -207,7 +207,6 @@ func TestSingleSummaryRejectsIncompleteOrIneffectiveOutput(t *testing.T) {
 		{"empty", "stop", "", false, core.ContextSummaryInvalid},
 		{"tool-call", "tool_calls", "", true, core.ContextSummaryInvalid},
 		{"unknown-finish", "content_filter", "partial", false, core.ContextSummaryInvalid},
-		{"no-shrink", "stop", strings.Repeat("unhelpful output ", 5000), false, core.ContextCompactionIneffective},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			calls := 0
@@ -225,7 +224,7 @@ func TestSingleSummaryRejectsIncompleteOrIneffectiveOutput(t *testing.T) {
 			e := f.Runtime.(*Engine)
 			e.options.ContextWindow = func(context.Context, core.Principal, core.ID) (int, error) { return 32768, nil }
 			p := turnProgress{Inputs: []model.Input{{Role: model.System, Text: loopInstructions}, {Role: model.User, Text: strings.Repeat("original data ", 3000)}}}
-			p.Usage = &contextUsage{ModelID: "model", Tokens: 31000, Inputs: usageInputs(p.Inputs), Tools: contextHash(p.Definitions)}
+			p.Usage = &contextUsage{ModelID: "model", Tokens: 31000, Inputs: usageInputs(p.Inputs, model.StateSource{}), Tools: contextHash(p.Definitions)}
 			before := contextHash(p)
 			for i := 0; i < 2; i++ {
 				_, err := e.prepareContext(t.Context(), f.Turn, "model", &p)
@@ -253,40 +252,83 @@ func TestSingleSummaryRejectsIncompleteOrIneffectiveOutput(t *testing.T) {
 	}
 }
 
-func TestOversizedHistoryFailsBeforeSummaryRequest(t *testing.T) {
+func TestOversizedEstimateStillSendsCompleteSummaryRequest(t *testing.T) {
 	f, db := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	e.options.ContextWindow = func(context.Context, core.Principal, core.ID) (int, error) { return 32768, nil }
-	p := turnProgress{Inputs: []model.Input{{Role: model.System, Text: loopInstructions}, {Role: model.User, Text: strings.Repeat("历史原文", 30000)}}}
-	before := contextHash(p)
+	p := turnProgress{Inputs: []model.Input{{Role: model.System, Text: loopInstructions}, {Role: model.User, Text: strings.Repeat("历史原文", 30000)}, {Role: model.User, RuntimeContext: true, Text: "current automatic context"}}}
+	original := append([]model.Input{}, p.Inputs...)
 	_, err := e.prepareContext(t.Context(), f.Turn, "model", &p)
-	if core.ReasonOf(err) != core.ContextSummaryInputTooLarge || len(f.ModelRequests()) != 0 || contextHash(p) != before {
-		t.Fatal("oversized history was sent, split or altered", err)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reqs := f.ModelRequests()
+	if len(reqs) != 1 || len(reqs[0].Inputs) != len(original)+1 || contextHash(reqs[0].Inputs[:len(original)]) != contextHash(modelInputs(original)) {
+		t.Fatal("summary did not preserve the complete request prefix")
+	}
+	last := reqs[0].Inputs[len(original)]
+	if last.Role != model.User || last.Text != compactionInstruction {
+		t.Fatal("missing appended user instruction")
 	}
 	records, err := persistence.Scan[contextArchive](t.Context(), db, "agent.context_archives")
-	if err != nil || len(records) != 1 || contextHash(records[0].Inputs) != contextHash(p.Inputs) {
+	if err != nil || len(records) != 1 || contextHash(records[0].Inputs) != contextHash(original) {
 		t.Fatal("archive missing", err)
 	}
 }
 
-func TestCompactionBoundaryPreservesWholeToolGroups(t *testing.T) {
-	history := []model.Input{{Role: model.System, Text: loopInstructions}, {Role: model.User, Text: "goal"}, {Role: model.Assistant, Calls: []model.ToolCall{{ID: "a"}, {ID: "b"}}}, {Role: model.Tool, ReplyTo: "a", Text: strings.Repeat("long ", 1000)}, {Role: model.Tool, ReplyTo: "b", Text: "short"}, {Role: model.User, Text: "latest"}}
-	cut, err := compactionCut(history, 100)
-	if err != nil || cut != 5 {
-		t.Fatal("split tool group", cut, err)
+func TestProviderContextRejectionRetainsHistory(t *testing.T) {
+	calls := 0
+	f, db := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"error":{"code":"context_length_exceeded","message":"private prompt details"}}`))
+	}))
+	e := f.Runtime.(*Engine)
+	e.options.ContextWindow = func(context.Context, core.Principal, core.ID) (int, error) { return 32768, nil }
+	p := turnProgress{Inputs: []model.Input{{Role: model.System, Text: loopInstructions}, {Role: model.User, Text: strings.Repeat("history ", 30000)}}}
+	before := contextHash(p)
+	_, err := e.prepareContext(t.Context(), f.Turn, "model", &p)
+	failure := model.FailureOf(err)
+	if calls != 1 || core.ReasonOf(err) != core.ModelContextExceeded || failure == nil || failure.ProviderCode != "context_length_exceeded" || !failure.NoCharge || failure.Retryable || contextHash(p) != before {
+		t.Fatalf("provider rejection lost: calls=%d err=%v failure=%+v", calls, err, failure)
 	}
-	history = history[:4]
-	if _, err = compactionCut(history, 0); err == nil {
-		t.Fatal("pending tool group accepted")
+	archives, err := persistence.Scan[contextArchive](t.Context(), db, "agent.context_archives")
+	if err != nil || len(archives) != 1 {
+		t.Fatal("archive lost", err)
 	}
 }
 
-func TestInputEstimateDoesNotDoubleCountProviderMessage(t *testing.T) {
+func TestInputEstimateMatchesReplayedReasoning(t *testing.T) {
+	source := model.StateSource{Protocol: model.DeepSeekChat, ModelID: "model", Endpoint: "https://model.example"}
 	in := model.Input{Role: model.Assistant, Text: "visible answer", Calls: []model.ToolCall{{ID: "one", Name: "read", Arguments: json.RawMessage(`{"path":"x"}`)}}}
-	baseline := inputEstimate(in)
-	in.ProviderState = &model.ProviderState{Payload: json.RawMessage(`{"role":"assistant","content":"visible answer","tool_calls":[{"id":"one","function":{"name":"read","arguments":"{\"path\":\"x\"}"}}],"reasoning_content":"retained reasoning"}`)}
-	if got := inputEstimate(in); got != baseline+textTokens("retained reasoning") {
-		t.Fatal("duplicate state estimate", got, baseline)
+	baseline := inputEstimate(in, source)
+	in.ProviderState = &model.ProviderState{Source: source, Payload: json.RawMessage(`{"role":"assistant","content":"visible answer","reasoning":"not replayed","reasoning_content":"retained reasoning","other":"not replayed"}`)}
+	if got := inputEstimate(in, source); got != baseline+textTokens("retained reasoning") {
+		t.Fatal("replayed state estimate", got, baseline)
+	}
+	for _, target := range []model.StateSource{{Protocol: model.OpenAIChat, ModelID: "model"}, {Protocol: model.DeepSeekChat, ModelID: "different"}, {Protocol: model.DeepSeekChat, ModelID: "model", Endpoint: "https://other.example"}} {
+		if got := inputEstimate(in, target); got != baseline {
+			t.Fatal("counted state that is not sent", target, got)
+		}
+	}
+}
+
+func TestSuccessfulSummaryIsNotRejectedByEstimates(t *testing.T) {
+	f, _ := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"id": "summary", "choices": []any{map[string]any{"message": map[string]any{"role": "assistant", "content": strings.Repeat("summary ", 20000)}, "finish_reason": "stop"}}, "usage": map[string]int{"prompt_tokens": 100, "completion_tokens": 500}})
+	}))
+	e := f.Runtime.(*Engine)
+	e.options.ContextWindow = func(context.Context, core.Principal, core.ID) (int, error) { return 32768, nil }
+	p := turnProgress{Inputs: []model.Input{{Role: model.System, Text: loopInstructions}, {Role: model.User, Text: "short original"}}}
+	if _, err := e.compactContext(t.Context(), f.Turn, "model", &p, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.prepareContext(t.Context(), f.Turn, "model", &p); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.ModelRequests()) != 1 {
+		t.Fatal("estimated summary size caused immediate recompaction")
 	}
 }
 
@@ -308,7 +350,7 @@ func TestCompactionCheckpointAndCounterRollbackTogether(t *testing.T) {
 	e.options.ContextWindow = func(context.Context, core.Principal, core.ID) (int, error) { return 32768, nil }
 	e.options.Dependencies.Budget = compactionCommitFaultBudget{Budget: e.options.Dependencies.Budget, fail: f.FailNextCommit}
 	p := turnProgress{Inputs: []model.Input{{Role: model.System, Text: loopInstructions}, {Role: model.User, Text: strings.Repeat("original data ", 3000)}}}
-	p.Usage = &contextUsage{ModelID: "model", Tokens: 31000, Inputs: usageInputs(p.Inputs), Tools: contextHash(p.Definitions)}
+	p.Usage = &contextUsage{ModelID: "model", Tokens: 31000, Inputs: usageInputs(p.Inputs, model.StateSource{}), Tools: contextHash(p.Definitions)}
 	before := contextHash(p)
 	if _, err := e.prepareContext(t.Context(), f.Turn, "model", &p); err == nil {
 		t.Fatal("expected commit failure")
@@ -322,5 +364,95 @@ func TestCompactionCheckpointAndCounterRollbackTogether(t *testing.T) {
 	status, err := e.Status(t.Context(), f.Owner, f.Turn.Event.AssistantID)
 	if err != nil || status.Context.Compressions != 0 {
 		t.Fatal("counter survived rollback", status, err)
+	}
+}
+
+func TestDefaultCompressionThresholdUsesMeasuredBaseline(t *testing.T) {
+	f, _ := makeLoopFixture(t, nil)
+	e := f.Runtime.(*Engine)
+	e.options.ContextWindow = func(context.Context, core.Principal, core.ID) (int, error) { return 10000, nil }
+	p := turnProgress{Inputs: []model.Input{{Role: model.System, Text: loopInstructions}, {Role: model.User, Text: strings.Repeat("conservatively estimated ", 10000)}}}
+	p.Usage = &contextUsage{ModelID: "model", Tokens: 7999, Inputs: usageInputs(p.Inputs, model.StateSource{}), Tools: contextHash(p.Definitions)}
+	if _, err := e.prepareContext(t.Context(), f.Turn, "model", &p); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.ModelRequests()) != 0 {
+		t.Fatal("full estimate replaced the measured baseline")
+	}
+	p.Usage.Tokens = 8000
+	if _, err := e.prepareContext(t.Context(), f.Turn, "model", &p); err != nil {
+		t.Fatal(err)
+	}
+	if e.options.CompressionThreshold != 0.8 || len(f.ModelRequests()) != 1 {
+		t.Fatal("default threshold is not 80 percent")
+	}
+}
+
+func TestMeasuredInputBaselineExcludesUnsentOutputReasoning(t *testing.T) {
+	f, _ := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"id":"response","choices":[{"message":{"role":"assistant","content":"answer","reasoning":"private long reasoning"},"finish_reason":"stop"}],"usage":{"prompt_tokens":100,"completion_tokens":10000}}`))
+	}))
+	e := f.Runtime.(*Engine)
+	p := turnProgress{Inputs: []model.Input{{Role: model.User, Text: "question"}}}
+	response, _, err := e.generateStep(t.Context(), f.Turn, "model", nil, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.Usage = e.measureContext(t.Context(), f.Turn, "model", p)
+	p.Inputs = append(p.Inputs, response)
+	got, source := contextTokens(p, "model", model.StateSource{})
+	if got != 100+inputEstimate(model.Input{Role: model.Assistant, Text: "answer"}, model.StateSource{}) || source != "provider_with_estimate" {
+		t.Fatal("included billed but unsent reasoning", got, source)
+	}
+	before := got
+	p.Inputs[1].ProviderState.Payload = json.RawMessage(`{"reasoning":"changed private data"}`)
+	got, _ = contextTokens(p, "model", model.StateSource{})
+	if got != before {
+		t.Fatal("private state changed the estimate", got, before)
+	}
+}
+
+func TestCompactionPreservesWirePrefixAndTools(t *testing.T) {
+	var wire []struct {
+		Messages []json.RawMessage `json:"messages"`
+		Tools    json.RawMessage   `json:"tools"`
+	}
+	f, _ := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Messages []json.RawMessage `json:"messages"`
+			Tools    json.RawMessage   `json:"tools"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Error(err)
+			w.WriteHeader(400)
+			return
+		}
+		wire = append(wire, req)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"id":"summary","choices":[{"message":{"role":"assistant","content":"complete checkpoint"},"finish_reason":"stop"}],"usage":{"prompt_tokens":100,"completion_tokens":10}}`))
+	}))
+	e := f.Runtime.(*Engine)
+	p := turnProgress{Inputs: []model.Input{
+		{Role: model.System, Text: loopInstructions},
+		{Role: model.User, Text: "original goal"},
+		{Role: model.Assistant, Text: "checking", Calls: []model.ToolCall{{ID: "read-one", Name: "file_read", Arguments: json.RawMessage(`{"path":"/work/sample"}`)}}, ProviderState: &model.ProviderState{Payload: json.RawMessage(`{"reasoning":"private state"}`)}},
+		{Role: model.Tool, ReplyTo: "read-one", Text: `{"Path":"/work/sample","Text":"evidence"}`},
+		{Role: model.User, Text: "latest correction"},
+		{Role: model.User, RuntimeContext: true, Text: "unchanged automatic context"},
+	}, Definitions: []model.ToolDefinition{{Name: "file_read", Description: "Read a file", InputSchema: json.RawMessage(`{"type":"object"}`)}}}
+	if _, _, err := e.generateStep(t.Context(), f.Turn, "model", p.Definitions, p); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.compactContext(t.Context(), f.Turn, "model", &p, true); err != nil {
+		t.Fatal(err)
+	}
+	if len(wire) != 2 || len(wire[1].Messages) != len(wire[0].Messages)+1 || contextHash(wire[1].Messages[:len(wire[0].Messages)]) != contextHash(wire[0].Messages) || string(wire[1].Tools) != string(wire[0].Tools) {
+		t.Fatal("wire prefix or tool definitions changed")
+	}
+	var last struct{ Role, Content string }
+	json.Unmarshal(wire[1].Messages[len(wire[0].Messages)], &last)
+	if last.Role != "user" || last.Content != compactionInstruction {
+		t.Fatal("compaction instruction was not appended")
 	}
 }

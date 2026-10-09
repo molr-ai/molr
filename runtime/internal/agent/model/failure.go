@@ -59,7 +59,7 @@ func providerFailure(status int, body []byte, header string, now time.Time) *Fai
 	// Only recognized codes are retained in public diagnostics. Never store an
 	// arbitrary provider message as a reason (it may contain private prompt data).
 	switch code {
-	case "insufficient_quota", "quota_exceeded", "billing_hard_limit_reached", "invalid_api_key", "rate_limit_exceeded", "rate_limit_error", "overloaded_error", "server_overloaded":
+	case "context_length_exceeded", "context_window_exceeded", "prompt_too_long", "insufficient_quota", "quota_exceeded", "billing_hard_limit_reached", "invalid_api_key", "rate_limit_exceeded", "rate_limit_error", "overloaded_error", "server_overloaded":
 		f.ProviderCode = code
 	}
 	switch status {
@@ -77,6 +77,9 @@ func providerFailure(status int, body []byte, header string, now time.Time) *Fai
 		if code == "overloaded_error" || code == "server_overloaded" {
 			f.OutcomeKnown, f.NoCharge, f.Retryable = true, true, true
 		}
+	}
+	if f.Reason == core.ModelRequestRejected && (code == "context_length_exceeded" || code == "context_window_exceeded" || code == "prompt_too_long") {
+		f.Reason = core.ModelContextExceeded
 	}
 	return f
 }

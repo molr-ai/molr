@@ -282,7 +282,13 @@ func (e *Engine) recoverModel(ctx context.Context, old executionCursor, p *turnP
 		p.Inputs = append(p.Inputs, result)
 		p.Response = &result
 		if receipt != nil && receipt.OutcomeKnown && receipt.ModelID != "" && receipt.Usage.InputTokens > 0 {
-			p.Usage = &contextUsage{ModelID: receipt.ModelID, Tokens: receipt.Usage.InputTokens + receipt.Usage.OutputTokens, Inputs: usageInputs(p.Inputs), Tools: contextHash(p.Definitions)}
+			// Recovery uses the backend identity saved with the committed response;
+			// it must not depend on the old model still being configured.
+			source := model.StateSource{}
+			if e.options.ModelSource != nil && result.ProviderState != nil {
+				source = result.ProviderState.Source
+			}
+			p.Usage = &contextUsage{ModelID: receipt.ModelID, Source: source, Tokens: receipt.Usage.InputTokens, Inputs: usageInputs(p.Inputs[:len(p.Inputs)-1], source), Tools: contextHash(p.Definitions)}
 		}
 		p.Handled = append([]core.ID{}, p.Joined...)
 	} else {

@@ -62,17 +62,17 @@ func TestOutputLimitAppliesToRequestAndBudget(t *testing.T) {
 	}
 }
 
-func TestOutputLimitUsesRemainingContextAndCapsSummaries(t *testing.T) {
+func TestOutputLimitDoesNotDependOnContextEstimate(t *testing.T) {
 	f, _ := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	e.options.ContextWindow = func(context.Context, core.Principal, core.ID) (int, error) { return 8192, nil }
 	p := turnProgress{Inputs: []model.Input{{Role: model.User, Text: "small context"}}}
-	tokens, _ := contextTokens(p, "model")
+	p.Usage = &contextUsage{ModelID: "model", Tokens: 1000000, Inputs: usageInputs(p.Inputs, model.StateSource{}), Tools: contextHash(p.Definitions)}
 	if _, _, err := e.generateStep(t.Context(), f.Turn, "model", nil, p); err != nil {
 		t.Fatal(err)
 	}
-	if got := f.ModelRequests()[0].MaxOutputTokens; got != 8192-int(tokens) {
-		t.Fatalf("output=%d, remaining=%d", got, 8192-tokens)
+	if got := f.ModelRequests()[0].MaxOutputTokens; got != model.DefaultOutputLimit {
+		t.Fatalf("estimate changed output cap: %d", got)
 	}
 	e.options.OutputLimit = func(context.Context, core.Principal, core.ID) (int, error) { return 128, nil }
 	if _, _, err := e.generateContextStep(t.Context(), f.Turn, "model", nil, p, "summary", 4096); err != nil {

@@ -230,7 +230,7 @@ func TestHandoffRecoversCommittedModelOutputWithoutRedispatch(t *testing.T) {
 	next := nextStateTurn(f, "after-model-commit", event.ResumeRequested)
 	_, restored, err := e.prepareExecution(t.Context(), next)
 	testkit.RequireNoError(t, err)
-	if restored.Usage == nil || restored.Usage.Tokens != 30100 {
+	if restored.Usage == nil || restored.Usage.Tokens != 30000 {
 		t.Fatal("lost latest committed model usage")
 	}
 	_, err = f.Restart().Handle(t.Context(), next)
@@ -250,11 +250,11 @@ func TestHandoffRetainsProviderUsageBaseline(t *testing.T) {
 	e := f.Runtime.(*Engine)
 	response := model.Input{Role: model.Assistant, Calls: []model.ToolCall{{ID: "pending", Name: "conversation_read", Arguments: json.RawMessage(`{"conversation_id":"chat","limit":1}`)}}}
 	p := turnProgress{Inputs: []model.Input{{Role: model.System, Text: loopInstructions}, response}, Response: &response}
-	p.Usage = &contextUsage{ModelID: "model", Tokens: 30000, Inputs: usageInputs(p.Inputs), Tools: contextHash(p.Definitions)}
+	p.Usage = &contextUsage{ModelID: "model", Tokens: 30000, Inputs: usageInputs(p.Inputs, model.StateSource{}), Tools: contextHash(p.Definitions)}
 	testkit.RequireNoError(t, e.saveProgress(t.Context(), f.Turn, &p))
 	_, next, err := e.prepareExecution(t.Context(), nextStateTurn(f, "usage-next", event.ScheduleDue))
 	testkit.RequireNoError(t, err)
-	tokens, source := contextTokens(next, "model")
+	tokens, source := contextTokens(next, "model", model.StateSource{})
 	if next.Usage == nil || tokens < 30000 || source != "provider_with_estimate" {
 		t.Fatal("handoff discarded actual provider usage", tokens, source)
 	}

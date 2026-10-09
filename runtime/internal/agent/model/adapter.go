@@ -32,7 +32,10 @@ func adapterFor(protocol Protocol) (protocolAdapter, error) {
 	}
 }
 
-func (p Provider) source() StateSource {
+func (p Provider) source() StateSource { return p.StateSource() }
+
+// StateSource identifies the backend whose continuation fields can be replayed.
+func (p Provider) StateSource() StateSource {
 	protocol := p.Protocol
 	if protocol == "" {
 		protocol = OpenAIChat

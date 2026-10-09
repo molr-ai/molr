@@ -24,12 +24,11 @@ func (deepSeekChatAdapter) Encode(req Request, provider Provider) ([]byte, error
 	messages := make([]deepSeekMessage, len(base))
 	for i, message := range base {
 		messages[i].wireMessage = message
-		state := req.Inputs[i].ProviderState
-		// Only known DeepSeek fields are decoded; arbitrary stored keys cannot
-		// override roles, tool calls or any other request property.
-		if state != nil && state.Source == provider.source() && json.Unmarshal(state.Payload, &messages[i].deepSeekState) != nil {
-			return nil, core.Invalid("provider_state", "invalid DeepSeek continuation state")
+		reasoning, err := ReplayedReasoning(req.Inputs[i], provider.source())
+		if err != nil {
+			return nil, err
 		}
+		messages[i].ReasoningContent = reasoning
 		// With tools, DeepSeek requires state for every assistant message,
 		// including final answers. Never fabricate reasoning or silently discard
 		// context when an old checkpoint or model switch cannot provide it.
@@ -78,4 +77,17 @@ func (deepSeekChatAdapter) Decode(data []byte, provider Provider) (completion, e
 		result.Usage.CachedTokens = *hit
 	}
 	return result, nil
+}
+
+// ReplayedReasoning is shared by encoding and advisory context estimates.
+// Other opaque provider fields stay private and do not occupy input tokens.
+func ReplayedReasoning(in Input, source StateSource) (*string, error) {
+	if source.Protocol != DeepSeekChat || in.ProviderState == nil || in.ProviderState.Source != source {
+		return nil, nil
+	}
+	var state deepSeekState
+	if json.Unmarshal(in.ProviderState.Payload, &state) != nil {
+		return nil, core.Invalid("provider_state", "invalid DeepSeek continuation state")
+	}
+	return state.ReasoningContent, nil
 }

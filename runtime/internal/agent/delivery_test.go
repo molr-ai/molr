@@ -122,7 +122,7 @@ func TestAutomaticCompressionUsesAfterStepEvent(t *testing.T) {
 	e := f.Runtime.(*Engine)
 	e.options.ContextWindow = func(context.Context, core.Principal, core.ID) (int, error) { return 32768, nil }
 	p := turnProgress{Inputs: []model.Input{{Role: model.System, Text: loopInstructions}, {Role: model.User, Text: strings.Repeat("historical data ", 3000)}}}
-	p.Usage = &contextUsage{ModelID: "model", Tokens: 31000, Inputs: usageInputs(p.Inputs), Tools: contextHash(p.Definitions)}
+	p.Usage = &contextUsage{ModelID: "model", Tokens: 31000, Inputs: usageInputs(p.Inputs, model.StateSource{}), Tools: contextHash(p.Definitions)}
 	testkit.RequireNoError(t, e.detectCompression(t.Context(), f.Turn, "model", &p))
 	request := requestCompression(t, e, f.Owner, "merge-auto")
 	sources, err := persistence.Scan[event.AssistantEvent](t.Context(), db, "agent.events")

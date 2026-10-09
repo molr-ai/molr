@@ -35,20 +35,10 @@ func (e *Engine) generateContextAttempt(ctx context.Context, t Turn, modelID cor
 	if err != nil {
 		return model.Input{}, false, err
 	}
-	window, err := e.contextWindow(ctx, t, modelID)
-	if err != nil {
-		return model.Input{}, false, err
-	}
 	p.Inputs = modelInputs(p.Inputs)
 	p.Definitions = definitions
-	tokens, _ := contextTokens(p, modelID)
-	remaining := int64(window) - tokens
-	if remaining <= 0 {
-		return model.Input{}, false, contextCapacityError()
-	}
-	// Output is a maximum, not a requirement to fill the window. Small-context
-	// models remain usable when the provider omits output metadata.
-	outputTokens = min(outputTokens, cap, int(remaining))
+	// Context estimates are advisory. Only the provider can reject its token window.
+	outputTokens = min(outputTokens, cap)
 	execution := core.Execution{Principal: t.Principal, AssistantID: t.Event.AssistantID, TaskID: t.Event.TaskID, OperationID: operationID}
 	empty := model.Input{}
 	e.options.Trace.Record(ctx, "model.start", "started", execution.OperationID, map[string]any{"LogicalID": retry.LogicalID, "Attempt": retry.Attempt, "MaxAttempts": retry.Policy.MaxAttempts, "Step": p.Step + 1, "ModelID": modelID, "Inputs": p.Inputs, "Tools": definitions, "MaxOutputTokens": outputTokens})
