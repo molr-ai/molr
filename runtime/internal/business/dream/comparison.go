@@ -16,6 +16,7 @@ func (s *Coordinator) memories(ctx context.Context, p core.Principal) ([]memory.
 	all := []memory.Memory{}
 	for _, scope := range []memory.Scope{memory.Assistant, memory.Global} {
 		page := core.PageRequest{Limit: 200}
+		total := 0
 		for {
 			result, err := s.options.Memories.List(ctx, p, memory.Query{Scope: scope, AssistantID: func() core.ID {
 				if scope == memory.Assistant {
@@ -25,6 +26,12 @@ func (s *Coordinator) memories(ctx context.Context, p core.Principal) ([]memory.
 			}(), Page: page})
 			if err != nil {
 				return nil, err
+			}
+			for _, m := range result.Items {
+				total += len(m.Text)
+				if total > 8<<20 {
+					return nil, core.NewError(core.FailedPrecondition, "memory content scan limit exceeded")
+				}
 			}
 			all = append(all, result.Items...)
 			if result.NextCursor == "" {

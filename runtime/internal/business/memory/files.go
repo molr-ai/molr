@@ -278,15 +278,6 @@ func (f *Files) Get(ctx context.Context, owner core.ID, ref Ref) (Memory, error)
 	m, _, err := f.read(ctx, owner, r, ref.Path)
 	return m, err
 }
-func (f *Files) List(ctx context.Context, owner core.ID, q Query) (core.Page[Memory], error) {
-	items, err := f.all(ctx, owner, q)
-	if err != nil {
-		return core.Page[Memory]{}, err
-	}
-	p := q.Page
-	q.Page = core.PageRequest{}
-	return paginate(items, owner, q, p)
-}
 
 // Put commits exactly one file. check runs immediately before its atomic rename.
 // No filesystem write participates in a database transaction.

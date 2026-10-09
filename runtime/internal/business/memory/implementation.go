@@ -2,11 +2,6 @@ package memory
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/hex"
-	"encoding/json"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -39,36 +34,6 @@ func (s *service) authorize(ctx context.Context, p core.Principal, target core.O
 		return core.NewError(core.Unavailable, "authorization not configured")
 	}
 	return s.options.Authorizer.Require(ctx, p, policy.CheckRequest{Target: target, Action: action})
-}
-func paginate[T any](items []T, owner core.ID, query any, request core.PageRequest) (core.Page[T], error) {
-	var result core.Page[T]
-	p, err := request.Normalize()
-	if err != nil {
-		return result, err
-	}
-	encoded, _ := json.Marshal(query)
-	digest := sha256.Sum256(encoded)
-	scope := string(owner) + ":" + hex.EncodeToString(digest[:]) + ":"
-	offset := 0
-	if p.Cursor != "" {
-		raw, err := base64.RawURLEncoding.DecodeString(p.Cursor)
-		if err != nil || !strings.HasPrefix(string(raw), scope) {
-			return result, invalid("cursor")
-		}
-		offset, err = strconv.Atoi(strings.TrimPrefix(string(raw), scope))
-		if err != nil || offset < 0 || offset > len(items) {
-			return result, invalid("cursor")
-		}
-	}
-	end := offset + p.Limit
-	if end > len(items) {
-		end = len(items)
-	}
-	result.Items = items[offset:end]
-	if end < len(items) {
-		result.NextCursor = base64.RawURLEncoding.EncodeToString([]byte(scope + strconv.Itoa(end)))
-	}
-	return result, nil
 }
 func validText(text string, limit int) bool {
 	return strings.TrimSpace(text) != "" && len(text) <= limit

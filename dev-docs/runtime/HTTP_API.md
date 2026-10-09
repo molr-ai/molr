@@ -389,6 +389,8 @@ WebUI 支持上传 10 MB / 4000 万像素以内的 PNG、JPEG、WebP，浏览器
 
 记忆无专用 ID，以当前账号下的 `Scope: assistant|global`、`AssistantID`、相对 `Path` 定位。全局范围的 AssistantID 为空。Path 为 `MEMORY.md` 或 `.agents/memory/` 下语义文件路径，创建必须提供；同名不覆盖。文件 `Version` 是完整字节 SHA-256，更新、删除使用 `Mutation.ExpectedVersion`，旧版本返回 409。
 
+`GET /api/memories` 支持 `scope`、`assistant_id`、`state`、`q` 和分页参数。结果按作用域、助理 ID、路径排序；`NextCursor` 绑定账号及筛选条件，续页时保持这些条件，可调整页大小。游标记录逻辑文件位置，文件外部编辑即时生效，已读位置之前新增的文件需重新从首页查看。
+
 `GET /api/memories/file?scope=…&assistant_id=…&path=…` 读取文件，`GET /api/memories/directory` 浏览目录。`POST /api/memories`、`/update`、`/delete` 管理文件，删除的 `Forget: true` 显式启用遗忘。`/mkdir` 创建目录，`/move` 接受 ToPath、Directory 和原版本，`/rmdir` 只删除空目录。所有写请求携带 Mutation。旧 `/api/memories/{id}` 不存在。详细约束见 [文件记忆](DREAM_MEMORY.md)。
 
 全局搜索的记忆命中通过 `Memory: {Scope, AssistantID, Path}` 返回引用。设置清理通过 `memory_files` 传记忆文件数组；其他业务对象继续使用 object_ids。Dream 候选采用 Action、Path、ExpectedVersion 和可选 Replaces 文件引用，返回记录以 MemoryFiles、MemoryVersions 记录路径与提交版本。

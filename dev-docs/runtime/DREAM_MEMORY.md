@@ -14,9 +14,11 @@ Dream 自动把经历整理为主题记忆，再维护长期核心认知。正�
 
 Markdown 是当前记忆正文的事实来源。文件通过账号内 `(Scope, AssistantID, Path)` 定位，没有独立记忆 ID 或 Category；目录是分类。Version 是完整文件字节的 SHA-256。移动后旧引用失效，不猜测新路径。只发现根目录 MEMORY.md 和 `.agents/memory/` 下的 Markdown；拒绝链接、特殊文件、非法 UTF-8、状态及未知 frontmatter。
 
-可选 frontmatter 包含 `state`、`confirmed`、`context`、`evidence`、`dream_id`、`sources`、`dependencies`、时间及人工修订引用。`dependencies` 是生成核心认知所依赖的主题引用与精确版本。文件最多 64 KiB 正文／80 KiB 总量；扫描最多 4096 项、16 层、8 MiB 正文。普通无元数据 Markdown 默认为 active。
+可选 frontmatter 包含 `state`、`confirmed`、`context`、`evidence`、`dream_id`、`sources`、`dependencies`、时间及人工修订引用。`dependencies` 是生成核心认知所依赖的主题引用与精确版本。文件最多 64 KiB 正文／80 KiB 总量；目录枚举最多 4096 项、16 层，单次正文扫描最多 8 MiB。普通无元数据 Markdown 默认为 active。
 
 SQLite 保存配置、会话、批次、历史输出、决策及文件引用／哈希，不作为可变记忆正文的副本。Runtime 私有 `memory-operations/` 保存操作回执，以及自动更新前的原始文件字节，供精确撤销；这些恢复副本不进入助理上下文，不参与检索。遗忘会清理相关撤销副本。导出保留当前记忆、回顾及遗忘记录，不把私有撤销副本当作当前记忆导出。
+
+记忆列表先枚举有界路径，再按 scope、助理 ID、路径排序，从游标之后读取当前页与一条匹配的后续记录。游标绑定账号与筛选条件，使用逻辑文件位置；前页文件删除不改变后续位置，正文仍以本次请求读取到的文件为准。没有访问到的损坏正文会在后续读取到它时报告错误，目录和路径安全检查仍在枚举阶段执行。列表不会缓存正文或创建数据库镜像。搜索与做梦读取全部分页时，对每个作用域另外累计检查 8 MiB 正文上限；克隆和导出等完整扫描继续沿用原来的总量限制。
 
 ## 自动沉淀规则
 

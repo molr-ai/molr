@@ -167,3 +167,7 @@ Runtime 内嵌本机 sandbox_manager；可另行构建 `./cmd/molr-sandbox` 在�
 ### 附件上传并发
 
 `go test ./internal/storage/files` 覆盖慢上传期间无关文件提交与数据库读取、同对象串行操作、等待取消、并发配额竞争、幂等去重和失败暂存清理。`go test -race ./internal/storage/files -run 'Test(SlowUpload|ObjectWaiters|SameObject|ConcurrentUploads)'` 检查并发路径；竞态检测只用于测试程序，Runtime 验收仍使用 `CGO_ENABLED=0` 静态构建。
+
+### 记忆文件分页
+
+`go test ./internal/business/memory ./internal/business/dream ./internal/search` 验证分页排序与筛选、游标账号隔离、前页删除与外部编辑、读取范围和文件安全限制，并检查搜索／做梦连续读页的累计正文上限。`go test ./internal/business/memory -run '^$' -bench '^BenchmarkMemoryFirstPage$' -benchmem` 测量 100 和 1000 个文件中读取首页 50 条的耗时与分配；不包含模型调用或页面渲染。

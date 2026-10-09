@@ -316,12 +316,17 @@ func (s *service) Search(ctx context.Context, p core.Principal, q Query) (Result
 				if scope == memory.Global {
 					q.AssistantID = ""
 				}
+				total := 0
 				for {
 					page, e := s.options.Memories.List(ctx, p, q)
 					if e != nil {
 						return e
 					}
 					for _, m := range page.Items {
+						total += len(m.Text)
+						if total > 8<<20 {
+							return core.NewError(core.FailedPrecondition, "memory content scan limit exceeded")
+						}
 						documents = append(documents, Document{OwnerID: p.OwnerID, Object: core.Object{Kind: "memory"}, Memory: &m.Ref, Source: Memories, AssistantID: m.AssistantID, Title: m.Path, Text: m.Text})
 					}
 					if page.NextCursor == "" {
