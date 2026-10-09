@@ -97,7 +97,7 @@ Bubblewrap 可加载 seccomp BPF，并支持阻止沙盒再次创建 user namesp
 
 `app.shellTasks` 在启动前持久化任务记录并占用助理名额，前台分离只改变模式。运行任务持有私有、不可从请求构造的 context capability，绑定原 owner/assistant/execution/operation；原 Loop 结束不使其失效，也不使任意新工具调用获得有效身份。计算、文件与网络授权仍由原计划持续重查，原计划不扩权。任务结束释放 capability 和名额；完成状态和 `shell_task_finished` 事件在同一事务提交，失败写入由管理器重试。启动时将未完成记录标记中断；不恢复或重放效果。
 
-`platform.Command.Managed` 允许无默认运行截止时间，实际超时与授权到期仍取较早者。PTY 主端由 Runtime 持有，传入隔离进程的仅为专属从端。`interrupt` 发送终端中断字符，作用于前台进程组；`stop` 取消执行并清空 cgroup。后台非 TTY 的 stdout/stderr 分开归档，TTY 合并到 stdout。受控接口限制每次输入 8 KiB、输出读取 16 KiB，并提供字节游标；读档案仍校验助理归属、普通文件与路径。
+`platform.Command.Managed` 允许无默认运行截止时间，实际超时与授权到期仍取较早者。PTY 主端由 Runtime 持有，传入隔离进程的仅为专属从端。`interrupt` 发送终端中断字符，作用于前台进程组；`stop` 取消执行并清空 cgroup。后台非 TTY 的 stdout/stderr 分开归档，TTY 合并到 stdout。受控接口限制每次输入 8 KiB、输出读取 16 KiB，并提供字节游标；读档案仍校验助理归属、普通文件与路径。WebUI 将提交文本与控制字符写入区分：仅文本提交携带本地草稿版本，成功且版本仍相同时清空输入；编辑或切换任务会推进版本，避免迟到响应清除新的输入。
 
 提醒按 owner/assistant 聚合（当前架构每助理一个串行 Loop），首个后台或 TTY 启动五分钟计时，新任务不刷新截止时间。触发时写入 `shell_tasks_running`，包含仍存活任务的模式和累计时长；待消费提醒更新原事件，避免排队累积，结束任务从待处理提醒移除。全部结束取消计时和未消费提醒。TTY 退出与同步完成不发送完成事件；后台完成独立于提醒立即发送。它们通过持久事件队列进入 Loop，不走上下文文件注入。
 
