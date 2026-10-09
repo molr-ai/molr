@@ -18,6 +18,9 @@ test('expedite injects unread messages into the running turn, updates both tabs 
   const models = await (await page.request.get('/api/models')).json();
   const assistant = await post(page, '/api/assistants', { Name: name, ModelID: models.find((m: any) => m.ResourceID === resource.ID).ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } });
   await page.goto(`/#/assistants/${assistant.ID}`);
+  await expect(page.locator('.ui-chat-message--assistant').filter({ hasText: 'Ready for expedite test.' })).toHaveCount(1);
+  await expect.poll(async () => (await (await page.request.get(`/api/assistants/${assistant.ID}/status`)).json()).State).toBe('idle');
+  await expect(page.locator('.chat-header [data-status="idle"]')).toBeVisible();
   const send = async (text: string) => {
     await page.getByRole('textbox', { name: 'Message your assistant', exact: true }).fill(text);
     await page.getByRole('button', { name: 'Send', exact: true }).click();
@@ -48,11 +51,12 @@ test('expedite injects unread messages into the running turn, updates both tabs 
   await expect(page.locator('.ui-chat-message--assistant').filter({ hasText: reply })).toHaveCount(1);
   await expect(observer.locator('.ui-chat-message--user').filter({ hasText: 'Second correction' }).locator('[data-read-status="read"]')).toBeVisible();
   await expect.poll(async () => (await (await page.request.get(`/api/assistants/${assistant.ID}/status`)).json()).State).toBe('idle');
+  await expect(page.locator('.chat-header [data-status="idle"]')).toBeVisible();
   await page.reload();
-  await expect(page.locator('.ui-chat-message--assistant')).toHaveCount(1);
+  await expect(page.locator('.ui-chat-message--assistant')).toHaveCount(2);
   await expect(page.getByRole('button', { name: 'Expedite', exact: true })).toHaveCount(0);
   const jobs = await (await page.request.get(`/api/jobs?assistant_id=${assistant.ID}`)).json();
-  expect(jobs.Items).toHaveLength(3);
+  expect(jobs.Items).toHaveLength(4);
   expect(jobs.Items.every((job: any) => job.State === 'done')).toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   // Stop must end this execution without permanently disabling future input.
@@ -79,6 +83,7 @@ test('expedite injects unread messages into the running turn, updates both tabs 
   }
   await processing.click();
   await expect.poll(async () => (await (await page.request.get(`/api/assistants/${assistant.ID}/status`)).json()).State).toBe('idle');
+  await expect(page.locator('.chat-header [data-status="idle"]')).toBeVisible();
   await expect.poll(async () => {
     const jobs = await (await page.request.get(`/api/jobs?assistant_id=${assistant.ID}`)).json();
     return jobs.Items.filter((job: any) => ['running', 'queued', 'retry'].includes(job.State)).length;
@@ -93,6 +98,7 @@ test('expedite injects unread messages into the running turn, updates both tabs 
   await page.getByRole('button', { name: 'Expedite', exact: true }).click();
   await expect(page.locator('.ui-chat-message--assistant').filter({ hasText: 'Expedited messages received: Urgent after restart' })).toHaveCount(1);
   await expect.poll(async () => (await (await page.request.get(`/api/assistants/${assistant.ID}/status`)).json()).State).toBe('idle');
+  await expect(page.locator('.chat-header [data-status="idle"]')).toBeVisible();
   await observer.close();
 });
 
@@ -107,6 +113,9 @@ test('rapid messages can be expedited while their unread trigger stays on its or
   const models = await (await page.request.get('/api/models')).json();
   const assistant = await post(page, '/api/assistants', { Name: name, ModelID: models.find((m: any) => m.ResourceID === resource.ID).ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } });
   await page.goto(`/#/assistants/${assistant.ID}`);
+  await expect(page.locator('.ui-chat-message--assistant').filter({ hasText: 'Ready for expedite test.' })).toHaveCount(1);
+  await expect.poll(async () => (await (await page.request.get(`/api/assistants/${assistant.ID}/status`)).json()).State).toBe('idle');
+  await expect(page.locator('.chat-header [data-status="idle"]')).toBeVisible();
   const trigger = await post(page, '/api/conversations/messages', { ConversationID: assistant.ConversationID, Content: { Kind: 'text', Text: 'Burst trigger' } });
   await expect.poll(async () => (await (await page.request.get(`/api/assistants/${assistant.ID}/status`)).json()).TriggerMessageID).toBe(trigger.ID);
   const first = page.locator('.ui-chat-message--user').filter({ hasText: 'Burst trigger' });
@@ -122,5 +131,6 @@ test('rapid messages can be expedited while their unread trigger stays on its or
   await latest.getByRole('button', { name: 'Expedite', exact: true }).click();
   await expect(page.locator('.ui-chat-message--assistant').filter({ hasText: 'Expedited messages received: Burst B / Burst C' })).toHaveCount(1);
   await expect.poll(async () => (await (await page.request.get(`/api/assistants/${assistant.ID}/status`)).json()).State).toBe('idle');
+  await expect(page.locator('.chat-header [data-status="idle"]')).toBeVisible();
   await expect(page.locator('.message-expedite-button')).toHaveCount(0);
 });

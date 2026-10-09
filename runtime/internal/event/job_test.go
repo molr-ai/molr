@@ -22,6 +22,11 @@ func TestJobCommitSignalAndStoppedOutboxFence(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer watch.Close()
+	input, err := db.Watch(AssistantInputSignal("owner", "assistant"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer input.Close()
 	e := AssistantEvent{ID: "input", OwnerID: "owner", AssistantID: "assistant", Kind: UserMessage, MessageID: "message", CreatedAt: time.Now().UTC()}
 	rollback := errors.New("rollback")
 	err = db.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
@@ -33,6 +38,11 @@ func TestJobCommitSignalAndStoppedOutboxFence(t *testing.T) {
 			t.Fatal("woke before commit")
 		default:
 		}
+		select {
+		case <-input.Changes():
+			t.Fatal("input woke before commit")
+		default:
+		}
 		return rollback
 	})
 	if !errors.Is(err, rollback) {
@@ -41,6 +51,11 @@ func TestJobCommitSignalAndStoppedOutboxFence(t *testing.T) {
 	select {
 	case <-watch.Changes():
 		t.Fatal("rollback woke scheduler")
+	default:
+	}
+	select {
+	case <-input.Changes():
+		t.Fatal("rollback woke input watcher")
 	default:
 	}
 	if _, err := persistence.Load[Job](t.Context(), db, "agent.jobs", "owner/input"); !persistence.Missing(err) {
@@ -56,6 +71,11 @@ func TestJobCommitSignalAndStoppedOutboxFence(t *testing.T) {
 	case <-watch.Changes():
 	default:
 		t.Fatal("committed state change did not wake scheduler")
+	}
+	select {
+	case <-input.Changes():
+	default:
+		t.Fatal("committed job did not wake assistant input watcher")
 	}
 	if err := NewWriter(db).AppendAssistant(t.Context(), e); err != nil {
 		t.Fatal(err)

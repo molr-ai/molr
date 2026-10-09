@@ -38,6 +38,12 @@ func DispatchSignal() persistence.SignalKey {
 	return persistence.SignalKey{Namespace: "agent.dispatch", Key: "ready"}
 }
 
+// AssistantInputSignal wakes in-flight model requests for one assistant. The
+// durable inbox decides whether a committed change can interrupt that request.
+func AssistantInputSignal(owner, assistant core.ID) persistence.SignalKey {
+	return persistence.SignalKey{Namespace: "agent.input", Key: persistence.Key(owner, assistant)}
+}
+
 // SaveJob keeps the indexed queue order and commit notification together. All
 // job transitions, including joined inputs and recovery, use this boundary.
 func SaveJob(ctx context.Context, tx persistence.Tx, job Job) error {
@@ -49,5 +55,8 @@ func SaveJob(ctx context.Context, tx persistence.Tx, job Job) error {
 	if err := tx.Put(ctx, "agent.jobs", persistence.Key(job.Event.OwnerID, job.Event.ID), job); err != nil {
 		return err
 	}
-	return tx.NotifyAfterCommit(ctx, DispatchSignal())
+	if err := tx.NotifyAfterCommit(ctx, DispatchSignal()); err != nil {
+		return err
+	}
+	return tx.NotifyAfterCommit(ctx, AssistantInputSignal(job.Event.OwnerID, job.Event.AssistantID))
 }

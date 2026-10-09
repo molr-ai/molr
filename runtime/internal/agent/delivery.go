@@ -14,41 +14,76 @@ import (
 // pendingInterrupts and intakeEvents share scheduler eligibility and durable
 // jobs. Specialized message intake retains its authorized reads/read receipts.
 func (e *Engine) pendingInterrupts(ctx context.Context, t Turn, joined []core.ID) ([]core.ID, error) {
+	ids, _, err := e.pendingInterruptsWithDeadline(ctx, t, joined)
+	return ids, err
+}
+
+func (e *Engine) pendingInterruptsWithDeadline(ctx context.Context, t Turn, joined []core.ID) ([]core.ID, time.Time, error) {
 	if t.Event.Kind == event.DreamDue {
-		return nil, nil
+		return nil, time.Time{}, nil
 	}
 	ids, err := e.pendingExpedite(ctx, t, joined)
 	if err != nil {
-		return nil, err
+		return nil, time.Time{}, err
 	}
-	jobs, err := scheduler.Pending(ctx, e.store, t.Principal.OwnerID, t.Event.AssistantID, t.Event.ID, e.options.Now(), true)
+	jobs, next, err := scheduler.PendingWithDeadline(ctx, e.store, t.Principal.OwnerID, t.Event.AssistantID, t.Event.ID, e.options.Now(), true)
 	if err != nil {
-		return nil, err
+		return nil, time.Time{}, err
 	}
 	for _, job := range jobs {
 		if job.Event.Kind != event.UserMessage {
 			ids = append(ids, job.Event.ID)
 		}
 	}
-	return ids, nil
+	return ids, next, nil
 }
 
-// Watch only the cancellable model child, never the tool execution or the
-// parent turn. Register before dispatch and also check synchronously to close
-// the event-arrival race. Polling covers every transactional event producer.
+// Watch only the model child. Register before reading the durable inbox, and
+// consume notifications before each query so a concurrent commit cannot be lost.
 func (e *Engine) watchInterrupts(ctx context.Context, t Turn, joined []core.ID, cancel context.CancelCauseFunc) {
-	ticker := time.NewTicker(50 * time.Millisecond)
-	defer ticker.Stop()
+	if t.Event.Kind == event.DreamDue {
+		return
+	}
+	watch, err := e.store.Watch(event.AssistantInputSignal(t.Principal.OwnerID, t.Event.AssistantID))
+	if err != nil {
+		cancel(err)
+		return
+	}
+	defer watch.Close()
 	for {
+		if ctx.Err() != nil {
+			return
+		}
+		select {
+		case <-watch.Changes():
+		default:
+		}
+		ids, next, err := e.pendingInterruptsWithDeadline(ctx, t, joined)
+		if err == nil && len(ids) > 0 {
+			cancel(errExpedited)
+			return
+		}
+		// A failed read must be retried even if no subsequent input is committed.
+		if err != nil {
+			next = e.options.Now().Add(time.Second)
+		}
+		var deadline <-chan time.Time
+		var timer *time.Timer
+		if !next.IsZero() {
+			timer = time.NewTimer(next.Sub(e.options.Now()))
+			deadline = timer.C
+		}
 		select {
 		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			ids, err := e.pendingInterrupts(ctx, t, joined)
-			if err == nil && len(ids) > 0 {
-				cancel(errExpedited)
-				return
+		case <-watch.Done():
+			if ctx.Err() == nil {
+				cancel(core.NewError(core.Unavailable, "model input store closed"))
 			}
+		case <-watch.Changes():
+		case <-deadline:
+		}
+		if timer != nil {
+			timer.Stop()
 		}
 	}
 }

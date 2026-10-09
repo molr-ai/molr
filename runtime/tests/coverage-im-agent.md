@@ -237,6 +237,7 @@
 
 | `internal/agent` | `Observer.Compress`, `Runtime.Compress`, `Engine.Compress` | `TestCompressionEventManualIdleDeduplicatesAndSurvivesRestart` |
 | `internal/agent/scheduler` | `Pending` | `TestPendingDeliveryHonorsClaimAndStopBoundaries` |
+| `internal/agent/scheduler` | `PendingWithDeadline` | `TestPendingDeadlineExcludesIneligibleInputs` |
 | `internal/event` | `AssistantEvent.Delivery` | `TestDeliveryDefaultsAndValidation` |
 
 2026-10-03：集成插件与指令事件时补齐插件公开接口清单；此清单仅表示测试入口映射。
@@ -276,7 +277,7 @@
 
 | 包 | 接口 / 方法 | 测试 |
 | --- | --- | --- |
-| `internal/event` | `DispatchSignal` | `TestJobCommitSignalAndStoppedOutboxFence` |
+| `internal/event` | `DispatchSignal`, `AssistantInputSignal` | `TestJobCommitSignalAndStoppedOutboxFence` |
 | `internal/event` | `SaveJob` | `TestJobCommitSignalAndStoppedOutboxFence` |
 | `internal/im/conversation` | `OutboxSignal` | `TestOutboxSignalsOnlyCommittedNewMessages` |
 

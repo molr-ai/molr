@@ -171,3 +171,7 @@ Runtime 内嵌本机 sandbox_manager；可另行构建 `./cmd/molr-sandbox` 在�
 ### 记忆文件分页
 
 `go test ./internal/business/memory ./internal/business/dream ./internal/search` 验证分页排序与筛选、游标账号隔离、前页删除与外部编辑、读取范围和文件安全限制，并检查搜索／做梦连续读页的累计正文上限。`go test ./internal/business/memory -run '^$' -bench '^BenchmarkMemoryFirstPage$' -benchmem` 测量 100 和 1000 个文件中读取首页 50 条的耗时与分配；不包含模型调用或页面渲染。
+
+### 模型等待期间的输入唤醒
+
+`go test ./internal/agent ./internal/agent/scheduler ./internal/event ./internal/persistence/sqlitestore` 覆盖提交后中断、无事件时不重复读取、账号／助理隔离、查询与等待之间的提交、未来输入到期、事务回滚及暂时读取失败重试。`npm run test:webui -- expedite.spec.ts` 验证桌面／移动端加急、跨标签已读更新和停止后恢复；测试模型先完成出生事件，再阻塞待加急的用户请求。

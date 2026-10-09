@@ -296,25 +296,39 @@ func (q *queue) Cancel(ctx context.Context, owner, id core.ID) error {
 // Call inside the checkpoint transaction when consuming; the scheduler uses the
 // same job records and stop boundaries, preventing double dispatch.
 func Pending(ctx context.Context, store persistence.Store, owner, assistant, current core.ID, now time.Time, interruptOnly bool) ([]Job, error) {
+	jobs, _, err := PendingWithDeadline(ctx, store, owner, assistant, current, now, interruptOnly)
+	return jobs, err
+}
+
+// PendingWithDeadline also returns the earliest future eligible input time, so
+// consumers can wait for that deadline without polling or requiring another write.
+func PendingWithDeadline(ctx context.Context, store persistence.Store, owner, assistant, current core.ID, now time.Time, interruptOnly bool) ([]Job, time.Time, error) {
 	jobs, err := persistence.Select[Job](ctx, store, jobsBucket, persistence.Query{Where: []persistence.Filter{
 		persistence.Eq("Event.OwnerID", owner), persistence.Eq("Event.AssistantID", assistant), persistence.Eq("State", Queued)}, OrderBy: "QueueKey"})
 	if err != nil {
-		return nil, err
+		return nil, time.Time{}, err
 	}
 	boundary, err := persistence.Load[event.InterruptBoundary](ctx, store, "agent.interrupt_boundaries", persistence.Key(owner, assistant))
 	if err != nil && !persistence.Missing(err) {
-		return nil, err
+		return nil, time.Time{}, err
 	}
 	var out []Job
+	var next time.Time
 	for _, job := range jobs {
-		if boundary.Blocks(job.Event) || job.Event.OwnerID != owner || job.Event.AssistantID != assistant || job.Event.ID == current || job.State != Queued || job.JoinedTo != "" || job.NotBefore.After(now) {
+		if boundary.Blocks(job.Event) || job.Event.OwnerID != owner || job.Event.AssistantID != assistant || job.Event.ID == current || job.State != Queued || job.JoinedTo != "" {
 			continue
 		}
 		mode := job.Event.Delivery()
 		if mode == event.WhenIdle || (interruptOnly && mode != event.Interrupt) {
 			continue
 		}
+		if job.NotBefore.After(now) {
+			if next.IsZero() || job.NotBefore.Before(next) {
+				next = job.NotBefore
+			}
+			continue
+		}
 		out = append(out, job)
 	}
-	return out, nil
+	return out, next, nil
 }

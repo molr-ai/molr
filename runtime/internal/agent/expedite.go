@@ -192,6 +192,9 @@ func (e *Engine) Expedite(ctx context.Context, p core.Principal, id core.ID, r E
 		if err := tx.Put(ctx, expediteBucket, key, record); err != nil {
 			return err
 		}
+		if err := tx.NotifyAfterCommit(ctx, event.AssistantInputSignal(p.OwnerID, id)); err != nil {
+			return err
+		}
 		if err := tx.Put(ctx, "agent.expedite_receipts", receiptKey, expediteReceipt{ConversationID: r.ConversationID, ThroughSequence: r.ThroughSequence}); err != nil {
 			return err
 		}

@@ -13,7 +13,9 @@ export async function expediteModel(input, response) {
   const message = { role: 'assistant', content: 'Private execution.' };
   let finish = 'stop';
   const call = (name, args) => { message.tool_calls = [{ id: randomUUID(), type: 'function', function: { name, arguments: JSON.stringify(args) } }]; finish = 'tool_calls'; };
-  if (urgent.length && !recent.slice(urgentIndex + 1).some(message => message.role === 'tool')) {
+  if (event.event?.Kind === 'born') {
+    if (results.length === 0) call('conversation_publish', { conversation_id: event.conversation_id, text: 'Ready for expedite test.' });
+  } else if (urgent.length && !recent.slice(urgentIndex + 1).some(message => message.role === 'tool')) {
     await new Promise(resolve => setTimeout(resolve, 600));
     call('conversation_publish', { conversation_id: event.conversation_id, text: `Expedited messages received: ${urgent.map(item => item.Content.Text).join(' / ')}` });
   } else if (!urgent.length && results.length === 0) {

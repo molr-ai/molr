@@ -52,6 +52,13 @@ func completeModel(w http.ResponseWriter, calls []any) {
 	_ = json.NewEncoder(w).Encode(map[string]any{"id": "receipt", "choices": []any{map[string]any{"message": m, "finish_reason": finish}}, "usage": map[string]int{"prompt_tokens": 10, "completion_tokens": 2}})
 }
 func TestExpediteCancelsModelReadsOrderedMessagesAndConsumesQueueOnce(t *testing.T) {
+	for _, separate := range []bool{false, true} {
+		t.Run(map[bool]string{false: "active-engine", true: "shared-store-engine"}[separate], func(t *testing.T) {
+			testExpediteModelDelivery(t, separate)
+		})
+	}
+}
+func testExpediteModelDelivery(t *testing.T, separate bool) {
 	started := make(chan struct{})
 	canceled := make(chan struct{})
 	var calls atomic.Int32
@@ -99,7 +106,11 @@ func TestExpediteCancelsModelReadsOrderedMessagesAndConsumesQueueOnce(t *testing
 	}
 	one := expeditedMessage(t, e, f.Owner, "first correction")
 	two := expeditedMessage(t, e, f.Owner, "second correction")
-	status := requestExpedite(t, e, f.Owner, two)
+	sender := e
+	if separate {
+		sender = NewRuntime(db, e.options)
+	}
+	status := requestExpedite(t, sender, f.Owner, two)
 	if status.ThroughSequence != two.Sequence {
 		t.Fatal(status)
 	}
