@@ -78,7 +78,7 @@ func TestResetContextPreservesProductDataAndFencesOldEvents(t *testing.T) {
 	testkit.RequireNoError(t, engine.ResetContext(ctx, f.Owner, old.AssistantID, mutation, out.Checkpoint.Sequence))
 	after, err := f.Checkpoints.Load(ctx, f.Owner.OwnerID, old.AssistantID)
 	testkit.RequireNoError(t, err)
-	if after.Sequence != next.Checkpoint.Sequence || string(after.Context) != string(next.Checkpoint.Context) {
+	if after.Sequence != next.Checkpoint.Sequence || !sameStoredContext(after.Context, next.Checkpoint.Context) {
 		t.Fatal("reset retry erased newer work")
 	}
 	if len(f.ModelRequests()) != 4 {
@@ -156,4 +156,12 @@ func TestResetContextOwnershipAndTransactionRollback(t *testing.T) {
 	}))
 	err = engine.ResetContext(ctx, f.Owner, id, core.Mutation{IdempotencyKey: "dismissed"}, 1)
 	testkit.RequireCode(t, err, core.FailedPrecondition)
+}
+
+func sameStoredContext(a, b json.RawMessage) bool {
+	var x, y any
+	if json.Unmarshal(a, &x) != nil || json.Unmarshal(b, &y) != nil {
+		return false
+	}
+	return contextHash(x) == contextHash(y)
 }

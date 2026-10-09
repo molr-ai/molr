@@ -31,7 +31,7 @@
 - [多用户与成员配额](runtime/MULTI_USER.md)：账号迁移、资源目录、私有数据与组级额度。
 - [安全边界](runtime/SECURITY.md)、[沙盒实现](runtime/SANDBOX.md)、[文件与资源工具](runtime/FILE_TOOLS.md)、[资源授权额度](runtime/RESOURCE_QUOTAS.md)。
 - [做梦与分层记忆](runtime/DREAM_MEMORY.md)：经历、主题与核心认知的自动沉淀，文件提交恢复和用户纠错。
-- [上下文更新](runtime/AGENT_CONTEXT.md)、[模型适配](runtime/MODEL_ADAPTERS.md)、[多模态文件](runtime/MULTIMODAL_FILES.md)、[开发工作台](runtime/WORKBENCH.md)。
+- [上下文存储](runtime/CONTEXT_STORAGE.md)、[上下文更新](runtime/AGENT_CONTEXT.md)、[模型适配](runtime/MODEL_ADAPTERS.md)、[多模态文件](runtime/MULTIMODAL_FILES.md)、[开发工作台](runtime/WORKBENCH.md)。
 - [品牌与 UI 基础](frontend/BRAND.md)、[主题与 UI 包](frontend/UI_PACKAGES.md)、[前端颜色规范与同屏辨识检查](frontend/UI_PACKAGES.md#前端颜色开发规范)、[组件 API](../packages/ui/COMPONENTS.md)。
 - [许可证与分发](LICENSING.md)、[发布与私有文件隔离](RELEASE_SAFETY.md)。
 

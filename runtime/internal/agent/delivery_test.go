@@ -270,13 +270,18 @@ func TestCompressionWaitsForWholeToolBatch(t *testing.T) {
 	if wrapped.count.Load() != 2 || calls.Load() != 3 {
 		t.Fatal("after_step skipped tools or continuation", wrapped.count.Load(), calls.Load())
 	}
-	archives, err := persistence.Scan[contextArchive](t.Context(), e.store, "agent.context_archives")
-	testkit.RequireNoError(t, err)
-	if len(archives) != 1 {
-		t.Fatal(archives)
+	var summary []model.Input
+	for _, req := range f.ModelRequests() {
+		if len(req.Inputs) > 0 && req.Inputs[len(req.Inputs)-1].Text == compactionInstruction {
+			summary = req.Inputs
+			break
+		}
+	}
+	if len(summary) == 0 {
+		t.Fatal("missing summary request")
 	}
 	replies := 0
-	for _, in := range archives[0].Inputs {
+	for _, in := range summary {
 		if in.Role == model.Tool {
 			replies++
 		}

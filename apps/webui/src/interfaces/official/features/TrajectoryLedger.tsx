@@ -24,7 +24,7 @@ export function TrajectoryLedger({ runs, entries, records, query, filter, axisFi
   const turns = useMemo(() => trajectoryTurns(runs), [runs]);
   const runRoots = useMemo(() => new Map(turns.flatMap(turn => turn.map(run => [run.ID, turn[0].ID] as const))), [turns]);
   const boundaryTitle = cleanup ? t.workbench.earlierEventsCleared : t.workbench.noEarlierEvents;
-  const boundarySummary = cleanup ? t.workbench.cleanupPolicy(cleanup.Policy.RetentionDays, cleanup.Policy.MaxRuns, cleanup.Policy.MaxBytes / 1048576, cleanup.Policy.MinRuns) : '';
+  const boundarySummary = cleanup ? t.workbench.cleanupPolicy(cleanup.Policy.MaxRuns) : '';
   const searching = !!query.trim() || filter !== 'all' || !!axisFilter;
   const matched = useMemo(() => records.filter(row => {
     if (filter !== 'all' && row.kind !== filter) return false;

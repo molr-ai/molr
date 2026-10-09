@@ -82,6 +82,9 @@ func (e *Engine) rejectSuperseded(ctx context.Context, t Turn) error {
 	if err != nil && !persistence.Missing(err) {
 		return err
 	}
+	if err == nil && ref.Version != 2 {
+		return core.NewError(core.FailedPrecondition, "execution context storage upgrade required")
+	}
 	if ref.Version == 2 && (ref.Superseded || ref.AssistantID != t.Event.AssistantID) {
 		return core.NewError(core.Canceled, "event was superseded by a newer execution")
 	}
@@ -91,7 +94,7 @@ func (e *Engine) saveProgress(ctx context.Context, t Turn, p *turnProgress) erro
 	// Dream batches have their own context and never publish assistant checkpoints.
 	if t.Event.Kind == event.DreamDue {
 		return e.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-			return tx.Put(ctx, progressBucket, persistence.Key(t.Principal.OwnerID, t.Event.ID), p)
+			return saveDreamProgress(ctx, tx, t, *p)
 		})
 	}
 	var revision uint64
@@ -167,71 +170,6 @@ func (e *Engine) saveProgress(ctx context.Context, t Turn, p *turnProgress) erro
 		p.Revision = revision
 	}
 	return err
-}
-
-// Legacy progress is imported only for the previously active execution (or the
-// same failed event). Other old event snapshots never replace newer context.
-func (e *Engine) migrateProgress(ctx context.Context, t Turn, prior Status) error {
-	if t.Event.Kind == event.DreamDue {
-		return nil
-	}
-	cp, err := e.checkpoints.Load(ctx, t.Principal.OwnerID, t.Event.AssistantID)
-	if err != nil && !persistence.Missing(err) {
-		return err
-	}
-	saved, err := decodeState(cp)
-	if err != nil || saved.Current != nil {
-		return err
-	}
-	candidates := []Turn{}
-	if prior.ExecutionID != "" && (prior.State == Waiting || prior.State == Working) {
-		jobs, err := persistence.Select[scheduler.Job](ctx, e.store, "agent.jobs", persistence.Query{Where: []persistence.Filter{persistence.Eq("Event.OwnerID", t.Principal.OwnerID), persistence.Eq("Event.AssistantID", t.Event.AssistantID), persistence.Eq("ExecutionID", prior.ExecutionID)}})
-		if err != nil {
-			return err
-		}
-		for _, job := range jobs {
-			if job.Event.OwnerID == t.Principal.OwnerID && job.Event.AssistantID == t.Event.AssistantID && job.ExecutionID == prior.ExecutionID && job.Event.Kind != event.DreamDue && job.State != scheduler.Done && job.State != scheduler.Canceled {
-				old := Turn{Event: job.Event, Principal: t.Principal}
-				old.Principal.ExecutionID = job.ExecutionID
-				candidates = append(candidates, old)
-			}
-		}
-	}
-	candidates = append(candidates, t)
-	for _, old := range candidates {
-		if cp.LastEventID == old.Event.ID {
-			continue
-		}
-		key := persistence.Key(t.Principal.OwnerID, old.Event.ID)
-		ref, err := persistence.Load[progressReference](ctx, e.store, progressBucket, key)
-		if persistence.Missing(err) {
-			continue
-		}
-		if err != nil {
-			return err
-		}
-		if ref.Version == 2 {
-			continue
-		}
-		p, err := persistence.Load[turnProgress](ctx, e.store, progressBucket, key)
-		if err != nil {
-			return err
-		}
-		if len(p.Inputs) == 0 {
-			continue
-		}
-		// A newer successful checkpoint must not be replaced by a stale legacy retry.
-		if cp.Sequence > 0 && old.Event.CreatedAt.Before(cp.SavedAt) && old.Principal.ExecutionID != prior.ExecutionID {
-			continue
-		}
-		p.Revision = cp.Sequence
-		if err = e.saveProgress(checkpointCause(ctx, "legacy_migration"), old, &p); err != nil {
-			return err
-		}
-		e.options.Trace.Record(ctx, "context.migrated", "succeeded", "", map[string]any{"EventID": old.Event.ID, "Revision": p.Revision})
-		break
-	}
-	return nil
 }
 
 // recoverModel consumes only locally committed deltas, never calls a provider.

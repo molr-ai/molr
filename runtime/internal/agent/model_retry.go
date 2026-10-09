@@ -38,15 +38,17 @@ func (p RetryPolicy) defaults() RetryPolicy {
 }
 
 type modelRetry struct {
-	LogicalID, ModelID          core.ID
-	Attempt                     int
-	StartedAt, Deadline, NextAt time.Time
-	Wait                        time.Duration
-	Policy                      RetryPolicy
-	Inputs                      []model.Input
-	Definitions                 []model.ToolDefinition
-	OutputTokens                int
-	Failure                     *model.Failure `json:",omitempty"`
+	OwnerID, AssistantID, EventID core.ID
+	ContextStored                 bool
+	LogicalID, ModelID            core.ID
+	Attempt                       int
+	StartedAt, Deadline, NextAt   time.Time
+	Wait                          time.Duration
+	Policy                        RetryPolicy
+	Inputs                        []model.Input
+	Definitions                   []model.ToolDefinition
+	OutputTokens                  int
+	Failure                       *model.Failure `json:",omitempty"`
 }
 
 func (r modelRetry) operationID() core.ID {
@@ -74,22 +76,28 @@ func (e *terminalModelError) KnownFailure() bool { return true }
 func modelTerminal(err error) error              { return &terminalModelError{err} }
 
 func (e *Engine) generateContextStep(ctx context.Context, t Turn, modelID core.ID, definitions []model.ToolDefinition, p turnProgress, logicalID core.ID, outputTokens int) (model.Input, bool, error) {
-	key := persistence.Key(t.Principal.OwnerID, logicalID)
 	pendingKey := persistence.Key(t.Principal.OwnerID, t.Event.ID)
 	var r modelRetry
 	err := e.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		err := tx.Get(ctx, "agent.model_retries", key, &r)
+		var err error
+		r, err = loadRetry(ctx, tx, t.Principal.OwnerID, logicalID)
 		if err != nil && !persistence.Missing(err) {
 			return err
 		}
 		if persistence.Missing(err) {
 			policy := e.options.ModelRetry.defaults()
 			now := e.options.Now().UTC()
-			r = modelRetry{LogicalID: logicalID, ModelID: modelID, Attempt: 1, StartedAt: now, Deadline: now.Add(policy.Deadline), Policy: policy, Inputs: p.Inputs, Definitions: definitions, OutputTokens: outputTokens}
+			r = modelRetry{OwnerID: t.Principal.OwnerID, AssistantID: t.Event.AssistantID, EventID: t.Event.ID, LogicalID: logicalID, ModelID: modelID, Attempt: 1, StartedAt: now, Deadline: now.Add(policy.Deadline), Policy: policy, Inputs: p.Inputs, Definitions: definitions, OutputTokens: outputTokens}
 			if deadline, ok := ctx.Deadline(); ok && deadline.Before(r.Deadline) {
 				r.Deadline = deadline
 			}
-			if err := tx.Put(ctx, "agent.model_retries", key, r); err != nil {
+			if err := saveRetry(ctx, tx, r); err != nil {
+				return err
+			}
+			// Dispatch the canonical persisted snapshot even on the first attempt.
+			// A restart must not change raw JSON schemas/arguments and request digests.
+			r, err = loadRetry(ctx, tx, t.Principal.OwnerID, logicalID)
+			if err != nil {
 				return err
 			}
 		}
@@ -179,7 +187,7 @@ func (e *Engine) generateContextStep(ctx context.Context, t Turn, modelID core.I
 	r.NextAt = next
 	r.Failure = failure
 	err = e.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		if err := tx.Put(ctx, "agent.model_retries", key, r); err != nil {
+		if err := saveRetry(ctx, tx, r); err != nil {
 			return err
 		}
 		job, err := persistence.Load[scheduler.Job](ctx, e.store, "agent.jobs", pendingKey)

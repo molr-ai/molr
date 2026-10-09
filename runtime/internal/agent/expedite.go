@@ -11,6 +11,7 @@ import (
 	"molr.ai/runtime/internal/agent/prompt"
 	"molr.ai/runtime/internal/agent/scheduler"
 	"molr.ai/runtime/internal/agent/tools"
+	"molr.ai/runtime/internal/contextstore"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/event"
 	"molr.ai/runtime/internal/im/conversation"
@@ -402,6 +403,12 @@ func (e *Engine) finishExpedite(ctx context.Context, t Turn, p turnProgress) err
 			if err := tx.Put(ctx, expediteBucket, key, record); err != nil {
 				return err
 			}
+		}
+		if err := releaseRetries(ctx, tx, t.Principal.OwnerID, t.Event.AssistantID, t.Event.ID); err != nil {
+			return err
+		}
+		if err := contextstore.Release(ctx, tx, storeReference(t.Principal.OwnerID, t.Event.AssistantID, "dream_progress", t.Event.ID)); err != nil {
+			return err
 		}
 		return tx.Delete(ctx, progressBucket, persistence.Key(t.Principal.OwnerID, t.Event.ID))
 	})

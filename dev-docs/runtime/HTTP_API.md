@@ -276,7 +276,7 @@ WebUI 按原因显示对应说明及操作入口：模型权限、选择模型�
 
 调试工作台：`GET /api/status` 增加布尔字段 `workbench_available`，`Settings.WorkbenchVisible` 只控制用户界面入口显示，不影响采集和调试接口权限。采集只受部署配置 `debug.enabled` 控制；部署未开启时拒绝保存显示值 `true`。专用调试接口及记录边界见 [开发工作台](WORKBENCH.md)，检查点和完整请求不进入普通状态／聊天 SSE。
 
-保留策略：`GET /api/debug/retention` 需要所有者及 `debug.read` 作用域，不需要个人工作台开关；返回 `Policy`（`Version`、`RetentionDays`、`MaxRuns`、`MaxBytes`、`MinRuns`）及当前所有者的 `Runs`、`Bytes`、`ProtectedRuns`、`CapacityReached`。`GET /api/admin/debug/retention` 返回安装级生效策略，并提供 `Configured`（各字段为数值或 `null`）与 `Defaults`（部署默认值）；`POST` 请求为 `{Policy: {RetentionDays, MaxRuns, MaxBytes, MinRuns}, Mutation: {IdempotencyKey, ExpectedVersion}}`，两者均需管理员及 `admin` 作用域。请求 `Policy` 中字段为 `null` 或省略表示未设置、恢复默认；显式 0 不合法。输入框只显示 `Configured`，未设置时留空，默认值通过 placeholder 展示。保存立即持久化并通知已有工作台客户端，清理在后续写入时发生。重复幂等键和相同请求返回原结果；过期版本或相同键不同请求返回冲突。最低保留已完成执行和运行中执行优先于清理上限；容量不足的新详情使用 `capacity_reached`，与单负载超限 `too_large` 区分。
+保留策略：`GET /api/debug/retention` 需要所有者及 `debug.read`，返回 `Policy`（`Version`、`MaxRuns`）和当前账号的 `Runs`，不受个人显示开关影响。`GET /api/admin/debug/retention` 返回生效策略、`Configured`（`MaxRuns` 为整数或 null）和 `Defaults`；`POST` 请求为 `{Policy: {MaxRuns}, Mutation: {IdempotencyKey, ExpectedVersion}}`，两者均需管理员及 `admin` 作用域。条数范围 1–10000；null 或省略恢复部署默认值。保存持久化并通知客户端，在后续写入及执行结束时按条数清理最早的已完成执行；运行中执行保留到结束，做梦轨迹也参与条数计算。不按时间或总容量清理、不再产生 `capacity_reached`，单条负载仍可能标记 `too_large`。详情采用[上下文存储](CONTEXT_STORAGE.md)的独立引用，历史删除不能破坏当前执行状态。
 
 上下文重置：`POST /api/debug/assistants/{id}/context/reset`，请求为 `{ "Mutation": { "IdempotencyKey": "..." }, "ExpectedSequence": 0 }`。`ExpectedSequence` 使用最新检查点的序号，无检查点时为 0。需要所有者身份、助理写权限与工作台启用状态；令牌还需 `debug.read` 和 `debug.write`。重置取消旧执行、清空私有上下文并递增序号，保留聊天、记忆、权限和账本，不自动请求模型。版本冲突返回 409，重复提交同一幂等键不会再次重置。
 
@@ -382,7 +382,10 @@ WebUI 支持上传 10 MB / 4000 万像素以内的 PNG、JPEG、WebP，浏览器
 
 ### 用量统计响应
 
-`GET /api/account/quotas` 的 `Summary` 与 `GET /api/admin/usage` 中对应成员使用同一累计统计：`ModelCalls`、`ToolCalls`、`ConnectionCalls`、`Spent`、`Reserved`、`AttachmentBytes`、`Active`、`Unknown`。金额按原币种返回；附件只统计 Ready 文件。`Active` / `Unknown` 为模型和工具操作的占用／未知数，HTTP 工具已包含在工具操作中，不重复相加。管理员接口仅输出统计和账号标识，不返回调用参数、回执正文或私人业务内容。
+`GET /api/account/quotas` 的 `Summary` 与 `GET /api/admin/usage` 返回的 `Users` 中对应成员使用同一累计统计：`ModelCalls`、`ToolCalls`、`ConnectionCalls`、`Spent`、`Reserved`、`AttachmentBytes`、`Active`、`Unknown`。金额按原币种返回；附件只统计 Ready 文件。`Active` / `Unknown` 为模型和工具操作的占用／未知数，HTTP 工具已包含在工具操作中，不重复相加。管理员接口仅输出统计和账号标识，不返回调用参数、回执正文或私人业务内容。
+
+上下文用量：`GET /api/account/quotas` 的 `ContextStorage` 只统计当前账号引用可达的对象，账号内去重；`GET /api/admin/usage` 返回 `{Users, ContextStorage}`，其中 `ContextStorage` 统计跨账号去重后的全部已存对象（含待回收对象），与成员筛选无关。两者字段为 `Bytes`（对象 JSON 正文字节数，含消息、共享定义及调试详情，不含索引、引用元数据和数据库空闲空间）和 `Messages`（唯一消息节点数）。统计在同一读取事务中完成；共享对象分别计入引用它的各账号，账号数值不能相加代替全局数值。接口只返回汇总数字，不返回消息、节点 ID 或其他账号的引用。
+
 
 个人 `Resources` 包含 `Kind`、`ID`、`Name`、`Calls`、`Active`、`Unknown`、`Carried`、`Spent`、`Reserved`、`PeriodStart`、`PeriodEnd`。模型／工具／连接的统计与准入一致，当前周期以外仍在执行的调用继续计入占用，并以 `Carried` 单列。`Unknown` 表示本地调用已结束但结果或费用未知，不计入 `Active` / `Reserved`，调用次数仅计入原周期；它不是 `Active` 的子集。`PeriodEnd=null` 表示累计周期；沙盒实际用量仍由 `/api/resource-usage` 获取，不将其配置限额当作用量。
 

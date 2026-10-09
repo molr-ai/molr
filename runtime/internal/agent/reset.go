@@ -85,6 +85,9 @@ func (e *Engine) ResetContext(ctx context.Context, p core.Principal, id core.ID,
 		if err = e.checkpoints.Save(checkpointCause(ctx, "context_reset"), checkpoint, expected); err != nil {
 			return err
 		}
+		if err = releaseRetries(ctx, tx, p.OwnerID, id, ""); err != nil {
+			return err
+		}
 		// Also fence delayed deliveries of events created before the reset, including
 		// messages whose IM outbox has not yet reached the scheduler.
 		if err = tx.Put(ctx, "agent.context_reset_at", key, now); err != nil {

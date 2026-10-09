@@ -98,15 +98,7 @@ func (s *Service) Trajectory(ctx context.Context, p core.Principal, q Trajectory
 	out.Items = []TrajectoryEntry{}
 	out.Runs = []Run{}
 	err = s.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		policy, err := s.retention(ctx, tx.Store())
-		if err != nil {
-			return err
-		}
-		protected, err := s.protected(ctx, tx.Store(), p.OwnerID, policy)
-		if err != nil {
-			return err
-		}
-		query := visibleQuery(p.OwnerID, protected, persistence.TimeKey(s.options.Now().AddDate(0, 0, -policy.RetentionDays)))
+		query := visibleQuery(p.OwnerID)
 		if q.AssistantID != "" {
 			query.Where = append(query.Where, persistence.Eq("AssistantID", q.AssistantID))
 		}
@@ -118,7 +110,7 @@ func (s *Service) Trajectory(ctx context.Context, p core.Principal, q Trajectory
 		// Inspect newest candidates first; older runs cannot contribute to a filled page.
 		sort.Slice(summaries, func(i, j int) bool { return summaries[i].LastRevision > summaries[j].LastRevision })
 		for _, summary := range summaries {
-			if summary.OwnerID != p.OwnerID || (q.AssistantID != "" && summary.AssistantID != q.AssistantID) || !visibleRun(summary, policy, protected, s.options.Now()) {
+			if summary.OwnerID != p.OwnerID || (q.AssistantID != "" && summary.AssistantID != q.AssistantID) {
 				continue
 			}
 			summary.Steps = nil
@@ -190,18 +182,23 @@ func (s *Service) Trajectory(ctx context.Context, p core.Principal, q Trajectory
 			}
 			out.HeadCursor = encodeTrajectoryCursor(trajectoryCursor{Owner: p.OwnerID, Assistant: q.AssistantID, Revision: revision, At: s.options.Now().UTC()})
 		}
-		// Old captures predate metadata previews. Hydrate only this bounded page,
-		// from already-sanitized saved payloads; never fetch provider data again.
 		for i := range out.Items {
 			e := &out.Items[i]
 			if e.Step.Revision != 0 {
 				continue
 			}
-			var payload Payload
-			if err := tx.Get(ctx, "debug.payloads", payloadKey(p.OwnerID, e.RunID, e.Step.Sequence), &payload); err != nil {
-				if persistence.Missing(err) {
-					continue
+			var run Run
+			for _, candidate := range summaries {
+				if candidate.ID == e.RunID {
+					run = candidate
+					break
 				}
+			}
+			payload, err := loadPayload(ctx, tx, run, e.Step.Sequence)
+			if persistence.Missing(err) {
+				continue
+			}
+			if err != nil {
 				return err
 			}
 			e.Step.Name, e.Step.Preview = trajectoryPreview(e.Step.Kind, payload.Data)

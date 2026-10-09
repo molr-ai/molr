@@ -123,7 +123,9 @@ func (s *Service) sourceForRun(ctx context.Context, tx persistence.Tx, run Run) 
 		return *run.Source
 	}
 	var payload Payload
-	if tx.Get(ctx, "debug.payloads", payloadKey(run.OwnerID, run.ID, 1), &payload) != nil {
+	var err error
+	payload, err = loadPayload(ctx, tx, run, 1)
+	if err != nil {
 		return SourceContent{Status: "unavailable"}
 	}
 	if payload.Status != "captured" && payload.Status != "redacted" {

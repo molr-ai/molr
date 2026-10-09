@@ -12,7 +12,6 @@ import (
 
 	"molr.ai/runtime/internal/agent/model"
 	"molr.ai/runtime/internal/agent/operation"
-	"molr.ai/runtime/internal/agent/scheduler"
 	"molr.ai/runtime/internal/agent/tools"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/event"
@@ -189,29 +188,13 @@ func TestStaleCheckpointWriteCannotOverwriteNewExecution(t *testing.T) {
 		t.Fatal("stale writer overwrote canonical state")
 	}
 }
-func TestLegacyFailedProgressMigratesBeforeNewEvent(t *testing.T) {
+func TestUnupgradedProgressIsRejected(t *testing.T) {
 	f, db := makeLoopFixture(t, nil)
-	legacy := turnProgress{Inputs: []model.Input{{Role: model.System, Text: loopInstructions}, {Role: model.User, Text: "legacy failed work"}}}
 	testkit.RequireNoError(t, db.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
-		if err := tx.Put(ctx, progressBucket, "owner/event", legacy); err != nil {
-			return err
-		}
-		if err := tx.Put(ctx, statusBucket, "owner/assistant", Status{AssistantID: "assistant", State: Waiting, ExecutionID: f.Turn.Principal.ExecutionID}); err != nil {
-			return err
-		}
-		return tx.Put(ctx, "agent.jobs", "owner/event", scheduler.Job{Event: f.Turn.Event, ExecutionID: f.Turn.Principal.ExecutionID, State: scheduler.NeedsReview, Version: 1})
+		return tx.Put(ctx, progressBucket, "owner/event", map[string]any{"Inputs": []any{}})
 	}))
-	_, err := f.Restart().Handle(t.Context(), nextStateTurn(f, "migration-next", event.ResumeRequested))
-	testkit.RequireNoError(t, err)
-	b, _ := json.Marshal(f.ModelRequests())
-	if !strings.Contains(string(b), "legacy failed work") {
-		t.Fatal("legacy progress was not migrated")
-	}
-	ref, err := persistence.Load[progressReference](t.Context(), db, progressBucket, "owner/event")
-	testkit.RequireNoError(t, err)
-	if ref.Version != 2 || !ref.Superseded {
-		t.Fatal("legacy event remains authoritative")
-	}
+	err := f.Runtime.(*Engine).rejectSuperseded(t.Context(), f.Turn)
+	testkit.RequireCode(t, err, core.FailedPrecondition)
 }
 
 func TestHandoffRecoversCommittedModelOutputWithoutRedispatch(t *testing.T) {

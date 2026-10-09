@@ -25,65 +25,32 @@ func completed(t *testing.T, s *Service, p core.Principal, now *time.Time, text 
 	}
 	return ref.id
 }
-func TestRetentionProtectsHistoryAcrossAgeCapacityAndAllReaders(t *testing.T) {
+func TestCountRetentionIgnoresAgeAndAlwaysSavesNewDetails(t *testing.T) {
 	s, p, now := fixture(t)
-	s.options.MinRuns = 2
-	s.options.MaxRuns = 4
-	s.options.MaxBytes = 10000
+	s.options.MaxRuns = 2
 	first := completed(t, s, p, now, strings.Repeat("a", 1000))
-	second := completed(t, s, p, now, strings.Repeat("b", 1000))
-	third := completed(t, s, p, now, strings.Repeat("c", 1000))
-	*now = now.AddDate(0, 0, 30)
-	// Old protected data remains readable even before a new write triggers cleanup.
-	if _, err := s.Get(t.Context(), p, first); core.CodeOf(err) != core.NotFound {
-		t.Fatal("unprotected expired history visible", err)
+	*now = now.AddDate(0, 0, 365)
+	if _, err := s.Detail(t.Context(), p, first, 2); err != nil {
+		t.Fatal("age hid retained history", err)
 	}
-	for _, id := range []core.ID{second, third} {
-		if payload, err := s.Detail(t.Context(), p, id, 2); err != nil || len(payload.Data) == 0 {
-			t.Fatal("protected detail hidden", err)
-		}
-	}
-	page, err := s.Trajectory(t.Context(), p, TrajectoryQuery{})
-	if err != nil || len(page.Runs) != 2 {
-		t.Fatal("trajectory hid protected history", page, err)
-	}
-	list, err := s.Runs(t.Context(), p, Query{})
-	if err != nil || len(list.Items) != 2 {
-		t.Fatal("runs hid protected history", list, err)
-	}
-	// Lower the allowance below protected bytes. Metadata continues, full payloads
-	// already retained stay intact, and a live run never evicts the completed floor.
-	s.options.MaxBytes = 1
 	active := s.Begin(t.Context(), p.OwnerID, "assistant", "event", "live", "user_message", 1, nil)
 	s.Record(active, "model.start", "started", "operation", map[string]string{"Text": "new detail"})
-	for _, id := range []core.ID{second, third} {
-		if _, err := s.Detail(t.Context(), p, id, 2); err != nil {
-			t.Fatal("new execution evicted protected history", err)
-		}
-	}
 	ref := active.Value(contextKey{}).(*reference)
 	payload, err := s.Detail(t.Context(), p, ref.id, 2)
-	if err != nil || payload.Status != "capacity_reached" || (len(payload.Data) != 0 && string(payload.Data) != "null") {
-		t.Fatal("capacity not explicit", payload, err)
+	if err != nil || payload.Status != "captured" || !strings.Contains(string(payload.Data), "new detail") {
+		t.Fatal(payload, err)
 	}
-	if _, err := persistence.Load[Run](t.Context(), s.store, "debug.runs", persistence.Key(p.OwnerID, first)); !persistence.Missing(err) {
-		t.Fatal("expired unprotected run not cleaned")
+	completed(t, s, p, now, "latest")
+	if _, err = s.Get(t.Context(), p, first); !persistence.Missing(err) {
+		t.Fatal("oldest history survived limit", err)
 	}
-	*now = now.AddDate(0, 0, 30)
-	next := s.Begin(t.Context(), p.OwnerID, "assistant", "event", "another-live", "user_message", 1, nil)
-	if _, err := s.Get(t.Context(), p, ref.id); err != nil {
-		t.Fatal("expired active run removed", err)
+	if _, err = s.Get(t.Context(), p, ref.id); err != nil {
+		t.Fatal("active run removed", err)
 	}
-	s.Finish(next, "succeeded", "")
 	s.Finish(active, "succeeded", "")
-	rows, err := s.Runs(t.Context(), p, Query{})
-	if err != nil || len(rows.Items) < 2 {
-		t.Fatal("cleanup erased recent executions", rows, err)
-	}
 }
 func TestRetentionCountUsesExactLimitAndAccountScope(t *testing.T) {
 	s, p, now := fixture(t)
-	s.options.MinRuns = 2
 	var ids []core.ID
 	for i := 0; i < 6; i++ {
 		ids = append(ids, completed(t, s, p, now, fmt.Sprint(i)))
@@ -116,7 +83,7 @@ func TestRetentionAdministrationPersistenceConflictsAndValidation(t *testing.T) 
 	s, p, _ := fixture(t)
 	deny := func(context.Context, core.Principal) error { return core.NewError(core.Forbidden, "admin required") }
 	s.options.Administrator = deny
-	q := RetentionRequest{Policy: RetentionOverrides{RetentionDays: intPointer(14), MaxRuns: intPointer(200), MaxBytes: intPointer(128 << 20), MinRuns: intPointer(10)}, Mutation: core.Mutation{IdempotencyKey: "retention-save", ExpectedVersion: 1}}
+	q := RetentionRequest{Policy: RetentionOverrides{MaxRuns: intPointer(200)}, Mutation: core.Mutation{IdempotencyKey: "retention-save", ExpectedVersion: 1}}
 	if _, err := s.SetRetention(t.Context(), p, q); core.CodeOf(err) != core.Forbidden {
 		t.Fatal("member could edit policy", err)
 	}
@@ -146,7 +113,7 @@ func TestRetentionAdministrationPersistenceConflictsAndValidation(t *testing.T) 
 	if err != nil || replay != saved {
 		t.Fatal("idempotent replay failed", replay, err)
 	}
-	q.Policy.MinRuns = intPointer(*q.Policy.MinRuns + 1)
+	q.Policy.MaxRuns = intPointer(*q.Policy.MaxRuns + 1)
 	if _, err := s.SetRetention(t.Context(), p, q); core.CodeOf(err) != core.Conflict {
 		t.Fatal("changed idempotent payload accepted", err)
 	}
@@ -155,7 +122,7 @@ func TestRetentionAdministrationPersistenceConflictsAndValidation(t *testing.T) 
 		t.Fatal("stale version accepted", err)
 	}
 	q.Mutation.ExpectedVersion = 2
-	for _, change := range []func(*RetentionOverrides){func(p *RetentionOverrides) { p.MinRuns = intPointer(0) }, func(p *RetentionOverrides) { p.MinRuns = intPointer(*p.MaxRuns + 1) }, func(p *RetentionOverrides) { p.RetentionDays = intPointer(0) }, func(p *RetentionOverrides) { p.MaxBytes = intPointer(1024) }, func(p *RetentionOverrides) { p.MaxRuns = intPointer(10001) }} {
+	for _, change := range []func(*RetentionOverrides){func(p *RetentionOverrides) { p.MaxRuns = intPointer(0) }, func(p *RetentionOverrides) { p.MaxRuns = intPointer(10001) }} {
 		bad := q
 		change(&bad.Policy)
 		if _, err := s.SetRetention(t.Context(), p, bad); core.CodeOf(err) != core.InvalidArgument {
@@ -174,7 +141,6 @@ func intPointer(n int) *int { return &n }
 func TestUnsetRetentionFieldsStayUnsetAndFollowDefaults(t *testing.T) {
 	s, p, _ := fixture(t)
 	s.options.MaxRuns = 1000
-	s.options.MinRuns = 10
 	s.options.Administrator = func(context.Context, core.Principal) error { return nil }
 	initial, err := s.AdminRetention(t.Context(), p)
 	if err != nil || initial.Configured.MaxRuns != nil || initial.Defaults.MaxRuns != 1000 || initial.MaxRuns != 1000 {
@@ -182,16 +148,16 @@ func TestUnsetRetentionFieldsStayUnsetAndFollowDefaults(t *testing.T) {
 	}
 	q := RetentionRequest{Policy: RetentionOverrides{MaxRuns: intPointer(2)}, Mutation: core.Mutation{IdempotencyKey: "partial", ExpectedVersion: 1}}
 	effective, err := s.SetRetention(t.Context(), p, q)
-	if err != nil || effective.MaxRuns != 2 || effective.MinRuns != 2 || effective.RetentionDays != 7 {
+	if err != nil || effective.MaxRuns != 2 {
 		t.Fatal(effective, err)
 	}
 	stored, err := s.AdminRetention(t.Context(), p)
-	if err != nil || stored.Configured.RetentionDays != nil || stored.Configured.MinRuns != nil || stored.Configured.MaxRuns == nil || *stored.Configured.MaxRuns != 2 {
+	if err != nil || stored.Configured.MaxRuns == nil || *stored.Configured.MaxRuns != 2 {
 		t.Fatal(stored, err)
 	}
 	q = RetentionRequest{Mutation: core.Mutation{IdempotencyKey: "clear", ExpectedVersion: 2}}
 	effective, err = s.SetRetention(t.Context(), p, q)
-	if err != nil || effective.MaxRuns != 1000 || effective.MinRuns != 10 {
+	if err != nil || effective.MaxRuns != 1000 {
 		t.Fatal(effective, err)
 	}
 	// After recreating the service, no explicit numbers should reappear.
@@ -208,7 +174,7 @@ func TestUnsetRetentionFieldsStayUnsetAndFollowDefaults(t *testing.T) {
 	}
 	// Existing flat records from the previous version remain explicit overrides.
 	if err := s.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
-		return tx.Put(ctx, "debug.retention", "policy", Retention{Version: 4, RetentionDays: 14, MaxRuns: 200, MaxBytes: 128 << 20, MinRuns: 10})
+		return tx.Put(ctx, "debug.retention", "policy", Retention{Version: 4, MaxRuns: 200})
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -220,7 +186,6 @@ func TestUnsetRetentionFieldsStayUnsetAndFollowDefaults(t *testing.T) {
 
 func TestTrajectoryCleanupRecordsActualPolicyAndAssistantScope(t *testing.T) {
 	s, p, now := fixture(t)
-	s.options.MinRuns = 1
 	s.options.MaxRuns = 2
 	query := TrajectoryQuery{Query: Query{AssistantID: "assistant"}}
 	read := func(service *Service, principal core.Principal, q TrajectoryQuery) *CleanupEvent {

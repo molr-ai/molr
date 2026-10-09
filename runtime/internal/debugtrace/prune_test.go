@@ -15,13 +15,12 @@ import (
 	"molr.ai/runtime/internal/persistence/sqlitestore"
 )
 
-// The previous full-history algorithm is an independent oracle for the indexed
-// implementation, including exact tie order and protected history above capacity.
+// Independent count-policy oracle, including tie order, active runs and owner isolation.
 func referenceRetention(all []Run, policy Retention, now time.Time, keep core.ID, extra int) (map[core.ID]bool, bool) {
 	runs := []Run{}
 	removed := map[core.ID]bool{}
 	for _, r := range all {
-		if r.OwnerID == "owner" && r.Trigger != "dream_due" {
+		if r.OwnerID == "owner" {
 			runs = append(runs, r)
 		}
 	}
@@ -35,32 +34,16 @@ func referenceRetention(all []Run, policy Retention, now time.Time, keep core.ID
 		}
 		return a.StartedAt.After(b.StartedAt)
 	})
-	protected := map[core.ID]bool{}
-	n := 0
-	total := extra
-	for _, r := range runs {
-		total += r.Bytes
-		if r.State == "running" {
-			protected[r.ID] = true
-		} else if n < policy.MinRuns {
-			protected[r.ID] = true
-			n++
-		}
-	}
 	count := len(runs)
-	cutoff := now.AddDate(0, 0, -policy.RetentionDays)
-	for i := len(runs) - 1; i >= 0; i-- {
+	for i := len(runs) - 1; i >= 0 && count > policy.MaxRuns; i-- {
 		r := runs[i]
-		if r.ID == keep || protected[r.ID] {
+		if r.ID == keep || r.State == "running" {
 			continue
 		}
-		if r.StartedAt.Before(cutoff) || count > policy.MaxRuns || total > policy.MaxBytes {
-			removed[r.ID] = true
-			count--
-			total -= r.Bytes
-		}
+		removed[r.ID] = true
+		count--
 	}
-	return removed, extra > 0 && total > policy.MaxBytes
+	return removed, false
 }
 
 func TestBatchedRetentionMatchesFullHistorySemantics(t *testing.T) {
@@ -72,7 +55,7 @@ func TestBatchedRetentionMatchesFullHistorySemantics(t *testing.T) {
 			}
 			defer db.Close()
 			now := time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)
-			s := New(db, Options{MaxRuns: []int{2000, 8, 20}[caseID%3], MaxBytes: []int{1 << 20, 900, 1}[caseID%3], MinRuns: []int{1, 3, 6}[caseID%3], Now: func() time.Time { return now }})
+			s := New(db, Options{MaxRuns: []int{20, 8, 2000}[caseID%3], Now: func() time.Time { return now }})
 			var all []Run
 			size := 50
 			if caseID == 0 {
@@ -121,7 +104,7 @@ func TestBatchedRetentionMatchesFullHistorySemantics(t *testing.T) {
 			removed, capacity := referenceRetention(all, policy, now, keep, extra)
 			var pruneErr error
 			err = db.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
-				pruneErr = s.prune(ctx, tx, "owner", keep, extra)
+				pruneErr = s.prune(ctx, tx, "owner", keep)
 				if core.CodeOf(pruneErr) == core.FailedPrecondition {
 					return nil
 				}
@@ -199,7 +182,7 @@ func TestRetentionReadsOnlyProtectedIDsAndBoundedDeletionBatches(t *testing.T) {
 	}
 	defer db.Close()
 	now := time.Now().UTC()
-	s := New(db, Options{MaxRuns: 2000, MinRuns: 10, Now: func() time.Time { return now }})
+	s := New(db, Options{MaxRuns: 2000, Now: func() time.Time { return now }})
 	err = db.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
 		for i := 0; i < 1000; i++ {
 			r := Run{ID: core.ID(fmt.Sprintf("run-%04d", i)), OwnerID: "owner", AssistantID: "assistant", Trigger: "user_message", State: "succeeded", StartedAt: now.Add(time.Duration(i) * time.Second), Bytes: 100, Source: &SourceContent{Text: strings.Repeat("history ", 100)}}
@@ -216,16 +199,16 @@ func TestRetentionReadsOnlyProtectedIDsAndBoundedDeletionBatches(t *testing.T) {
 	s.store = retentionStore{db, reads}
 	check := func() {
 		t.Helper()
-		if err := s.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error { return s.prune(ctx, tx, "owner", "", 1) }); err != nil {
+		if err := s.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error { return s.prune(ctx, tx, "owner", "") }); err != nil {
 			t.Fatal(err)
 		}
 	}
 	check()
-	if reads.rows != 10 || reads.fullReads != 0 || reads.countCalls != 1 || reads.sumCalls != 1 {
+	if reads.rows != 0 || reads.fullReads != 0 || reads.countCalls != 1 || reads.sumCalls != 0 {
 		t.Fatal("unchanged history loaded into Go", *reads)
 	}
 	*reads = retentionReads{}
-	now = now.AddDate(0, 0, 30)
+	s.options.MaxRuns = 10
 	check()
 	if reads.maxBatch > 200 || reads.fullReads != 0 {
 		t.Fatal("unbounded deletion candidates", *reads)
@@ -238,5 +221,5 @@ func TestRetentionReadsOnlyProtectedIDsAndBoundedDeletionBatches(t *testing.T) {
 	if err != nil || remaining != 10 {
 		t.Fatal(remaining, err)
 	}
-	t.Logf("no eviction: 10 protected IDs; expired cleanup: max batch %d, retained %d", reads.maxBatch, remaining)
+	t.Logf("no eviction: no history loaded; count cleanup: max batch %d, retained %d", reads.maxBatch, remaining)
 }

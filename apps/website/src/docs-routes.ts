@@ -32,6 +32,7 @@ export const devDocRoutes: DocRoute[] = [
   { file: 'runtime/SANDBOX.md', path: '/dev-docs/runtime/sandbox/', label: '沙盒设计', group: 'Runtime', root: 'dev-docs' },
   { file: 'runtime/FILE_TOOLS.md', path: '/dev-docs/runtime/file-tools/', label: '文件与资源工具', group: 'Runtime', root: 'dev-docs' },
   { file: 'runtime/AGENT_CONTEXT.md', path: '/dev-docs/runtime/agent-context/', label: '上下文更新', group: 'Runtime', root: 'dev-docs' },
+  { file: 'runtime/CONTEXT_STORAGE.md', path: '/dev-docs/runtime/context-storage/', label: '上下文存储', group: 'Runtime', root: 'dev-docs' },
   { file: 'runtime/MODEL_ADAPTERS.md', path: '/dev-docs/runtime/model-adapters/', label: '模型适配', group: 'Runtime', root: 'dev-docs' },
   { file: 'runtime/MULTIMODAL_FILES.md', path: '/dev-docs/runtime/multimodal-files/', label: '多模态文件', group: 'Runtime', root: 'dev-docs' },
   { file: 'runtime/WORKBENCH.md', path: '/dev-docs/runtime/workbench/', label: '开发工作台', group: 'Runtime', root: 'dev-docs' },

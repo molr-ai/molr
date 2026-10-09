@@ -7,7 +7,7 @@ import { useCopy, useQuery } from '../state';
 import { Empty, ErrorNotice, Loading } from '../interfaces/official/components/common';
 import { MoneyText } from '../interfaces/official/components/Money';
 import { ConstraintsSummary } from '../interfaces/official/features/ResourceConstraints';
-import type { AccountQuotas, ResourceReference, UsageSummary, UserGroup } from './types';
+import type { AccountQuotas, AdminUsageView, ContextStorageUsage, ResourceReference, UsageSummary, UserGroup } from './types';
 import { groupName } from './types';
 import './usage.css';
 
@@ -33,6 +33,20 @@ function Overview({ value }: { value: UsageSummary }) {
     <Metric label={zh ? 'HTTP 连接调用' : 'HTTP connection calls'}>{value.ConnectionCalls.toLocaleString(locale)}</Metric>
     <Metric label={zh ? '当前附件存储' : 'Current attachment storage'}>{bytes(value.AttachmentBytes)}</Metric>
   </dl>;
+}
+function ContextStorage({ value, global = false }: { value: ContextStorageUsage; global?: boolean }) {
+  const { locale } = useCopy(), zh = locale === 'zh';
+  return <section className="usage-context" aria-label={global ? (zh ? '全局上下文存储' : 'Global context storage') : (zh ? '账号上下文存储' : 'Account context storage')}>
+    <div className="usage-section-heading"><h3>{global ? (zh ? '全局上下文存储' : 'Global context storage') : (zh ? '账号上下文存储' : 'Account context storage')}</h3></div>
+    <dl className="usage-overview">
+      <Metric label={zh ? '上下文数据量' : 'Context data size'}>{bytes(value.Bytes)}</Metric>
+      <Metric label={zh ? '去重消息节点' : 'Unique message nodes'}>{value.Messages.toLocaleString(locale)}</Metric>
+    </dl>
+    <p className="usage-note">{global
+      ? (zh ? '跨账号去重后的全局存储，包含等待回收的数据，不受下方成员筛选影响。' : 'Global storage after deduplication across accounts, including data awaiting collection. Member filters below do not affect this total.')
+      : (zh ? '统计本账号引用的数据，账号内去重。跨账号共享数据分别计入各账号，因此账号用量不能直接相加作为全局用量。' : 'Data referenced by your account, deduplicated within this account. Shared data counts toward each account, so account totals cannot be added to obtain global storage.')}
+      {' '}{zh ? '包含消息、工具定义及调试详情的存储对象，不含数据库索引、引用元数据和空闲空间。' : 'Includes stored messages, tool definitions and debug details; excludes database indexes, reference metadata and free space.'}</p>
+  </section>;
 }
 function Allowance({ label, used, limit }: { label: string; used: number; limit: number }) {
   const { locale } = useCopy(), zh = locale === 'zh';
@@ -69,6 +83,7 @@ export function AccountUsage() {
     {!data ? query.loading && <Loading /> : <>
       <Overview value={data.Summary} />
       <p className="usage-note">{zh ? '费用与调用次数为累计值，附件为当前占用。HTTP 工具调用也计入工具次数，两项不可相加。预留费用尚未确认为实际消费。' : 'Spend and calls are lifetime totals; storage is current usage. HTTP tool calls also count as tool calls; do not add the two. Reserved spend is not confirmed spending.'}</p>
+      <ContextStorage value={data.ContextStorage} />
       {!data.Group.Administrator && <section className="usage-allowances"><div className="usage-section-heading"><div><h3>{zh ? '当前成员额度' : 'Current member allowances'}</h3><p>{groupName(data.Group, zh)} · {zh ? '每位成员独立计量，所有助理合计使用' : 'Measured per member, across all assistants'}</p></div><Select label={zh ? '资源类型' : 'Resource type'} value={filter} onValueChange={setFilter} options={[{ value: 'all', label: zh ? '全部资源' : 'All resources' }, { value: 'model', label: zh ? '模型' : 'Models' }, { value: 'tool', label: zh ? '工具' : 'Tools' }, { value: 'connection', label: zh ? '连接' : 'Connections' }, { value: 'sandbox', label: zh ? '沙盒' : 'Sandboxes' }]} /></div>
         {resources.length ? <div className="usage-resources">{resources.map(ref => <ResourceAllowance key={`${ref.Kind}:${ref.ID}`} reference={ref} used={data.Resources.find(v => v.Kind === ref.Kind && v.ID === ref.ID)} name={models.data?.find(m => ref.Kind === 'model' && m.ID === ref.ID)?.Name ?? (ref.Kind === 'tool' ? labels[ref.ID]?.name : ref.Kind === 'sandbox' && ref.ID === 'local' ? zh ? '本机沙盒' : 'Local sandbox' : undefined) ?? data.Resources.find(v => v.Kind === ref.Kind && v.ID === ref.ID)?.Name ?? ref.ID} />)}</div> : <Empty title={zh ? '暂无资源额度' : 'No resource allowances'} description={zh ? '当前用户组或筛选条件下没有可展示的资源。' : 'No resources match your group or filter.'} />}
       </section>}
@@ -86,13 +101,14 @@ function aggregate(rows: UsageSummary[]): UsageSummary {
 }
 export function AdminUsage() {
   const { locale, t } = useCopy(), zh = locale === 'zh';
-  const query = useQuery<UsageSummary[]>('/api/admin/usage'), groups = useQuery<UserGroup[]>('/api/admin/groups');
+  const query = useQuery<AdminUsageView>('/api/admin/usage'), groups = useQuery<UserGroup[]>('/api/admin/groups');
   const [search, setSearch] = useState(''), [group, setGroup] = useState('all');
   const needle = search.trim().toLocaleLowerCase();
-  const rows = query.data?.filter(u => (group === 'all' || group === u.GroupID) && `${u.DisplayName} ${u.Username}`.toLocaleLowerCase().includes(needle));
+  const rows = query.data?.Users.filter(u => (group === 'all' || group === u.GroupID) && `${u.DisplayName} ${u.Username}`.toLocaleLowerCase().includes(needle));
   return <div className="usage-page" aria-busy={query.loading}>
     <div className="usage-toolbar"><p>{zh ? '按成员汇总累计用量，不包含聊天、附件正文或执行输出。' : 'Lifetime usage by member. No chats, attachment contents, or execution output.'}</p><Button size="sm" variant="secondary" disabled={query.loading} onClick={query.reload}><RefreshCw size={14} />{t.refresh}</Button></div>
     <ErrorNotice error={query.error || groups.error} retry={query.reload} />
+    {query.data && <ContextStorage value={query.data.ContextStorage} global />}
     <div className="usage-filters"><TextField label={zh ? '搜索成员' : 'Search members'} value={search} onChange={e => setSearch(e.target.value)} placeholder={zh ? '用户名或显示名称' : 'Username or display name'} /><Select label={zh ? '用户组' : 'User group'} value={group} onValueChange={setGroup} options={[{ value: 'all', label: zh ? '全部用户组' : 'All groups' }, ...(groups.data ?? []).map(g => ({ value: g.ID, label: groupName(g, zh) }))]} /></div>
     {!rows ? query.loading && <Loading /> : <>
       <div className="usage-section-heading"><h3>{zh ? '筛选结果汇总' : 'Filtered totals'}</h3><Badge>{rows.length} {zh ? '位成员' : 'members'}</Badge></div>

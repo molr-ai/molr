@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test('admin retention UI persists, protects recent executions and rejects member changes', async ({ page, browser }, info) => {
+test('admin count retention reclaims history without losing live context and rejects member changes', async ({ page, browser }, info) => {
   const port = process.env.MOLR_TEST_PORT ?? '5193', base = `http://127.0.0.1:${port}`;
   await page.goto('/');
   await page.getByLabel('Username', { exact: true }).fill('owner');
@@ -16,34 +16,15 @@ test('admin retention UI persists, protects recent executions and rejects member
   const initial = await (await page.request.get('/api/admin/debug/retention')).json();
   try {
     await page.goto('/#/settings/workbench');
-    for (const [label, placeholder] of [['Retention days', '7'], ['Maximum executions', '1000'], ['Total detail size (MiB)', '64'], ['Minimum recent completed executions', '10']]) {
-      await expect(page.getByLabel(label, { exact: true })).toHaveValue('');
-      await expect(page.getByLabel(label, { exact: true })).toHaveAttribute('placeholder', placeholder);
-    }
-    await page.getByLabel('Retention days', { exact: true }).fill('14');
-    await page.getByLabel('Maximum executions', { exact: true }).fill('2');
-    await page.getByLabel('Total detail size (MiB)', { exact: true }).fill('8');
-    await page.getByLabel('Minimum recent completed executions', { exact: true }).fill('2');
-    await page.getByRole('button', { name: 'Save retention policy', exact: true }).click();
+    const count = page.getByLabel('Maximum executions', { exact: true });
+    await expect(count).toHaveValue(''); await expect(count).toHaveAttribute('placeholder', '1000');
+    await expect(page.getByLabel('Retention days', { exact: true })).toHaveCount(0);
+    await expect(page.getByLabel('Total detail size (MiB)', { exact: true })).toHaveCount(0);
+    await expect(page.getByLabel('Minimum recent completed executions', { exact: true })).toHaveCount(0);
+    await count.fill('2'); await page.getByRole('button', { name: 'Save retention policy', exact: true }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Retention policy saved' })).toBeVisible();
-    await page.reload();
-    await expect(page.getByLabel('Retention days', { exact: true })).toHaveValue('14');
-    await expect(page.getByLabel('Minimum recent completed executions', { exact: true })).toHaveValue('2');
-    await page.getByLabel('Retention days', { exact: true }).fill('');
-    await page.getByLabel('Total detail size (MiB)', { exact: true }).fill('');
-    await page.getByLabel('Minimum recent completed executions', { exact: true }).fill('');
-    await page.getByRole('button', { name: 'Save retention policy', exact: true }).click();
-    await expect.poll(async () => (await (await page.request.get('/api/admin/debug/retention')).json()).Configured).toEqual({ RetentionDays: null, MaxRuns: 2, MaxBytes: null, MinRuns: null });
-    await page.reload();
-    await expect(page.getByLabel('Retention days', { exact: true })).toHaveValue('');
-    await expect(page.getByLabel('Minimum recent completed executions', { exact: true })).toHaveAttribute('placeholder', '2');
-    const inherited = await (await page.request.get('/api/admin/debug/retention')).json();
-    expect(inherited.RetentionDays).toBe(7); expect(inherited.MaxBytes).toBe(64 * 1048576); expect(inherited.MinRuns).toBe(2);
-    await page.getByLabel('Retention days', { exact: true }).fill('14');
-    await page.getByLabel('Total detail size (MiB)', { exact: true }).fill('8');
-    await page.getByLabel('Minimum recent completed executions', { exact: true }).fill('2');
-    await page.getByRole('button', { name: 'Save retention policy', exact: true }).click();
-    await expect.poll(async () => (await (await page.request.get('/api/admin/debug/retention')).json()).RetentionDays).toBe(14);
+    await page.reload(); await expect(count).toHaveValue('2');
+    await expect.poll(async () => (await (await page.request.get('/api/admin/debug/retention')).json()).Configured).toEqual({ MaxRuns: 2 });
     expect((await post('/api/admin/debug/retention', { Policy: initial.Configured }, initial.Version)).status()).toBe(409);
     const settings = await (await page.request.get('/api/settings')).json();
     await mutate('/api/settings', { Settings: { ...settings, WorkbenchVisible: true } }, settings.Version);
@@ -94,8 +75,8 @@ test('admin retention UI persists, protects recent executions and rejects member
     else await cleanup.getByRole('button').hover();
     const tip = page.getByRole('tooltip');
     await expect(tip).toBeVisible();
-    await expect(tip).toContainText('14 days / 2 executions / 8 MiB');
-    await expect(tip).toContainText('latest 2 completed executions');
+    await expect(tip).toContainText('2 executions per account');
+    await expect(tip).toContainText('running executions remain until completion');
     await expect(page.getByRole('region', { name: 'Step details', exact: true })).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(tip).not.toBeVisible();

@@ -49,3 +49,6 @@
  .usage-costs { grid-template-columns: minmax(0,1fr); }
  .usage-member-spend { max-width: 45%; }
 }
+
+.usage-context { display: grid; gap: 12px; min-width: 0; }
+.usage-context .usage-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }

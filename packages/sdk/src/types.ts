@@ -95,11 +95,11 @@ export type ShellTaskOutput = { Finished?: boolean; OutputComplete?: boolean; Ou
 
 export type PermissionRequestInput = { full_access?: boolean; constraints?: ResourceConstraints; temporary?: TemporaryConstraints; grant_id?: ID; grant_version?: number; resource_kind: Resource['Kind']; resource_id?: ID; model_id?: ID; resource_description: string; actions: string[]; path_prefixes?: string[]; expires_at?: string; reason: string; additional_requests?: PermissionRequestInput[]; };
 
-export type DebugRetentionPolicy = { Version: number; RetentionDays: number; MaxRuns: number; MaxBytes: number; MinRuns: number };
+export type DebugRetentionPolicy = { Version: number; MaxRuns: number };
 export type DebugCleanupEvent = { At: string; Policy: DebugRetentionPolicy };
-export type DebugRetentionStatus = { Policy: DebugRetentionPolicy; Runs: number; Bytes: number; ProtectedRuns: number; CapacityReached: boolean };
+export type DebugRetentionStatus = { Policy: DebugRetentionPolicy; Runs: number };
 
-export type DebugRetentionOverrides = { RetentionDays: number | null; MaxRuns: number | null; MaxBytes: number | null; MinRuns: number | null };
+export type DebugRetentionOverrides = { MaxRuns: number | null };
 export type DebugRetentionSettings = DebugRetentionPolicy & { Configured: DebugRetentionOverrides; Defaults: DebugRetentionPolicy };
 
 // First-use setup is authenticated administrator configuration, never account registration.

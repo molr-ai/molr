@@ -5,6 +5,7 @@ import (
 	"molr.ai/runtime/internal/agent/tools"
 	"molr.ai/runtime/internal/auth"
 	"molr.ai/runtime/internal/business/resource"
+	"molr.ai/runtime/internal/contextstore"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/platform"
@@ -75,10 +76,11 @@ func groupCatalog(ctx context.Context, p core.Principal, a adapters, s *sandboxR
 }
 
 type accountQuotaView struct {
-	Group     auth.UserGroup
-	Summary   userUsageSummary
-	Resources []accountResourceUsage
-	AsOf      time.Time
+	Group          auth.UserGroup
+	Summary        userUsageSummary
+	ContextStorage contextstore.Usage
+	Resources      []accountResourceUsage
+	AsOf           time.Time
 }
 type accountResourceUsage struct {
 	Name string
@@ -101,6 +103,10 @@ func accountQuotas(ctx context.Context, store persistence.Store, m *auth.Manager
 			return err
 		}
 		out.Summary, err = userUsage(ctx, tx.Store(), u)
+		if err != nil {
+			return err
+		}
+		out.ContextStorage, err = contextstore.AccountUsage(ctx, tx, p.OwnerID)
 		if err != nil {
 			return err
 		}

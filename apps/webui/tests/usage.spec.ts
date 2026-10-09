@@ -32,26 +32,34 @@ test('member usage and admin statistics share actual call totals', async ({ page
     const assistant = await mutate(member, '/api/assistants', { Name: 'Usage assistant', ModelID: model.ID, Budget: { Limit: { Currency: 'USD', Micros: 10000000 }, Period: 'daily' } });
     await mutate(member, '/api/conversations/messages', { ConversationID: assistant.ConversationID, Content: { Kind: 'text', Text: 'Private usage fixture message' } });
     await expect.poll(async () => (await request(member, '/api/account/quotas')).Summary.ModelCalls, { timeout: 25000 }).toBeGreaterThan(0);
-    await expect.poll(async () => (await request(member, `/api/jobs?assistant_id=${assistant.ID}`)).Items[0]?.State, { timeout: 25000 }).toBe('done');
+    await expect.poll(async () => (await request(member, `/api/jobs?assistant_id=${assistant.ID}`)).Items.find((job: any) => job.Event.Kind === 'user_message')?.State, { timeout: 25000 }).toBe('done');
     await expect.poll(async () => (await request(member, '/api/account/quotas')).Summary.Active, { timeout: 25000 }).toBe(0);
     await member.goto('/#/account/usage');
     await expect(member.getByRole('heading', { name: 'Current member allowances' })).toBeVisible();
     await expect(member.locator('.usage-resource').filter({ hasText: model.Name })).toContainText('Monthly');
     await expect(member.locator('.usage-resource').filter({ hasText: 'Read conversations' })).toBeVisible();
     const personal = await request(member, '/api/account/quotas');
-    const stats = await request(page, '/api/admin/usage'), row = stats.find((u: any) => u.UserID === user.ID);
+    const stats = await request(page, '/api/admin/usage'), row = stats.Users.find((u: any) => u.UserID === user.ID);
+    expect(personal.ContextStorage.Bytes).toBeGreaterThan(0);
+    expect(personal.ContextStorage.Messages).toBeGreaterThan(0);
+    expect(stats.ContextStorage.Bytes).toBeGreaterThanOrEqual(personal.ContextStorage.Bytes);
+    await expect(member.getByRole('region', { name: 'Account context storage', exact: true })).toContainText('Unique message nodes');
     expect(row.ModelCalls).toBe(personal.Summary.ModelCalls);
     expect(row.ToolCalls).toBe(personal.Summary.ToolCalls);
     expect(row.Spent).toEqual(personal.Summary.Spent);
     expect(JSON.stringify(stats)).not.toContain('Private usage fixture message');
     expect((await member.request.get('/api/admin/usage')).status()).toBe(403);
     await page.goto('/#/settings/usage');
+    const storage = page.getByRole('region', { name: 'Global context storage', exact: true });
+    await expect(storage).toContainText('Unique message nodes');
+    const globalText = await storage.textContent();
     await page.getByRole('textbox', { name: 'Search members' }).fill(username);
     await expect(page.locator('.usage-member')).toHaveCount(1);
     await page.locator('.usage-member summary').click();
     await expect(page.locator('.usage-member-details')).toContainText('Model calls');
     await page.getByRole('textbox', { name: 'Search members' }).fill('absent-usage-fixture');
     await expect(page.getByText('No matching members', { exact: true })).toBeVisible();
+    await expect(storage).toHaveText(globalText!);
     for (const current of [page, member]) expect(await current.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   } finally { await context.close(); }
 });
@@ -64,7 +72,7 @@ test('usage loading failure remains retryable without fabricating zero usage', a
   await expect(page.locator('.usage-page').getByRole('alert')).toBeVisible();
   await page.unroute('**/api/account/quotas');
   await page.locator('.usage-toolbar').getByRole('button', { name: 'Refresh' }).click();
-  await expect(page.locator('.usage-overview')).toBeVisible();
+  await expect(page.locator('.usage-overview').first()).toBeVisible();
 });
 
 test('usage login links land on the selected usage page', async ({ page, browser }) => {
@@ -107,7 +115,7 @@ test('unknown model costs end holds automatically and remain visible as history'
   await page.goto('/#/account/usage');
   await expect(page.locator('.usage-page')).not.toContainText('no manual action is needed');
   await expect(page.getByRole('heading', { name: 'Current member allowances' })).toHaveCount(0);
-  await expect(page.locator('.usage-overview')).toBeVisible();
+  await expect(page.locator('.usage-overview').first()).toBeVisible();
   await expect(page.locator('.usage-page').getByRole('alert')).toBeHidden();
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
   expect((await request(page, '/api/account/quotas')).Summary.ModelCalls).toBe(after.ModelCalls);

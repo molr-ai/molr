@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"molr.ai/runtime/internal/contextstore"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/persistence/sqlitestore"
@@ -23,7 +24,7 @@ func fixture(t *testing.T) (*Service, core.Principal, *time.Time) {
 	t.Cleanup(func() { db.Close() })
 	now := time.Date(2026, 9, 25, 0, 0, 0, 0, time.UTC)
 	p := core.Principal{OwnerID: "owner", SubjectID: "owner", Kind: core.ActorOwner, SessionID: "session"}
-	s := New(db, Options{Enabled: true, MinRuns: 1, MaxRuns: 3, MaxPayloadBytes: 2048, Now: func() time.Time { return now }, Authorize: func(_ context.Context, p core.Principal) error { return p.Validate() }})
+	s := New(db, Options{Enabled: true, MaxRuns: 3, MaxPayloadBytes: 2048, Now: func() time.Time { return now }, Authorize: func(_ context.Context, p core.Principal) error { return p.Validate() }})
 	return s, p, &now
 }
 func setVisible(t *testing.T, s *Service, enabled bool) {
@@ -109,8 +110,8 @@ func TestLimitsRecoveryAndDistinctAttempts(t *testing.T) {
 	*now = now.AddDate(0, 0, 8)
 	run := s.Begin(t.Context(), "owner", "assistant", "later", "later", "resume_requested", 1, nil)
 	s.Finish(run, "succeeded", "")
-	if _, err = s.Get(t.Context(), p, older.Items[0].ID); core.CodeOf(err) != core.NotFound {
-		t.Fatal("expired run retained")
+	if _, err = s.Get(t.Context(), p, older.Items[0].ID); err != nil {
+		t.Fatal("retained run hidden by age")
 	}
 	for i := 0; i < 6; i++ {
 		*now = now.Add(time.Second)
@@ -128,7 +129,14 @@ func TestCheckpointOwnerOnlyAndObservationFailureDoesNotFailExecution(t *testing
 		if err := tx.Put(ctx, "business.assistants", "owner/assistant", map[string]string{"ID": "assistant"}); err != nil {
 			return err
 		}
-		return tx.Put(ctx, "agent.checkpoints", "owner/assistant", json.RawMessage(`{"Context":{"Inputs":[{"Role":"tool","Text":"{\"api_key\":\"secret\"}"}]}}`))
+		var fixture map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(`{"Context":{"Inputs":[{"Role":"tool","Text":"{\"api_key\":\"secret\"}"}]}}`), &fixture); err != nil {
+			return err
+		}
+		if err := contextstore.Save(ctx, tx, contextstore.Reference{OwnerID: "owner", AssistantID: "assistant", Kind: "checkpoint", ID: "assistant"}, fixture["Context"]); err != nil {
+			return err
+		}
+		return tx.Put(ctx, "agent.checkpoints", "owner/assistant", map[string]any{"Context": nil, "ContextStored": true})
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -180,7 +188,7 @@ func TestResetControlGatesMutationAndNotifiesOnlyOnSuccess(t *testing.T) {
 	}
 }
 
-func TestDreamDebugRecordsSurviveNormalRetention(t *testing.T) {
+func TestDreamDebugRecordsUseCountRetention(t *testing.T) {
 	s, p, clock := fixture(t)
 	ctx := s.Begin(t.Context(), p.OwnerID, "assistant", "dream-event", "execution", "dream_due", 1, map[string]any{"Kind": "dream_due"})
 	s.Record(ctx, "model.start", "succeeded", "model-op", map[string]string{"Input": "retained dream input"})
@@ -196,13 +204,8 @@ func TestDreamDebugRecordsSurviveNormalRetention(t *testing.T) {
 		s.Record(normal, "model.start", "succeeded", "model-op", map[string]string{"Input": "normal"})
 		s.Finish(normal, "succeeded", "")
 	}
-	retained, err := s.Get(t.Context(), p, id)
-	if err != nil || retained.Trigger != "dream_due" {
-		t.Fatal("dream trace was pruned", retained, err)
-	}
-	payload, err := s.Detail(t.Context(), p, id, 2)
-	if err != nil || !strings.Contains(string(payload.Data), "retained dream input") {
-		t.Fatal(payload, err)
+	if _, err := s.Get(t.Context(), p, id); !persistence.Missing(err) {
+		t.Fatal("dream history bypassed count limit", err)
 	}
 }
 

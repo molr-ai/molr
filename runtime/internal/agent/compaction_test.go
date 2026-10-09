@@ -38,7 +38,7 @@ func TestCompactionRetainsOriginalHistoryAndResumes(t *testing.T) {
 	if len(p.Inputs) >= len(history) || !strings.Contains(p.Inputs[1].Text, "Continuation summary") {
 		t.Fatal("history was not compacted")
 	}
-	records, err := persistence.Scan[contextArchive](t.Context(), db, "agent.context_archives")
+	records, err := summarySources(t, db)
 	if err != nil || len(records) != 1 || len(records[0].Inputs) != len(history) || records[0].Inputs[1].Text != history[1].Text {
 		t.Fatal("original execution history lost", err)
 	}
@@ -66,7 +66,7 @@ func TestCompactionFailureKeepsInputs(t *testing.T) {
 	if err == nil || before != contextHash(p.Inputs) {
 		t.Fatal("failure replaced original inputs", err)
 	}
-	archives, err := persistence.Scan[contextArchive](t.Context(), db, "agent.context_archives")
+	archives, err := summarySources(t, db)
 	if err != nil || len(archives) != 1 {
 		t.Fatal("original archive missing", err)
 	}
@@ -270,7 +270,7 @@ func TestOversizedEstimateStillSendsCompleteSummaryRequest(t *testing.T) {
 	if last.Role != model.User || last.Text != compactionInstruction {
 		t.Fatal("missing appended user instruction")
 	}
-	records, err := persistence.Scan[contextArchive](t.Context(), db, "agent.context_archives")
+	records, err := summarySources(t, db)
 	if err != nil || len(records) != 1 || contextHash(records[0].Inputs) != contextHash(original) {
 		t.Fatal("archive missing", err)
 	}
@@ -292,7 +292,7 @@ func TestProviderContextRejectionRetainsHistory(t *testing.T) {
 	if calls != 1 || core.ReasonOf(err) != core.ModelContextExceeded || failure == nil || failure.ProviderCode != "context_length_exceeded" || !failure.NoCharge || failure.Retryable || contextHash(p) != before {
 		t.Fatalf("provider rejection lost: calls=%d err=%v failure=%+v", calls, err, failure)
 	}
-	archives, err := persistence.Scan[contextArchive](t.Context(), db, "agent.context_archives")
+	archives, err := summarySources(t, db)
 	if err != nil || len(archives) != 1 {
 		t.Fatal("archive lost", err)
 	}
@@ -455,4 +455,33 @@ func TestCompactionPreservesWirePrefixAndTools(t *testing.T) {
 	if last.Role != "user" || last.Content != compactionInstruction {
 		t.Fatal("compaction instruction was not appended")
 	}
+}
+
+// The durable summary request pins its original input until event completion;
+// no permanent duplicate archive is required.
+func summarySources(t *testing.T, store persistence.Store) ([]contextArchive, error) {
+	t.Helper()
+	var out []contextArchive
+	err := store.Read(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
+		rows, err := tx.Scan(ctx, "agent.model_retries")
+		if err != nil {
+			return err
+		}
+		for _, row := range rows {
+			r, err := persistence.Decode[modelRetry](row)
+			if err != nil {
+				return err
+			}
+			r, err = loadRetry(ctx, tx, r.OwnerID, r.LogicalID)
+			if err != nil {
+				return err
+			}
+			n := len(r.Inputs)
+			if n > 0 && r.Inputs[n-1].Text == compactionInstruction {
+				out = append(out, contextArchive{Inputs: r.Inputs[:n-1]})
+			}
+		}
+		return nil
+	})
+	return out, err
 }

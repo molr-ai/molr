@@ -59,7 +59,9 @@ func TestTriggerCaptureAndLegacySourceIsolation(t *testing.T) {
 	put("debug.summaries", persistence.Key(p.OwnerID, run.ID), saved)
 	payload.Data, _ = json.Marshal(map[string]any{"Event": event})
 	payload.Status = "captured"
-	put("debug.payloads", payloadKey(p.OwnerID, run.ID, 1), payload)
+	if err := s.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error { return savePayload(ctx, tx, saved, 1, payload) }); err != nil {
+		t.Fatal(err)
+	}
 	legacy, err := s.Detail(t.Context(), p, run.ID, 1)
 	if err != nil {
 		t.Fatal(err)

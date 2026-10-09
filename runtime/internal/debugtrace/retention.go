@@ -11,21 +11,15 @@ import (
 )
 
 // Retention is installation-wide, with independent usage for each owner.
-// MinRuns protects completed executions; in-flight executions are always protected.
+// Active runs remain available until completion; completed history is bounded by count.
 type Retention struct {
-	Version       core.Version
-	RetentionDays int
-	MaxRuns       int
-	MaxBytes      int
-	MinRuns       int
+	Version core.Version
+	MaxRuns int
 }
 
 // Nil is an unset override, not an explicit copy of the deployment default.
 type RetentionOverrides struct {
-	RetentionDays *int
-	MaxRuns       *int
-	MaxBytes      *int
-	MinRuns       *int
+	MaxRuns *int
 }
 type storedRetention struct {
 	Version core.Version
@@ -48,29 +42,15 @@ type CleanupEvent struct {
 }
 
 type RetentionStatus struct {
-	Policy          Retention
-	Runs            int
-	Bytes           int
-	ProtectedRuns   int
-	CapacityReached bool
+	Policy Retention
+	Runs   int
 }
 
 func (s *Service) resolveRetention(row storedRetention) RetentionSettings {
-	defaults := Retention{Version: row.Version, RetentionDays: s.options.RetentionDays, MaxRuns: s.options.MaxRuns, MaxBytes: s.options.MaxBytes, MinRuns: s.options.MinRuns}
+	defaults := Retention{Version: row.Version, MaxRuns: s.options.MaxRuns}
 	effective := defaults
-	if row.RetentionDays != nil {
-		effective.RetentionDays = *row.RetentionDays
-	}
 	if row.MaxRuns != nil {
 		effective.MaxRuns = *row.MaxRuns
-	}
-	if row.MaxBytes != nil {
-		effective.MaxBytes = *row.MaxBytes
-	}
-	// An unset minimum follows the default, capped by the effective count limit.
-	effective.MinRuns = min(defaults.MinRuns, effective.MaxRuns)
-	if row.MinRuns != nil {
-		effective.MinRuns = *row.MinRuns
 	}
 	return RetentionSettings{Retention: effective, Configured: row.RetentionOverrides, Defaults: defaults}
 }
@@ -103,16 +83,11 @@ func (s *Service) Retention(ctx context.Context, p core.Principal) (RetentionSta
 			return err
 		}
 		out.Policy = policy
-		count, total, err := retentionUsage(ctx, tx, p.OwnerID)
+		count, err := tx.Count(ctx, "debug.summaries", visibleQuery(p.OwnerID))
 		if err != nil {
 			return err
 		}
-		protected, err := s.protected(ctx, tx.Store(), p.OwnerID, policy)
-		if err != nil {
-			return err
-		}
-		out.Runs, out.Bytes, out.ProtectedRuns = int(count), int(total), len(protected)
-		out.CapacityReached = total >= int64(policy.MaxBytes)
+		out.Runs = int(count)
 		return nil
 	})
 	return out, err
@@ -134,9 +109,10 @@ func (s *Service) SetRetention(ctx context.Context, p core.Principal, q Retentio
 		return Retention{}, err
 	}
 	v := s.resolveRetention(storedRetention{RetentionOverrides: q.Policy}).Retention
-	if v.RetentionDays < 1 || v.RetentionDays > 365 || v.MaxRuns < 1 || v.MaxRuns > 10000 || v.MaxBytes < 1<<20 || int64(v.MaxBytes) > 10<<30 || v.MinRuns < 1 || v.MinRuns > v.MaxRuns {
-		return Retention{}, core.Invalid("retention", "days 1–365, runs 1–10000, bytes 1 MiB–10 GiB, protected runs 1–max runs required")
+	if v.MaxRuns < 1 || v.MaxRuns > 10000 {
+		return Retention{}, core.Invalid("retention", "runs 1–10000 required")
 	}
+
 	raw, _ := json.Marshal(q)
 	hash := sha256.Sum256(raw)
 	type receipt struct {
@@ -186,7 +162,4 @@ func (s *Service) SetRetention(ctx context.Context, p core.Principal, q Retentio
 		return nil
 	})
 	return out, err
-}
-func visibleRun(r Run, policy Retention, protected map[core.ID]bool, now time.Time) bool {
-	return r.Trigger == "dream_due" || protected[r.ID] || !r.StartedAt.Before(now.AddDate(0, 0, -policy.RetentionDays))
 }

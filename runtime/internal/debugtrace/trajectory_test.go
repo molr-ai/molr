@@ -133,6 +133,7 @@ func TestTrajectoryRetentionLegacyPreviewAndIncompletePayload(t *testing.T) {
 		t.Fatalf("legacy hydration: %+v %v", page, err)
 	}
 	*now = now.AddDate(0, 0, 8)
+	s.options.MaxRuns = 1
 	newer := s.Begin(t.Context(), p.OwnerID, "assistant", "new-event", "new-execution", "schedule_due", 1, nil)
 	s.Record(newer, "model.complete", "succeeded", "op", map[string]string{"Text": strings.Repeat("x", 4096)})
 	s.Finish(newer, "failed", "capture unavailable")

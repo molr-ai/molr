@@ -76,9 +76,7 @@ type Pricing struct {
 
 type Debug struct {
 	Enabled         bool `json:"enabled"`
-	RetentionDays   int  `json:"retention_days"`
 	MaxRuns         int  `json:"max_runs"`
-	MaxBytes        int  `json:"max_bytes"`
 	MaxPayloadBytes int  `json:"max_payload_bytes"`
 }
 
@@ -120,7 +118,7 @@ func Defaults(dataDir string) Config {
 	return Config{DataDir: dataDir,
 		PortForward: PortForward{Enabled: true, ListenHost: "0.0.0.0"},
 		Sandbox:     sandboxDefaults(),
-		Debug:       Debug{RetentionDays: 7, MaxRuns: 1000, MaxBytes: 64 << 20, MaxPayloadBytes: 4 << 20},
+		Debug:       Debug{MaxRuns: 1000, MaxPayloadBytes: 4 << 20},
 		Network:     Network{AllowedPrivateIPs: []string{"127.0.0.1"}},
 		HTTP:        HTTP{Listen: "0.0.0.0:8080", TLSMode: DirectTLS, ReadHeaderTimeout: Duration(10 * time.Second), RequestTimeout: Duration(30 * time.Second), StreamWriteTimeout: Duration(10 * time.Second), MaxBodyBytes: 1 << 20, MaxSSEConnections: 20, RequestsPerMinute: 600},
 		Auth:        Auth{SessionIdle: Duration(24 * time.Hour), SessionLifetime: Duration(30 * 24 * time.Hour), VerificationLifetime: Duration(5 * time.Minute), LoginAttemptsPerMinute: 5},
@@ -183,7 +181,7 @@ func (c Config) Validate() error {
 	if err := c.Sandbox.validate(c.DataDir, c.OwnListenPort()); err != nil {
 		return err
 	}
-	if c.Debug.RetentionDays < 1 || c.Debug.RetentionDays > 30 || c.Debug.MaxRuns < 1 || c.Debug.MaxRuns > 1000 || c.Debug.MaxBytes < 1<<20 || c.Debug.MaxBytes > 512<<20 || c.Debug.MaxPayloadBytes < 1024 || c.Debug.MaxPayloadBytes > 8<<20 || c.Debug.MaxPayloadBytes > c.Debug.MaxBytes {
+	if c.Debug.MaxRuns < 1 || c.Debug.MaxRuns > 10000 || c.Debug.MaxPayloadBytes < 1024 || c.Debug.MaxPayloadBytes > 8<<20 {
 		return core.Invalid("debug", "invalid capture limits")
 	}
 	if c.Pricing.ExchangeRatesFile != "" && !filepath.IsAbs(c.Pricing.ExchangeRatesFile) {

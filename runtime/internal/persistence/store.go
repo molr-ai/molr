@@ -23,6 +23,8 @@ type Tx interface {
 	Put(context.Context, string, string, any) error
 	Delete(context.Context, string, string) error
 	Scan(context.Context, string) ([]Record, error)
+	// Ancestors returns at most limit records, starting at key and following a JSON parent field.
+	Ancestors(context.Context, string, string, string, int) ([]Record, error)
 	Query(context.Context, string, Query) ([]Record, error)
 	Count(context.Context, string, Query) (int64, error)
 	Sum(context.Context, string, Query, string) (int64, error)

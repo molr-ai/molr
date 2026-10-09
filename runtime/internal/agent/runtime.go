@@ -13,6 +13,7 @@ import (
 	"molr.ai/runtime/internal/agent/prompt"
 	"molr.ai/runtime/internal/agent/scheduler"
 	"molr.ai/runtime/internal/agent/tools"
+	"molr.ai/runtime/internal/contextstore"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/debugtrace"
 	"molr.ai/runtime/internal/event"
@@ -241,6 +242,12 @@ func (e *Engine) Lifecycle(ctx context.Context, p core.Principal, id core.ID, ac
 					return err
 				}
 			}
+			if err := releaseRetries(ctx, tx, p.OwnerID, id, ""); err != nil {
+				return err
+			}
+			if err := contextstore.ReleaseKind(ctx, tx, p.OwnerID, id, "dream_progress"); err != nil {
+				return err
+			}
 		case "restore":
 			if err != nil {
 				return err
@@ -332,9 +339,6 @@ func (e *Engine) Handle(ctx context.Context, t Turn) (outcome Outcome, resultErr
 			return core.NewError(core.FailedPrecondition, "assistant execution is stopped")
 		}
 		if err := e.rejectSuperseded(ctx, t); err != nil {
-			return err
-		}
-		if err := e.migrateProgress(ctx, t, status); err != nil {
 			return err
 		}
 		if err := e.startTurnTiming(ctx, t); err != nil {
@@ -488,7 +492,7 @@ func (e *Engine) Handle(ctx context.Context, t Turn) (outcome Outcome, resultErr
 			{Role: model.System, Text: prompt.Text("dream", nil)},
 			{Role: model.User, Text: prompt.Text("dream-evidence", evidence)},
 		}
-		previous, loadErr := persistence.Load[turnProgress](runCtx, e.store, progressBucket, persistence.Key(t.Principal.OwnerID, t.Event.ID))
+		previous, loadErr := loadDreamProgress(runCtx, e.store, t)
 		if loadErr == nil {
 			progress = previous
 		} else if !persistence.Missing(loadErr) {
@@ -857,7 +861,22 @@ resume:
 				return err
 			}
 		}
-		if err := tx.Put(ctx, "agent.handled", handledKey, out); err != nil {
+		// Idempotency receipts retain outcome metadata, never a historical copy
+		// of live context. The current checkpoint is the only recovery authority.
+		handled := out
+		handled.Checkpoint.Context = nil
+		if t.Event.Kind == event.DreamDue {
+			if err := releaseRetries(ctx, tx, t.Principal.OwnerID, t.Event.AssistantID, t.Event.ID); err != nil {
+				return err
+			}
+			if err := contextstore.Release(ctx, tx, storeReference(t.Principal.OwnerID, t.Event.AssistantID, "dream_progress", t.Event.ID)); err != nil {
+				return err
+			}
+			if err := tx.Delete(ctx, progressBucket, persistence.Key(t.Principal.OwnerID, t.Event.ID)); err != nil && !persistence.Missing(err) {
+				return err
+			}
+		}
+		if err := tx.Put(ctx, "agent.handled", handledKey, handled); err != nil {
 			return err
 		}
 		if e.options.Acknowledge != nil {

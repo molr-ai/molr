@@ -194,11 +194,7 @@ func (e *Engine) compactContext(ctx context.Context, t Turn, id core.ID, p *turn
 
 	archive := contextArchive{AssistantID: t.Event.AssistantID, EventID: t.Event.ID, Inputs: p.Inputs, Automatic: p.Automatic}
 	archiveID := stableID(string(t.Event.AssistantID), "context-archive", contextHash(archive))
-	if err = e.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		return tx.Put(ctx, "agent.context_archives", persistence.Key(t.Principal.OwnerID, archiveID), archive)
-	}); err != nil {
-		return false, err
-	}
+
 	e.options.Trace.Record(ctx, "context.compaction", "started", archiveID, map[string]any{"Tokens": tokens, "Limit": limit, "ArchiveID": archiveID, "Strategy": "full_context_append", "MaxOutputTokens": output})
 	defer func() {
 		if resultErr != nil || interrupted {

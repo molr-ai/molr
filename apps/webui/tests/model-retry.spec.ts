@@ -23,20 +23,34 @@ async function prepare(page: Page, name: string) {
  const assistant=await post(page,'/api/assistants',{Name:name,ModelID:models.find((m:any)=>m.ResourceID===resource.ID).ID,Budget:{Limit:{Currency:'USD',Micros:0},Period:'daily'}});
  await page.goto(`/#/workbench/${assistant.ID}`);await page.reload();
  await expect(page.getByRole('heading',{name:'Workbench',exact:true})).toBeVisible();
+ // Birth is recorded even before the workbench is shown. Keep its independent
+ // execution collapsed while inspecting the following user-triggered retries.
+ await expect.poll(async()=>{
+  const jobs=(await(await page.request.get(`/api/jobs?assistant_id=${assistant.ID}`)).json()).Items;
+  return jobs.some((job:any)=>job.Event.Kind==='born' && ['done','failed'].includes(job.State));
+ },{timeout:30000}).toBe(true);
+ const rows=(await(await page.request.get(`/api/debug/runs?assistant_id=${assistant.ID}`)).json()).Items;
+ const born=rows.filter((run:any)=>run.Trigger==='born').sort((a:any,b:any)=>a.Attempt-b.Attempt)[0];
+ assistant.birthRoot=born.ID;
+ assistant.birthModelCount=0;
+ for(const run of rows.filter((run:any)=>run.Trigger==='born')){const detail=await(await page.request.get(`/api/debug/runs/${run.ID}`)).json();assistant.birthModelCount+=detail.Steps.filter((step:any)=>step.Kind==='model.start').length;}
+ assistant.birthReplies=(await(await page.request.get(`/api/conversations/${assistant.ConversationID}/messages`)).json()).Items.filter((m:any)=>m.Sender==='assistant').length;
+ await page.locator(`[data-record-id="run:${born.ID}"] .trajectory-fold`).click();
  return assistant;
 }
 
 test('workbench retains each real retry request, response, timing and final outcome',async({page},info)=>{
+ test.setTimeout(120000);
  const assistant=await prepare(page,`Retry success ${info.project.name} ${Date.now()}`);
  await post(page,'/api/conversations/messages',{ConversationID:assistant.ConversationID,Content:{Kind:'text',Text:'Test two rate limits, then publish exactly once.'}});
  const timeline=page.getByRole('region',{name:'Execution timeline',exact:true});
  await expect(timeline.locator('.trajectory-run-status').filter({hasText:'Retrying'}).first()).toBeVisible();
- await expect.poll(async()=> (await (await page.request.get(`/api/jobs?assistant_id=${assistant.ID}`)).json()).Items[0]?.State,{timeout:25000}).toBe('done');
+ await expect.poll(async()=> (await (await page.request.get(`/api/jobs?assistant_id=${assistant.ID}`)).json()).Items.find((job:any)=>job.Event.Kind==='user_message')?.State,{timeout:25000}).toBe('done');
  const models=timeline.locator('.trajectory-record--model');
- await expect(timeline.locator('.trajectory-run')).toHaveCount(1);
- await expect(page.locator('.trajectory-time-bar--trigger')).toHaveCount(1);
- await expect(page.locator('.trajectory-time-bar--trigger')).toHaveAttribute('data-state', 'succeeded');
- await expect(timeline.locator('.trajectory-run-status')).not.toContainText('Retrying');
+ await expect(timeline.locator('.trajectory-run')).toHaveCount(2);
+ await expect(page.locator('.trajectory-time-bar--trigger')).toHaveCount(2);
+ await expect(page.locator('.trajectory-time-bar--trigger').last()).toHaveAttribute('data-state', 'succeeded');
+ await expect(timeline.locator('.trajectory-run-status').last()).not.toContainText('Retrying');
  await expect(models.nth(2)).toContainText('Retry 2/3');
  for(let index=0;index<2;index++){
   if (index > 0) await expect(models.nth(index)).toContainText(`Retry ${index}/3`);
@@ -70,30 +84,32 @@ test('workbench retains each real retry request, response, timing and final outc
  await inspector.getByRole('tab',{name:'Raw response',exact:true}).click();
  await expect(inspector).toContainText('tool_calls');
  await inspector.getByRole('button',{name:'Close',exact:true}).click();
- await timeline.locator('.trajectory-run-bar .trajectory-fold').click();
+ await timeline.locator('.trajectory-run-bar .trajectory-fold').last().click();
  await expect(models).toHaveCount(0);
- await page.locator('.trajectory-time-bar--model').nth(2).click();
+ await page.locator('.trajectory-time-bar--model').nth(assistant.birthModelCount + 2).click();
  await expect(models.nth(2)).toContainText('Retry 2/3');
  await expect(inspector.getByTestId('model-retry-details')).toContainText('3/4');
  await inspector.getByRole('button',{name:'Close',exact:true}).click();
- await expect(timeline.locator('.trajectory-run')).toHaveCount(1);
+ await expect(timeline.locator('.trajectory-run')).toHaveCount(2);
  const messages=await(await page.request.get(`/api/conversations/${assistant.ConversationID}/messages`)).json();
- expect(messages.Items.filter((m:any)=>m.Sender==='assistant')).toHaveLength(1);
+ expect(messages.Items.filter((m:any)=>m.Sender==='assistant')).toHaveLength(assistant.birthReplies + 1);
  await page.reload();
+ await page.locator(`[data-record-id="run:${assistant.birthRoot}"] .trajectory-fold`).click();
  await expect(timeline.locator('.trajectory-record--model').nth(2)).toContainText('Retry 2/3');
  if(process.env.MOLR_RETRY_CAPTURE) await page.screenshot({path:`${process.env.MOLR_RETRY_CAPTURE}/retry-${info.project.name}.png`,fullPage:true});
 });
 
 test('workbench shows all exhausted attempts and no successful tool effect',async({page},info)=>{
+ test.setTimeout(120000);
  const assistant=await prepare(page,`Retry exhausted ${info.project.name} ${Date.now()}`);
  await post(page,'/api/conversations/messages',{ConversationID:assistant.ConversationID,Content:{Kind:'text',Text:'Exhaust retry attempts.'}});
- await expect.poll(async()=> (await (await page.request.get(`/api/jobs?assistant_id=${assistant.ID}`)).json()).Items[0]?.State,{timeout:30000}).toBe('failed');
+ await expect.poll(async()=> (await (await page.request.get(`/api/jobs?assistant_id=${assistant.ID}`)).json()).Items.find((job:any)=>job.Event.Kind==='user_message')?.State,{timeout:30000}).toBe('failed');
  const timeline=page.getByRole('region',{name:'Execution timeline',exact:true});
  await expect(timeline.locator('.trajectory-record--model')).toHaveCount(4);
- await expect(timeline.locator('.trajectory-run')).toHaveCount(1);
- await expect(timeline.locator('.trajectory-run-status')).toContainText('Failed');
- await expect(page.locator('.trajectory-time-bar--trigger')).toHaveCount(1);
- await expect(page.locator('.trajectory-time-bar--trigger')).toHaveAttribute('data-state', 'failed');
+ await expect(timeline.locator('.trajectory-run')).toHaveCount(2);
+ await expect(timeline.locator('.trajectory-run-status').last()).toContainText('Failed');
+ await expect(page.locator('.trajectory-time-bar--trigger')).toHaveCount(2);
+ await expect(page.locator('.trajectory-time-bar--trigger').last()).toHaveAttribute('data-state', 'failed');
  await expect(timeline.locator('.trajectory-record--tool')).toHaveCount(0);
  await expect(timeline.locator('.trajectory-record--model').last()).toContainText('Retry 3/3');
  await expect(timeline.locator('.trajectory-record--model').last()).toContainText('retry or waiting limit');

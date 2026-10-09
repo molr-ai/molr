@@ -17,12 +17,12 @@ import (
 )
 
 type Options struct {
-	ResetContext                                               func(context.Context, core.Principal, core.ID, core.Mutation, uint64) error
-	Enabled                                                    bool
-	RetentionDays, MaxRuns, MaxBytes, MaxPayloadBytes, MinRuns int
-	Administrator                                              func(context.Context, core.Principal) error
-	Authorize                                                  func(context.Context, core.Principal) error
-	Now                                                        func() time.Time
+	ResetContext             func(context.Context, core.Principal, core.ID, core.Mutation, uint64) error
+	Enabled                  bool
+	MaxRuns, MaxPayloadBytes int
+	Administrator            func(context.Context, core.Principal) error
+	Authorize                func(context.Context, core.Principal) error
+	Now                      func() time.Time
 }
 type Step struct {
 	Summary     *ToolSummary `json:",omitempty"`
@@ -96,20 +96,11 @@ func New(store persistence.Store, options Options) *Service {
 	if options.Now == nil {
 		options.Now = time.Now
 	}
-	if options.RetentionDays == 0 {
-		options.RetentionDays = 7
-	}
 	if options.MaxRuns == 0 {
 		options.MaxRuns = 1000
 	}
-	if options.MaxBytes == 0 {
-		options.MaxBytes = 64 << 20
-	}
 	if options.MaxPayloadBytes == 0 {
 		options.MaxPayloadBytes = 4 << 20
-	}
-	if options.MinRuns == 0 {
-		options.MinRuns = min(10, options.MaxRuns)
 	}
 	return &Service{store, options}
 }
@@ -154,10 +145,8 @@ func (s *Service) Begin(ctx context.Context, owner, assistant, event, execution 
 		if err := saveRun(ctx, tx, run); err != nil {
 			return err
 		}
-		if trigger != "dream_due" {
-			if err := s.prune(ctx, tx, owner, run.ID, 0); err != nil {
-				return err
-			}
+		if err := s.prune(ctx, tx, owner, run.ID); err != nil {
+			return err
 		}
 		return s.bump(ctx, tx, owner)
 	})
@@ -229,19 +218,8 @@ func (s *Service) Record(ctx context.Context, kind, state string, operation core
 		if err != nil {
 			return err
 		}
-		if len(run.Steps) >= 1000 {
-			ref.incomplete.Store(true)
-			return nil
-		}
-		if run.Trigger != "dream_due" {
-			if err := s.prune(ctx, tx, ref.owner, ref.id, len(encoded)); err != nil {
-				if core.CodeOf(err) != core.FailedPrecondition {
-					return err
-				}
-				encoded = nil
-				status = "capacity_reached"
-				ref.incomplete.Store(true)
-			}
+		if err := s.prune(ctx, tx, ref.owner, ref.id); err != nil {
+			return err
 		}
 		sequence := len(run.Steps) + 1
 		step := Step{Sequence: sequence, Kind: kind, State: state, OperationID: operation, At: s.options.Now().UTC(), DataStatus: status}
@@ -282,7 +260,7 @@ func (s *Service) Record(ctx context.Context, kind, state string, operation core
 		run.Steps = append(run.Steps, step)
 		run.Bytes += len(encoded)
 		run.Incomplete = run.Incomplete || ref.incomplete.Load()
-		if err := tx.Put(ctx, "debug.payloads", payloadKey(ref.owner, ref.id, sequence), Payload{Status: status, Data: encoded}); err != nil {
+		if err := savePayload(ctx, tx, run, sequence, Payload{Status: status, Data: encoded}); err != nil {
 			return err
 		}
 		if err := saveRun(ctx, tx, run); err != nil {
@@ -316,10 +294,8 @@ func (s *Service) Finish(ctx context.Context, state, reason string) {
 		if err := saveRun(ctx, tx, run); err != nil {
 			return err
 		}
-		if run.Trigger != "dream_due" {
-			if err := s.prune(ctx, tx, ref.owner, "", 0); err != nil {
-				return err
-			}
+		if err := s.prune(ctx, tx, ref.owner, ""); err != nil {
+			return err
 		}
 		return s.bump(ctx, tx, ref.owner)
 	})
@@ -333,15 +309,7 @@ func (s *Service) Runs(ctx context.Context, p core.Principal, q Query) (out core
 		return out, err
 	}
 	err = s.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		policy, err := s.retention(ctx, tx.Store())
-		if err != nil {
-			return err
-		}
-		protected, err := s.protected(ctx, tx.Store(), p.OwnerID, policy)
-		if err != nil {
-			return err
-		}
-		query := visibleQuery(p.OwnerID, protected, persistence.TimeKey(s.options.Now().AddDate(0, 0, -policy.RetentionDays)))
+		query := visibleQuery(p.OwnerID)
 		if q.AssistantID != "" {
 			query.Where = append(query.Where, persistence.Eq("AssistantID", q.AssistantID))
 		}
@@ -352,7 +320,7 @@ func (s *Service) Runs(ctx context.Context, p core.Principal, q Query) (out core
 		query.Limit = page.Limit + 1
 		if page.Cursor != "" {
 			anchor, err := persistence.Load[Run](ctx, tx.Store(), "debug.summaries", persistence.Key(p.OwnerID, core.ID(page.Cursor)))
-			if err != nil || q.AssistantID != "" && anchor.AssistantID != q.AssistantID || !visibleRun(anchor, policy, protected, s.options.Now()) {
+			if err != nil || q.AssistantID != "" && anchor.AssistantID != q.AssistantID {
 				return core.Invalid("cursor", "expired run cursor")
 			}
 			query.After = []any{persistence.TimeKey(anchor.StartedAt), string(anchor.ID), persistence.Key(p.OwnerID, anchor.ID)}
@@ -378,23 +346,6 @@ func (s *Service) Get(ctx context.Context, p core.Principal, id core.ID) (Run, e
 	if err != nil {
 		return Run{}, err
 	}
-	policy, err := s.retention(ctx, s.store)
-	if err != nil {
-		return Run{}, err
-	}
-	if run.OwnerID != p.OwnerID {
-		return Run{}, core.NewError(core.NotFound, "run unavailable")
-	}
-	if run.Trigger == "dream_due" || run.State == "running" || !run.StartedAt.Before(s.options.Now().AddDate(0, 0, -policy.RetentionDays)) {
-		return run, nil
-	}
-	protected, err := s.protected(ctx, s.store, p.OwnerID, policy)
-	if err != nil {
-		return Run{}, err
-	}
-	if !protected[run.ID] {
-		return Run{}, core.NewError(core.NotFound, "run unavailable")
-	}
 	return run, nil
 }
 func (s *Service) Detail(ctx context.Context, p core.Principal, id core.ID, sequence int) (Payload, error) {
@@ -407,7 +358,9 @@ func (s *Service) Detail(ctx context.Context, p core.Principal, id core.ID, sequ
 	}
 	var payload Payload
 	err = s.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		if err := tx.Get(ctx, "debug.payloads", payloadKey(p.OwnerID, id, sequence), &payload); err != nil {
+		var err error
+		payload, err = loadPayload(ctx, tx, run, sequence)
+		if err != nil {
 			return err
 		}
 		if sequence != 1 || (payload.Status != "captured" && payload.Status != "redacted") {
@@ -437,7 +390,12 @@ func (s *Service) Checkpoint(ctx context.Context, p core.Principal, id core.ID) 
 	if _, err := persistence.Load[json.RawMessage](ctx, s.store, "business.assistants", persistence.Key(p.OwnerID, id)); err != nil {
 		return Payload{}, err
 	}
-	raw, err := persistence.Load[json.RawMessage](ctx, s.store, "agent.checkpoints", persistence.Key(p.OwnerID, id))
+	var raw json.RawMessage
+	err := s.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		var err error
+		raw, err = loadCheckpoint(ctx, tx, p.OwnerID, id)
+		return err
+	})
 	if persistence.Missing(err) {
 		raw, err = json.Marshal(map[string]any{"AssistantID": id, "Sequence": 0, "Context": map[string]any{"Inputs": []any{}}})
 	}

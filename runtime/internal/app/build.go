@@ -31,6 +31,7 @@ import (
 	"molr.ai/runtime/internal/business/task"
 	"molr.ai/runtime/internal/business/todo"
 	"molr.ai/runtime/internal/config"
+	"molr.ai/runtime/internal/contextstore"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/credential"
 	"molr.ai/runtime/internal/debugtrace"
@@ -170,7 +171,7 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 			return core.NewError(core.FailedPrecondition, "context reset unavailable")
 		}
 		return resetContext(ctx, p, id, m, sequence)
-	}, Administrator: identity.RequireAdministrator, Enabled: cfg.Debug.Enabled, RetentionDays: cfg.Debug.RetentionDays, MaxRuns: cfg.Debug.MaxRuns, MaxBytes: cfg.Debug.MaxBytes, MaxPayloadBytes: cfg.Debug.MaxPayloadBytes, Authorize: func(ctx context.Context, p core.Principal) error { return identity.CheckScope(ctx, p, "debug.read") }})
+	}, Administrator: identity.RequireAdministrator, Enabled: cfg.Debug.Enabled, MaxRuns: cfg.Debug.MaxRuns, MaxPayloadBytes: cfg.Debug.MaxPayloadBytes, Authorize: func(ctx context.Context, p core.Principal) error { return identity.CheckScope(ctx, p, "debug.read") }})
 	if traceErr := b.Trace.Recover(ctx); traceErr != nil {
 		log.Printf("debug trace recovery unavailable: %s", core.CodeOf(traceErr))
 	}
@@ -896,6 +897,7 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		}
 		return pluginService.RecoverHTTP(ctx)
 	}
+	b.Application.(*Runtime).collectContexts = func(ctx context.Context) { contextstore.RunGC(ctx, store) }
 	b.Application.(*Runtime).runChannels = channels.Run
 	b.Application.(*Runtime).startShellTasks = b.shellTasks.start
 	b.Application.(*Runtime).stopShellTasks = b.shellTasks.close

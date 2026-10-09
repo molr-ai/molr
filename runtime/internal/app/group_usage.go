@@ -6,6 +6,7 @@ import (
 
 	"molr.ai/runtime/internal/agent/tools"
 	"molr.ai/runtime/internal/auth"
+	"molr.ai/runtime/internal/contextstore"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/policy"
@@ -97,11 +98,17 @@ func userUsage(ctx context.Context, store persistence.Store, u auth.UserInfo) (u
 	out.AttachmentBytes, err = quota.AttachmentBytes(ctx, store, u.ID)
 	return out, err
 }
-func adminUsage(ctx context.Context, store persistence.Store, identity *auth.Manager, p core.Principal) ([]userUsageSummary, error) {
+
+type adminUsageView struct {
+	Users          []userUsageSummary
+	ContextStorage contextstore.Usage
+}
+
+func adminUsage(ctx context.Context, store persistence.Store, identity *auth.Manager, p core.Principal) (adminUsageView, error) {
 	if err := identity.RequireAdministrator(ctx, p); err != nil {
-		return nil, err
+		return adminUsageView{}, err
 	}
-	out := []userUsageSummary{}
+	out := adminUsageView{Users: []userUsageSummary{}}
 	err := store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		page := core.PageRequest{Limit: 200}
 		for {
@@ -114,14 +121,16 @@ func adminUsage(ctx context.Context, store persistence.Store, identity *auth.Man
 				if err != nil {
 					return err
 				}
-				out = append(out, v)
+				out.Users = append(out.Users, v)
 			}
 			if users.NextCursor == "" {
 				break
 			}
 			page.Cursor = users.NextCursor
 		}
-		return nil
+		var err error
+		out.ContextStorage, err = contextstore.GlobalUsage(ctx, tx)
+		return err
 	})
 	return out, err
 }

@@ -205,6 +205,9 @@ func (s *Store) createIndexes() error {
 	}{
 		{"sandbox.shell_tasks", []string{"OwnerID", "AssistantID", "StartedAtKey", "key"}},
 		{"sandbox.shell_tasks", []string{"OwnerID", "AssistantID", "State", "StartedAtKey", "key"}},
+		{"context.counts", []string{"Count", "key"}},
+		{"context.references", []string{"OwnerID", "AssistantID", "Kind", "key"}},
+		{"agent.model_retries", []string{"OwnerID", "AssistantID", "EventID", "key"}},
 	}...)
 	for i, index := range indexes {
 		parts := []string{"bucket"}
