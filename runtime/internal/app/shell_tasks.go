@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -15,6 +14,7 @@ import (
 	"molr.ai/runtime/internal/config"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/event"
+	"molr.ai/runtime/internal/im/realtime"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/platform"
 	sm "molr.ai/runtime/internal/sandboxmanager"
@@ -90,7 +90,18 @@ func newShellTasks(store persistence.Store, router *sandboxRouter) *shellTasks {
 }
 func (s *shellTasks) save(ctx context.Context, t shellTask) error {
 	return s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		return tx.Put(ctx, shellTasksBucket, persistence.Key(t.OwnerID, t.ID), t)
+		var previous shellTask
+		err := tx.Get(ctx, shellTasksBucket, persistence.Key(t.OwnerID, t.ID), &previous)
+		if err != nil && !persistence.Missing(err) {
+			return err
+		}
+		if err := tx.Put(ctx, shellTasksBucket, persistence.Key(t.OwnerID, t.ID), t); err != nil {
+			return err
+		}
+		if previous.State == t.State {
+			return nil
+		}
+		return realtime.NewStore(s.store).Append(ctx, realtime.Visible{ID: randomOperation(), OwnerID: t.OwnerID, Topic: "shell.tasks", Object: core.Object{Kind: "assistant", ID: t.AssistantID}, CreatedAt: time.Now().UTC()})
 	})
 }
 func (s *shellTasks) execute(ctx context.Context, e core.Execution, req tools.ShellRequest) (json.RawMessage, error) {
@@ -352,7 +363,7 @@ func (s *shellTasks) finish(ctx context.Context, t shellTask) error {
 			}
 			t.CompletionSent = true
 		}
-		return tx.Put(ctx, shellTasksBucket, persistence.Key(t.OwnerID, t.ID), t)
+		return s.save(ctx, t)
 	})
 }
 func (s *shellTasks) armLocked(t shellTask) {
@@ -472,7 +483,20 @@ func (s *shellTasks) manage(ctx context.Context, p core.Principal, id core.ID, q
 		return nil, err
 	}
 	if q.Action == "list" {
-		rows, err := persistence.Select[shellTask](ctx, s.store, shellTasksBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("AssistantID", id)}})
+		scope := []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("AssistantID", id)}
+		var rows []shellTask
+		err := s.store.Read(ctx, func(ctx context.Context, _ persistence.Tx) error {
+			running, err := persistence.Select[shellTask](ctx, s.store, shellTasksBucket, persistence.Query{Where: append(append([]persistence.Filter{}, scope...), persistence.Eq("State", "running")), OrderBy: "StartedAtKey", Descending: true})
+			if err != nil {
+				return err
+			}
+			history, err := persistence.Select[shellTask](ctx, s.store, shellTasksBucket, persistence.Query{Where: append(scope, persistence.Filter{Field: "State", Op: "!=", Value: "running"}), OrderBy: "StartedAtKey", Descending: true, Limit: 50})
+			if err != nil {
+				return err
+			}
+			rows = append(running, history...)
+			return nil
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -490,21 +514,7 @@ func (s *shellTasks) manage(ctx context.Context, p core.Principal, id core.ID, q
 				items = append(items, t)
 			}
 		}
-		sort.Slice(items, func(i, j int) bool {
-			if (items[i].State == "running") != (items[j].State == "running") {
-				return items[i].State == "running"
-			}
-			return items[i].StartedAt.After(items[j].StartedAt)
-		})
-		running := 0
-		for _, item := range items {
-			if item.State == "running" {
-				running++
-			}
-		}
-		if len(items) > running+50 {
-			items = items[:running+50]
-		}
+
 		return json.Marshal(map[string]any{"Items": items, "Limit": shellTaskLimit, "LimitAppliesTo": "isolated"})
 	}
 	if q.Action == "stop_all" {
@@ -563,6 +573,8 @@ func (s *shellTasks) manage(ctx context.Context, p core.Principal, id core.ID, q
 		var fields map[string]json.RawMessage
 		_ = json.Unmarshal(raw, &fields)
 		fields["OutputComplete"], _ = json.Marshal(result.OutputComplete)
+		// Retained local output is stable even when capture was truncated by quota.
+		fields["Finished"], _ = json.Marshal(captureErr == nil)
 		if captureErr != nil {
 			fields["CaptureReason"], _ = json.Marshal(string(core.CodeOf(captureErr)))
 		}

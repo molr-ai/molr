@@ -33,10 +33,16 @@ func (s *HTTPServer) assistantActivity(r *http.Request) (any, error) {
 		return nil, err
 	}
 	ids := make([]core.ID, 0, len(assistants.Items))
+	conversationIDs := make([]core.ID, 0, len(assistants.Items))
 	for _, a := range assistants.Items {
 		ids = append(ids, a.ID)
+		conversationIDs = append(conversationIDs, a.ConversationID)
 	}
 	activities, err := s.services.Agent.Activities(ctx, p, ids)
+	if err != nil {
+		return nil, err
+	}
+	latest, err := s.services.Conversations.LatestMessages(ctx, p, conversationIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -47,12 +53,8 @@ func (s *HTTPServer) assistantActivity(r *http.Request) (any, error) {
 	result := core.Page[assistantActivity]{Items: make([]assistantActivity, 0, len(ids)), NextCursor: assistants.NextCursor}
 	for _, a := range assistants.Items {
 		row := assistantActivity{AssistantID: a.ID, ConversationID: a.ConversationID, Dreaming: dreaming[a.ID]}
-		messages, err := s.services.Conversations.Messages(ctx, p, conversation.MessageQuery{ConversationID: a.ConversationID, Descending: true, Page: core.PageRequest{Limit: 1}})
-		if err != nil {
-			return nil, err
-		}
-		if len(messages.Items) > 0 {
-			content := messages.Items[0].Content
+		if message, ok := latest[a.ConversationID]; ok {
+			content := message.Content
 			text := content.Text
 			if content.Kind == conversation.Card && content.Card != nil {
 				text = content.Card.Title

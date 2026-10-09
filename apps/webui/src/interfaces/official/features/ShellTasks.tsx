@@ -1,10 +1,11 @@
 import { DismissibleAlert } from '../components/DismissibleAlert';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Badge, Button, Drawer, IconButton, SegmentedControl, useBreakpoint } from '@molr/ui';
 import { ArrowLeft, ChevronRight, Clock3, ListTodo, Terminal, ExternalLink, Copy } from 'lucide-react';
 import { api } from '../../../api/client';
 import type { ShellTask, ShellTaskAction, ShellTaskOutput } from '../../../api/types';
-import { useCopy } from '../../../state';
+import { poll } from '../../../polling';
+import { useCopy, useQuery } from '../../../state';
 import { Loading } from '../components/common';
 import './shell-tasks.css';
 
@@ -13,21 +14,9 @@ import './shell-tasks.css';
 const plain = (text: string) => text.replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, '').replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '').replace(/\r\n/g, '\n');
 function useShellTaskList(assistantID: string | null, interval: number) {
   const path = assistantID ? `/api/assistants/${assistantID}/shell-tasks` : null;
-  const [items, setItems] = useState<ShellTask[]>([]), [error, setError] = useState(false), [loading, setLoading] = useState(!!assistantID);
-  async function refresh() {
-    if (!path) return;
-    const data = await api.get<{ Items: ShellTask[] }>(path);
-    setItems(data.Items); setError(false);
-  }
-  useEffect(() => {
-    setItems([]); setError(false); setLoading(!!path);
-    if (!path) return;
-    let active = true;
-    const load = async () => { try { const data = await api.get<{ Items: ShellTask[] }>(path); if (active) { setItems(data.Items); setError(false); } } catch { if (active) setError(true); } finally { if (active) setLoading(false); } };
-    void load(); const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void load(); }, interval);
-    return () => { active = false; window.clearInterval(timer); };
-  }, [path, interval]);
-  return { items, error, loading, refresh };
+  const cadence = useCallback((data?: { Items: ShellTask[] }) => data?.Items.some(task => task.State === 'running') ? interval : 30_000, [interval]);
+  const query = useQuery<{ Items: ShellTask[] }>(path, false, cadence);
+  return { items: query.data?.Items ?? [], error: !!query.error, loading: query.loading && !query.data, refresh: query.reload };
 }
 
 export function ShellTasksButton({ assistantID, disabled, onOpen }: { assistantID: string; disabled?: boolean; onOpen: () => void }) {
@@ -55,7 +44,7 @@ export function ShellTasks({ assistantID, docked, onClose }: { assistantID: stri
   const [selected, setSelected] = useState('');
   const [error, setError] = useState(false), [busy, setBusy] = useState(false), [output, setOutput] = useState(''), [input, setInput] = useState('');
   const [stream, setStream] = useState<'stdout' | 'stderr'>('stdout');
-  const cursor = useRef(0), generation = useRef(0), contentRef = useRef<HTMLDivElement>(null);
+  const cursor = useRef(0), contentRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       const content = contentRef.current, body = content?.closest('.ui-dialog__body');
@@ -66,20 +55,23 @@ export function ShellTasks({ assistantID, docked, onClose }: { assistantID: stri
   }, [selected]);
   const path = `/api/assistants/${assistantID}/shell-tasks`;
   useEffect(() => { setSelected(''); }, [assistantID]);
+  const selectedTask = items.find(item => item.ID === selected);
+  const taskState = useRef(selectedTask); taskState.current = selectedTask;
   useEffect(() => {
-    cursor.current = 0; setOutput(''); setInput(''); setError(false); const current = ++generation.current;
+    cursor.current = 0; setOutput(''); setInput(''); setError(false);
     if (!selected) return;
-    let pending = false;
-    const read = async () => {
-      if (pending) return; pending = true;
+    const loop = poll(async signal => {
       try {
-        const data = await api.post<ShellTaskOutput>(path, { action: 'read', task_id: selected, cursor: cursor.current, stream });
-        if (generation.current === current) { setError(false); cursor.current = data.NextCursor; setOutput(previous => (previous + plain(data.Output)).slice(-65536)); }
-      } catch { if (generation.current === current) setError(true); }
-      finally { pending = false; }
-    };
-    void read(); const timer = window.setInterval(() => void read(), 1500);
-    return () => { generation.current++; window.clearInterval(timer); };
+        const data = await api.read<ShellTaskOutput>(path, { action: 'read', task_id: selected, cursor: cursor.current, stream }, signal);
+        if (signal.aborted) return false;
+        setError(false); cursor.current = data.NextCursor;
+        setOutput(previous => (previous + plain(data.Output)).slice(-65536));
+        const finished = taskState.current && taskState.current.State !== 'running';
+        if (finished && data.Finished === true && !data.Output) { loop.stop(); return false; }
+        return finished && !data.Finished && !data.Output ? 30_000 : 1500;
+      } catch (error) { if (!signal.aborted) setError(true); throw error; }
+    });
+    return () => loop.stop();
   }, [path, selected, stream]);
   async function act(request: ShellTaskAction) {
     setBusy(true); setError(false);

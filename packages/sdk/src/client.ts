@@ -26,12 +26,12 @@ export function createClient(transport?: RuntimeTransport) {
   let cooldown: { identity: string; error: APIError } | undefined;
   function clearClientState() { attempts.clear(); cooldown = undefined; }
 
-  async function request<T>(path: string, init: RequestInit = {}, csrf?: string, binary = false): Promise<T> {
+  async function request<T>(path: string, init: RequestInit = {}, csrf?: string, binary = false, readOnly = false): Promise<T> {
     if (!/^\/api\/[A-Za-z0-9/_-]+(?:\?[^#]*)?$/.test(path) || path.includes('..') || path.includes('\\')) throw new APIError('invalid_argument');
     if (transport) {
       try {
         const result = await transport<T>(path, init, binary);
-        if (init.method && init.method !== 'GET') sessionEvents.dispatchEvent(new CustomEvent('mutation', { detail: path }));
+        if (!readOnly && init.method && init.method !== 'GET') sessionEvents.dispatchEvent(new CustomEvent('mutation', { detail: path }));
         return result;
       } catch (error) {
         if (error instanceof APIError && error.status === 401) sessionEvents.dispatchEvent(new Event('expired'));
@@ -42,7 +42,7 @@ export function createClient(transport?: RuntimeTransport) {
     if (init.body && typeof init.body === 'string') headers.set('Content-Type', 'application/json');
     if (init.method && init.method !== 'GET') headers.set('X-CSRF-Token', csrf ?? csrfToken());
     const requestIdentity = csrfToken();
-    if ((!init.method || init.method === 'GET') && !path.startsWith('/api/auth/') && cooldown?.identity === requestIdentity && cooldown.error.retryAt > Date.now()) throw cooldown.error;
+    if ((readOnly || !init.method || init.method === 'GET') && !path.startsWith('/api/auth/') && cooldown?.identity === requestIdentity && cooldown.error.retryAt > Date.now()) throw cooldown.error;
     let response: Response;
     try { response = await fetch(path, { ...init, headers, credentials: 'same-origin', cache: 'no-store' }); }
     catch (error) { if (error instanceof DOMException && error.name === 'AbortError') throw error; throw new APIError('unavailable'); }
@@ -57,13 +57,14 @@ export function createClient(transport?: RuntimeTransport) {
       if (response.status === 429 && !path.startsWith('/api/auth/')) cooldown = { identity: requestIdentity, error };
       throw error;
     }
-    if (init.method && init.method !== 'GET') sessionEvents.dispatchEvent(new CustomEvent('mutation', { detail: path }));
+    if (!readOnly && init.method && init.method !== 'GET') sessionEvents.dispatchEvent(new CustomEvent('mutation', { detail: path }));
     return data as T;
   }
   const api = {
     download: (path: string, signal?: AbortSignal) => request<Blob>(path, { signal }, undefined, true),
     get: <T,>(path: string, signal?: AbortSignal) => request<T>(path, { signal }),
     post: <T,>(path: string, body: unknown = {}, csrf?: string) => request<T>(path, { method: 'POST', body: JSON.stringify(body) }, csrf),
+    read: <T,>(path: string, body: unknown, signal?: AbortSignal) => request<T>(path, { method: 'POST', body: JSON.stringify(body), signal }, undefined, false, true),
     remove: (path: string) => request<null>(path, { method: 'DELETE' }),
     async mutate<T>(path: string, body: object, version: number | string = 0): Promise<T> {
       const sensitive = path.startsWith('/api/credentials') || 'verification' in body;

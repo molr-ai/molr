@@ -169,6 +169,7 @@ type Client interface {
 	List(context.Context, core.Principal, core.PageRequest) (core.Page[Conversation], error)
 	Get(context.Context, core.Principal, core.ID) (Conversation, error)
 	Messages(context.Context, core.Principal, MessageQuery) (core.Page[Message], error)
+	LatestMessages(context.Context, core.Principal, []core.ID) (map[core.ID]Message, error)
 	SendUser(context.Context, core.Principal, SendUserRequest) (Message, error)
 	MarkRead(context.Context, core.Principal, ReadRequest) error
 	SetFeedback(context.Context, core.Principal, FeedbackRequest) error

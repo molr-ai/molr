@@ -2,6 +2,7 @@ package conversation
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -442,5 +443,59 @@ func TestReadUserMessagesTracksDeliveryAndEnforcesOwnership(t *testing.T) {
 	testkit.RequireNoError(t, f.Service.ReadUserMessages(ctx, f.Execution, []core.ID{m.ID}))
 	if f.VisibleCount() != before {
 		t.Fatal("duplicate read notification")
+	}
+}
+
+func TestLatestMessagesBatchesNewestAndEnforcesAccess(t *testing.T) {
+	f := testkit.RequireFactory(t, "im/conversation", newContractFixture)
+	ctx := t.Context()
+	for _, text := range []string{"old", "new"} {
+		_, err := f.Service.SendUser(ctx, f.Owner, sendRequest(f.Chat.ID, text, text))
+		testkit.RequireNoError(t, err)
+	}
+	latest, err := f.Service.LatestMessages(ctx, f.Owner, []core.ID{f.Chat.ID, "second", f.Chat.ID})
+	testkit.RequireNoError(t, err)
+	if len(latest) != 1 || latest[f.Chat.ID].Content.Text != "new" || latest[f.Chat.ID].Sequence != 2 {
+		t.Fatal(latest)
+	}
+	_, err = f.Service.LatestMessages(ctx, f.Other, []core.ID{f.Chat.ID})
+	if err == nil {
+		t.Fatal("foreign conversation admitted")
+	}
+	_, err = f.Service.LatestMessages(ctx, f.Owner, []core.ID{f.Chat.ID, "missing"})
+	if err == nil {
+		t.Fatal("missing conversation admitted")
+	}
+	_, err = f.Service.LatestMessages(ctx, f.Owner, make([]core.ID, 201))
+	if err == nil {
+		t.Fatal("unbounded request admitted")
+	}
+	empty, err := f.Service.LatestMessages(ctx, f.Owner, nil)
+	testkit.RequireNoError(t, err)
+	if len(empty) != 0 {
+		t.Fatal(empty)
+	}
+}
+
+func TestLatestMessagesFullPage(t *testing.T) {
+	f := testkit.RequireFactory(t, "im/conversation", newContractFixture)
+	ids := make([]core.ID, 200)
+	for i := range ids {
+		ids[i] = core.ID(fmt.Sprintf("batch-%03d", i))
+		testkit.RequireNoError(t, f.Repository.Insert(t.Context(), Conversation{ID: ids[i], OwnerID: f.Owner.OwnerID, PeerID: core.ID("peer-" + string(ids[i])), Version: 1}))
+		for j := 0; j < 2; j++ {
+			_, err := f.Repository.Append(t.Context(), f.Owner.OwnerID, Message{ID: core.ID(fmt.Sprintf("%s-message-%d", ids[i], j)), ConversationID: ids[i], Sender: User, SenderID: f.Owner.OwnerID, Content: Content{Kind: Text, Text: fmt.Sprint(j)}, CreatedAt: time.Now()})
+			testkit.RequireNoError(t, err)
+		}
+	}
+	latest, err := f.Service.LatestMessages(t.Context(), f.Owner, ids)
+	testkit.RequireNoError(t, err)
+	if len(latest) != 200 {
+		t.Fatal(len(latest))
+	}
+	for _, id := range ids {
+		if latest[id].Sequence != 2 || latest[id].Content.Text != "1" {
+			t.Fatal(id, latest[id])
+		}
 	}
 }

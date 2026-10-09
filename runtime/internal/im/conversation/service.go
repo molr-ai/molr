@@ -100,6 +100,74 @@ func (s *service) Messages(ctx context.Context, p core.Principal, q MessageQuery
 	})
 	return
 }
+
+// LatestMessages reads a bounded authorized conversation page and its newest
+// messages in two batch queries, without loading history or feedback.
+func (s *service) LatestMessages(ctx context.Context, p core.Principal, ids []core.ID) (map[core.ID]Message, error) {
+	if err := p.RequireOwner(); err != nil {
+		return nil, err
+	}
+	if len(ids) > 200 {
+		return nil, core.Invalid("conversation_ids", "at most 200 conversations required")
+	}
+	result := make(map[core.ID]Message, len(ids))
+	if len(ids) == 0 {
+		return result, nil
+	}
+	keys := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if err := id.Validate(); err != nil {
+			return nil, err
+		}
+		if err := s.authorize(ctx, p, policy.Read, id); err != nil {
+			return nil, err
+		}
+		keys = append(keys, persistence.Key(p.OwnerID, id))
+	}
+	err := s.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		rows, err := tx.Query(ctx, conversationsBucket, persistence.Query{Where: []persistence.Filter{{Field: "key", Op: "in", Value: keys}}, Limit: len(ids)})
+		if err != nil {
+			return err
+		}
+		found := map[core.ID]bool{}
+		messageKeys := []string{}
+		for _, row := range rows {
+			c, err := persistence.Decode[Conversation](row)
+			if err != nil {
+				return err
+			}
+			if p.Kind == core.ActorAssistant && p.SubjectID != c.PeerID {
+				return core.NewError(core.Forbidden, "assistant is not conversation participant")
+			}
+			found[c.ID] = true
+			if c.LastMessageID != "" {
+				messageKeys = append(messageKeys, persistence.Key(p.OwnerID, c.LastMessageID))
+			}
+		}
+		for _, id := range ids {
+			if !found[id] {
+				return core.NewError(core.NotFound, "conversation not found")
+			}
+		}
+		if len(messageKeys) == 0 {
+			return nil
+		}
+		messages, err := tx.Query(ctx, messagesBucket, persistence.Query{Where: []persistence.Filter{{Field: "key", Op: "in", Value: messageKeys}, {Field: "ConversationID", Op: "in", Value: ids}}, Fields: []string{"ID", "ConversationID", "Content", "Sequence"}, Unordered: true, Limit: len(messageKeys)})
+		if err != nil {
+			return err
+		}
+		for _, row := range messages {
+			m, err := persistence.Decode[Message](row)
+			if err != nil {
+				return err
+			}
+			result[m.ConversationID] = m
+		}
+		return nil
+	})
+	return result, err
+}
+
 func randomID() (core.ID, error) {
 	data := make([]byte, 16)
 	if _, err := rand.Read(data); err != nil {

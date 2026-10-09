@@ -102,7 +102,9 @@ function Dreams({ assistantID }: { assistantID: string }) {
   const config = useQuery<DreamConfig>(`/api/dreams/config?assistant_id=${assistantID}`), runs = useQuery<DreamRun[]>(`/api/dreams?assistant_id=${assistantID}`);
   const { invalidateTopics } = useData();
   const [editing, setEditing] = useState(false), [result, setResult] = useState(''), [undo, setUndo] = useState<DreamRun | null>(null);
-  useEffect(() => { const timer = setInterval(() => { invalidateTopics(['dreams', 'memories']); }, 5000); return () => clearInterval(timer); }, [invalidateTopics]);
+  useEffect(() => {
+    if (runs.data) invalidateTopics(['memories']);
+  }, [runs.data, invalidateTopics]);
   return <section className="dream-panel"><div className="settings-row-item-head"><Moon size={18} /><h3>{c.zh ? '做梦' : 'Dreaming'}</h3></div>
     {config.data && <p className="muted">{config.data.Enabled ? `${c.zh ? '每天' : 'Daily at'} ${String(config.data.Hour).padStart(2, '0')}:${String(config.data.Minute).padStart(2, '0')} · ${config.data.Timezone}` : c.zh ? '自动整理已关闭' : 'Automatic dreams are off'} · {c.zh ? '回顾前一个完整自然日并维护长期记忆；没有新聊天时也可沉淀已有主题。费用计入助理预算。' : 'Reviews the previous complete day and maintains long-term memory, including quiet days with existing topics. Uses the assistant budget.'}</p>}
     <div className="memory-actions"><Button size="sm" variant="secondary" disabled={!config.data} onClick={() => setEditing(true)}>{c.zh ? '整理设置' : 'Dream settings'}</Button><Button size="sm" loading={action.busy} onClick={() => void action.run(async () => { const run = await api.mutate<DreamRun>('/api/dreams/run', { AssistantID: assistantID }); setResult(c.runs(run.State)); }, undefined, false)}>{c.zh ? '立即整理 / 重试' : 'Consolidate / retry'}</Button></div>{result && <p role="status">{result}</p>}

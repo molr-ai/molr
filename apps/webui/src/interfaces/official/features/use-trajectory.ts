@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { poll } from '../../../polling';
 import { api, APIError } from '../../../api/client';
 import type { DebugCleanupEvent, DebugRun, TrajectoryEntry, TrajectoryPage } from '../../../api/types';
 import { useData } from '../../../state';
@@ -9,11 +10,11 @@ const initial = (): Snapshot => ({ entries: [], runs: [], older: '', head: '', r
 // One request queue owns the loaded window. Live backfill cannot race an older
 // page, and a reconnect drains every new page rather than replacing the tail.
 export function useTrajectory(assistantID: string) {
-  const { version } = useData(); const revision = `${version('debug')}:${version('all')}`;
+  const { version } = useData(); const revision = version('debug');
   const [snapshot, setSnapshot] = useState<Snapshot>(initial);
   const refresh = useRef<() => void>(() => {}), older = useRef<() => void>(() => {});
   useEffect(() => {
-    const controller = new AbortController(); let current = initial(); let queue = Promise.resolve(); let refreshQueued = false, olderQueued = false;
+    const controller = new AbortController(); let current = initial(); let queue = Promise.resolve(); let olderQueued = false;
     setSnapshot(current);
     const commit = (patch: Partial<Snapshot>) => { if (controller.signal.aborted) return; current = { ...current, ...patch }; setSnapshot(current); };
     const request = (cursor = '', after = '') => {
@@ -23,16 +24,17 @@ export function useTrajectory(assistantID: string) {
     };
     const receive = (page: TrajectoryPage) => commit({ entries: mergeEntries(current.entries, page.Items, page.Runs), runs: page.Runs, resetAt: page.ContextResetAt, cleanup: page.Cleanup, error: null });
     const enqueue = (job: () => Promise<void>) => {
-      queue = queue.then(async () => { if (controller.signal.aborted) return; try { await job(); } catch (error) {
+      const result = queue.then(async () => { if (controller.signal.aborted) return; try { await job(); } catch (error) {
         if (controller.signal.aborted) return;
         const denied = error instanceof APIError && [401, 403].includes(error.status);
         commit({ ...(denied ? initial() : {}), error, loading: false, loadingOlder: false });
+        throw error;
       } });
+      queue = result.catch(() => {});
+      return result;
     };
-    refresh.current = () => {
-      if (refreshQueued) return; refreshQueued = true;
-      enqueue(async () => {
-        refreshQueued = false;
+    const loop = poll(async () => {
+      await enqueue(async () => {
         if (!current.head) {
           const page = await request(); receive(page); commit({ older: page.NextCursor, head: page.HeadCursor, loading: false }); return;
         }
@@ -42,18 +44,19 @@ export function useTrajectory(assistantID: string) {
           receive(page); commit({ head: page.HeadCursor, loading: false }); after = page.NextCursor;
         } while (after);
       });
-    };
+      return 30_000;
+    }, false);
+    refresh.current = () => loop.request(true);
     older.current = () => {
       if (olderQueued || !current.older) return; olderQueued = true;
-      enqueue(async () => {
+      void enqueue(async () => {
         commit({ loadingOlder: true });
         try { const page = await request(current.older); receive(page); commit({ older: page.NextCursor }); }
         finally { olderQueued = false; commit({ loadingOlder: false }); }
-      });
+      }).catch(() => {});
     };
-    refresh.current();
-    return () => { controller.abort(); refresh.current = () => {}; older.current = () => {}; };
+    return () => { loop.stop(); controller.abort(); refresh.current = () => {}; older.current = () => {}; };
   }, [assistantID]);
-  useEffect(() => { refresh.current(); }, [revision]);
+  useEffect(() => { refresh.current(); }, [revision, assistantID]);
   return { ...snapshot, reload: useCallback(() => refresh.current(), []), loadOlder: useCallback(() => older.current(), []) };
 }

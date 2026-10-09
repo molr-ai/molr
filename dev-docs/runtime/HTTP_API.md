@@ -348,8 +348,9 @@ WebUI 支持上传 10 MB / 4000 万像素以内的 PNG、JPEG、WebP，浏览器
 
 ## Shell 任务管理
 
-- `GET /api/assistants/{id}/shell-tasks`：当前所有者读取该助理的运行任务及最近记录（最多 50 条），返回 `Items` 和 `Limit: 10`。模式为 `foreground/background/tty`，状态为 `running/completed/failed/stopped/interrupted`。
-- `POST /api/assistants/{id}/shell-tasks`：`action` 为 `read/write/interrupt/stop/stop_all/resize/list`。单任务操作使用 `task_id`；读取可传 `cursor`、`stream`，返回 `Output`、`NextCursor`、`Path`；TTY 输入传 `data`（最多 8 KiB），resize 传 `rows/cols`（1–500）。所有者会话仍需 CSRF，跨所有者或助理访问拒绝。
+- `GET /api/assistants/{id}/shell-tasks`：当前所有者读取该助理的所有运行任务及最近 50 条历史记录，返回 `Items` 和 `Limit: 10`。模式为 `foreground/background/tty`，状态为 `running/completed/failed/stopped/interrupted`。
+- `POST /api/assistants/{id}/shell-tasks`：`action` 为 `read/write/interrupt/stop/stop_all/resize/list`。单任务操作使用 `task_id`；读取可传 `cursor`、`stream`，返回 `Output`、`NextCursor`、`Path`；结束任务还返回 `Finished`（输出捕获已结束）和 `OutputComplete`（捕获是否完整）。`Finished=true` 且当前流读空后可停止读取，不能将截断导致的 `OutputComplete=false` 当作任务仍在执行。读取是只读操作，客户端不应据 POST 方法触发业务数据失效。TTY 输入传 `data`（最多 8 KiB），resize 传 `rows/cols`（1–500）。所有者会话仍需 CSRF，跨所有者或助理访问拒绝。
+- Shell 任务首次创建及状态变化在同一事务中追加 `shell.tasks` SSE，仅包含所属助理引用，不包含命令和输出；客户端据此刷新对应任务列表，保留低频校准。
 - 模型使用相同语义的 `shell_task` 工具，只能管理自身任务。`shell_execute` 新增 `tty/background/timeout_seconds`，前台等待最多 60 秒。可选 `forward_ports` 声明最多 4 个 TCP 端口。创建回执的 `Task.Forwards` 及任务列表 `Forwards` 返回 `Protocol/Port/Address/URL/State`，状态为 `waiting/ready/closed`；地址统一位于 Runtime 机器，HTTP URL 只是便利链接。创建回执包含任务及通知说明；完成和运行提醒使用 `shell_task_finished` / `shell_tasks_running` 事件，结构化信息位于 `Details`，不伪造聊天消息。
 
 ### 手动上下文压缩
@@ -419,6 +420,6 @@ WebUI 支持上传 10 MB / 4000 万像素以内的 PNG、JPEG、WebP，浏览器
 
 ### 助理列表活动摘要
 
-`GET /api/assistants/activity` 返回当前账号活跃助理的分页摘要，使用通用 `limit`（默认 50，最大 200）与 `cursor`，返回 `Items`、`NextCursor`。每项包含 `AssistantID`、`ConversationID`、`Dreaming` 和可空的 `Preview: { Kind, Text }`。文本合并空白后保留前 80 个 Unicode 字符，超出部分以省略号表示；卡片取标题或摘要，空文本由客户端按类型显示占位文案。解雇助理不包含在结果中。
+`GET /api/assistants/activity` 返回当前账号活跃助理的分页摘要，使用通用 `limit`（默认 50，最大 200）与 `cursor`，返回 `Items`、`NextCursor`。每项包含 `AssistantID`、`ConversationID`、`Dreaming` 和可空的 `Preview: { Kind, Text }`。文本合并空白后保留前 80 个 Unicode 字符，超出部分以省略号表示；卡片取标题或摘要，空文本由客户端按类型显示占位文案。解雇助理不包含在结果中。每页批量读取已授权会话的最新消息引用和对应消息，不逐个读取历史列表。
 
 该接口沿用助理与会话服务的账号归属检查。执行状态按本页明确授权的助理键批量投影，只读取做梦判断所需字段，每页检查一次运行环境；不加载上下文、加急或中断详情。消息只查询各会话最新一条，不遍历历史。当前聊天的完整状态仍使用 `/api/assistants/{id}/status`。

@@ -10,6 +10,9 @@ import { messages } from './messages';
 import { useRuntimeConnection } from './use-runtime-connection';
 import { QueryCache } from './query-cache';
 import { QueryStore } from './query-store';
+import type { QueryInterval } from './query-store';
+import { queryInterval } from './query-policy';
+import { poll } from './polling';
 import { batchTopics } from './batch-topics';
 
 const PaletteContext = createContext({ palette: 'forest' as Palette, changePalette: (_: Palette) => {} });
@@ -36,7 +39,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [principal, setPrincipal] = useState<Principal | null>(null), [loading, setLoading] = useState(true), [error, setError] = useState<unknown>(null);
   const channel = useRef<BroadcastChannel | null>(null), revision = useRef(0), foregroundRequest = useRef(false);
   const end = useCallback(() => { revision.current++; clearClientState(); setPrincipal(null); setError(null); setLoading(false); channel.current?.postMessage('changed'); }, []);
-  const refresh = useCallback(async (foreground: boolean, announce = false) => {
+  const refresh = useCallback(async (foreground: boolean, announce = false, retryErrors = false) => {
     if (!foreground && foregroundRequest.current) return;
     const request = ++revision.current;
     if (foreground) foregroundRequest.current = true;
@@ -49,7 +52,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       if (request !== revision.current) return;
       if (error instanceof APIError && error.status === 401) { clearClientState(); setPrincipal(null); }
-      else if (foreground) setError(error);
+      else { if (foreground) setError(error); if (retryErrors) throw error; }
     } finally { if (request === revision.current) { foregroundRequest.current = false; setLoading(false); } }
   }, []);
   const reload = useCallback(() => refresh(true, true), [refresh]);
@@ -58,16 +61,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     // Cookies are shared between tabs. A changed identity must unmount the old
     // account's data provider before another account's snapshots are displayed.
     try { channel.current = new BroadcastChannel(`molr-session:${location.origin}`); channel.current.onmessage = () => { setPrincipal(null); clearClientState(); void refresh(true); }; } catch { /* Focus checks also cover browsers without BroadcastChannel. */ }
-    const check = () => { if (document.visibilityState === 'visible') void refresh(false); };
-    window.addEventListener('focus', check); document.addEventListener('visibilitychange', check);
-    const timer = setInterval(check, 30000), unsubscribe = onSessionExpired(() => { revision.current++; clearClientState(); setPrincipal(null); setError(null); setLoading(false); });
-    return () => { revision.current++; unsubscribe(); channel.current?.close(); channel.current = null; clearInterval(timer); window.removeEventListener('focus', check); document.removeEventListener('visibilitychange', check); };
+    const loop = poll(async () => { await refresh(false, false, true); return 30_000; }, false);
+    loop.reschedule(30_000);
+    const check = () => loop.request();
+    window.addEventListener('focus', check);
+    const unsubscribe = onSessionExpired(() => { revision.current++; clearClientState(); setPrincipal(null); setError(null); setLoading(false); });
+    return () => { revision.current++; unsubscribe(); channel.current?.close(); channel.current = null; loop.stop(); window.removeEventListener('focus', check); };
   }, [refresh, end]);
   return <SessionContext.Provider value={{ principal, loading, error, reload, end }}>{children}</SessionContext.Provider>;
 }
 export function useSession() { return useContext(SessionContext)!; }
 
 function queryTopic(path: string) {
+  if (path === '/api/status') return 'runtime';
+  const shell = path.match(/^\/api\/assistants\/([^/]+)\/shell-tasks/);
+  if (shell) return `shell-tasks:${shell[1]}`;
   if (/\/assistants\/[^/]+\/weixin/.test(path)) return 'weixin';
   if (path === '/api/account/quotas' || path === '/api/admin/usage') return 'usage';
   if (/\/debug\/runs\/[^/]+\/steps\//.test(path)) return 'debug-payload';
@@ -94,10 +102,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       const visible = JSON.parse(event.data) as RuntimeEvent;
       for (const listener of eventListeners) listener(visible);
-      if (visible.Topic === 'notification.changed') publish.current(['notifications']);
+      if (visible.Topic === 'shell.tasks' && visible.Object?.ID) publish.current([`shell-tasks:${visible.Object.ID}`]);
+      else if (visible.Topic === 'notification.changed') publish.current(['notifications']);
       else if (visible.Topic === 'weixin.changed') publish.current(['weixin']);
       else if (visible.Topic === 'assistant.profile') publish.current(['assistants', 'conversations']);
-      else if (visible.Topic.startsWith('assistant.') && visible.Object?.ID) publish.current([`status:${visible.Object.ID}`, 'activity', 'tasks', 'memories', 'usage']);
+      else if (visible.Topic.startsWith('assistant.') && visible.Object?.ID) publish.current([`status:${visible.Object.ID}`, 'activity', 'tasks', 'dreams', 'memories', 'usage']);
       else if (visible.Topic === 'permission.request') publish.current(['permission-requests', 'grants', 'status']);
       else if (visible.Topic === 'conversation.read') publish.current(['conversations']);
       else if (['message.feedback', 'message.accepted', 'message.read'].includes(visible.Topic) && visible.Object?.ID) {
@@ -116,11 +125,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }));
     function changed(topics: string[]) {
       const expanded = new Set(topics);
-      for (const topic of topics) if (topic.startsWith('status:')) expanded.add(`capabilities:${topic.slice(7)}`);
+      for (const topic of topics) if (topic.startsWith('status:')) expanded.add('activity');
       if (topics.some(topic => ['assistants', 'status', 'messages'].includes(topic) || topic.startsWith('messages:'))) expanded.add('activity');
       if (topics.some(topic => ['admin', 'account', 'grants'].includes(topic))) expanded.add('usage');
       if (topics.some(topic => ['todos', 'schedules', 'tasks', 'plans'].includes(topic))) expanded.add('plans');
-      if (topics.some(topic => ['grants', 'resources', 'assistants', 'status', 'tasks'].includes(topic))) expanded.add('capabilities');
+      if (topics.some(topic => ['grants', 'resources', 'assistants', 'sandboxes'].includes(topic))) expanded.add('capabilities');
       batch.add([...expanded]);
     }
     publish.current = changed;
@@ -130,6 +139,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       else if (path.includes('/conversations/read')) changed(['conversations']);
       else if (path.includes('/conversations/feedback')) return; // Message feedback reconciles its exact conversation.
       else if (path.includes('/conversations/messages')) changed(['conversations', 'status']); // The caller and SSE invalidate the affected conversation.
+      else if (/\/assistants\/[^/]+\/shell-tasks$/.test(path)) changed([queryTopic(path)]);
       else if (path.includes('/assistants/')) changed(['assistants', 'conversations', 'status', 'schedules', 'grants']);
       else if (path === '/api/assistants') changed(['assistants', 'conversations']);
       else if (path.startsWith('/api/sandboxes')) changed(['sandboxes', 'resources', 'grants', 'capabilities', 'assistants']);
@@ -137,14 +147,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       else if (path.startsWith('/api/resources')) changed(['resources', 'models', 'grants']);
       else changed([queryTopic(path)]);
     });
-    const resume = () => { if (document.visibilityState === 'visible') invalidate(); };
-    // Business services currently expose snapshots; IM supplies the live stream.
-    // Periodic refresh reconciles changes made by other clients without polling
-    // the conversation stream aggressively or inventing execution state.
-    const snapshots = setInterval(resume, 30_000);
-    const agent = setInterval(() => { if (document.visibilityState === 'visible') changed(['status']); }, 5_000);
-    window.addEventListener('online', invalidate); document.addEventListener('visibilitychange', resume);
-    return () => { unsubscribe(); publish.current = () => {}; cache.clear(); queries.clear(); turnMetrics.clear(); messageChanges.clear(); batch.cancel(); clearInterval(snapshots); clearInterval(agent); window.removeEventListener('online', invalidate); document.removeEventListener('visibilitychange', resume); };
+
+    return () => { unsubscribe(); publish.current = () => {}; cache.clear(); queries.clear(); turnMetrics.clear(); messageChanges.clear(); batch.cancel(); };
   }, [invalidate, cache, queries, messageChanges]);
   const invalidateTopics = useCallback((topics: string[]) => publish.current(topics), []);
   const version = (topic: string) => (versions.all ?? 0) + (versions[topic] ?? 0) + (topic.includes(':') ? versions[topic.split(':')[0]] ?? 0 : 0);
@@ -153,11 +157,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
 }
 export const useData = () => useContext(DataContext);
 export const useTopicVersion = (topic: string) => useData().version(topic);
-export function useQuery<T>(path: string | null, list = false) {
+export function useQuery<T>(path: string | null, list = false, interval?: QueryInterval<T>) {
   const { version, queries } = useData();
   const revision = version(queryTopic(path ?? ''));
   const key = path ? `${list ? 'list' : 'item'}:${path}` : null;
-  const subscribe = useCallback((listener: () => void) => key ? queries.subscribe(key, listener) : () => {}, [queries, key]);
+  const cadence = useMemo(() => interval ?? queryInterval(path ?? ''), [interval, path]);
+  const subscribe = useCallback((listener: () => void) => key ? queries.subscribe(key, listener, cadence as QueryInterval) : () => {}, [queries, key, cadence]);
   const snapshot = useCallback(() => queries.snapshot<T>(key), [queries, key]);
   const state = useSyncExternalStore(subscribe, snapshot);
   const load = useCallback((signal: AbortSignal) => list ? api.all(path!, signal) as Promise<T> : api.get<T>(path!, signal), [path, list]);

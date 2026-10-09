@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { poll } from './polling';
 import { api, APIError } from './api/client';
 import type { Message, Page } from './api/types';
 import { useData, useTopicVersion } from './state';
@@ -16,7 +17,8 @@ export function useChatHistory(conversationID: string, targetMessageID = '') {
   useEffect(() => {
     const controller = new AbortController();
     let snapshot = cache.get<Snapshot>(key);
-    let running = false, refreshPending = false, olderPending = false;
+    let running: Promise<void> | undefined;
+    let refreshPending = false, olderPending = false;
     let locatePending = !!targetMessageID;
     setLocation({ id: targetMessageID, status: 'loading' });
     const path = `/api/conversations/${conversationID}/messages`;
@@ -79,9 +81,8 @@ export function useChatHistory(conversationID: string, targetMessageID = '') {
       locatePending = false;
       setLocation({ id: targetMessageID, status: exists && snapshot?.messages.some(message => message.ID === targetMessageID) ? 'found' : 'missing' });
     }
-    async function drain() {
-      if (running || controller.signal.aborted) return;
-      running = true;
+    async function work() {
+      if (controller.signal.aborted) return;
       setHistory(previous => ({ ...previous, loading: true, error: null }));
       try {
         while ((refreshPending || olderPending || locatePending) && !controller.signal.aborted) {
@@ -101,19 +102,24 @@ export function useChatHistory(conversationID: string, targetMessageID = '') {
           const inaccessible = error instanceof APIError && [401, 403, 404].includes(error.status);
           if (inaccessible) { cache.delete(key); snapshot = undefined; refreshPending = olderPending = false; }
           setHistory(previous => ({ ...previous, ...(inaccessible ? { messages: [], metadataVersions: {}, more: false, loaded: false } : {}), error }));
+          throw error;
         }
       } finally {
-        running = false;
         if (!controller.signal.aborted) setHistory(previous => ({ ...previous, loading: false, loadingOlder: false }));
       }
     }
+    function drain() {
+      running ??= work().finally(() => { running = undefined; });
+      return running;
+    }
+    const loop = poll(async () => { refreshPending = true; await drain(); return 30_000; }, false);
     requests.current = {
-      refresh() { refreshPending = true; void drain(); },
-      older() { if (!snapshot?.olderCursor || olderPending) return; olderPending = true; setHistory(previous => ({ ...previous, loadingOlder: true })); void drain(); },
+      refresh: () => loop.request(true),
+      older() { if (!snapshot?.olderCursor || olderPending) return; olderPending = true; setHistory(previous => ({ ...previous, loadingOlder: true })); void drain().catch(() => {}); },
     };
     // Updates queue behind in-flight requests instead of aborting them. A
     // continuous event stream cannot starve an otherwise successful response.
-    return () => { controller.abort(); requests.current = { refresh: () => {}, older: () => {} }; };
+    return () => { loop.stop(); controller.abort(); requests.current = { refresh: () => {}, older: () => {} }; };
   }, [conversationID, key, cache, messageChanges, targetMessageID]);
   useEffect(() => { requests.current.refresh(); }, [revision, conversationID, targetMessageID]);
   return { ...history, targetStatus: location.id === targetMessageID ? location.status : 'loading', loadOlder: () => requests.current.older() };

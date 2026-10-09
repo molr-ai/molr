@@ -91,7 +91,7 @@ export type ShellTask = { FullAccess?: boolean;
   Failure?: string; Result?: { Exit?: { Code: number; Reason: string; TimedOut: boolean }; Stdout?: string; Stderr?: string; OutputComplete?: boolean };
 };
 export type ShellTaskAction = { action: 'list' | 'read' | 'write' | 'interrupt' | 'stop' | 'stop_all' | 'resize'; task_id?: string; cursor?: number; stream?: 'stdout' | 'stderr'; data?: string; rows?: number; cols?: number };
-export type ShellTaskOutput = { Output: string; NextCursor: number; Path: string };
+export type ShellTaskOutput = { Finished?: boolean; OutputComplete?: boolean; Output: string; NextCursor: number; Path: string };
 
 export type PermissionRequestInput = { full_access?: boolean; constraints?: ResourceConstraints; temporary?: TemporaryConstraints; grant_id?: ID; grant_version?: number; resource_kind: Resource['Kind']; resource_id?: ID; model_id?: ID; resource_description: string; actions: string[]; path_prefixes?: string[]; expires_at?: string; reason: string; additional_requests?: PermissionRequestInput[]; };
 

@@ -23,7 +23,7 @@ func queryProjections(bucket string, data []byte) ([]byte, error) {
 		fields = []string{"UpdatedAt"}
 	case "business.dream_sessions":
 		fields = []string{"End", "WindowStart", "Deadline"}
-	case "debug.summaries":
+	case "debug.summaries", "sandbox.shell_tasks":
 		fields = []string{"StartedAt"}
 	case "auth.login-links":
 		fields = []string{"Link.CreatedAt"}
@@ -73,6 +73,9 @@ func (s *Store) initializeQueryProjections() error {
 	}
 	// Installing the call accounting indexes derives only operation time keys.
 	if err := s.initializeProjectionGroup("call-accounting-v1", []string{"agent.operations"}); err != nil {
+		return err
+	}
+	if err := s.initializeProjectionGroup("shell-task-order-v1", []string{"sandbox.shell_tasks"}); err != nil {
 		return err
 	}
 	// Installing the notification order index derives only its own sort keys.

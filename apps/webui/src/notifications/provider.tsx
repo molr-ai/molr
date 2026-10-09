@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { useToast } from '@molr/ui';
 import type { Assistant, Conversation, Message, Page, SystemNotice } from '@molr/sdk';
 import { api } from '../api/client';
+import { poll } from '../polling';
 import { useCopy, useData, useQuery, useSession } from '../state';
 import { createBrowserNotifications } from './browser';
 import { NotificationClaims } from './coordinator';
@@ -33,10 +34,7 @@ export function NotificationProvider({ children, createAdapter = createBrowserNo
     // Capture only the first authorized snapshot. Updating this baseline on
     // every live refresh could suppress a new message before it is notified.
     if (!baseline.current && conversations.data) baseline.current = new Map(conversations.data.map(item => [item.ID, item.LastSequence]));
-    if (!baseline.current && conversations.error) {
-      const timer = setTimeout(conversations.reload, 5000);
-      return () => clearTimeout(timer);
-    }
+
   }, [conversations.data, conversations.error, conversations.reload]);
   const { subscribeEvents } = useData(), { locale } = useCopy(), toast = useToast();
   const [value, setValue] = useState(() => preferences(key)), [capability, setCapability] = useState<NotificationCapability>('unsupported');
@@ -109,13 +107,12 @@ export function NotificationProvider({ children, createAdapter = createBrowserNo
     function sync() { if (active) setCapability(device.capability()); }
     function storage(event: StorageEvent) { if (event.key === key || event.key === null) { const previous = current.current.value, next = preferences(key); current.current.value = next; setValue(next); applyPreferences.current(previous, next); } }
     window.addEventListener('focus', sync); document.addEventListener('visibilitychange', sync); window.addEventListener('storage', storage); sync();
-    let retryNotices: ReturnType<typeof setTimeout> | undefined;
-    function initializeNotices() {
-      void api.all<SystemNotice>('/api/notifications?filter=active', controller.signal).then(items => {
-        if (active) noticeBaseline = new Set(items.map(item => item.ID));
-      }, () => { if (active) retryNotices = setTimeout(initializeNotices, 5000); });
-    }
-    initializeNotices();
+    const noticeInitialization = poll(async signal => {
+      const items = await api.all<SystemNotice>('/api/notifications?filter=active', signal);
+      if (!signal.aborted && active) noticeBaseline = new Set(items.map(item => item.ID));
+      noticeInitialization.stop();
+      return false;
+    });
     async function deliver(conversation: string) {
       const batch = pending.get(conversation); pending.delete(conversation);
       if (!batch || !active) return;
@@ -199,7 +196,7 @@ export function NotificationProvider({ children, createAdapter = createBrowserNo
     }
     const unsubscribe = subscribeEvents(event);
     return () => {
-      active = false; refreshNoticeActions.current = () => {}; clearTimeout(retryNotices); unsubscribe(); controller.abort(); channel?.close(); claims.close(); close(); sound.dispose(); audio.current = null; device.dispose(); adapter.current = null;
+      active = false; refreshNoticeActions.current = () => {}; noticeInitialization.stop(); unsubscribe(); controller.abort(); channel?.close(); claims.close(); close(); sound.dispose(); audio.current = null; device.dispose(); adapter.current = null;
       window.removeEventListener('click', unlockSound); window.removeEventListener('keydown', unlockSound);
       window.removeEventListener('focus', sync); document.removeEventListener('visibilitychange', sync); window.removeEventListener('storage', storage);
     };

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Badge, Button, Dialog, TextField } from '@molr/ui';
 import QRCode from 'qrcode';
+import { poll } from '../../../polling';
 import { api } from '../../../api/client';
 import type { Assistant, WeixinLogin, WeixinStatus } from '../../../api/types';
 import { useCopy, useData, useQuery } from '../../../state';
@@ -41,18 +42,16 @@ function LoginDialog({ assistantID, login, onChange, onClose, onRefresh }: { ass
  useEffect(() => { setExpired(false); setError(null); setCode(''); verify.current = ''; const timer = setTimeout(() => setExpired(true), Math.max(0, Date.parse(login.ExpiresAt) - Date.now())); return () => clearTimeout(timer); }, [login.ID, login.ExpiresAt]);
  useEffect(() => {
   if (terminal || (login.Status === 'need_verifycode' && !verify.current)) return;
-  let stopped = false, timer: ReturnType<typeof setTimeout>;
-  async function poll() {
+  const loop = poll(async signal => {
    try {
-    const next = await api.post<WeixinLogin>('/api/weixin/poll', { AssistantID: assistantID, ID: login.ID, VerifyCode: verify.current });
-    if (stopped) return;
+    const next = await api.read<WeixinLogin>('/api/weixin/poll', { AssistantID: assistantID, ID: login.ID, VerifyCode: verify.current }, signal);
+    if (signal.aborted) return false;
     verify.current = ''; setError(null); onChange(next);
-    if (next.Status === 'confirmed' || next.Status === 'already_connected') { onClose(); return; }
-    if (!['expired', 'verify_code_blocked', 'conflict', 'need_verifycode'].includes(next.Status)) timer = setTimeout(poll, 1200);
-   } catch (e) { if (!stopped) { setError(e); timer = setTimeout(poll, 5000); } }
-  }
-  void poll();
-  return () => { stopped = true; clearTimeout(timer); };
+    if (next.Status === 'confirmed' || next.Status === 'already_connected') { onClose(); return false; }
+    return ['expired', 'verify_code_blocked', 'conflict', 'need_verifycode'].includes(next.Status) ? false : 1200;
+   } catch (error) { if (!signal.aborted) setError(error); throw error; }
+  });
+  return () => loop.stop();
  }, [assistantID, login.ID, login.Status, terminal]);
  async function cancel() { await action.run(async () => { await api.post('/api/weixin/cancel', { AssistantID: assistantID, ID: login.ID }); onClose(); }, undefined, false); }
  return <Dialog open title={t.scan} dismissible={!action.busy} onOpenChange={open => { if (!open) void cancel(); }}>

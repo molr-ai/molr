@@ -39,7 +39,7 @@ test('continuous invalidation delivers responses and coalesces follow-up reads',
   expect(requests[0].signal.aborted).toBe(false);
   requests[0].resolve('first'); await Promise.resolve();
   expect(queries.snapshot('status').data).toBe('first');
-  expect(requests).toHaveLength(2);
+  await expect.poll(() => requests.length).toBe(2);
   requests[1].resolve('current'); await Promise.resolve();
   queries.refresh('status', 10, load);
   expect(requests).toHaveLength(2);
@@ -70,9 +70,12 @@ test('refresh failure preserves data, but access denial removes it for every sub
   queries.refresh('item', 0, load);
   requests[0].resolve('private'); await Promise.resolve();
   queries.refresh('item', 1, load);
+  await expect.poll(() => requests.length).toBe(2);
   requests[1].reject(new APIError('unavailable', '', 503)); await Promise.resolve();
   expect(queries.snapshot('item').data).toBe('private');
   queries.refresh('item', 2, load);
+  expect(requests).toHaveLength(2); // Invalidation must respect the transient-error cooldown.
+  await expect.poll(() => requests.length).toBe(3);
   requests[2].reject(new APIError('forbidden', '', 403)); await Promise.resolve();
   expect(queries.snapshot('item').data).toBeUndefined();
   release(); queries.clear();

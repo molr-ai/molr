@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Plan, PlanEvent } from '../../../api/types';
+import { poll } from '../../../polling';
 import { api } from '../../../api/client';
 import { useTopicVersion } from '../../../state';
 
@@ -32,19 +33,24 @@ export function usePlanEvents(path: string | null) {
   const count=pages.path===path?pages.count:1;
   const [state,setState]=useState<{path:string|null;items:PlanEvent[];more:boolean;loading:boolean;error?:unknown}>({path:null,items:[],more:false,loading:false});
   const [retry,setRetry]=useState(0);
+  const refresh = useRef(() => {});
   useEffect(()=>{
     if(!path)return;
-    const controller=new AbortController();
     setState(old=>({path,items:old.path===path?old.items:[],more:false,loading:true}));
-    void (async()=>{
+    const loop = poll(async signal => {
+     try {
       const items:PlanEvent[]=[];let cursor='';
       for(let i=0;i<count;i++){
-        const page=await api.get<{Items:PlanEvent[];NextCursor:string}>(path+(cursor?`&cursor=${encodeURIComponent(cursor)}`:''),controller.signal);
+        const page=await api.get<{Items:PlanEvent[];NextCursor:string}>(path+(cursor?`&cursor=${encodeURIComponent(cursor)}`:''),signal);
         items.push(...page.Items);cursor=page.NextCursor;if(!cursor)break;
       }
-      if(!controller.signal.aborted)setState({path,items,more:!!cursor,loading:false});
-    })().catch(error=>{if(!controller.signal.aborted)setState(old=>({...old,error,loading:false}));});
-    return ()=>controller.abort();
-  },[path,count,revision,retry]);
+      if(!signal.aborted)setState({path,items,more:!!cursor,loading:false});
+     } catch(error) { if(!signal.aborted)setState(old=>({...old,error,loading:false})); throw error; }
+     return 30_000;
+    }, false);
+    refresh.current = () => loop.request(true);
+    return ()=>{loop.stop(); refresh.current=()=>{};};
+  },[path,count]);
+  useEffect(()=>refresh.current(),[path,count,revision,retry]);
   return {items:state.path===path?state.items:[],more:state.path===path&&state.more,loading:!!path&&(state.path!==path||state.loading),error:state.path===path?state.error:undefined,loadMore:()=>setPages({path,count:count+1}),reload:()=>setRetry(n=>n+1)};
 }

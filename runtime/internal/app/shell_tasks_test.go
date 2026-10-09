@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"molr.ai/runtime/internal/agent/scheduler"
 	"molr.ai/runtime/internal/agent/tools"
@@ -11,6 +12,9 @@ import (
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/event"
 	"molr.ai/runtime/internal/persistence"
+	"molr.ai/runtime/internal/platform"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -248,5 +252,125 @@ func TestShellReminderAfterLoopStopHasFreshEventIdentity(t *testing.T) {
 	need(t, err)
 	if job.State != scheduler.Canceled {
 		t.Fatal(job)
+	}
+}
+
+func TestShellTaskListBoundsHistoryKeepsRunningAndScopesAssistant(t *testing.T) {
+	b, p, e := taskFixture(t)
+	now := time.Now().UTC()
+	need(t, b.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
+		for i := 0; i < 120; i++ {
+			id := core.ID(fmt.Sprintf("bounded-%03d", i))
+			state := "completed"
+			assistantID := e.AssistantID
+			if i < 3 {
+				state = "running"
+			}
+			if i >= 110 {
+				assistantID = "other"
+			}
+			// Vary offsets: sorting must use normalized time, not JSON lexical order.
+			at := now.Add(time.Duration(i) * time.Second).In(time.FixedZone("offset", (i%3-1)*3600))
+			if err := tx.Put(ctx, shellTasksBucket, persistence.Key(p.OwnerID, id), shellTask{ID: id, OwnerID: p.OwnerID, AssistantID: assistantID, State: state, StartedAt: at, Result: json.RawMessage(`{"Stdout":"private output","Stderr":"private error","OutputComplete":true}`)}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}))
+	raw, err := b.shellTasks.manage(t.Context(), p, e.AssistantID, tools.ShellTaskRequest{Action: "list"})
+	need(t, err)
+	var result struct{ Items []shellTask }
+	need(t, json.Unmarshal(raw, &result))
+	if len(result.Items) != 53 {
+		t.Fatalf("got %d tasks", len(result.Items))
+	}
+	for i, item := range result.Items {
+		if item.AssistantID != e.AssistantID {
+			t.Fatal("other assistant leaked")
+		}
+		if i < 3 && item.State != "running" || i >= 3 && item.State == "running" {
+			t.Fatal("incorrect ordering")
+		}
+		if i > 3 && item.StartedAt.After(result.Items[i-1].StartedAt) {
+			t.Fatal("history out of order")
+		}
+		var meta map[string]any
+		need(t, json.Unmarshal(item.Result, &meta))
+		if _, ok := meta["Stdout"]; ok {
+			t.Fatal("stdout leaked in list")
+		}
+	}
+	if result.Items[3].ID != "bounded-109" || result.Items[52].ID != "bounded-060" {
+		t.Fatal("incorrect history window")
+	}
+}
+
+func TestShellTaskLifecycleEventsAreScopedAndTransactional(t *testing.T) {
+	b, p, e := taskFixture(t)
+	task := shellTask{ID: "lifecycle-task", OwnerID: p.OwnerID, AssistantID: e.AssistantID, Mode: "foreground", State: "running", StartedAt: time.Now().UTC()}
+	need(t, b.shellTasks.save(t.Context(), task))
+	task.StdoutPath = "/work/private-output"
+	need(t, b.shellTasks.save(t.Context(), task))
+	events, err := persistence.Select[struct {
+		Topic  string
+		Object core.Object
+	}](t.Context(), b.store, "im.visible", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("Topic", "shell.tasks")}})
+	need(t, err)
+	if len(events) != 1 || events[0].Object.ID != e.AssistantID {
+		t.Fatal(events)
+	}
+	task.State = "completed"
+	need(t, b.shellTasks.finish(t.Context(), task))
+	need(t, b.shellTasks.finish(t.Context(), task))
+	err = b.store.Write(t.Context(), func(ctx context.Context, _ persistence.Tx) error {
+		task.State = "failed"
+		if err := b.shellTasks.save(ctx, task); err != nil {
+			return err
+		}
+		return errors.New("rollback fixture")
+	})
+	if err == nil {
+		t.Fatal("expected rollback")
+	}
+	saved, err := persistence.Load[shellTask](t.Context(), b.store, shellTasksBucket, persistence.Key(p.OwnerID, task.ID))
+	need(t, err)
+	if saved.State != "completed" {
+		t.Fatal("task escaped rollback")
+	}
+	events, err = persistence.Select[struct {
+		Topic  string
+		Object core.Object
+	}](t.Context(), b.store, "im.visible", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("Topic", "shell.tasks")}})
+	need(t, err)
+	if len(events) != 2 {
+		t.Fatal(events)
+	}
+}
+
+func TestFinishedShellOutputStopsAtRetainedEOF(t *testing.T) {
+	b, p, e := taskFixture(t)
+	s := b.shellTasks
+	root := platform.AssistantWorkspace(s.router.adapters.dataDir, s.router.adapters.storageConfig.WorkRoot, p.OwnerID, e.AssistantID)
+	relative := platform.WorkspaceStateDirectory + "/tool-shell-retained/stdout"
+	need(t, os.MkdirAll(filepath.Dir(filepath.Join(root, relative)), 0700))
+	need(t, os.WriteFile(filepath.Join(root, relative), []byte("retained output"), 0600))
+	task := shellTask{ID: "retained-output", OwnerID: p.OwnerID, AssistantID: e.AssistantID, State: "completed", SandboxID: "local", StdoutPath: "/work/" + relative, Result: json.RawMessage(`{"OutputComplete":false}`)}
+	need(t, s.save(t.Context(), task))
+	var output struct {
+		Output                   string
+		NextCursor               int64
+		Finished, OutputComplete bool
+	}
+	raw, err := s.manage(t.Context(), p, e.AssistantID, tools.ShellTaskRequest{Action: "read", TaskID: task.ID})
+	need(t, err)
+	need(t, json.Unmarshal(raw, &output))
+	if output.Output != "retained output" || !output.Finished || output.OutputComplete {
+		t.Fatal(output)
+	}
+	raw, err = s.manage(t.Context(), p, e.AssistantID, tools.ShellTaskRequest{Action: "read", TaskID: task.ID, Cursor: output.NextCursor})
+	need(t, err)
+	need(t, json.Unmarshal(raw, &output))
+	if output.Output != "" || !output.Finished {
+		t.Fatal(output)
 	}
 }
