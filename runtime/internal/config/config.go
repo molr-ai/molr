@@ -74,6 +74,10 @@ type Pricing struct {
 	ExchangeRatesFile string `json:"exchange_rates_file"`
 }
 
+type Diagnostics struct {
+	ModelResponses bool `json:"model_responses"`
+}
+
 type Debug struct {
 	Enabled         bool `json:"enabled"`
 	MaxRuns         int  `json:"max_runs"`
@@ -112,6 +116,7 @@ type Config struct {
 	Network     Network     `json:"network"`
 	Pricing     Pricing     `json:"pricing"`
 	Debug       Debug       `json:"debug"`
+	Diagnostics Diagnostics `json:"diagnostics"`
 }
 
 func Defaults(dataDir string) Config {

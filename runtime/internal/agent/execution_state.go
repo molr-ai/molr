@@ -172,68 +172,6 @@ func (e *Engine) saveProgress(ctx context.Context, t Turn, p *turnProgress) erro
 	return err
 }
 
-// recoverModel consumes only locally committed deltas, never calls a provider.
-func (e *Engine) recoverModel(ctx context.Context, old executionCursor, p *turnProgress) error {
-	if p.Response != nil || p.Finished {
-		return nil
-	}
-	id, err := e.modelAttemptID(ctx, old.Event.OwnerID, modelOperationID(old.turn(), p.Step))
-	if err != nil {
-		return err
-	}
-	op, err := operation.NewRepository(e.store).Get(ctx, old.Event.OwnerID, id)
-	if persistence.Missing(err) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	if op.AssistantID != old.Event.AssistantID || op.ExecutionID != old.ExecutionID {
-		return core.NewError(core.Forbidden, "model evidence identity mismatch")
-	}
-	var cached struct{ Deltas []model.Delta }
-	err = e.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		return tx.Get(ctx, "agent.model_requests", persistence.Key(old.Event.OwnerID, id), &cached)
-	})
-	if err != nil && !persistence.Missing(err) {
-		return err
-	}
-	result := model.Input{Role: model.Assistant}
-	complete := false
-	var receipt *model.Receipt
-	for _, d := range cached.Deltas {
-		switch d.Kind {
-		case model.TextDelta:
-			result.Text += d.Text
-		case model.ProviderStateDelta:
-			result.ProviderState = d.ProviderState
-		case model.ToolCallDelta:
-			if d.ToolCall != nil {
-				result.Calls = append(result.Calls, *d.ToolCall)
-			}
-		case model.Completed:
-			complete = true
-			receipt = d.Receipt
-		}
-	}
-	if complete {
-		p.Inputs = append(p.Inputs, result)
-		p.Response = &result
-		if receipt != nil && receipt.OutcomeKnown && receipt.ModelID != "" && receipt.Usage.InputTokens > 0 {
-			// Recovery uses the backend identity saved with the committed response;
-			// it must not depend on the old model still being configured.
-			source := model.StateSource{}
-			if e.options.ModelSource != nil && result.ProviderState != nil {
-				source = result.ProviderState.Source
-			}
-			p.Usage = &contextUsage{ModelID: receipt.ModelID, Source: source, Tokens: receipt.Usage.InputTokens, Inputs: usageInputs(p.Inputs[:len(p.Inputs)-1], source), Tools: contextHash(p.Definitions)}
-		}
-		p.Handled = append([]core.ID{}, p.Joined...)
-	} else {
-		p.Inputs = append(p.Inputs, model.Input{Role: model.User, Text: prompt.Text("recovery", struct{ ID, State string }{string(id), string(op.State)})})
-	}
-	return nil
-}
 func pendingCall(old executionCursor, call model.ToolCall) pendingEvidence {
 	return pendingEvidence{EventID: old.Event.ID, ExecutionID: old.ExecutionID, TaskID: old.Event.TaskID, OperationID: stableID(string(old.Event.ID), "tool", call.ID), Call: &call}
 }
@@ -293,9 +231,6 @@ func (e *Engine) closePending(ctx context.Context, t Turn, s *privateContext, pr
 	old := *s.Current
 	p, err := stateProgress(Checkpoint{}, *s)
 	if err != nil {
-		return err
-	}
-	if err = e.recoverModel(ctx, old, &p); err != nil {
 		return err
 	}
 	if p.Response != nil {

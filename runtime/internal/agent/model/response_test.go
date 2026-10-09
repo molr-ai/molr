@@ -15,7 +15,7 @@ type responseTransport func(*http.Request) (*http.Response, error)
 
 func (f responseTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
-func TestRawModelResponsesSurviveWithoutDebugCapture(t *testing.T) {
+func TestModelOutputIsNotPersistedAsRecoveryData(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		status  int
@@ -43,33 +43,17 @@ func TestRawModelResponsesSurviveWithoutDebugCapture(t *testing.T) {
 			} else if err == nil {
 				t.Fatal("invalid response succeeded")
 			}
-			cache, err := persistence.Load[cachedResult](ctx, c.store, "agent.model_requests", persistence.Key(f.Owner.OwnerID, f.Request.Execution.OperationID))
+			rows, err := persistence.Select[json.RawMessage](ctx, c.store, "agent.model_attempts", persistence.Query{})
 			testkit.RequireNoError(t, err)
-			if cache.Response == nil || cache.Response.Status != tc.status || cache.Response.Body != tc.body {
-				t.Fatal("full original response not durably retained")
+			if len(rows) != 1 || strings.Contains(string(rows[0]), `"Response"`) || strings.Contains(string(rows[0]), `"Deltas"`) || strings.Contains(string(rows[0]), "vendor_extension") {
+				t.Fatal("model output persisted", rows)
 			}
-			// A fresh client reuses completed state and does not redispatch errors.
 			restarted := NewClient(c.store, c.options)
-			stream, err = restarted.Generate(ctx, f.Request)
-			if tc.success {
-				testkit.RequireNoError(t, err)
-				defer stream.Close()
-				delta, err := stream.Next(ctx)
-				testkit.RequireNoError(t, err)
-				var message map[string]json.RawMessage
-				if delta.ProviderState == nil {
-					t.Fatal("continuation message missing after restart")
-				}
-				testkit.RequireNoError(t, json.Unmarshal(delta.ProviderState.Payload, &message))
-				if string(message["reasoning_content"]) != `"original"` || string(message["vendor_extension"]) != `{"signature":"opaque"}` {
-					t.Fatal("unknown continuation fields lost")
-				}
-			} else if err == nil {
-				t.Fatal("failed response was replayed as a completion")
+			_, err = restarted.Generate(ctx, f.Request)
+			if err == nil || calls != 1 {
+				t.Fatal("existing attempt must not replay or redispatch", err, calls)
 			}
-			if calls != 1 {
-				t.Fatalf("response replay dispatched %d requests", calls)
-			}
+
 		})
 	}
 }

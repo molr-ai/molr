@@ -173,8 +173,7 @@ function WireView({ payload }: { payload: DebugPayload }) {
 function ResponseView({ payload, wire, loading }: { payload?: DebugPayload | null; wire?: DebugPayload | null; loading: boolean }) {
   const { t } = useCopy();
   const [tab, setTab] = useState('content');
-  // Runtime already assembles streaming deltas into this captured completion.
-  // Use the same output as the agent, without reconstructing SSE in the browser.
+  // Runtime projects the output message from the retained context on demand.
   const data = payload?.Data, message = data?.ProviderState?.Payload;
   const thinking = typeof message?.reasoning_content === 'string' ? message.reasoning_content : '';
   const content = typeof data?.Text === 'string' ? data.Text : '';
@@ -190,7 +189,7 @@ function ResponseView({ payload, wire, loading }: { payload?: DebugPayload | nul
       {calls.length > 0 && <InspectionSection collapsible title={t.workbench.toolCall} count={calls.length}><JSONBlock value={calls} /></InspectionSection>}
       {!thinking && !content && !refusal && !calls.length && <InspectionEmpty>{payload?.Status === 'capacity_reached' ? t.workbench.capacityReached : payload?.Status === 'too_large' ? t.workbench.payloadLimited : captured ? t.workbench.responseEmpty : t.workbench.responseUnavailable}</InspectionEmpty>}
     </div> },
-    { value: 'raw', label: t.workbench.responseRaw, content: tab !== 'raw' ? null : wire ? <WireView payload={wire} /> : loading ? <Loading /> : <PayloadView /> },
+    { value: 'raw', label: t.workbench.responseRaw, content: tab !== 'raw' ? null : <><p className="workbench-section-note">{t.workbench.responseLogHelp}</p>{wire ? <WireView payload={wire} /> : loading ? <Loading /> : <PayloadView />}</> },
   ]} />;
 }
 function contextInputs(payload?: DebugPayload | null): Array<Record<string, any>> {

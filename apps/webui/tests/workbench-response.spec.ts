@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-for (const mode of ['stream', 'json', 'tools', 'empty', 'interrupted']) test(`model response ${mode} defaults to readable output and preserves raw evidence`, async ({ page }, info) => {
+for (const mode of ['stream', 'json', 'tools', 'empty', 'interrupted']) test(`model response ${mode} defaults to readable output and shows response metadata`, async ({ page }, info) => {
   const port = process.env.MOLR_TEST_PORT ?? '5193', base = `http://127.0.0.1:${port}`;
   await page.goto('/');
   await page.getByLabel('Username', { exact: true }).fill('owner');
@@ -53,9 +53,12 @@ for (const mode of ['stream', 'json', 'tools', 'empty', 'interrupted']) test(`mo
   // Shared Tabs keyboard behavior must work for the nested response tabs.
   await inspector.getByRole('tab', { name: 'Response content', exact: true }).focus();
   await page.keyboard.press('ArrowRight');
-  await expect(inspector.getByRole('tab', { name: 'Raw response', exact: true })).toHaveAttribute('aria-selected', 'true');
-  const raw = inspector.getByRole('tabpanel', { name: 'Raw response', exact: true });
-  await expect(raw).toContainText(mode === 'stream' || mode === 'interrupted' ? 'data:' : 'choices');
+  await expect(inspector.getByRole('tab', { name: 'Response metadata', exact: true })).toHaveAttribute('aria-selected', 'true');
+  const raw = inspector.getByRole('tabpanel', { name: 'Response metadata', exact: true });
+  await expect(raw).toContainText('Raw responses are saved only to server files');
+  await expect(raw).toContainText('200');
+  await expect(raw).not.toContainText('data:');
+  await expect(raw).not.toContainText('choices');
   await inspector.getByRole('tab', { name: 'Response content', exact: true }).click();
   await expect(readable).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

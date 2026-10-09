@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/tests/testkit"
 )
 
@@ -47,7 +46,7 @@ func TestStreamingMissingEvidenceAndSingleChunk(t *testing.T) {
 	}
 }
 
-func TestStreamingReceiptReplayKeepsOriginalTimingAndRawEvidence(t *testing.T) {
+func TestStreamingKeepsTimingWithoutResultCache(t *testing.T) {
 	f := newContractFixture(t)
 	c := f.Client.(*client)
 	body := `data: {"id":"s","choices":[{"index":0,"delta":{"content":"he"}}]}` + "\n\n" +
@@ -57,19 +56,13 @@ func TestStreamingReceiptReplayKeepsOriginalTimingAndRawEvidence(t *testing.T) {
 		calls++
 		return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": []string{"text/event-stream"}}, Body: io.NopCloser(strings.NewReader(body))}, nil
 	})}
-	for range 2 {
-		s, err := c.Generate(t.Context(), f.Request)
-		testkit.RequireNoError(t, err)
-		s.Close()
-	}
+	s, err := c.Generate(t.Context(), f.Request)
+	testkit.RequireNoError(t, err)
+	s.Close()
+
 	receipt, err := c.receipts.ByOperation(t.Context(), f.Owner.OwnerID, f.Request.Execution.OperationID)
 	testkit.RequireNoError(t, err)
 	if calls != 1 || receipt.Timing == nil || receipt.Timing.FirstTokenMs == nil || !receipt.OutcomeKnown {
 		t.Fatalf("calls=%d receipt=%+v", calls, receipt)
-	}
-	cached, err := persistence.Load[cachedResult](t.Context(), c.store, "agent.model_requests", persistence.Key(f.Owner.OwnerID, f.Request.Execution.OperationID))
-	testkit.RequireNoError(t, err)
-	if cached.Response.Body != body {
-		t.Fatalf("raw stream changed: %q", cached.Response.Body)
 	}
 }

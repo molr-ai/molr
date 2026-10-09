@@ -21,9 +21,8 @@ func TestTDDModelIdempotentGenerateDoesNotChargeTwice(t *testing.T) {
 	first, err := f.Client.Generate(ctx, f.Request)
 	testkit.RequireNoError(t, err)
 	testkit.RequireNoError(t, first.Close())
-	second, err := f.Client.Generate(ctx, f.Request)
-	testkit.RequireNoError(t, err)
-	testkit.RequireNoError(t, second.Close())
+	_, err = f.Client.Generate(ctx, f.Request)
+	testkit.RequireCode(t, err, core.FailedPrecondition)
 	if f.TransportCalls() != 1 {
 		t.Fatal("same model operation generated twice")
 	}

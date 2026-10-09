@@ -10,8 +10,6 @@ import (
 	"testing"
 	"testing/iotest"
 	"time"
-
-	"molr.ai/runtime/internal/persistence"
 )
 
 func streamMessage(t *testing.T, completion []byte) map[string]json.RawMessage {
@@ -109,7 +107,7 @@ func TestStreamingAssemblyRejectsInvalidToolsAndPreservesFailureEvidence(t *test
 	}
 }
 
-func TestStreamingLargeToolArgumentsSurviveReceiptCacheReplay(t *testing.T) {
+func TestStreamingLargeToolArgumentsAndReceipt(t *testing.T) {
 	f := newContractFixture(t)
 	c := f.Client.(*client)
 	body, want := fragmentedStream(4096, "tools")
@@ -118,42 +116,37 @@ func TestStreamingLargeToolArgumentsSurviveReceiptCacheReplay(t *testing.T) {
 		requests++
 		return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": []string{"text/event-stream"}}, Body: io.NopCloser(strings.NewReader(body))}, nil
 	})}
-	for range 2 {
-		stream, err := c.Generate(t.Context(), f.Request)
+	stream, err := c.Generate(t.Context(), f.Request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := 0
+	for {
+		delta, err := stream.Next(t.Context())
+		if err == io.EOF {
+			break
+		}
 		if err != nil {
 			t.Fatal(err)
 		}
-		seen := 0
-		for {
-			delta, err := stream.Next(t.Context())
-			if err == io.EOF {
-				break
+		if delta.Kind == ToolCallDelta {
+			seen++
+			var args struct{ Text string }
+			if delta.ToolCall == nil || json.Unmarshal(delta.ToolCall.Arguments, &args) != nil || args.Text != want {
+				t.Fatal("assembled fragmented arguments differ")
 			}
-			if err != nil {
-				t.Fatal(err)
-			}
-			if delta.Kind == ToolCallDelta {
-				seen++
-				var args struct{ Text string }
-				if delta.ToolCall == nil || json.Unmarshal(delta.ToolCall.Arguments, &args) != nil || args.Text != want {
-					t.Fatal("cached fragmented arguments differ")
-				}
-			}
-		}
-		stream.Close()
-		if seen != 1 {
-			t.Fatalf("tool calls=%d", seen)
 		}
 	}
+	stream.Close()
+	if seen != 1 {
+		t.Fatalf("tool calls=%d", seen)
+	}
+
 	receipt, err := c.receipts.ByOperation(t.Context(), f.Owner.OwnerID, f.Request.Execution.OperationID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if requests != 1 || !receipt.OutcomeKnown || receipt.Usage.InputTokens != 100 || receipt.Usage.OutputTokens != 100 || receipt.Charged == nil || receipt.Charged.Micros != 200 {
 		t.Fatalf("request/usage evidence: %d %+v", requests, receipt)
-	}
-	cached, err := persistence.Load[cachedResult](t.Context(), c.store, "agent.model_requests", persistence.Key(f.Owner.OwnerID, f.Request.Execution.OperationID))
-	if err != nil || cached.Response == nil || cached.Response.Body != body {
-		t.Fatalf("raw evidence changed: %v", err)
 	}
 }

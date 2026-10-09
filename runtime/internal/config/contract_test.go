@@ -13,6 +13,9 @@ import (
 
 func TestTDDConfigDefaultAndDirectTLS(t *testing.T) {
 	c := Defaults("/var/lib/molr")
+	if c.Diagnostics.ModelResponses {
+		t.Fatal("raw model response logging must be opt-in")
+	}
 	if c.HTTP.Listen != "0.0.0.0:8080" {
 		t.Fatal("default must support LAN/public deployment", c.HTTP.Listen)
 	}

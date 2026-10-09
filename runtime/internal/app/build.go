@@ -429,7 +429,11 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 	}
 	fileTools := &resourceFileTools{adapters: adapters, router: sandboxRouter}
 	sandboxRouter.files = fileTools
-	modelClient := model.NewClient(store, model.Options{Dispatched: func(ctx context.Context, request model.Request) error {
+	var responseLog func(model.Request, model.RawResponse) error
+	if cfg.Diagnostics.ModelResponses {
+		responseLog = model.NewResponseLogger(filepath.Join(cfg.DataDir, "logs", "model-responses")).Record
+	}
+	modelClient := model.NewClient(store, model.Options{ResponseLog: responseLog, Dispatched: func(ctx context.Context, request model.Request) error {
 		var ids []core.ID
 		for _, input := range request.Inputs {
 			ids = append(ids, input.ReadMessageIDs...)

@@ -2,7 +2,6 @@ package agent
 
 import (
 	"encoding/json"
-	"io"
 	"net/http"
 	"sync/atomic"
 	"testing"
@@ -97,34 +96,6 @@ func TestAgentPreservesReasoningAcrossToolsCacheAndRestart(t *testing.T) {
 	testkit.RequireNoError(t, err)
 	if out.Status.State != Idle || requests.Load() != 4 {
 		t.Fatalf("unexpected outcome: %+v calls=%d", out.Status, requests.Load())
-	}
-	// A durable model-result replay must carry the same reasoning without another HTTP request.
-	stream, err := f.Runtime.(*Engine).options.Dependencies.Models.Generate(ctx, f.ModelRequests()[0])
-	testkit.RequireNoError(t, err)
-	found := false
-	for {
-		delta, err := stream.Next(ctx)
-		if err == io.EOF {
-			break
-		}
-		testkit.RequireNoError(t, err)
-		if delta.Kind == model.ProviderStateDelta {
-			found = true
-			var state struct {
-				Reasoning string `json:"reasoning_content"`
-			}
-			if delta.ProviderState == nil {
-				t.Fatal("cached state missing")
-			}
-			testkit.RequireNoError(t, json.Unmarshal(delta.ProviderState.Payload, &state))
-			if state.Reasoning != reasoning[0] || delta.ProviderState.Source.Protocol != model.DeepSeekChat {
-				t.Fatalf("cached reasoning changed: %+v", delta.ProviderState)
-			}
-		}
-	}
-	testkit.RequireNoError(t, stream.Close())
-	if !found || requests.Load() != 4 {
-		t.Fatal("reasoning missing from durable replay or provider called again")
 	}
 	// A new event after a restart must preserve every assistant message, including the final one.
 	turn := f.Turn

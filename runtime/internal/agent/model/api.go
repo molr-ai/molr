@@ -114,7 +114,7 @@ type Usage struct {
 	CachedTokens     int64
 }
 
-// Timing is measured at the provider transport, never from replayed Loop deltas.
+// Timing is measured at the provider transport, before the Loop consumes in-memory deltas.
 type Timing struct {
 	RequestMs    float64
 	FirstTokenMs *float64

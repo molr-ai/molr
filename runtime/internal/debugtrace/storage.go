@@ -41,6 +41,38 @@ func loadPayload(ctx context.Context, tx persistence.Tx, run Run, sequence int) 
 			return Payload{}, err
 		}
 	}
+	// Model detail is a projection of the stored context, not a second copy
+	// of the response text, calls or provider state.
+	if sequence > 0 && sequence <= len(run.Steps) && run.Steps[sequence-1].Kind == "model.complete" && len(row.Data) > 0 {
+		var data map[string]json.RawMessage
+		if err := json.Unmarshal(row.Data, &data); err != nil {
+			return Payload{}, err
+		}
+		if raw, ok := data["Inputs"]; ok {
+			var inputs []map[string]json.RawMessage
+			if err := json.Unmarshal(raw, &inputs); err != nil {
+				return Payload{}, err
+			}
+			if len(inputs) == 0 || string(inputs[len(inputs)-1]["Role"]) != `"assistant"` {
+				return Payload{}, core.NewError(core.Internal, "model output context unavailable")
+			}
+			output := inputs[len(inputs)-1]
+			for _, field := range []string{"Text", "Calls", "ProviderState"} {
+				if value, ok := output[field]; ok {
+					data[field] = value
+				}
+			}
+			if data["Text"] == nil {
+				data["Text"] = json.RawMessage(`""`)
+			}
+			delete(data, "Inputs")
+			var err error
+			row.Data, err = json.Marshal(data)
+			if err != nil {
+				return Payload{}, err
+			}
+		}
+	}
 	return row.Payload, nil
 }
 func loadCheckpoint(ctx context.Context, tx persistence.Tx, owner, assistant core.ID) (json.RawMessage, error) {

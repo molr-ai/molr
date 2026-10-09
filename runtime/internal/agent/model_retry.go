@@ -120,17 +120,25 @@ func (e *Engine) generateContextStep(ctx context.Context, t Turn, modelID core.I
 		return model.Input{}, true, err
 	}
 	now := e.options.Now()
-	// A successful cached response can be consumed after a restart even if the
-	// deadline elapsed; it never dispatches another provider request.
+	// A previous process may have dispatched this attempt without committing its
+	// output to the checkpoint. There is no result cache: retain its billing
+	// evidence and use a fresh operation/reservation for the replacement request.
 	known, receiptErr := model.NewReceipts(e.store).ByOperation(ctx, t.Principal.OwnerID, r.operationID())
 	if receiptErr != nil && !persistence.Missing(receiptErr) {
 		return model.Input{}, false, receiptErr
 	}
-	if !now.Before(r.Deadline) && receiptErr == nil && !known.OutcomeKnown {
-		return model.Input{}, false, core.NewError(core.Unavailable, "model outcome unknown after deadline")
-	}
-	if !now.Before(r.Deadline) && (receiptErr != nil || known.Failure != nil) {
+	if !now.Before(r.Deadline) {
 		return model.Input{}, false, modelTerminal(core.WithReason(core.NewError(core.DeadlineExceeded, "model retry deadline exhausted"), core.ModelRetryExhausted))
+	}
+	if receiptErr == nil && (known.Failure == nil || !known.OutcomeKnown) {
+		if r.Attempt >= r.Policy.MaxAttempts {
+			return model.Input{}, false, modelTerminal(core.WithReason(core.NewError(core.Unavailable, "model retry limit exhausted"), core.ModelRetryExhausted))
+		}
+		r.Attempt++
+		r.NextAt, r.Failure = time.Time{}, nil
+		if err := e.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error { return saveRetry(ctx, tx, r) }); err != nil {
+			return model.Input{}, false, err
+		}
 	}
 	if now.Before(r.NextAt) {
 		return model.Input{}, false, &scheduler.Deferred{At: r.NextAt, Cause: r.Failure}
@@ -142,7 +150,15 @@ func (e *Engine) generateContextStep(ctx context.Context, t Turn, modelID core.I
 		attemptCtx, cancel = context.WithDeadline(ctx, r.Deadline)
 		defer cancel()
 	}
-	result, interrupted, err := e.generateContextAttempt(attemptCtx, t, modelID, r.Definitions, p, r.operationID(), r.OutputTokens, r)
+	var result model.Input
+	var interrupted bool
+	if receiptErr == nil && known.Failure != nil && known.OutcomeKnown {
+		// Resume the recorded failure decision without reserving or dispatching the
+		// same operation again if the process exited before scheduling its retry.
+		err = known.Failure
+	} else {
+		result, interrupted, err = e.generateContextAttempt(attemptCtx, t, modelID, r.Definitions, p, r.operationID(), r.OutputTokens, r)
+	}
 	if interrupted || err == nil {
 		clearCtx, clearCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer clearCancel()

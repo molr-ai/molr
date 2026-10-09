@@ -35,6 +35,9 @@ func (e *Engine) generateContextAttempt(ctx context.Context, t Turn, modelID cor
 	if err != nil {
 		return model.Input{}, false, err
 	}
+	// Retain the canonical prefix used by checkpoints; presentation may rewrite
+	// tool text for the provider and must not create a second output branch.
+	contextInputs := p.Inputs
 	p.Inputs = modelInputs(p.Inputs)
 	p.Definitions = definitions
 	// Context estimates are advisory. Only the provider can reject its token window.
@@ -150,7 +153,7 @@ func (e *Engine) generateContextAttempt(ctx context.Context, t Turn, modelID cor
 	if !terminalSeen || receipt == nil {
 		return empty, false, core.NewError(core.Unavailable, "model stream lacks terminal receipt")
 	}
-	e.options.Trace.Record(ctx, "model.complete", "succeeded", execution.OperationID, map[string]any{"LogicalID": retry.LogicalID, "Attempt": retry.Attempt, "MaxAttempts": retry.Policy.MaxAttempts, "Text": result.Text, "ProviderState": result.ProviderState, "Calls": result.Calls, "Receipt": receipt})
+	e.options.Trace.Record(ctx, "model.complete", "succeeded", execution.OperationID, map[string]any{"LogicalID": retry.LogicalID, "Attempt": retry.Attempt, "MaxAttempts": retry.Policy.MaxAttempts, "Inputs": append(append([]model.Input{}, contextInputs...), result), "Receipt": receipt})
 	return result, false, nil
 }
 

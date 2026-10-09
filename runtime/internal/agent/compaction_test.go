@@ -235,15 +235,20 @@ func TestSingleSummaryRejectsIncompleteOutput(t *testing.T) {
 					t.Fatal("failed summary altered active context")
 				}
 			}
-			if calls != 1 {
-				t.Fatalf("replayed failed summary made %d paid requests", calls)
+			if calls != 2 {
+				t.Fatalf("each explicit retry must make one fresh request: %d", calls)
 			}
 			if _, err := f.Checkpoints.Load(t.Context(), f.Owner.OwnerID, f.Turn.Event.AssistantID); !persistence.Missing(err) {
 				t.Fatal("failed summary committed checkpoint")
 			}
 			rows, err := persistence.Scan[model.Receipt](t.Context(), db, "agent.model_receipts")
-			if err != nil || len(rows) != 1 || !rows[0].OutcomeKnown || rows[0].FinishReason != tc.finish || rows[0].Charged == nil {
-				t.Fatal("finish/billing evidence lost", rows, err)
+			if err != nil || len(rows) != 2 {
+				t.Fatal("per-attempt billing evidence lost", rows, err)
+			}
+			for _, row := range rows {
+				if !row.OutcomeKnown || row.FinishReason != tc.finish || row.Charged == nil {
+					t.Fatal("finish/billing evidence lost", row)
+				}
 			}
 			if f.VisibleMessageCount() != 0 {
 				t.Fatal("summarizer executed a tool")

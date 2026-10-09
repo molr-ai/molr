@@ -1712,8 +1712,8 @@ test('developer workbench records hidden executions and only gates entry visibil
     await inspector.getByRole('tab', { name: 'Model response', exact: true }).click();
     await expect(inspector.getByRole('tab', { name: 'Response content', exact: true })).toHaveAttribute('aria-selected', 'true');
     await expect(inspector).toContainText('Internal reasoning is not a chat message.');
-    await inspector.getByRole('tab', { name: 'Raw response', exact: true }).click();
-    await expect(inspector).toContainText('prompt_tokens');
+    await inspector.getByRole('tab', { name: 'Response metadata', exact: true }).click();
+    await expect(inspector).toContainText('200');
     await expect(inspector.locator('.ui-code-token--number').first()).toBeAttached();
     await inspector.getByRole('tab', { name: 'Raw data', exact: true }).click();
     await expect(inspector.locator('.ui-code-block')).toHaveAttribute('data-highlighted', 'true');

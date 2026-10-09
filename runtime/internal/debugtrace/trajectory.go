@@ -243,7 +243,12 @@ func trajectoryPreview(kind string, encoded json.RawMessage) (name, preview stri
 	case "model.start":
 		value = data["ModelID"]
 	case "model.complete":
-		value = data["Text"]
+		var inputs []map[string]json.RawMessage
+		if json.Unmarshal(data["Inputs"], &inputs) == nil && len(inputs) > 0 {
+			value = inputs[len(inputs)-1]["Text"]
+		} else {
+			value = data["Text"]
+		}
 		if len(value) == 0 {
 			value = data["Reason"]
 		}

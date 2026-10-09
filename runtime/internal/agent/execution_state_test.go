@@ -197,34 +197,25 @@ func TestUnupgradedProgressIsRejected(t *testing.T) {
 	testkit.RequireCode(t, err, core.FailedPrecondition)
 }
 
-func TestHandoffRecoversCommittedModelOutputWithoutRedispatch(t *testing.T) {
+func TestHandoffUsesOnlyCheckpointedModelOutput(t *testing.T) {
 	f, db := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	p := turnProgress{Inputs: []model.Input{{Role: model.System, Text: loopInstructions}, {Role: model.User, Text: "in-flight work"}}}
 	testkit.RequireNoError(t, e.saveProgress(t.Context(), f.Turn, &p))
 	id := modelOperationID(f.Turn, 0)
-	call := model.ToolCall{ID: "unstarted", Name: "conversation_publish", Arguments: json.RawMessage(`{"conversation_id":"chat","text":"never dispatched"}`)}
 	testkit.RequireNoError(t, db.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
-		if err := tx.Put(ctx, "agent.operations", persistence.Key(f.Owner.OwnerID, id), operation.Operation{ID: id, OwnerID: f.Owner.OwnerID, AssistantID: "assistant", ExecutionID: f.Turn.Principal.ExecutionID, Action: "model.generate", State: operation.Succeeded}); err != nil {
-			return err
-		}
-		return tx.Put(ctx, "agent.model_requests", persistence.Key(f.Owner.OwnerID, id), struct{ Deltas []model.Delta }{[]model.Delta{{Kind: model.TextDelta, Text: "durable model answer"}, {Kind: model.ToolCallDelta, ToolCall: &call}, {Kind: model.Completed, Receipt: &model.Receipt{ModelID: "model", OutcomeKnown: true, Usage: model.Usage{InputTokens: 30000, OutputTokens: 100}}}}})
+		return tx.Put(ctx, "agent.operations", persistence.Key(f.Owner.OwnerID, id), operation.Operation{ID: id, OwnerID: f.Owner.OwnerID, AssistantID: "assistant", ExecutionID: f.Turn.Principal.ExecutionID, Action: "model.generate", State: operation.Succeeded})
 	}))
 	next := nextStateTurn(f, "after-model-commit", event.ResumeRequested)
 	_, restored, err := e.prepareExecution(t.Context(), next)
 	testkit.RequireNoError(t, err)
-	if restored.Usage == nil || restored.Usage.Tokens != 30000 {
-		t.Fatal("lost latest committed model usage")
+	if restored.Response != nil {
+		t.Fatal("invented an uncheckpointed model response")
 	}
 	_, err = f.Restart().Handle(t.Context(), next)
 	testkit.RequireNoError(t, err)
-	requests := f.ModelRequests()
-	if len(requests) != 1 || f.VisibleMessageCount() != 0 {
-		t.Fatal("old model request or tools were dispatched")
-	}
-	b, _ := json.Marshal(requests[0].Inputs)
-	if !strings.Contains(string(b), "durable model answer") || !strings.Contains(string(b), "not_started") {
-		t.Fatal("committed model evidence lost", string(b))
+	if len(f.ModelRequests()) != 1 || f.VisibleMessageCount() != 0 {
+		t.Fatal("handoff did not request fresh model output")
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"log"
 	"math/big"
 	"mime"
 	"net/http"
@@ -42,6 +43,7 @@ type Options struct {
 	Dispatched       func(context.Context, Request) error
 	PrepareInputs    func(context.Context, Request, Provider) ([]Input, error)
 	Observe          func(context.Context, string, core.ID, any)
+	ResponseLog      func(Request, RawResponse) error
 	Operations       operation.Service
 	Authorizer       policy.Authorizer
 	ListModels       func(context.Context, core.Principal) ([]Model, error)
@@ -170,22 +172,13 @@ func (c *client) Reconcile(ctx context.Context, e core.Execution, id core.ID) (R
 	return r, nil
 }
 
-type cachedResult struct {
+// attemptRecord retains only dispatch identity and failure metadata. Model output
+// belongs to the checkpoint context; completed attempts cannot replay a result.
+type attemptRecord struct {
 	Failure   *Failure `json:",omitempty"`
 	Digest    string
 	Source    StateSource
 	ReceiptID core.ID
-	Response  *providerResponse `json:",omitempty"`
-	Deltas    []Delta
-}
-
-// Execution evidence is durable independently of optional debug tracing. Store
-// the bounded response before decoding so errors and unknown extensions survive
-// adapter changes; never retain authorization headers here.
-type providerResponse struct {
-	Status      int
-	ContentType string `json:",omitempty"`
-	Body        string
 }
 
 func charge(pricing *Pricing, usage Usage) (*core.Money, error) {
@@ -283,7 +276,7 @@ func (c *client) Generate(ctx context.Context, req Request) (Stream, error) {
 	sum := sha256.Sum256(body)
 	payload := hex.EncodeToString(sum[:])
 	key := persistence.Key(req.Execution.Principal.OwnerID, req.Execution.OperationID)
-	var cache cachedResult
+	var attempt attemptRecord
 	var receipt Receipt
 	already := false
 	var op operation.Operation
@@ -311,9 +304,9 @@ func (c *client) Generate(ctx context.Context, req Request) (Stream, error) {
 				}
 			}
 		}
-		e := tx.Get(ctx, "agent.model_requests", key, &cache)
+		e := tx.Get(ctx, "agent.model_attempts", key, &attempt)
 		if e == nil {
-			if cache.Digest != payload || cache.Source != provider.source() {
+			if attempt.Digest != payload || attempt.Source != provider.source() {
 				return core.NewError(core.Conflict, "model operation payload changed")
 			}
 			already = true
@@ -343,23 +336,17 @@ func (c *client) Generate(ctx context.Context, req Request) (Stream, error) {
 		if e = c.receipts.Record(ctx, req.Execution.Principal.OwnerID, receipt); e != nil {
 			return e
 		}
-		cache = cachedResult{Digest: payload, Source: provider.source(), ReceiptID: receipt.ID}
-		return tx.Put(ctx, "agent.model_requests", key, cache)
+		attempt = attemptRecord{Digest: payload, Source: provider.source(), ReceiptID: receipt.ID}
+		return tx.Put(ctx, "agent.model_attempts", key, attempt)
 	})
 	if err != nil {
 		return nil, err
 	}
 	if already {
-		if c.options.Observe != nil {
-			c.options.Observe(ctx, "model.reused", req.Execution.OperationID, map[string]any{"ReceiptID": cache.ReceiptID})
+		if attempt.Failure != nil {
+			return nil, attempt.Failure
 		}
-		if cache.Failure != nil {
-			return nil, cache.Failure
-		}
-		if len(cache.Deltas) == 0 {
-			return nil, core.NewError(core.FailedPrecondition, "model operation unresolved; reconciliation required")
-		}
-		return &stream{deltas: cache.Deltas}, nil
+		return nil, core.NewError(core.FailedPrecondition, "model attempt already dispatched; a new attempt is required")
 	}
 	completed := false
 	defer func() {
@@ -419,23 +406,23 @@ func (c *client) Generate(ctx context.Context, req Request) (Stream, error) {
 			decoded = data
 			receipt.Timing = &Timing{RequestMs: max(0, float64(c.options.Now().Sub(started))/float64(time.Millisecond))}
 		}
-		if len(data) > 8<<20 {
-			return core.NewError(core.Unavailable, "invalid provider response")
-		}
-		cache.Response = &providerResponse{Status: response.StatusCode, ContentType: contentType, Body: string(data)}
-		recordCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-		err = c.store.Write(recordCtx, func(ctx context.Context, tx persistence.Tx) error {
-			if err := c.receipts.Record(ctx, req.Execution.Principal.OwnerID, receipt); err != nil {
-				return err
+		if c.options.ResponseLog != nil {
+			raw := RawResponse{Status: response.StatusCode, ContentType: contentType, Body: string(data[:min(len(data), 8<<20)]), Incomplete: readErr != nil || len(data) > 8<<20}
+			if err := c.options.ResponseLog(req, raw); err != nil {
+				log.Printf("model response diagnostic log unavailable")
 			}
-			return tx.Put(ctx, "agent.model_requests", key, cache)
-		})
+		}
+		if c.options.Observe != nil {
+			c.options.Observe(ctx, "model.response", req.Execution.OperationID, map[string]any{"Status": response.StatusCode, "ContentType": contentType, "Incomplete": readErr != nil || len(data) > 8<<20})
+		}
+		recordCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		err = c.receipts.Record(recordCtx, req.Execution.Principal.OwnerID, receipt)
 		cancel()
 		if err != nil {
 			return err
 		}
-		if c.options.Observe != nil {
-			c.options.Observe(ctx, "model.response", req.Execution.OperationID, map[string]any{"Status": response.StatusCode, "Body": string(data)})
+		if len(data) > 8<<20 {
+			return core.NewError(core.Unavailable, "invalid provider response")
 		}
 		if response.StatusCode < 200 || response.StatusCode >= 300 {
 			return providerFailure(response.StatusCode, data, response.Header.Get("Retry-After"), c.options.Now())
@@ -458,7 +445,7 @@ func (c *client) Generate(ctx context.Context, req Request) (Stream, error) {
 	if err != nil {
 		failure := FailureOf(err)
 		if failure != nil {
-			receipt.Failure, cache.Failure = failure, failure
+			receipt.Failure, attempt.Failure = failure, failure
 			receipt.OutcomeKnown = failure.OutcomeKnown
 			if failure.NoCharge {
 				receipt.Charged = &core.Money{Currency: provider.Pricing.Currency}
@@ -474,7 +461,7 @@ func (c *client) Generate(ctx context.Context, req Request) (Stream, error) {
 						return err
 					}
 				}
-				return tx.Put(ctx, "agent.model_requests", key, cache)
+				return tx.Put(ctx, "agent.model_attempts", key, attempt)
 			})
 			if persistErr != nil {
 				return nil, persistErr
@@ -535,7 +522,6 @@ func (c *client) Generate(ctx context.Context, req Request) (Stream, error) {
 		deltas = append(deltas, Delta{Kind: ToolCallDelta, ToolCall: &call})
 	}
 	deltas = append(deltas, Delta{Kind: Completed, Receipt: &receipt})
-	cache.Deltas = deltas
 	persistCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
 	err = c.store.Write(persistCtx, func(ctx context.Context, tx persistence.Tx) error {
@@ -545,7 +531,7 @@ func (c *client) Generate(ctx context.Context, req Request) (Stream, error) {
 		if _, err := c.options.Operations.Complete(ctx, req.Execution, operation.Completion{ID: op.ID, ExpectedVersion: op.Version, State: operation.Succeeded, ReceiptID: receipt.ID, SafeResult: json.RawMessage(`{"completed":true}`)}); err != nil {
 			return err
 		}
-		return tx.Put(ctx, "agent.model_requests", key, cache)
+		return tx.Put(ctx, "agent.model_attempts", key, attempt)
 	})
 	if err != nil {
 		return nil, err

@@ -113,7 +113,7 @@ func TestAssistantCapabilitiesAreReadOnlyScopedAndReflectStorageGrants(t *testin
 	if dto.AssistantID != id {
 		t.Fatal("wrong assistant")
 	}
-	for _, bucket := range []string{"agent.operations", "agent.model_requests", "agent.jobs"} {
+	for _, bucket := range []string{"agent.operations", "agent.model_attempts", "agent.jobs"} {
 		rows, err := persistence.Scan[json.RawMessage](ctx, b.store, bucket)
 		need(t, err)
 		if len(rows) > 0 {
