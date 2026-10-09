@@ -3,8 +3,8 @@ import { weixinCopy } from '../weixin-copy';
 import { useCopy, useQuery } from '../state';
 
 export const systemCopy = {
- zh: { queue: '助理提醒', open: '查看详情', unknown: '有一条需要关注的通知', failed: '后台执行失败', permission: '有新的授权请求', ready: '计划已可交接', connection: '微信需要重新连接', remaining: (n:number) => `还有 ${n} 条提醒` },
- en: { queue: 'Assistant notices', open: 'View details', unknown: 'A notification needs your attention', failed: 'Background execution failed', permission: 'New permission request', ready: 'Plan ready to hand off', connection: 'Reconnect Weixin', remaining: (n:number) => `${n} more ${n === 1 ? 'notice' : 'notices'}` },
+ zh: { queue: '助理提醒', open: '查看详情', unknown: '有一条需要关注的通知', failed: '后台执行失败', permission: '有新的授权请求', ready: '计划已可交接', connection: '微信需要重新连接', reconnecting: '微信连接中断', reconnectingHelp: '正在自动重连，微信消息接收暂时不可用。恢复后此提醒会自动解除。', remaining: (n:number) => `还有 ${n} 条提醒` },
+ en: { queue: 'Assistant notices', open: 'View details', unknown: 'A notification needs your attention', failed: 'Background execution failed', permission: 'New permission request', ready: 'Plan ready to hand off', connection: 'Reconnect Weixin', reconnecting: 'Weixin connection interrupted', reconnectingHelp: 'Reconnecting automatically. Incoming Weixin messages are temporarily unavailable. This notice clears when the connection recovers.', remaining: (n:number) => `${n} more ${n === 1 ? 'notice' : 'notices'}` },
 };
 export function useNoticeText() {
  const { t, locale } = useCopy(), copy = systemCopy[locale], weixin = weixinCopy[locale];
@@ -15,7 +15,7 @@ export function useNoticeText() {
   return route ? { route, label: n.Kind === 'execution.failed' ? t.turnMetrics.viewWorkbench : copy.open } : undefined;
  }, text: (n:SystemNotice) => {
   if(n.Kind==='weixin.delivery') { const [state,error]=n.Code.split(':');return { title:weixin.delivery, description:state==='failed'&&error==='rate_limited'?weixin.retryExhausted:weixin.deliveryErrors[error as keyof typeof weixin.deliveryErrors]??weixin.deliveries[state as keyof typeof weixin.deliveries]??state, help:state==='unknown'?weixin.deliveryHelp:'' }; }
-  if(n.Kind==='weixin.connection')return {title:copy.connection,description:weixin.states.login_required};
+  if(n.Kind==='weixin.connection')return n.Code==='reconnecting' ? {title:copy.reconnecting,description:copy.reconnectingHelp} : {title:copy.connection,description:weixin.states.login_required};
   if(n.Kind==='assistant.waiting')return {title:t.waiting.title,description:(t.waiting.reasons as Record<string,string>)[n.Code]??t.waiting.unknown};
   if(n.Kind==='execution.failed')return {title:copy.failed,description:n.Code.startsWith('needs_review')?(locale==='zh'?'结果需要核对，请先检查执行情况，避免重复操作。':'The outcome needs review. Check the execution before repeating it.'):(t.waiting.reasons as Record<string,string>)[n.Code.split(':')[1]]??t.waiting.unknown};
   return {title:({'permission.request':copy.permission,'plan.ready':copy.ready,'task.failed':copy.failed,'execution.failed':copy.failed} as Record<string,string>)[n.Kind]??copy.unknown,description:n.Label||''};

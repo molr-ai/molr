@@ -198,8 +198,11 @@ func (s *Service) Connected(ctx context.Context, owner, chat core.ID) (bool, err
 	}
 	return err == nil, err
 }
+func (s *Service) syncConnectionNotice(ctx context.Context, b Binding) error {
+	return notification.Sync(ctx, s.store, b.OwnerID, notification.Input{Kind: "weixin.connection", Code: b.State, Source: core.Object{Kind: "assistant", ID: b.AssistantID}, AssistantID: b.AssistantID}, b.State == "login_required" || b.State == "reconnecting")
+}
 func (s *Service) notify(ctx context.Context, b Binding) error {
-	if err := notification.Sync(ctx, s.store, b.OwnerID, notification.Input{Kind: "weixin.connection", Code: "login_required", Source: core.Object{Kind: "assistant", ID: b.AssistantID}, AssistantID: b.AssistantID}, b.State == "login_required"); err != nil {
+	if err := s.syncConnectionNotice(ctx, b); err != nil {
 		return err
 	}
 	return realtime.NewStore(s.store).Append(ctx, realtime.Visible{ID: newID(), OwnerID: b.OwnerID, Topic: "weixin.changed", Object: core.Object{Kind: "assistant", ID: b.AssistantID}, ConversationID: b.ConversationID, Version: 1, CreatedAt: time.Now().UTC()})

@@ -11,6 +11,7 @@ import (
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/im/realtime"
 	"molr.ai/runtime/internal/persistence"
+	"molr.ai/runtime/internal/retry"
 )
 
 type RetryPolicy struct {
@@ -188,7 +189,7 @@ func (e *Engine) generateContextStep(ctx context.Context, t Turn, modelID core.I
 	if failure == nil || !failure.Retryable || !failure.OutcomeKnown || !failure.NoCharge {
 		return result, false, err
 	}
-	delay := min(r.Policy.MaxDelay, r.Policy.BaseDelay*time.Duration(1<<min(r.Attempt-1, 20)))
+	delay := (retry.Policy{BaseDelay: r.Policy.BaseDelay, MaxDelay: r.Policy.MaxDelay}).Delay(r.Attempt)
 	delay = delay/2 + time.Duration(rand.Int64N(max(1, int64(delay-delay/2))))
 	delay = max(delay, failure.RetryAfter)
 	next := e.options.Now().Add(delay)

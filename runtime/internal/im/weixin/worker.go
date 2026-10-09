@@ -15,6 +15,7 @@ import (
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/im/conversation"
 	"molr.ai/runtime/internal/persistence"
+	"molr.ai/runtime/internal/retry"
 	"molr.ai/runtime/internal/storage/files"
 )
 
@@ -100,7 +101,7 @@ func (s *Service) Run(ctx context.Context) error {
 		}
 	}()
 	for ctx.Err() == nil {
-		rows, err := persistence.Select[Binding](ctx, s.store, bindingsBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("State", "connected")}})
+		rows, err := persistence.Select[Binding](ctx, s.store, bindingsBucket, persistence.Query{Where: []persistence.Filter{{Field: "State", Op: "in", Value: []string{"connected", "reconnecting"}}}})
 		if err != nil {
 			return err
 		}
@@ -150,6 +151,12 @@ func (s *Service) pollLoop(ctx context.Context, initial Binding) {
 			defer lifecycle.notify(context.WithoutCancel(ctx), initial.BaseURL, secret.Token, false)
 		}
 	}
+	policy := retry.Policy{}
+	failures := 0
+	waitRetry := func() bool {
+		failures++
+		return sleep(ctx, policy.Delay(failures))
+	}
 	for ctx.Err() == nil {
 		b, err := s.binding(ctx, initial.OwnerID, initial.ConversationID)
 		if err != nil || b.ID != initial.ID || b.State == "login_required" {
@@ -161,7 +168,10 @@ func (s *Service) pollLoop(ctx context.Context, initial Binding) {
 		secret, err := s.open(b)
 		if err != nil {
 			s.setFailure(ctx, b, "credential_unavailable")
-			return
+			if !waitRetry() {
+				return
+			}
+			continue
 		}
 		r, err := s.options.Client.Poll(ctx, b.BaseURL, secret.Token, secret.Cursor)
 		if ctx.Err() != nil {
@@ -173,17 +183,18 @@ func (s *Service) pollLoop(ctx context.Context, initial Binding) {
 			if reason == "login_required" {
 				return
 			}
-			if !sleep(ctx, 5*time.Second) {
+			if !waitRetry() {
 				return
 			}
 			continue
 		}
 		if err = s.ingest(ctx, b, r); err != nil {
-			if !sleep(ctx, 5*time.Second) {
+			if !waitRetry() {
 				return
 			}
 			continue
 		}
+		failures = 0
 		// Also bounds the request rate if a backend returns immediately with no data.
 		if !sleep(ctx, 250*time.Millisecond) {
 			return
@@ -201,7 +212,7 @@ func (s *Service) setFailure(ctx context.Context, b Binding, reason string) {
 			state = "login_required"
 		}
 		if current.State == state && current.LastError == reason {
-			return nil
+			return s.syncConnectionNotice(ctx, current)
 		}
 		current.State = state
 		current.LastError = reason

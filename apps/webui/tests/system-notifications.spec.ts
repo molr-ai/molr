@@ -108,3 +108,21 @@ test('chat queues one notice, keeps the current item stable and advances only af
  expect(updates).toEqual([['first'],['first'],['second'],['third']]);
  await expect(page.locator('.chat-input textarea')).toBeVisible();
 });
+
+test('Weixin reconnect notice explains automatic retries and opens channel management',async({page},info)=>{
+ await login(page);const a=await blockedAssistant(page,`Weixin reconnect ${info.project.name}-${Date.now()}`);
+ await expect.poll(async()=>(await notices(page,a.ID)).length).toBe(1);
+ const seed=(await notices(page,a.ID))[0];
+ const notice={...seed,ID:'weixin-reconnect',Kind:'weixin.connection',Code:'reconnecting'};
+ await page.route('**/api/notifications?*',route=>route.fulfill({json:{Items:[notice],NextCursor:'',UnreadCount:1,PendingCount:1}}));
+ await page.route(`**/api/assistants/${a.ID}/weixin`,route=>route.fulfill({json:{Channel:'weixin',State:'reconnecting',LastError:'unknown',Deliveries:[]}}));
+ await page.goto(`/#/assistants/${a.ID}`);
+ const region=page.getByRole('region',{name:'Assistant notices',exact:true});
+ await expect(region).toContainText('Weixin connection interrupted');
+ await expect(region).toContainText('Reconnecting automatically.');
+ await expect(region).not.toContainText('Scan again');
+ await region.getByRole('button',{name:'View details',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'Chat channel',exact:true});
+ await expect(dialog).toBeVisible();await expect(dialog).toContainText('Reconnecting');
+ await expect(dialog.getByRole('button',{name:'Scan again',exact:true})).toHaveCount(0);
+});
