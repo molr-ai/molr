@@ -89,12 +89,14 @@ func (s *Coordinator) Prepare(ctx context.Context, p core.Principal, e event.Ass
 	}
 	payload, _ := json.Marshal(struct {
 		Day         string
+		Timezone    string
+		Backfill    bool
 		Maintenance bool
 		Sources     []Evidence
 		Workspace   string
 		Core        string
 		Global      string
-	}{r.Day, r.Maintenance, r.Sources, "/work/.agents/memory", "/work/MEMORY.md", "/global/.agents/memory"})
+	}{r.Day, r.Timezone, r.Backfill, r.Maintenance, r.Sources, "/work/.agents/memory", "/work/MEMORY.md", "/global/.agents/memory"})
 	err = s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		current, err := s.run(ctx, p, e)
 		if err != nil {
@@ -181,7 +183,11 @@ func (s *Coordinator) Commit(ctx context.Context, p core.Principal, e event.Assi
 	}); err != nil {
 		return err
 	}
-	r.ReviewPath = fmt.Sprintf(".agents/reviews/%s/第%d批回顾.md", r.Day, r.Batch)
+	name := fmt.Sprintf("第%d批回顾.md", r.Batch)
+	if r.Backfill {
+		name = "补处理" + name
+	}
+	r.ReviewPath = fmt.Sprintf(".agents/reviews/%s/%s", r.Day, name)
 	refs := []core.Object{}
 	for _, source := range r.Sources {
 		refs = append(refs, source.Source)

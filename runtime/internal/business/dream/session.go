@@ -156,8 +156,10 @@ func (s *Coordinator) startSession(ctx context.Context, c Config, manual bool, n
 				carry = append(carry, src)
 			}
 		}
+		sort.SliceStable(carry, func(i, j int) bool { return carry[i].At.Before(carry[j].At) })
 		carry, _ = takeEvidence(carry, 80, 96<<10)
-		v.Sources = append(v.Sources, carry...)
+		// Older evidence is processed before the fresh suffix.
+		v.Sources = append(carry, v.Sources...)
 	}
 	maintenance := false
 	if len(v.Sources) == 0 {
@@ -191,26 +193,27 @@ func (s *Coordinator) startSession(ctx context.Context, c Config, manual bool, n
 }
 func (s *Coordinator) batch(v Session, now time.Time) Run {
 	end := len(v.Sources)
-	backfill := len(v.Sources) > 0 && v.Offset >= v.FreshCount
-	if !backfill {
-		end = v.FreshCount
-	}
-	sources, _ := takeEvidence(v.Sources[v.Offset:end], 80, 96<<10)
-	start, until := v.Start, v.End
+	freshStart := len(v.Sources) - v.FreshCount
+	backfill := v.Offset < freshStart
 	if backfill {
-		start = sources[0].At
-		until = start.Add(time.Nanosecond)
-		for _, src := range sources {
-			if src.At.Before(start) {
-				start = src.At
-			}
-			if !src.At.Before(until) {
-				until = src.At.Add(time.Nanosecond)
+		end = freshStart
+	}
+	loc := mustLocation(v.Timezone)
+	start, until := v.Start, v.End
+	if v.Offset < end {
+		start = dayStart(v.Sources[v.Offset].At, loc).UTC()
+		until = start.In(loc).AddDate(0, 0, 1).UTC()
+		// Finish every batch for this local date before advancing to the next.
+		for i := v.Offset + 1; i < end; i++ {
+			if !v.Sources[i].At.Before(until) {
+				end = i
+				break
 			}
 		}
 	}
+	sources, _ := takeEvidence(v.Sources[v.Offset:end], 80, 96<<10)
 	runID := id(string(v.ID), "batch", time.Duration(v.Batch).String())
-	return Run{ID: runID, EventID: id(string(runID), "event"), SessionID: v.ID, Deadline: v.Deadline, Batch: v.Batch + 1, Maintenance: len(v.Sources) == 0, Backfill: backfill, OwnerID: v.OwnerID, AssistantID: v.AssistantID, Manual: v.Manual, Day: v.Start.In(mustLocation(v.Timezone)).Format("2006-01-02"), Timezone: v.Timezone, Start: start, End: until, State: "queued", Sources: sources, MemoryFiles: []memory.Ref{}, CreatedAt: now.UTC(), UpdatedAt: now.UTC()}
+	return Run{ID: runID, EventID: id(string(runID), "event"), SessionID: v.ID, Deadline: v.Deadline, Batch: v.Batch + 1, Maintenance: len(v.Sources) == 0, Backfill: backfill, OwnerID: v.OwnerID, AssistantID: v.AssistantID, Manual: v.Manual, Day: start.In(loc).Format("2006-01-02"), Timezone: v.Timezone, Start: start, End: until, State: "queued", Sources: sources, MemoryFiles: []memory.Ref{}, CreatedAt: now.UTC(), UpdatedAt: now.UTC()}
 }
 func mustLocation(zone string) *time.Location {
 	loc, err := time.LoadLocation(zone)
@@ -234,12 +237,13 @@ func (s *Coordinator) finishSession(ctx context.Context, tx persistence.Tx, v Se
 	v.State = state
 	v.FinishedAt = &now
 	left := []Evidence{}
-	if v.Offset < v.FreshCount {
-		left = append(left, v.Sources[v.Offset:v.FreshCount]...)
+	freshOffset := max(v.Offset, len(v.Sources)-v.FreshCount)
+	if freshOffset < len(v.Sources) {
+		left = append(left, v.Sources[freshOffset:]...)
 	}
 	left = append(left, v.Deferred...)
 	left, _ = takeEvidence(left, 80, 96<<10)
-	// Only fresh sources get one automatic retry, capped to one fifth of input.
+	// Only fresh sources get one automatic retry; older backfill is never carried again.
 	if err := tx.Put(ctx, backlogs, persistence.Key(v.OwnerID, v.AssistantID), backlog{OwnerID: v.OwnerID, AssistantID: v.AssistantID, EligibleOn: v.End.In(mustLocation(v.Timezone)).AddDate(0, 0, 1).UTC(), Sources: left}); err != nil {
 		return err
 	}
