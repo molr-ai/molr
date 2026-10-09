@@ -18,7 +18,7 @@ export type Draft = { text: string; files: FileInfo[] };
 export type AssistantAction = 'channel' | 'info' | 'clone' | 'dismiss' | 'permissions' | 'tasks' | 'shell_tasks' | 'pin';
 export function Chat({ assistant, conversation, timeZone, draft, updateDraft, onAction, onBack, onCard, onDebug, onAutomatic, targetMessageID = '', onClearTarget }: {
   targetMessageID?: string; onClearTarget: () => void;
-  assistant: Assistant; conversation?: Conversation; timeZone?: string; draft: Draft; updateDraft: (draft: Draft) => void;
+  assistant: Assistant; conversation?: Conversation; timeZone?: string; draft: Draft; updateDraft: (draft: Draft | ((previous: Draft) => Draft)) => void;
   onAutomatic: () => void; onDebug?: (turnID?: string) => void; onAction: (action: AssistantAction) => void; onBack?: () => void; onCard: (kind: string, id: string) => void;
 }) {
   const { t, locale } = useCopy(), { invalidate, invalidateTopics } = useData(); const action = useAction();
@@ -33,6 +33,12 @@ export function Chat({ assistant, conversation, timeZone, draft, updateDraft, on
   const [uploading, setUploading] = useState(false), [notice, setNotice] = useState('');
   const log = useRef<HTMLDivElement>(null), bottom = useRef(true), savedScroll = useRef<{ top: number; height: number } | null>(null), readThrough = useRef(conversation?.LastReadSequence ?? 0);
   const targetElement = useRef<HTMLDivElement>(null), located = useRef('');
+  const navigation = useRef(0);
+  useLayoutEffect(() => {
+    const changed = () => { navigation.current++; };
+    window.addEventListener('hashchange', changed);
+    return () => { changed(); window.removeEventListener('hashchange', changed); };
+  }, []);
   const draftAttachments = useFilePreviews(draft.files);
   const archived = assistant.State === 'dismissed' || conversation?.Archived;
   const lastSequence = history.messages.at(-1)?.Sequence ?? 0;
@@ -59,19 +65,23 @@ export function Chat({ assistant, conversation, timeZone, draft, updateDraft, on
   useEffect(() => { markRead(); const visible = () => markRead(); document.addEventListener('visibilitychange', visible); window.addEventListener('focus', visible); return () => { document.removeEventListener('visibilitychange', visible); window.removeEventListener('focus', visible); }; }, [lastSequence, conversation?.LastReadSequence, targetMessageID]);
   async function send() {
     if (chatReadOnly || archived || uploading || action.busy || (!draft.text.trim() && !draft.files.length)) return;
-    const sent = draft;
+    const sent = draft, startedNavigation = navigation.current, startedHash = location.hash;
     if (/^\/compress(?:\s|$)/.test(sent.text.trim())) {
       if (sent.text.trim() !== '/compress') { setNotice(t.chat.compressArguments); return; }
       await action.run(async () => {
         await api.mutate(`/api/assistants/${assistant.ID}/compress`, {});
-        updateDraft({ ...sent, text: '' }); setNotice(''); status.reload();
+        updateDraft(current => current === sent ? { ...sent, text: '' } : current); setNotice(''); status.reload();
       }, undefined, false);
       return;
     }
     await action.run(async () => {
       await api.mutate('/api/conversations/messages', { ConversationID: assistant.ConversationID, Content: { Kind: 'text', Text: sent.text, AttachmentIDs: sent.files.map(file => file.ID) } });
       invalidateTopics([`messages:${assistant.ConversationID}`]);
-      updateDraft({ text: '', files: [] }); bottom.current = true; onClearTarget();
+      updateDraft(current => current === sent ? { text: '', files: [] } : current);
+      // A mobile exit animation may keep this component mounted after navigation.
+      if (navigation.current === startedNavigation && location.hash === startedHash) {
+        bottom.current = true; onClearTarget();
+      }
     }, undefined, false);
   }
   async function attach(files: File[]) {
