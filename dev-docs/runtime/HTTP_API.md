@@ -250,6 +250,8 @@ Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugi
 | POST | `/api/todos/delete` |
 | POST | `/api/todos/update` |
 
+HTTP 限流在事务内读取并更新持久计数，通过的请求占用当前窗口额度；额度已耗尽时返回 429 和 `Retry-After`，不重写未变化的计数，也不延长窗口。并发请求共享事务计数，重启保留窗口；存储失败时拒绝放行。
+
 ## 验证
 
 API 合同测试使用真实 HTTP server、Auth、CSRF、持久限流、Realtime 与 SQLite，其他模块也采用实际实现；仅固定供应商目录与组合层归属依赖受控。测试覆盖登录 Cookie 与秘密 DTO、二次验证消费、权限能力隔离、可信代理、SSE 撤销、服务启停和失败关闭。
