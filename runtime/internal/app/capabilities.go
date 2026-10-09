@@ -48,7 +48,7 @@ func inspectCapabilities(ctx context.Context, store persistence.Store, catalog t
 					action = policy.Execute
 					kind = resource.Compute
 				}
-				if definition.Name == "file_write" || definition.Name == "file_edit" {
+				if definition.Name == "file_write" || definition.Name == "file_edit" || definition.Name == "file_move" || definition.Name == "file_delete" {
 					action = policy.Write
 				}
 				item.Available = false

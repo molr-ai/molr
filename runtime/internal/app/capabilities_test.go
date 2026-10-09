@@ -62,7 +62,7 @@ func TestAssistantCapabilitiesAreReadOnlyScopedAndReflectStorageGrants(t *testin
 			for _, tool := range result.Tools {
 				entries[tool.Name] = tool
 			}
-			if len(entries) != 17 || !entries["profile_update"].Available || !entries["shell_task"].Available || !entries["permission_list"].Available || !entries["permission_request"].Available || !entries["file_search"].Available || entries["memory_search"].Available || entries["memory_read"].Available || !entries["conversation_read"].Available || !entries["plan_list"].Available || !entries["plan_read"].Available || !entries["plan_manage"].Available {
+			if len(entries) != 19 || !entries["profile_update"].Available || !entries["shell_task"].Available || !entries["permission_list"].Available || !entries["permission_request"].Available || !entries["file_search"].Available || entries["memory_search"].Available || entries["memory_read"].Available || !entries["conversation_read"].Available || !entries["plan_list"].Available || !entries["plan_read"].Available || !entries["plan_manage"].Available {
 				t.Fatalf("builtins=%+v", entries)
 			}
 			if entries["shell_execute"].Available || entries["shell_execute"].Reason == "available" {
@@ -70,6 +70,11 @@ func TestAssistantCapabilitiesAreReadOnlyScopedAndReflectStorageGrants(t *testin
 			}
 			if !entries["file_read"].Available || !entries["file_write"].Available || (len(entries["file_read"].ResourceIDs) > 0) != tc.read || (len(entries["file_write"].ResourceIDs) > 0) != tc.write {
 				t.Fatalf("storage capabilities=%+v %+v", entries["file_read"], entries["file_write"])
+			}
+			for _, name := range []string{"file_move", "file_delete"} {
+				if !entries[name].Available || (len(entries[name].ResourceIDs) > 0) != tc.write {
+					t.Fatalf("%s must reflect write grants: %+v", name, entries[name])
+				}
 			}
 			if !result.Skills.Supported || result.Skills.Items == nil || len(result.Skills.Items) != 0 {
 				t.Fatal("workspace Skills capability missing or unexpectedly populated")
