@@ -31,8 +31,6 @@ Molr runs on your own device and connects to the models you choose. Work with yo
 - **Multiple devices and separate accounts** — Continue on desktop or mobile browsers connected to the same service. Families and small teams can allocate resources and quotas through user groups.
 - **Plugins and themes** — Extend tools, Skills, themes, and standalone pages through plugins imported and authorized by an administrator.
 
-Self-hosting does not make all inference offline: inputs may be sent to remote models or network services you use. File access, command execution, and multimodal capabilities depend on your deployment, models, and permissions. See the [current product scope](dev-docs/PRODUCT_SCOPE.md).
-
 ## Getting started
 
 You can build Linux amd64/arm64 packages from source with the WebUI embedded. GitHub Releases and a public download source are not available yet.
@@ -90,9 +88,9 @@ Install dependencies in your task worktree, then start the application you need:
 
 ```bash
 npm ci
-npm run dev:webui       # WebUI: 5191; requires a separate Runtime
-npm run dev:website     # Website: 5189
-npm run dev             # UI Design: 5188; mock data
+npm run dev             # WebUI: 5191; requires a separate Runtime
+VITE_SITE_MODE=live npm run dev:website # Website: 5189
+npm run dev:design      # UI Design: 5188; mock data
 ```
 
 Frontends listen on `0.0.0.0` by default. Each worktree needs its own dependencies, data, and available ports. Set `MOLR_RUNTIME_URL` to connect the WebUI to that worktree's own Runtime. See each directory's README for configuration and validation commands, and the [development guide](dev-docs/DEVELOPMENT.md) for Runtime build and acceptance requirements.

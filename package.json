@@ -9,7 +9,8 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace @molr/ui-design --",
+    "dev": "npm run dev --workspace @molr/webui --",
+    "dev:design": "npm run dev --workspace @molr/ui-design --",
     "dev:website": "npm run dev --workspace @molr/website --",
     "brand:generate": "npm run brand:generate --workspace @molr/ui",
     "typecheck": "npm run typecheck --workspaces --if-present",

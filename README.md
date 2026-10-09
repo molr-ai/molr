@@ -31,8 +31,6 @@ Molr 在你自己的设备上运行服务，连接你选择的模型。通过桌
 - **多设备与独立账号** — 桌面、手机浏览器接续同一服务；家庭和小团队可通过用户组分配资源与额度。
 - **插件与主题** — 通过管理员导入和授权，扩展工具、Skills、主题及独立页面。
 
-自托管不等于所有推理离线：使用远程模型或网络服务时，相关输入可能发送到对应服务。文件、命令和多模态能力取决于部署环境、所选模型与授权，详见[当前产品范围](dev-docs/PRODUCT_SCOPE.md)。
-
 ## 快速开始
 
 当前支持从源码构建 Linux amd64／arm64 发行包，内嵌 WebUI；GitHub Release 与在线公共下载源尚未接入。
@@ -88,9 +86,9 @@ bash scripts/install.sh --archive dist/releases/molr_0.1.0-local_linux_amd64.tar
 
 ```bash
 npm ci
-npm run dev:webui       # WebUI：5191，需要独立 Runtime
-npm run dev:website     # 官网：5189
-npm run dev             # UI Design：5188，模拟数据
+npm run dev             # WebUI：5191，需要独立 Runtime
+VITE_SITE_MODE=live npm run dev:website # 官网：5189
+npm run dev:design      # UI Design：5188，模拟数据
 ```
 
 前端默认监听 `0.0.0.0`。各 worktree 使用独立的依赖、数据和空闲端口；WebUI 通过 `MOLR_RUNTIME_URL` 连接同一 worktree 自己的 Runtime。启动配置与验证命令见各目录的 README，Runtime 构建和验收要求见[开发规范](dev-docs/DEVELOPMENT.md)。

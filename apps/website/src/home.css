@@ -24,7 +24,7 @@
 .home-actions button:hover { background: var(--color-neutral-bg); }
 .home-action-divider { width: 1px; height: 16px; background: var(--color-border); }
 .home-hero { position: relative; isolation: isolate; text-align: center; padding-top: 76px; }
-.home-hero::before { position: absolute; content: ''; inset: 80px -160px 0; z-index: -1; pointer-events: none; background: radial-gradient(ellipse at 50% 68%, color-mix(in srgb, var(--color-accent) 16%, transparent), transparent 65%); }
+.home-hero::before { position: absolute; content: ''; inset: 80px -160px 0; z-index: -1; pointer-events: none; background: radial-gradient(ellipse at 50% 68%, color-mix(in srgb, var(--color-accent) 16%, transparent), transparent 65%); mask-image: linear-gradient(to bottom, var(--color-text) calc(100% - 96px), transparent); }
 .home-eyebrow { padding: 7px 13px; border: 1px solid color-mix(in srgb, var(--color-accent) 45%, var(--color-border)); border-radius: 999px; background: var(--home-soft); display: inline-flex; gap: 10px; align-items: center; font-size: 13px; letter-spacing: .05em; }
 .home-eyebrow > span { width: 7px; height: 7px; background: var(--color-focus); border-radius: 50%; box-shadow: 0 0 0 4px var(--color-selected-bg); }
 .home-page h1 { font-size: clamp(44px, 6.3vw, 80px); font-weight: 550; line-height: 1.16; letter-spacing: -.065em; margin: 23px auto 18px; text-wrap: balance; }

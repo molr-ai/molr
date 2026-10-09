@@ -80,7 +80,7 @@
 
 - 以下默认端口适用于主工作目录；独立 worktree 并行运行时使用各自分配的空闲端口。下文的“仓库根目录”指当前任务 worktree 的根目录，主分支服务则使用主工作目录。
 - 启动开发或预览服务时，默认监听 `0.0.0.0`，允许同一局域网内的设备访问。除非用户明确要求，否则不要绑定 `127.0.0.1` 或 `localhost`。
-- 在仓库根目录使用 `npm run dev` 或 `npm run preview`，沿用 `apps/ui-design/vite.config.ts` 中的监听配置，不要通过命令行参数覆盖为仅本机访问。开发服务端口为 `5188`。
-- 产品官网使用根目录的 `npm run dev:website` 或 `npm run preview:website`，沿用 `apps/website/vite.config.ts` 的局域网监听配置；开发端口为 `5189`，构建预览端口为 `5190`。
-- 真实 WebUI 使用根目录的 `npm run dev:webui` 或 `npm run preview:webui`，沿用 `apps/webui/vite.config.ts`；开发端口为 `5191`，构建预览端口为 `5192`，默认监听 `0.0.0.0`。
+- UI Design 在仓库根目录使用 `npm run dev:design` 或 `npm run preview`，沿用 `apps/ui-design/vite.config.ts` 中的监听配置，不要通过命令行参数覆盖为仅本机访问。开发服务端口为 `5188`。
+- 产品官网使用根目录的 `npm run dev:website` 或 `npm run preview:website`，沿用 `apps/website/vite.config.ts` 的局域网监听配置；开发端口为 `5189`，构建预览端口为 `5190`。本地开发和验收默认在启动命令中带上环境变量：`VITE_SITE_MODE=live npm run dev:website`。未设置 `VITE_SITE_MODE` 或留空时，程序仍使用 `coming-soon`；检查上线预告或维护页时按需指定模式。本地验收完整官网的构建预览时，先用 `VITE_SITE_MODE=live npm run build:website` 构建，再运行预览命令；预览沿用产物中的模式。
+- 真实 WebUI 使用根目录的 `npm run dev`（或 `npm run dev:webui`）或 `npm run preview:webui`，沿用 `apps/webui/vite.config.ts`；开发端口为 `5191`，构建预览端口为 `5192`，默认监听 `0.0.0.0`。
 - 启动后确认实际监听地址和端口，并提供可用的局域网访问地址 `http://<本机局域网 IP>:<端口>`。

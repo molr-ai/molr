@@ -6,7 +6,7 @@
 
 ```bash
 npm ci
-npm run dev
+npm run dev:design
 npm run build
 npm run preview
 ```

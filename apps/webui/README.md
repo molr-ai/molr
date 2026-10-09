@@ -13,13 +13,13 @@
 先启动已初始化的 Runtime，然后在仓库根目录运行：
 
 ```bash
-npm run dev:webui
+npm run dev
 ```
 
 开发服务监听 `0.0.0.0:5191`，默认将 `/api` 代理到 `http://127.0.0.1:8080`。登录使用 Runtime 初始化时创建的账号，没有前端默认账号，也不通过 HTTP 初始化服务器。
 
 ```bash
-MOLR_RUNTIME_URL=http://127.0.0.1:8081 npm run dev:webui
+MOLR_RUNTIME_URL=http://127.0.0.1:8081 npm run dev
 npm run build:webui
 npm run preview:webui
 ```
