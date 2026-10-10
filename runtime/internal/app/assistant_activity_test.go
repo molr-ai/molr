@@ -23,7 +23,7 @@ func TestAssistantActivityPageIsolationAndPreview(t *testing.T) {
 	foreign := f.assistant(t, f.bob, "foreign")
 	_, err := f.b.Services.Assistants.Dismiss(ctx, f.alice, assistant.LifecycleRequest{ID: archived.ID, Mutation: core.Mutation{IdempotencyKey: "dismiss", ExpectedVersion: archived.Version}})
 	need(t, err)
-	for index, text := range []string{"old", "  " + strings.Repeat("猫", 85) + "\nprivate tail"} {
+	for index, text := range []string{"old", "  " + strings.Repeat("猫", 85) + "\n" + strings.Repeat("private tail\n", 4096)} {
 		_, err := f.b.Services.Conversations.SendUser(ctx, f.alice, conversation.SendUserRequest{Mutation: core.Mutation{IdempotencyKey: "message-" + strconv.Itoa(index)}, ConversationID: first.ConversationID, Content: conversation.Content{Kind: conversation.Text, Text: text}})
 		need(t, err)
 	}
