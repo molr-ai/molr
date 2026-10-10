@@ -481,6 +481,25 @@ func (tx *transaction) Sum(ctx context.Context, bucket string, q persistence.Que
 	return total, translate(ctx, err)
 }
 
+// EncodedBytes measures the original encoded values without transferring them
+// to the caller. Cast also preserves byte semantics if a value is stored as TEXT.
+func (tx *transaction) EncodedBytes(ctx context.Context, bucket string, q persistence.Query) (int64, error) {
+	if err := tx.check(ctx); err != nil {
+		return 0, err
+	}
+	if q.Limit == 0 {
+		q.Unordered = true
+	}
+	q.Fields = nil
+	query, args, err := querySQL(bucket, q)
+	if err != nil {
+		return 0, err
+	}
+	var total int64
+	err = tx.sql.QueryRowContext(ctx, "SELECT COALESCE(SUM(length(CAST(value AS BLOB))),0) FROM ("+query+")", args...).Scan(&total)
+	return total, translate(ctx, err)
+}
+
 // DeleteMatching is used for whole-scope cleanup without loading discarded values.
 func (tx *transaction) DeleteMatching(ctx context.Context, bucket string, q persistence.Query) (int64, error) {
 	if err := tx.check(ctx); err != nil {
