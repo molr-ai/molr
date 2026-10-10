@@ -152,21 +152,28 @@ export function NotificationProvider({ children, createAdapter = createBrowserNo
         const n=await api.get<SystemNotice>(`/api/notifications/${id}`,controller.signal);
         if(!active)return;
         if(n.ReadAt||n.DismissedAt||n.ResolvedAt){close(tag);return;}
-        const prefs=current.current.value;
-        if(!prefs.enabled||!noticeBaseline||noticeBaseline.has(n.ID)||focused()&&(n.AssistantID&&reading(n.AssistantID)||location.hash===current.current.noticeText.action(n)?.route))return;
+        if(!current.current.value.enabled||!noticeBaseline||noticeBaseline.has(n.ID)||focused()&&(n.AssistantID&&reading(n.AssistantID)||location.hash===current.current.noticeText.action(n)?.route))return;
         if(!await claims.claim(account,tag,1)||!active)return;
         const group=`notice-group:${n.Kind}:${n.AssistantID||n.Source.ID}`;
         if(!await claims.claim(account,group,Math.floor(Date.now()/5000))||canceled())return;
         const latest=await api.get<SystemNotice>(`/api/notifications/${id}`,controller.signal);
         if(canceled()||latest.ReadAt||latest.DismissedAt||latest.ResolvedAt||!current.current.value.enabled)return;
         const previous=noticeGroups.get(group);if(previous&&previous!==tag)close(previous);noticeGroups.set(group,tag);
-        const content=current.current.noticeText.text(n), route=current.current.noticeText.action(n)?.route ?? '';
-        const title=prefs.preview?content.title:'Molr',body=prefs.preview?content.description:current.current.noticeText.copy.unknown;
-        if(prefs.sound&&sound.state()==='ready'&&await claims.claimSound(account)&&!canceled())sound.play();
+        // Each channel can change independently while lookup or sound election waits.
+        if(current.current.value.sound&&sound.state()==='ready'&&await claims.claimSound(account)&&!canceled()&&current.current.value.sound)sound.play();
         if(canceled())return;
+        const content=current.current.noticeText.text(n), route=current.current.noticeText.action(n)?.route ?? '';
+        const prefs=current.current.value;
+        const title=prefs.preview?content.title:'Molr',body=prefs.preview?content.description:current.current.noticeText.copy.unknown;
         if(!focused()&&prefs.system&&device.capability()==='granted'){
-          try{await device.show({tag,title,body,route,silent:true});if(canceled())await device.close(tag);return;}catch{/* Fall back to an in-app reminder. */}
+          try{
+            await device.show({tag,title,body,route,silent:true});
+            if(canceled()){await device.close(tag);return;}
+            if(current.current.value.system)return;
+            await device.close(tag);
+          }catch{/* Fall back to an in-app reminder. */}
         }
+        if(canceled())return;
         const toastID = current.current.toast.toast({ title, description: body, duration: 8000, action: noticeToastAction(n) });
         toasts.set(tag, toastID);
         if (n.Kind === 'execution.failed') executionToasts.set(tag, { id: toastID, notice: n });
