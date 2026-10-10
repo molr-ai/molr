@@ -113,17 +113,41 @@ func verifyDelivery(ctx context.Context, store persistence.Store, e core.Executi
 
 type limitedBuffer struct {
 	bytes.Buffer
+	ctx   context.Context
 	limit int
 }
 
 func (b *limitedBuffer) Write(p []byte) (int, error) {
+	if err := persistence.CheckContext(b.ctx); err != nil {
+		return 0, err
+	}
 	if len(p) > b.limit-b.Len() {
 		return 0, core.Invalid("export", "export size limit exceeded")
 	}
 	return b.Buffer.Write(p)
 }
+
+type exportReader struct {
+	ctx    context.Context
+	reader io.Reader
+}
+
+func (r exportReader) Read(p []byte) (int, error) {
+	if err := persistence.CheckContext(r.ctx); err != nil {
+		return 0, err
+	}
+	n, err := r.reader.Read(p)
+	if canceled := persistence.CheckContext(r.ctx); canceled != nil {
+		return 0, canceled
+	}
+	return n, err
+}
+
 func saveExport(ctx context.Context, service files.Service, p core.Principal, bundle settings.ExportBundle, memories ...*memory.Files) (core.ID, error) {
-	buf := &limitedBuffer{limit: 20 << 20}
+	if err := persistence.CheckContext(ctx); err != nil {
+		return "", err
+	}
+	buf := &limitedBuffer{ctx: ctx, limit: 20 << 20}
 	archive := zip.NewWriter(buf)
 	manifest, err := archive.Create("records.json")
 	if err != nil {
@@ -134,6 +158,9 @@ func saveExport(ctx context.Context, service files.Service, p core.Principal, bu
 	}
 	if len(memories) > 0 {
 		if err = memories[0].Export(ctx, p.OwnerID, func(name string, data []byte) error {
+			if err := persistence.CheckContext(ctx); err != nil {
+				return err
+			}
 			entry, e := archive.Create("memory/" + name)
 			if e != nil {
 				return e
@@ -146,6 +173,9 @@ func saveExport(ctx context.Context, service files.Service, p core.Principal, bu
 	}
 	if bundle.IncludeArtifacts {
 		for _, raw := range bundle.Records[files.Bucket] {
+			if err := persistence.CheckContext(ctx); err != nil {
+				return "", err
+			}
 			var f files.File
 			if err = json.Unmarshal(raw, &f); err != nil {
 				return "", err
@@ -165,7 +195,7 @@ func saveExport(ctx context.Context, service files.Service, p core.Principal, bu
 				_ = download.Body.Close()
 				return "", err
 			}
-			copied, copyErr := io.Copy(entry, io.LimitReader(download.Body, f.Size+1))
+			copied, copyErr := io.Copy(entry, io.LimitReader(exportReader{ctx: ctx, reader: download.Body}, f.Size+1))
 			err = copyErr
 			if err == nil && copied != f.Size {
 				err = core.NewError(core.FailedPrecondition, "artifact size changed")
@@ -177,6 +207,9 @@ func saveExport(ctx context.Context, service files.Service, p core.Principal, bu
 		}
 	}
 	if err = archive.Close(); err != nil {
+		return "", err
+	}
+	if err := persistence.CheckContext(ctx); err != nil {
 		return "", err
 	}
 	file, err := service.Upload(ctx, p, files.UploadRequest{Mutation: core.Mutation{IdempotencyKey: "export-" + string(bundle.ID)}, Name: "molr-export.zip", MediaType: "application/zip", Size: int64(buf.Len()), Body: bytes.NewReader(buf.Bytes())})
