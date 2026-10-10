@@ -69,3 +69,93 @@ test('real Agent discovers Skill and executes the bound plugin in its sandbox', 
  const caps = await (await page.request.get(`/api/assistants/${assistant.ID}/capabilities`)).json(); expect(caps.Skills.Items.some((sk: { ID: string; Enabled: boolean }) => sk.ID.startsWith('plugin:fixture.tools') && sk.Enabled)).toBe(true);
  await page.screenshot({ path: info.outputPath('plugin-tool-report.png') });
 });
+
+async function trackHTMLURLs(page: Page) {
+ await page.addInitScript(() => {
+  const create = URL.createObjectURL.bind(URL), revoke = URL.revokeObjectURL.bind(URL);
+  const active = new Set<string>(); (window as any).pluginHTMLURLs = active;
+  URL.createObjectURL = blob => { const url = create(blob); if (blob instanceof Blob && blob.type.startsWith('text/html')) active.add(url); return url; };
+  URL.revokeObjectURL = url => { active.delete(url); revoke(url); };
+ });
+}
+
+test('plugin HTML blob URLs are released after repeated navigation', async ({ page }, info) => {
+ await trackHTMLURLs(page);
+ await login(page); await enable(page, 'fixture.page'); await page.reload();
+ for (let visit = 0; visit < 3; visit++) {
+  await page.evaluate(() => { location.hash = '/extensions/fixture.page/page'; });
+  await expect(page.frameLocator('iframe').getByText('connected', { exact: true })).toBeVisible();
+  const mounted = await page.evaluate(() => (window as any).pluginHTMLURLs.size);
+  await page.evaluate(() => { location.hash = '/extensions'; });
+  await expect(page.locator('.plugin-frame iframe')).toHaveCount(0);
+  const unmounted = await page.evaluate(() => (window as any).pluginHTMLURLs.size);
+  await info.attach(`plugin-urls-${visit}.json`, { body: JSON.stringify({ visit, mounted, unmounted }), contentType: 'application/json' });
+  expect(unmounted, 'HTML URLs must not retain plugin documents after unmount').toBe(0);
+  expect(mounted, 'Only the active iframe document needs an HTML URL').toBe(1);
+ }
+});
+
+
+test('plugin document URLs follow reference changes, theme updates and retries', async ({ page }, info) => {
+ await trackHTMLURLs(page); await login(page);
+ const value = await pkg('fixture.page');
+ value.manifest.id = `fixture.lifecycle-${info.project.name}`;
+ value.manifest.name = `Lifecycle ${info.project.name}`;
+ value.manifest.contributes.themes = [];
+ value.manifest.contributes.pages.push({ id: 'second', title: 'Second page', entry: 'second.html', capabilities: ['plans.read'] });
+ value.files['ui.html'] = value.files['ui.html'].replace('<script>', '<p id="theme"></p><script>').replace('const port=e.ports[0];', 'document.getElementById("theme").textContent=e.data.context.theme;const port=e.ports[0];');
+ value.files['second.html'] = value.files['ui.html'].replace("'connected'", "'second connected'");
+ const installed = await post(page, '/api/plugins/install', value);
+ await post(page, '/api/plugins/configure', { ID: value.manifest.id, ExpectedVersion: installed.Version, Enabled: true, Grants: ['plans.read'], Bindings: [] });
+ await page.reload();
+ const go = (entry: string) => page.evaluate(path => { location.hash = path; }, `/extensions/${value.manifest.id}/${entry}`);
+ const urls = () => page.evaluate(() => (window as any).pluginHTMLURLs.size);
+ await go('page');
+ await expect(page.frameLocator('iframe').getByText('connected', { exact: true })).toBeVisible();
+ const originalURL = await page.locator('iframe').getAttribute('src');
+ const theme = await page.frameLocator('iframe').locator('#theme').textContent();
+ const nextTheme = theme === 'dark' ? 'light' : 'dark';
+ await page.emulateMedia({ colorScheme: nextTheme });
+ await expect(page.frameLocator('iframe').locator('#theme')).toHaveText(nextTheme);
+ await expect(page.locator('iframe')).toHaveAttribute('src', originalURL!);
+ expect(await urls()).toBe(1);
+ let release!: () => void;
+ const pending = new Promise<void>(resolve => { release = resolve; });
+ await page.route('**/api/plugins/ui', async route => {
+  const request = route.request().postDataJSON();
+  if (request.Method === 'document' && request.Contribution === 'second') await pending;
+  await route.continue();
+ });
+ try {
+  await go('second');
+  await expect(page.locator('iframe')).toHaveCount(0);
+  await expect.poll(urls).toBe(0);
+ } finally { release(); }
+ await expect(page.frameLocator('iframe').getByText('second connected', { exact: true })).toBeVisible();
+ expect(await urls()).toBe(1);
+ await page.unroute('**/api/plugins/ui');
+ let failed = false;
+ await page.route('**/api/plugins/ui', route => {
+  if (!failed && route.request().postDataJSON().Method === 'document') { failed = true; return route.fulfill({ status: 503, json: { code: 'unavailable' } }); }
+  return route.continue();
+ });
+ await go('page');
+ await expect(page.getByRole('heading', { name: 'Extension page unavailable', exact: true })).toBeVisible();
+ await expect.poll(urls).toBe(0);
+ await page.getByRole('button', { name: 'Retry', exact: true }).click();
+ await expect(page.frameLocator('iframe').getByText('connected', { exact: true })).toBeVisible();
+ expect(await urls()).toBe(1);
+ await page.unroute('**/api/plugins/ui');
+ await page.clock.install();
+ await page.route('**/api/plugins/ui', route => route.request().postDataJSON().Method === 'document' ? route.fulfill({ json: { HTML: '<p>No handshake</p>' } }) : route.continue());
+ await go('second');
+ await expect(page.locator('iframe')).toHaveCount(1);
+ await page.clock.fastForward(11000);
+ await expect(page.getByRole('heading', { name: 'Extension page unavailable', exact: true })).toBeVisible();
+ await expect(page.locator('iframe')).toHaveCount(0);
+ await expect.poll(urls).toBe(0);
+ await page.unroute('**/api/plugins/ui');
+ await page.getByRole('button', { name: 'Retry', exact: true }).click();
+ await expect(page.frameLocator('iframe').getByText('second connected', { exact: true })).toBeVisible();
+ expect(await urls()).toBe(1);
+});

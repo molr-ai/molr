@@ -53,7 +53,7 @@ func (f *Files) List(ctx context.Context, owner core.ID, q Query) (core.Page[Mem
 			return out, invalid("cursor")
 		}
 	}
-	roots, err := f.roots(ctx, owner)
+	roots, err := f.roots(ctx, owner, RootQuery{Scope: q.Scope, AssistantID: q.AssistantID})
 	if err != nil {
 		return out, err
 	}

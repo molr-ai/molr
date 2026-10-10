@@ -93,7 +93,8 @@ export function TrajectoryLedger({ runs, entries, records, query, filter, axisFi
   }, [focusID, layout]);
   const toggle = (id: string) => { onFollow(false); setCollapsed(old => { const next = new Set(old); if (next.has(id)) next.delete(id); else next.add(id); return next; }); };
   const inspectButton = (onClick: () => void) => <button type="button" className="trajectory-inspect" aria-label={t.workbench.inspectFull} title={t.workbench.inspectFull} onClick={onClick}><ChevronRight size={14} /></button>;
-  const showTime = (at: string) => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: timezone }).format(new Date(at));
+  const timeFormat = useMemo(() => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: timezone }), [locale, timezone]);
+  const showTime = (at: string) => timeFormat.format(new Date(at));
   const turnNumbers = new Map<string, number>();
   const runNumbers = new Map(runs.map(run => { const key = run.ExecutionID || run.ID; if (!turnNumbers.has(key)) turnNumbers.set(key, turnNumbers.size + 1); return [run.ID, turnNumbers.get(key)!]; }));
   const toolLabels = t.assistantInfo.toolLabels as Record<string, { name: string }>;

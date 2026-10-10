@@ -44,6 +44,7 @@ export function ShellTasks({ assistantID, docked, onClose }: { assistantID: stri
   const [selected, setSelected] = useState('');
   const [error, setError] = useState(false), [busy, setBusy] = useState(false), [output, setOutput] = useState(''), [input, setInput] = useState('');
   const [stream, setStream] = useState<'stdout' | 'stderr'>('stdout');
+  const draftVersion = useRef(0);
   const cursor = useRef(0), contentRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
@@ -58,6 +59,7 @@ export function ShellTasks({ assistantID, docked, onClose }: { assistantID: stri
   const selectedTask = items.find(item => item.ID === selected);
   const taskState = useRef(selectedTask); taskState.current = selectedTask;
   useEffect(() => {
+    draftVersion.current++;
     cursor.current = 0; setOutput(''); setInput(''); setError(false);
     if (!selected) return;
     const loop = poll(async signal => {
@@ -73,9 +75,14 @@ export function ShellTasks({ assistantID, docked, onClose }: { assistantID: stri
     });
     return () => loop.stop();
   }, [path, selected, stream]);
-  async function act(request: ShellTaskAction) {
+  async function act(request: ShellTaskAction, submittedDraft?: number) {
     setBusy(true); setError(false);
-    try { await api.post(path, request); if (request.action === 'write') setInput(''); await refresh(); }
+    try {
+      await api.post(path, request);
+      // Only a submitted, unchanged draft is consumed; control writes do not submit it.
+      if (submittedDraft === draftVersion.current) setInput('');
+      await refresh();
+    }
     catch { setError(true); }
     finally { setBusy(false); }
   }
@@ -124,8 +131,8 @@ export function ShellTasks({ assistantID, docked, onClose }: { assistantID: stri
             <div className="shell-task-console-heading"><h4><Terminal size={15} aria-hidden="true" />{zh ? '输出' : 'Output'}</h4>{task.Mode !== 'tty' && <SegmentedControl hideLabel label={zh ? '输出流' : 'Output stream'} value={stream} onValueChange={setStream} options={[{ value: 'stdout', label: 'stdout' }, { value: 'stderr', label: 'stderr' }]} />}</div>
             <pre className="shell-task-output" tabIndex={0} aria-label={zh ? '任务输出' : 'Task output'}>{output || (task.State === 'running' ? (zh ? '等待输出…' : 'Waiting for output…') : (zh ? '此输出流没有内容' : 'No output in this stream'))}</pre>
           </section>
-          {task.Mode === 'tty' && task.State === 'running' && <form className="shell-task-input" onSubmit={event => { event.preventDefault(); void act({ action: 'write', task_id: task.ID, data: input + '\n' }); }}>
-            <label>{zh ? '终端输入' : 'Terminal input'}<textarea value={input} placeholder={zh ? '输入命令或回复交互提示' : 'Enter a command or respond to a prompt'} maxLength={8000} onChange={event => setInput(event.target.value)} autoComplete="off" spellCheck={false} /></label>
+          {task.Mode === 'tty' && task.State === 'running' && <form className="shell-task-input" onSubmit={event => { event.preventDefault(); void act({ action: 'write', task_id: task.ID, data: input + '\n' }, draftVersion.current); }}>
+            <label>{zh ? '终端输入' : 'Terminal input'}<textarea value={input} placeholder={zh ? '输入命令或回复交互提示' : 'Enter a command or respond to a prompt'} maxLength={8000} onChange={event => { draftVersion.current++; setInput(event.target.value); }} autoComplete="off" spellCheck={false} /></label>
             <div className="shell-task-input-actions"><span>{zh ? '发送时附加换行' : 'A newline is added on send'}</span><Button type="submit" size="sm" disabled={busy}>{zh ? '发送' : 'Send'}</Button></div>
           </form>}
           {task.State === 'running' && <div className="shell-task-controls"><div>{task.Mode === 'tty' && <><Button variant="secondary" size="sm" disabled={busy} onClick={() => void act({ action: 'interrupt', task_id: task.ID })}>Ctrl-C</Button><Button variant="secondary" size="sm" disabled={busy} onClick={() => void act({ action: 'write', task_id: task.ID, data: '\x04' })}>Ctrl-D</Button></>}</div><Button variant="ghost" size="sm" className="shell-task-stop" disabled={busy} onClick={() => void act({ action: 'stop', task_id: task.ID })}>{zh ? '停止任务' : 'Stop task'}</Button></div>}
