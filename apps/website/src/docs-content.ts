@@ -17,7 +17,7 @@ function loadDoc(entry: DocRoute) {
     counts.set(base, count + 1);
     return { title: match[2], level: match[1].length, id: count ? `${base}-${count}` : base };
   });
-  return { ...entry, content, headings, title: /^# (.+)$/m.exec(content)?.[1] ?? entry.label };
+  return { ...entry, content, headings, searchText: `${entry.label}\n${content}`.toLocaleLowerCase(), title: /^# (.+)$/m.exec(content)?.[1] ?? entry.label };
 }
 
 export const docs = docRoutes.map(loadDoc);

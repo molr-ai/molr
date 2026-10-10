@@ -21,7 +21,7 @@
 - 授权请求：`permission_requests` 来源仅按当前助理读取待审批与近期决定（最多 40 项），批准、拒绝后整体替换快照。审批记录不是有效授权或可执行指令；用户可以修改提议的授权范围与期限，继续工作前仍须查询 `permission_list`。拒绝后不得在没有新指示或需求变化时反复申请。
 - 用户偏好：授权当前执行后，按所属 OwnerID 读取时区、语言、币种，作为 `user_preferences` / `runtime/user_preferences` 注入。只按这三项有效值和各自来源计算版本，不包括设置总版本、其他设置或当前时钟。未保存时区或时区无效时标记为 unknown；语言与币种缺失时沿用 en / USD，并标记为 default，保存的有效值标记为 user_settings。它们是用户可覆盖的默认偏好，不是额外指令或权限。语言决定默认回复语言；币种不重写原始金额或预算，换算需要有依据的汇率。现有事件时间字段保持原语义，不新增实时 current_time。
 - 工作区：`workspace` / `runtime/workspace` 来源描述本地 `/work` 的可用状态、助理级持久性、默认目录用途、账号共享只读 `/global` 和单次 Shell 临时目录 `/tmp`。首次使用初始化缺失的默认目录，不创建或覆盖 AGENTS.md、记忆正文或用户文件。禁用本地沙盒、缺少组引用时标明不可用，不注入该工作区的文件指令。普通文件数量、正文、时间戳和磁盘占用不参与此来源的版本；目录说明不授予权限，不包含宿主路径。
-- 项目指令：固定读取 `/work/AGENTS.md` 和 `/global/AGENTS.md`；子目录按成功的本地工作区 `file_list`、`file_read`、`file_search` 访问路径读取该目录及上级的 AGENTS.md，不递归枚举项目文件。首次进入目录应先单独调用 `file_list`，下一次模型请求加载指令后再修改文件或执行 Shell；进入更深目录时重复。每份文档仅适用于所在目录及子目录，更具体的指令优先。已加载作用范围保存在自动来源中，压缩和重启后继续刷新；删除时撤销。外部资源、远程、Full Access 和失败的读取不触发本地发现。
+- 项目指令：固定读取 `/work/AGENTS.md` 和 `/global/AGENTS.md`；子目录按成功的本地工作区 `file_list`、`file_read`、`file_search` 访问路径读取该目录及上级的 AGENTS.md；搜索结果用 `TargetKind` 区分文件和目录，文件目标从父目录加载指令，目录目标从自身加载，零命中也遵循同一规则，不递归枚举项目文件。首次进入目录应先单独调用 `file_list`，下一次模型请求加载指令后再修改文件或执行 Shell；进入更深目录时重复。每份文档仅适用于所在目录及子目录，更具体的指令优先。已加载作用范围保存在自动来源中，压缩和重启后继续刷新；删除时撤销。外部资源、远程、Full Access 和失败的读取不触发本地发现。
 - 指令排除范围：根目录 `inbox/`、`outputs/`、`.local/state/molr/`，以及任意层级 `.agents`、`.git`、`node_modules`、`.cache`、`.venv`、`vendor`、`dist`、`build` 中的 AGENTS.md 不自动加载。Skills 仍使用独立入口。导入材料和执行输出仅作为按需读取的数据。
 - Skills：只发现 `/work/.agents/skills/<目录名>/SKILL.md`。初始目录信息包含目录名、读取路径及原样保留的 YAML frontmatter（不在 Runtime 内解释 YAML）。成功的工作区 `file_read` 会激活该 Skill，下一轮自动注入完整正文；部分读取也会激活完整正文。后续修改刷新正文，重启后仍保持加载状态。通过 Shell 读取不作为可靠的加载信号；目录提示要求使用 `file_read`。
 
