@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"molr.ai/runtime/internal/buildinfo"
 	"molr.ai/runtime/internal/business/resource"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
@@ -34,6 +35,7 @@ func probeLocalProvider(ctx context.Context, client *http.Client, origin string)
 			return nil
 		}
 		req.Header.Set("Accept", "application/json")
+		req.Header.Set("User-Agent", buildinfo.UserAgent())
 		response, err := client.Do(req)
 		if err != nil {
 			return nil

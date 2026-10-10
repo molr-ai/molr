@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"molr.ai/runtime/internal/agent/operation"
+	"molr.ai/runtime/internal/buildinfo"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/credential"
 	"molr.ai/runtime/internal/persistence"
@@ -378,6 +379,7 @@ func (c *client) Generate(ctx context.Context, req Request) (Stream, error) {
 			return core.Invalid("request", "cannot encode model request")
 		}
 		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("User-Agent", buildinfo.UserAgent())
 		if !secret.Empty() {
 			request.Header.Set("Authorization", "Bearer "+secret.Reveal())
 		}

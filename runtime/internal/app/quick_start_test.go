@@ -3,6 +3,7 @@ package app
 import (
 	"encoding/json"
 	"molr.ai/runtime/internal/auth"
+	"molr.ai/runtime/internal/buildinfo"
 	"molr.ai/runtime/internal/business/assistant"
 	"molr.ai/runtime/internal/business/resource"
 	"molr.ai/runtime/internal/config"
@@ -183,6 +184,9 @@ func TestProbeLocalProviderOnlyReadsMetadata(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if got, want := r.UserAgent(), "molr/"+buildinfo.Version; got != want {
+					t.Errorf("User-Agent = %q, want %q", got, want)
+				}
 				if r.Method != "GET" {
 					t.Error("unexpected inference")
 				}

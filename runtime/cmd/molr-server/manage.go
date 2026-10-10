@@ -23,7 +23,6 @@ import (
 	"time"
 )
 
-var version = "development"
 var commit = "unknown"
 var builtAt = "unknown"
 

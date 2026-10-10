@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"molr.ai/runtime/internal/agent/operation"
+	"molr.ai/runtime/internal/buildinfo"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence/sqlitestore"
 	"molr.ai/runtime/internal/policy"
@@ -39,6 +40,9 @@ func init() {
 		var calls atomic.Int64
 		var failure, revoked, reservationRevoked, evidence atomic.Bool
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if got, want := r.UserAgent(), "molr/"+buildinfo.Version; got != want {
+				t.Errorf("User-Agent = %q, want %q", got, want)
+			}
 			calls.Add(1)
 			if failure.Load() {
 				connection, _, err := w.(http.Hijacker).Hijack()

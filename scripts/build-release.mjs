@@ -25,7 +25,7 @@ mkdirSync(`${stage}/scripts`, { recursive: true });
 for (const name of ['LICENSE', 'THIRD_PARTY_NOTICES.md']) cpSync(`${root}/${name}`, `${stage}/${name}`);
 const go = process.env.GO || 'go';
 const buildTime = new Date().toISOString();
-run(go, ['build', '-trimpath', '-tags', 'webui', '-ldflags', `-X main.version=${version} -X main.commit=${commit} -X main.builtAt=${buildTime}`, '-o', `${stage}/bin/molr-server`, './cmd/molr-server'], { cwd: resolve('runtime'), env: { ...process.env, CGO_ENABLED: '0', GOOS: 'linux', GOARCH: arch, GOTOOLCHAIN: `go${readFileSync('runtime/.go-version', 'utf8').trim()}`, GOCACHE: process.env.GOCACHE || resolve('.cache/go-build'), GOMODCACHE: process.env.GOMODCACHE || resolve('.cache/go-mod') } });
+run(go, ['build', '-trimpath', '-tags', 'webui', '-ldflags', `-X molr.ai/runtime/internal/buildinfo.Version=${version} -X main.commit=${commit} -X main.builtAt=${buildTime}`, '-o', `${stage}/bin/molr-server`, './cmd/molr-server'], { cwd: resolve('runtime'), env: { ...process.env, CGO_ENABLED: '0', GOOS: 'linux', GOARCH: arch, GOTOOLCHAIN: `go${readFileSync('runtime/.go-version', 'utf8').trim()}`, GOCACHE: process.env.GOCACHE || resolve('.cache/go-build'), GOMODCACHE: process.env.GOMODCACHE || resolve('.cache/go-mod') } });
 const binary = `${stage}/bin/molr-server`;
 chmodSync(binary, 0o755);
 const description = execFileSync('file', [binary], { encoding: 'utf8' });

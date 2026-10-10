@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"molr.ai/runtime/internal/buildinfo"
 	"molr.ai/runtime/internal/business/resource"
 	"molr.ai/runtime/internal/core"
 )
@@ -16,6 +17,9 @@ func TestDraftProviderConnectionUsesRealNetworkWithoutSaving(t *testing.T) {
 	p, _ := ownerSession(t, b)
 	calls := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got, want := r.UserAgent(), "molr/"+buildinfo.Version; got != want {
+			t.Errorf("User-Agent = %q, want %q", got, want)
+		}
 		calls++
 		if r.URL.Path != "/v1/models" || r.Header.Get("Authorization") != "Bearer transient-key" {
 			w.WriteHeader(401)

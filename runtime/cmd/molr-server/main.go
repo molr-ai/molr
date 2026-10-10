@@ -16,6 +16,7 @@ import (
 
 	"molr.ai/runtime/internal/app"
 	"molr.ai/runtime/internal/auth"
+	"molr.ai/runtime/internal/buildinfo"
 	"molr.ai/runtime/internal/config"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/platform/sandbox"
@@ -53,7 +54,7 @@ func password(r io.Reader) (core.Secret, error) {
 }
 func run(ctx context.Context, args []string, input io.Reader, output, diagnostics io.Writer) error {
 	if len(args) == 1 && args[0] == "version" {
-		fmt.Fprintf(output, "Molr %s (%s, %s)\n", version, commit, builtAt)
+		fmt.Fprintf(output, "Molr %s (%s, %s)\n", buildinfo.Version, commit, builtAt)
 		return nil
 	}
 	if len(args) == 0 {

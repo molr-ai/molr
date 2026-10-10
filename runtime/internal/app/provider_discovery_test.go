@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"molr.ai/runtime/internal/agent/model"
+	"molr.ai/runtime/internal/buildinfo"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -21,6 +22,9 @@ func TestProviderConnectionDiscoversMultipleModelsWithoutManualConfiguration(t *
 	p, _ := ownerSession(t, b)
 	calls := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got, want := r.UserAgent(), "molr/"+buildinfo.Version; got != want {
+			t.Errorf("User-Agent = %q, want %q", got, want)
+		}
 		calls++
 		if r.Method != "GET" || r.URL.Path != "/v1/models" {
 			t.Errorf("unexpected discovery request: %s %s", r.Method, r.URL.Path)
