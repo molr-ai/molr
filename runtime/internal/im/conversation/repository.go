@@ -227,12 +227,30 @@ func (r *repository) Messages(ctx context.Context, owner core.ID, q MessageQuery
 			items = items[:q.Page.Limit]
 			page.NextCursor = cursorValue(owner, scope, strconv.FormatUint(items[len(items)-1].Sequence, 10))
 		}
-		for i := range items {
-			value := NoFeedback
-			if err := tx.Get(ctx, feedbackBucket, persistence.Key(owner, items[i].ID), &value); err != nil && !persistence.Missing(err) {
+		if len(items) > 0 {
+			keys := make([]string, len(items))
+			positions := make(map[string]int, len(items))
+			for i := range items {
+				keys[i] = persistence.Key(owner, items[i].ID)
+				positions[keys[i]] = i
+				items[i].Feedback = NoFeedback
+			}
+			feedback, err := tx.Query(ctx, feedbackBucket, persistence.Query{
+				Where:     []persistence.Filter{{Field: "key", Op: "in", Value: keys}},
+				Unordered: true, Limit: len(keys),
+			})
+			if err != nil {
 				return err
 			}
-			items[i].Feedback = value
+			for _, row := range feedback {
+				i, ok := positions[row.Key]
+				if !ok {
+					continue
+				}
+				if err := json.Unmarshal(row.Data, &items[i].Feedback); err != nil {
+					return core.Wrap(core.Internal, "invalid stored feedback", err)
+				}
+			}
 		}
 		page.Items = items
 		return nil
