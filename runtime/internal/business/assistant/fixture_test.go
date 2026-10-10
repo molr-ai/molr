@@ -104,7 +104,7 @@ func init() {
 		im := conversation.NewRepository(db)
 		grants := policy.NewRepository(db)
 		root := t.TempDir()
-		memoryFiles := memory.NewFiles(memory.FileOptions{JournalRoot: filepath.Join(root, "journal"), Roots: func(ctx context.Context, owner core.ID) ([]memory.Root, error) {
+		memoryFiles := memory.NewFiles(memory.FileOptions{JournalRoot: filepath.Join(root, "journal"), Roots: func(ctx context.Context, owner core.ID, query memory.RootQuery) ([]memory.Root, error) {
 			rows, err := persistence.Scan[Assistant](ctx, db, "business.assistants")
 			out := []memory.Root{}
 			for _, a := range rows {

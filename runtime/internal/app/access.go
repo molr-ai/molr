@@ -220,17 +220,33 @@ func (a access) owns(ctx context.Context, p core.Principal, o core.Object) error
 		}
 		// A file is visible to an assistant only through an attachment in its own
 		// conversation; mere owner equality is insufficient.
-		messages, err := persistence.Select[conversation.Message](ctx, a.store, "im.messages", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerKey", p.OwnerID), {Field: "Content.AttachmentIDs", Op: "has", Value: string(o.ID)}}})
-		if err != nil {
-			return err
-		}
-		for _, m := range messages {
-			for _, id := range m.Content.AttachmentIDs {
-				if id == o.ID && a.owns(ctx, p, core.Object{Kind: "conversation", ID: m.ConversationID}) == nil {
-					return nil
+		return a.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
+			messages, err := persistence.Select[conversation.Message](ctx, a.store, "im.messages", persistence.Query{
+				Where:  []persistence.Filter{persistence.Eq("OwnerKey", p.OwnerID), {Field: "Content.AttachmentIDs", Op: "has", Value: string(o.ID)}},
+				Fields: []string{"ConversationID", "Content.AttachmentIDs"},
+			})
+			if err != nil {
+				return err
+			}
+			// Repeated attachment references share one peer check in this snapshot.
+			// The next access always checks current conversation ownership again.
+			checked := map[core.ID]bool{}
+			for _, m := range messages {
+				if checked[m.ConversationID] {
+					continue
+				}
+				for _, id := range m.Content.AttachmentIDs {
+					if id == o.ID {
+						checked[m.ConversationID] = true
+						if a.owns(ctx, p, core.Object{Kind: "conversation", ID: m.ConversationID}) == nil {
+							return nil
+						}
+						break
+					}
 				}
 			}
-		}
+			return denied()
+		})
 	}
 	return denied()
 }
