@@ -86,6 +86,27 @@ func (s *HTTPServer) debugStream(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// Register both watches before validating and reading the current revision.
+	// Notifications arriving during either read remain pending for the loop.
+	changes, err := s.services.Debug.WatchRevision(r.Context(), principal(r))
+	if err != nil {
+		fail(w, err, info(r).ID)
+		return
+	}
+	defer changes.Close()
+	identity, err := s.services.Auth.WatchPrincipal(principal(r))
+	if err != nil {
+		fail(w, err, info(r).ID)
+		return
+	}
+	defer identity.Close()
+	remaining, err := identity.Check(r.Context())
+	if err != nil {
+		fail(w, err, info(r).ID)
+		return
+	}
+	expiry := time.NewTimer(remaining)
+	defer expiry.Stop()
 	revision, err := s.services.Debug.Revision(r.Context(), principal(r))
 	if err != nil {
 		fail(w, err, info(r).ID)
@@ -114,12 +135,14 @@ func (s *HTTPServer) debugStream(w http.ResponseWriter, r *http.Request) {
 	if !write(": connected\n\n") {
 		return
 	}
-	ticker := time.NewTicker(time.Second)
+	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
-	heartbeat := time.Now()
 	authentication, _ := s.authentication(r)
 	for {
 		if revision != cursor {
+			if s.checkStreamPrincipal(r.Context(), principal(r), authentication) != nil {
+				return
+			}
 			if !write(fmt.Sprintf("id: %d\nevent: change\ndata: {\"Revision\":%d}\n\n", revision, revision)) {
 				return
 			}
@@ -130,21 +153,28 @@ func (s *HTTPServer) debugStream(w http.ResponseWriter, r *http.Request) {
 			return
 		case <-s.streamContext.Done():
 			return
+		case <-changes.Done():
+			return
+		case <-identity.Done():
+			return
 		case <-ticker.C:
+			if !write(": heartbeat\n\n") {
+				return
+			}
+			continue
+		case <-changes.Changes():
+		case <-identity.Changes():
+		case <-expiry.C:
 		}
-		if s.checkStreamPrincipal(r.Context(), principal(r), authentication) != nil {
+		remaining, err = identity.Check(r.Context())
+		if err != nil {
 			return
 		}
+		expiry.Reset(remaining)
 		revision, err = s.services.Debug.Revision(r.Context(), principal(r))
 		if err != nil {
 			write("event: disabled\ndata: {}\n\n")
 			return
-		}
-		if time.Since(heartbeat) > 10*time.Second {
-			if !write(": heartbeat\n\n") {
-				return
-			}
-			heartbeat = time.Now()
 		}
 	}
 }

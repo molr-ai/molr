@@ -17,14 +17,24 @@ const jobsBucket = "agent.jobs"
 type queue struct{ store persistence.Store }
 
 func NewQueue(store persistence.Store) Queue { return &queue{store} }
-func visibleJob(ctx context.Context, store persistence.Store, job Job) (Job, error) {
+
+// boundaries is reused only within the caller's transaction; nil reads fresh state.
+func visibleJob(ctx context.Context, store persistence.Store, job Job, boundaries map[string]event.InterruptBoundary) (Job, error) {
 	job.Event.DeliveryMode = job.Event.Delivery()
 	if job.State == Done || job.State == Canceled {
 		return job, nil
 	}
-	boundary, err := persistence.Load[event.InterruptBoundary](ctx, store, "agent.interrupt_boundaries", persistence.Key(job.Event.OwnerID, job.Event.AssistantID))
-	if err != nil && !persistence.Missing(err) {
-		return job, err
+	key := persistence.Key(job.Event.OwnerID, job.Event.AssistantID)
+	boundary, known := boundaries[key]
+	if !known {
+		var err error
+		boundary, err = persistence.Load[event.InterruptBoundary](ctx, store, "agent.interrupt_boundaries", key)
+		if err != nil && !persistence.Missing(err) {
+			return job, err
+		}
+		if boundaries != nil {
+			boundaries[key] = boundary
+		}
 	}
 	if boundary.Blocks(job.Event) {
 		job.State = Canceled
@@ -242,8 +252,9 @@ func (q *queue) List(ctx context.Context, owner core.ID, r Query) (page core.Pag
 	err = q.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		var readErr error
 		normalized := map[core.ID]Job{}
+		boundaries := map[string]event.InterruptBoundary{}
 		page, readErr = persistence.Page[Job](ctx, q.store, jobsBucket, persistence.Query{Where: filters}, request, r, func(raw Job) bool {
-			job, e := visibleJob(ctx, q.store, raw)
+			job, e := visibleJob(ctx, q.store, raw, boundaries)
 			if e != nil {
 				err = e
 				return true
@@ -276,7 +287,7 @@ func (q *queue) Cancel(ctx context.Context, owner, id core.ID) error {
 		if err != nil {
 			return err
 		}
-		job, err = visibleJob(ctx, q.store, job)
+		job, err = visibleJob(ctx, q.store, job, nil)
 		if err != nil {
 			return err
 		}

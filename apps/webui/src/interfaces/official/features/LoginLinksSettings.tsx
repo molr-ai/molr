@@ -13,7 +13,25 @@ export function LoginLinksSettings() {
   const { t, locale } = useCopy(), query = useQuery<LoginLink[]>('/api/auth/login-links', true);
   const [creating, setCreating] = useState(false), [issued, setIssued] = useState<{ url: string; link: LoginLink } | null>(null), [revoking, setRevoking] = useState<LoginLink | null>(null);
   const [now, setNow] = useState(Date.now);
-  useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, []);
+  useEffect(() => {
+    let timer: number | undefined;
+    function sync() {
+      window.clearTimeout(timer);
+      if (document.visibilityState === 'hidden') return;
+      const current = Date.now();
+      setNow(current);
+      let next = Infinity;
+      for (const link of query.data ?? []) {
+        const expiry = Date.parse(link.ExpiresAt);
+        // Used links still expose revoke until they expire.
+        if (!link.RevokedAt && expiry > current && expiry < next) next = expiry;
+      }
+      if (next < Infinity) timer = window.setTimeout(sync, Math.min(next - current, 2_147_483_647));
+    }
+    sync();
+    document.addEventListener('visibilitychange', sync);
+    return () => { window.clearTimeout(timer); document.removeEventListener('visibilitychange', sync); };
+  }, [query.data]);
   return <section className="login-links-settings settings-group" aria-label={t.loginLinks.title}>
     <div className="record-heading"><div><h3 className="settings-group-title">{t.loginLinks.title}</h3><p className="muted">{t.loginLinks.help}</p></div><Button variant="secondary" onClick={() => setCreating(true)}><Plus />{t.loginLinks.create}</Button></div>
     <ErrorNotice error={query.error} retry={query.reload} />

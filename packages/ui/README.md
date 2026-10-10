@@ -157,6 +157,8 @@ import { Select } from '@molr/ui';
 
 包通过 `@molr/ui/brand/*` 导出品牌文件，例如 Vite 中可用 `import markUrl from '@molr/ui/brand/molr-mark.svg?url'`，也可在构建时解析导出路径后复制到自己的静态目录。默认 `/brand` 是兼容现有展示页的约定，不再是唯一部署位置。交互 SVG 仍需同源才能读取动画时钟，跨域资源会使用既有图片回退。Vite 配置示例见 [UI Design](../../apps/ui-design/vite.config.ts)。组件内部不依赖展示页、Runtime、平台 API 或真实凭证。
 
+交互 Logo 仅在页面可见时轮询 SVG 时钟；页面隐藏后停止轮询，恢复可见时立即读取真实播放位置。减少动态效果、图片回退及卸载时清理计时器和可见性监听。`apps/ui-design/tests/logo-visibility.spec.ts` 覆盖后台加载、恢复、点击跳过等待及清理。
+
 在仓库根目录运行 `npm run brand:generate` 重新导出 Logo，运行 `npm run typecheck --workspace @molr/ui` 检查组件类型。视觉约定见 [品牌规范](../../dev-docs/frontend/BRAND.md)。
 
 `brand:generate` 使用 `@resvg/resvg-js` 从同一份应用图标 SVG 生成全部 PNG；自定义配色同时应用到两种格式。尺寸列表统一维护在 `src/app-icon-sizes.json`，并通过 `appIconSizes` 导出供下载界面使用。
