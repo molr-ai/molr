@@ -91,11 +91,11 @@ func instructionDirectories(request agent.ContextRequest, prefix string) ([]stri
 			continue
 		}
 		var result struct {
-			SandboxID, ResourceID, Path string
-			FullResultPath              string          `json:"full_result_path"`
-			Details                     json.RawMessage `json:"details"`
-			Error                       json.RawMessage `json:"error"`
-			OK                          *bool           `json:"ok"`
+			SandboxID, ResourceID, Path, TargetKind string
+			FullResultPath                          string          `json:"full_result_path"`
+			Details                                 json.RawMessage `json:"details"`
+			Error                                   json.RawMessage `json:"error"`
+			OK                                      *bool           `json:"ok"`
 		}
 		if json.Unmarshal([]byte(input.Text), &result) != nil {
 			continue
@@ -113,6 +113,14 @@ func instructionDirectories(request agent.ContextRequest, prefix string) ([]stri
 		name := target.Path
 		if call.Name == "file_read" {
 			name = path.Dir(name)
+		} else if call.Name == "file_search" {
+			switch result.TargetKind {
+			case "file":
+				name = path.Dir(name)
+			case "directory":
+			default:
+				continue
+			}
 		}
 		if err := add(name); err != nil {
 			return nil, err

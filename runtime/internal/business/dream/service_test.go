@@ -58,7 +58,7 @@ func setup(t *testing.T) *fixture {
 			return f.beforeMemoryCommit()
 		}
 		return nil
-	}, JournalRoot: filepath.Join(root, "journal"), Roots: func(ctx context.Context, owner core.ID) ([]memory.Root, error) {
+	}, JournalRoot: filepath.Join(root, "journal"), Roots: func(ctx context.Context, owner core.ID, query memory.RootQuery) ([]memory.Root, error) {
 		return []memory.Root{{Scope: memory.Global, Directory: filepath.Join(root, string(owner), "global")}, {Scope: memory.Assistant, AssistantID: "assistant", Directory: filepath.Join(root, string(owner), "work")}}, nil
 	}})
 	m := memory.NewService(db, memory.Options{Files: files, Authorizer: allow{}, Now: clock, CheckAssistant: func(context.Context, core.Principal, core.ID) error { return nil }})
