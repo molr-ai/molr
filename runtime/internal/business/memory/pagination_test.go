@@ -26,7 +26,7 @@ func pageFile(t *testing.T, root, name, body string) {
 func pageFixture(t *testing.T) (*Files, string) {
 	t.Helper()
 	root := t.TempDir()
-	files := NewFiles(FileOptions{Roots: func(context.Context, core.ID) ([]Root, error) {
+	files := NewFiles(FileOptions{Roots: func(context.Context, core.ID, RootQuery) ([]Root, error) {
 		return []Root{{Scope: Assistant, AssistantID: "assistant", Directory: root}}, nil
 	}})
 	return files, root
@@ -142,7 +142,7 @@ func TestMemoryCursorBindingValidationAndLongNames(t *testing.T) {
 	}
 	calls := 0
 	roots := files.options.Roots
-	files.options.Roots = func(ctx context.Context, id core.ID) ([]Root, error) { calls++; return roots(ctx, id) }
+	files.options.Roots = func(ctx context.Context, id core.ID, q RootQuery) ([]Root, error) { calls++; return roots(ctx, id, q) }
 	for _, change := range []func(*Query){func(q *Query) { q.Scope = Global }, func(q *Query) { q.AssistantID = "another" }, func(q *Query) { q.State = Pending }, func(q *Query) { q.Text = "new" }} {
 		changed := q
 		change(&changed)

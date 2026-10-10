@@ -17,7 +17,7 @@ func queryProjections(bucket string, data []byte) ([]byte, error) {
 		fields = []string{"ExpiresAt"}
 	case "im.outbox", "security.audit":
 		fields = []string{"At"}
-	case "im.messages", "agent.operations", "notifications.records", "security.permission_requests":
+	case "im.messages", "agent.operations", "notifications.records", "business.dream_runs", "security.permission_requests":
 		fields = []string{"CreatedAt"}
 	case "business.tasks":
 		fields = []string{"UpdatedAt"}
@@ -80,6 +80,9 @@ func (s *Store) initializeQueryProjections() error {
 	}
 	// Installing the notification order index derives only its own sort keys.
 	if err := s.initializeProjectionGroup("notification-order-v1", []string{"notifications.records"}); err != nil {
+		return err
+	}
+	if err := s.initializeProjectionGroup("dream-history-order-v1", []string{"business.dream_runs"}); err != nil {
 		return err
 	}
 	return s.initializeProjectionGroup("permission-request-order-v1", []string{"security.permission_requests"})
