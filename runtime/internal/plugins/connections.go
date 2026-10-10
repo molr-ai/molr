@@ -219,15 +219,9 @@ func (s *Service) SaveConnection(ctx context.Context, p core.Principal, q SaveCo
 			return err
 		}
 		if q.ID == "" {
-			rows, err := persistence.Select[Connection](ctx, s.store, "plugins.connections", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", v.OwnerID), persistence.Eq("PluginID", v.ID)}, Limit: 32})
+			count, err := tx.Count(ctx, "plugins.connections", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", v.OwnerID), persistence.Eq("PluginID", v.ID), persistence.Eq("Deleted", false)}, Limit: 32})
 			if err != nil {
 				return err
-			}
-			count := 0
-			for _, row := range rows {
-				if row.OwnerID == v.OwnerID && row.PluginID == v.ID {
-					count++
-				}
 			}
 			if count >= 32 {
 				return invalid("plugin connection limit reached")
