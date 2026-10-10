@@ -163,23 +163,33 @@ func (m *Manager) RequireAdministrator(ctx context.Context, p core.Principal) er
 	return m.CheckScope(ctx, p, "admin")
 }
 func (m *Manager) Users(ctx context.Context, p core.Principal, q core.PageRequest) (core.Page[UserInfo], error) {
-	if err := m.RequireAdministrator(ctx, p); err != nil {
-		return core.Page[UserInfo]{}, err
-	}
-	rows, err := persistence.Page[accountRecord](ctx, m.store, "auth.accounts", persistence.Query{}, q, p.OwnerID, nil)
-	if err != nil {
-		return core.Page[UserInfo]{}, err
-	}
-	items := []UserInfo{}
-	for _, row := range rows.Items {
-		g, err := persistence.Load[UserGroup](ctx, m.store, "auth.groups", string(row.Account.GroupID))
-		if err != nil {
-			return core.Page[UserInfo]{}, err
+	var out core.Page[UserInfo]
+	err := m.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		if err := m.RequireAdministrator(ctx, p); err != nil {
+			return err
 		}
-		row.Account.Version = row.Version
-		items = append(items, UserInfo{Account: row.Account, Administrator: g.Administrator, GroupName: g.Name})
-	}
-	return core.Page[UserInfo]{Items: items, NextCursor: rows.NextCursor}, nil
+		rows, err := persistence.Page[accountRecord](ctx, m.store, "auth.accounts", persistence.Query{}, q, p.OwnerID, nil)
+		if err != nil {
+			return err
+		}
+		groups := make(map[core.ID]UserGroup)
+		items := make([]UserInfo, 0, len(rows.Items))
+		for _, row := range rows.Items {
+			g, ok := groups[row.Account.GroupID]
+			if !ok {
+				g, err = persistence.Load[UserGroup](ctx, m.store, "auth.groups", string(row.Account.GroupID))
+				if err != nil {
+					return err
+				}
+				groups[row.Account.GroupID] = g
+			}
+			row.Account.Version = row.Version
+			items = append(items, UserInfo{Account: row.Account, Administrator: g.Administrator, GroupName: g.Name})
+		}
+		out = core.Page[UserInfo]{Items: items, NextCursor: rows.NextCursor}
+		return nil
+	})
+	return out, err
 }
 func (m *Manager) CreateUser(ctx context.Context, p core.Principal, r CreateUserRequest) (Account, error) {
 	if err := m.RequireAdministrator(ctx, p); err != nil {
