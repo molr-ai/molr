@@ -105,7 +105,7 @@ function ProviderForm({ inline, initial, onConnected, onClose }: Omit<Props, 're
   const endpointField = <TextField label={t.resources.endpoint} type="url" value={draft.endpoint} onChange={event => update({ endpoint: event.target.value })} required={provider === 'custom' || !!initial} placeholder="https://api.example.com/v1" />;
   const footer = <><Button variant="secondary" type="submit" form={formID} value="test" loading={testAction.busy} disabled={action.busy}>{t.resources.testConnection}</Button><Button type="submit" form={formID} loading={action.busy} disabled={testAction.busy}>{initial ? t.save : t.resources.connectActions.model}</Button></>;
   const content = <>
-    {!initial && <LocalProviderDiscovery onSelect={item => {
+    {!initial && <LocalProviderDiscovery disabled={busy} onSelect={item => {
       if (item.ResourceID) { void api.get<Resource>(`/api/resources/${item.ResourceID}`).then(onConnected).catch(() => {}); return; }
       const id = item.Preset as ProviderID;
       setProvider(id); setTested(null); testAction.reset(); action.reset();
