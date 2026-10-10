@@ -10,6 +10,8 @@ The direct client authenticates with same-origin cookies/CSRF. Sandboxed interfa
 
 SSE failures verify the current browser session through `verifySession()`. A current, uncancelled 401 emits the session-expired notification; ordinary `/api/auth/me` restoration remains caller-managed. Reconnect, recovery and disposal cancel obsolete checks, and responses from a previous cookie identity cannot expire the new session. Run `npm run test --workspace @molr/sdk` for the transport regressions.
 
+Read and download requests preserve `AbortError` when cancelled, including while the response body is being read. Malformed successful JSON remains an `invalid_response` error. Run `npm run test --workspace @molr/sdk` for client transport regressions.
+
 See [UI packages](../../dev-docs/frontend/UI_PACKAGES.md) for the host architecture and [Plugin API](../../dev-docs/runtime/PLUGINS.md) for supported product extensions.
 
 - `@molr/sdk/plugins`: Plugin API 2 包、provider、连接、个人设置、工具执行和页面引用类型。

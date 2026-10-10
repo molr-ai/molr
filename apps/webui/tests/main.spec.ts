@@ -12,6 +12,30 @@ async function cardAction(page: Page, card: Locator, name: string) {
   await card.getByRole('button', { name: 'More', exact: true }).click();
   await page.getByRole('menu', { name: 'More', exact: true }).getByRole('menuitem', { name, exact: true }).click();
 }
+// Desktop exposes settings in the sidebar; mobile exposes the account in the assistant list.
+async function openUserSettings(page: Page) {
+  const navigation = page.getByRole('navigation', { name: 'Molr', exact: true });
+  const sidebar = navigation.getByRole('button', { name: 'User settings', exact: true });
+  if (await sidebar.isVisible()) await sidebar.click();
+  else {
+    const account = page.getByRole('button', { name: /^User settings · / });
+    if (!(await account.isVisible())) {
+      const back = page.getByRole('button', { name: 'Back to assistants', exact: true });
+      if (await back.isVisible()) {
+        // Dismissal may already be returning to the list while the old chat fades out.
+        await back.or(account).first().click();
+        await expect(account.or(page.locator('.settings-nav'))).toBeVisible();
+        if (await page.locator('.settings-nav').isVisible()) return;
+      } else {
+        const toastClose = page.locator('.ui-toasts').getByRole('button', { name: 'Close', exact: true });
+        while (await toastClose.count()) await toastClose.first().click();
+        await navigation.getByRole('button', { name: 'Assistants', exact: true }).click();
+      }
+    }
+    await account.click();
+  }
+  await expect(page.locator('.settings-nav')).toBeAttached();
+}
 // Settings use a master/detail layout: a section nav plus the visible pane.
 const settingsNavItem = (page: Page, name: string) => page.locator('.settings-nav > button').filter({ hasText: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) });
 async function openSettingsSection(page: Page, name: string) {
@@ -322,7 +346,7 @@ test('todos, schedules and memory persist through real APIs and browser reload',
   await eventRange().click();
   await expect(page.getByRole('heading', { name: `Schedule ${suffix}`, exact: true })).toBeVisible();
   await page.reload(); await eventRange().click(); await expect(page.getByRole('heading', { name: `Schedule ${suffix}`, exact: true })).toBeVisible();
-  await page.getByRole('navigation').getByRole('button', { name: 'User settings', exact: true }).click();
+  await openUserSettings(page);
   await openSettingsSection(page, 'Memory'); await page.getByRole('button', { name: 'New file', exact: true }).click();
   await page.getByLabel('Descriptive filename (including .md)').fill(`reload-preference-${info.project.name}.md`);
   await page.getByRole('textbox', { name: 'Memory text' }).fill(`Memory ${suffix}`);
@@ -886,7 +910,7 @@ test('provider API key is stored in the vault and used for model discovery', asy
   await expect(page.getByRole('dialog', { name: 'Verify identity', exact: true })).toHaveCount(0);
   await expect(renamed).toHaveCount(0);
   expect((await (await page.request.get('/api/credentials')).json()).Items.some((row: { ID: string }) => row.ID === updatedKey.ID)).toBe(false);
-  await page.getByRole('navigation').getByRole('button', { name: 'User settings', exact: true }).click();
+  await openUserSettings(page);
   await expect(settingsNavItem(page, 'Model credentials')).toHaveCount(0);
 });
 
@@ -896,7 +920,7 @@ test('security page manages optional verification and authenticator enrollment',
   const proof = async (purpose: string, mfa_code = '') => (await post(page, '/api/auth/reauthenticate', { password: 'webui-e2e-password-2026!', mfa_code, purpose }, false)).verification;
   const closeToasts = async () => { while (await page.getByRole('list', { name: 'Notifications', exact: true }).getByRole('button', { name: 'Close', exact: true }).count()) await page.getByRole('list', { name: 'Notifications', exact: true }).getByRole('button', { name: 'Close', exact: true }).first().click(); };
   try {
-    await page.getByRole('navigation').getByRole('button', { name: 'User settings', exact: true }).click();
+    await openUserSettings(page);
     await openSettingsSection(page, 'Security');
     await expect(settingsNavItem(page, 'Additional verification')).toHaveCount(0);
     const toggle = page.getByRole('switch', { name: 'Verify sensitive actions', exact: true });
@@ -954,7 +978,7 @@ test('security page manages optional verification and authenticator enrollment',
     await expect(deletion).not.toBeVisible();
     await expect(providerCard).toHaveCount(0);
     await closeToasts();
-    await page.getByRole('navigation').getByRole('button', { name: 'User settings', exact: true }).click();
+    await openUserSettings(page);
     await openSettingsSection(page, 'Security');
     await page.getByRole('button', { name: 'Unbind authenticator', exact: true }).click();
     await verifyIdentity(page, codes[1]);
@@ -1079,11 +1103,11 @@ test('assistant pinning, clone, archive, rehire and search use persisted data', 
   await clone.getByRole('textbox', { name: 'Assistant name', exact: true }).fill(cloneName); await clone.getByRole('button', { name: 'Confirm', exact: true }).click();
   await expect(page.locator('.chat-header h1')).toHaveText(cloneName);
   await assistantMenu(page, 'Dismiss assistant'); await page.getByRole('dialog', { name: 'Dismiss assistant', exact: true }).getByRole('button', { name: 'Confirm', exact: true }).click();
-  await page.getByRole('navigation').getByRole('button', { name: 'User settings', exact: true }).click(); await openSettingsSection(page, 'Former assistants');
+  await openUserSettings(page); await openSettingsSection(page, 'Former assistants');
   const former = settingsPane(page).locator('.settings-row-item').filter({ hasText: cloneName });
   await former.getByRole('button', { name: 'Assistant conversation', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'Message your assistant', exact: true })).toBeDisabled();
-  await page.getByRole('navigation').getByRole('button', { name: 'User settings', exact: true }).click(); await openSettingsSection(page, 'Former assistants');
+  await openUserSettings(page); await openSettingsSection(page, 'Former assistants');
   await former.getByRole('button', { name: 'Rehire assistant', exact: true }).click(); await page.getByRole('dialog', { name: 'Rehire assistant', exact: true }).getByRole('button', { name: 'Confirm', exact: true }).click(); await expect(former).toHaveCount(0);
   await page.getByRole('navigation').getByRole('button', { name: 'Assistants', exact: true }).click(); await page.getByRole('button', { name: 'Search', exact: true }).first().click();
   const search = page.getByRole('dialog', { name: 'Search', exact: true }); await search.getByRole('searchbox').fill(cloneName);
@@ -1095,13 +1119,15 @@ test('task controls and protected data export reach the backend', async ({ page 
   await page.goto(`/#/assistants/${assistant.ID}`); await page.locator('.chat-header').getByRole('button', { name: 'Plans', exact: true }).click();
   await post(page, '/api/tasks', { AssistantID: assistant.ID, Goal: `Goal ${suffix}`, AcceptanceCriteria: ['A reviewed report'] });
   await page.reload(); await page.locator('.chat-header').getByRole('button', { name: 'Plans', exact: true }).click();
-  const tasks = page.getByRole('dialog', { name: 'Plans', exact: true }); await expect(tasks.getByRole('heading', { name: `Goal ${suffix}`, exact: true })).toBeVisible();
+  const tasks = page.getByRole('dialog', { name: 'Plans', exact: true });
+  await tasks.getByRole('group', { name: 'Event range', exact: true }).getByRole('button', { name: /^No date/ }).click();
+  await expect(tasks.getByRole('heading', { name: `Goal ${suffix}`, exact: true })).toBeVisible();
   await tasks.getByRole('button', { name: /Execution history/ }).click(); await tasks.locator('.plan-execution summary').click();
   await tasks.getByRole('button', { name: 'Pause task', exact: true }).click(); await expect(tasks.getByRole('button', { name: 'Resume task', exact: true })).toBeVisible();
   while (await page.getByRole('list', { name: 'Notifications', exact: true }).getByRole('button', { name: 'Close', exact: true }).count()) await page.getByRole('list', { name: 'Notifications', exact: true }).getByRole('button', { name: 'Close', exact: true }).first().click();
   await tasks.getByRole('button', { name: 'Cancel task', exact: true }).click(); await page.getByRole('dialog', { name: 'Cancel task', exact: true }).getByRole('button', { name: 'Confirm', exact: true }).click(); await expect(tasks.locator('.plan-execution summary')).toContainText('Canceled');
   await page.keyboard.press('Escape'); await expect(tasks).not.toBeVisible();
-  await page.getByRole('navigation').getByRole('button', { name: 'User settings', exact: true }).click();
+  await openUserSettings(page);
   await expect(settingsNavItem(page, 'Model credentials')).toHaveCount(0);
   await openSettingsSection(page, 'Data'); await page.getByRole('button', { name: 'Export data', exact: true }).click();
   const data = page.getByRole('dialog', { name: 'Export data', exact: true }); await data.getByRole('button', { name: 'Export data', exact: true }).click(); await expect(page.getByRole('dialog', { name: 'Verify identity', exact: true })).toHaveCount(0); await expect(data).not.toBeVisible();
@@ -1329,11 +1355,13 @@ test('a stalled connection times out and clicking the logo retries the real stre
   await expect(page.getByText('The service is unavailable. Try again shortly.', { exact: true })).toBeVisible();
 });
 
-test('general and connection lead settings, save independently and disconnect the session', async ({ page, context }, info) => {
+test('general, notifications and connection lead settings, save independently and disconnect the session', async ({ page, context }, info) => {
   await login(page);
-  await page.getByRole('navigation').getByRole('button', { name: 'User settings', exact: true }).click();
+  await openUserSettings(page);
   const navItems = page.locator('.settings-nav > button');
-  await expect(navItems.nth(0)).toHaveText('General'); await expect(navItems.nth(1)).toHaveText('Connection');
+  await expect(navItems.nth(0)).toHaveText('General');
+  await expect(navItems.nth(1)).toHaveText('Notification settings');
+  await expect(navItems.nth(2)).toHaveText('Connection');
   await openSettingsSection(page, 'General');
   await expect(navItems.nth(0)).toHaveAttribute('aria-current', 'page');
   const general = settingsPane(page);
@@ -1369,7 +1397,7 @@ test('general and connection lead settings, save independently and disconnect th
   expect(settings).toMatchObject({ Timezone: 'Asia/Shanghai', Theme: 'light', AnswerPreferences: preference });
   await page.reload(); await openSettingsSection(page, 'General');
   await expect(general.getByRole('combobox', { name: 'Timezone', exact: true })).toContainText('Shanghai');
-  await general.screenshot({ path: `/tmp/molr-general-settings-${info.project.name}.png` });
+  await general.screenshot({ path: info.outputPath('general-settings.png') });
   await choose(page, 'Language', '简体中文');
   await expect(settingsNavItem(page, '常规')).toHaveText('常规');
   await choose(page, '语言', 'English');
@@ -1383,7 +1411,7 @@ test('general and connection lead settings, save independently and disconnect th
   await expect(connection).toContainText(`http://127.0.0.1:${process.env.MOLR_TEST_RUNTIME_PORT ?? process.env.MOLR_E2E_RUNTIME_PORT ?? 18881}`);
   await expect(connection).toContainText('Molr Web');
   await expect(connection.locator('.settings-connection')).toHaveCSS('padding-top', '0px');
-  await connection.screenshot({ path: `/tmp/molr-runtime-connection-${info.project.name}.png` });
+  await connection.screenshot({ path: info.outputPath('runtime-connection.png') });
   const cookies = (await context.cookies()).map(cookie => `${cookie.name}=${cookie.value}`).join('; ');
   await connection.getByRole('button', { name: 'Disconnect', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
@@ -1393,7 +1421,7 @@ test('general and connection lead settings, save independently and disconnect th
 
 test('instant settings roll back a failed switch update and preserve other preferences', async ({ page }) => {
   await login(page);
-  await page.getByRole('navigation').getByRole('button', { name: 'User settings', exact: true }).click();
+  await openUserSettings(page);
   await openSettingsSection(page, 'Theme');
   const panel = settingsPane(page);
   const toggle = panel.getByRole('switch', { name: 'Reduce motion', exact: true });
@@ -1571,12 +1599,12 @@ test('assistant budgets are set at hire and edited independently', async ({ page
   expect((await (await page.request.get(`/api/assistants/${assistant.ID}`)).json()).Budget).toEqual({ Limit: { Currency: 'USD', Micros: 3_000_000 }, Period: 'daily' });
   expect((await (await page.request.get(`/api/assistants/${seed.ID}`)).json()).Budget.Limit.Micros).toBe(0);
   await page.locator('.chat-header').getByRole('button', { name: 'Plans', exact: true }).click();
-  await page.getByRole('button', { name: 'New plan', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Plans', exact: true }).locator('.plans-header').getByRole('button', { name: 'New plan', exact: true }).click();
   const task = page.getByRole('dialog', { name: 'New plan', exact: true });
   await expect(task.getByRole('spinbutton')).toHaveCount(0);
   await task.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.getByRole('dialog', { name: 'Plans', exact: true }).locator('.ui-dialog__header').getByRole('button', { name: 'Close', exact: true }).click();
-  await page.getByRole('navigation').getByRole('button', { name: 'User settings', exact: true }).click();
+  await openUserSettings(page);
   await openSettingsSection(page, 'Preferences');
   await expect(settingsPane(page).getByRole('spinbutton')).toHaveCount(0);
 });
@@ -1591,7 +1619,7 @@ test('currency preferences preserve native budgets and prices and show the confi
     await post(page, '/api/settings', { Settings: { ...latest, Currency: previous.Currency, Timezone: previous.Timezone }, Mutation: { IdempotencyKey: crypto.randomUUID(), ExpectedVersion: latest.Version } }, false);
   };
   try {
-    await page.getByRole('navigation').getByRole('button', { name: 'User settings', exact: true }).click();
+    await openUserSettings(page);
     await openSettingsSection(page, 'General');
     await choose(page, 'Currency', 'Chinese yuan CNY');
     await expect.poll(async () => (await (await page.request.get('/api/settings')).json()).Currency).toBe('CNY');
@@ -1614,6 +1642,10 @@ test('currency preferences preserve native budgets and prices and show the confi
     const assistant = (await (await page.request.get('/api/assistants')).json()).Items.find((a: { Name: string }) => a.Name === name);
     expect(assistant.Budget).toEqual({ Limit: { Currency: 'CNY', Micros: 7_000_000 }, Period: 'weekly' });
     // New model prices default to the preference; saved values keep that denomination.
+    const back = page.getByRole('button', { name: 'Back to assistants', exact: true });
+    if (await back.isVisible()) await back.click();
+    const toastClose = page.locator('.ui-toasts').getByRole('button', { name: 'Close', exact: true });
+    while (await toastClose.count()) await toastClose.first().click();
     await page.getByRole('navigation').getByRole('button', { name: 'Resources', exact: true }).click();
     const card = resourceRow(page, `${name} seed`);
     await expandResource(card);
@@ -1629,7 +1661,7 @@ test('currency preferences preserve native budgets and prices and show the confi
     const resourceID = models.find((m: { ID: string }) => m.ID === seed.ModelID).ResourceID;
     const nativeModel = models.find((m: { ResourceID: string; Name: string }) => m.ResourceID === resourceID && m.Name === 'native-cny');
     expect(nativeModel.Pricing).toMatchObject({ Currency: 'CNY', InputMicrosPerMillion: 7_000_000, OutputMicrosPerMillion: 14_000_000 });
-    await page.getByRole('navigation').getByRole('button', { name: 'User settings', exact: true }).click();
+    await openUserSettings(page);
     await openSettingsSection(page, 'General');
     await choose(page, 'Currency', 'US dollar USD');
     await expect.poll(async () => (await (await page.request.get('/api/settings')).json()).Currency).toBe('USD');
@@ -2230,26 +2262,31 @@ test('real chat renders Markdown and LaTeX and copies stored source across reloa
   await page.getByRole('textbox', { name: 'Message your assistant', exact: true }).fill(raw);
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   const user = page.locator('.chat-history .ui-chat-message--user').last();
-  const reply = page.locator('.chat-history .ui-chat-message--assistant').last();
+  const latestReply = page.locator('.chat-history .ui-chat-message--assistant').last();
   await expect(user.getByRole('heading', { name: 'My original request', exact: true })).toBeVisible();
   await expect(user.locator('script, a[href^="javascript:"]')).toHaveCount(0);
   expect(await page.evaluate(() => Reflect.get(window, 'richTextExecuted'))).toBeUndefined();
-  await expect(reply.getByRole('heading', { name: 'Runtime rich text reply', exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(latestReply.getByRole('heading', { name: 'Runtime rich text reply', exact: true })).toBeVisible({ timeout: 20_000 });
+  // The initial greeting and request reply can arrive separately; keep one stable target.
+  const replyID = await latestReply.evaluate(element => element.closest<HTMLElement>('[data-message-id]')!.dataset.messageId!);
+  const reply = page.locator(`[data-message-id="${replyID}"] .ui-chat-message--assistant`);
   await expect(reply.locator('table')).toHaveCount(1);
   await expect(reply.locator('.katex')).toHaveCount(2);
   await expect(reply.locator('.katex-display')).toHaveCount(1);
   await expect(reply.locator('pre code')).toHaveText('total = 6 / 4 + 0.5\n');
   const stored = (await (await page.request.get(`/api/conversations/${assistant.ConversationID}/messages?order=desc&limit=50`)).json()).Items;
   expect(stored.find((message: { Sender: string }) => message.Sender === 'user').Content.Text).toBe(raw);
-  const replySource = stored.find((message: { Sender: string }) => message.Sender === 'assistant').Content.Text;
+  const replySource = stored.find((message: { ID: string }) => message.ID === replyID).Content.Text;
   await user.getByRole('button', { name: 'Copy original text', exact: true }).click();
   await expect(user.getByRole('button', { name: 'Copied', exact: true })).toBeVisible();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(raw);
   await reply.getByRole('button', { name: 'Copy original text', exact: true }).click();
   await expect(reply.getByRole('button', { name: 'Copied', exact: true })).toBeVisible();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(replySource);
+  const feedbackSaved = page.waitForResponse(response => response.url().endsWith('/api/conversations/feedback') && response.request().method() === 'POST' && response.status() === 200);
   await reply.getByRole('button', { name: 'Like', exact: true }).click();
   await expect(reply.getByRole('button', { name: 'Like', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await feedbackSaved;
   await page.reload();
   await expect(reply.locator('.katex-display')).toBeVisible();
   await expect(reply.getByRole('button', { name: 'Like', exact: true })).toHaveAttribute('aria-pressed', 'true');
@@ -2261,14 +2298,14 @@ test('real chat renders Markdown and LaTeX and copies stored source across reloa
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(replySource);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(await page.locator('.chat-history').evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
-  await page.screenshot({ path: `/tmp/molr-webui-rich-text-${info.project.name}.png` });
+  await page.screenshot({ path: info.outputPath('rich-text.png') });
   await assistantMenu(page, 'Dismiss assistant');
   const dismiss = page.getByRole('dialog', { name: 'Dismiss assistant', exact: true });
   await dismiss.getByRole('button', { name: 'Confirm', exact: true }).click();
   await expect(dismiss).not.toBeVisible();
   // The dismissal toast overlaps the bottom navigation on mobile.
   for (const close of await page.getByRole('list', { name: 'Notifications', exact: true }).getByRole('button', { name: 'Close', exact: true }).all()) await close.click();
-  await page.getByRole('navigation').getByRole('button', { name: 'User settings', exact: true }).click();
+  await openUserSettings(page);
   await openSettingsSection(page, 'Former assistants');
   const former = settingsPane(page).locator('.settings-row-item').filter({ hasText: assistant.Name });
   await former.getByRole('button', { name: 'Assistant conversation', exact: true }).click();
