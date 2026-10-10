@@ -1,7 +1,7 @@
 import { CircleAlert, X } from 'lucide-react';
 import { useErrorNotice, useErrorNotices } from '../../../error-notices';
 import './error-notice.css';
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { Button, Dialog, EmptyState, IconButton, Skeleton, useToast } from '@molr/ui';
 import { APIError } from '../../../api/client';
@@ -44,15 +44,17 @@ export function Empty({ title, description, action }: { title?: string; descript
 export class ActionCancelled extends Error {}
 export function useAction() {
   const notices = useErrorNotices();
+  const running = useRef(false);
   const [busy, setBusy] = useState(false), [error, setError] = useState<unknown>(null);
   const { toast } = useToast(); const { t } = useCopy();
   async function run(action: () => Promise<unknown>, done?: () => void, notify = true) {
-    if (busy) return;
+    if (running.current) return;
+    running.current = true;
     notices?.rearm();
     setBusy(true); setError(null);
     try { await action(); done?.(); if (notify) toast({ title: t.saved }); }
     catch (error) { if (!(error instanceof ActionCancelled)) setError(error); }
-    finally { setBusy(false); }
+    finally { running.current = false; setBusy(false); }
   }
   return { busy, error, run, reset: () => setError(null) };
 }
