@@ -10,7 +10,8 @@ export function permissionModel(input, response) {
   const snapshot = JSON.parse(context.content.split('\n')[0].slice('Runtime context_changed: '.length));
   const permissions = snapshot.sources.find(s => s.kind === 'permissions')?.content ?? {};
   const requests = snapshot.sources.find(s => s.kind === 'permission_requests')?.content ?? [];
-  const recent = messages.slice(eventIndex + 1), results = recent.filter(m => m.role === 'tool').map(m => JSON.parse(m.content));
+  const recent = messages.slice(eventIndex + 1);
+  let results = recent.filter(m => m.role === 'tool').map(m => JSON.parse(m.content));
   const published = recent.some(m => m.tool_calls?.some(c => c.function.name === 'conversation_publish'));
   const message = { role: 'assistant', content: '' };
   function call(name, args) { message.tool_calls = [{ id: randomUUID(), type: 'function', function: { name, arguments: JSON.stringify(args) } }]; }
@@ -19,6 +20,26 @@ export function permissionModel(input, response) {
     response.end(JSON.stringify({ id: randomUUID(), choices: [{ message, finish_reason: message.tool_calls ? 'tool_calls' : 'stop' }], usage: { prompt_tokens: 30, completion_tokens: 10 } }));
     return true;
   }
+  // These fixtures request permission in response to the user's message, not hiring.
+  if (event.event?.Kind === 'born') return finish();
+  // Full suites have larger permission catalogs. Follow Runtime's bounded result
+  // files just as a real model must, instead of requesting the same list forever.
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
+    if (!result.full_result_path) continue;
+    const chunks = results.filter(r => r.Path === result.full_result_path && typeof r.ByteOffset === 'number').sort((a, b) => a.ByteOffset - b.ByteOffset);
+    let text = '', offset = 0;
+    for (const chunk of chunks) {
+      if (chunk.ByteOffset !== offset) continue;
+      text += chunk.Text; offset = chunk.NextByteOffset;
+    }
+    if (Buffer.byteLength(text) < result.bytes) {
+      call('file_read', { path: result.full_result_path, byte_offset: offset, max_bytes: 4096 });
+      return finish();
+    }
+    results[i] = JSON.parse(text);
+  }
+  results = results.filter(result => typeof result.ByteOffset !== 'number');
   if (input.model.startsWith('Permission unified ') && !requests.length) {
     if (event.event.TaskID) return finish();
     if (!published) {

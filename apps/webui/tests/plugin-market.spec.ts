@@ -40,7 +40,7 @@ test('marketplace group authorization, independent enablement and optional setti
   await post(member,'/api/plugins/ui',{ID:id,Digest:installed.Digest,Kind:'page',Contribution:'home',Method:'document'},403);
   await post(page,'/api/plugins/ui',{ID:id,Digest:installed.Digest,Kind:'page',Contribution:'home',Method:'document'});
   await member.reload(); await expect(card(member,name).getByRole('switch')).not.toBeChecked(); await card(member,name).getByRole('switch').click(); await expect(card(member,name).getByRole('button',{name:'Open',exact:true})).toBeEnabled();
-  await menu(page,name,'Authorize groups'); await row.getByRole('checkbox').uncheck(); await row.getByRole('button',{name:'Save access',exact:true}).click(); await expect(row.getByRole('button',{name:'Save access',exact:true})).toBeDisabled();
+  await menu(page,name,'Authorize groups'); await expect(row.getByRole('checkbox')).toBeChecked(); await row.getByRole('checkbox').uncheck(); await row.getByRole('button',{name:'Save access',exact:true}).click(); await expect(row.getByRole('button',{name:'Save access',exact:true})).toBeDisabled();
   await member.reload(); await expect(card(member,name)).toHaveCount(0);
   await post(member,'/api/plugins/ui',{ID:id,Digest:installed.Digest,Kind:'page',Contribution:'home',Method:'document'},403);
   await dialog.locator('footer').getByRole('button',{name:'Close',exact:true}).click();

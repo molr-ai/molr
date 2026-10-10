@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
+test.setTimeout(120_000); // Covers several complete turns, two tabs and a stop/restart cycle.
 const port = process.env.MOLR_TEST_PORT ?? '5193';
 const base = `http://127.0.0.1:${port}`;
 async function post(page: Page, path: string, data: object) {

@@ -3,7 +3,7 @@ import { chooseOption } from './select-helpers';
 import { selectAssistant } from './interface-helpers';
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('molr-ui-design-locale', 'en'));
+  await page.addInitScript(() => { if (window === window.top) localStorage.setItem('molr-ui-design-locale', 'en'); });
   await page.goto('/#interfaces');
 });
 

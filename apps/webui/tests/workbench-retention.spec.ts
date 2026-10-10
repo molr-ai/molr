@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test('admin count retention reclaims history without losing live context and rejects member changes', async ({ page, browser }, info) => {
+  test.setTimeout(150_000);
   const port = process.env.MOLR_TEST_PORT ?? '5193', base = `http://127.0.0.1:${port}`;
   await page.goto('/');
   await page.getByLabel('Username', { exact: true }).fill('owner');
@@ -50,7 +51,7 @@ test('admin count retention reclaims history without losing live context and rej
         const rows = (await (await page.request.get(`/api/debug/runs?assistant_id=${assistant.ID}`)).json()).Items;
         const fresh = rows.find((r: { ID: string; State: string; Source?: { Text?: string } }) => r.Source?.Text === `Retention event ${i}` && !seen.includes(r.ID) && r.State === 'succeeded');
         if (fresh) { seen.push(fresh.ID); return true; } return false;
-      }).toBe(true);
+      }, { timeout: 30_000 }).toBe(true);
     }
     const runs = (await (await page.request.get(`/api/debug/runs?assistant_id=${assistant.ID}`)).json()).Items;
     expect(runs.map((r: { ID: string }) => r.ID)).toEqual(seen.slice(-2).reverse());

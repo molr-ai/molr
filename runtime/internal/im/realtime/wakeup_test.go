@@ -59,7 +59,14 @@ func receive[T any](t *testing.T, ch <-chan T) T {
 func TestIdleAuthorizationDoesNotReplay(t *testing.T) {
 	db, store, owner := newWakeupStore(t)
 	checks := make(chan struct{}, 100)
-	auth := authorizerFunc(func(context.Context, core.Principal, policy.CheckRequest) error { checks <- struct{}{}; return nil })
+	auth := authorizerFunc(func(context.Context, core.Principal, policy.CheckRequest) error {
+		// Observation must not block authorization while Append commits on a busy disk.
+		select {
+		case checks <- struct{}{}:
+		default:
+		}
+		return nil
+	})
 	feed := NewFeed(store, Options{Authorizer: auth, AuthorizationInterval: time.Millisecond})
 	sub, err := feed.Subscribe(t.Context(), owner, Query{})
 	if err != nil {

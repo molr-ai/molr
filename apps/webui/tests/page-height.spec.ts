@@ -45,14 +45,14 @@ test('login, session restoration and invalid login links fit short WebViews', as
   await page.getByLabel('Username', { exact: true }).fill('not-a-user');
   await page.getByLabel('Password', { exact: true }).fill('invalid-password');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page.locator('.login-page .ui-alert')).toBeVisible();
+  await expect(page.locator('.login-page').getByRole('alert')).toBeVisible();
   await checkPageHeight(page);
   await page.goto('/#/login?token=invalid');
   await expect(page.getByRole('button', { name: 'Sign in with password', exact: true })).toBeVisible();
   await checkPageHeight(page);
   await page.route('**/api/auth/me', route => route.abort('failed'));
   await page.goto('/');
-  await expect(page.locator('.session-page .ui-alert')).toBeVisible();
+  await expect(page.locator('.session-page').getByRole('alert')).toBeVisible();
   await checkPageHeight(page);
   await page.unroute('**/api/auth/me');
 });

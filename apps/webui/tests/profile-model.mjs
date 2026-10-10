@@ -13,7 +13,7 @@ export function profileModel(input, response) {
   const message = { role: 'assistant', content: '' };
   const call = (name, args) => { message.tool_calls = [{ id: randomUUID(), type: 'function', function: { name, arguments: JSON.stringify(args) } }]; };
   const called = name => recent.some(m => m.tool_calls?.some(c => c.function.name === name));
-  if (event.conversation_id && !called('conversation_publish')) {
+  if (event.event?.Kind !== 'born' && event.conversation_id && !called('conversation_publish')) {
     const history = results.find(r => r.Items);
     const user = history?.Items.find(m => m.ID === event.event?.MessageID) ?? history?.Items.find(m => m.Sender === 'user');
     if (!history) call('conversation_read', { conversation_id: event.conversation_id });

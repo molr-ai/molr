@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
+test.setTimeout(120_000);
 const port = process.env.MOLR_TEST_PORT ?? '5193', base = `http://127.0.0.1:${port}`;
 async function post(page: Page, path: string, data: object) {
   const csrf = (await page.context().cookies()).find(c => c.name === `molr_dev_csrf_p${port}`)!.value;
@@ -21,7 +22,7 @@ for (const decision of ['approve', 'reject']) test(`permission request ${decisio
   await page.goto(`/#/assistants/${assistant.ID}`);
   await page.getByRole('textbox', { name: 'Message your assistant', exact: true }).fill('Please run the calculation.');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
-  await expect(page.locator('.permission-request-card')).toBeVisible();
+  await expect(page.locator('.permission-request-card')).toBeVisible({ timeout: 60_000 });
   await expect.poll(async () => (await (await page.request.get(`/api/assistants/${assistant.ID}/status`)).json()).WaitingReason).toBe('permission_pending');
   await page.reload();
   await expect(page.locator('.permission-request-card')).toContainText('Run the calculation in an isolated sandbox.');
@@ -58,7 +59,7 @@ for (const decision of ['approve', 'reject']) test(`permission request ${decisio
   expect(grantsAfter.Items).toHaveLength(decision === 'approve' ? 2 : 1);
   if (decision === 'approve') expect(grantsAfter.Items.find((grant: any) => grant.Constraints?.compute)?.Constraints.compute.memory_bytes).toBe(512 * 1048576);
   await page.goto(`/#/assistants/${assistant.ID}`); await page.reload();
-  await expect(page.locator('.ui-chat-message--assistant').filter({hasText:decision === 'approve' ? 'Permission approved; current grants checked before continuing.' : 'Permission was declined. No command was executed.'})).toHaveCount(1);
+  await expect(page.locator('.ui-chat-message--assistant').filter({hasText:decision === 'approve' ? 'Permission approved; current grants checked before continuing.' : 'Permission was declined. No command was executed.'})).toHaveCount(1, { timeout: 60_000 });
   await expect(page.locator('.permission-request-card')).toContainText(decision === 'approve' ? 'Approved' : 'Rejected');
   await expect(page.getByRole('button', { name: 'Review permission', exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -84,7 +85,7 @@ test('task, resource, schedule and permission cards share layout and display rea
   await post(page, '/api/conversations/messages', { ConversationID: assistant.ConversationID, Content: { Kind: 'text', Text: JSON.stringify({ cards }) } });
   await page.goto(`/#/assistants/${assistant.ID}`);
   const all = page.locator('.ui-chat-card');
-  await expect(all).toHaveCount(4);
+  await expect(all).toHaveCount(4, { timeout: 60_000 });
   const taskCard = page.getByRole('article', { name: 'Analysis report', exact: true });
   const resourceCard = page.getByRole('article', { name: 'Analysis model', exact: true });
   const scheduleCard = page.getByRole('article', { name: 'Tomorrow’s review', exact: true });

@@ -19,6 +19,7 @@ async function post(page: Page, path: string, data: object, version?: number) {
 
 async function setTheme(page: Page, theme: string) {
   const settings = await (await page.request.get('/api/settings')).json();
+  if (settings.UITheme === theme) return;
   return post(page, '/api/settings', { Settings: { ...settings, UITheme: theme } }, settings.Version);
 }
 

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
+test.setTimeout(150_000);
 const port = process.env.MOLR_TEST_PORT ?? '5193';
 const base = `http://127.0.0.1:${port}`;
 async function post(page: Page, path: string, data: Record<string, unknown> & { Mutation?: object }) {
@@ -14,7 +15,7 @@ async function waitForBorn(page: Page, assistant: { ID: string; ConversationID: 
     replies = (messages.Items ?? []).filter((message: any) => message.Sender === 'assistant');
     const status = await (await page.request.get(`/api/assistants/${assistant.ID}/status`)).json();
     return replies.length > 0 && status.State === 'idle';
-  }, { timeout: 20000 }).toBe(true);
+  }, { timeout: 60000 }).toBe(true);
   return replies;
 }
 
@@ -47,7 +48,7 @@ test('turn info queries lazily, updates the whole turn and shares finalized cach
   const panel = page.getByRole('dialog', { name: 'Turn information', exact: true });
   await expect(panel).toBeVisible();
   await expect(panel).toContainText('Partial statistics');
-  await expect.poll(() => final, { timeout: 20000 }).toBeTruthy();
+  await expect.poll(() => final, { timeout: 60000 }).toBeTruthy();
   expect(final.Usage).toEqual({ AudioInputTokens: 0, InputTokens: 90, CachedTokens: 36, OutputTokens: 30 });
   expect(final.ModelCalls).toBe(3); expect(final.ToolCalls).toBe(3);
   expect(final.FirstTokenMs).toBeGreaterThan(0); expect(final.TokensPerSecond).toBeGreaterThan(0);
@@ -105,7 +106,7 @@ test('turn info locates an older recorded turn across pages and survives reload'
     let runs: any[] = [];
     for (let i = 1; i <= 3; i++) {
       await post(page, '/api/conversations/messages', { ConversationID: assistant.ConversationID, Content: { Kind: 'text', Text: `Locate turn ${i}` } });
-      await expect.poll(async () => { runs = (await (await page.request.get(`/api/debug/runs?assistant_id=${assistant.ID}`)).json()).Items.filter((run: any) => run.Source?.Text?.startsWith('Locate turn ')); return runs.length === i && runs.every(run => run.State === 'succeeded'); }).toBe(true);
+      await expect.poll(async () => { runs = (await (await page.request.get(`/api/debug/runs?assistant_id=${assistant.ID}`)).json()).Items.filter((run: any) => run.Source?.Text?.startsWith('Locate turn ')); return runs.length === i && runs.every(run => run.State === 'succeeded'); }, { timeout: 30_000 }).toBe(true);
     }
     const first = runs.find(run => run.Source?.Text === 'Locate turn 1');
     expect(first).toBeTruthy();

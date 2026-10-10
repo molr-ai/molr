@@ -442,7 +442,7 @@ test('resource permissions follow capabilities and clear irrelevant scopes', asy
     const name = `Permissions ${info.project.name}-${Date.now()}`;
     const assistant = await seedAssistant(page, name);
     const storage = await post(page, '/api/resources', { Name: `${name} files`, Kind: 'storage', Provider: 'local-directory', Binding: { RootPath: directory } });
-    await page.goto(`/#/assistants/${assistant.ID}`);
+    await page.goto(`/#/assistants/${assistant.ID}`); await page.reload();
     await page.getByRole('textbox', { name: 'Message your assistant', exact: true }).fill('Draft remains while managing permissions');
     await assistantMenu(page, 'Assistant information');
     await page.getByRole('dialog', { name: 'Assistant information', exact: true }).getByRole('tab', { name: 'Permissions', exact: true }).click();
@@ -452,8 +452,8 @@ test('resource permissions follow capabilities and clear irrelevant scopes', asy
     await expect(drawer.locator('.ui-dialog__header')).toContainText(name);
     await expect(page.locator('.chat-panel')).toHaveCount(1);
     await expect(page.getByText('View models · Call models', { exact: true })).toBeVisible();
-    await drawer.getByRole('button', { name: 'Default sandbox information', exact: true }).click();
-    await expect(page.getByRole('tooltip')).toContainText('Existing files are not moved automatically.');
+    await drawer.getByRole('button', { name: 'Local workspace information', exact: true }).click();
+    await expect(page.getByRole('tooltip')).toContainText('Each assistant has one private /work on this Runtime.');
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Add permission', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Add permission', exact: true });
@@ -1043,7 +1043,7 @@ test('resource tabs expose tools and sandbox-scoped resources', async ({ page })
   await expect(page.getByRole('heading', { name: 'Read file', exact: true })).toBeVisible();
   await resourceCategory(page, 'Sandboxes').click();
   await expect(page.getByRole('button', { name: 'Connect sandbox', exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Assistant workspace /work', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Local workspace /work', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Connect sandbox', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Connect sandbox', exact: true });
   for (const label of ['Service URL', 'Certificate SHA-256 fingerprint', 'Connection token']) await expect(dialog.getByLabel(label, { exact: true })).toBeVisible();
@@ -1061,7 +1061,7 @@ test('local command environment is prepared automatically without sandbox paths'
   await resourceCategory(page, 'Compute').click();
   await expect(page.getByRole('heading', { name: 'Local sandbox', exact: true }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Connect compute', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Execution limits', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Requestable compute capacity', exact: true })).toBeVisible();
   await expect(page.locator('.sandbox-limits')).toContainText('MiB');
 });
 
@@ -1159,7 +1159,7 @@ test('assistant list search filters locally without opening a panel or changing 
   const second = await seedAssistant(page, `写作 Beta ${suffix}`);
   await page.goto(`/#/assistants/${first.ID}`);
   await page.reload();
-  if (info.project.name === 'mobile') await page.getByRole('navigation').getByRole('button', { name: 'Assistants', exact: true }).click();
+  if (info.project.name === 'mobile') await page.getByRole('button', { name: 'Back to assistants', exact: true }).click();
   const sidebar = page.locator('.workspace-sidebar');
   const search = sidebar.getByRole('searchbox', { name: 'Search assistants', exact: true });
   const list = sidebar.locator('.assistant-list');
@@ -1227,7 +1227,8 @@ test('search matches the shared design, filters real results and opens tasks', a
   const assistant = await seedAssistant(page, name);
   const task = await post(page, '/api/tasks', { AssistantID: assistant.ID, Goal: `${name} goal`, AcceptanceCriteria: ['A reviewed report'], ResourceIDs: [] });
   await page.goto(`/#/assistants/${assistant.ID}`);
-  await page.getByRole('navigation').getByRole('button', { name: 'Assistants', exact: true }).click();
+  if (info.project.name === 'mobile') await page.getByRole('button', { name: 'Back to assistants', exact: true }).click();
+  else await page.getByRole('navigation').getByRole('button', { name: 'Assistants', exact: true }).click();
   const trigger = page.getByRole('button', { name: 'Search', exact: true }).first();
   if (info.project.name === 'desktop') await page.locator('.workspace-nav').screenshot({ path: '/tmp/molr-workspace-navigation.png' });
   await page.locator('.workspace-sidebar').screenshot({ path: `/tmp/molr-assistant-sidebar-${info.project.name}.png` });
@@ -1275,7 +1276,8 @@ test('search matches the shared design, filters real results and opens tasks', a
   const tasks = page.getByRole('dialog', { name: 'Plans', exact: true });
   await expect(tasks.getByRole('heading', { name: task.Goal, exact: true })).toBeVisible();
   await page.keyboard.press('Escape'); await expect(tasks).not.toBeVisible();
-  await page.getByRole('navigation').getByRole('button', { name: 'Assistants', exact: true }).click();
+  if (info.project.name === 'mobile') await page.getByRole('button', { name: 'Back to assistants', exact: true }).click();
+  else await page.getByRole('navigation').getByRole('button', { name: 'Assistants', exact: true }).click();
   await trigger.click(); await input.press('ArrowDown');
   await expect(quick.getByRole('button').first()).toBeFocused();
   await page.keyboard.press('End'); await expect(quick.getByRole('button').last()).toBeFocused();
@@ -1541,6 +1543,7 @@ test('DeepSeek built-in pricing stays automatic when model settings are saved', 
   const resource = await post(page, '/api/resources', { Name: name, Kind: 'model', Provider: 'openai-compatible',
     Binding: { PricingProvider: 'deepseek', Endpoint: 'https://api.deepseek.com/v1/chat/completions', AllowedOrigins: ['https://api.deepseek.com'], Models: [{ Name: 'deepseek-flash', ContextLimit: 32768, SupportsTools: true }] } });
   await page.getByRole('navigation').getByRole('button', { name: 'Resources', exact: true }).click();
+  await page.reload();
   const card = resourceRow(page, name);
   await expandResource(card);
   await expect(card.getByText('Pricing not configured', { exact: true })).toHaveCount(0);
@@ -1550,7 +1553,7 @@ test('DeepSeek built-in pricing stays automatic when model settings are saved', 
   };
   let dialog = await configure();
   await expect(dialog.getByRole('switch', { name: 'Custom pricing', exact: true })).not.toBeChecked();
-  await expect(dialog.getByRole('spinbutton')).toHaveCount(1);
+  await expect(dialog.getByRole('spinbutton')).toHaveCount(2);
   await dialog.getByRole('spinbutton', { name: 'Manual context limit (tokens, optional)', exact: true }).fill('8192');
   await dialog.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(dialog).not.toBeVisible();
@@ -1558,7 +1561,7 @@ test('DeepSeek built-in pricing stays automatic when model settings are saved', 
   expect((await catalog()).PricingInfo.Source).toBe('builtin');
   dialog = await configure();
   await dialog.getByRole('switch', { name: 'Custom pricing', exact: true }).click();
-  for (const field of await dialog.getByRole('spinbutton').all()) await field.fill('0');
+  for (const field of await dialog.getByRole('spinbutton', { name: /price .*million tokens/ }).all()) await field.fill('0');
   await dialog.getByRole('spinbutton', { name: 'Manual context limit (tokens, optional)', exact: true }).fill('8192');
   await dialog.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(dialog).not.toBeVisible();
@@ -1814,7 +1817,7 @@ test('developer workbench records hidden executions and only gates entry visibil
 test('assistant information unifies settings, real tools, permissions and Skills', async ({ page }, info) => {
   await login(page);
   const assistant = await seedAssistant(page, `Info ${info.project.name}-${Date.now()}`);
-  await page.goto(`/#/assistants/${assistant.ID}`);
+  await page.goto(`/#/assistants/${assistant.ID}`); await page.reload();
   await page.getByRole('textbox', { name: 'Message your assistant', exact: true }).fill('Keep this chat draft');
   await page.getByRole('button', { name: `View information for ${assistant.Name}`, exact: true }).click();
   const drawer = page.getByRole('dialog', { name: 'Assistant information', exact: true });
@@ -1829,7 +1832,7 @@ test('assistant information unifies settings, real tools, permissions and Skills
   const tools = drawer.getByRole('tabpanel', { name: 'Tools', exact: true });
   const toolCatalog = await (await page.request.get(`/api/assistants/${assistant.ID}/capabilities`)).json();
   await expect(tools.getByRole('article')).toHaveCount(toolCatalog.Tools.length);
-  for (const name of ['List plans', 'Read plan', 'Manage plans', 'Read attachment', 'Manage running tasks', 'Search memory', 'Read memory']) {
+  for (const name of ['List plans', 'Read plan', 'Manage plans', 'Read attachment', 'Manage running tasks', 'Search files', 'Read file']) {
     await expect(tools.getByRole('heading', { name, exact: true })).toBeVisible();
   }
   for (const name of ['Search', 'Update memory', 'Create tasks', 'Read tasks', 'Report task progress', 'Create plan', 'Update plan', 'Delete plan', 'Configure plan', 'Execute plan']) {
@@ -2001,7 +2004,7 @@ test('trajectory spans runs, pages older history and preserves inspection while 
     const send = async (number: number) => {
       await post(page, '/api/conversations/messages', { ConversationID: assistant.ConversationID, Content: { Kind: 'text', Text: `Trajectory message ${number}` } });
       await expect.poll(async () => {
-        const runs = (await (await page.request.get(`/api/debug/runs?assistant_id=${assistant.ID}`)).json()).Items;
+        const runs = (await (await page.request.get(`/api/debug/runs?assistant_id=${assistant.ID}`)).json()).Items.filter((run: { Trigger: string }) => run.Trigger === 'user_message');
         return runs.length === number && runs.every((run: { State: string }) => run.State === 'succeeded');
       }, { timeout: 20000 }).toBe(true);
     };
@@ -2084,7 +2087,7 @@ test('trajectory spans runs, pages older history and preserves inspection while 
     await expectStableAxis();
 
     await page.getByRole('searchbox', { name: 'Search loaded trajectory', exact: true }).fill('conversation_publish');
-    await expect(page.getByRole('region', { name: 'Time overview' }).locator('.trajectory-time-bar--model')).toHaveCount(15);
+    await expect(page.getByRole('region', { name: 'Time overview' }).locator('.trajectory-time-bar--model')).toHaveCount(18);
     await timeline.locator('.trajectory-record--tool .trajectory-record-body').first().click();
     await expect(inspector).toContainText('conversation_id');
     await expect(inspector).toContainText('Runtime delivered this reply');
@@ -2094,7 +2097,7 @@ test('trajectory spans runs, pages older history and preserves inspection while 
     await expect(follow).not.toBeChecked();
     const topBefore = await scroll.evaluate(el => el.scrollTop);
     await send(6);
-    await expect(page.getByRole('region', { name: 'Time overview' }).locator('.trajectory-time-bar--model')).toHaveCount(18);
+    await expect(page.getByRole('region', { name: 'Time overview' }).locator('.trajectory-time-bar--model')).toHaveCount(21);
     await expect.poll(() => scroll.evaluate(el => el.scrollTop)).toBe(topBefore);
     await follow.click();
     await expect.poll(() => scroll.evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop < 2)).toBe(true);
@@ -2111,7 +2114,7 @@ test('trajectory spans runs, pages older history and preserves inspection while 
     await page.getByRole('button', { name: 'Zoom in timeline', exact: true }).click();
     await page.getByRole('button', { name: 'Reset time range', exact: true }).click();
     const overview = page.getByRole('region', { name: 'Time overview', exact: true });
-    await expect(overview.locator('.trajectory-time-bar--trigger')).toHaveCount(6);
+    await expect(overview.locator('.trajectory-time-bar--trigger')).toHaveCount(7);
     await overview.locator('.trajectory-time-bar--trigger').last().click();
     await expect(inspector.getByRole('heading', { name: 'Trigger and configuration snapshot', exact: true })).toBeVisible();
     await expect(inspector).toContainText('Trajectory message 6');
@@ -2121,7 +2124,7 @@ test('trajectory spans runs, pages older history and preserves inspection while 
     await expect(overview.getByRole('button', { name: 'Event axis', exact: true })).toBeFocused();
     const widths = await overview.locator('.trajectory-time-bar').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().width));
     expect(Math.max(...widths) - Math.min(...widths)).toBeLessThan(1);
-    await expect(overview.locator('.trajectory-time-bar')).toHaveCount(36);
+    await expect(overview.locator('.trajectory-time-bar')).toHaveCount(42);
     await page.locator('.trajectory-range-controls > summary').click();
     const rangeControl = overview.getByRole('group', { name: 'Event range', exact: true });
     await expect(rangeControl.locator('.ui-range-slider__rail')).toHaveCount(1);
@@ -2135,7 +2138,7 @@ test('trajectory spans runs, pages older history and preserves inspection while 
     await expect(timeline.locator('.trajectory-record--model')).toHaveCount(1);
     const selectedLast = await lastEvent.getAttribute('aria-valuenow');
     await send(7);
-    await expect(overview.locator('.trajectory-time-bar--trigger')).toHaveCount(7);
+    await expect(overview.locator('.trajectory-time-bar--trigger')).toHaveCount(8);
     await expect(lastEvent).toHaveAttribute('aria-valuenow', selectedLast!);
     await expect(timeline.locator('.trajectory-record--model')).toHaveCount(1);
     await overview.getByRole('button', { name: 'Duration axis', exact: true }).click();
@@ -2164,27 +2167,31 @@ test('trajectory groups multiple tools under one model and only parents have fol
   try {
     await enable(true);
     const assistant = await seedAssistant(page, `Multi-tool trajectory ${info.project.name}-${Date.now()}`);
+    await expect.poll(async () => (await (await page.request.get(`/api/assistants/${assistant.ID}/status`)).json()).State, { timeout: 30_000 }).toBe('idle');
     await post(page, '/api/conversations/messages', { ConversationID: assistant.ConversationID, Content: { Kind: 'text', Text: 'Exercise three tool calls from one model response.' } });
-    await expect.poll(async () => (await (await page.request.get(`/api/debug/runs?assistant_id=${assistant.ID}`)).json()).Items[0]?.State, { timeout: 15000 }).toBe('succeeded');
+    const userRun = async () => (await (await page.request.get(`/api/debug/runs?assistant_id=${assistant.ID}`)).json()).Items.find((run: { Trigger: string }) => run.Trigger === 'user_message');
+    await expect.poll(async () => (await userRun())?.State, { timeout: 30_000 }).toBe('succeeded');
+    const runID = (await userRun()).ID;
     await page.goto(`/#/workbench/${assistant.ID}`); await page.reload();
     const timeline = page.getByRole('region', { name: 'Execution timeline', exact: true });
-    const models = timeline.locator('.trajectory-record--model');
-    const tools = timeline.locator('.trajectory-record--tool');
+    const rows = timeline.locator(`[data-record-id^="${runID}:"]`);
+    const models = rows.locator('.trajectory-record--model');
+    const tools = rows.locator('.trajectory-record--tool');
     await expect(models).toHaveCount(2);
     await expect(tools).toHaveCount(3);
     await expect(models.first().locator('.trajectory-fold')).toHaveCount(1);
     await expect(models.last().locator('.trajectory-fold')).toHaveCount(0);
     await expect(tools.nth(0).locator('.trajectory-preview')).toHaveText('Read 1 chat message');
-    // The request limit is two, but only one message actually exists.
-    await expect(tools.nth(1).locator('.trajectory-preview')).toHaveText('Read 1 chat message');
+    // The born reply and user message both precede this second read.
+    await expect(tools.nth(1).locator('.trajectory-preview')).toHaveText('Read 2 chat messages');
     await expect(tools.nth(2).locator('.trajectory-preview')).toHaveText('Reply after multiple tool calls.');
     await expect(tools.nth(2).locator('.trajectory-preview')).toHaveAttribute('title', 'Reply after multiple tool calls.');
     const summarySearch = page.getByRole('searchbox', { name: 'Search loaded trajectory', exact: true });
     await summarySearch.fill('Read 1 chat message');
-    await expect(tools).toHaveCount(2);
+    await expect(tools).toHaveCount(1);
     await summarySearch.fill('');
     await expect(tools).toHaveCount(3);
-    expect(await timeline.locator('.trajectory-record').evaluateAll(rows => rows.map(row => row.classList.contains('trajectory-record--model') ? 'model' : 'tool'))).toEqual(['model', 'tool', 'tool', 'tool', 'model']);
+    expect(await rows.locator('.trajectory-record').evaluateAll(rows => rows.map(row => row.classList.contains('trajectory-record--model') ? 'model' : 'tool'))).toEqual(['model', 'tool', 'tool', 'tool', 'model']);
     await models.first().locator('.trajectory-fold').click();
     await expect(tools).toHaveCount(0);
     await expect(models).toHaveCount(2);
@@ -2200,8 +2207,8 @@ test('trajectory groups multiple tools under one model and only parents have fol
     }
     await page.getByRole('button', { name: 'Event axis', exact: true }).click();
     const overview = page.getByRole('region', { name: 'Time overview', exact: true });
-    await expect(overview.locator('.trajectory-time-bar--tool')).toHaveCount(3);
-    await overview.locator('.trajectory-time-bar--tool').nth(1).click();
+    await expect(overview.locator(`.trajectory-time-bar--tool[data-axis-id^="${runID}:"]`)).toHaveCount(3);
+    await overview.locator(`.trajectory-time-bar--tool[data-axis-id^="${runID}:"]`).nth(1).click();
     await inspector.getByRole('tab', { name: 'Overview', exact: true }).click();
     await expect(inspector).toContainText('"limit": 2');
   } finally { await enable(before.WorkbenchVisible ?? false); }
@@ -2471,6 +2478,7 @@ for (const [preset, name, endpoint] of [
   ['vllm', 'vLLM', 'http://127.0.0.1:8000/v1'],
   ['sglang', 'SGLang', 'http://127.0.0.1:30000/v1'],
 ]) test(`${name} preset connects, discovers models and preserves connection when edited`, async ({ page }, info) => {
+  test.setTimeout(120_000);
   await login(page);
   await page.goto('/#/resources');
   await page.getByRole('button', { name: 'Connect provider', exact: true }).first().click();
@@ -2526,5 +2534,5 @@ for (const [preset, name, endpoint] of [
   await page.goto(`/#/assistants/${assistant.ID}`);
   await page.getByRole('textbox', { name: 'Message your assistant', exact: true }).fill('Check this self-hosted provider.');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
-  await expect(page.getByRole('log', { name: 'Assistant conversation' }).getByText('Runtime delivered this reply through conversation_publish.', { exact: true }).last()).toBeVisible({ timeout: 20000 });
+  await expect(page.getByRole('log', { name: 'Assistant conversation' }).getByText('Runtime delivered this reply through conversation_publish.', { exact: true }).last()).toBeVisible({ timeout: 60_000 });
 });

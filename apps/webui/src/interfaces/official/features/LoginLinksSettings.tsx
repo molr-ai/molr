@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge, Button, Dialog, Select, TextField } from '@molr/ui';
 import { Copy, Link, Plus } from 'lucide-react';
 import { api } from '../../../api/client';
@@ -13,6 +13,7 @@ export function LoginLinksSettings() {
   const { t, locale } = useCopy(), query = useQuery<LoginLink[]>('/api/auth/login-links', true);
   const [creating, setCreating] = useState(false), [issued, setIssued] = useState<{ url: string; link: LoginLink } | null>(null), [revoking, setRevoking] = useState<LoginLink | null>(null);
   const [now, setNow] = useState(Date.now);
+  const dates = useMemo(() => new Map((query.data ?? []).map(link => [link.ID, new Date(link.ExpiresAt).toLocaleString(locale)])), [query.data, locale]);
   useEffect(() => {
     let timer: number | undefined;
     function sync() {
@@ -38,7 +39,7 @@ export function LoginLinksSettings() {
     {!query.data && query.loading ? <Loading /> : !query.data?.length ? <p className="muted">{t.loginLinks.empty}</p> : <div className="settings-rows">{query.data.map(link => {
       const expired = new Date(link.ExpiresAt).getTime() <= now;
       const status = link.RevokedAt ? 'revoked' : link.UsedAt ? 'used' : expired ? 'expired' : 'pending';
-      return <article className="settings-row-item" key={link.ID}><div className="settings-row-item-head"><h3><Link size={14} aria-hidden="true" /> {link.Name}</h3><Badge tone={status === 'pending' ? 'positive' : 'neutral'}>{t.loginLinks[status]}</Badge>{!link.RevokedAt && !expired && <span className="settings-row-item-actions"><Button variant="ghost" size="sm" onClick={() => setRevoking(link)}>{t.loginLinks.revoke}</Button></span>}</div><p className="muted">{t.loginLinks.expires}: {new Date(link.ExpiresAt).toLocaleString(locale)}</p></article>;
+      return <article className="settings-row-item" key={link.ID}><div className="settings-row-item-head"><h3><Link size={14} aria-hidden="true" /> {link.Name}</h3><Badge tone={status === 'pending' ? 'positive' : 'neutral'}>{t.loginLinks[status]}</Badge>{!link.RevokedAt && !expired && <span className="settings-row-item-actions"><Button variant="ghost" size="sm" onClick={() => setRevoking(link)}>{t.loginLinks.revoke}</Button></span>}</div><p className="muted">{t.loginLinks.expires}: {dates.get(link.ID)}</p></article>;
     })}</div>}
     {creating && <CreateLoginLink onClose={() => setCreating(false)} onIssued={result => {
       const url = new URL(import.meta.env.BASE_URL, location.origin);

@@ -180,7 +180,7 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/config` | `SandboxNetwork.Target` | `TestSandboxNetworkConfiguration` |
 | `internal/platform` | `CompileNetworkTarget`, `NetworkRule.Allows`, `NetworkRule.AllowsPort` | `TestNetworkRuleAddressAndPortSets`, `TestNetworkRuleExclusions`, `TestNetworkTargetRejectsInvalidConfiguration` |
 
-| `internal/debugtrace` | `Service.RecordCheckpoint` | `TestCheckpointRecordingScopeAndOptIn` |
+| `internal/debugtrace` | `Service.RecordCheckpoint` | `TestCheckpointRecordingScopeAndDeploymentGate` |
 
 | `internal/config` | `Sandbox.NetworkTargets` | `TestSandboxNetworkRequiresExplicitProtocolsAndPresets` |
 | `internal/platform` | `NetworkRule.AllowsAddress`, `NetworkRule.AllowsTransport`, `NetworkRule.MayResolve` | `TestNetworkTransportAndDNSAuthorization` |
@@ -216,7 +216,7 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/quota` | `Ledger.ReserveMany`, `Ledger.ClaimMany` | `TestGroupTrafficBudgetSharedByAssistantsNotUsers`, `TestGroupPeriodChangePreservesTrafficAndPendingReservations` |
 | `internal/platform/sandbox` | `Runner.StopAccess` | `internal/app.TestFullAccessAndIsolationCoexist` |
 
-| `internal/debugtrace` | `Control.AdminRetention`, `Control.Retention`, `Control.SetRetention`, `Reader.Retention`, `Service.AdminRetention`, `Service.Retention`, `Service.SetRetention` | `TestRetentionAdministrationPersistenceConflictsAndValidation`, `TestRetentionProtectsHistoryAcrossAgeCapacityAndAllReaders` |
+| `internal/debugtrace` | `Control.AdminRetention`, `Control.Retention`, `Control.SetRetention`, `Reader.Retention`, `Service.AdminRetention`, `Service.Retention`, `Service.SetRetention` | `TestRetentionAdministrationPersistenceConflictsAndValidation`, `TestCountRetentionIgnoresAgeAndAlwaysSavesNewDetails` |
 
 ### 额度核算与索引查询（2026-10-05）
 
@@ -264,3 +264,12 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/persistence` | `SelectCatalog` | `TestCatalogSelectionKeepsPrivateNamespaces` |
 | `internal/persistence` | `Tx.Sum`, `Tx.DeleteMatching` | `internal/persistence/sqlitestore.TestScopedAggregateAndDeletionRespectTransactions` |
 | `internal/persistence` | `Tx.Count` | `internal/persistence/sqlitestore.TestCountRespectsScopeLimitAndTransactions` |
+
+| `internal/debugtrace` | `Control.WatchRevision`, `Reader.WatchRevision`, `Service.WatchRevision` | `TestRevisionWatchCommitRollbackScopeAndClose`, `TestRevisionWatchAuthorization` |
+| `internal/persistence` | `Tx.Ancestors` | `internal/persistence/sqlitestore.TestAncestorsBoundedOrderedAndTransactional` |
+| `internal/persistence` | `Tx.EncodedBytes` | `internal/persistence/sqlitestore.TestEncodedBytesRespectsScopeAndOriginalEncoding`, `internal/persistence/sqlitestore.TestEncodedBytesObservesTransactionAndRollback` |
+| `internal/contextstore` | `Save`, `Load`, `Release`, `Collect` | `TestSharedPrefixesScopedReferencesAndCollection`, `TestStableCanonicalIdentityAndRollback`, `TestConcurrentReferencesSurviveGC` |
+| `internal/contextstore` | `Intern`, `Append` | `TestAppendIdentityAndLinearStorage`, `TestLongestPrefixUsesBinarySearch` |
+| `internal/contextstore` | `AccountUsage`, `GlobalUsage` | `TestUsageDeduplicatesWithinScopeAndTracksCollection`, `TestUsagePaginatesReferencesAndObjects`, `TestGlobalUsageDoesNotReadContextPayloads` |
+| `internal/contextstore` | `ReleaseKind`, `RunGC` | `TestReleaseKindScopesReferencesAndBackgroundCollection` |
+| `internal/retry` | `Policy.Delay` | `TestDefaultPolicy`, `TestPolicyBounds` |

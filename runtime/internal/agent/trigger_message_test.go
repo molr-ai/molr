@@ -9,6 +9,7 @@ import (
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/event"
 	"molr.ai/runtime/internal/im/conversation"
+	"molr.ai/runtime/internal/im/realtime"
 	"molr.ai/runtime/tests/testkit"
 )
 
@@ -57,6 +58,14 @@ func TestTriggerTracksTurnChangesAndStop(t *testing.T) {
 				release <- struct{}{}
 			}
 			testkit.RequireNoError(t, awaitExpedite(t, done))
+		}
+		if i < 2 {
+			events, err := realtime.NewStore(e.store).Replay(t.Context(), f.Owner.OwnerID, realtime.Query{Topics: []string{"assistant.state"}})
+			testkit.RequireNoError(t, err)
+			// Each completed turn must invalidate clients after persisting its idle status.
+			if len(events.Items) != 2*(i+1) || events.Items[len(events.Items)-1].Object.ID != "assistant" {
+				t.Fatal("turn completion did not publish a status update", events)
+			}
 		}
 		cancel()
 		status, err = e.Status(t.Context(), f.Owner, "assistant")

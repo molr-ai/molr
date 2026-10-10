@@ -7,13 +7,15 @@ async function say(ui: Locator, text: string) { await ui.getByRole('textbox', { 
 async function tasks(page: Page, ui: Locator, title?: RegExp) { await ui.locator('.conversation-header').getByRole('button', { name: 'Plans', exact: true }).click(); const drawer = page.getByRole('dialog'); if (title) await drawer.getByRole('button', { name: title }).click(); return drawer; }
 test.beforeEach(async ({ page }) => { await page.goto('/#interfaces'); await page.evaluate(() => { localStorage.removeItem('molr-assistant-prototype-v1'); localStorage.setItem('molr-ui-design-locale', 'en'); }); await page.reload(); });
 
-test('chat has a single identity header, pure messages, no message action buttons', async ({ page }) => {
+test('chat has a single identity header with message copy and feedback controls', async ({ page }) => {
   const ui = await chat(page);
   await expect(ui.locator('.conversation-header').getByRole('heading', { name: 'Molr', exact: true })).toBeVisible();
   await expect(ui.locator('.ip-page-heading')).toHaveCount(0);
   await expect(ui.locator('.ip-toolbar')).toHaveCount(0);
   await expect(ui.locator('.conversation-status')).toContainText('Browsing files');
-  await expect(ui.locator('.message-actions')).toHaveCount(0);
+  await expect(ui.getByRole('button', { name: 'Copy original text', exact: true }).first()).toBeVisible();
+  await expect(ui.getByRole('button', { name: 'Like', exact: true }).first()).toBeVisible();
+  await expect(ui.getByRole('button', { name: 'Dislike', exact: true }).first()).toBeVisible();
   await expect(ui.locator('.message-task-card button')).toHaveCount(0);
   await say(ui, 'Hello there');
   await expect(ui.locator('.conversation-status')).toContainText('Typing');

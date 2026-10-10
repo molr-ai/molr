@@ -25,7 +25,9 @@ export function TrajectoryTimeline({ items, mode, onModeChange, range, onRange, 
   const span = Math.max(1, end - start), selection = brush ?? selectedBounds;
   const percent = (value: number) => Math.max(0, Math.min(100, (value - start) / span * 100));
   const atPointer = (x: number, panel: HTMLElement) => { const rect = panel.getBoundingClientRect(); return start + Math.max(0, Math.min(1, (x - rect.left) / rect.width)) * span; };
-  const formatTime = (at: number) => new Intl.DateTimeFormat(locale, { ...(max - min > 86400000 ? { month: 'short' as const, day: 'numeric' as const } : {}), hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3, hour12: false, timeZone: timezone }).format(at);
+  const includeDate = max - min > 86400000;
+  const timeFormat = useMemo(() => new Intl.DateTimeFormat(locale, { ...(includeDate ? { month: 'short' as const, day: 'numeric' as const } : {}), hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3, hour12: false, timeZone: timezone }), [locale, timezone, includeDate]);
+  const formatTime = (at: number) => timeFormat.format(at);
   const eventSelection = (first: number, last: number): AxisRange | null => items.length ? { mode: 'event', first: items[Math.max(0, Math.min(items.length - 1, Math.round(first)))].id, last: items[Math.max(0, Math.min(items.length - 1, Math.round(last)))].id } : null;
   const selectBounds = (bounds: [number, number]) => onRange(eventMode ? eventSelection(bounds[0], bounds[1]) : { mode: 'time', bounds });
   const brushRange = (bounds: [number, number]) => selectBounds(eventMode ? [Math.floor(bounds[0]), Math.max(Math.floor(bounds[0]), Math.ceil(bounds[1]) - 1)] : bounds);

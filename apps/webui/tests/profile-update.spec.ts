@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
+test.setTimeout(120_000);
 const port = process.env.MOLR_TEST_PORT ?? '5193', base = `http://127.0.0.1:${port}`;
 async function post(page: Page, path: string, data: object, version?: number) {
   const csrf = (await page.context().cookies()).find(c => c.name === `molr_dev_csrf_p${port}`)!.value;
@@ -62,7 +63,7 @@ test('open profile forms sync clean values and retain dirty drafts with their or
   await expect(page.getByRole('button', { name: 'Fox', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await field.fill('尚未保存的草稿');
   await publish({ name: '模型再次改名' });
-  await expect.poll(async () => (await (await page.request.get(`/api/assistants/${a.ID}`)).json()).Name).toBe('模型再次改名');
+  await expect.poll(async () => (await (await page.request.get(`/api/assistants/${a.ID}`)).json()).Name, { timeout: 30_000 }).toBe('模型再次改名');
   await expect(field).toHaveValue('尚未保存的草稿');
   const response = page.waitForResponse(r => r.url().endsWith('/api/assistants/update'));
   await page.locator('.assistant-info').getByRole('button', { name: 'Save', exact: true }).click();

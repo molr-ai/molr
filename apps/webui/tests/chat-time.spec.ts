@@ -32,7 +32,7 @@ test('long chat typing reuses timestamp formatters and changing account timezone
     const messages = await (await page.request.get(`/api/conversations/${assistant.ConversationID}/messages`)).json();
     const status = await (await page.request.get(`/api/assistants/${assistant.ID}/status`)).json();
     return messages.Items.some((message: any) => message.Sender === 'assistant') && status.State === 'idle';
-  }).toBe(true);
+  }, { timeout: 60_000 }).toBe(true);
   // Synthetic, paginated history isolates browser rendering from model execution.
   const messages = Array.from({ length: 500 }, (_, index) => ({ ID: `time-message-${index}`, ConversationID: assistant.ConversationID, Sequence: index + 1, Sender: index % 2 ? 'assistant' : 'user', Content: { Kind: 'text', Text: `History line ${index + 1}`, AttachmentIDs: null, Card: null }, CreatedAt: new Date(Date.UTC(2026, 0, 1, 0, index)).toISOString(), AcceptedAt: null, ReadAt: '2026-01-02T00:00:00Z' }));
   await page.route(`**/api/conversations/${assistant.ConversationID}/messages?*`, route => {

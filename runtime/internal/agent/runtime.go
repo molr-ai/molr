@@ -856,10 +856,8 @@ resume:
 		if err := e.saveStatus(ctx, tx, key, out.Status); err != nil {
 			return err
 		}
-		if t.Event.Kind == event.DreamDue {
-			if err := realtime.NewStore(e.store).Append(ctx, realtime.Visible{ID: stableID(string(t.Event.ID), "dream-end"), OwnerID: t.Principal.OwnerID, Topic: "assistant.state", Object: core.Object{Kind: "assistant", ID: t.Event.AssistantID}, CreatedAt: e.options.Now().UTC()}); err != nil {
-				return err
-			}
+		if err := realtime.NewStore(e.store).Append(ctx, realtime.Visible{ID: stableID(string(t.Event.ID), "turn-end"), OwnerID: t.Principal.OwnerID, Topic: "assistant.state", Object: core.Object{Kind: "assistant", ID: t.Event.AssistantID}, CreatedAt: e.options.Now().UTC()}); err != nil {
+			return err
 		}
 		// Idempotency receipts retain outcome metadata, never a historical copy
 		// of live context. The current checkpoint is the only recovery authority.

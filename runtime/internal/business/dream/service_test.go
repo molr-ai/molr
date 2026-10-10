@@ -195,3 +195,26 @@ func TestSensitiveRecordsExcluded(t *testing.T) {
 		t.Fatal("credential result accepted", err)
 	}
 }
+
+func TestSavedSummaryRecoveryAndIsolation(t *testing.T) {
+	f := setup(t)
+	f.message(t, 1)
+	r := f.request(t, "saved-summary")
+	if saved, err := f.s.SavedOutput(t.Context(), f.ap, ev(r)); err != nil || saved != "" {
+		t.Fatal(saved, err)
+	}
+	const summary = "Retain the committed summary."
+	if err := f.s.Commit(t.Context(), f.ap, ev(r), summary); err != nil {
+		t.Fatal(err)
+	}
+	// Recreate the coordinator to prove recovery reads durable state.
+	recovered := New(f.db, f.s.options)
+	if saved, err := recovered.SavedOutput(t.Context(), f.ap, ev(r)); err != nil || saved != summary {
+		t.Fatal(saved, err)
+	}
+	other := f.ap
+	other.SubjectID = "other"
+	if _, err := recovered.SavedOutput(t.Context(), other, ev(r)); core.CodeOf(err) != core.Forbidden {
+		t.Fatal(err)
+	}
+}

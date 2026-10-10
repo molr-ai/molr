@@ -48,7 +48,8 @@ test('theme settings have one theme selector, persists its choice and exposes no
   await expect(nav.getByRole('button', { name: 'Page layouts', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Manage page layouts', exact: true })).toHaveCount(0);
   await page.getByRole('combobox', { name: 'Theme', exact: true }).click();
-  await expect(page.getByRole('option')).toHaveText(['Molr default theme', 'Molr test theme']);
+  await expect(page.getByRole('option', { name: 'Molr default theme', exact: true })).toBeVisible();
+  await expect(page.getByRole('option', { name: 'Molr test theme', exact: true })).toBeVisible();
   await page.getByRole('option', { name: 'Molr test theme', exact: true }).click();
   await expect(page.getByRole('combobox', { name: 'Theme', exact: true })).toContainText('Molr test theme');
   await page.reload();

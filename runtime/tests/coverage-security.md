@@ -203,3 +203,5 @@
 | `internal/auth` | `Manager.UpdateProfile`, `Manager.DeleteGroup` | `TestMultiUserProfileAndGroupLifecycle` |
 
 | `internal/auth` | `Manager.WatchPrincipal`, `PrincipalWatch.Check` | `TestPrincipalWatchCommitRollbackAndOwnerScope`, `TestPrincipalWatchExpiryAndActivity`, `TestPrincipalWatchAccountTokenAndRevokeAll` |
+
+| `internal/auth` | `Service.WatchPrincipal` | `TestPrincipalWatchCommitRollbackAndOwnerScope`, `TestPrincipalWatchExpiryAndActivity`, `TestPrincipalWatchAccountTokenAndRevokeAll` |

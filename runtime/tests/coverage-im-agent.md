@@ -287,3 +287,8 @@
 
 | `internal/im/realtime` | `AuthorizationWatch.Changes`, `AuthorizationWatch.Check` | `TestAuthorizationWatchIdleConnections`, `TestAuthorizationCommitDuringCheckIsNotLost`, `TestAuthorizationWatchExpiryRechecksWithoutReplay` |
 | `internal/im/realtime` | `AuthorizationWatch.Close`, `AuthorizationWatch.Done` | `TestAuthorizationWatchReleasedOnCancellationAndStoreClose` |
+
+| `internal/agent/model` | `NewResponseLogger`, `ResponseLogger.Record` | `TestResponseLogCapturesHTTPAndSSEWithoutAffectingExecution`, `TestResponseLogRotationAndPermissions` |
+| `internal/agent/model` | `Provider.StateSource`, `ReplayedReasoning` | `TestAdaptersIsolateProviderStateAndWireParameters`, `TestReasoningRequestPresenceAndBounds` |
+| `internal/agent/tools` | `WithVisibleTools` | `internal/app.TestCommonFileMoveDeleteReceiptsAndVisibility` |
+| `internal/im/conversation` | `Client.LatestMessages`, `Service.LatestMessages` | `TestLatestMessagesBatchesNewestAndEnforcesAccess`, `TestLatestMessagesFullPage` |

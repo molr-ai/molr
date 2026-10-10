@@ -33,7 +33,11 @@ test('shell output reads stay local, pause in background and stop after terminal
   await page.getByRole('button', { name: 'Running tasks (1)', exact: true }).click();
   await page.getByRole('button', { name: /echo polling-fixture/ }).click();
   await expect(page.locator('.shell-task-output')).toContainText('fixture output');
-  await page.clock.install(); await page.clock.pauseAt(new Date());
+  // Finish the real born execution before measuring shell-only polling.
+  await expect.poll(async () => (await (await page.request.get(`/api/assistants/${assistant.ID}/status`)).json()).WaitingReason).toBeTruthy();
+  const now = new Date();
+  await page.clock.install({ time: now }); await page.clock.pauseAt(new Date(now.getTime() + 1000));
+  await page.clock.runFor(1000); // Flush existing event batches before observing new reads.
   const unrelated: string[] = [];
   page.on('request', request => { const path = new URL(request.url()).pathname; if (['/api/status', '/api/assistants', '/api/conversations', '/api/grants', '/api/schedules'].includes(path)) unrelated.push(path); });
   const before = reads;

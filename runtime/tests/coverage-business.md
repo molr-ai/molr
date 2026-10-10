@@ -157,9 +157,9 @@ Clone/返聘授权契约细化：新授权具有新 ID，并绑定目标助理�
 | `internal/business/plan` | `Coordinator.Read` | `TestReadPlanIncludesVersionsAndInstructions` |
 
 | `internal/business/dream` | `New`, `Coordinator.Get`, `Service.Get`, `Coordinator.Configure`, `Service.Configure`, `Coordinator.Tick` | `TestNightlyScheduleUsesConfiguredTimezone` |
-| `internal/business/dream` | `Coordinator.Request`, `Service.Request`, `Coordinator.Runs`, `Service.Runs`, `Coordinator.Prepare`, `Processor.Prepare`, `Coordinator.Commit`, `Processor.Commit` | `TestFormationRecallForgetAndIdempotency`, `TestUncertainAndForgedSources`, `TestBoundedReplayAndOfflineCatchup`, `TestSourceChangedAndAssistantIsolation` |
+| `internal/business/dream` | `Coordinator.Request`, `Service.Request`, `Coordinator.Runs`, `Service.Runs`, `Coordinator.Prepare`, `Processor.Prepare`, `Coordinator.Commit`, `Processor.Commit` | `TestBoundedReplayAndOfflineCatchup`, `TestSourceChangedAndAssistantIsolation` |
 | `internal/business/dream` | `Coordinator.Failed` | `TestFailedDreamManualRetry` |
-| `internal/business/dream` | `Coordinator.Undo`, `Service.Undo` | `TestUndoPreservesLaterUserEdits` |
+| `internal/business/dream` | `Coordinator.Undo`, `Service.Undo` | `TestForgetToolGeneratedKnowledgeRemovesCoreAndSources` |
 | `internal/business/memory` | `Terms`, `Score` | `TestRecallTermsAndRanking` |
 
 做梦和用户计划共享 `internal/trigger` 的规则计算、漏执行策略和发生点登记。`TestTimerSkipsExpiredWindowAndDoesNotCreatePlans` 验证过期窗口跳过、游标推进和不创建计划／任务；`TestTimerOccurrenceRunAndReplayCursorRollBackTogether` 验证并发去重与原子回滚；`TestTimerSettingChangePreservesReplayProgressAndVersionedDedup`、`TestTimezoneEditKeepsAnAdmittedBatchWindow` 验证设置修订与资料窗口独立；`TestDispatcherRecognizesLegacyOccurrenceLedger` 验证已有计划发生记录升级后不重复投递。
@@ -193,5 +193,7 @@ Clone/返聘授权契约细化：新授权具有新 ID，并绑定目标助理�
 
 | `internal/avatar` | `Normalize` | `internal/auth.TestProfileAvatarLifecycleAndIsolation`、`internal/business/assistant.TestAvatarImageCropAndLimits` |
 
-| `internal/business/dream` | `Coordinator.SavedOutput` | `TestDurablePlanSurvivesFinalTransactionFailure` |
-| `internal/business/memory` | `Files.BackupDream`, `Files.RestoreDream` | `TestDreamHistoryRestoresExactBytesAndProtectsLaterEdits` |
+| `internal/business/dream` | `Coordinator.SavedOutput` | `TestSavedSummaryRecoveryAndIsolation` |
+| `internal/business/memory` | `Files.PrepareFileOperation`, `Files.CompleteFileOperation`, `Files.UndoFileOperation`, `Files.ReadFile` | `TestDreamHistoryObservesCommonToolEffectsAndProtectsLaterEdits`, `TestDreamHistoryRestoresDeletedFileWithoutFollowingLinks` |
+
+| `internal/business/dream` | `FileRef`, `Coordinator.BeforeFileChange`, `Coordinator.CheckFileAccess`, `Coordinator.RememberRead` | `internal/app.TestDreamUsesCommonFileExecutorWithScopedAccess`, `TestForgetToolGeneratedKnowledgeRemovesCoreAndSources` |

@@ -54,7 +54,7 @@ test('same browser keeps independent Runtime sessions through login, writes, rel
   await sameInstance.goto(firstOrigin);
   await expect(sameInstance.getByRole('navigation', { name: 'Molr' })).toBeVisible();
 
-  await second.getByRole('navigation').getByRole('button', { name: 'User settings', exact: true }).click();
+  await second.getByRole('button', { name: /^User settings(?: ·|$)/ }).click();
   await second.locator('.settings-nav > button').filter({ hasText: /^Security$/ }).click();
   await second.getByRole('button', { name: 'Sign out', exact: true }).click();
   await expect(second.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();

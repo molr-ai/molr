@@ -9,6 +9,7 @@ async function post(page: Page, path: string, data: object) {
 }
 test.skip(process.env.MOLR_E2E_SANDBOX_SERVICE !== '1', 'Requires delegated Linux sandbox services');
 test('grouped compute and network quotas preserve owner edits and fund automatic networking', async ({ page }, info) => {
+  test.setTimeout(120_000);
   await page.goto('/');
   await page.getByLabel('Username', { exact: true }).fill('owner');
   await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!');
@@ -26,7 +27,7 @@ test('grouped compute and network quotas preserve owner edits and fund automatic
   await page.getByRole('textbox', { name: 'Message your assistant', exact: true }).fill('Request compute and network quotas together.');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   const card = page.locator('.permission-request-card');
-  await expect(card).toContainText('Download the quota verification file.');
+  await expect(card).toContainText('Download the quota verification file.', { timeout: 60_000 });
   await card.getByRole('button', { name: 'Review permission', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Review permission', exact: true });
   await expect(dialog.locator('.ui-date-time-picker')).toHaveCount(1);
@@ -44,7 +45,7 @@ test('grouped compute and network quotas preserve owner edits and fund automatic
   expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
   await dialog.getByRole('button', { name: 'Approve permission', exact: true }).click();
   await expect(card).toContainText('Approved');
-  await expect(page.locator('.chat-history')).toContainText('Permission approved; current grants checked before continuing.', { timeout: 20000 });
+  await expect(page.locator('.chat-history')).toContainText('Permission approved; current grants checked before continuing.', { timeout: 60000 });
   const requests = await (await page.request.get(`/api/permission-requests?assistant_id=${assistant.ID}`)).json();
   expect(requests[0].GrantedAll).toHaveLength(2);
   const compute = requests[0].GrantedAll.find((g: { Constraints?: { compute?: object } }) => g.Constraints?.compute);

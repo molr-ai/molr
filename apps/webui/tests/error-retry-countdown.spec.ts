@@ -1,7 +1,8 @@
 import {test,expect} from '@playwright/test';
 
 test.beforeEach(async({page})=>{
- await page.clock.install();
+ await page.clock.install({time:new Date('2026-01-01T00:00:00Z')});
+ await page.clock.pauseAt(new Date('2026-01-01T00:00:01Z'));
  await page.addInitScript(()=>{
   window.retryNoticeWakeups=0;
   const timeout=window.setTimeout.bind(window),interval=window.setInterval.bind(window);
@@ -14,7 +15,6 @@ test.beforeEach(async({page})=>{
  });
  await page.goto('/tests/fixtures/error-retry.html');
  await expect(page.getByRole('heading',{name:'Error retry countdown'})).toBeVisible();
- await page.clock.pauseAt(new Date());
 });
 
 test('expired retry countdown stops waking while the notice remains visible',async({page})=>{

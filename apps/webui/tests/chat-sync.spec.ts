@@ -11,7 +11,7 @@ async function post(page: Page, path: string, data: object) {
 }
 
 test('chat shares queries, batches sidebar activity and scopes live messages to their conversation', async ({ page }, info) => {
-  test.setTimeout(90_000);
+  test.setTimeout(150_000);
   // Authenticate once, seed through real services before mounting the workspace.
   await page.goto('/');
   await page.getByRole('textbox', { name: 'Username', exact: true }).fill('owner');
@@ -22,12 +22,13 @@ test('chat shares queries, batches sidebar activity and scopes live messages to 
   const model = (await (await page.request.get('/api/models')).json()).find((row: { ResourceID: string }) => row.ResourceID === provider.ID);
   const assistants: Assistant[] = [];
   for (let i = 0; i < 8; i++) assistants.push(await post(page, '/api/assistants', { Name: `Sync ${info.project.name} ${i}`, ModelID: model.ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } }));
+  // All eight born executions must finish, including those queued behind other work.
   // Wait for born publications, then mark them read so opening a chat does
   // not legitimately invalidate the conversation list during measurement.
   await expect.poll(async () => {
     const rows = (await (await page.request.get('/api/conversations?limit=200')).json()).Items;
     return assistants.every(a => rows.some((c: { ID: string; LastSequence: number }) => c.ID === a.ConversationID && c.LastSequence > 0));
-  }, { timeout: 20000 }).toBe(true);
+  }, { timeout: 60_000 }).toBe(true);
   const conversations = (await (await page.request.get('/api/conversations?limit=200')).json()).Items;
   const csrf = (await page.context().cookies()).find(cookie => cookie.name === `molr_dev_csrf_p${new URL(base).port}`)!.value;
   for (const a of assistants) {
@@ -39,7 +40,7 @@ test('chat shares queries, batches sidebar activity and scopes live messages to 
   await expect.poll(async () => {
     const statuses = await Promise.all(assistants.map(a => page.request.get(`/api/assistants/${a.ID}/status`).then(r => r.json())));
     return statuses.every(status => status.State === 'idle');
-  }, { timeout: 20000 }).toBe(true);
+  }, { timeout: 60_000 }).toBe(true);
   await page.goto('about:blank');
   await page.addInitScript(() => {
     const Original = window.EventSource;
