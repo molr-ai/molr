@@ -3,6 +3,7 @@
 export class NotificationClaims {
   private database?: Promise<IDBDatabase>;
   private closed = false;
+  private lastPruned?: number;
   private open() {
     return this.database ??= new Promise<IDBDatabase>((resolve, reject) => {
       const request = indexedDB.open('molr-notification-claims', 1);
@@ -17,13 +18,20 @@ export class NotificationClaims {
       if (this.closed) return false;
       return await new Promise<boolean>((resolve, reject) => {
         const tx = db.transaction('claims', 'readwrite'), store = tx.objectStore('claims');
-        let claimed = false;
+        let claimed = false, prunedAt: number | undefined;
         const key = `${account}:${conversation}`, request = store.get(key);
-        request.onsuccess = () => { if (!request.result || request.result.sequence < sequence) { store.put({ sequence, at: Date.now() }, key); claimed = true; } };
-        // Bound retention. Replay is also filtered against the session's baseline.
-        const cursor = store.openCursor();
-        cursor.onsuccess = () => { const item = cursor.result; if (item) { if (item.value.at < Date.now() - 7 * 86400_000) item.delete(); item.continue(); } };
-        tx.oncomplete = () => resolve(claimed);
+        request.onsuccess = () => {
+          const now = Date.now();
+          if (!request.result || request.result.sequence < sequence) { store.put({ sequence, at: now }, key); claimed = true; }
+          // Decide after queued transactions finish, so a burst shares one scan.
+          if (this.lastPruned === undefined || now < this.lastPruned || now - this.lastPruned >= 60_000) {
+            prunedAt = now;
+            const cursor = store.openCursor();
+            cursor.onsuccess = () => { const item = cursor.result; if (item) { if (item.value.at < now - 7 * 86400_000) item.delete(); item.continue(); } };
+          }
+        };
+        // An aborted cleanup must be retried by the next claim.
+        tx.oncomplete = () => { if (prunedAt !== undefined) this.lastPruned = prunedAt; resolve(claimed); };
         tx.onerror = () => reject(tx.error);
         tx.onabort = () => reject(tx.error);
       });

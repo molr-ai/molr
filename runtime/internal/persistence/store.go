@@ -28,6 +28,8 @@ type Tx interface {
 	Query(context.Context, string, Query) ([]Record, error)
 	Count(context.Context, string, Query) (int64, error)
 	Sum(context.Context, string, Query, string) (int64, error)
+	// EncodedBytes totals stored JSON bytes in the query scope, excluding keys and indexes.
+	EncodedBytes(context.Context, string, Query) (int64, error)
 	DeleteMatching(context.Context, string, Query) (int64, error)
 	Store() Store
 	// NotifyAfterCommit registers a coalescible wakeup, discarded on rollback.
