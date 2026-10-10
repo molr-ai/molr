@@ -109,7 +109,7 @@ func (s *Service) list(ctx context.Context, owner core.ID) ([]Installation, erro
 	if e != nil {
 		return nil, e
 	}
-	all, err := persistence.Select[Installation](ctx, s.store, "plugins.installations", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner)}})
+	all, err := persistence.Select[Installation](ctx, s.store, "plugins.installations", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner), persistence.Eq("Deleted", false)}})
 	out := []Installation{}
 	for _, v := range all {
 		if v.OwnerID == owner && !v.Deleted {

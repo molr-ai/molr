@@ -12,6 +12,26 @@ import (
 	"molr.ai/runtime/internal/persistence/sqlitestore"
 )
 
+type capacityReadStore struct {
+	persistence.Store
+	rows int
+}
+type capacityReadTx struct {
+	persistence.Tx
+	counts *capacityReadStore
+}
+
+func (s *capacityReadStore) Read(ctx context.Context, fn func(context.Context, persistence.Tx) error) error {
+	return s.Store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error { return fn(ctx, &capacityReadTx{tx, s}) })
+}
+func (tx *capacityReadTx) Query(ctx context.Context, bucket string, q persistence.Query) ([]persistence.Record, error) {
+	rows, err := tx.Tx.Query(ctx, bucket, q)
+	if bucket == "plugins.installations" || bucket == "plugins.connections" {
+		tx.counts.rows += len(rows)
+	}
+	return rows, err
+}
+
 func TestRemovedPluginsReleaseInstallationCapacity(t *testing.T) {
 	s, p, pkg := fixture(t)
 	for i := 0; i < 32; i++ {
@@ -20,8 +40,13 @@ func TestRemovedPluginsReleaseInstallationCapacity(t *testing.T) {
 		must(t, err)
 		must(t, s.Remove(t.Context(), p, v.ID, v.Version))
 	}
+	counts := &capacityReadStore{Store: s.store}
+	s.store = counts
 	visible, err := s.List(t.Context(), p)
 	must(t, err)
+	if counts.rows != 0 {
+		t.Fatalf("loaded %d deleted installations", counts.rows)
+	}
 	if len(visible) != 0 {
 		t.Fatalf("removed installations remain visible: %d", len(visible))
 	}
@@ -43,8 +68,13 @@ func TestRemovedConnectionsReleaseProviderCapacity(t *testing.T) {
 		must(t, err)
 		must(t, s.RemoveConnection(t.Context(), p, ConnectionRequest{PluginID: v.ID, ID: c.ID, Mutation: core.Mutation{IdempotencyKey: "remove-" + key, ExpectedVersion: c.Version}}))
 	}
+	counts := &capacityReadStore{Store: s.store}
+	s.store = counts
 	visible, err := s.Connections(t.Context(), p, v.ID, v.Digest)
 	must(t, err)
+	if counts.rows != 2 {
+		t.Fatalf("loaded %d connection rows for two live connections", counts.rows)
+	}
 	if len(visible) != 2 {
 		t.Fatalf("wrong active connection count: %d", len(visible))
 	}
