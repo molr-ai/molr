@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Badge, Button, DateTimePicker, Checkbox, Dialog, Select, Textarea, TextField } from '@molr/ui';
 import { Plus, Moon, Folder, ArrowUp } from 'lucide-react';
 import { api } from '../../../api/client';
+import { useErrorNotices } from '../../../error-notices';
 import type { Assistant, DreamConfig, DreamRun, Memory, MemoryRef, MemoryEntry, MemoryDirectory } from '../../../api/types';
 import { useCopy, useData, useQuery } from '../../../state';
 import { Confirm, EditDialog, Empty, ErrorNotice, Loading, useAction } from '../components/common';
@@ -19,59 +20,85 @@ const refQuery = (r: MemoryRef) => new URLSearchParams({ scope: r.Scope, assista
 const parent = (p: string) => p.slice(0, p.lastIndexOf('/')) || memoryRoot;
 const baseName = (p: string) => p.slice(p.lastIndexOf('/') + 1);
 export function Memories({ assistants }: { assistants: Assistant[] }) {
-  const { t } = useCopy(), c = useMemoryCopy(), action = useAction();
+  const { t } = useCopy(), c = useMemoryCopy(), notices = useErrorNotices();
+  const interaction = useRef(0);
+  const [readError, setReadError] = useState<unknown>();
   const [assistant, setAssistant] = useState(''), [directory, setDirectory] = useState(memoryRoot);
   const activeAssistants = assistants.filter(a => a.State === 'active');
   useEffect(() => {
-    if (assistants.some(a => a.ID === assistant && a.State !== 'active')) { setAssistant(''); setDirectory(memoryRoot); }
+    if (assistants.some(a => a.ID === assistant && a.State !== 'active')) { resetInteraction(); setAssistant(''); setDirectory(memoryRoot); }
   }, [assistant, assistants]);
   const ref: MemoryRef = { Scope: assistant ? 'assistant' : 'global', AssistantID: assistant, Path: directory };
   const query = useQuery<MemoryDirectory>(`/api/memories/directory?${refQuery(ref)}`);
-  const [editing, setEditing] = useState<{ ref: MemoryRef; memory?: Memory } | null>(null);
+  const [editing, setEditing] = useState<{ key: number; ref: MemoryRef; memory?: Memory } | null>(null);
   const [mkdir, setMkdir] = useState(false), [moving, setMoving] = useState<MemoryEntry | null>(null);
   const [deleting, setDeleting] = useState<{ entry: MemoryEntry; forget: boolean } | null>(null);
   const [sources, setSources] = useState<Memory | null>(null);
-  const open = async (r: MemoryRef, summary = false) => {
-    try { setEditing({ ref: r, memory: await api.get<Memory>(`/api/memories/file?${refQuery(r)}`) }); }
-    catch (error) { if (summary && (error as { status?: number }).status === 404) setEditing({ ref: r }); else throw error; }
-  };
+  function resetInteraction() {
+    interaction.current++;
+    setReadError(undefined);
+    setEditing(null); setSources(null); setMkdir(false); setMoving(null); setDeleting(null);
+  }
+  function changeDirectory(path: string) { resetInteraction(); setDirectory(path); }
+  async function open(r: MemoryRef, mode: 'edit' | 'summary' | 'sources' = 'edit') {
+    resetInteraction(); notices?.rearm();
+    const key = interaction.current, hash = location.hash;
+    const current = () => key === interaction.current && hash === location.hash;
+    try {
+      const memory = await api.get<Memory>(`/api/memories/file?${refQuery(r)}`);
+      if (!current()) return;
+      if (mode === 'sources') setSources(memory);
+      else setEditing({ key, ref: r, memory });
+    } catch (error) {
+      if (!current()) return;
+      if (mode === 'summary' && (error as { status?: number }).status === 404) setEditing({ key, ref: r });
+      else setReadError(error);
+    }
+  }
+  // A completed save from an earlier dialog must not close a newer draft.
+  const renderedInteraction = interaction.current;
+  const closeDialog = () => { if (renderedInteraction === interaction.current) { resetInteraction(); query.reload(); } };
   useEffect(() => {
     const apply = () => {
-      const q = new URLSearchParams(location.hash.split('?')[1] ?? ''), scope = q.get('scope'), path = q.get('path');
+      resetInteraction();
+      const [route, search] = location.hash.slice(1).split('?');
+      if (!['/account/memory', '/settings/memory'].includes(route)) return;
+      const q = new URLSearchParams(search ?? ''), scope = q.get('scope'), path = q.get('path');
       if (!path || !['assistant', 'global'].includes(scope ?? '')) return;
       const target: MemoryRef = { Scope: scope as MemoryRef['Scope'], AssistantID: scope === 'assistant' ? q.get('assistant_id') ?? '' : '', Path: path };
       setAssistant(target.AssistantID); setDirectory(path === 'MEMORY.md' ? memoryRoot : parent(path));
-      void action.run(() => open(target), undefined, false);
+      void open(target);
     };
-    apply(); window.addEventListener('hashchange', apply); return () => window.removeEventListener('hashchange', apply);
+    apply(); window.addEventListener('hashchange', apply);
+    return () => { interaction.current++; window.removeEventListener('hashchange', apply); };
   }, []);
   const crumbs = directory.slice(memoryRoot.length).split('/').filter(Boolean);
   return <div className="settings-section memory-workspace">
     <p className="muted">{c.zh ? '经历与回顾沉淀为主题记忆，再提炼到 MEMORY.md 核心记忆。核心记忆自动加载，主题文件按需检索；做梦会自动维护，无需逐条确认。' : 'Experiences become topic memories, then stable core cognition in MEMORY.md. Core memory loads automatically; topics are read when needed. Dreams maintain these layers without routine approvals.'}</p>
-    <Select size="sm" label={c.zh ? '选择助理' : 'Select assistant'} value={assistant} onValueChange={value => { setAssistant(value); setDirectory(memoryRoot); }} options={[{ value: '', label: c.zh ? '全局 · 当前账号共享' : 'Global · shared within your account' }, ...activeAssistants.map(a => ({ value: a.ID, label: a.Name }))]} />
+    <Select size="sm" label={c.zh ? '选择助理' : 'Select assistant'} value={assistant} onValueChange={value => { resetInteraction(); setAssistant(value); setDirectory(memoryRoot); }} options={[{ value: '', label: c.zh ? '全局 · 当前账号共享' : 'Global · shared within your account' }, ...activeAssistants.map(a => ({ value: a.ID, label: a.Name }))]} />
     <div className="settings-toolbar">
-      <Button variant="secondary" onClick={() => setEditing({ ref: { ...ref, Path: directory + '/' } })}><Plus size={16} />{c.zh ? '新建文件' : 'New file'}</Button>
-      <Button variant="secondary" onClick={() => setMkdir(true)}><Folder size={16} />{c.zh ? '新建目录' : 'New folder'}</Button>
-      <Button variant="ghost" onClick={() => void action.run(() => open({ ...ref, Path: 'MEMORY.md' }, true), undefined, false)}>{c.zh ? '查看 / 编辑核心记忆' : 'View / edit core memory'}</Button>
+      <Button variant="secondary" onClick={() => { resetInteraction(); setEditing({ key: interaction.current, ref: { ...ref, Path: directory + '/' } }); }}><Plus size={16} />{c.zh ? '新建文件' : 'New file'}</Button>
+      <Button variant="secondary" onClick={() => { resetInteraction(); setMkdir(true); }}><Folder size={16} />{c.zh ? '新建目录' : 'New folder'}</Button>
+      <Button variant="ghost" onClick={() => void open({ ...ref, Path: 'MEMORY.md' }, 'summary')}>{c.zh ? '查看 / 编辑核心记忆' : 'View / edit core memory'}</Button>
       <Button variant="ghost" onClick={query.reload}>{t.refresh}</Button>
     </div>
     <nav className="memory-breadcrumbs" aria-label={c.zh ? '记忆目录' : 'Memory folders'}>
-      <Button size="sm" variant="ghost" onClick={() => setDirectory(memoryRoot)}>{c.zh ? '记忆' : 'Memory'}</Button>
-      {crumbs.map((name, index) => <Button size="sm" variant="ghost" key={index} onClick={() => setDirectory(memoryRoot + '/' + crumbs.slice(0, index + 1).join('/'))}>/ {name}</Button>)}
-      {directory !== memoryRoot && <Button size="sm" variant="ghost" onClick={() => setDirectory(parent(directory))}><ArrowUp size={14} />{c.zh ? '上一级' : 'Up'}</Button>}
+      <Button size="sm" variant="ghost" onClick={() => changeDirectory(memoryRoot)}>{c.zh ? '记忆' : 'Memory'}</Button>
+      {crumbs.map((name, index) => <Button size="sm" variant="ghost" key={index} onClick={() => changeDirectory(memoryRoot + '/' + crumbs.slice(0, index + 1).join('/'))}>/ {name}</Button>)}
+      {directory !== memoryRoot && <Button size="sm" variant="ghost" onClick={() => changeDirectory(parent(directory))}><ArrowUp size={14} />{c.zh ? '上一级' : 'Up'}</Button>}
     </nav>
-    <ErrorNotice error={query.error || action.error} retry={query.reload} />
+    <ErrorNotice error={query.error || readError} retry={query.reload} />
     {query.loading && !query.data ? <Loading /> : !query.data?.Entries.length ? <Empty /> : <div className="settings-rows">{query.data.Entries.map(row => <article className="settings-row-item" key={row.Path}>
-      <div className="settings-row-item-head"><Button variant="ghost" onClick={() => row.Kind === 'directory' ? setDirectory(row.Path) : void action.run(() => open(fileRef(row)), undefined, false)}>{row.Kind === 'directory' && <Folder size={16} />}{baseName(row.Path)}</Button>{row.State && <Badge tone={row.State === 'pending' ? 'warning' : 'neutral'}>{c.states[row.State]}</Badge>}</div>
+      <div className="settings-row-item-head"><Button variant="ghost" onClick={() => row.Kind === 'directory' ? changeDirectory(row.Path) : void open(fileRef(row))}>{row.Kind === 'directory' && <Folder size={16} />}{baseName(row.Path)}</Button>{row.State && <Badge tone={row.State === 'pending' ? 'warning' : 'neutral'}>{c.states[row.State]}</Badge>}</div>
       <p className="muted memory-path"><code>{assistant ? '/work/' : '/global/'}{row.Path}</code></p>
-      <div className="memory-actions"><Button size="sm" variant="ghost" onClick={() => setMoving(row)}>{c.zh ? '重命名 / 移动' : 'Rename / move'}</Button><Button size="sm" variant="ghost" onClick={() => setDeleting({ entry: row, forget: false })}>{c.zh ? '删除' : 'Delete'}</Button>{row.Kind === 'file' && <><Button size="sm" variant="ghost" onClick={() => setDeleting({ entry: row, forget: true })}>{c.zh ? '遗忘' : 'Forget'}</Button><Button size="sm" variant="ghost" onClick={() => void action.run(async () => { setSources(await api.get<Memory>(`/api/memories/file?${refQuery(row)}`)); }, undefined, false)}>{c.zh ? '来源' : 'Sources'}</Button></>}</div>
+      <div className="memory-actions"><Button size="sm" variant="ghost" onClick={() => { resetInteraction(); setMoving(row); }}>{c.zh ? '重命名 / 移动' : 'Rename / move'}</Button><Button size="sm" variant="ghost" onClick={() => { resetInteraction(); setDeleting({ entry: row, forget: false }); }}>{c.zh ? '删除' : 'Delete'}</Button>{row.Kind === 'file' && <><Button size="sm" variant="ghost" onClick={() => { resetInteraction(); setDeleting({ entry: row, forget: true }); }}>{c.zh ? '遗忘' : 'Forget'}</Button><Button size="sm" variant="ghost" onClick={() => void open(fileRef(row), 'sources')}>{c.zh ? '来源' : 'Sources'}</Button></>}</div>
     </article>)}</div>}
     {activeAssistants.some(a => a.ID === assistant) && <Dreams key={assistant} assistantID={assistant} />}
-    {editing && <MemoryEditor refValue={editing.ref} memory={editing.memory} onClose={() => { setEditing(null); query.reload(); }} />}
-    {mkdir && <DirectoryEditor refValue={ref} onClose={() => { setMkdir(false); query.reload(); }} />}
-    {moving && <MoveEditor entry={moving} onClose={() => { setMoving(null); query.reload(); }} />}
-    {deleting && <Confirm title={deleting.forget ? c.zh ? '遗忘这份记忆' : 'Forget this memory' : c.zh ? '删除文件或空目录' : 'Delete file or empty folder'} description={deleting.forget ? c.zh ? '删除文件并阻止相同内容或来源被再次提炼。关联回顾也会清除，原始聊天保留。' : 'Delete the file and suppress extraction of the same content or sources. Related reviews are cleared; original conversations remain.' : c.zh ? '只删除当前文件或空目录。普通删除不会阻止未来从原始资料重新整理记忆。' : 'Delete only the current file or empty folder. Ordinary deletion does not prevent future extraction from source material.'} danger onClose={() => setDeleting(null)} onConfirm={async () => { const { entry, forget } = deleting; await api.mutate(entry.Kind === 'directory' ? '/api/memories/rmdir' : '/api/memories/delete', { ...fileRef(entry), ...(entry.Kind === 'file' ? { Forget: forget } : {}) }, entry.Version); query.reload(); }} />}
-    {sources && <Sources memory={sources} assistants={assistants} onClose={() => setSources(null)} />}
+    {editing && <MemoryEditor key={editing.key} refValue={editing.ref} memory={editing.memory} onClose={closeDialog} />}
+    {mkdir && <DirectoryEditor refValue={ref} onClose={closeDialog} />}
+    {moving && <MoveEditor entry={moving} onClose={closeDialog} />}
+    {deleting && <Confirm title={deleting.forget ? c.zh ? '遗忘这份记忆' : 'Forget this memory' : c.zh ? '删除文件或空目录' : 'Delete file or empty folder'} description={deleting.forget ? c.zh ? '删除文件并阻止相同内容或来源被再次提炼。关联回顾也会清除，原始聊天保留。' : 'Delete the file and suppress extraction of the same content or sources. Related reviews are cleared; original conversations remain.' : c.zh ? '只删除当前文件或空目录。普通删除不会阻止未来从原始资料重新整理记忆。' : 'Delete only the current file or empty folder. Ordinary deletion does not prevent future extraction from source material.'} danger onClose={closeDialog} onConfirm={async () => { const { entry, forget } = deleting; await api.mutate(entry.Kind === 'directory' ? '/api/memories/rmdir' : '/api/memories/delete', { ...fileRef(entry), ...(entry.Kind === 'file' ? { Forget: forget } : {}) }, entry.Version); query.reload(); }} />}
+    {sources && <Sources key={renderedInteraction} memory={sources} assistants={assistants} onClose={closeDialog} />}
   </div>;
 }
 function MemoryEditor({ refValue, memory, onClose }: { refValue: MemoryRef; memory?: Memory; onClose: () => void }) {
