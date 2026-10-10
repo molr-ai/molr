@@ -63,6 +63,7 @@ type Payload struct {
 	Data   json.RawMessage
 }
 type Reader interface {
+	WatchRevision(context.Context, core.Principal) (persistence.Watch, error)
 	Retention(context.Context, core.Principal) (RetentionStatus, error)
 	Trajectory(context.Context, core.Principal, TrajectoryQuery) (TrajectoryPage, error)
 	Runs(context.Context, core.Principal, Query) (core.Page[Run], error)
@@ -125,7 +126,10 @@ func (s *Service) bump(ctx context.Context, tx persistence.Tx, owner core.ID) er
 	if err != nil && !persistence.Missing(err) {
 		return err
 	}
-	return tx.Put(ctx, "debug.revisions", string(owner), revision+1)
+	if err := tx.Put(ctx, "debug.revisions", string(owner), revision+1); err != nil {
+		return err
+	}
+	return tx.NotifyAfterCommit(ctx, revisionSignal(owner))
 }
 
 // Begin binds a distinct attempt to this context. It is called only by the trusted Loop.
@@ -405,6 +409,19 @@ func (s *Service) Checkpoint(ctx context.Context, p core.Principal, id core.ID) 
 	data, status := sanitize(raw, s.options.MaxPayloadBytes)
 	return Payload{Status: status, Data: data}, nil
 }
+func revisionSignal(owner core.ID) persistence.SignalKey {
+	return persistence.SignalKey{Namespace: "debug.revision", Key: string(owner)}
+}
+
+// Register before reading Revision so a concurrent commit cannot be missed.
+// Signals only announce changes; every read still checks current authorization.
+func (s *Service) WatchRevision(ctx context.Context, p core.Principal) (persistence.Watch, error) {
+	if err := s.authorize(ctx, p); err != nil {
+		return nil, err
+	}
+	return s.store.Watch(revisionSignal(p.OwnerID))
+}
+
 func (s *Service) Revision(ctx context.Context, p core.Principal) (uint64, error) {
 	if err := s.authorize(ctx, p); err != nil {
 		return 0, err

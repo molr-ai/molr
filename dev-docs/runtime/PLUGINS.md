@@ -104,7 +104,7 @@ Agent 执行器在现有 operation admission 事务内保存 `plugins.http-calls
 
 ## 页面桥接
 
-HTML 必须自包含，可将 `@molr/sdk/plugin-host` 打包内联。iframe 使用 opaque origin、`sandbox="allow-scripts"` 和禁止联网的 CSP；父页面 `frame-src blob:` 限制导航。页面无法访问宿主 Cookie、CSRF、Bearer、DOM 或通用 HTTP 代理。
+HTML 必须自包含，可将 `@molr/sdk/plugin-host` 打包内联。iframe 使用 opaque origin、`sandbox="allow-scripts"` 和禁止联网的 CSP；父页面 `frame-src blob:` 限制导航。HTML Blob URL 在组件提交后的 effect 中创建，并由同一个 effect 在文档失效、错误、重试或卸载时释放；更换插件引用后不再展示或连接旧文档。配色和语言变化可复用当前文档 URL，同时重新建立 iframe 的宿主上下文。页面无法访问宿主 Cookie、CSRF、Bearer、DOM 或通用 HTTP 代理。
 
 握手检查 frame window、opaque origin、API 2 和单次 MessageChannel。最多四个并发请求。宿主固定注入页面身份，后端重新校验摘要、贡献声明和权限。普通 page/theme/settings 的 settings 方法只操作当前用户配置；admin-settings 的同名方法只操作共享管理员配置，所有调用先验证管理员身份。插件无法自行切换范围。
 

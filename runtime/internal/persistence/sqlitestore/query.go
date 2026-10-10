@@ -209,10 +209,20 @@ func (s *Store) createIndexes() error {
 		{"context.references", []string{"OwnerID", "AssistantID", "Kind", "key"}},
 		{"agent.model_retries", []string{"OwnerID", "AssistantID", "EventID", "key"}},
 	}...)
+	indexes = append(indexes, struct {
+		bucket string
+		fields []string
+	}{"im.messages", []string{"OwnerKey", "ConversationID", "Sender", "Sequence", "key"}})
+	indexes = append(indexes, struct {
+		bucket string
+		fields []string
+	}{"business.dream_runs", []string{"OwnerID", "AssistantID", "CreatedAtKey", "key"}})
 	indexes = append(indexes, []struct {
 		bucket string
 		fields []string
 	}{
+		{"security.permission_requests", []string{"OwnerID", "AssistantID", "State", "CreatedAtKey DESC", "ID", "key DESC"}},
+		{"security.permission_requests", []string{"OwnerID", "AssistantID", "CreatedAtKey DESC", "ID", "key DESC", "State"}},
 		{"plugins.installations", []string{"OwnerID", "Deleted", "key"}},
 		{"plugins.connections", []string{"OwnerID", "PluginID", "Deleted", "key"}},
 	}...)
@@ -481,6 +491,25 @@ func (tx *transaction) Sum(ctx context.Context, bucket string, q persistence.Que
 	}
 	var total int64
 	err = tx.sql.QueryRowContext(ctx, "SELECT COALESCE(SUM("+expr+"),0) FROM ("+query+")", args...).Scan(&total)
+	return total, translate(ctx, err)
+}
+
+// EncodedBytes measures the original encoded values without transferring them
+// to the caller. Cast also preserves byte semantics if a value is stored as TEXT.
+func (tx *transaction) EncodedBytes(ctx context.Context, bucket string, q persistence.Query) (int64, error) {
+	if err := tx.check(ctx); err != nil {
+		return 0, err
+	}
+	if q.Limit == 0 {
+		q.Unordered = true
+	}
+	q.Fields = nil
+	query, args, err := querySQL(bucket, q)
+	if err != nil {
+		return 0, err
+	}
+	var total int64
+	err = tx.sql.QueryRowContext(ctx, "SELECT COALESCE(SUM(length(CAST(value AS BLOB))),0) FROM ("+query+")", args...).Scan(&total)
 	return total, translate(ctx, err)
 }
 
