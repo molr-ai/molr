@@ -36,6 +36,7 @@ type SearchMatch struct {
 	Version       string
 }
 type SearchResult struct {
+	TargetKind                                 string
 	Matches                                    []SearchMatch
 	Complete                                   bool
 	Truncated                                  bool
@@ -378,10 +379,12 @@ func Search(ctx context.Context, root, name string, o SearchOptions, authorize f
 		return out, err
 	}
 	if f, err := Open(root, name); err == nil {
+		out.TargetKind = "file"
 		f.Close()
 		err = file(name, path.Base(name))
 		return out, err
 	}
+	out.TargetKind = "directory"
 	err := walk(name, "", 0)
 	return out, err
 }
