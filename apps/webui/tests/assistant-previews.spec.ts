@@ -49,6 +49,7 @@ test('assistant previews show history, live user and assistant messages, and emp
   await page.locator('input[type=file]').first().setInputFiles({ name: 'preview.txt', mimeType: 'text/plain', buffer: Buffer.from('preview attachment') });
   await expect(page.locator('.composer-attachments')).toContainText('preview.txt');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await expect(page.locator('.composer-attachments')).toHaveCount(0);
   if (info.project.name === 'mobile') await page.getByRole('button', { name: 'Back to assistants', exact: true }).click();
   await expect(preview(history)).toHaveText('[Attachment]');
 });
