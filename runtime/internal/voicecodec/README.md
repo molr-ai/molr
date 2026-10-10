@@ -1,6 +1,6 @@
 # Embedded SILK decoder
 
-`silk.wasm` contains the SILK SDK decoder and `source/decode.c`. Runtime runs it with wazero, a 32 MiB guest memory cap, a five-second deadline and no imported host functions. There is no filesystem, network, process or environment access. Each decode has a fresh instance. The Go Runtime remains `CGO_ENABLED=0`; deployment needs neither Node.js nor a native SILK decoder.
+`silk.wasm` contains the SILK SDK decoder and `source/decode.c`. Runtime runs it with wazero, a 32 MiB guest memory cap, a five-second deadline and no imported host functions. There is no filesystem, network, process or environment access. Each decode has a fresh runtime and guest instance. The process retains compiled code for the embedded decoder in an in-memory compilation cache; audio input, guest memory and returned WAV bytes are private to each call. The Go Runtime remains `CGO_ENABLED=0`; deployment needs neither Node.js nor a native SILK decoder.
 
 Input is bounded to 4 MiB; output to two minutes of 24 kHz mono PCM. The wrapper validates packet boundaries, frame count and output capacity before wrapping PCM as WAV. Invalid/oversized streams fail; the Weixin adapter retains their original audio attachment. Automatic transcription is not provided.
 
