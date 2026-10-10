@@ -89,9 +89,11 @@ Shell 在预览截断之前将 stdout/stderr 分别流式写入 `/work/.local/st
 
 file_search 沿用 FileTarget：默认本地 `/work`，`/global` 只读，外部目录需读取授权，远程显式 sandbox_id，Full Access 仍需逐调用明确请求和计算授权。搜索使用受控文件遍历与 Go RE2，不拼接 Shell 命令，不需要普通 Shell 计算授权。
 
-必填 path。pattern 默认普通字符串，regex 开启逐行正则；case_sensitive 默认 true。glob/exclude_glob 为相对路径模式，支持 **、*、?、字符组；不解释 .gitignore。mode=content 返回路径、行号、片段及 context_lines（0–5）上下文；mode=files 只返回匹配路径，不传 pattern 时按路径筛选。include_hidden 默认 false，但显式选择的隐藏目录会遍历，例如 `/work/.agents/memory`。
+必填 path。pattern 默认普通字符串，regex 开启逐行正则；case_sensitive 默认 true。glob/exclude_glob 为相对路径模式，支持 **、*、?、字符组；不解释 .gitignore。结果的 TargetKind 标明实际搜索目标为 file 或 directory。mode=content 返回路径、行号、片段及 context_lines（0–5）上下文；mode=files 只返回匹配路径，不传 pattern 时按路径筛选。include_hidden 默认 false，但显式选择的隐藏目录会遍历，例如 `/work/.agents/memory`。
 
 每次搜索先拆分 glob 的路径段，遍历期间复用模式；`**` 按路径段逐步回退匹配，不为每个候选建立递归状态表。模式仅在本次搜索内保留，包含／排除顺序、目录剪枝和逐路径授权检查保持不变。
+
+内容扫描在整份文件通过版本、大小和 UTF-8 校验后按行遍历，直接引用文件字节，只保留当前行和最多五行前文；命中时按需读取后文。达到结果上限时停止行遍历，不提前为整份文件建立行索引。
 
 默认 50 条、最多 200 条结果；最多扫描 10,000 项、32 层目录、每文件 2 MiB、累计 64 MiB，5 秒预算及 32 KiB 结果预算。超过 4096 字节的行、非 UTF-8、二进制和链接按原因计入 Skipped；长行和过大文件使 Complete=false。Complete、Truncated、StopReason 及扫描统计明确结果边界，不提供可能漏项的分页游标。目录或文件扫描期间变化也报告不完整。结果只用于定位，修改前 file_read 获取当前内容与版本。
 
