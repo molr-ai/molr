@@ -2,8 +2,17 @@ import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 const modelOrigin=`http://127.0.0.1:${process.env.MOLR_E2E_MODEL_PORT??18882}`;
 const base=`http://127.0.0.1:${process.env.MOLR_TEST_PORT??process.env.MOLR_E2E_PORT??5193}`;
-async function login(page:Page){await page.goto('/');await page.getByRole('textbox',{name:'Username',exact:true}).fill('owner');await page.getByLabel('Password',{exact:true}).fill('webui-e2e-password-2026!');await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('navigation',{name:'Molr'}).waitFor();}
+async function login(page:Page, username='owner', password='webui-e2e-password-2026!'){await page.goto('/');await page.getByRole('textbox',{name:'Username',exact:true}).fill(username);await page.getByLabel('Password',{exact:true}).fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('navigation',{name:'Molr'}).waitFor();}
 async function post(page:Page,path:string,data:object){const token=(await page.context().cookies()).find(c=>c.name===`molr_dev_csrf_p${new URL(base).port}`)!.value;const response=await page.request.post(path,{headers:{Origin:base,'X-CSRF-Token':token},data:{Mutation:{IdempotencyKey:crypto.randomUUID(),ExpectedVersion:0},...data}});expect(response.status(),await response.text()).toBe(200);return response.json();}
+// Exact day counts require a private calendar, independent of suite order and date.
+async function isolatedCalendarAccount(page: Page) {
+ const suffix=crypto.randomUUID(),username=`calendar-${suffix}`,password=`calendar-${suffix}-password!`;
+ const group=await post(page,'/api/admin/groups',{Group:{Name:`Calendar ${suffix}`,Administrator:false,Resources:[]}});
+ await post(page,'/api/admin/users',{Username:username,DisplayName:'Calendar review',Password:password,GroupID:group.ID});
+ await post(page,'/api/auth/logout',{});
+ await login(page,username,password);
+ expect(await(await page.request.get('/api/plans')).json()).toEqual([]);
+}
 async function assistant(page:Page,name:string){const resource=await post(page,'/api/resources',{Name:name,Kind:'model',Provider:'openai-compatible',Binding:{Endpoint:modelOrigin,AllowedOrigins:[modelOrigin],Models:[{Name:name,ContextLimit:32768,SupportsTools:true,Pricing:{Currency:'USD',InputMicrosPerMillion:0,OutputMicrosPerMillion:0,CachedInputMicrosPerMillion:0}}]}});const models=await(await page.request.get('/api/models')).json();return post(page,'/api/assistants',{Name:name,ModelID:models.find((m:any)=>m.ResourceID===resource.ID).ID,Budget:{Limit:{Currency:'USD',Micros:0},Period:'daily'}});}
 async function planAction(page:Page,title:string,action:string){await row(page,title).first().getByRole('button',{name:'Plan actions',exact:true}).click();await page.getByRole('menuitem',{name:action,exact:true}).click();}
 const details=(page:Page,title:string)=>page.getByRole('region',{name:`${title} · Plan details`,exact:true});
@@ -51,6 +60,9 @@ async function pickerTime(page:Page,label:string,hour:number,minute:number){
 test('month fills the workspace; cell capacity resizes and overflow opens every event',async({page},info)=>{
  await login(page);const at=new Date();at.setDate(info.project.name==='desktop'?8:9);at.setHours(9,0,0,0);const day=dateKey(at),sparse=new Date(at);sparse.setDate(12+(info.project.name==='desktop'?0:1));
  const prefix=`Calendar ${info.project.name}-${Date.now()}`;
+ // Retain an overlapping event in the shared owner account to prove fixture isolation.
+ await post(page,'/api/todos',{Title:`Other account ${prefix}`,DueAt:sparse.toISOString()});
+ await isolatedCalendarAccount(page);
  for(let i=0;i<9;i++){const time=new Date(at.getTime()+i*60000);await post(page,'/api/todos',{Title:`${prefix} ${i}`,DueAt:time.toISOString()});}
  for(let i=0;i<3;i++)await post(page,'/api/todos',{Title:`Three ${prefix} ${i}`,DueAt:new Date(sparse.getTime()+i*60000).toISOString()});
  await page.goto('/#/plans');await page.getByRole('combobox',{name:'Owner',exact:true}).click();await page.getByRole('option',{name:'Me',exact:true}).click();await calendar(page).click();await expect(page.locator('.plans-month-calendar')).toHaveCount(1);await expect(page.locator('.plans-month-calendar')).toHaveAttribute('data-month',dateKey(new Date()).slice(0,7));

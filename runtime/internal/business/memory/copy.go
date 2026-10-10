@@ -17,7 +17,7 @@ import (
 // mirror. Each file is checked for concurrent edits; the archive is not a claim
 // of a cross-file atomic snapshot.
 func (f *Files) Export(ctx context.Context, owner core.ID, write func(string, []byte) error) error {
-	roots, err := f.roots(ctx, owner)
+	roots, err := f.roots(ctx, owner, RootQuery{})
 	if err != nil {
 		return err
 	}
@@ -194,7 +194,7 @@ func (f *Files) Clone(ctx context.Context, p core.Principal, source, target core
 	}
 
 	// Forgetting follows the source: copy only hash/source-reference tombstones.
-	roots, err := f.roots(ctx, p.OwnerID)
+	roots, err := f.roots(ctx, p.OwnerID, RootQuery{})
 	if err != nil {
 		return err
 	}

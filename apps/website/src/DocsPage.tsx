@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState, type ReactNode } from 'react';
+import { memo, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { SiteHeader } from './SiteHeader';
@@ -31,7 +31,9 @@ function Contents({ doc }: { doc: Doc }) {
   return <nav className="docs-contents" aria-label="本页目录"><p>本页内容</p>{doc.headings.map(heading => <a key={heading.id} className={heading.level === 3 ? 'docs-subheading' : undefined} href={`#${heading.id}`}>{heading.title}</a>)}</nav>;
 }
 
-function Article({ doc }: { doc: Doc }) {
+// Search and menu state do not change the document. Keep Markdown parsing and
+// diagram mounts tied to the selected document; theme context still updates diagrams.
+const Article = memo(function Article({ doc }: { doc: Doc }) {
   const heading = (Tag: 'h2' | 'h3', children: ReactNode, id?: string) => {
     return <Tag id={id}><a href={`#${id}`}>{children}<span className="docs-anchor" aria-hidden="true">#</span></a></Tag>;
   };
@@ -51,7 +53,7 @@ function Article({ doc }: { doc: Doc }) {
       return source === null ? <pre>{children}</pre> : <MermaidDiagram code={source} />;
     },
   }}>{doc.content}</Markdown>;
-}
+});
 
 export default function DocsPage({ pathname, navigationRevision, locale, changeLocale }: { pathname: string; navigationRevision: number; locale: Locale; changeLocale: (locale: Locale) => void }) {
   const sidebarScrollRef = useScrollActivity(true), contentsScrollRef = useScrollActivity();
@@ -64,7 +66,9 @@ export default function DocsPage({ pathname, navigationRevision, locale, changeL
   const title = doc?.title ?? '未找到文档';
   const description = doc ? `${doc.title} — Molr 使用与部署指南。` : `此文档不存在，请返回 Molr ${section.overview}。`;
   const normalizedQuery = query.trim().toLocaleLowerCase();
-  const results = items.filter(entry => `${entry.label}\n${entry.content}`.toLocaleLowerCase().includes(normalizedQuery));
+  const results = useMemo(() => normalizedQuery
+    ? items.filter(entry => entry.searchText.includes(normalizedQuery))
+    : [], [items, normalizedQuery]);
   const currentIndex = doc ? items.indexOf(doc) : -1;
   const previous = items[currentIndex - 1];
   const next = doc ? items[currentIndex + 1] : undefined;
