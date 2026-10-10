@@ -10,7 +10,7 @@ import (
 func TestHybridRecallAndSuppression(t *testing.T) {
 	db := fixtureDB(t)
 	root := t.TempDir()
-	repo := NewFiles(FileOptions{JournalRoot: filepath.Join(root, "journal"), Roots: func(ctx context.Context, owner core.ID) ([]Root, error) {
+	repo := NewFiles(FileOptions{JournalRoot: filepath.Join(root, "journal"), Roots: func(ctx context.Context, owner core.ID, query RootQuery) ([]Root, error) {
 		return []Root{{Scope: Assistant, AssistantID: "assistant", Directory: filepath.Join(root, string(owner), "assistant")}, {Scope: Assistant, AssistantID: "other", Directory: filepath.Join(root, string(owner), "other")}}, nil
 	}})
 	s := NewService(db, Options{Files: repo, Authorizer: fixtureAuthorizer{}})

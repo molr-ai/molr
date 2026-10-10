@@ -250,6 +250,8 @@ Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugi
 | POST | `/api/todos/delete` |
 | POST | `/api/todos/update` |
 
+HTTP 限流在事务内读取并更新持久计数，通过的请求占用当前窗口额度；额度已耗尽时返回 429 和 `Retry-After`，不重写未变化的计数，也不延长窗口。并发请求共享事务计数，重启保留窗口；存储失败时拒绝放行。
+
 ## 验证
 
 API 合同测试使用真实 HTTP server、Auth、CSRF、持久限流、Realtime 与 SQLite，其他模块也采用实际实现；仅固定供应商目录与组合层归属依赖受控。测试覆盖登录 Cookie 与秘密 DTO、二次验证消费、权限能力隔离、可信代理、SSE 撤销、服务启停和失败关闭。
@@ -423,6 +425,6 @@ WebUI 支持上传 10 MB / 4000 万像素以内的 PNG、JPEG、WebP，浏览器
 
 ### 助理列表活动摘要
 
-`GET /api/assistants/activity` 返回当前账号活跃助理的分页摘要，使用通用 `limit`（默认 50，最大 200）与 `cursor`，返回 `Items`、`NextCursor`。每项包含 `AssistantID`、`ConversationID`、`Dreaming` 和可空的 `Preview: { Kind, Text }`。文本合并空白后保留前 80 个 Unicode 字符，超出部分以省略号表示；卡片取标题或摘要，空文本由客户端按类型显示占位文案。解雇助理不包含在结果中。每页批量读取已授权会话的最新消息引用和对应消息，不逐个读取历史列表。
+`GET /api/assistants/activity` 返回当前账号活跃助理的分页摘要，使用通用 `limit`（默认 50，最大 200）与 `cursor`，返回 `Items`、`NextCursor`。每项包含 `AssistantID`、`ConversationID`、`Dreaming` 和可空的 `Preview: { Kind, Text }`。文本合并空白后保留前 80 个 Unicode 字符，超出部分以省略号表示；卡片取标题或摘要，空文本由客户端按类型显示占位文案。摘要使用固定大小的字符缓冲区，确认超长后停止遍历，不为整条消息构造归一化副本；尾部空白不计为额外内容。解雇助理不包含在结果中。每页批量读取已授权会话的最新消息引用和对应消息，不逐个读取历史列表。
 
 该接口沿用助理与会话服务的账号归属检查。执行状态按本页明确授权的助理键批量投影，只读取做梦判断所需字段，每页检查一次运行环境；不加载上下文、加急或中断详情。消息只查询各会话最新一条，不遍历历史。当前聊天的完整状态仍使用 `/api/assistants/{id}/status`。
