@@ -26,7 +26,7 @@ export function createClient(transport?: RuntimeTransport) {
   let cooldown: { identity: string; error: APIError } | undefined;
   function clearClientState() { attempts.clear(); cooldown = undefined; }
 
-  async function request<T>(path: string, init: RequestInit = {}, csrf?: string, binary = false, readOnly = false): Promise<T> {
+  async function request<T>(path: string, init: RequestInit = {}, csrf?: string, binary = false, readOnly = false, expireOnUnauthorized = false): Promise<T> {
     if (!/^\/api\/[A-Za-z0-9/_-]+(?:\?[^#]*)?$/.test(path) || path.includes('..') || path.includes('\\')) throw new APIError('invalid_argument');
     if (transport) {
       try {
@@ -47,9 +47,13 @@ export function createClient(transport?: RuntimeTransport) {
     try { response = await fetch(path, { ...init, headers, credentials: 'same-origin', cache: 'no-store' }); }
     catch (error) { if (error instanceof DOMException && error.name === 'AbortError') throw error; throw new APIError('unavailable'); }
     let data: any;
-    try { data = binary && response.ok ? await response.blob() : await response.json(); } catch { if (response.ok) throw new APIError('invalid_response', '', response.status); }
+    try { data = binary && response.ok ? await response.blob() : await response.json(); }
+    catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') throw error;
+      if (response.ok) throw new APIError('invalid_response', '', response.status);
+    }
     if (!response.ok) {
-      if (response.status === 401 && requestIdentity === csrfToken() && path !== '/api/auth/me' && !path.startsWith('/api/auth/login') && !path.startsWith('/api/auth/mfa/complete') && path !== '/api/auth/reauthenticate' && path !== '/api/auth/mfa/confirm') sessionEvents.dispatchEvent(new Event('expired'));
+      if (response.status === 401 && !init.signal?.aborted && requestIdentity === csrfToken() && (path !== '/api/auth/me' || expireOnUnauthorized) && !path.startsWith('/api/auth/login') && !path.startsWith('/api/auth/mfa/complete') && path !== '/api/auth/reauthenticate' && path !== '/api/auth/mfa/confirm') sessionEvents.dispatchEvent(new Event('expired'));
       const retryAfter = response.headers.get('Retry-After');
       const seconds = retryAfter && /^\d+$/.test(retryAfter) ? Number(retryAfter) : NaN;
       const retryAt = response.status === 429 ? Number.isFinite(seconds) ? Date.now() + seconds * 1000 : Math.max(Date.now() + 1000, Date.parse(retryAfter ?? '') || Date.now() + 60000) : 0;
@@ -94,7 +98,10 @@ export function createClient(transport?: RuntimeTransport) {
     upload: (file: File, key: string) => request<FileInfo>('/api/files', { method: 'POST', body: file, headers: { 'Content-Type': file.type || 'application/octet-stream', 'X-File-Name': encodeURIComponent(file.name), 'X-File-Name-Encoding': 'percent', 'Idempotency-Key': key } }),
   };
 
-  return { api, csrfToken, clearClientState, onMutation, onSessionExpired };
+  // Session restoration handles its own 401. A failed live connection instead
+  // needs to notify subscribers, while retaining request identity and abort guards.
+  const verifySession = (signal?: AbortSignal) => request<unknown>('/api/auth/me', { signal }, undefined, false, false, true);
+  return { api, csrfToken, clearClientState, onMutation, onSessionExpired, verifySession };
 }
-export const { api, csrfToken, clearClientState, onMutation, onSessionExpired } = createClient();
+export const { api, csrfToken, clearClientState, onMutation, onSessionExpired, verifySession } = createClient();
 export type RuntimeClient = ReturnType<typeof createClient>['api'];

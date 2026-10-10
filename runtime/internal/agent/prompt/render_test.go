@@ -13,6 +13,8 @@ func TestProjectionPreservesMeaningAndExcludesInternalFields(t *testing.T) {
 	}{
 		{"file_read", `{"OwnerID":"private","Path":"/work/a","Version":"v1","Text":"<p>\r\n\"quoted\"</p>","Truncated":false,"NextOffset":0}`, []string{`"Text":"<p>\r\n\"quoted\"</p>"`, `"Version":"v1"`, `"Truncated":false`}, []string{"OwnerID", `\u003c`}},
 		{"file_read", `{"path":"/work/a.png","version":"v2","media_type":"image/png","size_bytes":42,"content_loaded":false,"reason":"unsupported","Media":[{"Data":"secret"}]}`, []string{`"content_loaded":false`, `"reason":"unsupported"`}, []string{"secret", "Media"}},
+		{"file_search", `{"Path":"/work/notes.txt","TargetKind":"file","Matches":[]}`, []string{`"TargetKind":"file"`, `"Matches":[]`}, nil},
+		{"archive", `{"full_result_path":"/work/result.json","details":{"Path":"/work/notes.txt","TargetKind":"file"}}`, []string{`"TargetKind":"file"`, `"Path":"/work/notes.txt"`}, nil},
 		{"file_list", `{"Entries":[],"NextOffset":40,"Truncated":true}`, []string{`"Entries":[]`, `"NextOffset":40`, `"Truncated":true`}, nil},
 		{"workspace", `{"Path":"/work","Available":false,"Reason":"sandbox_disabled","HostPath":"private","Directories":[{"Path":"/work/inbox","Purpose":"originals","Internal":"secret"}]}`, []string{`"Available":false`, `"Reason":"sandbox_disabled"`, "/work/inbox"}, []string{"HostPath", "private", "Internal", "secret"}},
 		{"permissions", `{"Granted":[],"Total":0,"Truncated":false,"Revision":"internal"}`, []string{`"Granted":[]`, `"Total":0`, `"Truncated":false`}, []string{"Revision"}},

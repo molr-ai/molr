@@ -24,7 +24,8 @@ async function createLink(page: Page, name: string) {
   const issued = page.getByRole('dialog', { name: 'Login link created', exact: true });
   const link = await issued.getByRole('textbox', { name: 'Login links', exact: true }).inputValue();
   expect(new URL(link).search).toBe('');
-  await issued.getByRole('button', { name: 'Close', exact: true }).filter({ hasText: /^Close$/ }).click();
+  // The mobile success toast can cover the footer; use the header close control.
+  await issued.getByRole('button', { name: 'Close', exact: true }).first().click();
   return link;
 }
 

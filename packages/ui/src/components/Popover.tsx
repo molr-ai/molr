@@ -6,6 +6,7 @@ import type { FloatingSide, FloatingTrigger } from './floating';
 import { UIIcon } from './icons';
 import { Dialog } from './Dialog';
 import { useModalScope } from '../modal-scope';
+import { subscribeTooltipActivity, tooltipDocumentActive, tooltipInputVersion } from './tooltip-activity';
 
 export type PopoverProps = { trigger: FloatingTrigger; title: string; children: ReactNode; align?: 'start' | 'end'; maxHeight?: number; width?: number; open?: boolean; onOpenChange?: (open: boolean) => void };
 export function Popover(props: PopoverProps) {
@@ -56,15 +57,16 @@ export function Tooltip({ children, content, delay = 400, side: preferredSide = 
   const focused = useRef(false);
   const hovered = useRef(false);
   const pinned = useRef(false);
-  const awaitingInteraction = useRef(false);
+  const suspendedAt = useRef<number | null>(null);
+  const awaitingInteraction = () => suspendedAt.current === tooltipInputVersion();
   const { anchorRef, panelRef, style, side } = useFloating(open, setOpen, { width, preferredSide });
   const triggerRef = useComposedRefs(anchorRef, children.props.ref);
   function cancel() { if (timer.current) clearTimeout(timer.current); timer.current = null; }
-  function active() { return document.visibilityState === 'visible' && document.hasFocus(); }
+  const active = tooltipDocumentActive;
   function show() {
     cancel();
-    if (awaitingInteraction.current || !active()) return;
-    timer.current = setTimeout(() => { if (!awaitingInteraction.current && active()) setOpen(true); }, delay);
+    if (awaitingInteraction() || !active()) return;
+    timer.current = setTimeout(() => { if (!awaitingInteraction() && active()) setOpen(true); }, delay);
   }
   function hide() { cancel(); pinned.current = false; setOpen(false); }
   function hideWhenIdle() {
@@ -76,21 +78,9 @@ export function Tooltip({ children, content, delay = 400, side: preferredSide = 
   useEffect(() => {
     // Window restoration can focus the old trigger again. Wait for fresh input,
     // rather than a timeout or relatedTarget (also null for ordinary focus).
-    const suspend = () => { awaitingInteraction.current = true; focused.current = false; hovered.current = false; hide(); };
-    const visibility = () => { if (document.visibilityState !== 'visible') suspend(); };
-    const interact = () => { if (active()) awaitingInteraction.current = false; };
-    if (!active()) suspend();
-    window.addEventListener('blur', suspend);
-    document.addEventListener('visibilitychange', visibility);
-    document.addEventListener('keydown', interact, true);
-    document.addEventListener('pointerdown', interact, true);
-    return () => {
-      cancel();
-      window.removeEventListener('blur', suspend);
-      document.removeEventListener('visibilitychange', visibility);
-      document.removeEventListener('keydown', interact, true);
-      document.removeEventListener('pointerdown', interact, true);
-    };
+    const suspend = () => { suspendedAt.current = tooltipInputVersion(); focused.current = false; hovered.current = false; hide(); };
+    const unsubscribe = subscribeTooltipActivity(suspend);
+    return () => { cancel(); unsubscribe(); };
   }, []);
   useEffect(() => {
     if (!open) return;
@@ -116,11 +106,11 @@ export function Tooltip({ children, content, delay = 400, side: preferredSide = 
   return <>
     {triggerElement(children, triggerRef, {
       'aria-describedby': [children.props['aria-describedby'], id].filter(Boolean).join(' '),
-      onPointerEnter: event => { children.props.onPointerEnter?.(event); if (event.pointerType !== 'touch' && !awaitingInteraction.current) { hovered.current = true; show(); } },
+      onPointerEnter: event => { children.props.onPointerEnter?.(event); if (event.pointerType !== 'touch' && !awaitingInteraction()) { hovered.current = true; show(); } },
       onPointerMove: event => {
         children.props.onPointerMove?.(event);
-        if (event.pointerType !== 'touch' && awaitingInteraction.current && active()) {
-          awaitingInteraction.current = false; hovered.current = true; show();
+        if (event.pointerType !== 'touch' && awaitingInteraction() && active()) {
+          suspendedAt.current = null; hovered.current = true; show();
         }
       },
       onPointerLeave: event => { children.props.onPointerLeave?.(event); hovered.current = false; hideWhenIdle(); },
