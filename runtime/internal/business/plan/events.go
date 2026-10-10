@@ -62,7 +62,12 @@ func (s *Coordinator) Events(ctx context.Context, p core.Principal, q EventQuery
 	if err != nil {
 		return out, err
 	}
-	for _, plan := range plans {
+	candidates := make(eventSelection, 0, page.Limit+1)
+	for index := range plans {
+		plan := &plans[index]
+		if err := ctx.Err(); err != nil {
+			return out, err
+		}
 		if q.Scope == "me" && plan.AssistantID != "" || q.Scope != "" && q.Scope != "all" && q.Scope != "me" && string(plan.AssistantID) != q.Scope {
 			continue
 		}
@@ -92,9 +97,12 @@ func (s *Coordinator) Events(ctx context.Context, p core.Principal, q EventQuery
 			if q.State == "done" && !done || q.State == "open" && done {
 				return true
 			}
-			out.Items = append(out.Items, Event{Key: ref + "@" + at.UTC().Format(time.RFC3339Nano), At: at.UTC(), Plan: plan})
+			retained := candidates.offer(eventCandidate{at: at.UTC(), ref: ref, plan: plan}, page.Limit+1)
 			count++
-			return count <= page.Limit
+			// VisitUpcoming is chronological: once this occurrence is too late,
+			// later occurrences of the same plan cannot enter the selected page.
+			// The completed-history path is unordered and ignores this return.
+			return retained && count <= page.Limit
 		}
 		if plan.Todo != nil {
 			at := plan.Todo.StartAt
@@ -126,13 +134,11 @@ func (s *Coordinator) Events(ctx context.Context, p core.Principal, q EventQuery
 			return out, err
 		}
 	}
-	sort.Slice(out.Items, func(i, j int) bool {
-		a, b := out.Items[i], out.Items[j]
-		if !a.At.Equal(b.At) {
-			return a.At.Before(b.At)
-		}
-		return a.Plan.Ref.Kind+"/"+string(a.Plan.Ref.ID) < b.Plan.Ref.Kind+"/"+string(b.Plan.Ref.ID)
-	})
+	sort.Slice(candidates, func(i, j int) bool { return candidates[i].before(candidates[j]) })
+	out.Items = make([]Event, 0, len(candidates))
+	for _, candidate := range candidates {
+		out.Items = append(out.Items, Event{Key: candidate.ref + "@" + candidate.at.Format(time.RFC3339Nano), At: candidate.at, Plan: *candidate.plan})
+	}
 	if len(out.Items) > page.Limit {
 		out.Items = out.Items[:page.Limit]
 		last := out.Items[len(out.Items)-1]
