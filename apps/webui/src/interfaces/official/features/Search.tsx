@@ -13,10 +13,15 @@ export function Search({ open, onClose, navigate, onOpenTasks }: {
   const { t } = useCopy(), mobile = useBreakpoint('mobile');
   const [text, setText] = useState(''), [debounced, setDebounced] = useState(''), [scopes, setScopes] = useState<string[]>([]), [cursors, setCursors] = useState<string[]>(['']);
   useEffect(() => { if (!open) { setText(''); setDebounced(''); setScopes([]); setCursors(['']); } }, [open]);
-  useEffect(() => { const timer = setTimeout(() => setDebounced(text.trim()), 250); return () => clearTimeout(timer); }, [text]);
+  const term = text.trim();
+  useEffect(() => {
+    if (term === debounced) return;
+    const timer = setTimeout(() => { setDebounced(term); setCursors(['']); }, 250);
+    return () => clearTimeout(timer);
+  }, [term, debounced]);
   const params = new URLSearchParams({ q: debounced, limit: '50', cursor: cursors.at(-1) ?? '' }); scopes.forEach(value => params.append('source', value));
-  const query = useQuery<SearchResults>(open && debounced ? `/api/search?${params}` : null);
-  const busy = query.loading || text.trim() !== debounced;
+  const query = useQuery<SearchResults>(open && debounced && term === debounced ? `/api/search?${params}` : null);
+  const busy = query.loading || term !== debounced;
   const sources = [
     { value: 'messages', label: t.searchTypes.messages, icon: <MessageSquare size={18} aria-hidden="true" /> },
     { value: 'assistants', label: t.searchTypes.assistants, icon: <Bot size={18} aria-hidden="true" /> },
@@ -32,7 +37,7 @@ export function Search({ open, onClose, navigate, onOpenTasks }: {
     else navigate('assistants', hit.AssistantID || hit.Object.ID);
   }
   return <SearchPanel open={open} onOpenChange={value => { if (!value) onClose(); }} mobile={mobile}
-    query={text} onQueryChange={value => { setText(value); setCursors(['']); }} scopes={scopes} onScopesChange={values => { setScopes(values); setCursors(['']); }} sources={sources}
+    query={text} onQueryChange={setText} scopes={scopes} onScopesChange={values => { setScopes(values); setCursors(['']); }} sources={sources}
     shortcuts={[
       { id: 'assistants', label: t.nav.assistants, description: t.searchPanel.continueConversation, icon: <Bot size={18} aria-hidden="true" />, onSelect: () => navigate('assistants') },
       { id: 'resources', label: t.nav.resources, description: t.searchPanel.filesAndTools, icon: <Folder size={18} aria-hidden="true" />, onSelect: () => navigate('resources') },
@@ -43,7 +48,7 @@ export function Search({ open, onClose, navigate, onOpenTasks }: {
     total={Object.values(query.data?.Counts ?? {}).reduce((sum, count) => sum + count, 0)}
     suggestions={[t.searchPanel.travel, t.searchPanel.notes, 'Molr']}
     labels={{ ...t.searchPanel, title: t.search, filter: t.filters, all: t.all, emptyTitle: t.noResults }}
-    busy={busy} statusContent={busy && (!query.data || text.trim() !== debounced) ? <Loading key={text} delay={600} /> : query.error ? <ErrorNotice error={query.error} retry={query.reload} /> : undefined}
+    busy={busy} statusContent={busy && (!query.data || term !== debounced) ? <Loading key={text} delay={600} /> : query.error ? <ErrorNotice error={query.error} retry={query.reload} /> : undefined}
     pagination={(cursors.length > 1 || query.data?.Hits.NextCursor) && <div className="workspace-search__pagination">
       {cursors.length > 1 && <Button size="sm" variant="secondary" disabled={busy} onClick={() => setCursors(values => values.slice(0, -1))}>{t.previousPage}</Button>}
       {query.data?.Hits.NextCursor && <Button size="sm" variant="secondary" disabled={busy} onClick={() => setCursors(values => [...values, query.data!.Hits.NextCursor])}>{t.nextPage}</Button>}

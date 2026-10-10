@@ -80,3 +80,24 @@ test('refresh failure preserves data, but access denial removes it for every sub
   expect(queries.snapshot('item').data).toBeUndefined();
   release(); queries.clear();
 });
+
+test('snapshot reads without subscriptions do not evict retained query data', async () => {
+  const { queries, requests, load } = harness();
+  try {
+    const release = queries.subscribe('retained', () => {});
+    queries.refresh('retained', 0, load);
+    requests[0].resolve({ value: 'retained result' });
+    await Promise.resolve();
+    expect(queries.snapshot('retained').data).toEqual({ value: 'retained result' });
+    release(); await Promise.resolve();
+    // React can read snapshots during renders that never commit a subscription.
+    const empty = queries.snapshot(null);
+    for (let index = 0; index < 1000; index++) {
+      expect(queries.snapshot(`uncommitted-${index}`)).toBe(empty);
+    }
+    const unrelated = queries.subscribe('another-page', () => {});
+    unrelated(); await Promise.resolve();
+    expect(queries.snapshot('retained').data).toEqual({ value: 'retained result' });
+    expect(requests).toHaveLength(1);
+  } finally { queries.clear(); }
+});

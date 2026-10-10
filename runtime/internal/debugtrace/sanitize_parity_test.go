@@ -62,6 +62,7 @@ func TestSanitizeParallelCapturesKeepIndependentResults(t *testing.T) {
 func FuzzSanitizeMatchesReference(f *testing.F) {
 	f.Add(`{"Api_Key":"fixture","Body":"{\"password\":\"fixture\"}","Text":"Bearer fixture"}`, 1024)
 	f.Add(`["plain",9007199254740993,{"Set-Cookie":"fixture"}]`, 64)
+	f.Add(`{"Body":" \t\r\n{\"password\":\"fixture\"}"}`, 1024)
 	f.Fuzz(func(t *testing.T, input string, limit int) {
 		if len(input) > 8192 {
 			return
