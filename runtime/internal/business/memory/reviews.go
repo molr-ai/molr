@@ -98,7 +98,7 @@ func (f *Files) RemoveReview(ctx context.Context, owner, assistant core.ID, name
 func (f *Files) forgetReviews(ctx context.Context, m Memory, check func() error) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	roots, err := f.roots(ctx, m.OwnerID)
+	roots, err := f.roots(ctx, m.OwnerID, RootQuery{})
 	if err != nil {
 		return err
 	}
@@ -154,7 +154,7 @@ func (s *service) scrub(ctx context.Context, p core.Principal, m Memory) error {
 
 // Generated core cognition must not retain an explicitly forgotten topic.
 func (f *Files) forgetDerived(ctx context.Context, m Memory, check func() error) error {
-	roots, err := f.roots(ctx, m.OwnerID)
+	roots, err := f.roots(ctx, m.OwnerID, RootQuery{})
 	if err != nil {
 		return err
 	}

@@ -82,7 +82,7 @@ func (f *resourceFileTools) boundResult(ctx context.Context, e core.Execution, r
 	for _, key := range keys {
 		value := fields[key]
 		switch strings.ToLower(key) {
-		case "sandboxid", "exit", "error", "ok", "operation_id", "path", "version", "nextoffset", "nextbyteoffset", "truncated", "total", "totalcount", "count", "hasmore", "nextcursor", "outputcomplete", "stdoutpath", "stderrpath", "stdoutbytes", "stderrbytes":
+		case "sandboxid", "exit", "error", "ok", "operation_id", "path", "targetkind", "version", "nextoffset", "nextbyteoffset", "truncated", "total", "totalcount", "count", "hasmore", "nextcursor", "outputcomplete", "stdoutpath", "stderrpath", "stdoutbytes", "stderrbytes":
 			encoded, _ := json.Marshal(map[string]json.RawMessage{key: value})
 			if len(value) <= 512 && detailBytes+len(encoded) < 2048 {
 				detailBytes += len(encoded)

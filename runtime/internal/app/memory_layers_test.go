@@ -26,7 +26,7 @@ func TestCoreContextInvalidatedByTopicEditAndForget(t *testing.T) {
 			db, err := sqlitestore.Open(filepath.Join(root, "db"))
 			need(t, err)
 			defer db.Close()
-			files := memory.NewFiles(memory.FileOptions{JournalRoot: filepath.Join(root, "journal"), Roots: func(context.Context, core.ID) ([]memory.Root, error) {
+			files := memory.NewFiles(memory.FileOptions{JournalRoot: filepath.Join(root, "journal"), Roots: func(context.Context, core.ID, memory.RootQuery) ([]memory.Root, error) {
 				return []memory.Root{{Scope: memory.Assistant, AssistantID: "assistant", Directory: filepath.Join(root, "work")}, {Scope: memory.Global, Directory: filepath.Join(root, "global")}}, nil
 			}})
 			service := memory.NewService(db, memory.Options{Files: files, Authorizer: memoryLayerAuthorizer{}, CheckAssistant: func(context.Context, core.Principal, core.ID) error { return nil }})

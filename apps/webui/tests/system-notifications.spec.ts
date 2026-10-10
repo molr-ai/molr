@@ -6,6 +6,105 @@ async function post(page:Page,path:string,data:object,mutation=true){const token
 async function notices(page:Page,id:string){return (await(await page.request.get(`${base}/api/notifications?assistant_id=${id}&filter=active`)).json()).Items as SystemNotice[];}
 async function blockedAssistant(page:Page,name:string){const origin=`http://127.0.0.1:${process.env.MOLR_E2E_MODEL_PORT??18882}`;const r=await post(page,'/api/resources',{Name:name,Kind:'model',Provider:'openai-compatible',Binding:{Endpoint:origin,AllowedOrigins:[origin],Models:[{Name:name,ContextLimit:32768,SupportsTools:true,Pricing:{Currency:'USD',InputMicrosPerMillion:1000000}}]}});const models=await(await page.request.get(base+'/api/models')).json();return post(page,'/api/assistants',{Name:name,ModelID:models.find((m:any)=>m.ResourceID===r.ID).ID,Budget:{Limit:{Currency:'USD',Micros:0},Period:'daily'}});}
 
+test('server notice delivery uses channel preferences changed during async work',async({page},info)=>{
+ test.setTimeout(120_000);
+ await page.addInitScript(()=>{
+  document.hasFocus=()=>false;
+  Object.defineProperty(Notification,'permission',{get:()=> 'granted'});
+  const counts={desktop:0,sound:0};Object.defineProperty(window,'noticeChannelCounts',{value:counts});
+  // Exercise provider policy with a controlled OS boundary and real Web Audio.
+  const controls=window as unknown as {pauseNoticeDesktop:boolean;noticeDesktopWaiting:boolean;rejectNoticeDesktop:boolean;releaseNoticeDesktop?:()=>void};
+  Object.defineProperty(navigator.serviceWorker,'register',{value:async()=>({active:{},showNotification:async()=>{
+   counts.desktop++;
+   if(controls.pauseNoticeDesktop){await new Promise<void>(resolve=>{controls.releaseNoticeDesktop=resolve;controls.noticeDesktopWaiting=true;});if(controls.rejectNoticeDesktop)throw new Error('Controlled platform failure');}
+  },getNotifications:async()=>[]})});
+  const oscillator=AudioContext.prototype.createOscillator;
+  AudioContext.prototype.createOscillator=function(){counts.sound++;return oscillator.call(this);};
+ });
+ await login(page);await page.goto('/#/account/notifications');
+ await page.getByRole('switch',{name:'Notification alerts',exact:true}).check();
+ await page.getByRole('switch',{name:'Message sound',exact:true}).check();
+ await page.getByRole('button',{name:'Preview sound',exact:true}).click();
+ await expect(page.getByText('Preview sound played.',{exact:true})).toBeVisible();
+ const counts=()=>page.evaluate(()=>(window as unknown as {noticeChannelCounts:{desktop:number;sound:number}}).noticeChannelCounts);
+ const toast=page.locator('.ui-toast').filter({hasText:'A notification needs your attention'});
+ const scenarios=[
+  {stage:'lookup',disable:['Desktop notifications','Message sound'],desktop:0,sound:0},
+  {stage:'lookup',disable:['Desktop notifications'],desktop:0,sound:2},
+  {stage:'lookup',disable:['Message sound'],desktop:1,sound:0},
+  {stage:'lookup',disable:[],desktop:1,sound:2},
+  {stage:'sound',disable:['Desktop notifications'],desktop:0,sound:2},
+  {stage:'sound',disable:['Message sound'],desktop:1,sound:0},
+  {stage:'desktop',disable:['Desktop notifications'],desktop:1,sound:2,toast:1},
+  {stage:'desktop-reject',disable:['Notification alerts'],desktop:1,sound:2,toast:0},
+ ];
+ for(const [index,scenario] of scenarios.entries()){
+  await test.step(`${scenario.stage}: disable ${scenario.disable.join(', ')||'neither channel'}`,async()=>{
+   // Respect the account-wide sound cooldown between independent notices.
+   if(index)await page.waitForTimeout(5100);
+   for(const button of await toast.getByRole('button',{name:'Close',exact:true}).all())await button.click();
+   await page.getByRole('switch',{name:'Notification alerts',exact:true}).check();
+   await page.getByRole('switch',{name:'Desktop notifications',exact:true}).check();
+   await page.getByRole('switch',{name:'Message sound',exact:true}).check();
+   await page.evaluate(()=>{const counts=(window as unknown as {noticeChannelCounts:{desktop:number;sound:number}}).noticeChannelCounts;counts.desktop=0;counts.sound=0;});
+   let release!:()=>void, paused!:()=>void;
+   const gate=new Promise<void>(resolve=>{release=resolve;});
+   const entered=new Promise<void>(resolve=>{paused=resolve;});
+   const reads=new Map<string,number>();
+   if(scenario.stage.startsWith('desktop'))await page.evaluate(reject=>{
+    const controls=window as unknown as {pauseNoticeDesktop:boolean;noticeDesktopWaiting:boolean;rejectNoticeDesktop:boolean};
+    controls.pauseNoticeDesktop=true;controls.noticeDesktopWaiting=false;controls.rejectNoticeDesktop=reject;
+   },scenario.stage==='desktop-reject');
+   if(scenario.stage==='sound')await page.evaluate(async()=>{
+    const path='/src/notifications/coordinator.ts';const {NotificationClaims}=await import(path);
+    const original=NotificationClaims.prototype.claimSound;
+    const controls=window as unknown as {noticeSoundWaiting:boolean;releaseNoticeSound:()=>void};controls.noticeSoundWaiting=false;
+    NotificationClaims.prototype.claimSound=async function(account:string){
+     const claimed=await original.call(this,account);
+     await new Promise<void>(resolve=>{controls.releaseNoticeSound=resolve;controls.noticeSoundWaiting=true;});
+     NotificationClaims.prototype.claimSound=original;
+     return claimed;
+    };
+   });
+   const routePattern='**/api/notifications/*';
+   await page.route(routePattern,async route=>{
+    if(route.request().method()!=='GET'){await route.continue();return;}
+    const id=new URL(route.request().url()).pathname;
+    const count=(reads.get(id)??0)+1;reads.set(id,count);
+    const response=await route.fetch();
+    if(count===2&&scenario.stage==='lookup'){paused();await gate;}
+    await route.fulfill({response});
+   });
+   try{
+    // Completing a prerequisite creates a real plan-ready notice without a model call.
+    const suffix=`${info.project.name}-${index}-${Date.now()}`;
+    const prep=await post(page,'/api/todos',{Title:`Prepare channels ${suffix}`}),next=await post(page,'/api/todos',{Title:`Review channels ${suffix}`});
+    await post(page,'/api/plans/configure',{Ref:{Kind:'todo',ID:next.ID},Dependencies:[{Kind:'todo',ID:prep.ID}],Handoff:'notify',Mutation:{IdempotencyKey:crypto.randomUUID(),ExpectedVersion:0}});
+    await post(page,'/api/plans/execute',{Ref:{Kind:'todo',ID:prep.ID},Action:'complete',Mutation:{IdempotencyKey:crypto.randomUUID(),ExpectedVersion:0}});
+    if(scenario.stage==='lookup')await entered;
+    else if(scenario.stage==='sound')await expect.poll(()=>page.evaluate(()=>(window as unknown as {noticeSoundWaiting:boolean}).noticeSoundWaiting)).toBe(true);
+    else await expect.poll(()=>page.evaluate(()=>(window as unknown as {noticeDesktopWaiting:boolean}).noticeDesktopWaiting)).toBe(true);
+    for(const name of scenario.disable)await page.getByRole('switch',{name,exact:true}).uncheck();
+    release();
+    if(scenario.stage==='sound')await page.evaluate(()=>(window as unknown as {releaseNoticeSound:()=>void}).releaseNoticeSound());
+    if(scenario.stage.startsWith('desktop')){
+     await page.evaluate(()=>(window as unknown as {releaseNoticeDesktop:()=>void}).releaseNoticeDesktop());
+     // Let platform rejection and React's possible fallback settle before checking absence.
+     if(scenario.stage==='desktop-reject')await page.waitForTimeout(200);
+    }
+    await expect.poll(async()=>{const c=await counts();return c.desktop+c.sound+await toast.count();}).toBeGreaterThan(0);
+    expect(await counts()).toEqual({desktop:scenario.desktop,sound:scenario.sound});
+    await expect(toast).toHaveCount(scenario.toast??(scenario.desktop?0:1));
+   }finally{
+    release();
+    if(scenario.stage==='sound')await page.evaluate(()=>(window as unknown as {releaseNoticeSound?:()=>void}).releaseNoticeSound?.());
+    if(scenario.stage.startsWith('desktop'))await page.evaluate(()=>{const controls=window as unknown as {releaseNoticeDesktop?:()=>void;pauseNoticeDesktop:boolean};controls.releaseNoticeDesktop?.();controls.pauseNoticeDesktop=false;});
+    await page.unroute(routePattern);
+   }
+  });
+ }
+});
+
 test('server notices synchronize read/dismiss/recovery across independent browsers and survive reload',async({page,browser},info)=>{
  await login(page);const a=await blockedAssistant(page,`Notice ${info.project.name}-${Date.now()}`);
  await expect.poll(async()=>(await notices(page,a.ID)).length).toBe(1);const n=(await notices(page,a.ID))[0];
