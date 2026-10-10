@@ -14,6 +14,10 @@ import (
 //go:embed silk.wasm
 var module []byte
 
+// Only the embedded decoder code is shared for the process lifetime. Guest
+// memory and input/output data remain private to each decode.
+var compilationCache = wazero.NewCompilationCache()
+
 // WAV converts at most two minutes of mono SILK to PCM WAV. No guest filesystem,
 // environment, network, stdin or stdout is exposed. A fresh instance owns memory.
 func WAV(ctx context.Context, data []byte) ([]byte, error) {
@@ -22,9 +26,15 @@ func WAV(ctx context.Context, data []byte) ([]byte, error) {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	runtime := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfig().WithMemoryLimitPages(512).WithCloseOnContextDone(true))
+	runtime := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfig().WithCompilationCache(compilationCache).WithMemoryLimitPages(512).WithCloseOnContextDone(true))
 	defer runtime.Close(context.Background())
-	guest, err := runtime.InstantiateWithConfig(ctx, module, wazero.NewModuleConfig().WithStartFunctions("_initialize"))
+	// InstantiateWithConfig makes the guest own and close its compiled code,
+	// which would evict the shared cache when this runtime closes.
+	compiled, err := runtime.CompileModule(ctx, module)
+	if err != nil {
+		return nil, errors.New("voice decoder unavailable")
+	}
+	guest, err := runtime.InstantiateModule(ctx, compiled, wazero.NewModuleConfig().WithStartFunctions("_initialize"))
 	if err != nil {
 		return nil, errors.New("voice decoder unavailable")
 	}

@@ -9,7 +9,7 @@
     "runtime/go.sum": "faf9e85c33a10d9c28256712458c595ba577903f667d8747faf28c14708a5055",
     "runtime/.go-version": "a8844fbc8c3eb51c26ed00aec4cd5a5a9d647f849c6ead07bcc83ed24c4a7718",
     "runtime/internal/voicecodec/silk.wasm": "13de15803937f44593398fee46d1dd7ee4ea2f04c819f8f887525b4cd9b60bf7",
-    "runtime/internal/voicecodec/README.md": "95bc7e56b7868f1562f579c74e7bf4c95fdcbfb0d9e790beb8f6ca063f9af886",
+    "runtime/internal/voicecodec/README.md": "0b8a2c9634b6361a46c4ca75120a734a3f247d3779c46db62e4487578840caa5",
     "runtime/internal/voicecodec/source/build.py": "edeadc1e9acb2f77ad9caf10bc36965a9e988497a18e35b8a70a790092e4879c",
     "scripts/build-release.mjs": "f1cbe44641863bde1554166295dede3b93bb09197bd14b7860f4e3364aa7685e",
     "apps/website/src/GithubMark.tsx": "7d0d38bb13335793c5ed91d5f27ffc8e5fc2811d7eff9ce6e59a6f6d33d5a37a",
