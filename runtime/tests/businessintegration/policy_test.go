@@ -117,7 +117,7 @@ func TestRealPolicyBusinessCollectionsGrantsAndVerification(t *testing.T) {
 		t.Fatalf("assistant task collection leaked other assistant: %+v", tasks)
 	}
 	root := t.TempDir()
-	memoryFiles := memory.NewFiles(memory.FileOptions{JournalRoot: filepath.Join(root, "journal"), Roots: func(ctx context.Context, o core.ID) ([]memory.Root, error) {
+	memoryFiles := memory.NewFiles(memory.FileOptions{JournalRoot: filepath.Join(root, "journal"), Roots: func(ctx context.Context, o core.ID, query memory.RootQuery) ([]memory.Root, error) {
 		return []memory.Root{{Scope: memory.Assistant, AssistantID: "assistant-a", Directory: filepath.Join(root, string(o), "a")}, {Scope: memory.Assistant, AssistantID: "assistant-b", Directory: filepath.Join(root, string(o), "b")}}, nil
 	}})
 	memories := memory.NewService(db, memory.Options{Files: memoryFiles, Authorizer: authorizer, CheckAssistant: checkAssistant})
