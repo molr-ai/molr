@@ -325,7 +325,32 @@ func collectFiles(ctx context.Context, store persistence.Store, objects files.Ob
 	if err != nil {
 		return err
 	}
+	const batchSize = 128
+	completed := make([]string, 0, batchSize)
+	flush := func() error {
+		if err := persistence.CheckContext(ctx); err != nil {
+			return err
+		}
+		if len(completed) == 0 {
+			return nil
+		}
+		if err := store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+			for _, key := range completed {
+				if err := tx.Delete(ctx, "files.gc", key); err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+		completed = completed[:0]
+		return nil
+	}
 	for _, row := range rows {
+		if err := persistence.CheckContext(ctx); err != nil {
+			return err
+		}
 		id, err := persistence.Decode[core.ID](row)
 		if err != nil {
 			return err
@@ -334,13 +359,19 @@ func collectFiles(ctx context.Context, store persistence.Store, objects files.Ob
 			return core.NewError(core.Internal, "invalid garbage collection record")
 		}
 		if err := objects.Remove(ctx, id); err != nil {
+			if canceled := persistence.CheckContext(ctx); canceled != nil {
+				return canceled
+			}
 			continue
 		}
-		if err := store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-			return tx.Delete(ctx, "files.gc", row.Key)
-		}); err != nil {
-			return err
+		// Only confirmed removals are acknowledged. An interrupted/failed batch
+		// stays queued; Remove is idempotent when its object is already absent.
+		completed = append(completed, row.Key)
+		if len(completed) == batchSize {
+			if err := flush(); err != nil {
+				return err
+			}
 		}
 	}
-	return nil
+	return flush()
 }
