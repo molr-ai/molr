@@ -126,32 +126,49 @@ func (a adapters) provider(ctx context.Context, p core.Principal, id core.ID) (o
 }
 
 func (a adapters) models(ctx context.Context, p core.Principal) ([]model.Model, error) {
-	catalogOwner, err := persistence.CatalogOwner(ctx, a.store, p.OwnerID)
-	if err != nil {
-		return nil, err
-	}
-	rows, err := persistence.Select[resource.Resource](ctx, a.store, "business.resources", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", catalogOwner), persistence.Eq("Kind", resource.Model), persistence.Eq("State", resource.Available)}})
-	if err != nil {
-		return nil, err
-	}
 	out := []model.Model{}
-	for _, r := range rows {
-		if r.OwnerID != catalogOwner || r.Kind != resource.Model || r.State != resource.Available {
-			continue
-		}
-		b, err := resource.NewRepository(a.store).Binding(ctx, p.OwnerID, r.ID)
+	err := a.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		store := tx.Store()
+		catalogOwner, err := persistence.CatalogOwner(ctx, store, p.OwnerID)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		for _, entry := range modelEntries(r, b) {
-			if _, err := groupReference(ctx, a.store, p.OwnerID, "model", entry.id); err != nil {
-				if core.CodeOf(err) == core.Forbidden {
-					continue
+		rows, err := persistence.Select[resource.Resource](ctx, store, "business.resources", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", catalogOwner), persistence.Eq("Kind", resource.Model), persistence.Eq("State", resource.Available)}})
+		if err != nil || len(rows) == 0 {
+			return err
+		}
+		// The group and catalog share this request's snapshot; later requests reload both.
+		group, err := groupPolicy(ctx, store, p.OwnerID)
+		if err != nil {
+			return err
+		}
+		allowed := make(map[core.ID]bool)
+		if !group.Administrator {
+			for _, ref := range group.Resources {
+				if ref.Kind == "model" {
+					allowed[ref.ID] = true
 				}
-				return nil, err
 			}
-			out = append(out, a.resolvedModel(r, b, entry).Model)
 		}
+		repo := resource.NewRepository(store)
+		for _, r := range rows {
+			if r.OwnerID != catalogOwner || r.Kind != resource.Model || r.State != resource.Available {
+				continue
+			}
+			binding, err := repo.Binding(ctx, p.OwnerID, r.ID)
+			if err != nil {
+				return err
+			}
+			for _, entry := range modelEntries(r, binding) {
+				if group.Administrator || allowed[entry.id] {
+					out = append(out, a.resolvedModel(r, binding, entry).Model)
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Name == out[j].Name {

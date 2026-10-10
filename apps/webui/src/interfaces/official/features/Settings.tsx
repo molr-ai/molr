@@ -98,10 +98,15 @@ function PreferencesForm({ settings, models }: { settings: SettingsDTO; models: 
   const changedElsewhere = settings.Version > base.Version && JSON.stringify(preferenceValues(settings)) !== JSON.stringify(preferenceValues(base));
   function reset(value: SettingsDTO) { setBase(value); setForm(value); }
   return <form className="editor settings-form" onSubmit={event => { event.preventDefault(); void action.run(async () => {
+    const submitted = preferenceValues(form);
     const latest = await api.get<SettingsDTO>('/api/settings');
     if (JSON.stringify(preferenceValues(latest)) !== JSON.stringify(preferenceValues(base))) throw new APIError('conflict');
-    const values = { ...latest, ...preferenceValues(form) };
-    reset(await api.mutate<SettingsDTO>('/api/settings', { Settings: values }, latest.Version));
+    const saved = await api.mutate<SettingsDTO>('/api/settings', { Settings: { ...latest, ...submitted } }, latest.Version);
+    setBase(saved);
+    setForm(current => ({ ...saved,
+      DefaultModelID: current.DefaultModelID === submitted.DefaultModelID ? saved.DefaultModelID : current.DefaultModelID,
+      AnswerPreferences: current.AnswerPreferences === submitted.AnswerPreferences ? saved.AnswerPreferences : current.AnswerPreferences,
+    }));
   }); }}>
     <ModelSelect size="sm" models={models} value={form.DefaultModelID} onValueChange={DefaultModelID => setForm(value => ({ ...value, DefaultModelID }))} allowNone />
 
