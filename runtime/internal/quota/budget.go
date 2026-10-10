@@ -59,12 +59,12 @@ func (r *Budgets) budget(ctx context.Context, owner, id core.ID) (budgetSpec, er
 	if zone == "" {
 		zone = "UTC"
 	}
-	location, err := time.LoadLocation(zone)
+	location, err := periodTimezones.load(zone)
 	if err != nil {
 		return budgetSpec{}, core.Invalid("timezone", "invalid budget timezone")
 	}
 	now := r.now().In(location)
-	start, end := Period(a.Budget.Period, zone, now)
+	start, end := periodInLocation(a.Budget.Period, location, now)
 	return budgetSpec{Limit: a.Budget.Limit, Start: start, End: end, At: now}, nil
 }
 func countsInPeriod(v ModelRecord, start, end time.Time) bool {

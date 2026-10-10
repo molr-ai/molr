@@ -40,6 +40,9 @@ type fileLock struct {
 }
 
 func (f *resourceFileTools) lock(ctx context.Context, key string) (func(), error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	f.mu.Lock()
 	if f.locks == nil {
 		f.locks = map[string]*fileLock{}
@@ -62,7 +65,12 @@ func (f *resourceFileTools) lock(ctx context.Context, key string) (func(), error
 	}
 	select {
 	case <-l.token:
-		return func() { l.token <- struct{}{}; release() }, nil
+		unlock := func() { l.token <- struct{}{}; release() }
+		if err := ctx.Err(); err != nil {
+			unlock()
+			return nil, err
+		}
+		return unlock, nil
 	case <-ctx.Done():
 		release()
 		return nil, ctx.Err()

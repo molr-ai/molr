@@ -2,7 +2,7 @@ package api
 
 import (
 	"net/http"
-	"strings"
+	"unicode"
 
 	"molr.ai/runtime/internal/business/assistant"
 	"molr.ai/runtime/internal/core"
@@ -18,6 +18,31 @@ type assistantActivity struct {
 type messagePreview struct {
 	Kind conversation.ContentKind
 	Text string
+}
+
+func previewText(text string) string {
+	const limit = 80
+	var chars [limit + 1]rune
+	n, space := 0, false
+	for _, r := range text {
+		if unicode.IsSpace(r) {
+			space = n > 0
+			continue
+		}
+		// Defer whitespace until another word proves it is not trailing space.
+		if space && n < limit {
+			chars[n] = ' '
+			n++
+		}
+		if n == limit {
+			chars[n] = '…'
+			return string(chars[:n+1])
+		}
+		chars[n] = r
+		n++
+		space = false
+	}
+	return string(chars[:n])
 }
 
 // One bounded page for sidebar rendering. Existing services retain ownership
@@ -62,11 +87,7 @@ func (s *HTTPServer) assistantActivity(r *http.Request) (any, error) {
 					text = content.Card.Summary
 				}
 			}
-			chars := []rune(strings.Join(strings.Fields(text), " "))
-			if len(chars) > 80 {
-				chars = append(chars[:80], '…')
-			}
-			row.Preview = &messagePreview{Kind: content.Kind, Text: string(chars)}
+			row.Preview = &messagePreview{Kind: content.Kind, Text: previewText(text)}
 		}
 		result.Items = append(result.Items, row)
 	}
