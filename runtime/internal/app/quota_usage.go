@@ -22,6 +22,25 @@ type quotaUsage struct {
 	Constraints *policy.Constraints           `json:",omitempty"`
 }
 
+// Keep the existing first-by-key choice while loading only its current grant.
+func quotaGrantQuery(owner, assistant, resource core.ID, now time.Time) persistence.Query {
+	query := persistence.Query{Where: []persistence.Filter{
+		persistence.Eq("OwnerID", owner), persistence.Eq("AssistantID", assistant),
+		persistence.Eq("ResourceID", resource), persistence.Eq("RevokedAt", nil),
+	}, Limit: 1}
+	// FullAccess=false is normally omitted in stored Scope JSON. Accept explicit
+	// false too; either representation must satisfy the expiry condition.
+	for _, fullAccess := range []any{nil, false} {
+		for _, expiry := range []persistence.Filter{
+			persistence.Eq("ExpiresAtKey", ""),
+			{Field: "ExpiresAtKey", Op: ">", Value: persistence.TimeKey(now)},
+		} {
+			query.Any = append(query.Any, []persistence.Filter{persistence.Eq("Scope.FullAccess", fullAccess), expiry})
+		}
+	}
+	return query
+}
+
 func (s *sandboxRouter) quotaUsage(ctx context.Context, p core.Principal, assistantID, resourceID core.ID) (quotaUsage, error) {
 	var out quotaUsage
 	if err := (access{s.adapters.store}).assistant(ctx, p, assistantID); err != nil {
@@ -31,20 +50,21 @@ func (s *sandboxRouter) quotaUsage(ctx context.Context, p core.Principal, assist
 	if err != nil {
 		return out, err
 	}
-	rows, err := persistence.Select[policy.Grant](ctx, s.adapters.store, "security.grants", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("AssistantID", assistantID), persistence.Eq("ResourceID", resourceID)}})
+	now := time.Now()
+	rows, err := persistence.Select[policy.Grant](ctx, s.adapters.store, "security.grants", quotaGrantQuery(p.OwnerID, assistantID, resourceID, now))
 	if err != nil {
 		return out, err
 	}
 	var grant *policy.Grant
 	for i := range rows {
 		g := &rows[i]
-		if g.OwnerID == p.OwnerID && g.AssistantID == assistantID && g.ResourceID == resourceID && !g.Scope.FullAccess && g.RevokedAt == nil && (g.ExpiresAt == nil || g.ExpiresAt.After(time.Now())) {
+		if g.OwnerID == p.OwnerID && g.AssistantID == assistantID && g.ResourceID == resourceID && !g.Scope.FullAccess && g.RevokedAt == nil && (g.ExpiresAt == nil || g.ExpiresAt.After(now)) {
 			grant = g
 			break
 		}
 	}
 	if grant != nil {
-		out.Constraints = grant.EffectiveConstraints(time.Now())
+		out.Constraints = grant.EffectiveConstraints(now)
 	}
 	q := sm.Request{Identity: sm.Identity{OwnerID: p.OwnerID, AssistantID: assistantID, ExecutionID: randomOperation(), OperationID: randomOperation()}, Method: "quota_usage", Arguments: json.RawMessage(`{}`), Deadline: time.Now().Add(time.Minute)}
 	q.Arguments, _ = json.Marshal(struct{ Workspace bool }{r.Provider == "managed-workspace"})
