@@ -29,7 +29,7 @@ export class QueryStore {
       if (!entry.listeners.size) this.entries.delete(key);
     }
   }
-  snapshot<T>(key: string | null): Snapshot<T> { return (key ? this.entry(key).snapshot : empty) as Snapshot<T>; }
+  snapshot<T>(key: string | null): Snapshot<T> { return (key ? this.entries.get(key)?.snapshot ?? empty : empty) as Snapshot<T>; }
   subscribe(key: string, listener: () => void, interval: QueryInterval = 0) {
     const entry = this.entry(key);
     entry.listeners.set(listener, interval);

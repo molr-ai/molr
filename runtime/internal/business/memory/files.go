@@ -27,8 +27,15 @@ type Root struct {
 	AssistantID core.ID
 	Directory   string
 }
+
+// RootQuery narrows directory discovery; an empty query enumerates every root.
+// Paths stay in Ref and never participate in resolving trusted root directories.
+type RootQuery struct {
+	Scope       Scope
+	AssistantID core.ID
+}
 type FileOptions struct {
-	Roots func(context.Context, core.ID) ([]Root, error)
+	Roots func(context.Context, core.ID, RootQuery) ([]Root, error)
 	// JournalRoot is private Runtime state, outside agent-writable workspaces.
 	JournalRoot  string
 	BeforeCommit func() error
@@ -46,14 +53,14 @@ func memoryName(p string) (string, error) {
 	}
 	return p, nil
 }
-func (f *Files) roots(ctx context.Context, owner core.ID) ([]Root, error) {
+func (f *Files) roots(ctx context.Context, owner core.ID, q RootQuery) ([]Root, error) {
 	if owner.Validate() != nil || f == nil || f.options.Roots == nil {
 		return nil, core.NewError(core.Unavailable, "memory roots unavailable")
 	}
-	return f.options.Roots(ctx, owner)
+	return f.options.Roots(ctx, owner, q)
 }
 func (f *Files) root(ctx context.Context, m Memory) (Root, error) {
-	roots, err := f.roots(ctx, m.OwnerID)
+	roots, err := f.roots(ctx, m.OwnerID, RootQuery{Scope: m.Scope, AssistantID: m.AssistantID})
 	if err != nil {
 		return Root{}, err
 	}
@@ -227,7 +234,7 @@ func walk(ctx context.Context, root, name string, depth int, budget *int, visit 
 	return nil
 }
 func (f *Files) all(ctx context.Context, owner core.ID, q Query) ([]Memory, error) {
-	roots, err := f.roots(ctx, owner)
+	roots, err := f.roots(ctx, owner, RootQuery{Scope: q.Scope, AssistantID: q.AssistantID})
 	if err != nil {
 		return nil, err
 	}
@@ -406,7 +413,7 @@ func (f *Files) forget(ctx context.Context, r Root, m Memory, check func() error
 	return err
 }
 func (f *Files) Suppressed(ctx context.Context, m Memory) (bool, error) {
-	roots, err := f.roots(ctx, m.OwnerID)
+	roots, err := f.roots(ctx, m.OwnerID, RootQuery{})
 	if err != nil {
 		return false, err
 	}
