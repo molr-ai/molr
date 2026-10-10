@@ -15,12 +15,17 @@ export function ErrorNotice({ error, retry }: { error: unknown; retry?: () => vo
   const notice = useErrorNotice(error && !suppressed ? (code === 'rate_limited' || code === 'unavailable' ? code : `${scope}:${code}`) : '');
   const retryAt = error instanceof APIError ? error.retryAt : 0;
   const [now, setNow] = useState(Date.now);
+  const hasRetry = !!retry;
   useEffect(() => {
-    setNow(Date.now());
-    if (!notice.visible || retryAt <= Date.now()) return;
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [retryAt, notice.visible]);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const tick = () => {
+      const current = Date.now();
+      setNow(current);
+      if (notice.visible && hasRetry && retryAt > current) timer = setTimeout(tick, Math.min(1000, retryAt - current));
+    };
+    tick();
+    return () => clearTimeout(timer);
+  }, [retryAt, notice.visible, hasRetry]);
   const remaining = Math.max(0, Math.ceil((retryAt - now) / 1000));
   return <div ref={notice.element} hidden={!notice.visible} className="error-notice" data-code={code}>
     <CircleAlert size={17} className="error-notice__icon" aria-hidden="true" />

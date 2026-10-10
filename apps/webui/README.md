@@ -76,6 +76,8 @@ Shell 任务按钮与面板共享查询：运行中分别请求 5 秒和 2 秒�
 
 首次读取超过 300 ms 才显示骨架，快速请求直接呈现内容。当前登录会话在内存中保留最多 100 份查询或聊天快照：重访页面先显示已有内容、后台刷新，普通刷新不会清空现有界面。退出时清空缓存，收到 401/403/404 时移除对应缓存；不写入 localStorage，也不跨账号复用。
 
+局部错误提示的重试倒计时仅在提示可见且具有重试按钮时更新，按 Retry-After 截止时间结束；到期、关闭、移除按钮或卸载后停止计时。`tests/error-retry-countdown.spec.ts` 通过实际组件和浏览器虚拟时钟覆盖精确到期、截止时间替换与清理；开发服务的 `/tests/fixtures/error-retry.html` 可交互查看模拟限流，不发送后端请求。
+
 导航的 `ConnectionLogo` 表达真实 SSE 状态，替代原来的连接小点。浏览器离线时显示淡出的静态图案，恢复联网后自动重试；连接过程中播放 loading。终止性错误或 20 秒未建立连接会进入失败状态，可点击 Logo 重试；移动端未显示 Logo 的页面仍可使用状态提示中的重试按钮。重连失败横幅的背景和文字复用 Alert danger 的颜色变量；连接横幅出现时，页面不重复显示“服务暂时不可用”错误，登录页与其他业务错误仍保留各自反馈。收到 SSE `open` 后播放一次恢复动画，再回到正常 Logo；首次成功连接直接显示正常状态。重试保留最近收到的事件游标，恢复时补拉聊天增量并刷新其他查询；退出登录时关闭连接、取消请求与计时器。
 
 浏览器安全沿用 Runtime 的鉴权、Origin 校验和与会话绑定的 CSRF proof。可读 CSRF Cookie 不是会话凭证，服务端仍校验该会话存储的摘要，并拒绝缺少/伪造的 proof；相关防御原则见 [OWASP CSRF 指南](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html)。
