@@ -7,10 +7,14 @@ func Period(period, timezone string, now time.Time) (time.Time, time.Time) {
 	if period == "lifetime" || period == "" {
 		return time.Unix(0, 0).UTC(), time.Time{}
 	}
-	zone, err := time.LoadLocation(timezone)
+	zone, err := periodTimezones.load(timezone)
 	if err != nil {
 		zone = time.UTC
 	}
+	return periodInLocation(period, zone, now)
+}
+
+func periodInLocation(period string, zone *time.Location, now time.Time) (time.Time, time.Time) {
 	local := now.In(zone)
 	start := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, zone)
 	switch period {
