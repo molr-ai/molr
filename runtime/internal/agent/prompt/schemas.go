@@ -41,7 +41,7 @@ var schemas = map[string]*shape{
 	"conversation_attachment": object("Path Version", nested("File", file)),
 	"file_transfer":           object("SourceVersion Version SHA256 Bytes", nested("Source", object("sandbox_id resource_id path")), nested("Destination", object("sandbox_id resource_id path"))),
 	"file_read":               object("SandboxID ResourceID Path Version StartLine EndLine TotalLines NextOffset ByteOffset NextByteOffset Truncated path version media_type size_bytes width height duration_seconds content_loaded reason start_seconds end_seconds audio_included truncated", required("Text", scalar), nested("File", file)),
-	"file_search":             object("SandboxID ResourceID Path Complete Truncated StopReason EntriesScanned FilesScanned BytesScanned", nested("Skipped", &shape{dictionary: scalar}), required("Matches", array(object("Path Line Text Version", nested("Before", array(object("Line Text"))), nested("After", array(object("Line Text"))))))),
+	"file_search":             object("SandboxID ResourceID Path TargetKind Complete Truncated StopReason EntriesScanned FilesScanned BytesScanned", nested("Skipped", &shape{dictionary: scalar}), required("Matches", array(object("Path Line Text Version", nested("Before", array(object("Line Text"))), nested("After", array(object("Line Text"))))))),
 	"file_list":               object("SandboxID ResourceID Path Version NextOffset NextCursor Truncated", required("Entries", array(object("Name Path Type Size Version")))),
 	"file_write":              object("SandboxID ResourceID Path Version Bytes"),
 	"file_edit":               object("SandboxID ResourceID Path Version Bytes Replacements"),
@@ -62,5 +62,5 @@ func init() {
 	request.fields = append(request.fields, nested("GrantedAll", array(grant)))
 	shell.fields = append(shell.fields, nested("Result", object("Stdout Stderr Truncated OutputComplete StdoutPath StderrPath StdoutBytes StderrBytes", nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")))))
 	schemas["shell_execute"] = &shape{fields: append(append([]field{}, shell.fields...), nested("Task", shell))}
-	schemas["archive"] = object("full_result_path full_result_sandbox_id bytes", nested("details", object("SandboxID ok operation_id Path Version NextOffset NextByteOffset Truncated Total TotalCount Count HasMore NextCursor OutputComplete StdoutPath StderrPath StdoutBytes StderrBytes", nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")), nested("error", failure))))
+	schemas["archive"] = object("full_result_path full_result_sandbox_id bytes", nested("details", object("SandboxID ok operation_id Path TargetKind Version NextOffset NextByteOffset Truncated Total TotalCount Count HasMore NextCursor OutputComplete StdoutPath StderrPath StdoutBytes StderrBytes", nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")), nested("error", failure))))
 }

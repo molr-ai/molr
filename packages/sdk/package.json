@@ -12,7 +12,8 @@
     "./plugin-host": "./src/plugin-host.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.mjs"
   },
   "devDependencies": {
     "typescript": "~5.9.3"

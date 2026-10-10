@@ -14,7 +14,7 @@ function useConnections(plugin: PluginInstallation) {
   const reload = useCallback(() => setRevision(v => v + 1), []);
   useEffect(() => {
     let disposed = false; setError(null); setData(null);
-    void api.post<PluginConnection[]>('/api/plugins/connections/list', { PluginID: plugin.ID, Digest: plugin.Digest }).then(value => { if (!disposed) setData(value); }).catch(error => { if (!disposed) setError(error); });
+    void api.read<PluginConnection[]>('/api/plugins/connections/list', { PluginID: plugin.ID, Digest: plugin.Digest }).then(value => { if (!disposed) setData(value); }).catch(error => { if (!disposed) setError(error); });
     return () => { disposed = true; };
   }, [plugin.ID, plugin.Digest, plugin.Version, revision]);
   return { data, error, reload };
@@ -32,7 +32,7 @@ function SettingsForm({ plugin, schema, administrator }: { plugin: PluginInstall
   const scope = administrator ? 'admin' : '';
   useEffect(() => {
     let disposed = false; setError(null);
-    void api.post<PluginUserSettings>('/api/plugins/settings/read', { ID: plugin.ID, Digest: plugin.Digest, Scope: scope }).then(value => { if (!disposed) { setBase(value); setValues(value.Values); } }).catch(e => { if (!disposed) setError(e); });
+    void api.read<PluginUserSettings>('/api/plugins/settings/read', { ID: plugin.ID, Digest: plugin.Digest, Scope: scope }).then(value => { if (!disposed) { setBase(value); setValues(value.Values); } }).catch(e => { if (!disposed) setError(e); });
     return () => { disposed = true; };
   }, [plugin.ID, plugin.Digest, revision, scope]);
   const change = (key: string, value: string | number | boolean) => { setValues(old => ({ ...old, [key]: value })); setSaved(false); };
@@ -112,7 +112,7 @@ type CallRecord = { ID: string; OwnerID: string; State: string; ProviderID: stri
 function ConnectionHistory({ plugin, connection, onClose }: { plugin: PluginInstallation; connection: PluginConnection; onClose: () => void }) {
  const { locale } = useCopy(), zh = locale === 'zh', action = useAction();
  const [rows, setRows] = useState<CallRecord[] | null>(null), [error, setError] = useState<unknown>(null), [ack, setAck] = useState<CallRecord | null>(null), [revision, setRevision] = useState(0);
- useEffect(() => { let disposed = false; void api.post<CallRecord[]>('/api/plugins/connections/history', { PluginID: plugin.ID, Digest: plugin.Digest, ID: connection.ID }).then(v => { if (!disposed) setRows(v); }).catch(e => { if (!disposed) setError(e); }); return () => { disposed = true; }; }, [connection.ID, plugin.ID, plugin.Digest, revision]);
+ useEffect(() => { let disposed = false; void api.read<CallRecord[]>('/api/plugins/connections/history', { PluginID: plugin.ID, Digest: plugin.Digest, ID: connection.ID }).then(v => { if (!disposed) setRows(v); }).catch(e => { if (!disposed) setError(e); }); return () => { disposed = true; }; }, [connection.ID, plugin.ID, plugin.Digest, revision]);
  const states: Record<string, string> = zh ? { succeeded: '已完成', failed: '失败', prepared: '等待发送', running: '执行中', unknown: '结果未知', acknowledged: '已确认未知结果' } : { succeeded: 'Succeeded', failed: 'Failed', prepared: 'Prepared', running: 'Running', unknown: 'Unknown outcome', acknowledged: 'Acknowledged unknown outcome' };
  return <><Dialog open title={`${connection.Name} · ${zh ? '调用记录' : 'Call history'}`} onOpenChange={open => { if (!open) onClose(); }} footer={<Button variant="secondary" onClick={onClose}>{zh ? '关闭' : 'Close'}</Button>}>
   <p className="muted">{zh ? '最近 100 次调用。费用未计价；供应商用量按原单位展示。' : 'Latest 100 calls. Costs are unpriced; usage retains provider units.'}</p><ErrorNotice error={error || action.error} />

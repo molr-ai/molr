@@ -74,10 +74,19 @@ export function InteractiveLogo({ src, source, sequence, markOnly, variant, clas
 
   useEffect(() => {
     if (!ready || failed || reducedMotion) return;
-    // Read the SVG clock rather than a separate wall clock, including after
-    // seeks or background-tab throttling. Only phase changes trigger renders.
-    const timer = setInterval(refreshPhase, 150);
-    return () => clearInterval(timer);
+    // Read the actual SVG clock on return, including any background advancement.
+    // Hidden pages do not need to poll for changes to the interaction label.
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const sync = () => {
+      clearInterval(timer);
+      timer = undefined;
+      if (document.visibilityState !== 'visible') return;
+      refreshPhase();
+      timer = setInterval(refreshPhase, 150);
+    };
+    document.addEventListener('visibilitychange', sync);
+    sync();
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', sync); };
   }, [ready, failed, reducedMotion, timeline]);
 
   useEffect(() => {

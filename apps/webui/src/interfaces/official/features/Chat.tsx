@@ -18,7 +18,7 @@ export type Draft = { text: string; files: FileInfo[] };
 export type AssistantAction = 'channel' | 'info' | 'clone' | 'dismiss' | 'permissions' | 'tasks' | 'shell_tasks' | 'pin';
 export function Chat({ assistant, conversation, timeZone, draft, updateDraft, onAction, onBack, onCard, onDebug, onAutomatic, targetMessageID = '', onClearTarget }: {
   targetMessageID?: string; onClearTarget: () => void;
-  assistant: Assistant; conversation?: Conversation; timeZone?: string; draft: Draft; updateDraft: (draft: Draft) => void;
+  assistant: Assistant; conversation?: Conversation; timeZone?: string; draft: Draft; updateDraft: (draft: Draft | ((previous: Draft) => Draft)) => void;
   onAutomatic: () => void; onDebug?: (turnID?: string) => void; onAction: (action: AssistantAction) => void; onBack?: () => void; onCard: (kind: string, id: string) => void;
 }) {
   const { t, locale } = useCopy(), { invalidate, invalidateTopics } = useData(); const action = useAction();
@@ -33,6 +33,12 @@ export function Chat({ assistant, conversation, timeZone, draft, updateDraft, on
   const [uploading, setUploading] = useState(false), [notice, setNotice] = useState('');
   const log = useRef<HTMLDivElement>(null), bottom = useRef(true), savedScroll = useRef<{ top: number; height: number } | null>(null), readThrough = useRef(conversation?.LastReadSequence ?? 0);
   const targetElement = useRef<HTMLDivElement>(null), located = useRef('');
+  const navigation = useRef(0);
+  useLayoutEffect(() => {
+    const changed = () => { navigation.current++; };
+    window.addEventListener('hashchange', changed);
+    return () => { changed(); window.removeEventListener('hashchange', changed); };
+  }, []);
   const draftAttachments = useFilePreviews(draft.files);
   const archived = assistant.State === 'dismissed' || conversation?.Archived;
   const lastSequence = history.messages.at(-1)?.Sequence ?? 0;
@@ -59,19 +65,23 @@ export function Chat({ assistant, conversation, timeZone, draft, updateDraft, on
   useEffect(() => { markRead(); const visible = () => markRead(); document.addEventListener('visibilitychange', visible); window.addEventListener('focus', visible); return () => { document.removeEventListener('visibilitychange', visible); window.removeEventListener('focus', visible); }; }, [lastSequence, conversation?.LastReadSequence, targetMessageID]);
   async function send() {
     if (chatReadOnly || archived || uploading || action.busy || (!draft.text.trim() && !draft.files.length)) return;
-    const sent = draft;
+    const sent = draft, startedNavigation = navigation.current, startedHash = location.hash;
     if (/^\/compress(?:\s|$)/.test(sent.text.trim())) {
       if (sent.text.trim() !== '/compress') { setNotice(t.chat.compressArguments); return; }
       await action.run(async () => {
         await api.mutate(`/api/assistants/${assistant.ID}/compress`, {});
-        updateDraft({ ...sent, text: '' }); setNotice(''); status.reload();
+        updateDraft(current => current === sent ? { ...sent, text: '' } : current); setNotice(''); status.reload();
       }, undefined, false);
       return;
     }
     await action.run(async () => {
       await api.mutate('/api/conversations/messages', { ConversationID: assistant.ConversationID, Content: { Kind: 'text', Text: sent.text, AttachmentIDs: sent.files.map(file => file.ID) } });
       invalidateTopics([`messages:${assistant.ConversationID}`]);
-      updateDraft({ text: '', files: [] }); bottom.current = true; onClearTarget();
+      updateDraft(current => current === sent ? { text: '', files: [] } : current);
+      // A mobile exit animation may keep this component mounted after navigation.
+      if (navigation.current === startedNavigation && location.hash === startedHash) {
+        bottom.current = true; onClearTarget();
+      }
     }, undefined, false);
   }
   async function attach(files: File[]) {
@@ -164,21 +174,33 @@ function MessageAttachments({ ids }: { ids: string[] }) {
 // File downloads are deliberately served as octet-stream. Use typed, temporary
 // blob URLs for image rendering without changing the safe download endpoint.
 function useFilePreviews(files: FileInfo[]) {
-  const [previews, setPreviews] = useState<Record<string, string>>({});
+  type Preview = { type: string; controller: AbortController; url?: string; failed?: boolean };
+  const entries = useRef(new Map<string, Preview>());
+  const [previews, setPreviews] = useState<Record<string, { type: string; url?: string }>>({});
   const key = JSON.stringify(files.filter(file => file.MediaType.startsWith('image/')).map(file => [file.ID, file.MediaType]));
   useEffect(() => {
-    const controller = new AbortController(), urls: string[] = [];
-    setPreviews({});
-    for (const [id, type] of JSON.parse(key) as [string, string][]) {
+    const current = entries.current;
+    return () => { for (const entry of current.values()) { entry.controller.abort(); if (entry.url) URL.revokeObjectURL(entry.url); } current.clear(); };
+  }, []);
+  useEffect(() => {
+    const current = entries.current, wanted = new Map(JSON.parse(key) as [string, string][]);
+    const publish = () => setPreviews(Object.fromEntries([...current].map(([id, entry]) => [id, { type: entry.type, url: entry.url ?? (entry.failed ? 'data:image/png;base64,' : undefined) }])));
+    for (const [id, entry] of current) {
+      if (wanted.get(id) === entry.type && !entry.failed) continue;
+      entry.controller.abort(); if (entry.url) URL.revokeObjectURL(entry.url); current.delete(id);
+    }
+    for (const [id, type] of wanted) {
+      if (current.has(id)) continue;
+      const controller = new AbortController(), entry: Preview = { type, controller };
+      current.set(id, entry);
       void api.download(`/api/files/${encodeURIComponent(id)}/content`, controller.signal).then(blob => {
         if (controller.signal.aborted) return;
-        const url = URL.createObjectURL(new Blob([blob], { type })); urls.push(url);
-        setPreviews(previous => ({ ...previous, [id]: url }));
+        entry.url = URL.createObjectURL(new Blob([blob], { type })); publish();
       }).catch(() => {
-        if (!controller.signal.aborted) setPreviews(previous => ({ ...previous, [id]: 'data:image/png;base64,' }));
+        if (!controller.signal.aborted) { entry.failed = true; publish(); }
       });
     }
-    return () => { controller.abort(); urls.forEach(url => URL.revokeObjectURL(url)); };
+    publish();
   }, [key]);
-  return files.map(file => chatAttachment(file, previews[file.ID]));
+  return files.map(file => chatAttachment(file, previews[file.ID]?.type === file.MediaType ? previews[file.ID].url : undefined));
 }
