@@ -14,7 +14,7 @@ import (
 func diskFixture(t *testing.T) (*Files, string, *service) {
 	t.Helper()
 	root := t.TempDir()
-	files := NewFiles(FileOptions{JournalRoot: filepath.Join(root, "journal"), Roots: func(ctx context.Context, owner core.ID) ([]Root, error) {
+	files := NewFiles(FileOptions{JournalRoot: filepath.Join(root, "journal"), Roots: func(ctx context.Context, owner core.ID, query RootQuery) ([]Root, error) {
 		return []Root{{Scope: Global, Directory: filepath.Join(root, string(owner), "global")}, {Scope: Assistant, AssistantID: "assistant", Directory: filepath.Join(root, string(owner), "work")}, {Scope: Assistant, AssistantID: "another", Directory: filepath.Join(root, string(owner), "another")}}, nil
 	}})
 	s := NewService(fixtureDB(t), Options{Files: files, Authorizer: fixtureAuthorizer{}, CheckAssistant: func(context.Context, core.Principal, core.ID) error { return nil }}).(*service)
