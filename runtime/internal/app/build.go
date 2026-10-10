@@ -466,6 +466,7 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		return nil
 	}}
 	pluginService = plugins.New(store, plugins.Options{
+		CheckVerification: identity.CheckVerification,
 		CheckPlugin: func(ctx context.Context, p core.Principal, id string) error {
 			if err := identity.ValidatePrincipal(ctx, p); err != nil {
 				return err
@@ -513,27 +514,6 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		UserBinding: func(ctx context.Context, p core.Principal, id core.ID, v plugins.Installation) (plugins.Binding, bool, error) {
 			return groupPluginBinding(ctx, store, p, id, v)
 		},
-		ComputeAvailable: func(ctx context.Context, p core.Principal, id core.ID) (bool, error) {
-			if id == "" {
-				return false, nil
-			}
-			err := permissions.Require(ctx, p, policy.CheckRequest{Target: core.Object{Kind: "resource", ID: id}, ResourceID: id, Action: policy.Execute, Destination: "/"})
-			if err != nil {
-				if core.CodeOf(err) == core.Forbidden || core.CodeOf(err) == core.NotFound {
-					return false, nil
-				}
-				return false, err
-			}
-			r, err := resource.NewRepository(store).Get(ctx, p.OwnerID, id)
-			if err != nil {
-				return false, err
-			}
-			if r.Kind != resource.Compute || r.State != resource.Available || sandboxOf(r) != "local" {
-				return false, nil
-			}
-			info, err := sandboxRouter.info(ctx, p, sandboxOf(r))
-			return err == nil && info.Enabled && info.Capabilities.Shell, nil
-		},
 		Authorize: func(ctx context.Context, p core.Principal, write bool) error {
 			if write {
 				if err := identity.RequireAdministrator(ctx, p); err != nil {
@@ -546,24 +526,14 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 			}
 			return permissions.Require(ctx, p, policy.CheckRequest{Target: core.Object{Kind: "settings", ID: p.OwnerID}, Action: action})
 		},
-		CheckAssistant: access.assistant,
-		CheckCompute: func(ctx context.Context, p core.Principal, id core.ID) error {
-			r, err := resource.NewRepository(store).Get(ctx, p.OwnerID, id)
-			if err != nil {
-				return err
-			}
-			if r.Kind != resource.Compute || sandboxOf(r) != "local" {
-				return core.Invalid("compute", "plugin shell requires a local compute resource")
-			}
-			return nil
-		},
-		Shell: func(ctx context.Context, e core.Execution, script string, id core.ID) (json.RawMessage, error) {
-			return shellExecute(ctx, e, tools.ShellRequest{ComputeID: id, Script: script, NetworkMode: "none", TimeoutSeconds: 30})
-		},
+		CheckAssistant:     access.assistant,
+		WorkspaceRoot:      fileTools.pluginWorkspaceRoot,
+		CheckWorkspaceFile: fileTools.checkPluginFileSize,
 		ReadPlans: func(ctx context.Context, p core.Principal) (any, error) {
 			return plans.List(ctx, p, time.Time{}, time.Time{})
 		},
 	})
+	fileTools.plugins = pluginService
 	profile := &profileTools{workspace: fileTools}
 	executor := tools.NewExecutor(store, tools.Options{ProfileUpdate: profile.update, CheckGroupQuota: func(ctx context.Context, c tools.Call) error { return checkGroupToolQuota(ctx, store, c) }, ExtensionDefinitions: pluginService.Definitions, ExtensionValidate: pluginService.ValidateCall, ExtensionPrepare: pluginService.PrepareCall, ExtensionExecute: pluginService.Execute, PermissionList: sandboxRouter.list, PermissionRequest: permissionRequests.create, Cancel: func(ctx context.Context, e core.Execution, id core.ID) error {
 		if pluginService.CancelOperation(e.Principal.OwnerID, id) {

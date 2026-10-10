@@ -83,7 +83,6 @@ func (s *Service) SavePreference(ctx context.Context, p core.Principal, q Prefer
 		return s.audit(ctx, p, "preference.update", q.ID)
 	})
 	if err == nil && !q.Enabled {
-		s.cancelLocked(p.OwnerID, q.ID)
 		for _, r := range s.httpRunning {
 			if r.OwnerID == p.OwnerID && r.PluginID == q.ID {
 				r.Cancel()

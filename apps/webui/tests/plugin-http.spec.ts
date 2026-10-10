@@ -23,7 +23,7 @@ test('HTTP connections, personal provider switching, isolated settings and real 
   const resource = await mutate('/api/resources', { Name: modelName, Kind: 'model', Provider: 'openai-compatible', Binding: { Endpoint: modelOrigin, AllowedOrigins: [modelOrigin], Models: [{ Name: modelName, ContextLimit: 65536, SupportsTools: true, Pricing: { Currency: 'USD', InputMicrosPerMillion: 0, CachedInputMicrosPerMillion: 0, OutputMicrosPerMillion: 0 } }] } });
   const models = await (await page.request.get('/api/models')).json(), model = models.find((m: { ResourceID: string }) => m.ResourceID === resource.ID);
   const assistant = await mutate('/api/assistants', { Name: modelName, ModelID: model.ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } });
-  await post(page, '/api/plugins/configure', { ID: id, ExpectedVersion: installed.Version, Enabled: true, Grants: ['http.request', ...customPage.capabilities], Bindings: [{ AssistantID: assistant.ID, ComputeID: '', Tools: ['lookup'], Skills: [] }] });
+  await post(page, '/api/plugins/configure', { ID: id, ExpectedVersion: installed.Version, Enabled: true, Grants: ['http.request', ...customPage.capabilities], Bindings: [{ AssistantID: assistant.ID, Tools: ['lookup'] }] });
   await page.goto('/#/extensions'); await page.reload();
   const row = page.locator('.plugin-row').filter({ has: page.getByRole('heading', { name: pluginName, exact: true }) });
   await row.getByRole('button', { name: `More · ${pluginName}`, exact: true }).click(); await page.getByRole('menuitem', { name: 'Admin settings', exact: true }).click();

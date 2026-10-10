@@ -34,6 +34,7 @@ async function command(binary, args, cwd, input) {
   await new Promise((resolve, reject) => { child.on('error', reject); child.on('exit', code => code === 0 ? resolve() : reject(new Error(`${binary} exited ${code}`))); });
 }
 const model = createServer(async (request, response) => {
+  if (request.method === 'GET' && request.url === '/plugin-cli.sh') { response.end('#!/bin/sh\nprintf \"fixture-cli-1\\n\"\n'); return; }
   if (request.method === 'GET' && request.url === '/quota-fixture') { response.end('quota-fixture\n'.repeat(1024)); return; }
   if (request.method === 'GET' && ['/v1/models', '/private/v1/models'].includes(request.url)) {
     if (request.url.startsWith('/private/') && !['Bearer test-provider-secret', 'Bearer rotated-provider-secret'].includes(request.headers.authorization)) { response.writeHead(401).end(); return; }

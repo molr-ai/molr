@@ -65,6 +65,7 @@ export function createClient(transport?: RuntimeTransport) {
     return data as T;
   }
   const api = {
+    importPlugin: (file: File) => request<import('./plugins').PluginInstallation>('/api/plugins/install', { method: 'POST', body: file, headers: { 'Content-Type': 'application/zip' } }),
     download: (path: string, signal?: AbortSignal) => request<Blob>(path, { signal }, undefined, true),
     get: <T,>(path: string, signal?: AbortSignal) => request<T>(path, { signal }),
     post: <T,>(path: string, body: unknown = {}, csrf?: string) => request<T>(path, { method: 'POST', body: JSON.stringify(body) }, csrf),

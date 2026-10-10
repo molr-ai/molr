@@ -35,7 +35,7 @@
 - [Runtime 架构](runtime/ARCHITECTURE.md)：运行结构、模块职责、事件与恢复。
 - [技术底座](runtime/TECH_STACK.md)、[Go 模块接口](runtime/INTERFACES.md)、[HTTP API 与公共协议边界](runtime/HTTP_API.md)。
 - [微信渠道](runtime/WEIXIN.md)：扫码绑定、单入口授权、入站去重与独立投递队列。
-- [插件机制](runtime/PLUGINS.md)：扩展包、插件市场入口、用户组授权、可选个人／管理员配置、主题与页面、服务连接、Shell／HTTP 工具、Skill、隔离和生命周期。
+- [插件机制](runtime/PLUGINS.md)：扩展包、插件市场入口、用户组授权、可选个人／管理员配置、主题与页面、服务连接、助理工作区 CLI、HTTP 工具、Skill 与生命周期。
 - [多用户与成员配额](runtime/MULTI_USER.md)：账号迁移、资源目录、私有数据与组级额度。
 - [安全边界](runtime/SECURITY.md)、[沙盒实现](runtime/SANDBOX.md)、[文件与资源工具](runtime/FILE_TOOLS.md)、[资源授权额度](runtime/RESOURCE_QUOTAS.md)。
 - [做梦与分层记忆](runtime/DREAM_MEMORY.md)：经历、主题与核心认知的自动沉淀，文件提交恢复和用户纠错。

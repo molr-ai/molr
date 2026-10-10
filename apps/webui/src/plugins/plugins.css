@@ -54,3 +54,4 @@
   .plugin-market-filters > :first-child { flex-basis: 100%; }
   .plugin-card { padding: 16px; }
 }
+.plugin-workspace-path { display: block; overflow-wrap: anywhere; color: var(--color-text); }

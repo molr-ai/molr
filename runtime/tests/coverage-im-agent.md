@@ -246,8 +246,8 @@
 | --- | --- | --- |
 | `internal/plugins` | `New`, `Key`, `Package.Digest`, `Requested`, `Service.Install`, `Service.List`, `Service.Configure`, `Service.Remove`, `Service.UI` | `TestInstallIsolationImmutableUpgradeAndRemoval` |
 | `internal/plugins` | `Package.Validate`, `Schema.Validate`, `Schema.Check` | `TestManifestAndBridgeFailClosed` |
-| `internal/plugins` | `ToolName`, `SkillName`, `Service.Definitions`, `Service.Context`, `Service.Execute`, `Service.ValidateCall` | `TestToolBindingsSkillActivationAndRevocation` |
-| `internal/plugins` | `Service.Inspect` | `TestComputeRevocationRemovesToolsAndDependentSkills` |
+| `internal/plugins` | `ToolName`, `Service.Execute`, `Service.ValidateCall` | `TestHTTPThroughToolExecutorReplaysOriginalReceiptAfterSwitch` |
+| `internal/plugins` | `Service.Inspect`, `Service.Definitions`, `Service.Context`, `Service.ResolvePackageFile` | `TestFileReadActivatesSkillWithoutComputeAndRevocationRemovesIt` |
 
 | `internal/plugins` | `Service.PrepareCall`, `Service.ConnectionAccess`, `Service.TestConnection` | `TestHTTPProviderSwitchPinsSnapshotAndProtectsCredentials`, `TestHTTPConnectionQuotaProbeAndRevocation` |
 | `internal/plugins` | `Service.Settings`, `Service.SaveSettings`, `Service.Connections`, `Service.SaveConnection` | `TestPluginSettingsIsolationCASAndDeniedConnection`, `TestPluginSettingsBridgeRequiresCapabilityAndUpgradeReview` |
@@ -292,3 +292,13 @@
 | `internal/agent/model` | `Provider.StateSource`, `ReplayedReasoning` | `TestAdaptersIsolateProviderStateAndWireParameters`, `TestReasoningRequestPresenceAndBounds` |
 | `internal/agent/tools` | `WithVisibleTools` | `internal/app.TestCommonFileMoveDeleteReceiptsAndVisibility` |
 | `internal/im/conversation` | `Client.LatestMessages`, `Service.LatestMessages` | `TestLatestMessagesBatchesNewestAndEnforcesAccess`, `TestLatestMessagesFullPage` |
+
+2026-10-11：工作区 CLI 插件与按助理启用。
+
+| 包 | 接口 / 方法 | 测试 |
+| --- | --- | --- |
+| `internal/plugins` | `ReadArchive` | `TestArchiveRejectsTraversalDuplicateLinksAndExpansion` |
+| `internal/plugins` | `Service.ImportArchive`, `Service.ImportURL` | `TestArchiveImportAuthorizationAndRemoteURLBoundaries` |
+| `internal/plugins` | `WorkspacePath`, `Service.Instance`, `Service.SaveInstance`, `Service.CleanInstance` | `TestInstanceIsolationWorkingCopiesVersioningAndCleanup` |
+| `internal/plugins` | `Service.ListInstances` | `TestCleanupAfterUninstallDoesNotFollowWorkspaceLinks` |
+| `internal/plugins` | `Service.SaveInstanceCredential` | `TestInstanceCredentialIsPrivateAndNeverReturned` |

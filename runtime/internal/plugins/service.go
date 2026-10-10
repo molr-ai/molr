@@ -4,25 +4,22 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"molr.ai/runtime/internal/credential"
 	"net/http"
 	"slices"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
 	"molr.ai/runtime/internal/audit"
+	"molr.ai/runtime/internal/auth"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 )
 
 type Binding struct {
 	AssistantID core.ID
-	ComputeID   core.ID
 	Tools       []string
-	Skills      []string
 }
 type Installation struct {
 	CatalogID   core.ID
@@ -58,6 +55,8 @@ type Configure struct {
 	Release         string
 }
 type Options struct {
+	CheckWorkspaceFile   func(context.Context, core.Principal, core.ID, int64) error
+	CheckVerification    func(context.Context, core.Principal, auth.Verification, string) error
 	CheckPlugin          func(context.Context, core.Principal, string) error
 	CheckTool            func(context.Context, core.Principal, string) error
 	AuthorizeSettings    func(context.Context, core.Principal) error
@@ -67,26 +66,22 @@ type Options struct {
 	Broker               credential.Broker
 	HTTPClient           func(context.Context, core.Principal, core.Execution, core.ID, string) (*http.Client, error)
 
-	UserBinding      func(context.Context, core.Principal, core.ID, Installation) (Binding, bool, error)
-	IsAdministrator  func(context.Context, core.Principal) (bool, error)
-	ComputeAvailable func(context.Context, core.Principal, core.ID) (bool, error)
-	Authorize        func(context.Context, core.Principal, bool) error
-	CheckAssistant   func(context.Context, core.Principal, core.ID) error
-	CheckCompute     func(context.Context, core.Principal, core.ID) error
-	Shell            func(context.Context, core.Execution, string, core.ID) (json.RawMessage, error)
-	ReadPlans        func(context.Context, core.Principal) (any, error)
+	UserBinding     func(context.Context, core.Principal, core.ID, Installation) (Binding, bool, error)
+	IsAdministrator func(context.Context, core.Principal) (bool, error)
+	Authorize       func(context.Context, core.Principal, bool) error
+	CheckAssistant  func(context.Context, core.Principal, core.ID) error
+	WorkspaceRoot   func(context.Context, core.Principal, core.ID, bool) (string, error)
+	ReadPlans       func(context.Context, core.Principal) (any, error)
 }
 type Service struct {
-	store           persistence.Store
-	options         Options
-	mu              sync.Mutex
-	running         map[string]map[string]context.CancelFunc
-	shellPrincipals map[string]core.Principal
-	httpRunning     map[string]httpRun
+	store       persistence.Store
+	options     Options
+	mu          sync.Mutex
+	httpRunning map[string]httpRun
 }
 
 func New(store persistence.Store, options Options) *Service {
-	return &Service{store: store, options: options, running: map[string]map[string]context.CancelFunc{}, httpRunning: map[string]httpRun{}, shellPrincipals: map[string]core.Principal{}}
+	return &Service{store: store, options: options, httpRunning: map[string]httpRun{}}
 }
 func (s *Service) authorize(ctx context.Context, p core.Principal, write bool) error {
 	if err := p.RequireOwner(); err != nil {
@@ -153,12 +148,8 @@ func (s *Service) List(ctx context.Context, p core.Principal) ([]Installation, e
 		for _, t := range v.Manifest.Contributes.Tools {
 			v.ToolIDs = append(v.ToolIDs, core.ID(ToolName(v, t.ID)))
 		}
-		for _, sk := range v.Manifest.Contributes.Skills {
-			v.ToolIDs = append(v.ToolIDs, core.ID(SkillName(v, sk.ID)))
-		}
 		if !admin {
 			v.Bindings = []Binding{}
-			v.Versions = nil
 			v.Manifest.AdminSettings = nil
 			v.Manifest.AdminSettingsPage = nil
 		}
@@ -270,6 +261,15 @@ func (s *Service) Configure(ctx context.Context, p core.Principal, q Configure) 
 			}
 			v.Manifest = pkg.Package.Manifest
 			v.Digest = pkg.Digest
+			requested := Requested(v.Manifest)
+			q.Grants = slices.DeleteFunc(slices.Clone(q.Grants), func(g string) bool { return !slices.Contains(requested, g) })
+			q.Bindings = slices.Clone(q.Bindings)
+			for i := range q.Bindings {
+				q.Bindings[i].Tools = slices.DeleteFunc(slices.Clone(q.Bindings[i].Tools), func(id string) bool {
+					return !slices.ContainsFunc(v.Manifest.Contributes.Tools, func(t Tool) bool { return t.ID == id })
+				})
+			}
+
 		}
 		allowed := Requested(v.Manifest)
 		if len(q.Grants) > len(capabilities) || len(q.Bindings) > 100 {
@@ -292,36 +292,15 @@ func (s *Service) Configure(ctx context.Context, p core.Principal, q Configure) 
 			if err := s.options.CheckAssistant(ctx, p, b.AssistantID); err != nil {
 				return err
 			}
-			if len(b.Tools) > len(v.Manifest.Contributes.Tools) || len(b.Skills) > len(v.Manifest.Contributes.Skills) {
+			if len(b.Tools) > len(v.Manifest.Contributes.Tools) {
 				return invalid("invalid binding contributions")
-			}
-			if needsCompute(v.Manifest, b.Tools) && b.ComputeID.Validate() != nil {
-				return invalid("select a compute resource")
-			}
-			if b.ComputeID != "" {
-				if s.options.CheckCompute == nil {
-					return invalid("compute unavailable")
-				}
-				if err := s.options.CheckCompute(ctx, p, b.ComputeID); err != nil {
-					return err
-				}
 			}
 			for _, id := range b.Tools {
 				if !slices.ContainsFunc(v.Manifest.Contributes.Tools, func(t Tool) bool { return t.ID == id }) {
 					return invalid("unknown bound tool")
 				}
 			}
-			for _, id := range b.Skills {
-				idx := slices.IndexFunc(v.Manifest.Contributes.Skills, func(t Skill) bool { return t.ID == id })
-				if idx < 0 {
-					return invalid("unknown bound skill")
-				}
-				for _, dep := range v.Manifest.Contributes.Skills[idx].Tools {
-					if !slices.Contains(b.Tools, dep) {
-						return invalid("skill requires an enabled tool")
-					}
-				}
-			}
+
 		}
 		v.Enabled = q.Enabled
 		v.Grants = slices.Clone(q.Grants)
@@ -356,6 +335,24 @@ func (s *Service) Remove(ctx context.Context, p core.Principal, id string, expec
 		if expected == 0 || v.Version != expected {
 			return core.NewError(core.Conflict, "plugin changed")
 		}
+		instances, err := persistence.Select[Instance](ctx, s.store, "plugins.instances", persistence.Query{Where: []persistence.Filter{persistence.Eq("PluginID", id)}})
+		if err != nil {
+			return err
+		}
+		for _, instance := range instances {
+			instanceCatalog, err := persistence.CatalogOwner(ctx, s.store, instance.OwnerID)
+			if err != nil {
+				return err
+			}
+			if instanceCatalog != v.OwnerID {
+				continue
+			}
+			instance.Enabled = false
+			instance.Version++
+			if err := tx.Put(ctx, "plugins.instances", instanceKey(instance.OwnerID, instance.AssistantID, id), instance); err != nil {
+				return err
+			}
+		}
 		v.Deleted = true
 		v.Enabled = false
 		v.Bindings = []Binding{}
@@ -377,27 +374,13 @@ func (s *Service) cancelPluginLocked(id string) {
 			r.Cancel()
 		}
 	}
-	for key, runs := range s.running {
-		if strings.HasSuffix(key, "/"+id) {
-			for _, cancel := range runs {
-				cancel()
-			}
-			delete(s.running, key)
-		}
-	}
-}
-func (s *Service) cancelLocked(owner core.ID, id string) {
-	for _, cancel := range s.running[string(owner)+"/"+id] {
-		cancel()
-	}
-	delete(s.running, string(owner)+"/"+id)
 }
 func (s *Service) active(ctx context.Context, p core.Principal, id, digest string) (Installation, error) {
 	v, err := s.load(ctx, p.OwnerID, id)
 	if err != nil {
 		return v, err
 	}
-	if v.Deleted || !v.Enabled || v.Digest != digest || v.Manifest.PluginAPI != 2 {
+	if v.Deleted || !v.Enabled || v.Digest != digest || v.Manifest.PluginAPI != 3 {
 		return v, core.NewError(core.Forbidden, "plugin is disabled or its version changed")
 	}
 	if err := s.available(ctx, p, v); err != nil {

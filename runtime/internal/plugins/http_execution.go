@@ -541,30 +541,7 @@ func (s *Service) RevalidateRunning(ctx context.Context) {
 	for _, r := range s.httpRunning {
 		runs = append(runs, r)
 	}
-	type shellRun struct {
-		p      core.Principal
-		id     string
-		cancel context.CancelFunc
-	}
-	shells := []shellRun{}
-	for key, active := range s.running {
-		for _, cancel := range active {
-			parts := strings.SplitN(key, "/", 2)
-			if len(parts) == 2 {
-				shells = append(shells, shellRun{s.shellPrincipals[key], parts[1], cancel})
-			}
-		}
-	}
 	s.mu.Unlock()
-	for _, r := range shells {
-		v, err := s.load(ctx, r.p.OwnerID, r.id)
-		if err == nil {
-			err = s.available(ctx, r.p, v)
-		}
-		if err != nil {
-			r.cancel()
-		}
-	}
 	for _, r := range runs {
 		_, _, err := s.ConnectionAccess(ctx, r.Principal, r.ConnectionID)
 		if err == nil && r.ToolName != "" && s.options.CheckTool != nil {

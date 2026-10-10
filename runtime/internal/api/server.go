@@ -359,6 +359,9 @@ func (s *HTTPServer) dispatch(w http.ResponseWriter, r *http.Request) {
 		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(s.config.HTTP.RequestTimeout.Value()))
 	}
 	limit := s.config.HTTP.MaxBodyBytes
+	if r.URL.Path == "/api/plugins/install" && r.Method == http.MethodPost {
+		limit = 8 << 20
+	}
 	if r.URL.Path == "/api/files" && r.Method == http.MethodPost {
 		limit = s.config.Execution.MaxUploadBytes
 	}

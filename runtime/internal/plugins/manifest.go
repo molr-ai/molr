@@ -14,13 +14,20 @@ import (
 	"molr.ai/runtime/internal/core"
 )
 
+type SecretField struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}
+
 type Manifest struct {
+	Credentials       []SecretField      `json:"credentials,omitempty"`
 	ManifestVersion   int                `json:"manifestVersion"`
 	ID                string             `json:"id"`
 	Name              string             `json:"name"`
 	Description       string             `json:"description"`
 	Version           string             `json:"version"`
 	PluginAPI         int                `json:"pluginApi"`
+	Requirements      []Requirement      `json:"requirements,omitempty"`
 	Contributes       Contributions      `json:"contributes"`
 	AdminSettings     map[string]Setting `json:"adminSettings,omitempty"`
 	AdminSettingsPage *Page              `json:"adminSettingsPage,omitempty"`
@@ -28,6 +35,13 @@ type Manifest struct {
 	SettingsPage      *Page              `json:"settingsPage,omitempty"`
 	Providers         []HTTPProvider     `json:"providers,omitempty"`
 }
+type Requirement struct {
+	Phase        string   `json:"phase"`
+	Kind         string   `json:"kind"`
+	Description  string   `json:"description"`
+	Destinations []string `json:"destinations,omitempty"`
+}
+
 type Contributions struct {
 	Themes []Theme `json:"themes"`
 	Pages  []Page  `json:"pages"`
@@ -62,7 +76,7 @@ type Skill struct {
 	Tools       []string `json:"tools"`
 }
 
-// Plugin API 2 deliberately accepts a small, fully validated JSON Schema subset.
+// Plugin API 3 deliberately accepts a small, fully validated JSON Schema subset.
 type Schema struct {
 	Type                 string              `json:"type"`
 	Properties           map[string]Property `json:"properties"`
@@ -83,7 +97,7 @@ var pluginID = regexp.MustCompile(`^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$`)
 var localID = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,39}$`)
 var version = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
 var pageCapabilities = []string{"plans.read", "settings.read", "settings.write", "connections.read", "connections.test"}
-var capabilities = append(append([]string{}, pageCapabilities...), "compute.execute", "workspace.write", "http.request")
+var capabilities = append(append([]string{}, pageCapabilities...), "http.request")
 
 func invalid(message string) error { return core.Invalid("plugin", message) }
 func hash(value []byte) string     { h := sha256.Sum256(value); return hex.EncodeToString(h[:]) }
@@ -92,15 +106,15 @@ func (p Package) Digest() string   { raw, _ := json.Marshal(p); return hash(raw)
 func (p Package) Validate() error {
 	m := p.Manifest
 	c := m.Contributes
-	if m.ManifestVersion != 1 || m.PluginAPI != 2 || !pluginID.MatchString(m.ID) || len(m.ID) > 80 || strings.HasPrefix(m.ID, "molr.") || !version.MatchString(m.Version) || len(m.Version) > 32 || strings.TrimSpace(m.Name) == "" || len(m.Name) > 120 || len(m.Description) > 2000 {
+	if m.ManifestVersion != 1 || m.PluginAPI != 3 || !pluginID.MatchString(m.ID) || len(m.ID) > 80 || strings.HasPrefix(m.ID, "molr.") || !version.MatchString(m.Version) || len(m.Version) > 32 || strings.TrimSpace(m.Name) == "" || len(m.Name) > 120 || len(m.Description) > 2000 {
 		return invalid("invalid identity or incompatible plugin API")
 	}
 	raw, _ := json.Marshal(p)
-	if len(raw) > 768<<10 || len(p.Files) > 64 || len(p.Files) == 0 {
+	if len(raw) > MaxPackageBytes || len(p.Files) > 256 || len(p.Files) == 0 {
 		return invalid("package exceeds limits")
 	}
 	for name, body := range p.Files {
-		if len(name) > 160 || path.Clean(name) != name || strings.HasPrefix(name, "/") || name == "." || strings.Contains(name, "..") || strings.ContainsAny(name, "\\\x00") || !utf8.ValidString(body) || strings.ContainsRune(body, 0) || len(body) > 128<<10 {
+		if len(name) > 160 || path.Clean(name) != name || strings.HasPrefix(name, "/") || name == "." || strings.Contains(name, "..") || strings.ContainsAny(name, "\\\x00") || !utf8.ValidString(body) || strings.ContainsRune(body, 0) || len(body) > 1<<20 {
 			return invalid("invalid package file")
 		}
 	}
@@ -148,10 +162,6 @@ func (p Package) Validate() error {
 			return invalid("invalid tool")
 		}
 		switch v.Execution.Type {
-		case "shell":
-			if !entry(v.Entry, ".sh") || len(p.Files[v.Entry]) > 24000 || !caps(v.Capabilities, []string{"compute.execute", "workspace.write"}) || !slices.Contains(v.Capabilities, "compute.execute") || !slices.Contains(v.Capabilities, "workspace.write") || v.Execution.SettingsScope != "" || v.Execution.ConnectionSetting != "" || v.Execution.Operation != "" {
-				return invalid("shell requires bounded entry and compute/workspace capabilities")
-			}
 		case "http":
 			if v.Entry != "" || len(v.Capabilities) != 1 || v.Capabilities[0] != "http.request" {
 				return invalid("HTTP tools require http.request only")
@@ -164,16 +174,35 @@ func (p Package) Validate() error {
 		}
 	}
 	for _, v := range c.Skills {
-		if !unique("skill", v.ID) || v.Name == "" || len(v.Name) > 120 || len(v.Description) > 2000 || !entry(v.Entry, "SKILL.md") || len(p.Files[v.Entry]) > 32<<10 {
+		if !unique("skill", v.ID) || v.Name == "" || len(v.Name) > 120 || len(v.Description) > 2000 || !entry(v.Entry, "SKILL.md") || len(p.Files[v.Entry]) > 64<<10 {
 			return invalid("invalid skill")
-		}
-		encoded, _ := json.Marshal(p.Files[v.Entry])
-		if len(encoded) > 12<<10 {
-			return invalid("skill body exceeds inline context limit")
 		}
 		for _, id := range v.Tools {
 			if !seen["tool/"+id] {
 				return invalid("unknown skill tool dependency")
+			}
+		}
+	}
+	if len(m.Credentials) > 16 {
+		return invalid("too many credential fields")
+	}
+	secretIDs := map[string]bool{}
+	for _, field := range m.Credentials {
+		if !localID.MatchString(field.ID) || strings.TrimSpace(field.Title) == "" || len(field.Title) > 120 || secretIDs[field.ID] {
+			return invalid("invalid credential field")
+		}
+		secretIDs[field.ID] = true
+	}
+	if len(m.Requirements) > 32 {
+		return invalid("too many requirements")
+	}
+	for _, r := range m.Requirements {
+		if !slices.Contains([]string{"install", "use"}, r.Phase) || !slices.Contains([]string{"compute", "network", "storage"}, r.Kind) || strings.TrimSpace(r.Description) == "" || len(r.Description) > 1000 || len(r.Destinations) > 32 {
+			return invalid("invalid requirement")
+		}
+		for _, destination := range r.Destinations {
+			if len(destination) == 0 || len(destination) > 512 || strings.ContainsAny(destination, "\r\n") {
+				return invalid("invalid requirement destination")
 			}
 		}
 	}

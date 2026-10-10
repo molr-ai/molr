@@ -1,6 +1,8 @@
 package api
 
 import (
+	"io"
+	"mime"
 	"molr.ai/runtime/internal/auth"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/plugins"
@@ -20,11 +22,58 @@ func (s *HTTPServer) pluginRoutes() {
 		return s.options.Plugins.SavePreference(r.Context(), principal(r), q)
 	})
 	s.handle("POST /api/plugins/install", func(r *http.Request) (any, error) {
+		media, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+		if media == "application/zip" {
+			data, err := io.ReadAll(io.LimitReader(r.Body, plugins.MaxPackageBytes+1))
+			if err != nil {
+				return nil, core.Invalid("archive", "cannot read ZIP")
+			}
+			return s.options.Plugins.ImportArchive(r.Context(), principal(r), data)
+		}
 		q, err := decode[plugins.Package](r)
 		if err != nil {
 			return nil, err
 		}
 		return s.options.Plugins.Install(r.Context(), principal(r), q)
+	})
+	s.handle("POST /api/plugins/import-url", func(r *http.Request) (any, error) {
+		q, err := decode[struct{ URL string }](r)
+		if err != nil {
+			return nil, err
+		}
+		return s.options.Plugins.ImportURL(r.Context(), principal(r), q.URL)
+	})
+	s.handle("GET /api/plugins/instances", func(r *http.Request) (any, error) { return s.options.Plugins.ListInstances(r.Context(), principal(r)) })
+	s.handle("POST /api/plugins/instances/read", func(r *http.Request) (any, error) {
+		q, err := decode[plugins.InstanceRequest](r)
+		if err != nil {
+			return nil, err
+		}
+		return s.options.Plugins.Instance(r.Context(), principal(r), q.ID, q.AssistantID)
+	})
+	s.handle("POST /api/plugins/instances/save", func(r *http.Request) (any, error) {
+		q, err := decode[plugins.InstanceRequest](r)
+		if err != nil {
+			return nil, err
+		}
+		return s.options.Plugins.SaveInstance(r.Context(), principal(r), q)
+	})
+	s.handle("POST /api/plugins/instances/credential", func(r *http.Request) (any, error) {
+		q, err := decode[struct {
+			plugins.InstanceRequest
+			Field, Value, Verification string
+		}](r)
+		if err != nil {
+			return nil, err
+		}
+		return nil, s.options.Plugins.SaveInstanceCredential(r.Context(), principal(r), plugins.InstanceCredentialRequest{InstanceRequest: q.InstanceRequest, Field: q.Field, Value: core.NewSecret(q.Value), Verification: auth.Verification{Token: core.NewSecret(q.Verification)}})
+	})
+	s.handle("POST /api/plugins/instances/clean", func(r *http.Request) (any, error) {
+		q, err := decode[plugins.InstanceRequest](r)
+		if err != nil {
+			return nil, err
+		}
+		return nil, s.options.Plugins.CleanInstance(r.Context(), principal(r), q)
 	})
 	s.handle("POST /api/plugins/configure", func(r *http.Request) (any, error) {
 		q, err := decode[plugins.Configure](r)
