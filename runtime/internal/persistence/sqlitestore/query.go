@@ -401,7 +401,7 @@ func querySQL(bucket string, q persistence.Query) (string, []any, error) {
 			if len(field) > 128 || !fieldName.MatchString(field) {
 				return "", nil, core.Invalid("query.field", "invalid field")
 			}
-			parts = append(parts, "'$."+field+"'", "json_extract(value, '$."+field+"')")
+			parts = append(parts, "'$."+field+"'", "value -> '$."+field+"'")
 		}
 		selection = "json_set(" + strings.Join(parts, ",") + ")"
 	}

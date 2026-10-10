@@ -135,7 +135,7 @@ HTML 必须自包含，可将 `@molr/sdk/plugin-host` 打包内联。iframe 使�
 | POST /api/plugins/connections/save | PluginID, Digest, ID?, Name, ProviderID, Enabled, APIKey?, Verification?, Mutation, CallLimit, Concurrent, TimeoutSeconds |
 | POST /api/plugins/connections/remove | PluginID, ID, Mutation, Verification? |
 | POST /api/plugins/connections/test | PluginID, Digest, ID, Mutation |
-| POST /api/plugins/connections/history | PluginID, ID；管理员读取最近 100 项安全调用摘要 |
+| POST /api/plugins/connections/history | PluginID, ID；管理员读取最近 100 项安全调用摘要；查询只提取展示字段和供应商用量，不加载参数、设置及完整结果正文 |
 | POST /api/plugins/connections/acknowledge | ConnectionID, OwnerID, ID；管理员确认未知结果 |
 | POST /api/plugins/ui | 固定页面引用、Method 及对应方法参数，由 bridge 构造 |
 
