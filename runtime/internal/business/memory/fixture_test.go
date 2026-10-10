@@ -99,7 +99,7 @@ func init() {
 				return errors.New("injected file commit failure")
 			}
 			return nil
-		}, Roots: func(ctx context.Context, owner core.ID) ([]Root, error) {
+		}, Roots: func(ctx context.Context, owner core.ID, query RootQuery) ([]Root, error) {
 			return []Root{{Scope: Global, Directory: filepath.Join(root, string(owner), "global")}, {Scope: Assistant, AssistantID: "assistant", Directory: filepath.Join(root, string(owner), "work")}}, nil
 		}})
 		return contractFixture{Service: NewService(db, Options{Files: files, Authorizer: fixtureAuthorizer{}, CheckAssistant: fixtureCheckAssistant(db)}), Repository: files, FailCommitOnce: func() { fail = true }, Observe: func() (int, int, int) {

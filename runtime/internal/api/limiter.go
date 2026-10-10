@@ -75,6 +75,7 @@ func (l *Limiter) Allow(ctx context.Context, key RateKey) (Allowance, error) {
 			record.Attempts++
 		} else {
 			out.RetryAfter = record.Window.Add(l.options.Window).Sub(now)
+			return nil
 		}
 		return tx.Put(ctx, "api.limits", id, record)
 	})

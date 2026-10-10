@@ -113,12 +113,15 @@ func (e *Engine) MessageMetrics(ctx context.Context, p core.Principal, conversat
 		out.TurnID = message.Source.ExecutionID
 		// Older messages already carry the trusted publication operation identity.
 		if out.TurnID == "" && message.Source.OperationID != "" {
-			op, err := operation.NewRepository(e.store).Get(ctx, p.OwnerID, message.Source.OperationID)
-			if err != nil && !persistence.Missing(err) {
+			ops, err := persistence.Select[operation.Operation](ctx, e.store, "agent.operations", persistence.Query{
+				Where:  []persistence.Filter{persistence.Eq("key", persistence.Key(p.OwnerID, message.Source.OperationID))},
+				Fields: []string{"AssistantID", "ExecutionID"}, Unordered: true, Limit: 1,
+			})
+			if err != nil {
 				return err
 			}
-			if err == nil && op.AssistantID == chat.PeerID {
-				out.TurnID = op.ExecutionID
+			if len(ops) > 0 && ops[0].AssistantID == chat.PeerID {
+				out.TurnID = ops[0].ExecutionID
 			}
 		}
 		if out.TurnID == "" {
@@ -126,7 +129,7 @@ func (e *Engine) MessageMetrics(ctx context.Context, p core.Principal, conversat
 		}
 		jobs, err := persistence.Select[scheduler.Job](ctx, e.store, "agent.jobs", persistence.Query{
 			Where:     []persistence.Filter{persistence.Eq("Event.OwnerID", p.OwnerID), persistence.Eq("Event.AssistantID", chat.PeerID), persistence.Eq("ExecutionID", out.TurnID)},
-			Unordered: true, Limit: 1,
+			Unordered: true, Limit: 1, Fields: []string{"State", "Attempts"},
 		})
 		if err != nil {
 			return err
@@ -157,7 +160,7 @@ func (e *Engine) MessageMetrics(ctx context.Context, p core.Principal, conversat
 		}
 		operations, err := persistence.Select[operation.Operation](ctx, e.store, "agent.operations", persistence.Query{
 			Where:     []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("AssistantID", chat.PeerID), persistence.Eq("ExecutionID", out.TurnID)},
-			Unordered: true,
+			Unordered: true, Fields: []string{"ID", "Action", "State", "CreatedAt"},
 		})
 		if err != nil {
 			return err

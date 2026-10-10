@@ -45,6 +45,8 @@ Runtime 仍为 Go 单体。插件以不可变清单、隔离 HTML、沙盒脚本
 - `plugins.preferences`：每个真实 OwnerID 的启停偏好与 CAS 版本；默认启用，仅在全局启用且用户组授权后有效，不依赖设置 Schema。
 - 用户组 `plugin` 资源引用：ID 为 `plugins.Key(pluginID)`，控制插件页面、主题、配置和工具的访问；工具与连接另有各自范围和额度。插件引用没有配额。
 
+安装目录最多保留 32 个未删除插件，每个插件最多保留 32 个未删除服务连接；停用的项目仍计入上限。移除释放名额，历史记录、发布版本和调用记录继续保留；列表查询在数据库中排除已删除记录。重新安装同样检查剩余名额；现有项目的更新与幂等重试不重复占用名额。
+
 Setting 字段：`type`、`title`、可选 `description`，支持 string / boolean / number / integer / connection。普通字段必须声明 `default`；字符串支持 `enum`，数值支持 `minimum` / `maximum`。connection 字段声明 `providers` 及可选 `requiredOperations`，不允许默认连接。用户可以显式留空；调用时返回需要配置，不能自动选择另一连接。
 
 读设置返回 `PluginID, Digest, Version, Values, NeedsReview`。保存是完整值对象，省略普通字段采用默认值；省略连接字段清除该选择。服务端校验字段、值、连接权限及版本。配置绑定包摘要；新包会保留可表示的旧值，但置 `NeedsReview`，用户复核保存后生效。并发保存使用 `ExpectedVersion`；个人偏好变化不取消整个插件。
@@ -102,7 +104,7 @@ Agent 执行器在现有 operation admission 事务内保存 `plugins.http-calls
 
 ## 页面桥接
 
-HTML 必须自包含，可将 `@molr/sdk/plugin-host` 打包内联。iframe 使用 opaque origin、`sandbox="allow-scripts"` 和禁止联网的 CSP；父页面 `frame-src blob:` 限制导航。页面无法访问宿主 Cookie、CSRF、Bearer、DOM 或通用 HTTP 代理。
+HTML 必须自包含，可将 `@molr/sdk/plugin-host` 打包内联。iframe 使用 opaque origin、`sandbox="allow-scripts"` 和禁止联网的 CSP；父页面 `frame-src blob:` 限制导航。HTML Blob URL 在组件提交后的 effect 中创建，并由同一个 effect 在文档失效、错误、重试或卸载时释放；更换插件引用后不再展示或连接旧文档。配色和语言变化可复用当前文档 URL，同时重新建立 iframe 的宿主上下文。页面无法访问宿主 Cookie、CSRF、Bearer、DOM 或通用 HTTP 代理。
 
 握手检查 frame window、opaque origin、API 2 和单次 MessageChannel。最多四个并发请求。宿主固定注入页面身份，后端重新校验摘要、贡献声明和权限。普通 page/theme/settings 的 settings 方法只操作当前用户配置；admin-settings 的同名方法只操作共享管理员配置，所有调用先验证管理员身份。插件无法自行切换范围。
 
@@ -135,7 +137,7 @@ HTML 必须自包含，可将 `@molr/sdk/plugin-host` 打包内联。iframe 使�
 | POST /api/plugins/connections/save | PluginID, Digest, ID?, Name, ProviderID, Enabled, APIKey?, Verification?, Mutation, CallLimit, Concurrent, TimeoutSeconds |
 | POST /api/plugins/connections/remove | PluginID, ID, Mutation, Verification? |
 | POST /api/plugins/connections/test | PluginID, Digest, ID, Mutation |
-| POST /api/plugins/connections/history | PluginID, ID；管理员读取最近 100 项安全调用摘要 |
+| POST /api/plugins/connections/history | PluginID, ID；管理员读取最近 100 项安全调用摘要；查询只提取展示字段和供应商用量，不加载参数、设置及完整结果正文 |
 | POST /api/plugins/connections/acknowledge | ConnectionID, OwnerID, ID；管理员确认未知结果 |
 | POST /api/plugins/ui | 固定页面引用、Method 及对应方法参数，由 bridge 构造 |
 

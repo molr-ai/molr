@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"sync"
 	"time"
 
@@ -26,16 +27,18 @@ type active struct {
 	identity Identity
 }
 type Manager struct {
-	Backend Backend
-	Store   persistence.Store
-	mu      sync.Mutex
-	active  map[string]*active
-	closed  bool
-	wg      sync.WaitGroup
+	Backend    Backend
+	Store      persistence.Store
+	mu         sync.Mutex
+	active     map[string]*active
+	closed     bool
+	closing    chan struct{}
+	persistErr error
+	wg         sync.WaitGroup
 }
 
 func New(ctx context.Context, store persistence.Store, backend Backend) (*Manager, error) {
-	m := &Manager{Backend: backend, Store: store, active: map[string]*active{}}
+	m := &Manager{Backend: backend, Store: store, active: map[string]*active{}, closing: make(chan struct{})}
 	err := store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		rows, err := tx.Query(ctx, operationsBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("Reply.State", "running")}})
 		if err != nil {
@@ -155,16 +158,47 @@ func (m *Manager) Submit(ctx context.Context, r Request) (Reply, error) {
 		if err == nil && (len(result) > MaxMessage || !json.Valid(result)) {
 			reply = Reply{State: "unknown", Code: core.Internal, Reason: "sandbox_invalid_result"}
 		}
-		persist, stop := context.WithTimeout(context.Background(), 5*time.Second)
-		defer stop()
 		out.Reply = reply
 		out.UpdatedAt = time.Now()
-		_ = m.Store.Write(persist, func(ctx context.Context, tx persistence.Tx) error { return tx.Put(ctx, operationsBucket, key, out) })
+		err = m.persistResult(key, out)
 		m.mu.Lock()
+		m.persistErr = errors.Join(m.persistErr, err)
 		delete(m.active, key)
 		m.mu.Unlock()
 	}(out)
 	return out.Reply, nil
+}
+
+// Keep the execution slot and completed reply until durable. Retrying this
+// transaction must never repeat the backend's external effect.
+func (m *Manager) persistResult(key string, out record) error {
+	delay := 100 * time.Millisecond
+	for {
+		persist, stop := context.WithTimeout(context.Background(), 5*time.Second)
+		err := m.Store.Write(persist, func(ctx context.Context, tx persistence.Tx) error {
+			return tx.Put(ctx, operationsBucket, key, out)
+		})
+		stop()
+		if err == nil {
+			return nil
+		}
+		if core.CodeOf(err) == core.InvalidArgument && len(out.Reply.Result) > 0 {
+			// A valid protocol result may exceed the durable record limit after
+			// JSON encoding. Persist an explicit unknown outcome instead.
+			out.Reply = Reply{State: "unknown", Code: core.Internal, Reason: "sandbox_invalid_result"}
+			continue
+		}
+		timer := time.NewTimer(delay)
+		select {
+		case <-m.closing:
+			timer.Stop()
+			return err
+		case <-timer.C:
+		}
+		if delay < time.Second {
+			delay = min(delay*2, time.Second)
+		}
+	}
 }
 func (m *Manager) Get(ctx context.Context, i Identity) (Reply, error) {
 	if err := i.Execution().Validate(); err != nil {
@@ -230,14 +264,19 @@ func (m *Manager) Revoke(ctx context.Context, owner core.ID, epoch uint64) error
 }
 func (m *Manager) Close() error {
 	m.mu.Lock()
-	m.closed = true
+	if !m.closed {
+		m.closed = true
+		close(m.closing)
+	}
 	for _, a := range m.active {
 		a.cancel()
 	}
 	m.mu.Unlock()
 	err := m.Backend.Close()
 	m.wg.Wait()
-	return err
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return errors.Join(err, m.persistErr)
 }
 
 // Read avoids storing large transient blobs and context scans in the operation

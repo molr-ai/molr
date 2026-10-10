@@ -407,8 +407,10 @@ func (s *Service) deliverNext(ctx context.Context) {
 }
 func (s *Service) deliver(ctx context.Context, d Delivery) {
 	g := s.gate(d.OwnerID, d.AssistantID)
-	g.Lock()
-	defer g.Unlock()
+	if err := g.acquire(ctx); err != nil {
+		return
+	}
+	defer g.release()
 	var b Binding
 	var secret secrets
 	err := s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
