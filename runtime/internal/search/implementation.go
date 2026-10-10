@@ -269,9 +269,12 @@ func (s *service) Search(ctx context.Context, p core.Principal, q Query) (Result
 			if needle != "" && !strings.Contains(text, needle) {
 				return nil
 			}
-			snippet := []rune(doc.Text)
-			if len(snippet) > 240 {
-				snippet = snippet[:240]
+			snippet := make([]rune, 0, 240)
+			for _, char := range doc.Text {
+				if len(snippet) == 240 {
+					break
+				}
+				snippet = append(snippet, char)
 			}
 			score := float64(strings.Count(text, needle))
 			if needle == "" {
