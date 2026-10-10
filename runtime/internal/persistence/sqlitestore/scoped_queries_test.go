@@ -25,6 +25,8 @@ func TestScopedQueriesUseIndexes(t *testing.T) {
 		q            persistence.Query
 		ordered      bool
 	}{
+		{"permission pending", "security.permission_requests", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), persistence.Eq("AssistantID", "assistant"), persistence.Eq("State", "pending")}, OrderBy: "CreatedAtKey", Descending: true, ThenBy: "ID", Limit: 200}, true},
+		{"permission decided", "security.permission_requests", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), persistence.Eq("AssistantID", "assistant"), {Field: "State", Op: "!=", Value: "pending"}}, OrderBy: "CreatedAtKey", Descending: true, ThenBy: "ID", Limit: 200}, true},
 		{"model binding", "business.bindings", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerKey", "owner"), {Field: "ModelIDs", Op: "has", Value: "model-target"}}, Limit: 1, Unordered: true}, false},
 		{"search conversations", "im.conversations", persistence.Query{Prefix: "owner/", Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), persistence.Eq("PeerID", "assistant")}, Any: [][]persistence.Filter{{persistence.Eq("Archived", false)}, {persistence.Eq("Archived", nil)}}, After: []any{"owner/chat"}, Limit: 200}, true},
 		{"search messages", "im.messages", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerKey", "owner"), persistence.Eq("ConversationID", "chat"), {Field: "Sequence", Op: ">", Value: 200}}, OrderBy: "Sequence", Limit: 200}, true},

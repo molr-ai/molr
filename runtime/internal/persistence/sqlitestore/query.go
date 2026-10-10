@@ -209,6 +209,13 @@ func (s *Store) createIndexes() error {
 		{"context.references", []string{"OwnerID", "AssistantID", "Kind", "key"}},
 		{"agent.model_retries", []string{"OwnerID", "AssistantID", "EventID", "key"}},
 	}...)
+	indexes = append(indexes, []struct {
+		bucket string
+		fields []string
+	}{
+		{"security.permission_requests", []string{"OwnerID", "AssistantID", "State", "CreatedAtKey DESC", "ID", "key DESC"}},
+		{"security.permission_requests", []string{"OwnerID", "AssistantID", "CreatedAtKey DESC", "ID", "key DESC", "State"}},
+	}...)
 	for i, index := range indexes {
 		parts := []string{"bucket"}
 		for _, field := range index.fields {
