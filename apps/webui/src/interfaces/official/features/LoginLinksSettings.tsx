@@ -34,7 +34,7 @@ export function LoginLinksSettings() {
 function CreateLoginLink({ onClose, onIssued }: { onClose: () => void; onIssued: (result: IssuedLink) => void }) {
   const { t, locale } = useCopy(), { principal } = useSession(), verification = useReauthentication();
   const [name, setName] = useState(''), [expiry, setExpiry] = useState('3600'), [target, setTarget] = useState('/assistants');
-  return <><EditDialog title={t.loginLinks.create} onClose={onClose} onSubmit={async () => {
+  return <><EditDialog notifyOnSave={false} title={t.loginLinks.create} onClose={onClose} onSubmit={async () => {
     const proof = await verification.verify('login_link.create');
     onIssued(await api.post<IssuedLink>('/api/auth/login-links', { name, expires_in: Number(expiry), target_path: target, verification: proof }));
   }}><TextField label={t.name} value={name} required maxLength={128} autoFocus onChange={event => setName(event.target.value)} />
