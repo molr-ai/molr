@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { checkDocsSearch } from './docs-search-checks.mjs';
 import { checkDocs } from './docs-checks.mjs';
 import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -92,6 +93,9 @@ test('website state builds and browser behavior', { timeout: 120_000 }, async t 
         if (mode === 'live') {
           await t.test('documentation routes, source links, search, anchors and responsive reading', async () => {
             await checkDocs({ browser, url, outDir, screenshots });
+          });
+          await t.test('documentation search preserves articles and diagrams', async () => {
+            await checkDocsSearch({ browser, url });
           });
           await t.test('homepage controls, persisted preferences and honest placeholder destinations', async () => {
             const context = await browser.newContext({ locale: 'en-US', colorScheme: 'dark', viewport: { width: 1440, height: 1000 } });

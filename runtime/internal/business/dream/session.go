@@ -396,40 +396,58 @@ func (s *Coordinator) Windows(ctx context.Context, p core.Principal, a core.ID, 
 	if from.IsZero() || !to.After(from) || to.Sub(from) > 125*24*time.Hour {
 		return nil, core.Invalid("range", "maximum range is 125 days")
 	}
-	people, err := assistant.NewRepository(s.store).List(ctx, p.OwnerID, assistant.Query{Page: core.PageRequest{Limit: 200}})
-	if err != nil {
-		return nil, err
-	}
+	repo := assistant.NewRepository(s.store)
+	query := assistant.Query{State: assistant.Active, Page: core.PageRequest{Limit: 200}}
 	out := []Window{}
-	for _, person := range people.Items {
-		if person.State != assistant.Active || a != "" && person.ID != a {
-			continue
+	for {
+		var people core.Page[assistant.Assistant]
+		if a != "" {
+			person, err := repo.Get(ctx, p.OwnerID, a)
+			if err != nil {
+				return nil, err
+			}
+			people.Items = []assistant.Assistant{person}
+		} else {
+			var err error
+			people, err = repo.List(ctx, p.OwnerID, query)
+			if err != nil {
+				return nil, err
+			}
 		}
-		if err := s.authorize(ctx, p, person.ID, false); err != nil {
-			return nil, err
+		for _, person := range people.Items {
+			if person.State != assistant.Active {
+				continue
+			}
+			if err := s.authorize(ctx, p, person.ID, false); err != nil {
+				return nil, err
+			}
+			c, err := s.config(ctx, p.OwnerID, person.ID)
+			if err != nil {
+				return nil, err
+			}
+			if !c.Enabled {
+				continue
+			}
+			loc, err := time.LoadLocation(c.Timezone)
+			if err != nil {
+				return nil, err
+			}
+			timer, err := newTimer(c, dayStart(from, loc).AddDate(0, 0, -1), timerState{})
+			if err != nil {
+				return nil, err
+			}
+			ats, err := trigger.Between(ctx, timer.Rule, from, to, time.Duration(c.MaxDurationSeconds)*time.Second)
+			if err != nil {
+				return nil, err
+			}
+			for _, at := range ats {
+				out = append(out, Window{AssistantID: person.ID, Start: at, End: at.Add(time.Duration(c.MaxDurationSeconds) * time.Second), Timezone: c.Timezone, State: "reserved"})
+			}
 		}
-		c, err := s.config(ctx, p.OwnerID, person.ID)
-		if err != nil {
-			return nil, err
+		if a != "" || people.NextCursor == "" {
+			break
 		}
-		if !c.Enabled {
-			continue
-		}
-		loc, err := time.LoadLocation(c.Timezone)
-		if err != nil {
-			return nil, err
-		}
-		timer, err := newTimer(c, dayStart(from, loc).AddDate(0, 0, -1), timerState{})
-		if err != nil {
-			return nil, err
-		}
-		ats, err := trigger.Between(ctx, timer.Rule, from, to, time.Duration(c.MaxDurationSeconds)*time.Second)
-		if err != nil {
-			return nil, err
-		}
-		for _, at := range ats {
-			out = append(out, Window{AssistantID: person.ID, Start: at, End: at.Add(time.Duration(c.MaxDurationSeconds) * time.Second), Timezone: c.Timezone, State: "reserved"})
-		}
+		query.Page.Cursor = people.NextCursor
 	}
 	filters := []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), {Field: "DeadlineKey", Op: ">", Value: persistence.TimeKey(from)}, {Field: "WindowStartKey", Op: "<", Value: persistence.TimeKey(to)}}
 	if a != "" {
