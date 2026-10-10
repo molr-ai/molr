@@ -16,7 +16,7 @@ export const builtins: InstalledUI[] = [officialPackage, testPackage];
 type Store = {
   pluginError: unknown; plugins: PluginInstallation[]; packages: InstalledUI[]; reloadPlugins: () => void;
   configuration: UIConfiguration; error: unknown; busy: boolean; loading: boolean;
-  select: (selection: UISelection) => Promise<void>; reset: () => void;
+  select: (selection: UISelection) => Promise<void>; reset: () => Promise<boolean>;
   drafts: Record<string, ChatDraft>; setDrafts: (value: SetStateAction<Record<string, ChatDraft>>) => void;
 };
 const Context = createContext<Store | null>(null);
@@ -54,7 +54,12 @@ export function UIHostProvider({ children }: { children: ReactNode }) {
       return next;
     }),
     drafts, select,
-    reset: () => { setRecovering(true); void select(defaultConfiguration().selected).catch(() => {}); },
+    reset: async () => {
+      setRecovering(true);
+      if (writing.current) return false;
+      try { await select(defaultConfiguration().selected); return true; }
+      catch { return false; } // Keep the current-session fallback when saving is unavailable.
+    },
   };
   return <Context.Provider value={store}>{children}</Context.Provider>;
 }

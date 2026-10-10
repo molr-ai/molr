@@ -370,18 +370,8 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 	cancelTool = sandboxRouter.cancel
 	grants = remoteSandboxGrants{Service: grants, router: sandboxRouter}
 	resources = remoteSandboxResources{Service: resources, router: sandboxRouter}
-	memoryFiles := memory.NewFiles(memory.FileOptions{JournalRoot: filepath.Join(cfg.DataDir, "memory-operations"), Roots: func(ctx context.Context, owner core.ID) ([]memory.Root, error) {
-		roots := []memory.Root{{Scope: memory.Global, Directory: platform.UserGlobal(cfg.DataDir, owner)}}
-		rows, err := persistence.Select[assistant.Assistant](ctx, store, "business.assistants", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner)}})
-		if err != nil {
-			return nil, err
-		}
-		for _, a := range rows {
-			if a.OwnerID == owner {
-				roots = append(roots, memory.Root{Scope: memory.Assistant, AssistantID: a.ID, Directory: platform.AssistantWorkspace(cfg.DataDir, adapters.storageConfig.WorkRoot, owner, a.ID)})
-			}
-		}
-		return roots, nil
+	memoryFiles := memory.NewFiles(memory.FileOptions{JournalRoot: filepath.Join(cfg.DataDir, "memory-operations"), Roots: func(ctx context.Context, owner core.ID, query memory.RootQuery) ([]memory.Root, error) {
+		return runtimeMemoryRoots(ctx, store, cfg.DataDir, adapters.storageConfig.WorkRoot, owner, query)
 	}})
 	memories := memory.NewService(store, memory.Options{Files: memoryFiles, Authorizer: permissions, CheckAssistant: access.assistant})
 	dreams := dream.New(store, dream.Options{Authorizer: permissions, Memories: memories, Files: memoryFiles, Conversations: chat})
