@@ -25,7 +25,7 @@ export function PluginFrame({ reference, title }: { reference: PluginUIReference
   const revision = `${installed?.Version}:${installed?.UserVersion}:${installed?.UserEnabled}`;
   useEffect(() => {
     const controller = new AbortController(); setDocument(''); setError(false); setReady(false);
-    void api.post<{ HTML: string }>('/api/plugins/ui', { ...stableRef, Method: 'document' }).then(value => { if (!controller.signal.aborted) setDocument(value.HTML); }).catch(() => { if (!controller.signal.aborted) setError(true); });
+    void api.read<{ HTML: string }>('/api/plugins/ui', { ...stableRef, Method: 'document' }).then(value => { if (!controller.signal.aborted) setDocument(value.HTML); }).catch(() => { if (!controller.signal.aborted) setError(true); });
     return () => controller.abort();
   }, [stableRef, attempt, revision]);
   const url = useMemo(() => document && preferencesReady ? URL.createObjectURL(new Blob([`<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${policy}"><meta name="referrer" content="no-referrer">`, document], { type: 'text/html;charset=utf-8' })) : '', [document, preferencesReady]);
@@ -42,7 +42,9 @@ export function PluginFrame({ reference, title }: { reference: PluginUIReference
         if (disposed || !Number.isSafeInteger(data?.id) || !['plans.list', 'settings.get', 'settings.update', 'connections.list', 'connections.test'].includes(data.method)) return;
         if (active >= 4) { port?.postMessage({ id: data.id, error: 'rate_limited' }); return; }
         active++;
-        try { const value = await api.post('/api/plugins/ui', { ...stableRef, Method: data.method, ...(data.method === 'settings.update' ? { ExpectedVersion: data.params?.expectedVersion, Values: data.params?.values } : {}), ...(data.method === 'connections.test' ? { ConnectionID: data.params?.connectionId, Mutation: { IdempotencyKey: data.params?.idempotencyKey } } : {}) }); if (!disposed) port?.postMessage({ id: data.id, value }); }
+        try {
+          const request = ['plans.list', 'settings.get', 'connections.list'].includes(data.method) ? api.read : api.post;
+          const value = await request('/api/plugins/ui', { ...stableRef, Method: data.method, ...(data.method === 'settings.update' ? { ExpectedVersion: data.params?.expectedVersion, Values: data.params?.values } : {}), ...(data.method === 'connections.test' ? { ConnectionID: data.params?.connectionId, Mutation: { IdempotencyKey: data.params?.idempotencyKey } } : {}) }); if (!disposed) port?.postMessage({ id: data.id, value }); }
         catch { if (!disposed) port?.postMessage({ id: data.id, error: 'unavailable_or_denied' }); }
         finally { active--; }
       };
