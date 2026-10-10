@@ -51,7 +51,8 @@ func legacySanitize(value any, limit int) (json.RawMessage, string) {
 			var nested any
 			nestedDecoder := json.NewDecoder(strings.NewReader(value))
 			nestedDecoder.UseNumber()
-			if (strings.HasPrefix(value, "{") || strings.HasPrefix(value, "[")) && nestedDecoder.Decode(&nested) == nil {
+			jsonText := strings.TrimLeft(value, " \t\r\n")
+			if (strings.HasPrefix(jsonText, "{") || strings.HasPrefix(jsonText, "[")) && nestedDecoder.Decode(&nested) == nil {
 				// Keep untouched JSON strings byte-for-byte so context prefixes
 				// remain reusable across checkpoint and diagnostic references.
 				prior := redacted

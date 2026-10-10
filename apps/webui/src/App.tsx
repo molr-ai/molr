@@ -62,7 +62,12 @@ function WorkspaceHost() {
   const uiPage: UIPage = page === 'extensions' || page === 'account' ? 'settings' : page === 'todos' || page === 'schedules' ? 'plans' : page;
   const selected = resolveUI(host.configuration, host.packages, uiPage);
   const context = useMemo<UIContext>(() => ({ apiVersion: 1, route: { page: uiPage, id }, locale, theme, palette: settings.data?.Palette || 'forest', reducedMotion: !!settings.data?.ReducedMotion, permissions: selected.manifest.permissions }), [uiPage, id, locale, theme, settings.data?.Palette, settings.data?.ReducedMotion, selected]);
-  function recover() { setRecoveryAttempt(value => value + 1); host.reset(); }
+  async function recover() {
+    setRecoveryAttempt(value => value + 1);
+    // A failed module download is also cached by the browser. Persist the
+    // default selection before reloading, so recovery cannot reload the old theme.
+    if (await host.reset()) location.reload();
+  }
   const mobileNavigation = mobile && !(page === 'assistants' && id);
   const NativePage = builtinEntries[selected.manifest.pages[uiPage]!];
   if (host.loading) return <main className="session-page"><Loading /></main>;

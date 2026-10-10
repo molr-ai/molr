@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"molr.ai/runtime/internal/notification"
 	"slices"
-	"sort"
 	"time"
 
 	"molr.ai/runtime/internal/agent"
@@ -71,7 +70,7 @@ func (s *permissionRequests) create(ctx context.Context, e core.Execution, input
 		} else if !persistence.Missing(err) {
 			return err
 		}
-		rows, err := s.rows(ctx, e.Principal.OwnerID, e.AssistantID)
+		rows, err := s.requestRows(ctx, e.Principal.OwnerID, e.AssistantID, true, 0)
 		if err != nil {
 			return err
 		}
@@ -128,24 +127,39 @@ func (s *permissionRequests) create(ctx context.Context, e core.Execution, input
 	return json.Marshal(out)
 }
 
-func (s *permissionRequests) rows(ctx context.Context, owner, assistantID core.ID) ([]policy.PermissionRequest, error) {
-	all, err := persistence.Select[policy.PermissionRequest](ctx, s.store, permissionRequestsBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner), persistence.Eq("AssistantID", assistantID)}})
-	rows := []policy.PermissionRequest{}
-	for _, row := range all {
-		if row.OwnerID == owner && row.AssistantID == assistantID {
-			rows = append(rows, row)
-		}
+func (s *permissionRequests) requestRows(ctx context.Context, owner, assistantID core.ID, pending bool, limit int) ([]policy.PermissionRequest, error) {
+	op := "="
+	if !pending {
+		op = "!="
 	}
-	sort.Slice(rows, func(i, j int) bool {
-		if (rows[i].State == "pending") != (rows[j].State == "pending") {
-			return rows[i].State == "pending"
-		}
-		if rows[i].CreatedAt.Equal(rows[j].CreatedAt) {
-			return rows[i].ID < rows[j].ID
-		}
-		return rows[i].CreatedAt.After(rows[j].CreatedAt)
+	return persistence.Select[policy.PermissionRequest](ctx, s.store, permissionRequestsBucket, persistence.Query{
+		Where:   []persistence.Filter{persistence.Eq("OwnerID", owner), persistence.Eq("AssistantID", assistantID), {Field: "State", Op: op, Value: "pending"}},
+		OrderBy: "CreatedAtKey", Descending: true, ThenBy: "ID", Limit: limit,
 	})
-	return rows, err
+}
+
+func (s *permissionRequests) rows(ctx context.Context, owner, assistantID core.ID, limit int) ([]policy.PermissionRequest, error) {
+	rows := []policy.PermissionRequest{}
+	err := s.store.Read(ctx, func(ctx context.Context, _ persistence.Tx) error {
+		pending, err := s.requestRows(ctx, owner, assistantID, true, limit)
+		if err != nil {
+			return err
+		}
+		rows = append(rows, pending...)
+		if len(rows) == limit {
+			return nil
+		}
+		decided, err := s.requestRows(ctx, owner, assistantID, false, limit-len(rows))
+		if err != nil {
+			return err
+		}
+		rows = append(rows, decided...)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return rows, nil
 }
 
 func (s *permissionRequests) List(ctx context.Context, p core.Principal, id core.ID) ([]policy.PermissionRequest, error) {
@@ -158,11 +172,7 @@ func (s *permissionRequests) List(ctx context.Context, p core.Principal, id core
 	if err := s.authorizer.Require(ctx, p, policy.CheckRequest{Target: core.Object{Kind: "assistant", ID: id}, Action: policy.Read}); err != nil {
 		return nil, err
 	}
-	rows, err := s.rows(ctx, p.OwnerID, id)
-	if len(rows) > 200 {
-		rows = rows[:200]
-	}
-	return rows, err
+	return s.rows(ctx, p.OwnerID, id, 200)
 }
 
 func (s *permissionRequests) Get(ctx context.Context, p core.Principal, id core.ID) (policy.PermissionRequest, error) {
@@ -347,15 +357,12 @@ func (s *permissionRequests) context(ctx context.Context, e core.Execution) ([]a
 		}
 		return nil, err
 	}
-	rows, err := s.rows(ctx, e.Principal.OwnerID, e.AssistantID)
+	rows, err := s.rows(ctx, e.Principal.OwnerID, e.AssistantID, 40)
 	if err != nil {
 		return nil, err
 	}
 	// Include all pending requests and the most recent decisions. Their state is
 	// evidence only: execution and permission_list still recheck actual grants.
-	if len(rows) > 40 {
-		rows = rows[:40]
-	}
 	for i := range rows {
 		rows[i].Granted = nil
 	} // query current grants via permission_list
