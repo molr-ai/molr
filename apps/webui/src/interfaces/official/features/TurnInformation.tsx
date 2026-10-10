@@ -15,12 +15,17 @@ export function TurnInformation({ message, revision, onDebug, readOnly = false }
   const path = `/api/conversations/${encodeURIComponent(message.ConversationID)}/messages/${encodeURIComponent(message.ID)}/metrics`;
   const [, render] = useState(0);
   const snapshot = cache.snapshot(key, path);
-  useEffect(() => { const changed = () => setVisible(document.visibilityState === 'visible'); document.addEventListener('visibilitychange', changed); return () => document.removeEventListener('visibilitychange', changed); }, []);
+  useEffect(() => {
+    if (!open) return;
+    const changed = () => setVisible(document.visibilityState === 'visible');
+    document.addEventListener('visibilitychange', changed);
+    return () => document.removeEventListener('visibilitychange', changed);
+  }, [open]);
   useEffect(() => {
     if (!open || !visible) return;
     return cache.subscribe(key, path, () => render(value => value + 1));
   }, [cache, key, path, open, visible]);
-  return <ChatMessageMeta {...feedback} showFeedback={!readOnly} metricsTitle={copy.title} metricsOpen={open} onMetricsOpenChange={setOpen} metricsContent={open && <div className="turn-information" aria-busy={snapshot.loading}>
+  return <ChatMessageMeta {...feedback} showFeedback={!readOnly} metricsTitle={copy.title} metricsOpen={open} onMetricsOpenChange={next => { setVisible(document.visibilityState === 'visible'); setOpen(next); }} metricsContent={open && <div className="turn-information" aria-busy={snapshot.loading}>
     {!snapshot.data && !snapshot.error && <div className="turn-information-loading" role="status">{copy.loading}<i /><i /><i /></div>}
     {!!snapshot.error && <p className="message-info-note" role="alert">{snapshot.data ? copy.stale : copy.failure} <Button size="sm" variant="ghost" onClick={() => void cache.refresh(key, path)}>{t.retry}</Button></p>}
     {snapshot.data && <TurnDetails data={snapshot.data} receivedAt={snapshot.receivedAt} ticking={open && visible} />}

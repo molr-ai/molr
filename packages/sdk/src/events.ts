@@ -1,4 +1,4 @@
-import { api } from './client';
+import { verifySession as checkSession } from './client';
 export type RuntimeConnection = 'reconnecting' | 'connected' | 'recovered' | 'disconnected' | 'failed';
 const connectionTimeout = 20_000;
 const recoveryDuration = 2400;
@@ -9,7 +9,9 @@ export function subscribeRuntime(options: { onUpdate: (event: MessageEvent) => v
   let deadline: ReturnType<typeof setTimeout> | undefined, recovery: ReturnType<typeof setTimeout> | undefined;
   function clearTimers() { clearTimeout(deadline); deadline = undefined; clearTimeout(recovery); recovery = undefined; }
   function closeStream() { if (stream) { stream.onopen = null; stream.onerror = null; stream.close(); stream = null; } }
+  function cancelAuthCheck() { authCheck?.abort(); authCheck = null; }
   function disconnected() {
+    cancelAuthCheck();
     interrupted = true; clearTimers(); closeStream();
     if (active) options.onConnection('disconnected');
   }
@@ -22,11 +24,11 @@ export function subscribeRuntime(options: { onUpdate: (event: MessageEvent) => v
     if (authCheck) return;
     const controller = new AbortController(); authCheck = controller;
     // The client handles a real 401 through the existing session-expired flow.
-    void api.get('/api/auth/me', controller.signal).catch(() => {}).finally(() => { if (authCheck === controller) authCheck = null; });
+    void checkSession(controller.signal).catch(() => {}).finally(() => { if (authCheck === controller) authCheck = null; });
   }
   function connect() {
     if (!active) return;
-    clearTimers(); closeStream();
+    clearTimers(); closeStream(); cancelAuthCheck();
     if (!navigator.onLine) { disconnected(); return; }
     options.onConnection('reconnecting'); armDeadline();
     const current = new EventSource(`/api/events/stream${cursor ? `?after=${encodeURIComponent(cursor)}` : ''}`);
@@ -39,7 +41,7 @@ export function subscribeRuntime(options: { onUpdate: (event: MessageEvent) => v
     });
     current.onopen = () => {
       if (!active || stream !== current) return;
-      clearTimers();
+      clearTimers(); cancelAuthCheck();
       options.onConnection(interrupted ? 'recovered' : 'connected');
       if (interrupted) recovery = setTimeout(() => { if (active && stream === current) options.onConnection('connected'); }, recoveryDuration);
       if (connectedBefore || interrupted) options.onRestore();
@@ -61,7 +63,7 @@ export function subscribeRuntime(options: { onUpdate: (event: MessageEvent) => v
   window.addEventListener('offline', disconnected); window.addEventListener('online', online);
   connect();
   const dispose = () => {
-    active = false; clearTimers(); closeStream(); authCheck?.abort();
+    active = false; clearTimers(); closeStream(); cancelAuthCheck();
     window.removeEventListener('offline', disconnected); window.removeEventListener('online', online);
   };
   return { retry, dispose };

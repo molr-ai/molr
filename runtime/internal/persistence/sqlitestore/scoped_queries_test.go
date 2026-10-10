@@ -25,6 +25,8 @@ func TestScopedQueriesUseIndexes(t *testing.T) {
 		q            persistence.Query
 		ordered      bool
 	}{
+		{"permission pending", "security.permission_requests", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), persistence.Eq("AssistantID", "assistant"), persistence.Eq("State", "pending")}, OrderBy: "CreatedAtKey", Descending: true, ThenBy: "ID", Limit: 200}, true},
+		{"permission decided", "security.permission_requests", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), persistence.Eq("AssistantID", "assistant"), {Field: "State", Op: "!=", Value: "pending"}}, OrderBy: "CreatedAtKey", Descending: true, ThenBy: "ID", Limit: 200}, true},
 		{"model binding", "business.bindings", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerKey", "owner"), {Field: "ModelIDs", Op: "has", Value: "model-target"}}, Limit: 1, Unordered: true}, false},
 		{"search conversations", "im.conversations", persistence.Query{Prefix: "owner/", Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), persistence.Eq("PeerID", "assistant")}, Any: [][]persistence.Filter{{persistence.Eq("Archived", false)}, {persistence.Eq("Archived", nil)}}, After: []any{"owner/chat"}, Limit: 200}, true},
 		{"search messages", "im.messages", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerKey", "owner"), persistence.Eq("ConversationID", "chat"), {Field: "Sequence", Op: ">", Value: 200}}, OrderBy: "Sequence", Limit: 200}, true},
@@ -39,6 +41,7 @@ func TestScopedQueriesUseIndexes(t *testing.T) {
 		{"acknowledge", "im.outbox", persistence.Query{Where: []persistence.Filter{persistence.Eq("ID", "event")}, Limit: 1}, true},
 		{"attachment", "im.messages", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerKey", "owner"), persistence.Eq("ConversationID", "chat"), {Field: "Content.AttachmentIDs", Op: "has", Value: "file"}}, Limit: 1}, false},
 		{"dependency", "business.plan-links", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), {Field: "Dependencies", Op: "has", Value: "todo/one"}}}, false},
+		{"dream history", "business.dream_runs", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), persistence.Eq("AssistantID", "assistant")}, OrderBy: "CreatedAtKey", Descending: true, ThenBy: "key", Limit: 60}, true},
 		{"dream evidence", "business.dream_runs", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), {Field: "Sources.Evidence", Op: "has", Value: "message/one/hash"}}, Limit: 1}, false},
 		{"message time range", "im.messages", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerKey", "owner"), persistence.Eq("ConversationID", "chat"), {Field: "CreatedAtKey", Op: ">=", Value: "2026"}}, Unordered: true}, false},
 		{"audit page", "security.audit", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner")}, OrderBy: "AtKey", Descending: true, ThenBy: "ID", Limit: 51}, true},

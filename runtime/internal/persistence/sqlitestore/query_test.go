@@ -2,6 +2,7 @@ package sqlitestore
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"molr.ai/runtime/internal/persistence"
 	"path/filepath"
@@ -244,5 +245,43 @@ func TestBackgroundQueriesUseSelectiveIndexes(t *testing.T) {
 				t.Fatal("selective index not used")
 			}
 		})
+	}
+}
+
+func TestQueryProjectionPreservesJSONTypes(t *testing.T) {
+	s, err := Open(filepath.Join(t.TempDir(), "types.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	value := json.RawMessage(`{"True":true,"False":false,"Null":null,"Text":"中文\n","Array":[true,2],"Object":{"a":false},"Nested":{"Value":true},"Large":9007199254740993}`)
+	err = s.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error { return tx.Put(ctx, "types", "one", value) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = s.Read(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
+		rows, err := tx.Query(ctx, "types", persistence.Query{Fields: []string{"True", "False", "Null", "Text", "Array", "Object", "Nested.Value", "Large", "Missing"}})
+		if err != nil {
+			return err
+		}
+		var original, projected map[string]json.RawMessage
+		if err := json.Unmarshal(value, &original); err != nil {
+			return err
+		}
+		if err := json.Unmarshal(rows[0].Data, &projected); err != nil {
+			return err
+		}
+		for key, want := range original {
+			if string(projected[key]) != string(want) {
+				t.Fatalf("%s changed type/value: got %s want %s", key, projected[key], want)
+			}
+		}
+		if string(projected["Missing"]) != "null" {
+			t.Fatal("missing field changed", string(rows[0].Data))
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }

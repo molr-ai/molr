@@ -11,6 +11,7 @@ import (
 // Service authenticates credentials, not resource access. All management
 // methods require a current owner session; assistant principals are forbidden.
 type Service interface {
+	WatchPrincipal(core.Principal) (*PrincipalWatch, error)
 	CreateLoginLink(context.Context, core.Principal, CreateLoginLinkRequest) (LoginLinkIssued, error)
 	LoginLinks(context.Context, core.Principal, core.PageRequest) (core.Page[LoginLink], error)
 	RevokeLoginLink(context.Context, core.Principal, core.ID) error

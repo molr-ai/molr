@@ -122,7 +122,7 @@ func init() {
 		fixturePut(t, db, "business.resources", "owner/resource", resourceRow)
 		fixturePut(t, db, "business.tasks", "owner/task", task.Task{ID: "task", OwnerID: "owner", AssistantID: "assistant", Goal: "Budget review", State: task.Pending, Version: 1})
 		root := t.TempDir()
-		memoryFiles := memory.NewFiles(memory.FileOptions{JournalRoot: filepath.Join(root, "journal"), Roots: func(ctx context.Context, owner core.ID) ([]memory.Root, error) {
+		memoryFiles := memory.NewFiles(memory.FileOptions{JournalRoot: filepath.Join(root, "journal"), Roots: func(ctx context.Context, owner core.ID, query memory.RootQuery) ([]memory.Root, error) {
 			return []memory.Root{{Scope: memory.Assistant, AssistantID: "assistant", Directory: filepath.Join(root, string(owner), "work")}}, nil
 		}})
 		item, err := memoryFiles.Put(ctx, memory.Memory{OwnerID: "owner", Text: "Budget preference", Ref: memory.Ref{Path: ".agents/memory/preference.md", AssistantID: "assistant", Scope: memory.Assistant}}, "", nil)
