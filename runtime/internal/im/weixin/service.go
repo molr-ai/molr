@@ -524,7 +524,8 @@ func (s *Service) Disconnect(ctx context.Context, p core.Principal, id core.ID) 
 	return err
 }
 func (s *Service) cancelDeliveries(ctx context.Context, tx persistence.Tx, b Binding) error {
-	rows, err := persistence.Select[Delivery](ctx, s.store, deliveriesBucket, persistence.Query{Prefix: string(b.OwnerID) + "/", Where: []persistence.Filter{persistence.Eq("BindingID", b.ID)}})
+	// Cancellation is atomic and order-independent; let the binding/state index narrow the scan.
+	rows, err := persistence.Select[Delivery](ctx, s.store, deliveriesBucket, persistence.Query{Unordered: true, Prefix: string(b.OwnerID) + "/", Where: []persistence.Filter{persistence.Eq("BindingID", b.ID), {Field: "State", Op: "in", Value: []string{"pending", "waiting", "sending"}}}})
 	if err != nil {
 		return err
 	}
