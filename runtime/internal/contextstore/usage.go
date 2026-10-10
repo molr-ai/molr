@@ -86,21 +86,13 @@ func AccountUsage(ctx context.Context, tx persistence.Tx, owner core.ID) (Usage,
 // GlobalUsage counts each stored object once, including objects awaiting GC.
 // The caller must authorize administrator access before invoking it.
 func GlobalUsage(ctx context.Context, tx persistence.Tx) (Usage, error) {
-	var out Usage
-	q := persistence.Query{OrderBy: "key", Limit: 200}
-	for {
-		rows, err := tx.Query(ctx, objects, q)
-		if err != nil {
-			return Usage{}, err
-		}
-		for _, row := range rows {
-			if _, err := out.add(row.Data); err != nil {
-				return Usage{}, err
-			}
-		}
-		if len(rows) < q.Limit {
-			return out, nil
-		}
-		q.After = []any{rows[len(rows)-1].Key}
+	bytes, err := tx.EncodedBytes(ctx, objects, persistence.Query{})
+	if err != nil {
+		return Usage{}, err
 	}
+	messages, err := tx.Count(ctx, objects, persistence.Query{Where: []persistence.Filter{persistence.Eq("Kind", "message")}})
+	if err != nil {
+		return Usage{}, err
+	}
+	return Usage{Bytes: bytes, Messages: messages}, nil
 }

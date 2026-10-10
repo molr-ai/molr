@@ -47,7 +47,11 @@ export function createClient(transport?: RuntimeTransport) {
     try { response = await fetch(path, { ...init, headers, credentials: 'same-origin', cache: 'no-store' }); }
     catch (error) { if (error instanceof DOMException && error.name === 'AbortError') throw error; throw new APIError('unavailable'); }
     let data: any;
-    try { data = binary && response.ok ? await response.blob() : await response.json(); } catch { if (response.ok) throw new APIError('invalid_response', '', response.status); }
+    try { data = binary && response.ok ? await response.blob() : await response.json(); }
+    catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') throw error;
+      if (response.ok) throw new APIError('invalid_response', '', response.status);
+    }
     if (!response.ok) {
       if (response.status === 401 && requestIdentity === csrfToken() && path !== '/api/auth/me' && !path.startsWith('/api/auth/login') && !path.startsWith('/api/auth/mfa/complete') && path !== '/api/auth/reauthenticate' && path !== '/api/auth/mfa/confirm') sessionEvents.dispatchEvent(new Event('expired'));
       const retryAfter = response.headers.get('Retry-After');

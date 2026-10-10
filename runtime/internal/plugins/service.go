@@ -109,7 +109,7 @@ func (s *Service) list(ctx context.Context, owner core.ID) ([]Installation, erro
 	if e != nil {
 		return nil, e
 	}
-	all, err := persistence.Select[Installation](ctx, s.store, "plugins.installations", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner)}})
+	all, err := persistence.Select[Installation](ctx, s.store, "plugins.installations", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner), persistence.Eq("Deleted", false)}})
 	out := []Installation{}
 	for _, v := range all {
 		if v.OwnerID == owner && !v.Deleted {
@@ -205,20 +205,16 @@ func (s *Service) Install(ctx context.Context, p core.Principal, pkg Package) (I
 			out = old
 			return nil
 		}
-		if old.ID == "" {
-			rows, e := persistence.Select[Installation](ctx, s.store, "plugins.installations", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", catalogOwner)}, Limit: 32})
-			all := []Installation{}
-			for _, row := range rows {
-				if row.OwnerID == catalogOwner {
-					all = append(all, row)
-				}
+		if old.ID == "" || old.Deleted {
+			count, err := tx.Count(ctx, "plugins.installations", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", catalogOwner), persistence.Eq("Deleted", false)}, Limit: 32})
+			if err != nil {
+				return err
 			}
-			if e != nil {
-				return e
-			}
-			if len(all) >= 32 {
+			if count >= 32 {
 				return invalid("installed plugin limit reached")
 			}
+		}
+		if old.ID == "" {
 			old = Installation{OwnerID: catalogOwner, ID: pkg.Manifest.ID, Manifest: pkg.Manifest, Digest: digest, Grants: []string{}, Bindings: []Binding{}, Versions: []Release{}}
 		}
 		if old.Deleted {

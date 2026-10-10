@@ -18,21 +18,32 @@ export function PluginFrame({ reference, title }: { reference: PluginUIReference
   const administrator = useSession().principal?.User?.Administrator === true;
   const preferences = useQuery<Settings>('/api/settings');
   const palette = preferences.data?.Palette, reducedMotion = preferences.data?.ReducedMotion, preferencesReady = !!preferences.data;
-  const frame = useRef<HTMLIFrameElement>(null), [attempt, retry] = useState(0), [document, setDocument] = useState(''), [error, setError] = useState(false), [ready, setReady] = useState(false);
+  const frame = useRef<HTMLIFrameElement>(null), [attempt, retry] = useState(0), [document, setDocument] = useState<{ key: string; html: string } | null>(null), [error, setError] = useState(false), [ready, setReady] = useState(false);
   const refKey = JSON.stringify(reference);
   const stableRef = useMemo(() => reference, [refKey]);
   const installed = host.plugins.find(p => p.ID === reference.ID);
   const revision = `${installed?.Version}:${installed?.UserVersion}:${installed?.UserEnabled}`;
+  const documentKey = JSON.stringify([refKey, attempt, revision]);
   useEffect(() => {
-    const controller = new AbortController(); setDocument(''); setError(false); setReady(false);
-    void api.post<{ HTML: string }>('/api/plugins/ui', { ...stableRef, Method: 'document' }).then(value => { if (!controller.signal.aborted) setDocument(value.HTML); }).catch(() => { if (!controller.signal.aborted) setError(true); });
+    const controller = new AbortController(); setDocument(null); setError(false); setReady(false);
+    void api.read<{ HTML: string }>('/api/plugins/ui', { ...stableRef, Method: 'document' }).then(value => { if (!controller.signal.aborted) setDocument({ key: documentKey, html: value.HTML }); }).catch(() => { if (!controller.signal.aborted) setError(true); });
     return () => controller.abort();
-  }, [stableRef, attempt, revision]);
-  const url = useMemo(() => document && preferencesReady ? URL.createObjectURL(new Blob([`<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${policy}"><meta name="referrer" content="no-referrer">`, document], { type: 'text/html;charset=utf-8' })) : '', [document, preferencesReady]);
-  useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
+  }, [stableRef, documentKey]);
+  const [blob, setBlob] = useState<{ document: NonNullable<typeof document>; url: string } | null>(null);
+  const currentDocument = document?.key === documentKey && preferencesReady && !preferences.error && !error ? document : null;
+  useEffect(() => {
+    if (!currentDocument?.html) { setBlob(null); return; }
+    // Allocate only after commit: StrictMode and interrupted renders must not
+    // leave unowned URLs. The same effect owns creation and revocation.
+    const url = URL.createObjectURL(new Blob([`<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${policy}"><meta name="referrer" content="no-referrer">`, currentDocument.html], { type: 'text/html;charset=utf-8' }));
+    setBlob({ document: currentDocument, url });
+    return () => URL.revokeObjectURL(url);
+  }, [currentDocument]);
+  // Never connect an old document to a new plugin reference while effects settle.
+  const url = currentDocument && blob?.document === currentDocument ? blob.url : '';
   useLayoutEffect(() => {
-    if (!url) return;
     setReady(false);
+    if (!url) return;
     let disposed = false, port: MessagePort | undefined, active = 0;
     const timer = window.setTimeout(() => setError(true), 10000);
     function connect(event: MessageEvent) {
@@ -42,7 +53,9 @@ export function PluginFrame({ reference, title }: { reference: PluginUIReference
         if (disposed || !Number.isSafeInteger(data?.id) || !['plans.list', 'settings.get', 'settings.update', 'connections.list', 'connections.test'].includes(data.method)) return;
         if (active >= 4) { port?.postMessage({ id: data.id, error: 'rate_limited' }); return; }
         active++;
-        try { const value = await api.post('/api/plugins/ui', { ...stableRef, Method: data.method, ...(data.method === 'settings.update' ? { ExpectedVersion: data.params?.expectedVersion, Values: data.params?.values } : {}), ...(data.method === 'connections.test' ? { ConnectionID: data.params?.connectionId, Mutation: { IdempotencyKey: data.params?.idempotencyKey } } : {}) }); if (!disposed) port?.postMessage({ id: data.id, value }); }
+        try {
+          const request = ['plans.list', 'settings.get', 'connections.list'].includes(data.method) ? api.read : api.post;
+          const value = await request('/api/plugins/ui', { ...stableRef, Method: data.method, ...(data.method === 'settings.update' ? { ExpectedVersion: data.params?.expectedVersion, Values: data.params?.values } : {}), ...(data.method === 'connections.test' ? { ConnectionID: data.params?.connectionId, Mutation: { IdempotencyKey: data.params?.idempotencyKey } } : {}) }); if (!disposed) port?.postMessage({ id: data.id, value }); }
         catch { if (!disposed) port?.postMessage({ id: data.id, error: 'unavailable_or_denied' }); }
         finally { active--; }
       };

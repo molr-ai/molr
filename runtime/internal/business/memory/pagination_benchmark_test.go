@@ -26,7 +26,7 @@ func BenchmarkMemoryFirstPage(b *testing.B) {
 					b.Fatal(err)
 				}
 			}
-			files := NewFiles(FileOptions{Roots: func(context.Context, core.ID) ([]Root, error) {
+			files := NewFiles(FileOptions{Roots: func(context.Context, core.ID, RootQuery) ([]Root, error) {
 				return []Root{{Scope: Assistant, AssistantID: "assistant", Directory: root}}, nil
 			}})
 			query := Query{Scope: Assistant, AssistantID: "assistant", Page: core.PageRequest{Limit: 50}}
