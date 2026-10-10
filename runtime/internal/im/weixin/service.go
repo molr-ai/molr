@@ -156,10 +156,6 @@ func hash(text string) core.ID {
 	sum := sha256.Sum256([]byte(text))
 	return core.ID(hex.EncodeToString(sum[:]))
 }
-func (s *Service) gate(owner, id core.ID) *sync.Mutex {
-	v, _ := s.gates.LoadOrStore(persistence.Key(owner, id), &sync.Mutex{})
-	return v.(*sync.Mutex)
-}
 func (s *Service) seal(b Binding, value secrets) ([]byte, error) {
 	raw, err := json.Marshal(value)
 	if err != nil {
@@ -261,8 +257,10 @@ func (s *Service) StartLogin(ctx context.Context, p core.Principal, id core.ID) 
 		return Login{}, core.NewError(core.FailedPrecondition, "assistant inactive")
 	}
 	g := s.gate(p.OwnerID, id)
-	g.Lock()
-	defer g.Unlock()
+	if err := g.acquire(ctx); err != nil {
+		return Login{}, err
+	}
+	defer g.release()
 	existing, err := s.binding(ctx, p.OwnerID, a.ConversationID)
 	if err != nil && !persistence.Missing(err) {
 		return Login{}, err
@@ -361,8 +359,15 @@ func (s *Service) PollLogin(ctx context.Context, p core.Principal, id core.ID, r
 	}
 
 	g := s.gate(p.OwnerID, id)
-	g.Lock()
-	defer g.Unlock()
+	if gateErr := g.acquire(ctx); gateErr != nil {
+		s.mu.Lock()
+		if s.logins[r.ID] == l {
+			l.Polling = false
+		}
+		s.mu.Unlock()
+		return Login{}, gateErr
+	}
+	defer g.release()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	l = s.logins[r.ID]
@@ -489,8 +494,10 @@ func (s *Service) Disconnect(ctx context.Context, p core.Principal, id core.ID) 
 		return err
 	}
 	g := s.gate(p.OwnerID, id)
-	g.Lock()
-	defer g.Unlock()
+	if err := g.acquire(ctx); err != nil {
+		return err
+	}
+	defer g.release()
 	err := s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		a, err := s.options.Authorize(ctx, p, id, true)
 		if err != nil {
@@ -605,8 +612,10 @@ func (s *Service) CancelLogin(ctx context.Context, p core.Principal, id, loginID
 		return err
 	}
 	g := s.gate(p.OwnerID, id)
-	g.Lock()
-	defer g.Unlock()
+	if err := g.acquire(ctx); err != nil {
+		return err
+	}
+	defer g.release()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	l := s.logins[loginID]
