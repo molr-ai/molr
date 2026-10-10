@@ -17,7 +17,7 @@ import (
 
 // ServeSandbox runs only the resource service: no owner account, Agent Loop,
 // conversations, model credentials or Runtime API is initialized.
-func ServeSandbox(ctx context.Context, cfg config.Config, token core.Secret) error {
+func ServeSandbox(ctx context.Context, cfg config.Config, token core.Secret) (err error) {
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
@@ -46,7 +46,7 @@ func ServeSandbox(ctx context.Context, cfg config.Config, token core.Secret) err
 	if err != nil {
 		return err
 	}
-	defer manager.Close()
+	defer func() { err = errors.Join(err, manager.Close()) }()
 	handler, err := sm.Handler(manager, token)
 	if err != nil {
 		return err
