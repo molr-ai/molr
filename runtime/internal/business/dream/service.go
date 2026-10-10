@@ -160,33 +160,47 @@ func (s *Coordinator) Configure(ctx context.Context, p core.Principal, r Configu
 	return
 }
 func (s *Coordinator) Runs(ctx context.Context, p core.Principal, a core.ID) ([]Run, error) {
-	if err := s.authorize(ctx, p, a, false); err != nil {
-		return nil, err
-	}
-	rows, err := persistence.Select[Run](ctx, s.store, runs, persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("AssistantID", a)}})
-	if err != nil {
-		return nil, err
-	}
 	out := []Run{}
-	for _, r := range rows {
-		if r.OwnerID == p.OwnerID && r.AssistantID == a {
+	err := s.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		if err := s.authorize(ctx, p, a, false); err != nil {
+			return err
+		}
+		rows, err := tx.Query(ctx, runs, persistence.Query{
+			Where:   []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("AssistantID", a)},
+			OrderBy: "CreatedAtKey", Descending: true, ThenBy: "key", Limit: 60,
+		})
+		if err != nil {
+			return err
+		}
+		// Multiple batches share a session. Read its state once within this snapshot.
+		states := map[core.ID]string{}
+		for _, row := range rows {
+			r, err := persistence.Decode[Run](row)
+			if err != nil {
+				return err
+			}
 			for i := range r.Sources {
 				r.Sources[i].Text = ""
 			}
 			r.Output = ""
 			if r.SessionID != "" {
-				v, err := persistence.Load[Session](ctx, s.store, sessions, persistence.Key(p.OwnerID, r.SessionID))
-				if err != nil {
-					return nil, err
+				state, ok := states[r.SessionID]
+				if !ok {
+					var session Session
+					if err := tx.Get(ctx, sessions, persistence.Key(p.OwnerID, r.SessionID), &session); err != nil {
+						return err
+					}
+					state = session.State
+					states[r.SessionID] = state
 				}
-				r.SessionState = v.State
+				r.SessionState = state
 			}
 			out = append(out, r)
 		}
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
-	if len(out) > 60 {
-		out = out[:60]
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return out, nil
 }
