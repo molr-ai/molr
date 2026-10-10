@@ -38,6 +38,7 @@ func TestScopedQueriesUseIndexes(t *testing.T) {
 		{"acknowledge", "im.outbox", persistence.Query{Where: []persistence.Filter{persistence.Eq("ID", "event")}, Limit: 1}, true},
 		{"attachment", "im.messages", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerKey", "owner"), persistence.Eq("ConversationID", "chat"), {Field: "Content.AttachmentIDs", Op: "has", Value: "file"}}, Limit: 1}, false},
 		{"dependency", "business.plan-links", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), {Field: "Dependencies", Op: "has", Value: "todo/one"}}}, false},
+		{"dream history", "business.dream_runs", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), persistence.Eq("AssistantID", "assistant")}, OrderBy: "CreatedAtKey", Descending: true, ThenBy: "key", Limit: 60}, true},
 		{"dream evidence", "business.dream_runs", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), {Field: "Sources.Evidence", Op: "has", Value: "message/one/hash"}}, Limit: 1}, false},
 		{"message time range", "im.messages", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerKey", "owner"), persistence.Eq("ConversationID", "chat"), {Field: "CreatedAtKey", Op: ">=", Value: "2026"}}, Unordered: true}, false},
 		{"audit page", "security.audit", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner")}, OrderBy: "AtKey", Descending: true, ThenBy: "ID", Limit: 51}, true},
