@@ -56,11 +56,13 @@ function ScopedControls() {
 }
 function App() {
   const [locale, setLocale] = useState<UILocale>('en');
+  const [logos, setLogos] = useState(true);
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
   return <UIProvider locale={locale}><ToastProvider><Consumer /><main style={{ display: 'grid', gap: 20, padding: 16 }}>
     <Button onClick={() => setLocale(value => value === 'en' ? 'zh' : 'en')}>Toggle locale</Button>
-    <div id="logo"><Logo animation="alive" markOnly interactive /></div>
-    <div id="custom-logo"><Logo animation="alive" markOnly interactive interactionLabel="Custom identity" /></div>
+    <Button onClick={() => setLogos(value => !value)}>Toggle logos</Button>
+    {logos && <><div id="logo"><Logo animation="alive" markOnly interactive /></div>
+    <div id="custom-logo"><Logo animation="alive" markOnly interactive interactionLabel="Custom identity" /></div></>}
     <Controls />
     <div id="preview" ref={setContainer} style={{ position: 'relative', width: 'min(360px, 100%)', height: 440, overflow: 'hidden', border: '1px solid gray' }}>
       <ModalScope container={container}><ScopedControls /></ModalScope>
