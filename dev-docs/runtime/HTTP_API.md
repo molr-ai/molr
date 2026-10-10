@@ -328,6 +328,8 @@ WebUI 支持上传 10 MB / 4000 万像素以内的 PNG、JPEG、WebP，浏览器
 
 ### 近期计划事件
 
+`GET /api/plans` 在同一读事务中加载账号内的待办与日程，按批次读取可见计划及其直接依赖的关联记录、执行历史。批次限定账号和计划引用，不读取已删除计划或无关计划的执行；不可见依赖只用于就绪判断，不加入返回列表。
+
 `GET /api/plans/events?from=<RFC3339>&limit=50&scope=all&kind=all&state=all&cursor=…` 返回 `{Items: [{Key, At, Plan}], NextCursor}`。`limit` 为 1–200，默认 50；`scope` 为 `all`、`me` 或助理 ID；`kind` 为 `all|item|event|automatic`；`state` 为 `all|open|done`。`from` 必填且包含时区偏移。
 
 每项代表一次发生，按发生时间、计划引用稳定排序。游标绑定所有者、起点和筛选条件，不允许跨查询使用。同一时刻不同计划不会因分页遗漏；重复计划的每次发生不会折叠成系列。投影复用通用重复规则，包含跨年等稀疏安排，不受月历日期范围限制，也不会推进调度游标、创建任务或触发执行。已完成筛选仅检查对应发生的执行记录，不能把整个系列标为完成。原 `GET /api/plans?from=…&to=…` 继续用于月历和计划详情。

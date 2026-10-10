@@ -155,60 +155,6 @@ func (s *Coordinator) ready(ctx context.Context, owner core.ID, p Plan) ([]core.
 	}
 	return blocked, nil
 }
-func (s *Coordinator) List(ctx context.Context, p core.Principal, from, to time.Time) ([]Plan, error) {
-	out := []Plan{}
-	err := s.store.Read(ctx, func(ctx context.Context, _ persistence.Tx) error {
-		if err := s.authorize(ctx, p, core.Object{}, policy.Read); err != nil {
-			return err
-		}
-		if !from.IsZero() && (!to.After(from) || to.Sub(from) > 125*24*time.Hour) {
-			return core.Invalid("range", "maximum calendar range is 125 days")
-		}
-		todos, err := persistence.Select[todo.Todo](ctx, s.store, "business.todos", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID)}})
-		if err != nil {
-			return err
-		}
-		schedules, err := persistence.Select[schedule.Schedule](ctx, s.store, "business.schedules", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID)}})
-		if err != nil {
-			return err
-		}
-		refs := []core.Object{}
-		for _, v := range todos {
-			if v.OwnerID == p.OwnerID && (p.Kind != core.ActorAssistant || v.AssistantID == p.SubjectID) {
-				refs = append(refs, core.Object{Kind: "todo", ID: v.ID})
-			}
-		}
-		for _, v := range schedules {
-			if v.OwnerID == p.OwnerID && (p.Kind != core.ActorAssistant || v.AssistantID == p.SubjectID) {
-				refs = append(refs, core.Object{Kind: "schedule", ID: v.ID})
-			}
-		}
-		for _, ref := range refs {
-			row, err := s.source(ctx, p.OwnerID, ref)
-			if err != nil {
-				return err
-			}
-			row.Executions, err = s.runs(ctx, p.OwnerID, row)
-			if err != nil {
-				return err
-			}
-			row.BlockedBy, err = s.ready(ctx, p.OwnerID, row)
-			if err != nil {
-				return err
-			}
-			row.Ready = len(row.BlockedBy) == 0 && !row.Links.Paused
-			if row.Schedule != nil && !from.IsZero() {
-				row.Occurrences, err = schedule.CalendarTimes(ctx, *row.Schedule, from, to)
-				if err != nil {
-					return err
-				}
-			}
-			out = append(out, row)
-		}
-		return nil
-	})
-	return out, err
-}
 func mutate[T any](ctx context.Context, s *Coordinator, p core.Principal, ref core.Object, m core.Mutation, action string, payload any, fn func(context.Context, persistence.Tx) (T, error)) (T, error) {
 	var result T
 	if err := m.Validate(false); err != nil {
