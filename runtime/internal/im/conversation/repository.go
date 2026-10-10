@@ -319,23 +319,14 @@ func (r *repository) MarkRead(ctx context.Context, owner core.ID, req ReadReques
 			return nil
 		}
 		c.LastReadSequence = req.ThroughSequence
-		c.UnreadCount = 0
-		rows, err := tx.Query(ctx, messagesBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerKey", owner), persistence.Eq("ConversationID", c.ID), {Field: "Sequence", Op: ">", Value: c.LastReadSequence}, persistence.Eq("Sender", Assistant)}, Fields: []string{"ConversationID", "Sequence", "Sender"}})
+		unread, err := tx.Count(ctx, messagesBucket, persistence.Query{Where: []persistence.Filter{
+			persistence.Eq("OwnerKey", owner), persistence.Eq("ConversationID", c.ID),
+			{Field: "Sequence", Op: ">", Value: c.LastReadSequence}, persistence.Eq("Sender", Assistant),
+		}})
 		if err != nil {
 			return err
 		}
-		for _, row := range rows {
-			if len(row.Key) <= len(owner) || row.Key[:len(owner)+1] != string(owner)+"/" {
-				continue
-			}
-			m, err := persistence.Decode[Message](row)
-			if err != nil {
-				return err
-			}
-			if m.ConversationID == c.ID && m.Sender == Assistant && m.Sequence > c.LastReadSequence {
-				c.UnreadCount++
-			}
-		}
+		c.UnreadCount = uint64(unread)
 		return tx.Put(ctx, conversationsBucket, persistence.Key(owner, c.ID), c)
 	})
 }
