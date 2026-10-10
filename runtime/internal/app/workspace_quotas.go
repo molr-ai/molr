@@ -34,15 +34,15 @@ func ensureWorkspaceResource(ctx context.Context, store persistence.Store, owner
 	return repo.Insert(ctx, resource.Resource{ID: id, OwnerID: owner, SandboxID: sandbox, Kind: resource.Storage, Provider: "managed-workspace", Name: "Assistant workspace", Actions: []string{"read", "write"}, State: resource.Available, Version: 1}, resource.Binding{ResourceID: id, SandboxID: sandbox, SandboxResource: "workspace"})
 }
 func workspaceConstraints(ctx context.Context, store persistence.Store, owner, assistant, sandbox core.ID) (*policy.StorageConstraints, error) {
-	rows, err := persistence.Select[policy.Grant](ctx, store, "security.grants", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner), persistence.Eq("AssistantID", assistant)}})
-	if err != nil {
-		return nil, err
-	}
 	catalogOwner, err := persistence.CatalogOwner(ctx, store, owner)
 	if err != nil {
 		return nil, err
 	}
 	id := workspaceResourceID(catalogOwner, sandbox)
+	rows, err := persistence.Select[policy.Grant](ctx, store, "security.grants", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner), persistence.Eq("AssistantID", assistant), persistence.Eq("ResourceID", id)}})
+	if err != nil {
+		return nil, err
+	}
 	// Preserve the last authorized base capacity after expiry/revocation. Existing
 	// files are never erased and revoking an expansion cannot restore unlimited space.
 	var selected *policy.Grant
