@@ -25,9 +25,14 @@ export function useChatHistory(conversationID: string, targetMessageID = '') {
     const get = (query: string) => api.get<Page<Message>>(`${path}?limit=50&${query}`, controller.signal);
     function commit(items: Message[], olderCursor = snapshot?.olderCursor ?? '', versions: Record<string, number> = {}) {
       if (controller.signal.aborted) return;
-      const merged = new Map(snapshot?.messages.map(message => [message.ID, message]));
-      items.forEach(message => merged.set(message.ID, message));
-      const next = { messages: [...merged.values()].sort((a, b) => a.Sequence - b.Sequence), olderCursor, metadataVersions: { ...snapshot?.metadataVersions, ...versions } };
+      let messages = snapshot?.messages ?? [];
+      if (items.length) {
+        const merged = new Map(messages.map(message => [message.ID, message]));
+        items.forEach(message => merged.set(message.ID, message));
+        messages = [...merged.values()].sort((a, b) => a.Sequence - b.Sequence);
+      }
+      const metadataVersions = Object.keys(versions).length ? { ...snapshot?.metadataVersions, ...versions } : snapshot?.metadataVersions ?? {};
+      const next = { messages, olderCursor, metadataVersions };
       snapshot = next;
       cache.set(key, next);
       setHistory(previous => ({ ...previous, messages: next.messages, metadataVersions: next.metadataVersions, more: !!olderCursor, loaded: true, error: null }));
