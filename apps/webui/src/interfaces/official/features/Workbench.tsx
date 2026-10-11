@@ -1,3 +1,4 @@
+import { useErrorToast } from '../../../error-toasts';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Badge, Button, CodeBlock, EmptyState, Progress, SearchField, Select, Tabs, useBreakpoint } from '@molr/ui';
@@ -5,7 +6,7 @@ import { FlaskConical, RefreshCw, RotateCcw, Square, X, ArrowDownToLine, Braces,
 import { api, APIError } from '../../../api/client';
 import type { Assistant, AgentStatus, DebugPayload, DebugRun } from '../../../api/types';
 import { useCopy, useData, useQuery } from '../../../state';
-import { Confirm, ErrorNotice, Loading, PageHeader } from '../components/common';
+import { Confirm, Loading, PageHeader } from '../components/common';
 import { MoneyText } from '../components/Money';
 import { useTrajectory } from './use-trajectory';
 import { projectTrajectory, type TrajectoryRecord } from './trajectory';
@@ -67,6 +68,7 @@ function WorkbenchSession({ assistants, assistantID, onSelectAssistant, onSettin
     setFollow(false); setSelection({ runID: run.ID, sequence: start?.Step.Sequence ?? entries[0].Step.Sequence, recordID: id });
     setFocusID({ id }); setTurnLocated(true);
   }, [turnID, eventID, turnLocated, trajectory.loading, trajectory.loadingOlder, trajectory.error, trajectory.runs, trajectory.entries, trajectory.older, trajectory.loadOlder]);
+  useErrorToast(trajectory.error, trajectory.reload);
   if (revoked || (trajectory.error instanceof APIError && [401, 403].includes(trajectory.error.status))) return <section className="page page--with-header"><PageHeader title={t.workbench.title} icon={<FlaskConical />} /><div className="page-body"><EmptyState title={t.workbench.disabled} description={t.workbench.accessDenied} action={<Button onClick={onSettings}>{t.nav.settings}</Button>} /></div></section>;
   const changeFollow = (value: boolean) => { setFollow(value); if (value) { setQuery(''); setFilter('all'); setRange(null); setFocusID(undefined); } };
   return <section className="page workbench">
@@ -87,7 +89,6 @@ function WorkbenchSession({ assistants, assistantID, onSelectAssistant, onSettin
     }} />
     {(turnID || eventID) && !turnLocated && !trajectory.error && <p className="workbench-turn-notice muted" role="status">{t.workbench.locatingTurn}</p>}
     {turnMissing && <Alert title={t.workbench.turnNotCaptured} />}
-    <ErrorNotice error={trajectory.error} retry={trajectory.reload} />
     <div className="trajectory-controls">
       <div className="trajectory-filters" role="group" aria-label={t.workbench.filter}>{[{ value: 'all', label: t.all }, { value: 'model', label: t.workbench.models }, { value: 'tool', label: t.workbench.toolsShort }].map(item => <button key={item.value} type="button" aria-pressed={filter === item.value} disabled={raw} onClick={() => { setFilter(item.value); setFollow(false); setFocusID(undefined); }}>{item.label}</button>)}</div>
       <Button className="trajectory-raw-toggle" variant="ghost" size="sm" role="switch" aria-label={t.workbench.allEvents} title={t.workbench.allEvents} aria-checked={raw} onClick={() => { setRaw(!raw); setFilter('all'); setFollow(false); setFocusID(undefined); }}><Braces size={15} /><span>{t.workbench.eventsShort}</span></Button>
@@ -128,11 +129,11 @@ function WorkbenchInspector({ selection, assistant, onClose }: { selection: Excl
   const input = useQuery<DebugPayload>(toolStart && tab === 'overview' ? `/api/debug/runs/${runID}/steps/${toolStart.Sequence}` : null);
   const contextData = checkpoint || checkpointStep || hasContext(detail.data) ? detail.data : contextQuery.data;
   const labels = t.workbench.kinds as Record<string, string>;
+  useErrorToast(run.error || detail.error || contextQuery.error || previous.error || wire.error || completion.error || input.error, () => invalidateTopics(['debug', 'debug-payload']));
   return <section className="workbench-inspector" aria-label={t.workbench.details} onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); onClose(); } }}>
     <div className="workbench-inspector-heading"><div className="workbench-inspector-title"><h2>{checkpoint ? t.workbench.checkpoint : step ? labels[step.Kind] ?? step.Kind : t.workbench.details}</h2>{step && <div className="workbench-inspector-subtitle"><span>{t.workbench.stepColumn} {sequence}</span><Badge size="sm" tone={step.State === 'succeeded' ? 'positive' : ['failed', 'interrupted'].includes(step.State) ? 'danger' : 'neutral'}>{(t.workbench.states as Record<string, string>)[step.State] ?? step.State}</Badge></div>}</div><Button ref={close} size="sm" variant="ghost" aria-label={t.close} onClick={onClose}><X size={16} /></Button></div>
     {checkpoint && assistant?.State === 'active' && <Button size="sm" variant="secondary" disabled={detail.loading || !!detail.error || typeof detail.data?.Data?.Sequence !== 'number'} onClick={() => { const value = detail.data?.Data?.Sequence; if (typeof value === 'number') setConfirmReset(value); }}><RotateCcw size={14} />{t.workbench.resetContext}</Button>}
     {run.data?.Incomplete && <p className="muted">{t.workbench.incompleteHelp}</p>}
-    <ErrorNotice error={run.error || detail.error || contextQuery.error || previous.error || wire.error || completion.error || input.error} retry={() => invalidateTopics(['debug', 'debug-payload'])} />
     {detail.loading && !detail.data && <Loading />}
     {detail.data && <Tabs label={t.workbench.details} value={tab} onValueChange={setTab} items={(['overview', 'context', 'diff', 'request', 'response', 'raw'] as const).filter(value => !checkpoint || ['overview', 'context', 'raw'].includes(value)).map(value => ({ value, label: t.workbench.tabs[value], content: value !== tab ? null : <div className="workbench-detail-view">{value === 'context' ? <ContextView payload={contextData} /> : value === 'diff' ? <ContextDiff current={contextData} previous={previous.data} loading={previous.loading || contextQuery.loading} /> : value === 'response' ? <ResponseView key={modelStep?.OperationID ?? sequence} payload={completionStep?.Sequence === sequence ? detail.data : completion.data} wire={wire.data} loading={completion.loading || wire.loading} /> : value === 'request' ? wire.data ? <WireView payload={wire.data} /> : wire.loading ? <Loading /> : <InspectionEmpty>{t.workbench.notCaptured}</InspectionEmpty> : value === 'raw' ? <PayloadView payload={detail.data} /> : <Overview operationID={checkpoint ? undefined : step?.OperationID} payload={detail.data!} run={run.data} connection={connection} toolInput={toolStart ? input.data ?? null : undefined} />}</div> }))} />}
     {confirmReset !== null && assistant && <Confirm title={t.workbench.resetContext} description={t.workbench.resetContextHelp(assistant.Name)} danger onClose={() => setConfirmReset(null)} onConfirm={async () => { await api.mutate(`/api/debug/assistants/${assistant.ID}/context/reset`, { ExpectedSequence: confirmReset }); invalidateTopics(['debug', 'jobs', 'status', 'assistants']); }} />}

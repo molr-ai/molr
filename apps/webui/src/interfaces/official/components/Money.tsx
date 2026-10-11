@@ -1,3 +1,4 @@
+import { useErrorToast } from '../../../error-toasts';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Dialog, Drawer, Select, TextField } from '@molr/ui';
@@ -5,7 +6,7 @@ import type { CurrencyContext, CurrencyCode, Money } from '../../../api/types';
 import { api } from '../../../api/client';
 import { useCopy, useQuery } from '../../../state';
 import { convertMoney, currencyText } from '../../../currency';
-import { ErrorNotice, Loading } from './common';
+import { Loading } from './common';
 
 export const useCurrency = () => useQuery<CurrencyContext>('/api/settings/currency');
 
@@ -18,7 +19,8 @@ export function CurrencyDialog({ title, onClose, children, drawer = false, dismi
     void api.get<CurrencyContext>('/api/settings/currency', abort.signal).then(value => { if (!abort.signal.aborted) setContext(value); }, error => { if (!abort.signal.aborted) setError(error); });
     return () => abort.abort();
   }, [attempt]);
-  const pending = <><ErrorNotice error={error} retry={() => setAttempt(value => value + 1)} />{!error && <Loading />}</>;
+  useErrorToast(error, () => setAttempt(value => value + 1));
+  const pending = <>{!error && <Loading />}</>;
   const close = (open: boolean) => { if (!open && dismissible) onClose(); };
   if (drawer) return <Drawer docked={docked} open side="right" className={className} description={description} title={title} onOpenChange={close} dismissible={dismissible}>{context ? children(context) : pending}</Drawer>;
   return context ? children(context) : <Dialog open title={title} onOpenChange={close} dismissible={dismissible}>{pending}</Dialog>;

@@ -1,3 +1,4 @@
+import { useErrorToast } from '../../../error-toasts';
 import { useId, useState } from 'react';
 import { Alert, Button, Dialog, SearchField, SecretField, SegmentedControl, Select, TextField, useToast } from '@molr/ui';
 import { Cloud, Monitor, Settings2 } from 'lucide-react';
@@ -6,7 +7,7 @@ import { api, APIError } from '../../../api/client';
 import type { Resource } from '../../../api/types';
 import { useCopy, useQuery } from '../../../state';
 import { LocalProviderDiscovery } from './LocalProviderDiscovery';
-import { ErrorNotice, Loading, useAction } from '../components/common';
+import { Loading, useAction } from '../components/common';
 
 // Only implemented authentication methods appear in the UI. OAuth remains a
 // future provider capability, not a generic authentication option.
@@ -36,8 +37,9 @@ function newDraft(id: ProviderID): Draft {
 
 export function ProviderConnectionDialog({ inline, resourceID, onConnected, onClose }: Props) {
   const { t } = useCopy(), connection = useQuery<Connection>(resourceID ? `/api/resources/${resourceID}/connection` : null);
+  useErrorToast(connection.error, connection.reload);
   if (resourceID && !connection.data) return <Dialog open title={t.resources.editProvider} onOpenChange={open => { if (!open) onClose(); }}>
-    <ErrorNotice error={connection.error} retry={connection.reload} />{connection.loading && <Loading />}
+    {connection.loading && <Loading />}
   </Dialog>;
   return <ProviderForm inline={inline} initial={connection.data ?? undefined} onConnected={onConnected} onClose={onClose} />;
 }
@@ -68,6 +70,8 @@ function ProviderForm({ inline, initial, onConnected, onClose }: Omit<Props, 're
     setTested(null); testAction.reset(); action.reset();
     setDrafts(values => ({ ...values, [provider]: { ...(values[provider] ?? newDraft(provider)), ...patch } }));
   }
+  useErrorToast(testAction.error);
+  useErrorToast(action.error);
   function endpoint() {
     const url = new URL(draft.endpoint.trim() || selected.endpoint);
     if (!url.pathname.endsWith('/chat/completions')) url.pathname = `${url.pathname.replace(/\/$/, '')}/chat/completions`;
@@ -147,7 +151,6 @@ function ProviderForm({ inline, initial, onConnected, onClose }: Omit<Props, 're
           </div></details>}
         </fieldset>
         {tested && <Alert tone="positive" title={t.resources.connectionTestSucceeded.replace('{count}', String(tested.ModelCount))} onDismiss={() => setTested(null)} />}
-        <ErrorNotice error={testAction.error} /><ErrorNotice error={action.error} />
       </form>
     </div>
   </>;

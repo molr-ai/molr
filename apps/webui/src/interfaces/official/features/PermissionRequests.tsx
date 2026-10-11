@@ -1,3 +1,4 @@
+import { useErrorToast } from '../../../error-toasts';
 import { PermissionTargetFields, fullAccessLabel, isSandboxResource, targetFor } from './PermissionTargetFields';
 import type { PermissionTarget } from './PermissionTargetFields';
 import type { SandboxView } from '../../../sandbox-types';
@@ -12,7 +13,7 @@ import type { Assistant, Grant, Model, PermissionRequest, Resource } from '../..
 import { api, APIError } from '../../../api/client';
 import { useCopy, useQuery } from '../../../state';
 import { grantSummary, permissionLabel, permissionOptions } from '../../../resource-permissions';
-import { Confirm, ErrorNotice, lines, useAction } from '../components/common';
+import { Confirm, lines, useAction } from '../components/common';
 
 export function PermissionRequestCard({ requestID, assistant, title, summary, timeZone }: { timeZone?: string; requestID: string; assistant: Assistant; title: string; summary: string }) {
   const { locale } = useCopy(), zh = locale === 'zh';
@@ -37,6 +38,7 @@ export function PermissionRequestCard({ requestID, assistant, title, summary, ti
   const expiries = approved ? grants.map(item => item.ExpiresAt) : proposals.map(item => item.expires_at);
   const sharedExpiry = expiries.length > 0 && expiries.every(value => (value || null) === (expiries[0] || null));
   const cardTitle = count > 1 ? (zh ? `${count} 项资源权限` : `Access to ${count} resources`) : headline;
+  useErrorToast(query.error || resource.error, () => { query.reload(); resource.reload(); });
   return <><ChatCard className="permission-request-card" eyebrow={zh ? '权限申请' : 'Permission request'} title={cardTitle} icon={count > 1 ? undefined : <Icon />} description={input?.reason ?? summary}
     status={state ? { label: state === 'pending' ? (zh ? '等待授权' : 'Awaiting permission') : state === 'approved' ? (zh ? '已批准' : 'Approved') : (zh ? '已拒绝' : 'Rejected'), tone: state === 'pending' ? 'warning' : state === 'approved' ? 'positive' : 'neutral' } : undefined}
     metadata={state === 'approved' ? (zh ? '已按确认的内容授权' : 'Granted with your confirmed settings') : state === 'rejected' ? (zh ? '申请已拒绝，未授予权限' : 'Request declined; no access granted') : undefined}
@@ -46,7 +48,6 @@ export function PermissionRequestCard({ requestID, assistant, title, summary, ti
         : proposals.map((item, index) => <PermissionScope key={index} input={item} showReason={index > 0} showExpiry={!sharedExpiry} timeZone={timeZone} />)}
     </div>
     {sharedExpiry && <div className="permission-request-expiry"><span>{zh ? '授权至' : 'Expires'}</span><PermissionExpiry value={expiries[0]} timeZone={timeZone} /></div>}
-    <ErrorNotice error={query.error || resource.error} retry={() => { query.reload(); resource.reload(); }} />
   </ChatCard>
   {review && request && <PermissionReview request={request} assistant={assistant} onClose={() => setReview(false)} />}
   {reject && request && <Confirm title={zh ? '拒绝授权请求' : 'Reject permission request'} description={request.Input.reason} onClose={() => setReject(false)} onConfirm={() => api.mutate('/api/permission-requests/resolve', {RequestID:request.ID,Decision:'reject'},request.Version)} />}
@@ -60,6 +61,7 @@ export function PermissionRequests({ assistant }: { assistant: Assistant }) {
   const [review, setReview] = useState<PermissionRequest | null>(null), [reject, setReject] = useState<PermissionRequest | null>(null);
   const states = zh ? { pending: '待审批', approved: '已批准', rejected: '已拒绝' } : { pending: 'Pending', approved: 'Approved', rejected: 'Rejected' };
   const pending = query.data?.filter(row => row.State === 'pending') ?? [], resolved = query.data?.filter(row => row.State !== 'pending') ?? [];
+  useErrorToast(query.error, query.reload);
   function requestCard(row: PermissionRequest) {
     const resource = resources.data?.find(item => item.ID === row.Input.resource_id);
     const gpus = resource ? sandboxes.data?.find(node => node.ID === (resource.SandboxID || 'local'))?.Info.GPUs : undefined;
@@ -71,7 +73,7 @@ export function PermissionRequests({ assistant }: { assistant: Assistant }) {
       {row.State === 'pending' && <div className="form-actions"><Button size="sm" disabled={assistant.State !== 'active'} onClick={() => setReview(row)}>{zh ? '审核授权' : 'Review permission'}</Button><Button size="sm" variant="secondary" disabled={assistant.State !== 'active'} onClick={() => setReject(row)}>{zh ? '拒绝' : 'Reject'}</Button></div>}
     </Card>;
   }
-  return <section className="permission-requests"><ErrorNotice error={query.error} retry={query.reload} />
+  return <section className="permission-requests">
     {!!pending.length && <><h2>{zh ? '授权请求' : 'Permission requests'}</h2><div className="record-list">{pending.map(requestCard)}</div></>}
     {!!resolved.length && <details><summary>{zh ? '已处理的授权请求' : 'Resolved permission requests'} · {resolved.length}</summary><div className="record-list">{resolved.map(requestCard)}</div></details>}
     {review && <PermissionReview request={review} assistant={assistant} onClose={() => setReview(null)} />}
@@ -86,10 +88,10 @@ function GrantedPermission({ grant, timeZone }: { grant: Grant; timeZone?: strin
   const gpus = resource.data ? sandboxes.data?.find(node => node.ID === (resource.data?.SandboxID || 'local'))?.Info.GPUs : undefined;
   const models = useQuery<Model[]>(grant.Scope.ModelID ? '/api/models' : null);
   const target = grant.Scope.ModelID ? models.data?.find(model => model.ID === grant.Scope.ModelID)?.Name ?? t.resources.modelUnavailable : resource.data?.Name ?? t.loading;
+  useErrorToast(resource.error || models.error, () => {resource.reload();models.reload();});
   return <div className="permission-granted"><p>{zh ? '实际批准' : 'Approved scope'}: {target} · {grant.Scope.FullAccess ? fullAccessLabel(zh) : grantSummary(t, grant, resource.data)}</p>
     {resource.data?.Kind === 'storage' && <p>{t.resources.pathPrefixes}: {grant.Scope.PathPrefixes?.join(', ') || '/'}</p>}
     <ConstraintsSummary gpus={gpus} value={grant.Constraints} temporary={grant.Temporary}/><p>{t.resources.expires}: {grant.ExpiresAt ? new Intl.DateTimeFormat(locale,{timeZone:timeZone||undefined,dateStyle:'medium',timeStyle:'short'}).format(new Date(grant.ExpiresAt)) : t.resourcePermissions.noExpiry}</p>
-    <ErrorNotice error={resource.error || models.error} retry={() => {resource.reload();models.reload();}} />
   </div>;
 }
 
@@ -118,6 +120,8 @@ function PermissionReview({ request, assistant, onClose }: { request: Permission
     });
     await api.mutate('/api/permission-requests/resolve', { RequestID: request.ID, Decision: 'approve', ...resolutions[0], Additional: resolutions.slice(1) }, request.Version);
   }
+  useErrorToast(resources.error || models.error, () => { resources.reload(); models.reload(); });
+  useErrorToast(action.error);
   return <Dialog open className="permission-review" title={zh ? '审核授权' : 'Review permission'} description={t.resourcePermissions.recipient(assistant.Name)}
     onOpenChange={open => { if (!open && !action.busy) onClose(); }} dismissible={!action.busy}
     footer={<><Button variant="secondary" disabled={action.busy} onClick={onClose}>{t.cancel}</Button><Button form={formID} type="submit" loading={action.busy} disabled={resources.loading || !!resources.error || !!models.error || !!expiryError}>{zh ? '批准授权' : 'Approve permission'}</Button></>}>
@@ -130,12 +134,10 @@ function PermissionReview({ request, assistant, onClose }: { request: Permission
       <DateTimePicker label={grouped ? (zh ? '统一授权时间' : 'Shared authorization expiry') : t.resources.expires} value={expires} onValueChange={setExpires} min={new Date().toISOString()}
         error={expiryError} description={grouped ? (zh ? `以下 ${items.length} 项权限共用此有效期。` : `This duration applies to all ${items.length} permissions.`) : undefined} />
       {grouped && new Set(deadlines).size > 1 && <p className="permission-review__note">{zh ? '原申请的时间不同，已预选最早的到期时间，可统一调整。' : 'The proposals had different deadlines. The earliest is preselected; you can change it for the whole group.'}</p>}
-      <ErrorNotice error={resources.error || models.error} retry={() => { resources.reload(); models.reload(); }} />
       <div className="permission-review__items">{items.map((item, index) => <PermissionItemEditor key={index} item={item} grouped={grouped} primary={index === 0} resources={resources.data ?? []} models={models.data ?? []} loading={resources.loading}
         onChange={value => setItems(previous => previous.map((old, i) => i === index ? { ...old, ...value } : old))} />)}</div>
       <p className="permission-review__note">{zh ? '普通权限的额度由同一资源上的任务共享；完全访问不设额度。展开权限可调整授权内容。' : 'Tasks share quotas for ordinary permissions; full access has no quotas. Expand a permission to edit it.'}</p>
       {items.some(item => item.grant_id && item.resource_kind === 'compute') && <p className="permission-review__note">{zh ? '修改计算授权会停止受影响的运行任务。' : 'Changing compute access stops affected running tasks.'}</p>}
-      <ErrorNotice error={action.error} />
     </form>
   </Dialog>;
 }
@@ -168,6 +170,7 @@ function PermissionItemEditor({ item, onChange, grouped, primary, resources, mod
   useEffect(() => {
     if (selected?.Provider === 'managed-workspace' && !item.constraints) onChange({ constraints: suggestedConstraints('storage') });
   }, [selected?.Provider, item.constraints]);
+  useErrorToast(sandboxes.error, sandboxes.reload);
   return <details className="permission-review-item" open={open} onToggle={event => setOpen(event.currentTarget.open)}>
     <summary><span className="permission-review-item__title"><Icon aria-hidden="true" /><strong>{isSandboxResource(item.resource_kind) ? `${zh ? '沙盒' : 'Sandbox'} · ` : ''}{item.full_access ? fullAccessLabel(zh) : t.resources.categories[item.resource_kind]}</strong><span>{open ? (zh ? '收起' : 'Collapse') : (zh ? '调整' : 'Edit')}</span></span>
       <span className="permission-review-item__name">{selected?.Name ?? item.resource_description} · {item.actions.map(value => permissionLabel(t, item.resource_kind, value)).join(' / ')}</span>
@@ -178,7 +181,6 @@ function PermissionItemEditor({ item, onChange, grouped, primary, resources, mod
     <div className="permission-review-item__editor">
       <p className="permission-review__note">{item.reason}</p>
       <PermissionTargetFields value={target} onChange={select} resources={resources} models={models} sandboxes={sandboxes.data ?? []} sandboxOnly={!primary} />
-      <ErrorNotice error={sandboxes.error} retry={sandboxes.reload} />
       {!loading && !available.length && <p>{zh ? '请先连接所需资源。' : 'Connect the required resource first.'} <a href="#/resources">{t.nav.resources}</a></p>}
       {!item.full_access && <Select multiple label={t.resources.actions} value={item.actions} onValueChange={value => onChange({ actions: value })} options={permissionOptions(t, selected)} />}
       {item.resource_kind === 'storage' && <Textarea label={t.resources.pathPrefixes} value={item.path_prefixes?.join('\n') ?? ''} onChange={event => onChange({ path_prefixes: lines(event.target.value) })} description={zh ? '相对于资源根目录；留空表示整个资源。' : 'Relative to the resource root; empty means the entire resource.'} />}

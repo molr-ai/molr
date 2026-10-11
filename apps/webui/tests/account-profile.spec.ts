@@ -53,7 +53,7 @@ test('account avatars persist presets, uploads and clearing across navigation an
   await page.getByRole('button', { name: 'Fox', exact: true }).click();
   await page.route('**/api/account/profile', route => route.abort('failed'), { times: 1 });
   await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(page.locator('.settings-form .error-notice:visible')).toBeVisible();
+  await expect(page.locator('.ui-toast--danger:visible')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Fox', exact: true })).toHaveAttribute('aria-pressed', 'true');
   expect((await account(page)).Avatar).toMatch(/^data:image\/jpeg;base64,/);
   await save(page, /^preset:fox$/);

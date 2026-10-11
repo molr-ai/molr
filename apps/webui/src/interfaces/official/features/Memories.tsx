@@ -1,11 +1,12 @@
+import { useErrorToast } from '../../../error-toasts';
 import { useEffect, useRef, useState } from 'react';
 import { Badge, Button, DateTimePicker, Checkbox, Dialog, Select, Textarea, TextField } from '@molr/ui';
 import { Plus, Moon, Folder, ArrowUp } from 'lucide-react';
 import { api } from '../../../api/client';
-import { useErrorNotices } from '../../../error-notices';
+import { useErrorToasts } from '../../../error-toasts';
 import type { Assistant, DreamConfig, DreamRun, Memory, MemoryRef, MemoryEntry, MemoryDirectory } from '../../../api/types';
 import { useCopy, useData, useQuery } from '../../../state';
-import { Confirm, EditDialog, Empty, ErrorNotice, Loading, useAction } from '../components/common';
+import { Confirm, EditDialog, Empty, Loading, useAction } from '../components/common';
 import './memories.css';
 function useMemoryCopy() {
   const { locale } = useCopy(); const zh = locale.startsWith('zh');
@@ -20,7 +21,7 @@ const refQuery = (r: MemoryRef) => new URLSearchParams({ scope: r.Scope, assista
 const parent = (p: string) => p.slice(0, p.lastIndexOf('/')) || memoryRoot;
 const baseName = (p: string) => p.slice(p.lastIndexOf('/') + 1);
 export function Memories({ assistants }: { assistants: Assistant[] }) {
-  const { t } = useCopy(), c = useMemoryCopy(), notices = useErrorNotices();
+  const { t } = useCopy(), c = useMemoryCopy(), notices = useErrorToasts();
   const interaction = useRef(0);
   const [readError, setReadError] = useState<unknown>();
   const [assistant, setAssistant] = useState(''), [directory, setDirectory] = useState(memoryRoot);
@@ -40,6 +41,7 @@ export function Memories({ assistants }: { assistants: Assistant[] }) {
     setEditing(null); setSources(null); setMkdir(false); setMoving(null); setDeleting(null);
   }
   function changeDirectory(path: string) { resetInteraction(); setDirectory(path); }
+  useErrorToast(query.error || readError, query.reload);
   async function open(r: MemoryRef, mode: 'edit' | 'summary' | 'sources' = 'edit') {
     resetInteraction(); notices?.rearm();
     const key = interaction.current, hash = location.hash;
@@ -87,7 +89,6 @@ export function Memories({ assistants }: { assistants: Assistant[] }) {
       {crumbs.map((name, index) => <Button size="sm" variant="ghost" key={index} onClick={() => changeDirectory(memoryRoot + '/' + crumbs.slice(0, index + 1).join('/'))}>/ {name}</Button>)}
       {directory !== memoryRoot && <Button size="sm" variant="ghost" onClick={() => changeDirectory(parent(directory))}><ArrowUp size={14} />{c.zh ? '上一级' : 'Up'}</Button>}
     </nav>
-    <ErrorNotice error={query.error || readError} retry={query.reload} />
     {query.loading && !query.data ? <Loading /> : !query.data?.Entries.length ? <Empty /> : <div className="settings-rows">{query.data.Entries.map(row => <article className="settings-row-item" key={row.Path}>
       <div className="settings-row-item-head"><Button variant="ghost" onClick={() => row.Kind === 'directory' ? changeDirectory(row.Path) : void open(fileRef(row))}>{row.Kind === 'directory' && <Folder size={16} />}{baseName(row.Path)}</Button>{row.State && <Badge tone={row.State === 'pending' ? 'warning' : 'neutral'}>{c.states[row.State]}</Badge>}</div>
       <p className="muted memory-path"><code>{assistant ? '/work/' : '/global/'}{row.Path}</code></p>
@@ -132,10 +133,10 @@ function Dreams({ assistantID }: { assistantID: string }) {
   useEffect(() => {
     if (runs.data) invalidateTopics(['memories']);
   }, [runs.data, invalidateTopics]);
+  useErrorToast(config.error || runs.error || action.error, runs.reload);
   return <section className="dream-panel"><div className="settings-row-item-head"><Moon size={18} /><h3>{c.zh ? '做梦' : 'Dreaming'}</h3></div>
     {config.data && <p className="muted">{config.data.Enabled ? `${c.zh ? '每天' : 'Daily at'} ${String(config.data.Hour).padStart(2, '0')}:${String(config.data.Minute).padStart(2, '0')} · ${config.data.Timezone}` : c.zh ? '自动整理已关闭' : 'Automatic dreams are off'} · {c.zh ? '回顾前一个完整自然日并维护长期记忆；没有新聊天时也可沉淀已有主题。费用计入助理预算。' : 'Reviews the previous complete day and maintains long-term memory, including quiet days with existing topics. Uses the assistant budget.'}</p>}
     <div className="memory-actions"><Button size="sm" variant="secondary" disabled={!config.data} onClick={() => setEditing(true)}>{c.zh ? '整理设置' : 'Dream settings'}</Button><Button size="sm" loading={action.busy} onClick={() => void action.run(async () => { const run = await api.mutate<DreamRun>('/api/dreams/run', { AssistantID: assistantID }); setResult(c.runs(run.State)); }, undefined, false)}>{c.zh ? '立即整理 / 重试' : 'Consolidate / retry'}</Button></div>{result && <p role="status">{result}</p>}
-    <ErrorNotice error={config.error || runs.error || action.error} retry={runs.reload} />
     {runs.data?.slice(0, 10).map(run => <details className="dream-run" key={run.ID}><summary>{run.Day} · {c.runs(run.State)}{run.SessionState && run.SessionState !== run.State ? ` / ${c.runs(run.SessionState)}` : ''} · {c.zh ? `${run.MemoryFiles?.length ?? 0} 条记忆` : `${run.MemoryFiles?.length ?? 0} memories`}</summary><p className="muted">{run.Batch ? `${c.zh ? '批次' : 'Batch'} ${run.Batch}` : ''}{run.Maintenance ? (c.zh ? ' · 长期记忆维护' : ' · Long-term maintenance') : ''}{run.Backfill ? (c.zh ? ' · 一次补处理' : ' · One-time backfill') : ''}{run.Deadline ? ` · ${c.zh ? '截止' : 'Deadline'} ${new Date(run.Deadline).toLocaleString()}` : ''}</p>{run.Summary && <p className="pre-wrap">{run.Summary}</p>}{run.ReviewPath && (run.State !== 'undone' || run.ReviewRetained) && <p className="muted memory-path"><code>/work/{run.ReviewPath}</code></p>}{run.State === 'undone' && !!run.UndoRetained?.length && <p className="muted memory-path">{c.zh ? '保留的文件：' : 'Retained files: '}{run.UndoRetained.map(ref => ref.Path).join(', ')}</p>}{run.FailureCode && <p role="status">{t.errors[run.FailureCode as keyof typeof t.errors] ?? run.FailureCode}</p>}<p className="muted">{run.Sources.length} {c.zh ? '项来源' : 'sources'} · {run.Timezone}</p>{run.State === 'completed' && <Button size="sm" variant="ghost" onClick={() => setUndo(run)}>{c.zh ? '撤销这次整理' : 'Revert this dream'}</Button>}</details>)}
     {undo && <Confirm title={c.zh ? '撤销这次整理' : 'Revert this dream'} description={c.zh ? '删除本次新建的自动记忆，并恢复本次更新前的主题和核心记忆；后来修改、确认或遗忘的内容会受到保护。未修改的回顾同时删除。' : 'Remove new automatic memories and restore updated topics and core memory to their prior versions. Later edits, confirmations and forgotten content are protected. The unchanged review is also removed.'} onClose={() => setUndo(null)} onConfirm={() => api.mutate('/api/dreams/undo', { ID: undo.ID })} />}
     {editing && config.data && <DreamEditor config={config.data} onClose={() => setEditing(false)} />}
@@ -148,5 +149,6 @@ function DreamEditor({ config, onClose }: { config: DreamConfig; onClose: () => 
 function Sources({ memory, assistants, onClose }: { memory: Memory; assistants: Assistant[]; onClose: () => void }) {
   const c = useMemoryCopy(), action = useAction(), [text, setText] = useState('');
   const chat = assistants.find(a => a.ID === memory.AssistantID)?.ConversationID;
-  return <Dialog open title={c.zh ? '记忆来源' : 'Memory sources'} onOpenChange={open => { if (!open) onClose(); }}><p>{memory.Text}</p><p className="muted">{memory.Confirmed ? c.zh ? '用户已确认' : 'User confirmed' : memory.Evidence === 'explicit' ? c.zh ? '来自明确陈述' : 'Explicit statement' : memory.Evidence === 'verified' ? c.zh ? '来自任务结果' : 'Task result' : c.zh ? '需要核实' : 'Needs verification'}</p>{memory.Sources?.map(ref => <div key={ref.Kind + ref.ID} className="memory-source"><code>{ref.Kind}: {ref.ID}</code><Button size="sm" variant="secondary" disabled={ref.Kind === 'message' && !chat} onClick={() => void action.run(async () => { const data = await api.get<unknown>(ref.Kind === 'message' ? `/api/conversations/${chat}/messages?message_id=${ref.ID}` : `/api/tasks/${ref.ID}`); const value = data as { Items?: { Content: { Text?: string; Card?: { Title: string; Summary: string } } }[]; Goal?: string; State?: string }; setText(value.Items?.map(item => item.Content.Text || [item.Content.Card?.Title, item.Content.Card?.Summary].filter(Boolean).join('\n')).join('\n\n') ?? [value.Goal, value.State].filter(Boolean).join('\n')); }, undefined, false)}>{c.zh ? '读取原始记录' : 'Read original'}</Button></div>)}<ErrorNotice error={action.error} />{text && <pre className="memory-source-text">{text}</pre>}</Dialog>;
+  useErrorToast(action.error);
+  return <Dialog open title={c.zh ? '记忆来源' : 'Memory sources'} onOpenChange={open => { if (!open) onClose(); }}><p>{memory.Text}</p><p className="muted">{memory.Confirmed ? c.zh ? '用户已确认' : 'User confirmed' : memory.Evidence === 'explicit' ? c.zh ? '来自明确陈述' : 'Explicit statement' : memory.Evidence === 'verified' ? c.zh ? '来自任务结果' : 'Task result' : c.zh ? '需要核实' : 'Needs verification'}</p>{memory.Sources?.map(ref => <div key={ref.Kind + ref.ID} className="memory-source"><code>{ref.Kind}: {ref.ID}</code><Button size="sm" variant="secondary" disabled={ref.Kind === 'message' && !chat} onClick={() => void action.run(async () => { const data = await api.get<unknown>(ref.Kind === 'message' ? `/api/conversations/${chat}/messages?message_id=${ref.ID}` : `/api/tasks/${ref.ID}`); const value = data as { Items?: { Content: { Text?: string; Card?: { Title: string; Summary: string } } }[]; Goal?: string; State?: string }; setText(value.Items?.map(item => item.Content.Text || [item.Content.Card?.Title, item.Content.Card?.Summary].filter(Boolean).join('\n')).join('\n\n') ?? [value.Goal, value.State].filter(Boolean).join('\n')); }, undefined, false)}>{c.zh ? '读取原始记录' : 'Read original'}</Button></div>)}{text && <pre className="memory-source-text">{text}</pre>}</Dialog>;
 }

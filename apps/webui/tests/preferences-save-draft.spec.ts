@@ -131,12 +131,12 @@ test('a failed save preserves the latest preference draft and retries it', async
   try {
     await text.fill('Failed submitted snapshot.'); await form.getByRole('button', { name: 'Save', exact: true }).click(); await held.pending;
     await text.fill('Updated while the failed save was pending.'); await held.finish();
-    await expect(form.getByRole('alert')).toContainText('service is unavailable');
+    await expect(page.locator('.ui-toast--danger').getByRole('alert')).toContainText('service is unavailable');
     await expect(text).toHaveValue('Updated while the failed save was pending.');
     expect((await getSettings(page)).AnswerPreferences).toBe(before.AnswerPreferences);
     await form.getByRole('button', { name: 'Save', exact: true }).click();
     await expect.poll(async () => (await getSettings(page)).AnswerPreferences).toBe('Updated while the failed save was pending.');
-    await expect(form.getByRole('alert')).toHaveCount(0);
+    await expect(page.locator('.ui-toast--danger').getByRole('alert')).toHaveCount(0);
   } finally { held.release(); }
 });
 
@@ -148,7 +148,7 @@ test('external preference edits still conflict without overwriting either the se
   let posted = 0;
   page.on('request', request => { if (new URL(request.url()).pathname === '/api/settings' && request.method() === 'POST') posted++; });
   await form.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(form.locator('.error-notice[data-code="conflict"]')).toBeVisible();
+  await expect(page.locator('.ui-toast--danger')).toBeVisible();
   await expect(text).toHaveValue('Keep this local conflicting draft.');
   expect(posted).toBe(0);
   expect((await getSettings(page)).AnswerPreferences).toBe('Another client saved this value.');

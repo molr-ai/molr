@@ -1,7 +1,8 @@
+import { useErrorToast } from '../../../error-toasts';
 import { ChevronRight } from 'lucide-react';
 import type { DreamRun } from '../../../api/types';
 import { useCopy, useQuery } from '../../../state';
-import { ErrorNotice, Loading } from '../components/common';
+import { Loading } from '../components/common';
 
 export function DreamInspection({ id }: { id: string }) {
   const { t, locale } = useCopy(), c = t.workbench.dream;
@@ -10,9 +11,9 @@ export function DreamInspection({ id }: { id: string }) {
   const changes = run?.FileChanges ?? [];
   const zh = locale.startsWith('zh');
   const labels: Record<string, string> = { file_write: zh ? '写入文件' : 'Write file', file_edit: zh ? '编辑文件' : 'Edit file', file_move: zh ? '移动文件' : 'Move file', file_delete: zh ? '删除文件' : 'Delete file' };
+  useErrorToast(query.error, query.reload);
   return <section className="workbench-content-block dream-inspection">
     <div className="workbench-section-heading"><h3>{c.title}</h3></div>
-    <ErrorNotice error={query.error} retry={query.reload} />
     {query.loading && !run && <Loading />}
     {run && <div className="workbench-response-content">
       {run.Summary && <div className="workbench-prose">{run.Summary}</div>}

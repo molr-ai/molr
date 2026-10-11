@@ -1,9 +1,10 @@
+import { useErrorToast } from '../error-toasts';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Button } from '@molr/ui';
 import type { AgentStatus, Assistant, Model, SystemNotice } from '@molr/sdk';
 import { api } from '../api/client';
 import { useCopy, useData, useQuery } from '../state';
-import { ErrorNotice, useAction } from '../interfaces/official/components/common';
+import { useAction } from '../interfaces/official/components/common';
 import { AssistantWaitingNotice } from '../interfaces/official/features/AssistantWaitingNotice';
 import { useNoticeText } from './system-copy';
 import './assistant-notifications.css';
@@ -29,7 +30,8 @@ export function AssistantNotifications({ assistant, status, onAction, onNavigate
    focusNext.current = false;
   }
  }, [current?.ID]);
- if (!current) return <><ErrorNotice error={action.error || query.error} retry={query.reload}/>{status?.ModelRetry && <AssistantWaitingNotice assistant={assistant} status={status} />}</>;
+ useErrorToast(action.error || query.error, query.reload);
+ if (!current) return <>{status?.ModelRetry && <AssistantWaitingNotice assistant={assistant} status={status} />}</>;
  const n = current, content = text(n);
  const target = noticeAction(n);
  let label = target?.label ?? copy.open, open = () => { if (target) location.hash = target.route; };
@@ -52,7 +54,6 @@ export function AssistantNotifications({ assistant, status, onAction, onNavigate
   }, undefined, false);
  }
  return <section ref={region} className="assistant-notifications" aria-label={copy.queue} data-notification-id={n.ID}>
-  <ErrorNotice error={action.error || query.error} retry={query.reload}/>
   <Alert key={n.ID} className="assistant-notice" title={content.title} tone={n.Severity} onDismiss={() => { if (!action.busy) void update('dismiss'); }} action={(target || rows.length > 1) && <div className="form-actions">{target && <Button size="sm" variant="secondary" onClick={() => { void update('read'); open(); }}>{label}</Button>}{rows.length > 1 && <small>{copy.remaining(rows.length - 1)}</small>}</div>}>
    {content.description && <p>{content.description}</p>}{content.help && <p className="assistant-notice__help">{content.help}</p>}
   </Alert>

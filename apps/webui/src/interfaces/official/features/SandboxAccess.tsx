@@ -1,3 +1,4 @@
+import { useErrorToast } from '../../../error-toasts';
 import type { SandboxView } from '../../../sandbox-types';
 import { GrantEditor } from './GrantEditor';
 import { fullAccessLabel } from './PermissionTargetFields';
@@ -9,7 +10,7 @@ import { api } from '../../../api/client';
 import { useCopy, useQuery } from '../../../state';
 import { useSandboxCopy } from '../../../sandbox-copy';
 import { grantSummary } from '../../../resource-permissions';
-import { Confirm, Empty, ErrorNotice, Loading } from '../components/common';
+import { Confirm, Empty, Loading } from '../components/common';
 
 export function activeResourceGrants(grants: Grant[], assistants: Assistant[]) {
   const active = new Set(assistants.filter(item => item.State === 'active').map(item => item.ID));
@@ -23,9 +24,9 @@ export function SandboxAccess({ resource, resources, fullAccess = false, canGran
   const [editing, setEditing] = useState<Grant | 'new' | null>(null), [revoking, setRevoking] = useState<Grant | null>(null);
   const active = activeResourceGrants(grants.data ?? [], assistants.data ?? []).filter(g => !!g.Scope.FullAccess === fullAccess);
   const people = (assistants.data ?? []).filter(item => item.State === 'active');
+  useErrorToast(assistants.error || grants.error, () => { assistants.reload(); grants.reload(); });
   return <Dialog open title={`${copy.access} · ${fullAccess ? fullAccessLabel(locale === 'zh') : resource.Name}`} description={copy.manageHint} onOpenChange={open => { if (!open && !editing && !revoking) onClose(); }}>
     <div className="sandbox-access">
-      <ErrorNotice error={assistants.error || grants.error} retry={() => { assistants.reload(); grants.reload(); }} />
       {(assistants.loading && !assistants.data) || (grants.loading && !grants.data) ? <Loading /> : <>
         <div className="sandbox-access-heading"><span>{copy.authorized} · {new Set(active.map(grant => grant.AssistantID)).size}</span><Button size="sm" disabled={!canGrant || !people.length} onClick={() => setEditing('new')}>{copy.grant}</Button></div>
         {!people.length && <p className="muted">{copy.noAssistants}</p>}

@@ -1,3 +1,4 @@
+import { useErrorToast } from '../../../error-toasts';
 import { usePluginsVisible, pluginResourceVisible } from '../../../plugins/visibility';
 import { gpuName } from '../../../gpu';
 import { fullAccessHelp } from '../../../full-access';
@@ -16,7 +17,7 @@ import { useSandboxCopy } from '../../../sandbox-copy';
 import { useSandboxPreference } from '../../../sandbox-navigation';
 import { sandboxReason } from '../../../sandbox';
 import { SettingsHelp } from '../components/SettingsHelp';
-import { Confirm, EditDialog, Empty, ErrorNotice, Loading, useAction } from '../components/common';
+import { Confirm, EditDialog, Empty, Loading, useAction } from '../components/common';
 import { SandboxConnection, connectionError } from './SandboxConnection';
 import { SandboxAccess, activeResourceGrants } from './SandboxAccess';
 
@@ -49,13 +50,13 @@ export function Sandboxes({ resources, resourceID = '' }: { resources: Resource[
   const canAdd = kind !== 'full_access' && enabled && sources.length > 0 && (kind !== 'compute' || !rows.some(row => row.State !== 'disconnected'));
   const name = (item: SandboxView) => item.Local ? copy.local : item.Name;
   const refresh = () => void check.run(async () => { await query.reload(); await details.reload(); }, undefined, false);
+  useErrorToast(query.error || details.error || grants.error || assistants.error || check.error, refresh);
   const menu: MenuItem[] = sandbox && !sandbox.Local ? [
     { id: 'rename', label: copy.rename, icon: <Pencil size={15} />, onSelect: () => setRenamingSandbox(sandbox) },
     { id: 'credentials', label: copy.credentials, icon: <ShieldCheck size={15} />, onSelect: () => setEditing(sandbox) },
     ...(sandbox.State !== 'disconnected' ? [{ id: 'disconnect', label: copy.disconnect, icon: <Unplug size={15} />, danger: true, separatorBefore: true, onSelect: () => setDisconnecting(sandbox) }] : []),
   ] : [];
   return <div className="sandbox-workspace">
-    <ErrorNotice error={query.error || details.error || grants.error || assistants.error || check.error} retry={refresh} />
     {query.loading && !query.data && <Loading />}
     <div className="sandbox-mobile-switch"><Select hideLabel label={copy.select} value={selected} onValueChange={setSelected} options={(query.data ?? []).map(item => ({ value: item.ID, label: name(item), description: statusLabel(item, copy) }))} /><IconButton label={copy.connect} onClick={() => setConnecting(true)}><Plus size={18} /></IconButton></div>
     <div className="sandbox-layout">
@@ -185,5 +186,6 @@ export function ToolsCatalog() {
   const pluginsVisible = usePluginsVisible();
   const { t } = useCopy(), copy = useSandboxCopy(), query = useQuery<ToolCapability[]>('/api/tools');
   const labels = t.assistantInfo.toolLabels as Record<string, { name: string; description: string }>;
-  return <div className="record-list"><p className="muted">{copy.toolsHelp}</p><ErrorNotice error={query.error} retry={query.reload} />{query.loading && !query.data && <Loading />}{query.data?.filter(tool => pluginResourceVisible('tool', pluginsVisible, tool.Name)).map(tool => <Card key={tool.Name}><div className="record-heading"><h2>{labels[tool.Name]?.name ?? tool.Name}</h2><Badge>{tool.SideEffect ? t.assistantInfo.writesData : t.assistantInfo.readOnly}</Badge></div><p className="muted">{labels[tool.Name]?.description ?? tool.Description}</p><details><summary>{t.assistantInfo.toolDetails}</summary><code>{tool.Name}</code><pre>{JSON.stringify(tool.InputSchema, null, 2)}</pre></details></Card>)}</div>;
+  useErrorToast(query.error, query.reload);
+  return <div className="record-list"><p className="muted">{copy.toolsHelp}</p>{query.loading && !query.data && <Loading />}{query.data?.filter(tool => pluginResourceVisible('tool', pluginsVisible, tool.Name)).map(tool => <Card key={tool.Name}><div className="record-heading"><h2>{labels[tool.Name]?.name ?? tool.Name}</h2><Badge>{tool.SideEffect ? t.assistantInfo.writesData : t.assistantInfo.readOnly}</Badge></div><p className="muted">{labels[tool.Name]?.description ?? tool.Description}</p><details><summary>{t.assistantInfo.toolDetails}</summary><code>{tool.Name}</code><pre>{JSON.stringify(tool.InputSchema, null, 2)}</pre></details></Card>)}</div>;
 }

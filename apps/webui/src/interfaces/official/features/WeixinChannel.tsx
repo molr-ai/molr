@@ -1,3 +1,4 @@
+import { useErrorToast } from '../../../error-toasts';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Badge, Button, Dialog, TextField } from '@molr/ui';
 import QRCode from 'qrcode';
@@ -6,7 +7,7 @@ import { api } from '../../../api/client';
 import type { Assistant, WeixinLogin, WeixinStatus } from '../../../api/types';
 import { useCopy, useData, useQuery } from '../../../state';
 import { weixinCopy } from '../../../weixin-copy';
-import { Confirm, ErrorNotice, useAction } from '../components/common';
+import { Confirm, useAction } from '../components/common';
 import './weixin.css';
 
 export function ChatChannelDialog({ assistant, onClose }: { assistant: Assistant; onClose: () => void }) {
@@ -18,12 +19,12 @@ export function ChatChannelDialog({ assistant, onClose }: { assistant: Assistant
  const bound = status.data?.Channel === 'weixin';
  const changed = () => invalidateTopics(['weixin']);
  async function begin() { await action.run(async () => { setRecognized(false); const next = await api.post<WeixinLogin>('/api/weixin/login', { AssistantID: assistant.ID }); if (next.Status === 'already_connected') { setLogin(null); setRecognized(true); changed(); } else setLogin(next); }, undefined, false); }
- return <Dialog open title={t.title} description={assistant.Name} dismissible={!action.busy && !login && !disconnect} onOpenChange={open => { if (!open) onClose(); }}>
+ useErrorToast(!login && !disconnect ? action.error || status.error : null, action.error ? begin : status.reload);
+  return <Dialog open title={t.title} description={assistant.Name} dismissible={!action.busy && !login && !disconnect} onOpenChange={open => { if (!open) onClose(); }}>
  <section className="weixin-settings" aria-label={t.current}>
   <div className="record-heading"><h3>{t.current}</h3>{status.data && <Badge tone={bound ? 'positive' : 'neutral'}>{bound ? t.weixin : t.webui}</Badge>}</div>
   <p className="muted">{t.help}</p><p className="muted">{t.mediaSupport}</p>
   {recognized && <Alert tone="positive" title={t.states.already_connected} />}
-  {!login && !disconnect && <ErrorNotice error={action.error || status.error} retry={action.error ? begin : status.reload} />}
   {bound && status.data && <>{status.data.State === 'connected' ? <Alert tone="positive" title={t.states.connected} /> : <Alert tone="warning" title={t.states[status.data.State]} />}{status.data.State === 'connected' && !status.data.LastInboundAt && <p>{t.firstMessage}</p>}</>}
   <div className="form-actions">
    {(!bound || status.data?.State === 'login_required') && <Button variant="secondary" disabled={assistant.State !== 'active' || !status.data} loading={action.busy} onClick={() => void begin()}>{bound ? t.reconnect : t.connect}</Button>}
@@ -54,7 +55,8 @@ function LoginDialog({ assistantID, login, onChange, onClose, onRefresh }: { ass
   return () => loop.stop();
  }, [assistantID, login.ID, login.Status, terminal]);
  async function cancel() { await action.run(async () => { await api.post('/api/weixin/cancel', { AssistantID: assistantID, ID: login.ID }); onClose(); }, undefined, false); }
- return <Dialog open title={t.scan} dismissible={!action.busy} onOpenChange={open => { if (!open) void cancel(); }}>
+ useErrorToast(error || action.error);
+  return <Dialog open title={t.scan} dismissible={!action.busy} onOpenChange={open => { if (!open) void cancel(); }}>
   <div className="weixin-login"><p>{t.confirm}</p>
    <Alert title={t.privacyTitle}>{t.privacy}</Alert>
    {!terminal && login.QRCode && <LocalQRCode value={login.QRCode} label={t.scan} />}
@@ -62,7 +64,6 @@ function LoginDialog({ assistantID, login, onChange, onClose, onRefresh }: { ass
    {login.Status === 'need_verifycode' && !expired && <form onSubmit={event => { event.preventDefault(); verify.current = code.trim(); onChange({ ...login, Status: 'scaned' }); }}>
     <TextField label={t.verify} value={code} maxLength={32} required autoComplete="one-time-code" onChange={event => setCode(event.target.value)} /><p className="muted">{t.verifyHelp}</p><Button type="submit" disabled={!code.trim()}>{t.submit}</Button>
    </form>}
-   <ErrorNotice error={error || action.error} />
    <div className="form-actions"><Button variant="secondary" loading={action.busy} onClick={() => void cancel()}>{t.cancel}</Button>{terminal && <Button onClick={() => void action.run(onRefresh, undefined, false)}>{t.refresh}</Button>}</div>
   </div>
  </Dialog>;

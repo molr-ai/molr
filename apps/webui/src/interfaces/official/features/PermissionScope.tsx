@@ -1,3 +1,4 @@
+import { useErrorToast } from '../../../error-toasts';
 import { GPUDeviceList } from './GPUAccess';
 import { fullAccessLabel, isSandboxResource } from './PermissionTargetFields';
 import type { GPUDevice, SandboxView } from '../../../sandbox-types';
@@ -5,7 +6,6 @@ import { Folder, Globe, Server, Sparkles, Wrench } from 'lucide-react';
 import type { Grant, Model, PermissionRequestInput, Resource, ResourceConstraints } from '../../../api/types';
 import { permissionLabel } from '../../../resource-permissions';
 import { useCopy, useQuery } from '../../../state';
-import { ErrorNotice } from '../components/common';
 
 export function PermissionExpiry({ value, timeZone }: { value?: string | null; timeZone?: string }) {
   const { locale, t } = useCopy();
@@ -69,6 +69,7 @@ export function PermissionScope({ input, grant, showReason, showExpiry, timeZone
   const fullAccess = grant ? !!grant.Scope.FullAccess : !!input?.full_access;
   const constraints = fullAccess ? undefined : grant ? grant.Constraints : input?.constraints;
   const temporary = fullAccess ? undefined : grant ? grant.Temporary : input?.temporary;
+  useErrorToast(resource.error || models.error, () => { resource.reload(); models.reload(); });
   return <section className="permission-scope" aria-label={target}>
     <div className="permission-scope__heading"><Icon aria-hidden="true" /><h5>{isSandboxResource(kind) ? `${zh ? '沙盒' : 'Sandbox'} · ` : ''}{fullAccess ? fullAccessLabel(zh) : kind ? t.resources.categories[kind] : t.loading}</h5>{!fullAccess && <span>{actions.map(action => permissionLabel(t, kind, action)).join(' · ')}</span>}</div>
     <p className="permission-scope__target">{target}</p>
@@ -78,6 +79,5 @@ export function PermissionScope({ input, grant, showReason, showExpiry, timeZone
     {constraints && <>{temporary && <p className="permission-scope__note">{zh ? '基础额度' : 'Base limits'}</p>}<QuotaGrid value={constraints} gpus={node?.Info.GPUs} /></>}
     {temporary && <div className="permission-scope__temporary"><p className="permission-scope__note">{zh ? '临时额度 · 有效至 ' : 'Temporary limits · Until '}<PermissionExpiry value={temporary.until} timeZone={timeZone} /></p><QuotaGrid value={temporary.limits} gpus={node?.Info.GPUs} /></div>}
     {showExpiry && <p className="permission-scope__note">{zh ? '授权至 ' : 'Expires '}<PermissionExpiry value={grant ? grant.ExpiresAt : input?.expires_at} timeZone={timeZone} /></p>}
-    <ErrorNotice error={resource.error || models.error} retry={() => { resource.reload(); models.reload(); }} />
   </section>;
 }

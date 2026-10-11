@@ -1,9 +1,10 @@
+import { useErrorToast } from '../../../error-toasts';
 import { timezoneLabel } from '../../../currency';
 import { useMemo } from 'react';
 import { Select } from '@molr/ui';
 import type { RuntimeInfo, Settings } from '../../../api/types';
 import { useCopy, useQuery } from '../../../state';
-import { ErrorNotice, Loading } from '../components/common';
+import { Loading } from '../components/common';
 import { SettingsSwitch } from '../components/SettingsHelp';
 
 import { useSettingsChange } from './use-settings-change';
@@ -12,7 +13,8 @@ const commonZones = ['UTC', 'Asia/Shanghai', 'Asia/Hong_Kong', 'Asia/Taipei', 'A
 
 export function GeneralSettings() {
   const query = useQuery<Settings>('/api/settings');
-  return <><ErrorNotice error={query.error} retry={query.reload} />{query.data ? <GeneralControls settings={query.data} refresh={query.reload} /> : query.loading && <Loading />}</>;
+  useErrorToast(query.error, query.reload);
+  return <>{query.data ? <GeneralControls settings={query.data} refresh={query.reload} /> : query.loading && <Loading />}</>;
 }
 function GeneralControls({ settings, refresh }: { settings: Settings; refresh: () => void }) {
   const { t, locale } = useCopy();
@@ -26,6 +28,7 @@ function GeneralControls({ settings, refresh }: { settings: Settings; refresh: (
       return { value: zone, label: timezoneLabel(zone, names), description: zone };
     });
   }, [locale, settings.Timezone, t.settings.timezoneNames]);
+  useErrorToast(action.error || runtime.error, () => { action.reset(); refresh(); });
   return <div className="settings-general" aria-busy={action.busy || undefined}>
     <div className="settings-list">
       <Select labelInteractive={false} size="sm" className="settings-row settings-row--select" align="end" label={t.settings.language} value={value.Language} disabled={action.busy} onValueChange={Language => change({ Language })} options={[{ value: 'zh', label: '简体中文' }, { value: 'en', label: 'English' }]} />
@@ -34,6 +37,5 @@ function GeneralControls({ settings, refresh }: { settings: Settings; refresh: (
       <SettingsSwitch label={t.workbench.enable} help={runtime.data?.workbench_available ? t.workbench.enableHelp : t.workbench.runtimeDisabled} checked={!!runtime.data?.workbench_available && !!value.WorkbenchVisible} disabled={action.busy || !runtime.data?.workbench_available} onChange={event => change({ WorkbenchVisible: event.target.checked })} />
       <SettingsSwitch label={locale === 'zh' ? '显示插件' : 'Show plugins'} help={locale === 'zh' ? '显示插件入口、插件主题和相关管理选项。关闭后保留已有插件配置和授权。' : 'Show plugin navigation, themes and management options. Hiding them preserves existing configuration and permissions.'} checked={!!value.PluginsVisible} disabled={action.busy} onChange={event => change({ PluginsVisible: event.target.checked })} />
     </div>
-    <ErrorNotice error={action.error || runtime.error} retry={() => { action.reset(); refresh(); }} />
   </div>;
 }

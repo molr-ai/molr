@@ -1,9 +1,9 @@
+import { useErrorToast } from '../../../error-toasts';
 import { useMemo } from 'react';
 import { Select } from '@molr/ui';
 import type { SelectOption } from '@molr/ui';
 import type { Model, Resource } from '../../../api/types';
 import { useCopy, useQuery } from '../../../state';
-import { ErrorNotice } from './common';
 
 const MODEL_SEARCH_THRESHOLD = 8;
 
@@ -24,10 +24,10 @@ export function ModelSelect({ models, value, onValueChange, allowNone = false, r
     return result;
   }, [models, providers.data, value, allowNone, requireTools, locale, t]);
   const selectedProvider = providers.data?.find(provider => provider.ID === models.find(model => model.ID === value)?.ResourceID);
+  useErrorToast(providers.error, providers.reload);
   return <>
     <Select label={t.assistants.model} size={size} value={value} onValueChange={onValueChange} options={options} description={showProvider && selectedProvider ? `${t.resourcePermissions.provider} · ${selectedProvider.Name}` : undefined}
       searchable={models.length >= MODEL_SEARCH_THRESHOLD} searchPlaceholder={t.resources.searchModels}
       disabled={!!providers.error || (!providers.data && providers.loading)} />
-    <ErrorNotice error={providers.error} retry={providers.reload} />
   </>;
 }

@@ -1147,7 +1147,7 @@ test('a lost send response keeps the draft and retry reuses its idempotency key'
   const composer = page.getByRole('textbox', { name: 'Message your assistant', exact: true });
   await composer.fill(text); await page.getByRole('button', { name: 'Send', exact: true }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'service is unavailable' })).toBeVisible(); await expect(composer).toHaveValue(text);
-  await page.getByRole('button', { name: 'Send', exact: true }).click(); await expect(composer).toHaveValue('');
+  await page.locator('.ui-toast--danger').getByRole('button', { name: 'Retry', exact: true }).click(); await expect(composer).toHaveValue('');
   expect(keys).toHaveLength(2); expect(keys[0]).toBe(keys[1]);
   const history = await (await page.request.get(`/api/conversations/${assistant.ConversationID}/messages`)).json();
   expect(history.Items.filter((message: { Content: { Text: string } }) => message.Content.Text === text)).toHaveLength(1);
@@ -1432,7 +1432,7 @@ test('instant settings roll back a failed switch update and preserve other prefe
   const desired = !before.ReducedMotion;
   await page.route('**/api/settings', route => route.request().method() === 'POST' ? route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ code: 'unavailable' }) }) : route.continue());
   await toggle.setChecked(desired);
-  await expect(panel.getByRole('alert')).toContainText('service is unavailable');
+  await expect(page.locator('.ui-toast--danger').getByRole('alert')).toContainText('service is unavailable');
   await expect(toggle).toBeChecked({ checked: before.ReducedMotion });
   await page.unroute('**/api/settings');
   await toggle.setChecked(desired);

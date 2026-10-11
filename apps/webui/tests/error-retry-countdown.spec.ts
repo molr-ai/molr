@@ -7,7 +7,7 @@ test.beforeEach(async({page})=>{
   window.retryNoticeWakeups=0;
   const timeout=window.setTimeout.bind(window),interval=window.setInterval.bind(window);
   const wrap=(handler:TimerHandler)=>{
-   const tracked=new Error().stack?.includes('/components/common.tsx');
+   const tracked=new Error().stack?.includes('/src/error-toasts.tsx');
    return tracked&&typeof handler==='function'? (...args:unknown[])=>{window.retryNoticeWakeups++;handler(...args);}:handler;
   };
   window.setTimeout=((handler:TimerHandler,delay?:number,...args:unknown[])=>timeout(wrap(handler),delay,...args)) as typeof window.setTimeout;
@@ -19,7 +19,7 @@ test.beforeEach(async({page})=>{
 
 test('expired retry countdown stops waking while the notice remains visible',async({page})=>{
  await page.getByRole('button',{name:'Wait 2.5 seconds',exact:true}).click();
- const retry=page.locator('.error-notice__retry');
+ const retry=page.locator('.ui-toast__action');
  await expect(retry).toBeDisabled();
  await page.clock.runFor(3000);await expect(retry).toBeEnabled();
  // Let the render and its passive effect finish before measuring idle work.
@@ -33,7 +33,7 @@ test('expired retry countdown stops waking while the notice remains visible',asy
 
 test('fractional deadline enables retry when it expires and never before',async({page})=>{
  await page.getByRole('button',{name:'Wait 2.5 seconds',exact:true}).click();
- const retry=page.locator('.error-notice__retry');
+ const retry=page.locator('.ui-toast__action');
  await page.clock.runFor(2499);await expect(retry).toBeDisabled();
  await page.clock.runFor(1);await expect(retry).toBeEnabled();await expect(retry).toHaveText('Retry');
 });
@@ -41,19 +41,19 @@ test('fractional deadline enables retry when it expires and never before',async(
 test('an error without a retry action remains idle',async({page})=>{
  await page.getByRole('button',{name:'Toggle retry action',exact:true}).click();
  await page.getByRole('button',{name:'Wait 5 seconds',exact:true}).click();
- await expect(page.locator('.error-notice')).toBeVisible();
+ await expect(page.locator('.ui-toast--warning')).toBeVisible();
  // Let the render and its passive effect finish before measuring idle work.
  await page.clock.runFor(50);
  const before=await page.evaluate(()=>window.retryNoticeWakeups);
  await page.clock.runFor(3000);
  expect(await page.evaluate(()=>window.retryNoticeWakeups)).toBe(before);
  await page.getByRole('button',{name:'Toggle retry action',exact:true}).click();
- await expect(page.locator('.error-notice__retry')).toBeDisabled();
- await page.clock.runFor(2000);await expect(page.locator('.error-notice__retry')).toBeEnabled();
+ await expect(page.locator('.ui-toast__action')).toBeDisabled();
+ await page.clock.runFor(2000);await expect(page.locator('.ui-toast__action')).toBeEnabled();
 });
 
 test('replacing a deadline cancels the previous countdown',async({page})=>{
- const retry=page.locator('.error-notice__retry');
+ const retry=page.locator('.ui-toast__action');
  await page.getByRole('button',{name:'Wait 2.5 seconds',exact:true}).click();
  await page.clock.runFor(1000);
  await page.getByRole('button',{name:'Wait 5 seconds',exact:true}).click();
@@ -70,10 +70,10 @@ test('replacing a deadline cancels the previous countdown',async({page})=>{
 for(const action of ['Clear error','Toggle retry action','Toggle notice','Close']) {
  test(`${action} cancels the active countdown`,async({page})=>{
   await page.getByRole('button',{name:'Wait 5 seconds',exact:true}).click();
-  await expect(page.locator('.error-notice__retry')).toBeDisabled();await page.clock.runFor(1000);
+  await expect(page.locator('.ui-toast__action')).toBeDisabled();await page.clock.runFor(1000);
   await page.getByRole('button',{name:action,exact:true}).click();
-  if(action==='Clear error'||action==='Close')await expect(page.locator('.error-notice')).toBeHidden();
-  else await expect(page.locator('.error-notice__retry')).toHaveCount(0);
+  if(action==='Clear error'||action==='Close')await expect(page.locator('.ui-toast--warning')).toBeHidden();
+  else await expect(page.locator('.ui-toast__action')).toHaveCount(0);
   // Let the render and its passive effect finish before measuring idle work.
   await page.clock.runFor(50);
   const before=await page.evaluate(()=>window.retryNoticeWakeups);await page.clock.runFor(10000);

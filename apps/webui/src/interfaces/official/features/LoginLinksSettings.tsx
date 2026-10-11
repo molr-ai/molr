@@ -1,3 +1,4 @@
+import { useErrorToast } from '../../../error-toasts';
 import { usePluginsVisible } from '../../../plugins/visibility';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge, Button, Dialog, Select, TextField } from '@molr/ui';
@@ -5,7 +6,7 @@ import { Copy, Plus } from 'lucide-react';
 import { api } from '../../../api/client';
 import { useCopy, useQuery, useSession } from '../../../state';
 import { useReauthentication } from '../components/ReauthenticationDialog';
-import { Confirm, EditDialog, ErrorNotice, Loading } from '../components/common';
+import { Confirm, EditDialog, Loading } from '../components/common';
 
 type LoginLink = { ID: string; Name: string; TargetPath: string; CreatedAt: string; ExpiresAt: string; UsedAt: string | null; RevokedAt: string | null; PendingMFAUntil?: string | null };
 type IssuedLink = { link: LoginLink; value: string };
@@ -36,6 +37,7 @@ export function LoginLinksSettings() {
     document.addEventListener('visibilitychange', sync);
     return () => { window.clearTimeout(timer); document.removeEventListener('visibilitychange', sync); };
   }, [query.data]);
+  useErrorToast(query.error, query.reload);
   function active(link: LoginLink) {
     return !link.RevokedAt && Date.parse(link.ExpiresAt) > now && (!link.UsedAt || Date.parse(link.PendingMFAUntil ?? '') > now);
   }
@@ -48,7 +50,6 @@ export function LoginLinksSettings() {
   }
   return <section className="login-links-settings settings-group" aria-label={t.loginLinks.title}>
     <header className="record-heading security-section-heading"><div><h3 className="settings-group-title">{t.loginLinks.title}</h3><p className="security-description">{t.loginLinks.help}</p></div><Button size="sm" variant="secondary" onClick={() => setCreating(true)}><Plus />{t.loginLinks.create}</Button></header>
-    <ErrorNotice error={query.error} retry={query.reload} />
     {!query.data && query.loading ? <Loading /> : current.length ? <div className="settings-rows">{current.map(row)}</div> : <p className="security-description security-empty">{t.loginLinks.empty}</p>}
     {history.length > 0 && <details className="login-link-history"><summary>{t.loginLinks.history}<span className="security-history-count">{history.length}</span></summary><p className="security-description">{t.loginLinks.historyHelp}</p><div className="settings-rows">{history.map(row)}</div></details>}
     {creating && <CreateLoginLink onClose={() => setCreating(false)} onIssued={result => {

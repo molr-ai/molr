@@ -1,3 +1,4 @@
+import { useErrorToast } from '../../../error-toasts';
 import { GrantEditor } from './GrantEditor';
 import { fullAccessLabel, isSandboxResource } from './PermissionTargetFields';
 import { ResourceQuotaUsage } from './ResourceConstraints';
@@ -18,7 +19,7 @@ import { api, APIError, mutationKey } from '../../../api/client';
 import type { Assistant, Grant, Model, Resource } from '../../../api/types';
 import { useCopy, useQuery } from '../../../state';
 import { grantSummary, grantTarget } from '../../../resource-permissions';
-import { Confirm, Empty, ErrorNotice, Loading, PageHeader, useAction } from '../components/common';
+import { Confirm, Empty, Loading, PageHeader, useAction } from '../components/common';
 import './resources.css';
 type Tab = 'model' | 'tool' | 'sandbox';
 export function Resources({ resourceID = '' }: { resourceID?: string }) {
@@ -31,7 +32,8 @@ export function Resources({ resourceID = '' }: { resourceID?: string }) {
   useEffect(() => { if (target) { setTab(target.Kind === 'model' || target.Kind === 'tool' ? target.Kind : 'sandbox'); setExpanded(target.ID); } }, [target?.ID, target?.Kind]);
   const providers = (query.data ?? []).filter(resource => resource.Kind === 'model');
   function configureModel(resource: Resource, model?: Model) { void action.run(async () => { const [current, catalog] = await Promise.all([api.get<Resource>(`/api/resources/${resource.ID}`), model ? api.get<Model[]>('/api/models') : Promise.resolve([])]); const selected = model ? catalog.find(item => item.ID === model.ID) : undefined; if (model && !selected) throw new APIError('not_found'); setConfiguring({ resource: current, model: selected }); }, undefined, false); }
-  const modelContent = <><ErrorNotice error={query.error || models.error || action.error} retry={() => { query.reload(); models.reload(); }} />{query.loading && !query.data ? <Loading /> : !providers.length ? <div className="resources-model-empty"><span className="resources-model-empty-icon" aria-hidden="true"><Bot size={32} /></span><h2>{t.resources.emptyCategory.model}</h2><p>{t.resources.connectHelp.model}</p><Button size="sm" onClick={() => setConnect(true)}><Plus size={14} aria-hidden="true" />{t.resources.connectActions.model}</Button></div> : <div className="resource-list">{providers.map(resource => {
+  useErrorToast(query.error || models.error || action.error, () => { query.reload(); models.reload(); });
+  const modelContent = <>{query.loading && !query.data ? <Loading /> : !providers.length ? <div className="resources-model-empty"><span className="resources-model-empty-icon" aria-hidden="true"><Bot size={32} /></span><h2>{t.resources.emptyCategory.model}</h2><p>{t.resources.connectHelp.model}</p><Button size="sm" onClick={() => setConnect(true)}><Plus size={14} aria-hidden="true" />{t.resources.connectActions.model}</Button></div> : <div className="resource-list">{providers.map(resource => {
     const open = expanded === resource.ID, entries = (models.data ?? []).filter(model => model.ResourceID === resource.ID);
     return <article key={resource.ID} className="resource-row" data-selected={open || undefined}><div className="resource-row-summary"><span className="resource-row-icon"><Bot size={17} /></span><div className="resource-row-copy"><h2><button type="button" aria-expanded={open} onClick={() => setExpanded(open ? '' : resource.ID)}>{resource.Name}</button></h2><p className="resource-row-meta">{resource.Provider}</p></div><Badge tone={resource.State === 'available' ? 'positive' : 'neutral'}>{t.resources[resource.State as 'available' | 'offline' | 'disconnected']}</Badge><DropdownMenu label={t.more} align="end" trigger={<IconButton label={t.more}><Ellipsis size={18} /></IconButton>} items={[
       { id: 'edit', label: t.resources.editProvider, icon: <Pencil size={15} />, disabled: resource.State !== 'available', onSelect: () => setEditingProvider(resource) },
@@ -60,13 +62,13 @@ export function AssistantPermissions({ assistant }: { assistant: Assistant }) {
   const { t, locale } = useCopy(), copy = useSandboxCopy(), sandboxes = useQuery<SandboxView[]>('/api/sandboxes'), grants = useQuery<Grant[]>(`/api/grants?assistant_id=${assistant.ID}`, true), resources = useQuery<Resource[]>('/api/resources', true), models = useQuery<Model[]>('/api/models');
   const [creating, setCreating] = useState(false), [editing, setEditing] = useState<Grant | null>(null), [revoking, setRevoking] = useState<Grant | null>(null), [inspecting, setInspecting] = useState<Grant | null>(null);
   const active = (grants.data ?? []).filter(grant => !grant.RevokedAt && (!grant.ExpiresAt || Date.parse(grant.ExpiresAt) > Date.now()));
+  useErrorToast(grants.error || resources.error || models.error, () => { grants.reload(); resources.reload(); models.reload(); });
   return <>
     <div className="permissions-content">
       <section><div className="assistant-info-section-heading"><h3>{copy.workspace}<SettingsHelp label={copy.workspace} content={copy.workspaceHelp} /></h3></div><p className="muted">/work · {copy.local}</p></section>
       <PermissionRequests assistant={assistant} />
       <section className="assistant-grants">
         <div className="assistant-info-section-heading"><h3>{t.assistantInfo.activePermissions}{grants.data && <Badge size="sm" dot={false}>{active.length}</Badge>}<SettingsHelp label={t.assistantInfo.activePermissions} content={t.resources.accessHint} /></h3><Button size="sm" disabled={assistant.State !== 'active' || !resources.data?.some(row => row.State === 'available' && row.Actions.length)} onClick={() => setCreating(true)}><Plus size={14} aria-hidden="true" />{t.resources.grant}</Button></div>
-        <ErrorNotice error={grants.error || resources.error || models.error} retry={() => { grants.reload(); resources.reload(); models.reload(); }} />
         {grants.loading && !grants.data ? <Loading /> : !active.length ? <Empty title={t.resources.noGrants} /> : <div className="assistant-grant-list">{active.map(grant => {
           const resource = resources.data?.find(row => row.ID === grant.ResourceID);
           const node = sandboxes.data?.find(s => s.ID === (resource?.SandboxID || 'local'));

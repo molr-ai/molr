@@ -1,3 +1,4 @@
+import { useErrorToast } from '../../../error-toasts';
 import { AboutUpdates } from '../../../updates/AboutUpdates';
 import { UpdateBadge, useUpdates } from '../../../updates/provider';
 import { buildInfo } from '../../../build-info';
@@ -20,7 +21,7 @@ import { SecurityVerificationSettings } from './SecurityVerificationSettings';
 import { GeneralSettings } from './GeneralSettings';
 import { ThemeSettings } from './ThemeSettings';
 import { SettingsHelp } from '../components/SettingsHelp';
-import { Confirm, EditDialog, Empty, ErrorNotice, Loading, PageHeader, useAction } from '../components/common';
+import { Confirm, EditDialog, Empty, Loading, PageHeader, useAction } from '../components/common';
 import './settings.css';
 
 const settingsTabs = ['profile', 'general', 'notifications', 'connection', 'theme', 'preferences', 'memory', 'usage', 'former', 'security', 'data', 'about'];
@@ -95,14 +96,16 @@ function preferenceValues(settings: SettingsDTO) {
 }
 function Preferences({ models }: { models: Model[] }) {
   const query = useQuery<SettingsDTO>('/api/settings');
-  if (!query.data) return <><ErrorNotice error={query.error} retry={query.reload} />{query.loading && <Loading />}</>;
-  return <><ErrorNotice error={query.error} retry={query.reload} /><PreferencesForm settings={query.data} models={models} /></>;
+  useErrorToast(query.error, query.reload);
+  if (!query.data) return <>{query.loading && <Loading />}</>;
+  return <><PreferencesForm settings={query.data} models={models} /></>;
 }
 function PreferencesForm({ settings, models }: { settings: SettingsDTO; models: Model[] }) {
   const { t } = useCopy(), action = useAction();
   const [base, setBase] = useState(settings), [form, setForm] = useState(settings);
   const changedElsewhere = settings.Version > base.Version && JSON.stringify(preferenceValues(settings)) !== JSON.stringify(preferenceValues(base));
   function reset(value: SettingsDTO) { setBase(value); setForm(value); }
+  useErrorToast(action.error);
   return <form className="editor settings-form" onSubmit={event => { event.preventDefault(); void action.run(async () => {
     const submitted = preferenceValues(form);
     const latest = await api.get<SettingsDTO>('/api/settings');
@@ -118,15 +121,15 @@ function PreferencesForm({ settings, models }: { settings: SettingsDTO; models: 
 
     <Textarea label={t.settings.answer} value={form.AnswerPreferences} onChange={event => setForm(value => ({ ...value, AnswerPreferences: event.target.value }))} maxLength={65536} />
     {changedElsewhere && <Alert tone="warning" title={t.errors.conflict} action={<Button variant="secondary" onClick={() => reset(settings)}>{t.refresh}</Button>} />}
-    <ErrorNotice error={action.error} /><Button type="submit" loading={action.busy}>{t.save}</Button>
+    <Button type="submit" loading={action.busy}>{t.save}</Button>
   </form>;
 }
 function Connection() {
   const { t, locale } = useCopy(), { messages } = useUILocale(), session = useSession(), { connection } = useData(), action = useAction();
   const runtime = useQuery<RuntimeInfo>('/api/status'), sessions = useQuery<Session[]>('/api/auth/sessions', true);
   const current = sessions.data?.find(value => value.ID === session.principal?.SessionID);
+  useErrorToast(runtime.error || sessions.error || action.error, runtime.reload);
   return <div className="settings-section settings-connection">
-    <ErrorNotice error={runtime.error || sessions.error || action.error} retry={runtime.reload} />
     {runtime.loading && !runtime.data ? <Loading /> : <div className="settings-list">
       <div className="settings-runtime-heading"><h3>{runtime.data?.name ?? 'Molr Runtime'}</h3><Badge tone={connection === 'connected' || connection === 'recovered' ? 'positive' : connection === 'failed' ? 'danger' : 'warning'}>{messages.connection[connection]}</Badge></div>
       <dl className="connection-details">
@@ -155,11 +158,12 @@ function Security() {
   const [revokeOthers, setRevokeOthers] = useState(false);
   const [revoke, setRevoke] = useState<Session | null>(null), [password, setPassword] = useState(false);
   const devices = (query.data ?? []).slice().sort((a, b) => Number(b.ID === session.principal?.SessionID) - Number(a.ID === session.principal?.SessionID) || Date.parse(b.LastSeenAt) - Date.parse(a.LastSeenAt));
+  useErrorToast(query.error, query.reload);
+  useErrorToast(action.error);
   return <div className="settings-section settings-security">
     <SecurityVerificationSettings onChangePassword={() => setPassword(true)} />
     <section className="settings-group security-devices" aria-label={t.settings.sessions}>
       <header className="security-section-heading"><h3 className="settings-group-title">{t.settings.sessions}</h3><Button size="sm" variant="secondary" disabled={!devices.some(row => row.ID !== session.principal?.SessionID)} onClick={() => setRevokeOthers(true)}>{t.settings.revokeOthers}</Button></header>
-      <ErrorNotice error={query.error} retry={query.reload} />
       {query.loading && !query.data ? <Loading /> : <div className="settings-rows">{devices.map(row => <article className="settings-row-item" key={row.ID}>
         <div className="settings-row-item-head"><div className="security-record-title"><h4>{sessionDeviceName(row)}</h4>{row.ID === session.principal?.SessionID && <Badge>{t.settings.current}</Badge>}</div><span className="settings-row-item-actions"><Button size="sm" variant="ghost" onClick={() => setRevoke(row)}>{t.settings.revokeSession}</Button></span></div>
         <dl className="security-record-meta">
@@ -169,7 +173,7 @@ function Security() {
       </article>)}</div>}
     </section>
     <LoginLinksSettings />
-    <footer className="security-sign-out"><ErrorNotice error={action.error} /><div className="security-section-heading"><p className="security-description">{t.settings.signOutHelp}</p><Button size="sm" variant="secondary" disabled={action.busy} onClick={() => void action.run(() => api.post('/api/auth/logout'), session.end, false)}>{t.signOut}</Button></div></footer>
+    <footer className="security-sign-out"><div className="security-section-heading"><p className="security-description">{t.settings.signOutHelp}</p><Button size="sm" variant="secondary" disabled={action.busy} onClick={() => void action.run(() => api.post('/api/auth/logout'), session.end, false)}>{t.signOut}</Button></div></footer>
     {revoke && <Confirm title={t.settings.revokeSession} description={t.settings.revokeSessionHelp} onClose={() => setRevoke(null)} onConfirm={async () => { await api.remove(`/api/auth/sessions/${revoke.ID}`); if (revoke.ID === session.principal?.SessionID) session.end(); else query.reload(); }} />}
     {revokeOthers && <Confirm title={t.settings.revokeOthers} description={t.settings.revokeOthersHelp} onClose={() => setRevokeOthers(false)} onConfirm={async () => { await api.post('/api/auth/sessions/revoke-others'); query.reload(); }} />}
     {password && <PasswordEditor onClose={() => setPassword(false)} />}

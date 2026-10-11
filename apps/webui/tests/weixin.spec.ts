@@ -167,9 +167,9 @@ test('rate limit appears once, can be dismissed, and pauses background retries',
   await route.fulfill({ status: 429, headers: { 'Retry-After': '30' }, json: { code: 'rate_limited', message: 'Too many requests', request_id: `request-${limited}` } });
  });
  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
- const notices = page.locator('.error-notice:visible');
+ const notices = page.locator('.ui-toast--warning:visible');
  await expect(notices).toHaveCount(1);
- await expect(dialog.locator('.error-notice:visible')).toHaveCount(1);
+ await expect(dialog.locator('.ui-toast--warning:visible')).toHaveCount(1);
  await expect(notices.getByRole('button', { name: /^Retry/ })).toBeDisabled();
  await expect(notices.getByRole('button', { name: 'Close', exact: true })).toBeVisible();
  for (const theme of ['light', 'dark']) for (const palette of ['forest', 'ocean', 'iris', 'sand', 'rose', 'monochrome']) {

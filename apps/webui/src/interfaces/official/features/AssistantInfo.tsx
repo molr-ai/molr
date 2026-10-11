@@ -1,3 +1,4 @@
+import { useErrorToast } from '../../../error-toasts';
 import { usePluginsVisible, pluginResourceVisible } from '../../../plugins/visibility';
 import { Activity, useEffect, useState } from 'react';
 import { Badge, Button, EmptyState, Tabs } from '@molr/ui';
@@ -5,7 +6,7 @@ import { BookOpen, Brain, CalendarClock, ChevronDown, FlaskConical, Folder, Info
 import type { AgentStatus, Assistant, AssistantCapabilities, CurrencyContext, Model } from '../../../api/types';
 import { useCopy, useQuery } from '../../../state';
 import { CurrencyDialog } from '../components/Money';
-import { ErrorNotice, Loading, useAction } from '../components/common';
+import { Loading, useAction } from '../components/common';
 import { AssistantSettingsForm } from './AssistantDialogs';
 import { AssistantPermissions } from './Resources';
 import { sandboxReason } from '../../../sandbox';
@@ -15,8 +16,9 @@ type Props = { assistant: Assistant; models: Model[]; initialTab?: Tab; docked?:
 export function AssistantInfo(props: Props) {
   const { t } = useCopy(), action = useAction();
   const models = useQuery<Model[]>('/api/models');
+  useErrorToast(models.error, models.reload);
   return <CurrencyDialog drawer docked={props.docked} className="assistant-info" title={t.assistantInfo.title} description={props.assistant.Name} dismissible={!action.busy} onClose={props.onClose}>
-    {context => <><ErrorNotice error={models.error} retry={models.reload} /><InfoContents {...props} models={models.data ?? props.models} context={context} action={action} /></>}
+    {context => <><InfoContents {...props} models={models.data ?? props.models} context={context} action={action} /></>}
   </CurrencyDialog>;
 }
 function InfoContents({ assistant, models, initialTab = 'overview', onClose, onDebug, context, action }: Props & { context: CurrencyContext; action: ReturnType<typeof useAction> }) {
@@ -25,10 +27,10 @@ function InfoContents({ assistant, models, initialTab = 'overview', onClose, onD
   useEffect(() => { setTab(initialTab); setVisited(previous => new Set([...previous, initialTab])); }, [initialTab]);
   const status = useQuery<AgentStatus>(`/api/assistants/${assistant.ID}/status`);
   const archived = assistant.State !== 'active';
+  useErrorToast(status.error, status.reload);
   const items = [
     { value: 'overview', label: t.assistantInfo.overview, icon: <Info size={16} />, content: <>
       <div className="assistant-info-status"><Badge tone={archived ? 'neutral' : ['working', 'dreaming'].includes(status.data?.State ?? '') ? 'warning' : 'positive'}>{archived ? t.chat.archived : status.data ? status.data.Compression?.State === 'running' ? t.chat.compressing : t.chat[status.data.State] : t.loading}</Badge>{onDebug && <Button size="sm" variant="secondary" onClick={onDebug}><FlaskConical size={16} />{t.assistantInfo.executions}</Button>}</div>
-      <ErrorNotice error={status.error} retry={status.reload} />
       <fieldset disabled={archived} className="assistant-info-fields"><AssistantSettingsForm assistant={assistant} models={models} currencyContext={context} action={action} onClose={onClose} /></fieldset>
     </> },
     { value: 'tools', label: t.assistantInfo.tools, icon: <Wrench size={16} />, content: <Capabilities assistantID={assistant.ID} kind="tools" onPermissions={() => changeTab('permissions')} /> },
@@ -51,7 +53,8 @@ function Capabilities({ assistantID, kind, onPermissions }: { assistantID: strin
     { key: 'memory', icon: Brain, matches: (name: string) => name.startsWith('memory_') },
     { key: 'execution', icon: Wrench, matches: (name: string) => !['conversation_', 'profile_', 'file_', 'plan_', 'memory_'].some(prefix => name.startsWith(prefix)) },
   ] as const;
-  return <div className="assistant-capabilities"><ErrorNotice error={query.error} retry={query.reload} />
+  useErrorToast(query.error, query.reload);
+  return <div className="assistant-capabilities">
     {query.loading && !query.data && <Loading />}
     {query.data && (kind === 'skills' ? !query.data.Skills.Supported || !query.data.Skills.Items.length ? <EmptyState illustration={<BookOpen />} title={query.data.Skills.Supported ? t.assistantInfo.noSkills : t.assistantInfo.skillsUnsupported} description={query.data.Skills.Supported ? t.assistantInfo.noSkillsHelp : t.assistantInfo.skillsUnsupportedHelp} /> : query.data.Skills.Items.map(skill => <article className="assistant-capability" key={skill.ID}>
       <div className="record-heading"><h3>{skill.Name}</h3><Badge tone={skill.Enabled ? 'positive' : 'neutral'}>{skill.Enabled ? t.enabled : t.disabled}</Badge></div><p>{skill.Description}</p><small className="muted">{t.assistantInfo.version} · {skill.Version}</small>

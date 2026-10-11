@@ -1,15 +1,17 @@
+import { useErrorToast } from '../error-toasts';
 import { useState } from 'react';
 import { Badge, Button, TextField } from '@molr/ui';
 import { AssistantAvatarField } from '../interfaces/official/features/AssistantAvatarField';
 import { api } from '../api/client';
 import { useCopy, useQuery, useSession } from '../state';
-import { ErrorNotice, Loading, useAction } from '../interfaces/official/components/common';
+import { Loading, useAction } from '../interfaces/official/components/common';
 import type { UserInfo } from './types';
 import { groupName } from './types';
 
 export function ProfileSettings() {
   const query = useQuery<UserInfo>('/api/account');
-  if (!query.data) return <><ErrorNotice error={query.error} retry={query.reload} /><Loading /></>;
+  useErrorToast(query.error, query.reload);
+  if (!query.data) return <><Loading /></>;
   return <ProfileForm key={query.data.ID} user={query.data} />;
 }
 function ProfileForm({ user }: { user: UserInfo }) {
@@ -22,6 +24,7 @@ function ProfileForm({ user }: { user: UserInfo }) {
     if (name === previous.DisplayName) setName(user.DisplayName);
     if (avatar === (previous.Avatar ?? '')) setAvatar(user.Avatar ?? '');
   }
+  useErrorToast(action.error);
   return <form className="editor settings-form" onSubmit={e => {
     e.preventDefault();
     if (processingAvatar) return;
@@ -37,6 +40,6 @@ function ProfileForm({ user }: { user: UserInfo }) {
       <TextField label={zh ? '显示名称' : 'Display name'} value={name} onChange={e => setName(e.target.value)} required maxLength={128} />
       <p>{zh ? '用户组' : 'User group'}：<Badge>{groupName({ ID: user.GroupID, Name: user.GroupName }, zh)}</Badge></p>
     </fieldset>
-    <ErrorNotice error={action.error} /><Button type="submit" loading={action.busy} disabled={processingAvatar}>{t.save}</Button>
+    <Button type="submit" loading={action.busy} disabled={processingAvatar}>{t.save}</Button>
   </form>;
 }

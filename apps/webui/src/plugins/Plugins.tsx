@@ -1,3 +1,4 @@
+import { useErrorToast } from '../error-toasts';
 import { useId, useRef, useState } from 'react';
 import { Badge, Button, Checkbox, Dialog, DropdownMenu, IconButton, Select, Switch, Tabs, TextField } from '@molr/ui';
 import { ChevronLeft, Ellipsis, PanelsTopLeft, Puzzle, Settings2, Shield, Trash2, Download, Upload } from 'lucide-react';
@@ -8,7 +9,7 @@ import type { PluginBinding, PluginInstallation } from '@molr/sdk/plugins';
 import { useCopy, useQuery, useSession } from '../state';
 import { useUIHost } from '../ui-host/store';
 import { useNavigation } from '../navigation';
-import { Confirm, ErrorNotice, Loading, PageHeader, useAction } from '../interfaces/official/components/common';
+import { Confirm, Loading, PageHeader, useAction } from '../interfaces/official/components/common';
 import { PluginFrame } from './PluginFrame';
 import { PluginSettings, PluginConnections } from './PluginSettings';
 import { PluginGroups } from './PluginGroups';
@@ -24,6 +25,7 @@ export function ExtensionPages({ id }: { id: string }) {
   const { locale } = useCopy(), zh = locale === 'zh', copy = pluginCopy[locale], host = useUIHost(), { navigate } = useNavigation();
   const administrator = useSession().principal?.User?.Administrator === true;
   const [search, setSearch] = useState(''), [filter, setFilter] = useState('all'), [installing, setInstalling] = useState(false);
+  useErrorToast(host.pluginError, host.reloadPlugins);
   if (host.loading) return <Loading />;
   const [pluginID, entry] = id.split('/'), selected = host.plugins.find(p => p.ID === pluginID);
   if (selected) {
@@ -41,7 +43,6 @@ export function ExtensionPages({ id }: { id: string }) {
     {installing && <PluginInstaller onClose={() => setInstalling(false)} onInstalled={host.reloadPlugins} />}
     <div className="plugin-market">
       <div className="plugin-market-filters"><TextField label={zh ? '搜索插件' : 'Search plugins'} type="search" value={search} onChange={e => setSearch(e.target.value)} /><Select label={zh ? '状态' : 'Status'} value={filter} onValueChange={setFilter} options={[{ value: 'all', label: zh ? '全部插件' : 'All plugins' }, { value: 'enabled', label: copy.enabled }, { value: 'disabled', label: copy.disabled }]} /></div>
-      <ErrorNotice error={host.pluginError} retry={host.reloadPlugins} />
       {id && <p role="status">{copy.unavailable}</p>}
       {plugins.length ? <div className="plugin-market-grid">{plugins.map(p => <PluginCard key={p.ID} plugin={p} administrator={administrator} />)}</div> : <div className="resources-empty"><Puzzle size={28} /><h2>{search || filter !== 'all' ? (zh ? '没有匹配的插件' : 'No matching plugins') : copy.empty}</h2><p>{administrator ? copy.help : (zh ? '管理员授权插件后，会显示在这里。' : 'Plugins appear here when your administrator authorizes them.')}</p></div>}
     </div>
@@ -50,6 +51,7 @@ export function ExtensionPages({ id }: { id: string }) {
 function PluginInstaller({ onClose, onInstalled }: { onClose: () => void; onInstalled: () => void }) {
   const { locale, t } = useCopy(), zh = locale === 'zh', copy = pluginCopy[locale], action = useAction(), input = useRef<HTMLInputElement>(null), formID = useId();
   const [source, setSource] = useState<'file' | 'url'>('file'), [file, setFile] = useState<File | null>(null), [url, setURL] = useState('');
+  useErrorToast(action.error);
   async function install() {
     if (source === 'file') {
       if (!file) return;
@@ -71,7 +73,6 @@ function PluginInstaller({ onClose, onInstalled }: { onClose: () => void; onInst
           <p className="plugin-editor-hint">{zh ? '填写公开可访问的 HTTPS ZIP 链接。' : 'Enter a publicly accessible HTTPS link to a ZIP package.'}</p>
         </div> },
       ]} />
-      <ErrorNotice error={action.error} />
     </form>
   </Dialog>;
 }
@@ -89,6 +90,7 @@ function PluginCard({ plugin, administrator }: { plugin: PluginInstallation; adm
     });
   }
   const pages = (c.pages ?? []).map(page => ({ id: `page-${page.id}`, label: `${copy.open} · ${page.title}`, icon: <PanelsTopLeft size={15} />, disabled: !pluginAllowed(plugin, page.capabilities), onSelect: () => navigate('extensions', `${plugin.ID}/${page.id}`) }));
+  useErrorToast(action.error);
   const menu = [...pages, ...(administrator ? [
     { id: 'groups', label: zh ? '授权用户组' : 'Authorize groups', icon: <Shield size={15} />, onSelect: () => setGroups(true) },
     { id: 'manage', label: zh ? '权限与助理' : 'Permissions and assistants', icon: <Settings2 size={15} />, onSelect: () => setEditing(true) },
@@ -101,7 +103,6 @@ function PluginCard({ plugin, administrator }: { plugin: PluginInstallation; adm
     <p className="plugin-card-description">{plugin.Manifest.description || (zh ? '此插件未提供简介。' : 'No description provided.')}</p>
     <div className="plugin-card-tags">{[[copy.themes,c.themes?.length],[copy.pages,c.pages?.length],[copy.tools,c.tools?.length]].filter(([,n]) => !!n).map(([label,n]) => <Badge key={label} size="sm">{label} {n}</Badge>)}<Badge size="sm" tone={enabled ? 'positive' : 'neutral'}>{enabled ? copy.enabled : copy.disabled}</Badge></div>
     <div className="plugin-card-actions"><Switch label={administrator ? (zh ? '全局启用' : 'Enable globally') : copy.enabledLabel} checked={enabled} disabled={action.busy} onChange={() => { void toggle(); }} /><div>{hasSettings(plugin) && <Button size="sm" variant="secondary" disabled={!pluginAllowed(plugin)} onClick={() => navigate('extensions', `${plugin.ID}/@settings`)}>{zh ? '配置' : 'Configure'}</Button>}{c.pages?.[0] && <Button size="sm" variant="secondary" disabled={!pluginAllowed(plugin,c.pages[0].capabilities)} onClick={pages[0].onSelect}>{copy.open}</Button>}</div></div>
-    <ErrorNotice error={action.error} />
     {editing && <PluginManagement plugin={plugin} onClose={() => setEditing(false)} />}
     {groups && <PluginGroups plugin={plugin} onClose={() => setGroups(false)} />}
     {remove && <Confirm danger title={copy.remove} description={copy.removeHelp} onClose={() => setRemove(false)} onConfirm={async () => { await api.post('/api/plugins/remove', { ID: plugin.ID, ExpectedVersion: plugin.Version }); host.reloadPlugins(); setRemove(false); }} />}
@@ -109,7 +110,8 @@ function PluginCard({ plugin, administrator }: { plugin: PluginInstallation; adm
 }
 function PluginManagement({ plugin, onClose }: { plugin: PluginInstallation; onClose: () => void }) {
   const assistants = useQuery<Assistant[]>('/api/assistants', true);
-  if (!assistants.data) return <Dialog open title={plugin.Manifest.name} onOpenChange={open => { if (!open) onClose(); }}><ErrorNotice error={assistants.error} />{!assistants.error && <Loading />}</Dialog>;
+  useErrorToast(assistants.error);
+  if (!assistants.data) return <Dialog open title={plugin.Manifest.name} onOpenChange={open => { if (!open) onClose(); }}>{!assistants.error && <Loading />}</Dialog>;
   return <PluginEditor plugin={plugin} assistants={assistants.data} onClose={onClose} />;
 }
 function PluginEditor({ plugin: initialPlugin, assistants, onClose }: { plugin: PluginInstallation; assistants: Assistant[]; onClose: () => void }) {
@@ -118,6 +120,7 @@ function PluginEditor({ plugin: initialPlugin, assistants, onClose }: { plugin: 
   const [grants, setGrants] = useState(plugin.Grants ?? []), [bindings, setBindings] = useState(plugin.Bindings ?? []), [release, setRelease] = useState(plugin.Manifest.version), [enabled, setEnabled] = useState(plugin.Enabled), [tab, setTab] = useState('general');
   const c = plugin.Manifest.contributes, requested = pluginCapabilities(plugin.Manifest);
   function update(id: string, change: (value: PluginBinding) => PluginBinding) { setBindings(previous => previous.map(b => b.AssistantID === id ? change(b) : b)); }
+  useErrorToast(action.error);
   const general = <div className="plugin-editor-section">
     <div className="plugin-editor-summary"><p>{plugin.Manifest.description}</p><span>{plugin.ID} · {plugin.Manifest.version}</span></div>
     <Switch label={copy.enabledLabel} checked={enabled} onChange={event => setEnabled(event.target.checked)} />
@@ -139,7 +142,6 @@ function PluginEditor({ plugin: initialPlugin, assistants, onClose }: { plugin: 
       await api.post('/api/plugins/configure', { ID: plugin.ID, ExpectedVersion: plugin.Version, Enabled: enabled, Grants: grants, Bindings: bindings, Release: release }); host.reloadPlugins(); onClose();
     }); }} />
       {!!c.tools?.length ? <Tabs label={copy.configure} size="sm" value={tab} onValueChange={setTab} items={[{ value: 'general', label: copy.general, content: general }, { value: 'assistants', label: copy.assistants, content: assistantContent }, ]} /> : general}
-      <ErrorNotice error={action.error} />
     </div>
   </Dialog>;
 }

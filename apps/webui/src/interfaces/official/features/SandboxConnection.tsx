@@ -1,3 +1,4 @@
+import { useErrorToast } from '../../../error-toasts';
 import { useRef, useState } from 'react';
 import { Alert, Badge, Button, SecretField, TextField } from '@molr/ui';
 import type { SandboxDiagnostic, SandboxView } from '../../../sandbox-types';
@@ -5,7 +6,7 @@ import { useCopy } from '../../../state';
 import { useSandboxCopy } from '../../../sandbox-copy';
 import { api, mutationKey } from '../../../api/client';
 import { useReauthentication } from '../components/ReauthenticationDialog';
-import { EditDialog, ErrorNotice, useAction } from '../components/common';
+import { EditDialog, useAction } from '../components/common';
 
 export function connectionError(copy: ReturnType<typeof useSandboxCopy>, reason?: string) {
   return copy.connectionErrors[reason as keyof typeof copy.connectionErrors] ?? copy.connectionErrors.sandbox_unreachable;
@@ -19,6 +20,7 @@ export function SandboxConnection({ sandbox, onClose, onConnected }: { sandbox?:
   const parameters = () => ({ Endpoint: endpoint.trim(), Fingerprint: fingerprint.trim().replaceAll(':', '').toLowerCase(), Token: token });
   function update(set: (value: string) => void, value: string) { generation.current++; set(value); setDiagnostic(null); test.reset(); }
   const fieldError = (field: string) => diagnostic && !diagnostic.Connected && diagnostic.Field === field ? connectionError(copy, diagnostic.Reason) : undefined;
+  useErrorToast(test.error);
   return <><EditDialog title={sandbox ? copy.credentials : copy.connect} description={sandbox ? copy.tokenHelp : copy.connectHelp} onClose={onClose} submitLabel={sandbox ? t.save : copy.connect} submitDisabled={!diagnostic?.Connected || test.busy} onSubmit={async () => {
     const proof = await verification.verify('credential.put');
     const result = await api.post<SandboxView>('/api/sandboxes/connect', { ID: sandbox?.ID, Name: name.trim(), ...parameters(), Verification: proof, Mutation: { IdempotencyKey: key, ExpectedVersion: sandbox?.Version ?? 0 } });
@@ -29,7 +31,6 @@ export function SandboxConnection({ sandbox, onClose, onConnected }: { sandbox?:
     <TextField label={copy.fingerprint} description={copy.fingerprintHelp} error={fieldError('Fingerprint')} value={fingerprint} onChange={event => update(setFingerprint, event.target.value)} required autoComplete="off" spellCheck={false} />
     <SecretField name={`sandbox-${sandbox?.ID ?? 'new'}-token`} label={copy.token} description={copy.tokenHelp} error={fieldError('Token')} value={token} onChange={event => update(setToken, event.target.value)} required minLength={32} />
     <div className="sandbox-connection-test"><Button variant="secondary" loading={test.busy} disabled={!endpoint.trim() || !fingerprint.trim() || !token} onClick={() => void test.run(async () => { const revision = generation.current; const result = await api.post<SandboxDiagnostic>('/api/sandboxes/test', parameters()); if (revision === generation.current) { setDiagnostic(result); setShowDiagnostic(true); } }, undefined, false)}>{copy.test}</Button><span className="muted">{!diagnostic && copy.testFirst}</span></div>
-    <ErrorNotice error={test.error} />
     {diagnostic && showDiagnostic && (diagnostic.Connected && diagnostic.Info ? <Alert tone="positive" title={copy.testSuccess} onDismiss={() => setShowDiagnostic(false)}><div className="sandbox-status"><Badge>{diagnostic.Info.Capabilities.OS}</Badge><Badge tone={diagnostic.Info.Enabled && diagnostic.Info.Storage ? 'positive' : 'warning'}>{diagnostic.Info.Enabled && diagnostic.Info.Storage ? copy.storageReady : copy.storageUnavailable}</Badge><Badge tone={diagnostic.Info.Enabled && diagnostic.Info.Capabilities.Shell ? 'positive' : 'warning'}>{diagnostic.Info.Enabled && diagnostic.Info.Capabilities.Shell ? copy.computeReady : copy.computeUnavailable}</Badge></div></Alert> : <Alert tone="danger" title={connectionError(copy, diagnostic.Reason)} onDismiss={() => setShowDiagnostic(false)} />)}
   </EditDialog>{verification.dialog}</>;
 }

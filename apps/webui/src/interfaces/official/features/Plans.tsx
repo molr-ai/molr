@@ -1,10 +1,11 @@
+import { useErrorToast } from '../../../error-toasts';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Button, Checkbox, DateTimePicker, Dialog, DropdownMenu, IconButton, Select, Textarea, TextField, planDate, useBreakpoint, useChoiceScroll } from '@molr/ui';
 import { ArrowRight, Bot, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Ellipsis, GitBranch, History, List, Pause, Pencil, Play, Plus, Repeat2, SlidersHorizontal, Trash2, UserRound, X } from 'lucide-react';
 import { api, APIError } from '../../../api/client';
 import type { Assistant, Schedule, Todo, Plan, PlanRef, PlanEvent, DreamWindow } from '../../../api/types';
 import { useCopy, useQuery } from '../../../state';
-import { Confirm, EditDialog, ErrorNotice, Loading, PageHeader, localDateTime, zonedInput, zonedInstant, useAction } from '../components/common';
+import { Confirm, EditDialog, Loading, PageHeader, localDateTime, zonedInput, zonedInstant, useAction } from '../components/common';
 import { planMessages } from '../../../plan-messages';
 import { ExecutionDetails } from './ExecutionDetails';
 import { DreamConflictNotice } from './DreamConflictNotice';
@@ -83,6 +84,7 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
   function selectDate(value: string) { setDate(value); setExpanded(''); setSelectedAt(undefined); setDayAgenda(value); }
   function selectEvent(event: PlanEvent) { setExpanded(refKey(event.Plan.Ref)); setSelectedAt(event.At); setDayAgenda(''); }
   function selectPlan(p: Plan,at?:string) { if(expanded===refKey(p.Ref)&&selectedAt===at){setExpanded('');setSelectedAt(undefined);}else{setExpanded(refKey(p.Ref));setSelectedAt(at);setDayAgenda('');} }
+  useErrorToast(plans.error || upcoming.error || action.error || currentAssistant.error || dreamWindows.error, ()=>{plans.reload();upcoming.reload();});
   function selectView(value: string) {
     if (value === view) return;
     setView(value); setExpanded(''); setSelectedAt(undefined); setDayAgenda('');
@@ -170,7 +172,6 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
       </div>
       <div className="plans-filters"><SlidersHorizontal size={14} className="plans-filter-icon" aria-hidden="true" /><Select hideLabel size="sm" label={t.owner} value={owner} onValueChange={setOwner} options={[{ value: 'all', label: t.allOwners }, { value: 'me', label: t.me }, ...assistants.map(a => ({ value: a.ID, label: a.Name }))]} /><Select hideLabel size="sm" label={t.type} value={kind} onValueChange={setKind} options={[{ value: 'all', label: t.allTypes }, ...(['item', 'event', 'automatic'] as const).map(value => ({ value, label: t[value] }))]} /><Select hideLabel size="sm" label={t.status} value={status} onValueChange={setStatus} options={[{ value: 'all', label: t.allStatuses }, { value: 'open', label: t.open }, { value: 'done', label: t.done }]} />{hasFilters && <IconButton label={t.clearFilters} onClick={clearFilters}><X size={14} /></IconButton>}</div>
     </div>
-    <ErrorNotice error={plans.error || upcoming.error || action.error || currentAssistant.error || dreamWindows.error} retry={()=>{plans.reload();upcoming.reload();}} />
     <div className="plans-content" data-split={split && !!selected}>
       <div className="plans-master" ref={listRef}>
         {plans.loading && !plans.data && <Loading />}

@@ -1,9 +1,10 @@
+import { useErrorToast } from '../../../error-toasts';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Button, Dialog, TextField } from '@molr/ui';
 import type { SecurityStatus } from '../../../api/types';
 import { api, APIError } from '../../../api/client';
 import { useCopy } from '../../../state';
-import { ActionCancelled, ErrorNotice, Loading, useAction } from './common';
+import { ActionCancelled, Loading, useAction } from './common';
 
 type Request = { purpose: string; resolve: (proof: string) => void; reject: (error: Error) => void };
 
@@ -41,10 +42,11 @@ function ReauthenticationDialog({ purpose, onVerified, onClose }: { purpose: str
     void api.get<SecurityStatus>('/api/auth/security', controller.signal).then(setStatus).catch(error => { if (!controller.signal.aborted) setError(error); });
     return () => controller.abort();
   }, [attempt]);
+  useErrorToast(error, () => setAttempt(value => value + 1));
+  useErrorToast(action.error);
   return <Dialog open title={t.verification.title} description={t.verification.help} dismissible={!action.busy}
     onOpenChange={open => { if (!open && !action.busy) onClose(); }}
     footer={<><Button variant="secondary" disabled={action.busy} onClick={onClose}>{t.cancel}</Button><Button type="submit" form={formID} disabled={!status} loading={action.busy}>{t.verify}</Button></>}>
-    <ErrorNotice error={error} retry={() => setAttempt(value => value + 1)} />
     {!status ? !error && <Loading /> : <form id={formID} className="editor" onSubmit={event => {
       event.preventDefault();
       void action.run(async () => {
@@ -64,7 +66,6 @@ function ReauthenticationDialog({ purpose, onVerified, onClose }: { purpose: str
     }}>
       <TextField label={t.verification.password} type="password" name="password" autoComplete="current-password" autoFocus value={password} onChange={event => setPassword(event.target.value)} required disabled={action.busy} />
       {status.MFAEnabled && <TextField label={t.mfa} name="verification-code" autoComplete="one-time-code" value={code} onChange={event => setCode(event.target.value)} required disabled={action.busy} />}
-      <ErrorNotice error={action.error} />
     </form>}
   </Dialog>;
 }

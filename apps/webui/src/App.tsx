@@ -1,5 +1,5 @@
 import { UpdateProvider, UpdateBadge } from './updates/provider';
-import { ErrorNoticeProvider } from './error-notices';
+import { ErrorToastProvider, useErrorToast } from './error-toasts';
 import { SetupGate } from './setup';
 import { pluginCopy } from './plugins/copy';
 import { NotificationProvider } from './notifications/provider';
@@ -12,7 +12,7 @@ import type { UIContext, UIPage } from '@molr/sdk/ui';
 import type { Settings, RuntimeInfo, Conversation } from '@molr/sdk';
 import { DataProvider, LocaleProvider, SessionProvider, useAppearance, useCopy, useData, useQuery, useSession } from './state';
 import { useNavigation } from './navigation';
-import { ErrorNotice, Loading } from './interfaces/official/components/common';
+import { Loading } from './interfaces/official/components/common';
 import { Login } from './interfaces/official/features/Login';
 import { LoginLinkLogin } from './interfaces/official/features/LoginLinkLogin';
 import { useLoginLink } from './login-link';
@@ -27,16 +27,17 @@ const ExtensionPages = lazy(() => import('./plugins/Plugins').then(module => ({ 
 const PluginFrame = lazy(() => import('./plugins/PluginFrame').then(module => ({ default: module.PluginFrame })));
 const FramePage = lazy(() => import('./ui-host/FramePage').then(module => ({ default: module.FramePage })));
 
-export function App() { return <LocaleProvider><SessionProvider><NoticeScope /></SessionProvider></LocaleProvider>; }
-function NoticeScope() {
+export function App() { return <LocaleProvider><SessionProvider><ErrorToastScope /></SessionProvider></LocaleProvider>; }
+function ErrorToastScope() {
  const { principal } = useSession();
- return <ErrorNoticeProvider key={principal?.SessionID ?? 'anonymous'}><SessionGate /></ErrorNoticeProvider>;
+ return <ErrorToastProvider key={principal?.SessionID ?? 'anonymous'}><SessionGate /></ErrorToastProvider>;
 }
 function SessionGate() {
   const session = useSession(), loginLink = useLoginLink();
+  useErrorToast(!loginLink && !session.loading ? session.error : null, () => void session.reload());
   if (loginLink) return <LoginLinkLogin key={loginLink.id} attempt={loginLink} />;
   if (session.loading) return <main className="session-page"><Loading /></main>;
-  if (session.error) return <main className="session-page"><ErrorNotice error={session.error} retry={() => void session.reload()} /></main>;
+  if (session.error) return <main className="session-page" />;
   if (!session.principal) return <Login />;
   return <DataProvider key={session.principal.SessionID}><SetupGate><UpdateProvider><NotificationProvider><UIHostProvider><WorkspaceHost /></UIHostProvider></NotificationProvider></UpdateProvider></SetupGate></DataProvider>;
 }

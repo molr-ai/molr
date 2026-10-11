@@ -70,7 +70,7 @@ for (const operation of ['test', 'save']) {
       await dialog.getByRole('button', { name: operation === 'test' ? 'Test connection' : 'Connect provider', exact: true }).click(); await pending;
       for (const name of ['Use', 'Configure', 'Scan again', 'Connected']) await expect(dialog.getByRole('button', { name, exact: true })).toBeDisabled();
       release();
-      const error = dialog.locator('.error-notice[data-code="internal"]:visible'); await expect(error).toBeVisible();
+      const error = dialog.locator('.ui-toast--danger:visible'); await expect(error).toBeVisible();
       for (const name of ['Use', 'Configure', 'Scan again']) await expect(dialog.getByRole('button', { name, exact: true })).toBeEnabled();
       await expect(dialog.getByRole('button', { name: 'Connected', exact: true })).toBeDisabled();
       await dialog.getByRole('button', { name: 'Configure', exact: true }).click();

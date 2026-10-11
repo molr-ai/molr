@@ -1,7 +1,7 @@
+import { useErrorToast } from '../../../error-toasts';
 import { Select } from '@molr/ui';
 import type { CurrencyCode, CurrencyContext, Usage } from '../../../api/types';
 import { useCopy, useQuery } from '../../../state';
-import { ErrorNotice } from '../components/common';
 import { MoneyInput, MoneyText, useCurrency } from '../components/Money';
 import { timezoneLabel } from '../../../currency';
 
@@ -17,7 +17,8 @@ export function AssistantBudgetUsage({ assistantID }: { assistantID: string }) {
   const { t, locale } = useCopy();
   const usage = useQuery<Usage>(`/api/usage?assistant_id=${assistantID}&current_period=true`);
   const currency = useCurrency();
-  return <><ErrorNotice error={usage.error || currency.error} retry={() => { usage.reload(); currency.reload(); }} />{usage.data && <dl className="connection-details">
+  useErrorToast(usage.error || currency.error, () => { usage.reload(); currency.reload(); });
+  return <>{usage.data && <dl className="connection-details">
     {usage.data.Limit && <div><dt>{t.assistants.budgetSummary}</dt><dd><MoneyText value={usage.data.Limit} /></dd></div>}
     <div><dt>{t.assistants.periodSpent}</dt><dd><MoneyText value={usage.data.Spent} originals={usage.data.OriginalSpent} /></dd></div>
     <div><dt>{t.settings.reserved}</dt><dd><MoneyText value={usage.data.Reserved} originals={usage.data.OriginalReserved} /></dd></div>

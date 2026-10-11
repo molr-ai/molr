@@ -1,3 +1,4 @@
+import { useErrorToast } from '../../../error-toasts';
 import { useState } from 'react';
 import { DateTimePicker, Select, Textarea } from '@molr/ui';
 import type { Assistant, Grant, Model, Resource, ResourceConstraints, TemporaryConstraints } from '../../../api/types';
@@ -6,7 +7,7 @@ import { api, APIError } from '../../../api/client';
 import { useCopy, useQuery } from '../../../state';
 import { useSandboxCopy } from '../../../sandbox-copy';
 import { defaultPermissions, permissionOptions } from '../../../resource-permissions';
-import { EditDialog, ErrorNotice, lines } from '../components/common';
+import { EditDialog, lines } from '../components/common';
 import { ConstraintsEditor, suggestedConstraints, TemporaryConstraintsEditor } from './ResourceConstraints';
 import { PermissionTargetFields, targetFor } from './PermissionTargetFields';
 import type { PermissionTarget } from './PermissionTargetFields';
@@ -37,6 +38,7 @@ export function GrantEditor({ assistant, assistants, resources, grant, initialRe
     }
     setTarget(next);
   }
+  useErrorToast(sandboxes.error || models.error, () => { sandboxes.reload(); models.reload(); });
   return <EditDialog title={grant ? t.assistantInfo.editPermission : assistant ? t.resources.grant : copy.grant} description={assistant ? t.resourcePermissions.recipient(assistant.Name) : undefined} onClose={onClose} submitDisabled={!assistantID || !resource || !actions.length || !!sandboxes.error || !!models.error} onSubmit={async () => {
     if (!resource || resource.State !== 'available' || !assistantID || !actions.length || actions.some(a => !resource.Actions.includes(a)) || (expires && Date.parse(expires) <= Date.now()) || (resource.Kind === 'model' && !models.data?.some(m => m.ID === target.modelID && m.ResourceID === resource.ID))) throw new APIError('invalid_argument');
     const values = { Actions: target.fullAccess ? ['execute'] : actions, Scope: { FullAccess: target.fullAccess, ModelID: target.kind === 'model' ? target.modelID : '', ReadOnly: !target.fullAccess && actions.every(a => a === 'read'), PathPrefixes: target.kind === 'storage' ? lines(paths) : [] }, Constraints: target.fullAccess ? undefined : constraints, Temporary: target.fullAccess ? undefined : temporary, ExpiresAt: expires };
@@ -45,7 +47,6 @@ export function GrantEditor({ assistant, assistants, resources, grant, initialRe
   }}>
     {!assistant && <Select label={copy.assistant} disabled={!!grant} value={assistantID} onValueChange={setAssistantID} options={(assistants ?? []).map(a => ({ value: a.ID, label: a.Name }))} />}
     <PermissionTargetFields value={current} onChange={select} resources={resources} models={models.data ?? []} sandboxes={sandboxes.data ?? []} lockedResource={!!grant} sandboxOnly={!!initialResource} />
-    <ErrorNotice error={sandboxes.error || models.error} retry={() => { sandboxes.reload(); models.reload(); }} />
     {!target.fullAccess && <>
       <Select multiple label={t.resources.actions} value={actions} onValueChange={setActions} options={permissionOptions(t, resource)} />
       {target.kind === 'storage' && <Textarea label={t.resources.pathPrefixes} description={copy.pathsHelp} value={paths} onChange={e => setPaths(e.target.value)} placeholder="/" rows={3} />}

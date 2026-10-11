@@ -1,9 +1,9 @@
+import { useErrorToast } from '../../../error-toasts';
 import { CalendarDays, Folder, ListTodo } from 'lucide-react';
 import { Button, ChatCard } from '@molr/ui';
 import type { ChatCardDetail, ChatCardProps } from '@molr/ui';
 import type { Message, Resource, Schedule, Task } from '../../../api/types';
 import { useCopy, useQuery } from '../../../state';
-import { ErrorNotice } from '../components/common';
 
 type Card = NonNullable<Message['Content']['Card']>;
 type Props = { card: Card; timeZone?: string; onOpen: (kind: string, id: string) => void };
@@ -42,8 +42,8 @@ export function ConversationCard({ card, timeZone, onOpen }: Props) {
   const kind = card.Kind === 'task' ? t.chat.tasks : card.Kind === 'resource' ? t.nav.resources : t.nav.schedules;
   const action = card.Kind === 'task' ? t.messageCards.viewTask : card.Kind === 'resource' ? t.messageCards.viewResource : t.messageCards.viewSchedule;
   const Icon = card.Kind === 'task' ? ListTodo : card.Kind === 'resource' ? Folder : CalendarDays;
+  useErrorToast(tasks.error || resources.error || schedules.error, () => {tasks.reload();resources.reload();schedules.reload();});
   return <ChatCard eyebrow={kind} title={title || kind} icon={<Icon />} description={card.Summary} status={status} details={details}
     actions={<Button variant="secondary" size="sm" onClick={() => onOpen(card.Kind, card.TargetID)}>{action}</Button>}>
-    <ErrorNotice error={tasks.error || resources.error || schedules.error} retry={() => {tasks.reload();resources.reload();schedules.reload();}} />
   </ChatCard>;
 }

@@ -1,9 +1,10 @@
+import { useErrorToast } from '../../../error-toasts';
 import { useEffect, useState } from 'react';
 import { Button, SearchPanel, useBreakpoint } from '@molr/ui';
 import { Bot, Brain, CalendarDays, Folder, ListTodo, MessageSquare, Settings } from 'lucide-react';
 import type { SearchHit, SearchResults } from '../../../api/types';
 import { useCopy, useQuery } from '../../../state';
-import { ErrorNotice, Loading } from '../components/common';
+import { Loading } from '../components/common';
 import type { RoutePage } from '../../../navigation';
 
 export function Search({ open, onClose, navigate, onOpenTasks }: {
@@ -22,6 +23,7 @@ export function Search({ open, onClose, navigate, onOpenTasks }: {
   const params = new URLSearchParams({ q: debounced, limit: '50', cursor: cursors.at(-1) ?? '' }); scopes.forEach(value => params.append('source', value));
   const query = useQuery<SearchResults>(open && debounced && term === debounced ? `/api/search?${params}` : null);
   const busy = query.loading || term !== debounced;
+  useErrorToast(query.error, query.reload);
   const sources = [
     { value: 'messages', label: t.searchTypes.messages, icon: <MessageSquare size={18} aria-hidden="true" /> },
     { value: 'assistants', label: t.searchTypes.assistants, icon: <Bot size={18} aria-hidden="true" /> },
@@ -48,7 +50,7 @@ export function Search({ open, onClose, navigate, onOpenTasks }: {
     total={Object.values(query.data?.Counts ?? {}).reduce((sum, count) => sum + count, 0)}
     suggestions={[t.searchPanel.travel, t.searchPanel.notes, 'Molr']}
     labels={{ ...t.searchPanel, title: t.search, filter: t.filters, all: t.all, emptyTitle: t.noResults }}
-    busy={busy} statusContent={busy && (!query.data || term !== debounced) ? <Loading key={text} delay={600} /> : query.error ? <ErrorNotice error={query.error} retry={query.reload} /> : undefined}
+    busy={busy} statusContent={busy && (!query.data || term !== debounced) ? <Loading key={text} delay={600} /> : undefined}
     pagination={(cursors.length > 1 || query.data?.Hits.NextCursor) && <div className="workspace-search__pagination">
       {cursors.length > 1 && <Button size="sm" variant="secondary" disabled={busy} onClick={() => setCursors(values => values.slice(0, -1))}>{t.previousPage}</Button>}
       {query.data?.Hits.NextCursor && <Button size="sm" variant="secondary" disabled={busy} onClick={() => setCursors(values => [...values, query.data!.Hits.NextCursor])}>{t.nextPage}</Button>}

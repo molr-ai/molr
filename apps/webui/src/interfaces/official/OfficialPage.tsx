@@ -1,3 +1,4 @@
+import { useErrorToast } from '../../error-toasts';
 import { MobileChatPresence } from './components/MobileChatPresence';
 import { MobileAccountButton } from './components/MobileAccountButton';
 import { ChatChannelDialog } from './features/WeixinChannel';
@@ -10,7 +11,7 @@ import { api } from '../../api/client';
 import { useCopy, useQuery } from '../../state';
 import { useNavigation } from '../../navigation';
 import type { RoutePage } from '../../navigation';
-import { Confirm, ErrorNotice, Loading, useAction } from './components/common';
+import { Confirm, Loading, useAction } from './components/common';
 import { Chat } from './features/Chat';
 import { AssistantMessagePreview } from './features/AssistantMessagePreview';
 import type { AssistantAction } from './features/Chat';
@@ -59,6 +60,7 @@ export function OfficialPage({ chatLayout = 'default' }: { chatLayout?: 'default
   });
   const normalizedQuery = assistantQuery.trim().toLowerCase();
   const visibleAssistants = active.filter(assistant => assistant.Name.toLowerCase().includes(normalizedQuery));
+  useErrorToast(assistants.error || activity.error || selection.error || conversations.error || models.error || action.error, assistants.reload);
   function assistantAction(kind: AssistantAction) {
     if (!selected) return;
     if (kind === 'pin') void action.run(() => api.mutate('/api/assistants/place', { ID: selected.ID, GroupID: selected.GroupID, Pinned: !selected.Pinned }, selected.Version), undefined, false);
@@ -80,7 +82,6 @@ export function OfficialPage({ chatLayout = 'default' }: { chatLayout?: 'default
     action={searchEmpty ? <Button variant="secondary" size="sm" onClick={clearAssistantSearch}>{t.assistants.clearSearch}</Button>
       : <Button variant="secondary" size="sm" onClick={startHiring}>{canHire ? t.assistants.hire : t.assistants.configure}</Button>} />;
   return <>
-        <ErrorNotice error={assistants.error || activity.error || selection.error || conversations.error || models.error || action.error} retry={assistants.reload} />
         {page === 'assistants' ? <div className={`assistant-workspace${chatLayout === 'focus' ? ' assistant-workspace--focus' : ''}`} ref={setChatWorkspace}>
           {(chatLayout === 'focus' || !mobile || !selected) && <aside className="workspace-sidebar" aria-label={t.assistants.list}>
             {mobile && chatLayout === 'focus' && <header className="assistant-toolbar"><MobileAccountButton />{mobileActions}</header>}

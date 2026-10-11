@@ -1,10 +1,11 @@
+import { useErrorToast } from '../../../error-toasts';
 import { useState } from 'react';
 import { Alert, Badge, Button, Dialog, Textarea, TextField } from '@molr/ui';
 import { api, APIError } from '../../../api/client';
 import type { SecurityStatus } from '../../../api/types';
 import { useCopy, useQuery } from '../../../state';
 import { useReauthentication } from '../components/ReauthenticationDialog';
-import { EditDialog, ErrorNotice, Loading, useAction } from '../components/common';
+import { EditDialog, Loading, useAction } from '../components/common';
 import { SettingsHelp, SettingsSwitch } from '../components/SettingsHelp';
 
 type Enrollment = { id: string; provisioning_uri: string; expires_at: string };
@@ -21,9 +22,9 @@ export function SecurityVerificationSettings({ onChangePassword }: { onChangePas
     await api.post('/api/auth/security', { enabled, expected_version: current.Version, verification: proof });
     query.reload();
   }
+  useErrorToast(query.error || action.error, query.reload);
   return <section className="security-verification settings-group" aria-label={t.verification.settingsTitle}>
     <header className="security-section-heading"><h3 className="settings-group-title">{t.verification.settingsTitle}</h3></header>
-    <ErrorNotice error={query.error || action.error} retry={query.reload} />
     {!status ? query.loading && <Loading /> : <>
       <div className="settings-list">
         <div className="settings-row verification-method-row"><span className="settings-label">{t.password}</span><Button size="sm" variant="secondary" onClick={onChangePassword}>{t.settings.changePassword}</Button></div>

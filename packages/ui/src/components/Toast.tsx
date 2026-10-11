@@ -10,7 +10,8 @@ import { getTabStops } from '../focus';
 
 export type ToastOptions = {
   title: ReactNode; description?: ReactNode; tone?: Tone; duration?: number;
-  action?: { label: ReactNode; onClick: () => void };
+  action?: { label: ReactNode; onClick: () => void; disabled?: boolean };
+  onDismiss?: () => void;
 };
 type ToastEntry = ToastOptions & { id: number; origin: HTMLElement | null; boundary: HTMLElement | null };
 type ToastContextValue = { toast: (options: ToastOptions, boundary?: HTMLElement | null) => number; dismiss: (id: number) => void; update: (id: number, options: Partial<ToastOptions>) => void };
@@ -24,6 +25,8 @@ function ToastItem({ entry, dismiss, paused }: { entry: ToastEntry; dismiss: (id
   const duration = entry.duration ?? (entry.action ? 0 : 5000);
   const remaining = useRef(duration);
   const root = useRef<HTMLLIElement>(null);
+  const onDismiss = useRef(entry.onDismiss);
+  useLayoutEffect(() => { onDismiss.current = entry.onDismiss; });
   useEffect(() => { remaining.current = duration; }, [duration]);
   useEffect(() => {
     const sync = () => setHidden(document.hidden);
@@ -33,7 +36,7 @@ function ToastItem({ entry, dismiss, paused }: { entry: ToastEntry; dismiss: (id
   useEffect(() => {
     if (duration <= 0 || hovered || focused || hidden || paused) return;
     const started = Date.now();
-    const timer = setTimeout(() => dismiss(entry.id), Math.max(0, remaining.current));
+    const timer = setTimeout(() => { onDismiss.current?.(); dismiss(entry.id); }, Math.max(0, remaining.current));
     return () => { clearTimeout(timer); remaining.current -= Date.now() - started; };
   }, [duration, hovered, focused, hidden, paused, entry.id, dismiss]);
   function close() {
@@ -44,13 +47,14 @@ function ToastItem({ entry, dismiss, paused }: { entry: ToastEntry; dismiss: (id
         ? origin : dialog?.querySelector<HTMLElement>('[tabindex="-1"], button');
       target?.focus({ preventScroll: true });
     }
+    onDismiss.current?.();
     dismiss(entry.id);
   }
   const tone = entry.tone ?? 'neutral';
   return <li ref={root} className={`ui-toast ui-toast--${tone}`} onPointerEnter={() => setHovered(true)} onPointerLeave={() => setHovered(false)} onFocusCapture={() => setFocused(true)} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}>
     <UIIcon name={tone === 'positive' ? 'check' : tone === 'danger' || tone === 'warning' ? 'warning' : 'info'} />
     <div className="ui-toast__body"><div role={tone === 'danger' ? 'alert' : 'status'} aria-atomic="true"><strong>{entry.title}</strong>{entry.description && <p>{entry.description}</p>}</div>
-      {entry.action && <button className="ui-toast__action" type="button" onClick={() => { entry.action?.onClick(); close(); }}>{entry.action.label}</button>}
+      {entry.action && <button className="ui-toast__action" type="button" disabled={entry.action.disabled} onClick={() => { close(); entry.action?.onClick(); }}>{entry.action.label}</button>}
     </div>
     <button type="button" className="ui-icon-button" aria-label={messages.close} onClick={close}><UIIcon name="close" /></button>
   </li>;

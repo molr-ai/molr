@@ -1,3 +1,4 @@
+import { useErrorToast } from '../../../error-toasts';
 import { AssistantAvatarField } from './AssistantAvatarField';
 import { AssistantBudgetFields, AssistantBudgetUsage } from './AssistantBudgetFields';
 import { CurrencyDialog } from '../components/Money';
@@ -8,7 +9,7 @@ import type { Assistant, AssistantBudget, CurrencyCode, CurrencyContext, Grant, 
 import { useCopy, useQuery } from '../../../state';
 import { grantOptionLabel } from '../../../resource-permissions';
 import { ModelSelect } from '../components/ModelSelect';
-import { EditDialog, EditForm, ErrorNotice, micros, useAction } from '../components/common';
+import { EditDialog, EditForm, micros, useAction } from '../components/common';
 
 type HireProps = { models: Model[]; defaultModelID?: string; onClose: () => void; onCreated: (id: string) => void };
 export function HireAssistant(props: HireProps) {
@@ -52,8 +53,9 @@ export function CloneAssistant({ assistant, onClose, onCreated }: { assistant: A
   const resources = useQuery<Resource[]>('/api/resources', true);
   const models = useQuery<Model[]>('/api/models');
   const query = useQuery<Grant[]>(`/api/grants?assistant_id=${assistant.ID}`, true);
+  useErrorToast(query.error || resources.error || models.error, () => { query.reload(); resources.reload(); models.reload(); });
   return <EditDialog title={t.assistants.clone} onClose={onClose} submitLabel={t.confirm} onSubmit={async () => { const clone = await api.mutate<Assistant>('/api/assistants/clone', { SourceID: assistant.ID, Name: name.trim(), CopyMessages: history, CopyMemory: memory, GrantIDs: grants }); onCreated(clone.ID); }}>
     <p>{t.assistants.cloneHelp}</p><TextField label={t.assistants.name} value={name} onChange={event => setName(event.target.value)} required maxLength={256} /><Checkbox label={t.chat.message} checked={history} onChange={event => setHistory(event.target.checked)} /><Checkbox label={t.settings.memory} checked={memory} onChange={event => setMemory(event.target.checked)} />
-    <ErrorNotice error={query.error || resources.error || models.error} retry={() => { query.reload(); resources.reload(); models.reload(); }} /><Select multiple label={t.assistants.permissions} value={grants} onValueChange={setGrants} options={(query.data ?? []).filter(item => !item.RevokedAt && (!item.ExpiresAt || Date.parse(item.ExpiresAt) > Date.now())).map(item => { const resource = resources.data?.find(row => row.ID === item.ResourceID); return { value: item.ID, label: grantOptionLabel(t, item, resource, models.data ?? []) }; })} />
+    <Select multiple label={t.assistants.permissions} value={grants} onValueChange={setGrants} options={(query.data ?? []).filter(item => !item.RevokedAt && (!item.ExpiresAt || Date.parse(item.ExpiresAt) > Date.now())).map(item => { const resource = resources.data?.find(row => row.ID === item.ResourceID); return { value: item.ID, label: grantOptionLabel(t, item, resource, models.data ?? []) }; })} />
   </EditDialog>;
 }

@@ -186,7 +186,7 @@ toast({ title: '项目已归档', action: { label: '撤销', onClick: undoArchiv
 
 `Alert` 和 Toast 支持 `neutral`、`positive`、`warning`、`danger`。错误使用 alert 语义，其余通知使用 status；信息同时通过文字与图形表达。`Alert` 可传入 `onDismiss` 和 `dismissLabel`。
 
-`toast()` 返回通知 ID，可通过 `dismiss(id)` 关闭或 `update(id, options)` 更新。普通通知默认 5 秒消失；带操作的通知默认常驻，可显式设置 `duration`，`0` 表示常驻。悬停、键盘焦点位于通知内、标签页隐藏时暂停计时，恢复后继续剩余时间。通知包含可读的关闭按钮。通知区域以 manual popover 进入 top-layer，并在组件库 Dialog / Drawer 切换时移动到当前可交互的弹层内部；移动同一容器保留计时和焦点，不重新挂载通知。后打开的菜单不会盖住已有通知。`useToast` 位于 `ModalScope` 内时，通知限制在相应预览范围内；该范围不可见时暂停计时。Toast Context 的方法和 value 保持稳定，通知增删不会广播给所有调用方。
+`toast()` 返回通知 ID，可通过 `dismiss(id)` 关闭或 `update(id, options)` 更新。普通通知默认 5 秒消失；带操作的通知默认常驻，可显式设置 `duration`，`0` 表示常驻。悬停、键盘焦点位于通知内、标签页隐藏时暂停计时，恢复后继续剩余时间。通知包含可读的关闭按钮。`action.disabled` 可在重试冷却期间禁用操作；`onDismiss` 在手动关闭、点击操作或自动消失时调用，程序调用 `dismiss(id)` 不触发它。通知区域以 manual popover 进入 top-layer，并在组件库 Dialog / Drawer 切换时移动到当前可交互的弹层内部；移动同一容器保留计时和焦点，不重新挂载通知。后打开的菜单不会盖住已有通知。`useToast` 位于 `ModalScope` 内时，通知限制在相应预览范围内；该范围不可见时暂停计时。Toast Context 的方法和 value 保持稳定，通知增删不会广播给所有调用方。
 
 `EmptyState` 支持 `illustration` 和 `action`，图形为装饰内容。`Skeleton` 提供 `line`、`circle`、`block` 三种形状以及宽高；由外层容器提供加载说明和 `aria-busy`。浅色与深色使用独立的中性灰 token `--color-skeleton-base` / `--color-skeleton-highlight`，减少动态效果时停止流光。UI Design 的「骨架图」分类展示基础形态及列表、卡片的加载前后状态，与 WebUI 复用同一组件和配色。`Progress` 不传 `value` 时为不确定进度，传入时按 `max`（默认 100）计算并约束数值，可用 `valueText` 提供更具体的描述。
 

@@ -1,10 +1,10 @@
+import { useErrorToast } from '../../../error-toasts';
 import { useEffect, useState } from 'react';
 import { Alert, Button, Logo, TextField, useTheme } from '@molr/ui';
 import { APIError } from '../../../api/client';
 import { useCopy, useSession } from '../../../state';
 import { finishLoginLink } from '../../../login-link';
 import type { LoginLinkAttempt } from '../../../login-link';
-import { ErrorNotice } from '../components/common';
 
 export function LoginLinkLogin({ attempt }: { attempt: LoginLinkAttempt }) {
   const { t, locale } = useCopy(), { theme } = useTheme(), session = useSession();
@@ -31,6 +31,7 @@ export function LoginLinkLogin({ attempt }: { attempt: LoginLinkAttempt }) {
   // A captured attempt owns its single request; session rerenders must not start another exchange.
   }, [attempt, confirmed]);
   const invalid = attempt.invalid || (!challenge && error instanceof APIError && error.status === 401);
+  useErrorToast(!busy && !invalid ? error : null);
   return <main className="login-page"><section className="login-card">
     <Logo animation="daily" interactive variant={theme === 'dark' ? 'light' : 'dark'} />
     <h1>{t.loginLinks.signIn}</h1>
@@ -38,11 +39,11 @@ export function LoginLinkLogin({ attempt }: { attempt: LoginLinkAttempt }) {
       <p>{t.loginLinks.confirmHelp(new Date(expires).toLocaleString(locale))}</p>
       <Button onClick={() => { setBusy(true); setConfirmed(true); }}>{t.loginLinks.confirm}</Button>
     </> : <p role="status">{t.loading}</p>)}
-    {busy ? <p role="status">{t.loginLinks.signingIn}</p> : invalid ? <Alert tone="warning" title={t.loginLinks.invalid} /> : error && !challenge ? <><ErrorNotice error={error} /><p className="muted">{t.loginLinks.interrupted}</p></> : null}
+    {busy ? <p role="status">{t.loginLinks.signingIn}</p> : invalid ? <Alert tone="warning" title={t.loginLinks.invalid} /> : error && !challenge ? <><p className="muted">{t.loginLinks.interrupted}</p></> : null}
     {challenge && <form className="editor" onSubmit={event => {
       event.preventDefault(); setBusy(true); setError(null);
       void attempt.complete(code).then(async () => { await session.reload(); finishLoginLink(target); }).catch(error => setError(error instanceof APIError && error.status === 401 ? new APIError('verification_failed', error.requestID, error.status) : error)).finally(() => { setBusy(false); setCode(''); });
-    }}><p>{t.loginLinks.mfa}</p><TextField label={t.mfa} value={code} autoFocus name="verification-code" autoComplete="one-time-code" required disabled={busy} onChange={event => setCode(event.target.value)} /><ErrorNotice error={error} /><Button type="submit" loading={busy}>{t.verify}</Button></form>}
+    }}><p>{t.loginLinks.mfa}</p><TextField label={t.mfa} value={code} autoFocus name="verification-code" autoComplete="one-time-code" required disabled={busy} onChange={event => setCode(event.target.value)} /><Button type="submit" loading={busy}>{t.verify}</Button></form>}
     {!busy && <Button variant="secondary" onClick={() => finishLoginLink()}>{t.loginLinks.passwordLogin}</Button>}
   </section></main>;
 }

@@ -91,7 +91,7 @@ test('empty older pages exhaust the cursor and an empty recovery clears transien
   await expect(page.getByRole('button', { name: 'Load earlier messages', exact: true })).toHaveCount(0);
   await expect(page.locator('.ui-chat-message')).toHaveCount(1);
   failNext = true; await refresh(page);
-  const error = page.locator('.error-notice[data-code="internal"]:visible');
+  const error = page.locator('.ui-toast--danger:visible');
   await expect(error).toBeVisible(); await expect(page.getByRole('log')).toContainText('Retained history');
   const failedReads = deltas;
   await expect.poll(() => deltas).toBeGreaterThan(failedReads);
@@ -107,7 +107,7 @@ test('initial empty history finishes loading and denied history cannot return af
   await page.reload(); await expect(page.getByRole('heading', { name: 'Start a conversation', exact: true })).toBeVisible();
   mode = 'message'; await refresh(page); await expect(page.getByRole('log')).toContainText('Retained history');
   mode = 'denied'; await refresh(page);
-  const error = page.locator('.error-notice[data-code="forbidden"]:visible'); await expect(error).toBeVisible();
+  const error = page.locator('.ui-toast--danger:visible'); await expect(error).toBeVisible();
   await expect(page.locator('.ui-chat-message')).toHaveCount(0);
   mode = 'empty'; await error.getByRole('button', { name: 'Retry', exact: true }).click();
   await expect(error).toHaveCount(0);

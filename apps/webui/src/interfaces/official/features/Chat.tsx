@@ -1,3 +1,4 @@
+import { useErrorToast } from '../../../error-toasts';
 import { AssistantNotifications } from '../../../notifications/AssistantNotifications';
 import { weixinCopy } from '../../../weixin-copy';
 import type { WeixinStatus } from '../../../api/types';
@@ -12,7 +13,7 @@ import { api, mutationKey } from '../../../api/client';
 import type { AgentStatus, Assistant, Conversation, ExpediteStatus, FileInfo } from '../../../api/types';
 import { useCopy, useData, useQuery } from '../../../state';
 import { useChatHistory } from '../../../use-chat-history';
-import { Empty, ErrorNotice, Loading, useAction } from '../components/common';
+import { Empty, Loading, useAction } from '../components/common';
 
 export type Draft = { text: string; files: FileInfo[] };
 export type AssistantAction = 'channel' | 'info' | 'clone' | 'dismiss' | 'permissions' | 'tasks' | 'shell_tasks' | 'pin';
@@ -42,6 +43,7 @@ export function Chat({ assistant, conversation, timeZone, draft, updateDraft, on
   const draftAttachments = useFilePreviews(draft.files);
   const archived = assistant.State === 'dismissed' || conversation?.Archived;
   const lastSequence = history.messages.at(-1)?.Sequence ?? 0;
+  useErrorToast(action.error || history.error || status.error || channel.error, action.error ? send : history.error ? invalidate : status.error ? status.reload : channel.reload);
   function markRead() {
     if (targetMessageID || !bottom.current || document.visibilityState !== 'visible' || !document.hasFocus() || document.querySelector('dialog[open]') || lastSequence <= Math.max(readThrough.current, conversation?.LastReadSequence ?? 0)) return;
     const previous = readThrough.current; readThrough.current = lastSequence;
@@ -125,7 +127,6 @@ export function Chat({ assistant, conversation, timeZone, draft, updateDraft, on
       ]} /></div>
     </header>
     {archived && <Alert title={t.assistants.archived} />}
-    <ErrorNotice error={action.error || history.error || status.error || channel.error} retry={action.error ? invalidate : history.error ? invalidate : status.error ? status.reload : channel.reload} />
     <AssistantNotifications status={status.data ?? undefined} assistant={assistant} onAction={onAction} onNavigate={onCard}/>
     {targetMessageID && <div className="chat-search-location" role="status"><span>{history.targetStatus === 'missing' ? t.chat.targetMissing : history.targetStatus === 'found' ? t.chat.targetFound : t.chat.targetLoading}</span><Button size="sm" variant="ghost" onClick={() => { bottom.current = true; onClearTarget(); }}>{t.chat.returnLatest}</Button></div>}
     <div className="chat-history" ref={log} role="log" aria-label={t.chat.message} aria-live="polite" onScroll={() => { const element = log.current; if (element) { bottom.current = element.scrollHeight - element.scrollTop - element.clientHeight < 48; markRead(); } }}>
@@ -144,7 +145,8 @@ export function Chat({ assistant, conversation, timeZone, draft, updateDraft, on
 }
 export function Attachment({ id }: { id: string }) {
   const { t } = useCopy(), file = useQuery<FileInfo>(`/api/files/${id}`);
-  return <div className="attachment"><ErrorNotice error={file.error} retry={file.reload} />{file.data && <a href={`/api/files/${encodeURIComponent(id)}/content`} download><Download size={16} />{file.data.Name}<small>{Math.ceil(file.data.Size / 1024)} KB</small></a>}{file.loading && !file.data && <span>{t.loading}</span>}</div>;
+  useErrorToast(file.error, file.reload);
+  return <div className="attachment">{file.data && <a href={`/api/files/${encodeURIComponent(id)}/content`} download><Download size={16} />{file.data.Name}<small>{Math.ceil(file.data.Size / 1024)} KB</small></a>}{file.loading && !file.data && <span>{t.loading}</span>}</div>;
 }
 
 function chatAttachment(file: FileInfo, previewUrl?: string) {
@@ -168,7 +170,8 @@ function MessageAttachments({ ids }: { ids: string[] }) {
     });
     return () => controller.abort();
   }, [key, attempt]);
-  return <div><ErrorNotice error={error} retry={() => setAttempt(value => value + 1)} />{loading && <span>{t.loading}</span>}<ChatAttachmentList files={attachments} /></div>;
+  useErrorToast(error, () => setAttempt(value => value + 1));
+  return <div>{loading && <span>{t.loading}</span>}<ChatAttachmentList files={attachments} /></div>;
 }
 
 // File downloads are deliberately served as octet-stream. Use typed, temporary

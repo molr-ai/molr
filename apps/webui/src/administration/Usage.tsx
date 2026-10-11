@@ -1,3 +1,4 @@
+import { useErrorToast } from '../error-toasts';
 import { usePluginsVisible, pluginResourceVisible } from '../plugins/visibility';
 import type { GPUDevice, SandboxView } from '../sandbox-types';
 import { useState } from 'react';
@@ -6,7 +7,7 @@ import { Badge, Button, Select, TextField } from '@molr/ui';
 import { RefreshCw } from 'lucide-react';
 import type { Money } from '@molr/sdk';
 import { useCopy, useQuery } from '../state';
-import { Empty, ErrorNotice, Loading } from '../interfaces/official/components/common';
+import { Empty, Loading } from '../interfaces/official/components/common';
 import { MoneyText } from '../interfaces/official/components/Money';
 import { ConstraintsSummary } from '../interfaces/official/features/ResourceConstraints';
 import type { AccountQuotas, AdminUsageView, ContextStorageUsage, ResourceReference, UsageSummary, UserGroup } from './types';
@@ -82,9 +83,9 @@ export function AccountUsage() {
   const models = useQuery<{ ID: string; Name: string }[]>('/api/models');
   const [filter, setFilter] = useState('all');
   const data = query.data, resources = data?.Group.Resources.filter(r => r.Kind !== 'plugin' && pluginResourceVisible(r.Kind, pluginsVisible, r.ID) && (filter === 'all' || (!pluginsVisible && filter === 'connection') || r.Kind === filter)) ?? [];
+  useErrorToast(query.error, query.reload);
   return <div className="usage-page" aria-busy={query.loading}>
     <div className="usage-toolbar"><p>{data?.Group.Administrator ? zh ? '查看自己的累计用量。' : 'Your lifetime usage.' : zh ? '查看自己的累计用量，以及当前周期可用的成员额度。' : 'Your lifetime usage and current member allowances.'}</p><Button size="sm" variant="secondary" disabled={query.loading} onClick={query.reload}><RefreshCw size={14} />{t.refresh}</Button></div>
-    <ErrorNotice error={query.error} retry={query.reload} />
     {!data ? query.loading && <Loading /> : <>
       <Overview value={data.Summary} />
       <p className="usage-note">{zh ? '费用与调用次数为累计值，附件为当前占用。预留费用尚未确认为实际消费。' : 'Spend and calls are lifetime totals; storage is current usage. Reserved spend is not confirmed spending.'}</p>
@@ -112,9 +113,9 @@ export function AdminUsage() {
   const [search, setSearch] = useState(''), [group, setGroup] = useState('all');
   const needle = search.trim().toLocaleLowerCase();
   const rows = query.data?.Users.filter(u => (group === 'all' || group === u.GroupID) && `${u.DisplayName} ${u.Username}`.toLocaleLowerCase().includes(needle));
+  useErrorToast(query.error || groups.error, query.reload);
   return <div className="usage-page" aria-busy={query.loading}>
     <div className="usage-toolbar"><p>{zh ? '按成员汇总累计用量，不包含聊天、附件正文或执行输出。' : 'Lifetime usage by member. No chats, attachment contents, or execution output.'}</p><Button size="sm" variant="secondary" disabled={query.loading} onClick={query.reload}><RefreshCw size={14} />{t.refresh}</Button></div>
-    <ErrorNotice error={query.error || groups.error} retry={query.reload} />
     {query.data && <ContextStorage value={query.data.ContextStorage} global />}
     <div className="usage-filters"><TextField label={zh ? '搜索成员' : 'Search members'} value={search} onChange={e => setSearch(e.target.value)} placeholder={zh ? '用户名或显示名称' : 'Username or display name'} /><Select label={zh ? '用户组' : 'User group'} value={group} onValueChange={setGroup} options={[{ value: 'all', label: zh ? '全部用户组' : 'All groups' }, ...(groups.data ?? []).map(g => ({ value: g.ID, label: groupName(g, zh) }))]} /></div>
     {!rows ? query.loading && <Loading /> : <>
