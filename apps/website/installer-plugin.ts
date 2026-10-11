@@ -4,27 +4,51 @@ import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import type { Plugin } from 'vite';
 
-// Keep the bootstrap script in one source file; release assets are opt-in for local acceptance.
+// One bootstrap source; production catalogs contain URLs, never binary packages.
 export function installerPlugin(): Plugin {
+ const root = fileURLToPath(new URL('../../', import.meta.url));
  const releaseDir = process.env.MOLR_RELEASE_DIR;
- const releaseURL = process.env.MOLR_RELEASE_URL || '';
- if (releaseURL && !/^https?:\/\/[A-Za-z0-9.:[\]-]+(?:\/[A-Za-z0-9._/-]*)?$/.test(releaseURL)) throw new Error('MOLR_RELEASE_URL must be a plain HTTP(S) URL');
- const script = () => readFileSync(fileURLToPath(new URL('../../scripts/install.sh', import.meta.url)), 'utf8').replace('source_dir="${MOLR_RELEASE_URL:-}"', `source_dir="\${MOLR_RELEASE_URL:-${releaseURL}}"`);
- const files = () => {
-  if (!releaseDir) return [];
-  checkReleaseFiles('release-directory', resolve(releaseDir));
-  return readdirSync(releaseDir).filter(name => /^(molr_[0-9A-Za-z.-]+_linux_(amd64|arm64)\.tar\.gz(?:\.sha256)?|latest-linux-(amd64|arm64)\.json)$/.test(name));
+ const catalogDir = process.env.MOLR_CATALOG_DIR && resolve(root, process.env.MOLR_CATALOG_DIR);
+ const releaseURL = process.env.MOLR_RELEASE_URL || 'https://molr.ai/releases';
+ if (!/^https?:\/\/[A-Za-z0-9.:[\]-]+(?:\/[A-Za-z0-9._/-]*)?$/.test(releaseURL)) throw new Error('MOLR_RELEASE_URL must be a plain HTTP(S) URL');
+ if (releaseDir && catalogDir) throw new Error('Use either MOLR_RELEASE_DIR or MOLR_CATALOG_DIR');
+ const script = () => readFileSync(resolve(root, 'scripts/install.sh'), 'utf8').replace("'https://molr.ai/releases'", JSON.stringify(releaseURL));
+ const assets = () => {
+  const files: Record<string, string | Buffer> = { 'install.sh': script() };
+  if (catalogDir) {
+   checkReleaseFiles('release-directory', catalogDir);
+   const collect = (path: string, prefix: string) => {
+    for (const entry of readdirSync(path, { withFileTypes: true })) {
+     const name = `${prefix}${entry.name}`;
+     if (entry.isDirectory()) collect(resolve(path, entry.name), `${name}/`);
+     else files[name] = readFileSync(resolve(path, entry.name));
+    }
+   };
+   collect(catalogDir, 'releases/');
+  } else {
+   files['releases/catalog.json'] = JSON.stringify({ schema: 1, channels: { stable: null, preview: null, nightly: null } });
+   if (releaseDir) {
+    checkReleaseFiles('release-directory', resolve(releaseDir));
+    for (const name of readdirSync(releaseDir).filter(name => /^(molr_[0-9A-Za-z.-]+_[a-z0-9]+_[a-z0-9]+\.tar\.gz(?:\.sha256)?|latest-[a-z0-9]+-[a-z0-9]+\.json)$/.test(name))) files[`packages/${name}`] = readFileSync(resolve(releaseDir, name));
+   }
+  }
+  return files;
  };
+ let developmentAssets: ReturnType<typeof assets>;
  return { name: 'molr-installer',
-  configureServer(server) { server.middlewares.use((req,res,next) => {
-   const path = req.url?.split('?')[0];
-   if (path === '/install.sh') {res.setHeader('Content-Type','text/plain; charset=utf-8');res.setHeader('Cache-Control','no-cache');res.end(script());return;}
-   if (releaseDir && path?.startsWith('/releases/') && files().includes(path.slice('/releases/'.length))) {res.setHeader('Content-Type','application/octet-stream');res.end(readFileSync(resolve(releaseDir,path.slice('/releases/'.length))));return;}
-   next();
-  }); },
+  configureServer(server) {
+   developmentAssets = assets();
+   server.middlewares.use((req, res, next) => {
+    const path = req.url?.split('?')[0].slice(1) || '';
+    const content = path === 'install.sh' ? script() : developmentAssets[path];
+    if (content === undefined) return next();
+    res.setHeader('Content-Type', path.endsWith('.json') ? 'application/json' : path.endsWith('.sh') ? 'text/plain; charset=utf-8' : 'application/octet-stream');
+    res.setHeader('Cache-Control', 'no-cache'); res.end(content);
+   });
+  },
   generateBundle() {
-   this.emitFile({ type:'asset',fileName:'install.sh',source:script() });
-   for (const name of files()) this.emitFile({type:'asset',fileName:`releases/${name}`,source:readFileSync(resolve(releaseDir!,name))});
+   for (const [fileName, source] of Object.entries(assets())) this.emitFile({ type: 'asset', fileName, source });
+   this.emitFile({ type: 'asset', fileName: '_headers', source: '/releases/*\n  Cache-Control: no-cache\n/install.sh\n  Cache-Control: no-cache\n  Content-Type: text/plain; charset=utf-8\n' });
   },
  };
 }

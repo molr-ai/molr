@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Install one Runtime. Its systemd identity also owns every local sandbox."""
 import argparse
+import platform
 import json
 import os
 from pathlib import Path
@@ -23,6 +24,14 @@ from urllib.parse import urlsplit
 
 from install_layout import (InstallError, check_path, check_managed, layout,
                             require_separate, receipt, PROGRAM_FILES)
+
+
+def platform_requirements():
+    registry = json.loads(Path(__file__).with_name('platforms.json').read_text())
+    for item in registry['platforms']:
+        if item['os'] == sys.platform and platform.machine().lower() in item['aliases']:
+            return item['requirements']
+    raise InstallError(f'Unsupported platform: {sys.platform}/{platform.machine()}')
 
 
 def run(args, **kwargs):
@@ -186,12 +195,13 @@ def prepare_dependencies(args):
         missing.append('ca-certificates')
     if not missing:
         return
+    packages = platform_requirements()['packages']
     print('Missing dependencies: ' + ', '.join(missing))
     if not args.install_deps or not shutil.which('apt-get'):
-        print('Install bubblewrap busybox-static ca-certificates file util-linux iproute2 to enable isolated commands. Continuing with available capabilities.')
+        print('Install '+ ' '.join(packages)+' to enable isolated commands. Continuing with available capabilities.')
         return
     command = ([] if os.geteuid() == 0 else ['sudo']) + ['apt-get']
-    print('Installing: bubblewrap busybox-static ca-certificates file util-linux iproute2')
+    print('Installing: '+ ' '.join(packages))
     if not args.yes:
         with open('/dev/tty') as terminal:
             print('Continue with system dependency installation? [y/N] ', end='', flush=True)
@@ -199,7 +209,7 @@ def prepare_dependencies(args):
                 print('Continuing without installing dependencies; isolated commands may be unavailable.')
                 return
     run(command + ['update'])
-    run(command + ['install', '-y', 'bubblewrap', 'busybox-static', 'ca-certificates', 'file', 'util-linux', 'iproute2'])
+    run(command + ['install', '-y', *packages])
 
 
 def configure_updates(config, source):
@@ -253,8 +263,9 @@ def verify_health(check, expected):
 
 
 def install(args):
-    if sys.version_info < (3, 11):
-        raise InstallError('Python 3.11 or newer is required for safe offline uninstallation.')
+    requirements = platform_requirements()
+    if sys.version_info[:2] < tuple(map(int, requirements['python'].split('.'))):
+        raise InstallError('Python '+requirements['python']+' or newer is required for safe offline uninstallation.')
     uid = os.geteuid()
     account = account_request(args.user, uid)
     system = args.user is not None
@@ -302,9 +313,9 @@ def install(args):
         if not shutil.which(command) and not allow_full_access and source_config is not None:
             raise InstallError(f'Missing host dependency: {command}. Install dependencies before running this script.')
     match = re.match(r'systemd (\d+)', output(['systemctl', '--version']))
-    delegate = bool(match and int(match[1]) >= 254)
+    delegate = bool(match and int(match[1]) >= requirements['systemd'])
     if not delegate and not allow_full_access and source_config is not None:
-        raise InstallError('systemd >= 254 is required for delegated sandbox resources.')
+        raise InstallError(f"systemd >= {requirements['systemd']} is required for delegated sandbox resources.")
     if find_static_busybox() is None and not allow_full_access and source_config is not None:
         raise InstallError('Static BusyBox required; install busybox-static with your system package manager.')
     data = check_path(Path(config['data_dir']))

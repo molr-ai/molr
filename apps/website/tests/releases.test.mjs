@@ -1,0 +1,65 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { chromium, expect } from '@playwright/test';
+import { createServer } from 'vite';
+import { resolve } from 'node:path';
+import { readFileSync, mkdirSync } from 'node:fs';
+import { readCatalog, installCommand } from '../src/release-data.ts';
+const platforms = JSON.parse(readFileSync(new URL('../../../release/platforms.json', import.meta.url))).platforms;
+function release(version, channel, targets = platforms) {
+  const base = `https://github.com/example/molr/releases/download/v${version}`;
+  return { schema: 1, version, channel, commit: 'a'.repeat(40), published_at: '2026-10-11T00:00:00Z', notes_url: `https://github.com/example/molr/releases/tag/v${version}`, installer_url: `${base}/install.sh`, installer_sha256: 'b'.repeat(64), platforms: targets.map(p => ({ ...p, file: `molr_${version}_${p.os}_${p.arch}.tar.gz`, sha256: 'c'.repeat(64), url: `${base}/molr_${version}_${p.os}_${p.arch}.tar.gz`, checksum_url: `${base}/molr_${version}_${p.os}_${p.arch}.tar.gz.sha256` })) };
+}
+const catalog = { schema: 1, channels: { stable: release('0.1.0', 'stable', [platforms[0]]), preview: release('0.2.0-rc.1', 'preview'), nightly: release('0.2.0-0.nightly.20261011.0.gaaaaaaa', 'nightly') } };
+test('browser rejects unsafe catalog links and keeps commands pinned', () => {
+  assert.equal(readCatalog(catalog), catalog);
+  const bad = structuredClone(catalog); bad.channels.stable.installer_url = "https://example.com/a'bad";
+  assert.throws(() => readCatalog(bad));
+  assert(installCommand(catalog.channels.preview, 'preview', 'https://example.com/releases').includes('--channel preview --version 0.2.0-rc.1'));
+});
+test('install section follows published channels and platform availability', { timeout: 90000 }, async () => {
+  const before = process.env.VITE_SITE_MODE; process.env.VITE_SITE_MODE = 'live';
+  const server = await createServer({ root: resolve(import.meta.dirname, '..'), logLevel: 'silent', server: { host: '127.0.0.1', port: 0 } });
+  const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined });
+  try {
+    await server.listen();
+    const context = await browser.newContext({ locale: 'en-US', permissions: ['clipboard-read', 'clipboard-write'] });
+    const page = await context.newPage();
+    let response = catalog;
+    await page.route('**/releases/catalog.json', route => route.fulfill({ json: response }));
+    await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/`);
+    const section = page.locator('#install');
+    await expect(section.getByText('v0.1.0', { exact: true })).toBeVisible();
+    await expect(section.locator('.home-install-platform')).toHaveCount(1);
+    await section.getByRole('button', { name: 'Preview', exact: true }).click();
+    await expect(section.locator('.home-install-platform')).toHaveCount(2);
+    await expect(section.locator('pre')).toContainText('--channel preview --version 0.2.0-rc.1');
+    await section.getByRole('button', { name: 'Copy command', exact: true }).click();
+    assert((await page.evaluate(() => navigator.clipboard.readText())).includes('--version 0.2.0-rc.1'));
+    await section.getByRole('button', { name: 'Linux · ARM64', exact: false }).click();
+    await section.getByRole('button', { name: 'Download package', exact: true }).click();
+    await expect(section.getByRole('link', { name: 'Download package', exact: true })).toHaveAttribute('href', /linux_arm64.tar.gz$/);
+    await expect(section.getByRole('link', { name: 'Download checksum' })).toHaveAttribute('href', /linux_arm64.tar.gz.sha256$/);
+    const screenshots = resolve(import.meta.dirname, '../test-results/releases'); mkdirSync(screenshots, { recursive: true });
+    for (const theme of ['light', 'dark']) for (const palette of ['forest', 'ocean', 'iris', 'sand', 'rose', 'monochrome']) for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await section.evaluate((el, { theme, palette }) => { el.dataset.theme = theme; el.dataset.palette = palette; }, { theme, palette });
+      await section.screenshot({ path: `${screenshots}/${theme}-${palette}-${width}.png` });
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    }
+    response = { schema: 1, channels: { stable: null, preview: catalog.channels.preview, nightly: null } };
+    await page.reload();
+    await expect(section.getByRole('status')).toContainText('No published release');
+    await expect(section.getByRole('link', { name: 'Download package', exact: true })).toHaveCount(0);
+    await section.getByRole('button', { name: 'Preview', exact: true }).click();
+    await expect(section.locator('pre')).toContainText('0.2.0-rc.1');
+    response = {};
+    await page.reload(); await expect(section.getByRole('alert')).toContainText('temporarily unavailable');
+    response = catalog;
+    await section.getByRole('button', { name: 'Retry', exact: true }).click();
+    await expect(section.getByText('v0.1.0', { exact: true })).toBeVisible();
+  } finally {
+    await browser.close(); await server.close();
+    if (before === undefined) delete process.env.VITE_SITE_MODE; else process.env.VITE_SITE_MODE = before;
+  }
+});

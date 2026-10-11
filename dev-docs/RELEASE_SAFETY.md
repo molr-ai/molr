@@ -55,7 +55,7 @@ npm run build:source -- --ref HEAD
 
 `npm run build:release` 在构建前运行源码检查与许可证检查，然后生成 WebUI，并以 `CGO_ENABLED=0` 和 `-trimpath` 构建 Runtime。`-trimpath` 防止编译器把本机工作目录和模块缓存绝对路径写入产物；它不会清理源代码中自行写入的文本。
 
-打包时只传入 `scripts/release-policy.json` 中的六个文件：
+打包时只传入 `scripts/release-policy.json` 明确列出的文件：
 
 - `LICENSE`
 - `THIRD_PARTY_NOTICES.md`
@@ -64,6 +64,7 @@ npm run build:source -- --ref HEAD
 - `scripts/install-linux.py`
 - `scripts/install-linux.sh`
 - `scripts/install_layout.py`
+- `scripts/platforms.json`
 - `scripts/uninstall-linux.py`
 - `scripts/uninstall-linux.sh`
 
@@ -99,6 +100,6 @@ python3 scripts/test-install-download.py
 
 修改发布流程时运行 `npm run test:release`、`npm run check:release` 和相应应用构建；验证被拒绝的文件确实没有进入产物，源码包与所选提交一致。具体结果、提交和产物摘要保存在本地验收记录中。
 
-检查使用 Python 3 标准库，无新增 Python 第三方依赖。测试使用人工哨兵、临时 Git 仓库和临时归档，不加载真实用户凭据。已验证的案例包括强制加入被忽略文件、暂存区/工作目录差异、静态目录混入文件、伪装扩展名的 SQLite、归档链接和路径越界、下载清单与校验异常。
+源码和归档检查使用 Python 3 标准库；渠道目录额外调用共享 Node.js schema 校验脚本，无新增第三方依赖。测试使用人工哨兵、临时 Git 仓库和临时归档，不加载真实用户凭据。已验证的案例包括强制加入被忽略文件、暂存区/工作目录差异、静态目录混入文件、伪装扩展名的 SQLite、归档链接和路径越界、下载清单与校验异常。
 
 密钥检测只覆盖高置信格式，例如 PEM 私钥、部分供应商令牌及完整的 Molr 一次性登录链接；不能识别所有口令、编码/加密内容或个人资料。允许的图片和文档仍需人工审查，不能把检查通过解释为“绝无敏感内容”。历史提交、账号个人信息和内部文档的公开取舍不由此脚本自动处理。

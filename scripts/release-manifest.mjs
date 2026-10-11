@@ -1,0 +1,28 @@
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { readFileSync, writeFileSync, copyFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { parseArgs } from 'node:util';
+import { platforms, releaseChannel, validateManifest } from './release-lib.mjs';
+const { values } = parseArgs({ options: { version: { type: 'string' }, repository: { type: 'string' }, directory: { type: 'string', default: 'dist/releases' } } });
+const version = values.version, channel = releaseChannel(version), directory = resolve(values.directory);
+if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(values.repository || '')) throw new Error('GitHub owner/repository required');
+const base = `https://github.com/${values.repository}/releases/download/v${version}`;
+const digest = file => createHash('sha256').update(readFileSync(file)).digest('hex');
+let commit;
+const publishedAt = process.env.MOLR_PUBLISHED_AT || new Date().toISOString();
+const assets = platforms.filter(p => p.channels.includes(channel)).map(p => {
+  const file = `molr_${version}_${p.os}_${p.arch}.tar.gz`, archive = resolve(directory, file);
+  execFileSync('python3', ['scripts/release_safety.py', 'release', archive], { stdio: 'inherit' });
+  const m = JSON.parse(execFileSync('tar', ['-xOf', archive, 'molr/release.json'], { encoding: 'utf8' }));
+  if (m.version !== version || m.os !== p.os || m.arch !== p.arch || (commit && m.commit !== commit)) throw new Error('Release asset identity mismatch');
+  commit = m.commit;
+  const sha256 = digest(archive);
+  if (readFileSync(`${archive}.sha256`, 'utf8') !== `${sha256}  ${file}\n`) throw new Error('Release checksum mismatch');
+  return { id: p.id, os: p.os, arch: p.arch, label: p.label, aliases: p.aliases, requirements: p.requirements, file, sha256, url: `${base}/${file}`, checksum_url: `${base}/${file}.sha256` };
+});
+copyFileSync('scripts/install.sh', resolve(directory, 'install.sh'));
+const installerSha = digest(resolve(directory, 'install.sh'));
+writeFileSync(resolve(directory, 'install.sh.sha256'), `${installerSha}  install.sh\n`);
+const manifest = validateManifest({ schema: 1, version, channel, commit, published_at: publishedAt, notes_url: `https://github.com/${values.repository}/releases/tag/v${version}`, installer_url: `${base}/install.sh`, installer_sha256: installerSha, platforms: assets });
+writeFileSync(resolve(directory, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');

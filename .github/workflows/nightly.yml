@@ -1,0 +1,21 @@
+name: Nightly
+on:
+  schedule:
+    - cron: '17 19 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: release-publication
+  cancel-in-progress: false
+jobs:
+  release:
+    uses: ./.github/workflows/release-build.yml
+    with:
+      kind: nightly
+      ref: main
+    secrets: inherit
+  website:
+    needs: release
+    uses: ./.github/workflows/website.yml
+    secrets: inherit

@@ -167,3 +167,27 @@ func TestCanceledLifecycleDoesNotCheck(t *testing.T) {
 		t.Fatal("canceled lifecycle performed a request")
 	}
 }
+
+func TestReleaseChannelIsolation(t *testing.T) {
+	for _, tc := range []struct {
+		channel, version string
+		accepted         bool
+	}{
+		{"stable", "0.2.0", true}, {"stable", "0.2.0-rc.1", false},
+		{"preview", "0.2.0-rc.1", true}, {"preview", "0.2.0", true},
+		{"preview", "0.2.0-0.nightly.20261011.0.gaaaaaaa", false},
+		{"nightly", "0.2.0-0.nightly.20261011.0.gaaaaaaa", true}, {"nightly", "0.2.0", false},
+	} {
+		t.Run(tc.channel+"/"+tc.version, func(t *testing.T) {
+			release := fixtureRelease()
+			release.Version = tc.version
+			release.File = "molr_" + tc.version + "_linux_amd64.tar.gz"
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { json.NewEncoder(w).Encode(release) }))
+			defer server.Close()
+			state := New(server.URL+"/"+tc.channel, true, identity(), server.Client()).Check(context.Background(), false)
+			if (state.Latest != nil) != tc.accepted {
+				t.Fatal(state)
+			}
+		})
+	}
+}

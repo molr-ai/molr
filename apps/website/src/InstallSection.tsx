@@ -1,55 +1,81 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { HomeCopy } from './home-content';
 import type { Locale } from './site-content';
 import { installMessages } from './install-content';
 import { siteLinks } from './site-links';
+import { channels, installCommand, readCatalog } from './release-data';
+import type { Catalog, Channel } from './release-data';
 import './install.css';
-
-function PlatformIcon({ platform }: { platform: string }) {
-  return <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    {platform === 'Linux' ? <><rect x="3" y="4" width="18" height="16" rx="3" /><path d="m7 9 3 3-3 3m6 0h4" /></>
-      : platform === 'macOS' ? <><rect x="3" y="3" width="18" height="14" rx="2" /><path d="M8 21h8m-4-4v4" /></>
-      : <><path d="m3 5 8-1v7H3V5Zm10-1 8-1v8h-8V4ZM3 13h8v7l-8-1v-6Zm10 0h8v8l-8-1v-7Z" /></>}
-  </svg>;
-}
 
 export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Locale }) {
   const t = installMessages[locale];
   const [method, setMethod] = useState<'command' | 'download'>('command');
+  const [channel, setChannel] = useState<Channel>('stable');
+  const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [platformID, setPlatformID] = useState('');
+  const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
+  const source = new URL(import.meta.env.VITE_RELEASE_SOURCE || '/releases', window.location.origin).href.replace(/\/$/, '');
+  useEffect(() => {
+    const controller = new AbortController(); setError(false);
+    fetch(`${source}/catalog.json`, { signal: controller.signal, cache: 'no-cache' })
+      .then(response => { if (!response.ok) throw new Error('Release catalog unavailable'); return response.json(); })
+      .then(value => setCatalog(readCatalog(value)))
+      .catch(() => { if (!controller.signal.aborted) setError(true); });
+    return () => controller.abort();
+  }, [source, attempt]);
+  const release = catalog?.channels[channel];
+  const platforms = release?.platforms || [];
+  const platform = platforms.find(p => p.id === platformID) || platforms[0];
+  const command = release ? installCommand(release, channel, source) : '';
+  const chooseChannel = (next: Channel) => { setChannel(next); setCopied(false); setCopyError(false); };
+  const copyCommand = async () => {
+    try { await navigator.clipboard.writeText(command); setCopied(true); setCopyError(false); }
+    catch { setCopyError(true); }
+  };
   return <section id="install" data-palette="forest" data-theme="dark" className="home-start home-container" aria-labelledby="start-title">
     <p className="home-section-label">{copy.startLabel}</p>
     <h2 id="start-title">{copy.startHeading}</h2>
     <p className="home-section-intro">{t.browser}</p>
     <div className="home-installer">
-      <div className="home-install-platform-label" id="install-platform-label">{t.platform}</div>
-      <div className="home-install-platforms" role="group" aria-labelledby="install-platform-label">
-        {['Linux', 'macOS', 'Windows'].map(platform => <button type="button" key={platform} className="home-install-platform" disabled={platform !== 'Linux'} aria-pressed={platform === 'Linux'}>
-          <PlatformIcon platform={platform} />
-          <span><strong>{platform}</strong><small>{platform === 'Linux' ? 'x64 / ARM64' : t.soon}</small></span>
-          {platform === 'Linux' && <span className="home-install-selected" role="img" aria-label={t.selected}>✓</span>}
-        </button>)}
+      <div className="home-install-methods home-install-channels" role="group" aria-label={t.channel}>
+        {channels.map(c => <button type="button" key={c} aria-pressed={channel === c} onClick={() => chooseChannel(c)}>{t[c]}</button>)}
       </div>
-      <div className="home-install-methods" role="group" aria-label={t.method}>
-        <button type="button" aria-pressed={method === 'command'} aria-controls="install-details" onClick={() => setMethod('command')}>{t.command}<small>{t.recommended}</small></button>
-        <button type="button" aria-pressed={method === 'download'} aria-controls="install-details" onClick={() => setMethod('download')}>{t.download}</button>
-      </div>
-      <div id="install-details" className="home-install-details">
-        <div className="home-install-heading"><h3>{method === 'command' ? t.commandTitle : t.downloadTitle}</h3><span className="home-install-soon">{t.soon}</span></div>
-        <p>{method === 'command' ? t.commandBody : t.downloadBody}</p>
-        {method === 'command' ? <>
-          <div className="home-install-terminal">
-            <div><span>Terminal</span><button type="button" disabled>{t.copyCommand}</button></div>
-            <p><span aria-hidden="true">$</span> {t.commandPending}</p>
+      <p className="home-install-channel-note">{channel === 'stable' ? t.stableDescription : channel === 'preview' ? t.previewDescription : t.nightlyDescription}</p>
+      {error ? <p className="home-install-status" role="alert">{t.loadError} <button type="button" onClick={() => setAttempt(v => v + 1)}>{t.retry}</button></p>
+        : !catalog ? <p className="home-install-status" role="status">{t.loading}</p>
+        : !release ? <p className="home-install-status" role="status">{t.empty}</p>
+        : <>
+          <div className="home-install-release"><strong>v{release.version}</strong><time dateTime={release.published_at}>{new Date(release.published_at).toLocaleDateString(locale === 'zh' ? 'zh-CN' : 'en-US', { timeZone: 'UTC' })}</time><a href={release.notes_url}>{t.notes}</a></div>
+          <div className="home-install-platform-label" id="install-platform-label">{t.platform}</div>
+          <div className="home-install-platforms" role="group" aria-labelledby="install-platform-label">
+            {platforms.map(p => <button type="button" key={p.id} className="home-install-platform" aria-pressed={platform?.id === p.id} onClick={() => setPlatformID(p.id)}><strong>{p.label}</strong>{platform?.id === p.id && <span className="home-install-selected" aria-label={t.selected}>✓</span>}</button>)}
           </div>
-          <ol className="home-install-steps">{t.steps.map((step, index) => <li key={step}><span aria-hidden="true">{index + 1}</span>{step}</li>)}</ol>
-        </> : <div className="home-install-packages">
-          {(['x64', 'arm64'] as const).map(arch => <article key={arch}>
-            <span className="home-install-archive">{t.archive}</span><h4>{arch === 'x64' ? 'x64 / AMD64' : 'ARM64'}</h4><p>{t[arch]}</p>
-            <button className="home-button home-button-secondary" type="button" disabled>{t.downloadAction}</button>
-          </article>)}
-        </div>}
-      </div>
-      <div className="home-install-footer"><span>{t.requirements}</span><a href={siteLinks.install!}>{t.guide}<span aria-hidden="true"> ↗</span></a></div>
+          <div className="home-install-methods" role="group" aria-label={t.method}>
+            <button type="button" aria-pressed={method === 'command'} aria-controls="install-details" onClick={() => setMethod('command')}>{t.command}<small>{t.recommended}</small></button>
+            <button type="button" aria-pressed={method === 'download'} aria-controls="install-details" onClick={() => setMethod('download')}>{t.download}</button>
+          </div>
+          <div id="install-details" className="home-install-details">
+            <div className="home-install-heading"><h3>{method === 'command' ? t.commandTitle : t.downloadTitle}</h3></div>
+            <p>{method === 'command' ? t.commandBody : t.downloadBody}</p>
+            {method === 'command' ? <>
+              <div className="home-install-terminal"><div><span>Terminal</span><button type="button" onClick={copyCommand}>{copied ? t.copied : t.copyCommand}</button></div><pre><code>{command}</code></pre></div>
+              {copyError && <p role="status">{t.copyError}</p>}
+              <ol className="home-install-steps">{t.steps.map((step, i) => <li key={step}><span>{i + 1}</span>{step}</li>)}</ol>
+            </> : platform && <div className="home-install-packages"><article>
+              <span className="home-install-archive">tar.gz</span><h4>{platform.label}</h4>
+              <a className="home-button home-button-secondary" href={platform.url}>{t.downloadAction}</a>
+              <a className="home-install-checksum" href={platform.checksum_url}>{t.checksum}</a>
+              <code className="home-install-digest">SHA-256: {platform.sha256}</code>
+              <p>{t.offline}</p><code className="home-install-digest">bash install.sh --archive {platform.file}</code>
+              <a className="home-install-checksum" href={release.installer_url}>{t.installer}</a>
+            </article></div>}
+          </div>
+          {platform && <p className="home-install-requirements">{platform.os} · systemd {platform.requirements.systemd}+ · Python {platform.requirements.python}+ · cgroup v{platform.requirements.cgroup} · {platform.requirements.packages.join(', ')}</p>}
+        </>}
+      <div className="home-install-footer"><span>{t.targetHint}</span><a href={siteLinks.install!}>{t.guide}<span aria-hidden="true"> ↗</span></a></div>
     </div>
   </section>;
 }

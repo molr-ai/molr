@@ -35,6 +35,8 @@ Molr 在你自己的设备上运行服务，连接你选择的模型。通过桌
 
 当前支持从源码构建 Linux amd64／arm64 发行包，内嵌 WebUI；GitHub Release 与在线公共下载源尚未接入。
 
+已发布版本可从[官网安装区](https://molr.ai/#install)选择正式版、预发布版或 nightly，安装步骤见[快速开始](docs/getting-started.md)。尚无版本的渠道显示为空；以下步骤用于自行构建。
+
 准备 [Node.js](package.json)（`>=22.12.0`）、[仓库指定版本的 Go](runtime/.go-version)、Python 3 和系统 tar，然后执行：
 
 ```bash

@@ -213,3 +213,9 @@
 - `TestDeviceMFAIsBoundAndStaleChallengesCannotReplaceNewLogin`、`TestDeviceGenerationSerializesConcurrentIssuance`：MFA 设备绑定、较早 challenge 与并发登录的代际检查。
 - `TestAuthCollectionBoundsAndPreservesLiveCredentials`：批量上限、失效保留期、有效凭证及待完成 MFA 的保留。
 - `TestAuthenticationCookieScopesIncludeNonstandardPorts`：直连 HTTPS／HTTP 非默认端口的认证 Cookie 隔离。
+
+| 包 | 公开入口 | 测试 |
+| --- | --- | --- |
+| `internal/auth` | `Manager.Collect` | `TestAuthCollectionBoundsAndPreservesLiveCredentials` |
+| `internal/auth` | `Manager.RevokeOtherSessions`, `Service.RevokeOtherSessions` | `TestDeviceSessionsAreAccountScopedAndOtherDevicesRevokeIndependently` |
+| `internal/auth` | `Manager.RunGC` | `internal/app.TestBuildRealMessageAgentAndRestart`, `internal/app.TestTDDApplicationCanceledContextReleasesResources` |

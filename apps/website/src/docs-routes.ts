@@ -18,6 +18,7 @@ export const docRoutes: DocRoute[] = [
 ];
 
 export const devDocRoutes: DocRoute[] = [
+  { file: 'RELEASING.md', path: '/dev-docs/releasing/', label: '发行维护', group: '概览', root: 'dev-docs' },
   { file: 'README.md', path: '/dev-docs/', label: '开发文档概览', group: '概览', root: 'dev-docs' },
   { file: 'PRODUCT_SCOPE.md', path: '/dev-docs/product-scope/', label: '产品范围', group: '产品', root: 'dev-docs' },
   { file: 'runtime/ARCHITECTURE.md', path: '/dev-docs/runtime/architecture/', label: 'Runtime 架构', group: 'Runtime', root: 'dev-docs' },

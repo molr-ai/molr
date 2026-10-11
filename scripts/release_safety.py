@@ -17,6 +17,7 @@ import tarfile
 import tempfile
 
 ROOT = Path(__file__).resolve().parent.parent
+PLATFORMS = json.loads((ROOT / 'release/platforms.json').read_text())['platforms']
 POLICY = json.loads((ROOT / 'scripts/release-policy.json').read_text())
 PRIVATE_DIRS = {'internal-docs', '.git', '.cache', '.aws', '.ssh', '.gnupg', '.codex', '.agents', '.private',
                 'node_modules', '.venv', '__pycache__', 'dist', 'build', 'coverage',
@@ -181,7 +182,7 @@ def release_metadata(data, name):
         fail(name, 'unexpected release metadata fields')
     if (not isinstance(value['version'], str) or not re.fullmatch(r'[0-9][0-9A-Za-z.-]*', value['version'])
             or not isinstance(value['commit'], str) or not re.fullmatch(r'[a-f0-9]{40}', value['commit'])
-            or value['os'] != 'linux' or value['arch'] not in ('amd64', 'arm64')
+            or not any(p['os'] == value['os'] and p['arch'] == value['arch'] for p in PLATFORMS)
             or not isinstance(value['builtAt'], str) or not re.fullmatch(r'\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z', value['builtAt'])):
         fail(name, 'invalid release metadata values')
     return value
@@ -219,7 +220,14 @@ def check_release(archive):
 def check_release_directory(directory, strict=False):
     if directory.is_symlink():
         fail(directory, 'symbolic release directory is not publishable')
-    allowed_name = re.compile(r'(?:molr_[0-9][0-9A-Za-z.-]*_linux_(?:amd64|arm64)\.tar\.gz(?:\.sha256)?|latest-linux-(?:amd64|arm64)\.json)')
+    if (directory/'catalog.json').exists():
+        for path in tree_files(directory):
+            check_bytes(path.relative_to(directory).as_posix(), path.read_bytes(), generated=True)
+        subprocess.run(['node', str(ROOT/'scripts/check-release-catalog.mjs'), str(directory)], check=True)
+        return len(list(tree_files(directory)))
+    targets = '|'.join(re.escape(p['os']+'_'+p['arch']) for p in PLATFORMS)
+    ids = '|'.join(re.escape(p['id']) for p in PLATFORMS)
+    allowed_name = re.compile(r'(?:molr_[0-9][0-9A-Za-z.-]*_(?:'+targets+r')\.tar\.gz(?:\.sha256)?|latest-(?:'+ids+r')\.json)')
     selected = []
     for path in sorted(directory.iterdir()):
         if not allowed_name.fullmatch(path.name):
@@ -283,6 +291,8 @@ def check_frontend(directory):
         count += 1
     if (directory/'releases').exists():
         check_release_directory(directory/'releases', strict=True)
+    if (directory/'packages').exists():
+        check_release_directory(directory/'packages', strict=True)
     return count
 
 

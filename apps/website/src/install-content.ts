@@ -1,6 +1,9 @@
 import type { Locale } from './site-content';
 
 const zh = {
+  channel: '发布渠道', stable: '正式版', preview: '预发布版', nightly: 'Nightly',
+  stableDescription: '推荐日常使用。', previewDescription: 'Beta / RC 版本，适合提前体验和验证。', nightlyDescription: '来自主分支的每日构建，适合参与测试。',
+  loading: '正在读取发布信息…', empty: '该渠道暂无已发布版本，请选择其他渠道。', loadError: '暂时无法读取发布信息。', retry: '重试', notes: '更新说明', copied: '已复制', copyError: '复制失败，请选择并复制命令。', checksum: '下载校验文件', installer: '下载安装脚本', offline: '将安装包、同名 .sha256 校验文件和安装脚本放在同一目录后运行：', targetHint: '请选择要安装的目标设备；命令会自动识别目标架构。',
   platform: '安装到', soon: '即将推出', selected: '已选择',
   browser: '在设备或服务器上安装，在电脑和手机的浏览器中使用。',
   method: '安装方式', command: '命令安装', download: '下载安装包', recommended: '推荐',
@@ -19,6 +22,9 @@ type InstallCopy = { [K in keyof typeof zh]: K extends 'steps' ? readonly string
 export const installMessages: Record<Locale, InstallCopy> = {
   zh,
   en: {
+    channel: 'Release channel', stable: 'Stable', preview: 'Preview', nightly: 'Nightly',
+    stableDescription: 'Recommended for everyday use.', previewDescription: 'Beta / RC releases for early testing.', nightlyDescription: 'Daily builds from main for development testing.',
+    loading: 'Loading releases…', empty: 'No published release in this channel. Choose another channel.', loadError: 'Release information is temporarily unavailable.', retry: 'Retry', notes: 'Release notes', copied: 'Copied', copyError: 'Copy failed. Select and copy the command.', checksum: 'Download checksum', installer: 'Download installer', offline: 'Place the package, matching .sha256 file and installer in the same directory, then run:', targetHint: 'Choose your target device. The command detects its architecture.',
     platform: 'Install on', soon: 'Coming soon', selected: 'Selected',
     browser: 'Install on your device or server. Use it in a browser on your computer or phone.',
     method: 'Installation method', command: 'Command line', download: 'Download package', recommended: 'Recommended',

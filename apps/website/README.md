@@ -15,18 +15,18 @@ npm run preview:website
 
 ## Cloudflare Workers 部署
 
-仓库根目录的 [`wrangler.jsonc`](../../wrangler.jsonc) 将 Worker 名称设为 `molr`，静态资源目录设为 `apps/website/dist/`。Cloudflare Workers Builds 使用以下设置：
+仓库根目录的 [`wrangler.jsonc`](../../wrangler.jsonc) 部署 `apps/website/dist/` 到 `molr` Worker。保留 Cloudflare Workers Builds 对 GitHub 仓库的授权和 `main` 自动部署。
 
 | 设置 | 值 |
 | --- | --- |
 | 根目录 | 仓库根目录 |
-| 构建命令 | `npm run build:website` |
-| 部署命令 | `npx wrangler deploy` |
-| 预览命令 | `npx wrangler preview` |
+| 构建命令 | `npm run build:website:release` |
+| 部署命令 | `npx wrangler@4.45.0 deploy` |
+| 构建变量 | `NODE_VERSION=22.21.0`、`VITE_SITE_MODE=live` |
 
-在构建环境变量中设置 `VITE_SITE_MODE=live` 可发布完整官网；未设置时仍为 `coming-soon`。本地运行 Wrangler 前先构建官网。配置仅部署官网静态资源；Runtime 仍按[部署指南](../../docs/deployment/README.md)独立部署。
+发布构建命令读取公开 GitHub Releases、验证完整渠道目录，再构建官网；不依赖 GitHub CLI。Cloudflare 自己管理部署认证，GitHub 无需配置 Cloudflare Account ID／API token。普通本地构建仍使用 `npm run build:website`，不会自动联网读取发行信息。
 
-Wrangler 的 `.wrangler/` 本地状态和 `.dev.vars*` 本地变量文件已被 Git 忽略，凭据由 Cloudflare 构建环境或本地登录提供。部署和预览命令的含义见 [Cloudflare Workers Builds 配置](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)。
+在 Cloudflare Worker 的 Settings → Builds → Deploy Hooks 创建绑定 `main` 的 hook，将 URL 保存到 GitHub 仓库 secret `CLOUDFLARE_DEPLOY_HOOK`。`.github/workflows/website.yml` 在 release 完成后请求重新构建，并等待官网清单及安装脚本更新；main push 仍由原生仓库集成触发。详细配置、变量和重试见[发行维护](../../dev-docs/RELEASING.md)。Runtime 按[部署指南](../../docs/deployment/README.md)独立部署。
 
 ## 网站状态开关
 
@@ -55,7 +55,7 @@ VITE_SITE_MODE=live npm run build:website
 
 首屏保留“你的个人 AI 助理”标签、“从好奇出发。”主标题与“长久相伴，与你一同成长。”副标题；移除长段概述后，通过响应式间距保留原区域的留白。主页依次介绍设备连接、全天候工作、反馈与记忆、模型选择，以及计划与权限边界。“连接你的设备，拓展助理的能力”展示多台设备接入及各自的权限边界，独立 Linux 沙盒服务已支持远程存储、计算和网络，场景示意不代表跨 Runtime 执行迁移；“全天候工作”以 Molr 服务持续运行为前提；“从你的反馈中学习”突出定期自动回顾与手动记忆管理；“本地模型，也是一等公民”独立展示云端与本地模型的助理体验；“让每次委托，都有安排与边界”整合计划、资源权限和预算。各段共用一致的图文组件与场景示意，手机上先文后图，中英文同步维护。主页不显示场景示意、示例内容或开发中提示；多端接续指浏览器登录同一账号、连接同一服务。导航以留白连接首屏，不使用底部分隔线。聊天／计划／资源场景按钮位于界面下方，相隔 32px，切换静态界面内容，不连接 Runtime；上方保留与按钮行等高的留白，保持界面与首屏操作区的原有间距，英文窄屏换行时同样保持。首屏背景光晕在底部渐隐，避免在界面演示下方形成硬切边；演示框阴影和按钮间距保持独立。
 
-导航包括主页、文档、GitHub、语言和明暗切换。首屏安装按钮仅保留下载图标，点击后以约 420 ms 的缓出动画滚动至底部安装区；滚轮、触摸或按键可中断，启用减少动态效果时直接定位。刷新及浏览器前进／后退沿用原有位置恢复；文档入口已连接 `/docs/`；安装和 GitHub 的地址统一放在 `src/site-links.ts`。安装入口指向快速开始文档；GitHub 入口统一指向 `https://github.com/molr-ai/molr`。首屏提供“安装 Molr”和“查看文档”入口；“查看文档”链接到 `/docs/`。底部安装面板展示 Linux、macOS、Windows，后两项禁用并标注“即将推出”。Linux 可切换命令安装与安装包展示，安装包覆盖 x64／AMD64 和 ARM64。当前仅完成内容展示，复制命令与下载按钮均禁用，不提供可执行的在线安装命令、不触发下载；详细安装指南链接到快速开始文档。主页不提供未经发布验证的安装命令。
+导航包括主页、文档、GitHub、语言和明暗切换。首屏安装按钮仅保留下载图标，点击后以约 420 ms 的缓出动画滚动至底部安装区；滚轮、触摸或按键可中断，启用减少动态效果时直接定位。刷新及浏览器前进／后退沿用原有位置恢复；文档入口已连接 `/docs/`；安装和 GitHub 的地址统一放在 `src/site-links.ts`。安装入口指向快速开始文档；GitHub 入口统一指向 `https://github.com/molr-ai/molr`。首屏提供“安装 Molr”和“查看文档”入口；“查看文档”链接到 `/docs/`。底部安装面板按 stable／preview／nightly 渠道读取已发布清单，只展示对应版本实际可用的平台。支持复制固定版本命令、下载安装包及校验文件；空渠道与加载失败分别显示提示，详细安装指南链接到快速开始文档。渠道说明和状态提示保留独立留白，手机端适当收紧。
 
 主页装饰配色复用 `@molr/ui` 的 `paletteBrandColors`：安装按钮使用标准 primary 配色，青柠用于品牌装饰与安装区标题，海盐蓝、鸢尾紫与暖砂用于首屏装饰。场景示意使用统一中性表面；安装区保留森林深色背景，平台选中态、安装方式与禁用操作复用主题语义颜色。各段场景统一使用主题中性底色与界面表面色；场景按钮组选中态使用中性底色，不使用青柠强调色。首屏界面示意的彩色背景在界面底部之前收住；下方场景共用一致的背景和内边距。配色仅作用于主页。
 
@@ -93,7 +93,9 @@ Vite 的 `publicDir` 指向共享 UI 包的 `public/`。`/theme-init.js` 在首�
 
 ## 本地安装分发
 
-`installer-plugin.ts` 从仓库唯一来源 `scripts/install.sh` 输出 `/install.sh`，开发和构建均可访问，与共享品牌 publicDir 无关。默认只提供脚本；指定 `MOLR_RELEASE_DIR` 时附带该目录内规范命名的发行包、校验文件和清单，指定 `MOLR_RELEASE_URL` 时为脚本配置默认下载地址。需先在根目录运行 `npm run build:release`；推荐版本清单通过 `npm run release:promote` 单独生成，验证包及更新说明可访问后最后发布清单。完整命令见[部署指南](../../docs/deployment/README.md)。不会自动创建 GitHub Release 或上传任何文件。
+`installer-plugin.ts` 从 `scripts/install.sh` 输出 `/install.sh`。生产构建使用 `MOLR_CATALOG_DIR` 指定经过验证的渠道目录，输出到 `/releases/`。目录只含公开版本信息与 GitHub 下载地址，二进制不进入 Worker。安装区运行时读取 `/releases/catalog.json`，按 stable／preview／nightly 展示实际发布的平台、固定版本命令及下载入口；无版本时显示空状态，读取失败时可重试。
+
+`MOLR_RELEASE_URL` 配置脚本默认发布源，默认为 `https://molr.ai/releases`；安装区默认使用当前站点 `/releases`，跨域源可用 `VITE_RELEASE_SOURCE` 指定。验收使用 `MOLR_CATALOG_DIR=.cache/release-catalog VITE_SITE_MODE=live npm run dev:website`。未指定 catalog 时输出空目录，不把开发包当作公开发行版。保留 `MOLR_RELEASE_DIR` 供本地校验包下载，放在 `/packages/`，不能与 catalog 同时配置。
 
 ## 公开文档范围
 

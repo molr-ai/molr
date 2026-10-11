@@ -35,6 +35,8 @@ Molr runs on your own device and connects to the models you choose. Work with yo
 
 You can build Linux amd64/arm64 packages from source with the WebUI embedded. GitHub Releases and a public download source are not available yet.
 
+For published builds, choose stable, preview or nightly in the [website installer](https://molr.ai/#install). Available platforms come from each release. Channels without a release show an empty state. The steps below build a package from source.
+
 Install [Node.js](package.json) (`>=22.12.0`), the [Go version specified by this repository](runtime/.go-version), Python 3, and tar, then run:
 
 ```bash

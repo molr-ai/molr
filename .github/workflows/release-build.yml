@@ -1,0 +1,115 @@
+name: Build and publish release
+on:
+  workflow_call:
+    inputs:
+      kind:
+        required: true
+        type: string
+      ref:
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      commit: ${{ steps.release.outputs.commit }}
+      matrix: ${{ steps.release.outputs.matrix }}
+      existing: ${{ steps.release.outputs.existing }}
+      published_at: ${{ steps.release.outputs.published_at }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.21.0'
+      - id: release
+        run: node scripts/prepare-release.mjs
+        env:
+          RELEASE_KIND: ${{ inputs.kind }}
+          RELEASE_TAG: ${{ inputs.ref }}
+          GH_TOKEN: ${{ github.token }}
+  build:
+    needs: prepare
+    if: needs.prepare.outputs.existing != 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.21.0'
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: runtime/.go-version
+          cache-dependency-path: runtime/go.sum
+      - run: npm ci
+      - run: npm run check:platforms && npm run test:release && npm run test:release-flow
+      - run: python3 scripts/test-install-download.py && python3 runtime/scripts/test-install-linux.py && python3 runtime/scripts/test-uninstall-linux.py
+      - run: npm run test --workspace @molr/ui
+      - if: matrix.arch == 'amd64'
+        run: npx playwright install --with-deps chromium
+      - if: matrix.arch == 'amd64'
+        run: npm run test:website
+      - run: npm run typecheck
+      - run: go test ./...
+        working-directory: runtime
+        env:
+          CGO_ENABLED: '0'
+      - run: npm run build:release
+        env:
+          MOLR_VERSION: ${{ needs.prepare.outputs.version }}
+          MOLR_ARCH: ${{ matrix.arch }}
+      - name: Install native sandbox dependencies
+        run: sudo apt-get update && sudo apt-get install -y bubblewrap busybox-static ca-certificates file util-linux
+      - name: Prepare delegated user service manager
+        run: |
+          sudo loginctl enable-linger "$(id -un)"
+          sudo systemctl start "user@$(id -u).service"
+          echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
+          echo "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus" >> "$GITHUB_ENV"
+      - name: Native installation and sandbox acceptance
+        run: npm run test:release-install
+        env:
+          MOLR_TEST_ARCHIVE: dist/releases/molr_${{ needs.prepare.outputs.version }}_${{ matrix.os }}_${{ matrix.arch }}.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.id }}
+          path: dist/releases/*
+          if-no-files-found: error
+          retention-days: 14
+  publish:
+    needs: [prepare, build]
+    if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.build.result == 'success' }}
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.21.0'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist/releases
+          merge-multiple: true
+      - run: npm run build:source -- --ref HEAD --output dist/releases
+      - run: npm run release:manifest -- --version "$MOLR_VERSION" --repository "$GITHUB_REPOSITORY"
+        env:
+          MOLR_VERSION: ${{ needs.prepare.outputs.version }}
+          MOLR_PUBLISHED_AT: ${{ needs.prepare.outputs.published_at }}
+      - run: node scripts/publish-release.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}

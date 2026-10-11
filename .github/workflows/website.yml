@@ -1,0 +1,32 @@
+name: Refresh website after release
+on:
+  workflow_call:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: cloudflare-website
+  cancel-in-progress: false
+jobs:
+  refresh:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.21.0'
+      - name: Collect the expected published catalog
+        run: npm run release:catalog
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Ask Cloudflare Workers Builds to rebuild main
+        run: node scripts/trigger-website.mjs
+        env:
+          CLOUDFLARE_DEPLOY_HOOK: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK }}
+      - name: Wait for the public release catalog
+        run: node scripts/verify-release-site.mjs
+        env:
+          MOLR_RELEASE_URL: ${{ vars.MOLR_RELEASE_URL || 'https://molr.ai/releases' }}

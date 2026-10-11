@@ -94,6 +94,7 @@
     "scripts/install-linux.sh",
     "scripts/install_layout.py",
     "scripts/uninstall-linux.sh",
-    "scripts/uninstall-linux.py"
+    "scripts/uninstall-linux.py",
+    "scripts/platforms.json"
   ]
 }

@@ -4,7 +4,7 @@
 
 ## 本地发行包与快速安装
 
-当前发行流程在本地运行。发行构建需要 Node.js、指定版本的 Go、Python 3 和系统 tar，构建检查仅使用 Python 标准库。发行构建在本地运行：
+发行包通过 GitHub Releases 分发，官网展示各渠道实际可用的平台、版本、安装命令与下载链接。正式版使用 stable，beta／rc 使用 preview，每日构建使用 nightly；尚未发布版本的渠道不会提供安装按钮。也可自行构建，本地构建需要 Node.js、仓库指定版本的 Go、Python 3 和系统 tar：
 
 ```bash
 npm ci
@@ -25,18 +25,19 @@ bash scripts/install.sh --archive /path/package.tar.gz --name molr-demo --port 8
 
 以上命令中的 `<LAN_IP>` 需替换为安装或下载服务器的实际局域网 IP，不能原样执行。
 
-`--source URL` 从下载目录读取当前架构的最新版本清单；`--version VERSION` 固定版本。校验失败或架构不匹配时不会执行包内安装器。HTTP 下载源只适合可信局域网，校验文件用于检测损坏，不构成独立的发布者签名。
-
-官网构建始终输出 `/install.sh`，脚本与 `scripts/install.sh` 同源。需要完整本地下载站点时：
+在线安装前准备 Python 3.11+。从官网安装区复制命令，或下载 `/install.sh` 后运行：
 
 ```bash
-MOLR_RELEASE_DIR="$PWD/dist/releases" \
-MOLR_RELEASE_URL="http://<LAN_IP>:5190/releases" \
-VITE_SITE_MODE=live npm run build:website
-npm run preview:website
+bash install.sh --channel stable
+bash install.sh --channel preview
+bash install.sh --channel nightly
+# 明确安装固定版本，同时保存后续跟踪的渠道
+bash install.sh --channel preview --version 0.2.0-rc.1
 ```
 
-上述环境变量让网站包含指定发行目录，并为脚本配置默认下载源；不设置时只输出脚本，需要安装者指定 `--source` 或 `--archive`。
+脚本默认使用 `https://molr.ai/releases`，`--source URL` 可指定其他发布源。默认渠道为 stable；不会因没有正式版而自动改装 preview 或 nightly。固定版本从历史清单读取，缺少目标系统／架构的包会停止安装。校验失败时不会执行包内安装器。HTTP 下载源只接受明确的私网或回环数字地址；SHA-256 校验不构成独立的发布者签名。
+
+离线安装时，将版本包、同名 `.sha256` 文件和该 Release 的 `install.sh` 下载到目标机，运行 `bash install.sh --archive <包路径>`。每个 Release 保留安装脚本快照；实际安装逻辑随包发布。官网列出对应版本的 systemd、Python、cgroup 及系统依赖要求。新增或停止平台支持不改变历史发行包。
 
 省略配置文件的安装器会自动生成局域网 HTTP 配置、初始化所有者与 setup、安装服务并检查已认证 API。`--install-deps` 提供 apt 依赖安装，`--yes` 明确同意依赖安装，`--skip-dependencies` 跳过。缺少隔离依赖不自动开放 Full Access，沙盒能力按真实探针报告。安装与卸载需要 Python 3.11+，systemd 和基本安装工具仍需可用。安装器检查 BusyBox 必须是可执行、不可被组或其他用户写入的静态程序；只有动态 BusyBox 时仍会提示安装 `busybox-static`。不支持 apt 或离线安装时，请预先通过目标系统的包管理器安装静态 BusyBox 等依赖。安装器不复制 BusyBox 到 Molr 安装目录。
 
@@ -60,26 +61,21 @@ npm run preview:website
 Runtime 配置支持：
 
 ```json
-{"updates": {"source": "https://downloads.example.com/releases", "auto_check": true}}
+{"updates": {"source": "https://downloads.example.com/releases/stable", "auto_check": true}}
 ```
 
 在线安装使用的发布源自动保存到配置；离线安装保留已有值。无发布源时不会联网。`auto_check: false` 关闭后台及关于页自动发布检查，仍可手动检查。开发／本地构建默认不自动检查。公网源要求 HTTPS；HTTP 源必须是明确配置的私网或回环数字地址。
 
 后台启动后延迟 30～60 秒检查，随后每 24 小时加少量随机延迟检查，失败一小时后重试。进入关于页或页面恢复可见时，超过五分钟未检查则刷新发布信息。手动检查最短间隔一分钟；全实例合并并发请求。检查失败保留上次成功结果及时间，检查本身不下载或安装程序。
 
-构建只生成版本包和校验文件，不改变推荐版本。发布前准备版本包、校验文件和 HTTPS 更新说明页面，再生成推荐清单：
+构建生成版本包和校验文件；发布流水线在所有目标架构通过后发布 GitHub Release，再部署官网与渠道清单。安装保存的发布源包含渠道，例如 `https://molr.ai/releases/preview`。Runtime 从该渠道读取推荐版本，stable 拒绝预发布版，preview 可推荐正式版，nightly 只跟踪 nightly。检查只提示更新，不自动下载或安装。
 
-```bash
-npm run release:promote -- --version 0.2.0 --arch amd64 \
-  --notes-url https://example.com/releases/0.2.0
-```
-
-默认读取 `dist/releases/`，可通过 `--directory` 指定目录。命令验证包的版本、架构和校验值后生成 `latest-linux-<架构>.json`，包含版本、commit、发布时间、更新说明 URL、包文件名和 SHA-256；不执行上传。先上传并验证包及更新说明，最后发布清单。推荐版本可以是合法预发布版，不接受开发／本地版本。已发布版本的包应保持不可变，修改后使用新版本号。
+维护者的版本命名、平台管理、首次远端配置与失败重试见[发行维护](../../dev-docs/RELEASING.md)。源码部署者可手动配置所需渠道的 `updates.source`。切换渠道需要明确修改发布源；较低版本不会作为自动降级执行。
 
 管理员在发现更新后可查看固定目标版本的升级命令。运行账户、实例名和程序路径取自安装记录；源码部署或缺少记录时按本指南操作。示例：
 
 ```bash
-bash install.sh --source https://downloads.example.com/releases --version 0.2.0 --name molr
+bash install.sh --source https://downloads.example.com/releases/stable --version 0.2.0 --name molr
 ```
 
 升级前按本页备份流程保留数据。安装器核对下载包的版本和架构，保留已有账号、数据和配置，保存 `molr-server.previous` 与 `server.previous.json` 后替换程序并重启。服务重启会中断运行中的任务。启动后先等待 HTTP 就绪，再执行一次认证检查，核对实际 Runtime 版本及沙盒能力；认证需要当前密码／MFA或被限流时，输出“验证待完成”和 `doctor` 命令，不循环登录。失败保留备份和错误信息，不自动回滚；上一份程序及配置不包含完整数据备份。

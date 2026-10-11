@@ -24,6 +24,8 @@
 
 ## 开发入口
 
+- [发行维护](RELEASING.md)：正式版、预发布版、nightly、平台清单、GitHub Releases 与 Cloudflare 官网联动。
+
 - [开源发布与私有文件隔离](RELEASE_SAFETY.md)：忽略规则、静态资源清单、源码导出和归档检查。
 
 - [许可证与第三方兼容性](LICENSING.md)：MIT 范围、依赖版本清单、单文件分发材料与维护方式。

@@ -4,19 +4,25 @@
 
 ## 安装 Molr
 
-当前提供本地构建的 Linux amd64／arm64 发行包。包内包含 Runtime、WebUI 和静态 BusyBox；使用者无需安装 Go、Node.js 或单独部署网页。GitHub Release 与在线公共下载源尚未接入。
+从官网安装区选择 stable（正式版）、preview（beta／rc）或 nightly，再选择目标平台。可用版本以官网发布清单为准；暂无版本的渠道不会提供下载入口。当前平台定义为 Linux amd64／arm64，安装包包含 Runtime 与 WebUI，静态 BusyBox 等沙盒依赖通过目标机系统包管理器提供。
 
-拿到安装包及同名 `.sha256` 校验文件后，使用官网构建产物中的 `install.sh`：
+准备 Python 3.11+ 后，下载官网安装脚本并选择渠道：
 
 ```bash
-bash install.sh --archive /path/molr_0.1.0-local_linux_amd64.tar.gz
+curl -fL https://molr.ai/install.sh -o install.sh
+bash install.sh --channel stable
+# 提前体验 beta / rc
+bash install.sh --channel preview
+# 每日构建
+bash install.sh --channel nightly
 ```
 
-有局域网下载服务时，也可以下载脚本并指定发行目录：
+官网复制的命令会固定到页面显示的版本。也可用 `--version VERSION` 指定版本，`--source URL` 指定其他发布源。使用者无需安装 Go、Node.js 或单独部署网页。
+
+离线安装时，从同一个 GitHub Release 下载对应架构的安装包、同名 `.sha256` 校验文件和 `install.sh`，放在同一目录后运行：
 
 ```bash
-curl -fsS http://<下载服务器>/install.sh -o install.sh
-bash install.sh --source http://<下载服务器>/releases
+bash install.sh --archive /path/molr_0.1.0_linux_amd64.tar.gz
 ```
 
 首次安装默认使用当前普通用户、从 8787 开始选择空闲端口、安装 systemd 用户服务并生成独立配置。root 执行时须通过 `--user molr` 指定非 root 运行账户。依赖缺失时，apt 系系统会询问是否安装；其他系统需按输出补齐依赖。systemd 用户管理器必须可用；需要退出登录后继续运行时，按安装提示配置 linger。
@@ -52,7 +58,7 @@ npm ci
 npm run build:release
 ```
 
-产物位于 `dist/releases/`，完整构建参数与本地下载站点见[部署指南](deployment/README.md)。源码联调仍可分别运行 Runtime 和 `npm run dev:webui`。
+产物位于 `dist/releases/`，完整构建参数与发布源说明见[部署指南](deployment/README.md)。源码联调仍可分别运行 Runtime 和 `npm run dev:webui`。
 
 ## 登录
 

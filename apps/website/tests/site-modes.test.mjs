@@ -129,17 +129,11 @@ test('website state builds and browser behavior', { timeout: 120_000 }, async t 
               await expect(page.getByRole('heading', { name: '给好奇心，一个工作空间。' })).toBeInViewport();
               const installer = page.locator('#install');
               await expect(installer.getByRole('link', { name: '详细安装指南' })).toHaveAttribute('href', '/docs/getting-started/');
-              await expect(installer.getByRole('button', { name: /Linux/ })).toHaveAttribute('aria-pressed', 'true');
-              for (const platform of ['macOS', 'Windows']) {
-                await expect(installer.getByRole('button', { name: `${platform} 即将推出` })).toBeDisabled();
-              }
-              await expect(installer.getByRole('button', { name: '复制安装命令' })).toBeDisabled();
-              await installer.getByRole('button', { name: '下载安装包', exact: true }).click();
-              await expect(installer.getByRole('heading', { name: 'x64 / AMD64' })).toBeVisible();
-              await expect(installer.getByRole('heading', { name: 'ARM64', exact: true })).toBeVisible();
-              for (const button of await installer.locator('.home-install-packages button').all()) await expect(button).toBeDisabled();
-              await installer.getByRole('button', { name: '命令安装 推荐' }).click();
-              await expect(installer.locator('.home-install-terminal')).toBeVisible();
+              await expect(installer.getByRole('button', { name: '正式版', exact: true })).toHaveAttribute('aria-pressed', 'true');
+              await expect(installer.getByRole('status')).toContainText('该渠道暂无已发布版本');
+              await installer.getByRole('button', { name: '预发布版', exact: true }).click();
+              await expect(installer.getByRole('status')).toContainText('该渠道暂无已发布版本');
+              await expect(installer.getByRole('link', { name: '下载安装包', exact: true })).toHaveCount(0);
               await page.getByRole('button', { name: 'Switch to English', exact: true }).click();
               await page.getByRole('button', { name: 'Switch to dark mode', exact: true }).click();
               await page.reload();

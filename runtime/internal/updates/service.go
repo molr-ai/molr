@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"molr.ai/runtime/internal/buildinfo"
+	"molr.ai/runtime/internal/releaseplatform"
 )
 
 type Release struct {
@@ -52,7 +53,7 @@ type Service struct {
 func New(source string, auto bool, current buildinfo.Info, client *http.Client) *Service {
 	return &Service{source: strings.TrimRight(source, "/"), client: client, now: time.Now, state: Snapshot{
 		Current: current, Comparison: "unknown", AutoCheck: auto && !Development(current.Version), SourceConfigured: source != "",
-		Supported: current.OS == "linux" && (current.Arch == "amd64" || current.Arch == "arm64"),
+		Supported: releaseplatform.Supported(current.OS, current.Arch),
 	}}
 }
 func (s *Service) snapshot() Snapshot {
@@ -156,6 +157,15 @@ func (s *Service) fetch(ctx context.Context) (*Release, string) {
 	}
 	var release Release
 	if json.Unmarshal(data, &release) != nil || parseVersion(release.Version) == nil || Development(release.Version) || !hash.MatchString(release.SHA256) || !commit.MatchString(release.Commit) || release.PublishedAt.IsZero() || release.File != "molr_"+release.Version+"_"+s.state.Current.OS+"_"+s.state.Current.Arch+".tar.gz" {
+		return nil, "invalid_manifest"
+	}
+	sourceURL, _ := url.Parse(s.source)
+	channel := ""
+	if sourceURL != nil {
+		channel = sourceURL.Path[strings.LastIndex(sourceURL.Path, "/")+1:]
+	}
+	pre := parseVersion(release.Version)[4]
+	if (channel == "stable" && pre != "") || (channel == "preview" && strings.HasPrefix(pre, "0.nightly.")) || (channel == "nightly" && !strings.HasPrefix(pre, "0.nightly.")) {
 		return nil, "invalid_manifest"
 	}
 	notes, err := url.Parse(release.NotesURL)

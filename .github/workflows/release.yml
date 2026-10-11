@@ -1,0 +1,26 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing stable, beta or rc tag (v0.1.0)
+        required: true
+        type: string
+permissions:
+  contents: write
+concurrency:
+  group: release-publication
+  cancel-in-progress: false
+jobs:
+  release:
+    uses: ./.github/workflows/release-build.yml
+    with:
+      kind: release
+      ref: ${{ inputs.tag || github.ref_name }}
+    secrets: inherit
+  website:
+    needs: release
+    uses: ./.github/workflows/website.yml
+    secrets: inherit

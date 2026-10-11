@@ -279,3 +279,13 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | 包 | 接口 / 方法 | 测试 |
 | --- | --- | --- |
 | `internal/buildinfo` | `UserAgent` | `internal/agent/model.TestTDDModelCatalogAndGenerationRequireCurrentAuthorization` |
+| `internal/buildinfo` | `Current` | `TestInjectedReleaseIdentityWinsOverVCSFallback` |
+| `internal/releaseplatform` | `Supported` | `TestSupportMatchesInstallableTargets` |
+| `internal/updates` | `Compare`, `Development` | `TestVersionPrecedence` |
+| `internal/updates` | `New`, `Service.Check`, `Service.Snapshot` | `TestCheckCoalescesAndRetainsSuccessfulResult`, `TestReleaseChannelIsolation` |
+| `internal/updates` | `Service.Run` | `TestCanceledLifecycleDoesNotCheck` |
+| `internal/updates` | `ReadInstallation` | `TestInstallationReceiptRequiresMatchingExecutableAndCompletedInstall` |
+| `internal/config` | `Sandbox.ComputeCeilings` | `internal/app.TestSandboxPlansRequireIndependentComputeStorageAndNetworkGrants` |
+| `internal/core` | `CheckGPUDevices`, `ComputeConstraints.GPUDevices`, `ValidateGPUDevices` | `TestGPUDevicesAreExplicitAndBounded` |
+| `internal/platform` | `ConfiguredHTTPClient` | `TestConfiguredHTTPClientPinsExplicitLocalSource` |
+| `internal/platform/sandbox` | `Runner.GPUs` | `TestLinuxGPUIsolation` |
