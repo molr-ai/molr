@@ -9,7 +9,8 @@ import { Bot, Ellipsis, Folder, Globe, Info, Pencil, Plus, Server, Trash2, Unplu
 import { SettingsHelp } from '../components/SettingsHelp';
 import { ModelConfigurationDialog } from './ModelConfigurationDialog';
 import { ProviderConnectionDialog } from './ProviderConnectionDialog';
-import { Sandboxes, ToolsCatalog } from './Sandboxes';
+import { Sandboxes } from './Sandboxes';
+import { ToolsCatalog } from './ToolsCatalog';
 import type { SandboxView } from './Sandboxes';
 import { useSandboxPreference } from '../../../sandbox-navigation';
 import { useSandboxCopy } from '../../../sandbox-copy';
