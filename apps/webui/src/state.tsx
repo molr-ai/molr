@@ -33,7 +33,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
 }
 export function useCopy() { const value = useContext(LocaleContext); return { ...value, t: messages[value.locale] }; }
 
-type SessionState = { principal: Principal | null; loading: boolean; error: unknown; reload: () => Promise<void>; end: () => void };
+type SessionState = { principal: Principal | null; loading: boolean; error: unknown; reload: () => Promise<void>; refreshProfile: () => Promise<void>; end: () => void };
 const SessionContext = createContext<SessionState | null>(null);
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [principal, setPrincipal] = useState<Principal | null>(null), [loading, setLoading] = useState(true), [error, setError] = useState<unknown>(null);
@@ -56,11 +56,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     } finally { if (request === revision.current) { foregroundRequest.current = false; setLoading(false); } }
   }, []);
   const reload = useCallback(() => refresh(true, true), [refresh]);
+  const refreshProfile = useCallback(async () => {
+    await refresh(false);
+    channel.current?.postMessage('profile');
+  }, [refresh]);
   useEffect(() => {
     void refresh(true);
     // Cookies are shared between tabs. A changed identity must unmount the old
     // account's data provider before another account's snapshots are displayed.
-    try { channel.current = new BroadcastChannel(`molr-session:${location.origin}`); channel.current.onmessage = () => { setPrincipal(null); clearClientState(); void refresh(true); }; } catch { /* Focus checks also cover browsers without BroadcastChannel. */ }
+    try { channel.current = new BroadcastChannel(`molr-session:${location.origin}`); channel.current.onmessage = ({ data }) => {
+      if (data === 'profile') { void refresh(false); return; }
+      setPrincipal(null); clearClientState(); void refresh(true);
+    }; } catch { /* Focus checks also cover browsers without BroadcastChannel. */ }
     const loop = poll(async () => { await refresh(false, false, true); return 30_000; }, false);
     loop.reschedule(30_000);
     const check = () => loop.request();
@@ -68,7 +75,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onSessionExpired(() => { revision.current++; clearClientState(); setPrincipal(null); setError(null); setLoading(false); });
     return () => { revision.current++; unsubscribe(); channel.current?.close(); channel.current = null; loop.stop(); window.removeEventListener('focus', check); };
   }, [refresh, end]);
-  return <SessionContext.Provider value={{ principal, loading, error, reload, end }}>{children}</SessionContext.Provider>;
+  return <SessionContext.Provider value={{ principal, loading, error, reload, refreshProfile, end }}>{children}</SessionContext.Provider>;
 }
 export function useSession() { return useContext(SessionContext)!; }
 
