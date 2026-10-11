@@ -210,7 +210,7 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		if err := validateGroupConstraints(ctx, store, p, id, assistantID, c); err != nil {
 			return err
 		}
-		return validateResourceConstraints(ctx, store, p, id, c, cfg.Sandbox.AuthorizationCeilings, cfg.Sandbox.WorkspaceProjectQuotas)
+		return validateResourceConstraints(ctx, store, p, id, c, cfg.Sandbox.ComputeCeilings(), cfg.Sandbox.WorkspaceProjectQuotas)
 	}, ValidateExecution: access.execution, ValidateSettlement: access.historicalExecution, VerifyReceipt: access.verifyReceipt, NoCharge: access.noCharge})
 	if err != nil {
 		return nil, err

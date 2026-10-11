@@ -61,7 +61,7 @@ func newSandboxBackend(ctx context.Context, cfg config.Config, store persistence
 	if err != nil {
 		return nil, err
 	}
-	b.runner = sandbox.New(sandbox.Options{NoWorkspace: true, QuotaStore: store, AllowFullAccess: cfg.Sandbox.AllowFullAccess, HostTools: cfg.Sandbox.UsesHostTools(), Bwrap: cfg.Sandbox.Bwrap, RootFS: cfg.Sandbox.RootFS, Helper: exe, CgroupRoot: cfg.Sandbox.CgroupRoot, WorkRoot: cfg.Sandbox.WorkRoot, PrivateRoot: cfg.DataDir, MinFreeDiskBytes: cfg.Sandbox.MinFreeDiskBytes, NetworkBytes: cfg.Sandbox.NetworkBytes, NetworkConnections: cfg.Sandbox.NetworkConnections, NetworkAuthorization: b.networkAuthorization, Authorize: func(ctx context.Context, e core.Execution, c platform.Command) error {
+	b.runner = sandbox.New(sandbox.Options{NoWorkspace: true, GPU: cfg.Sandbox.GPU, QuotaStore: store, AllowFullAccess: cfg.Sandbox.AllowFullAccess, HostTools: cfg.Sandbox.UsesHostTools(), Bwrap: cfg.Sandbox.Bwrap, RootFS: cfg.Sandbox.RootFS, Helper: exe, CgroupRoot: cfg.Sandbox.CgroupRoot, WorkRoot: cfg.Sandbox.WorkRoot, PrivateRoot: cfg.DataDir, MinFreeDiskBytes: cfg.Sandbox.MinFreeDiskBytes, NetworkBytes: cfg.Sandbox.NetworkBytes, NetworkConnections: cfg.Sandbox.NetworkConnections, NetworkAuthorization: b.networkAuthorization, Authorize: func(ctx context.Context, e core.Execution, c platform.Command) error {
 		q, ok := ctx.Value(sandboxRequestKey{}).(sm.Request)
 		if !ok || q.Identity.Execution() != e || !q.Compute || q.FullAccess != c.FullAccess {
 			return denied()
@@ -69,7 +69,11 @@ func newSandboxBackend(ctx context.Context, cfg config.Config, store persistence
 		return ctx.Err()
 	}})
 	if cfg.Sandbox.Enabled {
-		prepare, cancel := context.WithTimeout(ctx, 20*time.Second)
+		budget := 20 * time.Second
+		if cfg.Sandbox.GPU.Enabled {
+			budget = 60 * time.Second
+		}
+		prepare, cancel := context.WithTimeout(ctx, budget)
 		_ = b.runner.Prepare(prepare)
 		cancel()
 	}
@@ -78,11 +82,12 @@ func newSandboxBackend(ctx context.Context, cfg config.Config, store persistence
 func directoryID(p string) string { return "dir_" + digestBytes([]byte(p))[:24] }
 func (b *linuxSandboxBackend) Info(ctx context.Context) (sm.Info, error) {
 	s := b.cfg.Sandbox
-	out := sm.Info{WorkspaceProjectQuotas: false, ResourceQuotas: true, UserGroupQuotas: true, AuthorizationCeilings: s.AuthorizationCeilings, PortForwarding: true, ShellSessions: true, Protocol: sm.ProtocolVersion, Enabled: s.Enabled, Storage: s.Enabled && runtime.GOOS == "linux", Directories: []sm.Directory{}, Networks: []sm.Network{}, Capabilities: platform.Capabilities{OS: runtime.GOOS, Reason: "sandbox_disabled"}, Limits: platform.Limits{MemoryBytes: s.MemoryBytes, Processes: s.Processes, CPUPercent: s.CPUPercent, TempBytes: s.TempBytes, MaxFileBytes: s.MaxFileBytes, NetworkBytes: s.NetworkBytes, NetworkConnections: s.NetworkConnections}, TimeoutSeconds: 0}
+	out := sm.Info{WorkspaceProjectQuotas: false, ResourceQuotas: true, UserGroupQuotas: true, AuthorizationCeilings: s.ComputeCeilings(), PortForwarding: true, ShellSessions: true, Protocol: sm.ProtocolVersion, Enabled: s.Enabled, Storage: s.Enabled && runtime.GOOS == "linux", Directories: []sm.Directory{}, Networks: []sm.Network{}, Capabilities: platform.Capabilities{OS: runtime.GOOS, Reason: "sandbox_disabled"}, Limits: platform.Limits{MemoryBytes: s.MemoryBytes, Processes: s.Processes, CPUPercent: s.CPUPercent, TempBytes: s.TempBytes, MaxFileBytes: s.MaxFileBytes, NetworkBytes: s.NetworkBytes, NetworkConnections: s.NetworkConnections}, TimeoutSeconds: 0}
 	if !s.Enabled {
 		return out, nil
 	}
 	out.Capabilities, _ = b.runner.Capabilities(ctx)
+	out.GPUs = b.runner.GPUs()
 	for _, d := range s.Directories {
 		out.Directories = append(out.Directories, sm.Directory{ID: directoryID(d.Path), Name: filepath.Base(d.Path), ReadOnly: d.ReadOnly})
 	}
@@ -362,7 +367,7 @@ func (b *linuxSandboxBackend) Call(ctx context.Context, q sm.Request) (json.RawM
 				if err := (&policy.Constraints{Network: n.Constraints}).Validate(); err != nil {
 					return nil, err
 				}
-				if n.Constraints.Bytes > b.cfg.Sandbox.AuthorizationCeilings.NetworkBytes || n.Constraints.Connections > b.cfg.Sandbox.AuthorizationCeilings.NetworkConnections {
+				if n.Constraints.Bytes > b.cfg.Sandbox.ComputeCeilings().NetworkBytes || n.Constraints.Connections > b.cfg.Sandbox.ComputeCeilings().NetworkConnections {
 					return nil, denied()
 				}
 			}
@@ -412,21 +417,24 @@ func (b *linuxSandboxBackend) shell(ctx context.Context, q sm.Request) (json.Raw
 			if n.Source != q.Networks[i] || n.Constraints == nil {
 				return nil, denied()
 			}
-			if n.Constraints.Bytes > s.AuthorizationCeilings.NetworkBytes || n.Constraints.Connections > s.AuthorizationCeilings.NetworkConnections {
+			if n.Constraints.Bytes > s.ComputeCeilings().NetworkBytes || n.Constraints.Connections > s.ComputeCeilings().NetworkConnections {
 				return nil, core.Invalid("network", "quota exceeds deployment ceiling")
 			}
 		}
 		b.networkQuotas.Store(shellKey(q.Identity.Execution()), q.NetworkAuthorizations)
 		defer b.networkQuotas.Delete(shellKey(q.Identity.Execution()))
 		if q.GroupComputeConstraints != nil {
-			if err := applyComputeConstraints(&platform.Command{}, q.GroupComputeConstraints, s.AuthorizationCeilings); err != nil {
+			if err := applyComputeConstraints(&platform.Command{}, q.GroupComputeConstraints, s.ComputeCeilings()); err != nil {
 				return nil, err
 			}
 		}
-		if err := applyComputeConstraints(&c, q.ComputeConstraints, s.AuthorizationCeilings); err != nil {
+		if err := applyComputeConstraints(&c, q.ComputeConstraints, s.ComputeCeilings()); err != nil {
 			return nil, err
 		}
 		if v := q.GroupComputeConstraints; v != nil {
+			if err := core.CheckGPUDevices(c.GPUDeviceIDs, v.GPUDevices()); err != nil {
+				return nil, err
+			}
 			c.Limits.CPUPercent = min(c.Limits.CPUPercent, v.CPUPercent)
 			c.Limits.MemoryBytes = min(c.Limits.MemoryBytes, v.MemoryBytes)
 			c.Limits.Processes = min(c.Limits.Processes, v.Processes)

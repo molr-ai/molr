@@ -49,7 +49,7 @@ func newShellService(store persistence.Store, p policy.Authorizer, c config.Conf
 		return nil, err
 	}
 	s := &shellService{store: store, policy: p, config: c.Sandbox, ownPort: c.OwnListenPort(), dataDir: c.DataDir}
-	s.runner = sandbox.New(sandbox.Options{QuotaStore: store, AllowFullAccess: c.Sandbox.AllowFullAccess, HostTools: c.Sandbox.UsesHostTools(), Bwrap: c.Sandbox.Bwrap, RootFS: c.Sandbox.RootFS, Helper: exe, CgroupRoot: c.Sandbox.CgroupRoot, WorkRoot: c.Sandbox.WorkRoot, PrivateRoot: c.DataDir, MinFreeDiskBytes: c.Sandbox.MinFreeDiskBytes, NetworkBytes: c.Sandbox.NetworkBytes, NetworkConnections: c.Sandbox.NetworkConnections, NetworkAuthorization: s.networkAuthorization, Authorize: s.authorize})
+	s.runner = sandbox.New(sandbox.Options{QuotaStore: store, GPU: c.Sandbox.GPU, AllowFullAccess: c.Sandbox.AllowFullAccess, HostTools: c.Sandbox.UsesHostTools(), Bwrap: c.Sandbox.Bwrap, RootFS: c.Sandbox.RootFS, Helper: exe, CgroupRoot: c.Sandbox.CgroupRoot, WorkRoot: c.Sandbox.WorkRoot, PrivateRoot: c.DataDir, MinFreeDiskBytes: c.Sandbox.MinFreeDiskBytes, NetworkBytes: c.Sandbox.NetworkBytes, NetworkConnections: c.Sandbox.NetworkConnections, NetworkAuthorization: s.networkAuthorization, Authorize: s.authorize})
 	return s, nil
 }
 func shellKey(e core.Execution) string {
@@ -130,7 +130,7 @@ func (s *shellService) plan(ctx context.Context, e core.Execution, req tools.She
 			if limits == nil || limits.Compute == nil {
 				return denied()
 			}
-			if err := applyComputeConstraints(&c, limits.Compute, s.config.AuthorizationCeilings); err != nil {
+			if err := applyComputeConstraints(&c, limits.Compute, s.config.ComputeCeilings()); err != nil {
 				return err
 			}
 			if err := applyGroupCommand(ctx, s.store, e, "local", &c); err != nil {
@@ -279,7 +279,7 @@ func (s *shellService) execute(ctx context.Context, e core.Execution, req tools.
 	}
 	if scope := managedShellFor(ctx, e); scope != nil {
 		root := platform.AssistantWorkspace(s.dataDir, s.config.WorkRoot, e.Principal.OwnerID, e.AssistantID)
-		err = scope.started(stdoutPath, stderrPath, func(ctx context.Context, q tools.ShellTaskRequest) (json.RawMessage, error) {
+		err = scope.started(stdoutPath, stderrPath, c.GPUDeviceIDs, func(ctx context.Context, q tools.ShellTaskRequest) (json.RawMessage, error) {
 			if q.Action == "read" {
 				return readShellOutput(root, stdoutPath, stderrPath, q)
 			}
@@ -425,7 +425,11 @@ func (s *shellService) available(ctx context.Context, p core.Principal) (bool, e
 	return false, nil
 }
 func (s *shellService) startup(ctx context.Context) {
-	prepare, cancel := context.WithTimeout(ctx, 20*time.Second)
+	budget := 20 * time.Second
+	if s.config.GPU.Enabled {
+		budget = 60 * time.Second
+	}
+	prepare, cancel := context.WithTimeout(ctx, budget)
 	defer cancel()
 	if err := s.runner.Prepare(prepare); err != nil {
 		log.Printf("Sandbox preparation: %s", core.ReasonOf(err))

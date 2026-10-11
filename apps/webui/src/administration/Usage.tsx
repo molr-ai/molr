@@ -1,3 +1,4 @@
+import type { GPUDevice, SandboxView } from '../sandbox-types';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Badge, Button, Select, TextField } from '@molr/ui';
@@ -54,7 +55,7 @@ function Allowance({ label, used, limit }: { label: string; used: number; limit:
     {limit > 0 && <progress aria-label={label} value={Math.min(used, limit)} max={limit} className={used >= limit ? 'usage-limit-reached' : undefined} />}
   </div>;
 }
-function ResourceAllowance({ reference, used, name }: { reference: ResourceReference; used?: AccountQuotas['Resources'][number]; name: string }) {
+function ResourceAllowance({ reference, used, name, gpus }: { gpus?: GPUDevice[]; reference: ResourceReference; used?: AccountQuotas['Resources'][number]; name: string }) {
   const { locale } = useCopy(), zh = locale === 'zh', q = reference.Quota;
   const kind = { model: zh ? '模型' : 'Model', tool: zh ? '工具' : 'Tool', connection: zh ? '连接' : 'Connection', sandbox: zh ? '沙盒' : 'Sandbox', plugin: zh ? '插件' : 'Plugin' }[reference.Kind];
   const period = ({ day: zh ? '每日' : 'Daily', week: zh ? '每周' : 'Weekly', month: zh ? '每月' : 'Monthly', lifetime: zh ? '累计' : 'Lifetime' } as Record<string, string>)[q.Period || 'lifetime'];
@@ -67,12 +68,13 @@ function ResourceAllowance({ reference, used, name }: { reference: ResourceRefer
       {reference.Kind === 'model' && <dl className="usage-costs"><Metric label={zh ? '已消费' : 'Spent'}><Amounts values={used.Spent} /></Metric><Metric label={zh ? '预留' : 'Reserved'}><Amounts values={used.Reserved} /></Metric><Metric label={zh ? '费用上限' : 'Spend limit'}>{q.Budget ? <MoneyText value={q.Budget} /> : zh ? '不限' : 'Unlimited'}</Metric></dl>}
       {(used.Carried > 0 || used.Unknown > 0) && <p className="usage-held-note">{zh ? `${used.Carried} 次调用仍在执行并跨周期占用额度；${used.Unknown} 次历史调用结果未知，已结束费用预留和并发占用。` : `${used.Carried} calls are still running from earlier periods; ${used.Unknown} past outcomes are unknown and no longer hold reserved spend or concurrency.`}</p>}
     </div>}
-    {reference.Kind === 'sandbox' && <div className="usage-resource-body"><p className="muted">{zh ? '以下为成员限额，所有助理合计使用；实时资源用量可在助理权限详情中查看。' : 'Member limits apply across all assistants. See assistant permission details for live resource usage.'}</p>{q.Concurrent > 0 && <p>{zh ? '同时执行上限' : 'Concurrent executions'}: {q.Concurrent}</p>}{q.Compute && <ConstraintsSummary value={{ compute: q.Compute }} />}{q.Network && <ConstraintsSummary value={{ network: q.Network }} />}{q.Storage && <ConstraintsSummary value={{ storage: q.Storage }} />}{!q.Compute && !q.Network && !q.Storage && !q.Concurrent && <p>{zh ? '未设置成员资源限额' : 'No member resource limits configured'}</p>}</div>}
+    {reference.Kind === 'sandbox' && <div className="usage-resource-body"><p className="muted">{zh ? '以下为成员限额，所有助理合计使用；实时资源用量可在助理权限详情中查看。' : 'Member limits apply across all assistants. See assistant permission details for live resource usage.'}</p>{q.Concurrent > 0 && <p>{zh ? '同时执行上限' : 'Concurrent executions'}: {q.Concurrent}</p>}{q.Compute && <ConstraintsSummary gpus={gpus} value={{ compute: q.Compute }} />}{q.Network && <ConstraintsSummary value={{ network: q.Network }} />}{q.Storage && <ConstraintsSummary value={{ storage: q.Storage }} />}{!q.Compute && !q.Network && !q.Storage && !q.Concurrent && <p>{zh ? '未设置成员资源限额' : 'No member resource limits configured'}</p>}</div>}
   </article>;
 }
 export function AccountUsage() {
   const { locale, t } = useCopy(), zh = locale === 'zh';
   const query = useQuery<AccountQuotas>('/api/account/quotas');
+  const sandboxes = useQuery<SandboxView[]>('/api/sandboxes');
   const labels = t.assistantInfo.toolLabels as Record<string, { name: string }>;
   const models = useQuery<{ ID: string; Name: string }[]>('/api/models');
   const [filter, setFilter] = useState('all');
@@ -85,7 +87,7 @@ export function AccountUsage() {
       <p className="usage-note">{zh ? '费用与调用次数为累计值，附件为当前占用。HTTP 工具调用也计入工具次数，两项不可相加。预留费用尚未确认为实际消费。' : 'Spend and calls are lifetime totals; storage is current usage. HTTP tool calls also count as tool calls; do not add the two. Reserved spend is not confirmed spending.'}</p>
       <ContextStorage value={data.ContextStorage} />
       {!data.Group.Administrator && <section className="usage-allowances"><div className="usage-section-heading"><div><h3>{zh ? '当前成员额度' : 'Current member allowances'}</h3><p>{groupName(data.Group, zh)} · {zh ? '每位成员独立计量，所有助理合计使用' : 'Measured per member, across all assistants'}</p></div><Select label={zh ? '资源类型' : 'Resource type'} value={filter} onValueChange={setFilter} options={[{ value: 'all', label: zh ? '全部资源' : 'All resources' }, { value: 'model', label: zh ? '模型' : 'Models' }, { value: 'tool', label: zh ? '工具' : 'Tools' }, { value: 'connection', label: zh ? '连接' : 'Connections' }, { value: 'sandbox', label: zh ? '沙盒' : 'Sandboxes' }]} /></div>
-        {resources.length ? <div className="usage-resources">{resources.map(ref => <ResourceAllowance key={`${ref.Kind}:${ref.ID}`} reference={ref} used={data.Resources.find(v => v.Kind === ref.Kind && v.ID === ref.ID)} name={models.data?.find(m => ref.Kind === 'model' && m.ID === ref.ID)?.Name ?? (ref.Kind === 'tool' ? labels[ref.ID]?.name : ref.Kind === 'sandbox' && ref.ID === 'local' ? zh ? '本机沙盒' : 'Local sandbox' : undefined) ?? data.Resources.find(v => v.Kind === ref.Kind && v.ID === ref.ID)?.Name ?? ref.ID} />)}</div> : <Empty title={zh ? '暂无资源额度' : 'No resource allowances'} description={zh ? '当前用户组或筛选条件下没有可展示的资源。' : 'No resources match your group or filter.'} />}
+        {resources.length ? <div className="usage-resources">{resources.map(ref => <ResourceAllowance key={`${ref.Kind}:${ref.ID}`} reference={ref} gpus={sandboxes.data?.find(node => ref.Kind === 'sandbox' && node.ID === ref.ID)?.Info.GPUs} used={data.Resources.find(v => v.Kind === ref.Kind && v.ID === ref.ID)} name={models.data?.find(m => ref.Kind === 'model' && m.ID === ref.ID)?.Name ?? (ref.Kind === 'tool' ? labels[ref.ID]?.name : ref.Kind === 'sandbox' && ref.ID === 'local' ? zh ? '本机沙盒' : 'Local sandbox' : undefined) ?? data.Resources.find(v => v.Kind === ref.Kind && v.ID === ref.ID)?.Name ?? ref.ID} />)}</div> : <Empty title={zh ? '暂无资源额度' : 'No resource allowances'} description={zh ? '当前用户组或筛选条件下没有可展示的资源。' : 'No resources match your group or filter.'} />}
       </section>}
       <p className="usage-note">{zh ? '统计时间：' : 'As of: '}{new Date(data.AsOf).toLocaleString(locale)}</p>
     </>}

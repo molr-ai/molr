@@ -1,5 +1,6 @@
+import { GPUDeviceList } from './GPUAccess';
 import { fullAccessLabel, isSandboxResource } from './PermissionTargetFields';
-import type { SandboxView } from '../../../sandbox-types';
+import type { GPUDevice, SandboxView } from '../../../sandbox-types';
 import { Folder, Globe, Server, Sparkles, Wrench } from 'lucide-react';
 import type { Grant, Model, PermissionRequestInput, Resource, ResourceConstraints } from '../../../api/types';
 import { permissionLabel } from '../../../resource-permissions';
@@ -13,7 +14,7 @@ export function PermissionExpiry({ value, timeZone }: { value?: string | null; t
   }).format(new Date(value))}</time> : <>{t.resourcePermissions.noExpiry}</>;
 }
 
-function QuotaGrid({ value }: { value: ResourceConstraints }) {
+function QuotaGrid({ value, gpus }: { value: ResourceConstraints; gpus?: readonly GPUDevice[] | null }) {
   const { locale } = useCopy(), zh = locale === 'zh';
   const c = value.compute, n = value.network, s = value.storage;
   const number = (value: number) => value.toLocaleString(locale, { maximumFractionDigits: 2 });
@@ -23,14 +24,14 @@ function QuotaGrid({ value }: { value: ResourceConstraints }) {
     return `${number(value / 1024 ** index)} ${units[index]}`;
   };
   const period = { lifetime: zh ? '累计' : 'lifetime', day: zh ? '天' : 'day', week: zh ? '周' : 'week', month: zh ? '月' : 'month' };
-  const rows: [string, string][] = [
+  const rows: [string, string, boolean?][] = [
     ...(c ? [
       ['CPU', `${number(c.cpu_percent / 100)} ${zh ? '核' : 'cores'}`],
       [zh ? '内存' : 'Memory', bytes(c.memory_bytes)],
       [zh ? '进程 / 线程' : 'Processes / threads', number(c.processes)],
       [zh ? '单次运行时长' : 'Per execution', c.unlimited_duration ? (zh ? '不限时长' : 'Unlimited') : c.max_duration_seconds < 60 ? `${number(c.max_duration_seconds)} ${zh ? '秒' : 'seconds'}` : `${number(c.max_duration_seconds / 60)} ${zh ? '分钟' : 'minutes'}`],
-      [zh ? '内存临时盘 /tmp' : 'RAM disk /tmp', bytes(c.temp_bytes)],
-    ] as [string, string][] : []),
+      [zh ? '内存临时盘 /tmp' : 'RAM disk (/tmp)', bytes(c.temp_bytes)],
+    ] as [string, string, boolean?][] : []),
     ...(n ? [
       [zh ? '双向流量' : 'Traffic · both directions', `${bytes(n.bytes)} / ${period[n.period]}`],
       [zh ? '并发连接' : 'Concurrent connections', number(n.connections)],
@@ -38,10 +39,15 @@ function QuotaGrid({ value }: { value: ResourceConstraints }) {
     ...(s ? [
       [zh ? '工作区容量' : 'Workspace capacity', bytes(s.capacity_bytes)],
       [zh ? '单文件上限' : 'Maximum file size', bytes(s.max_file_bytes)],
-      [zh ? '文件和目录' : 'Files and directories', number(s.max_files)],
-    ] as [string, string][] : []),
+      [zh ? '文件和目录' : 'Files and directories', number(s.max_files), true],
+    ] as [string, string, boolean?][] : []),
   ];
-  return <dl className="permission-quota-grid">{rows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>;
+  return <dl className="permission-quota-grid">
+    {rows.map(([label, value, separated]) => <div key={label} className={separated ? 'permission-quota-grid__separated' : undefined}><dt>{label}</dt><dd>{value}</dd></div>)}
+    {c && !!gpus?.length && <div className="permission-quota-grid__separated" role="group" aria-label={zh ? 'GPU 授权' : 'GPU access'}>
+      <dt>GPU</dt><dd>{c.gpu?.device_ids.length ? <GPUDeviceList ids={c.gpu.device_ids} devices={gpus} /> : zh ? '未授权' : 'Not granted'}</dd>
+    </div>}
+  </dl>;
 }
 
 /** Pending scopes use the proposal; resolved scopes use only the granted snapshot. */
@@ -55,7 +61,7 @@ export function PermissionScope({ input, grant, showReason, showExpiry, timeZone
   const models = useQuery<Model[]>(modelID ? '/api/models' : null);
   const kind = grant ? resource.data?.Kind : input?.resource_kind;
   const Icon = kind ? { storage: Folder, compute: Server, connection: Globe, network: Globe, model: Sparkles, tool: Wrench }[kind] : Wrench;
-  const node = sandboxes.data?.find(s => s.ID === (resource.data?.SandboxID || 'local'));
+  const node = resource.data ? sandboxes.data?.find(s => s.ID === (resource.data?.SandboxID || 'local')) : undefined;
   const nodeName = node?.Local ? (zh ? '本机沙盒' : 'Local sandbox') : node?.Name;
   const target = isSandboxResource(kind) && nodeName ? `${nodeName}${kind === 'compute' ? '' : ` · ${resource.data?.Name ?? input?.resource_description ?? t.loading}`}` : grant ? resource.data?.Name ?? t.loading : input?.resource_description;
   const actions = grant ? grant.Actions : input?.actions ?? [];
@@ -69,8 +75,8 @@ export function PermissionScope({ input, grant, showReason, showExpiry, timeZone
     {showReason && input?.reason && <p className="permission-scope__note">{input.reason}</p>}
     {modelID && <p className="permission-scope__note">{t.resources.categories.model} · {models.data?.find(model => model.ID === modelID)?.Name ?? t.resources.modelUnavailable}</p>}
     {kind === 'storage' && <dl className="permission-scope__paths"><dt>{zh ? '目录范围' : 'Paths'}</dt><dd>{(paths?.length ? paths : ['/']).map(path => <code key={path}>{path === '/' ? (zh ? '整个资源目录' : 'Entire resource directory') : path}</code>)}</dd></dl>}
-    {constraints && <>{temporary && <p className="permission-scope__note">{zh ? '基础额度' : 'Base limits'}</p>}<QuotaGrid value={constraints} /></>}
-    {temporary && <div className="permission-scope__temporary"><p className="permission-scope__note">{zh ? '临时额度 · 有效至 ' : 'Temporary limits · Until '}<PermissionExpiry value={temporary.until} timeZone={timeZone} /></p><QuotaGrid value={temporary.limits} /></div>}
+    {constraints && <>{temporary && <p className="permission-scope__note">{zh ? '基础额度' : 'Base limits'}</p>}<QuotaGrid value={constraints} gpus={node?.Info.GPUs} /></>}
+    {temporary && <div className="permission-scope__temporary"><p className="permission-scope__note">{zh ? '临时额度 · 有效至 ' : 'Temporary limits · Until '}<PermissionExpiry value={temporary.until} timeZone={timeZone} /></p><QuotaGrid value={temporary.limits} gpus={node?.Info.GPUs} /></div>}
     {showExpiry && <p className="permission-scope__note">{zh ? '授权至 ' : 'Expires '}<PermissionExpiry value={grant ? grant.ExpiresAt : input?.expires_at} timeZone={timeZone} /></p>}
     <ErrorNotice error={resource.error || models.error} retry={() => { resource.reload(); models.reload(); }} />
   </section>;

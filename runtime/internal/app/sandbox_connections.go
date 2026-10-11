@@ -110,9 +110,10 @@ func (s *sandboxRouter) newClient(p core.Principal, endpoint, fingerprint string
 }
 func (s *sandboxRouter) localInfo(ctx context.Context) sm.Info {
 	cfg := s.adapters.storageConfig
-	info := sm.Info{WorkspaceProjectQuotas: cfg.WorkspaceProjectQuotas, ResourceQuotas: true, UserGroupQuotas: true, AuthorizationCeilings: cfg.AuthorizationCeilings, ShellSessions: true, Protocol: sm.ProtocolVersion, Enabled: cfg.Enabled, Storage: cfg.Enabled && runtime.GOOS == "linux", Capabilities: platform.Capabilities{OS: runtime.GOOS, Reason: "sandbox_disabled"}, Directories: []sm.Directory{}, Networks: []sm.Network{}, Limits: platform.Limits{MemoryBytes: cfg.MemoryBytes, Processes: cfg.Processes, CPUPercent: cfg.CPUPercent, TempBytes: cfg.TempBytes, MaxFileBytes: cfg.MaxFileBytes, NetworkBytes: cfg.NetworkBytes, NetworkConnections: cfg.NetworkConnections}, TimeoutSeconds: 0}
+	info := sm.Info{WorkspaceProjectQuotas: cfg.WorkspaceProjectQuotas, ResourceQuotas: true, UserGroupQuotas: true, AuthorizationCeilings: cfg.ComputeCeilings(), ShellSessions: true, Protocol: sm.ProtocolVersion, Enabled: cfg.Enabled, Storage: cfg.Enabled && runtime.GOOS == "linux", Capabilities: platform.Capabilities{OS: runtime.GOOS, Reason: "sandbox_disabled"}, Directories: []sm.Directory{}, Networks: []sm.Network{}, Limits: platform.Limits{MemoryBytes: cfg.MemoryBytes, Processes: cfg.Processes, CPUPercent: cfg.CPUPercent, TempBytes: cfg.TempBytes, MaxFileBytes: cfg.MaxFileBytes, NetworkBytes: cfg.NetworkBytes, NetworkConnections: cfg.NetworkConnections}, TimeoutSeconds: 0}
 	if s.shell != nil {
 		info.Capabilities, _ = s.shell.runner.Capabilities(ctx)
+		info.GPUs = s.shell.runner.GPUs()
 	}
 	for _, d := range cfg.Directories {
 		info.Directories = append(info.Directories, sm.Directory{ID: directoryID(d.Path), Name: filepath.Base(d.Path), ReadOnly: d.ReadOnly})
@@ -195,6 +196,7 @@ func (s *sandboxRouter) admin(ctx context.Context, p core.Principal, action stri
 				return nil, e
 			}
 			if ref != nil {
+				v.Info = groupGPUInfo(v.Info, ref)
 				v.Info.Capabilities.FullAccess = v.Info.Capabilities.FullAccess && ref.AllowFullAccess
 				v.Endpoint = ""
 				v.Fingerprint = ""

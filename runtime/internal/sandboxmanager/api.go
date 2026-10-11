@@ -12,7 +12,7 @@ import (
 	"molr.ai/runtime/internal/policy"
 )
 
-const ProtocolVersion = 6
+const ProtocolVersion = 7
 const LeaseDuration = 15 * time.Second
 const MaxMessage = 96 << 20
 const MaxRequest = 32 << 20
@@ -26,6 +26,7 @@ type Network struct {
 	Target   platform.NetworkTarget
 }
 type Info struct {
+	GPUs                   []platform.GPUDevice `json:",omitempty"`
 	WorkspaceProjectQuotas bool
 	ResourceQuotas         bool
 	UserGroupQuotas        bool

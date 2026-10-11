@@ -18,7 +18,7 @@ Full Access 设计用于外部容器／虚拟机已提供所需隔离的环境�
 
 Bubblewrap 负责构造隔离环境，并不提供完整安全策略；策略由 Molr 生成并验证。它与宿主共享内核，本方案不承诺达到虚拟机的隔离强度。[Bubblewrap 官方说明](https://github.com/containers/bubblewrap)
 
-Shell 支持单次前台命令、显式或 60 秒后自动分离的后台任务，以及持久到退出的 TTY 会话。同一助理合计最多 10 个执行；每个执行建立独立沙盒，只有 `/work` 跨执行持久化。TTY 的系统 Shell 优先与 BusyBox 兜底策略和普通命令一致，默认交互会话加载 `/work/.profile`；非交互命令不加载。任务默认无墙钟截止时间，可选实际超时；资源、授权和隔离限制始终生效。支持显式任务 TCP 端口转发；暂不提供真实设备直通或跨平台执行。Python、Node 等解释器仍由部署环境提供，不开放宿主软件安装能力。
+Shell 支持单次前台命令、显式或 60 秒后自动分离的后台任务，以及持久到退出的 TTY 会话。同一助理合计最多 10 个执行；每个执行建立独立沙盒，只有 `/work` 跨执行持久化。TTY 的系统 Shell 优先与 BusyBox 兜底策略和普通命令一致，默认交互会话加载 `/work/.profile`；非交互命令不加载。任务默认无墙钟截止时间，可选实际超时；资源、授权和隔离限制始终生效。支持显式任务 TCP 端口转发；支持按计算权限提供 NVIDIA GPU 设备访问，其他设备直通和跨平台执行暂不提供。Python、Node 等解释器仍由部署环境提供，不开放宿主软件安装能力。
 
 外部目录和网络默认拒绝；当前助理自己的 `/work` 由 Runtime 管理，文件工具默认可用；真实硬件默认不可见。操作系统或部署环境不能落实要求时，Shell 显示不可用，其他 Runtime 功能照常运行；绝不降级为宿主直接执行。
 
@@ -29,6 +29,18 @@ Linux 后端已位于 `runtime/internal/platform/sandbox`，复用 `platform.Run
 原通用 Runner 继续用于可信白名单程序，不具备同等隔离保证。普通 Agent Shell 只调用强制隔离入口；显式 Full Access 经独立权限检查后使用直接执行路径。资源装配会登记本机计算环境，但不自动授予助理执行权限。
 
 文件工具的 `openat2` 检查不会自动约束任意程序；文件工具与直接挂载的差异见 [工具合同](FILE_TOOLS.md)。模型脚本交给沙盒内固定 Shell，宿主启动参数、资源路径与执行身份由可信代码构造。
+
+## GPU 执行边界
+
+`Sandbox.GPU` 是部署白名单，`ComputeConstraints.GPU.DeviceIDs` 是助理计算授权范围；用户组缺省 GPU 范围为空。`ComputeCeilings()` 将部署白名单带入能力、审批和执行检查，不接受第二份独立 GPU 上限配置。普通 `shell_execute` 自动使用生效授权，不接受设备或挂载参数。设备身份采用节点内硬件 UUID；执行前重新核对 UUID 与设备节点的映射，并通过固定 FD 挂载经过验证的字符设备。CPU 调用不挂载 GPU，GPU 错误不降级执行。
+
+当前后端复用宿主工具模式提供的只读驱动库，以固定 `nvidia-smi` XML 输出读取整卡 UUID、名称、显存和设备 minor。只注入所选 GPU、`nvidiactl` 和 `nvidia-uvm`，不注入宿主管理 socket、显示设备或其他 GPU。探针使用系统 Python 的 ctypes 直接调用 CUDA Driver API，验证实际可用设备集合及少量显存读写，不安装 CUDA SDK 或 Python 包。GPU 状态通过 `Info.GPUs` 独立公布。
+
+CUDA 使用 Unix SEQPACKET socket。GPU Shell 的 seccomp 仅额外允许此 Unix socket 类型，并将所有 `bind`／`connect` 系统调用转交同一沙盒内的可信 supervisor。supervisor 通过通知 ID、pidfd 和复制后的 sockaddr 校验并执行连接，不使用 `SECCOMP_USER_NOTIF_FLAG_CONTINUE`，防止脚本线程更换 FD 或地址绕过检查。只允许执行内抽象 Unix 地址及原有 IPv4／IPv6 网络；文件系统 Unix socket 的绑定和连接一律拒绝。普通 Shell 维持原有 socket 策略，脚本仍不能使用 `pidfd_getfd`、`process_vm_readv`、ptrace、mknod 或绕过网络的系统调用。GPU IPC 依赖 seccomp 通知及 supervisor 读取子进程 FD 的能力，真实探针失败时 GPU 不可用，不放宽系统安全设置。
+
+授权变更与临时范围到期复用计算执行计划重查及 cgroup 清理；远程租约续约还会比较当前生效计算配置。任务回执记录实际启动的 `GPUDeviceIDs`。GPU 共享访问不提供显存、算力或独占调度保证，不能把普通 `memory.max` 视为显存限制。
+
+真实 GPU 验收在 `runtime/` 执行 `MOLR_GPU_INTEGRATION=1 scripts/test-sandbox-linux.sh -run TestLinuxGPUIsolation -v`；需要至少两块 NVIDIA GPU，验证单卡／双卡 CUDA、无授权设备不可见、宿主 Unix socket 不可连接和获准 TCP 可用。
 
 ## 3. 授权与执行流程
 
@@ -48,7 +60,7 @@ flowchart LR
     E --> I[限额、取消、回执与审计]
 ```
 
-Shell 执行需要计算资源的 `execute`；只读挂载需要存储 `read`，读写挂载需要同时具有 `read` 与 `write`。仅有 `write` 时不挂载该资源，仍通过受控文件工具写入，不能隐式增加读取权限。网络资源声明其支持的连接动作。授权某个模型不会顺带授权 Shell 访问该 Provider 或取得 API Key。首期设备能力为空，不能保存看似生效的硬件授权。
+Shell 执行需要计算资源的 `execute`；只读挂载需要存储 `read`，读写挂载需要同时具有 `read` 与 `write`。仅有 `write` 时不挂载该资源，仍通过受控文件工具写入，不能隐式增加读取权限。网络资源声明其支持的连接动作。授权某个模型不会顺带授权 Shell 访问该 Provider 或取得 API Key。GPU 设备范围绑定计算授权，只有部署和用户组允许的硬件 UUID 可被授权。
 
 计算资源包含部署者定义的执行环境与限额，助理授权关联该资源。一期不引入第二套货币预算；CPU、内存和磁盘额度属于计算容量限制，与已有助理模型费用预算区分。
 
@@ -113,7 +125,7 @@ gVisor Go netstack 将流量转换为普通 TCP/UDP 连接。传输协议、目�
 
 内部 DNS 支持 TCP/UDP 的 A/AAAA 查询，使用系统解析器处理真实 CNAME。返回执行内虚拟地址，将域名身份绑定到连接；新连接重新解析，所有实际答案都须获授权，然后直拨已检查 IP。不会将域名直接转成全局 IP 白名单。虚拟映射限定 1024 项，TTL 30 秒，DNS 并发单独限定 8，不能从外部覆盖或跨执行复用。未授权域名、任意 DNS 记录类型和未知虚拟 IP 均拒绝。
 
-网络授权只表达主机/地址、端口、TCP/UDP，不表达 TLS 内的 URL 路径或内容。内置 internet/lan/host（互联网访问／局域网访问／宿主机访问）三项预设只是候选资源，连接和助理授权仍显式进行；三项均开放 TCP/UDP 全部端口，host 包含本服务自身监听端口；lan 仅含 RFC1918/ULA、不含回环，宿主局域网地址仍按 lan 判断；部署可关闭预设。旧的未声明协议配置拒绝加载；远程协议使用 `/v2/sandbox/` 和 `Protocol=3`，连接和执行前拒绝旧服务。详细配置、内部宿主别名和限额见 [部署说明](../../docs/deployment/sandbox.md)。
+网络授权只表达主机/地址、端口、TCP/UDP，不表达 TLS 内的 URL 路径或内容。内置 internet/lan/host（互联网访问／局域网访问／宿主机访问）三项预设只是候选资源，连接和助理授权仍显式进行；三项均开放 TCP/UDP 全部端口，host 包含本服务自身监听端口；lan 仅含 RFC1918/ULA、不含回环，宿主局域网地址仍按 lan 判断；部署可关闭预设。旧的未声明协议配置拒绝加载；远程协议使用 `/v2/sandbox/` 和 `Protocol=7`，连接和执行前拒绝旧服务。详细配置、内部宿主别名和限额见 [部署说明](../../docs/deployment/sandbox.md)。
 
 就绪探针实际执行隔离命令，并在临时回环端点上验证 DNS、TUN 与 TCP 转发，不依赖公网。宿主工具环境通过标准 curl 下载；最小 BusyBox 环境不承诺 HTTPS 下载能力。工具参数不是强制边界，网络仍由 Runtime 授权。`NetworkBackend=transparent`、`NetworkProtocols=[tcp,udp]` 随能力接口报告；不得仅凭进程存活宣称网络就绪。
 

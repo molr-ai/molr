@@ -1,3 +1,4 @@
+import { gpuName } from '../../../gpu';
 import { fullAccessHelp } from '../../../full-access';
 import { fullAccessLabel, sandboxPermissions } from './PermissionTargetFields';
 import type { SandboxPermission } from './PermissionTargetFields';
@@ -113,7 +114,7 @@ function FullAccessSection({ sandbox, resources, grants, ready, onAccess }: { sa
 }
 function ComputeSummary({ sandbox }: { sandbox: SandboxView }) {
   const { t, locale } = useCopy(), copy = useSandboxCopy(), caps = sandbox.Info.Capabilities, ready = isConnected(sandbox) && sandbox.Info.Enabled && caps.Shell;
-  const rows = [[copy.cpu, `${(sandbox.Info.AuthorizationCeilings??sandbox.Info.Limits).CPUPercent}%`], [copy.memory, `${Math.round((sandbox.Info.AuthorizationCeilings??sandbox.Info.Limits).MemoryBytes / 1048576)} MiB`], [copy.processes, String((sandbox.Info.AuthorizationCeilings??sandbox.Info.Limits).Processes)], [copy.timeout, locale === 'zh' ? '由助理的计算授权决定' : 'Defined by the assistant’s compute grant']];
+  const rows = [...(sandbox.Info.GPUs?.length ? [['GPU', sandbox.Info.GPUs.map(g=>`${gpuName(g.ID,sandbox.Info.GPUs!,locale)}${g.Available?'':locale==='zh'?'（不可用）':' (unavailable)'}`).join(' / ')]] : []), [copy.cpu, `${(sandbox.Info.AuthorizationCeilings??sandbox.Info.Limits).CPUPercent}%`], [copy.memory, `${Math.round((sandbox.Info.AuthorizationCeilings??sandbox.Info.Limits).MemoryBytes / 1048576)} MiB`], [copy.processes, String((sandbox.Info.AuthorizationCeilings??sandbox.Info.Limits).Processes)], [copy.timeout, locale === 'zh' ? '由助理的计算授权决定' : 'Defined by the assistant’s compute grant']];
   return <div className="sandbox-compute-summary"><div className="sandbox-section-heading"><h3>{locale === 'zh' ? '可申请的计算能力上限' : 'Requestable compute capacity'}</h3><span className="muted">{copy.deploymentLimits}</span></div><dl className="sandbox-limits">{rows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl><div className="sandbox-isolation"><ShieldCheck size={16} /><span>{ready ? copy.isolationReady : sandboxReason(t, caps.Reason)}</span><SettingsHelp label={copy.isolation} content={copy.isolationHelp} /></div></div>;
 }
 function ResourceDetails({ sandbox, resource, detail, loading }: { sandbox: SandboxView; resource: Resource; detail?: SandboxResourceDetail; loading: boolean }) {

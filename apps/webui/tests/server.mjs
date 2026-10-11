@@ -91,6 +91,7 @@ if (process.env.MOLR_E2E_PLUGIN_HTTP === '1') {
 
 await mkdir(join(directory, 'data'));
 const config = { debug: { enabled: true }, network: { allowed_private_ips: ['127.0.0.1'] }, data_dir: join(directory, 'data'), auth: { login_attempts_per_minute: 100 }, http: { listen: `127.0.0.1:${runtimePort}`, public_url: runtimeURL, tls_mode: 'local', requests_per_minute: 3000, allowed_origins: [uiURL] } };
+if (process.env.MOLR_E2E_GPU_DEVICES) config.sandbox = { host_tools: true, gpu: { enabled: true, devices: JSON.parse(process.env.MOLR_E2E_GPU_DEVICES) } };
 await writeFile(join(directory, 'server.json'), JSON.stringify(config), { mode: 0o600 });
 const binary = join(directory, 'molr-server');
 await command(process.env.GO_BINARY ?? (existsSync('/snap/go/current/bin/go') ? '/snap/go/current/bin/go' : 'go'), ['build', '-o', binary, './cmd/molr-server'], resolve(root, 'runtime'));

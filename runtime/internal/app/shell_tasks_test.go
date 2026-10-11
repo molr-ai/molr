@@ -41,7 +41,7 @@ func TestShellTasksDetachLimitOwnershipAndEvents(t *testing.T) {
 	release := make(chan struct{})
 	started := make(chan context.Context, 16)
 	s.executeCommand = func(ctx context.Context, e core.Execution, q tools.ShellRequest) (json.RawMessage, error) {
-		_ = managedShellFor(ctx, e).started("", "", nil)
+		_ = managedShellFor(ctx, e).started("", "", nil, nil)
 		started <- ctx
 		select {
 		case <-release:
@@ -196,7 +196,7 @@ func TestShellForegroundUsesSameAssistantLimit(t *testing.T) {
 	release := make(chan struct{})
 	started := make(chan struct{}, 10)
 	s.executeCommand = func(ctx context.Context, e core.Execution, q tools.ShellRequest) (json.RawMessage, error) {
-		_ = managedShellFor(ctx, e).started("", "", nil)
+		_ = managedShellFor(ctx, e).started("", "", nil, nil)
 		started <- struct{}{}
 		select {
 		case <-release:

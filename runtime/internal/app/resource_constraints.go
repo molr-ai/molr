@@ -74,6 +74,11 @@ func applyComputeConstraints(c *platform.Command, v *policy.ComputeConstraints, 
 	if v.CPUPercent > max.CPUPercent || v.MemoryBytes > max.MemoryBytes || v.Processes > max.Processes || v.TempBytes > max.TempBytes {
 		return core.Invalid("constraints.compute", "requested capacity exceeds deployment ceiling")
 	}
+	if err := core.CheckGPUDevices(v.GPUDevices(), max.GPUDeviceIDs); err != nil {
+		return err
+	}
+	c.GPUDeviceIDs = append([]string(nil), v.GPUDevices()...)
+	slices.Sort(c.GPUDeviceIDs)
 	c.ComputeQuota = true
 	c.Limits.CPUPercent = v.CPUPercent
 	c.Limits.MemoryBytes = v.MemoryBytes

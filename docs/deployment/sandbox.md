@@ -13,6 +13,36 @@ Linux 沙盒默认开启。安装、启动 Molr 后，Runtime 自动准备基础
 
 断开本机计算环境或撤销权限后，重启不会自动恢复这些授权。Windows/macOS 当前仍明确返回不支持。
 
+## GPU 计算权限
+
+GPU 属于计算资源的可选能力，默认关闭。当前支持 Linux NVIDIA 整卡 CUDA 计算，要求服务账号可访问指定 GPU、宿主已安装匹配的 NVIDIA 驱动和 `/usr/bin/python3`，并使用宿主工具模式。Molr 不安装驱动，不以 root 运行，也不连接 NVIDIA 管理 socket。
+
+部署者先用 `nvidia-smi --query-gpu=uuid,name --format=csv` 查看硬件 UUID，再显式配置允许暴露的设备：
+
+```json
+{
+  "sandbox": {
+    "host_tools": true,
+    "gpu": {
+      "enabled": true,
+      "devices": ["GPU-00000000-0000-0000-0000-000000000001"]
+    }
+  }
+}
+```
+
+示例 UUID 必须替换为实际硬件 UUID。新增或更换设备不会自动扩大已有授权。重启后，在「资源 → 沙盒 → 计算」查看 GPU 状态；启动探针验证隔离环境中的 CUDA 上下文、显存读写和执行内 IPC。GPU 不可用不影响无 GPU 授权的普通计算。
+
+管理员在用户组的计算配置中选择成员可授权的 GPU；空选择表示不允许 GPU。用户在助理计算权限内选择设备，所有使用该计算资源的普通 Shell 命令自动获得这些设备的访问能力。授权卡片在额度区域中以分割线将 GPU 单独列出，显示显卡型号与显存；同型号设备附带短标识，完整 UUID 可通过悬停查看。未提供 GPU 的沙盒不显示 GPU 授权信息或选择器。`shell_execute` 仍使用 `compute_id`，没有额外 GPU 参数。临时配置支持到期恢复基础计算权限；修改计算权限会停止受影响任务，旧任务不会动态增加或移除设备。
+
+助理先查看 `permission_list` 中的 GPU 清单，通过 `permission_request` 申请创建或修改该计算资源的授权。请求中的 `constraints.compute.gpu.device_ids` 必须是可申请的硬件 UUID；临时使用放在 `temporary.limits.compute.gpu.device_ids`，同时保留完整计算额度。审批后按用户最终批准的设备执行。
+
+GPU 为共享访问，不预留显存、不保证算力，不增加 GPU 任务数量配额；普通执行继续计入现有并发限制。界面显示的总显存是硬件信息。Full Access 按原有直接执行语义访问系统，不受普通 GPU 授权范围约束。
+
+GPU 执行仍保留文件、进程和网络隔离。CUDA 所需的抽象 Unix SEQPACKET 通信限于当前执行的网络命名空间，文件系统 Unix socket 的绑定和连接被拒绝。GPU 探针或设备准备失败时不自动退回 CPU 或 Full Access；查看设备原因码，修复后重启重新探测，或移除计算权限中的 GPU 后继续普通计算。
+
+常见原因包括 `gpu_host_tools_required`（未启用宿主工具模式）、`gpu_driver_unavailable`（驱动或 nvidia-smi 不可用）、`gpu_device_missing`（配置的 UUID 不存在）、`gpu_probe_failed`（CUDA／IPC 隔离探针失败）、`gpu_device_changed`（硬件映射改变）和 `gpu_scope_denied`（超出部署或用户组范围）。
+
 ## 按需授予 Full Access
 
 同一节点可以同时处理普通隔离调用和 Full Access 调用。Full Access（完全访问）是沙盒下与存储、计算、网络并列的权限类型，默认不开放；它不是节点运行模式，也不会在隔离失败时自动启用。
@@ -146,7 +176,7 @@ Runtime 不统计每次执行的文件变更总量，也不遍历大目录；产
 
 直接目录授权覆盖目录内实际文件对象，遵循普通硬链接语义；如果用户事先将某个文件硬链接到已授权目录，其内容也在该目录授权内。Shell 无法利用未挂载的宿主路径新建指向私有数据的链接。现有逐文件工具仍保留更严格的链接检查，不能将两种访问模型混为一谈。
 
-原有 Bubblewrap、seccomp、去除 capabilities、最小设备集、空环境及 FD 隔离继续生效。Shell 禁止宿主 Unix socket、VSOCK、Netlink、进一步 namespace 操作和相关绕过系统调用；不提供真实硬件直通或宿主软件安装；指定 Shell 端口可通过下述 TCP 转发访问。
+原有 Bubblewrap、seccomp、去除 capabilities、最小设备集、空环境及 FD 隔离继续生效。Shell 禁止宿主 Unix socket、VSOCK、Netlink、进一步 namespace 操作和相关绕过系统调用；GPU 按计算授权提供受控设备访问，其他硬件直通和宿主软件安装不提供；指定 Shell 端口可通过下述 TCP 转发访问。
 
 授权更新/撤销、资源断开与启动串行协调，返回成功前等待相关执行终止；当前保守地停止该所有者的全部活动 Shell。授权到期设置截止时间，其他执行条件和磁盘空间定期重查。取消覆盖另建 session 的子进程，未知结果不自动重跑。
 

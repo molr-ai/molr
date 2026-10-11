@@ -16,6 +16,7 @@ import (
 )
 
 type helperConfig struct {
+	GPU               bool
 	NoWorkspace       bool
 	TTY               bool
 	HostTools         bool
@@ -57,7 +58,13 @@ func HelperMain(args []string) int {
 	switch args[0] {
 	case "exec":
 		runtime.LockOSThread()
-		if err = restrictShell(); err != nil {
+		if config.GPU {
+			err = restrictGPUShell(3)
+			_ = unix.Close(3)
+		} else {
+			err = restrictShell()
+		}
+		if err != nil {
 			return 125
 		}
 		path := "/usr/bin:/bin"
@@ -107,7 +114,34 @@ func HelperMain(args []string) int {
 			// This gives every shell a valid initial group to restore on exit.
 			cmd.SysProcAttr = &syscall.SysProcAttr{Foreground: true, Ctty: int(os.Stdin.Fd())}
 		}
-		if err = cmd.Run(); err != nil {
+		if config.GPU {
+			pair, socketErr := unix.Socketpair(unix.AF_UNIX, unix.SOCK_STREAM|unix.SOCK_CLOEXEC, 0)
+			if socketErr != nil {
+				return 125
+			}
+			parent := os.NewFile(uintptr(pair[0]), "gpu-listener-parent")
+			child := os.NewFile(uintptr(pair[1]), "gpu-listener-child")
+			defer parent.Close()
+			defer child.Close()
+			cmd.ExtraFiles = []*os.File{child}
+			if err = cmd.Start(); err != nil {
+				return 125
+			}
+			child.Close()
+			listener, receiveErr := receiveGPUListener(int(parent.Fd()))
+			parent.Close()
+			if receiveErr != nil {
+				_ = cmd.Process.Kill()
+				_ = cmd.Wait()
+				return 125
+			}
+			defer unix.Close(listener)
+			go serveGPUSockets(listener)
+			err = cmd.Wait()
+		} else {
+			err = cmd.Run()
+		}
+		if err != nil {
 			if x, ok := err.(*exec.ExitError); ok {
 				return x.ExitCode()
 			}

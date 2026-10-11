@@ -112,6 +112,7 @@ func (r *Runner) prepare(ctx context.Context) error {
 	if err = r.probeNetwork(ctx); err != nil {
 		return unavailable("sandbox_network_probe_failed")
 	}
+	r.prepareGPU(ctx)
 	return nil
 }
 
