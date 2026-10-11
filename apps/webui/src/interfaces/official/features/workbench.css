@@ -12,22 +12,22 @@
 .workbench-live i, .trajectory-footer-follow i { width: 5px; height: 5px; border-radius: 50%; background: var(--color-text-muted); }
 .workbench-live[data-connected='true'] i, .trajectory-footer-follow[data-follow='true'] i { background: var(--color-positive); }
 .workbench > .ui-alert { margin: 8px 20px; }
-.workbench-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); position: relative; border-top: 1px solid var(--color-border); }
+.workbench-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); position: relative; }
 .workbench-grid--inspecting { grid-template-columns: minmax(0, 1fr) minmax(360px, 36%); }
 .workbench-main { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 .workbench h2 { font-size: 14px; font-weight: 550; margin: 0; }
 .workbench h3 { font-size: 13px; font-weight: 550; }
 .workbench-queued { padding: 6px 24px; font-size: 12px; border-bottom: 1px solid var(--color-border); }
-.trajectory-controls { display: flex; align-items: center; gap: 8px; padding: 10px 24px; flex: none; }
-.trajectory-filters { display: flex; flex-shrink: 0; padding: 3px; gap: 2px; border-radius: 7px; background: var(--color-background); }
-.trajectory-filters button { background: transparent; border: 0; color: var(--color-text-muted); font-size: 12px; line-height: 22px; padding: 1px 12px; border-radius: 5px; }
-.trajectory-filters button[aria-pressed='true'] { color: var(--color-text); background: var(--color-surface); box-shadow: var(--shadow-control); font-weight: 500; }
-.trajectory-filters button:disabled { opacity: .45; }
-.trajectory-controls .search-field { flex: 1; width: 240px; min-width: 0; max-width: 280px; margin-left: auto; }
+.trajectory-controls { display: flex; align-items: center; gap: 8px; padding: 0 24px; border-bottom: 1px solid var(--color-border); flex: none; }
+.trajectory-controls > .trajectory-filters { flex-shrink: 0; align-self: stretch; border-bottom: 0; }
+.trajectory-controls .search-field { flex: 1; width: 240px; min-width: 0; max-width: 280px; }
 .trajectory-controls .search-field .input { height: 32px; min-height: 32px; font-size: 12px; background: transparent; }
 .trajectory-controls .search-field__control > svg { width: 14px; height: 14px; }
-.trajectory-raw-toggle.button, .workbench-follow.button { padding-inline: 8px; height: 30px; min-height: 30px; font-size: 11px; color: var(--color-text-muted); flex-shrink: 0; }
-.trajectory-raw-toggle[aria-checked='true'], .workbench-follow[aria-checked='true'] { background: var(--color-selected-bg); color: var(--color-text); }
+.trajectory-raw-toggle.button { margin-left: auto; }
+.trajectory-raw-toggle.button, .workbench-follow.button { padding-inline: 8px; height: 30px; min-height: 30px; font-size: 11px; color: var(--color-text-muted); background: transparent; flex-shrink: 0; }
+.trajectory-raw-toggle.button:hover, .workbench-follow.button:hover { color: var(--color-text); }
+.trajectory-raw-toggle.button[aria-checked='true'], .workbench-follow.button[aria-checked='true'] { color: var(--color-primary); font-weight: 600; }
+.trajectory-raw-toggle[aria-checked='true'] > svg, .workbench-follow[aria-checked='true'] > svg { stroke-width: 2.3; }
 .trajectory-overview { flex: none; position: relative; padding: 8px 24px 10px; border-bottom: 1px solid var(--color-border); background: color-mix(in srgb, var(--color-background) 48%, var(--color-surface)); }
 .trajectory-overview-heading { display: flex; gap: 10px; align-items: center; min-height: 24px; }
 .trajectory-range-badge { font-size: 10px; color: var(--color-text-muted); }
@@ -177,9 +177,8 @@
 .workspace--mobile .workbench-header-actions .button { width: 30px; padding: 0; }
 .workspace--mobile .workbench-header-actions .button > span, .workspace--mobile .workbench-live > span { display: none; }
 .workspace--mobile .workbench-live { margin-right: 5px; }
-.workspace--mobile .trajectory-controls { padding: 8px 14px; gap: 6px; }
-.workspace--mobile .trajectory-filters { padding: 2px; gap: 0; }
-.workspace--mobile .trajectory-filters button { padding-inline: 5px; font-size: 11px; }
+.workspace--mobile .trajectory-controls { padding: 0 14px; gap: 6px; }
+.workspace--mobile .trajectory-controls > .trajectory-filters { gap: 12px; }
 .workspace--mobile .trajectory-controls .search-field { width: auto; max-width: none; }
 .workspace--mobile .trajectory-raw-toggle.button, .workspace--mobile .workbench-follow.button { width: 28px; min-width: 28px; padding-inline: 0; }
 .workspace--mobile .trajectory-raw-toggle > span, .workspace--mobile .workbench-follow > span { display: none; }
