@@ -2535,3 +2535,26 @@ for (const [preset, name, endpoint] of [
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   await expect(page.getByRole('log', { name: 'Assistant conversation' }).getByText('Runtime delivered this reply through conversation_publish.', { exact: true }).last()).toBeVisible({ timeout: 60_000 });
 });
+
+test('provider network rejection explains test and save without clearing the draft', async ({ page }) => {
+  await login(page);
+  await page.goto('/#/resources');
+  await page.locator('.resources-header').getByRole('button', { name: 'More', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Connect provider', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Connect provider', exact: true });
+  await dialog.getByRole('button', { name: 'vLLM', exact: true }).click();
+  await dialog.getByText('More configuration', { exact: true }).click();
+  const endpoint = dialog.getByRole('textbox', { name: 'Service URL' });
+  await endpoint.fill('http://192.168.50.20:8000/v1');
+  for (const [action, path] of [['Test connection', 'test-connection'], ['Connect provider', 'provider']]) {
+    const response = page.waitForResponse(response => response.url().endsWith(`/api/resources/${path}`) && response.request().method() === 'POST');
+    await dialog.getByRole('button', { name: action, exact: true }).click();
+    expect(await (await response).json()).toMatchObject({ code: 'invalid_argument', reason: 'network_private_address_denied' });
+    await expect(dialog.getByText(/Runtime does not allow this private or loopback IP/)).toBeVisible();
+    await expect(endpoint).toHaveValue('http://192.168.50.20:8000/v1');
+    await dialog.locator('.ui-toast').getByRole('button', { name: 'Close', exact: true }).click();
+  }
+  await endpoint.fill(`${modelOrigin}/v1`);
+  await dialog.getByRole('button', { name: 'Test connection', exact: true }).click();
+  await expect(dialog.getByText('Connected · 2 models detected', { exact: true })).toBeVisible();
+});

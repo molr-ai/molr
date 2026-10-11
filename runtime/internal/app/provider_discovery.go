@@ -213,7 +213,7 @@ func fetchProviderModels(ctx context.Context, client *http.Client, endpoint stri
 	}
 	response, err := client.Do(req)
 	if err != nil {
-		return nil, core.NewError(core.Unavailable, "model discovery failed")
+		return nil, core.Wrap(core.Unavailable, "model discovery failed", err)
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {

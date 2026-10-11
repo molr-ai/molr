@@ -228,7 +228,7 @@ HTTP 限流在事务内读取并更新持久计数，通过的请求占用当前
 4. Cookie 认证的修改请求检查 CSRF 与来源。原生客户端可使用 `Authorization: Bearer …`，禁止在 URL 中携带凭证；同时提供 Cookie 和 Bearer 会被拒绝。
 5. `GET /api/auth/security` 向当前所有者会话返回 `MFAEnabled`、`ReauthenticationEnabled`、`UnprotectedPurposes` 与 `Version`。敏感操作验证默认关闭，`credential.put`、`credential.delete` 和 `export` 无需重复密码，仍要求有效所有者会话及 CSRF。开启后前后端统一要求用途绑定的验证证明，启用 MFA 时另需验证码。`POST /api/auth/security` 接收 `enabled`、`expected_version` 和用途为 `security.update` 的 `verification`。密码修改、MFA 管理、令牌创建及清理数据始终需要验证。需要验证时调用 `/api/auth/reauthenticate`，取得单次、短期、绑定会话与用途的 `verification`。令牌仅在创建成功时返回一次明文 `value`。
 
-本文的“所有者”指当前账号对其私人对象的归属，不等于最初初始化账号或管理员角色；共享资源配置另需管理员。身份由 HTTP 认证注入，业务请求不能提供 Principal、Owner 身份或执行身份。每个业务模块继续核验当前权限。错误只返回固定 `code`、`message` 和 `request_id`。
+本文的“所有者”指当前账号对其私人对象的归属，不等于最初初始化账号或管理员角色；共享资源配置另需管理员。身份由 HTTP 认证注入，业务请求不能提供 Principal、Owner 身份或执行身份。每个业务模块继续核验当前权限。错误返回固定 `code`、`message`、`request_id`，以及可选的 `reason`。公开原因码只允许已审查的 `network_private_address_denied`、`network_http_not_allowed` 和 `network_destination_prohibited`；客户端映射为本地化说明，未知原因回退到 `code` 提示，不公开底层异常或字段。
 
 验证器绑定先通过用途为 `mfa.enroll` 的身份确认，得到短期、绑定当前会话的 enrollment 和设置密钥。`POST /api/auth/mfa/confirm` 只需 `enrollment_id` 和 `code`；完成绑定后返回一次性恢复码，无需再次输入密码。
 

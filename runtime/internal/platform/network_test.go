@@ -53,7 +53,7 @@ func TestNetworkMetadataDeniedEvenWhenExplicit(t *testing.T) {
 			return platform.NetworkBinding{Origin: "https://bound.test"}, nil
 		}})
 		err := guard.Check(t.Context(), e, platform.Destination{ResourceID: "resource", URL: "https://bound.test", ResolvedAddresses: []netip.Addr{addr}})
-		if core.CodeOf(err) != core.Forbidden {
+		if core.CodeOf(err) != core.Forbidden || core.ReasonOf(err) != core.NetworkDestinationProhibited {
 			t.Fatalf("metadata accepted %s: %v", ip, err)
 		}
 	}
@@ -65,7 +65,7 @@ func TestNetworkDeploymentPolicyCannotBeExpandedByResourceBinding(t *testing.T) 
 	options := platform.NetworkOptions{Binding: func(context.Context, core.Execution, core.ID) (platform.NetworkBinding, error) {
 		return platform.NetworkBinding{Origin: destination.URL}, nil
 	}}
-	if err := platform.NewNetworkGuard(options).Check(t.Context(), e, destination); err == nil {
+	if err := platform.NewNetworkGuard(options).Check(t.Context(), e, destination); core.ReasonOf(err) != core.NetworkPrivateAddressDenied {
 		t.Fatal("resource origin bypassed deployment policy")
 	}
 	options.AllowedPrivateAddresses = []netip.Addr{netip.MustParseAddr("127.0.0.1")}
@@ -79,7 +79,7 @@ func TestNetworkDeploymentPolicyCannotBeExpandedByResourceBinding(t *testing.T) 
 		t.Fatal("deployment policy changed after guard construction")
 	}
 	destination.ResolvedAddresses = []netip.Addr{netip.MustParseAddr("93.184.216.34")}
-	if err := guard.Check(t.Context(), e, destination); err == nil {
+	if err := guard.Check(t.Context(), e, destination); core.ReasonOf(err) != core.NetworkHTTPNotAllowed {
 		t.Fatal("public HTTP allowed by private allowlist")
 	}
 }

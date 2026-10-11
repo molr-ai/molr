@@ -156,6 +156,11 @@ const zh = {
     resultsFound: (count: number) => `找到 ${count} 条结果`, emptyHelp: '换个关键词，或试试搜索全部类型。', reset: '重新搜索',
     keyboardHint: '↑ ↓ 选择　↵ 打开　Esc 关闭',
   },
+  errorReasons: {
+    network_private_address_denied: 'Runtime 未允许访问该私网或回环 IP。请在 network.allowed_private_ips 中加入目标 IP，并重启 Runtime。',
+    network_http_not_allowed: '该地址不允许使用 HTTP。公网服务请使用 HTTPS；私网服务需由部署者将目标 IP 加入 network.allowed_private_ips 并重启 Runtime。',
+    network_destination_prohibited: 'Runtime 禁止访问该目标地址。请使用普通服务地址，不能使用云元数据、链路本地、组播或未指定地址。',
+  },
   errors: { device_storage_unavailable: '无法保存设备信息，请允许此站点使用浏览器存储后重试。', login_in_progress: '另一个标签页正在登录，请完成或取消后重试。', login_interrupted: '登录已中断，请重新开始。', verification_failed: '身份验证未通过，请检查密码或验证码后重试。', invalid_argument: '请检查输入内容。', unauthenticated: '登录信息已失效，请重新登录。', forbidden: '权限不足或安全校验未通过。', not_found: '内容不存在或已被删除。', conflict: '内容已被更新，请刷新后重试。', failed_precondition: '当前条件不满足，请检查模型、权限与预算。', rate_limited: '操作过于频繁，请稍后再试。', budget_exceeded: '预算不足，请调整预算。', unavailable: '服务暂时不可用，请稍后重试。', canceled: '操作已取消。', deadline_exceeded: '请求超时，请重试。', internal: '服务器暂时无法完成操作。', invalid_response: '服务器返回的数据不完整。' },
 };
 const en: typeof zh = {
@@ -313,6 +318,11 @@ const en: typeof zh = {
     thingsToDo: 'Things to do', upcomingPlans: 'Your upcoming plans', preferencesAndConnections: 'Preferences and connections',
     resultsFound: (count: number) => `${count} results found`, emptyHelp: 'Try another keyword or search across all types.', reset: 'Start a new search',
     keyboardHint: '↑ ↓ to choose　↵ to open　Esc to close',
+  },
+  errorReasons: {
+    network_private_address_denied: 'Runtime does not allow this private or loopback IP. Add the target IP to network.allowed_private_ips and restart Runtime.',
+    network_http_not_allowed: 'HTTP is not allowed for this address. Use HTTPS for public services. For private services, ask the deployment administrator to add the target IP to network.allowed_private_ips and restart Runtime.',
+    network_destination_prohibited: 'Runtime blocks this destination. Use a regular service address, not a cloud metadata, link-local, multicast, or unspecified address.',
   },
   errors: { device_storage_unavailable: 'Allow browser storage for this site and try again.', login_in_progress: 'Another tab is signing in. Finish or cancel it before trying again.', login_interrupted: 'Sign-in was interrupted. Start again.', verification_failed: 'Verification failed. Check your password or code and try again.', invalid_argument: 'Check your input and try again.', unauthenticated: 'Your session has expired. Sign in again.', forbidden: 'Permission or security verification failed.', not_found: 'This content no longer exists.', conflict: 'This content changed. Refresh before trying again.', failed_precondition: 'Check the model configuration, permissions, and budget.', rate_limited: 'Too many requests. Try again shortly.', budget_exceeded: 'The budget is insufficient.', unavailable: 'The service is unavailable. Try again shortly.', canceled: 'The operation was canceled.', deadline_exceeded: 'The request timed out. Please retry.', internal: 'The server could not complete this operation.', invalid_response: 'The server returned incomplete data.' },
 };

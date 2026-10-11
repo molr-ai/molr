@@ -60,10 +60,8 @@ func (a adapters) providers() map[string]resource.Provider {
 				return nil, err
 			}
 			u, _ := url.Parse(b.Endpoint)
-			if u.Scheme != "https" && len(a.networkConfig.AllowedPrivateIPs) == 0 {
-				return nil, core.Invalid("endpoint", "public providers require HTTPS")
-			}
 			if address, err := netip.ParseAddr(u.Hostname()); err == nil && u.Scheme == "http" {
+				address = address.Unmap()
 				approved := false
 				for _, raw := range a.networkConfig.AllowedPrivateIPs {
 					if netip.MustParseAddr(raw).Unmap() == address.Unmap() {
@@ -71,8 +69,15 @@ func (a adapters) providers() map[string]resource.Provider {
 					}
 				}
 				if !approved {
-					return nil, core.Invalid("endpoint", "HTTP endpoint not allowed by server configuration")
+					reason := core.NetworkHTTPNotAllowed
+					if address.IsPrivate() || address.IsLoopback() || netip.MustParsePrefix("100.64.0.0/10").Contains(address.Unmap()) {
+						reason = core.NetworkPrivateAddressDenied
+					}
+					return nil, core.WithReason(core.Invalid("endpoint", "HTTP endpoint not allowed by server configuration"), reason)
 				}
+			}
+			if u.Scheme != "https" && len(a.networkConfig.AllowedPrivateIPs) == 0 {
+				return nil, core.WithReason(core.Invalid("endpoint", "public providers require HTTPS"), core.NetworkHTTPNotAllowed)
 			}
 			if len(b.AllowedOrigins) != 1 || b.AllowedOrigins[0] != o || b.RootPath != "" {
 				return nil, core.Invalid("binding", "exact origin required; directory path is not supported")

@@ -53,3 +53,24 @@ func TestHTTPCompositionExcludesPrivilegedExecutionPorts(t *testing.T) {
 		}
 	}
 }
+
+func TestPublicErrorReasonsAreReviewedAndKeepDiagnosticsPrivate(t *testing.T) {
+	for _, reason := range []core.Reason{core.NetworkPrivateAddressDenied, core.NetworkHTTPNotAllowed, core.NetworkDestinationProhibited, "private-secret"} {
+		err := core.WithReason(core.Invalid("private-secret", "private-secret"), reason)
+		status, response := PublicError(err, "request")
+		if status != http.StatusBadRequest || response.Code != core.InvalidArgument {
+			t.Fatal(status, response)
+		}
+		if reason == "private-secret" {
+			if response.Reason != "" {
+				t.Fatal("unreviewed reason exposed")
+			}
+		} else if response.Reason != reason {
+			t.Fatal(response)
+		}
+		body, _ := json.Marshal(response)
+		if strings.Contains(string(body), "private-secret") {
+			t.Fatal("diagnostics exposed", string(body))
+		}
+	}
+}

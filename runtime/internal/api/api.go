@@ -98,9 +98,10 @@ type RateLimiter interface {
 
 // ErrorResponse contains only fixed messages, never raw wrapped errors or fields.
 type ErrorResponse struct {
-	Code      core.Code `json:"code"`
-	Message   string    `json:"message"`
-	RequestID core.ID   `json:"request_id,omitempty"`
+	Code      core.Code   `json:"code"`
+	Message   string      `json:"message"`
+	RequestID core.ID     `json:"request_id,omitempty"`
+	Reason    core.Reason `json:"reason,omitempty"`
 }
 
 func PublicError(err error, requestID core.ID) (int, ErrorResponse) {
@@ -135,7 +136,13 @@ func PublicError(err error, requestID core.ID) (int, ErrorResponse) {
 	if requestID.Validate() != nil {
 		requestID = ""
 	}
-	return status, ErrorResponse{Code: code, Message: message, RequestID: requestID}
+	// Publish only reviewed, fixed reason codes; diagnostics stay private.
+	var reason core.Reason
+	switch value := core.ReasonOf(err); value {
+	case core.NetworkPrivateAddressDenied, core.NetworkHTTPNotAllowed, core.NetworkDestinationProhibited:
+		reason = value
+	}
+	return status, ErrorResponse{Code: code, Message: message, RequestID: requestID, Reason: reason}
 }
 
 // Validate rejects missing and typed-nil services before binding a listener.

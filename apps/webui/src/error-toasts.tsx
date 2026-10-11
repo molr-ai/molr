@@ -73,9 +73,11 @@ export function useErrorToast(error: unknown, retry?: () => void) {
  const retryRef = useRef(retry);
  useLayoutEffect(() => { retryRef.current = retry; });
  const code = error instanceof APIError ? error.code : 'unavailable';
- const suppressed = hasConnectionNotice && code === 'unavailable';
- const key = error && !suppressed ? shared(code) ? code : `${id}:${code}` : '';
- const title = t.errors[code as keyof typeof t.errors] ?? t.serverUnavailable;
+ const reason = error instanceof APIError ? error.reason : '';
+ const detail = Object.hasOwn(t.errorReasons, reason) ? t.errorReasons[reason as keyof typeof t.errorReasons] : undefined;
+ const suppressed = !detail && hasConnectionNotice && code === 'unavailable';
+ const key = error && !suppressed ? detail ? `${id}:${code}:${reason}` : shared(code) ? code : `${id}:${code}` : '';
+ const title = detail ?? t.errors[code as keyof typeof t.errors] ?? t.serverUnavailable;
  const retryAt = error instanceof APIError ? error.retryAt : 0, hasRetry = !!retry;
  useEffect(() => () => { if (key) errors?.remove(key, id); }, [errors, key, id]);
  useEffect(() => {

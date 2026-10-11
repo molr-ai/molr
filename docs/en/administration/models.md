@@ -27,3 +27,7 @@ Provider keys are saved via resource configuration; old values are not displayed
 Requests received by the model service carry `User-Agent: molr/<版本号>` for identification in service logs; if the version is not injected in development builds, `molr/development` is used. Connection tests and model list queries also use this identifier.
 
 Connections do not automatically authorize all models. Users select models, set budgets, and grant permissions for their own assistants; see [Permissions and Budgets](../guides/permissions-and-budget.md).
+
+### Connections rejected by network configuration
+
+Runtime sends model discovery and inference requests directly, subject to the top-level `network.allowed_private_ips`. Sandbox Shell uses the separate `sandbox.networks` configuration; allowing sandbox traffic does not allow a model endpoint. For a private or loopback IP that is not allowed, the connection dialog asks the deployment administrator to add the target IP to `network.allowed_private_ips` and restart Runtime. Public HTTP endpoints require HTTPS. Prohibited destinations such as cloud metadata and link-local addresses cannot be allowed through this list.

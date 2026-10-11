@@ -59,3 +59,13 @@ test('malformed successful JSON remains invalid_response and HTTP errors retain 
   globalThis.fetch = async () => new Response(JSON.stringify({ code: 'forbidden', request_id: 'example-request' }), { status: 403 });
   await assert.rejects(api.get('/api/example'), error => error.code === 'forbidden' && error.requestID === 'example-request' && error.status === 403);
 }));
+
+test('HTTP error reasons survive without exposing diagnostic messages', async () => withBrowser(async () => {
+  const { api } = createClient();
+  for (const reason of ['network_private_address_denied', undefined, { secret: 'private' }]) {
+    globalThis.fetch = async () => Response.json({ code: 'invalid_argument', reason, message: 'private diagnostic' }, { status: 400 });
+    await assert.rejects(api.post('/api/resources/test-connection'), error => error instanceof APIError
+      && error.code === 'invalid_argument' && error.status === 400
+      && error.reason === (typeof reason === 'string' ? reason : '') && !error.message.includes('private diagnostic'));
+  }
+}));

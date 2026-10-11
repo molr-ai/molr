@@ -3,7 +3,7 @@ import type { RuntimeTransport } from './transport';
 const scopedCookieName = (name: string, port: string) => `${name}_p${port}`;
 
 export class APIError extends Error {
-  constructor(public code: string, public requestID = '', public status = 0, public retryAt = 0) { super(code); }
+  constructor(public code: string, public requestID = '', public status = 0, public retryAt = 0, public reason = '') { super(code); }
 }
 export function mutationKey() { return Array.from(crypto.getRandomValues(new Uint8Array(24)), byte => byte.toString(16).padStart(2, '0')).join(''); }
 
@@ -57,7 +57,7 @@ export function createClient(transport?: RuntimeTransport) {
       const retryAfter = response.headers.get('Retry-After');
       const seconds = retryAfter && /^\d+$/.test(retryAfter) ? Number(retryAfter) : NaN;
       const retryAt = response.status === 429 ? Number.isFinite(seconds) ? Date.now() + seconds * 1000 : Math.max(Date.now() + 1000, Date.parse(retryAfter ?? '') || Date.now() + 60000) : 0;
-      const error = new APIError(data?.code ?? 'unavailable', data?.request_id ?? '', response.status, retryAt);
+      const error = new APIError(data?.code ?? 'unavailable', data?.request_id ?? '', response.status, retryAt, typeof data?.reason === 'string' ? data.reason : '');
       if (response.status === 429 && !path.startsWith('/api/auth/')) cooldown = { identity: requestIdentity, error };
       throw error;
     }

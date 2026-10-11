@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"molr.ai/runtime/internal/agent/model"
 	"molr.ai/runtime/internal/buildinfo"
+	"molr.ai/runtime/internal/platform"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
@@ -292,5 +294,49 @@ func TestDiscoveryContextWindowPrecedenceAndBounds(t *testing.T) {
 		if row.ProviderContextLimit != want[i] {
 			t.Errorf("%s: %d, want %d", row.Name, row.ProviderContextLimit, want[i])
 		}
+	}
+}
+
+func TestProviderNetworkRejectionExplainsTestAndSave(t *testing.T) {
+	for _, allowed := range [][]string{{"127.0.0.1"}, {}} {
+		cfg := testConfig(t)
+		cfg.Network.AllowedPrivateIPs = allowed
+		b, err := Build(t.Context(), cfg)
+		need(t, err)
+		defer b.Close()
+		p, _ := ownerSession(t, b)
+		for _, tc := range []struct {
+			endpoint string
+			reason   core.Reason
+		}{
+			{"http://192.168.50.20:8000/v1/chat/completions", core.NetworkPrivateAddressDenied},
+			{"http://[::ffff:192.168.50.20]:8000/v1/chat/completions", core.NetworkPrivateAddressDenied},
+			{"http://example.com/v1/chat/completions", core.NetworkHTTPNotAllowed},
+		} {
+			// A hostname with a non-empty allowlist is checked after DNS resolution.
+			if len(allowed) != 0 && tc.reason == core.NetworkHTTPNotAllowed {
+				continue
+			}
+			u, _ := url.Parse(tc.endpoint)
+			_, err = b.Services.Resources.TestConnection(t.Context(), p, resource.TestConnectionRequest{Provider: "openai-compatible", Binding: resource.Binding{Endpoint: tc.endpoint, AllowedOrigins: []string{u.Scheme + "://" + u.Host}}})
+			if core.CodeOf(err) != core.InvalidArgument || core.ReasonOf(err) != tc.reason {
+				t.Fatalf("test: %v, reason=%s", err, core.ReasonOf(err))
+			}
+			_, err = b.Services.Resources.SaveProvider(t.Context(), p, resource.SaveProviderRequest{Name: "Local provider", PricingProvider: "vllm", Endpoint: tc.endpoint, Mutation: core.Mutation{IdempotencyKey: string(tc.reason)}})
+			if core.CodeOf(err) != core.InvalidArgument || core.ReasonOf(err) != tc.reason {
+				t.Fatalf("save: %v, reason=%s", err, core.ReasonOf(err))
+			}
+		}
+	}
+}
+
+func TestDiscoveryPreservesNetworkReasonAfterDial(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { t.Error("blocked endpoint was contacted") }))
+	defer server.Close()
+	client := platform.ConfiguredHTTPClient(server.URL, nil)
+	defer client.CloseIdleConnections()
+	_, err := fetchProviderModels(t.Context(), client, server.URL+"/v1/chat/completions", core.Secret{})
+	if core.ReasonOf(err) != core.NetworkPrivateAddressDenied {
+		t.Fatalf("lost network reason: %v", err)
 	}
 }

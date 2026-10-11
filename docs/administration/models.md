@@ -27,3 +27,7 @@
 模型服务收到的请求携带 `User-Agent: molr/<版本号>`，用于服务日志识别；开发构建未注入版本时使用 `molr/development`，连接测试和模型列表查询也使用该标识。
 
 连接不会自动授权全部模型。用户为自己的助理选择模型、设置预算和授权，见[权限与预算](../guides/permissions-and-budget.md)。
+
+### 连接被网络配置拒绝
+
+模型列表查询和推理由 Runtime 直接发出，受顶层 `network.allowed_private_ips` 限制；沙盒 Shell 使用独立的 `sandbox.networks`，配置沙盒网络不会放行模型地址。私网或回环 IP 未获允许时，连接窗口会提示部署者将目标 IP 加入 `network.allowed_private_ips` 并重启 Runtime。公网 HTTP 地址需改用 HTTPS；云元数据、链路本地等禁止地址不能通过白名单放行。

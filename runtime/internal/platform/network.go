@@ -79,10 +79,10 @@ func (g *Guard) checkBinding(binding NetworkBinding, destination Destination) er
 	for _, original := range destination.ResolvedAddresses {
 		address := original.Unmap()
 		if address == netip.MustParseAddr("100.100.100.200") || address == netip.MustParseAddr("168.63.129.16") || address == netip.MustParseAddr("fd00:ec2::254") {
-			return core.NewError(core.Forbidden, "metadata destination prohibited")
+			return core.WithReason(core.NewError(core.Forbidden, "metadata destination prohibited"), core.NetworkDestinationProhibited)
 		}
 		if !address.IsValid() || address.IsUnspecified() || address.IsMulticast() || address.IsLinkLocalUnicast() || address.IsLinkLocalMulticast() {
-			return core.NewError(core.Forbidden, "prohibited network destination")
+			return core.WithReason(core.NewError(core.Forbidden, "prohibited network destination"), core.NetworkDestinationProhibited)
 		}
 		explicit := false
 		for _, allowed := range g.options.AllowedPrivateAddresses {
@@ -93,10 +93,10 @@ func (g *Guard) checkBinding(binding NetworkBinding, destination Destination) er
 		}
 		private := address.IsPrivate() || address.IsLoopback() || netip.MustParsePrefix("100.64.0.0/10").Contains(address) || !address.IsGlobalUnicast()
 		if private && !explicit {
-			return core.NewError(core.Forbidden, "private destination not permitted by server configuration")
+			return core.WithReason(core.NewError(core.Forbidden, "private destination not permitted by server configuration"), core.NetworkPrivateAddressDenied)
 		}
 		if target.Scheme == "http" && (!private || !explicit) {
-			return core.NewError(core.Forbidden, "public providers require HTTPS")
+			return core.WithReason(core.NewError(core.Forbidden, "public providers require HTTPS"), core.NetworkHTTPNotAllowed)
 		}
 	}
 	return nil
