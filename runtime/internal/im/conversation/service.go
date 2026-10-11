@@ -152,7 +152,7 @@ func (s *service) LatestMessages(ctx context.Context, p core.Principal, ids []co
 		if len(messageKeys) == 0 {
 			return nil
 		}
-		messages, err := tx.Query(ctx, messagesBucket, persistence.Query{Where: []persistence.Filter{{Field: "key", Op: "in", Value: messageKeys}, {Field: "ConversationID", Op: "in", Value: ids}}, Fields: []string{"ID", "ConversationID", "Content", "Sequence"}, Unordered: true, Limit: len(messageKeys)})
+		messages, err := tx.Query(ctx, messagesBucket, persistence.Query{Where: []persistence.Filter{{Field: "key", Op: "in", Value: messageKeys}, {Field: "ConversationID", Op: "in", Value: ids}}, Fields: []string{"ID", "ConversationID", "Content", "Sequence", "CreatedAt"}, Unordered: true, Limit: len(messageKeys)})
 		if err != nil {
 			return err
 		}

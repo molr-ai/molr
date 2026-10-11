@@ -31,7 +31,7 @@ export function OfficialPage({ chatLayout = 'default' }: { chatLayout?: 'default
   const { t } = useCopy(), { theme } = useTheme(), mobile = useBreakpoint('mobile');
   const { page, id, turnID, eventID, messageID, panel, taskID, navigate } = useNavigation(), action = useAction();
   const assistants = useQuery<Assistant[]>('/api/assistants', true), conversations = useQuery<Conversation[]>('/api/conversations', true), models = useQuery<Model[]>('/api/models'), settings = useQuery<SettingsDTO>('/api/settings');
-  const activity = useQuery<AssistantActivity[]>(page === 'assistants' && chatLayout === 'default' && (!mobile || !id) ? '/api/assistants/activity' : null, true);
+  const activity = useQuery<AssistantActivity[]>(page === 'assistants' && (chatLayout === 'focus' || !mobile || !id) ? '/api/assistants/activity' : null, true);
   const activityByID = new Map(activity.data?.map(item => [item.AssistantID, item]));
   const runtime = useQuery<RuntimeInfo>('/api/status');
   const workbenchVisible = !!runtime.data?.workbench_available && !!settings.data?.WorkbenchVisible;
@@ -44,7 +44,10 @@ export function OfficialPage({ chatLayout = 'default' }: { chatLayout?: 'default
   const { drafts, setDrafts } = useUIHost();
   const selection = useQuery<Assistant>(page === 'assistants' && id ? `/api/assistants/${id}` : null);
   const allAssistants = selection.data && !assistants.data?.some(row => row.ID === selection.data?.ID) ? [...(assistants.data ?? []), selection.data] : assistants.data ?? [];
-  const active = allAssistants.filter(assistant => assistant.State === 'active');
+  const messageTimes = new Map(activity.data?.map(item => [item.AssistantID, item.Preview ? Date.parse(item.Preview.CreatedAt) || 0 : 0]));
+  const orderedAssistants = [...allAssistants].sort((a, b) => Number(b.Pinned) - Number(a.Pinned)
+    || (messageTimes.get(b.ID) ?? 0) - (messageTimes.get(a.ID) ?? 0));
+  const active = orderedAssistants.filter(assistant => assistant.State === 'active');
   const selected = selection.data ?? allAssistants.find(assistant => assistant.ID === id);
   useEffect(() => { const open = () => setSearch(true); window.addEventListener('molr:search', open); return () => window.removeEventListener('molr:search', open); }, []);
   useEffect(() => { setDialog(null); setTaskCard(''); }, [page, id]);
@@ -85,7 +88,7 @@ export function OfficialPage({ chatLayout = 'default' }: { chatLayout?: 'default
         {page === 'assistants' ? <div className={`assistant-workspace${chatLayout === 'focus' ? ' assistant-workspace--focus' : ''}`} ref={setChatWorkspace}>
           {(chatLayout === 'focus' || !mobile || !selected) && <aside className="workspace-sidebar" aria-label={t.assistants.list}>
             {mobile && chatLayout === 'focus' && <header className="assistant-toolbar"><MobileAccountButton />{mobileActions}</header>}
-            {chatLayout === 'focus' ? (assistants.loading && !assistants.data ? <Loading /> : !allAssistants.length ? emptyList : <Select label={t.assistants.list} value={selected?.ID ?? ''} onValueChange={value => go('assistants', value)} options={allAssistants.filter(assistant => assistant.State === 'active' || assistant.ID === selected?.ID).map(assistant => ({ value: assistant.ID, label: assistant.Name }))} />) : <>
+            {chatLayout === 'focus' ? (assistants.loading && !assistants.data ? <Loading /> : !allAssistants.length ? emptyList : <Select label={t.assistants.list} value={selected?.ID ?? ''} onValueChange={value => go('assistants', value)} options={orderedAssistants.filter(assistant => assistant.State === 'active' || assistant.ID === selected?.ID).map(assistant => ({ value: assistant.ID, label: assistant.Name }))} />) : <>
             <header className="assistant-toolbar">{mobile && <MobileAccountButton />}<SearchField id={assistantSearchId} className="assistant-search" label={t.assistants.search} hideLabel placeholder={t.assistants.search} value={assistantQuery} onValueChange={setAssistantQuery} />{mobile && mobileActions}</header>
             {assistants.loading && !assistants.data ? <Loading /> : assistants.data ? <AssistantList label={t.assistants.list} entries={entries(visibleAssistants)} selectedID={selected?.ID} onSelect={value => go('assistants', value)} mobile={mobile} pinnedLabel={t.assistants.pinned} unreadLabel={t.assistants.unread} emptyLabel={emptyTitle} emptyState={emptyList} pinIcon={<Pin size={12} />} /> : null}
             </>}

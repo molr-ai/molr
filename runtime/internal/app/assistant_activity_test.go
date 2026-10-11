@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"molr.ai/runtime/internal/business/assistant"
 	"molr.ai/runtime/internal/core"
@@ -23,14 +24,19 @@ func TestAssistantActivityPageIsolationAndPreview(t *testing.T) {
 	foreign := f.assistant(t, f.bob, "foreign")
 	_, err := f.b.Services.Assistants.Dismiss(ctx, f.alice, assistant.LifecycleRequest{ID: archived.ID, Mutation: core.Mutation{IdempotencyKey: "dismiss", ExpectedVersion: archived.Version}})
 	need(t, err)
+	var latest conversation.Message
 	for index, text := range []string{"old", "  " + strings.Repeat("猫", 85) + "\n" + strings.Repeat("private tail\n", 4096)} {
-		_, err := f.b.Services.Conversations.SendUser(ctx, f.alice, conversation.SendUserRequest{Mutation: core.Mutation{IdempotencyKey: "message-" + strconv.Itoa(index)}, ConversationID: first.ConversationID, Content: conversation.Content{Kind: conversation.Text, Text: text}})
+		message, err := f.b.Services.Conversations.SendUser(ctx, f.alice, conversation.SendUserRequest{Mutation: core.Mutation{IdempotencyKey: "message-" + strconv.Itoa(index)}, ConversationID: first.ConversationID, Content: conversation.Content{Kind: conversation.Text, Text: text}})
 		need(t, err)
+		latest = message
 	}
 	type row struct {
 		AssistantID, ConversationID core.ID
 		Dreaming                    bool
-		Preview                     *struct{ Kind, Text string }
+		Preview                     *struct {
+			Kind, Text string
+			CreatedAt  time.Time
+		}
 	}
 	get := func(path string, authenticated bool) *httptest.ResponseRecorder {
 		t.Helper()
@@ -67,6 +73,9 @@ func TestAssistantActivityPageIsolationAndPreview(t *testing.T) {
 	}
 	if len(seen) != 2 || seen[first.ID].Preview == nil || seen[first.ID].Preview.Text != strings.Repeat("猫", 80)+"…" || seen[empty.ID].Preview != nil {
 		t.Fatalf("unexpected summaries: %+v", seen)
+	}
+	if !seen[first.ID].Preview.CreatedAt.Equal(latest.CreatedAt) {
+		t.Fatal("preview timestamp must match the latest message")
 	}
 	if _, ok := seen[foreign.ID]; ok {
 		t.Fatal("foreign assistant leaked")

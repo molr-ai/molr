@@ -115,7 +115,7 @@ export type SystemNotice = { ID: ID; OwnerID: ID; Kind: string; Code: string; So
 export type NotificationPage = { Items: SystemNotice[]; NextCursor: string; UnreadCount: number; PendingCount: number };
 
 /** Bounded assistant-list projection; it contains no execution internals. */
-export type AssistantActivity = { AssistantID: ID; ConversationID: ID; Dreaming: boolean; Preview: { Kind: 'text' | 'card'; Text: string } | null };
+export type AssistantActivity = { AssistantID: ID; ConversationID: ID; Dreaming: boolean; Preview: { Kind: 'text' | 'card'; Text: string; CreatedAt: string } | null };
 
 export type BuildInfo = { version: string; commit: string; built_at: string; os: string; arch: string; embedded_webui: boolean };
 export type ReleaseInfo = { version: string; commit: string; published_at: string; notes_url: string; file: string; sha256: string };

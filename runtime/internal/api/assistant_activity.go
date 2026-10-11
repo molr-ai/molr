@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"time"
 	"unicode"
 
 	"molr.ai/runtime/internal/business/assistant"
@@ -16,8 +17,9 @@ type assistantActivity struct {
 	Preview        *messagePreview
 }
 type messagePreview struct {
-	Kind conversation.ContentKind
-	Text string
+	Kind      conversation.ContentKind
+	Text      string
+	CreatedAt time.Time
 }
 
 func previewText(text string) string {
@@ -87,7 +89,7 @@ func (s *HTTPServer) assistantActivity(r *http.Request) (any, error) {
 					text = content.Card.Summary
 				}
 			}
-			row.Preview = &messagePreview{Kind: content.Kind, Text: previewText(text)}
+			row.Preview = &messagePreview{Kind: content.Kind, Text: previewText(text), CreatedAt: message.CreatedAt}
 		}
 		result.Items = append(result.Items, row)
 	}
