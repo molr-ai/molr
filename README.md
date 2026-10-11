@@ -61,10 +61,10 @@ bash scripts/install.sh --archive dist/releases/molr_0.1.0-local_linux_amd64.tar
 | 入口 | 内容 |
 | --- | --- |
 | [产品文档](docs/README.md) | 使用指南与常见问题 |
-| [助理、聊天与计划](docs/assistants-and-plans.md) | 持续对话、定时安排、结果与修订 |
-| [资源、权限与预算](docs/resources-and-permissions.md) | 模型连接、资料范围、授权与费用 |
-| [插件](docs/plugins.md) | HTTP 工具、主题与页面扩展 |
-| [架构总览](docs/architecture.md) | 组件构成、执行链路与数据存放 |
+| [助理、聊天与计划](docs/guides/assistants-and-chat.md) | 持续对话、定时安排、结果与修订 |
+| [资源、权限与预算](docs/guides/permissions-and-budget.md) | 模型连接、资料范围、授权与费用 |
+| [插件](docs/guides/plugins-and-skills.md) | HTTP 工具、主题与页面扩展 |
+| [架构总览](docs/concepts.md) | 组件构成、执行链路与数据存放 |
 | [Linux 命令环境](docs/deployment/sandbox.md) | 沙盒依赖、运行限制与能力检查 |
 | [开发文档](dev-docs/README.md) | 实现说明、接口、品牌与协作规范 |
 
@@ -93,8 +93,8 @@ VITE_SITE_MODE=live npm run dev:website # 官网：5189
 npm run dev:design      # UI Design：5188，模拟数据
 ```
 
-前端默认监听 `0.0.0.0`。各 worktree 使用独立的依赖、数据和空闲端口；WebUI 通过 `MOLR_RUNTIME_URL` 连接同一 worktree 自己的 Runtime。启动配置与验证命令见各目录的 README，Runtime 构建和验收要求见[开发规范](dev-docs/DEVELOPMENT.md)。
+前端默认监听 `0.0.0.0`。各 worktree 使用独立的依赖、数据和空闲端口；WebUI 通过 `MOLR_RUNTIME_URL` 连接同一 worktree 自己的 Runtime。启动配置与验证命令见各目录的 README，Runtime 构建和验收要求见[开发规范](dev-docs/contributing/development.md)。
 
 ## 许可证
 
-Molr 自有代码与文档采用 [MIT 许可证](LICENSE)。第三方组件保留各自许可证，详见[第三方声明](THIRD_PARTY_NOTICES.md)与[许可证及分发说明](dev-docs/LICENSING.md)。
+Molr 自有代码与文档采用 [MIT 许可证](LICENSE)。第三方组件保留各自许可证，详见[第三方声明](THIRD_PARTY_NOTICES.md)与[许可证及分发说明](dev-docs/releasing/licensing.md)。

@@ -44,7 +44,7 @@ Build tools themselves are not included in Molr releases.
   to a container or other package must meet their distribution obligations.
 
 Dependency versions and review scope are recorded in
-`dev-docs/license-inventory.json` in the source repository. To update the
+`dev-docs/releasing/license-inventory.json` in the source repository. To update the
 machine-collected portion, review the dependency changes and run
 `npm run notices:update`; the reviewed supplement remains in this same file.
 

@@ -4,26 +4,16 @@
 
 ## 安装 Molr
 
-从官网安装区选择 stable（正式版）、preview（beta／rc）或 nightly，再选择目标平台。可用版本以官网发布清单为准；暂无版本的渠道不会提供下载入口。当前平台定义为 Linux amd64／arm64，安装包包含 Runtime 与 WebUI，静态 BusyBox 等沙盒依赖通过目标机系统包管理器提供。
+从官网安装区选择一个已有版本的渠道，再选择目标平台。可用版本以官网发布清单为准；暂无版本的渠道不会提供下载入口。当前平台定义为 Linux amd64／arm64，安装包包含 Runtime 与 WebUI，静态 BusyBox 等沙盒依赖通过目标机系统包管理器提供。
 
 准备 Python 3.11+ 后，下载官网安装脚本并选择渠道：
 
 ```bash
 curl -fL https://molr.ai/install.sh -o install.sh
 bash install.sh --channel stable
-# 提前体验 beta / rc
-bash install.sh --channel preview
-# 每日构建
-bash install.sh --channel nightly
 ```
 
-官网复制的命令会固定到页面显示的版本。也可用 `--version VERSION` 指定版本，`--source URL` 指定其他发布源。使用者无需安装 Go、Node.js 或单独部署网页。
-
-离线安装时，从同一个 GitHub Release 下载对应架构的安装包、同名 `.sha256` 校验文件和 `install.sh`，放在同一目录后运行：
-
-```bash
-bash install.sh --archive /path/molr_0.1.0_linux_amd64.tar.gz
-```
+示例使用 stable；该渠道暂无版本时，在官网选择已有版本的 preview 或 nightly，并使用官网生成的固定版本命令。使用者无需安装 Go、Node.js 或单独部署网页。
 
 首次安装默认使用当前普通用户、从 8787 开始选择空闲端口、安装 systemd 用户服务并生成独立配置。root 执行时须通过 `--user molr` 指定非 root 运行账户。依赖缺失时，apt 系系统会询问是否安装；其他系统需按输出补齐依赖。systemd 用户管理器必须可用；需要退出登录后继续运行时，按安装提示配置 linger。
 
@@ -49,16 +39,7 @@ bash install.sh --archive /path/molr_0.1.0_linux_amd64.tar.gz
 
 自定义端口或其他设备可手动填写地址。服务需要认证、暂无模型或已经连接时会明确提示。容器里的本机地址指容器网络；发现结果不表示模型工具调用已经验证，也不代表服务免费。
 
-### 从源码构建发行包
-
-维护者使用仓库指定的 Go 和 Node.js，执行：
-
-```bash
-npm ci
-npm run build:release
-```
-
-产物位于 `dist/releases/`，完整构建参数与发布源说明见[部署指南](deployment/README.md)。源码联调仍可分别运行 Runtime 和 `npm run dev:webui`。
+源码部署和离线安装分别见[源码构建](deployment/source-build.md)与[安装指南](deployment/installation.md)。
 
 ## 登录
 
@@ -68,17 +49,17 @@ npm run build:release
 
 ## 连接模型
 
-管理员进入“资源”，选择模型类别并连接提供商。普通成员无需配置连接，由管理员通过[用户组](users-and-groups.md)分配可用模型和工具；已有可用模型时可直接聘请助理。填写服务地址与所需 API Key，本地免认证服务可按其要求选择免认证。
+管理员进入“资源”，选择模型类别并连接提供商。普通成员无需配置连接，由管理员通过[用户组](administration/users-and-groups.md)分配可用模型和工具；已有可用模型时可直接聘请助理。填写服务地址与所需 API Key，本地免认证服务可按其要求选择免认证。
 
 可以先测试连接，再保存并获取模型列表。测试成功只说明模型列表接口可访问，实际推理和工具调用仍取决于所选模型能力。模型列表为空或缺少能力、价格时，在模型配置中补充。
 
-不知道价格时不要填零；明确设置为零代表确认该项免费。连接本机模型时，地址指 Runtime 所在设备，而不是浏览器所在的电脑。部署网络策略可能需要管理员调整，见 [部署说明](deployment/README.md#模型网络与价格配置)。
+不知道价格时不要填零；明确设置为零代表确认该项免费。连接本机模型时，地址指 Runtime 所在设备，而不是浏览器所在的电脑。部署网络策略可能需要管理员调整，见 [部署说明](deployment/configuration.md#模型网络与价格配置)。
 
 ## 聘请助理
 
 为助理设置名字、支持工具调用的模型、消耗上限及每日或每周重置周期。聘请时会授权所选模型；不会同时授权该提供商下所有模型或你的文件目录。
 
-预算属于助理。该助理的聊天和所有计划执行共用额度，没有单独的任务预算。详细规则见 [资源、权限与预算](resources-and-permissions.md)。
+预算属于助理。该助理的聊天和所有计划执行共用额度，没有单独的任务预算。详细规则见 [资源、权限与预算](guides/permissions-and-budget.md)。
 
 ## 交代第一件事
 
@@ -90,4 +71,4 @@ npm run build:release
 
 在聊天和“计划”中查看相关执行及产物；已有交付物可以下载，任务修订保留历史版本。收到一段回复并不等于资料已经修改或任务已经验收，核对实际结果与明确的完成状态。
 
-需要助理读取外部目录时，再连接该目录并授予范围；需要执行命令时，另外授予就绪计算环境的执行权限。操作路径见 [助理、聊天与计划](assistants-and-plans.md) 和 [Linux 命令环境](deployment/sandbox.md)。
+需要助理读取外部目录时，再连接该目录并授予范围；需要执行命令时，另外授予就绪计算环境的执行权限。操作路径见 [助理、聊天与计划](guides/assistants-and-chat.md) 和 [Linux 命令环境](deployment/sandbox.md)。

@@ -70,7 +70,8 @@ test('unlisted Markdown is absent from the generated document module', async () 
     await build({ configFile: false, root, publicDir: false, plugins: [publicDocuments(), releaseAssets()], logLevel: 'silent' });
     const assets = join(root, 'dist/assets');
     const text = (await Promise.all((await readdir(assets)).map(name => readFile(join(assets, name), 'utf8')))).join('');
-    assert(text.includes('Molr 产品范围'));
+    assert(text.includes('文档维护约定'));
+    assert(!text.includes('从单账号升级到多用户（一次性）'));
     assert(!text.includes(sentinel));
   } finally {
     await rm(scratch, { recursive: true, force: true });

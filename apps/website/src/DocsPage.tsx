@@ -9,8 +9,8 @@ import type { Locale } from './site-content';
 
 type SectionRoot = 'docs' | 'dev-docs';
 const sections: { root: SectionRoot; title: string; overview: string; groups: string[]; items: Doc[] }[] = [
-  { root: 'docs', title: '文档', overview: '文档概览', groups: ['开始使用', '使用指南', '部署与维护'], items: docs },
-  { root: 'dev-docs', title: '开发者文档', overview: '开发文档概览', groups: ['概览', '产品', 'Runtime', '前端'], items: devDocs },
+  { root: 'docs', title: '文档', overview: '文档概览', groups: [...new Set(docs.map(doc => doc.group))], items: docs },
+  { root: 'dev-docs', title: '开发者文档', overview: '开发文档概览', groups: [...new Set(devDocs.map(doc => doc.group))], items: devDocs },
 ];
 
 function sectionFor(pathname: string, root?: SectionRoot) {

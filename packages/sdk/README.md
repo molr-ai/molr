@@ -12,7 +12,7 @@ SSE failures verify the current browser session through `verifySession()`. A cur
 
 Read and download requests preserve `AbortError` when cancelled, including while the response body is being read. Malformed successful JSON remains an `invalid_response` error. Run `npm run test --workspace @molr/sdk` for client transport regressions.
 
-See [UI packages](../../dev-docs/frontend/UI_PACKAGES.md) for the host architecture and [Plugin API](../../dev-docs/runtime/PLUGINS.md) for supported product extensions.
+See [UI packages](../../dev-docs/frontend/themes.md) for the host architecture and [Plugin API](../../dev-docs/extensions/plugins.md) for supported product extensions.
 
 - `@molr/sdk/plugins`: Plugin API 3 包、provider、连接、个人设置、工具执行和页面引用类型。
 - `@molr/sdk/plugin-host`: 外部插件单 HTML 页面使用 `connectPlugin()` 建立受限宿主连接；需打包内联，开放 plans.list、settings.get/update、connections.list/test，按页面 capability 校验；不提供通用 HTTP 代理或明文凭证。

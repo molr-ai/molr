@@ -159,7 +159,7 @@ import { Select } from '@molr/ui';
 
 交互 Logo 仅在页面可见时轮询 SVG 时钟；页面隐藏后停止轮询，恢复可见时立即读取真实播放位置。减少动态效果、图片回退及卸载时清理计时器和可见性监听。`apps/ui-design/tests/logo-visibility.spec.ts` 覆盖后台加载、恢复、点击跳过等待及清理。
 
-在仓库根目录运行 `npm run brand:generate` 重新导出 Logo，运行 `npm run typecheck --workspace @molr/ui` 检查组件类型。视觉约定见 [品牌规范](../../dev-docs/frontend/BRAND.md)。
+在仓库根目录运行 `npm run brand:generate` 重新导出 Logo，运行 `npm run typecheck --workspace @molr/ui` 检查组件类型。视觉约定见 [品牌规范](../../dev-docs/frontend/brand.md)。
 
 `brand:generate` 使用 `@resvg/resvg-js` 从同一份应用图标 SVG 生成全部 PNG；自定义配色同时应用到两种格式。尺寸列表统一维护在 `src/app-icon-sizes.json`，并通过 `appIconSizes` 导出供下载界面使用。
 
@@ -174,3 +174,9 @@ import { Select } from '@molr/ui';
 ## 构建副作用边界
 
 包清单使用 `sideEffects: ["**/*.css"]`，保留所有显式 CSS 导入，同时允许构建器移除未使用的组件及其依赖。组件模块没有必须在导入时执行的全局初始化；浏览器事件监听和运行时状态初始化应留在组件生命周期或显式调用中。新增不可移除的初始化模块时，必须将其加入清单，不能依赖偶然的导入顺序。SSR 导入与组件行为测试、三个应用的生产构建共同检查这一边界。
+
+## 聊天时间格式化
+
+聊天时间与完整悬停文本使用同一时区判断当天、当年和跨年。共享 `formatChatTime` 对显式语言／时区组合复用 `Intl.DateTimeFormat`，最多保留 32 组，超出后移除最早加入的组合；不缓存格式化结果，因此当前日期变化仍会重新判断。未指定时区时沿用浏览器或服务端当前默认值，避免把隐式时区固定在缓存创建时。无效时间和时区保持原有行为。
+
+`npm run test --workspace @molr/ui` 覆盖跨天、跨年、夏令时、语言切换、默认时区变化及缓存上限。`npm run test:webui -- chat-time.spec.ts` 使用 500 条分页消息夹具验证桌面／移动端逐字输入不会重复创建聊天时间格式化器，并检查账户时区切换。

@@ -63,10 +63,10 @@ The linked product and contributor guides are currently in Simplified Chinese.
 | Guide | Contents |
 | --- | --- |
 | [Product documentation](docs/README.md) | User guides and troubleshooting |
-| [Assistants, conversations, and plans](docs/assistants-and-plans.md) | Ongoing conversations, scheduling, results, and revisions |
-| [Resources, permissions, and budgets](docs/resources-and-permissions.md) | Model connections, file access, authorization, and costs |
-| [Plugins](docs/plugins.md) | Tools, Skills, themes, and page extensions |
-| [Architecture overview](docs/architecture.md) | Components, execution flow, and data storage |
+| [Assistants, conversations, and plans](docs/guides/assistants-and-chat.md) | Ongoing conversations, scheduling, results, and revisions |
+| [Resources, permissions, and budgets](docs/guides/permissions-and-budget.md) | Model connections, file access, authorization, and costs |
+| [Plugins](docs/guides/plugins-and-skills.md) | Tools, Skills, themes, and page extensions |
+| [Architecture overview](docs/concepts.md) | Components, execution flow, and data storage |
 | [Linux command environment](docs/deployment/sandbox.md) | Sandbox dependencies, limits, and capability checks |
 | [Developer documentation](dev-docs/README.md) | Implementation, interfaces, branding, and contribution workflow |
 
@@ -95,8 +95,8 @@ VITE_SITE_MODE=live npm run dev:website # Website: 5189
 npm run dev:design      # UI Design: 5188; mock data
 ```
 
-Frontends listen on `0.0.0.0` by default. Each worktree needs its own dependencies, data, and available ports. Set `MOLR_RUNTIME_URL` to connect the WebUI to that worktree's own Runtime. See each directory's README for configuration and validation commands, and the [development guide](dev-docs/DEVELOPMENT.md) for Runtime build and acceptance requirements.
+Frontends listen on `0.0.0.0` by default. Each worktree needs its own dependencies, data, and available ports. Set `MOLR_RUNTIME_URL` to connect the WebUI to that worktree's own Runtime. See each directory's README for configuration and validation commands, and the [development guide](dev-docs/contributing/development.md) for Runtime build and acceptance requirements.
 
 ## License
 
-Molr's own code and documentation are licensed under [MIT](LICENSE). Third-party components retain their respective licenses. See [Third-party notices](THIRD_PARTY_NOTICES.md) and the [licensing and distribution guide](dev-docs/LICENSING.md).
+Molr's own code and documentation are licensed under [MIT](LICENSE). Third-party components retain their respective licenses. See [Third-party notices](THIRD_PARTY_NOTICES.md) and the [licensing and distribution guide](dev-docs/releasing/licensing.md).

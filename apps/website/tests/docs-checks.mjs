@@ -2,23 +2,13 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect } from '@playwright/test';
+import { docRoutes, devDocRoutes } from '../src/docs-routes.ts';
 
 export async function checkDocs({ browser, url, outDir, screenshots }) {
-  const pages = [
-    ['/docs/', 'Molr 产品文档'],
-    ['/docs/getting-started/', '快速开始'],
-    ['/docs/architecture/', '架构总览'],
-    ['/docs/assistants-and-plans/', '助理、聊天与计划'],
-    ['/docs/resources-and-permissions/', '资源、权限与预算'],
-    ['/docs/settings-and-troubleshooting/', '设置、安全与常见问题'],
-    ['/docs/deployment/', '部署与维护'],
-    ['/docs/deployment/sandbox/', '自动命令执行环境'],
-    ['/docs/deployment/remote-sandbox/', '独立 Linux Sandbox 服务'],
-    ['/dev-docs/', 'Molr 开发文档'],
-    ['/dev-docs/product-scope/', 'Molr 产品范围'],
-    ['/dev-docs/runtime/architecture/', 'Molr Runtime 架构设计'],
-    ['/dev-docs/runtime/security/', 'Runtime 公网部署与安全边界'],
-  ];
+  const pages = await Promise.all([...docRoutes, ...devDocRoutes].map(async route => {
+    const source = await readFile(new URL(`../../../${route.root}/${route.file}`, import.meta.url), 'utf8');
+    return [route.path, /^# (.+)$/m.exec(source)[1]];
+  }));
   const context = await browser.newContext({ locale: 'zh-CN', colorScheme: 'light', viewport: { width: 1440, height: 1000 } });
   try {
     const page = await context.newPage();
@@ -34,14 +24,17 @@ export async function checkDocs({ browser, url, outDir, screenshots }) {
       await page.goto(`${url}${path}`);
       await expect(page.getByRole('heading', { level: 1, name: title, exact: true })).toBeVisible();
       await expect(page).toHaveTitle(`${title} · Molr Docs`);
-      await expect(page.getByRole('navigation', { name: '文档目录' }).locator('[aria-current="page"]')).toHaveCount(1);
+      await expect(page.getByRole('navigation', { name: '文档目录' }).locator('[aria-current="page"]'), path).toHaveCount(1);
       for (const href of await page.locator('.docs-toc a').evaluateAll(links => links.map(link => link.getAttribute('href')))) {
         assert(await page.evaluate(hash => document.getElementById(decodeURIComponent(hash.slice(1))) !== null, href));
       }
-      assert(await page.locator('.docs-prose a').evaluateAll(links => links.every(link => !new URL(link.href).pathname.endsWith('.md'))));
+      assert(await page.locator('.docs-prose a').evaluateAll(links => links.every(link => {
+        const target = new URL(link.href);
+        return target.origin !== location.origin || !target.pathname.endsWith('.md');
+      })), `Unresolved local Markdown link in ${path}`);
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     }
-    for (const removed of ['/dev-docs/product/prd/', '/dev-docs/research/']) {
+    for (const removed of ['/dev-docs/product/prd/', '/dev-docs/research/', '/docs/deployment/multi-user-upgrade/', '/dev-docs/product-scope/', '/docs/assistants-and-plans/']) {
       await page.goto(`${url}${removed}`);
       await expect(page.getByRole('heading', { level: 1 })).toHaveText('未找到文档');
     }
@@ -52,7 +45,7 @@ export async function checkDocs({ browser, url, outDir, screenshots }) {
     await checkClientNavigation(page, url);
     await page.goto(`${url}/docs/getting-started/`);
     await page.getByRole('link', { name: '部署说明', exact: true }).last().click();
-    await expect(page).toHaveURL(/\/docs\/deployment\/#/);
+    await expect(page).toHaveURL(/\/docs\/deployment\/configuration\/#/);
     await expect(page.locator('#模型网络与价格配置')).toBeInViewport();
     await page.reload();
     await expect(page.locator('#模型网络与价格配置')).toBeInViewport();
@@ -76,8 +69,8 @@ export async function checkDocs({ browser, url, outDir, screenshots }) {
     }
     await expect(page.getByRole('navigation', { name: '文档目录' })).toBeHidden();
     await page.getByRole('button', { name: '展开目录 +' }).click();
-    await page.getByRole('navigation', { name: '文档目录' }).getByRole('link', { name: '设置、安全与常见问题' }).click();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('设置、安全与常见问题');
+    await page.getByRole('navigation', { name: '文档目录' }).getByRole('link', { name: '个人设置' }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('个人设置');
     await expect(page.getByRole('button', { name: '展开目录 +' })).toHaveAttribute('aria-expanded', 'false');
     await expect(page.getByRole('navigation', { name: '文档目录' })).toBeHidden();
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
@@ -114,11 +107,11 @@ async function checkClientNavigation(page, url) {
 
     const search = page.getByRole('searchbox', { name: '搜索文档' });
     await search.fill('Bubblewrap');
-    await page.getByRole('navigation', { name: '搜索结果' }).getByRole('link', { name: '部署与维护', exact: true }).click();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('部署与维护');
+    await page.getByRole('navigation', { name: '搜索结果' }).getByRole('link', { name: '安装与服务管理', exact: true }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('安装与服务管理');
     await expect(search).toHaveValue('Bubblewrap');
-    await expect(page).toHaveTitle('部署与维护 · Molr Docs');
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://molr.ai/docs/deployment/');
+    await expect(page).toHaveTitle('安装与服务管理 · Molr Docs');
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://molr.ai/docs/deployment/installation/');
     await search.fill('');
 
     const sandboxLink = page.getByRole('link', { name: '沙盒检查', exact: true });
@@ -126,18 +119,18 @@ async function checkClientNavigation(page, url) {
     const originalScroll = await page.evaluate(() => window.scrollY);
     assert(originalScroll > 300);
     await sandboxLink.click();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('自动命令执行环境');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Linux 沙盒部署');
     await expect(page.locator('#检查与验证')).toBeInViewport();
     const sandboxScroll = await page.evaluate(() => window.scrollY);
     await page.goBack();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('部署与维护');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('安装与服务管理');
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeCloseTo(originalScroll, 0);
     await page.goForward();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('自动命令执行环境');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Linux 沙盒部署');
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeCloseTo(sandboxScroll, 0);
 
-    await page.locator('.docs-toc').getByRole('link', { name: '用户如何使用', exact: true }).click();
-    await expect(page.locator('#用户如何使用')).toBeInViewport();
+    await page.locator('.docs-toc').getByRole('link', { name: '安装和启动', exact: true }).click();
+    await expect(page.locator('#安装和启动')).toBeInViewport();
     await page.goBack();
     await expect(page.locator('#检查与验证')).toBeInViewport();
     await page.getByRole('link', { name: '返回官网', exact: true }).click();

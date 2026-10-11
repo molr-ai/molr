@@ -6,7 +6,7 @@ Go 单进程 self-host server，按 **IM / Agent / 业务** 组织，功能固�
 
 Full Access 可作为计算权限按需开启，同一节点保留普通隔离路径；部署配置、授权操作和语义见 [Full Access](../docs/deployment/sandbox.md#按需授予-full-access)。
 
-用户消息轮次若未尝试 `conversation_publish` 就正常结束，Loop 会追加一次私有提醒，询问是否忘记发送；模型可继续选择静默结束。每轮提醒次数随检查点持久化，继续执行遵守原有步数与预算限制。详见[上下文更新机制](../dev-docs/runtime/AGENT_CONTEXT.md)。
+用户消息轮次若未尝试 `conversation_publish` 就正常结束，Loop 会追加一次私有提醒，询问是否忘记发送；模型可继续选择静默结束。每轮提醒次数随检查点持久化，继续执行遵守原有步数与预算限制。详见[上下文更新机制](../dev-docs/runtime/agent-context.md)。
 
 ## 完整本地发行包
 
@@ -30,18 +30,18 @@ WebUI 开发联调见 [应用 README](../apps/webui/README.md)。Dockerfile 提�
 - `auth / credential / policy / audit`：Argon2id 密码、TOTP、一次性恢复码、可撤销 Cookie/Token、CSRF、敏感操作再次验证、AES-GCM 凭证加密、授权和整数预算、审计。
 - `quota`：模型预算、调用额度统计、执行端 SQLite 网络账本、日历周期与统一用量口径；内核资源限制仍由沙盒执行。
 - `im`：会话、用户发送与助理发布、接受/已读、反馈、附件引用、持久 outbox、SSE 游标与实时撤权。
-- `business`：聘请、解雇、返聘、克隆、分组置顶；任务与修订；待办；个人日程和助理计划；资源；本地 Markdown 共享/私有记忆（`/global` 与 `/work`，详见 [文件记忆](../dev-docs/runtime/DREAM_MEMORY.md)）；设置、数据导出和清理。
+- `business`：聘请、解雇、返聘、克隆、分组置顶；任务与修订；待办；个人日程和助理计划；资源；本地 Markdown 共享/私有记忆（`/global` 与 `/work`，详见 [文件记忆](../dev-docs/runtime/dream-memory.md)）；设置、数据导出和清理。
 - `agent`：持久队列、每助理串行 Loop、独立私有上下文、模型/工具操作回执、预算预留和结算、唯一当前执行检查点在恢复边界持续保存、轮次结束与作业确认原子提交、跨事件接续及未知结果待核对。
 - `search / storage / platform`：授权后多来源检索、可重建投影、真实 SQLite 和嵌套事务、文件暂存/恢复、进程树回收、独占实例锁、解析后 IP 直拨和 SSRF 约束。
 - `api / app`：显式 HTTP 路由、大小/超时/速率限制、Host/Origin/TLS/代理校验、SSE、完整装配和退出回收。
 
-公开 Go 接口是单体内部模块的能力边界，不等于 HTTP 接口；HTTP 不持有 Agent 执行、原始凭证读取或任意仓储写入能力。详细结构见[模块设计](../dev-docs/runtime/ARCHITECTURE.md)，接口见[接口合同](../dev-docs/runtime/INTERFACES.md)。
+公开 Go 接口是单体内部模块的能力边界，不等于 HTTP 接口；HTTP 不持有 Agent 执行、原始凭证读取或任意仓储写入能力。详细结构见[模块设计](../dev-docs/architecture/overview.md)，接口见[接口合同](../dev-docs/reference/module-interfaces.md)。
 
 ## 固定适配与当前边界
 
 当前提供 `openai-compatible` 模型提供商、本机目录与沙盒适配器，以及独立 Linux Sandbox 的远程存储、计算和网络适配器。每个模型资源表示一个 provider 连接，WebUI 通过 `SaveProvider` 将连接与 API Key 原子保存，支持读取连接元数据、编辑地址和更换 Key；`DeleteProvider` 原子删除连接及独占凭证、撤销权限并清理默认模型，保留助理与聊天历史；`Binding.Models` 统一保存手动配置和自动发现的模型。`POST /api/resources/test-connection` 可在保存前通过模型列表请求测试连通性与凭证，不保存资源、模型或 API Key。连接时无需填写模型；`POST /api/resources/refresh-models` 从固定同源 `/models` 接口刷新列表，模型 ID 独立于资源 ID 并保持稳定。`POST /api/resources/configure-model` 可在连接后配置单个模型；手动配置按模型名覆盖发现结果，刷新不会覆盖手动价格与能力参数。自动发现采用默认上下文/工具参数，优先匹配内置计价；未覆盖的价格标记为未知，不允许作为免费调用计费。助理授权同时绑定 Provider 资源与所选模型的 `Scope.ModelID`，不覆盖该 Provider 的全部模型；付费模型需设置预算。发现请求通过可信凭证代理和网络 guard，禁止重定向与部署配置未允许的私网地址；API Key 加密存储；敏感操作验证默认关闭，开启后保存／更换 Key 与导出才要求再次验证，OAuth 仅预留前端能力模型，尚未接入。
 
-模型适配器请求供应商 SSE 流并采集首 token 与生成计时，再转换成内部 `model.Stream`，同时兼容完整 JSON 响应。`file_read` 已支持按需图片、音频与视频抽帧输入，OpenAI-compatible 和 DeepSeek 适配器均接通图片；不支持的类型仅返回元信息。能力配置、解码依赖与限制见[多模态文件读取](../dev-docs/runtime/MULTIMODAL_FILES.md)。外部结果未知时保留操作记录，不会猜测成功或自动重发。本地调用退出时自动结束费用预留与并发占用；缺少供应商证据时保留未知费用，后续可信回执仍可补结算。
+模型适配器请求供应商 SSE 流并采集首 token 与生成计时，再转换成内部 `model.Stream`，同时兼容完整 JSON 响应。`file_read` 已支持按需图片、音频与视频抽帧输入，OpenAI-compatible 和 DeepSeek 适配器均接通图片；不支持的类型仅返回元信息。能力配置、解码依赖与限制见[多模态文件读取](../dev-docs/runtime/multimodal-files.md)。外部结果未知时保留操作记录，不会猜测成功或自动重发。本地调用退出时自动结束费用预留与并发占用；缺少供应商证据时保留未知费用，后续可信回执仍可补结算。
 
 模型调用按逻辑步骤记录独立尝试。临时 429、明确拒绝且未计费的过载错误、可确认未发送的连接失败允许自动重试；额度耗尽、认证和请求错误直接失败。普通 5xx、发送后断线、超时或流中断不能证明上游未执行，保留未知操作并结束预算占用，进入 `needs_review`。已知失败以 `failed` 结束调度任务。
 
@@ -55,11 +55,11 @@ WebUI 开发联调见 [应用 README](../apps/webui/README.md)。Dockerfile 提�
 
 目录工具使用 Linux `openat2` 强制禁止符号链接和越界路径，拒绝特殊文件、硬链接及 Runtime 自身目录。其他系统或不支持该能力的内核拒绝目录工具操作。通用可信进程接口保留白名单执行；Linux Agent Shell 使用独立的强制沙盒实现，不能回退到宿主进程。`sandbox.enabled` 默认开启。启动时自动准备基础环境、工作目录与执行资源，自动登记本机沙盒；用户不需要填写底层路径或准备独立存储卷。实际隔离探针通过且已授予计算权限时才向模型开放 `shell_execute`；系统不支持时明确显示不可用，可通过显式配置 `false` 关闭。
 
-Linux Shell 已接入 Bubblewrap、seccomp、cgroup v2、直接目录挂载和受控网络出口。部署、配置与真实隔离测试见 [Sandbox 使用说明](../docs/deployment/sandbox.md)，架构与未来 Windows/macOS 边界见 [设计](../dev-docs/runtime/SANDBOX.md)。
+Linux Shell 已接入 Bubblewrap、seccomp、cgroup v2、直接目录挂载和受控网络出口。部署、配置与真实隔离测试见 [Sandbox 使用说明](../docs/deployment/sandbox.md)，架构与未来 Windows/macOS 边界见 [设计](../dev-docs/security/sandbox.md)。
 
 任务交付需要可信检查操作的证据，模型声称完成不能直接验收。当前内置工具不提供通用任务验收器。搜索在读取前应用来源、助理和归档范围，按有界批次扫描选中的授权源记录；消息按会话及序号索引遍历。持久化投影可重建，但还没有 FTS/向量检索优化。私有上下文按模型 token 窗口管理，未声明且未手动设置时兜底 256K；默认 80% 自动压缩并保留原始历史。单轮执行默认及引擎最大步数均为 999。模型请求默认超时 10 分钟（含等待响应头和读取响应），Shell 前台最多等待 60 秒，未结束转为后台；命令可用 `timeout_seconds` 设置运行截止时间，实际运行还受计算授权及用户组时长限额约束，不限时须显式授权。
 
-模型最大输出长度按手动 `OutputLimit` → 服务商 `ProviderOutputLimit` → 32K（32,768 tokens）解析，默认值不写入手动设置。模型发现读取 `max_output_tokens`、`max_completion_tokens` 或 `top_provider.max_completion_tokens`，刷新保留手动覆盖；清空覆盖恢复服务商值或默认值。WebUI 模型配置可修改，列表显示生效值与来源。每次请求按模型输出上限发送并预留预算，不依据估算剩余上下文拒绝请求或缩小输出额度；上下文仍在默认 80% 阈值自动压缩，摘要请求另有精简目标且不超过模型上限。自动上下文的版本刷新、来源范围及限制见[上下文更新机制](../dev-docs/runtime/AGENT_CONTEXT.md)。文件导出上限 20 MiB，超限明确失败。
+模型最大输出长度按手动 `OutputLimit` → 服务商 `ProviderOutputLimit` → 32K（32,768 tokens）解析，默认值不写入手动设置。模型发现读取 `max_output_tokens`、`max_completion_tokens` 或 `top_provider.max_completion_tokens`，刷新保留手动覆盖；清空覆盖恢复服务商值或默认值。WebUI 模型配置可修改，列表显示生效值与来源。每次请求按模型输出上限发送并预留预算，不依据估算剩余上下文拒绝请求或缩小输出额度；上下文仍在默认 80% 阈值自动压缩，摘要请求另有精简目标且不超过模型上限。自动上下文的版本刷新、来源范围及限制见[上下文更新机制](../dev-docs/runtime/agent-context.md)。文件导出上限 20 MiB，超限明确失败。
 
 助手每次模型请求前读取当前账号的时区、语言和币种，以 `user_preferences` 自动上下文注入；内容变化时替换旧快照，时间流逝和无关设置修改不会触发更新。时区用于相对日期和新日程，语言用于默认回复语言，币种用于默认金额展示；用户明确要求优先，已有日程时区、原始金额币种和预算计价保持各自含义。缺失时区标记为未知，语言/币种采用产品默认值并标明来源。时间沿用已有事件字段，不注入持续变化的当前时间。
 
@@ -72,9 +72,9 @@ make -C runtime check                 # 在仓库根目录执行
 make -C runtime test TEST_FLAGS='-race -p 4'
 ```
 
-测试使用临时 SQLite、文件和本地 HTTP/TLS 模型模拟服务；需要允许创建本机 socket，不需要真实模型 API Key。包括原模块 TDD、真实认证与业务组合、完整消息→工具→回复→重启流程、取消后的费用、文件/网络边界和备份恢复。接口映射检查只证明公开入口都有对应测试，不代表分支覆盖率或独立安全审计。参见[测试说明](tests/README.md)和[安全设计](../dev-docs/runtime/SECURITY.md)。
+测试使用临时 SQLite、文件和本地 HTTP/TLS 模型模拟服务；需要允许创建本机 socket，不需要真实模型 API Key。包括原模块 TDD、真实认证与业务组合、完整消息→工具→回复→重启流程、取消后的费用、文件/网络边界和备份恢复。接口映射检查只证明公开入口都有对应测试，不代表分支覆盖率或独立安全审计。参见[测试说明](tests/README.md)和[安全设计](../dev-docs/security/security-model.md)。
 
-需要验证真实模型行为或归纳质量时，按[真实模型测试约定](../dev-docs/DEVELOPMENT.md#真实模型测试)，优先使用主环境中已经配置好的本地模型，并从任务 worktree 的独立 Runtime 执行测试。
+需要验证真实模型行为或归纳质量时，按[真实模型测试约定](../dev-docs/contributing/development.md#真实模型测试)，优先使用主环境中已经配置好的本地模型，并从任务 worktree 的独立 Runtime 执行测试。
 
 真实 WebUI 的启动与生产反向代理配置见 [WebUI README](../apps/webui/README.md)。HTTP 通用限流使用 `http.requests_per_minute`（默认 600），登录限流仍独立使用 `auth.login_attempts_per_minute`。
 
@@ -103,7 +103,7 @@ DeepSeek 规则在 [`internal/pricing/deepseek.json`](internal/pricing/deepseek.
 
 ### 助理预算
 
-聊天与计划执行共享所属助理预算，普通成员还受用户组的累计额度限制。用户操作、周期和未结算费用规则见[助理预算](../docs/resources-and-permissions.md#助理预算)，请求字段与用量响应见 [HTTP API](../dev-docs/runtime/HTTP_API.md)。
+聊天与计划执行共享所属助理预算，普通成员还受用户组的累计额度限制。用户操作、周期和未结算费用规则见[助理预算](../docs/guides/permissions-and-budget.md#助理预算)，请求字段与用量响应见 [HTTP API](../dev-docs/reference/http-api.md)。
 
 
 ### 币种与参考汇率
@@ -114,7 +114,7 @@ DeepSeek 规则在 [`internal/pricing/deepseek.json`](internal/pricing/deepseek.
 
 ### 开发工作台
 
-通过部署配置 `debug.enabled` 开启所有账号的执行采集，默认关闭。WebUI 常规设置「显示开发工作台」只控制入口显示，隐藏入口仍采集，显示后可查看保留范围内的历史。工作台展示真实 Agent 时间线、调用上下文、请求／响应、工具结果与费用，不通过普通聊天事件流公开私有执行数据。入口、采集限制和 API 见 [开发工作台](../dev-docs/runtime/WORKBENCH.md)。
+通过部署配置 `debug.enabled` 开启所有账号的执行采集，默认关闭。WebUI 常规设置「显示开发工作台」只控制入口显示，隐藏入口仍采集，显示后可查看保留范围内的历史。工作台展示真实 Agent 时间线、调用上下文、请求／响应、工具结果与费用，不通过普通聊天事件流公开私有执行数据。入口、采集限制和 API 见 [开发工作台](../dev-docs/runtime/workbench.md)。
 
 ### 助理默认工具
 
@@ -154,7 +154,7 @@ Runtime 内嵌本机 sandbox_manager；可另行构建 `./cmd/molr-sandbox` 在�
 
 ### 持久化查询性能回归
 
-认证凭据按摘要查询；执行身份和结算按所属账号、助理及执行 ID 查询；授权快照排除已撤销和过期记录。普通业务列表、认证列表、审计、操作历史及调试运行列表在数据库中分页。附件、依赖和梦境来源使用事务内维护的数组成员索引。保留的全范围遍历及设计边界见[架构说明](../dev-docs/runtime/ARCHITECTURE.md#持久化查询与全量读取边界)。
+认证凭据按摘要查询；执行身份和结算按所属账号、助理及执行 ID 查询；授权快照排除已撤销和过期记录。普通业务列表、认证列表、审计、操作历史及调试运行列表在数据库中分页。附件、依赖和梦境来源使用事务内维护的数组成员索引。保留的全范围遍历及设计边界见[架构说明](../dev-docs/architecture/overview.md#持久化查询与全量读取边界)。
 
 `go test ./internal/persistence/... ./internal/auth ./internal/app ./tests/architecture ./tests/contractcoverage` 包含查询计划、读取量、游标隔离、数组索引事务一致性和全量读取例外检查。`go test ./internal/auth -run '^$' -bench '^BenchmarkSessionLookupHistory$' -benchmem` 比较 1 千、1 万和 10 万条会话历史下的全量读取与摘要索引查询；测量仅包含存储查询，不代表端到端模型响应时间。
 
@@ -188,7 +188,7 @@ Runtime 内嵌本机 sandbox_manager；可另行构建 `./cmd/molr-sandbox` 在�
 
 ### 模型流式组装性能回归
 
-Chat Completions 的文本与工具字段使用增量缓冲组装，避免长输出的反复字符串复制。`go test ./internal/agent/model -run '^$' -bench BenchmarkChatStreamAssembly -benchmem` 覆盖正文、推理和工具参数的片段数增长；语义和证据校验见 [模型适配](../dev-docs/runtime/MODEL_ADAPTERS.md#流式响应组装)。
+Chat Completions 的文本与工具字段使用增量缓冲组装，避免长输出的反复字符串复制。`go test ./internal/agent/model -run '^$' -bench BenchmarkChatStreamAssembly -benchmem` 覆盖正文、推理和工具参数的片段数增长；语义和证据校验见 [模型适配](../dev-docs/runtime/model-adapters.md#流式响应组装)。
 
 ### 通知查询性能回归
 
