@@ -1,5 +1,7 @@
 import { startTransition, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 
+import { isDocPath } from './doc-locale';
+
 type Position = [number, number];
 interface Navigation {
   pathname: string;
@@ -7,6 +9,10 @@ interface Navigation {
   revision: number;
   action: 'initial' | 'push' | 'pop';
   position?: Position;
+}
+
+export function navigateSite(href: string) {
+  window.dispatchEvent(new CustomEvent('molr:navigate', { detail: href }));
 }
 
 const scrollKey = 'molrWebsiteScroll';
@@ -48,10 +54,15 @@ export function useSiteNavigation(enabled: boolean) {
       if (!(anchor instanceof HTMLAnchorElement) || anchor.hasAttribute('download') ||
         (anchor.target && anchor.target !== '_self') || anchor.relList.contains('external')) return;
       const url = new URL(anchor.href);
-      if (url.origin !== window.location.origin || (url.pathname !== '/' && !/^\/(?:dev-)?docs(?:\/|$)/.test(url.pathname))) return;
+      if (url.origin !== window.location.origin || (url.pathname !== '/' && !isDocPath(url.pathname))) return;
       event.preventDefault();
       savePosition();
       if (url.href !== window.location.href) history.pushState(null, '', url);
+      update('push');
+    };
+    const onNavigate = (event: Event) => {
+      savePosition();
+      history.pushState(null, '', (event as CustomEvent<string>).detail);
       update('push');
     };
     const onPopState = (event: PopStateEvent) => {
@@ -60,6 +71,7 @@ export function useSiteNavigation(enabled: boolean) {
       const position: unknown = event.state?.[scrollKey];
       update('pop', Array.isArray(position) && position.length === 2 && position.every(Number.isFinite) ? position as Position : undefined);
     };
+    window.addEventListener('molr:navigate', onNavigate);
     document.addEventListener('click', onClick);
     window.addEventListener('popstate', onPopState);
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -67,6 +79,7 @@ export function useSiteNavigation(enabled: boolean) {
     return () => {
       cancelAnimationFrame(frame);
       history.scrollRestoration = previousRestoration;
+      window.removeEventListener('molr:navigate', onNavigate);
       document.removeEventListener('click', onClick);
       window.removeEventListener('popstate', onPopState);
       window.removeEventListener('scroll', onScroll);

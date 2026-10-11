@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
+import { docLocale, isDocPath } from './doc-locale';
 import { messages } from './site-content';
 import type { Locale } from './site-content';
 import type { SiteMode } from './site-mode';
@@ -25,8 +26,9 @@ function preferredLocale(mode: SiteMode): Locale {
 }
 
 export function useLocale(mode: SiteMode, pathname: string) {
-  const [locale, setLocale] = useState<Locale>(() => preferredLocale(mode));
+  const [preference, setLocale] = useState<Locale>(() => preferredLocale(mode));
   const [manualLocale, setManualLocale] = useState<Locale | null>(null);
+  const locale = (mode === 'live' ? docLocale(pathname) : undefined) ?? preference;
   const changeLocale = (next: Locale) => {
     setManualLocale(next);
     setLocale(next);
@@ -52,7 +54,8 @@ export function useLocale(mode: SiteMode, pathname: string) {
     document.documentElement.lang = locale === 'zh' ? 'zh-CN' : 'en';
     document.documentElement.dataset.locale = locale;
     document.querySelector('meta[property="og:locale"]')?.setAttribute('content', locale === 'zh' ? 'zh_CN' : 'en_US');
-    if (mode === 'live' && /^\/docs(?:\/|$)/.test(pathname)) return;
+    if (mode === 'live' && isDocPath(pathname)) return;
+    document.querySelectorAll('link[hreflang]').forEach(link => link.remove());
     document.querySelector('link[rel="canonical"]')?.setAttribute('href', 'https://molr.ai/');
     document.querySelector('meta[property="og:url"]')?.setAttribute('content', 'https://molr.ai/');
     document.title = copy.title;

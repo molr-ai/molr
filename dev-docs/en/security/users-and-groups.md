@@ -1,0 +1,49 @@
+# Multi-User, Shared Resource Directories, and Member Quotas
+
+Updated: 2026-10-03. For user operations, see [Users and User Groups](../../../docs/en/administration/users-and-groups.md). The scope of this update is independent accounts and user group authorization; there is no space, group chat, or inter-user data sharing.
+
+Sandbox references add `AllowFullAccess` (default false). Only when an administrator explicitly checks "Allow granting Full Access" can group members grant Full Access compute permissions for the corresponding node to their own assistants; merely referencing a sandbox is insufficient for privilege escalation. Full Access calls are not subject to group resource quotas, while normal calls continue to use group quotas; revoking this option takes effect in subsequent authorization checks and running task checks. Full Access directly inherits the system account's access scope; multi-user deployments should decide whether to delegate based on this.
+
+## Identity and Directory
+
+`auth.accounts` is stored by account ID; login looks up by unique username. `auth.bootstrap/owner` only identifies the original account and the stable resource directory namespace; it does not represent the current requesting user. The service only accepts formats stored by account ID; the construction authentication service only validates data, does not perform conversion, and does not fall back to reading the old singleton.
+
+The built-in `administrators` is the only administrator group: it has access to all resources, no group quota, and editing the resource list or deletion is prohibited. `users` is the initial normal group with no resources. An account belongs to only one user group. Changes to group membership or deactivation revoke sessions, access tokens, and login links; the last non-deactivated administrator cannot be deactivated or demoted. All management APIs re-verify the current administrator identity on the server side. Authorization per page in the user list, along with account and group information, share a single read transaction; users in the same group reuse the group configuration already read for this page, while subsequent requests re-read it, promptly reflecting changes in group names and permission flags.
+
+## Private Data and Resource Directories
+
+Assistants, sessions, messages, attachments, plans, memories, authorizations, budgets, audits, contexts, workspaces, and personal settings continue to use the OwnerID of the requesting identity. Administrator identity does not bypass ownership checks for these objects. Statistics only output user identifiers, groups, model/tool/HTTP connection call counts, occupied and pending verification quantities, currency amounts, and total attachment volume; they do not include detailed business content.
+
+Only resources, connection bindings, resource credentials, sandbox connections, and plugin installation records use `persistence.CatalogOwner` to resolve the global namespace. The original directory prefix and encrypted AAD remain unchanged. Private workspaces are still determined by the combination of user ID and assistant ID; the directory owner cannot replace the runtime identity.
+
+Managing resources/credentials/sandboxes as well as plugin installation and global enable/disable requires administrator privileges; resource descriptions and model lists for regular users are filtered by group references. The model catalog loads resource bindings and a single user group snapshot within the same read transaction, filtering by the set of model IDs; the snapshot is used only for the current request, while subsequent requests re-read permissions, and the returned list still undergoes per-item model authorization. Plugins only present installation items to regular users that are globally enabled by administrators and have `plugin` references in the user group; bindings to other users' assistants or administrator setting declarations are not exposed. Personal enable/disable is saved independently; pages, themes, settings, and tool calls all check plugin group permissions and personal enablement. Assistant capabilities are also constrained by tool references and their own compute authorizations; HTTP tools additionally check connection references and do not require compute resources. Optional personal settings are isolated by real user; shared administrator configurations are readable and writable only by administrators. See [Plugin Mechanism](../extensions/plugins.md) for details.
+
+## Dual-Layer Quotas
+
+User groups only store `Kind + ID + Quota`; they do not store endpoint, secret, manifest, or sandbox connection definitions. Models reference specific ModelIDs, tools reference tool names, and sandboxes reference connection IDs.
+
+The check order maintains the conjunctive constraint of "current identity and group resource scope → original assistant authorization and quota → member cumulative quota" across all execution paths. Administrators skip group constraints but still pass through original assistant constraints. User group quotas are accumulated by OwnerID and stable resource ID; changing groups, deleting and re-adding references, or rebuilding Grants will not generate new balances.
+
+- Models: Group-level checks and original assistant cost Reserves occur in the same write transaction, aggregating settled costs and in-flight reserved costs for all assistants by ModelID; multi-currency is converted using the existing exchange rate module. Local calls end reservation and concurrent occupation upon exit; unknown status retains unknown costs but does not occupy quota, and subsequent trusted receipts can still settle.
+- Tools: Metering occurs in the same transaction where the tool operation enters Running, limiting call counts and concurrency by user + tool name. Rejected requests do not start external operations. Only Running status counts towards tool concurrency; unknown status retains historical call counts and side-effect information, counted according to the original cycle.
+- Compute: Linux cgroup hierarchy `account-<owner hash>/quota-<owner+assistant hash>/molr-<execution>`; the account parent level limits aggregate CPU, memory, and process count, while the assistant level continues to apply. Duration and temporary memory take the smaller value of the two layers; the execution task manager additionally limits the concurrency per member in that sandbox.
+- Network: `quota.Ledger.ReserveMany/SettleMany` handles both assistant and account ledgers in the same SQLite transaction on the execution side; submission failure rolls back the entire transaction, and existing reservations remain occupied. `ClaimMany` continues to use memory slots to control connection concurrency. The account key is `owner/group/sandbox`, which does not include volatile group IDs. When changing calendar cycles, usage from overlapping old cycles is conservatively moved into the new cycle, and pending reservations retain settlement tokens.
+- Storage: Relies on existing sandbox hard quotas, constraining the sum of workspace capacity and file counts authorized for all assistants under the same account within the group quota. After revocation, the baseline capacity is retained; only explicit reduction releases the reservation, preventing bypassing limits by revoking and rebuilding assistants.
+
+Remote protocols declare support via `Info.UserGroupQuotas`; new Requests carry group-level compute and network constraints; execution is refused if these constraints are required but the server does not declare support. Group authorization revocation and in-flight authorization refresh still use the existing cancellation/check mechanism.
+
+When no sandbox or `permission_list` tool is assigned, automatic context skips relevant optional sources, and normal chat can still run. Public port forwarding without identity verification is not open to regular users, to prevent this channel from exposing services within the account workspace.
+
+Account avatars are saved with `auth.accounts`, using the same `internal/avatar` thumbnail validation as assistants. Profile updates only target the account associated with the current session; display name and avatar are atomically saved using the same version check; both authentication snapshots and profile reads return the saved avatar.
+
+## Frontend Identity and Settings
+
+`/account/*` is for personal settings, and `/settings/*` is for administrator settings. The bottom avatar and gear navigate separately; regular users have no gear or resource configuration entry, and manually entering administrator routes displays a rejection, while the API independently rejects unauthorized access. Old personal settings login links map to `/account/*`.
+
+Account switching is notified via BroadcastChannel isolated by origin; window restoration and periodic refreshes provide supplementary checks. DataProvider is rebuilt by SessionID, clearing old account snapshots, while drafts remain isolated by OwnerID. The SDK ignores late 401s belonging to the old CSRF identity, preventing old requests from clearing new logins.
+
+## Verification Scope
+
+Tests cover account authentication and session revocation, administrator protection, cross-account data isolation, group resource scope, and dual-layer quotas. Real isolation tests also need to check account parent cgroups and assistant child-level limits. Test coverage does not equal a complete security proof; actual deployments still require authentication and isolation capability checks.
+
+Regular members can approve/reject authorization requests for their own assistants; the approval entry checks private request ownership, and actual authorization continues to pass through group resource references and two-layer limit checks; administrators also cannot read or approve other members' private requests on their behalf. `TestMemberCanResolveOwnPermissionRequestsWithinGroup` covers these boundaries.

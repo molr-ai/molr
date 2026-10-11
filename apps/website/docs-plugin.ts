@@ -2,7 +2,7 @@ import { readFileSync, realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Plugin } from 'vite';
-import { devDocRoutes, docRoutes, type DocRoute } from './src/docs-routes.ts';
+import { allDocRoutes, type DocRoute } from './src/docs-routes.ts';
 
 const repository = fileURLToPath(new URL('../../', import.meta.url));
 const moduleID = 'virtual:molr-documents';
@@ -31,7 +31,7 @@ export function publicDocuments(): Plugin {
       if (id !== resolvedID) return;
       paths.clear();
       const sources: Record<string, string> = {};
-      for (const entry of [...docRoutes, ...devDocRoutes]) {
+      for (const entry of allDocRoutes) {
         const path = documentPath(entry);
         paths.add(path);
         this.addWatchFile(path);

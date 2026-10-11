@@ -8,7 +8,7 @@ export async function checkDocsSearch({ browser, url }) {
       const page = await context.newPage();
       const errors = [];
       page.on('pageerror', error => errors.push(error.message));
-      await page.goto(`${url}/docs/concepts/`);
+      await page.goto(`${url}/zh/docs/concepts/`);
       await expect(page.locator('.docs-mermaid svg')).toHaveCount(3);
       await page.evaluate(() => {
         window.readingNodes = [...document.querySelectorAll('.docs-prose p, .docs-prose pre, .docs-mermaid svg')];

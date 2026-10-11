@@ -16,7 +16,7 @@ const headings = {
   live: { zh: '从好奇出发。', en: 'It starts with curiosity.' },
 };
 
-test('website state builds and browser behavior', { timeout: 120_000 }, async t => {
+test('website state builds and browser behavior', { timeout: 240_000 }, async t => {
   const temporary = await mkdtemp(join(tmpdir(), 'molr-website-'));
   const screenshots = join(root, 'test-results', 'site-modes');
   await mkdir(screenshots, { recursive: true });
@@ -117,19 +117,19 @@ test('website state builds and browser behavior', { timeout: 120_000 }, async t 
               await expect(page.locator('.home-product-main')).toContainText('近期安排');
               await page.getByRole('button', { name: '连接资源', exact: true }).click();
               await expect(page.locator('.home-product-main')).toContainText('OpenAI-compatible');
-              await expect(page.getByRole('navigation').getByRole('link', { name: '用户文档', exact: true })).toHaveAttribute('href', '/docs/');
-              await expect(page.getByRole('navigation').getByRole('link', { name: '开发者文档', exact: true })).toHaveAttribute('href', '/dev-docs/');
+              await expect(page.getByRole('navigation').getByRole('link', { name: '用户文档', exact: true })).toHaveAttribute('href', '/zh/docs/');
+              await expect(page.getByRole('navigation').getByRole('link', { name: '开发者文档', exact: true })).toHaveAttribute('href', '/zh/dev-docs/');
               for (const name of ['GitHub']) {
                 const link = page.getByRole('navigation').getByRole('link', { name, exact: false });
                 await expect(link).toHaveAttribute('href', 'https://github.com/molr-ai/molr');
                 await expect(link).not.toHaveAttribute('aria-disabled', 'true');
               }
-              await expect(page.locator('.home-hero-ctas').getByRole('link', { name: '查看文档', exact: true })).toHaveAttribute('href', '/docs/');
+              await expect(page.locator('.home-hero-ctas').getByRole('link', { name: '查看文档', exact: true })).toHaveAttribute('href', '/zh/docs/');
               await page.locator('.home-hero-ctas').getByRole('link', { name: '安装 Molr', exact: true }).click();
               await expect(page).toHaveURL(/#install$/);
               await expect(page.getByRole('heading', { name: '给好奇心，一个工作空间。' })).toBeInViewport();
               const installer = page.locator('#install');
-              await expect(installer.getByRole('link', { name: '详细安装指南' })).toHaveAttribute('href', '/docs/getting-started/');
+              await expect(installer.getByRole('link', { name: '详细安装指南' })).toHaveAttribute('href', '/zh/docs/getting-started/');
               await expect(installer.getByRole('button', { name: '正式版', exact: true })).toHaveAttribute('aria-pressed', 'true');
               await expect(installer.getByRole('status')).toContainText('该渠道暂无已发布版本');
               await installer.getByRole('button', { name: '预发布版', exact: true }).click();

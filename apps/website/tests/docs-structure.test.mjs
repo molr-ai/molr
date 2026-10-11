@@ -3,10 +3,10 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
-import { docRoutes, devDocRoutes } from '../src/docs-routes.ts';
+import { docRoutes, devDocRoutes, allDocRoutes } from '../src/docs-routes.ts';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
-const routes = [...docRoutes, ...devDocRoutes];
+const routes = allDocRoutes;
 const repositoryOnly = ['dev-docs/contributing/development.md'];
 
 async function markdownFiles(directory) {
@@ -41,7 +41,7 @@ test('current documents have explicit unique routes and the overview comes first
   assert.deepEqual(files.sort(), [...registered, ...repositoryOnly].sort());
   for (const route of routes) {
     assert(!route.file.includes('..'));
-    assert(route.path.startsWith(`/${route.root}/`));
+    assert(route.path.startsWith(`/${route.locale}/${route.root}/`));
     assert(route.group.trim());
     const source = await readFile(resolve(root, route.root, route.file), 'utf8');
     assert.equal([...prose(source).matchAll(/^# /gm)].length, 1, route.file);
@@ -64,5 +64,22 @@ test('reorganized documents and contributor entry points resolve files and chapt
         assert(ids.includes(decodeURIComponent(fragment)), `Missing chapter: ${label}`);
       }
     }
+  }
+});
+
+
+test('every published document has matching Chinese and English heading structure', async () => {
+  for (const route of routes.filter(route => route.locale === 'zh')) {
+    const translation = routes.find(entry => entry.locale === 'en' && entry.root === route.root && entry.sourceFile === route.sourceFile);
+    assert(translation, route.path);
+    const original = await readFile(resolve(root, route.root, route.file), 'utf8');
+    const english = await readFile(resolve(root, translation.root, translation.file), 'utf8');
+    assert.notEqual(english, original, route.path);
+    const examples = source => [...source.matchAll(/^(`{3,}|~{3,})([^\n]*)\n([\s\S]*?)^\1\s*$/gm)]
+      .filter(match => match[2].trim() !== 'mermaid').map(match => match[3].trim());
+    assert.deepEqual(examples(english), examples(original), `Code examples changed: ${route.path}`);
+    assert.equal([...prose(english).matchAll(/^\|/gm)].length, [...prose(original).matchAll(/^\|/gm)].length, `Table rows changed: ${route.path}`);
+    assert.deepEqual([...prose(english).matchAll(/^(#{1,6}) /gm)].map(match => match[1]), [...prose(original).matchAll(/^(#{1,6}) /gm)].map(match => match[1]), route.path);
+    assert(!/MOLR_(CODE|INLINE|LINK)_\d+/.test(english), route.path);
   }
 });

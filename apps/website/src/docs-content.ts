@@ -1,4 +1,4 @@
-import { devDocRoutes, docRoutes, type DocRoute } from './docs-routes';
+import { allDocRoutes, type DocRoute } from './docs-routes';
 import sources from 'virtual:molr-documents';
 
 export function headingId(text: string) {
@@ -20,9 +20,7 @@ function loadDoc(entry: DocRoute) {
   return { ...entry, content, headings, searchText: `${entry.label}\n${content}`.toLocaleLowerCase(), title: /^# (.+)$/m.exec(content)?.[1] ?? entry.label };
 }
 
-export const docs = docRoutes.map(loadDoc);
-export const devDocs = devDocRoutes.map(loadDoc);
-export const allDocs = [...docs, ...devDocs];
+export const allDocs = allDocRoutes.map(loadDoc);
 export type Doc = typeof allDocs[number];
 
 export function findDoc(path: string) {

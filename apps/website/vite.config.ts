@@ -4,7 +4,7 @@ import { licenseAssets } from '../../scripts/license-assets';
 import { installerPlugin } from './installer-plugin';
 import breakpointQueries from '@molr/ui/postcss-breakpoints';
 import { readFileSync } from 'node:fs';
-import { devDocRoutes, docRoutes } from './src/docs-routes.ts';
+import { allDocRoutes } from './src/docs-routes.ts';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -42,16 +42,21 @@ export default defineConfig(({ mode }) => {
         if (siteMode !== 'live') return;
         const index = bundle['index.html'];
         if (!index || index.type !== 'asset') return;
-        for (const doc of [...docRoutes, ...devDocRoutes]) {
+        for (const doc of allDocRoutes) {
           const content = readFileSync(documentPath(doc), 'utf8');
           const title = /^# (.+)$/m.exec(content)?.[1] ?? doc.label;
-          const description = `${title} — Molr 使用与部署指南。`;
+          const description = `${title} — ${doc.locale === 'zh' ? 'Molr 使用与部署指南。' : 'Molr usage and deployment guide.'}`;
+          const lang = doc.locale === 'zh' ? 'zh-CN' : 'en';
+          const alternatives = ['zh', 'en'].map(locale => `<link rel="alternate" hreflang="${locale === 'zh' ? 'zh-CN' : 'en'}" href="https://molr.ai${doc.path.replace(/^\/(zh|en)\//, `/${locale}/`)}" />`).join('\n');
           const html = String(index.source)
             .replace(/<title>.*?<\/title>/, `<title>${escapeHtml(title)} · Molr Docs</title>`)
             .replace(/(<meta (?:name="description"|property="og:description") content=")[^"]*/g, `$1${escapeHtml(description)}`)
             .replace(/(<meta property="og:title" content=")[^"]*/, `$1${escapeHtml(title)} · Molr Docs`)
+            .replace(/<html lang="[^"]*"/, `<html lang="${lang}"`)
+            .replace(/(<meta property="og:locale" content=")[^"]*/, `$1${doc.locale === 'zh' ? 'zh_CN' : 'en_US'}`)
             .replaceAll('https://molr.ai/', `https://molr.ai${doc.path}`)
-            .replace(/<main class="website-fallback">[\s\S]*?<\/main>/, `<main class="website-fallback" lang="zh-CN"><span>Molr Docs</span><h1>${escapeHtml(title)}</h1><p>请启用 JavaScript 阅读文档。</p></main>`);
+            .replace('</head>', `${alternatives}\n</head>`)
+            .replace(/<main class="website-fallback">[\s\S]*?<\/main>/, `<main class="website-fallback" lang="${lang}"><span>Molr Docs</span><h1>${escapeHtml(title)}</h1><p>${doc.locale === 'zh' ? '请启用 JavaScript 阅读文档。' : 'Enable JavaScript to read the documentation.'}</p></main>`);
           this.emitFile({ type: 'asset', fileName: `${doc.path.slice(1)}index.html`, source: html });
         }
       },

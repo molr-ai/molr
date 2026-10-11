@@ -1,6 +1,7 @@
 import { useState, type CSSProperties, type ReactNode } from 'react';
 import { Logo, paletteBrandColors, useTheme } from '@molr/ui';
 import { homeMessages, type HomeCopy } from './home-content';
+import { localizedDocPath } from './doc-locale';
 import { siteLinks } from './site-links';
 import { GithubMark } from './GithubMark';
 import type { Locale } from './site-content';
@@ -38,10 +39,10 @@ function Icon({ name, className = '' }: { name: string; className?: string }) {
   return <svg className={`home-icon ${className}`} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
-function Destination({ destination, children, hint, className = '' }: { destination: keyof typeof siteLinks; children: ReactNode; hint: string; className?: string }) {
+function Destination({ locale, destination, children, hint, className = '' }: { locale: Locale; destination: keyof typeof siteLinks; children: ReactNode; hint: string; className?: string }) {
   const url = siteLinks[destination];
   return url
-    ? <a className={className} href={url}>{children}</a>
+    ? <a className={className} href={localizedDocPath(url, locale)}>{children}</a>
     : <a className={`${className} home-placeholder`} role="link" aria-disabled="true" title={hint}>{children}</a>;
 }
 
@@ -170,7 +171,7 @@ export function HomePage({ heading, locale, changeLocale }: { heading: string; l
         </div>
         <div className="home-eyebrow"><span />{copy.eyebrow}</div>
         <h1 id="home-title"><span>{heading}</span></h1><p className="home-subtitle">{copy.subtitle}</p>
-        <div className="home-hero-ctas"><a className="home-button home-button-primary" href="#install"><Icon name="download" />{copy.install}</a><Destination destination="userDocs" hint={copy.userDocsSoon} className="home-button home-button-secondary"><Icon name="book" />{copy.readDocs}</Destination></div>
+        <div className="home-hero-ctas"><a className="home-button home-button-primary" href="#install"><Icon name="download" />{copy.install}</a><Destination locale={locale} destination="userDocs" hint={copy.userDocsSoon} className="home-button home-button-secondary"><Icon name="book" />{copy.readDocs}</Destination></div>
         <ProductPreview copy={copy} />
       </section>
       <StorySection id="environment" label={copy.sectionLabel} heading={copy.environmentHeading} intro={copy.environmentIntro} points={copy.environmentPoints}>
@@ -193,6 +194,6 @@ export function HomePage({ heading, locale, changeLocale }: { heading: string; l
       </StorySection>
       <InstallSection copy={copy} locale={locale} />
     </main>
-    <footer className="home-footer home-container"><div><Logo variant={theme === 'dark' ? 'light' : 'dark'} /><span>{copy.footer}</span></div><small>{copy.footerNote}</small><div className="home-footer-links"><Destination destination="userDocs" hint={copy.userDocsSoon}>{copy.userDocs}</Destination><Destination destination="devDocs" hint={copy.devDocsSoon}>{copy.devDocs}</Destination><Destination destination="github" hint={copy.githubSoon}><GithubMark size={14} />{copy.github}</Destination></div></footer>
+    <footer className="home-footer home-container"><div><Logo variant={theme === 'dark' ? 'light' : 'dark'} /><span>{copy.footer}</span></div><small>{copy.footerNote}</small><div className="home-footer-links"><Destination locale={locale} destination="userDocs" hint={copy.userDocsSoon}>{copy.userDocs}</Destination><Destination locale={locale} destination="devDocs" hint={copy.devDocsSoon}>{copy.devDocs}</Destination><Destination locale={locale} destination="github" hint={copy.githubSoon}><GithubMark size={14} />{copy.github}</Destination></div></footer>
   </div>;
 }

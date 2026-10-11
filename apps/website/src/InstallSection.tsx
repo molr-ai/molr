@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { HomeCopy } from './home-content';
 import type { Locale } from './site-content';
 import { installMessages } from './install-content';
+import { localizedDocPath } from './doc-locale';
 import { siteLinks } from './site-links';
 import { channels, installCommand, readCatalog } from './release-data';
 import type { Catalog, Channel } from './release-data';
@@ -75,7 +76,7 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
           </div>
           {platform && <p className="home-install-requirements">{platform.os} · systemd {platform.requirements.systemd}+ · Python {platform.requirements.python}+ · cgroup v{platform.requirements.cgroup} · {platform.requirements.packages.join(', ')}</p>}
         </>}
-      <div className="home-install-footer"><span>{t.targetHint}</span><a href={siteLinks.install!}>{t.guide}<span aria-hidden="true"> ↗</span></a></div>
+      <div className="home-install-footer"><span>{t.targetHint}</span><a href={localizedDocPath(siteLinks.install!, locale)}>{t.guide}<span aria-hidden="true"> ↗</span></a></div>
     </div>
   </section>;
 }

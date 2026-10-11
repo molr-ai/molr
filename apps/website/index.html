@@ -24,9 +24,14 @@
             if (saved === 'zh' || saved === 'en') locale = saved;
           } catch {}
         }
+        const routeLanguage = document.documentElement.dataset.siteMode === 'live' && /^\/(zh|en)\/(?:dev-)?docs(?:\/|$)/.exec(location.pathname)?.[1];
+        if (routeLanguage) locale = routeLanguage;
+        if (document.documentElement.dataset.siteMode === 'live' && /^\/(?:dev-)?docs(?:\/|$)/.test(location.pathname)) {
+          history.replaceState(history.state, '', '/' + locale + location.pathname + location.search + location.hash);
+        }
         document.documentElement.lang = locale === 'zh' ? 'zh-CN' : 'en';
         document.documentElement.dataset.locale = locale;
-        if (document.documentElement.dataset.siteMode === 'live' && /^\/docs(?:\/|$)/.test(location.pathname)) return;
+        if (document.documentElement.dataset.siteMode === 'live' && /^\/(?:(?:zh|en)\/)?(?:dev-)?docs(?:\/|$)/.test(location.pathname)) return;
         const { title, description } = __SITE_COPY__[locale];
         document.title = title;
         document.querySelector('meta[name="description"]').setAttribute('content', description);

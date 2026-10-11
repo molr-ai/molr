@@ -2,6 +2,7 @@ import { Logo, useTheme } from '@molr/ui';
 import { GithubMark } from './GithubMark';
 import { homeMessages } from './home-content';
 import type { Locale } from './site-content';
+import { localizedDocPath } from './doc-locale';
 import { siteLinks } from './site-links';
 
 export function SiteHeader({ locale, changeLocale, active }: { locale: Locale; changeLocale: (locale: Locale) => void; active: 'home' | 'docs' | 'dev-docs' }) {
@@ -11,8 +12,8 @@ export function SiteHeader({ locale, changeLocale, active }: { locale: Locale; c
     <a href="/" className="home-brand" aria-label="Molr"><Logo animation="daily" variant={theme === 'dark' ? 'light' : 'dark'} /></a>
     <nav aria-label={copy.nav}>
       <a href="/" aria-current={active === 'home' ? 'page' : undefined}>{copy.home}</a>
-      <a href={siteLinks.userDocs!} aria-current={active === 'docs' ? 'page' : undefined}>{copy.userDocs}</a>
-      {siteLinks.devDocs ? <a href={siteLinks.devDocs} aria-current={active === 'dev-docs' ? 'page' : undefined}>{copy.devDocs}</a> : <a className="home-placeholder" role="link" aria-disabled="true" title={copy.devDocsSoon}>{copy.devDocs}</a>}
+      <a href={localizedDocPath(siteLinks.userDocs!, locale)} aria-current={active === 'docs' ? 'page' : undefined}>{copy.userDocs}</a>
+      {siteLinks.devDocs ? <a href={localizedDocPath(siteLinks.devDocs, locale)} aria-current={active === 'dev-docs' ? 'page' : undefined}>{copy.devDocs}</a> : <a className="home-placeholder" role="link" aria-disabled="true" title={copy.devDocsSoon}>{copy.devDocs}</a>}
       {siteLinks.github ? <a href={siteLinks.github}><GithubMark />{copy.github}</a> : <a className="home-placeholder" role="link" aria-disabled="true" title={copy.githubSoon}><GithubMark />{copy.github}</a>}
     </nav>
     <div className="home-actions">

@@ -5,6 +5,8 @@ import type { SiteMode } from './site-mode';
 import { useLocale } from './use-locale';
 import { RouteEffects, useSiteNavigation } from './site-navigation';
 
+import { isDocPath } from './doc-locale';
+
 const DocsPage = lazy(() => import('./DocsPage'));
 
 export default function App({ mode }: { mode: SiteMode }) {
@@ -13,9 +15,9 @@ export default function App({ mode }: { mode: SiteMode }) {
 
   if (mode !== 'live') return <SiteStatusPage mode={mode} heading={copy.heading} logoAction={logoAction} />;
 
-  return <Suspense fallback={<main className="docs-loading">加载文档…</main>}>
+  return <Suspense fallback={<main className="docs-loading">{locale === 'zh' ? '加载文档…' : 'Loading documentation…'}</main>}>
     <RouteEffects navigation={navigation}>
-      {/^\/(?:dev-)?docs(?:\/|$)/.test(navigation.pathname)
+      {isDocPath(navigation.pathname)
         ? <DocsPage pathname={navigation.pathname} navigationRevision={navigation.revision} locale={locale} changeLocale={changeLocale} />
         : <HomePage heading={copy.heading} locale={locale} changeLocale={changeLocale} />}
     </RouteEffects>
