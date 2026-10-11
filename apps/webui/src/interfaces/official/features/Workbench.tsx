@@ -81,6 +81,12 @@ function WorkbenchSession({ assistants, assistantID, onSelectAssistant, onSettin
       <span className="workbench-header-separator" aria-hidden="true">/</span>
       <Select hideLabel size="sm" label={t.workbench.assistant} value={assistantID} placeholder={assistants.find(item => item.ID === assistantID)?.Name} onValueChange={onSelectAssistant} searchable options={assistants.filter(item => item.State === 'active').map(item => ({ value: item.ID, label: item.Name }))} />
     </PageHeader>
+    <div className="trajectory-controls">
+      <div className="ui-choice-list ui-choice-list--line trajectory-filters" role="group" aria-label={t.workbench.filter}>{[{ value: 'all', label: t.all }, { value: 'model', label: t.workbench.models }, { value: 'tool', label: t.workbench.toolsShort }].map(item => <button key={item.value} type="button" aria-pressed={filter === item.value} disabled={raw} onClick={() => { setFilter(item.value); setFollow(false); setFocusID(undefined); }}>{item.label}</button>)}</div>
+      <Button className="trajectory-raw-toggle" variant="ghost" size="sm" role="switch" aria-label={t.workbench.allEvents} title={t.workbench.allEvents} aria-checked={raw} onClick={() => { setRaw(!raw); setFilter('all'); setFollow(false); setFocusID(undefined); }}><Braces size={15} /><span>{t.workbench.eventsShort}</span></Button>
+      <Button className="workbench-follow" variant="ghost" size="sm" role="switch" aria-label={t.workbench.follow} title={t.workbench.followShort} aria-checked={follow} onClick={() => changeFollow(!follow)}><ArrowDownToLine size={15} /><span>{t.workbench.followShort}</span></Button>
+      <SearchField hideLabel label={t.workbench.searchTrajectory} placeholder={t.workbench.searchTrajectory} value={query} onValueChange={value => { setQuery(value); setFollow(false); setFocusID(undefined); }} />
+    </div>
     <TrajectoryTimeline items={axisItems} mode={axisMode} onModeChange={value => { setAxisMode(value); setRange(null); }} selected={selectedID} range={range} timezone={timezone} onRange={setAxisRange} onSelect={(item: AxisItem) => {
       setRaw(false); setRange(null); setQuery(''); setFilter('all'); setFollow(false);
       if (item.record) selectRecord(item.record);
@@ -89,12 +95,6 @@ function WorkbenchSession({ assistants, assistantID, onSelectAssistant, onSettin
     }} />
     {(turnID || eventID) && !turnLocated && !trajectory.error && <p className="workbench-turn-notice muted" role="status">{t.workbench.locatingTurn}</p>}
     {turnMissing && <Alert title={t.workbench.turnNotCaptured} />}
-    <div className="trajectory-controls">
-      <div className="trajectory-filters" role="group" aria-label={t.workbench.filter}>{[{ value: 'all', label: t.all }, { value: 'model', label: t.workbench.models }, { value: 'tool', label: t.workbench.toolsShort }].map(item => <button key={item.value} type="button" aria-pressed={filter === item.value} disabled={raw} onClick={() => { setFilter(item.value); setFollow(false); setFocusID(undefined); }}>{item.label}</button>)}</div>
-      <Button className="trajectory-raw-toggle" variant="ghost" size="sm" role="switch" aria-label={t.workbench.allEvents} title={t.workbench.allEvents} aria-checked={raw} onClick={() => { setRaw(!raw); setFilter('all'); setFollow(false); setFocusID(undefined); }}><Braces size={15} /><span>{t.workbench.eventsShort}</span></Button>
-      <Button className="workbench-follow" variant="ghost" size="sm" role="switch" aria-label={t.workbench.follow} title={t.workbench.followShort} aria-checked={follow} onClick={() => changeFollow(!follow)}><ArrowDownToLine size={15} /><span>{t.workbench.followShort}</span></Button>
-      <SearchField hideLabel label={t.workbench.searchTrajectory} placeholder={t.workbench.searchTrajectory} value={query} onValueChange={value => { setQuery(value); setFollow(false); setFocusID(undefined); }} />
-    </div>
     {pending.length > 0 && <details className="workbench-queued"><summary>{t.workbench.queued} · {pending.length}</summary>{pending.map((job, index) => <p key={index}>{triggers[job.Event.Kind] ?? job.Event.Kind} · {states[job.State] ?? job.State}</p>)}</details>}
     <div className={`workbench-grid${selection ? ' workbench-grid--inspecting' : ''}`}>
       <div className="workbench-main" inert={compact && !!selection}>
