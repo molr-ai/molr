@@ -188,7 +188,7 @@ E2E 会编译真实 Runtime，在临时目录创建独立账号和数据库，�
 
 消息反馈点击后立即更新选中态并播放动效，保存超过 300 ms 时在按钮下方显示小圆点；期间只锁定该消息的赞／踩，输入框和其他消息仍可操作。成功后保持选择，不重复播放动画；失败时恢复原选择并提示重试，随后重新同步服务端状态。取消反馈同样即时显示。
 
-关于页构建信息由 Vite 在构建时写入：版本默认读取根 `package.json`，commit 默认读取当前 worktree 的 Git HEAD；可使用 `MOLR_VERSION` 和完整十六进制 `MOLR_COMMIT` 覆盖（无 Git 元数据的源码包需要显式提供 commit）。`build:release` 将同一版本与 commit 传入 WebUI 和 Runtime。网页显示 12 位短 commit，链接保留完整 ID；运行时无需读取 Git，也不会随服务器后来切换分支而变化。
+关于页构建信息由 Vite 在构建时写入：版本默认使用 `development`，commit 默认读取当前 worktree 的 Git HEAD；可使用 `MOLR_VERSION` 和完整十六进制 `MOLR_COMMIT` 覆盖（无 Git 元数据的源码包需要显式提供 commit）。`MOLR_VERSION` 接受 `development` 或以数字开头、仅含字母、数字、点和连字符的版本号。`build:release` 将同一版本与 commit 传入 WebUI 和 Runtime。网页显示 12 位短 commit，链接保留完整 ID；运行时无需读取 Git，也不会随服务器后来切换分支而变化。
 
 ## 页面代码按需加载
 

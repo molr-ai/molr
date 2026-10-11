@@ -11,9 +11,9 @@ import breakpointQueries from '@molr/ui/postcss-breakpoints';
 import { browserCookie, runtimeCookies } from './cookie-proxy.ts';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
-const version = process.env.MOLR_VERSION || JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version;
+const version = process.env.MOLR_VERSION || 'development';
 const commit = process.env.MOLR_COMMIT || execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
-if (!/^[0-9][0-9A-Za-z.-]*$/.test(version)) throw new Error('Invalid MOLR_VERSION');
+if (version !== 'development' && !/^[0-9][0-9A-Za-z.-]*$/.test(version)) throw new Error('Invalid MOLR_VERSION');
 if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(commit)) throw new Error('MOLR_COMMIT must be a full Git commit ID');
 
 const target = new URL(process.env.MOLR_RUNTIME_URL ?? 'http://127.0.0.1:8080');
