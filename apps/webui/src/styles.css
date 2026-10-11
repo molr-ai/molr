@@ -31,6 +31,7 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 .nav-account-actions { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .user-avatar { width: 26px; height: 26px; display: inline-flex !important; align-items: center; justify-content: center; border-radius: 50%; background: var(--color-selected-bg); color: var(--color-text); font-size: 13px !important; font-weight: 600; }
 .nav-account-actions .user-avatar { width: 100%; height: 100%; font-size: 22px !important; }
+.nav-account-actions .nav-button[aria-current] .user-avatar { background: inherit; color: inherit; }
 .workspace-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: auto; }.connection-banner { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 5px 16px; text-align: center; font-size: 12px; background: var(--color-warning-bg); color: var(--color-warning); }
 .connection-banner[data-connection='failed'] { background: var(--color-danger-bg); color: var(--color-danger); }
 .assistant-workspace { display: flex; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
