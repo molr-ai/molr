@@ -1,6 +1,6 @@
 import { useId, useRef, useState } from 'react';
 import { Badge, Button, Checkbox, Dialog, DropdownMenu, IconButton, Select, Switch, Tabs, TextField } from '@molr/ui';
-import { ChevronLeft, Ellipsis, PanelsTopLeft, Puzzle, Settings2, Shield, Trash2, Upload } from 'lucide-react';
+import { ChevronLeft, Ellipsis, PanelsTopLeft, Puzzle, Settings2, Shield, Trash2, Download, Upload } from 'lucide-react';
 import { api } from '@molr/sdk';
 import type { Assistant } from '@molr/sdk';
 import { pluginAllowed, pluginCapabilities } from '@molr/sdk/plugins';
@@ -22,8 +22,8 @@ const hasAdminSettings = (p: PluginInstallation) => !!(p.Manifest.adminSettingsP
 
 export function ExtensionPages({ id }: { id: string }) {
   const { locale } = useCopy(), zh = locale === 'zh', copy = pluginCopy[locale], host = useUIHost(), { navigate } = useNavigation();
-  const administrator = useSession().principal?.User?.Administrator === true, action = useAction(), input = useRef<HTMLInputElement>(null);
-  const [search, setSearch] = useState(''), [filter, setFilter] = useState('all'), [importURL, setImportURL] = useState(false), [url, setURL] = useState('');
+  const administrator = useSession().principal?.User?.Administrator === true;
+  const [search, setSearch] = useState(''), [filter, setFilter] = useState('all'), [installing, setInstalling] = useState(false);
   if (host.loading) return <Loading />;
   const [pluginID, entry] = id.split('/'), selected = host.plugins.find(p => p.ID === pluginID);
   if (selected) {
@@ -37,19 +37,43 @@ export function ExtensionPages({ id }: { id: string }) {
     return `${p.Manifest.name} ${p.Manifest.description} ${p.ID}`.toLowerCase().includes(search.toLowerCase()) && (filter === 'all' || filter === 'enabled' && enabled || filter === 'disabled' && !enabled);
   });
   return <section className="extensions-workspace">
-    <PageHeader title={copy.title} icon={<Puzzle />} actions={administrator && <><Button size="sm" variant="secondary" onClick={() => setImportURL(true)}>{zh ? '从链接添加' : 'Add from URL'}</Button><Button size="sm" onClick={() => input.current?.click()} disabled={action.busy}><Upload size={14} />{copy.import}</Button></>} />
-    <input ref={input} type="file" accept=".zip,.molr-plugin.zip" hidden onChange={event => {
-      const file = event.target.files?.[0]; event.target.value = ''; if (!file) return;
-      void action.run(async () => { if (file.size > 8 * 1024 * 1024) throw new Error('Package exceeds 8 MiB'); await api.importPlugin(file); host.reloadPlugins(); });
-    }} />
-    {importURL && <Dialog open title={zh ? '从链接添加插件' : 'Add plugin from URL'} onOpenChange={setImportURL} footer={<Button loading={action.busy} onClick={() => { void action.run(async () => { await api.post('/api/plugins/import-url', { URL: url }); host.reloadPlugins(); setImportURL(false); setURL(''); }); }}>{zh ? '添加' : 'Add'}</Button>}><TextField label={zh ? 'HTTPS 插件包地址' : 'HTTPS package URL'} type="url" value={url} onChange={e => setURL(e.target.value)} /><p>{zh ? '下载 ZIP 包并检查内容，不执行安装脚本。' : 'Download and validate a ZIP package. Importing does not run scripts.'}</p><ErrorNotice error={action.error} /></Dialog>}
+    <PageHeader title={copy.title} icon={<Puzzle />} actions={administrator && <Button size="sm" onClick={() => setInstalling(true)}><Download size={14} />{copy.install}</Button>} />
+    {installing && <PluginInstaller onClose={() => setInstalling(false)} onInstalled={host.reloadPlugins} />}
     <div className="plugin-market">
       <div className="plugin-market-filters"><TextField label={zh ? '搜索插件' : 'Search plugins'} type="search" value={search} onChange={e => setSearch(e.target.value)} /><Select label={zh ? '状态' : 'Status'} value={filter} onValueChange={setFilter} options={[{ value: 'all', label: zh ? '全部插件' : 'All plugins' }, { value: 'enabled', label: copy.enabled }, { value: 'disabled', label: copy.disabled }]} /></div>
-      <ErrorNotice error={host.pluginError || action.error} retry={host.reloadPlugins} />
+      <ErrorNotice error={host.pluginError} retry={host.reloadPlugins} />
       {id && <p role="status">{copy.unavailable}</p>}
       {plugins.length ? <div className="plugin-market-grid">{plugins.map(p => <PluginCard key={p.ID} plugin={p} administrator={administrator} />)}</div> : <div className="resources-empty"><Puzzle size={28} /><h2>{search || filter !== 'all' ? (zh ? '没有匹配的插件' : 'No matching plugins') : copy.empty}</h2><p>{administrator ? copy.help : (zh ? '管理员授权插件后，会显示在这里。' : 'Plugins appear here when your administrator authorizes them.')}</p></div>}
     </div>
   </section>;
+}
+function PluginInstaller({ onClose, onInstalled }: { onClose: () => void; onInstalled: () => void }) {
+  const { locale, t } = useCopy(), zh = locale === 'zh', copy = pluginCopy[locale], action = useAction(), input = useRef<HTMLInputElement>(null), formID = useId();
+  const [source, setSource] = useState<'file' | 'url'>('file'), [file, setFile] = useState<File | null>(null), [url, setURL] = useState('');
+  async function install() {
+    if (source === 'file') {
+      if (!file) return;
+      if (file.size > 8 * 1024 * 1024) throw new Error(zh ? '插件包不能超过 8 MiB' : 'Package must not exceed 8 MiB');
+      await api.importPlugin(file);
+    } else await api.post('/api/plugins/import-url', { URL: url.trim() });
+    onInstalled(); onClose();
+  }
+  return <Dialog open title={copy.install} onOpenChange={open => { if (!open && !action.busy) onClose(); }} footer={<><Button variant="secondary" disabled={action.busy} onClick={onClose}>{t.cancel}</Button><Button type="submit" form={formID} loading={action.busy} disabled={source === 'file' ? !file : !url.trim()}>{zh ? '安装' : 'Install'}</Button></>}>
+    <form id={formID} className="plugin-editor" onSubmit={event => { event.preventDefault(); void action.run(install); }}>
+      <Tabs label={zh ? '安装方式' : 'Installation source'} value={source} onValueChange={value => { setSource(value); action.reset(); }} items={[
+        { value: 'file', label: zh ? '上传插件包' : 'Upload package', disabled: action.busy && source !== 'file', content: <div className="plugin-editor-section">
+          <input ref={input} type="file" accept=".zip,.molr-plugin.zip" hidden disabled={action.busy} onChange={event => { setFile(event.target.files?.[0] ?? null); action.reset(); }} />
+          <Button variant="secondary" disabled={action.busy} onClick={() => input.current?.click()}><Upload size={16} />{zh ? '选择文件' : 'Choose file'}</Button>
+          <p className="plugin-editor-hint">{file ? file.name : (zh ? '选择 ZIP 格式的插件包，最大 8 MiB。' : 'Choose a ZIP plugin package, up to 8 MiB.')}</p>
+        </div> },
+        { value: 'url', label: zh ? '从链接安装' : 'Install from URL', disabled: action.busy && source !== 'url', content: <div className="plugin-editor-section">
+          <TextField label={zh ? '插件包链接' : 'Package URL'} type="url" placeholder="https://example.com/plugin.zip" required={source === 'url'} disabled={action.busy || source !== 'url'} pattern="https://.*" value={url} onChange={event => { setURL(event.target.value); action.reset(); }} />
+          <p className="plugin-editor-hint">{zh ? '填写公开可访问的 HTTPS ZIP 链接。' : 'Enter a publicly accessible HTTPS link to a ZIP package.'}</p>
+        </div> },
+      ]} />
+      <ErrorNotice error={action.error} />
+    </form>
+  </Dialog>;
 }
 function PluginCard({ plugin, administrator }: { plugin: PluginInstallation; administrator: boolean }) {
   const { t, locale } = useCopy(), zh = locale === 'zh', copy = pluginCopy[locale], host = useUIHost(), { navigate } = useNavigation(), action = useAction();

@@ -5,7 +5,7 @@ async function post(page: Page, path: string, data: object, status = 200) {
  const r = await page.request.post(path, { headers: { Origin: origin, 'X-CSRF-Token': csrf }, data }); expect(r.status(), await r.text()).toBe(status); return r.json();
 }
 async function login(page: Page) {
- await page.goto('/#/extensions'); await page.getByLabel('Username', { exact: true }).fill('owner'); await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!'); await page.getByRole('button', { name: 'Sign in', exact: true }).click(); await expect(page.getByRole('button', { name: 'Import plugin package' })).toBeVisible();
+ await page.goto('/#/extensions'); await page.getByLabel('Username', { exact: true }).fill('owner'); await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!'); await page.getByRole('button', { name: 'Sign in', exact: true }).click(); await expect(page.getByRole('button', { name: 'Install plugin' })).toBeVisible();
 }
 test('assistant installs CLI and Skill with ordinary tools, persists files and isolates workspaces', async ({ page }, info) => {
  test.skip(process.env.MOLR_E2E_SANDBOX_SERVICE !== '1', 'requires delegated sandbox'); test.setTimeout(120000); await login(page);

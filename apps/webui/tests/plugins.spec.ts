@@ -7,7 +7,7 @@ async function post(page: Page, path: string, data: object, status = 200) {
  const r = await page.request.post(path, { headers: { Origin: base, 'X-CSRF-Token': csrf }, data }); expect(r.status(), await r.text()).toBe(status); return r.json();
 }
 async function login(page: Page) {
- await page.goto('/#/extensions'); await page.getByLabel('Username', { exact: true }).fill('owner'); await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!'); await page.getByRole('button', { name: 'Sign in', exact: true }).click(); await expect(page.getByRole('button', { name: 'Import plugin package' })).toBeVisible();
+ await page.goto('/#/extensions'); await page.getByLabel('Username', { exact: true }).fill('owner'); await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!'); await page.getByRole('button', { name: 'Sign in', exact: true }).click(); await expect(page.getByRole('button', { name: 'Install plugin' })).toBeVisible();
 }
 // Minimal in-memory contract fixtures; no installable demo packages are shipped.
 async function pkg(name: string): Promise<PluginPackage> {
@@ -25,8 +25,10 @@ async function enable(page: Page, name: string, bindings: object[] = []) {
 }
 test('package import, isolated real page, theme selection, revocation and immutable releases', async ({ page }, info) => {
  await login(page);
+ await page.getByRole('button', { name: 'Install plugin', exact: true }).click();
+ const installer = page.getByRole('dialog', { name: 'Install plugin', exact: true });
  const imported = page.waitForResponse(r => r.url().endsWith('/api/plugins/install') && r.request().method() === 'POST');
- await page.locator('input[type=file]').setInputFiles({ name: 'fixture.molr-plugin.zip', mimeType: 'application/zip', buffer: pluginArchive(await pkg('fixture.page')) }); await imported; await page.reload(); await expect(page.getByRole('button', { name: 'Import plugin package' })).toBeVisible();
+ await page.locator('input[type=file]').setInputFiles({ name: 'fixture.molr-plugin.zip', mimeType: 'application/zip', buffer: pluginArchive(await pkg('fixture.page')) }); await installer.getByRole('button', { name: 'Install', exact: true }).click(); await imported; await expect(installer).not.toBeVisible(); await page.reload(); await expect(page.getByRole('button', { name: 'Install plugin' })).toBeVisible();
  const row = page.locator('.plugin-row').filter({ has: page.getByRole('heading', { name: 'Fixture page', exact: true }) });
  await row.getByRole('button', { name: 'More · Fixture page', exact: true }).click(); await page.getByRole('menuitem', { name: 'Permissions and assistants', exact: true }).click();
  const dialog = page.getByRole('dialog', { name: 'Fixture page', exact: true });

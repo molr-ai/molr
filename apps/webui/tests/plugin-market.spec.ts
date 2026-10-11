@@ -24,7 +24,7 @@ test('marketplace group authorization, independent enablement and optional setti
   await page.reload(); await expect(card(page,name).getByRole('button',{name:'Configure',exact:true})).toHaveCount(0);
   await menu(page,name,'Admin settings'); await page.getByLabel('Shared label',{exact:true}).fill('Only administrators edit this'); await page.getByRole('button',{name:'Save admin settings',exact:true}).click(); await expect(page.getByRole('status').filter({hasText:'Saved.'})).toBeVisible();
   const context = await browser.newContext({ baseURL: base }), member = await context.newPage(); await login(member,username,'market-member-password-2026!');
-  await expect(card(member,name)).toHaveCount(0); await expect(member.getByRole('button',{name:'Import plugin package',exact:true})).toHaveCount(0);
+  await expect(card(member,name)).toHaveCount(0); await expect(member.getByRole('button',{name:'Install plugin',exact:true})).toHaveCount(0);
   await post(member,'/api/plugins/ui',{ID:id,Digest:installed.Digest,Kind:'page',Contribution:'home',Method:'document'},403);
   await page.goto('/#/extensions'); await menu(page,name,'Authorize groups');
   const dialog = page.getByRole('dialog',{name:`${name} · Authorize groups`,exact:true});

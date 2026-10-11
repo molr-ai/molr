@@ -35,7 +35,7 @@ test.beforeEach(async ({ page }) => {
   await page.getByLabel('Username', { exact: true }).fill('owner');
   await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Import plugin package' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Install plugin' })).toBeVisible();
 });
 
 test('plugin settings, connections and history reads stay silent while writes notify', async ({ page }, info) => {
