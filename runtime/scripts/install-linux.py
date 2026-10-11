@@ -17,8 +17,8 @@ import ipaddress
 import time
 
 
-class InstallError(Exception):
-    pass
+from install_layout import (InstallError, check_path, check_managed, layout,
+                            require_separate, receipt, PROGRAM_FILES)
 
 
 def run(args, **kwargs):
@@ -27,28 +27,6 @@ def run(args, **kwargs):
 
 def output(args):
     return subprocess.check_output(args, text=True).strip()
-
-
-def check_path(path):
-    """Never write through symlinks, including dangling ones and ancestors."""
-    path = Path(path)
-    if not path.is_absolute() or path == Path('/') or '..' in path.parts or any(c in str(path) for c in '\n\r\x00'):
-        raise InstallError(f'Dedicated absolute path required: {path}')
-    for part in [*reversed(path.parents), path]:
-        if part.is_symlink():
-            raise InstallError(f'Refusing symlinked path: {part}')
-    return path
-
-
-def check_managed(path, uid):
-    check_path(path)
-    for part in [path, *path.parents]:
-        if part.exists():
-            info = part.stat()
-            if info.st_uid == 0 and stat.S_ISDIR(info.st_mode) and info.st_mode & stat.S_ISVTX:
-                continue  # e.g. /tmp; later components must still be installer-owned
-            if info.st_uid not in (0, uid) or info.st_mode & 0o022:
-                raise InstallError(f'Installation path must be owned by the installer and not group/other writable: {part}')
 
 
 def atomic_write(path, data, mode, uid, gid):
@@ -72,16 +50,17 @@ def unit_quote(value):
     return '"' + str(value).replace('\\', '\\\\').replace('"', '\\"').replace('%', '%%').replace('$', '$$') + '"'
 
 
-def render_unit(binary, config, account=None, delegate=True):
+def render_unit(binary, config, account=None, delegate=True, cache=None):
     identity = '' if account is None else f'User={account.pw_name}\nGroup={account.pw_gid}\n'
     delegation = 'Delegate=yes\nDelegateSubgroup=supervisor\n' if delegate else ''
+    environment = '' if cache is None else f'Environment={unit_quote("TMPDIR="+str(cache/"tmp"))}\nEnvironment={unit_quote("XDG_CACHE_HOME="+str(cache))}\n'
     target = 'default.target' if account is None else 'multi-user.target'
     return f'''[Unit]
 Description=Molr Runtime
 
 [Service]
 Type=exec
-{identity}ExecStart={unit_quote(binary)} serve -config {unit_quote(config)}
+{identity}{environment}ExecStart={unit_quote(binary)} serve -config {unit_quote(config)}
 {delegation}KillMode=control-group
 UMask=0077
 NoNewPrivileges=yes
@@ -220,6 +199,8 @@ def prepare_dependencies(args):
 
 
 def install(args):
+    if sys.version_info < (3, 11):
+        raise InstallError('Python 3.11 or newer is required for safe offline uninstallation.')
     uid = os.geteuid()
     account = account_request(args.user, uid)
     system = args.user is not None
@@ -240,27 +221,20 @@ def install(args):
     for executable in (binary,):
         if not executable.is_file() or not os.access(executable, os.X_OK) or 'statically linked' not in output(['file', str(executable)]):
             raise InstallError(f'Statically linked executable required: {executable}')
-    # Root must not trust inherited HOME/XDG paths for system-wide destinations.
-    if system:
-        prefix = Path('/opt') / args.name
-        config_dir = Path('/etc') / args.name
-        unit_dir = Path('/etc/systemd/system')
-        default_data = Path('/var/lib') / args.name / 'data'
-    else:
-        prefix = Path(os.environ.get('XDG_DATA_HOME', str(Path(account.pw_dir) / '.local/share'))) / args.name
-        config_base = Path(os.environ.get('XDG_CONFIG_HOME', str(Path(account.pw_dir) / '.config')))
-        config_dir = config_base / args.name
-        unit_dir = config_base / 'systemd/user'
-        default_data = prefix / 'data'
+    paths = layout(args.name, account.pw_dir if account else '/', system, program_root=getattr(args, 'program_root', None))
+    prefix, config_dir, default_data = paths['prefix'], paths['config'], paths['data']
+    cache = paths['cache']
+    unit_dir = paths['unit'].parent
     installed = prefix / 'bin/molr-server'
     configuration = config_dir / 'server.json'
     marker = config_dir / 'installation.json'
     unit = unit_dir / (args.name + '.service')
     for path in (prefix, prefix/'LICENSE', prefix/'THIRD_PARTY_NOTICES.md', config_dir, unit_dir, installed, configuration, marker, unit):
         check_managed(path, uid)
+    previous = None
     if marker.exists():
         previous = json.loads(marker.read_text())
-        if account is None or previous['uid'] != account.pw_uid or previous['system'] != system:
+        if account is None or previous.get('schema') != 1 or previous['uid'] != account.pw_uid or previous['system'] != system or previous['paths'] != {k:str(v) for k,v in paths.items()} or type(previous.get('managed_data')) is not bool:
             raise InstallError('Existing installation uses another identity. Use another --name; migrate data explicitly.')
     elif unit.exists():
         raise InstallError(f'Unmanaged service already exists: {unit}; use another --name.')
@@ -279,6 +253,10 @@ def install(args):
     if find_static_busybox() is None and not allow_full_access and source_config is not None:
         raise InstallError('Static BusyBox required; install busybox-static with your system package manager.')
     data = check_path(Path(config['data_dir']))
+    require_separate([prefix, config_dir, cache, data, paths['unit']])
+    check_managed(cache.parent, uid)
+    if cache.exists() and (not cache.is_dir() or account is None or cache.stat().st_uid != account.pw_uid or cache.stat().st_mode & 0o022):
+        raise InstallError(f'Cache directory must belong to the selected user: {cache}')
     if data.exists() and (not data.is_dir() or account is None or data.stat().st_uid != account.pw_uid):
         raise InstallError(f'Existing data directory must belong to the selected user; no recursive ownership changes: {data}')
     if source_config is not None and not args.no_start and not args.init_owner and not (data/'runtime.db').is_file():
@@ -290,8 +268,17 @@ def install(args):
         # No HOME creation/chown or extra groups; state is in the service data directory.
         run(['useradd', '--system', '--user-group', '--no-create-home', '--home-dir', '/nonexistent', '--shell', '/usr/sbin/nologin', args.user])
         account = pwd.getpwnam(args.user)
-    for directory in (prefix/'bin', config_dir, unit_dir):
-        directory.mkdir(parents=True, exist_ok=True, mode=0o755)
+    for relative in PROGRAM_FILES:
+        check_managed(prefix/relative, uid)
+    for directory in (prefix/'bin', prefix/'scripts', config_dir, unit_dir, cache.parent):
+        missing = []
+        parent = directory
+        while not parent.exists():
+            missing.append(parent)
+            parent = parent.parent
+        for parent in reversed(missing):
+            parent.mkdir(mode=0o755)
+            parent.chmod(0o755)
     if not data.exists():
         if system:
             check_managed(data.parent, 0)
@@ -306,6 +293,22 @@ def install(args):
         data.mkdir(mode=0o700)
         if system:
             os.chown(data, account.pw_uid, account.pw_gid)
+    cache.mkdir(parents=True, exist_ok=True, mode=0o700)
+    check_path(cache/'tmp')
+    if (cache/'tmp').exists():
+        info = (cache/'tmp').stat()
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != account.pw_uid or info.st_mode & 0o022:
+            raise InstallError('Cache tmp directory must be private and owned by the service account.')
+    (cache/'tmp').mkdir(exist_ok=True, mode=0o700)
+    if system:
+        os.chown(cache, account.pw_uid, account.pw_gid, follow_symlinks=False)
+        os.chown(cache/'tmp', account.pw_uid, account.pw_gid, follow_symlinks=False)
+    # Record ownership before initialization so failed installs remain removable.
+    record = receipt(args.name, account, system, paths, data)
+    if previous:
+        record['complete'] = previous.get('complete', False)
+        record['managed_data'] = record['managed_data'] or previous['managed_data']
+    atomic_write(marker, (json.dumps(record)+'\n').encode(), 0o600, uid, os.getegid())
     # Validate access as the target user before initializing or restarting. Never run Molr as root.
     as_user = ['runuser', '-u', account.pw_name, '--'] if system else []
     config_bytes = (json.dumps(config, indent=2, ensure_ascii=False)+'\n').encode()
@@ -323,12 +326,17 @@ def install(args):
     atomic_write(installed, binary.read_bytes(), 0o755, uid, os.getegid())
     for name, contents in notices.items():
         atomic_write(prefix/name, contents, 0o644, uid, os.getegid())
-    if source_config is None and (not (data/'runtime.db').is_file() or ((data/'initial-password').is_file() and not marker.exists())):
+    for name in ('uninstall-linux.sh', 'uninstall-linux.py', 'install_layout.py'):
+        atomic_write(prefix/'scripts'/name, Path(__file__).with_name(name).read_bytes(), 0o755 if name.endswith('.sh') else 0o644, uid, os.getegid())
+    wrapper = '#!/usr/bin/env bash\nset -euo pipefail\nexec /bin/bash '+shlex.quote(str(prefix/'scripts/uninstall-linux.sh'))+' --record '+shlex.quote(str(marker))+' "$@"\n'
+    atomic_write(prefix/'uninstall.sh', wrapper.encode(), 0o755, uid, os.getegid())
+    if source_config is None and (not (data/'runtime.db').is_file() or not previous or not previous.get('complete')):
         run(as_user + [str(installed), 'bootstrap', '-config', str(configuration)])
     elif args.init_owner:
         run(as_user + [str(installed), 'init', '-config', str(configuration), '-username', args.init_owner, '-password-stdin'])
-    atomic_write(unit, render_unit(installed, configuration, account if system else None, delegate=delegate).encode(), 0o644, uid, os.getegid())
-    atomic_write(marker, (json.dumps({'uid': account.pw_uid, 'user': account.pw_name, 'system': system})+'\n').encode(), 0o600, uid, os.getegid())
+    atomic_write(unit, render_unit(installed, configuration, account if system else None, delegate=delegate, cache=cache).encode(), 0o644, uid, os.getegid())
+    record['complete'] = True
+    atomic_write(marker, (json.dumps(record)+'\n').encode(), 0o600, uid, os.getegid())
     if not system:
         try:
             if output(['loginctl', 'show-user', account.pw_name, '--property=Linger', '--value']) != 'yes':
@@ -374,13 +382,15 @@ def install(args):
         else:
             print('Existing credentials preserved. Log in normally and run authenticated sandbox checks.')
     print(f'Runtime and local sandbox account: {account.pw_name} (UID {account.pw_uid})')
-    print(f'Configuration: {configuration}\nData: {data}\nService: {unit}')
+    print(f'Program: {prefix}\nConfiguration: {configuration}\nData: {data}\nCache: {cache}\nService: {unit}')
+    print('Uninstall (keeps configuration and data): bash '+shlex.quote(str(prefix/'uninstall.sh')))
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--user', help='system service account; requires root; create a service account if missing')
     parser.add_argument('--name', default='molr', help='service name, default molr; use molr-<name> for separate instances')
+    parser.add_argument('--program-root', help='program base directory; each instance gets its own subdirectory')
     parser.add_argument('--no-start', action='store_true', help='prepare files without enabling/starting the service')
     parser.add_argument('--init-owner', metavar='NAME', help='initialize a new owner using password from stdin')
     parser.add_argument('binary', help='statically linked molr-server binary')

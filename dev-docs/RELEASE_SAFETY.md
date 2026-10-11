@@ -63,6 +63,9 @@ npm run build:source -- --ref HEAD
 - `release.json`
 - `scripts/install-linux.py`
 - `scripts/install-linux.sh`
+- `scripts/install_layout.py`
+- `scripts/uninstall-linux.py`
+- `scripts/uninstall-linux.sh`
 
 不递归打包工作目录或 staging 目录。生成的临时归档必须通过成员类型、明确清单、重复路径、内容和元数据检查，才原子替换最终归档并生成校验与下载清单。BusyBox、运行配置、数据库、密钥和验收数据均不属于发行包。
 
@@ -83,6 +86,16 @@ python3 scripts/release_safety.py frontend apps/webui/dist
 新增提交或 `.mailmap` 不会删除旧提交对象中的身份或文件内容。源码归档不含历史；直接公开原仓库则会公开相应的可达历史。需要移除旧信息时，先确定发布方式和范围，再在独立副本处理；不得直接改写共享仓库、强制推送或自动删除旧分支。
 
 ## 验证与范围
+
+安装目录、安装器或卸载器变更还需运行：
+
+```bash
+python3 runtime/scripts/test-install-linux.py
+python3 runtime/scripts/test-uninstall-linux.py
+python3 scripts/test-install-download.py
+```
+
+安装／卸载测试使用临时目录和模拟服务管理器，覆盖目录隔离、升级重装保留数据、删除确认、外部目录与符号链接保护。真实服务验收应使用独立实例，验证默认卸载后的重装、彻底清除和已认证沙盒能力；系统级安装还需要有权限的隔离环境。
 
 修改发布流程时运行 `npm run test:release`、`npm run check:release` 和相应应用构建；验证被拒绝的文件确实没有进入产物，源码包与所选提交一致。具体结果、提交和产物摘要保存在本地验收记录中。
 

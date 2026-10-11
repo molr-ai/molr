@@ -11,7 +11,7 @@ while (($#)); do
     --source) source_dir="${2:?--source requires a URL}"; shift 2 ;;
     --archive) archive="${2:?--archive requires a file}"; shift 2 ;;
     --version) version="${2:?--version requires a version}"; shift 2 ;;
-    --help) printf '%s\n' 'Usage: bash install.sh --source URL [--version VERSION] [installer options]' '       bash install.sh --archive FILE [installer options]' 'Installer options: --name molr-NAME --port PORT --public-host IP --user USER --no-start --no-browser --skip-dependencies --yes'; exit 0 ;;
+    --help) printf '%s\n' 'Usage: bash install.sh --source URL [--version VERSION] [installer options]' '       bash install.sh --archive FILE [installer options]' 'Installer options: --name molr-NAME --program-root PATH --port PORT --public-host IP --user USER --no-start --no-browser --skip-dependencies --yes'; exit 0 ;;
     *) forward+=("$1"); shift ;;
   esac
 done

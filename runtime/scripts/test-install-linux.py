@@ -9,6 +9,8 @@ import pwd
 import subprocess
 import tempfile
 import unittest
+import sys
+sys.path.insert(0, str(Path(__file__).parent))
 from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location('installer', Path(__file__).with_name('install-linux.py'))
@@ -155,10 +157,10 @@ class ContainerTests(unittest.TestCase):
         self.assertEqual(account.pw_shell, '/usr/sbin/nologin')
         self.assertEqual(account.pw_dir, '/nonexistent')
         self.assertEqual(os.getgrouplist(account.pw_name, account.pw_gid), [account.pw_gid])
-        data = Path('/var/lib/molr-review/data')
+        data = Path('/var/lib/molr/review')
         self.assertEqual(data.stat().st_uid, account.pw_uid)
-        installed = Path('/opt/molr-review/bin/molr-server')
-        cfg = Path('/etc/molr-review/server.json')
+        installed = Path('/opt/molr/review/bin/molr-server')
+        cfg = Path('/etc/molr/review/server.json')
         self.assertEqual(installed.stat().st_uid, 0)
         self.assertEqual(installed.stat().st_mode & 0o777, 0o755)
         self.assertEqual(cfg.stat().st_mode & 0o777, 0o640)
@@ -179,7 +181,7 @@ class ContainerTests(unittest.TestCase):
         self.assertNotEqual(failed.returncode,0)
         good = subprocess.run(command,input='installer-initial-password-678!\n',text=True,capture_output=True)
         self.assertEqual(good.returncode,0,good.stderr)
-        self.assertEqual(Path('/var/lib/molr-initial-review/data/runtime.db').stat().st_uid,pwd.getpwnam('molr-initial-review').pw_uid)
+        self.assertEqual(Path('/var/lib/molr/initial-review/runtime.db').stat().st_uid,pwd.getpwnam('molr-initial-review').pw_uid)
         repeated = subprocess.run(command,input='another-password-678!\n',text=True,capture_output=True)
         self.assertNotEqual(repeated.returncode,0)
         # Another existing ordinary login user also works; no shell/group changes.

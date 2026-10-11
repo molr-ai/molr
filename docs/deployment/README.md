@@ -38,9 +38,9 @@ npm run preview:website
 
 上述环境变量让网站包含指定发行目录，并为脚本配置默认下载源；不设置时只输出脚本，需要安装者指定 `--source` 或 `--archive`。
 
-省略配置文件的安装器会自动生成局域网 HTTP 配置、初始化所有者与 setup、安装服务并检查已认证 API。`--install-deps` 提供 apt 依赖安装，`--yes` 明确同意依赖安装，`--skip-dependencies` 跳过。缺少隔离依赖不自动开放 Full Access，沙盒能力按真实探针报告。Python 3、systemd 和基本安装工具仍需可用。安装器检查 BusyBox 必须是可执行、不可被组或其他用户写入的静态程序；只有动态 BusyBox 时仍会提示安装 `busybox-static`。不支持 apt 或离线安装时，请预先通过目标系统的包管理器安装静态 BusyBox 等依赖。安装器不复制 BusyBox 到 Molr 安装目录。
+省略配置文件的安装器会自动生成局域网 HTTP 配置、初始化所有者与 setup、安装服务并检查已认证 API。`--install-deps` 提供 apt 依赖安装，`--yes` 明确同意依赖安装，`--skip-dependencies` 跳过。缺少隔离依赖不自动开放 Full Access，沙盒能力按真实探针报告。安装与卸载需要 Python 3.11+，systemd 和基本安装工具仍需可用。安装器检查 BusyBox 必须是可执行、不可被组或其他用户写入的静态程序；只有动态 BusyBox 时仍会提示安装 `busybox-static`。不支持 apt 或离线安装时，请预先通过目标系统的包管理器安装静态 BusyBox 等依赖。安装器不复制 BusyBox 到 Molr 安装目录。
 
-`LICENSE` 和 `THIRD_PARTY_NOTICES.md` 保存在安装前缀根目录，例如用户安装的 `$XDG_DATA_HOME/molr/`（默认 `~/.local/share/molr/`）或系统安装的 `/opt/molr/`。内嵌 WebUI、独立 WebUI 和官网均提供 `/LICENSE` 与 `/THIRD_PARTY_NOTICES.md`；分发构建目录时应保留这两个文件。许可证正文集中维护在仓库根目录，不使用第三方 submodule。
+`LICENSE` 和 `THIRD_PARTY_NOTICES.md` 保存在安装前缀根目录，例如默认实例的用户安装目录 `~/.local/lib/molr/default/` 或系统安装目录 `/opt/molr/default/`。内嵌 WebUI、独立 WebUI 和官网均提供 `/LICENSE` 与 `/THIRD_PARTY_NOTICES.md`；分发构建目录时应保留这两个文件。许可证正文集中维护在仓库根目录，不使用第三方 submodule。
 
 用户服务未启用 linger 时，退出登录可能停止服务；要让系统在未登录时运行，由管理员执行 `loginctl enable-linger USER`。指定账户的系统服务不依赖 linger。
 
@@ -159,23 +159,53 @@ sudo bash runtime/scripts/install-linux.sh --user molr-sandbox --init-owner owne
 
 | 内容 | 当前用户安装 | 指定用户安装 |
 | --- | --- | --- |
-| 程序 | `${XDG_DATA_HOME:-$HOME/.local/share}/molr/bin` | `/opt/molr/bin`，root 管理 |
-| 配置 | `${XDG_CONFIG_HOME:-$HOME/.config}/molr/server.json`，0600 | `/etc/molr/server.json`，root 管理、目标组可读，0640 |
-| 未指定 `data_dir` 时的数据目录 | 程序实例目录下的 `data` | `/var/lib/molr/data` |
-| 服务文件 | 用户配置目录的 `systemd/user/molr.service` | `/etc/systemd/system/molr.service` |
-| 管理方式 | `systemctl --user … molr.service` | `sudo systemctl … molr.service` |
+| 程序、许可证、卸载器 | `~/.local/lib/molr/<实例>/` | `/opt/molr/<实例>/`，root 管理 |
+| 配置与安装记录 | `${XDG_CONFIG_HOME:-$HOME/.config}/molr/<实例>/` | `/etc/molr/<实例>/` |
+| 默认持久数据 | `${XDG_DATA_HOME:-$HOME/.local/share}/molr/<实例>/` | `/var/lib/molr/<实例>/` |
+| 缓存与服务临时文件 | `${XDG_CACHE_HOME:-$HOME/.cache}/molr/<实例>/` | `/var/cache/molr/<实例>/` |
+| 服务文件 | `${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/<服务名>.service` | `/etc/systemd/system/<服务名>.service` |
+| 管理方式 | `systemctl --user … <服务名>.service` | `sudo systemctl … <服务名>.service` |
+
+默认服务名为 `molr`，实例目录名为 `default`；`--name molr-demo` 使用实例目录 `demo` 和服务 `molr-demo.service`。`molr-default` 为保留名称，请使用 `molr`。用户程序目录默认以安装账户的主目录为基准，不随 `XDG_DATA_HOME` 改变。可用 `--program-root /path/programs` 更改程序根目录，程序安装到其 `<实例>/` 子目录；更新时沿用相同参数。程序入口是程序目录下的 `bin/molr-server`；配置文件为配置目录下的 `server.json`，用户安装权限为 `0600`，系统安装为 root 管理、目标组可读的 `0640`。
+
+数据库、密钥、附件、助理项目、技能、记忆和工作区内安装的工具均属于持久数据。服务使用独立缓存目录的 `tmp/` 作为 `TMPDIR`，`XDG_CACHE_HOME` 指向该实例缓存目录；重建缓存不影响持久数据。程序、配置、数据和缓存目录不能重叠。
 
 配置模板指定的 `data_dir` 保留不变；已有数据必须归目标账户所有且可访问，否则报错。首次复制配置时默认设置 `sandbox.host_tools: true`；显式 `false` 或自定义 rootfs 会保留。配置中的证书、外部工作区等路径也必须允许目标账户访问，安装器不会修改这些文件的权限。
 
 升级再次执行相同命令，省略 `--init-owner`：保留安装位置的配置、数据、凭证和用户，程序原子替换并保留 `molr-server.previous`，配置备份为 `server.previous.json`。同名实例不能静默切换账户；需显式迁移数据，或使用新的实例名。迁移前停止原实例并备份，不对运行中数据库直接改属主或复制。
 
-可用 `--name molr-<名称>` 安装独立实例，以上路径和服务名中的 `molr` 随之替换；配置、端口和数据目录也必须独立。`--no-start` 只准备文件，不启用或启动服务，并输出以正确身份初始化和启动的命令。未初始化的数据必须使用 `--init-owner` 或 `--no-start`，不会将一个无法监听的服务报告为安装成功。
+可用 `--name molr-<名称>` 安装独立实例；配置、端口和数据目录也必须独立。`--no-start` 只准备文件，不启用或启动服务，并输出以正确身份初始化和启动的命令。未初始化的数据必须使用 `--init-owner` 或 `--no-start`，不会将一个无法监听的服务报告为安装成功。
 
 安装器检查 systemd ≥254、Python 3、Bubblewrap、静态 BusyBox、CA 证书、file、util-linux；系统安装另需 useradd/runuser。缺失依赖时明确报错，不在普通用户安装过程中调用 sudo 或包管理器。两种 unit 都含 `Type=exec`、`Delegate=yes`、`DelegateSubgroup=supervisor`、`KillMode=control-group`、`NoNewPrivileges=yes`。用户服务需要现有用户管理器；若要求未登录时也启动，管理员可另行配置 `loginctl enable-linger USER`；系统服务无需 linger。
 
 安装后仍须完成下节的已认证沙盒检查。安装器的 `is-active` 只确认服务状态，不代替真实隔离能力验收。
 
 现有 Docker 镜像为精简 Runtime 镜像，尚不包含完整自动命令环境；不能认定在容器中启动 HTTP 后即可执行 Shell。
+
+## 卸载
+
+安装包会将离线卸载入口保存为程序目录下的 `uninstall.sh`，无需源码或网络。例如默认用户实例：
+
+```bash
+bash ~/.local/lib/molr/default/uninstall.sh --dry-run
+bash ~/.local/lib/molr/default/uninstall.sh
+```
+
+默认卸载停止对应服务与任务、移除服务注册、程序和实例缓存，保留配置、安装记录及持久数据。重新运行相同实例的安装命令即可复用这些数据；卸载输出会列出保留路径。
+
+彻底清除该实例的受管理配置和数据：
+
+```bash
+bash ~/.local/lib/molr/default/uninstall.sh --purge
+# 无交互执行时，显式确认数据删除
+bash ~/.local/lib/molr/default/uninstall.sh --purge --yes
+# 系统安装的实例
+sudo bash /opt/molr/demo/uninstall.sh --purge
+```
+
+`--purge` 先展示删除计划，再要求输入服务名确认；`--dry-run --purge` 只预览。自定义 `data_dir`、外置 `sandbox.work_root`、授权的外部目录、系统账户、系统依赖和 linger 设置不会被删除。仅安装器登记为受管理的默认数据目录纳入清除，目录挂载了其他文件系统时需先卸载挂载。无法确认服务归属、停止失败或路径校验失败时，中止删除并报告原因。
+
+源码检出提供 `bash scripts/uninstall.sh --name molr-demo`；系统实例加 `--system` 并以 root 执行。也可以使用已解压发行包的 `bash scripts/uninstall-linux.sh --name molr-demo`。这两个入口可在默认卸载后继续清除保留数据；自定义 XDG 目录时沿用安装时的环境变量，或通过 `--record /path/installation.json` 指定保留的安装记录。安装记录中不保存密码和密钥。
 
 ## 启动后的检查
 

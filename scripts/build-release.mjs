@@ -30,7 +30,7 @@ const binary = `${stage}/bin/molr-server`;
 chmodSync(binary, 0o755);
 const description = execFileSync('file', [binary], { encoding: 'utf8' });
 if (!description.includes('statically linked')) throw new Error('Runtime must be statically linked');
-for (const name of ['install-linux.sh', 'install-linux.py']) cpSync(`runtime/scripts/${name}`, `${stage}/scripts/${name}`);
+for (const name of ['install-linux.sh', 'install-linux.py', 'install_layout.py', 'uninstall-linux.sh', 'uninstall-linux.py']) cpSync(`runtime/scripts/${name}`, `${stage}/scripts/${name}`);
 writeFileSync(`${stage}/release.json`, JSON.stringify({ version, commit, builtAt: buildTime, os: 'linux', arch }, null, 2));
 mkdirSync(output, { recursive: true });
 const filename = `molr_${version}_linux_${arch}.tar.gz`;
