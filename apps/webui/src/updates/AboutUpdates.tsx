@@ -1,8 +1,9 @@
 import { useEffect, useId, useState } from 'react';
 import { Alert, Button } from '@molr/ui';
 import { ArrowUpRight, CheckCircle2, ChevronDown, CircleArrowUp, Info, Monitor, RefreshCw, Server } from 'lucide-react';
-import type { UpdateInstallation } from '@molr/sdk';
+import type { RuntimeInfo, UpdateInstallation } from '@molr/sdk';
 import { useCopy, useQuery, useSession } from '../state';
+import { useErrorToast } from '../error-toasts';
 import { buildInfo } from '../build-info';
 import { poll } from '../polling';
 import { useUpdates } from './provider';
@@ -10,7 +11,9 @@ import { upgradeCommand } from './build';
 
 const guide = 'https://molr.ai/docs/deployment/';
 export function AboutUpdates() {
- const updates = useUpdates(), { locale } = useCopy(), { principal } = useSession();
+ const updates = useUpdates(), { t, locale } = useCopy(), { principal } = useSession();
+ const runtime = useQuery<RuntimeInfo>('/api/status');
+ useErrorToast(runtime.error, runtime.reload);
  const zh = locale === 'zh', admin = !!principal?.User?.Administrator, status = updates.data;
  const installation = useQuery<UpdateInstallation | null>(admin ? '/api/updates/installation' : null, false, 0);
  const [showGuide, setShowGuide] = useState(false), [now, setNow] = useState(Date.now());
@@ -98,8 +101,18 @@ export function AboutUpdates() {
      <dd><span className="update-build-version">{build?.version || '—'}</span>{build?.commit ? <a href={`https://github.com/molr-ai/molr/commit/${build.commit}`} target="_blank" rel="noopener noreferrer" title={build.commit}><code>{build.commit.slice(0,12)}</code></a> : <span className="update-meta">—</span>}</dd>
     </div>)}
    </dl>
-   {mismatch && !updates.unreachable ? <Alert tone="warning" title={consistencyText}>{status?.current.embedded_webui ? zh ? '服务端可能已更新。请保存当前输入后刷新页面，再检查版本。' : 'The server may have been updated. Save your input, then refresh this page and check again.' : zh ? '请管理员核对 WebUI 与 Runtime 的部署版本。' : 'Ask the administrator to check the deployed WebUI and Runtime builds.'}</Alert> : <p className="update-build-status" data-consistent={consistent || undefined} role="status">{consistent ? <CheckCircle2 size={15} aria-hidden="true" /> : <Info size={15} aria-hidden="true" />}{updates.unreachable ? zh ? '暂时无法连接 Runtime，无法检查一致性' : 'Cannot check consistency while Runtime is unreachable' : consistencyText}</p>}
-   {updates.observedAt && <p className="update-meta">{zh ? '最近确认 ' : 'Last confirmed '}{time(updates.observedAt)}</p>}
+   {mismatch && !updates.unreachable && <Alert tone="warning" title={consistencyText}>{status?.current.embedded_webui ? zh ? '服务端可能已更新。请保存当前输入后刷新页面，再检查版本。' : 'The server may have been updated. Save your input, then refresh this page and check again.' : zh ? '请管理员核对 WebUI 与 Runtime 的部署版本。' : 'Ask the administrator to check the deployed WebUI and Runtime builds.'}</Alert>}
+   <div className="update-build-summary">
+    {(!mismatch || updates.unreachable) && <p className="update-build-status" data-consistent={consistent || undefined} role="status">{consistent ? <CheckCircle2 size={15} aria-hidden="true" /> : <Info size={15} aria-hidden="true" />}{updates.unreachable ? zh ? '暂时无法连接 Runtime，无法检查一致性' : 'Cannot check consistency while Runtime is unreachable' : consistencyText}</p>}
+    {updates.observedAt && <p className="update-meta">{zh ? '最近确认 ' : 'Last confirmed '}{time(updates.observedAt)}</p>}
+   </div>
+  </section>
+  <section className="about-service" aria-label={zh ? '服务信息' : 'Service information'}>
+   <header className="update-section-heading"><h3>{zh ? '服务信息' : 'Service information'}</h3></header>
+   <dl className="update-builds">
+    <div><dt>{t.settings.runtimeName}</dt><dd className="update-runtime-value">{runtime.data?.name || '—'}</dd></div>
+    <div><dt>{t.settings.runtimeAddress}</dt><dd className="update-runtime-value">{runtime.data?.public_url || '—'}</dd></div>
+   </dl>
   </section>
  </div>;
 }

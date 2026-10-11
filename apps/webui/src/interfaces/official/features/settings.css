@@ -4,6 +4,7 @@
 
 .settings-workspace { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .settings-header { flex-shrink: 0; }
+.settings-admin-button { flex-shrink: 0; }
 .settings-header .page-header-identity > .ui-icon-button { margin-right: 2px; }
 .settings-body { flex: 1; min-height: 0; display: flex; }
 
@@ -25,7 +26,6 @@
 
 /* Lists sit directly on the surface panel: hairline dividers instead of floating cards. */
 .settings-panel .settings-list { background: transparent; border-radius: 0; padding: 0; }
-.settings-panel .settings-disconnect-row { background: var(--color-neutral-bg); }
 
 .settings-group { display: grid; gap: 12px; align-content: start; }
 .settings-group-title { margin: 0; font-size: 11px; font-weight: 600; color: var(--color-text-muted); }
@@ -119,3 +119,12 @@
 
 .profile-fields { margin: 0; padding: 0; border: 0; min-width: 0; }
 .profile-fields .assistant-avatar-field { max-width: 360px; }
+
+.settings-export { gap: 24px; }
+.settings-export .settings-group-title { font-size: var(--text-sm); font-weight: 600; color: var(--color-text); }
+.settings-export-list { margin: 0; }
+.settings-export-list > div { display: grid; gap: 6px; padding-block: 12px; }
+.settings-export-list > div:first-child { padding-top: 0; }
+.settings-export-list > div:last-child { padding-bottom: 0; }
+.settings-export-list > div + div { border-top: 1px solid var(--color-border); }
+.settings-export-list dt { font-size: var(--text-sm); font-weight: 500; }

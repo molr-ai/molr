@@ -7,59 +7,53 @@ import { NotificationSettings } from '../../../notifications/Settings';
 import { notificationCopy } from '../../../notifications/copy';
 import { Memories } from './Memories';
 import { AccountUsage } from '../../../administration/Usage';
-import { Activity, Fragment, useEffect, useState } from 'react';
+import { Activity, useEffect, useState } from 'react';
 import { Badge, Button, Checkbox, IconButton, Logo, TextField, useBreakpoint, useTheme, useUILocale } from '@molr/ui';
-import { Bell, Brain, ChartNoAxesCombined, ChevronLeft, ChevronRight, Database, Download, Info, Plug, Palette as PaletteIcon, Settings as SettingsIcon, Settings2, Shield, Star, ArrowUpRight, UserRoundX } from 'lucide-react';
+import { Bell, Brain, ChartNoAxesCombined, ChevronLeft, ChevronRight, Database, Download, Info, Palette as PaletteIcon, Settings as SettingsIcon, Settings2, Shield, Star, ArrowUpRight, UserRound, UserRoundX } from 'lucide-react';
 import { api } from '../../../api/client';
-import type { Assistant, RuntimeInfo, Session } from '../../../api/types';
+import type { Assistant, Session } from '../../../api/types';
 import { useReauthentication } from '../components/ReauthenticationDialog';
-import { useCopy, useData, useQuery, useSession } from '../../../state';
+import { useCopy, useQuery, useSession } from '../../../state';
+import { useNavigation } from '../../../navigation';
 import { Attachment } from './Chat';
 import { LoginLinksSettings } from './LoginLinksSettings';
 import { SecurityVerificationSettings } from './SecurityVerificationSettings';
 import { GeneralSettings } from './GeneralSettings';
 import { ThemeSettings } from './ThemeSettings';
-import { SettingsHelp } from '../components/SettingsHelp';
 import { Confirm, EditDialog, Empty, Loading, PageHeader, useAction } from '../components/common';
 import './settings.css';
 
-const settingsTabs = ['profile', 'general', 'notifications', 'connection', 'theme', 'memory', 'usage', 'former', 'security', 'data', 'about'];
+const settingsTabs = ['general', 'profile', 'security', 'notifications', 'theme', 'usage', 'memory', 'data', 'former', 'about'];
 export function Settings({ assistants, openAssistant, initialTab = '', onSelectSection }: { assistants: Assistant[]; initialTab?: string; openAssistant: (id: string) => void; onSelectSection?: (value: string) => void }) {
   const { t, locale } = useCopy(), mobile = useBreakpoint('mobile');
-  const { principal } = useSession();
+  const { principal } = useSession(), { navigate } = useNavigation();
   const routed = settingsTabs.includes(initialTab) ? initialTab : '';
   const active = routed || (mobile ? '' : 'general');
   const [visited, setVisited] = useState(() => new Set(active ? [active] : []));
   useEffect(() => { if (active) setVisited(previous => new Set([...previous, active])); }, [active]);
   const sections = [
     { value: 'general', label: t.settings.general, icon: Settings2, content: <GeneralSettings /> },
-    { value: 'notifications', label: notificationCopy[locale].title, icon: Bell, content: <NotificationSettings /> },
-    { value: 'connection', label: t.settings.connection, icon: Plug, content: <Connection /> },
-    { value: 'theme', label: t.settings.theme, icon: PaletteIcon, description: t.settings.themeDescription, content: <ThemeSettings /> },
-    { value: 'profile', label: locale === 'zh' ? '个人资料' : 'Profile', icon: Settings2, content: <ProfileSettings /> },
-    { value: 'memory', label: t.settings.memory, icon: Brain, content: <Memories assistants={assistants} /> },
-    { value: 'usage', label: t.settings.usage, icon: ChartNoAxesCombined, content: <AccountUsage /> },
-    { value: 'former', label: t.assistants.former, icon: UserRoundX, content: <FormerAssistants assistants={assistants} openAssistant={openAssistant} /> },
+    { value: 'profile', label: locale === 'zh' ? '个人资料' : 'Profile', icon: UserRound, content: <ProfileSettings /> },
     { value: 'security', label: t.settings.security, icon: Shield, content: <Security /> },
+    { value: 'notifications', label: notificationCopy[locale].title, icon: Bell, content: <NotificationSettings /> },
+    { value: 'theme', label: t.settings.theme, icon: PaletteIcon, description: t.settings.themeDescription, content: <ThemeSettings /> },
+    { value: 'usage', label: t.settings.usage, icon: ChartNoAxesCombined, content: <AccountUsage /> },
+    { value: 'memory', label: t.settings.memory, icon: Brain, content: <Memories assistants={assistants} /> },
     { value: 'data', label: t.data, icon: Database, content: <DataExport /> },
+    { value: 'former', label: t.assistants.former, icon: UserRoundX, content: <FormerAssistants assistants={assistants} openAssistant={openAssistant} /> },
     { value: 'about', label: t.account.about, icon: Info, content: <About /> },
   ];
   const current = sections.find(item => item.value === active);
   const select = (value: string) => onSelectSection?.(value);
   return <section className="settings-workspace">
-    <PageHeader className="settings-header" title={mobile && current ? current.label : locale === 'zh' ? '用户设置' : 'User settings'} icon={<SettingsIcon />} leading={mobile && current && onSelectSection ? <IconButton label={t.back} onClick={() => select('')}><ChevronLeft size={18} /></IconButton> : undefined} />
+    <PageHeader className="settings-header" title={mobile && current ? current.label : locale === 'zh' ? '用户设置' : 'User settings'} icon={<SettingsIcon />} leading={mobile && current && onSelectSection ? <IconButton label={t.back} onClick={() => select('')}><ChevronLeft size={18} /></IconButton> : undefined} actions={principal?.User?.Administrator && <Button className="settings-admin-button" variant="secondary" size="sm" onClick={() => navigate('settings')}><Shield size={16} aria-hidden="true" />{t.account.admin}</Button>} />
     <div className="settings-body">
       <nav className="settings-nav" aria-label={locale === 'zh' ? '用户设置' : 'User settings'} hidden={mobile && !!current}>
         {sections.map(item => {
           const Icon = item.icon;
-          return <Fragment key={item.value}>
-            {item.value === 'about' && principal?.User?.Administrator && <a href="#/settings">
-              <Shield size={16} className="settings-nav-icon" aria-hidden="true" /><span>{t.account.admin}</span><ChevronRight size={16} className="settings-nav-caret" aria-hidden="true" />
-            </a>}
-            <button type="button" aria-current={active === item.value ? 'page' : undefined} onClick={() => select(item.value)}>
-              <Icon size={16} className="settings-nav-icon" aria-hidden="true" /><span>{item.label}</span>{item.value === 'about' && <UpdateBadge />}<ChevronRight size={16} className="settings-nav-caret" aria-hidden="true" />
-            </button>
-          </Fragment>;
+          return <button key={item.value} type="button" aria-current={active === item.value ? 'page' : undefined} onClick={() => select(item.value)}>
+            <Icon size={16} className="settings-nav-icon" aria-hidden="true" /><span>{item.label}</span>{item.value === 'about' && <UpdateBadge />}<ChevronRight size={16} className="settings-nav-caret" aria-hidden="true" />
+          </button>;
         })}
       </nav>
       <div className="settings-panel" hidden={mobile && !current}>
@@ -87,23 +81,6 @@ function About() {
       <div><h3>{locale === 'zh' ? '一起让 Molr 更好' : 'Help Molr grow'}</h3><p>{locale === 'zh' ? '如果喜欢 Molr，欢迎在 GitHub 上点亮一颗 Star。' : 'Enjoying Molr? Give the project a Star on GitHub.'}</p></div>
       <a className="settings-about-github" href={repository} target="_blank" rel="noopener noreferrer" aria-label={t.account.starLink}><Star size={15} aria-hidden="true" />GitHub<ArrowUpRight size={14} aria-hidden="true" /></a>
     </footer>
-  </div>;
-}
-function Connection() {
-  const { t, locale } = useCopy(), { messages } = useUILocale(), session = useSession(), { connection } = useData(), action = useAction();
-  const runtime = useQuery<RuntimeInfo>('/api/status'), sessions = useQuery<Session[]>('/api/auth/sessions', true);
-  const current = sessions.data?.find(value => value.ID === session.principal?.SessionID);
-  useErrorToast(runtime.error || sessions.error || action.error, runtime.reload);
-  return <div className="settings-section settings-connection">
-    {runtime.loading && !runtime.data ? <Loading /> : <div className="settings-list">
-      <div className="settings-runtime-heading"><h3>{runtime.data?.name ?? 'Molr Runtime'}</h3><Badge tone={connection === 'connected' || connection === 'recovered' ? 'positive' : connection === 'failed' ? 'danger' : 'warning'}>{messages.connection[connection]}</Badge></div>
-      <dl className="connection-details">
-        <div><dt>{t.settings.runtimeAddress}</dt><dd>{runtime.data?.public_url ?? '—'}</dd></div>
-        <div><dt>{t.settings.deviceName}</dt><dd>{current ? sessionDeviceName(current) : '—'}</dd></div>
-        <div><dt>{t.settings.connectedSince}</dt><dd>{current ? new Date(current.LastLoginAt || current.CreatedAt).toLocaleString(locale) : '—'}</dd></div>
-      </dl>
-    </div>}
-    <div className="settings-disconnect-block"><div className="settings-disconnect-row"><Button variant="ghost" className="settings-disconnect" loading={action.busy} onClick={() => void action.run(() => api.post('/api/auth/logout'), session.end, false)}>{t.settings.disconnect}</Button></div><p className="muted settings-disconnect-hint">{t.settings.disconnectHelp}</p></div>
   </div>;
 }
 function FormerAssistants({ assistants, openAssistant }: { assistants: Assistant[]; openAssistant: (id: string) => void }) {
@@ -153,7 +130,17 @@ function PasswordEditor({ onClose }: { onClose: () => void }) {
 }
 function DataExport() {
   const { t } = useCopy(), [open, setOpen] = useState(false), [file, setFile] = useState('');
-  return <div className="settings-section"><div className="settings-toolbar"><Button variant="secondary" onClick={() => setOpen(true)}><Download size={16} />{t.exportData}</Button><SettingsHelp label={t.exportData} content={t.exportHelp} /></div>{file && <Attachment id={file} />}{open && <ExportDialog onClose={() => setOpen(false)} onExported={setFile} />}</div>;
+  const scope = t.exportScope;
+  return <div className="settings-section settings-export">
+    <p className="settings-description">{scope.description}</p>
+    {[{ title: scope.includedTitle, items: scope.included }, { title: scope.optionalTitle, items: scope.optional }].map(group => <section className="settings-group" key={group.title} aria-label={group.title}>
+      <h3 className="settings-group-title">{group.title}</h3>
+      <dl className="settings-export-list">{group.items.map(item => <div key={item.title}><dt>{item.title}</dt><dd className="settings-description">{item.description}</dd></div>)}</dl>
+    </section>)}
+    <Button variant="secondary" onClick={() => setOpen(true)}><Download size={16} />{t.exportData}</Button>
+    {file && <Attachment id={file} />}
+    {open && <ExportDialog onClose={() => setOpen(false)} onExported={setFile} />}
+  </div>;
 }
 function ExportDialog({ onClose, onExported }: { onClose: () => void; onExported: (id: string) => void }) {
   const { t } = useCopy(), [messages, setMessages] = useState(true), [artifacts, setArtifacts] = useState(false);

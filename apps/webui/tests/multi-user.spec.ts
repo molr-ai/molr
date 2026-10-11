@@ -36,7 +36,8 @@ test('separate settings entries and user-group resource reference editor persist
   await page.getByRole('button', { name: /^User settings(?: ·.*)?$/ }).click();
   await expect(page).toHaveURL(/#\/account/);
   await expect(page.locator('.settings-nav')).not.toContainText('Plugins');
-  await page.getByRole('link', { name: 'Admin settings', exact: true }).click();
+  await expect(page.locator('.settings-nav')).not.toContainText('Admin settings');
+  await page.locator('.settings-header').getByRole('button', { name: 'Admin settings', exact: true }).click();
   await page.locator('.settings-nav > button').filter({ hasText: /^User groups$/ }).click();
   await expect(page.locator('.settings-panel')).toContainText('All resources');
   await page.getByRole('button', { name: 'Add group', exact: true }).click();
@@ -108,12 +109,12 @@ test('revoking a group resource removes an existing assistant model after refres
 test('account changes in another tab discard the previous identity and navigation', async ({ page, context }) => {
   await login(page); const u = await ordinaryUser(page);
   const second = await context.newPage(); await second.goto('/#/account');
-  await expect(second.getByRole('link', { name: 'Admin settings', exact: true })).toBeVisible();
+  await expect(second.locator('.settings-header').getByRole('button', { name: 'Admin settings', exact: true })).toBeVisible();
   await page.goto('/#/account/security');
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
   await expect(second.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
   await login(page, u.name, u.secret);
   await expect(second.getByRole('navigation', { name: 'Molr' })).toBeVisible();
-  await expect(second.getByRole('link', { name: 'Admin settings', exact: true })).toHaveCount(0);
+  await expect(second.locator('.settings-header').getByRole('button', { name: 'Admin settings', exact: true })).toHaveCount(0);
   const me = await request(second, '/api/auth/me'); expect(me.OwnerID).toBe(u.user.ID);
 });

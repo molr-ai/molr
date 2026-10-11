@@ -1133,7 +1133,7 @@ test('task controls and protected data export reach the backend', async ({ page 
   await page.keyboard.press('Escape'); await expect(tasks).not.toBeVisible();
   await openUserSettings(page);
   await expect(settingsNavItem(page, 'Model credentials')).toHaveCount(0);
-  await openSettingsSection(page, 'Data'); await page.getByRole('button', { name: 'Export data', exact: true }).click();
+  await openSettingsSection(page, 'Personal data export'); await page.getByRole('button', { name: 'Export data', exact: true }).click();
   const data = page.getByRole('dialog', { name: 'Export data', exact: true }); await data.getByRole('button', { name: 'Export data', exact: true }).click(); await expect(page.getByRole('dialog', { name: 'Verify identity', exact: true })).toHaveCount(0); await expect(data).not.toBeVisible();
   await expect(settingsPane(page).getByRole('link')).toBeVisible();
 });
@@ -1361,13 +1361,11 @@ test('a stalled connection times out and clicking the logo retries the real stre
   await expect(page.getByText('The service is unavailable. Try again shortly.', { exact: true })).toBeVisible();
 });
 
-test('general, notifications and connection lead settings, save independently and disconnect the session', async ({ page, context }, info) => {
+test('settings save independently, About shows Runtime details and Security signs out the session', async ({ page, context }, info) => {
   await login(page);
   await openUserSettings(page);
   const navItems = page.locator('.settings-nav > button');
-  await expect(navItems.nth(0)).toHaveText('General');
-  await expect(navItems.nth(1)).toHaveText('Notification settings');
-  await expect(navItems.nth(2)).toHaveText('Connection');
+  await expect(navItems).toHaveText(['General', 'Profile', 'Security', 'Notification settings', 'Theme', 'Usage', 'Memory', 'Personal data export', 'Former assistants', 'About']);
   await openSettingsSection(page, 'General');
   await expect(navItems.nth(0)).toHaveAttribute('aria-current', 'page');
   const general = settingsPane(page);
@@ -1404,15 +1402,17 @@ test('general, notifications and connection lead settings, save independently an
   await openSettingsSection(page, 'Theme');
   await choose(page, 'Display mode', /^System /);
   await expect.poll(async () => (await (await page.request.get('/api/settings')).json()).Theme).toBe('system');
-  await openSettingsSection(page, 'Connection');
-  const connection = settingsPane(page);
-  await expect(connection.getByRole('heading', { name: 'Molr Runtime', exact: true })).toBeVisible();
-  await expect(connection).toContainText(`http://127.0.0.1:${process.env.MOLR_TEST_RUNTIME_PORT ?? process.env.MOLR_E2E_RUNTIME_PORT ?? 18881}`);
-  await expect(connection.locator('.connection-details dd').nth(1)).toContainText(' · Web');
-  await expect(connection.locator('.settings-connection')).toHaveCSS('padding-top', '0px');
-  await connection.screenshot({ path: info.outputPath('runtime-connection.png') });
+  await expect(settingsNavItem(page, 'Connection')).toHaveCount(0);
+  await openSettingsSection(page, 'About');
+  const about = settingsPane(page);
+  await expect(about.locator('.update-runtime-value').first()).toHaveText('Molr Runtime');
+  await expect(about.locator('.update-runtime-value').last()).toHaveText(`http://127.0.0.1:${process.env.MOLR_TEST_RUNTIME_PORT ?? process.env.MOLR_E2E_RUNTIME_PORT ?? 18881}`);
+  await expect(about.getByRole('button', { name: 'Disconnect', exact: true })).toHaveCount(0);
+  await about.screenshot({ path: info.outputPath('about-runtime.png') });
+  await openSettingsSection(page, 'Security');
+  await expect(settingsPane(page).locator('.security-devices')).toContainText(' · Web');
   const cookies = (await context.cookies()).map(cookie => `${cookie.name}=${cookie.value}`).join('; ');
-  await connection.getByRole('button', { name: 'Disconnect', exact: true }).click();
+  await settingsPane(page).getByRole('button', { name: 'Sign out', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
   expect((await page.request.get('/api/auth/me', { headers: { Cookie: cookies } })).status()).toBe(401);
   await page.reload(); await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
@@ -1481,7 +1481,7 @@ test('fast pages skip skeletons, slow first reads show them, and revisits retain
   await slow.release(); await expect(page.locator('.ui-skeleton')).toHaveCount(0);
 });
 
-test('cached content is discarded on access denial and when disconnecting', async ({ page }, info) => {
+test('cached content is discarded on access denial and when signing out', async ({ page }, info) => {
   await login(page); const title = `Private snapshot ${info.project.name}-${Date.now()}`;
   await post(page, '/api/todos', { Title: title });
   await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await selectPlanRange(page, /^No date/);
@@ -1492,15 +1492,16 @@ test('cached content is discarded on access denial and when disconnecting', asyn
   await expect(page.getByRole('alert')).toContainText('Permission or security verification failed');
   await expect(page.getByRole('heading', { name: title, exact: true })).toHaveCount(0);
   await page.unroute('**/api/plans?*');
+  await page.locator('.ui-toasts').getByRole('button', { name: 'Close', exact: true }).click();
   await page.getByRole('navigation').getByRole('button', { name: 'Resources', exact: true }).click();
   const denied = await holdRead(page, '**/api/plans?*');
   await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await selectPlanRange(page, /^No date/); await denied.started;
   await expect(page.getByRole('heading', { name: title, exact: true })).toHaveCount(0);
   await expect(page.locator('.ui-skeleton').first()).toBeVisible();
   await denied.release(); await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
-  await page.evaluate(() => { location.hash = '#/account/connection'; });
-  await openSettingsSection(page, 'Connection');
-  await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
+  await page.evaluate(() => { location.hash = '#/account/security'; });
+  await openSettingsSection(page, 'Security');
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
   // Sign in within the existing document, so a full page reload cannot conceal
   // an incorrectly retained cache from the previous authenticated session.

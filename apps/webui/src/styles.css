@@ -101,7 +101,7 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
   .workspace-nav, .workspace-nav .nav-button, .workspace-nav .nav-button > span:last-child { transition: none; }
 }
 
-.settings-general, .settings-connection { max-width: 760px; padding-top: 0; }
+.settings-general { max-width: 760px; padding-top: 0; }
 .provider-connect-layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 24px; align-items: start; }
 .provider-connect-providers { position: sticky; top: 0; min-width: 0; }
 .provider-connect-label { margin: 0 0 12px; color: var(--color-text-muted); font-size: var(--text-xs); }
@@ -146,17 +146,10 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 .settings-switch-control { flex-shrink: 0; }
 .settings-switch-control > span:last-child:empty { display: none; }
 .settings-general > .ui-alert { margin-top: 16px; }
-.settings-runtime-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; min-height: 64px; padding: 16px 0; }
-.settings-runtime-heading h3 { margin: 0; font-size: var(--text-base); }
 .connection-details { margin: 0; }
 .connection-details > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 65%); align-items: center; gap: 12px; min-height: 56px; padding: 12px 0; }
 .connection-details dt { font-size: var(--text-sm); }
 .connection-details dd { margin: 0; color: var(--color-text-muted); text-align: right; overflow-wrap: anywhere; font-size: var(--text-sm); }
-.settings-disconnect-block { display: grid; gap: 8px; }
-.settings-disconnect-row { display: flex; align-items: center; background: var(--color-surface); border-radius: var(--radius-card); }
-.settings-disconnect { flex: 1; min-height: 48px; color: var(--color-danger); }
-.settings-disconnect:hover { background: var(--color-danger-bg); }
-.settings-disconnect-hint { padding-inline: 4px; font-size: var(--text-sm); }
 
 .security-verification { display: grid; gap: 12px; }
 .verification-method-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: var(--text-sm); }
