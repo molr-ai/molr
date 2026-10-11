@@ -312,6 +312,9 @@ func (r *Runner) startAuthorized(parent context.Context, e core.Execution, c pla
 		}
 	}
 	args = append(args, "--proc", "/proc", "--dev", "/dev", "--size", strconv.FormatInt(c.Limits.TempBytes, 10), "--tmpfs", "/tmp", "--size", "1048576", "--tmpfs", "/resources", "--size", "1048576", "--tmpfs", "/molr")
+	if err = r.appendGPUMounts(ctx, &args, add, c.GPUDeviceIDs); err != nil {
+		return nil, err
+	}
 	if work != "" {
 		if err = bind(work, "/work", false); err != nil {
 			return nil, err
@@ -364,7 +367,7 @@ func (r *Runner) startAuthorized(parent context.Context, e core.Execution, c pla
 			}
 		}
 	}
-	launch := helperConfig{NoWorkspace: r.options.NoWorkspace, TTY: c.TTY, HostTools: r.options.HostTools, Script: c.Script, Directory: c.Directory, MaxFileBytes: c.Limits.MaxFileBytes, CPUPercent: c.Limits.CPUPercent}
+	launch := helperConfig{GPU: len(c.GPUDeviceIDs) > 0, NoWorkspace: r.options.NoWorkspace, TTY: c.TTY, HostTools: r.options.HostTools, Script: c.Script, Directory: c.Directory, MaxFileBytes: c.Limits.MaxFileBytes, CPUPercent: c.Limits.CPUPercent}
 	var network *networkSession
 	if len(c.NetworkTargets) > 0 || len(c.ForwardPorts) > 0 {
 		network, err = r.startNetworkWithQuotas(ctx, e, c, func(check context.Context) error { return authorize(check, e, c) })
@@ -393,7 +396,7 @@ func (r *Runner) startAuthorized(parent context.Context, e core.Execution, c pla
 		return nil, err
 	}
 	args = append(args, "--ro-bind-data", add(f), "/molr/launch.json")
-	f, err = memoryFile(filterBytes())
+	f, err = memoryFile(filterBytesGPU(len(c.GPUDeviceIDs) > 0))
 	if err != nil {
 		return nil, err
 	}

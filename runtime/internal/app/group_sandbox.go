@@ -16,6 +16,9 @@ func applyGroupCommand(ctx context.Context, store persistence.Store, e core.Exec
 	if err != nil || ref == nil {
 		return err
 	}
+	if err := core.CheckGPUDevices(c.GPUDeviceIDs, ref.Quota.Compute.GPUDevices()); err != nil {
+		return err
+	}
 	if v := ref.Quota.Compute; v != nil {
 		c.GroupComputeConstraints = v
 		c.Limits.CPUPercent = min(c.Limits.CPUPercent, v.CPUPercent)

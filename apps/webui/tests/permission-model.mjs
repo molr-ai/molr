@@ -59,8 +59,17 @@ export function permissionModel(input, response) {
     else {
       const target = listing.Requestable.find(r => r.Kind === 'compute');
       const quota = input.model.startsWith('Permission quota ');
+      const gpu = input.model.startsWith('Permission gpu ');
+      const cpu = input.model.startsWith('Permission cpu ');
       const network = quota ? listing.Requestable.find(r => r.Kind === 'network') : null;
-      call('permission_request', { resource_kind: 'compute', resource_id: target.ResourceID, resource_description: target.Name, actions: ['execute'], expires_at: new Date(Date.now()+3600000).toISOString(), reason: 'Run the calculation in an isolated sandbox.', ...(quota ? { constraints: {compute:{cpu_percent:200,memory_bytes:536870912,processes:128,max_duration_seconds:300,unlimited_duration:false,temp_bytes:67108864}}, additional_requests: [{resource_kind:'network',resource_id:network.ResourceID,resource_description:network.Name,actions:['execute'],reason:'Download the quota verification file.',constraints:{network:{bytes:1073741824,connections:32,period:'day',timezone:'Asia/Shanghai'}}}] } : {}) });
+      const compute = { cpu_percent: 200, memory_bytes: 536870912, processes: 128, max_duration_seconds: 300, unlimited_duration: false, temp_bytes: 67108864,
+        ...(gpu ? { gpu: { device_ids: [target.GPUs[0].ID] } } : {}) };
+      call('permission_request', {
+        resource_kind: 'compute', resource_id: target.ResourceID, resource_description: target.Name, actions: ['execute'],
+        expires_at: new Date(Date.now()+3600000).toISOString(), reason: 'Run the calculation in an isolated sandbox.',
+        ...(quota || gpu || cpu ? { constraints: { compute } } : {}),
+        ...(quota ? { additional_requests: [{ resource_kind:'network', resource_id:network.ResourceID, resource_description:network.Name, actions:['execute'], reason:'Download the quota verification file.', constraints:{network:{bytes:1073741824,connections:32,period:'day',timezone:'Asia/Shanghai'}} }] } : {}),
+      });
       message.tool_calls.push({ id: randomUUID(), type: 'function', function: { name: 'conversation_publish', arguments: JSON.stringify({ conversation_id: event.conversation_id, text: 'Must not run before approval' }) } });
     }
   } else if (decision?.State === 'rejected' && !published) {

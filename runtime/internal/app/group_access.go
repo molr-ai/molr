@@ -119,6 +119,11 @@ func validateGroupConstraints(ctx context.Context, store persistence.Store, p co
 		}
 	}
 	q := ref.Quota
+	if c.Compute != nil {
+		if err := core.CheckGPUDevices(c.Compute.GPUDevices(), q.Compute.GPUDevices()); err != nil {
+			return err
+		}
+	}
 	if v, max := c.Compute, q.Compute; v != nil && max != nil {
 		if v.CPUPercent > max.CPUPercent || v.MemoryBytes > max.MemoryBytes || v.Processes > max.Processes || v.TempBytes > max.TempBytes || (!max.UnlimitedDuration && (v.UnlimitedDuration || v.MaxDurationSeconds > max.MaxDurationSeconds)) {
 			return groupQuotaExceeded()

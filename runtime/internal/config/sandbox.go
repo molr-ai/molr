@@ -11,10 +11,11 @@ import (
 // Sandbox is deployment-only. Resource APIs may reference these entries but
 // cannot enlarge them or change the enforced execution limits.
 type Sandbox struct {
-	AllowFullAccess        bool            `json:"allow_full_access"`
-	WorkspaceProjectQuotas bool            `json:"workspace_project_quotas"`
-	AuthorizationCeilings  platform.Limits `json:"authorization_ceilings"`
-	HostTools              bool            `json:"host_tools"`
+	GPU                    platform.GPUConfig `json:"gpu"`
+	AllowFullAccess        bool               `json:"allow_full_access"`
+	WorkspaceProjectQuotas bool               `json:"workspace_project_quotas"`
+	AuthorizationCeilings  platform.Limits    `json:"authorization_ceilings"`
+	HostTools              bool               `json:"host_tools"`
 	// Deprecated: accepted for existing deployments; never switches OS identity.
 	HostToolsUser       string             `json:"host_tools_user,omitempty"`
 	Enabled             bool               `json:"enabled"`
@@ -57,7 +58,24 @@ func (n SandboxNetwork) Target() platform.NetworkTarget {
 func sandboxDefaults() Sandbox {
 	return Sandbox{AuthorizationCeilings: platform.Limits{CPUPercent: 6400, MemoryBytes: 64 << 30, Processes: 4096, TempBytes: 8 << 30, MaxFileBytes: 1 << 40, NetworkBytes: 1 << 40, NetworkConnections: 128}, Enabled: true, NetworkBytes: 64 << 20, NetworkConnections: 16, NetworkPresets: []string{"internet", "lan", "host"}, MinFreeDiskBytes: 256 << 20, MaxFileBytes: 1 << 30, Timeout: Duration(10 * time.Minute), MemoryBytes: 512 << 20, Processes: 64, CPUPercent: 100, TempBytes: 64 << 20, MaxOutputBytes: 64 << 10}
 }
+func (s Sandbox) ComputeCeilings() platform.Limits {
+	v := s.AuthorizationCeilings
+	v.GPUDeviceIDs = nil
+	if s.GPU.Enabled {
+		v.GPUDeviceIDs = append([]string(nil), s.GPU.Devices...)
+	}
+	return v
+}
 func (s Sandbox) validate(data string, ownPort uint16) error {
+	if err := core.ValidateGPUDevices(s.GPU.Devices); err != nil {
+		return err
+	}
+	if len(s.AuthorizationCeilings.GPUDeviceIDs) > 0 {
+		return core.Invalid("sandbox.authorization_ceilings", "configure GPU devices through sandbox.gpu")
+	}
+	if s.GPU.Enabled && len(s.GPU.Devices) == 0 {
+		return core.Invalid("sandbox.gpu.devices", "explicit GPU device list required")
+	}
 	if !s.Enabled {
 		return nil
 	}

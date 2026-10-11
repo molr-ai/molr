@@ -13,12 +13,14 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 )
 
 type Options struct {
+	GPU platform.GPUConfig
 	// NoWorkspace executes remote commands without an assistant home.
 	NoWorkspace                                              bool
 	QuotaStore                                               persistence.Store
@@ -32,6 +34,8 @@ type Options struct {
 	Authorize                                                func(context.Context, core.Execution, platform.Command) error
 }
 type Runner struct {
+	gpuDevices          []platform.GPUDevice
+	gpuNodes            map[string]gpuNode
 	quotas              *quota.Ledger
 	options             Options
 	mu                  sync.Mutex
@@ -116,6 +120,9 @@ func (r *Runner) Capabilities(ctx context.Context) (platform.Capabilities, error
 	return c, nil
 }
 func validate(c platform.Command) error {
+	if err := core.ValidateGPUDevices(c.GPUDeviceIDs); err != nil {
+		return err
+	}
 	if err := platform.ValidateForwardPorts(c.ForwardPorts); err != nil {
 		return err
 	}
@@ -171,6 +178,9 @@ func (r *Runner) Start(ctx context.Context, e core.Execution, c platform.Command
 	if err := r.checkMode(c.FullAccess); err != nil {
 		return nil, err
 	}
+	if err := r.checkGPUAccess(c); err != nil {
+		return nil, err
+	}
 	if r.closed {
 		return nil, unavailable("sandbox_stopped")
 	}
@@ -193,6 +203,14 @@ func (r *Runner) Start(ctx context.Context, e core.Execution, c platform.Command
 	}
 	p, err := r.startMode(ctx, e, c)
 	if err != nil {
+		if reason := string(core.ReasonOf(err)); strings.HasPrefix(reason, "gpu_") {
+			for i := range r.gpuDevices {
+				if slices.Contains(c.GPUDeviceIDs, r.gpuDevices[i].ID) {
+					r.gpuDevices[i].Available = false
+					r.gpuDevices[i].Reason = reason
+				}
+			}
+		}
 		return nil, err
 	}
 	p.fullAccess = c.FullAccess

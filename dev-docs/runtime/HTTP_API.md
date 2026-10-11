@@ -431,6 +431,10 @@ WebUI 支持上传 10 MB / 4000 万像素以内的 PNG、JPEG、WebP，浏览器
 
 该接口沿用助理与会话服务的账号归属检查。执行状态按本页明确授权的助理键批量投影，只读取做梦判断所需字段，每页检查一次运行环境；不加载上下文、加急或中断详情。消息只查询各会话最新一条，不遍历历史。当前聊天的完整状态仍使用 `/api/assistants/{id}/status`。
 
+### 计算权限中的 GPU
+
+`SandboxInfo.GPUs` 返回 `{ID, Name, Vendor, MemoryBytes, Available, Reason}` 数组；`AuthorizationCeilings.GPUDeviceIDs` 为部署与用户组允许的设备范围。`Constraints.compute.gpu` 可选，结构为 `{"device_ids":["GPU-00000000-0000-0000-0000-000000000001"]}`；缺省或空列表无 GPU 权限。基础／临时授权及 `permission_request` 使用同一字段。`shell_execute` 不新增 GPU 参数，按 `compute_id` 的生效授权注入；任务详情 `GPUDeviceIDs` 记录启动设备。远程沙盒协议版本为 7。
+
 ## 版本与发布更新
 
 `GET /api/status` 的 `build` 返回 Runtime 的 `version`、`commit`、`built_at`、`os`、`arch`、`embedded_webui`。

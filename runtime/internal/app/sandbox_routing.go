@@ -525,6 +525,19 @@ func (s *sandboxRouter) shellExecute(ctx context.Context, e core.Execution, req 
 		if direct {
 			return nil
 		}
+		cg, err := executionGrant(ctx, s.adapters.store, e, req.ComputeID)
+		if err != nil {
+			return err
+		}
+		current := cg.EffectiveConstraints(time.Now())
+		if current == nil || !reflect.DeepEqual(current.Compute, q.ComputeConstraints) {
+			return denied()
+		}
+		if currentRef != nil {
+			if err := core.CheckGPUDevices(current.Compute.GPUDevices(), currentRef.Quota.Compute.GPUDevices()); err != nil {
+				return err
+			}
+		}
 		if initialized {
 			rows := append([]platform.NetworkAuthorization(nil), q.NetworkAuthorizations...)
 			for i, n := range rows {
@@ -647,7 +660,7 @@ func (s *sandboxRouter) shellExecute(ctx context.Context, e core.Execution, req 
 				if raw, err := control(observe, tools.ShellTaskRequest{Action: "read", TaskID: e.OperationID}); err == nil {
 					var status struct{ Started bool }
 					if json.Unmarshal(raw, &status) == nil && status.Started {
-						_ = scope.started("", "", control)
+						_ = scope.started("", "", q.ComputeConstraints.GPUDevices(), control)
 						_ = s.mirrorShellLogs(observe, e, id)
 					}
 				}

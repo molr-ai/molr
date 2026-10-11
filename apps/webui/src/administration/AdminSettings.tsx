@@ -81,7 +81,7 @@ function QuotaEditor({ reference, item, onSave, onClose }: { reference: Resource
     {item.Kind === 'sandbox' && <div className="admin-quota-sections">
       {(item.FullAccessAvailable || allowFullAccess) && <Checkbox label={zh ? '允许授予 Full Access' : 'Allow Full Access grants'} checked={allowFullAccess} onChange={e => setAllowFullAccess(e.target.checked)} description={zh ? '成员可以按需授予助理 Full Access；这些调用不受隔离和配额限制。普通调用继续使用以下配额。' : 'Members may grant Full Access to assistants. Those calls have no isolation or quotas. Ordinary calls retain the quotas below.'} />}
       <Checkbox label={zh ? '限制计算资源' : 'Limit compute'} checked={!!q.Compute} onChange={e => change({ Compute: e.target.checked ? suggestedConstraints('compute')!.compute : undefined })} />
-      {q.Compute && <ConstraintsEditor kind="compute" compact value={{ compute: q.Compute }} onChange={v => change({ Compute: v?.compute })} />}
+      {q.Compute && <ConstraintsEditor gpus={item.GPUs} kind="compute" compact value={{ compute: q.Compute }} onChange={v => change({ Compute: v?.compute })} />}
       <Checkbox label={zh ? '限制网络用量' : 'Limit network usage'} checked={!!q.Network} onChange={e => change({ Network: e.target.checked ? suggestedConstraints('network')!.network : undefined })} />
       {q.Network && <ConstraintsEditor kind="network" compact value={{ network: q.Network }} onChange={v => change({ Network: v?.network })} />}
       <Checkbox label={zh ? '限制工作区存储' : 'Limit workspace storage'} checked={!!q.Storage} disabled={!item.WorkspaceQuotaSupported} onChange={e => change({ Storage: e.target.checked ? suggestedConstraints('storage')!.storage : undefined })} />

@@ -25,6 +25,7 @@ const shellTaskLimit = 10
 const shellReminderInterval = 5 * time.Minute
 
 type shellTask struct {
+	GPUDeviceIDs             []string `json:",omitempty"`
 	FullAccess               bool
 	Forwards                 []shellForward `json:",omitempty"`
 	ID, OwnerID, AssistantID core.ID
@@ -46,7 +47,7 @@ type managedShell struct {
 	alive   atomic.Bool
 	control func(context.Context, tools.ShellTaskRequest) (json.RawMessage, error)
 	routed  func(core.ID) error
-	started func(string, string, func(context.Context, tools.ShellTaskRequest) (json.RawMessage, error)) error
+	started func(string, string, []string, func(context.Context, tools.ShellTaskRequest) (json.RawMessage, error)) error
 }
 
 func managedShellFor(ctx context.Context, e core.Execution) *managedShell {
@@ -192,12 +193,13 @@ func (s *shellTasks) execute(ctx context.Context, e core.Execution, req tools.Sh
 		r.task.SandboxID = id
 		return s.save(context.Background(), r.task)
 	}
-	cap.started = func(out, stderr string, control func(context.Context, tools.ShellTaskRequest) (json.RawMessage, error)) error {
+	cap.started = func(out, stderr string, gpuIDs []string, control func(context.Context, tools.ShellTaskRequest) (json.RawMessage, error)) error {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		if out != "" {
 			r.task.StdoutPath, r.task.StderrPath = out, stderr
 		}
+		r.task.GPUDeviceIDs = append([]string(nil), gpuIDs...)
 		cap.control = control
 		err := s.save(context.Background(), r.task)
 		if err != nil {

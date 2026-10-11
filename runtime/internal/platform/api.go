@@ -11,6 +11,16 @@ import (
 	"molr.ai/runtime/internal/policy"
 )
 
+type GPUConfig struct {
+	Enabled bool     `json:"enabled"`
+	Devices []string `json:"devices"`
+}
+type GPUDevice struct {
+	ID, Name, Vendor string
+	MemoryBytes      int64
+	Available        bool
+	Reason           string
+}
 type Capabilities struct {
 	FullAccess       bool
 	OS               string
@@ -39,6 +49,7 @@ type NetworkTarget struct {
 	ExcludePorts     []string
 }
 type Limits struct {
+	GPUDeviceIDs       []string `json:",omitempty"`
 	NetworkBytes       int64
 	NetworkConnections int
 	MemoryBytes        int64
@@ -59,6 +70,7 @@ type NetworkAuthorization struct {
 	ExpiresAt        *time.Time
 }
 type Command struct {
+	GPUDeviceIDs            []string
 	FullAccess              bool
 	GroupComputeConstraints *policy.ComputeConstraints
 	WorkspaceConstraints    *policy.StorageConstraints

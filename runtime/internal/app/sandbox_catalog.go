@@ -52,6 +52,13 @@ func (s *sandboxRouter) list(ctx context.Context, p core.Principal) (json.RawMes
 		if groupFullAccess(ctx, s.adapters.store, p.OwnerID, id) != nil {
 			v.Capabilities.FullAccess = false
 		}
+		ref, groupErr := groupReference(ctx, s.adapters.store, p.OwnerID, "sandbox", id)
+		if groupErr != nil {
+			v.GPUs = nil
+			v.AuthorizationCeilings.GPUDeviceIDs = nil
+		} else {
+			v = groupGPUInfo(v, ref)
+		}
 		infos[id] = v
 		if id != "local" {
 			c, err := s.connection(ctx, p, id)
@@ -68,6 +75,9 @@ func (s *sandboxRouter) list(ctx context.Context, p core.Principal) (json.RawMes
 			info := load(item.SandboxID)
 			item.FullAccessAvailable = item.Kind == resource.Compute && info.Capabilities.FullAccess
 			item.AuthorizationCeilings = &info.AuthorizationCeilings
+			if item.Kind == resource.Compute {
+				item.GPUs = info.GPUs
+			}
 			item.WorkspaceQuotaSupported = false
 			if item.Workspace {
 				usage, err := s.quotaUsage(ctx, p, p.SubjectID, item.ResourceID)

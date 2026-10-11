@@ -20,7 +20,7 @@ export type Todo = { ID: ID; Title: string; Notes: string; AssistantID: ID; DueA
 export type Schedule = { ID: ID; Kind: 'personal' | 'assistant_plan'; AssistantID: ID; Title: string; Instructions: string; EndAt?: string | null; Trigger: { StartAt: string; Timezone: string; Recurrence: string; MissedPolicy: 'skip' | 'coalesce' | 'catch_up'; MaxCatchUp: number }; Enabled: boolean; NextAt: string | null; Version: number };
 export type Resource = { ID: ID; SandboxID?: ID; Kind: 'storage' | 'model' | 'compute' | 'network' | 'tool' | 'connection'; Name: string; Provider: string; Actions: string[]; State: string; Version: number };
 export type ResourceConstraints = {
- compute?: { cpu_percent: number; memory_bytes: number; processes: number; max_duration_seconds: number; unlimited_duration: boolean; temp_bytes: number };
+ compute?: { gpu?: { device_ids: string[] } | null; cpu_percent: number; memory_bytes: number; processes: number; max_duration_seconds: number; unlimited_duration: boolean; temp_bytes: number };
  network?: { bytes: number; connections: number; period: 'lifetime' | 'day' | 'week' | 'month'; timezone: string };
  storage?: { capacity_bytes: number; max_file_bytes: number; max_files: number };
 };
@@ -83,7 +83,7 @@ export type PermissionRequest = {
 };
 
 export type ShellForward = { Protocol: 'tcp'; Port: number; Address: string; URL: string; State: 'waiting' | 'ready' | 'closed' };
-export type ShellTask = { FullAccess?: boolean;
+export type ShellTask = { GPUDeviceIDs?: string[]; FullAccess?: boolean;
   Forwards?: ShellForward[];
   ID: string; OwnerID: string; AssistantID: string; SandboxID: string;
   Mode: 'foreground' | 'background' | 'tty'; State: 'running' | 'completed' | 'failed' | 'stopped' | 'interrupted';

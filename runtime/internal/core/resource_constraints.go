@@ -1,6 +1,10 @@
 package core
 
-import "time"
+import (
+	"regexp"
+	"slices"
+	"time"
+)
 
 // Constraints are owner-approved resource limits, independent of access scope.
 // Resource composition requires limits for compute, network and managed workspaces.
@@ -10,13 +14,53 @@ type ResourceConstraints struct {
 	Network *NetworkConstraints `json:"network,omitempty"`
 	Storage *StorageConstraints `json:"storage,omitempty"`
 }
+
+// GPUAccess is a hardware access scope, not a GPU memory or compute quota.
+type GPUAccess struct {
+	DeviceIDs []string `json:"device_ids"`
+}
+
+var gpuIDPattern = regexp.MustCompile(`^GPU-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+func ValidateGPUDevices(ids []string) error {
+	if len(ids) > 32 {
+		return Invalid("gpu.device_ids", "at most 32 GPU devices allowed")
+	}
+	seen := map[string]bool{}
+	for _, id := range ids {
+		if !gpuIDPattern.MatchString(id) || seen[id] {
+			return Invalid("gpu.device_ids", "unique NVIDIA GPU UUIDs required")
+		}
+		seen[id] = true
+	}
+	return nil
+}
+func (c *ComputeConstraints) GPUDevices() []string {
+	if c == nil || c.GPU == nil {
+		return nil
+	}
+	return c.GPU.DeviceIDs
+}
+func CheckGPUDevices(ids, allowed []string) error {
+	if err := ValidateGPUDevices(ids); err != nil {
+		return err
+	}
+	for _, id := range ids {
+		if !slices.Contains(allowed, id) {
+			return WithReason(NewError(Forbidden, "GPU is outside the allowed compute scope"), "gpu_scope_denied")
+		}
+	}
+	return nil
+}
+
 type ComputeConstraints struct {
-	CPUPercent         int   `json:"cpu_percent"`
-	MemoryBytes        int64 `json:"memory_bytes"`
-	Processes          int   `json:"processes"`
-	MaxDurationSeconds int64 `json:"max_duration_seconds"`
-	UnlimitedDuration  bool  `json:"unlimited_duration"`
-	TempBytes          int64 `json:"temp_bytes"`
+	GPU                *GPUAccess `json:"gpu,omitempty"`
+	CPUPercent         int        `json:"cpu_percent"`
+	MemoryBytes        int64      `json:"memory_bytes"`
+	Processes          int        `json:"processes"`
+	MaxDurationSeconds int64      `json:"max_duration_seconds"`
+	UnlimitedDuration  bool       `json:"unlimited_duration"`
+	TempBytes          int64      `json:"temp_bytes"`
 }
 type NetworkConstraints struct {
 	Bytes       int64  `json:"bytes"`
@@ -36,6 +80,9 @@ func (c *ResourceConstraints) Validate() error {
 	}
 	count := 0
 	if v := c.Compute; v != nil {
+		if err := ValidateGPUDevices(v.GPUDevices()); err != nil {
+			return err
+		}
 		count++
 		if v.CPUPercent < 1 || v.MemoryBytes < 32<<20 || v.Processes < 8 || v.TempBytes < 1 || v.TempBytes > v.MemoryBytes || (v.UnlimitedDuration && v.MaxDurationSeconds != 0) || (!v.UnlimitedDuration && v.MaxDurationSeconds <= 0) || v.MaxDurationSeconds > int64((365*24*time.Hour)/time.Second) {
 			return Invalid("constraints.compute", "positive CPU, memory, processes, temporary space and explicit execution duration required")

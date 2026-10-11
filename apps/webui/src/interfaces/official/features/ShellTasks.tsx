@@ -1,3 +1,5 @@
+import { GPUDeviceList } from './GPUAccess';
+import type { SandboxView } from '../../../sandbox-types';
 import { DismissibleAlert } from '../components/DismissibleAlert';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Badge, Button, Drawer, IconButton, SegmentedControl, useBreakpoint } from '@molr/ui';
@@ -41,6 +43,7 @@ function ForwardAddress({ address, zh }: { address: string; zh: boolean }) {
 export function ShellTasks({ assistantID, docked, onClose }: { assistantID: string; docked: boolean; onClose: () => void }) {
   const { locale } = useCopy(), zh = locale === 'zh', mobile = useBreakpoint('mobile');
   const { items, error: listError, loading, refresh } = useShellTaskList(assistantID, 2000);
+  const sandboxes = useQuery<SandboxView[]>('/api/sandboxes');
   const [selected, setSelected] = useState('');
   const [error, setError] = useState(false), [busy, setBusy] = useState(false), [output, setOutput] = useState(''), [input, setInput] = useState('');
   const [stream, setStream] = useState<'stdout' | 'stderr'>('stdout');
@@ -138,7 +141,7 @@ export function ShellTasks({ assistantID, docked, onClose }: { assistantID: stri
           {task.State === 'running' && <div className="shell-task-controls"><div>{task.Mode === 'tty' && <><Button variant="secondary" size="sm" disabled={busy} onClick={() => void act({ action: 'interrupt', task_id: task.ID })}>Ctrl-C</Button><Button variant="secondary" size="sm" disabled={busy} onClick={() => void act({ action: 'write', task_id: task.ID, data: '\x04' })}>Ctrl-D</Button></>}</div><Button variant="ghost" size="sm" className="shell-task-stop" disabled={busy} onClick={() => void act({ action: 'stop', task_id: task.ID })}>{zh ? '停止任务' : 'Stop task'}</Button></div>}
           <details className="shell-task-info">
             <summary>{zh ? '执行信息' : 'Execution details'}</summary>
-            <dl><div><dt>{zh ? '开始时间' : 'Started'}</dt><dd>{new Date(task.StartedAt).toLocaleString(locale)}</dd></div>{task.FinishedAt && <div><dt>{zh ? '结束时间' : 'Finished'}</dt><dd>{new Date(task.FinishedAt).toLocaleString(locale)}</dd></div>}{task.Result?.Exit && <div><dt>{zh ? '退出码' : 'Exit code'}</dt><dd>{task.Result.Exit.Code}</dd></div>}{task.Failure && <div><dt>{zh ? '结束原因' : 'Exit reason'}</dt><dd>{task.Failure}</dd></div>}<div><dt>{zh ? '任务 ID' : 'Task ID'}</dt><dd><code>{task.ID}</code></dd></div><div><dt>{zh ? '完整命令' : 'Full command'}</dt><dd><pre>{task.Script || 'sh'}</pre></dd></div><div><dt>{task.Mode === 'tty' ? 'TTY' : 'stdout'}</dt><dd><code>{task.StdoutPath || '—'}</code></dd></div>{task.Mode !== 'tty' && <div><dt>stderr</dt><dd><code>{task.StderrPath || '—'}</code></dd></div>}</dl>
+            <dl>{!!task.GPUDeviceIDs?.length && <div><dt>GPU</dt><dd><GPUDeviceList ids={task.GPUDeviceIDs} devices={sandboxes.data?.find(node=>node.ID===(task.SandboxID||'local'))?.Info.GPUs??[]} /></dd></div>}<div><dt>{zh ? '开始时间' : 'Started'}</dt><dd>{new Date(task.StartedAt).toLocaleString(locale)}</dd></div>{task.FinishedAt && <div><dt>{zh ? '结束时间' : 'Finished'}</dt><dd>{new Date(task.FinishedAt).toLocaleString(locale)}</dd></div>}{task.Result?.Exit && <div><dt>{zh ? '退出码' : 'Exit code'}</dt><dd>{task.Result.Exit.Code}</dd></div>}{task.Failure && <div><dt>{zh ? '结束原因' : 'Exit reason'}</dt><dd>{task.Failure}</dd></div>}<div><dt>{zh ? '任务 ID' : 'Task ID'}</dt><dd><code>{task.ID}</code></dd></div><div><dt>{zh ? '完整命令' : 'Full command'}</dt><dd><pre>{task.Script || 'sh'}</pre></dd></div><div><dt>{task.Mode === 'tty' ? 'TTY' : 'stdout'}</dt><dd><code>{task.StdoutPath || '—'}</code></dd></div>{task.Mode !== 'tty' && <div><dt>stderr</dt><dd><code>{task.StderrPath || '—'}</code></dd></div>}</dl>
           </details>
           <p className="shell-task-note">{zh ? '仅 /work 持久保存。窗口显示最近 64 KiB，完整输出见归档文件。' : 'Only /work persists. This view keeps the latest 64 KiB; archived files contain full output.'}</p>
         </section>}
