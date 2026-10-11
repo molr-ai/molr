@@ -1,9 +1,11 @@
-<h1 align="center">
+<p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="packages/ui/public/brand/molr-wordmark-light.svg" />
     <img src="packages/ui/public/brand/molr-wordmark.svg" alt="Molr" width="256" />
   </picture>
-</h1>
+</p>
+
+# Molr - 你的个人 AI 助理
 
 <p align="center">
   可自托管的个人 AI 助理。<br />
