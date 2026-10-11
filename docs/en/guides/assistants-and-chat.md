@@ -52,6 +52,6 @@ Only when compression is actually processed does the assistant status display "C
 
 ## WeChat Chat Entry
 
-Assistants chat in the WebUI by default. You can connect WeChat via "… → Chat Entry" in the top right corner of the chat page; upon success, WeChat handles the chat, and the WebUI is used for viewing records and management. After unbinding, WebUI input is restored, and records and context are retained. See [WeChat Chat Entry](weixin.md) for details.
+Assistants chat in the WebUI by default. You can connect WeChat via "… → Switch chat channel" in the top right corner of the chat page; upon success, WeChat handles the chat, and the WebUI is used for viewing records and management. After unbinding, WebUI input is restored, and records and context are retained. See [WeChat Chat Entry](weixin.md) for details.
 
 If you need scheduled execution or to view deliverables, continue reading [Plans and Execution](plans.md).

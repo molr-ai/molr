@@ -17,10 +17,10 @@ import { Empty, Loading, useAction } from '../components/common';
 
 export type Draft = { text: string; files: FileInfo[] };
 export type AssistantAction = 'channel' | 'info' | 'clone' | 'dismiss' | 'permissions' | 'tasks' | 'shell_tasks' | 'pin';
-export function Chat({ assistant, conversation, timeZone, draft, updateDraft, onAction, onBack, onCard, onDebug, onAutomatic, targetMessageID = '', onClearTarget }: {
+export function Chat({ assistant, conversation, timeZone, draft, updateDraft, onAction, onBack, onCard, onDebug, targetMessageID = '', onClearTarget }: {
   targetMessageID?: string; onClearTarget: () => void;
   assistant: Assistant; conversation?: Conversation; timeZone?: string; draft: Draft; updateDraft: (draft: Draft | ((previous: Draft) => Draft)) => void;
-  onAutomatic: () => void; onDebug?: (turnID?: string) => void; onAction: (action: AssistantAction) => void; onBack?: () => void; onCard: (kind: string, id: string) => void;
+  onDebug?: (turnID?: string) => void; onAction: (action: AssistantAction) => void; onBack?: () => void; onCard: (kind: string, id: string) => void;
 }) {
   const { t, locale } = useCopy(), { invalidate, invalidateTopics } = useData(); const action = useAction();
   const status = useQuery<AgentStatus>(assistant.State === 'active' ? `/api/assistants/${assistant.ID}/status` : null);
@@ -119,10 +119,9 @@ export function Chat({ assistant, conversation, timeZone, draft, updateDraft, on
   return <section className="chat-panel" aria-label={assistant.Name}>
     <header className="chat-header"><div className="chat-identity">{onBack && <IconButton label={t.assistants.back} onClick={onBack}><ArrowLeft size={20} /></IconButton>}<h1><button type="button" className="chat-assistant-info" aria-label={t.assistantInfo.open(assistant.Name)} onClick={() => onAction('info')}>{assistant.Name}</button></h1><ChatStatus compact status={working || dreaming ? 'acting' : state === 'waiting' ? 'waiting' : state === 'stopped' ? 'stopped' : 'idle'} label={archived ? t.chat.archived : compressing ? t.chat.compressing : t.chat[state]} /></div>
       <div className="form-actions"><ShellTasksButton assistantID={assistant.ID} disabled={archived} onOpen={() => onAction('shell_tasks')} /><IconButton label={t.nav.plans} onClick={() => onAction('tasks')}><CalendarClock size={20} /></IconButton><DropdownMenu label={t.more} align="end" trigger={<IconButton label={t.more}><Ellipsis size={20} /></IconButton>} items={[
-        { id: 'plans', label: t.nav.plans, onSelect: onAutomatic },
         ...(onDebug ? [{ id: 'debug', label: t.workbench.debugAssistant, onSelect: onDebug }] : []),
-        { id: 'channel', label: channelCopy.title, onSelect: () => onAction('channel') },
         { id: 'info', label: t.assistantInfo.title, onSelect: () => onAction('info') }, { id: 'pin', label: assistant.Pinned ? t.assistants.unpin : t.assistants.pin, disabled: archived, onSelect: () => onAction('pin') },
+        { id: 'channel', label: channelCopy.switchChannel, onSelect: () => onAction('channel') },
         { id: 'clone', label: t.assistants.clone, disabled: archived, separatorBefore: true, onSelect: () => onAction('clone') }, { id: 'dismiss', label: t.assistants.dismiss, disabled: archived, danger: true, onSelect: () => onAction('dismiss') },
       ]} /></div>
     </header>

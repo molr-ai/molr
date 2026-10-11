@@ -39,7 +39,7 @@ test('Weixin binding keeps WebUI chat until confirmation and restores it on disc
  await expect(page.getByRole('button', { name: 'Connect Weixin', exact: true })).toHaveCount(0);
  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
  await page.locator('.chat-header').getByRole('button', { name: 'More', exact: true }).click();
- await page.getByRole('menuitem', { name: 'Chat channel', exact: true }).click();
+ await page.getByRole('menuitem', { name: 'Switch chat channel', exact: true }).click();
  await expect(page.getByRole('dialog', { name: 'Chat channel', exact: true })).toContainText('WebUI chat');
  await page.screenshot({ path: test.info().outputPath('chat-channel.png') });
  await page.getByRole('button', { name: 'Connect Weixin', exact: true }).click();
@@ -158,7 +158,7 @@ test('rate limit appears once, can be dismissed, and pauses background retries',
  await page.goto(`/#/assistants/${assistant.ID}`);
  await expect(page.locator('.chat-input textarea')).toBeEnabled();
  await page.locator('.chat-header').getByRole('button', { name: 'More', exact: true }).click();
- await page.getByRole('menuitem', { name: 'Chat channel', exact: true }).click();
+ await page.getByRole('menuitem', { name: 'Switch chat channel', exact: true }).click();
  const dialog = page.getByRole('dialog', { name: 'Chat channel', exact: true });
  await expect(dialog.getByRole('button', { name: 'Connect Weixin', exact: true })).toBeEnabled();
  let limited = 0;
@@ -203,7 +203,7 @@ test('already connected login skips QR and preserves the connection', async ({ p
  await page.route('**/api/weixin/poll', route => { polls++; return route.fulfill({ json: { Status: 'already_connected' } }); });
  await page.goto(`/#/assistants/${assistant.ID}`);
  await page.locator('.chat-header').getByRole('button', { name: 'More', exact: true }).click();
- await page.getByRole('menuitem', { name: 'Chat channel', exact: true }).click();
+ await page.getByRole('menuitem', { name: 'Switch chat channel', exact: true }).click();
  await page.getByRole('button', { name: 'Connect Weixin', exact: true }).click();
  await expect(page.getByText('Already connected; no need to scan again', { exact: true })).toBeVisible();
  await expect(page.getByRole('button', { name: 'Disconnect Weixin', exact: true })).toBeVisible();

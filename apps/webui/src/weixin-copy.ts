@@ -1,6 +1,6 @@
 export const weixinCopy = {
  zh: {
-  title: '聊天入口', current: '当前入口', webui: 'WebUI 聊天', weixin: '微信聊天', connect: '连接微信', reconnect: '重新扫码', disconnect: '解绑微信',
+  title: '聊天入口', switchChannel: '切换聊天入口', current: '当前入口', webui: 'WebUI 聊天', weixin: '微信聊天', connect: '连接微信', reconnect: '重新扫码', disconnect: '解绑微信',
   help: '连接后，请在微信中与这位助理聊天。这里保留聊天记录、任务、文件和权限管理。',
   confirm: '扫码确认后，聊天入口将切换到微信，WebUI 消息输入框将锁定。已有记录和助理上下文保留，旧记录不会补发到微信。',
   mediaSupport: '支持文字、图片和文件收发，以及语音接收；语音理解取决于模型能力。卡片会转换成文字和 Molr 链接。',
@@ -16,7 +16,7 @@ export const weixinCopy = {
   deliveries: { pending: '待发送', sending: '发送中', accepted: '已发送', waiting: '等待微信新消息后重试', failed: '发送失败', unknown: '发送结果未知', canceled: '已取消' },
  },
  en: {
-  title: 'Chat channel', current: 'Current channel', webui: 'WebUI chat', weixin: 'Weixin chat', connect: 'Connect Weixin', reconnect: 'Scan again', disconnect: 'Disconnect Weixin',
+  title: 'Chat channel', switchChannel: 'Switch chat channel', current: 'Current channel', webui: 'WebUI chat', weixin: 'Weixin chat', connect: 'Connect Weixin', reconnect: 'Scan again', disconnect: 'Disconnect Weixin',
   help: 'Once connected, chat with this assistant in Weixin. History, tasks, files and permissions remain available here.',
   confirm: 'Confirming the QR code switches chat to Weixin and locks the WebUI composer. Existing history and assistant context remain; old messages are not forwarded to Weixin.',
   mediaSupport: 'Send and receive text, images and files, and receive voice messages. Understanding voice requires an audio-capable model. Cards are delivered as text with a Molr link.',
