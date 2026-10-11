@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise real temporary files; mock only the OS service manager and identity."""
+"""Exercise real temporary files; mock host commands, dependency probes and identity."""
 import argparse
 import contextlib
 import importlib.util
@@ -172,7 +172,7 @@ class LifecycleTests(unittest.TestCase):
         with self.assertRaises(paths.InstallError): self.uninstall()
         self.assertTrue(self.running)
 
-    def test_upgrade_and_reinstall_preserve_data_and_restore_offline_uninstaller(self):
+    def install(self, missing_dependency=None):
         binary = self.home/'new-server'; binary.write_bytes(b'new program'); binary.chmod(0o755)
         args = argparse.Namespace(user=None, name='molr-review', binary=str(binary),
             config=str(self.layout['config']/'server.json'), no_start=True, init_owner=None,
@@ -182,21 +182,42 @@ class LifecycleTests(unittest.TestCase):
             if command[-2:] == ['version', '--json']: return json.dumps({'version':'0.2.0','commit':'a'*40})
             if command[:2] == ['systemctl', '--version']: return 'systemd 255'
             return 'yes'
-        def install():
-            with patch.object(i, 'account_request', return_value=self.account), patch.dict(os.environ, self.env), \
-                    patch.object(i, 'output', side_effect=output), patch.object(i, 'run'), \
-                    contextlib.redirect_stdout(io.StringIO()):
-                i.install(args)
-        install()
+        commands = {name: '/usr/bin/'+name for name in ('systemctl', 'file', 'bwrap', 'nsenter')}
+        commands.pop(missing_dependency, None)
+        busybox = None if missing_dependency == 'busybox-static' else self.home/'busybox'
+        # Filesystem lifecycle checks do not require real sandbox executables.
+        # Native release acceptance exercises the actual host dependencies.
+        with patch.object(i, 'account_request', return_value=self.account), patch.dict(os.environ, self.env), \
+                patch.object(i, 'output', side_effect=output), patch.object(i, 'run'), \
+                patch.object(i.shutil, 'which', side_effect=commands.get), \
+                patch.object(i, 'find_static_busybox', return_value=busybox), \
+                contextlib.redirect_stdout(io.StringIO()):
+            i.install(args)
+
+    def test_upgrade_and_reinstall_preserve_data_and_restore_offline_uninstaller(self):
+        self.install()
         self.assertEqual((self.layout['prefix']/'bin/molr-server').read_bytes(), b'new program')
         self.assertEqual((self.layout['prefix']/'bin/molr-server.previous').read_text(), 'program fixture')
         self.assertIn(str(self.layout['cache']/'tmp'), self.layout['unit'].read_text())
         self.uninstall()
-        install()
+        self.install()
         self.assertEqual((self.layout['data']/'sentinel').read_text(), 'persistent data')
         self.assertIn('--record', (self.layout['prefix']/'uninstall.sh').read_text())
         self.assertTrue((self.layout['prefix']/'scripts/install_layout.py').is_file())
         self.uninstall(purge=True, yes=True)
+
+    def test_missing_sandbox_dependencies_preserve_existing_installation(self):
+        def snapshot():
+            return {p.relative_to(self.home): p.read_bytes() for p in self.home.rglob('*')
+                    if p.is_file() and p != self.home/'new-server'}
+        before = snapshot()
+        for dependency, message in (('bwrap', 'Missing host dependency: bwrap'),
+                                    ('nsenter', 'Missing host dependency: nsenter'),
+                                    ('busybox-static', 'Static BusyBox required')):
+            with self.subTest(dependency=dependency):
+                with self.assertRaisesRegex(paths.InstallError, message):
+                    self.install(missing_dependency=dependency)
+                self.assertEqual(snapshot(), before)
 
     def test_unowned_default_data_not_adopted_by_custom_installation(self):
         custom = self.home/'custom'; custom.mkdir()

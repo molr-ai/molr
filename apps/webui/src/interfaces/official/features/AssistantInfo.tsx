@@ -2,7 +2,7 @@ import { useErrorToast } from '../../../error-toasts';
 import { usePluginsVisible, pluginResourceVisible } from '../../../plugins/visibility';
 import { Activity, useEffect, useState } from 'react';
 import { Badge, Button, EmptyState, Tabs } from '@molr/ui';
-import { BookOpen, Brain, CalendarClock, ChevronDown, FlaskConical, Folder, Info, MessagesSquare, Shield, Wrench } from 'lucide-react';
+import { BookOpen, ChevronDown, FlaskConical, Info, Shield, Wrench } from 'lucide-react';
 import type { AgentStatus, Assistant, AssistantCapabilities, CurrencyContext, Model } from '../../../api/types';
 import { useCopy, useQuery } from '../../../state';
 import { CurrencyDialog } from '../components/Money';
@@ -10,6 +10,7 @@ import { Loading, useAction } from '../components/common';
 import { AssistantSettingsForm } from './AssistantDialogs';
 import { AssistantPermissions } from './Resources';
 import { sandboxReason } from '../../../sandbox';
+import { toolGroup, toolGroups } from './tool-groups';
 
 type Tab = 'overview' | 'tools' | 'permissions' | 'skills';
 type Props = { assistant: Assistant; models: Model[]; initialTab?: Tab; docked?: boolean; onClose: () => void; onDebug?: () => void };
@@ -46,13 +47,6 @@ function Capabilities({ assistantID, kind, onPermissions }: { assistantID: strin
   const visibleTools = query.data?.Tools.filter(tool => pluginResourceVisible('tool', pluginsVisible, tool.Name)) ?? [];
   const tools = t.assistantInfo.toolLabels as Record<string, { name: string; description: string }>;
   const reasons = t.assistantInfo.reasons as Record<string, string>;
-  const groups = [
-    { key: 'conversation', icon: MessagesSquare, matches: (name: string) => name.startsWith('conversation_') || name.startsWith('profile_') },
-    { key: 'files', icon: Folder, matches: (name: string) => name.startsWith('file_') },
-    { key: 'plans', icon: CalendarClock, matches: (name: string) => name.startsWith('plan_') },
-    { key: 'memory', icon: Brain, matches: (name: string) => name.startsWith('memory_') },
-    { key: 'execution', icon: Wrench, matches: (name: string) => !['conversation_', 'profile_', 'file_', 'plan_', 'memory_'].some(prefix => name.startsWith(prefix)) },
-  ] as const;
   useErrorToast(query.error, query.reload);
   return <div className="assistant-capabilities">
     {query.loading && !query.data && <Loading />}
@@ -62,8 +56,8 @@ function Capabilities({ assistantID, kind, onPermissions }: { assistantID: strin
       {!!skill.RequiredActions.length && <><p>{t.assistantInfo.requiredActions} · {skill.RequiredActions.map(value => (t.resourcePermissions.generic as Record<string, string>)[value] ?? value).join(' / ')}</p><Button size="sm" variant="secondary" onClick={onPermissions}>{t.assistantInfo.configurePermissions}</Button></>}
     </article>) : <>
       <div className="assistant-info-toolbar"><p className="assistant-info-help">{t.assistantInfo.toolsSummary(visibleTools.length)}</p><Button variant="ghost" size="sm" onClick={onPermissions}><Shield size={14} />{t.assistantInfo.configurePermissions}</Button></div>
-      {!visibleTools.length ? <EmptyState title={t.assistantInfo.noTools} /> : groups.map(group => {
-        const items = visibleTools.filter(tool => group.matches(tool.Name));
+      {!visibleTools.length ? <EmptyState title={t.assistantInfo.noTools} /> : toolGroups.map(group => {
+        const items = visibleTools.filter(tool => toolGroup(tool.Name) === group.key);
         if (!items.length) return null;
         const Icon = group.icon;
         return <section className="assistant-tool-group" key={group.key} aria-label={t.assistantInfo.toolGroups[group.key]}>

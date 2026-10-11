@@ -1,14 +1,13 @@
 import { useErrorToast } from '../../../error-toasts';
-import { usePluginsVisible, pluginResourceVisible } from '../../../plugins/visibility';
 import { gpuName } from '../../../gpu';
 import { fullAccessHelp } from '../../../full-access';
 import { fullAccessLabel, sandboxPermissions } from './PermissionTargetFields';
 import type { SandboxPermission } from './PermissionTargetFields';
 import { useEffect, useState } from 'react';
-import { Alert, Badge, Button, Card, DropdownMenu, IconButton, Select, Tabs, TextField } from '@molr/ui';
+import { Alert, Badge, Button, DropdownMenu, IconButton, Select, Tabs, TextField } from '@molr/ui';
 import type { MenuItem } from '@molr/ui';
 import { Cpu, Ellipsis, Globe, HardDrive, Pencil, Plus, RefreshCw, Server, ShieldCheck, Unplug, Users } from 'lucide-react';
-import type { Assistant, Grant, Resource, ToolCapability } from '../../../api/types';
+import type { Assistant, Grant, Resource } from '../../../api/types';
 import type { SandboxInfo, SandboxKind, SandboxResourceDetail, SandboxView } from '../../../sandbox-types';
 export type { SandboxView } from '../../../sandbox-types';
 import { api } from '../../../api/client';
@@ -181,11 +180,4 @@ function RenameSandbox({ sandbox, onClose }: { sandbox: SandboxView; onClose: ()
 function RenameSandboxResource({ resource, onClose }: { resource: Resource; onClose: () => void }) {
   const { t } = useCopy(), copy = useSandboxCopy(), [name, setName] = useState(resource.Name);
   return <EditDialog title={copy.rename} onClose={onClose} onSubmit={() => api.mutate('/api/resources/update', { ID: resource.ID, Name: name.trim() }, resource.Version)}><TextField label={t.name} value={name} onChange={event => setName(event.target.value)} required maxLength={256} /></EditDialog>;
-}
-export function ToolsCatalog() {
-  const pluginsVisible = usePluginsVisible();
-  const { t } = useCopy(), copy = useSandboxCopy(), query = useQuery<ToolCapability[]>('/api/tools');
-  const labels = t.assistantInfo.toolLabels as Record<string, { name: string; description: string }>;
-  useErrorToast(query.error, query.reload);
-  return <div className="record-list"><p className="muted">{copy.toolsHelp}</p>{query.loading && !query.data && <Loading />}{query.data?.filter(tool => pluginResourceVisible('tool', pluginsVisible, tool.Name)).map(tool => <Card key={tool.Name}><div className="record-heading"><h2>{labels[tool.Name]?.name ?? tool.Name}</h2><Badge>{tool.SideEffect ? t.assistantInfo.writesData : t.assistantInfo.readOnly}</Badge></div><p className="muted">{labels[tool.Name]?.description ?? tool.Description}</p><details><summary>{t.assistantInfo.toolDetails}</summary><code>{tool.Name}</code><pre>{JSON.stringify(tool.InputSchema, null, 2)}</pre></details></Card>)}</div>;
 }

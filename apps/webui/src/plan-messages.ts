@@ -1,4 +1,5 @@
 const zh = {
+  noUpcomingHelp: '新增计划，安排接下来的事。',
   eventRange:'事件范围', eventList:'事件清单', noUndated:'没有未设日期的事项', viewUpcoming:'查看接下来的安排', noUpcoming:'没有即将发生的事件', noOverdue:'没有逾期未完成的安排', loadMoreEvents:'再加载 50 个事件', eventsCount:'个事件', month:'查看月份', moreEvents:(count:number,day:string)=>`${day}：查看其余 ${count} 个事件`,
   actions: '计划操作', planDetails: '计划详情', closeDetails: '关闭详情', allOwners: '所有负责人', allTypes: '所有类型', allStatuses: '所有状态', clearFilters: '清除筛选', firstPlan: '添加第一项安排', emptyTitle: '安排接下来的工作', emptyHelp: '记下自己的事项，或交给助理。每次执行都会留在计划里。', filteredEmpty: '试试调整负责人或状态。', dayEmpty: '这一天还没有安排', dayEmptyHelp: '选择其他日期，或新增一项计划。', selectPlan: '选择一项计划查看详情', selectedDay: '当天安排', overviewMonths: '未来三个月', previousQuarter: '前 3 个月', nextQuarter: '后 3 个月', customRepeat: '自定义重复', latestExecution: '最近执行', executionCount: '次执行', plansCount: '项计划',
 
@@ -20,6 +21,7 @@ const zh = {
   invalidTime: '请填写完整时间段，结束时间必须晚于开始时间。', saved: '计划已保存。', timezone: '时区', deadline: '截止', scheduled: '安排',
 };
 const en: typeof zh = {
+  noUpcomingHelp: 'Create a plan for what’s next.',
   eventRange:'Event range', eventList:'Event list', noUndated:'No undated items', viewUpcoming:'View upcoming plans', noUpcoming:'No upcoming events', noOverdue:'No overdue arrangements', loadMoreEvents:'Load 50 more events', eventsCount:'events', month:'View month', moreEvents:(count:number,day:string)=>`${day}: show ${count} more events`,
   actions: 'Plan actions', planDetails: 'Plan details', closeDetails: 'Close details', allOwners: 'All owners', allTypes: 'All types', allStatuses: 'All statuses', clearFilters: 'Clear filters', firstPlan: 'Add your first plan', emptyTitle: 'Make room for what’s next', emptyHelp: 'Plan something for yourself or an assistant. Every execution stays with its plan.', filteredEmpty: 'Try a different owner or status.', dayEmpty: 'Nothing arranged for this day', dayEmptyHelp: 'Choose another date or add a plan.', selectPlan: 'Select a plan to see its details', selectedDay: 'Day agenda', overviewMonths: 'Next three months', previousQuarter: 'Previous 3 months', nextQuarter: 'Next 3 months', customRepeat: 'Custom repeat', latestExecution: 'Latest execution', executionCount: 'executions', plansCount: 'plans',
 
