@@ -68,3 +68,5 @@ npm run check:licenses
 - [WASI SDK 34](https://github.com/WebAssembly/wasi-sdk/tree/wasi-sdk-34)、[固定 wasi-libc 许可](https://github.com/WebAssembly/wasi-libc/blob/2e6fb9d8ee0cdf9e431fbcabe8af3115de000a13/LICENSE)。
 
 本次范围是当前组成方式下的版权许可和材料交付，不是专利、商标注册或全部源文件权属的法律鉴定；新的目标平台、依赖版本、复制/链接方式和外部分发产物需要重新审查。
+
+2026-10-11 核对版本检查及发布清单调整：未新增第三方依赖，发行包和安装器继续交付原有 `LICENSE` 与 `THIRD_PARTY_NOTICES.md`，静态 BusyBox 仍由目标系统提供。发布推荐清单仅使用 Node.js 标准库处理版本元信息，构建和安装脚本的通知复制范围不变。对应输入摘要已更新。

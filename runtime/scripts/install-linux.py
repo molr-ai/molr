@@ -15,6 +15,10 @@ import tempfile
 import socket
 import ipaddress
 import time
+import ssl
+import urllib.request
+import urllib.error
+from urllib.parse import urlsplit
 
 
 from install_layout import (InstallError, check_path, check_managed, layout,
@@ -198,6 +202,56 @@ def prepare_dependencies(args):
     run(command + ['install', '-y', 'bubblewrap', 'busybox-static', 'ca-certificates', 'file', 'util-linux', 'iproute2'])
 
 
+def configure_updates(config, source):
+    if source is None:
+        return
+    parsed = urlsplit(source)
+    if parsed.scheme not in ('https', 'http') or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
+        raise InstallError('Release source must be an HTTP(S) URL without credentials, query or fragment.')
+    if parsed.scheme == 'http':
+        try:
+            ip = ipaddress.ip_address(parsed.hostname)
+            if not (ip.is_loopback or ip in ipaddress.ip_network('10.0.0.0/8') or ip in ipaddress.ip_network('172.16.0.0/12') or ip in ipaddress.ip_network('192.168.0.0/16') or ip in ipaddress.ip_network('fc00::/7')):
+                raise ValueError()
+        except ValueError:
+            raise InstallError('Plain HTTP release sources require a private numeric address.')
+    updates = config.setdefault('updates', {})
+    updates['source'] = source.rstrip('/')
+    updates.setdefault('auto_check', True)
+
+
+def wait_http(config, timeout=30):
+    http = config['http']
+    context = ssl.create_default_context(cafile=http.get('cert_file') or None)
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), urllib.request.HTTPSHandler(context=context))
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            with opener.open(http['public_url'].rstrip('/')+'/', timeout=min(2, max(.1, deadline-time.monotonic()))) as response:
+                if response.status == 200:
+                    return
+        except (OSError, urllib.error.URLError):
+            pass
+        time.sleep(.25)
+    raise InstallError('HTTP readiness deadline exceeded; previous program and configuration are retained for recovery.')
+
+
+def verify_health(check, expected):
+    if any(reason in check.stderr for reason in ('HTTP 401', 'HTTP 403', 'MFA required', 'HTTP 429')):
+        return False
+    if check.returncode:
+        raise InstallError('Authenticated verification failed: '+check.stderr.strip())
+    result = json.loads(check.stdout)
+    build = result.get('Runtime', {}).get('build', {})
+    if any(build.get(key) != expected.get(key) for key in ('version', 'commit')):
+        raise InstallError('Running Runtime build differs from the installed program.')
+    sandbox = result.get('Sandbox', {})
+    caps = sandbox.get('Capabilities', {})
+    if sandbox.get('Enabled') and not (caps.get('Reason') == 'available' and all(caps.get(key) for key in ('Shell','ProcessIsolation','FileIsolation','NetworkIsolation','ResourceLimits'))):
+        raise InstallError('Runtime sandbox verification failed.')
+    return True
+
+
 def install(args):
     if sys.version_info < (3, 11):
         raise InstallError('Python 3.11 or newer is required for safe offline uninstallation.')
@@ -242,6 +296,7 @@ def install(args):
     config_source = configuration if configuration.exists() else source_config
     initial_config = json.loads(config_source.read_text()) if config_source else {'http': default_http(args.port, args.public_host)}
     config = normalize_config(initial_config, default_data)
+    configure_updates(config, getattr(args, 'release_source', None))
     allow_full_access = config['sandbox'].get('allow_full_access', False)
     for command in ('bwrap', 'nsenter'):
         if not shutil.which(command) and not allow_full_access and source_config is not None:
@@ -303,12 +358,22 @@ def install(args):
     if system:
         os.chown(cache, account.pw_uid, account.pw_gid, follow_symlinks=False)
         os.chown(cache/'tmp', account.pw_uid, account.pw_gid, follow_symlinks=False)
+    control = ['systemctl'] + ([] if system else ['--user'])
+    as_user = ['runuser', '-u', account.pw_name, '--'] if system else []
+    expected_build = json.loads(output(as_user + [str(binary), 'version', '--json']))
+    release_metadata = binary.parent.parent / 'release.json'
+    if release_metadata.is_file():
+        declared = json.loads(release_metadata.read_text())
+        if any(declared.get(key) != expected_build.get(key) for key in ('version', 'commit', 'os', 'arch')):
+            raise InstallError('Package metadata differs from its executable build identity.')
+    if previous and not args.no_start:
+        run(control + ['stop', unit.name])
     # Record ownership before initialization so failed installs remain removable.
     record = receipt(args.name, account, system, paths, data)
     if previous:
         record['complete'] = previous.get('complete', False)
         record['managed_data'] = record['managed_data'] or previous['managed_data']
-    atomic_write(marker, (json.dumps(record)+'\n').encode(), 0o600, uid, os.getegid())
+    atomic_write(marker, (json.dumps(record)+'\n').encode(), 0o640 if system else 0o600, uid, account.pw_gid if system else os.getegid())
     # Validate access as the target user before initializing or restarting. Never run Molr as root.
     as_user = ['runuser', '-u', account.pw_name, '--'] if system else []
     config_bytes = (json.dumps(config, indent=2, ensure_ascii=False)+'\n').encode()
@@ -336,7 +401,7 @@ def install(args):
         run(as_user + [str(installed), 'init', '-config', str(configuration), '-username', args.init_owner, '-password-stdin'])
     atomic_write(unit, render_unit(installed, configuration, account if system else None, delegate=delegate, cache=cache).encode(), 0o644, uid, os.getegid())
     record['complete'] = True
-    atomic_write(marker, (json.dumps(record)+'\n').encode(), 0o600, uid, os.getegid())
+    atomic_write(marker, (json.dumps(record)+'\n').encode(), 0o640 if system else 0o600, uid, account.pw_gid if system else os.getegid())
     if not system:
         try:
             if output(['loginctl', 'show-user', account.pw_name, '--property=Linger', '--value']) != 'yes':
@@ -354,24 +419,18 @@ def install(args):
         run(control + ['enable', str(unit)])
         run(control + ['restart', unit.name])
         run(control + ['is-active', '--quiet', unit.name])
-        print('Service started: ' + config.get('http', {}).get('public_url', ''))
+        wait_http(config)
+        verified = False
         if (data / 'initial-password').is_file():
-            # Poll through authenticated API checks; never consume the delivery login link.
-            for attempt in range(30):
-                check = subprocess.run(as_user + [str(installed), 'doctor', '-config', str(configuration)], capture_output=True, text=True)
-                if any(reason in check.stderr for reason in ('HTTP 401', 'HTTP 403', 'MFA required')):
-                    print('Service is reachable; use your current password/MFA with doctor and access to finish verification.')
-                    break
-                if check.returncode == 0 or check.stdout.strip():
-                    print(check.stdout.strip())
-                    if check.returncode:
-                        print(check.stderr.strip())
-                    break
-                time.sleep(1)
+            # Authenticate once after HTTP readiness; never retry a login loop.
+            check = subprocess.run(as_user + [str(installed), 'doctor', '-config', str(configuration)], capture_output=True, text=True)
+            verified = verify_health(check, expected_build)
+            if verified:
+                print('Upgrade/install verified: '+expected_build['version'])
             else:
-                raise InstallError('Service did not pass authenticated health checks: ' + check.stderr.strip())
+                print('Program installed; verification pending. Use your current password/MFA with doctor. Respect any authentication rate limit.')
             print('Access command: ' + shlex.join(as_user + [str(installed), 'access', '-config', str(configuration), '-password-stdin']))
-            link = subprocess.run(as_user + [str(installed), 'access', '-config', str(configuration)], capture_output=True, text=True)
+            link = subprocess.run(as_user + [str(installed), 'access', '-config', str(configuration)], capture_output=True, text=True) if verified else subprocess.CompletedProcess([], 1, '', '')
             if link.returncode == 0:
                 print('Open this one-time login link within 15 minutes:')
                 print(link.stdout.strip())
@@ -380,7 +439,8 @@ def install(args):
             else:
                 print('Automatic login unavailable; use your current password and MFA with the access command.')
         else:
-            print('Existing credentials preserved. Log in normally and run authenticated sandbox checks.')
+            print('Program installed; verification pending. Existing credentials preserved. Run doctor with your current password/MFA to verify the version and sandbox.')
+            print('Verify: '+shlex.join(as_user + [str(installed), 'doctor', '-config', str(configuration), '-password-stdin']))
     print(f'Runtime and local sandbox account: {account.pw_name} (UID {account.pw_uid})')
     print(f'Program: {prefix}\nConfiguration: {configuration}\nData: {data}\nCache: {cache}\nService: {unit}')
     print('Uninstall (keeps configuration and data): bash '+shlex.quote(str(prefix/'uninstall.sh')))
@@ -390,6 +450,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--user', help='system service account; requires root; create a service account if missing')
     parser.add_argument('--name', default='molr', help='service name, default molr; use molr-<name> for separate instances')
+    parser.add_argument('--release-source', help='persist the explicitly selected release source')
     parser.add_argument('--program-root', help='program base directory; each instance gets its own subdirectory')
     parser.add_argument('--no-start', action='store_true', help='prepare files without enabling/starting the service')
     parser.add_argument('--init-owner', metavar='NAME', help='initialize a new owner using password from stdin')

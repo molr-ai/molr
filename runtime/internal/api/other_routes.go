@@ -10,6 +10,7 @@ import (
 	"molr.ai/runtime/internal/agent/scheduler"
 	"molr.ai/runtime/internal/audit"
 	"molr.ai/runtime/internal/auth"
+	"molr.ai/runtime/internal/buildinfo"
 	"molr.ai/runtime/internal/business/memory"
 	"molr.ai/runtime/internal/business/settings"
 	"molr.ai/runtime/internal/core"
@@ -18,6 +19,7 @@ import (
 	"molr.ai/runtime/internal/policy"
 	"molr.ai/runtime/internal/search"
 	"molr.ai/runtime/internal/storage/files"
+	"molr.ai/runtime/internal/webassets"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -36,6 +38,34 @@ func timeQuery(r *http.Request, key string) (time.Time, error) {
 	return v, nil
 }
 func (s *HTTPServer) routes() {
+	s.handle("GET /api/updates", func(r *http.Request) (any, error) {
+		if s.options.Updates == nil {
+			return nil, core.NewError(core.Unavailable, "updates unavailable")
+		}
+		return s.options.Updates.Snapshot(), nil
+	})
+	s.handle("POST /api/updates/check", func(r *http.Request) (any, error) {
+		if s.options.Updates == nil {
+			return nil, core.NewError(core.Unavailable, "updates unavailable")
+		}
+		q, err := decode[struct {
+			Automatic bool `json:"automatic"`
+		}](r)
+		if err != nil {
+			return nil, err
+		}
+		return s.options.Updates.Check(r.Context(), q.Automatic), nil
+	})
+	s.handle("GET /api/updates/installation", func(r *http.Request) (any, error) {
+		if s.options.Accounts == nil {
+			return nil, core.NewError(core.Unavailable, "accounts unavailable")
+		}
+		if err := s.options.Accounts.RequireAdministrator(r.Context(), principal(r)); err != nil {
+			return nil, err
+		}
+		return s.options.UpgradeInfo, nil
+	})
+
 	s.handle("GET /api/permission-requests/{id}", func(r *http.Request) (any, error) {
 		if s.options.PermissionRequests == nil {
 			return nil, core.NewError(core.Unavailable, "permission requests unavailable")
@@ -103,7 +133,9 @@ func (s *HTTPServer) otherRoutes() {
 		return map[string]any{"Currency": settings.Currency, "Timezone": settings.Timezone, "Rates": s.services.Exchange.Snapshot()}, nil
 	})
 	s.handle("GET /api/status", func(r *http.Request) (any, error) {
-		return map[string]any{"workbench_available": s.config.Debug.Enabled, "name": "Molr Runtime", "status": "running", "public_url": s.config.HTTP.PublicURL}, nil
+		info := buildinfo.Current()
+		info.EmbeddedWebUI = webassets.Embedded
+		return map[string]any{"build": info, "workbench_available": s.config.Debug.Enabled, "name": "Molr Runtime", "status": "running", "public_url": s.config.HTTP.PublicURL}, nil
 	})
 	s.handle("GET /api/models", func(r *http.Request) (any, error) { return s.services.Models.List(r.Context(), principal(r)) })
 	s.handle("GET /api/assistants/{id}/capabilities", func(r *http.Request) (any, error) {

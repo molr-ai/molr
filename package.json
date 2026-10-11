@@ -24,6 +24,7 @@
     "build:webui": "npm run build --workspace @molr/webui --",
     "preview:webui": "npm run preview --workspace @molr/webui --",
     "test:webui": "npm run test --workspace @molr/webui --",
+    "release:promote": "node scripts/promote-release.mjs",
     "build:release": "node scripts/build-release.mjs",
     "test:quick-start": "node scripts/test-quick-start.mjs",
     "check:licenses": "node scripts/check-license-review.mjs",

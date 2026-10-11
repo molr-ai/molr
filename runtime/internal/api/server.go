@@ -11,6 +11,7 @@ import (
 	"io"
 	"mime"
 	"molr.ai/runtime/internal/notification"
+	"molr.ai/runtime/internal/updates"
 	"net"
 	"net/http"
 	"net/netip"
@@ -41,6 +42,8 @@ type permissionRequestService interface {
 }
 
 type Options struct {
+	Updates            *updates.Service
+	UpgradeInfo        *updates.Installation
 	Notifications      *notification.Service
 	Weixin             *weixin.Service
 	Setup              func(context.Context, core.Principal, json.RawMessage) (any, error)

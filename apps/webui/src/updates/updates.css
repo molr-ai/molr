@@ -1,0 +1,48 @@
+.about-updates { display: grid; width: 100%; min-width: 0; }
+.about-updates > section { display: grid; gap: 14px; padding-block: 22px; border-top: 1px solid var(--color-border); min-width: 0; }
+.about-updates h3, .about-updates p { margin: 0; }
+.update-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.update-section-heading h3 { font-size: 13px; font-weight: 550; }
+.update-section-heading > button { flex-shrink: 0; gap: 7px; }
+.update-release-summary { display: flex; align-items: flex-start; gap: 12px; padding-block: 4px; }
+.update-release-icon { display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0; border-radius: var(--radius-control); background: var(--color-neutral-bg); color: var(--color-text-muted); }
+.update-release-summary[data-available] .update-release-icon { background: var(--color-selected-bg); color: var(--color-primary); }
+.update-release-copy { min-width: 0; display: grid; gap: 5px; }
+.update-release-title { font-size: 18px; line-height: 1.45; font-weight: 550; letter-spacing: -.02em; overflow-wrap: anywhere; }
+.update-meta, .update-section-meta { color: var(--color-text-muted); font-size: 12px; line-height: 1.65; font-variant-numeric: tabular-nums; }
+.update-section-meta { display: flex; flex-wrap: wrap; gap: 2px 16px; }
+.update-section-meta:empty { display: none; }
+.update-builds { margin: 0; display: grid; }
+.update-builds > div { display: grid; grid-template-columns: minmax(90px, 1fr) minmax(0, 2fr); gap: 16px; align-items: center; padding-block: 11px; }
+.update-builds > div + div { border-top: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent); }
+.update-builds dt { display: flex; align-items: center; gap: 9px; color: var(--color-text-muted); font-size: 13px; }
+.update-builds dd { margin: 0; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 3px 16px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.update-build-version { overflow-wrap: anywhere; }
+.update-builds dd a { color: var(--color-text-muted); text-decoration: none; font-size: 12px; }
+.update-builds dd a:hover { color: var(--color-text); text-decoration: underline; text-underline-offset: 3px; }
+.update-build-status { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--color-text-muted); }
+.update-build-status svg { flex-shrink: 0; }
+.update-build-status[data-consistent] { color: var(--color-positive); }
+.about-updates .about-builds { gap: 10px; }
+.update-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+.update-actions button { gap: 8px; }
+.update-actions a, .update-guide > a { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; text-underline-offset: 3px; }
+.update-actions [aria-expanded='true'] .update-guide-chevron { transform: rotate(180deg); }
+.update-guide { display: grid; gap: 12px; min-width: 0; font-size: 13px; line-height: 1.65; padding: 16px; background: var(--color-neutral-bg); border-radius: var(--radius-control); }
+.update-guide pre { margin: 0; padding: 12px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.75; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-control); }
+.update-badge { display: inline-flex; flex-shrink: 0; }
+.update-badge--compact { position: absolute; top: 0; right: 0; }
+.nav-account-actions .nav-button, .mobile-account-button { position: relative; }
+.settings-nav > button > .update-badge { flex: 0 0 auto; }
+.nav-account-actions .update-badge, .nav-account-actions .update-badge > .badge { display: inline-flex; }
+@media (--molr-mobile) {
+ .about-updates > section { padding-block: 20px; }
+ .update-section-heading { gap: 10px; }
+ .update-section-heading > button { min-height: 36px; }
+ .update-release-title { font-size: 17px; }
+ .update-builds > div { grid-template-columns: 90px minmax(0, 1fr); gap: 12px; }
+ .update-builds dd { justify-content: flex-end; gap: 2px 12px; }
+ .update-actions { gap: 12px; }
+ .update-actions > :is(a, button) { min-height: 36px; }
+ .update-guide { padding: 12px; }
+}

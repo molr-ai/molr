@@ -40,7 +40,7 @@ export type Usage = { OriginalSpent?: Money[] | null; OriginalReserved?: Money[]
 export type SearchHit = { Memory?: MemoryRef; Source: 'assistants' | 'messages' | 'resources' | 'tasks' | 'memories'; Object: { Kind: string; ID: ID }; AssistantID: ID; Title: string; Snippet: string };
 export type SearchResults = { Hits: Page<SearchHit>; Counts: Record<string, number> };
 
-export type RuntimeInfo = { workbench_available: boolean; name: string; status: string; public_url: string };
+export type RuntimeInfo = { build?: BuildInfo; workbench_available: boolean; name: string; status: string; public_url: string };
 
 export type SecurityStatus = { MFAEnabled: boolean; ReauthenticationEnabled: boolean; UnprotectedPurposes: string[]; Version: number };
 
@@ -116,3 +116,13 @@ export type NotificationPage = { Items: SystemNotice[]; NextCursor: string; Unre
 
 /** Bounded assistant-list projection; it contains no execution internals. */
 export type AssistantActivity = { AssistantID: ID; ConversationID: ID; Dreaming: boolean; Preview: { Kind: 'text' | 'card'; Text: string } | null };
+
+export type BuildInfo = { version: string; commit: string; built_at: string; os: string; arch: string; embedded_webui: boolean };
+export type ReleaseInfo = { version: string; commit: string; published_at: string; notes_url: string; file: string; sha256: string };
+export type UpdateStatus = {
+ current: BuildInfo; latest: ReleaseInfo | null;
+ comparison: 'unknown' | 'current' | 'available' | 'ahead' | 'uncomparable';
+ check: { checking: boolean; last_attempt_at: string | null; last_success_at: string | null; next_allowed_at: string | null; error_code?: string };
+ auto_check: boolean; source_configured: boolean; supported: boolean;
+};
+export type UpdateInstallation = { name: string; user: string; system: boolean; program_root: string; config_home: string; data_home: string; cache_home: string; source: string };

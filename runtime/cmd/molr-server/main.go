@@ -53,8 +53,11 @@ func password(r io.Reader) (core.Secret, error) {
 	return core.NewSecret(value), nil
 }
 func run(ctx context.Context, args []string, input io.Reader, output, diagnostics io.Writer) error {
+	if len(args) == 2 && args[0] == "version" && args[1] == "--json" {
+		return json.NewEncoder(output).Encode(buildinfo.Current())
+	}
 	if len(args) == 1 && args[0] == "version" {
-		fmt.Fprintf(output, "Molr %s (%s, %s)\n", buildinfo.Version, commit, builtAt)
+		fmt.Fprintf(output, "Molr %s (%s, %s)\n", buildinfo.Version, buildinfo.Current().Commit, buildinfo.Current().BuiltAt)
 		return nil
 	}
 	if len(args) == 0 {
@@ -86,6 +89,7 @@ func run(ctx context.Context, args []string, input io.Reader, output, diagnostic
 		return fmt.Errorf("open config: %w", err)
 	}
 	cfg, err := config.Load(file)
+	cfg.ConfigPath, _ = filepath.Abs(*configPath)
 	_ = file.Close()
 	if err != nil {
 		return err

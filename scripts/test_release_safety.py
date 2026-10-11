@@ -187,7 +187,7 @@ class ReleaseSafetyTests(unittest.TestCase):
     def test_download_directory_ignores_unselected_files_but_published_output_does_not(self):
         path=self.archive();digest=hashlib.sha256(path.read_bytes()).hexdigest()
         path.with_name(path.name+'.sha256').write_text(digest+'  '+path.name+'\n')
-        (self.root/'latest-linux-amd64.json').write_text(json.dumps({'version':'0.1.0','file':path.name,'sha256':digest}))
+        (self.root/'latest-linux-amd64.json').write_text(json.dumps({'version':'0.1.0','commit':'a'*40,'published_at':'2026-10-11T00:00:00Z','notes_url':'https://example.com/releases/0.1.0','file':path.name,'sha256':digest}))
         (self.root/'private.txt').write_text('private sentinel')
         self.assertEqual(safety.check_release_directory(self.root),3)
         with self.assertRaisesRegex(safety.UnsafeRelease,'unexpected file'):
@@ -199,7 +199,7 @@ class ReleaseSafetyTests(unittest.TestCase):
         with self.assertRaisesRegex(safety.UnsafeRelease,'checksum'):
             safety.check_release_directory(self.root)
         path.with_name(path.name+'.sha256').unlink()
-        (self.root/'latest-linux-amd64.json').write_text(json.dumps({'version':'0.1.0','file':path.name,'sha256':'0'*64}))
+        (self.root/'latest-linux-amd64.json').write_text(json.dumps({'version':'0.1.0','commit':'a'*40,'published_at':'2026-10-11T00:00:00Z','notes_url':'https://example.com/releases/0.1.0','file':path.name,'sha256':'0'*64}))
         with self.assertRaisesRegex(safety.UnsafeRelease,'checksum'):
             safety.check_release_directory(self.root)
 

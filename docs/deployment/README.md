@@ -11,7 +11,7 @@ npm ci
 npm run build:release
 ```
 
-构建先检查待发布源码和公开静态文件，再生成 WebUI，随后以 `-trimpath` 静态编译带 `webui` build tag 的 Runtime，将页面与 API 放在同一服务。产物在 `dist/releases/`，包含 `molr_<版本>_linux_<架构>.tar.gz`、同名 `.sha256` 和 `latest-linux-<架构>.json`。包内包含 Runtime、安装器、`LICENSE` 和完整的 `THIRD_PARTY_NOTICES.md`，不附带 BusyBox。默认版本为 `0.1.0-local`；`MOLR_VERSION`、`MOLR_ARCH`、`MOLR_DIST_DIR` 可覆盖。跨架构构建不需要准备目标架构 BusyBox；安装目标机通过系统包管理器提供静态 BusyBox。`GO` 可指定 Go 程序路径。`molr-server version` 显示构建版本与提交。归档只收集 `scripts/release-policy.json` 中明确列出的文件，验证通过后才生成最终归档和下载清单；不要分发构建失败后留下的目录，也不要直接压缩整个工作目录。
+构建先检查待发布源码和公开静态文件，再生成 WebUI，随后以 `-trimpath` 静态编译带 `webui` build tag 的 Runtime，将页面与 API 放在同一服务。产物在 `dist/releases/`，包含 `molr_<版本>_linux_<架构>.tar.gz`、同名 `.sha256` ；推荐版本清单通过下述发布步骤单独生成。包内包含 Runtime、安装器、`LICENSE` 和完整的 `THIRD_PARTY_NOTICES.md`，不附带 BusyBox。默认版本为 `0.1.0-local`；`MOLR_VERSION`、`MOLR_ARCH`、`MOLR_DIST_DIR` 可覆盖。跨架构构建不需要准备目标架构 BusyBox；安装目标机通过系统包管理器提供静态 BusyBox。`GO` 可指定 Go 程序路径。`molr-server version` 显示构建版本与提交。归档只收集 `scripts/release-policy.json` 中明确列出的文件，验证通过后才生成最终归档和下载清单；不要分发构建失败后留下的目录，也不要直接压缩整个工作目录。
 
 如需导出源码包，在已提交并审查过的版本上执行 `npm run build:source -- --ref HEAD`。该命令只导出指定 Git 提交，工作目录中的修改、未提交新文件、`.cache/` 和运行数据不会被打包。详细发布范围及检查限制见[开源发布与私有文件隔离](../../dev-docs/RELEASE_SAFETY.md)。
 
@@ -52,6 +52,37 @@ npm run preview:website
 ```
 
 默认使用数据目录内的随机初始密码。已改密时增加 `-password-stdin`，启用 MFA 时增加 `-mfa-code`；这些命令通过正常认证 API 工作，不打开运行中的数据库，不绕过 MFA。链接有效期 15 分钟，实际交付链接不用于健康检查。
+
+## 版本检查与发布
+
+用户设置 → 关于显示 WebUI 与 Runtime 的版本、commit 和一致性状态，同时展示发布源的推荐版本。登录后每五分钟读取服务端版本状态，页面重新可见或连接恢复时补查；关闭自动发布检查仍保留前后端一致性检查。版本或 commit 不一致时显示提示，由用户保存输入后自行刷新，或由管理员核对分离部署的版本。
+
+Runtime 配置支持：
+
+```json
+{"updates": {"source": "https://downloads.example.com/releases", "auto_check": true}}
+```
+
+在线安装使用的发布源自动保存到配置；离线安装保留已有值。无发布源时不会联网。`auto_check: false` 关闭后台及关于页自动发布检查，仍可手动检查。开发／本地构建默认不自动检查。公网源要求 HTTPS；HTTP 源必须是明确配置的私网或回环数字地址。
+
+后台启动后延迟 30～60 秒检查，随后每 24 小时加少量随机延迟检查，失败一小时后重试。进入关于页或页面恢复可见时，超过五分钟未检查则刷新发布信息。手动检查最短间隔一分钟；全实例合并并发请求。检查失败保留上次成功结果及时间，检查本身不下载或安装程序。
+
+构建只生成版本包和校验文件，不改变推荐版本。发布前准备版本包、校验文件和 HTTPS 更新说明页面，再生成推荐清单：
+
+```bash
+npm run release:promote -- --version 0.2.0 --arch amd64 \
+  --notes-url https://example.com/releases/0.2.0
+```
+
+默认读取 `dist/releases/`，可通过 `--directory` 指定目录。命令验证包的版本、架构和校验值后生成 `latest-linux-<架构>.json`，包含版本、commit、发布时间、更新说明 URL、包文件名和 SHA-256；不执行上传。先上传并验证包及更新说明，最后发布清单。推荐版本可以是合法预发布版，不接受开发／本地版本。已发布版本的包应保持不可变，修改后使用新版本号。
+
+管理员在发现更新后可查看固定目标版本的升级命令。运行账户、实例名和程序路径取自安装记录；源码部署或缺少记录时按本指南操作。示例：
+
+```bash
+bash install.sh --source https://downloads.example.com/releases --version 0.2.0 --name molr
+```
+
+升级前按本页备份流程保留数据。安装器核对下载包的版本和架构，保留已有账号、数据和配置，保存 `molr-server.previous` 与 `server.previous.json` 后替换程序并重启。服务重启会中断运行中的任务。启动后先等待 HTTP 就绪，再执行一次认证检查，核对实际 Runtime 版本及沙盒能力；认证需要当前密码／MFA或被限流时，输出“验证待完成”和 `doctor` 命令，不循环登录。失败保留备份和错误信息，不自动回滚；上一份程序及配置不包含完整数据备份。
 
 ## 局域网 HTTP
 

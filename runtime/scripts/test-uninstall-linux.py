@@ -179,6 +179,7 @@ class LifecycleTests(unittest.TestCase):
             skip_dependencies=True, install_deps=False)
         def output(command):
             if command[0] == 'file': return 'ELF statically linked'
+            if command[-2:] == ['version', '--json']: return json.dumps({'version':'0.2.0','commit':'a'*40})
             if command[:2] == ['systemctl', '--version']: return 'systemd 255'
             return 'yes'
         def install():

@@ -1,3 +1,4 @@
+import { UpdateProvider, UpdateBadge } from './updates/provider';
 import { ErrorNoticeProvider } from './error-notices';
 import { SetupGate } from './setup';
 import { pluginCopy } from './plugins/copy';
@@ -37,7 +38,7 @@ function SessionGate() {
   if (session.loading) return <main className="session-page"><Loading /></main>;
   if (session.error) return <main className="session-page"><ErrorNotice error={session.error} retry={() => void session.reload()} /></main>;
   if (!session.principal) return <Login />;
-  return <DataProvider key={session.principal.SessionID}><SetupGate><NotificationProvider><UIHostProvider><WorkspaceHost /></UIHostProvider></NotificationProvider></SetupGate></DataProvider>;
+  return <DataProvider key={session.principal.SessionID}><SetupGate><UpdateProvider><NotificationProvider><UIHostProvider><WorkspaceHost /></UIHostProvider></NotificationProvider></UpdateProvider></SetupGate></DataProvider>;
 }
 const icons = { assistants: MessagesSquare, plans: CalendarClock, resources: Folder, extensions: Puzzle, workbench: FlaskConical };
 // Trusted in-process adapter. Selection/resolution is identical for partial official and external packages.
@@ -77,7 +78,7 @@ function WorkspaceHost() {
       {!mobile && selected.runtime === 'builtin' && <Tooltip content={t.search} side="right" width="auto"><IconButton className="nav-button nav-search" label={t.search} aria-haspopup="dialog" onClick={() => window.dispatchEvent(new Event('molr:search'))}><SearchIcon size={22} /></IconButton></Tooltip>}
       {(Object.keys(icons) as (keyof typeof icons)[]).filter(key => (key !== 'resources' || administrator) && (key !== 'workbench' || workbenchVisible)).map(key => { const Icon = icons[key], label = key === 'extensions' ? pluginCopy[locale].extensions : t.nav[key]; return <Tooltip key={key} content={label} side={mobile ? 'top' : 'right'} width="auto"><button className="nav-button" type="button" aria-label={label} aria-current={page === key ? 'page' : undefined} aria-describedby={key === 'assistants' && unread > 0 ? 'nav-unread-count' : undefined} onClick={() => navigate(key)}><span className="nav-icon"><Icon size={22} />{key === 'assistants' && unread > 0 && <span className="nav-unread" id="nav-unread-count" role="status" aria-label={t.assistants.unread(unread)}>{unread > 99 ? '99+' : unread}</span>}</span><span>{key === 'extensions' ? pluginCopy[locale].nav : t.nav[key]}</span></button></Tooltip>; })}
       {!mobile && <div className="nav-account-actions">
-        <Tooltip content={t.account.title} side="right" width="auto"><button type="button" className="nav-button" aria-label={t.account.title} aria-current={page === 'account' || page === 'settings' ? 'page' : undefined} onClick={() => navigate('account')}><span className="user-avatar" aria-hidden="true"><AssistantAvatar name={session.principal?.User?.DisplayName || session.principal?.User?.Username || 'U'} avatar={session.principal?.User?.Avatar} /></span><span>{locale === 'zh' ? '我的' : 'Account'}</span></button></Tooltip>
+        <Tooltip content={t.account.title} side="right" width="auto"><button type="button" className="nav-button" aria-label={t.account.title} aria-current={page === 'account' || page === 'settings' ? 'page' : undefined} onClick={() => navigate('account')}><span className="user-avatar" aria-hidden="true"><AssistantAvatar name={session.principal?.User?.DisplayName || session.principal?.User?.Username || 'U'} avatar={session.principal?.User?.Avatar} /></span><span>{locale === 'zh' ? '我的' : 'Account'}</span><UpdateBadge compact /></button></Tooltip>
       </div>}
     </nav>
     <main className="workspace-main" data-page={page}>

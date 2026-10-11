@@ -66,14 +66,25 @@
 .notification-settings { display: flex; flex-direction: column; gap: 16px; }
 .notification-settings > p { max-width: 68ch; margin: 0; }
 
-.settings-about { max-width: 600px; }
-.settings-about-brand { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding-block: 8px 12px; }
-.settings-about-brand .logo { --logo-width: 183px; max-width: 100%; }
-.settings-about-brand p { font-size: 13px; }
-.settings-about-version { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-.settings-about-version a { text-underline-offset: 3px; }
-.settings-about-github { display: inline-flex; align-items: center; gap: 8px; justify-self: start; min-height: 44px; padding: 10px 14px; border-radius: var(--radius-control); background: var(--color-primary); color: var(--color-on-primary); text-decoration: none; font-size: 13px; }
-.settings-about-github:hover { opacity: .9; }
+.settings-about { max-width: 640px; gap: 0; }
+.settings-about-brand { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 12px 0 28px; }
+.settings-about-brand .logo { --logo-width: 156px; max-width: 100%; }
+.settings-about-version { display: grid; gap: 5px; text-align: right; min-width: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.settings-about-version > span { font-size: 12px; color: var(--color-text-muted); }
+.settings-about-version strong { font-size: 15px; font-weight: 550; }
+.settings-about-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding-top: 22px; border-top: 1px solid var(--color-border); }
+.settings-about-footer > div { flex: 1 1 240px; }
+.settings-about-footer h3 { margin: 0 0 6px; font-size: 13px; font-weight: 550; }
+.settings-about-footer p { margin: 0; font-size: 12px; line-height: 1.7; color: var(--color-text-muted); }
+.settings-about-github { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; padding: 7px 12px; border: 1px solid var(--color-control-border); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text); text-decoration: none; font-size: 12px; }
+.settings-about-github:hover { border-color: var(--color-control-border-hover); background: var(--color-neutral-bg); }
+@media (--molr-mobile) {
+ .settings-about-brand { gap: 16px; padding: 8px 0 24px; }
+ .settings-about-brand .logo { --logo-width: 132px; }
+ .settings-about-version { max-width: 50%; }
+ .settings-about-footer { gap: 12px; padding-top: 20px; }
+ .settings-about-github { min-height: 40px; }
+}
 
 .profile-fields { margin: 0; padding: 0; border: 0; min-width: 0; }
 .profile-fields .assistant-avatar-field { max-width: 360px; }

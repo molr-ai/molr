@@ -134,6 +134,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
     publish.current = changed;
     const unsubscribe = onMutation(path => {
+      if (path === '/api/updates/check') return; // UpdateProvider refreshes its snapshot after a check.
       if (path === '/api/weixin/poll' || path === '/api/weixin/cancel') return;
       if (path.startsWith('/api/weixin/')) changed(['weixin']);
       else if (path.includes('/conversations/read')) changed(['conversations']);

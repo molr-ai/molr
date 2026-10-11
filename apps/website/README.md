@@ -93,7 +93,7 @@ Vite 的 `publicDir` 指向共享 UI 包的 `public/`。`/theme-init.js` 在首�
 
 ## 本地安装分发
 
-`installer-plugin.ts` 从仓库唯一来源 `scripts/install.sh` 输出 `/install.sh`，开发和构建均可访问，与共享品牌 publicDir 无关。默认只提供脚本；指定 `MOLR_RELEASE_DIR` 时附带该目录内规范命名的发行包、校验文件和清单，指定 `MOLR_RELEASE_URL` 时为脚本配置默认下载地址。需先在根目录运行 `npm run build:release`。完整命令见[部署指南](../../docs/deployment/README.md)。不会自动创建 GitHub Release 或上传任何文件。
+`installer-plugin.ts` 从仓库唯一来源 `scripts/install.sh` 输出 `/install.sh`，开发和构建均可访问，与共享品牌 publicDir 无关。默认只提供脚本；指定 `MOLR_RELEASE_DIR` 时附带该目录内规范命名的发行包、校验文件和清单，指定 `MOLR_RELEASE_URL` 时为脚本配置默认下载地址。需先在根目录运行 `npm run build:release`；推荐版本清单通过 `npm run release:promote` 单独生成，验证包及更新说明可访问后最后发布清单。完整命令见[部署指南](../../docs/deployment/README.md)。不会自动创建 GitHub Release 或上传任何文件。
 
 ## 公开文档范围
 

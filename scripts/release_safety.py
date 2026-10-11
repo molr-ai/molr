@@ -245,8 +245,20 @@ def check_release_directory(directory, strict=False):
                 value = json.loads(path.read_bytes())
             except (ValueError, UnicodeError):
                 fail(path.name, 'invalid download manifest')
-            if not isinstance(value, dict) or set(value) != {'version', 'file', 'sha256'}:
+            if not isinstance(value, dict) or set(value) != {'version', 'commit', 'published_at', 'notes_url', 'file', 'sha256'}:
                 fail(path.name, 'unexpected download manifest fields')
+            from datetime import datetime
+            from urllib.parse import urlparse
+            try:
+                if not isinstance(value['published_at'], str) or datetime.fromisoformat(value['published_at'].replace('Z', '+00:00')).tzinfo is None:
+                    fail(path.name, 'invalid publish timestamp')
+                notes = urlparse(value['notes_url'])
+                if notes.scheme != 'https' or not notes.netloc or notes.username or notes.password:
+                    fail(path.name, 'invalid release notes URL')
+            except (ValueError, TypeError, AttributeError):
+                fail(path.name, 'invalid release metadata')
+            if not isinstance(value['commit'], str) or not re.fullmatch(r'[a-f0-9]{40}|[a-f0-9]{64}', value['commit']):
+                fail(path.name, 'invalid release commit')
             arch = path.name.removeprefix('latest-linux-').removesuffix('.json')
             version = value['version']
             if not isinstance(version, str) or not re.fullmatch(r'[0-9][0-9A-Za-z.-]*', version):
@@ -254,6 +266,8 @@ def check_release_directory(directory, strict=False):
             filename = f'molr_{version}_linux_{arch}.tar.gz'
             if value['file'] != filename or directory/filename not in selected:
                 fail(path.name, 'manifest does not name an approved archive')
+            if check_release(directory/filename)['commit'] != value['commit']:
+                fail(path.name, 'release commit mismatch')
             if value['sha256'] != hashlib.sha256((directory/filename).read_bytes()).hexdigest():
                 fail(path.name, 'manifest checksum mismatch')
     return len(selected)

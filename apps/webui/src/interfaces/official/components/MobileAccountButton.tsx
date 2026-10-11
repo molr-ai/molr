@@ -1,3 +1,4 @@
+import { UpdateBadge } from '../../../updates/provider';
 import { AssistantAvatar } from '@molr/ui';
 import { useCopy, useSession } from '../../../state';
 import { useNavigation } from '../../../navigation';
@@ -8,5 +9,5 @@ export function MobileAccountButton() {
   return <button type="button" className="mobile-account-button" aria-label={`${t.account.title} · ${name}`} onClick={() => navigate('account')}>
     <span className="user-avatar" aria-hidden="true"><AssistantAvatar name={name} avatar={principal?.User?.Avatar} /></span>
     <span className="mobile-account-name">{name}</span>
-  </button>;
+  <UpdateBadge compact /></button>;
 }

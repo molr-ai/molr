@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync, chmodSync, renameSync } from 'node:fs';
+import { existsSync, cpSync, mkdirSync, readFileSync, rmSync, writeFileSync, chmodSync, renameSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,6 +11,7 @@ const version = process.env.MOLR_VERSION || '0.1.0-local';
 if (!/^[0-9][0-9A-Za-z.-]*$/.test(version)) throw new Error('Invalid MOLR_VERSION');
 const output = resolve(process.env.MOLR_DIST_DIR || 'dist/releases');
 const stage = resolve('.cache/release', `linux-${arch}`, 'molr');
+if (!version.includes('-local') && existsSync(`${output}/molr_${version}_linux_${arch}.tar.gz`)) throw new Error('Release versions are immutable; choose a new version');
 const run = (cmd, args, options = {}) => execFileSync(cmd, args, { stdio: 'inherit', ...options });
 run('npm', ['run', 'check:release']);
 run('npm', ['run', 'check:licenses']);
@@ -25,7 +26,7 @@ mkdirSync(`${stage}/scripts`, { recursive: true });
 for (const name of ['LICENSE', 'THIRD_PARTY_NOTICES.md']) cpSync(`${root}/${name}`, `${stage}/${name}`);
 const go = process.env.GO || 'go';
 const buildTime = new Date().toISOString();
-run(go, ['build', '-trimpath', '-tags', 'webui', '-ldflags', `-X molr.ai/runtime/internal/buildinfo.Version=${version} -X main.commit=${commit} -X main.builtAt=${buildTime}`, '-o', `${stage}/bin/molr-server`, './cmd/molr-server'], { cwd: resolve('runtime'), env: { ...process.env, CGO_ENABLED: '0', GOOS: 'linux', GOARCH: arch, GOTOOLCHAIN: `go${readFileSync('runtime/.go-version', 'utf8').trim()}`, GOCACHE: process.env.GOCACHE || resolve('.cache/go-build'), GOMODCACHE: process.env.GOMODCACHE || resolve('.cache/go-mod') } });
+run(go, ['build', '-trimpath', '-tags', 'webui', '-ldflags', `-X molr.ai/runtime/internal/buildinfo.Version=${version} -X molr.ai/runtime/internal/buildinfo.Commit=${commit} -X molr.ai/runtime/internal/buildinfo.BuiltAt=${buildTime}`, '-o', `${stage}/bin/molr-server`, './cmd/molr-server'], { cwd: resolve('runtime'), env: { ...process.env, CGO_ENABLED: '0', GOOS: 'linux', GOARCH: arch, GOTOOLCHAIN: `go${readFileSync('runtime/.go-version', 'utf8').trim()}`, GOCACHE: process.env.GOCACHE || resolve('.cache/go-build'), GOMODCACHE: process.env.GOMODCACHE || resolve('.cache/go-mod') } });
 const binary = `${stage}/bin/molr-server`;
 chmodSync(binary, 0o755);
 const description = execFileSync('file', [binary], { encoding: 'utf8' });
@@ -45,5 +46,5 @@ try {
 }
 const sha256 = createHash('sha256').update(readFileSync(`${output}/${filename}`)).digest('hex');
 writeFileSync(`${output}/${filename}.sha256`, `${sha256}  ${filename}\n`);
-writeFileSync(`${output}/latest-linux-${arch}.json`, JSON.stringify({ version, file: filename, sha256 }, null, 2));
+
 console.log(`Release: ${output}/${filename}`);

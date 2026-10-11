@@ -5,6 +5,7 @@ export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 source_dir="${MOLR_RELEASE_URL:-}"
 archive=""
 version=""
+release_source=""
 forward=()
 while (($#)); do
   case "$1" in
@@ -40,6 +41,7 @@ else
   [[ -n "$source_dir" ]] || { printf '%s\n' 'Specify --source with your local release server URL, or --archive with a local package.' >&2; exit 1; }
   case "$source_dir" in https://*|http://*) ;; *) printf '%s\n' 'Source must be HTTP(S).' >&2; exit 1 ;; esac
   source_dir="${source_dir%/}"
+  release_source="$source_dir"
   if [[ -n "$version" ]]; then
     [[ "$version" =~ ^[0-9][0-9A-Za-z.-]*$ ]] || { printf '%s\n' 'Invalid version.' >&2; exit 1; }
     filename="molr_${version}_linux_${arch}.tar.gz"
@@ -47,11 +49,12 @@ else
     expected="$(awk 'NR==1 {print $1}' "$stage/checksum")"
   else
     curl --fail --silent --show-error --location --max-time 60 "$source_dir/latest-linux-$arch.json" -o "$stage/manifest.json"
-    read -r filename expected < <(python3 - "$stage/manifest.json" "$arch" <<'PY'
+    read -r filename expected version < <(python3 - "$stage/manifest.json" "$arch" <<'PY'
 import json,re,sys
 m=json.load(open(sys.argv[1]))
 if not re.fullmatch(r'molr_[0-9][0-9A-Za-z.-]*_linux_'+sys.argv[2]+r'\.tar\.gz',m['file']): raise SystemExit('Invalid release filename')
-print(m['file'],m['sha256'])
+if m['file'] != 'molr_'+m['version']+'_linux_'+sys.argv[2]+'.tar.gz': raise SystemExit('Manifest version mismatch')
+print(m['file'],m['sha256'],m['version'])
 PY
     )
   fi
@@ -61,7 +64,7 @@ fi
 [[ "$expected" =~ ^[a-f0-9]{64}$ ]] || { printf '%s\n' 'Invalid checksum.' >&2; exit 1; }
 actual="$(sha256sum "$archive")"; actual="${actual%% *}"
 [[ "$actual" == "$expected" ]] || { printf '%s\n' 'Checksum mismatch; installation stopped.' >&2; exit 1; }
-python3 - "$archive" "$stage" "$arch" <<'PY'
+python3 - "$archive" "$stage" "$arch" "$version" <<'PY'
 import json,pathlib,sys,tarfile
 with tarfile.open(sys.argv[1],'r:gz') as archive:
     for item in archive.getmembers():
@@ -71,5 +74,7 @@ with tarfile.open(sys.argv[1],'r:gz') as archive:
     archive.extractall(sys.argv[2], **({'filter':'data'} if hasattr(tarfile,'data_filter') else {}))
 metadata=json.load(open(pathlib.Path(sys.argv[2])/'molr/release.json'))
 if metadata['os']!='linux' or metadata['arch']!=sys.argv[3]: raise SystemExit('Wrong release architecture')
+if sys.argv[4] and metadata['version']!=sys.argv[4]: raise SystemExit('Wrong release version')
 PY
+if [[ -n "$release_source" ]]; then forward+=(--release-source "$release_source"); fi
 bash "$stage/molr/scripts/install-linux.sh" --install-deps "${forward[@]}" "$stage/molr/bin/molr-server"

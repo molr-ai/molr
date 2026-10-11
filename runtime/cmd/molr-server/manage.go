@@ -23,9 +23,6 @@ import (
 	"time"
 )
 
-var commit = "unknown"
-var builtAt = "unknown"
-
 func bootstrap(ctx context.Context, b *app.Bundle, cfg config.Config, username string, out io.Writer) error {
 	initialized, err := b.Bootstrap.Initialized(ctx)
 	if err != nil {

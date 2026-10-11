@@ -10,3 +10,5 @@ import (
 //go:embed fallback/index.html
 var fallback embed.FS
 var assets, _ = fs.Sub(fallback, "fallback")
+
+const Embedded = false

@@ -81,6 +81,31 @@ class InstallerTests(unittest.TestCase):
                 with patch.object(m, 'output', return_value='[]'):
                     m.default_http(18877, host)
 
+    def test_update_source_preserves_preferences_and_offline_configuration(self):
+        config = {'updates': {'source': 'https://old.example/releases', 'auto_check': False}}
+        m.configure_updates(config, None)
+        self.assertEqual(config['updates']['source'], 'https://old.example/releases')
+        m.configure_updates(config, 'https://new.example/releases/')
+        self.assertEqual(config['updates'], {'source': 'https://new.example/releases', 'auto_check': False})
+        fresh = {}
+        m.configure_updates(fresh, 'http://192.168.1.10/releases')
+        self.assertTrue(fresh['updates']['auto_check'])
+        for source in ('http://example.com/releases', 'https://user:pass@example.com', 'https://example.com/?token=secret', 'file:///tmp/releases', 'http://169.254.169.254/'):
+            with self.assertRaises(m.InstallError):
+                m.configure_updates({}, source)
+
+    def test_upgrade_verification_distinguishes_pending_and_failure(self):
+        expected = {'version': '0.2.0', 'commit': 'a'*40}
+        status = {'Runtime': {'build': expected}, 'Sandbox': {'Enabled': False}}
+        good = subprocess.CompletedProcess([], 0, json.dumps(status), '')
+        self.assertTrue(m.verify_health(good, expected))
+        with self.assertRaises(m.InstallError):
+            m.verify_health(good, {'version': '0.1.0', 'commit': 'b'*40})
+        for reason in ('HTTP 401', 'MFA required', 'HTTP 429'):
+            self.assertFalse(m.verify_health(subprocess.CompletedProcess([], 1, '', reason), expected))
+        with self.assertRaises(m.InstallError):
+            m.verify_health(subprocess.CompletedProcess([], 1, '', 'sandbox unavailable'), expected)
+
     def test_identity_authorization(self):
         ordinary = pwd.struct_passwd(('existing', 'x', 1234, 2345, '', '/home/existing', '/bin/bash'))
         with patch.object(m.pwd, 'getpwuid', return_value=ordinary):

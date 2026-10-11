@@ -10,3 +10,5 @@ import (
 //go:embed all:dist
 var content embed.FS
 var assets, _ = fs.Sub(content, "dist")
+
+const Embedded = true

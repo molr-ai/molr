@@ -1,3 +1,5 @@
+import { AboutUpdates } from '../../../updates/AboutUpdates';
+import { UpdateBadge, useUpdates } from '../../../updates/provider';
 import { buildInfo } from '../../../build-info';
 import { ProfileSettings } from '../../../administration/UserSettings';
 import { NotificationSettings } from '../../../notifications/Settings';
@@ -6,7 +8,7 @@ import { Memories } from './Memories';
 import { AccountUsage } from '../../../administration/Usage';
 import { Activity, Fragment, useEffect, useState } from 'react';
 import { Alert, Badge, Button, Checkbox, IconButton, Logo, Textarea, TextField, useBreakpoint, useTheme, useUILocale } from '@molr/ui';
-import { Bell, Brain, ChartNoAxesCombined, ChevronLeft, ChevronRight, Database, Download, Info, Plug, Palette as PaletteIcon, Settings as SettingsIcon, Settings2, Shield, SlidersHorizontal, UserRoundX } from 'lucide-react';
+import { Bell, Brain, ChartNoAxesCombined, ChevronLeft, ChevronRight, Database, Download, Info, Plug, Palette as PaletteIcon, Settings as SettingsIcon, Settings2, Shield, SlidersHorizontal, Star, ArrowUpRight, UserRoundX } from 'lucide-react';
 import { api, APIError } from '../../../api/client';
 import type { Assistant, Model, RuntimeInfo, Session, Settings as SettingsDTO } from '../../../api/types';
 import { useReauthentication } from '../components/ReauthenticationDialog';
@@ -56,7 +58,7 @@ export function Settings({ models, assistants, openAssistant, initialTab = '', o
               <Shield size={16} className="settings-nav-icon" aria-hidden="true" /><span>{t.account.admin}</span><ChevronRight size={16} className="settings-nav-caret" aria-hidden="true" />
             </a>}
             <button type="button" aria-current={active === item.value ? 'page' : undefined} onClick={() => select(item.value)}>
-              <Icon size={16} className="settings-nav-icon" aria-hidden="true" /><span>{item.label}</span><ChevronRight size={16} className="settings-nav-caret" aria-hidden="true" />
+              <Icon size={16} className="settings-nav-icon" aria-hidden="true" /><span>{item.label}</span>{item.value === 'about' && <UpdateBadge />}<ChevronRight size={16} className="settings-nav-caret" aria-hidden="true" />
             </button>
           </Fragment>;
         })}
@@ -73,15 +75,19 @@ export function Settings({ models, assistants, openAssistant, initialTab = '', o
   </section>;
 }
 function About() {
-  const { t } = useCopy(), { theme } = useTheme(), { reducedMotion } = useUILocale();
+  const { t, locale } = useCopy(), { theme } = useTheme(), { reducedMotion } = useUILocale();
   const repository = 'https://github.com/molr-ai/molr';
+  const updates = useUpdates(), currentBuild = updates.data?.current ?? buildInfo;
   return <div className="settings-section settings-about">
     <div className="settings-about-brand">
       <Logo animation={reducedMotion ? 'static' : 'daily'} interactive variant={theme === 'dark' ? 'light' : 'dark'} />
-      <p className="muted settings-about-version">v{buildInfo.version} · <a href={`${repository}/commit/${buildInfo.commit}`} title={buildInfo.commit} target="_blank" rel="noopener noreferrer">{buildInfo.commit.slice(0, 12)}</a></p>
+      <div className="settings-about-version"><span>{locale === 'zh' ? '当前版本' : 'Current version'}</span><strong>{currentBuild.version}</strong></div>
     </div>
-    <p>{t.account.starHelp}</p>
-    <a className="settings-about-github" href={repository} target="_blank" rel="noopener noreferrer">{t.account.starLink}<ChevronRight size={16} aria-hidden="true" /></a>
+    <AboutUpdates />
+    <footer className="settings-about-footer">
+      <div><h3>{locale === 'zh' ? '一起让 Molr 更好' : 'Help Molr grow'}</h3><p>{locale === 'zh' ? '如果喜欢 Molr，欢迎在 GitHub 上点亮一颗 Star。' : 'Enjoying Molr? Give the project a Star on GitHub.'}</p></div>
+      <a className="settings-about-github" href={repository} target="_blank" rel="noopener noreferrer" aria-label={t.account.starLink}><Star size={15} aria-hidden="true" />GitHub<ArrowUpRight size={14} aria-hidden="true" /></a>
+    </footer>
   </div>;
 }
 function preferenceValues(settings: SettingsDTO) {

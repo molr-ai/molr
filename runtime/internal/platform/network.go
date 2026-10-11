@@ -116,7 +116,12 @@ func (g *Guard) OwnerHTTPClient(p core.Principal, resourceID core.ID, origin str
 // PublicHTTPClient is for fixed server integrations, not user-selected tools.
 // It pins the origin and allows only public HTTPS destinations at the actual dial.
 func PublicHTTPClient(origin string) *http.Client {
-	g := NewNetworkGuard(NetworkOptions{})
+	return ConfiguredHTTPClient(origin, nil)
+}
+
+// ConfiguredHTTPClient permits only deployment-approved private IPs and pins the origin.
+func ConfiguredHTTPClient(origin string, allowed []netip.Addr) *http.Client {
+	g := NewNetworkGuard(NetworkOptions{AllowedPrivateAddresses: allowed})
 	return boundHTTPClient("", origin, func(ctx context.Context, d Destination) error {
 		if err := persistence.CheckContext(ctx); err != nil {
 			return err

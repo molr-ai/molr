@@ -11,6 +11,7 @@ import (
 // Runtime owns lifecycle coordination; product composition belongs to Build.
 type Runtime struct {
 	runChannels      func(context.Context) error
+	checkUpdates     func(context.Context)
 	collectContexts  func(context.Context)
 	startShellTasks  func(context.Context) error
 	recoverCalls     func(context.Context) error
@@ -125,6 +126,10 @@ func (a *Runtime) Run(ctx context.Context) (result error) {
 	if a.collectContexts != nil {
 		workers.Add(1)
 		go func() { defer workers.Done(); a.collectContexts(runctx) }()
+	}
+	if a.checkUpdates != nil {
+		workers.Add(1)
+		go func() { defer workers.Done(); a.checkUpdates(runctx) }()
 	}
 	results := make(chan error, 3)
 	if a.runChannels != nil {

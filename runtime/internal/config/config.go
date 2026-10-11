@@ -103,10 +103,17 @@ type Execution struct {
 	ShutdownTimeout             Duration   `json:"shutdown_timeout"`
 }
 
+type Updates struct {
+	Source    string `json:"source"`
+	AutoCheck bool   `json:"auto_check"`
+}
+
 // Config contains no raw password, model key or bearer token. PublicURL must
 // be HTTPS except in explicit loopback-only local mode. Validation checks shape;
 // startup must verify certificates, proxy reachability and data permissions.
 type Config struct {
+	ConfigPath  string      `json:"-"`
+	Updates     Updates     `json:"updates"`
 	PortForward PortForward `json:"port_forward"`
 	Sandbox     Sandbox     `json:"sandbox"`
 	DataDir     string      `json:"data_dir"`
@@ -121,6 +128,7 @@ type Config struct {
 
 func Defaults(dataDir string) Config {
 	return Config{DataDir: dataDir,
+		Updates:     Updates{AutoCheck: true},
 		PortForward: PortForward{Enabled: true, ListenHost: "0.0.0.0"},
 		Sandbox:     sandboxDefaults(),
 		Debug:       Debug{MaxRuns: 1000, MaxPayloadBytes: 4 << 20},
@@ -173,6 +181,19 @@ func (c Config) OwnListenPort() uint16 {
 }
 
 func (c Config) Validate() error {
+	if c.Updates.Source != "" {
+		u, err := url.Parse(c.Updates.Source)
+		if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != "https" && u.Scheme != "http") {
+			return core.Invalid("updates.source", "HTTP(S) source without credentials, query or fragment required")
+		}
+		if u.Scheme == "http" {
+			ip, err := netip.ParseAddr(u.Hostname())
+			if err != nil || (!ip.IsPrivate() && !ip.IsLoopback()) {
+				return core.Invalid("updates.source", "plain HTTP requires a private numeric address")
+			}
+		}
+	}
+
 	if err := c.PortForward.validate(); err != nil {
 		return err
 	}
