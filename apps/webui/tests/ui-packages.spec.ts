@@ -208,7 +208,7 @@ test('theme saves preserve preferences, ignore local storage and keep the saved 
   await chooseTheme(page, 'Molr test theme');
   const after = await (await page.request.get('/api/settings')).json();
   expect(after.UITheme).toBe('molr.test@1.0.0');
-  for (const field of ['Theme', 'Palette', 'Language', 'Currency', 'Timezone', 'ReducedMotion', 'AnswerPreferences', 'DefaultModelID']) expect(after[field]).toEqual(before[field]);
+  for (const field of ['Theme', 'Palette', 'Language', 'Currency', 'Timezone', 'ReducedMotion', 'DefaultModelID']) expect(after[field]).toEqual(before[field]);
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
 

@@ -84,7 +84,7 @@ test('failed palette saves restore the current choice and successful saves prese
   await page.getByRole('group', { name: 'Color palettes' }).getByRole('button', { name: target[1], exact: true }).click();
   await expect.poll(async () => (await settings(page)).Palette).toBe(target[0]);
   const after = await settings(page);
-  for (const field of ['Language', 'Timezone', 'Currency', 'Theme', 'ReducedMotion', 'AnswerPreferences', 'DefaultModelID']) expect(after[field]).toEqual(before[field]);
+  for (const field of ['Language', 'Timezone', 'Currency', 'Theme', 'ReducedMotion', 'DefaultModelID']) expect(after[field]).toEqual(before[field]);
   await expect(panel.getByRole('alert')).toHaveCount(0);
   await openSettingsSection(page, 'General');
   await expect(page.getByRole('combobox', { name: 'Display mode', exact: true })).toHaveCount(0);

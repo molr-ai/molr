@@ -42,11 +42,10 @@ type Settings struct {
 	Palette        Palette
 	DefaultModelID core.ID
 
-	AnswerPreferences string
-	ReducedMotion     bool
-	WorkbenchVisible  bool
-	PluginsVisible    bool
-	Version           core.Version
+	ReducedMotion    bool
+	WorkbenchVisible bool
+	PluginsVisible   bool
+	Version          core.Version
 }
 type UpdateRequest struct {
 	Mutation core.Mutation

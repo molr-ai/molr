@@ -15,7 +15,8 @@ async function openProvider(page: Page) {
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('navigation', { name: 'Molr' })).toBeVisible();
   await page.goto('/#/resources');
-  await page.getByRole('button', { name: 'Connect provider', exact: true }).first().click();
+  await page.locator('.resources-header').getByRole('button', { name: 'More', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Connect provider', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Connect provider', exact: true });
   await dialog.getByRole('button', { name: 'Custom service', exact: true }).click();
   const endpoint = dialog.getByLabel('Service URL', { exact: true }); await endpoint.fill(original);
@@ -98,7 +99,8 @@ test('discovery remains locked through provider save and model refresh', async (
     for (const label of ['Use', 'Configure', 'Scan again']) await expect(dialog.getByRole('button', { name: label, exact: true })).toBeDisabled();
     releaseRefresh(); await expect(dialog).toHaveCount(0);
     await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Connect provider', exact: true }).first().click();
+    await page.locator('.resources-header').getByRole('button', { name: 'More', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Connect provider', exact: true }).click();
     await expect(dialog.getByRole('button', { name: 'Use', exact: true })).toBeEnabled();
   } finally { releaseSave(); releaseRefresh(); }
 });

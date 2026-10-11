@@ -380,7 +380,7 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 	}})
 	memories := memory.NewService(store, memory.Options{Files: memoryFiles, Authorizer: permissions, CheckAssistant: access.assistant})
 	dreams := dream.New(store, dream.Options{Authorizer: permissions, Memories: memories, Files: memoryFiles, Conversations: chat})
-	memoryContext := memoryAccess{memories: memories, store: store}
+	memoryContext := memoryAccess{memories: memories}
 	searching := search.NewService(store, search.Options{Authorizer: permissions, Memories: memories})
 	indexer := search.NewIndexer(store, search.Options{Authorizer: permissions, Memories: memories})
 	var plans *plan.Coordinator

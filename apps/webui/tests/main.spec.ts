@@ -99,7 +99,8 @@ test('model setup, automatic hire permission, real agent reply, attachments and 
   await login(page);
   const suffix = `${info.project.name}-${Date.now()}`, resourceName = `Model ${suffix}`, assistantName = `Assistant ${suffix}`;
   await page.getByRole('navigation').getByRole('button', { name: 'Resources', exact: true }).click();
-  await page.getByRole('button', { name: 'Connect provider', exact: true }).first().click();
+  await page.locator('.resources-header').getByRole('button', { name: 'More', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Connect provider', exact: true }).click();
   const form = page.getByRole('dialog', { name: 'Connect provider', exact: true });
   await form.getByRole('button', { name: 'Custom service', exact: true }).click();
   await form.getByText('More configuration', { exact: true }).click();
@@ -357,15 +358,10 @@ test('todos, schedules and memory persist through real APIs and browser reload',
   await page.getByRole('button', { name: `reload-preference-${info.project.name}.md`, exact: true }).click();
   await expect(page.getByRole('dialog').getByRole('textbox', { name: 'Memory text' })).toHaveValue(`Memory ${suffix}`);
   await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
-  await openSettingsSection(page, 'Preferences');
-  await page.getByRole('textbox', { name: 'Answer preferences', exact: true }).fill('Keep replies concise.');
-  await settingsPane(page).getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(settingsPane(page).getByRole('button', { name: 'Save', exact: true })).not.toHaveAttribute('aria-busy', 'true');
   await openSettingsSection(page, 'Theme');
   const saveMotion = page.waitForResponse(response => response.url().endsWith('/api/settings') && response.request().method() === 'POST' && response.status() === 200);
   await page.getByRole('switch', { name: 'Reduce motion', exact: true }).check(); await saveMotion;
-  await page.reload(); await openSettingsSection(page, 'Preferences');
-  await expect(page.getByRole('textbox', { name: 'Answer preferences', exact: true })).toHaveValue('Keep replies concise.');
+  await page.reload();
   await openSettingsSection(page, 'Theme');
   await expect(page.getByRole('switch', { name: 'Reduce motion', exact: true })).toBeChecked();
   await expect(page.locator('html')).toHaveAttribute('data-reduced-motion', 'true');
@@ -649,7 +645,8 @@ test('credential fields keep login autofill separate from provider secrets', asy
   await expect(page.getByLabel('Password', { exact: true })).toHaveAttribute('type', 'password');
   await login(page);
   await page.getByRole('navigation').getByRole('button', { name: 'Resources', exact: true }).click();
-  await page.getByRole('button', { name: 'Connect provider', exact: true }).first().click();
+  await page.locator('.resources-header').getByRole('button', { name: 'More', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Connect provider', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Connect provider', exact: true });
   const key = dialog.getByLabel('API key', { exact: true });
   await expect(key).toHaveAttribute('type', 'text');
@@ -687,7 +684,8 @@ test('credential fields keep login autofill separate from provider secrets', asy
   await expect(dialog.getByRole('textbox', { name: 'Service URL', exact: true })).toHaveAttribute('autocomplete', 'off');
   expect(await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }))).not.toContain('-only-secret');
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await page.getByRole('button', { name: 'Connect provider', exact: true }).first().click();
+  await page.locator('.resources-header').getByRole('button', { name: 'More', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Connect provider', exact: true }).click();
   await expect(key).toHaveValue('');
   await expect(key).toHaveCSS('-webkit-text-security', 'disc');
 });
@@ -699,7 +697,8 @@ test('secret fields stay concealed when CSS text masking is unavailable', async 
   });
   await login(page);
   await page.getByRole('navigation').getByRole('button', { name: 'Resources', exact: true }).click();
-  await page.getByRole('button', { name: 'Connect provider', exact: true }).first().click();
+  await page.locator('.resources-header').getByRole('button', { name: 'More', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Connect provider', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Connect provider', exact: true });
   const key = dialog.getByLabel('API key', { exact: true });
   await expect(key).toHaveAttribute('type', 'password');
@@ -719,7 +718,8 @@ test('secret fields stay concealed when CSS text masking is unavailable', async 
 test('provider search and cloud/local filters preserve drafts and preset endpoints', async ({ page }) => {
   await login(page);
   await page.getByRole('navigation').getByRole('button', { name: 'Resources', exact: true }).click();
-  await page.getByRole('button', { name: 'Connect provider', exact: true }).first().click();
+  await page.locator('.resources-header').getByRole('button', { name: 'More', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Connect provider', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Connect provider', exact: true });
   const choices = dialog.locator('.provider-connect-provider-options');
   const search = dialog.getByRole('searchbox', { name: 'Search providers' });
@@ -768,7 +768,8 @@ test('provider search and cloud/local filters preserve drafts and preset endpoin
 test('provider connection discovers models without manual configuration and keeps credentials scoped', async ({ page }, info) => {
   await login(page);
   await page.getByRole('navigation').getByRole('button', { name: 'Resources', exact: true }).click();
-  await page.getByRole('button', { name: 'Connect provider', exact: true }).first().click();
+  await page.locator('.resources-header').getByRole('button', { name: 'More', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Connect provider', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Connect provider', exact: true });
   const providers = dialog.getByRole('group', { name: 'Model providers', exact: true });
   const form = dialog.getByRole('form', { name: 'Provider configuration', exact: true });
@@ -837,7 +838,8 @@ test('provider connection discovers models without manual configuration and keep
 test('provider API key is stored in the vault and used for model discovery', async ({ page }, info) => {
   await login(page);
   await page.getByRole('navigation').getByRole('button', { name: 'Resources', exact: true }).click();
-  await page.getByRole('button', { name: 'Connect provider', exact: true }).first().click();
+  await page.locator('.resources-header').getByRole('button', { name: 'More', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Connect provider', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Connect provider', exact: true });
   await dialog.getByRole('button', { name: 'Custom service', exact: true }).click();
   await choose(page, 'Authentication', 'API key');
@@ -955,7 +957,8 @@ test('security page manages optional verification and authenticator enrollment',
     expect((await downloadEvent).suggestedFilename()).toBe('molr-recovery-codes.txt');
     await recovery.getByRole('button', { name: 'I saved my codes', exact: true }).click();
     await page.getByRole('navigation').getByRole('button', { name: 'Resources', exact: true }).click();
-    await page.getByRole('button', { name: 'Connect provider', exact: true }).first().click();
+    await page.locator('.resources-header').getByRole('button', { name: 'More', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Connect provider', exact: true }).click();
     const editor = page.getByRole('dialog', { name: 'Connect provider', exact: true });
     await expect(editor.getByLabel('Authenticator or recovery code', { exact: true })).toHaveCount(0);
     await editor.getByLabel('API key', { exact: true }).fill('test-mfa-secret');
@@ -1371,10 +1374,7 @@ test('general, notifications and connection lead settings, save independently an
   await expect(general.getByRole('combobox', { name: 'Language', exact: true })).toBeVisible();
   await expect(general.getByRole('combobox', { name: 'Display mode', exact: true })).toHaveCount(0);
   await expect(settingsNavItem(page, 'Theme')).toHaveText('Theme');
-  await openSettingsSection(page, 'Preferences');
-  const preference = `Retained draft ${info.project.name}-${Date.now()}`;
-  await page.getByRole('textbox', { name: 'Answer preferences', exact: true }).fill(preference);
-  await openSettingsSection(page, 'General');
+  await expect(settingsNavItem(page, 'Preferences')).toHaveCount(0);
   await expect(general.getByRole('button', { name: 'Save', exact: true })).toHaveCount(0);
   await expect(general.getByRole('checkbox')).toHaveCount(0);
   for (const control of await general.getByRole('combobox').all()) {
@@ -1391,13 +1391,9 @@ test('general, notifications and connection lead settings, save independently an
   await openSettingsSection(page, 'Theme');
   await choose(page, 'Display mode', /^Light /);
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-  expect((await (await page.request.get('/api/settings')).json()).AnswerPreferences).not.toBe(preference);
-  await openSettingsSection(page, 'Preferences');
-  await expect(page.getByRole('textbox', { name: 'Answer preferences', exact: true })).toHaveValue(preference);
-  const savedPreferences = page.waitForResponse(response => response.url().endsWith('/api/settings') && response.request().method() === 'POST' && response.status() === 200);
-  await settingsPane(page).getByRole('button', { name: 'Save', exact: true }).click(); await savedPreferences;
+  await expect.poll(async () => (await (await page.request.get('/api/settings')).json()).Theme).toBe('light');
   const settings = await (await page.request.get('/api/settings')).json();
-  expect(settings).toMatchObject({ Timezone: 'Asia/Shanghai', Theme: 'light', AnswerPreferences: preference });
+  expect(settings).toMatchObject({ Timezone: 'Asia/Shanghai', Theme: 'light' });
   await page.reload(); await openSettingsSection(page, 'General');
   await expect(general.getByRole('combobox', { name: 'Timezone', exact: true })).toContainText('Shanghai');
   await general.screenshot({ path: info.outputPath('general-settings.png') });
@@ -1412,7 +1408,7 @@ test('general, notifications and connection lead settings, save independently an
   const connection = settingsPane(page);
   await expect(connection.getByRole('heading', { name: 'Molr Runtime', exact: true })).toBeVisible();
   await expect(connection).toContainText(`http://127.0.0.1:${process.env.MOLR_TEST_RUNTIME_PORT ?? process.env.MOLR_E2E_RUNTIME_PORT ?? 18881}`);
-  await expect(connection).toContainText('Molr Web');
+  await expect(connection.locator('.connection-details dd').nth(1)).toContainText(' · Web');
   await expect(connection.locator('.settings-connection')).toHaveCSS('padding-top', '0px');
   await connection.screenshot({ path: info.outputPath('runtime-connection.png') });
   const cookies = (await context.cookies()).map(cookie => `${cookie.name}=${cookie.value}`).join('; ');
@@ -1438,7 +1434,7 @@ test('instant settings roll back a failed switch update and preserve other prefe
   await toggle.setChecked(desired);
   await expect.poll(async () => (await (await page.request.get('/api/settings')).json()).ReducedMotion).toBe(desired);
   const after = await (await page.request.get('/api/settings')).json();
-  expect(after.AnswerPreferences).toBe(before.AnswerPreferences);
+  expect(after.DefaultModelID).toBe(before.DefaultModelID);
   expect(after).not.toHaveProperty('DefaultTaskBudget');
   await expect(panel.getByRole('alert')).toHaveCount(0);
   await page.reload(); await openSettingsSection(page, 'Theme'); await expect(toggle).toBeChecked({ checked: desired });
@@ -2482,7 +2478,8 @@ for (const [preset, name, endpoint] of [
   test.setTimeout(120_000);
   await login(page);
   await page.goto('/#/resources');
-  await page.getByRole('button', { name: 'Connect provider', exact: true }).first().click();
+  await page.locator('.resources-header').getByRole('button', { name: 'More', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Connect provider', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Connect provider', exact: true });
   await dialog.getByRole('radio', { name: 'Local', exact: true }).check();
   await dialog.getByRole('searchbox').fill(name.toLowerCase());

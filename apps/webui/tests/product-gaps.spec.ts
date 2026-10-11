@@ -28,7 +28,8 @@ test('cloud presets test, save, discover and reopen for editing', async ({ page 
   test.setTimeout(90_000);
   await login(page);
   for (const [preset, label] of [['bailian', 'Bailian'], ['zhipu', 'Zhipu'], ['moonshot', 'Moonshot AI']]) {
-    await page.getByRole('button', { name: 'Connect provider', exact: true }).first().click();
+    await page.locator('.resources-header').getByRole('button', { name: 'More', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Connect provider', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Connect provider', exact: true });
     await dialog.getByRole('button', { name: label, exact: true }).click();
     await dialog.getByLabel('API key', { exact: true }).fill('test-provider-secret');

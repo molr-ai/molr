@@ -8,14 +8,13 @@ import { notificationCopy } from '../../../notifications/copy';
 import { Memories } from './Memories';
 import { AccountUsage } from '../../../administration/Usage';
 import { Activity, Fragment, useEffect, useState } from 'react';
-import { Alert, Badge, Button, Checkbox, IconButton, Logo, Textarea, TextField, useBreakpoint, useTheme, useUILocale } from '@molr/ui';
-import { Bell, Brain, ChartNoAxesCombined, ChevronLeft, ChevronRight, Database, Download, Info, Plug, Palette as PaletteIcon, Settings as SettingsIcon, Settings2, Shield, SlidersHorizontal, Star, ArrowUpRight, UserRoundX } from 'lucide-react';
-import { api, APIError } from '../../../api/client';
-import type { Assistant, Model, RuntimeInfo, Session, Settings as SettingsDTO } from '../../../api/types';
+import { Badge, Button, Checkbox, IconButton, Logo, TextField, useBreakpoint, useTheme, useUILocale } from '@molr/ui';
+import { Bell, Brain, ChartNoAxesCombined, ChevronLeft, ChevronRight, Database, Download, Info, Plug, Palette as PaletteIcon, Settings as SettingsIcon, Settings2, Shield, Star, ArrowUpRight, UserRoundX } from 'lucide-react';
+import { api } from '../../../api/client';
+import type { Assistant, RuntimeInfo, Session } from '../../../api/types';
 import { useReauthentication } from '../components/ReauthenticationDialog';
 import { useCopy, useData, useQuery, useSession } from '../../../state';
 import { Attachment } from './Chat';
-import { ModelSelect } from '../components/ModelSelect';
 import { LoginLinksSettings } from './LoginLinksSettings';
 import { SecurityVerificationSettings } from './SecurityVerificationSettings';
 import { GeneralSettings } from './GeneralSettings';
@@ -24,8 +23,8 @@ import { SettingsHelp } from '../components/SettingsHelp';
 import { Confirm, EditDialog, Empty, Loading, PageHeader, useAction } from '../components/common';
 import './settings.css';
 
-const settingsTabs = ['profile', 'general', 'notifications', 'connection', 'theme', 'preferences', 'memory', 'usage', 'former', 'security', 'data', 'about'];
-export function Settings({ models, assistants, openAssistant, initialTab = '', onSelectSection }: { models: Model[]; assistants: Assistant[]; initialTab?: string; openAssistant: (id: string) => void; onSelectSection?: (value: string) => void }) {
+const settingsTabs = ['profile', 'general', 'notifications', 'connection', 'theme', 'memory', 'usage', 'former', 'security', 'data', 'about'];
+export function Settings({ assistants, openAssistant, initialTab = '', onSelectSection }: { assistants: Assistant[]; initialTab?: string; openAssistant: (id: string) => void; onSelectSection?: (value: string) => void }) {
   const { t, locale } = useCopy(), mobile = useBreakpoint('mobile');
   const { principal } = useSession();
   const routed = settingsTabs.includes(initialTab) ? initialTab : '';
@@ -38,7 +37,6 @@ export function Settings({ models, assistants, openAssistant, initialTab = '', o
     { value: 'connection', label: t.settings.connection, icon: Plug, content: <Connection /> },
     { value: 'theme', label: t.settings.theme, icon: PaletteIcon, description: t.settings.themeDescription, content: <ThemeSettings /> },
     { value: 'profile', label: locale === 'zh' ? '个人资料' : 'Profile', icon: Settings2, content: <ProfileSettings /> },
-    { value: 'preferences', label: t.settings.preferences, icon: SlidersHorizontal, content: <Preferences models={models} /> },
     { value: 'memory', label: t.settings.memory, icon: Brain, content: <Memories assistants={assistants} /> },
     { value: 'usage', label: t.settings.usage, icon: ChartNoAxesCombined, content: <AccountUsage /> },
     { value: 'former', label: t.assistants.former, icon: UserRoundX, content: <FormerAssistants assistants={assistants} openAssistant={openAssistant} /> },
@@ -90,39 +88,6 @@ function About() {
       <a className="settings-about-github" href={repository} target="_blank" rel="noopener noreferrer" aria-label={t.account.starLink}><Star size={15} aria-hidden="true" />GitHub<ArrowUpRight size={14} aria-hidden="true" /></a>
     </footer>
   </div>;
-}
-function preferenceValues(settings: SettingsDTO) {
-  return { DefaultModelID: settings.DefaultModelID, AnswerPreferences: settings.AnswerPreferences };
-}
-function Preferences({ models }: { models: Model[] }) {
-  const query = useQuery<SettingsDTO>('/api/settings');
-  useErrorToast(query.error, query.reload);
-  if (!query.data) return <>{query.loading && <Loading />}</>;
-  return <><PreferencesForm settings={query.data} models={models} /></>;
-}
-function PreferencesForm({ settings, models }: { settings: SettingsDTO; models: Model[] }) {
-  const { t } = useCopy(), action = useAction();
-  const [base, setBase] = useState(settings), [form, setForm] = useState(settings);
-  const changedElsewhere = settings.Version > base.Version && JSON.stringify(preferenceValues(settings)) !== JSON.stringify(preferenceValues(base));
-  function reset(value: SettingsDTO) { setBase(value); setForm(value); }
-  useErrorToast(action.error);
-  return <form className="editor settings-form" onSubmit={event => { event.preventDefault(); void action.run(async () => {
-    const submitted = preferenceValues(form);
-    const latest = await api.get<SettingsDTO>('/api/settings');
-    if (JSON.stringify(preferenceValues(latest)) !== JSON.stringify(preferenceValues(base))) throw new APIError('conflict');
-    const saved = await api.mutate<SettingsDTO>('/api/settings', { Settings: { ...latest, ...submitted } }, latest.Version);
-    setBase(saved);
-    setForm(current => ({ ...saved,
-      DefaultModelID: current.DefaultModelID === submitted.DefaultModelID ? saved.DefaultModelID : current.DefaultModelID,
-      AnswerPreferences: current.AnswerPreferences === submitted.AnswerPreferences ? saved.AnswerPreferences : current.AnswerPreferences,
-    }));
-  }); }}>
-    <ModelSelect size="sm" models={models} value={form.DefaultModelID} onValueChange={DefaultModelID => setForm(value => ({ ...value, DefaultModelID }))} allowNone />
-
-    <Textarea label={t.settings.answer} value={form.AnswerPreferences} onChange={event => setForm(value => ({ ...value, AnswerPreferences: event.target.value }))} maxLength={65536} />
-    {changedElsewhere && <Alert tone="warning" title={t.errors.conflict} action={<Button variant="secondary" onClick={() => reset(settings)}>{t.refresh}</Button>} />}
-    <Button type="submit" loading={action.busy}>{t.save}</Button>
-  </form>;
 }
 function Connection() {
   const { t, locale } = useCopy(), { messages } = useUILocale(), session = useSession(), { connection } = useData(), action = useAction();

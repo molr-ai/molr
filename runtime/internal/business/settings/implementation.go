@@ -317,8 +317,8 @@ func (s *service) Update(ctx context.Context, p core.Principal, req UpdateReques
 		if _, err := time.LoadLocation(v.Timezone); err != nil {
 			return v, invalid("timezone")
 		}
-		if !validText(v.Language, 64) || len(v.AnswerPreferences) > 65536 {
-			return v, invalid("preferences")
+		if !validText(v.Language, 64) {
+			return v, invalid("language")
 		}
 
 		v.Version = req.Mutation.ExpectedVersion + 1

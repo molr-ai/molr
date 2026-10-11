@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { Badge, Button, Card, Dialog, DropdownMenu, IconButton, Tabs } from '@molr/ui';
 import { Bot, Ellipsis, Folder, Globe, Info, Pencil, Plus, Server, Trash2, Unplug, Wrench } from 'lucide-react';
 import { SettingsHelp } from '../components/SettingsHelp';
+import { DefaultModelSettings } from './DefaultModelSettings';
 import { ModelConfigurationDialog } from './ModelConfigurationDialog';
 import { ProviderConnectionDialog } from './ProviderConnectionDialog';
 import { Sandboxes } from './Sandboxes';
@@ -27,7 +28,7 @@ export function Resources({ resourceID = '' }: { resourceID?: string }) {
   const { t } = useCopy(), copy = useSandboxCopy(), query = useQuery<Resource[]>('/api/resources', true), models = useQuery<Model[]>('/api/models'), action = useAction();
   const [status, setStatus] = useState<Record<string, string>>({});
   const [tab, setTab] = useSandboxPreference<Tab>('resource-tab', 'model', value => ['model', 'tool', 'sandbox'].includes(value));
-  const [expanded, setExpanded] = useState(''), [connect, setConnect] = useState(false);
+  const [expanded, setExpanded] = useState(''), [connect, setConnect] = useState(false), [defaultModel, setDefaultModel] = useState(false);
   const [editingProvider, setEditingProvider] = useState<Resource | null>(null), [deletingProvider, setDeletingProvider] = useState<Resource | null>(null), [disconnect, setDisconnect] = useState<Resource | null>(null), [configuring, setConfiguring] = useState<{ resource: Resource; model?: Model } | null>(null);
   const target = query.data?.find(resource => resource.ID === resourceID);
   useEffect(() => { if (target) { setTab(target.Kind === 'model' || target.Kind === 'tool' ? target.Kind : 'sandbox'); setExpanded(target.ID); } }, [target?.ID, target?.Kind]);
@@ -42,12 +43,13 @@ export function Resources({ resourceID = '' }: { resourceID?: string }) {
       { id: 'delete', label: t.resources.deleteProvider, icon: <Trash2 size={15} />, danger: true, onSelect: () => setDeletingProvider(resource) },
     ]} /></div>{open && <div className="resource-row-detail"><><ul className="resource-models-list">{entries.map(model => <li key={model.ID}><span>{model.Name} · {t.resources.contextWindow}: {(model.EffectiveContextLimit ?? 262144).toLocaleString()} tokens · {t.resources.contextSources[model.ContextLimitSource ?? "fallback"]} · {t.resources.outputWindow}: {(model.EffectiveOutputLimit ?? 32768).toLocaleString()} tokens · {t.resources.contextSources[model.OutputLimitSource ?? "fallback"]}</span>{!model.Pricing && <Badge tone="warning">{t.resources.pricingUnknown}</Badge>}<Button size="sm" variant="ghost" disabled={resource.State !== 'available'} onClick={() => configureModel(resource, model)}>{t.resources.configureModel}</Button></li>)}</ul>{!models.loading && !entries.length && <p className="muted">{t.resources.noDiscoveredModels}</p>}<div className="resource-row-actions"><Button size="sm" variant="ghost" disabled={resource.State !== 'available'} onClick={() => configureModel(resource)}><Plus size={14} />{t.resources.addModel}</Button><Button size="sm" variant="secondary" disabled={action.busy || resource.State === 'disconnected'} onClick={() => void action.run(() => api.mutate('/api/resources/refresh-models', { ID: resource.ID }, resource.Version), undefined, false)}>{t.resources.refreshModels}</Button><Button size="sm" variant="secondary" disabled={action.busy || resource.State === 'disconnected'} onClick={() => void action.run(async () => { const result = await api.post<{ State: string }>(`/api/resources/${resource.ID}/check`); setStatus(previous => ({ ...previous, [resource.ID]: result.State })); }, undefined, false)}>{t.resources.check}</Button>{status[resource.ID] && <p role="status">{t.resources[status[resource.ID] as 'available' | 'offline']}</p>}</div></></div>}</article>;
   })}</div>}</>;
-  return <section className="resources-workspace"><PageHeader className="resources-header" title={t.nav.resources} icon={<Folder />} actions={tab === 'model' && <Button size="sm" onClick={() => setConnect(true)}><Plus size={15} />{t.resources.connectActions.model}</Button>} />
+  return <section className="resources-workspace"><PageHeader className="resources-header" title={t.nav.resources} icon={<Folder />} actions={tab === 'model' && <DropdownMenu label={t.more} align="end" trigger={<IconButton label={t.more}><Ellipsis size={18} /></IconButton>} items={[{ id: 'connect-provider', label: t.resources.connectActions.model, onSelect: () => setConnect(true) }, { id: 'default-model', label: t.resources.defaultModel, onSelect: () => setDefaultModel(true) }]} />} />
     <Tabs className="resources-categories" label={t.resources.categoriesLabel} value={tab} onValueChange={setTab} items={[
       { value: 'model', label: t.resources.categories.model, icon: <Bot size={15} />, content: tab === 'model' ? <div className="resources-master">{modelContent}</div> : null },
       { value: 'tool', label: t.resources.categories.tool, icon: <Wrench size={15} />, content: tab === 'tool' ? <ToolsCatalog /> : null },
       { value: 'sandbox', label: copy.title, icon: <Server size={15} />, content: tab === 'sandbox' ? <Sandboxes resources={query.data ?? []} resourceID={resourceID} /> : null },
     ]} />
+    {defaultModel && <DefaultModelSettings models={models.data ?? []} loading={models.loading} onClose={() => setDefaultModel(false)} />}
     {connect && <ProviderConnectionDialog onConnected={() => setTab('model')} onClose={() => setConnect(false)} />}{editingProvider && <ProviderConnectionDialog resourceID={editingProvider.ID} onConnected={() => {}} onClose={() => setEditingProvider(null)} />}{deletingProvider && <DeleteProvider resource={deletingProvider} onClose={() => setDeletingProvider(null)} />}{configuring && <ModelConfigurationDialog resource={configuring.resource} model={configuring.model} onClose={() => setConfiguring(null)} />}{disconnect && <Confirm title={t.resources.disconnect} description={t.resources.disconnectHelp} danger onClose={() => setDisconnect(null)} onConfirm={() => api.mutate('/api/resources/disconnect', { ID: disconnect.ID }, disconnect.Version)} />}
   </section>;
 }

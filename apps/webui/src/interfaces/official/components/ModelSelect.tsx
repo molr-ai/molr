@@ -7,8 +7,8 @@ import { useCopy, useQuery } from '../../../state';
 
 const MODEL_SEARCH_THRESHOLD = 8;
 
-export function ModelSelect({ models, value, onValueChange, allowNone = false, requireTools = true, size = 'md', showProvider = false }: {
-  models: Model[]; value: string; onValueChange: (value: string) => void; allowNone?: boolean; requireTools?: boolean; size?: 'sm' | 'md'; showProvider?: boolean;
+export function ModelSelect({ models, value, onValueChange, allowNone = false, requireTools = true, size = 'md', showProvider = false, label, disabled = false }: {
+  models: Model[]; value: string; onValueChange: (value: string) => void; allowNone?: boolean; requireTools?: boolean; size?: 'sm' | 'md'; showProvider?: boolean; label?: string; disabled?: boolean;
 }) {
   const { t, locale } = useCopy();
   const providers = useQuery<Resource[]>('/api/resources?kind=model', true);
@@ -26,8 +26,8 @@ export function ModelSelect({ models, value, onValueChange, allowNone = false, r
   const selectedProvider = providers.data?.find(provider => provider.ID === models.find(model => model.ID === value)?.ResourceID);
   useErrorToast(providers.error, providers.reload);
   return <>
-    <Select label={t.assistants.model} size={size} value={value} onValueChange={onValueChange} options={options} description={showProvider && selectedProvider ? `${t.resourcePermissions.provider} · ${selectedProvider.Name}` : undefined}
+    <Select label={label ?? t.assistants.model} size={size} value={value} onValueChange={onValueChange} options={options} description={showProvider && selectedProvider ? `${t.resourcePermissions.provider} · ${selectedProvider.Name}` : undefined}
       searchable={models.length >= MODEL_SEARCH_THRESHOLD} searchPlaceholder={t.resources.searchModels}
-      disabled={!!providers.error || (!providers.data && providers.loading)} />
+      disabled={disabled || !!providers.error || (!providers.data && providers.loading)} />
   </>;
 }

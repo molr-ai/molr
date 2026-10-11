@@ -34,7 +34,7 @@ func TestOwnerPreferencesIsolationDefaultsAndUpdates(t *testing.T) {
 	if got, _ := read("missing"); got != defaults {
 		t.Fatalf("missing settings = %+v", got)
 	}
-	pref := settings.Settings{OwnerID: "owner", Timezone: "Asia/Shanghai", Language: "zh", Currency: "CNY", AnswerPreferences: "private answer preferences", DefaultModelID: "private-model", Version: 1}
+	pref := settings.Settings{OwnerID: "owner", Timezone: "Asia/Shanghai", Language: "zh", Currency: "CNY", DefaultModelID: "private-model", Version: 1}
 	need(t, repo.Save(t.Context(), pref, 0))
 	saved := preferenceSources{"user_settings", "user_settings", "user_settings"}
 	if got, _ := read("owner"); got != (userPreferences{"Asia/Shanghai", "zh", "CNY", saved}) {

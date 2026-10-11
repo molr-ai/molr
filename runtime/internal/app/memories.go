@@ -2,17 +2,13 @@ package app
 
 import (
 	"context"
-	"fmt"
 	"molr.ai/runtime/internal/agent"
 	"molr.ai/runtime/internal/business/memory"
-	"molr.ai/runtime/internal/business/settings"
 	"molr.ai/runtime/internal/core"
-	"molr.ai/runtime/internal/persistence"
 )
 
 type memoryAccess struct {
 	memories memory.Service
-	store    persistence.Store
 }
 
 // Only the two explicit summaries are injected. Detailed content is discovered
@@ -53,13 +49,6 @@ func (m memoryAccess) context(ctx context.Context, r agent.ContextRequest) ([]ag
 			body = "Summary exceeds the automatic context budget; read " + ref.LogicalPath() + " explicitly with file_read."
 		}
 		out = append(out, agent.ContextDocument{Kind: "memory", Source: ref.LogicalPath(), Scope: string(ref.Scope), Revision: sourceRevision(v.Version + body), Content: body})
-	}
-	prefs, err := settings.NewRepository(m.store).Get(ctx, r.Execution.Principal.OwnerID)
-	if err != nil && !persistence.Missing(err) {
-		return nil, err
-	}
-	if prefs.AnswerPreferences != "" {
-		out = append(out, agent.ContextDocument{Kind: "memory", Source: "user_answer_preferences", Scope: "owner", Revision: fmt.Sprint(prefs.Version), Content: prefs.AnswerPreferences})
 	}
 	return out, nil
 }

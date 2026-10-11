@@ -36,7 +36,7 @@ func TestCoreContextInvalidatedByTopicEditAndForget(t *testing.T) {
 			need(t, err)
 			p := core.Principal{OwnerID: "owner", SubjectID: "assistant", Kind: core.ActorAssistant, ExecutionID: "run"}
 			request := agent.ContextRequest{Execution: core.Execution{Principal: p, AssistantID: "assistant"}}
-			access := memoryAccess{memories: service, store: db}
+			access := memoryAccess{memories: service}
 			before, err := access.context(t.Context(), request)
 			need(t, err)
 			if len(before) != 1 || !strings.Contains(before[0].Content, "稳定认知") {
