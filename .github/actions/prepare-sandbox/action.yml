@@ -1,0 +1,28 @@
+name: Prepare native sandbox acceptance
+description: Install sandbox dependencies and prepare the delegated user manager on Ubuntu runners.
+runs:
+  using: composite
+  steps:
+    - name: Install native sandbox dependencies
+      shell: bash
+      run: sudo apt-get update && sudo apt-get install -y apparmor bubblewrap busybox-static ca-certificates file util-linux
+    - name: Load Ubuntu's Bubblewrap user namespace policy
+      shell: bash
+      run: |
+        if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ] && [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" = 1 ]; then
+          sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict
+        fi
+    - name: Prepare delegated user service manager
+      shell: bash
+      run: |
+        sudo loginctl enable-linger "$(id -un)"
+        sudo systemctl start "user@$(id -u).service"
+        echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
+        echo "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus" >> "$GITHUB_ENV"
+    - name: Probe Bubblewrap under the service security settings
+      shell: bash
+      run: |
+        if ! systemd-run --user --pipe --wait --collect --unit=molr-ci-bwrap -p NoNewPrivileges=yes /usr/bin/bwrap --unshare-all --unshare-user --disable-userns --assert-userns-disabled --ro-bind / / --proc /proc --dev /dev -- /usr/bin/true; then
+          sudo journalctl -k --since "2 minutes ago" --grep 'apparmor="DENIED"' --no-pager || true
+          exit 1
+        fi

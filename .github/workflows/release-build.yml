@@ -68,14 +68,7 @@ jobs:
         env:
           MOLR_VERSION: ${{ needs.prepare.outputs.version }}
           MOLR_ARCH: ${{ matrix.arch }}
-      - name: Install native sandbox dependencies
-        run: sudo apt-get update && sudo apt-get install -y bubblewrap busybox-static ca-certificates file util-linux
-      - name: Prepare delegated user service manager
-        run: |
-          sudo loginctl enable-linger "$(id -un)"
-          sudo systemctl start "user@$(id -u).service"
-          echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
-          echo "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus" >> "$GITHUB_ENV"
+      - uses: ./.github/actions/prepare-sandbox
       - name: Native installation and sandbox acceptance
         run: npm run test:release-install
         env:
