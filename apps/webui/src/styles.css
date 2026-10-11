@@ -254,7 +254,6 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 .settings-theme__palettes h3 { margin-bottom: 16px; }
 .settings-theme .theme-options { margin: 2px; }
 .settings-theme .settings-list { width: min(100%, 720px); }
-.settings-theme__note { color: var(--color-text-muted); font-size: 12px; }
 
 
 .turn-information { min-width: 0; }

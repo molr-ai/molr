@@ -24,6 +24,6 @@ function ThemeControls({ settings }: { settings: Settings }) {
       <SettingsSwitch label={t.settings.reduced} checked={value.ReducedMotion} disabled={action.busy} onChange={event => change({ ReducedMotion: event.target.checked })} />
     </div>
     <div className="settings-theme__palettes"><h3>{t.settings.palette}</h3><PalettePicker locale={locale} palette={value.Palette || 'forest'} theme={theme} disabled={action.busy} onChange={Palette => change({ Palette })} /></div>
-    <p className="settings-theme__note">{hostCopy[locale].saved}</p>
+    <p className="settings-description">{hostCopy[locale].saved}</p>
   </div>;
 }

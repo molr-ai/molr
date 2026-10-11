@@ -10,7 +10,6 @@
 @media (max-width: 480px) { .admin-form-grid { grid-template-columns: minmax(0, 1fr); } }
 
 .retention-settings { gap: 24px; }
-.retention-settings-note { margin: 0; font-size: 12px; line-height: 1.7; color: var(--color-text-muted); }
 .retention-settings .settings-group { gap: 0; }
 .retention-settings .settings-label { flex-wrap: wrap; }
 .retention-setting-control { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }

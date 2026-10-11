@@ -21,7 +21,7 @@
 .settings-pane:has(.settings-theme) { max-width: 1120px; }
 .settings-pane-header { display: grid; gap: 4px; margin-bottom: 20px; }
 .settings-pane-header h2 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
-.settings-pane-header p { margin: 0; color: var(--color-text-muted); font-size: 12.5px; }
+.settings-description { margin: 0; color: var(--color-text-muted); font-size: var(--text-xs); font-weight: 400; line-height: 1.7; overflow-wrap: anywhere; }
 
 /* Lists sit directly on the surface panel: hairline dividers instead of floating cards. */
 .settings-panel .settings-list { background: transparent; border-radius: 0; padding: 0; }

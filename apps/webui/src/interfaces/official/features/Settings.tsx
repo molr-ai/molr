@@ -65,7 +65,7 @@ export function Settings({ assistants, openAssistant, initialTab = '', onSelectS
       <div className="settings-panel" hidden={mobile && !current}>
         {sections.filter(item => visited.has(item.value)).map(item => <div key={item.value} className="settings-pane" hidden={item.value !== active}>
           <Activity mode={item.value === active ? 'visible' : 'hidden'}>
-            <header className="settings-pane-header"><h2>{item.label}</h2>{item.description && <p>{item.description}</p>}</header>
+            <header className="settings-pane-header"><h2>{item.label}</h2>{item.description && <p className="settings-description">{item.description}</p>}</header>
             {item.content}
           </Activity>
         </div>)}

@@ -25,12 +25,12 @@ function RetentionForm({ policy, reload, onSaved }: { policy: RetentionSettings;
     await api.mutate('/api/admin/debug/retention', { Policy: { MaxRuns: runs === '' ? null : Number(runs) } }, policy.Version);
     onSaved(); reload(); invalidateTopics(['debug', 'admin']);
   }, undefined, false); }}>
-    <p className="retention-settings-note">{zh ? '每个账号独立计算额度。留空使用输入框提示的默认值。' : 'Limits apply independently to each account. Leave fields empty to use the placeholder defaults.'}</p>
+    <p className="settings-description">{zh ? '每个账号独立计算额度。留空使用输入框提示的默认值。' : 'Limits apply independently to each account. Leave fields empty to use the placeholder defaults.'}</p>
     <section className="settings-group"><h3 className="settings-group-title">{zh ? '自动清理' : 'Automatic cleanup'}</h3><div className="settings-list">
       <div className="settings-row settings-row--with-help"><span className="settings-label">{label}<SettingsHelp label={label} content={help} /></span>
         <div className="retention-setting-control"><TextField className="retention-setting-input" label="" aria-label={label} type="number" min={1} max={10000} step={1} placeholder={String(policy.Defaults.MaxRuns)} value={runs} onChange={event => setRuns(event.target.value)} disabled={action.busy} /><span className="retention-setting-unit" aria-hidden="true">{zh ? '条' : 'runs'}</span></div>
       </div></div></section>
-    <p className="retention-settings-note">{zh ? '仅按执行条数清理，不限制保留时间或详情总大小。降低上限会在后续写入时清理更早的记录，不会影响 Agent 当前上下文。' : 'History is limited by execution count, not age or total detail size. Lower limits remove older records on subsequent writes without removing the current Agent context.'}</p>
+    <p className="settings-description">{zh ? '仅按执行条数清理，不限制保留时间或详情总大小。降低上限会在后续写入时清理更早的记录，不会影响 Agent 当前上下文。' : 'History is limited by execution count, not age or total detail size. Lower limits remove older records on subsequent writes without removing the current Agent context.'}</p>
     <div><Button size="sm" type="submit" disabled={action.busy}>{zh ? '保存保留策略' : 'Save retention policy'}</Button></div>
   </form>;
 }

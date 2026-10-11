@@ -76,7 +76,7 @@ export function Memories({ assistants }: { assistants: Assistant[] }) {
   }, []);
   const crumbs = directory.slice(memoryRoot.length).split('/').filter(Boolean);
   return <div className="settings-section memory-workspace">
-    <p className="muted">{c.zh ? '经历与回顾沉淀为主题记忆，再提炼到 MEMORY.md 核心记忆。核心记忆自动加载，主题文件按需检索；做梦会自动维护，无需逐条确认。' : 'Experiences become topic memories, then stable core cognition in MEMORY.md. Core memory loads automatically; topics are read when needed. Dreams maintain these layers without routine approvals.'}</p>
+    <p className="settings-description">{c.zh ? '灵魂是记忆的浓缩。助理从与你的交流与共同经历中积累记忆，在回顾与整理中沉淀出理解、偏好与判断。MEMORY.md 承载这些沉淀，让助理的个性随记忆逐渐形成。' : 'The soul is memory distilled. Through conversations and shared experiences with you, an assistant gathers memories and reflects on them to develop understanding, preferences, and judgment. MEMORY.md holds this distilled memory, allowing a distinct personality to take shape over time.'}</p>
     <Select size="sm" label={c.zh ? '选择助理' : 'Select assistant'} value={assistant} onValueChange={value => { resetInteraction(); setAssistant(value); setDirectory(memoryRoot); }} options={[{ value: '', label: c.zh ? '全局 · 当前账号共享' : 'Global · shared within your account' }, ...activeAssistants.map(a => ({ value: a.ID, label: a.Name }))]} />
     <div className="settings-toolbar">
       <Button variant="secondary" onClick={() => { resetInteraction(); setEditing({ key: interaction.current, ref: { ...ref, Path: directory + '/' } }); }}><Plus size={16} />{c.zh ? '新建文件' : 'New file'}</Button>

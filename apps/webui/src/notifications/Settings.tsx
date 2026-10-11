@@ -10,7 +10,7 @@ export function NotificationSettings() {
   const [busy, setBusy] = useState(false), [result, setResult] = useState('');
   const systemAvailable = !['unsupported', 'insecure'].includes(notifications.capability);
   return <div className="settings-general notification-settings">
-    <p className="muted">{copy.help}</p>
+    <p className="settings-description">{copy.help}</p>
     <div className="settings-list">
       <SettingsSwitch label={copy.enabled} help={copy.enabledHelp} checked={notifications.preferences.enabled} onChange={event => notifications.change({ enabled: event.target.checked })} />
       <SettingsSwitch label={copy.preview} help={copy.previewHelp} checked={notifications.preferences.preview} onChange={event => notifications.change({ preview: event.target.checked })} />
@@ -25,6 +25,6 @@ export function NotificationSettings() {
       {notifications.soundState !== 'unsupported' && <Button variant="secondary" disabled={busy} onClick={() => { setBusy(true); void notifications.testSound().then(played => setResult(played ? copy.soundPlayed : copy.soundBlocked)).finally(() => setBusy(false)); }}>{copy.testSound}</Button>}
     </div>
     {result && <p role="status">{result}</p>}
-    <p className="muted">{copy.local}</p>
+    <p className="settings-description">{copy.local}</p>
   </div>;
 }
