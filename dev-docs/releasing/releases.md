@@ -26,7 +26,9 @@ Cloudflare Worker 的 Settings → Builds 使用以下设置：
 
 GitHub Releases 必须公开可下载。建议启用 immutable releases，并对正式版本 tag 设置创建权限与更新／删除保护。workflow 只在发布任务授予 `contents: write`，PR 检查不接触部署 secret。环境审批是否开启由仓库维护者决定。
 
-启用前手动运行 CI，检查两个平台的 runner 可用；当前使用 `ubuntu-24.04` 和 `ubuntu-24.04-arm`。首次执行实际发布与 Cloudflare 部署后，以 Cloudflare 构建历史和 workflow 的公开下载、站点验证结果确认远端接通。本地测试不代表已经配置远端账户或执行过线上发布。
+PR 和 main 的 CI 在 `ubuntu-24.04`、`ubuntu-24.04-arm` 上执行检查、构建和原生安装验收，官网浏览器测试在 AMD64 上执行。首次执行实际发布与 Cloudflare 部署后，以 Cloudflare 构建历史和 workflow 的公开下载、站点验证结果确认远端接通。本地测试不代表已经配置远端账户或执行过线上发布。
+
+CI 与发布使用同一个 `prepare-sandbox` action 准备 runner。Ubuntu 启用 AppArmor 非特权 user namespace 限制时，从 `apparmor-profiles` 包安装并加载 `bwrap-userns-restrict`，随后在 `NoNewPrivileges=yes` 的临时服务中运行 Bubblewrap 探针；失败时输出对应内核拒绝日志。该配置只作用于临时 runner，系统的 user namespace 限制保持启用。
 
 ## 版本与渠道
 
