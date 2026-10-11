@@ -1,3 +1,4 @@
+import { usePluginsVisible, pluginResourceVisible } from '../../../plugins/visibility';
 import { Activity, useEffect, useState } from 'react';
 import { Badge, Button, EmptyState, Tabs } from '@molr/ui';
 import { BookOpen, Brain, CalendarClock, ChevronDown, FlaskConical, Folder, Info, MessagesSquare, Shield, Wrench } from 'lucide-react';
@@ -38,7 +39,9 @@ function InfoContents({ assistant, models, initialTab = 'overview', onClose, onD
   return <Tabs label={t.assistantInfo.title} value={tab} onValueChange={changeTab} items={items.map(item => ({ ...item, disabled: action.busy && item.value !== tab, content: visited.has(item.value as Tab) ? <Activity mode={tab === item.value ? 'visible' : 'hidden'}>{item.content}</Activity> : null }))} />;
 }
 function Capabilities({ assistantID, kind, onPermissions }: { assistantID: string; kind: 'tools' | 'skills'; onPermissions: () => void }) {
+  const pluginsVisible = usePluginsVisible();
   const { t } = useCopy(), query = useQuery<AssistantCapabilities>(`/api/assistants/${assistantID}/capabilities`);
+  const visibleTools = query.data?.Tools.filter(tool => pluginResourceVisible('tool', pluginsVisible, tool.Name)) ?? [];
   const tools = t.assistantInfo.toolLabels as Record<string, { name: string; description: string }>;
   const reasons = t.assistantInfo.reasons as Record<string, string>;
   const groups = [
@@ -55,9 +58,9 @@ function Capabilities({ assistantID, kind, onPermissions }: { assistantID: strin
       <p>{t.assistantInfo.dependencies} · {skill.RequiredTools.map(name => tools[name]?.name ?? name).join('、') || t.none}</p>
       {!!skill.RequiredActions.length && <><p>{t.assistantInfo.requiredActions} · {skill.RequiredActions.map(value => (t.resourcePermissions.generic as Record<string, string>)[value] ?? value).join(' / ')}</p><Button size="sm" variant="secondary" onClick={onPermissions}>{t.assistantInfo.configurePermissions}</Button></>}
     </article>) : <>
-      <div className="assistant-info-toolbar"><p className="assistant-info-help">{t.assistantInfo.toolsSummary(query.data.Tools.length)}</p><Button variant="ghost" size="sm" onClick={onPermissions}><Shield size={14} />{t.assistantInfo.configurePermissions}</Button></div>
-      {!query.data.Tools.length ? <EmptyState title={t.assistantInfo.noTools} /> : groups.map(group => {
-        const items = query.data!.Tools.filter(tool => group.matches(tool.Name));
+      <div className="assistant-info-toolbar"><p className="assistant-info-help">{t.assistantInfo.toolsSummary(visibleTools.length)}</p><Button variant="ghost" size="sm" onClick={onPermissions}><Shield size={14} />{t.assistantInfo.configurePermissions}</Button></div>
+      {!visibleTools.length ? <EmptyState title={t.assistantInfo.noTools} /> : groups.map(group => {
+        const items = visibleTools.filter(tool => group.matches(tool.Name));
         if (!items.length) return null;
         const Icon = group.icon;
         return <section className="assistant-tool-group" key={group.key} aria-label={t.assistantInfo.toolGroups[group.key]}>

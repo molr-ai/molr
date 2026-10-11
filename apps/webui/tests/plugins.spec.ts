@@ -1,3 +1,4 @@
+import { showPlugins } from './plugin-visibility-helper';
 import { test, expect, type Page } from '@playwright/test';
 import { pluginArchive } from '../../../scripts/plugin-archive.mjs';
 import type { PluginPackage } from '@molr/sdk/plugins';
@@ -7,7 +8,7 @@ async function post(page: Page, path: string, data: object, status = 200) {
  const r = await page.request.post(path, { headers: { Origin: base, 'X-CSRF-Token': csrf }, data }); expect(r.status(), await r.text()).toBe(status); return r.json();
 }
 async function login(page: Page) {
- await page.goto('/#/extensions'); await page.getByLabel('Username', { exact: true }).fill('owner'); await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!'); await page.getByRole('button', { name: 'Sign in', exact: true }).click(); await expect(page.getByRole('button', { name: 'Install plugin' })).toBeVisible();
+ await page.goto('/#/account/general'); await page.getByLabel('Username', { exact: true }).fill('owner'); await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!'); await page.getByRole('button', { name: 'Sign in', exact: true }).click(); await showPlugins(page); await expect(page.getByRole('button', { name: 'Install plugin' })).toBeVisible();
 }
 // Minimal in-memory contract fixtures; no installable demo packages are shipped.
 async function pkg(name: string): Promise<PluginPackage> {

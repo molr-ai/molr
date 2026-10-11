@@ -77,7 +77,7 @@ for (const theme of ['molr.official', 'molr.test']) {
     const before: Settings = await (await page.request.get('/api/settings')).json();
     const suffix = `${info.project.name}-${Date.now()}`;
     try {
-      await settings(page, { UITheme: `${theme}@1.0.0`, WorkbenchVisible: true });
+      await settings(page, { UITheme: `${theme}@1.0.0`, WorkbenchVisible: true, PluginsVisible: true });
       const endpoint = `http://127.0.0.1:${process.env.MOLR_E2E_MODEL_PORT ?? 18882}`;
       const resource = await post<Resource>(page, '/api/resources', { Name: `Layout ${suffix}`, Kind: 'model', Provider: 'openai-compatible', Binding: { Endpoint: endpoint, AllowedOrigins: [endpoint], Models: Array.from({ length: 20 }, (_, i) => ({ Name: `Layout model ${suffix} ${i}`, ContextLimit: 32768, SupportsTools: true, Pricing: { Currency: 'USD', InputMicrosPerMillion: 0, OutputMicrosPerMillion: 0, CachedInputMicrosPerMillion: 0 } })) } });
       const models: Model[] = await (await page.request.get('/api/models')).json();
@@ -169,7 +169,7 @@ for (const theme of ['molr.official', 'molr.test']) {
       await expect(page.locator('.trajectory-run').first()).toBeVisible();
       await expectFitsWebView(page);
     } finally {
-      await settings(page, { UITheme: before.UITheme, WorkbenchVisible: before.WorkbenchVisible });
+      await settings(page, { UITheme: before.UITheme, WorkbenchVisible: before.WorkbenchVisible, PluginsVisible: before.PluginsVisible });
     }
   });
 }

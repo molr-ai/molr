@@ -277,6 +277,8 @@ WebUI 按原因显示对应说明及操作入口：模型权限、选择模型�
 
 `Usage.Spent` / `Reserved` 汇总为当前展示币种，同时通过 `OriginalSpent` / `OriginalReserved` 返回按原币种分组的金额，`Exchange` 标注此次汇总的汇率快照。WebUI 将原币种小计换算汇总为用户偏好币种，只显示合计，不并列原币金额；固定两位小数，不足一分向上取整，换算金额带 `≈`。偏好或汇率不可用时显示 `—`。这只影响展示，金额输入和后端记账保留原始精度。预算比较采用同一次汇率快照，预留记录中的 `Reserved` 和结算 `Settled` 始终保留原币种；`BudgetEstimate` 与 `Exchange` 保存预算校验时的换算结果和版本。后续规则更新不修改这些凭据。
 
+插件显示：`Settings.PluginsVisible` 为账号级布尔偏好，默认 `false`，通过现有 `GET /api/settings` 和设置更新接口读写。仅控制 WebUI 展示，不改变插件安装、启停、授权或工具执行。
+
 调试工作台：`GET /api/status` 增加布尔字段 `workbench_available`，`Settings.WorkbenchVisible` 只控制用户界面入口显示，不影响采集和调试接口权限。采集只受部署配置 `debug.enabled` 控制；部署未开启时拒绝保存显示值 `true`。专用调试接口及记录边界见 [开发工作台](WORKBENCH.md)，检查点和完整请求不进入普通状态／聊天 SSE。
 
 保留策略：`GET /api/debug/retention` 需要所有者及 `debug.read`，返回 `Policy`（`Version`、`MaxRuns`）和当前账号的 `Runs`，不受个人显示开关影响。`GET /api/admin/debug/retention` 返回生效策略、`Configured`（`MaxRuns` 为整数或 null）和 `Defaults`；`POST` 请求为 `{Policy: {MaxRuns}, Mutation: {IdempotencyKey, ExpectedVersion}}`，两者均需管理员及 `admin` 作用域。条数范围 1–10000；null 或省略恢复部署默认值。保存持久化并通知客户端，在后续写入及执行结束时按条数清理最早的已完成执行；运行中执行保留到结束，做梦轨迹也参与条数计算。不按时间或总容量清理、不再产生 `capacity_reached`，单条负载仍可能标记 `too_large`。详情采用[上下文存储](CONTEXT_STORAGE.md)的独立引用，历史删除不能破坏当前执行状态。

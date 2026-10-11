@@ -153,7 +153,7 @@ UI Design 的 聊天组（英文版为 Chat）提供独立的本地演示：发�
 <Tooltip content="查看项目帮助"><IconButton label="帮助"><HelpIcon /></IconButton></Tooltip>
 ```
 
-触发元素应为一个可聚焦的按钮，或把 ref、事件及 ARIA 属性传到原生按钮的组件；`Button`、`IconButton` 可直接使用。不要给触发元素再套按钮。`DropdownMenu` 和 `Popover` 支持 `align="start" | "end"`。
+触发元素应为一个可聚焦的按钮，或把 ref、事件及 ARIA 属性传到原生按钮的组件；`Button`、`IconButton` 可直接使用。不要给触发元素再套按钮。`DropdownMenu` 和 `Popover` 支持 `align="start" | "end"`。菜单项传入 `selected` 时使用单选菜单语义，选中项显示勾选标记；普通动作项无需传入。
 
 触发元素可以使用对象 ref 或回调 ref，包括返回清理函数的回调。稳定的回调不会因为弹层状态更新而反复解绑；卸载时执行相应清理。
 

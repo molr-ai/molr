@@ -63,6 +63,37 @@ test('account avatars persist presets, uploads and clearing across navigation an
   await expect(page.getByRole('img', { name: 'Avatar preview' })).toHaveText('O');
 });
 
+test('saving an avatar updates both tabs without remounting their workspaces', async ({ page, context }, info) => {
+  await login(page);
+  await page.goto('/#/account/profile');
+  const other = await context.newPage();
+  await other.goto('/#/assistants');
+  await expect(other.locator('.workspace')).toBeVisible();
+  const currentWorkspace = await page.locator('.workspace').elementHandle();
+  const currentForm = await page.locator('.settings-form').elementHandle();
+  const otherWorkspace = await other.locator('.workspace').elementHandle();
+  let release!: () => void;
+  const pending = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**/api/auth/me', async route => { await pending; await route.continue(); });
+  try {
+    await page.getByRole('button', { name: 'Cat', exact: true }).click();
+    const refreshing = page.waitForRequest(request => new URL(request.url()).pathname === '/api/auth/me');
+    const otherUpdated = other.waitForResponse(async response => new URL(response.url()).pathname === '/api/auth/me' && response.ok() && (await response.json()).User?.Avatar === 'preset:cat');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await refreshing;
+    expect(await currentWorkspace!.evaluate(node => node.isConnected)).toBe(true);
+    release();
+    await otherUpdated;
+    const nav = info.project.name === 'mobile' ? '.mobile-account-button' : '.nav-account-actions';
+    await expect(other.locator(`${nav} .user-avatar svg`)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
+    expect(await currentWorkspace!.evaluate(node => node.isConnected)).toBe(true);
+    expect(await otherWorkspace!.evaluate(node => node.isConnected)).toBe(true);
+    expect(await currentForm!.evaluate(node => node.isConnected)).toBe(true);
+    await expect(page).toHaveURL(/#\/account\/profile$/);
+  } finally { release(); await other.close(); }
+});
+
 test('about logo switches its full animation at the local day and night boundaries', async ({ page }) => {
   await page.clock.install({ time: new Date('2026-10-08T19:59:50+08:00') });
   await login(page);

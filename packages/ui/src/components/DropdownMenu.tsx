@@ -1,9 +1,10 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react';
+import { UIIcon } from './icons';
 import type { ReactNode } from 'react';
 import { triggerElement, useComposedRefs, useFloating } from './floating';
 import type { FloatingTrigger } from './floating';
 
-export type MenuItem = { id: string; label: string; onSelect: () => void; icon?: ReactNode; shortcut?: string; disabled?: boolean; danger?: boolean; separatorBefore?: boolean };
+export type MenuItem = { id: string; label: string; onSelect: () => void; icon?: ReactNode; shortcut?: string; disabled?: boolean; selected?: boolean; danger?: boolean; separatorBefore?: boolean };
 export type DropdownMenuProps = { trigger: FloatingTrigger; label: string; items: readonly MenuItem[]; align?: 'start' | 'end' };
 
 export function DropdownMenu({ trigger, label, items, align = 'start' }: DropdownMenuProps) {
@@ -53,9 +54,9 @@ export function DropdownMenu({ trigger, label, items, align = 'start' }: Dropdow
       }}>
       {items.map((item, index) => <div role="none" key={item.id}>
         {item.separatorBefore && <div role="separator" className="ui-menu__separator" />}
-        <button type="button" role="menuitem" data-menu-index={index} tabIndex={open && index === active ? 0 : -1} aria-disabled={item.disabled || undefined} className={`ui-menu__item${item.danger ? ' ui-menu__item--danger' : ''}`}
+        <button type="button" role={item.selected === undefined ? "menuitem" : "menuitemradio"} aria-checked={item.selected} data-menu-index={index} tabIndex={open && index === active ? 0 : -1} aria-disabled={item.disabled || undefined} className={`ui-menu__item${item.danger ? ' ui-menu__item--danger' : ''}`}
           onFocus={() => { if (!item.disabled) setActive(index); }} onClick={() => { if (!item.disabled) { close(); item.onSelect(); } }}>
-          {item.icon && <span aria-hidden="true">{item.icon}</span>}<span>{item.label}</span>{item.shortcut && <kbd>{item.shortcut}</kbd>}
+          {item.icon && <span aria-hidden="true">{item.icon}</span>}<span>{item.label}</span>{item.shortcut && <kbd>{item.shortcut}</kbd>}{item.selected && <UIIcon name="check" className="ui-menu__check" />}
         </button>
       </div>)}
     </div>

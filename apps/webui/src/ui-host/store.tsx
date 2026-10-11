@@ -22,9 +22,10 @@ type Store = {
 const Context = createContext<Store | null>(null);
 export function UIHostProvider({ children }: { children: ReactNode }) {
   const { principal } = useSession(), query = useQuery<Settings>('/api/settings');
-  const pluginQuery = useQuery<PluginInstallation[]>('/api/plugins');
+  const pluginsVisible = query.data?.PluginsVisible === true;
+  const pluginQuery = useQuery<PluginInstallation[]>(pluginsVisible ? '/api/plugins' : null);
   const plugins = pluginQuery.data ?? [];
-  const packages = useMemo<InstalledUI[]>(() => [...builtins, ...plugins.flatMap(p => (p.Manifest.contributes.themes ?? []).filter(t => pluginAllowed(p,t.capabilities)).map(t => ({ runtime: 'frame' as const, plugin: { ID: p.ID, Digest: p.Digest, Kind: 'theme' as const, Contribution: t.id, Page: '' }, manifest: { id: p.ID + '.' + t.id.replaceAll('_', '-'), name: t.name, version: p.Manifest.version, apiVersion: 1 as const, pages: t.pages, permissions: [] } })))], [pluginQuery.data]);
+  const packages = useMemo<InstalledUI[]>(() => [...builtins, ...(pluginsVisible ? plugins : []).flatMap(p => (p.Manifest.contributes.themes ?? []).filter(t => pluginAllowed(p,t.capabilities)).map(t => ({ runtime: 'frame' as const, plugin: { ID: p.ID, Digest: p.Digest, Kind: 'theme' as const, Contribution: t.id, Page: '' }, manifest: { id: p.ID + '.' + t.id.replaceAll('_', '-'), name: t.name, version: p.Manifest.version, apiVersion: 1 as const, pages: t.pages, permissions: [] } })))], [pluginQuery.data, pluginsVisible]);
   const [saved, setSaved] = useState<Settings | null>(null), [error, setError] = useState<unknown>(null), [busy, setBusy] = useState(false);
   const [recovering, setRecovering] = useState(false), writing = useRef(false);
   const current = saved && (!query.data || saved.Version > query.data.Version) ? saved : query.data;

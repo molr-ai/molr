@@ -7,9 +7,12 @@
 .plans-app-icon { color: var(--color-text-muted); display: flex; }
 .plans-total { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--color-text-muted); border: 1px solid var(--color-border); border-radius: 5px; padding: 0 5px; min-width: 19px; text-align: center; }
 .plans-header > .button { flex-shrink: 0; gap: 6px; }
-.plans-commandbar { display: flex; gap: 20px; justify-content: space-between; align-items: center; flex-wrap: wrap; padding: 10px 28px; border-bottom: 1px solid var(--color-border); flex-shrink: 0; }
-.plans-view { flex-shrink: 0; }
-.plans-view > button { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; min-height: 28px; padding-inline: 10px; }
+.plans-commandbar { display: flex; gap: 20px; justify-content: space-between; align-items: center; flex-wrap: wrap; padding: 0 24px; border-bottom: 1px solid var(--color-border); flex-shrink: 0; }
+.plans-commandbar > .plans-view { flex-shrink: 0; align-self: stretch; gap: 0; border-bottom: 0; }
+.plans-view > .plans-calendar-tab { margin-left: 24px; }
+.plans-view > .plans-list-menu { padding-inline: 6px; }
+.plans-view > .plans-list-menu[data-active='true'] { border-bottom-color: var(--color-primary); color: var(--color-text); }
+.plans-current-scope { color: var(--color-text-muted); font-size: var(--text-xs); }
 .plans-filters { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .plans-filter-icon { flex-shrink: 0; color: var(--color-text-muted); margin-right: 3px; }
 .plans-filters > .select { min-width: 0; max-width: 170px; }
@@ -99,9 +102,6 @@
 .plans-statusbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 30px; padding: 5px 24px; border-top: 1px solid var(--color-border); flex-shrink: 0; color: var(--color-text-muted); font-size: 10px; background: var(--color-surface); }
 .plans-statusbar > span { display: inline-flex; align-items: center; gap: 6px; }
 .plans-statusbar-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--color-text-muted); opacity: .6; }
-.plans-list-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 8px 24px; border-bottom: 1px solid var(--color-border); }
-.plans-list-toolbar .button[aria-pressed='true'] { background: var(--color-selected-bg); color: var(--color-text); }
-.plans-list-toolbar > span { margin-left: auto; color: var(--color-text-muted); font-size: 11px; }
 .plans-load-more { margin: 8px 28px 24px; }
 .plans-workspace[data-view='calendar'] .plans-master { display: flex; flex-direction: column; }
 .plans-calendar-section { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 12px 20px 16px; }
@@ -183,7 +183,6 @@
   .plans-heading h1 { font-size: 17px; }
   .plans-header .button { min-height: 36px; }
   .plans-commandbar { padding: 8px 12px 10px; gap: 8px; }
-  .plans-view > button { min-height: 36px; padding-inline: 12px; }
   .plans-filters { flex: 1 0 100%; width: 100%; gap: 4px; }
   .plans-filter-icon { display: none; }
   .plans-filters > .select { flex: 1; max-width: 100%; }
@@ -215,8 +214,6 @@
   .plans-month-day { padding: 3px; }
   .plans-month-event { padding-inline: 3px; font-size: 10px; }
   .plans-month-event time { display: none; }
-  .plans-list-toolbar { padding-inline: 12px; }
-  .plans-list-toolbar > span { flex-basis: 100%; margin: 2px 0; }
   .plans-calendar-toolbar .ui-icon-button { width: 36px; min-height: 36px; height: 36px; }
   .plans-date-jump { margin-left: 0; }
   .plans-detail-body { padding: 16px 12px; }
