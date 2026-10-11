@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { Button, Checkbox, DateTimePicker, Dialog, DropdownMenu, IconButton, Select, Textarea, TextField, planDate, useBreakpoint } from '@molr/ui';
+import { Button, Checkbox, DateTimePicker, Dialog, DropdownMenu, IconButton, Select, Textarea, TextField, planDate, useBreakpoint, useChoiceScroll } from '@molr/ui';
 import { ArrowRight, Bot, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Ellipsis, GitBranch, History, List, Pause, Pencil, Play, Plus, Repeat2, SlidersHorizontal, Trash2, UserRound, X } from 'lucide-react';
 import { api, APIError } from '../../../api/client';
 import type { Assistant, Schedule, Todo, Plan, PlanRef, PlanEvent, DreamWindow } from '../../../api/types';
@@ -13,6 +13,7 @@ import { calendarEvents, eventDone, eventKey, eventsOnDay, usePlanEvents } from 
 import './plans.css';
 
 type Entry = { kind: 'item'; value: Todo } | { kind: 'event' | 'automatic'; value: Schedule };
+const listScopes = ['upcoming', 'overdue', 'undated'] as const;
 const refKey = (ref: PlanRef) => `${ref.Kind}-${ref.ID}`;
 const entry = (plan: Plan): Entry => plan.Todo ? { kind: 'item', value: plan.Todo } : { kind: plan.Schedule!.Kind === 'personal' ? 'event' : 'automatic', value: plan.Schedule! };
 const instantDay = (value: string) => planDate(new Date(value));
@@ -25,7 +26,8 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
   const appliedSelection = useRef('');
   const scopeID = useId(), listRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState('list'), [date, setDate] = useState(planDate()), [month, setMonth] = useState(planDate()), [owner, setOwner] = useState(assistantID || 'all'), [kind, setKind] = useState('all'), [status, setStatus] = useState('all');
-  const [listScope, setListScope] = useState('upcoming'), [selectedAt, setSelectedAt] = useState<string>(), [dayAgenda, setDayAgenda] = useState('');
+  const [listScope, setListScope] = useState<(typeof listScopes)[number]>('upcoming'), [selectedAt, setSelectedAt] = useState<string>(), [dayAgenda, setDayAgenda] = useState('');
+  const viewRef = useChoiceScroll(view);
   const [listFrom] = useState(() => new Date().toISOString());
   const split = view === 'list' && !embedded && !compact;
   const [expanded, setExpanded] = useState(''), [editing, setEditing] = useState<Entry | 'new' | null>(null), [deleting, setDeleting] = useState<Plan | null>(null), [configuring, setConfiguring] = useState<Plan | null>(null), [completing, setCompleting] = useState<{ plan: Plan; at?: string } | null>(null);
@@ -81,6 +83,15 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
   function selectDate(value: string) { setDate(value); setExpanded(''); setSelectedAt(undefined); setDayAgenda(value); }
   function selectEvent(event: PlanEvent) { setExpanded(refKey(event.Plan.Ref)); setSelectedAt(event.At); setDayAgenda(''); }
   function selectPlan(p: Plan,at?:string) { if(expanded===refKey(p.Ref)&&selectedAt===at){setExpanded('');setSelectedAt(undefined);}else{setExpanded(refKey(p.Ref));setSelectedAt(at);setDayAgenda('');} }
+  function selectView(value: string) {
+    if (value === view) return;
+    setView(value); setExpanded(''); setSelectedAt(undefined); setDayAgenda('');
+  }
+  function selectListScope(value: (typeof listScopes)[number]) {
+    if (value === listScope && view === 'list') return;
+    setView('list'); setListScope(value); setExpanded(''); setSelectedAt(undefined); setDayAgenda('');
+    listRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+  }
   function clearFilters() { setOwner(assistantID || 'all'); setKind('all'); setStatus('all'); }
   function closeDetails() { const key = `${expanded}@${selectedAt||''}`; setExpanded(''); setSelectedAt(undefined); requestAnimationFrame(() => document.getElementById(`${scopeID}-title-${key}`)?.focus({ preventScroll: true })); }
   function openRelated(ref: PlanRef) {
@@ -145,11 +156,21 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
   const statusbar = <footer className="plans-statusbar"><details className="plans-reservations"><summary><ChevronDown size={13} aria-hidden="true" /><span>{dreamLabel} · {dailyReservations.length} {locale==='zh'?'个时段':dailyReservations.length===1?'window':'windows'}</span></summary><div><aside className="plans-dream-windows" aria-label={dreamLabel}><strong>{dreamLabel} · {date}</strong><p>{locale==='zh'?'数量是当前日期和筛选范围内的窗口条数；每位助理每天可配置一个自动时段。':'The count covers windows for this date and filter. Each assistant has one configurable daily window.'}</p><p>{dreamHint} <a href="#/account/memory">{locale.startsWith('zh')?'做梦设置':'Dream settings'}</a></p>{dailyReservations.map(w=><div key={`${w.AssistantID}-${w.Start}`}><span>{assistants.find(a=>a.ID===w.AssistantID)?.Name}</span><span>{time(w.Start)}–{time(w.End)}</span></div>)}</aside></div></details><span>{view==='list'?listRows.length:scheduledEvents.length} {t.eventsCount}</span></footer>;
   return <section className={`plans-workspace${embedded ? ' plans-workspace--embedded' : ''}`} data-view={view}>
     {embedded ? <header className="plans-header"><div className="plans-heading"><span className="plans-app-icon"><CalendarDays size={18} /></span><h1>{title}</h1><span className="plans-total">{filtered.length}</span></div><Button size="sm" onClick={() => setEditing('new')}><Plus size={15} />{t.new}</Button></header> : <PageHeader className="plans-header" title={title} icon={<CalendarDays />} actions={<Button size="sm" onClick={() => setEditing('new')}><Plus size={15} />{t.new}</Button>}><span className="plans-total">{filtered.length}</span></PageHeader>}
-    <div className="plans-commandbar"><div className="ui-choice-list ui-choice-list--segmented plans-view" role="group" aria-label={t.view}>{(['list', 'calendar'] as const).map(value => { const Icon = value === 'list' ? List : CalendarDays; return <button type="button" key={value} aria-pressed={view === value} onClick={() => { setView(value); setExpanded(''); setSelectedAt(undefined); setDayAgenda(''); }}><Icon size={14} />{value === 'list' ? t.list : t.calendar}</button>; })}</div>
+    <div className="plans-commandbar">
+      <div ref={viewRef} className="ui-choice-list ui-choice-list--line plans-view" role="group" aria-label={t.view}>
+        <button type="button" aria-label={t.list} aria-describedby={`${scopeID}-list-scope`} aria-pressed={view === 'list'} onClick={() => selectView('list')}>
+          <List size={14} />{t.list}<span id={`${scopeID}-list-scope`} className="plans-current-scope">· {t[listScope]}</span>
+        </button>
+        <DropdownMenu label={t.eventRange} trigger={<button type="button" className="plans-list-menu" data-active={view === 'list'} aria-label={t.eventRange}><ChevronDown size={14} /></button>}
+          items={listScopes.map(value => {
+            const count = value === 'overdue' ? overdue.length : value === 'undated' ? undated.length : 0;
+            return { id: value, label: `${t[value]}${count > 0 ? ` (${count})` : ''}`, selected: listScope === value, onSelect: () => selectListScope(value) };
+          })} />
+        <button type="button" className="plans-calendar-tab" aria-pressed={view === 'calendar'} onClick={() => selectView('calendar')}><CalendarDays size={14} />{t.calendar}</button>
+      </div>
       <div className="plans-filters"><SlidersHorizontal size={14} className="plans-filter-icon" aria-hidden="true" /><Select hideLabel size="sm" label={t.owner} value={owner} onValueChange={setOwner} options={[{ value: 'all', label: t.allOwners }, { value: 'me', label: t.me }, ...assistants.map(a => ({ value: a.ID, label: a.Name }))]} /><Select hideLabel size="sm" label={t.type} value={kind} onValueChange={setKind} options={[{ value: 'all', label: t.allTypes }, ...(['item', 'event', 'automatic'] as const).map(value => ({ value, label: t[value] }))]} /><Select hideLabel size="sm" label={t.status} value={status} onValueChange={setStatus} options={[{ value: 'all', label: t.allStatuses }, { value: 'open', label: t.open }, { value: 'done', label: t.done }]} />{hasFilters && <IconButton label={t.clearFilters} onClick={clearFilters}><X size={14} /></IconButton>}</div>
     </div>
     <ErrorNotice error={plans.error || upcoming.error || action.error || currentAssistant.error || dreamWindows.error} retry={()=>{plans.reload();upcoming.reload();}} />
-    {view==='list'&&<div className="plans-list-toolbar" role="group" aria-label={t.eventRange}>{(['upcoming','overdue','undated'] as const).map(value=><Button key={value} size="sm" variant="ghost" aria-pressed={listScope===value} onClick={()=>{setListScope(value);setExpanded('');setSelectedAt(undefined);}}>{t[value]}{value==='overdue'?` (${overdue.length})`:value==='undated'?` (${undated.length})`:''}</Button>)}<span>{listScope==='upcoming'?t.nextEvents:listScope==='overdue'?t.overdueHelp:t.undatedHelp}</span></div>}
     <div className="plans-content" data-split={split && !!selected}>
       <div className="plans-master" ref={listRef}>
         {plans.loading && !plans.data && <Loading />}
@@ -160,7 +181,7 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
           <div className="plan-list plans-list" aria-label={t.eventList}>{listRows.map(event=>card(event.Plan,event.At||undefined))}</div>
           {upcoming.loading&&listScope==='upcoming'&&<Loading/>}
           {listScope==='upcoming'&&upcoming.more&&<Button className="plans-load-more" variant="secondary" disabled={upcoming.loading} onClick={upcoming.loadMore}>{t.loadMoreEvents}</Button>}
-          {!listRows.length&&!plans.loading&&!(listScope==='upcoming'&&upcoming.loading)&&<div className="plans-empty"><span className="plans-empty-icon"><CalendarDays size={32}/></span><h2>{t.empty}</h2><p>{listScope==='upcoming'?t.noUpcoming:listScope==='undated'?t.undatedHelp:t.noOverdue}</p><Button size="sm" onClick={()=>setEditing('new')}><Plus size={14}/>{t.new}</Button></div>}
+          {!listRows.length&&!plans.loading&&!(listScope==='upcoming'&&upcoming.loading)&&<div className="plans-empty"><span className="plans-empty-icon"><CalendarDays size={32}/></span><h2>{hasFilters ? t.empty : listScope === 'upcoming' ? t.noUpcoming : listScope === 'overdue' ? t.noOverdue : t.noUndated}</h2>{hasFilters ? <><p>{t.filteredEmpty}</p><Button size="sm" variant="secondary" onClick={clearFilters}>{t.clearFilters}</Button></> : listScope === 'overdue' ? <Button size="sm" variant="secondary" onClick={() => selectListScope('upcoming')}>{t.viewUpcoming}</Button> : <Button size="sm" onClick={() => setEditing('new')}><Plus size={14}/>{t.new}</Button>}</div>}
         </>}
         {scrollStatusbar && statusbar}
       </div>

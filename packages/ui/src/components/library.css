@@ -88,6 +88,7 @@ html:has(.ui-dialog[open]:not([data-contained])) { overflow: hidden; }
 .ui-menu__item > span:first-child:has(svg) { display: flex; flex-shrink: 0; }
 .ui-menu__item svg { width: 16px; height: 16px; }
 .ui-menu__item kbd { margin-left: auto; color: var(--color-text-muted); font-family: var(--font-mono); font-size: 10px; white-space: nowrap; }
+.ui-menu__check { margin-left: auto; }
 .ui-menu__separator { height: 1px; background: var(--color-border); margin: 5px 4px; }
 .ui-popover { padding: 18px; line-height: 1.65; }
 .ui-popover__header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }

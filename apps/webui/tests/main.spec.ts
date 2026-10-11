@@ -1,3 +1,4 @@
+import { selectPlanRange } from './plan-controls';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { createHmac } from 'node:crypto';
 import { tmpdir } from 'node:os';
@@ -327,12 +328,12 @@ test('todos, schedules and memory persist through real APIs and browser reload',
   await page.getByRole('button', { name: 'New plan', exact: true }).first().click();
   await page.getByRole('textbox', { name: 'What needs doing?', exact: true }).fill(`Todo ${suffix}`);
   await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
-  await page.getByRole('group', { name: 'Event range' }).getByRole('button', { name: /No date/ }).click();
+  await selectPlanRange(page, /No date/);
   const personal = page.locator('.plan-row').filter({ has: page.getByRole('heading', { name: `Todo ${suffix}`, exact: true }) });
   await personal.getByRole('button', { name: /Execution history/ }).click(); await page.getByRole('region', { name: `Todo ${suffix} · Plan details`, exact: true }).getByRole('button', { name: 'Complete this execution' }).click();
   await page.getByRole('dialog', { name: 'Complete this execution' }).getByRole('button', { name: 'Complete this execution' }).click();
   await expect(personal).toHaveAttribute('data-completed', 'true'); await page.reload();
-  await page.getByRole('group', { name: 'Event range' }).getByRole('button', { name: /No date/ }).click();
+  await selectPlanRange(page, /No date/);
   await expect(personal).toHaveAttribute('data-completed', 'true');
   await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click();
   await page.getByRole('button', { name: 'New plan', exact: true }).first().click();
@@ -342,10 +343,10 @@ test('todos, schedules and memory persist through real APIs and browser reload',
   const savedBlock = page.waitForResponse(r => r.url().endsWith('/api/schedules') && r.request().method() === 'POST');
   await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
   const block = await (await savedBlock).json();
-  const eventRange = () => page.getByRole('group', { name: 'Event range' }).getByRole('button', { name: Date.parse(block.Trigger.StartAt) > Date.now() ? 'Upcoming' : /^Overdue/ });
-  await eventRange().click();
+  const eventRange = () => selectPlanRange(page, Date.parse(block.Trigger.StartAt) > Date.now() ? 'Upcoming' : /^Overdue/);
+  await eventRange();
   await expect(page.getByRole('heading', { name: `Schedule ${suffix}`, exact: true })).toBeVisible();
-  await page.reload(); await eventRange().click(); await expect(page.getByRole('heading', { name: `Schedule ${suffix}`, exact: true })).toBeVisible();
+  await page.reload(); await eventRange(); await expect(page.getByRole('heading', { name: `Schedule ${suffix}`, exact: true })).toBeVisible();
   await openUserSettings(page);
   await openSettingsSection(page, 'Memory'); await page.getByRole('button', { name: 'New file', exact: true }).click();
   await page.getByLabel('Descriptive filename (including .md)').fill(`reload-preference-${info.project.name}.md`);
@@ -1120,7 +1121,7 @@ test('task controls and protected data export reach the backend', async ({ page 
   await post(page, '/api/tasks', { AssistantID: assistant.ID, Goal: `Goal ${suffix}`, AcceptanceCriteria: ['A reviewed report'] });
   await page.reload(); await page.locator('.chat-header').getByRole('button', { name: 'Plans', exact: true }).click();
   const tasks = page.getByRole('dialog', { name: 'Plans', exact: true });
-  await tasks.getByRole('group', { name: 'Event range', exact: true }).getByRole('button', { name: /^No date/ }).click();
+  await selectPlanRange(tasks, /^No date/);
   await expect(tasks.getByRole('heading', { name: `Goal ${suffix}`, exact: true })).toBeVisible();
   await tasks.getByRole('button', { name: /Execution history/ }).click(); await tasks.locator('.plan-execution summary').click();
   await tasks.getByRole('button', { name: 'Pause task', exact: true }).click(); await expect(tasks.getByRole('button', { name: 'Resume task', exact: true })).toBeVisible();
@@ -1464,7 +1465,7 @@ test('fast pages skip skeletons, slow first reads show them, and revisits retain
   const todo = await post(page, '/api/todos', { Title: title });
   await pauseLoadingClock(page);
   const quick = await holdRead(page, '**/api/plans?*');
-  await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await page.getByRole('button', { name: /^No date/ }).click(); await quick.started;
+  await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await selectPlanRange(page, /^No date/); await quick.started;
   await page.clock.runFor(100); await expect(page.locator('.ui-skeleton')).toHaveCount(0);
   await quick.release(); await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
   await page.clock.runFor(500); await expect(page.locator('.ui-skeleton')).toHaveCount(0);
@@ -1472,7 +1473,7 @@ test('fast pages skip skeletons, slow first reads show them, and revisits retain
   const updatedTitle = `${title} updated`;
   await post(page, '/api/todos/update', { ID: todo.ID, Title: updatedTitle, Mutation: { ExpectedVersion: todo.Version, IdempotencyKey: crypto.randomUUID() } }, false);
   const revisit = await holdRead(page, '**/api/plans?*');
-  await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await page.getByRole('button', { name: /^No date/ }).click(); await revisit.started;
+  await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await selectPlanRange(page, /^No date/); await revisit.started;
   await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
   await page.clock.runFor(1000); await expect(page.locator('.ui-skeleton')).toHaveCount(0);
   await revisit.release(); await expect(page.getByRole('heading', { name: updatedTitle, exact: true })).toBeVisible();
@@ -1487,17 +1488,17 @@ test('fast pages skip skeletons, slow first reads show them, and revisits retain
 test('cached content is discarded on access denial and when disconnecting', async ({ page }, info) => {
   await login(page); const title = `Private snapshot ${info.project.name}-${Date.now()}`;
   await post(page, '/api/todos', { Title: title });
-  await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await page.getByRole('button', { name: /^No date/ }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await selectPlanRange(page, /^No date/);
   await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
   await page.getByRole('navigation').getByRole('button', { name: 'Resources', exact: true }).click();
   await page.route('**/api/plans?*', route => route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ code: 'forbidden' }) }));
-  await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await page.getByRole('button', { name: /^No date/ }).click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await selectPlanRange(page, /^No date/);
   await expect(page.getByRole('alert')).toContainText('Permission or security verification failed');
   await expect(page.getByRole('heading', { name: title, exact: true })).toHaveCount(0);
   await page.unroute('**/api/plans?*');
   await page.getByRole('navigation').getByRole('button', { name: 'Resources', exact: true }).click();
   const denied = await holdRead(page, '**/api/plans?*');
-  await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await page.getByRole('button', { name: /^No date/ }).click(); await denied.started;
+  await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await selectPlanRange(page, /^No date/); await denied.started;
   await expect(page.getByRole('heading', { name: title, exact: true })).toHaveCount(0);
   await expect(page.locator('.ui-skeleton').first()).toBeVisible();
   await denied.release(); await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
@@ -1512,7 +1513,7 @@ test('cached content is discarded on access denial and when disconnecting', asyn
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('navigation', { name: 'Molr' })).toBeVisible();
   const fresh = await holdRead(page, '**/api/plans?*');
-  await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await page.getByRole('button', { name: /^No date/ }).click(); await fresh.started;
+  await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await selectPlanRange(page, /^No date/); await fresh.started;
   await expect(page.getByRole('heading', { name: title, exact: true })).toHaveCount(0);
   await expect(page.locator('.ui-skeleton').first()).toBeVisible();
   await fresh.release(); await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
