@@ -1,15 +1,10 @@
+# Molr - Your personal AI assistant
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="packages/ui/public/brand/molr-wordmark-light.svg" />
     <img src="packages/ui/public/brand/molr-wordmark.svg" alt="Molr" width="256" />
   </picture>
-</p>
-
-# Molr - Your personal AI assistant
-
-<p align="center">
-  A self-hosted personal AI assistant.<br />
-  Delegate through ongoing conversations, follow progress through plans, and stay in control of permissions and budgets.
 </p>
 
 <p align="center">
@@ -23,7 +18,7 @@
   <a href="https://github.com/molr-ai/molr/issues">Report an issue</a>
 </p>
 
-Molr runs on your own device and connects to the models you choose. Work with your assistants from a desktop or mobile browser, review plans, progress, and deliverables in one place, and manage each assistant's memory, file access, and spending.
+Molr is a self-hosted personal AI assistant that runs on your own device and connects to the models you choose. From a desktop or mobile browser, delegate tasks through ongoing conversations, use plans to guide execution, and review progress and deliverables in one place. You control each assistant's memory, file access permissions, and budget.
 
 > **Project status:** Under active development, with no stable release yet. The WebUI and Go Runtime are functional; UI Design uses mock data to demonstrate interactions. Standalone native clients have not been released.
 

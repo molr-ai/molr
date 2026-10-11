@@ -1,15 +1,10 @@
+# Molr - 你的个人 AI 助理
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="packages/ui/public/brand/molr-wordmark-light.svg" />
     <img src="packages/ui/public/brand/molr-wordmark.svg" alt="Molr" width="256" />
   </picture>
-</p>
-
-# Molr - 你的个人 AI 助理
-
-<p align="center">
-  可自托管的个人 AI 助理。<br />
-  用持续对话交代事情，以计划推进执行，让权限与预算始终由你掌握。
 </p>
 
 <p align="center">
@@ -23,7 +18,7 @@
   <a href="https://github.com/molr-ai/molr/issues">问题反馈</a>
 </p>
 
-Molr 在你自己的设备上运行服务，连接你选择的模型。通过桌面或手机浏览器与助理持续协作，在同一处查看计划、进展和交付结果，并按助理管理记忆、资料访问范围和费用。
+Molr 是可自托管的个人 AI 助理，在你自己的设备上运行，连接你选择的模型。你可以通过桌面或手机浏览器，用持续对话交代任务，以计划推进执行，并在同一处查看进展与交付结果。每位助理的记忆、资料访问权限和预算都由你管理。
 
 > **项目状态：** 正在开发中，尚未发布稳定版。当前提供真实可用的 WebUI 与 Go Runtime；UI Design 使用模拟数据展示交互，独立原生客户端尚未发布。
 
