@@ -27,5 +27,5 @@ export function readCatalog(value: unknown): Catalog {
 export function installCommand(release: Release, channel: Channel, source: string): string {
   const url = new URL(source);
   if (!['https:', 'http:'].includes(url.protocol) || /[\s'"`]/.test(source)) throw new Error('Invalid release source');
-  return `curl -fL '${release.installer_url}' -o install.sh && bash install.sh --source '${source}' --channel ${channel} --version ${release.version}`;
+  return `curl -fsSL '${release.installer_url}' | bash -s -- --source '${source}' --channel ${channel} --version ${release.version}`;
 }

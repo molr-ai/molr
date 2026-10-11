@@ -14,14 +14,14 @@ bash install.sh --archive /path/package.tar.gz --name molr-demo --port 8788 --pu
 
 The `<LAN_IP>` in the above command must be replaced with the actual LAN IP of the installation or download server; it cannot be executed as-is.
 
-Prepare Python 3.11+ before online installation. Copy the command from the installation section of the official website, or download `/install.sh` and run:
+Prepare Python 3.11+ before online installation. Copy the command from the installation section of the official website, or run it through a pipe without saving a script file:
 
 ```bash
-bash install.sh --channel stable
-bash install.sh --channel preview
-bash install.sh --channel nightly
+curl -fsSL https://molr.ai/install.sh | bash -s -- --channel stable
+curl -fsSL https://molr.ai/install.sh | bash -s -- --channel preview
+curl -fsSL https://molr.ai/install.sh | bash -s -- --channel nightly
 # 明确安装固定版本，同时保存后续跟踪的渠道
-bash install.sh --channel preview --version 0.2.0-rc.1
+curl -fsSL https://molr.ai/install.sh | bash -s -- --channel preview --version 0.2.0-rc.1
 ```
 
 The script uses `https://molr.ai/releases` by default; `--source URL` can specify other release sources. The default channel is `stable`; it will not automatically switch to `preview` or `nightly` if no stable version is available. Fixed versions are read from the historical manifest; installation stops if packages for the target system/architecture are missing. If verification fails, the installer within the package is not executed. HTTP download sources only accept explicit private network or loopback numeric addresses; SHA-256 verification does not constitute an independent publisher signature.

@@ -6,11 +6,10 @@
 
 从官网安装区选择一个已有版本的渠道，再选择目标平台。可用版本以官网发布清单为准；暂无版本的渠道不会提供下载入口。当前平台定义为 Linux amd64／arm64，安装包包含 Runtime 与 WebUI，静态 BusyBox 等沙盒依赖通过目标机系统包管理器提供。
 
-准备 Python 3.11+ 后，下载官网安装脚本并选择渠道：
+准备 Python 3.11+ 后，直接运行官网安装脚本并选择渠道，无需保存脚本文件：
 
 ```bash
-curl -fL https://molr.ai/install.sh -o install.sh
-bash install.sh --channel stable
+curl -fsSL https://molr.ai/install.sh | bash -s -- --channel stable
 ```
 
 示例使用 stable；该渠道暂无版本时，在官网选择已有版本的 preview 或 nightly，并使用官网生成的固定版本命令。使用者无需安装 Go、Node.js 或单独部署网页。

@@ -14,14 +14,14 @@ bash install.sh --archive /path/package.tar.gz --name molr-demo --port 8788 --pu
 
 以上命令中的 `<LAN_IP>` 需替换为安装或下载服务器的实际局域网 IP，不能原样执行。
 
-在线安装前准备 Python 3.11+。从官网安装区复制命令，或下载 `/install.sh` 后运行：
+在线安装前准备 Python 3.11+。从官网安装区复制命令，或直接通过管道运行，无需保存脚本文件：
 
 ```bash
-bash install.sh --channel stable
-bash install.sh --channel preview
-bash install.sh --channel nightly
+curl -fsSL https://molr.ai/install.sh | bash -s -- --channel stable
+curl -fsSL https://molr.ai/install.sh | bash -s -- --channel preview
+curl -fsSL https://molr.ai/install.sh | bash -s -- --channel nightly
 # 明确安装固定版本，同时保存后续跟踪的渠道
-bash install.sh --channel preview --version 0.2.0-rc.1
+curl -fsSL https://molr.ai/install.sh | bash -s -- --channel preview --version 0.2.0-rc.1
 ```
 
 脚本默认使用 `https://molr.ai/releases`，`--source URL` 可指定其他发布源。默认渠道为 stable；不会因没有正式版而自动改装 preview 或 nightly。固定版本从历史清单读取，缺少目标系统／架构的包会停止安装。校验失败时不会执行包内安装器。HTTP 下载源只接受明确的私网或回环数字地址；SHA-256 校验不构成独立的发布者签名。
