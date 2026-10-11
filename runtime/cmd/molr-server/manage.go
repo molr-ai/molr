@@ -127,7 +127,7 @@ func online(ctx context.Context, cfg config.Config, command, username, mfa strin
 		return err
 	}
 	csrf = login.CSRF
-	if err := call("POST", "/api/auth/login", map[string]string{"username": username, "password": secret.Reveal()}, &login); err != nil {
+	if err := call("POST", "/api/auth/login", map[string]string{"username": username, "password": secret.Reveal(), "device_name": "Local CLI", "client_type": "cli"}, &login); err != nil {
 		return err
 	}
 	if login.Challenge != "" {

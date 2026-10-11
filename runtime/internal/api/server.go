@@ -555,7 +555,15 @@ func (s *HTTPServer) cookieName(name string) string {
 		return "molr_lan_" + strings.TrimPrefix(name, "__Host-molr_") + "_p" + port
 	}
 	if s.config.HTTP.TLSMode == config.LocalHTTP {
-		return "molr_dev_" + strings.TrimPrefix(name, "__Host-molr_")
+		name = "molr_dev_" + strings.TrimPrefix(name, "__Host-molr_")
+	}
+	port := s.origin.Port()
+	standard := "443"
+	if s.config.HTTP.PlainHTTP() {
+		standard = "80"
+	}
+	if port != "" && port != standard {
+		return name + "_p" + port
 	}
 	return name
 }

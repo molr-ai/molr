@@ -405,7 +405,8 @@ func (r *Runner) startAuthorized(parent context.Context, e core.Execution, c pla
 	if r.options.NoWorkspace {
 		home = "/tmp"
 	}
-	args = append(args, "--remount-ro", "/molr", "--remount-ro", "/resources", "--setenv", "PATH", "/usr/bin:/bin", "--setenv", "HOME", home, "--setenv", "TMPDIR", "/tmp", "--setenv", "LANG", "C.UTF-8", "--chdir", c.Directory, "--", "/molr/helper", "sandbox-helper", "supervise")
+	// Bound Go initialization before HelperMain runs on high-core-count hosts.
+	args = append(args, "--remount-ro", "/molr", "--remount-ro", "/resources", "--setenv", "PATH", "/usr/bin:/bin", "--setenv", "HOME", home, "--setenv", "TMPDIR", "/tmp", "--setenv", "LANG", "C.UTF-8", "--setenv", "GOMAXPROCS", "2", "--chdir", c.Directory, "--", "/molr/helper", "sandbox-helper", "supervise")
 	if err = authorize(ctx, e, c); err != nil {
 		return nil, err
 	}

@@ -13,13 +13,14 @@ import (
 const loginLinksBucket = "auth.login-links"
 
 type LoginLink struct {
-	ID         core.ID
-	Name       string
-	TargetPath string
-	CreatedAt  time.Time
-	ExpiresAt  time.Time
-	UsedAt     *time.Time
-	RevokedAt  *time.Time
+	ID              core.ID
+	Name            string
+	TargetPath      string
+	CreatedAt       time.Time
+	ExpiresAt       time.Time
+	UsedAt          *time.Time
+	RevokedAt       *time.Time
+	PendingMFAUntil *time.Time
 }
 type CreateLoginLinkRequest struct {
 	Name         string
@@ -197,6 +198,9 @@ func (m *Manager) RedeemLoginLink(ctx context.Context, req RedeemLoginLinkReques
 		if account.Account.ID != record.AccountID || account.Account.Disabled {
 			return denied()
 		}
+		if err := m.prepareDevice(ctx, record.AccountID, &req.Client); err != nil {
+			return err
+		}
 		record.Link.UsedAt = &now
 		if err := tx.Put(ctx, loginLinksBucket, key, record); err != nil {
 			return err
@@ -208,7 +212,11 @@ func (m *Manager) RedeemLoginLink(ctx context.Context, req RedeemLoginLinkReques
 			if record.Link.ExpiresAt.Before(expiry) {
 				expiry = record.Link.ExpiresAt
 			}
-			if err := m.repo.PutChallenge(ctx, StoredChallenge{Digest: digest(raw), AccountID: record.AccountID, Purpose: "login", ExpiresAt: expiry, LoginLinkDigest: key}); err != nil {
+			record.Link.PendingMFAUntil = &expiry
+			if err := tx.Put(ctx, loginLinksBucket, key, record); err != nil {
+				return err
+			}
+			if err := m.repo.PutChallenge(ctx, StoredChallenge{Digest: digest(raw), AccountID: record.AccountID, Purpose: "login", ExpiresAt: expiry, LoginLinkDigest: key, DeviceDigest: req.Client.deviceDigest, ClientType: req.Client.ClientType, DeviceName: req.Client.DeviceName, ExpectedSession: req.Client.expectedSession}); err != nil {
 				return err
 			}
 			out.Challenge = &Challenge{ID: core.NewSecret(raw), ExpiresAt: expiry}

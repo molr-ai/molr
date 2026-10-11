@@ -17,6 +17,7 @@ type StoredAccount struct {
 	Version         core.Version
 }
 type StoredSession struct {
+	DeviceDigest      string
 	Session           Session
 	TokenDigest       string
 	CSRFDigest        string
@@ -30,6 +31,10 @@ type StoredToken struct {
 	RevokedAt *time.Time
 }
 type StoredChallenge struct {
+	DeviceDigest     string
+	ClientType       string
+	DeviceName       string
+	ExpectedSession  core.ID
 	LoginLinkDigest  string
 	Digest           string
 	AccountID        core.ID

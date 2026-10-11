@@ -131,8 +131,8 @@ function Connection() {
       <div className="settings-runtime-heading"><h3>{runtime.data?.name ?? 'Molr Runtime'}</h3><Badge tone={connection === 'connected' || connection === 'recovered' ? 'positive' : connection === 'failed' ? 'danger' : 'warning'}>{messages.connection[connection]}</Badge></div>
       <dl className="connection-details">
         <div><dt>{t.settings.runtimeAddress}</dt><dd>{runtime.data?.public_url ?? '—'}</dd></div>
-        <div><dt>{t.settings.deviceName}</dt><dd>{current?.DeviceName ?? '—'}</dd></div>
-        <div><dt>{t.settings.connectedSince}</dt><dd>{current ? new Date(current.CreatedAt).toLocaleString(locale) : '—'}</dd></div>
+        <div><dt>{t.settings.deviceName}</dt><dd>{current ? sessionDeviceName(current) : '—'}</dd></div>
+        <div><dt>{t.settings.connectedSince}</dt><dd>{current ? new Date(current.LastLoginAt || current.CreatedAt).toLocaleString(locale) : '—'}</dd></div>
       </dl>
     </div>}
     <div className="settings-disconnect-block"><div className="settings-disconnect-row"><Button variant="ghost" className="settings-disconnect" loading={action.busy} onClick={() => void action.run(() => api.post('/api/auth/logout'), session.end, false)}>{t.settings.disconnect}</Button></div><p className="muted settings-disconnect-hint">{t.settings.disconnectHelp}</p></div>
@@ -146,15 +146,32 @@ function FormerAssistants({ assistants, openAssistant }: { assistants: Assistant
     {rehire && <Confirm title={t.assistants.rehire} description={t.assistants.rehireHelp} onClose={() => setRehire(null)} onConfirm={() => api.mutate('/api/assistants/rehire', { ID: rehire.ID, RestoreGrantIDs: [], RestoreScheduleIDs: [] }, rehire.Version)} />}
   </div>;
 }
+function sessionDeviceName(session: Session) {
+  const types: Record<string, string> = { web: 'Web', ios: 'iOS', android: 'Android', desktop: 'Desktop', cli: 'CLI' };
+  return session.ClientType ? `${session.DeviceName} · ${types[session.ClientType] ?? session.ClientType}` : session.DeviceName;
+}
 function Security() {
   const { t, locale } = useCopy(), session = useSession(), query = useQuery<Session[]>('/api/auth/sessions', true), action = useAction();
+  const [revokeOthers, setRevokeOthers] = useState(false);
   const [revoke, setRevoke] = useState<Session | null>(null), [password, setPassword] = useState(false);
-  return <div className="settings-section settings-security"><div className="settings-toolbar"><Button variant="secondary" onClick={() => setPassword(true)}>{t.settings.changePassword}</Button><Button variant="secondary" disabled={action.busy} onClick={() => void action.run(() => api.post('/api/auth/logout'), session.end, false)}>{t.signOut}</Button></div>
-    <SecurityVerificationSettings /><LoginLinksSettings /><section className="settings-group"><h3 className="settings-group-title">{t.settings.sessions}</h3><ErrorNotice error={query.error || action.error} retry={query.reload} />{query.loading && !query.data ? <Loading /> : <div className="settings-rows">{query.data?.map(row => <article className="settings-row-item" key={row.ID}>
-      <div className="settings-row-item-head"><h3>{row.DeviceName}</h3>{row.ID === session.principal?.SessionID && <Badge>{t.settings.current}</Badge>}<span className="settings-row-item-actions"><Button size="sm" variant="ghost" onClick={() => setRevoke(row)}>{t.settings.revokeSession}</Button></span></div>
-      <p className="muted">{new Date(row.LastSeenAt).toLocaleString(locale)}</p>
-    </article>)}</div>}</section>
-    {revoke && <Confirm title={t.settings.revokeSession} description={t.settings.revokeSessionHelp} onClose={() => setRevoke(null)} onConfirm={async () => { await api.remove(`/api/auth/sessions/${revoke.ID}`); if (revoke.ID === session.principal?.SessionID) session.end(); }} />}
+  const devices = (query.data ?? []).slice().sort((a, b) => Number(b.ID === session.principal?.SessionID) - Number(a.ID === session.principal?.SessionID) || Date.parse(b.LastSeenAt) - Date.parse(a.LastSeenAt));
+  return <div className="settings-section settings-security">
+    <SecurityVerificationSettings onChangePassword={() => setPassword(true)} />
+    <section className="settings-group security-devices" aria-label={t.settings.sessions}>
+      <header className="security-section-heading"><h3 className="settings-group-title">{t.settings.sessions}</h3><Button size="sm" variant="secondary" disabled={!devices.some(row => row.ID !== session.principal?.SessionID)} onClick={() => setRevokeOthers(true)}>{t.settings.revokeOthers}</Button></header>
+      <ErrorNotice error={query.error} retry={query.reload} />
+      {query.loading && !query.data ? <Loading /> : <div className="settings-rows">{devices.map(row => <article className="settings-row-item" key={row.ID}>
+        <div className="settings-row-item-head"><div className="security-record-title"><h4>{sessionDeviceName(row)}</h4>{row.ID === session.principal?.SessionID && <Badge>{t.settings.current}</Badge>}</div><span className="settings-row-item-actions"><Button size="sm" variant="ghost" onClick={() => setRevoke(row)}>{t.settings.revokeSession}</Button></span></div>
+        <dl className="security-record-meta">
+          <div><dt>{t.settings.lastSeen}</dt><dd><time dateTime={row.LastSeenAt}>{new Date(row.LastSeenAt).toLocaleString(locale)}</time></dd></div>
+          <div><dt>{t.settings.lastLogin}</dt><dd><time dateTime={row.LastLoginAt || row.CreatedAt}>{new Date(row.LastLoginAt || row.CreatedAt).toLocaleString(locale)}</time></dd></div>
+        </dl>
+      </article>)}</div>}
+    </section>
+    <LoginLinksSettings />
+    <footer className="security-sign-out"><ErrorNotice error={action.error} /><div className="security-section-heading"><p className="security-description">{t.settings.signOutHelp}</p><Button size="sm" variant="secondary" disabled={action.busy} onClick={() => void action.run(() => api.post('/api/auth/logout'), session.end, false)}>{t.signOut}</Button></div></footer>
+    {revoke && <Confirm title={t.settings.revokeSession} description={t.settings.revokeSessionHelp} onClose={() => setRevoke(null)} onConfirm={async () => { await api.remove(`/api/auth/sessions/${revoke.ID}`); if (revoke.ID === session.principal?.SessionID) session.end(); else query.reload(); }} />}
+    {revokeOthers && <Confirm title={t.settings.revokeOthers} description={t.settings.revokeOthersHelp} onClose={() => setRevokeOthers(false)} onConfirm={async () => { await api.post('/api/auth/sessions/revoke-others'); query.reload(); }} />}
     {password && <PasswordEditor onClose={() => setPassword(false)} />}
   </div>;
 }

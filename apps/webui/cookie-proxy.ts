@@ -7,14 +7,14 @@ export function runtimeCookies(header: string | undefined, port: string, runtime
   return [...authCookieNames, ...["session", "csrf", "login"].map(kind => `molr_lan_${kind}`)].flatMap(name => {
     const prefix = `${scopedCookieName(name, port)}=`;
     const cookie = cookies.find(value => value.startsWith(prefix));
-    return cookie ? [`${name.startsWith("molr_lan_") ? scopedCookieName(name, runtimePort) : name}=${cookie.slice(prefix.length)}`] : [];
+    return cookie ? [`${name.startsWith("molr_lan_") || runtimePort !== (name.startsWith("__Host-") ? "443" : "80") ? scopedCookieName(name, runtimePort) : name}=${cookie.slice(prefix.length)}`] : [];
   }).join('; ');
 }
 
 export function browserCookie(cookie: string, port: string) {
   const separator = cookie.indexOf('=');
   const name = cookie.slice(0, separator);
-  if (/^molr_lan_(session|csrf|login)_p[0-9]+$/.test(name)) return name.replace(/_p[0-9]+$/, `_p${port}`) + cookie.slice(separator);
+  if (/^(?:molr_lan_|molr_dev_|__Host-molr_)(session|csrf|login)_p[0-9]+$/.test(name)) return name.replace(/_p[0-9]+$/, `_p${port}`) + cookie.slice(separator);
   if (!authCookieNames.some(known => known === name)) return cookie;
   // Preserve HttpOnly, Secure, SameSite, Path and expiry, including deletions.
   return scopedCookieName(name, port) + cookie.slice(separator);

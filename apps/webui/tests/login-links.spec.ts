@@ -44,7 +44,7 @@ test('created login links require confirmation, sign in once, scrub tokens, surv
     await expect(next.getByText(/This link can only be used once and is valid until/)).toBeVisible();
     expect(exchanges).toBe(0);
     await page.reload();
-    await expect(page.locator('.login-links-settings .settings-row-item').filter({ has: page.getByRole('heading', { name, exact: true }) })).toContainText('Ready to use');
+    await expect(page.locator('.login-links-settings .settings-row-item').filter({ has: page.getByRole('heading', { name, exact: true, includeHidden: true }) })).toContainText('Ready to use');
     await next.getByRole('button', { name: 'Confirm sign-in', exact: true }).dblclick();
     await expect(settingsNavItem(next, 'Theme')).toHaveAttribute('aria-current', 'page');
     await expect(next).toHaveURL(/#\/account\/theme$/);
@@ -54,7 +54,7 @@ test('created login links require confirmation, sign in once, scrub tokens, surv
     await expect(settingsNavItem(next, 'Theme')).toHaveAttribute('aria-current', 'page');
     expect(exchanges).toBe(1);
     await page.reload();
-    await expect(page.locator('.login-links-settings .settings-row-item').filter({ has: page.getByRole('heading', { name, exact: true }) })).toContainText('Used');
+    await expect(page.locator('.login-links-settings .settings-row-item').filter({ has: page.getByRole('heading', { name, exact: true, includeHidden: true }) })).toContainText('Used');
   } finally { await other.close(); }
   const fresh = await browser.newContext({ locale: 'en-US' });
   try { const next = await fresh.newPage(); await next.goto(url); await expect(next.getByRole('status')).toContainText('invalid, expired, used, or revoked'); await next.getByRole('button', { name: 'Sign in with password' }).click(); await expect(next.getByLabel('Password', { exact: true })).toBeVisible(); } finally { await fresh.close(); }
@@ -97,7 +97,7 @@ test('revoked links and another Runtime cannot authenticate', async ({ page, bro
     await expect(next.getByRole('status')).toContainText('invalid, expired, used, or revoked');
     await next.goto(url);
     await expect(next.getByRole('button', { name: 'Confirm sign-in', exact: true })).toBeVisible();
-    const card = page.locator('.login-links-settings .settings-row-item').filter({ has: page.getByRole('heading', { name, exact: true }) });
+    const card = page.locator('.login-links-settings .settings-row-item').filter({ has: page.getByRole('heading', { name, exact: true, includeHidden: true }) });
     await card.getByRole('button', { name: 'Revoke link', exact: true }).click();
     await page.getByRole('dialog', { name: 'Revoke link', exact: true }).getByRole('button', { name: 'Confirm', exact: true }).click();
     await expect(card).toContainText('Revoked');

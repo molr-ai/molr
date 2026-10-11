@@ -50,7 +50,7 @@ async function openSecurity(page: Page) {
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Login links', exact: true })).toBeVisible();
 }
-const linkRow = (page: Page, name: string) => page.locator('.login-links-settings .settings-row-item').filter({ has: page.getByRole('heading', { name, exact: true }) });
+const linkRow = (page: Page, name: string) => page.locator('.login-links-settings .settings-row-item').filter({ has: page.getByRole('heading', { name, exact: true, includeHidden: true }) });
 
 test('login link deadlines advance pending and used links without waiting for a polling tick', async ({ page }) => {
   const now = await installClock(page);
@@ -61,6 +61,7 @@ test('login link deadlines advance pending and used links without waiting for a 
   const first = linkRow(page, 'First'), second = linkRow(page, 'Second'), used = linkRow(page, 'Used');
   await expect(first).toContainText('Ready to use');
   await expect(used).toContainText('Used');
+  await page.locator('.login-link-history > summary').click();
   await expect(used.getByRole('button', { name: 'Revoke link' })).toBeVisible();
   await page.clock.runFor(9999);
   await expect(first).toContainText('Ready to use');
@@ -108,7 +109,7 @@ test('newly created and revoked links reschedule expiry without remounting the p
   });
   await openSecurity(page);
   await page.clock.pauseAt(new Date(now));
-  await expect(page.getByText('No login links yet', { exact: true })).toBeVisible();
+  await expect(page.getByText('No active login links', { exact: true })).toBeVisible();
   for (const name of ['Created', 'Revoked-new']) {
     await page.getByRole('button', { name: 'Create login link', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Create login link', exact: true });

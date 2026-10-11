@@ -102,7 +102,8 @@ func HelperMain(args []string) int {
 	case "supervise":
 		cmd := exec.Command("/molr/helper", "sandbox-helper", "exec")
 		cmd.Dir = config.Directory
-		cmd.Env = []string{}
+		// This applies before package initialization, unlike HelperMain's setter.
+		cmd.Env = []string{"GOMAXPROCS=2"}
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if config.TTY {

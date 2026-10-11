@@ -55,12 +55,14 @@ func (s *HTTPServer) authRoutes() {
 			Username   string `json:"username"`
 			Password   string `json:"password"`
 			DeviceName string `json:"device_name"`
+			DeviceID   string `json:"device_id"`
+			ClientType string `json:"client_type"`
 		}](r)
 		if err != nil {
 			fail(w, err, info(r).ID)
 			return
 		}
-		result, err := s.services.Auth.Login(r.Context(), auth.LoginRequest{Username: input.Username, Password: core.NewSecret(input.Password), Client: auth.Client{Address: info(r).ClientAddress, UserAgent: r.UserAgent(), DeviceName: input.DeviceName}})
+		result, err := s.services.Auth.Login(r.Context(), auth.LoginRequest{Username: input.Username, Password: core.NewSecret(input.Password), Client: auth.Client{Address: info(r).ClientAddress, UserAgent: r.UserAgent(), DeviceName: input.DeviceName, DeviceID: input.DeviceID, ClientType: input.ClientType}})
 		if err != nil {
 			fail(w, err, info(r).ID)
 			return
@@ -80,12 +82,14 @@ func (s *HTTPServer) authRoutes() {
 			Challenge  string `json:"challenge"`
 			Code       string `json:"code"`
 			DeviceName string `json:"device_name"`
+			DeviceID   string `json:"device_id"`
+			ClientType string `json:"client_type"`
 		}](r)
 		if err != nil {
 			fail(w, err, info(r).ID)
 			return
 		}
-		issued, err := s.services.Auth.CompleteMFA(r.Context(), auth.MFAChallengeResponse{Challenge: core.NewSecret(input.Challenge), Code: core.NewSecret(input.Code), Client: auth.Client{Address: info(r).ClientAddress, UserAgent: r.UserAgent(), DeviceName: input.DeviceName}})
+		issued, err := s.services.Auth.CompleteMFA(r.Context(), auth.MFAChallengeResponse{Challenge: core.NewSecret(input.Challenge), Code: core.NewSecret(input.Code), Client: auth.Client{Address: info(r).ClientAddress, UserAgent: r.UserAgent(), DeviceName: input.DeviceName, DeviceID: input.DeviceID, ClientType: input.ClientType}})
 		if err != nil {
 			fail(w, err, info(r).ID)
 			return
@@ -128,6 +132,9 @@ func (s *HTTPServer) authRoutes() {
 			return nil, err
 		}
 		return s.services.Auth.Sessions(r.Context(), principal(r), q)
+	})
+	s.handle("POST /api/auth/sessions/revoke-others", func(r *http.Request) (any, error) {
+		return nil, s.services.Auth.RevokeOtherSessions(r.Context(), principal(r))
 	})
 	s.handle("DELETE /api/auth/sessions/{id}", func(r *http.Request) (any, error) {
 		id, err := pathID(r)

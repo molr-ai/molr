@@ -32,7 +32,7 @@ Full Access 是显式计算权限例外：部署 `sandbox.allow_full_access`、�
 
 ## 3. 浏览器会话与客户端令牌
 
-浏览器使用随机、不可预测的会话令牌，服务端保存可撤销的会话记录及令牌摘要。Cookie 设置 `Secure`、`HttpOnly` 和合适的 `SameSite`，限定作用范围，不向前端脚本暴露登录令牌。登录后更换会话标识，设置闲置与绝对过期时间；退出、修改密码或远程注销设备后撤销相应会话。[OWASP 会话管理建议](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html)
+浏览器使用随机、不可预测的会话令牌，服务端保存可撤销的会话记录及令牌摘要。设备标识只参与会话匹配，不授予权限；客户端按浏览器站点来源或 App 安装实例与服务地址保存随机 deviceId，服务端仅保存其摘要，并以账号与摘要唯一约束设备会话。每次完整认证生成新 SessionID、Token 和 CSRF，在同一事务中替换该设备的旧记录、通知权限订阅并记录审计；失败登录不替换。MFA challenge 绑定设备摘要、展示信息和开始时的会话 ID，旧 challenge 不能覆盖较新的成功登录。Cookie 设置 `Secure`、`HttpOnly` 和合适的 `SameSite`，非默认端口通过 Cookie 名称隔离，不向前端脚本暴露登录令牌。登录后更换会话标识，设置闲置与绝对过期时间；退出、修改密码或远程注销设备后撤销相应会话。[OWASP 会话管理建议](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html)
 
 对使用 Cookie 认证的状态变更请求校验 CSRF 令牌与来源，包括登录流程；GET 不产生业务写入。同源部署为默认方案，跨域访问仅允许明确配置的来源，CORS 不替代身份验证或 CSRF 防护。[OWASP CSRF 防护建议](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html)
 
@@ -90,3 +90,9 @@ Agent 使用 server 绑定的所有者、助理与任务身份，不持有用户
 以上约束由后端实现及集成测试验证；测试不能代替独立安全审计。Agent Shell 只在已配置 Linux 沙盒且具有相应计算权限时开放，隔离条件不足时拒绝执行。Linux 目录工具使用 openat2 禁止链接遍历，其他系统拒绝该工具。部署仍需提供有效 TLS 与正确的可信代理配置。
 
 Shell 已采用 Linux Bubblewrap、seccomp、cgroup v2 与受控网络出口，其他系统暂不开放；部署限制见 [Sandbox 使用说明](../../docs/deployment/sandbox.md)。模型脚本仅在落实隔离后交给固定解释器，宿主启动参数与资源绑定始终由可信代码构造。资源目录直接挂载，写入即时生效且取消不回滚；Shell 网络不继承模型连接的本机访问许可，设备直通不支持。
+
+## 认证记录保留
+
+登录设备查询在分页前排除已撤销、绝对过期及闲置过期会话。失效不依赖回收任务；Runtime 启动后及每小时执行认证回收，每批最多 500 条，积压批次间隔一秒，失败记录错误后下一周期重试。会话撤销满 7 天，或未撤销会话的绝对／闲置到期满 7 天后删除；登录链接在 ExpiresAt 超过 7 天后删除；过期 challenge 可直接删除。删除谓词在写事务内重新求值，保留有效会话及尚可完成的 MFA。审计记录不随凭证记录删除。
+
+WebUI 使用 IndexedDB 原子事务初始化 deviceId 和维护登录租约，支持局域网 HTTP；租约覆盖预登录 CSRF、密码／链接兑换和 MFA，阻止其他标签页同时登录。退出保留 deviceId，关闭页面释放租约，异常退出的租约到期回收。跨标签页身份更新复用 BroadcastChannel；旧身份的迟到 401 不清除已轮换的会话。
