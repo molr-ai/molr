@@ -28,7 +28,11 @@ curl -fsSL https://molr.ai/install.sh | bash -s -- --channel preview --version 0
 
 离线安装时，将版本包、同名 `.sha256` 文件和该 Release 的 `install.sh` 下载到目标机，运行 `bash install.sh --archive <包路径>`。每个 Release 保留安装脚本快照；实际安装逻辑随包发布。官网列出对应版本的 systemd、Python、cgroup 及系统依赖要求。新增或停止平台支持不改变历史发行包。
 
-省略配置文件的安装器会自动生成局域网 HTTP 配置、初始化所有者与 setup、安装服务并检查已认证 API。`--install-deps` 提供 apt 依赖安装，`--yes` 明确同意依赖安装，`--skip-dependencies` 跳过。缺少隔离依赖不自动开放 Full Access，沙盒能力按真实探针报告。安装与卸载需要 Python 3.11+，systemd 和基本安装工具仍需可用。安装器检查 BusyBox 必须是可执行、不可被组或其他用户写入的静态程序；只有动态 BusyBox 时仍会提示安装 `busybox-static`。不支持 apt 或离线安装时，请预先通过目标系统的包管理器安装静态 BusyBox 等依赖。安装器不复制 BusyBox 到 Molr 安装目录。
+省略配置文件的安装器会自动生成局域网 HTTP 配置、初始化所有者与 setup、安装服务并检查已认证 API。`--install-deps` 提供 apt 依赖安装和 Bubblewrap AppArmor 策略准备，`--yes` 同意这些系统准备操作，`--skip-dependencies` 跳过两者。缺少隔离依赖不自动开放 Full Access，沙盒能力按真实探针报告。安装与卸载需要 Python 3.11+，systemd 和基本安装工具仍需可用。安装器检查 BusyBox 必须是可执行、不可被组或其他用户写入的静态程序；只有动态 BusyBox 时仍会提示安装 `busybox-static`。不支持 apt 或离线安装时，请预先通过目标系统的包管理器安装静态 BusyBox 等依赖。安装器不复制 BusyBox 到 Molr 安装目录。
+
+安装器在安装系统依赖前检查目标路径。目录对组或其他用户可写时，会列出路径和权限，提示选择修复（`f`）、忽略并继续（`i`）或退出（`q`）。修复仅移除该目录的组／其他用户写权限，不递归修改内容；忽略会保留现有权限。无交互环境通过 `--directory-permissions fix` 或 `--directory-permissions ignore` 明确选择；`--yes` 不代替目录权限选择。目录所有者不符、符号链接和组／其他用户可写的受管理文件仍会停止安装。卸载支持同一参数，`--dry-run` 不改变目录权限。
+
+启用 AppArmor 非特权用户命名空间限制时，安装器先以服务账户及 `NoNewPrivileges` 检查 Bubblewrap。探针失败后，按授权安装 `apparmor-profiles`（需要时）、准备发行版的 `bwrap-userns-restrict` 策略并加载，再执行探针。已有策略文件不覆盖；发现其他 Bubblewrap 策略时提示管理员处理，避免策略冲突。错误会包含探针输出；完成此检查前不会替换程序或重启已有 Molr 服务。系统级用户命名空间限制保持开启。
 
 `LICENSE` 和 `THIRD_PARTY_NOTICES.md` 保存在安装前缀根目录，例如默认实例的用户安装目录 `~/.local/lib/molr/default/` 或系统安装目录 `/opt/molr/default/`。内嵌 WebUI、独立 WebUI 和官网均提供 `/LICENSE` 与 `/THIRD_PARTY_NOTICES.md`；分发构建目录时应保留这两个文件。许可证正文集中维护在仓库根目录，不使用第三方 submodule。
 

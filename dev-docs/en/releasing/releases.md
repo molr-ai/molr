@@ -79,6 +79,7 @@ npm run test:release-flow
 npm run test:release
 python3 scripts/test-install-download.py
 python3 runtime/scripts/test-install-linux.py
+python3 runtime/scripts/test-install-preflight.py
 python3 runtime/scripts/test-uninstall-linux.py
 npm run check:release
 npm run check:licenses
@@ -89,3 +90,5 @@ MOLR_TEST_ARCHIVE=dist/releases/molr_0.1.0-local_linux_amd64.tar.gz npm run test
 Native installation tests require the current user's systemd manager, cgroup v2 delegation, static BusyBox, and Bubblewrap; tests use independent instances, configurations, and data, and clean up after completion. Source code export and complete release builds still comply with [Public File Checks](public-content.md).
 
 To prepare a local directory, place verified release manifests in a dedicated directory and then execute `npm run release:promote -- --manifests <目录>`. The command only generates `.cache/release-catalog/` and does not upload files. Use `MOLR_CATALOG_DIR=.cache/release-catalog VITE_SITE_MODE=live npm run dev:website` to accept the official website; when the catalog is not configured, it shows no versions for each channel and does not fake download entry points. Browser regression uses manual manifest interception of the network; real package acceptance is executed separately. Detailed acceptance dates, environments, and results are saved in local internal records.
+
+The installer checks destination paths first and lets the user fix or ignore group/other-writable directories; ownership, symlink, and managed-file checks remain separate. After dependencies are prepared, it probes Bubblewrap as the service account with `NoNewPrivileges`, prepares the distribution AppArmor policy when authorized, and probes again before writing the instance or restarting its service. Policy branches use artificial files and mocked system commands in tests; native installation acceptance verifies actual sandbox capabilities.

@@ -23,7 +23,7 @@ from urllib.parse import urlsplit
 
 
 from install_layout import (InstallError, check_path, check_managed, layout,
-                            require_separate, receipt, PROGRAM_FILES)
+                            require_separate, receipt, PROGRAM_FILES, DirectoryPermissions)
 
 
 def platform_requirements():
@@ -185,6 +185,75 @@ def license_materials(binary):
     raise InstallError('Missing LICENSE or THIRD_PARTY_NOTICES.md; use the complete Molr archive or source tree.')
 
 
+def approve_system_change(args, message):
+    print(message, flush=True)
+    if args.yes:
+        return True
+    try:
+        with open('/dev/tty') as terminal:
+            print('Continue? [y/N] ', end='', flush=True)
+            return terminal.readline().strip().lower() in ('y', 'yes')
+    except OSError as error:
+        raise InstallError('System preparation needs confirmation; use --yes to approve it or --skip-dependencies to prepare it manually.') from error
+
+
+APPARMOR_USERNS = Path('/proc/sys/kernel/apparmor_restrict_unprivileged_userns')
+APPARMOR_DIRECTORY = Path('/etc/apparmor.d')
+APPARMOR_PROFILE = APPARMOR_DIRECTORY / 'bwrap-userns-restrict'
+APPARMOR_EXTRA_PROFILE = Path('/usr/share/apparmor/extra-profiles/bwrap-userns-restrict')
+
+
+def probe_bubblewrap(account):
+    # Match the service's identity and NoNewPrivileges setting without changing it.
+    command = ['setpriv', '--no-new-privs', '/usr/bin/bwrap', '--unshare-all',
+               '--unshare-user', '--disable-userns', '--assert-userns-disabled',
+               '--ro-bind', '/', '/', '--proc', '/proc', '--dev', '/dev', '--', '/usr/bin/true']
+    if os.geteuid() == 0:
+        command = ['runuser', '-u', account.pw_name, '--', *command]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=15)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise InstallError(f'Bubblewrap preflight could not run: {error}') from error
+    return result.returncode == 0, result.stderr.strip()[:4096]
+
+
+def prepare_apparmor(args, account):
+    if getattr(args, 'skip_dependencies', False) or not APPARMOR_USERNS.is_file() or APPARMOR_USERNS.read_text().strip() != '1':
+        return
+    if not shutil.which('bwrap') or not shutil.which('setpriv'):
+        return  # Dependency and Runtime capability checks report missing tools.
+    ready, detail = probe_bubblewrap(account)
+    if ready:
+        return
+    context = f'Bubblewrap preflight failed with AppArmor user namespace restrictions enabled: {detail}'
+    if not getattr(args, 'install_deps', False):
+        raise InstallError(context + '\nPrepare the Bubblewrap AppArmor policy, or rerun with --install-deps.')
+    # Do not introduce a competing attachment alongside another vendor's policy.
+    for path in APPARMOR_DIRECTORY.iterdir() if APPARMOR_DIRECTORY.is_dir() else ():
+        if path != APPARMOR_PROFILE and path.is_file() and 'bwrap' in path.read_text():
+            raise InstallError(context + f'\nExisting Bubblewrap policy: {path}. Have the administrator repair/load it before retrying; no policy was changed.')
+    check_path(APPARMOR_PROFILE)
+    if not approve_system_change(args, context + '\nPrepare and load the distribution Bubblewrap AppArmor policy (existing policy files are preserved).'):
+        raise InstallError('Bubblewrap AppArmor preparation declined; prepare the policy before retrying.')
+    privileged = [] if os.geteuid() == 0 else ['sudo']
+    if not APPARMOR_PROFILE.is_file() and not APPARMOR_EXTRA_PROFILE.is_file():
+        if not shutil.which('apt-get'):
+            raise InstallError('Install and load your distribution Bubblewrap AppArmor policy before retrying.')
+        run(privileged + ['apt-get', 'update'])
+        run(privileged + ['apt-get', 'install', '-y', 'apparmor-profiles'])
+    # Some distributions install the active profile directly with the package.
+    if not APPARMOR_PROFILE.exists():
+        if not APPARMOR_EXTRA_PROFILE.is_file():
+            raise InstallError('Distribution Bubblewrap AppArmor policy not found; prepare it manually before retrying.')
+        run(privileged + ['install', '-m', '0644', str(APPARMOR_EXTRA_PROFILE), str(APPARMOR_PROFILE)])
+    run(privileged + ['apparmor_parser', '-r', str(APPARMOR_PROFILE)])
+    ready, detail = probe_bubblewrap(account)
+    if not ready:
+        raise InstallError('Bubblewrap still fails after loading the AppArmor policy: ' + detail +
+                           '\nInspect kernel AppArmor denial logs; the Molr service has not been restarted.')
+    print('Bubblewrap AppArmor preflight passed.')
+
+
 def prepare_dependencies(args):
     if args.skip_dependencies:
         return
@@ -201,13 +270,9 @@ def prepare_dependencies(args):
         print('Install '+ ' '.join(packages)+' to enable isolated commands. Continuing with available capabilities.')
         return
     command = ([] if os.geteuid() == 0 else ['sudo']) + ['apt-get']
-    print('Installing: '+ ' '.join(packages))
-    if not args.yes:
-        with open('/dev/tty') as terminal:
-            print('Continue with system dependency installation? [y/N] ', end='', flush=True)
-            if terminal.readline().strip().lower() not in ('y', 'yes'):
-                print('Continuing without installing dependencies; isolated commands may be unavailable.')
-                return
+    if not approve_system_change(args, 'Install system dependencies: ' + ' '.join(packages)):
+        print('Continuing without installing dependencies; isolated commands may be unavailable.')
+        return
     run(command + ['update'])
     run(command + ['install', '-y', *packages])
 
@@ -267,25 +332,14 @@ def install(args):
     if sys.version_info[:2] < tuple(map(int, requirements['python'].split('.'))):
         raise InstallError('Python '+requirements['python']+' or newer is required for safe offline uninstallation.')
     uid = os.geteuid()
+    permissions = DirectoryPermissions(getattr(args, 'directory_permissions', 'ask'))
     account = account_request(args.user, uid)
     system = args.user is not None
     if not re.fullmatch(r'molr(?:-[a-z0-9][a-z0-9-]{0,47})?', args.name):
         raise InstallError('Service name must be molr or molr-<lowercase name>.')
     if sys.platform != 'linux':
         raise InstallError('Linux is required.')
-    if args.config is None or getattr(args, 'install_deps', False):
-        prepare_dependencies(args)
-    for command in ('systemctl', 'file') + (('useradd', 'runuser') if system else ()):
-        if not shutil.which(command):
-            raise InstallError(f'Missing host dependency: {command}. Install dependencies before running this script.')
-    if not Path('/etc/ssl/certs/ca-certificates.crt').is_file():
-        raise InstallError('Missing CA bundle; install ca-certificates.')
-    binary = Path(args.binary).resolve(strict=True)
     source_config = Path(args.config).resolve(strict=True) if args.config else None
-    notices = license_materials(binary)
-    for executable in (binary,):
-        if not executable.is_file() or not os.access(executable, os.X_OK) or 'statically linked' not in output(['file', str(executable)]):
-            raise InstallError(f'Statically linked executable required: {executable}')
     paths = layout(args.name, account.pw_dir if account else '/', system, program_root=getattr(args, 'program_root', None))
     prefix, config_dir, default_data = paths['prefix'], paths['config'], paths['data']
     cache = paths['cache']
@@ -295,7 +349,7 @@ def install(args):
     marker = config_dir / 'installation.json'
     unit = unit_dir / (args.name + '.service')
     for path in (prefix, prefix/'LICENSE', prefix/'THIRD_PARTY_NOTICES.md', config_dir, unit_dir, installed, configuration, marker, unit):
-        check_managed(path, uid)
+        check_managed(path, uid, permissions)
     previous = None
     if marker.exists():
         previous = json.loads(marker.read_text())
@@ -305,9 +359,43 @@ def install(args):
         raise InstallError(f'Unmanaged service already exists: {unit}; use another --name.')
     # Updates preserve the installed configuration and data, rather than replacing them with a template.
     config_source = configuration if configuration.exists() else source_config
-    initial_config = json.loads(config_source.read_text()) if config_source else {'http': default_http(args.port, args.public_host)}
+    initial_config = json.loads(config_source.read_text()) if config_source else {}
     config = normalize_config(initial_config, default_data)
     configure_updates(config, getattr(args, 'release_source', None))
+    data = check_path(Path(config['data_dir']))
+    require_separate([prefix, config_dir, cache, data, paths['unit']])
+    check_managed(cache.parent, uid, permissions)
+    if cache.exists() and (not cache.is_dir() or account is None or cache.stat().st_uid != account.pw_uid):
+        raise InstallError(f'Cache directory must belong to the selected user: {cache}')
+    if cache.exists() and cache.stat().st_mode & 0o022:
+        permissions.check(cache, cache.stat())
+    if data.exists() and (not data.is_dir() or account is None or data.stat().st_uid != account.pw_uid):
+        raise InstallError(f'Existing data directory must belong to the selected user; no recursive ownership changes: {data}')
+    check_path(cache/'tmp')
+    if (cache/'tmp').exists():
+        info = (cache/'tmp').stat()
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != account.pw_uid:
+            raise InstallError('Cache tmp directory must be owned by the service account.')
+        if info.st_mode & 0o022:
+            permissions.check(cache/'tmp', info)
+    if system and not data.exists():
+        check_managed(data.parent, 0, permissions)
+    for relative in PROGRAM_FILES:
+        check_managed(prefix/relative, uid, permissions)
+    if args.config is None or getattr(args, 'install_deps', False):
+        prepare_dependencies(args)
+    if config_source is None:
+        config['http'] = default_http(args.port, args.public_host)
+    for command in ('systemctl', 'file') + (('useradd', 'runuser') if system else ()):
+        if not shutil.which(command):
+            raise InstallError(f'Missing host dependency: {command}. Install dependencies before running this script.')
+    if not Path('/etc/ssl/certs/ca-certificates.crt').is_file():
+        raise InstallError('Missing CA bundle; install ca-certificates.')
+    binary = Path(args.binary).resolve(strict=True)
+    notices = license_materials(binary)
+    for executable in (binary,):
+        if not executable.is_file() or not os.access(executable, os.X_OK) or 'statically linked' not in output(['file', str(executable)]):
+            raise InstallError(f'Statically linked executable required: {executable}')
     allow_full_access = config['sandbox'].get('allow_full_access', False)
     for command in ('bwrap', 'nsenter'):
         if not shutil.which(command) and not allow_full_access and source_config is not None:
@@ -318,13 +406,6 @@ def install(args):
         raise InstallError(f"systemd >= {requirements['systemd']} is required for delegated sandbox resources.")
     if find_static_busybox() is None and not allow_full_access and source_config is not None:
         raise InstallError('Static BusyBox required; install busybox-static with your system package manager.')
-    data = check_path(Path(config['data_dir']))
-    require_separate([prefix, config_dir, cache, data, paths['unit']])
-    check_managed(cache.parent, uid)
-    if cache.exists() and (not cache.is_dir() or account is None or cache.stat().st_uid != account.pw_uid or cache.stat().st_mode & 0o022):
-        raise InstallError(f'Cache directory must belong to the selected user: {cache}')
-    if data.exists() and (not data.is_dir() or account is None or data.stat().st_uid != account.pw_uid):
-        raise InstallError(f'Existing data directory must belong to the selected user; no recursive ownership changes: {data}')
     if source_config is not None and not args.no_start and not args.init_owner and not (data/'runtime.db').is_file():
         raise InstallError('New installation requires --init-owner NAME (password on stdin), or --no-start for manual initialization.')
     if not system:
@@ -334,8 +415,8 @@ def install(args):
         # No HOME creation/chown or extra groups; state is in the service data directory.
         run(['useradd', '--system', '--user-group', '--no-create-home', '--home-dir', '/nonexistent', '--shell', '/usr/sbin/nologin', args.user])
         account = pwd.getpwnam(args.user)
-    for relative in PROGRAM_FILES:
-        check_managed(prefix/relative, uid)
+    if config['sandbox'].get('enabled', True):
+        prepare_apparmor(args, account)
     for directory in (prefix/'bin', prefix/'scripts', config_dir, unit_dir, cache.parent):
         missing = []
         parent = directory
@@ -346,8 +427,6 @@ def install(args):
             parent.mkdir(mode=0o755)
             parent.chmod(0o755)
     if not data.exists():
-        if system:
-            check_managed(data.parent, 0)
         missing = []
         parent = data.parent
         while not parent.exists():
@@ -360,11 +439,6 @@ def install(args):
         if system:
             os.chown(data, account.pw_uid, account.pw_gid)
     cache.mkdir(parents=True, exist_ok=True, mode=0o700)
-    check_path(cache/'tmp')
-    if (cache/'tmp').exists():
-        info = (cache/'tmp').stat()
-        if not stat.S_ISDIR(info.st_mode) or info.st_uid != account.pw_uid or info.st_mode & 0o022:
-            raise InstallError('Cache tmp directory must be private and owned by the service account.')
     (cache/'tmp').mkdir(exist_ok=True, mode=0o700)
     if system:
         os.chown(cache, account.pw_uid, account.pw_gid, follow_symlinks=False)
@@ -392,9 +466,7 @@ def install(args):
     if configuration.exists():
         atomic_write(config_dir/'server.previous.json', configuration.read_bytes(), 0o640 if system else 0o600, file_uid, file_gid)
     atomic_write(configuration, config_bytes, 0o640 if system else 0o600, file_uid, file_gid)
-    # Keep installation directories traversable by the selected account; new files remain private.
-    for directory in (prefix, prefix/'bin', config_dir):
-        directory.chmod(0o755)
+    # New program/config directories are 0755; preserve existing directory choices.
     run(as_user + ['/usr/bin/python3', '-c',
         'import os,sys; assert os.access(sys.argv[1],os.R_OK); assert os.access(sys.argv[2],os.R_OK|os.W_OK|os.X_OK)', str(configuration), str(data)])
     if installed.exists():
@@ -468,10 +540,11 @@ def main():
     parser.add_argument('binary', help='statically linked molr-server binary')
     parser.add_argument('--port', type=int, help='new quick-start instance port (default: first free port from 8787)')
     parser.add_argument('--public-host', help='private IP shown in browser links')
-    parser.add_argument('--install-deps', action='store_true', help='offer apt dependency installation')
+    parser.add_argument('--install-deps', action='store_true', help='offer system dependency installation and Bubblewrap AppArmor preparation')
     parser.add_argument('--no-browser', action='store_true', help='print the login link without opening a browser')
-    parser.add_argument('--skip-dependencies', action='store_true', help='do not install optional sandbox dependencies')
-    parser.add_argument('--yes', action='store_true', help='approve dependency installation without a prompt')
+    parser.add_argument('--skip-dependencies', action='store_true', help='skip sandbox dependency installation and AppArmor preparation')
+    parser.add_argument('--directory-permissions', choices=['ask', 'fix', 'ignore'], default='ask', help='handle group/other-writable directories: prompt, remove write bits, or keep permissions')
+    parser.add_argument('--yes', action='store_true', help='approve system dependency and AppArmor preparation without a prompt')
     parser.add_argument('config', nargs='?', help='initial server JSON template; installed config is preserved on updates')
     args = parser.parse_args()
     os.umask(0o077)

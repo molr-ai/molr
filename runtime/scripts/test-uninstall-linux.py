@@ -172,11 +172,11 @@ class LifecycleTests(unittest.TestCase):
         with self.assertRaises(paths.InstallError): self.uninstall()
         self.assertTrue(self.running)
 
-    def install(self, missing_dependency=None):
+    def install(self, missing_dependency=None, directory_permissions='ask'):
         binary = self.home/'new-server'; binary.write_bytes(b'new program'); binary.chmod(0o755)
         args = argparse.Namespace(user=None, name='molr-review', binary=str(binary),
             config=str(self.layout['config']/'server.json'), no_start=True, init_owner=None,
-            skip_dependencies=True, install_deps=False)
+            skip_dependencies=True, install_deps=False, directory_permissions=directory_permissions)
         def output(command):
             if command[0] == 'file': return 'ELF statically linked'
             if command[-2:] == ['version', '--json']: return json.dumps({'version':'0.2.0','commit':'a'*40})
@@ -205,6 +205,26 @@ class LifecycleTests(unittest.TestCase):
         self.assertIn('--record', (self.layout['prefix']/'uninstall.sh').read_text())
         self.assertTrue((self.layout['prefix']/'scripts/install_layout.py').is_file())
         self.uninstall(purge=True, yes=True)
+
+    def test_ignored_directory_permissions_survive_install_and_uninstall(self):
+        shared = self.home/'.local'
+        shared.chmod(0o775)
+        self.layout['prefix'].chmod(0o775)
+        self.layout['config'].chmod(0o775)
+        self.install(directory_permissions='ignore')
+        for directory in (shared, self.layout['prefix'], self.layout['config']):
+            self.assertEqual(directory.stat().st_mode & 0o777, 0o775)
+        self.assertEqual((self.layout['prefix']/'bin/molr-server').stat().st_mode & 0o777, 0o755)
+        self.uninstall(directory_permissions='ignore')
+        self.assertEqual(shared.stat().st_mode & 0o777, 0o775)
+        self.assertEqual(self.layout['config'].stat().st_mode & 0o777, 0o775)
+        self.assertEqual((self.layout['data']/'sentinel').read_text(), 'persistent data')
+
+    def test_dry_run_keeps_writable_directory_even_with_fix_option(self):
+        self.layout['config'].chmod(0o775)
+        self.uninstall(dry_run=True, directory_permissions='fix')
+        self.assertEqual(self.layout['config'].stat().st_mode & 0o777, 0o775)
+        self.assertTrue(self.running)
 
     def test_missing_sandbox_dependencies_preserve_existing_installation(self):
         def snapshot():

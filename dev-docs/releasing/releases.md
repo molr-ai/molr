@@ -79,6 +79,7 @@ npm run test:release-flow
 npm run test:release
 python3 scripts/test-install-download.py
 python3 runtime/scripts/test-install-linux.py
+python3 runtime/scripts/test-install-preflight.py
 python3 runtime/scripts/test-uninstall-linux.py
 npm run check:release
 npm run check:licenses
@@ -89,3 +90,5 @@ MOLR_TEST_ARCHIVE=dist/releases/molr_0.1.0-local_linux_amd64.tar.gz npm run test
 原生安装测试需要当前用户的 systemd manager、cgroup v2 委派、静态 BusyBox 与 Bubblewrap；测试使用独立实例、配置和数据，完成后清理。源码导出和完整发行构建仍遵守[公开文件检查](public-content.md)。
 
 准备本地目录可将已验证的 release manifests 放在专用目录后执行 `npm run release:promote -- --manifests <目录>`。命令只生成 `.cache/release-catalog/`，不上传文件。使用 `MOLR_CATALOG_DIR=.cache/release-catalog VITE_SITE_MODE=live npm run dev:website` 验收官网；未配置 catalog 时显示各渠道暂无版本，不伪造下载入口。浏览器回归使用人工 manifest 拦截网络，真实包验收单独执行。详细验收日期、环境和结果保存在本地内部记录中。
+
+安装器先检查目标路径，组／其他用户可写的目录由用户选择修复或忽略；符号链接、所有者和受管理文件检查保持独立。安装依赖后以服务账户及 `NoNewPrivileges` 探测 Bubblewrap，按授权准备发行版 AppArmor 策略并复测，随后才写入实例和重启服务。策略分支使用人工文件与模拟系统命令测试；原生安装验收验证实际沙盒能力。

@@ -12,7 +12,7 @@ import subprocess
 import sys
 
 from install_layout import (InstallError, check_path, check_managed, layout,
-                            validate_receipt, PROGRAM_FILES, CONFIG_FILES)
+                            validate_receipt, PROGRAM_FILES, CONFIG_FILES, DirectoryPermissions)
 
 
 def run(command):
@@ -79,6 +79,7 @@ def uninstall(args):
     if sys.platform != 'linux':
         raise InstallError('Linux is required.')
     uid = os.geteuid()
+    permissions = DirectoryPermissions(getattr(args, 'directory_permissions', 'ask'), dry_run=args.dry_run)
     account = pwd.getpwuid(uid)
     if not args.record and ((uid == 0) != args.system):
         raise InstallError('Use --system as root; run user uninstallation as its original user.')
@@ -87,7 +88,7 @@ def uninstall(args):
     else:
         paths = layout(args.name, account.pw_dir, args.system)
         marker = paths['config']/'installation.json'
-    check_managed(marker, uid)
+    check_managed(marker, uid, permissions)
     if not marker.exists():
         if args.record:
             print(f'Installation record absent; no files removed: {marker}')
@@ -100,7 +101,7 @@ def uninstall(args):
     if not stat.S_ISREG(info.st_mode) or info.st_uid != uid or info.st_mode & 0o077:
         raise InstallError('Installation record must be private and owned by the installer.')
     record = json.loads(marker.read_text())
-    paths = validate_receipt(record, account.pw_dir, uid)
+    paths = validate_receipt(record, account.pw_dir, uid, permissions)
     if marker != paths['config']/'installation.json':
         raise InstallError('Installation record location does not match its contents.')
     if args.record and ((args.name != 'molr' and args.name != record['name']) or (args.system and not record['system'])):
@@ -117,7 +118,7 @@ def uninstall(args):
     if args.purge:
         files += [paths['config']/p for p in CONFIG_FILES if p != 'installation.json']
     for path in files:
-        check_managed(path, uid)
+        check_managed(path, uid, permissions)
         if path.exists() and not path.is_file():
             raise InstallError(f'Expected a managed regular file: {path}')
     trees = [paths['cache']]
@@ -131,7 +132,7 @@ def uninstall(args):
     actual_data = Path(record['data_dir'])
     config = paths['config']/'server.json'
     if config.exists():
-        check_managed(config, uid)
+        check_managed(config, uid, permissions)
         settings = json.loads(config.read_text())
         actual_data = Path(settings.get('data_dir', record['data_dir']))
         work = settings.get('sandbox', {}).get('work_root')
@@ -188,7 +189,7 @@ def uninstall(args):
     for path in trees:
         check_tree(path, record['uid'])
     for path in files:
-        check_managed(path, uid)
+        check_managed(path, uid, permissions)
         path.unlink(missing_ok=True)
     run(control + ['daemon-reload'])
     for path in trees:
@@ -209,6 +210,7 @@ def main():
     parser.add_argument('--record', help='installation record; supplied by the installed uninstall.sh')
     parser.add_argument('--dry-run', action='store_true', help='show the removal plan without changing anything')
     parser.add_argument('--purge', action='store_true', help='also remove managed configuration and data')
+    parser.add_argument('--directory-permissions', choices=['ask', 'fix', 'ignore'], default='ask', help='handle group/other-writable directories; dry-run never changes permissions')
     parser.add_argument('--yes', action='store_true', help='explicitly confirm --purge without a prompt')
     args = parser.parse_args()
     os.environ['PATH'] = '/usr/sbin:/usr/bin:/sbin:/bin'
