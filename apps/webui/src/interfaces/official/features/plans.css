@@ -146,7 +146,8 @@
 .plans-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: min(480px, 65vh); padding: 40px 24px; text-align: center; }
 .plans-empty-icon { display: grid; place-items: center; width: 64px; height: 64px; background: var(--color-background); color: var(--color-text-muted); border: 1px solid var(--color-border); border-radius: 16px; margin-bottom: 20px; }
 .plans-empty h2 { font-size: 16px; font-weight: 550; }
-.plans-empty p { max-width: 280px; margin: 8px 0 20px; font-size: 12px; line-height: 1.8; color: var(--color-text-muted); }
+.plans-empty p { max-width: 280px; margin: 8px 0 0; font-size: 12px; line-height: 1.8; color: var(--color-text-muted); }
+.plans-empty > button { margin-top: 20px; }
 .plans-workspace > .ui-alert { margin: 8px 20px; flex-shrink: 0; }
 .assistant-plans.ui-drawer:not([data-contained]):not([data-docked]) { width: min(var(--assistant-tasks-width), 100vw); }
 .assistant-plans .ui-dialog__body, .chat-side-panel[data-docked] .assistant-plans .ui-dialog__body { display: flex; padding: 0; overflow: hidden; min-height: 0; }
