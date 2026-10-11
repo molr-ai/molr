@@ -9,7 +9,8 @@ export function convertMoney(value: Money, currency: string, rates: ExchangeRate
   return { Currency: currency, Micros: Number(micros) };
 }
 export function currencyText(value: Money, locale: string) {
-  return `${new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 6 }).format(value.Micros / 1_000_000)} ${value.Currency}`;
+  const cents = Math.ceil(value.Micros / 10_000);
+  return `${new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(cents / 100)} ${value.Currency}`;
 }
 export function timezoneLabel(zone: string, names: Record<string, string>, withID = false, at = new Date()) {
   let offset = '';

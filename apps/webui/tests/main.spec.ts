@@ -1673,7 +1673,7 @@ test('currency preferences preserve native budgets and prices and show the confi
     const edit = page.getByRole('dialog', { name: 'Assistant information', exact: true });
     await expect(edit.getByRole('combobox', { name: 'Currency', exact: true })).toContainText('Chinese yuan CNY');
     await expect(edit.getByRole('spinbutton', { name: 'Spending limit (CNY)', exact: true })).toHaveValue('7');
-    await expect(edit.locator('dd').first()).toContainText(/≈ .* USD \(7\.00 CNY\)/);
+    await expect(edit.locator('dd').first()).toHaveText(/≈ [\d,.]+ USD/);
     await edit.getByRole('button', { name: 'Save', exact: true }).click(); await expect(edit).not.toBeVisible();
     expect((await (await page.request.get(`/api/assistants/${assistant.ID}`)).json()).Budget).toEqual(assistant.Budget);
     await assistantMenu(page, 'Assistant information');

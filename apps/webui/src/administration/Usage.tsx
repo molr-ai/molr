@@ -14,7 +14,7 @@ import { groupName } from './types';
 import './usage.css';
 
 function Amounts({ values }: { values: Money[] }) {
-  return <span className="usage-money">{values.length ? values.map(v => <MoneyText key={v.Currency} value={v} />) : '0'}</span>;
+  return <span className="usage-money"><MoneyText originals={values} /></span>;
 }
 function bytes(value: number) {
   if (value < 1024) return `${value} B`;

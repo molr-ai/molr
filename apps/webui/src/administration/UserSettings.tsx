@@ -10,16 +10,26 @@ import { groupName } from './types';
 export function ProfileSettings() {
   const query = useQuery<UserInfo>('/api/account');
   if (!query.data) return <><ErrorNotice error={query.error} retry={query.reload} /><Loading /></>;
-  return <ProfileForm key={query.data.Version} user={query.data} />;
+  return <ProfileForm key={query.data.ID} user={query.data} />;
 }
 function ProfileForm({ user }: { user: UserInfo }) {
-  const { locale, t } = useCopy(), zh = locale === 'zh', { reload } = useSession(), action = useAction();
+  const { locale, t } = useCopy(), zh = locale === 'zh', { refreshProfile } = useSession(), action = useAction();
   const [name, setName] = useState(user.DisplayName), [avatar, setAvatar] = useState(user.Avatar ?? '');
   const [processingAvatar, setProcessingAvatar] = useState(false);
+  const [previous, setPrevious] = useState(user);
+  if (user.Version > previous.Version) {
+    setPrevious(user);
+    if (name === previous.DisplayName) setName(user.DisplayName);
+    if (avatar === (previous.Avatar ?? '')) setAvatar(user.Avatar ?? '');
+  }
   return <form className="editor settings-form" onSubmit={e => {
     e.preventDefault();
     if (processingAvatar) return;
-    void action.run(async () => { await api.mutate('/api/account/profile', { DisplayName: name, Avatar: avatar }, user.Version); await reload(); });
+    void action.run(async () => {
+      const saved = await api.mutate<UserInfo>('/api/account/profile', { DisplayName: name, Avatar: avatar }, previous.Version);
+      setPrevious(saved); setName(saved.DisplayName); setAvatar(saved.Avatar ?? '');
+      await refreshProfile();
+    });
   }}>
     <fieldset className="editor profile-fields" disabled={action.busy}>
       <AssistantAvatarField name={name || user.Username} value={avatar} onChange={setAvatar} onBusyChange={setProcessingAvatar} />

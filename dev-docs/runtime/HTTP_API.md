@@ -275,7 +275,7 @@ WebUI 按原因显示对应说明及操作入口：模型权限、选择模型�
 
 `GET /api/settings/currency` 返回当前 `Currency`、`Timezone` 与 `Rates`（`version`、`as_of`、`source_url`、`units`）。`units` 是同一基准下的整数比例，用 `amount * units[target] / units[source]` 换算，保留六位小数。服务端预算检查向上取整；只支持明确配置的币种，拒绝缺失汇率与溢出。
 
-`Usage.Spent` / `Reserved` 汇总为当前展示币种，同时通过 `OriginalSpent` / `OriginalReserved` 返回按原币种分组的金额，`Exchange` 标注此次汇总的汇率快照。异币种展示为「约 换算金额 币种（原始金额 币种）」；混合币种汇总保留每个原币种小计。预算比较采用同一次汇率快照，预留记录中的 `Reserved` 和结算 `Settled` 始终保留原币种；`BudgetEstimate` 与 `Exchange` 保存预算校验时的换算结果和版本。后续规则更新不修改这些凭据。
+`Usage.Spent` / `Reserved` 汇总为当前展示币种，同时通过 `OriginalSpent` / `OriginalReserved` 返回按原币种分组的金额，`Exchange` 标注此次汇总的汇率快照。WebUI 将原币种小计换算汇总为用户偏好币种，只显示合计，不并列原币金额；固定两位小数，不足一分向上取整，换算金额带 `≈`。偏好或汇率不可用时显示 `—`。这只影响展示，金额输入和后端记账保留原始精度。预算比较采用同一次汇率快照，预留记录中的 `Reserved` 和结算 `Settled` 始终保留原币种；`BudgetEstimate` 与 `Exchange` 保存预算校验时的换算结果和版本。后续规则更新不修改这些凭据。
 
 插件显示：`Settings.PluginsVisible` 为账号级布尔偏好，默认 `false`，通过现有 `GET /api/settings` 和设置更新接口读写。仅控制 WebUI 展示，不改变插件安装、启停、授权或工具执行。
 

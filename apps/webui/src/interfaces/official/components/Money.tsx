@@ -30,17 +30,17 @@ export function CurrencySelect({ value, onChange }: { value: CurrencyCode; onCha
 export function MoneyInput({ label, value, currency, onChange, onCurrencyChange }: { label: string; value: string; currency: CurrencyCode; onChange: (value: string) => void; onCurrencyChange: (value: CurrencyCode) => void }) {
   return <div className="money-input"><TextField label={label.replace('{currency}', currency)} type="number" min="0" step="0.000001" value={value} onChange={event => onChange(event.target.value)} required /><CurrencySelect value={currency} onChange={onCurrencyChange} /></div>;
 }
-export function MoneyText({ value, originals, context }: { value: Money; originals?: Money[] | null; context?: CurrencyContext }) {
+export function MoneyText({ value, originals, context }: { value?: Money; originals?: Money[] | null; context?: CurrencyContext }) {
   const { locale } = useCopy();
   const query = useQuery<CurrencyContext>(context ? null : '/api/settings/currency');
   const info = context ?? query.data;
-  const native = originals?.length ? originals : [value];
-  const original = native.map(amount => currencyText(amount, locale)).join(' + ');
-  if (!info) return <span>{original}</span>;
-  if (native.every(amount => amount.Currency === info.Currency)) return <span>{native.length === 1 ? original : currencyText({ Currency: info?.Currency ?? value.Currency, Micros: native.reduce((sum, amount) => sum + amount.Micros, 0) }, locale)}</span>;
+  const native = originals?.length ? originals : value ? [value] : [];
+  const unavailable = locale === 'zh' ? '暂时无法显示偏好币种金额' : 'Amount in your preferred currency is unavailable';
+  if (!info) return <span title={query.error ? unavailable : undefined}>—</span>;
   try {
     const total = native.reduce((sum, amount) => sum + convertMoney(amount, info.Currency, info.Rates).Micros, 0);
     if (!Number.isSafeInteger(total)) throw new Error('Amount exceeds display precision');
-    return <span title={info.Rates.as_of}>≈ {currencyText({ Currency: info.Currency, Micros: total }, locale)}{locale === 'zh' ? `（${original}）` : ` (${original})`}</span>;
-  } catch { return <span>{original}</span>; }
+    const converted = native.some(amount => amount.Currency !== info.Currency);
+    return <span title={converted ? info.Rates.as_of : undefined}>{converted ? '≈ ' : ''}{currencyText({ Currency: info.Currency, Micros: total }, locale)}</span>;
+  } catch { return <span title={unavailable}>—</span>; }
 }
