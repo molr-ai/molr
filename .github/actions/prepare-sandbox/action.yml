@@ -5,11 +5,12 @@ runs:
   steps:
     - name: Install native sandbox dependencies
       shell: bash
-      run: sudo apt-get update && sudo apt-get install -y apparmor bubblewrap busybox-static ca-certificates file util-linux
+      run: sudo apt-get update && sudo apt-get install -y apparmor apparmor-profiles bubblewrap busybox-static ca-certificates file util-linux
     - name: Load Ubuntu's Bubblewrap user namespace policy
       shell: bash
       run: |
         if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ] && [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" = 1 ]; then
+          sudo install -m 0644 /usr/share/apparmor/extra-profiles/bwrap-userns-restrict /etc/apparmor.d/bwrap-userns-restrict
           sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict
         fi
     - name: Prepare delegated user service manager
