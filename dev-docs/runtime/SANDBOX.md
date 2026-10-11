@@ -86,6 +86,7 @@ Shell 执行需要计算资源的 `execute`；只读挂载需要存储 `read`，
 
 ### 进程、系统调用与限额
 
+- 沙盒 supervisor 与 exec helper 在启动环境中显式设置 `GOMAXPROCS=2`，使 Go 包初始化阶段也遵守 helper 的并行度限制，避免高核数主机在进入主函数前耗尽执行的 PID 配额。业务 Shell 的并行度继续依据本次 CPU 限额设置。
 - 允许 curl 线程通知所需的匿名 Unix stream socketpair；禁止普通 Unix socket 与可向路径发送消息的 Unix datagram socketpair。
 - 去除 Linux capabilities，保持 `no_new_privs`，禁止沙盒继续创建或加入能改变边界的 namespace。使用架构匹配、版本化 seccomp 配置限制 mount、ptrace、BPF、关键 ioctl 和绕过网络限制的系统调用；不能简单禁止所有 clone 而破坏普通子进程与线程。
 - TTY 使用专属 PTY 与新 session，不继承宿主控制终端。非 TTY 仍无 stdin；stdout/stderr 有总量上限。Shell 运行所有下载程序、脚本和解释器时都继承相同边界。
