@@ -5,7 +5,7 @@ import { api } from '../../../api/client';
 import { useAppearance, useCopy } from '../../../state';
 import { useAction } from '../components/common';
 
-type SettingsPatch = Partial<Pick<Settings, 'Language' | 'Timezone' | 'Currency' | 'Theme' | 'Palette' | 'ReducedMotion' | 'WorkbenchVisible'>>;
+type SettingsPatch = Partial<Pick<Settings, 'Language' | 'Timezone' | 'Currency' | 'Theme' | 'Palette' | 'ReducedMotion' | 'WorkbenchVisible' | 'PluginsVisible'>>;
 /** Merge only edited fields into the latest version; failed saves restore the last confirmed value. */
 export function useSettingsChange(settings: Settings) {
   const { setLocale } = useCopy(), { changePreference } = useTheme(), { changePalette } = useAppearance(), action = useAction();

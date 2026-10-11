@@ -1,3 +1,4 @@
+import { showPlugins } from './plugin-visibility-helper';
 import { test, expect, type Page } from '@playwright/test';
 import { httpPluginPackage } from './plugin-http-test-model.mjs';
 
@@ -31,10 +32,10 @@ async function mutations(page: Page) {
   return page.evaluate(() => (window as any).pluginMutations);
 }
 test.beforeEach(async ({ page }) => {
-  await page.goto('/#/extensions');
+  await page.goto('/#/account/general');
   await page.getByLabel('Username', { exact: true }).fill('owner');
   await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!');
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click(); await showPlugins(page);
   await expect(page.getByRole('button', { name: 'Install plugin' })).toBeVisible();
 });
 

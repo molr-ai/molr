@@ -1,3 +1,4 @@
+import { usePluginsVisible } from '../../../plugins/visibility';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge, Button, Dialog, Select, TextField } from '@molr/ui';
 import { Copy, Plus } from 'lucide-react';
@@ -60,14 +61,16 @@ export function LoginLinksSettings() {
   </section>;
 }
 function CreateLoginLink({ onClose, onIssued }: { onClose: () => void; onIssued: (result: IssuedLink) => void }) {
+  const pluginsVisible = usePluginsVisible();
   const { t, locale } = useCopy(), { principal } = useSession(), verification = useReauthentication();
   const [name, setName] = useState(''), [expiry, setExpiry] = useState('3600'), [target, setTarget] = useState('/assistants');
+  const destination = !pluginsVisible && target === '/extensions' ? '/assistants' : target;
   return <><EditDialog notifyOnSave={false} title={t.loginLinks.create} onClose={onClose} onSubmit={async () => {
     const proof = await verification.verify('login_link.create');
-    onIssued(await api.post<IssuedLink>('/api/auth/login-links', { name, expires_in: Number(expiry), target_path: target, verification: proof }));
+    onIssued(await api.post<IssuedLink>('/api/auth/login-links', { name, expires_in: Number(expiry), target_path: destination, verification: proof }));
   }}><TextField label={t.name} value={name} required maxLength={128} autoFocus onChange={event => setName(event.target.value)} />
     <Select label={t.loginLinks.validFor} value={expiry} onValueChange={setExpiry} options={[{ value: '900', label: t.loginLinks.minutes15 }, { value: '3600', label: t.loginLinks.hour1 }, { value: '86400', label: t.loginLinks.hours24 }]} />
-    <Select label={t.loginLinks.destination} value={target} onValueChange={setTarget} options={[{ value: '/assistants', label: t.nav.assistants }, { value: '/plans', label: t.nav.plans }, ...(principal?.User?.Administrator ? [{ value: '/resources', label: t.nav.resources }] : []), { value: '/extensions', label: locale === 'zh' ? '插件' : 'Plugins' }, { value: '/account/theme', label: t.settings.theme }, { value: '/account/security', label: t.settings.security }]} />
+    <Select label={t.loginLinks.destination} value={destination} onValueChange={setTarget} options={[{ value: '/assistants', label: t.nav.assistants }, { value: '/plans', label: t.nav.plans }, ...(principal?.User?.Administrator ? [{ value: '/resources', label: t.nav.resources }] : []), ...(pluginsVisible ? [{ value: '/extensions', label: locale === 'zh' ? '插件' : 'Plugins' }] : []), { value: '/account/theme', label: t.settings.theme }, { value: '/account/security', label: t.settings.security }]} />
     <p className="muted">{t.loginLinks.singleUse}</p>
   </EditDialog>{verification.dialog}</>;
 }

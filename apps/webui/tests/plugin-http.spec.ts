@@ -1,3 +1,4 @@
+import { showPlugins } from './plugin-visibility-helper';
 import { test, expect, type Page } from '@playwright/test';
 import type { PluginPackage } from '@molr/sdk/plugins';
 import { httpPluginPackage } from './plugin-http-test-model.mjs';
@@ -8,7 +9,7 @@ async function post(page: Page, path: string, data: object, status = 200) {
   expect(response.status(), await response.text()).toBe(status); return response.json();
 }
 async function login(page: Page, username = 'owner', password = 'webui-e2e-password-2026!') {
-  await page.goto('/#/extensions'); await page.getByLabel('Username', { exact: true }).fill(username); await page.getByLabel('Password', { exact: true }).fill(password); await page.getByRole('button', { name: 'Sign in', exact: true }).click(); await expect(page.getByRole('button', { name: 'Sign in', exact: true })).not.toBeVisible();
+  await page.goto('/#/account/general'); await page.getByLabel('Username', { exact: true }).fill(username); await page.getByLabel('Password', { exact: true }).fill(password); await page.getByRole('button', { name: 'Sign in', exact: true }).click(); await showPlugins(page); await expect(page.getByRole('button', { name: 'Sign in', exact: true })).not.toBeVisible();
 }
 test('HTTP connections, personal provider switching, isolated settings and real Agent execution', async ({ page, browser }, info) => {
   test.setTimeout(90000);
