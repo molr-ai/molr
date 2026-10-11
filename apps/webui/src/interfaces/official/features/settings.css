@@ -40,6 +40,37 @@
 .settings-row-item > p { margin: 0; font-size: 13px; }
 .settings-row-item > p.muted { font-size: 11.5px; }
 
+/* Security uses the same flat rows as General, with one title and detail scale. */
+.settings-security { gap: 28px; }
+.settings-security > .settings-group { gap: 12px; }
+.settings-security > .settings-group + .settings-group,
+.security-sign-out { border-top: 1px solid var(--color-border); padding-top: 24px; }
+.security-section-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 16px; min-width: 0; }
+.security-section-heading > div { flex: 1 1 220px; min-width: 0; display: grid; gap: 6px; }
+.security-section-heading > button { flex-shrink: 0; margin-inline-start: auto; }
+.settings-security .settings-group-title { margin: 0; color: var(--color-text); font-size: var(--text-sm); font-weight: 600; line-height: 1.5; }
+.security-description { margin: 0; color: var(--color-text-muted); font-size: var(--text-xs); line-height: 1.6; }
+.security-section-heading > .security-description { flex: 1 1 220px; }
+.settings-security .settings-row { min-height: 64px; }
+.security-method-label { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; min-width: 0; }
+.settings-security .verification-method-row > .form-actions,
+.settings-security .verification-method-row > button { flex-shrink: 0; }
+.settings-security .settings-row-item { padding: 14px 0; gap: 8px; }
+.settings-security .settings-row-item-head { align-items: flex-start; }
+.security-record-title { flex: 1; min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding-block: 6px; }
+.security-record-title h4 { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: var(--text-sm); font-weight: 500; line-height: 1.5; }
+.security-record-meta { display: flex; flex-wrap: wrap; gap: 4px 20px; margin: 0; color: var(--color-text-muted); font-size: var(--text-xs); line-height: 1.6; }
+.security-record-meta > div { display: flex; flex-wrap: wrap; gap: 4px 8px; }
+.security-record-meta dt, .security-record-meta dd { margin: 0; }
+.security-record-meta time { font-variant-numeric: tabular-nums; }
+.security-empty { padding-block: 8px; }
+.login-link-history { border-top: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent); padding-top: 12px; }
+.login-link-history > summary { width: fit-content; cursor: pointer; color: var(--color-text-muted); font-size: var(--text-xs); line-height: 1.6; }
+.login-link-history > summary:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 4px; border-radius: var(--radius-control); }
+.security-history-count { margin-inline-start: 8px; font-variant-numeric: tabular-nums; }
+.login-link-history > .security-description { margin-top: 8px; }
+.security-sign-out { display: grid; gap: 12px; }
+
 .usage-stats { display: flex; flex-wrap: wrap; border-block: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent); }
 .usage-stats > div { flex: 1 1 160px; display: grid; gap: 4px; align-content: start; padding: 16px 18px 16px 2px; }
 .usage-stats > div + div { border-left: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent); padding-left: 18px; }

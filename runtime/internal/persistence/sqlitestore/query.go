@@ -230,6 +230,18 @@ func (s *Store) createIndexes() error {
 		bucket string
 		fields []string
 	}{"weixin.deliveries", []string{"OwnerKey", "BindingID", "CreatedAtKey", "key"}})
+	indexes = append(indexes, []struct {
+		bucket string
+		fields []string
+	}{
+		{"auth.sessions", []string{"Session.AccountID", "DeviceDigest", "key"}},
+		{"auth.sessions", []string{"Session.AccountID", "RevokedAt", "LastSeenAtKey DESC", "Session.ID DESC", "key DESC"}},
+		{"auth.sessions", []string{"RevokedAt", "ExpiresAtKey", "key"}},
+		{"auth.sessions", []string{"RevokedAt", "LastSeenAtKey", "key"}},
+		{"auth.sessions", []string{"RevokedAtKey", "key"}},
+		{"auth.login-links", []string{"ExpiresAtKey", "key"}},
+		{"auth.challenges", []string{"ExpiresAtKey", "key"}},
+	}...)
 	for i, index := range indexes {
 		parts := []string{"bucket"}
 		for _, field := range index.fields {
@@ -251,7 +263,8 @@ func (s *Store) createIndexes() error {
 			return err
 		}
 	}
-	return nil
+	_, err := s.db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS auth_device_session ON records (json_extract(value, '$.Session.AccountID'), json_extract(value, '$.DeviceDigest')) WHERE bucket='auth.sessions' AND json_extract(value, '$.DeviceDigest') != ''`)
+	return err
 }
 func querySQL(bucket string, q persistence.Query) (string, []any, error) {
 	if err := valid(bucket, "query"); err != nil {

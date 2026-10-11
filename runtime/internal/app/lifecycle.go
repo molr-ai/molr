@@ -13,6 +13,7 @@ type Runtime struct {
 	runChannels      func(context.Context) error
 	checkUpdates     func(context.Context)
 	collectContexts  func(context.Context)
+	collectAuth      func(context.Context)
 	startShellTasks  func(context.Context) error
 	recoverCalls     func(context.Context) error
 	stopShellTasks   func()
@@ -126,6 +127,10 @@ func (a *Runtime) Run(ctx context.Context) (result error) {
 	if a.collectContexts != nil {
 		workers.Add(1)
 		go func() { defer workers.Done(); a.collectContexts(runctx) }()
+	}
+	if a.collectAuth != nil {
+		workers.Add(1)
+		go func() { defer workers.Done(); a.collectAuth(runctx) }()
 	}
 	if a.checkUpdates != nil {
 		workers.Add(1)

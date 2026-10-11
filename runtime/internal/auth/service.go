@@ -281,6 +281,9 @@ func (m *Manager) limit(ctx context.Context, key string, window time.Duration) e
 	return result
 }
 func (m *Manager) Login(ctx context.Context, r LoginRequest) (LoginResult, error) {
+	if err := validateClient(r.Client); err != nil {
+		return LoginResult{}, err
+	}
 	if e := persistence.CheckContext(ctx); e != nil {
 		return LoginResult{}, e
 	}
@@ -304,6 +307,9 @@ func (m *Manager) Login(ctx context.Context, r LoginRequest) (LoginResult, error
 		_ = checkPassword(m.dummyHash, r.Password.Reveal())
 		return LoginResult{}, denied()
 	}
+	if err := m.prepareDevice(ctx, a.Account.ID, &r.Client); err != nil {
+		return LoginResult{}, err
+	}
 	if !checkPassword(a.PasswordHash.Reveal(), r.Password.Reveal()) {
 		if err := m.audit(ctx, a.Account.ID, "", "auth.login", "denied", core.Object{Kind: "account", ID: a.Account.ID}); err != nil {
 			return LoginResult{}, err
@@ -322,7 +328,7 @@ func (m *Manager) Login(ctx context.Context, r LoginRequest) (LoginResult, error
 		if a.Account.MFAEnabled {
 			raw := randomSecret()
 			expiry := m.options.Now().Add(5 * time.Minute)
-			if e = m.repo.PutChallenge(ctx, StoredChallenge{Digest: digest(raw), AccountID: a.Account.ID, Purpose: "login", ExpiresAt: expiry}); e != nil {
+			if e = m.repo.PutChallenge(ctx, StoredChallenge{Digest: digest(raw), AccountID: a.Account.ID, Purpose: "login", ExpiresAt: expiry, DeviceDigest: r.Client.deviceDigest, ClientType: r.Client.ClientType, DeviceName: r.Client.DeviceName, ExpectedSession: r.Client.expectedSession}); e != nil {
 				return e
 			}
 			out.Challenge = &Challenge{ID: core.NewSecret(raw), ExpiresAt: expiry}
@@ -332,15 +338,6 @@ func (m *Manager) Login(ctx context.Context, r LoginRequest) (LoginResult, error
 		out.Session = &s
 		return e
 	})
-	return out, e
-}
-func (m *Manager) issueSession(ctx context.Context, owner core.ID, c Client) (SessionIssued, error) {
-	now := m.options.Now()
-	out := SessionIssued{Session: Session{ID: newID(), AccountID: owner, DeviceName: c.DeviceName, CreatedAt: now, LastSeenAt: now, ExpiresAt: now.Add(m.options.SessionLifetime)}, Token: core.NewSecret(randomSecret()), CSRF: core.NewSecret(randomSecret())}
-	e := m.repo.SaveSession(ctx, StoredSession{Session: out.Session, TokenDigest: digest(out.Token.Reveal()), CSRFDigest: digest(out.CSRF.Reveal())})
-	if e == nil {
-		e = m.audit(ctx, owner, owner, "auth.login", "succeeded", core.Object{Kind: "session", ID: out.Session.ID})
-	}
 	return out, e
 }
 func (m *Manager) Authenticate(ctx context.Context, a Authentication) (core.Principal, error) {
@@ -425,6 +422,14 @@ func (m *Manager) CompleteMFA(ctx context.Context, r MFAChallengeResponse) (Sess
 			}
 		}
 
+		if err := validateClient(r.Client); err != nil {
+			return err
+		}
+		if deviceDigest(r.Client.DeviceID) != c.DeviceDigest {
+			return denied()
+		}
+		r.Client.deviceDigest, r.Client.expectedSession = c.DeviceDigest, c.ExpectedSession
+		r.Client.ClientType, r.Client.DeviceName = c.ClientType, c.DeviceName
 		c.Attempts++
 		a, e := m.repo.AccountByID(ctx, c.AccountID)
 		if e != nil {
@@ -439,6 +444,16 @@ func (m *Manager) CompleteMFA(ctx context.Context, r MFAChallengeResponse) (Sess
 		}
 		if e = tx.Delete(ctx, "auth.challenges", c.Digest); e != nil {
 			return e
+		}
+		if c.LoginLinkDigest != "" {
+			var link storedLoginLink
+			if e = tx.Get(ctx, loginLinksBucket, c.LoginLinkDigest, &link); e != nil {
+				return e
+			}
+			link.Link.PendingMFAUntil = nil
+			if e = tx.Put(ctx, loginLinksBucket, c.LoginLinkDigest, link); e != nil {
+				return e
+			}
 		}
 		result, e = m.issueSession(ctx, a.Account.ID, r.Client)
 		return e
@@ -568,7 +583,7 @@ func (m *Manager) Sessions(ctx context.Context, p core.Principal, q core.PageReq
 	if e := m.ownerSession(ctx, p); e != nil {
 		return core.Page[Session]{}, e
 	}
-	return m.repo.Sessions(ctx, p.OwnerID, q)
+	return m.activeSessions(ctx, p, q)
 }
 func (m *Manager) RevokeSession(ctx context.Context, p core.Principal, id core.ID) error {
 	return m.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {

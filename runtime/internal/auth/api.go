@@ -26,6 +26,7 @@ type Service interface {
 	CheckVerification(context.Context, core.Principal, Verification, string) error
 	Sessions(context.Context, core.Principal, core.PageRequest) (core.Page[Session], error)
 	RevokeSession(context.Context, core.Principal, core.ID) error
+	RevokeOtherSessions(context.Context, core.Principal) error
 	Logout(context.Context, core.Principal) error
 	ChangePassword(context.Context, core.Principal, ChangePasswordRequest) error
 	BeginMFAEnrollment(context.Context, core.Principal, Verification) (MFAEnrollment, error)
@@ -67,9 +68,13 @@ type ReauthenticationSettings struct {
 	Verification    Verification
 }
 type Client struct {
-	Address    string
-	UserAgent  string
-	DeviceName string
+	DeviceID        string
+	ClientType      string
+	Address         string
+	UserAgent       string
+	DeviceName      string
+	deviceDigest    string
+	expectedSession core.ID
 }
 type InitializeRequest struct {
 	Username string
@@ -113,12 +118,15 @@ func (a Authentication) Validate() error {
 }
 
 type Session struct {
-	ID         core.ID
-	AccountID  core.ID
-	DeviceName string
-	CreatedAt  time.Time
-	LastSeenAt time.Time
-	ExpiresAt  time.Time
+	ID          core.ID
+	AccountID   core.ID
+	DeviceName  string
+	ClientType  string
+	LastLoginAt time.Time
+	Current     bool
+	CreatedAt   time.Time
+	LastSeenAt  time.Time
+	ExpiresAt   time.Time
 }
 
 // Raw session tokens go only to Secure HttpOnly cookies; CSRF is a distinct token.

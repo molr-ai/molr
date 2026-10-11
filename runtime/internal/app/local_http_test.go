@@ -69,7 +69,7 @@ func TestLocalHTTPBrowserLoginAndAccessBoundaries(t *testing.T) {
 		if cookie.MaxAge < 0 {
 			continue
 		}
-		if cookie.Name == "molr_dev_csrf" {
+		if strings.HasPrefix(cookie.Name, "molr_dev_csrf_p") {
 			if cookie.Secure || cookie.HttpOnly || cookie.SameSite != http.SameSiteStrictMode || cookie.Path != "/" || cookie.Value == "" {
 				t.Fatal("incorrect local CSRF cookie attributes")
 			}

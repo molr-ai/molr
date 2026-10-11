@@ -866,6 +866,7 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		}
 		return pluginService.RecoverHTTP(ctx)
 	}
+	b.Application.(*Runtime).collectAuth = identity.RunGC
 	b.Application.(*Runtime).collectContexts = func(ctx context.Context) { contextstore.RunGC(ctx, store) }
 	b.Application.(*Runtime).runChannels = channels.Run
 	b.Application.(*Runtime).checkUpdates = updateService.Run

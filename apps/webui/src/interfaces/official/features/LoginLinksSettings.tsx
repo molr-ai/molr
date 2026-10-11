@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge, Button, Dialog, Select, TextField } from '@molr/ui';
-import { Copy, Link, Plus } from 'lucide-react';
+import { Copy, Plus } from 'lucide-react';
 import { api } from '../../../api/client';
 import { useCopy, useQuery, useSession } from '../../../state';
 import { useReauthentication } from '../components/ReauthenticationDialog';
 import { Confirm, EditDialog, ErrorNotice, Loading } from '../components/common';
 
-type LoginLink = { ID: string; Name: string; TargetPath: string; CreatedAt: string; ExpiresAt: string; UsedAt: string | null; RevokedAt: string | null };
+type LoginLink = { ID: string; Name: string; TargetPath: string; CreatedAt: string; ExpiresAt: string; UsedAt: string | null; RevokedAt: string | null; PendingMFAUntil?: string | null };
 type IssuedLink = { link: LoginLink; value: string };
 
 export function LoginLinksSettings() {
@@ -26,6 +26,8 @@ export function LoginLinksSettings() {
         const expiry = Date.parse(link.ExpiresAt);
         // Used links still expose revoke until they expire.
         if (!link.RevokedAt && expiry > current && expiry < next) next = expiry;
+        const pending = Date.parse(link.PendingMFAUntil ?? "");
+        if (pending > current && pending < next) next = pending;
       }
       if (next < Infinity) timer = window.setTimeout(sync, Math.min(next - current, 2_147_483_647));
     }
@@ -33,21 +35,28 @@ export function LoginLinksSettings() {
     document.addEventListener('visibilitychange', sync);
     return () => { window.clearTimeout(timer); document.removeEventListener('visibilitychange', sync); };
   }, [query.data]);
+  function active(link: LoginLink) {
+    return !link.RevokedAt && Date.parse(link.ExpiresAt) > now && (!link.UsedAt || Date.parse(link.PendingMFAUntil ?? '') > now);
+  }
+  const current = (query.data ?? []).filter(active), history = (query.data ?? []).filter(link => !active(link));
+  function row(link: LoginLink) {
+    const expired = Date.parse(link.ExpiresAt) <= now;
+    const pending = Date.parse(link.PendingMFAUntil ?? '') > now;
+    const status = link.RevokedAt ? 'revoked' : link.UsedAt ? (pending && !expired ? 'awaitingMFA' : 'used') : expired ? 'expired' : 'pending';
+    return <article className="settings-row-item" key={link.ID}><div className="settings-row-item-head"><div className="security-record-title"><h4>{link.Name}</h4><Badge tone={status === 'pending' ? 'positive' : 'neutral'}>{t.loginLinks[status]}</Badge></div>{!link.RevokedAt && !expired && <span className="settings-row-item-actions"><Button variant="ghost" size="sm" onClick={() => setRevoking(link)}>{t.loginLinks.revoke}</Button></span>}</div><dl className="security-record-meta"><div><dt>{t.loginLinks.expires}</dt><dd><time dateTime={link.ExpiresAt}>{dates.get(link.ID)}</time></dd></div></dl></article>;
+  }
   return <section className="login-links-settings settings-group" aria-label={t.loginLinks.title}>
-    <div className="record-heading"><div><h3 className="settings-group-title">{t.loginLinks.title}</h3><p className="muted">{t.loginLinks.help}</p></div><Button variant="secondary" onClick={() => setCreating(true)}><Plus />{t.loginLinks.create}</Button></div>
+    <header className="record-heading security-section-heading"><div><h3 className="settings-group-title">{t.loginLinks.title}</h3><p className="security-description">{t.loginLinks.help}</p></div><Button size="sm" variant="secondary" onClick={() => setCreating(true)}><Plus />{t.loginLinks.create}</Button></header>
     <ErrorNotice error={query.error} retry={query.reload} />
-    {!query.data && query.loading ? <Loading /> : !query.data?.length ? <p className="muted">{t.loginLinks.empty}</p> : <div className="settings-rows">{query.data.map(link => {
-      const expired = new Date(link.ExpiresAt).getTime() <= now;
-      const status = link.RevokedAt ? 'revoked' : link.UsedAt ? 'used' : expired ? 'expired' : 'pending';
-      return <article className="settings-row-item" key={link.ID}><div className="settings-row-item-head"><h3><Link size={14} aria-hidden="true" /> {link.Name}</h3><Badge tone={status === 'pending' ? 'positive' : 'neutral'}>{t.loginLinks[status]}</Badge>{!link.RevokedAt && !expired && <span className="settings-row-item-actions"><Button variant="ghost" size="sm" onClick={() => setRevoking(link)}>{t.loginLinks.revoke}</Button></span>}</div><p className="muted">{t.loginLinks.expires}: {dates.get(link.ID)}</p></article>;
-    })}</div>}
+    {!query.data && query.loading ? <Loading /> : current.length ? <div className="settings-rows">{current.map(row)}</div> : <p className="security-description security-empty">{t.loginLinks.empty}</p>}
+    {history.length > 0 && <details className="login-link-history"><summary>{t.loginLinks.history}<span className="security-history-count">{history.length}</span></summary><p className="security-description">{t.loginLinks.historyHelp}</p><div className="settings-rows">{history.map(row)}</div></details>}
     {creating && <CreateLoginLink onClose={() => setCreating(false)} onIssued={result => {
       const url = new URL(import.meta.env.BASE_URL, location.origin);
       url.hash = `/login?${new URLSearchParams({ token: result.value })}`;
       setIssued({ url: url.href, link: result.link }); setCreating(false); query.reload();
     }} />}
     {issued && <IssuedLoginLink url={issued.url} link={issued.link} onClose={() => setIssued(null)} />}
-    {revoking && <Confirm title={t.loginLinks.revoke} description={t.loginLinks.revokeHelp} onClose={() => setRevoking(null)} onConfirm={() => api.remove(`/api/auth/login-links/${revoking.ID}`)} />}
+    {revoking && <Confirm title={t.loginLinks.revoke} description={t.loginLinks.revokeHelp} onClose={() => setRevoking(null)} onConfirm={async () => { await api.remove(`/api/auth/login-links/${revoking.ID}`); query.reload(); }} />}
   </section>;
 }
 function CreateLoginLink({ onClose, onIssued }: { onClose: () => void; onIssued: (result: IssuedLink) => void }) {

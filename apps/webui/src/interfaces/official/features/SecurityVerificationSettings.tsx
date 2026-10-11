@@ -9,7 +9,7 @@ import { SettingsHelp, SettingsSwitch } from '../components/SettingsHelp';
 
 type Enrollment = { id: string; provisioning_uri: string; expires_at: string };
 
-export function SecurityVerificationSettings() {
+export function SecurityVerificationSettings({ onChangePassword }: { onChangePassword: () => void }) {
   const { t } = useCopy(), query = useQuery<SecurityStatus>('/api/auth/security'), action = useAction(), verification = useReauthentication();
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null), [codes, setCodes] = useState<string[] | null>(null);
   const status = query.data;
@@ -21,14 +21,13 @@ export function SecurityVerificationSettings() {
     await api.post('/api/auth/security', { enabled, expected_version: current.Version, verification: proof });
     query.reload();
   }
-  return <div className="security-verification settings-group">
-    <h3 className="settings-group-title">{t.verification.settingsTitle}</h3>
+  return <section className="security-verification settings-group" aria-label={t.verification.settingsTitle}>
+    <header className="security-section-heading"><h3 className="settings-group-title">{t.verification.settingsTitle}</h3></header>
     <ErrorNotice error={query.error || action.error} retry={query.reload} />
     {!status ? query.loading && <Loading /> : <>
       <div className="settings-list">
-        <SettingsSwitch label={t.verification.sensitiveOperations} help={t.verification.sensitiveHelp} checked={status.ReauthenticationEnabled} disabled={action.busy} onChange={event => void action.run(() => change(event.target.checked), undefined, false)} />
-        <div className="settings-row verification-method-row"><span className="settings-label">{t.verification.authenticator}<SettingsHelp label={t.verification.authenticator} content={t.verification.authenticatorHelp} /></span><div className="form-actions">
-          <Badge tone={status.MFAEnabled ? 'positive' : 'neutral'}>{status.MFAEnabled ? t.enabled : t.disabled}</Badge>
+        <div className="settings-row verification-method-row"><span className="settings-label">{t.password}</span><Button size="sm" variant="secondary" onClick={onChangePassword}>{t.settings.changePassword}</Button></div>
+        <div className="settings-row verification-method-row"><div className="security-method-label"><span className="settings-label">{t.verification.authenticator}<SettingsHelp label={t.verification.authenticator} content={t.verification.authenticatorHelp} /></span><Badge tone={status.MFAEnabled ? 'positive' : 'neutral'}>{status.MFAEnabled ? t.verification.statusEnabled : t.verification.statusDisabled}</Badge></div><div className="form-actions">
           <Button size="sm" variant="secondary" disabled={action.busy} onClick={() => void action.run(async () => {
             if (status.MFAEnabled) {
               const proof = await verification.verify('mfa.disable');
@@ -40,12 +39,13 @@ export function SecurityVerificationSettings() {
             query.reload();
           }, undefined, false)}>{status.MFAEnabled ? t.verification.unbind : t.verification.bind}</Button>
         </div></div>
+        <SettingsSwitch label={t.verification.sensitiveOperations} help={t.verification.sensitiveHelp} checked={status.ReauthenticationEnabled} disabled={action.busy} onChange={event => void action.run(() => change(event.target.checked), undefined, false)} />
       </div>
     </>}
     {verification.dialog}
     {enrollment && <EnrollmentDialog enrollment={enrollment} onClose={() => setEnrollment(null)} onConfirmed={codes => { setEnrollment(null); setCodes(codes); query.reload(); }} />}
     {codes && <RecoveryCodesDialog codes={codes} onClose={() => setCodes(null)} />}
-  </div>;
+  </section>;
 }
 
 function EnrollmentDialog({ enrollment, onClose, onConfirmed }: { enrollment: Enrollment; onClose: () => void; onConfirmed: (codes: string[]) => void }) {

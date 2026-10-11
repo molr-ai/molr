@@ -172,6 +172,7 @@ Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugi
 | POST | `/api/assistants/{id}/shell-tasks` |
 | POST | `/api/assistants/{id}/stop` |
 | POST | `/api/auth/login` |
+| POST | `/api/auth/sessions/revoke-others` |
 | POST | `/api/auth/login-links` |
 | POST | `/api/auth/login-links/preview` |
 | POST | `/api/auth/login-links/redeem` |
@@ -298,11 +299,18 @@ Runtime 启动时自动准备并探测命令环境，自动登记本机计算资
 
 外观偏好：`Settings.Theme` 保持 `system` / `light` / `dark`；`Settings.Palette` 支持 `forest` / `ocean` / `iris` / `sand` / `rose` / `monochrome`。旧记录读取时默认 `forest`，旧客户端省略或传空配色字段时保留已有选择，未知值返回 `invalid_argument`。更新仍使用设置版本检查，不修改其他业务偏好。
 
+## 设备会话
+
+- `POST /api/auth/login` 和 `/api/auth/login-links/redeem` 接受 `device_id`、`client_type`、`device_name`。device_id 为 32–128 位 URL-safe 随机字符串，客户端按实例与服务地址保存；省略时创建独立临时会话。client_type 支持 `web`、`ios`、`android`、`desktop`、`cli`，只用于展示。device_name 最长 128 字节，不接受控制字符。
+- 同一账号与 device_id 重复认证，在事务中替换原会话，返回新的 SessionID、Cookie 和 CSRF；保留 CreatedAt，更新 LastLoginAt、LastSeenAt 和 ExpiresAt。未提供 device_id 的 CLI 会话独立创建并在结束时注销。
+- `POST /api/auth/mfa/complete` 必须携带开始登录时的 device_id；设备名称与类型采用 challenge 绑定的值。较旧 challenge 完成时若设备已有新会话，返回 409，需重新开始登录。
+- `GET /api/auth/sessions` 仅返回当前有效会话，包含 ClientType、DeviceName、LastLoginAt、LastSeenAt、ExpiresAt 和 Current；按最近活动倒序分页。WebUI 将当前设备置顶。`POST /api/auth/sessions/revoke-others` 撤销当前账号除请求会话外的所有有效会话，要求登录会话与 CSRF，并记录审计。
+
 ## 登录链接
 
 - `POST /api/auth/login-links`：已登录所有者提供 `name`、`target_path`、`expires_in`（60–86400 秒）和用途为 `login_link.create` 的身份验证证明。默认 UI 为 1 小时，另外提供 15 分钟、24 小时。返回 `link` 元数据和仅本次可见的 `value`；数据库只保存 Token 摘要。
-- `GET /api/auth/login-links` 返回分页元数据，包括 `UsedAt`、`RevokedAt` 和 `ExpiresAt`；不返回凭证。`DELETE /api/auth/login-links/{id}` 撤销链接，也使其待完成的 MFA challenge 失效，不影响已签发的会话。
-- WebUI 使用 `#/login?token=…`，读取后立即从地址栏清除，Token 不写入 localStorage/sessionStorage，不放进 HTTP URL。页面取得预登录 CSRF 后，POST 到 `/api/auth/login-links/preview`，请求体只含 `token`。预览只返回真实 `expires_at`，不消费链接、不签发会话；无效、过期、已使用或已撤销的链接返回 401。该接口与登录接口使用相同的 Origin、预登录 CSRF、限流和 no-store 保护。确认页显示一次性使用说明与到期时间；只有用户点击确认后才重新取得预登录 CSRF，并 POST 到 `/api/auth/login-links/redeem`，提交 `token` 和 `device_name`。兑换时重新验证状态，防止预览后被撤销或过期的链接登录。
+- `GET /api/auth/login-links` 返回分页元数据，包括 `UsedAt`、`RevokedAt`、`ExpiresAt` 和 `PendingMFAUntil`（仅等待 MFA 时有值）；不返回凭证。`DELETE /api/auth/login-links/{id}` 撤销链接，也使其待完成的 MFA challenge 失效，不影响已签发的会话。
+- WebUI 使用 `#/login?token=…`，读取后立即从地址栏清除，Token 不写入 localStorage/sessionStorage，不放进 HTTP URL。页面取得预登录 CSRF 后，POST 到 `/api/auth/login-links/preview`，请求体只含 `token`。预览只返回真实 `expires_at`，不消费链接、不签发会话；无效、过期、已使用或已撤销的链接返回 401。该接口与登录接口使用相同的 Origin、预登录 CSRF、限流和 no-store 保护。确认页显示一次性使用说明与到期时间；只有用户点击确认后才重新取得预登录 CSRF，并 POST 到 `/api/auth/login-links/redeem`，提交 `token`、`device_id`、`client_type` 和 `device_name`。兑换时重新验证状态，防止预览后被撤销或过期的链接登录。
 - 兑换复用登录的 Origin、CSRF、限流和 HttpOnly Cookie 规则。服务器将 Token 消费与签发会话/MFA challenge 放在同一事务中；并发兑换只成功一次。启用 MFA 时仍调用现有 `/api/auth/mfa/complete`，错误验证码不会签发会话。
 - 目标由创建时服务器保存，限定为已知站内路由；不接受 URL 中的跳转覆盖。链接有效期与会话有效期独立。修改密码、本机账号恢复、备份恢复均使旧链接失效。
 - 链接无效、已使用、已撤销或过期统一返回 `unauthenticated`，页面提示获取新链接或使用密码登录。请求响应禁止缓存，审计记录仅含链接 ID，不含原始 Token。

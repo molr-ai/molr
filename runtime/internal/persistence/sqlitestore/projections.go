@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"molr.ai/runtime/internal/persistence"
+	"strings"
 	"time"
 )
 
@@ -26,7 +27,11 @@ func queryProjections(bucket string, data []byte) ([]byte, error) {
 	case "debug.summaries", "sandbox.shell_tasks":
 		fields = []string{"StartedAt"}
 	case "auth.login-links":
-		fields = []string{"Link.CreatedAt"}
+		fields = []string{"Link.CreatedAt", "Link.ExpiresAt"}
+	case "auth.sessions":
+		fields = []string{"Session.LastSeenAt", "Session.ExpiresAt", "RevokedAt"}
+	case "auth.challenges":
+		fields = []string{"ExpiresAt"}
 	case "plugins.http-calls":
 		fields = []string{"CreatedAt"}
 	}
@@ -40,12 +45,13 @@ func queryProjections(bucket string, data []byte) ([]byte, error) {
 	}
 	for _, field := range fields {
 		raw := row[field]
-		if field == "Link.CreatedAt" {
-			var link map[string]json.RawMessage
-			if err := json.Unmarshal(row["Link"], &link); err != nil {
+		parts := strings.Split(field, ".")
+		if len(parts) == 2 {
+			var nested map[string]json.RawMessage
+			if err := json.Unmarshal(row[parts[0]], &nested); err != nil {
 				return data, nil
 			}
-			raw = link["CreatedAt"]
+			raw = nested[parts[1]]
 		}
 		var at time.Time
 		key := ""
@@ -55,10 +61,7 @@ func queryProjections(bucket string, data []byte) ([]byte, error) {
 			}
 			key = persistence.TimeKey(at)
 		}
-		name := field + "Key"
-		if field == "Link.CreatedAt" {
-			name = "CreatedAtKey"
-		}
+		name := parts[len(parts)-1] + "Key"
 		row[name], _ = json.Marshal(key)
 	}
 	return json.Marshal(row)
@@ -88,7 +91,10 @@ func (s *Store) initializeQueryProjections() error {
 	if err := s.initializeProjectionGroup("permission-request-order-v1", []string{"security.permission_requests"}); err != nil {
 		return err
 	}
-	return s.initializeProjectionGroup("weixin-delivery-order-v1", []string{"weixin.deliveries"})
+	if err := s.initializeProjectionGroup("weixin-delivery-order-v1", []string{"weixin.deliveries"}); err != nil {
+		return err
+	}
+	return s.initializeProjectionGroup("auth-expiry-v1", []string{"auth.sessions", "auth.login-links", "auth.challenges"})
 }
 
 func (s *Store) initializeProjectionGroup(marker string, buckets []string) error {

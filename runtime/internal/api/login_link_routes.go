@@ -51,6 +51,8 @@ func (s *HTTPServer) loginLinkRoutes() {
 		input, err := decode[struct {
 			Token      string `json:"token"`
 			DeviceName string `json:"device_name"`
+			DeviceID   string `json:"device_id"`
+			ClientType string `json:"client_type"`
 		}](r)
 		if err != nil {
 			fail(w, err, info(r).ID)
@@ -60,7 +62,7 @@ func (s *HTTPServer) loginLinkRoutes() {
 			fail(w, core.Invalid("device_name", "too long"), info(r).ID)
 			return
 		}
-		result, err := s.services.Auth.RedeemLoginLink(r.Context(), auth.RedeemLoginLinkRequest{Token: core.NewSecret(input.Token), Client: auth.Client{Address: info(r).ClientAddress, UserAgent: r.UserAgent(), DeviceName: input.DeviceName}})
+		result, err := s.services.Auth.RedeemLoginLink(r.Context(), auth.RedeemLoginLinkRequest{Token: core.NewSecret(input.Token), Client: auth.Client{Address: info(r).ClientAddress, UserAgent: r.UserAgent(), DeviceName: input.DeviceName, DeviceID: input.DeviceID, ClientType: input.ClientType}})
 		if err != nil {
 			fail(w, err, info(r).ID)
 			return
