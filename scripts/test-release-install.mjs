@@ -20,6 +20,21 @@ try {
   const configs = find(`${directory}/config`, 'server.json'); assert.equal(configs.length, 1);
   const binaries = find(`${directory}/program`, 'molr-server'); assert.equal(binaries.length, 1);
   const binary = binaries[0], config = configs[0];
+  const doctor = () => {
+    try {
+      return JSON.parse(run(binary, ['doctor', '-config', config]));
+    } catch (error) {
+      // Doctor reports capabilities on stdout even when isolation is unavailable.
+      // Print only its reason code, never installer output or authentication data.
+      try {
+        const reason = JSON.parse(error.stdout).Sandbox?.Capabilities?.Reason;
+        if (typeof reason === 'string' && /^[a-z_]{1,80}$/.test(reason)) console.error(`Sandbox capability reason: ${reason}`);
+      } catch {}
+      const http = String(error.stderr || '').match(/\/api\/[a-z/]+: HTTP [0-9]{3}/);
+      if (http) console.error(`Doctor request failed: ${http[0]}`);
+      throw error;
+    }
+  };
   const unit = `${directory}/config/systemd/user/${name}.service`;
   run('systemctl', ['--user', 'enable', unit]);
   const start = async () => {
@@ -31,7 +46,7 @@ try {
     throw new Error('Runtime did not become ready');
   };
   await start();
-  const health = JSON.parse(run(binary, ['doctor', '-config', config]));
+  const health = doctor();
   assert.equal(health.Sandbox.Enabled, true);
   assert.equal(health.Sandbox.Capabilities.Reason, 'available');
   for (const field of ['Shell', 'ProcessIsolation', 'FileIsolation', 'NetworkIsolation', 'ResourceLimits']) assert.equal(health.Sandbox.Capabilities[field], true, field);
@@ -43,7 +58,7 @@ try {
   run('bash', ['scripts/install.sh', '--archive', archive, '--name', name, '--program-root', `${directory}/program`, '--port', String(port), '--public-host', '127.0.0.1', '--skip-dependencies', '--no-browser', '--no-start']);
   assert.deepEqual(readFileSync(config), before);
   await start();
-  const after = JSON.parse(run(binary, ['doctor', '-config', config]));
+  const after = doctor();
   assert.equal(after.Sandbox.Capabilities.Reason, 'available');
   console.log(`Native install/reinstall/sandbox acceptance passed: ${version}`);
 } catch (error) {

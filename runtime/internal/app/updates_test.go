@@ -6,6 +6,7 @@ import (
 	"molr.ai/runtime/internal/updates"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -16,7 +17,7 @@ func TestUpdateAPIUsesSharedConfiguredSourceAndRequiresCSRF(t *testing.T) {
 	var calls atomic.Int32
 	source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls.Add(1)
-		json.NewEncoder(w).Encode(updates.Release{Version: "0.2.0", Commit: strings.Repeat("a", 40), PublishedAt: time.Now(), NotesURL: "https://example.com/releases/0.2.0", File: "molr_0.2.0_linux_amd64.tar.gz", SHA256: strings.Repeat("b", 64)})
+		json.NewEncoder(w).Encode(updates.Release{Version: "0.2.0", Commit: strings.Repeat("a", 40), PublishedAt: time.Now(), NotesURL: "https://example.com/releases/0.2.0", File: "molr_0.2.0_" + runtime.GOOS + "_" + runtime.GOARCH + ".tar.gz", SHA256: strings.Repeat("b", 64)})
 	}))
 	defer source.Close()
 	cfg := config.Defaults(t.TempDir())

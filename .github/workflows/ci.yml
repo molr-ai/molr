@@ -7,7 +7,11 @@ permissions:
   contents: read
 jobs:
   checks:
-    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -25,9 +29,24 @@ jobs:
       - run: npm run typecheck && npm run build
         env:
           VITE_SITE_MODE: live
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:website
+      - if: runner.arch == 'X64'
+        run: npx playwright install --with-deps chromium
+      - if: runner.arch == 'X64'
+        run: npm run test:website
       - run: go test ./...
         working-directory: runtime
         env:
           CGO_ENABLED: '0'
+      - run: npm run build:release
+      - name: Install native sandbox dependencies
+        run: sudo apt-get update && sudo apt-get install -y bubblewrap busybox-static ca-certificates file util-linux
+      - name: Prepare delegated user service manager
+        run: |
+          sudo loginctl enable-linger "$(id -un)"
+          sudo systemctl start "user@$(id -u).service"
+          echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
+          echo "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus" >> "$GITHUB_ENV"
+      - name: Native installation and sandbox acceptance
+        run: |
+          arch=$(node -p '({x64: "amd64", arm64: "arm64"})[process.arch]')
+          MOLR_TEST_ARCHIVE="dist/releases/molr_0.1.0-local_linux_${arch}.tar.gz" npm run test:release-install
