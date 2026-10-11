@@ -90,7 +90,15 @@ func (e *Engine) rejectSuperseded(ctx context.Context, t Turn) error {
 	}
 	return nil
 }
-func (e *Engine) saveProgress(ctx context.Context, t Turn, p *turnProgress) error {
+
+type progressSaveMode bool
+
+const (
+	progressIfChanged progressSaveMode = false
+	progressAlways    progressSaveMode = true
+)
+
+func (e *Engine) saveProgress(ctx context.Context, t Turn, p *turnProgress, mode progressSaveMode) error {
 	// Dream batches have their own context and never publish assistant checkpoints.
 	if t.Event.Kind == event.DreamDue {
 		return e.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
@@ -160,7 +168,17 @@ func (e *Engine) saveProgress(ctx context.Context, t Turn, p *turnProgress) erro
 			return err
 		}
 		next := Checkpoint{OwnerID: t.Principal.OwnerID, AssistantID: t.Event.AssistantID, ExecutionID: t.Principal.ExecutionID, LastEventID: t.Event.ID, FormatVersion: 1, Sequence: cp.Sequence + 1, SavedAt: e.options.Now().UTC(), Context: raw}
-		if err = e.checkpoints.Save(ctx, next, cp.Sequence); err != nil {
+		if mode == progressAlways {
+			err = e.checkpoints.Save(ctx, next, cp.Sequence)
+		} else {
+			var saved bool
+			saved, err = e.checkpoints.SaveIfChanged(ctx, next, cp.Sequence)
+			if err == nil && !saved {
+				revision = cp.Sequence
+				return nil
+			}
+		}
+		if err != nil {
 			return err
 		}
 		revision = next.Sequence

@@ -268,7 +268,7 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/debugtrace` | `Control.WatchRevision`, `Reader.WatchRevision`, `Service.WatchRevision` | `TestRevisionWatchCommitRollbackScopeAndClose`, `TestRevisionWatchAuthorization` |
 | `internal/persistence` | `Tx.Ancestors` | `internal/persistence/sqlitestore.TestAncestorsBoundedOrderedAndTransactional` |
 | `internal/persistence` | `Tx.EncodedBytes` | `internal/persistence/sqlitestore.TestEncodedBytesRespectsScopeAndOriginalEncoding`, `internal/persistence/sqlitestore.TestEncodedBytesObservesTransactionAndRollback` |
-| `internal/contextstore` | `Save`, `Load`, `Release`, `Collect` | `TestSharedPrefixesScopedReferencesAndCollection`, `TestStableCanonicalIdentityAndRollback`, `TestConcurrentReferencesSurviveGC` |
+| `internal/contextstore` | `Save`, `SaveChanged`, `Load`, `Release`, `Collect` | `TestSharedPrefixesScopedReferencesAndCollection`, `TestStableCanonicalIdentityAndRollback`, `TestSaveChangedSkipsAllWritesForIdenticalContent`, `TestConcurrentReferencesSurviveGC` |
 | `internal/contextstore` | `Intern`, `Append` | `TestAppendIdentityAndLinearStorage`, `TestLongestPrefixUsesBinarySearch` |
 | `internal/contextstore` | `AccountUsage`, `GlobalUsage` | `TestUsageDeduplicatesWithinScopeAndTracksCollection`, `TestUsagePaginatesReferencesAndObjects`, `TestGlobalUsageDoesNotReadContextPayloads` |
 | `internal/contextstore` | `ReleaseKind`, `RunGC` | `TestReleaseKindScopesReferencesAndBackgroundCollection` |

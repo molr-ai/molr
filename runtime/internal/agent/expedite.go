@@ -360,7 +360,7 @@ func (e *Engine) intakeExpedite(ctx context.Context, t Turn, p *turnProgress) er
 				return err
 			}
 		}
-		return e.saveProgress(ctx, t, &next)
+		return e.saveProgress(ctx, t, &next, progressIfChanged)
 	})
 	if err == nil {
 		*p = next

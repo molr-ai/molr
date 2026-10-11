@@ -131,7 +131,7 @@ func (e *Engine) intakeEvents(ctx context.Context, t Turn, p *turnProgress) erro
 		if err := checkContextSize(next.Inputs); err != nil {
 			return err
 		}
-		return e.saveProgress(checkpointCause(ctx, "event_received"), t, &next)
+		return e.saveProgress(checkpointCause(ctx, "event_received"), t, &next, progressIfChanged)
 	})
 	if err == nil && changed {
 		*p = next

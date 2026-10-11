@@ -541,7 +541,7 @@ func (e *Engine) Handle(ctx context.Context, t Turn) (outcome Outcome, resultErr
 		if err != nil {
 			return Outcome{}, err
 		}
-		if err = e.saveProgress(runCtx, t, &progress); err != nil {
+		if err = e.saveProgress(runCtx, t, &progress, progressIfChanged); err != nil {
 			return Outcome{}, err
 		}
 		if err := e.intakeEvents(runCtx, t, &progress); err != nil {
@@ -587,7 +587,7 @@ resume:
 				}
 			}
 			if persistence.Missing(receiptErr) && t.Event.Kind != event.DreamDue {
-				if err := e.saveProgress(runCtx, t, &progress); err != nil {
+				if err := e.saveProgress(runCtx, t, &progress, progressIfChanged); err != nil {
 					return Outcome{}, err
 				}
 				interrupted, compactErr := e.prepareContext(runCtx, t, modelID, &progress)
@@ -603,7 +603,7 @@ resume:
 			// the checkpoint, a later attempt can repeat the request; a pending
 			// expedite supersedes it before any tools are started.
 
-			if err := e.saveProgress(runCtx, t, &progress); err != nil {
+			if err := e.saveProgress(runCtx, t, &progress, progressIfChanged); err != nil {
 				return Outcome{}, err
 			}
 			response, interrupted, err := e.generateStep(runCtx, t, modelID, progress.Definitions, progress)
@@ -614,7 +614,7 @@ resume:
 				pendingRetry = ""
 				progress.Step++
 				if err := e.store.Write(runCtx, func(ctx context.Context, tx persistence.Tx) error {
-					if err := e.saveProgress(ctx, t, &progress); err != nil {
+					if err := e.saveProgress(ctx, t, &progress, progressIfChanged); err != nil {
 						return err
 					}
 					return tx.Put(ctx, "agent.superseded_models", persistence.Key(t.Principal.OwnerID, execution.OperationID), true)
@@ -637,8 +637,9 @@ resume:
 					return Outcome{}, err
 				}
 			}
+			// Model completion is a durable observation even when the response repeats.
 			progress.Response = &response
-			if err := e.saveProgress(runCtx, t, &progress); err != nil {
+			if err := e.saveProgress(runCtx, t, &progress, progressAlways); err != nil {
 				return Outcome{}, err
 			}
 		}
@@ -724,7 +725,7 @@ resume:
 			}
 			progress.Inputs = append(progress.Inputs, model.Input{ToolOperationID: toolExecution.OperationID, Role: model.Tool, Text: string(result.Content), Media: result.Media, ReplyTo: call.ID, ReadMessageIDs: readIDs})
 			progress.NextTool++
-			if err := e.saveProgress(runCtx, t, &progress); err != nil {
+			if err := e.saveProgress(runCtx, t, &progress, progressIfChanged); err != nil {
 				return Outcome{}, err
 			}
 		}
@@ -740,7 +741,7 @@ resume:
 			progress.PublishReminded = true
 			progress.Finished = false
 		}
-		if err := e.saveProgress(runCtx, t, &progress); err != nil {
+		if err := e.saveProgress(runCtx, t, &progress, progressIfChanged); err != nil {
 			return Outcome{}, err
 		}
 		if t.Event.Kind != event.DreamDue {

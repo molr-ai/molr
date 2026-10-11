@@ -97,6 +97,8 @@ type ContextBuilder interface {
 type Checkpoints interface {
 	Load(context.Context, core.ID, core.ID) (Checkpoint, error)
 	Save(context.Context, Checkpoint, uint64) error
+	// SaveIfChanged returns false for an unchanged state after validating the expected version.
+	SaveIfChanged(context.Context, Checkpoint, uint64) (bool, error)
 }
 
 // Dependencies are the minimum execution ports; none expose secrets or storage.

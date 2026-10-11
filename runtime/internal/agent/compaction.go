@@ -259,7 +259,7 @@ func (e *Engine) compactContext(ctx context.Context, t Turn, id core.ID, p *turn
 	// Checkpoint, progress reference, status and save trace commit together.
 	status.Tokens, status.Source, status.Compressions = after, "estimated", 1
 	if err = e.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		if err := e.saveProgress(checkpointCause(ctx, "context_compaction"), t, &candidate); err != nil {
+		if err := e.saveProgress(checkpointCause(ctx, "context_compaction"), t, &candidate, progressIfChanged); err != nil {
 			return err
 		}
 		if err := e.recordContextStatus(ctx, t, status); err != nil {

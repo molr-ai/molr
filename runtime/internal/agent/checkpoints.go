@@ -35,15 +35,27 @@ func (c *checkpoints) Load(ctx context.Context, owner, assistant core.ID) (Check
 	return out, err
 }
 func (c *checkpoints) Save(ctx context.Context, value Checkpoint, expected uint64) error {
+	_, err := c.save(ctx, value, expected, false)
+	return err
+}
+
+// SaveIfChanged preserves the version and timestamp when recovery state and
+// execution identity are unchanged. Version checks still run for every call.
+func (c *checkpoints) SaveIfChanged(ctx context.Context, value Checkpoint, expected uint64) (bool, error) {
+	return c.save(ctx, value, expected, true)
+}
+
+func (c *checkpoints) save(ctx context.Context, value Checkpoint, expected uint64, skipUnchanged bool) (bool, error) {
 	for _, id := range []core.ID{value.OwnerID, value.AssistantID, value.ExecutionID, value.LastEventID} {
 		if err := id.Validate(); err != nil {
-			return err
+			return false, err
 		}
 	}
 	if value.FormatVersion != 1 || value.Sequence == 0 || value.SavedAt.IsZero() || len(value.Context) > 256<<20 || !json.Valid(value.Context) {
-		return core.Invalid("checkpoint", "unsupported checkpoint format or sequence")
+		return false, core.Invalid("checkpoint", "unsupported checkpoint format or sequence")
 	}
-	return c.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+	saved := false
+	err := c.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		var old Checkpoint
 		err := tx.Get(ctx, checkpointsBucket, persistence.Key(value.OwnerID, value.AssistantID), &old)
 		if err != nil && !persistence.Missing(err) {
@@ -52,8 +64,12 @@ func (c *checkpoints) Save(ctx context.Context, value Checkpoint, expected uint6
 		if old.Sequence != expected || value.Sequence != expected+1 {
 			return core.NewError(core.Conflict, "checkpoint sequence changed")
 		}
-		if err := contextstore.Save(ctx, tx, storeReference(value.OwnerID, value.AssistantID, "checkpoint", value.AssistantID), value.Context); err != nil {
+		changed, err := contextstore.SaveChanged(ctx, tx, storeReference(value.OwnerID, value.AssistantID, "checkpoint", value.AssistantID), value.Context)
+		if err != nil {
 			return err
+		}
+		if skipUnchanged && !changed && old.ExecutionID == value.ExecutionID && old.LastEventID == value.LastEventID && old.FormatVersion == value.FormatVersion {
+			return nil
 		}
 		stored := storedCheckpoint{Checkpoint: value, ContextStored: true}
 		stored.Context = nil
@@ -69,6 +85,8 @@ func (c *checkpoints) Save(ctx context.Context, value Checkpoint, expected uint6
 		c.trace.RecordCheckpoint(ctx, value.OwnerID, value.AssistantID, value.LastEventID, value.ExecutionID, map[string]any{
 			"ContextBytes": len(value.Context), "ContextOmitted": true, "Sequence": value.Sequence, "PreviousSequence": expected, "SavedAt": value.SavedAt, "Cause": cause,
 		})
+		saved = true
 		return nil
 	})
+	return saved && err == nil, err
 }

@@ -68,7 +68,7 @@ func TestManualInterruptPreservesCompletedContextAndClosesPendingTools(t *testin
 	e := f.Runtime.(*Engine)
 	response := model.Input{Role: model.Assistant, Calls: []model.ToolCall{{ID: "pending", Name: "conversation_publish", Arguments: json.RawMessage(`{"conversation_id":"chat","text":"not sent"}`)}}}
 	progress := turnProgress{Inputs: []model.Input{{Role: model.System, Text: "retained work"}, response}, Response: &response}
-	testkit.RequireNoError(t, e.saveProgress(t.Context(), f.Turn, &progress))
+	testkit.RequireNoError(t, e.saveProgress(t.Context(), f.Turn, &progress, progressIfChanged))
 	testkit.RequireNoError(t, db.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
 		if err := tx.Put(ctx, statusBucket, "owner/assistant", Status{AssistantID: "assistant", State: Working, ExecutionID: "run"}); err != nil {
 			return err

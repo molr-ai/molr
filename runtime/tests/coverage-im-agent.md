@@ -67,6 +67,7 @@
 | `internal/agent` | `Runtime.Handle` | `TestTDDAgentHandlesEventAndResumesCommittedCheckpoint`、`TestTDDAgentAuthorizationStopAndFailedCommitRecovery` |
 | `internal/agent` | `ContextBuilder.Build` | `TestTDDAgentContextExcludesImplicitChatHistory` |
 | `internal/agent` | `Checkpoints.Load` | `TestTDDCheckpointCompareAndSwapAndOwnerIsolation`、`TestTDDAgentHandlesEventAndResumesCommittedCheckpoint` |
+| `internal/agent` | `Checkpoints.SaveIfChanged` | `TestCheckpointSaveIfChanged`、`TestProgressNoopPreservesRecoveryReferenceAndForcedObservation` |
 | `internal/agent` | `Checkpoints.Save` | `TestTDDCheckpointCompareAndSwapAndOwnerIsolation` |
 | `internal/agent` | `Turn.Validate` | `TestTurnRejectsCrossOwnerAndAssistantCheckpoints`、`TestTDDTurnValidationSourceAndCheckpointFormat` |
 

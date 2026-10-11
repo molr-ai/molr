@@ -345,59 +345,69 @@ func assign(v any, path []string, value any) error {
 // Message arrays share prefixes; the rest of the document is also addressed by
 // content so identical request bodies/tool definitions need only one copy.
 func Save(ctx context.Context, tx persistence.Tx, ref Reference, value any) error {
+	_, err := SaveChanged(ctx, tx, ref, value)
+	return err
+}
+
+// SaveChanged reports whether the reference changed, using the same canonical
+// content identity as Save. The result is durable only if the caller commits.
+func SaveChanged(ctx context.Context, tx persistence.Tx, ref Reference, value any) (bool, error) {
 	key, err := refKey(ref)
 	if err != nil {
-		return err
+		return false, err
 	}
 	raw, err := json.Marshal(value)
 	if err != nil {
-		return err
+		return false, err
 	}
 	var tree any
 	d := json.NewDecoder(bytes.NewReader(raw))
 	d.UseNumber()
 	if err = d.Decode(&tree); err != nil {
-		return err
+		return false, err
 	}
 	var trees []slot
 	var values []valueSlot
 	tree, err = split(ctx, tx, tree, nil, &trees, &values)
 	if err != nil {
-		return err
+		return false, err
 	}
 	data, err := json.Marshal(tree)
 	if err != nil {
-		return err
+		return false, err
 	}
 	o := object{Kind: "document", Data: data, Trees: trees, Values: values}
 	encoded, err := json.Marshal(o)
 	if err != nil {
-		return err
+		return false, err
 	}
 	id := hash("molr.context-document:v1\x00", encoded)
 	var old reference
 	err = tx.Get(ctx, references, key, &old)
 	if err != nil && !persistence.Missing(err) {
-		return err
+		return false, err
 	}
 	if err == nil && old.Reference != ref {
-		return core.NewError(core.Forbidden, "context reference unavailable")
+		return false, core.NewError(core.Forbidden, "context reference unavailable")
 	}
 	if old.DocumentID == id {
-		return nil
+		return false, nil
 	}
 	if err = insert(ctx, tx, id, o); err != nil {
-		return err
+		return false, err
 	}
 	if err = retain(ctx, tx, id, 1); err != nil {
-		return err
+		return false, err
 	}
 	if old.DocumentID != "" {
 		if err = retain(ctx, tx, old.DocumentID, -1); err != nil {
-			return err
+			return false, err
 		}
 	}
-	return tx.Put(ctx, references, key, reference{Reference: ref, DocumentID: id})
+	if err := tx.Put(ctx, references, key, reference{Reference: ref, DocumentID: id}); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 func Load(ctx context.Context, tx persistence.Tx, ref Reference, out any) error {
 	key, err := refKey(ref)

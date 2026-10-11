@@ -303,3 +303,36 @@ func TestToolDefinitionsShareContentAcrossSnapshots(t *testing.T) {
 		t.Fatal("tool definitions leaked")
 	}
 }
+
+type unchangedSaveTx struct{ persistence.Tx }
+
+func (tx unchangedSaveTx) Put(context.Context, string, string, any) error {
+	return core.NewError(core.Internal, "unchanged context attempted a write")
+}
+func TestSaveChangedSkipsAllWritesForIdenticalContent(t *testing.T) {
+	s := fixture(t)
+	r := ref("owner", "unchanged")
+	first := json.RawMessage(`{"Inputs":[{"Role":"user","Text":"same"}],"Current":{"NextTool":0}}`)
+	write(t, s, func(ctx context.Context, tx persistence.Tx) error {
+		changed, err := SaveChanged(ctx, tx, r, first)
+		if err == nil && !changed {
+			t.Fatal("initial reference not changed")
+		}
+		return err
+	})
+	same := json.RawMessage(`{ "Current":{"NextTool":0},"Inputs":[{"Text":"same","Role":"user"}]}`)
+	write(t, s, func(ctx context.Context, tx persistence.Tx) error {
+		changed, err := SaveChanged(ctx, unchangedSaveTx{tx}, r, same)
+		if changed {
+			t.Fatal("same canonical content considered changed")
+		}
+		return err
+	})
+	write(t, s, func(ctx context.Context, tx persistence.Tx) error {
+		changed, err := SaveChanged(ctx, tx, r, json.RawMessage(`{"Inputs":[{"Role":"user","Text":"same"}],"Current":{"NextTool":1}}`))
+		if err == nil && !changed {
+			t.Fatal("non-message state change missed")
+		}
+		return err
+	})
+}

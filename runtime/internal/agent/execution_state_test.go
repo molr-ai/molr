@@ -130,7 +130,7 @@ func TestUnknownOperationSurvivesStopAndLateCompletionIsReconciled(t *testing.T)
 	call := model.ToolCall{ID: "same-call-id", Name: "file_write", Arguments: json.RawMessage(`{"path":"output","text":"value"}`)}
 	response := model.Input{Role: model.Assistant, Calls: []model.ToolCall{call}}
 	p := turnProgress{Inputs: []model.Input{{Role: model.System, Text: loopInstructions}, response}, Response: &response}
-	testkit.RequireNoError(t, e.saveProgress(t.Context(), f.Turn, &p))
+	testkit.RequireNoError(t, e.saveProgress(t.Context(), f.Turn, &p, progressIfChanged))
 	id := stableID(string(f.Turn.Event.ID), "tool", call.ID)
 	op := operation.Operation{ID: id, OwnerID: f.Owner.OwnerID, AssistantID: "assistant", ExecutionID: f.Turn.Principal.ExecutionID, Action: call.Name, State: operation.Running, Version: 1}
 	testkit.RequireNoError(t, db.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
@@ -176,11 +176,11 @@ func TestStaleCheckpointWriteCannotOverwriteNewExecution(t *testing.T) {
 	f, _ := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	old := turnProgress{Inputs: []model.Input{{Role: model.System, Text: loopInstructions}, {Role: model.User, Text: "old progress"}}}
-	testkit.RequireNoError(t, e.saveProgress(t.Context(), f.Turn, &old))
+	testkit.RequireNoError(t, e.saveProgress(t.Context(), f.Turn, &old, progressIfChanged))
 	_, err := e.Handle(t.Context(), nextStateTurn(f, "new", event.ResumeRequested))
 	testkit.RequireNoError(t, err)
 	old.Inputs = append(old.Inputs, model.Input{Role: model.Assistant, Text: "late stale write"})
-	err = e.saveProgress(t.Context(), f.Turn, &old)
+	err = e.saveProgress(t.Context(), f.Turn, &old, progressIfChanged)
 	testkit.RequireCode(t, err, core.Canceled)
 	cp, err := f.Checkpoints.Load(t.Context(), f.Owner.OwnerID, "assistant")
 	testkit.RequireNoError(t, err)
@@ -201,7 +201,7 @@ func TestHandoffUsesOnlyCheckpointedModelOutput(t *testing.T) {
 	f, db := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	p := turnProgress{Inputs: []model.Input{{Role: model.System, Text: loopInstructions}, {Role: model.User, Text: "in-flight work"}}}
-	testkit.RequireNoError(t, e.saveProgress(t.Context(), f.Turn, &p))
+	testkit.RequireNoError(t, e.saveProgress(t.Context(), f.Turn, &p, progressIfChanged))
 	id := modelOperationID(f.Turn, 0)
 	testkit.RequireNoError(t, db.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
 		return tx.Put(ctx, "agent.operations", persistence.Key(f.Owner.OwnerID, id), operation.Operation{ID: id, OwnerID: f.Owner.OwnerID, AssistantID: "assistant", ExecutionID: f.Turn.Principal.ExecutionID, Action: "model.generate", State: operation.Succeeded})
@@ -225,7 +225,7 @@ func TestHandoffRetainsProviderUsageBaseline(t *testing.T) {
 	response := model.Input{Role: model.Assistant, Calls: []model.ToolCall{{ID: "pending", Name: "conversation_read", Arguments: json.RawMessage(`{"conversation_id":"chat","limit":1}`)}}}
 	p := turnProgress{Inputs: []model.Input{{Role: model.System, Text: loopInstructions}, response}, Response: &response}
 	p.Usage = &contextUsage{ModelID: "model", Tokens: 30000, Inputs: usageInputs(p.Inputs, model.StateSource{}), Tools: contextHash(p.Definitions)}
-	testkit.RequireNoError(t, e.saveProgress(t.Context(), f.Turn, &p))
+	testkit.RequireNoError(t, e.saveProgress(t.Context(), f.Turn, &p, progressIfChanged))
 	_, next, err := e.prepareExecution(t.Context(), nextStateTurn(f, "usage-next", event.ScheduleDue))
 	testkit.RequireNoError(t, err)
 	tokens, source := contextTokens(next, "model", model.StateSource{})
