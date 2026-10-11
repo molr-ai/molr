@@ -45,6 +45,7 @@ type Settings struct {
 	AnswerPreferences string
 	ReducedMotion     bool
 	WorkbenchVisible  bool
+	PluginsVisible    bool
 	Version           core.Version
 }
 type UpdateRequest struct {

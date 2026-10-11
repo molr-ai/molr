@@ -1,3 +1,4 @@
+import { usePluginsVisible, pluginResourceVisible } from '../plugins/visibility';
 import type { GPUDevice, SandboxView } from '../sandbox-types';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -25,13 +26,14 @@ function Metric({ label, children }: { label: string; children: ReactNode }) {
   return <div className="usage-metric"><dt>{label}</dt><dd>{children}</dd></div>;
 }
 function Overview({ value }: { value: UsageSummary }) {
+  const pluginsVisible = usePluginsVisible();
   const { locale } = useCopy(), zh = locale === 'zh';
   return <dl className="usage-overview">
     <Metric label={zh ? '累计模型费用' : 'Lifetime model spend'}><Amounts values={value.Spent} /></Metric>
     <Metric label={zh ? '预留费用' : 'Reserved spend'}><Amounts values={value.Reserved} /></Metric>
     <Metric label={zh ? '模型调用' : 'Model calls'}>{value.ModelCalls.toLocaleString(locale)}</Metric>
     <Metric label={zh ? '工具调用' : 'Tool calls'}>{value.ToolCalls.toLocaleString(locale)}</Metric>
-    <Metric label={zh ? 'HTTP 连接调用' : 'HTTP connection calls'}>{value.ConnectionCalls.toLocaleString(locale)}</Metric>
+    {pluginsVisible && <Metric label={zh ? 'HTTP 连接调用' : 'HTTP connection calls'}>{value.ConnectionCalls.toLocaleString(locale)}</Metric>}
     <Metric label={zh ? '当前附件存储' : 'Current attachment storage'}>{bytes(value.AttachmentBytes)}</Metric>
   </dl>;
 }
@@ -72,21 +74,23 @@ function ResourceAllowance({ reference, used, name, gpus }: { gpus?: GPUDevice[]
   </article>;
 }
 export function AccountUsage() {
+  const pluginsVisible = usePluginsVisible();
   const { locale, t } = useCopy(), zh = locale === 'zh';
   const query = useQuery<AccountQuotas>('/api/account/quotas');
   const sandboxes = useQuery<SandboxView[]>('/api/sandboxes');
   const labels = t.assistantInfo.toolLabels as Record<string, { name: string }>;
   const models = useQuery<{ ID: string; Name: string }[]>('/api/models');
   const [filter, setFilter] = useState('all');
-  const data = query.data, resources = data?.Group.Resources.filter(r => r.Kind !== 'plugin' && (filter === 'all' || r.Kind === filter)) ?? [];
+  const data = query.data, resources = data?.Group.Resources.filter(r => r.Kind !== 'plugin' && pluginResourceVisible(r.Kind, pluginsVisible, r.ID) && (filter === 'all' || (!pluginsVisible && filter === 'connection') || r.Kind === filter)) ?? [];
   return <div className="usage-page" aria-busy={query.loading}>
     <div className="usage-toolbar"><p>{data?.Group.Administrator ? zh ? '查看自己的累计用量。' : 'Your lifetime usage.' : zh ? '查看自己的累计用量，以及当前周期可用的成员额度。' : 'Your lifetime usage and current member allowances.'}</p><Button size="sm" variant="secondary" disabled={query.loading} onClick={query.reload}><RefreshCw size={14} />{t.refresh}</Button></div>
     <ErrorNotice error={query.error} retry={query.reload} />
     {!data ? query.loading && <Loading /> : <>
       <Overview value={data.Summary} />
-      <p className="usage-note">{zh ? '费用与调用次数为累计值，附件为当前占用。HTTP 工具调用也计入工具次数，两项不可相加。预留费用尚未确认为实际消费。' : 'Spend and calls are lifetime totals; storage is current usage. HTTP tool calls also count as tool calls; do not add the two. Reserved spend is not confirmed spending.'}</p>
+      <p className="usage-note">{zh ? '费用与调用次数为累计值，附件为当前占用。预留费用尚未确认为实际消费。' : 'Spend and calls are lifetime totals; storage is current usage. Reserved spend is not confirmed spending.'}</p>
+      {pluginsVisible && <p className="usage-note">{zh ? 'HTTP 连接调用也计入工具次数，两项不可相加。' : 'HTTP connection calls also count as tool calls; do not add the two.'}</p>}
       <ContextStorage value={data.ContextStorage} />
-      {!data.Group.Administrator && <section className="usage-allowances"><div className="usage-section-heading"><div><h3>{zh ? '当前成员额度' : 'Current member allowances'}</h3><p>{groupName(data.Group, zh)} · {zh ? '每位成员独立计量，所有助理合计使用' : 'Measured per member, across all assistants'}</p></div><Select label={zh ? '资源类型' : 'Resource type'} value={filter} onValueChange={setFilter} options={[{ value: 'all', label: zh ? '全部资源' : 'All resources' }, { value: 'model', label: zh ? '模型' : 'Models' }, { value: 'tool', label: zh ? '工具' : 'Tools' }, { value: 'connection', label: zh ? '连接' : 'Connections' }, { value: 'sandbox', label: zh ? '沙盒' : 'Sandboxes' }]} /></div>
+      {!data.Group.Administrator && <section className="usage-allowances"><div className="usage-section-heading"><div><h3>{zh ? '当前成员额度' : 'Current member allowances'}</h3><p>{groupName(data.Group, zh)} · {zh ? '每位成员独立计量，所有助理合计使用' : 'Measured per member, across all assistants'}</p></div><Select label={zh ? '资源类型' : 'Resource type'} value={!pluginsVisible && filter === 'connection' ? 'all' : filter} onValueChange={setFilter} options={[{ value: 'all', label: zh ? '全部资源' : 'All resources' }, { value: 'model', label: zh ? '模型' : 'Models' }, { value: 'tool', label: zh ? '工具' : 'Tools' }, ...(pluginsVisible ? [{ value: 'connection', label: zh ? '连接' : 'Connections' }] : []), { value: 'sandbox', label: zh ? '沙盒' : 'Sandboxes' }]} /></div>
         {resources.length ? <div className="usage-resources">{resources.map(ref => <ResourceAllowance key={`${ref.Kind}:${ref.ID}`} reference={ref} gpus={sandboxes.data?.find(node => ref.Kind === 'sandbox' && node.ID === ref.ID)?.Info.GPUs} used={data.Resources.find(v => v.Kind === ref.Kind && v.ID === ref.ID)} name={models.data?.find(m => ref.Kind === 'model' && m.ID === ref.ID)?.Name ?? (ref.Kind === 'tool' ? labels[ref.ID]?.name : ref.Kind === 'sandbox' && ref.ID === 'local' ? zh ? '本机沙盒' : 'Local sandbox' : undefined) ?? data.Resources.find(v => v.Kind === ref.Kind && v.ID === ref.ID)?.Name ?? ref.ID} />)}</div> : <Empty title={zh ? '暂无资源额度' : 'No resource allowances'} description={zh ? '当前用户组或筛选条件下没有可展示的资源。' : 'No resources match your group or filter.'} />}
       </section>}
       <p className="usage-note">{zh ? '统计时间：' : 'As of: '}{new Date(data.AsOf).toLocaleString(locale)}</p>
@@ -102,6 +106,7 @@ function aggregate(rows: UsageSummary[]): UsageSummary {
   return result;
 }
 export function AdminUsage() {
+  const pluginsVisible = usePluginsVisible();
   const { locale, t } = useCopy(), zh = locale === 'zh';
   const query = useQuery<AdminUsageView>('/api/admin/usage'), groups = useQuery<UserGroup[]>('/api/admin/groups');
   const [search, setSearch] = useState(''), [group, setGroup] = useState('all');
@@ -115,7 +120,8 @@ export function AdminUsage() {
     {!rows ? query.loading && <Loading /> : <>
       <div className="usage-section-heading"><h3>{zh ? '筛选结果汇总' : 'Filtered totals'}</h3><Badge>{rows.length} {zh ? '位成员' : 'members'}</Badge></div>
       <Overview value={aggregate(rows)} />
-      <p className="usage-note">{zh ? '调用与费用为累计值，附件为当前存储。HTTP 工具调用同时计入工具次数；只有执行中的调用保留费用预留和并发占用。' : 'Calls and spend are lifetime totals; storage is current. HTTP tool calls also count as tool calls. Only running calls retain reserved spend and concurrency.'}</p>
+      {pluginsVisible && <p className="usage-note">{zh ? 'HTTP 连接调用也计入工具次数，两项不可相加。' : 'HTTP connection calls also count as tool calls; do not add the two.'}</p>}
+      <p className="usage-note">{zh ? '调用与费用为累计值，附件为当前存储。只有执行中的调用保留费用预留和并发占用。' : 'Calls and spend are lifetime totals; storage is current. Only running calls retain reserved spend and concurrency.'}</p>
       {!rows.length ? <Empty title={zh ? '没有匹配的成员' : 'No matching members'} /> : <div className="usage-members">{rows.map(u => <details key={u.UserID} className="usage-member"><summary><div className="usage-member-identity"><strong>{u.DisplayName || u.Username}</strong><span>@{u.Username} · {groupName(groups.data?.find(g => g.ID === u.GroupID) ?? { ID: u.GroupID, Name: u.GroupID }, zh)}</span></div><div className="usage-member-spend"><span>{zh ? '已消费' : 'Spent'}</span><Amounts values={u.Spent} />{u.Unknown > 0 && <Badge>{u.Unknown} {zh ? '历史结果未知' : 'past outcomes unknown'}</Badge>}</div></summary><div className="usage-member-details"><Overview value={u} /><p className="usage-note">{zh ? `模型与工具调用占用：${u.Active}；另有 ${u.Unknown} 次历史调用结果未知，已结束费用预留和并发占用。` : `Model and tool calls holding allowance: ${u.Active}; ${u.Unknown} past outcomes are unknown and no longer hold reserved spend or concurrency.`}</p></div></details>)}</div>}
     </>}
   </div>;

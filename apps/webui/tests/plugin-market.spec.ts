@@ -1,3 +1,4 @@
+import { showPlugins } from './plugin-visibility-helper';
 import { test, expect, type Page } from '@playwright/test';
 import type { PluginPackage } from '@molr/sdk/plugins';
 const port = process.env.MOLR_TEST_PORT ?? '5193', base = `http://127.0.0.1:${port}`;
@@ -7,7 +8,7 @@ async function post(page: Page, path: string, data: object, status = 200) {
   expect(response.status(), await response.text()).toBe(status); return response.json();
 }
 async function login(page: Page, username = 'owner', password = 'webui-e2e-password-2026!') {
-  await page.goto('/#/extensions'); await page.getByLabel('Username', { exact: true }).fill(username); await page.getByLabel('Password', { exact: true }).fill(password); await page.getByRole('button', { name: 'Sign in', exact: true }).click(); await expect(page.getByRole('heading', { name: 'Plugins', exact: true })).toBeVisible();
+  await page.goto('/#/account/general'); await page.getByLabel('Username', { exact: true }).fill(username); await page.getByLabel('Password', { exact: true }).fill(password); await page.getByRole('button', { name: 'Sign in', exact: true }).click(); await showPlugins(page); await expect(page.getByRole('heading', { name: 'Plugins', exact: true })).toBeVisible();
 }
 const card = (page: Page, name: string) => page.locator('.plugin-card').filter({ has: page.getByRole('heading', { name, exact: true }) });
 async function menu(page: Page, name: string, action: string) { await card(page,name).getByRole('button', { name: `More · ${name}`, exact: true }).click(); await page.getByRole('menuitem', { name: action, exact: true }).click(); }

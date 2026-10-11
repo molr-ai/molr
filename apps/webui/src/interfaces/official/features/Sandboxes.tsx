@@ -1,3 +1,4 @@
+import { usePluginsVisible, pluginResourceVisible } from '../../../plugins/visibility';
 import { gpuName } from '../../../gpu';
 import { fullAccessHelp } from '../../../full-access';
 import { fullAccessLabel, sandboxPermissions } from './PermissionTargetFields';
@@ -181,7 +182,8 @@ function RenameSandboxResource({ resource, onClose }: { resource: Resource; onCl
   return <EditDialog title={copy.rename} onClose={onClose} onSubmit={() => api.mutate('/api/resources/update', { ID: resource.ID, Name: name.trim() }, resource.Version)}><TextField label={t.name} value={name} onChange={event => setName(event.target.value)} required maxLength={256} /></EditDialog>;
 }
 export function ToolsCatalog() {
+  const pluginsVisible = usePluginsVisible();
   const { t } = useCopy(), copy = useSandboxCopy(), query = useQuery<ToolCapability[]>('/api/tools');
   const labels = t.assistantInfo.toolLabels as Record<string, { name: string; description: string }>;
-  return <div className="record-list"><p className="muted">{copy.toolsHelp}</p><ErrorNotice error={query.error} retry={query.reload} />{query.loading && !query.data && <Loading />}{query.data?.map(tool => <Card key={tool.Name}><div className="record-heading"><h2>{labels[tool.Name]?.name ?? tool.Name}</h2><Badge>{tool.SideEffect ? t.assistantInfo.writesData : t.assistantInfo.readOnly}</Badge></div><p className="muted">{labels[tool.Name]?.description ?? tool.Description}</p><details><summary>{t.assistantInfo.toolDetails}</summary><code>{tool.Name}</code><pre>{JSON.stringify(tool.InputSchema, null, 2)}</pre></details></Card>)}</div>;
+  return <div className="record-list"><p className="muted">{copy.toolsHelp}</p><ErrorNotice error={query.error} retry={query.reload} />{query.loading && !query.data && <Loading />}{query.data?.filter(tool => pluginResourceVisible('tool', pluginsVisible, tool.Name)).map(tool => <Card key={tool.Name}><div className="record-heading"><h2>{labels[tool.Name]?.name ?? tool.Name}</h2><Badge>{tool.SideEffect ? t.assistantInfo.writesData : t.assistantInfo.readOnly}</Badge></div><p className="muted">{labels[tool.Name]?.description ?? tool.Description}</p><details><summary>{t.assistantInfo.toolDetails}</summary><code>{tool.Name}</code><pre>{JSON.stringify(tool.InputSchema, null, 2)}</pre></details></Card>)}</div>;
 }
