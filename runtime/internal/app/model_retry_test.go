@@ -181,6 +181,12 @@ func TestModelPermanentUnknownAndExhaustedFailures(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var calls atomic.Int32
 			b, p, a, _ := retryFixture(t, func(w http.ResponseWriter, r *http.Request) {
+				// Drain the large model request before replying; otherwise net/http
+				// may close the connection while the client is still writing it.
+				if _, err := io.Copy(io.Discard, r.Body); err != nil {
+					t.Errorf("read model request: %v", err)
+					return
+				}
 				calls.Add(1)
 				if tc.name == "long_retry_after" {
 					w.Header().Set("Retry-After", "121")
