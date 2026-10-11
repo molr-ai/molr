@@ -46,6 +46,9 @@ jobs:
           sudo systemctl start "user@$(id -u).service"
           echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
           echo "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus" >> "$GITHUB_ENV"
+      - name: Probe Bubblewrap under the service security settings
+        run: |
+          systemd-run --user --pipe --wait --collect --unit=molr-ci-bwrap -p NoNewPrivileges=yes /usr/bin/bwrap --unshare-all --disable-userns --assert-userns-disabled --ro-bind / / --proc /proc --dev /dev -- /usr/bin/true
       - name: Native installation and sandbox acceptance
         run: |
           arch=$(node -p '({x64: "amd64", arm64: "arm64"})[process.arch]')

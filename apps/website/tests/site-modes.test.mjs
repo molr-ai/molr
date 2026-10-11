@@ -102,6 +102,7 @@ test('website state builds and browser behavior', { timeout: 120_000 }, async t 
             try {
               const page = await context.newPage();
               await page.goto(url);
+              await expect(page.getByRole('link', { name: 'Skip to content' })).toBeAttached();
               await page.keyboard.press('Tab');
               await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused();
               await page.getByRole('button', { name: '切换到中文', exact: true }).click();
