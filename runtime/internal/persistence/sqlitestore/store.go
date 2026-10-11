@@ -22,6 +22,9 @@ import (
 
 type Store struct {
 	db          *sql.DB
+	get         *sql.Stmt
+	put         *sql.Stmt
+	remove      *sql.Stmt
 	gate        chan struct{}
 	closed      atomic.Bool
 	faultMu     sync.Mutex
@@ -35,6 +38,9 @@ type contextKey struct{}
 type transaction struct {
 	store     *Store
 	sql       *sql.Tx
+	get       *sql.Stmt
+	put       *sql.Stmt
+	remove    *sql.Stmt
 	ctx       context.Context
 	writable  bool
 	active    atomic.Bool
@@ -89,12 +95,37 @@ func Open(path string) (*Store, error) {
 		_ = db.Close()
 		return nil, err
 	}
+	if err := s.prepareStatements(); err != nil {
+		_ = s.Close()
+		return nil, err
+	}
 	if err := s.initializeQueryProjections(); err != nil {
-		_ = db.Close()
+		_ = s.Close()
 		return nil, err
 	}
 	return s, nil
 }
+
+// Keep the fixed record operations prepared across transactions. Preparing each
+// UPSERT again compiles expressions for every index on the shared records table.
+func (s *Store) prepareStatements() error {
+	for _, statement := range []struct {
+		dest **sql.Stmt
+		text string
+	}{
+		{&s.get, "SELECT value FROM records WHERE bucket=? AND key=?"},
+		{&s.put, "INSERT INTO records(bucket,key,value) VALUES(?,?,?) ON CONFLICT(bucket,key) DO UPDATE SET value=excluded.value"},
+		{&s.remove, "DELETE FROM records WHERE bucket=? AND key=?"},
+	} {
+		var err error
+		*statement.dest, err = s.db.Prepare(statement.text)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *Store) Path() string { return s.path }
 func (s *Store) Close() error {
 	if s.closed.Swap(true) {
@@ -103,7 +134,13 @@ func (s *Store) Close() error {
 	s.closeWatches()
 	s.gate <- struct{}{}
 	defer func() { <-s.gate }()
-	return s.db.Close()
+	var errs []error
+	for _, statement := range []*sql.Stmt{s.get, s.put, s.remove} {
+		if statement != nil {
+			errs = append(errs, statement.Close())
+		}
+	}
+	return errors.Join(append(errs, s.db.Close())...)
 }
 func (s *Store) FailNextCommit(err error) {
 	s.faultMu.Lock()
@@ -151,6 +188,11 @@ func (s *Store) run(ctx context.Context, write bool, fn func(context.Context, pe
 		return translate(ctx, err)
 	}
 	tx := &transaction{store: s, sql: sqlTx, ctx: ctx, writable: write}
+	// Bind once per transaction, including its nested savepoints. Commit and
+	// rollback close these bindings while leaving the Store's statements reusable.
+	tx.get = sqlTx.StmtContext(ctx, s.get)
+	tx.put = sqlTx.StmtContext(ctx, s.put)
+	tx.remove = sqlTx.StmtContext(ctx, s.remove)
 	tx.active.Store(true)
 	defer func() { tx.active.Store(false); _ = sqlTx.Rollback() }()
 	txCtx := context.WithValue(ctx, contextKey{}, tx)
@@ -236,7 +278,7 @@ func (tx *transaction) Get(ctx context.Context, bucket, key string, dest any) er
 		return err
 	}
 	var data []byte
-	err := tx.sql.QueryRowContext(ctx, "SELECT value FROM records WHERE bucket=? AND key=?", bucket, key).Scan(&data)
+	err := tx.get.QueryRowContext(ctx, bucket, key).Scan(&data)
 	if errors.Is(err, sql.ErrNoRows) {
 		return core.NewError(core.NotFound, "record not found")
 	}
@@ -273,7 +315,7 @@ func (tx *transaction) Put(ctx context.Context, bucket, key string, value any) e
 	if len(data) > limit {
 		return core.Invalid("record", "record too large")
 	}
-	_, err = tx.sql.ExecContext(ctx, "INSERT INTO records(bucket,key,value) VALUES(?,?,?) ON CONFLICT(bucket,key) DO UPDATE SET value=excluded.value", bucket, key, data)
+	_, err = tx.put.ExecContext(ctx, bucket, key, data)
 	return translate(ctx, err)
 }
 func (tx *transaction) Delete(ctx context.Context, bucket, key string) error {
@@ -286,7 +328,7 @@ func (tx *transaction) Delete(ctx context.Context, bucket, key string) error {
 	if err := valid(bucket, key); err != nil {
 		return err
 	}
-	result, err := tx.sql.ExecContext(ctx, "DELETE FROM records WHERE bucket=? AND key=?", bucket, key)
+	result, err := tx.remove.ExecContext(ctx, bucket, key)
 	if err != nil {
 		return translate(ctx, err)
 	}

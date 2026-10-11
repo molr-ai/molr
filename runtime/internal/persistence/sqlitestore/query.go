@@ -242,6 +242,12 @@ func (s *Store) createIndexes() error {
 		{"auth.login-links", []string{"ExpiresAtKey", "key"}},
 		{"auth.challenges", []string{"ExpiresAtKey", "key"}},
 	}...)
+	// Schema creation is one atomic commit instead of syncing each index.
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
 	for i, index := range indexes {
 		parts := []string{"bucket"}
 		for _, field := range index.fields {
@@ -259,12 +265,14 @@ func (s *Store) createIndexes() error {
 		if index.bucket != "" {
 			where = " WHERE bucket='" + index.bucket + "'"
 		}
-		if _, err := s.db.Exec(fmt.Sprintf("CREATE INDEX IF NOT EXISTS records_query_%d ON records (%s)%s", i, strings.Join(parts, ","), where)); err != nil {
+		if _, err := tx.Exec(fmt.Sprintf("CREATE INDEX IF NOT EXISTS records_query_%d ON records (%s)%s", i, strings.Join(parts, ","), where)); err != nil {
 			return err
 		}
 	}
-	_, err := s.db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS auth_device_session ON records (json_extract(value, '$.Session.AccountID'), json_extract(value, '$.DeviceDigest')) WHERE bucket='auth.sessions' AND json_extract(value, '$.DeviceDigest') != ''`)
-	return err
+	if _, err := tx.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS auth_device_session ON records (json_extract(value, '$.Session.AccountID'), json_extract(value, '$.DeviceDigest')) WHERE bucket='auth.sessions' AND json_extract(value, '$.DeviceDigest') != ''`); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 func querySQL(bucket string, q persistence.Query) (string, []any, error) {
 	if err := valid(bucket, "query"); err != nil {
