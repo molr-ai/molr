@@ -49,7 +49,7 @@ test('current documents have explicit unique routes and the overview comes first
 });
 
 test('reorganized documents and contributor entry points resolve files and chapter anchors', async () => {
-  const files = [...await markdownFiles('docs'), ...await markdownFiles('dev-docs'), 'AGENTS.md', 'README.md', 'README.en.md'];
+  const files = [...await markdownFiles('docs'), ...await markdownFiles('dev-docs'), 'AGENTS.md', 'README.md', 'README.zh-CN.md'];
   for (const file of files) {
     const source = await readFile(resolve(root, file), 'utf8');
     for (const [, href] of prose(source).matchAll(/\]\(([^\s)]+)\)/g)) {

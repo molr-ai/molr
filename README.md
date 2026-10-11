@@ -1,43 +1,46 @@
-<h1 align="center">Molr</h1>
-
----
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="packages/ui/public/brand/molr-wordmark-light.svg" />
+    <img src="packages/ui/public/brand/molr-wordmark.svg" alt="Molr" width="256" />
+  </picture>
+</h1>
 
 <p align="center">
-  可自托管的个人 AI 助理。<br />
-  用持续对话交代事情，以计划推进执行，让权限与预算始终由你掌握。
+  A self-hosted personal AI assistant.<br />
+  Delegate through ongoing conversations, follow progress through plans, and stay in control of permissions and budgets.
 </p>
 
 <p align="center">
-  <a href="README.en.md">English</a> | <strong>简体中文</strong>
+  <strong>English</strong> | <a href="README.zh-CN.md">简体中文</a>
 </p>
 
 <p align="center">
-  <a href="https://molr.ai">官网</a> ·
-  <a href="docs/getting-started.md">快速开始</a> ·
-  <a href="docs/README.md">文档</a> ·
-  <a href="https://github.com/molr-ai/molr/issues">问题反馈</a>
+  <a href="https://molr.ai">Website</a> ·
+  <a href="docs/getting-started.md">Getting started</a> ·
+  <a href="docs/README.md">Documentation</a> ·
+  <a href="https://github.com/molr-ai/molr/issues">Report an issue</a>
 </p>
 
-Molr 在你自己的设备上运行服务，连接你选择的模型。通过桌面或手机浏览器与助理持续协作，在同一处查看计划、进展和交付结果，并按助理管理记忆、资料访问范围和费用。
+Molr runs on your own device and connects to the models you choose. Work with your assistants from a desktop or mobile browser, review plans, progress, and deliverables in one place, and manage each assistant's memory, file access, and spending.
 
-> **项目状态：** 正在开发中，尚未发布稳定版。当前提供真实可用的 WebUI 与 Go Runtime；UI Design 使用模拟数据展示交互，独立原生客户端尚未发布。
+> **Project status:** Under active development, with no stable release yet. The WebUI and Go Runtime are functional; UI Design uses mock data to demonstrate interactions. Standalone native clients have not been released.
 
-## 功能亮点
+## Features
 
-- **持续对话与记忆** — 每位助理拥有独立的上下文和记忆；支持查看、编辑和管理长期记忆。
-- **计划与后台执行** — 支持定时、重复安排、前置交接与执行记录；服务运行期间，无需保持网页打开。
-- **模型与预算自选** — 接入云端或本地模型，按助理分配模型和预算，查看执行用量与费用。
-- **明确的资源权限** — 按助理授权文件目录与工具；Linux 命令在配置好的隔离沙盒中执行。
-- **多设备与独立账号** — 桌面、手机浏览器接续同一服务；家庭和小团队可通过用户组分配资源与额度。
-- **插件与主题** — 通过管理员导入和授权，扩展 HTTP 工具、主题及独立页面。
+- **Ongoing conversations and memory** — Each assistant has its own context and memory, with tools to review, edit, and manage long-term memories.
+- **Plans and background execution** — Schedule tasks, recurring work, and dependent handoffs with execution records. The browser can be closed while the service keeps running.
+- **Your models and budgets** — Connect cloud or local models, assign models and budgets per assistant, and track usage and costs.
+- **Explicit resource permissions** — Grant each assistant access to file directories and tools. Linux commands run in a configured, isolated sandbox.
+- **Multiple devices and separate accounts** — Continue on desktop or mobile browsers connected to the same service. Families and small teams can allocate resources and quotas through user groups.
+- **Plugins and themes** — Extend tools, Skills, themes, and standalone pages through plugins imported and authorized by an administrator.
 
-## 快速开始
+## Getting started
 
-当前支持从源码构建 Linux amd64／arm64 发行包，内嵌 WebUI；GitHub Release 与在线公共下载源尚未接入。
+You can build Linux amd64/arm64 packages from source with the WebUI embedded. GitHub Releases and a public download source are not available yet.
 
-已发布版本可从[官网安装区](https://molr.ai/#install)选择正式版、预发布版或 nightly，安装步骤见[快速开始](docs/getting-started.md)。尚无版本的渠道显示为空；以下步骤用于自行构建。
+For published builds, choose stable, preview or nightly in the [website installer](https://molr.ai/#install). Available platforms come from each release. Channels without a release show an empty state. The steps below build a package from source.
 
-准备 [Node.js](package.json)（`>=22.12.0`）、[仓库指定版本的 Go](runtime/.go-version)、Python 3 和系统 tar，然后执行：
+Install [Node.js](package.json) (`>=22.12.0`), the [Go version specified by this repository](runtime/.go-version), Python 3, and tar, then run:
 
 ```bash
 git clone https://github.com/molr-ai/molr.git
@@ -46,55 +49,57 @@ npm ci
 npm run build:release
 ```
 
-产物位于 `dist/releases/`。默认 Linux amd64 构建可使用以下命令安装；其他架构或自定义版本请替换为实际生成的文件名：
+Build artifacts are written to `dist/releases/`. To install a default Linux amd64 build, run the command below. For another architecture or a custom version, use the generated filename:
 
 ```bash
 bash scripts/install.sh --archive dist/releases/molr_0.1.0-local_linux_amd64.tar.gz
 ```
 
-安装目标机需要 systemd；Linux 命令沙盒还需要 Bubblewrap、静态 BusyBox 及相应内核能力。安装器会检查依赖，并输出访问地址和一次性登录链接。登录后连接模型、设置预算，即可开始与助理对话。
+The target machine needs systemd. The Linux command sandbox also requires Bubblewrap, static BusyBox, and the relevant kernel capabilities. The installer checks dependencies and prints an access address and a one-time login link. After signing in, connect a model, set a budget, and start a conversation.
 
-完整操作见[快速开始](docs/getting-started.md)；HTTPS、长期运行、沙盒依赖和备份恢复见[部署与维护](docs/deployment/README.md)。
+See [Getting started](docs/getting-started.md) for the full walkthrough, or [Deployment and maintenance](docs/deployment/README.md) for HTTPS, persistent services, sandbox dependencies, and backup and recovery.
 
-## 文档
+## Documentation
 
-| 入口 | 内容 |
+The linked product and contributor guides are currently in Simplified Chinese.
+
+| Guide | Contents |
 | --- | --- |
-| [产品文档](docs/README.md) | 使用指南与常见问题 |
-| [助理、聊天与计划](docs/guides/assistants-and-chat.md) | 持续对话、定时安排、结果与修订 |
-| [资源、权限与预算](docs/guides/permissions-and-budget.md) | 模型连接、资料范围、授权与费用 |
-| [插件](docs/guides/plugins-and-skills.md) | HTTP 工具、主题与页面扩展 |
-| [架构总览](docs/concepts.md) | 组件构成、执行链路与数据存放 |
-| [Linux 命令环境](docs/deployment/sandbox.md) | 沙盒依赖、运行限制与能力检查 |
-| [开发文档](dev-docs/README.md) | 实现说明、接口、品牌与协作规范 |
+| [Product documentation](docs/README.md) | User guides and troubleshooting |
+| [Assistants, conversations, and plans](docs/guides/assistants-and-chat.md) | Ongoing conversations, scheduling, results, and revisions |
+| [Resources, permissions, and budgets](docs/guides/permissions-and-budget.md) | Model connections, file access, authorization, and costs |
+| [Plugins](docs/guides/plugins-and-skills.md) | Tools, Skills, themes, and page extensions |
+| [Architecture overview](docs/concepts.md) | Components, execution flow, and data storage |
+| [Linux command environment](docs/deployment/sandbox.md) | Sandbox dependencies, limits, and capability checks |
+| [Developer documentation](dev-docs/README.md) | Implementation, interfaces, branding, and contribution workflow |
 
-## 参与开发
+## Contributing
 
-欢迎通过 [Issues](https://github.com/molr-ai/molr/issues) 反馈问题，或提交 Pull Request 改进代码和文档。开始前请阅读[项目协作约定](AGENTS.md)，在独立 worktree 中完成开发、测试与文档修改。
+Report problems through [Issues](https://github.com/molr-ai/molr/issues), or submit a pull request to improve the code and documentation. Read the [contribution guidelines](AGENTS.md) first, and use a separate worktree for development, tests, and documentation changes.
 
-仓库由 Go Runtime、三个前端应用和共享包组成：
+The repository contains a Go Runtime, three frontend applications, and shared packages:
 
-| 目录 | 用途 |
+| Directory | Purpose |
 | --- | --- |
-| [`runtime/`](runtime/README.md) | Go 服务、Agent 执行与沙盒 |
-| [`apps/webui/`](apps/webui/README.md) | 连接真实 Runtime 的产品界面 |
-| [`apps/website/`](apps/website/README.md) | 产品官网与公开文档 |
-| [`apps/ui-design/`](apps/ui-design/README.md) | 品牌、组件和模拟交互展示 |
-| [`packages/sdk/`](packages/sdk/README.md) | Runtime 客户端与公共协议 |
-| [`packages/ui/`](packages/ui/README.md) | 共享组件、设计变量与品牌资源 |
-| [`packages/ui-host/`](packages/ui-host/README.md) | 主题解析与隔离适配基础 |
+| [`runtime/`](runtime/README.md) | Go service, agent execution, and sandbox |
+| [`apps/webui/`](apps/webui/README.md) | Product interface connected to the real Runtime |
+| [`apps/website/`](apps/website/README.md) | Product website and public documentation |
+| [`apps/ui-design/`](apps/ui-design/README.md) | Branding, components, and mock interactions |
+| [`packages/sdk/`](packages/sdk/README.md) | Runtime client and public protocols |
+| [`packages/ui/`](packages/ui/README.md) | Shared components, design tokens, and brand assets |
+| [`packages/ui-host/`](packages/ui-host/README.md) | Theme resolution and isolation adapters |
 
-在任务 worktree 中安装依赖，按需启动对应应用：
+Install dependencies in your task worktree, then start the application you need:
 
 ```bash
 npm ci
-npm run dev             # WebUI：5191，需要独立 Runtime
-VITE_SITE_MODE=live npm run dev:website # 官网：5189
-npm run dev:design      # UI Design：5188，模拟数据
+npm run dev             # WebUI: 5191; requires a separate Runtime
+VITE_SITE_MODE=live npm run dev:website # Website: 5189
+npm run dev:design      # UI Design: 5188; mock data
 ```
 
-前端默认监听 `0.0.0.0`。各 worktree 使用独立的依赖、数据和空闲端口；WebUI 通过 `MOLR_RUNTIME_URL` 连接同一 worktree 自己的 Runtime。启动配置与验证命令见各目录的 README，Runtime 构建和验收要求见[开发规范](dev-docs/contributing/development.md)。
+Frontends listen on `0.0.0.0` by default. Each worktree needs its own dependencies, data, and available ports. Set `MOLR_RUNTIME_URL` to connect the WebUI to that worktree's own Runtime. See each directory's README for configuration and validation commands, and the [development guide](dev-docs/contributing/development.md) for Runtime build and acceptance requirements.
 
-## 许可证
+## License
 
-Molr 自有代码与文档采用 [MIT 许可证](LICENSE)。第三方组件保留各自许可证，详见[第三方声明](THIRD_PARTY_NOTICES.md)与[许可证及分发说明](dev-docs/releasing/licensing.md)。
+Molr's own code and documentation are licensed under [MIT](LICENSE). Third-party components retain their respective licenses. See [Third-party notices](THIRD_PARTY_NOTICES.md) and the [licensing and distribution guide](dev-docs/releasing/licensing.md).
