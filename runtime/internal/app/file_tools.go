@@ -19,7 +19,6 @@ import (
 	"molr.ai/runtime/internal/agent/tools"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/platform"
-	"molr.ai/runtime/internal/plugins"
 	"molr.ai/runtime/internal/policy"
 )
 
@@ -28,7 +27,6 @@ const fileScanLimit = 64 << 20
 const fileMutationLimit = 1 << 20
 
 type resourceFileTools struct {
-	plugins          *plugins.Service
 	router           *sandboxRouter
 	adapters         adapters
 	resolveOverride  func(context.Context, core.Execution, tools.FileTarget, ...policy.Action) (string, string, error)

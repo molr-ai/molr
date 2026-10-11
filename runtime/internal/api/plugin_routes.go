@@ -43,38 +43,6 @@ func (s *HTTPServer) pluginRoutes() {
 		}
 		return s.options.Plugins.ImportURL(r.Context(), principal(r), q.URL)
 	})
-	s.handle("GET /api/plugins/instances", func(r *http.Request) (any, error) { return s.options.Plugins.ListInstances(r.Context(), principal(r)) })
-	s.handle("POST /api/plugins/instances/read", func(r *http.Request) (any, error) {
-		q, err := decode[plugins.InstanceRequest](r)
-		if err != nil {
-			return nil, err
-		}
-		return s.options.Plugins.Instance(r.Context(), principal(r), q.ID, q.AssistantID)
-	})
-	s.handle("POST /api/plugins/instances/save", func(r *http.Request) (any, error) {
-		q, err := decode[plugins.InstanceRequest](r)
-		if err != nil {
-			return nil, err
-		}
-		return s.options.Plugins.SaveInstance(r.Context(), principal(r), q)
-	})
-	s.handle("POST /api/plugins/instances/credential", func(r *http.Request) (any, error) {
-		q, err := decode[struct {
-			plugins.InstanceRequest
-			Field, Value, Verification string
-		}](r)
-		if err != nil {
-			return nil, err
-		}
-		return nil, s.options.Plugins.SaveInstanceCredential(r.Context(), principal(r), plugins.InstanceCredentialRequest{InstanceRequest: q.InstanceRequest, Field: q.Field, Value: core.NewSecret(q.Value), Verification: auth.Verification{Token: core.NewSecret(q.Verification)}})
-	})
-	s.handle("POST /api/plugins/instances/clean", func(r *http.Request) (any, error) {
-		q, err := decode[plugins.InstanceRequest](r)
-		if err != nil {
-			return nil, err
-		}
-		return nil, s.options.Plugins.CleanInstance(r.Context(), principal(r), q)
-	})
 	s.handle("POST /api/plugins/configure", func(r *http.Request) (any, error) {
 		q, err := decode[plugins.Configure](r)
 		if err != nil {

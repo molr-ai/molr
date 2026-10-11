@@ -1,31 +1,28 @@
 # 插件机制（Plugin API 3）
 
-Runtime 仍为 Go 单体。插件以不可变清单、隔离 HTML、工作区脚本、声明式 HTTP 操作和 Skill 扩展产品，不加载 Go 动态库，不执行安装脚本。用户入口见 [插件使用](../../docs/plugins.md)。不预装搜索插件或验收示例。
+Runtime 仍为 Go 单体。插件以不可变清单、隔离 HTML 和声明式 HTTP 操作 扩展产品，不加载 Go 动态库，不执行安装脚本。用户入口见 [插件使用](../../docs/plugins.md)。不预装搜索插件或验收示例。
 
 ## 包与协议
 
 开发包为普通目录，分发使用 ZIP，根目录为 `plugin.json`，其余文件为配套文本。`manifestVersion: 1`、`pluginApi: 3`；旧协议不执行、不自动迁移。页面通信合同独立，仍使用 `apiVersion: 2`。
 
-导入限制 8 MiB、256 个配套文件、每文件 1 MiB、24 个贡献项。ZIP 拒绝链接、重复路径、绝对路径、越界路径及超过展开限制的内容。当前文件为 UTF-8 文本，二进制 CLI 及运行依赖由助理下载到工作区。ID 使用反向域名，`molr.*` 保留；版本为三个无前导零数字段。包存储仍规范化为 `manifest` 和 `files`，SHA-256 固定内容，同 ID/version 不可覆盖；JSON API 可直接提交同一规范结构。
+导入限制 8 MiB、256 个配套文件、每文件 1 MiB、24 个贡献项。ZIP 拒绝链接、重复路径、绝对路径、越界路径及超过展开限制的内容。包内文件为 UTF-8 文本。ID 使用反向域名，`molr.*` 保留；版本为三个无前导零数字段。包存储仍规范化为 `manifest` 和 `files`，SHA-256 固定内容，同 ID/version 不可覆盖；JSON API 可直接提交同一规范结构。
 
 ```json
 {
   "manifestVersion": 1, "pluginApi": 3,
-  "id": "example.notes", "name": "Notes", "description": "Notes CLI", "version": "1.0.0",
-  "requirements": [{"phase":"install","kind":"network","description":"Download the CLI","destinations":["downloads.example.invalid"]}],
-  "credentials": [{"id":"token","title":"Service token"}],
-  "contributes": {"skills":[{"id":"notes","name":"Notes","description":"Install and use Notes","entry":"skills/notes/SKILL.md"}]}
+  "id": "example.notes", "name": "Notes", "description": "Notes page", "version": "1.0.0",
+  "contributes": {"themes":[],"tools":[],"pages":[{"id":"notes","title":"Notes","entry":"notes.html","capabilities":[]}]}
 }
 ```
 
-`requirements` 最多 32 项，phase 为 install/use，kind 为 compute/network/storage，description 说明用途，destinations 为可选目标提示；它们不生成资源或授权。`credentials` 最多 16 项，每项声明 id/title，值由用户通过宿主配置入口提供。打包命令为 `node scripts/pack-plugin.mjs <目录> <输出.zip>`，输出放在源目录之外。
+打包命令为 `node scripts/pack-plugin.mjs <目录> <输出.zip>`，输出放在源目录之外。
 
 | 扩展 | 合同 |
 | --- | --- |
 | themes | `id`、`name`、`pages`、`capabilities`；可替换 assistants / plans / resources / workbench，不能替换 settings 或登录；页面是包内 HTML |
 | pages | `id`、`title`、`entry`、`capabilities`；通过 `/#/extensions/<plugin-id>/<page-id>` 进入 |
-| tools | `id`、`description`、`execution`、`inputSchema`、`capabilities`；仅支持可选的 HTTP 工具；CLI 使用 Skill 与普通 Shell |
-| skills | `id`、`name`、`description`、以 SKILL.md 结尾的入口、可选引用的本包 HTTP 工具 ID；正文不超过 64 KiB，由 file_read 按需加载 |
+| tools | `id`、`description`、`execution`、`inputSchema`、`capabilities`；仅支持 HTTP 工具 |
 | settings | 顶层字段名到 Setting 的映射；最多 16 项 |
 | settingsPage | 可选的个人设置 Page；声明后直接作为配置入口，不同时展示宿主表单 |
 | adminSettings / adminSettingsPage | 可选的共享管理员设置字段（最多 16 项）及自定义管理员页面；仅管理员可读写 |
@@ -51,25 +48,13 @@ Setting 字段：`type`、`title`、可选 `description`，支持 string / boole
 
 统一入口为 `/#/extensions`，按角色展示安装、移除、组授权、全局／个人启停以及可选配置。个人配置路径 `/#/extensions/<id>/@settings`，管理员配置路径 `/#/extensions/<id>/@admin`；保留字符 `@` 避免与页面贡献 ID 冲突。配置的 Schema 和页面都可省略；无声明不显示入口，个人设置 API 返回 NotFound。自定义页面优先，否则宿主生成表单。管理员配置另展示 provider 声明对应的服务连接。插件页面获得的连接描述不含 API Key 或 CredentialID。凭证输入和二次验证由宿主处理。首版不支持普通成员自行管理 Key。
 
-## 助理工作区与执行
+## CLI 与 Skill 使用普通工作区
 
-`plugins.instances` 按真实 OwnerID、AssistantID 和 PluginID 保存启用状态、固定包版本和 CAS 版本，独立于共享安装目录的当前页面／HTTP 版本。管理员与成员都只能配置自己的助理；成员仍须获得用户组插件与相关普通工具、沙盒资源授权。
+CLI、依赖、脚本和 Skill 均为助理自行管理的工作文件，不是插件贡献项。用户在聊天中提供来源和任务，助理通过现有文件工具、`shell_execute` 和 `permission_request` 完成安装与使用。程序及依赖安装在 `/work` 内；Skill 放入 `/work/.agents/skills/<name>/SKILL.md`，复用已有的目录发现与 `file_read` 按需加载。详见 [上下文装配](AGENT_CONTEXT.md)。
 
-启用实例时将包文件复制到 `/work/.local/plugins/<id>/versions/<version>/package/`，原有文件不覆盖。config/data/cache 位于插件根目录，跨版本保留。复制通过无链接的文件操作并应用工作区额度，不执行安装脚本。CLI 和 Node/Python 等运行依赖由助理通过普通 Shell 在工作区准备，不修改宿主软件环境。
+计算、网络、存储额度与权限沿用普通工具规则；登录状态和升级方式由 CLI 自身决定。插件服务不创建工作区副本、安装记录、状态文件、凭证字段或虚拟文件路径，不参与 CLI 的安装、更新和删除。插件停用或卸载也不改变普通工作区文件与资源授权。
 
-插件 Skill 目录使用 `/plugins/<id>/<version>/<entry>` 虚拟原包路径，通过普通 `file_read` 读取，返回当前包摘要。每次读取校验账号、助理实例、版本、个人启用和组权限。成功读取当前版本才激活正文，失败读取不激活；停用后撤销自动上下文。每个 Skill 不再注册独立读取工具。配套参考文件也可通过同一入口读取；脚本执行使用工作区副本。
-
-移除 `execution.type=shell` 及其独立调度。所有 CLI 调用复用 `shell_execute`、文件工具和 `permission_request`，网络、后台、TTY、配额及撤权都沿用普通工具。沙盒隔离边界是助理，不承诺同一工作区的插件彼此隔离。
-
-版本目录中的 `PACKAGE.md` 记录来源、摘要、目录及状态约定。若同时提供 `scripts/install.sh` 和 `scripts/check.sh`，生成 `prepare.sh`；助理显式通过 Shell 调用它，以该版本目录为当前目录，使用插件根目录 `install.lock` 串行安装。检查成功后写入该版本的 `status.json`，并原子替换根目录 `active.json`。失败保留旧活动版本。中断残留的锁需要检查 Shell 任务后恢复，不自动猜测锁已失效。
-
-`status.json` 使用 `Digest` 和 `Environment`（pending/installing/ready/failed），摘要必须对应实例版本。`config/account.json` 使用 `Account`（unknown/pending/ready/not_required）。界面展示这些文件作为助理最近一次检查的报告，不执行后台探测，不展示其中的任意日志文本。没有通用安装脚本的 Skill 也可按说明安装、检查并报告状态。
-
-CLI 凭证通过声明的字段写入 `config/secrets/<id>`，每次保存强制 0600、拒绝链接；API、审计和模型参数不返回明文。写入要求所属账号、助理实例与敏感操作验证。CLI 可读取文件，该助理的其他程序也可读取；HTTP vault 凭证仍遵循下文的独立 broker 边界。
-
-清理 API 在实例停用后删除该助理的插件子树，子树内的依赖链接只删除链接本身，不跟随目标。卸载全局插件会停用全部实例但保留工作文件，自己的实例列表在撤权／卸载后仍可读取和清理。已有程序的网络访问由助理资源授权控制，插件停用不等于撤销已有 Shell 能力；清理前应停止相关 CLI 任务。
-
-### HTTP
+## HTTP 工具
 
 ```json
 {
@@ -130,20 +115,15 @@ HTML 必须自包含，可将 `@molr/sdk/plugin-host` 打包内联。iframe 使�
 
 ## 生命周期与 HTTP 路由
 
-添加包、全局能力授权、全局启停和卸载由管理员管理；个人偏好与助理实例由所属用户管理。组或个人撤权拒绝新的原包读取和 HTTP 调用，HTTP 在途调用重新校验授权。导入新版本只暂存，页面／HTTP 切换保留仍适用的能力和绑定，CLI 实例保持独立版本。HTTP 连接摘要变化需复核，个人／管理员配置继续绑定包摘要。重新添加已卸载插件不恢复全局能力权限或实例启用。
+添加包、全局能力授权、全局启停和卸载由管理员管理；个人偏好由所属用户管理。组或个人撤权拒绝新的页面访问和 HTTP 调用，HTTP 在途调用重新校验授权。导入新版本只暂存，版本切换保留仍适用的能力和绑定。HTTP 连接摘要变化需复核，个人／管理员配置继续绑定包摘要。重新添加已卸载插件不恢复全局能力权限或助理绑定。
 
 连接删除停用资源并删除专用凭证；历史回执保留。普通成员不能调用管理接口。凭证使用、配置变更和手动确认未知结果都有审计；审计不包含请求参数、配置值或明文凭证。
 
 | 路由 | 请求及用途 |
 | --- | --- |
-| GET /api/plugins | 可见安装；成员只见全局启用且组授权的项，个人停用项仍可见；不返回管理员工具绑定或管理员设置声明；版本目录用于选择助理实例版本。另返回 CatalogID、ToolIDs、UserEnabled、UserVersion |
+| GET /api/plugins | 可见安装；成员只见全局启用且组授权的项，个人停用项仍可见；不返回管理员工具绑定或管理员设置声明；版本目录仅管理员可见。另返回 CatalogID、ToolIDs、UserEnabled、UserVersion |
 | POST /api/plugins/install | application/zip 二进制或 JSON Package；仅保存包 |
 | POST /api/plugins/import-url | URL；公开 HTTPS ZIP，禁止私网、代理及重定向 |
-| GET /api/plugins/instances | 调用者的助理安装记录，包含已卸载／撤权后的保留项 |
-| POST /api/plugins/instances/read | ID, AssistantID；实例及最近检查状态 |
-| POST /api/plugins/instances/save | ID, AssistantID, Release?, Enabled, ExpectedVersion |
-| POST /api/plugins/instances/credential | ID, AssistantID, ExpectedVersion, Field, Value, Verification? |
-| POST /api/plugins/instances/clean | ID, AssistantID, ExpectedVersion；实例必须已停用 |
 | POST /api/plugins/preference | ID, Digest, Enabled, ExpectedVersion；仅改变调用者个人启停 |
 | POST /api/plugins/configure | ID, ExpectedVersion, Enabled, Grants, Bindings, Release? |
 | POST /api/plugins/remove | ID, ExpectedVersion |
@@ -157,14 +137,14 @@ HTML 必须自包含，可将 `@molr/sdk/plugin-host` 打包内联。iframe 使�
 | POST /api/plugins/connections/acknowledge | ConnectionID, OwnerID, ID；管理员确认未知结果 |
 | POST /api/plugins/ui | 固定页面引用、Method 及对应方法参数，由 bridge 构造 |
 
-创建连接和测试请求的 Mutation 包含 IdempotencyKey；编辑／删除另带 ExpectedVersion。APIKey 仅写入；connection view 不返回 CredentialID。Bindings 仅管理 HTTP 工具，包含 AssistantID 和 Tools。CLI Skills 通过实例启用。连接用户组额度复用 Calls、Concurrent、Period、Timezone；不配置金额预算或沙盒约束。
+创建连接和测试请求的 Mutation 包含 IdempotencyKey；编辑／删除另带 ExpectedVersion。APIKey 仅写入；connection view 不返回 CredentialID。Bindings 仅管理 HTTP 工具，包含 AssistantID 和 Tools。CLI 与 Skill 不使用插件 API。连接用户组额度复用 Calls、Concurrent、Period、Timezone；不配置金额预算或沙盒约束。
 
 ## 实现与验证入口
 
-- `runtime/internal/plugins`：ZIP/HTTPS 导入、实例、原包读取、配置、HTTP 连接及回执。
+- `runtime/internal/plugins`：ZIP/HTTPS 导入、配置、HTTP 连接及回执。
 - `agent/tools/executor.go`：HTTP admission 与现有操作事务、回执重用。
 - `app/build.go` / `plugin_connections.go`：凭证与网络边界、组级连接配额。
-- `packages/sdk/src/plugins.ts`：包 API 3 与实例类型；`plugin-host.ts`：独立的页面通信 API 2。
+- `packages/sdk/src/plugins.ts`：包 API 3 与 HTTP 类型；`plugin-host.ts`：独立的页面通信 API 2。
 - `apps/webui/src/plugins`：管理连接、个人配置、设置页 iframe、调用记录。
 - `preference_test.go`：个人启停、插件组授权、管理员设置隔离、无个人设置的共享连接执行。
 - `http_test.go`：provider 切换快照、认证、个人隔离、CAS、额度、取消与清单拒绝。

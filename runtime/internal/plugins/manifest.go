@@ -14,20 +14,13 @@ import (
 	"molr.ai/runtime/internal/core"
 )
 
-type SecretField struct {
-	ID    string `json:"id"`
-	Title string `json:"title"`
-}
-
 type Manifest struct {
-	Credentials       []SecretField      `json:"credentials,omitempty"`
 	ManifestVersion   int                `json:"manifestVersion"`
 	ID                string             `json:"id"`
 	Name              string             `json:"name"`
 	Description       string             `json:"description"`
 	Version           string             `json:"version"`
 	PluginAPI         int                `json:"pluginApi"`
-	Requirements      []Requirement      `json:"requirements,omitempty"`
 	Contributes       Contributions      `json:"contributes"`
 	AdminSettings     map[string]Setting `json:"adminSettings,omitempty"`
 	AdminSettingsPage *Page              `json:"adminSettingsPage,omitempty"`
@@ -35,18 +28,11 @@ type Manifest struct {
 	SettingsPage      *Page              `json:"settingsPage,omitempty"`
 	Providers         []HTTPProvider     `json:"providers,omitempty"`
 }
-type Requirement struct {
-	Phase        string   `json:"phase"`
-	Kind         string   `json:"kind"`
-	Description  string   `json:"description"`
-	Destinations []string `json:"destinations,omitempty"`
-}
 
 type Contributions struct {
 	Themes []Theme `json:"themes"`
 	Pages  []Page  `json:"pages"`
 	Tools  []Tool  `json:"tools"`
-	Skills []Skill `json:"skills"`
 }
 type Theme struct {
 	ID           string            `json:"id"`
@@ -63,17 +49,9 @@ type Page struct {
 type Tool struct {
 	ID           string        `json:"id"`
 	Description  string        `json:"description"`
-	Entry        string        `json:"entry,omitempty"`
 	Execution    ToolExecution `json:"execution"`
 	InputSchema  Schema        `json:"inputSchema"`
 	Capabilities []string      `json:"capabilities"`
-}
-type Skill struct {
-	ID          string   `json:"id"`
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	Entry       string   `json:"entry"`
-	Tools       []string `json:"tools"`
 }
 
 // Plugin API 3 deliberately accepts a small, fully validated JSON Schema subset.
@@ -139,7 +117,7 @@ func (p Package) Validate() error {
 		seen[k] = true
 		return true
 	}
-	if len(c.Themes)+len(c.Pages)+len(c.Tools)+len(c.Skills) == 0 || len(c.Themes)+len(c.Pages)+len(c.Tools)+len(c.Skills) > 24 {
+	if len(c.Themes)+len(c.Pages)+len(c.Tools) == 0 || len(c.Themes)+len(c.Pages)+len(c.Tools) > 24 {
 		return invalid("1 to 24 contributions required")
 	}
 	for _, t := range c.Themes {
@@ -163,7 +141,7 @@ func (p Package) Validate() error {
 		}
 		switch v.Execution.Type {
 		case "http":
-			if v.Entry != "" || len(v.Capabilities) != 1 || v.Capabilities[0] != "http.request" {
+			if len(v.Capabilities) != 1 || v.Capabilities[0] != "http.request" {
 				return invalid("HTTP tools require http.request only")
 			}
 		default:
@@ -171,39 +149,6 @@ func (p Package) Validate() error {
 		}
 		if err := v.InputSchema.Validate(); err != nil {
 			return err
-		}
-	}
-	for _, v := range c.Skills {
-		if !unique("skill", v.ID) || v.Name == "" || len(v.Name) > 120 || len(v.Description) > 2000 || !entry(v.Entry, "SKILL.md") || len(p.Files[v.Entry]) > 64<<10 {
-			return invalid("invalid skill")
-		}
-		for _, id := range v.Tools {
-			if !seen["tool/"+id] {
-				return invalid("unknown skill tool dependency")
-			}
-		}
-	}
-	if len(m.Credentials) > 16 {
-		return invalid("too many credential fields")
-	}
-	secretIDs := map[string]bool{}
-	for _, field := range m.Credentials {
-		if !localID.MatchString(field.ID) || strings.TrimSpace(field.Title) == "" || len(field.Title) > 120 || secretIDs[field.ID] {
-			return invalid("invalid credential field")
-		}
-		secretIDs[field.ID] = true
-	}
-	if len(m.Requirements) > 32 {
-		return invalid("too many requirements")
-	}
-	for _, r := range m.Requirements {
-		if !slices.Contains([]string{"install", "use"}, r.Phase) || !slices.Contains([]string{"compute", "network", "storage"}, r.Kind) || strings.TrimSpace(r.Description) == "" || len(r.Description) > 1000 || len(r.Destinations) > 32 {
-			return invalid("invalid requirement")
-		}
-		for _, destination := range r.Destinations {
-			if len(destination) == 0 || len(destination) > 512 || strings.ContainsAny(destination, "\r\n") {
-				return invalid("invalid requirement destination")
-			}
 		}
 	}
 	return p.validateHTTP()

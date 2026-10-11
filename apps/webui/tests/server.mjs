@@ -1,7 +1,7 @@
 import { pluginHTTPTestModel, pluginHTTPProvider } from './plugin-http-test-model.mjs';
 import { createServer as createHTTPSServer } from 'node:https';
 import { profileModel } from './profile-model.mjs';
-import { pluginTestModel } from './plugin-test-model.mjs';
+import { workspaceCLIModel } from './workspace-cli-model.mjs';
 // Isolated real Runtime + a deterministic external model adapter. No UI API mocks.
 import { spawn } from 'node:child_process';
 import { compressionModel } from './compression-model.mjs';
@@ -34,7 +34,8 @@ async function command(binary, args, cwd, input) {
   await new Promise((resolve, reject) => { child.on('error', reject); child.on('exit', code => code === 0 ? resolve() : reject(new Error(`${binary} exited ${code}`))); });
 }
 const model = createServer(async (request, response) => {
-  if (request.method === 'GET' && request.url === '/plugin-cli.sh') { response.end('#!/bin/sh\nprintf \"fixture-cli-1\\n\"\n'); return; }
+  if (request.method === 'GET' && request.url === '/workspace-skill.md') { response.end('---\nname: workspace-cli\ndescription: Use the workspace CLI to check its version.\n---\nRun /work/.local/bin/workspace-cli --version with shell_execute.\n'); return; }
+  if (request.method === 'GET' && request.url === '/workspace-cli.sh') { response.end('#!/bin/sh\nprintf \"fixture-cli-1\\n\"\n'); return; }
   if (request.method === 'GET' && request.url === '/quota-fixture') { response.end('quota-fixture\n'.repeat(1024)); return; }
   if (request.method === 'GET' && ['/v1/models', '/private/v1/models'].includes(request.url)) {
     if (request.url.startsWith('/private/') && !['Bearer test-provider-secret', 'Bearer rotated-provider-secret'].includes(request.headers.authorization)) { response.writeHead(401).end(); return; }
@@ -42,7 +43,7 @@ const model = createServer(async (request, response) => {
   }
   let raw = ''; for await (const part of request) raw += part;
   try {
-    const input = JSON.parse(raw); if (profileModel(input, response)) return; if (await compressionModel(input, response)) return; if (pluginTestModel(input, response)) return; if (pluginHTTPTestModel(input, response)) return; if (responseModel(input, response)) return; if (permissionModel(input, response)) return; if (retryModel(input, response)) return; if (input.model?.startsWith('Expedite ')) { await expediteModel(input, response); return; } const messages = input.messages ?? [];
+    const input = JSON.parse(raw); if (profileModel(input, response)) return; if (await compressionModel(input, response)) return; if (workspaceCLIModel(input, response)) return; if (pluginHTTPTestModel(input, response)) return; if (responseModel(input, response)) return; if (permissionModel(input, response)) return; if (retryModel(input, response)) return; if (input.model?.startsWith('Expedite ')) { await expediteModel(input, response); return; } const messages = input.messages ?? [];
     const eventIndex = messages.findLastIndex(message => typeof message.content === 'string' && message.content.startsWith('Runtime event: '));
     const event = eventIndex >= 0 ? JSON.parse(messages[eventIndex].content.split('\n')[0].slice('Runtime event: '.length)) : {};
     const recent = messages.slice(eventIndex + 1), toolResults = recent.filter(message => message.role === 'tool');

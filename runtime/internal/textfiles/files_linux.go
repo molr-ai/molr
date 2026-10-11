@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -121,15 +120,6 @@ func Changed() error {
 // serializes local tool mutations; external writers are checked before commit,
 // but arbitrary external processes are not participants in a filesystem CAS.
 func Replace(ctx context.Context, directory, name, text string, overwrite bool, expected string, authorize func() error) (string, error) {
-	return replace(ctx, directory, name, text, overwrite, expected, authorize, false)
-}
-
-// ReplacePrivate writes credentials with mode 0600 even if a prior working copy had broader permissions.
-func ReplacePrivate(ctx context.Context, directory, name, text string, overwrite bool, expected string, authorize func() error) (string, error) {
-	return replace(ctx, directory, name, text, overwrite, expected, authorize, true)
-}
-
-func replace(ctx context.Context, directory, name, text string, overwrite bool, expected string, authorize func() error, private bool) (string, error) {
 	if !filepath.IsLocal(name) || strings.ContainsAny(name, "\x00\\") || name == "." {
 		return "", core.Invalid("path", "confined file path required")
 	}
@@ -167,7 +157,7 @@ func replace(ctx context.Context, directory, name, text string, overwrite bool, 
 	defer unix.Unlinkat(fd, temporary, 0)
 	out := os.NewFile(uintptr(outFD), "resource-write")
 	defer out.Close()
-	if exists && !private {
+	if exists {
 		if unix.Fchmod(outFD, original.Mode&0777) != nil {
 			return "", core.NewError(core.Unavailable, "cannot preserve file mode")
 		}
@@ -482,72 +472,6 @@ func RemoveDirectory(ctx context.Context, root, name, expected string, authorize
 			return core.NewError(core.Conflict, "directory is not empty")
 		}
 		return resourceOpenError(err)
-	}
-	return parent.Sync()
-}
-
-// RemoveTree removes only descendants of a pinned, no-symlink parent. Links
-// inside a CLI environment are unlinked themselves, never followed.
-func RemoveTree(ctx context.Context, root, name string, authorize func() error) error {
-	if !filepath.IsLocal(name) || filepath.Clean(name) != name || name == "." || strings.ContainsAny(name, "\\\x00") {
-		return core.Invalid("path", "confined tree required")
-	}
-	parent, err := OpenDirectory(root, filepath.Dir(name))
-	if err != nil {
-		return err
-	}
-	defer parent.Close()
-	if err = authorize(); err != nil {
-		return err
-	}
-	remaining := 100000
-	var remove func(int, string, int) error
-	remove = func(fd int, base string, depth int) error {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		remaining--
-		if remaining < 0 || depth > 128 {
-			return core.Invalid("path", "cleanup limit exceeded")
-		}
-		var st unix.Stat_t
-		if err := unix.Fstatat(fd, base, &st, unix.AT_SYMLINK_NOFOLLOW); err != nil {
-			if errors.Is(err, unix.ENOENT) {
-				return nil
-			}
-			return err
-		}
-		if st.Mode&unix.S_IFMT != unix.S_IFDIR {
-			return unix.Unlinkat(fd, base, 0)
-		}
-		childFD, err := unix.Openat(fd, base, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
-		if err != nil {
-			return err
-		}
-		child := os.NewFile(uintptr(childFD), "cleanup-directory")
-		defer child.Close()
-		for {
-			entries, err := child.ReadDir(128)
-			if err != nil && err != io.EOF {
-				return err
-			}
-			for _, entry := range entries {
-				if err := remove(childFD, entry.Name(), depth+1); err != nil {
-					return err
-				}
-			}
-			if len(entries) == 0 {
-				break
-			}
-		}
-		var current unix.Stat_t
-		if err := unix.Fstatat(fd, base, &current, unix.AT_SYMLINK_NOFOLLOW); err != nil || current.Ino != st.Ino || current.Dev != st.Dev {
-			return Changed()
-		}
-		return unix.Unlinkat(fd, base, unix.AT_REMOVEDIR)
-	}
-	if err = remove(int(parent.Fd()), filepath.Base(name), 0); err != nil {
-		return err
 	}
 	return parent.Sync()
 }

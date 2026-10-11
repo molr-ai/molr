@@ -11,7 +11,6 @@ import { useNavigation } from '../navigation';
 import { Confirm, ErrorNotice, Loading, PageHeader, useAction } from '../interfaces/official/components/common';
 import { PluginFrame } from './PluginFrame';
 import { PluginSettings, PluginConnections } from './PluginSettings';
-import { PluginInstances, RetainedPluginInstances } from './PluginInstances';
 import { PluginGroups } from './PluginGroups';
 import { pluginCopy } from './copy';
 import '../interfaces/official/features/resources.css';
@@ -24,7 +23,7 @@ const hasAdminSettings = (p: PluginInstallation) => !!(p.Manifest.adminSettingsP
 export function ExtensionPages({ id }: { id: string }) {
   const { locale } = useCopy(), zh = locale === 'zh', copy = pluginCopy[locale], host = useUIHost(), { navigate } = useNavigation();
   const administrator = useSession().principal?.User?.Administrator === true, action = useAction(), input = useRef<HTMLInputElement>(null);
-  const [search, setSearch] = useState(''), [filter, setFilter] = useState('all'), [importURL, setImportURL] = useState(false), [url, setURL] = useState(''), [retained, setRetained] = useState(false);
+  const [search, setSearch] = useState(''), [filter, setFilter] = useState('all'), [importURL, setImportURL] = useState(false), [url, setURL] = useState('');
   if (host.loading) return <Loading />;
   const [pluginID, entry] = id.split('/'), selected = host.plugins.find(p => p.ID === pluginID);
   if (selected) {
@@ -45,8 +44,6 @@ export function ExtensionPages({ id }: { id: string }) {
     }} />
     {importURL && <Dialog open title={zh ? '从链接添加插件' : 'Add plugin from URL'} onOpenChange={setImportURL} footer={<Button loading={action.busy} onClick={() => { void action.run(async () => { await api.post('/api/plugins/import-url', { URL: url }); host.reloadPlugins(); setImportURL(false); setURL(''); }); }}>{zh ? '添加' : 'Add'}</Button>}><TextField label={zh ? 'HTTPS 插件包地址' : 'HTTPS package URL'} type="url" value={url} onChange={e => setURL(e.target.value)} /><p>{zh ? '下载 ZIP 包并检查内容，不执行安装脚本。' : 'Download and validate a ZIP package. Importing does not run scripts.'}</p><ErrorNotice error={action.error} /></Dialog>}
     <div className="plugin-market">
-      {retained && <RetainedPluginInstances onClose={() => setRetained(false)} />}
-      <Button variant="secondary" onClick={() => setRetained(true)}>{zh ? '助理安装记录' : 'Assistant installation records'}</Button>
       <div className="plugin-market-filters"><TextField label={zh ? '搜索插件' : 'Search plugins'} type="search" value={search} onChange={e => setSearch(e.target.value)} /><Select label={zh ? '状态' : 'Status'} value={filter} onValueChange={setFilter} options={[{ value: 'all', label: zh ? '全部插件' : 'All plugins' }, { value: 'enabled', label: copy.enabled }, { value: 'disabled', label: copy.disabled }]} /></div>
       <ErrorNotice error={host.pluginError || action.error} retry={host.reloadPlugins} />
       {id && <p role="status">{copy.unavailable}</p>}
@@ -56,7 +53,7 @@ export function ExtensionPages({ id }: { id: string }) {
 }
 function PluginCard({ plugin, administrator }: { plugin: PluginInstallation; administrator: boolean }) {
   const { t, locale } = useCopy(), zh = locale === 'zh', copy = pluginCopy[locale], host = useUIHost(), { navigate } = useNavigation(), action = useAction();
-  const [editing, setEditing] = useState(false), [groups, setGroups] = useState(false), [remove, setRemove] = useState(false), [instances, setInstances] = useState(false);
+  const [editing, setEditing] = useState(false), [groups, setGroups] = useState(false), [remove, setRemove] = useState(false);
   const enabled = administrator ? plugin.Enabled : pluginAllowed(plugin), c = plugin.Manifest.contributes;
   async function toggle(personal = false) {
     await action.run(async () => {
@@ -68,7 +65,7 @@ function PluginCard({ plugin, administrator }: { plugin: PluginInstallation; adm
     });
   }
   const pages = (c.pages ?? []).map(page => ({ id: `page-${page.id}`, label: `${copy.open} · ${page.title}`, icon: <PanelsTopLeft size={15} />, disabled: !pluginAllowed(plugin, page.capabilities), onSelect: () => navigate('extensions', `${plugin.ID}/${page.id}`) }));
-  const menu = [...pages, ...(c.skills?.length ? [{ id: 'instances', label: zh ? '助理环境与账号' : 'Assistant environments', icon: <Settings2 size={15} />, onSelect: () => setInstances(true) }] : []), ...(administrator ? [
+  const menu = [...pages, ...(administrator ? [
     { id: 'groups', label: zh ? '授权用户组' : 'Authorize groups', icon: <Shield size={15} />, onSelect: () => setGroups(true) },
     { id: 'manage', label: zh ? '权限与助理' : 'Permissions and assistants', icon: <Settings2 size={15} />, onSelect: () => setEditing(true) },
     ...(hasAdminSettings(plugin) ? [{ id: 'admin', label: zh ? '管理员配置' : 'Admin settings', icon: <Settings2 size={15} />, onSelect: () => navigate('extensions', `${plugin.ID}/@admin`) }] : []),
@@ -78,10 +75,9 @@ function PluginCard({ plugin, administrator }: { plugin: PluginInstallation; adm
   return <article className="plugin-card plugin-row">
     <div className="plugin-card-heading"><span className="plugin-card-icon"><Puzzle size={24} /></span><div><h2>{plugin.Manifest.name}</h2><span className="muted">v{plugin.Manifest.version}</span></div>{menu.length > 0 && <DropdownMenu label={`${t.more} · ${plugin.Manifest.name}`} align="end" trigger={<IconButton label={`${t.more} · ${plugin.Manifest.name}`} disabled={action.busy}><Ellipsis size={18} /></IconButton>} items={menu} />}</div>
     <p className="plugin-card-description">{plugin.Manifest.description || (zh ? '此插件未提供简介。' : 'No description provided.')}</p>
-    <div className="plugin-card-tags">{[[copy.themes,c.themes?.length],[copy.pages,c.pages?.length],[copy.tools,c.tools?.length],[copy.skills,c.skills?.length]].filter(([,n]) => !!n).map(([label,n]) => <Badge key={label} size="sm">{label} {n}</Badge>)}<Badge size="sm" tone={enabled ? 'positive' : 'neutral'}>{enabled ? copy.enabled : copy.disabled}</Badge></div>
+    <div className="plugin-card-tags">{[[copy.themes,c.themes?.length],[copy.pages,c.pages?.length],[copy.tools,c.tools?.length]].filter(([,n]) => !!n).map(([label,n]) => <Badge key={label} size="sm">{label} {n}</Badge>)}<Badge size="sm" tone={enabled ? 'positive' : 'neutral'}>{enabled ? copy.enabled : copy.disabled}</Badge></div>
     <div className="plugin-card-actions"><Switch label={administrator ? (zh ? '全局启用' : 'Enable globally') : copy.enabledLabel} checked={enabled} disabled={action.busy} onChange={() => { void toggle(); }} /><div>{hasSettings(plugin) && <Button size="sm" variant="secondary" disabled={!pluginAllowed(plugin)} onClick={() => navigate('extensions', `${plugin.ID}/@settings`)}>{zh ? '配置' : 'Configure'}</Button>}{c.pages?.[0] && <Button size="sm" variant="secondary" disabled={!pluginAllowed(plugin,c.pages[0].capabilities)} onClick={pages[0].onSelect}>{copy.open}</Button>}</div></div>
     <ErrorNotice error={action.error} />
-    {instances && <PluginInstances plugin={plugin} onClose={() => setInstances(false)} />}
     {editing && <PluginManagement plugin={plugin} onClose={() => setEditing(false)} />}
     {groups && <PluginGroups plugin={plugin} onClose={() => setGroups(false)} />}
     {remove && <Confirm danger title={copy.remove} description={copy.removeHelp} onClose={() => setRemove(false)} onConfirm={async () => { await api.post('/api/plugins/remove', { ID: plugin.ID, ExpectedVersion: plugin.Version }); host.reloadPlugins(); setRemove(false); }} />}

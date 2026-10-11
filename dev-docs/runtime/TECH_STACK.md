@@ -22,7 +22,7 @@ SQLite 已实际使用，不再是待选存储方案。HTTP、命令行入口、
 
 后端不加载第三方业务模块。新增内置工具、连接类型与模型适配器通过更新 Go 程序交付。用户可管理现有模型、资源、授权、预算与计划。
 
-Agent 已能在获准 Linux 沙盒中运行脚本，并从自己的工作区读取项目指令和 Skills；这不同于给 Runtime 动态安装 Go 模块。客户端已有 SDK、内置主题与插件主题机制；管理员可导入本地插件包并授权启用，不支持远程 URL 安装。详见 [上下文更新](AGENT_CONTEXT.md) 和 [UI 包设计](../frontend/UI_PACKAGES.md)。
+Agent 已能在获准 Linux 沙盒中运行脚本，并从自己的工作区读取项目指令和 Skills；这不同于给 Runtime 动态安装 Go 模块。客户端已有 SDK、内置主题与插件主题机制；管理员可导入本地 ZIP 插件包或从公开 HTTPS 链接添加，并授权启用。详见 [上下文更新](AGENT_CONTEXT.md) 和 [UI 包设计](../frontend/UI_PACKAGES.md)。
 
 当前只设计单实例运行，没有多副本调度、跨 Runtime 自动接管、服务发现或 PostgreSQL 适配。macOS／Windows 不能视为已实现与 Linux 等价的目录工具和 Shell 隔离。
 

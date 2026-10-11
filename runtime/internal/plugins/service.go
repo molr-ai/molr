@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"molr.ai/runtime/internal/audit"
-	"molr.ai/runtime/internal/auth"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 )
@@ -55,8 +54,6 @@ type Configure struct {
 	Release         string
 }
 type Options struct {
-	CheckWorkspaceFile   func(context.Context, core.Principal, core.ID, int64) error
-	CheckVerification    func(context.Context, core.Principal, auth.Verification, string) error
 	CheckPlugin          func(context.Context, core.Principal, string) error
 	CheckTool            func(context.Context, core.Principal, string) error
 	AuthorizeSettings    func(context.Context, core.Principal) error
@@ -70,7 +67,6 @@ type Options struct {
 	IsAdministrator func(context.Context, core.Principal) (bool, error)
 	Authorize       func(context.Context, core.Principal, bool) error
 	CheckAssistant  func(context.Context, core.Principal, core.ID) error
-	WorkspaceRoot   func(context.Context, core.Principal, core.ID, bool) (string, error)
 	ReadPlans       func(context.Context, core.Principal) (any, error)
 }
 type Service struct {
@@ -150,6 +146,7 @@ func (s *Service) List(ctx context.Context, p core.Principal) ([]Installation, e
 		}
 		if !admin {
 			v.Bindings = []Binding{}
+			v.Versions = []Release{}
 			v.Manifest.AdminSettings = nil
 			v.Manifest.AdminSettingsPage = nil
 		}
@@ -269,7 +266,6 @@ func (s *Service) Configure(ctx context.Context, p core.Principal, q Configure) 
 					return !slices.ContainsFunc(v.Manifest.Contributes.Tools, func(t Tool) bool { return t.ID == id })
 				})
 			}
-
 		}
 		allowed := Requested(v.Manifest)
 		if len(q.Grants) > len(capabilities) || len(q.Bindings) > 100 {
@@ -334,24 +330,6 @@ func (s *Service) Remove(ctx context.Context, p core.Principal, id string, expec
 		}
 		if expected == 0 || v.Version != expected {
 			return core.NewError(core.Conflict, "plugin changed")
-		}
-		instances, err := persistence.Select[Instance](ctx, s.store, "plugins.instances", persistence.Query{Where: []persistence.Filter{persistence.Eq("PluginID", id)}})
-		if err != nil {
-			return err
-		}
-		for _, instance := range instances {
-			instanceCatalog, err := persistence.CatalogOwner(ctx, s.store, instance.OwnerID)
-			if err != nil {
-				return err
-			}
-			if instanceCatalog != v.OwnerID {
-				continue
-			}
-			instance.Enabled = false
-			instance.Version++
-			if err := tx.Put(ctx, "plugins.instances", instanceKey(instance.OwnerID, instance.AssistantID, id), instance); err != nil {
-				return err
-			}
 		}
 		v.Deleted = true
 		v.Enabled = false

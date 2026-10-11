@@ -29,7 +29,7 @@ Molr 在你自己的设备上运行服务，连接你选择的模型。通过桌
 - **模型与预算自选** — 接入云端或本地模型，按助理分配模型和预算，查看执行用量与费用。
 - **明确的资源权限** — 按助理授权文件目录与工具；Linux 命令在配置好的隔离沙盒中执行。
 - **多设备与独立账号** — 桌面、手机浏览器接续同一服务；家庭和小团队可通过用户组分配资源与额度。
-- **插件与主题** — 通过管理员导入和授权，扩展工具、Skills、主题及独立页面。
+- **插件与主题** — 通过管理员导入和授权，扩展 HTTP 工具、主题及独立页面。
 
 ## 快速开始
 
@@ -61,7 +61,7 @@ bash scripts/install.sh --archive dist/releases/molr_0.1.0-local_linux_amd64.tar
 | [产品文档](docs/README.md) | 使用指南与常见问题 |
 | [助理、聊天与计划](docs/assistants-and-plans.md) | 持续对话、定时安排、结果与修订 |
 | [资源、权限与预算](docs/resources-and-permissions.md) | 模型连接、资料范围、授权与费用 |
-| [插件](docs/plugins.md) | 工具、Skills、主题与页面扩展 |
+| [插件](docs/plugins.md) | HTTP 工具、主题与页面扩展 |
 | [架构总览](docs/architecture.md) | 组件构成、执行链路与数据存放 |
 | [Linux 命令环境](docs/deployment/sandbox.md) | 沙盒依赖、运行限制与能力检查 |
 | [开发文档](dev-docs/README.md) | 实现说明、接口、品牌与协作规范 |

@@ -466,7 +466,6 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		return nil
 	}}
 	pluginService = plugins.New(store, plugins.Options{
-		CheckVerification: identity.CheckVerification,
 		CheckPlugin: func(ctx context.Context, p core.Principal, id string) error {
 			if err := identity.ValidatePrincipal(ctx, p); err != nil {
 				return err
@@ -526,14 +525,11 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 			}
 			return permissions.Require(ctx, p, policy.CheckRequest{Target: core.Object{Kind: "settings", ID: p.OwnerID}, Action: action})
 		},
-		CheckAssistant:     access.assistant,
-		WorkspaceRoot:      fileTools.pluginWorkspaceRoot,
-		CheckWorkspaceFile: fileTools.checkPluginFileSize,
+		CheckAssistant: access.assistant,
 		ReadPlans: func(ctx context.Context, p core.Principal) (any, error) {
 			return plans.List(ctx, p, time.Time{}, time.Time{})
 		},
 	})
-	fileTools.plugins = pluginService
 	profile := &profileTools{workspace: fileTools}
 	executor := tools.NewExecutor(store, tools.Options{ProfileUpdate: profile.update, CheckGroupQuota: func(ctx context.Context, c tools.Call) error { return checkGroupToolQuota(ctx, store, c) }, ExtensionDefinitions: pluginService.Definitions, ExtensionValidate: pluginService.ValidateCall, ExtensionPrepare: pluginService.PrepareCall, ExtensionExecute: pluginService.Execute, PermissionList: sandboxRouter.list, PermissionRequest: permissionRequests.create, Cancel: func(ctx context.Context, e core.Execution, id core.ID) error {
 		if pluginService.CancelOperation(e.Principal.OwnerID, id) {
@@ -613,10 +609,6 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		if err != nil {
 			return nil, err
 		}
-		pluginDocs, err := pluginService.Context(ctx, r)
-		if err != nil {
-			return nil, err
-		}
 		profileDoc, err := profile.context(ctx, r.Execution)
 		if err != nil {
 			return nil, err
@@ -629,7 +621,6 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 			docs = append(docs, *channelDoc)
 		}
 		docs = append(docs, profileDoc)
-		docs = append(docs, pluginDocs...)
 		docs = append(docs, permissionDocs...)
 		mem, err := memoryContext.context(ctx, r)
 		return append(docs, mem...), err

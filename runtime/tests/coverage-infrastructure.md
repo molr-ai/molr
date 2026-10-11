@@ -274,10 +274,8 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/contextstore` | `ReleaseKind`, `RunGC` | `TestReleaseKindScopesReferencesAndBackgroundCollection` |
 | `internal/retry` | `Policy.Delay` | `TestDefaultPolicy`, `TestPolicyBounds` |
 
-2026-10-11：工作区 CLI 文件与凭证操作。
+2026-10-11：补齐构建信息接口映射。
 
 | 包 | 接口 / 方法 | 测试 |
 | --- | --- | --- |
-| `internal/textfiles` | `ReplacePrivate` | `internal/plugins.TestInstanceCredentialIsPrivateAndNeverReturned` |
-| `internal/textfiles` | `RemoveTree` | `internal/plugins.TestCleanupAfterUninstallDoesNotFollowWorkspaceLinks` |
 | `internal/buildinfo` | `UserAgent` | `internal/agent/model.TestTDDModelCatalogAndGenerationRequireCurrentAuthorization` |

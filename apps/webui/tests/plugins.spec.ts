@@ -11,18 +11,12 @@ async function login(page: Page) {
 }
 // Minimal in-memory contract fixtures; no installable demo packages are shipped.
 async function pkg(name: string): Promise<PluginPackage> {
- const contributes: PluginPackage['manifest']['contributes'] = { themes: [], pages: [], tools: [], skills: [] };
+ const contributes: PluginPackage['manifest']['contributes'] = { themes: [], pages: [], tools: [] };
  const files: Record<string, string> = {};
- if (name === 'fixture.page') {
-  contributes.themes = [{ id: 'theme', name: 'Fixture theme', pages: { plans: 'ui.html' }, capabilities: ['plans.read'] }];
-  contributes.pages = [{ id: 'page', title: 'Fixture page', entry: 'ui.html', capabilities: ['plans.read'] }];
-  files['ui.html'] = `<p id="status">waiting</p><script>addEventListener('message',e=>{if(e.source!==parent||e.data?.type!=='molr.plugin.connect')return;const port=e.ports[0];port.onmessage=({data})=>{document.getElementById('status').textContent=data.error?'denied':'connected'};port.postMessage({id:1,method:'plans.list'})});parent.postMessage({type:'molr.plugin.ready',apiVersion:2},'*')</script>`;
- } else {
-  contributes.skills = [{ id: 'skill', name: 'Fixture workflow', description: 'Integration test workflow.', entry: 'SKILL.md', tools: [] }];
-  files['report.sh'] = 'set -eu\nmkdir -p /work/plugin-fixture\nprintf "plugin-fixture-report\\n%s\\n" "$1" > /work/plugin-fixture/report.txt\ncat /work/plugin-fixture/report.txt\n';
-  files['SKILL.md'] = 'Call the report tool listed below, then read /work/plugin-fixture/report.txt to verify its output.';
- }
- return { manifest: { manifestVersion: 1, pluginApi: 3, id: name, name: name === 'fixture.page' ? 'Fixture page' : 'Fixture tools', description: 'Integration test fixture', version: '1.0.0', contributes }, files };
+ contributes.themes = [{ id: 'theme', name: 'Fixture theme', pages: { plans: 'ui.html' }, capabilities: ['plans.read'] }];
+ contributes.pages = [{ id: 'page', title: 'Fixture page', entry: 'ui.html', capabilities: ['plans.read'] }];
+ files['ui.html'] = `<p id="status">waiting</p><script>addEventListener('message',e=>{if(e.source!==parent||e.data?.type!=='molr.plugin.connect')return;const port=e.ports[0];port.onmessage=({data})=>{document.getElementById('status').textContent=data.error?'denied':'connected'};port.postMessage({id:1,method:'plans.list'})});parent.postMessage({type:'molr.plugin.ready',apiVersion:2},'*')</script>`;
+ return { manifest: { manifestVersion: 1, pluginApi: 3, id: name, name: 'Fixture page', description: 'Integration test fixture', version: '1.0.0', contributes }, files };
 }
 async function enable(page: Page, name: string, bindings: object[] = []) {
  const value = await pkg(name); const installed = await post(page, '/api/plugins/install', value);
@@ -52,23 +46,6 @@ test('package import, isolated real page, theme selection, revocation and immuta
  await post(page, '/api/plugins/configure', { ID: installed.ID, ExpectedVersion: installed.Version, Enabled: false, Grants: [], Bindings: [] });
  await post(page, '/api/plugins/ui', { ID: installed.ID, Digest: installed.Digest, Kind: 'page', Contribution: 'page', Method: 'plans.list' }, 403);
  await page.reload(); await page.goto('/#/plans'); await expect(page.locator('iframe')).toHaveCount(0);
-});
-test('real Agent discovers Skill and executes the bound plugin in its sandbox', async ({ page }, info) => {
- test.skip(process.env.MOLR_E2E_SANDBOX_SERVICE !== '1', 'requires delegated sandbox');
- await login(page); const sandbox = await (await page.request.get('/api/sandbox')).json(); expect(sandbox.Enabled).toBe(true); expect(sandbox.Capabilities.Reason).toBe('available');
- const mutate = (path: string, data: object) => post(page, path, { ...data, Mutation: { IdempotencyKey: crypto.randomUUID() } });
- const name = `Plugin fixture ${info.project.name} ${Date.now()}`, origin = `http://127.0.0.1:${process.env.MOLR_E2E_MODEL_PORT ?? 18882}`;
- const resource = await mutate('/api/resources', { Name: name, Kind: 'model', Provider: 'openai-compatible', Binding: { Endpoint: origin, AllowedOrigins: [origin], Models: [{ Name: name, ContextLimit: 65536, SupportsTools: true, Pricing: { Currency: 'USD', InputMicrosPerMillion: 0, CachedInputMicrosPerMillion: 0, OutputMicrosPerMillion: 0 } }] } });
- const models = await (await page.request.get('/api/models')).json(), model = models.find((m: { ResourceID: string }) => m.ResourceID === resource.ID);
- const assistant = await mutate('/api/assistants', { Name: name, ModelID: model.ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } });
- let compute = (await (await page.request.get('/api/resources')).json()).Items.find((r: { Kind: string }) => r.Kind === 'compute'); if (!compute) compute = await mutate('/api/sandboxes/resource', { SandboxID: 'local', Kind: 'compute', SourceID: 'compute', Name: 'Plugin test compute' });
- await mutate('/api/grants', { AssistantID: assistant.ID, ResourceID: compute.ID, Actions: ['execute'], Scope: {}, Constraints: { compute: { cpu_percent: 100, memory_bytes: 536870912, processes: 64, max_duration_seconds: 60, unlimited_duration: false, temp_bytes: 67108864 } } });
- await enable(page, 'fixture.tools');
- await post(page, '/api/plugins/instances/save', { ID: 'fixture.tools', AssistantID: assistant.ID, Enabled: true, ExpectedVersion: 0 });
- await page.goto(`/#/assistants/${assistant.ID}`); await page.getByRole('textbox', { name: 'Message your assistant', exact: true }).fill('Generate a workspace report using the plugin Skill.'); await page.getByRole('button', { name: 'Send', exact: true }).click();
- await expect(page.locator('.chat-history')).toContainText('Plugin test report verified.', { timeout: 30000 });
- const caps = await (await page.request.get(`/api/assistants/${assistant.ID}/capabilities`)).json(); expect(caps.Skills.Items.some((sk: { ID: string; Enabled: boolean }) => sk.ID.startsWith('/plugins/fixture.tools/') && sk.Enabled)).toBe(true);
- await page.screenshot({ path: info.outputPath('plugin-tool-report.png') });
 });
 
 async function trackHTMLURLs(page: Page) {

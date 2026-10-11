@@ -33,7 +33,7 @@ WebUI 采用「资源类型：沙盒 → 选择沙盒 → 权限类型：存储�
 
 命令接收、操作执行结果与用户可见消息发布是不同阶段。请求幂等不保证所有外部副作用恰好发生一次，未知结果需要核对；内部调度事件不直接成为聊天消息，助理通过会话工具发布且不能伪装用户。内部队列、工具与恢复机制见 [Runtime 架构](ARCHITECTURE.md)。Agent 工具不开放账号、凭证或访问令牌管理，模型可见内容不得包含真实凭证、认证头、Cookie 或内部凭证引用，详见[安全边界](SECURITY.md)。
 
-Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugin API 3](PLUGINS.md) 支持隔离页面、主题、个人配置、服务连接、助理工作区 CLI／声明式 HTTP 工具和 Skill。插件协议与 [UI/Host 契约](../frontend/UI_PACKAGES.md) 各自维护，不能由此推导 HTTP API 已有同样的版本协商或任意后端模块加载能力。
+Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugin API 3](PLUGINS.md) 支持隔离页面、主题、个人配置、服务连接、声明式 HTTP 工具。插件协议与 [UI/Host 契约](../frontend/UI_PACKAGES.md) 各自维护，不能由此推导 HTTP API 已有同样的版本协商或任意后端模块加载能力。
 
 ## 认证与浏览器流程
 

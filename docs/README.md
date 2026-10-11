@@ -35,7 +35,7 @@ Molr 是可自托管的个人 AI 助理：在自己的设备上运行服务、�
 - [资源、权限与预算](resources-and-permissions.md)：模型、资料范围、费用和撤权。
 - [设置、安全与常见问题](settings-and-troubleshooting.md)：主题、记忆、设备登录、等待与故障。
 
-- [插件](plugins.md)：导入、授权、主题、页面、助理工具与 Skills。
+- [插件](plugins.md)：导入、授权、主题、页面、助理 HTTP 工具。
 
 ## 部署与维护
 

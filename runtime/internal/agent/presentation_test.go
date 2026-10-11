@@ -116,12 +116,10 @@ func TestAllInstalledToolsHavePresentationTemplates(t *testing.T) {
 	}
 }
 
-func TestPluginHTTPAndSkillResultsReachModelWithoutPrivateEnvelope(t *testing.T) {
+func TestPluginHTTPResultsReachModelWithoutPrivateEnvelope(t *testing.T) {
 	name := "plg_" + strings.Repeat("a", 48)
 	cases := []struct{ raw, want string }{
 		{`{"provider":"fixture","data":{"text":"A: fixture","items":[{"url":"https://example.com"}]},"usage":1,"duration_ms":2,"connection_id":"private-connection","OwnerID":"private-owner"}`, `"text":"A: fixture"`},
-		{`{"Source":"plugin:fixture/skill","Digest":"digest","Text":"Read the supplied sources.","OwnerID":"private-owner"}`, "Read the supplied sources."},
-		{`{"Task":{"State":"done","Result":{"Stdout":"shell fixture","Exit":{"Code":0}}},"OwnerID":"private-owner"}`, "shell fixture"},
 	}
 	for _, c := range cases {
 		out := toolText(name, c.raw)

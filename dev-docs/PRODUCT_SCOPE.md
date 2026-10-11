@@ -18,7 +18,7 @@
 | 账号与授权 | 独立账号、管理员用户组、成员配额及助理权限；没有用户间共享空间或协同编辑 | [用户与用户组](../docs/users-and-groups.md)、[资源授权额度](runtime/RESOURCE_QUOTAS.md) |
 | 模型与费用 | 配置支持的模型协议与凭据，按助理管理预算；远程推理受供应商能力和网络影响 | [模型适配](runtime/MODEL_ADAPTERS.md)、[资源与权限](../docs/resources-and-permissions.md) |
 | 文件与命令 | 受授权范围约束的文件工具、Linux 隔离命令和远程 Linux Sandbox | [文件工具](runtime/FILE_TOOLS.md)、[沙盒设计](runtime/SANDBOX.md) |
-| 插件与主题 | 管理员导入并授权插件，受控工具、Skills、主题及独立页面；不加载动态 Go 业务模块 | [插件机制](runtime/PLUGINS.md) |
+| 插件与主题 | 管理员导入并授权插件，HTTP 工具、主题及独立页面；不加载动态 Go 业务模块 | [插件机制](runtime/PLUGINS.md) |
 | 微信 | 固定渠道适配器接入已有助理；平台约束和真实账号验证边界见专项说明 | [微信渠道](runtime/WEIXIN.md) |
 
 ## 部署限制

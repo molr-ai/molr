@@ -86,9 +86,6 @@ func toolText(name, raw string) string {
 		Provider       string          `json:"provider"`
 		Usage          json.RawMessage `json:"usage"`
 		DurationMS     int64           `json:"duration_ms"`
-		Source         string
-		Digest         string
-		Text           *string
 	}
 	if json.Unmarshal([]byte(raw), &result) == nil && len(result.Error) > 0 {
 		name = "failure"
@@ -110,10 +107,7 @@ func toolText(name, raw string) string {
 				DurationMS            int64
 			}{prompt.String(result.Provider), string(result.Data), usage, result.DurationMS})
 		}
-		if result.Text != nil && result.Source != "" && result.Digest != "" {
-			return prompt.Text("plugin-skill", struct{ Source, Digest, Text string }{prompt.String(result.Source), prompt.String(result.Digest), prompt.String(*result.Text)})
-		}
-		name = "shell_execute"
+		return prompt.Text("tool-unavailable", nil)
 	}
 	text, err := prompt.Structured(name, raw)
 	if err != nil {
