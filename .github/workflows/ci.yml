@@ -14,6 +14,20 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v5
+      - name: Install native sandbox dependencies
+        run: sudo apt-get update && sudo apt-get install -y bubblewrap busybox-static ca-certificates file util-linux
+      - name: Prepare delegated user service manager
+        run: |
+          sudo loginctl enable-linger "$(id -un)"
+          sudo systemctl start "user@$(id -u).service"
+          echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
+          echo "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus" >> "$GITHUB_ENV"
+      - name: Probe Bubblewrap under the service security settings
+        run: |
+          if ! systemd-run --user --pipe --wait --collect --unit=molr-ci-bwrap -p NoNewPrivileges=yes /usr/bin/bwrap --unshare-all --unshare-user --disable-userns --assert-userns-disabled --ro-bind / / --proc /proc --dev /dev -- /usr/bin/true; then
+            sudo journalctl --kernel --since "2 minutes ago" --grep 'apparmor="DENIED"' --no-pager
+            exit 1
+          fi
       - uses: actions/setup-node@v5
         with:
           node-version: '22.21.0'
@@ -38,17 +52,6 @@ jobs:
         env:
           CGO_ENABLED: '0'
       - run: npm run build:release
-      - name: Install native sandbox dependencies
-        run: sudo apt-get update && sudo apt-get install -y bubblewrap busybox-static ca-certificates file util-linux
-      - name: Prepare delegated user service manager
-        run: |
-          sudo loginctl enable-linger "$(id -un)"
-          sudo systemctl start "user@$(id -u).service"
-          echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
-          echo "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus" >> "$GITHUB_ENV"
-      - name: Probe Bubblewrap under the service security settings
-        run: |
-          systemd-run --user --pipe --wait --collect --unit=molr-ci-bwrap -p NoNewPrivileges=yes /usr/bin/bwrap --unshare-all --disable-userns --assert-userns-disabled --ro-bind / / --proc /proc --dev /dev -- /usr/bin/true
       - name: Native installation and sandbox acceptance
         run: |
           arch=$(node -p '({x64: "amd64", arm64: "arm64"})[process.arch]')
