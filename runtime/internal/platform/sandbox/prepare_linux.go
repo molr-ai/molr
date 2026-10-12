@@ -87,6 +87,18 @@ func (r *Runner) prepare(ctx context.Context) error {
 	if err := r.check(); err != nil {
 		return err
 	}
+	profiles := []string{""}
+	if chromeProfileCandidate(r.options.Bwrap) {
+		profiles = []string{"chrome", ""}
+	}
+	if err = r.prepareBwrap(ctx, profiles); err != nil {
+		return err
+	}
+	r.prepareGPU(ctx)
+	return nil
+}
+
+func (r *Runner) probeIsolation(ctx context.Context) error {
 	// Exercise a real isolated helper, rather than advertising readiness based on
 	// paths existing. Its work directory is empty and no network is granted.
 	probe := platformProbe()
@@ -112,7 +124,6 @@ func (r *Runner) prepare(ctx context.Context) error {
 	if err = r.probeNetwork(ctx); err != nil {
 		return unavailable("sandbox_network_probe_failed")
 	}
-	r.prepareGPU(ctx)
 	return nil
 }
 

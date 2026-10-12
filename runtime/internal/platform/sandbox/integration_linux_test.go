@@ -329,6 +329,9 @@ func integrationRunner(t *testing.T, auth func(context.Context, core.Execution, 
 			t.Error(e)
 		}
 	})
+	if err := r.Prepare(t.Context()); err != nil {
+		t.Fatalf("prepare: %s: %v", core.ReasonOf(err), err)
+	}
 	if c, e := r.Capabilities(context.Background()); e != nil || !c.Shell {
 		for _, p := range []string{r.options.Bwrap, r.options.Helper} {
 			f, err := pin(p, false)

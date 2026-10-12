@@ -41,7 +41,11 @@ func (r *Runner) check() error {
 	if !strings.HasPrefix(o.CgroupRoot, "/sys/fs/cgroup/") || o.MinFreeDiskBytes <= 0 {
 		return unavailable("sandbox_not_configured")
 	}
-	for _, p := range []string{o.Bwrap, o.Helper, "/usr/bin/nsenter"} {
+	executables := []string{o.Bwrap, o.Helper, "/usr/bin/nsenter"}
+	if r.bwrapProfile != "" {
+		executables = append(executables, "/usr/bin/aa-exec")
+	}
+	for _, p := range executables {
 		f, e := pin(p, false)
 		if e != nil {
 			return unavailable("sandbox_helper_unavailable")
@@ -415,7 +419,8 @@ func (r *Runner) startAuthorized(parent context.Context, e core.Execution, c pla
 	}
 	budget := &outputBudget{left: c.MaxOutputBytes}
 	p := &process{stdout: newStream(budget), stderr: newStream(budget), done: make(chan struct{}), cancel: cancel, operation: string(e.Principal.ExecutionID) + "/" + string(e.OperationID)}
-	cmd := exec.Command(r.options.Bwrap, args...)
+	launcher := r.bwrapCommand(args...)
+	cmd := exec.Command(launcher[0], launcher[1:]...)
 	var networkFailure <-chan struct{}
 	if network != nil {
 		user, netns, dupErr := network.duplicateNamespaces()
@@ -423,8 +428,8 @@ func (r *Runner) startAuthorized(parent context.Context, e core.Execution, c pla
 			return nil, dupErr
 		}
 		userFD, netFD := add(user), add(netns)
-		wrapped := []string{"--user=/proc/self/fd/" + userFD, "--net=/proc/self/fd/" + netFD, "--preserve-credentials", "--", r.options.Bwrap}
-		cmd = exec.Command("/usr/bin/nsenter", append(wrapped, args...)...)
+		wrapped := []string{"--user=/proc/self/fd/" + userFD, "--net=/proc/self/fd/" + netFD, "--preserve-credentials", "--"}
+		cmd = exec.Command("/usr/bin/nsenter", append(wrapped, launcher...)...)
 		networkFailure = network.failure
 	}
 

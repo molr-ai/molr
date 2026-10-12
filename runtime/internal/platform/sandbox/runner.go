@@ -34,6 +34,8 @@ type Options struct {
 	Authorize                                                func(context.Context, core.Execution, platform.Command) error
 }
 type Runner struct {
+	// Selected once by startup probes; business commands never retry another profile.
+	bwrapProfile        string
 	gpuDevices          []platform.GPUDevice
 	gpuNodes            map[string]gpuNode
 	quotas              *quota.Ledger

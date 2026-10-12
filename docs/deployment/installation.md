@@ -56,7 +56,7 @@ sh install.sh --archive /path/package.tar.gz
 
 当前服务适配使用 systemd。启用 Linux 沙盒需要 systemd 254+、cgroup v2 委派、Bubblewrap、静态 BusyBox、CA 证书及 util-linux 的 nsenter／setpriv。它们是运行能力要求，不按发行版名称或版本拒绝安装。当前自动依赖准备支持 APT；其他环境可按[沙盒要求](sandbox.md)手动准备。systemd 用户管理器需要正常的 SSH／桌面登录会话。
 
-启用 AppArmor 非特权用户命名空间限制时，安装器以服务账户及 `NoNewPrivileges` 检查 Bubblewrap。授权后可安装并加载发行版的 `bwrap-userns-restrict` 策略，再次验证。已有策略不覆盖，冲突需管理员处理；不会关闭系统隔离限制。隔离依赖缺失不会自动切换为 Full Access。
+启用 AppArmor 非特权用户命名空间限制时，安装器以服务账户及 `NoNewPrivileges` 检查 Bubblewrap，先尝试已加载的 `chrome` profile，再尝试原有受限路径；已有配置可用时无需安装新 profile。两条路径均失败且获得授权后可安装并加载发行版的 `bwrap-userns-restrict` 策略，再次验证。已有策略不覆盖，冲突需管理员处理；不会关闭系统隔离限制。隔离依赖缺失不会自动切换为 Full Access。
 
 ### 安装时选择运行账户
 

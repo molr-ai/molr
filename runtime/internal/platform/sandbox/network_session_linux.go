@@ -230,7 +230,8 @@ func (r *Runner) startNetworkWithQuotas(ctx context.Context, e core.Execution, c
 		return nil, err
 	}
 	n.lease = lease
-	keeper := exec.Command(r.options.Bwrap, "--unshare-user", "--unshare-net", "--uid", "0", "--gid", "0", "--die-with-parent", "--clearenv", "--cap-drop", "ALL", "--ro-bind", "/", "/", "--", r.options.Helper, "sandbox-helper", "network-keeper")
+	launcher := r.bwrapCommand("--unshare-user", "--unshare-net", "--uid", "0", "--gid", "0", "--die-with-parent", "--clearenv", "--cap-drop", "ALL", "--ro-bind", "/", "/", "--", r.options.Helper, "sandbox-helper", "network-keeper")
+	keeper := exec.Command(launcher[0], launcher[1:]...)
 	keeper.Stdin = input
 	keeper.Env = []string{"GOMAXPROCS=2"}
 	keeper.SysProcAttr = attributes()

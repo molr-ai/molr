@@ -294,18 +294,8 @@ mkdir -p "$AGENT_BROWSER_SOCKET_DIR"
 
 运行 `agent-browser open chrome://sandbox` 和 `agent-browser get text body` 验证 Namespace、PID／network namespace、Seccomp-BPF、TSYNC 已启用。不能仅凭页面能打开判断：agent-browser 检测到 root 时可能自动加入 `--no-sandbox`。宿主工具模式要求非 root 服务账号。
 
-Ubuntu 发行版的 Bubblewrap AppArmor 子配置可能阻止嵌套命名空间，即使 Molr 过滤器已允许。仓库提供明确的应用级 userns 豁免配置 `runtime/configs/apparmor/molr-bwrap` 和失败时拒绝启动的 `runtime/scripts/bwrap-userns.sh`。需由管理员审查并加载；该 profile 自身不构成沙盒，必须与 Molr 完整隔离策略配合使用。它不关闭全局 AppArmor，也不修改既有 profile。从源码仓库根目录执行，以下以安装目录 `/opt/molr` 为例：
+默认使用 `/usr/bin/bwrap` 时，Runtime 优先通过 `/usr/bin/aa-exec -p chrome` 复用宿主已加载的 `chrome` AppArmor profile。启动时先验证真实的断网执行与受控联网；工具缺失、profile 未加载或探针失败时，使用 Bubblewrap 原有 profile 并重新验证。两条路径都不可用时关闭 Shell 能力。选择仅发生在启动阶段，不会在业务命令失败后切换 profile 重跑，也不会自动给浏览器添加 `--no-sandbox`。Runtime 不安装、加载或修改 AppArmor 策略，不修改 sysctl。显式设置 `sandbox.bubblewrap` 为其他可信启动器时保留管理员的选择。
 
-```sh
-sudo install -m 0644 runtime/configs/apparmor/molr-bwrap /etc/apparmor.d/molr-bwrap
-sudo apparmor_parser -r /etc/apparmor.d/molr-bwrap
-sudo install -D -m 0755 runtime/scripts/bwrap-userns.sh /opt/molr/libexec/bwrap-userns
-```
-
-合并到既有部署配置后重启 Runtime，并重新检查已认证的 `/api/sandbox` 能力状态：
-
-```json
-{"sandbox":{"host_tools":true,"bubblewrap":"/opt/molr/libexec/bwrap-userns"}}
-```
+发行版的 `chrome` profile 通常是允许 userns 的应用级豁免；它自身不提供 Chromium 内层沙盒。相较 Bubblewrap 受限子 profile，它不再额外一律拒绝 capabilities，允许 Chromium 在自己的子命名空间中建立隔离，也增加了可访问的内核功能面。Molr 的文件挂载边界、受控网络、seccomp、零宿主 capabilities、`no_new_privs` 与 cgroup 仍然生效。可用性以实际探针和 `chrome://sandbox` 为准，不能只检查 `/etc/apparmor.d/chrome` 文件是否存在。
 
 宿主无法支持嵌套沙盒时，仍可显式使用 `AGENT_BROWSER_ARGS=--no-sandbox,--disable-dev-shm-usage` 兼容。它关闭 Chromium 内层防护，浏览器各进程共享本次 Shell 的授权范围，由 Molr 外层隔离约束，不适用于宿主直接执行或 Full Access。已验证的计算额度起点为内存 2 GiB、512 个进程／线程、200% CPU、512 MiB 临时空间。程序安装、实时浏览器画面和用户接管仍属于独立能力。

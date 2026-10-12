@@ -294,18 +294,8 @@ Prefer Chromium's native sandbox. Molr permits nested user/PID/network namespace
 
 Verify with `agent-browser open chrome://sandbox` and `agent-browser get text body`: Namespace, PID/network namespaces, Seccomp-BPF and TSYNC must be enabled. A successful page load alone is insufficient: agent-browser may add `--no-sandbox` automatically when it detects root. Host tool mode requires a non-root service account.
 
-On Ubuntu, the distribution's restricted Bubblewrap AppArmor child profile can prevent nested namespaces even with the Molr filter permitting them. The repository provides an explicit application userns exemption at `runtime/configs/apparmor/molr-bwrap` and a fail-closed launcher at `runtime/scripts/bwrap-userns.sh`. An administrator must review and load the profile; it does not itself create a sandbox and must be used with Molr's complete isolation policy. It does not disable global AppArmor or modify existing profiles. From the source repository root, for an example `/opt/molr` installation:
+When using the default `/usr/bin/bwrap`, Runtime first tries `/usr/bin/aa-exec -p chrome` with the host's already loaded `chrome` AppArmor profile. Startup probes exercise real offline execution and controlled networking. Missing tools, an unloaded profile or failed probes select Bubblewrap's original profile and repeat the checks. If neither path works, Shell capabilities remain unavailable. Selection happens only during startup: failed business commands are never retried with another profile, and `--no-sandbox` is never added automatically. Runtime does not install, load or modify AppArmor policies or change sysctl settings. An explicit `sandbox.bubblewrap` pointing to another trusted launcher retains the administrator's choice.
 
-```sh
-sudo install -m 0644 runtime/configs/apparmor/molr-bwrap /etc/apparmor.d/molr-bwrap
-sudo apparmor_parser -r /etc/apparmor.d/molr-bwrap
-sudo install -D -m 0755 runtime/scripts/bwrap-userns.sh /opt/molr/libexec/bwrap-userns
-```
-
-Merge this into the existing deployment configuration and restart Runtime; check authenticated `/api/sandbox` capabilities again:
-
-```json
-{"sandbox":{"host_tools":true,"bubblewrap":"/opt/molr/libexec/bwrap-userns"}}
-```
+The distribution's `chrome` profile is usually an application userns exemption; it does not itself provide Chromium's inner sandbox. Compared with Bubblewrap's restricted child profile, it removes the additional blanket capability denial, allowing Chromium to establish isolation in its own child namespaces and exposing more kernel functionality. Molr's file mounts, controlled networking, seccomp, zero host capabilities, `no_new_privs` and cgroups remain enforced. Check actual probes and `chrome://sandbox`; the presence of `/etc/apparmor.d/chrome` alone is insufficient.
 
 When the host cannot support nested sandboxing, `AGENT_BROWSER_ARGS=--no-sandbox,--disable-dev-shm-usage` remains an explicit compatibility fallback. It disables Chromium's inner protection; browser processes then share the Shell's authorized scope under Molr's outer isolation. It is not a safe configuration for direct host execution or Full Access. A tested starting compute allocation is 2 GiB memory, 512 processes/threads, 200% CPU and 512 MiB temporary space. Program installation, live browser display and user takeover remain separate capabilities.

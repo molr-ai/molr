@@ -198,7 +198,17 @@ func (e *Engine) prepareDependencies(sandbox bool) error {
 func (e *Engine) probeBwrap(r *installrecord.Record) error {
 	ctx, cancel := context.WithTimeout(e.Ctx, 15*time.Second)
 	defer cancel()
-	_, err := e.Command(ctx, asUser(r, "setpriv", "--no-new-privs", "/usr/bin/bwrap", "--unshare-all", "--unshare-user", "--disable-userns", "--assert-userns-disabled", "--ro-bind", "/", "/", "--proc", "/proc", "--dev", "/dev", "--", "/usr/bin/true"), nil, nil, nil, nil)
+	args := []string{"/usr/bin/bwrap", "--unshare-all", "--unshare-user", "--cap-drop", "ALL", "--ro-bind", "/", "/", "--proc", "/proc", "--dev", "/dev", "--", "/usr/bin/true"}
+	// Match Runtime's preference before proposing any policy installation. A
+	// missing aa-exec or unloaded chrome profile simply fails this trusted probe.
+	chrome := append([]string{"setpriv", "--no-new-privs", "/usr/bin/aa-exec", "-p", "chrome", "--"}, args...)
+	if _, err := e.Command(ctx, asUser(r, chrome...), nil, nil, nil, nil); err == nil {
+		return nil
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	_, err := e.Command(ctx, asUser(r, append([]string{"setpriv", "--no-new-privs"}, args...)...), nil, nil, nil, nil)
 	return err
 }
 func (e *Engine) preparePolicy(r *installrecord.Record) error {
