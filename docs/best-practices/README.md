@@ -11,6 +11,7 @@
 | 飞书 | 官方 Lark CLI | [操作飞书](feishu.md) |
 | 知乎 | 官方 Zhihu CLI | [操作知乎](zhihu.md) |
 | GitHub | 官方 GitHub CLI（`gh`） | [操作 GitHub](github.md) |
+| Google 服务 | Google Workspace CLI（`gws`） | [操作 Google 服务](google.md) |
 
 ## 准备执行环境
 
