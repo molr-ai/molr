@@ -36,7 +36,9 @@ Linux 后端已位于 `runtime/internal/platform/sandbox`，复用 `platform.Run
 
 当前后端复用宿主工具模式提供的只读驱动库，以固定 `nvidia-smi` XML 输出读取整卡 UUID、名称、显存和设备 minor。只注入所选 GPU、`nvidiactl` 和 `nvidia-uvm`，不注入宿主管理 socket、显示设备或其他 GPU。探针使用系统 Python 的 ctypes 直接调用 CUDA Driver API，验证实际可用设备集合及少量显存读写，不安装 CUDA SDK 或 Python 包。GPU 状态通过 `Info.GPUs` 独立公布。
 
-CUDA 使用 Unix SEQPACKET socket。GPU Shell 的 seccomp 仅额外允许此 Unix socket 类型，并将所有 `bind`／`connect` 系统调用转交同一沙盒内的可信 supervisor。supervisor 通过通知 ID、pidfd 和复制后的 sockaddr 校验并执行连接，不使用 `SECCOMP_USER_NOTIF_FLAG_CONTINUE`，防止脚本线程更换 FD 或地址绕过检查。只允许执行内抽象 Unix 地址及原有 IPv4／IPv6 网络；文件系统 Unix socket 的绑定和连接一律拒绝。普通 Shell 维持原有 socket 策略，脚本仍不能使用 `pidfd_getfd`、`process_vm_readv`、ptrace、mknod 或绕过网络的系统调用。GPU IPC 依赖 seccomp 通知及 supervisor 读取子进程 FD 的能力，真实探针失败时 GPU 不可用，不放宽系统安全设置。
+普通 Shell 与 GPU Shell 使用同一套受控 Unix IPC 策略，支持 STREAM／SEQPACKET 及对应的匿名 socketpair；DGRAM 仍禁止，避免通过 `sendto` 访问宿主路径。所有 `bind`／`connect` 由同一沙盒内的可信 supervisor 模拟：先校验通知 ID，以 pidfd 固定 socket FD，并复制 sockaddr；不使用 `SECCOMP_USER_NOTIF_FLAG_CONTINUE`。抽象 Unix 地址限于执行专属网络命名空间，路径地址仅允许当前执行的私有 `/tmp`。`openat2` 拒绝符号链接、magic link、跨挂载及路径逃逸；连接固定 socket inode，绑定固定父目录并原子创建末级节点，避免路径替换竞争。`/work`、资源目录及相对路径中的 socket 不允许绑定或连接，即使文件可读写。
+
+脚本仍不能使用 `pidfd_getfd`、`process_vm_readv`、ptrace、mknod 或绕过网络的系统调用；仅可信 supervisor 使用前两项模拟连接。普通 Shell 也依赖 seccomp 通知及 supervisor 读取子进程 FD 的能力，真实启动／网络探针失败时不可用，不放宽宿主安全设置。supervisor 作为 child subreaper 接管双重 fork 后脱离的后代，并回收退出的子进程，保持 Yama 所需的祖先关系，不授予脚本额外调试权限。每次执行最多同时处理 32 个连接通知，超过返回 EAGAIN；supervisor 与所有子进程处于原有执行 cgroup，统一计入资源限制、取消及撤权清理。
 
 授权变更与临时范围到期复用计算执行计划重查及 cgroup 清理；远程租约续约还会比较当前生效计算配置。任务回执记录实际启动的 `GPUDeviceIDs`。GPU 共享访问不提供显存、算力或独占调度保证，不能把普通 `memory.max` 视为显存限制。
 
@@ -87,7 +89,7 @@ Shell 执行需要计算资源的 `execute`；只读挂载需要存储 `read`，
 ### 进程、系统调用与限额
 
 - 沙盒 supervisor 与 exec helper 在启动环境中显式设置 `GOMAXPROCS=2`，使 Go 包初始化阶段也遵守 helper 的并行度限制，避免高核数主机在进入主函数前耗尽执行的 PID 配额。业务 Shell 的并行度继续依据本次 CPU 限额设置。
-- 允许 curl 线程通知所需的匿名 Unix stream socketpair；禁止普通 Unix socket 与可向路径发送消息的 Unix datagram socketpair。
+- 允许执行内受控 Unix STREAM／SEQPACKET 通信及匿名 socketpair；禁止 Unix DGRAM、宿主路径 socket 和跨执行抽象 socket。
 - 去除 Linux capabilities，保持 `no_new_privs`，禁止沙盒继续创建或加入能改变边界的 namespace。使用架构匹配、版本化 seccomp 配置限制 mount、ptrace、BPF、关键 ioctl 和绕过网络限制的系统调用；不能简单禁止所有 clone 而破坏普通子进程与线程。
 - TTY 使用专属 PTY 与新 session，不继承宿主控制终端。非 TTY 仍无 stdin；stdout/stderr 有总量上限。Shell 运行所有下载程序、脚本和解释器时都继承相同边界。
 - PTY 的 session 在 Bubblewrap 进入 PID namespace 前创建；内部 helper 的 `supervise` 在启动 TTY 子进程时设置 `SysProcAttr.Foreground`，在当前 PID namespace 内创建子进程组并设置终端前台，再执行 Shell。该操作使用父进程的 stdin FD，发生在恢复子进程信号掩码之前，避免 SIGTTOU 阻塞。初始化失败按现有 helper 启动失败路径返回 125，不继续执行脚本。非 TTY 路径不设置此属性。
@@ -189,3 +191,10 @@ bash scripts/test-sandbox-linux.sh -count=1 -v
 ## 8. 参考实现
 
 [Anthropic Sandbox Runtime](https://github.com/anthropics/sandbox-runtime) 展示了原生沙盒结合代理过滤的路线，可参考其文件与网络边界。Molr 保持 Go 实现和固定模块装配，不直接引入它的 Node 运行时依赖；如实际复用代码，应先核对对应版本的许可证与安全边界。
+
+
+## 浏览器兼容验收
+
+不新增浏览器专用沙盒或权限开关。Chromium 使用 Molr 外层隔离，显式以 `--no-sandbox` 关闭浏览器自己的嵌套沙盒；Molr 继续禁止创建／加入额外 namespace，保留 `--disable-userns`、capability 清理、文件范围、受控网络及 cgroup。该参数不能视为宿主直接执行或 Full Access 的安全配置。Chromium 内部进程不再互相提供其原生沙盒防护，它们共同拥有本次 Shell 的已授权范围。
+
+`MOLR_SANDBOX_HOST_TOOLS=1 MOLR_TEST_AGENT_BROWSER=/absolute/agent-binary-directory MOLR_TEST_CHROMIUM=/absolute/chromium-directory runtime/scripts/test-sandbox-linux.sh -run 'TestLinuxPrivateSockets|TestLinuxAgentBrowser' -v` 使用事先安装并审查的程序资产，不在测试中下载依赖。当前 Linux amd64 夹具需要目录内的 `agent-browser-linux-x64` 与 `chrome`。浏览器测试覆盖结构读取、填写、点击、截图、获准 HTTP 和未授权端口拒绝；IPC 测试覆盖匿名／抽象／路径通信、宿主 socket、符号链接、路径竞争及 DGRAM 拒绝。完整回归仍运行原有文件、网络、cgroup、FD 泄漏、撤权和 TTY 测试；GPU 测试按既有方式显式开启。

@@ -10,8 +10,8 @@ import (
 	"unsafe"
 )
 
-func filters(shell bool) []unix.SockFilter { return filtersGPU(shell, false) }
-func filtersGPU(shell, gpu bool) []unix.SockFilter {
+func filters(shell bool) []unix.SockFilter { return socketFilters(shell, false) }
+func socketFilters(shell, broker bool) []unix.SockFilter {
 	arch := uint32(unix.AUDIT_ARCH_X86_64)
 	if runtime.GOARCH == "arm64" {
 		arch = unix.AUDIT_ARCH_AARCH64
@@ -30,7 +30,7 @@ func filtersGPU(shell, gpu bool) []unix.SockFilter {
 		f = append(f, unix.SockFilter{Code: unix.BPF_JMP | unix.BPF_JGE | unix.BPF_K, Jf: 1, K: 0x40000000}, deny)
 	}
 	for _, n := range []uint32{unix.SYS_MKNODAT, unix.SYS_QUOTACTL, unix.SYS_QUOTACTL_FD, unix.SYS_MOUNT, unix.SYS_UMOUNT2, unix.SYS_PIVOT_ROOT, unix.SYS_PTRACE, unix.SYS_PROCESS_VM_READV, unix.SYS_PROCESS_VM_WRITEV, unix.SYS_PIDFD_GETFD, unix.SYS_BPF, unix.SYS_PERF_EVENT_OPEN, unix.SYS_USERFAULTFD, unix.SYS_IO_URING_SETUP, unix.SYS_IO_URING_ENTER, unix.SYS_IO_URING_REGISTER, unix.SYS_SETNS, unix.SYS_UNSHARE, unix.SYS_OPEN_BY_HANDLE_AT, unix.SYS_NAME_TO_HANDLE_AT, unix.SYS_FSOPEN, unix.SYS_FSCONFIG, unix.SYS_FSMOUNT, unix.SYS_MOVE_MOUNT, unix.SYS_OPEN_TREE, unix.SYS_MOUNT_SETATTR, unix.SYS_KEXEC_LOAD, unix.SYS_REBOOT, unix.SYS_INIT_MODULE, unix.SYS_FINIT_MODULE, unix.SYS_DELETE_MODULE, unix.SYS_ADD_KEY, unix.SYS_REQUEST_KEY, unix.SYS_KEYCTL} {
-		if gpu && !shell && (n == unix.SYS_PIDFD_GETFD || n == unix.SYS_PROCESS_VM_READV) {
+		if broker && !shell && (n == unix.SYS_PIDFD_GETFD || n == unix.SYS_PROCESS_VM_READV) {
 			continue
 		}
 		f = append(f, eq(n), deny)
@@ -42,22 +42,21 @@ func filtersGPU(shell, gpu bool) []unix.SockFilter {
 	// lets libc fall back to clone, whose namespace flags we can inspect.
 	f = append(f, eq(unix.SYS_CLONE3), unix.SockFilter{Code: unix.BPF_RET | unix.BPF_K, K: unix.SECCOMP_RET_ERRNO | uint32(unix.ENOSYS)})
 	f = append(f, unix.SockFilter{Code: unix.BPF_JMP | unix.BPF_JEQ | unix.BPF_K, Jf: 4, K: unix.SYS_CLONE}, load(16), unix.SockFilter{Code: unix.BPF_JMP | unix.BPF_JSET | unix.BPF_K, Jf: 1, K: unix.CLONE_NEWNS | unix.CLONE_NEWUSER | unix.CLONE_NEWNET | unix.CLONE_NEWPID | unix.CLONE_NEWIPC | unix.CLONE_NEWUTS | unix.CLONE_NEWCGROUP}, deny, load(0))
-	if shell && gpu {
+	if shell && broker {
 		for _, n := range []uint32{unix.SYS_CONNECT, unix.SYS_BIND} {
 			f = append(f, eq(n), unix.SockFilter{Code: unix.BPF_RET | unix.BPF_K, K: unix.SECCOMP_RET_USER_NOTIF})
 		}
-		// Only the connection-oriented Unix socket type required by CUDA is added.
-		f = append(f, unix.SockFilter{Code: unix.BPF_JMP | unix.BPF_JEQ | unix.BPF_K, Jf: 7, K: unix.SYS_SOCKET}, load(16), unix.SockFilter{Code: unix.BPF_JMP | unix.BPF_JEQ | unix.BPF_K, Jf: 4, K: unix.AF_UNIX}, load(24), unix.SockFilter{Code: unix.BPF_ALU | unix.BPF_AND | unix.BPF_K, K: ^uint32(unix.SOCK_CLOEXEC | unix.SOCK_NONBLOCK)}, unix.SockFilter{Code: unix.BPF_JMP | unix.BPF_JEQ | unix.BPF_K, Jt: 1, K: unix.SOCK_SEQPACKET}, deny, load(0))
+		// Only connection-oriented Unix sockets can be safely mediated at bind/connect.
+		f = append(f, unix.SockFilter{Code: unix.BPF_JMP | unix.BPF_JEQ | unix.BPF_K, Jf: 8, K: unix.SYS_SOCKET}, load(16), unix.SockFilter{Code: unix.BPF_JMP | unix.BPF_JEQ | unix.BPF_K, Jf: 5, K: unix.AF_UNIX}, load(24), unix.SockFilter{Code: unix.BPF_ALU | unix.BPF_AND | unix.BPF_K, K: ^uint32(unix.SOCK_CLOEXEC | unix.SOCK_NONBLOCK)}, unix.SockFilter{Code: unix.BPF_JMP | unix.BPF_JEQ | unix.BPF_K, Jt: 2, K: unix.SOCK_STREAM}, unix.SockFilter{Code: unix.BPF_JMP | unix.BPF_JEQ | unix.BPF_K, Jt: 1, K: unix.SOCK_SEQPACKET}, deny, load(0))
 	}
 	// Restrict address families, not just Unix sockets: e.g. VSOCK must not
 	// become an alternate host transport outside the isolated IP namespace.
 	for _, n := range []uint32{unix.SYS_SOCKET, unix.SYS_SOCKETPAIR} {
 		families := []uint32{unix.AF_INET, unix.AF_INET6}
-		// Connected anonymous stream pairs support libcurl resolver notification.
-		// Ordinary socket(AF_UNIX) stays forbidden; GPU SEQPACKET addresses are
-		// mediated by the supervisor. Datagram pairs must also be denied:
-		// sendto on them could address a filesystem socket outside the pair.
-		if !shell || gpu || n == unix.SYS_SOCKETPAIR {
+		// Anonymous STREAM/SEQPACKET pairs cannot address a different peer.
+		// DGRAM pairs must stay denied: sendto could reach a host pathname.
+		// Pathname/abstract socket endpoints are mediated by the supervisor.
+		if !shell || broker || n == unix.SYS_SOCKETPAIR {
 			families = append(families, unix.AF_UNIX)
 		}
 		if shell && n == unix.SYS_SOCKETPAIR {
@@ -71,7 +70,8 @@ func filtersGPU(shell, gpu bool) []unix.SockFilter {
 		if shell && n == unix.SYS_SOCKETPAIR {
 			block = append(block, load(24),
 				unix.SockFilter{Code: unix.BPF_ALU | unix.BPF_AND | unix.BPF_K, K: ^uint32(unix.SOCK_CLOEXEC | unix.SOCK_NONBLOCK)},
-				unix.SockFilter{Code: unix.BPF_JMP | unix.BPF_JEQ | unix.BPF_K, Jt: 1, K: unix.SOCK_STREAM}, deny)
+				unix.SockFilter{Code: unix.BPF_JMP | unix.BPF_JEQ | unix.BPF_K, Jt: 2, K: unix.SOCK_STREAM},
+				unix.SockFilter{Code: unix.BPF_JMP | unix.BPF_JEQ | unix.BPF_K, Jt: 1, K: unix.SOCK_SEQPACKET}, deny)
 		}
 		block = append(block, load(0))
 		f = append(f, unix.SockFilter{Code: unix.BPF_JMP | unix.BPF_JEQ | unix.BPF_K, Jf: uint8(len(block)), K: n})
@@ -80,10 +80,9 @@ func filtersGPU(shell, gpu bool) []unix.SockFilter {
 	f = append(f, unix.SockFilter{Code: unix.BPF_RET | unix.BPF_K, K: unix.SECCOMP_RET_ALLOW})
 	return f
 }
-func filterBytes() []byte { return filterBytesGPU(false) }
-func filterBytesGPU(gpu bool) []byte {
+func filterBytes() []byte {
 	var b bytes.Buffer
-	_ = binary.Write(&b, binary.LittleEndian, filtersGPU(false, gpu))
+	_ = binary.Write(&b, binary.LittleEndian, socketFilters(false, true))
 	return b.Bytes()
 }
 func restrictShell() error {

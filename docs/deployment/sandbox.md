@@ -55,7 +55,7 @@ GPU 属于计算资源的可选能力，默认关闭。当前支持 Linux NVIDIA
 
 GPU 为共享访问，不预留显存、不保证算力，不增加 GPU 任务数量配额；普通执行继续计入现有并发限制。界面显示的总显存是硬件信息。Full Access 按原有直接执行语义访问系统，不受普通 GPU 授权范围约束。
 
-GPU 执行仍保留文件、进程和网络隔离。CUDA 所需的抽象 Unix SEQPACKET 通信限于当前执行的网络命名空间，文件系统 Unix socket 的绑定和连接被拒绝。GPU 探针或设备准备失败时不自动退回 CPU 或 Full Access；查看设备原因码，修复后重启重新探测，或移除计算权限中的 GPU 后继续普通计算。
+GPU 执行仍保留文件、进程和网络隔离。CUDA 所需的抽象 Unix SEQPACKET 通信限于当前执行的网络命名空间，路径 Unix socket 仅允许当前执行的私有 `/tmp`，宿主路径仍被拒绝。GPU 探针或设备准备失败时不自动退回 CPU 或 Full Access；查看设备原因码，修复后重启重新探测，或移除计算权限中的 GPU 后继续普通计算。
 
 常见原因包括 `gpu_host_tools_required`（未启用宿主工具模式）、`gpu_driver_unavailable`（驱动或 nvidia-smi 不可用）、`gpu_device_missing`（配置的 UUID 不存在）、`gpu_probe_failed`（CUDA／IPC 隔离探针失败）、`gpu_device_changed`（硬件映射改变）和 `gpu_scope_denied`（超出部署或用户组范围）。
 
@@ -274,3 +274,20 @@ python3 runtime/scripts/check-host-tools.py host-sandbox-connection.json tool-re
 `listen_host` 是 Runtime 绑定的 IP，不带端口；`public_host` 是用户可访问的主机名或 IP，不带协议、路径或端口。只供本机使用可将两者设为 `127.0.0.1`。`enabled: false` 禁止创建带转发端口的任务，不影响普通 Shell。此设置由 Runtime 部署管理，不由模型修改，也不因为内置沙盒关闭而停止对远程任务提供转发。
 
 `public_host` 只控制返回地址，不配置路由、防火墙或 NAT。部署者需保证用户能够连接 Runtime 自动分配的 TCP 端口；仅代理 Molr HTTP 页面不会自动代理这些端口。地址无法自动确定或端口分配失败时，拒绝启动本次任务。
+
+
+## 本地 IPC 与浏览器程序
+
+所有 Shell 使用同一套 IPC 策略，支持 Unix STREAM／SEQPACKET socket 及匿名 socketpair，仍禁止 DGRAM。抽象地址由本次执行的网络命名空间隔离；路径 socket 必须使用私有 `/tmp` 下的绝对路径，不能经过符号链接或跨挂载。`/work` 及已授权资源目录中的 socket 仍不可访问。临时 socket 不跨执行保留，连续浏览器命令应放在同一前台脚本或受管后台 Shell 中运行。
+
+启用宿主工具并具备 Chromium 系统库后，agent-browser 可在助理沙盒内运行。CLI 放在工作区或已授权程序目录，Chromium 程序目录授予只读权限。在该 Shell 中配置以下变量（可执行文件路径替换为实际获准路径）：
+
+```sh
+export AGENT_BROWSER_SOCKET_DIR=/tmp/agent-browser
+export AGENT_BROWSER_EXECUTABLE_PATH=/resources/chromium/chrome
+export AGENT_BROWSER_ARGS=--no-sandbox,--disable-dev-shm-usage
+export TOKIO_WORKER_THREADS=2 RAYON_NUM_THREADS=2
+mkdir -p "$AGENT_BROWSER_SOCKET_DIR"
+```
+
+这里关闭 Chromium 自身的嵌套沙盒，由 Molr 外层沙盒提供隔离；浏览器各进程共享本次 Shell 已授权范围。此配置不适用于宿主直接运行或 Full Access。Molr 继续禁止额外 namespace 和宿主 IPC，访问网站仍需网络授权。已验证的计算额度起点为内存 2 GiB、512 个进程／线程、200% CPU、512 MiB 临时空间，可按实际负载调整授权额度。程序安装、实时浏览器画面和用户接管是独立能力，不由本次沙盒改动提供。

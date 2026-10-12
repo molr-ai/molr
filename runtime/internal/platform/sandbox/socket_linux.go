@@ -3,9 +3,11 @@
 package sandbox
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"os"
+	"path"
 	"runtime"
 	"strconv"
 	"strings"
@@ -14,11 +16,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// GPU drivers need abstract Unix SEQPACKET sockets. All bind/connect syscalls in a
-// GPU shell are emulated by its trusted supervisor. Never use USER_NOTIF_CONTINUE:
-// another thread could replace the descriptor or sockaddr after validation.
-// The supervisor runs in the same private network namespace, so abstract Unix
-// sockets remain execution-local. Filesystem Unix sockets are always denied.
+// All untrusted bind/connect calls are emulated on a pinned descriptor and a
+// copied address. Never use USER_NOTIF_CONTINUE: another thread could replace
+// either argument after validation. Abstract endpoints stay in the execution's
+// private network namespace; pathname endpoints must resolve in its private tmpfs.
 type connectNotification struct {
 	ID         uint64
 	PID, Flags uint32
@@ -44,8 +45,8 @@ func notifyIOCTL(fd int, request uintptr, p unsafe.Pointer) error {
 	}
 	return nil
 }
-func restrictGPUShell(channel int) error {
-	f := filtersGPU(true, true)
+func restrictSocketShell(channel int) error {
+	f := socketFilters(true, true)
 	prog := unix.SockFprog{Len: uint16(len(f)), Filter: &f[0]}
 	if err := unix.Prctl(unix.PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0); err != nil {
 		return err
@@ -58,7 +59,7 @@ func restrictGPUShell(channel int) error {
 	defer unix.Close(int(fd))
 	return unix.Sendmsg(channel, []byte{1}, unix.UnixRights(int(fd)), nil, 0)
 }
-func receiveGPUListener(channel int) (int, error) {
+func receiveSocketListener(channel int) (int, error) {
 	payload := make([]byte, 1)
 	control := make([]byte, unix.CmsgSpace(4))
 	n, oob, flags, _, err := unix.Recvmsg(channel, payload, control, 0)
@@ -88,7 +89,7 @@ func receiveGPUListener(channel int) (int, error) {
 	unix.CloseOnExec(fds[0])
 	return fds[0], nil
 }
-func serveGPUSockets(listener int) {
+func serveSockets(listener int) {
 	slots := make(chan struct{}, 32)
 	for {
 		var n connectNotification
@@ -100,15 +101,15 @@ func serveGPUSockets(listener int) {
 		}
 		select {
 		case slots <- struct{}{}:
-			go func() { defer func() { <-slots }(); answerGPUSocket(listener, n) }()
+			go func() { defer func() { <-slots }(); answerSocket(listener, n) }()
 		default:
 			response := connectResponse{ID: n.ID, Error: -int32(unix.EAGAIN)}
 			_ = notifyIOCTL(listener, notifySend, unsafe.Pointer(&response))
 		}
 	}
 }
-func answerGPUSocket(listener int, n connectNotification) {
-	err := emulateGPUSocket(listener, n)
+func answerSocket(listener int, n connectNotification) {
+	err := emulateSocket(listener, n)
 	response := connectResponse{ID: n.ID}
 	if err != nil {
 		e := unix.EPERM
@@ -123,7 +124,7 @@ func answerGPUSocket(listener int, n connectNotification) {
 func validNotification(listener int, id uint64) error {
 	return notifyIOCTL(listener, unix.SECCOMP_IOCTL_NOTIF_ID_VALID, unsafe.Pointer(&id))
 }
-func gpuConnectAddressAllowed(domain int, address []byte) bool {
+func connectAddressAllowed(domain int, address []byte) bool {
 	if len(address) < 2 {
 		return false
 	}
@@ -138,7 +139,7 @@ func gpuConnectAddressAllowed(domain int, address []byte) bool {
 	}
 	return false
 }
-func emulateGPUSocket(listener int, n connectNotification) error {
+func emulateSocket(listener int, n connectNotification) error {
 	if (n.Number != unix.SYS_CONNECT && n.Number != unix.SYS_BIND) || n.Args[0] > 1<<31 || n.Args[2] < 2 || n.Args[2] > 128 {
 		return unix.EINVAL
 	}
@@ -183,7 +184,14 @@ func emulateGPUSocket(listener int, n connectNotification) error {
 	if err != nil {
 		return err
 	}
-	if !gpuConnectAddressAllowed(domain, address) {
+	if domain == unix.AF_UNIX && len(address) > 2 && address[2] != 0 {
+		translated, closePath, err := privateSocketAddress(address, n.Number == unix.SYS_BIND)
+		if err != nil {
+			return err
+		}
+		defer closePath()
+		address = translated
+	} else if !connectAddressAllowed(domain, address) {
 		return unix.EACCES
 	}
 	if err := validNotification(listener, n.ID); err != nil {
@@ -195,4 +203,64 @@ func emulateGPUSocket(listener int, n connectNotification) error {
 		return e
 	}
 	return nil
+}
+
+// Resolve against the execution's immutable /tmp mount, never a caller's cwd.
+// openat2 refuses symlinks, magic links, mount crossings and '..' escapes. Pin
+// the existing socket for connect, or its parent for atomic bind creation. The
+// /proc/self/fd address refers to this supervisor's pinned inode, not to mutable
+// caller memory. Inodes from granted host directories cannot be hard-linked into
+// this tmpfs. A bind leaf swapped for a symlink fails with EADDRINUSE.
+func privateSocketAddress(address []byte, bind bool) ([]byte, func(), error) {
+	if len(address) < 3 || binary.NativeEndian.Uint16(address) != unix.AF_UNIX {
+		return nil, nil, unix.EACCES
+	}
+	name := string(bytes.SplitN(address[2:], []byte{0}, 2)[0])
+	if !strings.HasPrefix(name, "/tmp/") {
+		return nil, nil, unix.EACCES
+	}
+	relative := strings.TrimPrefix(name, "/tmp/")
+	root, err := unix.Open("/tmp", unix.O_PATH|unix.O_DIRECTORY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer unix.Close(root)
+	how := unix.OpenHow{Flags: unix.O_PATH | unix.O_CLOEXEC, Resolve: unix.RESOLVE_BENEATH | unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_XDEV}
+	target := relative
+	leaf := ""
+	if bind {
+		// Reject noncanonical names before splitting; path.Dir would clean '..'.
+		if relative == "" || path.Clean(relative) != relative || strings.HasPrefix(relative, "../") {
+			return nil, nil, unix.EACCES
+		}
+		target, leaf = path.Dir(relative), path.Base(relative)
+		if leaf == "." || leaf == ".." {
+			return nil, nil, unix.EACCES
+		}
+		how.Flags |= unix.O_DIRECTORY
+	}
+	fd, err := unix.Openat2(root, target, &how)
+	if err != nil {
+		return nil, nil, unix.EACCES
+	}
+	closePath := func() { unix.Close(fd) }
+	if !bind {
+		var st unix.Stat_t
+		if err = unix.Fstat(fd, &st); err != nil || st.Mode&unix.S_IFMT != unix.S_IFSOCK {
+			closePath()
+			return nil, nil, unix.EACCES
+		}
+	}
+	pinned := "/proc/self/fd/" + strconv.Itoa(fd)
+	if bind {
+		pinned += "/" + leaf
+	}
+	if len(pinned) >= 108 {
+		closePath()
+		return nil, nil, unix.ENAMETOOLONG
+	}
+	result := make([]byte, 2+len(pinned)+1)
+	binary.NativeEndian.PutUint16(result, unix.AF_UNIX)
+	copy(result[2:], pinned)
+	return result, closePath, nil
 }

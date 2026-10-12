@@ -55,7 +55,7 @@ Administrators assign device scopes according to [Sandbox Resource Management](.
 
 GPU access is shared. It does not reserve memory, guarantee compute power, or increase the quota for the number of GPU tasks. Normal executions continue to count towards existing concurrency limits. The total memory displayed in the interface is hardware information. Full Access accesses the system with original direct execution semantics and is not constrained by normal GPU authorization scopes.
 
-GPU execution still retains file, process, and network isolation. The abstract Unix SEQPACKET communication required by CUDA is limited to the current execution's network namespace. Binding and connecting to filesystem Unix sockets are rejected. If GPU probes or device preparation fail, it does not automatically fall back to CPU or Full Access. Check device reason codes, fix issues and restart to re-probe, or remove GPU from compute permissions to continue normal compute.
+GPU execution still retains file, process, and network isolation. The abstract Unix SEQPACKET communication required by CUDA is limited to the current execution's network namespace. Pathname Unix sockets are allowed only inside the execution’s private `/tmp`; host paths remain denied. If GPU probes or device preparation fail, it does not automatically fall back to CPU or Full Access. Check device reason codes, fix issues and restart to re-probe, or remove GPU from compute permissions to continue normal compute.
 
 Common causes include `gpu_host_tools_required` (host tool mode not enabled), `gpu_driver_unavailable` (driver or nvidia-smi unavailable), `gpu_device_missing` (configured UUID does not exist), `gpu_probe_failed` (CUDA/IPC isolation probe failed), `gpu_device_changed` (hardware mapping changed), and `gpu_scope_denied` (exceeds deployment or user group scope).
 
@@ -274,3 +274,20 @@ Replace `<LAN_IP>` with the actual reachable LAN IP of the deployment host; it m
 `listen_host` is the IP to which the Runtime binds, without a port; `public_host` is the hostname or IP accessible to users, without protocol, path, or port. For local-only use, both can be set to `127.0.0.1`. `enabled: false` prohibits creating tasks with forwarding ports, but does not affect regular Shell. This setting is managed by Runtime deployment, not modified by the model, and does not stop providing forwarding for remote tasks even if the built-in sandbox is disabled.
 
 `public_host` only controls the return address; it does not configure routing, firewalls, or NAT. Deployers must ensure that users can connect to the TCP ports automatically assigned by the Runtime; proxying only the Molr HTTP page will not automatically proxy these ports. If the address cannot be automatically determined or port assignment fails, the task startup is rejected.
+
+
+## Local IPC and browser programs
+
+All Shell executions use the same IPC policy. Unix STREAM/SEQPACKET sockets and anonymous pairs are supported; datagrams remain denied. Abstract addresses are isolated by the execution’s network namespace. Pathname sockets must use an absolute path under its private `/tmp`, without symlinks or mount crossings. Sockets in `/work` or granted resource directories remain inaccessible. Temporary sockets do not survive execution termination; run successive browser commands in the same foreground script or managed background Shell.
+
+With host tools and Chromium’s system libraries available, agent-browser can run inside the assistant sandbox. Put the CLI in the workspace or a granted program directory, and grant read-only access to Chromium’s program directory. Configure the following within that Shell (replace the executable path with the granted path):
+
+```sh
+export AGENT_BROWSER_SOCKET_DIR=/tmp/agent-browser
+export AGENT_BROWSER_EXECUTABLE_PATH=/resources/chromium/chrome
+export AGENT_BROWSER_ARGS=--no-sandbox,--disable-dev-shm-usage
+export TOKIO_WORKER_THREADS=2 RAYON_NUM_THREADS=2
+mkdir -p "$AGENT_BROWSER_SOCKET_DIR"
+```
+
+Chromium’s own nested sandbox is disabled here; Molr’s outer sandbox remains active. Browser processes share the Shell’s authorized scope. This is not a safe configuration for running directly on the host or in Full Access. Molr continues to prohibit additional namespaces and host IPC. Network access still requires network authorization. A tested starting compute allocation is 2 GiB memory, 512 processes/threads, 200% CPU and 512 MiB temporary space; adjust authorized limits to the workload. Program installation, live browser display and user takeover are separate capabilities, not provided by this sandbox change.

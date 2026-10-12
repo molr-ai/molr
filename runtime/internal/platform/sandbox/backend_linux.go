@@ -367,7 +367,7 @@ func (r *Runner) startAuthorized(parent context.Context, e core.Execution, c pla
 			}
 		}
 	}
-	launch := helperConfig{GPU: len(c.GPUDeviceIDs) > 0, NoWorkspace: r.options.NoWorkspace, TTY: c.TTY, HostTools: r.options.HostTools, Script: c.Script, Directory: c.Directory, MaxFileBytes: c.Limits.MaxFileBytes, CPUPercent: c.Limits.CPUPercent}
+	launch := helperConfig{NoWorkspace: r.options.NoWorkspace, TTY: c.TTY, HostTools: r.options.HostTools, Script: c.Script, Directory: c.Directory, MaxFileBytes: c.Limits.MaxFileBytes, CPUPercent: c.Limits.CPUPercent}
 	var network *networkSession
 	if len(c.NetworkTargets) > 0 || len(c.ForwardPorts) > 0 {
 		network, err = r.startNetworkWithQuotas(ctx, e, c, func(check context.Context) error { return authorize(check, e, c) })
@@ -396,7 +396,7 @@ func (r *Runner) startAuthorized(parent context.Context, e core.Execution, c pla
 		return nil, err
 	}
 	args = append(args, "--ro-bind-data", add(f), "/molr/launch.json")
-	f, err = memoryFile(filterBytesGPU(len(c.GPUDeviceIDs) > 0))
+	f, err = memoryFile(filterBytes())
 	if err != nil {
 		return nil, err
 	}

@@ -211,7 +211,7 @@ func TestGPUConnectAddressPolicy(t *testing.T) {
 		{unix.AF_INET, append([]byte{2, 0}, make([]byte, 14)...), true},
 		{unix.AF_INET, []byte{1, 0, 0, 'a'}, false},
 	} {
-		if actual := gpuConnectAddressAllowed(tc.domain, tc.address); actual != tc.allowed {
+		if actual := connectAddressAllowed(tc.domain, tc.address); actual != tc.allowed {
 			t.Fatalf("domain %d address %v: %v", tc.domain, tc.address, actual)
 		}
 	}

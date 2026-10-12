@@ -16,7 +16,6 @@ import (
 )
 
 type helperConfig struct {
-	GPU               bool
 	NoWorkspace       bool
 	TTY               bool
 	HostTools         bool
@@ -58,12 +57,8 @@ func HelperMain(args []string) int {
 	switch args[0] {
 	case "exec":
 		runtime.LockOSThread()
-		if config.GPU {
-			err = restrictGPUShell(3)
-			_ = unix.Close(3)
-		} else {
-			err = restrictShell()
-		}
+		err = restrictSocketShell(3)
+		_ = unix.Close(3)
 		if err != nil {
 			return 125
 		}
@@ -100,6 +95,12 @@ func HelperMain(args []string) int {
 			return 125
 		}
 	case "supervise":
+		// Daemons may double-fork. Keep adopted descendants under this broker:
+		// Yama permits pidfd_getfd/process_vm_readv from an ancestor, not a sibling.
+		// No host capability or ptrace permission is granted to guest processes.
+		if unix.Prctl(unix.PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) != nil {
+			return 125
+		}
 		cmd := exec.Command("/molr/helper", "sandbox-helper", "exec")
 		cmd.Dir = config.Directory
 		// This applies before package initialization, unlike HelperMain's setter.
@@ -115,41 +116,45 @@ func HelperMain(args []string) int {
 			// This gives every shell a valid initial group to restore on exit.
 			cmd.SysProcAttr = &syscall.SysProcAttr{Foreground: true, Ctty: int(os.Stdin.Fd())}
 		}
-		if config.GPU {
-			pair, socketErr := unix.Socketpair(unix.AF_UNIX, unix.SOCK_STREAM|unix.SOCK_CLOEXEC, 0)
-			if socketErr != nil {
-				return 125
-			}
-			parent := os.NewFile(uintptr(pair[0]), "gpu-listener-parent")
-			child := os.NewFile(uintptr(pair[1]), "gpu-listener-child")
-			defer parent.Close()
-			defer child.Close()
-			cmd.ExtraFiles = []*os.File{child}
-			if err = cmd.Start(); err != nil {
-				return 125
-			}
-			child.Close()
-			listener, receiveErr := receiveGPUListener(int(parent.Fd()))
-			parent.Close()
-			if receiveErr != nil {
-				_ = cmd.Process.Kill()
-				_ = cmd.Wait()
-				return 125
-			}
-			defer unix.Close(listener)
-			go serveGPUSockets(listener)
-			err = cmd.Wait()
-		} else {
-			err = cmd.Run()
-		}
-		if err != nil {
-			if x, ok := err.(*exec.ExitError); ok {
-				return x.ExitCode()
-			}
-			fmt.Fprintln(os.Stderr, "sandbox shell startup failed")
+		pair, socketErr := unix.Socketpair(unix.AF_UNIX, unix.SOCK_STREAM|unix.SOCK_CLOEXEC, 0)
+		if socketErr != nil {
 			return 125
 		}
-		return 0
+		parent := os.NewFile(uintptr(pair[0]), "socket-listener-parent")
+		child := os.NewFile(uintptr(pair[1]), "socket-listener-child")
+		defer parent.Close()
+		defer child.Close()
+		cmd.ExtraFiles = []*os.File{child}
+		if err = cmd.Start(); err != nil {
+			return 125
+		}
+		child.Close()
+		listener, receiveErr := receiveSocketListener(int(parent.Fd()))
+		parent.Close()
+		if receiveErr != nil {
+			_ = cmd.Process.Kill()
+			_ = cmd.Wait()
+			return 125
+		}
+		defer unix.Close(listener)
+		go serveSockets(listener)
+		// Stdio consists only of *os.File: Cmd has no copy goroutines to join.
+		// Reap adopted daemon children as well as the original shell, without a
+		// competing Cmd.Wait that could consume the same child's status.
+		defer cmd.Process.Release()
+		for {
+			var status unix.WaitStatus
+			pid, waitErr := unix.Wait4(-1, &status, 0, nil)
+			if waitErr == unix.EINTR {
+				continue
+			}
+			if waitErr != nil {
+				return 125
+			}
+			if pid == cmd.Process.Pid {
+				return status.ExitStatus()
+			}
+		}
 	}
 	return 125
 }

@@ -68,7 +68,7 @@ import os,socket,ctypes,errno
 s=open('/proc/self/status').read()
 assert 'NoNewPrivs:\t1' in s
 assert 'CapEff:\t0000000000000000' in s
-for family in (socket.AF_UNIX,socket.AF_NETLINK):
+for family in (socket.AF_NETLINK,socket.AF_VSOCK):
  try: socket.socket(family,socket.SOCK_STREAM)
  except OSError as e: assert e.errno==errno.EPERM
  else: raise AssertionError('socket permitted')

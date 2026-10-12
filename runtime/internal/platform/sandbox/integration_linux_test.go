@@ -48,7 +48,7 @@ func TestMain(m *testing.M) {
 		os.Exit(SupervisorMain())
 	}
 	if len(os.Args) > 1 && os.Args[1] == "sandbox-test-syscalls" {
-		for _, family := range []int{unix.AF_UNIX, unix.AF_VSOCK, unix.AF_NETLINK} {
+		for _, family := range []int{unix.AF_VSOCK, unix.AF_NETLINK} {
 			fd, e := unix.Socket(family, unix.SOCK_STREAM, 0)
 			if e != unix.EPERM {
 				if e == nil {
