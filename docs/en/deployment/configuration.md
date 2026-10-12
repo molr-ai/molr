@@ -13,7 +13,7 @@ Configuration uses strict JSON; refer to the [Direct TLS Example](../../../runti
 Before starting the service, initialize the owner on the deployment host. The following `/path` and `/private` are example paths that must be replaced:
 
 ```bash
-/path/molr-server init -config /private/server.json -username owner -password-stdin < /private/owner-password
+/path/molr init -config /private/server.json -username owner -password-stdin < /private/owner-password
 ```
 
 Passwords are passed via standard input from a permission-restricted file or password manager, not via command-line arguments. The service will not listen if uninitialized; there is no HTTP registration or initialization endpoint.

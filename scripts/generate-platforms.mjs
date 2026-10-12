@@ -15,8 +15,7 @@ for (const p of platforms) {
 const installer = readFileSync(resolve(root, 'scripts/install.sh'), 'utf8');
 if (!installer.includes('# BEGIN GENERATED PLATFORMS') || !installer.includes('# END GENERATED PLATFORMS')) throw new Error('Installer platform markers are missing');
 const files = {
-  'scripts/install.sh': installer.replace(/# BEGIN GENERATED PLATFORMS[\s\S]*?# END GENERATED PLATFORMS/, '# BEGIN GENERATED PLATFORMS\nPLATFORMS = ' + JSON.stringify(platforms.map(({os, arch, aliases}) => ({os, arch, aliases}))) + '\nRELEASE_PATTERN = r' + JSON.stringify(releaseVersionPattern).replaceAll('\\\\', '\\') + '\n# END GENERATED PLATFORMS'),
-  'runtime/scripts/platforms.json': JSON.stringify({ schema: 1, platforms }, null, 2) + '\n',
+  'scripts/install.sh': installer.replace(/# BEGIN GENERATED PLATFORMS[\s\S]*?# END GENERATED PLATFORMS/, '# BEGIN GENERATED PLATFORMS\ncase "$(uname -s)/$(uname -m)" in\n' + platforms.map(p => `  ${p.aliases.map(a => `Linux/${a}`).join('|')}) arch=${p.arch} ;;`).join('\n') + '\n  *) fail "Unsupported OS or architecture" ;;\nesac\n# END GENERATED PLATFORMS'),
   'runtime/internal/releaseplatform/platforms.json': JSON.stringify({ schema: 1, platforms }, null, 2) + '\n',
 };
 for (const [name, value] of Object.entries(files)) {

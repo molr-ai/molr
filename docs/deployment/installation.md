@@ -2,140 +2,135 @@
 
 ## 本地发行包与快速安装
 
-发行包通过 GitHub Releases 分发，官网展示各渠道实际可用的平台、版本、安装命令与下载链接。正式版使用 stable，beta／rc 使用 preview，每日构建使用 nightly；尚未发布版本的渠道不会提供安装按钮。在线安装和离线安装使用所选 Release 的安装脚本；自行制作安装包见[源码构建](source-build.md)。
-
-从安装包安装：
+Linux 发行包提供 AMD64、ARM64 两种架构，包含主程序 `molr` 和安装维护程序 `molr-setup`。下载匹配架构的归档和 SHA-256 文件，校验后解压，在包目录运行：
 
 ```bash
-bash install.sh --archive /path/molr_0.1.0_linux_amd64.tar.gz
-# 独立实例示例
-bash install.sh --archive /path/package.tar.gz --name molr-demo --port 8788 --public-host "<LAN_IP>"
+sha256sum -c molr_0.1.0_linux_amd64.tar.gz.sha256
+tar -xzf molr_0.1.0_linux_amd64.tar.gz
+cd molr
+./bin/molr-setup
 ```
 
-以上命令中的 `<LAN_IP>` 需替换为安装或下载服务器的实际局域网 IP，不能原样执行。
+默认安装或升级到当前包的版本，无需指定渠道或安装子命令。已有同版本实例时显示维护入口；需要重新应用文件时指定 `--repair`。制作安装包见[源码构建](source-build.md)。
 
-在线安装前准备 Python 3.11+。从官网安装区复制命令，或直接通过管道运行，无需保存脚本文件：
+首次在线安装也可以使用官网下载器：
 
 ```bash
-curl -fsSL https://molr.ai/install.sh | bash -s -- --channel stable
-curl -fsSL https://molr.ai/install.sh | bash -s -- --channel preview
-curl -fsSL https://molr.ai/install.sh | bash -s -- --channel nightly
-# 明确安装固定版本，同时保存后续跟踪的渠道
-curl -fsSL https://molr.ai/install.sh | bash -s -- --channel preview --version 0.2.0-rc.1
+curl -fsSL https://molr.ai/install.sh | sh
+curl -fsSL https://molr.ai/install.sh | sh -s -- --channel preview
+curl -fsSL https://molr.ai/install.sh | sh -s -- --channel nightly
+# Pin a version and keep its update subscription
+curl -fsSL https://molr.ai/install.sh | sh -s -- --channel preview --version 0.2.0-rc.1
 ```
 
-脚本默认使用 `https://molr.ai/releases`，`--source URL` 可指定其他发布源。默认渠道为 stable；不会因没有正式版而自动改装 preview 或 nightly。固定版本从历史清单读取，缺少目标系统／架构的包会停止安装。校验失败时不会执行包内安装器。HTTP 下载源只接受明确的私网或回环数字地址；SHA-256 校验不构成独立的发布者签名。
+stable 为正式版，preview 为 beta／rc 和后续正式版，nightly 为每日构建。未发布版本的渠道不会自动回退到其他渠道。下载器显示版本、架构、包名、来源、摘要及下载进度，校验后调用包内安装器。它使用已有的 curl 或 wget、tar、gzip 和 SHA-256 工具，不自动安装下载工具；安装维护程序本身无需 Python、curl 或 iproute2。
 
-离线安装时，将版本包、同名 `.sha256` 文件和该 Release 的 `install.sh` 下载到目标机，运行 `bash install.sh --archive <包路径>`。每个 Release 保留安装脚本快照；实际安装逻辑随包发布。官网列出对应版本的 systemd、Python、cgroup 及系统依赖要求。新增或停止平台支持不改变历史发行包。
-
-省略配置文件的安装器会自动生成局域网 HTTP 配置、初始化所有者与 setup、安装服务并检查已认证 API。`--install-deps` 提供 apt 依赖安装和 Bubblewrap AppArmor 策略准备，`--yes` 同意这些系统准备操作，`--skip-dependencies` 跳过两者。缺少隔离依赖不自动开放 Full Access，沙盒能力按真实探针报告。安装与卸载需要 Python 3.11+，systemd 和基本安装工具仍需可用。安装器检查 BusyBox 必须是可执行、不可被组或其他用户写入的静态程序；只有动态 BusyBox 时仍会提示安装 `busybox-static`。不支持 apt 或离线安装时，请预先通过目标系统的包管理器安装静态 BusyBox 等依赖。安装器不复制 BusyBox 到 Molr 安装目录。
-
-安装器在安装系统依赖前检查目标路径。目录对组或其他用户可写时，会列出路径和权限，提示选择修复（`f`）、忽略并继续（`i`）或退出（`q`）。修复仅移除该目录的组／其他用户写权限，不递归修改内容；忽略会保留现有权限。无交互环境通过 `--directory-permissions fix` 或 `--directory-permissions ignore` 明确选择；`--yes` 不代替目录权限选择。目录所有者不符、符号链接和组／其他用户可写的受管理文件仍会停止安装。卸载支持同一参数，`--dry-run` 不改变目录权限。
-
-启用 AppArmor 非特权用户命名空间限制时，安装器先以服务账户及 `NoNewPrivileges` 检查 Bubblewrap。探针失败后，按授权安装 `apparmor-profiles`（需要时）、准备发行版的 `bwrap-userns-restrict` 策略并加载，再执行探针。已有策略文件不覆盖；发现其他 Bubblewrap 策略时提示管理员处理，避免策略冲突。错误会包含探针输出；完成此检查前不会替换程序或重启已有 Molr 服务。系统级用户命名空间限制保持开启。
-
-`LICENSE` 和 `THIRD_PARTY_NOTICES.md` 保存在安装前缀根目录，例如默认实例的用户安装目录 `~/.local/lib/molr/default/` 或系统安装目录 `/opt/molr/default/`。内嵌 WebUI、独立 WebUI 和官网均提供 `/LICENSE` 与 `/THIRD_PARTY_NOTICES.md`；分发构建目录时应保留这两个文件。许可证正文集中维护在仓库根目录，不使用第三方 submodule。
-
-用户服务未启用 linger 时，退出登录可能停止服务；要让系统在未登录时运行，由管理员执行 `loginctl enable-linger USER`。指定账户的系统服务不依赖 linger。
-
-安装完成后可用以下命令检查或重新生成访问入口：
+下载器默认源为 `https://molr.ai/releases`，`--source URL` 可指定其他 HTTPS 发布源。本地归档可由同一下载器校验并安装：
 
 ```bash
-/path/molr-server doctor -config /path/server.json
-/path/molr-server access -config /path/server.json
+sh install.sh --archive /path/package.tar.gz
 ```
 
-默认使用数据目录内的随机初始密码。已改密时增加 `-password-stdin`，启用 MFA 时增加 `-mfa-code`；这些命令通过正常认证 API 工作，不打开运行中的数据库，不绕过 MFA。链接有效期 15 分钟，实际交付链接不用于健康检查。
+相邻的 `package.tar.gz.sha256` 必须存在。直接运行已解压的安装包不需要网络；系统依赖应提前准备。SHA-256 用于核对下载内容，不是独立的发布者签名。
+
+## 交互式与静默安装
+
+有控制终端时默认交互安装，先展示安装位置、账户、依赖及权限问题，再确认执行。也可显式选择模式：
+
+```bash
+./bin/molr-setup --interactive
+./bin/molr-setup --non-interactive --install-deps \
+  --directory-permissions fix --no-browser
+./bin/molr-setup --dry-run
+```
+
+静默模式不提问、不打开浏览器；`--install-deps` 授权系统依赖准备，所需管理员权限应预先配置。已手动准备依赖时使用 `--skip-dependencies`。`--dry-run` 展示计划，不修改账户、权限、配置或服务；通过下载器预览仍会下载临时包。
+
+目录可被组或其他用户写入时，可选择修复、忽略或退出。修复只移除该目录的组／其他用户写权限，不递归修改内容；静默模式以 `--directory-permissions fix|ignore` 明确选择。`--yes` 跳过一般确认，不代替权限选择。所有者不符、符号链接和受管理文件可被其他用户修改时会报错。
+
+省略 `--config` 时自动生成局域网 HTTP 配置、初始化所有者、启动服务并验证已认证 API 与沙盒。输出按检查、准备、安装、验证、结果排列。结果为 `verified` 才表示认证检查通过；`verification_pending` 表示已安装但需要使用当前密码完成检查，退出码为 3；`not_started` 对应 `--no-start`。失败输出包含当前阶段和可能发生的变更。
 
 ## Linux 服务与命令环境
 
-Linux Shell 需要 Bubblewrap、静态 BusyBox、可用的 user namespace 和 cgroup v2 委派。安装路径与当前限制见 [Linux 命令环境](sandbox.md)。使用独立的 systemd 用户服务；启用沙盒的服务至少采用：
+当前服务适配使用 systemd。启用 Linux 沙盒需要 systemd 254+、cgroup v2 委派、Bubblewrap、静态 BusyBox、CA 证书及 util-linux 的 nsenter／setpriv。它们是运行能力要求，不按发行版名称或版本拒绝安装。当前自动依赖准备支持 APT；其他环境可按[沙盒要求](sandbox.md)手动准备。systemd 用户管理器需要正常的 SSH／桌面登录会话。
 
-```ini
-[Service]
-Type=exec
-ExecStart=/path/molr-server serve -config /private/server.json
-Delegate=yes
-DelegateSubgroup=supervisor
-KillMode=control-group
-Restart=on-failure
-```
-
-使用真实绝对路径，多个实例分别命名、配置和分配端口及数据目录。Bubblewrap/helper 必须是可执行普通文件，路径及父目录不能通过符号链接，文件不能组可写或其他用户可写。不要为了启动成功放宽隔离条件。
+启用 AppArmor 非特权用户命名空间限制时，安装器以服务账户及 `NoNewPrivileges` 检查 Bubblewrap。授权后可安装并加载发行版的 `bwrap-userns-restrict` 策略，再次验证。已有策略不覆盖，冲突需管理员处理；不会关闭系统隔离限制。隔离依赖缺失不会自动切换为 Full Access。
 
 ### 安装时选择运行账户
 
-[Linux 安装脚本](../../runtime/scripts/install-linux.sh) 默认安装当前普通用户的 `molr.service` 用户服务。指定 `--user USER` 时要求 root，安装系统服务，通过 `User=` / `Group=` 让整个 Runtime、文件操作及本机沙盒使用目标身份；Molr 程序不以 root 启动，也不在运行中切换用户。本机无需额外沙盒服务、端口或连接凭证。
-
-首次安装可直接初始化所有者，密码从标准输入读取：
+默认安装当前普通用户的 `molr.service`。root 安装必须显式指定非 root 的 `--user USER`，创建系统服务；不存在的账户会创建为无登录权限的系统账户。已有账户的 HOME、shell、附加组保持原样，不递归改变已有数据目录的所有者。
 
 ```bash
-# 当前账户，无需 sudo。依赖须预先安装。
-bash runtime/scripts/install-linux.sh --init-owner owner \
-  .cache/build/molr-server /path/server.json < /private/owner-password
-
-# 指定账户，须由管理员执行；账户不存在时自动创建。
-sudo bash runtime/scripts/install-linux.sh --user molr-sandbox --init-owner owner \
-  .cache/build/molr-server /path/server.json < /private/owner-password
+./bin/molr-setup --name molr-demo --port 8788 --public-host "<LAN_IP>"
+sudo ./bin/molr-setup --user molr-sandbox --install-deps
+# Custom configuration; initialize using a password from stdin
+./bin/molr-setup --config /path/server.json --init-owner owner \
+  < /private/owner-password
 ```
 
-`--user` 可以指定已有普通用户，保留其 HOME、登录 shell 和附加组；新用户创建为无交互登录的系统账户，不创建 HOME，不添加额外组或 sudo 权限。root 执行必须显式指定 `--user`，拒绝 root 及其他 UID 0 账户。账户与数据目录的预检查失败时会停止，不递归 chown 现有目录。
+`<LAN_IP>` 替换为实际局域网 IPv4 地址。自定义配置首次安装需指定 `--init-owner` 或使用 `--no-start` 稍后初始化。服务和沙盒始终以同一普通账户运行。
 
-| 内容 | 当前用户安装 | 指定用户安装 |
+| 内容 | 当前用户安装 | 系统安装 |
 | --- | --- | --- |
-| 程序、许可证、卸载器 | `~/.local/lib/molr/<实例>/` | `/opt/molr/<实例>/`，root 管理 |
-| 配置与安装记录 | `${XDG_CONFIG_HOME:-$HOME/.config}/molr/<实例>/` | `/etc/molr/<实例>/` |
+| 程序、安装记录与许可证 | `~/.local/lib/molr/<实例>/` | `/opt/molr/<实例>/` |
+| 配置 | `${XDG_CONFIG_HOME:-$HOME/.config}/molr/<实例>/` | `/etc/molr/<实例>/` |
 | 默认持久数据 | `${XDG_DATA_HOME:-$HOME/.local/share}/molr/<实例>/` | `/var/lib/molr/<实例>/` |
-| 缓存与服务临时文件 | `${XDG_CACHE_HOME:-$HOME/.cache}/molr/<实例>/` | `/var/cache/molr/<实例>/` |
+| 缓存与临时文件 | `${XDG_CACHE_HOME:-$HOME/.cache}/molr/<实例>/` | `/var/cache/molr/<实例>/` |
 | 服务文件 | `${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/<服务名>.service` | `/etc/systemd/system/<服务名>.service` |
-| 管理方式 | `systemctl --user … <服务名>.service` | `sudo systemctl … <服务名>.service` |
+| 管理命令 | `systemctl --user` | `sudo systemctl` |
 
-默认服务名为 `molr`，实例目录名为 `default`；`--name molr-demo` 使用实例目录 `demo` 和服务 `molr-demo.service`。`molr-default` 为保留名称，请使用 `molr`。用户程序目录默认以安装账户的主目录为基准，不随 `XDG_DATA_HOME` 改变。可用 `--program-root /path/programs` 更改程序根目录，程序安装到其 `<实例>/` 子目录；更新时沿用相同参数。程序入口是程序目录下的 `bin/molr-server`；配置文件为配置目录下的 `server.json`，用户安装权限为 `0600`，系统安装为 root 管理、目标组可读的 `0640`。
+服务 `molr` 对应实例 `default`，`molr-demo` 对应 `demo`；`molr-default` 为保留名称。`--program-root /path/programs` 调整程序根目录，实际安装到其实例子目录。两个命令位于程序目录的 `bin/` 下；配置为 `server.json`。用户配置权限为 `0600`，系统配置为 root 所有、服务组可读的 `0640`。
 
-数据库、密钥、附件、助理项目、技能、记忆和工作区内安装的工具均属于持久数据。服务使用独立缓存目录的 `tmp/` 作为 `TMPDIR`，`XDG_CACHE_HOME` 指向该实例缓存目录；重建缓存不影响持久数据。程序、配置、数据和缓存目录不能重叠。
+程序、配置、数据和缓存目录不能重叠。自定义 `data_dir` 和外置工作区沿用配置，需允许服务账户访问。数据库、密钥、附件和助理工作区属于持久数据；缓存可以重建。许可证随程序保存，WebUI 也提供 `/LICENSE` 和 `/THIRD_PARTY_NOTICES.md`。
 
-配置模板指定的 `data_dir` 保留不变；已有数据必须归目标账户所有且可访问，否则报错。首次复制配置时默认设置 `sandbox.host_tools: true`；显式 `false` 或自定义 rootfs 会保留。配置中的证书、外部工作区等路径也必须允许目标账户访问，安装器不会修改这些文件的权限。
+用户服务要在退出登录后运行，由管理员执行 `loginctl enable-linger USER`；系统服务无需 linger。现有精简 Docker 镜像不包含完整的自动命令环境。
 
-升级再次执行相同命令，省略 `--init-owner`：保留安装位置的配置、数据、凭证和用户，程序原子替换并保留 `molr-server.previous`，配置备份为 `server.previous.json`。同名实例不能静默切换账户；需显式迁移数据，或使用新的实例名。迁移前停止原实例并备份，不对运行中数据库直接改属主或复制。
+## 更新与重复运行
 
-可用 `--name molr-<名称>` 安装独立实例；配置、端口和数据目录也必须独立。`--no-start` 只准备文件，不启用或启动服务，并输出以正确身份初始化和启动的命令。未初始化的数据必须使用 `--init-owner` 或 `--no-start`，不会将一个无法监听的服务报告为安装成功。
+运行已安装实例的安装维护程序，会显示状态并进入维护菜单；无终端时只显示状态。它通过自身位置识别实例，因此无需切换到特定工作目录。
 
-安装器检查 systemd ≥254、Python 3、Bubblewrap、静态 BusyBox、CA 证书、file、util-linux；系统安装另需 useradd/runuser。缺失依赖时明确报错，不在普通用户安装过程中调用 sudo 或包管理器。两种 unit 都含 `Type=exec`、`Delegate=yes`、`DelegateSubgroup=supervisor`、`KillMode=control-group`、`NoNewPrivileges=yes`。用户服务需要现有用户管理器；若要求未登录时也启动，管理员可另行配置 `loginctl enable-linger USER`；系统服务无需 linger。
+```bash
+~/.local/lib/molr/default/bin/molr-setup
+~/.local/lib/molr/default/bin/molr-setup status
+~/.local/lib/molr/default/bin/molr-setup update
+~/.local/lib/molr/default/bin/molr-setup update --version 0.2.0-rc.1
+~/.local/lib/molr/default/bin/molr-setup update --channel preview
+```
 
-安装后仍须完成下节的已认证沙盒检查。安装器的 `is-active` 只确认服务状态，不代替真实隔离能力验收。
+更新使用安装记录中保存的发布源和渠道，显示目标包并下载校验。`--source`／`--channel` 指定此次更新及成功后继续使用的订阅。系统实例使用 `sudo /opt/molr/default/bin/molr-setup update`。Go 更新器也允许显式的私网或回环数字 HTTP 镜像地址。
 
-现有 Docker 镜像为精简 Runtime 镜像，尚不包含完整自动命令环境；不能认定在容器中启动 HTTP 后即可执行 Shell。
+重新运行官网下载命令、运行另一份安装包均可升级已有实例；保留配置、数据、凭证和账户。程序原子替换，保留 `molr.previous`、`molr-setup.previous` 与 `server.previous.json`。同版本默认不重装，`--repair` 重新应用当前包。降级必须显式使用 `--allow-downgrade`，并先自行备份数据。
+
+安装未完成或记录损坏时会明确报错。不要删除安装记录来绕过检测；使用完整安装包对原实例修复。`--record /path/installation.json` 可明确指定管理的实例。
 
 ## 启动后的检查
 
-1. 通过实际 WebUI 地址登录，验证页面、消息与后端连接。
-2. 在已登录浏览器通过同源代理请求 `/api/status` 和 `/api/sandbox`，不要只检查端口或进程日志。
-3. 未明确关闭沙盒时，要求 `Enabled=true`、`Capabilities.Reason=available`，以及 `Shell`、`ProcessIsolation`、`FileIsolation`、`NetworkIsolation`、`ResourceLimits` 均为 `true`。
-4. 用测试助理和非敏感资料验证权限、模型调用与实际结果；未授权能力不能使用。
+安装、更新、重启后核对实际页面与已认证沙盒能力：
 
-每次启动、重建或重启后都重新核对。失败原因和处理入口见 [沙盒检查](sandbox.md#检查与验证)；不通过关闭沙盒或回退宿主执行来掩盖异常。
+```bash
+~/.local/lib/molr/default/bin/molr doctor -config /path/server.json
+~/.local/lib/molr/default/bin/molr access -config /path/server.json
+```
+
+默认使用数据目录的初始密码；已改密时增加 `-password-stdin`，启用 MFA 时增加 `-mfa-code`。命令通过正常认证 API 工作。`access` 生成 15 分钟一次性登录链接。
+
+未关闭沙盒时，要求 `/api/sandbox` 返回 `Enabled=true`、`Capabilities.Reason=available`，以及 `Shell`、`ProcessIsolation`、`FileIsolation`、`NetworkIsolation`、`ResourceLimits` 全部为 `true`。端口监听和服务 active 状态不能代替此检查。排查见[沙盒检查](sandbox.md#检查与验证)。
 
 ## 卸载
 
-安装包会将离线卸载入口保存为程序目录下的 `uninstall.sh`，无需源码或网络。例如默认用户实例：
+离线卸载使用已安装的维护程序：
 
 ```bash
-bash ~/.local/lib/molr/default/uninstall.sh --dry-run
-bash ~/.local/lib/molr/default/uninstall.sh
+~/.local/lib/molr/default/bin/molr-setup uninstall --dry-run
+~/.local/lib/molr/default/bin/molr-setup uninstall
+~/.local/lib/molr/default/bin/molr-setup uninstall --purge --yes
+sudo /opt/molr/demo/bin/molr-setup uninstall --purge
 ```
 
-默认卸载停止对应服务与任务、移除服务注册、程序和实例缓存，保留配置、安装记录及持久数据。重新运行相同实例的安装命令即可复用这些数据；卸载输出会列出保留路径。
+默认停止对应服务，移除程序、服务文件和实例缓存，保留配置、持久数据及安装记录。重新安装同一实例可复用数据。`--purge` 删除受管理配置与默认数据；交互模式需输入实例名确认，静默模式必须带 `--yes`。
 
-彻底清除该实例的受管理配置和数据：
+自定义数据、外置工作区、未知文件、系统账户、系统依赖和 linger 设置保留。无法确认服务归属、服务停止失败或删除目录包含挂载点时中止。默认卸载后维护程序已移除；需要继续清除数据时，使用完整包的维护程序指定保留的安装记录：
 
 ```bash
-bash ~/.local/lib/molr/default/uninstall.sh --purge
-# 无交互执行时，显式确认数据删除
-bash ~/.local/lib/molr/default/uninstall.sh --purge --yes
-# 系统安装的实例
-sudo bash /opt/molr/demo/uninstall.sh --purge
+./bin/molr-setup uninstall --record /path/installation.json --purge --yes
 ```
-
-`--purge` 先展示删除计划，再要求输入服务名确认；`--dry-run --purge` 只预览。自定义 `data_dir`、外置 `sandbox.work_root`、授权的外部目录、系统账户、系统依赖和 linger 设置不会被删除。仅安装器登记为受管理的默认数据目录纳入清除，目录挂载了其他文件系统时需先卸载挂载。无法确认服务归属、停止失败或路径校验失败时，中止删除并报告原因。
-
-源码检出提供 `bash scripts/uninstall.sh --name molr-demo`；系统实例加 `--system` 并以 root 执行。也可以使用已解压发行包的 `bash scripts/uninstall-linux.sh --name molr-demo`。这两个入口可在默认卸载后继续清除保留数据；自定义 XDG 目录时沿用安装时的环境变量，或通过 `--record /path/installation.json` 指定保留的安装记录。安装记录中不保存密码和密钥。

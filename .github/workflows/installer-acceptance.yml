@@ -1,0 +1,56 @@
+name: Fresh-host installer acceptance
+on:
+  workflow_call:
+    inputs:
+      artifact-prefix:
+        type: string
+        required: true
+      ref:
+        type: string
+        required: true
+permissions:
+  contents: read
+jobs:
+  install:
+    name: ${{ matrix.environment }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - environment: ubuntu-24.04-amd64
+            runner: ubuntu-24.04
+            arch: amd64
+          - environment: ubuntu-24.04-arm64
+            runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.21.0'
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact-prefix }}linux-${{ matrix.arch }}
+          path: dist/releases
+      - name: Prepare login session, leaving dependency preparation to Molr
+        run: |
+          # This job is disposable. Do not use this preparation on a developer host.
+          if [ -f /etc/apparmor.d/bwrap-userns-restrict ]; then
+            sudo apparmor_parser -R /etc/apparmor.d/bwrap-userns-restrict || true
+          fi
+          sudo apt-get purge -y bubblewrap busybox-static apparmor-profiles
+          sudo loginctl enable-linger "$(id -un)"
+          sudo systemctl start "user@$(id -u).service"
+          echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
+          echo "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus" >> "$GITHUB_ENV"
+      - name: Preview, interactive install, silent reinstall, sandbox verification and uninstall
+        env:
+          MOLR_TEST_PREPARE: '1'
+        run: |
+          archives=(dist/releases/*.tar.gz)
+          test "${#archives[@]}" -eq 1
+          MOLR_TEST_ARCHIVE="${archives[0]}" node scripts/test-release-install.mjs

@@ -49,7 +49,7 @@
 
 ## Runtime 构建与沙盒验收
 
-- **主服务和各 worktree 验收实例的 Runtime 均必须使用静态构建，显式设置 `CGO_ENABLED=0`。** 使用 `runtime/.go-version` 指定的 Go 版本，在对应任务 worktree 内构建；更新主服务时必须使用与目标 `main` 提交一致的干净构建 worktree。例如在其 `runtime/` 目录执行 `CGO_ENABLED=0 go build -o ../.cache/acceptance/molr-server ./cmd/molr-server`（先创建输出目录）。Runtime 默认复用自身二进制作为沙盒 helper，动态链接产物即使能启动 HTTP 服务，也不能用于当前的精简沙盒环境。
+- **主服务和各 worktree 验收实例的 Runtime 均必须使用静态构建，显式设置 `CGO_ENABLED=0`。** 使用 `runtime/.go-version` 指定的 Go 版本，在对应任务 worktree 内构建；更新主服务时必须使用与目标 `main` 提交一致的干净构建 worktree。例如在其 `runtime/` 目录执行 `CGO_ENABLED=0 go build -o ../.cache/acceptance/molr ./cmd/molr`（先创建输出目录）。Runtime 默认复用自身二进制作为沙盒 helper，动态链接产物即使能启动 HTTP 服务，也不能用于当前的精简沙盒环境。
 - 部署前检查最终产物，不能仅凭构建命令或参数判断：用 `file <binary>` 确认静态链接，用 `go version -m <binary>` 核对 `CGO_ENABLED=0` 和构建提交，主服务产物还必须满足 `vcs.modified=false`；验收产物记录任务当前的修改状态，不得将含未提交修改的验收产物部署到主服务。必要时用 `readelf -h -l <binary>` 确认架构匹配、ELF 类型为 `EXEC` 且没有 `INTERP` 段。检查不通过时不得替换正在运行的服务。
 - **构建后和部署后均检查二进制权限，Runtime/helper 使用 `0755`，不得为 `0775`、`0777` 等组可写或其他用户可写的模式。** Bubblewrap（默认 `/usr/bin/bwrap`）和 helper 必须是可执行的普通文件，路径及其父目录不得经过符号链接；不要通过放宽权限绕过检查。另行确认静态 BusyBox 可用，其来源和解析后的文件权限应符合 Runtime 的检查要求。
 - 启用沙盒的 Linux 实例必须具有有效的 cgroup v2 委派。沿用已验证的 systemd 用户服务启动方式，设置 `Type=exec`、`Delegate=yes`、`DelegateSubgroup=supervisor`、`KillMode=control-group`；服务名使用以 `molr` 开头的独立名称，每个 worktree 使用不同的 unit。不要随意改回普通登录会话中的后台启动方式，也不能将 systemd unit 启动成功视为沙盒已就绪。

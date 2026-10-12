@@ -10,7 +10,7 @@ Runtime configuration supports:
 {"updates": {"source": "https://downloads.example.com/releases/stable", "auto_check": true}}
 ```
 
-The release source used for online installation is automatically saved to the configuration; offline installations retain existing values. No network access occurs if no release source is configured. `auto_check: false` disables automatic release checks in the background and on the About page, but manual checks are still possible. Development/local builds do not perform automatic checks by default. Public network sources require HTTPS; HTTP sources must be explicitly configured private network or loopback numeric addresses.
+For package installations, the program directory’s `installation.json` supplies the authoritative source and channel; the configuration above is for source deployments without setup. No network access occurs if no release source is configured. `auto_check: false` disables automatic release checks in the background and on the About page, but manual checks are still possible. Development/local builds do not perform automatic checks by default. Public network sources require HTTPS; HTTP sources must be explicitly configured private network or loopback numeric addresses.
 
 After the background starts, a check is performed with a delay of 30–60 seconds, followed by checks every 24 hours with a small random delay; failures are retried after one hour. When entering the About page or when the page becomes visible again, release information is refreshed if more than five minutes have passed since the last check. The minimum interval for manual checks is one minute; concurrent requests are merged across the entire instance. If a check fails, the last successful result and timestamp are retained; the check itself does not download or install programs.
 
@@ -21,10 +21,10 @@ For maintainer version naming, platform management, initial remote configuration
 After discovering an update, administrators can view the upgrade command for the fixed target version. The running account, instance name, and program path are taken from the installation record; for source code deployments or missing records, follow this guide. Example:
 
 ```bash
-bash install.sh --source https://downloads.example.com/releases/stable --version 0.2.0 --name molr
+~/.local/lib/molr/default/bin/molr-setup update --version 0.2.0
 ```
 
-Before upgrading, preserve data according to the backup process on this page. The installer verifies the version and architecture of the downloaded package, retains existing accounts, data, and configurations, saves `molr-server.previous` and `server.previous.json`, then replaces the program and restarts. Service restarts interrupt running tasks. After startup, wait for HTTP readiness, then perform an authentication check, verifying the actual Runtime version and sandbox capabilities; if authentication requires the current password/MFA or is rate-limited, output "Verification pending" and the `doctor` command, without looping login. On failure, backups and error information are retained, and no automatic rollback occurs; the previous program and configuration do not include a complete data backup.
+Before upgrading, preserve data according to the backup process on this page. The installer verifies the version and architecture of the downloaded package, retains existing accounts, data, and configurations, saves `molr.previous`, `molr-setup.previous` and `server.previous.json`, then replaces the program and restarts. Service restarts interrupt running tasks. After startup, wait for HTTP readiness, then perform an authentication check, verifying the actual Runtime version and sandbox capabilities; if authentication requires the current password/MFA or is rate-limited, output "Verification pending" and the `doctor` command, without looping login. On failure, backups and error information are retained, and no automatic rollback occurs; the previous program and configuration do not include a complete data backup.
 
 ## Backup Recovery and Upgrades
 
@@ -33,8 +33,8 @@ The data directory permissions are `0700`, and the master key `keys/master.key` 
 Stop the corresponding instance before executing maintenance commands:
 
 ```bash
-/path/molr-server backup -config /private/server.json > /private/backup.json
-/path/molr-server restore -config /private/server.json -backup-manifest /private/backup.json
+/path/molr backup -config /private/server.json > /private/backup.json
+/path/molr restore -config /private/server.json -backup-manifest /private/backup.json
 ```
 
 `backup.json` is the backup description; the command only generates a database snapshot and does not package the complete instance. Complete disaster recovery should retain a complete copy of the configuration and data directory after stopping the service; if restoring from a database snapshot, the snapshot file and its description must also be retained, and the following data must be restored simultaneously:

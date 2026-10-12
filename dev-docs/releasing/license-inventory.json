@@ -11,16 +11,12 @@
     "runtime/internal/voicecodec/silk.wasm": "13de15803937f44593398fee46d1dd7ee4ea2f04c819f8f887525b4cd9b60bf7",
     "runtime/internal/voicecodec/README.md": "0b8a2c9634b6361a46c4ca75120a734a3f247d3779c46db62e4487578840caa5",
     "runtime/internal/voicecodec/source/build.py": "edeadc1e9acb2f77ad9caf10bc36965a9e988497a18e35b8a70a790092e4879c",
-    "scripts/build-release.mjs": "e3b72ae1c7aca884f0c551de8f8f6734b55e50d521db6278395ba968f374404d",
+    "scripts/build-release.mjs": "799b1c042d7e089061fd69739f19a3f72e761da412ea986386e6e68c3386bf7b",
     "apps/website/src/GithubMark.tsx": "7d0d38bb13335793c5ed91d5f27ffc8e5fc2811d7eff9ce6e59a6f6d33d5a37a",
     "apps/website/src/site-links.ts": "50dd10e29b7cc6eaaebee023893183663900929c282ce88c0c356c87a806b192",
     "THIRD_PARTY_NOTICES.md": "47142596d41d6d52a00e7eea969f185e9e2e277c9127b409e9c2f2225a185416",
-    "runtime/scripts/install-linux.py": "0be1a5fb5c0ff4b3a58130c9b289036fa36a230fd99d7b58df79bc8681c10147",
     "scripts/license-assets.ts": "2f17e19230ad1b6fa1b44bfd974abec0d2c36522dd009ebed61151040eb715db",
-    "scripts/update-third-party-notices.py": "26fe3c0b76a4557463299d3fc26e67f12dfd5df7e68bfce4cb4c6ea09ea787be",
-    "runtime/scripts/install_layout.py": "9debcf88b8eabf7858d6e417d337d6dfbed0c688a627b5185a865fcc611f7ec0",
-    "runtime/scripts/uninstall-linux.py": "ed871f2815dae6dcb8b58dffea1e174fb1a3ef6f845425982d8ae04dfc0ece39",
-    "runtime/scripts/uninstall-linux.sh": "258f10d8b0562ca14258198341fbc773ed87d6540f4e3a5ec57ce3486c2322d1",
+    "scripts/update-third-party-notices.py": "1efdc6ca1a750cc179aead01c29edf5e5908576f1069be4ae5223be1838ccec9",
     "scripts/promote-release.mjs": "3875373d2fe869b79eda684b6deef53173f8f0af7cf1e41f25f9ea977f972e27"
   },
   "npm": [

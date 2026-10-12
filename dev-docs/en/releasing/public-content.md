@@ -59,14 +59,9 @@ When packaging, only files explicitly listed in `scripts/release-policy.json` ar
 
 - `LICENSE`
 - `THIRD_PARTY_NOTICES.md`
-- `bin/molr-server`
+- `bin/molr`
+- `bin/molr-setup`
 - `release.json`
-- `scripts/install-linux.py`
-- `scripts/install-linux.sh`
-- `scripts/install_layout.py`
-- `scripts/platforms.json`
-- `scripts/uninstall-linux.py`
-- `scripts/uninstall-linux.sh`
 
 Working directories or staging directories are not packaged recursively. Generated temporary archives must pass member type, explicit manifest, duplicate path, content, and metadata checks before atomically replacing the final archive and generating checksums and download manifests. BusyBox, runtime configurations, databases, keys, and acceptance data are not part of the distribution package.
 
@@ -91,8 +86,9 @@ New commits or `.mailmap` do not delete identities or file content in old commit
 Changes to installation directories, installers, or uninstallers also require running:
 
 ```bash
-python3 runtime/scripts/test-install-linux.py
-python3 runtime/scripts/test-uninstall-linux.py
+cd runtime
+CGO_ENABLED=0 go test ./internal/installation ./internal/updates
+cd ..
 python3 scripts/test-install-download.py
 ```
 

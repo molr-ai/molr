@@ -59,14 +59,9 @@ npm run build:source -- --ref HEAD
 
 - `LICENSE`
 - `THIRD_PARTY_NOTICES.md`
-- `bin/molr-server`
+- `bin/molr`
+- `bin/molr-setup`
 - `release.json`
-- `scripts/install-linux.py`
-- `scripts/install-linux.sh`
-- `scripts/install_layout.py`
-- `scripts/platforms.json`
-- `scripts/uninstall-linux.py`
-- `scripts/uninstall-linux.sh`
 
 不递归打包工作目录或 staging 目录。生成的临时归档必须通过成员类型、明确清单、重复路径、内容和元数据检查，才原子替换最终归档并生成校验与下载清单。BusyBox、运行配置、数据库、密钥和验收数据均不属于发行包。
 
@@ -91,8 +86,9 @@ python3 scripts/release_safety.py frontend apps/webui/dist
 安装目录、安装器或卸载器变更还需运行：
 
 ```bash
-python3 runtime/scripts/test-install-linux.py
-python3 runtime/scripts/test-uninstall-linux.py
+cd runtime
+CGO_ENABLED=0 go test ./internal/installation ./internal/updates
+cd ..
 python3 scripts/test-install-download.py
 ```
 

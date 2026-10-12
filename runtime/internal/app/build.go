@@ -799,14 +799,19 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 	}
 	build := buildinfo.Current()
 	build.EmbeddedWebUI = webassets.Embedded
+	installation := updates.ReadInstallation(cfg.ConfigPath, cfg.Updates.Source)
+	updateSource := cfg.Updates.Source
+	if installation != nil {
+		updateSource = installation.Source
+	}
 	updateAddresses := adapters.privateAddresses()
-	if u, err := url.Parse(cfg.Updates.Source); err == nil {
+	if u, err := url.Parse(updateSource); err == nil {
 		if ip, err := netip.ParseAddr(u.Hostname()); err == nil && (ip.IsPrivate() || ip.IsLoopback()) {
 			updateAddresses = append(updateAddresses, ip)
 		}
 	}
-	updateService := updates.New(cfg.Updates.Source, cfg.Updates.AutoCheck, build, platform.ConfiguredHTTPClient(cfg.Updates.Source, updateAddresses))
-	b.HTTP, err = api.NewServer(cfg, b.Services, api.Options{Updates: updateService, UpgradeInfo: updates.ReadInstallation(cfg.ConfigPath, cfg.Updates.Source), Notifications: notification.New(store, permissions), Weixin: channels, Accounts: identity, Setup: b.setup, DiscoverProviders: func(ctx context.Context, p core.Principal) (any, error) {
+	updateService := updates.New(updateSource, cfg.Updates.AutoCheck, build, platform.ConfiguredHTTPClient(updateSource, updateAddresses))
+	b.HTTP, err = api.NewServer(cfg, b.Services, api.Options{Updates: updateService, UpgradeInfo: installation, Notifications: notification.New(store, permissions), Weixin: channels, Accounts: identity, Setup: b.setup, DiscoverProviders: func(ctx context.Context, p core.Principal) (any, error) {
 		if err := identity.RequireAdministrator(ctx, p); err != nil {
 			return nil, err
 		}

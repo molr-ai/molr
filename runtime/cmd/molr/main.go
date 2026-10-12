@@ -1,4 +1,4 @@
-// molr-server runs the self-host Runtime with an embedded local sandbox.
+// molr runs the self-host Runtime with an embedded local sandbox.
 package main
 
 import (
@@ -33,7 +33,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if err := run(ctx, os.Args[1:], os.Stdin, os.Stdout, os.Stderr); err != nil {
-		fmt.Fprintln(os.Stderr, "molr-server:", err)
+		fmt.Fprintln(os.Stderr, "molr:", err)
 		os.Exit(1)
 	}
 }
@@ -61,7 +61,7 @@ func run(ctx context.Context, args []string, input io.Reader, output, diagnostic
 		return nil
 	}
 	if len(args) == 0 {
-		fmt.Fprintln(output, "Usage: molr-server <bootstrap|init|serve|access|doctor|recover|backup|restore|version> -config /path/server.json")
+		fmt.Fprintln(output, "Usage: molr <bootstrap|init|serve|access|doctor|recover|backup|restore|version> -config /path/server.json")
 		return nil
 	}
 	command := args[0]

@@ -44,9 +44,9 @@ export function validateManifest(m) {
   const seen = new Set();
   for (const p of m.platforms) {
     exactKeys(p, ['id', 'os', 'arch', 'label', 'aliases', 'requirements', 'file', 'sha256', 'url', 'checksum_url']);
-    exactKeys(p.requirements, ['systemd', 'python', 'cgroup', 'packages']);
+    exactKeys(p.requirements, ['systemd', 'cgroup', 'packages']);
     const r = p.requirements;
-    if (!Number.isInteger(r.systemd) || r.systemd < 254 || !/^3\.[0-9]+$/.test(r.python) || r.cgroup !== 2 || !Array.isArray(r.packages) || r.packages.some(n => typeof n !== 'string' || !/^[a-z0-9][a-z0-9+.-]*$/.test(n))) throw new Error('Invalid platform requirements');
+    if (!Number.isInteger(r.systemd) || r.systemd < 254 || r.cgroup !== 2 || !Array.isArray(r.packages) || r.packages.some(n => typeof n !== 'string' || !/^[a-z0-9][a-z0-9+.-]*$/.test(n))) throw new Error('Invalid platform requirements');
     if (!/^[a-z0-9]+-[a-z0-9]+$/.test(p.id) || p.id !== `${p.os}-${p.arch}` || seen.has(p.id) || !Array.isArray(p.aliases) || !p.aliases.length || p.aliases.some(a => !/^[a-z0-9_]+$/.test(a))) throw new Error('Invalid release platform');
     seen.add(p.id);
     if (p.file !== `molr_${m.version}_${p.os}_${p.arch}.tar.gz` || !/^[0-9a-f]{64}$/.test(p.sha256) || typeof p.label !== 'string' || !p.requirements) throw new Error('Invalid release asset');

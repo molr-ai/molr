@@ -1,5 +1,5 @@
 import { useState, type CSSProperties, type ReactNode } from 'react';
-import { Logo, paletteBrandColors, useTheme } from '@molr/ui';
+import { Logo, Tabs, paletteBrandColors, useTheme } from '@molr/ui';
 import { homeMessages, type HomeCopy } from './home-content';
 import { localizedDocPath } from './doc-locale';
 import { siteLinks } from './site-links';
@@ -7,6 +7,8 @@ import { GithubMark } from './GithubMark';
 import type { Locale } from './site-content';
 import { SiteHeader } from './SiteHeader';
 import { InstallSection } from './InstallSection';
+import { InstallCommand } from './InstallCommand';
+import { installCommand } from './release-data';
 
 // Reuse the UI Design palette values; decorative colors stay local to the homepage.
 const brandColors = Object.fromEntries(
@@ -18,6 +20,7 @@ const brandColors = Object.fromEntries(
 function Icon({ name, className = '' }: { name: string; className?: string }) {
   const paths: Record<string, ReactNode> = {
     arrow: <path d="M5 12h14m-5-5 5 5-5 5" />,
+    down: <path d="M12 5v14m-5-5 5 5 5-5" />,
     download: <><path d="M12 3v12m-4-4 4 4 4-4M5 16v4h14v-4" /></>,
     book: <><path d="M12 5v16M3 3h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5v16h-5a4 4 0 0 0-4 2 4 4 0 0 0-4-2H3V3Z" /></>,
     sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5" /></>,
@@ -155,6 +158,8 @@ function ProductPreview({ copy }: { copy: HomeCopy }) {
 
 export function HomePage({ heading, locale, changeLocale }: { heading: string; locale: Locale; changeLocale: (locale: Locale) => void }) {
   const copy = homeMessages[locale];
+  const command = installCommand();
+  const [installPlatform, setInstallPlatform] = useState('linux');
   const { theme } = useTheme();
   return <div className="home-page" id="top" style={brandColors}>
     <a className="home-skip" href="#main">{copy.skip}</a>
@@ -171,7 +176,12 @@ export function HomePage({ heading, locale, changeLocale }: { heading: string; l
         </div>
         <div className="home-eyebrow"><span />{copy.eyebrow}</div>
         <h1 id="home-title"><span>{heading}</span></h1><p className="home-subtitle">{copy.subtitle}</p>
-        <div className="home-hero-ctas"><a className="home-button home-button-primary" href="#install"><Icon name="download" />{copy.install}</a><Destination locale={locale} destination="userDocs" hint={copy.userDocsSoon} className="home-button home-button-secondary"><Icon name="book" />{copy.readDocs}</Destination></div>
+        <div className="home-hero-install">
+          <Tabs className="home-install-tabs" label={copy.installPlatforms} value={installPlatform} onValueChange={setInstallPlatform} items={[
+            { value: 'linux', label: 'Linux', content: <InstallCommand key={command} command={command} locale={locale} terminal /> },
+          ]} />
+          <div className="home-hero-ctas"><a className="home-button" href="#install">{copy.moreInstall}<Icon name="down" /></a></div>
+        </div>
         <ProductPreview copy={copy} />
       </section>
       <StorySection id="environment" label={copy.sectionLabel} heading={copy.environmentHeading} intro={copy.environmentIntro} points={copy.environmentPoints}>

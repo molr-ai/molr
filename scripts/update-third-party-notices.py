@@ -94,7 +94,7 @@ def generate():
     # Include more-specific notices above packages compiled on either supported CPU.
     specific = set()
     for arch in ('amd64', 'arm64'):
-        for package in stream_json(run('list', '-deps', '-json', './cmd/molr-server', GOARCH=arch)):
+        for package in stream_json(run('list', '-deps', '-json', './cmd/molr', './cmd/molr-setup', GOARCH=arch)):
             directory = Path(package['Dir'])
             module = package.get('Module')
             if module and module.get('Main'):

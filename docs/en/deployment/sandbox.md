@@ -4,17 +4,17 @@ This page is for deployers, explaining the dependencies, resource boundaries, an
 
 ## Installation and Startup
 
-The [Linux installation script](../../../runtime/scripts/install-linux.sh) defaults to installing as a service for the current user. It can also be installed as a system service for a specified account by root using `--user USER`. Non-existent accounts are automatically created, and the entire Runtime and sandbox always use the same identity. If dependencies are missing, it reports errors explicitly and does not automatically use sudo. For parameters, initialization, and update processes, see the [Deployment Guide](installation.md#selecting-the-runtime-account-during-installation).
+`molr-setup` installs a user service by default; root can use `--user USER` for a system service. Runtime and sandbox use the same regular account. `--install-deps` authorizes system dependency preparation. See [installation](installation.md#selecting-the-runtime-account-during-installation).
 
 The current automatic installation path targets Linux systems with systemd 254+. Starting via standard commands requires an accessible systemd user manager, while installing as a service includes built-in execution resource delegation. On systems or restricted containers that do not support these conditions, features like chat still run, but command execution displays that the current system is unavailable, without degrading to non-isolated execution. Existing distroless Docker images do not yet include this automatic command environment, so container deployments should not claim default Shell support.
 
 Builds use the Go version specified in [runtime/.go-version](../../../runtime/.go-version). Static binaries are generated in the `runtime/` directory so that the same server can run internal helpers within minimal environments:
 
 ```bash
-CGO_ENABLED=0 GOTOOLCHAIN="go$(cat .go-version)" go build -o /path/molr-server ./cmd/molr-server
-chmod 0755 /path/molr-server
-file /path/molr-server
-go version -m /path/molr-server
+CGO_ENABLED=0 GOTOOLCHAIN="go$(cat .go-version)" go build -o /path/molr ./cmd/molr
+chmod 0755 /path/molr
+file /path/molr
+go version -m /path/molr
 ```
 
 Check that the final binary is statically linked, build information is `CGO_ENABLED=0`, and permissions are `0755`. Start via a systemd user or system service with delegation, setting `Type=exec`, `Delegate=yes`, `DelegateSubgroup=supervisor`, and `KillMode=control-group`. For complete startup and verification steps, see [Installation and Service Management](installation.md). The installation script defaults to `molr.service`. For multi-instance acceptance testing, use `--name molr-<名称>` and assign independent ports, configurations, and data directories.
@@ -63,7 +63,7 @@ Common causes include `gpu_host_tools_required` (host tool mode not enabled), `g
 
 The same node can handle both normal isolated calls and Full Access calls simultaneously. Full Access is a permission type parallel to storage, compute, and network under the sandbox, and is not open by default. It is not a node running mode and is not automatically enabled upon isolation failure.
 
-Deployers enable it in `molr-server` or `molr-sandbox` configurations:
+Deployers enable it in `molr` or `molr-sandbox` configurations:
 
 ```json
 { "sandbox": { "enabled": true, "allow_full_access": true } }

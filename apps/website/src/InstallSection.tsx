@@ -7,6 +7,7 @@ import { siteLinks } from './site-links';
 import { channels, installCommand, readCatalog } from './release-data';
 import type { Catalog, Channel } from './release-data';
 import './install.css';
+import { InstallCommand } from './InstallCommand';
 
 export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Locale }) {
   const t = installMessages[locale];
@@ -16,8 +17,6 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
   const [platformID, setPlatformID] = useState('');
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const [copied, setCopied] = useState(false);
-  const [copyError, setCopyError] = useState(false);
   const source = new URL(import.meta.env.VITE_RELEASE_SOURCE || '/releases', window.location.origin).href.replace(/\/$/, '');
   useEffect(() => {
     const controller = new AbortController(); setError(false);
@@ -30,12 +29,8 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
   const release = catalog?.channels[channel];
   const platforms = release?.platforms || [];
   const platform = platforms.find(p => p.id === platformID) || platforms[0];
-  const command = release ? installCommand(release, channel, source) : '';
-  const chooseChannel = (next: Channel) => { setChannel(next); setCopied(false); setCopyError(false); };
-  const copyCommand = async () => {
-    try { await navigator.clipboard.writeText(command); setCopied(true); setCopyError(false); }
-    catch { setCopyError(true); }
-  };
+  const command = release ? installCommand(channel) : '';
+  const chooseChannel = (next: Channel) => setChannel(next);
   return <section id="install" data-palette="forest" data-theme="dark" className="home-start home-container" aria-labelledby="start-title">
     <p className="home-section-label">{copy.startLabel}</p>
     <h2 id="start-title">{copy.startHeading}</h2>
@@ -62,19 +57,18 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
             <div className="home-install-heading"><h3>{method === 'command' ? t.commandTitle : t.downloadTitle}</h3></div>
             <p>{method === 'command' ? t.commandBody : t.downloadBody}</p>
             {method === 'command' ? <>
-              <div className="home-install-terminal"><div><span>Terminal</span><button type="button" onClick={copyCommand}>{copied ? t.copied : t.copyCommand}</button></div><pre><code>{command}</code></pre></div>
-              {copyError && <p role="status">{t.copyError}</p>}
+              <InstallCommand key={command} command={command} locale={locale} />
               <ol className="home-install-steps">{t.steps.map((step, i) => <li key={step}><span>{i + 1}</span>{step}</li>)}</ol>
             </> : platform && <div className="home-install-packages"><article>
               <span className="home-install-archive">tar.gz</span><h4>{platform.label}</h4>
               <a className="home-button home-button-secondary" href={platform.url}>{t.downloadAction}</a>
               <a className="home-install-checksum" href={platform.checksum_url}>{t.checksum}</a>
               <code className="home-install-digest">SHA-256: {platform.sha256}</code>
-              <p>{t.offline}</p><code className="home-install-digest">bash install.sh --archive {platform.file}</code>
+              <p>{t.offline}</p><code className="home-install-digest">sh install.sh --archive {platform.file}</code>
               <a className="home-install-checksum" href={release.installer_url}>{t.installer}</a>
             </article></div>}
           </div>
-          {platform && <p className="home-install-requirements">{platform.os} · systemd {platform.requirements.systemd}+ · Python {platform.requirements.python}+ · cgroup v{platform.requirements.cgroup} · {platform.requirements.packages.join(', ')}</p>}
+          {platform && <p className="home-install-requirements">{platform.os} · systemd {platform.requirements.systemd}+ · cgroup v{platform.requirements.cgroup} · {platform.requirements.packages.join(', ')}</p>}
         </>}
       <div className="home-install-footer"><span>{t.targetHint}</span><a href={localizedDocPath(siteLinks.install!, locale)}>{t.guide}<span aria-hidden="true"> ↗</span></a></div>
     </div>

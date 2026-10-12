@@ -1,141 +1,136 @@
-# Installation and Service Management
+# Installation and service management
 
-## Local Distribution Packages and Quick Installation
+## Local packages and quick installation
 
-Distribution packages are distributed via GitHub Releases. The official website displays the actually available platforms, versions, installation commands, and download links for each channel. Stable releases use `stable`, beta/rc use `preview`, and daily builds use `nightly`; channels without a released version do not provide an install button. Online and offline installations use the installation script from the selected Release; for creating your own installation package, see [Source Code Build](source-build.md).
-
-Install from the installation package:
+Linux packages are available for AMD64 and ARM64 and include the `molr` application and the `molr-setup` maintenance program. Download the matching archive and SHA-256 file, verify and extract them, then run from the package directory:
 
 ```bash
-bash install.sh --archive /path/molr_0.1.0_linux_amd64.tar.gz
-# 独立实例示例
-bash install.sh --archive /path/package.tar.gz --name molr-demo --port 8788 --public-host "<LAN_IP>"
+sha256sum -c molr_0.1.0_linux_amd64.tar.gz.sha256
+tar -xzf molr_0.1.0_linux_amd64.tar.gz
+cd molr
+./bin/molr-setup
 ```
 
-The `<LAN_IP>` in the above command must be replaced with the actual LAN IP of the installation or download server; it cannot be executed as-is.
+The default operation installs or upgrades to this package's version without a channel or installation subcommand. An existing instance at the same version opens maintenance; use `--repair` to reapply files. See [source builds](source-build.md) to create packages.
 
-Prepare Python 3.11+ before online installation. Copy the command from the installation section of the official website, or run it through a pipe without saving a script file:
+For an initial online installation, use the website downloader:
 
 ```bash
-curl -fsSL https://molr.ai/install.sh | bash -s -- --channel stable
-curl -fsSL https://molr.ai/install.sh | bash -s -- --channel preview
-curl -fsSL https://molr.ai/install.sh | bash -s -- --channel nightly
-# 明确安装固定版本，同时保存后续跟踪的渠道
-curl -fsSL https://molr.ai/install.sh | bash -s -- --channel preview --version 0.2.0-rc.1
+curl -fsSL https://molr.ai/install.sh | sh
+curl -fsSL https://molr.ai/install.sh | sh -s -- --channel preview
+curl -fsSL https://molr.ai/install.sh | sh -s -- --channel nightly
+# Pin a version and keep its update subscription
+curl -fsSL https://molr.ai/install.sh | sh -s -- --channel preview --version 0.2.0-rc.1
 ```
 
-The script uses `https://molr.ai/releases` by default; `--source URL` can specify other release sources. The default channel is `stable`; it will not automatically switch to `preview` or `nightly` if no stable version is available. Fixed versions are read from the historical manifest; installation stops if packages for the target system/architecture are missing. If verification fails, the installer within the package is not executed. HTTP download sources only accept explicit private network or loopback numeric addresses; SHA-256 verification does not constitute an independent publisher signature.
+Stable tracks final releases, preview tracks beta/RC and subsequent final releases, and nightly tracks daily builds. Empty channels do not fall back to other channels. The downloader displays version, architecture, filename, source, checksum and progress, verifies the package, then runs its installer. It uses existing curl or wget, tar, gzip and a SHA-256 tool without installing download tools. The maintenance program itself needs no Python, curl or iproute2.
 
-For offline installation, download the version package, the corresponding `.sha256` file, and the `install.sh` for that Release to the target machine, and run `bash install.sh --archive <包路径>`. Each Release retains a snapshot of the installation script; the actual installation logic is released with the package. The official website lists the corresponding version's systemd, Python, cgroup, and system dependency requirements. Adding or stopping platform support does not change historical distribution packages.
-
-Installers that omit configuration files automatically generate LAN HTTP configuration, initialize the owner and setup, install the service, and check the authenticated API. `--install-deps` offers apt dependency installation and Bubblewrap AppArmor preparation; `--yes` approves these system preparation steps, and `--skip-dependencies` skips both. Missing isolation dependencies do not automatically open Full Access; sandbox capabilities are reported based on real probes. Installation and uninstallation require Python 3.11+; systemd and basic installation tools must still be available. The installer checks that BusyBox must be an executable static program that is not writable by the group or other users; if only dynamic BusyBox is available, it will still prompt to install `busybox-static`. If apt or offline installation is not supported, please pre-install static BusyBox and other dependencies via the target system's package manager. The installer does not copy BusyBox to the Molr installation directory.
-
-The installer checks destination paths before installing system dependencies. For a group/other-writable directory, it shows the path and mode and offers to fix it (`f`), ignore it and continue (`i`), or quit (`q`). Fixing removes only that directory's group/other write bits, without recursively changing its contents; ignoring preserves its permissions. Non-interactive runs must choose `--directory-permissions fix` or `--directory-permissions ignore`; `--yes` does not decide directory permissions. Unexpected ownership, symbolic links, and group/other-writable managed files still stop installation. Uninstallation supports the same option, and `--dry-run` never changes directory permissions.
-
-When AppArmor restricts unprivileged user namespaces, the installer probes Bubblewrap as the service account with `NoNewPrivileges`. If the probe fails, authorized preparation installs `apparmor-profiles` when needed, prepares and loads the distribution's `bwrap-userns-restrict` policy, and repeats the probe. Existing policy files are preserved; other Bubblewrap policies require administrator attention to avoid conflicting attachments. Errors include the probe output. Existing Molr programs and services are not replaced or restarted before this check passes. System-wide user namespace restrictions remain enabled.
-
-`LICENSE` and `THIRD_PARTY_NOTICES.md` are saved in the root directory of the installation prefix, for example, the user installation directory `~/.local/lib/molr/default/` for the default instance or the system installation directory `/opt/molr/default/`. The embedded WebUI, standalone WebUI, and official website all provide `/LICENSE` and `/THIRD_PARTY_NOTICES.md`; these two files should be retained when distributing the build directory. The license text is centrally maintained in the repository root directory and does not use third-party submodules.
-
-If linger is not enabled for the user service, logging out may stop the service; to allow the system to run when not logged in, the administrator must execute `loginctl enable-linger USER`. System services for specified accounts do not depend on linger.
-
-After installation, use the following commands to check or regenerate access entries:
+The default source is `https://molr.ai/releases`; use `--source URL` for another HTTPS source. The downloader also verifies and installs local archives:
 
 ```bash
-/path/molr-server doctor -config /path/server.json
-/path/molr-server access -config /path/server.json
+sh install.sh --archive /path/package.tar.gz
 ```
 
-A random initial password in the data directory is used by default. Add `-password-stdin` if the password has been changed, and add `-mfa-code` if MFA is enabled; these commands work through the normal authentication API, do not open the running database, and do not bypass MFA. The link is valid for 15 minutes; the actually delivered link is not used for health checks.
+An adjacent `package.tar.gz.sha256` is required. Running an extracted package needs no network when system dependencies are prepared. SHA-256 verifies downloaded content; it is not an independent publisher signature.
 
-## Linux Services and Command Environment
+## Interactive and unattended installation
 
-Linux Shell requires Bubblewrap, static BusyBox, available user namespace, and cgroup v2 delegation. For installation paths and current limitations, see [Linux Command Environment](sandbox.md). Use independent systemd user services; services with sandbox enabled must at least adopt:
-
-```ini
-[Service]
-Type=exec
-ExecStart=/path/molr-server serve -config /private/server.json
-Delegate=yes
-DelegateSubgroup=supervisor
-KillMode=control-group
-Restart=on-failure
-```
-
-Use real absolute paths; multiple instances are named, configured, and assigned ports and data directories separately. Bubblewrap/helper must be executable regular files; paths and parent directories cannot be accessed via symbolic links, and files cannot be group-writable or writable by other users. Do not relax isolation conditions to ensure successful startup.
-
-### Selecting the Runtime Account During Installation
-
-[Linux Installation Script](../../../runtime/scripts/install-linux.sh) installs the `molr.service` user service for the current regular user by default. When `--user USER` is specified, root is required, a system service is installed, and `User=` / `Group=` are used to make the entire Runtime, file operations, and local sandbox use the target identity; Molr programs do not start as root, nor do they switch users during runtime. No additional sandbox services, ports, or connection credentials are needed locally.
-
-For the first installation, the owner can be initialized directly, with the password read from standard input:
+A controlling terminal enables interaction by default. The installer displays paths, account, dependencies and permissions before confirmation. Modes can be selected explicitly:
 
 ```bash
-# 当前账户，无需 sudo。依赖须预先安装。
-bash runtime/scripts/install-linux.sh --init-owner owner \
-  .cache/build/molr-server /path/server.json < /private/owner-password
-
-# 指定账户，须由管理员执行；账户不存在时自动创建。
-sudo bash runtime/scripts/install-linux.sh --user molr-sandbox --init-owner owner \
-  .cache/build/molr-server /path/server.json < /private/owner-password
+./bin/molr-setup --interactive
+./bin/molr-setup --non-interactive --install-deps \
+  --directory-permissions fix --no-browser
+./bin/molr-setup --dry-run
 ```
 
-`--user` can specify an existing regular user, retaining their HOME, login shell, and supplementary groups; new users are created as system accounts without interactive login, without creating HOME, and without adding extra groups or sudo permissions. Root execution must explicitly specify `--user`, rejecting root and other UID 0 accounts. If pre-checks for the account and data directory fail, installation stops, and existing directories are not recursively chowned.
+Unattended mode neither prompts nor opens a browser. `--install-deps` authorizes system preparation; arrange administrator privileges beforehand. Use `--skip-dependencies` for manually prepared hosts. `--dry-run` shows the plan without changing accounts, permissions, configuration or services; previewing through the downloader still downloads a temporary package.
 
-| Content | Current User Installation | Specified User Installation |
+For group/other-writable directories, choose fix, ignore or quit. Fix removes only those directory write bits, without recursion. Unattended mode requires `--directory-permissions fix|ignore` when a choice is needed. `--yes` skips general confirmation but does not choose a permission policy. Ownership mismatches, symlinked paths and writable managed files cause errors.
+
+Without `--config`, setup generates LAN HTTP configuration, initializes the owner, starts the service and verifies authenticated APIs and sandbox capabilities. Output follows inspection, preparation, installation, verification and results. `verified` means authenticated verification passed. `verification_pending` means installation succeeded but current credentials are needed, with exit code 3. `not_started` corresponds to `--no-start`. Failures report the current stage and possible changes.
+
+## Linux services and command environment
+
+The current service adapter uses systemd. The Linux sandbox requires systemd 254+, cgroup v2 delegation, Bubblewrap, static BusyBox, CA certificates and util-linux nsenter/setpriv. These are capability requirements; installation does not reject distribution names or versions. Automatic dependency preparation currently supports APT. Other environments can be prepared manually using the [sandbox requirements](sandbox.md). User services need a normal SSH/desktop login session and user manager.
+
+When AppArmor restricts unprivileged user namespaces, setup probes Bubblewrap as the service account under `NoNewPrivileges`. With authorization it can prepare and load the distribution's `bwrap-userns-restrict` policy and repeat the probe. Existing policies are preserved; conflicts require administrator intervention. System isolation restrictions are not disabled, and missing dependencies do not trigger Full Access.
+
+### Selecting the runtime account during installation
+
+The default is the current regular user's `molr.service`. Root installation requires a non-root `--user USER` and creates a system service. Missing accounts are created as system accounts without login access. Existing HOME, shell and supplementary groups are preserved; existing data ownership is not changed recursively.
+
+```bash
+./bin/molr-setup --name molr-demo --port 8788 --public-host "<LAN_IP>"
+sudo ./bin/molr-setup --user molr-sandbox --install-deps
+# Custom configuration; initialize using a password from stdin
+./bin/molr-setup --config /path/server.json --init-owner owner \
+  < /private/owner-password
+```
+
+Replace `<LAN_IP>` with the actual private IPv4 address. Initial installation with custom configuration requires `--init-owner`, or `--no-start` for later initialization. Runtime and its sandbox always use the same regular account.
+
+| Content | User installation | System installation |
 | --- | --- | --- |
-| Program, License, Uninstaller | `~/.local/lib/molr/<实例>/` | `/opt/molr/<实例>/`, managed by root |
-| Configuration and Installation Records | `${XDG_CONFIG_HOME:-$HOME/.config}/molr/<实例>/` | `/etc/molr/<实例>/` |
-| Default Persistent Data | `${XDG_DATA_HOME:-$HOME/.local/share}/molr/<实例>/` | `/var/lib/molr/<实例>/` |
-| Cache and Service Temporary Files | `${XDG_CACHE_HOME:-$HOME/.cache}/molr/<实例>/` | `/var/cache/molr/<实例>/` |
-| Service Files | `${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/<服务名>.service` | `/etc/systemd/system/<服务名>.service` |
-| Management Method | `systemctl --user … <服务名>.service` | `sudo systemctl … <服务名>.service` |
+| Programs, installation record and licenses | `~/.local/lib/molr/<instance>/` | `/opt/molr/<instance>/` |
+| Configuration | `${XDG_CONFIG_HOME:-$HOME/.config}/molr/<instance>/` | `/etc/molr/<instance>/` |
+| Default persistent data | `${XDG_DATA_HOME:-$HOME/.local/share}/molr/<instance>/` | `/var/lib/molr/<instance>/` |
+| Cache and temporary files | `${XDG_CACHE_HOME:-$HOME/.cache}/molr/<instance>/` | `/var/cache/molr/<instance>/` |
+| Service file | `${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/<service>.service` | `/etc/systemd/system/<service>.service` |
+| Management command | `systemctl --user` | `sudo systemctl` |
 
-The default service name is `molr`, and the instance directory name is `default`; `--name molr-demo` uses instance directory `demo` and service `molr-demo.service`. `molr-default` is a reserved name; please use `molr`. The user program directory defaults to being based on the home directory of the installation account and does not change with `XDG_DATA_HOME`. `--program-root /path/programs` can be used to change the program root directory, with the program installed in its `<实例>/` subdirectory; the same parameters are used during updates. The program entry point is `bin/molr-server` in the program directory; the configuration file is `server.json` in the configuration directory, with user installation permissions of `0600`, and system installation permissions of `0640` managed by root and readable by the target group.
+Service `molr` uses instance `default`; `molr-demo` uses `demo`. `molr-default` is reserved. `--program-root /path/programs` changes the program base; files go into its instance child. Both commands live under `bin/`; configuration is `server.json`, with mode `0600` for user installs or root-owned, service-group-readable `0640` for system installs.
 
-Databases, keys, attachments, assistant projects, skills, memories, and tools installed in the workspace are all considered persistent data. The service uses `tmp/` in the independent cache directory as `TMPDIR`, and `XDG_CACHE_HOME` points to the cache directory of this instance; rebuilding the cache does not affect persistent data. Program, configuration, data, and cache directories cannot overlap.
+Program, configuration, data and cache directories must not overlap. Custom `data_dir` and external workspaces retain their configured paths and must be accessible to the service account. Databases, keys, attachments and assistant workspaces are persistent data; caches can be rebuilt. Licenses are installed with the programs and available in WebUI at `/LICENSE` and `/THIRD_PARTY_NOTICES.md`.
 
-The `data_dir` specified in the configuration template remains unchanged; existing data must be owned and accessible by the target account, otherwise an error is reported. When copying configuration for the first time, `sandbox.host_tools: true` is set by default; explicit `false` or custom rootfs are retained. Paths for certificates, external workspaces, etc., in the configuration must also allow access by the target account; the installer does not modify the permissions of these files.
+An administrator can run `loginctl enable-linger USER` to keep a user service running after logout. System services need no linger. The existing minimal Docker image does not include the complete automatic command environment.
 
-Upgrades re-execute the same command, omitting `--init-owner`: configuration, data, credentials, and users at the installation location are retained, the program is atomically replaced while retaining `molr-server.previous`, and configuration is backed up as `server.previous.json`. Instances with the same name cannot silently switch accounts; data must be explicitly migrated, or a new instance name must be used. Stop the original instance and back up before migration; do not directly change ownership or copy the running database.
+## Updates and repeated execution
 
-`--name molr-<名称>` can be used to install independent instances; configuration, ports, and data directories must also be independent. `--no-start` only prepares files, does not enable or start services, and outputs commands to initialize and start with the correct identity. Uninitialized data must use `--init-owner` or `--no-start`; a service that cannot listen will not be reported as successfully installed.
+Running the installed maintenance program shows status and opens a maintenance menu; without a terminal it only shows status. It locates the instance using its executable location, independently of the working directory.
 
-The installer checks for systemd ≥254, Python 3, Bubblewrap, static BusyBox, CA certificates, file, util-linux; system installation additionally requires useradd/runuser. Missing dependencies result in explicit errors; sudo or package managers are not called during regular user installation. Both units contain `Type=exec`, `Delegate=yes`, `DelegateSubgroup=supervisor`, `KillMode=control-group`, `NoNewPrivileges=yes`. User services require an existing user manager; if startup is required when not logged in, the administrator can separately configure `loginctl enable-linger USER`; system services do not require linger.
+```bash
+~/.local/lib/molr/default/bin/molr-setup
+~/.local/lib/molr/default/bin/molr-setup status
+~/.local/lib/molr/default/bin/molr-setup update
+~/.local/lib/molr/default/bin/molr-setup update --version 0.2.0-rc.1
+~/.local/lib/molr/default/bin/molr-setup update --channel preview
+```
 
-After installation, the authenticated sandbox check in the next section must still be completed. The installer's `is-active` only confirms service status and does not replace real isolation capability acceptance.
+Updates use the source and channel saved in the installation record, show the selected package, then download and verify it. `--source`/`--channel` select the subscription for this update and subsequent successful updates. System instances use `sudo /opt/molr/default/bin/molr-setup update`. The Go updater also accepts explicitly specified private or loopback numeric HTTP mirrors.
 
-Existing Docker images are streamlined Runtime images and do not yet include a complete automatic command environment; it cannot be assumed that Shell can be executed simply by starting HTTP in the container.
+Rerunning the website command or installing another extracted package also upgrades an existing instance, preserving configuration, data, credentials and accounts. Atomic program replacement retains `molr.previous`, `molr-setup.previous` and `server.previous.json`. The same version is not reapplied by default; use `--repair`. An intentional downgrade needs `--allow-downgrade` and a prior data backup.
 
-## Post-Startup Checks
+Incomplete installation or damaged records produce explicit errors. Do not delete records to bypass detection; use a complete package to repair the original instance. `--record /path/installation.json` selects a specific installation.
 
-1. Log in via the actual WebUI address to verify pages, messages, and backend connections.
-2. Request `/api/status` and `/api/sandbox` through the same-origin proxy in a logged-in browser; do not only check ports or process logs.
-3. Unless the sandbox is explicitly disabled, require `Enabled=true`, `Capabilities.Reason=available`, as well as `Shell`, `ProcessIsolation`, `FileIsolation`, `NetworkIsolation`, `ResourceLimits` to all be `true`.
-4. Use test assistants and non-sensitive materials to verify permissions, model calls, and actual results; unauthorized capabilities cannot be used.
+## Post-startup checks
 
-Re-verify after every startup, rebuild, or restart. For failure reasons and handling entries, see [Sandbox Check](sandbox.md#checks-and-verification); do not mask anomalies by disabling the sandbox or falling back to host execution.
+After installation, update or restart, verify the actual page and authenticated sandbox capabilities:
+
+```bash
+~/.local/lib/molr/default/bin/molr doctor -config /path/server.json
+~/.local/lib/molr/default/bin/molr access -config /path/server.json
+```
+
+The default credential is the data directory's initial password. After changing it, add `-password-stdin`; with MFA, add `-mfa-code`. These commands use normal authentication APIs. `access` creates a one-time login link valid for 15 minutes.
+
+Unless the sandbox was disabled, `/api/sandbox` must report `Enabled=true`, `Capabilities.Reason=available` and all of `Shell`, `ProcessIsolation`, `FileIsolation`, `NetworkIsolation`, `ResourceLimits` as `true`. A listening port or active service does not replace this check. See [sandbox checks](sandbox.md#checks-and-verification).
 
 ## Uninstallation
 
-The installation package saves the offline uninstall entry as `uninstall.sh` in the program directory, requiring no source code or network. For example, for the default user instance:
+Use the installed maintenance program for offline uninstallation:
 
 ```bash
-bash ~/.local/lib/molr/default/uninstall.sh --dry-run
-bash ~/.local/lib/molr/default/uninstall.sh
+~/.local/lib/molr/default/bin/molr-setup uninstall --dry-run
+~/.local/lib/molr/default/bin/molr-setup uninstall
+~/.local/lib/molr/default/bin/molr-setup uninstall --purge --yes
+sudo /opt/molr/demo/bin/molr-setup uninstall --purge
 ```
 
-By default, uninstallation stops the corresponding service and tasks, removes service registration, programs, and instance cache, while retaining configuration, installation records, and persistent data. Re-running the installation command for the same instance can reuse this data; the uninstallation output lists the retained paths.
+The default stops the instance and removes programs, service files and cache while retaining configuration, persistent data and the installation record. Reinstalling the same instance reuses them. `--purge` removes managed configuration and default data; interactive mode requires typing the instance name, and unattended mode requires `--yes`.
 
-To completely clear the managed configuration and data for this instance:
+Custom data, external workspaces, unknown files, system accounts, dependencies and linger settings are retained. Ambiguous service ownership, stop failures or mount points inside removal directories stop deletion. Default uninstallation removes the maintenance binary; to purge retained data later, use a complete package and the retained record:
 
 ```bash
-bash ~/.local/lib/molr/default/uninstall.sh --purge
-# 无交互执行时，显式确认数据删除
-bash ~/.local/lib/molr/default/uninstall.sh --purge --yes
-# 系统安装的实例
-sudo bash /opt/molr/demo/uninstall.sh --purge
+./bin/molr-setup uninstall --record /path/installation.json --purge --yes
 ```
-
-`--purge` first displays the deletion plan, then requires entering the service name for confirmation; `--dry-run --purge` only previews. Custom `data_dir`, external `sandbox.work_root`, authorized external directories, system accounts, system dependencies, and linger settings are not deleted. Only default data directories registered by the installer as managed are included in the cleanup; if the directory has other file systems mounted, they must be unmounted first. If service ownership cannot be confirmed, stopping fails, or path validation fails, deletion is aborted and the reason is reported.
-
-Source code checkouts provide `bash scripts/uninstall.sh --name molr-demo`; for system instances, add `--system` and execute as root. `bash scripts/uninstall-linux.sh --name molr-demo` from the extracted distribution package can also be used. These two entries can continue to clear retained data after default uninstallation; when using custom XDG directories, reuse the environment variables from installation, or specify the retained installation record via `--record /path/installation.json`. Passwords and keys are not saved in the installation record.

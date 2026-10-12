@@ -6,7 +6,7 @@ Updated: 2026-10-11. This document records current technology choices and delive
 
 | Component | Current Implementation and Entry Point |
 | --- | --- |
-| Backend | Single Go `molr-server`; version is determined by [runtime/.go-version](../../../runtime/.go-version) |
+| Backend | Single Go `molr`; version is determined by [runtime/.go-version](../../../runtime/.go-version) |
 | Client | React / TypeScript WebUI; dependencies and Node requirements are maintained in the root directory [package.json](../../../package.json) and lock files |
 | Client Interface | HTTP JSON + SSE, explicit routing; [HTTP API](../reference/http-api.md) and [TypeScript SDK](../../../packages/sdk/README.md) |
 | Module Communication | In-process Go interfaces; IM / Agent / Business and common support |

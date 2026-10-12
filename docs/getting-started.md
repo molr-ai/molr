@@ -6,10 +6,10 @@
 
 从官网安装区选择一个已有版本的渠道，再选择目标平台。可用版本以官网发布清单为准；暂无版本的渠道不会提供下载入口。当前平台定义为 Linux amd64／arm64，安装包包含 Runtime 与 WebUI，静态 BusyBox 等沙盒依赖通过目标机系统包管理器提供。
 
-准备 Python 3.11+ 后，直接运行官网安装脚本并选择渠道，无需保存脚本文件：
+直接运行官网安装脚本并选择渠道，无需保存脚本文件：
 
 ```bash
-curl -fsSL https://molr.ai/install.sh | bash -s -- --channel stable
+curl -fsSL https://molr.ai/install.sh | sh
 ```
 
 示例使用 stable；该渠道暂无版本时，在官网选择已有版本的 preview 或 nightly，并使用官网生成的固定版本命令。使用者无需安装 Go、Node.js 或单独部署网页。
@@ -25,7 +25,7 @@ curl -fsSL https://molr.ai/install.sh | bash -s -- --channel stable
 语言和时区根据浏览器设置。安装过程中自动创建 `owner` 账号，随机初始密码保存在数据目录的 `initial-password` 文件（0600）；具体路径显示在终端。后续可以修改密码并自行删除初始密码文件。需要重新生成登录链接时，使用安装目录的程序：
 
 ```bash
-/path/molr-server access -config /path/server.json
+/path/molr access -config /path/server.json
 ```
 
 未保留初始密码或已经改密时，通过 `-password-stdin` 输入当前密码；启用 MFA 后还需 `-mfa-code`。重跑安装会保留原配置、账号和数据，不重置密码或重复创建助理。

@@ -10,10 +10,10 @@ export function readCatalog(directory) {
     if (lstatSync(path).isSymbolicLink()) throw new Error('Catalog symlinks are forbidden');
     if (lstatSync(path).isDirectory()) { for (const name of readdirSync(path)) walk(resolve(path, name)); return; }
     if (!lstatSync(path).isFile()) throw new Error('Catalog must contain regular files');
-    files[relative(directory, path)] = JSON.parse(readFileSync(path, 'utf8'));
+    files[relative(directory, path)] = path.endsWith('.txt') ? readFileSync(path, 'utf8') : JSON.parse(readFileSync(path, 'utf8'));
   }
   walk(directory);
-  const releases = Object.entries(files).filter(([name]) => name.startsWith('versions/')).map(([, m]) => validateManifest(m));
+  const releases = Object.entries(files).filter(([name]) => name.startsWith('versions/') && name.endsWith('.json')).map(([, m]) => validateManifest(m));
   assert.deepEqual(files, catalogFiles(releases), 'Catalog files do not match published versions and channel selection');
   return files;
 }

@@ -55,9 +55,11 @@ Release attachments include packages for two architectures and SHA-256, source p
 
 The official website is built by Cloudflare from `main`. Each build re-collects the complete release directory and deploys static resources, including `/install.sh`, `/releases/catalog.json`, manifests for each channel, and `latest-<平台>.json` used by Runtime, and historical `/releases/versions/<版本>.json`. These mutable entry points use `Cache-Control: no-cache`. Installation packages are still downloaded from GitHub and not uploaded to the Worker. Deployment failures retain the previous entire site and channel directories; check Cloudflare build logs, fix build configuration, hooks, or network issues, and then rerun the website workflow separately.
 
+The hero shows the stable command in a terminal window with a title bar and inline copy button. Platform tabs above it show only the supported Linux target; the more-platforms link leads to the bottom installation section. Displayed and copied commands always use `https://molr.ai/install.sh`, in both development and deployed environments. Stable omits the default channel option; preview/nightly specify it explicitly, selecting the channel’s latest release. Commands omit source and version options; custom sources and version pinning are covered in the installation guide.
+
 ## Platform Maintenance
 
-The platform manifest includes system, architecture, architecture aliases, available channels, native runners, archive formats, installers, minimum environment requirements, and acceptance types. The current implementation accepts Linux `tar.gz` + Bash/Python installers. Adding a new operating system requires first implementing the installer and acceptance process; you cannot simply add a line of configuration to announce support.
+The platform manifest includes system, architecture, architecture aliases, available channels, native runners, archive formats, installers, minimum environment requirements, and acceptance types. The current implementation accepts Linux `tar.gz` + POSIX sh / Go installers. Adding a new operating system requires first implementing the installer and acceptance process; you cannot simply add a line of configuration to announce support.
 
 After adjusting the manifest, run:
 
@@ -78,9 +80,9 @@ npm run check:platforms
 npm run test:release-flow
 npm run test:release
 python3 scripts/test-install-download.py
-python3 runtime/scripts/test-install-linux.py
-python3 runtime/scripts/test-install-preflight.py
-python3 runtime/scripts/test-uninstall-linux.py
+cd runtime
+CGO_ENABLED=0 go test ./internal/installation ./internal/updates
+cd ..
 npm run check:release
 npm run check:licenses
 npm run build:release
@@ -92,3 +94,29 @@ Native installation tests require the current user's systemd manager, cgroup v2 
 To prepare a local directory, place verified release manifests in a dedicated directory and then execute `npm run release:promote -- --manifests <目录>`. The command only generates `.cache/release-catalog/` and does not upload files. Use `MOLR_CATALOG_DIR=.cache/release-catalog VITE_SITE_MODE=live npm run dev:website` to accept the official website; when the catalog is not configured, it shows no versions for each channel and does not fake download entry points. Browser regression uses manual manifest interception of the network; real package acceptance is executed separately. Detailed acceptance dates, environments, and results are saved in local internal records.
 
 The installer checks destination paths first and lets the user fix or ignore group/other-writable directories; ownership, symlink, and managed-file checks remain separate. After dependencies are prepared, it probes Bubblewrap as the service account with `NoNewPrivileges`, prepares the distribution AppArmor policy when authorized, and probes again before writing the instance or restarting its service. Policy branches use artificial files and mocked system commands in tests; native installation acceptance verifies actual sandbox capabilities.
+
+## Installer maintenance and acceptance
+
+Archives contain two static Go programs: `runtime/cmd/molr` runs Runtime, and `runtime/cmd/molr-setup` manages installation, updates and removal. `runtime/internal/installation` owns the common flow. `host_linux.go` centralizes dependencies, systemd, AppArmor and host capability checks; `files_linux.go` handles paths, permissions, atomic writes and locking. Common orchestration does not identify support by Ubuntu names or versions. Automatic package preparation currently implements APT; native acceptance currently covers Ubuntu 24.04 AMD64/ARM64.
+
+Package `release.json` describes the build. Program-directory `installation.json` is the authoritative instance record for state, paths, account, service, build and update subscription. Default behavior uses executable location, independently of the working directory. Invalid records stop execution rather than falling back to package mode. `.setup.lock` uses a kernel advisory lock: presence does not indicate an active operation, and its inode is retained when releasing the lock.
+
+Planning reads and checks the environment; interactive and unattended modes share planning and execution. Confirmation and permission choices precede writes; `--dry-run` performs no mutations. Input uses `/dev/tty`, allowing interaction after piped startup. Unattended mode uses `sudo -n`; APT disables interaction and retains existing configuration. Temporary files and atomic renames replace programs, retaining previous binaries and configuration. Interruption can leave `installing` state, recoverable using a complete package. Failed verification is not reported as healthy installation.
+
+`install.sh` is a POSIX downloader using existing curl or wget. Catalog generation adds `download-<platform>.txt`: seven fixed lines containing protocol identifier, version, commit, platform ID, filename, URL and SHA-256. Channel and historical descriptors derive from the same manifest, avoiding shell JSON parsing or evaluation of remote text. The downloader extracts five allowlisted files to fixed paths. The Go updater reads JSON manifests and uses standard-library HTTP, SHA-256 and tar/gzip to verify packages, then invokes the new package's `molr-setup`. Runtime and WebUI use the installation record's subscription; WebUI generates commands for the installed maintenance program.
+
+To extend distributions, add package-manager or service support in the host adapter and add OS/version/architecture combinations to the independent acceptance matrix. Unknown distributions with manually satisfied capabilities are not rejected. Matrix entries need environments that run actual services, cgroups and sandbox probes; container file tests do not replace native acceptance.
+
+`.github/workflows/installer-acceptance.yml` uses the built archive on fresh runners, removes Bubblewrap, static BusyBox and AppArmor profiles, and lets setup restore dependencies. This and prepared-host acceptance both gate publication. The current matrix covers Ubuntu 24.04 AMD64/ARM64; other distributions are not claimed as verified.
+
+Regression tests cover permission decisions, mutation-free previews, repeated execution, record validation, concurrency locks, path/archive attacks, failed downloads, data retention and purge. Native package tests cover PTY installation, unattended repair, configuration retention, authenticated sandbox capabilities and removal. Python is only a development PTY driver and publication-check tool; it is neither packaged nor required by installation on the target machine.
+
+```bash
+cd runtime
+CGO_ENABLED=0 go test ./internal/installation ./internal/updates
+cd ..
+python3 scripts/test-install-download.py
+MOLR_TEST_ARCHIVE=dist/releases/molr_0.1.0-local_linux_amd64.tar.gz npm run test:release-install
+```
+
+Reproduce dependency preparation on a disposable Ubuntu host with `MOLR_TEST_PREPARE=1`; do not remove dependencies from a development machine. Add regression cases for installation failures and ship fixes in new packages. Dates, environments, logs and acceptance credentials remain in local internal records.

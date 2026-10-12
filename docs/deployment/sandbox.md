@@ -4,17 +4,17 @@
 
 ## 安装和启动
 
-[Linux 安装脚本](../../runtime/scripts/install-linux.sh) 默认安装为当前用户服务，也可由 root 使用 `--user USER` 安装为指定账户的系统服务。不存在的账户自动创建，整个 Runtime 和沙盒始终使用同一身份；依赖缺失时明确报错，不自动 sudo。参数、初始化和更新流程见 [部署指南](installation.md#安装时选择运行账户)。
+`molr-setup` 默认安装当前用户服务；root 可通过 `--user USER` 安装指定账户的系统服务。整个 Runtime 和沙盒使用同一普通账户，系统依赖可由 `--install-deps` 授权准备。参数与更新流程见[安装指南](installation.md#安装时选择运行账户)。
 
 当前自动安装路径面向具备 systemd 254+ 的 Linux；普通命令启动需要可访问的 systemd 用户管理器，安装服务则自带执行资源委派。在不支持这些条件的系统或受限容器中，聊天等功能仍运行，命令执行显示当前系统不可用，不降级为无隔离执行。现有 distroless Docker 镜像尚不包含这套自动命令环境，不应宣称容器部署默认支持 Shell。
 
 构建使用 [runtime/.go-version](../../runtime/.go-version) 指定版本的 Go；在 `runtime/` 目录生成静态二进制，以便同一个 server 可在精简环境内运行内部 helper：
 
 ```bash
-CGO_ENABLED=0 GOTOOLCHAIN="go$(cat .go-version)" go build -o /path/molr-server ./cmd/molr-server
-chmod 0755 /path/molr-server
-file /path/molr-server
-go version -m /path/molr-server
+CGO_ENABLED=0 GOTOOLCHAIN="go$(cat .go-version)" go build -o /path/molr ./cmd/molr
+chmod 0755 /path/molr
+file /path/molr
+go version -m /path/molr
 ```
 
 检查最终二进制为静态链接、构建信息为 `CGO_ENABLED=0`、权限为 `0755`。通过具有委派的 systemd 用户或系统服务启动，设置 `Type=exec`、`Delegate=yes`、`DelegateSubgroup=supervisor`、`KillMode=control-group`，完整启动和验证步骤见 [安装与服务管理](installation.md)。安装脚本默认使用 `molr.service`，多实例验收使用 `--name molr-<名称>` 并分配独立端口、配置和数据目录。
@@ -63,7 +63,7 @@ GPU 执行仍保留文件、进程和网络隔离。CUDA 所需的抽象 Unix SE
 
 同一节点可以同时处理普通隔离调用和 Full Access 调用。Full Access（完全访问）是沙盒下与存储、计算、网络并列的权限类型，默认不开放；它不是节点运行模式，也不会在隔离失败时自动启用。
 
-部署者在 `molr-server` 或 `molr-sandbox` 配置中开启：
+部署者在 `molr` 或 `molr-sandbox` 配置中开启：
 
 ```json
 { "sandbox": { "enabled": true, "allow_full_access": true } }

@@ -38,7 +38,7 @@ test('website state builds and browser behavior', { timeout: 240_000 }, async t 
           assert(!html.includes('__SITE_'));
           const installer = await fetch(`${url}/install.sh`);
           assert.equal(installer.status, 200);
-          assert((await installer.text()).startsWith('#!/usr/bin/env bash'));
+          assert((await installer.text()).startsWith('#!/bin/sh'));
           assert((await readFile(join(outDir, 'install.sh'), 'utf8')).includes('Checksum mismatch'));
           const context = await browser.newContext({ javaScriptEnabled: false });
           try {
@@ -124,8 +124,8 @@ test('website state builds and browser behavior', { timeout: 240_000 }, async t 
                 await expect(link).toHaveAttribute('href', 'https://github.com/molr-ai/molr');
                 await expect(link).not.toHaveAttribute('aria-disabled', 'true');
               }
-              await expect(page.locator('.home-hero-ctas').getByRole('link', { name: '查看文档', exact: true })).toHaveAttribute('href', '/zh/docs/');
-              await page.locator('.home-hero-ctas').getByRole('link', { name: '安装 Molr', exact: true }).click();
+              await expect(page.locator('.home-hero-ctas').getByRole('link')).toHaveCount(1);
+              await page.locator('.home-hero-ctas').getByRole('link', { name: '更多平台和版本', exact: true }).click();
               await expect(page).toHaveURL(/#install$/);
               await expect(page.getByRole('heading', { name: '给好奇心，一个工作空间。' })).toBeInViewport();
               const installer = page.locator('#install');

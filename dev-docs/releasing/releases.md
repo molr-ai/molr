@@ -55,9 +55,11 @@ CI 与发布使用同一个 `prepare-sandbox` action 准备 runner。Ubuntu 启�
 
 官网由 Cloudflare 从 main 构建，每次构建重新收集完整发行目录并部署静态资源，包括 `/install.sh`、`/releases/catalog.json`、各渠道 manifest 和 Runtime 使用的 `latest-<平台>.json`、历史 `/releases/versions/<版本>.json`。这些可变入口使用 `Cache-Control: no-cache`。安装包仍从 GitHub 下载，不上传到 Worker。部署失败保留此前整个站点和渠道目录；检查 Cloudflare 构建日志，修复构建配置、hook 或网络后单独重跑 website workflow。
 
+官网首屏使用带标题栏的终端窗口展示 stable 安装命令，复制按钮位于框内，上方平台 tab 只显示已支持的 Linux；更多平台和版本入口跳转到底部安装区。无论开发或部署环境，展示与复制的命令固定使用 `https://molr.ai/install.sh`；stable 省略默认渠道参数，preview／nightly 显式指定渠道，均获取所选渠道最新版。命令不携带发布源或版本参数；自定义发布源及指定版本的用法在安装文档中提供。
+
 ## 平台维护
 
-平台清单包含系统、架构、架构别名、可用渠道、原生 runner、归档格式、安装器、最低环境要求和验收类型。当前实现接受 Linux `tar.gz` + Bash/Python 安装器。新增操作系统必须先实现安装器和验收流程，不能只新增一行配置宣布支持。
+平台清单包含系统、架构、架构别名、可用渠道、原生 runner、归档格式、安装器、最低环境要求和验收类型。当前实现接受 Linux `tar.gz` + POSIX sh / Go 安装器。新增操作系统必须先实现安装器和验收流程，不能只新增一行配置宣布支持。
 
 调整清单后运行：
 
@@ -78,9 +80,9 @@ npm run check:platforms
 npm run test:release-flow
 npm run test:release
 python3 scripts/test-install-download.py
-python3 runtime/scripts/test-install-linux.py
-python3 runtime/scripts/test-install-preflight.py
-python3 runtime/scripts/test-uninstall-linux.py
+cd runtime
+CGO_ENABLED=0 go test ./internal/installation ./internal/updates
+cd ..
 npm run check:release
 npm run check:licenses
 npm run build:release
@@ -92,3 +94,29 @@ MOLR_TEST_ARCHIVE=dist/releases/molr_0.1.0-local_linux_amd64.tar.gz npm run test
 准备本地目录可将已验证的 release manifests 放在专用目录后执行 `npm run release:promote -- --manifests <目录>`。命令只生成 `.cache/release-catalog/`，不上传文件。使用 `MOLR_CATALOG_DIR=.cache/release-catalog VITE_SITE_MODE=live npm run dev:website` 验收官网；未配置 catalog 时显示各渠道暂无版本，不伪造下载入口。浏览器回归使用人工 manifest 拦截网络，真实包验收单独执行。详细验收日期、环境和结果保存在本地内部记录中。
 
 安装器先检查目标路径，组／其他用户可写的目录由用户选择修复或忽略；符号链接、所有者和受管理文件检查保持独立。安装依赖后以服务账户及 `NoNewPrivileges` 探测 Bubblewrap，按授权准备发行版 AppArmor 策略并复测，随后才写入实例和重启服务。策略分支使用人工文件与模拟系统命令测试；原生安装验收验证实际沙盒能力。
+
+## 安装器维护与验收
+
+发行归档包含两个静态 Go 程序：`runtime/cmd/molr` 启动 Runtime，`runtime/cmd/molr-setup` 管理安装、更新与卸载。安装流程位于 `runtime/internal/installation`；`host_linux.go` 集中依赖、systemd、AppArmor 与主机能力检测，`files_linux.go` 负责路径、权限、原子写入和锁。公共流程不根据 Ubuntu 名称或版本判断支持；当前自动包管理适配仅实现 APT，当前原生验收为 Ubuntu 24.04 AMD64／ARM64。
+
+安装包用 `release.json` 描述构建；程序目录的 `installation.json` 是实例状态、目录、账户、服务、构建与更新订阅的唯一记录。默认行为按可执行文件所在目录判断，不使用工作目录。安装记录损坏时停止，不退回包模式。`.setup.lock` 使用内核 advisory lock，文件存在不表示操作运行；保留 inode，不在释放时删除锁文件。
+
+计划阶段读取并检查环境；交互和静默模式共用计划与执行代码。确认和目录策略在写入前完成，`--dry-run` 不执行变更。终端输入来自 `/dev/tty`，因此管道启动仍可交互。静默模式使用 `sudo -n`，APT 禁用交互并保留原配置。程序以临时文件和原子重命名更新，保留上版二进制与配置；中断可能留下 `installing` 状态，需要完整包重新执行。验证失败不会被报告为健康安装。
+
+`install.sh` 是 POSIX 下载器，使用已有 curl 或 wget。渠道目录额外生成 `download-<平台>.txt`，固定七行依次为协议标识、版本、commit、平台 ID、文件名、URL、SHA-256；同一 manifest 生成渠道与历史版本描述，避免 shell 解析 JSON 或执行远端文本。下载器逐个向固定路径提取五个白名单文件。Go 更新器读取 JSON manifest，通过标准库 HTTP、SHA-256 和 tar/gzip 验证下载，随后执行新包的 `molr-setup`。更新订阅由安装记录供 Runtime 和 WebUI 使用；WebUI 生成已安装维护程序的更新命令。
+
+扩展发行版时，在主机适配模块增加包管理或服务实现，并向独立验收矩阵增加系统／版本／架构组合。已经手动满足能力要求的未知发行版不会被拒绝。增加矩阵项前须有能运行真实服务、cgroup 与沙盒探针的环境；容器内文件测试不能代替这部分验收。
+
+`.github/workflows/installer-acceptance.yml` 复用实际构建归档，在独立 runner 移除 Bubblewrap、静态 BusyBox 和 AppArmor profiles，由安装器恢复依赖。它与已准备依赖的原生验收共同阻挡发布。当前矩阵包含 Ubuntu 24.04 AMD64／ARM64；其他发行版尚未声明通过。
+
+回归覆盖权限选择、无变更预览、重复运行、安装记录校验、并发锁、路径与归档攻击、下载失败、数据保留及清除。原生包测试覆盖 PTY 交互安装、静默修复、配置保留、认证沙盒检查和卸载。Python 仅作为开发测试中的 PTY 驱动及发布检查工具，不进入安装包或目标机安装依赖。
+
+```bash
+cd runtime
+CGO_ENABLED=0 go test ./internal/installation ./internal/updates
+cd ..
+python3 scripts/test-install-download.py
+MOLR_TEST_ARCHIVE=dist/releases/molr_0.1.0-local_linux_amd64.tar.gz npm run test:release-install
+```
+
+完整依赖准备在一次性 Ubuntu 主机设置 `MOLR_TEST_PREPARE=1` 复现；不要移除开发主机依赖。安装故障先增加回归用例，修复随新包发布。日期、环境、日志和验收凭据保存在本地内部资料中。

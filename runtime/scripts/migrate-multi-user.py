@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Offline, one-time conversion of the pre-multi-user account layout.
 
-This script is not imported or shipped inside molr-server. Stop the instance
+This script is not imported or shipped inside molr. Stop the instance
 before running it; a successful conversion requires no migration code at startup.
 """
 import argparse

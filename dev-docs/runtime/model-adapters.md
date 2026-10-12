@@ -17,7 +17,7 @@ Runtime 仍是单体 Go 服务。`internal/agent/model` 使用固定的内置协
 
 应用层根据用户选中的 Provider 预设解析协议，不根据模型名称或服务地址猜测。当前资源中该预设字段仍名为 `PricingProvider`；选择 DeepSeek 预设会启用 DeepSeek 协议，其余现有预设使用通用协议。设置手动价格不改变协议选择。自定义预设不是任意后端协议的自动检测器。
 
-所有模型推理请求（包括做梦、上下文压缩和重试）、模型列表查询、连接测试及本地模型发现统一携带 `User-Agent: molr/<版本号>`。版本来自 `internal/buildinfo.Version`，与 `molr-server version` 一致；发行构建通过 `-ldflags -X` 注入，未注入版本的开发构建使用 `molr/development`。
+所有模型推理请求（包括做梦、上下文压缩和重试）、模型列表查询、连接测试及本地模型发现统一携带 `User-Agent: molr/<版本号>`。版本来自 `internal/buildinfo.Version`，与 `molr version` 一致；发行构建通过 `-ldflags -X` 注入，未注入版本的开发构建使用 `molr/development`。
 
 ## 模型定位与配置一致性
 

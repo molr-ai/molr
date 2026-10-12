@@ -53,7 +53,7 @@ npm run check:licenses
 
 - 三个 Vite 应用共用 `scripts/license-assets.ts`，构建与开发服务都提供 `/LICENSE`、`/THIRD_PARTY_NOTICES.md`，HTML 带许可证链接元数据。WebUI 文件随页面内嵌到 Runtime。
 - `scripts/build-release.mjs` 在归档根目录复制这两个文件，不再打包 BusyBox，也不再要求 `MOLR_BUSYBOX` 或 `MOLR_BUSYBOX_LICENSE`。
-- 安装包包含安装／卸载脚本及共享目录模块，均为项目自有代码，仅使用 Python 标准库和系统命令；卸载器随安装离线保存。程序、配置、数据和缓存按实例分离，不新增第三方分发组件。
+- `molr` 与 `molr-setup` 均为静态 Go 程序；安装维护代码使用 Go 标准库及已有的 `golang.org/x/sys`、`github.com/vishvananda/netlink`，未引入新模块。目标系统依赖不随包复制。
 - 安装器从完整发行包或源码树读取这两个固定文件，用原子写入保存到安装前缀根目录，权限为 `0644`；缺少完整材料会报错，不静默忽略。它不复制任意目录，也不改变原文件正文。
 - 安装器检查系统 BusyBox 必须为静态、可执行且不允许组/其他用户写入的普通文件。只有动态版本时也会提示安装 `busybox-static`。提供 `--install-deps` 时可通过 apt 安装；不支持 apt 或离线时，用户提前安装系统依赖。
 - BusyBox 不被复制到 Molr 的安装目录；Runtime 继续从系统标准位置准备隔离环境。没有所需依赖时，不自动关闭沙盒或开放 Full Access。
@@ -72,5 +72,3 @@ npm run check:licenses
 2026-10-11 核对版本检查及发布清单调整：未新增第三方依赖，发行包和安装器继续交付原有 `LICENSE` 与 `THIRD_PARTY_NOTICES.md`，静态 BusyBox 仍由目标系统提供。发布推荐清单仅使用 Node.js 标准库处理版本元信息，构建和安装脚本的通知复制范围不变。对应输入摘要已更新。
 
 2026-10-12 核对文档目录重组：清单与本说明移入 `dev-docs/releasing/`，通知文件只更新清单引用路径；依赖版本、原始许可证及 NOTICE 正文未变。同步更新路径检查和通知文件摘要。
-
-安装前检查及目录权限交互仅使用 Python 标准库与宿主命令；AppArmor 策略由目标机发行版的系统包提供，不复制到 Molr 源码或发行包。安装／卸载继续交付原有许可与通知文件，未增加第三方分发组件。

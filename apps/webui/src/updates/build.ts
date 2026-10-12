@@ -9,6 +9,5 @@ export function compareBuilds(frontend: { version: string; commit: string }, run
 }
 const quote = (value: string) => "'" + value.replaceAll("'", "'\\''") + "'";
 export function upgradeCommand(info: UpdateInstallation, version: string) {
- const environment = info.system ? [] : ['env', ...[['XDG_CONFIG_HOME', info.config_home], ['XDG_DATA_HOME', info.data_home], ['XDG_CACHE_HOME', info.cache_home]].map(([key,value]) => `${key}=${quote(value)}`)];
- return [...(info.system ? ['sudo'] : environment), 'bash', 'install.sh', '--source', quote(info.source), '--version', quote(version), '--name', quote(info.name), '--program-root', quote(info.program_root), ...(info.system ? ['--user',quote(info.user)] : [])].join(' ');
+ return [...(info.system ? ['sudo'] : []), quote(info.setup_path), 'update', '--version', quote(version)].join(' ');
 }

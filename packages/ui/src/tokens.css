@@ -56,6 +56,18 @@
   --color-code-number: #8b511c;
   --color-code-literal: #79538b;
 
+  /* Terminal windows use a neutral dark surface in both display modes. */
+  --color-terminal-background: #1b1d23;
+  --color-terminal-titlebar: #272a31;
+  --color-terminal-border: #3b404a;
+  --color-terminal-text: #eceef3;
+  --color-terminal-muted: #a6acb8;
+  --color-terminal-prompt: #9dbff2;
+  --color-terminal-success: #8bd6a5;
+  --color-window-close: #f46a68;
+  --color-window-minimize: #e9bc56;
+  --color-window-maximize: #65bd75;
+
   /* Fixed contrast pair for labels on arbitrary palette swatches. */
   --color-contrast-dark: #17201c;
 
@@ -64,6 +76,7 @@
   --color-shadow: #263b31;
   --shadow-control: 0 1px 3px color-mix(in srgb, var(--color-shadow) 8%, transparent);
   --shadow-product-preview: 0 22px 80px -30px color-mix(in srgb, var(--color-shadow) 22%, transparent);
+  --shadow-terminal-window: 0 20px 50px -18px color-mix(in srgb, var(--color-shadow) 42%, transparent), 0 3px 10px color-mix(in srgb, var(--color-shadow) 12%, transparent);
   --shadow-device-preview: 0 14px 34px -18px color-mix(in srgb, var(--color-shadow) 25%, transparent);
 
   /* Categorical colors keep their meaning across brand palettes. */

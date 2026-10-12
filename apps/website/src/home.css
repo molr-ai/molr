@@ -35,9 +35,27 @@
 .home-page h3:lang(zh), .home-page strong:lang(zh) { font-weight: 600; }
 .home-page .home-subtitle:lang(zh) { letter-spacing: 0; }
 .home-subtitle { font-size: clamp(21px, 2.5vw, 29px); line-height: 1.5; letter-spacing: -.02em; }
-/* Preserve the breathing room previously occupied by the hero description. */
-.home-hero-ctas { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 108px; }
+.home-hero-install { max-width: 720px; margin: 56px auto 0; text-align: left; }
+.home-install-tabs > .ui-tabs__list { width: fit-content; margin-inline: auto; }
+.home-terminal-window { overflow: hidden; border: 1px solid var(--color-terminal-border); border-radius: 12px; background: var(--color-terminal-background); color: var(--color-terminal-text); box-shadow: var(--shadow-terminal-window); }
+.home-terminal-titlebar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 42px; padding: 0 18px; border-bottom: 1px solid var(--color-terminal-border); background: var(--color-terminal-titlebar); color: var(--color-terminal-muted); font-size: 12px; }
+.home-terminal-controls { display: flex; gap: 7px; }
+.home-terminal-controls i { width: 10px; height: 10px; border-radius: 50%; background: var(--color-window-close); }
+.home-terminal-controls i:nth-child(2) { background: var(--color-window-minimize); }
+.home-terminal-controls i:nth-child(3) { background: var(--color-window-maximize); }
+.home-terminal-shell { justify-self: end; font: 11px var(--font-mono); }
+.home-terminal-command { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 16px; min-height: 90px; padding: 20px 24px; }
+.home-terminal-command pre { align-self: start; min-width: 0; margin: 0; padding-block: 8px; white-space: pre-wrap; overflow-wrap: anywhere; font: 14px/1.85 var(--font-mono); }
+.home-terminal-command code { font: inherit; }
+.home-terminal-prompt { align-self: start; padding-top: 8px; color: var(--color-terminal-prompt); font: 14px/1.85 var(--font-mono); }
+.home-terminal-command button { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid color-mix(in srgb, var(--color-terminal-text) 24%, transparent); border-radius: 8px; background: transparent; color: var(--color-terminal-text); transition: background-color var(--duration-fast) var(--ease-out); }
+.home-terminal-command button:hover { background: color-mix(in srgb, var(--color-terminal-text) 16%, transparent); }
+.home-terminal-copy-success { color: var(--color-terminal-success); }
+.home-terminal-command button:focus-visible { outline-color: var(--color-terminal-prompt); }
+.home-hero-ctas { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 16px; margin-top: 12px; }
 .home-page .home-button { display: inline-flex; min-height: 48px; padding: 12px 20px; border: 1px solid transparent; border-radius: 8px; align-items: center; justify-content: center; gap: 10px; font-size: 14px; font-weight: 550; transition: background 160ms, transform 160ms; }
+.home-hero-ctas .home-button { min-height: 44px; padding: 8px 12px; gap: 7px; color: var(--color-text-muted); font-size: 12px; font-weight: 400; }
+.home-hero-ctas .home-icon { width: 15px; height: 15px; }
 .home-page .home-button-primary { background: var(--color-primary); color: var(--color-on-primary); }
 .home-page a.home-button-primary[href]:hover { background: var(--color-primary-hover); transform: translateY(-2px); }
 .home-page .home-button-secondary { border-color: var(--color-border); background: var(--color-surface); }
@@ -235,7 +253,11 @@
   .home-eyebrow { font-size: 11px; }
   .home-page h1 { font-size: 44px; margin-block: 23px 17px; }
   .home-subtitle { font-size: 20px; text-wrap: balance; }
-  .home-hero-ctas { gap: 10px; flex-wrap: wrap; margin-top: 118px; }
+  .home-hero-install { margin-top: 36px; }
+  .home-terminal-command { gap: 10px; padding: 20px 16px; }
+  .home-terminal-command pre { font-size: 12px; }
+  .home-terminal-prompt { font-size: 12px; }
+  .home-hero-ctas { gap: 4px; margin-top: 8px; }
   .home-page .home-button { padding: 12px 16px; font-size: 13px; }
   .home-hero-ctas .home-button { flex: 1 0 auto; }
   .home-scene-picker { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }

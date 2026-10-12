@@ -11,11 +11,13 @@ function release(version, channel, targets = platforms) {
   return { schema: 1, version, channel, commit: 'a'.repeat(40), published_at: '2026-10-11T00:00:00Z', notes_url: `https://github.com/example/molr/releases/tag/v${version}`, installer_url: `${base}/install.sh`, installer_sha256: 'b'.repeat(64), platforms: targets.map(p => ({ ...p, file: `molr_${version}_${p.os}_${p.arch}.tar.gz`, sha256: 'c'.repeat(64), url: `${base}/molr_${version}_${p.os}_${p.arch}.tar.gz`, checksum_url: `${base}/molr_${version}_${p.os}_${p.arch}.tar.gz.sha256` })) };
 }
 const catalog = { schema: 1, channels: { stable: release('0.1.0', 'stable', [platforms[0]]), preview: release('0.2.0-rc.1', 'preview'), nightly: release('0.2.0-0.nightly.20261011.0.gaaaaaaa', 'nightly') } };
-test('browser rejects unsafe catalog links and keeps commands pinned', () => {
+test('browser rejects unsafe catalog links and installs latest channel releases', () => {
   assert.equal(readCatalog(catalog), catalog);
   const bad = structuredClone(catalog); bad.channels.stable.installer_url = "https://example.com/a'bad";
   assert.throws(() => readCatalog(bad));
-  assert(installCommand(catalog.channels.preview, 'preview', 'https://example.com/releases').includes('--channel preview --version 0.2.0-rc.1'));
+  assert.equal(installCommand(), "curl -fsSL https://molr.ai/install.sh | sh");
+  assert.equal(installCommand('preview'), "curl -fsSL https://molr.ai/install.sh | sh -s -- --channel preview");
+  assert.equal(installCommand('nightly'), "curl -fsSL https://molr.ai/install.sh | sh -s -- --channel nightly");
 });
 test('install section follows published channels and platform availability', { timeout: 90000 }, async () => {
   const before = process.env.VITE_SITE_MODE; process.env.VITE_SITE_MODE = 'live';
@@ -31,11 +33,34 @@ test('install section follows published channels and platform availability', { t
     const section = page.locator('#install');
     await expect(section.getByText('v0.1.0', { exact: true })).toBeVisible();
     await expect(section.locator('.home-install-platform')).toHaveCount(1);
+    const installerURL = 'https://molr.ai/install.sh';
+    await expect(section.locator('pre')).toContainText(`curl -fsSL ${installerURL}`);
+    await expect(section.locator('pre')).not.toContainText('--channel');
+    await expect(section.locator('pre')).not.toContainText('--version');
+    const hero = page.locator('.home-hero-install');
+    await expect(hero.getByRole('tab')).toHaveCount(1);
+    await expect(hero.getByRole('tab', { name: 'Linux', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await expect(hero.getByRole('tabpanel', { name: 'Linux' })).toBeVisible();
+    await expect(hero.locator('pre')).toContainText(`curl -fsSL ${installerURL}`);
+    await expect(hero.locator('pre')).not.toContainText('--channel');
+    await expect(hero.locator('pre')).not.toContainText('--version');
+    await hero.getByRole('button', { name: 'Copy command', exact: true }).click();
+    assert.equal(await page.evaluate(() => navigator.clipboard.readText()), await hero.locator('code').innerText());
+    await expect(hero.getByRole('button', { name: 'Copied', exact: true })).toBeVisible();
+    await expect(hero.getByRole('button', { name: 'Copy command', exact: true })).toBeVisible({ timeout: 4000 });
+    await hero.getByRole('link', { name: 'More platforms & versions' }).click();
+    await expect(page).toHaveURL(/#install$/);
     await section.getByRole('button', { name: 'Preview', exact: true }).click();
     await expect(section.locator('.home-install-platform')).toHaveCount(2);
-    await expect(section.locator('pre')).toContainText('--channel preview --version 0.2.0-rc.1');
+    await expect(section.locator('pre')).toContainText('--channel preview');
     await section.getByRole('button', { name: 'Copy command', exact: true }).click();
-    assert((await page.evaluate(() => navigator.clipboard.readText())).includes('--version 0.2.0-rc.1'));
+    const copied = await page.evaluate(() => navigator.clipboard.readText());
+    assert(copied.includes(`curl -fsSL ${installerURL}`));
+    assert(copied.includes('--channel preview'));
+    assert(!copied.includes('--version'));
+    await expect(section.getByRole('button', { name: 'Copied', exact: true })).toBeVisible();
+    await expect(section.getByRole('button', { name: 'Copy command', exact: true })).toBeVisible({ timeout: 4000 });
+    await expect(hero.locator('pre')).not.toContainText('--channel');
     await section.getByRole('button', { name: 'Linux · ARM64', exact: false }).click();
     await section.getByRole('button', { name: 'Download package', exact: true }).click();
     await expect(section.getByRole('link', { name: 'Download package', exact: true })).toHaveAttribute('href', /linux_arm64.tar.gz$/);
@@ -45,6 +70,8 @@ test('install section follows published channels and platform availability', { t
       await page.setViewportSize({ width, height: 900 });
       await section.evaluate((el, { theme, palette }) => { el.dataset.theme = theme; el.dataset.palette = palette; }, { theme, palette });
       await section.screenshot({ path: `${screenshots}/${theme}-${palette}-${width}.png` });
+      await page.locator('html').evaluate((el, { theme, palette }) => { el.dataset.theme = theme; el.dataset.palette = palette; }, { theme, palette });
+      await hero.screenshot({ path: `${screenshots}/hero-${theme}-${palette}-${width}.png` });
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     }
     response = { schema: 1, channels: { stable: null, preview: catalog.channels.preview, nightly: null } };
@@ -52,7 +79,7 @@ test('install section follows published channels and platform availability', { t
     await expect(section.getByRole('status')).toContainText('No published release');
     await expect(section.getByRole('link', { name: 'Download package', exact: true })).toHaveCount(0);
     await section.getByRole('button', { name: 'Preview', exact: true }).click();
-    await expect(section.locator('pre')).toContainText('0.2.0-rc.1');
+    await expect(section.locator('pre')).toContainText('--channel preview');
     response = {};
     await page.reload(); await expect(section.getByRole('alert')).toContainText('temporarily unavailable');
     response = catalog;

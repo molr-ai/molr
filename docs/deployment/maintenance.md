@@ -10,21 +10,21 @@ Runtime 配置支持：
 {"updates": {"source": "https://downloads.example.com/releases/stable", "auto_check": true}}
 ```
 
-在线安装使用的发布源自动保存到配置；离线安装保留已有值。无发布源时不会联网。`auto_check: false` 关闭后台及关于页自动发布检查，仍可手动检查。开发／本地构建默认不自动检查。公网源要求 HTTPS；HTTP 源必须是明确配置的私网或回环数字地址。
+通过安装包部署时，以程序目录 `installation.json` 中保存的发布源和渠道为准；上述配置供未使用安装器的源码部署使用。无发布源时不会联网。`auto_check: false` 关闭后台及关于页自动发布检查，仍可手动检查。开发／本地构建默认不自动检查。公网源要求 HTTPS；HTTP 源必须是明确配置的私网或回环数字地址。
 
 后台启动后延迟 30～60 秒检查，随后每 24 小时加少量随机延迟检查，失败一小时后重试。进入关于页或页面恢复可见时，超过五分钟未检查则刷新发布信息。手动检查最短间隔一分钟；全实例合并并发请求。检查失败保留上次成功结果及时间，检查本身不下载或安装程序。
 
 构建生成版本包和校验文件；发布流水线在所有目标架构通过后发布 GitHub Release，再部署官网与渠道清单。安装保存的发布源包含渠道，例如 `https://molr.ai/releases/preview`。Runtime 从该渠道读取推荐版本，stable 拒绝预发布版，preview 可推荐正式版，nightly 只跟踪 nightly。检查只提示更新，不自动下载或安装。
 
-维护者的版本命名、平台管理、首次远端配置与失败重试见[发行维护](../../dev-docs/releasing/releases.md)。源码部署者可手动配置所需渠道的 `updates.source`。切换渠道需要明确修改发布源；较低版本不会作为自动降级执行。
+维护者的版本命名、平台管理、首次远端配置与失败重试见[发行维护](../../dev-docs/releasing/releases.md)。源码部署者可手动配置所需渠道的 `updates.source`。安装实例通过 `molr-setup update --channel` 切换渠道；较低版本不会作为自动降级执行。
 
 管理员在发现更新后可查看固定目标版本的升级命令。运行账户、实例名和程序路径取自安装记录；源码部署或缺少记录时按本指南操作。示例：
 
 ```bash
-bash install.sh --source https://downloads.example.com/releases/stable --version 0.2.0 --name molr
+~/.local/lib/molr/default/bin/molr-setup update --version 0.2.0
 ```
 
-升级前按本页备份流程保留数据。安装器核对下载包的版本和架构，保留已有账号、数据和配置，保存 `molr-server.previous` 与 `server.previous.json` 后替换程序并重启。服务重启会中断运行中的任务。启动后先等待 HTTP 就绪，再执行一次认证检查，核对实际 Runtime 版本及沙盒能力；认证需要当前密码／MFA或被限流时，输出“验证待完成”和 `doctor` 命令，不循环登录。失败保留备份和错误信息，不自动回滚；上一份程序及配置不包含完整数据备份。
+升级前按本页备份流程保留数据。安装器核对下载包的版本和架构，保留已有账号、数据和配置，保存 `molr.previous`、`molr-setup.previous` 与 `server.previous.json` 后替换程序并重启。服务重启会中断运行中的任务。启动后先等待 HTTP 就绪，再执行一次认证检查，核对实际 Runtime 版本及沙盒能力；认证需要当前密码／MFA或被限流时，输出“验证待完成”和 `doctor` 命令，不循环登录。失败保留备份和错误信息，不自动回滚；上一份程序及配置不包含完整数据备份。
 
 ## 备份恢复与升级
 
@@ -33,8 +33,8 @@ bash install.sh --source https://downloads.example.com/releases/stable --version
 停止对应实例后执行维护命令：
 
 ```bash
-/path/molr-server backup -config /private/server.json > /private/backup.json
-/path/molr-server restore -config /private/server.json -backup-manifest /private/backup.json
+/path/molr backup -config /private/server.json > /private/backup.json
+/path/molr restore -config /private/server.json -backup-manifest /private/backup.json
 ```
 
 `backup.json` 是备份描述，命令只生成数据库快照，不打包完整实例。完整灾备应在停服后保留配置及数据目录的完整副本；若使用数据库快照恢复，还须保留快照文件及其描述，并同时恢复以下数据：

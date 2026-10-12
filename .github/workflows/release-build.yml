@@ -53,7 +53,7 @@ jobs:
           cache-dependency-path: runtime/go.sum
       - run: npm ci
       - run: npm run check:platforms && npm run test:release && npm run test:release-flow
-      - run: python3 scripts/test-install-download.py && python3 runtime/scripts/test-install-linux.py && python3 runtime/scripts/test-install-preflight.py && python3 runtime/scripts/test-uninstall-linux.py
+      - run: python3 scripts/test-install-download.py
       - run: npm run test --workspace @molr/ui
       - if: matrix.arch == 'amd64'
         run: npx playwright install --with-deps chromium
@@ -79,9 +79,16 @@ jobs:
           path: dist/releases/*
           if-no-files-found: error
           retention-days: 14
-  publish:
+  installer-acceptance:
     needs: [prepare, build]
-    if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.build.result == 'success' }}
+    if: needs.prepare.outputs.existing != 'true'
+    uses: ./.github/workflows/installer-acceptance.yml
+    with:
+      artifact-prefix: release-
+      ref: ${{ needs.prepare.outputs.commit }}
+  publish:
+    needs: [prepare, build, installer-acceptance]
+    if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.build.result == 'success' && needs.installer-acceptance.result == 'success' }}
     runs-on: ubuntu-24.04
     environment: release
     permissions:

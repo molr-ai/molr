@@ -17,7 +17,7 @@ Currently, two protocols are integrated:
 
 The application layer resolves the protocol based on the Provider preset selected by the user, rather than guessing based on model name or service address. In the current resources, this preset field is still named `PricingProvider`; selecting the DeepSeek preset enables the DeepSeek protocol, while other existing presets use the generic protocol. Setting manual prices does not change protocol selection. Custom presets are not automatic detectors for arbitrary backend protocols.
 
-All model inference requests (including dreaming, context compression, and retries), model list queries, connection tests, and local model discovery uniformly carry `User-Agent: molr/<版本号>`. The version comes from `internal/buildinfo.Version`, consistent with `molr-server version`; release builds inject it via `-ldflags -X`, while development builds without an injected version use `molr/development`.
+All model inference requests (including dreaming, context compression, and retries), model list queries, connection tests, and local model discovery uniformly carry `User-Agent: molr/<版本号>`. The version comes from `internal/buildinfo.Version`, consistent with `molr version`; release builds inject it via `-ldflags -X`, while development builds without an injected version use `molr/development`.
 
 ## Model Location and Configuration Consistency
 

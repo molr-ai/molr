@@ -289,3 +289,5 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/core` | `CheckGPUDevices`, `ComputeConstraints.GPUDevices`, `ValidateGPUDevices` | `TestGPUDevicesAreExplicitAndBounded` |
 | `internal/platform` | `ConfiguredHTTPClient` | `TestConfiguredHTTPClientPinsExplicitLocalSource` |
 | `internal/platform/sandbox` | `Runner.GPUs` | `TestLinuxGPUIsolation` |
+| `internal/installation` | `Run`, `VerificationPending.Error` | `TestCommandHelpAndVersionWithoutPackage` |
+| `internal/installrecord` | `Instance`, `Read`, `Record.File`, `Record.UpdateSource`, `Record.Validate` | `TestReceiptRejectsUnrelatedPathsAndWritableRecords` |

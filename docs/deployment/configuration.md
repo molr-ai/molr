@@ -13,7 +13,7 @@
 服务启动前，在部署主机上初始化所有者。以下 `/path` 和 `/private` 均为需替换的示例路径：
 
 ```bash
-/path/molr-server init -config /private/server.json -username owner -password-stdin < /private/owner-password
+/path/molr init -config /private/server.json -username owner -password-stdin < /private/owner-password
 ```
 
 密码从权限受限文件或密码管理器送入标准输入，不放入命令行参数。未初始化时服务不会监听；没有 HTTP 注册或初始化入口。

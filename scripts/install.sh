@@ -1,128 +1,103 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+# Bootstrap only: installation and maintenance belong to the verified package.
+set -eu
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
-# This bootstrap downloads a versioned package; installation is owned by that package.
-command -v python3 >/dev/null || { echo 'Install Python 3.11 or newer, then run this command again.' >&2; exit 1; }
-python3 - "$@" <<'PY'
-import argparse, hashlib, ipaddress, json, os, pathlib, platform, re, subprocess, sys, tarfile, tempfile
-from urllib.parse import urlsplit
-from urllib.request import urlopen
-
+umask 077
+stage='Read options'
+fail() { printf '\nStopped during: %s\nReason: %s\n' "$stage" "$*" >&2; exit 1; }
+step() { stage=$1; printf '\n[Download] %s\n' "$stage"; }
+source=${MOLR_RELEASE_URL:-https://molr.ai/releases}
+channel=stable
+version=
+archive=
+remaining=$#
+while [ "$remaining" -gt 0 ]; do
+ case "$1" in
+  --source|--channel|--version|--archive)
+   [ "$remaining" -ge 2 ] || fail "Missing value for $1"
+   case "$1" in --source) source=$2;; --channel) channel=$2;; --version) version=$2;; --archive) archive=$2;; esac
+   shift 2; remaining=$((remaining - 2));;
+  --help|-h)
+   printf '%s\n' 'Usage: sh install.sh [--source URL] [--channel stable|preview|nightly] [--version VERSION] [--archive FILE] [setup options]' 'Setup: --interactive | --non-interactive, --dry-run, --name, --user, --program-root, --install-deps, --directory-permissions ask|fix|ignore, --no-browser' 'An extracted package can be installed directly with ./bin/molr-setup. Installed instances update with molr-setup update.'
+   exit 0;;
+  *) set -- "$@" "$1"; shift; remaining=$((remaining - 1));;
+ esac
+done
+case "$channel" in stable|preview|nightly) ;; *) fail 'Invalid channel';; esac
+case "$version" in *[!0-9A-Za-z.-]*|.*|-*) fail 'Invalid version';; esac
 # BEGIN GENERATED PLATFORMS
-PLATFORMS = [{"os":"linux","arch":"amd64","aliases":["x86_64","amd64"]},{"os":"linux","arch":"arm64","aliases":["aarch64","arm64"]}]
-RELEASE_PATTERN = r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-((?:beta|rc)\.(?:0|[1-9][0-9]*)|0\.nightly\.[1-9][0-9]{7}\.(?:0|[1-9][0-9]*)\.g[0-9a-f]{7,40}))?$"
+case "$(uname -s)/$(uname -m)" in
+  Linux/x86_64|Linux/amd64) arch=amd64 ;;
+  Linux/aarch64|Linux/arm64) arch=arm64 ;;
+  *) fail "Unsupported OS or architecture" ;;
+esac
 # END GENERATED PLATFORMS
-
-def fail(message):
-    raise ValueError(message)
-
-def public_url(value):
-    url = urlsplit(value)
-    if url.username or url.password or url.fragment or not url.hostname:
-        fail('Invalid download URL')
-    if url.scheme == 'https':
-        return value
-    try:
-        address = ipaddress.ip_address(url.hostname)
-        if url.scheme == 'http' and (address.is_private or address.is_loopback):
-            return value
-    except ValueError:
-        pass
-    fail('Downloads require HTTPS (HTTP is allowed only for explicit private IP addresses)')
-
-def fetch(url, limit):
-    with urlopen(public_url(url), timeout=60) as response:
-        public_url(response.url)
-        data = response.read(limit + 1)
-    if len(data) > limit:
-        fail('Download exceeds the size limit')
-    return data
-
-def main():
-    parser = argparse.ArgumentParser(description='Install Molr from a release channel or a local archive. Remaining arguments are forwarded to the package installer.')
-    parser.add_argument('--source', default=os.environ.get('MOLR_RELEASE_URL', 'https://molr.ai/releases'))
-    parser.add_argument('--channel', choices=['stable', 'preview', 'nightly'])
-    parser.add_argument('--version')
-    parser.add_argument('--archive')
-    args, forward = parser.parse_known_args()
-    if sys.version_info < (3, 11):
-        fail('Python 3.11 or newer is required')
-    os_name, machine = platform.system().lower(), platform.machine().lower()
-    supported = next((p for p in PLATFORMS if p['os'] == os_name and machine in p['aliases']), None)
-    if supported is None:
-        fail(f'Unsupported platform: {os_name}/{machine}')
-    root = args.source.rstrip('/')
-    suffix = root.rsplit('/', 1)[-1]
-    channel = args.channel or (suffix if suffix in ('stable', 'preview', 'nightly') else 'stable')
-    if suffix in ('stable', 'preview', 'nightly'):
-        root = root.rsplit('/', 1)[0]
-    public_url(root)
-    if args.version and not re.fullmatch(r'[0-9][0-9A-Za-z.-]*', args.version):
-        fail('Invalid version')
-    with tempfile.TemporaryDirectory(prefix='molr-install-') as temporary:
-        stage = pathlib.Path(temporary)
-        expected_version = args.version
-        if args.archive:
-            archive = pathlib.Path(args.archive).resolve(strict=True)
-            checksum = pathlib.Path(str(archive) + '.sha256')
-            if not checksum.is_file():
-                fail('Missing archive.sha256 checksum file')
-            expected = checksum.read_text().split()[0]
-            expected_arch = supported['arch']
-        else:
-            path = f'/versions/{args.version}.json' if args.version else f'/{channel}/manifest.json'
-            manifest = json.loads(fetch(root + path, 2 * 1024 * 1024))
-            expected_version = manifest['version']
-            if not re.fullmatch(r'[0-9][0-9A-Za-z.-]*', expected_version) or (args.version and expected_version != args.version):
-                fail('Manifest version mismatch')
-            if not re.fullmatch(RELEASE_PATTERN, expected_version):
-                fail('Unsupported release version')
-            actual_channel = 'nightly' if '-0.nightly.' in expected_version else 'preview' if '-' in expected_version else 'stable'
-            if manifest.get('channel') != actual_channel:
-                fail('Manifest channel mismatch')
-            allowed = [channel, 'stable'] if channel == 'preview' else [channel]
-            if manifest.get('schema') != 1 or (not args.version and actual_channel not in allowed):
-                fail('Manifest channel mismatch')
-            target = next((p for p in manifest['platforms'] if p['os'] == os_name and machine in p['aliases']), None)
-            if target is None:
-                fail(f'Version {expected_version} has no package for {os_name}/{machine}')
-            expected_arch = target['arch']
-            filename = f'molr_{expected_version}_{os_name}_{expected_arch}.tar.gz'
-            if target['file'] != filename or not re.fullmatch(r'[a-z0-9]+', expected_arch):
-                fail('Invalid release filename')
-            expected = target['sha256']
-            archive = stage / filename
-            archive.write_bytes(fetch(target['url'], 512 * 1024 * 1024))
-        if not re.fullmatch(r'[a-f0-9]{64}', expected):
-            fail('Invalid checksum')
-        with archive.open('rb') as content:
-            actual = hashlib.file_digest(content, 'sha256').hexdigest()
-        if actual != expected:
-            fail('Checksum mismatch; installation stopped')
-        with tarfile.open(archive, 'r:gz') as package:
-            seen, size = set(), 0
-            for item in package.getmembers():
-                p = pathlib.PurePosixPath(item.name)
-                size += item.size
-                if p.is_absolute() or '..' in p.parts or not p.parts or p.parts[0] != 'molr' or not (item.isfile() or item.isdir()) or item.name in seen or size > 1024 * 1024 * 1024:
-                    fail('Unsafe archive member')
-                seen.add(item.name)
-                item.mode &= 0o755
-            package.extractall(stage, **({'filter': 'data'} if hasattr(tarfile, 'data_filter') else {}))
-        metadata = json.loads((stage / 'molr/release.json').read_text())
-        if metadata['os'] != os_name or metadata['arch'] != expected_arch:
-            fail('Wrong release architecture')
-        if expected_version and metadata['version'] != expected_version:
-            fail('Wrong release version')
-        if not args.archive:
-            if metadata['commit'] != manifest['commit']:
-                fail('Wrong release commit')
-            forward += ['--release-source', root + '/' + channel]
-        subprocess.run(['bash', str(stage / 'molr/scripts/install-linux.sh'), '--install-deps', *forward, str(stage / 'molr/bin/molr-server')], check=True)
-
-try:
-    main()
-except (ValueError, KeyError, OSError, subprocess.CalledProcessError, tarfile.TarError) as error:
-    print(f'Installation stopped: {error}', file=sys.stderr)
-    sys.exit(1)
-PY
+for tool in tar gzip mktemp chmod mkdir rm wc; do command -v "$tool" >/dev/null 2>&1 || fail "Missing bootstrap tool: $tool"; done
+if command -v sha256sum >/dev/null 2>&1; then hash_tool=sha256sum
+elif command -v shasum >/dev/null 2>&1; then hash_tool=shasum
+else fail 'SHA-256 verification requires sha256sum or shasum'; fi
+sha256() { if [ "$hash_tool" = sha256sum ]; then sha256sum "$1"; else shasum -a 256 "$1"; fi; }
+temporary=$(mktemp -d "${TMPDIR:-/tmp}/molr-download.XXXXXXXX")
+trap 'rm -rf "$temporary"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+# Package contents are public; the eventual service account must traverse them.
+chmod 755 "$temporary"
+source=${source%/}
+fetch() {
+ case "$1" in https://*) ;; *) fail 'Bootstrap downloads require HTTPS; use a local archive for offline installation';; esac
+ if command -v curl >/dev/null 2>&1; then
+  if [ -t 2 ]; then curl --fail --location --proto '=https' --proto-redir '=https' --connect-timeout 30 --max-time 1800 --progress-bar --output "$2" "$1"
+  else curl --fail --location --proto '=https' --proto-redir '=https' --connect-timeout 30 --max-time 1800 --silent --show-error --output "$2" "$1"; fi
+ elif command -v wget >/dev/null 2>&1; then
+  wget --https-only --timeout=30 --tries=2 --progress=bar:force -O "$2" "$1"
+ else fail 'Download needs an existing curl or wget; alternatively download and extract the package manually'; fi
+}
+if [ -n "$archive" ]; then
+ step 'Read local archive and checksum'
+ [ -f "$archive" ] && [ -f "$archive.sha256" ] || fail 'Archive and adjacent .sha256 file are required'
+ IFS=' ' read -r expected rest < "$archive.sha256" || fail 'Invalid checksum file'
+ printf 'Package: %s\nPlatform: linux/%s\n' "$archive" "$arch"
+else
+ step "Resolve release: ${version:-$channel}"
+ descriptor="$source/$channel/download-linux-$arch.txt"
+ [ -z "$version" ] || descriptor="$source/versions/$version/download-linux-$arch.txt"
+ fetch "$descriptor" "$temporary/descriptor" || fail 'Cannot resolve release; check source, channel, version and connectivity'
+ [ "$(wc -c < "$temporary/descriptor")" -le 8192 ] || fail 'Oversized download descriptor'
+ # Fixed line protocol generated from the release manifest; never evaluated as shell code.
+ { IFS= read -r schema; IFS= read -r selected; IFS= read -r commit; IFS= read -r platform; IFS= read -r filename; IFS= read -r url; IFS= read -r expected; ! IFS= read -r extra; } < "$temporary/descriptor" || fail 'Invalid download descriptor'
+ [ "$schema" = molr-download-v1 ] && [ "$platform" = "linux-$arch" ] || fail 'Wrong descriptor platform/schema'
+ case "$selected" in ''|*[!0-9A-Za-z.-]*|.*|-*) fail 'Invalid release version';; esac
+ [ -z "$version" ] || [ "$version" = "$selected" ] || fail 'Version mismatch'
+ [ "$filename" = "molr_${selected}_linux_${arch}.tar.gz" ] || fail 'Invalid package name'
+ printf 'Version: %s\nCommit: %s\nPlatform: linux/%s\nPackage: %s\nURL: %s\nSHA-256: %s\n' "$selected" "$commit" "$arch" "$filename" "$url" "$expected"
+ archive="$temporary/package.tar.gz"
+ step 'Download package'
+ fetch "$url" "$archive" || fail 'Download failed; check connection, proxy and CA certificates'
+ set -- "$@" --source "$source" --channel "$channel"
+fi
+step 'Verify checksum and extract package'
+case "$expected" in *[!a-f0-9]*|'') fail 'Invalid SHA-256';; esac
+[ "${#expected}" -eq 64 ] || fail 'Invalid SHA-256 length'
+actual=$(sha256 "$archive")
+actual=${actual%% *}
+[ "$actual" = "$expected" ] || fail 'Checksum mismatch'
+[ "$(wc -c < "$archive")" -le 536870912 ] || fail 'Archive exceeds size limit'
+# Extract each allowlisted member to a fixed output path. Archive paths and link targets
+# are never used for filesystem writes, including in malicious duplicate/link entries.
+tar -tzf "$archive" > "$temporary/members" || fail 'Invalid archive'
+count=0
+while IFS= read -r member; do
+ case "$member" in molr/LICENSE|molr/THIRD_PARTY_NOTICES.md|molr/release.json|molr/bin/molr|molr/bin/molr-setup) count=$((count + 1));; *) fail "Unexpected archive member: $member";; esac
+done < "$temporary/members"
+[ "$count" -eq 5 ] || fail 'Incomplete or duplicate archive members'
+mkdir -m 755 "$temporary/molr" "$temporary/molr/bin"
+for member in LICENSE THIRD_PARTY_NOTICES.md release.json bin/molr bin/molr-setup; do
+ entry=$(tar -tvzf "$archive" "molr/$member") || fail "Missing $member"
+ case "$entry" in -*) ;; *) fail "Non-regular package member: $member";; esac
+ tar -xOzf "$archive" "molr/$member" > "$temporary/molr/$member" || fail "Cannot extract $member"
+ chmod 644 "$temporary/molr/$member"
+done
+chmod 755 "$temporary/molr/bin/molr" "$temporary/molr/bin/molr-setup"
+step 'Run package installer'
+"$temporary/molr/bin/molr-setup" "$@"

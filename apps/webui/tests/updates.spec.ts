@@ -16,10 +16,10 @@ test('build comparison distinguishes missing metadata, versions and commits', ()
  expect(compareBuilds(front, { ...front, commit: 'b'.repeat(40) })).toBe('commit_mismatch');
  expect(compareBuilds(front, { ...front, commit: '' })).toBe('unknown');
  expect(compareBuilds(front)).toBe('unknown');
- const command = upgradeCommand({ name: 'molr-test', user: 'fixture', system: false, program_root: "/tmp/a'b", source: 'https://example.com/releases', config_home: '/tmp/c', data_home: '/tmp/d', cache_home: '/tmp/k' }, '0.2.0');
+ const command = upgradeCommand({ name: 'molr-test', system: false, setup_path: "/tmp/a'b/bin/molr-setup", source: 'https://example.com/releases' }, '0.2.0');
  expect(command).toContain("--version '0.2.0'");
- expect(command).toContain("--program-root '/tmp/a'\\''b'");
- expect(command).toContain("XDG_CONFIG_HOME='/tmp/c'");
+ expect(command).toContain("'/tmp/a'\\''b/bin/molr-setup' update");
+ expect(command).not.toContain("install.sh");
 });
 test('real Runtime exposes authenticated build status without contacting an unconfigured source', async ({ page }) => {
  expect((await page.request.get('/api/updates')).status()).toBe(401);

@@ -2,6 +2,7 @@ package updates
 
 import (
 	"encoding/json"
+	"molr.ai/runtime/internal/installrecord"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,42 +10,31 @@ import (
 
 func TestInstallationReceiptRequiresMatchingExecutableAndCompletedInstall(t *testing.T) {
 	dir := t.TempDir()
-	config := filepath.Join(dir, "server.json")
-	executable, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	prefix := filepath.Dir(filepath.Dir(executable))
-	paths := map[string]string{"prefix": prefix, "config": dir, "data": filepath.Join(dir, "data"), "cache": filepath.Join(dir, "cache")}
-	record := map[string]any{"schema": 1, "name": "molr-test", "user": "fixture", "complete": true, "program_root": filepath.Dir(prefix), "paths": paths}
+	program := filepath.Join(dir, "program/test")
+	config := filepath.Join(dir, "config/molr/test")
+	os.MkdirAll(program, 0755)
+	r := installrecord.Record{Schema: 1, State: "installed", Name: "molr-test", User: "fixture", UID: 1000, GID: 1000, OwnerUID: 1000, ProgramRoot: filepath.Dir(program), Paths: installrecord.Paths{Program: program, Config: config, Data: filepath.Join(dir, "data/molr/test"), Cache: filepath.Join(dir, "cache/molr/test"), Unit: filepath.Join(dir, "config/systemd/user/molr-test.service")}, DataDir: filepath.Join(dir, "data/molr/test"), ManagedData: true, Updates: installrecord.Updates{Source: "https://example.com/releases", Channel: "preview"}}
 	write := func() {
-		t.Helper()
-		data, _ := json.Marshal(record)
-		if err := os.WriteFile(filepath.Join(dir, "installation.json"), data, 0600); err != nil {
+		data, _ := json.Marshal(r)
+		if err := os.WriteFile(r.File(), data, 0600); err != nil {
 			t.Fatal(err)
 		}
 	}
 	write()
-	source := "https://example.com/releases/preview"
-	got := ReadInstallation(config, source)
-	if got == nil || got.Source != source || got.Name != "molr-test" {
+	exe := filepath.Join(program, "bin/molr")
+	cfg := filepath.Join(config, "server.json")
+	got := readInstallation(exe, cfg)
+	if got == nil || got.Source != r.UpdateSource() || got.SetupPath != filepath.Join(program, "bin/molr-setup") {
 		t.Fatal(got)
 	}
-	record["complete"] = false
+	r.State = "installing"
 	write()
-	if ReadInstallation(config, source) != nil {
-		t.Fatal("incomplete installation accepted")
+	if readInstallation(exe, cfg) != nil {
+		t.Fatal("incomplete receipt accepted")
 	}
-	record["complete"] = true
-	paths["prefix"] = filepath.Join(dir, "other")
+	r.State = "installed"
 	write()
-	if ReadInstallation(config, source) != nil {
-		t.Fatal("unrelated executable accepted")
-	}
-	paths["prefix"] = prefix
-	paths["data"] = "relative"
-	write()
-	if ReadInstallation(config, source) != nil {
-		t.Fatal("relative data path accepted")
+	if readInstallation(exe, filepath.Join(dir, "unrelated.json")) != nil {
+		t.Fatal("unrelated config accepted")
 	}
 }

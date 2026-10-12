@@ -7,10 +7,10 @@
 ```bash
 mkdir -p .cache/build
 cd runtime
-CGO_ENABLED=0 GOTOOLCHAIN="go$(cat .go-version)" go build -o ../.cache/build/molr-server ./cmd/molr-server
-chmod 0755 ../.cache/build/molr-server
-file ../.cache/build/molr-server
-go version -m ../.cache/build/molr-server
+CGO_ENABLED=0 GOTOOLCHAIN="go$(cat .go-version)" go build -o ../.cache/build/molr ./cmd/molr
+chmod 0755 ../.cache/build/molr
+file ../.cache/build/molr
+go version -m ../.cache/build/molr
 cd ..
 npm ci
 npm run build:webui
@@ -29,6 +29,6 @@ npm ci
 npm run build:release
 ```
 
-构建先检查待发布源码和公开静态文件，再生成 WebUI，随后以 `-trimpath` 静态编译带 `webui` build tag 的 Runtime，将页面与 API 放在同一服务。产物在 `dist/releases/`，包含 `molr_<版本>_linux_<架构>.tar.gz`、同名 `.sha256` ；推荐版本清单按[发行维护](../../dev-docs/releasing/releases.md)单独生成。包内包含 Runtime、安装器、`LICENSE` 和完整的 `THIRD_PARTY_NOTICES.md`，不附带 BusyBox。默认版本为 `0.1.0-local`；`MOLR_VERSION`、`MOLR_ARCH`、`MOLR_DIST_DIR` 可覆盖。跨架构构建不需要准备目标架构 BusyBox；安装目标机通过系统包管理器提供静态 BusyBox。`GO` 可指定 Go 程序路径。`molr-server version` 显示构建版本与提交。归档只收集 `scripts/release-policy.json` 中明确列出的文件，验证通过后才生成最终归档和下载清单；不要分发构建失败后留下的目录，也不要直接压缩整个工作目录。
+构建先检查待发布源码和公开静态文件，再生成 WebUI，随后以 `-trimpath` 静态编译带 `webui` build tag 的 Runtime，将页面与 API 放在同一服务。产物在 `dist/releases/`，包含 `molr_<版本>_linux_<架构>.tar.gz`、同名 `.sha256` ；推荐版本清单按[发行维护](../../dev-docs/releasing/releases.md)单独生成。包内包含 Runtime、安装器、`LICENSE` 和完整的 `THIRD_PARTY_NOTICES.md`，不附带 BusyBox。默认版本为 `0.1.0-local`；`MOLR_VERSION`、`MOLR_ARCH`、`MOLR_DIST_DIR` 可覆盖。跨架构构建不需要准备目标架构 BusyBox；安装目标机通过系统包管理器提供静态 BusyBox。`GO` 可指定 Go 程序路径。`molr version` 显示构建版本与提交。归档只收集 `scripts/release-policy.json` 中明确列出的文件，验证通过后才生成最终归档和下载清单；不要分发构建失败后留下的目录，也不要直接压缩整个工作目录。
 
 如需导出源码包，在已提交并审查过的版本上执行 `npm run build:source -- --ref HEAD`。该命令只导出指定 Git 提交，工作目录中的修改、未提交新文件、`.cache/` 和运行数据不会被打包。详细发布范围及检查限制见[开源发布与私有文件隔离](../../dev-docs/releasing/public-content.md)。

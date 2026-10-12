@@ -6,7 +6,7 @@
 
 | 部分 | 当前实现与入口 |
 | --- | --- |
-| 后端 | 单一 Go `molr-server`；版本以 [runtime/.go-version](../../runtime/.go-version) 为准 |
+| 后端 | 单一 Go `molr`；版本以 [runtime/.go-version](../../runtime/.go-version) 为准 |
 | 客户端 | React / TypeScript WebUI；依赖及 Node 要求由根目录 [package.json](../../package.json) 和锁文件维护 |
 | 客户端接口 | HTTP JSON + SSE，显式路由；[HTTP API](../reference/http-api.md) 与 [TypeScript SDK](../../packages/sdk/README.md) |
 | 模块通信 | 进程内 Go 接口；IM / Agent / 业务及公共支撑 |

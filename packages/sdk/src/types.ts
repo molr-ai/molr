@@ -125,4 +125,4 @@ export type UpdateStatus = {
  check: { checking: boolean; last_attempt_at: string | null; last_success_at: string | null; next_allowed_at: string | null; error_code?: string };
  auto_check: boolean; source_configured: boolean; supported: boolean;
 };
-export type UpdateInstallation = { name: string; user: string; system: boolean; program_root: string; config_home: string; data_home: string; cache_home: string; source: string };
+export type UpdateInstallation = { name: string; system: boolean; setup_path: string; source: string };
