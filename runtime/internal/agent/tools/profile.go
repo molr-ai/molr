@@ -14,13 +14,14 @@ type ProfileAvatarRequest struct {
 	FileTarget
 }
 type ProfileUpdateRequest struct {
+	Status          *string               `json:"status,omitempty"`
 	Name            *string               `json:"name,omitempty"`
 	Avatar          *ProfileAvatarRequest `json:"avatar,omitempty"`
 	ExpectedVersion core.Version          `json:"expected_version"`
 }
 
 func profileDefinition() Definition {
-	return Definition{Name: "profile_update", Description: "Update your own display name and/or avatar atomically. Omitted fields stay unchanged. Use expected_version from the current profile runtime context or the last result. On conflict inspect current_profile; do not blindly overwrite a user's edit. Names are trimmed, 1–256 characters, with no control characters. Avatars: preset (robot, cat, fox, bear, rabbit, panda, owl, frog, penguin, whale, sprout, star), file (PNG/JPEG/WebP up to 10 MiB and 40 million pixels, center-cropped to 256×256), or clear (name initial). File paths use the local workspace or local authorized resources. Download remote images using file_transfer first; chat attachments must first be saved using conversation_attachment. URLs and base64 are not accepted. Only name and avatar change, never your model, permissions or budget. Changes take effect immediately. Check the result before announcing success via conversation_publish.", InputSchema: schema(`"name":{"type":"string","minLength":1,"maxLength":256},"expected_version":{"type":"integer","minimum":1},"avatar":{"type":"object","properties":{"type":{"enum":["preset","file","clear"]},"id":{"enum":["robot","cat","fox","bear","rabbit","panda","owl","frog","penguin","whale","sprout","star"]},"path":{"type":"string","maxLength":4096},"sandbox_id":{"enum":["local"]},"resource_id":{"type":"string"}},"required":["type"],"additionalProperties":false}`, `"expected_version"`), RequiredActions: []string{"write"}, SideEffect: true}
+	return Definition{Name: "profile_update", Description: "Update your own display name, status and/or avatar atomically. Omitted fields stay unchanged. Use expected_version from the current profile runtime context or the last result. On conflict inspect current_profile; do not blindly overwrite a user's edit. Names are trimmed, 1–256 characters, with no control characters. Status expresses your current mood, thoughts, hopes, or personality and is shown while idle. Only you can set it. Status is trimmed, at most 256 characters, with no control characters; use an empty string to clear it. Avatars: preset (robot, cat, fox, bear, rabbit, panda, owl, frog, penguin, whale, sprout, star), file (PNG/JPEG/WebP up to 10 MiB and 40 million pixels, center-cropped to 256×256), or clear (name initial). File paths use the local workspace or local authorized resources. Download remote images using file_transfer first; chat attachments must first be saved using conversation_attachment. URLs and base64 are not accepted. Only name, status and avatar change, never your model, permissions or budget. Changes take effect immediately. Check the result before announcing success via conversation_publish.", InputSchema: schema(`"status":{"type":"string","maxLength":256,"description":"Express your current mood, thoughts, hopes, or personality. Shown while idle; empty string clears it."},"name":{"type":"string","minLength":1,"maxLength":256},"expected_version":{"type":"integer","minimum":1},"avatar":{"type":"object","properties":{"type":{"enum":["preset","file","clear"]},"id":{"enum":["robot","cat","fox","bear","rabbit","panda","owl","frog","penguin","whale","sprout","star"]},"path":{"type":"string","maxLength":4096},"sandbox_id":{"enum":["local"]},"resource_id":{"type":"string"}},"required":["type"],"additionalProperties":false}`, `"expected_version"`), RequiredActions: []string{"write"}, SideEffect: true}
 }
 
 func parseProfile(raw json.RawMessage) (ProfileUpdateRequest, error) {
@@ -49,8 +50,8 @@ func parseProfile(raw json.RawMessage) (ProfileUpdateRequest, error) {
 	if r.ExpectedVersion == 0 {
 		return r, core.Invalid("expected_version", "current profile version required")
 	}
-	if r.Name == nil && r.Avatar == nil {
-		return r, core.Invalid("profile", "name or avatar required")
+	if r.Name == nil && r.Avatar == nil && r.Status == nil {
+		return r, core.Invalid("profile", "name, status or avatar required")
 	}
 	if r.Avatar != nil {
 		a := r.Avatar

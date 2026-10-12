@@ -66,10 +66,10 @@ func TestProfileMutationAtomicNoopAndIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 	e := core.Execution{Principal: core.Principal{OwnerID: "owner", SubjectID: a.ID, Kind: core.ActorAssistant, ExecutionID: "run"}, AssistantID: a.ID, OperationID: "op"}
-	name, avatar := "  小满  ", "preset:cat"
-	req := SelfProfileRequest{Mutation: mutation("change", a.Version), Name: &name, Avatar: &avatar}
+	name, avatar, status := "  小满  ", "preset:cat", "期待新发现"
+	req := SelfProfileRequest{Mutation: mutation("change", a.Version), Name: &name, Avatar: &avatar, Status: &status}
 	out, err := f.Service.UpdateSelfProfile(t.Context(), e, req)
-	if err != nil || !out.Changed || out.Profile.Name != "小满" || out.Profile.Avatar.ID != "cat" {
+	if err != nil || !out.Changed || out.Profile.Name != "小满" || out.Profile.Avatar.ID != "cat" || out.Profile.Status != status {
 		t.Fatalf("update: %+v %v", out, err)
 	}
 	again, err := f.Service.UpdateSelfProfile(t.Context(), e, req)
@@ -113,6 +113,37 @@ func TestProfileMutationAtomicNoopAndIdentity(t *testing.T) {
 	for _, bad := range []string{"", "  ", "bad\nname", strings.Repeat("满", 257)} {
 		if _, err = NormalizeName(bad); err == nil {
 			t.Fatalf("name accepted: %q", bad)
+		}
+	}
+}
+
+func TestOwnerProfileUpdatePreservesStatus(t *testing.T) {
+	f := newContractFixture(t)
+	a, err := f.Service.Hire(t.Context(), owner(), HireRequest{Mutation: mutation("hire", 0), Name: "Before", ModelID: "model", Budget: core.AssistantBudget{Limit: core.Money{Currency: "USD"}, Period: "daily"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := core.Execution{Principal: core.Principal{OwnerID: "owner", SubjectID: a.ID, Kind: core.ActorAssistant, ExecutionID: "run"}, AssistantID: a.ID, OperationID: "op"}
+	status := "好奇心满格"
+	result, err := f.Service.UpdateSelfProfile(t.Context(), e, SelfProfileRequest{Mutation: mutation("status", a.Version), Status: &status})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err = f.Service.Update(t.Context(), owner(), UpdateRequest{Mutation: mutation("owner-name", result.Profile.Version), ID: a.ID, Name: "Renamed", ModelID: a.ModelID, Budget: a.Budget})
+	if err != nil || a.Status != status || a.Name != "Renamed" {
+		t.Fatalf("owner update: %+v %v", a, err)
+	}
+}
+
+func TestStatusUnicodeLengthAndControls(t *testing.T) {
+	valid := strings.Repeat("🌱", 256)
+	got, err := normalizeStatus("  " + valid + "  ")
+	if err != nil || got != valid {
+		t.Fatal("256 Unicode characters rejected", err)
+	}
+	for _, value := range []string{valid + "🌱", "a\nb", "a\tb", string([]byte{0xff})} {
+		if _, err := normalizeStatus(value); core.CodeOf(err) != core.InvalidArgument {
+			t.Fatalf("invalid status accepted: %q %v", value, err)
 		}
 	}
 }

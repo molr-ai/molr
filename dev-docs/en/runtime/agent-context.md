@@ -134,7 +134,7 @@ The original state is maintained while waiting for compression events; during pr
 
 ## Current Assistant Profile
 
-`profile` Auto-source reads the current assistant's name, avatar summary, and profile `Version` at each model request boundary, updating with user manual modifications and `profile_update` success results. Fixed `Source=profile`, `Scope=assistant`; custom images include only type and summary, without injecting data URLs into the context. Provide this version when using tools; on conflict, first check the returned `current_profile` and do not blindly overwrite. Prompt projection configures whitelists separately for profile source, success receipts, and conflict details.
+`profile` Auto-source reads the current assistant's name, status, avatar summary, and profile `Version` at each model request boundary, updating with user manual modifications and `profile_update` success results. Fixed `Source=profile`, `Scope=assistant`; custom images include only type and summary, without injecting data URLs into the context. Provide this version when using tools; on conflict, first check the returned `current_profile` and do not blindly overwrite. Prompt projection configures whitelists separately for profile source, success receipts, and conflict details.
 
 ## Local Shared File Source
 

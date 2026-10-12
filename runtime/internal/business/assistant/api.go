@@ -19,6 +19,7 @@ type Assistant struct {
 	ID             core.ID
 	OwnerID        core.ID
 	Name           string
+	Status         string // Self-authored profile status, displayed while idle.
 	Avatar         string // Empty, preset:<id>, or a bounded PNG/JPEG data URL.
 	State          State
 	ConversationID core.ID

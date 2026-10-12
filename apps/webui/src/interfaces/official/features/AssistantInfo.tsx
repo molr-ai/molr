@@ -31,7 +31,8 @@ function InfoContents({ assistant, models, initialTab = 'overview', onClose, onD
   useErrorToast(status.error, status.reload);
   const items = [
     { value: 'overview', label: t.assistantInfo.overview, icon: <Info size={16} />, content: <>
-      <div className="assistant-info-status"><Badge tone={archived ? 'neutral' : ['working', 'dreaming'].includes(status.data?.State ?? '') ? 'warning' : 'positive'}>{archived ? t.chat.archived : status.data ? status.data.Compression?.State === 'running' ? t.chat.compressing : t.chat[status.data.State] : t.loading}</Badge>{onDebug && <Button size="sm" variant="secondary" onClick={onDebug}><FlaskConical size={16} />{t.assistantInfo.executions}</Button>}</div>
+      <div className="assistant-info-status"><Badge tone={archived ? 'neutral' : ['working', 'dreaming'].includes(status.data?.State ?? '') ? 'warning' : 'positive'}>{archived ? t.chat.archived : status.data ? status.data.Compression?.State === 'running' ? t.chat.compressing : status.data.State === 'idle' && assistant.Status ? assistant.Status : t.chat[status.data.State] : t.loading}</Badge>{onDebug && <Button size="sm" variant="secondary" onClick={onDebug}><FlaskConical size={16} />{t.assistantInfo.executions}</Button>}</div>
+      <dl className="assistant-info-facts assistant-profile-status"><div><dt>{t.assistantInfo.status}</dt><dd>{assistant.Status || t.assistantInfo.statusEmpty}<p className="assistant-info-help">{t.assistantInfo.statusHelp}</p></dd></div></dl>
       <fieldset disabled={archived} className="assistant-info-fields"><AssistantSettingsForm assistant={assistant} models={models} currencyContext={context} action={action} onClose={onClose} /></fieldset>
     </> },
     { value: 'tools', label: t.assistantInfo.tools, icon: <Wrench size={16} />, content: <Capabilities assistantID={assistant.ID} kind="tools" onPermissions={() => changeTab('permissions')} /> },

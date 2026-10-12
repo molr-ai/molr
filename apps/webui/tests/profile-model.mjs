@@ -21,7 +21,7 @@ export function profileModel(input, response) {
     else if (results.some(r => r.error)) call('conversation_publish', { conversation_id: event.conversation_id, text: `Profile failed: ${results.find(r => r.error).error.code}` });
     else if (called('profile_update')) {
       const result = results.find(r => r.Profile);
-      const same = result?.Profile.Version === profile.Version && result.Profile.Name === profile.Name && result.Profile.Avatar.Type === profile.Avatar.Type;
+      const same = result?.Profile.Version === profile.Version && result.Profile.Name === profile.Name && result.Profile.Status === profile.Status && result.Profile.Avatar.Type === profile.Avatar.Type;
       call('conversation_publish', { conversation_id: event.conversation_id, text: same ? `Profile saved: ${profile.Name} / ${profile.Avatar.Type}${profile.Avatar.ID ? ':' + profile.Avatar.ID : ''}` : 'Profile context did not refresh.' });
     } else if (user?.Content.AttachmentIDs?.length && !called('conversation_attachment')) {
       call('conversation_attachment', { conversation_id: event.conversation_id, file_id: user.Content.AttachmentIDs[0], path: '/work/profile-upload' });

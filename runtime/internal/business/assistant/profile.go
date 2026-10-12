@@ -16,6 +16,7 @@ import (
 // Profile contains no image payload, model settings or other private configuration.
 type Profile struct {
 	Name    string
+	Status  string
 	Avatar  ProfileAvatar
 	Version core.Version
 }
@@ -26,7 +27,7 @@ type ProfileAvatar struct {
 }
 
 func (a Assistant) Profile() Profile {
-	v := Profile{Name: a.Name, Version: a.Version, Avatar: ProfileAvatar{Type: "initial"}}
+	v := Profile{Name: a.Name, Status: a.Status, Version: a.Version, Avatar: ProfileAvatar{Type: "initial"}}
 	if strings.HasPrefix(a.Avatar, "preset:") {
 		v.Avatar = ProfileAvatar{Type: "preset", ID: strings.TrimPrefix(a.Avatar, "preset:")}
 	} else if a.Avatar != "" {
@@ -47,6 +48,7 @@ func (e *ProfileConflict) Unwrap() error { return e.Cause }
 type SelfProfileRequest struct {
 	Mutation core.Mutation
 	Name     *string
+	Status   *string
 	Avatar   *string
 }
 type ProfileResult struct {
@@ -61,6 +63,17 @@ func NormalizeName(value string) (string, error) {
 	value = strings.TrimSpace(value)
 	if value == "" || utf8.RuneCountInString(value) > 256 {
 		return "", core.Invalid("name", "name must contain 1 to 256 characters")
+	}
+	return value, nil
+}
+
+func normalizeStatus(value string) (string, error) {
+	if !utf8.ValidString(value) || strings.ContainsFunc(value, unicode.IsControl) {
+		return "", core.Invalid("status", "status must not contain control characters")
+	}
+	value = strings.TrimSpace(value)
+	if utf8.RuneCountInString(value) > 256 {
+		return "", core.Invalid("status", "status must contain at most 256 characters")
 	}
 	return value, nil
 }
@@ -82,12 +95,18 @@ func (s *service) UpdateSelfProfile(ctx context.Context, e core.Execution, req S
 		if v.Version != req.Mutation.ExpectedVersion {
 			return ProfileResult{}, &ProfileConflict{Cause: core.NewError(core.Conflict, "profile changed; inspect current_profile before deciding whether to update again"), Current: v.Profile()}
 		}
-		if req.Name == nil && req.Avatar == nil {
-			return ProfileResult{}, core.Invalid("profile", "name or avatar required")
+		if req.Name == nil && req.Avatar == nil && req.Status == nil {
+			return ProfileResult{}, core.Invalid("profile", "name, status or avatar required")
 		}
 		before := v
 		if req.Name != nil {
 			v.Name, err = NormalizeName(*req.Name)
+			if err != nil {
+				return ProfileResult{}, err
+			}
+		}
+		if req.Status != nil {
+			v.Status, err = normalizeStatus(*req.Status)
 			if err != nil {
 				return ProfileResult{}, err
 			}
@@ -98,7 +117,7 @@ func (s *service) UpdateSelfProfile(ctx context.Context, e core.Execution, req S
 				return ProfileResult{}, err
 			}
 		}
-		changed := v.Name != before.Name || v.Avatar != before.Avatar
+		changed := v.Name != before.Name || v.Avatar != before.Avatar || v.Status != before.Status
 		if changed {
 			v.Version++
 			v.UpdatedAt = s.now()

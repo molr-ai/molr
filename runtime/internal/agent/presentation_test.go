@@ -179,14 +179,14 @@ func TestTriggeringEventIsAUserTurnAndLegacyProjectionKeepsEvidence(t *testing.T
 }
 
 func TestProfileContextAndResultPresentation(t *testing.T) {
-	snapshot := &automaticContext{Sources: []contextEntry{{ContextDocument: ContextDocument{Kind: "profile", Source: "profile", Scope: "assistant", Content: `{"Name":"小满","Avatar":{"Type":"preset","ID":"cat"},"Version":3,"OwnerID":"private-owner"}`}}}}
+	snapshot := &automaticContext{Sources: []contextEntry{{ContextDocument: ContextDocument{Kind: "profile", Source: "profile", Scope: "assistant", Content: `{"Name":"小满","Status":"期待新发现","Avatar":{"Type":"preset","ID":"cat"},"Version":3,"OwnerID":"private-owner"}`}}}}
 	text := contextInput(snapshot).Text
-	if !strings.Contains(text, `"Name":"小满"`) || !strings.Contains(text, `"Version":3`) || strings.Contains(text, "private-owner") {
+	if !strings.Contains(text, `"Name":"小满"`) || !strings.Contains(text, `"Status":"期待新发现"`) || !strings.Contains(text, `"Version":3`) || strings.Contains(text, "private-owner") {
 		t.Fatal(text)
 	}
-	raw := `{"Changed":false,"Profile":{"Name":"小满","Avatar":{"Type":"initial"},"Version":3},"Budget":"private-budget"}`
+	raw := `{"Changed":false,"Profile":{"Name":"小满","Status":"期待新发现","Avatar":{"Type":"initial"},"Version":3},"Budget":"private-budget"}`
 	text, err := prompt.Structured("profile_update", raw)
-	if err != nil || !strings.Contains(text, `"Changed":false`) || strings.Contains(text, "private-budget") {
+	if err != nil || !strings.Contains(text, `"Changed":false`) || !strings.Contains(text, `"Status":"期待新发现"`) || strings.Contains(text, "private-budget") {
 		t.Fatal(text, err)
 	}
 	if err = validateContextPresentation(ContextDocument{Kind: "profile", Content: `{broken`}); err == nil {

@@ -39,7 +39,7 @@ func (p *profileTools) update(ctx context.Context, e core.Execution, r tools.Pro
 			return nil, err
 		}
 	}
-	req := assistant.SelfProfileRequest{Mutation: core.Mutation{IdempotencyKey: string(e.OperationID), ExpectedVersion: r.ExpectedVersion}, Name: r.Name}
+	req := assistant.SelfProfileRequest{Mutation: core.Mutation{IdempotencyKey: string(e.OperationID), ExpectedVersion: r.ExpectedVersion}, Name: r.Name, Status: r.Status}
 	if r.Avatar != nil {
 		value := ""
 		switch r.Avatar.Type {

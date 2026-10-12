@@ -52,7 +52,7 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 .sidebar-footer { padding: 12px 9px; }.sidebar-footer .button { width: 100%; }.workspace-empty { display: grid; place-items: center; flex: 1; min-width: 0; padding: 24px; }
 .chat-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; background: var(--color-surface); }.chat-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: var(--workspace-header-height); min-height: var(--workspace-header-height); flex-shrink: 0; padding: 12px 24px; border-bottom: 1px solid var(--color-border); }
 .chat-header > .form-actions { flex-shrink: 0; flex-wrap: nowrap; }
-.chat-identity { display: flex; align-items: center; gap: 10px; min-width: 0; }.chat-identity h1 { font-size: var(--text-base); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.chat-identity .ui-chat-status { flex-shrink: 0; }.chat-header .button { min-height: 36px; height: 36px; }
+.chat-identity { display: flex; align-items: center; gap: 10px; min-width: 0; }.chat-identity h1 { flex-shrink: 0; max-width: min(36vw, 20rem); font-size: var(--text-base); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.chat-identity .ui-chat-status { flex: 0 1 auto; overflow: hidden; }.chat-identity .ui-chat-status__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.chat-header .button { min-height: 36px; height: 36px; }
 .chat-history { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 28px max(24px, calc((100% - 860px) / 2)); }.chat-input { padding: 12px max(24px, calc((100% - 860px) / 2)) 24px; }.chat-input .message-composer { background: var(--color-surface); }.chat-history .ui-chat-message { margin-bottom: 28px; }
 .chat-panel > .ui-alert { margin: 8px 20px; }.chat-history .ui-empty { padding-block: 60px; }.attachment { margin-top: 8px; }.attachment a { display: flex; align-items: center; gap: 8px; width: fit-content; max-width: 100%; padding: 10px 14px; border-radius: var(--radius-control); background: var(--color-surface); text-decoration: none; overflow-wrap: anywhere; }.attachment small { flex-shrink: 0; }
 .page { flex: 1; min-width: 0; padding: 32px clamp(20px, 4vw, 56px); overflow: auto; }.page > * + * { margin-top: 24px; }.page > .select { max-width: 260px; }.record-list, .settings-section { display: grid; gap: 16px; }.record-list .card, .settings-section .card { display: grid; gap: 14px; }.record-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }.record-heading h2, .record-heading h3 { flex: 1; overflow-wrap: anywhere; }
@@ -201,6 +201,8 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 .money-input { display: grid; grid-template-columns: minmax(0, 1fr) minmax(112px, 0.4fr); align-items: end; gap: 12px; }
 
 .assistant-info.ui-drawer:not([data-contained]):not([data-docked]) { width: min(var(--assistant-info-width), 100vw); }
+.assistant-profile-status { margin-bottom: 20px; }
+.assistant-info-status .badge { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
 .assistant-info-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
 .assistant-info-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
 .assistant-capabilities { display: grid; gap: var(--space-5); min-width: 0; }

@@ -33,13 +33,13 @@ func TestProfileToolPersistenceConflictFileAccessAndContext(t *testing.T) {
 		need(t, err)
 		return a
 	}
-	first, err := call("rename", `{"name":"小满","avatar":{"type":"preset","id":"cat"},"expected_version":1}`)
+	first, err := call("rename", `{"name":"小满","status":"  期待新发现 🌱  ","avatar":{"type":"preset","id":"cat"},"expected_version":1}`)
 	need(t, err)
 	updated := get()
-	if updated.Name != "小满" || updated.Avatar != "preset:cat" || updated.Version != 2 {
+	if updated.Name != "小满" || updated.Status != "期待新发现 🌱" || updated.Avatar != "preset:cat" || updated.Version != 2 {
 		t.Fatal(updated)
 	}
-	replay, err := call("rename", `{"name":"小满","avatar":{"type":"preset","id":"cat"},"expected_version":1}`)
+	replay, err := call("rename", `{"name":"小满","status":"  期待新发现 🌱  ","avatar":{"type":"preset","id":"cat"},"expected_version":1}`)
 	need(t, err)
 	if string(replay.Content) != string(first.Content) || get().Version != 2 {
 		t.Fatal("operation replay repeated effect")
@@ -81,7 +81,7 @@ func TestProfileToolPersistenceConflictFileAccessAndContext(t *testing.T) {
 	need(t, err)
 	text, err = prompt.Structured("profile", doc.Content)
 	need(t, err)
-	if !strings.Contains(text, `"Type":"image"`) || !strings.Contains(text, "Digest") || strings.Contains(text, "base64") || strings.Contains(text, "ModelID") {
+	if !strings.Contains(text, `"Status":"期待新发现 🌱"`) || !strings.Contains(text, `"Type":"image"`) || !strings.Contains(text, "Digest") || strings.Contains(text, "base64") || strings.Contains(text, "ModelID") {
 		t.Fatal("unsafe or missing profile context", text)
 	}
 	_, err = call("clear", `{"avatar":{"type":"clear"},"expected_version":3}`)
@@ -125,5 +125,48 @@ func TestProfileToolPersistenceConflictFileAccessAndContext(t *testing.T) {
 	e.OperationID = "foreign-owner"
 	if _, err = ex.Execute(t.Context(), tools.Call{Execution: e, Name: "profile_update", Arguments: json.RawMessage(`{"name":"Foreign","expected_version":5}`)}); err == nil {
 		t.Fatal("foreign owner accepted")
+	}
+}
+
+func TestProfileStatusSetClearAndValidation(t *testing.T) {
+	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { c.Sandbox.Enabled = false })
+	p := &profileTools{assistants: f.b.Services.Assistants, workspace: &resourceFileTools{adapters: f.ad}}
+	ex := tools.NewExecutor(f.b.store, tools.Options{Authorizer: f.ad.policy, Operations: f.b.Services.Operations.(operation.Service), ProfileUpdate: p.update})
+	call := func(id, status string, version core.Version) (tools.Result, error) {
+		e := f.execution
+		e.OperationID = core.ID(id)
+		raw, _ := json.Marshal(map[string]any{"status": status, "expected_version": version})
+		return ex.Execute(t.Context(), tools.Call{Execution: e, Name: "profile_update", Arguments: raw})
+	}
+	first, err := call("status", "  好奇心满格 🌱  ", 1)
+	need(t, err)
+	var result assistant.ProfileResult
+	need(t, json.Unmarshal(first.Content, &result))
+	if !result.Changed || result.Profile.Status != "好奇心满格 🌱" || result.Profile.Version != 2 {
+		t.Fatal(result)
+	}
+	_, err = call("status-noop", "好奇心满格 🌱", 2)
+	need(t, err)
+	for i, value := range []string{"bad\nstatus", strings.Repeat("满", 257)} {
+		_, err = call(string(rune('a'+i)), value, 2)
+		if core.CodeOf(err) != core.InvalidArgument {
+			t.Fatal("accepted invalid status", err)
+		}
+	}
+	a, err := f.b.Services.Assistants.Get(t.Context(), f.owner, f.execution.AssistantID)
+	need(t, err)
+	if a.Version != 2 || a.Status != result.Profile.Status {
+		t.Fatal(a)
+	}
+	conflict, err := call("status-conflict", "outdated", 1)
+	if core.CodeOf(err) != core.Conflict || conflict.Failure.CurrentProfile.Status != a.Status {
+		t.Fatal("missing current status", err)
+	}
+	_, err = call("status-clear", "  ", a.Version)
+	need(t, err)
+	a, err = f.b.Services.Assistants.Get(t.Context(), f.owner, a.ID)
+	need(t, err)
+	if a.Status != "" || a.Name != result.Profile.Name {
+		t.Fatal(a)
 	}
 }

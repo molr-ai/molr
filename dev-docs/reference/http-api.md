@@ -322,13 +322,13 @@ WebUI 支持上传 10 MB / 4000 万像素以内的 PNG、JPEG、WebP，浏览器
 
 ### 助理自改资料工具
 
-内置 `profile_update` 接收可选 `name`、`avatar` 和必填 `expected_version`；至少提供名称或头像。头像对象的 `type` 为 `preset`（`id` 使用上述预设目录）、`file`（`path`，可选 `sandbox_id` / `resource_id`，与 `file_read` 路径规则一致）或 `clear`。省略字段保持不变，拒绝 `null`、未知参数、外部 URL 和 Base64。工具对象由执行身份确定，不接收 `assistant_id`。
+内置 `profile_update` 接收可选 `name`、`status`、`avatar` 和必填 `expected_version`；至少提供名称、状态或头像之一。头像对象的 `type` 为 `preset`（`id` 使用上述预设目录）、`file`（`path`，可选 `sandbox_id` / `resource_id`，与 `file_read` 路径规则一致）或 `clear`。省略字段保持不变，拒绝 `null`、未知参数、外部 URL 和 Base64。工具对象由执行身份确定，不接收 `assistant_id`。
 
-`assistant.Service.UpdateSelfProfile` 校验当前助理身份并在事务中校验版本，只写 `Name` / `Avatar`，同时保存幂等回执和 `assistant.profile` 实时事件。图片读取支持本地及远程沙盒，使用原有读取授权、边界路径与符号链接检查；PNG/JPEG/WebP 限 10 MiB / 4000 万像素，由 Runtime 居中裁剪、缩放、重编码为 256 × 256 JPEG，再执行现有头像校验。处理图片不需要模型具备视觉输入能力。
+`assistant.Service.UpdateSelfProfile` 校验当前助理身份并在事务中校验版本，只写 `Name` / `Status` / `Avatar`，同时保存幂等回执和 `assistant.profile` 实时事件。图片读取支持本地及远程沙盒，使用原有读取授权、边界路径与符号链接检查；PNG/JPEG/WebP 限 10 MiB / 4000 万像素，由 Runtime 居中裁剪、缩放、重编码为 256 × 256 JPEG，再执行现有头像校验。处理图片不需要模型具备视觉输入能力。
 
-成功回执为 `{Changed, Profile: {Name, Avatar: {Type, ID?, Digest?}, Version}}`；头像摘要类型为 `initial` / `preset` / `image`，不返回图片载荷。相同内容不增加版本或发重复事件。版本冲突返回 `conflict`、`side_effects_possible=false` 和 `error.current_profile`，不自动重试。工具成功回执通过现有 operation 链路重放。
+成功回执为 `{Changed, Profile: {Name, Status, Avatar: {Type, ID?, Digest?}, Version}}`；头像摘要类型为 `initial` / `preset` / `image`，不返回图片载荷。相同内容不增加版本或发重复事件。版本冲突返回 `conflict`、`side_effects_possible=false` 和 `error.current_profile`，不自动重试。工具成功回执通过现有 operation 链路重放。
 
-所有者更新接口仍保持 owner-only；聘请、克隆及更新的名称统一去首尾空白，最多 256 个 Unicode 字符，拒绝空名和控制字符。用户手动更改名称或头像也发布 `assistant.profile`。WebUI 收到事件刷新资料；未编辑表单同步新值，有草稿的表单保留原版本，提交冲突后重新打开核对。此功能不增加公开 HTTP 写入接口或新的数据库字段。
+所有者更新接口仍保持 owner-only；聘请、克隆及更新的名称统一去首尾空白，最多 256 个 Unicode 字符，拒绝空名和控制字符。用户手动更改名称或头像也发布 `assistant.profile`。WebUI 收到事件刷新资料；未编辑表单同步新值，有草稿的表单保留原版本，提交冲突后重新打开核对。`Status` 随助理对象持久化并返回，只能由助理工具设置；创建与用户更新请求不接受此字段。状态去首尾空白，最多 256 个 Unicode 字符，不含控制字符；空字符串清空，省略保持原值。
 
 ### 助理等待原因
 

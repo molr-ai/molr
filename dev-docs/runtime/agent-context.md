@@ -134,7 +134,7 @@ Checkpoint 的私有 JSON 增加 `Current`（当前事件、执行 ID、工具�
 
 ## 当前助理资料
 
-`profile` 自动来源在每次模型请求边界读取当前助理的名称、头像摘要及资料 `Version`，随用户手动修改和 `profile_update` 成功结果更新。固定 `Source=profile`、`Scope=assistant`；自定义图片只包含类型和摘要，不把 data URL 注入上下文。使用工具时提供此版本；冲突先检查返回的 `current_profile`，不得盲目覆盖。提示词投影为 profile 来源、成功回执及冲突详情分别配置白名单。
+`profile` 自动来源在每次模型请求边界读取当前助理的名称、状态、头像摘要及资料 `Version`，随用户手动修改和 `profile_update` 成功结果更新。固定 `Source=profile`、`Scope=assistant`；自定义图片只包含类型和摘要，不把 data URL 注入上下文。使用工具时提供此版本；冲突先检查返回的 `current_profile`，不得盲目覆盖。提示词投影为 profile 来源、成功回执及冲突详情分别配置白名单。
 
 ## 本地共享文件来源
 

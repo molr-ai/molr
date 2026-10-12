@@ -18,6 +18,7 @@ const zh = {
     ],
   },
   assistantInfo: {
+    status: '状态', statusHelp: '表达此刻的心情、想法、期待，或展现助理的个性。由助理自行设置。', statusEmpty: '尚未设置',
     toolsSummary: (count: number) => `${count} 项工具`, toolGroups: { conversation: '聊天与沟通', files: '文件与工作区', plans: '计划管理', memory: '记忆', execution: '执行与授权' }, toolIdentifier: '工具名称', toolEffect: '执行影响', inputSchema: '参数结构', permissionDetails: '授权详情',
     activePermissions: '已授权资源', editPermission: '编辑权限', title: '助理信息', open: (name: string) => `查看${name}的助理信息`, overview: '概览', tools: '工具', skills: 'Skills', executions: '查看执行记录', available: '可用', unavailable: '条件未满足', configurePermissions: '配置权限', toolDetails: '工具详情', requiredActions: '所需操作', readOnly: '读取数据', writesData: '可能修改数据或发布消息', version: '版本', dependencies: '依赖工具', noTools: '当前没有可用工具', toolsHelp: '工具由 Runtime 提供。这里显示当前使用条件；每次执行仍会校验具体资源、路径和权限。Skill 的流程指引不会额外授予权限。', noSkills: '尚未分配 Skill', noSkillsHelp: '分配的工作流程与指引会显示在这里。', skillsUnsupported: '当前 Runtime 尚未支持 Skills', skillsUnsupportedHelp: '目前助理使用 Runtime 内置工具。接入 Skill 后，这里将展示已分配的流程、版本和依赖。',
     reasons: { workspace_available: '可读写助理自己的工作区；外部存储需要另外授权。', workspace_and_resources: '可读写自己的工作区，并按授权范围访问外部存储。', available: '可使用内置能力，数据范围受助理身份限制。', permission_required: '尚未获得对应资源的有效授权。', resource_unavailable: '已授权资源不可用，或不支持此操作。', scoped_resources: '仅可使用已授权的资源与范围。', task_required: '仅在助理执行具体任务时可用。', assistant_archived: '助理已离职，工具不可执行。', assistant_stopped: '助理执行已停止或暂停。' },
@@ -27,7 +28,7 @@ const zh = {
       plan_list: { name: '查看计划列表', description: '分页查看分配给当前助理的计划。' }, plan_read: { name: '读取计划', description: '查看计划内容、依赖和执行记录。' },
       plan_manage: { name: '管理计划', description: '创建、修改、删除或执行计划；一次修改可同时更新内容、时间、依赖和暂停状态。' },
 
-      profile_update: { name: '修改资料', description: '修改自己的名称和头像，支持预设、图片文件及清除头像。' },
+      profile_update: { name: '修改资料', description: '修改自己的名称、状态和头像，支持预设、图片文件及清除头像。' },
       permission_list: { name: '查询授权', description: '分别查看已获授权、可申请权限和内置能力；可申请目录不代表已获授权。' },
       permission_request: { name: '请求授权', description: '按最小权限填写资源、操作、范围、授权时间和用途，发送预填授权聊天卡片，等待用户确认。' },
       file_transfer: { name: '传输文件', description: '在本地工作电脑与明确指定的远程电脑之间上传或下载单个文件。' },
@@ -186,6 +187,7 @@ const en: typeof zh = {
     ],
   },
   assistantInfo: {
+    status: 'Status', statusHelp: 'Expresses the assistant’s current mood, thoughts, hopes, or personality. Set by the assistant itself.', statusEmpty: 'Not set',
     toolsSummary: (count: number) => `${count} tools`, toolGroups: { conversation: 'Conversation', files: 'Files and workspace', plans: 'Plans', memory: 'Memory', execution: 'Execution and permissions' }, toolIdentifier: 'Tool name', toolEffect: 'Effect', inputSchema: 'Input schema', permissionDetails: 'Permission details',
     activePermissions: 'Authorized resources', editPermission: 'Edit permission', title: 'Assistant information', open: (name: string) => `View information for ${name}`, overview: 'Overview', tools: 'Tools', skills: 'Skills', executions: 'View executions', available: 'Available', unavailable: 'Requirements not met', configurePermissions: 'Configure permissions', toolDetails: 'Tool details', requiredActions: 'Required actions', readOnly: 'Reads data', writesData: 'May modify data or publish messages', version: 'Version', dependencies: 'Required tools', noTools: 'No tools available', toolsHelp: 'Tools are provided by the Runtime. These are the current requirements; each execution still checks its resources, paths and permissions. Skill instructions do not grant additional access.', noSkills: 'No Skills assigned', noSkillsHelp: 'Assigned workflows and instructions will appear here.', skillsUnsupported: 'This Runtime does not support Skills yet', skillsUnsupportedHelp: 'Assistants currently use built-in Runtime tools. Assigned workflows, versions and dependencies will appear here when Skills are supported.',
     reasons: { workspace_available: 'Your assistant workspace is available. External storage needs separate permission.', workspace_and_resources: 'Your workspace and authorized external storage are available within their scopes.', available: 'Built-in capability, limited to the assistant’s permitted data.', permission_required: 'No valid permission for the required resource operation.', resource_unavailable: 'The authorized storage is unavailable or does not support this operation.', scoped_resources: 'Limited to authorized storage resources and paths.', task_required: 'Available only while the assistant is executing a specific task.', assistant_archived: 'This assistant is dismissed; tools cannot be executed.', assistant_stopped: 'Assistant execution is stopped or paused.' },
@@ -195,7 +197,7 @@ const en: typeof zh = {
       plan_list: { name: 'List plans', description: 'Browse plans assigned to this assistant in pages.' }, plan_read: { name: 'Read plan', description: 'Read instructions, dependencies and execution history.' },
       plan_manage: { name: 'Manage plans', description: 'Create, update, delete or execute plans. Update content, timing, dependencies and paused state together.' },
 
-      profile_update: { name: 'Update profile', description: 'Update your own name and avatar using a preset, an image file, or clearing the avatar.' },
+      profile_update: { name: 'Update profile', description: 'Update your own name, status and avatar using a preset, an image file, or clearing the avatar.' },
       permission_list: { name: 'List permissions', description: 'Inspect granted permissions, requestable choices and built-in capabilities separately. Requestable choices are not grants.' },
       permission_request: { name: 'Request permission', description: 'Apply least privilege to resources, actions, scope and authorization time, then send a prefilled permission card for user review.' },
       file_transfer: { name: 'Transfer file', description: 'Upload or download one file between the local workspace and an explicitly selected remote computer.' },

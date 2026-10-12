@@ -7,6 +7,8 @@ import (
 
 func TestProfileArguments(t *testing.T) {
 	for _, raw := range []string{
+		`{"status":"心情不错","expected_version":1}`,
+		`{"status":"","expected_version":1}`,
 		`{"avatar":{"type":"file","path":"/tmp/avatar.png"},"expected_version":1}`,
 		`{"name":"小满","expected_version":1}`,
 		`{"avatar":{"type":"preset","id":"cat"},"expected_version":1}`,
@@ -19,6 +21,8 @@ func TestProfileArguments(t *testing.T) {
 		}
 	}
 	for _, raw := range []string{
+		`{"status":null,"expected_version":1}`,
+		`{"status":123,"expected_version":1}`,
 		`{}`, `null`, `{"name":"A"}`, `{"expected_version":1}`, `{"name":null,"expected_version":1}`,
 		`{"name":"A","expected_version":0}`, `{"name":"A","expected_version":-1}`,
 		`{"name":"A","expected_version":1,"assistant_id":"other"}`,

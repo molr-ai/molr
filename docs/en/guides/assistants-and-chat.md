@@ -16,11 +16,13 @@ Assistant thinking and internal tool calls do not all enter the chat. The page d
 
 If the assistant finishes processing a user message without calling the send tool, the system privately reminds it whether it forgot to send a message, at most once per turn. The assistant can still determine that no reply is needed and remain silent; the reminder does not automatically send internal replies to the chat, nor does it bypass stop, permissions, or execution quotas.
 
-## Name and Avatar
+## Name, Avatar and Status
 
 You can directly tell the assistant "Call me Xiaoman from now on, change to a cat avatar," or send an image and say "Set this image as your avatar." The assistant modifies its own name and avatar via the built-in `profile_update`; after saving, the assistant's image in the chat title, list, and historical messages is updated synchronously. Users can still manually modify it on the assistant information page.
 
 Supports 12 presets, as well as PNG, JPEG, and WebP images (maximum 10 MiB, 40 million pixels); images are automatically center-cropped to 256 × 256. After clearing the avatar, the first character of the name is displayed. The name is limited to 256 characters, cannot be empty, and cannot contain control characters.
+
+The assistant can also set a status through `profile_update` to express its current mood, thoughts, hopes, or personality. The assistant information panel displays it as read-only. While idle, the chat header shows this text instead of “Idle”; working, dreaming, waiting, paused, stopped, and archived states still show the actual activity. Status accepts up to 256 characters with no control characters. Only the assistant can set or clear it; clearing restores “Idle”.
 
 This tool only modifies the current assistant's profile; it does not change the model, budget, permissions, or chat identity. When using images, file read permissions are still required; chat attachments are first saved to the assistant workspace. When name and avatar are submitted together, they are saved only if all succeed. Concurrent modifications prompt a version conflict and do not automatically overwrite; if there is an unsaved draft on the information page, the draft is retained. In case of conflict, close and reopen, verify the latest information, and then edit.
 

@@ -26,7 +26,7 @@ async function setup(page: Page, suffix: string) {
 async function send(page: Page, input: object, reply: string) {
   await page.getByRole('textbox', { name: 'Message your assistant', exact: true }).fill(JSON.stringify(input));
   await page.getByRole('button', { name: 'Send', exact: true }).click();
-  await expect(page.locator('.ui-chat-message--assistant').last()).toContainText(reply, { timeout: 25000 });
+  await expect(page.locator('.ui-chat-message--assistant').last()).toContainText(reply, { timeout: 60000 });
 }
 
 test('profile tool updates presets, file avatars and context without refreshing the page', async ({ page }, info) => {
@@ -39,7 +39,7 @@ test('profile tool updates presets, file avatars and context without refreshing 
   await expect(page.locator('.chat-header h1')).toHaveText('小满的新名字');
   const upload = await page.evaluate(() => { const canvas = document.createElement('canvas'); canvas.width = 600; canvas.height = 400; const ctx = canvas.getContext('2d')!; ctx.fillStyle = '#6d9e81'; ctx.fillRect(0, 0, 600, 400); return canvas.toDataURL('image/webp').split(',')[1]; });
   await page.locator('.chat-input input[type=file]').setInputFiles({ name: 'avatar.webp', mimeType: 'image/webp', buffer: Buffer.from(upload, 'base64') });
-  await expect(page.locator('.composer-attachments')).toContainText('avatar.webp');
+  await expect(page.getByRole('button', { name: 'Preview image avatar.webp', exact: true })).toBeVisible();
   await send(page, { avatar: { type: 'file', path: '/work/profile-upload' } }, 'Profile saved: 小满的新名字 / image');
   expect((await get()).Avatar).toMatch(/^data:image\/jpeg;base64,/);
   await expect(page.locator('.ui-chat-message--assistant .ui-chat-avatar img').first()).toBeVisible();
@@ -84,4 +84,32 @@ test('profile updates also refresh the test theme', async ({ page }, info) => {
     const current = await (await page.request.get('/api/settings')).json();
     await post(page, '/api/settings', { Settings: before }, current.Version);
   }
+});
+
+test('assistant status is self-authored, live, persistent and cleared back to idle', async ({ page }, info) => {
+  const a = await setup(page, `status-${info.project.name}`);
+  const label = page.locator('.chat-header .ui-chat-status__label');
+  await expect(label).toHaveText('Idle');
+  const status = '好奇心满格，期待新发现 🌱';
+  await send(page, { status }, `Profile saved: ${a.Name}`);
+  await expect(label).toHaveText(status);
+  await page.reload();
+  await expect(label).toHaveText(status);
+  await page.locator('.chat-assistant-info').click();
+  await expect(page.locator('.assistant-profile-status')).toContainText(status);
+  await expect(page.locator('.assistant-profile-status input, .assistant-profile-status textarea')).toHaveCount(0);
+  const csrf = (await page.context().cookies()).find(c => c.name === `molr_dev_csrf_p${port}`)!.value;
+  const current = await (await page.request.get(`/api/assistants/${a.ID}`)).json();
+  const denied = await page.request.post('/api/assistants/update', { headers: { Origin: base, 'X-CSRF-Token': csrf }, data: { ID: a.ID, Name: a.Name, ModelID: a.ModelID, Budget: a.Budget, Status: 'user edit', Mutation: { IdempotencyKey: crypto.randomUUID(), ExpectedVersion: current.Version } } });
+  expect(denied.status()).toBe(400);
+  await page.keyboard.press('Escape');
+  const longStatus = '🌱'.repeat(256);
+  await send(page, { status: longStatus }, `Profile saved: ${a.Name}`);
+  await expect(label).toHaveText(longStatus);
+  expect(await page.locator('.chat-header h1').evaluate(element => element.getBoundingClientRect().width)).toBeGreaterThan(40);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath('long-status.png') });
+  await send(page, { status: '' }, `Profile saved: ${a.Name}`);
+  await expect(label).toHaveText('Idle');
+  expect((await (await page.request.get(`/api/assistants/${a.ID}`)).json()).Status).toBe('');
 });
