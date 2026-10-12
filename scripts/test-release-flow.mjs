@@ -44,3 +44,32 @@ test('manifest rejects dangerous URLs, duplicate targets and mismatched channel/
     const m = fixture(); mutate(m); assert.throws(() => validateManifest(m));
   }
 });
+
+test('manifest permits extra metadata at every object level, including legacy Python requirements', () => {
+  const m = structuredClone(fixture());
+  m.description = 'Additional release metadata';
+  m.platforms[0].extra = { example: true };
+  m.platforms[0].requirements.python = '3.12';
+  assert.equal(validateManifest(m), m);
+  const directory = mkdtempSync(join(tmpdir(), 'molr-extra-manifest-'));
+  try {
+    writeCatalog([m], directory);
+    assert.deepEqual(readCatalog(directory)['stable/manifest.json'], m);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+test('manifest still requires every known field and rejects invalid requirement values', () => {
+  for (const target of [m => m, m => m.platforms[0], m => m.platforms[0].requirements]) {
+    for (const key of Object.keys(target(fixture()))) {
+      const m = structuredClone(fixture()); delete target(m)[key];
+      assert.throws(() => validateManifest(m), /Missing manifest fields/);
+    }
+  }
+  for (const value of [null, [], 'invalid']) {
+    const m = structuredClone(fixture()); m.platforms[0].requirements = value;
+    assert.throws(() => validateManifest(m), /Invalid manifest object/);
+  }
+  for (const changes of [{ systemd: 253 }, { systemd: '254' }, { cgroup: 1 }, { packages: 'bubblewrap' }, { packages: ['../invalid'] }]) {
+    const m = structuredClone(fixture()); Object.assign(m.platforms[0].requirements, changes);
+    assert.throws(() => validateManifest(m), /Invalid platform requirements/);
+  }
+});

@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, readFileSync } from 'node:fs';
-import { publishedReleases } from './release-catalog.mjs';
+import { publishedRelease, publishedReleases } from './release-catalog.mjs';
 import { nightlyVersion, releaseChannel, platforms } from './release-lib.mjs';
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
 const commit = git('rev-parse', 'HEAD');
@@ -18,8 +18,11 @@ if (process.env.RELEASE_KIND === 'nightly') {
 const channel = releaseChannel(version);
 const matrix = { include: platforms.filter(p => p.channels.includes(channel)) };
 if (!matrix.include.length) throw new Error('No supported platforms');
-const published = await publishedReleases(process.env.GITHUB_REPOSITORY);
-const existing = published.find(m => m.version === version || (channel === 'nightly' && m.channel === 'nightly' && m.commit === commit));
+let existing = await publishedRelease(process.env.GITHUB_REPOSITORY, version);
+if (!existing && channel === 'nightly') {
+  const published = await publishedReleases(process.env.GITHUB_REPOSITORY);
+  existing = published.find(m => m.channel === 'nightly' && m.commit === commit);
+}
 if (existing && existing.commit !== commit) throw new Error('Published tag identifies another commit');
 const output = { version: existing?.version || version, channel, commit, matrix: JSON.stringify(matrix), existing: String(Boolean(existing)), published_at: existing?.published_at || publishedAt };
 if (process.env.GITHUB_OUTPUT) for (const [key, value] of Object.entries(output)) appendFileSync(process.env.GITHUB_OUTPUT, `${key}=${value}\n`);

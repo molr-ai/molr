@@ -24,7 +24,7 @@ npm run preview:website
 | 部署命令 | `npx wrangler@4.45.0 deploy` |
 | 构建变量 | `NODE_VERSION=22.21.0`、`VITE_SITE_MODE=live` |
 
-发布构建命令读取公开 GitHub Releases、验证完整渠道目录，再构建官网；不依赖 GitHub CLI。Cloudflare 自己管理部署认证，GitHub 无需配置 Cloudflare Account ID／API token。普通本地构建仍使用 `npm run build:website`，不会自动联网读取发行信息。
+发布构建命令默认检查最近 100 条公开 GitHub Release 元数据，按版本号选取正式版、预发布及 nightly 各一个，下载最多三份 manifest 并验证渠道目录，再构建官网；不依赖 GitHub CLI。Cloudflare 自己管理部署认证，GitHub 无需配置 Cloudflare Account ID／API token。普通本地构建仍使用 `npm run build:website`，不会自动联网读取发行信息。`MOLR_RELEASE_SCAN_LIMIT` 可调整检查条数，Cloudflare 构建变量与 GitHub 仓库变量应保持一致；窗口内缺少的渠道不会触发历史扫描。
 
 在 Cloudflare Worker 的 Settings → Builds → Deploy Hooks 创建绑定 `main` 的 hook，将 URL 保存到 GitHub 仓库 secret `CLOUDFLARE_DEPLOY_HOOK`。`.github/workflows/website.yml` 在 release 完成后请求重新构建，并等待官网清单及安装脚本更新；main push 仍由原生仓库集成触发。详细配置、变量和重试见[发行维护](../../dev-docs/releasing/releases.md)。Runtime 按[部署指南](../../docs/deployment/README.md)独立部署。
 

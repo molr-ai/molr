@@ -33,6 +33,7 @@ jobs:
           RELEASE_KIND: ${{ inputs.kind }}
           RELEASE_TAG: ${{ inputs.ref }}
           GH_TOKEN: ${{ github.token }}
+          MOLR_RELEASE_SCAN_LIMIT: ${{ vars.MOLR_RELEASE_SCAN_LIMIT || '100' }}
   build:
     needs: prepare
     if: needs.prepare.outputs.existing != 'true'

@@ -2,26 +2,56 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
-import { channels, selectChannels, validateManifest } from './release-lib.mjs';
+import { channels, compareVersions, releaseChannel, selectChannels, validateManifest } from './release-lib.mjs';
 
-export async function publishedReleases(repository) {
+async function githubReleaseRequest(repository, path) {
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository || '')) throw new Error('GitHub owner/repository required');
-  const listed = [];
   const headers = { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'molr-release-catalog' };
   if (process.env.GH_TOKEN) headers.Authorization = `Bearer ${process.env.GH_TOKEN}`;
-  for (let page = 1; ; page++) {
-    const response = await fetch(`https://api.github.com/repos/${repository}/releases?per_page=100&page=${page}`, { headers, redirect: 'error', signal: AbortSignal.timeout(30000) });
+  return fetch(`https://api.github.com/repos/${repository}/releases${path}`, { headers, redirect: 'error', signal: AbortSignal.timeout(30000) });
+}
+
+export async function publishedReleases(repository, { limit = Number(process.env.MOLR_RELEASE_SCAN_LIMIT || 100) } = {}) {
+  if (!Number.isSafeInteger(limit) || limit < 1) throw new Error('MOLR_RELEASE_SCAN_LIMIT must be a positive safe integer');
+  const selected = Object.fromEntries(channels.map(c => [c, null]));
+  const pageSize = Math.min(limit, 100);
+  for (let page = 1, scanned = 0; scanned < limit; page++) {
+    const response = await githubReleaseRequest(repository, `?per_page=${pageSize}&page=${page}`);
     if (!response.ok) throw new Error(`GitHub release listing failed: HTTP ${response.status}`);
     const items = await response.json();
     if (!Array.isArray(items)) throw new Error('Invalid GitHub release list');
-    listed.push(...items);
-    if (items.length < 100) break;
+    for (const r of items.slice(0, limit - scanned)) {
+      if (r.draft || !r.assets?.some(a => a.name === 'manifest.json')) continue;
+      let channel;
+      try { channel = releaseChannel(r.tag_name?.startsWith('v') ? r.tag_name.slice(1) : ''); }
+      catch { continue; } // Releases outside our version protocol are not installable.
+      const previous = selected[channel];
+      if (!previous || compareVersions(r.tag_name.slice(1), previous.tag_name.slice(1)) > 0) selected[channel] = r;
+    }
+    scanned += items.length;
+    if (items.length < pageSize) break;
   }
   const releases = [];
-  for (const r of listed) {
-    if (r.draft) continue;
+  for (const r of Object.values(selected)) if (r) releases.push(await releaseManifest(repository, r));
+  return releases;
+}
+
+// Publication retries must still find an exact tag outside the website's scan window.
+export async function publishedRelease(repository, version) {
+  releaseChannel(version);
+  const response = await githubReleaseRequest(repository, `/tags/v${version}`);
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`GitHub release lookup failed: v${version}, HTTP ${response.status}`);
+  const r = await response.json();
+  if (r.draft) return null;
+  if (r.tag_name !== `v${version}`) throw new Error(`Release identity mismatch: v${version}`);
+  return releaseManifest(repository, r);
+}
+
+async function releaseManifest(repository, r) {
+  try {
     const asset = r.assets.find(a => a.name === 'manifest.json');
-    if (!asset) continue; // Releases predating this protocol are not advertised as installable.
+    if (!asset) throw new Error('Missing release asset: manifest.json');
     const response = await fetch(asset.browser_download_url, { signal: AbortSignal.timeout(30000) });
     if (!response.ok) throw new Error(`Manifest download failed: ${r.tag_name}`);
     const m = validateManifest(await response.json());
@@ -32,9 +62,10 @@ export async function publishedReleases(repository) {
       if (url !== base + name || !asset) throw new Error(`Missing release asset: ${name}`);
       if (digest && asset.digest && asset.digest !== `sha256:${digest}`) throw new Error(`Release asset digest mismatch: ${name}`);
     }
-    releases.push(m);
+    return m;
+  } catch (error) {
+    throw new Error(`Release ${r.tag_name}: ${error.message}`, { cause: error });
   }
-  return releases;
 }
 
 export async function verifyChannelDownloads(releases) {

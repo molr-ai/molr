@@ -16,7 +16,7 @@ Cloudflare Worker 的 Settings → Builds 使用以下设置：
 | 部署命令 | `npx wrangler@4.45.0 deploy` |
 | 构建变量 | `NODE_VERSION=22.21.0`、`VITE_SITE_MODE=live` |
 
-平台安装 npm 依赖后执行构建命令。它读取公开 GitHub Releases，验证下载链接，生成独立临时渠道目录，再构建官网。无需预装 `gh` 或手工提供 Cloudflare 部署 token；部署认证由 Workers Builds 管理。仓库默认 `molr-ai/molr`，fork 可设置 Cloudflare 构建变量 `MOLR_RELEASE_REPOSITORY`；公开发行信息默认匿名读取，如果遇到 GitHub API 限流，可在 Cloudflare 构建 secrets 中提供只读 `GH_TOKEN`。
+平台安装 npm 依赖后执行构建命令。它读取公开 GitHub Releases 的近期元数据，选择各类最新版本、验证下载链接，生成独立临时渠道目录，再构建官网。无需预装 `gh` 或手工提供 Cloudflare 部署 token；部署认证由 Workers Builds 管理。仓库默认 `molr-ai/molr`，fork 可设置 Cloudflare 构建变量 `MOLR_RELEASE_REPOSITORY`；公开发行信息默认匿名读取，如果遇到 GitHub API 限流，可在 Cloudflare 构建 secrets 中提供只读 `GH_TOKEN`。
 
 默认发布源是 `https://molr.ai/releases`，使用其他域名时，在 Cloudflare 构建变量与 GitHub 仓库变量中同步设置 `MOLR_RELEASE_URL`，指向同一 Worker 的 `/releases` 路径。按现有 [`wrangler.jsonc`](../../wrangler.jsonc) 将 `molr` Worker 绑定官网域名。
 
@@ -41,7 +41,7 @@ CI 与发布使用同一个 `prepare-sandbox` action 准备 runner。Ubuntu 启�
 
 根 `package.json` 的 version 表示 main 当前开发周期的基础版本；进入下一周期时更新它及 lockfile 对应根版本。发布版本取自 tag，不要求修改内部 workspace 包版本。nightly 的日期、无前导零的 UTC 时分秒数字和 commit 由脚本生成，满足 SemVer；同基础版本顺序为 nightly、beta、rc、正式版。主分支不能使用 `-dev` 等版本作为基础版本。
 
-正式版、beta 和 rc 的 tag 必须指向 main 历史内的 commit。推送 tag 触发 Release workflow；手动入口接受已有 tag，适合重试。Nightly 每日 UTC 19:17（北京时间次日 03:17）执行，也可手动运行。GitHub 调度可能延迟；相同 commit 已成功发布 nightly 时跳过重复构建，但仍可修复官网部署。
+正式版、beta 和 rc 的 tag 必须指向 main 历史内的 commit。推送 tag 触发 Release workflow；手动入口接受已有 tag，适合重试。Nightly 每日 UTC 19:17（北京时间次日 03:17）执行，也可手动运行。GitHub 调度可能延迟；相同版本已发布，或近期最高 nightly 版本对应同一 commit 时跳过重复构建，但仍可修复官网部署。
 
 ## 发布步骤与失败恢复
 
@@ -51,9 +51,13 @@ CI 与发布使用同一个 `prepare-sandbox` action 准备 runner。Ubuntu 启�
 
 发布附件包含两个架构包及 SHA-256、经过源码发布检查的源码包、安装脚本快照及 SHA-256、`manifest.json`。版本和附件保持不可变。已有同名附件时只接受摘要相同的内容，不覆盖；已完成发布的同 commit 版本直接跳过构建。草稿上传失败可重新运行原工作流的失败任务，复用构建 artifacts；重新完整运行会校验已存在附件，存在差异时需要检查原因或使用新版本。RC 转正式版使用新的正式版 tag 和构建。
 
-`release-catalog.mjs` 从全部已发布、带有效 manifest 的 GitHub Releases 重建目录，忽略草稿。按 SemVer 选择 stable、preview、nightly；发布完成顺序不会让旧版本覆盖新版本。正式版可被 preview 订阅者发现，nightly 不能进入其他渠道。
+`release-catalog.mjs` 默认只检查 GitHub 列表前 100 条 Release 元数据，忽略草稿、没有 manifest 附件或版本号不符合协议的条目。在此范围内按 SemVer 选出正式版、beta／rc、nightly 各一个最高版本，再下载并校验最多三份 `manifest.json`；不会下载安装包内容，下载链接只用 HEAD 检查。未选中的历史 manifest 不参与校验；选中版本校验失败时报告版本号并停止，不静默回退。正式版仍可进入 preview 渠道，nightly 不能进入其他渠道。
 
-官网由 Cloudflare 从 main 构建，每次构建重新收集完整发行目录并部署静态资源，包括 `/install.sh`、`/releases/catalog.json`、各渠道 manifest 和 Runtime 使用的 `latest-<平台>.json`、历史 `/releases/versions/<版本>.json`。这些可变入口使用 `Cache-Control: no-cache`。安装包仍从 GitHub 下载，不上传到 Worker。部署失败保留此前整个站点和渠道目录；检查 Cloudflare 构建日志，修复构建配置、hook 或网络后单独重跑 website workflow。
+用正整数环境变量 `MOLR_RELEASE_SCAN_LIMIT` 调整检查条数 N；每页最多 100 条，最多请求 `ceil(N / 100)` 页，最后一页超出 N 的条目不参与筛选。Cloudflare 构建变量和 GitHub 仓库同名变量应保持一致，website workflow 默认使用 100。范围内缺少某类版本时不再扫描更早记录，因此长期未更新的渠道可能为空（preview 仍按原规则接受正式版）。发布重试按确切 tag 查询，不受官网窗口限制。
+
+Manifest 的顶层、平台条目及 requirements 必须包含规定字段，并通过字段值校验；额外字段不影响校验，原样保留在版本快照中。
+
+官网由 Cloudflare 从 main 构建，每次构建生成所选版本的发行目录并部署静态资源，包括 `/install.sh`、`/releases/catalog.json`、各渠道 manifest 和 Runtime 使用的 `latest-<平台>.json`、所选版本的 `/releases/versions/<版本>.json`。官网不再保存所有历史版本的清单；未入选版本从 GitHub Releases 下载归档和校验文件后离线安装。上述入口使用 `Cache-Control: no-cache`。安装包仍从 GitHub 下载，不上传到 Worker。部署失败保留此前整个站点和渠道目录；检查 Cloudflare 构建日志，修复构建配置、hook 或网络后单独重跑 website workflow。
 
 官网首屏使用带标题栏的终端窗口展示 stable 安装命令，复制按钮位于框内，上方平台 tab 只显示已支持的 Linux；更多平台和版本入口跳转到底部安装区。无论开发或部署环境，展示与复制的命令固定使用 `https://molr.ai/install.sh`；stable 省略默认渠道参数，preview／nightly 显式指定渠道，均获取所选渠道最新版。命令不携带发布源或版本参数；自定义发布源及指定版本的用法在安装文档中提供。
 

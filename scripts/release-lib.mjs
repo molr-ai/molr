@@ -32,19 +32,21 @@ export function httpsURL(value) {
   if (url.protocol !== 'https:' || url.username || url.password || url.hash) throw new Error('HTTPS public URL required');
   return url.href;
 }
-function exactKeys(value, keys) {
-  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).sort().join(',') !== keys.sort().join(',')) throw new Error('Unexpected manifest fields');
+function requiredKeys(value, keys, path) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`Invalid manifest object: ${path}`);
+  const missing = keys.filter(key => !Object.hasOwn(value, key));
+  if (missing.length) throw new Error(`Missing manifest fields at ${path}: ${missing.join(', ')}`);
 }
 export function validateManifest(m) {
-  exactKeys(m, ['schema', 'version', 'channel', 'commit', 'published_at', 'notes_url', 'installer_url', 'installer_sha256', 'platforms']);
+  requiredKeys(m, ['schema', 'version', 'channel', 'commit', 'published_at', 'notes_url', 'installer_url', 'installer_sha256', 'platforms'], 'manifest');
   const channel = releaseChannel(m.version);
   if (m.schema !== 1 || m.channel !== channel || !/^[0-9a-f]{40}$/.test(m.commit) || !Number.isFinite(Date.parse(m.published_at)) || !Array.isArray(m.platforms) || !m.platforms.length) throw new Error('Invalid release manifest');
   httpsURL(m.notes_url); httpsURL(m.installer_url);
   if (!/^[0-9a-f]{64}$/.test(m.installer_sha256)) throw new Error('Invalid installer checksum');
   const seen = new Set();
-  for (const p of m.platforms) {
-    exactKeys(p, ['id', 'os', 'arch', 'label', 'aliases', 'requirements', 'file', 'sha256', 'url', 'checksum_url']);
-    exactKeys(p.requirements, ['systemd', 'cgroup', 'packages']);
+  for (const [index, p] of m.platforms.entries()) {
+    requiredKeys(p, ['id', 'os', 'arch', 'label', 'aliases', 'requirements', 'file', 'sha256', 'url', 'checksum_url'], `platforms[${index}]`);
+    requiredKeys(p.requirements, ['systemd', 'cgroup', 'packages'], `platforms[${index}].requirements`);
     const r = p.requirements;
     if (!Number.isInteger(r.systemd) || r.systemd < 254 || r.cgroup !== 2 || !Array.isArray(r.packages) || r.packages.some(n => typeof n !== 'string' || !/^[a-z0-9][a-z0-9+.-]*$/.test(n))) throw new Error('Invalid platform requirements');
     if (!/^[a-z0-9]+-[a-z0-9]+$/.test(p.id) || p.id !== `${p.os}-${p.arch}` || seen.has(p.id) || !Array.isArray(p.aliases) || !p.aliases.length || p.aliases.some(a => !/^[a-z0-9_]+$/.test(a))) throw new Error('Invalid release platform');

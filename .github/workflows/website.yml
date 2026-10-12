@@ -22,6 +22,7 @@ jobs:
         run: npm run release:catalog
         env:
           GH_TOKEN: ${{ github.token }}
+          MOLR_RELEASE_SCAN_LIMIT: ${{ vars.MOLR_RELEASE_SCAN_LIMIT || '100' }}
       - name: Ask Cloudflare Workers Builds to rebuild main
         run: node scripts/trigger-website.mjs
         env:

@@ -33,6 +33,8 @@ sh install.sh --archive /path/package.tar.gz
 
 An adjacent `package.tar.gz.sha256` is required. Running an extracted package needs no network when system dependencies are prepared. SHA-256 verifies downloaded content; it is not an independent publisher signature.
 
+The website source contains manifests only for the stable, prerelease and nightly versions selected from recent releases. `--version` must name a version in the current catalog. For other historical versions, download the archive and SHA-256 file from GitHub Releases and use the offline installation steps above.
+
 ## Interactive and unattended installation
 
 A controlling terminal enables interaction by default. The installer displays paths, account, dependencies and permissions before confirmation. Modes can be selected explicitly:
