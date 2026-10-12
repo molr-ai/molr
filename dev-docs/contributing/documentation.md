@@ -7,8 +7,11 @@
 | 位置 | 维护内容 |
 | --- | --- |
 | `docs/guides/` | 普通用户的操作、结果与功能边界 |
+| `docs/models/` | 模型提供商连接、能力、价格与凭证管理 |
+| `docs/chat-channels/` | 第三方聊天入口的连接、使用与解绑 |
+| `docs/sandbox/` | 沙盒资源管理、本机隔离与远程节点部署 |
 | `docs/best-practices/` | 按场景组织的工具接入、委托示例与验证方法 |
-| `docs/administration/` | 管理员配置资源、用户组与插件 |
+| `docs/administration/` | 管理员配置用户、用户组与插件 |
 | `docs/deployment/` | 主机安装、配置、依赖、服务与灾备 |
 | `dev-docs/architecture/` | 系统组成、模块职责与技术选择 |
 | `dev-docs/runtime/` | 执行、上下文、记忆与模型机制 |

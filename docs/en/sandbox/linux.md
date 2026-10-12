@@ -1,10 +1,10 @@
 # Linux Sandbox Deployment
 
-This page is for deployers, explaining the dependencies, resource boundaries, and verification methods required for Linux command isolation. For daily operations, see [Files and Commands](../guides/files-and-commands.md). For administrator integration, see [Sandbox Resources](../administration/sandbox-resources.md).
+This page is for deployers, explaining the dependencies, resource boundaries, and verification methods required for Linux command isolation. For daily operations, see [Files and Commands](../guides/files-and-commands.md). For administrator integration, see [Sandbox Resources](resources.md).
 
 ## Installation and Startup
 
-`molr-setup` installs a user service by default; root can use `--user USER` for a system service. Runtime and sandbox use the same regular account. `--install-deps` authorizes system dependency preparation. See [installation](installation.md#selecting-the-runtime-account-during-installation).
+`molr-setup` installs a user service by default; root can use `--user USER` for a system service. Runtime and sandbox use the same regular account. `--install-deps` authorizes system dependency preparation. See [installation](../deployment/installation.md#selecting-the-runtime-account-during-installation).
 
 The current automatic installation path targets Linux systems with systemd 254+. Starting via standard commands requires an accessible systemd user manager, while installing as a service includes built-in execution resource delegation. On systems or restricted containers that do not support these conditions, features like chat still run, but command execution displays that the current system is unavailable, without degrading to non-isolated execution. Existing distroless Docker images do not yet include this automatic command environment, so container deployments should not claim default Shell support.
 
@@ -17,7 +17,7 @@ file /path/molr
 go version -m /path/molr
 ```
 
-Check that the final binary is statically linked, build information is `CGO_ENABLED=0`, and permissions are `0755`. Start via a systemd user or system service with delegation, setting `Type=exec`, `Delegate=yes`, `DelegateSubgroup=supervisor`, and `KillMode=control-group`. For complete startup and verification steps, see [Installation and Service Management](installation.md). The installation script defaults to `molr.service`. For multi-instance acceptance testing, use `--name molr-<名称>` and assign independent ports, configurations, and data directories.
+Check that the final binary is statically linked, build information is `CGO_ENABLED=0`, and permissions are `0755`. Start via a systemd user or system service with delegation, setting `Type=exec`, `Delegate=yes`, `DelegateSubgroup=supervisor`, and `KillMode=control-group`. For complete startup and verification steps, see [Installation and Service Management](../deployment/installation.md). The installation script defaults to `molr.service`. For multi-instance acceptance testing, use `--name molr-<名称>` and assign independent ports, configurations, and data directories.
 
 Normal configurations can completely omit the `sandbox` object. `configs/sandbox.example.json` only shows optional execution limits and no longer requires filling in paths.
 
@@ -51,7 +51,7 @@ Deployers first use `nvidia-smi --query-gpu=uuid,name --format=csv` to view hard
 
 Example UUIDs must be replaced with actual hardware UUIDs. Adding or replacing devices does not automatically expand existing authorizations. After restarting, check GPU status in "Resources → Sandbox → Compute". Startup probes verify CUDA contexts, memory read/write, and in-execution IPC within the isolated environment. GPU unavailability does not affect normal compute without GPU authorization.
 
-Administrators assign device scopes according to [Sandbox Resource Management](../administration/sandbox-resources.md), and users then [approve assistant GPU permissions](../guides/permissions-and-budget.md#gpu-authorization). Replacing devices does not expand existing authorizations. Changes to compute authorization stop affected tasks.
+Administrators assign device scopes according to [Sandbox Resource Management](resources.md), and users then [approve assistant GPU permissions](../guides/permissions-and-budget.md#gpu-authorization). Replacing devices does not expand existing authorizations. Changes to compute authorization stop affected tasks.
 
 GPU access is shared. It does not reserve memory, guarantee compute power, or increase the quota for the number of GPU tasks. Normal executions continue to count towards existing concurrency limits. The total memory displayed in the interface is hardware information. Full Access accesses the system with original direct execution semantics and is not constrained by normal GPU authorization scopes.
 
@@ -183,7 +183,7 @@ No Debian tool image is required, and `/usr` or personal software environments a
 }
 ```
 
-The sandbox inherits the Runtime's host identity. The installer defaults to the current user; after selecting an account via `sudo … --user USER`, the entire Runtime's file operations, background tasks, and sandbox use that user. Existing accounts retain their group permissions; newly created accounts have no additional groups. See [Selecting the Running Account During Installation](installation.md#selecting-the-runtime-account-during-installation) for installation parameters and the automatic account creation process. Local execution does not require a separate `molr-sandbox` service.
+The sandbox inherits the Runtime's host identity. The installer defaults to the current user; after selecting an account via `sudo … --user USER`, the entire Runtime's file operations, background tasks, and sandbox use that user. Existing accounts retain their group permissions; newly created accounts have no additional groups. See [Selecting the Running Account During Installation](../deployment/installation.md#selecting-the-runtime-account-during-installation) for installation parameters and the automatic account creation process. Local execution does not require a separate `molr-sandbox` service.
 
 When `host_tools: false` is set or omitted, directly started Runtimes retain a minimal BusyBox environment; the installer defaults to enabling host tools during the first installation when there is no custom rootfs. The service account is determined by deployment and cannot be switched via sandbox configuration.
 
@@ -253,7 +253,7 @@ Do not bypass issues by disabling isolation, increasing write permissions, or ch
 
 See [Sandbox Development Documentation](../../../dev-docs/en/security/sandbox.md) for real isolation tests and implementation boundaries. Include `sandbox/work` managed by the Runtime when backing up; database snapshots do not include these files.
 
-See [Independent Sandbox Service](remote-sandbox.md) for deployment, connection, and recovery semantics of independent remote sandboxes. `sandbox.enabled: false` disables the built-in local sandbox and does not affect connected remote sandboxes.
+See [Independent Sandbox Service](remote.md) for deployment, connection, and recovery semantics of independent remote sandboxes. `sandbox.enabled: false` disables the built-in local sandbox and does not affect connected remote sandboxes.
 
 ## Forwarding Listen Addresses
 

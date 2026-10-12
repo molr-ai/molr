@@ -44,12 +44,19 @@ export async function checkDocs({ browser, url, outDir, screenshots }) {
       await expect(page.getByRole('heading', { level: 1 })).toHaveText('未找到文档');
     }
     await page.goto(`${url}/zh/dev-docs/`);
+    await page.getByRole('button', { name: '搜索文档', exact: true }).click();
     await page.getByRole('searchbox', { name: '搜索文档' }).fill('候选试点');
-    await expect(page.getByRole('status')).toContainText('没有找到');
+    await expect(page.getByRole('navigation', { name: '搜索结果' }).getByRole('status')).toContainText('没有找到');
     await page.getByRole('searchbox', { name: '搜索文档' }).fill('');
+    await page.keyboard.press('Escape');
     await checkClientNavigation(page, url);
     await checkLanguageNavigation(page, url);
     await page.goto(`${url}/zh/docs/getting-started/`);
+    await expect(page.locator('.docs-prose .docs-warning')).toHaveCount(2);
+    await expect(page.locator('.docs-prose .docs-warning').first()).toContainText('破坏性变更');
+    await expect(page.locator('.docs-prose .docs-warning').last()).toContainText('直接暴露到公网');
+    await expect(page.locator('.docs-prose')).not.toContainText('[!WARNING]');
+    await expect(page.locator('.docs-prose')).not.toContainText('<!-- -->');
     await page.getByRole('link', { name: '部署说明', exact: true }).last().click();
     await expect(page).toHaveURL(/\/docs\/deployment\/configuration\/#/);
     await expect(page.locator('#模型网络与价格配置')).toBeInViewport();
@@ -57,15 +64,17 @@ export async function checkDocs({ browser, url, outDir, screenshots }) {
     await expect(page.locator('#模型网络与价格配置')).toBeInViewport();
     await page.goBack();
     await expect(page.getByRole('heading', { level: 1, name: '快速开始', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: '搜索文档', exact: true }).click();
     await page.getByRole('searchbox', { name: '搜索文档' }).fill('Bubblewrap');
     await expect(page.getByRole('navigation', { name: '搜索结果' }).getByRole('link')).toHaveCount(3);
     await page.getByRole('searchbox', { name: '搜索文档' }).fill('no-such-doc-123');
-    await expect(page.getByRole('status')).toContainText('没有找到');
+    await expect(page.getByRole('navigation', { name: '搜索结果' }).getByRole('status')).toContainText('没有找到');
     await page.getByRole('searchbox', { name: '搜索文档' }).fill('');
+    await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Switch to English', exact: true }).click();
     await expect(page).toHaveURL(`${url}/en/docs/getting-started/`);
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-    await expect(page.getByRole('searchbox', { name: 'Search documentation' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Search documentation', exact: true })).toBeVisible();
     await expect(page.locator('.docs-language-note')).toHaveCount(0);
     await page.getByRole('button', { name: 'Switch to dark mode', exact: true }).click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
@@ -113,14 +122,18 @@ async function checkClientNavigation(page, url) {
     await expect(page.locator('#main')).toBeFocused();
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
 
+    await page.getByRole('button', { name: '搜索文档', exact: true }).click();
     const search = page.getByRole('searchbox', { name: '搜索文档' });
     await search.fill('Bubblewrap');
     await page.getByRole('navigation', { name: '搜索结果' }).getByRole('link', { name: '安装与服务管理', exact: true }).click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('安装与服务管理');
+    await expect(page.getByRole('dialog')).not.toBeVisible();
+    await page.getByRole('button', { name: '搜索文档', exact: true }).click();
     await expect(search).toHaveValue('Bubblewrap');
     await expect(page).toHaveTitle('安装与服务管理 · Molr Docs');
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://molr.ai/zh/docs/deployment/installation/');
     await search.fill('');
+    await page.keyboard.press('Escape');
 
     const sandboxLink = page.getByRole('link', { name: '沙盒检查', exact: true });
     await sandboxLink.scrollIntoViewIfNeeded();
@@ -189,13 +202,17 @@ async function checkLanguageNavigation(page, url) {
   await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
   await page.goForward();
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  await page.getByRole('button', { name: 'Search documentation', exact: true }).click();
   await page.getByRole('searchbox', { name: 'Search documentation' }).fill('Bubblewrap');
   const results = page.getByRole('navigation', { name: 'Search results' }).getByRole('link');
   assert(await results.count() > 0);
   assert(await results.evaluateAll(links => links.every(link => link.pathname.startsWith('/en/docs/'))));
   await results.first().click();
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+  await page.getByRole('button', { name: 'Search documentation', exact: true }).click();
   await expect(page.getByRole('searchbox', { name: 'Search documentation' })).toHaveValue('Bubblewrap');
   await page.getByRole('searchbox', { name: 'Search documentation' }).fill('');
+  await page.keyboard.press('Escape');
   await page.getByRole('button', { name: '切换到中文', exact: true }).click();
   await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
 

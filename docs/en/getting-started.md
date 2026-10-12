@@ -1,6 +1,14 @@
 # Quick Start
 
-From installing Molr to completing your first delegation. If you already have an accessible service, start directly with [Login](#login); for public-facing or long-running production deployments, see [Deployment and Maintenance](deployment/README.md).
+> [!WARNING]
+> **Project status:** Molr is under active development and has no stable release yet. You may encounter instability, and future versions may introduce breaking changes.
+
+<!-- -->
+
+> [!WARNING]
+> **Network access:** Exposing the Molr service directly to the public internet is not currently recommended. Use it in a secure network environment, such as a trusted local network.
+
+From installing Molr to completing your first delegation. If you already have an accessible service, start directly with [Login](#login); for long-running services and maintenance configuration, see [Deployment and Maintenance](deployment/README.md).
 
 ## Install Molr
 
@@ -30,7 +38,7 @@ Language and timezone are determined by browser settings. During installation, t
 
 If the initial password was not retained or has been changed, enter the current password via `-password-stdin`; if MFA is enabled, `-mfa-code` is also required. Re-running the installation preserves the original configuration, accounts, and data, without resetting passwords or recreating the assistant.
 
-LAN can use HTTP without certificates. HTTP does not encrypt passwords, sessions, or messages, and is suitable for trusted networks; public networks must continue to use HTTPS. Browser capabilities such as system notifications may require HTTPS, but in-page reminders remain usable.
+LAN can use HTTP without certificates. HTTP does not encrypt passwords, sessions, or messages, and is only suitable for trusted networks. For HTTPS configuration, see [Deployment and Maintenance](deployment/README.md). Browser capabilities such as system notifications may require HTTPS, but in-page reminders remain usable.
 
 ### Auto-Discovery of Local Models
 
@@ -70,4 +78,4 @@ Attachment sending, model replies, or tool operations may fail; pay attention to
 
 View related executions and artifacts in the chat and "Plans"; existing deliverables can be downloaded, and task revisions retain historical versions. Receiving a reply does not mean that materials have been modified or tasks have been accepted; verify the actual results and explicit completion status.
 
-If the assistant needs to read external directories, connect to that directory and grant scope; if command execution is needed, additionally grant execution permissions for the ready compute environment. For operation paths, see [Assistants, Chats, and Plans](guides/assistants-and-chat.md) and [Linux Command Environment](deployment/sandbox.md).
+If the assistant needs to read external directories, connect to that directory and grant scope; if command execution is needed, additionally grant execution permissions for the ready compute environment. For operation paths, see [Assistants, Chats, and Plans](guides/assistants-and-chat.md) and [Linux Command Environment](sandbox/linux.md).

@@ -6,7 +6,7 @@ Administrators connect resources and assign available scopes via user groups; wi
 
 Set the default model for the current account in "Resources → Models → More (top right) → Default Model", or select "None". When hiring a new assistant, this model is pre-selected by priority; models specified individually for an assistant take precedence. Hiring only authorizes the selected model and does not override other models from the same provider.
 
-For steps on how administrators connect models, see [Connecting and Managing Models](../administration/models.md).
+For steps on how administrators connect models, see [Connecting and Managing Models](../models/README.md).
 
 ## Browsing Tools
 
@@ -16,7 +16,7 @@ Browse tools by purpose such as chat, files, and planning in "Resources → Tool
 
 The authorization form first requires selecting the resource type "Model / Tool / Sandbox". After selecting Sandbox, select the specific sandbox and permission type "Storage / Compute / Network / Full Access". Storage continues by selecting storage resources and paths, Network continues by selecting network scopes, and Compute requires filling in compute quotas. If deployment allows Full Access, you can select "Full Access". Regular user groups also require explicit administrator permission to grant this privilege. It allows assistants to explicitly choose non-isolated file and command invocations without resource limits; unselected invocations continue to follow original permissions. The same resource can retain both regular compute authorization and Full Access authorization simultaneously, with separate validity periods, modifications, and revocations.
 
-When selecting Full Access, do not fill in quotas, and do not separately grant directory and network permissions. See [Full Access Deployment and Execution Semantics](../deployment/sandbox.md#granting-full-access-on-demand) for details.
+When selecting Full Access, do not fill in quotas, and do not separately grant directory and network permissions. See [Full Access Deployment and Execution Semantics](../sandbox/linux.md#granting-full-access-on-demand) for details.
 
 ## Assistant Requesting Authorization
 

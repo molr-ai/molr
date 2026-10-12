@@ -20,7 +20,15 @@
 
 Molr 是可自托管的个人 AI 助理，在你自己的设备上运行，连接你选择的模型。你可以通过桌面或手机浏览器，用持续对话交代任务，以计划推进执行，并在同一处查看进展与交付结果。每位助理的记忆、资料访问权限和预算都由你管理。
 
-> **项目状态：** 正在开发中，尚未发布稳定版。当前提供真实可用的 WebUI 与 Go Runtime；UI Design 使用模拟数据展示交互，独立原生客户端尚未发布。
+> [!WARNING]
+> **项目状态：** Molr 仍处于开发阶段，尚未发布稳定版，可能存在不稳定行为，后续版本也可能包含破坏性变更。
+
+<!-- -->
+
+> [!WARNING]
+> **使用环境：** 目前不建议将 Molr 服务直接暴露到公网，请在可信局域网等安全网络环境中使用。
+
+当前提供真实可用的 WebUI 与 Go Runtime；UI Design 使用模拟数据展示交互，独立原生客户端尚未发布。
 
 ## 功能亮点
 
@@ -65,7 +73,7 @@ bash scripts/install.sh --archive dist/releases/molr_0.1.0-local_linux_amd64.tar
 | [资源、权限与预算](docs/guides/permissions-and-budget.md) | 模型连接、资料范围、授权与费用 |
 | [插件](docs/guides/plugins-and-skills.md) | HTTP 工具、主题与页面扩展 |
 | [架构总览](docs/concepts.md) | 组件构成、执行链路与数据存放 |
-| [Linux 命令环境](docs/deployment/sandbox.md) | 沙盒依赖、运行限制与能力检查 |
+| [Linux 命令环境](docs/sandbox/linux.md) | 沙盒依赖、运行限制与能力检查 |
 | [开发文档](dev-docs/README.md) | 实现说明、接口、品牌与协作规范 |
 
 ## 参与开发

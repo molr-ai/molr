@@ -403,7 +403,7 @@ WebUI 采用「资源类型：沙盒 → 选择沙盒 → 权限类型：存储�
 
 启用后，`POST /api/resources` 支持 `Kind: "compute", Provider: "local-sandbox", Binding: {}` 和 `Kind: "network", Provider: "sandbox-network", Binding: {"SandboxTarget": "部署目标名"}`。它们支持 `execute` 授权；目标不能由 WebUI 自行增加。存储仍使用 `local-directory`，默认按存储资源和助理授权直接挂载；部署者可通过 `sandbox.restrict_directories` 启用额外目录白名单。
 
-内置 `permission_list` 是与 Shell 开关独立的授权与可申请权限查询，返回 `Resources`（`Grants` 中的有效授权 ID、操作、范围和有效期，资源内路径或模型范围、各操作可用性与原因、稳定 `ShellPath`）、`Requestable`（可申请资源的安全描述，不是授权）和 `BuiltInStorage`（Runtime 提供的助理工作区与本次执行临时目录）。网络资源在 `Resources` 与 `Requestable` 中提供 `Network`：当前目标地址、端口、协议及排除项，系统限制、回环访问方法和执行网络限额；离线或来源丢失时 `Known=false`，不按名称猜测范围。资源路径 `/` 不是宿主根目录。文件工具与 Shell 共用存储授权及部署目录限制，Shell 仍需额外计算授权；查询不是授权凭证。`shell_execute` 使用现有 Agent 工具调用链和操作回执，不直接发布聊天消息。助理信息页通过原有 capabilities 接口显示工具状态。部署条件与语义见 [Sandbox 使用说明](../../docs/deployment/sandbox.md)。
+内置 `permission_list` 是与 Shell 开关独立的授权与可申请权限查询，返回 `Resources`（`Grants` 中的有效授权 ID、操作、范围和有效期，资源内路径或模型范围、各操作可用性与原因、稳定 `ShellPath`）、`Requestable`（可申请资源的安全描述，不是授权）和 `BuiltInStorage`（Runtime 提供的助理工作区与本次执行临时目录）。网络资源在 `Resources` 与 `Requestable` 中提供 `Network`：当前目标地址、端口、协议及排除项，系统限制、回环访问方法和执行网络限额；离线或来源丢失时 `Known=false`，不按名称猜测范围。资源路径 `/` 不是宿主根目录。文件工具与 Shell 共用存储授权及部署目录限制，Shell 仍需额外计算授权；查询不是授权凭证。`shell_execute` 使用现有 Agent 工具调用链和操作回执，不直接发布聊天消息。助理信息页通过原有 capabilities 接口显示工具状态。部署条件与语义见 [Sandbox 使用说明](../../docs/sandbox/linux.md)。
 
 Runtime 启动时自动准备并探测命令环境，自动登记本机计算资源，不自动给助理授权。`Capabilities.DiskProtection` 当前为 `file_limit_and_free_space_guard`，表示单文件硬上限与磁盘低水位保护，不代表目录总容量硬配额。
 

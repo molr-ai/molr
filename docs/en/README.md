@@ -13,8 +13,22 @@ Molr is a self-hostable personal AI assistant. Connect to your chosen models, de
 - [Memory & Auto-Organization](guides/memory.md): View, edit, confirm, or forget memories.
 - [Permissions & Budget](guides/permissions-and-budget.md): Approve resource scopes, set quotas, and revoke authorizations.
 - [Files & Commands](guides/files-and-commands.md): Workspaces, background tasks, terminals, and temporary services.
-- [WeChat Chat Entry](guides/weixin.md), [Plugins & Skills](guides/plugins-and-skills.md): Use connected channels and extensions.
+- [Plugins & Skills](guides/plugins-and-skills.md): Use installed plugins and skills.
 - [Personal Settings](guides/settings.md), [Account Security](guides/account-security.md): Appearance, reminders, passwords, and login devices.
+
+## Connect Models
+
+- [Connect and Manage Models](models/README.md): Connect model providers and configure model capabilities, pricing, and credentials.
+
+## Connect Chat Channels
+
+- [WeChat Chat Entry](chat-channels/weixin.md): Connect WeChat to chat with an assistant, manage the connection, and disconnect.
+
+## Sandbox
+
+- [Manage Sandbox Resources](sandbox/resources.md): Connect execution hosts and add storage, compute, and network resources.
+- [Linux Sandbox Deployment](sandbox/linux.md): Prepare local dependencies and configure isolation, GPU access, and network scopes.
+- [Standalone Linux Sandbox Service](sandbox/remote.md): Deploy a remote execution node and connect it to Molr.
 
 ## Best Practices
 
@@ -22,7 +36,7 @@ Start with the [Best Practices Overview](best-practices/README.md) to prepare to
 
 ## Managing Instances
 
-Administrators first [connect models](administration/models.md) and [configure sandbox resources](administration/sandbox-resources.md), then assign member availability scopes via [Users & User Groups](administration/users-and-groups.md). For plugin installation, enabling, and shared connections, see [Plugin Management](administration/plugins.md).
+Administrators manage members and allocate available resources through [Users & User Groups](administration/users-and-groups.md). For plugin installation, enabling, and shared connections, see [Plugin Management](administration/plugins.md).
 
 ## Deployment & Maintenance
 

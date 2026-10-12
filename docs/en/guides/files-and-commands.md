@@ -19,7 +19,7 @@ Chat results in global search enter the corresponding assistant, automatically l
 3. Grant network permissions separately when internet access is needed. Allowing command execution does not automatically grant network or model key access.
 4. Specify the goal, input files, and expected outputs in the chat. If permissions are insufficient, review the assistant's request and then approve the required scope.
 
-When resources are not ready, the administrator checks [Sandbox Resources](../administration/sandbox-resources.md); system dependencies are handled by the deployer. After disconnecting resources or revoking authorization, restarting does not restore authorization.
+When resources are not ready, the administrator checks [Sandbox Resources](../sandbox/resources.md); system dependencies are handled by the deployer. After disconnecting resources or revoking authorization, restarting does not restore authorization.
 
 ## Foreground Commands, Background Tasks, and Terminals
 
@@ -43,7 +43,7 @@ Running task details show forwarded ports, copy address, and an entry to open HT
 
 Forwarding entry points are located on the machine where the Runtime resides; services on remote sandboxes are also accessed through the Runtime. Each task can forward a maximum of four ports, supporting only TCP, including HTTP, WebSocket, and SSE. Other TCP services should use corresponding clients; do not treat HTTP convenience links as protocol identification results.
 
-Anyone who can connect to the address can access the service; Molr does not provide additional login verification or TLS for forwarding. This is suitable for temporary services on explicitly required trusted networks; if the application itself requires authentication, authentication should be configured first. If the address is inaccessible, the deployer checks [Forwarding Listeners and Network](../deployment/sandbox.md#forwarding-listen-addresses).
+Anyone who can connect to the address can access the service; Molr does not provide additional login verification or TLS for forwarding. This is suitable for temporary services on explicitly required trusted networks; if the application itself requires authentication, authentication should be configured first. If the address is inaccessible, the deployer checks [Forwarding Listeners and Network](../sandbox/linux.md#forwarding-listen-addresses).
 
 Closing the chat does not close background services; stopping tasks, natural completion, revoking authorization, expiration, or disconnecting the sandbox recovers ports. Forwards are not restored after restart; historical addresses are not suitable as long-term service entry points. Forwarding itself does not require outbound network authorization; service access to external APIs or downloading dependencies still requires network authorization.
 

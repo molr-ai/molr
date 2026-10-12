@@ -6,9 +6,9 @@ This page is for administrators. In "Resources → Sandbox", connect execution m
 
 Local sandboxes are built into the Runtime and do not require starting a separate service. Compute resources are automatically registered; external directories and networks are added in the corresponding sandbox partitions, and the page can only select scopes allowed by the deployment. Connecting and adding resources does not automatically grant assistant permissions.
 
-Assign sandboxes and tools via [User Groups](users-and-groups.md); members then approve directory read/write, compute, and network permissions for their own assistants. GPU devices must first be opened by the deployer, then selected in the user group's compute configuration; an empty selection means GPUs are not allowed. Full Access also requires deployment enablement and explicit administrator permission to grant it to the corresponding user groups.
+Assign sandboxes and tools via [User Groups](../administration/users-and-groups.md); members then approve directory read/write, compute, and network permissions for their own assistants. GPU devices must first be opened by the deployer, then selected in the user group's compute configuration; an empty selection means GPUs are not allowed. Full Access also requires deployment enablement and explicit administrator permission to grant it to the corresponding user groups.
 
-For deployment dependencies, GPU, and network candidate scopes, see [Linux Sandbox Deployment](../deployment/sandbox.md). For user authorization and usage, see [Permissions and Budgets](../guides/permissions-and-budget.md).
+For deployment dependencies, GPU, and network candidate scopes, see [Linux Sandbox Deployment](linux.md). For user authorization and usage, see [Permissions and Budgets](../guides/permissions-and-budget.md).
 
 ## Connect in the WebUI
 

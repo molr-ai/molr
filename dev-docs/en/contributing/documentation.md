@@ -7,8 +7,11 @@ Public documentation describes the current implementation, limitations, and repr
 | Location | Maintenance Content |
 | --- | --- |
 | `docs/guides/` | Operations, results, and feature boundaries for regular users |
+| `docs/models/` | Model provider connections, capabilities, pricing, and credentials |
+| `docs/chat-channels/` | Connecting, using, and disconnecting third-party chat channels |
+| `docs/sandbox/` | Sandbox resources, local isolation, and remote node deployment |
 | `docs/best-practices/` | Scenario guides for tool setup, example requests, and verification |
-| `docs/administration/` | Administrator configuration of resources, user groups, and plugins |
+| `docs/administration/` | Administrator configuration of users, user groups, and plugins |
 | `docs/deployment/` | Host installation, configuration, dependencies, services, and disaster recovery |
 | `dev-docs/architecture/` | System composition, module responsibilities, and technical choices |
 | `dev-docs/runtime/` | Execution, context, memory, and model mechanisms |

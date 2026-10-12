@@ -1,6 +1,6 @@
 # Connecting and Managing Models
 
-This page is for administrators. First connect a provider, then assign available models and tools to members via [User Groups](users-and-groups.md).
+This page is for administrators. First connect a provider, then assign available models and tools to members via [User Groups](../administration/users-and-groups.md).
 
 ## Connecting Providers
 

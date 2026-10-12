@@ -73,7 +73,7 @@ flowchart TD
 - Authorization can be revoked during execution; expiration of compute and storage authorization terminates related executions, while expiration of network authorization restricts corresponding connections. Remote sandboxes rely on authorization leases to stop executions that lose connection; instantaneous revocation during network partitions is not guaranteed.
 - If the runtime environment does not support isolation, command functionality is directly displayed as unavailable rather than falling back to direct execution on your computer.
 
-[Full Access](guides/permissions-and-budget.md#full-access-permissions) calls, which are openly deployed and explicitly approved by you, use the service account to execute directly and do not have the aforementioned isolation and resource limits; other calls continue to use the standard isolated path. For command environment preparation and dependencies, see [Linux Sandbox Deployment](deployment/sandbox.md).
+[Full Access](guides/permissions-and-budget.md#full-access-permissions) calls, which are openly deployed and explicitly approved by you, use the service account to execute directly and do not have the aforementioned isolation and resource limits; other calls continue to use the standard isolated path. For command environment preparation and dependencies, see [Linux Sandbox Deployment](sandbox/linux.md).
 
 ## Where Your Data is Stored
 

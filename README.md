@@ -20,7 +20,15 @@
 
 Molr is a self-hosted personal AI assistant that runs on your own device and connects to the models you choose. From a desktop or mobile browser, delegate tasks through ongoing conversations, use plans to guide execution, and review progress and deliverables in one place. You control each assistant's memory, file access permissions, and budget.
 
-> **Project status:** Under active development, with no stable release yet. The WebUI and Go Runtime are functional; UI Design uses mock data to demonstrate interactions. Standalone native clients have not been released.
+> [!WARNING]
+> **Project status:** Molr is under active development and has no stable release yet. You may encounter instability, and future versions may introduce breaking changes.
+
+<!-- -->
+
+> [!WARNING]
+> **Network access:** Exposing the Molr service directly to the public internet is not currently recommended. Use it in a secure network environment, such as a trusted local network.
+
+The WebUI and Go Runtime are functional; UI Design uses mock data to demonstrate interactions. Standalone native clients have not been released.
 
 ## Features
 
@@ -67,7 +75,7 @@ The linked product and contributor guides are currently in Simplified Chinese.
 | [Resources, permissions, and budgets](docs/guides/permissions-and-budget.md) | Model connections, file access, authorization, and costs |
 | [Plugins](docs/guides/plugins-and-skills.md) | Tools, Skills, themes, and page extensions |
 | [Architecture overview](docs/concepts.md) | Components, execution flow, and data storage |
-| [Linux command environment](docs/deployment/sandbox.md) | Sandbox dependencies, limits, and capability checks |
+| [Linux command environment](docs/sandbox/linux.md) | Sandbox dependencies, limits, and capability checks |
 | [Developer documentation](dev-docs/README.md) | Implementation, interfaces, branding, and contribution workflow |
 
 ## Contributing

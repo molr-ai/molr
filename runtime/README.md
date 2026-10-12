@@ -4,7 +4,7 @@ Go 单进程 self-host server，按 **IM / Agent / 业务** 组织，功能固�
 
 聊天只保存交互历史。真实用户消息经 IM outbox 转为 Agent 输入；定时计划生成独立事件，不伪造用户消息。Agent 首次获得事件引用及自然语言提醒，提示词要求响应前通过 `conversation_read` 读取当前全部未读消息，必要时翻页，再综合处理各条请求；不只读取触发消息或最新一条。通过 `conversation_publish` 发布文本、卡片或附件。基础提示词明确要求所有面向用户的回答、提问、进度、完成通知和错误说明都必须调用 `conversation_publish`；直接输出到 `content`（包括最终回复）对用户不可见，不会自动成为聊天消息。结束需要回复的轮次前应发送并检查发布结果；成功后不重复发送，无需通知的事件可静默结束。
 
-Full Access 可作为计算权限按需开启，同一节点保留普通隔离路径；部署配置、授权操作和语义见 [Full Access](../docs/deployment/sandbox.md#按需授予-full-access)。
+Full Access 可作为计算权限按需开启，同一节点保留普通隔离路径；部署配置、授权操作和语义见 [Full Access](../docs/sandbox/linux.md#按需授予-full-access)。
 
 用户消息轮次若未尝试 `conversation_publish` 就正常结束，Loop 会追加一次私有提醒，询问是否忘记发送；模型可继续选择静默结束。每轮提醒次数随检查点持久化，继续执行遵守原有步数与预算限制。详见[上下文更新机制](../dev-docs/runtime/agent-context.md)。
 
@@ -55,7 +55,7 @@ WebUI 开发联调见 [应用 README](../apps/webui/README.md)。Dockerfile 提�
 
 目录工具使用 Linux `openat2` 强制禁止符号链接和越界路径，拒绝特殊文件、硬链接及 Runtime 自身目录。其他系统或不支持该能力的内核拒绝目录工具操作。通用可信进程接口保留白名单执行；Linux Agent Shell 使用独立的强制沙盒实现，不能回退到宿主进程。`sandbox.enabled` 默认开启。启动时自动准备基础环境、工作目录与执行资源，自动登记本机沙盒；用户不需要填写底层路径或准备独立存储卷。实际隔离探针通过且已授予计算权限时才向模型开放 `shell_execute`；系统不支持时明确显示不可用，可通过显式配置 `false` 关闭。
 
-Linux Shell 已接入 Bubblewrap、seccomp、cgroup v2、直接目录挂载和受控网络出口。部署、配置与真实隔离测试见 [Sandbox 使用说明](../docs/deployment/sandbox.md)，架构与未来 Windows/macOS 边界见 [设计](../dev-docs/security/sandbox.md)。
+Linux Shell 已接入 Bubblewrap、seccomp、cgroup v2、直接目录挂载和受控网络出口。部署、配置与真实隔离测试见 [Sandbox 使用说明](../docs/sandbox/linux.md)，架构与未来 Windows/macOS 边界见 [设计](../dev-docs/security/sandbox.md)。
 
 任务交付需要可信检查操作的证据，模型声称完成不能直接验收。当前内置工具不提供通用任务验收器。搜索在读取前应用来源、助理和归档范围，按有界批次扫描选中的授权源记录；消息按会话及序号索引遍历。持久化投影可重建，但还没有 FTS/向量检索优化。私有上下文按模型 token 窗口管理，未声明且未手动设置时兜底 256K；默认 80% 自动压缩并保留原始历史。单轮执行默认及引擎最大步数均为 999。模型请求默认超时 10 分钟（含等待响应头和读取响应），Shell 前台最多等待 60 秒，未结束转为后台；命令可用 `timeout_seconds` 设置运行截止时间，实际运行还受计算授权及用户组时长限额约束，不限时须显式授权。
 
@@ -134,7 +134,7 @@ OpenAI-compatible and DeepSeek chat requests use SSE with `stream_options.includ
 
 ## 本机与远程沙盒
 
-Runtime 内嵌本机 sandbox_manager；可另行构建 `./cmd/molr-sandbox` 在其他 Linux 机器上提供存储、计算和网络。WebUI 资源页分为模型、工具、沙盒，助理可设置默认沙盒。部署配置、独立服务安全边界和当前限制见 [远程沙盒部署](../docs/deployment/remote-sandbox.md)。
+Runtime 内嵌本机 sandbox_manager；可另行构建 `./cmd/molr-sandbox` 在其他 Linux 机器上提供存储、计算和网络。WebUI 资源页分为模型、工具、沙盒，助理可设置默认沙盒。部署配置、独立服务安全边界和当前限制见 [远程沙盒部署](../docs/sandbox/remote.md)。
 
 ### 实时连接鉴权回归
 

@@ -1,6 +1,6 @@
 # 资源与文件工具合同
 
-更新：2026-10-06。本文面向工具与 Runtime 开发者；用户授权操作见 [资源与权限](../../docs/guides/permissions-and-budget.md)，运行环境见 [Linux 命令环境](../../docs/deployment/sandbox.md)。
+更新：2026-10-06。本文面向工具与 Runtime 开发者；用户授权操作见 [资源与权限](../../docs/guides/permissions-and-budget.md)，运行环境见 [Linux 命令环境](../../docs/sandbox/linux.md)。
 
 ## 显式 Full Access 调用
 

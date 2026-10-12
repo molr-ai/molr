@@ -56,7 +56,7 @@ location /api/ {
 
 Model addresses are accessed from the device where the Runtime resides. By default, `network.allowed_private_ips` allows `127.0.0.1`; other private IPs must be explicitly added by the deployer in the configuration, followed by a restart. This configuration accepts specific IPs, not CIDRs; allowing an IP allows access to service ports on that IP. Metadata and link-local addresses remain prohibited.
 
-Shell network policies separately configure address sets (domains, IPs, or multiple CIDRs) and port sets (single ports or multiple ranges), and do not inherit local permissions from model connections. See [Sandbox Network Configuration](sandbox.md#network-and-advanced-deployment) for examples and private network rules. User authorization cannot expand deployment network restrictions.
+Shell network policies separately configure address sets (domains, IPs, or multiple CIDRs) and port sets (single ports or multiple ranges), and do not inherit local permissions from model connections. See [Sandbox Network Configuration](../sandbox/linux.md#network-and-advanced-deployment) for examples and private network rules. User authorization cannot expand deployment network restrictions.
 
 Manual model pricing takes precedence over built-in pricing; unknown prices block calls. Built-in prices and reference exchange rates are dated configurations, not real-time quotes. Files can be specified separately via `pricing.rules_file` and `pricing.exchange_rates_file`; for format and rule implementation details, see the [Runtime README](../../../runtime/README.md). After changes, restart as required by the configuration and verify usage; do not treat reference billing as the final vendor bill.
 

@@ -11,7 +11,7 @@ First, check account permissions, model connections, and service status based on
 | Insufficient budget | Current cycle usage, reserved amounts for running tasks, assistant quota, and the quota granted to this account by the current user group |
 | Provider authentication failure or rate limiting | Connection address, Key, and provider quota; wait before deciding whether to retry |
 | Local model connection refused | Whether the address points to the Runtime host, and whether the deployment network policy allows it |
-| Command environment unavailable | See [Linux Command Environment Diagnostics](deployment/sandbox.md#checks-and-verification); do not switch to non-isolated execution |
+| Command environment unavailable | See [Linux Command Environment Diagnostics](sandbox/linux.md#checks-and-verification); do not switch to non-isolated execution |
 | Client disconnection | Whether the network and Runtime are online; after the page reconnects, verify messages and execution records |
 | Result pending verification | First confirm the actual operations and artifacts; do not directly repeat operations that may have already taken effect |
 

@@ -1,10 +1,10 @@
 # Linux 沙盒部署
 
-本页面向部署者，说明 Linux 命令隔离所需依赖、资源边界和验证方式。日常操作见[文件与命令](../guides/files-and-commands.md)，管理员接入见[沙盒资源](../administration/sandbox-resources.md)。
+本页面向部署者，说明 Linux 命令隔离所需依赖、资源边界和验证方式。日常操作见[文件与命令](../guides/files-and-commands.md)，管理员接入见[沙盒资源](resources.md)。
 
 ## 安装和启动
 
-`molr-setup` 默认安装当前用户服务；root 可通过 `--user USER` 安装指定账户的系统服务。整个 Runtime 和沙盒使用同一普通账户，系统依赖可由 `--install-deps` 授权准备。参数与更新流程见[安装指南](installation.md#安装时选择运行账户)。
+`molr-setup` 默认安装当前用户服务；root 可通过 `--user USER` 安装指定账户的系统服务。整个 Runtime 和沙盒使用同一普通账户，系统依赖可由 `--install-deps` 授权准备。参数与更新流程见[安装指南](../deployment/installation.md#安装时选择运行账户)。
 
 当前自动安装路径面向具备 systemd 254+ 的 Linux；普通命令启动需要可访问的 systemd 用户管理器，安装服务则自带执行资源委派。在不支持这些条件的系统或受限容器中，聊天等功能仍运行，命令执行显示当前系统不可用，不降级为无隔离执行。现有 distroless Docker 镜像尚不包含这套自动命令环境，不应宣称容器部署默认支持 Shell。
 
@@ -17,7 +17,7 @@ file /path/molr
 go version -m /path/molr
 ```
 
-检查最终二进制为静态链接、构建信息为 `CGO_ENABLED=0`、权限为 `0755`。通过具有委派的 systemd 用户或系统服务启动，设置 `Type=exec`、`Delegate=yes`、`DelegateSubgroup=supervisor`、`KillMode=control-group`，完整启动和验证步骤见 [安装与服务管理](installation.md)。安装脚本默认使用 `molr.service`，多实例验收使用 `--name molr-<名称>` 并分配独立端口、配置和数据目录。
+检查最终二进制为静态链接、构建信息为 `CGO_ENABLED=0`、权限为 `0755`。通过具有委派的 systemd 用户或系统服务启动，设置 `Type=exec`、`Delegate=yes`、`DelegateSubgroup=supervisor`、`KillMode=control-group`，完整启动和验证步骤见 [安装与服务管理](../deployment/installation.md)。安装脚本默认使用 `molr.service`，多实例验收使用 `--name molr-<名称>` 并分配独立端口、配置和数据目录。
 
 正常配置可以完全省略 `sandbox` 对象。`configs/sandbox.example.json` 只展示可选的执行限额，不再要求填写路径。
 
@@ -51,7 +51,7 @@ GPU 属于计算资源的可选能力，默认关闭。当前支持 Linux NVIDIA
 
 示例 UUID 必须替换为实际硬件 UUID。新增或更换设备不会自动扩大已有授权。重启后，在「资源 → 沙盒 → 计算」查看 GPU 状态；启动探针验证隔离环境中的 CUDA 上下文、显存读写和执行内 IPC。GPU 不可用不影响无 GPU 授权的普通计算。
 
-管理员按[沙盒资源管理](../administration/sandbox-resources.md)分配设备范围，用户再[批准助理 GPU 权限](../guides/permissions-and-budget.md#gpu-授权)。更换设备不扩大已有授权；计算授权变更会停止受影响任务。
+管理员按[沙盒资源管理](resources.md)分配设备范围，用户再[批准助理 GPU 权限](../guides/permissions-and-budget.md#gpu-授权)。更换设备不扩大已有授权；计算授权变更会停止受影响任务。
 
 GPU 为共享访问，不预留显存、不保证算力，不增加 GPU 任务数量配额；普通执行继续计入现有并发限制。界面显示的总显存是硬件信息。Full Access 按原有直接执行语义访问系统，不受普通 GPU 授权范围约束。
 
@@ -183,7 +183,7 @@ DNS 服务仅在执行内部提供，支持 UDP/TCP 的 A/AAAA 查询，调用�
 }
 ```
 
-沙盒继承 Runtime 的宿主身份。安装器默认使用当前用户；通过 `sudo … --user USER` 选择账户后，整个 Runtime 的文件操作、后台任务和沙盒都使用该用户。已有账户保留其组权限；新建账户没有附加组。安装参数及自动创建账户流程见 [安装时选择运行账户](installation.md#安装时选择运行账户)。本机执行不需要单独的 `molr-sandbox` 服务。
+沙盒继承 Runtime 的宿主身份。安装器默认使用当前用户；通过 `sudo … --user USER` 选择账户后，整个 Runtime 的文件操作、后台任务和沙盒都使用该用户。已有账户保留其组权限；新建账户没有附加组。安装参数及自动创建账户流程见 [安装时选择运行账户](../deployment/installation.md#安装时选择运行账户)。本机执行不需要单独的 `molr-sandbox` 服务。
 
 `host_tools: false` 或省略时，直接启动的 Runtime 保留最小 BusyBox 环境；安装器在首次安装且没有自定义 rootfs 时默认打开宿主工具。服务账户由部署决定，不能通过沙盒配置切换。
 
@@ -253,7 +253,7 @@ python3 runtime/scripts/check-host-tools.py host-sandbox-connection.json tool-re
 
 真实隔离测试和实现边界见 [沙盒开发文档](../../dev-docs/security/sandbox.md)。备份时包含 Runtime 管理的 `sandbox/work`；数据库快照不包含这些文件。
 
-独立远程沙盒的部署、连接与恢复语义见 [独立 Sandbox 服务](remote-sandbox.md)。`sandbox.enabled: false` 关闭内置本机沙盒，不影响已连接远程沙盒。
+独立远程沙盒的部署、连接与恢复语义见 [独立 Sandbox 服务](remote.md)。`sandbox.enabled: false` 关闭内置本机沙盒，不影响已连接远程沙盒。
 
 ## 转发监听地址
 

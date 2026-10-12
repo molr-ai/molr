@@ -6,6 +6,7 @@ With [Google Workspace CLI](https://github.com/googleworkspace/cli) (`gws`), you
 
 Complete [execution environment preparation](README.md#prepare-the-execution-environment), then send this request to your assistant:
 
+> [!PROMPT]
 > Follow the installation instructions at https://github.com/googleworkspace/cli to install gws in your workspace. Check the operating system and architecture, choose the appropriate release archive, and verify its checksum. First check the version, the Drive query schema, and a dry-run. Then guide me through Google authorization on my own computer, configure the credentials in the workspace, and finally retrieve the names and links of five files that are not in the trash.
 
 Choose the program for your operating system and architecture from the [project releases](https://github.com/googleworkspace/cli/releases), and extract it into a workspace directory such as `/work/.local/bin/`. Prefer an `unknown-linux-musl` archive for a minimal Linux sandbox. Using a release binary directly does not require Node.js, npm, or Rust. The examples use `gws` to mean the installed program; use its absolute path if it is not on PATH.
@@ -52,12 +53,22 @@ When you need Gmail, Calendar, or Sheets, sign in again on your own computer and
 
 ## Example Requests
 
+> [!PROMPT]
 > Find material related to this week's meetings in the specified Drive folder. Organize names, summaries, and original links by topic.
 
+<!-- -->
+
+> [!PROMPT]
 > Organize Gmail messages from the past seven days that need my reply. List senders, subjects, and suggested next steps. Only draft replies.
 
+<!-- -->
+
+> [!PROMPT]
 > Review tomorrow's Calendar events and list times, participants, and preparation tasks in my specified timezone.
 
+<!-- -->
+
+> [!PROMPT]
 > Read the specified worksheet and cell range in this Google Sheets document, summarize the data, and identify missing entries. Include the source link.
 
 Provide the target account, file or folder links, worksheet range, and time range. For sending email, creating events, or editing documents, specify the target and execution scope; ask for a draft first if you want to review it. Start with commands such as `gws gmail --help` or `gws calendar --help` for common operations, and use `gws schema <service.resource.method>` for complex parameters. See the [project documentation](https://github.com/googleworkspace/cli#helper-commands) for more examples.

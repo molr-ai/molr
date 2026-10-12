@@ -1,6 +1,6 @@
 # Resource and File Tool Contracts
 
-Updated: 2026-10-06. This document is intended for tool and Runtime developers; for user authorization operations, see [Resources and Permissions](../../../docs/en/guides/permissions-and-budget.md), and for the runtime environment, see [Linux Command Environment](../../../docs/en/deployment/sandbox.md).
+Updated: 2026-10-06. This document is intended for tool and Runtime developers; for user authorization operations, see [Resources and Permissions](../../../docs/en/guides/permissions-and-budget.md), and for the runtime environment, see [Linux Command Environment](../../../docs/en/sandbox/linux.md).
 
 ## Explicit Full Access Calls
 

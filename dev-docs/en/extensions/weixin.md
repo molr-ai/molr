@@ -1,6 +1,6 @@
 # WeChat Channel
 
-The fixed Go adapter is located at `runtime/internal/im/weixin`. Protocol verification is based on `@tencent-weixin/openclaw-weixin@2.4.9` (2026-10-06); refer to [Tencent Protocol Description](https://github.com/Tencent/openclaw-weixin/blob/main/docs/protocol.md). This is a fixed channel adapter; it does not load OpenClaw or persistent backend plugins. For user operations, see [WeChat Chat Entry](../../../docs/en/guides/weixin.md); for request fields, see [HTTP API](../reference/http-api.md).
+The fixed Go adapter is located at `runtime/internal/im/weixin`. Protocol verification is based on `@tencent-weixin/openclaw-weixin@2.4.9` (2026-10-06); refer to [Tencent Protocol Description](https://github.com/Tencent/openclaw-weixin/blob/main/docs/protocol.md). This is a fixed channel adapter; it does not load OpenClaw or persistent backend plugins. For user operations, see [WeChat Chat Entry](../../../docs/en/chat-channels/weixin.md); for request fields, see [HTTP API](../reference/http-api.md).
 
 ## Entry and Identity
 

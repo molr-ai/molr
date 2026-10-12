@@ -13,8 +13,22 @@ Molr 是可自托管的个人 AI 助理。连接自己选择的模型，通过�
 - [记忆与自动整理](guides/memory.md)：查看、编辑、确认或遗忘记忆。
 - [权限与预算](guides/permissions-and-budget.md)：批准资源范围、设置额度、撤销授权。
 - [文件与命令](guides/files-and-commands.md)：工作区、后台任务、终端和临时服务。
-- [微信聊天入口](guides/weixin.md)、[插件与 Skills](guides/plugins-and-skills.md)：使用已连接的渠道和扩展。
+- [插件与 Skills](guides/plugins-and-skills.md)：使用已安装的插件和技能扩展。
 - [个人设置](guides/settings.md)、[账号安全](guides/account-security.md)：外观、提醒、密码与登录设备。
+
+## 连接模型
+
+- [连接与管理模型](models/README.md)：连接模型提供商，配置模型能力、价格与凭证。
+
+## 连接聊天入口
+
+- [微信聊天入口](chat-channels/weixin.md)：连接微信与助理聊天，管理连接状态与解绑。
+
+## 沙盒
+
+- [管理沙盒资源](sandbox/resources.md)：连接执行机器，添加存储、计算和网络资源。
+- [Linux 沙盒部署](sandbox/linux.md)：准备本机依赖，配置隔离、GPU 与网络范围。
+- [独立 Linux Sandbox 服务](sandbox/remote.md)：部署远程执行节点并接入 Molr。
 
 ## 最佳实践
 
@@ -22,7 +36,7 @@ Molr 是可自托管的个人 AI 助理。连接自己选择的模型，通过�
 
 ## 管理实例
 
-管理员先[连接模型](administration/models.md)和[配置沙盒资源](administration/sandbox-resources.md)，再通过[用户与用户组](administration/users-and-groups.md)分配成员可用范围。插件安装、启用和共享连接见[插件管理](administration/plugins.md)。
+管理员通过[用户与用户组](administration/users-and-groups.md)管理成员并分配可用资源范围。插件安装、启用和共享连接见[插件管理](administration/plugins.md)。
 
 ## 部署与维护
 

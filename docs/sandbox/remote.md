@@ -4,11 +4,11 @@ Runtime 内置本机 sandbox_manager，无需额外启动本机服务。`sandbox
 
 远程电脑运行 `molr-sandbox`，只提供受控执行与已授权目录，不初始化账号、Agent、会话、助理工作区或模型服务。助理及其唯一 `/work` 始终位于 Runtime 本地。当前只支持 Linux。两种运行方式复用文件隔离和 Linux 进程隔离实现；公共协议不包含 Bubblewrap 或 cgroup 路径。
 
-本页面向部署者。服务启动后由管理员[连接沙盒](../administration/sandbox-resources.md#在-webui-连接)，成员使用所属用户组允许的资源并为自己的助理授权。
+本页面向部署者。服务启动后由管理员[连接沙盒](resources.md#在-webui-连接)，成员使用所属用户组允许的资源并为自己的助理授权。
 
-远程节点同样支持按需 [Full Access 权限](sandbox.md#按需授予-full-access)：在远端配置 `sandbox.allow_full_access: true`，再为助理授予该节点的 Full Access 计算权限。本机配置不会替远端开放该能力。普通隔离与显式 Full Access 调用可以共存；后者直接使用远端服务的系统身份和环境。
+远程节点同样支持按需 [Full Access 权限](linux.md#按需授予-full-access)：在远端配置 `sandbox.allow_full_access: true`，再为助理授予该节点的 Full Access 计算权限。本机配置不会替远端开放该能力。普通隔离与显式 Full Access 调用可以共存；后者直接使用远端服务的系统身份和环境。
 
-当前 Sandbox 能力协议为版本 7，传输路径为 `/v2/sandbox/`；Runtime 与远程节点版本必须匹配。网络配置显式声明 TCP/UDP，规则在执行机器生效，见[网络配置](sandbox.md#网络与高级部署)。
+当前 Sandbox 能力协议为版本 7，传输路径为 `/v2/sandbox/`；Runtime 与远程节点版本必须匹配。网络配置显式声明 TCP/UDP，规则在执行机器生效，见[网络配置](linux.md#网络与高级部署)。
 
 ## 构建与启动
 
@@ -23,7 +23,7 @@ file ../.cache/build/molr-sandbox
 go version -m ../.cache/build/molr-sandbox
 ```
 
-确认静态链接、`CGO_ENABLED=0` 和 `0755` 权限。与 Runtime 相同，需要 Bubblewrap、静态 BusyBox、user namespace 和 cgroup v2 委派。完整要求见 [Linux 沙盒部署](sandbox.md)。
+确认静态链接、`CGO_ENABLED=0` 和 `0755` 权限。与 Runtime 相同，需要 Bubblewrap、静态 BusyBox、user namespace 和 cgroup v2 委派。完整要求见 [Linux 沙盒部署](linux.md)。
 
 准备一个独立的私有数据目录，例如 `/srv/molr-sandbox/private`。TLS 私钥和服务令牌必须放在该目录内，不能包含符号链接，令牌文件权限为 `0600`。使用随机生成的至少 32 字符令牌；不要把令牌写入启动参数或提交到 Git。可使用可信 CA 或自行签发的 TLS 证书；连接时显式核对证书 SHA-256 指纹，不能跳过验证。
 
@@ -100,4 +100,4 @@ Runtime 和服务使用 `/v2/sandbox/*` HTTPS 协议，证书指纹固定信任�
 
 远程掉线只影响对应调用。有关任务可等待环境恢复，Runtime 探测恢复后为仍有效的等待任务提交继续事件；取消、暂停、解雇或用户停止的工作不自动恢复。恢复核对已保存的操作结果，不重放未知副作用。本地文件环境不可用时调度器停止领取新事件，消息和任务保留；单独的 Shell 能力故障不等于本地文件环境离线。
 
-部署后由管理员按[连接远程沙盒](../administration/sandbox-resources.md#在-webui-连接)测试连接、添加资源和分配成员范围。
+部署后由管理员按[连接远程沙盒](resources.md#在-webui-连接)测试连接、添加资源和分配成员范围。

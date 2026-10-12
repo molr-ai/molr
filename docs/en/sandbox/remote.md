@@ -4,11 +4,11 @@ The Runtime includes a built-in local `sandbox_manager`, so no additional local 
 
 Remote computers run `molr-sandbox`, providing only controlled execution and authorized directories. They do not initialize accounts, Agents, sessions, assistant workspaces, or model services. The assistant and its unique `/work` always reside locally within the Runtime. Currently, only Linux is supported. Both execution modes reuse file isolation and Linux process isolation implementations; the common protocol does not include Bubblewrap or cgroup paths.
 
-This page is intended for deployers. After the service starts, administrators [connect to the sandbox](../administration/sandbox-resources.md#connect-in-the-webui), and members use resources allowed by their user groups and authorize their own assistants.
+This page is intended for deployers. After the service starts, administrators [connect to the sandbox](resources.md#connect-in-the-webui), and members use resources allowed by their user groups and authorize their own assistants.
 
-Remote nodes also support on-demand [Full Access permissions](sandbox.md#granting-full-access-on-demand): configure `sandbox.allow_full_access: true` on the remote side, then grant the assistant Full Access compute permissions for that node. Local configuration does not enable this capability on the remote side. Standard isolation and explicit Full Access calls can coexist; the latter directly uses the remote service's system identity and environment.
+Remote nodes also support on-demand [Full Access permissions](linux.md#granting-full-access-on-demand): configure `sandbox.allow_full_access: true` on the remote side, then grant the assistant Full Access compute permissions for that node. Local configuration does not enable this capability on the remote side. Standard isolation and explicit Full Access calls can coexist; the latter directly uses the remote service's system identity and environment.
 
-The current Sandbox capability protocol is version 7, with the transport path `/v2/sandbox/`; the Runtime and remote node versions must match. Network configuration explicitly declares TCP/UDP, and rules take effect on the execution machine. See [Network Configuration](sandbox.md#network-and-advanced-deployment).
+The current Sandbox capability protocol is version 7, with the transport path `/v2/sandbox/`; the Runtime and remote node versions must match. Network configuration explicitly declares TCP/UDP, and rules take effect on the execution machine. See [Network Configuration](linux.md#network-and-advanced-deployment).
 
 ## Build and Startup
 
@@ -23,7 +23,7 @@ file ../.cache/build/molr-sandbox
 go version -m ../.cache/build/molr-sandbox
 ```
 
-Verify static linking, `CGO_ENABLED=0`, and `0755` permissions. Like the Runtime, this requires Bubblewrap, static BusyBox, user namespaces, and cgroup v2 delegation. For complete requirements, see [Linux Sandbox Deployment](sandbox.md).
+Verify static linking, `CGO_ENABLED=0`, and `0755` permissions. Like the Runtime, this requires Bubblewrap, static BusyBox, user namespaces, and cgroup v2 delegation. For complete requirements, see [Linux Sandbox Deployment](linux.md).
 
 Prepare a separate private data directory, for example `/srv/molr-sandbox/private`. The TLS private key and service token must be placed within this directory, must not contain symbolic links, and the token file permissions must be `0600`. Use a randomly generated token of at least 32 characters; do not write the token into startup parameters or commit it to Git. You can use a trusted CA or self-signed TLS certificates; explicitly verify the certificate SHA-256 fingerprint upon connection, and do not skip verification.
 
@@ -100,4 +100,4 @@ Remote internal output buffers are saved per operation and are not opened to the
 
 Remote disconnection only affects the corresponding call. Related tasks can wait for the environment to recover. After the Runtime detects recovery, it submits continuation events for still-valid waiting tasks; canceled, paused, dismissed, or user-stopped work does not automatically recover. Recovery checks saved operation results and does not replay unknown side effects. If the local file environment is unavailable, the scheduler stops claiming new events, and messages and tasks are retained; a separate Shell capability failure does not equal local file environment offline.
 
-After deployment, administrators test connections, add resources, and assign member scopes according to [Connect to Remote Sandbox](../administration/sandbox-resources.md#connect-in-the-webui).
+After deployment, administrators test connections, add resources, and assign member scopes according to [Connect to Remote Sandbox](resources.md#connect-in-the-webui).

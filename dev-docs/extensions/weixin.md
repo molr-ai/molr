@@ -1,6 +1,6 @@
 # 微信渠道
 
-固定 Go 适配器位于 `runtime/internal/im/weixin`。协议核查基于 `@tencent-weixin/openclaw-weixin@2.4.9`（2026-10-06）；参考 [腾讯协议说明](https://github.com/Tencent/openclaw-weixin/blob/main/docs/protocol.md)。这是固定渠道适配器，不加载 OpenClaw 或常驻后端插件。用户操作见 [微信聊天入口](../../docs/guides/weixin.md)，请求字段见 [HTTP API](../reference/http-api.md)。
+固定 Go 适配器位于 `runtime/internal/im/weixin`。协议核查基于 `@tencent-weixin/openclaw-weixin@2.4.9`（2026-10-06）；参考 [腾讯协议说明](https://github.com/Tencent/openclaw-weixin/blob/main/docs/protocol.md)。这是固定渠道适配器，不加载 OpenClaw 或常驻后端插件。用户操作见 [微信聊天入口](../../docs/chat-channels/weixin.md)，请求字段见 [HTTP API](../reference/http-api.md)。
 
 ## 入口和身份
 

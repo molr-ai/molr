@@ -1,6 +1,10 @@
-import { memo, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Alert, UIIcon } from '@molr/ui';
+import { remarkCallouts } from './docs-callouts';
+import { DocsPrompt } from './DocsPrompt';
+import { DocsSearch } from './DocsSearch';
 import { SiteHeader } from './SiteHeader';
 import { useScrollActivity } from './use-scroll-activity';
 import { allDocs, findDoc, remarkHeadingIds, resolveDocLink, type Doc } from './docs-content';
@@ -40,7 +44,10 @@ const Article = memo(function Article({ doc }: { doc: Doc }) {
   const heading = (Tag: 'h2' | 'h3', children: ReactNode, id?: string) => {
     return <Tag id={id}><a href={`#${id}`}>{children}<span className="docs-anchor" aria-hidden="true">#</span></a></Tag>;
   };
-  return <Markdown remarkPlugins={[remarkGfm, remarkHeadingIds]} components={{
+  return <Markdown remarkPlugins={[remarkGfm, remarkHeadingIds, remarkCallouts]} components={{
+    blockquote: ({ className, children }) => className === 'docs-warning'
+      ? <Alert tone="warning" title={doc.locale === 'zh' ? '警告' : 'Warning'} className="docs-warning">{children}</Alert>
+      : className === 'docs-prompt' ? <DocsPrompt locale={doc.locale}>{children}</DocsPrompt> : <blockquote>{children}</blockquote>,
     h2: ({ children, id }) => heading('h2', children, id),
     h3: ({ children, id }) => heading('h3', children, id),
     a: ({ href, children }) => {
@@ -65,14 +72,19 @@ export default function DocsPage({ pathname, navigationRevision, locale, changeL
   const items = section.items;
   const t = (zh: string, en: string) => locale === 'zh' ? zh : en;
   const [query, setQuery] = useState('');
+  const [searchRevision, setSearchRevision] = useState<number | null>(null);
+  const searchOpen = searchRevision === navigationRevision;
+  useEffect(() => {
+    const shortcut = (event: globalThis.KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setSearchRevision(navigationRevision); }
+    };
+    window.addEventListener('keydown', shortcut);
+    return () => window.removeEventListener('keydown', shortcut);
+  }, [navigationRevision]);
   const [openMenuRevision, setOpenMenuRevision] = useState<number | null>(null);
   const menuOpen = openMenuRevision === navigationRevision;
   const title = doc?.title ?? t('未找到文档', 'Document not found');
   const description = doc ? `${doc.title} — ${t('Molr 使用与部署指南。', 'Molr usage and deployment guide.')}` : t('此文档不存在，请返回文档概览。', 'This document does not exist. Return to the documentation overview.');
-  const normalizedQuery = query.trim().toLocaleLowerCase();
-  const results = useMemo(() => normalizedQuery
-    ? items.filter(entry => entry.searchText.includes(normalizedQuery))
-    : [], [items, normalizedQuery]);
   const currentIndex = doc ? items.indexOf(doc) : -1;
   const previous = items[currentIndex - 1];
   const next = doc ? items[currentIndex + 1] : undefined;
@@ -111,14 +123,16 @@ export default function DocsPage({ pathname, navigationRevision, locale, changeL
 
   return <div className="docs-page">
     <a className="home-skip" href="#main">{locale === 'zh' ? '跳转到正文' : 'Skip to content'}</a>
+    <DocsSearch open={searchOpen} onOpenChange={open => setSearchRevision(open ? navigationRevision : null)} query={query} onQueryChange={setQuery} items={items} locale={locale} />
     <SiteHeader locale={locale} changeLocale={switchLanguage} active={section.root} />
     <div className="docs-layout" lang={locale === 'zh' ? 'zh-CN' : 'en'}>
       <aside className="docs-sidebar">
         <div className="docs-sidebar-heading"><a href={section.path}>{section.title} <span>DOCS</span></a><button className="docs-menu-toggle" type="button" aria-expanded={menuOpen} aria-controls="docs-navigation" onClick={() => setOpenMenuRevision(menuOpen ? null : navigationRevision)}>{menuOpen ? t('收起目录 −', 'Close menu −') : t('展开目录 +', 'Open menu +')}</button></div>
+        <button className="docs-search-trigger" type="button" aria-haspopup="dialog" aria-keyshortcuts="Control+K Meta+K" onClick={() => setSearchRevision(navigationRevision)}><UIIcon name="search" /><span>{t('搜索文档', 'Search documentation')}</span></button>
         <div id="docs-navigation" className={menuOpen ? 'docs-navigation is-open' : 'docs-navigation'}>
-          <label className="docs-search"><span>{t('搜索文档', 'Search documentation')}</span><input autoComplete="off" type="search" placeholder={t('搜索文档…', 'Search documentation…')} value={query} onChange={event => setQuery(event.target.value)} /></label>
+
           <div ref={sidebarScrollRef} className="docs-navigation-scroll">
-            {normalizedQuery ? <nav className="docs-search-results" aria-label={t('搜索结果', 'Search results')}><p role="status">{results.length ? t(`找到 ${results.length} 篇文档`, `${results.length} documents found`) : t('没有找到相关文档，试试其他关键词。', 'No documents found. Try another keyword.')}</p>{results.map(entry => <a key={entry.path} href={entry.path} aria-current={entry === doc ? 'page' : undefined}>{entry.label}</a>)}</nav> : <nav aria-label={t('文档目录', 'Documentation navigation')}>{section.groups.map(group => <div className="docs-nav-group" key={group}><p>{group}</p>{items.filter(entry => entry.group === group).map(entry => <a key={entry.path} href={entry.path} aria-current={entry === doc ? 'page' : undefined}>{entry.label}</a>)}</div>)}</nav>}
+            <nav aria-label={t('文档目录', 'Documentation navigation')}>{section.groups.map(group => <div className="docs-nav-group" key={group}><h2 className="docs-nav-group-title">{group}</h2><div className="docs-nav-group-links">{items.filter(entry => entry.group === group).map(entry => <a key={entry.path} href={entry.path} aria-current={entry === doc ? 'page' : undefined}>{entry.label}</a>)}</div></div>)}</nav>
           </div>
           <div className="docs-scroll-cue" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg></div>
         </div>

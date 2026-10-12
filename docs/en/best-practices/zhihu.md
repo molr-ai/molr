@@ -6,6 +6,7 @@ The official `zhihu-cli` from the [Zhihu Data Open Platform](https://developer.z
 
 Complete the [environment setup](README.md#prepare-the-execution-environment), then open “Zhihu CLI” on the platform website for official installation instructions. You can ask:
 
+> [!PROMPT]
 > Follow the official Zhihu CLI and Skill instructions at https://developer.zhihu.com/ to install them in your workspace. Check available commands, guide me through Access Secret configuration, then verify access with a small search.
 
 Generate an Access Secret in the [platform profile](https://developer.zhihu.com/profile). With a desktop keychain, use `auth set --secret-stdin`; a sandbox without a system keychain can use the process environment variable `ZHIHU_ACCESS_SECRET`. Have the assistant follow the official setup instructions, keeping the Secret out of command arguments and output. API calls may consume platform quota; check usage in your profile.
@@ -22,10 +23,17 @@ zhihu-cli search zhihu --query '知识管理' --count 3
 
 ## Example Requests
 
+> [!PROMPT]
 > Search Zhihu for personal knowledge management practices. Compare three different approaches and their uses, preserving titles, authors, and original links.
 
+<!-- -->
+
+> [!PROMPT]
 > Check Zhihu's trending topics for software development discussions. Explain which deserve further reading and include sources.
 
+<!-- -->
+
+> [!PROMPT]
 > Group my ten most recent Zhihu favorites by topic and suggest a reading order.
 
 For comparing views or checking facts, ask for search results with sources. Direct Answers suits a quick synthesis. Specify the type and amount when requesting personal data.

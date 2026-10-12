@@ -6,9 +6,9 @@
 
 本机沙盒由 Runtime 内置，无需单独启动服务。计算资源自动登记；外部目录和网络在对应沙盒分区添加，页面只能选择部署允许的范围。连接与添加不会自动授予助理权限。
 
-通过[用户组](users-and-groups.md)分配沙盒和工具，成员再为自己的助理批准目录读写、计算和网络权限。GPU 设备需由部署者先开放，再在用户组计算配置中选择；空选择表示不允许 GPU。Full Access 也需要部署开放，并由管理员明确允许对应用户组授予。
+通过[用户组](../administration/users-and-groups.md)分配沙盒和工具，成员再为自己的助理批准目录读写、计算和网络权限。GPU 设备需由部署者先开放，再在用户组计算配置中选择；空选择表示不允许 GPU。Full Access 也需要部署开放，并由管理员明确允许对应用户组授予。
 
-部署依赖、GPU 与网络候选范围见[Linux 沙盒部署](../deployment/sandbox.md)。用户授权与用量见[权限与预算](../guides/permissions-and-budget.md)。
+部署依赖、GPU 与网络候选范围见[Linux 沙盒部署](linux.md)。用户授权与用量见[权限与预算](../guides/permissions-and-budget.md)。
 
 ## 在 WebUI 连接
 

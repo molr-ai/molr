@@ -6,6 +6,7 @@
 
 先完成[执行环境准备](README.md#准备执行环境)，再把下面的委托发给助理：
 
+> [!PROMPT]
 > 按 https://github.com/googleworkspace/cli 的安装说明，把 gws 安装到你的工作区。检查系统与架构，选择合适的发行包并核对校验值。先验证版本、Drive 查询的 schema 和 dry-run；然后引导我在自己的电脑上完成 Google 授权，把凭据配置到工作区，最后查询五份未删除文件的名称与链接。
 
 从[项目发行页](https://github.com/googleworkspace/cli/releases)选择对应系统与架构的程序，解压到 `/work/.local/bin/` 等工作区目录。精简 Linux 沙盒可优先选择 `unknown-linux-musl` 包；直接使用发行二进制不需要 Node.js、npm 或 Rust。下面用 `gws` 表示安装后的程序，未加入 PATH 时使用其绝对路径。
@@ -52,12 +53,22 @@ gws drive files list \
 
 ## 可以这样委托
 
+> [!PROMPT]
 > 查找指定 Drive 文件夹内与本周会议有关的资料，按主题整理名称、摘要和原始链接。
 
+<!-- -->
+
+> [!PROMPT]
 > 整理过去七天需要我回复的 Gmail 邮件，列出发件人、主题和建议下一步，只生成回复草稿。
 
+<!-- -->
+
+> [!PROMPT]
 > 查看明天的 Calendar 日程，按我指定的时区整理时间、参与人和准备事项。
 
+<!-- -->
+
+> [!PROMPT]
 > 读取这份 Google Sheets 的指定工作表和单元格范围，汇总数据并指出缺失项，保留来源链接。
 
 给出目标账号、文件或文件夹链接、工作表范围和时间范围。需要发送邮件、创建日程或修改文档时，说明目标和执行范围；希望先审阅时，要求助理先给草稿。常用操作可以先查 `gws gmail --help`、`gws calendar --help` 等命令，参数复杂时用 `gws schema <服务.资源.方法>` 查询。更多示例见[项目文档](https://github.com/googleworkspace/cli#helper-commands)。

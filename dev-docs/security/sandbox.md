@@ -1,6 +1,6 @@
 # Agent Shell 沙盒实现与边界
 
-更新：2026-10-01。状态：Linux Shell 已支持前台、后台和 TTY 会话。本文保留架构与跨平台演进设计；当前配置、限制和部署步骤以 [Linux Sandbox 使用说明](../../docs/deployment/sandbox.md) 为准。Windows/macOS 尚未实现。
+更新：2026-10-01。状态：Linux Shell 已支持前台、后台和 TTY 会话。本文保留架构与跨平台演进设计；当前配置、限制和部署步骤以 [Linux Sandbox 使用说明](../../docs/sandbox/linux.md) 为准。Windows/macOS 尚未实现。
 
 ## Full Access 权限与双路径执行
 
@@ -128,7 +128,7 @@ gVisor Go netstack 将流量转换为普通 TCP/UDP 连接。传输协议、目�
 
 内部 DNS 支持 TCP/UDP 的 A/AAAA 查询，使用系统解析器处理真实 CNAME。返回执行内虚拟地址，将域名身份绑定到连接；新连接重新解析，所有实际答案都须获授权，然后直拨已检查 IP。不会将域名直接转成全局 IP 白名单。虚拟映射限定 1024 项，TTL 30 秒，DNS 并发单独限定 8，不能从外部覆盖或跨执行复用。未授权域名、任意 DNS 记录类型和未知虚拟 IP 均拒绝。
 
-网络授权只表达主机/地址、端口、TCP/UDP，不表达 TLS 内的 URL 路径或内容。内置 internet/lan/host（互联网访问／局域网访问／宿主机访问）三项预设只是候选资源，连接和助理授权仍显式进行；三项均开放 TCP/UDP 全部端口，host 包含本服务自身监听端口；lan 仅含 RFC1918/ULA、不含回环，宿主局域网地址仍按 lan 判断；部署可关闭预设。旧的未声明协议配置拒绝加载；远程协议使用 `/v2/sandbox/` 和 `Protocol=7`，连接和执行前拒绝旧服务。详细配置、内部宿主别名和限额见 [部署说明](../../docs/deployment/sandbox.md)。
+网络授权只表达主机/地址、端口、TCP/UDP，不表达 TLS 内的 URL 路径或内容。内置 internet/lan/host（互联网访问／局域网访问／宿主机访问）三项预设只是候选资源，连接和助理授权仍显式进行；三项均开放 TCP/UDP 全部端口，host 包含本服务自身监听端口；lan 仅含 RFC1918/ULA、不含回环，宿主局域网地址仍按 lan 判断；部署可关闭预设。旧的未声明协议配置拒绝加载；远程协议使用 `/v2/sandbox/` 和 `Protocol=7`，连接和执行前拒绝旧服务。详细配置、内部宿主别名和限额见 [部署说明](../../docs/sandbox/linux.md)。
 
 就绪探针实际执行隔离命令，并在临时回环端点上验证 DNS、TUN 与 TCP 转发，不依赖公网。宿主工具环境通过标准 curl 下载；最小 BusyBox 环境不承诺 HTTPS 下载能力。工具参数不是强制边界，网络仍由 Runtime 授权。`NetworkBackend=transparent`、`NetworkProtocols=[tcp,udp]` 随能力接口报告；不得仅凭进程存活宣称网络就绪。
 
@@ -174,7 +174,7 @@ Windows/macOS 暂仅返回不支持 Shell 沙盒；业务与权限结构仍可�
 
 在 Docker 中部署 Molr 时还需要评估嵌套 user namespace、seccomp/AppArmor 和 cgroup 委派。不能为了启动沙盒默认要求 `--privileged`、挂载 Docker socket 或关闭所有宿主安全限制；配置不满足时关闭 Shell 能力并给出诊断。
 
-部署步骤、默认限额和故障原因统一见 [Linux 命令环境](../../docs/deployment/sandbox.md)。旧的单机最小探针记录已删除，它不能证明当前服务的隔离能力。
+部署步骤、默认限额和故障原因统一见 [Linux 命令环境](../../docs/sandbox/linux.md)。旧的单机最小探针记录已删除，它不能证明当前服务的隔离能力。
 
 ## 7. 验证
 
@@ -195,6 +195,6 @@ bash scripts/test-sandbox-linux.sh -count=1 -v
 
 ## 浏览器兼容验收
 
-不新增浏览器专用沙盒或权限开关。允许嵌套 user／PID／network namespace 以支持 Chromium 原生沙盒；过滤器继续禁止挂载 API、mount namespace、setns、ptrace、设备创建与网络绕过。联网与断网执行的 UID／GID 映射保持实际宿主身份不变。Unix IPC 代理同时遵守通知线程的 root 与外层私有 tmpfs 边界，避免绕过内层 chroot。默认 Bubblewrap 启动时先验证宿主已加载的 `chrome` AppArmor profile；不可用时验证原受限路径。选择覆盖普通执行、联网执行与 namespace keeper；不重跑业务命令、不更改系统策略，显式启动器保留管理员选择。该应用级豁免移除了额外的 capabilities 全面拒绝，Molr 的授权与外层隔离仍保留，见[部署说明](../../docs/deployment/sandbox.md#本地-ipc-与浏览器程序)。`--no-sandbox` 仍是依赖 Molr 外层边界的显式兼容方式，不包含 Chromium 内部进程防护。
+不新增浏览器专用沙盒或权限开关。允许嵌套 user／PID／network namespace 以支持 Chromium 原生沙盒；过滤器继续禁止挂载 API、mount namespace、setns、ptrace、设备创建与网络绕过。联网与断网执行的 UID／GID 映射保持实际宿主身份不变。Unix IPC 代理同时遵守通知线程的 root 与外层私有 tmpfs 边界，避免绕过内层 chroot。默认 Bubblewrap 启动时先验证宿主已加载的 `chrome` AppArmor profile；不可用时验证原受限路径。选择覆盖普通执行、联网执行与 namespace keeper；不重跑业务命令、不更改系统策略，显式启动器保留管理员选择。该应用级豁免移除了额外的 capabilities 全面拒绝，Molr 的授权与外层隔离仍保留，见[部署说明](../../docs/sandbox/linux.md#本地-ipc-与浏览器程序)。`--no-sandbox` 仍是依赖 Molr 外层边界的显式兼容方式，不包含 Chromium 内部进程防护。
 
 `MOLR_SANDBOX_HOST_TOOLS=1 MOLR_TEST_AGENT_BROWSER=/absolute/agent-binary-directory MOLR_TEST_CHROMIUM=/absolute/chromium-directory bash runtime/scripts/test-sandbox-linux.sh -run 'TestLinuxBwrapProfile|TestLinuxPrivateSockets|TestLinuxAgentBrowser|TestLinuxNestedNamespaceBoundaries|TestLinuxExecutionIdentityWithNetworking' -v` 使用事先审查并安装的资产，Linux amd64 夹具要求目录内有 `agent-browser-linux-x64` 与 `chrome`。默认验收不设置 `MOLR_TEST_BWRAP`，以覆盖自动 profile 选择；自定义部署才指定可信启动器。设置 `MOLR_TEST_CHROMIUM_SANDBOX=1` 强制核验原生沙盒状态，启动失败不自动跳过或回退。测试覆盖读取、填写、点击、截图、获准 HTTP、未授权端口拒绝、沙盒状态、嵌套 mount／setns 拒绝、chroot IPC 隔离及 UID／GID 一致性。不设置原生标志时验证原有外层沙盒兼容路径。完整回归仍包括文件、网络、cgroup、FD 泄漏、取消、撤权、TTY 与显式开启的 GPU 检查。

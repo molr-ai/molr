@@ -6,6 +6,7 @@ The official [Lark CLI](https://github.com/larksuite/cli) supports calendars, do
 
 Complete the [environment setup](README.md#prepare-the-execution-environment), then send:
 
+> [!PROMPT]
 > Follow https://github.com/larksuite/cli to install Lark CLI and the required Skills in your workspace. Guide me through application setup and account authorization, sending any links I need to open. Start by verifying calendar access.
 
 The official installer is `npx @larksuite/cli@latest install`, requiring Node.js and npm. Have the assistant check installation paths and dependencies, then configure the application and log in:
@@ -20,10 +21,17 @@ Follow the prompts to configure or create an application and open the authorizat
 
 ## Example Requests
 
+> [!PROMPT]
 > Turn today's Feishu events into a timetable and highlight scheduling conflicts.
 
+<!-- -->
+
+> [!PROMPT]
 > Read the Feishu project documents I specify. Summarize this week's progress, blockers, and action items, with document links.
 
+<!-- -->
+
+> [!PROMPT]
 > Draft a project group message from this weekly report. Show me the text and target group for confirmation before sending.
 
 Provide document links, a time range, or a target group to identify the right resources. For Base updates or new tasks, specify the table, fields, or owner.

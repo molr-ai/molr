@@ -73,7 +73,7 @@ flowchart TD
 - 执行过程中可撤销授权；计算和存储授权失效会终止相关执行，网络授权失效会限制对应连接。远程沙盒依靠授权租约停止失联执行，不承诺网络分区下瞬时撤权。
 - 如果运行环境不支持隔离，命令功能会直接显示为不可用，而不是退回到在您的电脑上直接执行。
 
-部署开放且你明确批准的 [Full Access](guides/permissions-and-budget.md#full-access-权限) 调用使用服务账号直接执行，不具备上述隔离与资源限额；其他调用继续使用普通隔离路径。命令环境的准备与依赖见 [Linux 沙盒部署](deployment/sandbox.md)。
+部署开放且你明确批准的 [Full Access](guides/permissions-and-budget.md#full-access-权限) 调用使用服务账号直接执行，不具备上述隔离与资源限额；其他调用继续使用普通隔离路径。命令环境的准备与依赖见 [Linux 沙盒部署](sandbox/linux.md)。
 
 ## 您的数据放在哪里
 

@@ -56,7 +56,7 @@ If the password is forgotten, an operator with host management privileges execut
 
 Before upgrading, retain the old binary, configuration, and complete backup. Use a clean build of the target commit, verify static linking, permissions, and checksums, then atomically replace the binary using a temporary file, and restart the corresponding instance. Code rollback does not automatically undo data migrations or external side effects. After the upgrade is complete, re-perform page, authentication, model, and sandbox capability checks.
 
-For deployment and connection of independent Linux execution machines, see [Remote Sandbox Service](remote-sandbox.md). Local sandboxes are still embedded in the Runtime and do not require additional services.
+For deployment and connection of independent Linux execution machines, see [Remote Sandbox Service](../sandbox/remote.md). Local sandboxes are still embedded in the Runtime and do not require additional services.
 
 ## Model Response Diagnostic Logs
 

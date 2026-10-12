@@ -1,5 +1,6 @@
 import { allDocRoutes, type DocRoute } from './docs-routes';
 import sources from 'virtual:molr-documents';
+import { indexDocument } from './docs-search';
 
 export function headingId(text: string) {
   return text.toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, '').trim().replace(/\s/g, '-');
@@ -17,7 +18,8 @@ function loadDoc(entry: DocRoute) {
     counts.set(base, count + 1);
     return { title: match[2], level: match[1].length, id: count ? `${base}-${count}` : base };
   });
-  return { ...entry, content, headings, searchText: `${entry.label}\n${content}`.toLocaleLowerCase(), title: /^# (.+)$/m.exec(content)?.[1] ?? entry.label };
+  const title = /^# (.+)$/m.exec(content)?.[1] ?? entry.label;
+  return { ...entry, content, headings, title, searchIndex: indexDocument(content, title, entry.label, headings) };
 }
 
 export const allDocs = allDocRoutes.map(loadDoc);

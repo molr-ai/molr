@@ -54,7 +54,7 @@ Without `--config`, setup generates LAN HTTP configuration, initializes the owne
 
 ## Linux services and command environment
 
-The current service adapter uses systemd. The Linux sandbox requires systemd 254+, cgroup v2 delegation, Bubblewrap, static BusyBox, CA certificates and util-linux nsenter/setpriv. These are capability requirements; installation does not reject distribution names or versions. Automatic dependency preparation currently supports APT. Other environments can be prepared manually using the [sandbox requirements](sandbox.md). User services need a normal SSH/desktop login session and user manager.
+The current service adapter uses systemd. The Linux sandbox requires systemd 254+, cgroup v2 delegation, Bubblewrap, static BusyBox, CA certificates and util-linux nsenter/setpriv. These are capability requirements; installation does not reject distribution names or versions. Automatic dependency preparation currently supports APT. Other environments can be prepared manually using the [sandbox requirements](../sandbox/linux.md). User services need a normal SSH/desktop login session and user manager.
 
 When AppArmor restricts unprivileged user namespaces, setup probes Bubblewrap as the service account under `NoNewPrivileges`, first with the already loaded `chrome` profile and then through the original restricted path. No new profile is needed if the existing configuration works. If both paths fail, with authorization it can prepare and load the distribution's `bwrap-userns-restrict` policy and repeat the probe. Existing policies are preserved; conflicts require administrator intervention. System isolation restrictions are not disabled, and missing dependencies do not trigger Full Access.
 
@@ -116,7 +116,7 @@ After installation, update or restart, verify the actual page and authenticated 
 
 The default credential is the data directory's initial password. After changing it, add `-password-stdin`; with MFA, add `-mfa-code`. These commands use normal authentication APIs. `access` creates a one-time login link valid for 15 minutes.
 
-Unless the sandbox was disabled, `/api/sandbox` must report `Enabled=true`, `Capabilities.Reason=available` and all of `Shell`, `ProcessIsolation`, `FileIsolation`, `NetworkIsolation`, `ResourceLimits` as `true`. A listening port or active service does not replace this check. See [sandbox checks](sandbox.md#checks-and-verification).
+Unless the sandbox was disabled, `/api/sandbox` must report `Enabled=true`, `Capabilities.Reason=available` and all of `Shell`, `ProcessIsolation`, `FileIsolation`, `NetworkIsolation`, `ResourceLimits` as `true`. A listening port or active service does not replace this check. See [sandbox checks](../sandbox/linux.md#checks-and-verification).
 
 ## Uninstallation
 

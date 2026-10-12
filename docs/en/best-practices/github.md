@@ -6,6 +6,7 @@ With the official [GitHub CLI](https://github.com/cli/cli) (`gh`), your assistan
 
 First [prepare the execution environment](README.md#prepare-the-execution-environment), then send this request to your assistant:
 
+> [!PROMPT]
 > Follow the official instructions at https://github.com/cli/cli#installation to install GitHub CLI (gh) in your workspace. Check the environment and installation location, guide me through GitHub login, and send me the authorization link and device code. Start by checking the PR list for a repository I specify.
 
 Ask the assistant to select an official release package for the sandbox's operating system and architecture, and keep the program inside `/work`. For cloning, committing, or pushing, also check that Git is available. Commands below use `gh`; use its absolute path if it is not on PATH.
@@ -22,10 +23,17 @@ Open the CLI's link in your own browser, enter the device code, and approve acce
 
 ## Example Requests
 
+> [!PROMPT]
 > Review the ten most recently updated open issues in the specified repository. Group them by problem type and include numbers, titles, and links.
 
+<!-- -->
+
+> [!PROMPT]
 > Read this PR's description, diff, and check results. Summarize the changes, potential problems, and checks that have not passed, with source links.
 
+<!-- -->
+
+> [!PROMPT]
 > Draft an issue for the specified repository from this bug report, including reproduction steps, expected behavior, and actual behavior. Let me review it before creating the issue.
 
 Provide the repository's `OWNER/REPO` or full URL, and include a number or link for a specific issue or PR. For comments, branch pushes, or PR creation and merging, specify the target repository, branches, and scope.

@@ -73,3 +73,5 @@ export type { AssistantAvatarPreset } from './components/AssistantAvatar';
 
 export { ChatFeedback } from './components/ChatFeedback';
 export type { ChatFeedbackProps } from './components/ChatFeedback';
+
+export { UIIcon } from './components/icons';
