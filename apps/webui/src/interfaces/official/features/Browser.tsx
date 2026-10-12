@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ChangeEvent, KeyboardEvent, PointerEvent } from 'react';
 import { Alert, Badge, Button, Drawer, IconButton, Select, useBreakpoint, useToast, useUILocale } from '@molr/ui';
-import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, CornerDownLeft, Globe, Hand, Keyboard, Maximize2, Minimize2, Plus, Power, RefreshCw, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, CornerDownLeft, Globe, Hand, Keyboard, Maximize, Minimize, Plus, Power, RefreshCw, X } from 'lucide-react';
 import { api, APIError, mutationKey } from '../../../api/client';
 import type { BrowserStatus, Grant, Resource } from '../../../api/types';
 import { useCopy, useQuery } from '../../../state';
@@ -189,8 +189,8 @@ export function Browser({ assistantID, docked, onClose }: { assistantID: string;
         {tabScroll.overflow && <IconButton className="browser-tab-scroll" label={zh ? '向右滚动标签页' : 'Scroll tabs right'} disabled={!tabScroll.right} onClick={() => scrollTabs(1)}><ChevronRight size={16}/></IconButton>}
       </div>
       <IconButton className="browser-new-tab" label={zh ? '新建标签页' : 'New tab'} disabled={!canOperate} onClick={() => input({ action: 'new_tab', url: 'about:blank' })}><Plus size={18}/></IconButton>
-      <div className="browser-view-actions"><IconButton disabled={moving} label={expanded ? (zh ? '退出全屏' : 'Exit full-page view') : (zh ? '全屏视图' : 'Full-page view')} onClick={() => changeView(!expanded)}>{expanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}</IconButton>
-      <IconButton label={zh ? '关闭浏览器面板' : 'Close browser panel'} onClick={onClose}><X className="browser-panel-close-icon" size={20}/></IconButton></div>
+      <div className="browser-view-actions"><IconButton disabled={moving} label={expanded ? (zh ? '退出全屏' : 'Exit full-page view') : (zh ? '全屏视图' : 'Full-page view')} onClick={() => changeView(!expanded)}>{expanded ? <Minimize size={18}/> : <Maximize size={18}/>}</IconButton>
+      <IconButton label={zh ? '关闭浏览器面板' : 'Close browser panel'} onClick={onClose}><X size={18}/></IconButton></div>
     </div>}>
     <div className="browser-panel" ref={panelRef}>
       {!task ? <div className="browser-start"><div className="browser-start-icon"><Globe size={34}/></div><h3>{zh ? '一起浏览，同步可见' : 'Browse together'}</h3><p>{zh ? '观看助理浏览网页，需要时接管。登录状态会为这个助理保留。' : 'Watch your assistant browse, and take control when needed. Login state stays with this assistant.'}</p>
