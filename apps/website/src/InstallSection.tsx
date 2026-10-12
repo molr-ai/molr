@@ -64,8 +64,7 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
               <a className="home-button home-button-secondary" href={platform.url}>{t.downloadAction}</a>
               <a className="home-install-checksum" href={platform.checksum_url}>{t.checksum}</a>
               <code className="home-install-digest">SHA-256: {platform.sha256}</code>
-              <p>{t.offline}</p><code className="home-install-digest">sh install.sh --archive {platform.file}</code>
-              <a className="home-install-checksum" href={release.installer_url}>{t.installer}</a>
+              <p>{t.offline}</p><code className="home-install-digest">sha256sum -c {platform.file}.sha256<br />tar -xzf {platform.file}<br />cd molr<br />./bin/molr-setup</code>
             </article></div>}
           </div>
           {platform && <p className="home-install-requirements">{platform.os} · systemd {platform.requirements.systemd}+ · cgroup v{platform.requirements.cgroup} · {platform.requirements.packages.join(', ')}</p>}

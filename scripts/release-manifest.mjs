@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync, copyFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { platforms, releaseChannel, validateManifest } from './release-lib.mjs';
@@ -21,8 +21,5 @@ const assets = platforms.filter(p => p.channels.includes(channel)).map(p => {
   if (readFileSync(`${archive}.sha256`, 'utf8') !== `${sha256}  ${file}\n`) throw new Error('Release checksum mismatch');
   return { id: p.id, os: p.os, arch: p.arch, label: p.label, aliases: p.aliases, requirements: p.requirements, file, sha256, url: `${base}/${file}`, checksum_url: `${base}/${file}.sha256` };
 });
-copyFileSync('scripts/install.sh', resolve(directory, 'install.sh'));
-const installerSha = digest(resolve(directory, 'install.sh'));
-writeFileSync(resolve(directory, 'install.sh.sha256'), `${installerSha}  install.sh\n`);
-const manifest = validateManifest({ schema: 1, version, channel, commit, published_at: publishedAt, notes_url: `https://github.com/${values.repository}/releases/tag/v${version}`, installer_url: `${base}/install.sh`, installer_sha256: installerSha, platforms: assets });
+const manifest = validateManifest({ schema: 1, version, channel, commit, published_at: publishedAt, notes_url: `https://github.com/${values.repository}/releases/tag/v${version}`, platforms: assets });
 writeFileSync(resolve(directory, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');

@@ -57,7 +57,7 @@ async function releaseManifest(repository, r) {
     const m = validateManifest(await response.json());
     if (r.tag_name !== `v${m.version}` || r.prerelease !== (m.channel !== 'stable')) throw new Error(`Release identity mismatch: ${r.tag_name}`);
     const base = `https://github.com/${repository}/releases/download/${r.tag_name}/`;
-    for (const [name, url, digest] of [['install.sh', m.installer_url, m.installer_sha256], ...m.platforms.flatMap(p => [[p.file, p.url, p.sha256], [p.file + '.sha256', p.checksum_url]])]) {
+    for (const [name, url, digest] of m.platforms.flatMap(p => [[p.file, p.url, p.sha256], [p.file + '.sha256', p.checksum_url]])) {
       const asset = r.assets.find(a => a.name === name && a.browser_download_url === url);
       if (url !== base + name || !asset) throw new Error(`Missing release asset: ${name}`);
       if (digest && asset.digest && asset.digest !== `sha256:${digest}`) throw new Error(`Release asset digest mismatch: ${name}`);
@@ -72,7 +72,6 @@ export async function verifyChannelDownloads(releases) {
   const urls = new Set();
   for (const m of Object.values(selectChannels(releases))) {
     if (!m) continue;
-    urls.add(m.installer_url);
     for (const p of m.platforms) { urls.add(p.url); urls.add(p.checksum_url); }
   }
   for (const url of urls) {

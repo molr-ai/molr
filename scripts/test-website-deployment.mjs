@@ -5,7 +5,7 @@ import { triggerWebsite } from './trigger-website.mjs';
 import { fixture } from './release-test-fixtures.mjs';
 
 function githubRelease(m) {
- const names = [['manifest.json', `https://github.com/example/molr/releases/download/v${m.version}/manifest.json`], ['install.sh', m.installer_url, m.installer_sha256], ...m.platforms.flatMap(p => [[p.file, p.url, p.sha256], [p.file+'.sha256', p.checksum_url]])];
+ const names = [['manifest.json', `https://github.com/example/molr/releases/download/v${m.version}/manifest.json`], ...m.platforms.flatMap(p => [[p.file, p.url, p.sha256], [p.file+'.sha256', p.checksum_url]])];
  return {tag_name:`v${m.version}`,draft:false,prerelease:m.channel!=='stable',assets:names.map(([name,url,digest])=>({name,browser_download_url:url,digest:digest?`sha256:${digest}`:null}))};
 }
 test('catalog selects the highest version of each kind from metadata and downloads only three manifests', async t => {
@@ -32,7 +32,7 @@ test('catalog selects the highest version of each kind from metadata and downloa
  assert.deepEqual(await publishedReleases('example/molr'),selected);
  assert.equal(calls.length,4);
  await verifyChannelDownloads(selected);
- assert(calls.some(c=>c.url===selected[0].installer_url&&c.options.method==='HEAD'));
+ assert(calls.some(c=>c.url===selected[0].platforms[0].url&&c.options.method==='HEAD'));
 });
 test('scan window is bounded across pages and absent kinds stay empty', async t => {
  const nightly=fixture('0.2.0-0.nightly.20261011.0.gaaaaaaa');
@@ -106,7 +106,7 @@ test('failed GitHub listing, missing assets and unavailable downloads fail close
  t.mock.method(globalThis,'fetch',async(url,options={})=>{
   if(String(url).startsWith('https://api.github.com/')) {
    if(kind==='listing')return new Response('',{status:403});
-   const r=githubRelease(m);r.assets=r.assets.filter(a=>a.name!=='install.sh');return Response.json([r]);
+   const r=githubRelease(m);r.assets=r.assets.filter(a=>a.name!==m.platforms[0].file);return Response.json([r]);
   }
   if(options.method==='HEAD')return new Response('',{status:404});
   return Response.json(m);

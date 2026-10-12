@@ -40,7 +40,7 @@ test('catalog keeps historical platform availability and rejects extra files, li
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });
 test('manifest rejects dangerous URLs, duplicate targets and mismatched channel/file identities', () => {
-  for (const mutate of [m => m.channel = 'nightly', m => m.installer_url = 'http://example.com/install.sh', m => m.platforms.push(m.platforms[0]), m => m.platforms[0].file = '../bad', m => m.platforms[0].sha256 = 'bad', m => m.commit = 'branch']) {
+  for (const mutate of [m => m.channel = 'nightly', m => m.platforms[0].url = 'http://example.com/package.tar.gz', m => m.platforms.push(m.platforms[0]), m => m.platforms[0].file = '../bad', m => m.platforms[0].sha256 = 'bad', m => m.commit = 'branch']) {
     const m = fixture(); mutate(m); assert.throws(() => validateManifest(m));
   }
 });

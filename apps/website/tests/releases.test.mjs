@@ -8,12 +8,12 @@ import { readCatalog, installCommand } from '../src/release-data.ts';
 const platforms = JSON.parse(readFileSync(new URL('../../../release/platforms.json', import.meta.url))).platforms;
 function release(version, channel, targets = platforms) {
   const base = `https://github.com/example/molr/releases/download/v${version}`;
-  return { schema: 1, version, channel, commit: 'a'.repeat(40), published_at: '2026-10-11T00:00:00Z', notes_url: `https://github.com/example/molr/releases/tag/v${version}`, installer_url: `${base}/install.sh`, installer_sha256: 'b'.repeat(64), platforms: targets.map(p => ({ ...p, file: `molr_${version}_${p.os}_${p.arch}.tar.gz`, sha256: 'c'.repeat(64), url: `${base}/molr_${version}_${p.os}_${p.arch}.tar.gz`, checksum_url: `${base}/molr_${version}_${p.os}_${p.arch}.tar.gz.sha256` })) };
+  return { schema: 1, version, channel, commit: 'a'.repeat(40), published_at: '2026-10-11T00:00:00Z', notes_url: `https://github.com/example/molr/releases/tag/v${version}`, platforms: targets.map(p => ({ ...p, file: `molr_${version}_${p.os}_${p.arch}.tar.gz`, sha256: 'c'.repeat(64), url: `${base}/molr_${version}_${p.os}_${p.arch}.tar.gz`, checksum_url: `${base}/molr_${version}_${p.os}_${p.arch}.tar.gz.sha256` })) };
 }
 const catalog = { schema: 1, channels: { stable: release('0.1.0', 'stable', [platforms[0]]), preview: release('0.2.0-rc.1', 'preview'), nightly: release('0.2.0-0.nightly.20261011.0.gaaaaaaa', 'nightly') } };
 test('browser rejects unsafe catalog links and installs latest channel releases', () => {
   assert.equal(readCatalog(catalog), catalog);
-  const bad = structuredClone(catalog); bad.channels.stable.installer_url = "https://example.com/a'bad";
+  const bad = structuredClone(catalog); bad.channels.stable.platforms[0].url = "https://example.com/a'bad";
   assert.throws(() => readCatalog(bad));
   assert.equal(installCommand(), "curl -fsSL https://molr.ai/install.sh | sh");
   assert.equal(installCommand('preview'), "curl -fsSL https://molr.ai/install.sh | sh -s -- --channel preview");
@@ -65,6 +65,11 @@ test('install section follows published channels and platform availability', { t
     await section.getByRole('button', { name: 'Download package', exact: true }).click();
     await expect(section.getByRole('link', { name: 'Download package', exact: true })).toHaveAttribute('href', /linux_arm64.tar.gz$/);
     await expect(section.getByRole('link', { name: 'Download checksum' })).toHaveAttribute('href', /linux_arm64.tar.gz.sha256$/);
+    await expect(section.locator('.home-install-packages')).toContainText(`sha256sum -c ${catalog.channels.preview.platforms[1].file}.sha256`);
+    await expect(section.locator('.home-install-packages')).toContainText('./bin/molr-setup');
+    await expect(section.getByRole('link', { name: 'Download installer' })).toHaveCount(0);
+    await section.getByRole('button', { name: 'Nightly', exact: true }).click();
+    await expect(section.getByText(`v${catalog.channels.nightly.version}`, { exact: true })).toBeVisible();
     const screenshots = resolve(import.meta.dirname, '../test-results/releases'); mkdirSync(screenshots, { recursive: true });
     for (const theme of ['light', 'dark']) for (const palette of ['forest', 'ocean', 'iris', 'sand', 'rose', 'monochrome']) for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 900 });

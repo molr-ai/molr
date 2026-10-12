@@ -38,11 +38,10 @@ function requiredKeys(value, keys, path) {
   if (missing.length) throw new Error(`Missing manifest fields at ${path}: ${missing.join(', ')}`);
 }
 export function validateManifest(m) {
-  requiredKeys(m, ['schema', 'version', 'channel', 'commit', 'published_at', 'notes_url', 'installer_url', 'installer_sha256', 'platforms'], 'manifest');
+  requiredKeys(m, ['schema', 'version', 'channel', 'commit', 'published_at', 'notes_url', 'platforms'], 'manifest');
   const channel = releaseChannel(m.version);
   if (m.schema !== 1 || m.channel !== channel || !/^[0-9a-f]{40}$/.test(m.commit) || !Number.isFinite(Date.parse(m.published_at)) || !Array.isArray(m.platforms) || !m.platforms.length) throw new Error('Invalid release manifest');
-  httpsURL(m.notes_url); httpsURL(m.installer_url);
-  if (!/^[0-9a-f]{64}$/.test(m.installer_sha256)) throw new Error('Invalid installer checksum');
+  httpsURL(m.notes_url);
   const seen = new Set();
   for (const [index, p] of m.platforms.entries()) {
     requiredKeys(p, ['id', 'os', 'arch', 'label', 'aliases', 'requirements', 'file', 'sha256', 'url', 'checksum_url'], `platforms[${index}]`);
