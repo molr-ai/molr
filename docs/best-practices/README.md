@@ -10,6 +10,7 @@
 | 钉钉 | 官方 DWS CLI | [操作钉钉](dingtalk.md) |
 | 飞书 | 官方 Lark CLI | [操作飞书](feishu.md) |
 | 知乎 | 官方 Zhihu CLI | [操作知乎](zhihu.md) |
+| GitHub | 官方 GitHub CLI（`gh`） | [操作 GitHub](github.md) |
 
 ## 准备执行环境
 

@@ -21,6 +21,7 @@ const userSources: SourceRoute[] = [
   { file: 'best-practices/dingtalk.md', path: '/docs/best-practices/dingtalk/', label: '操作钉钉', group: '最佳实践', englishLabel: 'Use DingTalk', englishGroup: 'Best practices', root: 'docs' },
   { file: 'best-practices/feishu.md', path: '/docs/best-practices/feishu/', label: '操作飞书', group: '最佳实践', englishLabel: 'Use Feishu', englishGroup: 'Best practices', root: 'docs' },
   { file: 'best-practices/zhihu.md', path: '/docs/best-practices/zhihu/', label: '操作知乎', group: '最佳实践', englishLabel: 'Use Zhihu', englishGroup: 'Best practices', root: 'docs' },
+  { file: 'best-practices/github.md', path: '/docs/best-practices/github/', label: '操作 GitHub', group: '最佳实践', englishLabel: 'Use GitHub', englishGroup: 'Best practices', root: 'docs' },
   { file: 'administration/users-and-groups.md', path: '/docs/administration/users-and-groups/', label: '用户与用户组', group: '管理实例', englishLabel: 'Users and groups', englishGroup: 'Administration', root: 'docs' },
   { file: 'administration/models.md', path: '/docs/administration/models/', label: '连接与管理模型', group: '管理实例', englishLabel: 'Model connections', englishGroup: 'Administration', root: 'docs' },
   { file: 'administration/sandbox-resources.md', path: '/docs/administration/sandbox-resources/', label: '管理沙盒资源', group: '管理实例', englishLabel: 'Sandbox resources', englishGroup: 'Administration', root: 'docs' },

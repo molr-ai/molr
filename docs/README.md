@@ -18,7 +18,7 @@ Molr 是可自托管的个人 AI 助理。连接自己选择的模型，通过�
 
 ## 最佳实践
 
-从[最佳实践概览](best-practices/README.md)准备工具与授权，再按场景阅读[操作浏览器](best-practices/browser.md)、[操作钉钉](best-practices/dingtalk.md)、[操作飞书](best-practices/feishu.md)和[操作知乎](best-practices/zhihu.md)。
+从[最佳实践概览](best-practices/README.md)准备工具与授权，再按场景阅读[操作浏览器](best-practices/browser.md)、[操作钉钉](best-practices/dingtalk.md)、[操作飞书](best-practices/feishu.md)、[操作知乎](best-practices/zhihu.md)和[操作 GitHub](best-practices/github.md)。
 
 ## 管理实例
 

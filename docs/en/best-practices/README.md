@@ -10,6 +10,7 @@ Give your assistant a concrete task so it can choose tools to retrieve informati
 | DingTalk | Official DWS CLI | [Use DingTalk](dingtalk.md) |
 | Feishu | Official Lark CLI | [Use Feishu](feishu.md) |
 | Zhihu | Official Zhihu CLI | [Use Zhihu](zhihu.md) |
+| GitHub | Official GitHub CLI (`gh`) | [Use GitHub](github.md) |
 
 ## Prepare the Execution Environment
 
