@@ -13,11 +13,11 @@ You can also select an authorized local compute resource in the browser panel an
 
 Closing the panel only stops viewing. Close the browser through the browser panel or running tasks. Normal closure retains website login state and local data for the next launch; websites determine whether a login remains valid. Different assistants do not share browser data.
 
-The browser icon badge shows the open tab count even while the panel is closed. Large screens get a wider sidebar. **Full-page view** fills the Molr page while keeping tabs, navigation and control actions visible. Choose **Exit full-page view** or press Esc to return; it does not enter the device’s native fullscreen mode.
+The browser icon badge shows the open tab count even while the panel is closed. Tabs, new tab, full-page view and close share one row; takeover controls sit beside the address bar. Tabs first shrink, then left/right arrows reveal overflow. Large screens get a wider sidebar. **Full-page view** fills the Molr page while keeping tabs, navigation and control actions visible. Expansion and contraction animate between the current panel bounds and page bounds. Choose **Exit full-page view** or press Esc to return; it does not enter the device’s native fullscreen mode.
 
 ## Take and return control
 
-Choose **Take control** and wait for an already accepted operation to settle. You can then click, scroll, drag, navigate and switch tabs. Click a field in the page to type or paste directly. IME candidates appear near the clicked position, and committed composition text is sent once. The keyboard button opens an optional input area for mobile or other input methods. Use the + button to create a tab and the close button on each tab to close that specific tab.
+Choose **Take control** and wait for an already accepted operation to settle. You can then click, scroll, drag, navigate and switch tabs. Click a field in the page to type or paste directly. Only the system IME candidate window appears near the clicked position, and committed composition text is sent once. The keyboard button opens an optional input area for mobile or other input methods. Use the + button to create a tab and the close button on each tab to close that specific tab.
 
 During takeover the assistant can still read snapshots, screenshots, tabs and the current URL. Clicking, filling, navigating, closing and other operations return an explicit takeover message. Control applies to all tabs. A website you log into here is available to the assistant after handoff within the same grants.
 

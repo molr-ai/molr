@@ -1,4 +1,3 @@
-.shell-tasks-trigger:has(.badge) { width: auto; gap: 4px; padding: 0 6px; }
 .shell-tasks-content { min-width: 0; display: grid; gap: 24px; }
 .shell-tasks-content h3, .shell-tasks-content h4, .shell-tasks-content p { margin: 0; }
 .shell-task-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }

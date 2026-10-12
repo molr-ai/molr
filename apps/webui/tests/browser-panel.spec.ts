@@ -33,6 +33,7 @@ test('browser panel preserves control, commits IME once, closes the selected tab
     }
     window.EventSource = new Proxy(Native, { construct(target, args) { return String(args[0]).includes('/browser/stream') ? new BrowserStream() : Reflect.construct(target, args); } });
   });
+  await page.goto('about:blank'); // Install the transport in a fresh document before routing requests.
   await page.route(`**/api/assistants/${assistant.ID}/browser`, async route => {
     if (route.request().method() === 'POST') {
       const q = route.request().postDataJSON();
@@ -47,7 +48,6 @@ test('browser panel preserves control, commits IME once, closes the selected tab
     await page.evaluate(tabs => window.dispatchEvent(new CustomEvent('browser-test-tabs', { detail: tabs })), tabs);
   });
   await page.goto(`/#/assistants/${assistant.ID}`);
-  await page.reload(); // Hash navigation alone does not install the transport fixture.
   const trigger = page.getByRole('button', { name: /^Browser \(/ });
   await expect(trigger).toHaveAccessibleName('Browser (2)'); await trigger.click();
   await page.getByRole('button', { name: 'Take control', exact: true }).click();
@@ -55,18 +55,60 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   await page.getByRole('button', { name: 'Close browser panel', exact: true }).click();
   await expect(page.locator('.browser-drawer')).toHaveCount(0); await trigger.click();
   await expect(page.getByRole('button', { name: 'Return control', exact: true })).toBeEnabled(); expect(takeovers).toBe(1);
+  await expect(page.locator('.browser-drawer .browser-navigation .browser-control-button')).toHaveText('Return control');
+  await expect(page.locator('.browser-drawer .ui-dialog__header h2')).toHaveClass(/ui-sr-only/);
   const input = page.getByRole('textbox', { name: 'Page keyboard input', exact: true });
   await input.focus(); await input.dispatchEvent('compositionstart', { data: '' });
   await input.evaluate((element: HTMLTextAreaElement) => { element.value = '中文组合'; element.dispatchEvent(new InputEvent('input', { bubbles: true, data: '中文组合', isComposing: true })); });
-  expect(text).toEqual([]); await input.dispatchEvent('compositionend', { data: '中文组合' });
+  expect(text).toEqual([]); await expect(page.locator('.browser-preedit')).toHaveCount(0); await input.dispatchEvent('compositionend', { data: '中文组合' });
   await expect.poll(() => text).toEqual(['中文组合']);
   await page.getByRole('button', { name: 'Close tab: New tab', exact: true }).click();
   await expect.poll(() => closedTabs).toEqual(['t2']); await expect(trigger).toHaveAccessibleName('Browser (1)');
+  // Freeze only the browser's geometry animation to inspect its actual start,
+  // midpoint and final bounds in both directions, independently of timing.
+  await page.evaluate(() => {
+    const animate = Element.prototype.animate;
+    Element.prototype.animate = function(frames, options) {
+      const motion = animate.call(this, frames, options);
+      if (typeof options === 'object' && options?.id === 'molr-browser-view') { motion.pause(); motion.currentTime = 0; }
+      return motion;
+    };
+  });
+  const panel = page.locator('.browser-drawer');
+  const normal = (await panel.boundingBox())!;
   await page.getByRole('button', { name: 'Full-page view', exact: true }).click();
-  await expect.poll(async () => Math.round((await page.locator('.browser-drawer--expanded').boundingBox())!.x)).toBe(0);
-  const box = (await page.locator('.browser-drawer--expanded').boundingBox())!, viewport = page.viewportSize()!;
+  const start = (await panel.boundingBox())!;
+  expect(start.x).toBeCloseTo(normal.x, 0); expect(start.y).toBeCloseTo(normal.y, 0);
+  expect(start.width).toBeCloseTo(normal.width, 0); expect(start.height).toBeCloseTo(normal.height, 0);
+  const finish = async () => panel.evaluate(el => { const animation = el.getAnimations().find(a => a.id === 'molr-browser-view'); if (!animation) throw Error('missing geometry animation'); animation.finish(); });
+  await finish();
+  await expect(page.getByRole('button', { name: 'Exit full-page view', exact: true })).toBeEnabled();
+  const box = (await panel.boundingBox())!, viewport = page.viewportSize()!;
+  expect(Math.round(box.x)).toBe(0); expect(Math.round(box.y)).toBe(0);
   expect(Math.round(box.width)).toBe(viewport.width); expect(Math.round(box.height)).toBe(viewport.height);
   expect(await page.evaluate(() => document.fullscreenElement)).toBeNull();
   await page.getByRole('button', { name: 'Exit full-page view', exact: true }).click();
+  const collapsing = (await panel.boundingBox())!;
+  expect(collapsing.width).toBeCloseTo(box.width, 0); expect(collapsing.height).toBeCloseTo(box.height, 0);
+  await panel.evaluate(el => { el.getAnimations().find(a => a.id === 'molr-browser-view')!.currentTime = 130; });
+  const middle = (await panel.boundingBox())!;
+  expect(info.project.name === 'desktop' ? middle.width : middle.height).toBeLessThan(info.project.name === 'desktop' ? box.width : box.height);
+  await finish();
+  await expect(page.locator('.browser-drawer--expanded')).toHaveCount(0);
+  const restored = (await panel.boundingBox())!;
+  expect(restored.x).toBeCloseTo(normal.x, 0); expect(restored.y).toBeCloseTo(normal.y, 0);
+  expect(restored.width).toBeCloseTo(normal.width, 0); expect(restored.height).toBeCloseTo(normal.height, 0);
   await expect(page.getByRole('button', { name: 'Return control', exact: true })).toBeEnabled(); expect(takeovers).toBe(1);
+  tabs = Array.from({length: 24}, (_, i) => ({tabId: `t${i+1}`, title: `Tab ${i+1}`, url: `https://example.com/${i}`, active: i===0}));
+  await page.evaluate(tabs => window.dispatchEvent(new CustomEvent('browser-test-tabs', {detail: tabs})), tabs);
+  const list = page.getByRole('tablist', {name: 'Browser tabs'});
+  await expect(page.getByRole('button', {name:'Scroll tabs right'})).toBeEnabled();
+  expect(await list.evaluate(el => getComputedStyle(el).overflowX)).toBe('hidden');
+  await page.getByRole('button', {name:'Scroll tabs right'}).click();
+  await expect.poll(() => list.evaluate(el => el.scrollLeft)).toBeGreaterThan(0);
+  await expect(page.getByRole('button', {name:'Scroll tabs left'})).toBeEnabled();
+  const inactive = page.locator('.browser-tab:not([data-active])').first();
+  expect(await inactive.evaluate(el => getComputedStyle(el).borderTopStyle)).toBe('solid');
+  expect(await inactive.evaluate(el => parseFloat(getComputedStyle(el).borderTopWidth))).toBeGreaterThan(0);
+  await page.unrouteAll({behavior:'wait'});
 });

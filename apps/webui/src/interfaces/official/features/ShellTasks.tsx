@@ -24,7 +24,7 @@ function useShellTaskList(assistantID: string | null, interval: number) {
 export function ShellTasksButton({ assistantID, disabled, onOpen }: { assistantID: string; disabled?: boolean; onOpen: () => void }) {
   const { locale } = useCopy(), { items } = useShellTaskList(disabled ? null : assistantID, 5000);
   const running = items.filter(task => task.State === 'running').length;
-  return <IconButton className="shell-tasks-trigger" disabled={disabled} onClick={onOpen} label={`${locale === 'zh' ? '运行任务' : 'Running tasks'}${running > 0 ? ` (${running})` : ''}`}><ListTodo size={20} />{running > 0 && <Badge tone="positive" size="sm" dot={false} aria-hidden="true">{running}</Badge>}</IconButton>;
+  return <IconButton className="chat-count-trigger" disabled={disabled} onClick={onOpen} label={`${locale === 'zh' ? '运行任务' : 'Running tasks'}${running > 0 ? ` (${running})` : ''}`}><ListTodo size={20} />{running > 0 && <Badge tone="positive" size="sm" dot={false} aria-hidden="true">{running}</Badge>}</IconButton>;
 }
 
 function authenticatedForwardURL(raw: string) {
