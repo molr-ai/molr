@@ -62,7 +62,7 @@ func TestAssistantCapabilitiesAreReadOnlyScopedAndReflectStorageGrants(t *testin
 			for _, tool := range result.Tools {
 				entries[tool.Name] = tool
 			}
-			if len(entries) != 19 || !entries["profile_update"].Available || !entries["shell_task"].Available || !entries["permission_list"].Available || !entries["permission_request"].Available || !entries["file_search"].Available || entries["memory_search"].Available || entries["memory_read"].Available || !entries["conversation_read"].Available || !entries["plan_list"].Available || !entries["plan_read"].Available || !entries["plan_manage"].Available {
+			if len(entries) != 21 || !entries["profile_update"].Available || !entries["shell_task"].Available || !entries["permission_list"].Available || !entries["permission_request"].Available || !entries["file_search"].Available || entries["memory_search"].Available || entries["memory_read"].Available || !entries["conversation_read"].Available || !entries["plan_list"].Available || !entries["plan_read"].Available || !entries["plan_manage"].Available {
 				t.Fatalf("builtins=%+v", entries)
 			}
 			if entries["shell_execute"].Available || entries["shell_execute"].Reason == "available" {

@@ -104,10 +104,16 @@ Dream 直接复用上述通用文件工具，仅通过执行上下文限制可�
 
 `shell_execute` 使用 `compute_id`，远程调用另需显式 `sandbox_id`。普通命令最多同步等待 60 秒，未结束时沿用原任务转后台；`background: true` 立即后台返回，`tty: true` 创建终端，两者互斥。`timeout_seconds` 为可选运行上限，0 或省略不设置；授权到期、撤销和资源限额仍生效。
 
-`forward_ports` 接受最多四个不重复的 TCP 端口（1–65535）。服务监听执行内的 IPv4 回环或 `0.0.0.0`。回执 `Task.Forwards` 含 `Protocol`、内部 `Port`、外部 `Address`、HTTP 便利链接 `URL` 和 `State`；`URL` 不表示自动识别服务协议。运行管理接口见[HTTP API](http-api.md#shell-任务管理)。
+`forward_ports` 接受最多四个不重复的 HTTP 服务端口（1–65535）；`forward_protocol` 仅接受默认值 `http`，包括 WS 升级。`Task.Forwards` 返回 Protocol/Port/Address/URL/State，目标仍固定为执行内 IPv4 回环。公开入口校验当前 Molr 登录态与任务归属，原始 TCP 已禁用。
 
-端口在 Runtime 上监听，远程任务通过固定证书与服务令牌认证的 TLS Upgrade 通道转发，要求远端声明 `PortForwarding=true`。每个入口最多 32 个连接，Runtime 总计最多 128 个，执行内最多 32 个目标连接；连接探测另计，不消耗出站网络累计额度。转发不提供用户认证或 TLS 终止，也不形成不同端口间的 Cookie 隔离。
+端口在 Runtime 上监听，远程任务通过固定证书与服务令牌认证的 TLS Upgrade 通道转发，要求远端声明 `PortForwarding=true`。每个入口最多 32 个连接，Runtime 总计最多 128 个，执行内最多 32 个目标连接；连接探测另计，不消耗出站网络累计额度。HTTP/WS 入口提供用户会话认证；HTTPS 部署需要转发证书。端口不是 Cookie 隔离边界。
 
 后台任务结束生成助理事件，前台同步完成及 TTY 退出不重复生成完成事件。存在后台任务或 TTY 时，每五分钟聚合提醒一次，计时从首个任务进入后台或终端打开开始。TTY 在沙盒内建立前台进程组，文本输入追加换行，Ctrl-C 指向前台任务。每次终端使用新沙盒，启动读取 `/work/.profile`；非交互命令不加载该文件。
 
 GPU 沿用计算权限，无额外 Shell 参数。申请中的 `constraints.compute.gpu.device_ids` 必须来自可申请设备清单；临时范围使用 `temporary.limits.compute.gpu.device_ids` 并保留完整计算额度。详细范围校验见[资源额度](../security/resource-quotas.md)。
+
+## 浏览器工具
+
+`browser_session` 接受 start/status/close。启动选择获准的本机 `compute_id` 与现有网络授权，重复启动复用助理当前任务。`browser_action` 接受 snapshot/screenshot/tabs/get_url/navigate/new_tab/click/fill/press/scroll/back/forward/reload/select_tab/close_tab。操作使用 `task_id`；导航仅接受 HTTP/HTTPS 和 about:blank，不开放启动路径、任意 JavaScript 或 CDP 连接。
+
+用户接管时，模型写操作及关闭返回 `browser_user_controlled`，只读操作仍可用。交还后，模型先成功读取新快照，写操作才解除 `browser_snapshot_required`。写操作响应丢失时结束执行，不重试可能已经完成的操作。截图复用既有文件与媒体权限。浏览器计入现有任务额度；每个助理一个浏览器，支持多标签和独立持久 profile。

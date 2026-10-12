@@ -5,8 +5,11 @@ package app
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"io"
 	"net"
 	"net/http"
@@ -19,6 +22,7 @@ import (
 
 	"golang.org/x/net/websocket"
 	"molr.ai/runtime/internal/agent/tools"
+	"molr.ai/runtime/internal/auth"
 	"molr.ai/runtime/internal/business/resource"
 	"molr.ai/runtime/internal/config"
 	"molr.ai/runtime/internal/core"
@@ -49,6 +53,12 @@ func shellForwardTestServer(marker string) {
 	}()
 	mux := http.NewServeMux()
 	mux.Handle("/ws", websocket.Handler(func(c *websocket.Conn) { defer c.Close(); io.Copy(c, c) }))
+	mux.HandleFunc("/credentials", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Set-Cookie", "molr_dev_session_p8080=forged; Path=/")
+		w.Header().Add("Set-Cookie", "application=kept; Path=/")
+		w.Header().Set("Clear-Site-Data", `"cookies"`)
+		json.NewEncoder(w).Encode(r.Header)
+	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		io.WriteString(w, marker+":"+r.URL.Path)
@@ -105,15 +115,33 @@ func TestShellForwardRealLocalAndRemote(t *testing.T) {
 	exe, err := os.Executable()
 	need(t, err)
 	need(t, os.Chmod(exe, 0755))
-	for _, remote := range []bool{false, true} {
-		name := "local"
-		if remote {
-			name = "remote"
-		}
+	for _, mode := range []string{"local", "remote", "local_https"} {
+		remote, name := mode == "remote", mode
 		t.Run(name, func(t *testing.T) {
 			b, owner, e := taskFixture(t)
 			s := b.shellTasks
+			s.forwardHTTP.TLSMode = config.LocalHTTP
+			login, err := b.Services.Auth.Login(t.Context(), auth.LoginRequest{Username: "owner", Password: core.NewSecret("correct-horse-battery-staple-2026!"), Client: auth.Client{Address: "127.0.0.1", DeviceName: "forward-client"}})
+			need(t, err)
+			cookie := &http.Cookie{Name: "molr_dev_session_p8080", Value: login.Session.Token.Reveal()}
+			forwardUser, err := b.Services.Auth.Authenticate(t.Context(), auth.Authentication{Session: login.Session.Token})
+			need(t, err)
 			s.forwardConfig = config.PortForward{Enabled: true, ListenHost: "127.0.0.1", PublicHost: "127.0.0.1"}
+			var tlsConfig *tls.Config
+			if mode == "local_https" {
+				issuer := httptest.NewTLSServer(nil)
+				defer issuer.Close()
+				cert := issuer.TLS.Certificates[0]
+				key, err := x509.MarshalPKCS8PrivateKey(cert.PrivateKey)
+				need(t, err)
+				s.forwardConfig.CertFile = filepath.Join(t.TempDir(), "cert.pem")
+				s.forwardConfig.KeyFile = filepath.Join(t.TempDir(), "key.pem")
+				need(t, os.WriteFile(s.forwardConfig.CertFile, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Certificate[0]}), 0600))
+				need(t, os.WriteFile(s.forwardConfig.KeyFile, pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: key}), 0600))
+				roots := x509.NewCertPool()
+				roots.AddCert(issuer.Certificate())
+				tlsConfig = &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}
+			}
 			compute := forwardCompute(t, b, owner, remote)
 			grant, err := b.Services.Grants.Grant(t.Context(), owner, policy.GrantRequest{Mutation: core.Mutation{IdempotencyKey: "forward-grant"}, AssistantID: e.AssistantID, ResourceID: compute, Actions: []policy.Action{policy.Execute}, Constraints: testResourceConstraints(resource.Compute)})
 			need(t, err)
@@ -133,11 +161,14 @@ func TestShellForwardRealLocalAndRemote(t *testing.T) {
 					t.Fatalf("missing forward receipt: %s", raw)
 				}
 				task := receipt.Task
-				client := &http.Client{Timeout: time.Second}
+				client := &http.Client{Timeout: time.Second, Transport: &http.Transport{TLSClientConfig: tlsConfig}}
+				defer client.CloseIdleConnections()
 				deadline := time.Now().Add(15 * time.Second)
 				for {
-					res, err := client.Get(task.Forwards[0].URL + "/nested/page")
-					if err == nil {
+					request, _ := http.NewRequest("GET", task.Forwards[0].URL+"/nested/page", nil)
+					request.AddCookie(cookie)
+					res, err := client.Do(request)
+					if err == nil && res.StatusCode == http.StatusOK {
 						body, _ := io.ReadAll(res.Body)
 						res.Body.Close()
 						if string(body) != mode+":/nested/page" {
@@ -151,7 +182,38 @@ func TestShellForwardRealLocalAndRemote(t *testing.T) {
 					}
 					time.Sleep(100 * time.Millisecond)
 				}
-				ws, err := websocket.Dial(strings.Replace(task.Forwards[0].URL, "http:", "ws:", 1)+"/ws", "", task.Forwards[0].URL)
+				credentialReq, _ := http.NewRequest("GET", task.Forwards[0].URL+"/credentials", nil)
+				credentialReq.AddCookie(cookie)
+				credentialReq.AddCookie(&http.Cookie{Name: "application", Value: "kept"})
+				credentialReq.Header.Set("Authorization", "Bearer private")
+				credentialReq.Header.Set("X-CSRF-Token", "private")
+				credentialRes, err := client.Do(credentialReq)
+				need(t, err)
+				var headers http.Header
+				need(t, json.NewDecoder(credentialRes.Body).Decode(&headers))
+				credentialRes.Body.Close()
+				if headers.Get("Cookie") != "application=kept" || headers.Get("Authorization") != "" || headers.Get("X-CSRF-Token") != "" {
+					t.Fatal("credential leak", headers)
+				}
+				if credentialRes.Header.Get("Clear-Site-Data") != "" {
+					t.Fatal("upstream could clear Molr cookies")
+				}
+				for _, c := range credentialRes.Cookies() {
+					if c.Name == cookie.Name {
+						t.Fatal("upstream overwrote Molr session")
+					}
+				}
+				unauth, err := client.Get(task.Forwards[0].URL + "/nested/page")
+				need(t, err)
+				unauth.Body.Close()
+				if unauth.StatusCode != 401 {
+					t.Fatalf("anonymous access: %d", unauth.StatusCode)
+				}
+				wsConfig, err := websocket.NewConfig(strings.Replace(task.Forwards[0].URL, "http", "ws", 1)+"/ws", task.Forwards[0].URL)
+				need(t, err)
+				wsConfig.TlsConfig = tlsConfig
+				wsConfig.Header = http.Header{"Cookie": {cookie.String()}}
+				ws, err := websocket.DialConfig(wsConfig)
 				need(t, err)
 				ws.SetDeadline(time.Now().Add(3 * time.Second))
 				need(t, websocket.Message.Send(ws, "hmr-frame"))
@@ -161,13 +223,13 @@ func TestShellForwardRealLocalAndRemote(t *testing.T) {
 				if echo != "hmr-frame" {
 					t.Fatal(echo)
 				}
-				conn, err := net.DialTimeout("tcp", task.Forwards[1].Address, time.Second)
+				conn, err := asForwardConn(s.router.dialForward(t.Context(), operation, sandboxOf(nodeResource), 5174))
 				need(t, err)
 				conn.SetDeadline(time.Now().Add(4 * time.Second))
 				payload := strings.Repeat("payload-", 12000)
 				_, err = io.WriteString(conn, payload)
 				need(t, err)
-				need(t, conn.(*net.TCPConn).CloseWrite())
+				need(t, conn.(interface{ CloseWrite() error }).CloseWrite())
 				result, err := io.ReadAll(conn)
 				conn.Close()
 				need(t, err)
@@ -192,7 +254,23 @@ func TestShellForwardRealLocalAndRemote(t *testing.T) {
 			if records[0].Forwards[0].Address == records[1].Forwards[0].Address {
 				t.Fatal("tasks share external port")
 			}
-			// Existing connections and listeners must both disappear on revocation.
+			// Session revocation closes an already upgraded connection without stopping the task.
+			wsConfig, err := websocket.NewConfig(strings.Replace(records[0].Forwards[0].URL, "http", "ws", 1)+"/ws", records[0].Forwards[0].URL)
+			need(t, err)
+			wsConfig.TlsConfig = tlsConfig
+			wsConfig.Header = http.Header{"Cookie": {cookie.String()}}
+			heldWS, err := websocket.DialConfig(wsConfig)
+			need(t, err)
+			need(t, b.Services.Auth.Logout(t.Context(), forwardUser))
+			heldWS.SetReadDeadline(time.Now().Add(5 * time.Second))
+			var value string
+			if err := websocket.Message.Receive(heldWS, &value); err == nil {
+				t.Fatal("websocket survived logout")
+			} else if ne, ok := err.(net.Error); ok && ne.Timeout() {
+				t.Fatal("logout failed to disconnect websocket")
+			}
+			heldWS.Close()
+			// Existing connections and listeners must both disappear on grant revocation.
 			held, err := net.DialTimeout("tcp", records[1].Forwards[1].Address, time.Second)
 			need(t, err)
 			defer held.Close()

@@ -370,6 +370,9 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 	}
 	b.shellTasks = newShellTasks(store, sandboxRouter)
 	b.shellTasks.forwardConfig = cfg.PortForward
+	b.shellTasks.forwardHTTP = cfg.HTTP
+	b.shellTasks.identity = identity
+	b.shellTasks.browserConfig = cfg.Browser
 	shellExecute = b.shellTasks.execute
 	shellAvailable = sandboxRouter.available
 	cancelTool = sandboxRouter.cancel
@@ -423,6 +426,7 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		}
 	}
 	fileTools := &resourceFileTools{adapters: adapters, router: sandboxRouter}
+	b.shellTasks.browserReadShot = fileTools.read
 	sandboxRouter.files = fileTools
 	var responseLog func(model.Request, model.RawResponse) error
 	if cfg.Diagnostics.ModelResponses {
@@ -541,7 +545,7 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 			return nil
 		}
 		return cancelTool(ctx, e, id)
-	}, ShellAvailable: shellAvailable, ShellExecute: shellExecute, ShellTask: b.shellTasks.tool, Authorizer: permissions, Operations: operations, Conversations: chat,
+	}, ShellAvailable: shellAvailable, ShellExecute: shellExecute, ShellTask: b.shellTasks.tool, Browser: b.shellTasks.browserTool, Authorizer: permissions, Operations: operations, Conversations: chat,
 		FileSearch: fileTools.search, FileTransfer: fileTools.transfer, FileRead: fileTools.read, FileList: fileTools.list, FileWrite: fileTools.write, FileEdit: fileTools.edit, FileMove: fileTools.move, FileDelete: fileTools.delete,
 		Plan:                    planTools{store: store, plans: plans, todos: todo.NewService(store, todo.Options{Authorizer: permissions, CheckAssistant: access.assistant}), schedules: schedule.NewService(store, schedule.Options{Authorizer: permissions, CheckAssistant: access.assistant})}.execute,
 		ConversationAttachments: &conversationAttachments{files: fileService, workspace: fileTools, conversations: chat, maxBytes: cfg.Execution.MaxUploadBytes},
@@ -811,7 +815,13 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		}
 	}
 	updateService := updates.New(updateSource, cfg.Updates.AutoCheck, build, platform.ConfiguredHTTPClient(updateSource, updateAddresses))
-	b.HTTP, err = api.NewServer(cfg, b.Services, api.Options{Updates: updateService, UpgradeInfo: installation, Notifications: notification.New(store, permissions), Weixin: channels, Accounts: identity, Setup: b.setup, DiscoverProviders: func(ctx context.Context, p core.Principal) (any, error) {
+	b.HTTP, err = api.NewServer(cfg, b.Services, api.Options{Browser: func(ctx context.Context, p core.Principal, id core.ID, raw json.RawMessage) (json.RawMessage, error) {
+		q, err := tools.ParseBrowser(raw)
+		if err != nil {
+			return nil, err
+		}
+		return b.shellTasks.browserManage(ctx, p, id, q)
+	}, BrowserStream: b.shellTasks.browserFrames, Updates: updateService, UpgradeInfo: installation, Notifications: notification.New(store, permissions), Weixin: channels, Accounts: identity, Setup: b.setup, DiscoverProviders: func(ctx context.Context, p core.Principal) (any, error) {
 		if err := identity.RequireAdministrator(ctx, p); err != nil {
 			return nil, err
 		}

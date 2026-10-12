@@ -37,15 +37,13 @@ Runtime restarts do not restore live processes; leftover tasks are marked as int
 
 ## Shell Port Forwarding
 
-To view web pages created by the assistant, you can request: "Start this project and forward the service port to me." The assistant will obtain an accessible address; use the address provided for delivery, not the localhost in command output.
+Ask the assistant to start a project and forward its HTTP service. Use the URL returned by Molr or open it from **Running tasks**, rather than localhost printed by the command. Only administrators can currently create forwarding entries.
 
-Running task details show forwarded ports, copy address, and an entry to open HTTP web pages. "Waiting for service" means the connection check has not passed; "Connectable" only means the TCP connection is normal, and web content still needs to be checked. Currently, only administrators can create public port forwards; regular members cannot use this feature.
+Each task can expose up to four HTTP/WebSocket ports, including SSE, through Runtime. Local and remote sandbox services use the same authenticated gateway. Raw unauthenticated TCP mode is disabled in the UI, assistant tools and creation API.
 
-Forwarding entry points are located on the machine where the Runtime resides; services on remote sandboxes are also accessed through the Runtime. Each task can forward a maximum of four ports, supporting only TCP, including HTTP, WebSocket, and SSE. Other TCP services should use corresponding clients; do not treat HTTP convenience links as protocol identification results.
+Access requires a valid Molr login session and permission for the assistant and task. Open or copy the link from the task panel using the same hostname/IP as the login entry. The gateway binds the selected login session; missing authentication returns 401 and unauthorized task access returns 403. Every HTTP request and WebSocket handshake is checked; logout or session revocation also closes established connections. Molr credentials are removed before proxying, and upstream responses cannot overwrite reserved authentication cookies. Application-specific authentication remains the application's responsibility.
 
-Anyone who can connect to the address can access the service; Molr does not provide additional login verification or TLS for forwarding. This is suitable for temporary services on explicitly required trusted networks; if the application itself requires authentication, authentication should be configured first. If the address is inaccessible, the deployer checks [Forwarding Listeners and Network](../sandbox/linux.md#forwarding-listen-addresses).
-
-Closing the chat does not close background services; stopping tasks, natural completion, revoking authorization, expiration, or disconnecting the sandbox recovers ports. Forwards are not restored after restart; historical addresses are not suitable as long-term service entry points. Forwarding itself does not require outbound network authorization; service access to external APIs or downloading dependencies still requires network authorization.
+**Waiting for service** and **Connectable** describe TCP reachability, not successful application behavior. Closing chat does not stop the task. Task completion, stop, grant revocation, expiry or sandbox disconnection removes forwarding. Runtime restart does not restore it. Forwarding itself does not grant outbound network access. Deployment requirements are described in [forwarding configuration](../sandbox/linux.md).
 
 ## Remote Files
 

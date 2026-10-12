@@ -162,7 +162,7 @@ Shell 默认没有外部网络。获得网络资源授权后，Runtime 自动选
 
 DNS 服务仅在执行内部提供，支持 UDP/TCP 的 A/AAAA 查询，调用系统解析器处理真实域名及 CNAME。沙盒收到的是执行专属的虚拟 IP；每次建立连接重新解析域名、检查全部真实地址，再直拨已检查 IP，避免共享 IP 或 DNS 重绑定绕过授权。域名被排除或未授权时，不进行不必要的外部查询。IP/CIDR 规则需要解析后才能判断目标范围。记录 TTL 为 30 秒，虚拟地址只在当前执行内有效，不应保存到工作区供后续执行复用。
 
-授权的是目标主机/地址、端口和传输协议，不检查 TLS 内的 URL 路径、HTTP 方法或请求内容。获得公网 TCP/UDP 权限的程序可以运行其他获准协议；没有单独的浏览器渲染能力承诺，也不提供原始 IP 或组播。Shell 的 TCP 端口转发独立于出站网络授权，见[转发监听地址](#转发监听地址)。
+授权的是目标主机/地址、端口和传输协议，不检查 TLS 内的 URL 路径、HTTP 方法或请求内容。获得公网 TCP/UDP 权限的程序可以运行其他获准协议；也不提供原始 IP 或组播。Shell 的 HTTP/WS 端口转发独立于出站网络授权，见[转发监听地址](#转发监听地址)。
 
 出站连接／UDP 会话和双向转发载荷按助理获批的独立额度执行（包括 TLS 与 DNS 数据，不是线速 IP 包计费）；不再保留无额度授权。DNS 使用独立的 8 个并发处理槽和最多 1024 个域名/地址族映射，避免占用程序的连接额度。UDP 空闲状态 60 秒回收。网络辅助进程单独受 256 MiB 内存、64 个进程/线程和一个 CPU 的 cgroup 上限保护；失败即终止对应执行，不回退到宿主直接执行。
 
@@ -276,6 +276,10 @@ python3 runtime/scripts/check-host-tools.py host-sandbox-connection.json tool-re
 `public_host` 只控制返回地址，不配置路由、防火墙或 NAT。部署者需保证用户能够连接 Runtime 自动分配的 TCP 端口；仅代理 Molr HTTP 页面不会自动代理这些端口。地址无法自动确定或端口分配失败时，拒绝启动本次任务。
 
 
+公开 HTTP/WS 转发校验当前 Molr 登录会话与任务归属。转发地址必须与 WebUI 登录使用相同的主机名/IP，本机部署同样如此。任务链接通过端口标记登录入口，该标记不是凭据。退出或撤销所选会话会关闭已建立的连接。Runtime 转发前移除 Molr Cookie、Authorization 和 CSRF 头，并阻止上游响应设置 Molr 保留 Cookie。公开原始 TCP 模式已禁用；底层 namespace／远程传输仍使用 TCP。
+
+local/lan HTTP 使用 HTTP 转发。HTTPS 使用 `port_forward.cert_file` 与 `port_forward.key_file`，直接 TLS 模式也可继承 Runtime 证书。可信代理部署必须额外配置转发证书；主 WebUI 的代理不会覆盖动态转发端口。证书需覆盖 `public_host`，不能通过降级 HTTP 传递凭据。
+
 ## 本地 IPC 与浏览器程序
 
 所有 Shell 使用同一套 IPC 策略，支持 Unix STREAM／SEQPACKET socket 及匿名 socketpair，仍禁止 DGRAM。抽象地址由本次执行的网络命名空间隔离；路径 socket 必须使用私有 `/tmp` 下的绝对路径，不能经过符号链接或跨挂载。`/work` 及已授权资源目录中的 socket 仍不可访问。临时 socket 不跨执行保留，连续浏览器命令应放在同一前台脚本或受管后台 Shell 中运行。
@@ -298,4 +302,18 @@ mkdir -p "$AGENT_BROWSER_SOCKET_DIR"
 
 发行版的 `chrome` profile 通常是允许 userns 的应用级豁免；它自身不提供 Chromium 内层沙盒。相较 Bubblewrap 受限子 profile，它不再额外一律拒绝 capabilities，允许 Chromium 在自己的子命名空间中建立隔离，也增加了可访问的内核功能面。Molr 的文件挂载边界、受控网络、seccomp、零宿主 capabilities、`no_new_privs` 与 cgroup 仍然生效。可用性以实际探针和 `chrome://sandbox` 为准，不能只检查 `/etc/apparmor.d/chrome` 文件是否存在。
 
-宿主无法支持嵌套沙盒时，仍可显式使用 `AGENT_BROWSER_ARGS=--no-sandbox,--disable-dev-shm-usage` 兼容。它关闭 Chromium 内层防护，浏览器各进程共享本次 Shell 的授权范围，由 Molr 外层隔离约束，不适用于宿主直接执行或 Full Access。已验证的计算额度起点为内存 2 GiB、512 个进程／线程、200% CPU、512 MiB 临时空间。程序安装、实时浏览器画面和用户接管仍属于独立能力。
+宿主无法支持嵌套沙盒时，仍可显式使用 `AGENT_BROWSER_ARGS=--no-sandbox,--disable-dev-shm-usage` 兼容。它关闭 Chromium 内层防护，浏览器各进程共享本次 Shell 的授权范围，由 Molr 外层隔离约束，不适用于宿主直接执行或 Full Access。已验证的计算额度起点为内存 2 GiB、512 个进程／线程、200% CPU、512 MiB 临时空间。浏览器任务已提供实时画面与用户接管；程序安装仍由部署者完成。
+
+## 受管浏览器任务
+
+在 Runtime 宿主安装 agent-browser 0.39.0 与兼容的 Chromium 发行包，并在宿主工具模式下提供 Chromium 系统库。可执行文件必须是普通文件、具有执行权限、不能是符号链接，也不能允许组或其他用户写入。在 Runtime 私有数据目录以外配置只读程序目录：
+
+```json
+{"browser":{"agent_directory":"/opt/molr-browser/agent","chromium_directory":"/opt/molr-browser/chromium"}}
+```
+
+两个目录分别包含 `agent-browser` 和 `chrome`，Chromium 配套文件须完整保留。默认路径为 Runtime 二进制旁的 `libexec/browser/agent` 与 `libexec/browser/chromium`。程序只读挂载，这些可信资产不要求助理额外申请目录权限。目前不包含自动下载器或通用 CLI 安装管理器。
+
+浏览器复用现有本机宿主工具沙盒及计算、网络授权。每个助理最多一个活动浏览器任务，可打开多个标签页。Profile 保存在 `/work/.local/state/molr/browser/profile`，不同助理隔离。内部指令和画面端口仅通过 Runtime 受管执行能力访问，不创建公开转发。受管启动器不向 API 客户端开放程序路径、启动参数、CDP 或 daemon socket，不添加 `--no-sandbox`。
+
+在聊天的浏览器面板启动、查看或接管。正常关闭用于刷新持久数据；强制清理任务可能丢失尚未落盘的浏览器状态。撤权、时限和资源额度仍结束整个执行。不支持远程浏览器任务或 Full Access。使用说明见[浏览器](../best-practices/browser.md)。

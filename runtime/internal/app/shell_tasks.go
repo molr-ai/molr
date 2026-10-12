@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"molr.ai/runtime/internal/agent/tools"
+	"molr.ai/runtime/internal/auth"
+	"molr.ai/runtime/internal/browser"
 	"molr.ai/runtime/internal/business/resource"
 	"molr.ai/runtime/internal/config"
 	"molr.ai/runtime/internal/core"
@@ -25,7 +27,9 @@ const shellTaskLimit = 10
 const shellReminderInterval = 5 * time.Minute
 
 type shellTask struct {
-	GPUDeviceIDs             []string `json:",omitempty"`
+	Kind                     string
+	Browser                  *browserState `json:",omitempty"`
+	GPUDeviceIDs             []string      `json:",omitempty"`
 	FullAccess               bool
 	Forwards                 []shellForward `json:",omitempty"`
 	ID, OwnerID, AssistantID core.ID
@@ -63,27 +67,35 @@ func managedPrincipal(ctx context.Context, p core.Principal) bool {
 }
 
 type runningShell struct {
-	forwards []*taskForward
-	task     shellTask
-	cancel   context.CancelFunc
-	done     chan struct{}
-	ready    chan struct{}
-	scope    *managedShell
-	result   json.RawMessage
-	err      error
+	browserGate      sync.Mutex
+	browserCtx       context.Context
+	browserUncertain bool
+	forwards         []*taskForward
+	task             shellTask
+	cancel           context.CancelFunc
+	done             chan struct{}
+	ready            chan struct{}
+	scope            *managedShell
+	result           json.RawMessage
+	err              error
 }
 type shellTasks struct {
-	forwardConfig  config.PortForward
-	forwardSlots   chan struct{}
-	store          persistence.Store
-	router         *sandboxRouter
-	mu             sync.Mutex
-	active         map[string]*runningShell
-	reminders      map[string]time.Time
-	stopped        bool
-	wg             sync.WaitGroup
-	foregroundWait time.Duration
-	executeCommand func(context.Context, core.Execution, tools.ShellRequest) (json.RawMessage, error)
+	browserReadShot  func(context.Context, core.Execution, tools.FileReadRequest) (json.RawMessage, error)
+	browserRoundTrip func(context.Context, *runningShell, []byte) (json.RawMessage, error)
+	identity         auth.Service
+	forwardHTTP      config.HTTP
+	browserConfig    config.Browser
+	forwardConfig    config.PortForward
+	forwardSlots     chan struct{}
+	store            persistence.Store
+	router           *sandboxRouter
+	mu               sync.Mutex
+	active           map[string]*runningShell
+	reminders        map[string]time.Time
+	stopped          bool
+	wg               sync.WaitGroup
+	foregroundWait   time.Duration
+	executeCommand   func(context.Context, core.Execution, tools.ShellRequest) (json.RawMessage, error)
 }
 
 func newShellTasks(store persistence.Store, router *sandboxRouter) *shellTasks {
@@ -109,7 +121,10 @@ func (s *shellTasks) execute(ctx context.Context, e core.Execution, req tools.Sh
 	if err := (access{s.store}).execution(ctx, e); err != nil {
 		return nil, err
 	}
-	if len(req.ForwardPorts) > 0 {
+	if req.ForwardProtocol != "" && req.ForwardProtocol != "http" {
+		return nil, core.Invalid("forward_protocol", "unauthenticated TCP forwarding is disabled")
+	}
+	if len(req.ForwardPorts) > 0 && req.Browser == nil {
 		g, err := groupPolicy(ctx, s.store, e.Principal.OwnerID)
 		if err != nil {
 			return nil, err
@@ -154,6 +169,10 @@ func (s *shellTasks) execute(ctx context.Context, e core.Execution, req tools.Sh
 	}
 	count := 0
 	for _, r := range s.active {
+		if req.Browser != nil && r.task.Kind == "browser" && r.task.OwnerID == e.Principal.OwnerID && r.task.AssistantID == e.AssistantID && r.task.State == "running" {
+			s.mu.Unlock()
+			return s.receipt(r)
+		}
 		if r.task.OwnerID == e.Principal.OwnerID && r.task.AssistantID == e.AssistantID && !r.task.FullAccess {
 			count++
 		}
@@ -185,6 +204,12 @@ func (s *shellTasks) execute(ctx context.Context, e core.Execution, req tools.Sh
 	cap.alive.Store(true)
 	run, cancel := context.WithCancel(context.WithValue(context.WithoutCancel(ctx), managedShellKey{}, cap))
 	r := &runningShell{task: shellTask{FullAccess: req.FullAccess, SandboxID: sandboxID, ID: e.OperationID, OwnerID: e.Principal.OwnerID, AssistantID: e.AssistantID, Mode: mode, State: "running", Script: req.Script, StartedAt: time.Now().UTC()}, cancel: cancel, done: make(chan struct{}), ready: make(chan struct{}), scope: cap}
+	r.browserCtx = run
+	r.task.Kind = "shell"
+	if req.Browser != nil {
+		r.task.Kind = "browser"
+		r.task.Browser = &browserState{Control: "assistant", Generation: 1}
+	}
 	r.task.StdoutPath = "/work/" + shellOutputPrefix(e) + "-stdout.txt"
 	r.task.StderrPath = "/work/" + shellOutputPrefix(e) + "-stderr.txt"
 	cap.routed = func(id core.ID) error {
@@ -523,6 +548,9 @@ func (s *shellTasks) manage(ctx context.Context, p core.Principal, id core.ID, q
 		s.mu.Lock()
 		for _, r := range s.active {
 			if r.task.OwnerID == p.OwnerID && r.task.AssistantID == id {
+				if p.Kind == core.ActorAssistant && r.task.Kind == "browser" {
+					continue
+				}
 				r.cancel()
 			}
 		}
@@ -543,7 +571,15 @@ func (s *shellTasks) manage(ctx context.Context, p core.Principal, id core.ID, q
 		control = r.scope.control
 	}
 	s.mu.Unlock()
+	if r != nil && r.task.Kind == "browser" && q.Action != "read" {
+		if p.Kind == core.ActorAssistant {
+			return nil, core.NewError(core.Forbidden, "use browser_session to close browser tasks; user takeover must be respected")
+		}
+	}
 	if q.Action == "stop" {
+		if r != nil && r.task.Kind == "browser" {
+			return s.browserRequest(ctx, p, id, tools.BrowserRequest{Action: browser.Action{Action: "close"}, TaskID: q.TaskID})
+		}
 		if r != nil {
 			r.cancel()
 		}

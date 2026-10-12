@@ -17,6 +17,7 @@ import (
 )
 
 type Options struct {
+	Browser                 func(context.Context, core.Execution, string, BrowserRequest) (json.RawMessage, error)
 	CheckGroupQuota         func(context.Context, Call) error
 	ProfileUpdate           func(context.Context, core.Execution, ProfileUpdateRequest) (json.RawMessage, error)
 	ExtensionDefinitions    func(context.Context, core.Principal, bool) ([]Definition, error)
@@ -58,6 +59,7 @@ type cardArguments struct {
 	Summary  string                `json:"summary,omitempty"`
 }
 type arguments struct {
+	browser      *BrowserRequest
 	profile      *ProfileUpdateRequest
 	fileSearch   *FileSearchRequest
 	fileTransfer *FileTransferRequest
@@ -78,6 +80,9 @@ func schema(properties string, required string) json.RawMessage {
 }
 func (e *executor) definitions() []Definition {
 	definitions := []Definition{}
+	if e.options.Browser != nil {
+		definitions = append(definitions, browserDefinitions()...)
+	}
 	if e.options.ProfileUpdate != nil {
 		definitions = append(definitions, profileDefinition())
 	}
@@ -88,7 +93,7 @@ func (e *executor) definitions() []Definition {
 		definitions = append(definitions, permissionRequestDefinition())
 	}
 	if e.options.ShellExecute != nil {
-		definitions = append(definitions, Definition{Name: "shell_execute", Description: "Execute a POSIX command using an authorized compute resource. GPU devices, if any, are automatically inherited from the effective compute grant. Call permission_list to inspect GPU scope; request missing GPU access through permission_request for the same compute resource. Do not pass GPU IDs or flags to this tool. GPU unavailability does not authorize Full Access or repeated permission requests. Optional forward_ports publishes up to four unique TCP ports on the Molr machine, for both local and remote sandboxes. Use background=true or tty=true for servers. Bind the service to 0.0.0.0 or 127.0.0.1 in this execution. The receipt Task.Forwards contains actual Address and HTTP convenience URL; never invent a localhost or host port. Forward access is unauthenticated and reachable by anyone who can connect to that address; use only for user-requested services. Forwarding ends with the task and requires no outbound network grant. Foreground waits at most 60 seconds then automatically becomes background. background=true starts detached immediately; tty=true opens an interactive terminal (omit script for sh). tty and background are exclusive. Local TTY sources /work/.profile; remote TTY has no assistant profile. Ordinary commands do not load a profile. timeout_seconds is an optional runtime deadline, 0 means none. Background completion arrives as an event; no polling needed. Background/TTY running reminders arrive together every five minutes per assistant. Use shell_task to read, write, interrupt or stop. Isolated mode allows at most ten running executions per assistant; Full Access has no task quota. The following mount and network restrictions describe isolated mode. Call permission_list first: use its ResourceID, resource-relative Path and stable ShellPath for each requested file scope. Only requested resources are attached; overlapping scopes are rejected. User storage writes take effect immediately. Host-tools sandboxes reuse installed system commands read-only; check command availability. For HTTPS use an available client with certificate verification and HTTPS-only redirects. Keep Python packages in a workspace venv; it requires host venv support. Use bounded search concurrency (fd --threads 2, rg --threads 2). The sandbox network gateway operates at layer 4 (the transport layer) and supports only TCP/UDP. Protocols outside this scope, such as ICMP, are not forwarded. Network resources explicitly declare TCP/UDP scope. Networking is transparent: use normal sockets and DNS, without proxy settings. host.molr.internal addresses authorized loopback services on the sandbox machine; localhost belongs to this execution. DNS returns execution-scoped virtual IPs; keep using hostnames and do not persist or share resolved IPs between executions. Network failure reasons distinguish denied destinations, DNS/connection failures, exhausted bytes and connection limits. Omitted sandbox_id always means local. Remote execution requires explicit sandbox_id; compute, file and network resources must belong to that node. Only local /work persists for the assistant. Remote computers have no /work; use authorized directory mounts or per-command /tmp. Other system paths are implementation details, not user-granted storage. Do not infer grants from filesystem permission bits. Runtime enforces isolation in isolated mode and rechecks access. Full Access is an additional compute permission (Scope.FullAccess), not a node mode. Only use full_access=true when explicitly needed and granted for this compute resource; it provides full filesystem and network access without isolation or quotas. For those calls use real paths (local calls may also use $MOLR_WORKSPACE) in scripts, omit files and network_mode. Ordinary calls use their separate isolated grant and never upgrade automatically. Runtime automatically selects this assistant’s active network grants in the selected sandbox; omit network_mode for automatic access, or use none for an offline execution. Failed commands may have side effects; do not blindly retry.", InputSchema: schema(`"sandbox_id":{"type":"string","description":"Omit for local; explicitly select a remote computer"},"full_access":{"type":"boolean","description":"Use an active Full Access compute grant for this call; default false preserves isolation"},"forward_ports":{"type":"array","maxItems":4,"uniqueItems":true,"items":{"type":"integer","minimum":1,"maximum":65535}},"tty":{"type":"boolean"},"background":{"type":"boolean"},"timeout_seconds":{"type":"integer","minimum":0,"maximum":604800},"compute_id":{"type":"string"},"script":{"type":"string","maxLength":65536},"directory":{"type":"string"},"files":{"type":"array","maxItems":32,"items":{"type":"object","properties":{"resource_id":{"type":"string"},"path":{"type":"string"},"write":{"type":"boolean"}},"required":["resource_id","path","write"],"additionalProperties":false}},"network_mode":{"enum":["auto","none"]}`, `"compute_id"`), RequiredActions: []string{"execute"}, SideEffect: true})
+		definitions = append(definitions, Definition{Name: "shell_execute", Description: "Execute a POSIX command using an authorized compute resource. GPU devices, if any, are automatically inherited from the effective compute grant. Call permission_list to inspect GPU scope; request missing GPU access through permission_request for the same compute resource. Do not pass GPU IDs or flags to this tool. GPU unavailability does not authorize Full Access or repeated permission requests. Optional forward_ports publishes up to four unique authenticated HTTP/WebSocket ports on the Molr machine, for both local and remote sandboxes. Use background=true or tty=true for servers. Bind the service to 0.0.0.0 or 127.0.0.1 in this execution. The receipt Task.Forwards contains actual Address and HTTP convenience URL; never invent a localhost or host port. Forward access requires a valid Molr user session with access to this assistant. Unauthenticated TCP mode is disabled. Open the address using the same hostname as your Molr login. Forwarding ends with the task and requires no outbound network grant. Foreground waits at most 60 seconds then automatically becomes background. background=true starts detached immediately; tty=true opens an interactive terminal (omit script for sh). tty and background are exclusive. Local TTY sources /work/.profile; remote TTY has no assistant profile. Ordinary commands do not load a profile. timeout_seconds is an optional runtime deadline, 0 means none. Background completion arrives as an event; no polling needed. Background/TTY running reminders arrive together every five minutes per assistant. Use shell_task to read, write, interrupt or stop. Isolated mode allows at most ten running executions per assistant; Full Access has no task quota. The following mount and network restrictions describe isolated mode. Call permission_list first: use its ResourceID, resource-relative Path and stable ShellPath for each requested file scope. Only requested resources are attached; overlapping scopes are rejected. User storage writes take effect immediately. Host-tools sandboxes reuse installed system commands read-only; check command availability. For HTTPS use an available client with certificate verification and HTTPS-only redirects. Keep Python packages in a workspace venv; it requires host venv support. Use bounded search concurrency (fd --threads 2, rg --threads 2). The sandbox network gateway operates at layer 4 (the transport layer) and supports only TCP/UDP. Protocols outside this scope, such as ICMP, are not forwarded. Network resources explicitly declare TCP/UDP scope. Networking is transparent: use normal sockets and DNS, without proxy settings. host.molr.internal addresses authorized loopback services on the sandbox machine; localhost belongs to this execution. DNS returns execution-scoped virtual IPs; keep using hostnames and do not persist or share resolved IPs between executions. Network failure reasons distinguish denied destinations, DNS/connection failures, exhausted bytes and connection limits. Omitted sandbox_id always means local. Remote execution requires explicit sandbox_id; compute, file and network resources must belong to that node. Only local /work persists for the assistant. Remote computers have no /work; use authorized directory mounts or per-command /tmp. Other system paths are implementation details, not user-granted storage. Do not infer grants from filesystem permission bits. Runtime enforces isolation in isolated mode and rechecks access. Full Access is an additional compute permission (Scope.FullAccess), not a node mode. Only use full_access=true when explicitly needed and granted for this compute resource; it provides full filesystem and network access without isolation or quotas. For those calls use real paths (local calls may also use $MOLR_WORKSPACE) in scripts, omit files and network_mode. Ordinary calls use their separate isolated grant and never upgrade automatically. Runtime automatically selects this assistant’s active network grants in the selected sandbox; omit network_mode for automatic access, or use none for an offline execution. Failed commands may have side effects; do not blindly retry.", InputSchema: schema(`"sandbox_id":{"type":"string","description":"Omit for local; explicitly select a remote computer"},"full_access":{"type":"boolean","description":"Use an active Full Access compute grant for this call; default false preserves isolation"},"forward_protocol":{"type":"string","enum":["http"]},"forward_ports":{"type":"array","maxItems":4,"uniqueItems":true,"items":{"type":"integer","minimum":1,"maximum":65535}},"tty":{"type":"boolean"},"background":{"type":"boolean"},"timeout_seconds":{"type":"integer","minimum":0,"maximum":604800},"compute_id":{"type":"string"},"script":{"type":"string","maxLength":65536},"directory":{"type":"string"},"files":{"type":"array","maxItems":32,"items":{"type":"object","properties":{"resource_id":{"type":"string"},"path":{"type":"string"},"write":{"type":"boolean"}},"required":["resource_id","path","write"],"additionalProperties":false}},"network_mode":{"enum":["auto","none"]}`, `"compute_id"`), RequiredActions: []string{"execute"}, SideEffect: true})
 	}
 	if e.options.ShellTask != nil {
 		definitions = append(definitions, shellTaskDefinition())
@@ -218,6 +223,30 @@ func parse(call Call) (arguments, error) {
 		}
 		return args, nil
 	}
+	if call.Name == "browser_session" || call.Name == "browser_action" {
+		q, err := ParseBrowser(call.Arguments)
+		if err == nil {
+			allowed := false
+			switch call.Name {
+			case "browser_session":
+				allowed = q.Action.Action == "start" || q.Action.Action == "status" || q.Action.Action == "close"
+			case "browser_action":
+				switch q.Action.Action {
+				case "snapshot", "screenshot", "tabs", "get_url", "navigate", "new_tab", "click", "fill", "press", "scroll", "back", "forward", "reload", "select_tab", "close_tab":
+					allowed = true
+				}
+			}
+			if !allowed || q.ClientID != "" || q.Generation != 0 || q.Sequence != 0 {
+				err = core.Invalid("browser", "action is not available to this tool")
+			}
+		}
+		q.ModelID = call.ModelID
+		args.browser = &q
+		if q.Action.Action == "start" {
+			args.ResourceID = q.ComputeID
+		}
+		return args, err
+	}
 	if call.Name == "shell_task" {
 		r, err := ParseShellTask(call.Arguments)
 		args.shellTask = &r
@@ -280,7 +309,7 @@ func (e *executor) execute(ctx context.Context, call Call) (_ Result, runErr err
 		if definition.SideEffect {
 			action = policy.Write
 		}
-		if call.Name == "shell_execute" {
+		if call.Name == "shell_execute" || call.Name == "browser_session" {
 			action = policy.Execute
 		}
 		if err = e.options.Authorizer.Require(ctx, call.Execution.Principal, policy.CheckRequest{Target: core.Object{Kind: "resource", ID: args.ResourceID}, ResourceID: args.ResourceID, Action: action, Destination: "/" + strings.TrimPrefix(args.Path, "/")}); err != nil {
@@ -367,7 +396,7 @@ func (e *executor) execute(ctx context.Context, call Call) (_ Result, runErr err
 	if err != nil {
 		// File mutations reject these errors before commit; plan mutations run
 		// in one transaction. Other side effects remain unknown on failure.
-		rejected := strings.HasPrefix(call.Name, "plg_") && core.ReasonOf(err) == "plugin_http_failed"
+		rejected := (strings.HasPrefix(call.Name, "plg_") && core.ReasonOf(err) == "plugin_http_failed") || (core.ReasonOf(err) == "browser_user_controlled" || core.ReasonOf(err) == "browser_snapshot_required")
 		if call.Name == "profile_update" || call.Name == "file_write" || call.Name == "file_edit" || call.Name == "file_move" || call.Name == "file_delete" || call.Name == "file_transfer" || call.Name == "conversation_attachment" || (strings.HasPrefix(call.Name, "plan_") || call.Name == "permission_request") {
 			switch core.CodeOf(err) {
 			case core.Conflict, core.InvalidArgument, core.Forbidden, core.NotFound, core.FailedPrecondition:
@@ -398,6 +427,8 @@ func (e *executor) dispatch(ctx context.Context, call Call, args arguments) (jso
 	switch call.Name {
 	case "profile_update":
 		return e.options.ProfileUpdate(ctx, call.Execution, *args.profile)
+	case "browser_session", "browser_action":
+		return e.options.Browser(ctx, call.Execution, call.Name, *args.browser)
 	case "shell_task":
 		return e.options.ShellTask(ctx, call.Execution, *args.shellTask)
 	case "shell_execute":
@@ -465,10 +496,10 @@ func (e *executor) Cancel(ctx context.Context, execution core.Execution, id core
 	return err
 }
 
-// Only the trusted file reader may attach media. Other tool JSON stays text.
+// Only trusted file and browser screenshot readers may attach scoped media.
 func resultWithMedia(name string, id core.ID, content json.RawMessage) Result {
 	r := Result{OperationID: id, Content: content}
-	if name == "file_read" {
+	if name == "file_read" || name == "browser_action" {
 		var out struct{ Media []media.Part }
 		if json.Unmarshal(content, &out) == nil {
 			r.Media = out.Media

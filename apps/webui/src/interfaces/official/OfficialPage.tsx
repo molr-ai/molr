@@ -22,6 +22,7 @@ import { Settings } from './features/Settings';
 import { Workbench } from './features/Workbench';
 import { AssistantInfo } from './features/AssistantInfo';
 import { Tasks } from './features/Tasks';
+import { Browser } from './features/Browser';
 import { ShellTasks } from './features/ShellTasks';
 import { Search } from './features/Search';
 import { usePanelDocking } from '../../use-panel-docking';
@@ -98,6 +99,7 @@ export function OfficialPage({ chatLayout = 'default' }: { chatLayout?: 'default
           {!selected && !mobile && <div className="workspace-empty"><EmptyState title={t.chat.workspaceTitle} illustration={<Logo markOnly animation="static" variant={theme === 'dark' ? 'light' : 'dark'} className="workspace-empty__logo" />} /></div>}
           <ChatSidePanel panel={isChatPanel(dialog) ? dialog : null} docked={panelDocked}>{panel => <>
             {(panel.kind === 'info' || panel.kind === 'permissions') && <AssistantInfo docked={panelDocked} assistant={assistants.data?.find(item => item.ID === panel.assistant.ID) ?? panel.assistant} models={models.data ?? []} initialTab={panel.kind === 'permissions' ? 'permissions' : 'overview'} onClose={() => setDialog(null)} onDebug={workbenchVisible ? () => { setDialog(null); go('workbench', panel.assistant.ID); } : undefined} />}
+            {panel.kind === 'browser' && <Browser key={panel.assistant.ID} docked={panelDocked} assistantID={panel.assistant.ID} onClose={() => setDialog(null)} />}
             {panel.kind === 'shell_tasks' && <ShellTasks key={panel.assistant.ID} docked={panelDocked} assistantID={panel.assistant.ID} onClose={() => setDialog(null)} />}
             {panel.kind === 'tasks' && <Tasks docked={panelDocked} assistantID={panel.assistant.ID} taskID={taskCard} onClose={() => setDialog(null)} />}
           </>}</ChatSidePanel>

@@ -10,12 +10,17 @@ import (
 // PortForward controls Runtime listeners for both local and remote shell tasks.
 // A listener is created only when a task explicitly requests a port.
 type PortForward struct {
+	CertFile   string `json:"cert_file"`
+	KeyFile    string `json:"key_file"`
 	Enabled    bool   `json:"enabled"`
 	ListenHost string `json:"listen_host"`
 	PublicHost string `json:"public_host"`
 }
 
 func (f PortForward) validate() error {
+	if (f.CertFile == "") != (f.KeyFile == "") {
+		return core.Invalid("port_forward", "cert_file and key_file must be configured together")
+	}
 	if !f.Enabled {
 		return nil
 	}

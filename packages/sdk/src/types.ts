@@ -82,8 +82,10 @@ export type PermissionRequest = {
   Input: PermissionRequestInput;
 };
 
-export type ShellForward = { Protocol: 'tcp'; Port: number; Address: string; URL: string; State: 'waiting' | 'ready' | 'closed' };
-export type ShellTask = { GPUDeviceIDs?: string[]; FullAccess?: boolean;
+export type ShellForward = { Protocol: 'http' | 'tcp'; Port: number; Address: string; URL: string; State: 'waiting' | 'ready' | 'closed' };
+export type BrowserControl = { Control: 'assistant' | 'user' | 'switching'; Generation: number };
+export type BrowserStatus = { Available: boolean; Reason?: string; Task?: ShellTask; ControllerIsCurrentSession?: boolean };
+export type ShellTask = { Kind?: 'shell' | 'browser'; Browser?: BrowserControl; GPUDeviceIDs?: string[]; FullAccess?: boolean;
   Forwards?: ShellForward[];
   ID: string; OwnerID: string; AssistantID: string; SandboxID: string;
   Mode: 'foreground' | 'background' | 'tty'; State: 'running' | 'completed' | 'failed' | 'stopped' | 'interrupted';

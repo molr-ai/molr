@@ -27,6 +27,9 @@ export function ShellTasksButton({ assistantID, disabled, onOpen }: { assistantI
   return <IconButton className="shell-tasks-trigger" disabled={disabled} onClick={onOpen} label={`${locale === 'zh' ? '运行任务' : 'Running tasks'}${running > 0 ? ` (${running})` : ''}`}><ListTodo size={20} />{running > 0 && <Badge tone="positive" size="sm" dot={false} aria-hidden="true">{running}</Badge>}</IconButton>;
 }
 
+function authenticatedForwardURL(raw: string) {
+ try {const url=new URL(raw);url.searchParams.set('__molr_login_port',window.location.port||(window.location.protocol==='https:'?'443':'80'));return url.href;}catch{return raw;}
+}
 function ForwardAddress({ address, zh }: { address: string; zh: boolean }) {
   const input = useRef<HTMLInputElement>(null), [copied, setCopied] = useState(false);
   async function copy() {
@@ -94,7 +97,7 @@ export function ShellTasks({ assistantID, docked, onClose }: { assistantID: stri
   const modes = zh ? { foreground: '前台', background: '后台', tty: 'TTY 会话' } : { foreground: 'Foreground', background: 'Background', tty: 'TTY session' };
   const elapsed = (item: ShellTask) => { const seconds = Math.max(0, Math.floor(((item.FinishedAt ? Date.parse(item.FinishedAt) : Date.now()) - Date.parse(item.StartedAt)) / 1000)); return `${Math.floor(seconds / 60)}m ${seconds % 60}s`; };
   const active = items.filter(item => item.State === 'running'), history = items.filter(item => item.State !== 'running');
-  const title = (item: ShellTask) => item.Mode === 'tty' && (!item.Script || item.Script === 'exec /bin/sh -i') ? (zh ? '交互式 sh' : 'Interactive sh') : item.Script.trim().split('\n').find(line => line.trim()) || 'sh';
+  const title = (item: ShellTask) => item.Kind === 'browser' ? (zh ? '浏览器' : 'Browser') : item.Mode === 'tty' && (!item.Script || item.Script === 'exec /bin/sh -i') ? (zh ? '交互式 sh' : 'Interactive sh') : item.Script.trim().split('\n').find(line => line.trim()) || 'sh';
   const stateLabel = (item: ShellTask) => item.Mode === 'tty' && item.State === 'running' ? (zh ? '会话打开' : 'Session open') : states[item.State];
   const tone = (item: ShellTask) => item.State === 'running' ? 'positive' : item.State === 'failed' ? 'danger' : item.State === 'interrupted' ? 'warning' : 'neutral';
   const choose = (item: ShellTask) => { setStream('stdout'); setSelected(item.ID); };
@@ -124,8 +127,8 @@ export function ShellTasks({ assistantID, docked, onClose }: { assistantID: stri
             <h4>{zh ? '转发端口' : 'Forwarded ports'}</h4>
             {task.Forwards.map(forward => <div className="shell-task-forward" key={forward.Port}>
               <div className="shell-task-item-meta"><strong>TCP {forward.Port}</strong><Badge size="sm" dot={false} tone={forward.State === 'ready' && task.State === 'running' ? 'positive' : 'neutral'}>{task.State !== 'running' || forward.State === 'closed' ? (zh ? '已关闭' : 'Closed') : forward.State === 'ready' ? (zh ? '可连接' : 'Connectable') : (zh ? '等待服务' : 'Waiting for service')}</Badge></div>
-              <ForwardAddress address={forward.Address} zh={zh} />
-              {task.State === 'running' && forward.State !== 'closed' && /^http:\/\//.test(forward.URL) && <a href={forward.URL} target="_blank" rel="noopener noreferrer" className="shell-task-forward-link"><ExternalLink size={14} aria-hidden="true" />{zh ? '打开 HTTP 网页' : 'Open HTTP page'}</a>}
+              <ForwardAddress address={authenticatedForwardURL(forward.URL)} zh={zh} />
+              {task.State === 'running' && forward.State !== 'closed' && /^https?:\/\//.test(forward.URL) && <a href={authenticatedForwardURL(forward.URL)} target="_blank" rel="noopener noreferrer" className="shell-task-forward-link"><ExternalLink size={14} aria-hidden="true" />{zh ? '打开网页（需要登录）' : 'Open page (sign-in required)'}</a>}
             </div>)}
             <p className="shell-task-note">{zh ? '任务结束后自动关闭。非 HTTP 服务请使用上面的 TCP 地址。' : 'Forwarding closes with the task. For other protocols, use the TCP address above.'}</p>
           </section>}

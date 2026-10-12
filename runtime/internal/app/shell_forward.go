@@ -16,7 +16,7 @@ type shellForward struct {
 	Protocol string
 	Port     int
 	Address  string
-	// URL is a convenience for HTTP servers, not a protocol/readiness claim.
+	// URL points to the authenticated HTTP/WS gateway; State reports target readiness.
 	URL   string
 	State string
 }
@@ -72,11 +72,16 @@ func (s *shellTasks) forwardHost() (string, error) {
 // Called before recording/starting the command so allocation failures do not
 // leave a service running without its requested forwarding addresses.
 func (s *shellTasks) prepareForwards(ctx context.Context, r *runningShell, ports []int) error {
-	if len(ports) == 0 {
+	if len(ports) == 0 || r.task.Kind == "browser" {
 		return nil
 	}
 	if !s.forwardConfig.Enabled {
-		return core.NewError(core.FailedPrecondition, "TCP port forwarding disabled")
+		return core.NewError(core.FailedPrecondition, "HTTP/WS port forwarding disabled")
+	}
+	if s.forwardScheme() == "https" {
+		if _, err := s.forwardCertificate(); err != nil {
+			return err
+		}
 	}
 	host, err := s.forwardHost()
 	if err != nil {
@@ -94,7 +99,7 @@ func (s *shellTasks) prepareForwards(ctx context.Context, r *runningShell, ports
 		f := &taskForward{listener: listener, ctx: run, cancel: cancel, slots: make(chan struct{}, 32)}
 		r.forwards = append(r.forwards, f)
 		address := net.JoinHostPort(host, strconv.Itoa(listener.Addr().(*net.TCPAddr).Port))
-		r.task.Forwards = append(r.task.Forwards, shellForward{Protocol: "tcp", Port: port, Address: address, URL: "http://" + address, State: "waiting"})
+		r.task.Forwards = append(r.task.Forwards, shellForward{Protocol: "http", Port: port, Address: address, URL: s.forwardScheme() + "://" + address, State: "waiting"})
 	}
 	return nil
 }
@@ -107,7 +112,9 @@ func (s *shellTasks) forwardState(r *runningShell, index int, state string) {
 	r.task.Forwards[index].State = state
 	_ = s.save(context.Background(), r.task)
 }
-func (s *shellTasks) serveForward(ctx context.Context, e core.Execution, r *runningShell, index int, f *taskForward) {
+
+// serveTCPForward retains the internal raw transport. Public tasks never call it.
+func (s *shellTasks) serveTCPForward(ctx context.Context, e core.Execution, r *runningShell, index int, f *taskForward) {
 	defer s.wg.Done()
 	defer f.close()
 	stop := context.AfterFunc(f.ctx, func() { f.listener.Close() })

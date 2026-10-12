@@ -76,7 +76,7 @@ test('failed palette saves restore the current choice and successful saves prese
   await page.route('**/api/settings', route => route.request().method() === 'POST' ? route.fulfill({ status: 503, contentType: 'application/json', body: '{"code":"unavailable"}' }) : route.continue());
   await page.getByRole('group', { name: 'Color palettes' }).getByRole('button', { name: target[1], exact: true }).click();
   const panel = settingsPane(page);
-  await expect(panel.getByRole('alert')).toContainText('service is unavailable');
+  await expect(page.locator('.ui-toast').getByRole('alert')).toContainText('service is unavailable');
   await expect(page.locator('html')).toHaveAttribute('data-palette', before.Palette);
   await expect(panel.locator('.theme-option[aria-pressed="true"] .theme-option__preview')).toHaveAttribute('data-palette', before.Palette);
   expect((await settings(page)).Version).toBe(before.Version);
@@ -85,7 +85,7 @@ test('failed palette saves restore the current choice and successful saves prese
   await expect.poll(async () => (await settings(page)).Palette).toBe(target[0]);
   const after = await settings(page);
   for (const field of ['Language', 'Timezone', 'Currency', 'Theme', 'ReducedMotion', 'DefaultModelID']) expect(after[field]).toEqual(before[field]);
-  await expect(panel.getByRole('alert')).toHaveCount(0);
+  await expect(page.locator('.ui-toast').getByRole('alert')).toHaveCount(0);
   await openSettingsSection(page, 'General');
   await expect(page.getByRole('combobox', { name: 'Display mode', exact: true })).toHaveCount(0);
   await expect(page.getByRole('switch', { name: 'Reduce motion', exact: true })).toHaveCount(0);

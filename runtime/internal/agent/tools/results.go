@@ -67,6 +67,16 @@ func errorResult(call Call, err error, state string, effects bool) Result {
 			failure.Guidance = "This operation ID already records a successful execution. Do not repeat its effects; inspect the existing result or report the access error."
 		}
 	}
+	if failure.Reason == "browser_snapshot_required" {
+		failure.Message = "Browser control was returned by the user."
+		failure.Guidance = "Read a fresh browser snapshot before continuing. Do not reuse old element references or repeat queued actions."
+		failure.SideEffectsPossible = false
+	}
+	if failure.Reason == "browser_user_controlled" {
+		failure.Message = "The user currently controls the browser."
+		failure.Guidance = "You may read snapshots, screenshots, tabs and URL. Wait for the user to return control before any browser operation; do not bypass takeover through shell or another session."
+		failure.SideEffectsPossible = false
+	}
 	content, _ := json.Marshal(struct {
 		OK          bool     `json:"ok"`
 		OperationID core.ID  `json:"operation_id"`

@@ -12,7 +12,9 @@ var file = object("ID Name MediaType Size State Path Version")
 var message = object("ID ConversationID Sequence Sender CreatedAt", nested("Content", object("Kind", required("Text", scalar), nested("Card", object("Kind TargetID Title Summary")), nested("AttachmentIDs", array(scalar)))))
 var operation = object("Action Via Available Reason")
 var capabilities = object("FullAccess Shell ProcessIsolation FileIsolation NetworkIsolation ResourceLimits Reason")
-var shell = object("ID TaskID SandboxID OutputSandboxID FullAccess Mode State Script Failure StartedAt FinishedAt Stdout Stderr StdoutPath StderrPath Output NextCursor Path Stopping Bytes Truncated OutputComplete CaptureReason StdoutBytes StderrBytes", nested("GPUDeviceIDs", array(scalar)), nested("Forwards", array(object("Protocol Port Address URL State"))), nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")))
+var shell = object("ID TaskID Kind SandboxID OutputSandboxID FullAccess Mode State Script Failure StartedAt FinishedAt Stdout Stderr StdoutPath StderrPath Output NextCursor Path Stopping Bytes Truncated OutputComplete CaptureReason StdoutBytes StderrBytes", nested("GPUDeviceIDs", array(scalar)), nested("Forwards", array(object("Protocol Port Address URL State"))), nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")))
+var browserControl = object("Control NeedsSnapshot Generation")
+var browserData = object("url title text snapshot path clicked filled pressed dispatched moved x y closed index tabId", nested("refs", &shape{dictionary: object("name role")}), nested("tabs", array(object("index id tabId title url active"))))
 var execution = object("ID State Title Instructions PlanVersion OccurrenceAt StartedAt CompletedAt Result")
 var plan = object("PlanID Mode Title Instructions Version StartAt EndAt DueAt Timezone Recurrence MissedPolicy MaxCatchUp Enabled Handoff Paused Ready ExecutionCount ExecutionsTruncated InstructionsTruncated Deleted", nested("CurrentExecution", execution), nested("Dependencies", array(scalar)), nested("BlockedBy", array(scalar)), nested("Executions", array(execution)), nested("Occurrences", array(scalar)))
 var networkTarget = object("", nested("Protocols", array(scalar)), nested("Addresses", array(scalar)), nested("Ports", array(scalar)), nested("ExcludeAddresses", array(scalar)), nested("ExcludePorts", array(scalar)))
@@ -34,7 +36,7 @@ var schemas = map[string]*shape{
 	"permissions":             object("Total Truncated", required("Granted", array(grant))),
 	"permission_requests":     array(request),
 	"skill":                   object("name path frontmatter read_tool"),
-	"event":                   object("ID Kind MessageID ScheduleID ScheduleVersion OccurrenceAt OperationID TaskID CreatedAt ExecutionID", nested("Details", object("ID Mode State Failure StartedAt FinishedAt StdoutPath StderrPath", nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")), nested("Tasks", array(shell))))),
+	"event":                   object("ID Kind MessageID ScheduleID ScheduleVersion OccurrenceAt OperationID TaskID CreatedAt ExecutionID", nested("Details", object("ID Mode State Failure StartedAt FinishedAt StdoutPath StderrPath BrowserTaskID Notice", nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")), nested("Tasks", array(shell))))),
 	"failure":                 object("ok operation_id", nested("error", failure)),
 	"conversation_read":       object("NextCursor", required("Items", array(message)), nested("Attachments", &shape{dictionary: file})),
 	"conversation_publish":    object("ID ConversationID Sequence CreatedAt"),
@@ -61,6 +63,10 @@ func init() {
 	requestInput.fields = append(requestInput.fields, nested("additional_requests", array(entry)))
 	request.fields = append(request.fields, nested("GrantedAll", array(grant)))
 	shell.fields = append(shell.fields, nested("Result", object("Stdout Stderr Truncated OutputComplete StdoutPath StderrPath StdoutBytes StderrBytes", nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")))))
+	shell.fields = append(shell.fields, nested("Browser", browserControl))
+	schemas["browser_session"] = object("Available Reason Stopping Graceful", nested("Task", shell))
+	schemas["browser_action"] = object("ok", nested("data", browserData))
+	schemas["browser_action"].fields = append(schemas["browser_action"].fields, schemas["file_read"].fields...)
 	schemas["shell_execute"] = &shape{fields: append(append([]field{}, shell.fields...), nested("Task", shell))}
 	schemas["archive"] = object("full_result_path full_result_sandbox_id bytes", nested("details", object("SandboxID ok operation_id Path TargetKind Version NextOffset NextByteOffset Truncated Total TotalCount Count HasMore NextCursor OutputComplete StdoutPath StderrPath StdoutBytes StderrBytes", nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")), nested("error", failure))))
 }

@@ -3,9 +3,9 @@ import type { ReactNode } from 'react';
 import { useUILocale } from '@molr/ui';
 import type { Assistant } from '../../../api/types';
 
-export type ChatPanelSelection = { kind: 'info' | 'permissions' | 'tasks' | 'shell_tasks'; assistant: Assistant };
+export type ChatPanelSelection = { kind: 'info' | 'permissions' | 'tasks' | 'shell_tasks' | 'browser'; assistant: Assistant };
 export function isChatPanel(value: { kind: string; assistant: Assistant } | null): value is ChatPanelSelection {
-  return !!value && ['info', 'permissions', 'tasks', 'shell_tasks'].includes(value.kind);
+  return !!value && ['info', 'permissions', 'tasks', 'shell_tasks', 'browser'].includes(value.kind);
 }
 
 /** Keep the panel mounted until its layout space has finished collapsing. */

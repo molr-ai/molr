@@ -115,6 +115,7 @@ type Config struct {
 	ConfigPath  string      `json:"-"`
 	Updates     Updates     `json:"updates"`
 	PortForward PortForward `json:"port_forward"`
+	Browser     Browser     `json:"browser"`
 	Sandbox     Sandbox     `json:"sandbox"`
 	DataDir     string      `json:"data_dir"`
 	HTTP        HTTP        `json:"http"`

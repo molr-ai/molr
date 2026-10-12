@@ -148,7 +148,7 @@ func (a access) owns(ctx context.Context, p core.Principal, o core.Object) error
 			return nil
 		}
 		switch o.ID {
-		case "profile_update", "permission_list", "permission_request", "shell_execute", "shell_task", "catalog", "conversation_read", "conversation_publish", "file_search", "file_read", "file_list", "file_write", "file_edit", "file_move", "file_delete", "file_transfer", "conversation_attachment", "plan_list", "plan_read", "plan_manage":
+		case "browser_session", "browser_action", "profile_update", "permission_list", "permission_request", "shell_execute", "shell_task", "catalog", "conversation_read", "conversation_publish", "file_search", "file_read", "file_list", "file_write", "file_edit", "file_move", "file_delete", "file_transfer", "conversation_attachment", "plan_list", "plan_read", "plan_manage":
 			return nil
 		}
 		return denied()

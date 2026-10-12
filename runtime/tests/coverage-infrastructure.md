@@ -291,3 +291,10 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/platform/sandbox` | `Runner.GPUs` | `TestLinuxGPUIsolation` |
 | `internal/installation` | `Run`, `VerificationPending.Error` | `TestCommandHelpAndVersionWithoutPackage` |
 | `internal/installrecord` | `Instance`, `Read`, `Record.File`, `Record.UpdateSource`, `Record.Validate` | `TestReceiptRejectsUnrelatedPathsAndWritableRecords` |
+
+## `internal/browser`
+
+| 包 | 接口 / 方法 | 测试 |
+| --- | --- | --- |
+| `internal/browser` | `Action.Args`, `Action.ReadOnly` | `TestActionDoesNotExposeLaunchOrArbitraryExecution` |
+| `internal/browser` | `HelperMain` | `internal/app.TestBrowserRealTaskStreamTakeoverAndPersistence` |

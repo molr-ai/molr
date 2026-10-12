@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"golang.org/x/sys/unix"
 	"io"
+	"molr.ai/runtime/internal/browser"
 	"net"
 	"os"
 	"os/exec"
@@ -39,6 +40,9 @@ func HelperMain(args []string) int {
 	}
 	if unix.Setrlimit(unix.RLIMIT_CORE, &unix.Rlimit{Cur: 0, Max: 0}) != nil || unix.Setrlimit(unix.RLIMIT_NOFILE, &unix.Rlimit{Cur: 1024, Max: 1024}) != nil {
 		return 125
+	}
+	if args[0] == "browser" {
+		return browser.HelperMain()
 	}
 	if args[0] == "network-keeper" || args[0] == "network-setup" || args[0] == "network-gateway" {
 		return networkHelper(args[0])

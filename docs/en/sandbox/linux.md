@@ -104,7 +104,7 @@ Mount sources are resolved by resource ID and authorized relative paths. It does
 
 Direct directory authorization covers actual file objects within the directory, following normal hard link semantics. If a user previously hard-linked a file to an authorized directory, its content is also within that directory's authorization. Shell cannot use unmounted host paths to create new links pointing to private data. Existing per-file tools retain stricter link checks. Do not conflate the two access models.
 
-Original Bubblewrap, seccomp, capability removal, minimal device set, empty environment, and FD isolation remain in effect. Shell prohibits host Unix sockets, VSOCK, Netlink, mount namespace creation, joining namespaces, and related bypass system calls. GPU provides controlled device access according to compute authorization. Other hardware passthrough and host software installation are not provided. Specified Shell ports can be accessed via [TCP Forwarding](../guides/files-and-commands.md#shell-port-forwarding).
+Original Bubblewrap, seccomp, capability removal, minimal device set, empty environment, and FD isolation remain in effect. Shell prohibits host Unix sockets, VSOCK, Netlink, mount namespace creation, joining namespaces, and related bypass system calls. GPU provides controlled device access according to compute authorization. Other hardware passthrough and host software installation are not provided. Specified Shell ports can be accessed via [HTTP/WS Forwarding](../guides/files-and-commands.md#shell-port-forwarding).
 
 Authorization updates/revocations, resource disconnections, and startups are coordinated serially. It waits for related executions to terminate before returning success. Currently, it conservatively stops all active Shells for that owner. Authorization expiration sets a deadline. Other execution conditions and disk space are re-checked periodically. Cancellation covers child processes that create new sessions. Unknown results are not automatically rerun.
 
@@ -276,6 +276,10 @@ Replace `<LAN_IP>` with the actual reachable LAN IP of the deployment host; it m
 `public_host` only controls the return address; it does not configure routing, firewalls, or NAT. Deployers must ensure that users can connect to the TCP ports automatically assigned by the Runtime; proxying only the Molr HTTP page will not automatically proxy these ports. If the address cannot be automatically determined or port assignment fails, the task startup is rejected.
 
 
+Forwarded HTTP/WS requests require the current Molr login session and task ownership. Use the same hostname/IP as the WebUI login, including for local deployments. Task links identify the login entry by port; this selector is not a credential. Logging out or revoking the selected session closes established streams. Runtime removes Molr cookies, authorization and CSRF headers before forwarding, and prevents upstream responses from setting reserved Molr cookies. Public raw TCP mode is disabled; the internal namespace/remote transport remains TCP.
+
+Local/LAN HTTP uses HTTP forwarding. HTTPS uses `port_forward.cert_file` and `port_forward.key_file`, or inherits the Runtime certificate in direct TLS mode. Trusted-proxy deployments must configure a forwarding certificate: a proxy for the main WebUI does not cover dynamic forwarding ports. The certificate must cover `public_host`. Credentials are not transported through an HTTP downgrade.
+
 ## Local IPC and browser programs
 
 All Shell executions use the same IPC policy. Unix STREAM/SEQPACKET sockets and anonymous pairs are supported; datagrams remain denied. Abstract addresses are isolated by the execution’s network namespace. Pathname sockets must use an absolute path under its private `/tmp`, without symlinks or mount crossings. Sockets in `/work` or granted resource directories remain inaccessible. Temporary sockets do not survive execution termination; run successive browser commands in the same foreground script or managed background Shell.
@@ -298,4 +302,18 @@ When using the default `/usr/bin/bwrap`, Runtime first tries `/usr/bin/aa-exec -
 
 The distribution's `chrome` profile is usually an application userns exemption; it does not itself provide Chromium's inner sandbox. Compared with Bubblewrap's restricted child profile, it removes the additional blanket capability denial, allowing Chromium to establish isolation in its own child namespaces and exposing more kernel functionality. Molr's file mounts, controlled networking, seccomp, zero host capabilities, `no_new_privs` and cgroups remain enforced. Check actual probes and `chrome://sandbox`; the presence of `/etc/apparmor.d/chrome` alone is insufficient.
 
-When the host cannot support nested sandboxing, `AGENT_BROWSER_ARGS=--no-sandbox,--disable-dev-shm-usage` remains an explicit compatibility fallback. It disables Chromium's inner protection; browser processes then share the Shell's authorized scope under Molr's outer isolation. It is not a safe configuration for direct host execution or Full Access. A tested starting compute allocation is 2 GiB memory, 512 processes/threads, 200% CPU and 512 MiB temporary space. Program installation, live browser display and user takeover remain separate capabilities.
+When the host cannot support nested sandboxing, `AGENT_BROWSER_ARGS=--no-sandbox,--disable-dev-shm-usage` remains an explicit compatibility fallback. It disables Chromium's inner protection; browser processes then share the Shell's authorized scope under Molr's outer isolation. It is not a safe configuration for direct host execution or Full Access. A tested starting compute allocation is 2 GiB memory, 512 processes/threads, 200% CPU and 512 MiB temporary space. The managed browser task provides live display and takeover; program installation remains a deployment responsibility.
+
+## Managed browser tasks
+
+Install agent-browser 0.39.0 and a compatible Chromium distribution on the Runtime host, with Chromium's shared libraries available in host-tool mode. The executables must be regular, executable files, without symlinks or group/world write permission. Configure readonly program directories outside Runtime's private data directory:
+
+```json
+{"browser":{"agent_directory":"/opt/molr-browser/agent","chromium_directory":"/opt/molr-browser/chromium"}}
+```
+
+The directories must contain `agent-browser` and `chrome`, respectively, including Chromium's companion assets. Defaults are `libexec/browser/agent` and `libexec/browser/chromium` beside the Runtime binary. Programs are mounted readonly; no additional assistant directory grant is required for these trusted assets. No automatic downloader or shared CLI installation manager is included.
+
+The browser uses the existing local host-tools sandbox and compute/network grants. One active browser task per assistant may contain multiple tabs. Profile data persists at `/work/.local/state/molr/browser/profile`, isolated between assistants. Internal command and stream ports are accessible only through Runtime's managed execution capability, never public forwards. The managed launcher does not expose executable paths, flags, CDP or daemon sockets to API clients. It does not add `--no-sandbox`.
+
+Use the chat's browser panel to start, observe and take control. Close normally to flush profile data; forced task cleanup can lose unflushed browser state. Revocation, time limits and resource limits still terminate the whole execution. Remote browser tasks and Full Access are not supported. See [Browser](../best-practices/browser.md).

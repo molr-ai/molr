@@ -414,7 +414,14 @@ Runtime 启动时自动准备并探测命令环境，自动登记本机计算资
 - `GET /api/assistants/{id}/shell-tasks`：当前所有者读取该助理的所有运行任务及最近 50 条历史记录，返回 `Items` 和 `Limit: 10`。模式为 `foreground/background/tty`，状态为 `running/completed/failed/stopped/interrupted`。
 - `POST /api/assistants/{id}/shell-tasks`：`action` 为 `read/write/interrupt/stop/stop_all/resize/list`。单任务操作使用 `task_id`；读取可传 `cursor`、`stream`，返回 `Output`、`NextCursor`、`Path`；结束任务还返回 `Finished`（输出捕获已结束）和 `OutputComplete`（捕获是否完整）。`Finished=true` 且当前流读空后可停止读取，不能将截断导致的 `OutputComplete=false` 当作任务仍在执行。读取是只读操作，客户端不应据 POST 方法触发业务数据失效。TTY 输入传 `data`（最多 8 KiB），resize 传 `rows/cols`（1–500）。所有者会话仍需 CSRF，跨所有者或助理访问拒绝。
 - Shell 任务首次创建及状态变化在同一事务中追加 `shell.tasks` SSE，仅包含所属助理引用，不包含命令和输出；客户端据此刷新对应任务列表，保留低频校准。
-- 模型使用相同语义的 `shell_task` 工具，只能管理自身任务。`shell_execute` 新增 `tty/background/timeout_seconds`，前台等待最多 60 秒。可选 `forward_ports` 声明最多 4 个 TCP 端口。创建回执的 `Task.Forwards` 及任务列表 `Forwards` 返回 `Protocol/Port/Address/URL/State`，状态为 `waiting/ready/closed`；地址统一位于 Runtime 机器，HTTP URL 只是便利链接。创建回执包含任务及通知说明；完成和运行提醒使用 `shell_task_finished` / `shell_tasks_running` 事件，结构化信息位于 `Details`，不伪造聊天消息。
+- 模型使用相同语义的 `shell_task` 工具，只能管理自身任务。`shell_execute` 新增 `tty/background/timeout_seconds`，前台等待最多 60 秒。可选 `forward_ports` 声明最多 4 个 HTTP/WS 服务端口。创建回执的 `Task.Forwards` 及任务列表 `Forwards` 返回 `Protocol/Port/Address/URL/State`，状态为 `waiting/ready/closed`；地址统一位于 Runtime 机器，URL 要求当前 Molr 登录态。创建回执包含任务及通知说明；完成和运行提醒使用 `shell_task_finished` / `shell_tasks_running` 事件，结构化信息位于 `Details`，不伪造聊天消息。
+
+
+### 浏览器任务
+
+`GET /api/assistants/{id}/browser` 返回可用状态与活动任务。`POST` 接受 start/status/close、浏览器操作、takeover 和 release。启动需要 `compute_id`；控制权请求需要 `client_id` 与当前 `generation`，用户输入还需递增的 `sequence`。过期 generation、其他控制者或重放输入返回冲突。任务含 `Kind: browser` 和公开 Browser 控制状态／generation／NeedsSnapshot，不序列化控制会话凭据。正常关闭先刷新 profile 再取消执行。
+
+`GET /api/assistants/{id}/browser/stream?task_id=…` 提供 frame/status/tabs/url 消息的认证 SSE。接口核验账号与助理归属，持续检查会话，在任务取消时结束，不受普通 JSON 请求 30 秒截止时间限制。POST 沿用登录态与 CSRF 检查。不公开 agent-browser 的 WS 或指令端点。
 
 ## 路径记忆接口
 

@@ -11,18 +11,21 @@ import (
 
 // ShellRequest contains resource references only, never host mounts or sandbox options.
 type ShellRequest struct {
-	SandboxID      core.ID     `json:"sandbox_id,omitempty"`
-	FullAccess     bool        `json:"full_access,omitempty"`
-	ForwardPorts   []int       `json:"forward_ports,omitempty"`
-	TTY            bool        `json:"tty,omitempty"`
-	Background     bool        `json:"background,omitempty"`
-	TimeoutSeconds int         `json:"timeout_seconds,omitempty"`
-	ComputeID      core.ID     `json:"compute_id"`
-	Script         string      `json:"script"`
-	Directory      string      `json:"directory,omitempty"`
-	Files          []ShellFile `json:"files,omitempty"`
-	NetworkMode    string      `json:"network_mode,omitempty"`
-	NetworkIDs     []core.ID   `json:"network_ids,omitempty"`
+	ForwardProtocol string `json:"forward_protocol,omitempty"`
+	// Browser is a trusted task launch descriptor; never accepted from Shell JSON.
+	Browser        *BrowserLaunch `json:"-"`
+	SandboxID      core.ID        `json:"sandbox_id,omitempty"`
+	FullAccess     bool           `json:"full_access,omitempty"`
+	ForwardPorts   []int          `json:"forward_ports,omitempty"`
+	TTY            bool           `json:"tty,omitempty"`
+	Background     bool           `json:"background,omitempty"`
+	TimeoutSeconds int            `json:"timeout_seconds,omitempty"`
+	ComputeID      core.ID        `json:"compute_id"`
+	Script         string         `json:"script"`
+	Directory      string         `json:"directory,omitempty"`
+	Files          []ShellFile    `json:"files,omitempty"`
+	NetworkMode    string         `json:"network_mode,omitempty"`
+	NetworkIDs     []core.ID      `json:"network_ids,omitempty"`
 }
 type ShellFile struct {
 	ResourceID core.ID `json:"resource_id"`
@@ -61,6 +64,9 @@ func parseShell(raw json.RawMessage) (ShellRequest, error) {
 	}
 	if r.ComputeID.Validate() != nil || r.Script == "" || len(r.Script) > 65536 || strings.ContainsRune(r.Script, 0) || len(r.Files) > 32 || len(r.NetworkIDs) > 32 {
 		return r, core.Invalid("shell", "bounded script and compute resource required")
+	}
+	if r.ForwardProtocol != "" && r.ForwardProtocol != "http" {
+		return r, core.Invalid("forward_protocol", "only authenticated http forwarding is available")
 	}
 	if err := platform.ValidateForwardPorts(r.ForwardPorts); err != nil {
 		return r, err

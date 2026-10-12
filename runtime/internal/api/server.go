@@ -42,6 +42,8 @@ type permissionRequestService interface {
 }
 
 type Options struct {
+	Browser            func(context.Context, core.Principal, core.ID, json.RawMessage) (json.RawMessage, error)
+	BrowserStream      func(context.Context, core.Principal, core.ID, core.ID, func(json.RawMessage) error) error
 	Updates            *updates.Service
 	UpgradeInfo        *updates.Installation
 	Notifications      *notification.Service
@@ -355,7 +357,7 @@ func (s *HTTPServer) dispatch(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if r.URL.Path != "/api/events/stream" && r.URL.Path != "/api/debug/stream" {
+	if r.URL.Path != "/api/events/stream" && r.URL.Path != "/api/debug/stream" && !strings.HasSuffix(r.URL.Path, "/browser/stream") {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, s.config.HTTP.RequestTimeout.Value())
 		defer cancel()

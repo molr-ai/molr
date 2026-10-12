@@ -41,10 +41,10 @@ func inspectCapabilities(ctx context.Context, store persistence.Store, catalog t
 		for _, definition := range definitions {
 			item := agent.ToolCapability{Definition: definition, Available: true, Reason: "available", ResourceIDs: []core.ID{}}
 			switch definition.Name {
-			case "file_read", "file_list", "file_write", "file_edit", "file_move", "file_delete", "shell_execute":
+			case "file_read", "file_list", "file_write", "file_edit", "file_move", "file_delete", "shell_execute", "browser_session":
 				action := policy.Read
 				kind := resource.Storage
-				if definition.Name == "shell_execute" {
+				if definition.Name == "shell_execute" || definition.Name == "browser_session" {
 					action = policy.Execute
 					kind = resource.Compute
 				}
@@ -66,7 +66,7 @@ func inspectCapabilities(ctx context.Context, store persistence.Store, catalog t
 					}
 					// These fixed tools operate on storage paths; a model grant does not
 					// authorize file access. Path restrictions remain enforced at execution.
-					if !catalogOwned(ctx, store, r.OwnerID, p.OwnerID) || r.Kind != kind || g.Scope.ModelID != "" || (definition.Name == "shell_execute" && r.Provider != "local-sandbox" && r.Provider != "remote-compute") {
+					if !catalogOwned(ctx, store, r.OwnerID, p.OwnerID) || r.Kind != kind || g.Scope.ModelID != "" || ((definition.Name == "shell_execute" || definition.Name == "browser_session") && r.Provider != "local-sandbox" && r.Provider != "remote-compute") {
 						continue
 					}
 					if r.State != resource.Available || !slices.Contains(r.Actions, string(action)) {
@@ -93,7 +93,7 @@ func inspectCapabilities(ctx context.Context, store persistence.Store, catalog t
 						item.ResourceIDs = append(item.ResourceIDs, r.ID)
 					}
 				}
-				if definition.Name != "shell_execute" {
+				if definition.Name != "shell_execute" && definition.Name != "browser_session" {
 					item.Available = true
 					item.Reason = "workspace_available"
 					if len(item.ResourceIDs) > 0 {

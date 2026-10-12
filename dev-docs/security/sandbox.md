@@ -18,7 +18,7 @@ Full Access 设计用于外部容器／虚拟机已提供所需隔离的环境�
 
 Bubblewrap 负责构造隔离环境，并不提供完整安全策略；策略由 Molr 生成并验证。它与宿主共享内核，本方案不承诺达到虚拟机的隔离强度。[Bubblewrap 官方说明](https://github.com/containers/bubblewrap)
 
-Shell 支持单次前台命令、显式或 60 秒后自动分离的后台任务，以及持久到退出的 TTY 会话。同一助理合计最多 10 个执行；每个执行建立独立沙盒，只有 `/work` 跨执行持久化。TTY 的系统 Shell 优先与 BusyBox 兜底策略和普通命令一致，默认交互会话加载 `/work/.profile`；非交互命令不加载。任务默认无墙钟截止时间，可选实际超时；资源、授权和隔离限制始终生效。支持显式任务 TCP 端口转发；支持按计算权限提供 NVIDIA GPU 设备访问，其他设备直通和跨平台执行暂不提供。Python、Node 等解释器仍由部署环境提供，不开放宿主软件安装能力。
+Shell 支持单次前台命令、显式或 60 秒后自动分离的后台任务，以及持久到退出的 TTY 会话。同一助理合计最多 10 个执行；每个执行建立独立沙盒，只有 `/work` 跨执行持久化。TTY 的系统 Shell 优先与 BusyBox 兜底策略和普通命令一致，默认交互会话加载 `/work/.profile`；非交互命令不加载。任务默认无墙钟截止时间，可选实际超时；资源、授权和隔离限制始终生效。支持显式任务 HTTP/WS 端口转发；支持按计算权限提供 NVIDIA GPU 设备访问，其他设备直通和跨平台执行暂不提供。Python、Node 等解释器仍由部署环境提供，不开放宿主软件安装能力。
 
 外部目录和网络默认拒绝；当前助理自己的 `/work` 由 Runtime 管理，文件工具默认可用；真实硬件默认不可见。操作系统或部署环境不能落实要求时，Shell 显示不可用，其他 Runtime 功能照常运行；绝不降级为宿主直接执行。
 
@@ -132,7 +132,7 @@ gVisor Go netstack 将流量转换为普通 TCP/UDP 连接。传输协议、目�
 
 就绪探针实际执行隔离命令，并在临时回环端点上验证 DNS、TUN 与 TCP 转发，不依赖公网。宿主工具环境通过标准 curl 下载；最小 BusyBox 环境不承诺 HTTPS 下载能力。工具参数不是强制边界，网络仍由 Runtime 授权。`NetworkBackend=transparent`、`NetworkProtocols=[tcp,udp]` 随能力接口报告；不得仅凭进程存活宣称网络就绪。
 
-### Shell TCP 端口转发
+### Shell HTTP/WS 端口转发
 
 `forward_ports` 在工具层及 platform 层校验，每次执行最多 4 个唯一有效端口。Runtime 在启动命令前分配监听器，回执携带任务 `Forwards`；目标固定为原执行的 IPv4 回环，不接受宿主地址、PID 或 namespace 路径。仅有转发而无出站授权时也建立执行专属网络会话，但出口规则为空，仍禁止外联。
 
@@ -142,7 +142,9 @@ gVisor Go netstack 将流量转换为普通 TCP/UDP 连接。传输协议、目�
 
 Runtime 每入口 32 个连接、全局 128 个；Runner 每执行 32 个目标连接，远程流入口全局 64 个。探测是独立的有超时 TCP 拨号。转发不使用原有出站累计流量预算。任务结束、撤权、租约失效会关闭目标连接；Runtime 同时关闭监听器和客户端连接。远程观察连接失败后回收入口，不自动转接其他任务或重放命令。
 
-`Info.PortForwarding` 作为协议的能力字段，带转发请求必须先确认支持；不支持时明确拒绝，不静默忽略。工具回执、`shell_task list`、SDK 与任务界面保留相同字段，模型上下文裁剪也保留实际地址。用户操作、地址选择及无额外入口鉴权的边界见 [部署文档](../../docs/guides/files-and-commands.md#shell-端口转发)。
+`Info.PortForwarding` 作为协议的能力字段，带转发请求必须先确认支持；不支持时明确拒绝，不静默忽略。工具回执、`shell_task list`、SDK 与任务界面保留相同字段，模型上下文裁剪也保留实际地址。用户操作、地址选择及登录态鉴权的边界见 [部署文档](../../docs/guides/files-and-commands.md#shell-端口转发)。
+
+公开监听仅接受 HTTP/WS，连接目标前校验 Host、存在时的 Origin（WS 必须提供）、当前登录态与任务归属。上游请求移除全部 Molr 凭据，下游移除保留 Cookie 与 Clear-Site-Data。连接在 HTTP/TLS 解析前计入上限。会话 watcher 在退出、过期或撤销时关闭 HTTP 流与升级后的 WS；每次 namespace 拨号仍检查任务执行能力。公开 TCP 选择在工具解析和执行层拒绝，远程内部 TCP 传输不变。
 
 ### 权限变更与故障
 
@@ -198,3 +200,11 @@ bash scripts/test-sandbox-linux.sh -count=1 -v
 不新增浏览器专用沙盒或权限开关。允许嵌套 user／PID／network namespace 以支持 Chromium 原生沙盒；过滤器继续禁止挂载 API、mount namespace、setns、ptrace、设备创建与网络绕过。联网与断网执行的 UID／GID 映射保持实际宿主身份不变。Unix IPC 代理同时遵守通知线程的 root 与外层私有 tmpfs 边界，避免绕过内层 chroot。默认 Bubblewrap 启动时先验证宿主已加载的 `chrome` AppArmor profile；不可用时验证原受限路径。选择覆盖普通执行、联网执行与 namespace keeper；不重跑业务命令、不更改系统策略，显式启动器保留管理员选择。该应用级豁免移除了额外的 capabilities 全面拒绝，Molr 的授权与外层隔离仍保留，见[部署说明](../../docs/sandbox/linux.md#本地-ipc-与浏览器程序)。`--no-sandbox` 仍是依赖 Molr 外层边界的显式兼容方式，不包含 Chromium 内部进程防护。
 
 `MOLR_SANDBOX_HOST_TOOLS=1 MOLR_TEST_AGENT_BROWSER=/absolute/agent-binary-directory MOLR_TEST_CHROMIUM=/absolute/chromium-directory bash runtime/scripts/test-sandbox-linux.sh -run 'TestLinuxBwrapProfile|TestLinuxPrivateSockets|TestLinuxAgentBrowser|TestLinuxNestedNamespaceBoundaries|TestLinuxExecutionIdentityWithNetworking' -v` 使用事先审查并安装的资产，Linux amd64 夹具要求目录内有 `agent-browser-linux-x64` 与 `chrome`。默认验收不设置 `MOLR_TEST_BWRAP`，以覆盖自动 profile 选择；自定义部署才指定可信启动器。设置 `MOLR_TEST_CHROMIUM_SANDBOX=1` 强制核验原生沙盒状态，启动失败不自动跳过或回退。测试覆盖读取、填写、点击、截图、获准 HTTP、未授权端口拒绝、沙盒状态、嵌套 mount／setns 拒绝、chroot IPC 隔离及 UID／GID 一致性。不设置原生标志时验证原有外层沙盒兼容路径。完整回归仍包括文件、网络、cgroup、FD 泄漏、取消、撤权、TTY 与显式开启的 GPU 检查。
+
+## 浏览器任务控制
+
+浏览器任务复用 `shellTasks`、执行租约、cgroup、资源授权与任务额度。只有可信启动逻辑提供只读程序挂载。每个助理只有一个活动任务和独立持久化 profile；私有桥接端口仅声明用于 namespace 拨号，不创建公开监听。截图复用既有文件读取与模型媒体权限。
+
+控制权绑定所有者会话、浏览器窗口 client ID 与 generation，输入序号防止重放。接管先阻止新写操作，再等待已接受操作完成、释放按住的鼠标键，最后切换控制者。写操作响应丢失或交接失败时终止执行。用户接管期间，模型仅可读取快照、截图、标签和 URL；`shell_task` 不能绕过浏览器控制。交还发布 `browser_control_returned`，模型必须先读取新快照才能写操作。原生桥接采用有完成确认的结构化输入，命令时限与输出有界，不开放任意 eval 或启动参数。
+
+画面经私有 WS 连接转为所有者认证 SSE，10 fps 上限与 ACK 节流。观看者断线取消流；前端在断线或控制权变化时丢弃排队输入。支持指针、滚动、键盘文本／输入法、导航与标签页。强制终止可能丢失未落盘 profile 数据。
