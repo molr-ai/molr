@@ -16,6 +16,10 @@ Molr 是可自托管的个人 AI 助理。连接自己选择的模型，通过�
 - [微信聊天入口](guides/weixin.md)、[插件与 Skills](guides/plugins-and-skills.md)：使用已连接的渠道和扩展。
 - [个人设置](guides/settings.md)、[账号安全](guides/account-security.md)：外观、提醒、密码与登录设备。
 
+## 最佳实践
+
+从[最佳实践概览](best-practices/README.md)准备工具与授权，再按场景阅读[操作浏览器](best-practices/browser.md)、[操作钉钉](best-practices/dingtalk.md)、[操作飞书](best-practices/feishu.md)和[操作知乎](best-practices/zhihu.md)。
+
 ## 管理实例
 
 管理员先[连接模型](administration/models.md)和[配置沙盒资源](administration/sandbox-resources.md)，再通过[用户与用户组](administration/users-and-groups.md)分配成员可用范围。插件安装、启用和共享连接见[插件管理](administration/plugins.md)。

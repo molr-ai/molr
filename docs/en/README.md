@@ -16,6 +16,10 @@ Molr is a self-hostable personal AI assistant. Connect to your chosen models, de
 - [WeChat Chat Entry](guides/weixin.md), [Plugins & Skills](guides/plugins-and-skills.md): Use connected channels and extensions.
 - [Personal Settings](guides/settings.md), [Account Security](guides/account-security.md): Appearance, reminders, passwords, and login devices.
 
+## Best Practices
+
+Start with the [Best Practices Overview](best-practices/README.md) to prepare tools and permissions, then explore [Operate a Browser](best-practices/browser.md), [Use DingTalk](best-practices/dingtalk.md), [Use Feishu](best-practices/feishu.md), and [Use Zhihu](best-practices/zhihu.md).
+
 ## Managing Instances
 
 Administrators first [connect models](administration/models.md) and [configure sandbox resources](administration/sandbox-resources.md), then assign member availability scopes via [Users & User Groups](administration/users-and-groups.md). For plugin installation, enabling, and shared connections, see [Plugin Management](administration/plugins.md).

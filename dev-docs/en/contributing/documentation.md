@@ -7,6 +7,7 @@ Public documentation describes the current implementation, limitations, and repr
 | Location | Maintenance Content |
 | --- | --- |
 | `docs/guides/` | Operations, results, and feature boundaries for regular users |
+| `docs/best-practices/` | Scenario guides for tool setup, example requests, and verification |
 | `docs/administration/` | Administrator configuration of resources, user groups, and plugins |
 | `docs/deployment/` | Host installation, configuration, dependencies, services, and disaster recovery |
 | `dev-docs/architecture/` | System composition, module responsibilities, and technical choices |
