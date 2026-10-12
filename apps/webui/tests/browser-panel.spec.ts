@@ -11,6 +11,7 @@ async function post(page: Page, path: string, data: object) {
 // Authentication/chat use the real Runtime. Browser transport timing is fixed
 // here; native actions, metadata and controller isolation have Go integration tests.
 test('browser panel preserves control, commits IME once, closes the selected tab and fills the page', async ({ page }, info) => {
+  if (info.project.name === 'desktop') await page.setViewportSize({ width: 1920, height: 1000 });
   await page.goto('/');
   await page.getByLabel('Username', { exact: true }).fill('owner');
   await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!');
@@ -20,7 +21,7 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   const resource = await post(page, '/api/resources', { Name: name, Kind: 'model', Provider: 'openai-compatible', Binding: { Endpoint: origin, AllowedOrigins: [origin], Models: [{ Name: name, ContextLimit: 32768, SupportsTools: true, Pricing: { Currency: 'USD', InputMicrosPerMillion: 1 } }] } });
   const models = await (await page.request.get('/api/models')).json();
   const assistant = await post(page, '/api/assistants', { Name: name, ModelID: models.find((m: { ResourceID: string }) => m.ResourceID === resource.ID).ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } });
-  let client = '', generation = 1, sequence = 0, takeovers = 0;
+  let client = '', generation = 1, sequence = 0, takeovers = 0, running = false, rejectInput = false;
   let tabs = [{ tabId: 't1', title: 'First tab', url: 'https://example.com', active: true }, { tabId: 't2', title: 'Second tab', url: 'about:blank', active: false }];
   const text: string[] = [], closedTabs: string[] = [];
   await page.addInitScript(() => {
@@ -34,22 +35,41 @@ test('browser panel preserves control, commits IME once, closes the selected tab
     window.EventSource = new Proxy(Native, { construct(target, args) { return String(args[0]).includes('/browser/stream') ? new BrowserStream() : Reflect.construct(target, args); } });
   });
   await page.goto('about:blank'); // Install the transport in a fresh document before routing requests.
+  await page.route('**/api/resources?kind=compute&limit=200', route => route.fulfill({ json: { Items: [{ ID: 'local-one', Name: 'Local one' }, { ID: 'local-two', Name: 'Local two' }] } }));
+  await page.route(`**/api/grants?assistant_id=${assistant.ID}&limit=200`, route => route.fulfill({ json: { Items: ['local-one', 'local-two'].map(ResourceID => ({ ResourceID, Scope: {}, Actions: ['execute'] })) } }));
   await page.route(`**/api/assistants/${assistant.ID}/browser`, async route => {
     if (route.request().method() === 'POST') {
       const q = route.request().postDataJSON();
-      if (q.action === 'takeover') { client = q.client_id; generation++; takeovers++; sequence = q.sequence; }
+      if (rejectInput) { rejectInput = false; client = ''; generation++; await route.fulfill({ status: 409, json: { code: 'conflict' } }); return; }
+      if (q.action === 'start') { expect(q.compute_id).toBe('local-two'); running = true; }
+      else if (q.action === 'takeover') { client = q.client_id; generation++; takeovers++; sequence = q.sequence; }
       else {
         expect(q.client_id).toBe(client); expect(q.generation).toBe(generation); expect(q.sequence).toBeGreaterThan(sequence); sequence = q.sequence;
         if (q.action === 'insert_text') text.push(q.text);
         if (q.action === 'close_tab') { closedTabs.push(q.tab); tabs = tabs.filter(t => t.tabId !== q.tab); }
       }
     }
-    await route.fulfill({ json: { Available: true, TabCount: tabs.length, ControllerIsCurrentSession: !!client, ControllerClientID: client, Task: { ID: 'browser-test', Kind: 'browser', State: 'running', Browser: { Control: client ? 'user' : 'assistant', Generation: generation } } } });
+    await route.fulfill({ json: { Available: true, TabCount: tabs.length, ControllerIsCurrentSession: !!client, ControllerClientID: client, Task: running ? { ID: 'browser-test', Kind: 'browser', State: 'running', Browser: { Control: client ? 'user' : 'assistant', Generation: generation } } : null } });
     await page.evaluate(tabs => window.dispatchEvent(new CustomEvent('browser-test-tabs', { detail: tabs })), tabs);
   });
   await page.goto(`/#/assistants/${assistant.ID}`);
-  const trigger = page.getByRole('button', { name: /^Browser \(/ });
-  await expect(trigger).toHaveAccessibleName('Browser (2)'); await trigger.click();
+  const trigger = page.getByRole('button', { name: /^Browser(?: \(\d+\))?$/ });
+  await expect(trigger).toHaveAccessibleName('Browser');
+  const iconPosition = () => trigger.evaluate(el => { const r = el.getBoundingClientRect(), icon = el.querySelector('svg')!.getBoundingClientRect(); return { width: r.width, x: icon.x-r.x, y: icon.y-r.y }; });
+  const bareIcon = await iconPosition();
+  await trigger.click();
+  await expect(page.locator('.browser-drawer .ui-dialog__header h2')).not.toHaveClass(/ui-sr-only/);
+  await expect(page.getByRole('tablist', { name: 'Browser tabs' })).toHaveCount(0);
+  expect(await page.locator('.browser-panel').evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+  const resourceSelect = page.getByRole('combobox', { name: 'Compute resource' });
+  await expect(resourceSelect).toHaveText('Local one'); await resourceSelect.click();
+  await page.getByRole('option', { name: 'Local two' }).click();
+  await page.getByRole('button', { name: 'Start browser', exact: true }).click();
+  await expect(trigger).toHaveAccessibleName('Browser (2)');
+  expect(await iconPosition()).toEqual(bareIcon);
+  const badge = trigger.locator('.badge');
+  await expect(badge).toHaveCSS('position', 'absolute');
+  await expect(badge).toHaveCSS('font-size', '9px');
   await page.getByRole('button', { name: 'Take control', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Return control', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: 'Close browser panel', exact: true }).click();
@@ -77,6 +97,10 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   const panel = page.locator('.browser-drawer');
   const normal = (await panel.boundingBox())!;
   await page.getByRole('button', { name: 'Full-page view', exact: true }).click();
+  if (info.project.name === 'desktop') {
+    expect(await panel.evaluate(el => getComputedStyle(el, '::backdrop').backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+    expect(await panel.evaluate(el => getComputedStyle(el, '::backdrop').backdropFilter)).toBe('none');
+  }
   const start = (await panel.boundingBox())!;
   expect(start.x).toBeCloseTo(normal.x, 0); expect(start.y).toBeCloseTo(normal.y, 0);
   expect(start.width).toBeCloseTo(normal.width, 0); expect(start.height).toBeCloseTo(normal.height, 0);
@@ -110,5 +134,18 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   const inactive = page.locator('.browser-tab:not([data-active])').first();
   expect(await inactive.evaluate(el => getComputedStyle(el).borderTopStyle)).toBe('solid');
   expect(await inactive.evaluate(el => parseFloat(getComputedStyle(el).borderTopWidth))).toBeGreaterThan(0);
+  const tabBox = (await inactive.boundingBox())!, closeBox = (await inactive.locator('.ui-icon-button').boundingBox())!;
+  expect(closeBox.height).toBeLessThan(tabBox.height - 8);
+  expect(closeBox.y).toBeGreaterThan(tabBox.y);
+  // A rejected stale input refreshes ownership and reports a dismissible toast.
+  rejectInput = true;
+  await page.getByRole('button', { name: 'Reload', exact: true }).click();
+  const toast = page.locator('.ui-toast').filter({ hasText: 'Control changed. Take control again.' });
+  await expect(toast).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Take control', exact: true })).toBeEnabled();
+  await expect(page.getByRole('textbox', { name: 'Address', exact: true })).toBeDisabled();
+  await toast.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(toast).toHaveCount(0);
+  await expect(page.locator('.browser-notice')).toHaveCount(0);
   await page.unrouteAll({behavior:'wait'});
 });

@@ -2,30 +2,35 @@
 @media (min-width: 1600px) { .chat-side-panel[data-kind='browser'] { --chat-panel-width: 840px; } }
 @media (min-width: 1920px) { .chat-side-panel[data-kind='browser'] { --chat-panel-width: 1040px; } }
 @media (min-width: 2400px) { .chat-side-panel[data-kind='browser'] { --chat-panel-width: 1280px; } }
-.browser-drawer.ui-dialog { background:var(--color-page-background); }
-.browser-drawer.ui-dialog.ui-drawer .ui-dialog__header, .chat-side-panel[data-docked] .browser-drawer .ui-dialog__header { padding:0 8px; }
-.browser-drawer .ui-dialog__header > div { width:100%; min-width:0; }
-.browser-drawer.ui-dialog.ui-drawer .ui-dialog__body, .chat-side-panel[data-docked] .browser-drawer .ui-dialog__body { display:flex; padding:0; overflow:hidden; }
+.browser-drawer--running.ui-dialog { background:var(--color-page-background); }
+/* A page view grown from the sidebar has no drawer scrim. */
+.browser-drawer--unshaded::backdrop { background:transparent; backdrop-filter:none; }
+.browser-drawer--running.ui-dialog.ui-drawer .ui-dialog__header, .chat-side-panel[data-docked] .browser-drawer--running .ui-dialog__header { padding:0 8px; background:var(--color-surface); }
+.browser-drawer--running .ui-dialog__header > div { width:100%; min-width:0; }
+.browser-drawer .ui-dialog__body { display:flex; }
+.browser-drawer--running.ui-dialog.ui-drawer .ui-dialog__body, .chat-side-panel[data-docked] .browser-drawer--running .ui-dialog__body { padding:0; overflow:hidden; }
 .browser-control-label { color:var(--color-text-muted); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .browser-panel { display:flex; flex-direction:column; width:100%; min-width:0; min-height:0; }
-.browser-notice { padding:10px 14px; }
 .browser-start { margin:auto; display:flex; flex-direction:column; align-items:center; gap:16px; padding:40px 28px; max-width:400px; color:var(--color-text); }
-.browser-start-icon { display:grid; place-items:center; width:76px; height:76px; border-radius:24px; background:var(--color-surface); border:1px solid var(--color-border); }
+.browser-start-icon { display:grid; place-items:center; width:76px; height:76px; color:var(--color-text-muted); }
 .browser-start h3 { margin:0; font-size:20px; }.browser-start p { margin:0; color:var(--color-text-muted); text-align:center; }
-.browser-start label { display:flex; flex-direction:column; gap:8px; width:100%; }
-.browser-start select,.browser-keyboard { background:var(--color-page-background); color:var(--color-text); border:1px solid var(--color-border); border-radius:8px; padding:10px; min-width:0; }
+.browser-start > .select { width:100%; }
+.browser-keyboard { background:var(--color-page-background); color:var(--color-text); border:1px solid var(--color-border); border-radius:8px; padding:10px; min-width:0; }
 .browser-tabstrip { display:flex; gap:4px; align-items:center; height:46px; min-width:0; background:var(--color-surface); }
 .browser-tabs-window { display:flex; flex:0 1 auto; align-items:center; min-width:0; overflow:hidden; }
 .browser-tabs { position:relative; display:flex; flex:1; gap:4px; overflow:hidden; min-width:0; }
 .browser-view-actions { display:flex; flex-shrink:0; gap:2px; margin-left:auto; }
-.browser-drawer .ui-dialog__header .ui-icon-button { margin:0; width:28px; height:30px; flex-shrink:0; }
-.browser-tab-scroll.ui-icon-button { width:22px; }
+.browser-drawer--running .ui-dialog__header .ui-icon-button { margin:0; width:28px; height:30px; min-height:0; flex-shrink:0; }
+.browser-view-actions .ui-icon-button > svg { width:16px; height:16px; }
+.browser-view-actions .ui-icon-button > .browser-panel-close-icon { width:20px; height:20px; }
+.browser-drawer--running .ui-dialog__header .browser-tab-scroll { width:22px; }
 .browser-tab { display:flex; align-items:center; width:180px; min-width:64px; height:34px; flex:0 1 180px; border:1px solid var(--color-border); border-radius:7px; color:var(--color-text-muted); }
 .browser-tab[data-active] { color:var(--color-text); background:var(--color-selected-bg); border-color:var(--color-primary); }
 .browser-tab > button[role='tab'] { flex:1; min-width:0; display:flex; align-items:center; gap:5px; padding:8px 5px; font:inherit; font-size:12px; color:inherit; background:transparent; border:0; text-align:left; cursor:pointer; }
 .browser-tab > button[role='tab']:disabled { cursor:default; opacity:1; }
 .browser-tab > button span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.browser-tab svg { flex-shrink:0; }.browser-drawer .ui-dialog__header .browser-tab .ui-icon-button { width:20px; height:24px; margin-right:2px; flex-shrink:0; }
+.browser-tab svg { flex-shrink:0; }.browser-drawer .ui-dialog__header .browser-tab .ui-icon-button { width:20px; height:20px; min-height:0; border-radius:4px; margin-right:4px; flex-shrink:0; }
+.browser-tab .ui-icon-button > svg { width:14px; height:14px; }
 .browser-tab:not([data-active]):hover { background:var(--color-page-background); }
 .browser-new-tab.ui-icon-button { width:28px; height:28px; flex-shrink:0; }
 .browser-navigation { display:flex; align-items:center; gap:4px; padding:8px 10px; border-bottom:1px solid var(--color-border); }
@@ -57,4 +62,4 @@
 /* Mobile overlays stay inside the application viewport, including embedded Molr. */
 .ui-modal-layer > .browser-drawer.ui-dialog.browser-drawer--expanded[data-contained] { position:absolute; inset:0; width:100%; min-width:0; max-width:100%; height:100%; max-height:100%; margin:0; border:0; border-radius:0; }
 
-.browser-control-button { flex-shrink:0; margin-left:4px; white-space:nowrap; }
+.browser-control-button.button { flex-shrink:0; margin-left:4px; white-space:nowrap; border-radius:999px; min-height:34px; }

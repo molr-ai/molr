@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ChangeEvent, KeyboardEvent, PointerEvent } from 'react';
-import { Alert, Badge, Button, Drawer, IconButton, useBreakpoint, useUILocale } from '@molr/ui';
+import { Alert, Badge, Button, Drawer, IconButton, Select, useBreakpoint, useToast, useUILocale } from '@molr/ui';
 import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, CornerDownLeft, Globe, Hand, Keyboard, Maximize2, Minimize2, Plus, Power, RefreshCw, X } from 'lucide-react';
 import { api, APIError, mutationKey } from '../../../api/client';
 import type { BrowserStatus, Grant, Resource } from '../../../api/types';
 import { useCopy, useQuery } from '../../../state';
+import { useErrorToast } from '../../../error-toasts';
 import './browser.css';
 import { useBrowserView } from './useBrowserView';
 
@@ -32,7 +33,10 @@ export function Browser({ assistantID, docked, onClose }: { assistantID: string;
   const resources = useQuery<Resource[]>('/api/resources?kind=compute', true);
   const grants = useQuery<Grant[]>(`/api/grants?assistant_id=${assistantID}`, true);
   const client = windowClient(assistantID);
-  const [compute, setCompute] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [compute, setCompute] = useState(''), [busy, setBusy] = useState(false);
+  const { toast, dismiss } = useToast();
+  const noticeID = useRef<number | null>(null);
+  useErrorToast(query.error, query.reload);
   const [address, setAddress] = useState(''), [tabs, setTabs] = useState<Tab[]>([]);
   const [connected, setConnected] = useState(false), [hasFrame, setHasFrame] = useState(false);
   const { panelRef, expanded, moving, changeView } = useBrowserView(docked);
@@ -73,26 +77,31 @@ export function Browser({ assistantID, docked, onClose }: { assistantID: string;
   function notice(err: unknown) {
     return err instanceof APIError && err.code === 'conflict' ? (zh ? '控制权已变更，请重新接管。' : 'Control changed. Take control again.') : (zh ? '浏览器操作未完成，请检查连接或任务状态。' : 'Browser operation failed. Check connection or task status.');
   }
+  function warn(title: string) {
+    if (closed.current) return;
+    if (noticeID.current !== null) dismiss(noticeID.current);
+    noticeID.current = toast({ title, tone: 'warning' });
+  }
   async function act(action: Action, target = control.current) {
     return api.post<BrowserStatus>(path, { ...action, task_id: target?.Task?.ID, client_id: client.id, generation: target?.Task?.Browser?.Generation ?? 0, sequence: ++client.sequence });
   }
   async function command(action: Action) {
-    setBusy(true); setError(''); epoch.current++;
+    setBusy(true); epoch.current++;
     try { await client.queue; await act(action); await query.reload(); }
-    catch (err) { setError(notice(err)); }
+    catch (err) { warn(notice(err)); void query.reload(); }
     finally { if (!closed.current) setBusy(false); }
   }
   function input(action: Action) {
     if (!allowed.current) return;
     if (action.action === 'pointer' && action.event === 'move') { const now = performance.now(); if (now - lastMove.current < 80) return; lastMove.current = now; }
-    if (pending.current >= 64 && action.event !== 'up') { setError(zh ? '输入较快，请稍后继续。' : 'Input is busy; please wait.'); return; }
+    if (pending.current >= 64 && action.event !== 'up') { warn(zh ? '输入较快，请稍后继续。' : 'Input is busy; please wait.'); return; }
     const version = epoch.current, target = control.current;
     pending.current++;
     client.queue = client.queue.then(async () => {
       pending.current--;
       if (closed.current || version !== epoch.current || !allowed.current || target?.Task?.Browser?.Generation !== control.current?.Task?.Browser?.Generation) return;
       try { await act(action, target); }
-      catch (err) { epoch.current++; setError(notice(err)); void query.reload(); }
+      catch (err) { epoch.current++; warn(notice(err)); void query.reload(); }
     });
   }
   useEffect(() => {
@@ -169,7 +178,7 @@ export function Browser({ assistantID, docked, onClose }: { assistantID: string;
   };
   function tabTitle(tab: Tab) { if (tab.url === 'about:blank') return zh ? '新标签页' : 'New tab'; return tab.title || tab.url || (zh ? '标签页' : 'Tab'); }
   const controlLabel = state?.Control === 'switching' ? (zh ? '正在交接' : 'Handing over') : ownsControl ? (zh ? '你正在控制' : 'You are in control') : state?.Control === 'user' ? (zh ? '其他窗口正在控制' : 'Controlled in another window') : (zh ? '助理控制中' : 'Assistant in control');
-  return <Drawer open docked={docked && !expanded} side={mobile && !expanded ? 'bottom' : 'right'} onOpenChange={open => { if (!open) { if (expanded) changeView(false); else onClose(); } }} title={zh ? '浏览器' : 'Browser'} closeLabel={zh ? '关闭浏览器面板' : 'Close browser panel'} showCloseButton={false} size="lg" className={`browser-drawer${expanded ? ' browser-drawer--expanded' : ''}`} headerContent={
+  return <Drawer open docked={docked && !expanded} side={mobile && !expanded ? 'bottom' : 'right'} onOpenChange={open => { if (!open) { if (expanded) changeView(false); else onClose(); } }} title={zh ? '浏览器' : 'Browser'} closeLabel={zh ? '关闭浏览器面板' : 'Close browser panel'} showCloseButton={!task} size="lg" className={`browser-drawer${task ? ' browser-drawer--running' : ''}${docked ? ' browser-drawer--unshaded' : ''}${expanded ? ' browser-drawer--expanded' : ''}`} headerContent={task &&
     <div className="browser-tabstrip">
       <div className="browser-tabs-window" ref={tabWindow}>
         {tabScroll.overflow && <IconButton className="browser-tab-scroll" label={zh ? '向左滚动标签页' : 'Scroll tabs left'} disabled={!tabScroll.left} onClick={() => scrollTabs(-1)}><ChevronLeft size={16}/></IconButton>}
@@ -181,17 +190,16 @@ export function Browser({ assistantID, docked, onClose }: { assistantID: string;
       </div>
       <IconButton className="browser-new-tab" label={zh ? '新建标签页' : 'New tab'} disabled={!canOperate} onClick={() => input({ action: 'new_tab', url: 'about:blank' })}><Plus size={18}/></IconButton>
       <div className="browser-view-actions"><IconButton disabled={moving} label={expanded ? (zh ? '退出全屏' : 'Exit full-page view') : (zh ? '全屏视图' : 'Full-page view')} onClick={() => changeView(!expanded)}>{expanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}</IconButton>
-      <IconButton label={zh ? '关闭浏览器面板' : 'Close browser panel'} onClick={onClose}><X size={17}/></IconButton></div>
+      <IconButton label={zh ? '关闭浏览器面板' : 'Close browser panel'} onClick={onClose}><X className="browser-panel-close-icon" size={20}/></IconButton></div>
     </div>}>
     <div className="browser-panel" ref={panelRef}>
-      {(!!error || !!query.error) && <div className="browser-notice"><Alert tone="warning" title={zh ? '浏览器提示' : 'Browser notice'}>{error || (zh ? '暂时无法获取浏览器状态' : 'Unable to load browser status')}</Alert></div>}
       {!task ? <div className="browser-start"><div className="browser-start-icon"><Globe size={34}/></div><h3>{zh ? '一起浏览，同步可见' : 'Browse together'}</h3><p>{zh ? '观看助理浏览网页，需要时接管。登录状态会为这个助理保留。' : 'Watch your assistant browse, and take control when needed. Login state stays with this assistant.'}</p>
-        {query.data?.Available === false ? <Alert title={zh ? '浏览器程序尚未配置' : 'Browser programs are not configured'}>{zh ? '请联系管理员配置浏览器程序。' : 'Ask an administrator to configure browser programs.'}</Alert> : <><label>{zh ? '计算资源' : 'Compute resource'}<select value={compute} onChange={e => setCompute(e.target.value)}><option value="">{zh ? '选择已授权的本机资源' : 'Select an authorized local resource'}</option>{usable.map(r => <option key={r.ID} value={r.ID}>{r.Name}</option>)}</select></label><Button disabled={busy || !compute || query.loading && !query.data} onClick={() => void command({ action: 'start', compute_id: compute })}>{busy ? (zh ? '正在启动…' : 'Starting…') : (zh ? '启动浏览器' : 'Start browser')}</Button></>}
+        {query.data?.Available === false ? <Alert title={zh ? '浏览器程序尚未配置' : 'Browser programs are not configured'}>{zh ? '请联系管理员配置浏览器程序。' : 'Ask an administrator to configure browser programs.'}</Alert> : <><Select label={zh ? '计算资源' : 'Compute resource'} value={compute} onValueChange={setCompute} disabled={busy} placeholder={zh ? '选择已授权的本机资源' : 'Select an authorized local resource'} options={usable.map(r => ({ value: r.ID, label: r.Name }))}/><Button disabled={busy || !compute || query.loading && !query.data} onClick={() => void command({ action: 'start', compute_id: compute })}>{busy ? (zh ? '正在启动…' : 'Starting…') : (zh ? '启动浏览器' : 'Start browser')}</Button></>}
       </div> : <>
         <form className="browser-navigation" onSubmit={e => { e.preventDefault(); input({ action: 'navigate', url: /^https?:\/\//i.test(address) || address === 'about:blank' ? address : `https://${address}` }); (keyboardOpen ? auxiliaryInput.current : directInput.current)?.focus({ preventScroll: true }); }}>
           <IconButton type="button" disabled={!canOperate} label={zh ? '后退' : 'Back'} onClick={() => input({ action: 'back' })}><ArrowLeft size={17}/></IconButton><IconButton type="button" disabled={!canOperate} label={zh ? '前进' : 'Forward'} onClick={() => input({ action: 'forward' })}><ArrowRight size={17}/></IconButton><IconButton type="button" disabled={!canOperate} label={zh ? '刷新' : 'Reload'} onClick={() => input({ action: 'reload' })}><RefreshCw size={16}/></IconButton>
           <div className="browser-address"><Globe size={14}/><input ref={urlInput} aria-label={zh ? '网址' : 'Address'} disabled={!canOperate} value={address === 'about:blank' ? '' : address} onFocus={e => e.target.select()} onChange={e => setAddress(e.target.value)} placeholder={zh ? '输入网址' : 'Enter a URL'}/><IconButton type="submit" label={zh ? '打开' : 'Go'} disabled={!canOperate}><CornerDownLeft size={15}/></IconButton></div>
-          <Button className="browser-control-button" type="button" size="sm" variant={ownsControl ? 'secondary' : 'primary'} title={controlLabel} disabled={busy || moving || !connected || state?.Control === 'switching'} onClick={() => void command({ action: ownsControl ? 'release' : 'takeover' })}><Hand size={14}/>{ownsControl ? (zh ? '交还助理' : 'Return control') : (zh ? '接管' : 'Take control')}</Button>
+          <Button className="browser-control-button" type="button" size="sm" variant={ownsControl ? 'secondary' : 'primary'} title={controlLabel} disabled={busy || moving || !connected || state?.Control === 'switching'} onClick={() => void command({ action: ownsControl ? 'release' : 'takeover' })}><Hand size={14}/>{ownsControl ? (zh ? '交还' : 'Return control') : (zh ? '接管' : 'Take control')}</Button>
         </form>
         <div className="browser-viewport" data-interactive={canOperate || undefined}>
           <canvas ref={canvas} width={1280} height={800} aria-label={zh ? '浏览器实时画面' : 'Live browser view'} onPointerDown={e => pointer(e, 'down')} onPointerUp={e => pointer(e, 'up')} onPointerMove={e => pointer(e, 'move')} onPointerCancel={e => pointer(e, 'up')} onContextMenu={e => e.preventDefault()} onWheel={e => { if (canOperate) input({ action: 'scroll', direction: e.deltaY < 0 ? 'up' : 'down' }); }}/>

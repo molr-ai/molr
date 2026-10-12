@@ -9,7 +9,7 @@ An administrator must configure the [browser programs](../sandbox/linux.md#manag
 > [!PROMPT]
 > Open this website, compare the specifications of two products, and summarize the result. Wait for me to take control if login is needed.
 
-You can also select an authorized local compute resource in the browser panel and choose **Start browser**. Each assistant has at most one active browser task; another start reuses it. The browser supports multiple tabs and counts toward existing execution and compute limits.
+You can also select an authorized local compute resource in the browser panel and choose **Start browser**. Each assistant has at most one active browser task; another start reuses it. The browser supports multiple tabs and runs as a sandbox task. Its compute resource determines CPU, memory, process and runtime limits under existing grants. The panel selects the first available resource by default; you can choose another. The browser counts toward existing execution and compute limits.
 
 Closing the panel only stops viewing. Close the browser through the browser panel or running tasks. Normal closure retains website login state and local data for the next launch; websites determine whether a login remains valid. Different assistants do not share browser data.
 
@@ -21,7 +21,7 @@ Choose **Take control** and wait for an already accepted operation to settle. Yo
 
 During takeover the assistant can still read snapshots, screenshots, tabs and the current URL. Clicking, filling, navigating, closing and other operations return an explicit takeover message. Control applies to all tabs. A website you log into here is available to the assistant after handoff within the same grants.
 
-Choose **Return control** when finished. The assistant receives a notification and must read a fresh snapshot before continuing. Queued operations and stale control generations are not replayed. Concurrent takeover requests from multiple windows reject stale versions.
+Choose **Return control** when finished. The assistant receives a notification and must read a fresh snapshot before continuing. Queued operations and stale control generations are not replayed. Concurrent takeover requests from multiple windows reject stale versions. A dismissible toast asks you to take control again and also disappears automatically.
 
 Disconnecting or closing the panel does not return control automatically. Reopening the panel in the same page restores that window’s control without another takeover. Refreshing the page or switching to another window requires an explicit takeover. The page's own scripts and networking remain subject to the original sandbox permissions; takeover does not expand them.
 

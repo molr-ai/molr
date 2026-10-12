@@ -340,4 +340,5 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 .permission-quota-grid .gpu-device-list { text-align: right; }
 .gpu-device-list small { display: block; color: var(--color-text-muted); font-size: inherit; }
 
-.chat-count-trigger:has(.badge) { width: auto; gap: 4px; padding: 0 6px; }
+.chat-count-trigger { position: relative; }
+.chat-count-trigger > .badge { position: absolute; top: 0; right: 0; min-width: 14px; min-height: 14px; padding: 0 3px; font-size: 9px; line-height: 14px; pointer-events: none; }
