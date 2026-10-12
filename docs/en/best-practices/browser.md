@@ -13,15 +13,17 @@ You can also select an authorized local compute resource in the browser panel an
 
 Closing the panel only stops viewing. Close the browser through the browser panel or running tasks. Normal closure retains website login state and local data for the next launch; websites determine whether a login remains valid. Different assistants do not share browser data.
 
+The browser icon badge shows the open tab count even while the panel is closed. Large screens get a wider sidebar. **Full-page view** fills the Molr page while keeping tabs, navigation and control actions visible. Choose **Exit full-page view** or press Esc to return; it does not enter the device’s native fullscreen mode.
+
 ## Take and return control
 
-Choose **Take control** and wait for an already accepted operation to settle. You can then click, scroll, drag, navigate and switch tabs. After clicking a field in the page, type directly or use the input area beneath the view for IME text, pasting and special keys.
+Choose **Take control** and wait for an already accepted operation to settle. You can then click, scroll, drag, navigate and switch tabs. Click a field in the page to type or paste directly. IME candidates appear near the clicked position, and committed composition text is sent once. The keyboard button opens an optional input area for mobile or other input methods. Use the + button to create a tab and the close button on each tab to close that specific tab.
 
 During takeover the assistant can still read snapshots, screenshots, tabs and the current URL. Clicking, filling, navigating, closing and other operations return an explicit takeover message. Control applies to all tabs. A website you log into here is available to the assistant after handoff within the same grants.
 
 Choose **Return control** when finished. The assistant receives a notification and must read a fresh snapshot before continuing. Queued operations and stale control generations are not replayed. Concurrent takeover requests from multiple windows reject stale versions.
 
-Disconnecting or closing the panel does not return control automatically. Reopen it to take control again or explicitly hand it back. The page's own scripts and networking remain subject to the original sandbox permissions; takeover does not expand them.
+Disconnecting or closing the panel does not return control automatically. Reopening the panel in the same page restores that window’s control without another takeover. Refreshing the page or switching to another window requires an explicit takeover. The page's own scripts and networking remain subject to the original sandbox permissions; takeover does not expand them.
 
 ## Scope and failures
 

@@ -77,13 +77,21 @@ func (s *shellTasks) browserStatus(p core.Principal, id core.ID) (json.RawMessag
 	if err != nil {
 		result["Reason"] = err.Error()
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for _, r := range s.active {
-		if r.task.OwnerID == p.OwnerID && r.task.AssistantID == id && r.task.Kind == "browser" && r.task.State == "running" {
+	r := s.activeBrowser(p, id, "")
+	if r != nil {
+		s.refreshBrowserTabCount(r)
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if r.task.State == "running" {
 			result["Task"] = r.task
-			result["ControllerIsCurrentSession"] = r.task.Browser.ControllerSession == p.SessionID
-			break
+			current := p.SessionID != "" && r.task.Browser.ControllerSession == p.SessionID
+			result["ControllerIsCurrentSession"] = current
+			if current {
+				result["ControllerClientID"] = r.task.Browser.ControllerClient
+			}
+			if r.browserTabCount != nil {
+				result["TabCount"] = *r.browserTabCount
+			}
 		}
 	}
 	return json.Marshal(result)
@@ -291,6 +299,17 @@ func (s *shellTasks) browserControl(ctx context.Context, p core.Principal, id co
 	call, cancel := context.WithTimeout(r.browserCtx, 20*time.Second)
 	var reset json.RawMessage
 	var resetErr error
+	if s.browserRoundTrip == nil {
+		resetErr = s.browserWaitReady(call, r)
+	}
+	if resetErr != nil {
+		cancel()
+		s.mu.Lock()
+		r.browserUncertain = true
+		s.mu.Unlock()
+		r.cancel()
+		return nil, resetErr
+	}
 	if s.browserRoundTrip != nil {
 		reset, resetErr = s.browserRoundTrip(call, r, []byte(`{"action":"reset_input"}`))
 	} else {
@@ -391,5 +410,34 @@ func (s *shellTasks) browserWaitReady(ctx context.Context, r *runningShell) erro
 			return core.NewError(core.Unavailable, "Browser failed to start; inspect task output and installed programs.")
 		case <-timer.C:
 		}
+	}
+}
+
+// Metadata remains observable when no panel is streaming. Cache per task so
+// multiple viewers do not multiply daemon requests; failures retain known data.
+func (s *shellTasks) refreshBrowserTabCount(r *runningShell) {
+	s.mu.Lock()
+	if r.browserTabsLoading || time.Since(r.browserTabsAt) < 2*time.Second || s.browserRoundTrip != nil {
+		s.mu.Unlock()
+		return
+	}
+	r.browserTabsLoading = true
+	r.browserTabsAt = time.Now()
+	s.mu.Unlock()
+	ctx, cancel := context.WithTimeout(r.browserCtx, 1200*time.Millisecond)
+	defer cancel()
+	raw, err := s.browserCall(ctx, r, "GET", "/tabs", nil)
+	var out struct {
+		OK   bool `json:"ok"`
+		Data struct {
+			Tabs []json.RawMessage `json:"tabs"`
+		} `json:"data"`
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r.browserTabsLoading = false
+	if err == nil && json.Unmarshal(raw, &out) == nil && out.OK {
+		n := len(out.Data.Tabs)
+		r.browserTabCount = &n
 	}
 }

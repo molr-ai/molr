@@ -67,17 +67,20 @@ func managedPrincipal(ctx context.Context, p core.Principal) bool {
 }
 
 type runningShell struct {
-	browserGate      sync.Mutex
-	browserCtx       context.Context
-	browserUncertain bool
-	forwards         []*taskForward
-	task             shellTask
-	cancel           context.CancelFunc
-	done             chan struct{}
-	ready            chan struct{}
-	scope            *managedShell
-	result           json.RawMessage
-	err              error
+	browserGate        sync.Mutex
+	browserCtx         context.Context
+	browserUncertain   bool
+	browserTabCount    *int
+	browserTabsAt      time.Time
+	browserTabsLoading bool
+	forwards           []*taskForward
+	task               shellTask
+	cancel             context.CancelFunc
+	done               chan struct{}
+	ready              chan struct{}
+	scope              *managedShell
+	result             json.RawMessage
+	err                error
 }
 type shellTasks struct {
 	browserReadShot  func(context.Context, core.Execution, tools.FileReadRequest) (json.RawMessage, error)

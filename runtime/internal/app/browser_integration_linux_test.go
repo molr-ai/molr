@@ -156,6 +156,21 @@ func TestBrowserRealTaskStreamTakeoverAndPersistence(t *testing.T) {
 	if snap := action(browser.Action{Action: "snapshot"}); !strings.Contains(snap, "用户输入") {
 		t.Fatal("tab switch failed", snap)
 	}
+	// Close the inactive tab by stable ID, preserving the current page.
+	action(browser.Action{Action: "close_tab", Tab: "t2"})
+	if snap := action(browser.Action{Action: "snapshot"}); !strings.Contains(snap, "用户输入") {
+		t.Fatal("closed the active tab instead", snap)
+	}
+	s.mu.Lock()
+	r.browserTabsAt = time.Time{}
+	s.mu.Unlock()
+	status, err := s.browserStatus(owner, e.AssistantID)
+	need(t, err)
+	var metadata struct{ TabCount int }
+	need(t, json.Unmarshal(status, &metadata))
+	if metadata.TabCount != 1 {
+		t.Fatalf("bad tab count: %s", status)
+	}
 	action(browser.Action{Action: "screenshot"})
 	_, err = s.browserRequest(t.Context(), owner, e.AssistantID, tools.BrowserRequest{Action: browser.Action{Action: "close"}})
 	need(t, err)

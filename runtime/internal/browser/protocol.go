@@ -37,6 +37,9 @@ func (a Action) Args() ([]string, error) {
 		return bad()
 	}
 	selector := func() bool { return a.Selector != "" && !strings.HasPrefix(a.Selector, "-") }
+	tabValid := func() bool {
+		return len(a.Tab) > 1 && len(a.Tab) < 16 && a.Tab[0] == 't' && strings.Trim(a.Tab[1:], "0123456789") == ""
+	}
 	switch a.Action {
 	case "snapshot":
 		return []string{"snapshot"}, nil
@@ -76,10 +79,16 @@ func (a Action) Args() ([]string, error) {
 	case "back", "forward", "reload", "close":
 		return []string{a.Action}, nil
 	case "select_tab":
-		if len(a.Tab) > 1 && len(a.Tab) < 16 && a.Tab[0] == 't' && strings.Trim(a.Tab[1:], "0123456789") == "" {
+		if tabValid() {
 			return []string{"tab", a.Tab}, nil
 		}
 	case "close_tab":
+		if a.Tab != "" {
+			if !tabValid() {
+				return bad()
+			}
+			return []string{"tab", "close", a.Tab}, nil
+		}
 		return []string{"tab", "close"}, nil
 	case "pointer":
 		if a.X < 0 || a.X > 1280 || a.Y < 0 || a.Y > 800 {

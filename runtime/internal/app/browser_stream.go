@@ -42,6 +42,9 @@ func (s *shellTasks) browserFrames(ctx context.Context, p core.Principal, id, ta
 	if _, err := watch.Check(call); err != nil {
 		return err
 	}
+	if err := s.browserWaitReady(call, r); err != nil {
+		return err
+	}
 	conn, err := s.router.dialForward(call, r.scope.e, "local", browser.StreamPort)
 	if err != nil {
 		return core.NewError(core.Unavailable, "browser stream is starting or disconnected")

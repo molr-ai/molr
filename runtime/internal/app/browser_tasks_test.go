@@ -111,3 +111,28 @@ func TestBrowserHandoffWaitsForAcceptedOperation(t *testing.T) {
 		t.Fatal("model operated after handoff", err, count.Load())
 	}
 }
+
+func TestBrowserStatusOnlyIdentifiesControllerToItsSession(t *testing.T) {
+	s, p, e, r := browserTaskFixture(t)
+	s.mu.Lock()
+	r.task.Browser.Control = "user"
+	r.task.Browser.ControllerSession = p.SessionID
+	r.task.Browser.ControllerClient = "original-window"
+	s.mu.Unlock()
+	raw, err := s.browserStatus(p, e.AssistantID)
+	need(t, err)
+	var own map[string]any
+	need(t, json.Unmarshal(raw, &own))
+	if own["ControllerClientID"] != "original-window" {
+		t.Fatalf("missing controller identity: %s", raw)
+	}
+	other := p
+	other.SessionID = "different-session"
+	raw, err = s.browserStatus(other, e.AssistantID)
+	need(t, err)
+	var foreign map[string]any
+	need(t, json.Unmarshal(raw, &foreign))
+	if _, ok := foreign["ControllerClientID"]; ok || foreign["ControllerIsCurrentSession"] != false {
+		t.Fatalf("foreign session received controller identity: %s", raw)
+	}
+}

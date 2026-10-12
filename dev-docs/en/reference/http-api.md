@@ -419,7 +419,7 @@ Appearance preferences: `Settings.Theme` maintains `system` / `light` / `dark`; 
 
 ### Browser tasks
 
-`GET /api/assistants/{id}/browser` returns availability and the active task. `POST` accepts start/status/close, browser actions, takeover and release. Start requires `compute_id`; control requests require `client_id` and current `generation`. User input additionally supplies increasing `sequence`; stale generation, another controller or replay returns conflict. The task has `Kind: browser` and public Browser control/generation/NeedsSnapshot fields; controller credentials are never serialized. A normal close flushes profile state before cancellation.
+`GET /api/assistants/{id}/browser` returns availability, the active task and cached `TabCount`. `ControllerClientID` is returned only to the controller’s login session; clients must also match their current page’s client ID. `POST` accepts start/status/close, browser actions, takeover and release. Start requires `compute_id`; control requests require `client_id` and current `generation`. User input additionally supplies increasing `sequence`; stale generation, another controller or replay returns conflict. The task has `Kind: browser` and public Browser control/generation/NeedsSnapshot fields; controller credentials are never serialized. A normal close flushes profile state before cancellation.
 
 `GET /api/assistants/{id}/browser/stream?task_id=…` is authenticated SSE containing frame/status/tabs/url messages. It rechecks owner/assistant scope, watches session validity and ends on task cancellation. This endpoint is not subject to the regular 30-second JSON request deadline. POST uses the normal session and CSRF checks. There is no public agent-browser WS or command endpoint.
 

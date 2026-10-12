@@ -90,6 +90,16 @@ func HelperMain() int {
 	mux.HandleFunc("GET /ready", func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{"ready": true, "sandbox": sandboxStatus})
 	})
+	mux.HandleFunc("GET /tabs", func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
+		defer cancel()
+		result, err := daemonCommand(ctx, map[string]any{"action": "tab_list"})
+		if err != nil {
+			http.Error(w, "tabs unavailable", 503)
+			return
+		}
+		json.NewEncoder(w).Encode(result)
+	})
 	mux.HandleFunc("POST /action", func(w http.ResponseWriter, r *http.Request) {
 		var a Action
 		d := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10))
