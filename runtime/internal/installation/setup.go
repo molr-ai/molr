@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -23,19 +24,30 @@ import (
 )
 
 type Options struct {
+	Component, TaskID, TaskAction                                                                                              string
+	JSON                                                                                                                       bool
+	LockFD                                                                                                                     int
 	Command, Mode, Name, User, ProgramRoot, Config, Record, Source, Channel, Version, PublicHost, Permissions, InitOwner       string
 	NameSet                                                                                                                    bool
 	Port                                                                                                                       int
 	NonInteractive, Interactive, DryRun, Yes, InstallDeps, SkipDependencies, NoStart, NoBrowser, Repair, Purge, AllowDowngrade bool
 }
 type Engine struct {
-	Ctx              context.Context
-	Options          Options
-	UI               *UI
-	Input            io.Reader
-	Executable, Root string
-	Build            buildinfo.Info
-	Command          func(context.Context, []string, io.Reader, []string, io.Writer, io.Writer) ([]byte, error)
+	downloadBase, downloadTotal int64
+	componentTransport          http.RoundTripper
+	handoff                     func(context.Context, []string, *os.File) error
+	lock                        *os.File
+	task                        *Task
+	taskRecord                  *installrecord.Record
+	handedOff                   bool
+	machineOut                  io.Writer
+	Ctx                         context.Context
+	Options                     Options
+	UI                          *UI
+	Input                       io.Reader
+	Executable, Root            string
+	Build                       buildinfo.Info
+	Command                     func(context.Context, []string, io.Reader, []string, io.Writer, io.Writer) ([]byte, error)
 }
 type Package struct {
 	Root  string
@@ -55,12 +67,30 @@ func parseOptions(args []string, diagnostics io.Writer) (Options, error) {
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 		o.Command = args[0]
 		args = args[1:]
-		if o.Command != "update" && o.Command != "uninstall" && o.Command != "status" {
+		if o.Command != "update" && o.Command != "uninstall" && o.Command != "status" && o.Command != "components" && o.Command != "tasks" {
 			return o, fmt.Errorf("unknown command %q; omit a subcommand to install the current package", o.Command)
+		}
+	}
+	if o.Command == "components" || o.Command == "tasks" {
+		if len(args) == 0 {
+			return o, fmt.Errorf("subcommand required")
+		}
+		o.TaskAction = args[0]
+		args = args[1:]
+		if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+			if o.Command == "components" {
+				o.Component = args[0]
+			} else {
+				o.TaskID = args[0]
+			}
+			args = args[1:]
 		}
 	}
 	f := flag.NewFlagSet("molr-setup", flag.ContinueOnError)
 	f.SetOutput(diagnostics)
+	f.BoolVar(&o.JSON, "json", false, "machine-readable task output")
+	f.StringVar(&o.TaskID, "task-id", o.TaskID, "maintenance task identity")
+	f.IntVar(&o.LockFD, "lock-fd", 0, "internal verified installer handoff")
 	f.BoolVar(&o.Interactive, "interactive", false, "require a terminal")
 	f.BoolVar(&o.NonInteractive, "non-interactive", false, "never prompt or open a browser")
 	f.BoolVar(&o.DryRun, "dry-run", false, "show the plan without installation changes")
@@ -133,7 +163,11 @@ func Run(ctx context.Context, args []string, input io.Reader, out, diagnostics i
 	if err != nil {
 		return err
 	}
-	ui, err := newUI(o.Mode, o.DryRun, out, diagnostics)
+	humanOut := out
+	if o.JSON {
+		humanOut = diagnostics
+	}
+	ui, err := newUI(o.Mode, o.DryRun, humanOut, diagnostics)
 	if err != nil {
 		return err
 	}
@@ -144,7 +178,19 @@ func Run(ctx context.Context, args []string, input io.Reader, out, diagnostics i
 		return err
 	}
 	e := &Engine{Ctx: ctx, Options: o, UI: ui, Input: input, Executable: executable, Root: filepath.Dir(filepath.Dir(executable)), Build: buildinfo.Current(), Command: command}
-	if err = e.execute(); err != nil {
+	defer func() {
+		if e.lock != nil {
+			e.lock.Close()
+		}
+	}()
+	if o.JSON {
+		e.machineOut = out
+	}
+	err = e.execute()
+	if finishErr := e.finishTask(err); err == nil {
+		err = finishErr
+	}
+	if err != nil {
 		fmt.Fprintf(diagnostics, "\nStopped during: %s\nState: %s\n", ui.Stage, ui.State)
 	}
 	return err
@@ -199,6 +245,9 @@ func readRecord(path string, owner bool) (*installrecord.Record, error) {
 	return r, nil
 }
 func (e *Engine) execute() error {
+	if e.Options.Command == "components" || e.Options.Command == "tasks" {
+		return e.componentCommand()
+	}
 	installedPath := filepath.Join(e.Root, "installation.json")
 	if _, err := os.Lstat(installedPath); err == nil {
 		r, err := readRecord(installedPath, true)
@@ -215,6 +264,11 @@ func (e *Engine) execute() error {
 			return e.uninstall(r)
 		}
 		if e.Options.Command == "update" {
+			if e.Options.TaskID != "" {
+				if err := e.beginTask(r, "update", "", e.Options.Version); err != nil {
+					return err
+				}
+			}
 			return e.update(r)
 		}
 		if e.Options.Command == "status" || (!e.Options.Repair && r.State == "installed") {

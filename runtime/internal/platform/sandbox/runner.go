@@ -20,7 +20,8 @@ import (
 )
 
 type Options struct {
-	GPU platform.GPUConfig
+	ProtectedRoots []string
+	GPU            platform.GPUConfig
 	// NoWorkspace executes remote commands without an assistant home.
 	NoWorkspace                                              bool
 	QuotaStore                                               persistence.Store

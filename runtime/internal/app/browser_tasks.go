@@ -3,7 +3,10 @@ package app
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -15,6 +18,7 @@ import (
 	"molr.ai/runtime/internal/browser"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/event"
+	"molr.ai/runtime/internal/installation"
 	"molr.ai/runtime/internal/persistence"
 )
 
@@ -37,6 +41,16 @@ func (s *shellTasks) browserPrograms() (*tools.BrowserLaunch, error) {
 	}
 	base := filepath.Join(filepath.Dir(exe), "libexec", "browser")
 	a, c := s.browserConfig.AgentDirectory, s.browserConfig.ChromiumDirectory
+	if a == "" && c == "" && s.maintenance != nil {
+		agent, chrome, err := s.maintenance.Programs()
+		if err == nil {
+			return &tools.BrowserLaunch{AgentDirectory: agent, ChromiumDirectory: chrome}, nil
+		}
+		var unavailable *installation.ComponentError
+		if !errors.As(err, &unavailable) || unavailable.Code != "maintenance_not_installed" {
+			return nil, core.WithReason(core.NewError(core.FailedPrecondition, "Install the compatible browser components before starting."), "browser_programs_unavailable")
+		}
+	}
 	if a == "" {
 		a = filepath.Join(base, "agent")
 	}
@@ -73,7 +87,13 @@ func (s *shellTasks) browserStatus(p core.Principal, id core.ID) (json.RawMessag
 	if err == nil && (s.router == nil || s.router.shell == nil || !s.router.shell.config.UsesHostTools()) {
 		err = core.NewError(core.FailedPrecondition, "browser requires the local host-tools sandbox")
 	}
-	result := map[string]any{"Available": err == nil}
+	result := map[string]any{"Available": err == nil, "ComponentsEnabled": s.maintenance != nil && s.maintenance.Enabled()}
+	s.mu.Lock()
+	if pending := s.preparing[string(p.OwnerID)+"/"+string(id)]; pending != nil {
+		copy := *pending
+		result["Preparation"] = &copy
+	}
+	s.mu.Unlock()
 	if err != nil {
 		result["Reason"] = err.Error()
 	}
@@ -125,7 +145,15 @@ func (s *shellTasks) browserManage(ctx context.Context, p core.Principal, id cor
 	if err := (access{s.store}).assistant(ctx, p, id); err != nil {
 		return nil, err
 	}
+	if q.Action.Action == "install_start" {
+		return s.prepareBrowser(ctx, p, id, q)
+	}
 	if q.Action.Action == "start" {
+		if s.maintenance != nil && s.maintenance.Enabled() {
+			if _, err := s.browserPrograms(); err != nil {
+				return s.prepareBrowser(ctx, p, id, q)
+			}
+		}
 		e := core.Execution{Principal: core.Principal{OwnerID: p.OwnerID, SubjectID: id, Kind: core.ActorAssistant, ExecutionID: randomOperation()}, AssistantID: id, OperationID: randomOperation()}
 		// A user-initiated task still executes under the assistant's effective grants.
 		// This short-lived capability is replaced by the task's own managed lease.
@@ -145,6 +173,13 @@ func (s *shellTasks) startBrowser(ctx context.Context, e core.Execution, q tools
 	}
 	programs, err := s.browserPrograms()
 	if err != nil {
+		if s.maintenance != nil && s.maintenance.Enabled() {
+			_, startErr := s.maintenance.Start(ctx, "install", "browser", browserInstallKey(), "")
+			if startErr != nil {
+				return nil, startErr
+			}
+			return nil, core.WithReason(core.NewError(core.FailedPrecondition, "Browser components are being installed. Read browser status and retry after installation."), "component_installing")
+		}
 		return nil, err
 	}
 	if s.router.shell == nil || !s.router.shell.config.UsesHostTools() {
@@ -440,4 +475,98 @@ func (s *shellTasks) refreshBrowserTabCount(r *runningShell) {
 		n := len(out.Data.Tabs)
 		r.browserTabCount = &n
 	}
+}
+
+// Browser preparation is instance-local and is never replayed after Runtime restart.
+type browserPreparation struct {
+	TaskID    string `json:"task_id"`
+	State     string `json:"state"`
+	ErrorCode string `json:"error_code,omitempty"`
+}
+
+func (s *shellTasks) prepareBrowser(ctx context.Context, p core.Principal, id core.ID, q tools.BrowserRequest) (json.RawMessage, error) {
+	if s.maintenance == nil {
+		return nil, core.NewError(core.FailedPrecondition, "component installation unavailable")
+	}
+	if q.ComputeID.Validate() != nil {
+		return nil, core.Invalid("compute_id", "select a compute resource")
+	}
+	job, err := s.maintenance.Start(ctx, "install", "browser", browserInstallKey(), "")
+	if err != nil {
+		return nil, err
+	}
+	key := string(p.OwnerID) + "/" + string(id)
+	s.mu.Lock()
+	if s.preparing == nil {
+		s.preparing = map[string]*browserPreparation{}
+	}
+	if old := s.preparing[key]; old != nil && old.State == "installing" {
+		s.mu.Unlock()
+		return s.browserStatus(p, id)
+	}
+	pending := &browserPreparation{TaskID: job.ID, State: "installing"}
+	s.preparing[key] = pending
+	s.mu.Unlock()
+	go func() {
+		wait, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+		defer cancel()
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+		fail := func(code string) { s.mu.Lock(); pending.State = "failed"; pending.ErrorCode = code; s.mu.Unlock() }
+		for {
+			s.mu.Lock()
+			stopped := s.stopped
+			s.mu.Unlock()
+			if stopped {
+				return
+			}
+			status, err := s.maintenance.Task(wait, job.ID)
+			if err != nil {
+				fail("maintenance_failed")
+				return
+			}
+			if !status.Active() {
+				if status.State != "succeeded" {
+					fail(status.ErrorCode)
+					return
+				}
+				break
+			}
+			select {
+			case <-wait.Done():
+				fail("maintenance_interrupted")
+				return
+			case <-ticker.C:
+			}
+		}
+		if s.identity != nil {
+			watch, err := s.identity.WatchPrincipal(p)
+			if err != nil {
+				fail("unauthenticated")
+				return
+			}
+			defer watch.Close()
+			if _, err := watch.Check(wait); err != nil {
+				fail("unauthenticated")
+				return
+			}
+		}
+		q.Action.Action = "start"
+		if _, err := s.browserManage(wait, p, id, q); err != nil {
+			fail("browser_start_failed")
+			return
+		}
+		s.mu.Lock()
+		pending.State = "ready"
+		s.mu.Unlock()
+	}()
+	return s.browserStatus(p, id)
+}
+
+func browserInstallKey() string {
+	var key [16]byte
+	if _, err := rand.Read(key[:]); err != nil {
+		panic(err)
+	}
+	return hex.EncodeToString(key[:])
 }

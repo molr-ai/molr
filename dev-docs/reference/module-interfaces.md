@@ -117,3 +117,9 @@ HTTP 组合只持有 `conversation.Client`、`agent.Observer`、`model.Catalog`�
 ## 通用定时触发
 
 `internal/trigger` 提供 `Rule.Validate`、`First`、`Due`、`Between` 和 `RecordOccurrence`。计算结果为被选中的发生点及下一游标，业务适配器负责持久化游标与效果。发生点标识包含 owner、kind、ID、revision、UTC 时间；同一事务中的重试不得重复产生业务事件。公共层不依赖 Schedule、Plan、Task 或 Agent，计划与做梦的权限、生命周期和交付逻辑分别保留。
+
+## 安装与组件维护
+
+`internal/installation` 由 `molr-setup` 统一执行本体及组件维护。`Maintenance` 为 Runtime 提供只读状态与启动接口，通过独立 systemd 用户服务运行已安装的 setup 二进制，不在 Runtime 进程内安装。全程实例锁由安装器持有；新版安装器通过受控文件描述符接手同一把锁，普通子进程不继承锁。
+
+组件清单固定版本、来源、摘要和体积限制。暂存目录完成校验后提交到不可变安装目录，组件 receipt 独立于本体 receipt。文件操作拒绝链接和路径逃逸，组件及维护目录不能成为助理的普通存储资源。仅受管浏览器计划可以生成只读程序资产挂载；最终启动仍经过原计算、网络和沙盒授权。

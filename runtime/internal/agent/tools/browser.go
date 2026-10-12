@@ -48,7 +48,7 @@ func ParseBrowser(raw json.RawMessage) (BrowserRequest, error) {
 		return q, core.Invalid("network_ids", "offline request cannot select networks")
 	}
 	switch q.Action.Action {
-	case "start", "status", "close", "takeover", "release":
+	case "install_start", "start", "status", "close", "takeover", "release":
 	default:
 		if _, err := q.Action.Args(); err != nil {
 			return q, core.Invalid("browser", err.Error())

@@ -317,3 +317,15 @@ func testResourceConstraints(kind resource.Kind) *policy.Constraints {
 	}
 	return nil
 }
+
+func TestComponentDirectoriesCannotBeGrantedThroughParentResources(t *testing.T) {
+	f := newResourceAccessFixture(t, nil)
+	protected := filepath.Join(f.root, "components")
+	need(t, os.Mkdir(protected, 0700))
+	f.ad.storageConfig.ProtectedRoots = []string{protected}
+	for _, root := range []string{f.root, protected} {
+		if _, err := f.ad.providers()["local-directory"].Validate(t.Context(), resource.Binding{RootPath: root}); core.CodeOf(err) != core.Forbidden {
+			t.Fatalf("installation path accepted: %s %v", root, err)
+		}
+	}
+}

@@ -39,6 +39,14 @@ Verified on 2026-10-03 against the registrations in `runtime/internal/api/*_rout
 
 | Method | Path |
 | --- | --- |
+| GET | `/api/components` |
+| GET | `/api/maintenance` |
+| GET | `/api/maintenance/tasks/{id}` |
+| POST | `/api/components/{id}/install` |
+| POST | `/api/components/{id}/update` |
+| POST | `/api/components/{id}/repair` |
+| POST | `/api/maintenance/tasks/{id}/cancel` |
+| POST | `/api/updates/apply` |
 | DELETE | `/api/auth/login-links/{id}` |
 | DELETE | `/api/auth/sessions/{id}` |
 | DELETE | `/api/auth/tokens/{id}` |
@@ -480,3 +488,13 @@ The check service runs within the Runtime lifecycle; the memory cache is re-esta
 ## Validation
 
 API contract tests use a real HTTP server, Auth, CSRF, persistent rate limiting, Realtime, and SQLite; other modules also use actual implementations. Only the vendor catalog and composition layer ownership dependencies are controlled. Tests cover login cookies and secret DTOs, two-factor authentication consumption, permission capability isolation, trusted proxies, SSE revocation, service start/stop, and fail-closed behavior.
+
+## Components and maintenance tasks
+
+Component and maintenance APIs require administrator access; mutations enforce CSRF. `GET /api/components` returns an array containing `id/state/version/target_version/download_bytes/disk_bytes/can_install/auto_install/reason/task`. Component states are `missing/installed/broken/external/unsupported`. Installed files do not imply successful browser sandbox startup. `GET /api/maintenance` returns `can_update` and the latest `task`.
+
+Component `install/update/repair` accepts `{ "idempotency_key": "32-character hexadecimal key" }`. Application updates additionally require `version`, matching the currently checked release source result. Only built-in component IDs are accepted. After worker acknowledgement the response is HTTP 202 with a task. Identical keys reuse results; reusing a key with different arguments is rejected. Matching in-flight operations share a task; other lock contenders receive `maintenance_busy`.
+
+Task fields are `id/operation/component/target/state/stage/downloaded/total/error_code/started_at/updated_at/finished_at`. States are `running/succeeded/failed/cancelled/interrupted`; stages include `starting/checking/downloading/verifying/installing/restarting/complete`. Status and cancellation accept a task ID, never a PID, unit name or filesystem path. Cancellation during commit or restart returns `maintenance_not_cancellable`.
+
+The browser HTTP API adds administrator-only `install_start` with `compute_id`. Browser status includes `ComponentsEnabled` when automatic component preparation is enabled by an administrator, and can include `Preparation` with `task_id/state/error_code`; preparation states are `installing/ready/failed`. This does not replace the existing `Task` or expose general maintenance to agents. Installation is shared, while each browser start rechecks assistant grants. Runtime restart does not replay pending starts.

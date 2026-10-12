@@ -123,6 +123,11 @@ func (a adapters) providers() map[string]resource.Provider {
 			if root != filepath.Clean(b.RootPath) {
 				return nil, core.Invalid("root_path", "resource path must not contain symbolic links")
 			}
+			for _, protected := range a.storageConfig.ProtectedRoots {
+				if within(root, protected) || within(protected, root) {
+					return nil, core.NewError(core.Forbidden, "installation assets cannot be resources")
+				}
+			}
 			private, err := filepath.EvalSymlinks(a.dataDir)
 			if err != nil {
 				return nil, err

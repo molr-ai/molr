@@ -134,11 +134,9 @@ func (e *Engine) uninstall(r *installrecord.Record) error {
 			return fmt.Errorf("uninstall cancelled")
 		}
 	}
-	lock, err := lockInstance(r.Paths.Program)
-	if err != nil {
+	if err = e.acquire(r); err != nil {
 		return err
 	}
-	defer lock.Close()
 	current, err := readRecord(r.File(), true)
 	if err != nil {
 		return err

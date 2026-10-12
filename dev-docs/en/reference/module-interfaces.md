@@ -117,3 +117,9 @@ The model adapter has read the vendor SSE and collected generation timing; chat 
 ## General Timed Triggers
 
 `internal/trigger` provides `Rule.Validate`, `First`, `Due`, `Between`, and `RecordOccurrence`. The calculation result consists of the selected occurrence points and the next cursor; business adapters are responsible for persisting cursors and effects. Occurrence point identifiers include owner, kind, ID, revision, and UTC time; retries within the same transaction must not duplicate business events. The common layer does not depend on Schedule, Plan, Task, or Agent; permissions, lifecycles, and delivery logic for plans and dreaming are kept separate.
+
+## Installation and component maintenance
+
+`internal/installation`, executed by `molr-setup`, owns application and component maintenance. `Maintenance` exposes read-only status and launch methods to Runtime. It invokes the installed setup binary through an independent systemd user service, never installing in the Runtime process. The installer holds the instance lock throughout work; a verified newer installer inherits that same lock through a controlled file descriptor. Ordinary child processes do not inherit it.
+
+The component catalog pins versions, sources, digests and size limits. Verified staging directories become immutable installations, with a component receipt separate from the application receipt. Filesystem operations reject links and path escapes. Component and maintenance directories cannot become ordinary assistant storage resources. Only trusted browser plans can mount program assets read-only; browser startup still uses the existing compute, network and sandbox authorization.

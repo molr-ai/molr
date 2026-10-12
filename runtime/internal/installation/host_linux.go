@@ -395,3 +395,28 @@ func unique(values []string) []string {
 	return out
 }
 func jsonBytes(v any) []byte { data, _ := json.MarshalIndent(v, "", "  "); return append(data, '\n') }
+
+// Only an explicit CLI --install-deps reaches package/policy preparation.
+// Runtime maintenance never supplies that flag and never invokes sudo.
+func (e *Engine) prepareBrowserDependencies(r *installrecord.Record) error {
+	if !e.Options.InstallDeps {
+		return nil
+	}
+	// Prefer the distribution's t64 package names where available.
+	names := []string{"libnss3", "libnspr4", "libatk1.0-0", "libatk-bridge2.0-0", "libcups2", "libdrm2", "libdbus-1-3", "libxcb1", "libxkbcommon0", "libx11-6", "libxcomposite1", "libxdamage1", "libxext6", "libxfixes3", "libxrandr2", "libgbm1", "libasound2", "libpango-1.0-0", "libcairo2", "fonts-liberation", "ca-certificates"}
+	for i, name := range names {
+		switch name {
+		case "libatk1.0-0", "libatk-bridge2.0-0", "libcups2", "libasound2":
+			if b, err := e.run([]string{"apt-cache", "show", name + "t64"}, true); err == nil && bytes.Contains(b, []byte("Package:")) {
+				names[i] = name + "t64"
+			}
+		}
+	}
+	if err := e.apt(names...); err != nil {
+		return err
+	}
+	if err := e.prepareDependencies(true); err != nil {
+		return err
+	}
+	return e.preparePolicy(r)
+}

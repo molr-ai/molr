@@ -1,3 +1,6 @@
+import { Components, MaintenanceProgress } from '../maintenance/Components';
+import type { MaintenanceTask } from '@molr/sdk';
+import { api } from '../api/client';
 import { useEffect, useId, useState } from 'react';
 import { Alert, Button } from '@molr/ui';
 import { ArrowUpRight, CheckCircle2, ChevronDown, CircleArrowUp, Info, Monitor, RefreshCw, Server } from 'lucide-react';
@@ -16,6 +19,9 @@ export function AboutUpdates() {
  useErrorToast(runtime.error, runtime.reload);
  const zh = locale === 'zh', admin = !!principal?.User?.Administrator, status = updates.data;
  const installation = useQuery<UpdateInstallation | null>(admin ? '/api/updates/installation' : null, false, 0);
+ const maintenance = useQuery<{can_update: boolean; task?: MaintenanceTask}>(admin ? '/api/maintenance' : null, false, 2000);
+ const [applyError, setApplyError] = useState<unknown>(), [applying, setApplying] = useState(false); useErrorToast(applyError);
+ async function applyUpdate() { if (!status?.latest) return; setApplying(true); try { await api.post('/api/updates/apply', {version: status.latest.version, idempotency_key: crypto.randomUUID().replaceAll('-', '')}); await maintenance.reload(); } catch(e) { setApplyError(e); } finally { setApplying(false); } }
  const [showGuide, setShowGuide] = useState(false), [now, setNow] = useState(Date.now());
  useEffect(() => { updates.reload(); }, [updates.reload]);
  useEffect(() => {
@@ -80,6 +86,8 @@ export function AboutUpdates() {
     {admin && available && <Button variant="primary" size="sm" onClick={() => setShowGuide(v => !v)} aria-expanded={showGuide} aria-controls={guideID}>{zh ? '升级指引' : 'Upgrade instructions'}<ChevronDown className="update-guide-chevron" size={14} aria-hidden="true" /></Button>}
     <a href={status.latest.notes_url} target="_blank" rel="noopener noreferrer">{zh ? '更新说明' : 'Release notes'}<ArrowUpRight size={14} aria-hidden="true" /></a>
    </div>}
+   {admin && available && maintenance.data?.can_update && <Button disabled={applying || maintenance.data.task?.state === 'running'} onClick={() => void applyUpdate()}>{zh ? '更新并重启 Molr' : 'Update and restart Molr'}</Button>}
+   {admin && maintenance.data?.task?.operation === 'update' && <MaintenanceProgress taskID={maintenance.data.task.id}/>}
    {!admin && available && <p className="update-meta">{zh ? '请联系管理员升级。' : 'Contact your administrator to upgrade.'}</p>}
    {showGuide && admin && <div className="update-guide" id={guideID}><p>{zh ? '升级会重启服务并中断运行中的任务。先备份数据，再使用安装时的账户执行。' : 'Upgrading restarts the service and interrupts running tasks. Back up your data and use the original installation account.'}</p>
     {installation.data?.source && status?.latest ? <><p>{zh ? '准备原发布站点提供的 install.sh，然后执行：' : 'Obtain install.sh from your original release site, then run:'}</p><pre><code>{upgradeCommand(installation.data, status.latest.version)}</code></pre></> : <p>{zh ? '未找到可用的安装记录，请按部署指南升级。' : 'Installation details are unavailable. Follow the deployment guide.'}</p>}
@@ -90,6 +98,7 @@ export function AboutUpdates() {
     {next > now && <span>{zh ? '可再次检查时间 ' : 'Next check available '}{new Date(next).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: false })}</span>}
    </div>
   </section>
+  {admin && <Components/>}
   <section className="about-builds" aria-label={zh ? '当前安装' : 'Installed builds'}>
    <header className="update-section-heading">
     <h3>{zh ? '版本信息' : 'Build information'}</h3>

@@ -173,7 +173,7 @@ Clone/返聘授权契约细化：新授权具有新 ID，并绑定目标助理�
 | `internal/business/plan` | `Coordinator.Events`, `Service.Events` | `TestEventsMergeRecurringOccurrencesAndBindPagination`, `TestEventsCompletionAppliesToOneOccurrence` |
 | `internal/business/memory` | `NewFiles` | `TestDiskFilesExternalEditsSummaryAndRestart` |
 | `internal/business/memory` | `Files.Get` | `TestFileRepositoryVersionAndIsolation` |
-| `internal/business/memory` | `Files.List` | `TestDiskFilesExternalEditsSummaryAndRestart` |
+| `internal/business/memory` | `Files.List`, `Files.HasFiles` | `TestDiskFilesExternalEditsSummaryAndRestart` |
 | `internal/business/memory` | `Files.Put` | `TestDiskRefusesLinksAndAtomicCommitCancellation` |
 | `internal/business/memory` | `Files.Delete` | `TestFileRepositoryVersionAndIsolation` |
 | `internal/business/memory` | `Files.Preview` | `TestDiskForgetRecordsAndCloneExport` |

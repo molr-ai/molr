@@ -69,3 +69,24 @@ test('about reactivation checks releases and keeps build mismatch separate from 
  await expect(page.getByText('Cannot check consistency while Runtime is unreachable', { exact: true })).toBeVisible();
  await expect(page.getByText('Version 0.2.0 is available', { exact: true })).toBeVisible();
 });
+
+test('component maintenance shows progress, survives panel navigation and exposes cancellation', async ({ page }) => {
+ await login(page);
+ const task = { id: 'a'.repeat(32), operation: 'component_install', component: 'browser', target: 'fixture', state: 'running', stage: 'downloading', downloaded: 50, total: 100, error_code: '' };
+ let started = false, cancelled = false;
+ await page.route('**/api/components', route => route.fulfill({ json: [{ id: 'browser', state: 'missing', can_install: true, auto_install: started, download_bytes: 100, disk_bytes: 200, task: started ? task : undefined }] }));
+ await page.route('**/api/components/browser/install', route => { const q=route.request().postDataJSON(); expect(q.idempotency_key).toMatch(/^[a-f0-9]{32}$/); started=true; return route.fulfill({status:202,json:task}); });
+ await page.route(`**/api/maintenance/tasks/${task.id}`, route => route.fulfill({ json: task }));
+ await page.route(`**/api/maintenance/tasks/${task.id}/cancel`, route => { cancelled=true;task.state='cancelled';task.error_code='maintenance_cancelled';return route.fulfill({json:task}); });
+ await page.goto('/#/account/about');
+ await page.getByRole('button',{name:'Install components',exact:true}).click();
+ await expect(page.getByRole('progressbar',{name:'Downloading'})).toHaveAttribute('aria-valuenow','50');
+ await page.goto('/#/account/general');await page.goto('/#/account/about');
+ await expect(page.getByRole('progressbar',{name:'Downloading'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Install components',exact:true})).toBeDisabled();
+ await page.getByRole('button',{name:'Cancel installation',exact:true}).click();
+ await expect.poll(()=>cancelled).toBe(true);
+ await expect(page.getByText('Maintenance was cancelled.',{exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Install components',exact:true})).toBeEnabled();
+ await page.unrouteAll({behavior:'wait'});
+});

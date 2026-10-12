@@ -306,13 +306,13 @@ mkdir -p "$AGENT_BROWSER_SOCKET_DIR"
 
 ## 受管浏览器任务
 
-在 Runtime 宿主安装 agent-browser 0.39.0 与兼容的 Chromium 发行包，并在宿主工具模式下提供 Chromium 系统库。可执行文件必须是普通文件、具有执行权限、不能是符号链接，也不能允许组或其他用户写入。在 Runtime 私有数据目录以外配置只读程序目录：
+通过 [组件安装](../deployment/installation.md#组件安装与维护任务) 自动准备浏览器程序，并在宿主工具模式下提供 Chromium 系统库。也可以在 Runtime 宿主手动安装 agent-browser 0.39.0 与兼容的 Chromium 发行包。可执行文件必须是普通文件、具有执行权限、不能是符号链接，也不能允许组或其他用户写入。在 Runtime 私有数据目录以外配置只读程序目录：
 
 ```json
 {"browser":{"agent_directory":"/opt/molr-browser/agent","chromium_directory":"/opt/molr-browser/chromium"}}
 ```
 
-两个目录分别包含 `agent-browser` 和 `chrome`，Chromium 配套文件须完整保留。默认路径为 Runtime 二进制旁的 `libexec/browser/agent` 与 `libexec/browser/chromium`。程序只读挂载，这些可信资产不要求助理额外申请目录权限。目前不包含自动下载器或通用 CLI 安装管理器。
+两个目录分别包含 `agent-browser` 和 `chrome`，Chromium 配套文件须完整保留。默认路径为 Runtime 二进制旁的 `libexec/browser/agent` 与 `libexec/browser/chromium`。程序只读挂载，这些可信资产不要求助理额外申请目录权限。未指定外部程序目录时，Runtime 优先读取 molr-setup 安装的组件记录。安装目录受到保护，不能通过普通目录资源授权给助理；只有受管浏览器启动器能挂载所需程序。
 
 浏览器复用现有本机宿主工具沙盒及计算、网络授权。每个助理最多一个活动浏览器任务，可打开多个标签页。Profile 保存在 `/work/.local/state/molr/browser/profile`，不同助理隔离。内部指令和画面端口仅通过 Runtime 受管执行能力访问，不创建公开转发。受管启动器不向 API 客户端开放程序路径、启动参数、CDP 或 daemon socket，不添加 `--no-sandbox`。
 

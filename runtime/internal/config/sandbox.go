@@ -11,6 +11,7 @@ import (
 // Sandbox is deployment-only. Resource APIs may reference these entries but
 // cannot enlarge them or change the enforced execution limits.
 type Sandbox struct {
+	ProtectedRoots         []string           `json:"-"`
 	GPU                    platform.GPUConfig `json:"gpu"`
 	AllowFullAccess        bool               `json:"allow_full_access"`
 	WorkspaceProjectQuotas bool               `json:"workspace_project_quotas"`

@@ -32,7 +32,8 @@ func (s *HTTPServer) browserRoutes() {
 		if err != nil {
 			return nil, err
 		}
-		return s.options.Browser(r.Context(), principal(r), id, raw)
+		result, err := s.options.Browser(r.Context(), principal(r), id, raw)
+		return result, maintenanceError(err)
 	})
 	s.mux.HandleFunc("GET /api/assistants/{id}/browser/stream", func(w http.ResponseWriter, r *http.Request) {
 		id, err := pathID(r)

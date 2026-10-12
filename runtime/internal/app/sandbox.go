@@ -49,7 +49,7 @@ func newShellService(store persistence.Store, p policy.Authorizer, c config.Conf
 		return nil, err
 	}
 	s := &shellService{store: store, policy: p, config: c.Sandbox, ownPort: c.OwnListenPort(), dataDir: c.DataDir}
-	s.runner = sandbox.New(sandbox.Options{QuotaStore: store, GPU: c.Sandbox.GPU, AllowFullAccess: c.Sandbox.AllowFullAccess, HostTools: c.Sandbox.UsesHostTools(), Bwrap: c.Sandbox.Bwrap, RootFS: c.Sandbox.RootFS, Helper: exe, CgroupRoot: c.Sandbox.CgroupRoot, WorkRoot: c.Sandbox.WorkRoot, PrivateRoot: c.DataDir, MinFreeDiskBytes: c.Sandbox.MinFreeDiskBytes, NetworkBytes: c.Sandbox.NetworkBytes, NetworkConnections: c.Sandbox.NetworkConnections, NetworkAuthorization: s.networkAuthorization, Authorize: s.authorize})
+	s.runner = sandbox.New(sandbox.Options{ProtectedRoots: c.Sandbox.ProtectedRoots, QuotaStore: store, GPU: c.Sandbox.GPU, AllowFullAccess: c.Sandbox.AllowFullAccess, HostTools: c.Sandbox.UsesHostTools(), Bwrap: c.Sandbox.Bwrap, RootFS: c.Sandbox.RootFS, Helper: exe, CgroupRoot: c.Sandbox.CgroupRoot, WorkRoot: c.Sandbox.WorkRoot, PrivateRoot: c.DataDir, MinFreeDiskBytes: c.Sandbox.MinFreeDiskBytes, NetworkBytes: c.Sandbox.NetworkBytes, NetworkConnections: c.Sandbox.NetworkConnections, NetworkAuthorization: s.networkAuthorization, Authorize: s.authorize})
 	return s, nil
 }
 func shellKey(e core.Execution) string {
@@ -86,6 +86,7 @@ func (s *shellService) plan(ctx context.Context, e core.Execution, req tools.She
 		c.Timeout = time.Duration(req.TimeoutSeconds) * time.Second
 	}
 	if req.Browser != nil {
+		c.BrowserAssets = true
 		if req.FullAccess || req.Script != "exec /molr/helper sandbox-helper browser" {
 			return c, denied()
 		}

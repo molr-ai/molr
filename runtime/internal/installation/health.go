@@ -161,6 +161,9 @@ func (e *Engine) verify(r *installrecord.Record, cfg map[string]any) (string, er
 		return "", fmt.Errorf("sandbox verification failed: %s", c.Reason)
 	}
 	r.Health = "verified"
+	if e.Options.JSON {
+		return "", nil
+	}
 	var proof struct {
 		Value string `json:"verification"`
 	}

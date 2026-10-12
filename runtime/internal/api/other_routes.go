@@ -88,6 +88,7 @@ func (s *HTTPServer) routes() {
 		}
 		return s.options.PermissionRequests.Resolve(ctx, p, q)
 	})
+	s.maintenanceRoutes()
 	s.authRoutes()
 	s.notificationRoutes()
 	s.businessRoutes()

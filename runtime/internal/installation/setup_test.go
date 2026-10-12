@@ -96,6 +96,11 @@ func fixture(t *testing.T) (*Engine, *installrecord.Record) {
 		t.Fatal("unexpected host command")
 		return nil, nil
 	}}
+	t.Cleanup(func() {
+		if e.lock != nil {
+			e.lock.Close()
+		}
+	})
 	return e, r
 }
 func TestOptionsRejectConflicts(t *testing.T) {
@@ -346,10 +351,16 @@ func TestUpdateVerifiesArchiveBeforeHandingOffToNewSetup(t *testing.T) {
 	}))
 	defer server.Close()
 	r.Updates.Source = server.URL
+	if err = writeRecord(r); err != nil {
+		t.Fatal(err)
+	}
 	e.Options.Permissions = "fix"
 	e.Options.NonInteractive = true
 	called := false
-	e.Command = func(_ context.Context, args []string, _ io.Reader, _ []string, _ io.Writer, _ io.Writer) ([]byte, error) {
+	e.handoff = func(_ context.Context, args []string, lock *os.File) error {
+		if lock == nil {
+			t.Fatal("missing lock handoff")
+		}
 		called = true
 		if filepath.Base(args[0]) != "molr-setup" || !strings.Contains(strings.Join(args, " "), "--record "+r.File()) {
 			t.Fatal(args)
@@ -357,7 +368,7 @@ func TestUpdateVerifiesArchiveBeforeHandingOffToNewSetup(t *testing.T) {
 		if err := staticELF(args[0], runtime.GOARCH); err != nil {
 			t.Fatal(err)
 		}
-		return nil, nil
+		return nil
 	}
 	if err = e.update(r); err != nil {
 		t.Fatal(err)

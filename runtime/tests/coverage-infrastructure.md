@@ -290,6 +290,8 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/platform` | `ConfiguredHTTPClient` | `TestConfiguredHTTPClientPinsExplicitLocalSource` |
 | `internal/platform/sandbox` | `Runner.GPUs` | `TestLinuxGPUIsolation` |
 | `internal/installation` | `Run`, `VerificationPending.Error` | `TestCommandHelpAndVersionWithoutPackage` |
+| `internal/installation` | `ComponentError.Error`, `Task.Active` | `TestComponentDownloadChecksDigestSizeAndSource`, `TestMaintenanceLockSerializesCLIAndRuntime` |
+| `internal/installation` | `NewMaintenance`, `Maintenance.CanUpdate`, `Maintenance.Cancel`, `Maintenance.Enabled`, `Maintenance.Latest`, `Maintenance.Programs`, `Maintenance.ProtectedRoots`, `Maintenance.Snapshot`, `Maintenance.Start`, `Maintenance.Task` | `TestUnmanagedMaintenanceFailsClosed`, `internal/app.TestMaintenanceAPIRequiresAuthenticationCSRFAndKnownRequests` |
 | `internal/installrecord` | `Instance`, `Read`, `Record.File`, `Record.UpdateSource`, `Record.Validate` | `TestReceiptRejectsUnrelatedPathsAndWritableRecords` |
 
 ## `internal/browser`

@@ -139,7 +139,8 @@ func PublicError(err error, requestID core.ID) (int, ErrorResponse) {
 	// Publish only reviewed, fixed reason codes; diagnostics stay private.
 	var reason core.Reason
 	switch value := core.ReasonOf(err); value {
-	case core.NetworkPrivateAddressDenied, core.NetworkHTTPNotAllowed, core.NetworkDestinationProhibited:
+	case core.NetworkPrivateAddressDenied, core.NetworkHTTPNotAllowed, core.NetworkDestinationProhibited,
+		"maintenance_busy", "maintenance_not_cancellable", "maintenance_not_installed", "maintenance_runner_unavailable", "maintenance_permission_denied", "maintenance_admin_cli_required", "maintenance_start_timeout", "maintenance_invalid_request", "component_externally_managed", "component_platform_unsupported":
 		reason = value
 	}
 	return status, ErrorResponse{Code: code, Message: message, RequestID: requestID, Reason: reason}

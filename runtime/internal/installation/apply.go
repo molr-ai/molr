@@ -37,6 +37,18 @@ func mkdirOwned(path string, mode os.FileMode, uid, gid int) error {
 }
 func (e *Engine) apply(p *Plan) error {
 	r := p.Record
+	if err := e.acquire(r); err != nil {
+		return err
+	}
+	if r.UID >= 0 {
+		op := "install"
+		if e.Options.LockFD == 3 {
+			op = "update"
+		}
+		if err := e.beginTask(r, op, "", r.Build.Version); err != nil {
+			return err
+		}
+	}
 	e.UI.step(2, "Prepare permissions and system dependencies")
 	e.UI.State = "Permissions or host dependencies may have changed; the existing service has not been stopped."
 	for _, choice := range sortedChoices(p.Choices) {
@@ -44,11 +56,7 @@ func (e *Engine) apply(p *Plan) error {
 			return err
 		}
 	}
-	lock, err := lockInstance(r.Paths.Program)
-	if err != nil {
-		return err
-	}
-	defer lock.Close()
+	var err error
 	if p.Previous != nil {
 		current, err := readRecord(r.File(), true)
 		if err != nil {
@@ -77,6 +85,14 @@ func (e *Engine) apply(p *Plan) error {
 		}
 		r.UID, r.GID = a.UID, a.GID
 	}
+	if r.System && e.lock != nil {
+		if err = e.lock.Chown(r.OwnerUID, r.GID); err != nil {
+			return err
+		}
+		if err = e.lock.Chmod(0640); err != nil {
+			return err
+		}
+	}
 	if p.Sandbox {
 		if err = e.preparePolicy(r); err != nil {
 			return err
@@ -97,6 +113,9 @@ func (e *Engine) apply(p *Plan) error {
 		}
 	}
 	if err = r.Validate(); err != nil {
+		return err
+	}
+	if err = e.progress("installing", 0, 0); err != nil {
 		return err
 	}
 	e.UI.step(3, "Install programs, configuration and service")
@@ -127,7 +146,7 @@ func (e *Engine) apply(p *Plan) error {
 		}
 	}
 	r.State = "installing"
-	r.Health = "pending"
+	r.Health = "verification_pending"
 	if err = writeRecord(r); err != nil {
 		return err
 	}
@@ -178,6 +197,9 @@ func (e *Engine) apply(p *Plan) error {
 	}
 	r.State = "installed"
 	if err = writeRecord(r); err != nil {
+		return err
+	}
+	if err = e.progress("restarting", 0, 0); err != nil {
 		return err
 	}
 	e.UI.step(4, "Start service and verify health")

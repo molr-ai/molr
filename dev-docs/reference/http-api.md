@@ -39,6 +39,14 @@ Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugi
 
 | 方法 | 路径 |
 | --- | --- |
+| GET | `/api/components` |
+| GET | `/api/maintenance` |
+| GET | `/api/maintenance/tasks/{id}` |
+| POST | `/api/components/{id}/install` |
+| POST | `/api/components/{id}/update` |
+| POST | `/api/components/{id}/repair` |
+| POST | `/api/maintenance/tasks/{id}/cancel` |
+| POST | `/api/updates/apply` |
 | DELETE | `/api/auth/login-links/{id}` |
 | DELETE | `/api/auth/sessions/{id}` |
 | DELETE | `/api/auth/tokens/{id}` |
@@ -480,3 +488,13 @@ Runtime 启动时自动准备并探测命令环境，自动登记本机计算资
 ## 验证
 
 API 合同测试使用真实 HTTP server、Auth、CSRF、持久限流、Realtime 与 SQLite，其他模块也采用实际实现；仅固定供应商目录与组合层归属依赖受控。测试覆盖登录 Cookie 与秘密 DTO、二次验证消费、权限能力隔离、可信代理、SSE 撤销、服务启停和失败关闭。
+
+## 组件与维护任务
+
+组件与维护 API 仅管理员可用，修改操作校验 CSRF。`GET /api/components` 返回组件数组，包含 `id/state/version/target_version/download_bytes/disk_bytes/can_install/auto_install/reason/task`。`state` 为 `missing/installed/broken/external/unsupported`；`installed` 表示文件已安装，浏览器仍须通过实际沙盒启动验证。`GET /api/maintenance` 返回 `can_update` 及最近的 `task`。
+
+组件的 `install/update/repair` 请求体为 `{ "idempotency_key": "32位十六进制键" }`；本体更新额外包含 `version`，必须与当前已检查的发布源结果一致。仅接受内置组件 ID。任务被安装器接受后返回 HTTP 202 和任务对象，相同请求键重用结果；不同参数复用同一键被拒绝。同类正在执行的维护可以共享任务，不同操作争锁返回 `maintenance_busy`。
+
+任务字段为 `id/operation/component/target/state/stage/downloaded/total/error_code/started_at/updated_at/finished_at`。`state` 为 `running/succeeded/failed/cancelled/interrupted`；阶段包含 `starting/checking/downloading/verifying/installing/restarting/complete`。查询和取消使用任务 ID，不接受进程 ID、unit 名称或文件路径。提交及重启阶段取消返回 `maintenance_not_cancellable`。
+
+浏览器 HTTP 操作新增管理员专用 `install_start`，同时携带 `compute_id`。浏览器状态中的 `ComponentsEnabled` 表示管理员已允许自动准备组件；`Preparation` 包含 `task_id/state/error_code`，准备状态为 `installing/ready/failed`；它不占用已有 `Task` 字段，也不是助理可调用的系统维护能力。组件安装共享，浏览器启动仍按每个助理重新校验授权；Runtime 重启不重放待启动请求。

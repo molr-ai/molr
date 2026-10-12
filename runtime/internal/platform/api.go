@@ -70,6 +70,8 @@ type NetworkAuthorization struct {
 	ExpiresAt        *time.Time
 }
 type Command struct {
+	// BrowserAssets is set only by the trusted browser task planner.
+	BrowserAssets           bool
 	GPUDeviceIDs            []string
 	FullAccess              bool
 	GroupComputeConstraints *policy.ComputeConstraints

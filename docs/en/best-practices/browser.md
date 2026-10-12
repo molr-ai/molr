@@ -4,7 +4,7 @@ Assistants can open websites, read pages, fill forms, click controls and capture
 
 ## Start and watch
 
-An administrator must configure the [browser programs](../sandbox/linux.md#managed-browser-tasks), and the assistant needs local compute and the required network grants. For example:
+Grant the assistant local compute and the required network access. On first use, an administrator can choose **Install and start** in the browser panel to download and verify the compatible programs. Installation continues after the panel closes; grants are checked again before starting the browser. Administrators can also configure [browser programs](../sandbox/linux.md#managed-browser-tasks) in advance. For example:
 
 > [!PROMPT]
 > Open this website, compare the specifications of two products, and summarize the result. Wait for me to take control if login is needed.
@@ -29,4 +29,4 @@ Disconnecting or closing the panel does not return control automatically. Reopen
 
 The current implementation supports Chromium in the local Linux sandbox. Programs use a shared read-only installation; website data persists per assistant. Live viewing does not automatically record video, and human keystrokes are not written to the operation log. Screenshots are saved only when explicitly requested.
 
-Missing programs or libraries, insufficient resources and expired grants appear as unavailable or ended tasks. Normal closure lets Chromium save its data before reclaiming the execution. Forced termination, crashes and revocation may lose changes that have not reached disk. Runtime restart marks tasks interrupted and never replays their operations.
+Missing components show an installation action and storage requirements. Missing system libraries or an unavailable maintenance runner show administrator guidance. The browser panel and settings show progress and allow retrying failed installation. Runtime restart does not replay pending browser starts. Missing libraries, insufficient resources and expired grants appear as unavailable or ended tasks. Normal closure lets Chromium save its data before reclaiming the execution. Forced termination, crashes and revocation may lose changes that have not reached disk. Runtime restart marks tasks interrupted and never replays their operations.

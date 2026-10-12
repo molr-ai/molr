@@ -84,7 +84,7 @@ export type PermissionRequest = {
 
 export type ShellForward = { Protocol: 'http' | 'tcp'; Port: number; Address: string; URL: string; State: 'waiting' | 'ready' | 'closed' };
 export type BrowserControl = { Control: 'assistant' | 'user' | 'switching'; Generation: number };
-export type BrowserStatus = { Available: boolean; Reason?: string; Task?: ShellTask; ControllerIsCurrentSession?: boolean; ControllerClientID?: string; TabCount?: number };
+export type BrowserStatus = { ComponentsEnabled?: boolean; Preparation?: { task_id: string; state: string; error_code?: string }; Available: boolean; Reason?: string; Task?: ShellTask; ControllerIsCurrentSession?: boolean; ControllerClientID?: string; TabCount?: number };
 export type ShellTask = { Kind?: 'shell' | 'browser'; Browser?: BrowserControl; GPUDeviceIDs?: string[]; FullAccess?: boolean;
   Forwards?: ShellForward[];
   ID: string; OwnerID: string; AssistantID: string; SandboxID: string;
@@ -128,3 +128,6 @@ export type UpdateStatus = {
  auto_check: boolean; source_configured: boolean; supported: boolean;
 };
 export type UpdateInstallation = { name: string; system: boolean; setup_path: string; source: string };
+
+export type MaintenanceTask = { id: string; operation: string; component?: string; target?: string; state: 'running' | 'succeeded' | 'failed' | 'cancelled' | 'interrupted'; stage: string; downloaded?: number; total?: number; error_code?: string; started_at: string; updated_at: string; finished_at?: string };
+export type ComponentStatus = { id: string; state: 'missing' | 'installed' | 'broken' | 'external' | 'unsupported'; version?: string; target_version?: string; download_bytes: number; disk_bytes: number; can_install: boolean; auto_install: boolean; reason?: string; task?: MaintenanceTask };

@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"molr.ai/runtime/internal/buildinfo"
+	"molr.ai/runtime/internal/installation"
 	"molr.ai/runtime/internal/notification"
 	"molr.ai/runtime/internal/updates"
 	"molr.ai/runtime/internal/webassets"
@@ -107,6 +108,8 @@ func (b *Bundle) Close() error {
 // Build wires only fixed in-process adapters. Network access is constrained at
 // the actual dial; credentials never enter model/tool-visible configuration.
 func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
+	maintenance := installation.NewMaintenance(cfg.ConfigPath, cfg.Browser.AgentDirectory != "" || cfg.Browser.ChromiumDirectory != "")
+	cfg.Sandbox.ProtectedRoots = maintenance.ProtectedRoots()
 	if err = cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -373,6 +376,7 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 	b.shellTasks.forwardHTTP = cfg.HTTP
 	b.shellTasks.identity = identity
 	b.shellTasks.browserConfig = cfg.Browser
+	b.shellTasks.maintenance = maintenance
 	shellExecute = b.shellTasks.execute
 	shellAvailable = sandboxRouter.available
 	cancelTool = sandboxRouter.cancel
@@ -815,10 +819,15 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		}
 	}
 	updateService := updates.New(updateSource, cfg.Updates.AutoCheck, build, platform.ConfiguredHTTPClient(updateSource, updateAddresses))
-	b.HTTP, err = api.NewServer(cfg, b.Services, api.Options{Browser: func(ctx context.Context, p core.Principal, id core.ID, raw json.RawMessage) (json.RawMessage, error) {
+	b.HTTP, err = api.NewServer(cfg, b.Services, api.Options{Maintenance: maintenance, Browser: func(ctx context.Context, p core.Principal, id core.ID, raw json.RawMessage) (json.RawMessage, error) {
 		q, err := tools.ParseBrowser(raw)
 		if err != nil {
 			return nil, err
+		}
+		if q.Action.Action == "install_start" {
+			if err := identity.RequireAdministrator(ctx, p); err != nil {
+				return nil, err
+			}
 		}
 		return b.shellTasks.browserManage(ctx, p, id, q)
 	}, BrowserStream: b.shellTasks.browserFrames, Updates: updateService, UpgradeInfo: installation, Notifications: notification.New(store, permissions), Weixin: channels, Accounts: identity, Setup: b.setup, DiscoverProviders: func(ctx context.Context, p core.Principal) (any, error) {

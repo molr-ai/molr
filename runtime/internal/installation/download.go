@@ -71,7 +71,9 @@ func (e *Engine) fetch(raw string, destination io.Writer, limit int64, progress 
 	if err := validateURL(raw); err != nil {
 		return err
 	}
-	req, err := http.NewRequestWithContext(e.Ctx, http.MethodGet, raw, nil)
+	ctx, cancel := e.downloadContext()
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, raw, nil)
 	if err != nil {
 		return err
 	}
@@ -88,7 +90,7 @@ func (e *Engine) fetch(raw string, destination io.Writer, limit int64, progress 
 	}
 	reader := io.Reader(io.LimitReader(res.Body, limit+1))
 	if progress {
-		reader = &progressReader{Reader: reader, ui: e.UI, total: res.ContentLength}
+		reader = &progressReader{Reader: reader, ui: e.UI, total: res.ContentLength, update: func(n, total int64) error { return e.progress("downloading", n, max(total, 0)) }}
 	}
 	n, err := io.Copy(destination, reader)
 	if err != nil {
@@ -104,6 +106,7 @@ func (e *Engine) fetch(raw string, destination io.Writer, limit int64, progress 
 }
 
 type progressReader struct {
+	update func(int64, int64) error
 	io.Reader
 	ui          *UI
 	total, read int64
@@ -118,6 +121,11 @@ func (p *progressReader) Read(b []byte) (int, error) {
 			p.ui.print("Download: %.1f%% (%d / %d bytes)", 100*float64(p.read)/float64(p.total), p.read, p.total)
 		} else {
 			p.ui.print("Download: %d bytes", p.read)
+		}
+		if p.update != nil {
+			if updateErr := p.update(p.read, p.total); updateErr != nil {
+				return n, updateErr
+			}
 		}
 		p.last = time.Now()
 	}
@@ -184,6 +192,9 @@ func (e *Engine) update(r *installrecord.Record) error {
 		return fmt.Errorf("selected release is older; an intended downgrade requires --allow-downgrade")
 	}
 	if n == 0 && manifest.Commit == r.Build.Commit && !e.Options.Repair {
+		if r.Health == "verification_pending" {
+			return &VerificationPending{}
+		}
 		e.UI.print("Already current: %s", r.Build.Version)
 		if subscription == r.Updates {
 			return nil
@@ -199,11 +210,9 @@ func (e *Engine) update(r *installrecord.Record) error {
 		if !ok {
 			return fmt.Errorf("subscription change cancelled")
 		}
-		lock, err := lockInstance(r.Paths.Program)
-		if err != nil {
+		if err = e.acquire(r); err != nil {
 			return err
 		}
-		defer lock.Close()
 		current, err := readRecord(r.File(), true)
 		if err != nil {
 			return err
@@ -246,6 +255,16 @@ func (e *Engine) update(r *installrecord.Record) error {
 	if !ok {
 		return fmt.Errorf("update cancelled")
 	}
+	if err = e.beginTask(r, "update", "", manifest.Version); err != nil {
+		return err
+	}
+	current, err := readRecord(r.File(), true)
+	if err != nil {
+		return err
+	}
+	if !reflect.DeepEqual(current, r) {
+		return fmt.Errorf("installation changed since planning")
+	}
 	temp, err := os.MkdirTemp("", "molr-update-")
 	if err != nil {
 		return err
@@ -260,6 +279,9 @@ func (e *Engine) update(r *installrecord.Record) error {
 	}
 	hash := sha256.New()
 	e.UI.step(2, "Download and verify package")
+	if err = e.progress("downloading", 0, 0); err != nil {
+		return err
+	}
 	err = e.fetch(asset.URL, io.MultiWriter(archive, hash), 512<<20, true)
 	closeErr := archive.Close()
 	if err != nil {
@@ -287,13 +309,30 @@ func (e *Engine) update(r *installrecord.Record) error {
 		return fmt.Errorf("downloaded package identity mismatch")
 	}
 	args := []string{filepath.Join(root, "bin/molr-setup"), "--record", r.File(), "--source", subscription.Source, "--channel", subscription.Channel, "--directory-permissions", e.Options.Permissions}
-	for flag, on := range map[string]bool{"--interactive": e.Options.Interactive, "--non-interactive": e.Options.NonInteractive, "--yes": e.Options.Yes, "--install-deps": e.Options.InstallDeps, "--skip-dependencies": e.Options.SkipDependencies, "--no-start": e.Options.NoStart, "--no-browser": e.Options.NoBrowser, "--repair": e.Options.Repair, "--allow-downgrade": e.Options.AllowDowngrade} {
+	for flag, on := range map[string]bool{"--interactive": e.Options.Interactive, "--non-interactive": e.Options.NonInteractive, "--yes": e.Options.Yes, "--install-deps": e.Options.InstallDeps, "--skip-dependencies": e.Options.SkipDependencies, "--no-start": e.Options.NoStart, "--no-browser": e.Options.NoBrowser, "--json": e.Options.JSON, "--repair": e.Options.Repair, "--allow-downgrade": e.Options.AllowDowngrade} {
 		if on {
 			args = append(args, flag)
 		}
 	}
 	e.UI.print("Starting verified package installer...")
-	_, err = e.Command(e.Ctx, args, e.Input, nil, e.UI.Out, e.UI.Err)
+	if e.task != nil {
+		args = append(args, "--lock-fd", "3", "--task-id", e.task.ID)
+	}
+	if e.handoff != nil {
+		err = e.handoff(e.Ctx, args, e.lock)
+	} else if e.lock != nil {
+		cmd := exec.CommandContext(e.Ctx, args[0], args[1:]...)
+		cmd.ExtraFiles = []*os.File{e.lock}
+		cmd.Stdin = e.Input
+		cmd.Stdout = e.UI.Out
+		cmd.Stderr = e.UI.Err
+		err = cmd.Run()
+		if receipt, readErr := readTask(r, e.task.ID); readErr == nil && !receipt.Active() {
+			e.handedOff = true
+		}
+	} else {
+		_, err = e.Command(e.Ctx, args, e.Input, nil, e.UI.Out, e.UI.Err)
+	}
 	var exited *exec.ExitError
 	if errors.As(err, &exited) && exited.ExitCode() == 3 {
 		return &VerificationPending{}

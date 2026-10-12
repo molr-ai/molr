@@ -306,13 +306,13 @@ When the host cannot support nested sandboxing, `AGENT_BROWSER_ARGS=--no-sandbox
 
 ## Managed browser tasks
 
-Install agent-browser 0.39.0 and a compatible Chromium distribution on the Runtime host, with Chromium's shared libraries available in host-tool mode. The executables must be regular, executable files, without symlinks or group/world write permission. Configure readonly program directories outside Runtime's private data directory:
+Use [component installation](../deployment/installation.md#component-installation-and-maintenance-tasks), or manually install agent-browser 0.39.0 and a compatible Chromium distribution on the Runtime host, with Chromium's shared libraries available in host-tool mode. The executables must be regular, executable files, without symlinks or group/world write permission. Configure readonly program directories outside Runtime's private data directory:
 
 ```json
 {"browser":{"agent_directory":"/opt/molr-browser/agent","chromium_directory":"/opt/molr-browser/chromium"}}
 ```
 
-The directories must contain `agent-browser` and `chrome`, respectively, including Chromium's companion assets. Defaults are `libexec/browser/agent` and `libexec/browser/chromium` beside the Runtime binary. Programs are mounted readonly; no additional assistant directory grant is required for these trusted assets. No automatic downloader or shared CLI installation manager is included.
+The directories must contain `agent-browser` and `chrome`, respectively, including Chromium's companion assets. Defaults are `libexec/browser/agent` and `libexec/browser/chromium` beside the Runtime binary. Programs are mounted readonly; no additional assistant directory grant is required for these trusted assets. Without explicit external paths, Runtime first reads the component receipt managed by molr-setup. Installation directories cannot be exposed through ordinary directory resources; only the managed browser launcher mounts the required programs.
 
 The browser uses the existing local host-tools sandbox and compute/network grants. One active browser task per assistant may contain multiple tabs. Profile data persists at `/work/.local/state/molr/browser/profile`, isolated between assistants. Internal command and stream ports are accessible only through Runtime's managed execution capability, never public forwards. The managed launcher does not expose executable paths, flags, CDP or daemon sockets to API clients. It does not add `--no-sandbox`.
 

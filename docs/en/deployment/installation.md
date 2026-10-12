@@ -105,6 +105,27 @@ Rerunning the website command or installing another extracted package also upgra
 
 Incomplete installation or damaged records produce explicit errors. Do not delete records to bypass detection; use a complete package to repair the original instance. `--record /path/installation.json` selects a specific installation.
 
+## Component installation and maintenance tasks
+
+`molr-setup` manages both Molr and optional components. **Install and start** in the browser panel installs the tested agent-browser and Chrome for Testing (based on Chromium) combination for this instance. Assistants share read-only programs while keeping separate website data. The automatic download catalog currently supports Linux amd64; administrators can configure supported external program directories on other platforms.
+
+```bash
+molr-setup components status --json
+molr-setup components install browser
+molr-setup components update browser
+molr-setup components repair browser
+molr-setup tasks status <task-id> --json
+molr-setup tasks cancel <task-id>
+```
+
+Component updates select the compatible version embedded in the installed setup tool. Repair creates a new directory instead of replacing files used by running tasks; old directories are not automatically removed. Explicit browser program paths remain administrator-managed and are never overwritten by automatic installation.
+
+An instance-wide exclusive lock serializes application and component maintenance. Duplicate requests reuse the existing task; other mutations report that maintenance is busy. Status reads do not take that lock. Task stages and results live in private instance cache storage, separate from the Molr installation receipt. Downloads can be cancelled; file commit and service restart cannot. Failed or interrupted work can be retried, and unverified files never become an active installation.
+
+WebUI maintenance runs as an independent systemd user service under the service account. Closing the page or restarting Runtime does not cancel installation. A working user service manager is required; otherwise use the CLI. Administrator-configured proxy and certificate environment variables are forwarded from Runtime without putting their values in command lines or task responses. Component directories and their ancestors must not be writable by other users.
+
+Ordinary component installation neither invokes a system package manager nor automatically uses sudo. To prepare missing browser libraries, an administrator explicitly runs `molr-setup components install browser --install-deps`; automatic dependency preparation currently supports APT. System-wide Molr updates remain an installation-owner CLI operation. For eligible user installations, an administrator can explicitly choose **Update and restart Molr** in WebUI. This interrupts running tasks; the updater never automatically downgrades or restores browser profiles.
+
 ## Post-startup checks
 
 After installation, update or restart, verify the actual page and authenticated sandbox capabilities:

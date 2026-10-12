@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"molr.ai/runtime/internal/installation"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -88,6 +89,8 @@ type shellTasks struct {
 	identity         auth.Service
 	forwardHTTP      config.HTTP
 	browserConfig    config.Browser
+	maintenance      *installation.Maintenance
+	preparing        map[string]*browserPreparation
 	forwardConfig    config.PortForward
 	forwardSlots     chan struct{}
 	store            persistence.Store

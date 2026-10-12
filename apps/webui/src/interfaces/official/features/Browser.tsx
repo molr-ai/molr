@@ -4,8 +4,10 @@ import { Alert, Badge, Button, Drawer, IconButton, Select, useBreakpoint, useToa
 import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, CornerDownLeft, Globe, Hand, Keyboard, Maximize, Minimize, Plus, Power, RefreshCw, X } from 'lucide-react';
 import { api, APIError, mutationKey } from '../../../api/client';
 import type { BrowserStatus, Grant, Resource } from '../../../api/types';
-import { useCopy, useQuery } from '../../../state';
+import { useCopy, useQuery, useSession } from '../../../state';
 import { useErrorToast } from '../../../error-toasts';
+import { ComponentDetails, MaintenanceProgress, maintenanceReason } from '../../../maintenance/Components';
+import type { ComponentStatus } from '@molr/sdk';
 import './browser.css';
 import { useBrowserView } from './useBrowserView';
 
@@ -28,6 +30,9 @@ export function BrowserButton({ assistantID, disabled, onOpen }: { assistantID: 
 }
 export function Browser({ assistantID, docked, onClose }: { assistantID: string; docked: boolean; onClose: () => void }) {
   const { locale } = useCopy(), zh = locale === 'zh', mobile = useBreakpoint('mobile');
+  const { principal } = useSession(), admin = !!principal?.User?.Administrator;
+  const components = useQuery<ComponentStatus[]>(admin ? '/api/components' : null, false, 2000);
+  const component = components.data?.[0];
   const path = `/api/assistants/${assistantID}/browser`;
   const query = useQuery<BrowserStatus>(path, false, 2000);
   const resources = useQuery<Resource[]>('/api/resources?kind=compute', true);
@@ -194,7 +199,11 @@ export function Browser({ assistantID, docked, onClose }: { assistantID: string;
     </div>}>
     <div className="browser-panel" ref={panelRef}>
       {!task ? <div className="browser-start"><div className="browser-start-icon"><Globe size={34}/></div><h3>{zh ? '一起浏览，同步可见' : 'Browse together'}</h3><p>{zh ? '观看助理浏览网页，需要时接管。登录状态会为这个助理保留。' : 'Watch your assistant browse, and take control when needed. Login state stays with this assistant.'}</p>
-        {query.data?.Available === false ? <Alert title={zh ? '浏览器程序尚未配置' : 'Browser programs are not configured'}>{zh ? '请联系管理员配置浏览器程序。' : 'Ask an administrator to configure browser programs.'}</Alert> : <><Select label={zh ? '计算资源' : 'Compute resource'} value={compute} onValueChange={setCompute} disabled={busy} placeholder={zh ? '选择已授权的本机资源' : 'Select an authorized local resource'} options={usable.map(r => ({ value: r.ID, label: r.Name }))}/><Button disabled={busy || !compute || query.loading && !query.data} onClick={() => void command({ action: 'start', compute_id: compute })}>{busy ? (zh ? '正在启动…' : 'Starting…') : (zh ? '启动浏览器' : 'Start browser')}</Button></>}
+        {query.data?.Available === false && component && <ComponentDetails value={component}/>}
+        {query.data?.Preparation?.task_id && admin && <MaintenanceProgress taskID={query.data.Preparation.task_id}/>}
+        {query.data?.Preparation?.state === 'failed' && <Alert tone="warning" title={maintenanceReason(query.data.Preparation.error_code, zh)}/>}
+        <Select label={zh ? '计算资源' : 'Compute resource'} value={compute} onValueChange={setCompute} disabled={busy || query.data?.Preparation?.state === 'installing'} placeholder={zh ? '选择已授权的本机资源' : 'Select an authorized local resource'} options={usable.map(r => ({ value: r.ID, label: r.Name }))}/>
+        {query.data?.Available === false && !component?.can_install && !query.data.ComponentsEnabled ? <Alert title={zh ? '浏览器组件不可用' : 'Browser components unavailable'}>{component ? maintenanceReason(component.reason, zh) : zh ? '请联系管理员安装浏览器组件。' : 'Ask an administrator to install browser components.'}</Alert> : <Button disabled={busy || !compute || query.loading && !query.data || query.data?.Preparation?.state === 'installing'} onClick={() => void command({ action: query.data?.Available === false && !query.data.ComponentsEnabled ? 'install_start' : 'start', compute_id: compute })}>{busy || query.data?.Preparation?.state === 'installing' ? (zh ? '正在准备…' : 'Preparing…') : query.data?.Available === false ? (zh ? '安装并启动' : 'Install and start') : (zh ? '启动浏览器' : 'Start browser')}</Button>}
       </div> : <>
         <form className="browser-navigation" onSubmit={e => { e.preventDefault(); input({ action: 'navigate', url: /^https?:\/\//i.test(address) || address === 'about:blank' ? address : `https://${address}` }); (keyboardOpen ? auxiliaryInput.current : directInput.current)?.focus({ preventScroll: true }); }}>
           <IconButton type="button" disabled={!canOperate} label={zh ? '后退' : 'Back'} onClick={() => input({ action: 'back' })}><ArrowLeft size={17}/></IconButton><IconButton type="button" disabled={!canOperate} label={zh ? '前进' : 'Forward'} onClick={() => input({ action: 'forward' })}><ArrowRight size={17}/></IconButton><IconButton type="button" disabled={!canOperate} label={zh ? '刷新' : 'Reload'} onClick={() => input({ action: 'reload' })}><RefreshCw size={16}/></IconButton>

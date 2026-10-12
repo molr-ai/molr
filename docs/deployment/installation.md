@@ -105,6 +105,27 @@ sudo ./bin/molr-setup --user molr-sandbox --install-deps
 
 安装未完成或记录损坏时会明确报错。不要删除安装记录来绕过检测；使用完整安装包对原实例修复。`--record /path/installation.json` 可明确指定管理的实例。
 
+## 组件安装与维护任务
+
+`molr-setup` 同时管理 Molr 本体和可选组件。浏览器面板的「安装并启动」会在当前实例安装经过验证的 agent-browser 与 Chrome for Testing（基于 Chromium）组合；程序由同一实例的助理只读共享，网站数据仍按助理隔离。当前自动下载清单支持 Linux amd64，其他平台可由管理员配置受支持的外部程序目录。
+
+```bash
+molr-setup components status --json
+molr-setup components install browser
+molr-setup components update browser
+molr-setup components repair browser
+molr-setup tasks status <task-id> --json
+molr-setup tasks cancel <task-id>
+```
+
+组件更新以当前安装器内置的兼容版本清单为准。修复安装到新的版本目录，不覆盖运行中任务使用的文件；旧目录暂不自动清理。显式配置浏览器程序路径时，这份程序由管理员维护，自动安装不会覆盖它。
+
+本体和组件维护共用实例级排他锁。重复请求复用已有任务，其他修改请求返回忙碌状态；状态查询不需要占锁。任务阶段和结果保存在实例私有缓存中，组件状态与本体安装记录分开。下载可取消，文件提交和服务重启阶段不接受取消；失败或中断后可以重试，未校验文件不会成为有效安装。
+
+WebUI 使用服务账户的独立 systemd 用户服务执行维护，关闭页面或重启 Runtime 不会取消安装。需要可用的用户级 systemd 管理器；不具备条件时使用 CLI。管理员配置在 Runtime 服务环境中的代理与证书变量会传递给维护服务，变量值不进入命令行或任务响应。组件目录及其父目录不得允许其他用户写入。
+
+普通组件安装不执行系统包管理器，也不自动调用 sudo。缺少浏览器系统库时，由管理员显式运行 `molr-setup components install browser --install-deps`；当前自动依赖准备支持 APT。系统级 Molr 更新仍由安装账户在宿主执行。用户级安装满足权限条件时，管理员可在 WebUI 主动选择「更新并重启 Molr」；该操作会中断运行任务，更新器不会自动降级或恢复浏览器 Profile。
+
 ## 启动后的检查
 
 安装、更新、重启后核对实际页面与已认证沙盒能力：

@@ -314,7 +314,7 @@ func (r *Runner) startAuthorized(parent context.Context, e core.Execution, c pla
 		return nil, err
 	}
 	if r.options.HostTools {
-		if err = appendHostToolsMounts(&args, add, r.options.PrivateRoot, r.options.WorkRoot); err != nil {
+		if err = appendHostToolsMounts(&args, add, append([]string{r.options.PrivateRoot, r.options.WorkRoot}, r.options.ProtectedRoots...)...); err != nil {
 			return nil, err
 		}
 	}
@@ -337,7 +337,14 @@ func (r *Runner) startAuthorized(parent context.Context, e core.Execution, c pla
 		}
 	}
 	for _, m := range c.Mounts {
-		if r.protected(m.Source) {
+		protected := false
+		for _, root := range r.options.ProtectedRoots {
+			if beneath(m.Source, root) || beneath(root, m.Source) {
+				protected = true
+			}
+		}
+		browserAsset := c.BrowserAssets && c.Managed && m.ReadOnly && (m.Destination == "/resources/browser-agent" || m.Destination == "/resources/browser-chromium")
+		if r.protected(m.Source) || protected && !browserAsset {
 			return nil, core.NewError(core.Forbidden, "private sandbox path")
 		}
 		var filesystem unix.Statfs_t
