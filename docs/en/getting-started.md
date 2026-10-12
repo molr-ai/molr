@@ -10,6 +10,21 @@
 
 From installing Molr to completing your first delegation. If you already have an accessible service, start directly with [Login](#login); for long-running services and maintenance configuration, see [Deployment and Maintenance](deployment/README.md).
 
+## Hardware Requirements
+
+The following are initial sizing estimates for running the Molr service (Runtime and WebUI) while connecting to cloud models or models hosted on another device. They have not yet been validated by systematic performance benchmarks. The minimum configuration targets service startup and occasional single-user chat; the recommended configuration leaves room for daily use and a few concurrent tasks.
+
+The CPU must use a 64-bit x86 (amd64) or ARM (arm64) architecture.
+
+| Hardware | Minimum | Recommended |
+| --- | --- | --- |
+| CPU | 1 core | 4 or more cores |
+| Memory | 512 MiB | 8 GiB or more |
+| Available disk space | 5 GiB | 20 GiB or more, preferably on an SSD |
+| GPU | No dedicated GPU required | Choose based on local model deployment requirements |
+
+Running a local model on the same device requires additional storage for model weights, inference memory, and potentially GPU memory, depending on model size, quantization, and context length. Sandbox tasks require additional CPU and memory, especially browser automation, code builds, and concurrent sandboxes. Attachments, workspaces, and backups consume disk space over time, so scale capacity to your workload. For sandbox resource configuration, see [Linux Command Environment](sandbox/linux.md).
+
 ## Install Molr
 
 Select a channel with an available version from the installation section on the official website, then select the target platform. Available versions are subject to the official website's release list; channels without available versions do not provide download links. Current platforms are defined as Linux amd64/arm64. The installation package includes Runtime and WebUI; static dependencies such as BusyBox for the sandbox are provided by the target machine's system package manager.
