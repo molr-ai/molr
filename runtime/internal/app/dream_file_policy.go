@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"molr.ai/runtime/internal/agent/tools"
 	"molr.ai/runtime/internal/business/dream"
 	"molr.ai/runtime/internal/business/memory"
@@ -45,12 +46,16 @@ func dreamFileContext(ctx context.Context, d *dream.Coordinator, p core.Principa
 		}
 		return d.CheckFileAccess(ctx, p, event, write)
 	}
-	guard.Read = func(ctx context.Context, e core.Execution, t tools.FileTarget) error {
+	guard.Read = func(ctx context.Context, e core.Execution, t tools.FileTarget) (json.RawMessage, error) {
 		ref, err := dream.FileRef(p, t.Path, false)
 		if err != nil {
-			return nil
+			return nil, nil
 		}
-		return d.RememberRead(ctx, p, event, ref)
+		diagnostics, err := d.RememberRead(ctx, p, event, ref)
+		if err != nil || len(diagnostics) == 0 {
+			return nil, err
+		}
+		return json.Marshal(diagnostics)
 	}
 	guard.Before = func(ctx context.Context, e core.Execution, kind string, t tools.FileTarget, dest *tools.FileTarget, version string, after []byte) (func() error, error) {
 		ref, err := dream.FileRef(p, t.Path, false)

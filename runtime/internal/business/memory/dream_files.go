@@ -18,6 +18,7 @@ type FileSnapshot struct {
 	Path, Text, Version string
 	FileVersion         string `json:"-"`
 	ReadOnly            bool
+	Diagnostics         []Diagnostic  `json:",omitempty"`
 	Sources             []core.Object `json:"-"`
 }
 
@@ -57,7 +58,7 @@ func (f *Files) ReadFile(ctx context.Context, owner core.ID, ref Ref) (FileSnaps
 	if err != nil {
 		return FileSnapshot{}, err
 	}
-	return FileSnapshot{Path: ref.LogicalPath(), Text: string(raw), Version: hash(raw), ReadOnly: ref.Scope == Global || m.Confirmed, Sources: sources, FileVersion: fileVersion}, nil
+	return FileSnapshot{Path: ref.LogicalPath(), Text: string(raw), Version: hash(raw), ReadOnly: ref.Scope == Global || m.Confirmed || m.MetadataReadOnly, Diagnostics: m.Diagnostics, Sources: sources, FileVersion: fileVersion}, nil
 }
 
 // PrepareFileOperation records an undo image before the common file tool acts.
@@ -94,8 +95,11 @@ func (f *Files) PrepareFileOperation(ctx context.Context, owner, operation core.
 			if err := decode(c.After, &m); err != nil {
 				return err
 			}
-			if m.Confirmed {
-				return core.NewError(core.Forbidden, "dream cannot confirm a memory")
+			if len(m.Text) > 65536 {
+				return invalid("text")
+			}
+			if m.Confirmed || m.MetadataReadOnly {
+				return core.NewError(core.Forbidden, "dream cannot set confirmed or ambiguous confirmation metadata")
 			}
 			m.Sources = append(m.Sources, sources...)
 			suppressed, err := f.Suppressed(ctx, m)
@@ -114,8 +118,8 @@ func (f *Files) PrepareFileOperation(ctx context.Context, owner, operation core.
 			if err := decode(c.Before, &m); err != nil {
 				return err
 			}
-			if m.Confirmed {
-				return core.NewError(core.Forbidden, "confirmed memory is read-only")
+			if m.Confirmed || m.MetadataReadOnly {
+				return core.NewError(core.Forbidden, "confirmed or ambiguous confirmation metadata is read-only")
 			}
 		}
 		if err := f.matchFile(ctx, owner, c.Ref, c.Before, c.BeforeExists); err != nil {

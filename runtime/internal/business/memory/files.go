@@ -86,40 +86,75 @@ type metadata struct {
 	UpdatedAt       time.Time     `yaml:"updated_at,omitempty"`
 }
 
+// decode interprets optional metadata independently of the readable Markdown.
+// Unknown fields belong to the document. Invalid known fields are diagnostics.
 func decode(data []byte, m *Memory) error {
 	if !utf8.Valid(data) {
 		return invalid("text")
 	}
 	body := data
 	var h metadata
+	m.Diagnostics = nil
+	m.MetadataReadOnly = false
+	warn := func(field, message string) { m.Diagnostics = append(m.Diagnostics, Diagnostic{field, message}) }
 	if bytes.HasPrefix(data, []byte("---\n")) {
 		end := bytes.Index(data[4:], []byte("\n---\n"))
 		if end < 0 {
-			return invalid("frontmatter")
+			warn("frontmatter", "Missing closing --- line; raw text is preserved. Confirmation status is unknown; owner repair is required before writing.")
+			m.MetadataReadOnly = true
+		} else {
+			body = data[4+end+5:]
+			var fields map[string]yaml.Node
+			if err := yaml.Unmarshal(data[4:4+end], &fields); err != nil {
+				warn("frontmatter", "Invalid YAML mapping; raw text is preserved. Confirmation status is unknown; owner repair is required before writing.")
+				m.MetadataReadOnly = true
+			} else {
+				// Decode separately: a malformed timestamp must not discard confirmed:true.
+				for _, field := range []struct {
+					name  string
+					value any
+				}{
+					{"state", &h.State}, {"confirmed", &h.Confirmed}, {"context", &h.Context},
+					{"evidence", &h.Evidence}, {"dream_id", &h.DreamID}, {"replaces", &h.Replaces},
+					{"replaces_version", &h.ReplacesVersion}, {"sources", &h.Sources},
+					{"dependencies", &h.Dependencies}, {"created_at", &h.CreatedAt}, {"updated_at", &h.UpdatedAt},
+				} {
+					node, exists := fields[field.name]
+					if !exists {
+						continue
+					}
+					decodeErr := node.Decode(field.value)
+					if decodeErr != nil {
+						warn(field.name, "Invalid metadata value; inspect the original text and repair this field without discarding useful content.")
+					}
+					if field.name == "confirmed" && (node.Tag != "!!bool" || decodeErr != nil) {
+						m.MetadataReadOnly = true
+						warn("confirmed", "Expected a boolean; owner repair is required before writing because confirmation status is unknown.")
+					}
+				}
+			}
 		}
-		d := yaml.NewDecoder(bytes.NewReader(data[4 : 4+end]))
-		d.KnownFields(true)
-		if err := d.Decode(&h); err != nil {
-			return invalid("frontmatter")
-		}
-		body = data[4+end+5:]
 	}
-	if len(body) > 65536 || !validText(string(body), 65536) {
-		return invalid("text")
+	if len(body) > 65536 {
+		warn("text", "Memory body exceeds 64 KiB; split useful content into smaller topic files.")
 	}
 	if err := validateMetadata(h.Context); err != nil {
-		return err
+		warn("context", "Metadata context exceeds 1024 bytes.")
+		h.Context = ""
 	}
 	if h.State != "" && h.State != Active && h.State != Pending && h.State != Superseded {
-		return invalid("state")
+		warn("state", "Expected active, pending or superseded; the original value is preserved in the file.")
+		h.State = Pending
 	}
-	if len(h.Dependencies) > 40 {
-		return invalid("dependencies")
-	}
+	validDependencies := len(h.Dependencies) <= 40
 	for _, d := range h.Dependencies {
 		if d.Ref.Validate(false) != nil || d.Ref.Path == "MEMORY.md" || len(d.Version) != 64 {
-			return invalid("dependencies")
+			validDependencies = false
 		}
+	}
+	if !validDependencies {
+		warn("dependencies", "Invalid dependency references or versions.")
+		h.Dependencies = nil
 	}
 	m.Text = string(body)
 	m.State = state(h.State)

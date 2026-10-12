@@ -64,3 +64,52 @@ func TestDreamUsesCommonFileExecutorWithScopedAccess(t *testing.T) {
 		t.Fatal("common effects not undoable", original.Text)
 	}
 }
+
+func TestDreamReadsDiagnosticsRepairsMalformedMemoryAndPreservesUndo(t *testing.T) {
+	f, files, _ := fileFixture(t)
+	target := tools.FileTarget{Path: "/work/.agents/memory/note.md"}
+	original := "---\nstate: invalid-state\ncreated_at: yesterday\ncustom: keep-me\n---\nKeep useful knowledge.\n"
+	_, err := files.write(t.Context(), f.execution, tools.FileWriteRequest{FileTarget: target, Text: original})
+	need(t, err)
+	d := f.b.Services.Dreams.(*dream.Coordinator)
+	run, err := d.Request(t.Context(), f.owner, dream.Request{AssistantID: f.execution.AssistantID, Mutation: core.Mutation{IdempotencyKey: "repair"}})
+	need(t, err)
+	ev := event.AssistantEvent{ID: run.EventID, OwnerID: run.OwnerID, AssistantID: run.AssistantID, OperationID: run.ID, Kind: event.DreamDue}
+	_, err = d.Prepare(t.Context(), f.execution.Principal, ev)
+	need(t, err)
+	ctx := dreamFileContext(t.Context(), d, f.execution.Principal, ev)
+	raw, err := files.read(ctx, f.execution, tools.FileReadRequest{FileTarget: target})
+	need(t, err)
+	var read fileReadResult
+	need(t, json.Unmarshal(raw, &read))
+	if read.Text != original || len(read.Diagnostics) == 0 {
+		t.Fatal("model did not receive raw text with diagnostics", string(raw))
+	}
+	zero := int64(0)
+	raw, err = files.read(ctx, f.execution, tools.FileReadRequest{FileTarget: target, ByteOffset: &zero, MaxBytes: 1000})
+	need(t, err)
+	var byteRead struct{ Diagnostics json.RawMessage }
+	need(t, json.Unmarshal(raw, &byteRead))
+	if len(byteRead.Diagnostics) == 0 {
+		t.Fatal("byte read lost diagnostics")
+	}
+	e := f.execution
+	e.OperationID = "repair-note"
+	repaired := "---\nstate: active\ncustom: keep-me\n---\nKeep useful knowledge.\n"
+	_, err = files.write(ctx, e, tools.FileWriteRequest{FileTarget: target, Text: repaired, Overwrite: true, ExpectedVersion: read.Version})
+	need(t, err)
+	raw, err = files.read(ctx, e, tools.FileReadRequest{FileTarget: target})
+	need(t, err)
+	var current fileReadResult
+	need(t, json.Unmarshal(raw, &current))
+	if current.Text != repaired || len(current.Diagnostics) > 0 {
+		t.Fatal("repair did not clear diagnostics", string(raw))
+	}
+	need(t, d.Commit(t.Context(), f.execution.Principal, ev, "Repaired metadata while retaining useful knowledge."))
+	_, err = d.Undo(t.Context(), f.owner, dream.UndoRequest{ID: run.ID, Mutation: core.Mutation{IdempotencyKey: "undo-repair"}})
+	need(t, err)
+	restored := readFileResult(t, files, f.execution, target)
+	if restored.Text != original {
+		t.Fatal("undo lost malformed original", restored.Text)
+	}
+}

@@ -14,7 +14,7 @@ import (
 // permissions, receipts and result formats remain in the common file tools.
 type filePolicy struct {
 	Check  func(context.Context, core.Execution, tools.FileTarget, ...policy.Action) error
-	Read   func(context.Context, core.Execution, tools.FileTarget) error
+	Read   func(context.Context, core.Execution, tools.FileTarget) (json.RawMessage, error)
 	Before func(context.Context, core.Execution, string, tools.FileTarget, *tools.FileTarget, string, []byte) (func() error, error)
 }
 type filePolicyKey struct{}
@@ -26,12 +26,12 @@ func checkFilePolicy(ctx context.Context, e core.Execution, t tools.FileTarget, 
 	}
 	return nil
 }
-func observeFileRead(ctx context.Context, e core.Execution, t tools.FileTarget) error {
+func observeFileRead(ctx context.Context, e core.Execution, t tools.FileTarget) (json.RawMessage, error) {
 	p, _ := ctx.Value(filePolicyKey{}).(*filePolicy)
 	if p != nil && p.Read != nil {
 		return p.Read(ctx, e, t)
 	}
-	return nil
+	return nil, nil
 }
 func prepareFileMutation(ctx context.Context, e core.Execution, kind string, t tools.FileTarget, to *tools.FileTarget, version string, after []byte) (func() error, error) {
 	p, _ := ctx.Value(filePolicyKey{}).(*filePolicy)

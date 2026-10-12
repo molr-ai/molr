@@ -96,8 +96,18 @@ func TestMemoryPageSkipsPriorBodiesAndDefersUnreadCorruptTail(t *testing.T) {
 		t.Fatal("re-read prior bodies", second, err)
 	}
 	q.Page.Cursor = second.NextCursor
-	if _, err := files.List(t.Context(), "owner", q); core.CodeOf(err) != core.InvalidArgument {
-		t.Fatal("corrupt selected body was hidden", err)
+	third, err := files.List(t.Context(), "owner", q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var diagnosed bool
+	for _, m := range third.Items {
+		if m.Path == ".agents/memory/058.md" {
+			diagnosed = len(m.Diagnostics) > 0 && m.Text == "---\ninvalid header"
+		}
+	}
+	if !diagnosed {
+		t.Fatal("corrupt selected body lost its text or diagnostic")
 	}
 }
 

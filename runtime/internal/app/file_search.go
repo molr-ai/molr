@@ -60,7 +60,7 @@ func (f *resourceFileTools) search(ctx context.Context, e core.Execution, r tool
 		if !seen[result.Matches[i].Path] {
 			target := r.FileTarget
 			target.Path = result.Matches[i].Path
-			if err = observeFileRead(ctx, e, target); err != nil {
+			if _, err = observeFileRead(ctx, e, target); err != nil {
 				return nil, err
 			}
 			seen[target.Path] = true

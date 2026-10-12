@@ -195,6 +195,7 @@ func fileToolError(code core.Code, reason core.Reason, message string) error {
 }
 
 type fileReadResult struct {
+	Diagnostics        json.RawMessage `json:",omitempty"`
 	SandboxID          core.ID
 	ResourceID         core.ID `json:",omitempty"`
 	Path               string
@@ -275,14 +276,16 @@ func (f *resourceFileTools) readText(ctx context.Context, e core.Execution, r to
 		if _, _, err = f.resolve(ctx, e, r.FileTarget, policy.Read); err != nil {
 			return nil, err
 		}
-		if err = observeFileRead(ctx, e, r.FileTarget); err != nil {
+		diagnostics, err := observeFileRead(ctx, e, r.FileTarget)
+		if err != nil {
 			return nil, err
 		}
 		return json.Marshal(struct {
+			Diagnostics                json.RawMessage `json:",omitempty"`
 			Path, Version, Text        string
 			ByteOffset, NextByteOffset int64
 			Truncated                  bool
-		}{fileVirtualPath(r.FileTarget), version, string(data), *r.ByteOffset, *r.ByteOffset + int64(len(data)), more})
+		}{diagnostics, fileVirtualPath(r.FileTarget), version, string(data), *r.ByteOffset, *r.ByteOffset + int64(len(data)), more})
 	}
 	limited := &io.LimitedReader{R: file, N: fileScanLimit + 1}
 	scanner := bufio.NewScanner(limited)
@@ -344,7 +347,7 @@ func (f *resourceFileTools) readText(ctx context.Context, e core.Execution, r to
 	if _, _, err = f.resolve(ctx, e, r.FileTarget, policy.Read); err != nil {
 		return nil, err
 	}
-	if err = observeFileRead(ctx, e, r.FileTarget); err != nil {
+	if out.Diagnostics, err = observeFileRead(ctx, e, r.FileTarget); err != nil {
 		return nil, err
 	}
 	out.Text = content.String()

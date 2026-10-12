@@ -45,24 +45,28 @@ func (s *Coordinator) CheckFileAccess(ctx context.Context, p core.Principal, e e
 }
 
 // RememberRead observes a normal file read; it does not define a tool or format.
-func (s *Coordinator) RememberRead(ctx context.Context, p core.Principal, e event.AssistantEvent, ref memory.Ref) error {
+func (s *Coordinator) RememberRead(ctx context.Context, p core.Principal, e event.AssistantEvent, ref memory.Ref) ([]memory.Diagnostic, error) {
 	s.commitMu.Lock()
 	defer s.commitMu.Unlock()
 	doc, err := s.options.Files.ReadFile(ctx, p.OwnerID, ref)
-	if persistence.Missing(err) || core.CodeOf(err) == core.InvalidArgument {
-		return nil
+	if persistence.Missing(err) {
+		return nil, nil
+	}
+	if core.CodeOf(err) == core.InvalidArgument || core.CodeOf(err) == core.FailedPrecondition {
+		return []memory.Diagnostic{{Field: "file", Message: "Memory metadata could not be inspected; raw file content is still available. Check file size and encoding."}}, nil
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 	r, err := s.run(ctx, p, e)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	r.MemorySources = uniqueSources(r.MemorySources, doc.Sources)
-	return s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+	err = s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		return tx.Put(ctx, runs, persistence.Key(p.OwnerID, r.ID), r)
 	})
+	return doc.Diagnostics, err
 }
 
 // BeforeFileChange records recovery data for the common file executor. All

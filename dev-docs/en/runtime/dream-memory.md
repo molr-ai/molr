@@ -20,6 +20,10 @@ Historical or manually maintained files may include metadata such as `state`, `c
 
 Each memory body is at most 64 KiB; files with frontmatter are at most 80 KiB; Dream core body is at most 6 KiB. Normal context only automatically loads two root directory MEMORY.md files, each with an 8 KiB limit; topics and reviews are not implicitly injected. If existing files explicitly declare core dependencies, they are still validated by exact version; topic references in newly created standard Markdown are maintained by the model, and related core content and paths must be synchronized when moving or deleting topics.
 
+Optional metadata is not a prerequisite for reading a file or starting consolidation. Custom fields remain in the original file. Invalid known fields are returned alongside the raw text in `file_read.Diagnostics`, with the field and repair guidance. The model can repair them, continue with other files, or report unresolved issues in its review; a single file’s format problems do not terminate the dream scheduler or Runtime. With no new evidence, maintenance admission checks file presence without parsing its contents.
+
+Edits and undo preserve original bytes and version checks. Invalid metadata does not prevent repairing writable files. When damaged YAML, duplicate confirmation keys, or an ambiguous confirmation type prevents reliably determining `confirmed`, that file stays read-only in Dream pending owner repair; consolidation of other files continues. Shared files and explicitly confirmed files remain read-only.
+
 ## File Tool Execution
 
 Dream and normal assistants share the same set of file tool definitions, parameter parsing, executors, permission checks, operation receipts, and result displays. The execution context restricts Dream to the seven tools in the table below via a visible tool whitelist; the whitelist is also validated at the execution entry point, so the model cannot bypass it by directly requesting hidden tools. Dream does not open plugins, Shell, remote storage, message publishing, or authorization requests.

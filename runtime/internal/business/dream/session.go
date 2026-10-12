@@ -163,16 +163,9 @@ func (s *Coordinator) startSession(ctx context.Context, c Config, manual bool, n
 	}
 	maintenance := false
 	if len(v.Sources) == 0 {
-		// Scheduling has no Agent execution identity yet. Read only this
-		// already-authorized assistant's file metadata through the local store.
-		page, err := s.options.Files.List(ctx, c.OwnerID, memory.Query{Scope: memory.Assistant, AssistantID: c.AssistantID, Page: core.PageRequest{Limit: 1}})
+		maintenance, err = s.options.Files.HasFiles(ctx, c.OwnerID, c.AssistantID)
 		if err != nil {
 			return Run{}, err
-		}
-		for _, m := range page.Items {
-			if m.Path != "" {
-				maintenance = true
-			}
 		}
 	}
 

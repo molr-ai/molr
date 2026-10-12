@@ -69,7 +69,14 @@ type Dependency struct {
 	Version string `yaml:"version"`
 }
 
+// Diagnostic describes optional metadata without treating file contents as a protocol.
+type Diagnostic struct {
+	Field, Message string
+}
+
 type Memory struct {
+	Diagnostics      []Diagnostic `json:",omitempty"`
+	MetadataReadOnly bool         `json:"-"`
 	Ref
 	OwnerID              core.ID
 	Summary              bool
