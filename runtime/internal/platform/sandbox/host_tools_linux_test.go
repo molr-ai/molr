@@ -26,7 +26,7 @@ func TestHostToolsUsesRuntimeIdentity(t *testing.T) {
 		t.Fatalf("unexpected identity result: %v", err)
 	}
 	if wantRejected {
-		caps, err := New(Options{QuotaStore: quotaTestStore(t), HostTools: true}).Capabilities(t.Context())
+		caps, err := New(Options{Bwrap: os.Getenv("MOLR_TEST_BWRAP"), QuotaStore: quotaTestStore(t), HostTools: true}).Capabilities(t.Context())
 		if err != nil || caps.Shell || caps.Reason != "sandbox_host_tools_identity_required" {
 			t.Fatalf("identity bypass: %+v %v", caps, err)
 		}
@@ -45,7 +45,7 @@ func hostToolsRunner(t *testing.T) *Runner {
 	if err := os.Chmod(exe, 0755); err != nil {
 		t.Fatal(err)
 	}
-	r := New(Options{QuotaStore: quotaTestStore(t), HostTools: true, Helper: exe, PrivateRoot: t.TempDir(), CgroupRoot: os.Getenv("MOLR_SANDBOX_CGROUP"), MinFreeDiskBytes: 1, Authorize: func(context.Context, core.Execution, platform.Command) error { return nil }})
+	r := New(Options{Bwrap: os.Getenv("MOLR_TEST_BWRAP"), QuotaStore: quotaTestStore(t), HostTools: true, Helper: exe, PrivateRoot: t.TempDir(), CgroupRoot: os.Getenv("MOLR_SANDBOX_CGROUP"), MinFreeDiskBytes: 1, Authorize: func(context.Context, core.Execution, platform.Command) error { return nil }})
 	t.Cleanup(func() {
 		if err := r.Close(); err != nil {
 			t.Error(err)

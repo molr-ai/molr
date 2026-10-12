@@ -77,7 +77,7 @@ func TestLinuxGPUIsolation(t *testing.T) {
 	}
 	var allowed atomic.Bool
 	allowed.Store(true)
-	r := New(Options{QuotaStore: quotaTestStore(t), GPU: platform.GPUConfig{Enabled: true, Devices: ids}, HostTools: true, PrivateRoot: t.TempDir(), Helper: exe, MinFreeDiskBytes: 1, Authorize: func(context.Context, core.Execution, platform.Command) error {
+	r := New(Options{Bwrap: os.Getenv("MOLR_TEST_BWRAP"), QuotaStore: quotaTestStore(t), GPU: platform.GPUConfig{Enabled: true, Devices: ids}, HostTools: true, PrivateRoot: t.TempDir(), Helper: exe, MinFreeDiskBytes: 1, Authorize: func(context.Context, core.Execution, platform.Command) error {
 		if !allowed.Load() {
 			return unavailable("test_revoked")
 		}

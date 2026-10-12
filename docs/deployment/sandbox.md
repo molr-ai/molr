@@ -104,7 +104,7 @@ Runtime 不统计每次执行的文件变更总量，也不遍历大目录；产
 
 直接目录授权覆盖目录内实际文件对象，遵循普通硬链接语义；如果用户事先将某个文件硬链接到已授权目录，其内容也在该目录授权内。Shell 无法利用未挂载的宿主路径新建指向私有数据的链接。现有逐文件工具仍保留更严格的链接检查，不能将两种访问模型混为一谈。
 
-原有 Bubblewrap、seccomp、去除 capabilities、最小设备集、空环境及 FD 隔离继续生效。Shell 禁止宿主 Unix socket、VSOCK、Netlink、进一步 namespace 操作和相关绕过系统调用；GPU 按计算授权提供受控设备访问，其他硬件直通和宿主软件安装不提供；指定 Shell 端口可通过 [TCP 转发](../guides/files-and-commands.md#shell-端口转发)访问。
+原有 Bubblewrap、seccomp、去除 capabilities、最小设备集、空环境及 FD 隔离继续生效。Shell 禁止宿主 Unix socket、VSOCK、Netlink、新建 mount namespace、加入其他 namespace和相关绕过系统调用；GPU 按计算授权提供受控设备访问，其他硬件直通和宿主软件安装不提供；指定 Shell 端口可通过 [TCP 转发](../guides/files-and-commands.md#shell-端口转发)访问。
 
 授权更新/撤销、资源断开与启动串行协调，返回成功前等待相关执行终止；当前保守地停止该所有者的全部活动 Shell。授权到期设置截止时间，其他执行条件和磁盘空间定期重查。取消覆盖另建 session 的子进程，未知结果不自动重跑。
 
@@ -112,7 +112,7 @@ Runtime 不统计每次执行的文件变更总量，也不遍历大目录；产
 
 Shell 默认没有外部网络。获得网络资源授权后，Runtime 自动选择当前助理在同一沙盒中的有效授权；`network_mode: "none"` 可关闭本次出站联网。允许联网时，Runtime 为本次执行创建独立的 user/net namespace 和 TUN 网卡，自动准备内部 IP、路由及 DNS。程序使用正常 TCP/UDP socket，无需 `HTTP_PROXY` 等环境变量。宿主默认网络命名空间的网卡、路由、防火墙、DNS 与 IP forwarding 不受修改；普通运行不需要宿主 root。首次安装系统依赖或系统缺少 TUN/user namespace 支持时，需要安装流程或管理员解决，运行中的 Runtime 不调用 sudo 或放宽全局安全策略。
 
-网络命名空间由宿主内核管理，宿主管理员仍能检查它；“隔离”不表示对宿主不可见。Runtime 的网络辅助进程使用宿主现有网络创建普通出站连接。可信初始化过程仅在执行专属的用户/网络命名空间内拥有管理权限，最终脚本仍没有 capabilities，且保留 seccomp 和禁止创建新 namespace 的限制。
+网络命名空间由宿主内核管理，宿主管理员仍能检查它；“隔离”不表示对宿主不可见。Runtime 的网络辅助进程使用宿主现有网络创建普通出站连接。可信初始化过程仅在执行专属的用户/网络命名空间内拥有管理权限，最终脚本仍没有 capabilities，且保留 seccomp。允许创建嵌套 user／PID／network namespace 进一步收窄隔离，仍禁止新建 mount namespace 或加入其他 namespace。
 
 ### 内置可选预设
 
@@ -285,9 +285,27 @@ python3 runtime/scripts/check-host-tools.py host-sandbox-connection.json tool-re
 ```sh
 export AGENT_BROWSER_SOCKET_DIR=/tmp/agent-browser
 export AGENT_BROWSER_EXECUTABLE_PATH=/resources/chromium/chrome
-export AGENT_BROWSER_ARGS=--no-sandbox,--disable-dev-shm-usage
+export AGENT_BROWSER_ARGS=--disable-dev-shm-usage
 export TOKIO_WORKER_THREADS=2 RAYON_NUM_THREADS=2
 mkdir -p "$AGENT_BROWSER_SOCKET_DIR"
 ```
 
-这里关闭 Chromium 自身的嵌套沙盒，由 Molr 外层沙盒提供隔离；浏览器各进程共享本次 Shell 已授权范围。此配置不适用于宿主直接运行或 Full Access。Molr 继续禁止额外 namespace 和宿主 IPC，访问网站仍需网络授权。已验证的计算额度起点为内存 2 GiB、512 个进程／线程、200% CPU、512 MiB 临时空间，可按实际负载调整授权额度。程序安装、实时浏览器画面和用户接管是独立能力，不由本次沙盒改动提供。
+优先保留 Chromium 原生沙盒。Molr 允许嵌套 user／PID／network namespace，继续禁止 mount namespace、挂载 API、setns、宿主 IPC 和特权进程检查调用。子命名空间中的 capabilities 不赋予父沙盒或宿主权限；联网仍经过授权网关，所有后代仍受执行 cgroup 约束。联网与断网 Shell 均保持服务账号的数字 UID／GID，只调整命名空间映射，不改变实际宿主身份或文件权限。IPC 代理也遵守调用者的内层 chroot，不能借助外层 `/tmp` 连回内层之外。
+
+运行 `agent-browser open chrome://sandbox` 和 `agent-browser get text body` 验证 Namespace、PID／network namespace、Seccomp-BPF、TSYNC 已启用。不能仅凭页面能打开判断：agent-browser 检测到 root 时可能自动加入 `--no-sandbox`。宿主工具模式要求非 root 服务账号。
+
+Ubuntu 发行版的 Bubblewrap AppArmor 子配置可能阻止嵌套命名空间，即使 Molr 过滤器已允许。仓库提供明确的应用级 userns 豁免配置 `runtime/configs/apparmor/molr-bwrap` 和失败时拒绝启动的 `runtime/scripts/bwrap-userns.sh`。需由管理员审查并加载；该 profile 自身不构成沙盒，必须与 Molr 完整隔离策略配合使用。它不关闭全局 AppArmor，也不修改既有 profile。从源码仓库根目录执行，以下以安装目录 `/opt/molr` 为例：
+
+```sh
+sudo install -m 0644 runtime/configs/apparmor/molr-bwrap /etc/apparmor.d/molr-bwrap
+sudo apparmor_parser -r /etc/apparmor.d/molr-bwrap
+sudo install -D -m 0755 runtime/scripts/bwrap-userns.sh /opt/molr/libexec/bwrap-userns
+```
+
+合并到既有部署配置后重启 Runtime，并重新检查已认证的 `/api/sandbox` 能力状态：
+
+```json
+{"sandbox":{"host_tools":true,"bubblewrap":"/opt/molr/libexec/bwrap-userns"}}
+```
+
+宿主无法支持嵌套沙盒时，仍可显式使用 `AGENT_BROWSER_ARGS=--no-sandbox,--disable-dev-shm-usage` 兼容。它关闭 Chromium 内层防护，浏览器各进程共享本次 Shell 的授权范围，由 Molr 外层隔离约束，不适用于宿主直接执行或 Full Access。已验证的计算额度起点为内存 2 GiB、512 个进程／线程、200% CPU、512 MiB 临时空间。程序安装、实时浏览器画面和用户接管仍属于独立能力。

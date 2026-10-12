@@ -57,7 +57,7 @@ func TestMain(m *testing.M) {
 				os.Exit(1)
 			}
 		}
-		if unix.Unshare(unix.CLONE_NEWUSER) == nil || unix.PtraceAttach(os.Getppid()) == nil {
+		if unix.Unshare(unix.CLONE_NEWNS) == nil || unix.PtraceAttach(os.Getppid()) == nil {
 			os.Exit(1)
 		}
 		fmt.Print("boundaries-ok")
@@ -97,7 +97,7 @@ func TestLinuxAutomaticPreparationUsesOrdinaryDirectories(t *testing.T) {
 		t.Fatal(err)
 	}
 	private := t.TempDir()
-	r := New(Options{QuotaStore: quotaTestStore(t), PrivateRoot: private, Helper: exe, MinFreeDiskBytes: 1, Authorize: func(context.Context, core.Execution, platform.Command) error { return nil }})
+	r := New(Options{Bwrap: os.Getenv("MOLR_TEST_BWRAP"), QuotaStore: quotaTestStore(t), PrivateRoot: private, Helper: exe, MinFreeDiskBytes: 1, Authorize: func(context.Context, core.Execution, platform.Command) error { return nil }})
 	defer r.Close()
 	if err := r.Prepare(t.Context()); err != nil {
 		t.Fatal(err)
@@ -150,7 +150,7 @@ func TestLinuxAutomaticSupervisorDelegatesWithoutCallerConfiguration(t *testing.
 		t.Fatal(err)
 	}
 	defer closeEnvironment()
-	r := New(Options{QuotaStore: quotaTestStore(t), PrivateRoot: t.TempDir(), Helper: exe, CgroupRoot: root, MinFreeDiskBytes: 1, Authorize: func(context.Context, core.Execution, platform.Command) error { return nil }})
+	r := New(Options{Bwrap: os.Getenv("MOLR_TEST_BWRAP"), QuotaStore: quotaTestStore(t), PrivateRoot: t.TempDir(), Helper: exe, CgroupRoot: root, MinFreeDiskBytes: 1, Authorize: func(context.Context, core.Execution, platform.Command) error { return nil }})
 	defer r.Close()
 	if err := r.Prepare(t.Context()); err != nil {
 		t.Fatal(err)
@@ -323,7 +323,7 @@ func integrationRunner(t *testing.T, auth func(context.Context, core.Execution, 
 	if auth == nil {
 		auth = func(context.Context, core.Execution, platform.Command) error { return nil }
 	}
-	r := New(Options{QuotaStore: quotaTestStore(t), Bwrap: "/usr/bin/bwrap", RootFS: root, Helper: exe, WorkRoot: work, MinFreeDiskBytes: 1, PrivateRoot: t.TempDir(), CgroupRoot: os.Getenv("MOLR_SANDBOX_CGROUP"), Authorize: auth})
+	r := New(Options{QuotaStore: quotaTestStore(t), Bwrap: os.Getenv("MOLR_TEST_BWRAP"), RootFS: root, Helper: exe, WorkRoot: work, MinFreeDiskBytes: 1, PrivateRoot: t.TempDir(), CgroupRoot: os.Getenv("MOLR_SANDBOX_CGROUP"), Authorize: auth})
 	t.Cleanup(func() {
 		if e := r.Close(); e != nil {
 			t.Error(e)

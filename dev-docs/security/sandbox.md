@@ -36,7 +36,7 @@ Linux 后端已位于 `runtime/internal/platform/sandbox`，复用 `platform.Run
 
 当前后端复用宿主工具模式提供的只读驱动库，以固定 `nvidia-smi` XML 输出读取整卡 UUID、名称、显存和设备 minor。只注入所选 GPU、`nvidiactl` 和 `nvidia-uvm`，不注入宿主管理 socket、显示设备或其他 GPU。探针使用系统 Python 的 ctypes 直接调用 CUDA Driver API，验证实际可用设备集合及少量显存读写，不安装 CUDA SDK 或 Python 包。GPU 状态通过 `Info.GPUs` 独立公布。
 
-普通 Shell 与 GPU Shell 使用同一套受控 Unix IPC 策略，支持 STREAM／SEQPACKET 及对应的匿名 socketpair；DGRAM 仍禁止，避免通过 `sendto` 访问宿主路径。所有 `bind`／`connect` 由同一沙盒内的可信 supervisor 模拟：先校验通知 ID，以 pidfd 固定 socket FD，并复制 sockaddr；不使用 `SECCOMP_USER_NOTIF_FLAG_CONTINUE`。抽象 Unix 地址限于执行专属网络命名空间，路径地址仅允许当前执行的私有 `/tmp`。`openat2` 拒绝符号链接、magic link、跨挂载及路径逃逸；连接固定 socket inode，绑定固定父目录并原子创建末级节点，避免路径替换竞争。`/work`、资源目录及相对路径中的 socket 不允许绑定或连接，即使文件可读写。
+普通 Shell 与 GPU Shell 使用同一套受控 Unix IPC 策略，支持 STREAM／SEQPACKET 及对应的匿名 socketpair；DGRAM 仍禁止，避免通过 `sendto` 访问宿主路径。所有 `bind`／`connect` 由同一沙盒内的可信 supervisor 模拟：先校验通知 ID，以 pidfd 固定 socket FD，并复制 sockaddr；不使用 `SECCOMP_USER_NOTIF_FLAG_CONTINUE`。抽象 Unix 地址限于执行专属网络命名空间，路径地址经调用者的 root 解析，且必须属于当前执行的私有 `/tmp` 文件系统；代理固定 root FD 并核对 tmpfs 设备，不能绕过内层 chroot。`openat2` 拒绝符号链接、magic link、跨挂载及路径逃逸；连接固定 socket inode，绑定固定父目录并原子创建末级节点，避免路径替换竞争。`/work`、资源目录及相对路径中的 socket 不允许绑定或连接，即使文件可读写。
 
 脚本仍不能使用 `pidfd_getfd`、`process_vm_readv`、ptrace、mknod 或绕过网络的系统调用；仅可信 supervisor 使用前两项模拟连接。普通 Shell 也依赖 seccomp 通知及 supervisor 读取子进程 FD 的能力，真实启动／网络探针失败时不可用，不放宽宿主安全设置。supervisor 作为 child subreaper 接管双重 fork 后脱离的后代，并回收退出的子进程，保持 Yama 所需的祖先关系，不授予脚本额外调试权限。每次执行最多同时处理 32 个连接通知，超过返回 EAGAIN；supervisor 与所有子进程处于原有执行 cgroup，统一计入资源限制、取消及撤权清理。
 
@@ -90,7 +90,7 @@ Shell 执行需要计算资源的 `execute`；只读挂载需要存储 `read`，
 
 - 沙盒 supervisor 与 exec helper 在启动环境中显式设置 `GOMAXPROCS=2`，使 Go 包初始化阶段也遵守 helper 的并行度限制，避免高核数主机在进入主函数前耗尽执行的 PID 配额。业务 Shell 的并行度继续依据本次 CPU 限额设置。
 - 允许执行内受控 Unix STREAM／SEQPACKET 通信及匿名 socketpair；禁止 Unix DGRAM、宿主路径 socket 和跨执行抽象 socket。
-- 去除 Linux capabilities，保持 `no_new_privs`，禁止沙盒继续创建或加入能改变边界的 namespace。使用架构匹配、版本化 seccomp 配置限制 mount、ptrace、BPF、关键 ioctl 和绕过网络限制的系统调用；不能简单禁止所有 clone 而破坏普通子进程与线程。
+- 去除 Linux capabilities，保持 `no_new_privs`，允许嵌套 user／PID／network namespace，继续禁止 mount／IPC／UTS／cgroup／time namespace、setns 和挂载 API；子命名空间内的 capabilities 不赋予父命名空间权限。使用架构匹配、版本化 seccomp 配置限制 mount、ptrace、BPF、关键 ioctl 和绕过网络限制的系统调用；不能简单禁止所有 clone 而破坏普通子进程与线程。
 - TTY 使用专属 PTY 与新 session，不继承宿主控制终端。非 TTY 仍无 stdin；stdout/stderr 有总量上限。Shell 运行所有下载程序、脚本和解释器时都继承相同边界。
 - PTY 的 session 在 Bubblewrap 进入 PID namespace 前创建；内部 helper 的 `supervise` 在启动 TTY 子进程时设置 `SysProcAttr.Foreground`，在当前 PID namespace 内创建子进程组并设置终端前台，再执行 Shell。该操作使用父进程的 stdin FD，发生在恢复子进程信号掩码之前，避免 SIGTTOU 阻塞。初始化失败按现有 helper 启动失败路径返回 125，不继续执行脚本。非 TTY 路径不设置此属性。
 - 每次执行在独立 cgroup 中，设置 CPU、内存、swap、PID 数等限制；在不可信代码开始之前完成限额配置及进程归属，不能先运行后补限制。输出、墙钟时长、并发和网络传输量另有限制。
@@ -120,7 +120,7 @@ Bubblewrap 可加载 seccomp BPF，并支持阻止沙盒再次创建 user namesp
 
 ### 网络
 
-未指定网络资源时保持断网。指定资源时由 Runtime 建立执行专属的 user/net namespace，在其内部自动创建 TUN、地址、路由和只读 resolver 文件。最终 Bubblewrap 仅保留这个隔离网络，绝不共享宿主网络；继续使用 `--disable-userns`、`--assert-userns-disabled`、去除 capabilities 和 seccomp。
+未指定网络资源时保持断网。指定资源时由 Runtime 建立执行专属的 user/net namespace，在其内部自动创建 TUN、地址、路由和只读 resolver 文件。最终 Bubblewrap 仅保留这个隔离网络，绝不共享宿主网络；继续去除 capabilities 并强制 seccomp。最终 user namespace 恢复服务账号的数字 UID／GID，底层宿主身份不变，不将可信网络初始化阶段的内部 root 映射作为 Shell 身份。
 
 Ubuntu 的 Bubblewrap 子 AppArmor 配置可能禁止网络管理；使用独立可信初始化程序进入刚创建且已固定 FD 的 user/net namespace 建网，不修改全局安全策略。keeper 与网络栈位于独立、受限的执行 cgroup（256 MiB / 64 PID / 100% CPU）。通过匿名 SOCK_SEQPACKET 传递 TUN FD、就绪与授权消息，控制消息上限 512 字节，不向脚本挂载宿主控制 socket，也不接受脚本提供 namespace 路径或身份。初始化完成前不执行脚本，网络栈退出立即终止执行，回收失败会关闭 Runner。
 
@@ -136,7 +136,7 @@ gVisor Go netstack 将流量转换为普通 TCP/UDP 连接。传输协议、目�
 
 `forward_ports` 在工具层及 platform 层校验，每次执行最多 4 个唯一有效端口。Runtime 在启动命令前分配监听器，回执携带任务 `Forwards`；目标固定为原执行的 IPv4 回环，不接受宿主地址、PID 或 namespace 路径。仅有转发而无出站授权时也建立执行专属网络会话，但出口规则为空，仍禁止外联。
 
-网络 keeper 的 user/net namespace FD 在其生命周期内固定持有；启动脚本使用副本，不再提前关闭原 FD。每次转发由受限 helper 经固定 FD 进入对应 namespace，连接 `127.0.0.1:<port>`，通过私有 SCM_RIGHTS 通道将已连接 TCP socket 返回父进程。socket 保持其原 namespace，helper 不持续充当数据代理。helper 纳入执行的辅助 cgroup，创建过程有超时；最终脚本仍无 namespace 管理权。执行完整身份和声明端口在每次拨号校验，本机同时重查原授权。
+网络 keeper 的 user/net namespace FD 在其生命周期内固定持有；启动脚本使用副本，不再提前关闭原 FD。每次转发由受限 helper 经固定 FD 进入对应 namespace，连接 `127.0.0.1:<port>`，通过私有 SCM_RIGHTS 通道将已连接 TCP socket 返回父进程。socket 保持其原 namespace，helper 不持续充当数据代理。helper 纳入执行的辅助 cgroup，创建过程有超时；最终脚本不能加入 keeper 的 namespace 或修改挂载。执行完整身份和声明端口在每次拨号校验，本机同时重查原授权。
 
 本机调用 Runner.DialForward，远程经 `/v2/sandbox/forward` 的认证 HTTP/1.1 Upgrade（`molr-tcp-v1`）建立流。沿用受控拨号、固定 TLS 证书、服务令牌和拒绝浏览器 Origin；该端点仅在独立 Sandbox 服务。Manager 校验活动执行身份及租约，Runner 再检查原执行与端口。已建立的流使用有界帧传递原始字节及半关闭，支持 WebSocket、SSE 和需要写半关闭后读取响应的 TCP 协议；流不写入操作账本，也不占普通 JSON 请求的并发槽。
 
@@ -195,6 +195,6 @@ bash scripts/test-sandbox-linux.sh -count=1 -v
 
 ## 浏览器兼容验收
 
-不新增浏览器专用沙盒或权限开关。Chromium 使用 Molr 外层隔离，显式以 `--no-sandbox` 关闭浏览器自己的嵌套沙盒；Molr 继续禁止创建／加入额外 namespace，保留 `--disable-userns`、capability 清理、文件范围、受控网络及 cgroup。该参数不能视为宿主直接执行或 Full Access 的安全配置。Chromium 内部进程不再互相提供其原生沙盒防护，它们共同拥有本次 Shell 的已授权范围。
+不新增浏览器专用沙盒或权限开关。允许嵌套 user／PID／network namespace 以支持 Chromium 原生沙盒；过滤器继续禁止挂载 API、mount namespace、setns、ptrace、设备创建与网络绕过。联网与断网执行的 UID／GID 映射保持实际宿主身份不变。Unix IPC 代理同时遵守通知线程的 root 与外层私有 tmpfs 边界，避免绕过内层 chroot。AppArmor 受限宿主需管理员审查并加载允许 userns 的 profile 和启动器，见[部署说明](../../docs/deployment/sandbox.md#本地-ipc-与浏览器程序)。`--no-sandbox` 仍是依赖 Molr 外层边界的显式兼容方式，不包含 Chromium 内部进程防护。
 
-`MOLR_SANDBOX_HOST_TOOLS=1 MOLR_TEST_AGENT_BROWSER=/absolute/agent-binary-directory MOLR_TEST_CHROMIUM=/absolute/chromium-directory runtime/scripts/test-sandbox-linux.sh -run 'TestLinuxPrivateSockets|TestLinuxAgentBrowser' -v` 使用事先安装并审查的程序资产，不在测试中下载依赖。当前 Linux amd64 夹具需要目录内的 `agent-browser-linux-x64` 与 `chrome`。浏览器测试覆盖结构读取、填写、点击、截图、获准 HTTP 和未授权端口拒绝；IPC 测试覆盖匿名／抽象／路径通信、宿主 socket、符号链接、路径竞争及 DGRAM 拒绝。完整回归仍运行原有文件、网络、cgroup、FD 泄漏、撤权和 TTY 测试；GPU 测试按既有方式显式开启。
+`MOLR_SANDBOX_HOST_TOOLS=1 MOLR_TEST_AGENT_BROWSER=/absolute/agent-binary-directory MOLR_TEST_CHROMIUM=/absolute/chromium-directory runtime/scripts/test-sandbox-linux.sh -run 'TestLinuxPrivateSockets|TestLinuxAgentBrowser|TestLinuxNestedNamespaceBoundaries|TestLinuxExecutionIdentityWithNetworking' -v` 使用事先审查并安装的资产，Linux amd64 夹具要求目录内有 `agent-browser-linux-x64` 与 `chrome`。必要时设置 `MOLR_TEST_BWRAP` 指向可信启动器；设置 `MOLR_TEST_CHROMIUM_SANDBOX=1` 强制核验原生沙盒状态，启动失败不自动跳过或回退。测试覆盖读取、填写、点击、截图、获准 HTTP、未授权端口拒绝、沙盒状态、嵌套 mount／setns 拒绝、chroot IPC 隔离及 UID／GID 一致性。不设置原生标志时验证原有外层沙盒兼容路径。完整回归仍包括文件、网络、cgroup、FD 泄漏、取消、撤权、TTY 与显式开启的 GPU 检查。

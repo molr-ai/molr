@@ -29,7 +29,7 @@ func socketFilters(shell, broker bool) []unix.SockFilter {
 		f = append(f, eq(133), deny) // legacy mknod; arm64 only provides mknodat
 		f = append(f, unix.SockFilter{Code: unix.BPF_JMP | unix.BPF_JGE | unix.BPF_K, Jf: 1, K: 0x40000000}, deny)
 	}
-	for _, n := range []uint32{unix.SYS_MKNODAT, unix.SYS_QUOTACTL, unix.SYS_QUOTACTL_FD, unix.SYS_MOUNT, unix.SYS_UMOUNT2, unix.SYS_PIVOT_ROOT, unix.SYS_PTRACE, unix.SYS_PROCESS_VM_READV, unix.SYS_PROCESS_VM_WRITEV, unix.SYS_PIDFD_GETFD, unix.SYS_BPF, unix.SYS_PERF_EVENT_OPEN, unix.SYS_USERFAULTFD, unix.SYS_IO_URING_SETUP, unix.SYS_IO_URING_ENTER, unix.SYS_IO_URING_REGISTER, unix.SYS_SETNS, unix.SYS_UNSHARE, unix.SYS_OPEN_BY_HANDLE_AT, unix.SYS_NAME_TO_HANDLE_AT, unix.SYS_FSOPEN, unix.SYS_FSCONFIG, unix.SYS_FSMOUNT, unix.SYS_MOVE_MOUNT, unix.SYS_OPEN_TREE, unix.SYS_MOUNT_SETATTR, unix.SYS_KEXEC_LOAD, unix.SYS_REBOOT, unix.SYS_INIT_MODULE, unix.SYS_FINIT_MODULE, unix.SYS_DELETE_MODULE, unix.SYS_ADD_KEY, unix.SYS_REQUEST_KEY, unix.SYS_KEYCTL} {
+	for _, n := range []uint32{unix.SYS_MKNODAT, unix.SYS_QUOTACTL, unix.SYS_QUOTACTL_FD, unix.SYS_MOUNT, unix.SYS_UMOUNT2, unix.SYS_PIVOT_ROOT, unix.SYS_PTRACE, unix.SYS_PROCESS_VM_READV, unix.SYS_PROCESS_VM_WRITEV, unix.SYS_PIDFD_GETFD, unix.SYS_BPF, unix.SYS_PERF_EVENT_OPEN, unix.SYS_USERFAULTFD, unix.SYS_IO_URING_SETUP, unix.SYS_IO_URING_ENTER, unix.SYS_IO_URING_REGISTER, unix.SYS_SETNS, unix.SYS_OPEN_BY_HANDLE_AT, unix.SYS_NAME_TO_HANDLE_AT, unix.SYS_FSOPEN, unix.SYS_FSCONFIG, unix.SYS_FSMOUNT, unix.SYS_MOVE_MOUNT, unix.SYS_OPEN_TREE, unix.SYS_MOUNT_SETATTR, unix.SYS_KEXEC_LOAD, unix.SYS_REBOOT, unix.SYS_INIT_MODULE, unix.SYS_FINIT_MODULE, unix.SYS_DELETE_MODULE, unix.SYS_ADD_KEY, unix.SYS_REQUEST_KEY, unix.SYS_KEYCTL} {
 		if broker && !shell && (n == unix.SYS_PIDFD_GETFD || n == unix.SYS_PROCESS_VM_READV) {
 			continue
 		}
@@ -41,7 +41,11 @@ func socketFilters(shell, broker bool) []unix.SockFilter {
 	// clone3's pointer arguments cannot be safely inspected by classic BPF. ENOSYS
 	// lets libc fall back to clone, whose namespace flags we can inspect.
 	f = append(f, eq(unix.SYS_CLONE3), unix.SockFilter{Code: unix.BPF_RET | unix.BPF_K, K: unix.SECCOMP_RET_ERRNO | uint32(unix.ENOSYS)})
-	f = append(f, unix.SockFilter{Code: unix.BPF_JMP | unix.BPF_JEQ | unix.BPF_K, Jf: 4, K: unix.SYS_CLONE}, load(16), unix.SockFilter{Code: unix.BPF_JMP | unix.BPF_JSET | unix.BPF_K, Jf: 1, K: unix.CLONE_NEWNS | unix.CLONE_NEWUSER | unix.CLONE_NEWNET | unix.CLONE_NEWPID | unix.CLONE_NEWIPC | unix.CLONE_NEWUTS | unix.CLONE_NEWCGROUP}, deny, load(0))
+	f = append(f, unix.SockFilter{Code: unix.BPF_JMP | unix.BPF_JEQ | unix.BPF_K, Jf: 4, K: unix.SYS_CLONE}, load(16), unix.SockFilter{Code: unix.BPF_JMP | unix.BPF_JSET | unix.BPF_K, Jf: 1, K: unix.CLONE_NEWNS | unix.CLONE_NEWIPC | unix.CLONE_NEWUTS | unix.CLONE_NEWCGROUP}, deny, load(0))
+	// Nested sandboxes may create USER/PID/NET namespaces. Mount, IPC, UTS,
+	// cgroup and time namespaces, setns and all mount APIs remain forbidden.
+	f = append(f, unix.SockFilter{Code: unix.BPF_JMP | unix.BPF_JEQ | unix.BPF_K, Jf: 4, K: unix.SYS_UNSHARE}, load(16), unix.SockFilter{Code: unix.BPF_JMP | unix.BPF_JSET | unix.BPF_K, Jf: 1, K: ^uint32(unix.CLONE_NEWUSER | unix.CLONE_NEWNET | unix.CLONE_NEWPID)}, deny, load(0))
+
 	if shell && broker {
 		for _, n := range []uint32{unix.SYS_CONNECT, unix.SYS_BIND} {
 			f = append(f, eq(n), unix.SockFilter{Code: unix.BPF_RET | unix.BPF_K, K: unix.SECCOMP_RET_USER_NOTIF})

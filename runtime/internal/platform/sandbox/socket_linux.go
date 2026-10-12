@@ -185,7 +185,7 @@ func emulateSocket(listener int, n connectNotification) error {
 		return err
 	}
 	if domain == unix.AF_UNIX && len(address) > 2 && address[2] != 0 {
-		translated, closePath, err := privateSocketAddress(address, n.Number == unix.SYS_BIND)
+		translated, closePath, err := privateSocketAddress(int(n.PID), address, n.Number == unix.SYS_BIND)
 		if err != nil {
 			return err
 		}
@@ -205,13 +205,14 @@ func emulateSocket(listener int, n connectNotification) error {
 	return nil
 }
 
-// Resolve against the execution's immutable /tmp mount, never a caller's cwd.
+// Resolve /tmp through the calling task's root, never bypassing an inner chroot.
+// Its inode must still belong to the execution's immutable private tmpfs.
 // openat2 refuses symlinks, magic links, mount crossings and '..' escapes. Pin
 // the existing socket for connect, or its parent for atomic bind creation. The
 // /proc/self/fd address refers to this supervisor's pinned inode, not to mutable
 // caller memory. Inodes from granted host directories cannot be hard-linked into
 // this tmpfs. A bind leaf swapped for a symlink fails with EADDRINUSE.
-func privateSocketAddress(address []byte, bind bool) ([]byte, func(), error) {
+func privateSocketAddress(pid int, address []byte, bind bool) ([]byte, func(), error) {
 	if len(address) < 3 || binary.NativeEndian.Uint16(address) != unix.AF_UNIX {
 		return nil, nil, unix.EACCES
 	}
@@ -220,11 +221,21 @@ func privateSocketAddress(address []byte, bind bool) ([]byte, func(), error) {
 		return nil, nil, unix.EACCES
 	}
 	relative := strings.TrimPrefix(name, "/tmp/")
-	root, err := unix.Open("/tmp", unix.O_PATH|unix.O_DIRECTORY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	callerRoot, err := unix.Open("/proc/"+strconv.Itoa(pid)+"/root", unix.O_PATH|unix.O_DIRECTORY|unix.O_CLOEXEC, 0)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, unix.EACCES
+	}
+	defer unix.Close(callerRoot)
+	root, err := unix.Openat(callerRoot, "tmp", unix.O_PATH|unix.O_DIRECTORY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		return nil, nil, unix.EACCES
 	}
 	defer unix.Close(root)
+	var trusted, candidate unix.Stat_t
+	if unix.Stat("/tmp", &trusted) != nil || unix.Fstat(root, &candidate) != nil || candidate.Dev != trusted.Dev {
+		return nil, nil, unix.EACCES
+	}
+
 	how := unix.OpenHow{Flags: unix.O_PATH | unix.O_CLOEXEC, Resolve: unix.RESOLVE_BENEATH | unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_XDEV}
 	target := relative
 	leaf := ""

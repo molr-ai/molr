@@ -104,7 +104,7 @@ Mount sources are resolved by resource ID and authorized relative paths. It does
 
 Direct directory authorization covers actual file objects within the directory, following normal hard link semantics. If a user previously hard-linked a file to an authorized directory, its content is also within that directory's authorization. Shell cannot use unmounted host paths to create new links pointing to private data. Existing per-file tools retain stricter link checks. Do not conflate the two access models.
 
-Original Bubblewrap, seccomp, capability removal, minimal device set, empty environment, and FD isolation remain in effect. Shell prohibits host Unix sockets, VSOCK, Netlink, further namespace operations, and related bypass system calls. GPU provides controlled device access according to compute authorization. Other hardware passthrough and host software installation are not provided. Specified Shell ports can be accessed via [TCP Forwarding](../guides/files-and-commands.md#shell-port-forwarding).
+Original Bubblewrap, seccomp, capability removal, minimal device set, empty environment, and FD isolation remain in effect. Shell prohibits host Unix sockets, VSOCK, Netlink, mount namespace creation, joining namespaces, and related bypass system calls. GPU provides controlled device access according to compute authorization. Other hardware passthrough and host software installation are not provided. Specified Shell ports can be accessed via [TCP Forwarding](../guides/files-and-commands.md#shell-port-forwarding).
 
 Authorization updates/revocations, resource disconnections, and startups are coordinated serially. It waits for related executions to terminate before returning success. Currently, it conservatively stops all active Shells for that owner. Authorization expiration sets a deadline. Other execution conditions and disk space are re-checked periodically. Cancellation covers child processes that create new sessions. Unknown results are not automatically rerun.
 
@@ -112,7 +112,7 @@ Authorization updates/revocations, resource disconnections, and startups are coo
 
 Shell has no external network by default. After obtaining network resource authorization, Runtime automatically selects the valid authorization for the current assistant in the same sandbox. `network_mode: "none"` can disable outbound networking for this instance. When networking is allowed, Runtime creates an independent user/net namespace and TUN network card for this execution, automatically preparing internal IP, routing, and DNS. Programs use normal TCP/UDP sockets without needing environment variables like `HTTP_PROXY`. Network cards, routing, firewalls, DNS, and IP forwarding in the host's default network namespace are not modified. Normal operation does not require host root. Installing system dependencies for the first time or when the system lacks TUN/user namespace support requires resolution by the installation process or administrators. Running Runtime does not call sudo or relax global security policies.
 
-Network namespaces are managed by the host kernel. Host administrators can still inspect them. "Isolation" does not mean invisible to the host. Runtime's network helper processes use the host's existing network to create normal outbound connections. The trusted initialization process has management permissions only within the execution-specific user/network namespace. The final script still has no capabilities and retains seccomp and restrictions on creating new namespaces.
+Network namespaces are managed by the host kernel. Host administrators can still inspect them. "Isolation" does not mean invisible to the host. Runtime's network helper processes use the host's existing network to create normal outbound connections. The trusted initialization process has management permissions only within the execution-specific user/network namespace. The final script still has no capabilities and retains seccomp. Nested user/PID/network namespaces may only further isolate execution; mount namespaces and joining other namespaces remain prohibited.
 
 ### Built-in Optional Presets
 
@@ -285,9 +285,27 @@ With host tools and Chromium’s system libraries available, agent-browser can r
 ```sh
 export AGENT_BROWSER_SOCKET_DIR=/tmp/agent-browser
 export AGENT_BROWSER_EXECUTABLE_PATH=/resources/chromium/chrome
-export AGENT_BROWSER_ARGS=--no-sandbox,--disable-dev-shm-usage
+export AGENT_BROWSER_ARGS=--disable-dev-shm-usage
 export TOKIO_WORKER_THREADS=2 RAYON_NUM_THREADS=2
 mkdir -p "$AGENT_BROWSER_SOCKET_DIR"
 ```
 
-Chromium’s own nested sandbox is disabled here; Molr’s outer sandbox remains active. Browser processes share the Shell’s authorized scope. This is not a safe configuration for running directly on the host or in Full Access. Molr continues to prohibit additional namespaces and host IPC. Network access still requires network authorization. A tested starting compute allocation is 2 GiB memory, 512 processes/threads, 200% CPU and 512 MiB temporary space; adjust authorized limits to the workload. Program installation, live browser display and user takeover are separate capabilities, not provided by this sandbox change.
+Prefer Chromium's native sandbox. Molr permits nested user/PID/network namespaces while continuing to deny mount namespaces, mount APIs, setns, host IPC and privileged inspection syscalls. Nested namespace capabilities do not grant authority over the parent sandbox or host. Networking still uses the authorized gateway and all descendants stay in the execution cgroup. Both networked and offline Shells retain the service account's numeric UID/GID; only namespace mappings change, not the underlying host identity or file permissions. The IPC broker respects a caller's inner chroot and cannot connect back out through the outer `/tmp`.
+
+Verify with `agent-browser open chrome://sandbox` and `agent-browser get text body`: Namespace, PID/network namespaces, Seccomp-BPF and TSYNC must be enabled. A successful page load alone is insufficient: agent-browser may add `--no-sandbox` automatically when it detects root. Host tool mode requires a non-root service account.
+
+On Ubuntu, the distribution's restricted Bubblewrap AppArmor child profile can prevent nested namespaces even with the Molr filter permitting them. The repository provides an explicit application userns exemption at `runtime/configs/apparmor/molr-bwrap` and a fail-closed launcher at `runtime/scripts/bwrap-userns.sh`. An administrator must review and load the profile; it does not itself create a sandbox and must be used with Molr's complete isolation policy. It does not disable global AppArmor or modify existing profiles. From the source repository root, for an example `/opt/molr` installation:
+
+```sh
+sudo install -m 0644 runtime/configs/apparmor/molr-bwrap /etc/apparmor.d/molr-bwrap
+sudo apparmor_parser -r /etc/apparmor.d/molr-bwrap
+sudo install -D -m 0755 runtime/scripts/bwrap-userns.sh /opt/molr/libexec/bwrap-userns
+```
+
+Merge this into the existing deployment configuration and restart Runtime; check authenticated `/api/sandbox` capabilities again:
+
+```json
+{"sandbox":{"host_tools":true,"bubblewrap":"/opt/molr/libexec/bwrap-userns"}}
+```
+
+When the host cannot support nested sandboxing, `AGENT_BROWSER_ARGS=--no-sandbox,--disable-dev-shm-usage` remains an explicit compatibility fallback. It disables Chromium's inner protection; browser processes then share the Shell's authorized scope under Molr's outer isolation. It is not a safe configuration for direct host execution or Full Access. A tested starting compute allocation is 2 GiB memory, 512 processes/threads, 200% CPU and 512 MiB temporary space. Program installation, live browser display and user takeover remain separate capabilities.

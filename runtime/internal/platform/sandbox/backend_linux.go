@@ -279,7 +279,10 @@ func (r *Runner) startAuthorized(parent context.Context, e core.Execution, c pla
 		}
 	}()
 	add := func(f *os.File) string { files = append(files, f); return strconv.Itoa(2 + len(files)) }
-	args := []string{"--unshare-all", "--unshare-user", "--unshare-pid", "--unshare-net", "--unshare-ipc", "--disable-userns", "--assert-userns-disabled", "--die-with-parent", "--new-session", "--cap-drop", "ALL", "--clearenv"}
+	// Network initialization maps the service UID to 0 in its private userns.
+	// Map it back to the service's numeric identity in the final sandbox. The
+	// underlying host UID/GID and file permissions are unchanged.
+	args := []string{"--unshare-all", "--unshare-user", "--unshare-pid", "--unshare-net", "--unshare-ipc", "--die-with-parent", "--new-session", "--cap-drop", "ALL", "--clearenv", "--uid", strconv.Itoa(os.Getuid()), "--gid", strconv.Itoa(os.Getgid())}
 	if c.TTY {
 		for i, arg := range args {
 			if arg == "--new-session" {

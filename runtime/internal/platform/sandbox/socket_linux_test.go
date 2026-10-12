@@ -151,6 +151,10 @@ ab eval "fetch('http://host.molr.internal:DENIED_PORT').then(()=>'unexpected',()
 ab close
 echo agent-browser-ok
 `
+	if os.Getenv("MOLR_TEST_CHROMIUM_SANDBOX") == "1" {
+		c.Script = strings.ReplaceAll(c.Script, "--no-sandbox,", "")
+		c.Script = strings.ReplaceAll(c.Script, "ab close\necho agent-browser-ok", "ab open chrome://sandbox\nab get text body > /work/sandbox-status\ncat /work/sandbox-status\ngrep -E 'Layer 1 Sandbox[[:space:]]+Namespace' /work/sandbox-status\ngrep -E 'PID namespaces[[:space:]]+Yes' /work/sandbox-status\ngrep -E 'Network namespaces[[:space:]]+Yes' /work/sandbox-status\ngrep -E 'Seccomp-BPF sandbox[[:space:]]+Yes' /work/sandbox-status\ngrep -E 'Seccomp-BPF sandbox supports TSYNC[[:space:]]+Yes' /work/sandbox-status\nab close\necho agent-browser-ok")
+	}
 	c.Script = strings.ReplaceAll(strings.ReplaceAll(c.Script, "ALLOWED_PORT", port), "DENIED_PORT", deniedPort)
 	if out := assertNetworkRun(t, r, c); !strings.Contains(out, "agent-browser-ok") {
 		t.Fatal(out)
@@ -159,5 +163,70 @@ echo agent-browser-ok
 	}
 	if deniedHits.Load() != 0 {
 		t.Fatal("browser reached unauthorized endpoint")
+	}
+}
+
+func TestLinuxNestedNamespaceBoundaries(t *testing.T) {
+	if os.Getenv("MOLR_TEST_CHROMIUM_SANDBOX") != "1" {
+		t.Skip("requires a host policy permitting nested user namespaces")
+	}
+	r := hostToolsRunner(t)
+	c := testCommand()
+	c.Timeout = 15 * time.Second
+	c.Limits.MemoryBytes = 512 << 20
+	c.Limits.Processes = 64
+	c.Script = `set -eu
+python3 - <<'PY'
+import os,socket,ctypes,errno
+libc=ctypes.CDLL(None,use_errno=True)
+uid,gid=os.getuid(),os.getgid()
+os.mkdir('/tmp/empty')
+listener=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM);listener.bind('/tmp/outside');listener.listen()
+pid=os.fork()
+if pid==0:
+ try:
+  assert libc.unshare(0x10000000)==0,ctypes.get_errno()
+  for name,value in [('setgroups','deny'),('uid_map',f'{uid} {uid} 1'),('gid_map',f'{gid} {gid} 1')]:
+   with open('/proc/self/'+name,'w') as f:f.write(value)
+  # Even namespace-local capabilities cannot remove the inherited outer filter.
+  for flags in (0x20000,0x08000000,0x04000000,0x02000000,0x80,0x10020000):
+   assert libc.unshare(flags)==-1 and ctypes.get_errno()==errno.EPERM,hex(flags)
+  assert libc.mount(b'none',b'/tmp/empty',b'tmpfs',0,None)==-1 and ctypes.get_errno()==errno.EPERM
+  fd=os.open('/proc/self/ns/user',os.O_RDONLY)
+  assert libc.setns(fd,0)==-1 and ctypes.get_errno()==errno.EPERM
+  os.close(fd)
+  # A trusted socket broker must respect an inner sandbox's chroot as well.
+  os.chroot('/tmp/empty');os.chdir('/')
+  s=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
+  try:s.connect('/tmp/outside')
+  except OSError as e:assert e.errno==errno.EACCES,e
+  else:raise AssertionError('broker bypassed inner chroot')
+ except BaseException as e:
+  print(repr(e),flush=True);os._exit(1)
+ os._exit(0)
+_,status=os.waitpid(pid,0);assert os.waitstatus_to_exitcode(status)==0
+listener.settimeout(.05)
+try:listener.accept()
+except TimeoutError:pass
+else:raise AssertionError('inner child connected outside chroot')
+print('nested-boundaries-ok')
+PY`
+	if out := assertNetworkRun(t, r, c); !strings.Contains(out, "nested-boundaries-ok") {
+		t.Fatal(out)
+	}
+}
+
+func TestLinuxExecutionIdentityWithNetworking(t *testing.T) {
+	r := hostToolsRunner(t)
+	for _, network := range []bool{false, true} {
+		c := testCommand()
+		c.Timeout = 10 * time.Second
+		if network {
+			c.NetworkTargets = []platform.NetworkTarget{{Protocols: []string{"tcp"}, Addresses: []string{"127.0.0.1"}, Ports: []string{"12345"}}}
+		}
+		c.Script = fmt.Sprintf("set -eu; test \"$(id -u)\" = %d; test \"$(id -g)\" = %d; echo identity-ok", os.Getuid(), os.Getgid())
+		if out := assertNetworkRun(t, r, c); !strings.Contains(out, "identity-ok") {
+			t.Fatal(out)
+		}
 	}
 }
