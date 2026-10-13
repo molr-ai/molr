@@ -2,6 +2,9 @@
 
 Assistants can open websites, read pages, fill forms, click controls and capture screenshots. The **Browser** button in the chat header shows the same browser the assistant is using.
 
+> [!WARNING]
+> Websites may block browser actions performed by an assistant through anti-scraping or anti-bot measures. For services that offer an official command-line interface (CLI), prefer the official CLI or other supported integrations.
+
 ## Start and watch
 
 Grant the assistant local compute and the required network access. On first use, an administrator can choose **Install and start** in the browser panel to download and verify the compatible programs. Installation continues after the panel closes; grants are checked again before starting the browser. Administrators can also configure [browser programs](../sandbox/linux.md#managed-browser-tasks) in advance. For example:
@@ -18,6 +21,9 @@ The browser icon badge shows the open tab count even while the panel is closed. 
 Choose **Dock to sidebar** to return to the sidebar, or a drawer when space is limited. **Floating window** restores the floating view without changing the connection or control ownership. Phones use a bottom drawer. Tabs, new tab, layout switching and close share one row; takeover controls sit beside the address bar. Tabs first shrink, then left/right arrows reveal overflow.
 
 ## Take and return control
+
+> [!WARNING]
+> Avoid sharing passwords for your personal website accounts directly with the assistant. When login is required, take control of the browser, sign in yourself, then return control to the assistant.
 
 Choose **Take control** and wait for an already accepted operation to settle. You can then click, scroll, drag, navigate and switch tabs. Click a field in the page to type or paste directly. Only the system IME candidate window appears near the clicked position, and committed composition text is sent once. The keyboard button beside the connection status opens an optional input area for mobile or other input methods. The end-session button sits next to it, away from the resize corner. Use the + button to create a tab and the close button on each tab to close that specific tab.
 
