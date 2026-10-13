@@ -427,6 +427,8 @@ Runtime 启动时自动准备并探测命令环境，自动登记本机计算资
 
 ### 浏览器任务
 
+无活动浏览器时，最近一个浏览器任务若失败或中断，状态额外返回 `LastFailure: { TaskID, Reason }`。查询按所有者和助理隔离，结果来自持久化任务记录，可跨 Runtime 重启读取，不包含 stdout/stderr。新的浏览器任务替代旧失败，主动关闭不作为失败提示。`process_limit` 仅在执行非零退出且该执行 cgroup 的 `pids.events` 命中限制时返回，不凭通用 CDP 错误推断额度不足。
+
 `GET /api/assistants/{id}/browser` 返回可用状态、活动任务及缓存的 `TabCount`。`ControllerClientID` 仅返回给当前控制者所属登录会话，前端还须匹配当前页面的 client ID。`POST` 接受 start/status/close、浏览器操作、takeover 和 release。启动需要 `compute_id`；控制权请求需要 `client_id` 与当前 `generation`，用户输入还需递增的 `sequence`。过期 generation、其他控制者或重放输入返回冲突。任务含 `Kind: browser` 和公开 Browser 控制状态／generation／NeedsSnapshot，不序列化控制会话凭据。正常关闭先刷新 profile 再取消执行。
 
 `GET /api/assistants/{id}/browser/stream?task_id=…` 提供 frame/status/tabs/url 消息的认证 SSE。接口核验账号与助理归属，持续检查会话，在任务取消时结束，不受普通 JSON 请求 30 秒截止时间限制。POST 沿用登录态与 CSRF 检查。不公开 agent-browser 的 WS 或指令端点。

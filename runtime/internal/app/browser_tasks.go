@@ -82,7 +82,7 @@ func (s *shellTasks) activeBrowser(p core.Principal, id, task core.ID) *runningS
 	}
 	return nil
 }
-func (s *shellTasks) browserStatus(p core.Principal, id core.ID) (json.RawMessage, error) {
+func (s *shellTasks) browserStatus(ctx context.Context, p core.Principal, id core.ID) (json.RawMessage, error) {
 	_, err := s.browserPrograms()
 	if err == nil && (s.router == nil || s.router.shell == nil || !s.router.shell.config.UsesHostTools()) {
 		err = core.NewError(core.FailedPrecondition, "browser requires the local host-tools sandbox")
@@ -111,6 +111,28 @@ func (s *shellTasks) browserStatus(p core.Principal, id core.ID) (json.RawMessag
 			}
 			if r.browserTabCount != nil {
 				result["TabCount"] = *r.browserTabCount
+			}
+		}
+	}
+	if r == nil {
+		rows, queryErr := persistence.Select[shellTask](ctx, s.store, shellTasksBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("AssistantID", id), persistence.Eq("Kind", "browser")}, OrderBy: "StartedAtKey", Descending: true, Limit: 1})
+		if queryErr != nil {
+			return nil, queryErr
+		}
+		if len(rows) == 1 {
+			last := rows[0]
+			var out struct{ Exit struct{ Reason string } }
+			_ = json.Unmarshal(last.Result, &out)
+			if last.State == "failed" || last.State == "interrupted" || last.State == "stopped" && out.Exit.Reason != "canceled" {
+				reason := "browser_exited"
+				switch out.Exit.Reason {
+				case "process_limit", "memory_limit", "timeout", "authorization_changed", "disk_space_low", "network_gateway_failed":
+					reason = out.Exit.Reason
+				}
+				if last.State == "interrupted" {
+					reason = "interrupted"
+				}
+				result["LastFailure"] = map[string]any{"TaskID": last.ID, "Reason": reason}
 			}
 		}
 	}
@@ -166,7 +188,7 @@ func (s *shellTasks) browserManage(ctx context.Context, p core.Principal, id cor
 }
 func (s *shellTasks) startBrowser(ctx context.Context, e core.Execution, q tools.BrowserRequest) (json.RawMessage, error) {
 	if r := s.activeBrowser(e.Principal, e.AssistantID, ""); r != nil {
-		return s.browserStatus(e.Principal, e.AssistantID)
+		return s.browserStatus(ctx, e.Principal, e.AssistantID)
 	}
 	if q.ComputeID.Validate() != nil {
 		return nil, core.Invalid("compute_id", "select an authorized local compute resource")
@@ -189,11 +211,11 @@ func (s *shellTasks) startBrowser(ctx context.Context, e core.Execution, q tools
 	if _, err = s.execute(ctx, e, req); err != nil {
 		return nil, err
 	}
-	return s.browserStatus(e.Principal, e.AssistantID)
+	return s.browserStatus(ctx, e.Principal, e.AssistantID)
 }
 func (s *shellTasks) browserRequest(ctx context.Context, p core.Principal, id core.ID, q tools.BrowserRequest) (json.RawMessage, error) {
 	if q.Action.Action == "status" {
-		return s.browserStatus(p, id)
+		return s.browserStatus(ctx, p, id)
 	}
 	r := s.activeBrowser(p, id, q.TaskID)
 	if r == nil {
@@ -390,7 +412,7 @@ func (s *shellTasks) browserControl(ctx context.Context, p core.Principal, id co
 	if err != nil {
 		return nil, err
 	}
-	return s.browserStatus(p, id)
+	return s.browserStatus(ctx, p, id)
 }
 func (s *shellTasks) browserCall(ctx context.Context, r *runningShell, method, path string, body []byte) (json.RawMessage, error) {
 	select {
@@ -502,7 +524,7 @@ func (s *shellTasks) prepareBrowser(ctx context.Context, p core.Principal, id co
 	}
 	if old := s.preparing[key]; old != nil && old.State == "installing" {
 		s.mu.Unlock()
-		return s.browserStatus(p, id)
+		return s.browserStatus(ctx, p, id)
 	}
 	pending := &browserPreparation{TaskID: job.ID, State: "installing"}
 	s.preparing[key] = pending
@@ -560,7 +582,7 @@ func (s *shellTasks) prepareBrowser(ctx context.Context, p core.Principal, id co
 		pending.State = "ready"
 		s.mu.Unlock()
 	}()
-	return s.browserStatus(p, id)
+	return s.browserStatus(ctx, p, id)
 }
 
 func browserInstallKey() string {

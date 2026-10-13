@@ -15,7 +15,7 @@ type Action = { action: string; [key: string]: unknown };
 type Tab = { id: string; title: string; url: string; active: boolean };
 // A panel is ephemeral; the controlling window is not. IDs are deliberately not
 // stored in localStorage/sessionStorage where another tab could inherit them.
-const clients = new Map<string, { id: string; sequence: number; queue: Promise<void> }>();
+const clients = new Map<string, { id: string; sequence: number; queue: Promise<void>; lastFailure?: string }>();
 function windowClient(assistantID: string) {
   let client = clients.get(assistantID);
   if (!client) { client = { id: mutationKey(), sequence: 0, queue: Promise.resolve() }; clients.set(assistantID, client); }
@@ -82,10 +82,27 @@ export function Browser({ assistantID, docked, onClose }: { assistantID: string;
   function notice(err: unknown) {
     return err instanceof APIError && err.code === 'conflict' ? (zh ? '控制权已变更，请重新接管。' : 'Control changed. Take control again.') : (zh ? '浏览器操作未完成，请检查连接或任务状态。' : 'Browser operation failed. Check connection or task status.');
   }
-  function warn(title: string) {
+  const failure = query.data?.LastFailure;
+  useEffect(() => {
+    if (task) { if (noticeID.current !== null) { dismiss(noticeID.current); noticeID.current = null; } return; }
+    if (!failure || client.lastFailure === failure.TaskID) return;
+    client.lastFailure = failure.TaskID;
+    const reasons: Record<string, [string, string]> = {
+      process_limit: ['浏览器因进程／线程数达到授权上限而退出。请在计算资源授权中调整进程数后重试。', 'Browser stopped after reaching the authorized process/thread limit. Adjust the process limit in compute permissions and retry.'],
+      memory_limit: ['浏览器因内存额度不足而退出。请在计算资源授权中调整内存额度后重试。', 'Browser stopped after exhausting its memory allowance. Adjust the memory limit in compute permissions and retry.'],
+      timeout: ['浏览器已达到授权运行时长。请重新启动，或调整计算资源授权的运行时长。', 'Browser reached its authorized runtime limit. Start it again or adjust the duration in compute permissions.'],
+      authorization_changed: ['浏览器已停止：资源授权发生变化或额度不可用。请检查助理的资源授权后重试。', 'Browser stopped because resource authorization changed or its quota became unavailable. Check the assistant’s resource permissions and retry.'],
+      disk_space_low: ['浏览器因可用磁盘空间不足而停止。请释放磁盘空间后重试。', 'Browser stopped because disk space is low. Free disk space and retry.'],
+      network_gateway_failed: ['浏览器的沙盒网络服务异常，请重新启动浏览器。', 'The browser sandbox network service failed. Restart the browser.'],
+      interrupted: ['浏览器任务已中断，请重新启动。', 'The browser task was interrupted. Start it again.'],
+    };
+    const fallback = ['浏览器异常退出。请在任务面板查看该浏览器任务的错误输出，检查组件和系统依赖后重试。', 'Browser exited unexpectedly. Check the browser task’s error output in the task panel, then check components and system dependencies before retrying.'];
+    warn((reasons[failure.Reason] ?? fallback)[zh ? 0 : 1], true);
+  }, [failure?.TaskID, task?.ID, client, zh]);
+  function warn(title: string, persistent = false) {
     if (closed.current) return;
     if (noticeID.current !== null) dismiss(noticeID.current);
-    noticeID.current = toast({ title, tone: 'warning' });
+    noticeID.current = toast({ title, tone: 'warning', ...(persistent ? { duration: 0 } : {}) });
   }
   async function act(action: Action, target = control.current) {
     return api.post<BrowserStatus>(path, { ...action, task_id: target?.Task?.ID, client_id: client.id, generation: target?.Task?.Browser?.Generation ?? 0, sequence: ++client.sequence });

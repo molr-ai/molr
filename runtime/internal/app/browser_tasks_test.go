@@ -6,6 +6,7 @@ import (
 	"molr.ai/runtime/internal/agent/tools"
 	"molr.ai/runtime/internal/browser"
 	"molr.ai/runtime/internal/core"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -119,7 +120,7 @@ func TestBrowserStatusOnlyIdentifiesControllerToItsSession(t *testing.T) {
 	r.task.Browser.ControllerSession = p.SessionID
 	r.task.Browser.ControllerClient = "original-window"
 	s.mu.Unlock()
-	raw, err := s.browserStatus(p, e.AssistantID)
+	raw, err := s.browserStatus(t.Context(), p, e.AssistantID)
 	need(t, err)
 	var own map[string]any
 	need(t, json.Unmarshal(raw, &own))
@@ -128,11 +129,72 @@ func TestBrowserStatusOnlyIdentifiesControllerToItsSession(t *testing.T) {
 	}
 	other := p
 	other.SessionID = "different-session"
-	raw, err = s.browserStatus(other, e.AssistantID)
+	raw, err = s.browserStatus(t.Context(), other, e.AssistantID)
 	need(t, err)
 	var foreign map[string]any
 	need(t, json.Unmarshal(raw, &foreign))
 	if _, ok := foreign["ControllerClientID"]; ok || foreign["ControllerIsCurrentSession"] != false {
 		t.Fatalf("foreign session received controller identity: %s", raw)
+	}
+}
+
+func TestBrowserStatusRetainsLatestFailureWithoutExposingOutput(t *testing.T) {
+	s, p, e, r := browserTaskFixture(t)
+	delete(s.active, shellKey(e))
+	last := r.task
+	last.State = "failed"
+	last.StartedAt = time.Now().UTC()
+	last.Result = json.RawMessage(`{"Exit":{"Code":125,"Reason":"process_limit"},"Stderr":"sensitive page text"}`)
+	need(t, s.save(t.Context(), last))
+	read := func() map[string]json.RawMessage {
+		t.Helper()
+		raw, err := s.browserStatus(t.Context(), p, e.AssistantID)
+		need(t, err)
+		var v map[string]json.RawMessage
+		need(t, json.Unmarshal(raw, &v))
+		if strings.Contains(string(raw), "sensitive page text") {
+			t.Fatal("raw output leaked")
+		}
+		return v
+	}
+	v := read()
+	if !strings.Contains(string(v["LastFailure"]), "process_limit") {
+		t.Fatal(string(v["LastFailure"]))
+	}
+	// A newer ordinary shell failure must not hide the browser's result.
+	other := last
+	other.ID = "shell-other"
+	other.Kind = "shell"
+	other.StartedAt = last.StartedAt.Add(time.Second)
+	need(t, s.save(t.Context(), other))
+	if read()["LastFailure"] == nil {
+		t.Fatal("shell task hid browser failure")
+	}
+	// Another assistant's browser cannot replace the scoped failure.
+	other.ID = "foreign-browser"
+	other.Kind = "browser"
+	other.AssistantID = "other-assistant"
+	need(t, s.save(t.Context(), other))
+	if !strings.Contains(string(read()["LastFailure"]), string(last.ID)) {
+		t.Fatal("incorrect assistant scope")
+	}
+	last.ID = "new-browser"
+	last.StartedAt = last.StartedAt.Add(2 * time.Second)
+	last.State = "running"
+	last.Result = nil
+	need(t, s.save(t.Context(), last))
+	if read()["LastFailure"] != nil {
+		t.Fatal("previous failure survived retry")
+	}
+	last.State = "stopped"
+	last.Result = json.RawMessage(`{"Exit":{"Code":125,"Reason":"canceled"}}`)
+	need(t, s.save(t.Context(), last))
+	if read()["LastFailure"] != nil {
+		t.Fatal("intentional close reported as failure")
+	}
+	last.State = "interrupted"
+	need(t, s.save(t.Context(), last))
+	if !strings.Contains(string(read()["LastFailure"]), "interrupted") {
+		t.Fatal("restart interruption lost")
 	}
 }

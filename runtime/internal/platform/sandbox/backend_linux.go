@@ -551,6 +551,7 @@ func (r *Runner) startAuthorized(parent context.Context, e core.Execution, c pla
 			networkErr = network.close()
 		}
 		memoryEvents, _ := os.ReadFile(filepath.Join(group.path, "memory.events"))
+		pidsEvents, _ := os.ReadFile(filepath.Join(group.path, "pids.events"))
 		cleanErr := group.cleanup()
 		if cleanErr == nil {
 			cleanErr = networkErr
@@ -587,12 +588,7 @@ func (r *Runner) startAuthorized(parent context.Context, e core.Execution, c pla
 				p.exit.Reason = "timeout"
 			}
 		}
-		for _, line := range strings.Split(string(memoryEvents), "\n") {
-			fields := strings.Fields(line)
-			if len(fields) == 2 && fields[0] == "oom_kill" && fields[1] != "0" {
-				p.exit.Reason = "memory_limit"
-			}
-		}
+		p.exit.Reason = resourceExitReason(p.exit, memoryEvents, pidsEvents)
 		budget.mu.Lock()
 		p.exit.OutputTruncated = budget.truncated
 		budget.mu.Unlock()
@@ -671,4 +667,26 @@ func (g *cgroup) cleanup() error {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
+}
+
+// Per-execution counters are read before the cgroup is removed. A denied fork
+// does not itself terminate a successful command or override cancellation.
+func resourceExitReason(exit platform.Exit, memoryEvents, pidsEvents []byte) string {
+	hit := func(events []byte, key string) bool {
+		for _, line := range strings.Split(string(events), "\n") {
+			fields := strings.Fields(line)
+			if len(fields) == 2 && fields[0] == key {
+				n, err := strconv.ParseUint(fields[1], 10, 64)
+				return err == nil && n > 0
+			}
+		}
+		return false
+	}
+	if hit(memoryEvents, "oom_kill") {
+		return "memory_limit"
+	}
+	if exit.Code != 0 && exit.Reason == "" && hit(pidsEvents, "max") {
+		return "process_limit"
+	}
+	return exit.Reason
 }

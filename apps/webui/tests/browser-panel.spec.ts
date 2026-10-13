@@ -21,6 +21,7 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   const resource = await post(page, '/api/resources', { Name: name, Kind: 'model', Provider: 'openai-compatible', Binding: { Endpoint: origin, AllowedOrigins: [origin], Models: [{ Name: name, ContextLimit: 32768, SupportsTools: true, Pricing: { Currency: 'USD', InputMicrosPerMillion: 1 } }] } });
   const models = await (await page.request.get('/api/models')).json();
   const assistant = await post(page, '/api/assistants', { Name: name, ModelID: models.find((m: { ResourceID: string }) => m.ResourceID === resource.ID).ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } });
+  let lastFailure: { TaskID: string; Reason: string } | undefined;
   let client = '', generation = 1, sequence = 0, takeovers = 0, running = false, rejectInput = false;
   let tabs = [{ tabId: 't1', title: 'First tab', url: 'https://example.com', active: true }, { tabId: 't2', title: 'Second tab', url: 'about:blank', active: false }];
   const text: string[] = [], closedTabs: string[] = [];
@@ -49,7 +50,7 @@ test('browser panel preserves control, commits IME once, closes the selected tab
         if (q.action === 'close_tab') { closedTabs.push(q.tab); tabs = tabs.filter(t => t.tabId !== q.tab); }
       }
     }
-    await route.fulfill({ json: { Available: true, TabCount: tabs.length, ControllerIsCurrentSession: !!client, ControllerClientID: client, Task: running ? { ID: 'browser-test', Kind: 'browser', State: 'running', Browser: { Control: client ? 'user' : 'assistant', Generation: generation } } : null } });
+    await route.fulfill({ json: { Available: true, LastFailure: lastFailure, TabCount: tabs.length, ControllerIsCurrentSession: !!client, ControllerClientID: client, Task: running ? { ID: 'browser-test', Kind: 'browser', State: 'running', Browser: { Control: client ? 'user' : 'assistant', Generation: generation } } : null } });
     await page.evaluate(tabs => window.dispatchEvent(new CustomEvent('browser-test-tabs', { detail: tabs })), tabs);
   });
   await page.goto(`/#/assistants/${assistant.ID}`);
@@ -147,5 +148,21 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   await toast.getByRole('button', { name: 'Close', exact: true }).click();
   await expect(toast).toHaveCount(0);
   await expect(page.locator('.browser-notice')).toHaveCount(0);
+
+  // Fast failures can happen between polls; the persisted result still produces
+  // a dismissible notice, and polling/reopening must not resurrect it.
+  running = false; lastFailure = { TaskID: 'failed-process-limit', Reason: 'process_limit' };
+  const failureNotice = page.getByText('Browser stopped after reaching the authorized process/thread limit. Adjust the process limit in compute permissions and retry.', { exact: true });
+  await expect(failureNotice).toBeVisible();
+  const failureToast = page.locator('.ui-toast').filter({ hasText: 'Browser stopped after reaching the authorized process/thread limit.' });
+  await failureToast.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.waitForTimeout(2300); await expect(failureNotice).toHaveCount(0);
+  await page.getByRole('button', { name: 'Close browser panel', exact: true }).click(); await trigger.click();
+  await page.waitForTimeout(2300); await expect(failureNotice).toHaveCount(0);
+  lastFailure = { TaskID: 'failed-unknown', Reason: 'unknown' };
+  await expect(page.getByText(/Browser exited unexpectedly. Check the browser task/)).toBeVisible();
+
+  lastFailure = undefined; running = true;
+  await expect(page.getByText(/Browser exited unexpectedly. Check the browser task/)).toHaveCount(0);
   await page.unrouteAll({behavior:'wait'});
 });

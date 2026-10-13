@@ -164,7 +164,7 @@ func TestBrowserRealTaskStreamTakeoverAndPersistence(t *testing.T) {
 	s.mu.Lock()
 	r.browserTabsAt = time.Time{}
 	s.mu.Unlock()
-	status, err := s.browserStatus(owner, e.AssistantID)
+	status, err := s.browserStatus(t.Context(), owner, e.AssistantID)
 	need(t, err)
 	var metadata struct{ TabCount int }
 	need(t, json.Unmarshal(status, &metadata))
