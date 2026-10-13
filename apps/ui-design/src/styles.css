@@ -152,13 +152,15 @@ h2 { margin-bottom: 0; font-size: 24px; line-height: 1.4; font-weight: 550; lett
 .site-footer > p { margin: 0; color: var(--color-text-muted); font-size: 11px; }
 .site-footer > .mono { margin-left: auto; font-size: 10px; color: var(--color-text-muted); }
 .component-library__intro { margin: 0 0 20px; color: var(--color-text-muted); font-size: 13px; }
-.component-library__grid, .component-foundations { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 40px 32px; }
-.component-example { min-width: 0; }
+.component-library__grid, .component-foundations { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 20px; }
+.component-example { min-width: 0; padding: 26px; }
 .component-example--wide { grid-column: 1 / -1; }
 .component-example > header { padding-bottom: 20px; border-bottom: 1px solid var(--color-border); margin-bottom: 22px; }
 .component-example > header h3 { margin: 0 0 7px; font-size: 17px; line-height: 1.4; font-weight: 550; letter-spacing: -0.025em; }
 .component-example > header p { margin: 0; font-size: 12px; color: var(--color-text-muted); line-height: 1.7; }
 .component-example__body { display: grid; min-width: 0; gap: 20px; }
+.ui-chat-bubble--assistant, .ui-chat-attachments li, .ui-image-gallery__thumbnail, .ui-chat-card { background: var(--color-background); }
+:is(.ui-tabs--segmented > .ui-tabs__list, .segmented-control .radio-group__options, .ui-choice-list--segmented) { background: var(--color-background); }
 .tab-variant-example { min-width: 0; }
 .tab-variant-example > .control-label { margin: 0 0 8px; }
 .component-row--spread { justify-content: space-between; }
@@ -171,7 +173,7 @@ h2 { margin-bottom: 0; font-size: 24px; line-height: 1.4; font-weight: 550; lett
 .component-statuses { display: grid; gap: 16px; margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--color-border); }
 .component-statuses > p { margin: 0; }
 .component-statuses > .component-row { gap: 8px 12px; }
-.pagination-preview { display: grid; place-items: center; padding: 24px 12px; }
+.pagination-preview { display: grid; place-items: center; padding: 24px 12px; border: 0; border-radius: 12px; background: var(--color-background); }
 .pagination-preview__number { font-family: var(--font-mono); font-size: 48px; letter-spacing: -0.06em; }
 .pagination-preview p { margin: 8px 0 0; color: var(--color-text-muted); font-size: 12px; }
 .skeleton-preview { display: flex; align-items: center; gap: 16px; min-height: 100px; padding: 20px; border: 0; border-radius: 12px; }
@@ -247,8 +249,8 @@ h2 { margin-bottom: 0; font-size: 24px; line-height: 1.4; font-weight: 550; lett
   .app-icon-downloads__list a { padding: 12px; }
   .interface-grid { grid-template-columns: 1fr; }
   .select-examples { grid-template-columns: 1fr; }
-  .component-library__grid, .component-foundations { grid-template-columns: 1fr; gap: 32px; }
-  .component-foundations > .card { padding: 20px; }
+  .component-library__grid, .component-foundations { grid-template-columns: 1fr; gap: 16px; }
+  .component-example, .component-foundations > .card { padding: 20px; }
   .component-example > header { padding-bottom: 16px; margin-bottom: 18px; }
   .type-specimen__display { font-size: 58px; }
   .site-footer { flex-wrap: wrap; gap: 16px; padding-top: 24px; }
