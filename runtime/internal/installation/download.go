@@ -140,8 +140,7 @@ type releaseManifest struct {
 	Platforms []releaseAsset `json:"platforms"`
 }
 type releaseAsset struct {
-	OS string `json:"os"
- "os/exec"`
+	OS     string `json:"os"`
 	Arch   string `json:"arch"`
 	File   string `json:"file"`
 	URL    string `json:"url"`

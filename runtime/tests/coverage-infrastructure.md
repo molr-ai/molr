@@ -243,6 +243,7 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/textfiles` | `Move` | `TestMoveAndRemoveDirectoryDoNotReplaceTargets` |
 | `internal/textfiles` | `RemoveDirectory` | `TestMoveAndRemoveDirectoryDoNotReplaceTargets` |
 | `internal/textfiles` | `Search` | `TestSearchContentPathsLimitsAndHiddenRoot` |
+| `internal/textfiles` | `SearchFS` | `internal/app.TestBuiltinDocsWithoutSandbox`, `internal/app.TestBuiltinDocsRejectMutationsAndForeignPaths` |
 | `internal/textfiles` | `SearchOptions.Validate` | `TestSearchRejectsInvalidRegexAndRechecksAuthorization` |
 
 | 包 | 接口 / 方法 | 测试 |
@@ -298,5 +299,6 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 
 | 包 | 接口 / 方法 | 测试 |
 | --- | --- | --- |
+| `internal/browser` | `Action.Input` | `TestWheelInputBounds` |
 | `internal/browser` | `Action.Args`, `Action.ReadOnly` | `TestActionDoesNotExposeLaunchOrArbitraryExecution` |
 | `internal/browser` | `HelperMain` | `internal/app.TestBrowserRealTaskStreamTakeoverAndPersistence` |

@@ -114,7 +114,7 @@ func TestWorkspaceContextAuthorizesIdentityAndSkillReads(t *testing.T) {
 	fs := &resourceFileTools{adapters: f.ad}
 	sources, err := fs.contextSources(t.Context(), agent.ContextRequest{Execution: f.execution})
 	need(t, err)
-	if len(sources) != 4 {
+	if len(sources) != 5 {
 		t.Fatal("composition did not read workspace context")
 	}
 	forged := f.execution

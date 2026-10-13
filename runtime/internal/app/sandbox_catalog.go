@@ -274,7 +274,7 @@ func (s *sandboxRouter) inspect(ctx context.Context, p core.Principal, id core.I
 		tool := &out.Tools[i]
 		switch tool.Name {
 		case "shell_execute", "file_search", "file_read", "file_list", "file_write", "file_edit", "file_move", "file_delete":
-			available := false
+			available := tool.Name == "file_read" || tool.Name == "file_list" || tool.Name == "file_search"
 			ids := []core.ID{}
 			for _, resourceID := range tool.ResourceIDs {
 				r, err := resource.NewRepository(s.adapters.store).Get(ctx, p.OwnerID, resourceID)
@@ -291,6 +291,9 @@ func (s *sandboxRouter) inspect(ctx context.Context, p core.Principal, id core.I
 				}
 			}
 			tool.ResourceIDs = ids
+			if tool.Available && !info.Storage && len(ids) == 0 && (tool.Name == "file_read" || tool.Name == "file_list" || tool.Name == "file_search") {
+				tool.Reason = "builtin_documentation"
+			}
 			if tool.Name != "shell_execute" && infoErr == nil && info.Storage {
 				available = true
 			}

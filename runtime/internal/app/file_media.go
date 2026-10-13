@@ -110,6 +110,9 @@ func (f *resourceFileTools) snapshot(ctx context.Context, e core.Execution, data
 	return hash, err
 }
 func (f *resourceFileTools) read(ctx context.Context, e core.Execution, r tools.FileReadRequest) (json.RawMessage, error) {
+	if builtinTarget(r.FileTarget) {
+		return f.readBuiltin(ctx, e, r)
+	}
 	if f.router != nil {
 		if out, remote, err := f.router.file(ctx, e, "file_read", r.FileTarget, r, r.ModelID); remote {
 			return out, err

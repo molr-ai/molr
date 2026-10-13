@@ -301,4 +301,5 @@
 | `internal/plugins` | `ReadArchive` | `TestArchiveRejectsTraversalDuplicateLinksAndExpansion` |
 | `internal/plugins` | `Service.ImportArchive`, `Service.ImportURL` | `TestArchiveImportAuthorizationAndRemoteURLBoundaries` |
 
+| `internal/agent/tools` | `BrowserRequest.ValidateBatch` | `internal/app.TestBrowserInputBatchRejectsInvalidSuffixBeforeExecution` |
 | `internal/agent/tools` | `ParseBrowser` | `TestBrowserArgumentsRejectControlAndLaunchOptions` |

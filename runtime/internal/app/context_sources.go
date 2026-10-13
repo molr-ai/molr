@@ -30,7 +30,7 @@ func (f *resourceFileTools) contextSources(ctx context.Context, request agent.Co
 	workspace := workspaceDocument(reason)
 	if reason != "" {
 		prefs, err := ownerPreferencesContext(ctx, f.adapters.store, request.Execution.Principal.OwnerID)
-		return []agent.ContextDocument{workspace, prefs}, err
+		return []agent.ContextDocument{builtinSkill(request), workspace, prefs}, err
 	}
 
 	root := platform.AssistantWorkspace(f.adapters.dataDir, f.adapters.storageConfig.WorkRoot, request.Execution.Principal.OwnerID, request.Execution.AssistantID)
@@ -56,7 +56,11 @@ func (f *resourceFileTools) contextSources(ctx context.Context, request agent.Co
 	if err != nil {
 		return nil, err
 	}
-	return append(append(append(global, sources...), workspace, preferences), revisions...), nil
+	documents := []agent.ContextDocument{builtinSkill(request)}
+	documents = append(documents, global...)
+	documents = append(documents, sources...)
+	documents = append(documents, workspace, preferences)
+	return append(documents, revisions...), nil
 }
 
 type sourceScan struct {
@@ -129,9 +133,7 @@ func workspaceContext(ctx context.Context, root string, request agent.ContextReq
 func scanWorkspaceContext(ctx context.Context, root string, request agent.ContextRequest, start string) ([]agent.ContextDocument, error) {
 	return scanRootContext(ctx, root, request, start, "/work")
 }
-func scanRootContext(ctx context.Context, root string, request agent.ContextRequest, start, prefix string) ([]agent.ContextDocument, error) {
-	scan := &sourceScan{root: root, versions: map[string]string{}, directories: map[string]bool{}}
-	documents := []agent.ContextDocument{}
+func loadedSkills(request agent.ContextRequest, prefix string) map[string]bool {
 	loaded := map[string]bool{}
 	for _, d := range request.Previous {
 		expected := request.SandboxID
@@ -190,24 +192,33 @@ func scanRootContext(ctx context.Context, root string, request agent.ContextRequ
 			continue
 		}
 		var args struct {
-			ResourceID string `json:"resource_id"`
-			Path       string `json:"path"`
+			SandboxID  core.ID `json:"sandbox_id"`
+			FullAccess bool    `json:"full_access"`
+			ResourceID string  `json:"resource_id"`
+			Path       string  `json:"path"`
 		}
-		if json.Unmarshal(call.Arguments, &args) != nil || args.ResourceID != "" {
+		if json.Unmarshal(call.Arguments, &args) != nil || args.ResourceID != "" || args.FullAccess || targetSandbox(args.SandboxID) != expectedSandbox {
 			continue
 		}
 		requested := args.Path
-		if prefix == "/global" {
-			if !strings.HasPrefix(requested, "/global/") {
+		if prefix != "/work" {
+			if !strings.HasPrefix(requested, prefix+"/") {
 				continue
 			}
-			requested = "/work/" + strings.TrimPrefix(requested, "/global/")
+			requested = "/work/" + strings.TrimPrefix(requested, prefix+"/")
 		}
 		name, err := workspaceRelativePath(requested)
 		if err == nil {
 			loaded[path.Join(prefix, name)] = true
 		}
 	}
+	return loaded
+}
+
+func scanRootContext(ctx context.Context, root string, request agent.ContextRequest, start, prefix string) ([]agent.ContextDocument, error) {
+	scan := &sourceScan{root: root, versions: map[string]string{}, directories: map[string]bool{}}
+	documents := []agent.ContextDocument{}
+	loaded := loadedSkills(request, prefix)
 	// Read fixed instruction paths instead of recursively enumerating work files.
 	if start == "." {
 		directories, err := instructionDirectories(request, prefix)

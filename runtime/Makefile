@@ -43,7 +43,14 @@ check-fmt:
 	@test -z "$$($(GOFMT) -l cmd internal tests)" || { $(GOFMT) -l cmd internal tests; exit 1; }
 
 # Full behavior and static verification.
-check: check-fmt test vet build
+check: check-docs check-fmt test vet build
 
 # Compilation/static/planning checks only, NOT a behavior-test success claim.
 check-contracts: check-fmt test-compile test-inventory vet build
+
+.PHONY: docs check-docs
+docs:
+	node ../scripts/generate-molr-docs.mjs
+
+check-docs:
+	node ../scripts/generate-molr-docs.mjs --check

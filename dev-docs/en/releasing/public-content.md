@@ -23,7 +23,7 @@ Check errors output only paths and issue categories, not the matched credential 
 
 The `internal-docs/` directory in the repository root stores non-public requirements, research, and local acceptance records, and is entirely ignored by Git. Release checks reject this directory in the staging area, specified source commits, and frontend outputs; it cannot be bypassed by force-adding. Public builds must be completed in a fresh checkout or source snapshot without this directory.
 
-Official website documentation reads only from public Markdown files registered in `apps/website/src/docs-routes.ts`; unregistered files do not automatically enter client packages. Adding a route means publishing the full text; content must be reviewed before addition. Pointing to internal directories or reading them via symbolic links is prohibited.
+Official website documentation reads only from public Markdown files registered in `docs-routes.json`; unregistered files do not automatically enter client packages. Adding a route means publishing the full text; content must be reviewed before addition. Pointing to internal directories or reading them via symbolic links is prohibited.
 
 Moving committed materials into ignored directories only changes the current file tree; it does not delete old history. Before making an old repository public, its reachable history must still be audited. Before cleaning up worktrees, retain local internal materials according to development standards.
 

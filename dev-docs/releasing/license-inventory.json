@@ -11,7 +11,7 @@
     "runtime/internal/voicecodec/silk.wasm": "13de15803937f44593398fee46d1dd7ee4ea2f04c819f8f887525b4cd9b60bf7",
     "runtime/internal/voicecodec/README.md": "0b8a2c9634b6361a46c4ca75120a734a3f247d3779c46db62e4487578840caa5",
     "runtime/internal/voicecodec/source/build.py": "edeadc1e9acb2f77ad9caf10bc36965a9e988497a18e35b8a70a790092e4879c",
-    "scripts/build-release.mjs": "799b1c042d7e089061fd69739f19a3f72e761da412ea986386e6e68c3386bf7b",
+    "scripts/build-release.mjs": "3e9fb2ed5d93825fd2cd89a1d32196b70ad768474ef9fe05d5f80bfb66d11f40",
     "apps/website/src/GithubMark.tsx": "7d0d38bb13335793c5ed91d5f27ffc8e5fc2811d7eff9ce6e59a6f6d33d5a37a",
     "apps/website/src/site-links.ts": "50dd10e29b7cc6eaaebee023893183663900929c282ce88c0c356c87a806b192",
     "THIRD_PARTY_NOTICES.md": "cbecd756a762c8dbc2365d6db0bca1f21514a714297134612e32922ad587ebb6",

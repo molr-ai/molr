@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"io/fs"
+	"os"
 	"path"
 	"regexp"
 	"sort"
@@ -127,6 +129,31 @@ func matchGlobs(patterns []pathGlob, parts []string) bool {
 // executes a command, follows discovered links, or interprets .gitignore files.
 // authorize checks every visited path before opening it.
 func Search(ctx context.Context, root, name string, o SearchOptions, authorize func(string) error) (SearchResult, error) {
+	return search(ctx, name, o, authorize, func(name string, directory bool) (fs.File, error) {
+		if directory {
+			return OpenDirectory(root, name)
+		}
+		return Open(root, name)
+	}, func(f fs.File) (string, error) { return Version(f.(*os.File)) })
+}
+
+// SearchFS applies the same bounded search semantics to immutable bundled files.
+func SearchFS(ctx context.Context, source fs.FS, revision, name string, o SearchOptions, authorize func(string) error) (SearchResult, error) {
+	return search(ctx, name, o, authorize, func(name string, directory bool) (fs.File, error) {
+		f, err := source.Open(name)
+		if err != nil {
+			return nil, err
+		}
+		info, err := f.Stat()
+		if err != nil || info.IsDir() != directory {
+			f.Close()
+			return nil, fs.ErrInvalid
+		}
+		return f, nil
+	}, func(fs.File) (string, error) { return revision, nil })
+}
+
+func search(ctx context.Context, name string, o SearchOptions, authorize func(string) error, open func(string, bool) (fs.File, error), versionOf func(fs.File) (string, error)) (SearchResult, error) {
 	out := SearchResult{Matches: []SearchMatch{}, Complete: true, Skipped: map[string]int{}}
 	if err := o.Validate(); err != nil {
 		return out, err
@@ -201,14 +228,14 @@ func Search(ctx context.Context, root, name string, o SearchOptions, authorize f
 		if err := authorize(current); err != nil {
 			return err
 		}
-		f, err := Open(root, current)
+		f, err := open(current, false)
 		if err != nil {
 			out.Skipped["unreadable_or_link"]++
 			out.Complete = false
 			return nil
 		}
 		defer f.Close()
-		version, err := Version(f)
+		version, err := versionOf(f)
 		if err != nil {
 			return err
 		}
@@ -237,7 +264,7 @@ func Search(ctx context.Context, root, name string, o SearchOptions, authorize f
 			return nil
 		}
 		out.BytesScanned += len(data)
-		after, err := Version(f)
+		after, err := versionOf(f)
 		if err != nil {
 			return err
 		}
@@ -318,16 +345,16 @@ func Search(ctx context.Context, root, name string, o SearchOptions, authorize f
 		if err := authorize(current); err != nil {
 			return err
 		}
-		dir, err := OpenDirectory(root, current)
+		dir, err := open(current, true)
 		if err != nil {
 			return err
 		}
-		before, err := Version(dir)
+		before, err := versionOf(dir)
 		if err != nil {
 			dir.Close()
 			return err
 		}
-		entries, err := dir.ReadDir(10001 - out.EntriesScanned)
+		entries, err := dir.(fs.ReadDirFile).ReadDir(10001 - out.EntriesScanned)
 		dir.Close()
 		if err != nil && err != io.EOF {
 			return err
@@ -361,12 +388,12 @@ func Search(ctx context.Context, root, name string, o SearchOptions, authorize f
 				break
 			}
 		}
-		afterDir, e := OpenDirectory(root, current)
+		afterDir, e := open(current, true)
 		if e != nil {
 			out.Complete = false
 			out.Skipped["changed_directory"]++
 		} else {
-			after, e := Version(afterDir)
+			after, e := versionOf(afterDir)
 			afterDir.Close()
 			if e != nil || after != before {
 				out.Complete = false
@@ -378,7 +405,7 @@ func Search(ctx context.Context, root, name string, o SearchOptions, authorize f
 	if err := authorize(name); err != nil {
 		return out, err
 	}
-	if f, err := Open(root, name); err == nil {
+	if f, err := open(name, false); err == nil {
 		out.TargetKind = "file"
 		f.Close()
 		err = file(name, path.Base(name))

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"molr.ai/runtime/internal/agent"
 	"molr.ai/runtime/internal/agent/scheduler"
+	"molr.ai/runtime/internal/agent/tools"
 	"molr.ai/runtime/internal/auth"
 	"molr.ai/runtime/internal/business/assistant"
 	"molr.ai/runtime/internal/business/resource"
@@ -230,8 +231,28 @@ func TestUserWithoutSandboxCanBuildChatContext(t *testing.T) {
 	_, err = requests.context(t.Context(), e)
 	need(t, err)
 	for _, d := range docs {
-		if d.Kind == "skill" || d.Source == "/work/AGENTS.md" {
+		if (d.Kind == "skill" && d.Source != "/molr/.agents/skills/molr-docs/SKILL.md") || d.Source == "/work/AGENTS.md" {
 			t.Fatal("unassigned sandbox context exposed")
+		}
+	}
+	for _, owner := range []core.Principal{f.alice, f.bob} {
+		a := f.assistant(t, owner, "builtin-docs")
+		e := f.execution(t, owner, a, "builtin-docs-read")
+		sources, err := files.contextSources(t.Context(), agent.ContextRequest{Execution: e})
+		need(t, err)
+		found := false
+		for _, source := range sources {
+			if source.Source == "/molr/.agents/skills/molr-docs/SKILL.md" {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatal("member without sandbox cannot discover documentation")
+		}
+		raw, err := files.read(t.Context(), e, tools.FileReadRequest{FileTarget: tools.FileTarget{Path: "/molr/.agents/skills/molr-docs/SKILL.md"}})
+		need(t, err)
+		if !strings.Contains(string(raw), "name: molr-docs") {
+			t.Fatal("member cannot read shared product documentation")
 		}
 	}
 }

@@ -244,6 +244,9 @@ func (s *sandboxRouter) remote(ctx context.Context, e core.Execution, id core.ID
 	return client.Execute(ctx, q, check)
 }
 func (s *sandboxRouter) file(ctx context.Context, e core.Execution, method string, t tools.FileTarget, args any, modelID core.ID) (json.RawMessage, bool, error) {
+	if builtinTarget(t) {
+		return nil, false, nil
+	} // The local file resolver authorizes the immutable bundle.
 	action := policy.Read
 	if method == "file_write" || method == "file_edit" || method == "file_move" || method == "file_delete" || method == "upload" {
 		action = policy.Write

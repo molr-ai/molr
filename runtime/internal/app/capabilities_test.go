@@ -76,7 +76,7 @@ func TestAssistantCapabilitiesAreReadOnlyScopedAndReflectStorageGrants(t *testin
 					t.Fatalf("%s must reflect write grants: %+v", name, entries[name])
 				}
 			}
-			if !result.Skills.Supported || result.Skills.Items == nil || len(result.Skills.Items) != 0 {
+			if !result.Skills.Supported || result.Skills.Items == nil || len(result.Skills.Items) != 1 || result.Skills.Items[0].Name != "molr-docs" {
 				t.Fatal("workspace Skills capability missing or unexpectedly populated")
 			}
 		})

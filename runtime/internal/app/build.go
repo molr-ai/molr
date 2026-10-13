@@ -658,6 +658,10 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		}
 		if err == nil {
 			err = sandboxRouter.inspect(ctx, p, id, &result)
+			if err == nil {
+				result.Skills.Supported = true
+				result.Skills.Items = append([]agent.SkillInfo{builtinSkillInfo()}, result.Skills.Items...)
+			}
 		}
 		if err == nil {
 			err = pluginService.Inspect(ctx, p, id, &result)

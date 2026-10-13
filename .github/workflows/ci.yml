@@ -23,7 +23,7 @@ jobs:
           go-version-file: runtime/.go-version
           cache-dependency-path: runtime/go.sum
       - run: npm ci
-      - run: npm run check:platforms && npm run check:release && npm run check:licenses
+      - run: npm run docs:check && npm run test:docs && npm run check:platforms && npm run check:release && npm run check:licenses
       - run: npm run test:release && npm run test:release-flow
       - run: python3 scripts/test-install-download.py
       - run: npm run test --workspace @molr/ui

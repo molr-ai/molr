@@ -119,3 +119,7 @@ GPU 沿用计算权限，无额外 Shell 参数。申请中的 `constraints.comp
 用户接管时，模型写操作及关闭返回 `browser_user_controlled`，只读操作仍可用。交还后，模型先成功读取新快照，写操作才解除 `browser_snapshot_required`。写操作响应丢失时结束执行，不重试可能已经完成的操作。截图复用既有文件与媒体权限。浏览器计入现有任务额度；每个助理一个浏览器，支持多标签和独立持久 profile。
 
 `browser_session` 的 start/status 返回 `Proxy` 脱敏摘要（Mode/Server/Bypass/Authentication/Version）、`ProxyAppliesTo`（current_session/next_start）和 `RestartRequired`。运行任务使用启动快照，配置变更不重放启动或切换连接。`LastNetworkFailure` 包含 TaskID/At/Reason/Message/Proxy 及可选 Sandbox（Reason/At）；后者仅是动作期间的沙盒事件，不保证因果关系。浏览器错误消息只保留网络错误标识，未知错误提示查询状态。成功导航清除当前任务的失败记录；其他只读成功不清除。代理地址按现有沙盒授权检查；模型不能设置代理、环境变量或代理密码。
+
+## 内置产品资料
+
+`/molr` 是所有助理共用的只读内置文档根。`file_read`、`file_list`、`file_search` 使用绝对路径且省略 `resource_id`、`sandbox_id` 和 `full_access`，不需要本地沙盒或资源授权，仍校验执行身份。其他文件操作不能修改它；它不映射到 Shell 路径。读取与搜索遵守现有分页与截断约定，内置文档结果使用更小的 12 KiB 限制以避免工作区归档。

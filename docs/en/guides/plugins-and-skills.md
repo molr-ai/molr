@@ -6,6 +6,12 @@ First, enable **Show Plugins** in **User Settings → General**, then manage the
 
 Regular members use plugins that have been enabled by administrators and assigned to their user groups. Personal enable/disable actions only affect your own usage; if a plugin has personal settings, you can fill them in via the corresponding configuration entry. Plugin pages, themes, and HTTP tools remain subject to group permissions, personal enablement, and assistant authorization restrictions. Installation and shared service connections are [managed by administrators](../administration/plugins.md).
 
+## Built-in Molr documentation
+
+Assistants in every account can use `molr-docs` by default to answer questions about Molr features, usage, configuration, deployment and troubleshooting. They consult the Chinese documentation shipped with the current Runtime as needed and answer in your language. Documentation does not establish the installation's actual configuration or live status.
+
+The Skill needs no installation, network or compute permission and remains available when the local sandbox is disabled. The assistant's Skills tab shows “Built-in · Read-only” and the bundle revision. Built-in content updates with the Runtime and cannot be modified by assistants; a same-named workspace Skill does not replace it.
+
 ## Installing CLI or Skills
 
 Tell the assistant the source and purpose directly in the chat, for example: "Install this CLI into your working directory and verify it works according to the documentation." The assistant uses standard Shell and file tools to install programs and dependencies, following the existing permission request process when computational or network resources are needed.

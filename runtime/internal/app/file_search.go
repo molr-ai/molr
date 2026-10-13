@@ -8,6 +8,7 @@ import (
 
 	"molr.ai/runtime/internal/agent/tools"
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/molrdocs"
 	"molr.ai/runtime/internal/policy"
 	"molr.ai/runtime/internal/textfiles"
 )
@@ -36,7 +37,7 @@ func (f *resourceFileTools) search(ctx context.Context, e core.Execution, r tool
 		}
 		return path.Join(r.Path, suffix)
 	}
-	result, err := textfiles.Search(ctx, root, name, r.SearchOptions(), func(child string) error {
+	authorize := func(child string) error {
 		target := r.FileTarget
 		target.Path = externalPath(child)
 		resolved, resolvedName, err := f.resolve(ctx, e, target, policy.Read)
@@ -47,7 +48,16 @@ func (f *resourceFileTools) search(ctx context.Context, e core.Execution, r tool
 			return core.NewError(core.Conflict, "search root changed")
 		}
 		return nil
-	})
+	}
+	var result textfiles.SearchResult
+	if root == builtinDocsRoot {
+		result, err = textfiles.SearchFS(ctx, molrdocs.FS, molrdocs.Revision, name, r.SearchOptions(), authorize)
+		if err != nil {
+			return nil, builtinFileError(err)
+		}
+	} else {
+		result, err = textfiles.Search(ctx, root, name, r.SearchOptions(), authorize)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -66,6 +76,10 @@ func (f *resourceFileTools) search(ctx context.Context, e core.Execution, r tool
 			seen[target.Path] = true
 		}
 	}
+	outputLimit := 32 << 10
+	if builtinTarget(r.FileTarget) {
+		outputLimit = 12 << 10
+	}
 	for {
 		encoded, err := json.Marshal(struct {
 			SandboxID  core.ID
@@ -73,7 +87,7 @@ func (f *resourceFileTools) search(ctx context.Context, e core.Execution, r tool
 			Path       string
 			textfiles.SearchResult
 		}{targetSandbox(r.SandboxID), r.ResourceID, r.Path, result})
-		if err != nil || len(encoded) <= 32<<10 || len(result.Matches) == 0 {
+		if err != nil || len(encoded) <= outputLimit || len(result.Matches) == 0 {
 			return encoded, err
 		}
 		result.Matches = result.Matches[:len(result.Matches)-1]

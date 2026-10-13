@@ -19,6 +19,7 @@ if (!version.includes('-local') && existsSync(`${output}/molr_${version}_linux_$
 const run = (cmd, args, options = {}) => execFileSync(cmd, args, { stdio: 'inherit', ...options });
 run('npm', ['run', 'check:release']);
 run('npm', ['run', 'check:licenses']);
+run('npm', ['run', 'docs:check']);
 const commit = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 run('npm', ['run', 'build:webui'], { env: { ...process.env, MOLR_VERSION: version, MOLR_COMMIT: commit } });
 const embedded = resolve('runtime/internal/webassets/dist');

@@ -80,6 +80,9 @@ func (f *resourceFileTools) resolve(ctx context.Context, e core.Execution, targe
 	if err := checkFilePolicy(ctx, e, target, actions...); err != nil {
 		return "", "", err
 	}
+	if builtinTarget(target) {
+		return f.resolveBuiltin(ctx, e, target, actions...)
+	}
 	if f.resolveOverride != nil {
 		return f.resolveOverride(ctx, e, target, actions...)
 	}
@@ -231,12 +234,16 @@ func (f *resourceFileTools) readText(ctx context.Context, e core.Execution, r to
 	if err != nil {
 		return nil, err
 	}
-	file, err := openResourceFile(root, name)
+	file, err := openTextSource(root, name)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
-	version, err := resourceFileVersion(file)
+	outputLimit := fileOutputLimit
+	if builtinTarget(r.FileTarget) {
+		outputLimit = 12 << 10
+	}
+	version, err := textSourceVersion(file)
 	if err != nil {
 		return nil, err
 	}
@@ -270,7 +277,7 @@ func (f *resourceFileTools) readText(ctx context.Context, e core.Execution, r to
 		if len(data) == 0 && more {
 			return nil, core.Invalid("byte_offset", "byte offset must start at a UTF-8 character boundary")
 		}
-		if current, err := resourceFileVersion(file); err != nil || current != version {
+		if current, err := textSourceVersion(file); err != nil || current != version {
 			return nil, fileChanged()
 		}
 		if _, _, err = f.resolve(ctx, e, r.FileTarget, policy.Read); err != nil {
@@ -289,11 +296,11 @@ func (f *resourceFileTools) readText(ctx context.Context, e core.Execution, r to
 	}
 	limited := &io.LimitedReader{R: file, N: fileScanLimit + 1}
 	scanner := bufio.NewScanner(limited)
-	scanner.Buffer(make([]byte, 4096), fileOutputLimit+1)
+	scanner.Buffer(make([]byte, 4096), outputLimit+1)
 	scanner.Split(scanFileLine)
 	out := fileReadResult{SandboxID: "local", ResourceID: r.ResourceID, Path: fileVirtualPath(r.FileTarget), Version: version}
 	var content strings.Builder
-	seen, selected := 0, 0
+	seen, selected, outputBytes := 0, 0, 0
 	for scanner.Scan() {
 		if err = ctx.Err(); err != nil {
 			return nil, err
@@ -303,7 +310,12 @@ func (f *resourceFileTools) readText(ctx context.Context, e core.Execution, r to
 			continue
 		}
 		line := scanner.Bytes()
-		if selected == r.Limit || content.Len()+len(line) > fileOutputLimit {
+		lineBytes := len(line)
+		if builtinTarget(r.FileTarget) {
+			encoded, _ := json.Marshal(string(line))
+			lineBytes = len(encoded) - 2
+		}
+		if selected == r.Limit || outputBytes+lineBytes > outputLimit {
 			out.Truncated = true
 			break
 		}
@@ -316,6 +328,7 @@ func (f *resourceFileTools) readText(ctx context.Context, e core.Execution, r to
 		out.EndLine = seen
 		selected++
 		content.Write(line)
+		outputBytes += lineBytes
 	}
 	if scanner.Err() == bufio.ErrTooLong {
 		if selected == 0 {
@@ -336,7 +349,7 @@ func (f *resourceFileTools) readText(ctx context.Context, e core.Execution, r to
 	} else {
 		out.TotalLines = &seen
 	}
-	current, err := resourceFileVersion(file)
+	current, err := textSourceVersion(file)
 	if err != nil {
 		return nil, err
 	}
@@ -382,12 +395,12 @@ func (f *resourceFileTools) list(ctx context.Context, e core.Execution, r tools.
 	if name == "" {
 		name = "."
 	}
-	dir, err := openResourceDirectory(root, name)
+	dir, err := openDirectorySource(root, name)
 	if err != nil {
 		return nil, err
 	}
 	defer dir.Close()
-	version, err := resourceFileVersion(dir)
+	version, err := textSourceVersion(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -431,7 +444,7 @@ func (f *resourceFileTools) list(ctx context.Context, e core.Execution, r tools.
 			return nil, core.NewError(core.Unavailable, "directory listing failed")
 		}
 	}
-	current, err := resourceFileVersion(dir)
+	current, err := textSourceVersion(dir)
 	if err != nil {
 		return nil, err
 	}

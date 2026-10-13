@@ -29,7 +29,7 @@ Files use lowercase hyphenated naming, and directory entries use `README.md`. Sp
 
 ## Indexing and Official Website Publishing
 
-The root README guides reading by task. `apps/website/src/docs-routes.ts` is the explicit list of reviewed documentation for the official website, maintaining URLs, groups, and reading order. New files are not automatically published; repository-specific development collaboration standards may remain unregistered on the official website.
+The root README guides reading by task. `docs-routes.json` is the explicit list of reviewed documentation for the official website, maintaining URLs, groups, and reading order. New files are not automatically published; repository-specific development collaboration standards may remain unregistered on the official website.
 
 Chinese body text remains in the existing directory. English body text is placed separately in `docs/en/` and `dev-docs/en/`, maintaining the same relative filenames and section hierarchy. Each registered entry on the official website publishes `/zh/docs/…`, `/en/docs/…`, or the corresponding `dev-docs` path; the build fails if any language file is missing. When modifying public body text, synchronously maintain both languages, section correspondence, and relative links, keeping code and commands consistent. The URL determines the document language; switching languages jumps to the corresponding section of the same document, and search and previous/next navigation use only the current language.
 
@@ -48,3 +48,5 @@ Documentation organizes content around the information readers currently need to
 ## Handling Documentation Conflicts
 
 Current user operations use the product guide as the entry point, and implementation constraints are verified against the corresponding code and tests; when inconsistencies are found, correct the documentation rather than defaulting to the priority of an older scheme. Internal requirements and research do not constitute claims of implementation, nor are they dependencies that external contributors must obtain. Do not copy interface lists, configuration defaults, and complete feature lists into multiple overviews.
+
+The built-in `molr-docs` Skill reuses this list and bundles Chinese content only. After changing the list, Chinese documentation or the Skill, run `npm run docs:generate` and commit the generated bundle; `npm run docs:check` verifies freshness. Continue maintaining both website languages.

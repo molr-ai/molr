@@ -74,3 +74,5 @@ npm run check:licenses
 2026-10-12 核对文档目录重组：清单与本说明移入 `dev-docs/releasing/`，通知文件只更新清单引用路径；依赖版本、原始许可证及 NOTICE 正文未变。同步更新路径检查和通知文件摘要。
 
 2026-10-13 核对浏览器组件交付：发行包不携带 agent-browser 或 Chrome for Testing 二进制，安装器按需下载固定版本的官方产物，安装 agent-browser 的原始 Apache-2.0 许可证并保留 Chrome 包内声明。agent-browser 原始许可证同时收录在汇总通知中，并嵌入安装器供安装时交付。Chrome for Testing 是基于 Chromium 的 Google Chrome 发行物，不按仅适用 Chromium BSD 许可的产物处理。未变更 npm 或 Go 依赖。
+
+内置文档构建检查仅使用 Node.js 标准库，Runtime 资料包来自 Molr 自有中文文档；未新增第三方依赖或改变原有许可证和 NOTICE 交付范围。

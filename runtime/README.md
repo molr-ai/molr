@@ -17,6 +17,7 @@ Full Access 可作为计算权限按需开启，同一节点保留普通隔离�
 Go 版本以 [.go-version](.go-version) 为准，依赖由 `go.mod` / `go.sum` 锁定，SQLite 使用纯 Go 驱动。运行用二进制必须显式设置 `CGO_ENABLED=0` 并检查最终静态链接与 `0755` 权限；初始化、HTTPS、systemd 启动、备份恢复和升级统一见 [部署指南](../docs/deployment/README.md)。
 
 ```bash
+# 修改文档或内置 Skill 后，在仓库根目录运行 npm run docs:generate
 # 在 runtime/ 中构建开发产物
 mkdir -p ../.cache/build
 CGO_ENABLED=0 GOTOOLCHAIN="go$(cat .go-version)" go build -o ../.cache/build/molr ./cmd/molr
