@@ -74,6 +74,7 @@
   /* Shared overlays and elevation. */
   --color-overlay: #0a1610a3;
   --color-shadow: #263b31;
+  --shadow-workspace: 0 2px 8px color-mix(in srgb, var(--color-shadow) 6%, transparent);
   --shadow-control: 0 1px 3px color-mix(in srgb, var(--color-shadow) 8%, transparent);
   --shadow-product-preview: 0 22px 80px -30px color-mix(in srgb, var(--color-shadow) 22%, transparent);
   --shadow-terminal-window: 0 20px 50px -18px color-mix(in srgb, var(--color-shadow) 42%, transparent), 0 3px 10px color-mix(in srgb, var(--color-shadow) 12%, transparent);
@@ -161,6 +162,7 @@
   --color-switch-thumb: var(--color-forest);
   --color-text-accent: var(--color-lime);
   --color-selected-bg: #304128;
+  --shadow-workspace: 0 2px 8px #0000001f;
   --shadow-popover: 0 16px 40px #00000040, 0 2px 8px #00000026;
 }
 

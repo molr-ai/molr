@@ -27,7 +27,7 @@ function Examples() {
       <Checkbox label="Include files" name="files" value="included" defaultChecked />
       <Button type="submit">Read form</Button><output>{formResult}</output>
     </form>
-    <Button onClick={() => { setModalMounted(true); setDialog(true); }}>Open modal</Button>
+    <Tooltip content="Open modal details"><Button onClick={() => { setModalMounted(true); setDialog(true); }}>Open modal</Button></Tooltip>
     <Button onClick={() => setModalMounted(false)}>Unmount closed modal</Button>
     {modalMounted && <Dialog title="Initial focus" open={dialog} onOpenChange={setDialog} initialFocusRef={cancel} footer={<button ref={cancel} onClick={() => setDialog(false)}>Cancel modal</button>}>
       <RadioGroup label="Modal choice" name="modal-choice" value={mode} onValueChange={setMode} options={[{ value: 'a', label: 'Automatic' }, { value: 'b', label: 'Manual' }]} />
@@ -63,7 +63,7 @@ function DrawerMotion() {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
   return <section aria-label="Drawer motion">
-    <Button onClick={() => { setMounted(true); setOpen(true); }}>Open motion drawer</Button>
+    <Tooltip content="Open drawer details"><Button onClick={() => { setMounted(true); setOpen(true); }}>Open motion drawer</Button></Tooltip>
     {mounted && <Drawer title="Motion drawer" open={open} onOpenChange={setOpen}>
       <Button onClick={() => { setOpen(false); timer.current = setTimeout(() => setOpen(true), 60); }}>Close and reopen</Button>
       <Button onClick={() => { if (timer.current) clearTimeout(timer.current); setOpen(false); setMounted(false); }}>Unmount drawer</Button>

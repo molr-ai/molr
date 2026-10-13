@@ -7,6 +7,13 @@ import { useModalScope } from '../modal-scope';
 import { registerModalLayer } from '../overlay-layers';
 import { getTabStops } from '../focus';
 import { ModalPresenceContext } from '../modal-presence';
+import { suspendTooltips } from './tooltip-activity';
+
+function closeDialog(dialog: HTMLDialogElement) {
+  // Native close() can restore trigger focus before our explicit restoration.
+  suspendTooltips();
+  dialog.close();
+}
 
 export type DialogProps = {
   open: boolean; onOpenChange: (open: boolean) => void; onAfterClose?: () => void; title: string; description?: string;
@@ -73,7 +80,7 @@ function ModalView({ open, onOpenChange, onAfterClose, title, description, child
     if (docked && document.activeElement !== document.body && !ref.current?.contains(document.activeElement)) { returnFocus.current = null; return; }
     const target = scope ? scope.resolveFocus(returnFocus.current) : returnFocus.current;
     returnFocus.current = null;
-    if (target?.isConnected) target.focus({ preventScroll: true });
+    if (target?.isConnected) { suspendTooltips(); target.focus({ preventScroll: true }); }
   }
   useLayoutEffect(() => {
     const dialog = ref.current;
@@ -96,7 +103,7 @@ function ModalView({ open, onOpenChange, onAfterClose, title, description, child
     }
     if (docked || !drawer || !dialog.open) {
       if (!open) {
-        if (dialog.open) dialog.close();
+        if (dialog.open) closeDialog(dialog);
         unregisterToast.current?.(); unregisterToast.current = null;
         unregister.current?.(); unregister.current = null;
         setPresent(false);
@@ -120,7 +127,7 @@ function ModalView({ open, onOpenChange, onAfterClose, title, description, child
       if (contained && backdropRef.current) backdropRef.current.style.opacity = open ? '1' : '0';
       // Keep the native modal and its focus containment until the exit ends.
       if (!open) {
-        dialog.close();
+        closeDialog(dialog);
         unregisterToast.current?.(); unregisterToast.current = null;
         unregister.current?.(); unregister.current = null;
         setPresent(false);
@@ -171,7 +178,7 @@ function ModalView({ open, onOpenChange, onAfterClose, title, description, child
       const wasOpen = dialog?.open;
       const shouldRestoreFocus = !docked || document.activeElement === document.body || !!dialog?.contains(document.activeElement);
       if (host && dialog?.contains(document.activeElement)) modeFocus.current = document.activeElement as HTMLElement;
-      if (wasOpen) dialog.close();
+      if (wasOpen) closeDialog(dialog);
       release();
       unregisterToast.current?.(); unregisterToast.current = null;
       unregister.current?.(); unregister.current = null;

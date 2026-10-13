@@ -1,6 +1,6 @@
 .ui-frame-page { display: flex; flex: 1; min-height: 0; flex-direction: column; }
 .ui-frame-toolbar { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; min-height: 44px; padding: 6px 16px; gap: 8px; background: var(--color-surface); border-bottom: 1px solid var(--color-border); }
 .ui-frame-toolbar > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
-.ui-frame-page iframe { display: block; flex: 1; min-height: 0; width: 100%; border: 0; background: var(--color-page-background); }
+.ui-frame-page iframe { display: block; flex: 1; min-height: 0; width: 100%; border: 0; background: var(--color-surface); }
 .ui-frame-notice { padding: 24px; display: grid; gap: 12px; }
 @media (--molr-mobile) { .ui-frame-toolbar { padding-inline: 8px; } }

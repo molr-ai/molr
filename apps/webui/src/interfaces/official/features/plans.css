@@ -1,6 +1,6 @@
 /* Plans occupy an application workspace: fixed tools, independent content scroll. */
 .workspace-main[data-page='plans'] { overflow: hidden; }
-.plans-workspace { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; height: 100%; background: var(--color-page-background); color: var(--color-text); font-size: 14px; line-height: 1.5; }
+.plans-workspace { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; height: 100%; background: var(--color-surface); color: var(--color-text); font-size: 14px; line-height: 1.5; }
 .plans-heading { display: flex; gap: 10px; align-items: center; min-width: 0; }
 .plans-heading h1 { font-size: 17px; letter-spacing: -.02em; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .plans-app-icon { color: var(--color-text-muted); display: flex; }

@@ -8,13 +8,13 @@ export function tooltipInputVersion() { return inputVersion; }
 export function tooltipDocumentActive() {
   return document.visibilityState === 'visible' && document.hasFocus();
 }
-function suspend() { subscribers.forEach(listener => listener()); }
-function visibility() { if (document.visibilityState !== 'visible') suspend(); }
+export function suspendTooltips() { subscribers.forEach(listener => listener()); }
+function visibility() { if (document.visibilityState !== 'visible') suspendTooltips(); }
 function interact() { if (tooltipDocumentActive()) inputVersion++; }
 
 export function subscribeTooltipActivity(listener: () => void) {
   if (!subscribers.size) {
-    window.addEventListener('blur', suspend);
+    window.addEventListener('blur', suspendTooltips);
     document.addEventListener('visibilitychange', visibility);
     document.addEventListener('keydown', interact, true);
     document.addEventListener('pointerdown', interact, true);
@@ -24,7 +24,7 @@ export function subscribeTooltipActivity(listener: () => void) {
   return () => {
     subscribers.delete(listener);
     if (!subscribers.size) {
-      window.removeEventListener('blur', suspend);
+      window.removeEventListener('blur', suspendTooltips);
       document.removeEventListener('visibilitychange', visibility);
       document.removeEventListener('keydown', interact, true);
       document.removeEventListener('pointerdown', interact, true);

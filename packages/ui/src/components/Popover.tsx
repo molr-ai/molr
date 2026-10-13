@@ -76,7 +76,7 @@ export function Tooltip({ children, content, delay = 400, side: preferredSide = 
     }
   }
   useEffect(() => {
-    // Window restoration can focus the old trigger again. Wait for fresh input,
+    // Window or dialog restoration can focus the old trigger again. Wait for fresh input,
     // rather than a timeout or relatedTarget (also null for ordinary focus).
     const suspend = () => { suspendedAt.current = tooltipInputVersion(); focused.current = false; hovered.current = false; hide(); };
     const unsubscribe = subscribeTooltipActivity(suspend);

@@ -167,6 +167,8 @@ Tooltip 在触发元素仍有焦点时，不会因为鼠标移开而消失；鼠
 
 窗口失焦或页面隐藏时，Tooltip 关闭并取消延迟显示。切回页面恢复原按钮焦点时不自动显示；用户再次通过键盘导航聚焦或移动鼠标悬停后恢复正常提示，不改变按钮本身的焦点。
 
+Dialog / Drawer 关闭并恢复触发按钮焦点时，同样不会自动弹出 Tooltip；重新通过键盘导航聚焦或移动鼠标悬停后再显示。
+
 弹层通过原生 Popover API 进入顶层，按视口空间选择上下方向和宽高，可嵌入模态层。需要支持 `<dialog>`、Popover API 与 CSS `:has()` 的现代浏览器。
 
 自研 contained 浮层可从包入口导入 `useModalScope`、`getOverlayViewport`、`useFloating`、`composeRefs` 与 `useComposedRefs`，对应类型包括 `ModalScopeValue`、`FloatingOptions`、`FloatingSide` 和 `FloatingTrigger`。`useFloating(open, onOpenChange, options)` 返回 `anchorRef`、`panelRef`、`style`、`side`，自动读取所在 ModalScope 的边界；`maxHeight` 可指定浮层高度上限（默认 400px），实际仍受视口可用空间约束；将 style 与 panelRef 传给浮层。Popover 的 `auto` / `manual` 模式由 JSX 的 `popover` 属性明确决定，不是定位 hook 的参数。使用 auto 模式时，调用方还需通过 toggle 事件同步关闭状态。`getOverlayViewport` 在服务端返回零尺寸，实际定位在客户端完成。

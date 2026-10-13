@@ -59,3 +59,33 @@ test('pointer movement resumes hover after window restoration, without a focus e
   await page.mouse.move(0, 0);
   await expect(tip).not.toBeVisible();
 });
+
+for (const closeWith of ['Escape', 'close button', 'backdrop', 'drawer close', 'drawer unmount'] as const) {
+  test(`${closeWith} restores trigger focus without reopening its tooltip`, async ({ page }) => {
+    const drawer = closeWith.startsWith('drawer');
+    const trigger = page.getByRole('button', { name: drawer ? 'Open motion drawer' : 'Open modal', exact: true });
+    const tip = page.getByRole('tooltip', { name: drawer ? 'Open drawer details' : 'Open modal details', exact: true });
+    await trigger.hover();
+    await expect(tip).toBeVisible();
+    await trigger.click();
+    const dialog = page.getByRole('dialog', { name: drawer ? 'Motion drawer' : 'Initial focus', exact: true });
+    await expect(dialog).toBeVisible();
+    if (closeWith === 'Escape') await page.keyboard.press('Escape');
+    else if (closeWith === 'backdrop') await page.mouse.click(1, 1);
+    else await dialog.getByRole('button', { name: closeWith === 'drawer unmount' ? 'Unmount drawer' : 'Close', exact: true }).click();
+    await expect(dialog).not.toBeVisible();
+    await expect(trigger).toBeFocused();
+    await page.waitForTimeout(500);
+    await expect(tip).not.toBeVisible();
+    // Stay inside the document even when the trigger is its last tab stop.
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(trigger).toBeFocused();
+    await expect(tip).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(tip).not.toBeVisible();
+    await page.mouse.move(0, 0);
+    await trigger.hover();
+    await expect(tip).toBeVisible();
+  });
+}
