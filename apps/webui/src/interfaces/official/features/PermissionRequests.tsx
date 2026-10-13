@@ -57,7 +57,7 @@ export function PermissionRequestCard({ requestID, assistant, title, summary, ti
 export function PermissionRequests({ assistant }: { assistant: Assistant }) {
   const { t, locale } = useCopy(), zh = locale === 'zh';
   const query = useQuery<PermissionRequest[]>(`/api/permission-requests?assistant_id=${assistant.ID}`);
-  const resources = useQuery<Resource[]>('/api/resources'), sandboxes = useQuery<SandboxView[]>('/api/sandboxes');
+  const resources = useQuery<Resource[]>('/api/resources', true), sandboxes = useQuery<SandboxView[]>('/api/sandboxes');
   const [review, setReview] = useState<PermissionRequest | null>(null), [reject, setReject] = useState<PermissionRequest | null>(null);
   const states = zh ? { pending: '待审批', approved: '已批准', rejected: '已拒绝' } : { pending: 'Pending', approved: 'Approved', rejected: 'Rejected' };
   const pending = query.data?.filter(row => row.State === 'pending') ?? [], resolved = query.data?.filter(row => row.State !== 'pending') ?? [];

@@ -31,6 +31,15 @@ for (const decision of ['approve', 'reject']) test(`permission request ${decisio
   const pending = await (await page.request.get(`/api/permission-requests?assistant_id=${assistant.ID}`)).json();
   expect(pending[0].Input.resource_id).toBeTruthy(); expect(pending[0].Input.expires_at).toBeTruthy();
   const proposedExpiry = pending[0].Input.expires_at;
+  // The permissions tab consumes the paginated resource catalog, including
+  // requests that already exist when the panel first mounts.
+  await page.locator('.chat-assistant-info').click();
+  let permissionsPanel = page.locator('.assistant-info');
+  await permissionsPanel.getByRole('tab', { name: 'Permissions', exact: true }).click();
+  await expect(permissionsPanel.locator('.permission-requests')).toContainText('Permission requests');
+  await expect(permissionsPanel.locator('.permission-requests')).toContainText('Run the calculation in an isolated sandbox.');
+  await expect(page.getByText('This theme could not load', { exact: true })).toHaveCount(0);
+  await permissionsPanel.getByRole('button', { name: 'Close', exact: true }).click();
   const grantsBefore = await (await page.request.get(`/api/grants?assistant_id=${assistant.ID}`)).json();
   expect(grantsBefore.Items).toHaveLength(1); // only the model chosen at hiring
   if (decision === 'approve') {
@@ -62,6 +71,13 @@ for (const decision of ['approve', 'reject']) test(`permission request ${decisio
   await expect(page.locator('.ui-chat-message--assistant').filter({hasText:decision === 'approve' ? 'Permission approved; current grants checked before continuing.' : 'Permission was declined. No command was executed.'})).toHaveCount(1, { timeout: 60_000 });
   await expect(page.locator('.permission-request-card')).toContainText(decision === 'approve' ? 'Approved' : 'Rejected');
   await expect(page.getByRole('button', { name: 'Review permission', exact: true })).toHaveCount(0);
+  await page.locator('.chat-assistant-info').click();
+  permissionsPanel = page.locator('.assistant-info');
+  await permissionsPanel.getByRole('tab', { name: 'Permissions', exact: true }).click();
+  await permissionsPanel.getByText(/Resolved permission requests/).click();
+  await expect(permissionsPanel.locator('.permission-requests')).toContainText(decision === 'approve' ? 'Approved scope' : 'Rejected');
+  await expect(permissionsPanel.getByRole('button', { name: 'Add permission', exact: true })).toBeEnabled();
+  await expect(page.getByText('This theme could not load', { exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
