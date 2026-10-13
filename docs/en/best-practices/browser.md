@@ -33,6 +33,8 @@ Choose **Return control** when finished. The assistant receives a notification a
 
 Disconnecting or closing the panel does not return control automatically. Reopening the panel in the same page restores that window’s control without another takeover. Refreshing the page or switching to another window requires an explicit takeover. The page's own scripts and networking remain subject to the original sandbox permissions; takeover does not expand them.
 
+Takeover input is sent in ordered batches. Consecutive pointer moves keep the latest position, while dragging keeps a bounded set of path samples. Adjacent wheel events in the same direction accumulate their actual deltas, including horizontal scrolling. Text, keys and clicks retain their order; coalescing never crosses clicks, tab changes or navigation. A failed request stops pending input. Check the page before continuing to avoid duplicate submissions.
+
 ## Scope and failures
 
 The current implementation supports Chromium in the local Linux sandbox. Programs use a shared read-only installation; website data persists per assistant. Live viewing does not automatically record video, and human keystrokes are not written to the operation log. Screenshots are saved only when explicitly requested.

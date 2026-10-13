@@ -433,6 +433,9 @@ Browser status includes `LastFailure: { TaskID, Reason }` when the latest browse
 
 `GET /api/assistants/{id}/browser/stream?task_id=…` is authenticated SSE containing frame/status/tabs/url messages. It rechecks owner/assistant scope, watches session validity and ends on task cancellation. This endpoint is not subject to the regular 30-second JSON request deadline. POST uses the normal session and CSRF checks. There is no public agent-browser WS or command endpoint.
 
+Owner input supports `action: "input_batch"` with `actions` (1–32 pointer/wheel/insert_text/press operations), controller identity and the first `sequence`; subsequent sequences are consecutive. The entire batch is validated before execution, and ownership is checked for each action. After 250 ms of cumulative execution, no further action is started. The response reports confirmed successes in `completed`, with `code`/`reason` on failure; never automatically replay a failed action or its suffix. Only an error-free partial response permits sending the unexecuted suffix. Navigation, tabs and handoff use separate requests. `wheel` takes viewport coordinates, pixel `delta_x/delta_y` and optional `modifiers` (Alt=1, Control=2, Meta=4, Shift=8). The frontend bounds input request frequency without invalidating unrelated business queries.
+
+
 ## Path Memory Interface
 
 Memory has no dedicated ID, located by `Scope: assistant|global`, `AssistantID`, and relative `Path` under the current account. The AssistantID for global scope is empty. Path is a semantic file path under `MEMORY.md` or `.agents/memory/`, which must be provided for creation; same names do not overwrite. The file `Version` is the full byte SHA-256; updates and deletions use `Mutation.ExpectedVersion`, and old versions return 409.

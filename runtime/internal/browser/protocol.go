@@ -3,6 +3,7 @@ package browser
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/url"
 	"strings"
 )
@@ -26,6 +27,12 @@ type Action struct {
 	Event     string  `json:"event,omitempty"`
 	DeltaX    float64 `json:"delta_x,omitempty"`
 	DeltaY    float64 `json:"delta_y,omitempty"`
+	Modifiers int     `json:"modifiers,omitempty"`
+}
+
+// Input actions are bounded, low-level operations suitable for a short batch.
+func (a Action) Input() bool {
+	return a.Action == "pointer" || a.Action == "wheel" || a.Action == "insert_text" || a.Action == "press"
 }
 
 func (a Action) ReadOnly() bool {
@@ -33,6 +40,9 @@ func (a Action) ReadOnly() bool {
 }
 func (a Action) Args() ([]string, error) {
 	bad := func() ([]string, error) { return nil, fmt.Errorf("invalid browser action") }
+	if a.Modifiers < 0 || a.Modifiers > 15 {
+		return bad()
+	}
 	if len(a.Text) > 8192 || len(a.Selector) > 2048 || strings.ContainsRune(a.Selector, 0) || len(a.URL) > 8192 {
 		return bad()
 	}
@@ -90,9 +100,15 @@ func (a Action) Args() ([]string, error) {
 			return []string{"tab", "close", a.Tab}, nil
 		}
 		return []string{"tab", "close"}, nil
-	case "pointer":
-		if a.X < 0 || a.X > 1280 || a.Y < 0 || a.Y > 800 {
+	case "pointer", "wheel":
+		if math.IsNaN(a.X) || math.IsNaN(a.Y) || a.X < 0 || a.X > 1280 || a.Y < 0 || a.Y > 800 {
 			return bad()
+		}
+		if a.Action == "wheel" {
+			if math.IsNaN(a.DeltaX) || math.IsNaN(a.DeltaY) || math.Abs(a.DeltaX) > 100000 || math.Abs(a.DeltaY) > 100000 || a.DeltaX == 0 && a.DeltaY == 0 {
+				return bad()
+			}
+			return []string{"wheel"}, nil // Dispatched through the private structured protocol.
 		}
 		if a.Event == "move" {
 			return []string{"mouse", "move", fmt.Sprint(a.X), fmt.Sprint(a.Y)}, nil

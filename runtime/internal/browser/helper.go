@@ -123,7 +123,7 @@ func HelperMain() int {
 		switch a.Action {
 		case "pointer":
 			event := map[string]string{"move": "mouseMoved", "down": "mousePressed", "up": "mouseReleased"}[a.Event]
-			command := map[string]any{"action": "input_mouse", "type": event, "x": a.X, "y": a.Y}
+			command := map[string]any{"action": "input_mouse", "type": event, "x": a.X, "y": a.Y, "modifiers": a.Modifiers}
 			if a.Event != "move" {
 				command["button"] = a.Button
 				command["clickCount"] = 1
@@ -142,6 +142,10 @@ func HelperMain() int {
 			result = dispatch(ctx, map[string]any{"action": "fill", "selector": a.Selector, "value": a.Text})
 		case "insert_text":
 			result = dispatch(ctx, map[string]any{"action": "inserttext", "text": a.Text})
+		case "press":
+			result = dispatch(ctx, map[string]any{"action": "press", "key": a.Key})
+		case "wheel":
+			result = dispatch(ctx, map[string]any{"action": "input_mouse", "type": "mouseWheel", "x": a.X, "y": a.Y, "deltaX": a.DeltaX, "deltaY": a.DeltaY, "modifiers": a.Modifiers})
 		default:
 			result = run(ctx, args...)
 		}

@@ -15,7 +15,7 @@ func TestBrowserArgumentsRejectControlAndLaunchOptions(t *testing.T) {
 	if err != nil || q.Text != "--cdp=9222 中文" {
 		t.Fatal(q, err)
 	}
-	for _, action := range []string{"takeover", "release", "pointer", "insert_text", "keydown", "reset_input"} {
+	for _, action := range []string{"takeover", "release", "pointer", "insert_text", "wheel", "input_batch", "keydown", "reset_input"} {
 		if _, err := parse(Call{Name: "browser_action", Arguments: json.RawMessage(`{"action":"` + action + `"}`)}); err == nil {
 			t.Fatal("model control bypass", action)
 		}

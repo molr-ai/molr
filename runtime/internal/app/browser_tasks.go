@@ -214,6 +214,9 @@ func (s *shellTasks) startBrowser(ctx context.Context, e core.Execution, q tools
 	return s.browserStatus(ctx, e.Principal, e.AssistantID)
 }
 func (s *shellTasks) browserRequest(ctx context.Context, p core.Principal, id core.ID, q tools.BrowserRequest) (json.RawMessage, error) {
+	if q.Action.Action == "input_batch" {
+		return s.browserInputBatch(ctx, p, id, q)
+	}
 	if q.Action.Action == "status" {
 		return s.browserStatus(ctx, p, id)
 	}
@@ -314,6 +317,41 @@ func (s *shellTasks) browserRequest(ctx context.Context, p core.Principal, id co
 		s.mu.Unlock()
 	}
 	return json.Marshal(out)
+}
+
+// Each input rechecks ownership under the normal gate. A handoff can invalidate
+// the remaining batch while waiting for the currently accepted input to settle.
+// Completed counts only confirmed successes; a failed/unknown input is never retried.
+func (s *shellTasks) browserInputBatch(ctx context.Context, p core.Principal, id core.ID, q tools.BrowserRequest) (json.RawMessage, error) {
+	if err := p.RequireOwner(); err != nil {
+		return nil, err
+	}
+	if err := q.ValidateBatch(); err != nil {
+		return nil, err
+	}
+	result := struct {
+		Completed int         `json:"completed"`
+		Code      core.Code   `json:"code,omitempty"`
+		Reason    core.Reason `json:"reason,omitempty"`
+	}{}
+	started := time.Now()
+	for i, a := range q.Actions {
+		if i > 0 && time.Since(started) >= 250*time.Millisecond {
+			break
+		}
+		if err := ctx.Err(); err != nil {
+			result.Code = core.Canceled
+			break
+		}
+		next := q
+		next.Action, next.Actions, next.Sequence = a, nil, q.Sequence+uint64(i)
+		if _, err := s.browserRequest(ctx, p, id, next); err != nil {
+			result.Code, result.Reason = core.CodeOf(err), core.ReasonOf(err)
+			break
+		}
+		result.Completed++
+	}
+	return json.Marshal(result)
 }
 func (s *shellTasks) browserControl(ctx context.Context, p core.Principal, id core.ID, r *runningShell, q tools.BrowserRequest) (json.RawMessage, error) {
 	if err := p.RequireOwner(); err != nil {

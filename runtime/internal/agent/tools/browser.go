@@ -13,13 +13,29 @@ type BrowserLaunch struct{ AgentDirectory, ChromiumDirectory string }
 type BrowserRequest struct {
 	ModelID core.ID `json:"-"`
 	browser.Action
-	TaskID      core.ID   `json:"task_id,omitempty"`
-	ComputeID   core.ID   `json:"compute_id,omitempty"`
-	NetworkMode string    `json:"network_mode,omitempty"`
-	NetworkIDs  []core.ID `json:"network_ids,omitempty"`
-	Generation  uint64    `json:"generation,omitempty"`
-	ClientID    string    `json:"client_id,omitempty"`
-	Sequence    uint64    `json:"sequence,omitempty"`
+	TaskID      core.ID          `json:"task_id,omitempty"`
+	ComputeID   core.ID          `json:"compute_id,omitempty"`
+	NetworkMode string           `json:"network_mode,omitempty"`
+	NetworkIDs  []core.ID        `json:"network_ids,omitempty"`
+	Generation  uint64           `json:"generation,omitempty"`
+	ClientID    string           `json:"client_id,omitempty"`
+	Sequence    uint64           `json:"sequence,omitempty"`
+	Actions     []browser.Action `json:"actions,omitempty"`
+}
+
+func (q BrowserRequest) ValidateBatch() error {
+	if len(q.Actions) == 0 || len(q.Actions) > 32 || q.Sequence == 0 || q.Sequence > ^uint64(0)-uint64(len(q.Actions)) {
+		return core.Invalid("actions", "expected 1 to 32 ordered input actions and a valid sequence")
+	}
+	for _, a := range q.Actions {
+		if !a.Input() {
+			return core.Invalid("actions", "only low-level input can be batched")
+		}
+		if _, err := a.Args(); err != nil {
+			return core.Invalid("actions", err.Error())
+		}
+	}
+	return nil
 }
 
 func ParseBrowser(raw json.RawMessage) (BrowserRequest, error) {
@@ -48,11 +64,18 @@ func ParseBrowser(raw json.RawMessage) (BrowserRequest, error) {
 		return q, core.Invalid("network_ids", "offline request cannot select networks")
 	}
 	switch q.Action.Action {
+	case "input_batch":
+		if err := q.ValidateBatch(); err != nil {
+			return q, err
+		}
 	case "install_start", "start", "status", "close", "takeover", "release":
 	default:
 		if _, err := q.Action.Args(); err != nil {
 			return q, core.Invalid("browser", err.Error())
 		}
+	}
+	if q.Action.Action != "input_batch" && len(q.Actions) != 0 {
+		return q, core.Invalid("actions", "requires input_batch")
 	}
 	return q, nil
 }

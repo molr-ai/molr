@@ -433,6 +433,9 @@ Runtime 启动时自动准备并探测命令环境，自动登记本机计算资
 
 `GET /api/assistants/{id}/browser/stream?task_id=…` 提供 frame/status/tabs/url 消息的认证 SSE。接口核验账号与助理归属，持续检查会话，在任务取消时结束，不受普通 JSON 请求 30 秒截止时间限制。POST 沿用登录态与 CSRF 检查。不公开 agent-browser 的 WS 或指令端点。
 
+用户低层输入支持 `action: "input_batch"`，携带 `actions`（1–32 条 pointer/wheel/insert_text/press）、控制者信息及首条 `sequence`；后续序号连续递增。整批先校验，逐条执行时重新核验控制权；累计执行满 250 ms 后不再开始下一条。返回 `completed` 为已确认成功数量，失败另返回 `code`／`reason`，失败项及其后缀不可自动重放。无错误的部分完成只允许继续发送未执行后缀。导航、标签及交接单独请求。`wheel` 使用视口坐标、`delta_x/delta_y` 像素增量和可选 `modifiers`（Alt=1、Control=2、Meta=4、Shift=8）。前端限制输入请求频率，不随低层输入失效无关业务查询。
+
+
 ## 路径记忆接口
 
 记忆无专用 ID，以当前账号下的 `Scope: assistant|global`、`AssistantID`、相对 `Path` 定位。全局范围的 AssistantID 为空。Path 为 `MEMORY.md` 或 `.agents/memory/` 下语义文件路径，创建必须提供；同名不覆盖。文件 `Version` 是完整字节 SHA-256，更新、删除使用 `Mutation.ExpectedVersion`，旧版本返回 409。

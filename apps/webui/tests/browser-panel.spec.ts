@@ -25,6 +25,8 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   let client = '', generation = 1, sequence = 0, takeovers = 0, running = false, rejectInput = false;
   let tabs = [{ tabId: 't1', title: 'First tab', url: 'https://example.com', active: true }, { tabId: 't2', title: 'Second tab', url: 'about:blank', active: false }];
   const text: string[] = [], closedTabs: string[] = [];
+  let inputDelay = 0, batches = 0, grantReads = 0, partialNext = false;
+  const inputs: Record<string, any>[] = [];
   const pointers: { x: number; y: number; event: string }[] = [];
   await page.addInitScript(() => {
     const Native = window.EventSource;
@@ -42,7 +44,7 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   });
   await page.goto('about:blank'); // Install the transport in a fresh document before routing requests.
   await page.route('**/api/resources?kind=compute&limit=200', route => route.fulfill({ json: { Items: [{ ID: 'local-one', Name: 'Local one' }, { ID: 'local-two', Name: 'Local two' }] } }));
-  await page.route(`**/api/grants?assistant_id=${assistant.ID}&limit=200`, route => route.fulfill({ json: { Items: ['local-one', 'local-two'].map(ResourceID => ({ ResourceID, Scope: {}, Actions: ['execute'] })) } }));
+  await page.route(`**/api/grants?assistant_id=${assistant.ID}&limit=200`, route => { grantReads++; return route.fulfill({ json: { Items: ['local-one', 'local-two'].map(ResourceID => ({ ResourceID, Scope: {}, Actions: ['execute'] })) } }); });
   await page.route(`**/api/assistants/${assistant.ID}/browser`, async route => {
     if (route.request().method() === 'POST') {
       const q = route.request().postDataJSON();
@@ -51,9 +53,19 @@ test('browser panel preserves control, commits IME once, closes the selected tab
       else if (q.action === 'takeover') { client = q.client_id; generation++; takeovers++; sequence = q.sequence; }
       else {
         expect(q.client_id).toBe(client); expect(q.generation).toBe(generation); expect(q.sequence).toBeGreaterThan(sequence); sequence = q.sequence;
-        if (q.action === 'insert_text') text.push(q.text);
-        if (q.action === 'pointer') pointers.push(q);
-        if (q.action === 'close_tab') { closedTabs.push(q.tab); tabs = tabs.filter(t => t.tabId !== q.tab); }
+        let actions = q.action === 'input_batch' ? q.actions : [q];
+        if (q.action === 'input_batch' && partialNext) { actions = actions.slice(0, 1); partialNext = false; }
+        for (const a of actions) {
+          inputs.push(a);
+          if (a.action === 'insert_text') text.push(a.text);
+          if (a.action === 'pointer') pointers.push(a);
+          if (a.action === 'close_tab') { closedTabs.push(a.tab); tabs = tabs.filter(t => t.tabId !== a.tab); }
+        }
+        if (q.action === 'input_batch') {
+          batches++; sequence += actions.length - 1;
+          if (inputDelay) await new Promise(resolve => setTimeout(resolve, inputDelay));
+          await route.fulfill({ json: { completed: actions.length } }); return;
+        }
       }
     }
     await route.fulfill({ json: { Available: true, LastFailure: lastFailure, TabCount: tabs.length, ControllerIsCurrentSession: !!client, ControllerClientID: client, Task: running ? { ID: 'browser-test', Kind: 'browser', State: 'running', Browser: { Control: client ? 'user' : 'assistant', Generation: generation } } : null } });
@@ -89,6 +101,36 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   await input.evaluate((element: HTMLTextAreaElement) => { element.value = '中文组合'; element.dispatchEvent(new InputEvent('input', { bubbles: true, data: '中文组合', isComposing: true })); });
   expect(text).toEqual([]); await expect(page.locator('.browser-preedit')).toHaveCount(0); await input.dispatchEvent('compositionend', { data: '中文组合' });
   await expect.poll(() => text).toEqual(['中文组合']);
+  // A slow round trip must not turn a wheel/move burst into hundreds of
+  // requests or drop rapid text across a keyboard focus boundary.
+  inputDelay = 200;
+  const beforeBatches = batches, beforeInputs = inputs.length, beforeGrants = grantReads;
+  await page.getByLabel('Live browser view').evaluate(canvas => {
+    for (let i = 0; i < 150; i++) canvas.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: 150 + i, clientY: 200 }));
+    for (let i = 0; i < 150; i++) canvas.dispatchEvent(new WheelEvent('wheel', { bubbles: true, clientX: 300, clientY: 200, deltaY: 2 }));
+    const input = document.querySelector<HTMLTextAreaElement>('.browser-direct-input')!;
+    const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
+    for (const ch of 'abcdefghijklmnopqrst') { setValue.call(input, ch); input.dispatchEvent(new InputEvent('input', { bubbles: true, data: ch })); }
+    input.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Tab' }));
+    setValue.call(input, '第二个字段'); input.dispatchEvent(new InputEvent('input', { bubbles: true, data: input.value }));
+  });
+  await expect.poll(() => text.at(-1)).toBe('第二个字段');
+  expect(text.slice(1, -1).join('')).toBe('abcdefghijklmnopqrst');
+  const burst = inputs.slice(beforeInputs);
+  expect(burst.filter(a => a.action === 'wheel').reduce((n, a) => n + a.delta_y, 0)).toBe(300);
+  expect(burst.filter(a => a.action === 'pointer').length).toBeLessThanOrEqual(2);
+  expect(burst.slice(-2).map(a => a.action)).toEqual(['press', 'insert_text']);
+  expect(batches - beforeBatches).toBeLessThanOrEqual(3);
+  expect(grantReads).toBe(beforeGrants);
+  await expect(page.getByText('Input is busy; please wait.', { exact: true })).toHaveCount(0);
+  inputDelay = 0;
+  partialNext = true;
+  await input.evaluate(element => {
+    const set = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
+    for (const ch of ['1', '2', '3']) { set.call(element, ch); element.dispatchEvent(new InputEvent('input', { bubbles: true, data: ch })); }
+  });
+  await expect.poll(() => text.slice(-3)).toEqual(['1', '2', '3']);
+  expect(text.filter(ch => ['1', '2', '3'].includes(ch))).toEqual(['1', '2', '3']);
   await page.getByRole('button', { name: 'Close tab: New tab', exact: true }).click();
   await expect.poll(() => closedTabs).toEqual(['t2']); await expect(trigger).toHaveAccessibleName('Browser (1)');
   const panel = page.locator('.browser-drawer');

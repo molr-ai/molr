@@ -148,6 +148,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       else if (path.includes('/conversations/feedback')) return; // Message feedback reconciles its exact conversation.
       else if (path.includes('/conversations/messages')) changed(['conversations', 'status']); // The caller and SSE invalidate the affected conversation.
       else if (/\/assistants\/[^/]+\/shell-tasks$/.test(path)) changed([queryTopic(path)]);
+      // Browser controls reconcile their own status; pointer/keyboard input must
+      // not invalidate unrelated assistant, conversation, schedule or grant data.
+      else if (/\/assistants\/[^/]+\/browser$/.test(path)) return;
       else if (path.includes('/assistants/')) changed(['assistants', 'conversations', 'status', 'schedules', 'grants']);
       else if (path === '/api/assistants') changed(['assistants', 'conversations']);
       else if (path.startsWith('/api/sandboxes')) changed(['sandboxes', 'resources', 'grants', 'capabilities', 'assistants']);

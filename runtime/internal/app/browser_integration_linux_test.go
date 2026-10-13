@@ -144,6 +144,25 @@ func TestBrowserRealTaskStreamTakeoverAndPersistence(t *testing.T) {
 	s.mu.Unlock()
 	_, err = s.browserRequest(t.Context(), owner, e.AssistantID, tools.BrowserRequest{Action: browser.Action{Action: "fill", Selector: "#name", Text: "用户输入"}, ClientID: "test-window", Generation: generation, Sequence: 1})
 	need(t, err)
+	batch := []browser.Action{{Action: "press", Key: "End"}, {Action: "insert_text", Text: "-batch"}, {Action: "press", Key: "Backspace"}, {Action: "wheel", X: 600, Y: 500, DeltaY: 20}}
+	sequence := uint64(2)
+	for len(batch) > 0 {
+		raw, err := s.browserRequest(t.Context(), owner, e.AssistantID, tools.BrowserRequest{Action: browser.Action{Action: "input_batch"}, ClientID: "test-window", Generation: generation, Sequence: sequence, Actions: batch})
+		need(t, err)
+		var out struct {
+			Completed int
+			Code      string
+		}
+		need(t, json.Unmarshal(raw, &out))
+		if out.Code != "" || out.Completed < 1 {
+			t.Fatal(string(raw))
+		}
+		sequence += uint64(out.Completed)
+		batch = batch[out.Completed:]
+	}
+	if snap := action(browser.Action{Action: "snapshot"}); !strings.Contains(snap, "用户输入-batc") {
+		t.Fatal("ordered native keyboard batch failed", snap)
+	}
 	_, err = s.browserRequest(t.Context(), owner, e.AssistantID, tools.BrowserRequest{Action: browser.Action{Action: "release"}, ClientID: "test-window", Generation: generation})
 	need(t, err)
 	action(browser.Action{Action: "snapshot"})

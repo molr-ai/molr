@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { ChangeEvent, KeyboardEvent, PointerEvent, RefObject } from 'react';
+import type { ChangeEvent, KeyboardEvent, PointerEvent, RefObject, WheelEvent } from 'react';
 import { Alert, Badge, Button, Drawer, IconButton, Select, useBreakpoint, useToast, useUILocale } from '@molr/ui';
 import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, CornerDownLeft, Globe, Hand, Keyboard, GripHorizontal, PanelRight, PictureInPicture2, Plus, Power, RefreshCw, X } from 'lucide-react';
 import { api, APIError, mutationKey } from '../../../api/client';
@@ -12,7 +12,8 @@ import './browser.css';
 import { useBrowserView } from './useBrowserView';
 import type { BrowserBounds } from './useBrowserView';
 
-type Action = { action: string; [key: string]: unknown };
+import { BrowserInputBuffer, batchable } from './browser-input';
+import type { BrowserAction as Action } from './browser-input';
 type Tab = { id: string; title: string; url: string; active: boolean };
 // A panel is ephemeral; the controlling window is not. IDs are deliberately not
 // stored in localStorage/sessionStorage where another tab could inherit them.
@@ -57,11 +58,13 @@ export function Browser({ assistantID, docked, floating, onFloatingChange, bound
   const ownsControl = state?.Control === 'user' && query.data?.ControllerIsCurrentSession && query.data.ControllerClientID === client.id;
   const canOperate = !!ownsControl && connected && !busy;
   const allowed = useRef(canOperate); allowed.current = canOperate;
-  const closed = useRef(false), epoch = useRef(0), pending = useRef(0), lastMove = useRef(0), composing = useRef(false), seenURL = useRef('');
+  const closed = useRef(false), epoch = useRef(0), pumping = useRef(false), composing = useRef(false), seenURL = useRef('');
+  const inputs = useRef(new BrowserInputBuffer());
+  const nextInputAt = useRef(0);
   const usable = (resources.data ?? []).filter(r => (r.SandboxID ?? 'local') === 'local' && (grants.data ?? []).some(g => g.ResourceID === r.ID && !g.Scope.FullAccess && !g.RevokedAt && (!g.ExpiresAt || Date.parse(g.ExpiresAt) > Date.now()) && g.Actions.includes('execute')));
   useEffect(() => { if (!compute && usable[0]) setCompute(usable[0].ID); }, [compute, usable]);
-  useEffect(() => { closed.current = false; return () => { closed.current = true; epoch.current++; }; }, []);
-  useEffect(() => { epoch.current++; composing.current = false; if (directInput.current) directInput.current.value = ''; if (auxiliaryInput.current) auxiliaryInput.current.value = ''; }, [task?.ID, state?.Generation, ownsControl]);
+  useEffect(() => { closed.current = false; return () => { closed.current = true; epoch.current++; inputs.current.clear(); }; }, []);
+  useEffect(() => { epoch.current++; inputs.current.clear(); composing.current = false; if (directInput.current) directInput.current.value = ''; if (auxiliaryInput.current) auxiliaryInput.current.value = ''; }, [task?.ID, state?.Generation, ownsControl]);
   const activeTabID = tabs.find(tab => tab.active)?.id;
   const measureTabs = useCallback(() => {
     const list = tabsRef.current, container = tabWindow.current;
@@ -81,7 +84,16 @@ export function Browser({ assistantID, docked, floating, onFloatingChange, bound
   useLayoutEffect(() => { tabsRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' }); measureTabs(); }, [activeTabID, tabs.length, floating, tabScroll.overflow, measureTabs]);
   function scrollTabs(direction: number) { const list = tabsRef.current; if (list) list.scrollBy({ left: direction * Math.max(120, list.clientWidth * 0.75), behavior: reducedMotion ? 'auto' : 'smooth' }); }
   function notice(err: unknown) {
-    return err instanceof APIError && err.code === 'conflict' ? (zh ? '控制权已变更，请重新接管。' : 'Control changed. Take control again.') : (zh ? '浏览器操作未完成，请检查连接或任务状态。' : 'Browser operation failed. Check connection or task status.');
+    const messages: Record<string, [string, string]> = {
+      conflict: ['控制权已变更，请重新接管。', 'Control changed. Take control again.'],
+      unavailable: ['浏览器连接中断，后续输入已停止。请检查页面后继续。', 'Browser connection lost. Pending input stopped. Check the page before continuing.'],
+      rate_limited: ['浏览器请求受到限流，请稍后继续。', 'Browser requests are rate limited. Please wait before continuing.'],
+      failed_precondition: ['浏览器未能执行操作，后续输入已停止。请检查页面和任务状态。', 'Browser could not execute the operation. Pending input stopped. Check the page and task status.'],
+      not_found: ['浏览器任务已结束，请重新启动。', 'The browser task has ended. Start it again.'],
+      deadline_exceeded: ['浏览器操作超时，后续输入已停止。请检查页面后继续。', 'Browser operation timed out. Pending input stopped. Check the page before continuing.'],
+    };
+    const text = err instanceof APIError ? messages[err.code] : undefined;
+    return text?.[zh ? 0 : 1] ?? (zh ? '浏览器操作未完成，请检查连接或任务状态。' : 'Browser operation failed. Check connection or task status.');
   }
   const failure = query.data?.LastFailure;
   useEffect(() => {
@@ -109,23 +121,39 @@ export function Browser({ assistantID, docked, floating, onFloatingChange, bound
     return api.post<BrowserStatus>(path, { ...action, task_id: target?.Task?.ID, client_id: client.id, generation: target?.Task?.Browser?.Generation ?? 0, sequence: ++client.sequence });
   }
   async function command(action: Action) {
-    setBusy(true); epoch.current++;
+    setBusy(true); allowed.current = false; epoch.current++; inputs.current.clear();
     try { await client.queue; await act(action); await query.reload(); }
     catch (err) { warn(notice(err)); void query.reload(); }
     finally { if (!closed.current) setBusy(false); }
   }
-  function input(action: Action) {
-    if (!allowed.current) return;
-    if (action.action === 'pointer' && action.event === 'move') { const now = performance.now(); if (now - lastMove.current < 80) return; lastMove.current = now; }
-    if (pending.current >= 64 && action.event !== 'up') { warn(zh ? '输入较快，请稍后继续。' : 'Input is busy; please wait.'); return; }
+  function input(action: Action, dragging = false): boolean {
+    if (!allowed.current) return false;
+    if (!inputs.current.push(action, dragging)) { warn(zh ? '浏览器尚未处理完输入，请稍后继续。' : 'Browser input is still pending. Please wait before continuing.'); return false; }
+    if (pumping.current) return true;
+    pumping.current = true;
     const version = epoch.current, target = control.current;
-    pending.current++;
     client.queue = client.queue.then(async () => {
-      pending.current--;
-      if (closed.current || version !== epoch.current || !allowed.current || target?.Task?.Browser?.Generation !== control.current?.Task?.Browser?.Generation) return;
-      try { await act(action, target); }
-      catch (err) { epoch.current++; warn(notice(err)); void query.reload(); }
+      try {
+        while (inputs.current.length) {
+          // At most eight input requests/second, leaving room for status and
+          // other UI requests within Runtime's default request budget.
+          const wait = nextInputAt.current - performance.now();
+          if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait));
+          if (closed.current || version !== epoch.current || !allowed.current || target?.Task?.Browser?.Generation !== control.current?.Task?.Browser?.Generation) { inputs.current.clear(); break; }
+          const actions = inputs.current.take();
+          nextInputAt.current = performance.now() + 125;
+          if (!batchable(actions[0])) { await act(actions[0], target); continue; }
+          const sequence = client.sequence + 1; client.sequence += actions.length;
+          const result = await api.post<{ completed: number; code?: string; reason?: string }>(path, { action: 'input_batch', actions, task_id: target?.Task?.ID, client_id: client.id, generation: target?.Task?.Browser?.Generation, sequence });
+          if (!Number.isInteger(result.completed) || result.completed < 0 || result.completed > actions.length) throw new APIError('invalid_response');
+          if (result.code) throw new APIError(result.code, '', 0, 0, result.reason);
+          if (!result.completed) throw new APIError('invalid_response');
+          if (version === epoch.current) inputs.current.prepend(actions.slice(result.completed));
+        }
+      } catch (err) { epoch.current++; inputs.current.clear(); warn(notice(err)); void query.reload(); }
+      finally { pumping.current = false; }
     });
+    return true;
   }
   useEffect(() => {
     setConnected(false); setHasFrame(false); setTabs([]); seenURL.current = '';
@@ -142,7 +170,7 @@ export function Browser({ assistantID, docked, floating, onFloatingChange, bound
     function connect() {
       source = new EventSource(`${path}/stream?task_id=${encodeURIComponent(task!.ID)}`);
       source.onopen = () => { if (alive) { setConnected(true); void query.reload(); } };
-      source.onerror = () => { source.close(); epoch.current++; if (alive) { setConnected(false); retry = setTimeout(connect, 2000); } };
+      source.onerror = () => { source.close(); epoch.current++; inputs.current.clear(); if (alive) { allowed.current = false; setConnected(false); retry = setTimeout(connect, 2000); } };
       source.onmessage = event => {
         if (!alive) return;
         try {
@@ -160,21 +188,30 @@ export function Browser({ assistantID, docked, floating, onFloatingChange, bound
     connect();
     return () => { alive = false; source?.close(); clearTimeout(retry); latest = null; };
   }, [path, task?.ID]);
-  function pointer(event: PointerEvent<HTMLCanvasElement>, kind: 'move' | 'down' | 'up') {
-    if (!canOperate || moving) return;
+  function coordinates(event: PointerEvent<HTMLCanvasElement> | WheelEvent<HTMLCanvasElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
     // Map the displayed image back to the fixed remote viewport.
     const scale = Math.min(rect.width / 1280, rect.height / 800), left = (rect.width - 1280 * scale) / 2, top = 0;
     const x = Math.max(0, Math.min(1280, (event.clientX - rect.left - left) / scale)), y = Math.max(0, Math.min(800, (event.clientY - rect.top - top) / scale));
+    return { x, y };
+  }
+  function modifiers(event: PointerEvent<HTMLCanvasElement> | WheelEvent<HTMLCanvasElement>) { return (event.altKey ? 1 : 0) | (event.ctrlKey ? 2 : 0) | (event.metaKey ? 4 : 0) | (event.shiftKey ? 8 : 0); }
+  function pointer(event: PointerEvent<HTMLCanvasElement>, kind: 'move' | 'down' | 'up') {
+    if (!canOperate || moving) return;
     if (kind === 'down') {
       event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId);
       const viewport = event.currentTarget.parentElement!.getBoundingClientRect();
       setAnchor({ x: Math.max(4, Math.min(viewport.width - 24, event.clientX - viewport.left)), y: Math.max(4, Math.min(viewport.height - 28, event.clientY - viewport.top)) });
       (keyboardOpen ? auxiliaryInput.current : directInput.current)?.focus({ preventScroll: true });
     }
-    input({ action: 'pointer', event: kind, x, y, button: ['left', 'middle', 'right'][event.button] ?? 'left' });
+    input({ action: 'pointer', event: kind, ...coordinates(event), modifiers: modifiers(event), button: ['left', 'middle', 'right'][event.button] ?? 'left' }, event.buttons !== 0);
   }
-  function commitText(element: HTMLTextAreaElement, text = element.value) { if (text) input({ action: 'insert_text', text }); element.value = ''; }
+  function wheel(event: WheelEvent<HTMLCanvasElement>) {
+    if (!canOperate || moving || !event.deltaX && !event.deltaY) return;
+    const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 800 : 1;
+    input({ action: 'wheel', ...coordinates(event), modifiers: modifiers(event), delta_x: Math.max(-100000, Math.min(100000, event.deltaX * unit)), delta_y: Math.max(-100000, Math.min(100000, event.deltaY * unit)) });
+  }
+  function commitText(element: HTMLTextAreaElement, text = element.value) { if (!text || input({ action: 'insert_text', text })) element.value = ''; }
   function textChanged(event: ChangeEvent<HTMLTextAreaElement>) { if (!composing.current && !(event.nativeEvent as InputEvent).isComposing) commitText(event.currentTarget); }
   function keyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (composing.current || event.nativeEvent.isComposing || event.keyCode === 229) return;
@@ -231,7 +268,7 @@ export function Browser({ assistantID, docked, floating, onFloatingChange, bound
           <Button className="browser-control-button" type="button" size="sm" variant={ownsControl ? 'secondary' : 'primary'} title={controlLabel} disabled={busy || moving || !connected || state?.Control === 'switching'} onClick={() => void command({ action: ownsControl ? 'release' : 'takeover' })}><Hand size={14}/>{ownsControl ? (zh ? '交还' : 'Return control') : (zh ? '接管' : 'Take control')}</Button>
         </form>
         <div className="browser-viewport" data-interactive={canOperate || undefined}>
-          <canvas ref={canvas} width={1280} height={800} aria-label={zh ? '浏览器实时画面' : 'Live browser view'} onPointerDown={e => pointer(e, 'down')} onPointerUp={e => pointer(e, 'up')} onPointerMove={e => pointer(e, 'move')} onPointerCancel={e => pointer(e, 'up')} onContextMenu={e => e.preventDefault()} onWheel={e => { if (canOperate) input({ action: 'scroll', direction: e.deltaY < 0 ? 'up' : 'down' }); }}/>
+          <canvas ref={canvas} width={1280} height={800} aria-label={zh ? '浏览器实时画面' : 'Live browser view'} onPointerDown={e => pointer(e, 'down')} onPointerUp={e => pointer(e, 'up')} onPointerMove={e => pointer(e, 'move')} onPointerCancel={e => pointer(e, 'up')} onContextMenu={e => e.preventDefault()} onWheel={wheel}/>
           <textarea ref={directInput} {...keyboardProps} className="browser-direct-input" aria-label={zh ? '网页键盘输入' : 'Page keyboard input'} tabIndex={-1} style={{ left: anchor.x, top: anchor.y }} />
           {(!connected || !hasFrame) && <div className="browser-overlay"><Globe size={24}/><span>{zh ? '正在连接浏览器…' : 'Connecting to browser…'}</span></div>}
         </div>
