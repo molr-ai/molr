@@ -849,6 +849,16 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		AdminCatalog: func(ctx context.Context, p core.Principal) (any, error) {
 			return groupCatalog(ctx, p, adapters, sandboxRouter, executor)
 		},
+		UsageAnalytics: func(ctx context.Context, p core.Principal, q api.UsageQuery, admin bool) (any, error) {
+			prefs, err := preferences.Get(ctx, p)
+			if err != nil {
+				return nil, err
+			}
+			if q.Timezone == "" {
+				q.Timezone = prefs.Timezone
+			}
+			return usageAnalytics(ctx, store, identity, p, q, admin, prefs.Currency, b.Exchange.Snapshot())
+		},
 		AdminUsage: func(ctx context.Context, p core.Principal) (any, error) { return adminUsage(ctx, store, identity, p) },
 		AccountQuotas: func(ctx context.Context, p core.Principal) (any, error) {
 			return accountQuotas(ctx, store, identity, p)

@@ -19,7 +19,7 @@
 .message-cards { display: grid; gap: 12px; margin-top: 12px; }
 .ui-chat-message:has(.message-cards > .ui-chat-card) { width: 522px; max-width: 100%; }
 .ui-chat-message:has(.message-cards > .ui-chat-card) .message-cards { grid-template-columns: minmax(0, 1fr); }
-.ui-chat-card { display: grid; gap: 12px; width: 100%; max-width: 480px; padding: 16px; border: 0; border-radius: var(--radius-card); background: var(--color-background); color: var(--color-text); overflow-wrap: anywhere; }
+.ui-chat-card { display: grid; gap: 12px; width: 100%; max-width: 480px; padding: 16px; border: 0; border-radius: var(--radius-card); background: var(--color-surface); color: var(--color-text); overflow-wrap: anywhere; }
 .ui-chat-card__heading, .ui-chat-card > footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
 .ui-chat-card > h4 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: var(--text-sm); font-weight: 550; }
 .ui-chat-card > h4 > span { display: inline-flex; flex-shrink: 0; }

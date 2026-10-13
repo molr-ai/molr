@@ -25,6 +25,8 @@ import '@molr/ui/styles.css';
 
 优先通过留白、底色、字号与选中状态表达层级。卡片、附件、提示块与浮层不使用装饰性描边；浮层沿用轻阴影表达悬浮关系。主要、强调、危险和文字按钮无边框；次要按钮（含图标按钮）保留 1 px 的 `--color-control-border` 细边框，使用 `--color-surface`（浅色主题为白色），与透明无边框的文字按钮区分。次要按钮悬停时使用 `--color-control-border-hover` 边框与 `--color-neutral-bg` 底色。
 
+普通卡片（含资源、任务和聊天卡片）与表格主体使用 `--color-surface`，在明暗模式下均与页面背景分层。表头及行悬停使用 `--color-neutral-bg`，选中行保留独立的选中底色与标记；不在单元格上覆盖底色，以免遮住整行状态。平面列表行和嵌套正文区域按各自语义保持透明或凹入层级，不把所有列表都改成卡片。
+
 `--color-border` 用于侧栏、页头、列表行、表格与日历等必要的区块分隔。输入框、下拉选择、复选框和单选框保留细边框，使用较淡的 `--color-control-border`；输入框与下拉选择悬停时使用 `--color-control-border-hover`。聚焦与错误状态继续使用清晰的语义色；键盘焦点指示、选中标记不因无边框设计而移除。
 
 `Badge` 支持 `size="md" | "sm"`（默认 `md`）及 `dot`（默认 `true`）。紧凑编号使用 `<Badge size="sm" dot={false}>执行 01</Badge>`，小尺寸高度 22px，沿用组件的胶囊圆角和语义颜色。
@@ -159,7 +161,7 @@ UI Design 的 聊天组（英文版为 Chat）提供独立的本地演示：发�
 
 菜单项接受 `id`、`label`、`onSelect`、`icon?`、`shortcut?`、`disabled?`、`danger?`、`separatorBefore?`。方向键、Home / End、字符前缀查找可定位选项；Enter / 空格执行，Escape 取消并恢复焦点。`shortcut` 仅显示快捷键说明，快捷键绑定由调用方负责。
 
-`Popover` 是有标题的非模态详情容器，适合放置可操作内容；可选 `open` / `onOpenChange` 进行外部控制。`Tooltip` 仅用于补充说明，接收字符串 `content`，默认延迟 400 ms，在悬停或聚焦时显示，可用 Escape 关闭。`side` 可选 `top`（默认）、`bottom`、`left` 或 `right`，空间不足时翻转；`width` 默认 220，也可设为数字或 `auto` 随文字收紧。
+`Popover` 是有标题的非模态详情容器，适合放置可操作内容；可选 `open` / `onOpenChange` 进行外部控制。`Tooltip` 仅用于补充说明，`content` 接受文本或 ReactNode，支持通过语义标记展示多行提示，默认延迟 400 ms，在悬停或聚焦时显示，可用 Escape 关闭。`side` 可选 `top`（默认）、`bottom`、`left` 或 `right`，空间不足时翻转；`width` 默认 220，也可设为数字或 `auto` 随文字收紧。
 
 Tooltip 在触发元素仍有焦点时，不会因为鼠标移开而消失；鼠标也可以移入提示内容。焦点位于弹窗内的提示按钮时，第一次 Escape 关闭提示，下一次才关闭弹窗。
 

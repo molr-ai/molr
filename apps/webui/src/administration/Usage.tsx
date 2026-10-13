@@ -1,16 +1,17 @@
+import { ChevronDown } from 'lucide-react';
+import { UsageAnalytics } from './UsageAnalytics';
 import { useErrorToast } from '../error-toasts';
 import { usePluginsVisible, pluginResourceVisible } from '../plugins/visibility';
 import type { GPUDevice, SandboxView } from '../sandbox-types';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { Badge, Button, Select, TextField } from '@molr/ui';
-import { RefreshCw } from 'lucide-react';
+import { Badge, Button, Card, Progress, Select } from '@molr/ui';
 import type { Money } from '@molr/sdk';
 import { useCopy, useQuery } from '../state';
 import { Empty, Loading } from '../interfaces/official/components/common';
 import { MoneyText } from '../interfaces/official/components/Money';
 import { ConstraintsSummary } from '../interfaces/official/features/ResourceConstraints';
-import type { AccountQuotas, AdminUsageView, ContextStorageUsage, ResourceReference, UsageSummary, UserGroup } from './types';
+import type { AccountQuotas, AdminUsageView, ContextStorageUsage, ResourceReference, UsageSummary } from './types';
 import { groupName } from './types';
 import './usage.css';
 
@@ -29,34 +30,34 @@ function Metric({ label, children }: { label: string; children: ReactNode }) {
 function Overview({ value }: { value: UsageSummary }) {
   const pluginsVisible = usePluginsVisible();
   const { locale } = useCopy(), zh = locale === 'zh';
-  return <dl className="usage-overview">
+  return <Card><dl className="usage-overview">
     <Metric label={zh ? '累计模型费用' : 'Lifetime model spend'}><Amounts values={value.Spent} /></Metric>
     <Metric label={zh ? '预留费用' : 'Reserved spend'}><Amounts values={value.Reserved} /></Metric>
     <Metric label={zh ? '模型调用' : 'Model calls'}>{value.ModelCalls.toLocaleString(locale)}</Metric>
     <Metric label={zh ? '工具调用' : 'Tool calls'}>{value.ToolCalls.toLocaleString(locale)}</Metric>
     {pluginsVisible && <Metric label={zh ? 'HTTP 连接调用' : 'HTTP connection calls'}>{value.ConnectionCalls.toLocaleString(locale)}</Metric>}
     <Metric label={zh ? '当前附件存储' : 'Current attachment storage'}>{bytes(value.AttachmentBytes)}</Metric>
-  </dl>;
+  </dl></Card>;
 }
 function ContextStorage({ value, global = false }: { value: ContextStorageUsage; global?: boolean }) {
   const { locale } = useCopy(), zh = locale === 'zh';
   return <section className="usage-context" aria-label={global ? (zh ? '全局上下文存储' : 'Global context storage') : (zh ? '账号上下文存储' : 'Account context storage')}>
     <div className="usage-section-heading"><h3>{global ? (zh ? '全局上下文存储' : 'Global context storage') : (zh ? '账号上下文存储' : 'Account context storage')}</h3></div>
-    <dl className="usage-overview">
+    <Card><dl className="usage-overview">
       <Metric label={zh ? '上下文数据量' : 'Context data size'}>{bytes(value.Bytes)}</Metric>
       <Metric label={zh ? '去重消息节点' : 'Unique message nodes'}>{value.Messages.toLocaleString(locale)}</Metric>
-    </dl>
+    </dl></Card>
     <p className="usage-note">{global
-      ? (zh ? '跨账号去重后的全局存储，包含等待回收的数据，不受下方成员筛选影响。' : 'Global storage after deduplication across accounts, including data awaiting collection. Member filters below do not affect this total.')
+      ? (zh ? '跨账号去重后的全局存储，包含等待回收的数据，不受成员筛选影响。' : 'Global storage after deduplication across accounts, including data awaiting collection. Member filters do not affect this total.')
       : (zh ? '统计本账号引用的数据，账号内去重。跨账号共享数据分别计入各账号，因此账号用量不能直接相加作为全局用量。' : 'Data referenced by your account, deduplicated within this account. Shared data counts toward each account, so account totals cannot be added to obtain global storage.')}
       {' '}{zh ? '包含消息、工具定义及调试详情的存储对象，不含数据库索引、引用元数据和空闲空间。' : 'Includes stored messages, tool definitions and debug details; excludes database indexes, reference metadata and free space.'}</p>
   </section>;
 }
 function Allowance({ label, used, limit }: { label: string; used: number; limit: number }) {
   const { locale } = useCopy(), zh = locale === 'zh';
-  return <div className="usage-allowance"><div><span>{label}</span><strong>{used.toLocaleString(locale)}{limit > 0 ? ` / ${limit.toLocaleString(locale)}` : ` · ${zh ? '不限' : 'Unlimited'}`}</strong></div>
-    {limit > 0 && <progress aria-label={label} value={Math.min(used, limit)} max={limit} className={used >= limit ? 'usage-limit-reached' : undefined} />}
-  </div>;
+  return limit > 0
+    ? <Progress label={label} value={used} max={limit} valueText={`${used.toLocaleString(locale)} / ${limit.toLocaleString(locale)}`} className={used >= limit ? 'usage-limit-reached' : undefined} />
+    : <div className="usage-allowance"><span>{label}</span><strong>{used.toLocaleString(locale)} · {zh ? '不限' : 'Unlimited'}</strong></div>;
 }
 function ResourceAllowance({ reference, used, name, gpus }: { gpus?: GPUDevice[]; reference: ResourceReference; used?: AccountQuotas['Resources'][number]; name: string }) {
   const { locale } = useCopy(), zh = locale === 'zh', q = reference.Quota;
@@ -85,17 +86,20 @@ export function AccountUsage() {
   const data = query.data, resources = data?.Group.Resources.filter(r => r.Kind !== 'plugin' && pluginResourceVisible(r.Kind, pluginsVisible, r.ID) && (filter === 'all' || (!pluginsVisible && filter === 'connection') || r.Kind === filter)) ?? [];
   useErrorToast(query.error, query.reload);
   return <div className="usage-page" aria-busy={query.loading}>
-    <div className="usage-toolbar"><p className="settings-description">{data?.Group.Administrator ? zh ? '查看自己的累计用量。' : 'Your lifetime usage.' : zh ? '查看自己的累计用量，以及当前周期可用的成员额度。' : 'Your lifetime usage and current member allowances.'}</p><Button size="sm" variant="secondary" disabled={query.loading} onClick={query.reload}><RefreshCw size={14} />{t.refresh}</Button></div>
+    <UsageAnalytics onRefresh={query.reload} />
+    <details className="usage-current" open><summary>{zh ? '累计用量与额度' : 'Lifetime usage and allowances'}<ChevronDown size={16} aria-hidden="true" /></summary><div className="usage-current-body">
+    <p className="usage-note">{zh ? '费用与调用次数为累计值，不受上方日期、助理或模型筛选影响；存储与额度为当前状态。' : 'Spend and calls are lifetime totals, independent of the date, assistant and model filters above. Storage and allowances reflect the current state.'}</p>
     {!data ? query.loading && <Loading /> : <>
       <Overview value={data.Summary} />
-      <p className="usage-note">{zh ? '费用与调用次数为累计值，附件为当前占用。预留费用尚未确认为实际消费。' : 'Spend and calls are lifetime totals; storage is current usage. Reserved spend is not confirmed spending.'}</p>
+      <p className="usage-note">{zh ? '预留费用尚未确认为实际消费。' : 'Reserved spend is not confirmed spending.'}</p>
       {pluginsVisible && <p className="usage-note">{zh ? 'HTTP 连接调用也计入工具次数，两项不可相加。' : 'HTTP connection calls also count as tool calls; do not add the two.'}</p>}
       <ContextStorage value={data.ContextStorage} />
-      {!data.Group.Administrator && <section className="usage-allowances"><div className="usage-section-heading"><div><h3>{zh ? '当前成员额度' : 'Current member allowances'}</h3><p>{groupName(data.Group, zh)} · {zh ? '每位成员独立计量，所有助理合计使用' : 'Measured per member, across all assistants'}</p></div><Select label={zh ? '资源类型' : 'Resource type'} value={!pluginsVisible && filter === 'connection' ? 'all' : filter} onValueChange={setFilter} options={[{ value: 'all', label: zh ? '全部资源' : 'All resources' }, { value: 'model', label: zh ? '模型' : 'Models' }, { value: 'tool', label: zh ? '工具' : 'Tools' }, ...(pluginsVisible ? [{ value: 'connection', label: zh ? '连接' : 'Connections' }] : []), { value: 'sandbox', label: zh ? '沙盒' : 'Sandboxes' }]} /></div>
+      {!data.Group.Administrator && <section className="usage-allowances"><div className="usage-section-heading"><div><h3>{zh ? '当前成员额度' : 'Current member allowances'}</h3><p>{groupName(data.Group, zh)} · {zh ? '每位成员独立计量，所有助理合计使用' : 'Measured per member, across all assistants'}</p></div><Select size="sm" label={zh ? '资源类型' : 'Resource type'} value={!pluginsVisible && filter === 'connection' ? 'all' : filter} onValueChange={setFilter} options={[{ value: 'all', label: zh ? '全部资源' : 'All resources' }, { value: 'model', label: zh ? '模型' : 'Models' }, { value: 'tool', label: zh ? '工具' : 'Tools' }, ...(pluginsVisible ? [{ value: 'connection', label: zh ? '连接' : 'Connections' }] : []), { value: 'sandbox', label: zh ? '沙盒' : 'Sandboxes' }]} /></div>
         {resources.length ? <div className="usage-resources">{resources.map(ref => <ResourceAllowance key={`${ref.Kind}:${ref.ID}`} reference={ref} gpus={sandboxes.data?.find(node => ref.Kind === 'sandbox' && node.ID === ref.ID)?.Info.GPUs} used={data.Resources.find(v => v.Kind === ref.Kind && v.ID === ref.ID)} name={models.data?.find(m => ref.Kind === 'model' && m.ID === ref.ID)?.Name ?? (ref.Kind === 'tool' ? labels[ref.ID]?.name : ref.Kind === 'sandbox' && ref.ID === 'local' ? zh ? '本机沙盒' : 'Local sandbox' : undefined) ?? data.Resources.find(v => v.Kind === ref.Kind && v.ID === ref.ID)?.Name ?? ref.ID} />)}</div> : <Empty title={zh ? '暂无资源额度' : 'No resource allowances'} description={zh ? '当前用户组或筛选条件下没有可展示的资源。' : 'No resources match your group or filter.'} />}
       </section>}
       <p className="usage-note">{zh ? '统计时间：' : 'As of: '}{new Date(data.AsOf).toLocaleString(locale)}</p>
     </>}
+    </div></details>
   </div>;
 }
 function aggregate(rows: UsageSummary[]): UsageSummary {
@@ -107,23 +111,20 @@ function aggregate(rows: UsageSummary[]): UsageSummary {
   return result;
 }
 export function AdminUsage() {
-  const pluginsVisible = usePluginsVisible();
-  const { locale, t } = useCopy(), zh = locale === 'zh';
-  const query = useQuery<AdminUsageView>('/api/admin/usage'), groups = useQuery<UserGroup[]>('/api/admin/groups');
-  const [search, setSearch] = useState(''), [group, setGroup] = useState('all');
-  const needle = search.trim().toLocaleLowerCase();
-  const rows = query.data?.Users.filter(u => (group === 'all' || group === u.GroupID) && `${u.DisplayName} ${u.Username}`.toLocaleLowerCase().includes(needle));
-  useErrorToast(query.error || groups.error, query.reload);
-  return <div className="usage-page" aria-busy={query.loading}>
-    <div className="usage-toolbar"><p className="settings-description">{zh ? '按成员汇总累计用量，不包含聊天、附件正文或执行输出。' : 'Lifetime usage by member. No chats, attachment contents, or execution output.'}</p><Button size="sm" variant="secondary" disabled={query.loading} onClick={query.reload}><RefreshCw size={14} />{t.refresh}</Button></div>
-    {query.data && <ContextStorage value={query.data.ContextStorage} global />}
-    <div className="usage-filters"><TextField label={zh ? '搜索成员' : 'Search members'} value={search} onChange={e => setSearch(e.target.value)} placeholder={zh ? '用户名或显示名称' : 'Username or display name'} /><Select label={zh ? '用户组' : 'User group'} value={group} onValueChange={setGroup} options={[{ value: 'all', label: zh ? '全部用户组' : 'All groups' }, ...(groups.data ?? []).map(g => ({ value: g.ID, label: groupName(g, zh) }))]} /></div>
-    {!rows ? query.loading && <Loading /> : <>
-      <div className="usage-section-heading"><h3>{zh ? '筛选结果汇总' : 'Filtered totals'}</h3><Badge>{rows.length} {zh ? '位成员' : 'members'}</Badge></div>
-      <Overview value={aggregate(rows)} />
-      {pluginsVisible && <p className="usage-note">{zh ? 'HTTP 连接调用也计入工具次数，两项不可相加。' : 'HTTP connection calls also count as tool calls; do not add the two.'}</p>}
-      <p className="usage-note">{zh ? '调用与费用为累计值，附件为当前存储。只有执行中的调用保留费用预留和并发占用。' : 'Calls and spend are lifetime totals; storage is current. Only running calls retain reserved spend and concurrency.'}</p>
-      {!rows.length ? <Empty title={zh ? '没有匹配的成员' : 'No matching members'} /> : <div className="usage-members">{rows.map(u => <details key={u.UserID} className="usage-member"><summary><div className="usage-member-identity"><strong>{u.DisplayName || u.Username}</strong><span>@{u.Username} · {groupName(groups.data?.find(g => g.ID === u.GroupID) ?? { ID: u.GroupID, Name: u.GroupID }, zh)}</span></div><div className="usage-member-spend"><span>{zh ? '已消费' : 'Spent'}</span><Amounts values={u.Spent} />{u.Unknown > 0 && <Badge>{u.Unknown} {zh ? '历史结果未知' : 'past outcomes unknown'}</Badge>}</div></summary><div className="usage-member-details"><Overview value={u} /><p className="usage-note">{zh ? `模型与工具调用占用：${u.Active}；另有 ${u.Unknown} 次历史调用结果未知，已结束费用预留和并发占用。` : `Model and tool calls holding allowance: ${u.Active}; ${u.Unknown} past outcomes are unknown and no longer hold reserved spend or concurrency.`}</p></div></details>)}</div>}
-    </>}
+  const { locale } = useCopy(), zh = locale === 'zh';
+  const query = useQuery<AdminUsageView>('/api/admin/usage');
+  const [user, setUser] = useState('');
+  useErrorToast(query.error, query.reload);
+  const rows = query.data?.Users.filter(row => !user || row.UserID === user);
+  return <div className="usage-page">
+    <UsageAnalytics admin onRefresh={query.reload} onUserChange={setUser} />
+    <details className="usage-current" open><summary>{zh ? '累计用量与资源' : 'Lifetime usage and resources'}<ChevronDown size={16} aria-hidden="true" /></summary><div className="usage-current-body">
+      <p className="usage-note">{zh ? '以下为当前占用与累计记录，不随上方日期、用户组或模型筛选变化。成员选择仅影响账号汇总，全局上下文始终独立去重。' : 'Current holdings and lifetime records are independent of date, group and model filters above. Member selection affects account totals; global context remains independently deduplicated.'}</p>
+      {!query.data ? query.loading ? <Loading /> : <Button variant="secondary" size="sm" onClick={query.reload}>{zh ? '重试' : 'Retry'}</Button> : <>
+        <ContextStorage value={query.data.ContextStorage} global />
+        {rows && <><div className="usage-section-heading"><h3>{user ? rows[0]?.DisplayName || rows[0]?.Username : zh ? '全部成员累计汇总' : 'Lifetime totals across all members'}</h3></div><Overview value={aggregate(rows)} /></>}
+        <p className="usage-note">{zh ? 'HTTP 连接调用已包含在工具调用中。预留费用尚未确认为消费。' : 'HTTP connection calls are included in tool calls. Reserved spend is not confirmed spending.'}</p>
+      </>}
+    </div></details>
   </div>;
 }

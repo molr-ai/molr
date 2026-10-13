@@ -1,6 +1,5 @@
 /* Resources workspace — app-style list layout mirroring the Plans page chrome. */
-.workspace-main[data-page='resources'] { background: var(--color-surface); overflow: hidden; }
-:root[data-theme='dark'] .workspace-main[data-page='resources'] { background: var(--color-background); }
+.workspace-main[data-page='resources'] { overflow: hidden; }
 
 .resources-workspace { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .resources-header { flex-shrink: 0; }
@@ -83,13 +82,13 @@
 .sandbox-section-heading { flex-wrap: wrap; }
 .sandbox-section-heading h3, .sandbox-workspace-summary h3, .sandbox-resource h3, .sandbox-access-row h3 { margin: 0; font-size: 13px; font-weight: 550; }
 .sandbox-section-heading .muted { font-size: 11px; }
-.sandbox-workspace-summary { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 8px; background: var(--color-neutral-bg); }
+.sandbox-workspace-summary { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 8px; background: var(--color-surface); }
 .sandbox-workspace-summary > svg { flex-shrink: 0; color: var(--color-text-muted); }
 .sandbox-workspace-summary > div { min-width: 0; flex: 1; }
 .sandbox-workspace-summary p { font-size: 12px; line-height: 1.6; color: var(--color-text-muted); margin: 4px 0 0; }
 .sandbox-workspace-summary code { font-size: 11px; font-weight: 400; margin-left: 4px; }
 .sandbox-resources { display: flex; flex-direction: column; gap: 12px; }
-.sandbox-resource { border: 1px solid var(--color-border); border-radius: 8px; padding: 14px 16px 8px; min-width: 0; }
+.sandbox-resource { background: var(--color-surface); border-radius: 8px; padding: 14px 16px 8px; min-width: 0; }
 .sandbox-resource-heading { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .sandbox-resource-heading h3 { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .sandbox-resource-heading > .badge { flex-shrink: 0; }
@@ -101,7 +100,7 @@
 .sandbox-network-rules dt { color: var(--color-text-muted); }
 .sandbox-network-rules dd { margin: 0; overflow-wrap: anywhere; font-family: var(--font-mono, monospace); }
 .sandbox-resource-description { font-size: 12px; line-height: 1.7; margin: 0; }
-.sandbox-compute-summary { padding: 16px; background: var(--color-neutral-bg); border-radius: 8px; }
+.sandbox-compute-summary { padding: 16px; background: var(--color-surface); border-radius: 8px; }
 .sandbox-limits { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 16px 0; }
 .sandbox-limits dt { font-size: 11px; color: var(--color-text-muted); }
 .sandbox-limits dd { margin: 6px 0 0; font-size: 17px; font-weight: 550; overflow-wrap: anywhere; }

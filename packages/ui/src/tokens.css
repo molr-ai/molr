@@ -163,3 +163,19 @@
   --color-selected-bg: #304128;
   --shadow-popover: 0 16px 40px #00000040, 0 2px 8px #00000026;
 }
+
+/* Usage intensity derives from each palette's emphasis hue, not status colors. */
+:root, [data-palette] {
+  --color-usage-base: var(--color-text-accent);
+  --color-usage-empty: var(--color-neutral-bg);
+  --color-usage-1: color-mix(in srgb, var(--color-usage-base) 18%, var(--color-page-background));
+  --color-usage-2: color-mix(in srgb, var(--color-usage-base) 36%, var(--color-page-background));
+  --color-usage-3: color-mix(in srgb, var(--color-usage-base) 52%, var(--color-page-background));
+  --color-usage-4: var(--color-usage-base);
+  --color-usage-on-medium: var(--color-text);
+  --color-usage-on-strong: var(--color-page-background);
+}
+:root[data-theme='dark'], [data-palette][data-theme='dark'] {
+  --color-usage-3: color-mix(in srgb, var(--color-usage-base) 60%, var(--color-page-background));
+  --color-usage-on-medium: var(--color-page-background);
+}

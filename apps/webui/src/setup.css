@@ -1,7 +1,7 @@
 .setup-page { min-height: 100dvh; padding: clamp(1rem, 4vw, 3rem); background: var(--color-background); }
 .setup-card { max-width: 960px; margin: 0 auto; }
 .setup-card h1 { margin-bottom: .5rem; }
-.setup-provider, .setup-finish { margin-top: 1.5rem; padding: 1.25rem; border: 1px solid var(--color-border); border-radius: 1rem; background: var(--color-surface); }
+.setup-provider, .setup-finish { margin-top: 1.5rem; padding: 1.25rem; border-radius: 1rem; background: var(--color-surface); }
 .setup-actions { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
 .setup-provider > .setup-actions { justify-content: flex-end; margin-top: 1rem; }
 .local-discovery { padding-bottom: 1rem; margin-bottom: 1rem; border-bottom: 1px solid var(--color-border); }

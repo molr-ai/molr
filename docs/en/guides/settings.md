@@ -12,6 +12,14 @@ General settings manage preferences such as language, time zone, and currency. "
 
 For viewing, editing, and dreaming time of memories, see [Memory Guide](memory.md). For selecting default models and assistant models, see [Permissions and Budget](permissions-and-budget.md#selecting-models).
 
+## Usage
+
+User Settings → Usage opens with this year's statistics. Choose this month, the last 30/90 days, a previous year, or a custom range of up to one year, and filter by assistant and model. The overview shows input, output, cached input, total tokens, confirmed model spend, model calls and active days. Total tokens are input plus output; cached input is already included. Calls without reported usage are identified separately, not treated as zero consumption.
+
+Switch the daily calendar between tokens and spend. Heatmap colors follow the selected palette and light/dark mode. Hover or focus a date to see the date and exact value of the selected metric on separate lines, with unknown usage identified separately. Use arrow keys to move between dates and select a date for its breakdown. Desktop uses weekly columns; mobile uses a monthly calendar. Group the table by assistant or model and sort descending by tokens, spend or calls. Select a name to filter further. Dismissed assistants retain their history. Selecting a day changes only the breakdown; the overview and calendar retain the full filtered range.
+
+Dates use your account timezone, and late receipts remain attributed to the original call date. Costs are aggregated in their recorded currencies and converted using one exchange-rate snapshot into your preferred currency; converted amounts carry `≈`. Zero-cost calls can still consume tokens. Running calls and unknown costs are listed separately and excluded from confirmed spend. Lifetime usage and allowances is expanded by default and shows lifetime calls, reserved spend, attachment/context storage and current member allowances, independent of historical date filters.
+
 ## System Notifications
 
 WeChat delivery/connection anomalies, persistent assistant blockages, authorization requests, pending plan handovers, and task/background execution failures are managed centrally by the server for notification status. Background execution failure notifications display "View in Development Workbench" when the development workbench is available and display is configured; clicking this locates the corresponding execution. When display is not configured, the notification and close button are retained, but the view entry is not shown. For executions that were not collected or have expired, a clear prompt indicates that the record is unavailable. Other notifications go directly to the corresponding chat, authorization, task, or plan page. Content requiring long-term reference is retained on the corresponding business page; there is no separate notification history page.

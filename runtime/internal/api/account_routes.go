@@ -12,6 +12,7 @@ func (s *HTTPServer) accountRoutes() {
 	if m == nil {
 		return
 	}
+	s.usageAnalyticsRoutes()
 	s.handle("GET /api/account", func(r *http.Request) (any, error) { return m.CurrentUser(r.Context(), principal(r)) })
 	route(s, "POST /api/account/profile", func(ctx context.Context, p core.Principal, q struct {
 		DisplayName string

@@ -1,6 +1,6 @@
 /* Plans occupy an application workspace: fixed tools, independent content scroll. */
-.workspace-main[data-page='plans'], :root[data-theme='dark'] .workspace-main[data-page='plans'] { background: var(--color-surface); overflow: hidden; }
-.plans-workspace { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; height: 100%; background: var(--color-surface); color: var(--color-text); font-size: 14px; line-height: 1.5; }
+.workspace-main[data-page='plans'] { overflow: hidden; }
+.plans-workspace { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; height: 100%; background: var(--color-page-background); color: var(--color-text); font-size: 14px; line-height: 1.5; }
 .plans-workspace--embedded .plans-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; border-bottom: 1px solid var(--color-border); }
 .plans-heading { display: flex; gap: 10px; align-items: center; min-width: 0; }
 .plans-heading h1 { font-size: 17px; letter-spacing: -.02em; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -96,7 +96,7 @@
 .plans-workspace .plan-execution-details > * + * { margin-top: 10px; }
 .plans-workspace .plan-execution-details .button { font-size: 11px; }
 .plans-workspace .plan-execution-details h3 { font-size: 12px; }
-.plans-workspace .plan-execution-details .card { border-radius: 6px; border: 0; background: var(--color-background); padding: 12px; margin-top: 8px; }
+.plans-workspace .plan-execution-details .card { border-radius: 6px; border: 0; padding: 12px; margin-top: 8px; }
 .plans-show-later.button { display: flex; margin: 0 28px 20px; color: var(--color-text-muted); font-size: 12px; }
 .plans-show-later > span { font-size: 10px; opacity: .8; }
 .plans-statusbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 30px; padding: 5px 24px; border-top: 1px solid var(--color-border); flex-shrink: 0; color: var(--color-text-muted); font-size: 10px; background: var(--color-surface); }

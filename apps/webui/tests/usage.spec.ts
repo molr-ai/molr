@@ -35,6 +35,9 @@ test('member usage and admin statistics share actual call totals', async ({ page
     await expect.poll(async () => (await request(member, `/api/jobs?assistant_id=${assistant.ID}`)).Items.find((job: any) => job.Event.Kind === 'user_message')?.State, { timeout: 25000 }).toBe('done');
     await expect.poll(async () => (await request(member, '/api/account/quotas')).Summary.Active, { timeout: 25000 }).toBe(0);
     await member.goto('/#/account/usage');
+    await expect(member.locator('.usage-analytics-overview')).toBeVisible();
+    await expect(member.locator('.usage-current')).toHaveAttribute('open', '');
+    await expect(member.locator('.usage-current > summary')).toHaveText('Lifetime usage and allowances');
     await expect(member.getByRole('heading', { name: 'Current member allowances' })).toBeVisible();
     await expect(member.locator('.usage-resource').filter({ hasText: model.Name })).toContainText('Monthly');
     await expect(member.locator('.usage-resource').filter({ hasText: 'Read conversations' })).toBeVisible();
@@ -49,16 +52,33 @@ test('member usage and admin statistics share actual call totals', async ({ page
     expect(row.Spent).toEqual(personal.Summary.Spent);
     expect(JSON.stringify(stats)).not.toContain('Private usage fixture message');
     expect((await member.request.get('/api/admin/usage')).status()).toBe(403);
+    const dates = '?from=' + new Date().getUTCFullYear() + '-01-01&until=' + (new Date().getUTCFullYear() + 1) + '-01-01&timezone=Asia%2FShanghai';
+    const analytics = await request(member, '/api/account/usage' + dates);
+    expect(analytics.Summary.TotalTokens).toBe(analytics.Summary.ModelCalls * 40);
+    expect(analytics.Summary.Spent).toEqual(personal.Summary.Spent);
+    expect(analytics.Rows.find((r: any) => r.ID === assistant.ID).TotalTokens).toBeGreaterThan(0);
+    const adminAnalytics = await request(page, '/api/admin/usage/analytics' + dates + '&user_id=' + user.ID);
+    expect(adminAnalytics.Summary).toEqual(analytics.Summary);
+    expect(JSON.stringify(adminAnalytics)).not.toContain(assistant.ID);
+    expect(JSON.stringify(adminAnalytics)).not.toContain('Private usage fixture message');
+    expect((await member.request.get('/api/admin/usage/analytics' + dates)).status()).toBe(403);
+    const populated = analytics.Daily.find((d: any) => d.ModelCalls > 0);
+    await member.locator(`button[data-date="${populated.Date}"]`).click();
+    await expect(member.getByRole('heading', { name: populated.Date + ' · Daily breakdown' })).toBeVisible();
+    await member.getByRole('button', { name: 'Show full range' }).click();
+    await member.getByRole('radio', { name: 'By model', exact: true }).click();
+    await expect(member.locator('.usage-table')).toContainText(model.Name);
     await page.goto('/#/settings/usage');
+    await expect(page.locator('.usage-current')).toHaveAttribute('open', '');
+    await expect(page.locator('.usage-current > summary')).toHaveText('Lifetime usage and resources');
     const storage = page.getByRole('region', { name: 'Global context storage', exact: true });
     await expect(storage).toContainText('Unique message nodes');
     const globalText = await storage.textContent();
-    await page.getByRole('textbox', { name: 'Search members' }).fill(username);
-    await expect(page.locator('.usage-member')).toHaveCount(1);
-    await page.locator('.usage-member summary').click();
-    await expect(page.locator('.usage-member-details')).toContainText('Model calls');
-    await page.getByRole('textbox', { name: 'Search members' }).fill('absent-usage-fixture');
-    await expect(page.getByText('No matching members', { exact: true })).toBeVisible();
+    await page.getByRole('searchbox', { name: 'Search members' }).fill(username);
+    await expect(page.locator('.usage-table tbody tr')).toHaveCount(1);
+    await expect(page.locator('.usage-table')).toContainText(username);
+    await page.getByRole('searchbox', { name: 'Search members' }).fill('absent-usage-fixture');
+    await expect(page.getByText('No usage recorded', { exact: true })).toBeVisible();
     await expect(storage).toHaveText(globalText!);
     for (const current of [page, member]) expect(await current.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   } finally { await context.close(); }
@@ -66,13 +86,13 @@ test('member usage and admin statistics share actual call totals', async ({ page
 
 test('usage loading failure remains retryable without fabricating zero usage', async ({ page }) => {
   await login(page);
-  await page.route('**/api/account/quotas', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: { code: 'unavailable', message: 'fixture unavailable' } }) }));
+  await page.route('**/api/account/usage?*', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: { code: 'unavailable', message: 'fixture unavailable' } }) }));
   await page.goto('/#/account/usage');
-  await expect(page.locator('.usage-overview')).toHaveCount(0);
-  await expect(page.locator('.usage-page').getByRole('alert')).toBeVisible();
-  await page.unroute('**/api/account/quotas');
-  await page.locator('.usage-toolbar').getByRole('button', { name: 'Refresh' }).click();
-  await expect(page.locator('.usage-overview').first()).toBeVisible();
+  await expect(page.locator('.usage-analytics-overview')).toHaveCount(0);
+  await expect(page.getByText('Usage is temporarily unavailable', { exact: true })).toBeVisible();
+  await page.unroute('**/api/account/usage?*');
+  await page.locator('.usage-analytics .usage-toolbar').getByRole('button', { name: 'Refresh' }).click();
+  await expect(page.locator('.usage-analytics-overview')).toBeVisible();
 });
 
 test('usage login links land on the selected usage page', async ({ page, browser }) => {
@@ -86,7 +106,7 @@ test('usage login links land on the selected usage page', async ({ page, browser
       await next.goto('/#/login?' + new URLSearchParams({ token: issued.value }));
       await next.getByRole('button', { name: 'Confirm sign-in', exact: true }).click();
       await expect(next).toHaveURL(new RegExp(`#${target}$`));
-      await expect(next.locator('.usage-overview').first()).toBeVisible();
+      await expect(next.locator('.usage-analytics-overview')).toBeVisible();
     } finally { await context.close(); }
   }
 });
@@ -115,7 +135,7 @@ test('unknown model costs end holds automatically and remain visible as history'
   await page.goto('/#/account/usage');
   await expect(page.locator('.usage-page')).not.toContainText('no manual action is needed');
   await expect(page.getByRole('heading', { name: 'Current member allowances' })).toHaveCount(0);
-  await expect(page.locator('.usage-overview').first()).toBeVisible();
+  await expect(page.locator('.usage-analytics-overview')).toBeVisible();
   await expect(page.locator('.usage-page').getByRole('alert')).toBeHidden();
   await page.getByRole('button', { name: 'Refresh', exact: true }).click();
   expect((await request(page, '/api/account/quotas')).Summary.ModelCalls).toBe(after.ModelCalls);

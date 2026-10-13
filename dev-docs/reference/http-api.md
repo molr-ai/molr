@@ -53,9 +53,11 @@ Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugi
 | DELETE | `/api/files/{id}` |
 | GET | `/api/account` |
 | GET | `/api/account/quotas` |
+| GET | `/api/account/usage` |
 | GET | `/api/admin/catalog` |
 | GET | `/api/admin/groups` |
 | GET | `/api/admin/usage` |
+| GET | `/api/admin/usage/analytics` |
 | GET | `/api/admin/users` |
 | GET | `/api/assistants` |
 | GET | `/api/assistants/activity` |
@@ -283,6 +285,14 @@ HTTP 限流在事务内读取并更新持久计数，通过的请求占用当前
 上下文用量：`GET /api/account/quotas` 的 `ContextStorage` 只统计当前账号引用可达的对象，账号内去重；`GET /api/admin/usage` 返回 `{Users, ContextStorage}`，其中 `ContextStorage` 统计跨账号去重后的全部已存对象（含待回收对象），与成员筛选无关。两者字段为 `Bytes`（对象 JSON 正文字节数，含消息、共享定义及调试详情，不含索引、引用元数据和数据库空闲空间）和 `Messages`（唯一消息节点数）。统计在同一读取事务中完成；共享对象分别计入引用它的各账号，账号数值不能相加代替全局数值。接口只返回汇总数字，不返回消息、节点 ID 或其他账号的引用。
 
 个人 `Resources` 包含 `Kind`、`ID`、`Name`、`Calls`、`Active`、`Unknown`、`Carried`、`Spent`、`Reserved`、`PeriodStart`、`PeriodEnd`。模型／工具／连接的统计与准入一致，当前周期以外仍在执行的调用继续计入占用，并以 `Carried` 单列。`Unknown` 表示本地调用已结束但结果或费用未知，不计入 `Active` / `Reserved`，调用次数仅计入原周期；它不是 `Active` 的子集。`PeriodEnd=null` 表示累计周期；沙盒实际用量仍由 `/api/resource-usage` 获取，不将其配置限额当作用量。
+
+### 日期用量分析
+
+`GET /api/account/usage` 只读取当前账号；`GET /api/admin/usage/analytics` 要求管理员身份。共同参数为 `from`、`until`（`YYYY-MM-DD`，前闭后开，最多一个日历年）、`timezone`（默认账号时区）、`model_id`、`group_by`、`sort=tokens|spend|calls` 和 `page`（从 1 开始，每页 20 行）。个人接口支持 `assistant_id` 和 `group_by=assistant|model`；管理员接口支持 `user_id`、`group_id`、`search`（用户名或显示名称子串）及 `group_by=user|group|model`，不支持私有助理维度。可选 `day` 必须位于查询范围内，只筛选明细，不改变总览与每日序列。用户组按当前成员归属统计。
+
+返回 `Summary`、补齐零值日期的 `Daily`、分页 `Rows`、`TotalRows`、`Page`、`PageSize`、`ActiveDays`、`ActiveUsers`、筛选 `Options` 及 `From`、`Until`、`Timezone`、`AsOf`、`Currency`、`Rates`。统计字段为 `InputTokens`、`OutputTokens`、`CachedTokens`、`TotalTokens`、`ModelCalls`、`MissingTokenCalls`、`UnknownCostCalls`、`ActiveCalls` 和按原币种分组的 `Spent`。`TotalTokens=InputTokens+OutputTokens`，缓存属于输入子集。未结束调用单列 `ActiveCalls`；已结束而缺少已知回执的调用计入 `MissingTokenCalls`。未知金额不补零结算，不包含预留费用。`Rows` 包含分组 `ID`、`Name`、`Secondary`、`State`；管理员响应不包含助理标识、名称或回执正文。
+
+在同一读取事务中按账本发起时间及指定时区归日，关联唯一模型回执；重复读取／复用回执不增加消费，迟到结算更新原发起日。已释放且确认未计费的预留不计入模型调用，执行中预留只在原日期内计数，不从旧周期携入分析范围。数据库按账号与时间索引筛选账本；不读取聊天、工具参数或执行正文。金额排序与页面换算共用响应中的汇率快照，整数微单位汇总后才格式化。该接口与当前额度接口独立。
 
 ## 设置
 

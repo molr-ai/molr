@@ -21,6 +21,7 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   const resource = await post(page, '/api/resources', { Name: name, Kind: 'model', Provider: 'openai-compatible', Binding: { Endpoint: origin, AllowedOrigins: [origin], Models: [{ Name: name, ContextLimit: 32768, SupportsTools: true, Pricing: { Currency: 'USD', InputMicrosPerMillion: 1 } }] } });
   const models = await (await page.request.get('/api/models')).json();
   const assistant = await post(page, '/api/assistants', { Name: name, ModelID: models.find((m: { ResourceID: string }) => m.ResourceID === resource.ID).ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } });
+  let proxyMode = 'proxy';
   let lastFailure: { TaskID: string; Reason: string } | undefined;
   let client = '', generation = 1, sequence = 0, takeovers = 0, running = false, rejectInput = false;
   let tabs = [{ tabId: 't1', title: 'First tab', url: 'https://example.com', active: true }, { tabId: 't2', title: 'Second tab', url: 'about:blank', active: false }];
@@ -91,7 +92,7 @@ test('browser panel preserves control, commits IME once, closes the selected tab
         }
       }
     }
-    await route.fulfill({ json: { Available: true, LastFailure: lastFailure, TabCount: tabs.length, ControllerIsCurrentSession: !!client, ControllerClientID: client, Task: running ? { ID: 'browser-test', Kind: 'browser', State: 'running', Browser: { Control: client ? 'user' : 'assistant', Generation: generation } } : null } });
+    await route.fulfill({ json: { Available: true, Proxy: { Mode: proxyMode }, ProxyAppliesTo: running ? 'current_session' : 'next_start', RestartRequired: running, LastFailure: lastFailure, TabCount: tabs.length, ControllerIsCurrentSession: !!client, ControllerClientID: client, Task: running ? { ID: 'browser-test', Kind: 'browser', State: 'running', Browser: { Control: client ? 'user' : 'assistant', Generation: generation } } : null } });
     await page.evaluate(tabs => window.dispatchEvent(new CustomEvent('browser-test-tabs', { detail: tabs })), tabs);
   });
   await page.goto(`/#/assistants/${assistant.ID}`);
@@ -101,6 +102,8 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   const bareIcon = await iconPosition();
   await trigger.click();
   await expect(page.locator('.browser-window-heading')).toContainText('Browser');
+  await expect(page.locator('.browser-proxy-badge')).toHaveCount(0);
+  await expect(page.getByText(/Network settings/)).toHaveCount(0);
   await expect(page.getByRole('tablist', { name: 'Browser tabs' })).toHaveCount(0);
   expect(await page.locator('.browser-panel').evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
   const resourceSelect = page.getByRole('combobox', { name: 'Compute resource' });
@@ -108,6 +111,13 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   await page.getByRole('option', { name: 'Local two' }).click();
   await page.getByRole('button', { name: 'Start browser', exact: true }).click();
   await expect(trigger).toHaveAccessibleName('Browser (2)');
+  const proxyBadge = page.locator('.browser-drawer .ui-dialog__header .browser-proxy-badge');
+  await expect(proxyBadge).toHaveText('Proxy enabled');
+  proxyMode = 'direct';
+  await expect(proxyBadge).toHaveCount(0); // A pending proxy configuration must not label a direct session.
+  await expect(page.getByText(/Network settings/)).toHaveCount(0);
+  proxyMode = 'proxy';
+  await expect(proxyBadge).toBeVisible();
   expect(await iconPosition()).toEqual(bareIcon);
   const badge = trigger.locator('.badge');
   await expect(badge).toHaveCSS('position', 'absolute');

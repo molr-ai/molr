@@ -285,3 +285,38 @@ func TestQueryProjectionPreservesJSONTypes(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestUsageAnalyticsUsesOwnerTimeRangeIndex(t *testing.T) {
+	s, err := Open(filepath.Join(t.TempDir(), "analytics.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	q := persistence.Query{Unordered: true, Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), {Field: "CreatedAt", Op: ">=", Value: "2026-01-01T00:00:00Z"}, {Field: "CreatedAt", Op: "<", Value: "2027-01-01T00:00:00Z"}}}
+	statement, args, err := querySQL("security.reservations", q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := s.db.QueryContext(t.Context(), "EXPLAIN QUERY PLAN "+statement, args...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer plan.Close()
+	bounded := false
+	for plan.Next() {
+		var id, parent, unused int
+		var detail string
+		if err := plan.Scan(&id, &parent, &unused, &detail); err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(detail, "SEARCH") && strings.Contains(detail, "<expr>=?") && strings.Contains(detail, "<expr>>?") && strings.Contains(detail, "<expr><?") {
+			bounded = true
+		}
+	}
+	if err := plan.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if !bounded {
+		t.Fatal("analytics must use an owner-scoped bounded time index")
+	}
+}

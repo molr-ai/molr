@@ -49,7 +49,7 @@ function FloatingPopover({ trigger, title, children, align, maxHeight, width = 3
   </>;
 }
 
-export type TooltipProps = { children: FloatingTrigger; content: string; delay?: number; side?: FloatingSide; width?: number | 'auto'; openOnClick?: boolean };
+export type TooltipProps = { children: FloatingTrigger; content: ReactNode; delay?: number; side?: FloatingSide; width?: number | 'auto'; openOnClick?: boolean };
 export function Tooltip({ children, content, delay = 400, side: preferredSide = 'top', width = 220, openOnClick = false }: TooltipProps) {
   const id = useId();
   const [open, setOpen] = useState(false);

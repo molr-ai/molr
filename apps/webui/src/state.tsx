@@ -84,7 +84,7 @@ function queryTopic(path: string) {
   const shell = path.match(/^\/api\/assistants\/([^/]+)\/shell-tasks/);
   if (shell) return `shell-tasks:${shell[1]}`;
   if (/\/assistants\/[^/]+\/weixin/.test(path)) return 'weixin';
-  if (path === '/api/account/quotas' || path === '/api/admin/usage') return 'usage';
+  if (path === '/api/account/quotas' || path === '/api/admin/usage' || path.startsWith('/api/account/usage?') || path.startsWith('/api/admin/usage/analytics?')) return 'usage';
   if (/\/debug\/runs\/[^/]+\/steps\//.test(path)) return 'debug-payload';
   const assistant = path.match(/^\/api\/assistants\/([^/]+)\/(capabilities|status)$/);
   if (assistant) return `${assistant[2]}:${assistant[1]}`;

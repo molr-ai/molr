@@ -1,4 +1,3 @@
-import { BrowserNetworkStatus } from '../../../maintenance/BrowserNetworkStatus';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ChangeEvent, KeyboardEvent, PointerEvent, RefObject, WheelEvent } from 'react';
 import { Alert, Badge, Button, Drawer, IconButton, Select, useBreakpoint, useToast, useUILocale } from '@molr/ui';
@@ -298,10 +297,10 @@ export function Browser({ assistantID, docked, floating, onFloatingChange, bound
         {tabScroll.overflow && <IconButton className="browser-tab-scroll" label={zh ? '向右滚动标签页' : 'Scroll tabs right'} disabled={!tabScroll.right} onClick={() => scrollTabs(1)}><ChevronRight size={16}/></IconButton>}
       </div>
       <IconButton className="browser-new-tab" label={zh ? '新建标签页' : 'New tab'} disabled={!canOperate} onClick={() => input({ action: 'new_tab', url: 'about:blank' })}><Plus size={18}/></IconButton>
+      {query.data?.Proxy?.Mode === 'proxy' && <Badge className="browser-proxy-badge" size="sm" dot={false}>{zh ? '代理已启用' : 'Proxy enabled'}</Badge>}
       {viewActions}
     </div> : <div className="browser-window-heading" {...dragProps}>{moveHandle}<span>{zh ? '浏览器' : 'Browser'}</span>{viewActions}</div>}>
     <div className="browser-panel" ref={panelRef}>
-      <BrowserNetworkStatus value={query.data}/>
       {!task ? <div className="browser-start"><div className="browser-start-icon"><Globe size={34}/></div><h3>{zh ? '一起浏览，同步可见' : 'Browse together'}</h3><p>{zh ? '观看助理浏览网页，需要时接管。登录状态会为这个助理保留。' : 'Watch your assistant browse, and take control when needed. Login state stays with this assistant.'}</p>
         {query.data?.Available === false && component && <ComponentDetails value={component}/>}
         {query.data?.Preparation?.task_id && admin && <MaintenanceProgress taskID={query.data.Preparation.task_id}/>}

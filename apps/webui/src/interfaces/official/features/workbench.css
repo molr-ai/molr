@@ -1,4 +1,4 @@
-.page.workbench { --trace-model: var(--color-trace-model); --trace-tool: var(--color-trace-tool); --trace-kind-width: 180px; --trace-state-width: 86px; --trace-time-width: 64px; display: flex; flex-direction: column; min-height: 0; height: 100%; padding: 0; overflow: hidden; background: var(--color-surface); }
+.page.workbench { --trace-model: var(--color-trace-model); --trace-tool: var(--color-trace-tool); --trace-kind-width: 180px; --trace-state-width: 86px; --trace-time-width: 64px; display: flex; flex-direction: column; min-height: 0; height: 100%; padding: 0; overflow: hidden; background: var(--color-page-background); }
 .page.workbench > * { margin-top: 0; }
 .workbench-header-actions { display: flex; align-items: center; min-width: 0; gap: 12px; }
 .workbench-header-separator { font-size: 18px; color: var(--color-border); }

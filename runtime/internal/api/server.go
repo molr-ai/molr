@@ -43,6 +43,7 @@ type permissionRequestService interface {
 }
 
 type Options struct {
+	UsageAnalytics     func(context.Context, core.Principal, UsageQuery, bool) (any, error)
 	Maintenance        *installation.Maintenance
 	Browser            func(context.Context, core.Principal, core.ID, json.RawMessage) (json.RawMessage, error)
 	BrowserSettings    func(context.Context, core.Principal, json.RawMessage) (any, error)

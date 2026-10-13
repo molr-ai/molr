@@ -53,9 +53,11 @@ Verified on 2026-10-03 against the registrations in `runtime/internal/api/*_rout
 | DELETE | `/api/files/{id}` |
 | GET | `/api/account` |
 | GET | `/api/account/quotas` |
+| GET | `/api/account/usage` |
 | GET | `/api/admin/catalog` |
 | GET | `/api/admin/groups` |
 | GET | `/api/admin/usage` |
+| GET | `/api/admin/usage/analytics` |
 | GET | `/api/admin/users` |
 | GET | `/api/assistants` |
 | GET | `/api/assistants/activity` |
@@ -283,6 +285,14 @@ The `Summary` and `GET /api/admin/usage` of `GET /api/account/quotas` return `Us
 Context usage: The `ContextStorage` of `GET /api/account/quotas` only counts objects reachable by the current account's references, deduplicated within the account; `GET /api/admin/usage` returns `{Users, ContextStorage}`, where `ContextStorage` counts all stored objects (including those pending reclamation) after cross-account deduplication, independent of member filtering. The fields for both are `Bytes` (byte count of the object JSON body, including messages, shared definitions, and debug details, excluding indexes, reference metadata, and database free space) and `Messages` (number of unique message nodes). Statistics are completed within the same read transaction; shared objects are counted separately for each account referencing them, and account values cannot be summed to replace global values. The interface only returns aggregate numbers, not messages, node IDs, or references from other accounts.
 
 Personal `Resources` includes `Kind`, `ID`, `Name`, `Calls`, `Active`, `Unknown`, `Carried`, `Spent`, `Reserved`, `PeriodStart`, `PeriodEnd`. Statistics and admission for models/tools/connections are consistent; calls still executing outside the current period continue to count towards occupancy and are listed separately under `Carried`. `Unknown` indicates that the local call has ended but the result or cost is unknown; it is not counted in `Active` / `Reserved`, and the call count is only counted in the original period; it is not a subset of `Active`. `PeriodEnd=null` represents the cumulative period; actual sandbox usage is still obtained via `/api/resource-usage`, and its configured limits are not treated as usage.
+
+### Usage analytics by date
+
+`GET /api/account/usage` reads only the current account; `GET /api/admin/usage/analytics` requires an administrator. Common parameters are `from`, `until` (`YYYY-MM-DD`, inclusive start, exclusive end, at most one calendar year), `timezone` (account timezone by default), `model_id`, `group_by`, `sort=tokens|spend|calls` and `page` (starting at 1, 20 rows per page). The personal endpoint supports `assistant_id` and `group_by=assistant|model`. The admin endpoint supports `user_id`, `group_id`, `search` (username/display-name substring) and `group_by=user|group|model`, without private assistant dimensions. Optional `day` must lie within the range and filters only breakdown rows, retaining the overview and daily series. Groups reflect current membership.
+
+The response contains `Summary`, zero-filled `Daily`, paginated `Rows`, `TotalRows`, `Page`, `PageSize`, `ActiveDays`, `ActiveUsers`, filter `Options`, and `From`, `Until`, `Timezone`, `AsOf`, `Currency`, `Rates`. Metrics are `InputTokens`, `OutputTokens`, `CachedTokens`, `TotalTokens`, `ModelCalls`, `MissingTokenCalls`, `UnknownCostCalls`, `ActiveCalls` and `Spent` grouped by original currency. `TotalTokens=InputTokens+OutputTokens`; cache tokens are an input subset. Running calls count as `ActiveCalls`; ended calls without known receipts count as `MissingTokenCalls`. Unknown amounts are not settled as zero, and spend excludes reservations. Rows contain group `ID`, `Name`, `Secondary` and `State`. Admin responses contain no assistant identities, names or receipt bodies.
+
+One read transaction groups ledger records by their start date in the requested timezone and links each unique receipt. Re-reading or reusing receipts does not add consumption; late settlement updates the original date. Released, confirmed uncharged reservations do not count as model calls. Active reservations count only in their original date, without carrying earlier periods into analytics. Owner/time indexes select ledger records without reading chat, tool arguments or execution bodies. Spend sorting and display conversion use the response's exchange-rate snapshot, aggregating integer micro-units before formatting. Analytics are independent of current allowance queries.
 
 ## Settings
 

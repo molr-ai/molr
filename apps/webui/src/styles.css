@@ -50,7 +50,7 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 .workspace-empty .ui-empty h3 { opacity: 0.25; }
 .workspace-empty .ui-empty__art { margin-bottom: 24px; }
 .sidebar-footer { padding: 12px 9px; }.sidebar-footer .button { width: 100%; }.workspace-empty { display: grid; place-items: center; flex: 1; min-width: 0; padding: 24px; }
-.chat-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; background: var(--color-surface); }.chat-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: var(--workspace-header-height); min-height: var(--workspace-header-height); flex-shrink: 0; padding: 12px 24px; border-bottom: 1px solid var(--color-border); }
+.chat-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; background: var(--color-page-background); }.chat-header { background: var(--color-surface); display: flex; align-items: center; justify-content: space-between; gap: 16px; height: var(--workspace-header-height); min-height: var(--workspace-header-height); flex-shrink: 0; padding: 12px 24px; border-bottom: 1px solid var(--color-border); }
 .chat-header > .form-actions { flex-shrink: 0; flex-wrap: nowrap; }
 .chat-identity { display: flex; align-items: center; gap: 10px; min-width: 0; }.chat-identity h1 { flex-shrink: 0; max-width: min(36vw, 20rem); font-size: var(--text-base); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.chat-identity .ui-chat-status { flex: 0 1 auto; overflow: hidden; }.chat-identity .ui-chat-status__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.chat-header .button { min-height: 36px; height: 36px; }
 .chat-history { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 28px max(24px, calc((100% - 860px) / 2)); }.chat-input { padding: 12px max(24px, calc((100% - 860px) / 2)) 24px; }.chat-input .message-composer { background: var(--color-surface); }.chat-history .ui-chat-message { margin-bottom: 28px; }
@@ -193,7 +193,7 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 .assistant-grant-usage p { margin: 0; }
 .permissions-content .permission-requests { display: grid; gap: var(--space-2); min-width: 0; }
 .permissions-content .permission-requests h2, .permissions-content .permission-requests h3 { margin: 0; font-size: var(--text-sm); font-weight: 500; }
-.permissions-content .permission-requests .card { padding: var(--space-3); gap: var(--space-2); background: var(--color-background); font-size: var(--text-xs); line-height: 1.7; overflow-wrap: anywhere; }
+.permissions-content .permission-requests .card { padding: var(--space-3); gap: var(--space-2); font-size: var(--text-xs); line-height: 1.7; overflow-wrap: anywhere; }
 .permissions-content .permission-requests p { margin: 0; }
 .permissions-content .permission-requests summary { cursor: pointer; font-size: var(--text-xs); color: var(--color-text-muted); }
 .permissions-content .permission-requests details > .record-list { margin-top: var(--space-3); }

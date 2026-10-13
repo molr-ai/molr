@@ -248,6 +248,10 @@ func (s *Store) createIndexes() error {
 		return err
 	}
 	defer tx.Rollback()
+	indexes = append(indexes, struct {
+		bucket string
+		fields []string
+	}{"security.reservations", []string{"OwnerID", "CreatedAt"}})
 	for i, index := range indexes {
 		parts := []string{"bucket"}
 		for _, field := range index.fields {
