@@ -23,6 +23,7 @@ import (
 )
 
 type browserState struct {
+	ViewportHeight     int
 	Control            string
 	NeedsSnapshot      bool
 	Generation         uint64
@@ -268,7 +269,25 @@ func (s *shellTasks) browserRequest(ctx context.Context, p core.Principal, id co
 	if uncertain {
 		return nil, core.NewError(core.FailedPrecondition, "browser action outcome unknown; close and restart the browser")
 	}
-	if !q.Action.ReadOnly() {
+	if q.Action.Action == "viewport" {
+		if err := p.RequireOwner(); err != nil {
+			return nil, err
+		}
+		if q.TaskID == "" || q.ClientID == "" || q.Generation != state.Generation || generation != state.Generation || state.Control == "switching" ||
+			state.Control == "user" && (state.ControllerSession != p.SessionID || state.ControllerClient != q.ClientID) {
+			return nil, core.NewError(core.Conflict, "browser viewport controller changed")
+		}
+		if _, err := q.Action.Args(); err != nil {
+			return nil, core.Invalid("viewport", err.Error())
+		}
+		height := state.ViewportHeight
+		if height == 0 {
+			height = 800
+		}
+		if height == q.Height {
+			return json.Marshal(browser.Result{OK: true})
+		}
+	} else if !q.Action.ReadOnly() {
 		if p.Kind == core.ActorAssistant && state.Control != "assistant" {
 			return nil, browserControlled()
 		}
@@ -341,6 +360,12 @@ func (s *shellTasks) browserRequest(ctx context.Context, p core.Principal, id co
 	}
 	if browserNavigation(q.Action) {
 		s.clearBrowserNetworkFailure(ctx, r)
+	}
+	if q.Action.Action == "viewport" {
+		s.mu.Lock()
+		r.task.Browser.ViewportHeight = q.Height
+		r.task.Browser.NeedsSnapshot = true
+		s.mu.Unlock()
 	}
 	if q.Action.Action == "snapshot" && p.Kind == core.ActorAssistant {
 		s.mu.Lock()

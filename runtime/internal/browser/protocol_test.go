@@ -47,3 +47,23 @@ func TestActionDoesNotExposeLaunchOrArbitraryExecution(t *testing.T) {
 		}
 	}
 }
+
+func TestViewportHeightAndTallInput(t *testing.T) {
+	for _, height := range []int{1, 800, 2400, MaxViewportHeight} {
+		args, err := (Action{Action: "viewport", Height: height}).Args()
+		if err != nil || len(args) != 4 || args[2] != "1280" {
+			t.Fatal(args, err)
+		}
+		if _, err := (Action{Action: "pointer", Event: "move", X: 640, Y: float64(height)}).Args(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, height := range []int{-1, 0, MaxViewportHeight + 1} {
+		if _, err := (Action{Action: "viewport", Height: height}).Args(); err == nil {
+			t.Fatal("invalid height accepted", height)
+		}
+	}
+	if _, err := (Action{Action: "wheel", Y: MaxViewportHeight + 1, DeltaY: 1}).Args(); err == nil {
+		t.Fatal("out of bounds input accepted")
+	}
+}

@@ -89,3 +89,43 @@ func TestBrowserInputBatchRejectsInvalidSuffixBeforeExecution(t *testing.T) {
 		t.Fatal("model accepted batch", err, calls)
 	}
 }
+
+func TestBrowserViewportOwnershipAndSnapshot(t *testing.T) {
+	s, p, e, r := browserTaskFixture(t)
+	calls := 0
+	s.browserRoundTrip = func(_ context.Context, _ *runningShell, raw []byte) (json.RawMessage, error) {
+		calls++
+		return json.RawMessage(`{"ok":true}`), nil
+	}
+	q := tools.BrowserRequest{Action: browser.Action{Action: "viewport", Height: 2400}, TaskID: r.task.ID, ClientID: "window", Generation: 1}
+	_, err := s.browserRequest(t.Context(), p, e.AssistantID, q)
+	need(t, err)
+	if calls != 1 || r.task.Browser.ViewportHeight != 2400 || !r.task.Browser.NeedsSnapshot {
+		t.Fatal(calls, r.task.Browser)
+	}
+	_, err = s.browserRequest(t.Context(), p, e.AssistantID, q)
+	need(t, err)
+	if calls != 1 {
+		t.Fatal("duplicate resize", calls)
+	}
+	if _, err = s.browserRequest(t.Context(), e.Principal, e.AssistantID, q); err == nil {
+		t.Fatal("assistant resized viewport")
+	}
+	r.task.Browser.Control, r.task.Browser.ControllerSession, r.task.Browser.ControllerClient = "user", p.SessionID, "window"
+	q.Height = 1600
+	q.ClientID = "observer"
+	if _, err = s.browserRequest(t.Context(), p, e.AssistantID, q); core.CodeOf(err) != core.Conflict {
+		t.Fatal(err)
+	}
+	q.ClientID = "window"
+	q.Generation = 0
+	if _, err = s.browserRequest(t.Context(), p, e.AssistantID, q); core.CodeOf(err) != core.Conflict {
+		t.Fatal(err)
+	}
+	q.Generation = 1
+	_, err = s.browserRequest(t.Context(), p, e.AssistantID, q)
+	need(t, err)
+	if calls != 2 || r.task.Browser.ViewportHeight != 1600 {
+		t.Fatal(calls, r.task.Browser)
+	}
+}

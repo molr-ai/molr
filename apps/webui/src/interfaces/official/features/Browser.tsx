@@ -233,11 +233,37 @@ export function Browser({ assistantID, docked, floating, onFloatingChange, bound
       window.removeEventListener('online', resume); window.removeEventListener('offline', resume);
     };
   }, [path, task?.ID]);
+  // Resize only after layout settles, and serialize it with this window's inputs.
+  useEffect(() => {
+    const element = canvas.current;
+    if (!element || !task?.ID || !connected || state?.Control === 'switching' || state?.Control === 'user' && !ownsControl) return;
+    let disposed = false, sent = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const measure = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const { width, height } = element.getBoundingClientRect();
+        if (width <= 0 || height <= 0 || document.visibilityState !== 'visible') return;
+        const next = Math.max(1, Math.min(8192, Math.round(1280 * height / width)));
+        if (sent === next) return;
+        sent = next;
+        client.queue = client.queue.then(async () => {
+          if (disposed || sent !== next) return;
+          try { await act({ action: 'viewport', height: next }); }
+          catch (err) { if (!disposed) { sent = 0; warn(notice(err)); void query.reload(); } }
+        });
+      }, 200);
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(element); measure();
+    return () => { disposed = true; clearTimeout(timer); observer.disconnect(); };
+  }, [path, task?.ID, connected, state?.Control, state?.Generation, ownsControl]);
   function coordinates(event: PointerEvent<HTMLCanvasElement> | WheelEvent<HTMLCanvasElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
-    // Map the displayed image back to the fixed remote viewport.
-    const scale = Math.min(rect.width / 1280, rect.height / 800), left = (rect.width - 1280 * scale) / 2, top = 0;
-    const x = Math.max(0, Math.min(1280, (event.clientX - rect.left - left) / scale)), y = Math.max(0, Math.min(800, (event.clientY - rect.top - top) / scale));
+    // Use the received frame dimensions, including while a resize is in flight.
+    const { width, height } = event.currentTarget;
+    const scale = Math.min(rect.width / width, rect.height / height), left = (rect.width - width * scale) / 2;
+    const x = Math.max(0, Math.min(width, (event.clientX - rect.left - left) / scale)), y = Math.max(0, Math.min(height, (event.clientY - rect.top) / scale));
     return { x, y };
   }
   function modifiers(event: PointerEvent<HTMLCanvasElement> | WheelEvent<HTMLCanvasElement>) { return (event.altKey ? 1 : 0) | (event.ctrlKey ? 2 : 0) | (event.metaKey ? 4 : 0) | (event.shiftKey ? 8 : 0); }

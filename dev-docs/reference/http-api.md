@@ -445,6 +445,8 @@ Runtime 启动时自动准备并探测命令环境，自动登记本机计算资
 
 `GET /api/assistants/{id}/browser` 返回可用状态、活动任务及缓存的 `TabCount`。`ControllerClientID` 仅返回给当前控制者所属登录会话，前端还须匹配当前页面的 client ID。`POST` 接受 start/status/close、浏览器操作、takeover 和 release。启动需要 `compute_id`；控制权请求需要 `client_id` 与当前 `generation`，用户输入还需递增的 `sequence`。过期 generation、其他控制者或重放输入返回冲突。任务含 `Kind: browser` 和公开 Browser 控制状态／generation／NeedsSnapshot，不序列化控制会话凭据。正常关闭先刷新 profile 再取消执行。
 
+前端通过 `POST` 的 `action: "viewport"` 同步画布比例，携带 `task_id`、`client_id`、当前 `generation` 和整数 `height`（1–8192）；固定宽度 1280，高度按 `round(1280 × 画布高度 / 画布宽度)` 计算并限制在允许范围。尺寸变化防抖 200 ms，和输入串行发送。助理控制时允许观看窗口调整；用户接管时仅当前控制窗口可调整，交接或过期请求返回冲突。相同高度不重复执行；调整后助理须读取新快照。坐标按收到的图像尺寸换算，流最大高度覆盖允许视口高度。
+
 `GET /api/assistants/{id}/browser/stream?task_id=…` 提供 frame/status/tabs/url 消息的认证 SSE。接口核验账号与助理归属，持续检查会话，在任务取消时结束，不受普通 JSON 请求 30 秒截止时间限制。POST 沿用登录态与 CSRF 检查。不公开 agent-browser 的 WS 或指令端点。
 
 用户低层输入支持 `action: "input_batch"`，携带 `actions`（1–32 条 pointer/wheel/insert_text/press）、控制者信息及首条 `sequence`；后续序号连续递增。整批先校验，逐条执行时重新核验控制权；累计执行满 250 ms 后不再开始下一条。返回 `completed` 为已确认成功数量，失败另返回 `code`／`reason`，失败项及其后缀不可自动重放。无错误的部分完成只允许继续发送未执行后缀。导航、标签及交接单独请求。`wheel` 使用视口坐标、`delta_x/delta_y` 像素增量和可选 `modifiers`（Alt=1、Control=2、Meta=4、Shift=8）。前端限制输入请求频率，不随低层输入失效无关业务查询。

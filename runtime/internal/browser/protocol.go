@@ -10,11 +10,14 @@ import (
 
 const CommandPort = 9224
 const StreamPort = 9223
+const ViewportWidth = 1280
+const MaxViewportHeight = 8192
 
 // Actions are explicit: clients cannot select executables, launch flags, CDP
 // endpoints, shell scripts, session names or host filesystem paths.
 type Action struct {
 	Action    string  `json:"action"`
+	Height    int     `json:"height,omitempty"`
 	URL       string  `json:"url,omitempty"`
 	Selector  string  `json:"selector,omitempty"`
 	Text      string  `json:"text,omitempty"`
@@ -51,6 +54,11 @@ func (a Action) Args() ([]string, error) {
 		return len(a.Tab) > 1 && len(a.Tab) < 16 && a.Tab[0] == 't' && strings.Trim(a.Tab[1:], "0123456789") == ""
 	}
 	switch a.Action {
+	case "viewport":
+		if a.Height < 1 || a.Height > MaxViewportHeight {
+			return bad()
+		}
+		return []string{"set", "viewport", fmt.Sprint(ViewportWidth), fmt.Sprint(a.Height)}, nil
 	case "snapshot":
 		return []string{"snapshot"}, nil
 	case "screenshot":
@@ -101,7 +109,7 @@ func (a Action) Args() ([]string, error) {
 		}
 		return []string{"tab", "close"}, nil
 	case "pointer", "wheel":
-		if math.IsNaN(a.X) || math.IsNaN(a.Y) || a.X < 0 || a.X > 1280 || a.Y < 0 || a.Y > 800 {
+		if math.IsNaN(a.X) || math.IsNaN(a.Y) || a.X < 0 || a.X > ViewportWidth || a.Y < 0 || a.Y > MaxViewportHeight {
 			return bad()
 		}
 		if a.Action == "wheel" {

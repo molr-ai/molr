@@ -36,7 +36,7 @@ func HelperMain() int {
 	if proxy.Server == "" {
 		extraArgs += ",--no-proxy-server"
 	}
-	env := []string{"PATH=/usr/bin:/bin", "HOME=/work", "TMPDIR=/tmp", "LANG=C.UTF-8", "AGENT_BROWSER_SOCKET_DIR=/tmp/molr-browser", "AGENT_BROWSER_EXECUTABLE_PATH=/resources/browser-chromium/chrome", "AGENT_BROWSER_PROFILE=/work/.local/state/molr/browser/profile", "AGENT_BROWSER_STREAM_PORT=9223", "AGENT_BROWSER_ARGS=" + extraArgs, "AGENT_BROWSER_STREAM_QUALITY=60", "AGENT_BROWSER_STREAM_MAX_WIDTH=1280", "AGENT_BROWSER_STREAM_MAX_HEIGHT=800", "TOKIO_WORKER_THREADS=2", "RAYON_NUM_THREADS=2"}
+	env := []string{"PATH=/usr/bin:/bin", "HOME=/work", "TMPDIR=/tmp", "LANG=C.UTF-8", "AGENT_BROWSER_SOCKET_DIR=/tmp/molr-browser", "AGENT_BROWSER_EXECUTABLE_PATH=/resources/browser-chromium/chrome", "AGENT_BROWSER_PROFILE=/work/.local/state/molr/browser/profile", "AGENT_BROWSER_STREAM_PORT=9223", "AGENT_BROWSER_ARGS=" + extraArgs, "AGENT_BROWSER_STREAM_QUALITY=60", "AGENT_BROWSER_STREAM_MAX_WIDTH=1280", fmt.Sprintf("AGENT_BROWSER_STREAM_MAX_HEIGHT=%d", MaxViewportHeight), "TOKIO_WORKER_THREADS=2", "RAYON_NUM_THREADS=2"}
 	if err := os.MkdirAll("/work/.local/state/molr/browser/profile", 0700); err != nil {
 		return 125
 	}

@@ -26,6 +26,7 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   let client = '', generation = 1, sequence = 0, takeovers = 0, running = false, rejectInput = false;
   let tabs = [{ tabId: 't1', title: 'First tab', url: 'https://example.com', active: true }, { tabId: 't2', title: 'Second tab', url: 'about:blank', active: false }];
   const text: string[] = [], closedTabs: string[] = [];
+  const heights: number[] = [];
   let inputDelay = 0, batches = 0, grantReads = 0, partialNext = false;
   const inputs: Record<string, any>[] = [];
   const pointers: { x: number; y: number; event: string }[] = [];
@@ -50,9 +51,8 @@ test('browser panel preserves control, commits IME once, closes the selected tab
         window.addEventListener('browser-test-error', this.fail);
         this.timer = setTimeout(() => {
           this.onopen?.();
-          const frame = document.createElement('canvas'); frame.width = 1280; frame.height = 800;
-          const data = frame.toDataURL('image/jpeg').split(',')[1];
-          const send = () => { metrics.frames++; this.onmessage?.({ data: JSON.stringify({ type: 'frame', data }) }); };
+          const frame = document.createElement('canvas'); frame.width = 1280;
+          const send = () => { frame.height = (window as any).__browserHeight ?? 800; const data = frame.toDataURL('image/jpeg').split(',')[1]; metrics.frames++; this.onmessage?.({ data: JSON.stringify({ type: 'frame', data }) }); };
           send(); this.frames = setInterval(send, 100);
         }, 20);
       }
@@ -72,6 +72,11 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   await page.route(`**/api/assistants/${assistant.ID}/browser`, async route => {
     if (route.request().method() === 'POST') {
       const q = route.request().postDataJSON();
+      if (q.action === 'viewport') {
+        heights.push(q.height);
+        await page.evaluate(height => { (window as any).__browserHeight = height; }, q.height);
+        await route.fulfill({ json: { ok: true } }); return;
+      }
       if (rejectInput) { rejectInput = false; client = ''; generation++; await route.fulfill({ status: 409, json: { code: 'conflict' } }); return; }
       if (q.action === 'start') { expect(q.compute_id).toBe('local-two'); running = true; }
       else if (q.action === 'takeover') { client = q.client_id; generation++; takeovers++; sequence = q.sequence; }
@@ -125,6 +130,10 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   await expect(badge).toHaveCSS('font-size', '9px');
   await page.getByRole('button', { name: 'Take control', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Return control', exact: true })).toBeEnabled();
+  const checkFilled = async () => {
+    await expect.poll(() => page.getByLabel('Live browser view').evaluate((el: HTMLCanvasElement) => Math.abs(el.height - Math.round(1280 * el.getBoundingClientRect().height / el.getBoundingClientRect().width)))).toBeLessThanOrEqual(1);
+  };
+  await checkFilled();
   const metrics = () => page.evaluate(() => ({ ...(window as any).__browserMetrics }));
   await expect.poll(async () => (await metrics()).draws).toBeGreaterThan(2);
   const firstFrames = await metrics();
@@ -238,8 +247,22 @@ test('browser panel preserves control, commits IME once, closes the selected tab
     await page.getByRole('button', { name: 'Dock to sidebar', exact: true }).click();
     await expect(page.locator('.chat-side-panel')).toHaveAttribute('data-docked');
     await expect(panel).not.toHaveClass(/browser-drawer--floating/);
+    await checkFilled();
+    expect(heights.at(-1)).toBeGreaterThan(800);
+    const tall = (await canvas.boundingBox())!;
+    const remoteHeight = await canvas.evaluate((el: HTMLCanvasElement) => el.height);
+    const previousClicks = pointers.filter(p => p.event === 'down').length;
+    await canvas.click({ position: { x: tall.width / 2, y: tall.height * 0.8 } });
+    await expect.poll(() => pointers.filter(p => p.event === 'down').length).toBeGreaterThan(previousClicks);
+    expect(pointers.filter(p => p.event === 'down').at(-1)!.y).toBeCloseTo(remoteHeight * 0.8, -1);
+    await page.setViewportSize({ width: 1920, height: 850 });
+    await checkFilled();
+    await page.setViewportSize({ width: 1920, height: 1000 });
+    await checkFilled();
     await page.getByRole('button', { name: 'Floating window', exact: true }).click();
     await expect(page.locator('.chat-side-panel')).not.toHaveAttribute('data-docked');
+    await checkFilled();
+    expect(heights.at(-1)).toBe(800);
     const restored = (await panel.boundingBox())!;
     expect(restored.x).toBeCloseTo(saved.x, 0); expect(restored.y).toBeCloseTo(saved.y, 0);
     expect(restored.width).toBeCloseTo(saved.width, 0);

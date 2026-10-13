@@ -20,6 +20,8 @@ The browser icon badge shows the open tab count even while the panel is closed. 
 
 Choose **Dock to sidebar** to return to the sidebar, or a drawer when space is limited. **Floating window** restores the floating view without changing the connection or control ownership. Phones use a bottom drawer. Tabs, new tab, layout switching and close share one row; takeover controls sit beside the address bar. Tabs first shrink, then left/right arrows reveal overflow.
 
+In the sidebar and mobile drawer, the remote page adapts to the available canvas aspect ratio, including window changes and the auxiliary keyboard tray. Remote width stays at 1280 pixels while height follows the ratio. During user control, the controlling window determines the viewport; other viewers scale the same image proportionally.
+
 ## Browser Proxy
 
 Administrators open Admin Settings → Components and click Settings on the browser component row to configure the proxy in a dialog. All users’ newly started browser tasks use this instance-wide setting. HTTP proxies support optional username/password authentication and HTTPS website traffic. SOCKS5 supports unauthenticated connections. Enter a scheme, host and port, for example `http://host.molr.internal:7890`. Use `host.molr.internal` for host services; `localhost` belongs to the sandbox itself.
