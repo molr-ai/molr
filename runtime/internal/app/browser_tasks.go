@@ -460,13 +460,23 @@ func (s *shellTasks) browserCall(ctx context.Context, r *runningShell, method, p
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
-	transport := &http.Transport{Proxy: nil, DisableKeepAlives: true, DialContext: func(call context.Context, _, _ string) (net.Conn, error) {
-		return asForwardConn(s.router.dialForward(call, r.scope.e, "local", browser.CommandPort))
-	}}
-	defer transport.CloseIdleConnections()
-	req, _ := http.NewRequestWithContext(ctx, method, "http://browser.internal"+path, bytes.NewReader(body))
+	// Reuse a bounded pool only within this task. The managed execution still
+	// enforces its grants and closes forwarded sockets on revocation or exit.
+	r.browserHTTPOnce.Do(func() {
+		r.browserHTTP = newBrowserHTTPClient(r.browserCtx, func(call context.Context, _, _ string) (net.Conn, error) {
+			return asForwardConn(s.router.dialForward(call, r.scope.e, "local", browser.CommandPort))
+		})
+	})
+	call, cancel := context.WithCancel(ctx)
+	stop := context.AfterFunc(r.browserCtx, cancel)
+	defer stop()
+	defer cancel()
+	if err := r.browserCtx.Err(); err != nil {
+		return nil, err
+	}
+	req, _ := http.NewRequestWithContext(call, method, "http://browser.internal"+path, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := (&http.Client{Transport: transport}).Do(req)
+	resp, err := r.browserHTTP.Do(req)
 	if err != nil {
 		return nil, core.NewError(core.Unavailable, "browser is starting or disconnected")
 	}
@@ -479,6 +489,18 @@ func (s *shellTasks) browserCall(ctx context.Context, r *runningShell, method, p
 		return nil, core.NewError(core.FailedPrecondition, "browser rejected request")
 	}
 	return raw, nil
+}
+
+// POST actions have no idempotency header, so Transport must not replay an
+// accepted input when a reused connection loses its response.
+func newBrowserHTTPClient(ctx context.Context, dial func(context.Context, string, string) (net.Conn, error)) *http.Client {
+	transport := &http.Transport{
+		Proxy: nil, DialContext: dial,
+		MaxConnsPerHost: 2, MaxIdleConns: 2, MaxIdleConnsPerHost: 2,
+		IdleConnTimeout: 30 * time.Second,
+	}
+	context.AfterFunc(ctx, transport.CloseIdleConnections)
+	return &http.Client{Transport: transport}
 }
 
 // Model start must settle before its next action; UI start observes readiness

@@ -10,6 +10,8 @@ export function useBrowserView(floating: boolean, saved: RefObject<BrowserBounds
   const panelRef = useRef<HTMLDivElement>(null);
   const [moving, setMoving] = useState(false);
   const gesture = useRef<{ id: number; x: number; y: number; bounds: BrowserBounds; resize: boolean } | null>(null);
+  const motionFrame = useRef<number | undefined>(undefined);
+  const pendingMove = useRef<{ x: number; y: number } | null>(null);
   const dialog = () => panelRef.current?.closest<HTMLDialogElement>('dialog');
   function place(bounds: BrowserBounds) {
     const element = dialog();
@@ -25,7 +27,9 @@ export function useBrowserView(floating: boolean, saved: RefObject<BrowserBounds
     const x = Math.max(margin, Math.min(bounds.x, availableWidth + margin - width));
     const y = Math.max(margin, Math.min(bounds.y, availableHeight + margin - height));
     saved.current = { x, y, width };
-    Object.assign(element.style, { left: `${x}px`, top: `${y}px`, width: `${width}px` });
+    for (const [key, value] of Object.entries({ left: `${x}px`, top: `${y}px`, width: `${width}px` })) {
+      if (element.style.getPropertyValue(key) !== value) element.style.setProperty(key, value);
+    }
   }
   useLayoutEffect(() => {
     const element = dialog();
@@ -33,11 +37,16 @@ export function useBrowserView(floating: boolean, saved: RefObject<BrowserBounds
     const fit = () => place(saved.current ?? { x: document.documentElement.clientWidth - 976, y: 80, width: 960 });
     fit();
     // Covers starting/stopping a browser and expanding/resizing auxiliary input.
-    const observer = new ResizeObserver(fit);
+    let frame: number | undefined;
+    const schedule = () => { if (frame === undefined) frame = requestAnimationFrame(() => { frame = undefined; fit(); }); };
+    const observer = new ResizeObserver(schedule);
     observer.observe(element);
-    window.addEventListener('resize', fit);
+    window.addEventListener('resize', schedule);
     return () => {
-      observer.disconnect(); window.removeEventListener('resize', fit);
+      observer.disconnect(); window.removeEventListener('resize', schedule);
+      if (frame !== undefined) cancelAnimationFrame(frame);
+      if (motionFrame.current !== undefined) cancelAnimationFrame(motionFrame.current);
+      motionFrame.current = undefined; pendingMove.current = null;
       gesture.current = null; setMoving(false);
       for (const property of ['left', 'top', 'width']) element.style.removeProperty(property);
     };
@@ -52,10 +61,13 @@ export function useBrowserView(floating: boolean, saved: RefObject<BrowserBounds
     gesture.current = { id: event.pointerId, x: event.clientX, y: event.clientY, bounds: { ...saved.current }, resize };
     setMoving(true);
   }
-  function move(event: PointerEvent<HTMLElement>) {
-    const active = gesture.current;
-    if (!active || active.id !== event.pointerId) return;
-    const dx = event.clientX - active.x, dy = event.clientY - active.y;
+  function flushMove() {
+    if (motionFrame.current !== undefined) cancelAnimationFrame(motionFrame.current);
+    motionFrame.current = undefined;
+    const point = pendingMove.current, active = gesture.current;
+    pendingMove.current = null;
+    if (!point || !active) return;
+    const dx = point.x - active.x, dy = point.y - active.y;
     if (active.resize) {
       const width = active.bounds.width + (dx + dy / ratio) / (1 + 1 / ratio ** 2);
       const element = dialog()!, viewport = element.querySelector<HTMLElement>('.browser-viewport');
@@ -65,8 +77,14 @@ export function useBrowserView(floating: boolean, saved: RefObject<BrowserBounds
       place({ ...active.bounds, width: Math.min(width, maximum) });
     } else place({ ...active.bounds, x: active.bounds.x + dx, y: active.bounds.y + dy });
   }
+  function move(event: PointerEvent<HTMLElement>) {
+    if (gesture.current?.id !== event.pointerId) return;
+    pendingMove.current = { x: event.clientX, y: event.clientY };
+    if (motionFrame.current === undefined) motionFrame.current = requestAnimationFrame(flushMove);
+  }
   function end(event: PointerEvent<HTMLElement>) {
     if (gesture.current?.id !== event.pointerId) return;
+    flushMove();
     gesture.current = null; setMoving(false);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   }

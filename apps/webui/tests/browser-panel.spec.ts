@@ -30,15 +30,38 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   const pointers: { x: number; y: number; event: string }[] = [];
   await page.addInitScript(() => {
     const Native = window.EventSource;
+    const metrics = (window as any).__browserMetrics = { streams: 0, frames: 0, draws: 0, resets: 0 };
+    const draw = CanvasRenderingContext2D.prototype.drawImage;
+    CanvasRenderingContext2D.prototype.drawImage = function(...args: any[]) { if (this.canvas.matches('[aria-label="Live browser view"]')) metrics.draws++; return (draw as any).apply(this, args); };
+    for (const name of ['width', 'height']) {
+      const descriptor = Object.getOwnPropertyDescriptor(HTMLCanvasElement.prototype, name)!;
+      Object.defineProperty(HTMLCanvasElement.prototype, name, { ...descriptor, set(value) { if (this.matches('[aria-label="Live browser view"]')) metrics.resets++; descriptor.set!.call(this, value); } });
+    }
     class BrowserStream {
-      onopen?: () => void; onmessage?: (event: { data: string }) => void;
+      onopen?: () => void; onmessage?: (event: { data: string }) => void; onerror?: () => void;
+      ended = false;
+      timer?: ReturnType<typeof setTimeout>; frames?: ReturnType<typeof setInterval>;
       listener = (event: Event) => this.onmessage?.({ data: JSON.stringify({ type: 'tabs', tabs: (event as CustomEvent).detail }) });
-      constructor() { window.addEventListener('browser-test-tabs', this.listener); setTimeout(() => {
-        this.onopen?.();
-        const frame = document.createElement('canvas'); frame.width = 1280; frame.height = 800;
-        this.onmessage?.({ data: JSON.stringify({ type: 'frame', data: frame.toDataURL('image/jpeg').split(',')[1] }) });
-      }, 20); }
-      close() { window.removeEventListener('browser-test-tabs', this.listener); }
+      fail = () => this.onerror?.();
+      constructor() {
+        metrics.streams++;
+        window.addEventListener('browser-test-tabs', this.listener);
+        window.addEventListener('browser-test-error', this.fail);
+        this.timer = setTimeout(() => {
+          this.onopen?.();
+          const frame = document.createElement('canvas'); frame.width = 1280; frame.height = 800;
+          const data = frame.toDataURL('image/jpeg').split(',')[1];
+          const send = () => { metrics.frames++; this.onmessage?.({ data: JSON.stringify({ type: 'frame', data }) }); };
+          send(); this.frames = setInterval(send, 100);
+        }, 20);
+      }
+      close() {
+        if (this.ended) return;
+        this.ended = true; metrics.streams--;
+        clearTimeout(this.timer); clearInterval(this.frames);
+        window.removeEventListener('browser-test-tabs', this.listener);
+        window.removeEventListener('browser-test-error', this.fail);
+      }
     }
     window.EventSource = new Proxy(Native, { construct(target, args) { return String(args[0]).includes('/browser/stream') ? new BrowserStream() : Reflect.construct(target, args); } });
   });
@@ -91,6 +114,39 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   await expect(badge).toHaveCSS('font-size', '9px');
   await page.getByRole('button', { name: 'Take control', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Return control', exact: true })).toBeEnabled();
+  const metrics = () => page.evaluate(() => ({ ...(window as any).__browserMetrics }));
+  await expect.poll(async () => (await metrics()).draws).toBeGreaterThan(2);
+  const firstFrames = await metrics();
+  await expect.poll(async () => (await metrics()).draws).toBeGreaterThan(firstFrames.draws + 2);
+  expect((await metrics()).resets).toBe(firstFrames.resets); // Same-size frames keep the backing store.
+  const visibility = (value: 'visible' | 'hidden') => page.evaluate(value => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value });
+    document.dispatchEvent(new Event('visibilitychange'));
+  }, value);
+  await visibility('hidden');
+  await expect.poll(async () => (await metrics()).streams).toBe(0);
+  const paused = await metrics();
+  await page.waitForTimeout(350); expect(await metrics()).toEqual(paused);
+  await visibility('visible');
+  await expect.poll(async () => (await metrics()).streams).toBe(1);
+  await expect(page.getByRole('button', { name: 'Return control', exact: true })).toBeEnabled();
+  expect(takeovers).toBe(1);
+  // A pending reconnect must not outlive hiding or unmounting the panel.
+  await page.evaluate(() => window.dispatchEvent(new Event('browser-test-error')));
+  await visibility('hidden'); await page.waitForTimeout(2100);
+  expect((await metrics()).streams).toBe(0);
+  await visibility('visible');
+  await expect(page.getByRole('button', { name: 'Return control', exact: true })).toBeEnabled();
+  for (let i = 0; i < 5; i++) {
+    await page.getByRole('button', { name: 'Close browser panel', exact: true }).click();
+    await expect(page.locator('.browser-drawer')).toHaveCount(0);
+    expect((await metrics()).streams).toBe(0);
+    const stopped = await metrics(); await page.waitForTimeout(150); expect(await metrics()).toEqual(stopped);
+    await trigger.click();
+    await expect(page.getByRole('button', { name: 'Return control', exact: true })).toBeEnabled();
+    expect((await metrics()).streams).toBe(1);
+  }
+
   await page.getByRole('button', { name: 'Close browser panel', exact: true }).click();
   await expect(page.locator('.browser-drawer')).toHaveCount(0); await trigger.click();
   await expect(page.getByRole('button', { name: 'Return control', exact: true })).toBeEnabled(); expect(takeovers).toBe(1);

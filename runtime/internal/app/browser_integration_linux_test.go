@@ -53,7 +53,7 @@ func TestBrowserRealTaskStreamTakeoverAndPersistence(t *testing.T) {
 		return tx.Put(ctx, "agent.jobs", persistence.Key(owner.OwnerID, "browser-job"), scheduler.Job{State: scheduler.Running, ExecutionID: e.Principal.ExecutionID, Event: event.AssistantEvent{ID: "browser-job", OwnerID: owner.OwnerID, AssistantID: e.AssistantID}})
 	}))
 	compute := forwardCompute(t, b, owner, false)
-	_, err = b.Services.Grants.Grant(t.Context(), owner, policy.GrantRequest{Mutation: core.Mutation{IdempotencyKey: "browser-compute"}, AssistantID: e.AssistantID, ResourceID: compute, Actions: []policy.Action{policy.Execute}, Constraints: &policy.Constraints{Compute: &policy.ComputeConstraints{CPUPercent: 200, MemoryBytes: 2 << 30, Processes: 512, TempBytes: 512 << 20, MaxDurationSeconds: 300}}})
+	computeGrant, err := b.Services.Grants.Grant(t.Context(), owner, policy.GrantRequest{Mutation: core.Mutation{IdempotencyKey: "browser-compute"}, AssistantID: e.AssistantID, ResourceID: compute, Actions: []policy.Action{policy.Execute}, Constraints: &policy.Constraints{Compute: &policy.ComputeConstraints{CPUPercent: 200, MemoryBytes: 2 << 30, Processes: 512, TempBytes: 512 << 20, MaxDurationSeconds: 300}}})
 	need(t, err)
 	network, err := b.Services.Resources.Connect(t.Context(), owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "browser-network"}, Kind: resource.Network, Provider: "sandbox-network", Name: "Fixture network", Binding: resource.Binding{SandboxTarget: "preset:host"}})
 	need(t, err)
@@ -219,7 +219,13 @@ func TestBrowserRealTaskStreamTakeoverAndPersistence(t *testing.T) {
 	if snap := action(browser.Action{Action: "snapshot"}); !strings.Contains(snap, "saved") {
 		t.Fatal("profile state did not persist", snap)
 	}
-	r.cancel()
-	<-r.done
+	// Even with an idle reusable command connection, revocation terminates the
+	// execution and releases its namespace, cgroup and pooled connections.
+	need(t, b.Services.Grants.Revoke(t.Context(), owner, policy.RevokeRequest{GrantID: computeGrant.ID, Mutation: core.Mutation{IdempotencyKey: "browser-revoke", ExpectedVersion: computeGrant.Version}}))
+	select {
+	case <-r.done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("browser retained resources after revocation")
+	}
 	t.Log("Real browser: navigate, snapshot, fill, click, frame stream, takeover, read-only model, user input, release and close passed")
 }

@@ -159,34 +159,79 @@ export function Browser({ assistantID, docked, floating, onFloatingChange, bound
     setConnected(false); setHasFrame(false); setTabs([]); seenURL.current = '';
     if (!task?.ID) return;
     let alive = true, painting = false, latest: string | null = null;
-    let source: EventSource, retry: ReturnType<typeof setTimeout> | undefined;
+    let source: EventSource | undefined, image: HTMLImageElement | undefined;
+    let retry: ReturnType<typeof setTimeout> | undefined, frame: number | undefined;
+    const visible = () => document.visibilityState === 'visible' && navigator.onLine !== false;
+    function schedule() {
+      if (alive && source && latest && !painting && frame === undefined) frame = requestAnimationFrame(draw);
+    }
     function draw() {
-      if (!alive || painting || !latest) return;
+      frame = undefined;
+      if (!alive || !source || painting || !latest) return;
       const data = latest; latest = null; painting = true;
-      const image = new Image();
-      image.onload = () => { if (alive && canvas.current) { canvas.current.width = image.naturalWidth; canvas.current.height = image.naturalHeight; canvas.current.getContext('2d')?.drawImage(image, 0, 0); setHasFrame(true); } painting = false; if (alive && latest) requestAnimationFrame(draw); };
-      image.onerror = () => { painting = false; }; image.src = `data:image/jpeg;base64,${data}`;
+      if (!image) {
+        const decoder = image = new Image();
+        decoder.onload = () => {
+          if (!alive || image !== decoder || !source) return;
+          frame = requestAnimationFrame(() => {
+            frame = undefined;
+            const target = canvas.current;
+            if (target) {
+              if (target.width !== decoder.naturalWidth) target.width = decoder.naturalWidth;
+              if (target.height !== decoder.naturalHeight) target.height = decoder.naturalHeight;
+              target.getContext('2d')?.drawImage(decoder, 0, 0);
+              setHasFrame(true);
+            }
+            painting = false; schedule();
+          });
+        };
+        decoder.onerror = () => { if (image === decoder) { painting = false; schedule(); } };
+      }
+      image.src = `data:image/jpeg;base64,${data}`;
+    }
+    function disconnect() {
+      if (source) { source.onopen = source.onerror = source.onmessage = null; source.close(); source = undefined; }
+      clearTimeout(retry); retry = undefined;
+      if (frame !== undefined) cancelAnimationFrame(frame);
+      frame = undefined;
+      if (image) { image.onload = image.onerror = null; image.removeAttribute('src'); image = undefined; }
+      latest = null; painting = false;
+      epoch.current++; inputs.current.clear(); allowed.current = false;
+      if (alive) { setConnected(false); setHasFrame(false); }
     }
     function connect() {
-      source = new EventSource(`${path}/stream?task_id=${encodeURIComponent(task!.ID)}`);
-      source.onopen = () => { if (alive) { setConnected(true); void query.reload(); } };
-      source.onerror = () => { source.close(); epoch.current++; inputs.current.clear(); if (alive) { allowed.current = false; setConnected(false); retry = setTimeout(connect, 2000); } };
-      source.onmessage = event => {
-        if (!alive) return;
+      retry = undefined;
+      if (!alive || !visible() || source) return;
+      const current = source = new EventSource(`${path}/stream?task_id=${encodeURIComponent(task!.ID)}`);
+      current.onopen = () => { if (alive && source === current) { setConnected(true); void query.reload(); } };
+      current.onerror = () => {
+        if (source !== current) return;
+        disconnect();
+        if (alive && visible()) retry = setTimeout(connect, 2000);
+      };
+      current.onmessage = event => {
+        if (!alive || source !== current) return;
         try {
           const message = JSON.parse(event.data);
-          if (message.type === 'frame' && typeof message.data === 'string') { latest = message.data; draw(); }
+          if (message.type === 'frame' && typeof message.data === 'string') { latest = message.data; schedule(); }
           else if (message.type === 'tabs' && Array.isArray(message.tabs)) {
             const next: Tab[] = message.tabs.map((t: Record<string, unknown>) => ({ id: String(t.tabId), title: String(t.title ?? ''), url: String(t.url ?? ''), active: !!t.active }));
-            setTabs(next);
+            setTabs(old => old.length === next.length && old.every((t, i) => t.id === next[i].id && t.title === next[i].title && t.url === next[i].url && t.active === next[i].active) ? old : next);
             const current = next.find(t => t.active)?.url;
             if (current && current !== seenURL.current) { seenURL.current = current; setAddress(current); }
           }
         } catch { /* Never render upstream markup. */ }
       };
     }
+    const resume = () => { if (visible()) { if (retry === undefined) connect(); } else disconnect(); };
+    document.addEventListener('visibilitychange', resume);
+    window.addEventListener('online', resume); window.addEventListener('offline', resume);
     connect();
-    return () => { alive = false; source?.close(); clearTimeout(retry); latest = null; };
+    return () => {
+      alive = false; disconnect();
+      document.removeEventListener('visibilitychange', resume);
+      window.removeEventListener('online', resume); window.removeEventListener('offline', resume);
+    };
   }, [path, task?.ID]);
   function coordinates(event: PointerEvent<HTMLCanvasElement> | WheelEvent<HTMLCanvasElement>) {
     const rect = event.currentTarget.getBoundingClientRect();

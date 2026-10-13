@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"net/url"
 	"time"
 
@@ -37,29 +38,12 @@ func (s *shellTasks) browserFrames(ctx context.Context, p core.Principal, id, ta
 	stopClient := context.AfterFunc(ctx, cancel)
 	defer stopClient()
 	defer cancel()
-	stop := context.AfterFunc(r.browserCtx, cancel)
-	defer stop()
 	if _, err := watch.Check(call); err != nil {
 		return err
 	}
 	if err := s.browserWaitReady(call, r); err != nil {
 		return err
 	}
-	conn, err := s.router.dialForward(call, r.scope.e, "local", browser.StreamPort)
-	if err != nil {
-		return core.NewError(core.Unavailable, "browser stream is starting or disconnected")
-	}
-	location, _ := url.Parse("ws://127.0.0.1:9223/?pacing=ack&maxFps=10")
-	origin, _ := url.Parse("http://127.0.0.1:9223")
-	ws, err := websocket.NewClient(&websocket.Config{Location: location, Origin: origin, Version: 13}, conn)
-	if err != nil {
-		conn.Close()
-		return err
-	}
-	defer ws.Close()
-	ws.MaxPayloadBytes = 12 << 20
-	closeOnCancel := context.AfterFunc(call, func() { ws.Close() })
-	defer closeOnCancel()
 	done := make(chan struct{})
 	defer func() { cancel(); <-done }()
 	go func() {
@@ -84,6 +68,31 @@ func (s *shellTasks) browserFrames(ctx context.Context, p core.Principal, id, ta
 			}
 		}
 	}()
+	conn, err := asForwardConn(s.router.dialForward(call, r.scope.e, "local", browser.StreamPort))
+	if err != nil {
+		return core.NewError(core.Unavailable, "browser stream is starting or disconnected")
+	}
+	return relayBrowserFrames(call, conn, emit)
+}
+
+// Cancellation owns the raw connection from the start, including the handshake.
+func relayBrowserFrames(ctx context.Context, conn net.Conn, emit func(json.RawMessage) error) error {
+	defer conn.Close()
+	stop := context.AfterFunc(ctx, func() { conn.Close() })
+	defer stop()
+	if err := conn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
+		return err
+	}
+	location, _ := url.Parse("ws://127.0.0.1:9223/?pacing=ack&maxFps=10")
+	origin, _ := url.Parse("http://127.0.0.1:9223")
+	ws, err := websocket.NewClient(&websocket.Config{Location: location, Origin: origin, Version: 13}, conn)
+	if err != nil {
+		return err
+	}
+	if err := conn.SetDeadline(time.Time{}); err != nil {
+		return err
+	}
+	ws.MaxPayloadBytes = 12 << 20
 	// ACK pacing gives each observer one current frame, without a growing queue.
 	for {
 		var raw string

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"molr.ai/runtime/internal/installation"
+	"net/http"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -69,6 +70,8 @@ func managedPrincipal(ctx context.Context, p core.Principal) bool {
 
 type runningShell struct {
 	browserGate        sync.Mutex
+	browserHTTPOnce    sync.Once
+	browserHTTP        *http.Client
 	browserCtx         context.Context
 	browserUncertain   bool
 	browserTabCount    *int
