@@ -10,7 +10,7 @@ async function post(page: Page, path: string, data: object) {
 
 // Authentication/chat use the real Runtime. Browser transport timing is fixed
 // here; native actions, metadata and controller isolation have Go integration tests.
-test('browser panel preserves control, commits IME once, closes the selected tab and fills the page', async ({ page }, info) => {
+test('browser panel preserves control, commits IME once, closes the selected tab and preserves proportional floating geometry', async ({ page }, info) => {
   if (info.project.name === 'desktop') await page.setViewportSize({ width: 1920, height: 1000 });
   await page.goto('/');
   await page.getByLabel('Username', { exact: true }).fill('owner');
@@ -25,12 +25,17 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   let client = '', generation = 1, sequence = 0, takeovers = 0, running = false, rejectInput = false;
   let tabs = [{ tabId: 't1', title: 'First tab', url: 'https://example.com', active: true }, { tabId: 't2', title: 'Second tab', url: 'about:blank', active: false }];
   const text: string[] = [], closedTabs: string[] = [];
+  const pointers: { x: number; y: number; event: string }[] = [];
   await page.addInitScript(() => {
     const Native = window.EventSource;
     class BrowserStream {
       onopen?: () => void; onmessage?: (event: { data: string }) => void;
       listener = (event: Event) => this.onmessage?.({ data: JSON.stringify({ type: 'tabs', tabs: (event as CustomEvent).detail }) });
-      constructor() { window.addEventListener('browser-test-tabs', this.listener); setTimeout(() => this.onopen?.(), 20); }
+      constructor() { window.addEventListener('browser-test-tabs', this.listener); setTimeout(() => {
+        this.onopen?.();
+        const frame = document.createElement('canvas'); frame.width = 1280; frame.height = 800;
+        this.onmessage?.({ data: JSON.stringify({ type: 'frame', data: frame.toDataURL('image/jpeg').split(',')[1] }) });
+      }, 20); }
       close() { window.removeEventListener('browser-test-tabs', this.listener); }
     }
     window.EventSource = new Proxy(Native, { construct(target, args) { return String(args[0]).includes('/browser/stream') ? new BrowserStream() : Reflect.construct(target, args); } });
@@ -47,6 +52,7 @@ test('browser panel preserves control, commits IME once, closes the selected tab
       else {
         expect(q.client_id).toBe(client); expect(q.generation).toBe(generation); expect(q.sequence).toBeGreaterThan(sequence); sequence = q.sequence;
         if (q.action === 'insert_text') text.push(q.text);
+        if (q.action === 'pointer') pointers.push(q);
         if (q.action === 'close_tab') { closedTabs.push(q.tab); tabs = tabs.filter(t => t.tabId !== q.tab); }
       }
     }
@@ -59,7 +65,7 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   const iconPosition = () => trigger.evaluate(el => { const r = el.getBoundingClientRect(), icon = el.querySelector('svg')!.getBoundingClientRect(); return { width: r.width, x: icon.x-r.x, y: icon.y-r.y }; });
   const bareIcon = await iconPosition();
   await trigger.click();
-  await expect(page.locator('.browser-drawer .ui-dialog__header h2')).not.toHaveClass(/ui-sr-only/);
+  await expect(page.locator('.browser-window-heading')).toContainText('Browser');
   await expect(page.getByRole('tablist', { name: 'Browser tabs' })).toHaveCount(0);
   expect(await page.locator('.browser-panel').evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
   const resourceSelect = page.getByRole('combobox', { name: 'Compute resource' });
@@ -85,44 +91,64 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   await expect.poll(() => text).toEqual(['中文组合']);
   await page.getByRole('button', { name: 'Close tab: New tab', exact: true }).click();
   await expect.poll(() => closedTabs).toEqual(['t2']); await expect(trigger).toHaveAccessibleName('Browser (1)');
-  // Freeze only the browser's geometry animation to inspect its actual start,
-  // midpoint and final bounds in both directions, independently of timing.
-  await page.evaluate(() => {
-    const animate = Element.prototype.animate;
-    Element.prototype.animate = function(frames, options) {
-      const motion = animate.call(this, frames, options);
-      if (typeof options === 'object' && options?.id === 'molr-browser-view') { motion.pause(); motion.currentTime = 0; }
-      return motion;
-    };
-  });
   const panel = page.locator('.browser-drawer');
-  const normal = (await panel.boundingBox())!;
-  await page.getByRole('button', { name: 'Full-page view', exact: true }).click();
+  const canvas = page.getByLabel('Live browser view');
   if (info.project.name === 'desktop') {
-    expect(await panel.evaluate(el => getComputedStyle(el, '::backdrop').backgroundColor)).toBe('rgba(0, 0, 0, 0)');
-    expect(await panel.evaluate(el => getComputedStyle(el, '::backdrop').backdropFilter)).toBe('none');
+    await expect(panel).toHaveClass(/browser-drawer--floating/);
+    await expect(page.locator('.chat-side-panel')).not.toHaveAttribute('data-docked');
+    expect(await panel.evaluate(el => el.matches(':modal'))).toBe(false);
+    const checkRatio = async () => {
+      const image = (await canvas.boundingBox())!;
+      expect(image.width / image.height).toBeCloseTo(1.6, 2);
+    };
+    await checkRatio();
+    const before = (await panel.boundingBox())!;
+    const grip = page.getByRole('button', { name: 'Move window (arrow keys to adjust)' });
+    await grip.hover(); await page.mouse.down(); await page.mouse.move(before.x - 150, before.y + 140, { steps: 5 }); await page.mouse.up();
+    await expect(grip).toBeFocused();
+    await page.keyboard.press('ArrowLeft');
+    const moved = (await panel.boundingBox())!;
+    expect(moved.x).toBeLessThan(before.x); expect(moved.y).toBeGreaterThan(before.y);
+    const resize = page.getByRole('button', { name: 'Resize window (arrow keys to adjust)' });
+    await resize.hover(); await page.mouse.down(); await page.mouse.move(moved.x + moved.width - 160, moved.y + moved.height - 100, { steps: 5 }); await page.mouse.up();
+    const smaller = (await panel.boundingBox())!;
+    expect(smaller.width).toBeLessThan(moved.width - 100); await checkRatio();
+    await resize.focus(); await page.keyboard.press('ArrowRight');
+    expect((await panel.boundingBox())!.width).toBeGreaterThan(smaller.width);
+    await checkRatio();
+    // A scaled click reaches the same point in the remote 1280 x 800 page.
+    const image = (await canvas.boundingBox())!;
+    await canvas.click({ position: { x: image.width / 4, y: image.height / 2 } });
+    await expect.poll(() => pointers.filter(p => p.event === 'down').length).toBeGreaterThan(0);
+    const click = pointers.filter(p => p.event === 'down').at(-1)!;
+    expect(click.x).toBeCloseTo(320, 0); expect(click.y).toBeCloseTo(400, 0);
+    // The nonmodal window leaves the chat composer usable.
+    const composer = page.locator('.chat-input textarea');
+    await composer.fill('Chat remains available'); await expect(composer).toHaveValue('Chat remains available');
+    const saved = (await panel.boundingBox())!;
+    await page.getByRole('button', { name: 'Dock to sidebar', exact: true }).click();
+    await expect(page.locator('.chat-side-panel')).toHaveAttribute('data-docked');
+    await expect(panel).not.toHaveClass(/browser-drawer--floating/);
+    await page.getByRole('button', { name: 'Floating window', exact: true }).click();
+    await expect(page.locator('.chat-side-panel')).not.toHaveAttribute('data-docked');
+    const restored = (await panel.boundingBox())!;
+    expect(restored.x).toBeCloseTo(saved.x, 0); expect(restored.y).toBeCloseTo(saved.y, 0);
+    expect(restored.width).toBeCloseTo(saved.width, 0);
+    await page.getByRole('button', { name: 'Close browser panel', exact: true }).click(); await trigger.click();
+    expect((await panel.boundingBox())!.width).toBeCloseTo(saved.width, 0);
+    await page.getByRole('button', { name: 'Keyboard input', exact: true }).click();
+    await checkRatio();
+    await page.getByRole('button', { name: 'Hide keyboard input', exact: true }).click();
+    await page.setViewportSize({ width: 900, height: 580 });
+    await expect.poll(async () => { const r = (await panel.boundingBox())!; return r.x + r.width; }).toBeLessThanOrEqual(885);
+    await expect.poll(async () => { const r = (await panel.boundingBox())!; return r.y + r.height; }).toBeLessThanOrEqual(565);
+    await checkRatio();
+    await page.setViewportSize({ width: 1920, height: 1000 });
+  } else {
+    await expect(panel).not.toHaveClass(/browser-drawer--floating/);
+    await expect(page.getByRole('button', { name: 'Dock to sidebar', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Resize window (arrow keys to adjust)' })).toHaveCount(0);
   }
-  const start = (await panel.boundingBox())!;
-  expect(start.x).toBeCloseTo(normal.x, 0); expect(start.y).toBeCloseTo(normal.y, 0);
-  expect(start.width).toBeCloseTo(normal.width, 0); expect(start.height).toBeCloseTo(normal.height, 0);
-  const finish = async () => panel.evaluate(el => { const animation = el.getAnimations().find(a => a.id === 'molr-browser-view'); if (!animation) throw Error('missing geometry animation'); animation.finish(); });
-  await finish();
-  await expect(page.getByRole('button', { name: 'Exit full-page view', exact: true })).toBeEnabled();
-  const box = (await panel.boundingBox())!, viewport = page.viewportSize()!;
-  expect(Math.round(box.x)).toBe(0); expect(Math.round(box.y)).toBe(0);
-  expect(Math.round(box.width)).toBe(viewport.width); expect(Math.round(box.height)).toBe(viewport.height);
-  expect(await page.evaluate(() => document.fullscreenElement)).toBeNull();
-  await page.getByRole('button', { name: 'Exit full-page view', exact: true }).click();
-  const collapsing = (await panel.boundingBox())!;
-  expect(collapsing.width).toBeCloseTo(box.width, 0); expect(collapsing.height).toBeCloseTo(box.height, 0);
-  await panel.evaluate(el => { el.getAnimations().find(a => a.id === 'molr-browser-view')!.currentTime = 130; });
-  const middle = (await panel.boundingBox())!;
-  expect(info.project.name === 'desktop' ? middle.width : middle.height).toBeLessThan(info.project.name === 'desktop' ? box.width : box.height);
-  await finish();
-  await expect(page.locator('.browser-drawer--expanded')).toHaveCount(0);
-  const restored = (await panel.boundingBox())!;
-  expect(restored.x).toBeCloseTo(normal.x, 0); expect(restored.y).toBeCloseTo(normal.y, 0);
-  expect(restored.width).toBeCloseTo(normal.width, 0); expect(restored.height).toBeCloseTo(normal.height, 0);
   await expect(page.getByRole('button', { name: 'Return control', exact: true })).toBeEnabled(); expect(takeovers).toBe(1);
   tabs = Array.from({length: 24}, (_, i) => ({tabId: `t${i+1}`, title: `Tab ${i+1}`, url: `https://example.com/${i}`, active: i===0}));
   await page.evaluate(tabs => window.dispatchEvent(new CustomEvent('browser-test-tabs', {detail: tabs})), tabs);

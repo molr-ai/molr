@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { ChangeEvent, KeyboardEvent, PointerEvent } from 'react';
+import type { ChangeEvent, KeyboardEvent, PointerEvent, RefObject } from 'react';
 import { Alert, Badge, Button, Drawer, IconButton, Select, useBreakpoint, useToast, useUILocale } from '@molr/ui';
-import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, CornerDownLeft, Globe, Hand, Keyboard, Maximize, Minimize, Plus, Power, RefreshCw, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, CornerDownLeft, Globe, Hand, Keyboard, GripHorizontal, PanelRight, PictureInPicture2, Plus, Power, RefreshCw, X } from 'lucide-react';
 import { api, APIError, mutationKey } from '../../../api/client';
 import type { BrowserStatus, Grant, Resource } from '../../../api/types';
 import { useCopy, useQuery, useSession } from '../../../state';
@@ -10,6 +10,7 @@ import { ComponentDetails, MaintenanceProgress, maintenanceReason } from '../../
 import type { ComponentStatus } from '@molr/sdk';
 import './browser.css';
 import { useBrowserView } from './useBrowserView';
+import type { BrowserBounds } from './useBrowserView';
 
 type Action = { action: string; [key: string]: unknown };
 type Tab = { id: string; title: string; url: string; active: boolean };
@@ -28,7 +29,7 @@ export function BrowserButton({ assistantID, disabled, onOpen }: { assistantID: 
   const count = data?.Task ? data.TabCount : undefined;
   return <IconButton className="chat-count-trigger" disabled={disabled} onClick={onOpen} label={`${locale === 'zh' ? '浏览器' : 'Browser'}${count ? ` (${count})` : ''}`}><Globe size={20}/>{!!count && <Badge tone="positive" size="sm" dot={false} aria-hidden="true">{count}</Badge>}</IconButton>;
 }
-export function Browser({ assistantID, docked, onClose }: { assistantID: string; docked: boolean; onClose: () => void }) {
+export function Browser({ assistantID, docked, floating, onFloatingChange, bounds, onClose }: { assistantID: string; docked: boolean; floating: boolean; onFloatingChange: (floating: boolean) => void; bounds: RefObject<BrowserBounds | null>; onClose: () => void }) {
   const { locale } = useCopy(), zh = locale === 'zh', mobile = useBreakpoint('mobile');
   const { principal } = useSession(), admin = !!principal?.User?.Administrator;
   const components = useQuery<ComponentStatus[]>(admin ? '/api/components' : null, false, 2000);
@@ -44,7 +45,7 @@ export function Browser({ assistantID, docked, onClose }: { assistantID: string;
   useErrorToast(query.error, query.reload);
   const [address, setAddress] = useState(''), [tabs, setTabs] = useState<Tab[]>([]);
   const [connected, setConnected] = useState(false), [hasFrame, setHasFrame] = useState(false);
-  const { panelRef, expanded, moving, changeView } = useBrowserView(docked);
+  const { panelRef, moving, dragProps, moveKey, resizeProps } = useBrowserView(floating, bounds);
   const { reducedMotion } = useUILocale();
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const tabsRef = useRef<HTMLDivElement>(null), tabWindow = useRef<HTMLDivElement>(null);
@@ -77,7 +78,7 @@ export function Browser({ assistantID, docked, onClose }: { assistantID: string;
     const observer = new ResizeObserver(measureTabs); observer.observe(list); observer.observe(container); measureTabs();
     return () => observer.disconnect();
   }, [task?.ID, measureTabs]);
-  useLayoutEffect(() => { tabsRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' }); measureTabs(); }, [activeTabID, tabs.length, expanded, tabScroll.overflow, measureTabs]);
+  useLayoutEffect(() => { tabsRef.current?.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' }); measureTabs(); }, [activeTabID, tabs.length, floating, tabScroll.overflow, measureTabs]);
   function scrollTabs(direction: number) { const list = tabsRef.current; if (list) list.scrollBy({ left: direction * Math.max(120, list.clientWidth * 0.75), behavior: reducedMotion ? 'auto' : 'smooth' }); }
   function notice(err: unknown) {
     return err instanceof APIError && err.code === 'conflict' ? (zh ? '控制权已变更，请重新接管。' : 'Control changed. Take control again.') : (zh ? '浏览器操作未完成，请检查连接或任务状态。' : 'Browser operation failed. Check connection or task status.');
@@ -162,7 +163,7 @@ export function Browser({ assistantID, docked, onClose }: { assistantID: string;
   function pointer(event: PointerEvent<HTMLCanvasElement>, kind: 'move' | 'down' | 'up') {
     if (!canOperate || moving) return;
     const rect = event.currentTarget.getBoundingClientRect();
-    // Account for the letterboxing in the page-wide view.
+    // Map the displayed image back to the fixed remote viewport.
     const scale = Math.min(rect.width / 1280, rect.height / 800), left = (rect.width - 1280 * scale) / 2, top = 0;
     const x = Math.max(0, Math.min(1280, (event.clientX - rect.left - left) / scale)), y = Math.max(0, Math.min(800, (event.clientY - rect.top - top) / scale));
     if (kind === 'down') {
@@ -177,7 +178,6 @@ export function Browser({ assistantID, docked, onClose }: { assistantID: string;
   function textChanged(event: ChangeEvent<HTMLTextAreaElement>) { if (!composing.current && !(event.nativeEvent as InputEvent).isComposing) commitText(event.currentTarget); }
   function keyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (composing.current || event.nativeEvent.isComposing || event.keyCode === 229) return;
-    if (expanded && event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); changeView(false); return; }
     const shortcut = event.ctrlKey || event.metaKey;
     if (shortcut && event.key.toLowerCase() === 'v') return;
     if (shortcut && ['l', 't', 'w'].includes(event.key.toLowerCase())) {
@@ -200,8 +200,12 @@ export function Browser({ assistantID, docked, onClose }: { assistantID: string;
   };
   function tabTitle(tab: Tab) { if (tab.url === 'about:blank') return zh ? '新标签页' : 'New tab'; return tab.title || tab.url || (zh ? '标签页' : 'Tab'); }
   const controlLabel = state?.Control === 'switching' ? (zh ? '正在交接' : 'Handing over') : ownsControl ? (zh ? '你正在控制' : 'You are in control') : state?.Control === 'user' ? (zh ? '其他窗口正在控制' : 'Controlled in another window') : (zh ? '助理控制中' : 'Assistant in control');
-  return <Drawer open docked={docked && !expanded} side={mobile && !expanded ? 'bottom' : 'right'} onOpenChange={open => { if (!open) { if (expanded) changeView(false); else onClose(); } }} title={zh ? '浏览器' : 'Browser'} closeLabel={zh ? '关闭浏览器面板' : 'Close browser panel'} showCloseButton={!task} size="lg" className={`browser-drawer${task ? ' browser-drawer--running' : ''}${docked ? ' browser-drawer--unshaded' : ''}${expanded ? ' browser-drawer--expanded' : ''}`} headerContent={task &&
-    <div className="browser-tabstrip">
+  const viewActions = <div className="browser-view-actions">{!mobile && <IconButton label={floating ? (zh ? '停靠侧栏' : 'Dock to sidebar') : (zh ? '浮窗模式' : 'Floating window')} onClick={() => onFloatingChange(!floating)}>{floating ? <PanelRight size={18}/> : <PictureInPicture2 size={18}/>}</IconButton>}
+    <IconButton label={zh ? '关闭浏览器面板' : 'Close browser panel'} onClick={onClose}><X size={18}/></IconButton></div>;
+  const moveHandle = floating && <IconButton className="browser-move" label={zh ? '移动浮窗（方向键微调）' : 'Move window (arrow keys to adjust)'} onKeyDown={moveKey}><GripHorizontal size={18}/></IconButton>;
+  return <Drawer open docked={floating || docked} side={mobile ? 'bottom' : 'right'} onOpenChange={open => { if (!open) onClose(); }} title={zh ? '浏览器' : 'Browser'} closeLabel={zh ? '关闭浏览器面板' : 'Close browser panel'} showCloseButton={false} size="lg" className={`browser-drawer${task ? ' browser-drawer--running' : ''}${floating ? ' browser-drawer--floating' : ''}${moving ? ' browser-drawer--moving' : ''}`} headerContent={task ?
+    <div className="browser-tabstrip" {...dragProps}>
+      {moveHandle}
       <div className="browser-tabs-window" ref={tabWindow}>
         {tabScroll.overflow && <IconButton className="browser-tab-scroll" label={zh ? '向左滚动标签页' : 'Scroll tabs left'} disabled={!tabScroll.left} onClick={() => scrollTabs(-1)}><ChevronLeft size={16}/></IconButton>}
         <div className="browser-tabs" ref={tabsRef} role="tablist" aria-label={zh ? '浏览器标签页' : 'Browser tabs'} onScroll={measureTabs}>{tabs.map(tab => <div className="browser-tab" data-active={tab.active || undefined} key={tab.id}>
@@ -211,9 +215,8 @@ export function Browser({ assistantID, docked, onClose }: { assistantID: string;
         {tabScroll.overflow && <IconButton className="browser-tab-scroll" label={zh ? '向右滚动标签页' : 'Scroll tabs right'} disabled={!tabScroll.right} onClick={() => scrollTabs(1)}><ChevronRight size={16}/></IconButton>}
       </div>
       <IconButton className="browser-new-tab" label={zh ? '新建标签页' : 'New tab'} disabled={!canOperate} onClick={() => input({ action: 'new_tab', url: 'about:blank' })}><Plus size={18}/></IconButton>
-      <div className="browser-view-actions"><IconButton disabled={moving} label={expanded ? (zh ? '退出全屏' : 'Exit full-page view') : (zh ? '全屏视图' : 'Full-page view')} onClick={() => changeView(!expanded)}>{expanded ? <Minimize size={18}/> : <Maximize size={18}/>}</IconButton>
-      <IconButton label={zh ? '关闭浏览器面板' : 'Close browser panel'} onClick={onClose}><X size={18}/></IconButton></div>
-    </div>}>
+      {viewActions}
+    </div> : <div className="browser-window-heading" {...dragProps}>{moveHandle}<span>{zh ? '浏览器' : 'Browser'}</span>{viewActions}</div>}>
     <div className="browser-panel" ref={panelRef}>
       {!task ? <div className="browser-start"><div className="browser-start-icon"><Globe size={34}/></div><h3>{zh ? '一起浏览，同步可见' : 'Browse together'}</h3><p>{zh ? '观看助理浏览网页，需要时接管。登录状态会为这个助理保留。' : 'Watch your assistant browse, and take control when needed. Login state stays with this assistant.'}</p>
         {query.data?.Available === false && component && <ComponentDetails value={component}/>}
@@ -233,8 +236,9 @@ export function Browser({ assistantID, docked, onClose }: { assistantID: string;
           {(!connected || !hasFrame) && <div className="browser-overlay"><Globe size={24}/><span>{zh ? '正在连接浏览器…' : 'Connecting to browser…'}</span></div>}
         </div>
         {keyboardOpen && <div className="browser-input-tray"><textarea ref={auxiliaryInput} {...keyboardProps} className="browser-keyboard" aria-label={zh ? '辅助输入' : 'Keyboard input'} placeholder={zh ? '先点击网页中的输入框，再在这里输入或粘贴' : 'Click a field in the page, then type or paste here'}/></div>}
-        <div className="browser-statusbar"><span role="status" className="browser-connection" data-connected={connected || undefined}><i/>{connected ? (zh ? '已连接' : 'Connected') : (zh ? '连接中…' : 'Connecting…')}</span><span className="browser-control-label">{controlLabel}</span><span className="browser-input-hint">{ownsControl ? (zh ? '点击网页即可输入' : 'Click the page to type') : (zh ? '接管后可操作网页' : 'Take control to interact')}</span><div className="browser-status-actions"><IconButton label={keyboardOpen ? (zh ? '收起辅助输入' : 'Hide keyboard input') : (zh ? '辅助输入' : 'Keyboard input')} aria-pressed={keyboardOpen} disabled={!ownsControl} onClick={() => { composing.current = false; setKeyboardOpen(!keyboardOpen); }}><Keyboard size={17}/></IconButton><IconButton label={zh ? '结束浏览器会话' : 'End browser session'} disabled={busy} onClick={() => void command({ action: 'close' })}><Power size={16}/></IconButton></div></div>
+        <div className="browser-statusbar"><span role="status" className="browser-connection" data-connected={connected || undefined}><i/>{connected ? (zh ? '已连接' : 'Connected') : (zh ? '连接中…' : 'Connecting…')}</span><div className="browser-status-actions"><IconButton label={keyboardOpen ? (zh ? '收起辅助输入' : 'Hide keyboard input') : (zh ? '辅助输入' : 'Keyboard input')} aria-pressed={keyboardOpen} disabled={!ownsControl} onClick={() => { composing.current = false; setKeyboardOpen(!keyboardOpen); }}><Keyboard size={17}/></IconButton><IconButton label={zh ? '结束浏览器会话' : 'End browser session'} disabled={busy} onClick={() => void command({ action: 'close' })}><Power size={16}/></IconButton></div></div>
       </>}
     </div>
+    {floating && <button type="button" className="browser-resize" aria-label={zh ? '调整浮窗大小（方向键微调）' : 'Resize window (arrow keys to adjust)'} {...resizeProps}/>}
   </Drawer>;
 }

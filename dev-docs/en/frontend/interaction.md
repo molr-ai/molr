@@ -47,3 +47,11 @@ The page header of the Model tab on the Resource page retains only the "More" me
 ## Personal Data Export
 
 The "Personal Data Export" page in User Settings directly explains that the default export includes memories, assistant and task plans, account settings and resource records, and dreaming records, and introduces optional chat history, attachments, and deliverables. Chat history is checked by default; attachments and deliverables are unchecked. Clicking "Export Data" opens a modal to select the scope. After generation, the ZIP file is downloaded on this page. Scope descriptions follow the settings page descriptions and grouped list styles.
+
+## Browser floating window
+
+The desktop browser defaults to a nonmodal floating window. It uses the shared Drawer's nonmodal mode to preserve the DOM, stream connection and control ownership. ChatSidePanel reserves no sidebar space while floating, and chat remains interactive. Docking follows the available-space rules; phones use a bottom drawer. Position and size live in page memory and survive closing and reopening the panel.
+
+`useBrowserView` handles dragging, proportional resizing, arrow-key adjustments and viewport bounds. The page maintains the remote 1280×800 aspect ratio while browser chrome stays at its normal size. Sizing subtracts the measured chrome height and rechecks bounds when auxiliary input expands or the viewport shrinks. Pointer input maps the displayed image back to remote coordinates. `browser-panel.spec.ts` covers floating/docked transitions, chat interaction, aspect ratio, coordinate mapping, bounds and the phone drawer.
+
+The bottom bar contains only connection status followed by the keyboard and end-session buttons. The bottom-right resize area is transparent, with no icon or hover background; it uses a resize cursor and retains an outline for keyboard focus.

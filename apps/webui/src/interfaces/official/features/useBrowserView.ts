@@ -1,56 +1,82 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { flushSync } from 'react-dom';
-import { useUILocale } from '@molr/ui';
+import { useLayoutEffect, useRef, useState } from 'react';
+import type { KeyboardEvent, PointerEvent, RefObject } from 'react';
 
-// Keep the modal layer until contraction finishes, so the sidebar cannot clip
-// the moving panel. Drawer still owns focus containment and initial opening.
-export function useBrowserView(docked: boolean) {
+export type BrowserBounds = { x: number; y: number; width: number };
+const ratio = 1280 / 800;
+const margin = 16;
+
+/** Resize the streamed page, leaving the browser chrome at its normal size. */
+export function useBrowserView(floating: boolean, saved: RefObject<BrowserBounds | null>) {
   const panelRef = useRef<HTMLDivElement>(null);
-  const [expanded, setExpanded] = useState(false), [moving, setMoving] = useState(false);
-  const { reducedMotion } = useUILocale();
-  const normal = useRef<DOMRect | null>(null), from = useRef<DOMRect | null>(null);
-  const animation = useRef<Animation | null>(null), settling = useRef(false), restoreSize = useRef<(() => void) | null>(null);
+  const [moving, setMoving] = useState(false);
+  const gesture = useRef<{ id: number; x: number; y: number; bounds: BrowserBounds; resize: boolean } | null>(null);
   const dialog = () => panelRef.current?.closest<HTMLDialogElement>('dialog');
-  const cancelDrawerMotion = (element: HTMLElement) => {
-    element.getAnimations().filter(a => a.id.startsWith('molr-drawer-')).forEach(a => a.cancel());
-  };
-  const animate = (element: HTMLElement, start: DOMRect, end: DOMRect, base: DOMRect, finish: () => void) => {
-    if (reducedMotion || matchMedia('(prefers-reduced-motion: reduce)').matches) { finish(); return; }
-    // Animate bounds, keeping toolbar text at its normal size throughout.
-    const saved = { minWidth: element.style.minWidth, maxWidth: element.style.maxWidth, minHeight: element.style.minHeight, maxHeight: element.style.maxHeight };
-    Object.assign(element.style, { minWidth: '0', maxWidth: 'none', minHeight: '0', maxHeight: 'none' });
-    restoreSize.current = () => Object.assign(element.style, saved);
-    const frame = (rect: DOMRect) => ({ left: `${rect.x - base.x}px`, top: `${rect.y - base.y}px`, width: `${rect.width}px`, height: `${rect.height}px` });
-    setMoving(true);
-    const motion = element.animate([frame(start), frame(end)], { id: 'molr-browser-view', duration: 260, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'both' });
-    animation.current = motion;
-    void motion.finished.then(() => {
-      if (animation.current !== motion) return;
-      flushSync(() => { motion.cancel(); animation.current = null; restoreSize.current?.(); restoreSize.current = null; finish(); setMoving(false); });
-    }, () => {});
-  };
-  function changeView(next: boolean) {
+  function place(bounds: BrowserBounds) {
     const element = dialog();
-    if (!element || moving || next === expanded) return;
-    const current = element.getBoundingClientRect();
-    if (next) { normal.current = current; from.current = current; setExpanded(true); return; }
-    const side = docked ? element.closest('.chat-side-panel')?.getBoundingClientRect() : null;
-    const old = normal.current ?? current;
-    // The side panel remains in layout while the browser occupies the modal layer.
-    const target = side ?? new DOMRect(current.right - Math.min(old.width, current.width), current.bottom - Math.min(old.height, current.height), Math.min(old.width, current.width), Math.min(old.height, current.height));
-    animate(element, current, target, current, () => { settling.current = true; setExpanded(false); });
+    if (!element) return;
+    const viewport = element.querySelector<HTMLElement>('.browser-viewport');
+    const chrome = element.getBoundingClientRect().height - (viewport?.getBoundingClientRect().height ?? 0);
+    const border = element.offsetWidth - element.clientWidth;
+    const availableWidth = document.documentElement.clientWidth - margin * 2;
+    const availableHeight = document.documentElement.clientHeight - margin * 2;
+    const maximum = Math.max(1, Math.min(availableWidth, viewport ? (availableHeight - chrome) * ratio + border : availableWidth));
+    const width = Math.min(maximum, Math.max(Math.min(480, maximum), bounds.width));
+    const height = viewport ? (width - border) / ratio + chrome : Math.min(element.offsetHeight, availableHeight);
+    const x = Math.max(margin, Math.min(bounds.x, availableWidth + margin - width));
+    const y = Math.max(margin, Math.min(bounds.y, availableHeight + margin - height));
+    saved.current = { x, y, width };
+    Object.assign(element.style, { left: `${x}px`, top: `${y}px`, width: `${width}px` });
   }
   useLayoutEffect(() => {
     const element = dialog();
-    if (!element) return;
-    if (settling.current) { cancelDrawerMotion(element); settling.current = false; return; }
-    if (!expanded || !from.current) return;
-    cancelDrawerMotion(element);
-    const start = from.current; from.current = null;
-    const end = element.getBoundingClientRect();
-    animate(element, start, end, end, () => {});
-  }, [expanded]);
-  useEffect(() => { if (reducedMotion) animation.current?.finish(); }, [reducedMotion]);
-  useEffect(() => () => { animation.current?.cancel(); animation.current = null; restoreSize.current?.(); restoreSize.current = null; }, []);
-  return { panelRef, expanded, moving, changeView };
+    if (!floating || !element) return;
+    const fit = () => place(saved.current ?? { x: document.documentElement.clientWidth - 976, y: 80, width: 960 });
+    fit();
+    // Covers starting/stopping a browser and expanding/resizing auxiliary input.
+    const observer = new ResizeObserver(fit);
+    observer.observe(element);
+    window.addEventListener('resize', fit);
+    return () => {
+      observer.disconnect(); window.removeEventListener('resize', fit);
+      gesture.current = null; setMoving(false);
+      for (const property of ['left', 'top', 'width']) element.style.removeProperty(property);
+    };
+  }, [floating, saved]);
+  function start(event: PointerEvent<HTMLElement>, resize = false) {
+    if (!floating || event.button !== 0 || !saved.current) return;
+    if (!resize && (event.target as Element).closest('button, input, [role="tab"]') && !(event.target as Element).closest('.browser-move')) return;
+    event.preventDefault();
+    const handle = resize ? event.currentTarget : event.currentTarget.querySelector<HTMLElement>('.browser-move');
+    handle?.focus({ preventScroll: true });
+    event.currentTarget.setPointerCapture(event.pointerId);
+    gesture.current = { id: event.pointerId, x: event.clientX, y: event.clientY, bounds: { ...saved.current }, resize };
+    setMoving(true);
+  }
+  function move(event: PointerEvent<HTMLElement>) {
+    const active = gesture.current;
+    if (!active || active.id !== event.pointerId) return;
+    const dx = event.clientX - active.x, dy = event.clientY - active.y;
+    if (active.resize) {
+      const width = active.bounds.width + (dx + dy / ratio) / (1 + 1 / ratio ** 2);
+      const element = dialog()!, viewport = element.querySelector<HTMLElement>('.browser-viewport');
+      const chrome = element.getBoundingClientRect().height - (viewport?.getBoundingClientRect().height ?? 0);
+      const border = element.offsetWidth - element.clientWidth;
+      const maximum = Math.min(document.documentElement.clientWidth - margin - active.bounds.x, viewport ? (document.documentElement.clientHeight - margin - active.bounds.y - chrome) * ratio + border : Infinity);
+      place({ ...active.bounds, width: Math.min(width, maximum) });
+    } else place({ ...active.bounds, x: active.bounds.x + dx, y: active.bounds.y + dy });
+  }
+  function end(event: PointerEvent<HTMLElement>) {
+    if (gesture.current?.id !== event.pointerId) return;
+    gesture.current = null; setMoving(false);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+  function key(event: KeyboardEvent<HTMLElement>, resize = false) {
+    if (!floating || !saved.current || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+    event.preventDefault(); event.stopPropagation();
+    const step = event.shiftKey ? 40 : 10, current = saved.current;
+    if (resize) place({ ...current, width: current.width + (['ArrowLeft', 'ArrowUp'].includes(event.key) ? -step : step) });
+    else place({ ...current, x: current.x + (event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0), y: current.y + (event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0) });
+  }
+  const pointerProps = { onPointerMove: move, onPointerUp: end, onPointerCancel: end, onLostPointerCapture: end };
+  return { panelRef, moving, dragProps: { ...pointerProps, onPointerDown: (event: PointerEvent<HTMLElement>) => start(event) }, moveKey: (event: KeyboardEvent<HTMLElement>) => key(event), resizeProps: { ...pointerProps, onPointerDown: (event: PointerEvent<HTMLElement>) => start(event, true), onKeyDown: (event: KeyboardEvent<HTMLElement>) => key(event, true) } };
 }

@@ -9,11 +9,12 @@ export function isChatPanel(value: { kind: string; assistant: Assistant } | null
 }
 
 /** Keep the panel mounted until its layout space has finished collapsing. */
-export function ChatSidePanel({ panel, docked, children }: { panel: ChatPanelSelection | null; docked: boolean; children: (panel: ChatPanelSelection) => ReactNode }) {
+export function ChatSidePanel({ panel, docked: requestedDocked, browserFloating = false, children }: { panel: ChatPanelSelection | null; docked: boolean; browserFloating?: boolean; children: (panel: ChatPanelSelection) => ReactNode }) {
   const { reducedMotion } = useUILocale();
   const [retained, setRetained] = useState(panel);
   if (panel && panel !== retained) setRetained(panel);
   const shown = panel ?? retained, open = !!panel;
+  const docked = requestedDocked && !(shown?.kind === 'browser' && browserFloating);
   const ref = useRef<HTMLDivElement>(null);
   const previous = useRef<{ width: number; transform: string } | null>(null);
   useLayoutEffect(() => {

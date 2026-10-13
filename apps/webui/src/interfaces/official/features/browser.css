@@ -3,13 +3,10 @@
 @media (min-width: 1920px) { .chat-side-panel[data-kind='browser'] { --chat-panel-width: 1040px; } }
 @media (min-width: 2400px) { .chat-side-panel[data-kind='browser'] { --chat-panel-width: 1280px; } }
 .browser-drawer--running.ui-dialog { background:var(--color-page-background); }
-/* A page view grown from the sidebar has no drawer scrim. */
-.browser-drawer--unshaded::backdrop { background:transparent; backdrop-filter:none; }
 .browser-drawer--running.ui-dialog.ui-drawer .ui-dialog__header, .chat-side-panel[data-docked] .browser-drawer--running .ui-dialog__header { padding:0 8px; background:var(--color-surface); }
 .browser-drawer--running .ui-dialog__header > div { width:100%; min-width:0; }
 .browser-drawer .ui-dialog__body { display:flex; }
 .browser-drawer--running.ui-dialog.ui-drawer .ui-dialog__body, .chat-side-panel[data-docked] .browser-drawer--running .ui-dialog__body { padding:0; overflow:hidden; }
-.browser-control-label { color:var(--color-text-muted); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .browser-panel { display:flex; flex-direction:column; width:100%; min-width:0; min-height:0; }
 .browser-start { margin:auto; display:flex; flex-direction:column; align-items:center; gap:16px; padding:40px 28px; max-width:400px; color:var(--color-text); }
 .browser-start-icon { display:grid; place-items:center; width:76px; height:76px; color:var(--color-text-muted); }
@@ -48,18 +45,27 @@
 .browser-keyboard { display:block; width:100%; height:66px; resize:vertical; font-size:16px; }
 .browser-statusbar { display:flex; align-items:center; gap:12px; min-height:40px; padding:4px 12px; border-top:1px solid var(--color-border); font-size:11px; color:var(--color-text-muted); }
 .browser-connection { display:flex; align-items:center; gap:6px; white-space:nowrap; }.browser-connection i { width:6px; height:6px; border-radius:50%; background:var(--color-text-muted); }.browser-connection[data-connected] i { background:var(--color-positive); }
-.browser-status-actions { margin-left:auto; display:flex; gap:4px; }.browser-status-actions .ui-icon-button { width:28px; height:28px; }
-.browser-drawer.browser-drawer--expanded { position:fixed; inset:0; width:100vw; min-width:100vw; max-width:100vw; height:100dvh; max-height:100dvh; margin:0; border:0; border-radius:0; }
+.browser-status-actions { display:flex; gap:4px; }.browser-status-actions .ui-icon-button { width:28px; height:28px; }
 @media (max-width:767px) {
  .browser-drawer[data-side='bottom'] { height:90dvh; max-height:90dvh; }
- .browser-input-hint { display:none; }
  .browser-navigation { gap:1px; padding:7px; }.browser-address { margin-left:2px; padding-left:8px; }
  .browser-tab { min-width:56px; }
  .browser-tab > button[role="tab"] > svg { display:none; }
  .browser-control-button.button { padding:0 8px; font-size:12px; gap:4px; }
  .browser-control-button > svg { display:none; }
 }
-/* Mobile overlays stay inside the application viewport, including embedded Molr. */
-.ui-modal-layer > .browser-drawer.ui-dialog.browser-drawer--expanded[data-contained] { position:absolute; inset:0; width:100%; min-width:0; max-width:100%; height:100%; max-height:100%; margin:0; border:0; border-radius:0; }
 
 .browser-control-button.button { flex-shrink:0; margin-left:4px; white-space:nowrap; border-radius:999px; min-height:34px; }
+
+.browser-window-heading { display:flex; align-items:center; gap:8px; width:100%; min-height:32px; }
+.browser-drawer .ui-dialog__header > div { width:100%; min-width:0; }
+.browser-drawer--floating.ui-dialog.ui-drawer[data-docked] { position:fixed; inset:auto; min-width:0; max-width:none; height:auto; max-height:calc(100dvh - 32px); margin:0; border:1px solid var(--color-border); border-radius:12px; box-shadow:var(--shadow-popover); z-index:20; }
+.browser-drawer--floating .ui-dialog__body { flex:0 1 auto; }
+.browser-drawer--floating .browser-viewport { flex:none; width:100%; aspect-ratio:16 / 10; }
+.browser-drawer--floating .browser-navigation, .browser-drawer--floating .browser-statusbar, .browser-drawer--floating .browser-input-tray { flex-shrink:0; }
+.browser-drawer--floating .browser-statusbar { padding-right:28px; }
+.browser-drawer--floating .browser-tabstrip, .browser-drawer--floating .browser-window-heading { cursor:grab; touch-action:none; }
+.browser-drawer .browser-move.ui-icon-button { cursor:grab; flex-shrink:0; touch-action:none; }
+.browser-drawer--moving .browser-tabstrip, .browser-drawer--moving .browser-window-heading, .browser-drawer--moving .browser-move.ui-icon-button { cursor:grabbing; user-select:none; }
+.browser-resize { position:absolute; right:1px; bottom:1px; width:24px; height:24px; padding:0; border:0; border-radius:4px 0 10px; background:transparent; cursor:nwse-resize; touch-action:none; }
+.browser-resize:focus-visible { outline-offset:-3px; }

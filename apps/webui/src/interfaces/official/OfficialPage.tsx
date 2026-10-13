@@ -3,7 +3,7 @@ import { MobileChatPresence } from './components/MobileChatPresence';
 import { MobileAccountButton } from './components/MobileAccountButton';
 import { ChatChannelDialog } from './features/WeixinChannel';
 import { useUIHost } from '../../ui-host/store';
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { AssistantList, Button, EmptyState, IconButton, Logo, SearchField, Select, useBreakpoint, useTheme } from '@molr/ui';
 import { MessagesSquare, Pin, Plus, Search as SearchIcon } from 'lucide-react';
 import type { Assistant, AssistantActivity, Conversation, Model, RuntimeInfo, Settings as SettingsDTO } from '../../api/types';
@@ -23,6 +23,7 @@ import { Workbench } from './features/Workbench';
 import { AssistantInfo } from './features/AssistantInfo';
 import { Tasks } from './features/Tasks';
 import { Browser } from './features/Browser';
+import type { BrowserBounds } from './features/useBrowserView';
 import { ShellTasks } from './features/ShellTasks';
 import { Search } from './features/Search';
 import { usePanelDocking } from '../../use-panel-docking';
@@ -40,6 +41,9 @@ export function OfficialPage({ chatLayout = 'default' }: { chatLayout?: 'default
   const [assistantQuery, setAssistantQuery] = useState('');
   const [chatWorkspace, setChatWorkspace] = useState<HTMLDivElement | null>(null);
   const panelDocked = usePanelDocking(chatWorkspace) && !mobile && chatLayout === 'default';
+  const [browserFloating, setBrowserFloating] = useState(true);
+  const browserBounds = useRef<BrowserBounds | null>(null);
+  const floating = browserFloating && !mobile;
   const assistantSearchId = useId();
   const [pendingTask, setPendingTask] = useState<{ assistantID: string; taskID?: string } | null>(null);
   const { drafts, setDrafts } = useUIHost();
@@ -97,9 +101,9 @@ export function OfficialPage({ chatLayout = 'default' }: { chatLayout?: 'default
           </aside>}
           <MobileChatPresence enabled={mobile}>{selected && (chatLayout === 'focus' || !mobile || id) ? <Chat targetMessageID={messageID} onClearTarget={() => go('assistants', selected.ID)} timeZone={settings.data?.Timezone} onDebug={workbenchVisible ? turnID => go('workbench', selected.ID, turnID) : undefined} key={selected.ID} assistant={selected} conversation={conversations.data?.find(conversation => conversation.ID === selected.ConversationID)} draft={drafts[selected.ID] ?? { text: '', files: [] }} updateDraft={update => setDrafts(previous => ({ ...previous, [selected.ID]: typeof update === 'function' ? update(previous[selected.ID] ?? { text: '', files: [] }) : update }))} onBack={mobile ? () => go('assistants') : undefined} onAction={assistantAction} onCard={(kind, target) => { if (kind === 'task') { setTaskCard(target); setDialog({ kind: 'tasks', assistant: selected }); } else go(kind === 'resource' ? 'resources' : kind === 'settings' ? 'settings' : 'schedules', target); }} /> : null}</MobileChatPresence>
           {!selected && !mobile && <div className="workspace-empty"><EmptyState title={t.chat.workspaceTitle} illustration={<Logo markOnly animation="static" variant={theme === 'dark' ? 'light' : 'dark'} className="workspace-empty__logo" />} /></div>}
-          <ChatSidePanel panel={isChatPanel(dialog) ? dialog : null} docked={panelDocked}>{panel => <>
+          <ChatSidePanel panel={isChatPanel(dialog) ? dialog : null} docked={panelDocked} browserFloating={floating}>{panel => <>
             {(panel.kind === 'info' || panel.kind === 'permissions') && <AssistantInfo docked={panelDocked} assistant={assistants.data?.find(item => item.ID === panel.assistant.ID) ?? panel.assistant} models={models.data ?? []} initialTab={panel.kind === 'permissions' ? 'permissions' : 'overview'} onClose={() => setDialog(null)} onDebug={workbenchVisible ? () => { setDialog(null); go('workbench', panel.assistant.ID); } : undefined} />}
-            {panel.kind === 'browser' && <Browser key={panel.assistant.ID} docked={panelDocked} assistantID={panel.assistant.ID} onClose={() => setDialog(null)} />}
+            {panel.kind === 'browser' && <Browser key={panel.assistant.ID} floating={floating} onFloatingChange={setBrowserFloating} bounds={browserBounds} docked={panelDocked} assistantID={panel.assistant.ID} onClose={() => setDialog(null)} />}
             {panel.kind === 'shell_tasks' && <ShellTasks key={panel.assistant.ID} docked={panelDocked} assistantID={panel.assistant.ID} onClose={() => setDialog(null)} />}
             {panel.kind === 'tasks' && <Tasks docked={panelDocked} assistantID={panel.assistant.ID} taskID={taskCard} onClose={() => setDialog(null)} />}
           </>}</ChatSidePanel>
