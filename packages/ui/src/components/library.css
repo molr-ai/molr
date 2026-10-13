@@ -24,7 +24,7 @@
 .check-field input[aria-invalid='true'] + .check-field__box { border-color: var(--color-danger); }
 .check-field__label:has(input:disabled), .radio-option:has(input:disabled) { opacity: 0.45; cursor: not-allowed; }
 .check-field > .field-hint { padding-left: 28px; }
-.radio-group { min-width: 0; margin: 0; padding: 0; border: 0; }
+.radio-group { position: relative; min-width: 0; margin: 0; padding: 0; border: 0; }
 .radio-group > legend { padding: 0; margin-bottom: 10px; font-size: var(--text-sm); font-weight: 550; }
 .radio-group__options { display: grid; gap: 8px; }
 .radio-option { position: relative; display: flex; align-items: center; gap: 10px; min-height: 36px; font-size: var(--text-sm); cursor: pointer; }
