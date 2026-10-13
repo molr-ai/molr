@@ -9,6 +9,26 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 .loading { display: grid; gap: 16px; padding: 24px; width: 100%; }
 .session-page, .login-page { position: relative; display: grid; place-items: safe center; height: 100dvh; overflow: auto; padding: 24px; }
 .workspace-main { background: var(--color-page-background); }
+.interactive-card { position: relative; border: 1px solid transparent; border-radius: var(--radius-card); background: var(--color-surface); transition: border-color 140ms ease; }
+@media (hover: hover) and (pointer: fine) {
+  .interactive-card:hover { border-color: var(--color-control-border-hover); }
+}
+
+/* Model providers and plan cards share the same collapsed row rhythm. */
+.interactive-card > :is(.plans-row-summary, .resource-row-summary) { min-height: 80px; padding: 16px; gap: 12px; }
+.interactive-card :is(.plans-row-copy, .resource-row-copy) h2 { font-size: 13px; font-weight: 500; line-height: 20px; }
+.interactive-card :is(.plans-row-copy, .resource-row-copy) h2 > button { display: block; width: 100%; padding: 0; font: inherit; }
+.interactive-card :is(.plans-row-meta, .resource-row-meta) { margin: 4px 0 0; font-size: 11px; line-height: 18px; }
+.interactive-card > .resource-row-summary > .ui-icon-button { width: 28px; height: 30px; min-height: 30px; }
+@media (--molr-mobile) {
+  .interactive-card > :is(.plans-row-summary, .resource-row-summary) { min-height: 76px; padding: 12px; gap: 8px; }
+  .interactive-card > .resource-row-summary > .ui-icon-button { width: 32px; height: 40px; min-height: 40px; }
+}
+
+.card-open::after { content: ''; position: absolute; inset: 0; border-radius: var(--card-click-radius, var(--radius-card)); cursor: pointer; }
+.card-open:focus-visible { outline: none; }
+.card-open:focus-visible::after { outline: 2px solid var(--color-focus); outline-offset: 3px; }
+.interactive-card :is(.button, .ui-icon-button, .plan-expanded, .resource-row-detail), .assistant-plan-row :is(.button, .ui-icon-button, .plan-expanded) { position: relative; z-index: 1; }
 .login-page { --page-glow: var(--color-selected-bg); background: radial-gradient(ellipse at 15% 10%, var(--page-glow), transparent 65%) var(--color-page-background); }
 :root[data-theme='dark'] .login-page { --page-glow: var(--color-surface); background-image: radial-gradient(ellipse at 100% 100%, var(--page-glow), transparent 65%); }
 .login-card { width: min(420px, 100%); padding: 36px; border-radius: var(--radius-card); background: var(--color-surface); display: grid; gap: 20px; }
@@ -54,6 +74,7 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 .chat-header > .form-actions { flex-shrink: 0; flex-wrap: nowrap; }
 .chat-identity { display: flex; align-items: center; gap: 10px; min-width: 0; }.chat-identity h1 { flex-shrink: 0; max-width: min(36vw, 20rem); font-size: var(--text-base); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.chat-identity .ui-chat-status { flex: 0 1 auto; overflow: hidden; }.chat-identity .ui-chat-status__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.chat-header .button { min-height: 36px; height: 36px; }
 .chat-history { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 28px max(24px, calc((100% - 860px) / 2)); }.chat-input { padding: 12px max(24px, calc((100% - 860px) / 2)) 24px; }.chat-input .message-composer { background: var(--color-surface); }.chat-history .ui-chat-message { margin-bottom: 28px; }
+.chat-history { background: transparent; }
 .chat-panel > .ui-alert { margin: 8px 20px; }.chat-history .ui-empty { padding-block: 60px; }.attachment { margin-top: 8px; }.attachment a { display: flex; align-items: center; gap: 8px; width: fit-content; max-width: 100%; padding: 10px 14px; border-radius: var(--radius-control); background: var(--color-surface); text-decoration: none; overflow-wrap: anywhere; }.attachment small { flex-shrink: 0; }
 .page { flex: 1; min-width: 0; padding: 32px clamp(20px, 4vw, 56px); overflow: auto; }.page > * + * { margin-top: 24px; }.page > .select { max-width: 260px; }.record-list, .settings-section { display: grid; gap: 16px; }.record-list .card, .settings-section .card { display: grid; gap: 14px; }.record-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }.record-heading h2, .record-heading h3 { flex: 1; overflow-wrap: anywhere; }
 .todo-row > .checkbox-field { font-size: 16px; }.todo-row p { white-space: pre-wrap; }.record-link { display: flex; gap: 20px; width: 100%; justify-content: space-between; align-items: center; text-align: left; background: transparent; color: inherit; border: 0; padding: 0; }.record-link strong { overflow-wrap: anywhere; }

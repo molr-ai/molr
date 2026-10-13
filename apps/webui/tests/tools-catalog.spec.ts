@@ -10,6 +10,7 @@ test('tool catalog combines categories and search, opens details and restores fo
   await page.getByRole('tab', { name: 'Tools', exact: true }).click();
   const catalog = page.locator('.tools-catalog');
   const rows = catalog.locator('.tools-catalog-row');
+  await expect(rows.first().locator('.tools-catalog-copy > span')).toHaveCSS('-webkit-line-clamp', '2');
   const response = await page.request.get('/api/tools');
   expect(response.ok()).toBe(true);
   const tools = await response.json();
@@ -48,7 +49,8 @@ test('tool catalog combines categories and search, opens details and restores fo
   await expect(catalog).toContainText('No matching results');
   await filters.getByRole('button', { name: /Plans/ }).click();
   await expect(rows).toHaveCount(1);
-  await expect(rows).toContainText('Write or publish');
+  await expect(rows).not.toContainText('Write or publish');
+  await expect(rows.locator('.tools-catalog-effect')).toHaveCount(0);
   await search.fill('no-such-tool');
   await catalog.getByRole('button', { name: 'Clear filters', exact: true }).click();
   await expect(search).toHaveValue('');

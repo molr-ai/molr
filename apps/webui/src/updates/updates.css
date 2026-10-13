@@ -1,4 +1,4 @@
-.about-updates { display: grid; width: 100%; min-width: 0; }
+.about-updates { display: grid; gap: 16px; width: 100%; min-width: 0; }
 .about-updates > section { display: grid; gap: 14px; padding-block: 22px; border-top: 1px solid var(--color-border); min-width: 0; }
 .about-updates h3, .about-updates p { margin: 0; }
 .update-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }

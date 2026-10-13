@@ -1,6 +1,6 @@
 import { useErrorToast } from '../../../error-toasts';
 import { useEffect, useId, useRef, useState } from 'react';
-import { ModalPresence, Button, Checkbox, DateTimePicker, Dialog, DropdownMenu, IconButton, Select, Textarea, TextField, planDate, useBreakpoint, useChoiceScroll } from '@molr/ui';
+import { ModalPresence, Button, Checkbox, DateTimePicker, Dialog, Drawer, DropdownMenu, IconButton, Select, Textarea, TextField, planDate, useBreakpoint, useChoiceScroll } from '@molr/ui';
 import { ArrowRight, Bot, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Ellipsis, GitBranch, History, List, Pause, Pencil, Play, Plus, Repeat2, SlidersHorizontal, Trash2, UserRound, X } from 'lucide-react';
 import { api, APIError } from '../../../api/client';
 import type { Assistant, Schedule, Todo, Plan, PlanRef, PlanEvent, DreamWindow } from '../../../api/types';
@@ -23,21 +23,22 @@ function occurrenceEnd(plan: Plan, at: string) { const s = plan.Schedule; return
 
 
 export function Plans({ assistants: availableAssistants, assistantID, selectedID, selectedTaskID, embedded = false }: { assistants: Assistant[]; assistantID?: string; selectedID?: string; selectedTaskID?: string; embedded?: boolean }) {
-  const { locale, t: copy } = useCopy(), t = planMessages[locale], action = useAction(), compact = useBreakpoint('compact'), mobile = useBreakpoint('mobile');
+  const { locale, t: copy } = useCopy(), t = planMessages[locale], action = useAction(), mobile = useBreakpoint('mobile');
   const appliedSelection = useRef('');
   const scopeID = useId(), listRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState('list'), [date, setDate] = useState(planDate()), [month, setMonth] = useState(planDate()), [owner, setOwner] = useState(assistantID || 'all'), [kind, setKind] = useState('all'), [status, setStatus] = useState('all');
   const [listScope, setListScope] = useState<(typeof listScopes)[number]>('upcoming'), [selectedAt, setSelectedAt] = useState<string>(), [dayAgenda, setDayAgenda] = useState('');
   const viewRef = useChoiceScroll(view);
   const [listFrom] = useState(() => new Date().toISOString());
-  const split = view === 'list' && !embedded && !compact;
+  const inlineDetails = embedded;
+  const listOwner = embedded ? assistantID || '' : owner;
   const [expanded, setExpanded] = useState(''), [editing, setEditing] = useState<Entry | 'new' | null>(null), [deleting, setDeleting] = useState<Plan | null>(null), [configuring, setConfiguring] = useState<Plan | null>(null), [completing, setCompleting] = useState<{ plan: Plan; at?: string } | null>(null);
   const anchor = new Date(`${month}T12:00:00`), visibleDays=monthDays(month);
   const from = new Date(visibleDays[0]);from.setHours(0,0,0,0);
   const until = new Date(visibleDays[visibleDays.length-1]);until.setDate(until.getDate()+1);until.setHours(0,0,0,0);
-  const upcoming=usePlanEvents(view==='list' && listScope==='upcoming' ? `/api/plans/events?from=${encodeURIComponent(listFrom)}&limit=50&scope=${encodeURIComponent(owner)}&kind=${kind}&state=${status}` : null);
+  const upcoming=usePlanEvents((embedded || view==='list' && listScope==='upcoming') && (!embedded || assistantID) ? `/api/plans/events?from=${encodeURIComponent(listFrom)}&limit=${embedded ? 10 : 50}&scope=${encodeURIComponent(listOwner)}&kind=${embedded ? 'all' : kind}&state=${embedded ? 'all' : status}` : null);
   const plans = useQuery<Plan[]>(`/api/plans?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(until.toISOString())}`);
-  const dreamWindows = useQuery<DreamWindow[]>(`/api/dreams/windows?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(until.toISOString())}${assistantID ? `&assistant_id=${assistantID}` : ''}`);
+  const dreamWindows = useQuery<DreamWindow[]>(embedded ? null : `/api/dreams/windows?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(until.toISOString())}${assistantID ? `&assistant_id=${assistantID}` : ''}`);
   const reserved = (dreamWindows.data ?? []).filter(w => owner !== 'me' && (owner === 'all' || w.AssistantID === owner));
   const dreamLabel = locale.startsWith('zh') ? '做梦预留时段' : 'Reserved for dreaming';
   const dreamHint = locale.startsWith('zh') ? '只读时段；该助理的自动计划可能延后，或按漏执行策略跳过。' : 'Read-only window. This assistant’s plans may run late or be skipped under their missed-run policy.';
@@ -45,7 +46,7 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
   const assistants = currentAssistant.data && !availableAssistants.some(a => a.ID === assistantID) ? [...availableAssistants, currentAssistant.data] : availableAssistants;
   const all = plans.data ?? [], latest = (p: Plan) => p.Executions[0];
   const completed = (p: Plan) => latest(p)?.State === 'completed' || !p.Executions.length && !!p.Todo?.Completed;
-  const filtered = all.filter(p => (owner === 'all' || (p.AssistantID || 'me') === owner) && (kind === 'all' || entry(p).kind === kind) );
+  const filtered = all.filter(p => (listOwner === 'all' || (p.AssistantID || 'me') === listOwner) && (embedded || kind === 'all' || entry(p).kind === kind) );
   const when = (p: Plan) => p.Todo?.StartAt || p.Todo?.DueAt || p.Schedule?.NextAt || p.Occurrences.find(at => instantDay(at) >= planDate()) || p.Schedule?.Trigger.StartAt || '';
   const matchesState=(p:Plan,at?:string)=>status==='all'||(status==='done'?eventDone(p,at):!eventDone(p,at));
   const scheduledEvents=calendarEvents(filtered).filter(e=>matchesState(e.Plan,e.At));
@@ -57,7 +58,7 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
   const executionState = (p: Plan) => latest(p) && ['pending', 'running', 'waiting', 'paused'].includes(latest(p).State) ? (copy.tasks[latest(p).State as 'pending'] ?? latest(p).State) : state(p);
   const ownerName = (p: Plan) => assistants.find(a => a.ID === p.AssistantID)?.Name ?? (p.AssistantID ? t.assistant : t.me);
   const selected = filtered.find(p => refKey(p.Ref) === expanded);
-  const hasFilters = owner !== (assistantID || 'all') || kind !== 'all' || status !== 'all';
+  const hasFilters = !embedded && (owner !== (assistantID || 'all') || kind !== 'all' || status !== 'all');
   useEffect(() => {
     const request = `${selectedID || ''}/${selectedTaskID || ''}`;
     if (!selectedID && !selectedTaskID) { appliedSelection.current = ''; return; }
@@ -67,7 +68,7 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
       appliedSelection.current = request;
       const at=match.Executions.find(run=>run.ID===selectedTaskID)?.OccurrenceAt || when(match);
       setExpanded(refKey(match.Ref));setSelectedAt(at||undefined);
-      if(at){setView('calendar');setMonth(instantDay(at));setDate(instantDay(at));}else{setListScope('undated');setView('list');}
+      if(embedded){setView('list');}else if(at){setView('calendar');setMonth(instantDay(at));setDate(instantDay(at));}else{setListScope('undated');setView('list');}
     }
   }, [plans.data, selectedID, selectedTaskID]);
   useEffect(() => {
@@ -95,11 +96,12 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
     listRef.current?.scrollTo({ top: 0, behavior: 'instant' });
   }
   function clearFilters() { setOwner(assistantID || 'all'); setKind('all'); setStatus('all'); }
-  function closeDetails() { const key = `${expanded}@${selectedAt||''}`; setExpanded(''); setSelectedAt(undefined); requestAnimationFrame(() => document.getElementById(`${scopeID}-title-${key}`)?.focus({ preventScroll: true })); }
+  function closeDetails() { const key = `${expanded}@${selectedAt||''}`; setExpanded(''); setSelectedAt(undefined); if (inlineDetails) requestAnimationFrame(() => document.getElementById(`${scopeID}-title-${key}`)?.focus({ preventScroll: true })); }
   function openRelated(ref: PlanRef) {
     const linked=all.find(p=>refKey(p.Ref)===refKey(ref)),at=linked?when(linked):'';
+    if (embedded && linked?.AssistantID !== assistantID) { window.location.hash = `/plans/${ref.ID}`; return; }
     setOwner('all');setKind('all');setStatus('all');setExpanded(refKey(ref));setSelectedAt(at||undefined);
-    if(at){setView('calendar');setMonth(instantDay(at));setDate(instantDay(at));}else{setListScope('undated');setView('list');}
+    if(embedded){setView('list');}else if(at){setView('calendar');setMonth(instantDay(at));setDate(instantDay(at));}else{setListScope('undated');setView('list');}
   }
   function menu(p: Plan) {
     const canDelete = !p.Executions.length && !all.some(next => next.Links.Dependencies?.some(ref => refKey(ref) === refKey(p.Ref)));
@@ -117,9 +119,9 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
     const startAt = at || p.Todo?.StartAt || p.Schedule?.Trigger.StartAt;
     const endAt = p.Todo?.EndAt || (startAt ? occurrenceEnd(p, startAt) : null);
     return <section id={`${scopeID}-detail-${key}`} className="plan-expanded plans-detail" role="region" aria-label={`${p.Title} · ${t.planDetails}`}>
-      <header className="plans-detail-header"><span><span className="plans-type-dot" data-kind={entry(p).kind} role="img" aria-label={t[entry(p).kind]} title={t[entry(p).kind]} />{t.planDetails}</span><IconButton label={t.closeDetails} onClick={closeDetails}><X size={17} /></IconButton></header>
+      {inlineDetails && <header className="plans-detail-header"><span><span className="plans-type-dot" data-kind={entry(p).kind} role="img" aria-label={t[entry(p).kind]} title={t[entry(p).kind]} />{t.planDetails}</span><IconButton label={t.closeDetails} onClick={closeDetails}><X size={17} /></IconButton></header>}
       <div className="plans-detail-body">
-        {(split || view==='calendar') && <h2 className="plans-detail-title">{p.Title}</h2>}
+        {!inlineDetails && <h2 className="plans-detail-title">{p.Title}</h2>}
         {p.Schedule?.Kind==='assistant_plan' && <DreamConflictNotice assistantID={p.AssistantID} startAt={startAt || undefined} timezone={p.Schedule.Trigger.Timezone} recurrence={at?'':p.Schedule.Trigger.Recurrence} disabled={p.Links.Paused || !p.Schedule.Enabled} />}
         <dl className="plans-properties"><div><dt>{t.owner}</dt><dd><span className="plans-avatar" data-person={!p.AssistantID}>{p.AssistantID ? <Bot size={13} /> : <UserRound size={13} />}</span>{ownerName(p)}</dd></div><div><dt>{t.status}</dt><dd><span className="plans-status" data-tone={tone(p)}><i />{state(p)}</span></dd></div>{latest(p) && <div><dt>{t.latestExecution}</dt><dd>{copy.tasks[latest(p).State as 'pending'] ?? latest(p).State}</dd></div>}
           {startAt && <div><dt>{t.scheduled}</dt><dd>{format(startAt)}{endAt && <span className="plans-end">– {instantDay(endAt) === instantDay(startAt) ? time(endAt) : format(endAt)}</span>}</dd></div>}
@@ -140,25 +142,30 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
   }
   function card(p: Plan, eventAt?: string) {
     const key = eventKey(p,eventAt), isSelected = expanded === refKey(p.Ref) && selectedAt === eventAt, at = eventAt || when(p), type = entry(p).kind;
-    return <article id={`${scopeID}-row-${key}`} key={key} className="plan-row plans-row" data-selected={isSelected} data-completed={eventDone(p,eventAt)} data-occurrence={eventAt} data-plan-id={p.Ref.ID}>
+    return <article id={`${scopeID}-row-${key}`} key={key} className={`plan-row plans-row ${embedded ? 'assistant-plan-row' : 'interactive-card'}`} data-selected={isSelected} data-completed={eventDone(p,eventAt)} data-occurrence={eventAt} data-plan-id={p.Ref.ID}>
       <div className="plans-row-summary">
         <span className="plans-type-dot" data-kind={type} role="img" aria-label={t[type]} title={t[type]} />
-        <div className="plans-row-copy"><h2><button id={`${scopeID}-title-${key}`} type="button" aria-expanded={isSelected} aria-controls={isSelected ? `${scopeID}-detail-${refKey(p.Ref)}` : undefined} onClick={() => selectPlan(p,eventAt)}>{p.Title}</button></h2><div className="plans-row-meta"><span className="plans-owner" title={ownerName(p)}><span className="plans-avatar" data-person={!p.AssistantID}>{p.AssistantID ? <Bot size={11} /> : <UserRound size={11} />}</span>{ownerName(p)}</span>{at && <span className="plans-row-date" data-overdue={Date.parse(at)<Date.parse(listFrom)&&!eventDone(p,eventAt)}>{p.Todo?.DueAt && !p.Todo.StartAt ? t.deadline : ''}{p.Todo?.DueAt && !p.Todo.StartAt ? ' · ' : ''}{instantDay(at) === planDate() ? t.today : shortDate(at)}{` · ${time(at)}`}</span>}{p.Schedule?.Trigger.Recurrence && <Repeat2 size={12} aria-label={repeat(p.Schedule.Trigger.Recurrence)} />}<span className="plans-row-kind">{t[type]}</span><span className="plans-row-mobile-status">{eventDone(p,eventAt)?t.done:p.Schedule?.Trigger.Recurrence?t.planned:executionState(p)}</span></div></div>
+        <div className="plans-row-copy"><h2><button className="card-open" id={`${scopeID}-title-${key}`} type="button" aria-expanded={isSelected} aria-controls={isSelected ? `${scopeID}-detail-${refKey(p.Ref)}` : undefined} onClick={() => selectPlan(p,eventAt)}>{p.Title}</button></h2><div className="plans-row-meta"><span className="plans-owner" title={ownerName(p)}><span className="plans-avatar" data-person={!p.AssistantID}>{p.AssistantID ? <Bot size={11} /> : <UserRound size={11} />}</span>{ownerName(p)}</span>{at && <span className="plans-row-date" data-overdue={Date.parse(at)<Date.parse(listFrom)&&!eventDone(p,eventAt)}>{p.Todo?.DueAt && !p.Todo.StartAt ? t.deadline : ''}{p.Todo?.DueAt && !p.Todo.StartAt ? ' · ' : ''}{instantDay(at) === planDate() ? t.today : shortDate(at)}{` · ${time(at)}`}</span>}{p.Schedule?.Trigger.Recurrence && <Repeat2 size={12} aria-label={repeat(p.Schedule.Trigger.Recurrence)} />}<span className="plans-row-kind">{t[type]}</span><span className="plans-row-mobile-status">{eventDone(p,eventAt)?t.done:p.Schedule?.Trigger.Recurrence?t.planned:executionState(p)}</span></div></div>
         <span className="plans-status plans-row-status" data-tone={eventDone(p,eventAt)?'done':tone(p)}><i />{eventDone(p,eventAt)?t.done:p.Schedule?.Trigger.Recurrence?t.planned:executionState(p)}</span>
         <Button size="sm" variant="ghost" className="plans-row-history" aria-label={`${t.executions} (${p.Executions.length})`} aria-expanded={isSelected} onClick={() => selectPlan(p,eventAt)}><History size={14} /><span>{p.Executions.length}</span></Button>
         {menu(p)}
       </div>
-      {isSelected && !split && view==='list' && detail(p)}
+      {isSelected && inlineDetails && detail(p)}
     </article>;
   }
-  const title = embedded ? (assistants.find(a => a.ID === assistantID)?.Name ?? t.assistant) : t.title;
-  const listRows=listScope==='upcoming'?upcoming.items:listScope==='overdue'?overdue.map(p=>({Key:eventKey(p,when(p)),At:when(p),Plan:p})):undated.map(p=>({Key:eventKey(p),At:'',Plan:p}));
+  const listRows=embedded ? [...upcoming.items, ...undated.map(p=>({Key:eventKey(p),At:'',Plan:p}))].filter(event => event.Plan.AssistantID === assistantID).slice(0,10) : listScope==='upcoming'?upcoming.items:listScope==='overdue'?overdue.map(p=>({Key:eventKey(p,when(p)),At:when(p),Plan:p})):undated.map(p=>({Key:eventKey(p),At:'',Plan:p}));
+  if (embedded && selected && !listRows.some(event => event.Key === eventKey(selected, selectedAt || when(selected)))) {
+    const at = selectedAt || when(selected);
+    listRows.unshift({ Key: eventKey(selected, at), At: at, Plan: selected });
+    listRows.splice(10);
+  }
   const dailyReservations=reserved.filter(w=>inDay(w.Start,w.End,date));
-  const scrollStatusbar = mobile && !embedded;
+  const filters = <div className="plans-filters"><SlidersHorizontal size={14} className="plans-filter-icon" aria-hidden="true" /><Select hideLabel size="sm" label={t.owner} value={owner} onValueChange={setOwner} options={[{ value: 'all', label: t.allOwners }, { value: 'me', label: t.me }, ...assistants.map(a => ({ value: a.ID, label: a.Name }))]} /><Select hideLabel size="sm" label={t.type} value={kind} onValueChange={setKind} options={[{ value: 'all', label: t.allTypes }, ...(['item', 'event', 'automatic'] as const).map(value => ({ value, label: t[value] }))]} /><Select hideLabel size="sm" label={t.status} value={status} onValueChange={setStatus} options={[{ value: 'all', label: t.allStatuses }, { value: 'open', label: t.open }, { value: 'done', label: t.done }]} />{hasFilters && <IconButton label={t.clearFilters} onClick={clearFilters}><X size={14} /></IconButton>}</div>;
   const statusbar = <footer className="plans-statusbar"><details className="plans-reservations"><summary><ChevronDown size={13} aria-hidden="true" /><span>{dreamLabel} · {dailyReservations.length} {locale==='zh'?'个时段':dailyReservations.length===1?'window':'windows'}</span></summary><div><aside className="plans-dream-windows" aria-label={dreamLabel}><strong>{dreamLabel} · {date}</strong><p>{locale==='zh'?'数量是当前日期和筛选范围内的窗口条数；每位助理每天可配置一个自动时段。':'The count covers windows for this date and filter. Each assistant has one configurable daily window.'}</p><p>{dreamHint} <a href="#/account/memory">{locale.startsWith('zh')?'做梦设置':'Dream settings'}</a></p>{dailyReservations.map(w=><div key={`${w.AssistantID}-${w.Start}`}><span>{assistants.find(a=>a.ID===w.AssistantID)?.Name}</span><span>{time(w.Start)}–{time(w.End)}</span></div>)}</aside></div></details><span>{view==='list'?listRows.length:scheduledEvents.length} {t.eventsCount}</span></footer>;
   return <section className={`plans-workspace${embedded ? ' plans-workspace--embedded' : ''}`} data-view={view}>
-    {embedded ? <header className="plans-header"><div className="plans-heading"><span className="plans-app-icon"><CalendarDays size={18} /></span><h1>{title}</h1><span className="plans-total">{filtered.length}</span></div><Button size="sm" onClick={() => setEditing('new')}><Plus size={15} />{t.new}</Button></header> : <PageHeader className="plans-header" title={title} icon={<CalendarDays />} actions={<Button size="sm" onClick={() => setEditing('new')}><Plus size={15} />{t.new}</Button>}><span className="plans-total">{filtered.length}</span></PageHeader>}
-    <div className="plans-commandbar">
+    {!embedded && <PageHeader className="plans-header" title={t.title} icon={<CalendarDays />} actions={<Button size="sm" onClick={() => setEditing('new')}><Plus size={15} />{t.new}</Button>}><span className="plans-total">{filtered.length}</span></PageHeader>}
+    {!embedded && <div className="plans-commandbar">
+      {mobile && filters}
       <div ref={viewRef} className="ui-choice-list ui-choice-list--line plans-view" role="group" aria-label={t.view}>
         <button type="button" aria-label={t.list} aria-describedby={`${scopeID}-list-scope`} aria-pressed={view === 'list'} onClick={() => selectView('list')}>
           <List size={14} />{t.list}<span id={`${scopeID}-list-scope`} className="plans-current-scope">· {t[listScope]}</span>
@@ -170,27 +177,25 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
           })} />
         <button type="button" className="plans-calendar-tab" aria-pressed={view === 'calendar'} onClick={() => selectView('calendar')}><CalendarDays size={14} />{t.calendar}</button>
       </div>
-      <div className="plans-filters"><SlidersHorizontal size={14} className="plans-filter-icon" aria-hidden="true" /><Select hideLabel size="sm" label={t.owner} value={owner} onValueChange={setOwner} options={[{ value: 'all', label: t.allOwners }, { value: 'me', label: t.me }, ...assistants.map(a => ({ value: a.ID, label: a.Name }))]} /><Select hideLabel size="sm" label={t.type} value={kind} onValueChange={setKind} options={[{ value: 'all', label: t.allTypes }, ...(['item', 'event', 'automatic'] as const).map(value => ({ value, label: t[value] }))]} /><Select hideLabel size="sm" label={t.status} value={status} onValueChange={setStatus} options={[{ value: 'all', label: t.allStatuses }, { value: 'open', label: t.open }, { value: 'done', label: t.done }]} />{hasFilters && <IconButton label={t.clearFilters} onClick={clearFilters}><X size={14} /></IconButton>}</div>
-    </div>
-    <div className="plans-content" data-split={split && !!selected}>
+      {!mobile && filters}
+    </div>}
+    <div className="plans-content">
       <div className="plans-master" ref={listRef}>
         {plans.loading && !plans.data && <Loading />}
-        {view === 'calendar' ? <section className="plans-calendar-section">
+        {!embedded && view === 'calendar' ? <section className="plans-calendar-section">
           <div className="plans-calendar-toolbar"><h2>{anchor.toLocaleDateString(locale,{year:'numeric',month:'long'})}</h2><div><IconButton label={t.previous} onClick={()=>shift(-1)}><ChevronLeft size={16}/></IconButton><Button size="sm" variant="ghost" onClick={()=>{setDate(planDate());setMonth(planDate());setExpanded('');}}>{t.today}</Button><IconButton label={t.next} onClick={()=>shift(1)}><ChevronRight size={16}/></IconButton></div><DateTimePicker className="plans-date-jump" label={t.month} mode="month" size="sm" value={new Date(anchor.getFullYear(),anchor.getMonth(),1,12).toISOString()} onValueChange={value=>{if(value){const next=planDate(new Date(value));setMonth(next);setDate(next);setExpanded('');}}}/></div>
           <PlanMonthCalendar month={month} date={date} locale={locale} events={scheduledEvents} onDay={selectDate} onEvent={selectEvent} moreLabel={(count,day)=>t.moreEvents(count,day)}/>
         </section> : <>
           <div className="plan-list plans-list" aria-label={t.eventList}>{listRows.map(event=>card(event.Plan,event.At||undefined))}</div>
           {upcoming.loading&&listScope==='upcoming'&&<Loading/>}
-          {listScope==='upcoming'&&upcoming.more&&<Button className="plans-load-more" variant="secondary" disabled={upcoming.loading} onClick={upcoming.loadMore}>{t.loadMoreEvents}</Button>}
-          {!listRows.length&&!plans.loading&&!(listScope==='upcoming'&&upcoming.loading)&&<div className="plans-empty"><span className="plans-empty-icon"><CalendarDays size={32}/></span><h2>{hasFilters ? t.empty : listScope === 'upcoming' ? t.noUpcoming : listScope === 'overdue' ? t.noOverdue : t.noUndated}</h2>{!hasFilters && listScope === 'upcoming' && <p>{t.noUpcomingHelp}</p>}{hasFilters ? <><p>{t.filteredEmpty}</p><Button size="sm" variant="secondary" onClick={clearFilters}>{t.clearFilters}</Button></> : listScope === 'overdue' ? <Button size="sm" variant="secondary" onClick={() => selectListScope('upcoming')}>{t.viewUpcoming}</Button> : <Button size="sm" onClick={() => setEditing('new')}><Plus size={14}/>{t.new}</Button>}</div>}
+          {!embedded&&listScope==='upcoming'&&upcoming.more&&<Button className="plans-load-more" variant="secondary" disabled={upcoming.loading} onClick={upcoming.loadMore}>{t.loadMoreEvents}</Button>}
+          {!listRows.length&&!plans.loading&&!(listScope==='upcoming'&&upcoming.loading)&&<div className="plans-empty"><span className="plans-empty-icon"><CalendarDays size={32}/></span><h2>{hasFilters ? t.empty : listScope === 'upcoming' ? t.noUpcoming : listScope === 'overdue' ? t.noOverdue : t.noUndated}</h2>{!hasFilters && listScope === 'upcoming' && <p>{t.noUpcomingHelp}</p>}{embedded ? null : hasFilters ? <><p>{t.filteredEmpty}</p><Button size="sm" variant="secondary" onClick={clearFilters}>{t.clearFilters}</Button></> : listScope === 'overdue' ? <Button size="sm" variant="secondary" onClick={() => selectListScope('upcoming')}>{t.viewUpcoming}</Button> : <Button size="sm" onClick={() => setEditing('new')}><Plus size={14}/>{t.new}</Button>}</div>}
         </>}
-        {scrollStatusbar && statusbar}
       </div>
-      {split && selected && <aside className="plans-inspector" aria-label={t.planDetails} key={refKey(selected.Ref)}>{detail(selected)}</aside>}
     </div>
-    {!scrollStatusbar && statusbar}
+    {!embedded && !mobile && statusbar}
     <ModalPresence>{dayAgenda&&<Dialog open onOpenChange={open=>{if(!open)setDayAgenda('');}} title={`${dayAgenda} · ${t.selectedDay}`} size="lg" className="plans-day-agenda"><div className="plan-list plans-list">{selectedDayEvents.map(event=>card(event.Plan,event.At))}{!selectedDayEvents.length&&<p className="plans-day-empty">{t.dayEmpty}</p>}</div><Button size="sm" onClick={()=>setEditing('new')}><Plus size={14}/>{t.new}</Button></Dialog>}</ModalPresence>
-    <ModalPresence>{view==='calendar'&&selected&&<Dialog open onOpenChange={open=>{if(!open)closeDetails();}} title={t.planDetails} size="lg" className="plans-event-dialog">{detail(selected)}</Dialog>}</ModalPresence>
+    <ModalPresence>{!inlineDetails&&selected&&<Drawer open onOpenChange={open=>{if(!open)closeDetails();}} title={t.planDetails} closeLabel={t.closeDetails} className="plans-details-drawer">{detail(selected)}</Drawer>}</ModalPresence>
     <ModalPresence>{editing && <PlanEditor entry={editing === 'new' ? undefined : editing} assistantID={assistantID} assistants={assistants} date={date} onClose={() => setEditing(null)} />}</ModalPresence>
     <ModalPresence>{configuring && <HandoffEditor plan={configuring} all={all} onClose={() => setConfiguring(null)} />}</ModalPresence>
     <ModalPresence>{completing && <CompletionEditor plan={completing.plan} occurrence={completing.at} onClose={() => setCompleting(null)} />}</ModalPresence>

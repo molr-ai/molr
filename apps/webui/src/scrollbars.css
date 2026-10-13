@@ -1,0 +1,7 @@
+/* Scope the override to WebUI; shared components keep their standalone behavior. */
+:root[data-overlay-scrollbars], :root[data-overlay-scrollbars] * { scrollbar-width: none !important; scrollbar-gutter: auto !important; }
+:root[data-overlay-scrollbars]::-webkit-scrollbar, :root[data-overlay-scrollbars] *::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+.webui-scrollbars { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; overflow: visible; pointer-events: none; }
+.webui-scrollbars::backdrop { background: transparent; pointer-events: none; }
+.webui-scrollbar-thumb { position: absolute; box-sizing: border-box; border: 1px solid transparent; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--color-text-muted) 35%, transparent); background-clip: padding-box; pointer-events: auto; touch-action: none; user-select: none; }
+.webui-scrollbar-thumb[hidden] { display: none; }

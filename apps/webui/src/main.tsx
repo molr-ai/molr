@@ -4,4 +4,5 @@ import '@fontsource-variable/dm-sans';
 import '@molr/ui/styles.css';
 import './styles.css';
 import { App } from './App';
-createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);
+import { Scrollbars } from './scrollbars';
+createRoot(document.getElementById('root')!).render(<StrictMode><Scrollbars /><App /></StrictMode>);

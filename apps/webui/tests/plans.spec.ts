@@ -15,7 +15,8 @@ async function isolatedCalendarAccount(page: Page) {
  expect(await(await page.request.get('/api/plans')).json()).toEqual([]);
 }
 async function assistant(page:Page,name:string){const resource=await post(page,'/api/resources',{Name:name,Kind:'model',Provider:'openai-compatible',Binding:{Endpoint:modelOrigin,AllowedOrigins:[modelOrigin],Models:[{Name:name,ContextLimit:32768,SupportsTools:true,Pricing:{Currency:'USD',InputMicrosPerMillion:0,OutputMicrosPerMillion:0,CachedInputMicrosPerMillion:0}}]}});const models=await(await page.request.get('/api/models')).json();return post(page,'/api/assistants',{Name:name,ModelID:models.find((m:any)=>m.ResourceID===resource.ID).ID,Budget:{Limit:{Currency:'USD',Micros:0},Period:'daily'}});}
-async function planAction(page:Page,title:string,action:string){await row(page,title).first().getByRole('button',{name:'Plan actions',exact:true}).click();await page.getByRole('menuitem',{name:action,exact:true}).click();}
+async function closePlanDrawer(page: Page) { const drawer = page.locator('.plans-details-drawer'); if (await drawer.isVisible()) { await drawer.getByRole('button', { name: 'Close details', exact: true }).click(); await expect(drawer).toBeHidden(); } }
+async function planAction(page:Page,title:string,action:string){await closePlanDrawer(page);await row(page,title).first().getByRole('button',{name:'Plan actions',exact:true}).click();await page.getByRole('menuitem',{name:action,exact:true}).click();}
 const details=(page:Page,title:string)=>page.getByRole('region',{name:`${title} · Plan details`,exact:true});
 const row=(page:Page,title:string)=>page.locator('.plan-row').filter({has:page.getByRole('heading',{name:title,exact:true})});
 
@@ -25,18 +26,18 @@ test('personal preparation hands off exactly once; plan and immutable execution 
  await page.goto('/#/plans');await selectPlanRange(page, /No date/);await planAction(page,analysisTitle,'Handoff settings');
  const config=page.getByRole('dialog',{name:'Handoff settings',exact:true});await config.getByRole('combobox',{name:'Prerequisite plans',exact:true}).click();await page.getByRole('option',{name:prepTitle,exact:true}).click();await page.keyboard.press('Escape');await config.getByRole('combobox',{name:'Handoff settings',exact:true}).click();await page.getByRole('option',{name:'Start automatically',exact:true}).click();await config.getByRole('button',{name:'Save',exact:true}).click();await expect(config).not.toBeVisible();
  await expect(row(page,analysisTitle)).toContainText('Waiting for prerequisites');await row(page,analysisTitle).getByRole('button',{name:/Execution history/}).click();await expect(details(page,analysisTitle).getByRole('button',{name:'Start this execution'})).toBeDisabled();
- await row(page,prepTitle).getByRole('button',{name:/Execution history/}).click();await details(page,prepTitle).getByRole('button',{name:'Complete this execution'}).click();const completion=page.getByRole('dialog',{name:'Complete this execution'});await completion.getByLabel('Result or handoff notes').fill('Sales 120; cost 80.');await completion.getByRole('button',{name:'Complete this execution',exact:true}).click();await expect(completion).not.toBeVisible();
+ await closePlanDrawer(page);await row(page,prepTitle).getByRole('button',{name:/Execution history/}).click();await details(page,prepTitle).getByRole('button',{name:'Complete this execution'}).click();const completion=page.getByRole('dialog',{name:'Complete this execution'});await completion.getByLabel('Result or handoff notes').fill('Sales 120; cost 80.');await completion.getByRole('button',{name:'Complete this execution',exact:true}).click();await expect(completion).not.toBeVisible();
  await expect.poll(async()=>{const plans=await(await page.request.get('/api/plans')).json();return plans.find((p:any)=>p.Ref.ID===analysis.ID).Executions.length;}).toBe(1);
  await page.reload();await selectPlanRange(page, /No date/);await row(page,analysisTitle).getByRole('button',{name:/Execution history/}).click();await details(page,analysisTitle).locator('summary').click();await expect(details(page,analysisTitle)).toContainText('Sales 120; cost 80.');await page.screenshot({path:info.outputPath('plans-detail.png')});
  await planAction(page,analysisTitle,'Edit');const edit=page.getByRole('dialog',{name:'Edit',exact:true});await edit.getByLabel('What needs doing?').fill(`${analysisTitle} updated`);await edit.getByRole('button',{name:'Save',exact:true}).click();await expect(edit).not.toBeVisible();
- await page.goto(`/#/assistants/${a.ID}`);await page.locator('.chat-header').getByRole('button',{name:'Plans',exact:true}).click();const panel=page.getByRole('dialog',{name:'Plans',exact:true});await expect(panel).toBeVisible();await selectPlanRange(panel, /No date/);await expect(panel).toContainText(`${analysisTitle} updated`);await expect(panel.getByRole('heading',{name:prepTitle,exact:true})).toHaveCount(0);
+ await page.goto(`/#/assistants/${a.ID}`);await page.locator('.chat-header').getByRole('button',{name:'Plans',exact:true}).click();const panel=page.getByRole('dialog',{name:'Plans',exact:true});await expect(panel).toBeVisible();await expect(panel).toContainText(`${analysisTitle} updated`);await expect(panel.getByRole('heading',{name:prepTitle,exact:true})).toHaveCount(0);
  const item=panel.locator('.plan-row').filter({hasText:`${analysisTitle} updated`});await item.getByRole('button',{name:/Execution history/}).click();await item.locator('summary').click();await expect(item).toContainText(`Plan: ${analysisTitle}`);await expect(item).toContainText('Sales 120; cost 80.');
  const plans=await(await page.request.get('/api/plans')).json();expect(plans.find((p:any)=>p.Ref.ID===analysis.ID).Executions).toHaveLength(1);expect(plans.find((p:any)=>p.Ref.ID===prep.ID).Executions[0].State).toBe('completed');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 
 test('ordinary tasks receive a one-time plan without changing normal chat behavior',async({page},info)=>{
  await login(page);const a=await assistant(page,`One time ${info.project.name}-${Date.now()}`),goal=`One-time report ${Date.now()}`;const task=await post(page,'/api/tasks',{AssistantID:a.ID,Goal:goal});expect(task.Plan.Kind).toBe('todo');
- await page.goto(`/#/assistants/${a.ID}`);await page.locator('.chat-header').getByRole('button',{name:'Plans',exact:true}).click();const panel=page.getByRole('dialog',{name:'Plans',exact:true});await selectPlanRange(panel, /No date/);await expect(panel).toContainText(goal);await panel.getByRole('button',{name:/Execution history/}).click();await expect(panel.locator('.plan-execution')).toHaveCount(1);await page.screenshot({path:info.outputPath('assistant-plans.png')});
+ await page.goto(`/#/assistants/${a.ID}`);await page.locator('.chat-header').getByRole('button',{name:'Plans',exact:true}).click();const panel=page.getByRole('dialog',{name:'Plans',exact:true});await expect(panel).toContainText(goal);await panel.getByRole('button',{name:/Execution history/}).click();await expect(panel.locator('.plan-execution')).toHaveCount(1);await page.screenshot({path:info.outputPath('assistant-plans.png')});
 });
 
 
@@ -79,12 +80,13 @@ test('month fills the workspace; cell capacity resizes and overflow opens every 
  await page.setViewportSize(info.project.name==='desktop'?{width:1440,height:1000}:{width:393,height:851});await expect.poll(async()=>Number(await cell.getAttribute('data-capacity'))).toBe(capacity);
  await page.getByRole('button',{name:'Next month',exact:true}).click();const next=new Date(at.getFullYear(),at.getMonth()+1,1);await expect(page.locator('.plans-month-calendar')).toHaveAttribute('data-month',dateKey(next).slice(0,7));await page.getByRole('button',{name:'Today',exact:true}).click();await expect(page.locator('.plans-month-calendar')).toHaveAttribute('data-month',dateKey(new Date()).slice(0,7));
  if(info.project.name==='mobile') {
+  await expect(page.locator('.plans-statusbar')).toBeHidden();
   for(const height of [851,420]) {
    await page.setViewportSize({width:393,height});
    await page.locator('.plans-master').evaluate(el=>{el.scrollTop=el.scrollHeight;});
    await expect.poll(()=>page.evaluate(()=>{
-    const grid=document.querySelector('.plans-month-grid')!.getBoundingClientRect(), footer=document.querySelector('.plans-statusbar')!.getBoundingClientRect(), menu=document.querySelector('.workspace-nav')!.getBoundingClientRect();
-    return grid.bottom<=footer.top+1 && footer.bottom<menu.top;
+    const grid=document.querySelector('.plans-month-grid')!.getBoundingClientRect(), menu=document.querySelector('.workspace-nav')!.getBoundingClientRect();
+    return grid.bottom<menu.top;
    })).toBe(true);
   }
  }
@@ -98,7 +100,7 @@ test('upcoming list paginates occurrences in time order and calendar preserves r
  await page.goto('/#/plans');await page.getByRole('combobox',{name:'Owner',exact:true}).click();await page.getByRole('option',{name:a.Name,exact:true}).click();await expect(row(page,title)).toHaveCount(50);
  const times=await row(page,title).evaluateAll(rows=>rows.map(row=>row.getAttribute('data-occurrence')!));expect(new Set(times).size).toBe(50);expect(times.map(Date.parse)).toEqual([...times.map(Date.parse)].sort((a,b)=>a-b));
  await page.getByRole('button',{name:'Load 50 more events',exact:true}).click();await expect(row(page,title)).toHaveCount(100);expect(new Set(await row(page,title).evaluateAll(rows=>rows.map(row=>row.getAttribute('data-occurrence')))).size).toBe(100);
- await page.locator('.plans-reservations > summary').click();await expect(page.locator('.plans-dream-windows')).toContainText('Read-only');await expect(page.locator('.plans-reservations .plans-dream-conflict')).toHaveCount(0);await page.locator('.plans-reservations > summary').click();
+ if (info.project.name === 'desktop') {await page.locator('.plans-reservations > summary').click();await expect(page.locator('.plans-dream-windows')).toContainText('Read-only');await expect(page.locator('.plans-reservations .plans-dream-conflict')).toHaveCount(0);await page.locator('.plans-reservations > summary').click();} else {await expect(page.locator('.plans-statusbar')).toBeHidden();}
  await planAction(page,title,'Edit');await expect(page.getByRole('dialog').locator('.plans-dream-conflict')).toContainText('Conflicts within 90 days');await page.keyboard.press('Escape');
  await calendar(page).click();for(let offset=0;offset<3;offset++){const occurrence=new Date(at);occurrence.setDate(occurrence.getDate()+offset);await pickMonth(page,dateKey(occurrence).slice(0,7));await expect(page.locator(`.plans-month-day[data-day="${dateKey(occurrence)}"] .plans-month-event > span`).filter({hasText:title})).toBeVisible();}
  await expect(page.locator('.plans-month-calendar')).not.toContainText('Reserved for dreaming');await page.screenshot({path:info.outputPath('recurring-calendar.png')});
@@ -110,7 +112,7 @@ test('completing a recurring event targets the selected occurrence only',async({
  await page.goto('/#/plans');await expect(row(page,title)).toHaveCount(3);const second=row(page,title).nth(1),selected=await second.getAttribute('data-occurrence');await second.getByRole('button',{name:/Execution history/}).click();await details(page,title).getByRole('button',{name:'Complete this execution',exact:true}).click();
  const response=page.waitForResponse(r=>r.url().endsWith('/api/plans/execute')&&r.request().method()==='POST');await page.getByRole('dialog',{name:'Complete this execution',exact:true}).getByRole('button',{name:'Complete this execution',exact:true}).click();const result=await response;expect(result.ok(),await result.text()).toBe(true);expect(result.request().postDataJSON().OccurrenceAt).toBe(selected);
  const plans=await(await page.request.get('/api/plans')).json(),saved=plans.find((p:any)=>p.Ref.ID===plan.ID);expect(saved.Executions).toHaveLength(1);expect(Date.parse(saved.Executions[0].OccurrenceAt)).toBe(Date.parse(selected!));
- await expect(row(page,title).nth(1)).toHaveAttribute('data-completed','true');await expect(row(page,title).nth(0)).toHaveAttribute('data-completed','false');
+ await closePlanDrawer(page);await expect(row(page,title).nth(1)).toHaveAttribute('data-completed','true');await expect(row(page,title).nth(0)).toHaveAttribute('data-completed','false');
 });
 
 test('old recurring plans warn in edit and exact event details using the shared alert',async({page},info)=>{
@@ -125,7 +127,10 @@ test('old recurring plans warn in edit and exact event details using the shared 
  await edit.locator('.plans-dream-conflict').getByRole('button',{name:'Close',exact:true}).click();await expect(edit.locator('.plans-dream-conflict')).toHaveCount(0);
  await pickerTime(page,'Start time',5,5);await expect(edit.locator('.plans-dream-conflict')).toHaveCount(0);await pickerTime(page,'Start time',3,5);await expect(edit.locator('.ui-alert--warning.plans-dream-conflict')).toBeVisible();await edit.getByRole('button',{name:'Cancel',exact:true}).click();await expect(edit).not.toBeVisible();
  await first.getByRole('button',{name:title,exact:true}).click();await expect(details(page,title).locator('.ui-alert--warning.plans-dream-conflict').first()).toBeVisible();
+ await closePlanDrawer(page);
+ if (info.project.name === 'desktop') {
  const footer=page.locator('.plans-reservations');await footer.locator('summary').click();await expect(footer).toHaveAttribute('open','');await expect(footer.locator('summary')).toContainText('1 window');await expect.poll(()=>footer.locator('summary > svg').evaluate(el=>getComputedStyle(el).transform)).toContain('-1');await expect(footer.locator('.plans-dream-windows')).toContainText('one configurable daily window');await footer.locator('summary').click();
+ } else { await expect(page.locator('.plans-statusbar')).toBeHidden(); }
  await calendar(page).click();await expect(page.locator('input[type="month"]')).toHaveCount(0);await pickMonth(page,'2027-02');await expect(page.locator('.plans-month-calendar')).toHaveAttribute('data-month','2027-02');
 });
 
@@ -135,4 +140,24 @@ test('shared date picker preserves the plan timezone and type dots have distinct
  await page.goto('/#/plans');await planAction(page,title,'Edit');const edit=page.getByRole('dialog',{name:'Edit',exact:true});await edit.getByRole('group',{name:'Start time',exact:true}).getByRole('button',{name:'Custom',exact:true}).click();const picker=page.getByRole('dialog',{name:'Date and time',exact:true});await expect(picker.getByRole('listbox',{name:'Hour',exact:true}).getByRole('option',{name:'09',exact:true})).toHaveAttribute('aria-selected','true');await picker.getByRole('button',{name:'Cancel',exact:true}).click();
  await pickerTime(page,'Start time',10,20);const response=page.waitForResponse(r=>r.url().endsWith('/api/schedules/update')&&r.request().method()==='POST');await edit.getByRole('button',{name:'Save',exact:true}).click();const saved=await response;expect(saved.ok(),await saved.text()).toBe(true);expect(saved.request().postDataJSON().Trigger.StartAt).toBe(iso.slice(0,10)+'T10:20:00.000Z');expect(saved.request().postDataJSON().ID).toBe(schedule.ID);
  const color=(title:string)=>row(page,title).first().locator('.plans-type-dot').evaluate(el=>getComputedStyle(el).backgroundColor);expect(await color(title)).not.toBe(await color(itemTitle));await expect(row(page,itemTitle).locator('.plans-type-dot')).toHaveAttribute('aria-label','Item');await expect(row(page,title).locator('.plans-type-dot')).toHaveAttribute('aria-label','Time block');
+});
+
+
+test('plan details open in a drawer without resizing the list and restore focus on close', async ({ page }, info) => {
+ await login(page);
+ const title = `Drawer plan ${info.project.name}-${Date.now()}`;
+ await post(page, '/api/todos', { Title: title, DueAt: new Date(Date.now() + 3600_000).toISOString() });
+ await page.goto('/#/plans');
+ const trigger = row(page, title).getByRole('button', { name: title, exact: true });
+ await expect(trigger).toBeVisible();
+ const list = page.locator('.plans-master'), width = await list.evaluate(el => el.clientWidth);
+ await trigger.focus(); await page.keyboard.press('Enter');
+ const drawer = page.getByRole('dialog', { name: 'Plan details', exact: true });
+ await expect(drawer).toHaveClass(/ui-drawer/);
+ await expect(drawer.getByRole('heading', { name: title, exact: true })).toBeVisible();
+ await expect(page.locator('.plans-inspector')).toHaveCount(0);
+ expect(await list.evaluate(el => el.clientWidth)).toBe(width);
+ await page.keyboard.press('Escape'); await expect(drawer).toBeHidden(); await expect(trigger).toBeFocused();
+ await row(page, title).click({ position: { x: 5, y: 5 } }); await expect(drawer).toBeVisible();
+ await closePlanDrawer(page); await expect(trigger).toBeFocused();
 });

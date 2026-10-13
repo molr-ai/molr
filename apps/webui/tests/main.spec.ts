@@ -8,7 +8,7 @@ import type { Locator, Page } from '@playwright/test';
 const base = `http://127.0.0.1:${process.env.MOLR_TEST_PORT ?? process.env.MOLR_E2E_PORT ?? 5193}`;
 const csrfCookie = `molr_dev_csrf_p${new URL(base).port}`, sessionCookie = `molr_dev_session_p${new URL(base).port}`;
 const modelOrigin = `http://127.0.0.1:${process.env.MOLR_E2E_MODEL_PORT ?? 18882}`;
-// Resource cards keep management actions (edit / disconnect / delete) in a menu.
+// Resource cards keep model and provider actions in a menu.
 async function cardAction(page: Page, card: Locator, name: string) {
   await card.getByRole('button', { name: 'More', exact: true }).click();
   await page.getByRole('menu', { name: 'More', exact: true }).getByRole('menuitem', { name, exact: true }).click();
@@ -110,7 +110,7 @@ test('model setup, automatic hire permission, real agent reply, attachments and 
   await page.getByRole('list', { name: 'Notifications', exact: true }).getByRole('button', { name: 'Close', exact: true }).click();
   const providerCard = resourceRow(page, resourceName);
   await expandResource(providerCard);
-  await providerCard.getByRole('button', { name: 'Add model', exact: true }).click();
+  await cardAction(page, providerCard, 'Add model');
   const modelForm = page.getByRole('dialog', { name: 'Add model', exact: true });
   await expect(modelForm.getByLabel('API Key', { exact: false })).toHaveCount(0);
   await modelForm.getByRole('textbox', { name: 'Model identifier', exact: true }).fill(resourceName);
@@ -830,7 +830,7 @@ test('provider connection discovers models without manual configuration and keep
   await configuration.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(configuration).not.toBeVisible();
   await expect(card.getByText('Pricing not configured', { exact: true })).toHaveCount(1);
-  await card.getByRole('button', { name: 'Refresh models', exact: true }).click();
+  await cardAction(page, card, 'Refresh models');
   await expect(card).toContainText('discovered-two');
   await expect(card.getByText('Pricing not configured', { exact: true })).toHaveCount(1);
 });
@@ -1011,7 +1011,9 @@ test('disconnected providers can be deleted while assistants are kept', async ({
   await expandResource(card);
   await cardAction(page, card, 'Disconnect resource');
   await page.getByRole('dialog', { name: 'Disconnect resource', exact: true }).getByRole('button', { name: 'Confirm', exact: true }).click();
-  await expect(card.getByRole('button', { name: 'Check connection', exact: true })).toBeDisabled();
+  await card.getByRole('button', { name: 'More', exact: true }).click();
+  await expect(page.getByRole('menuitem', { name: 'Check connection', exact: true })).toBeDisabled();
+  await page.keyboard.press('Escape');
   await page.getByRole('list', { name: 'Notifications', exact: true }).getByRole('button', { name: 'Close', exact: true }).click();
   await cardAction(page, card, 'Delete provider');
   await page.getByRole('dialog', { name: 'Delete provider', exact: true }).getByRole('button', { name: 'Confirm', exact: true }).click();
@@ -1650,7 +1652,7 @@ test('currency preferences preserve native budgets and prices and show the confi
     await page.getByRole('navigation').getByRole('button', { name: 'Resources', exact: true }).click();
     const card = resourceRow(page, `${name} seed`);
     await expandResource(card);
-    await card.getByRole('button', { name: 'Add model', exact: true }).click();
+    await cardAction(page, card, 'Add model');
     const model = page.getByRole('dialog', { name: 'Add model', exact: true });
     await expect(model.getByRole('combobox', { name: 'Currency', exact: true })).toContainText('Chinese yuan CNY');
     await model.getByRole('textbox', { name: 'Model identifier', exact: true }).fill('native-cny');

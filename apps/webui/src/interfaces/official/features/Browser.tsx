@@ -297,7 +297,6 @@ export function Browser({ assistantID, docked, floating, onFloatingChange, bound
         {tabScroll.overflow && <IconButton className="browser-tab-scroll" label={zh ? '向右滚动标签页' : 'Scroll tabs right'} disabled={!tabScroll.right} onClick={() => scrollTabs(1)}><ChevronRight size={16}/></IconButton>}
       </div>
       <IconButton className="browser-new-tab" label={zh ? '新建标签页' : 'New tab'} disabled={!canOperate} onClick={() => input({ action: 'new_tab', url: 'about:blank' })}><Plus size={18}/></IconButton>
-      {query.data?.Proxy?.Mode === 'proxy' && <Badge className="browser-proxy-badge" size="sm" dot={false}>{zh ? '代理已启用' : 'Proxy enabled'}</Badge>}
       {viewActions}
     </div> : <div className="browser-window-heading" {...dragProps}>{moveHandle}<span>{zh ? '浏览器' : 'Browser'}</span>{viewActions}</div>}>
     <div className="browser-panel" ref={panelRef}>
@@ -319,7 +318,7 @@ export function Browser({ assistantID, docked, floating, onFloatingChange, bound
           {(!connected || !hasFrame) && <div className="browser-overlay"><Globe size={24}/><span>{zh ? '正在连接浏览器…' : 'Connecting to browser…'}</span></div>}
         </div>
         {keyboardOpen && <div className="browser-input-tray"><textarea ref={auxiliaryInput} {...keyboardProps} className="browser-keyboard" aria-label={zh ? '辅助输入' : 'Keyboard input'} placeholder={zh ? '先点击网页中的输入框，再在这里输入或粘贴' : 'Click a field in the page, then type or paste here'}/></div>}
-        <div className="browser-statusbar"><span role="status" className="browser-connection" data-connected={connected || undefined}><i/>{connected ? (zh ? '已连接' : 'Connected') : (zh ? '连接中…' : 'Connecting…')}</span><div className="browser-status-actions"><IconButton label={keyboardOpen ? (zh ? '收起辅助输入' : 'Hide keyboard input') : (zh ? '辅助输入' : 'Keyboard input')} aria-pressed={keyboardOpen} disabled={!ownsControl} onClick={() => { composing.current = false; setKeyboardOpen(!keyboardOpen); }}><Keyboard size={17}/></IconButton><IconButton label={zh ? '结束浏览器会话' : 'End browser session'} disabled={busy} onClick={() => void command({ action: 'close' })}><Power size={16}/></IconButton></div></div>
+        <div className="browser-statusbar"><span role="status" className="browser-connection" data-connected={connected || undefined}><i/><span>{connected ? (zh ? '已连接' : 'Connected') : (zh ? '连接中…' : 'Connecting…')}{query.data?.Proxy?.Mode === 'proxy' && (zh ? ' · 代理已启用' : ' · Proxy enabled')}</span></span><div className="browser-status-actions"><IconButton label={keyboardOpen ? (zh ? '收起辅助输入' : 'Hide keyboard input') : (zh ? '辅助输入' : 'Keyboard input')} aria-pressed={keyboardOpen} disabled={!ownsControl} onClick={() => { composing.current = false; setKeyboardOpen(!keyboardOpen); }}><Keyboard size={17}/></IconButton><IconButton label={zh ? '结束浏览器会话' : 'End browser session'} disabled={busy} onClick={() => void command({ action: 'close' })}><Power size={16}/></IconButton></div></div>
       </>}
     </div>
     {floating && <button type="button" className="browser-resize" aria-label={zh ? '调整浮窗大小（方向键微调）' : 'Resize window (arrow keys to adjust)'} {...resizeProps}/>}

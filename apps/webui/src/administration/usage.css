@@ -21,7 +21,7 @@
 .usage-costs { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: var(--space-3); margin: 0; }
 .usage-costs dd { font-size: var(--text-sm); }
 .usage-held-note { color: var(--color-text-muted); }
-.usage-context { display: grid; gap: var(--space-3); min-width: 0; }
+.usage-summary,.usage-context { display: grid; gap: var(--space-3); min-width: 0; }
 .usage-context .usage-overview { grid-template-columns: repeat(2,minmax(0,1fr)); }
 @media (--molr-mobile) {
  .usage-overview { grid-template-columns: repeat(2,minmax(0,1fr)); }

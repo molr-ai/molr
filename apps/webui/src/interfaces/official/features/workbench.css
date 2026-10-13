@@ -12,13 +12,13 @@
 .workbench-live i, .trajectory-footer-follow i { width: 5px; height: 5px; border-radius: 50%; background: var(--color-text-muted); }
 .workbench-live[data-connected='true'] i, .trajectory-footer-follow[data-follow='true'] i { background: var(--color-positive); }
 .workbench > .ui-alert { margin: 8px 20px; }
-.workbench-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); position: relative; }
+.workbench-grid { background: var(--color-surface); flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); position: relative; }
 .workbench-grid--inspecting { grid-template-columns: minmax(0, 1fr) minmax(360px, 36%); }
 .workbench-main { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 .workbench h2 { font-size: 14px; font-weight: 550; margin: 0; }
 .workbench h3 { font-size: 13px; font-weight: 550; }
-.workbench-queued { padding: 6px 24px; font-size: 12px; border-bottom: 1px solid var(--color-border); }
-.trajectory-controls { display: flex; align-items: center; gap: 8px; padding: 0 24px; border-bottom: 1px solid var(--color-border); flex: none; }
+.workbench-queued { background: var(--color-surface); padding: 6px 24px; font-size: 12px; border-bottom: 1px solid var(--color-border); }
+.trajectory-controls { background: var(--color-surface); display: flex; align-items: center; gap: 8px; padding: 0 24px; border-bottom: 1px solid var(--color-border); flex: none; }
 .trajectory-controls > .trajectory-filters { flex-shrink: 0; align-self: stretch; border-bottom: 0; }
 .trajectory-controls .search-field { flex: 1; width: 240px; min-width: 0; max-width: 280px; }
 .trajectory-controls .search-field .input { height: 32px; min-height: 32px; font-size: 12px; background: transparent; }
@@ -65,7 +65,7 @@
 .trajectory-empty { padding: 32px 24px; font-size: 13px; }
 .trajectory-virtual-row { border-bottom: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent); }
 .trajectory-run, .trajectory-record-body, .trajectory-fold { background: transparent; color: inherit; font: inherit; border: 0; text-align: left; cursor: pointer; }
-.trajectory-run { height: 100%; width: 100%; display: grid; grid-template-columns: var(--trace-kind-width) minmax(0, 1fr) var(--trace-state-width) var(--trace-time-width); align-items: center; gap: 16px; padding: 0 24px; background: color-mix(in srgb, var(--color-background) 74%, var(--color-surface)); font-size: 12px; }
+.trajectory-run { height: 100%; width: 100%; display: grid; grid-template-columns: var(--trace-kind-width) minmax(0, 1fr) var(--trace-state-width) var(--trace-time-width); align-items: center; gap: 16px; padding: 0 24px; background: var(--color-surface); font-size: 12px; }
 .trajectory-trigger-kind { display: flex; min-width: 0; align-items: center; gap: 10px; }
 .trajectory-trigger-kind > svg { flex-shrink: 0; color: var(--color-text-muted); }
 .trajectory-trigger-kind > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -208,7 +208,7 @@
 .trajectory-preview-text { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.65; }
 .trajectory-inspect { display: grid; place-items: center; align-self: center; flex: 0 0 24px; height: 28px; margin-left: 10px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--color-text-muted); cursor: pointer; }
 .trajectory-inspect:hover { background: var(--color-neutral-bg); }
-.trajectory-run-shell { height: 100%; background: color-mix(in srgb, var(--color-background) 74%, var(--color-surface)); }
+.trajectory-run-shell { height: 100%; background: var(--color-surface); }
 .trajectory-run-bar { display: flex; height: 100%; padding-inline: 24px; }
 .trajectory-run-bar .trajectory-run { min-width: 0; flex: 1; padding: 0; background: transparent; }
 .trajectory-trigger-copy { display: block; min-width: 0; flex: 1; font-size: 12px; line-height: 1.7; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
@@ -225,7 +225,7 @@
 .workspace--mobile .trajectory-run:has(.trajectory-state) .trajectory-trigger-content { grid-column: 2; grid-row: 1; padding-right: 72px; }
 
 
-.workbench-turn-notice { margin: 0; padding: var(--space-2) var(--space-4); }
+.workbench-turn-notice { background: var(--color-surface); margin: 0; padding: var(--space-2) var(--space-4); }
 
 @media (prefers-reduced-motion: reduce) { .workbench-disclosure > summary > svg { transition: none; } }
 

@@ -66,7 +66,7 @@ export function AboutUpdates() {
  const ReleaseIcon = available ? CircleArrowUp : status?.comparison === 'current' ? CheckCircle2 : Info;
  const consistent = updates.consistency === 'consistent' && !updates.unreachable;
  return <div className="about-updates">
-  <section className="about-release" aria-label={zh ? '可用更新' : 'Release updates'}>
+  <section className="about-release settings-card" aria-label={zh ? '可用更新' : 'Release updates'}>
    <header className="update-section-heading">
     <h3>{zh ? '软件更新' : 'Software updates'}</h3>
     <Button variant="secondary" size="sm" loading={!!checking} aria-label={zh ? '检查更新' : 'Check for updates'} disabled={!status?.source_configured || !status.supported || checking || next > now} onClick={() => void updates.check()}>
@@ -98,7 +98,7 @@ export function AboutUpdates() {
     {next > now && <span>{zh ? '可再次检查时间 ' : 'Next check available '}{new Date(next).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: false })}</span>}
    </div>
   </section>
-  <section className="about-builds" aria-label={zh ? '当前安装' : 'Installed builds'}>
+  <section className="about-builds settings-card" aria-label={zh ? '当前安装' : 'Installed builds'}>
    <header className="update-section-heading">
     <h3>{zh ? '版本信息' : 'Build information'}</h3>
     <Button variant="ghost" size="sm" onClick={updates.reload} disabled={updates.loading} aria-label={zh ? '重新检查一致性' : 'Recheck build consistency'}><RefreshCw size={14} aria-hidden="true" />{zh ? '重新检查' : 'Recheck'}</Button>
@@ -115,7 +115,7 @@ export function AboutUpdates() {
     {updates.observedAt && <p className="update-meta">{zh ? '最近确认 ' : 'Last confirmed '}{time(updates.observedAt)}</p>}
    </div>
   </section>
-  <section className="about-service" aria-label={zh ? '服务信息' : 'Service information'}>
+  <section className="about-service settings-card" aria-label={zh ? '服务信息' : 'Service information'}>
    <header className="update-section-heading"><h3>{zh ? '服务信息' : 'Service information'}</h3></header>
    <dl className="update-builds">
     <div><dt>{t.settings.runtimeName}</dt><dd className="update-runtime-value">{runtime.data?.name || '—'}</dd></div>

@@ -111,13 +111,14 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   await page.getByRole('option', { name: 'Local two' }).click();
   await page.getByRole('button', { name: 'Start browser', exact: true }).click();
   await expect(trigger).toHaveAccessibleName('Browser (2)');
-  const proxyBadge = page.locator('.browser-drawer .ui-dialog__header .browser-proxy-badge');
-  await expect(proxyBadge).toHaveText('Proxy enabled');
+  const connection = page.locator('.browser-connection');
+  await expect(connection).toHaveText('Connected · Proxy enabled');
+  await expect(page.locator('.browser-drawer .ui-dialog__header')).not.toContainText('Proxy enabled');
   proxyMode = 'direct';
-  await expect(proxyBadge).toHaveCount(0); // A pending proxy configuration must not label a direct session.
+  await expect(connection).toHaveText('Connected'); // A pending proxy configuration must not label a direct session.
   await expect(page.getByText(/Network settings/)).toHaveCount(0);
   proxyMode = 'proxy';
-  await expect(proxyBadge).toBeVisible();
+  await expect(connection).toHaveText('Connected · Proxy enabled');
   expect(await iconPosition()).toEqual(bareIcon);
   const badge = trigger.locator('.badge');
   await expect(badge).toHaveCSS('position', 'absolute');

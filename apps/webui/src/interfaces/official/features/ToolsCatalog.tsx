@@ -41,11 +41,9 @@ export function ToolsCatalog() {
       {!shown.length ? <div className="tools-catalog-empty"><EmptyState illustration={tools.length ? <Search /> : <Wrench />} title={tools.length ? t.noResults : copy.empty} description={tools.length ? copy.noResultsHelp : copy.emptyHelp} />{tools.length > 0 && <Button variant="secondary" size="sm" onClick={() => { setSearch(''); setGroup('all'); }}>{copy.reset}</Button>}</div> : groups.filter(item => group === 'all' || group === item.key).map(item => item.tools.length > 0 && <section className="tools-catalog-group" key={item.key} aria-label={t.assistantInfo.toolGroups[item.key]}>
         <h3><item.icon size={16} aria-hidden="true" />{t.assistantInfo.toolGroups[item.key]}<span>{item.tools.length}</span></h3>
         <ul>{item.tools.map(tool => {
-          const EffectIcon = tool.SideEffect ? PenLine : Eye;
-          return <li key={tool.Name}><button type="button" className="tools-catalog-row" aria-haspopup="dialog" onClick={() => setSelected(tool.Name)}>
+          return <li key={tool.Name}><button type="button" className="tools-catalog-row interactive-card" aria-haspopup="dialog" onClick={() => setSelected(tool.Name)}>
             <span className="tools-catalog-icon"><item.icon size={18} aria-hidden="true" /></span>
             <span className="tools-catalog-copy"><strong>{labels[tool.Name]?.name ?? tool.Name}</strong><span>{labels[tool.Name]?.description ?? tool.Description}</span></span>
-            <span className="tools-catalog-effect"><EffectIcon size={13} aria-hidden="true" />{tool.SideEffect ? copy.changesData : copy.readOnly}</span>
             <ChevronRight className="tools-catalog-chevron" size={16} aria-hidden="true" />
           </button></li>;
         })}</ul>

@@ -30,28 +30,28 @@ function Metric({ label, children }: { label: string; children: ReactNode }) {
 function Overview({ value }: { value: UsageSummary }) {
   const pluginsVisible = usePluginsVisible();
   const { locale } = useCopy(), zh = locale === 'zh';
-  return <Card><dl className="usage-overview">
+  return <dl className="usage-overview">
     <Metric label={zh ? '累计模型费用' : 'Lifetime model spend'}><Amounts values={value.Spent} /></Metric>
     <Metric label={zh ? '预留费用' : 'Reserved spend'}><Amounts values={value.Reserved} /></Metric>
     <Metric label={zh ? '模型调用' : 'Model calls'}>{value.ModelCalls.toLocaleString(locale)}</Metric>
     <Metric label={zh ? '工具调用' : 'Tool calls'}>{value.ToolCalls.toLocaleString(locale)}</Metric>
     {pluginsVisible && <Metric label={zh ? 'HTTP 连接调用' : 'HTTP connection calls'}>{value.ConnectionCalls.toLocaleString(locale)}</Metric>}
     <Metric label={zh ? '当前附件存储' : 'Current attachment storage'}>{bytes(value.AttachmentBytes)}</Metric>
-  </dl></Card>;
+  </dl>;
 }
 function ContextStorage({ value, global = false }: { value: ContextStorageUsage; global?: boolean }) {
   const { locale } = useCopy(), zh = locale === 'zh';
-  return <section className="usage-context" aria-label={global ? (zh ? '全局上下文存储' : 'Global context storage') : (zh ? '账号上下文存储' : 'Account context storage')}>
+  return <Card role="region" className="usage-context" aria-label={global ? (zh ? '全局上下文存储' : 'Global context storage') : (zh ? '账号上下文存储' : 'Account context storage')}>
     <div className="usage-section-heading"><h3>{global ? (zh ? '全局上下文存储' : 'Global context storage') : (zh ? '账号上下文存储' : 'Account context storage')}</h3></div>
-    <Card><dl className="usage-overview">
+    <dl className="usage-overview">
       <Metric label={zh ? '上下文数据量' : 'Context data size'}>{bytes(value.Bytes)}</Metric>
       <Metric label={zh ? '去重消息节点' : 'Unique message nodes'}>{value.Messages.toLocaleString(locale)}</Metric>
-    </dl></Card>
+    </dl>
     <p className="usage-note">{global
       ? (zh ? '跨账号去重后的全局存储，包含等待回收的数据，不受成员筛选影响。' : 'Global storage after deduplication across accounts, including data awaiting collection. Member filters do not affect this total.')
       : (zh ? '统计本账号引用的数据，账号内去重。跨账号共享数据分别计入各账号，因此账号用量不能直接相加作为全局用量。' : 'Data referenced by your account, deduplicated within this account. Shared data counts toward each account, so account totals cannot be added to obtain global storage.')}
       {' '}{zh ? '包含消息、工具定义及调试详情的存储对象，不含数据库索引、引用元数据和空闲空间。' : 'Includes stored messages, tool definitions and debug details; excludes database indexes, reference metadata and free space.'}</p>
-  </section>;
+  </Card>;
 }
 function Allowance({ label, used, limit }: { label: string; used: number; limit: number }) {
   const { locale } = useCopy(), zh = locale === 'zh';
@@ -90,9 +90,11 @@ export function AccountUsage() {
     <details className="usage-current" open><summary>{zh ? '累计用量与额度' : 'Lifetime usage and allowances'}<ChevronDown size={16} aria-hidden="true" /></summary><div className="usage-current-body">
     <p className="usage-note">{zh ? '费用与调用次数为累计值，不受上方日期、助理或模型筛选影响；存储与额度为当前状态。' : 'Spend and calls are lifetime totals, independent of the date, assistant and model filters above. Storage and allowances reflect the current state.'}</p>
     {!data ? query.loading && <Loading /> : <>
-      <Overview value={data.Summary} />
-      <p className="usage-note">{zh ? '预留费用尚未确认为实际消费。' : 'Reserved spend is not confirmed spending.'}</p>
-      {pluginsVisible && <p className="usage-note">{zh ? 'HTTP 连接调用也计入工具次数，两项不可相加。' : 'HTTP connection calls also count as tool calls; do not add the two.'}</p>}
+      <Card className="usage-summary">
+        <Overview value={data.Summary} />
+        <p className="usage-note">{zh ? '预留费用尚未确认为实际消费。' : 'Reserved spend is not confirmed spending.'}</p>
+        {pluginsVisible && <p className="usage-note">{zh ? 'HTTP 连接调用也计入工具次数，两项不可相加。' : 'HTTP connection calls also count as tool calls; do not add the two.'}</p>}
+      </Card>
       <ContextStorage value={data.ContextStorage} />
       {!data.Group.Administrator && <section className="usage-allowances"><div className="usage-section-heading"><div><h3>{zh ? '当前成员额度' : 'Current member allowances'}</h3><p>{groupName(data.Group, zh)} · {zh ? '每位成员独立计量，所有助理合计使用' : 'Measured per member, across all assistants'}</p></div><Select size="sm" label={zh ? '资源类型' : 'Resource type'} value={!pluginsVisible && filter === 'connection' ? 'all' : filter} onValueChange={setFilter} options={[{ value: 'all', label: zh ? '全部资源' : 'All resources' }, { value: 'model', label: zh ? '模型' : 'Models' }, { value: 'tool', label: zh ? '工具' : 'Tools' }, ...(pluginsVisible ? [{ value: 'connection', label: zh ? '连接' : 'Connections' }] : []), { value: 'sandbox', label: zh ? '沙盒' : 'Sandboxes' }]} /></div>
         {resources.length ? <div className="usage-resources">{resources.map(ref => <ResourceAllowance key={`${ref.Kind}:${ref.ID}`} reference={ref} gpus={sandboxes.data?.find(node => ref.Kind === 'sandbox' && node.ID === ref.ID)?.Info.GPUs} used={data.Resources.find(v => v.Kind === ref.Kind && v.ID === ref.ID)} name={models.data?.find(m => ref.Kind === 'model' && m.ID === ref.ID)?.Name ?? (ref.Kind === 'tool' ? labels[ref.ID]?.name : ref.Kind === 'sandbox' && ref.ID === 'local' ? zh ? '本机沙盒' : 'Local sandbox' : undefined) ?? data.Resources.find(v => v.Kind === ref.Kind && v.ID === ref.ID)?.Name ?? ref.ID} />)}</div> : <Empty title={zh ? '暂无资源额度' : 'No resource allowances'} description={zh ? '当前用户组或筛选条件下没有可展示的资源。' : 'No resources match your group or filter.'} />}
@@ -122,8 +124,10 @@ export function AdminUsage() {
       <p className="usage-note">{zh ? '以下为当前占用与累计记录，不随上方日期、用户组或模型筛选变化。成员选择仅影响账号汇总，全局上下文始终独立去重。' : 'Current holdings and lifetime records are independent of date, group and model filters above. Member selection affects account totals; global context remains independently deduplicated.'}</p>
       {!query.data ? query.loading ? <Loading /> : <Button variant="secondary" size="sm" onClick={query.reload}>{zh ? '重试' : 'Retry'}</Button> : <>
         <ContextStorage value={query.data.ContextStorage} global />
-        {rows && <><div className="usage-section-heading"><h3>{user ? rows[0]?.DisplayName || rows[0]?.Username : zh ? '全部成员累计汇总' : 'Lifetime totals across all members'}</h3></div><Overview value={aggregate(rows)} /></>}
-        <p className="usage-note">{zh ? 'HTTP 连接调用已包含在工具调用中。预留费用尚未确认为消费。' : 'HTTP connection calls are included in tool calls. Reserved spend is not confirmed spending.'}</p>
+        {rows && <Card className="usage-summary"><div className="usage-section-heading"><h3>{user ? rows[0]?.DisplayName || rows[0]?.Username : zh ? '全部成员累计汇总' : 'Lifetime totals across all members'}</h3></div>
+          <Overview value={aggregate(rows)} />
+          <p className="usage-note">{zh ? 'HTTP 连接调用已包含在工具调用中。预留费用尚未确认为消费。' : 'HTTP connection calls are included in tool calls. Reserved spend is not confirmed spending.'}</p>
+        </Card>}
       </>}
     </div></details>
   </div>;
