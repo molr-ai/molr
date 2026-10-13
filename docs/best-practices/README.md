@@ -9,6 +9,7 @@
 | 浏览器 | 接入中 | [操作浏览器](browser.md) |
 | 钉钉 | 官方 DWS CLI | [操作钉钉](dingtalk.md) |
 | 飞书 | 官方 Lark CLI | [操作飞书](feishu.md) |
+| ClawEmail 邮箱 | 官方 Mail-CLI（`mail-cli`，推荐） | [操作 ClawEmail](clawemail.md) |
 | 知乎 | 官方 Zhihu CLI | [操作知乎](zhihu.md) |
 | GitHub | 官方 GitHub CLI（`gh`） | [操作 GitHub](github.md) |
 | Google 服务 | Google Workspace CLI（`gws`） | [操作 Google 服务](google.md) |

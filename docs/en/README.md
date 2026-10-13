@@ -32,7 +32,7 @@ Molr is a self-hostable personal AI assistant. Connect to your chosen models, de
 
 ## Best Practices
 
-Start with the [Best Practices Overview](best-practices/README.md) to prepare tools and permissions, then explore [Operate a Browser](best-practices/browser.md), [Use DingTalk](best-practices/dingtalk.md), [Use Feishu](best-practices/feishu.md), [Use Zhihu](best-practices/zhihu.md), [Use GitHub](best-practices/github.md), and [Use Google Services](best-practices/google.md).
+Start with the [Best Practices Overview](best-practices/README.md) to prepare tools and permissions, then explore [Operate a Browser](best-practices/browser.md), [Use DingTalk](best-practices/dingtalk.md), [Use Feishu](best-practices/feishu.md), [Use ClawEmail](best-practices/clawemail.md), [Use Zhihu](best-practices/zhihu.md), [Use GitHub](best-practices/github.md), and [Use Google Services](best-practices/google.md).
 
 ## Managing Instances
 

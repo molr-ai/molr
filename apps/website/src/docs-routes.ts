@@ -24,6 +24,7 @@ const userSources: SourceRoute[] = [
   { file: 'best-practices/browser.md', path: '/docs/best-practices/browser/', label: '操作浏览器', group: '最佳实践', englishLabel: 'Operate a browser', englishGroup: 'Best practices', root: 'docs' },
   { file: 'best-practices/dingtalk.md', path: '/docs/best-practices/dingtalk/', label: '操作钉钉', group: '最佳实践', englishLabel: 'Use DingTalk', englishGroup: 'Best practices', root: 'docs' },
   { file: 'best-practices/feishu.md', path: '/docs/best-practices/feishu/', label: '操作飞书', group: '最佳实践', englishLabel: 'Use Feishu', englishGroup: 'Best practices', root: 'docs' },
+  { file: 'best-practices/clawemail.md', path: '/docs/best-practices/clawemail/', label: '操作 ClawEmail', group: '最佳实践', englishLabel: 'Use ClawEmail', englishGroup: 'Best practices', root: 'docs' },
   { file: 'best-practices/zhihu.md', path: '/docs/best-practices/zhihu/', label: '操作知乎', group: '最佳实践', englishLabel: 'Use Zhihu', englishGroup: 'Best practices', root: 'docs' },
   { file: 'best-practices/github.md', path: '/docs/best-practices/github/', label: '操作 GitHub', group: '最佳实践', englishLabel: 'Use GitHub', englishGroup: 'Best practices', root: 'docs' },
   { file: 'best-practices/google.md', path: '/docs/best-practices/google/', label: '操作 Google 服务', group: '最佳实践', englishLabel: 'Use Google services', englishGroup: 'Best practices', root: 'docs' },

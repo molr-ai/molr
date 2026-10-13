@@ -9,6 +9,7 @@ Give your assistant a concrete task so it can choose tools to retrieve informati
 | Browser | Integration in progress | [Operate a Browser](browser.md) |
 | DingTalk | Official DWS CLI | [Use DingTalk](dingtalk.md) |
 | Feishu | Official Lark CLI | [Use Feishu](feishu.md) |
+| ClawEmail | Official Mail-CLI (`mail-cli`, recommended) | [Use ClawEmail](clawemail.md) |
 | Zhihu | Official Zhihu CLI | [Use Zhihu](zhihu.md) |
 | GitHub | Official GitHub CLI (`gh`) | [Use GitHub](github.md) |
 | Google services | Google Workspace CLI (`gws`) | [Use Google Services](google.md) |
