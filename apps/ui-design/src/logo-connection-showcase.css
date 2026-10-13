@@ -8,7 +8,7 @@
 .logo-connection__status[data-connection='failed'] strong { color: var(--color-danger); }
 .logo-connection__status span { color: var(--color-text-muted); }
 .logo-connection__panel { min-width: 0; padding: 20px; border-radius: var(--radius-card); }
-.logo-connection__panel--light { background: var(--color-logo-paper); color: var(--color-logo-ink); --color-focus: var(--color-logo-ink); }
+.logo-connection__panel--light { background: var(--color-surface); color: var(--color-logo-ink); --color-focus: var(--color-logo-ink); }
 .logo-connection__panel--dark { background: var(--color-logo-ink); color: var(--color-logo-paper); --color-focus: var(--color-accent); }
 .logo-connection__caption { font-size: 10px; }
 .logo-connection__samples { display: flex; align-items: center; justify-content: space-around; flex-wrap: wrap; gap: 24px; padding: 24px 0 4px; }

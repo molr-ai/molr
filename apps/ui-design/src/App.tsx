@@ -142,7 +142,7 @@ function BrandApp({ locale, copy, changeLocale, palette, changePalette }: Return
           </div>
           <p className="logo-motion-note">{logoMarkOnly && logoAnimation === 'loading' ? copy.identity.loadingMark : copy.animations[logoAnimation].description}</p>
           <div className="logo-examples" id="logo-previews">
-            <div className="logo-panel logo-panel--light"><Logo animation={logoAnimation} replayKey={logoReplayKey} markOnly={logoMarkOnly} interactive interactionLabel={copy.identity.logoAction} /><span>{logoMarkOnly ? copy.identity.mark : copy.identity.wordmark} / LIGHT</span><a href={`${brandAssetBase}/${logoName}${logoSuffix}.svg`} download aria-label={copy.identity.download(copy.identity.lightBackground, downloadLabel, logoMarkOnly ? copy.identity.mark : copy.identity.wordmark)}><ArrowDownToLine size={16} /></a></div>
+            <div className="logo-panel logo-panel--light" data-palette={palette} data-theme="light"><Logo animation={logoAnimation} replayKey={logoReplayKey} markOnly={logoMarkOnly} interactive interactionLabel={copy.identity.logoAction} /><span>{logoMarkOnly ? copy.identity.mark : copy.identity.wordmark} / LIGHT</span><a href={`${brandAssetBase}/${logoName}${logoSuffix}.svg`} download aria-label={copy.identity.download(copy.identity.lightBackground, downloadLabel, logoMarkOnly ? copy.identity.mark : copy.identity.wordmark)}><ArrowDownToLine size={16} /></a></div>
             <div className="logo-panel logo-panel--dark"><Logo variant="light" animation={logoAnimation} replayKey={logoReplayKey} markOnly={logoMarkOnly} interactive interactionLabel={copy.identity.logoAction} /><span>{logoMarkOnly ? copy.identity.mark : copy.identity.reversedWordmark} / DARK</span><a href={`${brandAssetBase}/${logoName}-light${logoSuffix}.svg`} download aria-label={copy.identity.download(copy.identity.darkBackground, downloadLabel, logoMarkOnly ? copy.identity.mark : copy.identity.reversedWordmark)}><ArrowDownToLine size={16} /></a></div>
           </div>
           {logoSequence && (
@@ -161,7 +161,7 @@ function BrandApp({ locale, copy, changeLocale, palette, changePalette }: Return
             <a href={`${brandAssetBase}/molr-mark${logoSuffix}.svg`} download aria-label={copy.identity.downloadMark(copy.identity.forestMark, downloadLabel)}>{copy.identity.forestMark} · {downloadLabel} <ArrowDownToLine size={14} /></a>
             <a href={`${brandAssetBase}/molr-mark-light${logoSuffix}.svg`} download aria-label={copy.identity.downloadMark(copy.identity.reversedMark, downloadLabel)}>{copy.identity.reversedMark} · {downloadLabel} <ArrowDownToLine size={14} /></a>
           </div>
-          <LogoConnectionShowcase locale={locale} markOnly={logoMarkOnly} />
+          <LogoConnectionShowcase locale={locale} palette={palette} markOnly={logoMarkOnly} />
         </section>
 
         <AppIconShowcase copy={copy.appIcon} svgAssetBase={brandAssetBase} />
