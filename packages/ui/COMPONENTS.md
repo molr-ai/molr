@@ -244,6 +244,8 @@ npm run test:ui
 
 ## 助理列表与应用动效偏好
 
+助理列表使用单一背景滑块：悬停项优先于当前选中项，移出后返回选中项；两者均不存在时隐藏。从隐藏变为显示时直接定位，已显示时平滑移动；系统或应用要求减少动效时直接切换。移动端保持不展示选中背景，触摸操作不产生悬停背景。
+
 `AssistantList` 接受纯展示数据 `entries: AssistantListEntry[]`、`selectedID`、`onSelect` 和读屏标签。条目包含 `id/name/preview/unread/pinned`，组件不读取 demo store 或发起网络请求。`mobile` 控制移动端布局和选中表现，列表平铺展示、置顶优先；间距、头像、未读标记统一由组件样式提供。原型和真实 WebUI 共用这一实现，不提供助理分组展示。可传入 `emptyState` 复用 `EmptyState` 展示图标、说明和操作；未提供时回退到 `emptyLabel`。应用区分无助理的聘请引导和搜索无结果的清空操作。
 
 `SearchPanel` 同样由原型和 WebUI 共同使用。调用方提供受控 `query/scopes`、数据源 `sources`、快捷入口 `shortcuts`、结果 `items` 和结构化 `labels`；组件统一顶部搜索框、常驻多选筛选、双列快捷入口、结果分组、高亮、空态及方向键 / Home / End / Enter 操作。`mobile` 隐藏快捷键提示，抽屉与遮罩仍由 `ModalScope` 约束。异步搜索通过 `busy/statusContent` 展示加载或错误，通过 `total/pagination` 提供总数和分页；检索、权限和跳转留在应用层。保留组件挂载并控制 `open`，以完成抽屉关闭动画。
