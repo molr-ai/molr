@@ -12,7 +12,7 @@ export function AssistantList({ label, entries, selectedID, onSelect, unreadLabe
   const listRef = useRef<HTMLUListElement>(null);
   const { reducedMotion } = useUILocale();
   const [hoveredID, setHoveredID] = useState<string>();
-  const highlightedID = entries.some(entry => entry.id === hoveredID) ? hoveredID : mobile ? undefined : selectedID;
+  const highlightedID = mobile ? undefined : entries.some(entry => entry.id === hoveredID) ? hoveredID : selectedID;
   const visible = [...entries].sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned));
   useLayoutEffect(() => {
     const list = listRef.current;
