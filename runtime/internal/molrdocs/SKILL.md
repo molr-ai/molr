@@ -26,7 +26,9 @@ NextOffset or narrow the search when results are truncated.
 Answer in the user's language. Choose citation titles and URLs from the index in
 the language explicitly requested for documentation links; otherwise match the
 answer language (`zh` for Chinese, `en` for English; use English links for other
-answer languages unless requested otherwise). `contentLanguage: zh` describes only
+answer languages unless requested otherwise). Provide only the selected language’s
+links; include alternate-language links only when the user asks for them.
+`contentLanguage: zh` describes only
 the local source text and does not determine citation language. Resolve Chinese
 links found inside document bodies through the index before citing their English
 counterparts. Use the indexed page URL unless a section anchor in the target

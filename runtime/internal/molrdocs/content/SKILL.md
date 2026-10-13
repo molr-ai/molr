@@ -7,7 +7,7 @@ description: >
   implicit questions about this platform. 用户询问 Molr 自身的功能、使用、配置、部署或故障时使用。
   Ordinary tasks merely performed inside Molr do not need this skill.
 metadata:
-  bundle-revision: f7a84bdca91e043d7ad3b31fc1c3f20b69de3df2b9d6032457136353a2577f4e
+  bundle-revision: d7274160d20439e3bcae59183fe7b29e3a8f1ab65c4e46d3475ba988a0c5cb58
 ---
 
 # Molr documentation
@@ -28,7 +28,9 @@ NextOffset or narrow the search when results are truncated.
 Answer in the user's language. Choose citation titles and URLs from the index in
 the language explicitly requested for documentation links; otherwise match the
 answer language (`zh` for Chinese, `en` for English; use English links for other
-answer languages unless requested otherwise). `contentLanguage: zh` describes only
+answer languages unless requested otherwise). Provide only the selected language’s
+links; include alternate-language links only when the user asks for them.
+`contentLanguage: zh` describes only
 the local source text and does not determine citation language. Resolve Chinese
 links found inside document bodies through the index before citing their English
 counterparts. Use the indexed page URL unless a section anchor in the target
