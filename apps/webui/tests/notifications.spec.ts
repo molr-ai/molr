@@ -44,6 +44,40 @@ async function expectUnreadBadge(page: Page) {
 }
 const alerts = (page: Page) => page.getByRole('button', { name: 'Open conversation', exact: true });
 
+test('active chat reads replies with a docked panel and after an obstructing drawer closes', async ({ page }, info) => {
+  await login(page);
+  const peer = await assistant(page);
+  if (info.project.name === 'desktop') await page.setViewportSize({ width: 1920, height: 1000 });
+  await page.goto(`/#/assistants/${peer.ID}`);
+  const chat = () => page.request.get(`/api/conversations/${peer.ConversationID}`).then(response => response.json());
+  await expect(page.getByRole('log')).toBeVisible();
+  await expect.poll(async () => (await chat()).UnreadCount).toBe(0);
+  await page.locator('.chat-assistant-info').click();
+  const panel = page.locator('dialog.assistant-info[open]');
+  await expect(panel).toBeVisible();
+  if (info.project.name === 'desktop') await expect(panel).toHaveAttribute('data-docked', 'true');
+  await send(page, peer.ConversationID);
+  await expect(page.locator('.chat-history .ui-chat-message--assistant')).toHaveCount(2);
+  if (info.project.name === 'desktop') {
+    // The docked panel leaves the current conversation visible and usable.
+    await expect.poll(async () => (await chat()).UnreadCount).toBe(0);
+  } else {
+    // A modal drawer really obscures the conversation until it is dismissed.
+    await expect.poll(async () => (await chat()).UnreadCount).toBe(1);
+  }
+  await panel.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(panel).toHaveCount(0);
+  await expect.poll(async () => (await chat()).UnreadCount).toBe(0);
+  if (info.project.name === 'desktop') await expectUnreadBadge(page);
+  await send(page, peer.ConversationID);
+  await expect.poll(async () => (await chat()).UnreadCount).toBe(0);
+  await expect(page).toHaveURL(new RegExp(`#/assistants/${peer.ID}$`));
+  if (info.project.name === 'mobile') {
+    await page.getByRole('button', { name: 'Back to assistants', exact: true }).click();
+    await expectUnreadBadge(page);
+  }
+});
+
 test('notification preferences, fallback and click-to-conversation use real assistant messages', async ({ page }) => {
   await login(page);
   await expect(page.getByRole('switch', { name: 'Notification alerts' })).not.toBeChecked();

@@ -5,6 +5,7 @@ import { useToast } from '@molr/ui';
 import type { Assistant, Conversation, Message, Page, SystemNotice } from '@molr/sdk';
 import { api } from '../api/client';
 import { poll } from '../polling';
+import { isChatObscured } from '../chat-visibility';
 import { useCopy, useData, useQuery, useSession } from '../state';
 import { createBrowserNotifications } from './browser';
 import { NotificationClaims } from './coordinator';
@@ -23,7 +24,7 @@ const NotificationContext = createContext<Controls | null>(null);
 export const useNotifications = () => useContext(NotificationContext)!;
 const openRoute = (route: string) => { if (/^#\/(?:assistants(?:\/[A-Za-z0-9_-]{1,128}(?:\?panel=(?:info|permissions|channel|tasks)(?:&task=[A-Za-z0-9_-]{1,128})?)?)|plans\/[A-Za-z0-9_-]{1,128}|workbench\/[A-Za-z0-9_-]{1,128}\?event=[A-Za-z0-9_-]{1,128})$/.test(route)) location.hash = route; };
 const focused = () => document.visibilityState === 'visible' && document.hasFocus();
-const reading = (id: string) => focused() && location.hash === `#/assistants/${id}` && !document.querySelector('dialog[open]');
+const reading = (id: string) => focused() && location.hash === `#/assistants/${id}` && !isChatObscured();
 
 export function NotificationProvider({ children, createAdapter = createBrowserNotifications }: { children: ReactNode; createAdapter?: typeof createBrowserNotifications }) {
   const noticeText = useNoticeText();

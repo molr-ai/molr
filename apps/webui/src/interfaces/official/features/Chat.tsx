@@ -14,6 +14,7 @@ import { api, mutationKey } from '../../../api/client';
 import type { AgentStatus, Assistant, Conversation, ExpediteStatus, FileInfo } from '../../../api/types';
 import { useCopy, useData, useQuery } from '../../../state';
 import { useChatHistory } from '../../../use-chat-history';
+import { isChatObscured, onChatRevealed } from '../../../chat-visibility';
 import { Empty, Loading, useAction } from '../components/common';
 
 export type Draft = { text: string; files: FileInfo[] };
@@ -46,7 +47,7 @@ export function Chat({ assistant, conversation, timeZone, draft, updateDraft, on
   const lastSequence = history.messages.at(-1)?.Sequence ?? 0;
   useErrorToast(action.error || history.error || status.error || channel.error, action.error ? send : history.error ? invalidate : status.error ? status.reload : channel.reload);
   function markRead() {
-    if (targetMessageID || !bottom.current || document.visibilityState !== 'visible' || !document.hasFocus() || document.querySelector('dialog[open]') || lastSequence <= Math.max(readThrough.current, conversation?.LastReadSequence ?? 0)) return;
+    if (targetMessageID || !bottom.current || document.visibilityState !== 'visible' || !document.hasFocus() || isChatObscured() || lastSequence <= Math.max(readThrough.current, conversation?.LastReadSequence ?? 0)) return;
     const previous = readThrough.current; readThrough.current = lastSequence;
     void api.post('/api/conversations/read', { ConversationID: assistant.ConversationID, ThroughSequence: lastSequence }).catch(() => { if (readThrough.current === lastSequence) readThrough.current = previous; });
   }
@@ -65,7 +66,12 @@ export function Chat({ assistant, conversation, timeZone, draft, updateDraft, on
     if (savedScroll.current) { element.scrollTop = savedScroll.current.top + element.scrollHeight - savedScroll.current.height; savedScroll.current = null; }
     else if (bottom.current) element.scrollTop = element.scrollHeight;
   }, [history, targetMessageID]);
-  useEffect(() => { markRead(); const visible = () => markRead(); document.addEventListener('visibilitychange', visible); window.addEventListener('focus', visible); return () => { document.removeEventListener('visibilitychange', visible); window.removeEventListener('focus', visible); }; }, [lastSequence, conversation?.LastReadSequence, targetMessageID]);
+  useEffect(() => {
+    markRead();
+    const visible = () => markRead(), stopObserving = onChatRevealed(visible);
+    document.addEventListener('visibilitychange', visible); window.addEventListener('focus', visible);
+    return () => { stopObserving(); document.removeEventListener('visibilitychange', visible); window.removeEventListener('focus', visible); };
+  }, [lastSequence, conversation?.LastReadSequence, targetMessageID]);
   async function send() {
     if (chatReadOnly || archived || uploading || action.busy || (!draft.text.trim() && !draft.files.length)) return;
     const sent = draft, startedNavigation = navigation.current, startedHash = location.hash;
