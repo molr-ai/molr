@@ -4,7 +4,7 @@ import { GrantEditor } from './GrantEditor';
 import { fullAccessLabel } from './PermissionTargetFields';
 import { ConstraintsSummary, ResourceQuotaUsage } from './ResourceConstraints';
 import { useState } from 'react';
-import { Button, Dialog } from '@molr/ui';
+import { ModalPresence, Button, Dialog } from '@molr/ui';
 import type { Assistant, Grant, Resource } from '../../../api/types';
 import { api } from '../../../api/client';
 import { useCopy, useQuery } from '../../../state';
@@ -38,7 +38,7 @@ export function SandboxAccess({ resource, resources, fullAccess = false, canGran
         </article>)}
       </>}
     </div>
-    {editing && <GrantEditor resources={resources} initialResource={resource} initialFullAccess={fullAccess} assistants={people} grant={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} />}
-    {revoking && <Confirm title={t.resources.revoke} description={t.resources.revokeHelp} danger onClose={() => setRevoking(null)} onConfirm={() => api.mutate('/api/grants/revoke', { GrantID: revoking.ID }, revoking.Version)} />}
+    <ModalPresence>{editing && <GrantEditor resources={resources} initialResource={resource} initialFullAccess={fullAccess} assistants={people} grant={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} />}</ModalPresence>
+    <ModalPresence>{revoking && <Confirm title={t.resources.revoke} description={t.resources.revokeHelp} danger onClose={() => setRevoking(null)} onConfirm={() => api.mutate('/api/grants/revoke', { GrantID: revoking.ID }, revoking.Version)} />}</ModalPresence>
   </Dialog>;
 }

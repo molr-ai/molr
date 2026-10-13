@@ -5,7 +5,7 @@ import { ResourceQuotaUsage } from './ResourceConstraints';
 import { PermissionScope, PermissionExpiry } from './PermissionScope';
 import { PermissionRequests } from './PermissionRequests';
 import { useEffect, useState } from 'react';
-import { Badge, Button, Card, Dialog, DropdownMenu, IconButton, Tabs } from '@molr/ui';
+import { ModalPresence, Badge, Button, Card, Dialog, DropdownMenu, IconButton, Tabs } from '@molr/ui';
 import { Bot, Ellipsis, Folder, Globe, Info, Pencil, Plus, Server, Trash2, Unplug, Wrench } from 'lucide-react';
 import { SettingsHelp } from '../components/SettingsHelp';
 import { DefaultModelSettings } from './DefaultModelSettings';
@@ -49,8 +49,8 @@ export function Resources({ resourceID = '' }: { resourceID?: string }) {
       { value: 'tool', label: t.resources.categories.tool, icon: <Wrench size={15} />, content: tab === 'tool' ? <ToolsCatalog /> : null },
       { value: 'sandbox', label: copy.title, icon: <Server size={15} />, content: tab === 'sandbox' ? <Sandboxes resources={query.data ?? []} resourceID={resourceID} /> : null },
     ]} />
-    {defaultModel && <DefaultModelSettings models={models.data ?? []} loading={models.loading} onClose={() => setDefaultModel(false)} />}
-    {connect && <ProviderConnectionDialog onConnected={() => setTab('model')} onClose={() => setConnect(false)} />}{editingProvider && <ProviderConnectionDialog resourceID={editingProvider.ID} onConnected={() => {}} onClose={() => setEditingProvider(null)} />}{deletingProvider && <DeleteProvider resource={deletingProvider} onClose={() => setDeletingProvider(null)} />}{configuring && <ModelConfigurationDialog resource={configuring.resource} model={configuring.model} onClose={() => setConfiguring(null)} />}{disconnect && <Confirm title={t.resources.disconnect} description={t.resources.disconnectHelp} danger onClose={() => setDisconnect(null)} onConfirm={() => api.mutate('/api/resources/disconnect', { ID: disconnect.ID }, disconnect.Version)} />}
+    <ModalPresence>{defaultModel && <DefaultModelSettings models={models.data ?? []} loading={models.loading} onClose={() => setDefaultModel(false)} />}</ModalPresence>
+    <ModalPresence>{connect && <ProviderConnectionDialog onConnected={() => setTab('model')} onClose={() => setConnect(false)} />}</ModalPresence><ModalPresence>{editingProvider && <ProviderConnectionDialog resourceID={editingProvider.ID} onConnected={() => {}} onClose={() => setEditingProvider(null)} />}</ModalPresence><ModalPresence>{deletingProvider && <DeleteProvider resource={deletingProvider} onClose={() => setDeletingProvider(null)} />}</ModalPresence><ModalPresence>{configuring && <ModelConfigurationDialog resource={configuring.resource} model={configuring.model} onClose={() => setConfiguring(null)} />}</ModalPresence><ModalPresence>{disconnect && <Confirm title={t.resources.disconnect} description={t.resources.disconnectHelp} danger onClose={() => setDisconnect(null)} onConfirm={() => api.mutate('/api/resources/disconnect', { ID: disconnect.ID }, disconnect.Version)} />}</ModalPresence>
   </section>;
 }
 function DeleteProvider({ resource, onClose }: { resource: Resource; onClose: () => void }) {
@@ -94,11 +94,11 @@ export function AssistantPermissions({ assistant }: { assistant: Assistant }) {
         })}</div>}
       </section>
     </div>
-    {inspecting && <Dialog open title={t.assistantInfo.permissionDetails} description={t.resourcePermissions.recipient(assistant.Name)} onOpenChange={open => { if (!open) setInspecting(null); }}>
+    <ModalPresence>{inspecting && <Dialog open title={t.assistantInfo.permissionDetails} description={t.resourcePermissions.recipient(assistant.Name)} onOpenChange={open => { if (!open) setInspecting(null); }}>
       <div className="assistant-grant-details"><PermissionScope grant={inspecting} showExpiry />{!inspecting.Scope.FullAccess && resources.data?.some(resource => resource.ID === inspecting.ResourceID && !['model', 'tool'].includes(resource.Kind)) && <div className="assistant-grant-usage"><ResourceQuotaUsage assistantID={inspecting.AssistantID} resourceID={inspecting.ResourceID} /></div>}</div>
-    </Dialog>}
-    {creating && <GrantEditor assistant={assistant} resources={resources.data ?? []} onClose={() => setCreating(false)} />}
-    {editing && <GrantEditor assistant={assistant} resources={resources.data ?? []} grant={editing} onClose={() => setEditing(null)} />}
-    {revoking && <Confirm title={t.resources.revoke} description={t.resources.revokeHelp} danger onClose={() => setRevoking(null)} onConfirm={() => api.mutate('/api/grants/revoke', { GrantID: revoking.ID }, revoking.Version)} />}
+    </Dialog>}</ModalPresence>
+    <ModalPresence>{creating && <GrantEditor assistant={assistant} resources={resources.data ?? []} onClose={() => setCreating(false)} />}</ModalPresence>
+    <ModalPresence>{editing && <GrantEditor assistant={assistant} resources={resources.data ?? []} grant={editing} onClose={() => setEditing(null)} />}</ModalPresence>
+    <ModalPresence>{revoking && <Confirm title={t.resources.revoke} description={t.resources.revokeHelp} danger onClose={() => setRevoking(null)} onConfirm={() => api.mutate('/api/grants/revoke', { GrantID: revoking.ID }, revoking.Version)} />}</ModalPresence>
   </>;
 }

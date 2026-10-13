@@ -1,7 +1,7 @@
 import { useErrorToast } from '../../../error-toasts';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Dialog, Drawer, Select, TextField } from '@molr/ui';
+import { Dialog, Drawer, Select, TextField, useModalSnapshot } from '@molr/ui';
 import type { CurrencyContext, CurrencyCode, Money } from '../../../api/types';
 import { api } from '../../../api/client';
 import { useCopy, useQuery } from '../../../state';
@@ -20,10 +20,11 @@ export function CurrencyDialog({ title, onClose, children, drawer = false, dismi
     return () => abort.abort();
   }, [attempt]);
   useErrorToast(error, () => setAttempt(value => value + 1));
+  const displayed = useModalSnapshot(context);
   const pending = <>{!error && <Loading />}</>;
   const close = (open: boolean) => { if (!open && dismissible) onClose(); };
-  if (drawer) return <Drawer docked={docked} open side="right" className={className} description={description} title={title} onOpenChange={close} dismissible={dismissible}>{context ? children(context) : pending}</Drawer>;
-  return context ? children(context) : <Dialog open title={title} onOpenChange={close} dismissible={dismissible}>{pending}</Dialog>;
+  if (drawer) return <Drawer docked={docked} open side="right" className={className} description={description} title={title} onOpenChange={close} dismissible={dismissible}>{displayed ? children(displayed) : pending}</Drawer>;
+  return displayed ? children(displayed) : <Dialog open title={title} onOpenChange={close} dismissible={dismissible}>{pending}</Dialog>;
 }
 export function CurrencySelect({ value, onChange }: { value: CurrencyCode; onChange: (value: CurrencyCode) => void }) {
   const { t } = useCopy();

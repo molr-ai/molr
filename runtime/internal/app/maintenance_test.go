@@ -60,4 +60,20 @@ func TestMaintenanceAPIRequiresAuthenticationCSRFAndKnownRequests(t *testing.T) 
 	if w = request("POST", "/api/updates/apply", `{"idempotency_key":"01234567890123456789012345678901","version":"999.0.0"}`, cookies, proof.Token); w.Code != 400 {
 		t.Fatal("unchecked update accepted", w.Code, w.Body.String())
 	}
+	if w = request("GET", "/api/components/browser/settings", "", nil, ""); w.Code != 401 {
+		t.Fatal("unauthenticated proxy settings", w.Code)
+	}
+	if w = request("PUT", "/api/components/browser/settings", `{}`, cookies, ""); w.Code != 403 {
+		t.Fatal("proxy settings CSRF bypass", w.Code)
+	}
+	if w = request("GET", "/api/components/browser/settings", "", cookies, ""); w.Code != 200 || !strings.Contains(w.Body.String(), `"Mode":"direct"`) {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	if w = request("PUT", "/api/components/browser/settings", `{"Mode":"direct","PasswordAction":"clear","Version":0,"env":{"LD_PRELOAD":"unsafe"}}`, cookies, proof.Token); w.Code != 400 {
+		t.Fatal("arbitrary env accepted", w.Code)
+	}
+	if w = request("PUT", "/api/components/browser/settings", `{"Mode":"proxy","Server":"http://proxy.test:8080","PasswordAction":"clear","Version":0}`, cookies, proof.Token); w.Code != 200 {
+		t.Fatal("settings depend on managed installer", w.Code, w.Body.String())
+	}
+
 }

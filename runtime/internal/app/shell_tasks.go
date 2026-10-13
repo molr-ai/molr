@@ -53,6 +53,7 @@ type managedShell struct {
 	alive   atomic.Bool
 	control func(context.Context, tools.ShellTaskRequest) (json.RawMessage, error)
 	routed  func(core.ID) error
+	observe func(func() platform.NetworkDiagnostic)
 	started func(string, string, []string, func(context.Context, tools.ShellTaskRequest) (json.RawMessage, error)) error
 }
 
@@ -74,6 +75,7 @@ type runningShell struct {
 	browserHTTP        *http.Client
 	browserCtx         context.Context
 	browserUncertain   bool
+	browserNetwork     func() platform.NetworkDiagnostic
 	browserTabCount    *int
 	browserTabsAt      time.Time
 	browserTabsLoading bool
@@ -217,7 +219,7 @@ func (s *shellTasks) execute(ctx context.Context, e core.Execution, req tools.Sh
 	r.task.Kind = "shell"
 	if req.Browser != nil {
 		r.task.Kind = "browser"
-		r.task.Browser = &browserState{Control: "assistant", Generation: 1}
+		r.task.Browser = &browserState{Control: "assistant", Generation: 1, Proxy: req.Browser.Proxy.ProxySummary}
 	}
 	r.task.StdoutPath = "/work/" + shellOutputPrefix(e) + "-stdout.txt"
 	r.task.StderrPath = "/work/" + shellOutputPrefix(e) + "-stderr.txt"
@@ -227,6 +229,7 @@ func (s *shellTasks) execute(ctx context.Context, e core.Execution, req tools.Sh
 		r.task.SandboxID = id
 		return s.save(context.Background(), r.task)
 	}
+	cap.observe = func(read func() platform.NetworkDiagnostic) { s.mu.Lock(); r.browserNetwork = read; s.mu.Unlock() }
 	cap.started = func(out, stderr string, gpuIDs []string, control func(context.Context, tools.ShellTaskRequest) (json.RawMessage, error)) error {
 		s.mu.Lock()
 		defer s.mu.Unlock()

@@ -23,12 +23,14 @@ import (
 )
 
 type browserState struct {
-	Control           string
-	NeedsSnapshot     bool
-	Generation        uint64
-	ControllerSession core.ID `json:"-"`
-	ControllerClient  string  `json:"-"`
-	LastSequence      uint64  `json:"-"`
+	Control            string
+	NeedsSnapshot      bool
+	Generation         uint64
+	ControllerSession  core.ID `json:"-"`
+	ControllerClient   string  `json:"-"`
+	Proxy              browser.ProxySummary
+	LastNetworkFailure *browserNetworkFailure `json:",omitempty"`
+	LastSequence       uint64                 `json:"-"`
 }
 
 func browserControlled() error {
@@ -87,7 +89,11 @@ func (s *shellTasks) browserStatus(ctx context.Context, p core.Principal, id cor
 	if err == nil && (s.router == nil || s.router.shell == nil || !s.router.shell.config.UsesHostTools()) {
 		err = core.NewError(core.FailedPrecondition, "browser requires the local host-tools sandbox")
 	}
-	result := map[string]any{"Available": err == nil, "ComponentsEnabled": s.maintenance != nil && s.maintenance.Enabled()}
+	proxy, loadErr := s.loadBrowserProxy(ctx)
+	if loadErr != nil {
+		return nil, loadErr
+	}
+	result := map[string]any{"Proxy": proxy.ProxySummary, "ProxyAppliesTo": "next_start", "RestartRequired": false, "Available": err == nil, "ComponentsEnabled": s.maintenance != nil && s.maintenance.Enabled()}
 	s.mu.Lock()
 	if pending := s.preparing[string(p.OwnerID)+"/"+string(id)]; pending != nil {
 		copy := *pending
@@ -104,6 +110,12 @@ func (s *shellTasks) browserStatus(ctx context.Context, p core.Principal, id cor
 		defer s.mu.Unlock()
 		if r.task.State == "running" {
 			result["Task"] = r.task
+			result["Proxy"] = r.task.Browser.Proxy
+			result["ProxyAppliesTo"] = "current_session"
+			result["RestartRequired"] = r.task.Browser.Proxy.Version != proxy.Version
+			if r.task.Browser.LastNetworkFailure != nil {
+				result["LastNetworkFailure"] = r.task.Browser.LastNetworkFailure
+			}
 			current := p.SessionID != "" && r.task.Browser.ControllerSession == p.SessionID
 			result["ControllerIsCurrentSession"] = current
 			if current {
@@ -121,6 +133,9 @@ func (s *shellTasks) browserStatus(ctx context.Context, p core.Principal, id cor
 		}
 		if len(rows) == 1 {
 			last := rows[0]
+			if last.Browser != nil && last.Browser.LastNetworkFailure != nil {
+				result["LastNetworkFailure"] = last.Browser.LastNetworkFailure
+			}
 			var out struct{ Exit struct{ Reason string } }
 			_ = json.Unmarshal(last.Result, &out)
 			if last.State == "failed" || last.State == "interrupted" || last.State == "stopped" && out.Exit.Reason != "canceled" {
@@ -132,7 +147,11 @@ func (s *shellTasks) browserStatus(ctx context.Context, p core.Principal, id cor
 				if last.State == "interrupted" {
 					reason = "interrupted"
 				}
-				result["LastFailure"] = map[string]any{"TaskID": last.ID, "Reason": reason}
+				failure := map[string]any{"TaskID": last.ID, "Reason": reason}
+				if last.Browser != nil {
+					failure["Proxy"] = last.Browser.Proxy
+				}
+				result["LastFailure"] = failure
 			}
 		}
 	}
@@ -149,7 +168,11 @@ func (s *shellTasks) browserTool(ctx context.Context, e core.Execution, name str
 		}
 		if r := s.activeBrowser(e.Principal, e.AssistantID, ""); r != nil {
 			if err = s.browserWaitReady(ctx, r); err != nil {
-				return nil, err
+				s.mu.Lock()
+				proxy := r.task.Browser.Proxy
+				s.mu.Unlock()
+				summary, _ := json.Marshal(proxy)
+				return nil, &core.Error{Code: core.CodeOf(err), Reason: "browser_start_failed", Message: "Browser startup did not complete. Inspect browser_session status and task output. Launch proxy settings: " + string(summary)}
 			}
 		}
 		return raw, nil
@@ -206,6 +229,10 @@ func (s *shellTasks) startBrowser(ctx context.Context, e core.Execution, q tools
 	}
 	if s.router.shell == nil || !s.router.shell.config.UsesHostTools() {
 		return nil, core.NewError(core.FailedPrecondition, "browser requires the local host-tools sandbox")
+	}
+	programs.Proxy, err = s.loadBrowserProxy(ctx)
+	if err != nil {
+		return nil, err
 	}
 	req := tools.ShellRequest{Browser: programs, ComputeID: q.ComputeID, Script: "exec /molr/helper sandbox-helper browser", Background: true, NetworkMode: q.NetworkMode, NetworkIDs: q.NetworkIDs, ForwardPorts: []int{browser.CommandPort, browser.StreamPort}}
 	if _, err = s.execute(ctx, e, req); err != nil {
@@ -281,6 +308,7 @@ func (s *shellTasks) browserRequest(ctx context.Context, p core.Principal, id co
 	if err != nil {
 		return nil, err
 	}
+	startedAt := time.Now().UTC()
 	var result json.RawMessage
 	if s.browserRoundTrip != nil {
 		result, err = s.browserRoundTrip(call, r, raw)
@@ -296,7 +324,7 @@ func (s *shellTasks) browserRequest(ctx context.Context, p core.Principal, id co
 			s.mu.Unlock()
 			r.cancel()
 		}
-		return nil, err
+		return nil, s.browserNetworkError(ctx, r, q.Action, startedAt, err.Error())
 	}
 	var out browser.Result
 	if json.Unmarshal(result, &out) != nil {
@@ -309,7 +337,10 @@ func (s *shellTasks) browserRequest(ctx context.Context, p core.Principal, id co
 		return nil, core.NewError(core.Unavailable, "invalid browser response")
 	}
 	if !out.OK {
-		return nil, core.NewError(core.FailedPrecondition, out.Error)
+		return nil, s.browserNetworkError(ctx, r, q.Action, startedAt, out.Error)
+	}
+	if browserNavigation(q.Action) {
+		s.clearBrowserNetworkFailure(ctx, r)
 	}
 	if q.Action.Action == "snapshot" && p.Kind == core.ActorAssistant {
 		s.mu.Lock()

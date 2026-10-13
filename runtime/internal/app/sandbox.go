@@ -87,6 +87,7 @@ func (s *shellService) plan(ctx context.Context, e core.Execution, req tools.She
 	}
 	if req.Browser != nil {
 		c.BrowserAssets = true
+		c.BrowserProxy = &req.Browser.Proxy
 		if req.FullAccess || req.Script != "exec /molr/helper sandbox-helper browser" {
 			return c, denied()
 		}
@@ -285,6 +286,11 @@ func (s *shellService) execute(ctx context.Context, e core.Execution, req tools.
 		return nil, err
 	}
 	if scope := managedShellFor(ctx, e); scope != nil {
+		if observer, ok := p.(interface {
+			NetworkDiagnostic() platform.NetworkDiagnostic
+		}); ok && scope.observe != nil {
+			scope.observe(observer.NetworkDiagnostic)
+		}
 		root := platform.AssistantWorkspace(s.dataDir, s.config.WorkRoot, e.Principal.OwnerID, e.AssistantID)
 		err = scope.started(stdoutPath, stderrPath, c.GPUDeviceIDs, func(ctx context.Context, q tools.ShellTaskRequest) (json.RawMessage, error) {
 			if q.Action == "read" {

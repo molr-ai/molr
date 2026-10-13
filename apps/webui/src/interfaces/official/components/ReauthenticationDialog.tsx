@@ -1,6 +1,6 @@
 import { useErrorToast } from '../../../error-toasts';
 import { useEffect, useId, useRef, useState } from 'react';
-import { Button, Dialog, TextField } from '@molr/ui';
+import { ModalPresence, Button, Dialog, TextField } from '@molr/ui';
 import type { SecurityStatus } from '../../../api/types';
 import { api, APIError } from '../../../api/client';
 import { useCopy } from '../../../state';
@@ -29,7 +29,7 @@ export function useReauthentication() {
     pending.current = null;
     setRequest(null);
   }
-  return { verify, dialog: request && <ReauthenticationDialog purpose={request.purpose} onVerified={finish} onClose={() => finish()} /> };
+  return { verify, dialog: <ModalPresence>{request && <ReauthenticationDialog purpose={request.purpose} onVerified={finish} onClose={() => finish()} />}</ModalPresence> };
 }
 
 function ReauthenticationDialog({ purpose, onVerified, onClose }: { purpose: string; onVerified: (proof: string) => void; onClose: () => void }) {

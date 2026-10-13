@@ -117,3 +117,5 @@ GPU 沿用计算权限，无额外 Shell 参数。申请中的 `constraints.comp
 `browser_session` 接受 start/status/close。启动选择获准的本机 `compute_id` 与现有网络授权，重复启动复用助理当前任务。`browser_action` 接受 snapshot/screenshot/tabs/get_url/navigate/new_tab/click/fill/press/scroll/back/forward/reload/select_tab/close_tab。操作使用 `task_id`；导航仅接受 HTTP/HTTPS 和 about:blank，不开放启动路径、任意 JavaScript 或 CDP 连接。
 
 用户接管时，模型写操作及关闭返回 `browser_user_controlled`，只读操作仍可用。交还后，模型先成功读取新快照，写操作才解除 `browser_snapshot_required`。写操作响应丢失时结束执行，不重试可能已经完成的操作。截图复用既有文件与媒体权限。浏览器计入现有任务额度；每个助理一个浏览器，支持多标签和独立持久 profile。
+
+`browser_session` 的 start/status 返回 `Proxy` 脱敏摘要（Mode/Server/Bypass/Authentication/Version）、`ProxyAppliesTo`（current_session/next_start）和 `RestartRequired`。运行任务使用启动快照，配置变更不重放启动或切换连接。`LastNetworkFailure` 包含 TaskID/At/Reason/Message/Proxy 及可选 Sandbox（Reason/At）；后者仅是动作期间的沙盒事件，不保证因果关系。浏览器错误消息只保留网络错误标识，未知错误提示查询状态。成功导航清除当前任务的失败记录；其他只读成功不清除。代理地址按现有沙盒授权检查；模型不能设置代理、环境变量或代理密码。

@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Alert, Button, Progress } from '@molr/ui';
+import { ModalPresence, Alert, Button, Progress } from '@molr/ui';
+import { Globe, Settings2 } from 'lucide-react';
 import type { ComponentStatus, MaintenanceTask } from '@molr/sdk';
 import { api } from '../api/client';
 import { useCopy, useQuery } from '../state';
 import { useErrorToast } from '../error-toasts';
 import './components.css';
+import { BrowserProxySettings } from './BrowserProxySettings';
 
 export function maintenanceReason(code: string | undefined, zh: boolean) {
  const reasons: Record<string, [string, string]> = {
@@ -44,9 +46,23 @@ export function ComponentDetails({ value }: { value: ComponentStatus }) {
 export function Components() {
  const { locale } = useCopy(), zh = locale === 'zh';
  const query = useQuery<ComponentStatus[]>('/api/components', false, 2000);
- const [error, setError] = useState<unknown>(), [busy, setBusy] = useState(false);
+ const [error, setError] = useState<unknown>(), [busy, setBusy] = useState(false), [settingsOpen, setSettingsOpen] = useState(false);
  useErrorToast(error); useErrorToast(query.error, query.reload);
  async function act(action: string) { setBusy(true); setError(undefined); try { await api.post(`/api/components/browser/${action}`, { idempotency_key: crypto.randomUUID().replaceAll('-', '') }); await query.reload(); } catch (e) { setError(e); } finally { setBusy(false); } }
- const value = query.data?.[0];
- return <section className="components-settings"><h3>{zh ? '浏览器组件' : 'Browser components'}</h3>{value && <><ComponentDetails value={value}/>{value.task && <MaintenanceProgress taskID={value.task.id}/>}<div className="form-actions">{value.can_install && <><Button size="sm" disabled={busy || value.task?.state === 'running'} onClick={() => void act(value.state === 'installed' ? 'update' : 'install')}>{value.state === 'installed' ? (zh ? '更新组件' : 'Update components') : (zh ? '安装组件' : 'Install components')}</Button>{value.state === 'installed' && <Button variant="secondary" size="sm" disabled={busy || value.task?.state === 'running'} onClick={() => void act('repair')}>{zh ? '修复' : 'Repair'}</Button>}</>}</div></>}</section>;
+ const value = query.data?.find(component => component.id === 'browser');
+ const states: Record<string, [string, string]> = { installed: ['已安装', 'Installed'], missing: ['未安装', 'Not installed'], broken: ['需要修复', 'Repair needed'], external: ['自定义安装', 'Custom installation'], unsupported: ['当前平台不支持', 'Unsupported platform'] };
+ return <section className="components-settings">
+  <ul className="components-list" aria-label={zh ? '组件列表' : 'Components list'}><li className="component-row">
+   <div className="component-summary"><Globe size={28} aria-hidden="true"/><div className="component-copy">
+    <div className="component-heading"><h3>{zh ? '浏览器组件' : 'Browser components'}</h3>{value && <span className="component-state">{states[value.state]?.[zh ? 0 : 1]}</span>}</div>
+    {value && <ComponentDetails value={value}/>}
+   </div></div>
+   <div className="component-actions">
+    {value?.can_install && <><Button size="sm" disabled={busy || value.task?.state === 'running'} onClick={() => void act(value.state === 'installed' ? 'update' : 'install')}>{value.state === 'installed' ? (zh ? '更新组件' : 'Update components') : (zh ? '安装组件' : 'Install components')}</Button>{value.state === 'installed' && <Button variant="secondary" size="sm" disabled={busy || value.task?.state === 'running'} onClick={() => void act('repair')}>{zh ? '修复' : 'Repair'}</Button>}</>}
+    <Button variant="secondary" size="sm" aria-label={zh ? '浏览器设置' : 'Browser settings'} onClick={() => setSettingsOpen(true)}><Settings2 size={15}/>{zh ? '设置' : 'Settings'}</Button>
+   </div>
+   {value?.task && <MaintenanceProgress taskID={value.task.id}/>}
+  </li></ul>
+  <ModalPresence>{settingsOpen && <BrowserProxySettings onClose={() => setSettingsOpen(false)}/>}</ModalPresence>
+ </section>;
 }

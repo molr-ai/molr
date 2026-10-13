@@ -36,6 +36,7 @@ type networkSession struct {
 	closed                  atomic.Bool
 	once                    sync.Once
 	reason                  atomic.Value
+	diagnostic              atomic.Value
 	err                     error
 }
 
@@ -140,10 +141,12 @@ func (r *Runner) startNetworkWithQuotas(ctx context.Context, e core.Execution, c
 			var err error
 			spec, err = r.options.NetworkAuthorization(ctx, e, spec)
 			if err != nil {
+				reply.Reason = "network_authorization_changed"
 				return reply
 			}
 		}
 		if spec.ExpiresAt != nil && !time.Now().Before(*spec.ExpiresAt) {
+			reply.Reason = "network_authorization_changed"
 			return reply
 		}
 		limits := spec.Constraints
@@ -402,8 +405,9 @@ func (r *Runner) startNetworkWithQuotas(ctx context.Context, e core.Execution, c
 				stop()
 			case "notice":
 				switch message.Reason {
-				case "network_destination_denied", "network_dns_failed", "network_connection_failed", "network_bytes_exhausted", "network_connection_limit", "network_dns_limit":
+				case "network_authorization_changed", "network_destination_denied", "network_dns_failed", "network_connection_failed", "network_bytes_exhausted", "network_connection_limit", "network_dns_limit":
 					n.reason.Store(message.Reason)
+					n.diagnostic.Store(platform.NetworkDiagnostic{Reason: message.Reason, At: time.Now().UTC()})
 					allowed = true
 				}
 			}
@@ -437,4 +441,11 @@ func (r *Runner) startNetworkWithQuotas(ctx context.Context, e core.Execution, c
 	}
 	ok = true
 	return n, nil
+}
+
+func (n *networkSession) lastDiagnostic() platform.NetworkDiagnostic {
+	if v := n.diagnostic.Load(); v != nil {
+		return v.(platform.NetworkDiagnostic)
+	}
+	return platform.NetworkDiagnostic{}
 }

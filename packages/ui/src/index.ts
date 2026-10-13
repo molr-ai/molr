@@ -78,3 +78,5 @@ export { UIIcon } from './components/icons';
 
 export { Slider } from './components/Slider';
 export type { SliderProps } from './components/Slider';
+
+export { ModalPresence, useModalSnapshot } from './modal-presence';

@@ -45,6 +45,7 @@ type permissionRequestService interface {
 type Options struct {
 	Maintenance        *installation.Maintenance
 	Browser            func(context.Context, core.Principal, core.ID, json.RawMessage) (json.RawMessage, error)
+	BrowserSettings    func(context.Context, core.Principal, json.RawMessage) (any, error)
 	BrowserStream      func(context.Context, core.Principal, core.ID, core.ID, func(json.RawMessage) error) error
 	Updates            *updates.Service
 	UpgradeInfo        *updates.Installation

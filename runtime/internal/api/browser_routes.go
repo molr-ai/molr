@@ -10,6 +10,23 @@ import (
 )
 
 func (s *HTTPServer) browserRoutes() {
+	for _, method := range []string{"GET", "PUT"} {
+		s.handle(method+" /api/components/browser/settings", func(r *http.Request) (any, error) {
+			if s.options.BrowserSettings == nil {
+				return nil, core.NewError(core.Unavailable, "browser settings unavailable")
+			}
+			var raw json.RawMessage
+			if r.Method == "PUT" {
+				var err error
+				raw, err = decode[json.RawMessage](r)
+				if err != nil {
+					return nil, err
+				}
+			}
+			return s.options.BrowserSettings(r.Context(), principal(r), raw)
+		})
+	}
+
 	s.handle("GET /api/assistants/{id}/browser", func(r *http.Request) (any, error) {
 		id, err := pathID(r)
 		if err != nil {

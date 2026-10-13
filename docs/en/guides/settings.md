@@ -22,7 +22,7 @@ Chat displays one notification at a time, along with the remaining count. The cu
 
 ## Component Management
 
-Administrators can open Admin Settings → Components from the User Settings page header to view browser component versions and installation progress, and install, update, or repair components. For browser usage, see [Operating the Browser](../best-practices/browser.md).
+Administrators can open Admin Settings → Components from the User Settings page header to view browser component versions and installation progress, and install, update, or repair components. Click Settings on the browser component row to open its proxy settings dialog. Saving closes the dialog; cancelling discards the draft. For browser usage, see [Operating the Browser](../best-practices/browser.md).
 
 ## About Molr
 

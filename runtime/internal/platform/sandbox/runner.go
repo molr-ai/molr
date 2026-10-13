@@ -123,6 +123,16 @@ func (r *Runner) Capabilities(ctx context.Context) (platform.Capabilities, error
 	return c, nil
 }
 func validate(c platform.Command) error {
+	if c.BrowserProxy != nil {
+		if !c.BrowserAssets || !c.Managed || c.FullAccess || c.Script != "exec /molr/helper sandbox-helper browser" {
+			return core.Invalid("browser", "trusted browser launch required")
+		}
+		proxy := *c.BrowserProxy
+		if err := proxy.Validate(); err != nil {
+			return core.Invalid("proxy", err.Error())
+		}
+	}
+
 	if err := core.ValidateGPUDevices(c.GPUDeviceIDs); err != nil {
 		return err
 	}

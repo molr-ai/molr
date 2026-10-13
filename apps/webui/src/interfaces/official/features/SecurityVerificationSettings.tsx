@@ -1,6 +1,6 @@
 import { useErrorToast } from '../../../error-toasts';
 import { useState } from 'react';
-import { Alert, Badge, Button, Dialog, Textarea, TextField } from '@molr/ui';
+import { ModalPresence, Alert, Badge, Button, Dialog, Textarea, TextField } from '@molr/ui';
 import { api, APIError } from '../../../api/client';
 import type { SecurityStatus } from '../../../api/types';
 import { useCopy, useQuery } from '../../../state';
@@ -44,8 +44,8 @@ export function SecurityVerificationSettings({ onChangePassword }: { onChangePas
       </div>
     </>}
     {verification.dialog}
-    {enrollment && <EnrollmentDialog enrollment={enrollment} onClose={() => setEnrollment(null)} onConfirmed={codes => { setEnrollment(null); setCodes(codes); query.reload(); }} />}
-    {codes && <RecoveryCodesDialog codes={codes} onClose={() => setCodes(null)} />}
+    <ModalPresence>{enrollment && <EnrollmentDialog enrollment={enrollment} onClose={() => setEnrollment(null)} onConfirmed={codes => { setEnrollment(null); setCodes(codes); query.reload(); }} />}</ModalPresence>
+    <ModalPresence>{codes && <RecoveryCodesDialog codes={codes} onClose={() => setCodes(null)} />}</ModalPresence>
   </section>;
 }
 

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"golang.org/x/sys/unix"
 	"io"
+	"molr.ai/runtime/internal/browser"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/platform"
 	"molr.ai/runtime/internal/policy"
@@ -404,6 +405,22 @@ func (r *Runner) startAuthorized(parent context.Context, e core.Execution, c pla
 		}
 		args = append(args, "--ro-bind-data", add(resolver), "/etc/resolv.conf")
 	}
+	if c.BrowserAssets {
+		proxy := browser.Proxy{ProxySummary: browser.ProxySummary{Mode: "direct"}}
+		if c.BrowserProxy != nil {
+			proxy = *c.BrowserProxy
+		}
+		data, err := proxy.LaunchConfig()
+		if err != nil {
+			return nil, err
+		}
+		config, err := memoryFile(data)
+		clear(data)
+		if err != nil {
+			return nil, err
+		}
+		args = append(args, "--ro-bind-data", add(config), "/molr/browser.json")
+	}
 	payload, _ := json.Marshal(launch)
 	f, err := memoryFile(payload)
 	if err != nil {
@@ -428,6 +445,9 @@ func (r *Runner) startAuthorized(parent context.Context, e core.Execution, c pla
 	p := &process{stdout: newStream(budget), stderr: newStream(budget), done: make(chan struct{}), cancel: cancel, operation: string(e.Principal.ExecutionID) + "/" + string(e.OperationID)}
 	launcher := r.bwrapCommand(args...)
 	cmd := exec.Command(launcher[0], launcher[1:]...)
+	if network != nil {
+		p.networkDiagnostic = network.lastDiagnostic
+	}
 	var networkFailure <-chan struct{}
 	if network != nil {
 		user, netns, dupErr := network.duplicateNamespaces()

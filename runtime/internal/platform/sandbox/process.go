@@ -63,15 +63,16 @@ func (s *stream) Read(data []byte) (int, error) {
 func (s *stream) finish() { s.mu.Lock(); s.done = true; close(s.changed); s.mu.Unlock() }
 
 type process struct {
-	fullAccess     bool
-	forward        func(context.Context, int) (net.Conn, error)
-	terminal       *os.File
-	stdout, stderr *stream
-	done           chan struct{}
-	cancel         context.CancelFunc
-	exit           platform.Exit
-	err            error
-	operation      string
+	fullAccess        bool
+	networkDiagnostic func() platform.NetworkDiagnostic
+	forward           func(context.Context, int) (net.Conn, error)
+	terminal          *os.File
+	stdout, stderr    *stream
+	done              chan struct{}
+	cancel            context.CancelFunc
+	exit              platform.Exit
+	err               error
+	operation         string
 }
 
 func (p *process) Stdout() io.Reader { return p.stdout }
@@ -92,4 +93,11 @@ func (p *process) Cancel(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+func (p *process) NetworkDiagnostic() platform.NetworkDiagnostic {
+	if p.networkDiagnostic != nil {
+		return p.networkDiagnostic()
+	}
+	return platform.NetworkDiagnostic{}
 }

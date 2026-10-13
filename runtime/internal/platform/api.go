@@ -7,6 +7,7 @@ import (
 	"net/netip"
 	"time"
 
+	"molr.ai/runtime/internal/browser"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/policy"
 )
@@ -72,6 +73,7 @@ type NetworkAuthorization struct {
 type Command struct {
 	// BrowserAssets is set only by the trusted browser task planner.
 	BrowserAssets           bool
+	BrowserProxy            *browser.Proxy `json:"-"`
 	GPUDeviceIDs            []string
 	FullAccess              bool
 	GroupComputeConstraints *policy.ComputeConstraints
@@ -157,4 +159,10 @@ func ValidateForwardPorts(ports []int) error {
 		seen[port] = true
 	}
 	return nil
+}
+
+// NetworkDiagnostic is an observed sandbox event, not a connectivity probe.
+type NetworkDiagnostic struct {
+	Reason string
+	At     time.Time
 }

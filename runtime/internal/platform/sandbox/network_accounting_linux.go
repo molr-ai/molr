@@ -42,7 +42,10 @@ func (c *accountedConn) Read(b []byte) (int, error) {
 	c.Conn.SetReadDeadline(time.Now().Add(time.Second))
 	idleUntil := time.Now().Add(60 * time.Second)
 	for {
-		if !c.g.exchange(networkMessage{Kind: "check", Target: c.target}).Allowed {
+		if reply := c.g.exchange(networkMessage{Kind: "check", Target: c.target}); !reply.Allowed {
+			if reply.Reason != "" {
+				c.g.notice(reply.Reason)
+			}
 			return 0, io.ErrClosedPipe
 		}
 		n, err := c.Conn.Read(b[:min(len(b), 65536)])
@@ -58,7 +61,7 @@ func (c *accountedConn) Read(b []byte) (int, error) {
 		}
 		r := c.reserve(n)
 		if !r.Allowed {
-			c.g.notice("network_bytes_exhausted")
+			c.g.notice(networkDenialReason(r, "network_bytes_exhausted"))
 			return 0, io.ErrUnexpectedEOF
 		}
 		if r.End != 0 && time.Now().UnixNano() >= r.End {
@@ -83,7 +86,7 @@ func (c *accountedConn) Write(b []byte) (int, error) {
 	for written < len(b) {
 		r := c.reserve(min(len(b)-written, 65536))
 		if !r.Allowed {
-			c.g.notice("network_bytes_exhausted")
+			c.g.notice(networkDenialReason(r, "network_bytes_exhausted"))
 			return written, io.ErrShortWrite
 		}
 		var deadline time.Time
@@ -113,4 +116,11 @@ func (c *accountedConn) Write(b []byte) (int, error) {
 		}
 	}
 	return written, nil
+}
+
+func networkDenialReason(reply networkMessage, fallback string) string {
+	if reply.Reason == "network_authorization_changed" {
+		return reply.Reason
+	}
+	return fallback
 }

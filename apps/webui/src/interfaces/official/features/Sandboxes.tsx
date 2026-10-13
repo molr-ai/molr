@@ -4,7 +4,7 @@ import { fullAccessHelp } from '../../../full-access';
 import { fullAccessLabel, sandboxPermissions } from './PermissionTargetFields';
 import type { SandboxPermission } from './PermissionTargetFields';
 import { useEffect, useState } from 'react';
-import { Alert, Badge, Button, DropdownMenu, IconButton, Select, Tabs, TextField } from '@molr/ui';
+import { ModalPresence, Alert, Badge, Button, DropdownMenu, IconButton, Select, Tabs, TextField } from '@molr/ui';
 import type { MenuItem } from '@molr/ui';
 import { Cpu, Ellipsis, Globe, HardDrive, Pencil, Plus, RefreshCw, Server, ShieldCheck, Unplug, Users } from 'lucide-react';
 import type { Assistant, Grant, Resource } from '../../../api/types';
@@ -89,13 +89,13 @@ export function Sandboxes({ resources, resourceID = '' }: { resources: Resource[
         {sandbox.CheckedAt && <p className="sandbox-checked">{copy.checkedAt} · {new Date(sandbox.CheckedAt).toLocaleTimeString(locale)} · {sandbox.Info.Capabilities.OS || 'Linux'}</p>}
       </div>}
     </div>
-    {connecting && <SandboxConnection onClose={() => setConnecting(false)} onConnected={setSelected} />}{editing && <SandboxConnection sandbox={editing} onClose={() => setEditing(null)} onConnected={setSelected} />}
-    {adding && sandbox && kind !== 'full_access' && <AddSandboxResource sandbox={sandbox} kind={kind} onClose={() => setAdding(false)} onConnected={resource => { setAdding(false); setAccess(resource); }} />}
-    {renamingSandbox && <RenameSandbox sandbox={renamingSandbox} onClose={() => setRenamingSandbox(null)} />}
-    {disconnecting && <Confirm danger title={copy.disconnect} description={copy.disconnectHelp} onClose={() => setDisconnecting(null)} onConfirm={() => api.mutate('/api/sandboxes/disconnect', { ID: disconnecting.ID }, disconnecting.Version)} />}
-    {removing && <Confirm danger title={t.resources.disconnect} description={t.resources.disconnectHelp} onClose={() => setRemoving(null)} onConfirm={() => api.mutate('/api/resources/disconnect', { ID: removing.ID }, removing.Version)} />}
-    {renaming && <RenameSandboxResource resource={renaming} onClose={() => setRenaming(null)} />}
-    {access && <SandboxAccess resources={resources} fullAccess={kind === 'full_access'} resource={resources.find(item => item.ID === access.ID) ?? access} canGrant={enabled && (kind !== 'full_access' || !!sandbox?.Info.Capabilities.FullAccess) && (resources.find(item => item.ID === access.ID) ?? access).State === 'available'} onClose={() => setAccess(null)} />}
+    <ModalPresence>{connecting && <SandboxConnection onClose={() => setConnecting(false)} onConnected={setSelected} />}</ModalPresence><ModalPresence>{editing && <SandboxConnection sandbox={editing} onClose={() => setEditing(null)} onConnected={setSelected} />}</ModalPresence>
+    <ModalPresence>{adding && sandbox && kind !== 'full_access' && <AddSandboxResource sandbox={sandbox} kind={kind} onClose={() => setAdding(false)} onConnected={resource => { setAdding(false); setAccess(resource); }} />}</ModalPresence>
+    <ModalPresence>{renamingSandbox && <RenameSandbox sandbox={renamingSandbox} onClose={() => setRenamingSandbox(null)} />}</ModalPresence>
+    <ModalPresence>{disconnecting && <Confirm danger title={copy.disconnect} description={copy.disconnectHelp} onClose={() => setDisconnecting(null)} onConfirm={() => api.mutate('/api/sandboxes/disconnect', { ID: disconnecting.ID }, disconnecting.Version)} />}</ModalPresence>
+    <ModalPresence>{removing && <Confirm danger title={t.resources.disconnect} description={t.resources.disconnectHelp} onClose={() => setRemoving(null)} onConfirm={() => api.mutate('/api/resources/disconnect', { ID: removing.ID }, removing.Version)} />}</ModalPresence>
+    <ModalPresence>{renaming && <RenameSandboxResource resource={renaming} onClose={() => setRenaming(null)} />}</ModalPresence>
+    <ModalPresence>{access && <SandboxAccess resources={resources} fullAccess={kind === 'full_access'} resource={resources.find(item => item.ID === access.ID) ?? access} canGrant={enabled && (kind !== 'full_access' || !!sandbox?.Info.Capabilities.FullAccess) && (resources.find(item => item.ID === access.ID) ?? access).State === 'available'} onClose={() => setAccess(null)} />}</ModalPresence>
   </div>;
 }
 function FullAccessSection({ sandbox, resources, grants, ready, onAccess }: { sandbox: SandboxView; resources: Resource[]; grants: Grant[]; ready: boolean; onAccess: (resource: Resource) => void }) {

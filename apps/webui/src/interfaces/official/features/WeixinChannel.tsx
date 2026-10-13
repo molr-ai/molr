@@ -1,6 +1,6 @@
 import { useErrorToast } from '../../../error-toasts';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Badge, Button, Dialog, TextField } from '@molr/ui';
+import { ModalPresence, Alert, Badge, Button, Dialog, TextField } from '@molr/ui';
 import QRCode from 'qrcode';
 import { poll } from '../../../polling';
 import { api } from '../../../api/client';
@@ -30,8 +30,8 @@ export function ChatChannelDialog({ assistant, onClose }: { assistant: Assistant
    {(!bound || status.data?.State === 'login_required') && <Button variant="secondary" disabled={assistant.State !== 'active' || !status.data} loading={action.busy} onClick={() => void begin()}>{bound ? t.reconnect : t.connect}</Button>}
    {bound && <Button variant="secondary" onClick={() => setDisconnect(true)}>{t.disconnect}</Button>}
   </div>
-  {login && <LoginDialog assistantID={assistant.ID} login={login} onChange={setLogin} onClose={() => { setLogin(null); changed(); }} onRefresh={begin} />}
-  {disconnect && <Confirm title={t.disconnectTitle} description={t.disconnectHelp} onClose={() => setDisconnect(false)} onConfirm={async () => { await api.post('/api/weixin/disconnect', { AssistantID: assistant.ID }); changed(); }} />}
+  <ModalPresence>{login && <LoginDialog assistantID={assistant.ID} login={login} onChange={setLogin} onClose={() => { setLogin(null); changed(); }} onRefresh={begin} />}</ModalPresence>
+  <ModalPresence>{disconnect && <Confirm title={t.disconnectTitle} description={t.disconnectHelp} onClose={() => setDisconnect(false)} onConfirm={async () => { await api.post('/api/weixin/disconnect', { AssistantID: assistant.ID }); changed(); }} />}</ModalPresence>
  </section>
  </Dialog>;
 }

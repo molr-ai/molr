@@ -69,3 +69,7 @@
 .browser-drawer--moving .browser-tabstrip, .browser-drawer--moving .browser-window-heading, .browser-drawer--moving .browser-move.ui-icon-button { cursor:grabbing; user-select:none; }
 .browser-resize { position:absolute; right:1px; bottom:1px; width:24px; height:24px; padding:0; border:0; border-radius:4px 0 10px; background:transparent; cursor:nwse-resize; touch-action:none; }
 .browser-resize:focus-visible { outline-offset:-3px; }
+
+.browser-network-status { flex:none; padding:6px 12px; font-size:12px; color:var(--color-text-muted); border-bottom:1px solid var(--color-border); overflow-wrap:anywhere; }
+.browser-network-status summary { cursor:pointer; }
+.browser-network-status p { margin:6px 0; }

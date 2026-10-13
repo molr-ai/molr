@@ -132,9 +132,9 @@ UI Design 的 聊天组（英文版为 Chat）提供独立的本地演示：发�
 </Dialog>
 ```
 
-`Dialog` 与 `Drawer` 使用相同接口：`open`、`onOpenChange`、`title`、`description?`、`children?`、`footer?`、`headerContent?`、`closeLabel?`、`size?`、`initialFocusRef?`、`dismissible?`、`showCloseButton?`。`size` 为 `sm`、`md` 或 `lg`；未提供正文时不渲染 body，只有标题／说明和操作按钮的确认弹窗不会保留空白正文区，相邻 header/footer 只保留一条分隔线。标准 Dialog 在视口内居中，最大高度为 `90dvh`，正文区域独立滚动，页面的子元素间距不应影响其定位。抽屉在窄屏占满宽度，容器内抽屉仍限制在预览范围内。`headerContent` 可将搜索框等控件放到关闭按钮左侧，标题和说明仍保留为读屏标签。`showCloseButton={false}` 仅隐藏关闭按钮，保留 Escape 和遮罩点击关闭。
+`Dialog` 与 `Drawer` 使用相同接口：`open`、`onOpenChange`、`onAfterClose?`、`title`、`description?`、`children?`、`footer?`、`headerContent?`、`closeLabel?`、`size?`、`initialFocusRef?`、`dismissible?`、`showCloseButton?`。`size` 为 `sm`、`md` 或 `lg`；未提供正文时不渲染 body，只有标题／说明和操作按钮的确认弹窗不会保留空白正文区，相邻 header/footer 只保留一条分隔线。标准 Dialog 在视口内居中，最大高度为 `90dvh`，正文区域独立滚动，页面的子元素间距不应影响其定位。抽屉在窄屏占满宽度，容器内抽屉仍限制在预览范围内。`headerContent` 可将搜索框等控件放到关闭按钮左侧，标题和说明仍保留为读屏标签。`showCloseButton={false}` 仅隐藏关闭按钮，保留 Escape 和遮罩点击关闭。
 
-默认抽屉以直角贴齐视口右侧，底部抽屉使用顶部圆角；打开时用 280 ms 滑入，关闭时用 220 ms 滑出，遮罩同步淡入淡出。退出完成后才解除模态状态、恢复页面滚动和触发按钮焦点；中途重新打开会从当前位置衔接。请保持组件挂载，通过 `open` 控制显隐，以保留退出动画；直接卸载时立即清理。系统开启减少动态效果时直接切换状态。
+默认抽屉以直角贴齐视口右侧，底部抽屉使用顶部圆角；打开时用 280 ms 滑入，关闭时用 220 ms 滑出，遮罩同步淡入淡出。退出完成后才解除模态状态、恢复页面滚动和触发按钮焦点；中途重新打开会从当前位置衔接。通过 `open` 控制显隐时，组件保留退出开始前的标题、正文和底部操作区，退出结束后更新为关闭状态的内容。条件渲染的编辑器统一写作 `<ModalPresence>{selection && <Editor … />}</ModalPresence>`：边界保留整个表单子树，向后代 Dialog / Drawer 传递关闭状态，等所有嵌套弹层退出后再卸载、清理订阅和草稿；边界自身必须保持挂载。异步数据会切换加载弹窗和编辑器根节点时，用 `useModalSnapshot(data)` 保留关闭时的数据分支，避免加载完成打断退出。退出期间阻止点击、键盘输入和提交，快速重开保留当前草稿与动画位置。`onAfterClose` 在退出结束且弹层关闭后触发一次。页面导航或边界整体卸载时立即清理；系统或应用开启减少动态效果时直接切换状态。
 
 模态层使用原生 `<dialog>` 进入顶层，背景不可操作并停止页面滚动。默认将焦点放在标题，可指定初始焦点；Tab 在内部循环，关闭后恢复触发元素焦点。Escape、关闭按钮及从遮罩开始和结束的点击可以关闭；从内容拖到遮罩不会误关。`dismissible={false}` 暂停这些关闭入口，适合短暂的提交状态，调用方仍负责结束状态或提供取消操作。
 

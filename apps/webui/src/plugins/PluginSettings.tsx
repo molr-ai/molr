@@ -1,7 +1,7 @@
 import { useErrorToast } from '../error-toasts';
 import { mutationKey } from '../api/client';
 import { useCallback, useEffect, useId, useState } from 'react';
-import { Badge, Button, Checkbox, Dialog, Select, TextField } from '@molr/ui';
+import { ModalPresence, Badge, Button, Checkbox, Dialog, Select, TextField } from '@molr/ui';
 import { api } from '@molr/sdk';
 import type { PluginConnection, PluginInstallation, PluginUserSettings } from '@molr/sdk/plugins';
 import { useCopy } from '../state';
@@ -79,11 +79,11 @@ export function PluginConnections({ plugin }: { plugin: PluginInstallation }) {
     </article>)}
     <p className="muted">{zh ? '测试会向服务发起一次请求并消耗额度，可能产生费用。累计调用上限包含测试和结果未知的请求。' : 'Tests send one request and use allowance; providers may charge. Lifetime limits include tests and requests with unknown outcomes.'}</p>
     {testResult && <p role="status">{testResult}</p>}
-    {history && <ConnectionHistory plugin={plugin} connection={history} onClose={() => { setHistory(null); query.reload(); }} />}
-    {editing && <ConnectionEditor plugin={plugin} connection={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); query.reload(); }} />}
-    {removing && <Confirm danger title={zh ? '删除服务连接' : 'Delete connection'} description={zh ? '停止使用该连接并删除其专用凭证。已选择此连接的用户需要重新配置。' : 'Disable this connection and delete its dedicated credential. Users who selected it will need to choose another connection.'} onClose={() => setRemoving(null)} onConfirm={async () => {
+    <ModalPresence>{history && <ConnectionHistory plugin={plugin} connection={history} onClose={() => { setHistory(null); query.reload(); }} />}</ModalPresence>
+    <ModalPresence>{editing && <ConnectionEditor plugin={plugin} connection={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); query.reload(); }} />}</ModalPresence>
+    <ModalPresence>{removing && <Confirm danger title={zh ? '删除服务连接' : 'Delete connection'} description={zh ? '停止使用该连接并删除其专用凭证。已选择此连接的用户需要重新配置。' : 'Disable this connection and delete its dedicated credential. Users who selected it will need to choose another connection.'} onClose={() => setRemoving(null)} onConfirm={async () => {
       const verification = await reauth.verify('credential.delete'); await api.post('/api/plugins/connections/remove', { PluginID: plugin.ID, Digest: plugin.Digest, ID: removing.ID, Mutation: { IdempotencyKey: mutationKey(), ExpectedVersion: removing.Version }, Verification: verification }); setRemoving(null); query.reload();
-    }} />}{reauth.dialog}
+    }} />}</ModalPresence>{reauth.dialog}
   </div>;
 }
 function ConnectionEditor({ plugin, connection, onClose, onSaved }: { plugin: PluginInstallation; connection?: PluginConnection; onClose: () => void; onSaved: () => void }) {
@@ -119,5 +119,5 @@ function ConnectionHistory({ plugin, connection, onClose }: { plugin: PluginInst
   return <><Dialog open title={`${connection.Name} · ${zh ? '调用记录' : 'Call history'}`} onOpenChange={open => { if (!open) onClose(); }} footer={<Button variant="secondary" onClick={onClose}>{zh ? '关闭' : 'Close'}</Button>}>
   <p className="muted">{zh ? '最近 100 次调用。费用未计价；供应商用量按原单位展示。' : 'Latest 100 calls. Costs are unpriced; usage retains provider units.'}</p>
   {!rows ? !error && <Loading /> : <div className="plugin-connections">{rows.map(row => <article className="plugin-connection-row" key={`${row.OwnerID}:${row.ID}`}><strong>{states[row.State] ?? row.State}</strong><p>{new Date(row.CreatedAt).toLocaleString(locale)} · {row.ProviderID} · {row.DurationMS} ms{row.Test ? (zh ? ' · 连接测试' : ' · Connection test') : ''}</p>{row.StatusCode > 0 && <p>HTTP {row.StatusCode}</p>}{row.Usage != null && <p>{zh ? '供应商用量' : 'Provider usage'}: {JSON.stringify(row.Usage)}</p>}{row.State === 'unknown' && <Button size="sm" variant="secondary" onClick={() => setAck(row)}>{zh ? '确认并释放并发占用' : 'Acknowledge and release concurrency'}</Button>}</article>)}</div>}
- </Dialog>{ack && <Confirm title={zh ? '确认未知结果' : 'Acknowledge unknown outcome'} description={zh ? '外部服务可能已处理或仍在处理请求。此操作仅释放本地并发占用，不退还调用次数，也不会重试请求。' : 'The provider may have processed this request or may still be processing it. This only releases local concurrency; it neither refunds the call nor retries it.'} onClose={() => setAck(null)} onConfirm={async () => { await api.post('/api/plugins/connections/acknowledge', { ConnectionID: connection.ID, OwnerID: ack.OwnerID, ID: ack.ID }); setAck(null); setRevision(v => v + 1); }} />}</>;
+ </Dialog><ModalPresence>{ack && <Confirm title={zh ? '确认未知结果' : 'Acknowledge unknown outcome'} description={zh ? '外部服务可能已处理或仍在处理请求。此操作仅释放本地并发占用，不退还调用次数，也不会重试请求。' : 'The provider may have processed this request or may still be processing it. This only releases local concurrency; it neither refunds the call nor retries it.'} onClose={() => setAck(null)} onConfirm={async () => { await api.post('/api/plugins/connections/acknowledge', { ConnectionID: connection.ID, OwnerID: ack.OwnerID, ID: ack.ID }); setAck(null); setRevision(v => v + 1); }} />}</ModalPresence></>;
 }

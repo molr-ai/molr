@@ -68,6 +68,7 @@ export function createClient(transport?: RuntimeTransport) {
     importPlugin: (file: File) => request<import('./plugins').PluginInstallation>('/api/plugins/install', { method: 'POST', body: file, headers: { 'Content-Type': 'application/zip' } }),
     download: (path: string, signal?: AbortSignal) => request<Blob>(path, { signal }, undefined, true),
     get: <T,>(path: string, signal?: AbortSignal) => request<T>(path, { signal }),
+    put: <T,>(path: string, body: unknown) => request<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
     post: <T,>(path: string, body: unknown = {}, csrf?: string) => request<T>(path, { method: 'POST', body: JSON.stringify(body) }, csrf),
     read: <T,>(path: string, body: unknown, signal?: AbortSignal) => request<T>(path, { method: 'POST', body: JSON.stringify(body), signal }, undefined, false, true),
     remove: (path: string) => request<null>(path, { method: 'DELETE' }),

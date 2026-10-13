@@ -20,12 +20,29 @@ func HelperMain() int {
 	if err := os.MkdirAll("/tmp/molr-browser", 0700); err != nil {
 		return 125
 	}
-	env := []string{"PATH=/usr/bin:/bin", "HOME=/work", "TMPDIR=/tmp", "LANG=C.UTF-8", "AGENT_BROWSER_SOCKET_DIR=/tmp/molr-browser", "AGENT_BROWSER_EXECUTABLE_PATH=/resources/browser-chromium/chrome", "AGENT_BROWSER_PROFILE=/work/.local/state/molr/browser/profile", "AGENT_BROWSER_STREAM_PORT=9223", "AGENT_BROWSER_ARGS=--disable-dev-shm-usage", "AGENT_BROWSER_STREAM_QUALITY=60", "AGENT_BROWSER_STREAM_MAX_WIDTH=1280", "AGENT_BROWSER_STREAM_MAX_HEIGHT=800", "TOKIO_WORKER_THREADS=2", "RAYON_NUM_THREADS=2"}
+	settings, err := os.ReadFile("/molr/browser.json")
+	if err != nil || len(settings) > 64<<10 {
+		return 125
+	}
+	var proxy struct {
+		Server string `json:"proxy"`
+	}
+	if json.Unmarshal(settings, &proxy) != nil {
+		return 125
+	}
+	clear(settings)
+	redact := func(message string) string { return RedactProxyError(message, proxy.Server) }
+	extraArgs := "--disable-dev-shm-usage"
+	if proxy.Server == "" {
+		extraArgs += ",--no-proxy-server"
+	}
+	env := []string{"PATH=/usr/bin:/bin", "HOME=/work", "TMPDIR=/tmp", "LANG=C.UTF-8", "AGENT_BROWSER_SOCKET_DIR=/tmp/molr-browser", "AGENT_BROWSER_EXECUTABLE_PATH=/resources/browser-chromium/chrome", "AGENT_BROWSER_PROFILE=/work/.local/state/molr/browser/profile", "AGENT_BROWSER_STREAM_PORT=9223", "AGENT_BROWSER_ARGS=" + extraArgs, "AGENT_BROWSER_STREAM_QUALITY=60", "AGENT_BROWSER_STREAM_MAX_WIDTH=1280", "AGENT_BROWSER_STREAM_MAX_HEIGHT=800", "TOKIO_WORKER_THREADS=2", "RAYON_NUM_THREADS=2"}
 	if err := os.MkdirAll("/work/.local/state/molr/browser/profile", 0700); err != nil {
 		return 125
 	}
-	run := func(ctx context.Context, args ...string) Result {
-		cmd := exec.CommandContext(ctx, binary, append([]string{"--json"}, args...)...)
+	run := func(ctx context.Context, args ...string) (result Result) {
+		defer func() { result.Error = redact(result.Error) }()
+		cmd := exec.CommandContext(ctx, binary, append([]string{"--json", "--config", "/molr/browser.json"}, args...)...)
 		cmd.Env = env
 		out := &boundedOutput{remaining: 1 << 20}
 		cmd.Stdout = out
@@ -81,9 +98,10 @@ func HelperMain() int {
 		// A transport failure leaves the outcome unknown. Terminate the execution;
 		// never acknowledge handoff while a daemon operation might still be running.
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
+			fmt.Fprintln(os.Stderr, redact(err.Error()))
 			os.Exit(125)
 		}
+		result.Error = redact(result.Error)
 		return result
 	}
 	mux := http.NewServeMux()

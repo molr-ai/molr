@@ -8,7 +8,7 @@ import { notificationCopy } from '../../../notifications/copy';
 import { Memories } from './Memories';
 import { AccountUsage } from '../../../administration/Usage';
 import { Activity, useEffect, useState } from 'react';
-import { Badge, Button, Checkbox, IconButton, Logo, TextField, useBreakpoint, useTheme, useUILocale } from '@molr/ui';
+import { ModalPresence, Badge, Button, Checkbox, IconButton, Logo, TextField, useBreakpoint, useTheme, useUILocale } from '@molr/ui';
 import { Bell, Brain, ChartNoAxesCombined, ChevronLeft, ChevronRight, Database, Download, Info, Palette as PaletteIcon, Settings as SettingsIcon, Settings2, Shield, Star, ArrowUpRight, UserRound, UserRoundX } from 'lucide-react';
 import { api } from '../../../api/client';
 import type { Assistant, Session } from '../../../api/types';
@@ -88,7 +88,7 @@ function FormerAssistants({ assistants, openAssistant }: { assistants: Assistant
   return <div className="settings-section">{!former.length ? <Empty /> : <div className="settings-rows">{former.map(row => <article className="settings-row-item" key={row.ID}>
     <div className="settings-row-item-head"><h3>{row.Name}</h3><Badge>{t.assistants.archived}</Badge><span className="settings-row-item-actions"><Button size="sm" variant="secondary" onClick={() => openAssistant(row.ID)}>{t.chat.message}</Button><Button size="sm" onClick={() => setRehire(row)}>{t.assistants.rehire}</Button></span></div>
   </article>)}</div>}
-    {rehire && <Confirm title={t.assistants.rehire} description={t.assistants.rehireHelp} onClose={() => setRehire(null)} onConfirm={() => api.mutate('/api/assistants/rehire', { ID: rehire.ID, RestoreGrantIDs: [], RestoreScheduleIDs: [] }, rehire.Version)} />}
+    <ModalPresence>{rehire && <Confirm title={t.assistants.rehire} description={t.assistants.rehireHelp} onClose={() => setRehire(null)} onConfirm={() => api.mutate('/api/assistants/rehire', { ID: rehire.ID, RestoreGrantIDs: [], RestoreScheduleIDs: [] }, rehire.Version)} />}</ModalPresence>
   </div>;
 }
 function sessionDeviceName(session: Session) {
@@ -116,9 +116,9 @@ function Security() {
     </section>
     <LoginLinksSettings />
     <footer className="security-sign-out"><div className="security-section-heading"><p className="security-description">{t.settings.signOutHelp}</p><Button size="sm" variant="secondary" disabled={action.busy} onClick={() => void action.run(() => api.post('/api/auth/logout'), session.end, false)}>{t.signOut}</Button></div></footer>
-    {revoke && <Confirm title={t.settings.revokeSession} description={t.settings.revokeSessionHelp} onClose={() => setRevoke(null)} onConfirm={async () => { await api.remove(`/api/auth/sessions/${revoke.ID}`); if (revoke.ID === session.principal?.SessionID) session.end(); else query.reload(); }} />}
-    {revokeOthers && <Confirm title={t.settings.revokeOthers} description={t.settings.revokeOthersHelp} onClose={() => setRevokeOthers(false)} onConfirm={async () => { await api.post('/api/auth/sessions/revoke-others'); query.reload(); }} />}
-    {password && <PasswordEditor onClose={() => setPassword(false)} />}
+    <ModalPresence>{revoke && <Confirm title={t.settings.revokeSession} description={t.settings.revokeSessionHelp} onClose={() => setRevoke(null)} onConfirm={async () => { await api.remove(`/api/auth/sessions/${revoke.ID}`); if (revoke.ID === session.principal?.SessionID) session.end(); else query.reload(); }} />}</ModalPresence>
+    <ModalPresence>{revokeOthers && <Confirm title={t.settings.revokeOthers} description={t.settings.revokeOthersHelp} onClose={() => setRevokeOthers(false)} onConfirm={async () => { await api.post('/api/auth/sessions/revoke-others'); query.reload(); }} />}</ModalPresence>
+    <ModalPresence>{password && <PasswordEditor onClose={() => setPassword(false)} />}</ModalPresence>
   </div>;
 }
 function PasswordEditor({ onClose }: { onClose: () => void }) {
@@ -139,7 +139,7 @@ function DataExport() {
     </section>)}
     <Button variant="secondary" onClick={() => setOpen(true)}><Download size={16} />{t.exportData}</Button>
     {file && <Attachment id={file} />}
-    {open && <ExportDialog onClose={() => setOpen(false)} onExported={setFile} />}
+    <ModalPresence>{open && <ExportDialog onClose={() => setOpen(false)} onExported={setFile} />}</ModalPresence>
   </div>;
 }
 function ExportDialog({ onClose, onExported }: { onClose: () => void; onExported: (id: string) => void }) {

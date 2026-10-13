@@ -6,9 +6,10 @@ import { UIIcon } from './icons';
 import { useModalScope } from '../modal-scope';
 import { registerModalLayer } from '../overlay-layers';
 import { getTabStops } from '../focus';
+import { ModalPresenceContext } from '../modal-presence';
 
 export type DialogProps = {
-  open: boolean; onOpenChange: (open: boolean) => void; title: string; description?: string;
+  open: boolean; onOpenChange: (open: boolean) => void; onAfterClose?: () => void; title: string; description?: string;
   children?: ReactNode; footer?: ReactNode; closeLabel?: string; size?: 'sm' | 'md' | 'lg';
   headerContent?: ReactNode;
   initialFocusRef?: RefObject<HTMLElement | null>; dismissible?: boolean; showCloseButton?: boolean; className?: string;
@@ -16,7 +17,28 @@ export type DialogProps = {
 
 const ModalParentContext = createContext<RefObject<HTMLDialogElement | null> | null>(null);
 
-function Modal({ open, onOpenChange, title, description, children, footer, headerContent, closeLabel, size = 'md', initialFocusRef, dismissible = true, showCloseButton = true, className = '', drawer: requestedDrawer = false, drawerSide: requestedSide = 'right', docked }: DialogProps & { drawer?: boolean; drawerSide?: 'right' | 'bottom'; docked?: boolean }) {
+type ModalProps = DialogProps & { drawer?: boolean; drawerSide?: 'right' | 'bottom'; docked?: boolean };
+
+function Modal(props: ModalProps) {
+  const presence = useContext(ModalPresenceContext);
+  const open = props.open && presence?.present !== false;
+  const retained = useRef(props);
+  const [exited, setExited] = useState(!open);
+  if (open && exited) setExited(false);
+  useLayoutEffect(() => { if (open || exited) retained.current = props; });
+  // Closing must preserve the previous title, body and footer, even if the caller
+  // clears its selection in the same render. Layout mode stays responsive.
+  const { title, description, children, footer, headerContent } = open || exited ? props : retained.current;
+  return <ModalView {...props} {...{ open, title, description, children, footer, headerContent }} onAfterClose={() => { setExited(true); props.onAfterClose?.(); }} />;
+}
+
+function ModalView({ open, onOpenChange, onAfterClose, title, description, children, footer, headerContent, closeLabel, size = 'md', initialFocusRef, dismissible = true, showCloseButton = true, className = '', drawer: requestedDrawer = false, drawerSide: requestedSide = 'right', docked }: ModalProps) {
+  const presence = useContext(ModalPresenceContext);
+  const releasePresence = useRef<(() => void) | undefined>(undefined);
+  function release() { releasePresence.current?.(); releasePresence.current = undefined; }
+  const afterClose = useRef(onAfterClose), closePending = useRef(false);
+  useLayoutEffect(() => { afterClose.current = onAfterClose; });
+  function reportClosed() { if (closePending.current) { closePending.current = false; afterClose.current?.(); } }
   const scope = useModalScope();
   const parentDialog = useContext(ModalParentContext);
   const contained = !!scope?.container && !docked;
@@ -47,6 +69,8 @@ function Modal({ open, onOpenChange, title, description, children, footer, heade
   const interruptedMotion = useRef<{ transform: string; opacity: string } | null>(null);
   const { messages, reducedMotion: preferReducedMotion } = useUILocale();
   function restoreFocus() {
+    // A docked panel does not own focus outside itself while it collapses.
+    if (docked && document.activeElement !== document.body && !ref.current?.contains(document.activeElement)) { returnFocus.current = null; return; }
     const target = scope ? scope.resolveFocus(returnFocus.current) : returnFocus.current;
     returnFocus.current = null;
     if (target?.isConnected) target.focus({ preventScroll: true });
@@ -56,6 +80,8 @@ function Modal({ open, onOpenChange, title, description, children, footer, heade
     if (!dialog) return;
     const entering = open && !dialog.open;
     if (entering) {
+      closePending.current = true;
+      releasePresence.current = presence?.register();
       interruptedMotion.current = null;
       returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       if (contained && layerRef.current) {
@@ -75,6 +101,8 @@ function Modal({ open, onOpenChange, title, description, children, footer, heade
         unregister.current?.(); unregister.current = null;
         setPresent(false);
         restoreFocus();
+        reportClosed();
+        release();
       }
       return;
     }
@@ -97,6 +125,8 @@ function Modal({ open, onOpenChange, title, description, children, footer, heade
         unregister.current?.(); unregister.current = null;
         setPresent(false);
         restoreFocus();
+        reportClosed();
+        release();
       }
       for (const animation of animations) animation.cancel();
     }
@@ -134,7 +164,7 @@ function Modal({ open, onOpenChange, title, description, children, footer, heade
       for (const animation of animations) animation.cancel();
       reducedMotion.removeEventListener('change', synchronizeMotion);
     };
-  }, [open, drawer, drawerSide, docked, initialFocusRef, contained, scope, preferReducedMotion]);
+  }, [open, drawer, drawerSide, docked, initialFocusRef, contained, scope, preferReducedMotion, presence?.register]);
   useLayoutEffect(() => {
     const dialog = ref.current;
     return () => {
@@ -142,6 +172,7 @@ function Modal({ open, onOpenChange, title, description, children, footer, heade
       const shouldRestoreFocus = !docked || document.activeElement === document.body || !!dialog?.contains(document.activeElement);
       if (host && dialog?.contains(document.activeElement)) modeFocus.current = document.activeElement as HTMLElement;
       if (wasOpen) dialog.close();
+      release();
       unregisterToast.current?.(); unregisterToast.current = null;
       unregister.current?.(); unregister.current = null;
       if (wasOpen && shouldRestoreFocus) restoreFocus();
@@ -168,6 +199,9 @@ function Modal({ open, onOpenChange, title, description, children, footer, heade
     return !!rect && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom);
   }
   const dialog = <dialog key="panel" ref={ref} role={docked ? 'complementary' : undefined} data-docked={docked || undefined} className={`ui-dialog ui-dialog--${size}${drawer ? ' ui-drawer' : ''} ${className}`} data-contained={contained || undefined} data-side={drawer ? drawerSide : undefined} data-state={open ? 'open' : 'closed'} aria-modal={contained ? true : undefined} aria-labelledby={`${id}-title`} aria-describedby={description ? `${id}-description` : undefined}
+    onClickCapture={event => { if (!open) { event.preventDefault(); event.stopPropagation(); } }}
+    onSubmitCapture={event => { if (!open) { event.preventDefault(); event.stopPropagation(); } }}
+    onKeyDownCapture={event => { if (!open) { event.preventDefault(); event.stopPropagation(); } }}
     onKeyDown={event => {
       if ((contained || docked) && event.key === 'Escape' && !event.defaultPrevented && (event.target as HTMLElement).closest('dialog') === event.currentTarget) {
         event.preventDefault(); event.stopPropagation();
@@ -182,7 +216,7 @@ function Modal({ open, onOpenChange, title, description, children, footer, heade
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     }}
     onCancel={event => { event.preventDefault(); event.stopPropagation(); if (dismissible) onOpenChange(false); }}
-    onClose={() => { if (ref.current && !ref.current.open && open) onOpenChange(false); }}
+    onClose={event => { if (event.target === event.currentTarget && ref.current && !ref.current.open) { if (open) onOpenChange(false); reportClosed(); } }}
     // Top-layer popovers can extend beyond the dialog without being its backdrop.
     onPointerDown={event => { startedOutside.current = event.target === event.currentTarget && outside(event); }}
     onClick={event => {

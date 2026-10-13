@@ -1,6 +1,6 @@
 import { useErrorToast } from '../../../error-toasts';
 import { useState } from 'react';
-import { Badge, Button, Card, Textarea } from '@molr/ui';
+import { ModalPresence, Badge, Button, Card, Textarea } from '@molr/ui';
 import type { Task, Revision, Usage } from '../../../api/types';
 import { api } from '../../../api/client';
 import { useCopy, useQuery } from '../../../state';
@@ -14,7 +14,7 @@ export function ExecutionDetails({ task }: { task: Task }) {
   return <section className="plan-execution-details">{task.Plan?.Kind==='schedule' && task.OccurrenceAt && !['completed','failed','canceled'].includes(task.State) && <DreamConflictNotice assistantID={task.AssistantID} startAt={task.OccurrenceAt} />}<Badge>{t.tasks[task.State as 'pending'] ?? task.State}</Badge><p>{task.WaitingReason}</p><TaskSpend task={task} />
  <div className="form-actions">{!['completed','failed','canceled'].includes(task.State) && <><Button size="sm" disabled={action.busy} onClick={() => void action.run(() => api.mutate(`/api/tasks/${task.State === 'paused' ? 'resume' : 'pause'}`, { ID: task.ID }, task.Version))}>{task.State === 'paused' ? t.tasks.resume : t.tasks.pause}</Button><Button size="sm" variant="ghost" onClick={() => setCancel(true)}>{t.tasks.cancel}</Button></>}<Button size="sm" variant="secondary" disabled={task.State === 'running'} onClick={() => setRevise(true)}>{t.tasks.revise}</Button></div>
  {task.ArtifactIDs?.map(id => <Attachment key={id} id={id} />)}<Revisions taskID={task.ID} />
- {revise && <RevisionEditor task={task} onClose={() => setRevise(false)} />}{cancel && <Confirm title={t.tasks.cancel} description={t.tasks.cancelHelp} danger onClose={() => setCancel(false)} onConfirm={() => api.mutate('/api/tasks/cancel', { ID: task.ID }, task.Version)} />}
+ <ModalPresence>{revise && <RevisionEditor task={task} onClose={() => setRevise(false)} />}</ModalPresence><ModalPresence>{cancel && <Confirm title={t.tasks.cancel} description={t.tasks.cancelHelp} danger onClose={() => setCancel(false)} onConfirm={() => api.mutate('/api/tasks/cancel', { ID: task.ID }, task.Version)} />}</ModalPresence>
  </section>;
 }
 function Revisions({ taskID }: { taskID: string }) {

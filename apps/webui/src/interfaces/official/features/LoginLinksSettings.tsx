@@ -1,7 +1,7 @@
 import { useErrorToast } from '../../../error-toasts';
 import { usePluginsVisible } from '../../../plugins/visibility';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Badge, Button, Dialog, Select, TextField } from '@molr/ui';
+import { ModalPresence, Badge, Button, Dialog, Select, TextField } from '@molr/ui';
 import { Copy, Plus } from 'lucide-react';
 import { api } from '../../../api/client';
 import { useCopy, useQuery, useSession } from '../../../state';
@@ -52,13 +52,13 @@ export function LoginLinksSettings() {
     <header className="record-heading security-section-heading"><div><h3 className="settings-group-title">{t.loginLinks.title}</h3><p className="security-description">{t.loginLinks.help}</p></div><Button size="sm" variant="secondary" onClick={() => setCreating(true)}><Plus />{t.loginLinks.create}</Button></header>
     {!query.data && query.loading ? <Loading /> : current.length ? <div className="settings-rows">{current.map(row)}</div> : <p className="security-description security-empty">{t.loginLinks.empty}</p>}
     {history.length > 0 && <details className="login-link-history"><summary>{t.loginLinks.history}<span className="security-history-count">{history.length}</span></summary><p className="security-description">{t.loginLinks.historyHelp}</p><div className="settings-rows">{history.map(row)}</div></details>}
-    {creating && <CreateLoginLink onClose={() => setCreating(false)} onIssued={result => {
+    <ModalPresence>{creating && <CreateLoginLink onClose={() => setCreating(false)} onIssued={result => {
       const url = new URL(import.meta.env.BASE_URL, location.origin);
       url.hash = `/login?${new URLSearchParams({ token: result.value })}`;
       setIssued({ url: url.href, link: result.link }); setCreating(false); query.reload();
-    }} />}
-    {issued && <IssuedLoginLink url={issued.url} link={issued.link} onClose={() => setIssued(null)} />}
-    {revoking && <Confirm title={t.loginLinks.revoke} description={t.loginLinks.revokeHelp} onClose={() => setRevoking(null)} onConfirm={async () => { await api.remove(`/api/auth/login-links/${revoking.ID}`); query.reload(); }} />}
+    }} />}</ModalPresence>
+    <ModalPresence>{issued && <IssuedLoginLink url={issued.url} link={issued.link} onClose={() => setIssued(null)} />}</ModalPresence>
+    <ModalPresence>{revoking && <Confirm title={t.loginLinks.revoke} description={t.loginLinks.revokeHelp} onClose={() => setRevoking(null)} onConfirm={async () => { await api.remove(`/api/auth/login-links/${revoking.ID}`); query.reload(); }} />}</ModalPresence>
   </section>;
 }
 function CreateLoginLink({ onClose, onIssued }: { onClose: () => void; onIssued: (result: IssuedLink) => void }) {

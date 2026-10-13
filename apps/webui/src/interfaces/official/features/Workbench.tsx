@@ -1,7 +1,7 @@
 import { useErrorToast } from '../../../error-toasts';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Badge, Button, CodeBlock, EmptyState, Progress, SearchField, Select, Tabs, useBreakpoint } from '@molr/ui';
+import { ModalPresence, Alert, Badge, Button, CodeBlock, EmptyState, Progress, SearchField, Select, Tabs, useBreakpoint } from '@molr/ui';
 import { FlaskConical, RefreshCw, RotateCcw, Square, X, ArrowDownToLine, Braces, Layers, ChevronRight } from 'lucide-react';
 import { api, APIError } from '../../../api/client';
 import type { Assistant, AgentStatus, DebugPayload, DebugRun } from '../../../api/types';
@@ -102,7 +102,7 @@ function WorkbenchSession({ assistants, assistantID, onSelectAssistant, onSettin
       </div>
       {selection && <WorkbenchInspector key={selection === 'checkpoint' ? selection : `${selection.runID}:${selection.sequence}`} selection={selection} assistant={assistants.find(item => item.ID === assistantID)} onClose={() => setSelection(null)} />}
     </div>
-    {confirmStop && <Confirm title={t.assistants.stop} description={t.workbench.stopHelp} danger onClose={() => setConfirmStop(false)} onConfirm={() => api.post(`/api/assistants/${assistantID}/stop`)} />}
+    <ModalPresence>{confirmStop && <Confirm title={t.assistants.stop} description={t.workbench.stopHelp} danger onClose={() => setConfirmStop(false)} onConfirm={() => api.post(`/api/assistants/${assistantID}/stop`)} />}</ModalPresence>
   </section>;
 }
 function WorkbenchInspector({ selection, assistant, onClose }: { selection: Exclude<Selection, null>; assistant?: Assistant; onClose: () => void }) {
@@ -136,7 +136,7 @@ function WorkbenchInspector({ selection, assistant, onClose }: { selection: Excl
     {run.data?.Incomplete && <p className="muted">{t.workbench.incompleteHelp}</p>}
     {detail.loading && !detail.data && <Loading />}
     {detail.data && <Tabs label={t.workbench.details} value={tab} onValueChange={setTab} items={(['overview', 'context', 'diff', 'request', 'response', 'raw'] as const).filter(value => !checkpoint || ['overview', 'context', 'raw'].includes(value)).map(value => ({ value, label: t.workbench.tabs[value], content: value !== tab ? null : <div className="workbench-detail-view">{value === 'context' ? <ContextView payload={contextData} /> : value === 'diff' ? <ContextDiff current={contextData} previous={previous.data} loading={previous.loading || contextQuery.loading} /> : value === 'response' ? <ResponseView key={modelStep?.OperationID ?? sequence} payload={completionStep?.Sequence === sequence ? detail.data : completion.data} wire={wire.data} loading={completion.loading || wire.loading} /> : value === 'request' ? wire.data ? <WireView payload={wire.data} /> : wire.loading ? <Loading /> : <InspectionEmpty>{t.workbench.notCaptured}</InspectionEmpty> : value === 'raw' ? <PayloadView payload={detail.data} /> : <Overview operationID={checkpoint ? undefined : step?.OperationID} payload={detail.data!} run={run.data} connection={connection} toolInput={toolStart ? input.data ?? null : undefined} />}</div> }))} />}
-    {confirmReset !== null && assistant && <Confirm title={t.workbench.resetContext} description={t.workbench.resetContextHelp(assistant.Name)} danger onClose={() => setConfirmReset(null)} onConfirm={async () => { await api.mutate(`/api/debug/assistants/${assistant.ID}/context/reset`, { ExpectedSequence: confirmReset }); invalidateTopics(['debug', 'jobs', 'status', 'assistants']); }} />}
+    <ModalPresence>{confirmReset !== null && assistant && <Confirm title={t.workbench.resetContext} description={t.workbench.resetContextHelp(assistant.Name)} danger onClose={() => setConfirmReset(null)} onConfirm={async () => { await api.mutate(`/api/debug/assistants/${assistant.ID}/context/reset`, { ExpectedSequence: confirmReset }); invalidateTopics(['debug', 'jobs', 'status', 'assistants']); }} />}</ModalPresence>
   </section>;
 }
 function InspectionSection({ title, count, children, collapsible = false }: { title: string; count?: number; children: ReactNode; collapsible?: boolean }) {

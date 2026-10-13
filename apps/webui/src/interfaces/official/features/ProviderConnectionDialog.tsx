@@ -1,6 +1,6 @@
 import { useErrorToast } from '../../../error-toasts';
 import { useId, useState } from 'react';
-import { Alert, Button, Dialog, SearchField, SecretField, SegmentedControl, Select, TextField, useToast } from '@molr/ui';
+import { Alert, Button, Dialog, SearchField, SecretField, SegmentedControl, Select, TextField, useToast, useModalSnapshot } from '@molr/ui';
 import { Cloud, Monitor, Settings2 } from 'lucide-react';
 import { useReauthentication } from '../components/ReauthenticationDialog';
 import { api, APIError } from '../../../api/client';
@@ -38,10 +38,11 @@ function newDraft(id: ProviderID): Draft {
 export function ProviderConnectionDialog({ inline, resourceID, onConnected, onClose }: Props) {
   const { t } = useCopy(), connection = useQuery<Connection>(resourceID ? `/api/resources/${resourceID}/connection` : null);
   useErrorToast(connection.error, connection.reload);
-  if (resourceID && !connection.data) return <Dialog open title={t.resources.editProvider} onOpenChange={open => { if (!open) onClose(); }}>
+  const initial = useModalSnapshot(connection.data);
+  if (resourceID && !initial) return <Dialog open title={t.resources.editProvider} onOpenChange={open => { if (!open) onClose(); }}>
     {connection.loading && <Loading />}
   </Dialog>;
-  return <ProviderForm inline={inline} initial={connection.data ?? undefined} onConnected={onConnected} onClose={onClose} />;
+  return <ProviderForm inline={inline} initial={initial ?? undefined} onConnected={onConnected} onClose={onClose} />;
 }
 
 function ProviderForm({ inline, initial, onConnected, onClose }: Omit<Props, 'resourceID'> & { initial?: Connection }) {

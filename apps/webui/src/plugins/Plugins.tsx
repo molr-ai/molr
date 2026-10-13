@@ -1,6 +1,6 @@
 import { useErrorToast } from '../error-toasts';
 import { useId, useRef, useState } from 'react';
-import { Badge, Button, Checkbox, Dialog, DropdownMenu, IconButton, Select, Switch, Tabs, TextField } from '@molr/ui';
+import { ModalPresence, Badge, Button, Checkbox, Dialog, DropdownMenu, IconButton, Select, Switch, Tabs, TextField, useModalSnapshot } from '@molr/ui';
 import { ChevronLeft, Ellipsis, PanelsTopLeft, Puzzle, Settings2, Shield, Trash2, Download, Upload } from 'lucide-react';
 import { api } from '@molr/sdk';
 import type { Assistant } from '@molr/sdk';
@@ -40,7 +40,7 @@ export function ExtensionPages({ id }: { id: string }) {
   });
   return <section className="extensions-workspace">
     <PageHeader title={copy.title} icon={<Puzzle />} actions={administrator && <Button size="sm" onClick={() => setInstalling(true)}><Download size={14} />{copy.install}</Button>} />
-    {installing && <PluginInstaller onClose={() => setInstalling(false)} onInstalled={host.reloadPlugins} />}
+    <ModalPresence>{installing && <PluginInstaller onClose={() => setInstalling(false)} onInstalled={host.reloadPlugins} />}</ModalPresence>
     <div className="plugin-market">
       <div className="plugin-market-filters"><TextField label={zh ? '搜索插件' : 'Search plugins'} type="search" value={search} onChange={e => setSearch(e.target.value)} /><Select label={zh ? '状态' : 'Status'} value={filter} onValueChange={setFilter} options={[{ value: 'all', label: zh ? '全部插件' : 'All plugins' }, { value: 'enabled', label: copy.enabled }, { value: 'disabled', label: copy.disabled }]} /></div>
       {id && <p role="status">{copy.unavailable}</p>}
@@ -103,16 +103,17 @@ function PluginCard({ plugin, administrator }: { plugin: PluginInstallation; adm
     <p className="plugin-card-description">{plugin.Manifest.description || (zh ? '此插件未提供简介。' : 'No description provided.')}</p>
     <div className="plugin-card-tags">{[[copy.themes,c.themes?.length],[copy.pages,c.pages?.length],[copy.tools,c.tools?.length]].filter(([,n]) => !!n).map(([label,n]) => <Badge key={label} size="sm">{label} {n}</Badge>)}<Badge size="sm" tone={enabled ? 'positive' : 'neutral'}>{enabled ? copy.enabled : copy.disabled}</Badge></div>
     <div className="plugin-card-actions"><Switch label={administrator ? (zh ? '全局启用' : 'Enable globally') : copy.enabledLabel} checked={enabled} disabled={action.busy} onChange={() => { void toggle(); }} /><div>{hasSettings(plugin) && <Button size="sm" variant="secondary" disabled={!pluginAllowed(plugin)} onClick={() => navigate('extensions', `${plugin.ID}/@settings`)}>{zh ? '配置' : 'Configure'}</Button>}{c.pages?.[0] && <Button size="sm" variant="secondary" disabled={!pluginAllowed(plugin,c.pages[0].capabilities)} onClick={pages[0].onSelect}>{copy.open}</Button>}</div></div>
-    {editing && <PluginManagement plugin={plugin} onClose={() => setEditing(false)} />}
-    {groups && <PluginGroups plugin={plugin} onClose={() => setGroups(false)} />}
-    {remove && <Confirm danger title={copy.remove} description={copy.removeHelp} onClose={() => setRemove(false)} onConfirm={async () => { await api.post('/api/plugins/remove', { ID: plugin.ID, ExpectedVersion: plugin.Version }); host.reloadPlugins(); setRemove(false); }} />}
+    <ModalPresence>{editing && <PluginManagement plugin={plugin} onClose={() => setEditing(false)} />}</ModalPresence>
+    <ModalPresence>{groups && <PluginGroups plugin={plugin} onClose={() => setGroups(false)} />}</ModalPresence>
+    <ModalPresence>{remove && <Confirm danger title={copy.remove} description={copy.removeHelp} onClose={() => setRemove(false)} onConfirm={async () => { await api.post('/api/plugins/remove', { ID: plugin.ID, ExpectedVersion: plugin.Version }); host.reloadPlugins(); setRemove(false); }} />}</ModalPresence>
   </article>;
 }
 function PluginManagement({ plugin, onClose }: { plugin: PluginInstallation; onClose: () => void }) {
   const assistants = useQuery<Assistant[]>('/api/assistants', true);
   useErrorToast(assistants.error);
-  if (!assistants.data) return <Dialog open title={plugin.Manifest.name} onOpenChange={open => { if (!open) onClose(); }}>{!assistants.error && <Loading />}</Dialog>;
-  return <PluginEditor plugin={plugin} assistants={assistants.data} onClose={onClose} />;
+  const displayed = useModalSnapshot(assistants.data);
+  if (!displayed) return <Dialog open title={plugin.Manifest.name} onOpenChange={open => { if (!open) onClose(); }}>{!assistants.error && <Loading />}</Dialog>;
+  return <PluginEditor plugin={plugin} assistants={displayed} onClose={onClose} />;
 }
 function PluginEditor({ plugin: initialPlugin, assistants, onClose }: { plugin: PluginInstallation; assistants: Assistant[]; onClose: () => void }) {
   const { t, locale } = useCopy(), copy = pluginCopy[locale], host = useUIHost(), action = useAction(), formID = useId();

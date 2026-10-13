@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { useUILocale } from '@molr/ui';
+import { ModalPresence, useUILocale } from '@molr/ui';
 import type { Assistant } from '../../../api/types';
 
 export type ChatPanelSelection = { kind: 'info' | 'permissions' | 'tasks' | 'shell_tasks' | 'browser'; assistant: Assistant };
@@ -49,8 +49,7 @@ export function ChatSidePanel({ panel, docked: requestedDocked, browserFloating 
       media.removeEventListener('change', motionChanged);
     };
   }, [docked, open, shown?.kind, shown?.assistant.ID, reducedMotion]);
-  if (!shown) return null;
-  return <div ref={ref} className="chat-side-panel" data-kind={shown.kind} data-docked={docked || undefined} data-state={open ? 'open' : 'closing'} inert={!open}>
+  return <ModalPresence>{shown && <div ref={ref} className="chat-side-panel" data-kind={shown.kind} data-docked={docked || undefined} data-state={open ? 'open' : 'closing'} inert={!open}>
     {children(shown)}
-  </div>;
+  </div>}</ModalPresence>;
 }

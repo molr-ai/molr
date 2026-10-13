@@ -392,8 +392,8 @@ func (g *networkGateway) dial(protocol string, ip netip.Addr, port uint16) (net.
 		if target >= 0 {
 			claim = g.exchange(networkMessage{Kind: "claim", Target: target})
 			if !claim.Allowed {
-				g.notice("network_connection_limit")
-				return nil, fmt.Errorf("network connection quota exhausted")
+				g.notice(networkDenialReason(claim, "network_connection_limit"))
+				return nil, fmt.Errorf("network connection rejected")
 			}
 		}
 		c, err := (&net.Dialer{Timeout: 5 * time.Second}).DialContext(g.ctx, protocol, net.JoinHostPort(address.String(), strconv.Itoa(int(port))))

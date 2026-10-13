@@ -84,7 +84,10 @@ export type PermissionRequest = {
 
 export type ShellForward = { Protocol: 'http' | 'tcp'; Port: number; Address: string; URL: string; State: 'waiting' | 'ready' | 'closed' };
 export type BrowserControl = { Control: 'assistant' | 'user' | 'switching'; Generation: number };
-export type BrowserStatus = { LastFailure?: { TaskID: string; Reason: string }; ComponentsEnabled?: boolean; Preparation?: { task_id: string; state: string; error_code?: string }; Available: boolean; Reason?: string; Task?: ShellTask; ControllerIsCurrentSession?: boolean; ControllerClientID?: string; TabCount?: number };
+export type BrowserProxySummary = { Mode: 'direct' | 'proxy'; Server: string; Bypass: string[]; Authentication: boolean; Version: number };
+export type BrowserProxySettings = BrowserProxySummary & { Username: string; PasswordConfigured: boolean };
+export type BrowserNetworkFailure = { TaskID: string; At: string; Reason: string; Message: string; Proxy: BrowserProxySummary; Sandbox?: {Reason: string; At: string} };
+export type BrowserStatus = { Proxy?: BrowserProxySummary; ProxyAppliesTo?: 'current_session' | 'next_start'; RestartRequired?: boolean; LastNetworkFailure?: BrowserNetworkFailure; LastFailure?: { TaskID: string; Reason: string }; ComponentsEnabled?: boolean; Preparation?: { task_id: string; state: string; error_code?: string }; Available: boolean; Reason?: string; Task?: ShellTask; ControllerIsCurrentSession?: boolean; ControllerClientID?: string; TabCount?: number };
 export type ShellTask = { Kind?: 'shell' | 'browser'; Browser?: BrowserControl; GPUDeviceIDs?: string[]; FullAccess?: boolean;
   Forwards?: ShellForward[];
   ID: string; OwnerID: string; AssistantID: string; SandboxID: string;

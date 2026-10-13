@@ -4,7 +4,7 @@ import { MobileAccountButton } from './components/MobileAccountButton';
 import { ChatChannelDialog } from './features/WeixinChannel';
 import { useUIHost } from '../../ui-host/store';
 import { useEffect, useId, useRef, useState } from 'react';
-import { AssistantList, Button, EmptyState, IconButton, Logo, SearchField, Select, useBreakpoint, useTheme } from '@molr/ui';
+import { ModalPresence, AssistantList, Button, EmptyState, IconButton, Logo, SearchField, Select, useBreakpoint, useTheme } from '@molr/ui';
 import { MessagesSquare, Pin, Plus, Search as SearchIcon } from 'lucide-react';
 import type { Assistant, AssistantActivity, Conversation, Model, RuntimeInfo, Settings as SettingsDTO } from '../../api/types';
 import { api } from '../../api/client';
@@ -108,10 +108,10 @@ export function OfficialPage({ chatLayout = 'default' }: { chatLayout?: 'default
             {panel.kind === 'tasks' && <Tasks docked={panelDocked} assistantID={panel.assistant.ID} taskID={taskCard} onClose={() => setDialog(null)} />}
           </>}</ChatSidePanel>
         </div> : page === 'plans' || page === 'todos' || page === 'schedules' ? <Plans key={id} assistantID={id.startsWith('assistant-') ? id.slice(10) : undefined} selectedID={id} assistants={assistants.data ?? []} /> : page === 'resources' ? <Resources resourceID={id} /> : page === 'workbench' ? <Workbench turnID={turnID} eventID={eventID} timezone={settings.data?.Timezone} available={!!runtime.data?.workbench_available} assistants={assistants.data ?? []} assistantID={id} onSelectAssistant={value => go('workbench', value)} onSettings={() => go('account', 'general')} /> : <Settings initialTab={id} onSelectSection={value => go('account', value)} assistants={assistants.data ?? []} openAssistant={value => go('assistants', value)} />}
-      <Search open={search} onClose={() => setSearch(false)} navigate={go} taskAssistantID={selected?.ID ?? active[0]?.ID} onOpenTasks={(assistantID, taskID) => { go('assistants', assistantID); setPendingTask({ assistantID, taskID }); }} />{hire && <HireAssistant defaultModelID={settings.data?.DefaultModelID} models={models.data ?? []} onClose={() => setHire(false)} onCreated={value => go('assistants', value)} />}
-      {dialog?.kind === 'channel' && <ChatChannelDialog key={dialog.assistant.ID} assistant={assistants.data?.find(item => item.ID === dialog.assistant.ID) ?? dialog.assistant} onClose={() => setDialog(null)} />}
-      {dialog?.kind === 'clone' && <CloneAssistant assistant={dialog.assistant} onClose={() => setDialog(null)} onCreated={value => go('assistants', value)} />}
-      {dialog?.kind === 'dismiss' && <Confirm title={t.assistants.dismiss} description={t.assistants.dismissHelp} danger onClose={() => setDialog(null)} onConfirm={async () => { await api.mutate('/api/assistants/dismiss', { ID: dialog.assistant.ID }, dialog.assistant.Version); go('assistants'); }} />}
+      <Search open={search} onClose={() => setSearch(false)} navigate={go} taskAssistantID={selected?.ID ?? active[0]?.ID} onOpenTasks={(assistantID, taskID) => { go('assistants', assistantID); setPendingTask({ assistantID, taskID }); }} /><ModalPresence>{hire && <HireAssistant defaultModelID={settings.data?.DefaultModelID} models={models.data ?? []} onClose={() => setHire(false)} onCreated={value => go('assistants', value)} />}</ModalPresence>
+      <ModalPresence>{dialog?.kind === 'channel' && <ChatChannelDialog key={dialog.assistant.ID} assistant={assistants.data?.find(item => item.ID === dialog.assistant.ID) ?? dialog.assistant} onClose={() => setDialog(null)} />}</ModalPresence>
+      <ModalPresence>{dialog?.kind === 'clone' && <CloneAssistant assistant={dialog.assistant} onClose={() => setDialog(null)} onCreated={value => go('assistants', value)} />}</ModalPresence>
+      <ModalPresence>{dialog?.kind === 'dismiss' && <Confirm title={t.assistants.dismiss} description={t.assistants.dismissHelp} danger onClose={() => setDialog(null)} onConfirm={async () => { await api.mutate('/api/assistants/dismiss', { ID: dialog.assistant.ID }, dialog.assistant.Version); go('assistants'); }} />}</ModalPresence>
 
   </>;
 }

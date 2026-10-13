@@ -7,7 +7,7 @@ import { ConstraintsEditor, ConstraintsSummary, TemporaryConstraintsEditor, sugg
 import type { PermissionRequestInput } from '../../../api/types';
 import { Folder, Globe, Server, Sparkles, Wrench } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
-import { Badge, Button, Card, ChatCard, DateTimePicker, Dialog, Select, Textarea } from '@molr/ui';
+import { ModalPresence, Badge, Button, Card, ChatCard, DateTimePicker, Dialog, Select, Textarea } from '@molr/ui';
 import { PermissionExpiry, PermissionScope } from './PermissionScope';
 import type { Assistant, Grant, Model, PermissionRequest, Resource } from '../../../api/types';
 import { api, APIError } from '../../../api/client';
@@ -49,8 +49,8 @@ export function PermissionRequestCard({ requestID, assistant, title, summary, ti
     </div>
     {sharedExpiry && <div className="permission-request-expiry"><span>{zh ? '授权至' : 'Expires'}</span><PermissionExpiry value={expiries[0]} timeZone={timeZone} /></div>}
   </ChatCard>
-  {review && request && <PermissionReview request={request} assistant={assistant} onClose={() => setReview(false)} />}
-  {reject && request && <Confirm title={zh ? '拒绝授权请求' : 'Reject permission request'} description={request.Input.reason} onClose={() => setReject(false)} onConfirm={() => api.mutate('/api/permission-requests/resolve', {RequestID:request.ID,Decision:'reject'},request.Version)} />}
+  <ModalPresence>{review && request && <PermissionReview request={request} assistant={assistant} onClose={() => setReview(false)} />}</ModalPresence>
+  <ModalPresence>{reject && request && <Confirm title={zh ? '拒绝授权请求' : 'Reject permission request'} description={request.Input.reason} onClose={() => setReject(false)} onConfirm={() => api.mutate('/api/permission-requests/resolve', {RequestID:request.ID,Decision:'reject'},request.Version)} />}</ModalPresence>
   </>;
 }
 
@@ -76,8 +76,8 @@ export function PermissionRequests({ assistant }: { assistant: Assistant }) {
   return <section className="permission-requests">
     {!!pending.length && <><h2>{zh ? '授权请求' : 'Permission requests'}</h2><div className="record-list">{pending.map(requestCard)}</div></>}
     {!!resolved.length && <details><summary>{zh ? '已处理的授权请求' : 'Resolved permission requests'} · {resolved.length}</summary><div className="record-list">{resolved.map(requestCard)}</div></details>}
-    {review && <PermissionReview request={review} assistant={assistant} onClose={() => setReview(null)} />}
-    {reject && <Confirm title={zh ? '拒绝授权请求' : 'Reject permission request'} description={reject.Input.reason} onClose={() => setReject(null)} onConfirm={() => api.mutate('/api/permission-requests/resolve', { RequestID: reject.ID, Decision: 'reject' }, reject.Version)} />}
+    <ModalPresence>{review && <PermissionReview request={review} assistant={assistant} onClose={() => setReview(null)} />}</ModalPresence>
+    <ModalPresence>{reject && <Confirm title={zh ? '拒绝授权请求' : 'Reject permission request'} description={reject.Input.reason} onClose={() => setReject(null)} onConfirm={() => api.mutate('/api/permission-requests/resolve', { RequestID: reject.ID, Decision: 'reject' }, reject.Version)} />}</ModalPresence>
   </section>;
 }
 
