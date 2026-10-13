@@ -79,9 +79,15 @@ test('component maintenance shows progress, survives panel navigation and expose
  await page.route(`**/api/maintenance/tasks/${task.id}`, route => route.fulfill({ json: task }));
  await page.route(`**/api/maintenance/tasks/${task.id}/cancel`, route => { cancelled=true;task.state='cancelled';task.error_code='maintenance_cancelled';return route.fulfill({json:task}); });
  await page.goto('/#/account/about');
+ await expect(page.getByRole('region', { name: 'Installed builds' })).toBeVisible();
+ await expect(page.getByRole('heading', { name: 'Browser components', exact: true })).toHaveCount(0);
+ await page.getByRole('button', { name: 'Admin settings', exact: true }).click();
+ await page.getByRole('navigation', { name: 'Admin settings', exact: true }).getByRole('button', { name: 'Components', exact: true }).click();
+ await expect(page).toHaveURL(/#\/settings\/components$/);
  await page.getByRole('button',{name:'Install components',exact:true}).click();
  await expect(page.getByRole('progressbar',{name:'Downloading'})).toHaveAttribute('aria-valuenow','50');
- await page.goto('/#/account/general');await page.goto('/#/account/about');
+ await page.goto('/#/settings/users');await page.goto('/#/settings/components');
+ await page.reload();
  await expect(page.getByRole('progressbar',{name:'Downloading'})).toBeVisible();
  await expect(page.getByRole('button',{name:'Install components',exact:true})).toBeDisabled();
  await page.getByRole('button',{name:'Cancel installation',exact:true}).click();

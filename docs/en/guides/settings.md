@@ -20,6 +20,10 @@ Chat displays one notification at a time, along with the remaining count. The cu
 
 "Notification Settings" in user settings manage notifications, previews, sounds, and desktop notifications for the current browser. Disabling proactive notifications does not affect pending notifications within chats or unread message counts. Trusted HTTPS/local environments can authorize desktop notifications; push notifications are temporarily suspended after the page is closed, and pending notifications can be viewed in the corresponding chat upon reopening. Auto-collapse of desktop notifications and auto-dismissal of Toasts do not imply read or resolved status.
 
+## Component Management
+
+Administrators can open Admin Settings → Components from the User Settings page header to view browser component versions and installation progress, and install, update, or repair components. For browser usage, see [Operating the Browser](../best-practices/browser.md).
+
 ## About Molr
 
 The last section of user settings, "About", displays the versions of WebUI and Runtime, Git commit, version consistency, and update information; clicking the commit allows viewing the corresponding code. The "Service Information" group below the version information displays the name and address of the current Runtime. Below this, you can visit the [Molr GitHub Project](https://github.com/molr-ai/molr) and star the project. The full Logo uses a day-night cycle animation, automatically switching at 08:00 and 20:00 based on the device's local time, respecting the reduce motion preference.

@@ -1,4 +1,4 @@
-import { Components, MaintenanceProgress } from '../maintenance/Components';
+import { MaintenanceProgress } from '../maintenance/Components';
 import type { MaintenanceTask } from '@molr/sdk';
 import { api } from '../api/client';
 import { useEffect, useId, useState } from 'react';
@@ -98,7 +98,6 @@ export function AboutUpdates() {
     {next > now && <span>{zh ? '可再次检查时间 ' : 'Next check available '}{new Date(next).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: false })}</span>}
    </div>
   </section>
-  {admin && <Components/>}
   <section className="about-builds" aria-label={zh ? '当前安装' : 'Installed builds'}>
    <header className="update-section-heading">
     <h3>{zh ? '版本信息' : 'Build information'}</h3>

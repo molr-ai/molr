@@ -2,9 +2,10 @@ import { useErrorToast } from '../error-toasts';
 import { usePluginsVisible, pluginResourceVisible } from '../plugins/visibility';
 import { AdminUsage } from './Usage';
 import { WorkbenchRetentionSettings } from './WorkbenchRetention';
+import { Components } from '../maintenance/Components';
 import { useState } from 'react';
 import { AssistantAvatar, Badge, Button, Checkbox, IconButton, Select, Tabs, TextField, useBreakpoint } from '@molr/ui';
-import { ChartNoAxesCombined, ChevronLeft, ChevronRight, Plus, Settings, Shield, Users } from 'lucide-react';
+import { ChartNoAxesCombined, ChevronLeft, ChevronRight, Package, Plus, Settings, Shield, Users } from 'lucide-react';
 import { api } from '../api/client';
 import { useCopy, useQuery, useSession } from '../state';
 import { useNavigation } from '../navigation';
@@ -22,6 +23,7 @@ export function AdminSettings({ initialTab, onSelectSection }: { initialTab: str
   const sections = [
     { id: 'users', label: zh ? '用户' : 'Users', icon: Users, content: <UsersPanel /> },
     { id: 'groups', label: zh ? '用户组' : 'User groups', icon: Shield, content: <GroupsPanel /> },
+    { id: 'components', label: zh ? '组件' : 'Components', icon: Package, content: <Components /> },
     { id: 'usage', label: zh ? '用量统计' : 'Usage statistics', icon: ChartNoAxesCombined, content: <AdminUsage /> },
     { id: 'workbench', label: zh ? '开发工作台' : 'Workbench', icon: Settings, content: <WorkbenchRetentionSettings /> },
   ];
