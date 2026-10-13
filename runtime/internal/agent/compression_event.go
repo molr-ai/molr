@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"math"
 	"time"
 
 	"molr.ai/runtime/internal/agent/scheduler"
@@ -110,7 +109,7 @@ func (e *Engine) detectCompression(ctx context.Context, t Turn, id core.ID, p *t
 	if t.Event.Kind == event.DreamDue || t.Event.Kind == event.ContextCompressionRequested || (p.Usage != nil && p.Usage.AwaitingMeasurement) {
 		return nil
 	}
-	limit, err := e.contextWindow(ctx, t, id)
+	limit, threshold, err := e.contextLimits(ctx, t, id)
 	if err != nil {
 		return err
 	}
@@ -119,10 +118,10 @@ func (e *Engine) detectCompression(ctx context.Context, t Turn, id core.ID, p *t
 		return err
 	}
 	tokens, source := contextTokens(*p, id, modelSource)
-	if err := e.recordContextStatus(ctx, t, ContextStatus{ModelID: id, Limit: limit, Tokens: tokens, Source: source, CompressionThreshold: e.options.CompressionThreshold}); err != nil {
+	if err := e.recordContextStatus(ctx, t, ContextStatus{ModelID: id, Limit: limit, Tokens: tokens, Source: source, CompressionThresholdTokens: threshold}); err != nil {
 		return err
 	}
-	if tokens < int64(math.Ceil(float64(limit)*e.options.CompressionThreshold)) {
+	if tokens < int64(threshold) {
 		return nil
 	}
 	_, err = e.enqueueCompression(ctx, t.Principal.OwnerID, t.Event.AssistantID, false)

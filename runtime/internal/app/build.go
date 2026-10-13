@@ -592,7 +592,10 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 	engine := agent.NewRuntime(store, agent.Options{ModelSource: func(ctx context.Context, p core.Principal, id core.ID) (model.StateSource, error) {
 		provider, err := adapters.provider(ctx, p, id)
 		return provider.StateSource(), err
-	}, CheckEnvironment: environment, CompressionThreshold: cfg.Execution.ContextCompressionThreshold, ContextWindow: func(ctx context.Context, p core.Principal, id core.ID) (int, error) {
+	}, CheckEnvironment: environment, CompressionTokens: func(ctx context.Context, p core.Principal, id core.ID) (int, error) {
+		a, err := assistant.NewRepository(store).Get(ctx, p.OwnerID, id)
+		return a.ContextCompressionTokens, err
+	}, ContextWindow: func(ctx context.Context, p core.Principal, id core.ID) (int, error) {
 		provider, err := adapters.provider(ctx, p, id)
 		if core.CodeOf(err) == core.NotFound {
 			err = core.WithReason(core.NewError(core.FailedPrecondition, "model unavailable"), core.ModelUnavailable)
@@ -686,7 +689,10 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		}
 		return queue.Ack(ctx, t.Principal, t.Event.ID, job.Version)
 	}})
-	assistants := assistant.NewService(store, assistant.Options{CopyMemory: memoryFiles.Clone, Authorizer: permissions, Conversations: conversation.NewRepository(store), Grants: policy.NewRepository(store), Loop: engine.Lifecycle, CheckModel: func(ctx context.Context, p core.Principal, id core.ID) error {
+	assistants := assistant.NewService(store, assistant.Options{ContextWindow: func(ctx context.Context, p core.Principal, id core.ID) (int, error) {
+		provider, err := adapters.provider(ctx, p, id)
+		return provider.Model.ContextWindow(), err
+	}, CopyMemory: memoryFiles.Clone, Authorizer: permissions, Conversations: conversation.NewRepository(store), Grants: policy.NewRepository(store), Loop: engine.Lifecycle, CheckModel: func(ctx context.Context, p core.Principal, id core.ID) error {
 		if id == "" {
 			return nil
 		}

@@ -1,3 +1,4 @@
+import { AssistantContextField, clampContextTokens } from './AssistantContextField';
 import { useErrorToast } from '../../../error-toasts';
 import { AssistantAvatarField } from './AssistantAvatarField';
 import { AssistantBudgetFields, AssistantBudgetUsage } from './AssistantBudgetFields';
@@ -18,32 +19,35 @@ export function HireAssistant(props: HireProps) {
 }
 function HireForm({ models, defaultModelID, onClose, onCreated, currencyContext }: HireProps & { currencyContext: CurrencyContext }) {
   const { t } = useCopy(), [name, setName] = useState(''), [model, setModel] = useState(models.find(model => model.ID === defaultModelID && model.SupportsTools)?.ID ?? models.find(model => model.SupportsTools)?.ID ?? '');
+  const [contextTokens, setContextTokens] = useState(0);
   const [avatar, setAvatar] = useState(''), [avatarBusy, setAvatarBusy] = useState(false);
   const [currency, setCurrency] = useState<CurrencyCode>(currencyContext.Currency);
   const [limit, setLimit] = useState(''), [period, setPeriod] = useState<AssistantBudget['Period']>('daily');
   return <EditDialog submitDisabled={avatarBusy} title={t.assistants.hire} onClose={onClose} submitLabel={t.assistants.hire} onSubmit={async () => {
     if (!model) throw new APIError('failed_precondition');
-    const assistant = await api.mutate<Assistant>('/api/assistants', { Name: name.trim(), Avatar: avatar, ModelID: model, Budget: { Limit: { Currency: currency, Micros: micros(limit) }, Period: period } }); onCreated(assistant.ID);
-  }}><AssistantAvatarField name={name} value={avatar} onChange={setAvatar} onBusyChange={setAvatarBusy} /><TextField label={t.assistants.name} value={name} onChange={event => setName(event.target.value)} required maxLength={256} /><ModelSelect models={models} value={model} onValueChange={setModel} /><p className="muted">{t.chat.modelAccess}</p><AssistantBudgetFields currency={currency} onCurrencyChange={setCurrency} context={currencyContext} limit={limit} period={period} onLimitChange={setLimit} onPeriodChange={setPeriod} /></EditDialog>;
+    const assistant = await api.mutate<Assistant>('/api/assistants', { Name: name.trim(), Avatar: avatar, ModelID: model, ContextCompressionTokens: clampContextTokens(contextTokens, models.find(item => item.ID === model)), Budget: { Limit: { Currency: currency, Micros: micros(limit) }, Period: period } }); onCreated(assistant.ID);
+  }}><AssistantAvatarField name={name} value={avatar} onChange={setAvatar} onBusyChange={setAvatarBusy} /><TextField label={t.assistants.name} value={name} onChange={event => setName(event.target.value)} required maxLength={256} /><ModelSelect models={models} value={model} onValueChange={id => { setModel(id); setContextTokens(value => clampContextTokens(value, models.find(item => item.ID === id))); }} /><p className="muted">{t.chat.modelAccess}</p><AssistantContextField model={models.find(item => item.ID === model)} value={contextTokens} onChange={setContextTokens} /><AssistantBudgetFields currency={currency} onCurrencyChange={setCurrency} context={currencyContext} limit={limit} period={period} onLimitChange={setLimit} onPeriodChange={setPeriod} /></EditDialog>;
 }
 type EditProps = { assistant: Assistant; models: Model[]; onClose: () => void };
 export function AssistantSettingsForm({ assistant, models, onClose, currencyContext, action }: EditProps & { currencyContext: CurrencyContext; action: ReturnType<typeof useAction> }) {
   const { t } = useCopy(), [name, setName] = useState(assistant.Name), [model, setModel] = useState(assistant.ModelID);
+  const [contextTokens, setContextTokens] = useState(assistant.ContextCompressionTokens ?? 0);
   const [avatar, setAvatar] = useState(assistant.Avatar ?? ''), [avatarBusy, setAvatarBusy] = useState(false);
   const [currency, setCurrency] = useState<CurrencyCode>((assistant.Budget?.Limit.Currency as CurrencyCode) || currencyContext.Currency);
   const [limit, setLimit] = useState(assistant.Budget?.Period ? String(assistant.Budget.Limit.Micros / 1_000_000) : ''), [period, setPeriod] = useState<AssistantBudget['Period']>(assistant.Budget?.Period || 'daily');
   const [baseline, setBaseline] = useState(assistant);
-  const pristine = name === baseline.Name && avatar === (baseline.Avatar ?? '') && model === baseline.ModelID && currency === (baseline.Budget?.Limit.Currency || currencyContext.Currency) && limit === (baseline.Budget?.Period ? String(baseline.Budget.Limit.Micros / 1_000_000) : '') && period === (baseline.Budget?.Period || 'daily');
+  const pristine = contextTokens === (baseline.ContextCompressionTokens ?? 0) && name === baseline.Name && avatar === (baseline.Avatar ?? '') && model === baseline.ModelID && currency === (baseline.Budget?.Limit.Currency || currencyContext.Currency) && limit === (baseline.Budget?.Period ? String(baseline.Budget.Limit.Micros / 1_000_000) : '') && period === (baseline.Budget?.Period || 'daily');
   useEffect(() => {
     if (!pristine || avatarBusy || action.busy || assistant.Version === baseline.Version) return;
-    setName(assistant.Name); setAvatar(assistant.Avatar ?? ''); setModel(assistant.ModelID);
+    setContextTokens(assistant.ContextCompressionTokens ?? 0); setName(assistant.Name); setAvatar(assistant.Avatar ?? ''); setModel(assistant.ModelID);
     setCurrency((assistant.Budget?.Limit.Currency as CurrencyCode) || currencyContext.Currency);
     setLimit(assistant.Budget?.Period ? String(assistant.Budget.Limit.Micros / 1_000_000) : ''); setPeriod(assistant.Budget?.Period || 'daily');
     setBaseline(assistant);
   }, [assistant, baseline.Version, pristine, avatarBusy, action.busy, currencyContext.Currency]);
-  return <EditForm submitDisabled={avatarBusy} action={action} onClose={onClose} onSubmit={() => api.mutate('/api/assistants/update', { ID: assistant.ID, Name: name.trim(), Avatar: avatar, ModelID: model, Budget: { Limit: { Currency: currency, Micros: micros(limit) }, Period: period } }, baseline.Version)}>
+  return <EditForm submitDisabled={avatarBusy} action={action} onClose={onClose} onSubmit={() => api.mutate('/api/assistants/update', { ID: assistant.ID, Name: name.trim(), Avatar: avatar, ModelID: model, ContextCompressionTokens: clampContextTokens(contextTokens, models.find(item => item.ID === model)), Budget: { Limit: { Currency: currency, Micros: micros(limit) }, Period: period } }, baseline.Version)}>
     <AssistantAvatarField name={name} value={avatar} onChange={setAvatar} onBusyChange={setAvatarBusy} />
-    <TextField label={t.assistants.name} value={name} onChange={event => setName(event.target.value)} required maxLength={256} /><ModelSelect models={models} value={model} onValueChange={setModel} showProvider />
+    <TextField label={t.assistants.name} value={name} onChange={event => setName(event.target.value)} required maxLength={256} /><ModelSelect models={models} value={model} onValueChange={id => { setModel(id); setContextTokens(value => clampContextTokens(value, models.find(item => item.ID === id))); }} showProvider />
+    <AssistantContextField model={models.find(item => item.ID === model)} value={contextTokens} onChange={setContextTokens} />
     <AssistantBudgetFields currency={currency} onCurrencyChange={setCurrency} context={currencyContext} limit={limit} period={period} onLimitChange={setLimit} onPeriodChange={setPeriod} />
     {assistant.Budget?.Period && <AssistantBudgetUsage assistantID={assistant.ID} />}
   </EditForm>;

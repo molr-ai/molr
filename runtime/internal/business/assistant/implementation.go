@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"molr.ai/runtime/internal/agent/model"
 	"molr.ai/runtime/internal/business/schedule"
 	"molr.ai/runtime/internal/business/task"
 	"molr.ai/runtime/internal/core"
@@ -189,6 +190,7 @@ const archiveBucket = "business.assistant.archives"
 const receiptBucket = "business.assistants.receipts"
 
 type Options struct {
+	ContextWindow func(context.Context, core.Principal, core.ID) (int, error)
 	CopyMemory    func(context.Context, core.Principal, core.ID, core.ID) error
 	Authorizer    policy.Authorizer
 	Now           func() time.Time
@@ -273,6 +275,24 @@ func (s *service) model(ctx context.Context, p core.Principal, id core.ID) error
 	}
 	return s.options.CheckModel(ctx, p, id)
 }
+func (s *service) compressionTokens(ctx context.Context, p core.Principal, modelID core.ID, configured int) (int, error) {
+	if configured < 0 {
+		return 0, invalid("context_compression_tokens")
+	}
+	if configured == 0 {
+		return 0, nil
+	}
+	window := model.DefaultContextLimit
+	if s.options.ContextWindow != nil {
+		var err error
+		window, err = s.options.ContextWindow(ctx, p, modelID)
+		if err != nil {
+			return 0, err
+		}
+	}
+	return model.CompressionTokens(window, configured), nil
+}
+
 func (s *service) Hire(ctx context.Context, p core.Principal, req HireRequest) (Assistant, error) {
 	return mutate(ctx, s, p, "hire", "", req.Mutation, req, false, true, func(ctx context.Context) (Assistant, error) {
 		name, err := NormalizeName(req.Name)
@@ -289,7 +309,11 @@ func (s *service) Hire(ctx context.Context, p core.Principal, req HireRequest) (
 		if err != nil {
 			return Assistant{}, err
 		}
-		v := Assistant{ID: s.id(), OwnerID: p.OwnerID, Name: name, Avatar: avatar, State: Active, ConversationID: s.id(), ModelID: req.ModelID, Budget: req.Budget, Version: 1, CreatedAt: s.now(), UpdatedAt: s.now()}
+		compression, err := s.compressionTokens(ctx, p, req.ModelID, req.ContextCompressionTokens)
+		if err != nil {
+			return Assistant{}, err
+		}
+		v := Assistant{ContextCompressionTokens: compression, ID: s.id(), OwnerID: p.OwnerID, Name: name, Avatar: avatar, State: Active, ConversationID: s.id(), ModelID: req.ModelID, Budget: req.Budget, Version: 1, CreatedAt: s.now(), UpdatedAt: s.now()}
 		if err := s.repo.Insert(ctx, v); err != nil {
 			return v, err
 		}
@@ -347,6 +371,14 @@ func (s *service) Update(ctx context.Context, p core.Principal, req UpdateReques
 		}
 		if err = s.model(ctx, p, req.ModelID); err != nil {
 			return v, err
+		}
+		configured := v.ContextCompressionTokens
+		if req.ContextCompressionTokens != nil {
+			configured = *req.ContextCompressionTokens
+		}
+		v.ContextCompressionTokens, err = s.compressionTokens(ctx, p, req.ModelID, configured)
+		if err != nil {
+			return Assistant{}, err
 		}
 		beforeAvatar := v.Avatar
 		if req.Avatar != nil {
@@ -589,7 +621,7 @@ func (s *service) Clone(ctx context.Context, p core.Principal, req CloneRequest)
 		if err := source.Budget.Validate(); err != nil {
 			return Assistant{}, core.WithReason(core.NewError(core.BudgetExceeded, "source assistant budget not configured"), core.AssistantBudgetMissing)
 		}
-		v := Assistant{ID: s.id(), OwnerID: p.OwnerID, Name: name, Avatar: source.Avatar, State: Active, ConversationID: s.id(), ModelID: source.ModelID, Budget: source.Budget, Version: 1, CreatedAt: s.now(), UpdatedAt: s.now()}
+		v := Assistant{ID: s.id(), OwnerID: p.OwnerID, Name: name, Avatar: source.Avatar, State: Active, ConversationID: s.id(), ModelID: source.ModelID, ContextCompressionTokens: source.ContextCompressionTokens, Budget: source.Budget, Version: 1, CreatedAt: s.now(), UpdatedAt: s.now()}
 		if err = s.repo.Insert(ctx, v); err != nil {
 			return v, err
 		}

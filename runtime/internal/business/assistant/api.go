@@ -16,20 +16,21 @@ const (
 )
 
 type Assistant struct {
-	ID             core.ID
-	OwnerID        core.ID
-	Name           string
-	Status         string // Self-authored profile status, displayed while idle.
-	Avatar         string // Empty, preset:<id>, or a bounded PNG/JPEG data URL.
-	State          State
-	ConversationID core.ID
-	GroupID        core.ID
-	Pinned         bool
-	ModelID        core.ID
-	Budget         core.AssistantBudget
-	Version        core.Version
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ContextCompressionTokens int // Zero uses the automatic model-dependent default.
+	ID                       core.ID
+	OwnerID                  core.ID
+	Name                     string
+	Status                   string // Self-authored profile status, displayed while idle.
+	Avatar                   string // Empty, preset:<id>, or a bounded PNG/JPEG data URL.
+	State                    State
+	ConversationID           core.ID
+	GroupID                  core.ID
+	Pinned                   bool
+	ModelID                  core.ID
+	Budget                   core.AssistantBudget
+	Version                  core.Version
+	CreatedAt                time.Time
+	UpdatedAt                time.Time
 }
 type Group struct {
 	ID       core.ID
@@ -45,19 +46,21 @@ type Query struct {
 	Page    core.PageRequest
 }
 type HireRequest struct {
-	Avatar   string
-	Mutation core.Mutation
-	Name     string
-	ModelID  core.ID
-	Budget   core.AssistantBudget
+	ContextCompressionTokens int
+	Avatar                   string
+	Mutation                 core.Mutation
+	Name                     string
+	ModelID                  core.ID
+	Budget                   core.AssistantBudget
 }
 type UpdateRequest struct {
-	Avatar   *string // Omitted/null preserves the avatar; empty clears it.
-	Mutation core.Mutation
-	ID       core.ID
-	Name     string
-	ModelID  core.ID
-	Budget   core.AssistantBudget
+	ContextCompressionTokens *int    // Omitted preserves the setting; zero restores automatic.
+	Avatar                   *string // Omitted/null preserves the avatar; empty clears it.
+	Mutation                 core.Mutation
+	ID                       core.ID
+	Name                     string
+	ModelID                  core.ID
+	Budget                   core.AssistantBudget
 }
 type PlacementRequest struct {
 	Mutation core.Mutation

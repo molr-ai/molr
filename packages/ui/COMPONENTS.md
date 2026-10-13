@@ -288,3 +288,12 @@ const [range, setRange] = useState<[number, number]>([20, 80]);
 `ChatComposer.commands` 可选地提供 `{ name, description, keywords?, disabled? }[]`。组件负责输入开头的斜杠菜单、键盘与输入法行为，选择只补全文本；实际指令执行由调用方 `onSubmit` 根据完整输入分发。路径及正文中的斜杠保持普通输入。未传入 commands 的调用保持原有行为。
 
 指令菜单复用 Select 浮层及选项样式，最大宽度 360 px，默认在输入框上方，不足时调整到下方。浮层使用原生非模态 popover，遵循 `ModalScope` 和 `visualViewport` 边界，焦点保留在 textarea；方向键仅滚动候选列表，触屏不显示键盘提示。示例入口为 UI Design `?components=chat#command-selector`。
+
+### Slider 单端滑块
+
+`Slider` 选择一个数值，支持鼠标、触控、方向键、PageUp/PageDown 和 Home/End。`min`、`max`、`value` 和 `onValueChange` 必填；`step` 默认为 1，最后一个不足步长的区间仍可选择精确上限。上下限相同时自动禁用，亦可显式传入 `disabled`。`labelExtra` 可放置帮助图标，`formatValue` 同时格式化数值、端点和无障碍朗读。颜色沿用共享语义 token。
+
+```tsx
+<Slider label="上下文压缩阈值" min={65536} max={209715} step={8192}
+  value={value} onValueChange={setValue} formatValue={n => `${(n / 1024).toFixed(1)}K`} />
+```

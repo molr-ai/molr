@@ -75,3 +75,6 @@ export { ChatFeedback } from './components/ChatFeedback';
 export type { ChatFeedbackProps } from './components/ChatFeedback';
 
 export { UIIcon } from './components/icons';
+
+export { Slider } from './components/Slider';
+export type { SliderProps } from './components/Slider';

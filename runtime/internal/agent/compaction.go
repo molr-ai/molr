@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"math"
 	"strings"
 
 	"molr.ai/runtime/internal/agent/model"
@@ -14,12 +13,12 @@ import (
 
 // ContextStatus distinguishes provider measurements from conservative estimates.
 type ContextStatus struct {
-	ModelID              core.ID
-	Limit                int
-	Tokens               int64
-	Source               string
-	CompressionThreshold float64
-	Compressions         int
+	ModelID                    core.ID
+	Limit                      int
+	Tokens                     int64
+	Source                     string
+	CompressionThresholdTokens int
+	Compressions               int
 }
 type contextUsage struct {
 	ModelID core.ID
@@ -143,6 +142,24 @@ func (e *Engine) contextWindow(ctx context.Context, t Turn, id core.ID) (int, er
 	}
 	return model.DefaultContextLimit, nil
 }
+
+// Read the assistant preference at each safe boundary so changes apply to an
+// ongoing loop. The active model window always bounds the preference.
+func (e *Engine) contextLimits(ctx context.Context, t Turn, id core.ID) (int, int, error) {
+	window, err := e.contextWindow(ctx, t, id)
+	if err != nil {
+		return 0, 0, err
+	}
+	configured := 0
+	if e.options.CompressionTokens != nil {
+		configured, err = e.options.CompressionTokens(ctx, t.Principal, t.Event.AssistantID)
+		if err != nil {
+			return 0, 0, err
+		}
+	}
+	return window, model.CompressionTokens(window, configured), nil
+}
+
 func (e *Engine) recordContextStatus(ctx context.Context, t Turn, value ContextStatus) error {
 	return e.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		key := persistence.Key(t.Principal.OwnerID, t.Event.AssistantID)
@@ -165,7 +182,7 @@ func compactionError(reason core.Reason) error {
 }
 
 func (e *Engine) compactContext(ctx context.Context, t Turn, id core.ID, p *turnProgress, force bool) (interrupted bool, resultErr error) {
-	limit, err := e.contextWindow(ctx, t, id)
+	limit, threshold, err := e.contextLimits(ctx, t, id)
 	if err != nil {
 		return false, err
 	}
@@ -177,18 +194,17 @@ func (e *Engine) compactContext(ctx context.Context, t Turn, id core.ID, p *turn
 	// Respect explicit/provider output caps; small windows never inherit a 32K
 	// output reservation that consumes their entire context.
 	output := min(cap, limit/4)
-	threshold := int64(math.Ceil(float64(limit) * e.options.CompressionThreshold))
 	modelSource, err := e.modelSource(ctx, t, id)
 	if err != nil {
 		return false, err
 	}
 	tokens, source := contextTokens(*p, id, modelSource)
-	status := ContextStatus{ModelID: id, Limit: limit, Tokens: tokens, Source: source, CompressionThreshold: e.options.CompressionThreshold}
+	status := ContextStatus{ModelID: id, Limit: limit, Tokens: tokens, Source: source, CompressionThresholdTokens: threshold}
 	e.options.Trace.Record(ctx, "context.usage", "succeeded", "", status)
 	if err = e.recordContextStatus(ctx, t, status); err != nil {
 		return false, err
 	}
-	if !force && tokens < threshold {
+	if !force && tokens < int64(threshold) {
 		return false, nil
 	}
 

@@ -388,7 +388,7 @@ func TestDefaultCompressionThresholdUsesMeasuredBaseline(t *testing.T) {
 	if _, err := e.prepareContext(t.Context(), f.Turn, "model", &p); err != nil {
 		t.Fatal(err)
 	}
-	if e.options.CompressionThreshold != 0.8 || len(f.ModelRequests()) != 1 {
+	if len(f.ModelRequests()) != 1 {
 		t.Fatal("default threshold is not 80 percent")
 	}
 }
@@ -489,4 +489,36 @@ func summarySources(t *testing.T, store persistence.Store) ([]contextArchive, er
 		return nil
 	})
 	return out, err
+}
+
+func TestAssistantCompressionThresholdChangesDuringLoop(t *testing.T) {
+	f, _ := makeLoopFixture(t, nil)
+	e := f.Runtime.(*Engine)
+	e.options.ContextWindow = func(context.Context, core.Principal, core.ID) (int, error) { return 1024 * 1024, nil }
+	configured := 0
+	e.options.CompressionTokens = func(_ context.Context, _ core.Principal, id core.ID) (int, error) {
+		if id != f.Turn.Event.AssistantID {
+			t.Fatal("wrong assistant", id)
+		}
+		return configured, nil
+	}
+	p := turnProgress{Inputs: []model.Input{{Role: model.System, Text: loopInstructions}, {Role: model.User, Text: "Continue the task"}}}
+	p.Usage = &contextUsage{ModelID: "model", Tokens: 96 * 1024, Inputs: usageInputs(p.Inputs, model.StateSource{}), Tools: contextHash(p.Definitions)}
+	if _, err := e.prepareContext(t.Context(), f.Turn, "model", &p); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.ModelRequests()) != 0 {
+		t.Fatal("compressed below automatic 128K")
+	}
+	configured = 64 * 1024
+	if _, err := e.prepareContext(t.Context(), f.Turn, "model", &p); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.ModelRequests()) != 1 {
+		t.Fatal("updated preference did not trigger exactly one compaction")
+	}
+	status, err := e.Status(t.Context(), f.Owner, f.Turn.Event.AssistantID)
+	if err != nil || status.Context.CompressionThresholdTokens != configured {
+		t.Fatal("incorrect token threshold in status", status, err)
+	}
 }

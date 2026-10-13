@@ -42,7 +42,11 @@ You can add messages during execution; the assistant receives supplements at exe
 
 ## Search History and Context
 
-The model context for long conversations is automatically compressed by default when it reaches 80% of the window. The compression request retains the complete current context and appends compression instructions; only after success is the active context rebuilt with a summary; original chats and execution records are retained, and there is no need to manually clear the chat. Usage estimation does not block requests; actual context overflow is determined by the error code returned by the model service.
+When hiring an assistant or opening Assistant information, adjust “Context compression threshold” below the model selector. Click the information icon for help. The slider ranges from 64K to 80% of the current model’s effective context window, rounded down to whole tokens. The default is the smaller of 128K and that maximum. If the maximum is 64K or less, the slider is fixed at that maximum and disabled. 1K = 1024 tokens.
+
+Drag the slider to choose a custom threshold, or click “Restore default” to use the automatic value, then save the form. Switching models recalculates the automatic value and clamps a custom value to the new model’s range. Changes saved during execution apply at the next safe checkpoint; compression waits for the entire current tool batch to finish. A single model response or tool result can carry usage beyond the threshold.
+
+Lower thresholds reduce history in subsequent requests but increase summary calls and may lose detail. Actual costs also depend on model pricing and cache hits. Long conversations are automatically compressed at the threshold. The compression request retains the complete current context and appends compression instructions; only after success is the active context rebuilt with a summary; original chats and execution records are retained, and there is no need to manually clear the chat. Usage estimation does not block requests; actual context overflow is determined by the error code returned by the model service.
 
 ## Input Box Commands and Context Compression
 

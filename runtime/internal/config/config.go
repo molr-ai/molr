@@ -92,15 +92,14 @@ type ModelRetry struct {
 	Deadline    Duration `json:"deadline"`
 }
 type Execution struct {
-	ModelRetry                  ModelRetry `json:"model_retry"`
-	ContextCompressionThreshold float64    `json:"context_compression_threshold"`
-	MaxAssistants               int        `json:"max_assistants"`
-	MaxModelCalls               int        `json:"max_model_calls"`
-	MaxToolCalls                int        `json:"max_tool_calls"`
-	MaxIndexJobs                int        `json:"max_index_jobs"`
-	MaxUploadBytes              int64      `json:"max_upload_bytes"`
-	MaxDiskBytes                int64      `json:"max_disk_bytes"`
-	ShutdownTimeout             Duration   `json:"shutdown_timeout"`
+	ModelRetry      ModelRetry `json:"model_retry"`
+	MaxAssistants   int        `json:"max_assistants"`
+	MaxModelCalls   int        `json:"max_model_calls"`
+	MaxToolCalls    int        `json:"max_tool_calls"`
+	MaxIndexJobs    int        `json:"max_index_jobs"`
+	MaxUploadBytes  int64      `json:"max_upload_bytes"`
+	MaxDiskBytes    int64      `json:"max_disk_bytes"`
+	ShutdownTimeout Duration   `json:"shutdown_timeout"`
 }
 
 type Updates struct {
@@ -201,9 +200,6 @@ func (c Config) Validate() error {
 	retry := c.Execution.ModelRetry
 	if retry.MaxAttempts < 1 || retry.MaxAttempts > 10 || retry.BaseDelay < Duration(time.Millisecond) || retry.MaxDelay < retry.BaseDelay || retry.MaxDelay > Duration(time.Minute) || retry.MaxWait <= 0 || retry.MaxWait > Duration(10*time.Minute) || retry.Deadline < Duration(time.Second) || retry.Deadline > Duration(time.Hour) {
 		return core.Invalid("execution.model_retry", "invalid retry limits")
-	}
-	if c.Execution.ContextCompressionThreshold < 0 || c.Execution.ContextCompressionThreshold >= 1 {
-		return core.Invalid("execution.context_compression_threshold", "must be between 0 and 1")
 	}
 	if err := c.Sandbox.validate(c.DataDir, c.OwnListenPort()); err != nil {
 		return err

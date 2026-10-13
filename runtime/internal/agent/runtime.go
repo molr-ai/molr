@@ -26,29 +26,29 @@ import (
 var loopInstructions = prompt.Text("loop", nil)
 
 type Options struct {
-	ModelSource          func(context.Context, core.Principal, core.ID) (model.StateSource, error)
-	CheckEnvironment     func(context.Context) error
-	ModelRetry           RetryPolicy
-	ContextWindow        func(context.Context, core.Principal, core.ID) (int, error)
-	OutputLimit          func(context.Context, core.Principal, core.ID) (int, error)
-	CompressionThreshold float64
-	PrepareToolResult    func(context.Context, core.Execution, tools.Result) (tools.Result, error)
-	DreamDeadline        func(context.Context, core.Principal, event.AssistantEvent) (time.Time, error)
-	DreamActive          func(context.Context, core.Principal, event.AssistantEvent) (bool, error)
-	DreamStop            func(context.Context, core.Principal, core.ID) error
-	DreamOutput          func(context.Context, core.Principal, event.AssistantEvent) (string, error)
-	DreamTools           []string
-	DreamContext         func(context.Context, core.Principal, event.AssistantEvent) context.Context
-	DreamPrepare         func(context.Context, core.Principal, event.AssistantEvent) (string, error)
-	DreamCommit          func(context.Context, core.Principal, event.AssistantEvent, string) error
-	Conversations        conversation.Service
-	ContextSources       func(context.Context, ContextRequest) ([]ContextDocument, error)
-	InspectCapabilities  func(context.Context, core.Principal, core.ID) (Capabilities, error)
-	Trace                *debugtrace.Service
-	Dependencies         Dependencies
-	ResolveModel         func(context.Context, core.Principal, core.ID) (core.ID, error)
-	Estimate             func(context.Context, core.ID, []model.Input, int) (core.Money, error)
-	ConversationID       func(context.Context, core.Principal, core.ID) (core.ID, error)
+	ModelSource         func(context.Context, core.Principal, core.ID) (model.StateSource, error)
+	CheckEnvironment    func(context.Context) error
+	ModelRetry          RetryPolicy
+	ContextWindow       func(context.Context, core.Principal, core.ID) (int, error)
+	OutputLimit         func(context.Context, core.Principal, core.ID) (int, error)
+	CompressionTokens   func(context.Context, core.Principal, core.ID) (int, error)
+	PrepareToolResult   func(context.Context, core.Execution, tools.Result) (tools.Result, error)
+	DreamDeadline       func(context.Context, core.Principal, event.AssistantEvent) (time.Time, error)
+	DreamActive         func(context.Context, core.Principal, event.AssistantEvent) (bool, error)
+	DreamStop           func(context.Context, core.Principal, core.ID) error
+	DreamOutput         func(context.Context, core.Principal, event.AssistantEvent) (string, error)
+	DreamTools          []string
+	DreamContext        func(context.Context, core.Principal, event.AssistantEvent) context.Context
+	DreamPrepare        func(context.Context, core.Principal, event.AssistantEvent) (string, error)
+	DreamCommit         func(context.Context, core.Principal, event.AssistantEvent, string) error
+	Conversations       conversation.Service
+	ContextSources      func(context.Context, ContextRequest) ([]ContextDocument, error)
+	InspectCapabilities func(context.Context, core.Principal, core.ID) (Capabilities, error)
+	Trace               *debugtrace.Service
+	Dependencies        Dependencies
+	ResolveModel        func(context.Context, core.Principal, core.ID) (core.ID, error)
+	Estimate            func(context.Context, core.ID, []model.Input, int) (core.Money, error)
+	ConversationID      func(context.Context, core.Principal, core.ID) (core.ID, error)
 	// Acknowledge joins the checkpoint transaction. It must not perform I/O.
 	Acknowledge func(context.Context, Turn) error
 	Now         func() time.Time
@@ -73,9 +73,6 @@ type Engine struct {
 }
 
 func NewRuntime(store persistence.Store, options Options) *Engine {
-	if options.CompressionThreshold <= 0 || options.CompressionThreshold >= 1 {
-		options.CompressionThreshold = 0.8
-	}
 	if options.Now == nil {
 		options.Now = time.Now
 	}
@@ -628,12 +625,12 @@ resume:
 			progress.Usage = e.measureContext(runCtx, t, modelID, progress)
 			progress.Inputs = append(progress.Inputs, response)
 			if t.Event.Kind != event.DreamDue && progress.Usage != nil {
-				limit, err := e.contextWindow(runCtx, t, modelID)
+				limit, threshold, err := e.contextLimits(runCtx, t, modelID)
 				if err != nil {
 					return Outcome{}, err
 				}
 				tokens, source := contextTokens(progress, modelID, progress.Usage.Source)
-				if err = e.recordContextStatus(runCtx, t, ContextStatus{ModelID: modelID, Limit: limit, Tokens: tokens, Source: source, CompressionThreshold: e.options.CompressionThreshold}); err != nil {
+				if err = e.recordContextStatus(runCtx, t, ContextStatus{ModelID: modelID, Limit: limit, Tokens: tokens, Source: source, CompressionThresholdTokens: threshold}); err != nil {
 					return Outcome{}, err
 				}
 			}
