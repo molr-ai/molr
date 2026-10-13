@@ -4,6 +4,7 @@
 
 | 包 | 公开入口 | 测试 |
 | --- | --- | --- |
+| `internal/core` | `CompressionTokens` | `TestCompressionTokens` |
 | `internal/core` | `ID.Validate` | `TestTDDCoreIDBoundary` |
 | `internal/core` | `Principal.Validate` | `TestTDDCorePrincipalAndExecutionBoundaries` |
 | `internal/core` | `Principal.RequireOwner` | `TestTDDCorePrincipalAndExecutionBoundaries` |
@@ -302,3 +303,7 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/browser` | `Action.Input` | `TestWheelInputBounds` |
 | `internal/browser` | `Action.Args`, `Action.ReadOnly` | `TestActionDoesNotExposeLaunchOrArbitraryExecution` |
 | `internal/browser` | `HelperMain` | `internal/app.TestBrowserRealTaskStreamTakeoverAndPersistence` |
+
+| `internal/browser` | `Proxy.Validate`, `Proxy.LaunchConfig` | `TestProxyValidationAndPrivateLaunchConfig` |
+| `internal/browser` | `RedactProxyError` | `TestProxyErrorRedactsAllCredentialForms` |
+| `internal/browser` | `ProxyErrorReason` | `internal/app.TestBrowserProxyStatusUsesLaunchSnapshotAndUpdatesDiagnostics` |

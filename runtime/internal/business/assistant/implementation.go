@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"molr.ai/runtime/internal/agent/model"
 	"molr.ai/runtime/internal/business/schedule"
 	"molr.ai/runtime/internal/business/task"
 	"molr.ai/runtime/internal/core"
@@ -282,7 +281,7 @@ func (s *service) compressionTokens(ctx context.Context, p core.Principal, model
 	if configured == 0 {
 		return 0, nil
 	}
-	window := model.DefaultContextLimit
+	window := core.DefaultModelContextLimit
 	if s.options.ContextWindow != nil {
 		var err error
 		window, err = s.options.ContextWindow(ctx, p, modelID)
@@ -290,7 +289,7 @@ func (s *service) compressionTokens(ctx context.Context, p core.Principal, model
 			return 0, err
 		}
 	}
-	return model.CompressionTokens(window, configured), nil
+	return core.CompressionTokens(window, configured), nil
 }
 
 func (s *service) Hire(ctx context.Context, p core.Principal, req HireRequest) (Assistant, error) {

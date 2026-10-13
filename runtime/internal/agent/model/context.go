@@ -1,8 +1,10 @@
 package model
 
+import "molr.ai/runtime/internal/core"
+
 // DefaultContextLimit applies only at resolution time; it is never saved as a
 // manual model configuration. K uses 1024 tokens.
-const DefaultContextLimit = 256 * 1024
+const DefaultContextLimit = core.DefaultModelContextLimit
 
 func (m Model) ContextWindow() int {
 	if m.EffectiveContextLimit > 0 {
@@ -32,14 +34,4 @@ func (m Model) OutputWindow() int {
 		return m.ProviderOutputLimit
 	}
 	return DefaultOutputLimit
-}
-
-// CompressionTokens resolves an assistant's token threshold. Zero selects the
-// automatic default; positive values follow the current model's valid range.
-func CompressionTokens(window, configured int) int {
-	upper := max(1, window/5*4+window%5*4/5)
-	if configured == 0 {
-		return min(128*1024, upper)
-	}
-	return min(max(configured, min(64*1024, upper)), upper)
 }

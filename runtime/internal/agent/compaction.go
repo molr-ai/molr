@@ -157,7 +157,7 @@ func (e *Engine) contextLimits(ctx context.Context, t Turn, id core.ID) (int, in
 			return 0, 0, err
 		}
 	}
-	return window, model.CompressionTokens(window, configured), nil
+	return window, core.CompressionTokens(window, configured), nil
 }
 
 func (e *Engine) recordContextStatus(ctx context.Context, t Turn, value ContextStatus) error {
