@@ -1,5 +1,7 @@
 export { Logo } from './components/Logo';
 export type { LogoProps } from './components/Logo';
+export { ConnectionNotice } from './components/ConnectionNotice';
+export type { ConnectionNoticeProps } from './components/ConnectionNotice';
 export { ConnectionLogo } from './components/ConnectionLogo';
 export type { ConnectionLogoProps, ConnectionState } from './components/ConnectionLogo';
 export { default as appIconSizes } from './app-icon-sizes.json';

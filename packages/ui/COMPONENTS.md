@@ -43,7 +43,7 @@ import '@molr/ui/styles.css';
 | 选择 | `Checkbox`、`RadioGroup`、`SegmentedControl`、`Switch`、`Select` | 多选及半选、单选、分段选项、开关、键盘单选下拉 |
 | 导航 | `Tabs`、`Breadcrumb`、`Pagination` | 下划线或分段标签页、禁用项、路径、页码与边界 |
 | 弹层 | `Dialog`、`Drawer`、`DropdownMenu`、`Popover`、`Tooltip` | 模态任务、侧边详情、动作列表、非模态详情、悬停或聚焦说明 |
-| 反馈 | `Alert`、`ToastProvider` / `useToast`、`EmptyState`、`Skeleton`、`Progress` | 页面内消息、可撤销通知、空白与错误状态、占位和进度 |
+| 反馈 | `Alert`、`ConnectionNotice`、`ToastProvider` / `useToast`、`EmptyState`、`Skeleton`、`Progress` | 页面内消息、可撤销通知、空白与错误状态、占位和进度 |
 | 数据 | `Table` | 表格语义、受控排序、当前页全选及跨页选择、加载与空状态 |
 | 组合 | `ResourceCard`、`TaskCard` | 资源状态与操作、任务进度与继续操作 |
 | 聊天 | `ChatBubble`、`ChatMessage`、`ChatComposer`、`ChatCard`、`ChatAttachmentList`、`ChatMessageMeta`、`ChatStatus` | 文本气泡、头像与消息组合、自适应输入、独立卡片、附件、信息与反馈、助理状态 |
@@ -189,6 +189,8 @@ toast({ title: '项目已归档', action: { label: '撤销', onClick: undoArchiv
 <Progress label="同步资源" value={42} />
 <Progress label="正在查找内容" />
 ```
+
+`ConnectionNotice` 接收 `connection: connected | reconnecting | disconnected | failed | recovered`、`onRetry` 和可选 `className`。重连显示旋转图标，断开和失败显示重试按钮，已连接及恢复状态不渲染提示；连接状态、超时和重试结果由调用方提供。组件与按钮统一使用 12px 字号，文字、图标及操作背景沿用警示或错误语义色，默认标签跟随 `UIProvider` 的语言，减少动态效果遵循 `UIProvider`、系统和 `data-reduced-motion` 设置。UI Design 的 `?components=feedback#connection-notices` 提供状态切换及成功／失败交互预览。
 
 `Alert` 和 Toast 支持 `neutral`、`positive`、`warning`、`danger`。错误使用 alert 语义，其余通知使用 status；信息同时通过文字与图形表达。`Alert` 可传入 `onDismiss` 和 `dismissLabel`。
 

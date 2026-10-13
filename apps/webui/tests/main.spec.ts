@@ -1,4 +1,5 @@
 import { selectPlanRange } from './plan-controls';
+import { expectFitsWebView } from './viewport';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { createHmac } from 'node:crypto';
 import { tmpdir } from 'node:os';
@@ -1361,6 +1362,34 @@ test('a stalled connection times out and clicking the logo retries the real stre
   await page.route('**/api/plans?*', route => route.fulfill({ status: 503, body: '' }));
   await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click();
   await expect(page.getByText('The service is unavailable. Try again shortly.', { exact: true })).toBeVisible();
+});
+
+test('connection notices stay above page cards across routes and short viewports', async ({ page }) => {
+  await page.clock.install();
+  await page.route('**/api/events/stream*', () => {});
+  await login(page);
+  await page.clock.fastForward(21_000);
+  const notice = page.locator('.connection-banner');
+  await expect(notice).toHaveAttribute('data-connection', 'failed');
+  const viewport = page.viewportSize()!;
+  for (const height of [viewport.height, 420]) {
+    await page.setViewportSize({ ...viewport, height });
+    for (const [route, ready] of Object.entries({ assistants: '.assistant-workspace', plans: '.plans-workspace', resources: '.resources-workspace', account: '.settings-workspace', settings: '.settings-workspace' })) {
+      await page.evaluate(route => { location.hash = `#/${route}`; }, route);
+      await expect(page.locator(`.workspace-main[data-page='${route}'] ${ready}`)).toBeVisible();
+      await expectFitsWebView(page);
+      const bannerBox = (await notice.boundingBox())!, cardBox = (await page.locator('.workspace-main').boundingBox())!;
+      expect(cardBox.y - (bannerBox.y + bannerBox.height)).toBeCloseTo(8, 0);
+      await expect(notice).toHaveCSS('border-radius', '16px');
+      const button = notice.getByRole('button', { name: 'Retry connection' });
+      const color = await notice.evaluate(element => getComputedStyle(element).color);
+      await expect(button).toHaveCSS('color', color);
+    }
+  }
+  await page.unroute('**/api/events/stream*');
+  await notice.getByRole('button', { name: 'Retry connection' }).click();
+  await expect(notice).toHaveCount(0);
+  await expectFitsWebView(page);
 });
 
 test('settings save independently, About shows Runtime details and Security signs out the session', async ({ page, context }, info) => {

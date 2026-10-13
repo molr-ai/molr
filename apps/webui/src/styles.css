@@ -8,8 +8,7 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 .muted, small { color: var(--color-text-muted); } .pre-wrap { white-space: pre-wrap; overflow-wrap: anywhere; }
 .loading { display: grid; gap: 16px; padding: 24px; width: 100%; }
 .session-page, .login-page { position: relative; display: grid; place-items: safe center; height: 100dvh; overflow: auto; padding: 24px; }
-.workspace-main { background: var(--color-surface); }
-.workspace:not(.workspace--mobile) .workspace-main { margin: var(--workspace-inset); border-radius: var(--radius-card); box-shadow: var(--shadow-workspace); }
+.workspace-main { background: var(--color-surface); border-radius: var(--radius-card); box-shadow: var(--shadow-workspace); }
 .workspace:not(.workspace--mobile) .workspace-main:has(> .assistant-workspace:not(.assistant-workspace--focus)) { background: transparent; border-radius: 0; box-shadow: none; overflow: visible; }
 .workspace:not(.workspace--mobile) .assistant-workspace:not(.assistant-workspace--focus) {
   --assistant-search-height: 44px;
@@ -46,6 +45,7 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 .form-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; } .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; }
 .workspace { --workspace-inset: 8px; --workspace-header-height: 64px; --workspace-sidebar-width: 256px; --assistant-info-width: 600px; --assistant-tasks-width: 480px; height: 100dvh; overflow: hidden; display: flex; }
 .workspace > .ui-modal-scope-content { display: flex; min-width: 0; flex: 1; height: 100%; }
+.workspace-content { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; gap: var(--workspace-inset); margin: var(--workspace-inset); }
 .workspace-nav { width: 72px; padding: 16px 10px; flex-shrink: 0; background: var(--color-surface); border-right: 1px solid var(--color-border); display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .workspace-logo { width: 44px; height: 44px; justify-content: center; --logo-symbol-size: 35px; margin-bottom: 12px; }
 .nav-button { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: var(--radius-control); color: var(--color-text-muted); background: transparent; }
@@ -60,8 +60,7 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 .nav-account-actions .user-avatar:not(:has(> .assistant-avatar-art)) { background: var(--nav-hover-background, var(--color-selected-bg)); }
 .nav-account-actions .nav-button:not([aria-current]):hover .user-avatar:not(:has(> .assistant-avatar-art)) { background: transparent; }
 .nav-account-actions .nav-button[aria-current] .user-avatar { background: inherit; color: inherit; }
-.workspace-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: auto; }.connection-banner { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 5px 16px; text-align: center; font-size: 12px; background: var(--color-warning-bg); color: var(--color-warning); }
-.connection-banner[data-connection='failed'] { background: var(--color-danger-bg); color: var(--color-danger); }
+.workspace-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: auto; }
 .assistant-workspace { display: flex; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
 .workspace-sidebar { display: flex; flex-direction: column; width: var(--workspace-sidebar-width); min-width: 0; flex-shrink: 0; background: var(--color-surface); border-right: 1px solid var(--color-border); }
 .workspace:not(.workspace--mobile) .workspace-nav { width: fit-content; padding: 8px 4px 8px 10px; background: var(--color-background); border: 0; }
@@ -97,7 +96,7 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 [data-reduced-motion='true'] *, [data-reduced-motion='true'] *::before, [data-reduced-motion='true'] *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 @media (--molr-compact) { .workspace { --workspace-sidebar-width: 224px; }.chat-header { padding: 12px 18px; }.chat-history { padding: 20px; }.chat-input { padding: 10px 20px 20px; } }
 @media (--molr-mobile) {
-  .workspace { position: relative; --mobile-nav-height: 64px; --mobile-nav-gap: 12px; }
+  .workspace { position: relative; --mobile-nav-height: 64px; --mobile-nav-bottom-gap: 8px; }
   .workspace > .ui-modal-scope-content { flex-direction: column; }
   .assistant-workspace { display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); }
   .assistant-workspace > .workspace-sidebar, .mobile-chat-presence { grid-area: 1 / 1; min-height: 0; }
@@ -106,21 +105,9 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
   .assistant-workspace--focus { grid-template-rows: auto minmax(0, 1fr); }
   .assistant-workspace--focus > .mobile-chat-presence { grid-area: 2 / 1; }
 
-  .workspace--mobile-nav { --mobile-nav-clearance: calc(var(--mobile-nav-height) + var(--mobile-nav-gap) * 2 + env(safe-area-inset-bottom)); }
-  /* Keep the viewport behind the floating menu; clearance belongs to the scrollable content. */
-  .workspace--mobile-nav .workspace-main :is(.assistant-list, .settings-body, .resources-master, .plans-master, .trajectory-scroll, .plugin-market, .plugin-detail-settings, .page-body),
-  .workspace--mobile-nav .resources-workspace > .ui-tabs > .ui-tabs__panel:not([hidden]),
-  .workspace--mobile-nav .workspace-main > .page:not(.page--with-header, .workbench),
-  .workspace--mobile-nav .workspace-main > .ui-frame-notice {
-    padding-bottom: var(--mobile-nav-clearance);
-    scroll-padding-bottom: var(--mobile-nav-clearance);
-  }
-  .workspace--mobile-nav .assistant-workspace--focus:not(:has(.chat-panel)) { overflow-y: auto; padding-bottom: var(--mobile-nav-clearance); }
-  /* Isolated plugin frames own their scrolling, so keep their viewport above the menu. */
-  .workspace--mobile-nav .workspace-main > :is(.plugin-frame, .ui-frame-page) { padding-bottom: var(--mobile-nav-clearance); }
-
-  .workspace-nav { position: absolute; z-index: 10; bottom: calc(var(--mobile-nav-gap) + env(safe-area-inset-bottom)); left: max(var(--mobile-nav-gap), env(safe-area-inset-left)); right: max(var(--mobile-nav-gap), env(safe-area-inset-right)); width: auto; max-width: 440px; margin-inline: auto; height: var(--mobile-nav-height); flex-direction: row; gap: 4px; padding: 7px; border: 1px solid var(--color-border); border-radius: 24px; box-shadow: var(--shadow-popover); opacity: 1; transform: translateY(0); visibility: visible; transition: transform 220ms cubic-bezier(.22, 1, .36, 1), opacity 180ms ease, visibility 0s; }
-  .workspace--mobile:not(.workspace--mobile-nav) .workspace-nav { opacity: 0; transform: translateY(8px); visibility: hidden; pointer-events: none; transition-delay: 0s, 0s, 220ms; }
+  .workspace--mobile-nav .assistant-workspace--focus:not(:has(.chat-panel)) { overflow-y: auto; }
+  .workspace-nav { order: 1; width: auto; height: var(--mobile-nav-height); margin: 0 var(--workspace-inset) calc(var(--mobile-nav-bottom-gap) + env(safe-area-inset-bottom)); flex-direction: row; gap: 4px; padding: 8px; border: 0; border-radius: var(--radius-card); box-shadow: var(--shadow-workspace); }
+  .workspace--mobile:not(.workspace--mobile-nav) .workspace-nav { display: none; }
   .workspace-nav .nav-button { flex: 1; min-width: 0; width: auto; height: 48px; padding: 0 8px; gap: 0; border-radius: 17px; transition: flex 180ms ease, background-color 180ms ease, color 180ms ease; }
   .workspace-nav .nav-button[aria-current] { flex: 1.8; gap: 6px; }
   .workspace-nav .nav-button > span:last-child { display: block; min-width: 0; max-width: 0; overflow: hidden; text-overflow: ellipsis; opacity: 0; white-space: nowrap; font-size: 12px; font-weight: 600; transition: max-width 180ms ease, opacity 180ms ease; }
@@ -131,9 +118,8 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
   .page { padding: 24px 16px; }.login-card { padding: 28px 20px; }
 }
 
-[data-reduced-motion='true'] .workspace-nav { transition: none !important; }
 @media (prefers-reduced-motion: reduce) {
-  .workspace-nav, .workspace-nav .nav-button, .workspace-nav .nav-button > span:last-child { transition: none; }
+  .workspace-nav .nav-button, .workspace-nav .nav-button > span:last-child { transition: none; }
 }
 
 .settings-general { max-width: 760px; padding-top: 0; }

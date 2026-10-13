@@ -8,6 +8,7 @@ import { ComponentExample as Example } from './ComponentExample';
 import { ChatShowcase } from './ChatShowcase';
 import { CodeBlockShowcase } from './CodeBlockShowcase';
 import { SkeletonShowcase } from './SkeletonShowcase';
+import { ConnectionNoticeShowcase } from './ConnectionNoticeShowcase';
 
 type TextKey = { [Key in keyof typeof libraryMessages.en]: typeof libraryMessages.en[Key] extends string ? Key : never }[keyof typeof libraryMessages.en];
 function DemoText({ name }: { name: TextKey }) { const { locale } = useUILocale(); return libraryMessages[locale][name]; }
@@ -27,7 +28,7 @@ type Resource = (typeof records)[number];
 export function ComponentsShowcase({ locale, copy, theme }: { locale: Locale; copy: Messages; theme: Theme }) {
   const t = libraryMessages[locale];
   const { toast } = useToast();
-  const [category, setCategory] = useState(() => new URLSearchParams(window.location.search).get('components') === 'chat' ? 'chat' : 'foundations');
+  const [category, setCategory] = useState(() => { const requested = new URLSearchParams(window.location.search).get('components'); return requested === 'chat' || requested === 'feedback' ? requested : 'foundations'; });
   const [range, setRange] = useState<[number, number]>([20, 80]);
   const [eventRange, setEventRange] = useState<[number, number]>([3, 8]);
   const [expiry, setExpiry] = useState<string | null>(null);
@@ -175,6 +176,7 @@ export function ComponentsShowcase({ locale, copy, theme }: { locale: Locale; co
         <Example title={t.navigationTools} description={t.navigationNote}><Breadcrumb items={[{ label: t.home, href: '#main' }, { label: t.projects, href: '#components' }, { label: t.currentProject }]} /><div className="pagination-preview"><span className="pagination-preview__number">{String(pageExample).padStart(2, '0')}</span><p>{t.pageDescription(pageExample)}</p></div><Pagination page={pageExample} totalPages={12} onPageChange={setPageExample} /></Example>
       </div> },
       { value: 'feedback', label: t.feedback, content: <div className="component-library__grid">
+        <ConnectionNoticeShowcase />
         <Example title={t.alerts} description={t.alertsNote}><Alert title={t.infoTitle}>{t.infoBody}</Alert><Alert tone="positive" title={t.successTitle}>{t.successBody}</Alert>{showAlert ? <Alert tone="warning" title={t.warningTitle} onDismiss={() => setShowAlert(false)}>{t.warningBody}</Alert> : <Button variant="ghost" onClick={() => setShowAlert(true)}>{t.restore}</Button>}<Alert tone={retried ? 'positive' : 'danger'} title={retried ? t.successTitle : t.errorTitle} action={!retried && <Button size="sm" variant="secondary" loading={retrying} onClick={() => { setRetrying(true); later(() => { setRetrying(false); setRetried(true); }); }}>{t.retry}</Button>}>{retried ? t.successBody : t.errorBody}</Alert></Example>
         <Example title={t.toast} description={t.toastNote}><div className="component-row"><Button variant="secondary" onClick={() => notify('saved')}>{t.showSuccess}</Button><Button variant="secondary" onClick={() => toast({ title: <DemoText name="errorTitle" />, description: <DemoText name="errorBody" />, tone: 'danger', action: { label: <DemoText name="retry" />, onClick: () => notify('saved') } })}>{t.showError}</Button><Button variant="secondary" onClick={archive}>{t.showUndo}</Button></div><Badge tone={archived ? 'neutral' : 'positive'}>{archived ? t.archived : t.active}</Badge></Example>
         <Example title={t.empty} description={t.emptyNote}><SegmentedControl label={t.empty} hideLabel value={emptyMode} onValueChange={setEmptyMode} options={[{ value: 'empty', label: t.empty }, { value: 'search', label: t.noResults }, { value: 'offline', label: t.offline }]} />{emptyContent}</Example>

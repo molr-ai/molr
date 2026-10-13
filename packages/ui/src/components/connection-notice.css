@@ -1,0 +1,13 @@
+.connection-banner { display: flex; flex-shrink: 0; align-items: center; gap: 10px; min-height: 44px; padding: 8px 12px; border-radius: var(--radius-card); background: var(--color-warning-bg); color: var(--color-warning); box-shadow: var(--shadow-workspace); font-size: var(--text-xs); line-height: 1.5; }
+.connection-banner__icon { flex-shrink: 0; }
+.connection-banner__message { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.connection-banner > .button { flex-shrink: 0; min-height: 32px; margin-block: -2px; color: inherit; font-size: inherit; }
+.connection-banner > .button:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
+.connection-banner > .button:active { background: color-mix(in srgb, currentColor 12%, transparent); }
+.connection-banner > .button:focus-visible { outline-color: currentColor; }
+.connection-banner[data-connection='failed'] { background: var(--color-danger-bg); color: var(--color-danger); }
+.connection-banner[data-connection='reconnecting'] .connection-banner__icon { animation: connection-notice-spin 1.4s linear infinite; }
+@keyframes connection-notice-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .connection-banner__icon { animation: none !important; } }
+[data-reduced-motion='true'] .connection-banner__icon { animation: none !important; }
+@media (--molr-mobile) { .connection-banner > .button { min-height: 36px; } }

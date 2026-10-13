@@ -114,3 +114,7 @@ InterfaceShowcase 首屏仅挂载 Web 工作区。Web / Desktop 继续共享同�
 ### 点赞／点踩设计预览
 
 `?components=chat#feedback-design` 展示新版手势的放大状态与实际消息尺寸，消息预览同时展示复制与信息按钮以比较一致性，支持选中、取消、互斥切换和键盘操作。聊天组件示例、助理原型和真实 WebUI 均复用共享 `ChatMessageMeta` / `ChatFeedback`；状态展示单独使用受控的 `ChatFeedback`。
+
+### 连接提示
+
+组件库的「反馈」分类加入「连接提示」，可通过 `?components=feedback#connection-notices` 直达。与真实 WebUI 共用 `@molr/ui` 的 `ConnectionNotice`，支持重连、断开、失败、恢复和已连接状态切换；已连接或恢复时提示收起。可演示重连成功、重连失败、点击重试及减少动态效果，文案跟随中英文，配色跟随六套主题及明暗模式。示例只演示状态，不发起连接请求。验证见 `tests/connection-notices.spec.ts`。

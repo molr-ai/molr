@@ -16,11 +16,22 @@ export async function expectFitsWebView(page: Page) {
       if (rect.top < top - 1 || rect.bottom > top + height + 1) failures.push(`${selector}: top=${rect.top}, bottom=${rect.bottom}, WebView=${top}..${top + height}`);
     }
     const nav = document.querySelector<HTMLElement>('.workspace--mobile-nav .workspace-nav');
-    const main = document.querySelector<HTMLElement>('.workspace-main');
+    const main = document.querySelector<HTMLElement>('.workspace--mobile .workspace-main');
+    if (main) {
+      const content = main.getBoundingClientRect(), style = getComputedStyle(main);
+      if (Math.abs(content.left - 8) > 1 || Math.abs(innerWidth - content.right - 8) > 1) failures.push('mobile content card must keep 8px side margins');
+      if (!nav && Math.abs(top + height - content.bottom - 8) > 1) failures.push('mobile content must reclaim navigation space when navigation is hidden');
+      if (!document.querySelector('.connection-banner') && Math.abs(content.top - top - 8) > 1) failures.push('mobile content card must keep an 8px top margin without a connection notice');
+      if (style.borderRadius !== '16px' || style.boxShadow === 'none') failures.push('mobile content must retain its rounded card and shadow');
+    }
     if (nav && main) {
       const menu = nav.getBoundingClientRect(), content = main.getBoundingClientRect();
-      if (Math.abs(content.bottom - (top + height)) > 1) failures.push(`content bottom=${content.bottom} must extend behind navigation to the viewport bottom=${top + height}`);
-      if (menu.bottom >= top + height || menu.left <= 0 || menu.right >= innerWidth) failures.push('floating navigation must keep space from viewport edges');
+      if (Math.abs(menu.top - content.bottom - 8) > 1) failures.push('navigation must be a separate card 8px below content, without overlap');
+      if (Math.abs(menu.left - content.left) > 1 || Math.abs(menu.right - content.right) > 1) failures.push('navigation and content card edges must align');
+      if (Math.abs(top + height - menu.bottom - 8) > 1) failures.push('navigation must keep an 8px bottom gap in viewports without a safe area');
+      const menuStyle = getComputedStyle(nav), contentStyle = getComputedStyle(main);
+      for (const property of ['backgroundColor', 'borderRadius', 'boxShadow'] as const) if (menuStyle[property] !== contentStyle[property]) failures.push(`navigation and content must share ${property}`);
+      if (menuStyle.position === 'absolute' || menuStyle.position === 'fixed') failures.push('navigation must participate in normal layout');
     }
     return failures;
   }), { message: `${page.url()} must fit the WebView height` }).toEqual([]);
@@ -52,10 +63,10 @@ export async function checkPageHeight(page: Page) {
         for (const el of document.querySelectorAll<HTMLElement>('.workspace-main *')) {
           if (el.checkVisibility() && /auto|scroll/.test(getComputedStyle(el).overflowY)) el.scrollTop = el.scrollHeight;
         }
-        const top = nav.getBoundingClientRect().top;
+        const bottom = document.querySelector('.workspace-main')!.getBoundingClientRect().bottom;
         const selectors = ['.assistant-list > li:last-child', '.settings-body > :last-child', '.resources-master > :last-child', '.plans-master > :last-child', '.plans-month-grid', '.trajectory-scroll > :last-child', '.plugin-market > :last-child', '.page-body > :last-child'];
-        return selectors.flatMap(selector => Array.from(document.querySelectorAll<HTMLElement>(`.workspace-main ${selector}`)).filter(el => el.checkVisibility() && el.getBoundingClientRect().bottom > top + 1).map(() => `${selector} is obscured at the end of scrolling`));
-      }), { message: 'Scrolling to the end must reveal the last content above the floating menu' }).toEqual([]);
+        return selectors.flatMap(selector => Array.from(document.querySelectorAll<HTMLElement>(`.workspace-main ${selector}`)).filter(el => el.checkVisibility() && el.getBoundingClientRect().bottom > bottom + 1).map(() => `${selector} is obscured at the end of scrolling`));
+      }), { message: 'Scrolling to the end must reveal the last content inside its card' }).toEqual([]);
     }
   }
   await page.setViewportSize(original);

@@ -5,7 +5,7 @@ import { pluginCopy } from './plugins/copy';
 import { NotificationProvider } from './notifications/provider';
 import { Component, lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { AssistantAvatar, Button, ConnectionLogo, ModalScope, Tooltip, UIProvider, useBreakpoint, useTheme } from '@molr/ui';
+import { AssistantAvatar, Button, ConnectionLogo, ConnectionNotice, ModalScope, Tooltip, UIProvider, useBreakpoint, useTheme } from '@molr/ui';
 import { Puzzle, CalendarClock, FlaskConical, Folder, MessagesSquare, Search as SearchIcon } from 'lucide-react';
 import { resolveUI, packageKey } from '@molr/ui-host';
 import type { UIContext, UIPage } from '@molr/sdk/ui';
@@ -86,12 +86,14 @@ function WorkspaceHost() {
         <Tooltip content={t.account.title} side="right" width="auto"><button type="button" className="nav-button" aria-label={t.account.title} aria-current={page === 'account' || page === 'settings' ? 'page' : undefined} onClick={() => navigate('account')}><span className="user-avatar" aria-hidden="true"><AssistantAvatar name={session.principal?.User?.DisplayName || session.principal?.User?.Username || 'U'} avatar={session.principal?.User?.Avatar} /></span><span>{locale === 'zh' ? '我的' : 'Account'}</span><UpdateBadge compact /></button></Tooltip>
       </div>}
     </nav>
+    <div className="workspace-content">
+      {hasConnectionNotice && <ConnectionNotice connection={connection} onRetry={retryConnection} />}
     <main className="workspace-main" data-page={page}>
-      {hasConnectionNotice && <div className="connection-banner" data-connection={connection} role="status"><span>{connection === 'failed' ? t.connectionFailed : connection === 'disconnected' ? t.offline : t.reconnecting}</span>{connection !== 'reconnecting' && <Button variant="ghost" size="sm" onClick={retryConnection}>{t.retryConnection}</Button>}</div>}
       <PageBoundary key={`${packageKey(selected.manifest)}:${recoveryAttempt}`} routeKey={`${uiPage}:${id}`} fallback={<div className="ui-frame-notice" role="alert"><h2>{copy.failed}</h2><p>{copy.failedHelp}</p><Button onClick={() => location.reload()}>{copy.retry}</Button><Button onClick={recover}>{copy.recover}</Button><Button variant="secondary" onClick={() => navigate('account', 'theme')}>{copy.manage}</Button></div>}>
         <Suspense fallback={<Loading />}>{page === 'settings' ? <AdminSettings initialTab={id} onSelectSection={value => navigate('settings', value)} /> : page === 'resources' && !administrator ? <div className="ui-frame-notice" role="alert">{locale === 'zh' ? '此页面仅管理员可访问' : 'Administrator access required'}</div> : page === 'account' ? <OfficialPage /> : page === 'extensions' ? (pluginsVisible ? <ExtensionPages id={id} /> : null) : selected.plugin ? <PluginFrame reference={{ ...selected.plugin, Page: uiPage }} title={selected.manifest.name} /> : selected.runtime === 'builtin' ? <NativePage /> : <FramePage manifest={selected.manifest} context={context} navigate={navigate} recover={recover} />}</Suspense>
       </PageBoundary>
     </main>
+    </div>
   </ModalScope></div></UIProvider>;
 }
 class PageBoundary extends Component<{ children: ReactNode; fallback: ReactNode; routeKey: string }, { failed: boolean }> {

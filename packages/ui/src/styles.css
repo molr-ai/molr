@@ -8,6 +8,7 @@
 @import './components/workspace.css';
 @import './components/search-panel.css';
 @import './components/connection-logo.css';
+@import './components/connection-notice.css';
 @import './components/date-time-picker.css';
 @import './components/code-block.css';
 

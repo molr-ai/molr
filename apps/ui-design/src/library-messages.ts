@@ -1,4 +1,5 @@
 const zh = {
+  connectionNotices: { title: '连接提示', description: '复用 WebUI 的连接提示，查看重连、断开、失败及连接恢复后的收起状态。', state: '连接状态', success: '演示重连成功', failure: '演示重连失败', reducedMotion: '减少动态效果', hidden: '连接正常，提示已收起。', hint: '此示例只演示交互，不连接服务器。点击提示中的重试按钮，查看重连后收起的过程。' },
   codeBlock: '代码高亮', codeBlockNote: 'JSON 键名、字符串、数字与字面量使用不同颜色，支持明暗主题、自动换行及键盘滚动。普通文本或不完整的 JSON 按原文显示。', codeLanguage: '代码格式', codePlain: '纯文本', codeWrap: '自动换行', codeExample: '代码高亮示例', codeEdit: '编辑示例内容', codeInput: '代码内容',
   rangeSlider: '双端范围选择器', rangeSliderNote: '同一条轨道上的两个手柄，沿用品牌色、圆角和焦点样式。支持鼠标、触摸与键盘，范围两端不会交叉。', rangeValue: '数值范围', rangeEvents: '事件范围 · 小号', rangeDisabled: '已禁用的范围', rangeKeyboard: '方向键按步长调整；Home / End 到达边界；Tab 在两个手柄间切换。', rangeOverlap: '收拢到同一位置', rangeFirst: '起始事件', rangeLast: '结束事件',
 
@@ -61,6 +62,7 @@ const zh = {
 
 type LibraryMessages = typeof zh;
 const en: LibraryMessages = {
+  connectionNotices: { title: 'Connection notices', description: 'The same connection notice used in WebUI, including reconnecting, disconnected, failed, and hidden after recovery.', state: 'Connection state', success: 'Preview successful reconnection', failure: 'Preview failed reconnection', reducedMotion: 'Reduce motion', hidden: 'Connected. The notice is hidden.', hint: 'This is an interaction preview without a server connection. Use the notice’s retry button to reconnect and dismiss the notice.' },
   codeBlock: 'Code highlighting', codeBlockNote: 'Distinct JSON keys, strings, numbers and literals, with light and dark themes, wrapping and keyboard scrolling. Plain text and incomplete JSON keep their original content.', codeLanguage: 'Code format', codePlain: 'Plain text', codeWrap: 'Wrap lines', codeExample: 'Code highlighting example', codeEdit: 'Edit sample content', codeInput: 'Code source',
   rangeSlider: 'Range slider', rangeSliderNote: 'Two thumbs on one track, using shared brand colors, rounded shapes and focus styles. Supports pointer, touch and keyboard input without crossing bounds.', rangeValue: 'Value range', rangeEvents: 'Event range · Small', rangeDisabled: 'Disabled range', rangeKeyboard: 'Arrow keys adjust by one step; Home / End reach the bounds; Tab moves between thumbs.', rangeOverlap: 'Collapse range', rangeFirst: 'First event', rangeLast: 'Last event',
 
