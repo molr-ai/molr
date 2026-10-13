@@ -159,8 +159,6 @@ h2 { margin-bottom: 0; font-size: 24px; line-height: 1.4; font-weight: 550; lett
 .component-example > header h3 { margin: 0 0 7px; font-size: 17px; line-height: 1.4; font-weight: 550; letter-spacing: -0.025em; }
 .component-example > header p { margin: 0; font-size: 12px; color: var(--color-text-muted); line-height: 1.7; }
 .component-example__body { display: grid; min-width: 0; gap: 20px; }
-.ui-chat-bubble--assistant, .ui-chat-attachments li, .ui-image-gallery__thumbnail, .ui-chat-card { background: var(--color-background); }
-:is(.ui-tabs--segmented > .ui-tabs__list, .segmented-control .radio-group__options, .ui-choice-list--segmented) { background: var(--color-background); }
 .tab-variant-example { min-width: 0; }
 .tab-variant-example > .control-label { margin: 0 0 8px; }
 .component-row--spread { justify-content: space-between; }

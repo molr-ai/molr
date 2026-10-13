@@ -25,7 +25,7 @@ import '@molr/ui/styles.css';
 
 优先通过留白、底色、字号与选中状态表达层级。卡片、附件、提示块与浮层不使用装饰性描边；浮层沿用轻阴影表达悬浮关系。主要、强调、危险和文字按钮无边框；次要按钮（含图标按钮）保留 1 px 的 `--color-control-border` 细边框，使用 `--color-surface`（浅色主题为白色），与透明无边框的文字按钮区分。次要按钮悬停时使用 `--color-control-border-hover` 边框与 `--color-neutral-bg` 底色。
 
-普通卡片（含资源、任务和聊天卡片）与表格主体使用 `--color-surface`，在明暗模式下均与页面背景分层。表头及行悬停使用 `--color-neutral-bg`，选中行保留独立的选中底色与标记；不在单元格上覆盖底色，以免遮住整行状态。平面列表行和嵌套正文区域按各自语义保持透明或凹入层级，不把所有列表都改成卡片。
+普通卡片（含资源和任务卡片）与表格主体使用 `--color-surface`，在明暗模式下均与页面背景分层。表头及行悬停使用 `--color-neutral-bg`，选中行保留独立的选中底色与标记；不在单元格上覆盖底色，以免遮住整行状态。平面列表行和嵌套正文区域按各自语义保持透明或凹入层级，不把所有列表都改成卡片。
 
 `--color-border` 用于侧栏、页头、列表行、表格与日历等必要的区块分隔。输入框、下拉选择、复选框和单选框保留细边框，使用较淡的 `--color-control-border`；输入框与下拉选择悬停时使用 `--color-control-border-hover`。聚焦与错误状态继续使用清晰的语义色；键盘焦点指示、选中标记不因无边框设计而移除。
 
@@ -90,7 +90,7 @@ import '@molr/ui/styles.css';
 | 样式 | 视觉 | 用法 |
 | --- | --- | --- |
 | 下划线简约版 `line` | 透明背景、2 px 选中下划线、24 px 项间距 | 组件分类、Web / Desktop / Mobile / CLI、资源 / 授权、日程分类 |
-| 带底色分段控件 `segmented` | 中性底色、选中项使用表面色与轻阴影；外圆角 8 px、内圆角 4 px、内边距与项间距 4 px | 列表 / 月历、Logo 动画选项、资源筛选、表单中的展示方式 |
+| 带底色分段控件 `segmented` | `--color-background` 底色、选中项使用 `--color-surface` 与轻阴影；外圆角 8 px、内圆角 4 px、内边距与项间距 4 px | 列表 / 月历、Logo 动画选项、资源筛选、表单中的展示方式 |
 
 默认 `md` 尺寸下，两种样式共用 14 px 字号、图标尺寸、选中文字、禁用状态与可见焦点。单项最小高度统一为 36 px，触屏或窄屏下不再额外放大。横向 Tab 与切换控件在非移动端超宽时换行；`mobile` 断点（700 px）及以下的窄屏保持单行并横向滚动。Mobile 原型通过 `--choice-wrap: nowrap` 在任意预览宽度下沿用移动端滚动规则，竖向 Tab 保持纵向排列。
 
@@ -103,6 +103,8 @@ import '@molr/ui/styles.css';
 `Breadcrumb` 的末项为当前位置，其余有 `href` 的条目为链接。`Pagination` 使用从 1 开始的页码；首尾按钮在边界禁用，页数较多时省略中间页码，手机显示当前页与前后按钮。数据获取、排序与切页由调用方负责。
 
 ## 聊天（Chat）
+
+助理消息气泡、`ChatCard`、文件附件、图片附件缩略图和用户默认头像使用 `--color-background`，在 `--color-surface` 聊天区域中形成层次；用户气泡使用 `--color-accent` 与 `--color-on-accent`，输入器保持 `--color-surface`。这些样式由共享组件提供，UI Design 与 WebUI 直接复用。
 
 `ChatBubble` 只接收 `text` 字符串，双方气泡均无边框、16 px 圆角；`role="user"` 使用 Lime 底色与 Forest 文字。用户气泡内的文本选中使用 Forest 底色与 Canvas 文字，避免与气泡底色重合。`ChatMessage` 组合头像、`sender`、文本、`attachments`、`images`、`cards` 和 `footer`，头像、图片、附件和卡片独立于文本气泡呈现。默认显示 32 × 32 px 圆形头像，未提供 `avatar` 时以发送者名称首字占位；可传入图片或图标。`showAvatar` 与 `showSender` 可独立开关，助理头像在左侧，用户头像在右侧。用户消息可传入 `readStatus="unread"` 或 `readStatus="read"`，在气泡和附件下方右对齐显示「未读／已读」，使用辅助文字色，不增加边框。未传值时不显示；助理消息不显示此状态，状态由调用方提供。
 

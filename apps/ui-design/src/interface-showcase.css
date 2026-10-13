@@ -34,9 +34,6 @@
 .ip-nav-settings { margin-top: auto; }
 .ip-body { min-width: 0; flex: 1; }
 .ip-avatar { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; background: var(--assistant-avatar-bg); color: var(--assistant-avatar-color); border-radius: 50%; font-size: 14px; font-weight: 500; }
-.ip-shell .ui-chat-message--assistant .ui-chat-avatar { background: var(--assistant-avatar-bg); color: var(--assistant-avatar-color); }
-.ip-shell .ui-chat-message--user .ui-chat-avatar { background: var(--color-background); color: var(--color-text); }
-.ip-shell .ui-chat-bubble--user { background: var(--color-accent); color: var(--color-on-accent); }
 .ip-content { padding: 32px; min-height: 510px; font-size: 12px; }
 .ip-page-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
 .ip-page-heading > div { min-width: 0; }

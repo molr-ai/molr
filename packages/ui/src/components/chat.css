@@ -3,10 +3,10 @@
 .ui-chat-message--user { flex-direction: row-reverse; max-width: 82%; margin-left: auto; }
 .ui-chat-message__body { min-width: 0; flex: 1; }
 .ui-chat-avatar { display: grid; place-items: center; flex: 0 0 32px; width: 32px; height: 32px; overflow: hidden; border-radius: 50%; background: var(--color-primary); color: var(--color-on-primary); font: 500 13px/1 var(--font-sans); }
-.ui-chat-message--user .ui-chat-avatar { background: var(--color-neutral-bg); color: var(--color-text); }
+.ui-chat-message--user .ui-chat-avatar { background: var(--color-background); color: var(--color-text); }
 .ui-chat-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .ui-chat-avatar svg { width: 20px; height: 20px; }
-.ui-chat-bubble { width: fit-content; max-width: 100%; padding: 12px 16px; border: 0; border-radius: var(--radius-card); background: var(--color-surface); color: var(--color-text); overflow-wrap: anywhere; }
+.ui-chat-bubble { width: fit-content; max-width: 100%; padding: 12px 16px; border: 0; border-radius: var(--radius-card); background: var(--color-background); color: var(--color-text); overflow-wrap: anywhere; }
 .ui-chat-bubble--user { margin-left: auto; padding-block: 10px; background: var(--color-accent); color: var(--color-on-accent); }
 .ui-chat-bubble--user::selection, .ui-chat-bubble--user *::selection { background: var(--color-forest); color: var(--color-canvas); }
 .ui-chat-bubble > p { margin: 0; white-space: pre-wrap; font-size: var(--text-sm); line-height: 1.85; }
@@ -19,7 +19,7 @@
 .message-cards { display: grid; gap: 12px; margin-top: 12px; }
 .ui-chat-message:has(.message-cards > .ui-chat-card) { width: 522px; max-width: 100%; }
 .ui-chat-message:has(.message-cards > .ui-chat-card) .message-cards { grid-template-columns: minmax(0, 1fr); }
-.ui-chat-card { display: grid; gap: 12px; width: 100%; max-width: 480px; padding: 16px; border: 0; border-radius: var(--radius-card); background: var(--color-surface); color: var(--color-text); overflow-wrap: anywhere; }
+.ui-chat-card { display: grid; gap: 12px; width: 100%; max-width: 480px; padding: 16px; border: 0; border-radius: var(--radius-card); background: var(--color-background); color: var(--color-text); overflow-wrap: anywhere; }
 .ui-chat-card__heading, .ui-chat-card > footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
 .ui-chat-card > h4 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: var(--text-sm); font-weight: 550; }
 .ui-chat-card > h4 > span { display: inline-flex; flex-shrink: 0; }
@@ -33,7 +33,7 @@
 .ui-chat-card__details dd { min-width: 0; margin: 0; color: var(--color-text); font-size: var(--text-xs); line-height: 1.7; }
 .ui-chat-card__details code { font-size: inherit; font-family: var(--font-mono); overflow-wrap: anywhere; }
 .ui-chat-attachments { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; margin: 0; }
-.ui-chat-attachments li { display: flex; align-items: center; gap: 6px; max-width: 100%; padding: 6px 8px; border: 0; border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text); font-size: 11px; }
+.ui-chat-attachments li { display: flex; align-items: center; gap: 6px; max-width: 100%; padding: 6px 8px; border: 0; border-radius: var(--radius-control); background: var(--color-background); color: var(--color-text); font-size: 11px; }
 .ui-chat-attachments span { min-width: 0; overflow-wrap: anywhere; }
 .ui-chat-attachments small { flex-shrink: 0; font-size: 10px; color: var(--color-text-muted); }
 .ui-chat-attachments svg { width: 13px; height: 13px; flex-shrink: 0; }
@@ -128,7 +128,7 @@
 .ui-image-gallery { min-width: 0; }
 .ui-image-gallery__grid { display: flex; flex-wrap: wrap; gap: 8px; max-width: 376px; padding: 0; margin: 0; list-style: none; }
 .ui-image-gallery__grid > li { position: relative; width: 112px; max-width: 100%; }
-.ui-image-gallery__thumbnail { display: block; width: 100%; aspect-ratio: 1; padding: 0; overflow: hidden; border: 1px solid var(--color-control-border); border-radius: var(--radius-control); background: var(--color-surface); cursor: zoom-in; }
+.ui-image-gallery__thumbnail { display: block; width: 100%; aspect-ratio: 1; padding: 0; overflow: hidden; border: 1px solid var(--color-control-border); border-radius: var(--radius-control); background: var(--color-background); cursor: zoom-in; }
 .ui-image-gallery__thumbnail img, .ui-image-gallery__strip img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .ui-image-gallery__thumbnail:hover { border-color: var(--color-focus); }
 .ui-image-gallery__remove { position: absolute; top: 4px; right: 4px; display: grid; place-items: center; width: 28px; height: 28px; padding: 5px; border: 1px solid var(--color-control-border); border-radius: 50%; background: var(--color-surface); color: var(--color-text); cursor: pointer; }

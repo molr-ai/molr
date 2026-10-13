@@ -113,7 +113,7 @@ html:has(.ui-dialog[open]:not([data-contained])) { overflow: hidden; }
 :is(.ui-tabs--line > .ui-tabs__list, .ui-choice-list--line) > button { padding-inline: 2px; border-bottom: 2px solid transparent; border-radius: 0; }
 :is(.ui-tabs--line > .ui-tabs__list, .ui-choice-list--line) > :is([aria-selected='true'], [aria-pressed='true'], [aria-current='page']) { border-bottom-color: var(--color-primary); }
 
-:is(.ui-tabs--segmented > .ui-tabs__list, .segmented-control .radio-group__options, .ui-choice-list--segmented) { width: fit-content; gap: 4px; padding: 4px; border: 0; border-radius: var(--radius-control); background: var(--color-neutral-bg); }
+:is(.ui-tabs--segmented > .ui-tabs__list, .segmented-control .radio-group__options, .ui-choice-list--segmented) { width: fit-content; gap: 4px; padding: 4px; border: 0; border-radius: var(--radius-control); background: var(--color-background); }
 :is(.ui-tabs--segmented > .ui-tabs__list, .segmented-control .radio-group__options, .ui-choice-list--segmented) > :is(button, .radio-option) { border-radius: var(--space-1); }
 :is(.ui-tabs--segmented > .ui-tabs__list, .segmented-control .radio-group__options, .ui-choice-list--segmented) > :is([aria-selected='true'], [aria-pressed='true'], [aria-current='page'], :has(input:checked)) { background: var(--color-surface); box-shadow: var(--shadow-control); }
 .ui-tabs--sm > .ui-tabs__list { --choice-target-height: 28px; }
