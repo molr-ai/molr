@@ -128,10 +128,8 @@ test('old recurring plans warn in edit and exact event details using the shared 
  await pickerTime(page,'Start time',5,5);await expect(edit.locator('.plans-dream-conflict')).toHaveCount(0);await pickerTime(page,'Start time',3,5);await expect(edit.locator('.ui-alert--warning.plans-dream-conflict')).toBeVisible();await edit.getByRole('button',{name:'Cancel',exact:true}).click();await expect(edit).not.toBeVisible();
  await first.getByRole('button',{name:title,exact:true}).click();await expect(details(page,title).locator('.ui-alert--warning.plans-dream-conflict').first()).toBeVisible();
  await closePlanDrawer(page);
- if (info.project.name === 'desktop') {
- const footer=page.locator('.plans-reservations');await footer.locator('summary').click();await expect(footer).toHaveAttribute('open','');await expect(footer.locator('summary')).toContainText('1 window');await expect.poll(()=>footer.locator('summary > svg').evaluate(el=>getComputedStyle(el).transform)).toContain('-1');await expect(footer.locator('.plans-dream-windows')).toContainText('one configurable daily window');await footer.locator('summary').click();
- } else { await expect(page.locator('.plans-statusbar')).toBeHidden(); }
- await calendar(page).click();await expect(page.locator('input[type="month"]')).toHaveCount(0);await pickMonth(page,'2027-02');await expect(page.locator('.plans-month-calendar')).toHaveAttribute('data-month','2027-02');
+ await expect(page.locator('.plans-statusbar')).toHaveCount(0);
+ await calendar(page).click();await expect(page.locator('input[type="month"]')).toHaveCount(0);await pickMonth(page,'2027-02');await expect(page.locator('.plans-month-calendar')).toHaveAttribute('data-month','2027-02');await expect(page.locator('.plans-statusbar')).toHaveCount(0);
 });
 
 test('shared date picker preserves the plan timezone and type dots have distinct colors',async({page},info)=>{

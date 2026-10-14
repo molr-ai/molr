@@ -3,7 +3,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { ModalPresence, Button, Checkbox, DateTimePicker, Dialog, Drawer, DropdownMenu, IconButton, Select, Textarea, TextField, planDate, useBreakpoint, useChoiceScroll } from '@molr/ui';
 import { ArrowRight, Bot, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Ellipsis, GitBranch, History, List, Pause, Pencil, Play, Plus, Repeat2, SlidersHorizontal, Trash2, UserRound, X } from 'lucide-react';
 import { api, APIError } from '../../../api/client';
-import type { Assistant, Schedule, Todo, Plan, PlanRef, PlanEvent, DreamWindow } from '../../../api/types';
+import type { Assistant, Schedule, Todo, Plan, PlanRef, PlanEvent } from '../../../api/types';
 import { useCopy, useQuery } from '../../../state';
 import { Confirm, EditDialog, Loading, PageHeader, localDateTime, zonedInput, zonedInstant, useAction } from '../components/common';
 import { planMessages } from '../../../plan-messages';
@@ -18,7 +18,6 @@ const listScopes = ['upcoming', 'overdue', 'undated'] as const;
 const refKey = (ref: PlanRef) => `${ref.Kind}-${ref.ID}`;
 const entry = (plan: Plan): Entry => plan.Todo ? { kind: 'item', value: plan.Todo } : { kind: plan.Schedule!.Kind === 'personal' ? 'event' : 'automatic', value: plan.Schedule! };
 const instantDay = (value: string) => planDate(new Date(value));
-const inDay = (start: string, end: string | null | undefined, day: string) => instantDay(start) <= day && instantDay(end ? new Date(new Date(end).getTime() - 1).toISOString() : start) >= day;
 function occurrenceEnd(plan: Plan, at: string) { const s = plan.Schedule; return s?.EndAt ? new Date(new Date(at).getTime() + new Date(s.EndAt).getTime() - new Date(s.Trigger.StartAt).getTime()).toISOString() : null; }
 
 
@@ -38,10 +37,6 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
   const until = new Date(visibleDays[visibleDays.length-1]);until.setDate(until.getDate()+1);until.setHours(0,0,0,0);
   const upcoming=usePlanEvents((embedded || view==='list' && listScope==='upcoming') && (!embedded || assistantID) ? `/api/plans/events?from=${encodeURIComponent(listFrom)}&limit=${embedded ? 10 : 50}&scope=${encodeURIComponent(listOwner)}&kind=${embedded ? 'all' : kind}&state=${embedded ? 'all' : status}` : null);
   const plans = useQuery<Plan[]>(`/api/plans?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(until.toISOString())}`);
-  const dreamWindows = useQuery<DreamWindow[]>(embedded ? null : `/api/dreams/windows?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(until.toISOString())}${assistantID ? `&assistant_id=${assistantID}` : ''}`);
-  const reserved = (dreamWindows.data ?? []).filter(w => owner !== 'me' && (owner === 'all' || w.AssistantID === owner));
-  const dreamLabel = locale.startsWith('zh') ? '做梦预留时段' : 'Reserved for dreaming';
-  const dreamHint = locale.startsWith('zh') ? '只读时段；该助理的自动计划可能延后，或按漏执行策略跳过。' : 'Read-only window. This assistant’s plans may run late or be skipped under their missed-run policy.';
   const currentAssistant = useQuery<Assistant>(assistantID ? `/api/assistants/${assistantID}` : null);
   const assistants = currentAssistant.data && !availableAssistants.some(a => a.ID === assistantID) ? [...availableAssistants, currentAssistant.data] : availableAssistants;
   const all = plans.data ?? [], latest = (p: Plan) => p.Executions[0];
@@ -85,7 +80,7 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
   function selectDate(value: string) { setDate(value); setExpanded(''); setSelectedAt(undefined); setDayAgenda(value); }
   function selectEvent(event: PlanEvent) { setExpanded(refKey(event.Plan.Ref)); setSelectedAt(event.At); setDayAgenda(''); }
   function selectPlan(p: Plan,at?:string) { if(expanded===refKey(p.Ref)&&selectedAt===at){setExpanded('');setSelectedAt(undefined);}else{setExpanded(refKey(p.Ref));setSelectedAt(at);setDayAgenda('');} }
-  useErrorToast(plans.error || upcoming.error || action.error || currentAssistant.error || dreamWindows.error, ()=>{plans.reload();upcoming.reload();});
+  useErrorToast(plans.error || upcoming.error || action.error || currentAssistant.error, ()=>{plans.reload();upcoming.reload();});
   function selectView(value: string) {
     if (value === view) return;
     setView(value); setExpanded(''); setSelectedAt(undefined); setDayAgenda('');
@@ -159,9 +154,7 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
     listRows.unshift({ Key: eventKey(selected, at), At: at, Plan: selected });
     listRows.splice(10);
   }
-  const dailyReservations=reserved.filter(w=>inDay(w.Start,w.End,date));
   const filters = <div className="plans-filters"><SlidersHorizontal size={14} className="plans-filter-icon" aria-hidden="true" /><Select hideLabel size="sm" label={t.owner} value={owner} onValueChange={setOwner} options={[{ value: 'all', label: t.allOwners }, { value: 'me', label: t.me }, ...assistants.map(a => ({ value: a.ID, label: a.Name }))]} /><Select hideLabel size="sm" label={t.type} value={kind} onValueChange={setKind} options={[{ value: 'all', label: t.allTypes }, ...(['item', 'event', 'automatic'] as const).map(value => ({ value, label: t[value] }))]} /><Select hideLabel size="sm" label={t.status} value={status} onValueChange={setStatus} options={[{ value: 'all', label: t.allStatuses }, { value: 'open', label: t.open }, { value: 'done', label: t.done }]} />{hasFilters && <IconButton label={t.clearFilters} onClick={clearFilters}><X size={14} /></IconButton>}</div>;
-  const statusbar = <footer className="plans-statusbar"><details className="plans-reservations"><summary><ChevronDown size={13} aria-hidden="true" /><span>{dreamLabel} · {dailyReservations.length} {locale==='zh'?'个时段':dailyReservations.length===1?'window':'windows'}</span></summary><div><aside className="plans-dream-windows" aria-label={dreamLabel}><strong>{dreamLabel} · {date}</strong><p>{locale==='zh'?'数量是当前日期和筛选范围内的窗口条数；每位助理每天可配置一个自动时段。':'The count covers windows for this date and filter. Each assistant has one configurable daily window.'}</p><p>{dreamHint} <a href="#/account/memory">{locale.startsWith('zh')?'做梦设置':'Dream settings'}</a></p>{dailyReservations.map(w=><div key={`${w.AssistantID}-${w.Start}`}><span>{assistants.find(a=>a.ID===w.AssistantID)?.Name}</span><span>{time(w.Start)}–{time(w.End)}</span></div>)}</aside></div></details><span>{view==='list'?listRows.length:scheduledEvents.length} {t.eventsCount}</span></footer>;
   return <section className={`plans-workspace${embedded ? ' plans-workspace--embedded' : ''}`} data-view={view}>
     {!embedded && <PageHeader className="plans-header" title={t.title} icon={<CalendarDays />} actions={<Button size="sm" onClick={() => setEditing('new')}><Plus size={15} />{t.new}</Button>}><span className="plans-total">{filtered.length}</span></PageHeader>}
     {!embedded && <div className="plans-commandbar">
@@ -193,7 +186,6 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
         </>}
       </div>
     </div>
-    {!embedded && !mobile && statusbar}
     <ModalPresence>{dayAgenda&&<Dialog open onOpenChange={open=>{if(!open)setDayAgenda('');}} title={`${dayAgenda} · ${t.selectedDay}`} size="lg" className="plans-day-agenda"><div className="plan-list plans-list">{selectedDayEvents.map(event=>card(event.Plan,event.At))}{!selectedDayEvents.length&&<p className="plans-day-empty">{t.dayEmpty}</p>}</div><Button size="sm" onClick={()=>setEditing('new')}><Plus size={14}/>{t.new}</Button></Dialog>}</ModalPresence>
     <ModalPresence>{!inlineDetails&&selected&&<Drawer open onOpenChange={open=>{if(!open)closeDetails();}} title={t.planDetails} closeLabel={t.closeDetails} className="plans-details-drawer">{detail(selected)}</Drawer>}</ModalPresence>
     <ModalPresence>{editing && <PlanEditor entry={editing === 'new' ? undefined : editing} assistantID={assistantID} assistants={assistants} date={date} onClose={() => setEditing(null)} />}</ModalPresence>

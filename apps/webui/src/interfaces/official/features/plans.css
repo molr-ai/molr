@@ -95,9 +95,6 @@
 .plans-workspace .plan-execution-details .card { border-radius: 6px; border: 0; padding: 12px; margin-top: 8px; }
 .plans-show-later.button { display: flex; margin: 0 28px 20px; color: var(--color-text-muted); font-size: 12px; }
 .plans-show-later > span { font-size: 10px; opacity: .8; }
-.plans-statusbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 30px; padding: 5px 24px; border-top: 1px solid var(--color-border); flex-shrink: 0; color: var(--color-text-muted); font-size: 10px; background: var(--color-surface); }
-.plans-statusbar > span { display: inline-flex; align-items: center; gap: 6px; }
-.plans-statusbar-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--color-text-muted); opacity: .6; }
 .plans-load-more { margin: 8px 28px 24px; }
 .plans-workspace[data-view='calendar'] .plans-master { display: flex; flex-direction: column; }
 .plans-calendar-section { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 12px 20px 16px; }
@@ -127,12 +124,6 @@
 .plans-month-event[data-completed='true'] > span { text-decoration: line-through; }
 .plans-month-event[data-paused='true'] { opacity: .65; }
 .plans-month-more { background: transparent; color: var(--color-text-accent); font-weight: 600; }
-.plans-reservations { position: relative; max-width: 75%; }
-.plans-reservations > summary { display: flex; align-items: center; gap: 5px; cursor: pointer; list-style: none; }
-.plans-reservations > summary::-webkit-details-marker { display: none; }
-.plans-reservations > summary > svg { flex-shrink: 0; transition: transform 140ms ease; }
-.plans-reservations[open] > summary > svg { transform: rotate(180deg); }
-.plans-reservations > div { position: absolute; bottom: 26px; left: 0; z-index: 5; width: min(500px, 85vw); max-height: 50vh; overflow: auto; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 8px; box-shadow: var(--shadow-md); }
 .plans-day-agenda .ui-dialog__body { padding: 8px; }
 .plans-details-drawer.ui-drawer { width: min(520px, 100%); }
 .plans-details-drawer .ui-dialog__body { padding: 0; }
@@ -212,9 +203,6 @@
   .plans-empty-icon { width: 56px; height: 56px; }
 }
 
-.plans-dream-windows { margin: 12px 16px; padding: 12px 16px; border: 1px dashed var(--color-border); border-radius: 10px; background: repeating-linear-gradient(135deg, transparent, transparent 7px, color-mix(in srgb, var(--color-text-muted) 6%, transparent) 7px, color-mix(in srgb, var(--color-text-muted) 6%, transparent) 9px); font-size: 13px; }
-.plans-dream-windows p { margin: 6px 0; color: var(--color-text-muted); }
-.plans-dream-windows > div { display: flex; gap: 12px; justify-content: space-between; }
 
 .plans-type-dot { flex: 0 0 8px; width: 8px; height: 8px; margin-inline: 4px; border-radius: 50%; }
 .plans-type-dot[data-kind='item'] { background: var(--color-plan-item); }
