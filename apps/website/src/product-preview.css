@@ -1,0 +1,81 @@
+/* Match the official workspace shell; shared components own their visual details. */
+.home-product { display: flex; min-height: 600px; border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-background); color: var(--color-text); text-align: left; font-size: 14px; line-height: 1.6; box-shadow: var(--shadow-product-preview); overflow: hidden; }
+.home-preview-nav { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; gap: 12px; padding: 8px 8px 16px 16px; }
+.home-preview-nav > .logo { --logo-symbol-size: 35px; width: 44px; height: 44px; justify-content: center; margin-bottom: 12px; }
+.home-preview-nav-item { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: var(--radius-control); color: var(--color-text-muted); }
+.home-preview-nav-item > span { display: none; }
+.home-preview-nav-item.active { background: var(--color-primary); color: var(--color-on-primary); }
+:root[data-theme='dark'] .home-preview-nav-item.active { background: var(--color-accent); color: var(--color-on-accent); }
+.home-preview-account { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: auto; color: var(--color-text-muted); }
+.home-preview-workspace { display: flex; flex: 1; min-width: 0; gap: 8px; margin: 8px; }
+.home-preview-assistants, .home-product-main { display: flex; flex-direction: column; min-width: 0; border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-workspace); overflow: hidden; }
+.home-preview-assistants { width: 232px; flex-shrink: 0; }
+.home-preview-search { display: flex; align-items: center; height: 64px; padding: 8px; }
+.home-preview-search > .text-field { width: 100%; min-width: 0; }
+.home-preview-search .input { height: 44px; }
+.home-preview-assistants .assistant-list { padding: 0 8px; }
+.home-preview-assistants .assistant-list__copy small { font-size: 10px; }
+.home-preview-hire { padding: 8px; }
+.home-preview-hire .button { width: 100%; }
+.home-product-main { flex: 1; }
+.home-preview-chat-header { display: flex; align-items: center; gap: 10px; min-height: 54px; padding: 8px 24px; }
+.home-preview-chat-header > strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-preview-chat-tools { display: flex; align-items: center; gap: 16px; margin-left: auto; color: var(--color-text-muted); }
+.home-preview-back { display: none; }
+.home-preview-history { flex: 1; padding: 20px 12px 8px; }
+.home-preview-history .ui-chat-message:last-child { margin-bottom: 0; }
+.home-preview-history :is(.message-sender, .message-read-status) { font-size: 10px; }
+.home-preview-history .ui-chat-bubble p { margin: 0; }
+.home-preview-composer { padding: 8px; }
+.home-preview-header { display: flex; align-items: center; gap: 12px; height: 64px; padding: 12px 24px; border-bottom: 1px solid var(--color-border); }
+.home-preview-header > strong { font-size: 16px; }
+.home-preview-header > .button, .home-preview-more { margin-left: auto; }
+.home-preview-page-icon { display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; border: 1px solid var(--color-border); border-radius: 9px; color: var(--color-text-muted); }
+.home-preview-tabs { display: flex; gap: 24px; padding: 0 24px; border-bottom: 1px solid var(--color-border); color: var(--color-text-muted); }
+.home-preview-tabs > span { padding: 12px 4px; border-bottom: 2px solid transparent; font-size: 12px; }
+.home-preview-tabs .selected { border-bottom-color: var(--color-primary); color: var(--color-text); }
+.home-preview-tabs small { color: var(--color-text-muted); }
+.home-preview-body { padding: 12px 24px 24px; }
+.home-plan-day { display: flex; align-items: center; gap: 8px; height: 38px; color: var(--color-text-muted); font-size: 11px; }
+.home-plan-item, .home-model-row { display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 12px 8px; border-bottom: 1px solid var(--color-border); }
+.home-plan-item > div, .home-model-row > div { flex: 1; min-width: 0; }
+.home-plan-item strong, .home-model-row strong { font-size: 13px; }
+.home-plan-item small, .home-model-row small { display: block; margin-top: 4px; font-size: 11px; color: var(--color-text-muted); }
+.home-model-row .home-preview-page-icon { background: var(--color-background); border: 0; }
+.home-preview-resource-tabs > .ui-tabs__list { padding-inline: 24px; }
+.home-preview-resource-tabs .home-icon { width: 15px; height: 15px; }
+
+@media (max-width: 1000px) {
+  .home-preview-assistants { width: 200px; }
+  .home-preview-chat-header { padding-inline: 12px; gap: 8px; }
+  .home-preview-chat-tools { gap: 8px; }
+  .home-preview-chat-header .ui-chat-status__label { display: none; }
+}
+@media (max-width: 760px) {
+  .home-preview-assistants { display: none; }
+}
+@media (max-width: 640px) {
+  .home-product { flex-direction: column; min-height: 640px; border-radius: 10px; }
+  .home-preview-workspace { flex: 1; }
+  .home-preview-nav { flex-direction: row; order: 1; gap: 4px; margin: 0 8px 8px; padding: 8px; border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-workspace); }
+  .home-preview-nav > .logo, .home-preview-account, .home-product[data-scene='0'] > .home-preview-nav { display: none; }
+  .home-preview-nav-item { flex: 1; width: auto; height: 48px; border-radius: 17px; }
+  .home-preview-nav-item.active { flex: 1.8; gap: 6px; }
+  .home-preview-nav-item.active > span { display: block; font-size: 12px; }
+  .home-preview-back { display: block; flex-shrink: 0; }
+  .home-preview-chat-header { min-height: 64px; }
+  .home-preview-chat-header > strong { font-size: 13px; }
+  .home-preview-chat-tools { gap: 10px; }
+  .home-preview-chat-tools > .home-icon:first-child { display: none; }
+  .home-preview-history { padding: 18px 12px; }
+  .home-preview-history .ui-chat-message { --chat-message-width: 100%; }
+  .home-preview-history .ui-chat-message--user { max-width: 100%; }
+  .home-preview-composer { padding: 8px 12px 12px; }
+  .home-preview-header { padding-inline: 14px; }
+  .home-preview-body { padding-inline: 12px; }
+  .home-preview-tabs { padding-inline: 14px; gap: 16px; }
+  .home-plan-item, .home-model-row { gap: 8px; padding-inline: 0; }
+  .home-plan-item .badge { display: none; }
+  .home-model-row { flex-wrap: wrap; }
+  .home-model-row .badge { margin-left: 40px; }
+}
