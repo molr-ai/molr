@@ -12,7 +12,7 @@ function copyLegacy(text: string) {
   input.value = text;
   input.readOnly = true;
   input.style.cssText = 'position:fixed;left:0;top:0;opacity:0;pointer-events:none;font-size:16px';
-  document.body.append(input);
+  (active?.closest('dialog') ?? document.querySelector('dialog:modal') ?? document.body).append(input);
   try {
     input.select();
     if (!document.execCommand('copy')) throw new Error('Copy unavailable');
@@ -23,7 +23,12 @@ function copyLegacy(text: string) {
   }
 }
 
-export function ChatCopyButton({ text }: { text: string }) {
+export async function copyTextToClipboard(text: string) {
+  if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
+  else copyLegacy(text);
+}
+
+export function ChatCopyButton({ text, label: idleLabel }: { text: string; label?: string }) {
   const { messages } = useUILocale();
   const [status, setStatus] = useState<'idle' | 'copied' | 'error'>('idle');
   const [pending, setPending] = useState(false);
@@ -39,8 +44,7 @@ export function ChatCopyButton({ text }: { text: string }) {
     const current = generation.current;
     setPending(true);
     try {
-      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
-      else copyLegacy(text);
+      await copyTextToClipboard(text);
       if (generation.current === current) setStatus('copied');
     } catch {
       if (generation.current === current) setStatus('error');
@@ -48,7 +52,7 @@ export function ChatCopyButton({ text }: { text: string }) {
       if (generation.current === current) setPending(false);
     }
   }
-  const label = status === 'copied' ? messages.chat.copied : messages.chat.copyOriginal;
+  const label = status === 'copied' ? messages.chat.copied : idleLabel ?? messages.chat.copyOriginal;
   return <>
     <button type="button" className="message-copy-button" aria-label={label} title={label} aria-disabled={pending} onClick={copy}><UIIcon name={status === 'copied' ? 'check' : 'copy'} /></button>
     <span role="status" className={status === 'error' ? 'message-copy-error' : 'ui-sr-only'}>{status === 'copied' ? messages.chat.copied : status === 'error' ? messages.chat.copyFailed : ''}</span>

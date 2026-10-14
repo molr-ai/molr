@@ -521,3 +521,18 @@ API 合同测试使用真实 HTTP server、Auth、CSRF、持久限流、Realtime
 浏览器 HTTP 操作新增管理员专用 `install_start`，同时携带 `compute_id`。浏览器状态中的 `ComponentsEnabled` 表示管理员已允许自动准备组件；`Preparation` 包含 `task_id/state/error_code`，准备状态为 `installing/ready/failed`；它不占用已有 `Task` 字段，也不是助理可调用的系统维护能力。组件安装共享，浏览器启动仍按每个助理重新校验授权；Runtime 重启不重放待启动请求。
 
 `GET/PUT /api/components/browser/settings` 独立于安装维护服务，仅管理员可用，PUT 遵守 CSRF 与已设置的敏感操作验证。GET 返回 Mode/Server/Bypass/Authentication/Version/Username/PasswordConfigured，不返回密码。PUT 接受 Mode（direct/proxy）、Server（http/socks5 主机与端口）、Bypass 数组、Username、Password、PasswordAction（keep/replace/clear）、Version 和 Verification。Version 必须匹配当前记录，否则返回 conflict；未知字段拒绝。认证信息使用 Runtime 主密钥加密，keep 不允许更换代理地址或用户名。直连请求清空代理字段并使用 clear。配置为实例级，仅下次浏览器启动生效；代理通过受控内存文件传入沙盒，不开放通用环境变量，也不读取工作区的 agent-browser 配置。
+
+## 工作区文件接口
+
+以下接口仅供助理所有者管理当前助理的本地 `/work`，检查助理归属、活动状态、用户组本机沙盒引用、部署存储开关及工作区配额。接口不接受宿主根路径、外部资源或执行身份。路径为规范相对路径，根目录使用 `.`；拒绝越界、链接与特殊文件。
+
+| 方法 | 路径 | 契约 |
+| --- | --- | --- |
+| GET | `/api/assistants/{id}/workspace` | `action=list/stat/read`，默认 list；`path` 默认 `.`。list 的 `limit` 默认 100、最大 200，`offset` 最大 100000，后续页要求 `version`；返回 Entries、Version、Truncated、NextOffset。stat 返回条目元信息，read 返回 Text、Editable、Truncated 和内容检测 MediaType |
+| POST | `/api/assistants/{id}/workspace` | JSON `Action=write/mkdir/move/delete`、`Path`，write 使用 Text，move 使用 ToPath。修改已有条目须带 ExpectedVersion；write 省略版本只创建，不覆盖。mkdir 仅创建单个目录，delete 仅文件与空目录 |
+| PUT | `/api/assistants/{id}/workspace/content` | 原始二进制 body，`path` 为目标，替换已有文件要求 `version`。上限为 MaxUploadBytes 与 64 MiB 的较小值，继续检查工作区与部署单文件额度 |
+| GET | `/api/assistants/{id}/workspace/content` | `path`、可选 `version`；鉴权下载，使用 attachment、application/octet-stream 与 sandbox CSP，支持 HTTP Range |
+
+条目字段为 Name、Path、Type（file/directory/unavailable）、Size、ModifiedAt、Version。目录分页使用文件系统顺序，客户端只对已加载项排序；目录版本变化返回 conflict，需重读首页。文本最多预览 1 MiB，完整 UTF-8 文本才可编辑。文件接口不产生聊天附件记录或消息。
+
+这些文件系统写入使用条件版本，不使用通用业务 Mutation 重放；客户端不可自动重试结果未知的写入。无版本创建不会覆盖；旧版本替换、移动、删除返回 conflict。提交使用受限目录描述符、原子替换和与模型文件工具共用的提交锁。Shell 和外部进程不参与该锁，下载期间外部原地修改也不构成快照保证。

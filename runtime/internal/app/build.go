@@ -829,7 +829,7 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		}
 	}
 	updateService := updates.New(updateSource, cfg.Updates.AutoCheck, build, platform.ConfiguredHTTPClient(updateSource, updateAddresses))
-	b.HTTP, err = api.NewServer(cfg, b.Services, api.Options{Maintenance: maintenance, Browser: func(ctx context.Context, p core.Principal, id core.ID, raw json.RawMessage) (json.RawMessage, error) {
+	b.HTTP, err = api.NewServer(cfg, b.Services, api.Options{Workspace: &workspaceExplorer{ad: adapters, maxUpload: cfg.Execution.MaxUploadBytes}, Maintenance: maintenance, Browser: func(ctx context.Context, p core.Principal, id core.ID, raw json.RawMessage) (json.RawMessage, error) {
 		q, err := tools.ParseBrowser(raw)
 		if err != nil {
 			return nil, err

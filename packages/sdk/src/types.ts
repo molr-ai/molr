@@ -134,3 +134,8 @@ export type UpdateInstallation = { name: string; system: boolean; setup_path: st
 
 export type MaintenanceTask = { id: string; operation: string; component?: string; target?: string; state: 'running' | 'succeeded' | 'failed' | 'cancelled' | 'interrupted'; stage: string; downloaded?: number; total?: number; error_code?: string; started_at: string; updated_at: string; finished_at?: string };
 export type ComponentStatus = { id: string; state: 'missing' | 'installed' | 'broken' | 'external' | 'unsupported'; version?: string; target_version?: string; download_bytes: number; disk_bytes: number; can_install: boolean; auto_install: boolean; reason?: string; task?: MaintenanceTask };
+
+export interface WorkspaceEntry { Name: string; Path: string; Type: 'file' | 'directory' | 'unavailable'; Size: number; ModifiedAt: string; Version: string; MediaType?: string }
+export interface WorkspaceListing { Entries: WorkspaceEntry[]; Version: string; NextOffset: number; Truncated: boolean }
+export interface WorkspaceText extends WorkspaceEntry { Text: string; Editable: boolean; Truncated: boolean }
+export interface WorkspaceOperation { Action: 'write' | 'mkdir' | 'move' | 'delete'; Path: string; ToPath?: string; Text?: string; ExpectedVersion?: string }

@@ -63,3 +63,17 @@ Only when compression is actually processed does the assistant status display "C
 Assistants chat in the WebUI by default. You can connect WeChat via "… → Switch chat channel" in the top right corner of the chat page; upon success, WeChat handles the chat, and the WebUI is used for viewing records and management. After unbinding, WebUI input is restored, and records and context are retained. See [WeChat Chat Entry](../chat-channels/weixin.md) for details.
 
 If you need scheduled execution or to view deliverables, continue reading [Plans and Execution](plans.md).
+
+## Workspace file explorer
+
+The folder button in the chat header opens the current assistant's file explorer. On desktop it opens as a movable window with independent width and height, with an option to dock on the right. Mobile uses a bottom drawer. Wide panels show the list and preview side by side; narrow panels switch between them. Reopening restores the assistant's directory, selection and scroll position within the current page.
+
+The explorer accesses this assistant's `/work`. Open folders or use breadcrumbs to navigate. Folders sort first; name, modification time and size sorting apply to loaded entries. Use “Load more” for large directories. “File options” can show hidden files. Links and unavailable entries display their names only.
+
+Create files and folders, drop or select local files to upload into the current directory, download individual files, rename or move entries, and delete files or empty folders. Upload conflicts offer replace, keep both or skip. Uploads are limited to the smaller of the deployment upload limit and 64 MiB, and also obey workspace file and capacity quotas. Recursive deletion of nonempty folders is unavailable.
+
+UTF-8 text previews show up to 1 MiB; complete files up to that size can be edited and explicitly saved with the button or Ctrl/Cmd+S. PNG, JPEG, GIF and WebP files up to 20 MiB support image previews and original size. Other formats offer downloads. Markdown, HTML and SVG are displayed as text without executing file content.
+
+Version checks prevent overwriting a file changed by the assistant. Conflicts preserve your draft and offer reload or save as. Closing, switching panels or leaving through application navigation asks before discarding unsaved changes. While the page is visible, the open file and single-page directory refresh approximately every five seconds. Paginated directories require manual refresh, which returns to the first page. If a write response is lost, refresh and verify its result before another operation.
+
+“Copy path” copies an assistant-readable `/work/…` path. Uploading or saving does not send a chat message or publish a deliverable. The panel excludes shared `/global`, external storage and remote sandboxes. Disabled or unavailable local storage produces an error.

@@ -307,3 +307,6 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/browser` | `Proxy.Validate`, `Proxy.LaunchConfig` | `TestProxyValidationAndPrivateLaunchConfig` |
 | `internal/browser` | `RedactProxyError` | `TestProxyErrorRedactsAllCredentialForms` |
 | `internal/browser` | `ProxyErrorReason` | `internal/app.TestBrowserProxyStatusUsesLaunchSnapshotAndUpdatesDiagnostics` |
+
+| `internal/api` | `WorkspaceService.Query`, `WorkspaceService.Upload`, `WorkspaceService.Download` | `internal/app.TestWorkspaceExplorerLifecycleAndConflict`, `internal/app.TestWorkspaceExplorerConfinementAndLimits`, `internal/app.TestWorkspaceExplorerPaginationAndExternalEdits` |
+| `internal/textfiles` | `MakeDirectory` | `internal/app.TestWorkspaceExplorerLifecycleAndConflict` |

@@ -27,7 +27,7 @@ export function createClient(transport?: RuntimeTransport) {
   function clearClientState() { attempts.clear(); cooldown = undefined; }
 
   async function request<T>(path: string, init: RequestInit = {}, csrf?: string, binary = false, readOnly = false, expireOnUnauthorized = false): Promise<T> {
-    if (!/^\/api\/[A-Za-z0-9/_-]+(?:\?[^#]*)?$/.test(path) || path.includes('..') || path.includes('\\')) throw new APIError('invalid_argument');
+    if (!/^\/api\/[A-Za-z0-9/_-]+(?:\?[^#]*)?$/.test(path) || path.split('?')[0].includes('..') || path.includes('\\')) throw new APIError('invalid_argument');
     if (transport) {
       try {
         const result = await transport<T>(path, init, binary);
@@ -64,7 +64,17 @@ export function createClient(transport?: RuntimeTransport) {
     if (!readOnly && init.method && init.method !== 'GET') sessionEvents.dispatchEvent(new CustomEvent('mutation', { detail: path }));
     return data as T;
   }
+  const workspacePath = (id: string, params: Record<string, string | number> = {}, content = false) => `/api/assistants/${encodeURIComponent(id)}/workspace${content ? '/content' : ''}?${new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)]))}`;
   const api = {
+    workspace: {
+      list: (id: string, path: string, offset = 0, version = '', signal?: AbortSignal) => request<import('./types').WorkspaceListing>(workspacePath(id, { path, offset, version }), { signal }),
+      stat: (id: string, path: string, signal?: AbortSignal) => request<import('./types').WorkspaceEntry>(workspacePath(id, { action: 'stat', path }), { signal }),
+      read: (id: string, path: string, signal?: AbortSignal) => request<import('./types').WorkspaceText>(workspacePath(id, { action: 'read', path }), { signal }),
+      change: (id: string, operation: import('./types').WorkspaceOperation) => request<import('./types').WorkspaceEntry | null>(workspacePath(id), { method: 'POST', body: JSON.stringify(operation) }),
+      upload: (id: string, path: string, file: Blob, version = '', signal?: AbortSignal) => request<import('./types').WorkspaceEntry>(workspacePath(id, { path, version }, true), { method: 'PUT', body: file, headers: { 'Content-Type': 'application/octet-stream' }, signal }),
+      download: (id: string, path: string, version: string, signal?: AbortSignal) => request<Blob>(workspacePath(id, { path, version }, true), { signal }, undefined, true),
+      downloadURL: (id: string, path: string, version: string) => workspacePath(id, { path, version }, true),
+    },
     importPlugin: (file: File) => request<import('./plugins').PluginInstallation>('/api/plugins/install', { method: 'POST', body: file, headers: { 'Content-Type': 'application/zip' } }),
     download: (path: string, signal?: AbortSignal) => request<Blob>(path, { signal }, undefined, true),
     get: <T,>(path: string, signal?: AbortSignal) => request<T>(path, { signal }),

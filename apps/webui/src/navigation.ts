@@ -19,10 +19,13 @@ function readRoute() {
   const taskID = panel === 'tasks' && /^[A-Za-z0-9_-]{1,128}$/.test(requestedTask) ? requestedTask : '';
   return { panel, taskID, page: raw === 'todos' || raw === 'schedules' ? 'plans' as const : pages.includes(raw as RoutePage) ? raw as RoutePage : 'assistants' as const, id: (raw === 'extensions' ? /^[a-z0-9.-]+\/(?:[a-z0-9_-]+|@settings|@admin)$/.test(id) : /^[A-Za-z0-9_-]{1,128}$/.test(id)) ? id : '', turnID, eventID, messageID };
 }
+export function guardedNavigation(action: () => void) {
+  if (window.dispatchEvent(new CustomEvent('molr:before-navigation', { cancelable: true, detail: action }))) action();
+}
 export function useNavigation() {
   const [route, setRoute] = useState(readRoute);
   useEffect(() => { const update = () => setRoute(readRoute()); window.addEventListener('hashchange', update); return () => window.removeEventListener('hashchange', update); }, []);
-  const navigate = useCallback((page: RoutePage, id = '', turnID = '', messageID = '') => {
+  const navigate = useCallback((page: RoutePage, id = '', turnID = '', messageID = '') => guardedNavigation(() => {
     if (page === 'todos' || page === 'schedules') page = 'plans';
     if (page !== 'workbench') turnID = '';
     if (page !== 'assistants') messageID = '';
@@ -31,6 +34,6 @@ export function useNavigation() {
     if (messageID) query.set('message', messageID);
     location.hash = `/${page}${id ? `/${(page === 'extensions' ? id.split('/').map(encodeURIComponent).join('/') : encodeURIComponent(id))}` : ''}${query.size ? `?${query}` : ''}`;
     setRoute({ page, id, turnID, eventID: '', messageID, panel: undefined, taskID: '' });
-  }, []);
+  }), []);
   return { ...route, navigate };
 }

@@ -43,6 +43,7 @@ type permissionRequestService interface {
 }
 
 type Options struct {
+	Workspace          WorkspaceService
 	UsageAnalytics     func(context.Context, core.Principal, UsageQuery, bool) (any, error)
 	Maintenance        *installation.Maintenance
 	Browser            func(context.Context, core.Principal, core.ID, json.RawMessage) (json.RawMessage, error)
@@ -368,10 +369,14 @@ func (s *HTTPServer) dispatch(w http.ResponseWriter, r *http.Request) {
 		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(s.config.HTTP.RequestTimeout.Value()))
 	}
 	limit := s.config.HTTP.MaxBodyBytes
+	// A 1 MiB UTF-8 file can expand sixfold when JSON escapes control bytes.
+	if strings.HasPrefix(r.URL.Path, "/api/assistants/") && strings.HasSuffix(r.URL.Path, "/workspace") && r.Method == http.MethodPost {
+		limit = (6 << 20) + (16 << 10)
+	}
 	if r.URL.Path == "/api/plugins/install" && r.Method == http.MethodPost {
 		limit = 8 << 20
 	}
-	if r.URL.Path == "/api/files" && r.Method == http.MethodPost {
+	if (r.URL.Path == "/api/files" && r.Method == http.MethodPost) || (strings.HasPrefix(r.URL.Path, "/api/assistants/") && strings.HasSuffix(r.URL.Path, "/workspace/content") && r.Method == http.MethodPut) {
 		limit = s.config.Execution.MaxUploadBytes
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, limit)

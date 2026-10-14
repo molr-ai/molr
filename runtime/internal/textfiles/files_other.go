@@ -37,3 +37,7 @@ func Move(ctx context.Context, root, from, to, expected string, directory bool, 
 func RemoveDirectory(ctx context.Context, root, name, expected string, authorize func() error) error {
 	return core.NewError(core.Unavailable, "safe filesystem mutations require Linux")
 }
+
+func MakeDirectory(context.Context, string, string, func() error) error {
+	return resourceFilesUnsupported()
+}

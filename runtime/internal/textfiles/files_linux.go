@@ -475,3 +475,40 @@ func RemoveDirectory(ctx context.Context, root, name, expected string, authorize
 	}
 	return parent.Sync()
 }
+
+// MakeDirectory creates one directory without accepting an existing entry.
+func MakeDirectory(ctx context.Context, root, name string, authorize func() error) error {
+	if !filepath.IsLocal(name) || filepath.Clean(name) != name || name == "." || strings.ContainsAny(name, "\x00\\") {
+		return core.Invalid("path", "confined directory required")
+	}
+	parent, err := OpenDirectory(root, filepath.Dir(name))
+	if err != nil {
+		return err
+	}
+	defer parent.Close()
+	if err = authorize(); err != nil {
+		return err
+	}
+	commits.Lock()
+	defer commits.Unlock()
+	again, err := OpenDirectory(root, filepath.Dir(name))
+	if err != nil {
+		return err
+	}
+	a, _ := parent.Stat()
+	b, _ := again.Stat()
+	again.Close()
+	if a == nil || b == nil || !os.SameFile(a, b) {
+		return Changed()
+	}
+	if err = ctx.Err(); err != nil {
+		return err
+	}
+	if err = unix.Mkdirat(int(parent.Fd()), filepath.Base(name), 0700); err != nil {
+		if errors.Is(err, unix.EEXIST) {
+			return core.WithReason(core.NewError(core.Conflict, "entry already exists"), "file_exists")
+		}
+		return resourceOpenError(err)
+	}
+	return parent.Sync()
+}

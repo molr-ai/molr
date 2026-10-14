@@ -96,6 +96,7 @@ func (s *HTTPServer) routes() {
 	s.debugRoutes()
 	s.sandboxRoutes()
 	s.browserRoutes()
+	s.workspaceRoutes()
 	s.pluginRoutes()
 }
 func (s *HTTPServer) otherRoutes() {

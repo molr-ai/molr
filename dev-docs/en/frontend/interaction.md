@@ -63,3 +63,11 @@ The desktop browser defaults to a nonmodal floating window. It uses the shared D
 `useBrowserView` handles dragging, proportional resizing, arrow-key adjustments and viewport bounds. The page maintains the remote 1280×800 aspect ratio while browser chrome stays at its normal size. Sizing subtracts the measured chrome height and rechecks bounds when auxiliary input expands or the viewport shrinks. Pointer input maps the displayed image back to remote coordinates. `browser-panel.spec.ts` covers floating/docked transitions, chat interaction, aspect ratio, coordinate mapping, bounds and the phone drawer.
 
 The bottom bar contains only connection status followed by the keyboard and end-session buttons. The bottom-right resize area is transparent, with no icon or hover background; it uses a resize cursor and retains an outline for keyboard focus.
+
+## Workspace file explorer
+
+The chat file button shares the single-panel selection with the browser. `WorkspaceFiles` uses Drawer and ModalPresence: a nonmodal desktop window, reserved ChatSidePanel width when docked, and a bottom drawer on mobile. `useFloatingPanel` handles independent dimensions, dragging, keyboard adjustments and viewport constraints; browser geometry retains its separate aspect-ratio constraint. Switching floating/docked modes preserves the component and draft. Per-assistant page memory retains directory, selection, scroll, sorting and hidden-file preferences.
+
+Above 640px panel width, the directory and preview appear side by side; narrower panels switch between list and detail. Creation, renaming, moving, deletion and upload conflicts use shared overlays. Edit conflicts preserve drafts and offer reload or save as; ordinary failures use error Toasts. Application navigation and panel switching use the cancelable `molr:before-navigation` event to protect unsaved edits. Browser closing uses beforeunload; page memory also retains drafts for native history navigation.
+
+`workspace-explorer.spec.ts` uses a real Runtime to verify desktop/mobile file operations, upload and version conflicts, and window geometry. Palette checks and screenshots remain in local internal records.

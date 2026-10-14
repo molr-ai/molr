@@ -88,3 +88,5 @@ export type { SlidingHighlightProps } from './components/SlidingHighlight';
 
 export { Avatar, AvatarNotice } from './components/Avatar';
 export type { AvatarProps, AvatarNoticeProps } from './components/Avatar';
+
+export { ChatCopyButton, copyTextToClipboard } from './components/ChatCopyButton';

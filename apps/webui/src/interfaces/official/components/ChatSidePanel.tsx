@@ -3,18 +3,18 @@ import type { ReactNode } from 'react';
 import { ModalPresence, useUILocale } from '@molr/ui';
 import type { Assistant } from '../../../api/types';
 
-export type ChatPanelSelection = { kind: 'info' | 'permissions' | 'tasks' | 'shell_tasks' | 'browser'; assistant: Assistant };
+export type ChatPanelSelection = { kind: 'info' | 'permissions' | 'tasks' | 'shell_tasks' | 'browser' | 'files'; assistant: Assistant };
 export function isChatPanel(value: { kind: string; assistant: Assistant } | null): value is ChatPanelSelection {
-  return !!value && ['info', 'permissions', 'tasks', 'shell_tasks', 'browser'].includes(value.kind);
+  return !!value && ['info', 'permissions', 'tasks', 'shell_tasks', 'browser', 'files'].includes(value.kind);
 }
 
 /** Keep the panel mounted until its layout space has finished collapsing. */
-export function ChatSidePanel({ panel, docked: requestedDocked, browserFloating = false, children }: { panel: ChatPanelSelection | null; docked: boolean; browserFloating?: boolean; children: (panel: ChatPanelSelection) => ReactNode }) {
+export function ChatSidePanel({ panel, docked: requestedDocked, floating = {}, children }: { panel: ChatPanelSelection | null; docked: boolean; floating?: Partial<Record<ChatPanelSelection['kind'], boolean>>; children: (panel: ChatPanelSelection) => ReactNode }) {
   const { reducedMotion } = useUILocale();
   const [retained, setRetained] = useState(panel);
   if (panel && panel !== retained) setRetained(panel);
   const shown = panel ?? retained, open = !!panel;
-  const docked = requestedDocked && !(shown?.kind === 'browser' && browserFloating);
+  const docked = requestedDocked && !(shown && floating[shown.kind]);
   const ref = useRef<HTMLDivElement>(null);
   const previous = useRef<{ width: number; transform: string } | null>(null);
   useLayoutEffect(() => {

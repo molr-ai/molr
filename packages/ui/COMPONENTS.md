@@ -317,3 +317,5 @@ const [range, setRange] = useState<[number, number]>([20, 80]);
 `notice` 可传入 `AvatarNotice`，其 `label` 提供悬停说明和读屏名称，`tone` 支持 `warning`（默认）与 `error`。圆点直径 10 px、背景描边 2 px，圆心位于头像右上方 45° 的圆周；`--avatar-notice-border` 默认使用 `--color-surface`，置于其它背景时由宿主指定对应语义背景色。WebUI 当前的有更新、版本不一致都使用 warning，error 仅预留。`--avatar-background` 可指定未选中字母头像的语义背景。
 
 UI Design 的基础分类提供 `?components=foundations#avatars`，覆盖全部预设、字母、当前页面本地图片预览、尺寸、选中态与两种提醒色。WebUI 导航和该示例直接复用共享实现。
+
+`ChatCopyButton` 支持可选 `label` 指定复制前的无障碍文案；`copyTextToClipboard(text)` 复用同一复制逻辑，包含局域网 HTTP 的同步回退。调用应由用户点击触发。
