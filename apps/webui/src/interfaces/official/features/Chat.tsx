@@ -9,7 +9,7 @@ import { PermissionRequestCard } from './PermissionRequests';
 import { TurnInformation } from './TurnInformation';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AssistantAvatar, Alert, Button, ChatAttachmentList, ChatComposer, ChatMessage, ChatStatus, DropdownMenu, IconButton } from '@molr/ui';
-import { ArrowLeft, Ellipsis, CalendarClock, Download, Zap } from 'lucide-react';
+import { ArrowDown, ArrowLeft, Ellipsis, CalendarClock, Download, Zap } from 'lucide-react';
 import { api, mutationKey } from '../../../api/client';
 import type { AgentStatus, Assistant, Conversation, ExpediteStatus, FileInfo } from '../../../api/types';
 import { useCopy, useData, useQuery } from '../../../state';
@@ -35,6 +35,7 @@ export function Chat({ assistant, conversation, timeZone, draft, updateDraft, on
   useEffect(() => { setExpediteBusy(false); setExpediteFailed(false); setRequestedThrough(0); }, [assistant.ID]);
   const [uploading, setUploading] = useState(false), [notice, setNotice] = useState('');
   const log = useRef<HTMLDivElement>(null), bottom = useRef(true), savedScroll = useRef<{ top: number; height: number } | null>(null), readThrough = useRef(conversation?.LastReadSequence ?? 0);
+  const [showLatest, setShowLatest] = useState(false);
   const targetElement = useRef<HTMLDivElement>(null), located = useRef('');
   const navigation = useRef(0);
   useLayoutEffect(() => {
@@ -51,6 +52,27 @@ export function Chat({ assistant, conversation, timeZone, draft, updateDraft, on
     const previous = readThrough.current; readThrough.current = lastSequence;
     void api.post('/api/conversations/read', { ConversationID: assistant.ConversationID, ThroughSequence: lastSequence }).catch(() => { if (readThrough.current === lastSequence) readThrough.current = previous; });
   }
+  function updateScrollPosition() {
+    const element = log.current; if (!element) return;
+    const distance = element.scrollHeight - element.scrollTop - element.clientHeight;
+    bottom.current = distance < 48;
+    setShowLatest(distance > Math.max(600, element.clientHeight));
+  }
+  function returnToLatest() {
+    savedScroll.current = null;
+    bottom.current = true;
+    onClearTarget();
+    log.current?.scrollTo({ top: log.current.scrollHeight, behavior: 'instant' });
+    log.current?.focus({ preventScroll: true });
+    updateScrollPosition();
+    markRead();
+  }
+  useEffect(() => {
+    const element = log.current; if (!element) return;
+    const observer = new ResizeObserver(updateScrollPosition);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
   useLayoutEffect(() => {
     const element = log.current; if (!element || !history.loaded || (history.loadingOlder && savedScroll.current)) return;
     if (targetMessageID) {
@@ -60,11 +82,13 @@ export function Chat({ assistant, conversation, timeZone, draft, updateDraft, on
         targetElement.current.focus({ preventScroll: true });
         located.current = targetMessageID;
       }
+      updateScrollPosition();
       return;
     }
     if (located.current) { located.current = ''; bottom.current = true; }
     if (savedScroll.current) { element.scrollTop = savedScroll.current.top + element.scrollHeight - savedScroll.current.height; savedScroll.current = null; }
     else if (bottom.current) element.scrollTop = element.scrollHeight;
+    updateScrollPosition();
   }, [history, targetMessageID]);
   useEffect(() => {
     markRead();
@@ -134,15 +158,18 @@ export function Chat({ assistant, conversation, timeZone, draft, updateDraft, on
     </header>
     {archived && <Alert title={t.assistants.archived} />}
     <AssistantNotifications status={status.data ?? undefined} assistant={assistant} onAction={onAction} onNavigate={onCard}/>
-    {targetMessageID && <div className="chat-search-location" role="status"><span>{history.targetStatus === 'missing' ? t.chat.targetMissing : history.targetStatus === 'found' ? t.chat.targetFound : t.chat.targetLoading}</span><Button size="sm" variant="ghost" onClick={() => { bottom.current = true; onClearTarget(); }}>{t.chat.returnLatest}</Button></div>}
-    <div className="chat-history" ref={log} role="log" aria-label={t.chat.message} aria-live="polite" onScroll={() => { const element = log.current; if (element) { bottom.current = element.scrollHeight - element.scrollTop - element.clientHeight < 48; markRead(); } }}>
-      {history.more && <Button variant="ghost" loading={history.loadingOlder} disabled={!!targetMessageID && history.targetStatus === 'loading'} onClick={() => { if (log.current) savedScroll.current = { top: log.current.scrollTop, height: log.current.scrollHeight }; history.loadOlder(); }}>{t.loadOlder}</Button>}
+    {targetMessageID && <div className="chat-search-location" role="status"><span>{history.targetStatus === 'missing' ? t.chat.targetMissing : history.targetStatus === 'found' ? t.chat.targetFound : t.chat.targetLoading}</span><Button size="sm" variant="ghost" onClick={returnToLatest}>{t.chat.returnLatest}</Button></div>}
+    <div className="chat-history-region">
+    <div className="chat-history" ref={log} role="log" tabIndex={-1} aria-label={t.chat.message} aria-live="polite" onScroll={() => { updateScrollPosition(); markRead(); }}>
+      {history.more && <div className="chat-history-divider"><Button className="chat-history-divider__action" variant="ghost" size="sm" loading={history.loadingOlder} disabled={!!targetMessageID && history.targetStatus === 'loading'} onClick={() => { if (log.current) savedScroll.current = { top: log.current.scrollTop, height: log.current.scrollHeight }; history.loadOlder(); }}>{t.loadOlder}</Button></div>}
       {history.loading && !history.loaded ? <Loading /> : !history.messages.length ? <Empty title={t.chat.noMessages} description={t.chat.noMessagesHelp} /> : history.messages.map(message => <div key={message.ID} data-message-id={message.ID} className={message.ID === targetMessageID && history.targetStatus === 'found' ? 'chat-message-target' : undefined} ref={message.ID === targetMessageID ? targetElement : undefined} tabIndex={message.ID === targetMessageID ? -1 : undefined} aria-label={message.ID === targetMessageID ? t.chat.targetFound : undefined}><ChatMessage avatar={message.Sender === 'assistant' ? <AssistantAvatar name={assistant.Name} avatar={assistant.Avatar} /> : undefined} role={message.Sender} sender={message.Sender === 'user' ? t.chat.you : assistant.Name} timestamp={message.CreatedAt} timeZone={timeZone} text={message.Content.Text} readStatus={message.Sender === 'user' ? message.ReadAt ? 'read' : 'unread' : undefined}
         cards={message.Content.Card || message.Content.AttachmentIDs?.length ? <>{message.Content.Card && (message.Content.Card.Kind === 'permission_request' ? <PermissionRequestCard requestID={message.Content.Card.TargetID} assistant={assistant} timeZone={timeZone} title={message.Content.Card.Title} summary={message.Content.Card.Summary} /> : <ConversationCard card={message.Content.Card} timeZone={timeZone} onOpen={onCard} />)}{message.Content.AttachmentIDs?.length ? <MessageAttachments ids={message.Content.AttachmentIDs} /> : null}</> : undefined}
         footer={message.Sender === 'user' ? !archived && !dreaming && state !== 'stopped' && state !== 'paused' && message.ID === latestUnread?.ID && (working || covered) ? <div className="chat-expedite">
           <button type="button" className="message-expedite-button" aria-label={covered || expediteBusy ? t.chat.expediting : expediteFailed ? t.chat.expediteFailed : t.chat.expedite} title={covered || expediteBusy ? t.chat.expediting : expediteFailed ? t.chat.expediteFailed : t.chat.expediteHelp} aria-busy={expediteBusy || undefined} disabled={covered || expediteBusy || !working} onClick={() => void expedite()}><Zap size={15} aria-hidden="true" /><span>{covered || expediteBusy ? t.chat.expediting : expediteFailed ? t.chat.expediteFailed : t.chat.expedite}</span></button>
           {covered && (expedited?.State === 'waiting_tool' || !working) && <small role="status">{working ? t.chat.expediteTool : t.chat.expediteWaiting}</small>}
         </div> : undefined : <TurnInformation message={message} revision={history.metadataVersions[message.ID] ?? 0} onDebug={onDebug} readOnly={!!archived} />} /></div>)}
+    </div>
+    {showLatest && <Button className="chat-return-latest" variant="secondary" onClick={returnToLatest}><ArrowDown size={16} aria-hidden="true" />{t.chat.returnLatest}</Button>}
     </div>
     {!channel.data ? <Loading /> : <div className="chat-input"><ChatComposer lock={weixin ? { title: channelCopy.readonly, description: channelCopy.readonlyHelp, action: <Button variant="secondary" size="sm" onClick={() => onAction('channel')}>{channelCopy.manage}</Button> } : undefined} commands={[{ name: 'compress', description: t.chat.compress, keywords: ['压缩', '上下文'], disabled: compressing }]} value={draft.text} onValueChange={text => updateDraft({ ...draft, text })} onSubmit={() => void send()} placeholder={t.chat.placeholder} disabled={chatReadOnly || archived || uploading || action.busy} attachments={draftAttachments}
       onAttachFiles={files => void attach(files)} onRemoveAttachment={id => updateDraft({ ...draft, files: draft.files.filter(file => file.ID !== id) })} notice={uploading ? t.chat.uploading : dreaming ? `${t.chat.dreaming}${status.data?.DreamDeadline ? ` · ${new Date(status.data.DreamDeadline).toLocaleTimeString()} ${locale.startsWith('zh') ? '前结束，消息排队等待' : 'deadline; messages queued'}` : ''}` : notice || (status.data?.Compression?.State === 'failed' ? t.chat.compressFailed : '')} processingLabel={compressing ? t.chat.compressing : dreaming ? t.chat.dreaming : undefined} sending={working || dreaming} allowSendWhileSending onStop={working || dreaming ? () => void action.run(() => api.post(`/api/assistants/${assistant.ID}/stop`), undefined, false) : undefined} />

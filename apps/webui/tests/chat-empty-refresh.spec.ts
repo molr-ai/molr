@@ -114,3 +114,49 @@ test('initial empty history finishes loading and denied history cannot return af
   await expect(page.getByRole('heading', { name: 'Start a conversation', exact: true })).toBeVisible();
   await expect(page.locator('.ui-chat-message')).toHaveCount(0);
 });
+
+test('return to latest tracks scroll distance and overrides pending history restoration', async ({ page }, info) => {
+  const assistant = await setup(page, info.project.name), path = `/api/conversations/${assistant.ConversationID}/messages`;
+  const messages = Array.from({ length: 65 }, (_, index) => ({ ...sample(assistant), ID: `scroll-message-${index + 1}`, Sequence: index + 1, Content: { Kind: 'text', Text: `Scroll history ${index + 1}`, AttachmentIDs: [], Card: null } }));
+  let release!: () => void;
+  const olderGate = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**' + path + '?*', async route => {
+    const query = new URL(route.request().url()).searchParams;
+    if (query.has('after_sequence')) return route.fulfill({ json: { Items: [], NextCursor: '' } });
+    if (query.has('cursor')) { await olderGate; return route.fulfill({ json: { Items: messages.slice(0, 15).reverse(), NextCursor: '' } }); }
+    return route.fulfill({ json: { Items: messages.slice(15).reverse(), NextCursor: 'older-scroll-messages' } });
+  });
+  await page.reload();
+  const log = page.getByRole('log'), latest = page.locator('.chat-return-latest');
+  await expect(page.locator('.ui-chat-message')).toHaveCount(50);
+  await expect(latest).toHaveCount(0);
+  await log.evaluate(element => { element.scrollTop = element.scrollHeight - element.clientHeight - Math.max(600, element.clientHeight) + 40; });
+  await expect(latest).toHaveCount(0);
+  await log.evaluate(element => { element.scrollTop = element.scrollHeight - element.clientHeight - Math.max(600, element.clientHeight) - 40; });
+  await expect(latest).toBeVisible();
+  await log.evaluate(element => { element.scrollTop = 0; });
+  await expect(latest).toBeVisible();
+  const bounds = await latest.boundingBox(), area = await log.boundingBox(), composer = await page.locator('.chat-input').boundingBox();
+  expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(area!.y + area!.height);
+  expect(bounds!.y + bounds!.height).toBeLessThan(composer!.y);
+  await latest.focus(); await page.keyboard.press('Enter');
+  await expect(latest).toHaveCount(0);
+  await expect(log).toBeFocused();
+  const distance = () => log.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop);
+  await expect.poll(distance).toBeLessThan(2);
+  await page.getByRole('button', { name: 'Load earlier messages', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Load earlier messages', exact: true })).toBeDisabled();
+  await expect(latest).toBeVisible();
+  await latest.click();
+  release();
+  await expect(page.locator('.ui-chat-message')).toHaveCount(65);
+  await expect.poll(distance).toBeLessThan(2);
+  await expect(latest).toHaveCount(0);
+  await page.goto(`/#/assistants/${assistant.ID}?message=scroll-message-20`);
+  await expect(page.locator('.chat-message-target')).toBeVisible();
+  await expect(latest).toBeVisible();
+  await latest.click();
+  await expect(page).toHaveURL(new RegExp(`/assistants/${assistant.ID}$`));
+  await expect.poll(distance).toBeLessThan(2);
+  await expect(page.locator('.chat-search-location')).toHaveCount(0);
+});

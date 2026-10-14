@@ -84,6 +84,12 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 .chat-identity { display: flex; align-items: center; gap: 10px; min-width: 0; }.chat-identity h1 { flex-shrink: 0; max-width: min(36vw, 20rem); font-size: var(--text-base); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.chat-identity .ui-chat-status { flex: 0 1 auto; overflow: hidden; }.chat-identity .ui-chat-status__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.chat-header .button { min-height: 36px; height: 36px; }
 .chat-history { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 28px max(24px, calc((100% - 860px) / 2)); }.chat-input { padding: 12px max(24px, calc((100% - 860px) / 2)) 24px; }.chat-input .message-composer { background: var(--color-surface); }.chat-history .ui-chat-message { margin-bottom: 28px; }
 .chat-history { background: transparent; }
+.chat-history-region { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.chat-return-latest { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 24px); border-radius: var(--radius-pill); box-shadow: var(--shadow-popover); }
+.chat-history-divider { display: flex; align-items: center; gap: 12px; margin-block: 8px 20px; }
+.chat-history-divider::before, .chat-history-divider::after { content: ''; flex: 1; height: 1px; background: color-mix(in srgb, var(--color-border) 65%, transparent); }
+.chat-history-divider > .chat-history-divider__action { padding-inline: 0; background: transparent; color: var(--color-text-muted); font-size: var(--text-xs); }
+.chat-history-divider > .chat-history-divider__action:hover:not(:disabled) { color: var(--color-text); text-decoration: underline; text-underline-offset: 3px; }
 .workspace:not(.workspace--mobile) .chat-panel { gap: 8px; padding-bottom: 8px; }
 .workspace:not(.workspace--mobile) .chat-panel > :is(.assistant-notifications, .ui-alert) { margin: 0 8px; }
 .workspace:not(.workspace--mobile) :is(.chat-history, .chat-input) { padding: 0 max(8px, calc((100% - 860px) / 2)); }

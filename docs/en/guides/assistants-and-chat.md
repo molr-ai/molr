@@ -42,6 +42,8 @@ You can add messages during execution; the assistant receives supplements at exe
 
 ## Search History and Context
 
+When browsing older messages, click “Load earlier messages” in the center of the divider to load more history while keeping your reading position. When you are far from the latest message, a “Back to latest messages” button appears at the bottom of the message area. Clicking it returns to the bottom and exits search-message navigation.
+
 When hiring an assistant or opening Assistant information, adjust “Context compression threshold” below the model selector. Click the information icon for help. The slider ranges from 64K to 80% of the current model’s effective context window, rounded down to whole tokens. The default is the smaller of 128K and that maximum. If the maximum is 64K or less, the slider is fixed at that maximum and disabled. 1K = 1024 tokens.
 
 Drag the slider to choose a custom threshold, or click “Restore default” to use the automatic value, then save the form. Switching models recalculates the automatic value and clamps a custom value to the new model’s range. Changes saved during execution apply at the next safe checkpoint; compression waits for the entire current tool batch to finish. A single model response or tool result can carry usage beyond the threshold.
