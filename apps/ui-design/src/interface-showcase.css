@@ -10,7 +10,6 @@
   --sidebar-background: var(--color-background);
   --conversation-sidebar-background: var(--color-surface);
   --sidebar-active-color: var(--color-primary);
-  --assistant-active-bg: var(--color-background);
   --assistant-avatar-bg: var(--color-primary);
   --assistant-avatar-color: var(--color-on-primary);
 }

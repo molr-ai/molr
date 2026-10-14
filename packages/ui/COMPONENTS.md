@@ -248,7 +248,7 @@ npm run test:ui
 
 ## 助理列表与应用动效偏好
 
-`SlidingHighlight` 是共用背景滑块容器，助理列表与桌面用户设置、管理员设置侧栏均复用它。`as` 支持 `div`（默认）、`nav`、`ul`；`value` 对应子项的 `data-sliding-item`，`disabled` 关闭滑块而不禁用子项操作。容器保留调用方的列表／导航语义，点击、键盘操作和 `aria-current` 由调用方维护。默认颜色为 `--color-background`，可通过 `--sliding-highlight-background` 覆盖；使用 `ResizeObserver` 跟随条目尺寸及列表布局变化。
+`SlidingHighlight` 是共用背景滑块容器，助理列表与桌面用户设置、管理员设置侧栏均复用它。`as` 支持 `div`（默认）、`nav`、`ul`；`value` 对应子项的 `data-sliding-item`，`disabled` 关闭滑块而不禁用子项操作。容器保留调用方的列表／导航语义，点击、键盘操作和 `aria-current` 由调用方维护。默认颜色为 `--color-selected-bg`，可通过 `--sliding-highlight-background` 覆盖；使用 `ResizeObserver` 跟随条目尺寸及列表布局变化。
 
 桌面侧栏使用单一背景滑块：悬停项优先于当前选中项，移出后返回选中项；两者均不存在时隐藏。从隐藏变为显示时直接定位，已显示时平滑移动；系统或应用要求减少动效时直接切换。移动端布局及手机宽度下始终隐藏背景滑块，包括鼠标悬停和触摸操作。
 

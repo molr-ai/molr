@@ -69,7 +69,7 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 .assistant-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px; }.assistant-toolbar > .button { height: 44px; width: 44px; }
 .assistant-toolbar > .assistant-search { flex: 1; min-width: 0; }
 .workspace:not(.workspace--mobile) .assistant-search .input { height: var(--assistant-search-height, 44px); }
-.workspace:not(.workspace--mobile) .assistant-list { --assistant-active-bg: var(--color-background); padding: 0 8px; }
+.workspace:not(.workspace--mobile) .assistant-list { padding: 0 8px; }
 /* Content headers align with the input edge within this full-height toolbar. */
 .workspace:not(.workspace--mobile) .assistant-toolbar { height: var(--workspace-header-height); min-height: var(--workspace-header-height); flex-shrink: 0; }
 .workspace-empty__logo { --logo-symbol-size: 72px; opacity: 0.25; }
