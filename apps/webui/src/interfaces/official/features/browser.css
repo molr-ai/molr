@@ -1,7 +1,8 @@
-.chat-side-panel[data-kind='browser'] { --chat-panel-width: 720px; }
-@media (min-width: 1600px) { .chat-side-panel[data-kind='browser'] { --chat-panel-width: 840px; } }
-@media (min-width: 1920px) { .chat-side-panel[data-kind='browser'] { --chat-panel-width: 1040px; } }
-@media (min-width: 2400px) { .chat-side-panel[data-kind='browser'] { --chat-panel-width: 1280px; } }
+.chat-side-panel[data-kind='browser'] { --chat-panel-width: 660px; }
+@media (min-width: 1600px) { .chat-side-panel[data-kind='browser'] { --chat-panel-width: 780px; } }
+@media (min-width: 1920px) { .chat-side-panel[data-kind='browser'] { --chat-panel-width: 960px; } }
+@media (min-width: 2400px) { .chat-side-panel[data-kind='browser'] { --chat-panel-width: 1180px; } }
+.browser-drawer.ui-drawer[data-side='right']:not([data-docked]) { width:min(560px, 100%); }
 .browser-drawer--running.ui-dialog { background:var(--color-page-background); }
 .browser-drawer--running.ui-dialog.ui-drawer .ui-dialog__header, .chat-side-panel[data-docked] .browser-drawer--running .ui-dialog__header { padding:0 8px; background:var(--color-surface); }
 .browser-drawer--running .ui-dialog__header > div { width:100%; min-width:0; }

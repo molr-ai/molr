@@ -87,6 +87,8 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 .workspace:not(.workspace--mobile) .chat-panel { gap: 8px; padding-bottom: 8px; }
 .workspace:not(.workspace--mobile) .chat-panel > :is(.assistant-notifications, .ui-alert) { margin: 0 8px; }
 .workspace:not(.workspace--mobile) :is(.chat-history, .chat-input) { padding: 0 max(8px, calc((100% - 860px) / 2)); }
+.chat-history .ui-chat-avatar { margin-left: 4px; margin-right: -4px; }
+.chat-history .ui-chat-message--user .ui-chat-avatar { margin-left: -4px; margin-right: 4px; }
 .workspace:not(.workspace--mobile) .chat-history > [data-message-id]:last-child > .ui-chat-message { margin-bottom: 0; }
 .chat-panel > .ui-alert { margin: 8px 20px; }.chat-history .ui-empty { padding-block: 60px; }.attachment { margin-top: 8px; }.attachment a { display: flex; align-items: center; gap: 8px; width: fit-content; max-width: 100%; padding: 10px 14px; border-radius: var(--radius-control); background: var(--color-surface); text-decoration: none; overflow-wrap: anywhere; }.attachment small { flex-shrink: 0; }
 .page { flex: 1; min-width: 0; padding: 32px clamp(20px, 4vw, 56px); overflow: auto; }.page > * + * { margin-top: 24px; }.page > .select { max-width: 260px; }.record-list, .settings-section { display: grid; gap: 16px; }.record-list .card, .settings-section .card { display: grid; gap: 14px; }.record-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }.record-heading h2, .record-heading h3 { flex: 1; overflow-wrap: anywhere; }
