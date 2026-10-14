@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ModalPresence, Alert, Button, Progress } from '@molr/ui';
+import { useEffect, useState } from 'react';
+import { ModalPresence, Button, Progress, useToast } from '@molr/ui';
 import { Globe, Settings2 } from 'lucide-react';
 import type { ComponentStatus, MaintenanceTask } from '@molr/sdk';
 import { api } from '../api/client';
@@ -28,15 +28,32 @@ export function maintenanceReason(code: string | undefined, zh: boolean) {
  };
  return reasons[code ?? '']?.[zh ? 0 : 1] ?? (zh ? '维护操作未完成，请检查环境后重试。' : 'Maintenance failed. Check the environment and retry.');
 }
+// Both browser preparation and maintenance polling can report the same failure.
+// Keep dismissal across panel remounts, scoped to the current ToastProvider.
+const reportedFailures = new WeakMap<ReturnType<typeof useToast>['dismiss'], Set<string>>();
+export function useMaintenanceFailureToast(taskID: string | undefined, code?: string) {
+ const { locale } = useCopy(), { toast, dismiss } = useToast();
+ useEffect(() => {
+  if (!taskID) return;
+  let reported = reportedFailures.get(dismiss);
+  if (!reported) { reported = new Set(); reportedFailures.set(dismiss, reported); }
+  const key = `${taskID}:${code ?? ''}`;
+  if (reported.has(key)) return;
+  reported.add(key);
+  toast({ title: maintenanceReason(code, locale === 'zh'), tone: 'warning' });
+ }, [taskID, code, locale, toast, dismiss]);
+}
 export function MaintenanceProgress({ taskID }: { taskID: string }) {
  const { locale } = useCopy(), zh = locale === 'zh';
  const query = useQuery<MaintenanceTask>(`/api/maintenance/tasks/${taskID}`, false, 1000);
  const [error, setError] = useState<unknown>(); useErrorToast(error); useErrorToast(query.error, query.reload);
  const task = query.data;
- if (!task) return null;
+ const failed = task && !['running', 'succeeded'].includes(task.state);
+ useMaintenanceFailureToast(failed ? task.id : undefined, task?.error_code);
+ if (!task || failed) return null;
  const stages: Record<string, [string, string]> = { starting: ['正在准备', 'Preparing'], checking: ['检查环境', 'Checking environment'], downloading: ['下载组件', 'Downloading'], verifying: ['校验文件', 'Verifying'], installing: ['安装文件', 'Installing'], restarting: ['重启服务并验证', 'Restarting and verifying'] };
  return <div className="maintenance-progress" role="status">
-  {task.state === 'running' ? <><Progress label={stages[task.stage]?.[zh ? 0 : 1] ?? task.stage} value={task.total ? task.downloaded ?? 0 : undefined} max={task.total || 100}/>{!['installing', 'restarting'].includes(task.stage) && <Button size="sm" variant="ghost" onClick={async () => { try { await api.post(`/api/maintenance/tasks/${task.id}/cancel`); await query.reload(); } catch (e) { setError(e); } }}>{zh ? '取消安装' : 'Cancel installation'}</Button>}</> : task.state === 'succeeded' ? <span>{task.operation === 'update' ? (zh ? 'Molr 更新已完成' : 'Molr update complete') : (zh ? '组件已准备完成' : 'Preparation complete')}</span> : <Alert tone="warning" title={maintenanceReason(task.error_code, zh)}/>}
+  {task.state === 'running' ? <><Progress label={stages[task.stage]?.[zh ? 0 : 1] ?? task.stage} value={task.total ? task.downloaded ?? 0 : undefined} max={task.total || 100}/>{!['installing', 'restarting'].includes(task.stage) && <Button size="sm" variant="ghost" onClick={async () => { try { await api.post(`/api/maintenance/tasks/${task.id}/cancel`); await query.reload(); } catch (e) { setError(e); } }}>{zh ? '取消安装' : 'Cancel installation'}</Button>}</> : <span>{task.operation === 'update' ? (zh ? 'Molr 更新已完成' : 'Molr update complete') : (zh ? '组件已准备完成' : 'Preparation complete')}</span>}
  </div>;
 }
 export function ComponentDetails({ value }: { value: ComponentStatus }) {

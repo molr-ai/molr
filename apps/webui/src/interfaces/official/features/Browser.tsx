@@ -6,7 +6,7 @@ import { api, APIError, mutationKey } from '../../../api/client';
 import type { BrowserStatus, Grant, Resource } from '../../../api/types';
 import { useCopy, useQuery, useSession } from '../../../state';
 import { useErrorToast } from '../../../error-toasts';
-import { ComponentDetails, MaintenanceProgress, maintenanceReason } from '../../../maintenance/Components';
+import { ComponentDetails, MaintenanceProgress, maintenanceReason, useMaintenanceFailureToast } from '../../../maintenance/Components';
 import type { ComponentStatus } from '@molr/sdk';
 import './browser.css';
 import { useBrowserView } from './useBrowserView';
@@ -95,6 +95,8 @@ export function Browser({ assistantID, docked, floating, onFloatingChange, bound
     const text = err instanceof APIError ? messages[err.code] : undefined;
     return text?.[zh ? 0 : 1] ?? (zh ? '浏览器操作未完成，请检查连接或任务状态。' : 'Browser operation failed. Check connection or task status.');
   }
+  const preparation = query.data?.Preparation;
+  useMaintenanceFailureToast(preparation?.state === 'failed' ? preparation.task_id : undefined, preparation?.error_code);
   const failure = query.data?.LastFailure;
   useEffect(() => {
     if (task) { if (noticeID.current !== null) { dismiss(noticeID.current); noticeID.current = null; } return; }
@@ -329,7 +331,6 @@ export function Browser({ assistantID, docked, floating, onFloatingChange, bound
       {!task ? <div className="browser-start"><div className="browser-start-icon"><Globe size={34}/></div><h3>{zh ? '一起浏览，同步可见' : 'Browse together'}</h3><p>{zh ? '观看助理浏览网页，需要时接管。登录状态会为这个助理保留。' : 'Watch your assistant browse, and take control when needed. Login state stays with this assistant.'}</p>
         {query.data?.Available === false && component && <ComponentDetails value={component}/>}
         {query.data?.Preparation?.task_id && admin && <MaintenanceProgress taskID={query.data.Preparation.task_id}/>}
-        {query.data?.Preparation?.state === 'failed' && <Alert tone="warning" title={maintenanceReason(query.data.Preparation.error_code, zh)}/>}
         <Select label={zh ? '计算资源' : 'Compute resource'} value={compute} onValueChange={setCompute} disabled={busy || query.data?.Preparation?.state === 'installing'} placeholder={zh ? '选择已授权的本机资源' : 'Select an authorized local resource'} options={usable.map(r => ({ value: r.ID, label: r.Name }))}/>
         {query.data?.Available === false && !component?.can_install && !query.data.ComponentsEnabled ? <Alert title={zh ? '浏览器组件不可用' : 'Browser components unavailable'}>{component ? maintenanceReason(component.reason, zh) : zh ? '请联系管理员安装浏览器组件。' : 'Ask an administrator to install browser components.'}</Alert> : <Button disabled={busy || !compute || query.loading && !query.data || query.data?.Preparation?.state === 'installing'} onClick={() => void command({ action: query.data?.Available === false && !query.data.ComponentsEnabled ? 'install_start' : 'start', compute_id: compute })}>{busy || query.data?.Preparation?.state === 'installing' ? (zh ? '正在准备…' : 'Preparing…') : query.data?.Available === false ? (zh ? '安装并启动' : 'Install and start') : (zh ? '启动浏览器' : 'Start browser')}</Button>}
       </div> : <>

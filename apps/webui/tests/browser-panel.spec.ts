@@ -324,3 +324,63 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   await expect(page.getByText(/Browser exited unexpectedly. Check the browser task/)).toHaveCount(0);
   await page.unrouteAll({behavior:'wait'});
 });
+
+test('browser installation failure uses one toast across task polling, panel reopening and component settings', async ({ page }, info) => {
+  await page.goto('/');
+  await page.getByLabel('Username', { exact: true }).fill('owner');
+  await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByRole('navigation', { name: 'Molr' })).toBeVisible();
+  const name = `Installation failure ${info.project.name}-${Date.now()}`, origin = `http://127.0.0.1:${process.env.MOLR_E2E_MODEL_PORT ?? 18882}`;
+  const resource = await post(page, '/api/resources', { Name: name, Kind: 'model', Provider: 'openai-compatible', Binding: { Endpoint: origin, AllowedOrigins: [origin], Models: [{ Name: name, ContextLimit: 32768, SupportsTools: true, Pricing: { Currency: 'USD', InputMicrosPerMillion: 1 } }] } });
+  const models = await (await page.request.get('/api/models')).json();
+  const assistant = await post(page, '/api/assistants', { Name: name, ModelID: models.find((m: { ResourceID: string }) => m.ResourceID === resource.ID).ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } });
+  const task = { id: 'installation-first', operation: 'component_install', state: 'running', stage: 'downloading', downloaded: 50, total: 100, error_code: '' };
+  const preparation = { task_id: task.id, state: 'installing', error_code: '' };
+  let taskReads = 0, browserReads = 0;
+  await page.route('**/api/components', route => route.fulfill({ json: [{ id: 'browser', state: 'missing', can_install: true, download_bytes: 100, disk_bytes: 200, task }] }));
+  await page.route('**/api/maintenance/tasks/*', route => { taskReads++; return route.fulfill({ json: task }); });
+  await page.route(`**/api/assistants/${assistant.ID}/browser`, route => { browserReads++; return route.fulfill({ json: { Available: false, Preparation: preparation } }); });
+  await page.goto(`/#/assistants/${assistant.ID}`);
+  const open = () => page.getByRole('button', { name: 'Browser', exact: true }).click();
+  await open();
+  await expect(page.getByRole('progressbar', { name: 'Downloading' })).toBeVisible();
+  task.state = preparation.state = 'failed';
+  task.error_code = preparation.error_code = 'maintenance_failed';
+  const message = 'Maintenance failed. Check the environment and retry.';
+  const toast = page.locator('.ui-toast').filter({ hasText: message });
+  await expect(toast).toHaveCount(1);
+  // Wait until both polling sources have observed the failure.
+  const reads = { task: taskReads, browser: browserReads };
+  await expect.poll(() => taskReads).toBeGreaterThan(reads.task);
+  await expect.poll(() => browserReads).toBeGreaterThan(reads.browser);
+  await expect(page.getByText(message, { exact: true })).toHaveCount(1);
+  await expect(page.locator('.browser-drawer .ui-alert')).toHaveCount(0);
+  await toast.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.getByRole('button', { name: 'Close browser panel', exact: true }).click();
+  await open();
+  const reopened = browserReads;
+  await expect.poll(() => browserReads).toBeGreaterThan(reopened);
+  await expect(page.getByText(message, { exact: true })).toHaveCount(0);
+  // A new attempt must still report the same error.
+  task.id = preparation.task_id = 'installation-retry';
+  await expect(toast).toHaveCount(1);
+  await toast.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.getByRole('button', { name: 'Close browser panel', exact: true }).click();
+  await page.goto('/#/settings/components');
+  await expect(page.getByRole('heading', { name: 'Browser components', exact: true })).toBeVisible();
+  const settingsReads = taskReads;
+  await expect.poll(() => taskReads).toBeGreaterThan(settingsReads);
+  await expect(page.getByText(message, { exact: true })).toHaveCount(0);
+  task.id = 'installation-settings'; task.error_code = 'component_download_failed';
+  const downloadToast = page.locator('.ui-toast').filter({ hasText: 'Download failed. Check the host network and retry.' });
+  await expect(downloadToast).toHaveCount(1);
+  await downloadToast.getByRole('button', { name: 'Close', exact: true }).click();
+  // Installation can succeed while the subsequent browser start fails.
+  task.id = preparation.task_id = 'installation-start'; task.state = 'succeeded'; task.error_code = '';
+  preparation.error_code = 'browser_start_failed';
+  await page.goto(`/#/assistants/${assistant.ID}`); await open();
+  await expect(page.locator('.ui-toast').filter({ hasText: 'Components are prepared, but the browser could not start.' })).toHaveCount(1);
+  await expect(page.locator('.browser-drawer .ui-alert')).toHaveCount(0);
+  await page.unrouteAll({ behavior: 'wait' });
+});
