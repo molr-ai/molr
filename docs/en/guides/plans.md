@@ -6,6 +6,8 @@ Arrange tasks into plans, and view the status, costs, and artifacts of each exec
 
 "Plans" aggregate items, scheduled times, and automated executions for both you and your assistants, allowing filtering by owner, type, and status; the plan panel in chat defaults to viewing the current assistant.
 
+The plan sidebar or drawer in chat shows the current assistant’s next 10 items. Clicking a plan slides the panel content to the left to show its details, using the same layout as the standalone plan list. The back button in the header returns to the list and preserves its scroll position.
+
 The list defaults to showing the next 50 events in ascending order of occurrence time, with the option to load more. Each occurrence of a recurring plan is listed separately; undated items and overdue one-time arrangements are viewed through separate entries. Clicking a specific event shows the date and completion actions corresponding to that specific occurrence, while series edits still apply to the entire plan.
 
 The calendar defaults to showing the current month, providing options for the previous month, next month, returning to today, and month selection. Events that do not fit in a cell are collapsed as +N; clicking +N or the date opens the full list for that day. Dreaming is not a calendar event; automated time slots can be adjusted in the dreaming section of user settings.
