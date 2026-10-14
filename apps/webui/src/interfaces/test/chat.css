@@ -3,7 +3,6 @@
 .assistant-workspace--focus > .workspace-sidebar > .select { width: min(360px, 100%); min-width: 0; }
 .assistant-workspace--focus .sidebar-footer { margin-left: auto; padding: 0; border: 0; }
 .assistant-workspace--focus .chat-panel { width: 100%; }
-.assistant-workspace--focus .chat-header { border-bottom: 0; }
 @media (--molr-mobile) {
   .assistant-workspace--focus > .workspace-sidebar { padding: 10px 12px; gap: 8px; }
   .assistant-workspace--focus > .workspace-sidebar > .select { flex: 1; width: auto; }
