@@ -85,3 +85,6 @@ export { ModalPresence, useModalSnapshot } from './modal-presence';
 
 export { SlidingHighlight } from './components/SlidingHighlight';
 export type { SlidingHighlightProps } from './components/SlidingHighlight';
+
+export { Avatar, AvatarNotice } from './components/Avatar';
+export type { AvatarProps, AvatarNoticeProps } from './components/Avatar';

@@ -7,6 +7,7 @@
 
 @import './components/sliding-highlight.css';
 @import './components/workspace.css';
+@import './components/avatar.css';
 @import './components/search-panel.css';
 @import './components/connection-logo.css';
 @import './components/connection-notice.css';

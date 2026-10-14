@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { updates as updateClient, type UpdateStatus } from '@molr/sdk';
-import { Badge } from '@molr/ui';
+import { AvatarNotice, Badge } from '@molr/ui';
 import { useCopy, useData, useQuery, useSession } from '../state';
 import { api } from '../api/client';
 import { buildInfo } from '../build-info';
@@ -33,5 +33,6 @@ export function UpdateBadge({ compact = false }: { compact?: boolean }) {
  const available = principal?.User?.Administrator && updates.data?.comparison === 'available';
  if (!mismatch && !available) return null;
  const label = mismatch ? locale === 'zh' ? '版本不一致' : 'Version mismatch' : locale === 'zh' ? '有更新' : 'Update available';
- return <span className={compact ? 'update-badge update-badge--compact' : 'update-badge'} title={label} aria-label={label}><Badge tone="warning" size="sm" dot={false}>{compact ? '!' : label}</Badge></span>;
+ if (compact) return <AvatarNotice label={label} className="update-badge" />;
+ return <span className="update-badge" title={label} aria-label={label}><Badge tone="warning" size="sm" dot={false}>{label}</Badge></span>;
 }

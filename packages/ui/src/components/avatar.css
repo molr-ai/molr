@@ -1,0 +1,9 @@
+.ui-avatar { --avatar-selected-background: var(--color-primary); --avatar-selected-text: var(--color-on-primary); position: relative; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: var(--avatar-size); height: var(--avatar-size); border-radius: 50%; background: var(--avatar-background, var(--color-selected-bg)); color: var(--color-text); font-size: calc(var(--avatar-size) / 2); font-weight: 600; }
+:root[data-theme='dark'] .ui-avatar { --avatar-selected-background: var(--color-accent); --avatar-selected-text: var(--color-on-accent); }
+.ui-avatar[data-selected] { background: var(--avatar-selected-background); color: var(--avatar-selected-text); }
+/* Artwork owns the antialiased edge; selection belongs outside it. */
+.ui-avatar:has(> .assistant-avatar-art) { background: transparent; }
+.ui-avatar[data-selected]:has(> .assistant-avatar-art) { outline: 2px solid var(--avatar-selected-background); outline-offset: 2px; }
+/* At 45 degrees, the dot center lies on the avatar circle: (1 - 1 / sqrt(2)) / 2. */
+.ui-avatar > .ui-avatar__notice { display: block; position: absolute; top: 14.644661%; right: 14.644661%; width: 10px; height: 10px; box-sizing: content-box; border: 2px solid var(--avatar-notice-border, var(--color-surface)); border-radius: 50%; background: var(--color-warning); transform: translate(50%, -50%); }
+.ui-avatar > .ui-avatar__notice[data-tone='error'] { background: var(--color-danger); }

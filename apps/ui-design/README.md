@@ -118,3 +118,7 @@ InterfaceShowcase 首屏仅挂载 Web 工作区。Web / Desktop 继续共享同�
 ### 连接提示
 
 组件库的「反馈」分类加入「连接提示」，可通过 `?components=feedback#connection-notices` 直达。与真实 WebUI 共用 `@molr/ui` 的 `ConnectionNotice`，支持重连、断开、失败、恢复和已连接状态切换；已连接或恢复时提示收起。可演示重连成功、重连失败、点击重试及减少动态效果，文案跟随中英文，配色跟随六套主题及明暗模式。示例只演示状态，不发起连接请求。验证见 `tests/connection-notices.spec.ts`。
+
+### 头像
+
+基础分类的 `?components=foundations#avatars` 展示共享 `Avatar` / `AvatarNotice`，与 WebUI 导航使用相同实现。支持字母、全部预设、PNG/JPEG 本地图片预览，切换尺寸、选中态、无提醒、warning 和预留 error；点击头像也可切换选中态。图片仅在当前页面读取，不上传服务器。图片选中时使用独立外圈描边，提醒圆点沿头像圆周定位并使用背景色描边。文案支持中英文，颜色跟随六套配色与明暗模式。

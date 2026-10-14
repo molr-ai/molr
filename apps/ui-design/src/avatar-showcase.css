@@ -1,0 +1,7 @@
+.avatar-showcase__samples { display: flex; flex-wrap: wrap; gap: 28px; padding: 12px 4px; }
+.avatar-showcase__sample { display: flex; flex-direction: column; align-items: center; gap: 14px; font-size: var(--text-sm); color: var(--color-text-muted); }
+.avatar-showcase__button { display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer; }
+.avatar-showcase__upload { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: var(--text-sm); }
+.avatar-showcase__upload input { max-width: 100%; min-width: 0; }
+.avatar-showcase__presets { display: flex; flex-wrap: wrap; gap: 16px; padding: 4px; }
+.avatar-showcase__error { color: var(--color-danger); }

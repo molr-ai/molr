@@ -6,6 +6,7 @@ import { libraryMessages } from './library-messages';
 import type { Locale, Messages } from './messages';
 import { ComponentExample as Example } from './ComponentExample';
 import { ChatShowcase } from './ChatShowcase';
+import { AvatarShowcase } from './AvatarShowcase';
 import { CodeBlockShowcase } from './CodeBlockShowcase';
 import { SkeletonShowcase } from './SkeletonShowcase';
 import { ConnectionNoticeShowcase } from './ConnectionNoticeShowcase';
@@ -118,6 +119,7 @@ export function ComponentsShowcase({ locale, copy, theme }: { locale: Locale; co
       { value: 'foundations', label: t.foundations, content: <div className="component-foundations">
         <Card className="type-specimen"><div className="specimen-label"><span>TYPOGRAPHY</span><span>Aa / <span lang="zh-CN">字</span></span></div><p className="type-specimen__display">Stay<br />curious<span>.</span></p><p className="type-specimen__motto">{copy.components.typography.motto}</p><p className="type-specimen__description">{copy.components.typography.description}<br />{copy.components.typography.descriptionEnd}</p><div className="type-scale"><span>{copy.components.typography.heading}<b>32 / 600</b></span><span>{copy.components.typography.body}<b>16 / 400</b></span><span>{copy.components.typography.caption}<b>12 / 400</b></span></div></Card>
         <Card className="rules-specimen"><div className="specimen-label"><span>SHAPE & RHYTHM</span><span>4 / 8 / 16</span></div><div className="shape-row"><div><span className="shape shape--control" /><span>{copy.components.shape.control}<b>8 px</b></span></div><div><span className="shape shape--card" /><span>{copy.components.shape.card}<b>16 px</b></span></div><div><span className="shape shape--pill" /><span>{copy.components.shape.badge}<b>Full</b></span></div></div><div className="rhythm-row"><span>{copy.components.shape.spacing}</span><span className="mono">4 · 8 · 12 · 16 · 24 · 32</span></div><div className="component-statuses"><p className="control-label">{copy.components.status.label}</p><div className="component-row"><Badge>{copy.components.status.neutral}</Badge><Badge tone="positive">{copy.components.status.positive}</Badge><Badge tone="warning">{copy.components.status.warning}</Badge><Badge tone="danger">{copy.components.status.danger}</Badge></div><div className="component-row"><Badge size="sm">{copy.components.status.small}</Badge><Badge size="sm" dot={false}>{copy.components.status.noDot}</Badge></div><p className="subtle-copy">{copy.components.status.note}</p></div></Card>
+        <AvatarShowcase />
         <CodeBlockShowcase />
       </div> },
       { value: 'input', label: t.input, content: <div className="component-library__grid">

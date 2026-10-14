@@ -34,10 +34,7 @@
 .update-guide { display: grid; gap: 12px; min-width: 0; font-size: 13px; line-height: 1.65; padding: 16px; background: var(--color-neutral-bg); border-radius: var(--radius-control); }
 .update-guide pre { margin: 0; padding: 12px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.75; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-control); }
 .update-badge { display: inline-flex; flex-shrink: 0; }
-.update-badge--compact { position: absolute; top: 0; right: 0; }
-.nav-account-actions .nav-button, .mobile-account-button { position: relative; }
 .settings-nav > button > .update-badge { flex: 0 0 auto; }
-.nav-account-actions .update-badge, .nav-account-actions .update-badge > .badge { display: inline-flex; }
 @media (--molr-mobile) {
  .about-updates > section { padding-block: 20px; }
  .update-section-heading { gap: 10px; }
