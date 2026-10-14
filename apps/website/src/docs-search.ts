@@ -5,7 +5,7 @@ export type MatchKind = 'title' | 'heading' | 'body';
 
 function plainText(value: string) {
   return value.replace(/!?\[([^\]]+)\]\([^)]*\)/g, '$1')
-    .replace(/\[!(?:WARNING|PROMPT)\]/g, '')
+    .replace(/\[!(?:WARNING|INFO|PROMPT)\]/g, '')
     .replace(/^ {0,3}(?:> ?|[-+*] +|\d+[.)] +|#{1,6} +)/gm, '')
     .replace(/`+([^`]+)`+/g, '$1').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/__([^_]+)__/g, '$1')
     .replace(/\s+/g, ' ').trim();

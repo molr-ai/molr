@@ -61,10 +61,10 @@
 .docs-prose .docs-mermaid svg { max-width: 100%; height: auto; }
 .docs-prose .docs-mermaid[aria-busy='true'] { display: flex; align-items: center; justify-content: center; color: var(--color-text-muted); font-size: 13px; }
 .docs-prose blockquote { margin-inline: 0; padding-left: 18px; border-left: 3px solid var(--color-border); color: var(--color-text-muted); }
-.docs-prose .docs-warning { margin-block: 18px; }
-.docs-prose .docs-warning p { margin-block: 8px; }
-.docs-prose .docs-warning p:first-child { margin-top: 0; }
-.docs-prose .docs-warning p:last-child { margin-bottom: 0; }
+.docs-prose :is(.docs-warning, .docs-info) { margin-block: 18px; }
+.docs-prose :is(.docs-warning, .docs-info) p { margin-block: 8px; }
+.docs-prose :is(.docs-warning, .docs-info) p:first-child { margin-top: 0; }
+.docs-prose :is(.docs-warning, .docs-info) p:last-child { margin-bottom: 0; }
 .docs-prose img { max-width: 100%; }
 .docs-table { max-width: 100%; overflow-x: auto; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); }
 .docs-table table { width: 100%; border-collapse: collapse; font-size: 13px; }

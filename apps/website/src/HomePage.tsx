@@ -204,6 +204,6 @@ export function HomePage({ heading, locale, changeLocale }: { heading: string; l
       </StorySection>
       <InstallSection copy={copy} locale={locale} />
     </main>
-    <footer className="home-footer home-container"><div><Logo variant={theme === 'dark' ? 'light' : 'dark'} /><span>{copy.footer}</span></div><small>{copy.footerNote}</small><div className="home-footer-links"><Destination locale={locale} destination="userDocs" hint={copy.userDocsSoon}>{copy.userDocs}</Destination><Destination locale={locale} destination="devDocs" hint={copy.devDocsSoon}>{copy.devDocs}</Destination><Destination locale={locale} destination="github" hint={copy.githubSoon}><GithubMark size={14} />{copy.github}</Destination></div></footer>
+    <footer className="home-footer home-container"><div><Logo variant={theme === 'dark' ? 'light' : 'dark'} /><span>{copy.footer}</span></div><small>{copy.footerNote}</small><div className="home-footer-links"><Destination locale={locale} destination="userDocs" hint={copy.userDocsSoon}>{copy.userDocs}</Destination><Destination locale={locale} destination="adminDocs" hint={copy.adminDocs}>{copy.adminDocs}</Destination><Destination locale={locale} destination="devDocs" hint={copy.devDocsSoon}>{copy.devDocs}</Destination><Destination locale={locale} destination="github" hint={copy.githubSoon}><GithubMark size={14} />{copy.github}</Destination></div></footer>
   </div>;
 }

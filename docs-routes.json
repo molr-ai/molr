@@ -3,531 +3,630 @@
     "file": "README.md",
     "path": "/docs/",
     "label": "文档概览",
-    "group": "开始使用",
-    "englishLabel": "Overview",
-    "englishGroup": "Getting started",
-    "root": "docs"
+    "group": "文档",
+    "englishLabel": "Documentation overview",
+    "englishGroup": "Documentation",
+    "root": "docs",
+    "section": "overview"
   },
   {
-    "file": "getting-started.md",
-    "path": "/docs/getting-started/",
+    "file": "user/README.md",
+    "path": "/docs/user/",
+    "label": "用户文档概览",
+    "group": "开始使用",
+    "englishLabel": "User guide overview",
+    "englishGroup": "Getting started",
+    "root": "docs",
+    "section": "user"
+  },
+  {
+    "file": "user/getting-started.md",
+    "path": "/docs/user/getting-started/",
     "label": "快速开始",
     "group": "开始使用",
     "englishLabel": "Quick start",
     "englishGroup": "Getting started",
-    "root": "docs"
+    "root": "docs",
+    "section": "user"
   },
   {
-    "file": "concepts.md",
-    "path": "/docs/concepts/",
+    "file": "user/concepts.md",
+    "path": "/docs/user/concepts/",
     "label": "基本概念",
     "group": "开始使用",
     "englishLabel": "Core concepts",
     "englishGroup": "Getting started",
-    "root": "docs"
+    "root": "docs",
+    "section": "user"
   },
   {
-    "file": "guides/assistants-and-chat.md",
-    "path": "/docs/guides/assistants-and-chat/",
+    "file": "user/guides/assistants-and-chat.md",
+    "path": "/docs/user/guides/assistants-and-chat/",
     "label": "助理与聊天",
     "group": "日常使用",
     "englishLabel": "Assistants and chat",
     "englishGroup": "Everyday use",
-    "root": "docs"
+    "root": "docs",
+    "section": "user"
   },
   {
-    "file": "guides/plans.md",
-    "path": "/docs/guides/plans/",
+    "file": "user/guides/plans.md",
+    "path": "/docs/user/guides/plans/",
     "label": "计划与执行",
     "group": "日常使用",
     "englishLabel": "Plans and execution",
     "englishGroup": "Everyday use",
-    "root": "docs"
+    "root": "docs",
+    "section": "user"
   },
   {
-    "file": "guides/memory.md",
-    "path": "/docs/guides/memory/",
+    "file": "user/guides/memory.md",
+    "path": "/docs/user/guides/memory/",
     "label": "记忆与自动整理",
     "group": "日常使用",
     "englishLabel": "Memory and automatic review",
     "englishGroup": "Everyday use",
-    "root": "docs"
+    "root": "docs",
+    "section": "user"
   },
   {
-    "file": "guides/permissions-and-budget.md",
-    "path": "/docs/guides/permissions-and-budget/",
+    "file": "user/guides/permissions-and-budget.md",
+    "path": "/docs/user/guides/permissions-and-budget/",
     "label": "权限与预算",
     "group": "日常使用",
     "englishLabel": "Permissions and budgets",
     "englishGroup": "Everyday use",
-    "root": "docs"
+    "root": "docs",
+    "section": "user"
   },
   {
-    "file": "guides/files-and-commands.md",
-    "path": "/docs/guides/files-and-commands/",
+    "file": "user/guides/files-and-commands.md",
+    "path": "/docs/user/guides/files-and-commands/",
     "label": "文件与命令",
     "group": "日常使用",
     "englishLabel": "Files and commands",
     "englishGroup": "Everyday use",
-    "root": "docs"
+    "root": "docs",
+    "section": "user"
   },
   {
-    "file": "guides/plugins-and-skills.md",
-    "path": "/docs/guides/plugins-and-skills/",
+    "file": "user/guides/plugins-and-skills.md",
+    "path": "/docs/user/guides/plugins-and-skills/",
     "label": "插件与 Skills",
     "group": "日常使用",
     "englishLabel": "Plugins and Skills",
     "englishGroup": "Everyday use",
-    "root": "docs"
+    "root": "docs",
+    "section": "user"
   },
   {
-    "file": "guides/settings.md",
-    "path": "/docs/guides/settings/",
+    "file": "user/guides/settings.md",
+    "path": "/docs/user/guides/settings/",
     "label": "个人设置",
     "group": "日常使用",
     "englishLabel": "Personal settings",
     "englishGroup": "Everyday use",
-    "root": "docs"
+    "root": "docs",
+    "section": "user"
   },
   {
-    "file": "guides/account-security.md",
-    "path": "/docs/guides/account-security/",
+    "file": "user/guides/account-security.md",
+    "path": "/docs/user/guides/account-security/",
     "label": "账号安全",
     "group": "日常使用",
     "englishLabel": "Account security",
     "englishGroup": "Everyday use",
-    "root": "docs"
+    "root": "docs",
+    "section": "user"
   },
   {
-    "file": "models/README.md",
-    "path": "/docs/models/",
-    "label": "连接与管理模型",
-    "group": "连接模型",
-    "englishLabel": "Model connections",
-    "englishGroup": "Connect models",
-    "root": "docs"
-  },
-  {
-    "file": "chat-channels/weixin.md",
-    "path": "/docs/chat-channels/weixin/",
+    "file": "user/chat-channels/weixin.md",
+    "path": "/docs/user/chat-channels/weixin/",
     "label": "微信聊天入口",
     "group": "连接聊天入口",
     "englishLabel": "WeChat chat channel",
     "englishGroup": "Connect chat channels",
-    "root": "docs"
+    "root": "docs",
+    "section": "user"
   },
   {
-    "file": "sandbox/resources.md",
-    "path": "/docs/sandbox/resources/",
-    "label": "管理沙盒资源",
-    "group": "沙盒",
-    "englishLabel": "Sandbox resources",
-    "englishGroup": "Sandbox",
-    "root": "docs"
-  },
-  {
-    "file": "sandbox/linux.md",
-    "path": "/docs/sandbox/linux/",
-    "label": "Linux 沙盒部署",
-    "group": "沙盒",
-    "englishLabel": "Linux sandbox deployment",
-    "englishGroup": "Sandbox",
-    "root": "docs"
-  },
-  {
-    "file": "sandbox/remote.md",
-    "path": "/docs/sandbox/remote/",
-    "label": "独立 Linux Sandbox 服务",
-    "group": "沙盒",
-    "englishLabel": "Standalone Linux Sandbox service",
-    "englishGroup": "Sandbox",
-    "root": "docs"
-  },
-  {
-    "file": "best-practices/README.md",
-    "path": "/docs/best-practices/",
+    "file": "user/best-practices/README.md",
+    "path": "/docs/user/best-practices/",
     "label": "最佳实践概览",
     "group": "最佳实践",
     "englishLabel": "Best practices overview",
     "englishGroup": "Best practices",
-    "root": "docs"
+    "root": "docs",
+    "section": "user"
   },
   {
-    "file": "best-practices/browser.md",
-    "path": "/docs/best-practices/browser/",
+    "file": "user/best-practices/browser.md",
+    "path": "/docs/user/best-practices/browser/",
     "label": "操作浏览器",
     "group": "最佳实践",
     "englishLabel": "Operate a browser",
     "englishGroup": "Best practices",
-    "root": "docs"
+    "root": "docs",
+    "section": "user"
   },
   {
-    "file": "best-practices/dingtalk.md",
-    "path": "/docs/best-practices/dingtalk/",
+    "file": "user/best-practices/dingtalk.md",
+    "path": "/docs/user/best-practices/dingtalk/",
     "label": "操作钉钉",
     "group": "最佳实践",
     "englishLabel": "Use DingTalk",
     "englishGroup": "Best practices",
-    "root": "docs"
+    "root": "docs",
+    "section": "user"
   },
   {
-    "file": "best-practices/feishu.md",
-    "path": "/docs/best-practices/feishu/",
+    "file": "user/best-practices/feishu.md",
+    "path": "/docs/user/best-practices/feishu/",
     "label": "操作飞书",
     "group": "最佳实践",
     "englishLabel": "Use Feishu",
     "englishGroup": "Best practices",
-    "root": "docs"
+    "root": "docs",
+    "section": "user"
   },
   {
-    "file": "best-practices/clawemail.md",
-    "path": "/docs/best-practices/clawemail/",
+    "file": "user/best-practices/clawemail.md",
+    "path": "/docs/user/best-practices/clawemail/",
     "label": "操作 ClawEmail",
     "group": "最佳实践",
     "englishLabel": "Use ClawEmail",
     "englishGroup": "Best practices",
-    "root": "docs"
+    "root": "docs",
+    "section": "user"
   },
   {
-    "file": "best-practices/zhihu.md",
-    "path": "/docs/best-practices/zhihu/",
+    "file": "user/best-practices/zhihu.md",
+    "path": "/docs/user/best-practices/zhihu/",
     "label": "操作知乎",
     "group": "最佳实践",
     "englishLabel": "Use Zhihu",
     "englishGroup": "Best practices",
-    "root": "docs"
+    "root": "docs",
+    "section": "user"
   },
   {
-    "file": "best-practices/github.md",
-    "path": "/docs/best-practices/github/",
+    "file": "user/best-practices/github.md",
+    "path": "/docs/user/best-practices/github/",
     "label": "操作 GitHub",
     "group": "最佳实践",
     "englishLabel": "Use GitHub",
     "englishGroup": "Best practices",
-    "root": "docs"
+    "root": "docs",
+    "section": "user"
   },
   {
-    "file": "best-practices/google.md",
-    "path": "/docs/best-practices/google/",
+    "file": "user/best-practices/google.md",
+    "path": "/docs/user/best-practices/google/",
     "label": "操作 Google 服务",
     "group": "最佳实践",
     "englishLabel": "Use Google services",
     "englishGroup": "Best practices",
-    "root": "docs"
+    "root": "docs",
+    "section": "user"
   },
   {
-    "file": "administration/users-and-groups.md",
-    "path": "/docs/administration/users-and-groups/",
+    "file": "user/troubleshooting.md",
+    "path": "/docs/user/troubleshooting/",
+    "label": "使用问题排查",
+    "group": "故障排查",
+    "englishLabel": "Troubleshooting usage problems",
+    "englishGroup": "Troubleshooting",
+    "root": "docs",
+    "section": "user"
+  },
+  {
+    "file": "admin/README.md",
+    "path": "/docs/admin/",
+    "label": "管理员文档概览",
+    "group": "开始管理",
+    "englishLabel": "Administrator overview",
+    "englishGroup": "Getting started",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
+    "file": "admin/getting-started.md",
+    "path": "/docs/admin/getting-started/",
+    "label": "搭建实例",
+    "group": "开始管理",
+    "englishLabel": "Set up an instance",
+    "englishGroup": "Getting started",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
+    "file": "admin/deployment/installation.md",
+    "path": "/docs/admin/deployment/installation/",
+    "label": "安装与服务管理",
+    "group": "部署服务",
+    "englishLabel": "Installation and services",
+    "englishGroup": "Deployment",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
+    "file": "admin/deployment/source-build.md",
+    "path": "/docs/admin/deployment/source-build/",
+    "label": "源码构建与部署",
+    "group": "部署服务",
+    "englishLabel": "Building from source",
+    "englishGroup": "Deployment",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
+    "file": "admin/deployment/configuration.md",
+    "path": "/docs/admin/deployment/configuration/",
+    "label": "配置与访问",
+    "group": "部署服务",
+    "englishLabel": "Configuration and access",
+    "englishGroup": "Deployment",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
+    "file": "admin/resources/models.md",
+    "path": "/docs/admin/resources/models/",
+    "label": "连接与管理模型",
+    "group": "接入资源",
+    "englishLabel": "Model connections",
+    "englishGroup": "Connect resources",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
+    "file": "admin/resources/sandbox.md",
+    "path": "/docs/admin/resources/sandbox/",
+    "label": "管理沙盒资源",
+    "group": "接入资源",
+    "englishLabel": "Sandbox resources",
+    "englishGroup": "Connect resources",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
+    "file": "admin/administration/users-and-groups.md",
+    "path": "/docs/admin/administration/users-and-groups/",
     "label": "用户与用户组",
     "group": "管理实例",
     "englishLabel": "Users and groups",
     "englishGroup": "Administration",
-    "root": "docs"
+    "root": "docs",
+    "section": "admin"
   },
   {
-    "file": "administration/plugins.md",
-    "path": "/docs/administration/plugins/",
+    "file": "admin/administration/plugins.md",
+    "path": "/docs/admin/administration/plugins/",
     "label": "插件管理",
     "group": "管理实例",
     "englishLabel": "Plugin administration",
     "englishGroup": "Administration",
-    "root": "docs"
+    "root": "docs",
+    "section": "admin"
   },
   {
-    "file": "deployment/README.md",
-    "path": "/docs/deployment/",
-    "label": "部署与维护",
-    "group": "部署与维护",
-    "englishLabel": "Deployment and maintenance",
-    "englishGroup": "Deployment",
-    "root": "docs"
+    "file": "admin/administration/components.md",
+    "path": "/docs/admin/administration/components/",
+    "label": "组件管理",
+    "group": "管理实例",
+    "englishLabel": "Component management",
+    "englishGroup": "Administration",
+    "root": "docs",
+    "section": "admin"
   },
   {
-    "file": "deployment/installation.md",
-    "path": "/docs/deployment/installation/",
-    "label": "安装与服务管理",
-    "group": "部署与维护",
-    "englishLabel": "Installation and services",
-    "englishGroup": "Deployment",
-    "root": "docs"
+    "file": "admin/sandbox/linux.md",
+    "path": "/docs/admin/sandbox/linux/",
+    "label": "Linux 沙盒部署",
+    "group": "沙盒部署",
+    "englishLabel": "Linux sandbox deployment",
+    "englishGroup": "Sandbox deployment",
+    "root": "docs",
+    "section": "admin"
   },
   {
-    "file": "deployment/source-build.md",
-    "path": "/docs/deployment/source-build/",
-    "label": "源码构建与部署",
-    "group": "部署与维护",
-    "englishLabel": "Building from source",
-    "englishGroup": "Deployment",
-    "root": "docs"
+    "file": "admin/sandbox/remote.md",
+    "path": "/docs/admin/sandbox/remote/",
+    "label": "独立 Linux Sandbox 服务",
+    "group": "沙盒部署",
+    "englishLabel": "Standalone Linux Sandbox service",
+    "englishGroup": "Sandbox deployment",
+    "root": "docs",
+    "section": "admin"
   },
   {
-    "file": "deployment/configuration.md",
-    "path": "/docs/deployment/configuration/",
-    "label": "配置与访问",
-    "group": "部署与维护",
-    "englishLabel": "Configuration and access",
-    "englishGroup": "Deployment",
-    "root": "docs"
-  },
-  {
-    "file": "deployment/maintenance.md",
-    "path": "/docs/deployment/maintenance/",
+    "file": "admin/deployment/maintenance.md",
+    "path": "/docs/admin/deployment/maintenance/",
     "label": "更新与备份恢复",
-    "group": "部署与维护",
+    "group": "维护与排查",
     "englishLabel": "Updates, backups and recovery",
-    "englishGroup": "Deployment",
-    "root": "docs"
+    "englishGroup": "Maintenance and troubleshooting",
+    "root": "docs",
+    "section": "admin"
   },
   {
-    "file": "troubleshooting.md",
-    "path": "/docs/troubleshooting/",
-    "label": "故障排查",
-    "group": "故障排查",
-    "englishLabel": "Troubleshooting",
-    "englishGroup": "Troubleshooting",
-    "root": "docs"
+    "file": "admin/troubleshooting.md",
+    "path": "/docs/admin/troubleshooting/",
+    "label": "管理员故障排查",
+    "group": "维护与排查",
+    "englishLabel": "Administrator troubleshooting",
+    "englishGroup": "Maintenance and troubleshooting",
+    "root": "docs",
+    "section": "admin"
   },
   {
-    "file": "README.md",
-    "path": "/dev-docs/",
+    "file": "dev/README.md",
+    "path": "/docs/dev/",
     "label": "开发文档概览",
     "group": "开始贡献",
     "englishLabel": "Developer overview",
     "englishGroup": "Contributing",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   },
   {
-    "file": "contributing/documentation.md",
-    "path": "/dev-docs/contributing/documentation/",
+    "file": "dev/contributing/documentation.md",
+    "path": "/docs/dev/contributing/documentation/",
     "label": "文档维护约定",
     "group": "开始贡献",
     "englishLabel": "Documentation maintenance",
     "englishGroup": "Contributing",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   },
   {
-    "file": "architecture/overview.md",
-    "path": "/dev-docs/architecture/overview/",
+    "file": "dev/architecture/overview.md",
+    "path": "/docs/dev/architecture/overview/",
     "label": "架构总览",
     "group": "架构",
     "englishLabel": "Architecture overview",
     "englishGroup": "Architecture",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   },
   {
-    "file": "architecture/tech-stack.md",
-    "path": "/dev-docs/architecture/tech-stack/",
+    "file": "dev/architecture/tech-stack.md",
+    "path": "/docs/dev/architecture/tech-stack/",
     "label": "Runtime 技术底座",
     "group": "架构",
     "englishLabel": "Runtime technology stack",
     "englishGroup": "Architecture",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   },
   {
-    "file": "runtime/agent-context.md",
-    "path": "/dev-docs/runtime/agent-context/",
+    "file": "dev/runtime/agent-context.md",
+    "path": "/docs/dev/runtime/agent-context/",
     "label": "自动上下文更新",
     "group": "执行与数据",
     "englishLabel": "Automatic context updates",
     "englishGroup": "Execution and data",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   },
   {
-    "file": "runtime/context-storage.md",
-    "path": "/dev-docs/runtime/context-storage/",
+    "file": "dev/runtime/context-storage.md",
+    "path": "/docs/dev/runtime/context-storage/",
     "label": "上下文存储",
     "group": "执行与数据",
     "englishLabel": "Context storage",
     "englishGroup": "Execution and data",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   },
   {
-    "file": "runtime/dream-memory.md",
-    "path": "/dev-docs/runtime/dream-memory/",
+    "file": "dev/runtime/dream-memory.md",
+    "path": "/docs/dev/runtime/dream-memory/",
     "label": "做梦与文件记忆",
     "group": "执行与数据",
     "englishLabel": "Dreaming and file memory",
     "englishGroup": "Execution and data",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   },
   {
-    "file": "runtime/model-adapters.md",
-    "path": "/dev-docs/runtime/model-adapters/",
+    "file": "dev/runtime/model-adapters.md",
+    "path": "/docs/dev/runtime/model-adapters/",
     "label": "模型后端适配",
     "group": "执行与数据",
     "englishLabel": "Model adapters",
     "englishGroup": "Execution and data",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   },
   {
-    "file": "runtime/multimodal-files.md",
-    "path": "/dev-docs/runtime/multimodal-files/",
+    "file": "dev/runtime/multimodal-files.md",
+    "path": "/docs/dev/runtime/multimodal-files/",
     "label": "按需读取多模态文件",
     "group": "执行与数据",
     "englishLabel": "On-demand multimodal files",
     "englishGroup": "Execution and data",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   },
   {
-    "file": "runtime/workbench.md",
-    "path": "/dev-docs/runtime/workbench/",
+    "file": "dev/runtime/workbench.md",
+    "path": "/docs/dev/runtime/workbench/",
     "label": "开发工作台",
     "group": "执行与数据",
     "englishLabel": "Developer workbench",
     "englishGroup": "Execution and data",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   },
   {
-    "file": "security/security-model.md",
-    "path": "/dev-docs/security/security-model/",
+    "file": "dev/security/security-model.md",
+    "path": "/docs/dev/security/security-model/",
     "label": "Runtime 公网部署与安全边界",
     "group": "安全与隔离",
     "englishLabel": "Runtime security model",
     "englishGroup": "Security and isolation",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   },
   {
-    "file": "security/users-and-groups.md",
-    "path": "/dev-docs/security/users-and-groups/",
+    "file": "dev/security/users-and-groups.md",
+    "path": "/docs/dev/security/users-and-groups/",
     "label": "多用户、共享资源目录与成员配额",
     "group": "安全与隔离",
     "englishLabel": "Users and shared resources",
     "englishGroup": "Security and isolation",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   },
   {
-    "file": "security/resource-quotas.md",
-    "path": "/dev-docs/security/resource-quotas/",
+    "file": "dev/security/resource-quotas.md",
+    "path": "/docs/dev/security/resource-quotas/",
     "label": "资源授权额度",
     "group": "安全与隔离",
     "englishLabel": "Resource quotas",
     "englishGroup": "Security and isolation",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   },
   {
-    "file": "security/sandbox.md",
-    "path": "/dev-docs/security/sandbox/",
+    "file": "dev/security/sandbox.md",
+    "path": "/docs/dev/security/sandbox/",
     "label": "Agent Shell 沙盒实现与边界",
     "group": "安全与隔离",
     "englishLabel": "Agent Shell sandbox",
     "englishGroup": "Security and isolation",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   },
   {
-    "file": "reference/http-api.md",
-    "path": "/dev-docs/reference/http-api/",
+    "file": "dev/reference/http-api.md",
+    "path": "/docs/dev/reference/http-api/",
     "label": "Runtime HTTP 接口",
     "group": "接口参考",
     "englishLabel": "Runtime HTTP API",
     "englishGroup": "API reference",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   },
   {
-    "file": "reference/module-interfaces.md",
-    "path": "/dev-docs/reference/module-interfaces/",
+    "file": "dev/reference/module-interfaces.md",
+    "path": "/docs/dev/reference/module-interfaces/",
     "label": "Runtime 模块 Public 接口",
     "group": "接口参考",
     "englishLabel": "Runtime module interfaces",
     "englishGroup": "API reference",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   },
   {
-    "file": "reference/file-tools.md",
-    "path": "/dev-docs/reference/file-tools/",
+    "file": "dev/reference/file-tools.md",
+    "path": "/docs/dev/reference/file-tools/",
     "label": "资源与文件工具合同",
     "group": "接口参考",
     "englishLabel": "Resource and file tool contracts",
     "englishGroup": "API reference",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   },
   {
-    "file": "extensions/plugins.md",
-    "path": "/dev-docs/extensions/plugins/",
+    "file": "dev/extensions/plugins.md",
+    "path": "/docs/dev/extensions/plugins/",
     "label": "插件机制（Plugin API 3）",
     "group": "扩展",
     "englishLabel": "Plugin system (Plugin API 3)",
     "englishGroup": "Extensions",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   },
   {
-    "file": "extensions/weixin.md",
-    "path": "/dev-docs/extensions/weixin/",
+    "file": "dev/extensions/weixin.md",
+    "path": "/docs/dev/extensions/weixin/",
     "label": "微信渠道",
     "group": "扩展",
     "englishLabel": "WeChat channel",
     "englishGroup": "Extensions",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   },
   {
-    "file": "frontend/architecture.md",
-    "path": "/dev-docs/frontend/architecture/",
+    "file": "dev/frontend/architecture.md",
+    "path": "/docs/dev/frontend/architecture/",
     "label": "前端架构",
     "group": "前端",
     "englishLabel": "Frontend architecture",
     "englishGroup": "Frontend",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   },
   {
-    "file": "frontend/themes.md",
-    "path": "/dev-docs/frontend/themes/",
+    "file": "dev/frontend/themes.md",
+    "path": "/docs/dev/frontend/themes/",
     "label": "主题与页面解析",
     "group": "前端",
     "englishLabel": "Themes and page resolution",
     "englishGroup": "Frontend",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   },
   {
-    "file": "frontend/brand.md",
-    "path": "/dev-docs/frontend/brand/",
+    "file": "dev/frontend/brand.md",
+    "path": "/docs/dev/frontend/brand/",
     "label": "Molr 品牌与 UI 基础",
     "group": "前端",
     "englishLabel": "Brand and UI foundations",
     "englishGroup": "Frontend",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   },
   {
-    "file": "frontend/design-system.md",
-    "path": "/dev-docs/frontend/design-system/",
+    "file": "dev/frontend/design-system.md",
+    "path": "/docs/dev/frontend/design-system/",
     "label": "设计系统与颜色规范",
     "group": "前端",
     "englishLabel": "Design system and colors",
     "englishGroup": "Frontend",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   },
   {
-    "file": "frontend/interaction.md",
-    "path": "/dev-docs/frontend/interaction/",
+    "file": "dev/frontend/interaction.md",
+    "path": "/docs/dev/frontend/interaction/",
     "label": "前端交互约定",
     "group": "前端",
     "englishLabel": "Frontend interactions",
     "englishGroup": "Frontend",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   },
   {
-    "file": "releasing/releases.md",
-    "path": "/dev-docs/releasing/releases/",
+    "file": "dev/releasing/releases.md",
+    "path": "/docs/dev/releasing/releases/",
     "label": "发行维护",
     "group": "发行维护",
     "englishLabel": "Release maintenance",
     "englishGroup": "Releases",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   },
   {
-    "file": "releasing/public-content.md",
-    "path": "/dev-docs/releasing/public-content/",
+    "file": "dev/releasing/public-content.md",
+    "path": "/docs/dev/releasing/public-content/",
     "label": "开源发布与私有文件隔离",
     "group": "发行维护",
     "englishLabel": "Public and private files",
     "englishGroup": "Releases",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   },
   {
-    "file": "releasing/licensing.md",
-    "path": "/dev-docs/releasing/licensing/",
+    "file": "dev/releasing/licensing.md",
+    "path": "/docs/dev/releasing/licensing/",
     "label": "MIT 许可证与第三方分发",
     "group": "发行维护",
     "englishLabel": "MIT license and distribution",
     "englishGroup": "Releases",
-    "root": "dev-docs"
+    "root": "docs",
+    "section": "dev"
   }
 ]

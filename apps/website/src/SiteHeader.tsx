@@ -1,19 +1,24 @@
-import { Logo, useTheme } from '@molr/ui';
+import { DropdownMenu, Logo, UIIcon, useTheme } from '@molr/ui';
 import { GithubMark } from './GithubMark';
 import { homeMessages } from './home-content';
 import type { Locale } from './site-content';
 import { localizedDocPath } from './doc-locale';
 import { siteLinks } from './site-links';
+import { navigateSite } from './site-navigation';
+import type { DocSection } from './docs-routes';
 
-export function SiteHeader({ locale, changeLocale, active }: { locale: Locale; changeLocale: (locale: Locale) => void; active: 'home' | 'docs' | 'dev-docs' }) {
+export function SiteHeader({ locale, changeLocale, active, docSection }: { locale: Locale; changeLocale: (locale: Locale) => void; active: 'home' | 'docs'; docSection?: DocSection }) {
   const copy = homeMessages[locale];
   const { theme, changePreference } = useTheme();
   return <header className="home-header home-container">
     <a href="/" className="home-brand" aria-label="Molr"><Logo animation="daily" variant={theme === 'dark' ? 'light' : 'dark'} /></a>
     <nav aria-label={copy.nav}>
       <a href="/" aria-current={active === 'home' ? 'page' : undefined}>{copy.home}</a>
-      <a href={localizedDocPath(siteLinks.userDocs!, locale)} aria-current={active === 'docs' ? 'page' : undefined}>{copy.userDocs}</a>
-      {siteLinks.devDocs ? <a href={localizedDocPath(siteLinks.devDocs, locale)} aria-current={active === 'dev-docs' ? 'page' : undefined}>{copy.devDocs}</a> : <a className="home-placeholder" role="link" aria-disabled="true" title={copy.devDocsSoon}>{copy.devDocs}</a>}
+      <DropdownMenu label={copy.docs} trigger={<button type="button" className="home-docs-trigger" data-active={active === 'docs' || undefined}>{copy.docs}<UIIcon name="chevron-down" className="home-docs-chevron" aria-hidden="true" /></button>} items={[
+        { id: 'user', label: copy.userDocs, selected: docSection === 'user', onSelect: () => navigateSite(localizedDocPath(siteLinks.userDocs!, locale)) },
+        { id: 'admin', label: copy.adminDocs, selected: docSection === 'admin', onSelect: () => navigateSite(localizedDocPath(siteLinks.adminDocs!, locale)) },
+        { id: 'dev', label: copy.devDocs, selected: docSection === 'dev', onSelect: () => navigateSite(localizedDocPath(siteLinks.devDocs!, locale)) },
+      ]} />
       {siteLinks.github ? <a href={siteLinks.github}><GithubMark />{copy.github}</a> : <a className="home-placeholder" role="link" aria-disabled="true" title={copy.githubSoon}><GithubMark />{copy.github}</a>}
     </nav>
     <div className="home-actions">

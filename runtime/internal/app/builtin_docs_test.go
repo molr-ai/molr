@@ -63,7 +63,7 @@ func TestBuiltinDocsWithoutSandbox(t *testing.T) {
 		t.Fatal("documentation enabled workspace access", err)
 	}
 	// Large documentation stays inline even when no workspace can store overflow.
-	raw, err = files.read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: tools.FileTarget{Path: "/molr/.agents/skills/molr-docs/references/dev-docs/reference/http-api.md"}, Limit: 2000})
+	raw, err = files.read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: tools.FileTarget{Path: "/molr/.agents/skills/molr-docs/references/docs/dev/reference/http-api.md"}, Limit: 2000})
 	need(t, err)
 	if len(raw) > toolInlineLimit {
 		t.Fatalf("document output requires workspace: %d", len(raw))
@@ -103,7 +103,7 @@ func TestBuiltinDocsRejectMutationsAndForeignPaths(t *testing.T) {
 	}
 	for _, bad := range []tools.FileTarget{
 		{Path: "/molr/../global/MEMORY.md"}, {Path: "/molr//.agents"}, {Path: molrdocs.SkillPath, SandboxID: "remote"}, {Path: molrdocs.SkillPath, FullAccess: true},
-		{Path: "/molr/.agents/skills/molr-docs/references/internal-docs/secret.md"}, {Path: "/molr/.agents/skills/molr-docs/references/docs/en/README.md"},
+		{Path: "/molr/.agents/skills/molr-docs/references/internal-docs/secret.md"}, {Path: "/molr/.agents/skills/molr-docs/references/docs/en/user/README.md"},
 		{Path: molrdocs.SkillPath, ResourceID: f.storage.ID},
 	} {
 		if _, err := files.read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: bad}); err == nil {

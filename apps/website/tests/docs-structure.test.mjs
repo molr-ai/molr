@@ -3,11 +3,11 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
-import { docRoutes, devDocRoutes, allDocRoutes } from '../src/docs-routes.ts';
+import { docRoutes, adminDocRoutes, devDocRoutes, allDocRoutes } from '../src/docs-routes.ts';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const routes = allDocRoutes;
-const repositoryOnly = ['dev-docs/contributing/development.md'];
+const repositoryOnly = ['docs/dev/contributing/development.md'];
 
 async function markdownFiles(directory) {
   const entries = await readdir(resolve(root, directory), { withFileTypes: true });
@@ -32,12 +32,13 @@ function headingIds(source) {
 }
 
 test('current documents have explicit unique routes and the overview comes first', async () => {
-  assert.equal(docRoutes[0].file, 'README.md');
-  assert.equal(devDocRoutes[0].file, 'README.md');
+  assert.equal(docRoutes[0].file, 'user/README.md');
+  assert.equal(adminDocRoutes[0].file, 'admin/README.md');
+  assert.equal(devDocRoutes[0].file, 'dev/README.md');
   assert.equal(new Set(routes.map(route => route.path)).size, routes.length);
   const registered = routes.map(route => `${route.root}/${route.file}`);
   assert.equal(new Set(registered).size, registered.length);
-  const files = [...await markdownFiles('docs'), ...await markdownFiles('dev-docs')];
+  const files = [...await markdownFiles('docs')];
   assert.deepEqual(files.sort(), [...registered, ...repositoryOnly].sort());
   for (const route of routes) {
     assert(!route.file.includes('..'));
@@ -49,7 +50,7 @@ test('current documents have explicit unique routes and the overview comes first
 });
 
 test('reorganized documents and contributor entry points resolve files and chapter anchors', async () => {
-  const files = [...await markdownFiles('docs'), ...await markdownFiles('dev-docs'), 'AGENTS.md', 'README.md', 'README.zh-CN.md'];
+  const files = [...await markdownFiles('docs'), 'AGENTS.md', 'README.md', 'README.zh-CN.md'];
   for (const file of files) {
     const source = await readFile(resolve(root, file), 'utf8');
     for (const [, href] of prose(source).matchAll(/\]\(([^\s)]+)\)/g)) {

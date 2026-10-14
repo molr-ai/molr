@@ -55,7 +55,7 @@ class ReleaseSafetyTests(unittest.TestCase):
             with self.subTest(name=name):
                 result=subprocess.run(['git','-C',str(self.root),'check-ignore','--no-index','-q',name])
                 self.assertEqual(result.returncode,0)
-        for name in ['.env.example','apps/website/.env.example','runtime/configs/server.local.example.json','docs/README.md']:
+        for name in ['.env.example','apps/website/.env.example','runtime/configs/server.local.example.json','docs/user/README.md']:
             with self.subTest(name=name):
                 result=subprocess.run(['git','-C',str(self.root),'check-ignore','--no-index','-q',name])
                 self.assertEqual(result.returncode,1)

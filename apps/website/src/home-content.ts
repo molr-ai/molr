@@ -2,7 +2,7 @@ import type { Locale } from './site-content';
 
 export const homeMessages = {
   zh: {
-    home: '主页', userDocs: '用户文档', devDocs: '开发者文档', github: 'GitHub', nav: '主导航', skip: '跳到主要内容',
+    home: '主页', docs: '文档', adminDocs: '管理员文档', userDocs: '用户文档', devDocs: '开发者文档', github: 'GitHub', nav: '主导航', skip: '跳到主要内容',
     language: 'Switch to English', light: '切换浅色模式', dark: '切换暗色模式',
     eyebrow: '你的个人 AI 助理', subtitle: '长久相伴，与你一同成长。',
     installPlatforms: '安装平台', moreInstall: '更多平台和版本',
@@ -77,7 +77,7 @@ export const homeMessages = {
     footer: '从好奇出发。', footerNote: '个人 AI 助理',
   },
   en: {
-    home: 'Home', userDocs: 'User Docs', devDocs: 'Developer Docs', github: 'GitHub', nav: 'Main navigation', skip: 'Skip to content',
+    home: 'Home', docs: 'Docs', adminDocs: 'Administrator Docs', userDocs: 'User Docs', devDocs: 'Developer Docs', github: 'GitHub', nav: 'Main navigation', skip: 'Skip to content',
     language: '切换到中文', light: 'Switch to light mode', dark: 'Switch to dark mode',
     eyebrow: 'Your personal AI assistant', subtitle: 'By your side, growing with you.',
     installPlatforms: 'Installation platform', moreInstall: 'More platforms & versions',

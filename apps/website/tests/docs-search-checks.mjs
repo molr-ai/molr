@@ -8,7 +8,7 @@ export async function checkDocsSearch({ browser, url }) {
       const page = await context.newPage();
       const errors = [];
       page.on('pageerror', error => errors.push(error.message));
-      await page.goto(`${url}/zh/docs/concepts/`);
+      await page.goto(`${url}/zh/docs/user/concepts/`);
       await expect(page.locator('.docs-mermaid svg')).toHaveCount(3);
       await page.evaluate(() => {
         window.readingNodes = [...document.querySelectorAll('.docs-prose p, .docs-prose pre, .docs-mermaid svg')];
@@ -35,6 +35,12 @@ export async function checkDocsSearch({ browser, url }) {
       await expect.poll(() => page.locator('.docs-mermaid svg').evaluateAll(nodes => nodes.map(node => node.id))).not.toEqual(oldIds);
       await expect(page.locator('.docs-mermaid svg')).toHaveCount(3);
       await expect(page.locator('.docs-mermaid-fallback')).toHaveCount(0);
+      await page.getByRole('button', { name: '搜索文档', exact: true }).click();
+      await search.fill('Bubblewrap');
+      await expect(page.getByRole('dialog').getByRole('status')).toContainText('没有找到');
+      await page.keyboard.press('Escape');
+      await page.getByRole('button', { name: '文档', exact: true }).click();
+      await page.getByRole('menuitemradio', { name: '管理员文档', exact: true }).click();
       await page.getByRole('button', { name: '搜索文档', exact: true }).click();
       await search.fill('Bubblewrap');
       await page.getByRole('navigation', { name: '搜索结果' }).getByRole('link', { name: 'Linux 沙盒部署', exact: true }).click();

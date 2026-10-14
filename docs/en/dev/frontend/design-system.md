@@ -1,0 +1,31 @@
+# Design System and Color Specifications
+
+Brand assets are available in the [Brand Guidelines](brand.md), and component APIs are documented in the [Shared Components Documentation](../../../../packages/ui/COMPONENTS.md).
+
+## Frontend Color Development Standards
+
+Applicable to UI Design, WebUI, the official website, and the shared components they use. **Pages and components must not hardcode colors; they must use semantic colors via the CSS custom property `var(--…)`.** This rule covers CSS, inline `style`, JS/TS dynamic styles, `fill` / `stroke` in SVG icons, borders, gradients, masks, shadows, and fallback values for `var()`; named colors such as `white` and `black` are also considered hardcoded.
+
+- Base colors and semantic roles are centrally defined in `packages/ui/src/tokens.css`, while theme palettes and their light/dark overrides are centrally defined in `packages/ui/src/palettes.css`. These definition files are the source of truth for color values and are allowed to use literals; do not introduce a new set of fixed color variables in business CSS to bypass the specification.
+- Prioritize reusing variables that express purpose, such as `--color-text`, `--color-positive`, `--color-plan-item`, and `--color-trace-model`; if a new use case lacks a variable, first add a shared token and check light/dark modes and all theme palettes. Do not mix tokens with different semantics merely because the colors are similar.
+- Opacity or gradients are derived via forms such as `color-mix(in srgb, var(--color-…), transparent)`; shared shadows use `--shadow-*`. `transparent`, `currentColor`, and `inherit` are allowed as they do not specify fixed theme palettes. If a mask only requires opacity, reuse existing opaque color variables.
+- Regular business pages in WebUI use solid color backgrounds: on desktop, the outer workspace and main navigation use `--color-background`; content uses a borderless, rounded `--color-surface` card with a fixed 8px margin on all sides. The assistant list and chat use separate cards with the same styling and an 8px gap. On mobile, the outer workspace also uses `--color-background`; the main content uses a borderless, rounded `--color-surface` card with 8px margins on all sides and the shared `--shadow-workspace` shadow. Content scrolls inside its card. Navigation occupies a separate card below it, with aligned edges, an 8px gap, and the same background, corners, and shadow. The navigation card keeps an 8px bottom margin plus the device safe area and releases its layout space when hidden. Individual pages may use other solid background tokens based on semantics; empty states and error recovery states follow the same rule. Standalone pages like the login page may use decorative gradients, and functional textures in components such as skeleton screens and timelines are exempt from this restriction.
+- User and administrator settings use flat content groups separated by headings, spacing, and dividers. Groups and lists have no card rounding, surface background, or card padding; the page retains its standard content inset.
+- Dynamic styles must still pass `var(--…)`. For DOM APIs that require specific color values, read variables via `getComputedStyle()`; do not maintain a separate theme color table. Contrast text in color swatches uses fixed contrast color tokens and must not directly return hexadecimal strings.
+
+Allowed exceptions must have a clear purpose and boundary:
+
+| Exception | Current Location | Reason and Constraints |
+| --- | --- | --- |
+| Fixed illustrations, preset avatars, and sample images | `AssistantAvatar.tsx`, attachment/route SVGs in UI Design | Colors are part of the artwork content and can remain fixed; regular interface icons, status dots, and decorative backgrounds do not fall under this exception |
+| Standalone brand assets and export materials | `packages/ui/public/brand/`, `logo-assets.json`, `palettes.ts`, and brand generation/replacement code | SVGs used as images or download files do not inherit page CSS variables; color mapping is centrally managed and not copied into business components |
+| Image encoding | WebUI `AssistantAvatarField.tsx` | Canvas exports JPEGs by flattening transparent images onto a white background; the base color belongs to the generated image and cannot change with the interface theme |
+| First screen before CSS loading and browser meta info | `index.html` in all three applications | `meta[name="theme-color"]` does not parse `var()`; WebUI minimal first-screen variables are used to prevent flickering before styles load. Only initialization values are retained; after loading, the theme script reads actual CSS variables to update them, without expanding into a second component theme |
+
+When adding new exceptions, state the reason, usage location, and why variables cannot be used in the code or this section; do not approve exceptions just because they are "more convenient." Color literals in theme definitions and fixed assets should not be mechanically replaced; styles from external dependencies are not modified as part of this project's business styles.
+
+### Same-Screen Color Distinction Check
+
+Do not determine issues solely based on the proximity of hexadecimal values. First, clarify whether they actually appear simultaneously on the same page, under the same theme, and in the same display mode. Then check control sizes, opacity overlays, backgrounds, auxiliary identifiers for text/icons/shapes, and states such as hover, selected, and disabled. Both light and dark modes for all themes must be checked; color similarity between different themes does not constitute a same-screen conflict. Readability checks for foreground vs. background and distinction checks between two categorical colors must be separated; do not treat the contrast ratio between two backgrounds as the pass line for text readability.
+
+Checks should cover six color palettes, light/dark modes, and desktop and narrow screens. Detailed screenshots and acceptance results are saved in a local internal directory, noting the date, commit, and environment; this document only maintains the current specification.

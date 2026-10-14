@@ -8,7 +8,7 @@ export async function checkDocsFeatures({ browser, url }) {
       const page = await context.newPage();
       const searchLabel = locale === 'zh' ? '搜索文档' : 'Search documentation';
       const title = locale === 'zh' ? '操作 GitHub' : 'Use GitHub';
-      await page.goto(`${url}/${locale}/docs/best-practices/github/`);
+      await page.goto(`${url}/${locale}/docs/user/best-practices/github/`);
       const prompts = page.locator('.docs-prompt');
       await expect(prompts).toHaveCount(4);
       await expect(page.locator('.docs-prose')).not.toContainText('[!PROMPT]');
@@ -43,11 +43,11 @@ export async function checkDocsFeatures({ browser, url }) {
       await page.keyboard.press('ControlOrMeta+k');
       await expect(input).toBeFocused();
       await expect(input).toHaveValue(title);
-      await input.fill('CGO_ENABLED=0');
+      await input.fill('GH_CONFIG_DIR');
       await expect(first.locator('.docs-search-match-types')).toContainText(locale === 'zh' ? '正文匹配' : 'Body match');
-      await expect(first.locator('.docs-search-snippet')).toContainText('CGO_ENABLED=0');
+      await expect(first.locator('.docs-search-snippet')).toContainText('GH_CONFIG_DIR');
       const href = await first.getAttribute('href');
-      assert(href.startsWith(`/${locale}/docs/`) && href.includes('#'));
+      assert(href.startsWith(`/${locale}/docs/user/`) && href.includes('#'));
       await input.press('ArrowDown');
       await expect(first).toBeFocused();
       await first.press('Enter');

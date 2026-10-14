@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const read = path => readFileSync(resolve(root, path));
-const inventory = JSON.parse(read('dev-docs/releasing/license-inventory.json'));
+const inventory = JSON.parse(read('docs/dev/releasing/license-inventory.json'));
 const lock = JSON.parse(read('package-lock.json'));
 const failures = [];
 for (const [path, expected] of Object.entries(inventory.inputs)) {

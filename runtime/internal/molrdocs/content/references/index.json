@@ -4,11 +4,11 @@
     "contentLanguage": "zh",
     "titles": {
       "zh": "文档概览",
-      "en": "Overview"
+      "en": "Documentation overview"
     },
     "topics": {
-      "zh": "开始使用",
-      "en": "Getting started"
+      "zh": "文档",
+      "en": "Documentation"
     },
     "urls": {
       "zh": "https://molr.ai/zh/docs/",
@@ -16,7 +16,23 @@
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/getting-started.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/README.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "用户文档概览",
+      "en": "User guide overview"
+    },
+    "topics": {
+      "zh": "开始使用",
+      "en": "Getting started"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/user/",
+      "en": "https://molr.ai/en/docs/user/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/getting-started.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "快速开始",
@@ -27,12 +43,12 @@
       "en": "Getting started"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/docs/getting-started/",
-      "en": "https://molr.ai/en/docs/getting-started/"
+      "zh": "https://molr.ai/zh/docs/user/getting-started/",
+      "en": "https://molr.ai/en/docs/user/getting-started/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/concepts.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/concepts.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "基本概念",
@@ -43,12 +59,12 @@
       "en": "Getting started"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/docs/concepts/",
-      "en": "https://molr.ai/en/docs/concepts/"
+      "zh": "https://molr.ai/zh/docs/user/concepts/",
+      "en": "https://molr.ai/en/docs/user/concepts/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/guides/assistants-and-chat.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/guides/assistants-and-chat.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "助理与聊天",
@@ -59,12 +75,12 @@
       "en": "Everyday use"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/docs/guides/assistants-and-chat/",
-      "en": "https://molr.ai/en/docs/guides/assistants-and-chat/"
+      "zh": "https://molr.ai/zh/docs/user/guides/assistants-and-chat/",
+      "en": "https://molr.ai/en/docs/user/guides/assistants-and-chat/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/guides/plans.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/guides/plans.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "计划与执行",
@@ -75,12 +91,12 @@
       "en": "Everyday use"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/docs/guides/plans/",
-      "en": "https://molr.ai/en/docs/guides/plans/"
+      "zh": "https://molr.ai/zh/docs/user/guides/plans/",
+      "en": "https://molr.ai/en/docs/user/guides/plans/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/guides/memory.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/guides/memory.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "记忆与自动整理",
@@ -91,12 +107,12 @@
       "en": "Everyday use"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/docs/guides/memory/",
-      "en": "https://molr.ai/en/docs/guides/memory/"
+      "zh": "https://molr.ai/zh/docs/user/guides/memory/",
+      "en": "https://molr.ai/en/docs/user/guides/memory/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/guides/permissions-and-budget.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/guides/permissions-and-budget.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "权限与预算",
@@ -107,12 +123,12 @@
       "en": "Everyday use"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/docs/guides/permissions-and-budget/",
-      "en": "https://molr.ai/en/docs/guides/permissions-and-budget/"
+      "zh": "https://molr.ai/zh/docs/user/guides/permissions-and-budget/",
+      "en": "https://molr.ai/en/docs/user/guides/permissions-and-budget/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/guides/files-and-commands.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/guides/files-and-commands.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "文件与命令",
@@ -123,12 +139,12 @@
       "en": "Everyday use"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/docs/guides/files-and-commands/",
-      "en": "https://molr.ai/en/docs/guides/files-and-commands/"
+      "zh": "https://molr.ai/zh/docs/user/guides/files-and-commands/",
+      "en": "https://molr.ai/en/docs/user/guides/files-and-commands/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/guides/plugins-and-skills.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/guides/plugins-and-skills.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "插件与 Skills",
@@ -139,12 +155,12 @@
       "en": "Everyday use"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/docs/guides/plugins-and-skills/",
-      "en": "https://molr.ai/en/docs/guides/plugins-and-skills/"
+      "zh": "https://molr.ai/zh/docs/user/guides/plugins-and-skills/",
+      "en": "https://molr.ai/en/docs/user/guides/plugins-and-skills/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/guides/settings.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/guides/settings.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "个人设置",
@@ -155,12 +171,12 @@
       "en": "Everyday use"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/docs/guides/settings/",
-      "en": "https://molr.ai/en/docs/guides/settings/"
+      "zh": "https://molr.ai/zh/docs/user/guides/settings/",
+      "en": "https://molr.ai/en/docs/user/guides/settings/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/guides/account-security.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/guides/account-security.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "账号安全",
@@ -171,28 +187,12 @@
       "en": "Everyday use"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/docs/guides/account-security/",
-      "en": "https://molr.ai/en/docs/guides/account-security/"
+      "zh": "https://molr.ai/zh/docs/user/guides/account-security/",
+      "en": "https://molr.ai/en/docs/user/guides/account-security/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/models/README.md",
-    "contentLanguage": "zh",
-    "titles": {
-      "zh": "连接与管理模型",
-      "en": "Model connections"
-    },
-    "topics": {
-      "zh": "连接模型",
-      "en": "Connect models"
-    },
-    "urls": {
-      "zh": "https://molr.ai/zh/docs/models/",
-      "en": "https://molr.ai/en/docs/models/"
-    }
-  },
-  {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/chat-channels/weixin.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/chat-channels/weixin.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "微信聊天入口",
@@ -203,60 +203,12 @@
       "en": "Connect chat channels"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/docs/chat-channels/weixin/",
-      "en": "https://molr.ai/en/docs/chat-channels/weixin/"
+      "zh": "https://molr.ai/zh/docs/user/chat-channels/weixin/",
+      "en": "https://molr.ai/en/docs/user/chat-channels/weixin/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/sandbox/resources.md",
-    "contentLanguage": "zh",
-    "titles": {
-      "zh": "管理沙盒资源",
-      "en": "Sandbox resources"
-    },
-    "topics": {
-      "zh": "沙盒",
-      "en": "Sandbox"
-    },
-    "urls": {
-      "zh": "https://molr.ai/zh/docs/sandbox/resources/",
-      "en": "https://molr.ai/en/docs/sandbox/resources/"
-    }
-  },
-  {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/sandbox/linux.md",
-    "contentLanguage": "zh",
-    "titles": {
-      "zh": "Linux 沙盒部署",
-      "en": "Linux sandbox deployment"
-    },
-    "topics": {
-      "zh": "沙盒",
-      "en": "Sandbox"
-    },
-    "urls": {
-      "zh": "https://molr.ai/zh/docs/sandbox/linux/",
-      "en": "https://molr.ai/en/docs/sandbox/linux/"
-    }
-  },
-  {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/sandbox/remote.md",
-    "contentLanguage": "zh",
-    "titles": {
-      "zh": "独立 Linux Sandbox 服务",
-      "en": "Standalone Linux Sandbox service"
-    },
-    "topics": {
-      "zh": "沙盒",
-      "en": "Sandbox"
-    },
-    "urls": {
-      "zh": "https://molr.ai/zh/docs/sandbox/remote/",
-      "en": "https://molr.ai/en/docs/sandbox/remote/"
-    }
-  },
-  {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/best-practices/README.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/best-practices/README.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "最佳实践概览",
@@ -267,12 +219,12 @@
       "en": "Best practices"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/docs/best-practices/",
-      "en": "https://molr.ai/en/docs/best-practices/"
+      "zh": "https://molr.ai/zh/docs/user/best-practices/",
+      "en": "https://molr.ai/en/docs/user/best-practices/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/best-practices/browser.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/best-practices/browser.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "操作浏览器",
@@ -283,12 +235,12 @@
       "en": "Best practices"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/docs/best-practices/browser/",
-      "en": "https://molr.ai/en/docs/best-practices/browser/"
+      "zh": "https://molr.ai/zh/docs/user/best-practices/browser/",
+      "en": "https://molr.ai/en/docs/user/best-practices/browser/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/best-practices/dingtalk.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/best-practices/dingtalk.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "操作钉钉",
@@ -299,12 +251,12 @@
       "en": "Best practices"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/docs/best-practices/dingtalk/",
-      "en": "https://molr.ai/en/docs/best-practices/dingtalk/"
+      "zh": "https://molr.ai/zh/docs/user/best-practices/dingtalk/",
+      "en": "https://molr.ai/en/docs/user/best-practices/dingtalk/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/best-practices/feishu.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/best-practices/feishu.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "操作飞书",
@@ -315,12 +267,12 @@
       "en": "Best practices"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/docs/best-practices/feishu/",
-      "en": "https://molr.ai/en/docs/best-practices/feishu/"
+      "zh": "https://molr.ai/zh/docs/user/best-practices/feishu/",
+      "en": "https://molr.ai/en/docs/user/best-practices/feishu/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/best-practices/clawemail.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/best-practices/clawemail.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "操作 ClawEmail",
@@ -331,12 +283,12 @@
       "en": "Best practices"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/docs/best-practices/clawemail/",
-      "en": "https://molr.ai/en/docs/best-practices/clawemail/"
+      "zh": "https://molr.ai/zh/docs/user/best-practices/clawemail/",
+      "en": "https://molr.ai/en/docs/user/best-practices/clawemail/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/best-practices/zhihu.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/best-practices/zhihu.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "操作知乎",
@@ -347,12 +299,12 @@
       "en": "Best practices"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/docs/best-practices/zhihu/",
-      "en": "https://molr.ai/en/docs/best-practices/zhihu/"
+      "zh": "https://molr.ai/zh/docs/user/best-practices/zhihu/",
+      "en": "https://molr.ai/en/docs/user/best-practices/zhihu/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/best-practices/github.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/best-practices/github.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "操作 GitHub",
@@ -363,12 +315,12 @@
       "en": "Best practices"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/docs/best-practices/github/",
-      "en": "https://molr.ai/en/docs/best-practices/github/"
+      "zh": "https://molr.ai/zh/docs/user/best-practices/github/",
+      "en": "https://molr.ai/en/docs/user/best-practices/github/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/best-practices/google.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/best-practices/google.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "操作 Google 服务",
@@ -379,12 +331,140 @@
       "en": "Best practices"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/docs/best-practices/google/",
-      "en": "https://molr.ai/en/docs/best-practices/google/"
+      "zh": "https://molr.ai/zh/docs/user/best-practices/google/",
+      "en": "https://molr.ai/en/docs/user/best-practices/google/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/administration/users-and-groups.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/troubleshooting.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "使用问题排查",
+      "en": "Troubleshooting usage problems"
+    },
+    "topics": {
+      "zh": "故障排查",
+      "en": "Troubleshooting"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/user/troubleshooting/",
+      "en": "https://molr.ai/en/docs/user/troubleshooting/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/README.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "管理员文档概览",
+      "en": "Administrator overview"
+    },
+    "topics": {
+      "zh": "开始管理",
+      "en": "Getting started"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/",
+      "en": "https://molr.ai/en/docs/admin/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/getting-started.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "搭建实例",
+      "en": "Set up an instance"
+    },
+    "topics": {
+      "zh": "开始管理",
+      "en": "Getting started"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/getting-started/",
+      "en": "https://molr.ai/en/docs/admin/getting-started/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/deployment/installation.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "安装与服务管理",
+      "en": "Installation and services"
+    },
+    "topics": {
+      "zh": "部署服务",
+      "en": "Deployment"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/deployment/installation/",
+      "en": "https://molr.ai/en/docs/admin/deployment/installation/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/deployment/source-build.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "源码构建与部署",
+      "en": "Building from source"
+    },
+    "topics": {
+      "zh": "部署服务",
+      "en": "Deployment"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/deployment/source-build/",
+      "en": "https://molr.ai/en/docs/admin/deployment/source-build/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/deployment/configuration.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "配置与访问",
+      "en": "Configuration and access"
+    },
+    "topics": {
+      "zh": "部署服务",
+      "en": "Deployment"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/deployment/configuration/",
+      "en": "https://molr.ai/en/docs/admin/deployment/configuration/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/resources/models.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "连接与管理模型",
+      "en": "Model connections"
+    },
+    "topics": {
+      "zh": "接入资源",
+      "en": "Connect resources"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/resources/models/",
+      "en": "https://molr.ai/en/docs/admin/resources/models/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/resources/sandbox.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "管理沙盒资源",
+      "en": "Sandbox resources"
+    },
+    "topics": {
+      "zh": "接入资源",
+      "en": "Connect resources"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/resources/sandbox/",
+      "en": "https://molr.ai/en/docs/admin/resources/sandbox/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/administration/users-and-groups.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "用户与用户组",
@@ -395,12 +475,12 @@
       "en": "Administration"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/docs/administration/users-and-groups/",
-      "en": "https://molr.ai/en/docs/administration/users-and-groups/"
+      "zh": "https://molr.ai/zh/docs/admin/administration/users-and-groups/",
+      "en": "https://molr.ai/en/docs/admin/administration/users-and-groups/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/administration/plugins.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/administration/plugins.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "插件管理",
@@ -411,108 +491,92 @@
       "en": "Administration"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/docs/administration/plugins/",
-      "en": "https://molr.ai/en/docs/administration/plugins/"
+      "zh": "https://molr.ai/zh/docs/admin/administration/plugins/",
+      "en": "https://molr.ai/en/docs/admin/administration/plugins/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/deployment/README.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/administration/components.md",
     "contentLanguage": "zh",
     "titles": {
-      "zh": "部署与维护",
-      "en": "Deployment and maintenance"
+      "zh": "组件管理",
+      "en": "Component management"
     },
     "topics": {
-      "zh": "部署与维护",
-      "en": "Deployment"
+      "zh": "管理实例",
+      "en": "Administration"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/docs/deployment/",
-      "en": "https://molr.ai/en/docs/deployment/"
+      "zh": "https://molr.ai/zh/docs/admin/administration/components/",
+      "en": "https://molr.ai/en/docs/admin/administration/components/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/deployment/installation.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/sandbox/linux.md",
     "contentLanguage": "zh",
     "titles": {
-      "zh": "安装与服务管理",
-      "en": "Installation and services"
+      "zh": "Linux 沙盒部署",
+      "en": "Linux sandbox deployment"
     },
     "topics": {
-      "zh": "部署与维护",
-      "en": "Deployment"
+      "zh": "沙盒部署",
+      "en": "Sandbox deployment"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/docs/deployment/installation/",
-      "en": "https://molr.ai/en/docs/deployment/installation/"
+      "zh": "https://molr.ai/zh/docs/admin/sandbox/linux/",
+      "en": "https://molr.ai/en/docs/admin/sandbox/linux/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/deployment/source-build.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/sandbox/remote.md",
     "contentLanguage": "zh",
     "titles": {
-      "zh": "源码构建与部署",
-      "en": "Building from source"
+      "zh": "独立 Linux Sandbox 服务",
+      "en": "Standalone Linux Sandbox service"
     },
     "topics": {
-      "zh": "部署与维护",
-      "en": "Deployment"
+      "zh": "沙盒部署",
+      "en": "Sandbox deployment"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/docs/deployment/source-build/",
-      "en": "https://molr.ai/en/docs/deployment/source-build/"
+      "zh": "https://molr.ai/zh/docs/admin/sandbox/remote/",
+      "en": "https://molr.ai/en/docs/admin/sandbox/remote/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/deployment/configuration.md",
-    "contentLanguage": "zh",
-    "titles": {
-      "zh": "配置与访问",
-      "en": "Configuration and access"
-    },
-    "topics": {
-      "zh": "部署与维护",
-      "en": "Deployment"
-    },
-    "urls": {
-      "zh": "https://molr.ai/zh/docs/deployment/configuration/",
-      "en": "https://molr.ai/en/docs/deployment/configuration/"
-    }
-  },
-  {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/deployment/maintenance.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/deployment/maintenance.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "更新与备份恢复",
       "en": "Updates, backups and recovery"
     },
     "topics": {
-      "zh": "部署与维护",
-      "en": "Deployment"
+      "zh": "维护与排查",
+      "en": "Maintenance and troubleshooting"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/docs/deployment/maintenance/",
-      "en": "https://molr.ai/en/docs/deployment/maintenance/"
+      "zh": "https://molr.ai/zh/docs/admin/deployment/maintenance/",
+      "en": "https://molr.ai/en/docs/admin/deployment/maintenance/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/docs/troubleshooting.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/troubleshooting.md",
     "contentLanguage": "zh",
     "titles": {
-      "zh": "故障排查",
-      "en": "Troubleshooting"
+      "zh": "管理员故障排查",
+      "en": "Administrator troubleshooting"
     },
     "topics": {
-      "zh": "故障排查",
-      "en": "Troubleshooting"
+      "zh": "维护与排查",
+      "en": "Maintenance and troubleshooting"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/docs/troubleshooting/",
-      "en": "https://molr.ai/en/docs/troubleshooting/"
+      "zh": "https://molr.ai/zh/docs/admin/troubleshooting/",
+      "en": "https://molr.ai/en/docs/admin/troubleshooting/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/README.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/README.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "开发文档概览",
@@ -523,12 +587,12 @@
       "en": "Contributing"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/",
-      "en": "https://molr.ai/en/dev-docs/"
+      "zh": "https://molr.ai/zh/docs/dev/",
+      "en": "https://molr.ai/en/docs/dev/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/contributing/documentation.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/contributing/documentation.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "文档维护约定",
@@ -539,12 +603,12 @@
       "en": "Contributing"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/contributing/documentation/",
-      "en": "https://molr.ai/en/dev-docs/contributing/documentation/"
+      "zh": "https://molr.ai/zh/docs/dev/contributing/documentation/",
+      "en": "https://molr.ai/en/docs/dev/contributing/documentation/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/architecture/overview.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/architecture/overview.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "架构总览",
@@ -555,12 +619,12 @@
       "en": "Architecture"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/architecture/overview/",
-      "en": "https://molr.ai/en/dev-docs/architecture/overview/"
+      "zh": "https://molr.ai/zh/docs/dev/architecture/overview/",
+      "en": "https://molr.ai/en/docs/dev/architecture/overview/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/architecture/tech-stack.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/architecture/tech-stack.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "Runtime 技术底座",
@@ -571,12 +635,12 @@
       "en": "Architecture"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/architecture/tech-stack/",
-      "en": "https://molr.ai/en/dev-docs/architecture/tech-stack/"
+      "zh": "https://molr.ai/zh/docs/dev/architecture/tech-stack/",
+      "en": "https://molr.ai/en/docs/dev/architecture/tech-stack/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/runtime/agent-context.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/runtime/agent-context.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "自动上下文更新",
@@ -587,12 +651,12 @@
       "en": "Execution and data"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/runtime/agent-context/",
-      "en": "https://molr.ai/en/dev-docs/runtime/agent-context/"
+      "zh": "https://molr.ai/zh/docs/dev/runtime/agent-context/",
+      "en": "https://molr.ai/en/docs/dev/runtime/agent-context/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/runtime/context-storage.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/runtime/context-storage.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "上下文存储",
@@ -603,12 +667,12 @@
       "en": "Execution and data"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/runtime/context-storage/",
-      "en": "https://molr.ai/en/dev-docs/runtime/context-storage/"
+      "zh": "https://molr.ai/zh/docs/dev/runtime/context-storage/",
+      "en": "https://molr.ai/en/docs/dev/runtime/context-storage/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/runtime/dream-memory.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/runtime/dream-memory.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "做梦与文件记忆",
@@ -619,12 +683,12 @@
       "en": "Execution and data"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/runtime/dream-memory/",
-      "en": "https://molr.ai/en/dev-docs/runtime/dream-memory/"
+      "zh": "https://molr.ai/zh/docs/dev/runtime/dream-memory/",
+      "en": "https://molr.ai/en/docs/dev/runtime/dream-memory/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/runtime/model-adapters.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/runtime/model-adapters.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "模型后端适配",
@@ -635,12 +699,12 @@
       "en": "Execution and data"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/runtime/model-adapters/",
-      "en": "https://molr.ai/en/dev-docs/runtime/model-adapters/"
+      "zh": "https://molr.ai/zh/docs/dev/runtime/model-adapters/",
+      "en": "https://molr.ai/en/docs/dev/runtime/model-adapters/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/runtime/multimodal-files.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/runtime/multimodal-files.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "按需读取多模态文件",
@@ -651,12 +715,12 @@
       "en": "Execution and data"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/runtime/multimodal-files/",
-      "en": "https://molr.ai/en/dev-docs/runtime/multimodal-files/"
+      "zh": "https://molr.ai/zh/docs/dev/runtime/multimodal-files/",
+      "en": "https://molr.ai/en/docs/dev/runtime/multimodal-files/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/runtime/workbench.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/runtime/workbench.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "开发工作台",
@@ -667,12 +731,12 @@
       "en": "Execution and data"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/runtime/workbench/",
-      "en": "https://molr.ai/en/dev-docs/runtime/workbench/"
+      "zh": "https://molr.ai/zh/docs/dev/runtime/workbench/",
+      "en": "https://molr.ai/en/docs/dev/runtime/workbench/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/security/security-model.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/security/security-model.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "Runtime 公网部署与安全边界",
@@ -683,12 +747,12 @@
       "en": "Security and isolation"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/security/security-model/",
-      "en": "https://molr.ai/en/dev-docs/security/security-model/"
+      "zh": "https://molr.ai/zh/docs/dev/security/security-model/",
+      "en": "https://molr.ai/en/docs/dev/security/security-model/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/security/users-and-groups.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/security/users-and-groups.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "多用户、共享资源目录与成员配额",
@@ -699,12 +763,12 @@
       "en": "Security and isolation"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/security/users-and-groups/",
-      "en": "https://molr.ai/en/dev-docs/security/users-and-groups/"
+      "zh": "https://molr.ai/zh/docs/dev/security/users-and-groups/",
+      "en": "https://molr.ai/en/docs/dev/security/users-and-groups/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/security/resource-quotas.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/security/resource-quotas.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "资源授权额度",
@@ -715,12 +779,12 @@
       "en": "Security and isolation"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/security/resource-quotas/",
-      "en": "https://molr.ai/en/dev-docs/security/resource-quotas/"
+      "zh": "https://molr.ai/zh/docs/dev/security/resource-quotas/",
+      "en": "https://molr.ai/en/docs/dev/security/resource-quotas/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/security/sandbox.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/security/sandbox.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "Agent Shell 沙盒实现与边界",
@@ -731,12 +795,12 @@
       "en": "Security and isolation"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/security/sandbox/",
-      "en": "https://molr.ai/en/dev-docs/security/sandbox/"
+      "zh": "https://molr.ai/zh/docs/dev/security/sandbox/",
+      "en": "https://molr.ai/en/docs/dev/security/sandbox/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/reference/http-api.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/reference/http-api.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "Runtime HTTP 接口",
@@ -747,12 +811,12 @@
       "en": "API reference"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/reference/http-api/",
-      "en": "https://molr.ai/en/dev-docs/reference/http-api/"
+      "zh": "https://molr.ai/zh/docs/dev/reference/http-api/",
+      "en": "https://molr.ai/en/docs/dev/reference/http-api/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/reference/module-interfaces.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/reference/module-interfaces.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "Runtime 模块 Public 接口",
@@ -763,12 +827,12 @@
       "en": "API reference"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/reference/module-interfaces/",
-      "en": "https://molr.ai/en/dev-docs/reference/module-interfaces/"
+      "zh": "https://molr.ai/zh/docs/dev/reference/module-interfaces/",
+      "en": "https://molr.ai/en/docs/dev/reference/module-interfaces/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/reference/file-tools.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/reference/file-tools.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "资源与文件工具合同",
@@ -779,12 +843,12 @@
       "en": "API reference"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/reference/file-tools/",
-      "en": "https://molr.ai/en/dev-docs/reference/file-tools/"
+      "zh": "https://molr.ai/zh/docs/dev/reference/file-tools/",
+      "en": "https://molr.ai/en/docs/dev/reference/file-tools/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/extensions/plugins.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/extensions/plugins.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "插件机制（Plugin API 3）",
@@ -795,12 +859,12 @@
       "en": "Extensions"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/extensions/plugins/",
-      "en": "https://molr.ai/en/dev-docs/extensions/plugins/"
+      "zh": "https://molr.ai/zh/docs/dev/extensions/plugins/",
+      "en": "https://molr.ai/en/docs/dev/extensions/plugins/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/extensions/weixin.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/extensions/weixin.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "微信渠道",
@@ -811,12 +875,12 @@
       "en": "Extensions"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/extensions/weixin/",
-      "en": "https://molr.ai/en/dev-docs/extensions/weixin/"
+      "zh": "https://molr.ai/zh/docs/dev/extensions/weixin/",
+      "en": "https://molr.ai/en/docs/dev/extensions/weixin/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/frontend/architecture.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/frontend/architecture.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "前端架构",
@@ -827,12 +891,12 @@
       "en": "Frontend"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/frontend/architecture/",
-      "en": "https://molr.ai/en/dev-docs/frontend/architecture/"
+      "zh": "https://molr.ai/zh/docs/dev/frontend/architecture/",
+      "en": "https://molr.ai/en/docs/dev/frontend/architecture/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/frontend/themes.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/frontend/themes.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "主题与页面解析",
@@ -843,12 +907,12 @@
       "en": "Frontend"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/frontend/themes/",
-      "en": "https://molr.ai/en/dev-docs/frontend/themes/"
+      "zh": "https://molr.ai/zh/docs/dev/frontend/themes/",
+      "en": "https://molr.ai/en/docs/dev/frontend/themes/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/frontend/brand.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/frontend/brand.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "Molr 品牌与 UI 基础",
@@ -859,12 +923,12 @@
       "en": "Frontend"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/frontend/brand/",
-      "en": "https://molr.ai/en/dev-docs/frontend/brand/"
+      "zh": "https://molr.ai/zh/docs/dev/frontend/brand/",
+      "en": "https://molr.ai/en/docs/dev/frontend/brand/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/frontend/design-system.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/frontend/design-system.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "设计系统与颜色规范",
@@ -875,12 +939,12 @@
       "en": "Frontend"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/frontend/design-system/",
-      "en": "https://molr.ai/en/dev-docs/frontend/design-system/"
+      "zh": "https://molr.ai/zh/docs/dev/frontend/design-system/",
+      "en": "https://molr.ai/en/docs/dev/frontend/design-system/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/frontend/interaction.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/frontend/interaction.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "前端交互约定",
@@ -891,12 +955,12 @@
       "en": "Frontend"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/frontend/interaction/",
-      "en": "https://molr.ai/en/dev-docs/frontend/interaction/"
+      "zh": "https://molr.ai/zh/docs/dev/frontend/interaction/",
+      "en": "https://molr.ai/en/docs/dev/frontend/interaction/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/releasing/releases.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/releasing/releases.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "发行维护",
@@ -907,12 +971,12 @@
       "en": "Releases"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/releasing/releases/",
-      "en": "https://molr.ai/en/dev-docs/releasing/releases/"
+      "zh": "https://molr.ai/zh/docs/dev/releasing/releases/",
+      "en": "https://molr.ai/en/docs/dev/releasing/releases/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/releasing/public-content.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/releasing/public-content.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "开源发布与私有文件隔离",
@@ -923,12 +987,12 @@
       "en": "Releases"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/releasing/public-content/",
-      "en": "https://molr.ai/en/dev-docs/releasing/public-content/"
+      "zh": "https://molr.ai/zh/docs/dev/releasing/public-content/",
+      "en": "https://molr.ai/en/docs/dev/releasing/public-content/"
     }
   },
   {
-    "path": "/molr/.agents/skills/molr-docs/references/dev-docs/releasing/licensing.md",
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/releasing/licensing.md",
     "contentLanguage": "zh",
     "titles": {
       "zh": "MIT 许可证与第三方分发",
@@ -939,8 +1003,8 @@
       "en": "Releases"
     },
     "urls": {
-      "zh": "https://molr.ai/zh/dev-docs/releasing/licensing/",
-      "en": "https://molr.ai/en/dev-docs/releasing/licensing/"
+      "zh": "https://molr.ai/zh/docs/dev/releasing/licensing/",
+      "en": "https://molr.ai/en/docs/dev/releasing/licensing/"
     }
   }
 ]

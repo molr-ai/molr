@@ -13,15 +13,17 @@ import { localizedDocPath } from './doc-locale';
 import { navigateSite } from './site-navigation';
 import type { Locale } from './site-content';
 
-type SectionRoot = 'docs' | 'dev-docs';
-function sectionFor(pathname: string, locale: Locale, root?: SectionRoot) {
-  const wanted = root ?? (pathname.includes('/dev-docs') ? 'dev-docs' : 'docs');
-  const items = allDocs.filter(doc => doc.root === wanted && doc.locale === locale);
+type DocSection = Doc['section'];
+function sectionFor(pathname: string, locale: Locale, section?: DocSection) {
+  const segment = /^\/(?:zh|en)\/docs\/(user|admin|dev)(?:\/|$)/.exec(pathname)?.[1];
+  const wanted = section ?? (segment as DocSection | undefined) ?? 'overview';
+  const items = allDocs.filter(doc => doc.section === wanted && doc.locale === locale);
+  const titles = { overview: ['文档', 'Documentation'], user: ['用户文档', 'User documentation'], admin: ['管理员文档', 'Administrator documentation'], dev: ['开发者文档', 'Developer documentation'] };
   return {
-    root: wanted, items, groups: [...new Set(items.map(doc => doc.group))],
-    path: `/${locale}/${wanted}/`,
-    title: locale === 'zh' ? (wanted === 'docs' ? '文档' : '开发者文档') : (wanted === 'docs' ? 'Documentation' : 'Developer docs'),
-    overview: locale === 'zh' ? (wanted === 'docs' ? '文档概览' : '开发文档概览') : 'overview',
+    section: wanted, items, groups: [...new Set(items.map(doc => doc.group))],
+    path: `/${locale}/docs/${wanted === 'overview' ? '' : wanted + '/'}`,
+    title: titles[wanted][locale === 'zh' ? 0 : 1],
+    overview: locale === 'zh' ? (wanted === 'overview' ? '文档概览' : titles[wanted][0] + '概览') : 'overview',
   };
 }
 
@@ -47,6 +49,7 @@ const Article = memo(function Article({ doc }: { doc: Doc }) {
   return <Markdown remarkPlugins={[remarkGfm, remarkHeadingIds, remarkCallouts]} components={{
     blockquote: ({ className, children }) => className === 'docs-warning'
       ? <Alert tone="warning" title={doc.locale === 'zh' ? '警告' : 'Warning'} className="docs-warning">{children}</Alert>
+      : className === 'docs-info' ? <Alert tone="neutral" title={doc.locale === 'zh' ? '提示' : 'Information'} className="docs-info">{children}</Alert>
       : className === 'docs-prompt' ? <DocsPrompt locale={doc.locale}>{children}</DocsPrompt> : <blockquote>{children}</blockquote>,
     h2: ({ children, id }) => heading('h2', children, id),
     h3: ({ children, id }) => heading('h3', children, id),
@@ -68,7 +71,7 @@ const Article = memo(function Article({ doc }: { doc: Doc }) {
 export default function DocsPage({ pathname, navigationRevision, locale, changeLocale }: { pathname: string; navigationRevision: number; locale: Locale; changeLocale: (locale: Locale) => void }) {
   const sidebarScrollRef = useScrollActivity(true), contentsScrollRef = useScrollActivity();
   const doc = findDoc(pathname);
-  const section = useMemo(() => sectionFor(pathname, locale, doc?.root), [pathname, locale, doc?.root]);
+  const section = useMemo(() => sectionFor(pathname, locale, doc?.section), [pathname, locale, doc?.section]);
   const items = section.items;
   const t = (zh: string, en: string) => locale === 'zh' ? zh : en;
   const [query, setQuery] = useState('');
@@ -124,7 +127,7 @@ export default function DocsPage({ pathname, navigationRevision, locale, changeL
   return <div className="docs-page">
     <a className="home-skip" href="#main">{locale === 'zh' ? '跳转到正文' : 'Skip to content'}</a>
     <DocsSearch open={searchOpen} onOpenChange={open => setSearchRevision(open ? navigationRevision : null)} query={query} onQueryChange={setQuery} items={items} locale={locale} />
-    <SiteHeader locale={locale} changeLocale={switchLanguage} active={section.root} />
+    <SiteHeader locale={locale} changeLocale={switchLanguage} active="docs" docSection={section.section} />
     <div className="docs-layout" lang={locale === 'zh' ? 'zh-CN' : 'en'}>
       <aside className="docs-sidebar">
         <div className="docs-sidebar-heading"><a href={section.path}>{section.title} <span>DOCS</span></a><button className="docs-menu-toggle" type="button" aria-expanded={menuOpen} aria-controls="docs-navigation" onClick={() => setOpenMenuRevision(menuOpen ? null : navigationRevision)}>{menuOpen ? t('收起目录 −', 'Close menu −') : t('展开目录 +', 'Open menu +')}</button></div>

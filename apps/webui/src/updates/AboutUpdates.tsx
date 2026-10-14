@@ -12,11 +12,11 @@ import { poll } from '../polling';
 import { useUpdates } from './provider';
 import { upgradeCommand } from './build';
 
-const guide = 'https://molr.ai/docs/deployment/';
 export function AboutUpdates() {
  const updates = useUpdates(), { t, locale } = useCopy(), { principal } = useSession();
  const runtime = useQuery<RuntimeInfo>('/api/status');
  useErrorToast(runtime.error, runtime.reload);
+ const guide = `https://molr.ai/${locale === 'zh' ? 'zh' : 'en'}/docs/admin/deployment/maintenance/`;
  const zh = locale === 'zh', admin = !!principal?.User?.Administrator, status = updates.data;
  const installation = useQuery<UpdateInstallation | null>(admin ? '/api/updates/installation' : null, false, 0);
  const maintenance = useQuery<{can_update: boolean; task?: MaintenanceTask}>(admin ? '/api/maintenance' : null, false, 2000);

@@ -1,15 +1,9 @@
 import reviewedSources from '../../../docs-routes.json' with { type: 'json' };
 import type { Locale } from './site-content';
 
-type RouteRoot = 'docs' | 'dev-docs';
-type SourceRoute = { file: string; path: string; label: string; group: string; englishLabel: string; englishGroup: string; root: RouteRoot };
-
+export type DocSection = 'overview' | 'user' | 'admin' | 'dev';
+type SourceRoute = { file: string; path: string; label: string; group: string; englishLabel: string; englishGroup: string; root: 'docs'; section: DocSection };
 const sources = reviewedSources as SourceRoute[];
-
-const userSources = sources.filter(source => source.root === 'docs');
-
-const developerSources = sources.filter(source => source.root === 'dev-docs');
-
 export type DocRoute = Omit<SourceRoute, 'englishLabel' | 'englishGroup'> & { locale: Locale; sourceFile: string };
 
 function localize(sources: SourceRoute[], locale: Locale): DocRoute[] {
@@ -24,6 +18,7 @@ function localize(sources: SourceRoute[], locale: Locale): DocRoute[] {
   }));
 }
 
-export const docRoutes = localize(userSources, 'zh');
-export const devDocRoutes = localize(developerSources, 'zh');
-export const allDocRoutes = [...docRoutes, ...devDocRoutes, ...localize(userSources, 'en'), ...localize(developerSources, 'en')];
+export const allDocRoutes = [...localize(sources, 'zh'), ...localize(sources, 'en')];
+export const docRoutes = allDocRoutes.filter(route => route.locale === 'zh' && route.section === 'user');
+export const adminDocRoutes = allDocRoutes.filter(route => route.locale === 'zh' && route.section === 'admin');
+export const devDocRoutes = allDocRoutes.filter(route => route.locale === 'zh' && route.section === 'dev');

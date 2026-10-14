@@ -7,7 +7,7 @@ description: >
   implicit questions about this platform. 用户询问 Molr 自身的功能、使用、配置、部署或故障时使用。
   Ordinary tasks merely performed inside Molr do not need this skill.
 metadata:
-  bundle-revision: 70637ff3771b966e0af089007a2a515db73e037ce9c184ac43961120ad8ecd68
+  bundle-revision: 72a0645e2359cc25324269f74ea3a2f88029328ff0dbb1c1f098cbc801b95160
 ---
 
 # Molr documentation
@@ -18,7 +18,8 @@ with absolute paths below `/molr/.agents/skills/molr-docs/references/`, omitting
 
 Read [the index](references/index.json) to find each document's local `path`,
 `contentLanguage`, bilingual `titles` and `topics`, and public `urls.zh` / `urls.en`.
-Prefer `docs/` for user tasks; consult `dev-docs/` for
+Prefer `docs/user/` for everyday use and `docs/admin/` for installation,
+resource administration and operations; consult `docs/dev/` for
 architecture, APIs and implementation questions. The bundle contains the manually
 reviewed Chinese documentation only. For questions in other languages, search using
 Chinese topic terms and product/API identifiers, then answer in the user’s language.

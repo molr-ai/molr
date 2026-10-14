@@ -18,9 +18,9 @@ test('search distinguishes title, heading and body matches and ranks them', () =
 });
 
 test('search ignores markup and link targets, preserves code identifiers and prompt text', () => {
-  const doc = document('Guide', '# Guide\n<!-- hidden-comment -->\n[Visible label](https://example.com/hidden-target)\n> [!PROMPT]\n> Please summarize.\n\n```sh\n# not a title\nCGO_ENABLED=0\n--help\n*.txt\n```\n\n## End\nA concluding phrase.', [{ title: 'End', id: 'end' }]);
-  for (const query of ['hidden-comment', 'hidden-target', '[!PROMPT]']) assert.equal(searchDocuments([doc], query).length, 0);
-  for (const query of ['Visible label', 'Please summarize', 'CGO_ENABLED=0', '--help', '*.txt', 'not a title']) assert.equal(searchDocuments([doc], query).length, 1);
+  const doc = document('Guide', '# Guide\n<!-- hidden-comment -->\n[Visible label](https://example.com/hidden-target)\n> [!PROMPT]\n> Please summarize.\n\n> [!INFO]\n> Browser information.\n\n```sh\n# not a title\nCGO_ENABLED=0\n--help\n*.txt\n```\n\n## End\nA concluding phrase.', [{ title: 'End', id: 'end' }]);
+  for (const query of ['hidden-comment', 'hidden-target', '[!PROMPT]', '[!INFO]']) assert.equal(searchDocuments([doc], query).length, 0);
+  for (const query of ['Visible label', 'Browser information', 'Please summarize', 'CGO_ENABLED=0', '--help', '*.txt', 'not a title']) assert.equal(searchDocuments([doc], query).length, 1);
   assert.equal(searchDocuments([doc], 'concluding')[0].href, '/Guide/#end');
 });
 

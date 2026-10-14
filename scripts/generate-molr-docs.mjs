@@ -11,7 +11,7 @@ export function generateDocumentation(root, { check = false } = {}) {
   const index = [];
   const publicPaths = new Map();
   for (const route of routes) {
-    if (!['docs', 'dev-docs'].includes(route.root) || !/^[A-Za-z0-9_/-]+\.md$/.test(route.file)
+    if (route.root !== 'docs' || !/^[A-Za-z0-9_/-]+\.md$/.test(route.file)
         || route.file.split('/').some(p => ['..', 'internal-docs'].includes(p))) throw new Error('Invalid public document path');
     const source = `${route.root}/${route.file}`;
     if (publicPaths.has(source)) throw new Error(`Duplicate document: ${source}`);

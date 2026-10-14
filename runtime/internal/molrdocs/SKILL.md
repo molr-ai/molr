@@ -16,7 +16,8 @@ with absolute paths below `/molr/.agents/skills/molr-docs/references/`, omitting
 
 Read [the index](references/index.json) to find each document's local `path`,
 `contentLanguage`, bilingual `titles` and `topics`, and public `urls.zh` / `urls.en`.
-Prefer `docs/` for user tasks; consult `dev-docs/` for
+Prefer `docs/user/` for everyday use and `docs/admin/` for installation,
+resource administration and operations; consult `docs/dev/` for
 architecture, APIs and implementation questions. The bundle contains the manually
 reviewed Chinese documentation only. For questions in other languages, search using
 Chinese topic terms and product/API identifiers, then answer in the user’s language.

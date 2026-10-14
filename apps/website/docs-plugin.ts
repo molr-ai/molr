@@ -10,7 +10,7 @@ const resolvedID = '\0' + moduleID;
 
 /** Only reviewed route entries can supply text to the browser bundle. */
 export function documentPath(entry: DocRoute, root = repository) {
-  if (!['docs', 'dev-docs'].includes(entry.root)
+  if (entry.root !== 'docs'
       || !/^[A-Za-z0-9_/-]+\.md$/.test(entry.file)
       || entry.file.split('/').some(part => ['..', 'internal-docs'].includes(part))) {
     throw new Error('Documentation must use a reviewed public Markdown path');

@@ -1,49 +1,11 @@
-# Molr 产品文档
+# Molr 文档
 
-Molr 是可自托管的个人 AI 助理。连接自己选择的模型，通过聊天交代事情，在计划中查看安排与结果。
+按你当前要完成的事情选择指南。同一个人可以先部署服务，再以普通用户身份使用助理。
 
-## 开始使用
+| 入口 | 适合的任务 |
+| --- | --- |
+| [使用指南](user/README.md) | 登录、聊天、安排计划、管理助理权限与个人设置 |
+| [管理员指南](admin/README.md) | 安装服务、接入模型与沙盒、管理成员、更新与备份 |
+| [开发文档](dev/README.md) | 参与贡献、理解实现、查阅接口与维护发行 |
 
-- [快速开始](getting-started.md)：安装、登录并完成第一次委托；已有账号可从登录开始。
-- [基本概念](concepts.md)：助理、计划、记忆、资源，以及服务和数据的边界。
-
-## 日常使用
-
-- [助理与聊天](guides/assistants-and-chat.md)、[计划与执行](guides/plans.md)：交代任务、安排时间、查看结果。
-- [记忆与自动整理](guides/memory.md)：查看、编辑、确认或遗忘记忆。
-- [权限与预算](guides/permissions-and-budget.md)：批准资源范围、设置额度、撤销授权。
-- [文件与命令](guides/files-and-commands.md)：工作区、后台任务、终端和临时服务。
-- [插件与 Skills](guides/plugins-and-skills.md)：使用已安装的插件和技能扩展。
-- [个人设置](guides/settings.md)、[账号安全](guides/account-security.md)：外观、提醒、密码与登录设备。
-
-## 连接模型
-
-- [连接与管理模型](models/README.md)：连接模型提供商，配置模型能力、价格与凭证。
-
-## 连接聊天入口
-
-- [微信聊天入口](chat-channels/weixin.md)：连接微信与助理聊天，管理连接状态与解绑。
-
-## 沙盒
-
-- [管理沙盒资源](sandbox/resources.md)：连接执行机器，添加存储、计算和网络资源。
-- [Linux 沙盒部署](sandbox/linux.md)：准备本机依赖，配置隔离、GPU 与网络范围。
-- [独立 Linux Sandbox 服务](sandbox/remote.md)：部署远程执行节点并接入 Molr。
-
-## 最佳实践
-
-从[最佳实践概览](best-practices/README.md)准备工具与授权，再按场景阅读[操作浏览器](best-practices/browser.md)、[操作钉钉](best-practices/dingtalk.md)、[操作飞书](best-practices/feishu.md)、[操作 ClawEmail](best-practices/clawemail.md)、[操作知乎](best-practices/zhihu.md)、[操作 GitHub](best-practices/github.md)和[操作 Google 服务](best-practices/google.md)。
-
-## 管理实例
-
-管理员通过[用户与用户组](administration/users-and-groups.md)管理成员并分配可用资源范围。插件安装、启用和共享连接见[插件管理](administration/plugins.md)。
-
-## 部署与维护
-
-[部署入口](deployment/README.md)按安装方式和运行环境选择步骤，涵盖服务安装、访问配置、Linux 沙盒、远程节点、更新与备份恢复。
-
-遇到连接、权限、预算或执行问题时，从[故障排查](troubleshooting.md)按页面现象定位。
-
-## 参与开发
-
-实现机制、接口契约与贡献流程见[开发文档](../dev-docs/README.md)。
+已有服务和账号时，从[用户快速开始](user/getting-started.md)完成第一次委托；自行部署时，从[搭建 Molr 实例](admin/getting-started.md)开始。

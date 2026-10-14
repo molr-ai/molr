@@ -16,7 +16,6 @@
 .home-header nav { display: flex; gap: 30px; align-items: center; font-size: 14px; }
 .home-header nav a { display: flex; align-items: center; gap: 5px; min-height: 44px; }
 .home-header nav a[aria-current] { font-weight: 650; }
-.home-header nav a[aria-current]::before { content: ''; width: 5px; height: 5px; background: var(--color-text); border-radius: 50%; }
 .home-placeholder { cursor: not-allowed; }
 .home-header .home-placeholder, .home-footer .home-placeholder { color: var(--color-text-muted); }
 .home-actions { display: flex; gap: 8px; align-items: center; }
@@ -315,3 +314,10 @@
   .home-header nav { gap: 14px; }
   .home-footer-links { gap: 16px; }
 }
+
+.home-docs-trigger { display: flex; align-items: center; gap: 5px; min-height: 44px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.home-docs-trigger[data-active] { font-weight: 650; }
+.home-docs-trigger:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; border-radius: 4px; }
+
+.home-docs-chevron { display: block; width: 14px; height: 14px; flex-shrink: 0; }
+.home-header .ui-menu__item[aria-checked="true"] { font-weight: 650; }

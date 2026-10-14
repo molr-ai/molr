@@ -1,0 +1,53 @@
+# 搭建 Molr 实例
+
+> [!WARNING]
+> **项目状态：** Molr 仍处于开发阶段，尚未发布稳定版，可能存在不稳定行为，后续版本也可能包含破坏性变更。
+
+<!-- -->
+
+> [!WARNING]
+> **使用环境：** 目前不建议将 Molr 服务直接暴露到公网，请在可信局域网等安全网络环境中使用。
+
+本文面向安装并准备服务的人。已有账号的成员从[用户快速开始](https://molr.ai/zh/docs/user/getting-started/)进入。安装和系统配置需要服务器访问权限；接入资源和管理成员需要 Molr 管理员账号。
+
+## 安装与初始化
+
+从官网安装区选择一个已有版本的渠道，再选择目标平台。可用版本以官网发布清单为准；暂无版本的渠道不会提供下载入口。当前平台定义为 Linux amd64／arm64，安装包包含 Runtime 与 WebUI，静态 BusyBox 等沙盒依赖通过目标机系统包管理器提供。
+
+直接运行官网安装脚本并选择渠道，无需保存脚本文件：
+
+```bash
+curl -fsSL https://molr.ai/install.sh | sh
+```
+
+示例使用 stable；该渠道暂无版本时，在官网选择已有版本的 preview 或 nightly，并使用官网生成的渠道安装命令。使用者无需安装 Go、Node.js 或单独部署网页。
+
+首次安装默认使用当前普通用户、从 8787 开始选择空闲端口、安装 systemd 用户服务并生成独立配置。root 执行时须通过 `--user molr` 指定非 root 运行账户。依赖缺失时，apt 系系统会询问是否安装；其他系统需按输出补齐依赖。systemd 用户管理器必须可用；需要退出登录后继续运行时，按安装提示配置 linger。
+
+安装完成会输出局域网访问地址和有效期 15 分钟的一次性登录链接。点击链接并确认登录后进入首次引导：
+
+1. 选择自动发现的本机模型服务，或配置一个云端／自定义 Provider。
+2. 连接后确认所选模型及默认每日 USD 1 预算，可以修改。未知价格需要补充；填 0 表示明确确认免费。
+3. 点击「开始使用」，自动创建 **Molr** 助理并进入聊天。首次问候会调用所选模型并计入预算。
+
+语言和时区根据浏览器设置。安装过程中自动创建 `owner` 账号，随机初始密码保存在数据目录的 `initial-password` 文件（0600）；具体路径显示在终端。后续可以修改密码并自行删除初始密码文件。需要重新生成登录链接时，使用安装目录的程序：
+
+```bash
+/path/molr access -config /path/server.json
+```
+
+未保留初始密码或已经改密时，通过 `-password-stdin` 输入当前密码；启用 MFA 后还需 `-mfa-code`。重跑安装会保留原配置、账号和数据，不重置密码或重复创建助理。
+
+局域网可以使用 HTTP，无需证书。HTTP 不加密密码、会话及消息，仅适用于可信网络。HTTPS 配置见[部署与维护](https://molr.ai/zh/docs/admin/)。系统通知等浏览器能力可能要求 HTTPS，页面内提醒仍可使用。
+
+## 接入资源
+
+按[连接与管理模型](https://molr.ai/zh/docs/admin/resources/models/)核对模型能力与价格。助理需要文件或命令能力时，再准备[沙盒资源](https://molr.ai/zh/docs/admin/resources/sandbox/)。连接资源不会自动授予助理权限。
+
+## 开放给成员
+
+多人使用时，按[用户与用户组](https://molr.ai/zh/docs/admin/administration/users-and-groups/)创建组、分配模型和工具及配额，再创建成员账号。新建用户组默认没有资源。个人部署可以直接使用初始化的管理员账号。
+
+## 开始使用与维护
+
+进入[用户快速开始](https://molr.ai/zh/docs/user/getting-started/)，聘请助理并验证一个小任务。HTTPS 与网络设置见[配置与访问](https://molr.ai/zh/docs/admin/deployment/configuration/)，版本更新和备份见[维护指南](https://molr.ai/zh/docs/admin/deployment/maintenance/)。

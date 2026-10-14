@@ -29,3 +29,14 @@ test('prompt examples render independently from warnings and ordinary quotes', (
   assert(!html.includes('[!PROMPT]'));
   assert(html.includes('First request.') && html.includes('Second request.'));
 });
+
+test('informational callouts retain their content and remain distinct from warnings', () => {
+  const html = render('> [!INFO]\n> **Notice:** Use the official CLI.\n\n<!-- -->\n\n> [!WARNING]\n> Keep credentials private.');
+  assert.equal((html.match(/class="docs-info"/g) ?? []).length, 1);
+  assert.equal((html.match(/class="docs-warning"/g) ?? []).length, 1);
+  assert(!html.includes('[!INFO]'));
+  assert(html.includes('<strong>Notice:</strong>'));
+  for (const source of ['> Mention [!INFO] inline', '> `[!INFO]`', '```md\n> [!INFO]\n```']) {
+    assert(!render(source).includes('class="docs-info"'));
+  }
+});

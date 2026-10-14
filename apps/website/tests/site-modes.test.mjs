@@ -121,8 +121,17 @@ test('website state builds and browser behavior', { timeout: 240_000 }, async t 
               await expect(page.locator('.home-product-main')).toContainText('近期安排');
               await page.getByRole('button', { name: '连接资源', exact: true }).click();
               await expect(page.locator('.home-product-main')).toContainText('OpenAI-compatible');
-              await expect(page.getByRole('navigation').getByRole('link', { name: '用户文档', exact: true })).toHaveAttribute('href', '/zh/docs/');
-              await expect(page.getByRole('navigation').getByRole('link', { name: '开发者文档', exact: true })).toHaveAttribute('href', '/zh/dev-docs/');
+              const docsMenu = page.getByRole('button', { name: '文档', exact: true });
+              await docsMenu.focus();
+              await page.keyboard.press('ArrowDown');
+              await expect(page.getByRole('menuitemradio', { name: '用户文档', exact: true })).toBeFocused();
+              await page.keyboard.press('ArrowDown');
+              await expect(page.getByRole('menuitemradio', { name: '管理员文档', exact: true })).toBeFocused();
+              await page.keyboard.press('ArrowDown');
+              await expect(page.getByRole('menuitemradio', { name: '开发者文档', exact: true })).toBeFocused();
+              await page.keyboard.press('Escape');
+              await expect(docsMenu).toBeFocused();
+              await expect(page.getByRole('menu', { name: '文档', exact: true })).toBeHidden();
               for (const name of ['GitHub']) {
                 const link = page.getByRole('navigation').getByRole('link', { name, exact: false });
                 await expect(link).toHaveAttribute('href', 'https://github.com/molr-ai/molr');
@@ -133,7 +142,7 @@ test('website state builds and browser behavior', { timeout: 240_000 }, async t 
               await expect(page).toHaveURL(/#install$/);
               await expect(page.getByRole('heading', { name: '给好奇心，一个工作空间。' })).toBeInViewport();
               const installer = page.locator('#install');
-              await expect(installer.getByRole('link', { name: '详细安装指南' })).toHaveAttribute('href', '/zh/docs/getting-started/');
+              await expect(installer.getByRole('link', { name: '详细安装指南' })).toHaveAttribute('href', '/zh/docs/admin/getting-started/');
               await expect(installer.getByRole('button', { name: '正式版', exact: true })).toHaveAttribute('aria-pressed', 'true');
               await expect(installer.getByRole('status')).toContainText('该渠道暂无已发布版本');
               await installer.getByRole('button', { name: '预发布版', exact: true }).click();
