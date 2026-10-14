@@ -38,6 +38,8 @@ curl -fsSL https://molr.ai/install.sh | sh -s -- --channel nightly
 curl -fsSL https://molr.ai/install.sh | sh -s -- --channel preview --version 0.2.0-rc.1
 ```
 
+The website installer lets you choose a release channel, operating system, architecture and curl/wget to generate a command. `--arch amd64` or `--arch arm64` checks the selected architecture and stops before download or installation if it does not match the device. Omit it for automatic detection. Package download mode shows the matching file URL, checksum file and a copyable installation command that passes the selected channel to `molr-setup` for future updates.
+
 Stable tracks final releases, preview tracks beta/RC and subsequent final releases, and nightly tracks daily builds. Empty channels do not fall back to other channels. The downloader displays version, architecture, filename, source, checksum and progress, verifies the package, then runs its installer. It uses existing curl or wget, tar, gzip and a SHA-256 tool without installing download tools. The maintenance program itself needs no Python, curl or iproute2.
 
 The default source is `https://molr.ai/releases`; use `--source URL` for another HTTPS source. The downloader also verifies and installs local archives:

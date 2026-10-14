@@ -59,7 +59,7 @@ Manifest 的顶层、平台条目及 requirements 必须包含规定字段，并
 
 官网由 Cloudflare 从 main 构建，每次构建生成所选版本的发行目录并部署静态资源，包括 `/install.sh`、`/releases/catalog.json`、各渠道 manifest 和 Runtime 使用的 `latest-<平台>.json`、所选版本的 `/releases/versions/<版本>.json`。官网不再保存所有历史版本的清单；未入选版本从 GitHub Releases 下载归档和校验文件后离线安装。上述入口使用 `Cache-Control: no-cache`。安装包仍从 GitHub 下载，不上传到 Worker。部署失败保留此前整个站点和渠道目录；检查 Cloudflare 构建日志，修复构建配置、hook 或网络后单独重跑 website workflow。
 
-官网首屏使用带标题栏的终端窗口展示 stable 安装命令，复制按钮位于框内，上方平台 tab 只显示已支持的 Linux；更多平台和版本入口跳转到底部安装区。无论开发或部署环境，展示与复制的命令固定使用 `https://molr.ai/install.sh`；stable 省略默认渠道参数，preview／nightly 显式指定渠道，均获取所选渠道最新版。命令不携带发布源或版本参数；自定义发布源及指定版本的用法在安装文档中提供。
+官网首屏使用带标题栏的终端窗口展示 stable 安装命令，复制按钮位于框内，上方平台 tab 只显示已支持的 Linux；更多平台和版本入口跳转到底部安装区。无论开发或部署环境，展示与复制的命令固定使用 `https://molr.ai/install.sh`；stable 省略默认渠道参数，preview／nightly 显式指定渠道，均获取所选渠道最新版。底部安装区按渠道、操作系统和架构分组选项，命令安装可切换 curl／wget 并携带 `--arch`，下载器在下载前核对目标设备架构。安装包方式展示文件 URL、SHA-256 和校验成功后才继续的安装命令，传入所选渠道以保留更新订阅。命令不携带发布源或版本参数；自定义发布源及指定版本的用法在安装文档中提供。
 
 ## 平台维护
 

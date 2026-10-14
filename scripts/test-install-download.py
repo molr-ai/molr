@@ -36,6 +36,22 @@ class BootstrapTests(unittest.TestCase):
         self.assertEqual(result.returncode,0,result.stderr)
         self.assertEqual(self.marker.read_text().splitlines(),['--name','molr-fixture','--non-interactive','--program-root',"/tmp/a ' b",'--dry-run'])
         self.assertIn('[Download] Verify checksum',result.stdout)
+    def test_selected_architecture_checked_before_execution(self):
+        self.package()
+        arch = {'x86_64': 'amd64', 'aarch64': 'arm64', 'arm64': 'arm64'}[platform.machine()]
+        result = self.run_setup('--arch', arch, '--dry-run')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.marker.read_text(), '--dry-run\n')
+        self.marker.unlink()
+        for wrong in ['arm64' if arch == 'amd64' else 'amd64', 'invalid']:
+            result = self.run_setup('--arch', wrong)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('does not match this device', result.stderr)
+            self.assertFalse(self.marker.exists())
+    def test_missing_architecture_value_rejected(self):
+        result = self.run_setup('--arch')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Missing value for --arch', result.stderr)
     def test_checksum_rejected_before_execution(self):
         self.package();Path(str(self.archive)+'.sha256').write_text('0'*64+'  package.tar.gz\n')
         result=self.run_setup();self.assertNotEqual(result.returncode,0);self.assertIn('Checksum mismatch',result.stderr);self.assertFalse(self.marker.exists())

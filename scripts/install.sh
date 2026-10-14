@@ -10,15 +10,16 @@ source=${MOLR_RELEASE_URL:-https://molr.ai/releases}
 channel=stable
 version=
 archive=
+requested_arch=
 remaining=$#
 while [ "$remaining" -gt 0 ]; do
  case "$1" in
-  --source|--channel|--version|--archive)
+  --source|--channel|--version|--archive|--arch)
    [ "$remaining" -ge 2 ] || fail "Missing value for $1"
-   case "$1" in --source) source=$2;; --channel) channel=$2;; --version) version=$2;; --archive) archive=$2;; esac
+   case "$1" in --source) source=$2;; --channel) channel=$2;; --version) version=$2;; --archive) archive=$2;; --arch) requested_arch=$2;; esac
    shift 2; remaining=$((remaining - 2));;
   --help|-h)
-   printf '%s\n' 'Usage: sh install.sh [--source URL] [--channel stable|preview|nightly] [--version VERSION] [--archive FILE] [setup options]' 'Setup: --interactive | --non-interactive, --dry-run, --name, --user, --program-root, --install-deps, --directory-permissions ask|fix|ignore, --no-browser' 'An extracted package can be installed directly with ./bin/molr-setup. Installed instances update with molr-setup update.'
+   printf '%s\n' 'Usage: sh install.sh [--source URL] [--channel stable|preview|nightly] [--version VERSION] [--archive FILE] [--arch amd64|arm64] [setup options]' 'Setup: --interactive | --non-interactive, --dry-run, --name, --user, --program-root, --install-deps, --directory-permissions ask|fix|ignore, --no-browser' 'An extracted package can be installed directly with ./bin/molr-setup. Installed instances update with molr-setup update.'
    exit 0;;
   *) set -- "$@" "$1"; shift; remaining=$((remaining - 1));;
  esac
@@ -32,6 +33,7 @@ case "$(uname -s)/$(uname -m)" in
   *) fail "Unsupported OS or architecture" ;;
 esac
 # END GENERATED PLATFORMS
+[ -z "$requested_arch" ] || [ "$requested_arch" = "$arch" ] || fail "Selected architecture $requested_arch does not match this device ($arch)"
 for tool in tar gzip mktemp chmod mkdir rm wc; do command -v "$tool" >/dev/null 2>&1 || fail "Missing bootstrap tool: $tool"; done
 if command -v sha256sum >/dev/null 2>&1; then hash_tool=sha256sum
 elif command -v shasum >/dev/null 2>&1; then hash_tool=shasum

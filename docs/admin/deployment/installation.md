@@ -38,6 +38,8 @@ curl -fsSL https://molr.ai/install.sh | sh -s -- --channel nightly
 curl -fsSL https://molr.ai/install.sh | sh -s -- --channel preview --version 0.2.0-rc.1
 ```
 
+官网安装区可分别选择发布渠道、操作系统、处理器架构及 curl／wget，生成安装命令。`--arch amd64` 或 `--arch arm64` 用于校验所选架构；与运行设备不符时，在下载和安装前停止。省略时自动检测。下载安装包方式展示对应文件地址、校验文件和可复制的安装命令，并将所选渠道传给 `molr-setup` 作为更新订阅。
+
 stable 为正式版，preview 为 beta／rc 和后续正式版，nightly 为每日构建。未发布版本的渠道不会自动回退到其他渠道。下载器显示版本、架构、包名、来源、摘要及下载进度，校验后调用包内安装器。它使用已有的 curl 或 wget、tar、gzip 和 SHA-256 工具，不自动安装下载工具；安装维护程序本身无需 Python、curl 或 iproute2。
 
 下载器默认源为 `https://molr.ai/releases`，`--source URL` 可指定其他 HTTPS 发布源。本地归档可由同一下载器校验并安装：
