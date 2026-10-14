@@ -36,6 +36,8 @@ When no sandbox or `permission_list` tool is assigned, automatic context skips r
 
 Account avatars are saved with `auth.accounts`, using the same `internal/avatar` thumbnail validation as assistants. Profile updates only target the account associated with the current session; display name and avatar are atomically saved using the same version check; both authentication snapshots and profile reads return the saved avatar.
 
+Chat user messages and navigation avatars read the current user profile from `SessionProvider`, resolve names as `DisplayName` → `Username` → `U`, and render avatars with the shared `AssistantAvatar`. Profile refreshes update both views.
+
 ## Frontend Identity and Settings
 
 `/account/*` is for personal settings, and `/settings/*` is for administrator settings. The bottom avatar and gear navigate separately; regular users have no gear or resource configuration entry, and manually entering administrator routes displays a rejection, while the API independently rejects unauthorized access. Old personal settings login links map to `/account/*`.

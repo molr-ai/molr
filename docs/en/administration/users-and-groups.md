@@ -6,6 +6,8 @@ Molr supports independent accounts for families and small teams on the same serv
 
 The avatar at the bottom of the desktop sidebar, and the avatar and username at the top of the mobile assistant page, open **User Settings**, which manages display name, language, theme, timezone, memory, personal usage, and account security. The "Admin Settings" entry within User Settings opens **Admin Settings**, which is visible only to administrators and includes users, user groups, aggregate statistics, and plugin management. Resource configuration is uniformly accessed from the **Resources** page in the sidebar.
 
+User messages in chat use the same profile as the navigation avatar: the display name takes priority, falling back to the username. Avatars support presets and uploaded images, with the first character of the name used when no avatar is set. Changes saved in User Settings also update existing messages in chat.
+
 Regular users can create and modify their own assistants, and set assistant budgets and resource authorizations. Regular users cannot configure models, tools, or sandboxes, nor can they install, configure, or enable plugins. Plugin capabilities enabled and assigned by administrators can be used within the authorized scope.
 
 ## Creating User Groups and Assigning Resources
