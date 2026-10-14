@@ -41,7 +41,7 @@ test('chat plans show only ten nearest assistant items in a flat list and keep a
   await expect(rows.last()).toContainText(`Scoped ${suffix} 9`);
   await expect(panel).not.toContainText(`Other ${suffix}`);
   await expect(panel).not.toContainText(`Personal ${suffix}`);
-  await expect(panel.locator('.plans-header, .plans-commandbar, .plans-statusbar, .plans-load-more, .interactive-card')).toHaveCount(0);
+  await expect(panel.locator('.plans-header, .plans-commandbar, .plans-statusbar, .plans-load-more, .interactive-list-row')).toHaveCount(0);
   await expect(panel.locator('.ui-dialog__header h2')).toBeVisible();
   await expect(panel.locator('.ui-dialog__header h2')).not.toHaveClass('ui-sr-only');
   await rows.first().click({ position: { x: 5, y: 5 } });

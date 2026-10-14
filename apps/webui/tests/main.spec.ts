@@ -1047,7 +1047,7 @@ test('resource tabs expose tools and sandbox-scoped resources', async ({ page })
   await page.getByRole('navigation').getByRole('button', { name: 'Resources', exact: true }).click();
   await expect(page.locator('.resources-categories > .ui-tabs__list').getByRole('tab')).toHaveText(['Models', 'Tools', 'Sandboxes']);
   await resourceCategory(page, 'Tools').click();
-  await expect(page.getByRole('heading', { name: 'Read file', exact: true })).toBeVisible();
+  await expect(page.locator('.tools-catalog-row').filter({ has: page.getByText('Read file', { exact: true }) })).toBeVisible();
   await resourceCategory(page, 'Sandboxes').click();
   await expect(page.getByRole('button', { name: 'Connect sandbox', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Local workspace /work', exact: true })).toBeVisible();
@@ -2403,6 +2403,7 @@ test('chat refresh appends sequence deltas across pages without refetching loade
 
 test('sandbox access grants can be created edited and revoked from the resource', async ({ page }, info) => {
   test.setTimeout(90000);
+  const closeToasts = async () => { for (const close of await page.getByRole('list', { name: 'Notifications', exact: true }).getByRole('button', { name: 'Close', exact: true }).all()) await close.click(); };
   const directory = await mkdtemp(join(tmpdir(), 'molr-sandbox-access-'));
   try {
     await login(page);
@@ -2427,12 +2428,14 @@ test('sandbox access grants can be created edited and revoked from the resource'
     const grants = () => page.request.get(`/api/grants?resource_id=${resource.ID}`).then(r => r.json());
     await expect.poll(async () => (await grants()).Items.filter((g: any) => !g.RevokedAt).length).toBe(1);
     expect((await grants()).Items[0]).toMatchObject({ AssistantID: assistant.ID, Scope: { PathPrefixes: ['/read'] } });
+    await closeToasts();
     await access.getByRole('button', { name: 'Edit', exact: true }).click();
     const edit = page.getByRole('dialog', { name: 'Edit permission', exact: true });
     await edit.getByRole('textbox', { name: 'Allowed path prefixes (one per line)', exact: true }).fill('/write');
     await edit.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(edit).not.toBeVisible();
     await expect(access).toContainText('/write');
+    await closeToasts();
     await access.getByRole('button', { name: 'Revoke permission', exact: true }).click();
     const revoke = page.getByRole('dialog', { name: 'Revoke permission', exact: true });
     await revoke.getByRole('button', { name: 'Confirm', exact: true }).click();

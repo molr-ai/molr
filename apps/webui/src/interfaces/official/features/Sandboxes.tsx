@@ -4,7 +4,7 @@ import { fullAccessHelp } from '../../../full-access';
 import { fullAccessLabel, sandboxPermissions } from './PermissionTargetFields';
 import type { SandboxPermission } from './PermissionTargetFields';
 import { useEffect, useState } from 'react';
-import { ModalPresence, Alert, Badge, Button, DropdownMenu, IconButton, Select, Tabs, TextField } from '@molr/ui';
+import { ModalPresence, Alert, Badge, Button, DropdownMenu, IconButton, Select, SlidingHighlight, Tabs, TextField, useBreakpoint } from '@molr/ui';
 import type { MenuItem } from '@molr/ui';
 import { Cpu, Ellipsis, Globe, HardDrive, Pencil, Plus, RefreshCw, Server, ShieldCheck, Unplug, Users } from 'lucide-react';
 import type { Assistant, Grant, Resource } from '../../../api/types';
@@ -30,6 +30,7 @@ function statusLabel(sandbox: SandboxView, copy: ReturnType<typeof useSandboxCop
 }
 export function Sandboxes({ resources, resourceID = '' }: { resources: Resource[]; resourceID?: string }) {
   const { t, locale } = useCopy(), copy = useSandboxCopy(), query = useQuery<SandboxView[]>('/api/sandboxes'), check = useAction();
+  const compact = useBreakpoint('compact');
   const [selected, setSelected] = useSandboxPreference<string>('sandbox', 'local', value => /^[A-Za-z0-9_-]{1,128}$/.test(value));
   const [kind, setKind] = useSandboxPreference<SandboxPermission>('kind', 'storage', value => kinds.includes(value as SandboxPermission));
   const details = useQuery<SandboxResourceDetail[]>(query.data?.some(item => item.ID === selected) ? `/api/sandboxes/${selected}/resources` : null);
@@ -60,16 +61,20 @@ export function Sandboxes({ resources, resourceID = '' }: { resources: Resource[
     <div className="sandbox-mobile-switch"><Select hideLabel label={copy.select} value={selected} onValueChange={setSelected} options={(query.data ?? []).map(item => ({ value: item.ID, label: name(item), description: statusLabel(item, copy) }))} /><IconButton label={copy.connect} onClick={() => setConnecting(true)}><Plus size={18} /></IconButton></div>
     <div className="sandbox-layout">
       <aside className="sandbox-sidebar"><div className="sandbox-sidebar-heading"><span>{copy.title}</span><SettingsHelp label={copy.helpLabel} content={copy.help} /></div>
-        <div className="sandbox-list" role="group" aria-label={copy.select}>{query.data?.map(item => <button className="sandbox-item" type="button" key={item.ID} aria-pressed={selected === item.ID} onClick={() => setSelected(item.ID)}>
+        <SlidingHighlight as="ul" className="sandbox-list" value={selected} disabled={compact} aria-label={copy.select}>{query.data?.map(item => <li key={item.ID}><button className="sandbox-item" type="button" data-sliding-item={item.ID} aria-pressed={selected === item.ID} onClick={() => setSelected(item.ID)}>
           <Server size={17} /><span className="sandbox-item-copy"><strong>{name(item)}</strong><small title={item.Endpoint}>{item.Local ? copy.builtin : item.Endpoint}</small><span className={`sandbox-connection-state ${isConnected(item) ? 'is-connected' : ''}`}>{statusLabel(item, copy)}</span></span>
-        </button>)}</div>
+        </button></li>)}</SlidingHighlight>
         <Button className="sandbox-connect" variant="secondary" size="sm" onClick={() => setConnecting(true)}><Plus size={15} />{copy.connect}</Button>
       </aside>
       {sandbox && <div className="sandbox-detail">
-        <header className="sandbox-heading"><div className="sandbox-heading-copy"><h2>{name(sandbox)}</h2><p title={sandbox.Endpoint}>{sandbox.Local ? copy.builtin : sandbox.Endpoint}</p></div>
+        <div className="sandbox-overview"><header className="sandbox-heading"><div className="sandbox-heading-copy"><div className="sandbox-title"><h2>{name(sandbox)}</h2><Badge tone={connected ? 'positive' : 'neutral'}>{statusLabel(sandbox, copy)}</Badge></div><p title={sandbox.Endpoint}>{sandbox.Local ? copy.builtin : sandbox.Endpoint}</p></div>
           <div className="sandbox-heading-actions"><IconButton label={copy.testAgain} loading={check.busy || query.loading} onClick={refresh}><RefreshCw size={17} /></IconButton><SettingsHelp label={copy.helpLabel} content={sandbox.Local ? copy.localHelp : copy.help} />{menu.length > 0 && <DropdownMenu label={t.more} align="end" trigger={<IconButton label={t.more}><Ellipsis size={18} /></IconButton>} items={menu} />}</div>
         </header>
-        <div className="sandbox-status" aria-label={copy.checking}>{enabled && sandbox.Info.Capabilities.FullAccess && <Badge dot={false}>{locale === 'zh' ? '可授权完全访问' : 'Full access available'}</Badge>}<Badge tone={connected ? 'positive' : 'neutral'}>{statusLabel(sandbox, copy)}</Badge><Badge dot={false} tone={enabled && sandbox.Info.Storage ? 'positive' : 'neutral'}>{enabled && sandbox.Info.Storage ? copy.storageReady : copy.storageUnavailable}</Badge><Badge dot={false} tone={enabled && sandbox.Info.Capabilities.Shell ? 'positive' : 'warning'}>{enabled && sandbox.Info.Capabilities.Shell ? copy.computeReady : copy.computeUnavailable}</Badge></div>
+        <div className="sandbox-overview-meta"><div className="sandbox-capabilities">
+          <span data-ready={enabled && sandbox.Info.Storage}><HardDrive size={14} />{enabled && sandbox.Info.Storage ? copy.storageReady : copy.storageUnavailable}</span>
+          <span data-ready={enabled && sandbox.Info.Capabilities.Shell}><Cpu size={14} />{enabled && sandbox.Info.Capabilities.Shell ? copy.computeReady : copy.computeUnavailable}</span>
+          {enabled && sandbox.Info.Capabilities.FullAccess && <span><ShieldCheck size={14} />{locale === 'zh' ? '可授权完全访问' : 'Full access available'}</span>}
+        </div>{sandbox.CheckedAt && <p className="sandbox-checked">{copy.checkedAt} · {new Date(sandbox.CheckedAt).toLocaleTimeString(locale)} · {sandbox.Info.Capabilities.OS || 'Linux'}</p>}</div></div>
         {!connected || !sandbox.Info.Enabled ? <Alert tone="warning" title={sandbox.State === 'disconnected' ? copy.disconnected : sandbox.State === 'disabled' ? copy.disabled : !connected ? copy.offline : copy.disabled}>{sandbox.State === 'disconnected' ? copy.reconnectHelp : sandbox.State === 'disabled' ? copy.disabledHelp : !connected ? connectionError(copy, sandbox.ConnectionReason) : copy.disabledHelp}{sandbox.State === 'offline' && <p>{copy.snapshot}</p>}</Alert> : null}
         <Tabs label={copy.title} value={kind} onValueChange={setKind} items={kinds.map(value => { const Icon = icons[value]; return { value, label: value === 'full_access' ? fullAccessLabel(locale === 'zh') : copy[value], icon: <Icon size={15} />, content: value === kind && (kind === 'full_access' ? <FullAccessSection sandbox={sandbox} resources={resources} grants={liveGrants} ready={grantDataReady} onAccess={setAccess} /> : <div className="sandbox-section">
           {kind === 'compute' && <ComputeSummary sandbox={sandbox} />}
@@ -80,13 +85,12 @@ export function Sandboxes({ resources, resourceID = '' }: { resources: Resource[
             const detail = details.data?.find(item => item.ID === resource.ID), count = new Set(liveGrants.filter(grant => grant.ResourceID === resource.ID && !grant.Scope.FullAccess).map(grant => grant.AssistantID)).size;
             const resourceMenu: MenuItem[] = [{ id: 'rename', label: copy.rename, icon: <Pencil size={15} />, onSelect: () => setRenaming(resource) }, ...(resource.State !== 'disconnected' && resource.Provider !== 'managed-workspace' ? [{ id: 'disconnect', label: t.resources.disconnect, icon: <Unplug size={15} />, danger: true, separatorBefore: true, onSelect: () => setRemoving(resource) }] : [])];
             return <article className="sandbox-resource" key={resource.ID} data-resource-id={resource.ID}>
-              <div className="sandbox-resource-heading"><h3>{resource.Name}</h3><Badge dot={false} tone={resource.State === 'disconnected' ? 'neutral' : kind === 'storage' ? 'neutral' : enabled ? 'positive' : 'neutral'}>{resource.State === 'disconnected' ? copy.disconnected : kind === 'storage' ? resource.Actions.includes('write') ? copy.readWrite : copy.readOnly : enabled ? copy.available : copy.unavailableShort}</Badge><DropdownMenu label={t.more} align="end" trigger={<IconButton label={`${t.more} · ${resource.Name}`}><Ellipsis size={16} /></IconButton>} items={resourceMenu} /></div>
-              <ResourceDetails sandbox={sandbox} resource={resource} detail={detail} loading={details.loading && !details.data} />
-              <div className="sandbox-resource-footer"><Button size="sm" variant="ghost" onClick={() => setAccess(resource)} disabled={!grantDataReady}><Users size={15} />{grantDataReady ? count ? `${copy.authorized} · ${count}` : copy.grant : t.loading}</Button>{!count && grantDataReady && <span className="muted">{copy.noAccess}</span>}</div>
+              <div className="sandbox-resource-body"><div className="sandbox-resource-heading"><h3>{resource.Name}</h3><Badge dot={false} tone={resource.State === 'disconnected' ? 'neutral' : kind === 'storage' ? 'neutral' : enabled ? 'positive' : 'neutral'}>{resource.State === 'disconnected' ? copy.disconnected : kind === 'storage' ? resource.Actions.includes('write') ? copy.readWrite : copy.readOnly : enabled ? copy.available : copy.unavailableShort}</Badge></div>
+              <ResourceDetails sandbox={sandbox} resource={resource} detail={detail} loading={details.loading && !details.data} /></div>
+              <div className="sandbox-resource-footer"><Button size="sm" variant="ghost" onClick={() => setAccess(resource)} disabled={!grantDataReady}><Users size={15} />{grantDataReady ? count ? `${copy.authorized} · ${count}` : copy.grant : t.loading}</Button><DropdownMenu label={t.more} align="end" trigger={<IconButton label={`${t.more} · ${resource.Name}`}><Ellipsis size={16} /></IconButton>} items={resourceMenu} />{!count && grantDataReady && <span className="muted">{copy.noAccess}</span>}</div>
             </article>;
           })}</div>}
         </div>) }; })} />
-        {sandbox.CheckedAt && <p className="sandbox-checked">{copy.checkedAt} · {new Date(sandbox.CheckedAt).toLocaleTimeString(locale)} · {sandbox.Info.Capabilities.OS || 'Linux'}</p>}
       </div>}
     </div>
     <ModalPresence>{connecting && <SandboxConnection onClose={() => setConnecting(false)} onConnected={setSelected} />}</ModalPresence><ModalPresence>{editing && <SandboxConnection sandbox={editing} onClose={() => setEditing(null)} onConnected={setSelected} />}</ModalPresence>
@@ -106,17 +110,17 @@ function FullAccessSection({ sandbox, resources, grants, ready, onAccess }: { sa
   return <div className="sandbox-section">
     <div className="sandbox-workspace-summary"><ShieldCheck size={18} /><div><h3>{fullAccessLabel(zh)}</h3><p>{fullAccessHelp(zh)}</p></div><Badge dot={false} tone={available ? 'positive' : 'neutral'}>{available ? copy.available : copy.unavailableShort}</Badge></div>
     {compute ? <article className="sandbox-resource" data-resource-id={compute.ID}>
-      <div className="sandbox-resource-heading"><h3>{zh ? '完全访问权限' : 'Full access permission'}</h3></div>
-      <p className="muted">{zh ? '独立授予，可设置有效期或随时撤销。存储、计算和网络权限仍可分别管理。' : 'Grant independently, set an expiry or revoke at any time. Storage, compute and network permissions remain separately managed.'}</p>
+      <div className="sandbox-resource-body"><div className="sandbox-resource-heading"><h3>{zh ? '完全访问权限' : 'Full access permission'}</h3></div>
+      <p className="muted">{zh ? '独立授予，可设置有效期或随时撤销。存储、计算和网络权限仍可分别管理。' : 'Grant independently, set an expiry or revoke at any time. Storage, compute and network permissions remain separately managed.'}</p></div>
       <div className="sandbox-resource-footer"><Button size="sm" variant="ghost" disabled={!ready} onClick={() => onAccess(compute)}><Users size={15} />{ready ? count ? `${copy.authorized} · ${count}` : copy.grant : t.loading}</Button>{!count && ready && <span className="muted">{copy.noAccess}</span>}</div>
     </article> : <Empty title={copy.noCompute} description={copy.noComputeHelp} />}
-    {!available && <p className="muted">{zh ? '此沙盒尚未开放完全访问权限。' : 'Full access is not available on this sandbox.'}</p>}
+    {!available && <p className="muted sandbox-resource-description">{zh ? '此沙盒尚未开放完全访问权限。' : 'Full access is not available on this sandbox.'}</p>}
   </div>;
 }
 function ComputeSummary({ sandbox }: { sandbox: SandboxView }) {
   const { t, locale } = useCopy(), copy = useSandboxCopy(), caps = sandbox.Info.Capabilities, ready = isConnected(sandbox) && sandbox.Info.Enabled && caps.Shell;
   const rows = [...(sandbox.Info.GPUs?.length ? [['GPU', sandbox.Info.GPUs.map(g=>`${gpuName(g.ID,sandbox.Info.GPUs!,locale)}${g.Available?'':locale==='zh'?'（不可用）':' (unavailable)'}`).join(' / ')]] : []), [copy.cpu, `${(sandbox.Info.AuthorizationCeilings??sandbox.Info.Limits).CPUPercent}%`], [copy.memory, `${Math.round((sandbox.Info.AuthorizationCeilings??sandbox.Info.Limits).MemoryBytes / 1048576)} MiB`], [copy.processes, String((sandbox.Info.AuthorizationCeilings??sandbox.Info.Limits).Processes)], [copy.timeout, locale === 'zh' ? '由助理的计算授权决定' : 'Defined by the assistant’s compute grant']];
-  return <div className="sandbox-compute-summary"><div className="sandbox-section-heading"><h3>{locale === 'zh' ? '可申请的计算能力上限' : 'Requestable compute capacity'}</h3><span className="muted">{copy.deploymentLimits}</span></div><dl className="sandbox-limits">{rows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl><div className="sandbox-isolation"><ShieldCheck size={16} /><span>{ready ? copy.isolationReady : sandboxReason(t, caps.Reason)}</span><SettingsHelp label={copy.isolation} content={copy.isolationHelp} /></div></div>;
+  return <div className="sandbox-compute-summary"><div className="sandbox-section-heading"><h3>{locale === 'zh' ? '可申请的计算能力上限' : 'Requestable compute capacity'}</h3><span className="muted">{copy.deploymentLimits}</span></div><dl className="sandbox-limits">{rows.map(([label, value]) => <div key={label} className={label === 'GPU' || label === copy.timeout ? 'sandbox-limit-description' : undefined}><dt>{label}</dt><dd>{value}</dd></div>)}</dl><div className="sandbox-isolation"><ShieldCheck size={16} /><span>{ready ? copy.isolationReady : sandboxReason(t, caps.Reason)}</span><SettingsHelp label={copy.isolation} content={copy.isolationHelp} /></div></div>;
 }
 function ResourceDetails({ sandbox, resource, detail, loading }: { sandbox: SandboxView; resource: Resource; detail?: SandboxResourceDetail; loading: boolean }) {
   const { t } = useCopy(), copy = useSandboxCopy();

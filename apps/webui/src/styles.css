@@ -17,26 +17,25 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
   overflow: visible;
 }
 .workspace:not(.workspace--mobile) .assistant-workspace:not(.assistant-workspace--focus) > :is(.workspace-sidebar, .chat-panel, .workspace-empty, .chat-side-panel[data-docked]) { background: var(--color-surface); border-radius: var(--radius-card); box-shadow: var(--shadow-workspace); overflow: hidden; }
-.interactive-card { position: relative; border: 1px solid transparent; border-radius: var(--radius-card); background: var(--color-surface); transition: border-color 140ms ease; }
+/* Flat list rows share separators and full-row keyboard/click targets. */
+.interactive-list-row { position: relative; min-width: 0; border: 0; border-bottom: 1px solid var(--color-border); border-radius: 0; background: transparent; }
+.interactive-list-row > :is(.plans-row-summary, .resource-row-summary) { min-height: 72px; padding: 12px 8px; gap: 12px; }
+.interactive-list-row :is(.plans-row-copy, .resource-row-copy) h2 { font-size: 13px; font-weight: 500; line-height: 20px; }
+.interactive-list-row :is(.plans-row-copy, .resource-row-copy) h2 > button { display: block; width: 100%; padding: 0; font: inherit; }
+.interactive-list-row :is(.plans-row-meta, .resource-row-meta) { margin: 4px 0 0; font-size: 11px; line-height: 18px; }
+.interactive-list-row > .resource-row-summary > .ui-icon-button { width: 28px; height: 30px; min-height: 30px; }
 @media (hover: hover) and (pointer: fine) {
-  .interactive-card:hover { border-color: var(--color-control-border-hover); }
+  .interactive-list-row > :is(.plans-row-summary, .resource-row-summary):hover, button.interactive-list-row:hover { background: var(--color-neutral-bg); }
 }
-
-/* Model providers and plan cards share the same collapsed row rhythm. */
-.interactive-card > :is(.plans-row-summary, .resource-row-summary) { min-height: 80px; padding: 16px; gap: 12px; }
-.interactive-card :is(.plans-row-copy, .resource-row-copy) h2 { font-size: 13px; font-weight: 500; line-height: 20px; }
-.interactive-card :is(.plans-row-copy, .resource-row-copy) h2 > button { display: block; width: 100%; padding: 0; font: inherit; }
-.interactive-card :is(.plans-row-meta, .resource-row-meta) { margin: 4px 0 0; font-size: 11px; line-height: 18px; }
-.interactive-card > .resource-row-summary > .ui-icon-button { width: 28px; height: 30px; min-height: 30px; }
+.interactive-list-row[data-selected='true'] > :is(.plans-row-summary, .resource-row-summary), button.interactive-list-row:active { background: var(--color-selected-bg); }
 @media (--molr-mobile) {
-  .interactive-card > :is(.plans-row-summary, .resource-row-summary) { min-height: 76px; padding: 12px; gap: 8px; }
-  .interactive-card > .resource-row-summary > .ui-icon-button { width: 32px; height: 40px; min-height: 40px; }
+  .interactive-list-row > :is(.plans-row-summary, .resource-row-summary) { min-height: 76px; padding-inline: 4px; gap: 8px; }
+  .interactive-list-row > .resource-row-summary > .ui-icon-button { width: 32px; height: 40px; min-height: 40px; }
 }
-
-.card-open::after { content: ''; position: absolute; inset: 0; border-radius: var(--card-click-radius, var(--radius-card)); cursor: pointer; }
-.card-open:focus-visible { outline: none; }
-.card-open:focus-visible::after { outline: 2px solid var(--color-focus); outline-offset: 3px; }
-.interactive-card :is(.button, .ui-icon-button, .plan-expanded, .resource-row-detail), .assistant-plan-row :is(.button, .ui-icon-button, .plan-expanded) { position: relative; z-index: 1; }
+.row-open::after { content: ''; position: absolute; inset: 0; cursor: pointer; }
+.row-open:focus-visible { outline: none; }
+.row-open:focus-visible::after { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+.interactive-list-row :is(.button, .ui-icon-button, .plan-expanded, .resource-row-detail), .assistant-plan-row :is(.button, .ui-icon-button, .plan-expanded) { position: relative; z-index: 1; }
 .login-page { --page-glow: var(--color-selected-bg); background: radial-gradient(ellipse at 15% 10%, var(--page-glow), transparent 65%) var(--color-page-background); }
 :root[data-theme='dark'] .login-page { --page-glow: var(--color-surface); background-image: radial-gradient(ellipse at 100% 100%, var(--page-glow), transparent 65%); }
 .login-card { width: min(420px, 100%); padding: 36px; border-radius: var(--radius-card); background: var(--color-surface); display: grid; gap: 20px; }
