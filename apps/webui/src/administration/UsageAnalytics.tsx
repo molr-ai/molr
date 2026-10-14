@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Badge, Button, Card, Pagination, Progress, SearchField, SegmentedControl, Select, Table, TextField, Tooltip } from '@molr/ui';
+import { Badge, Button, Pagination, Progress, SearchField, SegmentedControl, Select, Table, TextField, Tooltip } from '@molr/ui';
 import { RefreshCw, X } from 'lucide-react';
 import { useCopy, useQuery } from '../state';
 import { useErrorToast } from '../error-toasts';
@@ -74,15 +74,15 @@ export function UsageAnalytics({ admin = false, onRefresh, onUserChange }: { adm
   <div className="usage-scope"><span>{from} — {until ? dateAdd(until, -1) : '—'} · {timezone}</span>{[assistant, model, user, group].some(v => v !== 'all') || search ? <Button variant="ghost" size="sm" onClick={() => { setAssistant('all'); setModel('all'); chooseUser('all'); setGroup('all'); setSearch(''); }}><X size={13} />{zh ? '清除筛选' : 'Clear filters'}</Button> : null}</div>
   {data && (query.loading || Boolean(query.error)) && <p role="status" className="usage-note">{query.error ? zh ? '更新失败，以下保留上次统计；可点击刷新重试。' : 'Refresh failed. Previous statistics remain below; retry with Refresh.' : zh ? '正在更新统计…' : 'Updating statistics…'}</p>}
   {!data ? query.error || currency.error ? <Empty title={zh ? '用量暂时无法加载' : 'Usage is temporarily unavailable'} action={<Button variant="secondary" size="sm" onClick={refresh}>{zh ? '重试' : 'Retry'}</Button>} /> : valid && <Loading /> : <div className="usage-analytics-results" inert={!query.data || !valid}>
-   <Card><dl className="usage-analytics-overview">
+   <dl className="usage-analytics-overview">
     <div className="usage-primary-metric"><dt>{data.Summary.MissingTokenCalls ? zh ? '已记录 Token' : 'Recorded tokens' : zh ? '总 Token' : 'Total tokens'}</dt><dd title={data.Summary.TotalTokens.toLocaleString(locale)}>{compactTokens(data.Summary.TotalTokens, locale)}</dd><p>{zh ? '输入' : 'Input'} {compactTokens(data.Summary.InputTokens, locale)} · {zh ? '输出' : 'Output'} {compactTokens(data.Summary.OutputTokens, locale)}</p><p>{zh ? '其中缓存输入' : 'Including cached input'} {compactTokens(data.Summary.CachedTokens, locale)}</p></div>
     <div><dt>{zh ? '模型费用' : 'Model spend'}</dt><dd>{spend(data.Summary.Spent)}</dd><p>{zh ? '已确认消费' : 'Confirmed spend'}</p></div>
     <div><dt>{zh ? '模型调用' : 'Model calls'}</dt><dd>{data.Summary.ModelCalls.toLocaleString(locale)}</dd><p>{zh ? '所选日期范围内' : 'Within selected dates'}</p></div>
     <div><dt>{admin ? zh ? '活跃成员' : 'Active members' : zh ? '活跃天数' : 'Active days'}</dt><dd>{admin ? data.ActiveUsers : data.ActiveDays}</dd><p>{admin ? `${data.ActiveDays} ${zh ? '个活跃日' : 'active days'}` : zh ? '有模型调用的日期' : 'Days with model calls'}</p></div>
-   </dl></Card>
+   </dl>
    {(data.Summary.MissingTokenCalls > 0 || data.Summary.UnknownCostCalls > 0 || data.Summary.ActiveCalls > 0) && <div className="usage-evidence-note" role="status">{data.Summary.MissingTokenCalls > 0 && <span>{data.Summary.MissingTokenCalls} {zh ? '次调用未取得 Token 用量' : 'calls without token usage'}</span>}{data.Summary.UnknownCostCalls > 0 && <span>{data.Summary.UnknownCostCalls} {zh ? '次调用费用未知' : 'calls with unknown cost'}</span>}{data.Summary.ActiveCalls > 0 && <span>{data.Summary.ActiveCalls} {zh ? '次调用执行中' : 'calls in progress'}</span>}</div>}
    <UsageCalendar data={data} selected={day} onSelect={d => { setDay(d); setPage(1); }} />
-   <section className="usage-breakdown settings-card" aria-label={zh ? '用量明细' : 'Usage breakdown'}>
+   <section className="usage-breakdown" aria-label={zh ? '用量明细' : 'Usage breakdown'}>
     <div className="usage-section-heading"><div><h3>{selectedDay ? `${day} · ${zh ? '当天明细' : 'Daily breakdown'}` : zh ? '用量明细' : 'Usage breakdown'}</h3><p>{selectedDay ? `${selectedDay.TotalTokens.toLocaleString(locale)} Token · ${spend(selectedDay.Spent)}` : zh ? '按所选日期与筛选条件汇总' : 'Totals for the selected dates and filters'}</p></div>{selectedDay && <Button size="sm" variant="ghost" onClick={() => { setDay(''); setPage(1); }}><X size={13} />{zh ? '查看整个范围' : 'Show full range'}</Button>}</div>
     <div className="usage-breakdown-controls"><SegmentedControl hideLabel label={zh ? '分组方式' : 'Group by'} value={groupBy} onValueChange={v => { setGroupBy(v); setPage(1); }} options={(admin ? ['user', 'group', 'model'] : ['assistant', 'model']).map(value => ({ value, label: ({ assistant: zh ? '按助理' : 'By assistant', model: zh ? '按模型' : 'By model', user: zh ? '按成员' : 'By member', group: zh ? '按用户组' : 'By group' } as Record<string, string>)[value] }))} /><Select size="sm" label={zh ? '排序' : 'Sort by'} value={sort} onValueChange={v => { setSort(v); setPage(1); }} options={[{ value: 'tokens', label: zh ? 'Token 从多到少' : 'Most tokens' }, { value: 'spend', label: zh ? '费用从高到低' : 'Highest spend' }, { value: 'calls', label: zh ? '调用从多到少' : 'Most calls' }]} /></div>
     <Table className="usage-table" caption={zh ? '用量明细' : 'Usage breakdown'} columns={columns} rows={data.Rows} rowKey={row => row.ID} emptyState={<Empty title={zh ? '暂无用量记录' : 'No usage recorded'} description={zh ? '当前日期与筛选条件下没有模型调用。' : 'No model calls match these dates and filters.'} />} />

@@ -25,7 +25,7 @@ function ProfileForm({ user }: { user: UserInfo }) {
     if (avatar === (previous.Avatar ?? '')) setAvatar(user.Avatar ?? '');
   }
   useErrorToast(action.error);
-  return <form className="editor settings-form settings-card" onSubmit={e => {
+  return <form className="editor settings-form" onSubmit={e => {
     e.preventDefault();
     if (processingAvatar) return;
     void action.run(async () => {

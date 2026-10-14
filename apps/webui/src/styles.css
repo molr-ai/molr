@@ -156,7 +156,6 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
   .provider-connect-provider { width: auto; flex-shrink: 0; white-space: nowrap; }
   .provider-connect-form { padding-left: 0; border-left: 0; }
 }
-.settings-list { padding: 0 16px; border-radius: var(--radius-card); background: var(--color-surface); }
 .settings-row { min-height: 64px; padding: 12px 0; }
 .settings-list > .settings-row + .settings-row, .connection-details > div { border-top: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent); }
 .settings-row--select { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, min(65%, 300px)); align-items: center; gap: 12px; }

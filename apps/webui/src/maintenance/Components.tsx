@@ -52,7 +52,7 @@ export function Components() {
  const value = query.data?.find(component => component.id === 'browser');
  const states: Record<string, [string, string]> = { installed: ['已安装', 'Installed'], missing: ['未安装', 'Not installed'], broken: ['需要修复', 'Repair needed'], external: ['自定义安装', 'Custom installation'], unsupported: ['当前平台不支持', 'Unsupported platform'] };
  return <section className="components-settings">
-  <ul className="components-list" aria-label={zh ? '组件列表' : 'Components list'}><li className="component-row settings-card">
+  <ul className="components-list" aria-label={zh ? '组件列表' : 'Components list'}><li className="component-row">
    <div className="component-summary"><Globe size={28} aria-hidden="true"/><div className="component-copy">
     <div className="component-heading"><h3>{zh ? '浏览器组件' : 'Browser components'}</h3>{value && <span className="component-state">{states[value.state]?.[zh ? 0 : 1]}</span>}</div>
     {value && <ComponentDetails value={value}/>}

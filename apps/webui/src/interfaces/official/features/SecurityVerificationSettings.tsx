@@ -23,7 +23,7 @@ export function SecurityVerificationSettings({ onChangePassword }: { onChangePas
     query.reload();
   }
   useErrorToast(query.error || action.error, query.reload);
-  return <section className="security-verification settings-group settings-card" aria-label={t.verification.settingsTitle}>
+  return <section className="security-verification settings-group" aria-label={t.verification.settingsTitle}>
     <header className="security-section-heading"><h3 className="settings-group-title">{t.verification.settingsTitle}</h3></header>
     {!status ? query.loading && <Loading /> : <>
       <div className="settings-list">

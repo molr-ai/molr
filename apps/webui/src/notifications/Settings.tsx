@@ -9,7 +9,7 @@ export function NotificationSettings() {
   const { locale } = useCopy(), copy = notificationCopy[locale], notifications = useNotifications();
   const [busy, setBusy] = useState(false), [result, setResult] = useState('');
   const systemAvailable = !['unsupported', 'insecure'].includes(notifications.capability);
-  return <div className="settings-general notification-settings settings-card">
+  return <div className="settings-general notification-settings">
     <p className="settings-description">{copy.help}</p>
     <div className="settings-list">
       <SettingsSwitch label={copy.enabled} help={copy.enabledHelp} checked={notifications.preferences.enabled} onChange={event => notifications.change({ enabled: event.target.checked })} />

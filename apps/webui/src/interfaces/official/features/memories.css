@@ -1,14 +1,14 @@
 .memory-workspace { gap: 20px; }
 .memory-filters { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; }
 .memory-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.dream-panel { display: grid; gap: 12px; padding: 18px; border: 1px solid var(--color-border); border-radius: 12px; }
+.dream-panel { display: grid; gap: 12px; border-top: 1px solid var(--color-border); padding-top: 20px; }
 .dream-panel h3 { margin: 0; }
 .dream-run { padding: 10px 0; border-top: 1px solid var(--color-border); }
 .dream-run summary { cursor: pointer; }
 .memory-source { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block: 12px; }
 .memory-source code { overflow-wrap: anywhere; }
 .memory-source-text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 45vh; overflow: auto; }
-@media (max-width: 640px) { .memory-filters { grid-template-columns: 1fr; } .dream-panel { padding: 12px; } }
+@media (max-width: 640px) { .memory-filters { grid-template-columns: 1fr; } }
 
 .memory-path { overflow-wrap: anywhere; }
 

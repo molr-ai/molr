@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { CSSProperties, KeyboardEvent } from 'react';
-import { Card, IconButton, SegmentedControl, Tooltip, useBreakpoint } from '@molr/ui';
+import { IconButton, SegmentedControl, Tooltip, useBreakpoint } from '@molr/ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCopy } from '../state';
 import { amountLabel, amountMicros, calendarDate, compactTokens, dateAdd, emptyUsage } from './usage-analytics';
@@ -63,7 +63,7 @@ export function UsageCalendar({ data, selected, onSelect }: { data: UsageAnalyti
   const target = dateAdd(e.currentTarget.dataset.date!, delta[e.key]);
   e.currentTarget.parentElement?.querySelector<HTMLButtonElement>(`button[data-date="${target}"]:not(:disabled)`)?.focus();
  };
- return <Card role="region" className="usage-calendar" aria-label={zh ? '每日消耗' : 'Daily usage'}>
+ return <section className="usage-calendar" aria-label={zh ? '每日消耗' : 'Daily usage'}>
   <div className="usage-section-heading"><div><h3>{zh ? '每日消耗' : 'Daily usage'}</h3><p>{zh ? '点击日期，查看当天明细' : 'Select a date to inspect its breakdown'}</p></div><SegmentedControl hideLabel label={zh ? '日历指标' : 'Calendar metric'} value={metric} onValueChange={setMetric} options={[{ value: 'tokens', label: 'Token' }, { value: 'spend', label: zh ? '金额' : 'Spend' }]} /></div>
   {mobile && <div className="usage-month-nav"><IconButton variant="ghost" size="sm" label={zh ? '上个月' : 'Previous month'} disabled={months.indexOf(shownMonth) === 0} onClick={() => setMonth(months[months.indexOf(shownMonth) - 1])}><ChevronLeft size={16} /></IconButton><strong>{shownMonth}</strong><IconButton variant="ghost" size="sm" label={zh ? '下个月' : 'Next month'} disabled={months.indexOf(shownMonth) === months.length - 1} onClick={() => setMonth(months[months.indexOf(shownMonth) + 1])}><ChevronRight size={16} /></IconButton></div>}
   <div className={`usage-calendar-layout ${mobile ? 'is-month' : ''}`} style={{ '--usage-weeks': weeks } as CSSProperties}>
@@ -74,5 +74,5 @@ export function UsageCalendar({ data, selected, onSelect }: { data: UsageAnalyti
    </div>
   </div>
   <div className="usage-calendar-legend"><span>{zh ? '少' : 'Less'}</span>{[0, 1, 2, 3, 4].map(n => <Tooltip key={n} content={n === 0 ? '0' : `${n === 1 ? '> 0' : `> ${metric === 'tokens' ? thresholds[n - 2].toLocaleString(locale) : amountLabel([{ Currency: data.Currency, Micros: thresholds[n - 2] }], data, locale)}`} – ${metric === 'tokens' ? thresholds[n - 1].toLocaleString(locale) + ' Token' : amountLabel([{ Currency: data.Currency, Micros: thresholds[n - 1] }], data, locale)}`}><span tabIndex={0} className="usage-legend-cell" data-level={n} /></Tooltip>)}<span>{zh ? '多' : 'More'}</span><span className="usage-legend-range">{metric === 'tokens' ? `0 – ${compactTokens(max, locale)} Token` : `0 – ${amountLabel([{ Currency: data.Currency, Micros: max }], data, locale)}`}</span>{data.Summary.MissingTokenCalls + data.Summary.UnknownCostCalls > 0 && <span>{zh ? '? 含未知用量' : '? Includes unknown usage'}</span>}</div>
- </Card>;
+ </section>;
 }

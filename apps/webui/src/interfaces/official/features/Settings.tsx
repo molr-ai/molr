@@ -72,12 +72,12 @@ function About() {
   const repository = 'https://github.com/molr-ai/molr';
   const updates = useUpdates(), currentBuild = updates.data?.current ?? buildInfo;
   return <div className="settings-section settings-about">
-    <div className="settings-about-brand settings-card">
+    <div className="settings-about-brand">
       <Logo animation={reducedMotion ? 'static' : 'daily'} interactive variant={theme === 'dark' ? 'light' : 'dark'} />
       <div className="settings-about-version"><span>{locale === 'zh' ? '当前版本' : 'Current version'}</span><strong>{currentBuild.version}</strong></div>
     </div>
     <AboutUpdates />
-    <footer className="settings-about-footer settings-card">
+    <footer className="settings-about-footer">
       <div><h3>{locale === 'zh' ? '一起让 Molr 更好' : 'Help Molr grow'}</h3><p>{locale === 'zh' ? '如果喜欢 Molr，欢迎在 GitHub 上点亮一颗 Star。' : 'Enjoying Molr? Give the project a Star on GitHub.'}</p></div>
       <a className="settings-about-github" href={repository} target="_blank" rel="noopener noreferrer" aria-label={t.account.starLink}><Star size={15} aria-hidden="true" />GitHub<ArrowUpRight size={14} aria-hidden="true" /></a>
     </footer>
@@ -85,11 +85,11 @@ function About() {
 }
 function FormerAssistants({ assistants, openAssistant }: { assistants: Assistant[]; openAssistant: (id: string) => void }) {
   const { t } = useCopy(), [rehire, setRehire] = useState<Assistant | null>(null); const former = assistants.filter(a => a.State === 'dismissed');
-  return <div className="settings-section settings-card">{!former.length ? <Empty /> : <div className="settings-rows">{former.map(row => <article className="settings-row-item" key={row.ID}>
+  return <>{!former.length ? <Empty /> : <div className="settings-rows">{former.map(row => <article className="settings-row-item" key={row.ID}>
     <div className="settings-row-item-head"><h3>{row.Name}</h3><Badge>{t.assistants.archived}</Badge><span className="settings-row-item-actions"><Button size="sm" variant="secondary" onClick={() => openAssistant(row.ID)}>{t.chat.message}</Button><Button size="sm" onClick={() => setRehire(row)}>{t.assistants.rehire}</Button></span></div>
   </article>)}</div>}
     <ModalPresence>{rehire && <Confirm title={t.assistants.rehire} description={t.assistants.rehireHelp} onClose={() => setRehire(null)} onConfirm={() => api.mutate('/api/assistants/rehire', { ID: rehire.ID, RestoreGrantIDs: [], RestoreScheduleIDs: [] }, rehire.Version)} />}</ModalPresence>
-  </div>;
+  </>;
 }
 function sessionDeviceName(session: Session) {
   const types: Record<string, string> = { web: 'Web', ios: 'iOS', android: 'Android', desktop: 'Desktop', cli: 'CLI' };
@@ -104,7 +104,7 @@ function Security() {
   useErrorToast(action.error);
   return <div className="settings-section settings-security">
     <SecurityVerificationSettings onChangePassword={() => setPassword(true)} />
-    <section className="settings-group settings-card security-devices" aria-label={t.settings.sessions}>
+    <section className="settings-group security-devices" aria-label={t.settings.sessions}>
       <header className="security-section-heading"><h3 className="settings-group-title">{t.settings.sessions}</h3><Button size="sm" variant="secondary" disabled={!devices.some(row => row.ID !== session.principal?.SessionID)} onClick={() => setRevokeOthers(true)}>{t.settings.revokeOthers}</Button></header>
       {query.loading && !query.data ? <Loading /> : <div className="settings-rows">{devices.map(row => <article className="settings-row-item" key={row.ID}>
         <div className="settings-row-item-head"><div className="security-record-title"><h4>{sessionDeviceName(row)}</h4>{row.ID === session.principal?.SessionID && <Badge>{t.settings.current}</Badge>}</div><span className="settings-row-item-actions"><Button size="sm" variant="ghost" onClick={() => setRevoke(row)}>{t.settings.revokeSession}</Button></span></div>
@@ -115,7 +115,7 @@ function Security() {
       </article>)}</div>}
     </section>
     <LoginLinksSettings />
-    <footer className="security-sign-out settings-card"><div className="security-section-heading"><p className="security-description">{t.settings.signOutHelp}</p><Button size="sm" variant="secondary" disabled={action.busy} onClick={() => void action.run(() => api.post('/api/auth/logout'), session.end, false)}>{t.signOut}</Button></div></footer>
+    <footer className="security-sign-out security-section-heading"><p className="security-description">{t.settings.signOutHelp}</p><Button size="sm" variant="secondary" disabled={action.busy} onClick={() => void action.run(() => api.post('/api/auth/logout'), session.end, false)}>{t.signOut}</Button></footer>
     <ModalPresence>{revoke && <Confirm title={t.settings.revokeSession} description={t.settings.revokeSessionHelp} onClose={() => setRevoke(null)} onConfirm={async () => { await api.remove(`/api/auth/sessions/${revoke.ID}`); if (revoke.ID === session.principal?.SessionID) session.end(); else query.reload(); }} />}</ModalPresence>
     <ModalPresence>{revokeOthers && <Confirm title={t.settings.revokeOthers} description={t.settings.revokeOthersHelp} onClose={() => setRevokeOthers(false)} onConfirm={async () => { await api.post('/api/auth/sessions/revoke-others'); query.reload(); }} />}</ModalPresence>
     <ModalPresence>{password && <PasswordEditor onClose={() => setPassword(false)} />}</ModalPresence>
@@ -133,7 +133,7 @@ function DataExport() {
   const scope = t.exportScope;
   return <div className="settings-section settings-export">
     <p className="settings-description">{scope.description}</p>
-    {[{ title: scope.includedTitle, items: scope.included }, { title: scope.optionalTitle, items: scope.optional }].map(group => <section className="settings-group settings-card" key={group.title} aria-label={group.title}>
+    {[{ title: scope.includedTitle, items: scope.included }, { title: scope.optionalTitle, items: scope.optional }].map(group => <section className="settings-group" key={group.title} aria-label={group.title}>
       <h3 className="settings-group-title">{group.title}</h3>
       <dl className="settings-export-list">{group.items.map(item => <div key={item.title}><dt>{item.title}</dt><dd className="settings-description">{item.description}</dd></div>)}</dl>
     </section>)}

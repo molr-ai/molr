@@ -21,7 +21,7 @@ function RetentionForm({ policy, reload, onSaved }: { policy: RetentionSettings;
   const label = zh ? '执行次数上限' : 'Maximum executions';
   const help = zh ? '账号下所有助理共享的历史执行条数，包含做梦记录。超过上限时删除最早的已完成执行；运行中的执行保留到结束。上下文只在没有任何业务或历史引用后回收。' : 'History across all assistants in each account, including dreams. Oldest completed executions are removed first; running executions remain until completion. Context is reclaimed only after all execution and history references are released.';
   useErrorToast(action.error, () => { action.reset(); reload(); });
-  return <form className="settings-section retention-settings settings-card" onSubmit={event => { event.preventDefault(); void action.run(async () => {
+  return <form className="settings-section retention-settings" onSubmit={event => { event.preventDefault(); void action.run(async () => {
     await api.mutate('/api/admin/debug/retention', { Policy: { MaxRuns: runs === '' ? null : Number(runs) } }, policy.Version);
     onSaved(); reload(); invalidateTopics(['debug', 'admin']);
   }, undefined, false); }}>
