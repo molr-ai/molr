@@ -295,6 +295,7 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 /* Host-owned unread counts remain visible across UI packages and notification modes. */
 .nav-button .nav-icon { display: block; position: relative; width: 22px; height: 22px; flex-shrink: 0; }
 .nav-button .nav-unread { display: grid; place-items: center; position: absolute; top: -7px; right: -11px; min-width: 17px; height: 17px; padding: 0 3px; border-radius: 999px; background: var(--color-notification); color: var(--color-white); box-shadow: 0 0 0 2px var(--color-surface); font: 10px var(--font-mono); }
+.workspace:not(.workspace--mobile) .nav-unread { top: -11px; }
 
 .chat-search-location { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--color-border); color: var(--color-text-muted); font-size: 12px; }
 .chat-message-target { outline: 2px solid var(--color-focus); outline-offset: 4px; border-radius: var(--radius-control); background: var(--color-selected-bg); scroll-margin-block: 24px; }
