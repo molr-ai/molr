@@ -5,6 +5,7 @@
 @import './components/chat.css';
 @import './components/chat-feedback.css';
 
+@import './components/sliding-highlight.css';
 @import './components/workspace.css';
 @import './components/search-panel.css';
 @import './components/connection-logo.css';

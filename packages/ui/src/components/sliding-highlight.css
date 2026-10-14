@@ -1,0 +1,7 @@
+.ui-sliding-highlight { position: relative; isolation: isolate; }
+.ui-sliding-highlight::before { content: ''; display: none; position: absolute; top: 0; left: 0; width: var(--sliding-highlight-width); height: var(--sliding-highlight-height); transform: translate(var(--sliding-highlight-x), var(--sliding-highlight-y)); border-radius: var(--radius-control); background: var(--sliding-highlight-background, var(--color-background)); pointer-events: none; transition: transform 180ms ease, width 180ms ease, height 180ms ease; }
+/* Hidden highlights appear directly at their new target, without an entrance slide. */
+.ui-sliding-highlight[data-highlight]::before { display: block; }
+.ui-sliding-highlight > * { position: relative; }
+.ui-sliding-highlight[data-reduced-motion='true']::before { transition: none; }
+@media (prefers-reduced-motion: reduce) { .ui-sliding-highlight::before { transition: none; } }

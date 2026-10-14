@@ -82,3 +82,6 @@ export { Slider } from './components/Slider';
 export type { SliderProps } from './components/Slider';
 
 export { ModalPresence, useModalSnapshot } from './modal-presence';
+
+export { SlidingHighlight } from './components/SlidingHighlight';
+export type { SlidingHighlightProps } from './components/SlidingHighlight';

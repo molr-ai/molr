@@ -12,6 +12,9 @@
 .settings-nav > :is(button, a):hover { background: color-mix(in srgb, var(--color-neutral-bg) 55%, transparent); }
 .settings-nav > :is(button, a)[aria-current] { background: var(--color-selected-bg); font-weight: 500; }
 .settings-nav > :is(button, a)[aria-current] .settings-nav-icon { color: var(--color-primary); }
+@media not all and (--molr-mobile) {
+  .settings-nav > :is(button, a):is(:hover, [aria-current]) { background: transparent; }
+}
 .settings-nav-icon { color: var(--color-text-muted); flex-shrink: 0; }
 .settings-nav > :is(button, a) > span { flex: 1; min-width: 0; }
 .settings-nav-caret { color: var(--color-text-muted); opacity: 0; flex-shrink: 0; }

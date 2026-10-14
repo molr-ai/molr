@@ -248,7 +248,9 @@ npm run test:ui
 
 ## 助理列表与应用动效偏好
 
-桌面助理列表使用单一背景滑块：悬停项优先于当前选中项，移出后返回选中项；两者均不存在时隐藏。从隐藏变为显示时直接定位，已显示时平滑移动；系统或应用要求减少动效时直接切换。移动端布局及手机宽度下始终隐藏背景滑块，包括鼠标悬停和触摸操作。
+`SlidingHighlight` 是共用背景滑块容器，助理列表与桌面用户设置、管理员设置侧栏均复用它。`as` 支持 `div`（默认）、`nav`、`ul`；`value` 对应子项的 `data-sliding-item`，`disabled` 关闭滑块而不禁用子项操作。容器保留调用方的列表／导航语义，点击、键盘操作和 `aria-current` 由调用方维护。默认颜色为 `--color-background`，可通过 `--sliding-highlight-background` 覆盖；使用 `ResizeObserver` 跟随条目尺寸及列表布局变化。
+
+桌面侧栏使用单一背景滑块：悬停项优先于当前选中项，移出后返回选中项；两者均不存在时隐藏。从隐藏变为显示时直接定位，已显示时平滑移动；系统或应用要求减少动效时直接切换。移动端布局及手机宽度下始终隐藏背景滑块，包括鼠标悬停和触摸操作。
 
 `AssistantList` 接受纯展示数据 `entries: AssistantListEntry[]`、`selectedID`、`onSelect` 和读屏标签。条目包含 `id/name/preview/unread/pinned`，组件不读取 demo store 或发起网络请求。`mobile` 控制移动端布局和选中表现，列表平铺展示、置顶优先；间距、头像、未读标记统一由组件样式提供。原型和真实 WebUI 共用这一实现，不提供助理分组展示。可传入 `emptyState` 复用 `EmptyState` 展示图标、说明和操作；未提供时回退到 `emptyLabel`。应用区分无助理的聘请引导和搜索无结果的清空操作。
 

@@ -1,10 +1,6 @@
 .assistant-list { position: relative; isolation: isolate; flex: 1; min-height: 0; overflow-y: auto; list-style: none; padding: 0; margin: 0; }
-.assistant-list::before { content: ''; display: none; position: absolute; top: 0; left: 0; width: var(--assistant-highlight-width); height: var(--assistant-highlight-height); transform: translate(var(--assistant-highlight-x), var(--assistant-highlight-y)); border-radius: var(--radius-control); background: var(--assistant-active-bg, var(--color-selected-bg)); pointer-events: none; transition: transform 180ms ease, width 180ms ease, height 180ms ease; }
-/* display:none resets the transition so a newly visible highlight appears in place. */
-.assistant-list:not(.assistant-list--mobile)[data-highlight]::before { display: block; }
-@media (--molr-mobile) { .assistant-list:not(.assistant-list--mobile)[data-highlight]::before { display: none; } }
-.assistant-list[data-reduced-motion='true']::before { transition: none; }
-@media (prefers-reduced-motion: reduce) { .assistant-list::before { transition: none; } }
+.assistant-list { --sliding-highlight-background: var(--assistant-active-bg, var(--color-selected-bg)); }
+@media (--molr-mobile) { .assistant-list[data-highlight]::before { display: none; } }
 .assistant-list > li { position: relative; margin: 0; }
 .assistant-list button[data-assistant-id] { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px; border: 0; border-radius: 0; background: transparent; color: var(--color-text); text-align: left; }
 .assistant-list:not(.assistant-list--mobile) { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 0; padding: 9px 9px 0; }

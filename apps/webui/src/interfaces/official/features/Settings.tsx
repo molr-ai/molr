@@ -8,7 +8,7 @@ import { notificationCopy } from '../../../notifications/copy';
 import { Memories } from './Memories';
 import { AccountUsage } from '../../../administration/Usage';
 import { Activity, useEffect, useState } from 'react';
-import { ModalPresence, Badge, Button, Checkbox, IconButton, Logo, TextField, useBreakpoint, useTheme, useUILocale } from '@molr/ui';
+import { SlidingHighlight, ModalPresence, Badge, Button, Checkbox, IconButton, Logo, TextField, useBreakpoint, useTheme, useUILocale } from '@molr/ui';
 import { Bell, Brain, ChartNoAxesCombined, ChevronLeft, ChevronRight, Database, Download, Info, Palette as PaletteIcon, Settings as SettingsIcon, Settings2, Shield, Star, ArrowUpRight, UserRound, UserRoundX } from 'lucide-react';
 import { api } from '../../../api/client';
 import type { Assistant, Session } from '../../../api/types';
@@ -48,14 +48,14 @@ export function Settings({ assistants, openAssistant, initialTab = '', onSelectS
   return <section className="settings-workspace">
     <PageHeader className="settings-header" title={mobile && current ? current.label : locale === 'zh' ? '用户设置' : 'User settings'} icon={<SettingsIcon />} leading={mobile && current && onSelectSection ? <IconButton label={t.back} onClick={() => select('')}><ChevronLeft size={18} /></IconButton> : undefined} actions={principal?.User?.Administrator && <Button className="settings-admin-button" variant="secondary" size="sm" onClick={() => navigate('settings')}><Shield size={16} aria-hidden="true" />{t.account.admin}</Button>} />
     <div className="settings-body">
-      <nav className="settings-nav" aria-label={locale === 'zh' ? '用户设置' : 'User settings'} hidden={mobile && !!current}>
+      <SlidingHighlight as="nav" value={active} disabled={mobile} className="settings-nav" aria-label={locale === 'zh' ? '用户设置' : 'User settings'} hidden={mobile && !!current}>
         {sections.map(item => {
           const Icon = item.icon;
-          return <button key={item.value} type="button" aria-current={active === item.value ? 'page' : undefined} onClick={() => select(item.value)}>
+          return <button key={item.value} data-sliding-item={item.value} type="button" aria-current={active === item.value ? 'page' : undefined} onClick={() => select(item.value)}>
             <Icon size={16} className="settings-nav-icon" aria-hidden="true" /><span>{item.label}</span>{item.value === 'about' && <UpdateBadge />}<ChevronRight size={16} className="settings-nav-caret" aria-hidden="true" />
           </button>;
         })}
-      </nav>
+      </SlidingHighlight>
       <div className="settings-panel" hidden={mobile && !current}>
         {sections.filter(item => visited.has(item.value)).map(item => <div key={item.value} className="settings-pane" hidden={item.value !== active}>
           <Activity mode={item.value === active ? 'visible' : 'hidden'}>

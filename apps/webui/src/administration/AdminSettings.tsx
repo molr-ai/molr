@@ -4,7 +4,7 @@ import { AdminUsage } from './Usage';
 import { WorkbenchRetentionSettings } from './WorkbenchRetention';
 import { Components } from '../maintenance/Components';
 import { useState } from 'react';
-import { ModalPresence, AssistantAvatar, Badge, Button, Checkbox, IconButton, Select, Tabs, TextField, useBreakpoint } from '@molr/ui';
+import { SlidingHighlight, ModalPresence, AssistantAvatar, Badge, Button, Checkbox, IconButton, Select, Tabs, TextField, useBreakpoint } from '@molr/ui';
 import { ChartNoAxesCombined, ChevronLeft, ChevronRight, Package, Plus, Settings, Shield, Users } from 'lucide-react';
 import { api } from '../api/client';
 import { useCopy, useQuery, useSession } from '../state';
@@ -29,7 +29,7 @@ export function AdminSettings({ initialTab, onSelectSection }: { initialTab: str
   ];
   const active = sections.some(s => s.id === initialTab) ? initialTab : mobile ? '' : 'users', current = sections.find(s => s.id === active);
   return <section className="settings-workspace"><PageHeader className="settings-header" title={mobile && current ? current.label : zh ? '管理员设置' : 'Admin settings'} icon={<Settings />} leading={<IconButton label={zh ? '返回' : 'Back'} onClick={() => mobile && current ? onSelectSection('') : navigate('account')}><ChevronLeft size={18} /></IconButton>} />
-    <div className="settings-body"><nav className="settings-nav" aria-label={zh ? '管理员设置' : 'Admin settings'} hidden={mobile && !!current}>{sections.map(s => <button key={s.id} type="button" aria-current={active === s.id ? 'page' : undefined} onClick={() => onSelectSection(s.id)}><s.icon size={16} className="settings-nav-icon" /><span>{s.label}</span><ChevronRight size={16} className="settings-nav-caret" /></button>)}</nav><div className="settings-panel" hidden={mobile && !current}>{current && <div className="settings-pane" key={active}><header className="settings-pane-header"><h2>{current.label}</h2></header>{current.content}</div>}</div></div>
+    <div className="settings-body"><SlidingHighlight as="nav" value={active} disabled={mobile} className="settings-nav" aria-label={zh ? '管理员设置' : 'Admin settings'} hidden={mobile && !!current}>{sections.map(s => <button key={s.id} data-sliding-item={s.id} type="button" aria-current={active === s.id ? 'page' : undefined} onClick={() => onSelectSection(s.id)}><s.icon size={16} className="settings-nav-icon" /><span>{s.label}</span><ChevronRight size={16} className="settings-nav-caret" /></button>)}</SlidingHighlight><div className="settings-panel" hidden={mobile && !current}>{current && <div className="settings-pane" key={active}><header className="settings-pane-header"><h2>{current.label}</h2></header>{current.content}</div>}</div></div>
   </section>;
 }
 
