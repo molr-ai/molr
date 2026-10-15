@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, readdir, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,7 +9,8 @@ import { documentPath, publicDocuments } from '../docs-plugin.ts';
 import { releaseAssets } from '../../../scripts/release-assets.ts';
 
 test('document routes reject internal paths, traversal and links', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'molr-doc-routes-'));
+  // macOS temp directories may use /var, a system alias for /private/var.
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'molr-doc-routes-')));
   try {
     await mkdir(join(root, 'docs'));
     await mkdir(join(root, 'internal-docs'));
