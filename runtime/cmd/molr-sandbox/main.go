@@ -1,4 +1,4 @@
-// molr-sandbox exposes the shared Linux sandbox backend as a standalone service.
+// molr-sandbox exposes the shared Linux and macOS sandbox backends as a standalone service.
 package main
 
 import (

@@ -20,7 +20,7 @@ type shellRemoteControl struct {
 	StdoutPath, StderrPath string
 }
 
-func (b *linuxSandboxBackend) shellControl(ctx context.Context, q sm.Request) (json.RawMessage, error) {
+func (b *remoteSandboxBackend) shellControl(ctx context.Context, q sm.Request) (json.RawMessage, error) {
 	var r shellRemoteControl
 	if err := decodeSandboxArgs(q.Arguments, &r); err != nil {
 		return nil, err
@@ -100,6 +100,6 @@ func (s *sandboxRouter) remoteShellControl(ctx context.Context, e core.Execution
 }
 
 // Operation spools are internal recovery evidence, never assistant workspaces.
-func (b *linuxSandboxBackend) operationRoot(i sm.Identity) string {
+func (b *remoteSandboxBackend) operationRoot(i sm.Identity) string {
 	return filepath.Join(b.cfg.DataDir, "operations", digestBytes([]byte(string(i.OwnerID)+"/"+string(i.AssistantID)+"/"+string(i.ExecutionID)+"/"+string(i.OperationID))))
 }

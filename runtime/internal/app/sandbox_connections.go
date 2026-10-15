@@ -252,8 +252,8 @@ func (s *sandboxRouter) admin(ctx context.Context, p core.Principal, action stri
 		if err != nil {
 			return nil, err
 		}
-		if info.Capabilities.OS != "linux" {
-			return nil, core.Invalid("platform", "only Linux sandboxes are supported")
+		if info.Capabilities.OS != "linux" && info.Capabilities.OS != "darwin" {
+			return nil, core.Invalid("platform", "only Linux and macOS sandboxes are supported")
 		}
 		if q.ID != "" {
 			if err = s.invalidate(ctx, p); err != nil {

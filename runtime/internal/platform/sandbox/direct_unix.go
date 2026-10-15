@@ -66,7 +66,7 @@ func (r *Runner) startHost(parent context.Context, e core.Execution, c platform.
 			directory = work
 		}
 		if !filepath.IsAbs(directory) {
-			return nil, core.Invalid("directory", "remote Full Access requires an absolute directory")
+			return nil, core.Invalid("directory", "remote execution requires an absolute directory")
 		}
 	} else {
 		work = platform.AssistantWorkspace(r.options.PrivateRoot, r.options.WorkRoot, e.Principal.OwnerID, e.AssistantID)
@@ -161,7 +161,9 @@ func (r *Runner) startHost(parent context.Context, e core.Execution, c platform.
 		if ctx.Err() != nil || !slices.Contains(c.ForwardPorts, port) {
 			return nil, core.NewError(core.Forbidden, "port not forwarded by this task")
 		}
-		if err := r.options.Authorize(call, e, c); err != nil {
+		// Recheck the execution's authorization context. A forwarding HTTP request
+		// has its own context and does not carry the delegated sandbox request.
+		if err := r.options.Authorize(ctx, e, c); err != nil {
 			return nil, err
 		}
 		conn, err := (&net.Dialer{}).DialContext(call, "tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
@@ -173,12 +175,6 @@ func (r *Runner) startHost(parent context.Context, e core.Execution, c platform.
 		return tracked, nil
 	}
 	go func() {
-		if cleanup != nil {
-			defer cleanup()
-		}
-		if r.options.NoWorkspace {
-			defer os.RemoveAll(work)
-		}
 		done := make(chan error, 1)
 		go func() { done <- cmd.Wait() }()
 		tick := time.NewTicker(200 * time.Millisecond)
@@ -229,6 +225,12 @@ func (r *Runner) startHost(parent context.Context, e core.Execution, c platform.
 		budget.mu.Lock()
 		p.exit.OutputTruncated = budget.truncated
 		budget.mu.Unlock()
+		if cleanup != nil {
+			cleanup()
+		}
+		if r.options.NoWorkspace {
+			os.RemoveAll(work)
+		}
 		cancel()
 		p.stdout.finish()
 		p.stderr.finish()

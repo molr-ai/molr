@@ -1,5 +1,7 @@
 # 资源与文件工具合同
 
+远程 macOS 的目录项使用 `ShellEnvironment` 代替 `ShellPath`。在 `files` 中请求相同 `ResourceID` 和准确 `Path` 后，脚本引用该环境变量；文件工具仍使用资源相对路径。详见[远程 macOS](../../admin/sandbox/remote.md#macos-节点)。
+
 更新：2026-10-06。本文面向工具与 Runtime 开发者；用户授权操作见 [资源与权限](../../user/guides/permissions-and-budget.md)，运行环境见 [Linux 命令环境](../../admin/sandbox/linux.md)。
 
 ## 显式 Full Access 调用

@@ -579,8 +579,8 @@
     "path": "/molr/.agents/skills/molr-docs/references/docs/admin/sandbox/remote.md",
     "contentLanguage": "zh",
     "titles": {
-      "zh": "独立 Linux Sandbox 服务",
-      "en": "Standalone Linux Sandbox service"
+      "zh": "独立 Sandbox 服务",
+      "en": "Standalone Sandbox service"
     },
     "topics": {
       "zh": "沙盒部署",

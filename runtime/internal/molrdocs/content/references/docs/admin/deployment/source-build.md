@@ -51,7 +51,7 @@ Runtime 支持 macOS ARM64 和 AMD64。工作区、文件工具、附件和记�
 
 长期运行可使用管理员自行管理的 launchd 服务：`ProgramArguments` 指向构建产物、`serve`、`-config` 和配置绝对路径；显式设置 `WorkingDirectory`、日志路径和 `PATH`，因为 launchd 不读取交互式 shell 配置。服务账户必须能够读写自己的配置和数据目录。更新时停止本实例、原子替换二进制后重启，保留配置、数据库和密钥。
 
-启动后认证检查 `/api/sandbox`：关闭命令时要求 `Enabled=false`、`Storage=true`；受控执行就绪时要求 `Reason=available`、`Shell`、`FileIsolation`、`NetworkIsolation` 为 true，`NetworkBackend=seatbelt-toggle`。`ProcessIsolation` 与 `ResourceLimits` 为 false。另行开启 Full Access 时检查 `Capabilities.FullAccess=true`。文件、终端和撤权须在 Mac 原生验证；远程执行节点继续使用 Linux。
+启动后认证检查 `/api/sandbox`：关闭命令时要求 `Enabled=false`、`Storage=true`；受控执行就绪时要求 `Reason=available`、`Shell`、`FileIsolation`、`NetworkIsolation` 为 true，`NetworkBackend=seatbelt-toggle`。`ProcessIsolation` 与 `ResourceLimits` 为 false。另行开启 Full Access 时检查 `Capabilities.FullAccess=true`。文件、终端和撤权须在 Mac 原生验证；远程执行节点支持 Linux 和 macOS，见[独立沙盒](https://molr.ai/zh/docs/admin/sandbox/remote/)。
 
 ## 构建发行包
 

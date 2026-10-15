@@ -36,6 +36,7 @@
 | `internal/config` | `Duration.MarshalJSON` | `TestTDDConfigDurationRoundTripAndInvalidInput` |
 | `internal/config` | `Duration.UnmarshalJSON` | `TestTDDConfigDurationRoundTripAndInvalidInput` |
 | `internal/platform` | `NativeSandbox` | `TestNativeSandboxSelectsHostPlatform` |
+| `internal/platform` | `ResourceEnvironment` | `internal/platform/sandbox.TestSeatbeltRemoteExecutionScopes`, `internal/app.TestRemoteNativeSandboxIntegration` |
 | `internal/platform` | `Capabilities.ControlledReady` | `TestControlledReadyRequiresBackendIsolation` |
 | `internal/platform` | `AssistantWorkspace` | `TestAssistantWorkspaceIdentityAndOverrides` |
 | `internal/platform` | `EnsureWorkspace`, `WorkspaceDirectories` | `TestWorkspaceLayoutPreservesFilesAndRejectsLinks` |

@@ -1,6 +1,6 @@
 # 架构总览
 
-Molr 采用 Go 模块化单体，使用 SQLite 与本地文件保存数据。WebUI 通过 HTTP 与 SSE 连接 Runtime；命令执行可使用内置沙盒或独立 Linux Sandbox。
+Molr 采用 Go 模块化单体，使用 SQLite 与本地文件保存数据。WebUI 通过 HTTP 与 SSE 连接 Runtime；命令执行可使用内置沙盒或独立 Linux/macOS Sandbox。
 
 ## 组成
 

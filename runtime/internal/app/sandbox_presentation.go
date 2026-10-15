@@ -87,7 +87,7 @@ func (s *sandboxRouter) testConnection(ctx context.Context, p core.Principal, ra
 	if err != nil {
 		return sandboxDiagnosis(err), nil
 	}
-	if info.Capabilities.OS != "linux" {
+	if info.Capabilities.OS != "linux" && info.Capabilities.OS != "darwin" {
 		return sandboxDiagnostic{Reason: "sandbox_platform_unsupported", Field: "Endpoint", CheckedAt: time.Now()}, nil
 	}
 	return sandboxDiagnostic{Connected: true, Info: &info, CheckedAt: time.Now()}, nil

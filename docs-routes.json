@@ -362,9 +362,9 @@
   {
     "file": "admin/sandbox/remote.md",
     "path": "/docs/admin/sandbox/remote/",
-    "label": "独立 Linux Sandbox 服务",
+    "label": "独立 Sandbox 服务",
     "group": "沙盒部署",
-    "englishLabel": "Standalone Linux Sandbox service",
+    "englishLabel": "Standalone Sandbox service",
     "englishGroup": "Sandbox deployment",
     "root": "docs",
     "section": "admin"

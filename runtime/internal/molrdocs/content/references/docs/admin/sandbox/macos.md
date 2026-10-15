@@ -56,4 +56,4 @@ Shell 脚本使用 `$MOLR_WORKSPACE`、`$MOLR_GLOBAL`、`$TMPDIR` 和权限列�
 CGO_ENABLED=0 go test ./internal/platform/sandbox ./internal/app ./internal/config -run 'TestSeatbelt|TestNativeSandbox' -v
 ```
 
-受管浏览器、隔离音视频解码及独立远程 macOS 沙盒节点暂不支持。主 Runtime 可以继续连接 Linux 执行节点；两种节点分别展示自身能力。
+受管浏览器和隔离音视频解码暂不支持。独立 macOS 节点使用相同的 Seatbelt 能力，部署见[远程沙盒](https://molr.ai/zh/docs/admin/sandbox/remote/#macos-节点)。Linux 和 macOS Runtime 均可连接两种节点，按目标节点展示能力。

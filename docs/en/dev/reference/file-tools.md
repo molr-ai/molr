@@ -1,5 +1,7 @@
 # Resource and File Tool Contracts
 
+Remote macOS directory entries use `ShellEnvironment` instead of `ShellPath`. Request the same `ResourceID` and exact `Path` in `files`, then reference that environment variable in the script. File tools still use resource-relative paths. See [remote macOS](../../admin/sandbox/remote.md#macos-nodes).
+
 Updated: 2026-10-06. This document is intended for tool and Runtime developers; for user authorization operations, see [Resources and Permissions](../../user/guides/permissions-and-budget.md), and for the runtime environment, see [Linux Command Environment](../../admin/sandbox/linux.md).
 
 ## Explicit Full Access Calls

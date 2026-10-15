@@ -56,4 +56,4 @@ Run native regression tests from `runtime/` on a Mac:
 CGO_ENABLED=0 go test ./internal/platform/sandbox ./internal/app ./internal/config -run 'TestSeatbelt|TestNativeSandbox' -v
 ```
 
-Managed browser tasks, isolated audio/video decoding, and standalone remote macOS sandbox nodes remain unsupported. The main Runtime can still connect to Linux execution nodes; each node reports its own capabilities.
+Managed browser tasks and isolated audio/video decoding remain unsupported. Standalone macOS nodes use the same Seatbelt capabilities; see [remote sandbox deployment](remote.md#macos-nodes). Both Linux and macOS Runtimes can connect to either node type, with capabilities reported per node.

@@ -72,9 +72,6 @@ func (r *Runner) prepare(ctx context.Context) error {
 	if !filepath.IsAbs(r.options.PrivateRoot) {
 		return unavailable("sandbox_private_directory_required")
 	}
-	if r.options.NoWorkspace {
-		return unavailable("sandbox_remote_native_unsupported")
-	}
 	if _, err := os.Stat("/usr/bin/sandbox-exec"); err != nil {
 		return unavailable("sandbox_seatbelt_unavailable")
 	}
@@ -135,8 +132,10 @@ func (r *Runner) prepare(ctx context.Context) error {
 }
 func (r *Runner) start(ctx context.Context, e core.Execution, c platform.Command) (*process, error) {
 	return r.startHost(ctx, e, c, func(cmd *exec.Cmd, work, tty string) (func(), error) {
-		if err := platform.EnsureWorkspace(work); err != nil {
-			return nil, err
+		if !r.options.NoWorkspace {
+			if err := platform.EnsureWorkspace(work); err != nil {
+				return nil, err
+			}
 		}
 		work, err := filepath.EvalSymlinks(work)
 		if err != nil {
@@ -157,7 +156,7 @@ func (r *Runner) start(ctx context.Context, e core.Execution, c platform.Command
 			return fail(err)
 		}
 		global := platform.UserGlobal(r.options.PrivateRoot, e.Principal.OwnerID)
-		if _, err := os.Stat(global); err == nil {
+		if _, err := os.Stat(global); !r.options.NoWorkspace && err == nil {
 			global, err = filepath.EvalSymlinks(global)
 			if err != nil {
 				return fail(err)
@@ -165,10 +164,14 @@ func (r *Runner) start(ctx context.Context, e core.Execution, c platform.Command
 			read = append(read, global)
 		}
 		write := []string{work, temp}
+		var resourceEnv []string
 		for _, m := range c.Mounts {
 			source, err := r.nativeExternal(m.Source)
 			if err != nil {
 				return fail(err)
+			}
+			if r.options.NoWorkspace && m.Destination != "" {
+				resourceEnv = append(resourceEnv, platform.ResourceEnvironment(m.Destination)+"="+source)
 			}
 			if m.ReadOnly {
 				read = append(read, source)
@@ -194,7 +197,12 @@ func (r *Runner) start(ctx context.Context, e core.Execution, c platform.Command
 		cmd.Path = "/bin/sh"
 		cmd.Args = args
 		// Do not inherit Runtime credentials, proxy settings, SSH sockets or DYLD hooks.
-		cmd.Env = []string{"PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin", "HOME=" + work, "TMPDIR=" + temp, "MOLR_WORKSPACE=" + work, "MOLR_GLOBAL=" + global, "LANG=en_US.UTF-8", "TERM=xterm-256color"}
+		cmd.Env = []string{"PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin", "HOME=" + work, "TMPDIR=" + temp, "LANG=en_US.UTF-8", "TERM=xterm-256color"}
+		if r.options.NoWorkspace {
+			cmd.Env = append(cmd.Env, resourceEnv...)
+		} else {
+			cmd.Env = append(cmd.Env, "MOLR_WORKSPACE="+work, "MOLR_GLOBAL="+global)
+		}
 		return cleanup, nil
 	})
 }

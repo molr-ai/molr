@@ -20,8 +20,8 @@ import (
 )
 
 func TestSandboxPresentationPreservesCredentialsAndOwnerBoundary(t *testing.T) {
-	if runtime.GOOS != "linux" {
-		t.Skip("requires an in-process Linux remote server; covered by Linux CI")
+	if runtime.GOOS != "linux" && runtime.GOOS != "darwin" {
+		t.Skip("requires a supported remote server")
 	}
 	f := newResourceAccessFixture(t, func(cfg *config.Config, _ string) { cfg.Sandbox.Enabled = false })
 	cfg := testConfig(t)

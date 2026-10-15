@@ -325,3 +325,44 @@ func TestSeatbeltClosesUnrelatedInheritedDescriptors(t *testing.T) {
 		t.Fatalf("inherited descriptor accessible: %+v %s", exit, out)
 	}
 }
+
+func TestSeatbeltRemoteExecutionScopes(t *testing.T) {
+	r := New(Options{PrivateRoot: t.TempDir(), NoWorkspace: true, Authorize: func(context.Context, core.Execution, platform.Command) error { return nil }})
+	defer r.Close()
+	if err := r.Prepare(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "input"), []byte("READ_OK"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	destination := "/resources/test/allowed"
+	variable := platform.ResourceEnvironment(destination)
+	c := nativeCommand(`test -z "$MOLR_WORKSPACE" && test -z "$MOLR_GLOBAL" || exit 1; cat "$` + variable + `/input"; if echo bad > "$` + variable + `/input"; then exit 2; fi; echo ok > "$TMPDIR/result"; printf '\nHOME=%s\nTMP=%s\n' "$HOME" "$TMPDIR"`)
+	c.Directory = destination
+	c.Mounts = []platform.Mount{{Source: root, Destination: destination, ReadOnly: true}}
+	exit, out := nativeRun(t, r, c)
+	if exit.Code != 0 || !strings.Contains(out, "READ_OK") {
+		t.Fatalf("%+v %s", exit, out)
+	}
+	for _, line := range strings.Split(out, "\n") {
+		if strings.HasPrefix(line, "HOME=") || strings.HasPrefix(line, "TMP=") {
+			_, p, _ := strings.Cut(line, "=")
+			if _, err := os.Stat(p); !os.IsNotExist(err) {
+				t.Fatalf("temporary execution directory survived: %s %v", p, err)
+			}
+		}
+	}
+	if _, err := os.Stat(platform.AssistantWorkspace(r.options.PrivateRoot, "", "owner", "assistant")); !os.IsNotExist(err) {
+		t.Fatal("remote assistant workspace created", err)
+	}
+	c.Mounts[0].ReadOnly = false
+	c.Script = `echo WRITE_OK > "$` + variable + `/result"`
+	exit, out = nativeRun(t, r, c)
+	if exit.Code != 0 {
+		t.Fatalf("%+v %s", exit, out)
+	}
+	if data, err := os.ReadFile(filepath.Join(root, "result")); err != nil || string(data) != "WRITE_OK\n" {
+		t.Fatalf("%s %v", data, err)
+	}
+}

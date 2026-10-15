@@ -130,7 +130,7 @@ func (s *sandboxRouter) quotaUsage(ctx context.Context, p core.Principal, assist
 	usage.Constraints = out.Constraints
 	return usage, nil
 }
-func (b *linuxSandboxBackend) quotaUsage(ctx context.Context, q sm.Request) (json.RawMessage, error) {
+func (b *remoteSandboxBackend) quotaUsage(ctx context.Context, q sm.Request) (json.RawMessage, error) {
 	out := quotaUsage{}
 	if len(q.NetworkAuthorizations) > 0 {
 		n := q.NetworkAuthorizations[0]

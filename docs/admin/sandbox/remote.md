@@ -1,14 +1,14 @@
-# 独立 Linux Sandbox 服务
+# 独立 Sandbox 服务
 
-Runtime 内置本机 sandbox_manager，无需额外启动本机服务。主 Runtime 的 `sandbox.enabled: false` 关闭本机命令执行，工作区、文件工具和远程连接仍可用。独立 `molr-sandbox` 的同名开关仍控制整个远程节点；远程节点继续只支持 Linux。文件操作不要求计算授权，但仍受工作区归属与目录权限限制。
+Runtime 内置本机 sandbox_manager，无需额外启动本机服务。主 Runtime 的 `sandbox.enabled: false` 关闭本机命令执行，工作区、文件工具和远程连接仍可用。独立 `molr-sandbox` 的同名开关仍控制整个远程节点；远程节点支持 Linux 和 macOS。文件操作不要求计算授权，但仍受工作区归属与目录权限限制。
 
-远程电脑运行 `molr-sandbox`，只提供受控执行与已授权目录，不初始化账号、Agent、会话、助理工作区或模型服务。助理及其唯一 `/work` 始终位于 Runtime 本地。当前只支持 Linux。两种运行方式复用文件隔离和 Linux 进程隔离实现；公共协议不包含 Bubblewrap 或 cgroup 路径。
+远程电脑运行 `molr-sandbox`，只提供受控执行与已授权目录，不初始化账号、Agent、会话、助理工作区或模型服务。助理及其唯一 `/work` 始终位于 Runtime 本地。节点复用对应平台的文件工具与执行后端：Linux 使用 Bubblewrap，macOS 使用 Seatbelt；公共协议不包含 Bubblewrap 或 cgroup 路径。
 
 本页面向部署者。服务启动后由管理员[连接沙盒](../resources/sandbox.md#在-webui-连接)，成员使用所属用户组允许的资源并为自己的助理授权。
 
 远程节点同样支持按需 [Full Access 权限](linux.md#按需授予-full-access)：在远端配置 `sandbox.allow_full_access: true`，再为助理授予该节点的 Full Access 计算权限。本机配置不会替远端开放该能力。普通隔离与显式 Full Access 调用可以共存；后者直接使用远端服务的系统身份和环境。
 
-当前 Sandbox 能力协议为版本 7，传输路径为 `/v2/sandbox/`；Runtime 与远程节点版本必须匹配。网络配置显式声明 TCP/UDP，规则在执行机器生效，见[网络配置](linux.md#网络与高级部署)。
+当前 Sandbox 能力协议为版本 8，传输路径为 `/v2/sandbox/`；Runtime 与远程节点版本必须匹配。Linux 网络配置显式声明 TCP/UDP，规则在执行机器生效，见[网络配置](linux.md#网络与高级部署)。
 
 ## 构建与启动
 
@@ -23,7 +23,7 @@ file ../.cache/build/molr-sandbox
 go version -m ../.cache/build/molr-sandbox
 ```
 
-确认静态链接、`CGO_ENABLED=0` 和 `0755` 权限。与 Runtime 相同，需要 Bubblewrap、静态 BusyBox、user namespace 和 cgroup v2 委派。完整要求见 [Linux 沙盒部署](linux.md)。
+确认 Linux 静态 ELF 或 macOS Mach-O、`CGO_ENABLED=0` 和 `0755` 权限。macOS 产物执行 `codesign --force --sign - <binary>` 并用 `codesign --verify --strict <binary>` 验证。Linux 与 Runtime 相同，需要 Bubblewrap、静态 BusyBox、user namespace 和 cgroup v2 委派。完整要求见 [Linux 沙盒部署](linux.md)。
 
 准备一个独立的私有数据目录，例如 `/srv/molr-sandbox/private`。TLS 私钥和服务令牌必须放在该目录内，不能包含符号链接，令牌文件权限为 `0600`。使用随机生成的至少 32 字符令牌；不要把令牌写入启动参数或提交到 Git。可使用可信 CA 或自行签发的 TLS 证书；连接时显式核对证书 SHA-256 指纹，不能跳过验证。
 
@@ -55,7 +55,7 @@ go version -m ../.cache/build/molr-sandbox
 
 远程服务始终只暴露 `directories` 中的目录，`restrict_directories: false` 不扩大远程协议的范围。实际路径仅留在服务端，Runtime 引用不透明的目录 ID。私有数据目录、工作区和允许的外部目录不得重叠。
 
-使用独立的 systemd 用户服务：
+Linux 使用独立的 systemd 用户服务：
 
 ```ini
 [Service]
@@ -69,6 +69,55 @@ Restart=on-failure
 
 服务名使用 `molr-` 前缀，每个实例使用不同的 unit、端口和数据目录。启动日志输出证书指纹，但不会输出服务令牌。当前每个独立服务的凭证信任一个 Runtime；不要把同一服务凭证交给相互不信任的 Runtime。需要不同信任域时运行隔离实例。
 
+## macOS 节点
+
+macOS 使用相同的 `molr-sandbox -config … -token-file …` 命令、TLS 与令牌认证。当前独立节点通过源码构建部署，未接入 `molr-setup`。构建应在目标 Mac 原生完成，ARM64 与 AMD64 分别验收。
+
+配置中的 `data_dir`、证书、私钥、令牌和目录全部使用 Mac 上的绝对路径。将上例的 `sandbox` 替换为：
+
+```json
+{
+  "enabled": true,
+  "allow_full_access": false,
+  "directories": [
+    {"path": "/Users/example/Projects", "read_only": false}
+  ],
+  "network_presets": ["network"],
+  "tool_directories": ["/opt/homebrew", "/usr/local", "/Library/Developer/CommandLineTools"]
+}
+```
+
+不配置 Linux 的 `networks`、Bubblewrap、cgroup 或硬配额。受控执行的文件、网络、进程清理和端口转发边界沿用 [macOS 原生命令权限](macos.md)。计算授权只限制时长；网络为独立授权开关，无配额。网络到期、撤销或范围变化时终止受管任务；失联继续受 15 秒租约限制。Full Access 仍需部署开关和独立授权。
+
+远程节点不创建助理工作区或共享目录，不提供 `$MOLR_WORKSPACE`、`$MOLR_GLOBAL`。受控命令的 `HOME` 和 `TMPDIR` 是每次执行的私有临时目录。文件工具继续使用目录资源 ID 和资源相对路径；Shell 使用权限列表返回的 `ShellEnvironment`：在 `files` 中传入该项的准确 `ResourceID` 和 `Path`，脚本通过对应变量访问，并给变量展开加双引号。例如变量名为 `MOLR_RESOURCE_<摘要>` 时，使用 `"$MOLR_RESOURCE_<摘要>/file.txt"`（替换为返回的完整变量名）。目录实际路径由节点注入，不放入目录发现协议。
+
+`directory` 可使用 `/tmp`，或 `/resources/<ResourceID>/<Path>` 工作目录别名。别名仅用于工作目录解析，不是脚本中的挂载路径；脚本文本不会被改写。授权子目录时使用对应项的变量，未请求的目录不会注入。
+
+使用独立 launchd 配置管理服务。下面路径都需要替换；日志目录须预先创建：
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>ai.molr.remote-sandbox</string>
+  <key>ProgramArguments</key><array>
+    <string>/Users/example/molr/bin/molr-sandbox</string>
+    <string>-config</string><string>/Users/example/molr/private/sandbox.json</string>
+    <string>-token-file</string><string>/Users/example/molr/private/service.token</string>
+  </array>
+  <key>WorkingDirectory</key><string>/Users/example/molr</string>
+  <key>LimitLoadToSessionType</key><array><string>Aqua</string><string>Background</string></array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
+  <key>StandardOutPath</key><string>/Users/example/molr/private/stdout.log</string>
+  <key>StandardErrorPath</key><string>/Users/example/molr/private/stderr.log</string>
+</dict></plist>
+```
+
+保存为 `~/Library/LaunchAgents/ai.molr.remote-sandbox.plist`，使用 `launchctl bootstrap gui/$(id -u) <plist绝对路径>` 加载到当前登录会话。仅通过 SSH 运行时使用 `user/$(id -u)` 域。此部署方式依赖用户会话；不将注销、休眠或服务重启视为任务仍在运行的保证。恢复后查询原操作状态，不自动重放命令。
+
+启动后从主 Runtime 的 `/api/sandboxes` 检查该节点：`Storage=true`、`Reason=available`、`Shell`、`FileIsolation`、`NetworkIsolation` 为 true，`NetworkBackend=seatbelt-toggle`；`ProcessIsolation`、`ResourceLimits` 为 false。独立节点 `enabled:false` 同时关闭执行与存储。
+
 ## 协议、恢复与限制
 
 Runtime 和服务使用 `/v2/sandbox/*` HTTPS 协议，证书指纹固定信任目标，服务令牌验证调用方。JSON 端点为 `info`、`submit`、`get`、`renew`、`cancel`、`revoke`、`read`，TCP 转发另使用认证 Upgrade 端点 `forward`；浏览器 Origin 请求被拒绝，这些接口不挂载到 Runtime 的用户 API。
@@ -77,7 +126,7 @@ Runtime 和服务使用 `/v2/sandbox/*` HTTPS 协议，证书指纹固定信任�
 - Runtime 保存目标沙盒与原执行身份；网络异常先查询结果，不自动生成新操作重试。两端独立数据库，不共享 Runtime SQLite。
 - 运行中的操作持有 15 秒授权租约，Runtime 每约 3 秒重新校验授权并续租。撤权提高授权版本、发送终止通知；失联时租约到期终止。网络分区下不承诺瞬时撤权。
 - 执行结果保存失败时，服务保留结果并退避重试保存，不重复执行操作；保存成功前继续占用执行名额。关闭会停止重试并报告未保存错误。结果超过持久记录限制时保存明确的 `unknown` 状态，不自动重放。
-- 取消停止进程树，不回滚已写文件。服务重启后的未完成操作标记 `unknown`，不猜测成功或自动重放。
+- Linux 取消停止进程树；macOS 取消终止受管进程组，不保证清理脱离进程组的后代。不回滚已写文件。服务重启后的未完成操作标记 `unknown`，不猜测成功或自动重放。
 - `/read` 只允许文件下载、输出分段与媒体快照读取；大块临时内容不写入操作账本。附件导入保持现有 20 MiB 上限；媒体沿用现有读取限制。
 - Shell 支持前台、后台和 TTY，声明 `ShellSessions` 能力；输出归档与控制沿用 `shell_read` / `shell_control`。端口转发要求 `PortForwarding=true`，通过 Runtime 统一提供 TCP 地址；远端仅需原有 TLS 服务端口，详见 [Shell 端口转发](../../user/guides/files-and-commands.md#shell-端口转发)。
 - 文件操作有版本检查和原子替换，但任意 Shell/外部进程写入不是同一个事务，不能把它们当成分布式文件 CAS。
@@ -86,7 +135,7 @@ Runtime 和服务使用 `/v2/sandbox/*` HTTPS 协议，证书指纹固定信任�
 
 启动、升级或重启后，必须认证检查 Runtime `/api/sandbox` 以及 `/api/sandboxes` 中远程实例的能力。Linux 计算就绪要求 `Reason=available`，且 Shell、进程、文件、网络隔离和资源限制均为 true；HTTP 连通不能代替隔离验证。
 
-未来 Windows/macOS 后端的设计要求与平台差异见[沙盒设计](../../dev/security/sandbox.md)。
+Windows 尚未实现，平台差异见[沙盒设计](../../dev/security/sandbox.md)。
 
 ## 文件与执行生命周期
 

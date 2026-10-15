@@ -139,6 +139,10 @@ func (s *sandboxRouter) list(ctx context.Context, p core.Principal) (json.RawMes
 			continue
 		}
 		info := infos[item.SandboxID]
+		if item.Kind == resource.Storage && item.SandboxID != "local" && info.Capabilities.NetworkBackend == "seatbelt-toggle" {
+			item.ShellEnvironment = platform.ResourceEnvironment(resourceShellPath(item.ResourceID, item.Path))
+			item.ShellPath = ""
+		}
 		r, err := resource.NewRepository(s.adapters.store).Get(ctx, p.OwnerID, item.ResourceID)
 		if err != nil {
 			return nil, err
@@ -242,6 +246,9 @@ func (s *sandboxRouter) list(ctx context.Context, p core.Principal) (json.RawMes
 
 		if info.Capabilities.NetworkBackend == "seatbelt-toggle" {
 			out.Sandboxes[len(out.Sandboxes)-1].Description = "Controlled macOS commands use Seatbelt file scopes and a network toggle in the native host environment. Use $MOLR_WORKSPACE, $MOLR_GLOBAL, $TMPDIR and resource ShellPath values in scripts; /work, /global and /resources are file-tool paths, not shell mounts. Compute grants control duration only; no CPU, memory, process, disk or network quotas. Cancellation targets the process group; detached descendants may survive. Full Access requires its separate explicit grant and full_access:true."
+			if id != "local" {
+				out.Sandboxes[len(out.Sandboxes)-1].Description = "Remote macOS commands use Seatbelt file scopes and a network toggle. There is no /work, /global or persistent home. Use $TMPDIR for temporary files. For each authorized directory pass its ResourceID and exact Path in files, then access it using the variable named ShellEnvironment (quote the expansion). directory accepts /tmp or the corresponding /resources/<ResourceID>/<Path> alias; these aliases are not shell mounts. Compute controls duration only; no hard resource or network quotas. Network revocation stops the managed process group; detached descendants may survive. Full Access requires its separate grant and full_access:true and uses actual host paths."
+			}
 		}
 		reason := ""
 		if !info.Enabled {

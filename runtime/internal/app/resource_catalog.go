@@ -32,22 +32,23 @@ type permissionGrant struct {
 }
 
 type resourceCapability struct {
-	FullAccess  bool                    `json:",omitempty"`
-	Usage       *quotaUsage             `json:",omitempty"`
-	Network     *networkPermissionScope `json:",omitempty"`
-	Grants      []permissionGrant
-	SandboxID   core.ID `json:",omitempty"`
-	ResourceID  core.ID
-	Name        string
-	Kind        resource.Kind
-	Source      string
-	Path        string  `json:",omitempty"`
-	PathMeaning string  `json:",omitempty"`
-	FilePath    string  `json:",omitempty"`
-	ShellPath   string  `json:",omitempty"`
-	ModelID     core.ID `json:",omitempty"`
-	ModelName   string  `json:",omitempty"`
-	Operations  []resourceOperation
+	FullAccess       bool                    `json:",omitempty"`
+	Usage            *quotaUsage             `json:",omitempty"`
+	Network          *networkPermissionScope `json:",omitempty"`
+	Grants           []permissionGrant
+	SandboxID        core.ID `json:",omitempty"`
+	ResourceID       core.ID
+	Name             string
+	Kind             resource.Kind
+	Source           string
+	Path             string  `json:",omitempty"`
+	PathMeaning      string  `json:",omitempty"`
+	FilePath         string  `json:",omitempty"`
+	ShellPath        string  `json:",omitempty"`
+	ShellEnvironment string  `json:",omitempty"`
+	ModelID          core.ID `json:",omitempty"`
+	ModelName        string  `json:",omitempty"`
+	Operations       []resourceOperation
 }
 type builtinStorage struct {
 	SandboxID       core.ID `json:",omitempty"`

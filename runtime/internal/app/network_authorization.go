@@ -45,7 +45,7 @@ func (s *shellService) networkAuthorization(ctx context.Context, e core.Executio
 	return groupNetworkAuthorization(ctx, s.store, e.Principal.OwnerID, "local", n)
 }
 
-func (b *linuxSandboxBackend) networkAuthorization(ctx context.Context, e core.Execution, n platform.NetworkAuthorization) (platform.NetworkAuthorization, error) {
+func (b *remoteSandboxBackend) networkAuthorization(ctx context.Context, e core.Execution, n platform.NetworkAuthorization) (platform.NetworkAuthorization, error) {
 	value, ok := b.networkQuotas.Load(shellKey(e))
 	if !ok {
 		return n, denied()

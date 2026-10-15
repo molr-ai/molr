@@ -21,14 +21,15 @@ func executionGrant(ctx context.Context, store persistence.Store, e core.Executi
 	for _, g := range rows {
 		if g.OwnerID == e.Principal.OwnerID && g.AssistantID == e.AssistantID && g.ResourceID == id && !g.Scope.FullAccess && g.RevokedAt == nil && (g.ExpiresAt == nil || g.ExpiresAt.After(time.Now())) && slices.Contains(g.Actions, policy.Execute) {
 			if g.Constraints == nil {
-				if !platform.NativeSandbox() {
-					continue
-				}
 				r, err := resource.NewRepository(store).Get(ctx, e.Principal.OwnerID, id)
 				if err != nil {
 					return policy.Grant{}, err
 				}
-				if r.Kind != resource.Network || sandboxOf(r) != "local" {
+				native, err := nativeNetworkResource(ctx, store, e.Principal.OwnerID, r)
+				if err != nil {
+					return policy.Grant{}, err
+				}
+				if !native {
 					continue
 				}
 			}
@@ -49,7 +50,7 @@ func automaticNetworks(ctx context.Context, store persistence.Store, e core.Exec
 	selected := map[string]choice{}
 	repo := resource.NewRepository(store)
 	for _, g := range rows {
-		if g.OwnerID != e.Principal.OwnerID || g.AssistantID != e.AssistantID || (g.Constraints == nil && (!platform.NativeSandbox() || sandboxID != "local")) || g.RevokedAt != nil || (g.ExpiresAt != nil && !g.ExpiresAt.After(time.Now())) || !slices.Contains(g.Actions, policy.Execute) {
+		if g.OwnerID != e.Principal.OwnerID || g.AssistantID != e.AssistantID || g.RevokedAt != nil || (g.ExpiresAt != nil && !g.ExpiresAt.After(time.Now())) || !slices.Contains(g.Actions, policy.Execute) {
 			continue
 		}
 		r, err := repo.Get(ctx, e.Principal.OwnerID, g.ResourceID)
@@ -61,6 +62,15 @@ func automaticNetworks(ctx context.Context, store persistence.Store, e core.Exec
 		}
 		if r.Kind != resource.Network || r.State != resource.Available || sandboxOf(r) != sandboxID {
 			continue
+		}
+		if g.Constraints == nil {
+			native, err := nativeNetworkResource(ctx, store, e.Principal.OwnerID, r)
+			if err != nil {
+				return nil, err
+			}
+			if !native {
+				continue
+			}
 		}
 		binding, err := repo.Binding(ctx, e.Principal.OwnerID, r.ID)
 		if err != nil {
@@ -159,4 +169,18 @@ func validateResourceConstraints(ctx context.Context, store persistence.Store, p
 		}
 	}
 	return nil
+}
+
+func nativeNetworkResource(ctx context.Context, store persistence.Store, owner core.ID, r resource.Resource) (bool, error) {
+	if r.Kind != resource.Network {
+		return false, nil
+	}
+	if sandboxOf(r) == "local" {
+		return platform.NativeSandbox(), nil
+	}
+	connection, err := persistence.LoadCatalog[sandboxConnection](ctx, store, "sandbox.connections", owner, sandboxOf(r))
+	if err != nil {
+		return false, err
+	}
+	return connection.View.Info.Capabilities.NetworkBackend == "seatbelt-toggle", nil
 }

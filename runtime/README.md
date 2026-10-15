@@ -40,7 +40,7 @@ WebUI 开发联调见 [应用 README](../apps/webui/README.md)。仓库根目录
 
 ## 固定适配与当前边界
 
-当前提供 `openai-compatible` 模型提供商、本机目录与沙盒适配器，以及独立 Linux Sandbox 的远程存储、计算和网络适配器。每个模型资源表示一个 provider 连接，WebUI 通过 `SaveProvider` 将连接与 API Key 原子保存，支持读取连接元数据、编辑地址和更换 Key；`DeleteProvider` 原子删除连接及独占凭证、撤销权限并清理默认模型，保留助理与聊天历史；`Binding.Models` 统一保存手动配置和自动发现的模型。`POST /api/resources/test-connection` 可在保存前通过模型列表请求测试连通性与凭证，不保存资源、模型或 API Key。连接时无需填写模型；`POST /api/resources/refresh-models` 从固定同源 `/models` 接口刷新列表，模型 ID 独立于资源 ID 并保持稳定。`POST /api/resources/configure-model` 可在连接后配置单个模型；手动配置按模型名覆盖发现结果，刷新不会覆盖手动价格与能力参数。自动发现采用默认上下文/工具参数，优先匹配内置计价；未覆盖的价格标记为未知，不允许作为免费调用计费。助理授权同时绑定 Provider 资源与所选模型的 `Scope.ModelID`，不覆盖该 Provider 的全部模型；付费模型需设置预算。发现请求通过可信凭证代理和网络 guard，禁止重定向与部署配置未允许的私网地址；API Key 加密存储；敏感操作验证默认关闭，开启后保存／更换 Key 与导出才要求再次验证，OAuth 仅预留前端能力模型，尚未接入。
+当前提供 `openai-compatible` 模型提供商、本机目录与沙盒适配器，以及独立 Linux/macOS Sandbox 的远程存储、计算和网络适配器。每个模型资源表示一个 provider 连接，WebUI 通过 `SaveProvider` 将连接与 API Key 原子保存，支持读取连接元数据、编辑地址和更换 Key；`DeleteProvider` 原子删除连接及独占凭证、撤销权限并清理默认模型，保留助理与聊天历史；`Binding.Models` 统一保存手动配置和自动发现的模型。`POST /api/resources/test-connection` 可在保存前通过模型列表请求测试连通性与凭证，不保存资源、模型或 API Key。连接时无需填写模型；`POST /api/resources/refresh-models` 从固定同源 `/models` 接口刷新列表，模型 ID 独立于资源 ID 并保持稳定。`POST /api/resources/configure-model` 可在连接后配置单个模型；手动配置按模型名覆盖发现结果，刷新不会覆盖手动价格与能力参数。自动发现采用默认上下文/工具参数，优先匹配内置计价；未覆盖的价格标记为未知，不允许作为免费调用计费。助理授权同时绑定 Provider 资源与所选模型的 `Scope.ModelID`，不覆盖该 Provider 的全部模型；付费模型需设置预算。发现请求通过可信凭证代理和网络 guard，禁止重定向与部署配置未允许的私网地址；API Key 加密存储；敏感操作验证默认关闭，开启后保存／更换 Key 与导出才要求再次验证，OAuth 仅预留前端能力模型，尚未接入。
 
 模型适配器请求供应商 SSE 流并采集首 token 与生成计时，再转换成内部 `model.Stream`，同时兼容完整 JSON 响应。`file_read` 已支持按需图片、音频与视频抽帧输入，OpenAI-compatible 和 DeepSeek 适配器均接通图片；不支持的类型仅返回元信息。能力配置、解码依赖与限制见[多模态文件读取](../docs/dev/runtime/multimodal-files.md)。外部结果未知时保留操作记录，不会猜测成功或自动重发。本地调用退出时自动结束费用预留与并发占用；缺少供应商证据时保留未知费用，后续可信回执仍可补结算。
 
@@ -54,7 +54,7 @@ WebUI 开发联调见 [应用 README](../apps/webui/README.md)。仓库根目录
 
 每个尝试绑定独立操作、回执和预算预留。成功按回执结算；已证实未计费记为 released，未知费用记为 unknown，两者均结束本地预留占用，unknown 仍允许迟到回执补结算。开发工作台按同一执行编号展示各次尝试，包含请求/响应、尝试序号、状态、失败原因与下次重试时间；等待中的执行记录为 `retrying`。诊断采集开关不影响重试正确性。历史操作保留原 ID，新尝试使用独立 ID，不改写旧记录。
 
-目录工具在 Linux 使用 `openat2`，在 macOS 使用 `O_NOFOLLOW_ANY`，禁止符号链接和越界路径，拒绝特殊文件、硬链接及 Runtime 自身目录。其他系统或不支持该能力的内核拒绝目录工具操作。通用可信进程接口保留白名单执行；Linux Agent Shell 使用独立的强制沙盒实现，不能回退到宿主进程。`sandbox.enabled` 默认开启，只控制本机命令执行；关闭后工作区、文件和记忆仍可用。macOS 可显式开启并授权 Full Access，暂不提供隔离 Shell；构建与限制见 [macOS 源码部署](../docs/admin/deployment/source-build.md#macos-原生运行)。启动时自动准备基础环境、工作目录与执行资源，自动登记本机沙盒；用户不需要填写底层路径或准备独立存储卷。实际隔离探针通过且已授予计算权限时才向模型开放 `shell_execute`；系统不支持时明确显示不可用，可通过显式配置 `false` 关闭。
+目录工具在 Linux 使用 `openat2`，在 macOS 使用 `O_NOFOLLOW_ANY`，禁止符号链接和越界路径，拒绝特殊文件、硬链接及 Runtime 自身目录。其他系统或不支持该能力的内核拒绝目录工具操作。通用可信进程接口保留白名单执行；Linux Agent Shell 使用独立的强制沙盒实现，不能回退到宿主进程。`sandbox.enabled` 默认开启，只控制本机命令执行；关闭后工作区、文件和记忆仍可用。macOS 可开启 Seatbelt 受控命令，也可独立开启并授权 Full Access；构建与限制见 [macOS 源码部署](../docs/admin/deployment/source-build.md#macos-原生运行)。启动时自动准备基础环境、工作目录与执行资源，自动登记本机沙盒；用户不需要填写底层路径或准备独立存储卷。实际隔离探针通过且已授予计算权限时才向模型开放 `shell_execute`；系统不支持时明确显示不可用，可通过显式配置 `false` 关闭。
 
 Linux Shell 已接入 Bubblewrap、seccomp、cgroup v2、直接目录挂载和受控网络出口。部署、配置与真实隔离测试见 [Sandbox 使用说明](../docs/admin/sandbox/linux.md)，架构与跨平台边界见 [设计](../docs/dev/security/sandbox.md)。
 
@@ -135,7 +135,7 @@ OpenAI-compatible and DeepSeek chat requests use SSE with `stream_options.includ
 
 ## 本机与远程沙盒
 
-Runtime 内嵌本机 sandbox_manager；可另行构建 `./cmd/molr-sandbox` 在其他 Linux 机器上提供存储、计算和网络。WebUI 资源页分为模型、工具、沙盒，助理可设置默认沙盒。部署配置、独立服务安全边界和当前限制见 [远程沙盒部署](../docs/admin/sandbox/remote.md)。
+Runtime 内嵌本机 sandbox_manager；可另行构建 `./cmd/molr-sandbox` 在其他 Linux 或 macOS 机器上提供存储、计算和网络。WebUI 资源页分为模型、工具、沙盒，助理可设置默认沙盒。部署配置、独立服务安全边界和当前限制见 [远程沙盒部署](../docs/admin/sandbox/remote.md)。
 
 ### 实时连接鉴权回归
 

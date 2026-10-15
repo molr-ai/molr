@@ -149,6 +149,14 @@ func (s *sandboxRouter) remote(ctx context.Context, e core.Execution, id core.ID
 		q.Deadline = time.Time{}
 	}
 	relevant := map[core.ID]bool{}
+	if c.View.Info.Capabilities.NetworkBackend == "seatbelt-toggle" && !q.FullAccess {
+		for _, n := range q.NetworkAuthorizations {
+			if n.ExpiresAt != nil && (q.Deadline.IsZero() || n.ExpiresAt.Before(q.Deadline)) {
+				q.Deadline = *n.ExpiresAt
+			}
+		}
+	}
+
 	for _, scope := range q.Scopes {
 		relevant[scope.ResourceID] = true
 	}
@@ -510,6 +518,7 @@ func (s *sandboxRouter) shellExecute(ctx context.Context, e core.Execution, req 
 			q.GroupComputeConstraints = ref.Quota.Compute
 		}
 	}
+	nativeNetwork := info.Capabilities.NetworkBackend == "seatbelt-toggle"
 	initialized := false
 	check := func(ctx context.Context) error {
 		currentRef, err := groupReference(ctx, s.adapters.store, e.Principal.OwnerID, "sandbox", id)
@@ -541,6 +550,35 @@ func (s *sandboxRouter) shellExecute(ctx context.Context, e core.Execution, req 
 			if err := core.CheckGPUDevices(current.Compute.GPUDevices(), currentRef.Quota.Compute.GPUDevices()); err != nil {
 				return err
 			}
+		}
+		if initialized && nativeNetwork {
+			for i, n := range q.NetworkAuthorizations {
+				g, err := executionGrant(ctx, s.adapters.store, e, req.NetworkIDs[i])
+				if err != nil {
+					return err
+				}
+				if g.ID != n.GrantID || g.Constraints != nil || !reflect.DeepEqual(g.ExpiresAt, n.ExpiresAt) {
+					return denied()
+				}
+				r, binding, err := s.adapters.binding(ctx, e.Principal, g.ResourceID)
+				if err != nil {
+					return err
+				}
+				if r.State != resource.Available || binding.SandboxResource != n.Source {
+					return denied()
+				}
+				if err := s.adapters.policy.Require(ctx, e.Principal, policy.CheckRequest{Target: core.Object{Kind: "resource", ID: g.ResourceID}, ResourceID: g.ResourceID, Action: policy.Execute, Destination: "/"}); err != nil {
+					return err
+				}
+				current, err := groupNetworkAuthorization(ctx, s.adapters.store, e.Principal.OwnerID, id, n)
+				if err != nil {
+					return err
+				}
+				if current.GroupConstraints != nil {
+					return denied()
+				}
+			}
+			return nil
 		}
 		if initialized {
 			rows := append([]platform.NetworkAuthorization(nil), q.NetworkAuthorizations...)

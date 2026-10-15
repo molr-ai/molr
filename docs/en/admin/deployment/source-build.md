@@ -51,7 +51,7 @@ For controlled commands, set `sandbox.enabled: true` and grant compute access. N
 
 For persistent operation, configure an administrator-managed launchd service. Set `ProgramArguments` to the binary, `serve`, `-config`, and the absolute configuration path. Set `WorkingDirectory`, log paths, and `PATH` explicitly because launchd does not read interactive shell configuration. The service account must have access to its own configuration and data. For upgrades, stop this instance, atomically replace its executable, and restart while preserving configuration, database, and keys.
 
-After startup, authenticate and inspect `/api/sandbox`: disabled commands report `Enabled=false` and `Storage=true`. Ready controlled execution reports `Reason=available`, `Shell=true`, `FileIsolation=true`, `NetworkIsolation=true`, and `NetworkBackend=seatbelt-toggle`. `ProcessIsolation` and `ResourceLimits` remain false. If Full Access is separately enabled, check `Capabilities.FullAccess=true`. Verify files, terminals, and revocation natively on a Mac. Remote execution nodes remain Linux-only.
+After startup, authenticate and inspect `/api/sandbox`: disabled commands report `Enabled=false` and `Storage=true`. Ready controlled execution reports `Reason=available`, `Shell=true`, `FileIsolation=true`, `NetworkIsolation=true`, and `NetworkBackend=seatbelt-toggle`. `ProcessIsolation` and `ResourceLimits` remain false. If Full Access is separately enabled, check `Capabilities.FullAccess=true`. Verify files, terminals, and revocation natively on a Mac. Remote execution nodes support Linux and macOS; see [standalone sandbox deployment](../sandbox/remote.md).
 
 ## Build Release Packages
 

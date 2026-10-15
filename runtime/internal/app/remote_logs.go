@@ -18,7 +18,7 @@ type shellLogChunk struct {
 	More       bool
 }
 
-func (b *linuxSandboxBackend) shellLog(ctx context.Context, q sm.Request) (json.RawMessage, error) {
+func (b *remoteSandboxBackend) shellLog(ctx context.Context, q sm.Request) (json.RawMessage, error) {
 	var r shellRemoteControl
 	if err := decodeSandboxArgs(q.Arguments, &r); err != nil {
 		return nil, err

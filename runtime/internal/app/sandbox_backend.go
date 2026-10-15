@@ -23,13 +23,14 @@ import (
 	"molr.ai/runtime/internal/platform/sandbox"
 	"molr.ai/runtime/internal/policy"
 	sm "molr.ai/runtime/internal/sandboxmanager"
+	"molr.ai/runtime/internal/textfiles"
 )
 
 type sandboxRequestKey struct{}
 
-// linuxSandboxBackend shares confined files and Linux isolation with Runtime.
+// remoteSandboxBackend shares confined files and platform execution with Runtime.
 // Requests contain resource references, never caller-controlled host paths.
-type linuxSandboxBackend struct {
+type remoteSandboxBackend struct {
 	cfg           config.Config
 	files         *resourceFileTools
 	runner        *sandbox.Runner
@@ -38,14 +39,14 @@ type linuxSandboxBackend struct {
 	networkQuotas sync.Map
 }
 
-func newSandboxBackend(ctx context.Context, cfg config.Config, store persistence.Store) (*linuxSandboxBackend, error) {
+func newSandboxBackend(ctx context.Context, cfg config.Config, store persistence.Store) (*remoteSandboxBackend, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 	if err := prepareDirectory(cfg.DataDir); err != nil {
 		return nil, err
 	}
-	b := &linuxSandboxBackend{cfg: cfg}
+	b := &remoteSandboxBackend{cfg: cfg}
 	b.files = &resourceFileTools{adapters: adapters{dataDir: cfg.DataDir, storageConfig: cfg.Sandbox}, resolveOverride: b.resolve, providerOverride: func(ctx context.Context) model.Provider {
 		q := ctx.Value(sandboxRequestKey{}).(sm.Request)
 		p := model.Provider{Protocol: model.Protocol(q.Protocol)}
@@ -61,7 +62,7 @@ func newSandboxBackend(ctx context.Context, cfg config.Config, store persistence
 	if err != nil {
 		return nil, err
 	}
-	b.runner = sandbox.New(sandbox.Options{NoWorkspace: true, GPU: cfg.Sandbox.GPU, QuotaStore: store, AllowFullAccess: cfg.Sandbox.AllowFullAccess, HostTools: cfg.Sandbox.UsesHostTools(), Bwrap: cfg.Sandbox.Bwrap, RootFS: cfg.Sandbox.RootFS, Helper: exe, CgroupRoot: cfg.Sandbox.CgroupRoot, WorkRoot: cfg.Sandbox.WorkRoot, PrivateRoot: cfg.DataDir, MinFreeDiskBytes: cfg.Sandbox.MinFreeDiskBytes, NetworkBytes: cfg.Sandbox.NetworkBytes, NetworkConnections: cfg.Sandbox.NetworkConnections, NetworkAuthorization: b.networkAuthorization, Authorize: func(ctx context.Context, e core.Execution, c platform.Command) error {
+	b.runner = sandbox.New(sandbox.Options{NoWorkspace: true, ProtectedRoots: cfg.Sandbox.ProtectedRoots, ToolDirectories: cfg.Sandbox.ToolDirectories, GPU: cfg.Sandbox.GPU, QuotaStore: store, AllowFullAccess: cfg.Sandbox.AllowFullAccess, HostTools: cfg.Sandbox.UsesHostTools(), Bwrap: cfg.Sandbox.Bwrap, RootFS: cfg.Sandbox.RootFS, Helper: exe, CgroupRoot: cfg.Sandbox.CgroupRoot, WorkRoot: cfg.Sandbox.WorkRoot, PrivateRoot: cfg.DataDir, MinFreeDiskBytes: cfg.Sandbox.MinFreeDiskBytes, NetworkBytes: cfg.Sandbox.NetworkBytes, NetworkConnections: cfg.Sandbox.NetworkConnections, NetworkAuthorization: b.networkAuthorization, Authorize: func(ctx context.Context, e core.Execution, c platform.Command) error {
 		q, ok := ctx.Value(sandboxRequestKey{}).(sm.Request)
 		if !ok || q.Identity.Execution() != e || !q.Compute || q.FullAccess != c.FullAccess {
 			return denied()
@@ -80,9 +81,9 @@ func newSandboxBackend(ctx context.Context, cfg config.Config, store persistence
 	return b, nil
 }
 func directoryID(p string) string { return "dir_" + digestBytes([]byte(p))[:24] }
-func (b *linuxSandboxBackend) Info(ctx context.Context) (sm.Info, error) {
+func (b *remoteSandboxBackend) Info(ctx context.Context) (sm.Info, error) {
 	s := b.cfg.Sandbox
-	out := sm.Info{WorkspaceProjectQuotas: false, ResourceQuotas: true, UserGroupQuotas: true, AuthorizationCeilings: s.ComputeCeilings(), PortForwarding: true, ShellSessions: true, Protocol: sm.ProtocolVersion, Enabled: s.Enabled, Storage: s.Enabled && runtime.GOOS == "linux", Directories: []sm.Directory{}, Networks: []sm.Network{}, Capabilities: platform.Capabilities{OS: runtime.GOOS, Reason: "sandbox_disabled"}, Limits: platform.Limits{MemoryBytes: s.MemoryBytes, Processes: s.Processes, CPUPercent: s.CPUPercent, TempBytes: s.TempBytes, MaxFileBytes: s.MaxFileBytes, NetworkBytes: s.NetworkBytes, NetworkConnections: s.NetworkConnections}, TimeoutSeconds: 0}
+	out := sm.Info{WorkspaceProjectQuotas: false, ResourceQuotas: true, UserGroupQuotas: true, AuthorizationCeilings: s.ComputeCeilings(), PortForwarding: true, ShellSessions: true, Protocol: sm.ProtocolVersion, Enabled: s.Enabled, Storage: s.Enabled && textfiles.Supported(), Directories: []sm.Directory{}, Networks: []sm.Network{}, Capabilities: platform.Capabilities{OS: runtime.GOOS, Reason: "sandbox_disabled"}, Limits: platform.Limits{MemoryBytes: s.MemoryBytes, Processes: s.Processes, CPUPercent: s.CPUPercent, TempBytes: s.TempBytes, MaxFileBytes: s.MaxFileBytes, NetworkBytes: s.NetworkBytes, NetworkConnections: s.NetworkConnections}, TimeoutSeconds: 0}
 	if !s.Enabled {
 		return out, nil
 	}
@@ -96,8 +97,8 @@ func (b *linuxSandboxBackend) Info(ctx context.Context) (sm.Info, error) {
 	}
 	return out, nil
 }
-func (b *linuxSandboxBackend) resolve(ctx context.Context, e core.Execution, t tools.FileTarget, actions ...policy.Action) (string, string, error) {
-	if !b.cfg.Sandbox.Enabled || runtime.GOOS != "linux" {
+func (b *remoteSandboxBackend) resolve(ctx context.Context, e core.Execution, t tools.FileTarget, actions ...policy.Action) (string, string, error) {
+	if !b.cfg.Sandbox.Enabled || !textfiles.Supported() {
 		return "", "", core.NewError(core.Unavailable, "sandbox storage unavailable")
 	}
 	if err := ctx.Err(); err != nil {
@@ -201,7 +202,7 @@ type sandboxUpload struct {
 	Data            []byte
 }
 
-func (b *linuxSandboxBackend) Call(ctx context.Context, q sm.Request) (json.RawMessage, error) {
+func (b *remoteSandboxBackend) Call(ctx context.Context, q sm.Request) (json.RawMessage, error) {
 	if err := q.Identity.Execution().Validate(); err != nil {
 		return nil, err
 	}
@@ -355,6 +356,9 @@ func (b *linuxSandboxBackend) Call(ctx context.Context, q sm.Request) (json.RawM
 		}
 		return json.Marshal(sandboxBlob{Data: data})
 	case "quota_update":
+		if platform.NativeSandbox() {
+			return nil, core.Invalid("method", "native network scopes are immutable; revoke the execution")
+		}
 		if current, ok := b.networkQuotas.Load(shellKey(q.Identity.Execution())); ok {
 			old := current.([]platform.NetworkAuthorization)
 			if len(q.NetworkAuthorizations) > 32 {
@@ -391,7 +395,7 @@ func (b *linuxSandboxBackend) Call(ctx context.Context, q sm.Request) (json.RawM
 	}
 	return nil, core.Invalid("method", "unsupported sandbox method")
 }
-func (b *linuxSandboxBackend) shell(ctx context.Context, q sm.Request) (json.RawMessage, error) {
+func (b *remoteSandboxBackend) shell(ctx context.Context, q sm.Request) (json.RawMessage, error) {
 	if !q.Compute || (!q.FullAccess && q.ComputeConstraints == nil) {
 		return nil, denied()
 	}
@@ -414,10 +418,27 @@ func (b *linuxSandboxBackend) shell(ctx context.Context, q sm.Request) (json.Raw
 			return nil, core.Invalid("network", "authorization mapping required")
 		}
 		for i, n := range q.NetworkAuthorizations {
-			if n.Source != q.Networks[i] || n.Constraints == nil {
+			if n.Source != q.Networks[i] {
 				return nil, denied()
 			}
-			if n.Constraints.Bytes > s.ComputeCeilings().NetworkBytes || n.Constraints.Connections > s.ComputeCeilings().NetworkConnections {
+			if platform.NativeSandbox() {
+				if n.Source != "preset:network" || n.Constraints != nil || n.GroupConstraints != nil {
+					return nil, denied()
+				}
+				if req.NetworkMode == "none" {
+					return nil, denied()
+				}
+				if n.ExpiresAt != nil {
+					if !n.ExpiresAt.After(time.Now()) {
+						return nil, denied()
+					}
+					if c.AuthorizationDeadline.IsZero() || n.ExpiresAt.Before(c.AuthorizationDeadline) {
+						c.AuthorizationDeadline = *n.ExpiresAt
+					}
+				}
+			} else if n.Constraints == nil {
+				return nil, denied()
+			} else if n.Constraints.Bytes > s.ComputeCeilings().NetworkBytes || n.Constraints.Connections > s.ComputeCeilings().NetworkConnections {
 				return nil, core.Invalid("network", "quota exceeds deployment ceiling")
 			}
 		}
@@ -470,7 +491,11 @@ func (b *linuxSandboxBackend) shell(ctx context.Context, q sm.Request) (json.Raw
 			found := false
 			for _, n := range s.NetworkTargets(b.cfg.OwnListenPort()) {
 				if n.Name == name {
-					c.NetworkTargets = append(c.NetworkTargets, n.Target())
+					if platform.NativeSandbox() {
+						c.NetworkAccess = true
+					} else {
+						c.NetworkTargets = append(c.NetworkTargets, n.Target())
+					}
 					found = true
 				}
 			}
@@ -490,7 +515,7 @@ func (b *linuxSandboxBackend) shell(ctx context.Context, q sm.Request) (json.Raw
 		return nil, err
 	}
 	limit := s.MaxFileBytes
-	if q.FullAccess {
+	if q.FullAccess || platform.NativeSandbox() {
 		limit = 64 << 20
 	}
 	stdoutFile, stderrFile, stdoutPath, stderrPath, err := createShellTaskOutputs(root, limit, q.Identity.Execution())
@@ -529,11 +554,11 @@ func (b *linuxSandboxBackend) shell(ctx context.Context, q sm.Request) (json.Raw
 	stderrFile.close()
 	return shellOutputResult(stdoutFile, stderrFile, stdoutPath, stderrPath, exit, stdout, stderr)
 }
-func (b *linuxSandboxBackend) Cancel(ctx context.Context, i sm.Identity) error {
+func (b *remoteSandboxBackend) Cancel(ctx context.Context, i sm.Identity) error {
 	return b.runner.CancelOperation(ctx, i.Execution())
 }
-func (b *linuxSandboxBackend) Close() error { return b.runner.Close() }
+func (b *remoteSandboxBackend) Close() error { return b.runner.Close() }
 
-func (b *linuxSandboxBackend) DialForward(ctx context.Context, id sm.Identity, port int) (net.Conn, error) {
+func (b *remoteSandboxBackend) DialForward(ctx context.Context, id sm.Identity, port int) (net.Conn, error) {
 	return b.runner.DialForward(ctx, id.Execution(), port)
 }

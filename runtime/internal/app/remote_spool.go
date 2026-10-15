@@ -12,7 +12,7 @@ import (
 
 // A bounded recovery spool, not user storage. Receipts survive expired logs so
 // missing output must never cause a command to be executed again.
-func (b *linuxSandboxBackend) prepareOperationSpool(i sm.Identity) (string, error) {
+func (b *remoteSandboxBackend) prepareOperationSpool(i sm.Identity) (string, error) {
 	b.spoolMu.Lock()
 	defer b.spoolMu.Unlock()
 	root := filepath.Join(b.cfg.DataDir, "operations")

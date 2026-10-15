@@ -312,12 +312,12 @@ func TestShellForwardRealLocalAndRemote(t *testing.T) {
 }
 
 type tracedTestBackend struct {
-	*linuxSandboxBackend
+	*remoteSandboxBackend
 	t *testing.T
 }
 
 func (b tracedTestBackend) Call(ctx context.Context, r sm.Request) (json.RawMessage, error) {
-	out, err := b.linuxSandboxBackend.Call(ctx, r)
+	out, err := b.remoteSandboxBackend.Call(ctx, r)
 	if err != nil {
 		b.t.Logf("remote %s: %v", r.Method, err)
 	}

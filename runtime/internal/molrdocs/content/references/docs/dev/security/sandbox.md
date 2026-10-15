@@ -137,7 +137,7 @@ gVisor Go netstack 将流量转换为普通 TCP/UDP 连接。传输协议、目�
 
 内部 DNS 支持 TCP/UDP 的 A/AAAA 查询，使用系统解析器处理真实 CNAME。返回执行内虚拟地址，将域名身份绑定到连接；新连接重新解析，所有实际答案都须获授权，然后直拨已检查 IP。不会将域名直接转成全局 IP 白名单。虚拟映射限定 1024 项，TTL 30 秒，DNS 并发单独限定 8，不能从外部覆盖或跨执行复用。未授权域名、任意 DNS 记录类型和未知虚拟 IP 均拒绝。
 
-网络授权只表达主机/地址、端口、TCP/UDP，不表达 TLS 内的 URL 路径或内容。内置 internet/lan/host（互联网访问／局域网访问／宿主机访问）三项预设只是候选资源，连接和助理授权仍显式进行；三项均开放 TCP/UDP 全部端口，host 包含本服务自身监听端口；lan 仅含 RFC1918/ULA、不含回环，宿主局域网地址仍按 lan 判断；部署可关闭预设。旧的未声明协议配置拒绝加载；远程协议使用 `/v2/sandbox/` 和 `Protocol=7`，连接和执行前拒绝旧服务。详细配置、内部宿主别名和限额见 [部署说明](https://molr.ai/zh/docs/admin/sandbox/linux/)。
+网络授权只表达主机/地址、端口、TCP/UDP，不表达 TLS 内的 URL 路径或内容。内置 internet/lan/host（互联网访问／局域网访问／宿主机访问）三项预设只是候选资源，连接和助理授权仍显式进行；三项均开放 TCP/UDP 全部端口，host 包含本服务自身监听端口；lan 仅含 RFC1918/ULA、不含回环，宿主局域网地址仍按 lan 判断；部署可关闭预设。旧的未声明协议配置拒绝加载；远程协议使用 `/v2/sandbox/` 和 `Protocol=8`，连接和执行前拒绝旧服务。详细配置、内部宿主别名和限额见 [部署说明](https://molr.ai/zh/docs/admin/sandbox/linux/)。
 
 就绪探针实际执行隔离命令，并在临时回环端点上验证 DNS、TUN 与 TCP 转发，不依赖公网。宿主工具环境通过标准 curl 下载；最小 BusyBox 环境不承诺 HTTPS 下载能力。工具参数不是强制边界，网络仍由 Runtime 授权。`NetworkBackend=transparent`、`NetworkProtocols=[tcp,udp]` 随能力接口报告；不得仅凭进程存活宣称网络就绪。
 
@@ -174,10 +174,10 @@ Shell 有副作用。操作 ID、计划摘要与授权版本应在启动前持�
 | 平台 | 实现方向 | 必须独立验证的差异 |
 | --- | --- | --- |
 | Linux，一期 | Bubblewrap + seccomp + cgroup v2 + 受控出口 | user namespace、AppArmor、cgroup 委派、内核与 CPU 架构兼容 |
-| macOS | 安全文件操作与显式 Full Access；隔离后端尚未实现 | 原生验证路径、文件锁、PTY 与撤权；直接执行不提供隔离和计算硬配额 |
+| macOS | 本机与远程 Seatbelt 受控执行、安全文件操作及独立 Full Access | 原生验证路径、文件锁、PTY、网络开关与撤权；不提供进程命名空间和资源硬配额 |
 | Windows，未来 | 评估 AppContainer／受限身份、ACL、Job Object 与受控网络策略 | 任意 CLI 兼容性、句柄和文件权限、网络强制出口；Job Object 负责生命周期/资源管理，不能单独充当文件与网络沙盒 |
 
-macOS 的隔离 Shell 返回不支持，显式 Full Access 可用；Windows 后端尚未实现。WSL2 后端若未来提供，应明确显示为 Linux 执行环境，不算原生 Windows 后端。接口复用不代表各平台安全能力天然等价。[Microsoft AppContainer](https://learn.microsoft.com/en-us/windows/win32/secauthz/appcontainer-isolation) · [Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects) · [Apple App Sandbox 继承](https://developer.apple.com/library/archive/documentation/Miscellaneous/Reference/EntitlementKeyReference/Chapters/EnablingAppSandbox.html)
+macOS 支持 Seatbelt 受控 Shell 和独立授权的 Full Access；Windows 后端尚未实现。WSL2 后端若未来提供，应明确显示为 Linux 执行环境，不算原生 Windows 后端。接口复用不代表各平台安全能力天然等价。[Microsoft AppContainer](https://learn.microsoft.com/en-us/windows/win32/secauthz/appcontainer-isolation) · [Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects) · [Apple App Sandbox 继承](https://developer.apple.com/library/archive/documentation/Miscellaneous/Reference/EntitlementKeyReference/Chapters/EnablingAppSandbox.html)
 
 ## 6. 部署与本机评估
 
@@ -217,3 +217,5 @@ bash scripts/test-sandbox-linux.sh -count=1 -v
 控制权绑定所有者会话、浏览器窗口 client ID 与 generation，输入序号防止重放。前端在页面生命周期内保留 client ID、序号与串行队列，关闭面板丢弃未发送输入，重新打开经服务端身份核对后恢复控制；其他窗口不继承该身份。标签数通过私有只读接口读取并按任务缓存，不依赖画面流持续连接。接管先阻止新写操作，再等待已接受操作完成、释放按住的鼠标键，最后切换控制者。写操作响应丢失或交接失败时终止执行。用户接管期间，模型仅可读取快照、截图、标签和 URL；`shell_task` 不能绕过浏览器控制。交还发布 `browser_control_returned`，模型必须先读取新快照才能写操作。原生桥接采用有完成确认的结构化输入，命令时限与输出有界，不开放任意 eval 或启动参数。
 
 画面经私有 WS 连接转为所有者认证 SSE，10 fps 上限与 ACK 节流。连接取消从 WS 握手开始生效，握手最多等待 5 秒。观看者断线取消流；前端隐藏或离线时断流并取消绘制、解码与重连计时，恢复可见且在线后重新连接；断线或控制权变化时丢弃排队输入。同尺寸画面复用 Canvas 缓冲，绘制与浮窗布局按动画帧合并。任务内复用最多两个私有 HTTP 命令连接，任务结束关闭空闲连接；执行租约继续检查授权并在撤权时关闭转发连接。写操作不因连接复用而自动重试。支持指针、滚动、键盘文本／输入法、导航与标签页。强制终止可能丢失未落盘 profile 数据。
+
+独立 macOS 节点使用 `NoWorkspace` 执行计划，任务临时目录不产生助理工作区。授权目录通过 `ShellEnvironment` 注入；Linux 与 macOS 主 Runtime 均按目标节点能力选择网络授权。原生网络不使用配额更新，授权到期纳入执行截止时间，撤权或范围变化终止受管进程组。传输与租约复用 `sandboxmanager`，见[远程部署](https://molr.ai/zh/docs/admin/sandbox/remote/)。
