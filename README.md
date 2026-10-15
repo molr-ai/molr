@@ -51,6 +51,7 @@ The installer detects the architecture, checks dependencies, and configures the 
 
 - [Getting started](docs/en/user/getting-started.md): sign in and start your first conversation.
 - [Installation and service management](docs/en/admin/deployment/installation.md): install a specific version, choose a release channel, or install offline.
+- [Docker deployment](docs/en/admin/deployment/docker.md): build the complete container image with WebUI.
 - [Building from source](docs/en/admin/deployment/source-build.md): build and deploy Molr yourself.
 - [Deployment and maintenance](docs/en/admin/README.md): HTTPS, sandbox dependencies, and backup and recovery.
 

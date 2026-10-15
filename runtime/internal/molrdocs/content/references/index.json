@@ -400,6 +400,22 @@
     }
   },
   {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/deployment/docker.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "Docker 部署",
+      "en": "Docker deployment"
+    },
+    "topics": {
+      "zh": "部署服务",
+      "en": "Deployment"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/deployment/docker/",
+      "en": "https://molr.ai/en/docs/admin/deployment/docker/"
+    }
+  },
+  {
     "path": "/molr/.agents/skills/molr-docs/references/docs/admin/deployment/source-build.md",
     "contentLanguage": "zh",
     "titles": {

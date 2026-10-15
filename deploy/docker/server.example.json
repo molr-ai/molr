@@ -1,0 +1,13 @@
+{
+  "data_dir": "/data",
+  "http": {
+    "listen": "0.0.0.0:8787",
+    "public_url": "http://127.0.0.1:8787",
+    "tls_mode": "lan",
+    "allowed_origins": ["http://127.0.0.1:8787"]
+  },
+  "sandbox": {
+    "enabled": false,
+    "allow_full_access": false
+  }
+}

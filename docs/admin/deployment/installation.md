@@ -128,7 +128,7 @@ sudo ./bin/molr-setup --user molr-sandbox --install-deps
 
 程序、配置、数据和缓存目录不能重叠。自定义 `data_dir` 和外置工作区沿用配置，需允许服务账户访问。数据库、密钥、附件和助理工作区属于持久数据；缓存可以重建。许可证随程序保存，WebUI 也提供 `/LICENSE` 和 `/THIRD_PARTY_NOTICES.md`。
 
-用户服务要在退出登录后运行，由管理员执行 `loginctl enable-linger USER`；系统服务无需 linger。现有精简 Docker 镜像不包含完整的自动命令环境。
+用户服务要在退出登录后运行，由管理员执行 `loginctl enable-linger USER`；系统服务无需 linger。使用容器运行完整程序见 [Docker 部署](docker.md)，其中包含 WebUI、持久数据和可选命令执行的配置。
 
 ## 更新与重复运行
 

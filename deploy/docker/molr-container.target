@@ -1,0 +1,5 @@
+[Unit]
+Description=Molr isolated container
+DefaultDependencies=no
+Requires=molr.service
+After=molr.service

@@ -1,0 +1,30 @@
+services:
+  molr:
+    image: molr:local
+    build:
+      context: .
+      args:
+        MOLR_VERSION: ${MOLR_VERSION:-0.1.0-local}
+        MOLR_COMMIT: ${MOLR_COMMIT:-0000000000000000000000000000000000000000}
+    init: true
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    volumes:
+      - molr-data:/data
+      - type: bind
+        source: ./deploy/docker/server.json
+        target: /etc/molr/server.json
+        read_only: true
+        bind:
+          create_host_path: false
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=128m,mode=1777
+
+volumes:
+  molr-data:

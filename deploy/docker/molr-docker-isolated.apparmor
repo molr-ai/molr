@@ -1,0 +1,45 @@
+# This profile applies only to containers explicitly selecting this name.
+# The container init manages its private cgroup namespace. The Molr service
+# drops every capability; Bubblewrap gains capabilities only in child userns.
+# Keep Docker's seccomp filter and the inner command seccomp filter enabled.
+abi <abi/4.0>,
+#include <tunables/global>
+profile molr-docker-isolated flags=(attach_disconnected,mediate_deleted) {
+  file,
+  network inet,
+  network inet6,
+  # Local socket creation plus communication only within this same profile.
+  unix (create,bind,listen,shutdown,getattr,setattr,getopt,setopt),
+  unix (connect,accept,send,receive) peer=(label=molr-docker-isolated),
+  network netlink,
+  capability chown,
+  capability dac_override,
+  capability fowner,
+  capability kill,
+  capability setgid,
+  capability setuid,
+  capability setpcap,
+  capability sys_admin,
+  capability sys_chroot,
+  # Needed for Bubblewrap's child-namespace proc checks, not granted by Docker.
+  capability sys_ptrace,
+  capability net_admin,
+  capability mknod,
+  userns,
+  mount,
+  remount,
+  umount,
+  pivot_root,
+  signal (receive) peer=unconfined,
+  signal (receive) peer=runc,
+  signal (send,receive) peer=molr-docker-isolated,
+  ptrace (trace,read,tracedby,readby) peer=molr-docker-isolated,
+  deny /sys/kernel/security/** rwklx,
+  # Replace Docker's covering mounts with path mediation so child PID
+  # namespaces can mount their own procfs without exposing these interfaces.
+  deny /sys/{firmware,devices/virtual/powercap}{,/**} rwklmx,
+  deny /proc/{acpi,asound,interrupts,kcore,keys,latency_stats,sched_debug,scsi,timer_list,timer_stats}{,/**} rwklmx,
+  deny /proc/{bus,fs,irq}{,/**} wklx,
+  deny /proc/{kcore,kmem,mem,sysrq-trigger} rwklx,
+  deny /proc/sys/** wklx,
+}

@@ -51,6 +51,7 @@ curl -fsSL https://molr.ai/install.sh | sh
 
 - [快速开始](docs/user/getting-started.md)：登录并开始第一次对话。
 - [安装与服务管理](docs/admin/deployment/installation.md)：指定版本、选择发布渠道或离线安装。
+- [Docker 部署](docs/admin/deployment/docker.md)：构建包含 WebUI 的完整容器镜像。
 - [从源码构建](docs/admin/deployment/source-build.md)：自行构建与部署。
 - [部署与维护](docs/admin/README.md)：HTTPS、沙盒依赖和备份恢复。
 

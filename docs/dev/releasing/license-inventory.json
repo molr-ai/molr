@@ -14,12 +14,15 @@
     "scripts/build-release.mjs": "17a7253510ed07b71f8dd163b183d8418b95b750da7403e0064cebe73df3cc07",
     "apps/website/src/GithubMark.tsx": "7d0d38bb13335793c5ed91d5f27ffc8e5fc2811d7eff9ce6e59a6f6d33d5a37a",
     "apps/website/src/site-links.ts": "f360bbe44df89647e5d43207230ab65ee7b2c899aa2f680f1863bba125d2c1cd",
-    "THIRD_PARTY_NOTICES.md": "ab60aaab50f086c3b78e7ba453b5ca497dbf6e8c3e24a49fb0ce17633e32539a",
+    "THIRD_PARTY_NOTICES.md": "33921b8cfd8ec9aca3d1c673d42dec6edded3764ea582f3e5b6ddd93c80cfa19",
     "scripts/license-assets.ts": "2f17e19230ad1b6fa1b44bfd974abec0d2c36522dd009ebed61151040eb715db",
     "scripts/update-third-party-notices.py": "468adbcab07505c888e08017ac41534c4eecc29285721274e3544026e0ef4be8",
     "scripts/promote-release.mjs": "3875373d2fe869b79eda684b6deef53173f8f0af7cf1e41f25f9ea977f972e27",
     "runtime/internal/installation/licenses/agent-browser-LICENSE": "014bb31e83d5c2e76aea1cc6e82217346ab41362f32cb355ad0f5c10aa0aeaff",
-    "scripts/package-release.py": "190091dcc7d7d6df27c8f683ac321764f6ded95f928638f8bcf7d7ee1111cece"
+    "scripts/package-release.py": "190091dcc7d7d6df27c8f683ac321764f6ded95f928638f8bcf7d7ee1111cece",
+    "deploy/docker/vendor/moby-seccomp.json": "6416b47770785a41ac59073cdc77d9fe98517df2799dc83ef207e622de3053f6",
+    "deploy/docker/vendor/LICENSE.moby": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "deploy/docker/seccomp-isolated.json": "7f176503fddf85b01daf167d2970beb395710eee32e7d5add40fc15b0dc6d34a"
   },
   "npm": [
     {

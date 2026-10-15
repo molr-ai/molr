@@ -24,7 +24,7 @@ CGO_ENABLED=0 GOTOOLCHAIN="go$(cat .go-version)" go build -o ../.cache/build/mol
 chmod 0755 ../.cache/build/molr
 ```
 
-WebUI 开发联调见 [应用 README](../apps/webui/README.md)。Dockerfile 提供精简 Runtime 构建，不包含完整 Linux Shell 自动环境。
+WebUI 开发联调见 [应用 README](../apps/webui/README.md)。仓库根目录的 Dockerfile 构建包含内嵌 WebUI 的完整程序；配置、初始化与可选命令执行见 [Docker 部署](../docs/admin/deployment/docker.md)。
 
 ## 功能模块
 

@@ -1,0 +1,31 @@
+services:
+  molr:
+    image: molr:isolated
+    build:
+      target: isolated
+    init: false
+    tty: true
+    cgroup: private
+    # Only PID 1 needs these for cgroup setup and starting the ordinary user.
+    # molr.service clears its entire capability bounding/ambient sets.
+    cap_add:
+      - SYS_ADMIN
+      - SYS_CHROOT
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - KILL
+      - SETGID
+      - SETUID
+      - SETPCAP
+    security_opt:
+      - apparmor=molr-docker-isolated
+      - seccomp=./deploy/docker/seccomp-isolated.json
+      # Covering /proc mounts prevent nested procfs. The required AppArmor
+      # profile denies the same sensitive paths instead of masking mounts.
+      - systempaths=unconfined
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    tmpfs:
+      - /run:rw,nosuid,nodev,size=64m,mode=755
+      - /run/lock:rw,nosuid,nodev,size=1m,mode=755

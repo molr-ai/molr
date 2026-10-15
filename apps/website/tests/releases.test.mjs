@@ -95,6 +95,12 @@ test('install section follows published channels and platform availability', { t
     await expect(section.locator('.home-install-requirements')).not.toContainText('systemd');
     await section.getByRole('button', { name: 'Intel', exact: true }).click();
     await expect(section.getByRole('link', { name: 'Download package', exact: true })).toHaveAttribute('href', /darwin_amd64.tar.gz$/);
+    await section.getByRole('button', { name: 'Docker', exact: true }).click();
+    await expect(section.getByRole('group', { name: 'Release channel', exact: true })).toHaveCount(0);
+    await expect(section.locator('pre')).toContainText('docker compose build');
+    await expect(section.getByRole('link', { name: 'Configure and start Docker' })).toHaveAttribute('href', '/en/docs/admin/deployment/docker/');
+    await section.getByRole('button', { name: 'Copy command', exact: true }).click();
+    assert.equal(await page.evaluate(() => navigator.clipboard.readText()), await section.locator('pre').innerText());
     const screenshots = resolve(import.meta.dirname, '../test-results/releases'); mkdirSync(screenshots, { recursive: true });
     for (const theme of ['light', 'dark']) for (const palette of ['forest', 'ocean', 'iris', 'sand', 'rose', 'monochrome']) for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 900 });
@@ -110,10 +116,18 @@ test('install section follows published channels and platform availability', { t
     await page.reload();
     await expect(section.getByRole('status')).toContainText('No published release');
     await expect(section.getByRole('link', { name: 'Download package', exact: true })).toHaveCount(0);
+    await section.getByRole('button', { name: 'Docker', exact: true }).click();
+    await expect(section.locator('pre')).toContainText('docker compose build');
+    await expect(section.getByRole('status')).toHaveCount(0);
+    await section.getByRole('button', { name: /Command line/ }).click();
     await section.getByRole('button', { name: 'Preview', exact: true }).click();
     await expect(section.locator('pre')).toContainText('--channel preview');
     response = {};
     await page.reload(); await expect(section.getByRole('alert')).toContainText('temporarily unavailable');
+    await section.getByRole('button', { name: 'Docker', exact: true }).click();
+    await expect(section.locator('pre')).toContainText('docker compose build');
+    await expect(section.getByRole('alert')).toHaveCount(0);
+    await section.getByRole('button', { name: /Command line/ }).click();
     response = catalog;
     await section.getByRole('button', { name: 'Retry', exact: true }).click();
     await expect(section.getByText('v0.1.0', { exact: true })).toBeVisible();

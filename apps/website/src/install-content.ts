@@ -14,6 +14,13 @@ const zh = {
   downloadBody: '程序与网页界面已包含在同一个安装包中。',
   downloadAction: '下载安装包',
   guide: '详细安装指南',
+  dockerIncludes: 'Runtime + WebUI',
+  dockerRequirements: 'Docker Engine 或 Docker Desktop（Linux 容器）与 Docker Compose。',
+  dockerTitle: '用 Docker 部署完整 Molr。',
+  dockerBody: '从源码构建单个镜像，通过同一个端口访问网页和 API，数据保存在持久卷中。',
+  dockerConfigure: '构建后，按指南设置访问地址、初始化账号并启动。命令执行可选择容器内隔离或独立 Linux 沙盒；Full Access 需要显式开启和授权。',
+  dockerGuide: '配置并启动 Docker',
+  dockerHint: '完整程序镜像由本地构建；基础镜像已固定版本与摘要。',
 } as const;
 
 type InstallCopy = { [K in keyof typeof zh]: string };
@@ -33,5 +40,12 @@ export const installMessages: Record<Locale, InstallCopy> = {
     downloadBody: 'The application and web interface, together in one package.',
     downloadAction: 'Download package',
     guide: 'Installation guide',
+    dockerIncludes: 'Runtime + WebUI',
+    dockerRequirements: 'Docker Engine or Docker Desktop (Linux containers), with Docker Compose.',
+    dockerTitle: 'Deploy the complete Molr app with Docker.',
+    dockerBody: 'Build one image from source, serve the web interface and API on one port, and keep data in a persistent volume.',
+    dockerConfigure: 'After building, follow the guide to configure the address, initialize your account, and start. Choose isolated commands inside the container or a separate Linux sandbox; Full Access requires explicit enablement and grants.',
+    dockerGuide: 'Configure and start Docker',
+    dockerHint: 'Build the complete app image locally; base image versions and digests are pinned.',
   },
 };

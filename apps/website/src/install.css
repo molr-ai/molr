@@ -1,5 +1,5 @@
 .home-installer { margin-top: 40px; text-align: left; border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-surface); overflow: hidden; }
-.home-install-methods { display: flex; gap: 8px; padding: 16px 24px; border-bottom: 1px solid var(--color-border); }
+.home-install-methods { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px 24px; border-bottom: 1px solid var(--color-border); }
 .home-install-methods button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 10px 14px; border: 1px solid transparent; border-radius: 8px; background: transparent; font-size: 13px; color: var(--color-text-muted); }
 .home-install-methods button:hover { color: var(--color-text); background: var(--color-neutral-bg); }
 .home-install-methods button[aria-pressed='true'] { color: var(--color-text); background: var(--color-neutral-bg); }

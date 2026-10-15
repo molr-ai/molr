@@ -12,6 +12,8 @@ This walkthrough is for the person installing and preparing a service. Existing 
 
 ## Install and initialize
 
+For Docker, follow [Docker deployment](deployment/docker.md) to build Runtime and WebUI together, configure access, and initialize the account. The steps below describe native installation.
+
 Select a channel with an available version from the installation section on the official website, then select the target platform. Available versions are subject to the official website's release list; channels without available versions do not provide download links. Current platforms are defined as Linux amd64/arm64. The installation package includes Runtime and WebUI; static dependencies such as BusyBox for the sandbox are provided by the target machine's system package manager.
 
 Run the official installation script directly and select a channel, without saving a script file:

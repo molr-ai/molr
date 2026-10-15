@@ -1,0 +1,21 @@
+[Unit]
+Description=Molr Runtime with embedded WebUI and isolated commands
+DefaultDependencies=no
+
+[Service]
+Type=exec
+User=65532
+Group=65532
+Environment=HOME=/data
+ExecStart=/usr/local/bin/molr serve -config /etc/molr/server.json
+Delegate=yes
+DelegateSubgroup=supervisor
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+KillMode=control-group
+Restart=on-failure
+TimeoutStopSec=30s
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/console

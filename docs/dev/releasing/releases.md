@@ -2,6 +2,9 @@
 
 发行包存放在 GitHub Releases，官网与发布清单通过 Cloudflare Workers 静态资源一起部署。当前产物是内嵌 WebUI 的 Linux/macOS Runtime；平台与环境要求统一定义在 [`release/platforms.json`](../../../release/platforms.json)。
 
+
+仓库根目录的 Dockerfile 提供本地完整镜像构建：Node 构建 WebUI，Go 使用 `webui` tag 静态内嵌页面，最终 Debian 镜像以普通用户运行。基础镜像均固定多架构摘要；升级 Go 时同步 `.go-version`、`go.mod` 与 Dockerfile。镜像保留 LICENSE、第三方声明和 Debian 原有许可材料；当前发行流水线不发布容器镜像。官网 Docker 入口独立于原生发行清单，链接到 [Docker 部署](../../admin/deployment/docker.md)。 隔离目标另外预装 systemd、Bubblewrap 和静态 BusyBox，通过容器内专属 cgroup 和安全策略运行普通权限命令；部署及真实回归命令见同一 Docker 指南。
+
 ## 首次启用
 
 在 GitHub 仓库启用 Actions，并创建用于发行的 `release` environment。官网保留 Cloudflare Workers Builds 的 GitHub 仓库授权与 `main` 生产分支自动部署，不需要在 GitHub 设置 `CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_API_TOKEN` 或 `production` environment。

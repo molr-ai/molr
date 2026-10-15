@@ -1,0 +1,5 @@
+[Unit]
+Description=Molr container isolation regression
+DefaultDependencies=no
+Requires=molr-isolation-test.service
+After=molr-isolation-test.service

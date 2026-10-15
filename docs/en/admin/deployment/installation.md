@@ -129,7 +129,7 @@ Service `molr` uses instance `default`; `molr-demo` uses `demo`. `molr-default` 
 
 Program, configuration, data and cache directories must not overlap. Custom `data_dir` and external workspaces retain their configured paths and must be accessible to the service account. Databases, keys, attachments and assistant workspaces are persistent data; caches can be rebuilt. Licenses are installed with the programs and available in WebUI at `/LICENSE` and `/THIRD_PARTY_NOTICES.md`.
 
-An administrator can run `loginctl enable-linger USER` to keep a user service running after logout. System services need no linger. The existing minimal Docker image does not include the complete automatic command environment.
+An administrator can run `loginctl enable-linger USER` to keep a user service running after logout. System services need no linger. See [Docker deployment](docker.md) to run the complete application with WebUI, persistent data, and optional command execution.
 
 ## Updates and repeated execution
 

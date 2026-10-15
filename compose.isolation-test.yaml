@@ -1,0 +1,10 @@
+# Run with compose.yaml + compose.isolated.yaml, using a separate project name.
+# No host configuration, published ports, or existing data volumes are used.
+services:
+  molr:
+    image: molr:isolation-test
+    build:
+      target: isolation-test
+    restart: "no"
+    ports: !reset []
+    volumes: !reset []

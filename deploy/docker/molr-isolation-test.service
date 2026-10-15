@@ -1,0 +1,27 @@
+[Unit]
+Description=Real kernel isolation tests inside the Molr container
+DefaultDependencies=no
+SuccessAction=exit
+SuccessActionExitStatus=0
+FailureAction=exit
+FailureActionExitStatus=1
+
+[Service]
+Type=oneshot
+User=65532
+Group=65532
+Delegate=yes
+DelegateSubgroup=supervisor
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+KillMode=control-group
+Environment=MOLR_SANDBOX_INTEGRATION=1 GOMAXPROCS=2 TMPDIR=/data/test-tmp
+Environment=MOLR_SANDBOX_HOST_TOOLS=1 MOLR_TEST_CHROMIUM_SANDBOX=1
+ExecStartPre=/usr/bin/install -d -m 0700 /data/test-tmp
+ExecStartPre=/usr/bin/install -m 0755 /usr/local/libexec/molr-sandbox.test /data/sandbox.test
+ExecStart=/data/sandbox.test -test.v -test.timeout=240s -test.run=^Test(Linux(Real|Network|ComputeQuota|UserGroup|AutomaticPreparation|Interactive|PrivateSockets|NestedNamespace|ExecutionIdentity)|RemoteExecutionHasNoPersistentAssistantWorkspace)
+TimeoutStartSec=260s
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/console

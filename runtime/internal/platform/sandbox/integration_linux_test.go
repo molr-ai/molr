@@ -22,6 +22,7 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+	"unsafe"
 )
 
 func TestMain(m *testing.M) {
@@ -48,6 +49,15 @@ func TestMain(m *testing.M) {
 		os.Exit(SupervisorMain())
 	}
 	if len(os.Args) > 1 && os.Args[1] == "sandbox-test-syscalls" {
+		// The outer container permits these calls for the trusted socket
+		// broker; the inner guest filter must still reject them.
+		if _, err := unix.PidfdGetfd(-1, 0, 0); err != unix.EPERM {
+			os.Exit(1)
+		}
+		memory := []byte{1}
+		if _, err := unix.ProcessVMReadv(os.Getpid(), []unix.Iovec{{Base: &memory[0], Len: 1}}, []unix.RemoteIovec{{Base: uintptr(unsafe.Pointer(&memory[0])), Len: 1}}, 0); err != unix.EPERM {
+			os.Exit(1)
+		}
 		for _, family := range []int{unix.AF_VSOCK, unix.AF_NETLINK} {
 			fd, e := unix.Socket(family, unix.SOCK_STREAM, 0)
 			if e != unix.EPERM {
@@ -371,7 +381,7 @@ func TestLinuxRealSandboxIsolation(t *testing.T) {
 	r := integrationRunner(t, nil)
 	c := testCommand()
 	c.Timeout = 10 * time.Second
-	c.Script = "test ! -e /home; test ! -e /run; test ! -e /sys; echo isolated; echo persistent > /work/value; cat /work/value"
+	c.Script = "test ! -e /home && test ! -e /run && test ! -e /sys && echo isolated && echo persistent > /work/value && cat /work/value"
 	out, exit := executeTest(t, r, c)
 	if exit.Code != 0 || out != "isolated\npersistent\n" {
 		t.Fatalf("%+v %q", exit, out)

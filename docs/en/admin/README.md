@@ -7,6 +7,7 @@ This guide is for instance administrators and server operators. Resource, member
 Follow [Set up a Molr instance](getting-started.md) for installation, initialization, resource connections and member setup.
 
 - [Installation and service management](deployment/installation.md): requirements, channels, pinned versions, offline installation and service lifecycle.
+- [Docker deployment](deployment/docker.md): run Runtime and WebUI in one container with persistent data and optional command execution.
 - [Building from source](deployment/source-build.md): build programs and release packages yourself.
 - [Configuration and access](deployment/configuration.md): LAN access, HTTPS, model networking and WeChat connectivity.
 

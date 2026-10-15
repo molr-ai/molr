@@ -19,7 +19,7 @@ function OptionRow({ label, children }: { label: string; children: ReactNode }) 
 
 export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Locale }) {
   const t = installMessages[locale];
-  const [method, setMethod] = useState<'command' | 'download'>('command');
+  const [method, setMethod] = useState<'command' | 'download' | 'docker'>('command');
   const [channel, setChannel] = useState<Channel>('stable');
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [selectedOS, setOS] = useState('linux');
@@ -54,9 +54,14 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
       <div className="home-install-methods" role="group" aria-label={t.method}>
         <button type="button" aria-pressed={method === 'command'} aria-controls="install-details" onClick={() => setMethod('command')}><span aria-hidden="true" className="home-install-terminal-icon">&gt;_</span>{t.command}<small>{t.recommended}</small></button>
         <button type="button" aria-pressed={method === 'download'} aria-controls="install-details" onClick={() => setMethod('download')}><Icon name="download" />{t.download}</button>
+        <button type="button" aria-pressed={method === 'docker'} aria-controls="install-details" onClick={() => setMethod('docker')}>Docker</button>
       </div>
       <div className="home-install-workspace">
         <div className="home-install-config">
+          {method === 'docker' ? <>
+            <span className="home-install-option-label">{t.dockerIncludes}</span>
+            <p className="home-install-channel-note">{t.dockerRequirements}</p>
+          </> : <>
           <OptionRow label={t.channel}>
             {channels.map(c => <button type="button" key={c} aria-pressed={channel === c} onClick={() => setChannel(c)}>{t[c]}</button>)}
           </OptionRow>
@@ -72,9 +77,16 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
             </OptionRow>}
           </>}
           <p className="home-install-channel-note">{t[`${channel}Description`]}</p>
+          </>}
         </div>
         <div id="install-details" className="home-install-result">
-        {error ? <p className="home-install-status" role="alert">{t.loadError} <button type="button" onClick={() => setAttempt(v => v + 1)}>{t.retry}</button></p>
+        {method === 'docker' ? <div className="home-install-details">
+          <div className="home-install-heading"><h3>{t.dockerTitle}</h3></div>
+          <p>{t.dockerBody}</p>
+          <InstallCommand command={'git clone https://github.com/molr-ai/molr.git\ncd molr\ncp deploy/docker/server.example.json deploy/docker/server.json\ndocker compose build'} locale={locale} />
+          <p>{t.dockerConfigure}</p>
+          <a className="home-button home-button-primary" href={localizedDocPath('/docs/admin/deployment/docker/', locale)}>{t.dockerGuide}<span aria-hidden="true"> ↗</span></a>
+        </div> : error ? <p className="home-install-status" role="alert">{t.loadError} <button type="button" onClick={() => setAttempt(v => v + 1)}>{t.retry}</button></p>
           : !catalog ? <p className="home-install-status" role="status">{t.loading}</p>
           : !release || !platform ? <p className="home-install-status" role="status">{t.empty}</p>
           : <>
@@ -103,7 +115,7 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
           </>}
         </div>
       </div>
-      <div className="home-install-footer"><span>{t.targetHint}</span><a href={localizedDocPath(siteLinks.install!, locale)}>{t.guide}<span aria-hidden="true"> ↗</span></a></div>
+      <div className="home-install-footer"><span>{method === 'docker' ? t.dockerHint : t.targetHint}</span><a href={localizedDocPath(method === 'docker' ? '/docs/admin/deployment/docker/' : siteLinks.install!, locale)}>{t.guide}<span aria-hidden="true"> ↗</span></a></div>
     </div>
   </section>;
 }

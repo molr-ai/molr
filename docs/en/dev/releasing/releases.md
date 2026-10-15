@@ -2,6 +2,9 @@
 
 Release packages are stored in GitHub Releases. The official website and release manifests are deployed together as static resources via Cloudflare Workers. The current artifacts are Linux/macOS Runtime packages with an embedded WebUI; platform and environment requirements are uniformly defined in [`release/platforms.json`](../../../../release/platforms.json).
 
+
+The repository-root Dockerfile builds a complete local image: Node builds WebUI, Go embeds the assets statically with the `webui` tag, and the final Debian image runs as an ordinary user. Base images pin multi-platform digests; update `.go-version`, `go.mod`, and Dockerfile together when upgrading Go. The image retains LICENSE, third-party notices, and Debian license materials. The release pipeline does not currently publish container images. The website Docker option is independent of native release catalogs and links to [Docker deployment](../../admin/deployment/docker.md). The isolated target additionally installs systemd, Bubblewrap, and static BusyBox and uses dedicated container cgroups and security policies for ordinary isolated commands; deployment and real regression commands are in the same Docker guide.
+
 ## Initial Enablement
 
 Enable Actions in the GitHub repository and create the `release` environment for releases. The official website retains the GitHub repository authorization for Cloudflare Workers Builds and automatic deployment of the `main` production branch. It is not necessary to configure `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, or `production` environments in GitHub settings.
