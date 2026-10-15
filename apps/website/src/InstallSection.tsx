@@ -93,7 +93,7 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
           <p>{t.dockerBody}</p>
           <InstallCommand command={'git clone https://github.com/molr-ai/molr.git\ncd molr\ncp deploy/docker/server.example.json deploy/docker/server.json\ndocker compose build'} locale={locale} />
           <p>{t.dockerConfigure}</p>
-          <a className="home-button home-button-primary" href={localizedDocPath('/docs/admin/deployment/docker/', locale)}>{t.dockerGuide}<span aria-hidden="true"> ↗</span></a>
+          <a className="home-button home-button-primary" href={localizedDocPath('/docs/admin/deployment/docker/', locale)}>{t.dockerGuide}</a>
         </div> : error ? <p className="home-install-status" role="alert">{t.loadError} <button type="button" onClick={() => setAttempt(v => v + 1)}>{t.retry}</button></p>
           : !catalog ? <p className="home-install-status" role="status">{t.loading}</p>
           : !release || !platform ? <p className="home-install-status" role="status">{t.empty}</p>

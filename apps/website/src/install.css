@@ -88,7 +88,8 @@
 }
 .home-install-prompt { margin-top: 24px; padding: 20px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-background); }
 .home-install-prompt .home-install-prompt-text { margin: 0 0 20px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.85; color: var(--color-text); }
-.home-install-prompt .home-button { min-height: 40px; padding: 10px 16px; font-size: 12px; }
+.home-install-details > .home-button, .home-install-prompt .home-button { min-height: 40px; padding: 10px 16px; font-size: 12px; }
+.home-install-details > .home-button { margin-top: 20px; }
 .home-install-copy-error { display: block; margin-top: 12px; color: var(--color-text-muted); font-size: 12px; line-height: 1.8; }
 @media (--molr-mobile) {
   .home-install-methods button { flex: 1 1 calc(50% - 4px); }
