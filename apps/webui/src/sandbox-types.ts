@@ -7,7 +7,7 @@ export type SandboxInfo = {
   Capabilities: { FullAccess?: boolean; OS: string; NetworkBackend?: string; NetworkProtocols?: string[]; Shell: boolean; Reason: string; ProcessIsolation: boolean; FileIsolation: boolean; NetworkIsolation: boolean; ResourceLimits: boolean };
   Directories: { ID: string; Name: string; ReadOnly: boolean }[];
   Networks: { ID: string; Name: string; Target: SandboxNetworkTarget }[];
-  ResourceQuotas?: boolean;
+  ResourceQuotas?: boolean; WorkspaceProjectQuotas?: boolean;
   AuthorizationCeilings?: { GPUDeviceIDs?: string[]; CPUPercent:number;MemoryBytes:number;Processes:number;NetworkBytes?:number;NetworkConnections?:number };
   Limits: { NetworkBytes?: number; NetworkConnections?: number; MemoryBytes: number; Processes: number; CPUPercent: number };
   TimeoutSeconds: number;

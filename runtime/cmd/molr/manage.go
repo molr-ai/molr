@@ -182,6 +182,6 @@ func online(ctx context.Context, cfg config.Config, command, username, mfa strin
 // Diagnostics accept direct execution only when the deployment explicitly allows
 // it. The returned capability document still reports each isolation flag.
 func commandEnvironmentReady(allowFullAccess bool, c platform.Capabilities) bool {
-	isolated := c.Reason == "available" && c.Shell && c.ProcessIsolation && c.FileIsolation && c.NetworkIsolation && c.ResourceLimits
+	isolated := c.ControlledReady()
 	return isolated || (allowFullAccess && c.FullAccess)
 }

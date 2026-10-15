@@ -4,6 +4,7 @@ import (
 	"context"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/platform"
+	"runtime"
 	"strings"
 )
 
@@ -20,6 +21,9 @@ func (r *Runner) validateMode(c platform.Command) error {
 		return core.Invalid("directory", "remote computers have no assistant workspace")
 	}
 	if !c.FullAccess {
+		if runtime.GOOS == "darwin" {
+			return validateSeatbelt(c)
+		}
 		return validate(c)
 	}
 	if !r.options.AllowFullAccess {

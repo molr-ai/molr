@@ -1,5 +1,7 @@
 # 文件与命令
 
+macOS 受控命令使用 Seatbelt，计算只控制时长，网络采用授权开关，不提供 Linux 资源硬配额。原生路径、撤权和转发边界见 [macOS 原生命令权限](../../admin/sandbox/macos.md)。
+
 先确认助理拥有所需目录和计算权限。文件工具、Shell 与网络授权分别管理，具体操作见[权限与预算](permissions-and-budget.md)。
 
 ## 工作区与文件

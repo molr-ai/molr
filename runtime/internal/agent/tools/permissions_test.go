@@ -61,3 +61,26 @@ func TestPermissionRequestRejectsIdentityInjectionAndMalformedArguments(t *testi
 		}
 	}
 }
+
+func TestNativePermissionRequestUsesDurationAndNetworkToggle(t *testing.T) {
+	raw := json.RawMessage(`{"resource_kind":"compute","resource_id":"compute","resource_description":"Native commands","actions":["execute"],"expires_at":"2099-01-01T00:00:00Z","reason":"Build the project","constraints":{"compute":{"cpu_percent":0,"memory_bytes":0,"processes":0,"temp_bytes":0,"max_duration_seconds":120,"unlimited_duration":false}},"additional_requests":[{"resource_kind":"network","resource_id":"network","resource_description":"Network access","actions":["execute"],"reason":"Download dependencies"}]}`)
+	input, err := parsePermissionRequest(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if input.Constraints.Compute.CPUPercent != 0 || len(input.Additional) != 1 || input.Additional[0].Constraints != nil {
+		t.Fatalf("%+v", input)
+	}
+	// The advertised schema must allow the same zero-valued duration-only shape.
+	var schema map[string]any
+	if err = json.Unmarshal(permissionRequestDefinition().InputSchema, &schema); err != nil {
+		t.Fatal(err)
+	}
+	properties := schema["properties"].(map[string]any)
+	compute := properties["constraints"].(map[string]any)["properties"].(map[string]any)["compute"].(map[string]any)["properties"].(map[string]any)
+	for _, name := range []string{"cpu_percent", "memory_bytes", "processes", "temp_bytes"} {
+		if compute[name].(map[string]any)["minimum"] != float64(0) {
+			t.Fatalf("%s excludes native requests", name)
+		}
+	}
+}

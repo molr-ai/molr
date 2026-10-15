@@ -25,6 +25,11 @@ func (r *Runner) checkDirect() error {
 	return nil
 }
 func (r *Runner) startDirect(parent context.Context, e core.Execution, c platform.Command) (*process, error) {
+	return r.startHost(parent, e, c, nil)
+}
+
+// configure runs before exec, after allocating stdio. It must not add inherited FDs.
+func (r *Runner) startHost(parent context.Context, e core.Execution, c platform.Command, configure func(*exec.Cmd, string, string) (func(), error)) (*process, error) {
 	ctx, cancel := context.WithCancel(parent)
 	deadline := c.AuthorizationDeadline
 	if c.Timeout > 0 {
@@ -97,6 +102,20 @@ func (r *Runner) startDirect(parent context.Context, e core.Execution, c platfor
 	cmd.SysProcAttr = directProcessAttributes()
 	cmd.WaitDelay = time.Second
 	var ttyDone chan struct{}
+	var cleanup func()
+	defer func() {
+		if !ok && cleanup != nil {
+			cleanup()
+		}
+	}()
+	setup := func(tty string) error {
+		if configure == nil {
+			return nil
+		}
+		var err error
+		cleanup, err = configure(cmd, work, tty)
+		return err
+	}
 	if c.TTY {
 		master, slave, err := openPTY()
 		if err != nil {
@@ -114,6 +133,9 @@ func (r *Runner) startDirect(parent context.Context, e core.Execution, c platfor
 		cmd.SysProcAttr.Setctty, cmd.SysProcAttr.Ctty = true, 0
 		// Start the reader only once the child has successfully started.
 		ttyDone = make(chan struct{})
+		if err := setup(slave.Name()); err != nil {
+			return nil, err
+		}
 		if err := r.options.Authorize(ctx, e, c); err != nil {
 			return nil, err
 		}
@@ -122,6 +144,9 @@ func (r *Runner) startDirect(parent context.Context, e core.Execution, c platfor
 		}
 		go func() { io.Copy(destination, master); close(ttyDone) }()
 	} else {
+		if err := setup(""); err != nil {
+			return nil, err
+		}
 		if err := r.options.Authorize(ctx, e, c); err != nil {
 			return nil, err
 		}
@@ -148,6 +173,9 @@ func (r *Runner) startDirect(parent context.Context, e core.Execution, c platfor
 		return tracked, nil
 	}
 	go func() {
+		if cleanup != nil {
+			defer cleanup()
+		}
 		if r.options.NoWorkspace {
 			defer os.RemoveAll(work)
 		}
@@ -172,8 +200,8 @@ func (r *Runner) startDirect(parent context.Context, e core.Execution, c platfor
 				break
 			}
 		}
-		// Best-effort process-group cleanup; full access processes can deliberately
-		// create another session. The outer deployment owns that isolation boundary.
+		// Best-effort process-group cleanup. Native processes can create another
+		// session; this is not a whole-descendant containment guarantee.
 		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 		if ttyDone != nil {
 			select {

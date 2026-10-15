@@ -26,11 +26,12 @@ function QuotaGrid({ value, gpus }: { value: ResourceConstraints; gpus?: readonl
   const period = { lifetime: zh ? '累计' : 'lifetime', day: zh ? '天' : 'day', week: zh ? '周' : 'week', month: zh ? '月' : 'month' };
   const rows: [string, string, boolean?][] = [
     ...(c ? [
-      ['CPU', `${number(c.cpu_percent / 100)} ${zh ? '核' : 'cores'}`],
+      ...(c.cpu_percent>0 ? [ ['CPU', `${number(c.cpu_percent / 100)} ${zh ? '核' : 'cores'}`],
       [zh ? '内存' : 'Memory', bytes(c.memory_bytes)],
       [zh ? '进程 / 线程' : 'Processes / threads', number(c.processes)],
+      ] : []),
       [zh ? '单次运行时长' : 'Per execution', c.unlimited_duration ? (zh ? '不限时长' : 'Unlimited') : c.max_duration_seconds < 60 ? `${number(c.max_duration_seconds)} ${zh ? '秒' : 'seconds'}` : `${number(c.max_duration_seconds / 60)} ${zh ? '分钟' : 'minutes'}`],
-      [zh ? '内存临时盘 /tmp' : 'RAM disk (/tmp)', bytes(c.temp_bytes)],
+      ...(c.temp_bytes>0 ? [[zh ? '内存临时盘 /tmp' : 'RAM disk (/tmp)', bytes(c.temp_bytes)]] : []),
     ] as [string, string, boolean?][] : []),
     ...(n ? [
       [zh ? '双向流量' : 'Traffic · both directions', `${bytes(n.bytes)} / ${period[n.period]}`],

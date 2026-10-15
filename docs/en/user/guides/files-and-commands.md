@@ -1,5 +1,7 @@
 # Files and Commands
 
+Controlled macOS commands use Seatbelt, duration-only compute grants, and a network permission toggle. Linux hard resource quotas are unavailable. See [native macOS command permissions](../../admin/sandbox/macos.md) for paths, revocation, and forwarding boundaries.
+
 First, confirm that the assistant has the required directory and compute permissions. File tools, Shell, and network authorizations are managed separately; see [Permissions and Budgets](permissions-and-budget.md) for specific operations.
 
 ## Workspace and Files

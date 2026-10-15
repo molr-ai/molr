@@ -71,6 +71,8 @@ type NetworkAuthorization struct {
 	ExpiresAt        *time.Time
 }
 type Command struct {
+	// NetworkAccess is an explicit all-IP grant for the native Seatbelt backend.
+	NetworkAccess bool
 	// BrowserAssets is set only by the trusted browser task planner.
 	BrowserAssets           bool
 	BrowserProxy            *browser.Proxy `json:"-"`
@@ -114,8 +116,9 @@ type Exit struct {
 	OutputTruncated bool
 }
 
-// Process streams bounded output; Wait reaps it. Cancel terminates its process
-// tree. Failed isolation is an error, not a fallback to unrestricted execution.
+// Process streams bounded output; Wait reaps it. Linux cancellation uses the
+// managed cgroup; native execution kills the process group on a best-effort basis.
+// Failed isolation never falls back to unrestricted execution.
 type Process interface {
 	Stdout() io.Reader
 	Stderr() io.Reader

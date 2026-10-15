@@ -37,7 +37,7 @@ The default program directory is `~/Library/Application Support/Molr/program/def
 
 Normal uninstall retains configuration and data; explicitly remove them with `uninstall --purge --yes`. Updates preserve accounts, configuration, and workspaces. In-app updates are not yet supported on macOS; use the CLI. Setup verifies the archive and Mach-O code signatures. Packages currently use ad-hoc signatures without Developer ID signing or Apple notarization; the supported distribution path is Terminal installation.
 
-The default is `sandbox.enabled: false`; chat, files, and memory remain available. To execute commands, explicitly set `sandbox.enabled: true` and `sandbox.allow_full_access: true`, restart the service, then grant the assistant Full Access. macOS does not yet provide isolated Shell, hard compute quotas, managed browser, or isolated audiovisual decoding. Ordinary calls never automatically upgrade to Full Access.
+The installer defaults to `sandbox.enabled: false`; chat, files, and memory remain available. Set `sandbox.enabled: true` and restart to enable Seatbelt-controlled commands, then grant compute, file, and network access as needed. Full Access requires a separate `sandbox.allow_full_access` opt-in and grant. See [native macOS command permissions](../sandbox/macos.md).
 
 For offline installation, download the archive and adjacent `.sha256`, verify with `shasum -a 256 -c <archive>.sha256`, extract, and run `./bin/molr-setup`. Do not substitute Finder double-clicking a bare executable for Terminal installation.
 

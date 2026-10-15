@@ -483,9 +483,6 @@ func (e *Engine) plan(pkg *Package, previous *installrecord.Record) (*Plan, erro
 		if _, ok := sandbox["enabled"]; !ok {
 			sandbox["enabled"] = false
 		}
-		if sandbox["enabled"] == true && sandbox["allow_full_access"] != true {
-			return nil, fmt.Errorf("macOS command execution requires explicit sandbox.allow_full_access=true")
-		}
 	}
 	enabled := true
 	if v, ok := sandbox["enabled"]; ok {

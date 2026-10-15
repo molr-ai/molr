@@ -1,0 +1,59 @@
+# Native macOS Command Permissions
+
+Controlled macOS commands load a Seatbelt policy through `/usr/bin/sandbox-exec`, using the same native tools and assistant workspace as Full Access. Compute, file, and network permissions retain existing resource grants, group scopes, approvals, and expiry. Full Access remains independently authorized.
+
+## Enable and authorize
+
+The installer disables command execution by default. Set `sandbox.enabled: true`, restart, check compute readiness under Sandboxes, and grant compute access to the assistant. Controlled commands do not require `allow_full_access`.
+
+```json
+{
+  "sandbox": {
+    "enabled": true,
+    "allow_full_access": false,
+    "network_presets": ["network"],
+    "tool_directories": ["/opt/homebrew", "/usr/local", "/Library/Developer/CommandLineTools"]
+  }
+}
+```
+
+`tool_directories` selects deployment-managed read-only tools; it does not install anything. Missing directories are skipped. Tool directories cannot contain Runtime private data, workspaces, or protected installation directories. Narrow the list to the tools required. The base policy provides the system shell, system libraries, and basic utilities.
+
+| Permission | macOS behavior |
+| --- | --- |
+| Compute | Allows execution with a per-execution duration limit or unlimited duration |
+| Files | Read/write access to the assistant workspace, read-only access to owner-shared files, and approved read or read/write external paths |
+| Network access | One `preset:network` resource allowing TCP/UDP to any destination, DNS, and listening on any interface and port |
+| Full Access | Requires deployment opt-in, group permission, a separate grant, and `full_access:true`; uses the service account's access |
+
+Without a valid network grant, or with `network_mode:none`, controlled commands cannot use IP networking, bind, or listen. File access does not imply network access. Internet, LAN, or destination-specific scopes are never converted into unrestricted network grants. macOS provides no destination, traffic, or connection limits and uses no Molr network proxy. Arbitrary Unix sockets remain denied; only system communication required for DNS is opened.
+
+Compute grants specify duration, with CPU, memory, process, and temporary disk fields set to zero. Network grants have no `constraints`. The UI presents node-specific options. CPU, memory, process, temporary disk, workspace capacity/file-count, network usage, and GPU controls are unsupported; submitting those settings or constraints is rejected. Existing assistant and user-group task concurrency limits remain enforced.
+
+## File paths and tasks
+
+Shell scripts use `$MOLR_WORKSPACE`, `$MOLR_GLOBAL`, `$TMPDIR`, and each resource's `ShellPath` from the permission catalog. File tools retain `/work`, `/global`, and `/resources/...`. The working-directory argument accepts `/work` and `/tmp` aliases; they are not shell mounts, and script text is never rewritten. External files use approved native paths. A task's temporary directory is removed when its managed process finishes.
+
+Foreground, background, and TTY execution reuse existing task management. Controlled processes do not inherit Runtime credential variables, proxy variables, or extra file descriptors. TTY access is limited to the terminal device allocated for that task. Processes cannot read unrelated process arguments/environments or signal those processes, but macOS has no Linux process namespace.
+
+File and network scopes are fixed at launch. Expiry, revocation, or relevant scope changes trigger reauthorization and termination of the managed process group. Newly granted access requires a new task. Descendants that create another session may survive; open files and connections do not have an object-level immediate revocation guarantee. Use Linux nodes for mandatory whole-process-tree cleanup or hard resource quotas.
+
+File policies constrain direct path access. They do not hide all metadata or provide object isolation for pre-existing hard-link aliases. A network-enabled command can access host services; if a service exposes a file, Seatbelt does not reapply file permissions to the service's response.
+
+## Port forwarding
+
+Existing `forward_ports` creates authenticated HTTP/WebSocket relays to host `127.0.0.1:<port>`. Deployment opt-in and administrator checks still apply. Controlled commands also need compute and network grants; network-disabled calls cannot declare forwarded ports.
+
+Declared ports select relay targets. They do not restrict actual listening interfaces or ports, or establish that the target belongs to the task. A network-enabled service can listen directly on the LAN, outside Molr relay authentication. Task completion or revocation closes Molr-managed relays and connections.
+
+## Verification and limitations
+
+Startup probes verify workspace writes, denial of private-file access, and both network states. After success, authenticated `GET /api/sandbox` reports `Reason=available`, `Shell=true`, `FileIsolation=true`, `NetworkIsolation=true`, and `NetworkBackend=seatbelt-toggle`. `ProcessIsolation` and `ResourceLimits` remain false. Failed probes disable controlled execution without falling back to Full Access.
+
+Run native regression tests from `runtime/` on a Mac:
+
+```bash
+CGO_ENABLED=0 go test ./internal/platform/sandbox ./internal/app ./internal/config -run 'TestSeatbelt|TestNativeSandbox' -v
+```
+
+Managed browser tasks, isolated audio/video decoding, and standalone remote macOS sandbox nodes remain unsupported. The main Runtime can still connect to Linux execution nodes; each node reports its own capabilities.

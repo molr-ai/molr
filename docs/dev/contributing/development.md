@@ -55,7 +55,7 @@
 - 启用沙盒的 Linux 实例必须具有有效的 cgroup v2 委派。沿用已验证的 systemd 用户服务启动方式，设置 `Type=exec`、`Delegate=yes`、`DelegateSubgroup=supervisor`、`KillMode=control-group`；服务名使用以 `molr` 开头的独立名称，每个 worktree 使用不同的 unit。不要随意改回普通登录会话中的后台启动方式，也不能将 systemd unit 启动成功视为沙盒已就绪。
 - 更新主 Runtime 前再次核对构建提交与当前 `main`，保存旧二进制和配置；替换使用临时文件校验后原子重命名，不能直接覆盖正在执行的二进制文件。保留原数据库、密钥和账号；需要复制数据目录时先正常停止对应实例，完成后按原安全配置重启。记录实际 PID、构建提交、二进制摘要、启动方式和回退位置。
 - **每次启动、重建或重启后，除页面和 HTTP 连通性外，还必须通过已认证请求检查 `GET /api/sandbox`；配有 WebUI 的实例还须通过其代理完成验证。** 沙盒未被用户明确关闭时，要求 `Enabled=true`、`Capabilities.Reason=available`，且 `Shell`、`ProcessIsolation`、`FileIsolation`、`NetworkIsolation`、`ResourceLimits` 均为 `true`，确认 Runtime 的真实隔离启动探针通过。此项适用于独立验收和合并后的主服务；不能只凭启动日志、监听端口或 `/api/status` 正常就宣布验收成功。
-- macOS 验收使用独立数据目录和服务，不要求 Linux 隔离能力。关闭命令执行时验证 `Enabled=false`、`Storage=true`；显式开启 Full Access 时验证 `Capabilities.FullAccess=true`，且隔离能力保持 false。文件、聊天、记忆、终端及撤权必须原生验证，不能以交叉编译替代。远程节点仍遵守 Linux 验收要求。
+- macOS 验收使用独立数据目录和服务。受控执行要求 `Enabled=true`、`Reason=available`、`Shell`、`FileIsolation`、`NetworkIsolation` 为 true，`NetworkBackend=seatbelt-toggle`；`ProcessIsolation` 与 `ResourceLimits` 为 false。关闭命令时检查 `Enabled=false`、`Storage=true`；独立开启 Full Access 时检查其能力为 true。文件、网络开关、终端和撤权必须原生验证。远程节点仍遵守 Linux 验收要求。
 - 沙盒异常时依据实际原因码定位：`sandbox_package_incomplete` 优先检查 helper 的静态链接和静态 BusyBox；`sandbox_helper_unavailable` 检查 Bubblewrap/helper 的存在性、可执行权限、组或其他用户写权限及符号链接；cgroup 或其他启动错误检查对应 unit、委派状态和日志。不得通过关闭沙盒、放宽隔离或回退宿主执行掩盖问题；修复后重新验证能力状态，未恢复时明确报告不可用项。
 
 ### 启动就绪与认证验证顺序

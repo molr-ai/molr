@@ -8,6 +8,7 @@ import (
 // These are the actual deployment rules, not a description inferred from a
 // resource's editable name. A missing/offline source must not imply broad access.
 type networkPermissionScope struct {
+	Mode           string
 	Known          bool
 	Reason         string                  `json:",omitempty"`
 	Target         *platform.NetworkTarget `json:",omitempty"`
@@ -26,6 +27,11 @@ func describeNetwork(info sm.Info, targetID string) *networkPermissionScope {
 			"Every resolved address is checked. Hostname exclusions apply to hostname connections; direct IP connections are checked against IP/CIDR exclusions. Allowed access does not guarantee the destination service is listening or reachable.",
 		},
 		LoopbackAccess: "localhost and literal loopback addresses belong to the execution sandbox. Use host.molr.internal (127.0.0.1) or host6.molr.internal (::1) to access authorized host loopback services. The host LAN address is evaluated as a LAN destination.",
+	}
+	if info.Capabilities.NetworkBackend == "seatbelt-toggle" {
+		out.Mode = "all_ip"
+		out.Restrictions = []string{"This grant permits direct TCP/UDP networking to any destination and listening on any interface or port. There are no destination, traffic or connection quotas. Without the grant, or with network_mode:none, IP networking and listening are denied.", "Forwarded ports select authenticated HTTP/WebSocket relays to host loopback; they do not restrict listeners or prove task ownership. Directly reachable listeners are outside the relay authentication."}
+		out.LoopbackAccess = "localhost belongs to the host. Arbitrary Unix sockets remain denied."
 	}
 	if !info.Enabled {
 		out.Reason = info.Capabilities.Reason
@@ -46,6 +52,9 @@ func describeNetwork(info sm.Info, targetID string) *networkPermissionScope {
 
 func localNetworkInfo(a adapters) sm.Info {
 	info := sm.Info{Enabled: a.storageConfig.Enabled, Limits: platform.Limits{NetworkBytes: a.storageConfig.NetworkBytes, NetworkConnections: a.storageConfig.NetworkConnections}}
+	if platform.NativeSandbox() {
+		info.Capabilities.NetworkBackend = "seatbelt-toggle"
+	}
 	for _, n := range a.storageConfig.NetworkTargets(a.ownPort) {
 		info.Networks = append(info.Networks, sm.Network{ID: n.Name, Target: n.Target()})
 	}

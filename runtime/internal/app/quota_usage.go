@@ -95,7 +95,7 @@ func (s *sandboxRouter) quotaUsage(ctx context.Context, p core.Principal, assist
 				return out, err
 			}
 		case resource.Compute:
-			if out.Constraints != nil && out.Constraints.Compute != nil {
+			if !platform.NativeSandbox() && out.Constraints != nil && out.Constraints.Compute != nil {
 				v := s.shell.runner.ComputeUsage(ctx, p.OwnerID, assistantID)
 				out.Compute = &v
 			}

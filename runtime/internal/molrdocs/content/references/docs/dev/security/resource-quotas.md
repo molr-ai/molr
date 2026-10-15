@@ -1,5 +1,7 @@
 # 资源授权额度
 
+本页的计算、网络及文件系统硬配额适用于 Linux。macOS 计算授权只保留时长，网络使用无额度的授权开关，工作区不支持容量配额；用户组仍可限制任务并发。网络撤权会终止使用该授权的受管进程组，不采用 Linux 的连接层动态更新。节点能力、接口值和边界见 [macOS 原生命令权限](https://molr.ai/zh/docs/admin/sandbox/macos/)。
+
 2026-10-03：已加入账号隔离、管理员用户组与成员独立配额；共享资源目录及双层检查见[多用户与成员配额](https://molr.ai/zh/docs/dev/security/users-and-groups/)。
 
 更新：2026-10-02。当前实现与验收边界以本文和测试为准。用户操作见 [资源与权限](https://molr.ai/zh/docs/user/guides/permissions-and-budget/#计算网络与工作区额度)。

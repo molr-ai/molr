@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"molr.ai/runtime/internal/platform"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -146,10 +147,7 @@ func (e *Engine) verify(r *installrecord.Record, cfg map[string]any) (string, er
 	var sandbox struct {
 		Enabled      bool
 		Storage      bool
-		Capabilities struct {
-			Reason                                                                               string
-			FullAccess, Shell, ProcessIsolation, FileIsolation, NetworkIsolation, ResourceLimits bool
-		}
+		Capabilities platform.Capabilities
 	}
 	if err = call("GET", "/api/sandbox", nil, &sandbox); err != nil {
 		return "", err
@@ -162,7 +160,7 @@ func (e *Engine) verify(r *installrecord.Record, cfg map[string]any) (string, er
 	}
 	c := sandbox.Capabilities
 	if runtime.GOOS == "darwin" {
-		if !sandbox.Storage || sandbox.Enabled != wanted || (wanted && !c.FullAccess) {
+		if !sandbox.Storage || sandbox.Enabled != wanted || (wanted && !c.ControlledReady()) {
 			return "", fmt.Errorf("macOS storage/execution verification failed: %s", c.Reason)
 		}
 	} else if wanted && (!sandbox.Enabled || c.Reason != "available" || !c.Shell || !c.ProcessIsolation || !c.FileIsolation || !c.NetworkIsolation || !c.ResourceLimits) {

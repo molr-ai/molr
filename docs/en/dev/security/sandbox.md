@@ -1,13 +1,13 @@
 # Agent Shell Sandbox Implementation and Boundaries
 
-Updated: 2026-10-01. Status: Linux Shell supports foreground, background, and TTY sessions. This document retains the architecture and cross-platform evolution design; current configuration, limits, and deployment steps are subject to the [Linux Sandbox User Guide](../../admin/sandbox/linux.md). macOS supports confined files and explicit Full Access; its isolation backend and the Windows backend are not implemented.
+Linux uses Bubblewrap, seccomp, cgroup v2, and controlled network egress. macOS uses native Seatbelt file scopes and a network toggle. Both share authorization and task-management interfaces while reporting their enforceable limits. The Windows backend remains unimplemented. Deployment: [Linux](../../admin/sandbox/linux.md), [macOS](../../admin/sandbox/macos.md).
 
 
 ## Platform boundaries
 
 Basic file capability is reported separately from command execution. `textfiles/files_unix.go` shares file versions, authorization rechecks, and atomic commits. Linux uses `openat2`; macOS uses `O_NOFOLLOW_ANY` to reject symlinks in every component during kernel path resolution and exclusive rename for creation. Only fixed macOS system directory aliases are recognized; user links in workspaces or external resources remain rejected. Hard-link and special-file checks are retained. Protected-directory overlap checks also compare filesystem identities so case variants and system aliases cannot expose private Runtime directories.
 
-`direct_unix.go` shares direct execution authorization, output, deadlines, and task lifecycle. Linux/macOS files provide process attributes and PTY initialization. Isolated execution remains a Linux backend and fails explicitly on unsupported systems. `maintenance.Service` separates Runtime from the installer: Linux connects to the existing worker; other platforms report maintenance unavailable without preventing core startup. Platform selection stays in build constraints and composition. Business file operations query backend capability instead of OS names.
+`direct_unix.go` shares native execution authorization, output, deadlines, and process-group lifecycle. Controlled macOS execution wraps the shell with `/usr/bin/sandbox-exec -p <policy>`; Full Access executes directly. `backend_darwin.go` owns startup probes, canonical paths, tool directories, and a sanitized environment. `seatbelt.go` generates the default-deny policy. File and network scopes are frozen at launch; network revocation triggers the same authorization recheck and process-group cancellation. Detached descendant cleanup is not guaranteed. TTY access is restricted to the allocated device and unrelated process information is denied.
 
 See [native macOS deployment](../../admin/deployment/source-build.md#native-macos-execution) for operation and current limitations.
 
@@ -23,7 +23,7 @@ Full Access is designed for environments where external containers/virtual machi
 
 ## 1. Conclusion and Phase 1 Scope
 
-Adopt **Bubblewrap + seccomp + cgroup v2 + controlled network egress**, initially supporting only Linux. The Go Runtime remains a single deployment unit, responsible for authorization, execution lifecycle, transparent network egress, and auditing; Bubblewrap and trusted helper processes are managed by the Runtime, without adding new business microservices or introducing a plugin system.
+Linux uses **Bubblewrap + seccomp + cgroup v2 + controlled network egress**. Runtime owns authorization, execution lifecycle, transparent network egress, and auditing, including its trusted helpers. The following Linux-specific mechanisms do not apply to macOS; see [native macOS command permissions](../../admin/sandbox/macos.md) for its file, network, and lifecycle boundaries.
 
 Bubblewrap is responsible for constructing the isolated environment but does not provide a complete security policy; the policy is generated and verified by Molr. It shares the kernel with the host, and this solution does not promise isolation strength equivalent to virtual machines. [Bubblewrap Official Documentation](https://github.com/containers/bubblewrap)
 
@@ -33,7 +33,7 @@ External directories and networks are denied by default; the current assistant's
 
 ## 2. Division of Labor Between Current Implementation and General Runner
 
-The Linux backend is located in `runtime/internal/platform/sandbox`, reusing `platform.Runner` / `Process` and extending mount, network, and limit information for trusted `Command`. `runner.go` manages authorization and lifecycle, `backend_linux.go` and `seccomp_linux.go` construct isolation, `prepare_linux.go` manages base assets and delegation, and `network_*.go` / `helper_linux.go` manage controlled egress; other platforms are explicitly rejected by `backend_other.go`.
+The Linux backend is located in `runtime/internal/platform/sandbox`, reusing `platform.Runner` / `Process` and extending mount, network, and limit information for trusted `Command`. `runner.go` manages authorization and lifecycle, `backend_linux.go` and `seccomp_linux.go` construct isolation, `prepare_linux.go` manages base assets and delegation, and `network_*.go` / `helper_linux.go` manage controlled egress; macOS uses `backend_darwin.go`, while remaining platforms are rejected by `backend_other.go`.
 
 The original general Runner continues to be used for trusted whitelisted programs and does not have equivalent isolation guarantees. Standard Agent Shell only calls the mandatory isolation entry point; explicit Full Access uses the direct execution path after independent permission checks. Resource assembly registers the local compute environment but does not automatically grant assistants execution permissions.
 

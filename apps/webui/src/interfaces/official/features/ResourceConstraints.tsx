@@ -3,11 +3,19 @@ import { gpuName } from '../../../gpu';
 import { Checkbox, DateTimePicker, Select, TextField } from '@molr/ui';
 import type { ResourceConstraints, TemporaryConstraints } from '../../../api/types';
 import { useCopy, useQuery } from '../../../state';
-import type { GPUDevice } from '../../../sandbox-types';
-export function suggestedConstraints(kind: string): ResourceConstraints | undefined {
+import type { GPUDevice, SandboxInfo } from '../../../sandbox-types';
+export function suggestedConstraints(kind: string, native = false): ResourceConstraints | undefined {
+ if(native) { if(kind==='compute') return {compute:{cpu_percent:0,memory_bytes:0,processes:0,temp_bytes:0,max_duration_seconds:1800,unlimited_duration:false}}; return undefined; }
  if(kind==='compute')return {compute:{cpu_percent:100,memory_bytes:512*1048576,processes:64,max_duration_seconds:1800,unlimited_duration:false,temp_bytes:64*1048576}};
  if(kind==='network')return {network:{bytes:1073741824,connections:32,period:'day',timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC'}};
  if(kind==='storage')return {storage:{capacity_bytes:10*1073741824,max_file_bytes:1073741824,max_files:100000}};
+}
+// Normalize only when the node's contract is known; keep user-selected duration.
+export function constraintsForNode(kind:string, value:ResourceConstraints|undefined, info?:SandboxInfo):ResourceConstraints|undefined {
+ if(info?.Capabilities.NetworkBackend!=='seatbelt-toggle')return value;
+ if(kind!=='compute')return undefined;
+ const c=value?.compute??suggestedConstraints('compute',true)!.compute!;
+ return {compute:{...c,cpu_percent:0,memory_bytes:0,processes:0,temp_bytes:0,gpu:undefined}};
 }
 export function ConstraintsEditor({kind,value,onChange,lockNetworkPeriod=false,compact=false,gpus=[]}: {gpus?:GPUDevice[]|null;kind:string;value?:ResourceConstraints;onChange:(v:ResourceConstraints|undefined)=>void;lockNetworkPeriod?:boolean;compact?:boolean}){
  const {locale}=useCopy(),zh=locale==='zh';
@@ -17,17 +25,20 @@ export function ConstraintsEditor({kind,value,onChange,lockNetworkPeriod=false,c
  const c=value.compute,n=value.network,s=value.storage;
  gpus=gpus??[];
  return <div className={`resource-constraints-editor${compact ? " resource-constraints-editor--compact" : ""}`}>
-  {!compact&&<p className="muted">{zh?'额度由该助理在此资源上的所有任务共享。示例值可按需修改。':'All tasks of this assistant share these resource limits. Adjust the suggested values as needed.'}</p>}
+  {!compact&&c?.cpu_percent!==0&&<p className="muted">{zh?'额度由该助理在此资源上的所有任务共享。示例值可按需修改。':'All tasks of this assistant share these resource limits. Adjust the suggested values as needed.'}</p>}
   {c&&<>
    {!compact&&<p className="muted">{zh?'修改计算授权会停止受影响的运行任务；新任务使用批准后的额度。':'Changing a compute grant stops affected running tasks. New tasks use the approved limits.'}</p>}
    {!!gpus.length && <>
     <Select multiple label={zh?'GPU 设备':'GPU devices'} value={c.gpu?.device_ids??[]} options={[...gpus.map(g=>({value:g.ID,description:g.ID,label:`${gpuName(g.ID,gpus,locale)}${g.Available?'':zh?' · 不可用':' · unavailable'}`})),...(c.gpu?.device_ids??[]).filter(id=>!gpus.some(g=>g.ID===id)).map(id=>({value:id,description:id,label:`${gpuName(id,gpus,locale)} · ${zh?'超出当前范围':'outside current scope'}`}))]} onValueChange={device_ids=>onChange({compute:{...c,gpu:device_ids.length?{device_ids}:undefined}})} />
     <p className="muted">{zh?'留空表示不允许使用 GPU。所选设备会自动提供给该计算权限下的所有命令；共享访问，不预留显存或保证算力。':'An empty selection grants no GPU access. Selected devices are available to every command using this compute grant. Access is shared; memory and compute capacity are not reserved.'}</p>
    </>}
+   {c.cpu_percent>0 && <>
    {field(zh?'CPU 算力（核）':'CPU capacity (cores)',c.cpu_percent/100,v=>onChange({compute:{...c,cpu_percent:Math.round(v*100)}}),0.01,0.01)}
    {field(zh?'内存上限（MiB）':'Memory limit (MiB)',c.memory_bytes/1048576,v=>onChange({compute:{...c,memory_bytes:Math.round(v*1048576)}}),32)}
    {field(zh?'进程／线程总数':'Total processes / threads',c.processes,v=>onChange({compute:{...c,processes:v}}),8)}
    {field(zh?'内存临时盘 /tmp（MiB）':'RAM disk (/tmp) (MiB)',c.temp_bytes/1048576,v=>onChange({compute:{...c,temp_bytes:Math.round(v*1048576)}}),1,1,zh?'每次执行独立，写入占用计算内存，结束后清空。':'Private to each execution; writes count toward compute memory and are cleared when execution ends.')}
+   </>}
+   {c.cpu_percent===0&&<p className="muted">{zh?'macOS 仅控制运行时长，不提供 CPU、内存、进程或磁盘硬配额。':'macOS controls execution duration; CPU, memory, process and disk hard quotas are unavailable.'}</p>}
    <Checkbox label={zh?'不限制单次运行时长':'No per-execution duration limit'} checked={c.unlimited_duration} onChange={e=>onChange({compute:{...c,unlimited_duration:e.target.checked,max_duration_seconds:e.target.checked?0:1800}})}/>
    {!c.unlimited_duration&&field(zh?'单次最长运行（分钟）':'Maximum execution duration (minutes)',c.max_duration_seconds/60,v=>onChange({compute:{...c,max_duration_seconds:Math.round(v*60)}}),1/60,1/60)}
   </>}
@@ -50,7 +61,8 @@ export function ConstraintsSummary({value,temporary,gpus}:{value?:ResourceConstr
  const c=value.compute,n=value.network,s=value.storage;
  const period={lifetime:zh?'累计':'lifetime',day:zh?'天':'day',week:zh?'周':'week',month:zh?'月':'month'};
  return <div className="resource-constraints-summary">
-  {c&&<p>{zh?'共享计算额度':'Shared compute quota'} · {c.cpu_percent/100} {zh?'核':'cores'} · {c.memory_bytes/1048576} MiB · {c.processes} {zh?'进程／线程':'processes / threads'}<br/>{zh?'单次最长运行':'Maximum duration'} · {c.unlimited_duration?(zh?'不限时长':'Unlimited'):`${c.max_duration_seconds/60} ${zh?'分钟':'minutes'}`} · {zh?'内存临时盘':'RAM disk'} /tmp {c.temp_bytes/1048576} MiB</p>}
+  {c&&c.cpu_percent>0&&<p>{zh?'共享计算额度':'Shared compute quota'} · {c.cpu_percent/100} {zh?'核':'cores'} · {c.memory_bytes/1048576} MiB · {c.processes} {zh?'进程／线程':'processes / threads'}<br/>{zh?'单次最长运行':'Maximum duration'} · {c.unlimited_duration?(zh?'不限时长':'Unlimited'):`${c.max_duration_seconds/60} ${zh?'分钟':'minutes'}`} · {zh?'内存临时盘':'RAM disk'} /tmp {c.temp_bytes/1048576} MiB</p>}
+  {c&&c.cpu_percent===0&&<p>{zh?'单次最长运行':'Maximum duration'} · {c.unlimited_duration?(zh?'不限时长':'Unlimited'):`${c.max_duration_seconds/60} ${zh?'分钟':'minutes'}`}</p>}
   {c&&<GPUAccessSummary ids={c.gpu?.device_ids} devices={gpus}/> }
   {n&&<p>{n.bytes/1073741824} GiB / {period[n.period]} · {n.connections} {zh?'并发连接':'concurrent connections'}<br/>{n.timezone}</p>}
   {s&&<p>{zh?'工作区容量':'Workspace capacity'} · {s.capacity_bytes/1073741824} GiB · {zh?'单文件':'Per file'} {s.max_file_bytes/1073741824} GiB · {s.max_files} {zh?'个文件':'files'}</p>}

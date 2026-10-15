@@ -75,6 +75,9 @@ func (s *sandboxRouter) list(ctx context.Context, p core.Principal) (json.RawMes
 			info := load(item.SandboxID)
 			item.FullAccessAvailable = item.Kind == resource.Compute && info.Capabilities.FullAccess
 			item.AuthorizationCeilings = &info.AuthorizationCeilings
+			if info.Capabilities.NetworkBackend == "seatbelt-toggle" {
+				item.ConstraintMode = "native_duration_and_network_toggle"
+			}
 			if item.Kind == resource.Compute {
 				item.GPUs = info.GPUs
 			}
@@ -237,6 +240,9 @@ func (s *sandboxRouter) list(ctx context.Context, p core.Principal) (json.RawMes
 		info := infos[id]
 		out.Sandboxes = append(out.Sandboxes, sandboxDescriptor{FullAccessComputeIDs: fullCompute[id], Description: "Ordinary calls remain isolated. FullAccessComputeIDs require explicit full_access:true for unrestricted shell/files; no resource limits apply to those calls. Full Access scripts use actual host paths; only local execution provides $MOLR_WORKSPACE. A Full Access grant never authorizes an ordinary compute call without its separate quota grant.", ID: id, Name: names[id], Local: id == "local", Capabilities: info.Capabilities, Storage: info.Storage})
 
+		if info.Capabilities.NetworkBackend == "seatbelt-toggle" {
+			out.Sandboxes[len(out.Sandboxes)-1].Description = "Controlled macOS commands use Seatbelt file scopes and a network toggle in the native host environment. Use $MOLR_WORKSPACE, $MOLR_GLOBAL, $TMPDIR and resource ShellPath values in scripts; /work, /global and /resources are file-tool paths, not shell mounts. Compute grants control duration only; no CPU, memory, process, disk or network quotas. Cancellation targets the process group; detached descendants may survive. Full Access requires its separate explicit grant and full_access:true."
+		}
 		reason := ""
 		if !info.Enabled {
 			reason = "sandbox_offline"

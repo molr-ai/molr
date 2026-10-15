@@ -37,7 +37,7 @@ curl -fsSL https://molr.ai/install.sh | sh
 
 普通卸载保留配置和数据；明确清除使用 `uninstall --purge --yes`。更新保留账号、配置和工作区，应用内一键更新暂不支持 macOS，请使用上述 CLI。安装器检查发行包与 Mach-O 代码签名；当前采用 ad-hoc 签名，不提供 Developer ID 身份签名或 Apple 公证，支持范围为终端安装流程。
 
-默认 `sandbox.enabled: false`，聊天、文件和记忆可用。需要命令执行时，在配置中显式设置 `sandbox.enabled: true` 和 `sandbox.allow_full_access: true`，重启服务后再给助理授予 Full Access。macOS 暂不支持隔离 Shell、计算硬配额、受管浏览器和隔离音视频解码；普通调用不会自动升级成 Full Access。
+默认 `sandbox.enabled: false`，聊天、文件和记忆可用。设置 `sandbox.enabled: true` 并重启后可使用 Seatbelt 受控命令，按需授予计算、文件和网络权限。Full Access 需要另外启用 `sandbox.allow_full_access` 并独立授权。配置与能力边界见 [macOS 原生命令权限](https://molr.ai/zh/docs/admin/sandbox/macos/)。
 
 离线下载归档及相邻 `.sha256` 后，使用 `shasum -a 256 -c <归档>.sha256` 校验，再解压并运行 `./bin/molr-setup`。不要用 Finder 双击裸命令行程序代替终端安装。
 

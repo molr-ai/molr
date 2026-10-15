@@ -49,7 +49,7 @@ func newShellService(store persistence.Store, p policy.Authorizer, c config.Conf
 		return nil, err
 	}
 	s := &shellService{store: store, policy: p, config: c.Sandbox, ownPort: c.OwnListenPort(), dataDir: c.DataDir}
-	s.runner = sandbox.New(sandbox.Options{ProtectedRoots: c.Sandbox.ProtectedRoots, QuotaStore: store, GPU: c.Sandbox.GPU, AllowFullAccess: c.Sandbox.AllowFullAccess, HostTools: c.Sandbox.UsesHostTools(), Bwrap: c.Sandbox.Bwrap, RootFS: c.Sandbox.RootFS, Helper: exe, CgroupRoot: c.Sandbox.CgroupRoot, WorkRoot: c.Sandbox.WorkRoot, PrivateRoot: c.DataDir, MinFreeDiskBytes: c.Sandbox.MinFreeDiskBytes, NetworkBytes: c.Sandbox.NetworkBytes, NetworkConnections: c.Sandbox.NetworkConnections, NetworkAuthorization: s.networkAuthorization, Authorize: s.authorize})
+	s.runner = sandbox.New(sandbox.Options{ProtectedRoots: c.Sandbox.ProtectedRoots, ToolDirectories: c.Sandbox.ToolDirectories, QuotaStore: store, GPU: c.Sandbox.GPU, AllowFullAccess: c.Sandbox.AllowFullAccess, HostTools: c.Sandbox.UsesHostTools(), Bwrap: c.Sandbox.Bwrap, RootFS: c.Sandbox.RootFS, Helper: exe, CgroupRoot: c.Sandbox.CgroupRoot, WorkRoot: c.Sandbox.WorkRoot, PrivateRoot: c.DataDir, MinFreeDiskBytes: c.Sandbox.MinFreeDiskBytes, NetworkBytes: c.Sandbox.NetworkBytes, NetworkConnections: c.Sandbox.NetworkConnections, NetworkAuthorization: s.networkAuthorization, Authorize: s.authorize})
 	return s, nil
 }
 func shellKey(e core.Execution) string {
@@ -62,7 +62,9 @@ func (s *shellService) authorize(ctx context.Context, e core.Execution, c platfo
 	}
 	lease := v.(shellLease)
 	request := lease.request
-	request.NetworkIDs = nil
+	if !platform.NativeSandbox() {
+		request.NetworkIDs = nil
+	}
 	plan, err := s.plan(ctx, e, request)
 	if err != nil {
 		return err
@@ -71,8 +73,10 @@ func (s *shellService) authorize(ctx context.Context, e core.Execution, c platfo
 		return denied()
 	}
 	c.StdoutSink, c.StderrSink = nil, nil
-	c.NetworkTargets = nil
-	c.NetworkAuthorizations = nil
+	if !platform.NativeSandbox() {
+		c.NetworkTargets = nil
+		c.NetworkAuthorizations = nil
+	}
 	if !reflect.DeepEqual(plan, c) {
 		return denied()
 	}
@@ -190,7 +194,14 @@ func (s *shellService) plan(ctx context.Context, e core.Execution, req tools.She
 				found := false
 				for _, n := range s.config.NetworkTargets(s.ownPort) {
 					if n.Name == b.SandboxTarget {
-						c.NetworkTargets = append(c.NetworkTargets, n.Target())
+						if platform.NativeSandbox() {
+							if n.Name != "preset:network" {
+								return denied()
+							}
+							c.NetworkAccess = true
+						} else {
+							c.NetworkTargets = append(c.NetworkTargets, n.Target())
+						}
 						ng, err := executionGrant(ctx, s.store, e, id)
 						if err != nil {
 							return err
@@ -218,6 +229,11 @@ func (s *shellService) plan(ctx context.Context, e core.Execution, req tools.She
 			return err
 		}
 		resources := map[core.ID]bool{req.ComputeID: true}
+		if platform.NativeSandbox() {
+			for _, id := range req.NetworkIDs {
+				resources[id] = true
+			}
+		}
 		for _, f := range req.Files {
 			resources[f.ResourceID] = true
 		}
@@ -228,7 +244,7 @@ func (s *shellService) plan(ctx context.Context, e core.Execution, req tools.She
 		}
 		return nil
 	})
-	if err == nil && !req.FullAccess {
+	if err == nil && !req.FullAccess && !platform.NativeSandbox() {
 		c.WorkspaceConstraints, err = s.workspaceQuota(ctx, e)
 		if c.WorkspaceConstraints != nil {
 			c.Limits.MaxFileBytes = c.WorkspaceConstraints.MaxFileBytes

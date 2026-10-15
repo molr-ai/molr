@@ -1,5 +1,7 @@
 # Resource Authorization Quotas
 
+The compute, network, and filesystem hard quotas below apply to Linux. macOS compute grants retain duration only; network grants are a quota-free toggle and workspace capacity quotas are unsupported. Groups can still limit task concurrency. Network revocation stops the managed process group using that grant, rather than applying Linux connection-level updates. See [native macOS command permissions](../../admin/sandbox/macos.md) for node capabilities and API values.
+
 2026-10-03: Added account isolation, administrator user groups, and independent member quotas; see [Multi-user and Member Quotas](users-and-groups.md) for the shared resource catalog and dual-layer checks.
 
 Updated: 2026-10-02. The current implementation and acceptance boundaries are defined by this document and the tests. For user operations, see [Resources and Permissions](../../user/guides/permissions-and-budget.md#compute-network-and-workspace-quotas).

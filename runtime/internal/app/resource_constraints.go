@@ -19,7 +19,19 @@ func executionGrant(ctx context.Context, store persistence.Store, e core.Executi
 	}
 	sort.Slice(rows, func(i, j int) bool { return rows[i].ID < rows[j].ID })
 	for _, g := range rows {
-		if g.OwnerID == e.Principal.OwnerID && g.AssistantID == e.AssistantID && g.ResourceID == id && !g.Scope.FullAccess && g.Constraints != nil && g.RevokedAt == nil && (g.ExpiresAt == nil || g.ExpiresAt.After(time.Now())) && slices.Contains(g.Actions, policy.Execute) {
+		if g.OwnerID == e.Principal.OwnerID && g.AssistantID == e.AssistantID && g.ResourceID == id && !g.Scope.FullAccess && g.RevokedAt == nil && (g.ExpiresAt == nil || g.ExpiresAt.After(time.Now())) && slices.Contains(g.Actions, policy.Execute) {
+			if g.Constraints == nil {
+				if !platform.NativeSandbox() {
+					continue
+				}
+				r, err := resource.NewRepository(store).Get(ctx, e.Principal.OwnerID, id)
+				if err != nil {
+					return policy.Grant{}, err
+				}
+				if r.Kind != resource.Network || sandboxOf(r) != "local" {
+					continue
+				}
+			}
 			return g, nil
 		}
 	}
@@ -37,7 +49,7 @@ func automaticNetworks(ctx context.Context, store persistence.Store, e core.Exec
 	selected := map[string]choice{}
 	repo := resource.NewRepository(store)
 	for _, g := range rows {
-		if g.OwnerID != e.Principal.OwnerID || g.AssistantID != e.AssistantID || g.Constraints == nil || g.RevokedAt != nil || (g.ExpiresAt != nil && !g.ExpiresAt.After(time.Now())) || !slices.Contains(g.Actions, policy.Execute) {
+		if g.OwnerID != e.Principal.OwnerID || g.AssistantID != e.AssistantID || (g.Constraints == nil && (!platform.NativeSandbox() || sandboxID != "local")) || g.RevokedAt != nil || (g.ExpiresAt != nil && !g.ExpiresAt.After(time.Now())) || !slices.Contains(g.Actions, policy.Execute) {
 			continue
 		}
 		r, err := repo.Get(ctx, e.Principal.OwnerID, g.ResourceID)
@@ -79,7 +91,10 @@ func applyComputeConstraints(c *platform.Command, v *policy.ComputeConstraints, 
 	}
 	c.GPUDeviceIDs = append([]string(nil), v.GPUDevices()...)
 	slices.Sort(c.GPUDeviceIDs)
-	c.ComputeQuota = true
+	c.ComputeQuota = max.CPUPercent > 0
+	if max.CPUPercent > 0 && v.CPUPercent == 0 {
+		return core.Invalid("constraints.compute", "hard compute limits required by this node")
+	}
 	c.Limits.CPUPercent = v.CPUPercent
 	c.Limits.MemoryBytes = v.MemoryBytes
 	c.Limits.Processes = v.Processes
@@ -109,12 +124,6 @@ func validateResourceConstraints(ctx context.Context, store persistence.Store, p
 	if err != nil {
 		return err
 	}
-	if c == nil {
-		if r.Kind == resource.Compute || r.Kind == resource.Network || (r.Kind == resource.Storage && r.Provider == "managed-workspace") {
-			return core.Invalid("constraints", "explicit resource quotas required")
-		}
-		return nil
-	}
 	if sandboxOf(r) != "local" {
 		connection, err := persistence.LoadCatalog[sandboxConnection](ctx, store, "sandbox.connections", p.OwnerID, sandboxOf(r))
 		if err != nil {
@@ -125,6 +134,12 @@ func validateResourceConstraints(ctx context.Context, store persistence.Store, p
 		}
 		max = connection.View.Info.AuthorizationCeilings
 		workspaceEnabled = connection.View.Info.WorkspaceProjectQuotas
+	}
+	if c == nil {
+		if r.Kind == resource.Compute || (r.Kind == resource.Network && max.NetworkBytes > 0) || (r.Provider == "managed-workspace" && (workspaceEnabled || max.CPUPercent > 0)) {
+			return core.Invalid("constraints", "explicit supported resource constraints required")
+		}
+		return nil
 	}
 	if string(r.Kind) != c.Kind() {
 		return core.Invalid("constraints", "resource kind mismatch")

@@ -1,5 +1,7 @@
 # Manage Sandbox Resources
 
+Controlled macOS commands use Seatbelt, duration-only compute grants, and a network permission toggle. Linux hard resource quotas are unavailable. See [native macOS command permissions](../sandbox/macos.md) for paths, revocation, and forwarding boundaries.
+
 This page is for administrators. In "Resources → Sandbox", connect execution machines and add storage, compute, and network resources allowed for deployment. Assistant workspaces always reside locally in the Runtime.
 
 ## Local Resources and Member Scope

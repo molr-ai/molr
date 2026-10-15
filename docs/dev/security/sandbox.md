@@ -1,13 +1,13 @@
 # Agent Shell 沙盒实现与边界
 
-更新：2026-10-01。状态：Linux Shell 已支持前台、后台和 TTY 会话。本文保留架构与跨平台演进设计；当前配置、限制和部署步骤以 [Linux Sandbox 使用说明](../../admin/sandbox/linux.md) 为准。macOS 已支持本机安全文件操作与显式 Full Access，隔离执行和 Windows 后端尚未实现。
+Linux 使用 Bubblewrap、seccomp、cgroup v2 和受控网络出口。macOS 使用原生 Seatbelt 文件策略与网络开关。两者保留相同授权和任务管理接口，各自报告能执行的限制；Windows 后端未实现。部署见 [Linux](../../admin/sandbox/linux.md) 和 [macOS](../../admin/sandbox/macos.md)。
 
 
 ## 平台边界
 
 基础文件能力与命令执行分开报告。`textfiles/files_unix.go` 维护公共文件版本、授权重查和原子提交；Linux 使用 `openat2`，macOS 使用 `O_NOFOLLOW_ANY` 在内核路径解析时拒绝所有组件的符号链接，并使用排他 rename。仅识别 macOS 固定系统目录别名，不放行工作区或外部资源中的用户符号链接。硬链接和特殊文件检查继续保留。受保护目录的重叠检查同时比较文件身份，防止大小写或系统别名暴露 Runtime 私有目录。
 
-`direct_unix.go` 共享直接执行的授权、输出、截止时间和任务生命周期；进程属性及 PTY 初始化分别由 Linux/macOS 文件提供。普通隔离执行仍由 Linux 后端完成，系统不支持时明确失败。`maintenance.Service` 将 Runtime 与安装器解耦：Linux 接入现有维护程序，其他平台明确返回维护不可用，不阻止核心服务启动。平台选择集中在构建约束及装配入口；业务文件能力检查使用后端能力而非系统名称。
+`direct_unix.go` 共享原生命令的授权、输出、截止时间和进程组生命周期；macOS 受控启动在执行前包装为 `/usr/bin/sandbox-exec -p <策略> /bin/sh`，Full Access 直接执行。`backend_darwin.go` 负责启动探针、路径规范化、工具目录及安全环境变量；`seatbelt.go` 生成默认拒绝策略。文件与网络授权固定到启动计划，网络撤权通过同一授权重查停止受管进程组；不承诺脱离进程组的后代清理。PTY 只允许本任务实际分配的设备，策略拒绝其它进程的信息读取。
 
 原生运行与当前限制见[macOS 源码部署](../../admin/deployment/source-build.md#macos-原生运行)。
 
@@ -23,7 +23,7 @@ Full Access 设计用于外部容器／虚拟机已提供所需隔离的环境�
 
 ## 1. 结论与一期范围
 
-采用 **Bubblewrap + seccomp + cgroup v2 + 受控网络出口**，首期只支持 Linux。Go Runtime 继续是一个部署单元，负责授权、执行生命周期、透明网络出口与审计；Bubblewrap 和受信任的辅助进程由 Runtime 管理，不新增业务微服务，不引入插件系统。
+Linux 采用 **Bubblewrap + seccomp + cgroup v2 + 受控网络出口**。Go Runtime 负责授权、执行生命周期、透明网络出口与审计；Bubblewrap 和受信任辅助进程由 Runtime 管理。以下 Linux 专项机制不适用于 macOS，后者的文件、网络和生命周期边界见 [macOS 原生命令权限](../../admin/sandbox/macos.md)。
 
 Bubblewrap 负责构造隔离环境，并不提供完整安全策略；策略由 Molr 生成并验证。它与宿主共享内核，本方案不承诺达到虚拟机的隔离强度。[Bubblewrap 官方说明](https://github.com/containers/bubblewrap)
 
@@ -33,7 +33,7 @@ Shell 支持单次前台命令、显式或 60 秒后自动分离的后台任务�
 
 ## 2. 当前实现与通用 Runner 的分工
 
-Linux 后端已位于 `runtime/internal/platform/sandbox`，复用 `platform.Runner` / `Process` 并扩展可信 `Command` 的挂载、网络和限额信息。`runner.go` 管理授权与生命周期，`backend_linux.go`、`seccomp_linux.go` 构造隔离，`prepare_linux.go` 管理基础资产与委派，`network_*.go` / `helper_linux.go` 管理受控出口；其他平台由 `backend_other.go` 明确拒绝。
+Linux 后端已位于 `runtime/internal/platform/sandbox`，复用 `platform.Runner` / `Process` 并扩展可信 `Command` 的挂载、网络和限额信息。`runner.go` 管理授权与生命周期，`backend_linux.go`、`seccomp_linux.go` 构造隔离，`prepare_linux.go` 管理基础资产与委派，`network_*.go` / `helper_linux.go` 管理受控出口；macOS 由 `backend_darwin.go` 处理，其余平台由 `backend_other.go` 明确拒绝。
 
 原通用 Runner 继续用于可信白名单程序，不具备同等隔离保证。普通 Agent Shell 只调用强制隔离入口；显式 Full Access 经独立权限检查后使用直接执行路径。资源装配会登记本机计算环境，但不自动授予助理执行权限。
 

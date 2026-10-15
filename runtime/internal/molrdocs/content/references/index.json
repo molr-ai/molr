@@ -528,6 +528,22 @@
     }
   },
   {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/sandbox/macos.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "macOS 原生命令权限",
+      "en": "Native macOS command permissions"
+    },
+    "topics": {
+      "zh": "沙盒部署",
+      "en": "Sandbox deployment"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/sandbox/macos/",
+      "en": "https://molr.ai/en/docs/admin/sandbox/macos/"
+    }
+  },
+  {
     "path": "/molr/.agents/skills/molr-docs/references/docs/admin/sandbox/remote.md",
     "contentLanguage": "zh",
     "titles": {

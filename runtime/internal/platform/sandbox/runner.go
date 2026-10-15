@@ -20,8 +20,9 @@ import (
 )
 
 type Options struct {
-	ProtectedRoots []string
-	GPU            platform.GPUConfig
+	ProtectedRoots  []string
+	ToolDirectories []string
+	GPU             platform.GPUConfig
 	// NoWorkspace executes remote commands without an assistant home.
 	NoWorkspace                                              bool
 	QuotaStore                                               persistence.Store
@@ -90,6 +91,9 @@ func key(e core.Execution) string {
 }
 func (r *Runner) Capabilities(ctx context.Context) (platform.Capabilities, error) {
 	c := platform.Capabilities{OS: runtime.GOOS, Reason: "sandbox_not_configured"}
+	if platform.NativeSandbox() {
+		c.NetworkBackend = "seatbelt-toggle"
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	closed := r.closed
@@ -120,9 +124,17 @@ func (r *Runner) Capabilities(ctx context.Context) (platform.Capabilities, error
 	c.NetworkBackend = "transparent"
 	c.NetworkProtocols = []string{"tcp", "udp"}
 	c.DiskProtection = "file_limit_and_free_space_guard"
+	if runtime.GOOS == "darwin" {
+		c.ProcessIsolation, c.ResourceLimits = false, false
+		c.NetworkBackend = "seatbelt-toggle"
+		c.DiskProtection = "none"
+	}
 	return c, nil
 }
 func validate(c platform.Command) error {
+	if c.NetworkAccess {
+		return core.Invalid("network", "native network access is unsupported by this backend")
+	}
 	if c.BrowserProxy != nil {
 		if !c.BrowserAssets || !c.Managed || c.FullAccess || c.Script != "exec /molr/helper sandbox-helper browser" {
 			return core.Invalid("browser", "trusted browser launch required")

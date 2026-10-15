@@ -3,7 +3,7 @@ import { PermissionTargetFields, fullAccessLabel, isSandboxResource, targetFor }
 import type { PermissionTarget } from './PermissionTargetFields';
 import type { SandboxView } from '../../../sandbox-types';
 import { initialActions, initialConstraints } from './GrantEditor';
-import { ConstraintsEditor, ConstraintsSummary, TemporaryConstraintsEditor, suggestedConstraints } from './ResourceConstraints';
+import { ConstraintsEditor, constraintsForNode, ConstraintsSummary, TemporaryConstraintsEditor, suggestedConstraints } from './ResourceConstraints';
 import type { PermissionRequestInput } from '../../../api/types';
 import { Folder, Globe, Server, Sparkles, Wrench } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
@@ -168,8 +168,10 @@ function PermissionItemEditor({ item, onChange, grouped, primary, resources, mod
     if (matches.length === 1) onChange({ resource_id: matches[0].ID });
   }, [resources, item.resource_id, item.resource_description, item.resource_kind]);
   useEffect(() => {
-    if (selected?.Provider === 'managed-workspace' && !item.constraints) onChange({ constraints: suggestedConstraints('storage') });
+    if (selected?.Provider === 'managed-workspace' && sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info.WorkspaceProjectQuotas && !item.constraints) onChange({ constraints: suggestedConstraints('storage') });
   }, [selected?.Provider, item.constraints]);
+  const nativeInfo=sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info;
+  useEffect(()=>{if(nativeInfo?.Capabilities.NetworkBackend!=="seatbelt-toggle"||item.full_access)return;const constraints=constraintsForNode(item.resource_kind,item.constraints,nativeInfo);const limits=item.temporary?constraintsForNode(item.resource_kind,item.temporary.limits,nativeInfo):undefined;const temporary=limits&&item.temporary?{...item.temporary,limits}:undefined;if(JSON.stringify(constraints)!==JSON.stringify(item.constraints)||JSON.stringify(temporary)!==JSON.stringify(item.temporary))onChange({constraints,temporary});},[nativeInfo?.Capabilities.NetworkBackend,item.resource_kind,item.constraints,item.temporary,item.full_access]);
   useErrorToast(sandboxes.error, sandboxes.reload);
   return <details className="permission-review-item" open={open} onToggle={event => setOpen(event.currentTarget.open)}>
     <summary><span className="permission-review-item__title"><Icon aria-hidden="true" /><strong>{isSandboxResource(item.resource_kind) ? `${zh ? '沙盒' : 'Sandbox'} · ` : ''}{item.full_access ? fullAccessLabel(zh) : t.resources.categories[item.resource_kind]}</strong><span>{open ? (zh ? '收起' : 'Collapse') : (zh ? '调整' : 'Edit')}</span></span>

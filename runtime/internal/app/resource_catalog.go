@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -158,6 +159,17 @@ func (c resourceCatalog) list(ctx context.Context, p core.Principal) (json.RawMe
 						item.ShellPath = "/work" + strings.TrimSuffix(name, "/")
 						item.FilePath = item.ShellPath
 						item.PathMeaning = "assistant_workspace"
+					}
+				}
+				if r.Kind == resource.Storage && sandboxOf(r) == "local" && platform.NativeSandbox() {
+					if r.Provider == "managed-workspace" {
+						item.ShellPath = filepath.Join(platform.AssistantWorkspace(a.dataDir, a.storageConfig.WorkRoot, p.OwnerID, p.SubjectID), strings.TrimPrefix(name, "/"))
+					} else {
+						b, err := repo.Binding(ctx, p.OwnerID, r.ID)
+						if err != nil {
+							return err
+						}
+						item.ShellPath = filepath.Join(b.RootPath, strings.TrimPrefix(name, "/"))
 					}
 				}
 				if r.Kind == resource.Model {

@@ -15,6 +15,7 @@ import (
 // No provider credential, host path or management endpoint enters this view.
 // Network scope is populated from the sandbox deployment by the catalog.
 type requestablePermission struct {
+	ConstraintMode          string               `json:",omitempty"`
 	GPUs                    []platform.GPUDevice `json:",omitempty"`
 	FullAccessAvailable     bool                 `json:",omitempty"`
 	Workspace               bool                 `json:",omitempty"`

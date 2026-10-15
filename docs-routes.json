@@ -330,6 +330,16 @@
     "section": "admin"
   },
   {
+    "file": "admin/sandbox/macos.md",
+    "path": "/docs/admin/sandbox/macos/",
+    "label": "macOS 原生命令权限",
+    "group": "沙盒部署",
+    "englishLabel": "Native macOS command permissions",
+    "englishGroup": "Sandbox deployment",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
     "file": "admin/sandbox/remote.md",
     "path": "/docs/admin/sandbox/remote/",
     "label": "独立 Linux Sandbox 服务",

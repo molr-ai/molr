@@ -571,6 +571,9 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 			if ref.Quota.Storage != nil && !item.WorkspaceQuotaSupported {
 				return core.NewError(core.FailedPrecondition, "sandbox does not support storage hard quotas")
 			}
+			if ref.Quota.Network != nil && item.Limits != nil && (item.Limits.NetworkBytes == 0 || ref.Quota.Network.Bytes > item.Limits.NetworkBytes || ref.Quota.Network.Connections > item.Limits.NetworkConnections) {
+				return core.Invalid("quota.network", "network quota unsupported or exceeds node ceiling")
+			}
 			if ref.Quota.Compute != nil && item.Limits != nil {
 				if err := applyComputeConstraints(&platform.Command{}, ref.Quota.Compute, *item.Limits); err != nil {
 					return err

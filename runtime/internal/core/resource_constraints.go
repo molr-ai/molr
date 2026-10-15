@@ -7,8 +7,8 @@ import (
 )
 
 // Constraints are owner-approved resource limits, independent of access scope.
-// Resource composition requires limits for compute, network and managed workspaces.
-// Other resources (models, tools and external directory access) have no quota.
+// Resource composition validates the supported constraints for each node. Native
+// macOS compute is duration-only and its network permission has no quota.
 type ResourceConstraints struct {
 	Compute *ComputeConstraints `json:"compute,omitempty"`
 	Network *NetworkConstraints `json:"network,omitempty"`
@@ -84,8 +84,9 @@ func (c *ResourceConstraints) Validate() error {
 			return err
 		}
 		count++
-		if v.CPUPercent < 1 || v.MemoryBytes < 32<<20 || v.Processes < 8 || v.TempBytes < 1 || v.TempBytes > v.MemoryBytes || (v.UnlimitedDuration && v.MaxDurationSeconds != 0) || (!v.UnlimitedDuration && v.MaxDurationSeconds <= 0) || v.MaxDurationSeconds > int64((365*24*time.Hour)/time.Second) {
-			return Invalid("constraints.compute", "positive CPU, memory, processes, temporary space and explicit execution duration required")
+		durationOnly := v.CPUPercent == 0 && v.MemoryBytes == 0 && v.Processes == 0 && v.TempBytes == 0
+		if (!durationOnly && (v.CPUPercent < 1 || v.MemoryBytes < 32<<20 || v.Processes < 8 || v.TempBytes < 1 || v.TempBytes > v.MemoryBytes)) || (v.UnlimitedDuration && v.MaxDurationSeconds != 0) || (!v.UnlimitedDuration && v.MaxDurationSeconds <= 0) || v.MaxDurationSeconds > int64((365*24*time.Hour)/time.Second) {
+			return Invalid("constraints.compute", "explicit execution duration and either complete hard limits or duration-only constraints required")
 		}
 	}
 	if v := c.Network; v != nil {

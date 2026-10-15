@@ -12,6 +12,7 @@ import (
 // Sandbox is deployment-only. Resource APIs may reference these entries but
 // cannot enlarge them or change the enforced execution limits.
 type Sandbox struct {
+	ToolDirectories        []string           `json:"tool_directories,omitempty"`
 	ProtectedRoots         []string           `json:"-"`
 	GPU                    platform.GPUConfig `json:"gpu"`
 	AllowFullAccess        bool               `json:"allow_full_access"`
@@ -59,6 +60,9 @@ func (n SandboxNetwork) Target() platform.NetworkTarget {
 }
 
 func sandboxDefaults() Sandbox {
+	if platform.NativeSandbox() {
+		return Sandbox{Enabled: true, NetworkPresets: []string{"network"}, ToolDirectories: []string{"/opt/homebrew", "/usr/local", "/Library/Developer/CommandLineTools"}, Timeout: Duration(10 * time.Minute), MaxOutputBytes: 64 << 10}
+	}
 	return Sandbox{AuthorizationCeilings: platform.Limits{CPUPercent: 6400, MemoryBytes: 64 << 30, Processes: 4096, TempBytes: 8 << 30, MaxFileBytes: 1 << 40, NetworkBytes: 1 << 40, NetworkConnections: 128}, Enabled: true, NetworkBytes: 64 << 20, NetworkConnections: 16, NetworkPresets: []string{"internet", "lan", "host"}, MinFreeDiskBytes: 256 << 20, MaxFileBytes: 1 << 30, Timeout: Duration(10 * time.Minute), MemoryBytes: 512 << 20, Processes: 64, CPUPercent: 100, TempBytes: 64 << 20, MaxOutputBytes: 64 << 10}
 }
 func (s Sandbox) ComputeCeilings() platform.Limits {
@@ -79,7 +83,7 @@ func (s Sandbox) validate(data string, ownPort uint16) error {
 	if s.GPU.Enabled && len(s.GPU.Devices) == 0 {
 		return core.Invalid("sandbox.gpu.devices", "explicit GPU device list required")
 	}
-	if s.AuthorizationCeilings.NetworkConnections < 1 || s.AuthorizationCeilings.NetworkConnections > 128 || s.AuthorizationCeilings.NetworkBytes < 1 || s.AuthorizationCeilings.NetworkBytes > 1<<50 || s.AuthorizationCeilings.CPUPercent < 1 || s.AuthorizationCeilings.CPUPercent > 1000000 || s.AuthorizationCeilings.MemoryBytes < 32<<20 || s.AuthorizationCeilings.Processes < 8 || s.AuthorizationCeilings.TempBytes < 1 || s.AuthorizationCeilings.TempBytes > s.AuthorizationCeilings.MemoryBytes {
+	if !platform.NativeSandbox() && (s.AuthorizationCeilings.NetworkConnections < 1 || s.AuthorizationCeilings.NetworkConnections > 128 || s.AuthorizationCeilings.NetworkBytes < 1 || s.AuthorizationCeilings.NetworkBytes > 1<<50 || s.AuthorizationCeilings.CPUPercent < 1 || s.AuthorizationCeilings.CPUPercent > 1000000 || s.AuthorizationCeilings.MemoryBytes < 32<<20 || s.AuthorizationCeilings.Processes < 8 || s.AuthorizationCeilings.TempBytes < 1 || s.AuthorizationCeilings.TempBytes > s.AuthorizationCeilings.MemoryBytes) {
 		return core.Invalid("sandbox.authorization_ceilings", "invalid deployment ceilings")
 	}
 	if s.HostToolsUser != "" && s.HostToolsUser != "molr-sandbox" && s.HostToolsUser != "current" {
@@ -98,8 +102,27 @@ func (s Sandbox) validate(data string, ownPort uint16) error {
 			return core.Invalid("sandbox", "dedicated absolute deployment paths required")
 		}
 	}
-	if s.MinFreeDiskBytes <= 0 || s.MaxFileBytes <= 0 || s.Timeout <= 0 || s.Timeout > Duration(time.Hour) || s.MemoryBytes < 32<<20 || s.TempBytes < 1 || s.TempBytes > s.MemoryBytes || s.Processes < 8 || s.Processes > 1024 || s.CPUPercent < 1 || s.CPUPercent > 1000 || s.MaxOutputBytes < 1 || s.MaxOutputBytes > 128<<10 || len(s.Directories) > 32 || len(s.Networks) > 32 || s.NetworkBytes < 1024 || s.NetworkBytes > 1<<30 || s.NetworkConnections < 1 || s.NetworkConnections > 128 {
+	if !platform.NativeSandbox() && (s.MinFreeDiskBytes <= 0 || s.MaxFileBytes <= 0 || s.Timeout <= 0 || s.Timeout > Duration(time.Hour) || s.MemoryBytes < 32<<20 || s.TempBytes < 1 || s.TempBytes > s.MemoryBytes || s.Processes < 8 || s.Processes > 1024 || s.CPUPercent < 1 || s.CPUPercent > 1000 || s.MaxOutputBytes < 1 || s.MaxOutputBytes > 128<<10 || len(s.Directories) > 32 || len(s.Networks) > 32 || s.NetworkBytes < 1024 || s.NetworkBytes > 1<<30 || s.NetworkConnections < 1 || s.NetworkConnections > 128) {
 		return core.Invalid("sandbox", "invalid limits")
+	}
+	if platform.NativeSandbox() {
+		if s.MemoryBytes != 0 || s.Processes != 0 || s.CPUPercent != 0 || s.TempBytes != 0 || s.MaxFileBytes != 0 || s.NetworkBytes != 0 || s.NetworkConnections != 0 || s.MinFreeDiskBytes != 0 || s.WorkspaceProjectQuotas || s.GPU.Enabled || len(s.GPU.Devices) > 0 || s.Bwrap != "" || s.RootFS != "" || s.CgroupRoot != "" || len(s.Networks) > 0 {
+			return core.Invalid("sandbox", "macOS supports file scopes, execution duration and a network toggle; hard quotas and Linux backends are unsupported")
+		}
+		max := s.AuthorizationCeilings
+		if max.CPUPercent != 0 || max.MemoryBytes != 0 || max.Processes != 0 || max.TempBytes != 0 || max.MaxFileBytes != 0 || max.NetworkBytes != 0 || max.NetworkConnections != 0 {
+			return core.Invalid("sandbox.authorization_ceilings", "hard quotas are unsupported on macOS")
+		}
+		if s.Timeout <= 0 || s.Timeout > Duration(time.Hour) || s.MaxOutputBytes < 1 || s.MaxOutputBytes > 128<<10 || len(s.Directories) > 32 {
+			return core.Invalid("sandbox", "invalid limits")
+		}
+	} else if len(s.ToolDirectories) > 0 {
+		return core.Invalid("sandbox.tool_directories", "native macOS tools only")
+	}
+	for _, dir := range s.ToolDirectories {
+		if !filepath.IsAbs(dir) || filepath.Clean(dir) != dir || dir == "/" || textfiles.Overlaps(dir, data) || textfiles.Overlaps(dir, s.WorkRoot) {
+			return core.Invalid("sandbox.tool_directories", "dedicated tool directories must not overlap private data or workspaces")
+		}
 	}
 	overlap := textfiles.Overlaps
 	if overlap(s.WorkRoot, data) || overlap(s.RootFS, data) || overlap(s.WorkRoot, s.RootFS) {
@@ -149,7 +172,15 @@ func (s Sandbox) availableNetworks(ownPort uint16) ([]SandboxNetwork, error) {
 		}
 		seen[id] = true
 		n := SandboxNetwork{Name: "preset:" + id, Protocols: []string{"tcp", "udp"}, Ports: []string{"1-65535"}}
+		if platform.NativeSandbox() && id != "network" {
+			return nil, core.Invalid("network_presets", "macOS supports only the network toggle preset")
+		}
 		switch id {
+		case "network":
+			if !platform.NativeSandbox() {
+				return nil, core.Invalid("network_presets", "network toggle requires macOS")
+			}
+			n.Addresses = []string{"0.0.0.0/0", "::/0"}
 		case "internet":
 			n.Addresses = []string{"0.0.0.0/0", "::/0"}
 			n.ExcludeAddresses = []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7", "127.0.0.0/8", "::1/128", "198.18.0.0/15"}

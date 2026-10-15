@@ -14,6 +14,7 @@ func TestDoctorUsesExplicitExecutionCapabilities(t *testing.T) {
 		ready bool
 	}{
 		{"isolated", false, isolated, true},
+		{"seatbelt", false, platform.Capabilities{OS: "darwin", NetworkBackend: "seatbelt-toggle", Reason: "available", Shell: true, FileIsolation: true, NetworkIsolation: true}, true},
 		{"direct opt-in", true, platform.Capabilities{Reason: "sandbox_platform_unsupported", FullAccess: true}, true},
 		{"direct without opt-in", false, platform.Capabilities{FullAccess: true}, false},
 		{"configured but unavailable", true, platform.Capabilities{Reason: "shell_unavailable"}, false},
