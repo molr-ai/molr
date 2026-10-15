@@ -40,10 +40,11 @@ for (const decision of ['approve', 'reject']) test(`permission request ${decisio
   await expect(permissionsPanel.locator('.permission-requests')).toContainText('Run the calculation in an isolated sandbox.');
   await expect(page.getByText('This theme could not load', { exact: true })).toHaveCount(0);
   await permissionsPanel.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(permissionsPanel).toBeHidden();
   const grantsBefore = await (await page.request.get(`/api/grants?assistant_id=${assistant.ID}`)).json();
   expect(grantsBefore.Items).toHaveLength(1); // only the model chosen at hiring
   if (decision === 'approve') {
-    await page.getByRole('button', { name: 'Review permission', exact: true }).click();
+    await page.locator('.permission-request-card').getByRole('button', { name: 'Review permission', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Review permission', exact: true });
     await expect(dialog.getByRole('combobox', { name: 'Resource type', exact: true })).toContainText('Sandboxes');
     await expect(dialog.getByRole('combobox', { name: 'Sandbox', exact: true })).toContainText('Local sandbox');
@@ -56,7 +57,7 @@ for (const decision of ['approve', 'reject']) test(`permission request ${decisio
     await dialog.getByRole('button', { name: 'Approve permission', exact: true }).click();
     await expect(dialog).toBeHidden();
   } else {
-    await page.getByRole('button', { name: 'Reject', exact: true }).click();
+    await page.locator('.permission-request-card').getByRole('button', { name: 'Reject', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Reject permission request', exact: true });
     await dialog.getByRole('button', { name: 'Confirm', exact: true }).click();
     await expect(dialog).toBeHidden();
@@ -119,8 +120,11 @@ test('task, resource, schedule and permission cards share layout and display rea
   expect(await all.evaluateAll(elements => elements.every(el => el.scrollWidth <= el.clientWidth + 1 && el.getBoundingClientRect().right <= innerWidth))).toBe(true);
   await page.screenshot({ path: info.outputPath('unified-message-cards.png') });
   await taskCard.getByRole('button', { name: 'View task', exact: true }).click();
-  await expect(page.getByRole('dialog', { name: 'Plans', exact: true })).toContainText(task.Goal);
+  const taskDetails = page.getByRole('dialog', { name: 'Plan details', exact: true });
+  await expect(taskDetails.getByRole('region', { name: `${task.Goal} · Plan details`, exact: true })).toBeVisible();
+  await expect(taskDetails.locator('.plan-execution[open] .plan-instructions')).toHaveText(task.Goal);
   await page.keyboard.press('Escape');
+  await expect(taskDetails).toBeHidden();
   await resourceCard.getByRole('button', { name: 'View resource', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/resources/${resource.ID}$`));
   await page.goto(`/#/assistants/${assistant.ID}`);
