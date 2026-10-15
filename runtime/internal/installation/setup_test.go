@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -287,6 +288,21 @@ func TestUpdateVerifiesArchiveBeforeHandingOffToNewSetup(t *testing.T) {
 	binary, err := os.ReadFile(executable)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if runtime.GOOS == "darwin" {
+		// Match release packaging: Go only signs test binaries automatically on arm64.
+		// Sign a private copy so the running test executable is never modified.
+		fixtureBinary := filepath.Join(t.TempDir(), "molr-setup")
+		if err = os.WriteFile(fixtureBinary, binary, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if output, err := exec.Command("/usr/bin/codesign", "--force", "--sign", "-", fixtureBinary).CombinedOutput(); err != nil {
+			t.Fatalf("sign fixture: %v: %s", err, output)
+		}
+		binary, err = os.ReadFile(fixtureBinary)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	build := r.Build
 	build.Version = "0.2.0"

@@ -29,6 +29,10 @@ func TestDreamDeadlineQueuesMessagesPlansAndRejectsExpedite(t *testing.T) {
 }
 func TestDreamManualStopPreservesQueuedMessages(t *testing.T) { testDreamQueueRelease(t, true) }
 func testDreamQueueRelease(t *testing.T, stop bool) {
+	t.Helper()
+	// The deadline includes evidence collection, two model calls and a file commit
+	// before the second batch blocks. Allow that work to finish on slower CI hosts.
+	const dreamDuration = 15 * time.Second
 	ctx := t.Context()
 	b, err := Build(ctx, testConfig(t))
 	need(t, err)
@@ -72,7 +76,7 @@ func testDreamQueueRelease(t *testing.T, stop bool) {
 				select {
 				case <-r.Context().Done():
 					return
-				case <-time.After(8 * time.Second):
+				case <-time.After(2 * dreamDuration):
 				}
 				msg["content"] = "late summary"
 			}
@@ -106,7 +110,7 @@ func testDreamQueueRelease(t *testing.T, stop bool) {
 	chatID = string(a.ConversationID)
 	c, err := b.Services.Dreams.Get(ctx, p, a.ID)
 	need(t, err)
-	_, err = b.Services.Dreams.Configure(ctx, p, dream.ConfigureRequest{Mutation: core.Mutation{IdempotencyKey: "duration", ExpectedVersion: c.Version}, AssistantID: a.ID, Enabled: true, Hour: 3, Timezone: c.Timezone, MaxDurationSeconds: 3})
+	_, err = b.Services.Dreams.Configure(ctx, p, dream.ConfigureRequest{Mutation: core.Mutation{IdempotencyKey: "duration", ExpectedVersion: c.Version}, AssistantID: a.ID, Enabled: true, Hour: 3, Timezone: c.Timezone, MaxDurationSeconds: int(dreamDuration / time.Second)})
 	need(t, err)
 	for i := 0; i < 83; i++ {
 		_, err = conversation.NewRepository(b.store).Append(ctx, p.OwnerID, conversation.Message{ID: core.ID(fmt.Sprintf("yesterday-%03d", i)), ConversationID: a.ConversationID, Sender: conversation.User, SenderID: p.OwnerID, Content: conversation.Content{Kind: conversation.Text, Text: "My weekly reports should lead with conclusions."}, CreatedAt: time.Now().Add(-24 * time.Hour)})
@@ -121,8 +125,9 @@ func testDreamQueueRelease(t *testing.T, stop bool) {
 	defer func() { cancel(); <-done }()
 	select {
 	case <-started:
-	case <-time.After(5 * time.Second):
-		t.Fatal("dream did not start")
+	case <-time.After(dreamDuration):
+		stored, loadErr := b.Services.Dreams.GetRun(ctx, p, run.ID)
+		t.Fatalf("dream did not reach the second batch: model calls=%d run=%+v load error=%v", dreaming.Load(), stored, loadErr)
 	}
 	status, err := b.Services.Agent.Status(ctx, p, a.ID)
 	need(t, err)
@@ -149,7 +154,11 @@ func testDreamQueueRelease(t *testing.T, stop bool) {
 	if stop {
 		need(t, b.Services.Agent.Stop(ctx, p, a.ID))
 	}
-	waitUntil := time.Now().Add(7 * time.Second)
+	// Wait through the actual session deadline plus time for queued work to resume.
+	waitUntil := status.DreamDeadline.Add(10 * time.Second)
+	if stop {
+		waitUntil = time.Now().Add(10 * time.Second)
+	}
 	read := false
 	for time.Now().Before(waitUntil) {
 		messages, err = b.Services.Conversations.Messages(ctx, p, conversation.MessageQuery{ConversationID: a.ConversationID, MessageID: m.ID})
