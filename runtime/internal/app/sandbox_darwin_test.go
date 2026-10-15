@@ -42,7 +42,7 @@ func TestNativeSandboxGrantRoutingAndRevocation(t *testing.T) {
 	for _, q := range []struct {
 		id     core.ID
 		limits *policy.Constraints
-	}{{compute.ID, testResourceConstraints(resource.Compute)}, {network.ID, testResourceConstraints(resource.Network)}} {
+	}{{compute.ID, &policy.Constraints{Compute: &policy.ComputeConstraints{CPUPercent: 100, MaxDurationSeconds: 30}}}, {network.ID, &policy.Constraints{Network: &policy.NetworkConstraints{Bytes: 1024, Connections: 1, Period: "day", Timezone: "UTC"}}}} {
 		_, err := b.Services.Grants.Grant(ctx, owner, policy.GrantRequest{Mutation: core.Mutation{IdempotencyKey: "bad-" + string(q.id)}, AssistantID: e.AssistantID, ResourceID: q.id, Actions: []policy.Action{policy.Execute}, Constraints: q.limits})
 		if err == nil {
 			t.Fatal("unsupported quota accepted")
@@ -228,4 +228,52 @@ func TestNativeSandboxAuthenticatedHTTPAndWebSocketForward(t *testing.T) {
 		}
 		time.Sleep(25 * time.Millisecond)
 	}
+}
+
+func TestNativeNetworkPermissionScopeTracksGrantAndDeployment(t *testing.T) {
+	f := newResourceAccessFixture(t, nil)
+	network, err := f.b.Services.Resources.Connect(t.Context(), f.owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "network"}, Kind: resource.Network, Provider: "sandbox-network", Name: "Network", Binding: resource.Binding{SandboxTarget: "preset:network"}})
+	need(t, err)
+	check := func(granted, known bool) {
+		t.Helper()
+		listing := f.list(t)
+		checkScope := func(scope *networkPermissionScope) {
+			t.Helper()
+			if scope == nil || scope.Mode != "all_ip" || scope.Known != known || !strings.Contains(scope.LoopbackAccess, "host") {
+				t.Fatalf("incorrect native scope: %+v", scope)
+			}
+			if known && (scope.Target == nil || scope.Reason != "") {
+				t.Fatal("available toggle missing scope", scope)
+			}
+			if !known && (scope.Target != nil || scope.Reason == "") {
+				t.Fatal("missing toggle advertised as available", scope)
+			}
+		}
+		foundRequest, foundGrant := false, false
+		for _, r := range listing.Requestable {
+			if r.ResourceID == network.ID {
+				foundRequest = true
+				checkScope(r.Network)
+			}
+		}
+		for _, r := range listing.Resources {
+			if r.ResourceID == network.ID {
+				foundGrant = true
+				checkScope(r.Network)
+			}
+		}
+		if !foundRequest || foundGrant != granted {
+			t.Fatal("network discovery confused with authorization")
+		}
+	}
+	check(false, true)
+	grant := f.grant(t, network.ID, "grant", []policy.Action{policy.Execute}, policy.Scope{}, nil)
+	if grant.Constraints != nil {
+		t.Fatal("native network toggle acquired hard quotas")
+	}
+	check(true, true)
+	f.catalog.adapters.storageConfig.NetworkPresets = []string{}
+	check(true, false)
+	need(t, f.b.Services.Grants.Revoke(t.Context(), f.owner, policy.RevokeRequest{GrantID: grant.ID, Mutation: core.Mutation{IdempotencyKey: "revoke", ExpectedVersion: grant.Version}}))
+	check(false, false)
 }

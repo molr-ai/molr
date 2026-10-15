@@ -11,6 +11,7 @@ import (
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/event"
 	"molr.ai/runtime/internal/persistence"
+	"molr.ai/runtime/internal/platform"
 	"molr.ai/runtime/internal/policy"
 	"net/http/httptest"
 	"path/filepath"
@@ -19,6 +20,9 @@ import (
 )
 
 func TestSandboxPlansRequireIndependentComputeStorageAndNetworkGrants(t *testing.T) {
+	if platform.NativeSandbox() {
+		t.Skip("requires Linux mount and network plans; native plans are covered by TestNativeSandboxGrantRoutingAndRevocation")
+	}
 	cfg := testConfig(t)
 	cfg.Sandbox.Enabled = true
 	cfg.Sandbox.RootFS = t.TempDir()

@@ -16,7 +16,7 @@ import (
 
 func TestAutomaticNetworkSelectionFollowsLiveAssistantAndSandboxGrants(t *testing.T) {
 	f := newResourceAccessFixture(t, nil)
-	r, err := f.b.Services.Resources.Connect(t.Context(), f.owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "network-auto"}, Kind: resource.Network, Provider: "sandbox-network", Name: "Internet", Binding: resource.Binding{SandboxTarget: "preset:internet"}})
+	r, err := f.b.Services.Resources.Connect(t.Context(), f.owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "network-auto"}, Kind: resource.Network, Provider: "sandbox-network", Name: "Internet", Binding: resource.Binding{SandboxTarget: testNetworkPreset()}})
 	need(t, err)
 	ids, err := automaticNetworks(t.Context(), f.b.store, f.execution, "local")
 	need(t, err)
@@ -97,9 +97,12 @@ func TestWorkspaceRegrantUsesCurrentAuthorizationInsteadOfHistoricalVersion(t *t
 }
 
 func TestNetworkQuotaRejectsMissingLimitsAndDeduplicatesAliases(t *testing.T) {
+	if platform.NativeSandbox() {
+		t.Skip("requires Linux hard quota grants; native grants are covered by TestNativeSandboxGrantRoutingAndRevocation")
+	}
 	f := newResourceAccessFixture(t, nil)
 	connect := func(key string) resource.Resource {
-		r, err := f.b.Services.Resources.Connect(t.Context(), f.owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: key}, Kind: resource.Network, Provider: "sandbox-network", Name: key, Binding: resource.Binding{SandboxTarget: "preset:internet"}})
+		r, err := f.b.Services.Resources.Connect(t.Context(), f.owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: key}, Kind: resource.Network, Provider: "sandbox-network", Name: key, Binding: resource.Binding{SandboxTarget: testNetworkPreset()}})
 		need(t, err)
 		return r
 	}
@@ -123,8 +126,11 @@ func TestNetworkQuotaRejectsMissingLimitsAndDeduplicatesAliases(t *testing.T) {
 }
 
 func TestQuotaGrantsRequireExplicitLimits(t *testing.T) {
+	if platform.NativeSandbox() {
+		t.Skip("requires Linux hard quota grants; native grants are covered by TestNativeSandboxGrantRoutingAndRevocation")
+	}
 	f := newResourceAccessFixture(t, nil)
-	network, err := f.b.Services.Resources.Connect(t.Context(), f.owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "network"}, Kind: resource.Network, Provider: "sandbox-network", Name: "Internet", Binding: resource.Binding{SandboxTarget: "preset:internet"}})
+	network, err := f.b.Services.Resources.Connect(t.Context(), f.owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "network"}, Kind: resource.Network, Provider: "sandbox-network", Name: "Internet", Binding: resource.Binding{SandboxTarget: testNetworkPreset()}})
 	need(t, err)
 	need(t, ensureWorkspaceResource(t.Context(), f.b.store, f.owner.OwnerID, "local"))
 	for _, id := range []core.ID{f.compute.ID, network.ID, workspaceResourceID(f.owner.OwnerID, "local")} {

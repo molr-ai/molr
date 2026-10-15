@@ -18,7 +18,9 @@ import (
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/event"
 	"molr.ai/runtime/internal/persistence"
+	"molr.ai/runtime/internal/platform"
 	"molr.ai/runtime/internal/policy"
+	"molr.ai/runtime/internal/textfiles"
 )
 
 type resourceAccessFixture struct {
@@ -82,11 +84,26 @@ func (f resourceAccessFixture) list(t *testing.T) resourceListing {
 	t.Helper()
 	data, err := f.catalog.list(t.Context(), f.execution.Principal)
 	need(t, err)
-	if strings.Contains(string(data), f.root) || strings.Contains(string(data), f.ad.dataDir) || strings.Contains(string(data), "/molr") {
-		t.Fatal("host/internal paths leaked")
-	}
 	var out resourceListing
 	need(t, json.Unmarshal(data, &out))
+	// Seatbelt executes against the authorized host path instead of a Linux mount.
+	sanitized := out
+	sanitized.Resources = append([]resourceCapability(nil), out.Resources...)
+	for i := range sanitized.Resources {
+		item := &sanitized.Resources[i]
+		if platform.NativeSandbox() && item.Kind == resource.Storage && item.ResourceID == f.storage.ID {
+			want := filepath.Join(textfiles.SystemPath(f.root), strings.TrimPrefix(item.Path, "/"))
+			if textfiles.SystemPath(item.ShellPath) != want {
+				t.Fatalf("native shell path = %q, want %q", item.ShellPath, want)
+			}
+			item.ShellPath = ""
+		}
+	}
+	data, err = json.Marshal(sanitized)
+	need(t, err)
+	if strings.Contains(string(data), f.root) || strings.Contains(string(data), f.ad.dataDir) || strings.Contains(string(data), "/molr") {
+		t.Fatal("host/internal paths leaked outside authorized shell paths")
+	}
 	return out
 }
 func lookupOperation(t *testing.T, out resourceListing, id core.ID, path string, action policy.Action, via string) resourceOperation {
@@ -122,7 +139,7 @@ func TestResourceCatalogSeparatesScopeAndRuntimeStorage(t *testing.T) {
 		if item.Source != "user_grant" || item.Path == "/secret" {
 			t.Fatal("unexpected capability")
 		}
-		if item.Kind == resource.Storage && item.ShellPath != resourceShellPath(item.ResourceID, item.Path) {
+		if !platform.NativeSandbox() && item.Kind == resource.Storage && item.ShellPath != resourceShellPath(item.ResourceID, item.Path) {
 			t.Fatal("unstable shell mapping")
 		}
 	}
@@ -309,6 +326,12 @@ func TestPermissionListInstalledWithoutShell(t *testing.T) {
 }
 
 func testResourceConstraints(kind resource.Kind) *policy.Constraints {
+	if platform.NativeSandbox() {
+		if kind == resource.Compute {
+			return &policy.Constraints{Compute: &policy.ComputeConstraints{MaxDurationSeconds: 1800}}
+		}
+		return nil
+	}
 	switch kind {
 	case resource.Compute:
 		return &policy.Constraints{Compute: &policy.ComputeConstraints{CPUPercent: 100, MemoryBytes: 512 << 20, Processes: 64, TempBytes: 64 << 20, MaxDurationSeconds: 1800}}
@@ -328,4 +351,11 @@ func TestComponentDirectoriesCannotBeGrantedThroughParentResources(t *testing.T)
 			t.Fatalf("installation path accepted: %s %v", root, err)
 		}
 	}
+}
+
+func testNetworkPreset() string {
+	if platform.NativeSandbox() {
+		return "preset:network"
+	}
+	return "preset:internet"
 }

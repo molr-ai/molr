@@ -15,17 +15,29 @@ func TestSandboxDefaultsEnabledWithoutBlockingUnconfiguredRuntime(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !c.Sandbox.Enabled || c.Sandbox.MinFreeDiskBytes <= 0 {
+	if !c.Sandbox.Enabled || c.Sandbox.Timeout <= 0 || (!platform.NativeSandbox() && c.Sandbox.MinFreeDiskBytes <= 0) {
 		t.Fatal("sandbox must default on with bounded limits")
 	}
 	for _, change := range []func(*Sandbox){
 		func(s *Sandbox) { s.RootFS = "relative/rootfs" },
 		func(s *Sandbox) { s.WorkRoot = "/var/lib/molr/work" },
-		func(s *Sandbox) { s.MemoryBytes = 0 },
+		func(s *Sandbox) {
+			if platform.NativeSandbox() {
+				s.MemoryBytes = 1
+			} else {
+				s.MemoryBytes = 0
+			}
+		},
 		func(s *Sandbox) { s.HostToolsUser = "bad/account" },
 		func(s *Sandbox) { s.HostToolsUser = "molr-sandbox-review" },
 		func(s *Sandbox) { s.HostToolsUser = "molr-sandbox"; s.RootFS = "/opt/custom-rootfs" },
-		func(s *Sandbox) { s.MinFreeDiskBytes = 0 },
+		func(s *Sandbox) {
+			if platform.NativeSandbox() {
+				s.MinFreeDiskBytes = 1
+			} else {
+				s.MinFreeDiskBytes = 0
+			}
+		},
 	} {
 		invalid := c
 		change(&invalid.Sandbox)
@@ -41,6 +53,9 @@ func TestSandboxDefaultsEnabledWithoutBlockingUnconfiguredRuntime(t *testing.T) 
 }
 
 func TestSandboxNetworkConfiguration(t *testing.T) {
+	if platform.NativeSandbox() {
+		t.Skip("Linux hard quotas and network rules; macOS uses duration grants and a network toggle")
+	}
 	const base = `{"data_dir":"/var/lib/molr","http":{"public_url":"https://molr.example.com","tls_mode":"proxy","trusted_proxies":["192.0.2.10/32"]},"sandbox":{"networks":[%s]}}`
 	for _, target := range []string{
 		`{"name":"lan","protocols":["tcp"],"addresses":["192.168.1.0/24","fd12::/32"],"ports":["80","443","8000-8099","9000-9099"],"exclude_addresses":["192.168.1.10"],"exclude_ports":["8080-8089"]}`,
@@ -78,6 +93,9 @@ func TestSandboxTimeoutDefaultAndOverride(t *testing.T) {
 }
 
 func TestSandboxNetworkRequiresExplicitProtocolsAndPresets(t *testing.T) {
+	if platform.NativeSandbox() {
+		t.Skip("Linux hard quotas and network rules; macOS uses duration grants and a network toggle")
+	}
 	base := `{"data_dir":"/var/lib/molr","http":{"public_url":"https://molr.example.com","tls_mode":"proxy","trusted_proxies":["127.0.0.1/32"]},"sandbox":%s}`
 	for _, network := range []string{
 		`{"networks":[{"name":"legacy","addresses":["example.com"],"ports":["443"]}]}`,
@@ -107,6 +125,9 @@ func TestSandboxNetworkRequiresExplicitProtocolsAndPresets(t *testing.T) {
 
 // Preset contents are a security boundary; lock them against accidental edits.
 func TestNetworkPresetBoundaries(t *testing.T) {
+	if platform.NativeSandbox() {
+		t.Skip("Linux hard quotas and network rules; macOS uses duration grants and a network toggle")
+	}
 	const base = `{"data_dir":"/var/lib/molr","http":{"public_url":"https://molr.example.com","tls_mode":"proxy","trusted_proxies":["127.0.0.1/32"],"listen":"127.0.0.1:8080"},"sandbox":{"network_presets":[%s]}}`
 	load := func(t *testing.T, presets string) map[string]platform.NetworkRule {
 		t.Helper()
@@ -237,7 +258,13 @@ func TestWorkspaceConfigurationValidatedWithCommandsDisabled(t *testing.T) {
 	for _, change := range []func(*Sandbox){
 		func(s *Sandbox) { s.WorkRoot = "/var/lib/molr/private" },
 		func(s *Sandbox) { s.WorkRoot = "relative" },
-		func(s *Sandbox) { s.MaxFileBytes = 0 },
+		func(s *Sandbox) {
+			if platform.NativeSandbox() {
+				s.MaxFileBytes = 1
+			} else {
+				s.MaxFileBytes = 0
+			}
+		},
 		func(s *Sandbox) { s.Directories = []SandboxDirectory{{Path: "/var/lib/molr"}} },
 	} {
 		cfg := Defaults("/var/lib/molr")

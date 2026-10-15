@@ -49,7 +49,7 @@ func (s *workspaceExplorer) root(ctx context.Context, p core.Principal, id core.
 		if err != nil {
 			return "", err
 		}
-		if size > s.ad.storageConfig.MaxFileBytes || (spec != nil && size > spec.MaxFileBytes) {
+		if (s.ad.storageConfig.MaxFileBytes > 0 && size > s.ad.storageConfig.MaxFileBytes) || (spec != nil && size > spec.MaxFileBytes) {
 			return "", core.WithReason(core.NewError(core.FailedPrecondition, "workspace file size limit exceeded"), "storage_file_limit")
 		}
 		if err = applyWorkspaceQuota(root, spec, s.ad.storageConfig.WorkspaceProjectQuotas); err != nil {

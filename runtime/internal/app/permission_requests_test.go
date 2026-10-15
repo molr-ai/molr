@@ -8,6 +8,7 @@ import (
 	"molr.ai/runtime/internal/agent/operation"
 	"molr.ai/runtime/internal/agent/tools"
 	"molr.ai/runtime/internal/notification"
+	"molr.ai/runtime/internal/platform"
 	"strings"
 	"testing"
 	"time"
@@ -215,11 +216,16 @@ func TestGroupedQuotaApprovalRollsBackAndRetriesAtomically(t *testing.T) {
 			before, err := f.b.Services.Grants.List(t.Context(), f.owner, policy.Query{AssistantID: f.execution.AssistantID, ResourceID: compute.ID})
 			need(t, err)
 			previous := before.Items[0]
-			network, err := f.b.Services.Resources.Connect(t.Context(), f.owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "quota-network"}, Name: "Network", Kind: resource.Network, Provider: "sandbox-network", Binding: resource.Binding{SandboxTarget: "preset:internet"}})
+			network, err := f.b.Services.Resources.Connect(t.Context(), f.owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "quota-network"}, Name: "Network", Kind: resource.Network, Provider: "sandbox-network", Binding: resource.Binding{SandboxTarget: testNetworkPreset()}})
 			need(t, err)
 			expires := time.Now().Add(time.Hour)
 			cpu := &policy.Constraints{Compute: &policy.ComputeConstraints{CPUPercent: 200, MemoryBytes: 1 << 30, Processes: 128, TempBytes: 64 << 20, MaxDurationSeconds: 1800}}
 			net := &policy.Constraints{Network: &policy.NetworkConstraints{Bytes: 1 << 30, Connections: 32, Period: "day", Timezone: "UTC"}}
+			if platform.NativeSandbox() {
+				cpu = testResourceConstraints(resource.Compute)
+				cpu.Compute.MaxDurationSeconds = 3600
+				net = nil
+			}
 			input := policy.PermissionRequestInput{GrantID: previous.ID, GrantVersion: previous.Version, ResourceKind: "compute", ResourceID: compute.ID, ResourceDescription: "Build", Actions: []policy.Action{policy.Execute}, ExpiresAt: &expires, Reason: "Build project", Constraints: cpu, Additional: []policy.PermissionRequestInput{{ResourceKind: "network", ResourceID: network.ID, ResourceDescription: "Download", Actions: []policy.Action{policy.Execute}, ExpiresAt: &expires, Reason: "Download dependencies", Constraints: net}}}
 			raw, err := s.create(t.Context(), f.execution, input)
 			need(t, err)

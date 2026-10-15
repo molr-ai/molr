@@ -32,6 +32,9 @@ import (
 
 func directConfig(c *config.Config) {
 	c.Sandbox.AllowFullAccess = true
+	if platform.NativeSandbox() {
+		return
+	}
 	c.Sandbox.Bwrap = "/missing/bwrap"
 	c.Sandbox.CgroupRoot = "/missing/cgroup"
 	c.Sandbox.RootFS = "/missing/rootfs"

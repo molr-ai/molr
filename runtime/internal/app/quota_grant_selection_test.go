@@ -13,6 +13,7 @@ import (
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/persistence/sqlitestore"
+	"molr.ai/runtime/internal/platform"
 	"molr.ai/runtime/internal/platform/sandbox"
 	"molr.ai/runtime/internal/policy"
 )
@@ -95,7 +96,7 @@ func TestQuotaUsageLoadsOnlySelectedActiveGrant(t *testing.T) {
 	router, p, store := quotaGrantFixture(t)
 	usage, err := router.quotaUsage(t.Context(), p, "assistant", "compute")
 	need(t, err)
-	if usage.Constraints == nil || usage.Constraints.Compute == nil || usage.Constraints.Compute.MemoryBytes != 64<<20 || usage.Compute == nil {
+	if usage.Constraints == nil || usage.Constraints.Compute == nil || usage.Constraints.Compute.MemoryBytes != 64<<20 || (usage.Compute != nil) != !platform.NativeSandbox() {
 		t.Fatal("selected grant or temporary constraints changed", usage)
 	}
 	t.Logf("1000 revoked/expired grants,1FullAccess,2ordinary active: loaded%drecords", store.loaded)

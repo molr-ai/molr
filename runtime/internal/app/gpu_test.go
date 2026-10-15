@@ -22,6 +22,9 @@ const gpuA = "GPU-00000000-0000-0000-0000-000000000001"
 const gpuB = "GPU-00000000-0000-0000-0000-000000000002"
 
 func TestGPUComputeGrantAutomaticallyBuildsPlanAndRestoresTemporaryScope(t *testing.T) {
+	if platform.NativeSandbox() {
+		t.Skip("requires Linux GPU device grants; macOS rejects GPU configuration")
+	}
 	f := newResourceAccessFixture(t, func(c *config.Config, _ string) {
 		c.Sandbox.GPU = platform.GPUConfig{Enabled: true, Devices: []string{gpuA}}
 	})
@@ -81,6 +84,9 @@ func TestGPUPermissionContextPreservesHardwareScope(t *testing.T) {
 }
 
 func TestGPUAssistantRequestRequiresApprovalAndOwnerCanNarrow(t *testing.T) {
+	if platform.NativeSandbox() {
+		t.Skip("requires Linux GPU device grants; macOS rejects GPU configuration")
+	}
 	f := newResourceAccessFixture(t, func(c *config.Config, _ string) {
 		c.Sandbox.GPU = platform.GPUConfig{Enabled: true, Devices: []string{gpuA, gpuB}}
 	})

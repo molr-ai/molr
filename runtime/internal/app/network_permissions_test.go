@@ -18,6 +18,7 @@ import (
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/persistence/sqlitestore"
+	"molr.ai/runtime/internal/platform"
 	"molr.ai/runtime/internal/policy"
 	sm "molr.ai/runtime/internal/sandboxmanager"
 )
@@ -74,6 +75,9 @@ func assertNetworkScope(t *testing.T, raw json.RawMessage, id core.ID, expected 
 }
 
 func TestPermissionListReportsActualNetworkScopeBeforeAndAfterGrant(t *testing.T) {
+	if platform.NativeSandbox() {
+		t.Skip("requires Linux destination network rules; macOS uses a network toggle")
+	}
 	target := config.SandboxNetwork{Name: "narrow", Protocols: []string{"tcp"}, Addresses: []string{"192.168.1.0/24"}, Ports: []string{"80", "1083"}, ExcludeAddresses: []string{"192.168.1.9"}, ExcludePorts: []string{"80"}}
 	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { c.Sandbox.Networks = []config.SandboxNetwork{target} })
 	network, err := f.b.Services.Resources.Connect(t.Context(), f.owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "network"}, Kind: resource.Network, Provider: "sandbox-network", Name: "All networks (misleading name)", Binding: resource.Binding{SandboxTarget: target.Name}})
