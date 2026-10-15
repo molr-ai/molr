@@ -41,6 +41,15 @@ test('website state builds and browser behavior', { timeout: 240_000 }, async t 
           assert.equal(installer.status, 200);
           assert((await installer.text()).startsWith('#!/bin/sh'));
           assert((await readFile(join(outDir, 'install.sh'), 'utf8')).includes('Checksum mismatch'));
+          for (const [path, source] of [['agent-install.md', 'docs/admin/deployment/agent-install.md'], ['en/agent-install.md', 'docs/en/admin/deployment/agent-install.md']]) {
+            const expected = await readFile(join(root, '../..', source), 'utf8');
+            assert.equal(await readFile(join(outDir, path), 'utf8'), expected);
+            const response = await fetch(`${url}/${path}`);
+            assert.equal(response.status, 200);
+            assert.equal(await response.text(), expected);
+            const headers = await readFile(join(outDir, '_headers'), 'utf8');
+            assert(headers.includes(`/${path}\n  Cache-Control: no-cache\n  Content-Type: text/plain; charset=utf-8`));
+          }
           const context = await browser.newContext({ javaScriptEnabled: false });
           try {
             const page = await context.newPage();

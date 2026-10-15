@@ -7,6 +7,7 @@
 从[搭建 Molr 实例](getting-started.md)完成安装、初始化、资源接入与成员配置。
 
 - [安装与服务管理](deployment/installation.md)：环境要求、发布渠道、指定版本、离线安装和服务生命周期。
+- [让 Agent 为我安装](deployment/agent-install.md)：将安装交给能够操作目标设备的 Agent。
 - [Docker 部署](deployment/docker.md)：在一个容器中运行 Runtime 与 WebUI，配置持久数据及可选命令执行。
 - [源码构建与部署](deployment/source-build.md)：自行构建程序与发行包。
 - [配置与访问](deployment/configuration.md)：局域网、HTTPS、模型网络与微信连接配置。

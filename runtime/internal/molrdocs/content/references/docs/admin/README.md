@@ -7,6 +7,7 @@
 从[搭建 Molr 实例](https://molr.ai/zh/docs/admin/getting-started/)完成安装、初始化、资源接入与成员配置。
 
 - [安装与服务管理](https://molr.ai/zh/docs/admin/deployment/installation/)：环境要求、发布渠道、指定版本、离线安装和服务生命周期。
+- [让 Agent 为我安装](https://molr.ai/zh/docs/admin/deployment/agent-install/)：将安装交给能够操作目标设备的 Agent。
 - [Docker 部署](https://molr.ai/zh/docs/admin/deployment/docker/)：在一个容器中运行 Runtime 与 WebUI，配置持久数据及可选命令执行。
 - [源码构建与部署](https://molr.ai/zh/docs/admin/deployment/source-build/)：自行构建程序与发行包。
 - [配置与访问](https://molr.ai/zh/docs/admin/deployment/configuration/)：局域网、HTTPS、模型网络与微信连接配置。

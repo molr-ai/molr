@@ -3,8 +3,8 @@
 .home-install-methods button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 10px 14px; border: 1px solid transparent; border-radius: 8px; background: transparent; font-size: 13px; color: var(--color-text-muted); }
 .home-install-methods button:hover { color: var(--color-text); background: var(--color-neutral-bg); }
 .home-install-methods button[aria-pressed='true'] { color: var(--color-text); background: var(--color-neutral-bg); }
-.home-install-methods .home-icon { width: 17px; height: 17px; }
-.home-install-terminal-icon { font: 15px var(--font-mono); }
+.home-install-methods button > span { text-wrap: balance; }
+.home-install-methods .home-icon { width: 17px; height: 17px; flex-shrink: 0; }
 .home-install-methods small { color: var(--color-text-muted); font-size: 10px; border-left: 1px solid var(--color-control-border-hover); padding-left: 8px; }
 .home-install-workspace { display: grid; grid-template-columns: minmax(280px, .8fr) minmax(0, 1.4fr); }
 .home-install-config { padding: 28px 24px; border-right: 1px solid var(--color-border); }
@@ -85,4 +85,12 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .home-install-options button { transition: none; }
+}
+.home-install-prompt { margin-top: 24px; padding: 20px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-background); }
+.home-install-prompt .home-install-prompt-text { margin: 0 0 20px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.85; color: var(--color-text); }
+.home-install-prompt .home-button { min-height: 40px; padding: 10px 16px; font-size: 12px; }
+.home-install-copy-error { display: block; margin-top: 12px; color: var(--color-text-muted); font-size: 12px; line-height: 1.8; }
+@media (--molr-mobile) {
+  .home-install-methods button { flex: 1 1 calc(50% - 4px); }
+  .home-install-prompt { padding: 16px; }
 }

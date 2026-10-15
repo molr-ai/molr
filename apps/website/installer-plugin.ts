@@ -1,3 +1,5 @@
+import { documentPath } from './docs-plugin';
+import { allDocRoutes } from './src/docs-routes';
 import { checkReleaseFiles } from '../../scripts/release-assets';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -13,8 +15,15 @@ export function installerPlugin(): Plugin {
  if (!/^https?:\/\/[A-Za-z0-9.:[\]-]+(?:\/[A-Za-z0-9._/-]*)?$/.test(releaseURL)) throw new Error('MOLR_RELEASE_URL must be a plain HTTP(S) URL');
  if (releaseDir && catalogDir) throw new Error('Use either MOLR_RELEASE_DIR or MOLR_CATALOG_DIR');
  const script = () => readFileSync(resolve(root, 'scripts/install.sh'), 'utf8').replace("'https://molr.ai/releases'", JSON.stringify(releaseURL));
+ // Explicit aliases of reviewed documentation; never publish arbitrary Markdown files.
+ const guidePaths = Object.fromEntries((['zh', 'en'] as const).map(locale => {
+  const entry = allDocRoutes.find(doc => doc.locale === locale && doc.sourceFile === 'admin/deployment/agent-install.md');
+  if (!entry) throw new Error(`Missing reviewed agent installation guide: ${locale}`);
+  return [locale === 'zh' ? 'agent-install.md' : 'en/agent-install.md', documentPath(entry)];
+ }));
+ const guide = (name: string) => readFileSync(guidePaths[name], 'utf8');
  const assets = () => {
-  const files: Record<string, string | Buffer> = { 'install.sh': script() };
+  const files: Record<string, string | Buffer> = { 'install.sh': script(), ...Object.fromEntries(Object.keys(guidePaths).map(name => [name, guide(name)])) };
   if (catalogDir) {
    checkReleaseFiles('release-directory', catalogDir);
    const collect = (path: string, prefix: string) => {
@@ -40,15 +49,15 @@ export function installerPlugin(): Plugin {
    developmentAssets = assets();
    server.middlewares.use((req, res, next) => {
     const path = req.url?.split('?')[0].slice(1) || '';
-    const content = path === 'install.sh' ? script() : developmentAssets[path];
+    const content = path === 'install.sh' ? script() : Object.hasOwn(guidePaths, path) ? guide(path) : developmentAssets[path];
     if (content === undefined) return next();
-    res.setHeader('Content-Type', path.endsWith('.json') ? 'application/json' : path.endsWith('.sh') ? 'text/plain; charset=utf-8' : 'application/octet-stream');
+    res.setHeader('Content-Type', path.endsWith('.json') ? 'application/json' : path.endsWith('.sh') || path.endsWith('.md') ? 'text/plain; charset=utf-8' : 'application/octet-stream');
     res.setHeader('Cache-Control', 'no-cache'); res.end(content);
    });
   },
   generateBundle() {
    for (const [fileName, source] of Object.entries(assets())) this.emitFile({ type: 'asset', fileName, source });
-   this.emitFile({ type: 'asset', fileName: '_headers', source: '/releases/*\n  Cache-Control: no-cache\n/install.sh\n  Cache-Control: no-cache\n  Content-Type: text/plain; charset=utf-8\n' });
+   this.emitFile({ type: 'asset', fileName: '_headers', source: '/releases/*\n  Cache-Control: no-cache\n/install.sh\n  Cache-Control: no-cache\n  Content-Type: text/plain; charset=utf-8\n' + Object.keys(guidePaths).map(name => `/${name}\n  Cache-Control: no-cache\n  Content-Type: text/plain; charset=utf-8\n`).join('') });
   },
  };
 }

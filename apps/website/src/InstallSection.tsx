@@ -7,6 +7,7 @@ import { siteLinks } from './site-links';
 import { channels, installCommand, packageInstallCommand, readCatalog } from './release-data';
 import type { Catalog, Channel, DownloadTool } from './release-data';
 import './install.css';
+import { AgentInstall, agentInstallPath } from './AgentInstall';
 import { InstallCommand } from './InstallCommand';
 import { Icon } from './HomeIcon';
 
@@ -19,7 +20,7 @@ function OptionRow({ label, children }: { label: string; children: ReactNode }) 
 
 export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Locale }) {
   const t = installMessages[locale];
-  const [method, setMethod] = useState<'command' | 'download' | 'docker'>('command');
+  const [method, setMethod] = useState<'command' | 'download' | 'docker' | 'agent'>('command');
   const [channel, setChannel] = useState<Channel>('stable');
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [selectedOS, setOS] = useState('linux');
@@ -52,9 +53,10 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
     <p className="home-section-intro">{t.browser}</p>
     <div className="home-installer">
       <div className="home-install-methods" role="group" aria-label={t.method}>
-        <button type="button" aria-pressed={method === 'command'} aria-controls="install-details" onClick={() => setMethod('command')}><span aria-hidden="true" className="home-install-terminal-icon">&gt;_</span>{t.command}<small>{t.recommended}</small></button>
-        <button type="button" aria-pressed={method === 'download'} aria-controls="install-details" onClick={() => setMethod('download')}><Icon name="download" />{t.download}</button>
-        <button type="button" aria-pressed={method === 'docker'} aria-controls="install-details" onClick={() => setMethod('docker')}>Docker</button>
+        <button type="button" aria-pressed={method === 'command'} aria-controls="install-details" onClick={() => setMethod('command')}><Icon name="terminal" /><span>{t.command}</span><small>{t.recommended}</small></button>
+        <button type="button" aria-pressed={method === 'download'} aria-controls="install-details" onClick={() => setMethod('download')}><Icon name="download" /><span>{t.download}</span></button>
+        <button type="button" aria-pressed={method === 'docker'} aria-controls="install-details" onClick={() => setMethod('docker')}><Icon name="container" /><span>{t.docker}</span></button>
+        <button type="button" aria-pressed={method === 'agent'} aria-controls="install-details" onClick={() => setMethod('agent')}><Icon name="bot" /><span>{t.agent}</span></button>
       </div>
       <div className="home-install-workspace">
         <div className="home-install-config">
@@ -65,7 +67,7 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
           <OptionRow label={t.channel}>
             {channels.map(c => <button type="button" key={c} aria-pressed={channel === c} onClick={() => setChannel(c)}>{t[c]}</button>)}
           </OptionRow>
-          {release && !error && <>
+          {method !== 'agent' && release && !error && <>
             <OptionRow label={t.system}>
               {systems.map(system => <button type="button" key={system} aria-pressed={os === system} onClick={() => setOS(system)}>{osLabel(system)}</button>)}
             </OptionRow>
@@ -80,7 +82,13 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
           </>}
         </div>
         <div id="install-details" className="home-install-result">
-        {method === 'docker' ? <div className="home-install-details">
+        {method === 'agent' ? <>
+          <AgentInstall key={`${locale}-${channel}`} locale={locale} channel={channel} />
+          {error ? <p className="home-install-status" role="status">{t.agentUnavailable} <button type="button" onClick={() => setAttempt(v => v + 1)}>{t.retry}</button></p>
+            : !catalog ? <p className="home-install-status" role="status">{t.loading}</p>
+            : !release || !platform ? <p className="home-install-status" role="status">{t.agentEmpty}</p>
+            : <p className="home-install-requirements">{t[channel]} · v{release.version} · {[...new Set(platforms.map(p => osLabel(p.os)))].join(' / ')}</p>}
+        </> : method === 'docker' ? <div className="home-install-details">
           <div className="home-install-heading"><h3>{t.dockerTitle}</h3></div>
           <p>{t.dockerBody}</p>
           <InstallCommand command={'git clone https://github.com/molr-ai/molr.git\ncd molr\ncp deploy/docker/server.example.json deploy/docker/server.json\ndocker compose build'} locale={locale} />
@@ -115,7 +123,7 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
           </>}
         </div>
       </div>
-      <div className="home-install-footer"><span>{method === 'docker' ? t.dockerHint : t.targetHint}</span><a href={localizedDocPath(method === 'docker' ? '/docs/admin/deployment/docker/' : siteLinks.install!, locale)}>{t.guide}<span aria-hidden="true"> ↗</span></a></div>
+      <div className="home-install-footer"><span>{method === 'agent' ? t.agentHint : method === 'docker' ? t.dockerHint : t.targetHint}</span><a href={localizedDocPath(method === 'agent' ? agentInstallPath : method === 'docker' ? '/docs/admin/deployment/docker/' : siteLinks.install!, locale)}>{method === 'agent' ? t.agentGuide : t.guide}<span aria-hidden="true"> ↗</span></a></div>
     </div>
   </section>;
 }

@@ -1,5 +1,7 @@
 # Installation and service management
 
+Choose “Let an Agent install for me” on the website and copy the instructions to an Agent with access to the target device. It can inspect, install, and verify the environment; see [Agent installation](agent-install.md).
+
 ## Environment requirements
 
 The following are initial sizing estimates for running the Molr service (Runtime and WebUI) while connecting to cloud models or models hosted on another device. They have not yet been validated by systematic performance benchmarks. The minimum configuration targets service startup and occasional single-user chat; the recommended configuration leaves room for daily use and a few concurrent tasks.

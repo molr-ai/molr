@@ -99,6 +99,10 @@ Vite 的 `publicDir` 指向共享 UI 包的 `public/`。`/theme-init.js` 在首�
 
 `MOLR_RELEASE_URL` 配置脚本默认发布源，默认为 `https://molr.ai/releases`；安装区默认使用当前站点 `/releases`，跨域源可用 `VITE_RELEASE_SOURCE` 指定。验收使用 `MOLR_CATALOG_DIR=.cache/release-catalog VITE_SITE_MODE=live npm run dev:website`。未指定 catalog 时输出空目录，不把开发包当作公开发行版。保留 `MOLR_RELEASE_DIR` 供本地校验包下载，放在 `/packages/`，不能与 catalog 同时配置。
 
+安装区另提供「让 Agent 为我安装」：仅选择渠道，复制当前语言的安装任务；系统与架构由 Agent 检测。指令链接始终使用官方 `https://molr.ai` 地址，开发预览也不将本地地址写进用户任务。发布目录读取失败或渠道为空时仍可复制，并展示对应状态，不自动切换渠道。
+
+`installer-plugin.ts` 将 `docs-routes.json` 中已审查的 `admin/deployment/agent-install.md` 中英文正文显式输出为 `/agent-install.md` 和 `/en/agent-install.md`，与文档页共用来源；开发服务与生产构建均可直接读取，不依赖 JavaScript。与 `/install.sh` 一样，这两个安装资源在三种站点模式下都可用，响应类型为 `text/plain; charset=utf-8`，使用 `Cache-Control: no-cache`。新增其他 Markdown 不会自动公开。修改说明后同步维护中英文并运行 `npm run docs:generate`。
+
 ## 公开文档范围
 
 `../../docs-routes.json` 是经审查的文档入口清单。`docs-plugin.ts` 仅从这些条目读取公开 Markdown，为页面内容和搜索提供同一份数据；新文件不会因为落在文档目录就自动打包。新增路由前审查内容并更新文档索引，不登记内部规划或本地验收记录。

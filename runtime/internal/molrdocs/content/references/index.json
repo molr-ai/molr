@@ -400,6 +400,22 @@
     }
   },
   {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/deployment/agent-install.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "让 Agent 为我安装",
+      "en": "Agent installation"
+    },
+    "topics": {
+      "zh": "部署服务",
+      "en": "Deployment"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/deployment/agent-install/",
+      "en": "https://molr.ai/en/docs/admin/deployment/agent-install/"
+    }
+  },
+  {
     "path": "/molr/.agents/skills/molr-docs/references/docs/admin/deployment/docker.md",
     "contentLanguage": "zh",
     "titles": {

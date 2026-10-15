@@ -4,6 +4,9 @@ export function Icon({ name, className = '' }: { name: string; className?: strin
   const paths: Record<string, ReactNode> = {
     arrow: <path d="M5 12h14m-5-5 5 5-5 5" />,
     down: <path d="M12 5v14m-5-5 5 5 5-5" />,
+    terminal: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="m7 9 3 3-3 3m6 0h4" /></>,
+    container: <><path d="m3 7 5-3 13 3v11l-5 3-13-3V7Zm0 0 13 3 5-3M16 10v11M7 11v5m5-4v5" /></>,
+    bot: <><rect x="4" y="7" width="16" height="14" rx="3" /><path d="M12 3v4M2 12v4m20-4v4M8 12h.01M16 12h.01M9 17h6" /><circle cx="12" cy="3" r="1" /></>,
     download: <><path d="M12 3v12m-4-4 4 4 4-4M5 16v4h14v-4" /></>,
     book: <><path d="M12 5v16M3 3h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5v16h-5a4 4 0 0 0-4 2 4 4 0 0 0-4-2H3V3Z" /></>,
     sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5" /></>,

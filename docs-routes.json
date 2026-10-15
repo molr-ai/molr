@@ -250,6 +250,16 @@
     "section": "admin"
   },
   {
+    "file": "admin/deployment/agent-install.md",
+    "path": "/docs/admin/deployment/agent-install/",
+    "label": "让 Agent 为我安装",
+    "group": "部署服务",
+    "englishLabel": "Agent installation",
+    "englishGroup": "Deployment",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
     "file": "admin/deployment/docker.md",
     "path": "/docs/admin/deployment/docker/",
     "label": "Docker 部署",
