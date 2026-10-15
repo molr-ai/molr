@@ -1,3 +1,5 @@
+//go:build linux || darwin
+
 // molr-setup installs and maintains a versioned Molr instance without an interpreter.
 package main
 

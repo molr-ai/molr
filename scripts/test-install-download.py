@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Test the POSIX downloader with artificial local archives; Python is a test tool only."""
 import hashlib
+import json
 import http.server
 import ssl
 import threading
@@ -28,6 +29,18 @@ class BootstrapTests(unittest.TestCase):
                 item = tarfile.TarInfo('molr/'+name); item.size = len(content); item.mode = 0o755
                 archive.addfile(item, io.BytesIO(content))
             if extra: archive.addfile(extra)
+        if platform.system() == 'Darwin':
+            code = '#include <stdio.h>\nint main(int n,char **a){FILE *f=fopen('+json.dumps(str(self.marker))+',"w");if(!f)return 1;for(int i=1;i<n;i++)fprintf(f,"%s\\n",a[i]);return fclose(f);}'
+            source = self.root/'fixture.c'; source.write_text(code)
+            binary = self.root/'fixture'
+            subprocess.run(['/usr/bin/cc', str(source), '-o', str(binary)], check=True)
+            subprocess.run(['/usr/bin/codesign', '--force', '--sign', '-', str(binary)], check=True, capture_output=True)
+            files['bin/molr'] = files['bin/molr-setup'] = binary.read_bytes()
+            with tarfile.open(self.archive, 'w:gz') as archive:
+                for name, content in files.items():
+                    item=tarfile.TarInfo('molr/'+name); item.size=len(content); item.mode=0o755
+                    archive.addfile(item, io.BytesIO(content))
+                if extra: archive.addfile(extra)
         self.checksum()
     def checksum(self): Path(str(self.archive)+'.sha256').write_text(hashlib.sha256(self.archive.read_bytes()).hexdigest()+'  package.tar.gz\n')
     def run_setup(self, *args): return subprocess.run(['sh', str(ROOT/'scripts/install.sh'), '--archive', str(self.archive), *args], capture_output=True, text=True)
@@ -83,15 +96,16 @@ class BootstrapTests(unittest.TestCase):
         self.package()
         arch = {'x86_64': 'amd64', 'aarch64': 'arm64', 'arm64': 'arm64'}[platform.machine()]
         version = '0.2.0-rc.1'
+        system = 'darwin' if platform.system() == 'Darwin' else 'linux'
         with self.mirror() as (origin, env):
-            descriptor = '\n'.join(['molr-download-v1', version, 'a'*40, 'linux-'+arch, f'molr_{version}_linux_{arch}.tar.gz', origin+'/package.tar.gz', hashlib.sha256(self.archive.read_bytes()).hexdigest(), ''])
+            descriptor = '\n'.join(['molr-download-v1', version, 'a'*40, system+'-'+arch, f'molr_{version}_{system}_{arch}.tar.gz', origin+'/package.tar.gz', hashlib.sha256(self.archive.read_bytes()).hexdigest(), ''])
             for prefix in ['preview', 'versions/'+version]:
-                target=self.root/prefix/f'download-linux-{arch}.txt'; target.parent.mkdir(parents=True, exist_ok=True); target.write_text(descriptor)
+                target=self.root/prefix/f'download-{system}-{arch}.txt'; target.parent.mkdir(parents=True, exist_ok=True); target.write_text(descriptor)
             for args in [[], ['--version', version]]:
                 result=subprocess.run(['sh', str(ROOT/'scripts/install.sh'), '--source', origin, '--channel', 'preview', *args, '--non-interactive'], env=env, capture_output=True, text=True)
                 self.assertEqual(result.returncode,0,result.stderr); self.assertIn('Version: '+version,result.stdout); self.assertIn('--source\n'+origin+'\n--channel\npreview',self.marker.read_text())
             self.marker.unlink()
-            (self.root/'preview'/f'download-linux-{arch}.txt').write_text(descriptor.replace('molr-download-v1','invalid-schema'))
+            (self.root/'preview'/f'download-{system}-{arch}.txt').write_text(descriptor.replace('molr-download-v1','invalid-schema'))
             result=subprocess.run(['sh',str(ROOT/'scripts/install.sh'),'--source',origin,'--channel','preview'],env=env,capture_output=True,text=True)
             self.assertNotEqual(result.returncode,0);self.assertFalse(self.marker.exists())
     def test_http_downgrade_source_rejected(self):

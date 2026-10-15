@@ -1,6 +1,6 @@
 # 独立 Linux Sandbox 服务
 
-Runtime 内置本机 sandbox_manager，无需额外启动本机服务。`sandbox.enabled: false` 关闭本机存储、计算和网络能力，不影响连接远程沙盒。工作区数据保留；重新启用后继续使用。文件操作无需计算授权，但仍受工作区归属与目录权限限制。
+Runtime 内置本机 sandbox_manager，无需额外启动本机服务。主 Runtime 的 `sandbox.enabled: false` 关闭本机命令执行，工作区、文件工具和远程连接仍可用。独立 `molr-sandbox` 的同名开关仍控制整个远程节点；远程节点继续只支持 Linux。文件操作不要求计算授权，但仍受工作区归属与目录权限限制。
 
 远程电脑运行 `molr-sandbox`，只提供受控执行与已授权目录，不初始化账号、Agent、会话、助理工作区或模型服务。助理及其唯一 `/work` 始终位于 Runtime 本地。当前只支持 Linux。两种运行方式复用文件隔离和 Linux 进程隔离实现；公共协议不包含 Bubblewrap 或 cgroup 路径。
 

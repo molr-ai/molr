@@ -58,6 +58,52 @@
         ]
       },
       "verification": "native-install-sandbox"
+    },
+    {
+      "id": "darwin-arm64",
+      "os": "darwin",
+      "arch": "arm64",
+      "label": "macOS · Apple Silicon",
+      "aliases": [
+        "arm64",
+        "aarch64"
+      ],
+      "channels": [
+        "stable",
+        "preview",
+        "nightly"
+      ],
+      "runner": "macos-15",
+      "archive": "tar.gz",
+      "installer": "install.sh",
+      "requirements": {
+        "macos": "13.0",
+        "packages": []
+      },
+      "verification": "native-install-full-access"
+    },
+    {
+      "id": "darwin-amd64",
+      "os": "darwin",
+      "arch": "amd64",
+      "label": "macOS · Intel",
+      "aliases": [
+        "x86_64",
+        "amd64"
+      ],
+      "channels": [
+        "stable",
+        "preview",
+        "nightly"
+      ],
+      "runner": "macos-15-intel",
+      "archive": "tar.gz",
+      "installer": "install.sh",
+      "requirements": {
+        "macos": "13.0",
+        "packages": []
+      },
+      "verification": "native-install-full-access"
     }
   ]
 }

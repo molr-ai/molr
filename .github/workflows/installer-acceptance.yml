@@ -20,9 +20,19 @@ jobs:
           - environment: ubuntu-24.04-amd64
             runner: ubuntu-24.04
             arch: amd64
+            os: linux
           - environment: ubuntu-24.04-arm64
             runner: ubuntu-24.04-arm
             arch: arm64
+            os: linux
+          - environment: macos-arm64
+            runner: macos-15
+            arch: arm64
+            os: darwin
+          - environment: macos-amd64
+            runner: macos-15-intel
+            arch: amd64
+            os: darwin
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
     steps:
@@ -34,9 +44,10 @@ jobs:
           node-version: '22.21.0'
       - uses: actions/download-artifact@v4
         with:
-          name: ${{ inputs.artifact-prefix }}linux-${{ matrix.arch }}
+          name: ${{ inputs.artifact-prefix }}${{ matrix.os }}-${{ matrix.arch }}
           path: dist/releases
       - name: Prepare login session, leaving dependency preparation to Molr
+        if: matrix.os == 'linux'
         run: |
           # This job is disposable. Do not use this preparation on a developer host.
           if [ -f /etc/apparmor.d/bwrap-userns-restrict ]; then

@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -25,6 +26,9 @@ import (
 )
 
 func TestRemoteSandboxStorageRoutingAuthorizationAndContext(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("requires an in-process Linux remote server; covered by Linux CI")
+	}
 	f := newResourceAccessFixture(t, func(cfg *config.Config, _ string) { cfg.Sandbox.Enabled = false })
 	remoteCfg := testConfig(t)
 	remoteRoot := t.TempDir()
@@ -64,8 +68,12 @@ func TestRemoteSandboxStorageRoutingAuthorizationAndContext(t *testing.T) {
 	e := f.execution
 	// Omitting a node never selects a connected remote computer.
 	_, err = files.write(t.Context(), e, tools.FileWriteRequest{FileTarget: tools.FileTarget{Path: "note.txt"}, Text: "local"})
-	if err == nil {
-		t.Fatal("disabled local environment accepted a write")
+	need(t, err)
+	localFile := filepath.Join(platform.AssistantWorkspace(f.ad.dataDir, f.ad.storageConfig.WorkRoot, e.Principal.OwnerID, e.AssistantID), "note.txt")
+	content, err := os.ReadFile(localFile)
+	need(t, err)
+	if string(content) != "local" {
+		t.Fatal("default file operation did not use local workspace")
 	}
 	_, err = files.write(t.Context(), e, tools.FileWriteRequest{FileTarget: tools.FileTarget{SandboxID: connection.ID, Path: "/work/note.txt"}, Text: "remote"})
 	if core.CodeOf(err) != core.InvalidArgument {
@@ -210,12 +218,10 @@ func TestRemoteSandboxStorageRoutingAuthorizationAndContext(t *testing.T) {
 	if core.CodeOf(err) != core.Forbidden {
 		t.Fatal("revoked grant remained usable", err)
 	}
-	// Embedded local disabling does not disable remote storage.
+	// Disabling local commands does not disable local or remote storage.
 	e.OperationID = "local-disabled"
 	_, err = files.read(t.Context(), e, tools.FileReadRequest{FileTarget: tools.FileTarget{SandboxID: "local", Path: "note.txt"}})
-	if err == nil {
-		t.Fatal("disabled local workspace accessible")
-	}
+	need(t, err)
 	_, err = admin("resource", map[string]any{"SandboxID": connection.ID, "Kind": "storage", "SourceID": "host-root", "Name": "Escape", "Mutation": core.Mutation{IdempotencyKey: "escape"}})
 	if core.CodeOf(err) != core.Forbidden {
 		t.Fatal("undeployed directory accepted", err)

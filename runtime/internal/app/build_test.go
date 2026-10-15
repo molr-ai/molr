@@ -51,7 +51,17 @@ func ownerSession(t *testing.T, b *Bundle) (core.Principal, core.Secret) {
 	return p, login.Session.Token
 }
 func TestBuildRealMessageAgentAndRestart(t *testing.T) {
+	for _, enabled := range []bool{true, false} {
+		name := "commands-disabled"
+		if enabled {
+			name = "commands-enabled"
+		}
+		t.Run(name, func(t *testing.T) { testMessageAgentAndRestart(t, enabled) })
+	}
+}
+func testMessageAgentAndRestart(t *testing.T, commands bool) {
 	cfg := testConfig(t)
+	cfg.Sandbox.Enabled = commands
 	ctx := t.Context()
 	b, err := Build(ctx, cfg)
 	need(t, err)

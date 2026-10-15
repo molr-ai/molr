@@ -1,3 +1,5 @@
+//go:build linux || darwin
+
 package installation
 
 import (
@@ -7,32 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 )
 
-func (e *Engine) unitState(r *installrecord.Record) (map[string]string, error) {
-	data, err := e.run(append(control(r), "show", r.Name+".service", "--property=LoadState,ActiveState,MainPID,ControlGroup,FragmentPath"), true)
-	state := map[string]string{}
-	for _, line := range strings.Split(string(data), "\n") {
-		k, v, ok := strings.Cut(line, "=")
-		if ok {
-			state[k] = v
-		}
-	}
-	if err != nil && state["LoadState"] != "not-found" {
-		return nil, err
-	}
-	if state["LoadState"] == "" {
-		return nil, fmt.Errorf("cannot inspect service")
-	}
-	if p := state["FragmentPath"]; p != "" {
-		real, err := filepath.EvalSymlinks(p)
-		if err != nil || real != r.Paths.Unit {
-			return nil, fmt.Errorf("service belongs to another installation: %s", p)
-		}
-	}
-	return state, nil
-}
 func (e *Engine) uninstall(r *installrecord.Record) error {
 	if r == nil {
 		return fmt.Errorf("installation record required")
@@ -154,34 +132,7 @@ func (e *Engine) uninstall(r *installrecord.Record) error {
 		}
 	}
 	e.UI.step(2, "Stop and unregister service")
-	if state["LoadState"] != "not-found" {
-		if err = e.service(r, "stop", r.Name+".service"); err != nil {
-			return err
-		}
-		state, err = e.unitState(r)
-		if err != nil {
-			return err
-		}
-		if state["MainPID"] != "0" || (state["ActiveState"] != "inactive" && state["ActiveState"] != "failed") {
-			return fmt.Errorf("service has not stopped")
-		}
-		if group := state["ControlGroup"]; group != "" {
-			events, err := os.ReadFile(filepath.Join("/sys/fs/cgroup", group, "cgroup.events"))
-			if err != nil && !os.IsNotExist(err) {
-				return err
-			}
-			if strings.Contains(string(events), "populated 1") {
-				return fmt.Errorf("service cgroup still contains processes")
-			}
-		}
-		if err = e.service(r, "disable", r.Name+".service"); err != nil {
-			return err
-		}
-	}
-	if err = removeFile(r.Paths.Unit); err != nil {
-		return err
-	}
-	if err = e.service(r, "daemon-reload"); err != nil {
+	if err = e.stopService(r, state, true); err != nil {
 		return err
 	}
 	e.UI.step(3, "Remove managed files")

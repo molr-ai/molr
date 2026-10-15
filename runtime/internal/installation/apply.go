@@ -1,8 +1,11 @@
+//go:build linux || darwin
+
 package installation
 
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -35,7 +38,7 @@ func mkdirOwned(path string, mode os.FileMode, uid, gid int) error {
 	}
 	return nil
 }
-func (e *Engine) apply(p *Plan) error {
+func (e *Engine) apply(p *Plan) (resultErr error) {
 	r := p.Record
 	if err := e.acquire(r); err != nil {
 		return err
@@ -134,13 +137,37 @@ func (e *Engine) apply(p *Plan) error {
 			}
 		}
 	}
+	if p.Previous != nil && p.Previous.State == "installed" {
+		state, err := e.unitState(p.Previous)
+		if err != nil {
+			return err
+		}
+		backup, files, err := snapshotInstallation(p.Previous)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if resultErr != nil {
+				var pending *VerificationPending
+				if !errors.As(resultErr, &pending) {
+					recoveryErr := e.rollback(p.Previous, files, delegate, state["MainPID"] != "0")
+					resultErr = installationFailed(resultErr, recoveryErr)
+					if recoveryErr != nil {
+						e.UI.print("Recovery files retained: %s", backup)
+						return
+					}
+				}
+			}
+			_ = os.RemoveAll(backup)
+		}()
+	}
 	if p.Previous != nil {
 		state, err := e.unitState(r)
 		if err != nil {
 			return err
 		}
 		if state["LoadState"] != "not-found" {
-			if err = e.service(r, "stop", r.Name+".service"); err != nil {
+			if err = e.stopService(r, state, false); err != nil {
 				return err
 			}
 		}
@@ -192,9 +219,6 @@ func (e *Engine) apply(p *Plan) error {
 			}
 		}
 	}
-	if err = atomicWrite(r.Paths.Unit, strings.NewReader(renderUnit(r, delegate)), 0644, r.OwnerUID, r.GID); err != nil {
-		return err
-	}
 	r.State = "installed"
 	if err = writeRecord(r); err != nil {
 		return err
@@ -203,19 +227,13 @@ func (e *Engine) apply(p *Plan) error {
 		return err
 	}
 	e.UI.step(4, "Start service and verify health")
-	if err = e.service(r, "daemon-reload"); err != nil {
+	if err = e.startService(r, delegate, !e.Options.NoStart); err != nil {
 		return err
 	}
 	var link string
 	if e.Options.NoStart {
 		r.Health = "not_started"
 	} else {
-		if err = e.service(r, "enable", r.Paths.Unit); err != nil {
-			return err
-		}
-		if err = e.service(r, "restart", r.Name+".service"); err != nil {
-			return err
-		}
 		link, err = e.verify(r, p.Config)
 		if err != nil {
 			return err
@@ -226,14 +244,8 @@ func (e *Engine) apply(p *Plan) error {
 	}
 	e.UI.step(5, "Result and next steps")
 	e.UI.print("Result: %s\nInstance: %s\nVersion: %s\nProgram: %s\nConfiguration: %s\nData: %s", r.Health, r.Name, r.Build.Version, r.Paths.Program, configPath, r.DataDir)
-	e.UI.print("Service status: %s status %s.service\nService logs: journalctl %s-u %s.service -n 50 --no-pager", shellJoin(control(r)), r.Name, map[bool]string{false: "--user "}[r.System], r.Name)
+	e.serviceInstructions(r)
 	e.UI.print("Update: %s update\nUninstall: %s uninstall", shellJoin([]string{filepath.Join(r.Paths.Program, "bin/molr-setup")}), shellJoin([]string{filepath.Join(r.Paths.Program, "bin/molr-setup")}))
-	if !r.System {
-		e.UI.print("For operation after logout: sudo loginctl enable-linger %s", r.User)
-	}
-	if e.Options.NoStart {
-		e.UI.print("Start after initialization: %s enable --now %s", shellJoin(control(r)), shellJoin([]string{r.Paths.Unit}))
-	}
 	if link != "" {
 		e.UI.print("One-time login link (15 minutes):\n%s", link)
 		e.openBrowser(link, r.System)

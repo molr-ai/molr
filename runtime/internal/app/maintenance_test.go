@@ -51,7 +51,7 @@ func TestMaintenanceAPIRequiresAuthenticationCSRFAndKnownRequests(t *testing.T) 
 			t.Fatal("CSRF bypass", path, w.Code)
 		}
 	}
-	if w = request("GET", "/api/components", "", cookies, ""); w.Code != 200 || !strings.Contains(w.Body.String(), "maintenance_not_installed") {
+	if w = request("GET", "/api/components", "", cookies, ""); w.Code != 200 || (!strings.Contains(w.Body.String(), "maintenance_not_installed") && !strings.Contains(w.Body.String(), "component_platform_unsupported")) {
 		t.Fatal(w.Code, w.Body.String())
 	}
 	if w = request("POST", "/api/components/browser/install", `{"idempotency_key":"01234567890123456789012345678901","url":"https://attacker.invalid/program"}`, cookies, proof.Token); w.Code != 400 {

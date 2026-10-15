@@ -1,6 +1,6 @@
 # 发行维护
 
-发行包存放在 GitHub Releases，官网与发布清单通过 Cloudflare Workers 静态资源一起部署。当前产物是内嵌 WebUI 的 Linux Runtime；平台与环境要求统一定义在 [`release/platforms.json`](../../../release/platforms.json)。
+发行包存放在 GitHub Releases，官网与发布清单通过 Cloudflare Workers 静态资源一起部署。当前产物是内嵌 WebUI 的 Linux/macOS Runtime；平台与环境要求统一定义在 [`release/platforms.json`](../../../release/platforms.json)。
 
 ## 首次启用
 
@@ -26,7 +26,7 @@ Cloudflare Worker 的 Settings → Builds 使用以下设置：
 
 GitHub Releases 必须公开可下载。建议启用 immutable releases，并对正式版本 tag 设置创建权限与更新／删除保护。workflow 只在发布任务授予 `contents: write`，PR 检查不接触部署 secret。环境审批是否开启由仓库维护者决定。
 
-PR 和 main 的 CI 在 `ubuntu-24.04`、`ubuntu-24.04-arm` 上执行检查、构建和原生安装验收，官网浏览器测试在 AMD64 上执行。首次执行实际发布与 Cloudflare 部署后，以 Cloudflare 构建历史和 workflow 的公开下载、站点验证结果确认远端接通。本地测试不代表已经配置远端账户或执行过线上发布。
+PR 和 main 的 CI 在 `ubuntu-24.04`、`ubuntu-24.04-arm`、`macos-15`、`macos-15-intel` 上执行检查、构建和原生安装验收，官网浏览器测试在 AMD64 上执行。首次执行实际发布与 Cloudflare 部署后，以 Cloudflare 构建历史和 workflow 的公开下载、站点验证结果确认远端接通。本地测试不代表已经配置远端账户或执行过线上发布。
 
 CI 与发布使用同一个 `prepare-sandbox` action 准备 runner。Ubuntu 启用 AppArmor 非特权 user namespace 限制时，从 `apparmor-profiles` 包安装并加载 `bwrap-userns-restrict`，随后在 `NoNewPrivileges=yes` 的临时服务中运行 Bubblewrap 探针；失败时输出对应内核拒绝日志。该配置只作用于临时 runner，系统的 user namespace 限制保持启用。
 
@@ -45,9 +45,9 @@ CI 与发布使用同一个 `prepare-sandbox` action 准备 runner。Ubuntu 启�
 
 ## 发布步骤与失败恢复
 
-两种入口共用 `release-build.yml`：固定 commit → 基础检查和测试 → 平台矩阵静态构建 → 原生安装、重装、认证和沙盒验收 → 汇总产物 → 创建草稿 → 上传并核对附件 → 发布 → 验证公开附件 → 部署官网。
+两种入口共用 `release-build.yml`：固定 commit → 基础检查和测试 → 平台矩阵构建 → 原生安装、重装、认证和沙盒验收 → 汇总产物 → 创建草稿 → 上传并核对附件 → 发布 → 验证公开附件 → 部署官网。
 
-构建要求干净检出、仓库指定 Go 版本与 `CGO_ENABLED=0`，检查实际静态链接、架构、VCS commit 和 `vcs.modified=false`。构建时间取 commit 时间，tar 的时间、用户和组信息固定，便于同 commit 重试。两个架构必须全部成功；缺少沙盒能力的 runner 会失败，不降低验收要求。`0.1.0-local` 等本地构建允许未提交修改，不进入正式发布清单。
+构建要求干净检出、仓库指定 Go 版本与 `CGO_ENABLED=0`，检查 Linux 静态 ELF 或 macOS Mach-O/有效代码签名、架构、VCS commit 和 `vcs.modified=false`。构建时间取 commit 时间，tar 的时间、用户和组信息固定，便于同 commit 重试。四个平台必须全部成功；Linux 要求隔离沙盒，macOS 按无隔离能力验收，不能以编译成功替代安装验收。`0.1.0-local` 等本地构建允许未提交修改，不进入正式发布清单。
 
 发布附件包含两个架构包及 SHA-256、经过源码发布检查的源码包及 SHA-256、`manifest.json`。`install.sh` 由官网统一提供，用于下载、校验并调用包内安装器；Release 不再附带脚本或在 manifest 中记录脚本 URL、摘要。手动安装直接校验并解压归档，运行 `./bin/molr-setup`。版本和附件保持不可变。已有同名附件时只接受摘要相同的内容，不覆盖；已完成发布的同 commit 版本直接跳过构建。创建草稿直接使用 GitHub API 返回的 release ID，附件上传和发布均按该 ID 操作，不依赖刚创建的草稿立即出现在列表中。正式版和预发布版创建前验证远端 tag 已存在；nightly 允许发布时创建 tag。草稿上传失败可重新运行原工作流的失败任务，复用构建 artifacts；重新完整运行会校验已存在附件，存在差异时需要检查原因或使用新版本。RC 转正式版使用新的正式版 tag 和构建。
 
@@ -63,7 +63,7 @@ Manifest 的顶层、平台条目及 requirements 必须包含规定字段，并
 
 ## 平台维护
 
-平台清单包含系统、架构、架构别名、可用渠道、原生 runner、归档格式、安装器、最低环境要求和验收类型。当前实现接受 Linux `tar.gz` + POSIX sh / Go 安装器。新增操作系统必须先实现安装器和验收流程，不能只新增一行配置宣布支持。
+平台清单包含系统、架构、架构别名、可用渠道、原生 runner、归档格式、安装器、最低环境要求和验收类型。当前实现接受 Linux/macOS `tar.gz` + POSIX sh / Go 安装器。Linux 验证静态 ELF 与隔离沙盒，macOS 验证 Mach-O、ad-hoc 签名、launchd 和显式 Full Access；macOS 最低版本为 13。新增操作系统必须先实现安装器和验收流程，不能只新增一行配置宣布支持。
 
 调整清单后运行：
 
@@ -101,7 +101,7 @@ MOLR_TEST_ARCHIVE=dist/releases/molr_0.1.0-local_linux_amd64.tar.gz npm run test
 
 ## 安装器维护与验收
 
-发行归档包含两个静态 Go 程序：`runtime/cmd/molr` 启动 Runtime，`runtime/cmd/molr-setup` 管理安装、更新与卸载。安装流程位于 `runtime/internal/installation`；`host_linux.go` 集中依赖、systemd、AppArmor 与主机能力检测，`files_linux.go` 负责路径、权限、原子写入和锁。公共流程不根据 Ubuntu 名称或版本判断支持；当前自动包管理适配仅实现 APT，当前原生验收为 Ubuntu 24.04 AMD64／ARM64。
+发行归档包含两个静态 Go 程序：`runtime/cmd/molr` 启动 Runtime，`runtime/cmd/molr-setup` 管理安装、更新与卸载。安装流程位于 `runtime/internal/installation`；`host_linux.go` 集中依赖、systemd、AppArmor 与主机能力检测，`files_unix.go` 负责路径、权限、原子写入和锁，系统专用文件负责可执行文件与删除保护；macOS 使用 `service_darwin.go` 管理 launchd。公共流程不根据 Ubuntu 名称或版本判断支持；当前自动包管理适配仅实现 APT，CI 覆盖 Ubuntu 24.04 和 macOS 的 AMD64／ARM64。
 
 安装包用 `release.json` 描述构建；程序目录的 `installation.json` 是实例状态、目录、账户、服务、构建与更新订阅的唯一记录。默认行为按可执行文件所在目录判断，不使用工作目录。安装记录损坏时停止，不退回包模式。`.setup.lock` 使用内核 advisory lock，文件存在不表示操作运行；保留 inode，不在释放时删除锁文件。
 
@@ -111,7 +111,7 @@ MOLR_TEST_ARCHIVE=dist/releases/molr_0.1.0-local_linux_amd64.tar.gz npm run test
 
 扩展发行版时，在主机适配模块增加包管理或服务实现，并向独立验收矩阵增加系统／版本／架构组合。已经手动满足能力要求的未知发行版不会被拒绝。增加矩阵项前须有能运行真实服务、cgroup 与沙盒探针的环境；容器内文件测试不能代替这部分验收。
 
-`.github/workflows/installer-acceptance.yml` 复用实际构建归档，在独立 runner 移除 Bubblewrap、静态 BusyBox 和 AppArmor profiles，由安装器恢复依赖。它与已准备依赖的原生验收共同阻挡发布。当前矩阵包含 Ubuntu 24.04 AMD64／ARM64；其他发行版尚未声明通过。
+`.github/workflows/installer-acceptance.yml` 复用实际构建归档，在独立 runner 移除 Bubblewrap、静态 BusyBox 和 AppArmor profiles，由安装器恢复依赖。它与已准备依赖的原生验收共同阻挡发布。矩阵还包含 macOS ARM64／AMD64，直接验证用户级 launchd，无需安装 Linux 沙盒依赖；其他 Linux 发行版尚未声明通过。
 
 回归覆盖权限选择、无变更预览、重复运行、安装记录校验、并发锁、路径与归档攻击、下载失败、数据保留及清除。原生包测试覆盖 PTY 交互安装、静默修复、配置保留、认证沙盒检查和卸载。Python 仅作为开发测试中的 PTY 驱动及发布检查工具，不进入安装包或目标机安装依赖。
 
@@ -124,3 +124,5 @@ MOLR_TEST_ARCHIVE=dist/releases/molr_0.1.0-local_linux_amd64.tar.gz npm run test
 ```
 
 完整依赖准备在一次性 Ubuntu 主机设置 `MOLR_TEST_PREPARE=1` 复现；不要移除开发主机依赖。安装故障先增加回归用例，修复随新包发布。日期、环境、日志和验收凭据保存在本地内部资料中。
+
+macOS 发行包在对应架构的 Mac runner 构建，使用 `codesign --sign -` 后验证签名，再生成归档与摘要。`scripts/package-release.py` 在各系统生成相同规则的归档，保留 LICENSE 和 THIRD_PARTY_NOTICES。原生验收覆盖安装、内嵌页面、修复、下载更新、保留数据重装和清除。此流程不需要 Apple Developer ID 或公证凭据。

@@ -103,7 +103,7 @@ func TestDisabledDevelopmentUnsupportedAndInvalidRelease(t *testing.T) {
 		auto        bool
 		version, os string
 		manualHits  int
-	}{{server.URL, false, "0.1.0", "linux", 1}, {server.URL, true, "development", "linux", 1}, {"", true, "0.1.0", "linux", 0}, {server.URL, true, "0.1.0", "darwin", 0}} {
+	}{{server.URL, false, "0.1.0", "linux", 1}, {server.URL, true, "development", "linux", 1}, {"", true, "0.1.0", "linux", 0}, {server.URL, true, "0.1.0", "windows", 0}} {
 		build := identity()
 		build.Version = tc.version
 		build.OS = tc.os

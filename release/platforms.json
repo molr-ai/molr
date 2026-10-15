@@ -5,7 +5,7 @@
       "id": "linux-amd64",
       "os": "linux",
       "arch": "amd64",
-      "label": "Linux \u00b7 x64 / AMD64",
+      "label": "Linux · x64 / AMD64",
       "aliases": [
         "x86_64",
         "amd64"
@@ -34,7 +34,7 @@
       "id": "linux-arm64",
       "os": "linux",
       "arch": "arm64",
-      "label": "Linux \u00b7 ARM64",
+      "label": "Linux · ARM64",
       "aliases": [
         "aarch64",
         "arm64"
@@ -58,6 +58,52 @@
         ]
       },
       "verification": "native-install-sandbox"
+    },
+    {
+      "id": "darwin-arm64",
+      "os": "darwin",
+      "arch": "arm64",
+      "label": "macOS · Apple Silicon",
+      "aliases": [
+        "arm64",
+        "aarch64"
+      ],
+      "channels": [
+        "stable",
+        "preview",
+        "nightly"
+      ],
+      "runner": "macos-15",
+      "archive": "tar.gz",
+      "installer": "install.sh",
+      "requirements": {
+        "macos": "13.0",
+        "packages": []
+      },
+      "verification": "native-install-full-access"
+    },
+    {
+      "id": "darwin-amd64",
+      "os": "darwin",
+      "arch": "amd64",
+      "label": "macOS · Intel",
+      "aliases": [
+        "x86_64",
+        "amd64"
+      ],
+      "channels": [
+        "stable",
+        "preview",
+        "nightly"
+      ],
+      "runner": "macos-15-intel",
+      "archive": "tar.gz",
+      "installer": "install.sh",
+      "requirements": {
+        "macos": "13.0",
+        "packages": []
+      },
+      "verification": "native-install-full-access"
     }
   ]
 }

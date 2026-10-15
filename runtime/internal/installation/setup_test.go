@@ -1,3 +1,5 @@
+//go:build linux || darwin
+
 package installation
 
 import (
@@ -8,70 +10,23 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
-	"slices"
 	"strings"
 	"testing"
 
 	"molr.ai/runtime/internal/installrecord"
 )
 
-func TestBwrapPreflightReusesLoadedProfileBeforeFallback(t *testing.T) {
-	for _, mode := range []string{"chrome", "fallback", "unavailable", "cancelled"} {
-		t.Run(mode, func(t *testing.T) {
-			e, r := fixture(t)
-			ctx, cancel := context.WithCancel(t.Context())
-			defer cancel()
-			e.Ctx = ctx
-			calls := 0
-			e.Command = func(_ context.Context, command []string, _ io.Reader, _ []string, _, _ io.Writer) ([]byte, error) {
-				calls++
-				joined := strings.Join(command, " ")
-				if !strings.Contains(joined, "setpriv --no-new-privs ") || !slices.Contains(command, "/usr/bin/bwrap") || !slices.Contains(command, "--cap-drop") {
-					t.Fatalf("unisolated probe: %v", command)
-				}
-				if calls == 1 {
-					if !strings.Contains(joined, "/usr/bin/aa-exec -p chrome -- /usr/bin/bwrap") {
-						t.Fatalf("existing chrome profile not preferred: %v", command)
-					}
-					if mode == "chrome" {
-						return nil, nil
-					}
-					if mode == "cancelled" {
-						cancel()
-					}
-					return nil, errors.New("profile unavailable")
-				}
-				if calls != 2 || slices.Contains(command, "/usr/bin/aa-exec") {
-					t.Fatalf("unexpected fallback: %v", command)
-				}
-				if mode == "fallback" {
-					return nil, nil
-				}
-				return nil, errors.New("bwrap unavailable")
-			}
-			err := e.probeBwrap(r)
-			wantCalls := 2
-			if mode == "chrome" || mode == "cancelled" {
-				wantCalls = 1
-			}
-			wantFailure := mode == "unavailable" || mode == "cancelled"
-			if (err != nil) != wantFailure || calls != wantCalls {
-				t.Fatalf("preflight: err=%v calls=%d", err, calls)
-			}
-		})
-	}
-}
-
 func fixture(t *testing.T) (*Engine, *installrecord.Record) {
 	t.Helper()
 	dir := t.TempDir()
+	dir, _ = filepath.EvalSymlinks(dir)
 	a, err := currentAccount()
 	if err != nil {
 		t.Fatal(err)
@@ -83,7 +38,7 @@ func fixture(t *testing.T) (*Engine, *installrecord.Record) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := &installrecord.Record{Schema: 1, State: "installed", Name: "molr-test", User: a.Name, UID: a.UID, GID: a.GID, OwnerUID: a.UID, ProgramRoot: base, Paths: paths, DataDir: paths.Data, ManagedData: true, Build: installrecord.Build{Version: "0.1.0", Commit: strings.Repeat("a", 40), OS: "linux", Arch: runtime.GOARCH}, Updates: installrecord.Updates{Source: "https://example.com/releases", Channel: "stable"}}
+	r := &installrecord.Record{Home: dir, Schema: 1, State: "installed", Name: "molr-test", User: a.Name, UID: a.UID, GID: a.GID, OwnerUID: a.UID, ProgramRoot: base, Paths: paths, DataDir: paths.Data, ManagedData: true, Build: installrecord.Build{Version: "0.1.0", Commit: strings.Repeat("a", 40), OS: runtime.GOOS, Arch: runtime.GOARCH}, Updates: installrecord.Updates{Source: "https://example.com/releases", Channel: "stable"}}
 	for _, p := range []string{paths.Program, paths.Config, paths.Data, paths.Cache, filepath.Dir(paths.Unit)} {
 		if err = os.MkdirAll(p, 0755); err != nil {
 			t.Fatal(err)
@@ -114,6 +69,12 @@ func TestInstalledIdentityUsesExecutableRootAndRejectsCorruptRecord(t *testing.T
 	e, r := fixture(t)
 	e.Root = r.Paths.Program
 	e.Options.Command = "status"
+	e.Command = func(_ context.Context, args []string, _ io.Reader, _ []string, _, _ io.Writer) ([]byte, error) {
+		if runtime.GOOS == "darwin" {
+			return nil, fmt.Errorf("Could not find service")
+		}
+		return []byte("LoadState=not-found\nActiveState=inactive\nMainPID=0\n"), nil
+	}
 	if err := e.execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +134,11 @@ func TestSilentPermissionsRequirePolicy(t *testing.T) {
 	}
 }
 func TestLocksUseStableInode(t *testing.T) {
-	p := filepath.Join(t.TempDir(), "instance")
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := filepath.Join(root, "instance")
 	first, err := lockInstance(p)
 	if err != nil {
 		t.Fatal(err)
@@ -196,6 +161,7 @@ func TestLocksUseStableInode(t *testing.T) {
 }
 func TestWritesRejectSymlinkAndPermissionRace(t *testing.T) {
 	dir := t.TempDir()
+	dir, _ = filepath.EvalSymlinks(dir)
 	target := filepath.Join(dir, "target")
 	os.Mkdir(target, 0755)
 	alias := filepath.Join(dir, "alias")
@@ -219,6 +185,9 @@ func TestUninstallRetainsDataAndPurgesOnlyManagedFiles(t *testing.T) {
 			e.Options.Yes = true
 			e.UI.Yes = true
 			e.Command = func(_ context.Context, args []string, _ io.Reader, _ []string, _ io.Writer, _ io.Writer) ([]byte, error) {
+				if runtime.GOOS == "darwin" && slicesContains(args, "print") {
+					return nil, fmt.Errorf("Could not find service")
+				}
 				if strings.Contains(strings.Join(args, " "), " show ") {
 					return []byte("LoadState=not-found\nActiveState=inactive\nMainPID=0\n"), nil
 				}
@@ -280,6 +249,7 @@ func TestDownloadLimitsAndRedirects(t *testing.T) {
 func TestArchiveRejectsUnsafeMembersBeforeExecution(t *testing.T) {
 	for _, header := range []tar.Header{{Name: "../escape", Mode: 0755, Typeflag: tar.TypeReg}, {Name: "molr/bin/molr", Typeflag: tar.TypeSymlink, Linkname: "/tmp/escape"}, {Name: "molr/bin/molr", Typeflag: tar.TypeLink, Linkname: "/tmp/escape"}, {Name: "molr/bin/molr", Typeflag: tar.TypeReg, Size: 1 << 31}} {
 		dir := t.TempDir()
+		dir, _ = filepath.EvalSymlinks(dir)
 		file, err := os.Create(filepath.Join(dir, "package.gz"))
 		if err != nil {
 			t.Fatal(err)
@@ -298,7 +268,7 @@ func TestArchiveRejectsUnsafeMembersBeforeExecution(t *testing.T) {
 func TestUpdatePreviewCanSelectStableAndDryRunDoesNotExecute(t *testing.T) {
 	e, r := fixture(t)
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		json.NewEncoder(w).Encode(releaseManifest{Schema: 1, Version: "0.2.0", Commit: strings.Repeat("b", 40), Channel: "stable", Platforms: []releaseAsset{{OS: "linux", Arch: runtime.GOARCH, File: "fixture.tar.gz", URL: "https://example.com/fixture.tar.gz", SHA256: strings.Repeat("a", 64)}}})
+		json.NewEncoder(w).Encode(releaseManifest{Schema: 1, Version: "0.2.0", Commit: strings.Repeat("b", 40), Channel: "stable", Platforms: []releaseAsset{{OS: runtime.GOOS, Arch: runtime.GOARCH, File: "fixture.tar.gz", URL: "https://example.com/fixture.tar.gz", SHA256: strings.Repeat("a", 64)}}})
 	}))
 	defer s.Close()
 	r.Updates = installrecord.Updates{Source: s.URL, Channel: "preview"}
@@ -347,7 +317,7 @@ func TestUpdateVerifiesArchiveBeforeHandingOffToNewSetup(t *testing.T) {
 		if !valid {
 			digest = strings.Repeat("0", 64)
 		}
-		json.NewEncoder(w).Encode(releaseManifest{Schema: 1, Version: build.Version, Commit: build.Commit, Channel: "stable", Platforms: []releaseAsset{{OS: "linux", Arch: runtime.GOARCH, File: "package.tar.gz", URL: server.URL + "/package.tar.gz", SHA256: digest}}})
+		json.NewEncoder(w).Encode(releaseManifest{Schema: 1, Version: build.Version, Commit: build.Commit, Channel: "stable", Platforms: []releaseAsset{{OS: runtime.GOOS, Arch: runtime.GOARCH, File: "package.tar.gz", URL: server.URL + "/package.tar.gz", SHA256: digest}}})
 	}))
 	defer server.Close()
 	r.Updates.Source = server.URL
@@ -365,7 +335,7 @@ func TestUpdateVerifiesArchiveBeforeHandingOffToNewSetup(t *testing.T) {
 		if filepath.Base(args[0]) != "molr-setup" || !strings.Contains(strings.Join(args, " "), "--record "+r.File()) {
 			t.Fatal(args)
 		}
-		if err := staticELF(args[0], runtime.GOARCH); err != nil {
+		if err := checkExecutable(args[0], runtime.GOARCH); err != nil {
 			t.Fatal(err)
 		}
 		return nil
@@ -410,5 +380,64 @@ func TestCommandHelpAndVersionWithoutPackage(t *testing.T) {
 	}
 	if !strings.Contains((&VerificationPending{}).Error(), "verification is pending") {
 		t.Fatal("missing result distinction")
+	}
+}
+
+func slicesContains(v []string, s string) bool {
+	for _, x := range v {
+		if x == s {
+			return true
+		}
+	}
+	return false
+}
+
+func TestRecoveryRestoresOnlyManagedInstallationFiles(t *testing.T) {
+	_, r := fixture(t)
+	binary := filepath.Join(r.Paths.Program, "bin/molr")
+	needDir := filepath.Dir(binary)
+	if err := os.MkdirAll(needDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	config := filepath.Join(r.Paths.Config, "server.json")
+	for _, p := range []string{binary, config, filepath.Join(r.DataDir, "user-data")} {
+		if err := os.WriteFile(p, []byte("before"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Chmod(binary, 0755); err != nil {
+		t.Fatal(err)
+	}
+	backup, files, err := snapshotInstallation(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(backup)
+	for _, p := range []string{binary, config, filepath.Join(r.DataDir, "user-data")} {
+		if err := os.WriteFile(p, []byte("after"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	added := filepath.Join(r.Paths.Program, "release.json")
+	os.WriteFile(added, []byte("new release"), 0600)
+	if err := restoreInstallation(r, files); err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range []string{binary, config} {
+		b, _ := os.ReadFile(p)
+		if string(b) != "before" {
+			t.Fatal("managed file not restored")
+		}
+	}
+	info, _ := os.Stat(binary)
+	if info.Mode().Perm() != 0755 {
+		t.Fatal("binary mode not restored")
+	}
+	if _, err := os.Stat(added); !os.IsNotExist(err) {
+		t.Fatal("new managed file retained")
+	}
+	b, _ := os.ReadFile(filepath.Join(r.DataDir, "user-data"))
+	if string(b) != "after" {
+		t.Fatal("user data rolled back")
 	}
 }

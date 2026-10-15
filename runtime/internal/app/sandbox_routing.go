@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"molr.ai/runtime/internal/textfiles"
 	"path"
 	"reflect"
 	"time"
@@ -57,8 +58,8 @@ func (s *sandboxRouter) location(ctx context.Context, e core.Execution, t tools.
 		return "", err
 	}
 	if id == "local" {
-		if !s.adapters.storageConfig.Enabled {
-			return "", core.WithReason(core.NewError(core.Unavailable, "local sandbox disabled"), "sandbox_disabled")
+		if !textfiles.Supported() {
+			return "", core.WithReason(core.NewError(core.Unavailable, "local storage unavailable"), "storage_unavailable")
 		}
 	} else {
 		if _, err := s.connection(ctx, e.Principal, id); err != nil {

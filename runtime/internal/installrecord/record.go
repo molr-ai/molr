@@ -28,6 +28,7 @@ type Updates struct {
 	Channel string `json:"channel"`
 }
 type Record struct {
+	Home        string  `json:"home,omitempty"`
 	Schema      int     `json:"schema"`
 	State       string  `json:"state"`
 	Health      string  `json:"health,omitempty"`
@@ -82,7 +83,7 @@ func (r Record) Validate() error {
 			return fmt.Errorf("invalid installation path")
 		}
 	}
-	if r.Paths.Program != filepath.Join(r.ProgramRoot, instance) || filepath.Base(r.Paths.Config) != instance || filepath.Base(r.Paths.Data) != instance || filepath.Base(r.Paths.Cache) != instance || filepath.Base(r.Paths.Unit) != r.Name+".service" {
+	if r.Paths.Program != filepath.Join(r.ProgramRoot, instance) || filepath.Base(r.Paths.Config) != instance || filepath.Base(r.Paths.Data) != instance || filepath.Base(r.Paths.Cache) != instance {
 		return fmt.Errorf("installation paths do not match instance")
 	}
 	if r.ManagedData && r.DataDir != r.Paths.Data {
@@ -91,11 +92,20 @@ func (r Record) Validate() error {
 	if r.Updates.Channel != "stable" && r.Updates.Channel != "preview" && r.Updates.Channel != "nightly" {
 		return fmt.Errorf("invalid update channel")
 	}
-	if r.System && (r.Paths.Config != filepath.Join("/etc/molr", instance) || r.Paths.Data != filepath.Join("/var/lib/molr", instance) || r.Paths.Cache != filepath.Join("/var/cache/molr", instance) || r.Paths.Unit != filepath.Join("/etc/systemd/system", r.Name+".service")) {
-		return fmt.Errorf("invalid system installation paths")
-	}
-	if !r.System && r.Paths.Unit != filepath.Join(filepath.Dir(filepath.Dir(r.Paths.Config)), "systemd/user", r.Name+".service") {
-		return fmt.Errorf("invalid user unit path")
+	if r.Build.OS == "darwin" {
+		if r.System || !filepath.IsAbs(r.Home) || filepath.Clean(r.Home) != r.Home || r.Home == "/" || r.Paths.Unit != filepath.Join(r.Home, "Library", "LaunchAgents", r.Name+".plist") {
+			return fmt.Errorf("invalid macOS user installation paths")
+		}
+	} else {
+		if filepath.Base(r.Paths.Unit) != r.Name+".service" {
+			return fmt.Errorf("invalid service filename")
+		}
+		if r.System && (r.Paths.Config != filepath.Join("/etc/molr", instance) || r.Paths.Data != filepath.Join("/var/lib/molr", instance) || r.Paths.Cache != filepath.Join("/var/cache/molr", instance) || r.Paths.Unit != filepath.Join("/etc/systemd/system", r.Name+".service")) {
+			return fmt.Errorf("invalid system installation paths")
+		}
+		if !r.System && r.Paths.Unit != filepath.Join(filepath.Dir(filepath.Dir(r.Paths.Config)), "systemd/user", r.Name+".service") {
+			return fmt.Errorf("invalid user unit path")
+		}
 	}
 	return nil
 }

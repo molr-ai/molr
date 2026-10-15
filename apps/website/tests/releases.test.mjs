@@ -41,14 +41,14 @@ test('install section follows published channels and platform availability', { t
     await expect(section.locator('pre')).not.toContainText('--version');
     await expect(section.locator('pre')).toContainText('--arch amd64');
     const hero = page.locator('.home-hero-install');
-    await expect(hero.getByRole('tab')).toHaveCount(1);
+    await expect(hero.getByRole('tab')).toHaveCount(2);
     await expect(hero.getByRole('tab', { name: 'Linux', exact: true })).toHaveAttribute('aria-selected', 'true');
     await expect(hero.getByRole('tabpanel', { name: 'Linux' })).toBeVisible();
-    await expect(hero.locator('pre')).toContainText(`curl -fsSL ${installerURL}`);
-    await expect(hero.locator('pre')).not.toContainText('--channel');
-    await expect(hero.locator('pre')).not.toContainText('--version');
+    await expect(hero.locator('pre:visible')).toContainText(`curl -fsSL ${installerURL}`);
+    await expect(hero.locator('pre:visible')).not.toContainText('--channel');
+    await expect(hero.locator('pre:visible')).not.toContainText('--version');
     await hero.getByRole('button', { name: 'Copy command', exact: true }).click();
-    assert.equal(await page.evaluate(() => navigator.clipboard.readText()), await hero.locator('code').innerText());
+    assert.equal(await page.evaluate(() => navigator.clipboard.readText()), await hero.locator('code:visible').innerText());
     await expect(hero.getByRole('button', { name: 'Copied', exact: true })).toBeVisible();
     await expect(hero.getByRole('button', { name: 'Copy command', exact: true })).toBeVisible({ timeout: 4000 });
     await hero.getByRole('link', { name: 'More platforms & versions' }).click();
@@ -64,7 +64,7 @@ test('install section follows published channels and platform availability', { t
     assert(copied.includes('--arch amd64'));
     await expect(section.getByRole('button', { name: 'Copied', exact: true })).toBeVisible();
     await expect(section.getByRole('button', { name: 'Copy command', exact: true })).toBeVisible({ timeout: 4000 });
-    await expect(hero.locator('pre')).not.toContainText('--channel');
+    await expect(hero.locator('pre:visible')).not.toContainText('--channel');
     await section.getByRole('button', { name: 'ARM64', exact: true }).click();
     await expect(section.locator('pre')).toContainText('--arch arm64');
     await section.getByRole('button', { name: 'wget', exact: true }).click();
@@ -87,6 +87,14 @@ test('install section follows published channels and platform availability', { t
     await expect(section.getByRole('link', { name: 'Download installer' })).toHaveCount(0);
     await section.getByRole('button', { name: 'Nightly', exact: true }).click();
     await expect(section.getByText(`v${catalog.channels.nightly.version}`, { exact: true })).toBeVisible();
+    await section.getByRole('button', { name: 'macOS', exact: true }).click();
+    await section.getByRole('button', { name: 'Apple Silicon', exact: true }).click();
+    await expect(section.getByRole('link', { name: 'Download package', exact: true })).toHaveAttribute('href', /darwin_arm64.tar.gz$/);
+    await expect(section.locator('pre')).toContainText('shasum -a 256 -c');
+    await expect(section.locator('.home-install-requirements')).toContainText('macOS 13.0+');
+    await expect(section.locator('.home-install-requirements')).not.toContainText('systemd');
+    await section.getByRole('button', { name: 'Intel', exact: true }).click();
+    await expect(section.getByRole('link', { name: 'Download package', exact: true })).toHaveAttribute('href', /darwin_amd64.tar.gz$/);
     const screenshots = resolve(import.meta.dirname, '../test-results/releases'); mkdirSync(screenshots, { recursive: true });
     for (const theme of ['light', 'dark']) for (const palette of ['forest', 'ocean', 'iris', 'sand', 'rose', 'monochrome']) for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 900 });

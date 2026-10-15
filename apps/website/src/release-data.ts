@@ -1,7 +1,7 @@
 export type Channel = 'stable' | 'preview' | 'nightly';
 export type ReleasePlatform = {
   id: string; os: string; arch: string; label: string; aliases: string[];
-  requirements: { systemd: number; cgroup: number; packages: string[] };
+  requirements: { systemd?: number; cgroup?: number; macos?: string; packages: string[] };
   file: string; sha256: string; url: string; checksum_url: string;
 };
 export type Release = {
@@ -19,7 +19,7 @@ export function readCatalog(value: unknown): Catalog {
     if (release === null) continue;
     if (!release || release.schema !== 1 || !/^[0-9][0-9A-Za-z.-]*$/.test(release.version) || ![channel, ...(channel === 'preview' ? ['stable'] : [])].includes(release.channel) || !Number.isFinite(Date.parse(release.published_at)) || !https(release.notes_url) || !Array.isArray(release.platforms) || !release.platforms.length) throw new Error('Invalid release');
     for (const p of release.platforms) {
-      if (!p || !/^[a-z0-9]+-[a-z0-9]+$/.test(p.id) || p.id !== `${p.os}-${p.arch}` || typeof p.label !== 'string' || p.file !== `molr_${release.version}_${p.os}_${p.arch}.tar.gz` || !/^[0-9a-f]{64}$/.test(p.sha256) || !https(p.url) || !https(p.checksum_url) || !p.requirements || !Array.isArray(p.requirements.packages) || p.requirements.packages.some(v => typeof v !== 'string') || !Number.isInteger(p.requirements.systemd)) throw new Error('Invalid platform');
+      if (!p || !/^[a-z0-9]+-[a-z0-9]+$/.test(p.id) || p.id !== `${p.os}-${p.arch}` || typeof p.label !== 'string' || p.file !== `molr_${release.version}_${p.os}_${p.arch}.tar.gz` || !/^[0-9a-f]{64}$/.test(p.sha256) || !https(p.url) || !https(p.checksum_url) || !p.requirements || !Array.isArray(p.requirements.packages) || p.requirements.packages.some(v => typeof v !== 'string') || !(p.os === 'linux' ? Number.isInteger(p.requirements.systemd) && p.requirements.cgroup === 2 : p.os === 'darwin' && typeof p.requirements.macos === 'string' && /^\d+\.\d+$/.test(p.requirements.macos))) throw new Error('Invalid platform');
     }
   }
   return catalog;
@@ -32,7 +32,7 @@ export function installCommand(channel: Channel = 'stable', { arch, tool = 'curl
 }
 
 export function packageInstallCommand(platform: ReleasePlatform, channel: Channel): string {
-  return `sha256sum -c ${platform.file}.sha256 &&
+  return `${platform.os === 'darwin' ? 'shasum -a 256' : 'sha256sum'} -c ${platform.file}.sha256 &&
 tar -xzf ${platform.file} &&
 cd molr &&
 ./bin/molr-setup --channel ${channel}`;

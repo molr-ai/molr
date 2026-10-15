@@ -52,7 +52,7 @@ machine-collected portion, review the dependency changes and run
 
 ## Dependency license texts
 
-This is a superset for Molr frontend distributions and Linux Runtime builds; not every component is present in every artifact. Original licenses apply only to their respective components. Vite/Rolldown notices are included for generated runtime helpers; the build tools themselves are not shipped.
+This is a superset for Molr frontend distributions and Linux/macOS Runtime builds; not every component is present in every artifact. Original licenses apply only to their respective components. Vite/Rolldown notices are included for generated runtime helpers; the build tools themselves are not shipped.
 
 ## npm: @antfu/install-pkg 2.1.0
 
@@ -14787,9 +14787,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ````
 
-## Go toolchain runtime and standard library 1.27.1
+## Go toolchain runtime and standard library 1.27.2
 
-Source: https://go.dev/dl/#go1.27.1
+Source: https://go.dev/dl/#go1.27.2
 
 ### LICENSE
 

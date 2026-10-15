@@ -15,6 +15,32 @@ CPU 架构须为 64 位 x86（amd64）或 ARM（arm64）。
 
 在同一设备上运行本地模型时，需要额外预留模型权重、推理内存及可能需要的显存，具体取决于模型大小、量化方式和上下文长度。运行沙盒任务需要额外的 CPU 与内存，尤其是浏览器自动化、代码构建或多个沙盒并发执行；附件、工作区和备份会持续占用磁盘空间，应按实际任务规模扩容。沙盒资源配置见 [Linux 命令环境](https://molr.ai/zh/docs/admin/sandbox/linux/)。
 
+Linux 使用 systemd；macOS 使用下文的用户级 launchd 安装。源码开发另见[源码部署](https://molr.ai/zh/docs/admin/deployment/source-build/)。
+
+## macOS 命令行安装
+
+macOS 13 及以上提供 Apple Silicon（ARM64）和 Intel（AMD64）发行包，包含内嵌 WebUI 的 `molr` 和 `molr-setup`。用户无需安装 Go、Node.js、Python 或 Homebrew。官网命令在终端中执行，自动选择本机架构：
+
+```bash
+curl -fsSL https://molr.ai/install.sh | sh
+```
+
+使用当前用户运行，不加 `sudo` 或 `--user`。安装器创建 launchd 用户服务、初始化账号、等待 HTTP 与已认证能力检查，再显示一次性登录链接；图形会话中自动打开默认浏览器，SSH 中只显示链接。服务使用 `~/Library/LaunchAgents/<实例名>.plist`，图形登录后启动；SSH-only 环境使用当前用户的后台 launchd 域。它不是登录前启动的系统 daemon。
+
+默认程序位于 `~/Library/Application Support/Molr/program/default`，配置和数据分别位于同一 Molr 目录下的 `config/default`、`data/default`；日志和缓存位于 `~/Library/Caches/Molr/default`。`--name molr-<名称>` 可创建独立实例。安装器输出实际路径与服务命令，含空格的路径需要引号。
+
+```bash
+"$HOME/Library/Application Support/Molr/program/default/bin/molr-setup" status
+"$HOME/Library/Application Support/Molr/program/default/bin/molr-setup" update
+"$HOME/Library/Application Support/Molr/program/default/bin/molr-setup" uninstall
+```
+
+普通卸载保留配置和数据；明确清除使用 `uninstall --purge --yes`。更新保留账号、配置和工作区，应用内一键更新暂不支持 macOS，请使用上述 CLI。安装器检查发行包与 Mach-O 代码签名；当前采用 ad-hoc 签名，不提供 Developer ID 身份签名或 Apple 公证，支持范围为终端安装流程。
+
+默认 `sandbox.enabled: false`，聊天、文件和记忆可用。需要命令执行时，在配置中显式设置 `sandbox.enabled: true` 和 `sandbox.allow_full_access: true`，重启服务后再给助理授予 Full Access。macOS 暂不支持隔离 Shell、计算硬配额、受管浏览器和隔离音视频解码；普通调用不会自动升级成 Full Access。
+
+离线下载归档及相邻 `.sha256` 后，使用 `shasum -a 256 -c <归档>.sha256` 校验，再解压并运行 `./bin/molr-setup`。不要用 Finder 双击裸命令行程序代替终端安装。
+
 ## 本地发行包与快速安装
 
 Linux 发行包提供 AMD64、ARM64 两种架构，包含主程序 `molr` 和安装维护程序 `molr-setup`。下载匹配架构的归档和 SHA-256 文件，校验后解压，在包目录运行：

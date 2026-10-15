@@ -3,12 +3,12 @@ package api
 import (
 	"errors"
 	"molr.ai/runtime/internal/core"
-	"molr.ai/runtime/internal/installation"
+	"molr.ai/runtime/internal/maintenance"
 	"net/http"
 )
 
 func maintenanceError(err error) error {
-	var e *installation.ComponentError
+	var e *maintenance.ComponentError
 	if errors.As(err, &e) {
 		code := core.FailedPrecondition
 		if e.Code == "maintenance_busy" {

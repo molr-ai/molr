@@ -1,24 +1,25 @@
 {
   "schema": 1,
-  "reviewedAt": "2026-10-07",
-  "baseCommit": "e1c0401",
+  "reviewedAt": "2026-10-15",
+  "baseCommit": "5289ebc",
   "scope": "License compatibility and notice delivery review; see docs/dev/releasing/licensing.md.",
   "inputs": {
     "package-lock.json": "0e71e3596fa24b383c0acc7b53b43c550adbe3b855d484e56c51c3f561f970b5",
-    "runtime/go.mod": "e22d84fe776dc1ef17cb43940a7d10e87bf42c0896bf574fb5f3be48e724558c",
+    "runtime/go.mod": "dac14e15a774a6ba432c0623ff4f8652f8c9a3820612931a2ea35a423b4657ca",
     "runtime/go.sum": "faf9e85c33a10d9c28256712458c595ba577903f667d8747faf28c14708a5055",
-    "runtime/.go-version": "a8844fbc8c3eb51c26ed00aec4cd5a5a9d647f849c6ead07bcc83ed24c4a7718",
+    "runtime/.go-version": "6c075150045fda9bac31bb93cf5a0a0bc91622a75c1f10fb2971e6f994c6d4d6",
     "runtime/internal/voicecodec/silk.wasm": "13de15803937f44593398fee46d1dd7ee4ea2f04c819f8f887525b4cd9b60bf7",
     "runtime/internal/voicecodec/README.md": "0b8a2c9634b6361a46c4ca75120a734a3f247d3779c46db62e4487578840caa5",
     "runtime/internal/voicecodec/source/build.py": "edeadc1e9acb2f77ad9caf10bc36965a9e988497a18e35b8a70a790092e4879c",
-    "scripts/build-release.mjs": "3e9fb2ed5d93825fd2cd89a1d32196b70ad768474ef9fe05d5f80bfb66d11f40",
+    "scripts/build-release.mjs": "17a7253510ed07b71f8dd163b183d8418b95b750da7403e0064cebe73df3cc07",
     "apps/website/src/GithubMark.tsx": "7d0d38bb13335793c5ed91d5f27ffc8e5fc2811d7eff9ce6e59a6f6d33d5a37a",
     "apps/website/src/site-links.ts": "f360bbe44df89647e5d43207230ab65ee7b2c899aa2f680f1863bba125d2c1cd",
-    "THIRD_PARTY_NOTICES.md": "5abd50b34b058ce1f02eb7443fb551ca3b4fae96b54ef4cd15fefb27ea194a94",
+    "THIRD_PARTY_NOTICES.md": "ab60aaab50f086c3b78e7ba453b5ca497dbf6e8c3e24a49fb0ce17633e32539a",
     "scripts/license-assets.ts": "2f17e19230ad1b6fa1b44bfd974abec0d2c36522dd009ebed61151040eb715db",
-    "scripts/update-third-party-notices.py": "1efdc6ca1a750cc179aead01c29edf5e5908576f1069be4ae5223be1838ccec9",
+    "scripts/update-third-party-notices.py": "468adbcab07505c888e08017ac41534c4eecc29285721274e3544026e0ef4be8",
     "scripts/promote-release.mjs": "3875373d2fe869b79eda684b6deef53173f8f0af7cf1e41f25f9ea977f972e27",
-    "runtime/internal/installation/licenses/agent-browser-LICENSE": "014bb31e83d5c2e76aea1cc6e82217346ab41362f32cb355ad0f5c10aa0aeaff"
+    "runtime/internal/installation/licenses/agent-browser-LICENSE": "014bb31e83d5c2e76aea1cc6e82217346ab41362f32cb355ad0f5c10aa0aeaff",
+    "scripts/package-release.py": "190091dcc7d7d6df27c8f683ac321764f6ded95f928638f8bcf7d7ee1111cece"
   },
   "npm": [
     {

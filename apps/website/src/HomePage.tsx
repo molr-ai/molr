@@ -116,6 +116,7 @@ export function HomePage({ heading, locale, changeLocale }: { heading: string; l
         <div className="home-hero-install">
           <Tabs className="home-install-tabs" label={copy.installPlatforms} value={installPlatform} onValueChange={setInstallPlatform} items={[
             { value: 'linux', label: 'Linux', content: <InstallCommand key={command} command={command} locale={locale} terminal /> },
+            { value: 'darwin', label: 'macOS', content: <InstallCommand key={`mac-${command}`} command={command} locale={locale} terminal /> },
           ]} />
           <div className="home-hero-ctas"><a className="home-button" href="#install">{copy.moreInstall}<Icon name="down" /></a></div>
         </div>

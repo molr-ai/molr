@@ -231,3 +231,23 @@ func TestFullAccessIsPermissionOptInNotMode(t *testing.T) {
 		t.Fatal("removed sandbox mode still accepted")
 	}
 }
+
+// Disabling commands must not bypass validation for the still-active file layer.
+func TestWorkspaceConfigurationValidatedWithCommandsDisabled(t *testing.T) {
+	for _, change := range []func(*Sandbox){
+		func(s *Sandbox) { s.WorkRoot = "/var/lib/molr/private" },
+		func(s *Sandbox) { s.WorkRoot = "relative" },
+		func(s *Sandbox) { s.MaxFileBytes = 0 },
+		func(s *Sandbox) { s.Directories = []SandboxDirectory{{Path: "/var/lib/molr"}} },
+	} {
+		cfg := Defaults("/var/lib/molr")
+		cfg.HTTP.PublicURL = "https://runtime.example"
+		cfg.HTTP.TLSMode = TrustedProxy
+		cfg.HTTP.TrustedProxies = []string{"127.0.0.1/32"}
+		cfg.Sandbox.Enabled = false
+		change(&cfg.Sandbox)
+		if cfg.Validate() == nil {
+			t.Fatal("invalid storage accepted with commands disabled")
+		}
+	}
+}

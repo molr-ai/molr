@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"molr.ai/runtime/internal/buildinfo"
-	"molr.ai/runtime/internal/installation"
 	"molr.ai/runtime/internal/notification"
 	"molr.ai/runtime/internal/updates"
 	"molr.ai/runtime/internal/webassets"
@@ -108,7 +107,7 @@ func (b *Bundle) Close() error {
 // Build wires only fixed in-process adapters. Network access is constrained at
 // the actual dial; credentials never enter model/tool-visible configuration.
 func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
-	maintenance := installation.NewMaintenance(cfg.ConfigPath, cfg.Browser.AgentDirectory != "" || cfg.Browser.ChromiumDirectory != "")
+	maintenance := newMaintenance(cfg.ConfigPath, cfg.Browser.AgentDirectory != "" || cfg.Browser.ChromiumDirectory != "")
 	cfg.Sandbox.ProtectedRoots = maintenance.ProtectedRoots()
 	if err = cfg.Validate(); err != nil {
 		return nil, err
@@ -350,7 +349,7 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		provider.Check = func(ctx context.Context, _ resource.Binding) (resource.Status, error) {
 			caps, err := b.sandbox.runner.Capabilities(ctx)
 			status := resource.Status{State: resource.Available, ReasonCode: caps.Reason, CheckedAt: time.Now()}
-			if !caps.Shell {
+			if !caps.Shell && !caps.FullAccess {
 				status.State = resource.Offline
 			}
 			return status, err
@@ -580,7 +579,7 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		}
 		return nil
 	}
-	if cfg.Sandbox.Enabled {
+	{
 		root := filepath.Dir(platform.AssistantWorkspace(cfg.DataDir, cfg.Sandbox.WorkRoot, "owner", "assistant"))
 		if err := prepareDirectory(root); err != nil {
 			return nil, err
@@ -888,7 +887,7 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 					directories = append(directories, cfg.Sandbox.Directories...)
 				}
 			}
-			return map[string]any{"Enabled": cfg.Sandbox.Enabled, "Capabilities": caps, "Networks": networks, "Directories": directories}, nil
+			return map[string]any{"Enabled": cfg.Sandbox.Enabled, "Storage": sandboxRouter.localInfo(ctx).Storage, "Capabilities": caps, "Networks": networks, "Directories": directories}, nil
 		}, Limiter: limiter, PreLoginCSRF: identity.PreLoginCSRF})
 	if err != nil {
 		return nil, err

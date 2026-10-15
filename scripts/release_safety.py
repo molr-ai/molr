@@ -239,7 +239,7 @@ def check_release_directory(directory, strict=False):
     for path in selected:
         if path.name.endswith('.tar.gz'):
             info = check_release(path)
-            if path.name != f"molr_{info['version']}_linux_{info['arch']}.tar.gz":
+            if path.name != f"molr_{info['version']}_{info['os']}_{info['arch']}.tar.gz":
                 fail(path.name, 'metadata does not match archive filename')
         elif path.name.endswith('.sha256'):
             target = directory/path.name.removesuffix('.sha256')
@@ -267,11 +267,11 @@ def check_release_directory(directory, strict=False):
                 fail(path.name, 'invalid release metadata')
             if not isinstance(value['commit'], str) or not re.fullmatch(r'[a-f0-9]{40}|[a-f0-9]{64}', value['commit']):
                 fail(path.name, 'invalid release commit')
-            arch = path.name.removeprefix('latest-linux-').removesuffix('.json')
+            system, arch = path.name.removeprefix('latest-').removesuffix('.json').split('-', 1)
             version = value['version']
             if not isinstance(version, str) or not re.fullmatch(r'[0-9][0-9A-Za-z.-]*', version):
                 fail(path.name, 'invalid manifest version')
-            filename = f'molr_{version}_linux_{arch}.tar.gz'
+            filename = f'molr_{version}_{system}_{arch}.tar.gz'
             if value['file'] != filename or directory/filename not in selected:
                 fail(path.name, 'manifest does not name an approved archive')
             if check_release(directory/filename)['commit'] != value['commit']:

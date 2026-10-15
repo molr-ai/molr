@@ -481,9 +481,6 @@ func (s *shellService) ensureCompute(ctx context.Context) error {
 func sandboxProviders(c config.Config) map[string]resource.Provider {
 	s := c.Sandbox
 	ownPort := c.OwnListenPort()
-	if !s.Enabled {
-		return nil
-	}
 	empty := func(b resource.Binding) bool {
 		return b.SandboxID == "" && b.SandboxResource == "" && b.Endpoint == "" && b.RootPath == "" && b.CredentialID == "" && len(b.Models) == 0 && len(b.AllowedOrigins) == 0 && b.PricingProvider == ""
 	}

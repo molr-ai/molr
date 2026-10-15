@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"math/big"
+	"molr.ai/runtime/internal/textfiles"
 	"net/http"
 	"net/netip"
 	"net/url"
@@ -120,11 +121,11 @@ func (a adapters) providers() map[string]resource.Provider {
 			if err != nil {
 				return nil, core.Invalid("root_path", "existing directory required")
 			}
-			if root != filepath.Clean(b.RootPath) {
+			if root != filepath.Clean(textfiles.SystemPath(b.RootPath)) {
 				return nil, core.Invalid("root_path", "resource path must not contain symbolic links")
 			}
 			for _, protected := range a.storageConfig.ProtectedRoots {
-				if within(root, protected) || within(protected, root) {
+				if textfiles.Overlaps(root, protected) {
 					return nil, core.NewError(core.Forbidden, "installation assets cannot be resources")
 				}
 			}
@@ -132,10 +133,10 @@ func (a adapters) providers() map[string]resource.Provider {
 			if err != nil {
 				return nil, err
 			}
-			if within(root, private) || within(private, root) {
+			if textfiles.Overlaps(root, private) {
 				return nil, core.NewError(core.Forbidden, "runtime data cannot be a resource")
 			}
-			if work := a.storageConfig.WorkRoot; work != "" && (within(root, work) || within(work, root)) {
+			if work := a.storageConfig.WorkRoot; work != "" && textfiles.Overlaps(root, work) {
 				return nil, core.NewError(core.Forbidden, "managed assistant workspaces cannot be external resources")
 			}
 			info, err := os.Stat(root)
@@ -151,10 +152,6 @@ func (a adapters) providers() map[string]resource.Provider {
 			return resource.Status{State: resource.Available, ReasonCode: "configured", CheckedAt: time.Now()}, nil
 		}},
 	}
-}
-func within(base, target string) bool {
-	rel, err := filepath.Rel(base, target)
-	return err == nil && (rel == "." || rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
 }
 func (a adapters) binding(ctx context.Context, p core.Principal, id core.ID) (resource.Resource, resource.Binding, error) {
 	repo := resource.NewRepository(a.store)

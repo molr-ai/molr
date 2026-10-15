@@ -1,6 +1,6 @@
 # Standalone Linux Sandbox Service
 
-The Runtime includes a built-in local `sandbox_manager`, so no additional local service needs to be started. Disabling local storage, compute, and network capabilities via `sandbox.enabled: false` does not affect connections to remote sandboxes. Workspace data is preserved and can be used again after re-enabling. File operations do not require compute authorization but are still subject to workspace ownership and directory permission restrictions.
+Runtime includes its local sandbox_manager. In the main Runtime, `sandbox.enabled: false` disables local command execution while workspaces, file tools, and remote connections remain available. In standalone `molr-sandbox`, the same switch still controls the whole remote node. Remote nodes remain Linux-only. File operations need no compute grant but retain workspace ownership and directory authorization checks.
 
 Remote computers run `molr-sandbox`, providing only controlled execution and authorized directories. They do not initialize accounts, Agents, sessions, assistant workspaces, or model services. The assistant and its unique `/work` always reside locally within the Runtime. Currently, only Linux is supported. Both execution modes reuse file isolation and Linux process isolation implementations; the common protocol does not include Bubblewrap or cgroup paths.
 

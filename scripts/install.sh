@@ -28,8 +28,10 @@ case "$channel" in stable|preview|nightly) ;; *) fail 'Invalid channel';; esac
 case "$version" in *[!0-9A-Za-z.-]*|.*|-*) fail 'Invalid version';; esac
 # BEGIN GENERATED PLATFORMS
 case "$(uname -s)/$(uname -m)" in
-  Linux/x86_64|Linux/amd64) arch=amd64 ;;
-  Linux/aarch64|Linux/arm64) arch=arm64 ;;
+  Linux/x86_64|Linux/amd64) os=linux; arch=amd64 ;;
+  Linux/aarch64|Linux/arm64) os=linux; arch=arm64 ;;
+  Darwin/arm64|Darwin/aarch64) os=darwin; arch=arm64 ;;
+  Darwin/x86_64|Darwin/amd64) os=darwin; arch=amd64 ;;
   *) fail "Unsupported OS or architecture" ;;
 esac
 # END GENERATED PLATFORMS
@@ -59,20 +61,20 @@ if [ -n "$archive" ]; then
  step 'Read local archive and checksum'
  [ -f "$archive" ] && [ -f "$archive.sha256" ] || fail 'Archive and adjacent .sha256 file are required'
  IFS=' ' read -r expected rest < "$archive.sha256" || fail 'Invalid checksum file'
- printf 'Package: %s\nPlatform: linux/%s\n' "$archive" "$arch"
+ printf 'Package: %s\nPlatform: %s/%s\n' "$archive" "$os" "$arch"
 else
  step "Resolve release: ${version:-$channel}"
- descriptor="$source/$channel/download-linux-$arch.txt"
- [ -z "$version" ] || descriptor="$source/versions/$version/download-linux-$arch.txt"
+ descriptor="$source/$channel/download-$os-$arch.txt"
+ [ -z "$version" ] || descriptor="$source/versions/$version/download-$os-$arch.txt"
  fetch "$descriptor" "$temporary/descriptor" || fail 'Cannot resolve release; check source, channel, version and connectivity'
  [ "$(wc -c < "$temporary/descriptor")" -le 8192 ] || fail 'Oversized download descriptor'
  # Fixed line protocol generated from the release manifest; never evaluated as shell code.
  { IFS= read -r schema; IFS= read -r selected; IFS= read -r commit; IFS= read -r platform; IFS= read -r filename; IFS= read -r url; IFS= read -r expected; ! IFS= read -r extra; } < "$temporary/descriptor" || fail 'Invalid download descriptor'
- [ "$schema" = molr-download-v1 ] && [ "$platform" = "linux-$arch" ] || fail 'Wrong descriptor platform/schema'
+ [ "$schema" = molr-download-v1 ] && [ "$platform" = "$os-$arch" ] || fail 'Wrong descriptor platform/schema'
  case "$selected" in ''|*[!0-9A-Za-z.-]*|.*|-*) fail 'Invalid release version';; esac
  [ -z "$version" ] || [ "$version" = "$selected" ] || fail 'Version mismatch'
- [ "$filename" = "molr_${selected}_linux_${arch}.tar.gz" ] || fail 'Invalid package name'
- printf 'Version: %s\nCommit: %s\nPlatform: linux/%s\nPackage: %s\nURL: %s\nSHA-256: %s\n' "$selected" "$commit" "$arch" "$filename" "$url" "$expected"
+ [ "$filename" = "molr_${selected}_${os}_${arch}.tar.gz" ] || fail 'Invalid package name'
+ printf 'Version: %s\nCommit: %s\nPlatform: %s/%s\nPackage: %s\nURL: %s\nSHA-256: %s\n' "$selected" "$commit" "$os" "$arch" "$filename" "$url" "$expected"
  archive="$temporary/package.tar.gz"
  step 'Download package'
  fetch "$url" "$archive" || fail 'Download failed; check connection, proxy and CA certificates'
@@ -101,5 +103,10 @@ for member in LICENSE THIRD_PARTY_NOTICES.md release.json bin/molr bin/molr-setu
  chmod 644 "$temporary/molr/$member"
 done
 chmod 755 "$temporary/molr/bin/molr" "$temporary/molr/bin/molr-setup"
+if [ "$os" = darwin ]; then
+ for binary in molr molr-setup; do
+  /usr/bin/codesign --verify --strict "$temporary/molr/bin/$binary" || fail 'Invalid executable code signature'
+ done
+fi
 step 'Run package installer'
 "$temporary/molr/bin/molr-setup" "$@"

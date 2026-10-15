@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"io"
 	"mime"
-	"molr.ai/runtime/internal/installation"
+	"molr.ai/runtime/internal/maintenance"
 	"molr.ai/runtime/internal/notification"
 	"molr.ai/runtime/internal/updates"
 	"net"
@@ -45,7 +45,7 @@ type permissionRequestService interface {
 type Options struct {
 	Workspace          WorkspaceService
 	UsageAnalytics     func(context.Context, core.Principal, UsageQuery, bool) (any, error)
-	Maintenance        *installation.Maintenance
+	Maintenance        maintenance.Service
 	Browser            func(context.Context, core.Principal, core.ID, json.RawMessage) (json.RawMessage, error)
 	BrowserSettings    func(context.Context, core.Principal, json.RawMessage) (any, error)
 	BrowserStream      func(context.Context, core.Principal, core.ID, core.ID, func(json.RawMessage) error) error

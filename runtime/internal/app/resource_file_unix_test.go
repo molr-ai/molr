@@ -1,4 +1,4 @@
-//go:build linux
+//go:build linux || darwin
 
 package app
 
@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"golang.org/x/sys/unix"
+	"molr.ai/runtime/internal/business/resource"
 	"molr.ai/runtime/internal/core"
 )
 
@@ -89,5 +90,23 @@ func TestResourceAtomicReplacementPreservesOriginalOnFailure(t *testing.T) {
 	}
 	if _, err = os.Stat(filepath.Join(root, "new")); !os.IsNotExist(err) {
 		t.Fatal("canceled create left file")
+	}
+}
+
+func TestDirectoryResourcesRejectProtectedCaseAliases(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.DataDir = filepath.Join(cfg.DataDir, "private-state")
+	cfg.Sandbox.Enabled = false
+	b, err := Build(t.Context(), cfg)
+	need(t, err)
+	defer b.Close()
+	alias := filepath.Join(filepath.Dir(cfg.DataDir), strings.ToUpper(filepath.Base(cfg.DataDir)))
+	if _, err = os.Stat(alias); err != nil {
+		t.Skip("filesystem is case-sensitive")
+	}
+	p, _ := ownerSession(t, b)
+	_, err = b.Services.Resources.Connect(t.Context(), p, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "private-case-alias"}, Kind: resource.Storage, Provider: "local-directory", Name: "invalid", Binding: resource.Binding{RootPath: alias}})
+	if err == nil {
+		t.Fatal("case alias exposed private Runtime data")
 	}
 }

@@ -15,6 +15,33 @@ The CPU must use a 64-bit x86 (amd64) or ARM (arm64) architecture.
 
 Running a local model on the same device requires additional storage for model weights, inference memory, and potentially GPU memory, depending on model size, quantization, and context length. Sandbox tasks require additional CPU and memory, especially browser automation, code builds, and concurrent sandboxes. Attachments, workspaces, and backups consume disk space over time, so scale capacity to your workload. For sandbox resource configuration, see [Linux Command Environment](../sandbox/linux.md).
 
+For native macOS Runtime builds, Full Access, and service management, see [source deployment](source-build.md#native-macos-execution). The systemd steps below apply to Linux; macOS uses the user launchd installation described below.
+
+## macOS command-line installation
+
+macOS 13 and later has Apple Silicon (ARM64) and Intel (AMD64) packages containing `molr` with its embedded WebUI and `molr-setup`. End users do not need Go, Node.js, Python, or Homebrew. Run the website command in Terminal; it selects the native architecture:
+
+```bash
+curl -fsSL https://molr.ai/install.sh | sh
+```
+
+Run as the current user without `sudo` or `--user`. Setup registers a launchd user service, initializes the account, waits for HTTP and authenticated capability checks, and prints a one-time login link. It opens the default browser in a desktop session and only prints the link over SSH. The service uses `~/Library/LaunchAgents/<instance-name>.plist` and starts at desktop login; SSH-only environments use the current user's background launchd domain. This is not a system daemon that starts before login.
+
+The default program directory is `~/Library/Application Support/Molr/program/default`. Configuration and data use `config/default` and `data/default` under the same Molr directory. Logs and caches use `~/Library/Caches/Molr/default`. Use `--name molr-<name>` for separate instances. Setup prints the actual paths and service commands; quote paths containing spaces.
+
+```bash
+"$HOME/Library/Application Support/Molr/program/default/bin/molr-setup" status
+"$HOME/Library/Application Support/Molr/program/default/bin/molr-setup" update
+"$HOME/Library/Application Support/Molr/program/default/bin/molr-setup" uninstall
+```
+
+Normal uninstall retains configuration and data; explicitly remove them with `uninstall --purge --yes`. Updates preserve accounts, configuration, and workspaces. In-app updates are not yet supported on macOS; use the CLI. Setup verifies the archive and Mach-O code signatures. Packages currently use ad-hoc signatures without Developer ID signing or Apple notarization; the supported distribution path is Terminal installation.
+
+The default is `sandbox.enabled: false`; chat, files, and memory remain available. To execute commands, explicitly set `sandbox.enabled: true` and `sandbox.allow_full_access: true`, restart the service, then grant the assistant Full Access. macOS does not yet provide isolated Shell, hard compute quotas, managed browser, or isolated audiovisual decoding. Ordinary calls never automatically upgrade to Full Access.
+
+For offline installation, download the archive and adjacent `.sha256`, verify with `shasum -a 256 -c <archive>.sha256`, extract, and run `./bin/molr-setup`. Do not substitute Finder double-clicking a bare executable for Terminal installation.
+
+
 ## Local packages and quick installation
 
 Linux packages are available for AMD64 and ARM64 and include the `molr` application and the `molr-setup` maintenance program. Download the matching archive and SHA-256 file, verify and extract them, then run from the package directory:

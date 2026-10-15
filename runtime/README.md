@@ -14,7 +14,7 @@ Full Access 可作为计算权限按需开启，同一节点保留普通隔离�
 
 ## 构建与维护入口
 
-Go 版本以 [.go-version](.go-version) 为准，依赖由 `go.mod` / `go.sum` 锁定，SQLite 使用纯 Go 驱动。运行用二进制必须显式设置 `CGO_ENABLED=0` 并检查最终静态链接与 `0755` 权限；初始化、HTTPS、systemd 启动、备份恢复和升级统一见 [部署指南](../docs/admin/README.md)。
+Go 版本以 [.go-version](.go-version) 为准，依赖由 `go.mod` / `go.sum` 锁定，SQLite 使用纯 Go 驱动。运行用二进制必须显式设置 `CGO_ENABLED=0`，检查 Linux 静态 ELF 或 macOS Mach-O 类型及 `0755` 权限；初始化、HTTPS、systemd/launchd 启动、备份恢复和升级统一见 [部署指南](../docs/admin/README.md)。
 
 ```bash
 # 修改文档或内置 Skill 后，在仓库根目录运行 npm run docs:generate
@@ -54,9 +54,9 @@ WebUI 开发联调见 [应用 README](../apps/webui/README.md)。Dockerfile 提�
 
 每个尝试绑定独立操作、回执和预算预留。成功按回执结算；已证实未计费记为 released，未知费用记为 unknown，两者均结束本地预留占用，unknown 仍允许迟到回执补结算。开发工作台按同一执行编号展示各次尝试，包含请求/响应、尝试序号、状态、失败原因与下次重试时间；等待中的执行记录为 `retrying`。诊断采集开关不影响重试正确性。历史操作保留原 ID，新尝试使用独立 ID，不改写旧记录。
 
-目录工具使用 Linux `openat2` 强制禁止符号链接和越界路径，拒绝特殊文件、硬链接及 Runtime 自身目录。其他系统或不支持该能力的内核拒绝目录工具操作。通用可信进程接口保留白名单执行；Linux Agent Shell 使用独立的强制沙盒实现，不能回退到宿主进程。`sandbox.enabled` 默认开启。启动时自动准备基础环境、工作目录与执行资源，自动登记本机沙盒；用户不需要填写底层路径或准备独立存储卷。实际隔离探针通过且已授予计算权限时才向模型开放 `shell_execute`；系统不支持时明确显示不可用，可通过显式配置 `false` 关闭。
+目录工具在 Linux 使用 `openat2`，在 macOS 使用 `O_NOFOLLOW_ANY`，禁止符号链接和越界路径，拒绝特殊文件、硬链接及 Runtime 自身目录。其他系统或不支持该能力的内核拒绝目录工具操作。通用可信进程接口保留白名单执行；Linux Agent Shell 使用独立的强制沙盒实现，不能回退到宿主进程。`sandbox.enabled` 默认开启，只控制本机命令执行；关闭后工作区、文件和记忆仍可用。macOS 可显式开启并授权 Full Access，暂不提供隔离 Shell；构建与限制见 [macOS 源码部署](../docs/admin/deployment/source-build.md#macos-原生运行)。启动时自动准备基础环境、工作目录与执行资源，自动登记本机沙盒；用户不需要填写底层路径或准备独立存储卷。实际隔离探针通过且已授予计算权限时才向模型开放 `shell_execute`；系统不支持时明确显示不可用，可通过显式配置 `false` 关闭。
 
-Linux Shell 已接入 Bubblewrap、seccomp、cgroup v2、直接目录挂载和受控网络出口。部署、配置与真实隔离测试见 [Sandbox 使用说明](../docs/admin/sandbox/linux.md)，架构与未来 Windows/macOS 边界见 [设计](../docs/dev/security/sandbox.md)。
+Linux Shell 已接入 Bubblewrap、seccomp、cgroup v2、直接目录挂载和受控网络出口。部署、配置与真实隔离测试见 [Sandbox 使用说明](../docs/admin/sandbox/linux.md)，架构与跨平台边界见 [设计](../docs/dev/security/sandbox.md)。
 
 任务交付需要可信检查操作的证据，模型声称完成不能直接验收。当前内置工具不提供通用任务验收器。搜索在读取前应用来源、助理和归档范围，按有界批次扫描选中的授权源记录；消息按会话及序号索引遍历。持久化投影可重建，但还没有 FTS/向量检索优化。私有上下文按模型 token 窗口管理，未声明且未手动设置时兜底 256K；按助理阈值自动压缩并保留聊天记录，默认取 128K 与窗口 80% 中的较小值。单轮执行默认及引擎最大步数均为 999。模型请求默认超时 10 分钟（含等待响应头和读取响应），Shell 前台最多等待 60 秒，未结束转为后台；命令可用 `timeout_seconds` 设置运行截止时间，实际运行还受计算授权及用户组时长限额约束，不限时须显式授权。
 

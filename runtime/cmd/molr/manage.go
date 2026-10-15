@@ -14,6 +14,7 @@ import (
 	"molr.ai/runtime/internal/auth"
 	"molr.ai/runtime/internal/config"
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/platform"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -147,10 +148,8 @@ func online(ctx context.Context, cfg config.Config, command, username, mfa strin
 		}
 		var sandbox struct {
 			Enabled      bool
-			Capabilities struct {
-				Reason                                                                   string
-				Shell, ProcessIsolation, FileIsolation, NetworkIsolation, ResourceLimits bool
-			}
+			Storage      bool
+			Capabilities platform.Capabilities
 		}
 		if err := call("GET", "/api/sandbox", nil, &sandbox); err != nil {
 			return err
@@ -159,8 +158,8 @@ func online(ctx context.Context, cfg config.Config, command, username, mfa strin
 			return err
 		}
 		c := sandbox.Capabilities
-		if sandbox.Enabled && !(c.Reason == "available" && c.Shell && c.ProcessIsolation && c.FileIsolation && c.NetworkIsolation && c.ResourceLimits) {
-			return fmt.Errorf("chat service is running; isolated commands unavailable: %s", c.Reason)
+		if sandbox.Enabled && !commandEnvironmentReady(cfg.Sandbox.AllowFullAccess, c) {
+			return fmt.Errorf("chat service is running; configured command execution unavailable: %s", c.Reason)
 		}
 		return nil
 	}
@@ -178,4 +177,11 @@ func online(ctx context.Context, cfg config.Config, command, username, mfa strin
 	}
 	fmt.Fprintf(out, "%s/#/login?token=%s\n", origin, url.QueryEscape(issued.Value))
 	return nil
+}
+
+// Diagnostics accept direct execution only when the deployment explicitly allows
+// it. The returned capability document still reports each isolation flag.
+func commandEnvironmentReady(allowFullAccess bool, c platform.Capabilities) bool {
+	isolated := c.Reason == "available" && c.Shell && c.ProcessIsolation && c.FileIsolation && c.NetworkIsolation && c.ResourceLimits
+	return isolated || (allowFullAccess && c.FullAccess)
 }

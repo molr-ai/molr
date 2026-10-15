@@ -8,7 +8,7 @@ func TestSupportMatchesInstallableTargets(t *testing.T) {
 		supported bool
 	}{
 		{"linux", "amd64", true}, {"linux", "arm64", true},
-		{"linux", "386", false}, {"darwin", "arm64", false}, {"windows", "amd64", false},
+		{"linux", "386", false}, {"darwin", "arm64", true}, {"darwin", "amd64", true}, {"darwin", "386", false}, {"windows", "amd64", false},
 		{"linux", "x86_64", false}, // Runtime uses canonical Go architecture names, not uname aliases.
 	} {
 		if Supported(target.os, target.arch) != target.supported {

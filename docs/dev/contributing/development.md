@@ -49,12 +49,13 @@
 
 ## Runtime 构建与沙盒验收
 
-- **主服务和各 worktree 验收实例的 Runtime 均必须使用静态构建，显式设置 `CGO_ENABLED=0`。** 使用 `runtime/.go-version` 指定的 Go 版本，在对应任务 worktree 内构建；更新主服务时必须使用与目标 `main` 提交一致的干净构建 worktree。例如在其 `runtime/` 目录执行 `CGO_ENABLED=0 go build -o ../.cache/acceptance/molr ./cmd/molr`（先创建输出目录）。Runtime 默认复用自身二进制作为沙盒 helper，动态链接产物即使能启动 HTTP 服务，也不能用于当前的精简沙盒环境。
-- 部署前检查最终产物，不能仅凭构建命令或参数判断：用 `file <binary>` 确认静态链接，用 `go version -m <binary>` 核对 `CGO_ENABLED=0` 和构建提交，主服务产物还必须满足 `vcs.modified=false`；验收产物记录任务当前的修改状态，不得将含未提交修改的验收产物部署到主服务。必要时用 `readelf -h -l <binary>` 确认架构匹配、ELF 类型为 `EXEC` 且没有 `INTERP` 段。检查不通过时不得替换正在运行的服务。
+- **主服务和各 worktree 验收实例均须显式设置 `CGO_ENABLED=0`；Linux Runtime 必须为静态 ELF，macOS 原生 Runtime 为 Mach-O。** 使用 `runtime/.go-version` 指定的 Go 版本，在对应任务 worktree 内构建；更新主服务时必须使用与目标 `main` 提交一致的干净构建 worktree。例如在其 `runtime/` 目录执行 `CGO_ENABLED=0 go build -o ../.cache/acceptance/molr ./cmd/molr`（先创建输出目录）。Runtime 默认复用自身二进制作为沙盒 helper，动态链接产物即使能启动 HTTP 服务，也不能用于当前的精简沙盒环境。
+- 部署前检查最终产物，不能仅凭构建命令或参数判断：用 `file <binary>` 确认 Linux 静态链接或 macOS Mach-O 类型，用 `go version -m <binary>` 核对 `CGO_ENABLED=0` 和构建提交，主服务产物还必须满足 `vcs.modified=false`；验收产物记录任务当前的修改状态，不得将含未提交修改的验收产物部署到主服务。必要时用 `readelf -h -l <binary>` 确认架构匹配、ELF 类型为 `EXEC` 且没有 `INTERP` 段。检查不通过时不得替换正在运行的服务。
 - **构建后和部署后均检查二进制权限，Runtime/helper 使用 `0755`，不得为 `0775`、`0777` 等组可写或其他用户可写的模式。** Bubblewrap（默认 `/usr/bin/bwrap`）和 helper 必须是可执行的普通文件，路径及其父目录不得经过符号链接；不要通过放宽权限绕过检查。另行确认静态 BusyBox 可用，其来源和解析后的文件权限应符合 Runtime 的检查要求。
 - 启用沙盒的 Linux 实例必须具有有效的 cgroup v2 委派。沿用已验证的 systemd 用户服务启动方式，设置 `Type=exec`、`Delegate=yes`、`DelegateSubgroup=supervisor`、`KillMode=control-group`；服务名使用以 `molr` 开头的独立名称，每个 worktree 使用不同的 unit。不要随意改回普通登录会话中的后台启动方式，也不能将 systemd unit 启动成功视为沙盒已就绪。
 - 更新主 Runtime 前再次核对构建提交与当前 `main`，保存旧二进制和配置；替换使用临时文件校验后原子重命名，不能直接覆盖正在执行的二进制文件。保留原数据库、密钥和账号；需要复制数据目录时先正常停止对应实例，完成后按原安全配置重启。记录实际 PID、构建提交、二进制摘要、启动方式和回退位置。
 - **每次启动、重建或重启后，除页面和 HTTP 连通性外，还必须通过已认证请求检查 `GET /api/sandbox`；配有 WebUI 的实例还须通过其代理完成验证。** 沙盒未被用户明确关闭时，要求 `Enabled=true`、`Capabilities.Reason=available`，且 `Shell`、`ProcessIsolation`、`FileIsolation`、`NetworkIsolation`、`ResourceLimits` 均为 `true`，确认 Runtime 的真实隔离启动探针通过。此项适用于独立验收和合并后的主服务；不能只凭启动日志、监听端口或 `/api/status` 正常就宣布验收成功。
+- macOS 验收使用独立数据目录和服务，不要求 Linux 隔离能力。关闭命令执行时验证 `Enabled=false`、`Storage=true`；显式开启 Full Access 时验证 `Capabilities.FullAccess=true`，且隔离能力保持 false。文件、聊天、记忆、终端及撤权必须原生验证，不能以交叉编译替代。远程节点仍遵守 Linux 验收要求。
 - 沙盒异常时依据实际原因码定位：`sandbox_package_incomplete` 优先检查 helper 的静态链接和静态 BusyBox；`sandbox_helper_unavailable` 检查 Bubblewrap/helper 的存在性、可执行权限、组或其他用户写权限及符号链接；cgroup 或其他启动错误检查对应 unit、委派状态和日志。不得通过关闭沙盒、放宽隔离或回退宿主执行掩盖问题；修复后重新验证能力状态，未恢复时明确报告不可用项。
 
 ### 启动就绪与认证验证顺序

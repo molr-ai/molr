@@ -1,14 +1,14 @@
 // Native package acceptance. Requires systemd user delegation and sandbox dependencies.
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, chmodSync, statSync, existsSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, chmodSync, statSync, existsSync, realpathSync, writeFileSync, readdirSync, appendFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { tmpdir } from 'node:os';
+import { tmpdir, userInfo } from 'node:os';
 import { createServer } from 'node:net';
 import { createHash } from 'node:crypto';
 const archive = resolve(process.env.MOLR_TEST_ARCHIVE || process.argv[2] || '');
 const version = JSON.parse(execFileSync('tar', ['-xOf', archive, 'molr/release.json'], { encoding: 'utf8' })).version;
-const directory = mkdtempSync(`${tmpdir()}/molr-release-test-`), name = `molr-release-test-${process.pid}`;
+const directory = realpathSync(mkdtempSync(`${tmpdir()}/molr release test-`)), name = `molr-release-test-${process.pid}`;
 const probe = createServer(); await new Promise(r => probe.listen(0, '127.0.0.1', r));
 const port = probe.address().port; await new Promise(r => probe.close(r));
 const env = { ...process.env, XDG_CONFIG_HOME: `${directory}/config`, XDG_DATA_HOME: `${directory}/data`, XDG_CACHE_HOME: `${directory}/cache` };
@@ -44,11 +44,19 @@ try {
     }
   };
   const health = doctor();
-  assert.equal(health.Sandbox.Enabled, true);
-  assert.equal(health.Sandbox.Capabilities.Reason, 'available');
-  for (const field of ['Shell', 'ProcessIsolation', 'FileIsolation', 'NetworkIsolation', 'ResourceLimits']) assert.equal(health.Sandbox.Capabilities[field], true, field);
+  if (process.platform === 'darwin') {
+    assert.equal(health.Sandbox.Enabled, false);
+    assert.equal(health.Sandbox.Storage, true);
+    assert.equal(health.Runtime.build.os, 'darwin');
+    assert.equal(health.Sandbox.Capabilities.Shell, false);
+    run('/usr/bin/codesign', ['--verify', '--strict', binary]);
+  } else {
+    assert.equal(health.Sandbox.Enabled, true);
+    assert.equal(health.Sandbox.Capabilities.Reason, 'available');
+    for (const field of ['Shell', 'ProcessIsolation', 'FileIsolation', 'NetworkIsolation', 'ResourceLimits']) assert.equal(health.Sandbox.Capabilities[field], true, field);
+  }
   assert(run(binary, ['version']).includes(version));
-  assert((await fetch(`http://127.0.0.1:${port}/`)).ok);
+  const web = await fetch(`http://127.0.0.1:${port}/`); assert(web.ok); assert((await web.text()).includes('/assets/'), 'Release must embed the WebUI');
   // Reinstall the same final archive: the data and owner must remain intact.
   const before = readFileSync(config);
   const second = run('sh', [...args, '--non-interactive', '--repair', '--directory-permissions', 'fix']);
@@ -56,6 +64,7 @@ try {
   assert(second.includes(`Result: verified`), 'Non-interactive reinstallation must verify Runtime and sandbox');
   const setup = resolve(binary, '../molr-setup');
   assert(run(setup, ['--non-interactive']).includes('State: installed'));
+  assert(run(setup, ['status', '--non-interactive']).includes('Service:'));
   const metadata = JSON.parse(run('tar', ['-xOf', archive, 'molr/release.json']));
   const bytes = readFileSync(archive), digest = createHash('sha256').update(bytes).digest('hex');
   // A separate process serves the mirror while the synchronous installer runs.
@@ -91,9 +100,16 @@ try {
   console.log(`Native install/repair/download-update/retained-data reinstall/sandbox/purge acceptance passed: ${version}`);
 } catch (error) {
   // Installer output can include one-time links; keep subprocess output out of CI logs.
+  if (process.env.MOLR_TEST_DIAGNOSTICS) writeFileSync(process.env.MOLR_TEST_DIAGNOSTICS, String(error.stack || error) + '\n' + String(error.stdout || '') + '\n' + String(error.stderr || ''), {mode:0o600});
+  if (process.env.MOLR_TEST_DIAGNOSTICS) for (const f of readdirSync(directory, {recursive:true}).filter(f => /(?:stderr|stdout)\.log$/.test(f))) appendFileSync(process.env.MOLR_TEST_DIAGNOSTICS, '\n'+f+'\n'+readFileSync(resolve(directory,f),'utf8'));
   console.error('Native release acceptance failed:', error.message.split('\n')[0]);
   throw new Error('Native release acceptance failed');
 } finally {
+  if (process.platform === 'darwin') {
+    for (const domain of ['gui', 'user']) { try { run('/bin/launchctl', ['bootout', `${domain}/${process.getuid()}/ai.molr.${name}`]); } catch {} }
+    const home = userInfo().homedir;
+    if (home.startsWith('/')) rmSync(`${home}/Library/LaunchAgents/${name}.plist`, {force:true});
+  }
   try { run('systemctl', ['--user', 'stop', `${name}.service`]); } catch {}
   try { run('systemctl', ['--user', 'disable', `${name}.service`]); } catch {}
   // Unit files are under the isolated XDG_CONFIG_HOME; reload after removing them.

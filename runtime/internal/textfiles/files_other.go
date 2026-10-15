@@ -1,4 +1,4 @@
-//go:build !linux
+//go:build !linux && !darwin
 
 package textfiles
 
@@ -41,3 +41,8 @@ func RemoveDirectory(ctx context.Context, root, name, expected string, authorize
 func MakeDirectory(context.Context, string, string, func() error) error {
 	return resourceFilesUnsupported()
 }
+
+func Supported() bool { return false }
+
+// SystemPath leaves native paths unchanged on this platform.
+func SystemPath(directory string) string { return directory }

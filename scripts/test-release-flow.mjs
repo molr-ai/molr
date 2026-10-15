@@ -31,7 +31,7 @@ test('catalog keeps historical platform availability and rejects extra files, li
     writeCatalog(releases, directory);
     const files = readCatalog(directory);
     assert.equal(files['versions/0.1.0.json'].platforms.length, 1);
-    assert.equal(files['preview/manifest.json'].platforms.length, 2);
+    assert.equal(files['preview/manifest.json'].platforms.length, platforms.length);
     assert.equal(files['stable/latest-linux-arm64.json'], undefined);
     writeFileSync(join(directory, 'extra.json'), '{}'); assert.throws(() => readCatalog(directory)); rmSync(join(directory, 'extra.json'));
     symlinkSync(join(directory, 'catalog.json'), join(directory, 'link.json')); assert.throws(() => readCatalog(directory)); rmSync(join(directory, 'link.json'));

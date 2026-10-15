@@ -45,7 +45,7 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
   const command = platform ? installCommand(channel, { arch: platform.arch, tool }) : '';
   const packageCommand = platform ? packageInstallCommand(platform, channel) : '';
   const osLabel = (value: string) => ({ linux: 'Linux', darwin: 'macOS', windows: 'Windows' })[value] || value;
-  const archLabel = (value: string) => ({ amd64: 'x64 / AMD64', arm64: 'ARM64' })[value] || value;
+  const archLabel = (value: string) => (os === 'darwin' ? { amd64: 'Intel', arm64: 'Apple Silicon' } : { amd64: 'x64 / AMD64', arm64: 'ARM64' })[value] || value;
   return <section id="install" data-palette="forest" data-theme="dark" className="home-start home-container" aria-labelledby="start-title">
     <p className="home-section-label">{copy.startLabel}</p>
     <h2 id="start-title">{copy.startHeading}</h2>
@@ -99,7 +99,7 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
               </>}
             </div>
             <div className="home-install-release"><time dateTime={release.published_at}>{new Date(release.published_at).toLocaleDateString(locale === 'zh' ? 'zh-CN' : 'en-US', { timeZone: 'UTC' })}</time><a href={release.notes_url}>{t.notes}<span aria-hidden="true"> ↗</span></a></div>
-            <p className="home-install-requirements">{osLabel(os)} · systemd {platform.requirements.systemd}+ · cgroup v{platform.requirements.cgroup} · {platform.requirements.packages.join(', ')}</p>
+            <p className="home-install-requirements">{os === 'darwin' ? `macOS ${platform.requirements.macos}+ · ${locale === 'zh' ? '用户级后台服务；命令执行仅支持显式 Full Access' : 'User background service; command execution requires explicit Full Access'}` : `${osLabel(os)} · systemd ${platform.requirements.systemd}+ · cgroup v${platform.requirements.cgroup} · ${platform.requirements.packages.join(', ')}`}</p>
           </>}
         </div>
       </div>

@@ -16,9 +16,42 @@ npm ci
 npm run build:webui
 ```
 
-确认 Runtime 为静态链接，构建信息包含 `CGO_ENABLED=0`，最终文件权限为 `0755`。部署主服务时还需核对目标提交及 `vcs.modified=false`。WebUI 产物位于 `apps/webui/dist/`，由静态服务器提供；不要将 Vite 开发服务当作公网生产入口。
+Linux 产物须为静态 ELF；macOS 产物为 Mach-O，使用系统运行库，不要求 ELF 静态链接。两者的构建信息均须包含 `CGO_ENABLED=0`，最终文件权限为 `0755`。部署主服务时还需核对目标提交及 `vcs.modified=false`。WebUI 产物位于 `apps/webui/dist/`，由静态服务器提供；不要将 Vite 开发服务当作公网生产入口。
 
 构建后依次完成[配置与初始化](https://molr.ai/zh/docs/admin/deployment/configuration/#配置与初始化)、[服务安装](https://molr.ai/zh/docs/admin/deployment/installation/#linux-服务与命令环境)和[启动后的检查](https://molr.ai/zh/docs/admin/deployment/installation/#启动后的检查)。
+
+## macOS 原生运行
+
+Runtime 支持 macOS ARM64 和 AMD64。工作区、文件工具、附件和记忆不依赖命令执行；`sandbox.enabled: false` 只关闭本机命令执行。macOS 暂不提供隔离 Shell、cgroup 配额、受管浏览器或隔离音视频解码。官网命令安装、发行包、`molr-setup` 更新与卸载已支持 macOS，见[安装指南](https://molr.ai/zh/docs/admin/deployment/installation/#macos-命令行安装)。应用内升级暂不可用；本节用于源码开发。
+
+按上节构建后，准备独立配置，替换所有绝对路径。最小本机配置示例：
+
+```json
+{
+  "data_dir": "/Users/example/Library/Application Support/Molr/data",
+  "http": {
+    "listen": "127.0.0.1:8080",
+    "public_url": "http://127.0.0.1:8080",
+    "tls_mode": "local"
+  },
+  "sandbox": { "enabled": false }
+}
+```
+
+在仓库根目录初始化并启动：
+
+```bash
+.cache/build/molr bootstrap -config /absolute/path/server.json
+.cache/build/molr serve -config /absolute/path/server.json
+```
+
+前端开发联调见 [WebUI](https://github.com/molr-ai/molr/blob/main/apps/webui/README.md)。需要同一服务提供构建后的页面时，将 `apps/webui/dist/` 的内容复制到 `runtime/internal/webassets/dist/`，并使用 `go build -tags webui` 重新构建。
+
+需要本机命令时，显式设置 `sandbox.enabled: true` 和 `sandbox.allow_full_access: true`，再为助理授予 Full Access。它使用服务账户的文件和网络权限，不提供进程、文件、网络隔离或计算硬配额；普通隔离调用失败不会回退到直接执行。命令工作目录支持 `/work` 别名，脚本中的路径使用实际路径或 `$MOLR_WORKSPACE`、`$MOLR_GLOBAL`，不会改写任意脚本文本。
+
+长期运行可使用管理员自行管理的 launchd 服务：`ProgramArguments` 指向构建产物、`serve`、`-config` 和配置绝对路径；显式设置 `WorkingDirectory`、日志路径和 `PATH`，因为 launchd 不读取交互式 shell 配置。服务账户必须能够读写自己的配置和数据目录。更新时停止本实例、原子替换二进制后重启，保留配置、数据库和密钥。
+
+启动后认证检查 `/api/sandbox`：关闭命令时要求 `Enabled=false` 且 `Storage=true`；开启 Full Access 时要求 `Capabilities.FullAccess=true`，隔离能力仍为 false，`Reason=sandbox_platform_unsupported` 指明隔离后端未实现。聊天、文件操作、记忆、终端和撤权须在 Mac 原生验证。远程执行节点继续使用 Linux，不能把主 Runtime 的 macOS 支持当作远程 macOS 节点支持。
 
 ## 构建发行包
 

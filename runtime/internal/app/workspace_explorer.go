@@ -7,7 +7,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"unicode/utf8"
 
@@ -38,8 +37,8 @@ func (s *workspaceExplorer) root(ctx context.Context, p core.Principal, id core.
 	if err := (access{s.ad.store}).assistant(ctx, p, id); err != nil {
 		return "", err
 	}
-	if !s.ad.storageConfig.Enabled || runtime.GOOS != "linux" {
-		return "", core.WithReason(core.NewError(core.FailedPrecondition, "workspace storage unavailable"), "sandbox_disabled")
+	if !textfiles.Supported() {
+		return "", core.WithReason(core.NewError(core.FailedPrecondition, "workspace storage unavailable"), "storage_unavailable")
 	}
 	if _, err := groupReference(ctx, s.ad.store, p.OwnerID, "sandbox", "local"); err != nil {
 		return "", err

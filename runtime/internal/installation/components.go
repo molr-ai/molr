@@ -1,3 +1,5 @@
+//go:build linux || darwin
+
 package installation
 
 import (
@@ -9,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"molr.ai/runtime/internal/maintenance"
 	"net/http"
 	"net/url"
 	"os"
@@ -25,13 +28,9 @@ import (
 //go:embed licenses/agent-browser-LICENSE
 var agentBrowserLicense []byte
 
-type ComponentError struct {
-	Code   string
-	Detail string
-}
+type ComponentError = maintenance.ComponentError
 
-func (e *ComponentError) Error() string        { return e.Code + ": " + e.Detail }
-func componentError(code, detail string) error { return &ComponentError{code, detail} }
+func componentError(code, detail string) error { return &ComponentError{Code: code, Detail: detail} }
 
 type componentAsset struct {
 	URL, SHA256, Format, Prefix, Directory, Executable string
@@ -59,18 +58,7 @@ type ComponentReceipt struct {
 	Directory   string    `json:"directory"`
 	InstalledAt time.Time `json:"installed_at"`
 }
-type ComponentStatus struct {
-	ID            string `json:"id"`
-	State         string `json:"state"`
-	Version       string `json:"version,omitempty"`
-	TargetVersion string `json:"target_version,omitempty"`
-	DownloadBytes int64  `json:"download_bytes"`
-	DiskBytes     int64  `json:"disk_bytes"`
-	CanInstall    bool   `json:"can_install"`
-	Reason        string `json:"reason,omitempty"`
-	Task          *Task  `json:"task,omitempty"`
-	AutoInstall   bool   `json:"auto_install"`
-}
+type ComponentStatus = maintenance.ComponentStatus
 
 func componentRoot(r *installrecord.Record) string { return filepath.Join(r.Paths.Cache, "components") }
 func componentRecord(r *installrecord.Record) string {

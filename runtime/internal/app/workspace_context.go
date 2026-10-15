@@ -3,7 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
-	"runtime"
+	"molr.ai/runtime/internal/textfiles"
 
 	"molr.ai/runtime/internal/agent"
 	"molr.ai/runtime/internal/core"
@@ -51,12 +51,8 @@ func (f *resourceFileTools) workspaceAvailability(ctx context.Context, e core.Ex
 		}
 		return "", err
 	}
-	// Production routes storage through the sandbox router. Internal isolated
-	// adapters used by tests have no router and retain their storage capability.
-	if f.router != nil && !f.adapters.storageConfig.Enabled {
-		return "sandbox_disabled", nil
-	}
-	if runtime.GOOS != "linux" {
+	// Local file capability is independent of command execution.
+	if !textfiles.Supported() {
 		return "storage_unavailable", nil
 	}
 	return "", nil

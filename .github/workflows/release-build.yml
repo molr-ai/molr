@@ -69,7 +69,9 @@ jobs:
         env:
           MOLR_VERSION: ${{ needs.prepare.outputs.version }}
           MOLR_ARCH: ${{ matrix.arch }}
-      - uses: ./.github/actions/prepare-sandbox
+          MOLR_OS: ${{ matrix.os }}
+      - if: matrix.os == 'linux'
+        uses: ./.github/actions/prepare-sandbox
       - name: Native installation and sandbox acceptance
         run: npm run test:release-install
         env:

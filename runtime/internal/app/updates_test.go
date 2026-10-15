@@ -3,6 +3,7 @@ package app
 import (
 	"encoding/json"
 	"molr.ai/runtime/internal/config"
+	"molr.ai/runtime/internal/releaseplatform"
 	"molr.ai/runtime/internal/updates"
 	"net/http"
 	"net/http/httptest"
@@ -70,8 +71,12 @@ func TestUpdateAPIUsesSharedConfiguredSourceAndRequiresCSRF(t *testing.T) {
 	}
 	var status updates.Snapshot
 	need(t, json.Unmarshal(w.Body.Bytes(), &status))
-	if status.Latest == nil || status.Latest.Version != "0.2.0" || calls.Load() != 1 {
-		t.Fatal(status, calls.Load())
+	if releaseplatform.Supported(runtime.GOOS, runtime.GOARCH) {
+		if status.Latest == nil || status.Latest.Version != "0.2.0" || calls.Load() != 1 {
+			t.Fatal(status, calls.Load())
+		}
+	} else if status.Supported || status.Latest != nil || calls.Load() != 0 {
+		t.Fatal("unreleased platform requested an installation update", status, calls.Load())
 	}
 	w = request("POST", "/api/updates/check", `{"url":"http://127.0.0.1/other"}`, cookies, proof.Token)
 	if w.Code != 400 {

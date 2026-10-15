@@ -45,9 +45,14 @@ export function validateManifest(m) {
   const seen = new Set();
   for (const [index, p] of m.platforms.entries()) {
     requiredKeys(p, ['id', 'os', 'arch', 'label', 'aliases', 'requirements', 'file', 'sha256', 'url', 'checksum_url'], `platforms[${index}]`);
-    requiredKeys(p.requirements, ['systemd', 'cgroup', 'packages'], `platforms[${index}].requirements`);
+    requiredKeys(p.requirements, p.os === 'darwin' ? ['macos', 'packages'] : ['systemd', 'cgroup', 'packages'], `platforms[${index}].requirements`);
     const r = p.requirements;
-    if (!Number.isInteger(r.systemd) || r.systemd < 254 || r.cgroup !== 2 || !Array.isArray(r.packages) || r.packages.some(n => typeof n !== 'string' || !/^[a-z0-9][a-z0-9+.-]*$/.test(n))) throw new Error('Invalid platform requirements');
+    if (!r || !Array.isArray(r.packages) || r.packages.some(n => typeof n !== 'string' || !/^[a-z0-9][a-z0-9+.-]*$/.test(n))) throw new Error('Invalid platform requirements');
+    if (p.os === 'linux') {
+      if (!Number.isInteger(r.systemd) || r.systemd < 254 || r.cgroup !== 2) throw new Error('Invalid platform requirements');
+    } else if (p.os === 'darwin') {
+      if (typeof r.macos !== 'string' || !/^\d+\.\d+$/.test(r.macos) || r.systemd !== undefined || r.cgroup !== undefined) throw new Error('Invalid macOS requirements');
+    } else throw new Error('Unsupported platform OS');
     if (!/^[a-z0-9]+-[a-z0-9]+$/.test(p.id) || p.id !== `${p.os}-${p.arch}` || seen.has(p.id) || !Array.isArray(p.aliases) || !p.aliases.length || p.aliases.some(a => !/^[a-z0-9_]+$/.test(a))) throw new Error('Invalid release platform');
     seen.add(p.id);
     if (p.file !== `molr_${m.version}_${p.os}_${p.arch}.tar.gz` || !/^[0-9a-f]{64}$/.test(p.sha256) || typeof p.label !== 'string' || !p.requirements) throw new Error('Invalid release asset');

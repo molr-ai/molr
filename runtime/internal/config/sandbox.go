@@ -3,6 +3,7 @@ package config
 import (
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/platform"
+	"molr.ai/runtime/internal/textfiles"
 	"path/filepath"
 	"strings"
 	"time"
@@ -18,7 +19,8 @@ type Sandbox struct {
 	AuthorizationCeilings  platform.Limits    `json:"authorization_ceilings"`
 	HostTools              bool               `json:"host_tools"`
 	// Deprecated: accepted for existing deployments; never switches OS identity.
-	HostToolsUser       string             `json:"host_tools_user,omitempty"`
+	HostToolsUser string `json:"host_tools_user,omitempty"`
+	// Enabled controls command execution. Workspace and file tools remain available.
 	Enabled             bool               `json:"enabled"`
 	Bwrap               string             `json:"bubblewrap"`
 	RootFS              string             `json:"rootfs"`
@@ -77,9 +79,6 @@ func (s Sandbox) validate(data string, ownPort uint16) error {
 	if s.GPU.Enabled && len(s.GPU.Devices) == 0 {
 		return core.Invalid("sandbox.gpu.devices", "explicit GPU device list required")
 	}
-	if !s.Enabled {
-		return nil
-	}
 	if s.AuthorizationCeilings.NetworkConnections < 1 || s.AuthorizationCeilings.NetworkConnections > 128 || s.AuthorizationCeilings.NetworkBytes < 1 || s.AuthorizationCeilings.NetworkBytes > 1<<50 || s.AuthorizationCeilings.CPUPercent < 1 || s.AuthorizationCeilings.CPUPercent > 1000000 || s.AuthorizationCeilings.MemoryBytes < 32<<20 || s.AuthorizationCeilings.Processes < 8 || s.AuthorizationCeilings.TempBytes < 1 || s.AuthorizationCeilings.TempBytes > s.AuthorizationCeilings.MemoryBytes {
 		return core.Invalid("sandbox.authorization_ceilings", "invalid deployment ceilings")
 	}
@@ -102,12 +101,7 @@ func (s Sandbox) validate(data string, ownPort uint16) error {
 	if s.MinFreeDiskBytes <= 0 || s.MaxFileBytes <= 0 || s.Timeout <= 0 || s.Timeout > Duration(time.Hour) || s.MemoryBytes < 32<<20 || s.TempBytes < 1 || s.TempBytes > s.MemoryBytes || s.Processes < 8 || s.Processes > 1024 || s.CPUPercent < 1 || s.CPUPercent > 1000 || s.MaxOutputBytes < 1 || s.MaxOutputBytes > 128<<10 || len(s.Directories) > 32 || len(s.Networks) > 32 || s.NetworkBytes < 1024 || s.NetworkBytes > 1<<30 || s.NetworkConnections < 1 || s.NetworkConnections > 128 {
 		return core.Invalid("sandbox", "invalid limits")
 	}
-	overlap := func(a, b string) bool {
-		if a == "" || b == "" {
-			return false
-		}
-		return a == b || strings.HasPrefix(a, b+string(filepath.Separator)) || strings.HasPrefix(b, a+string(filepath.Separator))
-	}
+	overlap := textfiles.Overlaps
 	if overlap(s.WorkRoot, data) || overlap(s.RootFS, data) || overlap(s.WorkRoot, s.RootFS) {
 		return core.Invalid("sandbox", "execution data must be separate from private runtime data and rootfs")
 	}

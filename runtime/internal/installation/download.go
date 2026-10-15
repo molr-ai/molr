@@ -1,3 +1,5 @@
+//go:build linux || darwin
+
 package installation
 
 import (
@@ -269,6 +271,10 @@ func (e *Engine) update(r *installrecord.Record) error {
 		return err
 	}
 	defer os.RemoveAll(temp)
+	temp, err = filepath.EvalSymlinks(temp)
+	if err != nil {
+		return err
+	}
 	if err = os.Chmod(temp, 0755); err != nil {
 		return err
 	}
@@ -402,7 +408,7 @@ func extractPackage(archive, destination string) (string, error) {
 	}
 	root := filepath.Join(destination, "molr")
 	for _, name := range []string{"molr", "molr-setup"} {
-		if err = staticELF(filepath.Join(root, "bin", name), runtime.GOARCH); err != nil {
+		if err = checkExecutable(filepath.Join(root, "bin", name), runtime.GOARCH); err != nil {
 			return "", err
 		}
 	}

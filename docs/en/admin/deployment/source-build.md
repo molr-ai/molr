@@ -16,9 +16,42 @@ npm ci
 npm run build:webui
 ```
 
-Confirm that Runtime is statically linked, its build information includes `CGO_ENABLED=0`, and the final file permissions are `0755`. When deploying the main service, also verify the target commit and `vcs.modified=false`. The WebUI output is in `apps/webui/dist/` and is served by a static server; do not use the Vite development server as a public production entry point.
+Linux artifacts must be static ELF executables. macOS artifacts are Mach-O executables using system libraries; the ELF static-link requirement does not apply. Both must report `CGO_ENABLED=0` and use `0755` permissions. When deploying the main service, also verify the target commit and `vcs.modified=false`. The WebUI output is in `apps/webui/dist/` and is served by a static server; do not use the Vite development server as a public production entry point.
 
 After building, complete [configuration and initialization](configuration.md#configuration-and-initialization), [service installation](installation.md#linux-services-and-command-environment), and [post-start checks](installation.md#post-startup-checks), in that order.
+
+## Native macOS execution
+
+Runtime supports macOS ARM64 and AMD64. Workspaces, file tools, attachments, and memory are independent of command execution; `sandbox.enabled: false` disables only local commands. macOS does not provide isolated Shell, cgroup quotas, managed browser tasks, or isolated audio/video decoding. The release downloader and `molr-setup` installation, updates, and uninstall support macOS; see the [installation guide](installation.md#macos-command-line-installation). In-app updates remain unavailable; this section is for source development.
+
+After building, create a separate configuration and replace all absolute paths. Minimal local configuration:
+
+```json
+{
+  "data_dir": "/Users/example/Library/Application Support/Molr/data",
+  "http": {
+    "listen": "127.0.0.1:8080",
+    "public_url": "http://127.0.0.1:8080",
+    "tls_mode": "local"
+  },
+  "sandbox": { "enabled": false }
+}
+```
+
+Initialize and start from the repository root:
+
+```bash
+.cache/build/molr bootstrap -config /absolute/path/server.json
+.cache/build/molr serve -config /absolute/path/server.json
+```
+
+See [WebUI](../../../../apps/webui/README.md) for frontend development. To serve built pages from Runtime, copy the contents of `apps/webui/dist/` into `runtime/internal/webassets/dist/` and rebuild with `go build -tags webui`.
+
+For local commands, explicitly set `sandbox.enabled: true` and `sandbox.allow_full_access: true`, then grant Full Access to the assistant. It uses the service account's file and network permissions without process, file, or network isolation or compute hard quotas. Failed isolated calls never fall back to direct execution. The command working directory accepts the `/work` alias; scripts use actual paths or `$MOLR_WORKSPACE` and `$MOLR_GLOBAL`. Arbitrary script text is not rewritten.
+
+For persistent operation, configure an administrator-managed launchd service. Set `ProgramArguments` to the binary, `serve`, `-config`, and the absolute configuration path. Set `WorkingDirectory`, log paths, and `PATH` explicitly because launchd does not read interactive shell configuration. The service account must have access to its own configuration and data. For upgrades, stop this instance, atomically replace its executable, and restart while preserving configuration, database, and keys.
+
+After startup, authenticate and inspect `/api/sandbox`: with commands disabled, require `Enabled=false` and `Storage=true`; with Full Access enabled, require `Capabilities.FullAccess=true`. Isolation capabilities remain false and `Reason=sandbox_platform_unsupported` describes the missing isolation backend. Validate chat, files, memory, terminals, and revocation natively on a Mac. Remote execution nodes remain Linux-only; native macOS Runtime support does not imply support for remote macOS nodes.
 
 ## Build Release Packages
 

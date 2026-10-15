@@ -292,7 +292,7 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/platform` | `ConfiguredHTTPClient` | `TestConfiguredHTTPClientPinsExplicitLocalSource` |
 | `internal/platform/sandbox` | `Runner.GPUs` | `TestLinuxGPUIsolation` |
 | `internal/installation` | `Run`, `VerificationPending.Error` | `TestCommandHelpAndVersionWithoutPackage` |
-| `internal/installation` | `ComponentError.Error`, `Task.Active` | `TestComponentDownloadChecksDigestSizeAndSource`, `TestMaintenanceLockSerializesCLIAndRuntime` |
+| `internal/maintenance` | `ComponentError.Error`, `Task.Active` | `internal/installation.TestComponentDownloadChecksDigestSizeAndSource`, `internal/installation.TestMaintenanceLockSerializesCLIAndRuntime` |
 | `internal/installation` | `NewMaintenance`, `Maintenance.CanUpdate`, `Maintenance.Cancel`, `Maintenance.Enabled`, `Maintenance.Latest`, `Maintenance.Programs`, `Maintenance.ProtectedRoots`, `Maintenance.Snapshot`, `Maintenance.Start`, `Maintenance.Task` | `TestUnmanagedMaintenanceFailsClosed`, `internal/app.TestMaintenanceAPIRequiresAuthenticationCSRFAndKnownRequests` |
 | `internal/installrecord` | `Instance`, `Read`, `Record.File`, `Record.UpdateSource`, `Record.Validate` | `TestReceiptRejectsUnrelatedPathsAndWritableRecords` |
 
@@ -310,3 +310,8 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 
 | `internal/api` | `WorkspaceService.Query`, `WorkspaceService.Upload`, `WorkspaceService.Download` | `internal/app.TestWorkspaceExplorerLifecycleAndConflict`, `internal/app.TestWorkspaceExplorerConfinementAndLimits`, `internal/app.TestWorkspaceExplorerPaginationAndExternalEdits` |
 | `internal/textfiles` | `MakeDirectory` | `internal/app.TestWorkspaceExplorerLifecycleAndConflict` |
+
+| `internal/maintenance` | `Service.CanUpdate`, `Service.Cancel`, `Service.Enabled`, `Service.Latest`, `Service.Programs`, `Service.ProtectedRoots`, `Service.Snapshot`, `Service.Start`, `Service.Task`, `Unavailable.CanUpdate`, `Unavailable.Cancel`, `Unavailable.Enabled`, `Unavailable.Latest`, `Unavailable.Programs`, `Unavailable.ProtectedRoots`, `Unavailable.Snapshot`, `Unavailable.Start`, `Unavailable.Task` | `TestUnavailableMaintenanceDoesNotOfferOrStartHostOperations`, `internal/app.TestMaintenanceAPIRequiresAuthenticationCSRFAndKnownRequests` |
+| `internal/textfiles` | `Supported`, `SystemPath` | `internal/app.TestBuildRealMessageAgentAndRestart`, `TestPinnedFileLifecycleAndVersions`, `internal/app.TestResourceFileRejectsLinksAndSpecialFilesBeforeMutation` |
+
+| `internal/textfiles` | `Overlaps` | `TestProtectedPathsRejectAliasesAndDescendants`, `internal/app.TestDirectoryResourcesRejectProtectedCaseAliases` |

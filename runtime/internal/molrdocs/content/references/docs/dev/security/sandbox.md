@@ -1,12 +1,21 @@
 # Agent Shell 沙盒实现与边界
 
-更新：2026-10-01。状态：Linux Shell 已支持前台、后台和 TTY 会话。本文保留架构与跨平台演进设计；当前配置、限制和部署步骤以 [Linux Sandbox 使用说明](https://molr.ai/zh/docs/admin/sandbox/linux/) 为准。Windows/macOS 尚未实现。
+更新：2026-10-01。状态：Linux Shell 已支持前台、后台和 TTY 会话。本文保留架构与跨平台演进设计；当前配置、限制和部署步骤以 [Linux Sandbox 使用说明](https://molr.ai/zh/docs/admin/sandbox/linux/) 为准。macOS 已支持本机安全文件操作与显式 Full Access，隔离执行和 Windows 后端尚未实现。
+
+
+## 平台边界
+
+基础文件能力与命令执行分开报告。`textfiles/files_unix.go` 维护公共文件版本、授权重查和原子提交；Linux 使用 `openat2`，macOS 使用 `O_NOFOLLOW_ANY` 在内核路径解析时拒绝所有组件的符号链接，并使用排他 rename。仅识别 macOS 固定系统目录别名，不放行工作区或外部资源中的用户符号链接。硬链接和特殊文件检查继续保留。受保护目录的重叠检查同时比较文件身份，防止大小写或系统别名暴露 Runtime 私有目录。
+
+`direct_unix.go` 共享直接执行的授权、输出、截止时间和任务生命周期；进程属性及 PTY 初始化分别由 Linux/macOS 文件提供。普通隔离执行仍由 Linux 后端完成，系统不支持时明确失败。`maintenance.Service` 将 Runtime 与安装器解耦：Linux 接入现有维护程序，其他平台明确返回维护不可用，不阻止核心服务启动。平台选择集中在构建约束及装配入口；业务文件能力检查使用后端能力而非系统名称。
+
+原生运行与当前限制见[macOS 源码部署](https://molr.ai/zh/docs/admin/deployment/source-build/#macos-原生运行)。
 
 ## Full Access 权限与双路径执行
 
 以下隔离机制适用于普通调用。`sandbox.allow_full_access` 默认 false；开启后，同一 Runner 可并发处理普通隔离调用和显式 Full Access 调用。节点没有全局执行模式。Full Access 必须同时满足部署允许、用户组允许（管理员默认允许）、有效的 `Scope.FullAccess` 计算授权和本次 `full_access: true`。
 
-`direct_linux.go` 在服务环境中直接执行 `/bin/sh`，继承环境并设置 `MOLR_WORKSPACE`，支持后台、TTY、输入、取消和端口转发；不创建 namespace、seccomp、cgroup 或资源限额，不承诺文件、网络和进程隔离。文件工具使用绝对路径或工作区别名。Full Access 不依赖普通计算、文件、网络授权，不计入普通任务十个并发上限。调用者显式设置的超时、授权期限、输出分页和 API 请求大小边界仍保留；这些是调用生命周期和协议边界，不是资源配额。
+`direct_unix.go` 在服务环境中直接执行 `/bin/sh`，继承环境并设置 `MOLR_WORKSPACE`，支持后台、TTY、输入、取消和端口转发；不创建 namespace、seccomp、cgroup 或资源限额，不承诺文件、网络和进程隔离。文件工具使用绝对路径或工作区别名。Full Access 不依赖普通计算、文件、网络授权，不计入普通任务十个并发上限。调用者显式设置的超时、授权期限、输出分页和 API 请求大小边界仍保留；这些是调用生命周期和协议边界，不是资源配额。
 
 普通调用永不自动升级；两类计算授权独立匹配。直接执行定期重查授权，撤销、过期、助理停用和远程租约失效会取消任务及其进程组；不承诺对脱离进程组的恶意进程提供强制隔离。Full Access 撤销只停止对应路径，普通任务继续运行。`Capabilities.FullAccess` 单独探测，即便隔离准备失败仍可为 true；五项隔离能力与 Reason 继续如实反映普通路径。
 
@@ -165,10 +174,10 @@ Shell 有副作用。操作 ID、计划摘要与授权版本应在启动前持�
 | 平台 | 实现方向 | 必须独立验证的差异 |
 | --- | --- | --- |
 | Linux，一期 | Bubblewrap + seccomp + cgroup v2 + 受控出口 | user namespace、AppArmor、cgroup 委派、内核与 CPU 架构兼容 |
-| macOS，未来 | 评估 Seatbelt、受控 helper 与网络代理；必要时使用 Linux VM | 不直接假定有 Linux 式挂载和 cgroup 硬限额；App Sandbox 的签名/继承模型也不能直接替代任意脚本执行策略 |
+| macOS | 安全文件操作与显式 Full Access；隔离后端尚未实现 | 原生验证路径、文件锁、PTY 与撤权；直接执行不提供隔离和计算硬配额 |
 | Windows，未来 | 评估 AppContainer／受限身份、ACL、Job Object 与受控网络策略 | 任意 CLI 兼容性、句柄和文件权限、网络强制出口；Job Object 负责生命周期/资源管理，不能单独充当文件与网络沙盒 |
 
-Windows/macOS 暂仅返回不支持 Shell 沙盒；业务与权限结构仍可运行。WSL2 后端若未来提供，应明确显示为 Linux 执行环境，不算原生 Windows 后端。接口复用不代表各平台安全能力天然等价。[Microsoft AppContainer](https://learn.microsoft.com/en-us/windows/win32/secauthz/appcontainer-isolation) · [Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects) · [Apple App Sandbox 继承](https://developer.apple.com/library/archive/documentation/Miscellaneous/Reference/EntitlementKeyReference/Chapters/EnablingAppSandbox.html)
+macOS 的隔离 Shell 返回不支持，显式 Full Access 可用；Windows 后端尚未实现。WSL2 后端若未来提供，应明确显示为 Linux 执行环境，不算原生 Windows 后端。接口复用不代表各平台安全能力天然等价。[Microsoft AppContainer](https://learn.microsoft.com/en-us/windows/win32/secauthz/appcontainer-isolation) · [Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects) · [Apple App Sandbox 继承](https://developer.apple.com/library/archive/documentation/Miscellaneous/Reference/EntitlementKeyReference/Chapters/EnablingAppSandbox.html)
 
 ## 6. 部署与本机评估
 

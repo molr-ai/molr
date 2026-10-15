@@ -1,3 +1,5 @@
+//go:build linux || darwin
+
 package installation
 
 import (
@@ -13,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -45,7 +48,7 @@ func (e *Engine) verify(r *installrecord.Record, cfg map[string]any) (string, er
 	jar, _ := cookiejar.New(nil)
 	client := &http.Client{Transport: transport, Jar: jar, Timeout: 2 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	defer transport.CloseIdleConnections()
-	deadline := time.Now().Add(30 * time.Second)
+	deadline := time.Now().Add(90 * time.Second)
 	ready := false
 	for time.Now().Before(deadline) {
 		req, _ := http.NewRequestWithContext(e.Ctx, "GET", origin+"/", nil)
@@ -142,9 +145,10 @@ func (e *Engine) verify(r *installrecord.Record, cfg map[string]any) (string, er
 	}
 	var sandbox struct {
 		Enabled      bool
+		Storage      bool
 		Capabilities struct {
-			Reason                                                                   string
-			Shell, ProcessIsolation, FileIsolation, NetworkIsolation, ResourceLimits bool
+			Reason                                                                               string
+			FullAccess, Shell, ProcessIsolation, FileIsolation, NetworkIsolation, ResourceLimits bool
 		}
 	}
 	if err = call("GET", "/api/sandbox", nil, &sandbox); err != nil {
@@ -157,7 +161,11 @@ func (e *Engine) verify(r *installrecord.Record, cfg map[string]any) (string, er
 		}
 	}
 	c := sandbox.Capabilities
-	if wanted && (!sandbox.Enabled || c.Reason != "available" || !c.Shell || !c.ProcessIsolation || !c.FileIsolation || !c.NetworkIsolation || !c.ResourceLimits) {
+	if runtime.GOOS == "darwin" {
+		if !sandbox.Storage || sandbox.Enabled != wanted || (wanted && !c.FullAccess) {
+			return "", fmt.Errorf("macOS storage/execution verification failed: %s", c.Reason)
+		}
+	} else if wanted && (!sandbox.Enabled || c.Reason != "available" || !c.Shell || !c.ProcessIsolation || !c.FileIsolation || !c.NetworkIsolation || !c.ResourceLimits) {
 		return "", fmt.Errorf("sandbox verification failed: %s", c.Reason)
 	}
 	r.Health = "verified"
@@ -180,13 +188,17 @@ func (e *Engine) verify(r *installrecord.Record, cfg map[string]any) (string, er
 	return fmt.Sprintf("%s/#/login?token=%s", origin, url.QueryEscape(link.Value)), nil
 }
 func (e *Engine) openBrowser(link string, system bool) {
-	if !e.UI.interactive() || e.Options.NoBrowser || system || os.Getenv("SSH_CONNECTION") != "" || (os.Getenv("DISPLAY") == "" && os.Getenv("WAYLAND_DISPLAY") == "") {
+	if !e.UI.interactive() || e.Options.NoBrowser || system || os.Getenv("SSH_CONNECTION") != "" || (runtime.GOOS != "darwin" && os.Getenv("DISPLAY") == "" && os.Getenv("WAYLAND_DISPLAY") == "") {
 		return
 	}
-	if _, err := exec.LookPath("xdg-open"); err != nil {
+	opener := "xdg-open"
+	if runtime.GOOS == "darwin" {
+		opener = "/usr/bin/open"
+	}
+	if _, err := exec.LookPath(opener); err != nil {
 		return
 	}
-	cmd := exec.Command("xdg-open", link)
+	cmd := exec.Command(opener, link)
 	if cmd.Start() == nil {
 		go cmd.Wait()
 	}

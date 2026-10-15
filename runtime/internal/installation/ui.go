@@ -1,3 +1,5 @@
+//go:build linux || darwin
+
 package installation
 
 import (
@@ -22,7 +24,7 @@ func newUI(mode string, dry bool, out, diagnostics io.Writer) (*UI, error) {
 	u := &UI{Out: out, Err: diagnostics, Stage: "Read options", State: "No installation changes made."}
 	if mode != "non-interactive" && !dry {
 		if f, err := os.OpenFile("/dev/tty", os.O_RDWR, 0); err == nil {
-			if _, err = unix.IoctlGetTermios(int(f.Fd()), unix.TCGETS); err == nil {
+			if _, err = unix.IoctlGetTermios(int(f.Fd()), terminalGet); err == nil {
 				u.Terminal = f
 				u.reader = bufio.NewReader(f)
 			} else {

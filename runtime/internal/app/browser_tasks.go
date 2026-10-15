@@ -18,7 +18,7 @@ import (
 	"molr.ai/runtime/internal/browser"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/event"
-	"molr.ai/runtime/internal/installation"
+	"molr.ai/runtime/internal/maintenance"
 	"molr.ai/runtime/internal/persistence"
 )
 
@@ -49,7 +49,7 @@ func (s *shellTasks) browserPrograms() (*tools.BrowserLaunch, error) {
 		if err == nil {
 			return &tools.BrowserLaunch{AgentDirectory: agent, ChromiumDirectory: chrome}, nil
 		}
-		var unavailable *installation.ComponentError
+		var unavailable *maintenance.ComponentError
 		if !errors.As(err, &unavailable) || unavailable.Code != "maintenance_not_installed" {
 			return nil, core.WithReason(core.NewError(core.FailedPrecondition, "Install the compatible browser components before starting."), "browser_programs_unavailable")
 		}

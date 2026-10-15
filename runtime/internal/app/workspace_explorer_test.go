@@ -96,9 +96,7 @@ func TestWorkspaceExplorerConfinementAndLimits(t *testing.T) {
 	}
 	s.ad.storageConfig.Enabled = false
 	_, err = s.Query(t.Context(), f.owner, id, api.WorkspaceRequest{Action: "list"})
-	if core.ReasonOf(err) != "sandbox_disabled" {
-		t.Fatalf("disabled sandbox: %v", err)
-	}
+	need(t, err) // File access remains available when command execution is disabled.
 }
 func TestWorkspaceExplorerPaginationAndExternalEdits(t *testing.T) {
 	f := newResourceAccessFixture(t, nil)

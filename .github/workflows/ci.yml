@@ -49,8 +49,39 @@ jobs:
           path: dist/releases/*
           if-no-files-found: error
           retention-days: 7
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, macos-15-intel]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.21.0'
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: runtime/.go-version
+          cache-dependency-path: runtime/go.sum
+      - run: npm ci
+      - name: Native Runtime and Full Access tests
+        working-directory: runtime
+        env:
+          CGO_ENABLED: '0'
+        run: |
+          go test -p 4 ./...
+          go vet ./...
+          go build ./...
+      - run: npm run build:release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ci-install-darwin-${{ runner.arch == 'X64' && 'amd64' || 'arm64' }}
+          path: dist/releases/*
+          if-no-files-found: error
+          retention-days: 7
   installer-acceptance:
-    needs: checks
+    needs: [checks, macos]
     uses: ./.github/workflows/installer-acceptance.yml
     with:
       artifact-prefix: ci-install-

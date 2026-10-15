@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http/httptest"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -19,6 +20,9 @@ import (
 )
 
 func TestSandboxPresentationPreservesCredentialsAndOwnerBoundary(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("requires an in-process Linux remote server; covered by Linux CI")
+	}
 	f := newResourceAccessFixture(t, func(cfg *config.Config, _ string) { cfg.Sandbox.Enabled = false })
 	cfg := testConfig(t)
 	root := t.TempDir()

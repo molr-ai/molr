@@ -1,4 +1,4 @@
-//go:build linux && (amd64 || arm64)
+//go:build (linux && (amd64 || arm64)) || darwin
 
 package sandbox
 
@@ -21,7 +21,7 @@ func TestDirectTerminalAndCancel(t *testing.T) {
 	if err != nil || !caps.FullAccess || caps.Shell {
 		t.Fatal(caps, err)
 	}
-	e := probeExecution()
+	e := testExecution()
 	p, err := r.Start(t.Context(), e, platform.Command{FullAccess: true, Script: "read value; printf 'reply:%s\\n' \"$value\"", TTY: true, MaxOutputBytes: 4096})
 	if err != nil {
 		t.Fatal(err)
@@ -56,7 +56,7 @@ func TestDirectTerminalAndCancel(t *testing.T) {
 func TestIsolatedNeverFallsBackToDirect(t *testing.T) {
 	r := New(Options{QuotaStore: quotaTestStore(t), PrivateRoot: t.TempDir(), Bwrap: "/does-not-exist", Authorize: func(context.Context, core.Execution, platform.Command) error { return nil }})
 	defer r.Close()
-	if _, err := r.Start(t.Context(), probeExecution(), platformProbe()); err == nil {
+	if _, err := r.Start(t.Context(), testExecution(), testCommand()); err == nil {
 		t.Fatal("unavailable isolation executed on host")
 	}
 }
@@ -70,7 +70,7 @@ func TestDirectRevocationStopsRunningCommand(t *testing.T) {
 		return nil
 	}})
 	defer r.Close()
-	p, err := r.Start(t.Context(), probeExecution(), platform.Command{FullAccess: true, Script: "sleep 3600", MaxOutputBytes: 4096})
+	p, err := r.Start(t.Context(), testExecution(), platform.Command{FullAccess: true, Script: "sleep 3600", MaxOutputBytes: 4096})
 	if err != nil {
 		t.Fatal(err)
 	}

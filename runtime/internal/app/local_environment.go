@@ -5,8 +5,8 @@ import (
 	"molr.ai/runtime/internal/config"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/platform"
+	"molr.ai/runtime/internal/textfiles"
 	"path/filepath"
-	"runtime"
 )
 
 // Agent identity and all automatic sources live on this Runtime. Compute
@@ -17,7 +17,7 @@ func localEnvironment(cfg config.Config) func(context.Context) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if !cfg.Sandbox.Enabled || runtime.GOOS != "linux" {
+		if !textfiles.Supported() {
 			return core.WithReason(core.NewError(core.Unavailable, "local file environment unavailable"), "local_environment_unavailable")
 		}
 		dir, err := openResourceDirectory(root, ".")

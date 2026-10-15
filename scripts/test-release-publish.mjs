@@ -57,7 +57,7 @@ test('publication resumes an interrupted draft, refuses overwrites, and never pu
     assert.notEqual(run({ FAIL_UPLOAD: '1' }).status, 0);
     let s = JSON.parse(readFileSync(state)); assert(s.release.draft); assert.equal(s.release.assets.length, 2);
     let result = run(); assert.equal(result.status, 0, result.stderr);
-    s = JSON.parse(readFileSync(state)); assert.equal(s.release.draft, false); assert.equal(s.release.assets.length, 5);
+    s = JSON.parse(readFileSync(state)); assert.equal(s.release.draft, false); assert.equal(s.release.assets.length, 1 + m.platforms.length * 2);
     assert(s.bodies.filter(b => b.draft === false).every(b => b.make_latest === 'false'));
     result = run(); assert.equal(result.status, 0, result.stderr);
     const before = JSON.parse(readFileSync(state)).release;

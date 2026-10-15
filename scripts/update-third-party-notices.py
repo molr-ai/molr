@@ -43,7 +43,7 @@ def block(label, text):
 
 def generate():
     parts = ['\n## Dependency license texts\n\n'
-             'This is a superset for Molr frontend distributions and Linux Runtime builds; '
+             'This is a superset for Molr frontend distributions and Linux/macOS Runtime builds; '
              'not every component is present in every artifact. Original licenses apply '
              'only to their respective components. Vite/Rolldown notices are included for generated runtime helpers; the build tools themselves are not shipped.\n']
     lock = json.loads((ROOT / 'package-lock.json').read_text())
@@ -91,10 +91,10 @@ def generate():
     parts.append(f'\nSource: https://go.dev/dl/#go{version}\n')
     for path in documents(goroot):
         parts.append(block(path.name, path.read_text()))
-    # Include more-specific notices above packages compiled on either supported CPU.
+    # Include more-specific notices above packages compiled on each supported Runtime OS and CPU.
     specific = set()
-    for arch in ('amd64', 'arm64'):
-        for package in stream_json(run('list', '-deps', '-json', './cmd/molr', './cmd/molr-setup', GOARCH=arch)):
+    for goos, arch in (('linux', 'amd64'), ('linux', 'arm64'), ('darwin', 'amd64'), ('darwin', 'arm64')):
+        for package in stream_json(run('list', '-deps', '-json', './cmd/molr', './cmd/molr-setup', GOOS=goos, GOARCH=arch)):
             directory = Path(package['Dir'])
             module = package.get('Module')
             if module and module.get('Main'):
@@ -124,7 +124,7 @@ def main():
     if args.check:
         if current != updated:
             raise SystemExit('Third-party notices are stale; review dependencies and run npm run notices:update.')
-        print('Third-party notice texts match installed locked dependencies (linux/amd64 and linux/arm64).')
+        print('Third-party notice texts match installed locked dependencies (Linux/macOS, amd64/arm64).')
     else:
         path.write_text(updated)
         print(f'Updated {path.name} ({len(updated.encode())} bytes).')

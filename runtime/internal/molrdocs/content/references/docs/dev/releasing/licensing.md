@@ -1,12 +1,12 @@
 # MIT 许可证与第三方分发
 
-依赖许可审查日期：2026-10-07；工作区清单核对日期：2026-10-08。本文说明当前 MIT 授权范围、第三方兼容性、通知交付及不附带 BusyBox 的发行流程。
+依赖许可审查日期：2026-10-15；工作区清单核对日期：2026-10-15。本文说明当前 MIT 授权范围、第三方兼容性、通知交付及不附带 BusyBox 的发行流程。
 
 ## 授权范围与目录约定
 
 Molr 自有代码、文档和原创资源采用根目录 [MIT License](https://github.com/molr-ai/molr/blob/main/LICENSE)。第三方代码、字体和品牌标志保留各自许可，不被重新授权为 MIT。根目录和六个 npm 工作区的 `license` 字段只描述 Molr 自有内容。
 
-**不建立第三方源码目录，也不使用 Git submodule。** 完整的原始许可证、版权声明、必要 NOTICE 和对应源码入口集中放在 [THIRD_PARTY_NOTICES.md](https://github.com/molr-ai/molr/blob/main/THIRD_PARTY_NOTICES.md)。该文件适用于当前前端与 Linux Runtime 分发内容的并集；列出某个组件不代表每个产物都包含它。
+**不建立第三方源码目录，也不使用 Git submodule。** 完整的原始许可证、版权声明、必要 NOTICE 和对应源码入口集中放在 [THIRD_PARTY_NOTICES.md](https://github.com/molr-ai/molr/blob/main/THIRD_PARTY_NOTICES.md)。该文件适用于当前前端与 Linux/macOS Runtime 分发内容的并集；列出某个组件不代表每个产物都包含它。
 
 `package-lock.json` 和 `runtime/go.mod` 继续管理依赖版本。submodule 不能替代给二进制用户交付许可证；依赖上游的许可证也不因使用 npm/Go 包管理器而自动出现在最终产物中。
 
@@ -31,9 +31,11 @@ Molr 自有代码、文档和原创资源采用根目录 [MIT License](https://g
 | GitHub 标志 | 用于官网 GitHub 项目链接，属于官方允许的常见用途；保留品牌授权例外，不暗示背书。现有链接指向 `https://github.com/molr-ai/molr`，不把它当成 Molr MIT 资源或开源阻碍 |
 | BusyBox / Bubblewrap / 可选宿主工具 | 当前发行包不携带这些二进制；由用户系统提供，安装器可按授权通过 apt 安装。以后分发含这些程序的容器/rootfs，需要单独履行对应源码等义务 |
 
+本次平台适配未新增 Go/npm 模块。Go 工具链更新至 1.27.2，与 1.27.1 的根 LICENSE 正文相同；四个平台目标的声明生成结果未增加或更改依赖许可证正文。macOS 系统运行库由操作系统提供，不复制进 Molr 产物。
+
 ## 清单与维护
 
-[license-inventory.json](https://github.com/molr-ai/molr/blob/main/docs/dev/releasing/license-inventory.json) 记录 337 条 npm 第三方安装位置记录和 22 个 Go 模块，覆盖直接、传递、开发及平台可选依赖；六个工作区链接不计入第三方记录。Linux x64 实际安装 301 个位置；其他 36 个平台可选构建工具按同版本包族及锁文件核对，未逐个检验其二进制。当前 Linux amd64 Runtime 引用其中 20 个 Go 模块；通知收集另外遍历 amd64/arm64 的实际依赖包目录，保留更具体的嵌套许可证。
+[license-inventory.json](https://github.com/molr-ai/molr/blob/main/docs/dev/releasing/license-inventory.json) 记录 337 条 npm 第三方安装位置记录和 22 个 Go 模块，覆盖直接、传递、开发及平台可选依赖；六个工作区链接不计入第三方记录。Linux x64 实际安装 301 个位置；其他 36 个平台可选构建工具按同版本包族及锁文件核对，未逐个检验其二进制。当前 Linux amd64 Runtime 引用其中 20 个 Go 模块；通知收集遍历 Linux/macOS 的 amd64/arm64 实际依赖包目录，保留更具体的嵌套许可证。
 
 更新方式：
 

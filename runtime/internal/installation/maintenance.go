@@ -1,3 +1,5 @@
+//go:build linux || darwin
+
 package installation
 
 import (
@@ -8,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"molr.ai/runtime/internal/maintenance"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -19,22 +22,7 @@ import (
 )
 
 // Task is an installer-owned receipt, never an executable request.
-type Task struct {
-	ID         string     `json:"id"`
-	Operation  string     `json:"operation"`
-	Component  string     `json:"component,omitempty"`
-	Target     string     `json:"target,omitempty"`
-	State      string     `json:"state"`
-	Stage      string     `json:"stage"`
-	Downloaded int64      `json:"downloaded,omitempty"`
-	Total      int64      `json:"total,omitempty"`
-	ErrorCode  string     `json:"error_code,omitempty"`
-	StartedAt  time.Time  `json:"started_at"`
-	UpdatedAt  time.Time  `json:"updated_at"`
-	FinishedAt *time.Time `json:"finished_at,omitempty"`
-}
-
-func (t Task) Active() bool { return t.State == "running" }
+type Task = maintenance.Task
 
 var taskIDPattern = regexp.MustCompile(`^[a-f0-9]{32}$`)
 

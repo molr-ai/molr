@@ -1,3 +1,5 @@
+//go:build linux || darwin
+
 // Package installation implements package-local setup and installed-instance maintenance.
 package installation
 
@@ -177,6 +179,10 @@ func Run(ctx context.Context, args []string, input io.Reader, out, diagnostics i
 	if err != nil {
 		return err
 	}
+	executable, err = filepath.EvalSymlinks(executable)
+	if err != nil {
+		return err
+	}
 	e := &Engine{Ctx: ctx, Options: o, UI: ui, Input: input, Executable: executable, Root: filepath.Dir(filepath.Dir(executable)), Build: buildinfo.Current(), Command: command}
 	defer func() {
 		if e.lock != nil {
@@ -218,7 +224,7 @@ func (e *Engine) packageAt(root string) (*Package, error) {
 		return nil, fmt.Errorf("package identity does not match molr-setup")
 	}
 	for _, name := range []string{"molr", "molr-setup"} {
-		if err = staticELF(filepath.Join(root, "bin", name), b.Arch); err != nil {
+		if err = checkExecutable(filepath.Join(root, "bin", name), b.Arch); err != nil {
 			return nil, err
 		}
 	}
@@ -313,6 +319,13 @@ func (e *Engine) execute() error {
 }
 func (e *Engine) maintenance(r *installrecord.Record) error {
 	e.UI.print("Instance: %s\nVersion: %s\nState: %s\nProgram: %s\nUpdates: %s", r.Name, r.Build.Version, r.State, r.Paths.Program, r.UpdateSource())
+	if e.Options.Command == "status" && !e.Options.DryRun {
+		state, err := e.unitState(r)
+		if err != nil {
+			return err
+		}
+		e.UI.print("Service: %s (%s), PID: %s", state["ActiveState"], state["LoadState"], state["MainPID"])
+	}
 	if e.Options.Command == "status" || e.Options.DryRun || !e.UI.interactive() {
 		return nil
 	}
@@ -338,39 +351,6 @@ func (e *Engine) maintenance(r *installrecord.Record) error {
 		return fmt.Errorf("unknown maintenance choice")
 	}
 }
-func layout(name, home string, system bool, programRoot string) (installrecord.Paths, string, error) {
-	instance, err := installrecord.Instance(name)
-	if err != nil {
-		return installrecord.Paths{}, "", err
-	}
-	envPath := func(key, fallback string) string {
-		if v := os.Getenv(key); v != "" {
-			return v
-		}
-		return fallback
-	}
-	var p installrecord.Paths
-	if system {
-		if programRoot == "" {
-			programRoot = "/opt/molr"
-		}
-		p = installrecord.Paths{Program: filepath.Join(programRoot, instance), Config: filepath.Join("/etc/molr", instance), Data: filepath.Join("/var/lib/molr", instance), Cache: filepath.Join("/var/cache/molr", instance), Unit: filepath.Join("/etc/systemd/system", name+".service")}
-	} else {
-		if programRoot == "" {
-			programRoot = filepath.Join(home, ".local/lib/molr")
-		}
-		c := envPath("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
-		d := envPath("XDG_DATA_HOME", filepath.Join(home, ".local/share"))
-		k := envPath("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
-		p = installrecord.Paths{Program: filepath.Join(programRoot, instance), Config: filepath.Join(c, "molr", instance), Data: filepath.Join(d, "molr", instance), Cache: filepath.Join(k, "molr", instance), Unit: filepath.Join(c, "systemd/user", name+".service")}
-	}
-	for _, v := range []string{programRoot, p.Program, p.Config, p.Data, p.Cache, p.Unit} {
-		if err = checkPath(v); err != nil {
-			return p, "", err
-		}
-	}
-	return p, programRoot, nil
-}
 func (e *Engine) locate() (*installrecord.Record, error) {
 	a, err := currentAccount()
 	if err != nil {
@@ -387,6 +367,9 @@ var accountName = regexp.MustCompile(`^[a-z_][a-z0-9_.-]{0,31}$`)
 
 func (e *Engine) plan(pkg *Package, previous *installrecord.Record) (*Plan, error) {
 	o := e.Options
+	if runtime.GOOS == "darwin" && (o.User != "" || os.Geteuid() == 0) {
+		return nil, fmt.Errorf("macOS supports current-user installation; run without sudo or --user")
+	}
 	uid := os.Geteuid()
 	var r installrecord.Record
 	if previous != nil {
@@ -451,7 +434,7 @@ func (e *Engine) plan(pkg *Package, previous *installrecord.Record) (*Plan, erro
 		if _, err = os.Lstat(p.Unit); err == nil {
 			return nil, fmt.Errorf("unmanaged service exists: %s", p.Unit)
 		}
-		r = installrecord.Record{Schema: 1, State: "installing", Name: o.Name, User: a.Name, UID: a.UID, GID: a.GID, OwnerUID: uid, System: system, Paths: p, ProgramRoot: base, DataDir: p.Data, ManagedData: true, Updates: installrecord.Updates{Source: "https://molr.ai/releases", Channel: channelFor(pkg.Build.Version)}}
+		r = installrecord.Record{Home: a.Home, Schema: 1, State: "installing", Name: o.Name, User: a.Name, UID: a.UID, GID: a.GID, OwnerUID: uid, System: system, Paths: p, ProgramRoot: base, DataDir: p.Data, ManagedData: true, Updates: installrecord.Updates{Source: "https://molr.ai/releases", Channel: channelFor(pkg.Build.Version)}}
 	}
 	if r.OwnerUID != uid {
 		return nil, fmt.Errorf("installation owner mismatch")
@@ -495,6 +478,14 @@ func (e *Engine) plan(pkg *Package, previous *installrecord.Record) (*Plan, erro
 	}
 	if _, ok := sandbox["host_tools"]; !ok {
 		sandbox["host_tools"] = sandbox["rootfs"] == nil || sandbox["rootfs"] == ""
+	}
+	if runtime.GOOS == "darwin" {
+		if _, ok := sandbox["enabled"]; !ok {
+			sandbox["enabled"] = false
+		}
+		if sandbox["enabled"] == true && sandbox["allow_full_access"] != true {
+			return nil, fmt.Errorf("macOS command execution requires explicit sandbox.allow_full_access=true")
+		}
 	}
 	enabled := true
 	if v, ok := sandbox["enabled"]; ok {

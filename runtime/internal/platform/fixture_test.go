@@ -143,6 +143,11 @@ func init() {
 				if err != nil {
 					return false
 				}
+				if runtime.GOOS == "darwin" {
+					data, err := exec.Command("/bin/ps", "-p", strconv.Itoa(id), "-o", "stat=").Output()
+					state := strings.TrimSpace(string(data))
+					return err == nil && state != "" && !strings.HasPrefix(state, "Z")
+				}
 				data, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(id), "stat"))
 				if err != nil {
 					return false

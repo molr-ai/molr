@@ -30,7 +30,7 @@ func TestWorkspaceFileToolsNeedNoStorageOrComputeGrant(t *testing.T) {
 					cfg.Sandbox.WorkRoot = t.TempDir()
 				}
 			})
-			fs := &resourceFileTools{adapters: f.ad}
+			fs := &resourceFileTools{adapters: f.ad, router: f.b.remote}
 			ex := tools.NewExecutor(f.b.store, tools.Options{Authorizer: f.ad.policy, Operations: f.b.Services.Operations.(operation.Service), FileRead: fs.read, FileList: fs.list, FileWrite: fs.write, FileEdit: fs.edit})
 			call := func(name string, input any, id core.ID) (json.RawMessage, error) {
 				raw, _ := json.Marshal(input)
@@ -171,7 +171,7 @@ func TestWorkspaceContextAvailabilityAndStableContract(t *testing.T) {
 	fs.adapters.storageConfig.Enabled = false
 	disabled := read()
 	need(t, json.Unmarshal([]byte(disabled.Content), &value))
-	if value.Available || value.Reason != "sandbox_disabled" || first.Revision == disabled.Revision {
-		t.Fatal("disabled workspace still advertised", value)
+	if !value.Available || value.Reason != "" || first.Revision != disabled.Revision {
+		t.Fatal("disabling commands changed workspace availability", value)
 	}
 }

@@ -1,4 +1,4 @@
-//go:build linux && (amd64 || arm64)
+//go:build (linux && (amd64 || arm64)) || darwin
 
 package app
 
@@ -11,10 +11,12 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 
+	"molr.ai/runtime/internal/agent/operation"
 	"molr.ai/runtime/internal/agent/prompt"
 	"molr.ai/runtime/internal/agent/tools"
 	"molr.ai/runtime/internal/auth"
@@ -39,6 +41,35 @@ func directConfig(c *config.Config) {
 	c.Sandbox.MinFreeDiskBytes = 1 << 60
 	c.Sandbox.WorkspaceProjectQuotas = false
 }
+
+func TestFullAccessThroughToolExecutor(t *testing.T) {
+	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { directConfig(c) })
+	grants, err := persistence.Scan[policy.Grant](t.Context(), f.b.store, "security.grants")
+	need(t, err)
+	for _, g := range grants {
+		need(t, f.b.Services.Grants.Revoke(t.Context(), f.owner, policy.RevokeRequest{GrantID: g.ID, Mutation: core.Mutation{IdempotencyKey: "revoke-" + string(g.ID), ExpectedVersion: g.Version}}))
+	}
+	full, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: f.execution.AssistantID, ResourceID: f.compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true}, Mutation: core.Mutation{IdempotencyKey: "tool-full"}})
+	need(t, err)
+	executor := tools.NewExecutor(f.b.store, tools.Options{Authorizer: f.ad.policy, Operations: operation.NewService(f.b.store, operation.Options{Authorizer: f.ad.policy}), ShellExecute: f.b.shellTasks.execute})
+	call := tools.Call{Execution: f.execution, Name: "shell_execute", Arguments: json.RawMessage(fmt.Sprintf(`{"compute_id":%q,"script":"printf native-tool-ok","full_access":true}`, f.compute.ID))}
+	result, err := executor.Execute(t.Context(), call)
+	need(t, err)
+	if !strings.Contains(string(result.Content), "native-tool-ok") {
+		t.Fatal(string(result.Content))
+	}
+	call.Execution.OperationID = "ordinary-tool"
+	call.Arguments = json.RawMessage(fmt.Sprintf(`{"compute_id":%q,"script":"printf should-not-run"}`, f.compute.ID))
+	if _, err := executor.Execute(t.Context(), call); core.CodeOf(err) != core.Forbidden {
+		t.Fatal("Full Access must not authorize ordinary calls", err)
+	}
+	need(t, f.b.Services.Grants.Revoke(t.Context(), f.owner, policy.RevokeRequest{GrantID: full.ID, Mutation: core.Mutation{IdempotencyKey: "revoke-tool-full", ExpectedVersion: full.Version}}))
+	call.Execution.OperationID = "revoked-tool"
+	call.Arguments = json.RawMessage(fmt.Sprintf(`{"compute_id":%q,"script":"printf should-not-run","full_access":true}`, f.compute.ID))
+	if _, err := executor.Execute(t.Context(), call); core.CodeOf(err) != core.Forbidden {
+		t.Fatal("revoked Full Access executed", err)
+	}
+}
 func TestFullAccessLocalAndRemote(t *testing.T) {
 	for _, remote := range []bool{false, true} {
 		name := "local"
@@ -46,6 +77,9 @@ func TestFullAccessLocalAndRemote(t *testing.T) {
 			name = "remote"
 		}
 		t.Run(name, func(t *testing.T) {
+			if remote && runtime.GOOS != "linux" {
+				t.Skip("requires an in-process Linux remote server; covered by Linux CI")
+			}
 			f := newResourceAccessFixture(t, func(c *config.Config, _ string) { directConfig(c) })
 			router := f.b.shellTasks.router
 			files := &resourceFileTools{adapters: f.ad, router: router}

@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -97,6 +98,9 @@ func TestPermissionListReportsActualNetworkScopeBeforeAndAfterGrant(t *testing.T
 }
 
 func TestPermissionListUsesLiveRemoteNetworkRulesAndMarksOfflineUnknown(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("requires an in-process Linux remote server; covered by Linux CI")
+	}
 	f := newResourceAccessFixture(t, nil)
 	cfg := testConfig(t)
 	target := config.SandboxNetwork{Name: "remote-only", Protocols: []string{"udp"}, Addresses: []string{"10.99.0.0/16"}, Ports: []string{"1083-1085"}, ExcludeAddresses: []string{"10.99.0.2"}, ExcludePorts: []string{"1084"}}

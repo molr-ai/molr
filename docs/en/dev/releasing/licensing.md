@@ -1,12 +1,12 @@
 # MIT License and Third-Party Distribution
 
-Dependency license review date: 2026-10-07; workspace manifest verification date: 2026-10-08. This document explains the current scope of the MIT license, third-party compatibility, notice delivery, and the release process that does not bundle BusyBox.
+Dependency license review date: 2026-10-15; workspace manifest verification date: 2026-10-15. This document explains the current scope of the MIT license, third-party compatibility, notice delivery, and the release process that does not bundle BusyBox.
 
 ## License Scope and Directory Conventions
 
 Molr's own code, documentation, and original resources are licensed under the [MIT License](../../../../LICENSE) in the root directory. Third-party code, fonts, and brand logos retain their respective licenses and are not relicensed as MIT. The `license` field in the root directory and the six npm workspaces describes only Molr's own content.
 
-**No third-party source code directories are created, and Git submodules are not used.** Complete original licenses, copyright notices, required NOTICE files, and corresponding source code entries are centralized in [THIRD_PARTY_NOTICES.md](../../../../THIRD_PARTY_NOTICES.md). This file applies to the union of content distributed for the current frontend and Linux Runtime; listing a component does not imply that every artifact includes it.
+**No third-party source code directories are created, and Git submodules are not used.** Complete original licenses, copyright notices, required NOTICE files, and corresponding source code entries are centralized in [THIRD_PARTY_NOTICES.md](../../../../THIRD_PARTY_NOTICES.md). This file applies to the union of content distributed for the current frontend and Linux/macOS Runtime; listing a component does not imply that every artifact includes it.
 
 `package-lock.json` and `runtime/go.mod` continue to manage dependency versions. Submodules cannot replace delivering licenses to binary users; upstream licenses do not automatically appear in final artifacts simply because npm/Go package managers are used.
 
@@ -31,9 +31,11 @@ Under the current usage patterns of standalone applications, library calls, and 
 | GitHub logo | Used for GitHub project links on the official website, belonging to commonly allowed official uses; retain brand authorization exceptions, do not imply endorsement. Existing links point to `https://github.com/molr-ai/molr`, do not treat it as Molr MIT resource or open source obstacle |
 | BusyBox / Bubblewrap / Optional host tools | Current release packages do not carry these binaries; provided by user system, installer can install via apt according to authorization. If containers/rootfs containing these programs are distributed in the future, corresponding source code obligations need to be fulfilled separately |
 
+This platform adaptation adds no Go/npm modules. Go is updated to 1.27.2; its root LICENSE is identical to 1.27.1. Notice generation for all four targets adds or changes no dependency license text. macOS system libraries are supplied by the operating system and are not copied into Molr artifacts.
+
 ## Inventory and Maintenance
 
-[license-inventory.json](../../../dev/releasing/license-inventory.json) records 337 npm third-party installation location records and 22 Go modules, covering direct, transitive, development, and platform-optional dependencies; the six workspace links are not counted as third-party records. Linux x64 actually installs 301 locations; the other 36 platform-optional build tools are verified against the same version package family and lock file, without individually verifying their binaries. The current Linux amd64 Runtime references 20 of these Go modules; notice collection additionally traverses the actual dependency package directories for amd64/arm64, retaining more specific nested licenses.
+[license-inventory.json](../../../dev/releasing/license-inventory.json) records 337 npm third-party installation location records and 22 Go modules, covering direct, transitive, development, and platform-optional dependencies; the six workspace links are not counted as third-party records. Linux x64 actually installs 301 locations; the other 36 platform-optional build tools are verified against the same version package family and lock file, without individually verifying their binaries. The current Linux amd64 Runtime references 20 of these Go modules; notice collection traverses the actual Linux/macOS dependency package directories for amd64/arm64, retaining more specific nested licenses.
 
 Update method:
 

@@ -24,7 +24,7 @@ The backend does not load third-party business modules. New built-in tools, conn
 
 Agents can already run scripts in approved Linux sandboxes and read project instructions and Skills from their own workspaces; this is different from dynamically installing Go modules for the Runtime. The client already has SDKs, built-in themes, and plugin theme mechanisms; administrators can import local ZIP plugin packages or add them from public HTTPS links, and authorize their activation. See [Context Updates](../runtime/agent-context.md) and [UI Package Design](../frontend/themes.md) for details.
 
-Currently, only single-instance operation is designed; there is no multi-replica scheduling, automatic takeover across Runtimes, service discovery, or PostgreSQL adaptation. macOS/Windows cannot be considered to have implemented directory tools and Shell isolation equivalent to Linux.
+Currently, only single-instance operation is designed; there is no multi-replica scheduling, automatic takeover across Runtimes, service discovery, or PostgreSQL adaptation. macOS supports confined file tools and explicit Full Access, without Linux Shell isolation. The Windows backend is not implemented.
 
 ## Storage and Recovery Principles
 

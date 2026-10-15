@@ -59,10 +59,10 @@ func TestBuiltinDocsWithoutSandbox(t *testing.T) {
 		}
 	}
 	_, err = files.read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: tools.FileTarget{Path: "/work/MEMORY.md"}})
-	if core.ReasonOf(err) != "sandbox_disabled" {
-		t.Fatal("documentation enabled workspace access", err)
+	if core.CodeOf(err) != core.NotFound {
+		t.Fatal("missing workspace file should be reported with commands disabled", err)
 	}
-	// Large documentation stays inline even when no workspace can store overflow.
+	// Built-in documentation remains inline independently of command execution.
 	raw, err = files.read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: tools.FileTarget{Path: "/molr/.agents/skills/molr-docs/references/docs/dev/reference/http-api.md"}, Limit: 2000})
 	need(t, err)
 	if len(raw) > toolInlineLimit {

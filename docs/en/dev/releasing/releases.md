@@ -1,6 +1,6 @@
 # Release Maintenance
 
-Release packages are stored in GitHub Releases. The official website and release manifests are deployed together as static resources via Cloudflare Workers. The current artifact is a Linux Runtime with an embedded WebUI; platform and environment requirements are uniformly defined in [`release/platforms.json`](../../../../release/platforms.json).
+Release packages are stored in GitHub Releases. The official website and release manifests are deployed together as static resources via Cloudflare Workers. The current artifacts are Linux/macOS Runtime packages with an embedded WebUI; platform and environment requirements are uniformly defined in [`release/platforms.json`](../../../../release/platforms.json).
 
 ## Initial Enablement
 
@@ -45,9 +45,9 @@ Tags for official, beta, and rc must point to commits within the `main` history.
 
 ## Release Steps and Failure Recovery
 
-Both entry points share `release-build.yml`: fixed commit → basic checks and tests → platform matrix static build → native installation, reinstallation, authentication, and sandbox acceptance → aggregate artifacts → create draft → upload and verify attachments → publish → verify public attachments → deploy official website.
+Both entry points share `release-build.yml`: fixed commit → basic checks and tests → platform matrix build → native installation, reinstallation, authentication, and sandbox acceptance → aggregate artifacts → create draft → upload and verify attachments → publish → verify public attachments → deploy official website.
 
-Builds require a clean checkout, the repository-specified Go version and `CGO_ENABLED=0`, checking actual static linking, architecture, VCS commit, and `vcs.modified=false`. Build time is taken from the commit time; tar timestamps, user, and group information are fixed to facilitate retries for the same commit. Both architectures must succeed; runners lacking sandbox capabilities will fail, without lowering acceptance requirements. Local builds such as `0.1.0-local` allow uncommitted modifications and do not enter the official release manifest.
+Builds require a clean checkout, the repository-specified Go version and `CGO_ENABLED=0`, checking Linux static ELF or macOS Mach-O with valid code signatures, architecture, VCS commit, and `vcs.modified=false`. Build time is taken from the commit time; tar timestamps, user, and group information are fixed to facilitate retries for the same commit. All four platform targets must succeed. Linux requires isolation; macOS verifies its documented capabilities through native installation, not compilation alone. Local builds such as `0.1.0-local` allow uncommitted modifications and do not enter the official release manifest.
 
 Release attachments include packages for two architectures and SHA-256, source packages and SHA-256 that have passed source release checks, and `manifest.json`. The website serves the shared `install.sh` downloader, which verifies the package and invokes its installer. Releases do not attach the script or record its URL and digest in the manifest. Manual installation verifies and extracts the archive, then runs `./bin/molr-setup`. Versions and attachments remain immutable. If an attachment with the same name exists, only content with the same digest is accepted, without overwriting; versions with the same commit that have already been published skip the build directly. Draft creation uses the release ID returned by the GitHub API; uploads and publication use that ID without requiring the new draft to appear in the list immediately. Stable and preview releases require an existing remote tag; nightly may create its tag at publication. If draft upload fails, the failed task of the original workflow can be rerun, reusing build artifacts; a full rerun will verify existing attachments, and if differences exist, the cause must be checked or a new version used. Converting RC to official uses a new official version tag and build.
 
@@ -63,7 +63,7 @@ The hero shows the stable command in a terminal window with a title bar and inli
 
 ## Platform Maintenance
 
-The platform manifest includes system, architecture, architecture aliases, available channels, native runners, archive formats, installers, minimum environment requirements, and acceptance types. The current implementation accepts Linux `tar.gz` + POSIX sh / Go installers. Adding a new operating system requires first implementing the installer and acceptance process; you cannot simply add a line of configuration to announce support.
+The platform manifest includes system, architecture, architecture aliases, available channels, native runners, archive formats, installers, minimum environment requirements, and acceptance types. The current implementation accepts Linux/macOS `tar.gz` + POSIX sh / Go installers. Adding a new operating system requires first implementing the installer and acceptance process; you cannot simply add a line of configuration to announce support.
 
 After adjusting the manifest, run:
 
@@ -93,7 +93,7 @@ npm run build:release
 MOLR_TEST_ARCHIVE=dist/releases/molr_0.1.0-local_linux_amd64.tar.gz npm run test:release-install
 ```
 
-Native installation tests require the current user's systemd manager, cgroup v2 delegation, static BusyBox, and Bubblewrap; tests use independent instances, configurations, and data, and clean up after completion. Source code export and complete release builds still comply with [Public File Checks](public-content.md).
+Linux native installation tests require the current user's systemd manager, cgroup v2 delegation, static BusyBox, and Bubblewrap; tests use independent instances, configurations, and data, and clean up after completion. Source code export and complete release builds still comply with [Public File Checks](public-content.md).
 
 To prepare a local directory, place verified release manifests in a dedicated directory and then execute `npm run release:promote -- --manifests <目录>`. The command only generates `.cache/release-catalog/` and does not upload files. Use `MOLR_CATALOG_DIR=.cache/release-catalog VITE_SITE_MODE=live npm run dev:website` to accept the official website; when the catalog is not configured, it shows no versions for each channel and does not fake download entry points. Browser regression uses manual manifest interception of the network; real package acceptance is executed separately. Detailed acceptance dates, environments, and results are saved in local internal records.
 
@@ -101,7 +101,7 @@ The installer checks destination paths first and lets the user fix or ignore gro
 
 ## Installer maintenance and acceptance
 
-Archives contain two static Go programs: `runtime/cmd/molr` runs Runtime, and `runtime/cmd/molr-setup` manages installation, updates and removal. `runtime/internal/installation` owns the common flow. `host_linux.go` centralizes dependencies, systemd, AppArmor and host capability checks; `files_linux.go` handles paths, permissions, atomic writes and locking. Common orchestration does not identify support by Ubuntu names or versions. Automatic package preparation currently implements APT; native acceptance currently covers Ubuntu 24.04 AMD64/ARM64.
+Archives contain two `CGO_ENABLED=0` Go programs: `runtime/cmd/molr` runs Runtime, and `runtime/cmd/molr-setup` manages installation, updates and removal. `runtime/internal/installation` owns the common flow. `host_linux.go` centralizes dependencies, systemd, AppArmor and host capability checks; `files_unix.go` handles paths, permissions, atomic writes and locking; platform files verify executables and protect removals. `service_darwin.go` manages launchd. Common orchestration does not identify support by Ubuntu names or versions. Automatic package preparation currently implements APT; CI covers Ubuntu 24.04 and macOS AMD64/ARM64.
 
 Package `release.json` describes the build. Program-directory `installation.json` is the authoritative instance record for state, paths, account, service, build and update subscription. Default behavior uses executable location, independently of the working directory. Invalid records stop execution rather than falling back to package mode. `.setup.lock` uses a kernel advisory lock: presence does not indicate an active operation, and its inode is retained when releasing the lock.
 
@@ -111,7 +111,7 @@ Planning reads and checks the environment; interactive and unattended modes shar
 
 To extend distributions, add package-manager or service support in the host adapter and add OS/version/architecture combinations to the independent acceptance matrix. Unknown distributions with manually satisfied capabilities are not rejected. Matrix entries need environments that run actual services, cgroups and sandbox probes; container file tests do not replace native acceptance.
 
-`.github/workflows/installer-acceptance.yml` uses the built archive on fresh runners, removes Bubblewrap, static BusyBox and AppArmor profiles, and lets setup restore dependencies. This and prepared-host acceptance both gate publication. The current matrix covers Ubuntu 24.04 AMD64/ARM64; other distributions are not claimed as verified.
+`.github/workflows/installer-acceptance.yml` uses the built archive on fresh runners, removes Bubblewrap, static BusyBox and AppArmor profiles, and lets setup restore dependencies. This and prepared-host acceptance both gate publication. The matrix also covers macOS ARM64/AMD64 using user launchd services without Linux dependencies; other Linux distributions are not claimed as verified.
 
 Regression tests cover permission decisions, mutation-free previews, repeated execution, record validation, concurrency locks, path/archive attacks, failed downloads, data retention and purge. Native package tests cover PTY installation, unattended repair, configuration retention, authenticated sandbox capabilities and removal. Python is only a development PTY driver and publication-check tool; it is neither packaged nor required by installation on the target machine.
 
@@ -124,3 +124,5 @@ MOLR_TEST_ARCHIVE=dist/releases/molr_0.1.0-local_linux_amd64.tar.gz npm run test
 ```
 
 Reproduce dependency preparation on a disposable Ubuntu host with `MOLR_TEST_PREPARE=1`; do not remove dependencies from a development machine. Add regression cases for installation failures and ship fixes in new packages. Dates, environments, logs and acceptance credentials remain in local internal records.
+
+macOS packages build on native Mac runners for each architecture. The build applies and verifies `codesign --sign -` before archiving and hashing. `scripts/package-release.py` uses consistent archive rules across hosts and retains LICENSE and THIRD_PARTY_NOTICES. Native acceptance covers installation, embedded WebUI, repair, downloaded updates, retained-data reinstall, and purge. This workflow does not require Developer ID or notarization credentials.
