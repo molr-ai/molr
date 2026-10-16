@@ -536,3 +536,18 @@ API 合同测试使用真实 HTTP server、Auth、CSRF、持久限流、Realtime
 条目字段为 Name、Path、Type（file/directory/unavailable）、Size、ModifiedAt、Version。目录分页使用文件系统顺序，客户端只对已加载项排序；目录版本变化返回 conflict，需重读首页。文本最多预览 1 MiB，完整 UTF-8 文本才可编辑。文件接口不产生聊天附件记录或消息。
 
 这些文件系统写入使用条件版本，不使用通用业务 Mutation 重放；客户端不可自动重试结果未知的写入。无版本创建不会覆盖；旧版本替换、移动、删除返回 conflict。提交使用受限目录描述符、原子替换和与模型文件工具共用的提交锁。Shell 和外部进程不参与该锁，下载期间外部原地修改也不构成快照保证。
+
+## Telegram 聊天入口
+
+接口要求有效账号会话及助理读／写权限；POST 沿用 CSRF 和 Origin 检查。Token 与更新游标不会返回。待确认连接五分钟后失效，确认前不切换聊天入口。
+
+| 接口 | 输入 | 输出 |
+| --- | --- | --- |
+| `GET /api/assistants/{id}/telegram` | 助理 ID | `Channel`（`webui` / `telegram`）、`State`、`BotUsername`、连接和入站时间、`LastError`、最近 30 条 `Deliveries` |
+| `POST /api/telegram/login` | `AssistantID`、`Token` | `ID`、`Status=waiting`、`URL`、`BotUsername`、`UserName`、`UserID`、`ExpiresAt` |
+| `POST /api/telegram/poll` | `AssistantID`、连接 `ID` | 连接状态；`ready` 包含候选 Telegram 用户 |
+| `POST /api/telegram/confirm` | `AssistantID`、连接 `ID` | `null`；绑定生效并锁定普通聊天输入 |
+| `POST /api/telegram/cancel` | `AssistantID`、连接 `ID` | `null`；取消待确认连接 |
+| `POST /api/telegram/disconnect` | `AssistantID` | `null`；删除绑定并取消未完成投递 |
+
+状态包括 `disconnected`、`connected`、`reconnecting`、`token_invalid`、`blocked`、`poll_conflict`、`paused`。投递状态包括 `pending`、`sending`、`accepted`、`failed`、`unknown`、`canceled`。变化发出 `telegram.changed`。每位助理只能绑定一个外部渠道，提交时在事务中检查；绑定期间普通聊天写入返回 `failed_precondition`。机制见[Telegram 渠道](../extensions/telegram.md)。

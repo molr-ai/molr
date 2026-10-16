@@ -114,6 +114,8 @@ export type DiscoveredProvider = { Name: string; Preset: string; Endpoint: strin
 
 export type WeixinDelivery = { ID: ID; BindingID: ID; MessageID: ID; Sequence: number; Part: number; State: 'pending' | 'sending' | 'accepted' | 'waiting' | 'failed' | 'unknown' | 'canceled'; Error: string; Attempts: number; CreatedAt: string };
 export type WeixinStatus = { Channel: 'webui' | 'weixin'; State: 'disconnected' | 'connected' | 'reconnecting' | 'login_required' | 'paused'; ConnectedAt: string | null; LastInboundAt: string | null; LastError: string; Deliveries: WeixinDelivery[] };
+export type TelegramStatus = { Channel: 'webui' | 'telegram'; State: 'disconnected' | 'connected' | 'reconnecting' | 'token_invalid' | 'blocked' | 'poll_conflict' | 'paused'; BotUsername: string; ConnectedAt: string | null; LastInboundAt: string | null; LastError: string; Deliveries: WeixinDelivery[] };
+export type TelegramLogin = { ID: ID; Status: 'waiting' | 'ready'; URL: string; BotUsername: string; UserName: string; UserID: number; ExpiresAt: string };
 export type WeixinLogin = { ID: ID; Status: 'wait' | 'scaned' | 'confirmed' | 'already_connected' | 'expired' | 'need_verifycode' | 'verify_code_blocked' | 'conflict'; QRCode: string; ExpiresAt: string };
 
 export type SystemNotice = { ID: ID; OwnerID: ID; Kind: string; Code: string; Source: { Kind: string; ID: ID }; AssistantID: ID; Label: string; Severity: 'neutral' | 'warning' | 'danger'; CreatedAt: string; UpdatedAt: string; ReadAt: string | null; DismissedAt: string | null; ResolvedAt: string | null; Version: number };

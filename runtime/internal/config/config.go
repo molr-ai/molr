@@ -110,7 +110,12 @@ type Updates struct {
 // Config contains no raw password, model key or bearer token. PublicURL must
 // be HTTPS except in explicit loopback-only local mode. Validation checks shape;
 // startup must verify certificates, proxy reachability and data permissions.
+type Telegram struct {
+	ProxyURL string `json:"proxy_url"`
+}
+
 type Config struct {
+	Telegram    Telegram    `json:"telegram"`
 	ConfigPath  string      `json:"-"`
 	Updates     Updates     `json:"updates"`
 	PortForward PortForward `json:"port_forward"`
@@ -181,6 +186,13 @@ func (c Config) OwnListenPort() uint16 {
 }
 
 func (c Config) Validate() error {
+	if c.Telegram.ProxyURL != "" {
+		u, err := url.Parse(c.Telegram.ProxyURL)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
+			return core.Invalid("telegram.proxy_url", "HTTP(S) proxy URL without credentials, path, query or fragment required")
+		}
+	}
+
 	if c.Updates.Source != "" {
 		u, err := url.Parse(c.Updates.Source)
 		if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != "https" && u.Scheme != "http") {

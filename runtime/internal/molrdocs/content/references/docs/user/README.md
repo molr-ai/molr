@@ -18,7 +18,7 @@
 
 ## 聊天入口与实践
 
-[微信聊天入口](https://molr.ai/zh/docs/user/chat-channels/weixin/)介绍绑定、消息收发和解绑。按任务查阅[最佳实践](https://molr.ai/zh/docs/user/best-practices/)，使用浏览器、钉钉、飞书、邮箱、知乎、GitHub 或 Google 服务。
+[微信](https://molr.ai/zh/docs/user/chat-channels/weixin/)和[Telegram 聊天入口](https://molr.ai/zh/docs/user/chat-channels/telegram/)介绍绑定、消息收发和解绑。按任务查阅[最佳实践](https://molr.ai/zh/docs/user/best-practices/)，使用浏览器、钉钉、飞书、邮箱、知乎、GitHub 或 Google 服务。
 
 ## 遇到问题
 

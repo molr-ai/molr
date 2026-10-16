@@ -67,3 +67,9 @@ After configuration is complete, proceed to [Installation and Service Management
 The WeChat connection runs with the Runtime, receiving messages via public HTTPS long polling, and does not require public callbacks. The Runtime must be able to access the WeChat API and media CDN; the browser does not need to directly access the bot token. The bot token, reply credentials, and cursor are encrypted and stored using the local master key.
 
 Molr links displayed in WeChat use `http.public_url` from the deployment configuration; recipients must be able to access this address and log in normally. Private LAN addresses do not automatically become public entry points because of this.
+
+## Telegram configuration
+
+Telegram uses outbound HTTPS long polling; no public webhook is required. The Runtime must reach `api.telegram.org`. Environment proxies are ignored by this integration. If a proxy is needed, configure `telegram.proxy_url`, for example `http://127.0.0.1:3128`, and restart the Runtime. Only HTTP(S) proxy origins without credentials, paths, queries or fragments are accepted. The proxy is a deployment-trusted egress; Telegram TLS validation remains enabled. Bot Tokens are entered through the authenticated assistant channel dialog and stored encrypted with the Runtime master key.
+
+Links in Telegram use `http.public_url`; recipients must be able to access it and sign in. Long polling does not make a private Molr address publicly accessible. See [Telegram chat](../../user/chat-channels/telegram.md).

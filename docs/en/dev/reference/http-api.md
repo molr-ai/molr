@@ -536,3 +536,18 @@ These owner-only endpoints manage the current assistant's local `/work`. They ch
 Entries contain Name, Path, Type (file/directory/unavailable), Size, ModifiedAt and Version. Pagination follows filesystem order; clients sort loaded entries only. Directory version changes return conflict and require restarting pagination. Text preview is bounded to 1 MiB; only complete UTF-8 text is editable. These APIs do not create chat attachment records or messages.
 
 Filesystem writes use conditional versions instead of generic business Mutation replay. Clients must not automatically retry unknown write outcomes. Unversioned creation cannot overwrite; stale replacement, move or delete returns conflict. Commits use confined directory descriptors, atomic replacement and the same commit lock as model file tools. Shell and external processes do not participate; concurrent external in-place writes during downloads are not snapshot-isolated.
+
+## Telegram chat channel
+
+These endpoints require a live account session and assistant read/write permission. POST uses the existing CSRF and Origin checks. Tokens and update offsets are never returned. Pending connections expire after five minutes and do not switch chat input until confirmation.
+
+| Endpoint | Input | Result |
+| --- | --- | --- |
+| `GET /api/assistants/{id}/telegram` | Assistant ID | `Channel` (`webui` / `telegram`), `State`, `BotUsername`, timestamps, `LastError`, latest 30 `Deliveries` |
+| `POST /api/telegram/login` | `AssistantID`, `Token` | `ID`, `Status=waiting`, `URL`, `BotUsername`, `UserName`, `UserID`, `ExpiresAt` |
+| `POST /api/telegram/poll` | `AssistantID`, connection `ID` | Connection state; `ready` includes the candidate Telegram user |
+| `POST /api/telegram/confirm` | `AssistantID`, connection `ID` | `null`; activates the binding and locks ordinary chat input |
+| `POST /api/telegram/cancel` | `AssistantID`, connection `ID` | `null`; cancels the pending connection |
+| `POST /api/telegram/disconnect` | `AssistantID` | `null`; removes binding and cancels unfinished deliveries |
+
+States are `disconnected`, `connected`, `reconnecting`, `token_invalid`, `blocked`, `poll_conflict`, and `paused`. Delivery states are `pending`, `sending`, `accepted`, `failed`, `unknown`, and `canceled`. Changes emit `telegram.changed`. One active external channel per assistant is enforced transactionally; ordinary conversation sends fail with `failed_precondition` while bound. See [Telegram channel](../extensions/telegram.md).

@@ -18,7 +18,7 @@ func queryProjections(bucket string, data []byte) ([]byte, error) {
 		fields = []string{"ExpiresAt"}
 	case "im.outbox", "security.audit":
 		fields = []string{"At"}
-	case "im.messages", "agent.operations", "notifications.records", "business.dream_runs", "security.permission_requests", "weixin.deliveries":
+	case "im.messages", "agent.operations", "notifications.records", "business.dream_runs", "security.permission_requests", "weixin.deliveries", "telegram.deliveries":
 		fields = []string{"CreatedAt"}
 	case "business.tasks":
 		fields = []string{"UpdatedAt"}

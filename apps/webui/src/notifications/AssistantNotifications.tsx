@@ -35,7 +35,7 @@ export function AssistantNotifications({ assistant, status, onAction, onNavigate
  const n = current, content = text(n);
  const target = noticeAction(n);
  let label = target?.label ?? copy.open, open = () => { if (target) location.hash = target.route; };
- if (n.Kind.startsWith('weixin.')) open = () => onAction('channel');
+ if (n.Kind.startsWith('weixin.') || n.Kind.startsWith('telegram.')) open = () => onAction('channel');
  else if (n.Kind === 'permission.request' || n.Code === 'model_not_authorized') { label = t.waiting.permissions; open = () => onAction('permissions'); }
  else if (n.Kind === 'assistant.waiting') {
   open = () => onAction('info');

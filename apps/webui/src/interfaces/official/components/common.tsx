@@ -43,10 +43,10 @@ export function EditDialog({ title, description, children, onClose, onSubmit, su
     <EditForm action={action} onClose={onClose} onSubmit={onSubmit} submitLabel={submitLabel} submitDisabled={submitDisabled} notifyOnSave={notifyOnSave}>{children}</EditForm>
   </Dialog>;
 }
-export function Confirm({ title, description, onConfirm, onClose, danger = false }: { title: string; description: string; onConfirm: () => Promise<unknown>; onClose: () => void; danger?: boolean }) {
+export function Confirm({ title, description, onConfirm, onClose, danger = false, notify = true }: { title: string; description: string; onConfirm: () => Promise<unknown>; onClose: () => void; danger?: boolean; notify?: boolean }) {
   const { t } = useCopy(); const action = useAction();
   useErrorToast(action.error);
-  return <Dialog open title={title} description={description} onOpenChange={open => { if (!open && !action.busy) onClose(); }} dismissible={!action.busy} footer={<><Button variant="secondary" disabled={action.busy} onClick={onClose}>{t.cancel}</Button><Button variant={danger ? 'danger' : 'primary'} loading={action.busy} onClick={() => void action.run(onConfirm, onClose)}>{t.confirm}</Button></>} />;
+  return <Dialog open title={title} description={description} onOpenChange={open => { if (!open && !action.busy) onClose(); }} dismissible={!action.busy} footer={<><Button variant="secondary" disabled={action.busy} onClick={onClose}>{t.cancel}</Button><Button variant={danger ? 'danger' : 'primary'} loading={action.busy} onClick={() => void action.run(onConfirm, onClose, notify)}>{t.confirm}</Button></>} />;
 }
 export { PageHeader } from './PageHeader';
 export function localDateTime(value?: string | null) { if (!value) return ''; const date = new Date(value); return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16); }

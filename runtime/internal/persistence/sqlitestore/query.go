@@ -252,6 +252,16 @@ func (s *Store) createIndexes() error {
 		bucket string
 		fields []string
 	}{"security.reservations", []string{"OwnerID", "CreatedAt"}})
+	indexes = append(indexes, []struct {
+		bucket string
+		fields []string
+	}{
+		{"telegram.bindings", []string{"BotID", "key"}},
+		{"telegram.bindings", []string{"State", "key"}},
+		{"telegram.deliveries", []string{"State", "key"}},
+		{"telegram.deliveries", []string{"BindingID", "State", "key"}},
+		{"telegram.deliveries", []string{"OwnerKey", "BindingID", "CreatedAtKey", "key"}},
+	}...)
 	for i, index := range indexes {
 		parts := []string{"bucket"}
 		for _, field := range index.fields {

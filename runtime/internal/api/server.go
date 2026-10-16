@@ -26,6 +26,7 @@ import (
 	"molr.ai/runtime/internal/config"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/im/realtime"
+	"molr.ai/runtime/internal/im/telegram"
 	"molr.ai/runtime/internal/im/weixin"
 	"molr.ai/runtime/internal/plugins"
 	"molr.ai/runtime/internal/policy"
@@ -53,6 +54,7 @@ type Options struct {
 	UpgradeInfo        *updates.Installation
 	Notifications      *notification.Service
 	Weixin             *weixin.Service
+	Telegram           *telegram.Service
 	Setup              func(context.Context, core.Principal, json.RawMessage) (any, error)
 	DiscoverProviders  func(context.Context, core.Principal) (any, error)
 	Accounts           *auth.Manager

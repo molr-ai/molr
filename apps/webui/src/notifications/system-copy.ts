@@ -1,4 +1,5 @@
 import type { RuntimeInfo, Settings, SystemNotice } from '@molr/sdk';
+import { telegramCopy } from '../telegram-copy';
 import { weixinCopy } from '../weixin-copy';
 import { useCopy, useQuery } from '../state';
 
@@ -8,12 +9,15 @@ export const systemCopy = {
 };
 export function useNoticeText() {
  const { t, locale } = useCopy(), copy = systemCopy[locale], weixin = weixinCopy[locale];
+ const telegram = telegramCopy[locale];
  const runtime = useQuery<RuntimeInfo>('/api/status'), settings = useQuery<Settings>('/api/settings');
  const workbenchVisible = !!runtime.data?.workbench_available && !!settings.data?.WorkbenchVisible;
  return { copy, workbenchVisible, action: (n: SystemNotice) => {
   const route = noticeRoute(n, workbenchVisible);
   return route ? { route, label: n.Kind === 'execution.failed' ? t.turnMetrics.viewWorkbench : copy.open } : undefined;
  }, text: (n:SystemNotice) => {
+  if(n.Kind==='telegram.delivery') { const [state,error]=n.Code.split(':'); return { title:telegram.delivery, description: state==='failed'&&error==='rate_limited' ? telegram.retryExhausted : telegram.errors[error as keyof typeof telegram.errors] ?? telegram.deliveries[state as keyof typeof telegram.deliveries] ?? state, help:state==='unknown'?telegram.unknownHelp:'' }; }
+  if(n.Kind==='telegram.connection') return { title:telegram.connection, description:telegram.states[n.Code as keyof typeof telegram.states] ?? n.Code };
   if(n.Kind==='weixin.delivery') { const [state,error]=n.Code.split(':');return { title:weixin.delivery, description:state==='failed'&&error==='rate_limited'?weixin.retryExhausted:weixin.deliveryErrors[error as keyof typeof weixin.deliveryErrors]??weixin.deliveries[state as keyof typeof weixin.deliveries]??state, help:state==='unknown'?weixin.deliveryHelp:'' }; }
   if(n.Kind==='weixin.connection')return n.Code==='reconnecting' ? {title:copy.reconnecting,description:copy.reconnectingHelp} : {title:copy.connection,description:weixin.states.login_required};
   if(n.Kind==='assistant.waiting')return {title:t.waiting.title,description:(t.waiting.reasons as Record<string,string>)[n.Code]??t.waiting.unknown};
@@ -27,6 +31,6 @@ export function noticeRoute(n:SystemNotice, workbenchVisible = false) {
  // resolves it against retained runs before loading the corresponding steps.
  if(n.Kind==='execution.failed')return workbenchVisible && n.AssistantID && n.Source.ID ? `#/workbench/${n.AssistantID}?event=${n.Source.ID}` : '';
  if(n.Kind==='task.failed'&&n.AssistantID)return `#/assistants/${n.AssistantID}?panel=tasks&task=${n.Source.ID}`;
- if(n.AssistantID){const panel=n.Kind.startsWith('weixin.')?'channel':n.Kind==='permission.request'?'permissions':n.Kind==='assistant.waiting'?'info':'tasks';return `#/assistants/${n.AssistantID}?panel=${panel}`;}
+ if(n.AssistantID){const panel=(n.Kind.startsWith('weixin.') || n.Kind.startsWith('telegram.'))?'channel':n.Kind==='permission.request'?'permissions':n.Kind==='assistant.waiting'?'info':'tasks';return `#/assistants/${n.AssistantID}?panel=${panel}`;}
  return '#/assistants';
 }

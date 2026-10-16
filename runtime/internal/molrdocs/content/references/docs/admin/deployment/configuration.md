@@ -67,3 +67,9 @@ Shell 网络策略单独配置地址集合（域名、IP 或多个 CIDR）和端
 微信连接随 Runtime 运行，通过公网 HTTPS 长轮询接收消息，不需要公网回调。Runtime 必须能访问微信 API 和媒体 CDN；浏览器无需直接接触机器人令牌。机器人令牌、回复凭据和游标使用本机主密钥加密保存。
 
 微信中展示的 Molr 链接使用部署配置中的 `http.public_url`，接收者需要能访问该地址并正常登录。私有局域网地址不会因此自动变成公网入口。
+
+## Telegram 连接配置
+
+Telegram 使用出站 HTTPS 长轮询，不需要公网回调。Runtime 必须能访问 `api.telegram.org`。此渠道忽略环境代理；需要代理时设置 `telegram.proxy_url`（例如 `http://127.0.0.1:3128`）并重启 Runtime。仅接受不含凭据、路径、查询或片段的 HTTP(S) 代理地址。代理属于部署者信任的网络出口，Telegram TLS 验证保持启用。Bot Token 在已认证的助理渠道弹窗中填写，由 Runtime 主密钥加密保存。
+
+Telegram 中的 Molr 链接使用 `http.public_url`，用户需要能访问该地址并登录；长轮询不会让私有 Molr 地址自动变成公网入口。操作见[Telegram 聊天入口](https://molr.ai/zh/docs/user/chat-channels/telegram/)。

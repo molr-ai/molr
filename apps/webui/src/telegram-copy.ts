@@ -1,0 +1,28 @@
+export const telegramCopy = {
+ zh: {
+  channel: 'Telegram 聊天', connect: '连接 Telegram', manage: '管理 Telegram 连接', disconnect: '解绑 Telegram',
+  help: '在 Telegram 私聊中与此助理聊天。聊天记录、任务、文件和权限审批仍可在 Molr 中查看和管理。',
+  setup: '使用 @BotFather 创建专属机器人，填写 Bot Token。每个机器人只能连接一位助理；使用中的机器人请先在原服务解绑。',
+  token: 'Bot Token', next: '验证并继续', open: '打开 Telegram', waiting: '在 Telegram 中点击 Start，然后回到这里确认身份。', confirm: '确认绑定', identity: '将绑定此 Telegram 用户', cancel: '取消连接', expired: '绑定链接已过期，请取消后重新连接。',
+  privacy: '此入口的消息和附件会通过 Telegram 传输。Bot Token 仅由 Runtime 保存和使用。',
+  readonly: '请在 Telegram 中发送消息', readonlyHelp: '解绑 Telegram 后可恢复此输入框',
+  disconnectTitle: '解绑并恢复 WebUI 聊天？', disconnectHelp: '聊天记录和助理上下文保留，未发送的 Telegram 回复将取消。已经被平台接受的消息无法撤回。',
+  delivery: 'Telegram 投递', connection: 'Telegram 连接', unknownHelp: '平台未返回完整确认。若已经收到消息，无需处理；为避免重复，不会自动重发。', retryExhausted: '限流重试已用尽，请查看聊天记录',
+  states: { disconnected: '未连接', connected: '已连接', reconnecting: '连接中断，正在自动重连', token_invalid: 'Bot Token 已失效，请解绑后使用新 Token 连接', blocked: '机器人无法发送消息，请在 Telegram 解除屏蔽并发送一条消息', poll_conflict: '其他服务正在使用此机器人，请停止冲突连接后解绑重连', paused: '助理已暂停，返聘后恢复' },
+  errors: { attachment_failed: '附件读取或发送失败', rate_limited: '发送受限，等待重试', token_invalid: 'Bot Token 已失效', blocked: '机器人无法向此聊天发送消息', poll_conflict: '机器人被其他服务占用', rejected: 'Telegram 拒绝了消息', unknown: '发送结果未知' },
+  deliveries: { pending: '排队中', sending: '发送中', accepted: '已发送', failed: '发送失败', unknown: '发送结果未知', canceled: '已取消' },
+ },
+ en: {
+  channel: 'Telegram chat', connect: 'Connect Telegram', manage: 'Manage Telegram connection', disconnect: 'Disconnect Telegram',
+  help: 'Chat with this assistant privately in Telegram. History, tasks, files and permission approvals remain available in Molr.',
+  setup: 'Create a dedicated bot with @BotFather and enter its Bot Token. Each bot connects to one assistant; disconnect it from any existing service first.',
+  token: 'Bot Token', next: 'Verify and continue', open: 'Open Telegram', waiting: 'Press Start in Telegram, then return here to confirm your identity.', confirm: 'Confirm connection', identity: 'Connect this Telegram user', cancel: 'Cancel connection', expired: 'The connection link expired. Cancel and connect again.',
+  privacy: 'Messages and attachments use Telegram. Only the Runtime stores and uses the Bot Token.',
+  readonly: 'Send messages in Telegram', readonlyHelp: 'Disconnect Telegram to enable this message box',
+  disconnectTitle: 'Disconnect and restore WebUI chat?', disconnectHelp: 'History and context are preserved. Unsent Telegram replies are canceled; messages already accepted cannot be recalled.',
+  delivery: 'Telegram delivery', connection: 'Telegram connection', unknownHelp: 'Telegram did not return a complete acknowledgement. If you received the message, no action is needed. We do not resend automatically.', retryExhausted: 'Rate-limit retries exhausted; check chat history',
+  states: { disconnected: 'Not connected', connected: 'Connected', reconnecting: 'Connection interrupted; reconnecting automatically', token_invalid: 'Bot Token expired; disconnect and connect with a new token', blocked: 'Bot cannot send messages; unblock it in Telegram and send a message', poll_conflict: 'Another service is using this bot; stop that connection, then disconnect and reconnect here', paused: 'Assistant paused; rehire to resume' },
+  errors: { attachment_failed: 'Attachment read or send failed', rate_limited: 'Rate limited; waiting to retry', token_invalid: 'Bot Token expired', blocked: 'Bot cannot send to this chat', poll_conflict: 'Another service is using this bot', rejected: 'Telegram rejected the message', unknown: 'Delivery unconfirmed' },
+  deliveries: { pending: 'Pending', sending: 'Sending', accepted: 'Sent', failed: 'Failed', unknown: 'Delivery unconfirmed', canceled: 'Canceled' },
+ },
+};
