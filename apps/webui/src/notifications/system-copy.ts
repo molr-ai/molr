@@ -1,3 +1,4 @@
+import { feishuCopy } from '../feishu-copy';
 import type { RuntimeInfo, Settings, SystemNotice } from '@molr/sdk';
 import { telegramCopy } from '../telegram-copy';
 import { slackCopy } from '../slack-copy';
@@ -24,6 +25,8 @@ export function useNoticeText() {
   if(n.Kind==='slack.delivery') { const c=slackCopy[locale], [state,error]=n.Code.split(':'); return {title:c.delivery,description:state==='unknown'?c.unknown:state==='failed'&&error==='rate_limited'?c.exhausted:({rate_limited:c.rate_limited,attachment_failed:c.attachment_failed,missing_scope:c.missing_scope,login_required:c.login_required,rejected:c.rejected} as Record<string,string>)[error]??c.failed}; }
   if(n.Kind==='dingtalk.delivery') { const ding = dingtalkCopy[locale], [,error]=n.Code.split(':'); return {title:ding.delivery,description:ding.errors[error as keyof typeof ding.errors] ?? ding.unknown}; }
   if(n.Kind==='dingtalk.connection') { const ding = dingtalkCopy[locale]; return {title:ding.name,description:ding.states[n.Code as keyof typeof ding.states] ?? ding.states.reconnecting}; }
+  if(n.Kind==='feishu.connection') return {title:feishuCopy[locale].name,description:feishuCopy[locale].states[n.Code as keyof typeof feishuCopy.en.states] ?? feishuCopy[locale].states.reconnecting};
+  if(n.Kind==='feishu.delivery') return {title:feishuCopy[locale].delivery,description:n.Code.startsWith('pending:')?feishuCopy[locale].pending:n.Code.startsWith('unknown:')?feishuCopy[locale].unknown:feishuCopy[locale].failed};
   if(n.Kind==='weixin.delivery') { const [state,error]=n.Code.split(':');return { title:weixin.delivery, description:state==='failed'&&error==='rate_limited'?weixin.retryExhausted:weixin.deliveryErrors[error as keyof typeof weixin.deliveryErrors]??weixin.deliveries[state as keyof typeof weixin.deliveries]??state, help:state==='unknown'?weixin.deliveryHelp:'' }; }
   if(n.Kind==='weixin.connection')return n.Code==='reconnecting' ? {title:copy.reconnecting,description:copy.reconnectingHelp} : {title:copy.connection,description:weixin.states.login_required};
   if(n.Kind==='assistant.waiting')return {title:t.waiting.title,description:(t.waiting.reasons as Record<string,string>)[n.Code]??t.waiting.unknown};
@@ -37,6 +40,6 @@ export function noticeRoute(n:SystemNotice, workbenchVisible = false) {
  // resolves it against retained runs before loading the corresponding steps.
  if(n.Kind==='execution.failed')return workbenchVisible && n.AssistantID && n.Source.ID ? `#/workbench/${n.AssistantID}?event=${n.Source.ID}` : '';
  if(n.Kind==='task.failed'&&n.AssistantID)return `#/assistants/${n.AssistantID}?panel=tasks&task=${n.Source.ID}`;
- if(n.AssistantID){const panel=(n.Kind.startsWith('dingtalk.') || n.Kind.startsWith('weixin.') || n.Kind.startsWith('telegram.')||n.Kind.startsWith('slack.'))?'channel':n.Kind==='permission.request'?'permissions':n.Kind==='assistant.waiting'?'info':'tasks';return `#/assistants/${n.AssistantID}?panel=${panel}`;}
+ if(n.AssistantID){const panel=(n.Kind.startsWith('feishu.') || n.Kind.startsWith('dingtalk.') || n.Kind.startsWith('weixin.') || n.Kind.startsWith('telegram.')||n.Kind.startsWith('slack.'))?'channel':n.Kind==='permission.request'?'permissions':n.Kind==='assistant.waiting'?'info':'tasks';return `#/assistants/${n.AssistantID}?panel=${panel}`;}
  return '#/assistants';
 }

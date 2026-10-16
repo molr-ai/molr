@@ -476,6 +476,22 @@ The following interfaces require the current account to have read/write permissi
 
 Login status includes `wait`, `scaned`, `need_verifycode`, `verify_code_blocked`, `expired`, `conflict`, `confirmed`, and `already_connected`; connected responses do not require a QR code, and existing bindings and queues are preserved. Redirects are validated and handled by the backend. Binding status includes `connected`, `reconnecting`, `login_required`, and `paused`. Delivery status includes `pending`, `sending`, `accepted`, `waiting`, `failed`, `unknown`, and `canceled`. `accepted` does not indicate that the user has read the message. Text segments and each attachment occupy a separate delivery record; `Error=attachment_failed` indicates file read or upload failure before message sending, and remains `unknown` if the final sending interface cannot confirm. Changes in binding and delivery trigger `weixin.changed` events to cause the interface to re-read the status.
 
+## Feishu chat channel
+
+These endpoints use existing authentication, CSRF and Origin checks and require assistant read/write authorization. Status excludes credentials and the bound user's Open ID. Request fields use PascalCase.
+
+| Method and path | Request | Response |
+| --- | --- | --- |
+| `GET /api/assistants/{id}/feishu` | Assistant ID | `Channel` (`webui` / `feishu`), `State`, `AppID`, `ConnectedAt`, `LastInboundAt`, `LastError` |
+| `POST /api/feishu/login` | `AssistantID` | `ID`, `Status`, `QRCode`, `ExpiresAt` |
+| `POST /api/feishu/poll` | `AssistantID`, login `ID` | Login status; server enforces a minimum polling interval |
+| `POST /api/feishu/cancel` | `AssistantID`, login `ID` | `null`; cancels unfinished registration |
+| `POST /api/feishu/connect` | `AssistantID`, `AppID`, `AppSecret`, `OpenID` | Channel status after credential validation and binding |
+| `POST /api/feishu/disconnect` | `AssistantID` | `null`; disconnects and cancels queued replies |
+
+Login states are `waiting`, `confirmed`, `expired`, `denied`, `unsupported_tenant`. Binding states are `connecting`, `connected`, `reconnecting`, `credentials_required`, `paused`, `disconnected`. Authorization completion is separate from WebSocket readiness; `confirmed` does not prove message receipt. Binding and connection updates emit `feishu.changed`; delivery failures use unified notifications. See [Feishu channel](../extensions/feishu.md).
+
+
 ## System Reminder Status
 
 - `GET /api/notifications`: Current account notifications, supporting `filter=unread|pending|active|all`, `assistant_id`, `kind`, `limit`, `cursor`. Both `pending`/`active` indicate not ignored and not resolved; `unread` additionally requires unread. Returns `Items`, `NextCursor`, current account global `UnreadCount`, `PendingCount`. The cursor binds the account and query conditions.

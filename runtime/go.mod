@@ -3,6 +3,8 @@ module molr.ai/runtime
 go 1.27.2
 
 require (
+	github.com/gorilla/websocket v1.5.0
+	github.com/larksuite/oapi-sdk-go/v3 v3.12.2
 	github.com/teambition/rrule-go v1.8.2
 	github.com/tetratelabs/wazero v1.10.1
 	github.com/vishvananda/netlink v1.3.1
@@ -17,6 +19,7 @@ require (
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect

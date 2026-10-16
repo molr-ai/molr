@@ -130,6 +130,16 @@
     "section": "user"
   },
   {
+    "file": "user/chat-channels/feishu.md",
+    "path": "/docs/user/chat-channels/feishu/",
+    "label": "飞书聊天入口",
+    "group": "连接聊天入口",
+    "englishLabel": "WeChat chat channel",
+    "englishGroup": "Connect chat channels",
+    "root": "docs",
+    "section": "user"
+  },
+  {
     "file": "user/chat-channels/dingtalk.md",
     "path": "/docs/user/chat-channels/dingtalk/",
     "label": "钉钉聊天入口",
@@ -813,6 +823,16 @@
     "file": "dev/extensions/weixin.md",
     "path": "/docs/dev/extensions/weixin/",
     "label": "微信渠道",
+    "group": "扩展",
+    "englishLabel": "WeChat channel",
+    "englishGroup": "Extensions",
+    "root": "docs",
+    "section": "dev"
+  },
+  {
+    "file": "dev/extensions/feishu.md",
+    "path": "/docs/dev/extensions/feishu/",
+    "label": "飞书渠道",
     "group": "扩展",
     "englishLabel": "WeChat channel",
     "englishGroup": "Extensions",

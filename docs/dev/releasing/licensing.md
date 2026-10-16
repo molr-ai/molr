@@ -33,9 +33,11 @@ Molr 自有代码、文档和原创资源采用根目录 [MIT License](../../../
 
 本次平台适配未新增 Go/npm 模块。Go 工具链更新至 1.27.2，与 1.27.1 的根 LICENSE 正文相同；四个平台目标的声明生成结果未增加或更改依赖许可证正文。macOS 系统运行库由操作系统提供，不复制进 Molr 产物。
 
+飞书渠道新增官方 Go SDK v3.12.2（MIT）、Gorilla WebSocket v1.5.0（BSD-2-Clause）和 GoGo protobuf v1.3.2（BSD-3-Clause）。已核对原始许可证，完整声明进入汇总文件；当前清单包含 25 个 Go 模块。
+
 ## 清单与维护
 
-[license-inventory.json](license-inventory.json) 记录 337 条 npm 第三方安装位置记录和 22 个 Go 模块，覆盖直接、传递、开发及平台可选依赖；六个工作区链接不计入第三方记录。Linux x64 实际安装 301 个位置；其他 36 个平台可选构建工具按同版本包族及锁文件核对，未逐个检验其二进制。当前 Linux amd64 Runtime 引用其中 20 个 Go 模块；通知收集遍历 Linux/macOS 的 amd64/arm64 实际依赖包目录，保留更具体的嵌套许可证。
+[license-inventory.json](license-inventory.json) 记录 337 条 npm 第三方安装位置记录和 25 个 Go 模块，覆盖直接、传递、开发及平台可选依赖；六个工作区链接不计入第三方记录。Linux x64 实际安装 301 个位置；其他 36 个平台可选构建工具按同版本包族及锁文件核对，未逐个检验其二进制。当前 Linux amd64 Runtime 引用其中 23 个 Go 模块；通知收集遍历 Linux/macOS 的 amd64/arm64 实际依赖包目录，保留更具体的嵌套许可证。
 
 更新方式：
 

@@ -24,7 +24,7 @@
 
 - [前端架构](https://molr.ai/zh/docs/dev/frontend/architecture/)、[主题与页面解析](https://molr.ai/zh/docs/dev/frontend/themes/)：SDK、Host、页面装载与状态恢复。
 - [品牌](https://molr.ai/zh/docs/dev/frontend/brand/)、[设计系统](https://molr.ai/zh/docs/dev/frontend/design-system/)、[交互约定](https://molr.ai/zh/docs/dev/frontend/interaction/)：视觉资源、语义颜色、无障碍与共用交互；组件属性查[组件 API](https://github.com/molr-ai/molr/blob/main/packages/ui/COMPONENTS.md)。
-- [插件机制](https://molr.ai/zh/docs/dev/extensions/plugins/)、[微信渠道](https://molr.ai/zh/docs/dev/extensions/weixin/)、[Telegram 渠道](https://molr.ai/zh/docs/dev/extensions/telegram/)、[Slack 渠道](https://molr.ai/zh/docs/dev/extensions/slack/)、[钉钉渠道](https://molr.ai/zh/docs/dev/extensions/dingtalk/)：扩展协议、授权、生命周期与消息投递。
+- [插件机制](https://molr.ai/zh/docs/dev/extensions/plugins/)、[微信渠道](https://molr.ai/zh/docs/dev/extensions/weixin/)、[飞书渠道](https://molr.ai/zh/docs/dev/extensions/feishu/)、[Telegram 渠道](https://molr.ai/zh/docs/dev/extensions/telegram/)、[Slack 渠道](https://molr.ai/zh/docs/dev/extensions/slack/)、[钉钉渠道](https://molr.ai/zh/docs/dev/extensions/dingtalk/)：扩展协议、授权、生命周期与消息投递。
 
 ## 维护发行
 

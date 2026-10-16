@@ -33,9 +33,11 @@ Under the current usage patterns of standalone applications, library calls, and 
 
 This platform adaptation adds no Go/npm modules. Go is updated to 1.27.2; its root LICENSE is identical to 1.27.1. Notice generation for all four targets adds or changes no dependency license text. macOS system libraries are supplied by the operating system and are not copied into Molr artifacts.
 
+The Feishu channel adds official Go SDK v3.12.2 (MIT), Gorilla WebSocket v1.5.0 (BSD-2-Clause), and GoGo protobuf v1.3.2 (BSD-3-Clause). Original license texts were reviewed and included in the notices. The inventory now contains 25 Go modules.
+
 ## Inventory and Maintenance
 
-[license-inventory.json](../../../dev/releasing/license-inventory.json) records 337 npm third-party installation location records and 22 Go modules, covering direct, transitive, development, and platform-optional dependencies; the six workspace links are not counted as third-party records. Linux x64 actually installs 301 locations; the other 36 platform-optional build tools are verified against the same version package family and lock file, without individually verifying their binaries. The current Linux amd64 Runtime references 20 of these Go modules; notice collection traverses the actual Linux/macOS dependency package directories for amd64/arm64, retaining more specific nested licenses.
+[license-inventory.json](../../../dev/releasing/license-inventory.json) records 337 npm third-party installation location records and 25 Go modules, covering direct, transitive, development, and platform-optional dependencies; the six workspace links are not counted as third-party records. Linux x64 actually installs 301 locations; the other 36 platform-optional build tools are verified against the same version package family and lock file, without individually verifying their binaries. The current Linux amd64 Runtime references 20 of these Go modules; notice collection traverses the actual Linux/macOS dependency package directories for amd64/arm64, retaining more specific nested licenses.
 
 Update method:
 

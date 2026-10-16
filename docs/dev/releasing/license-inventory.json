@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "reviewedAt": "2026-10-15",
+  "reviewedAt": "2026-10-16",
   "baseCommit": "5289ebc",
   "scope": "License compatibility and notice delivery review; see docs/dev/releasing/licensing.md.",
   "inputs": {
     "package-lock.json": "0e71e3596fa24b383c0acc7b53b43c550adbe3b855d484e56c51c3f561f970b5",
-    "runtime/go.mod": "dac14e15a774a6ba432c0623ff4f8652f8c9a3820612931a2ea35a423b4657ca",
-    "runtime/go.sum": "faf9e85c33a10d9c28256712458c595ba577903f667d8747faf28c14708a5055",
+    "runtime/go.mod": "38206cadbc49039fe97bf56aad389ebb8151d91cf9b28afa3150abe37ca50276",
+    "runtime/go.sum": "7738bd454ff9675f6f7a37d8728acd76bc25b049e6fc3b71cd6faee870e097d4",
     "runtime/.go-version": "6c075150045fda9bac31bb93cf5a0a0bc91622a75c1f10fb2971e6f994c6d4d6",
     "runtime/internal/voicecodec/silk.wasm": "13de15803937f44593398fee46d1dd7ee4ea2f04c819f8f887525b4cd9b60bf7",
     "runtime/internal/voicecodec/README.md": "0b8a2c9634b6361a46c4ca75120a734a3f247d3779c46db62e4487578840caa5",
@@ -14,7 +14,7 @@
     "scripts/build-release.mjs": "17a7253510ed07b71f8dd163b183d8418b95b750da7403e0064cebe73df3cc07",
     "apps/website/src/GithubMark.tsx": "7d0d38bb13335793c5ed91d5f27ffc8e5fc2811d7eff9ce6e59a6f6d33d5a37a",
     "apps/website/src/site-links.ts": "f360bbe44df89647e5d43207230ab65ee7b2c899aa2f680f1863bba125d2c1cd",
-    "THIRD_PARTY_NOTICES.md": "33921b8cfd8ec9aca3d1c673d42dec6edded3764ea582f3e5b6ddd93c80cfa19",
+    "THIRD_PARTY_NOTICES.md": "c5e3488cd52d2a26af994cff425539f751e9f25c22f28e76e4f0761bae153acd",
     "scripts/license-assets.ts": "2f17e19230ad1b6fa1b44bfd974abec0d2c36522dd009ebed61151040eb715db",
     "scripts/update-third-party-notices.py": "468adbcab07505c888e08017ac41534c4eecc29285721274e3544026e0ef4be8",
     "scripts/promote-release.mjs": "3875373d2fe869b79eda684b6deef53173f8f0af7cf1e41f25f9ea977f972e27",
@@ -6167,6 +6167,19 @@
       "moduleChecksum": "h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY="
     },
     {
+      "name": "github.com/gogo/protobuf",
+      "version": "v1.3.2",
+      "license": "BSD-3-Clause",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "3f571768c0ba2f330e5fee90de89bfe5141f48c1939be8008fa61461c30ca07f"
+        }
+      ],
+      "moduleChecksum": "h1:Ov1cvc58UF3b5XjBnZv7+opcTcQFZebYjWzi34vdm4Q="
+    },
+    {
       "name": "github.com/google/btree",
       "version": "v1.1.2",
       "license": "Apache-2.0",
@@ -6191,6 +6204,32 @@
         }
       ],
       "moduleChecksum": "h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0="
+    },
+    {
+      "name": "github.com/gorilla/websocket",
+      "version": "v1.5.0",
+      "license": "BSD-2-Clause",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "2be1b548b0387ca8948e1bb9434e709126904d15f622cc2d0d8e7f186e4d122d"
+        }
+      ],
+      "moduleChecksum": "h1:PPwGk2jz7EePpoHN/+ClbZu8SPxiqlu12wZP/3sWmnc="
+    },
+    {
+      "name": "github.com/larksuite/oapi-sdk-go/v3",
+      "version": "v3.12.2",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "29d16ac53b7f3f8513fb4c6ca4e683bed3f958f9a53f27cb0a840b4f07c5f5b4"
+        }
+      ],
+      "moduleChecksum": "h1:YjIVkSXW3TZOL3HCdJdTKYYP3ZBIM9ql9+TVyb1XL2w="
     },
     {
       "name": "github.com/mattn/go-isatty",

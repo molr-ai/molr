@@ -146,3 +146,6 @@ export interface WorkspaceOperation { Action: 'write' | 'mkdir' | 'move' | 'dele
 
 export type DingtalkStatus = { Channel: 'webui' | 'dingtalk'; State: 'disconnected' | 'connecting' | 'pairing' | 'connected' | 'reconnecting' | 'credential_required' | 'expired' | 'paused'; ClientID: string; LastError: string; ConnectedAt: string | null; LastInboundAt: string | null; ExpiresAt: string };
 export type DingtalkPairing = { Code: string; ExpiresAt: string };
+
+export type FeishuStatus = { Channel: 'webui' | 'feishu'; State: 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'credentials_required' | 'paused'; AppID: string; ConnectedAt: string | null; LastInboundAt: string | null; LastError: string };
+export type FeishuLogin = { ID: string; Status: 'waiting' | 'confirmed' | 'expired' | 'denied' | 'unsupported_tenant'; QRCode: string; ExpiresAt: string };

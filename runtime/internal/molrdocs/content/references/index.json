@@ -208,6 +208,22 @@
     }
   },
   {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/chat-channels/feishu.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "飞书聊天入口",
+      "en": "WeChat chat channel"
+    },
+    "topics": {
+      "zh": "连接聊天入口",
+      "en": "Connect chat channels"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/user/chat-channels/feishu/",
+      "en": "https://molr.ai/en/docs/user/chat-channels/feishu/"
+    }
+  },
+  {
     "path": "/molr/.agents/skills/molr-docs/references/docs/user/chat-channels/dingtalk.md",
     "contentLanguage": "zh",
     "titles": {
@@ -1309,6 +1325,22 @@
     "urls": {
       "zh": "https://molr.ai/zh/docs/dev/extensions/weixin/",
       "en": "https://molr.ai/en/docs/dev/extensions/weixin/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/extensions/feishu.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "飞书渠道",
+      "en": "WeChat channel"
+    },
+    "topics": {
+      "zh": "扩展",
+      "en": "Extensions"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/dev/extensions/feishu/",
+      "en": "https://molr.ai/en/docs/dev/extensions/feishu/"
     }
   },
   {

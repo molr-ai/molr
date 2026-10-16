@@ -24,6 +24,7 @@ import (
 // reflection or arbitrary method name can invoke internal execution methods.
 func (s *HTTPServer) businessRoutes() {
 	s.weixinRoutes()
+	s.feishuRoutes()
 	s.telegramRoutes()
 	s.slackRoutes()
 	s.dingtalkRoutes()

@@ -476,6 +476,21 @@ Runtime 启动时自动准备并探测命令环境，自动登记本机计算资
 
 登录状态包括 `wait`、`scaned`、`need_verifycode`、`verify_code_blocked`、`expired`、`conflict`、`confirmed` 和 `already_connected`；已连接响应无需二维码，现有绑定及队列保留。重定向由后端校验并处理。绑定状态包括 `connected`、`reconnecting`、`login_required` 和 `paused`。投递状态包括 `pending`、`sending`、`accepted`、`waiting`、`failed`、`unknown` 和 `canceled`。`accepted` 不表示用户已读。文字分段与各附件分别占一条投递记录；`Error=attachment_failed` 表示消息发送前的文件读取或上传失败，最终发送接口无法确认时仍为 `unknown`。绑定与投递变化通过 `weixin.changed` 事件使界面重新读取状态。
 
+## 飞书聊天入口
+
+以下接口使用现有认证、CSRF 和 Origin 检查，要求目标助理的读／写权限。状态不返回凭据或绑定用户 Open ID。请求字段使用 PascalCase。
+
+| 方法和路径 | 请求 | 返回 |
+| --- | --- | --- |
+| `GET /api/assistants/{id}/feishu` | 助理 ID | `Channel`（`webui` / `feishu`）、`State`、`AppID`、`ConnectedAt`、`LastInboundAt`、`LastError` |
+| `POST /api/feishu/login` | `AssistantID` | `ID`、`Status`、`QRCode`、`ExpiresAt` |
+| `POST /api/feishu/poll` | `AssistantID`、登录 `ID` | 登录状态；服务端执行最小轮询间隔 |
+| `POST /api/feishu/cancel` | `AssistantID`、登录 `ID` | `null`；取消未完成扫码 |
+| `POST /api/feishu/connect` | `AssistantID`、`AppID`、`AppSecret`、`OpenID` | 渠道状态；验证已有应用凭据后绑定 |
+| `POST /api/feishu/disconnect` | `AssistantID` | `null`；解绑并取消待发回复 |
+
+登录状态为 `waiting`、`confirmed`、`expired`、`denied`、`unsupported_tenant`；绑定状态为 `connecting`、`connected`、`reconnecting`、`credentials_required`、`paused`、`disconnected`。授权完成与长连接就绪分别表示，`confirmed` 不代表消息已收到。绑定和连接变化通过 `feishu.changed` 刷新；投递异常通过统一通知显示。机制见[飞书渠道](../extensions/feishu.md)。
+
 ## 系统提醒状态
 
 - `GET /api/notifications`：当前账号通知，支持 `filter=unread|pending|active|all`、`assistant_id`、`kind`、`limit`、`cursor`。`pending`／`active` 均表示未忽略且未解决，`unread` 额外要求未读。返回 `Items`、`NextCursor`、当前账号全局 `UnreadCount`、`PendingCount`。游标绑定账号和查询条件。
