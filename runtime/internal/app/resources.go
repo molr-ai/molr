@@ -52,7 +52,7 @@ func (a adapters) providers() map[string]resource.Provider {
 				return nil, core.Invalid("binding", "sandbox target not supported by model provider")
 			}
 			switch b.PricingProvider {
-			case "", "openai", "deepseek", "bailian", "zhipu", "moonshot", "ollama", "llamacpp", "vllm", "sglang", "custom":
+			case "", "openai", "openrouter", "deepseek", "bailian", "zhipu", "moonshot", "ollama", "llamacpp", "vllm", "sglang", "custom":
 			default:
 				return nil, core.Invalid("pricing_provider", "unknown provider preset")
 			}
@@ -84,7 +84,11 @@ func (a adapters) providers() map[string]resource.Provider {
 				return nil, core.Invalid("binding", "exact origin required; directory path is not supported")
 			}
 			configs := b.Models
-			if len(configs) > 501 {
+			limit := 501
+			if b.PricingProvider == "openrouter" {
+				limit = resource.MaxProviderModels
+			}
+			if len(configs) > limit {
 				return nil, core.Invalid("models", "too many models")
 			}
 			names := make(map[string]bool, len(configs))
@@ -96,8 +100,10 @@ func (a adapters) providers() map[string]resource.Provider {
 				if m.OutputLimit < 0 || m.OutputLimit > model.MaxOutputLimit || m.ProviderOutputLimit < 0 || m.ProviderOutputLimit > model.MaxOutputLimit || strings.TrimSpace(m.Name) == "" || len(m.Name) > 256 || (m.ContextLimit != 0 && (m.ContextLimit < 256 || m.ContextLimit > 2_000_000)) || (m.ProviderContextLimit != 0 && (m.ProviderContextLimit < 256 || m.ProviderContextLimit > 2_000_000)) {
 					return nil, core.Invalid("model", "invalid model limits or pricing")
 				}
-				if p := m.Pricing; p != nil && ((p.AudioInputMicrosPerMillion != nil && *p.AudioInputMicrosPerMillion < 0) || (p.Currency != "USD" && p.Currency != "CNY") || p.InputMicrosPerMillion < 0 || p.OutputMicrosPerMillion < 0 || p.CachedInputMicrosPerMillion < 0 || p.CachedInputMicrosPerMillion > p.InputMicrosPerMillion) {
-					return nil, core.Invalid("pricing", "invalid pricing")
+				for _, p := range []*resource.ModelPricing{m.Pricing, m.ProviderPricing} {
+					if p != nil && ((p.AudioInputMicrosPerMillion != nil && *p.AudioInputMicrosPerMillion < 0) || (p.Currency != "USD" && p.Currency != "CNY") || p.InputMicrosPerMillion < 0 || p.OutputMicrosPerMillion < 0 || p.CachedInputMicrosPerMillion < 0 || p.CachedInputMicrosPerMillion > p.InputMicrosPerMillion) {
+						return nil, core.Invalid("pricing", "invalid pricing")
+					}
 				}
 			}
 			if b.CredentialID != "" && b.CredentialID.Validate() != nil {

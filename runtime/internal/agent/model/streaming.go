@@ -20,7 +20,7 @@ type streamCall struct {
 // readChatStream assembles a normal completion for the existing protocol adapters
 // while observing arrival times at the network reader. Raw SSE remains billing
 // evidence; neither replay nor UI delivery contributes to timing measurements.
-func readChatStream(reader io.Reader, started time.Time, now func() time.Time) (raw, completion []byte, timing *Timing, resultErr error) {
+func readChatStream(protocol Protocol, reader io.Reader, started time.Time, now func() time.Time) (raw, completion []byte, timing *Timing, resultErr error) {
 	var captured bytes.Buffer
 	limited := &io.LimitedReader{R: reader, N: (8 << 20) + 1}
 	scanner := bufio.NewScanner(io.TeeReader(limited, &captured))
@@ -33,6 +33,7 @@ func readChatStream(reader io.Reader, started time.Time, now func() time.Time) (
 	invalid := func() error { return core.NewError(core.Unavailable, "invalid or incomplete provider stream") }
 	message := map[string]any{"role": "assistant", "content": ""}
 	calls := map[int]*streamCall{}
+	var reasoning openRouterReasoningStream
 	texts := map[string]*strings.Builder{}
 	var id, finish string
 	var usage json.RawMessage
@@ -87,6 +88,13 @@ func readChatStream(reader io.Reader, started time.Time, now func() time.Time) (
 				if string(value) == "null" {
 					continue
 				}
+				if key == "reasoning_details" && protocol == OpenRouterChat {
+					if err := reasoning.append(value); err != nil {
+						return err
+					}
+					generated = generated || len(reasoning.blocks) > 0
+					continue
+				}
 				switch key {
 				case "role":
 					if string(value) != `"assistant"` {
@@ -131,7 +139,7 @@ func readChatStream(reader io.Reader, started time.Time, now func() time.Time) (
 							texts[key] = builder
 						}
 						builder.WriteString(text)
-						if key == "content" || key == "reasoning_content" || key == "refusal" {
+						if key == "content" || key == "reasoning_content" || key == "reasoning" || key == "refusal" {
 							generated = generated || text != ""
 						}
 					} else {
@@ -181,6 +189,9 @@ func readChatStream(reader io.Reader, started time.Time, now func() time.Time) (
 	}
 	for key, text := range texts {
 		message[key] = text.String()
+	}
+	if len(reasoning.blocks) > 0 {
+		message["reasoning_details"] = reasoning.value()
 	}
 	if len(calls) > 0 {
 		ordered := make([]wireCall, len(calls))

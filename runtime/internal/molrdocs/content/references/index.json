@@ -496,6 +496,22 @@
     }
   },
   {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/resources/providers/openrouter.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "接入 OpenRouter",
+      "en": "Connect OpenRouter"
+    },
+    "topics": {
+      "zh": "接入模型",
+      "en": "Connect models"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/resources/providers/openrouter/",
+      "en": "https://molr.ai/en/docs/admin/resources/providers/openrouter/"
+    }
+  },
+  {
     "path": "/molr/.agents/skills/molr-docs/references/docs/admin/resources/providers/deepseek.md",
     "contentLanguage": "zh",
     "titles": {

@@ -8,14 +8,15 @@ Runtime 仍是单体 Go 服务。`internal/agent/model` 使用固定的内置协
 - 模型客户端负责权限、凭证、网络访问、幂等记录和费用结算。
 - 协议适配器负责请求编码、响应解析，以及后端专属状态的保存与回传。
 
-目前接入两种协议：
+目前接入三种协议：
 
 | 协议 | 请求与状态 |
 | --- | --- |
 | `openai-chat-completions` | 通用 Chat Completions，使用 `max_completion_tokens`、`store: false`，不采纳 DeepSeek 扩展字段 |
+| `openrouter-chat-completions` | 使用 `max_tokens`；保留 `reasoning`／`reasoning_details`，不发送 `store` |
 | `deepseek-chat-completions` | 使用 `max_tokens`，不发送 OpenAI 的 `store` 参数；处理 `reasoning_content` 与 DeepSeek 缓存用量 |
 
-应用层根据用户选中的 Provider 预设解析协议，不根据模型名称或服务地址猜测。当前资源中该预设字段仍名为 `PricingProvider`；选择 DeepSeek 预设会启用 DeepSeek 协议，其余现有预设使用通用协议。设置手动价格不改变协议选择。自定义预设不是任意后端协议的自动检测器。
+应用层根据用户选中的 Provider 预设解析协议，不根据模型名称或服务地址猜测。当前资源中该预设字段仍名为 `PricingProvider`；选择 DeepSeek 或 OpenRouter 预设会启用各自协议，其余现有预设使用通用协议。设置手动价格不改变协议选择。自定义预设不是任意后端协议的自动检测器。
 
 所有模型推理请求（包括做梦、上下文压缩和重试）、模型列表查询、连接测试及本地模型发现统一携带 `User-Agent: molr/<版本号>`。版本来自 `internal/buildinfo.Version`，与 `molr version` 一致；发行构建通过 `-ldflags -X` 注入，未注入版本的开发构建使用 `molr/development`。
 
@@ -28,6 +29,16 @@ Runtime 仍是单体 Go 服务。`internal/agent/model` 使用固定的内置协
 ## 云端兼容服务预设
 
 百炼（`bailian`）、智谱（`zhipu`）和 Moonshot（`moonshot`）与 WebUI 预设一致，保存、编辑及模型发现保留各自的提供商身份，使用 `openai-chat-completions` 协议与 API Key 认证。这些预设不代表接入厂商原生协议；未知价格仍需配置，不自动视为免费。
+
+## OpenRouter
+
+`openrouter` 预设显式选择专用协议，仍复用凭证代理、网络 guard 和预算账本。`/api/v1/models` 按 `architecture.output_modalities` 过滤文本输出模型，读取 `context_length`、`top_provider.max_completion_tokens`、`architecture.input_modalities` 和 `supported_parameters`；不根据名称猜测能力。该预设目录限制为 8 MiB、4,096 项，普通兼容目录继续使用 2 MiB、500 项限制。
+
+`pricing` 中美元／token 十进制字符串以有理数转换为微美元／百万 token，向上取整避免低估；缺失缓存价格使用普通输入费率。非零额外收费项无法在当前账本完整表达时不自动设置价格。发现报价存入 `ProviderPricing`，用户覆盖仍保存在 `Pricing`；刷新和模型配置都保留两者边界。有效自动价格以 `PricingInfo.Source=provider` 返回。
+
+适配器只回传同源状态中的 `reasoning_details`，无结构化块时回传 `reasoning`；原消息中的其他顶层扩展不进入请求。流式组装合并连续且身份一致的文本／摘要与签名片段，独立保留加密块和类型切换顺序，不单凭可能重复的 index 合并。回传状态纳入上下文估算，仍不进入聊天记录。
+
+协议依据：[OpenRouter 快速开始](https://openrouter.ai/docs/quickstart)、[模型目录](https://openrouter.ai/docs/api/api-reference/models/list-all-models-and-their-properties)、[推理状态](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens)。协议、目录刷新及 WebUI 回归使用人工模型服务，在线模型效果需另行验证。
 
 ## 本地推理服务预设
 

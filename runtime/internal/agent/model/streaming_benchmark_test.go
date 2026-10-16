@@ -52,7 +52,7 @@ func BenchmarkChatStreamAssembly(b *testing.B) {
 				b.SetBytes(int64(len(body)))
 				b.ResetTimer()
 				for b.Loop() {
-					raw, completion, _, err := readChatStream(strings.NewReader(body), start, now)
+					raw, completion, _, err := readChatStream(OpenAIChat, strings.NewReader(body), start, now)
 					if err != nil || len(raw) != len(body) || len(completion) == 0 {
 						b.Fatal(err)
 					}

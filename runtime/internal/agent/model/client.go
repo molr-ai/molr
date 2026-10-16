@@ -402,7 +402,7 @@ func (c *client) Generate(ctx context.Context, req Request) (Stream, error) {
 		var readErr error
 		contentType, _, _ := mime.ParseMediaType(response.Header.Get("Content-Type"))
 		if response.StatusCode >= 200 && response.StatusCode < 300 && contentType == "text/event-stream" {
-			data, decoded, receipt.Timing, readErr = readChatStream(response.Body, started, c.options.Now)
+			data, decoded, receipt.Timing, readErr = readChatStream(provider.Protocol, response.Body, started, c.options.Now)
 		} else {
 			data, readErr = io.ReadAll(io.LimitReader(response.Body, (8<<20)+1))
 			decoded = data

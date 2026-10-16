@@ -8,14 +8,15 @@ Runtime remains a monolithic Go service. `internal/agent/model` uses fixed built
 - The model client is responsible for permissions, credentials, network access, idempotency records, and cost settlement.
 - The protocol adapter is responsible for request encoding, response parsing, and saving and returning backend-specific state.
 
-Currently, two protocols are integrated:
+Currently, three protocols are integrated:
 
 | Protocol | Request and State |
 | --- | --- |
 | `openai-chat-completions` | Generic Chat Completions, using `max_completion_tokens` and `store: false`, does not adopt DeepSeek extension fields |
+| `openrouter-chat-completions` | Uses `max_tokens`; preserves `reasoning`/`reasoning_details`, without `store` |
 | `deepseek-chat-completions` | Uses `max_tokens`, does not send OpenAI's `store` parameter; handles `reasoning_content` and DeepSeek cache usage |
 
-The application layer resolves the protocol based on the Provider preset selected by the user, rather than guessing based on model name or service address. In the current resources, this preset field is still named `PricingProvider`; selecting the DeepSeek preset enables the DeepSeek protocol, while other existing presets use the generic protocol. Setting manual prices does not change protocol selection. Custom presets are not automatic detectors for arbitrary backend protocols.
+The application layer resolves the protocol based on the Provider preset selected by the user, rather than guessing based on model name or service address. In the current resources, this preset field is still named `PricingProvider`; selecting DeepSeek or OpenRouter enables its dedicated protocol, while other presets use the generic protocol. Setting manual prices does not change protocol selection. Custom presets are not automatic detectors for arbitrary backend protocols.
 
 All model inference requests (including dreaming, context compression, and retries), model list queries, connection tests, and local model discovery uniformly carry `User-Agent: molr/<版本号>`. The version comes from `internal/buildinfo.Version`, consistent with `molr version`; release builds inject it via `-ldflags -X`, while development builds without an injected version use `molr/development`.
 
@@ -28,6 +29,16 @@ Each model resolution reads the target binding, resource status, and current use
 ## Cloud-Compatible Service Presets
 
 Bailian (`bailian`), Zhipu (`zhipu`), and Moonshot (`moonshot`) are consistent with WebUI presets. Saving, editing, and model discovery preserve their respective provider identities, using the `openai-chat-completions` protocol and API Key authentication. These presets do not represent integration with vendor-native protocols; unknown prices still require configuration and are not automatically considered free.
+
+## OpenRouter
+
+The `openrouter` preset explicitly selects its dedicated protocol while reusing the credential broker, network guard, and budget ledger. `/api/v1/models` retains text-output models via `architecture.output_modalities` and reads `context_length`, `top_provider.max_completion_tokens`, `architecture.input_modalities`, and `supported_parameters`, without guessing from names. Its catalog is bounded at 8 MiB and 4,096 entries; generic compatible catalogs retain the 2 MiB/500-entry bounds.
+
+Decimal USD/token strings in `pricing` are converted with rational arithmetic to micro-USD per million tokens, rounding upward. Missing cache discounts use the ordinary input rate. Nonzero extra charges that cannot be fully represented in the ledger prevent automatic pricing. Discovered tariffs live in `ProviderPricing`; owner overrides remain in `Pricing`. Refresh and configuration preserve this distinction. Effective automatic prices return `PricingInfo.Source=provider`.
+
+The adapter replays only same-source `reasoning_details`, falling back to `reasoning` when structured blocks are absent. Other top-level message extensions never enter requests. Streaming assembly merges consecutive text/summary and signature fragments with matching identities, keeping encrypted blocks separate and preserving type transitions; repeated indices alone do not identify blocks. Replayed state participates in context estimates and stays out of chat history.
+
+References: [OpenRouter quickstart](https://openrouter.ai/docs/quickstart), [model catalog](https://openrouter.ai/docs/api/api-reference/models/list-all-models-and-their-properties), and [reasoning state](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens). Protocol, refresh, and WebUI regressions use synthetic model servers; online model behavior requires separate validation.
 
 ## Local Inference Service Presets
 

@@ -48,8 +48,9 @@ const (
 type Protocol string
 
 const (
-	OpenAIChat   Protocol = "openai-chat-completions"
-	DeepSeekChat Protocol = "deepseek-chat-completions"
+	OpenAIChat     Protocol = "openai-chat-completions"
+	OpenRouterChat Protocol = "openrouter-chat-completions"
+	DeepSeekChat   Protocol = "deepseek-chat-completions"
 )
 
 // StateSource binds opaque provider state to the exact backend that issued it.

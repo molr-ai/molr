@@ -14,15 +14,16 @@ import { Loading, useAction } from '../components/common';
 type AuthenticationMethod = 'api-key' | 'none' | 'oauth';
 const providers = [
   { id: 'openai', name: 'OpenAI', category: 'cloud', aliases: '', endpoint: 'https://api.openai.com/v1', icon: Cloud, methods: ['api-key'] },
+  { id: 'openrouter', name: 'OpenRouter', category: 'cloud', aliases: 'Open Router', endpoint: 'https://openrouter.ai/api/v1', icon: Cloud, methods: ['api-key'] },
   { id: 'deepseek', name: 'DeepSeek', category: 'cloud', aliases: '深度求索', endpoint: 'https://api.deepseek.com/v1', icon: Cloud, methods: ['api-key'] },
-  { id: 'bailian', name: '', category: 'cloud', aliases: '百炼 阿里云 通义千问 Alibaba Cloud Bailian DashScope Qwen', endpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1', icon: Cloud, methods: ['api-key'] },
-  { id: 'zhipu', name: '', category: 'cloud', aliases: '智谱 智谱清言 Zhipu BigModel GLM', endpoint: 'https://open.bigmodel.cn/api/paas/v4', icon: Cloud, methods: ['api-key'] },
-  { id: 'moonshot', name: '', category: 'cloud', aliases: '月之暗面 Moonshot Kimi', endpoint: 'https://api.moonshot.cn/v1', icon: Cloud, methods: ['api-key'] },
+  { id: 'bailian', name: 'Aliyun Bailian', category: 'cloud', aliases: '百炼 阿里云 通义千问 Alibaba Cloud Bailian DashScope Qwen', endpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1', icon: Cloud, methods: ['api-key'] },
+  { id: 'zhipu', name: 'Zhipu', category: 'cloud', aliases: '智谱 智谱清言 Zhipu BigModel GLM', endpoint: 'https://open.bigmodel.cn/api/paas/v4', icon: Cloud, methods: ['api-key'] },
+  { id: 'moonshot', name: 'Moonshot AI', category: 'cloud', aliases: '月之暗面 Moonshot Kimi', endpoint: 'https://api.moonshot.cn/v1', icon: Cloud, methods: ['api-key'] },
   { id: 'ollama', name: 'Ollama', category: 'local', aliases: '', endpoint: 'http://127.0.0.1:11434/v1', icon: Monitor, methods: ['none', 'api-key'] },
   { id: 'llamacpp', name: 'llama.cpp', category: 'local', aliases: '', endpoint: 'http://127.0.0.1:8080/v1', icon: Monitor, methods: ['none', 'api-key'] },
   { id: 'vllm', name: 'vLLM', category: 'local', aliases: '', endpoint: 'http://127.0.0.1:8000/v1', icon: Monitor, methods: ['none', 'api-key'] },
   { id: 'sglang', name: 'SGLang', category: 'local', aliases: '', endpoint: 'http://127.0.0.1:30000/v1', icon: Monitor, methods: ['none', 'api-key'] },
-  { id: 'custom', name: '', category: 'any', aliases: '自定义 Custom', endpoint: '', icon: Settings2, methods: ['none', 'api-key'] },
+  { id: 'custom', name: 'Custom service', category: 'any', aliases: '自定义 Custom', endpoint: '', icon: Settings2, methods: ['none', 'api-key'] },
 ] as const;
 type ProviderFilter = 'all' | 'cloud' | 'local';
 type ProviderID = typeof providers[number]['id'];
@@ -60,12 +61,14 @@ function ProviderForm({ inline, initial, onConnected, onClose }: Omit<Props, 're
   const draft = drafts[provider] ?? newDraft(provider);
   const formID = useId();
   const selected = providers.find(item => item.id === provider)!;
-  const nameOf = (item: typeof providers[number]) => item.name || t.resources.providerNames[item.id as keyof typeof t.resources.providerNames];
+  const nameOf = (item: typeof providers[number]) => t.resources.providerNames[item.id as keyof typeof t.resources.providerNames] || item.name;
   const providerName = nameOf(selected);
   const query = search.trim().toLocaleLowerCase();
   // Custom endpoints can connect either a cloud service or a local server.
   const visibleProviders = providers.filter(item => (providerFilter === 'all' || item.category === providerFilter || item.category === 'any')
-    && `${nameOf(item)} ${item.id} ${item.aliases}`.toLocaleLowerCase().includes(query));
+    && `${nameOf(item)} ${item.id} ${item.aliases}`.toLocaleLowerCase().includes(query))
+    .sort((a, b) => Number(a.id === 'custom') - Number(b.id === 'custom')
+      || a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
   const storedKey = !!initial?.CredentialID && !draft.replaceKey;
   function update(patch: Partial<Draft>) {
     setTested(null); testAction.reset(); action.reset();
@@ -82,7 +85,7 @@ function ProviderForm({ inline, initial, onConnected, onClose }: Omit<Props, 're
     setTested(null);
     if (draft.authentication === 'oauth') throw new APIError('failed_precondition');
     const result = await api.post<{ ModelCount: number }>('/api/resources/test-connection', { Provider: 'openai-compatible',
-      Binding: { ...endpoint(), CredentialID: draft.authentication === 'api-key' && storedKey ? initial!.CredentialID : '' },
+      Binding: { ...endpoint(), PricingProvider: provider, CredentialID: draft.authentication === 'api-key' && storedKey ? initial!.CredentialID : '' },
       APIKey: draft.authentication === 'api-key' && !storedKey ? draft.apiKey.trim() : '',
     });
     setTested(result);

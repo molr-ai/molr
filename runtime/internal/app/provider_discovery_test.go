@@ -147,7 +147,7 @@ func TestDiscoveryReadsDeclaredModalitiesWithoutGuessing(t *testing.T) {
 		_, _ = w.Write([]byte(`{"data":[{"id":"vision","input_modalities":["text","image"],"context_window":65536},{"id":"audio","input_modalities":["text","audio"]},{"id":"unknown-vision-model"}]}`))
 	}))
 	defer server.Close()
-	rows, err := fetchProviderModels(t.Context(), server.Client(), server.URL, core.Secret{})
+	rows, err := fetchProviderModels(t.Context(), server.Client(), server.URL, core.Secret{}, "")
 	need(t, err)
 	if len(rows) != 3 || !rows[0].SupportsImages || rows[0].ProviderContextLimit != 65536 || rows[0].ContextLimit != 0 || !rows[1].SupportsAudio || rows[2].SupportsImages || rows[2].SupportsAudio {
 		t.Fatalf("incorrect capabilities: %+v", rows)
@@ -284,7 +284,7 @@ func TestDiscoveryContextWindowPrecedenceAndBounds(t *testing.T) {
 		_, _ = w.Write([]byte(`{"data":[{"id":"priority","context_window":8192,"max_model_len":65536},{"id":"fallback","context_window":-1,"max_model_len":4096},{"id":"negative","max_model_len":-1},{"id":"too-small","max_model_len":255},{"id":"too-large","max_model_len":2000001},{"id":"missing"},{"id":"null","max_model_len":null}]}`))
 	}))
 	defer server.Close()
-	rows, err := fetchProviderModels(t.Context(), server.Client(), server.URL, core.Secret{})
+	rows, err := fetchProviderModels(t.Context(), server.Client(), server.URL, core.Secret{}, "")
 	need(t, err)
 	want := []int{8192, 4096, 0, 0, 0, 0, 0}
 	if len(rows) != len(want) {
@@ -335,7 +335,7 @@ func TestDiscoveryPreservesNetworkReasonAfterDial(t *testing.T) {
 	defer server.Close()
 	client := platform.ConfiguredHTTPClient(server.URL, nil)
 	defer client.CloseIdleConnections()
-	_, err := fetchProviderModels(t.Context(), client, server.URL+"/v1/chat/completions", core.Secret{})
+	_, err := fetchProviderModels(t.Context(), client, server.URL+"/v1/chat/completions", core.Secret{}, "")
 	if core.ReasonOf(err) != core.NetworkPrivateAddressDenied {
 		t.Fatalf("lost network reason: %v", err)
 	}

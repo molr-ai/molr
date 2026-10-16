@@ -60,6 +60,8 @@ type Binding struct {
 	Models []ModelConfig
 }
 
+const MaxProviderModels = 4096
+
 // ModelConfig is owner-supplied configuration for the fixed compatible model
 // adapter. Prices are USD millionths per million tokens; explicit zero is free.
 // A missing config never implies a zero-cost provider.
@@ -74,8 +76,9 @@ type ModelConfig struct {
 	SupportsImages       bool
 	SupportsAudio        bool
 	// Nil pricing is unknown. An explicit zero tariff confirms free usage.
-	Pricing    *ModelPricing
-	Discovered bool
+	ProviderPricing *ModelPricing `json:",omitempty"` // Discovered tariff; owner overrides remain in Pricing.
+	Pricing         *ModelPricing
+	Discovered      bool
 }
 type ModelPricing struct {
 	AudioInputMicrosPerMillion  *int64 `json:",omitempty"`

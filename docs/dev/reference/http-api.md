@@ -326,7 +326,7 @@ HTTP 限流在事务内读取并更新持久计数，通过的请求占用当前
 
 ### 模型计价
 
-模型计价补充：`GET /api/models` 返回有效 `Pricing`，并通过 `PricingInfo` 标明 `Source`（`builtin` / `manual`）、可用的自动价格 `Automatic`、`RuleID`、`Version`、`Period`（`peak` / `off_peak`）、`SourceURL` 和 `CalendarKnown`。`configure-model` 的 `Model.Pricing=null` 表示使用匹配的内置规则；不存在规则时仍为未知价格。保存 Provider 可传 `PricingProvider`（`deepseek` / `openai` / `ollama` / `custom`），连接详情返回该字段；为空时根据官方地址识别，`custom` 禁用自动规则。目前仅内置 DeepSeek，且仅匹配配置明确列出的官方地址与模型标识。
+模型计价补充：`GET /api/models` 返回有效 `Pricing`，并通过 `PricingInfo` 标明 `Source`（`builtin` / `provider` / `manual`）、可用的自动价格 `Automatic`、`RuleID`、`Version`、`Period`（`peak` / `off_peak`）、`SourceURL` 和 `CalendarKnown`。`configure-model` 的 `Model.Pricing=null` 表示使用可用的提供商目录价格或匹配的内置规则；都不存在时仍为未知价格。保存 Provider 可传 `PricingProvider`（`deepseek` / `openrouter` / `openai` / `bailian` / `zhipu` / `moonshot` / `ollama` / `llamacpp` / `vllm` / `sglang` / `custom`），连接详情返回该字段；为空时根据官方地址识别，`custom` 禁用自动规则。目前仅内置 DeepSeek，且仅匹配配置明确列出的官方地址与模型标识。
 
 ## 助理与计划
 

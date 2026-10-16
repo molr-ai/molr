@@ -20,7 +20,7 @@ func TestStreamingTimingToolsReasoningAndUsage(t *testing.T) {
 	start := time.Unix(1, 0)
 	tick := start
 	now := func() time.Time { tick = tick.Add(100 * time.Millisecond); return tick }
-	raw, normalized, timing, err := readChatStream(strings.NewReader(body), start, now)
+	raw, normalized, timing, err := readChatStream(OpenAIChat, strings.NewReader(body), start, now)
 	testkit.RequireNoError(t, err)
 	if string(raw) != body || timing.FirstTokenMs == nil || *timing.FirstTokenMs != 100 || timing.GenerationMs == nil || *timing.GenerationMs != 200 {
 		t.Fatalf("timing=%+v", timing)
@@ -35,11 +35,11 @@ func TestStreamingTimingToolsReasoningAndUsage(t *testing.T) {
 func TestStreamingMissingEvidenceAndSingleChunk(t *testing.T) {
 	chunk := `data: {"id":"s","choices":[{"index":0,"delta":{"content":"hello"},"finish_reason":"stop"}],"usage":{"prompt_tokens":2,"completion_tokens":1}}` + "\n\n"
 	for _, body := range []string{chunk, "data: [DONE]\n\n", "data: broken\n\n", strings.Repeat("x", (8<<20)+2)} {
-		if _, _, _, err := readChatStream(strings.NewReader(body), time.Now(), time.Now); err == nil {
+		if _, _, _, err := readChatStream(OpenAIChat, strings.NewReader(body), time.Now(), time.Now); err == nil {
 			t.Fatal("accepted incomplete evidence")
 		}
 	}
-	_, _, timing, err := readChatStream(strings.NewReader(chunk+"data: [DONE]\n\n"), time.Now(), time.Now)
+	_, _, timing, err := readChatStream(OpenAIChat, strings.NewReader(chunk+"data: [DONE]\n\n"), time.Now(), time.Now)
 	testkit.RequireNoError(t, err)
 	if timing.FirstTokenMs == nil || timing.GenerationMs != nil {
 		t.Fatal("single buffered fragment must not invent decode speed")

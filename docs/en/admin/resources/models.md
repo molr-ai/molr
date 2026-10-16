@@ -9,6 +9,7 @@ A built-in preset provides a connection entry and protocol adapter; it does not 
 | Provider / service | Current connection method | Authentication | Guide |
 | --- | --- | --- | --- |
 | OpenAI API | Built-in preset; Chat Completions | API key | [Connect OpenAI](providers/openai.md) |
+| OpenRouter | Built-in preset; Chat Completions and reasoning state replay | API key | [Connect OpenRouter](providers/openrouter.md) |
 | DeepSeek API | Built-in preset; DeepSeek protocol and reasoning state replay | API key | [Connect DeepSeek](providers/deepseek.md) |
 | Alibaba Cloud Bailian | Built-in preset; OpenAI-compatible API | API key | [Connect Bailian](providers/bailian.md) |
 | Zhipu platform | Built-in preset; OpenAI-compatible API | API key | [Connect Zhipu](providers/zhipu.md) |

@@ -41,6 +41,11 @@ const model = createServer(async (request, response) => {
     if (request.url.startsWith('/private/') && !['Bearer test-provider-secret', 'Bearer rotated-provider-secret'].includes(request.headers.authorization)) { response.writeHead(401).end(); return; }
     response.setHeader('Content-Type', 'application/json'); response.end(JSON.stringify({ data: [{ id: 'discovered-one' }, { id: 'discovered-two' }] })); return;
   }
+  if (request.method === 'GET' && request.url === '/openrouter/api/v1/models') {
+    if (request.headers.authorization !== 'Bearer test-router-key') { response.writeHead(401).end(); return; }
+    response.setHeader('Content-Type', 'application/json');
+    response.end(JSON.stringify({ data: [{ id: 'fixture/router', context_length: 131072, architecture: { input_modalities: ['text', 'image'], output_modalities: ['text'] }, supported_parameters: ['tools'], top_provider: { max_completion_tokens: 8192 }, pricing: { prompt: '0', completion: '0' } }] })); return;
+  }
   let raw = ''; for await (const part of request) raw += part;
   try {
     const input = JSON.parse(raw); if (profileModel(input, response)) return; if (await compressionModel(input, response)) return; if (workspaceCLIModel(input, response)) return; if (pluginHTTPTestModel(input, response)) return; if (responseModel(input, response)) return; if (permissionModel(input, response)) return; if (retryModel(input, response)) return; if (input.model?.startsWith('Expedite ')) { await expediteModel(input, response); return; } const messages = input.messages ?? [];
@@ -74,6 +79,20 @@ const model = createServer(async (request, response) => {
       await new Promise(resolve => setTimeout(resolve, 120));
       send({ choices: [{ index: 0, delta: { content: 'completion.', ...(message.tool_calls ? { tool_calls: message.tool_calls.map((call, index) => ({ ...call, index })) } : {}) }, finish_reason: finish }] });
       send({ choices: [], usage: { prompt_tokens: 30, completion_tokens: 10, prompt_tokens_details: { cached_tokens: 12 } } });
+      response.end('data: [DONE]\n\n'); return;
+    }
+    if (input.model === 'fixture/router') {
+      if (request.headers.authorization !== 'Bearer test-router-key' || input.max_tokens !== 8192 || 'store' in input || 'max_completion_tokens' in input) throw new Error('Wrong OpenRouter request');
+      for (const previous of messages.filter(item => item.role === 'assistant')) {
+        if (previous.reasoning_details?.[0]?.text !== 'Private continuation.' || previous.reasoning_details?.[0]?.signature !== 'fixture-signature' || previous.reasoning_details?.[1]?.data !== 'opaque-fixture') throw new Error('Lost OpenRouter continuation');
+      }
+      const id = randomUUID(); response.setHeader('Content-Type', 'text/event-stream');
+      const send = value => response.write('data: ' + JSON.stringify({ id, ...value }) + '\n\n');
+      send({ choices: [{ index: 0, delta: { reasoning_details: [{ type: 'reasoning.text', text: 'Private ', index: 0 }] } }] });
+      send({ choices: [{ index: 0, delta: { reasoning_details: [{ type: 'reasoning.text', text: 'continuation.', signature: 'fixture-signature', index: 0 }] } }] });
+      send({ choices: [{ index: 0, delta: { reasoning_details: [{ type: 'reasoning.encrypted', data: 'opaque-fixture', index: 1 }] } }] });
+      send({ choices: [{ index: 0, delta: { ...message, ...(message.tool_calls ? { tool_calls: message.tool_calls.map((call, index) => ({ ...call, index })) } : {}) }, finish_reason: finish }] });
+      send({ choices: [], usage: { prompt_tokens: 30, completion_tokens: 10 } });
       response.end('data: [DONE]\n\n'); return;
     }
     response.setHeader('Content-Type', 'application/json'); response.end(JSON.stringify({ id: randomUUID(), choices: [{ message, finish_reason: finish }], usage: { prompt_tokens: 30, completion_tokens: 10 } }));

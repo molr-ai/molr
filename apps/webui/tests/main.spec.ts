@@ -668,7 +668,7 @@ test('credential fields keep login autofill separate from provider secrets', asy
   await expect(key).toHaveCSS('-webkit-text-security', 'disc');
   await expect(dialog).toBeVisible();
   await dialog.getByRole('button', { name: 'Show secret', exact: true }).click();
-  await dialog.getByRole('button', { name: 'DeepSeek', exact: true }).click();
+  await dialog.getByRole('button', { name: 'DeepSeek · 深度求索', exact: true }).click();
   expect(await openAIInput!.evaluate(node => node.isConnected)).toBe(false);
   expect(await key.getAttribute('name')).not.toBe(openAIName);
   await expect(key).toHaveCSS('-webkit-text-security', 'disc');
@@ -678,7 +678,7 @@ test('credential fields keep login autofill separate from provider secrets', asy
   await dialog.getByRole('button', { name: 'OpenAI', exact: true }).click();
   await expect(key).toHaveValue('openai-only-secret');
   await expect(key).toHaveCSS('-webkit-text-security', 'disc');
-  await dialog.getByRole('button', { name: 'DeepSeek', exact: true }).click();
+  await dialog.getByRole('button', { name: 'DeepSeek · 深度求索', exact: true }).click();
   await expect(key).toHaveValue('deepseek-only-secret');
   await dialog.getByText('More configuration', { exact: true }).click();
   await expect(dialog.getByRole('textbox', { name: 'Name', exact: true })).toHaveAttribute('autocomplete', 'off');
@@ -711,7 +711,7 @@ test('secret fields stay concealed when CSS text masking is unavailable', async 
   await dialog.getByRole('button', { name: 'Hide secret', exact: true }).click();
   await expect(key).toHaveAttribute('type', 'password');
   await expect(key).toHaveValue('fallback-openai-secret');
-  await dialog.getByRole('button', { name: 'DeepSeek', exact: true }).click();
+  await dialog.getByRole('button', { name: 'DeepSeek · 深度求索', exact: true }).click();
   await expect(key).toHaveValue('');
   await expect(key).toHaveAttribute('autocomplete', 'section-provider-deepseek-new-api-key new-password');
 });
@@ -733,9 +733,9 @@ test('provider search and cloud/local filters preserve drafts and preset endpoin
   const form = dialog.getByRole('form', { name: 'Provider configuration' });
   await form.getByLabel('API key', { exact: true }).fill('retained-openai-draft');
   for (const [query, name, endpoint] of [
-    ['  阿里云  ', 'Bailian', 'https://dashscope.aliyuncs.com/compatible-mode/v1'],
-    ['GLM', 'Zhipu', 'https://open.bigmodel.cn/api/paas/v4'],
-    ['kImI', 'Moonshot AI', 'https://api.moonshot.cn/v1'],
+    ['  阿里云  ', 'Aliyun Bailian · 阿里云百炼', 'https://dashscope.aliyuncs.com/compatible-mode/v1'],
+    ['GLM', 'Zhipu · 智谱', 'https://open.bigmodel.cn/api/paas/v4'],
+    ['kImI', 'Moonshot AI · 月之暗面', 'https://api.moonshot.cn/v1'],
   ]) {
     await search.fill(query);
     await expect(choices.getByRole('button')).toHaveText([name]);
@@ -749,21 +749,21 @@ test('provider search and cloud/local filters preserve drafts and preset endpoin
   await expect(choices.getByRole('button')).toHaveCount(0);
   await expect(dialog.locator('.provider-connect-providers').getByRole('status')).toContainText('No matching providers');
   await search.fill('');
-  await expect(choices.getByRole('button')).toHaveText(['Ollama', 'llama.cpp', 'vLLM', 'SGLang', 'Custom service']);
+  await expect(choices.getByRole('button')).toHaveText(['llama.cpp', 'Ollama', 'SGLang', 'vLLM', 'Custom service']);
   await choices.getByRole('button', { name: 'Ollama', exact: true }).click();
   await expect(form.getByRole('combobox', { name: 'Authentication' })).toContainText('No authentication');
   await dialog.getByRole('radio', { name: 'Cloud', exact: true }).check();
-  await expect(choices.getByRole('button')).toHaveText(['OpenAI', 'DeepSeek', 'Bailian', 'Zhipu', 'Moonshot AI', 'Custom service']);
-  await choices.getByRole('button', { name: 'Moonshot AI', exact: true }).click();
-  await expect(form.getByLabel('API key', { exact: true })).toHaveValue('draft-Moonshot AI');
+  await expect(choices.getByRole('button')).toHaveText(['Aliyun Bailian · 阿里云百炼', 'DeepSeek · 深度求索', 'Moonshot AI · 月之暗面', 'OpenAI', 'OpenRouter', 'Zhipu · 智谱', 'Custom service']);
+  await choices.getByRole('button', { name: 'Moonshot AI · 月之暗面', exact: true }).click();
+  await expect(form.getByLabel('API key', { exact: true })).toHaveValue('draft-Moonshot AI · 月之暗面');
   await choices.getByRole('button', { name: 'OpenAI', exact: true }).click();
   await expect(form.getByLabel('API key', { exact: true })).toHaveValue('retained-openai-draft');
   await dialog.getByRole('radio', { name: 'All', exact: true }).check();
-  await expect(choices.getByRole('button')).toHaveCount(10);
+  await expect(choices.getByRole('button')).toHaveCount(11);
   await search.fill('nothing-matches');
   await expect(dialog.locator('.provider-connect-providers').getByRole('status')).toContainText('No matching providers');
   await dialog.getByRole('button', { name: 'Clear search', exact: true }).click();
-  await expect(choices.getByRole('button')).toHaveCount(10);
+  await expect(choices.getByRole('button')).toHaveCount(11);
 });
 
 test('provider connection discovers models without manual configuration and keeps credentials scoped', async ({ page }, info) => {
@@ -774,14 +774,14 @@ test('provider connection discovers models without manual configuration and keep
   const dialog = page.getByRole('dialog', { name: 'Connect provider', exact: true });
   const providers = dialog.getByRole('group', { name: 'Model providers', exact: true });
   const form = dialog.getByRole('form', { name: 'Provider configuration', exact: true });
-  await expect(providers.getByRole('button')).toHaveText(['OpenAI', 'DeepSeek', 'Bailian', 'Zhipu', 'Moonshot AI', 'Ollama', 'llama.cpp', 'vLLM', 'SGLang', 'Custom service']);
+  await expect(providers.getByRole('button')).toHaveText(['Aliyun Bailian · 阿里云百炼', 'DeepSeek · 深度求索', 'llama.cpp', 'Moonshot AI · 月之暗面', 'Ollama', 'OpenAI', 'OpenRouter', 'SGLang', 'vLLM', 'Zhipu · 智谱', 'Custom service']);
   await expect(form.getByRole('textbox', { name: 'Service URL', exact: true })).not.toBeVisible();
   await expect(form.getByRole('textbox', { name: 'Model identifier', exact: true })).toHaveCount(0);
   await expect(form.getByRole('spinbutton')).toHaveCount(0);
   await expect(form.getByLabel('API Key', { exact: false })).toBeVisible();
   await expect(form.getByRole('combobox', { name: 'Authentication', exact: true })).toHaveCount(0);
   await form.getByLabel('API Key', { exact: false }).fill('draft-openai-key');
-  await providers.getByRole('button', { name: 'DeepSeek', exact: true }).click();
+  await providers.getByRole('button', { name: 'DeepSeek · 深度求索', exact: true }).click();
   await expect(form.getByRole('combobox', { name: 'Authentication', exact: true })).toHaveCount(0);
   await expect(form.getByLabel('API Key', { exact: false })).toHaveValue('');
   await providers.getByRole('button', { name: 'OpenAI', exact: true }).click();
@@ -2591,4 +2591,52 @@ test('provider network rejection explains test and save without clearing the dra
   await endpoint.fill(`${modelOrigin}/v1`);
   await dialog.getByRole('button', { name: 'Test connection', exact: true }).click();
   await expect(dialog.getByText('Connected · 2 models detected', { exact: true })).toBeVisible();
+});
+
+
+test('OpenRouter preset discovers metadata and preserves streamed reasoning through tool calls', async ({ page }, info) => {
+  test.setTimeout(120_000);
+  await login(page);
+  await page.goto('/#/resources');
+  await page.locator('.resources-header').getByRole('button', { name: 'More', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Connect provider', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Connect provider', exact: true });
+  await dialog.getByRole('radio', { name: 'Cloud', exact: true }).check();
+  await dialog.getByRole('searchbox').fill('openrouter');
+  await dialog.getByRole('button', { name: 'OpenRouter', exact: true }).click();
+  await dialog.getByText('More configuration', { exact: true }).click();
+  await expect(dialog.getByRole('textbox', { name: 'Service URL' })).toHaveValue('https://openrouter.ai/api/v1');
+  const name = `OpenRouter ${info.project.name} ${Date.now()}`;
+  const endpoint = `${modelOrigin}/openrouter/api/v1`;
+  await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill(name);
+  await dialog.getByRole('textbox', { name: 'Service URL' }).fill(endpoint);
+  await dialog.getByLabel('API key', { exact: true }).fill('test-router-key');
+  await dialog.getByRole('button', { name: 'Test connection', exact: true }).click();
+  await expect(dialog.getByText('Connected · 1 models detected', { exact: true })).toBeVisible();
+  const saved = page.waitForResponse(response => response.url().endsWith('/api/resources/provider') && response.request().method() === 'POST');
+  await dialog.getByRole('button', { name: 'Connect provider', exact: true }).click();
+  const resource = await (await saved).json();
+  await expect(dialog).not.toBeVisible();
+  const card = resourceRow(page, name);
+  await expandResource(card);
+  await expect(card).toContainText('fixture/router');
+  const models = await (await page.request.get('/api/models')).json();
+  const model = models.find((item: { ResourceID: string }) => item.ResourceID === resource.ID);
+  expect(model).toMatchObject({ SupportsTools: true, SupportsImages: true, EffectiveContextLimit: 131072, EffectiveOutputLimit: 8192, PricingInfo: { Source: 'provider' } });
+  await cardAction(page, card, 'Edit provider');
+  const editor = page.getByRole('dialog', { name: 'Edit provider', exact: true });
+  await expect(editor.getByRole('textbox', { name: 'Service URL' })).toHaveValue(endpoint);
+  await editor.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(editor).not.toBeVisible();
+  const connection = await (await page.request.get(`/api/resources/${resource.ID}/connection`)).json();
+  expect(connection.PricingProvider).toBe('openrouter');
+  const assistant = await post(page, '/api/assistants', { Name: name, ModelID: model.ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } });
+  await page.goto(`/#/assistants/${assistant.ID}`);
+  const dismiss = page.locator('.ui-toasts').getByRole('button', { name: 'Close', exact: true });
+  while (await dismiss.count()) await dismiss.first().click();
+  await page.getByRole('textbox', { name: 'Message your assistant', exact: true }).fill('Check OpenRouter tool continuation.');
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
+  const log = page.getByRole('log', { name: 'Assistant conversation' });
+  await expect(log.getByText('Runtime delivered this reply through conversation_publish.', { exact: true }).last()).toBeVisible({ timeout: 60_000 });
+  await expect(log).not.toContainText('Private continuation.');
 });

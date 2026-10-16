@@ -9,6 +9,7 @@
 | 提供商／服务 | 当前接入方式 | 认证 | 配置说明 |
 | --- | --- | --- | --- |
 | OpenAI API | 内置预设；Chat Completions | API Key | [接入 OpenAI](https://molr.ai/zh/docs/admin/resources/providers/openai/) |
+| OpenRouter | 内置预设；Chat Completions 与推理状态回传 | API Key | [接入 OpenRouter](https://molr.ai/zh/docs/admin/resources/providers/openrouter/) |
 | DeepSeek API | 内置预设；DeepSeek 协议及推理状态回传 | API Key | [接入 DeepSeek](https://molr.ai/zh/docs/admin/resources/providers/deepseek/) |
 | 阿里云百炼 | 内置预设；OpenAI 兼容接口 | API Key | [接入百炼](https://molr.ai/zh/docs/admin/resources/providers/bailian/) |
 | 智谱开放平台 | 内置预设；OpenAI 兼容接口 | API Key | [接入智谱](https://molr.ai/zh/docs/admin/resources/providers/zhipu/) |

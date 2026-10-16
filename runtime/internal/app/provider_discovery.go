@@ -48,6 +48,12 @@ func (a adapters) resolvedModel(r resource.Resource, b resource.Binding, entry m
 		price, reserve = tariff(q.Current), tariff(q.Reserve)
 		info = &model.PricingInfo{Source: "builtin", Automatic: price, RuleID: q.RuleID, Version: q.Version, Period: q.Period, SourceURL: q.SourceURL, CalendarKnown: q.CalendarKnown}
 	}
+	if b.PricingProvider == "openrouter" && m.ProviderPricing != nil {
+		p := m.ProviderPricing
+		price = &model.Pricing{Currency: p.Currency, InputMicrosPerMillion: p.InputMicrosPerMillion, OutputMicrosPerMillion: p.OutputMicrosPerMillion, CachedInputMicrosPerMillion: p.CachedInputMicrosPerMillion}
+		reserve = price
+		info = &model.PricingInfo{Source: "provider", Automatic: price, SourceURL: "https://openrouter.ai/models"}
+	}
 	if m.Pricing != nil {
 		price = &model.Pricing{AudioInputMicrosPerMillion: m.Pricing.AudioInputMicrosPerMillion, Currency: m.Pricing.Currency, InputMicrosPerMillion: m.Pricing.InputMicrosPerMillion, OutputMicrosPerMillion: m.Pricing.OutputMicrosPerMillion, CachedInputMicrosPerMillion: m.Pricing.CachedInputMicrosPerMillion}
 		reserve = price
@@ -61,7 +67,9 @@ func (a adapters) resolvedModel(r resource.Resource, b resource.Binding, entry m
 	// When unspecified, recognize only the exact official HTTPS origin; model
 	// names and proxy hostnames cannot reliably identify a protocol.
 	protocol := model.OpenAIChat
-	if b.PricingProvider == "deepseek" {
+	if b.PricingProvider == "openrouter" {
+		protocol = model.OpenRouterChat
+	} else if b.PricingProvider == "deepseek" {
 		protocol = model.DeepSeekChat
 	} else if b.PricingProvider == "" {
 		u, err := url.Parse(b.Endpoint)
@@ -91,7 +99,7 @@ func (a adapters) resolvedModel(r resource.Resource, b resource.Binding, entry m
 	if m.OutputLimit > 0 {
 		output, outputSource = m.OutputLimit, "manual"
 	}
-	return model.Provider{Protocol: protocol, Model: model.Model{ID: entry.id, ResourceID: r.ID, Name: m.Name, SupportsTools: m.SupportsTools, SupportsImages: m.SupportsImages, SupportsAudio: m.SupportsAudio && protocol == model.OpenAIChat, ContextLimit: manual, ProviderContextLimit: declared, EffectiveContextLimit: effective, ContextLimitSource: source, OutputLimit: m.OutputLimit, ProviderOutputLimit: m.ProviderOutputLimit, EffectiveOutputLimit: output, OutputLimitSource: outputSource, Pricing: price, PricingInfo: info}, Endpoint: b.Endpoint, CredentialID: b.CredentialID, Pricing: price, ReservePricing: reserve}
+	return model.Provider{Protocol: protocol, Model: model.Model{ID: entry.id, ResourceID: r.ID, Name: m.Name, SupportsTools: m.SupportsTools, SupportsImages: m.SupportsImages, SupportsAudio: m.SupportsAudio && protocol != model.DeepSeekChat, ContextLimit: manual, ProviderContextLimit: declared, EffectiveContextLimit: effective, ContextLimitSource: source, OutputLimit: m.OutputLimit, ProviderOutputLimit: m.ProviderOutputLimit, EffectiveOutputLimit: output, OutputLimitSource: outputSource, Pricing: price, PricingInfo: info}, Endpoint: b.Endpoint, CredentialID: b.CredentialID, Pricing: price, ReservePricing: reserve}
 }
 func (a adapters) provider(ctx context.Context, p core.Principal, id core.ID) (out model.Provider, err error) {
 	err = a.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
@@ -193,7 +201,7 @@ func (a adapters) ownerNetworkBinding(ctx context.Context, p core.Principal, id 
 	}
 	return platform.NetworkBinding{Origin: o}, nil
 }
-func fetchProviderModels(ctx context.Context, client *http.Client, endpoint string, secret core.Secret) ([]resource.ModelConfig, error) {
+func fetchProviderModels(ctx context.Context, client *http.Client, endpoint string, secret core.Secret, preset string) ([]resource.ModelConfig, error) {
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 	u, err := url.Parse(endpoint)
@@ -219,12 +227,18 @@ func fetchProviderModels(ctx context.Context, client *http.Client, endpoint stri
 	if response.StatusCode != http.StatusOK {
 		return nil, core.NewError(core.Unavailable, "provider model list unavailable")
 	}
-	payload, err := io.ReadAll(io.LimitReader(response.Body, (2<<20)+1))
-	if err != nil || len(payload) > 2<<20 {
+	maxBytes := int64(2 << 20)
+	maxModels := 500
+	if preset == "openrouter" {
+		maxBytes, maxModels = 8<<20, resource.MaxProviderModels
+	}
+	payload, err := io.ReadAll(io.LimitReader(response.Body, maxBytes+1))
+	if err != nil || int64(len(payload)) > maxBytes {
 		return nil, core.NewError(core.Unavailable, "invalid model catalog")
 	}
 	var data struct {
 		Data []struct {
+			openRouterModel
 			ID                  string   `json:"id"`
 			InputModalities     []string `json:"input_modalities"`
 			ContextWindow       int      `json:"context_window"`
@@ -236,7 +250,7 @@ func fetchProviderModels(ctx context.Context, client *http.Client, endpoint stri
 			} `json:"top_provider"`
 		} `json:"data"`
 	}
-	if json.Unmarshal(payload, &data) != nil || data.Data == nil || len(data.Data) > 500 {
+	if json.Unmarshal(payload, &data) != nil || data.Data == nil || len(data.Data) > maxModels {
 		return nil, core.NewError(core.Unavailable, "invalid model catalog")
 	}
 	seen := map[string]bool{}
@@ -272,6 +286,11 @@ func fetchProviderModels(ctx context.Context, client *http.Client, endpoint stri
 				m.SupportsAudio = true
 			}
 		}
+		if preset == "openrouter" {
+			if !item.openRouterModel.configure(&m) {
+				continue
+			}
+		}
 		rows = append(rows, m)
 	}
 	return rows, nil
@@ -287,7 +306,7 @@ func (a adapters) discoverModels(ctx context.Context, p core.Principal, b resour
 	var rows []resource.ModelConfig
 	request := func(secret core.Secret) error {
 		var err error
-		rows, err = fetchProviderModels(ctx, client, b.Endpoint, secret)
+		rows, err = fetchProviderModels(ctx, client, b.Endpoint, secret, b.PricingProvider)
 		return err
 	}
 	if b.CredentialID != "" {
@@ -319,7 +338,7 @@ func (a adapters) testModelConnection(ctx context.Context, p core.Principal, req
 	defer client.CloseIdleConnections()
 	var result resource.ConnectionTest
 	request := func(secret core.Secret) error {
-		models, err := fetchProviderModels(ctx, client, req.Binding.Endpoint, secret)
+		models, err := fetchProviderModels(ctx, client, req.Binding.Endpoint, secret, req.Binding.PricingProvider)
 		if err == nil {
 			result.ModelCount = len(models)
 		}

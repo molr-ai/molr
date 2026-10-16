@@ -310,6 +310,16 @@
     "section": "admin"
   },
   {
+    "file": "admin/resources/providers/openrouter.md",
+    "path": "/docs/admin/resources/providers/openrouter/",
+    "label": "接入 OpenRouter",
+    "group": "接入模型",
+    "englishLabel": "Connect OpenRouter",
+    "englishGroup": "Connect models",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
     "file": "admin/resources/providers/deepseek.md",
     "path": "/docs/admin/resources/providers/deepseek/",
     "label": "接入 DeepSeek",

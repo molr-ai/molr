@@ -372,6 +372,7 @@ func (s *service) RefreshModels(ctx context.Context, p core.Principal, req Refre
 				if merged[i].Name == manual.Name {
 					manual.ProviderContextLimit = merged[i].ProviderContextLimit
 					manual.ProviderOutputLimit = merged[i].ProviderOutputLimit
+					manual.ProviderPricing = merged[i].ProviderPricing
 					manual.ContextVersion = 1
 					merged[i] = manual
 					found = true
@@ -379,6 +380,7 @@ func (s *service) RefreshModels(ctx context.Context, p core.Principal, req Refre
 				}
 			}
 			if !found {
+				manual.ProviderPricing = nil
 				merged = append(merged, manual)
 			}
 		}
@@ -411,6 +413,7 @@ func (s *service) ConfigureModel(ctx context.Context, p core.Principal, req Conf
 		}
 		req.Model.ProviderContextLimit = 0 // Catalog metadata cannot be set through the owner form.
 		req.Model.ProviderOutputLimit = 0
+		req.Model.ProviderPricing = nil
 		req.Model.ContextVersion = 1
 		found := false
 		for i := range binding.Models {
@@ -418,6 +421,7 @@ func (s *service) ConfigureModel(ctx context.Context, p core.Principal, req Conf
 				previous := binding.Models[i]
 				req.Model.ProviderContextLimit = previous.ProviderContextLimit
 				req.Model.ProviderOutputLimit = previous.ProviderOutputLimit
+				req.Model.ProviderPricing = previous.ProviderPricing
 				if previous.ContextVersion == 0 && previous.Discovered && previous.ContextLimit != 32768 {
 					req.Model.ProviderContextLimit = previous.ContextLimit
 				}

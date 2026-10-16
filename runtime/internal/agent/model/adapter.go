@@ -25,6 +25,8 @@ func adapterFor(protocol Protocol) (protocolAdapter, error) {
 	switch protocol {
 	case "", OpenAIChat:
 		return openAIChatAdapter{}, nil
+	case OpenRouterChat:
+		return openRouterChatAdapter{}, nil
 	case DeepSeekChat:
 		return deepSeekChatAdapter{}, nil
 	default:

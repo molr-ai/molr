@@ -79,6 +79,11 @@ func (s *service) SaveProvider(ctx context.Context, p core.Principal, req SavePr
 			}
 			binding.Models = manual
 		}
+		if binding.Endpoint != req.Endpoint || binding.PricingProvider != req.PricingProvider {
+			for i := range binding.Models {
+				binding.Models[i].ProviderPricing = nil
+			}
+		}
 		binding.ResourceID, binding.Endpoint, binding.PricingProvider = r.ID, req.Endpoint, req.PricingProvider
 		binding.AllowedOrigins = []string{u.Scheme + "://" + u.Host}
 		provider := s.options.Providers[r.Provider]

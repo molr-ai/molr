@@ -82,7 +82,22 @@ func (deepSeekChatAdapter) Decode(data []byte, provider Provider) (completion, e
 // ReplayedReasoning is shared by encoding and advisory context estimates.
 // Other opaque provider fields stay private and do not occupy input tokens.
 func ReplayedReasoning(in Input, source StateSource) (*string, error) {
-	if source.Protocol != DeepSeekChat || in.ProviderState == nil || in.ProviderState.Source != source {
+	if in.ProviderState == nil || in.ProviderState.Source != source {
+		return nil, nil
+	}
+	if source.Protocol == OpenRouterChat {
+		state, err := readOpenRouterState(in.ProviderState.Payload)
+		if err != nil {
+			return nil, err
+		}
+		if len(state.Details) > 0 {
+			data, _ := json.Marshal(state.Details)
+			value := string(data)
+			return &value, nil
+		}
+		return state.Reasoning, nil
+	}
+	if source.Protocol != DeepSeekChat {
 		return nil, nil
 	}
 	var state deepSeekState

@@ -27,7 +27,7 @@ func TestStreamingAssemblyManyFragments(t *testing.T) {
 	for _, field := range []string{"content", "reasoning_content", "tools"} {
 		t.Run(field, func(t *testing.T) {
 			body, want := fragmentedStream(4096, field)
-			raw, completion, _, err := readChatStream(strings.NewReader(body), time.Now(), time.Now)
+			raw, completion, _, err := readChatStream(OpenAIChat, strings.NewReader(body), time.Now(), time.Now)
 			if err != nil || string(raw) != body {
 				t.Fatalf("stream/evidence: %v", err)
 			}
@@ -67,7 +67,7 @@ func TestStreamingAssemblyPreservesUnicodeInterleavingAndFieldReplacement(t *tes
 	}, "\n\n") + "\n\n"
 	start := time.Unix(1, 0)
 	tick := start
-	raw, completion, timing, err := readChatStream(iotest.OneByteReader(strings.NewReader(body)), start, func() time.Time { tick = tick.Add(100 * time.Millisecond); return tick })
+	raw, completion, timing, err := readChatStream(OpenAIChat, iotest.OneByteReader(strings.NewReader(body)), start, func() time.Time { tick = tick.Add(100 * time.Millisecond); return tick })
 	if err != nil || string(raw) != body {
 		t.Fatalf("stream/evidence: %v", err)
 	}
@@ -100,7 +100,7 @@ func TestStreamingAssemblyRejectsInvalidToolsAndPreservesFailureEvidence(t *test
 		`{"tool_calls":[{"index":64}]}`, `{"tool_calls":[{"index":1}]}`, `{"tool_calls":[{"index":0,"type":"invalid"}]}`,
 	} {
 		body := `data: {"id":"s","choices":[{"index":0,"delta":` + delta + `,"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1}}` + "\n\ndata: [DONE]\n\n"
-		raw, completion, _, err := readChatStream(strings.NewReader(body), time.Now(), time.Now)
+		raw, completion, _, err := readChatStream(OpenAIChat, strings.NewReader(body), time.Now(), time.Now)
 		if err == nil || completion != nil || string(raw) != body {
 			t.Fatalf("accepted malformed delta or lost evidence: %s %v", delta, err)
 		}
