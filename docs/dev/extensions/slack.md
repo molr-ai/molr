@@ -2,6 +2,8 @@
 
 固定 Go 适配器位于 `runtime/internal/im/slack`，采用 Socket Mode 和 Web API；不加载常驻插件。用户配置见 [Slack 聊天入口](../../user/chat-channels/slack.md)。
 
+后台连接和队列使用[统一的提交通知与截止时间调度](../architecture/overview.md#聊天渠道后台调度)，空闲时不轮询本地绑定或消息队列。
+
 ## 身份与入口
 
 `auth.test` 与 `bots.info` 核对 workspace、机器人和 App ID；Socket Mode 的 hello 必须匹配同一个 App。绑定固定 Molr 用户、助理、现有会话、Slack workspace、App、机器人、成员和私聊。创建绑定与配对确认均重新检查助理权限和其他入口占用。

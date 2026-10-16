@@ -103,3 +103,20 @@ func TestIdentityChecksAndDownloadLimit(t *testing.T) {
 		t.Fatal("download size ignored")
 	}
 }
+
+func TestConnectRejectsUntrustedEndpointsAndCredentials(t *testing.T) {
+	for _, body := range []string{`{"ok":false,"error":"invalid_auth"}`, `{"ok":true,"url":"ws://wss.slack.com/connect"}`, `{"ok":true,"url":"wss://evil.example/connect"}`, `{"ok":true,"url":"wss://user@wss.slack.com/connect"}`} {
+		calls := 0
+		h := fakeHTTP(func(r *http.Request) (*http.Response, error) {
+			calls++
+			if r.URL.Path != "/api/apps.connections.open" || r.Header.Get("Authorization") != "Bearer xapp-fixture" {
+				t.Fatal("wrong connection request")
+			}
+			return response(200, body), nil
+		})
+		socket, err := h.Connect(t.Context(), "xapp-fixture", "AAPP")
+		if err == nil || socket != nil || calls != 1 {
+			t.Fatal("unsafe connection accepted", err)
+		}
+	}
+}

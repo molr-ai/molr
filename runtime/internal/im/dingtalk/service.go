@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
+	"molr.ai/runtime/internal/im/channelworker"
 	"strings"
 	"sync"
 	"time"
@@ -37,6 +38,7 @@ type Options struct {
 	Client         Client
 	Authorize      func(context.Context, core.Principal, core.ID, bool) (Target, error)
 	Live           func(context.Context, core.ID, core.ID) error
+	LiveSignals    func(core.ID, core.ID) []persistence.SignalKey
 	CheckAvailable func(context.Context, core.ID, core.ID) error
 	Receive        Receiver
 	Files          files.ChannelStore
@@ -251,7 +253,10 @@ func (s *Service) Start(ctx context.Context, p core.Principal, r ConnectRequest)
 		if err != nil {
 			return err
 		}
-		return s.saveBinding(ctx, tx, b)
+		if err := s.saveBinding(ctx, tx, b); err != nil {
+			return err
+		}
+		return nil
 	})
 	if err != nil {
 		return Pairing{}, err
@@ -303,6 +308,11 @@ func (s *Service) saveBinding(ctx context.Context, tx persistence.Tx, b Binding)
 	return s.notify(ctx, b)
 }
 func (s *Service) notify(ctx context.Context, b Binding) error {
+	if err := s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		return channelworker.Changed(ctx, tx, bindingsBucket, b.OwnerID, b.ConversationID)
+	}); err != nil {
+		return err
+	}
 	if err := notification.Sync(ctx, s.store, b.OwnerID, notification.Input{Kind: "dingtalk.connection", Code: b.State, Source: core.Object{Kind: "assistant", ID: b.AssistantID}, AssistantID: b.AssistantID}, b.State == "reconnecting" || b.State == "credential_required"); err != nil {
 		return err
 	}

@@ -304,7 +304,9 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		return channelRouter.AuthorizeChannel(ctx, owner, chat, binding)
 	}, MaxUploadBytes: cfg.Execution.MaxUploadBytes, DiskQuota: func() int64 { return cfg.Execution.MaxDiskBytes }})
 	visible := realtime.NewStore(store)
-	channels, err = weixin.New(store, weixin.Options{CheckBinding: func(ctx context.Context, owner, chat core.ID) error {
+	channels, err = weixin.New(store, weixin.Options{LiveSignals: func(owner, id core.ID) []persistence.SignalKey {
+		return []persistence.SignalKey{auth.AccountStateSignal(owner), assistant.StateSignal(owner, id)}
+	}, CheckBinding: func(ctx context.Context, owner, chat core.ID) error {
 		if feishuChannel != nil {
 			if err := feishuChannel.CheckWebInput(ctx, owner, chat); err != nil {
 				return err
@@ -366,7 +368,9 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 	if err != nil {
 		return nil, err
 	}
-	telegramChannel, err = telegram.New(store, telegram.Options{MasterKey: key, Client: telegramClient, PublicURL: cfg.HTTP.PublicURL, Files: fileService.(files.ChannelStore), MaxMediaBytes: cfg.Execution.MaxUploadBytes, CheckBinding: func(ctx context.Context, owner, chat core.ID) error {
+	telegramChannel, err = telegram.New(store, telegram.Options{LiveSignals: func(owner, id core.ID) []persistence.SignalKey {
+		return []persistence.SignalKey{auth.AccountStateSignal(owner), assistant.StateSignal(owner, id)}
+	}, MasterKey: key, Client: telegramClient, PublicURL: cfg.HTTP.PublicURL, Files: fileService.(files.ChannelStore), MaxMediaBytes: cfg.Execution.MaxUploadBytes, CheckBinding: func(ctx context.Context, owner, chat core.ID) error {
 		if feishuChannel != nil {
 			if err := feishuChannel.CheckWebInput(ctx, owner, chat); err != nil {
 				return err
@@ -421,7 +425,9 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		return nil, err
 	}
 	b.telegram = telegramChannel
-	slackChannel, err = slack.New(store, slack.Options{MasterKey: key, PublicURL: cfg.HTTP.PublicURL, Files: fileService.(files.ChannelStore), MaxMediaBytes: cfg.Execution.MaxUploadBytes,
+	slackChannel, err = slack.New(store, slack.Options{LiveSignals: func(owner, id core.ID) []persistence.SignalKey {
+		return []persistence.SignalKey{auth.AccountStateSignal(owner), assistant.StateSignal(owner, id)}
+	}, MasterKey: key, PublicURL: cfg.HTTP.PublicURL, Files: fileService.(files.ChannelStore), MaxMediaBytes: cfg.Execution.MaxUploadBytes,
 		Authorize: func(ctx context.Context, p core.Principal, id core.ID, write bool) (slack.Target, error) {
 			if err := p.RequireOwner(); err != nil {
 				return slack.Target{}, err
@@ -474,7 +480,9 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 	}
 	b.slack = slackChannel
 
-	ding, err = dingtalk.New(store, dingtalk.Options{MasterKey: key, PublicURL: cfg.HTTP.PublicURL, Files: fileService.(files.ChannelStore), MaxMediaBytes: cfg.Execution.MaxUploadBytes,
+	ding, err = dingtalk.New(store, dingtalk.Options{LiveSignals: func(owner, id core.ID) []persistence.SignalKey {
+		return []persistence.SignalKey{auth.AccountStateSignal(owner), assistant.StateSignal(owner, id)}
+	}, MasterKey: key, PublicURL: cfg.HTTP.PublicURL, Files: fileService.(files.ChannelStore), MaxMediaBytes: cfg.Execution.MaxUploadBytes,
 		CheckAvailable: func(ctx context.Context, owner, chat core.ID) error {
 			if feishuChannel != nil {
 				if err := feishuChannel.CheckWebInput(ctx, owner, chat); err != nil {
@@ -524,7 +532,9 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 	}
 	b.dingtalk = ding
 
-	feishuChannel, err = feishu.New(store, feishu.Options{MasterKey: key, PublicURL: cfg.HTTP.PublicURL, CheckBinding: func(ctx context.Context, owner, chat core.ID) error {
+	feishuChannel, err = feishu.New(store, feishu.Options{LiveSignals: func(owner, id core.ID) []persistence.SignalKey {
+		return []persistence.SignalKey{auth.AccountStateSignal(owner), assistant.StateSignal(owner, id)}
+	}, MasterKey: key, PublicURL: cfg.HTTP.PublicURL, CheckBinding: func(ctx context.Context, owner, chat core.ID) error {
 		if err := channels.CheckWebInput(ctx, owner, chat); err != nil {
 			return err
 		}

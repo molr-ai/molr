@@ -244,7 +244,19 @@ func (r *repository) Insert(ctx context.Context, v Assistant) error {
 	return insert(ctx, r.store, bucket, persistence.Key(v.OwnerID, v.ID), v)
 }
 func (r *repository) Save(ctx context.Context, v Assistant, expected core.Version) error {
-	return save(ctx, r.store, bucket, persistence.Key(v.OwnerID, v.ID), v, expected, func(v Assistant) core.Version { return v.Version })
+	return r.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		old, err := r.Get(ctx, v.OwnerID, v.ID)
+		if err != nil {
+			return err
+		}
+		if err = save(ctx, r.store, bucket, persistence.Key(v.OwnerID, v.ID), v, expected, func(v Assistant) core.Version { return v.Version }); err != nil {
+			return err
+		}
+		if old.State != v.State {
+			return tx.NotifyAfterCommit(ctx, StateSignal(v.OwnerID, v.ID))
+		}
+		return nil
+	})
 }
 func (r *repository) Groups(ctx context.Context, owner core.ID, p core.PageRequest) (core.Page[Group], error) {
 	return persistence.Page[Group](ctx, r.store, groupBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner)}, OrderBy: "Position"}, p, owner, nil)
@@ -733,4 +745,9 @@ func (s *service) DeleteGroup(ctx context.Context, p core.Principal, req Lifecyc
 		return struct{}{}, nil
 	})
 	return err
+}
+
+// StateSignal wakes observers after an assistant lifecycle change commits.
+func StateSignal(owner, id core.ID) persistence.SignalKey {
+	return persistence.SignalKey{Namespace: "assistant.state", Key: persistence.Key(owner, id)}
 }

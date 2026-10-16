@@ -2,6 +2,8 @@
 
 The fixed adapter in `runtime/internal/im/feishu` uses the official Go SDK v3.12.2 WebSocket client. Registration follows that version's `scene/registration` protocol through a bounded HTTP client with timeouts, response limits and fixed domains. See [Feishu chat channel](../../user/chat-channels/feishu.md) for user instructions.
 
+Background connections and queues use [shared commit notifications and deadline scheduling](../architecture/overview.md#chat-channel-background-scheduling), without polling local binding or message collections while idle.
+
 ## Identity and lifecycle
 
 An application binds to one assistant owned by one account. The binding stores the application ID, app-scoped Open ID, tenant from the first valid event and generation ID. App Secret is AES-GCM encrypted with account, binding and application AAD. Input must match these identities and have sender type `user` and chat type `p2p`. Group and bot messages are ignored.

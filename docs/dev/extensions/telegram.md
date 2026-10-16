@@ -2,6 +2,8 @@
 
 固定适配器位于 `runtime/internal/im/telegram`，使用官方 [Bot API](https://core.telegram.org/bots/api)。用户操作见[Telegram 聊天入口](../../user/chat-channels/telegram.md)，接口见[HTTP API](../reference/http-api.md#telegram-聊天入口)。
 
+后台连接和队列使用[统一的提交通知与截止时间调度](../architecture/overview.md#聊天渠道后台调度)，空闲时不轮询本地绑定或消息队列。
+
 ## 绑定与授权
 
 每位助理绑定一个专属 Bot 和一个 Telegram 私聊用户。`getMe` 验证 Token，`getWebhookInfo` 检查已有接收入口，不自动删除其他服务的 Webhook。五分钟内的一次性 `/start` 随机码只识别候选用户，必须由持有助理写权限的已认证 WebUI 请求确认才建立绑定。待确认状态仅在内存中保存，取消或重启后失效。

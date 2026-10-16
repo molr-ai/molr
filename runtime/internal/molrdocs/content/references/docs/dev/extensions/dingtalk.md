@@ -2,9 +2,12 @@
 
 固定 Go 适配器位于 `runtime/internal/im/dingtalk`，通过钉钉 Stream 接收机器人单聊，使用应用 access token 调用单聊发送接口。用户步骤见[钉钉聊天入口](https://molr.ai/zh/docs/user/chat-channels/dingtalk/)。协议依据[官方 Stream 描述](https://open-dingtalk.github.io/developerpedia/docs/learn/stream/protocol/)、[消息结构](https://open-dingtalk.github.io/developerpedia/docs/learn/bot/message/)和[官方渠道 SDK](https://github.com/DingTalk-Real-AI/dingtalk-channel-sdk-go)，核查日期为 2026-10-16。
 
+后台连接和队列使用[统一的提交通知与截止时间调度](https://molr.ai/zh/docs/dev/architecture/overview/#聊天渠道后台调度)，空闲时不轮询本地绑定或消息队列。
+
 ## 绑定与信任边界
 
 每个应用在实例内只能绑定一位助理。配对记录保存随机绑定代际、应用 ID、十分钟有效的配对码摘要和 AES-GCM 加密凭据；AAD 包含账号和绑定 ID。状态 DTO 不包含凭据、令牌和配对码。配对码只在创建响应返回，不进入聊天记录或模型上下文，重复推送配对消息也会去重。过期未配对记录由 worker 清理。
+
 
 仅 `conversationType=1`、机器人 ID 匹配、发送企业与机器人企业相同且含员工 ID 的消息可参与配对。绑定后同时核对企业、员工 ID、发送者 ID 和单聊会话 ID。配对在消息事务内重新检查用户与助理状态，以及微信、Telegram 和 Slack 的入口互斥条件；各渠道也检查钉钉已绑定或未过期配对的占用。撤销、重新连接及迟到回调通过绑定代际隔离。
 

@@ -3,10 +3,9 @@ package dingtalk
 import (
 	"context"
 	"errors"
-	"sort"
+	"molr.ai/runtime/internal/im/channelworker"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -75,6 +74,9 @@ func (s *Service) saveDelivery(ctx context.Context, tx persistence.Tx, d Deliver
 	if err := tx.Put(ctx, deliveriesBucket, persistence.Key(d.OwnerID, d.ID), d); err != nil {
 		return err
 	}
+	if err := channelworker.Wake(ctx, tx, bindingsBucket, d.BindingID); err != nil {
+		return err
+	}
 	if d.State == "sending" || d.State == "pending" && d.Error == "" {
 		return nil
 	}
@@ -107,71 +109,13 @@ func (s *Service) Run(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
-	type running struct {
-		cancel context.CancelFunc
-		done   chan struct{}
+	err := s.runBindings(ctx)
+	if ctx.Err() != nil {
+		return nil
 	}
-	workers := map[core.ID]running{}
-	var wg sync.WaitGroup
-	defer func() {
-		for _, w := range workers {
-			w.cancel()
-		}
-		wg.Wait()
-	}()
-	deliveryCtx, cancelDelivery := context.WithCancel(ctx)
-	defer cancelDelivery()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for deliveryCtx.Err() == nil {
-			_ = s.deliverNext(deliveryCtx)
-			if !sleep(deliveryCtx, time.Second) {
-				return
-			}
-		}
-	}()
-	// Stop delivery worker before the outer wait even if a database query fails.
-	defer cancelDelivery()
-	for ctx.Err() == nil {
-		rows, err := persistence.Scan[Binding](ctx, s.store, bindingsBucket)
-		if err != nil {
-			return err
-		}
-		active := map[core.ID]bool{}
-		for _, b := range rows {
-			if b.UserID == "" && time.Now().After(b.ExpiresAt) {
-				_ = s.expire(ctx, b)
-				continue
-			}
-			if b.State == "credential_required" || s.options.Live(ctx, b.OwnerID, b.AssistantID) != nil {
-				continue
-			}
-			active[b.ID] = true
-			if _, ok := workers[b.ID]; !ok {
-				runCtx, cancel := context.WithCancel(ctx)
-				done := make(chan struct{})
-				workers[b.ID] = running{cancel, done}
-				wg.Add(1)
-				go func(b Binding) { defer wg.Done(); defer close(done); s.streamLoop(runCtx, b) }(b)
-			}
-		}
-		for id, w := range workers {
-			if !active[id] {
-				w.cancel()
-			}
-			select {
-			case <-w.done:
-				delete(workers, id)
-			default:
-			}
-		}
-		if !sleep(ctx, time.Second) {
-			return nil
-		}
-	}
-	return nil
+	return err
 }
+
 func (s *Service) expire(ctx context.Context, b Binding) error {
 	return s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		current, err := s.binding(ctx, b.OwnerID, b.ConversationID)
@@ -220,38 +164,7 @@ func (s *Service) streamLoop(ctx context.Context, b Binding) {
 		}
 	}
 }
-func (s *Service) deliverNext(ctx context.Context) error {
-	rows, err := persistence.Select[Delivery](ctx, s.store, deliveriesBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("State", "pending")}})
-	if err != nil {
-		return err
-	}
-	sort.Slice(rows, func(i, j int) bool {
-		a, b := rows[i], rows[j]
-		if a.BindingID == b.BindingID {
-			if a.Sequence != b.Sequence {
-				return a.Sequence < b.Sequence
-			}
-			if a.MessageID == b.MessageID {
-				return a.Part < b.Part
-			}
-		}
-		return a.CreatedAt.Before(b.CreatedAt)
-	})
-	visited := map[core.ID]bool{}
-	for _, d := range rows {
-		if visited[d.BindingID] {
-			continue
-		}
-		visited[d.BindingID] = true
-		if time.Now().Before(d.NextAttempt) {
-			continue
-		}
-		if err = s.deliver(ctx, d); err != nil && ctx.Err() != nil {
-			return err
-		}
-	}
-	return nil
-}
+
 func (s *Service) deliver(ctx context.Context, snapshot Delivery) error {
 	unlock, err := s.lock(ctx, snapshot.OwnerID, snapshot.AssistantID)
 	if err != nil {
@@ -302,7 +215,9 @@ func (s *Service) deliver(ctx context.Context, snapshot Delivery) error {
 	if err != nil {
 		reason = failure(err)
 	}
-	return s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+	finishCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	return s.store.Write(finishCtx, func(ctx context.Context, tx persistence.Tx) error {
 		current, e := persistence.Load[Delivery](ctx, s.store, deliveriesBucket, persistence.Key(d.OwnerID, d.ID))
 		if e != nil {
 			return e

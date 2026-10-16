@@ -168,3 +168,39 @@ func TestMediaParsing(t *testing.T) {
 		t.Fatal("transcription not preferred")
 	}
 }
+
+func TestUploadMultipartAndRejectedReceipt(t *testing.T) {
+	for _, receipt := range []string{`{"errcode":0,"media_id":"@fixture"}`, `{"errcode":400,"errmsg":"rejected"}`, `{}`, `null`} {
+		h := NewClient()
+		h.client = func(origin string) *http.Client {
+			return &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
+				if origin == apiOrigin {
+					return response(200, `{"accessToken":"fixture-access","expireIn":7200}`), nil
+				}
+				if origin != "https://oapi.dingtalk.com" || r.URL.Path != "/media/upload" || r.URL.Query().Get("type") != "file" || r.URL.Query().Get("access_token") != "fixture-access" {
+					t.Fatal("wrong upload request")
+				}
+				must(t, r.ParseMultipartForm(1024))
+				defer r.MultipartForm.RemoveAll()
+				file, header, err := r.FormFile("media")
+				must(t, err)
+				defer file.Close()
+				data, err := io.ReadAll(file)
+				must(t, err)
+				if header.Filename != "fixture.txt" || string(data) != "contents" {
+					t.Fatal("wrong attachment")
+				}
+				return response(200, receipt), nil
+			})}
+		}
+		id, err := h.Upload(t.Context(), Credentials{"app", "secret"}, "fixture.txt", []byte("contents"))
+		if strings.Contains(receipt, "@fixture") {
+			must(t, err)
+			if id != "@fixture" {
+				t.Fatal(id)
+			}
+		} else if err == nil || id != "" {
+			t.Fatal("invalid upload accepted")
+		}
+	}
+}

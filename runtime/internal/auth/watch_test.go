@@ -147,3 +147,61 @@ func TestPrincipalWatchAccountTokenAndRevokeAll(t *testing.T) {
 		})
 	}
 }
+
+func TestAccountStateSignalOnlyCommittedLifecycleChanges(t *testing.T) {
+	f := fixture(t)
+	p, _ := initialized(t, f)
+	m := f.Service.(*Manager)
+	w, err := m.store.Watch(AccountStateSignal(p.OwnerID))
+	testkit.RequireNoError(t, err)
+	defer w.Close()
+	other, err := m.store.Watch(AccountStateSignal("other"))
+	testkit.RequireNoError(t, err)
+	defer other.Close()
+	a, err := m.repo.AccountByID(t.Context(), p.OwnerID)
+	testkit.RequireNoError(t, err)
+	testkit.RequireNoError(t, m.repo.SaveAccount(t.Context(), a, a.Version))
+	select {
+	case <-w.Changes():
+		t.Fatal("unchanged account woke observer")
+	default:
+	}
+	a, err = m.repo.AccountByID(t.Context(), p.OwnerID)
+	testkit.RequireNoError(t, err)
+	a.Account.Disabled = true
+	rollback := errors.New("rollback")
+	err = m.store.Write(t.Context(), func(ctx context.Context, _ persistence.Tx) error {
+		if err := m.repo.SaveAccount(ctx, a, a.Version); err != nil {
+			return err
+		}
+		return rollback
+	})
+	if !errors.Is(err, rollback) {
+		t.Fatal(err)
+	}
+	select {
+	case <-w.Changes():
+		t.Fatal("rollback notified")
+	default:
+	}
+	testkit.RequireNoError(t, m.repo.SaveAccount(t.Context(), a, a.Version))
+	select {
+	case <-w.Changes():
+	case <-time.After(time.Second):
+		t.Fatal("disabled account did not notify")
+	}
+	select {
+	case <-other.Changes():
+		t.Fatal("another owner notified")
+	default:
+	}
+	a, err = m.repo.AccountByID(t.Context(), p.OwnerID)
+	testkit.RequireNoError(t, err)
+	a.Account.Disabled = false
+	testkit.RequireNoError(t, m.repo.SaveAccount(t.Context(), a, a.Version))
+	select {
+	case <-w.Changes():
+	case <-time.After(time.Second):
+		t.Fatal("enabled account did not notify")
+	}
+}

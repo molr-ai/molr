@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"molr.ai/runtime/internal/im/channelworker"
 	"strconv"
 	"strings"
 	"sync"
@@ -35,6 +36,7 @@ type Options struct {
 	Client       Client
 	Authorize    func(context.Context, core.Principal, core.ID, bool) (Target, error)
 	Live         func(context.Context, core.ID, core.ID) error
+	LiveSignals  func(core.ID, core.ID) []persistence.SignalKey
 	CheckBinding func(context.Context, core.ID, core.ID) error
 	Receive      Receiver
 	PublicURL    string
@@ -153,6 +155,11 @@ func (s *Service) credentials(b Binding) (Credentials, error) {
 	return Credentials{b.AppID, string(raw), b.OpenID}, nil
 }
 func (s *Service) notify(ctx context.Context, b Binding) error {
+	if err := s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		return channelworker.Changed(ctx, tx, bindingsBucket, b.OwnerID, b.ConversationID)
+	}); err != nil {
+		return err
+	}
 	if err := notification.Sync(ctx, s.store, b.OwnerID, notification.Input{Kind: "feishu.connection", Code: b.State, Source: core.Object{Kind: "assistant", ID: b.AssistantID}, AssistantID: b.AssistantID}, b.State == "reconnecting" || b.State == "credentials_required"); err != nil {
 		return err
 	}
@@ -444,6 +451,9 @@ func (s *Service) cancelDeliveries(ctx context.Context, tx persistence.Tx, b Bin
 }
 func (s *Service) saveDelivery(ctx context.Context, tx persistence.Tx, d Delivery) error {
 	if err := tx.Put(ctx, deliveriesBucket, persistence.Key(d.OwnerID, d.ID), d); err != nil {
+		return err
+	}
+	if err := channelworker.Wake(ctx, tx, bindingsBucket, d.BindingID); err != nil {
 		return err
 	}
 	if d.State == "sending" || d.State == "pending" && d.Error == "" {

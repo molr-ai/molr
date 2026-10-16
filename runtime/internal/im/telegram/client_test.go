@@ -155,3 +155,44 @@ func TestClientRejectsRedirectAndUnsafePath(t *testing.T) {
 		t.Fatal("proxy redirect")
 	}
 }
+
+func TestBotIdentityAndWebhookWireContract(t *testing.T) {
+	for _, tc := range []struct {
+		body  string
+		valid bool
+	}{
+		{`{"id":42,"is_bot":true,"username":"fixture_bot"}`, true},
+		{`{"id":42,"is_bot":false,"username":"fixture_user"}`, false},
+		{`{"id":0,"is_bot":true,"username":"fixture_bot"}`, false},
+		{`{"id":42,"is_bot":true}`, false},
+	} {
+		h := &HTTPClient{client: &http.Client{Transport: transportFunc(func(r *http.Request) (*http.Response, error) {
+			if r.URL.Path != "/bot"+testToken+"/getMe" {
+				t.Fatal("wrong identity endpoint")
+			}
+			return response(200, `{"ok":true,"result":`+tc.body+`}`), nil
+		})}}
+		user, err := h.Me(t.Context(), testToken)
+		if tc.valid {
+			must(t, err)
+			if user.ID != 42 {
+				t.Fatal(user)
+			}
+		} else if failure(err) != "token_invalid" {
+			t.Fatal(err)
+		}
+	}
+	for _, url := range []string{"", "https://hooks.example/telegram"} {
+		h := &HTTPClient{client: &http.Client{Transport: transportFunc(func(r *http.Request) (*http.Response, error) {
+			if r.URL.Path != "/bot"+testToken+"/getWebhookInfo" {
+				t.Fatal("wrong webhook endpoint")
+			}
+			return response(200, `{"ok":true,"result":{"url":"`+url+`"}}`), nil
+		})}}
+		set, err := h.Webhook(t.Context(), testToken)
+		must(t, err)
+		if set != (url != "") {
+			t.Fatal("wrong webhook state")
+		}
+	}
+}

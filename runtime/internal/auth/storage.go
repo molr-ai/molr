@@ -118,6 +118,11 @@ func (r *repository) SaveAccount(ctx context.Context, a StoredAccount, v core.Ve
 		if err := tx.Put(ctx, "auth.accounts", string(a.Account.ID), encodeAccount(a)); err != nil {
 			return err
 		}
+		if old.Account.Disabled != a.Account.Disabled {
+			if err := tx.NotifyAfterCommit(ctx, AccountStateSignal(a.Account.ID)); err != nil {
+				return err
+			}
+		}
 		return tx.NotifyAfterCommit(ctx, principalSignal(a.Account.ID))
 	})
 }

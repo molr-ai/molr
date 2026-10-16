@@ -108,3 +108,41 @@ func TestRegistrationRejectsForeignURLAndLarkTenant(t *testing.T) {
 		t.Fatal(r.Status)
 	}
 }
+
+func TestCredentialCheckAndListenFailure(t *testing.T) {
+	calls := 0
+	h := transportClient(func(r *http.Request) (int, string) {
+		calls++
+		var body map[string]any
+		must(t, json.NewDecoder(r.Body).Decode(&body))
+		if r.URL.Path != "/open-apis/auth/v3/tenant_access_token/internal" || body["app_id"] != "cli_fixture" || body["app_secret"] != "fixture-secret" {
+			t.Fatal("wrong credential check")
+		}
+		return 200, `{"code":0,"tenant_access_token":"fixture-token"}`
+	})
+	credentials := Credentials{"cli_fixture", "fixture-secret", "ou_fixture"}
+	must(t, h.Check(t.Context(), credentials))
+	if calls != 1 {
+		t.Fatal(calls)
+	}
+	h = transportClient(func(r *http.Request) (int, string) {
+		if r.URL.Path != "/callback/ws/endpoint" {
+			t.Fatal(r.URL.Path)
+		}
+		return 200, `{"code":1000040350,"msg":"invalid app credentials"}`
+	})
+	err := h.Listen(t.Context(), credentials, func(Incoming) error { t.Error("received after auth failure"); return nil }, func(ready bool) {
+		if ready {
+			t.Error("ready after auth failure")
+		}
+	})
+	if failure(err) != "credentials_required" {
+		t.Fatalf("unexpected listen error: %v", err)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	h = transportClient(func(*http.Request) (int, string) { t.Error("canceled listen made request"); return 500, `{}` })
+	if err = h.Listen(ctx, credentials, func(Incoming) error { return nil }, func(bool) {}); err == nil {
+		t.Fatal("canceled listen succeeded")
+	}
+}

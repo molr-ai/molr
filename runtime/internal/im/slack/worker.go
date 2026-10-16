@@ -51,32 +51,10 @@ func sleep(ctx context.Context, d time.Duration) bool {
 	}
 }
 
-func (s *Service) deliverNext(ctx context.Context) {
-	rows, err := persistence.Select[Delivery](ctx, s.store, deliveriesBucket, persistence.Query{Any: [][]persistence.Filter{{persistence.Eq("State", "pending")}, {persistence.Eq("State", "waiting")}, {persistence.Eq("State", "sending")}}})
-	if err != nil {
-		return
-	}
-	sortDeliveries(rows)
-	blocked := map[core.ID]bool{}
-	for _, d := range rows {
-		if d.State == "waiting" || d.State == "sending" {
-			blocked[d.BindingID] = true
-			continue
-		}
-		if d.State != "pending" || blocked[d.BindingID] {
-			continue
-		}
-		blocked[d.BindingID] = true
-		if time.Now().Before(d.NextAttempt) {
-			continue
-		}
-		s.deliver(ctx, d)
-	}
-}
-func (s *Service) deliver(ctx context.Context, d Delivery) {
+func (s *Service) deliver(ctx context.Context, d Delivery) error {
 	g := s.gate(d.OwnerID, d.AssistantID)
 	if err := g.acquire(ctx); err != nil {
-		return
+		return err
 	}
 	defer g.release()
 	var b Binding
@@ -120,7 +98,7 @@ func (s *Service) deliver(ctx context.Context, d Delivery) {
 		return s.notify(ctx, b)
 	})
 	if err != nil || d.State != "sending" {
-		return
+		return err
 	}
 	var serverID string
 	sendctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
@@ -156,7 +134,7 @@ func (s *Service) deliver(ctx context.Context, d Delivery) {
 	}
 	savectx, stop := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer stop()
-	_ = s.store.Write(savectx, func(ctx context.Context, tx persistence.Tx) error {
+	return s.store.Write(savectx, func(ctx context.Context, tx persistence.Tx) error {
 		current, err := s.binding(ctx, b.OwnerID, b.ConversationID)
 		if err != nil {
 			return err

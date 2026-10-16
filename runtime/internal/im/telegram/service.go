@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"molr.ai/runtime/internal/im/channelworker"
 	"sort"
 	"strconv"
 	"strings"
@@ -37,6 +38,7 @@ type Options struct {
 	Client        Client
 	Authorize     func(context.Context, core.Principal, core.ID, bool) (Target, error)
 	Live          func(context.Context, core.ID, core.ID) error
+	LiveSignals   func(core.ID, core.ID) []persistence.SignalKey
 	CheckBinding  func(context.Context, core.ID, core.ID) error
 	Receive       Receiver
 	Files         files.ChannelStore
@@ -48,6 +50,7 @@ type Service struct {
 	options   Options
 	cipher    cipher.AEAD
 	loginGate channelGate
+	loginWake chan struct{}
 	logins    map[core.ID]*pendingLogin
 	gates     sync.Map
 }
@@ -117,7 +120,7 @@ func New(store persistence.Store, o Options) (*Service, error) {
 		o.MaxMediaBytes = uploadLimit
 	}
 	o.MasterKey = nil
-	return &Service{store: store, options: o, cipher: aead, loginGate: make(channelGate, 1), logins: map[core.ID]*pendingLogin{}}, nil
+	return &Service{store: store, options: o, cipher: aead, loginGate: make(channelGate, 1), loginWake: make(chan struct{}, 1), logins: map[core.ID]*pendingLogin{}}, nil
 }
 func (s *Service) SetReceiver(r Receiver) { s.options.Receive = r }
 func newID() core.ID {
@@ -178,6 +181,11 @@ func (s *Service) AuthorizeChannel(ctx context.Context, owner, chat, binding cor
 	return s.options.Live(ctx, owner, b.AssistantID)
 }
 func (s *Service) notify(ctx context.Context, b Binding) error {
+	if err := s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		return channelworker.Changed(ctx, tx, bindingsBucket, b.OwnerID, b.ConversationID)
+	}); err != nil {
+		return err
+	}
 	if err := notification.Sync(ctx, s.store, b.OwnerID, notification.Input{Kind: "telegram.connection", Code: b.State, Source: core.Object{Kind: "assistant", ID: b.AssistantID}, AssistantID: b.AssistantID}, b.State == "reconnecting" || b.State == "token_invalid" || b.State == "blocked" || b.State == "poll_conflict"); err != nil {
 		return err
 	}
@@ -286,6 +294,10 @@ func (s *Service) StartLogin(ctx context.Context, p core.Principal, id core.ID, 
 	l := &pendingLogin{Login: Login{ID: newID(), Status: "waiting", BotUsername: bot.Username, ExpiresAt: time.Now().UTC().Add(5 * time.Minute)}, OwnerID: p.OwnerID, AssistantID: id, ConversationID: a.ConversationID, Token: token, Code: string(newID()), BotID: bot.ID}
 	l.URL = "https://t.me/" + bot.Username + "?start=" + l.Code
 	s.logins[l.ID] = l
+	select {
+	case s.loginWake <- struct{}{}:
+	default:
+	}
 	return l.Login, nil
 }
 func (s *Service) login(ctx context.Context, p core.Principal, id, loginID core.ID) (*pendingLogin, error) {
@@ -508,6 +520,9 @@ func splitText(text string) []string {
 }
 func (s *Service) saveDelivery(ctx context.Context, tx persistence.Tx, d Delivery) error {
 	if err := tx.Put(ctx, deliveriesBucket, persistence.Key(d.OwnerID, d.ID), d); err != nil {
+		return err
+	}
+	if err := channelworker.Wake(ctx, tx, bindingsBucket, d.BindingID); err != nil {
 		return err
 	}
 	if d.State == "sending" || d.State == "pending" && d.Error == "" {

@@ -6,13 +6,13 @@ import (
 	"errors"
 	"html"
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/im/channelworker"
 	"molr.ai/runtime/internal/im/conversation"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/retry"
 	"molr.ai/runtime/internal/storage/files"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -41,82 +41,13 @@ func (s *Service) Run(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
-	var wg sync.WaitGroup
-	type worker struct {
-		cancel context.CancelFunc
-		done   chan struct{}
+	err := s.runBindings(ctx)
+	if ctx.Err() != nil {
+		return nil
 	}
-	workers := map[core.ID]worker{}
-	runctx, cancel := context.WithCancel(ctx)
-	defer func() {
-		cancel()
-		for _, w := range workers {
-			w.cancel()
-		}
-		wg.Wait()
-	}()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for runctx.Err() == nil {
-			s.deliverNext(runctx)
-			if !sleep(runctx, time.Second) {
-				return
-			}
-		}
-	}()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for runctx.Err() == nil {
-			s.receiveNext(runctx)
-			if !sleep(runctx, 250*time.Millisecond) {
-				return
-			}
-		}
-	}()
-	for ctx.Err() == nil {
-		rows, err := persistence.Select[Binding](ctx, s.store, bindingsBucket, persistence.Query{})
-		if err != nil {
-			if ctx.Err() != nil {
-				return nil
-			}
-			return err
-		}
-		active := map[core.ID]bool{}
-		for _, b := range rows {
-			if b.ChannelID == "" && time.Now().After(b.ExpiresAt) {
-				_ = s.expire(ctx, b)
-				continue
-			}
-			if b.State == "login_required" || s.options.Live(ctx, b.OwnerID, b.AssistantID) != nil {
-				continue
-			}
-			active[b.ID] = true
-			if _, ok := workers[b.ID]; !ok {
-				wc, stop := context.WithCancel(runctx)
-				done := make(chan struct{})
-				workers[b.ID] = worker{stop, done}
-				wg.Add(1)
-				go func(b Binding) { defer wg.Done(); defer close(done); s.listen(wc, b) }(b)
-			}
-		}
-		for id, w := range workers {
-			if !active[id] {
-				w.cancel()
-			}
-			select {
-			case <-w.done:
-				delete(workers, id)
-			default:
-			}
-		}
-		if !sleep(ctx, time.Second) {
-			return nil
-		}
-	}
-	return nil
+	return err
 }
+
 func (s *Service) expire(ctx context.Context, b Binding) error {
 	return s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		current, err := s.binding(ctx, b.OwnerID, b.ConversationID)
@@ -288,38 +219,22 @@ func (s *Service) accept(ctx context.Context, initial Binding, e Event) error {
 		} else if !persistence.Missing(err) {
 			return err
 		}
-		return tx.Put(ctx, incomingBucket, key, incomingRecord{b.OwnerID, b.ID, b.ConversationID, e, "pending", time.Now().UTC()})
+		if err := tx.Put(ctx, incomingBucket, key, incomingRecord{b.OwnerID, b.ID, b.ConversationID, e, "pending", time.Now().UTC()}); err != nil {
+			return err
+		}
+		return channelworker.Wake(ctx, tx, bindingsBucket, b.ID)
 	})
 }
-func (s *Service) receiveNext(ctx context.Context) {
-	bindings, err := persistence.Select[Binding](ctx, s.store, bindingsBucket, persistence.Query{})
-	if err != nil {
-		return
-	}
-	for _, b := range bindings {
-		if b.ChannelID == "" || s.options.Live(ctx, b.OwnerID, b.AssistantID) != nil {
-			continue
-		}
-		rows, err := persistence.Select[incomingRecord](ctx, s.store, incomingBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("BindingID", b.ID), persistence.Eq("State", "pending")}, OrderBy: "CreatedAtKey", Limit: 30})
-		if err != nil {
-			continue
-		}
-		for _, r := range rows {
-			if ctx.Err() != nil {
-				return
-			}
-			if s.ingest(ctx, b, r) != nil {
-				break
-			}
-		}
-	}
-}
+
 func (s *Service) finishIncoming(ctx context.Context, r incomingRecord) error {
 	r.State = "done"
 	id := r.Event.ID
 	r.Event = Event{ID: id}
 	return s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		return tx.Put(ctx, incomingBucket, persistence.Key(r.OwnerID, hash(string(r.BindingID)+"/"+id)), r)
+		if err := tx.Put(ctx, incomingBucket, persistence.Key(r.OwnerID, hash(string(r.BindingID)+"/"+id)), r); err != nil {
+			return err
+		}
+		return channelworker.Wake(ctx, tx, bindingsBucket, r.BindingID)
 	})
 }
 func (s *Service) ingest(ctx context.Context, b Binding, r incomingRecord) error {

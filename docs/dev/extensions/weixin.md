@@ -2,6 +2,8 @@
 
 固定 Go 适配器位于 `runtime/internal/im/weixin`。协议核查基于 `@tencent-weixin/openclaw-weixin@2.4.9`（2026-10-06）；参考 [腾讯协议说明](https://github.com/Tencent/openclaw-weixin/blob/main/docs/protocol.md)。这是固定渠道适配器，不加载 OpenClaw 或常驻后端插件。用户操作见 [微信聊天入口](../../user/chat-channels/weixin.md)，请求字段见 [HTTP API](../reference/http-api.md)。
 
+后台连接和队列使用[统一的提交通知与截止时间调度](../architecture/overview.md#聊天渠道后台调度)，空闲时不轮询本地绑定或消息队列。
+
 ## 入口和身份
 
 绑定属于 Molr 用户、助理及现有会话，同时固定微信机器人和扫码用户。扫码结果只由已认证、具有助理写权限的请求确认。二维码请求保存在进程内并在五分钟后失效，取消后迟到的确认不能生效；重启需重新发起尚未完成的扫码。已完成绑定持久化，不依赖浏览器会话存活。

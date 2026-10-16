@@ -2,6 +2,8 @@
 
 The fixed adapter in `runtime/internal/im/telegram` uses the official [Bot API](https://core.telegram.org/bots/api). See the [user guide](../../user/chat-channels/telegram.md) and [HTTP API](../reference/http-api.md#telegram-chat-channel).
 
+Background connections and queues use [shared commit notifications and deadline scheduling](../architecture/overview.md#chat-channel-background-scheduling), without polling local binding or message collections while idle.
+
 ## Binding and authorization
 
 Each assistant binds a dedicated bot and one Telegram private-chat user. `getMe` validates the token; `getWebhookInfo` checks existing consumers without deleting their webhooks. A five-minute, single-use random `/start` code identifies a candidate user. Only an authenticated WebUI confirmation with assistant write permission activates the binding. Pending connections live in memory and expire on cancellation or restart.

@@ -394,7 +394,9 @@ func TestBotOwnershipPendingExpiryAndPausedDelivery(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.s.logins[l.ID].ExpiresAt = time.Now().Add(-time.Second)
-	f.s.expireLogins()
+	must(t, f.s.loginGate.acquire(t.Context()))
+	f.s.expireLoginsLocked()
+	f.s.loginGate.release()
 	if len(f.s.logins) != 0 {
 		t.Fatal("expired token retained")
 	}

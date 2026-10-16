@@ -113,6 +113,7 @@ func (s *Store) createIndexes() error {
 		{"dingtalk.bindings", []string{"ClientID", "key"}},
 		{"dingtalk.deliveries", []string{"State", "key"}},
 		{"dingtalk.deliveries", []string{"BindingID", "State", "key"}},
+		{"dingtalk.deliveries", []string{"BindingID", "State", "Sequence", "Part", "key"}},
 		{"feishu.bindings", []string{"AppID", "key"}},
 		{"feishu.bindings", []string{"State", "key"}},
 		{"feishu.deliveries", []string{"State", "Sequence", "Part", "key"}},
@@ -121,11 +122,13 @@ func (s *Store) createIndexes() error {
 		{"slack.bindings", []string{"AppID", "key"}},
 		{"slack.bindings", []string{"TeamID", "UserID", "key"}},
 		{"slack.deliveries", []string{"BindingID", "State", "key"}},
+		{"slack.deliveries", []string{"BindingID", "State", "Sequence", "Part", "key"}},
 		{"slack.deliveries", []string{"State", "key"}},
 		{"slack.deliveries", []string{"OwnerKey", "BindingID", "CreatedAtKey", "key"}},
 		{"slack.incoming", []string{"BindingID", "State", "CreatedAtKey", "key"}},
 		{"weixin.bindings", []string{"UserID", "key"}},
 		{"weixin.deliveries", []string{"BindingID", "State", "key"}},
+		{"weixin.deliveries", []string{"BindingID", "State", "Sequence", "Part", "key"}},
 		{"storage.files", []string{"State", "key"}},
 		{"sandbox.operations", []string{"Reply.State", "key"}},
 	}...)
@@ -273,6 +276,7 @@ func (s *Store) createIndexes() error {
 		{"telegram.bindings", []string{"State", "key"}},
 		{"telegram.deliveries", []string{"State", "key"}},
 		{"telegram.deliveries", []string{"BindingID", "State", "key"}},
+		{"telegram.deliveries", []string{"BindingID", "State", "Sequence", "Part", "key"}},
 		{"telegram.deliveries", []string{"OwnerKey", "BindingID", "CreatedAtKey", "key"}},
 	}...)
 	for i, index := range indexes {

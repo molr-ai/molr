@@ -303,3 +303,56 @@
 
 | `internal/agent/tools` | `BrowserRequest.ValidateBatch` | `internal/app.TestBrowserInputBatchRejectsInvalidSuffixBeforeExecution` |
 | `internal/agent/tools` | `ParseBrowser` | `TestBrowserArgumentsRejectControlAndLaunchOptions` |
+
+## 渠道协议与连接生命周期
+
+公开客户端实现映射到实际客户端测试；Service 测试使用受控外部客户端。映射表示所列行为已有断言，不表示所有协议分支均已覆盖。
+
+| 包 | 接口 / 方法 | 测试 |
+| --- | --- | --- |
+| `internal/agent` | `Engine.RecoverInterrupted` | `TestRestartRecoveryTransactionRollsBackAndDeduplicates`、`TestRestartStopAndNewerEventPreventRecovery`、`TestRestartUnknownToolOutcomeDoesNotBlockModelRecovery` |
+| `internal/agent/model` | `SetProviderHeaders` | `TestNewProviderTransportAndReceipt` |
+| `internal/im/dingtalk` | `New`、`Service.SetReceiver`、`Service.Start`、`Service.Status`、`Service.CheckWebInput`、`Service.Connected`、`Receiver.ReceiveChannel` | `TestPairingRejectsGroupsAndPinsIdentity` |
+| `internal/im/dingtalk` | `Service.CheckAvailable` | `TestAvailabilityReservesPairingAndExpires` |
+| `internal/im/dingtalk` | `Service.AuthorizeChannel` | `TestMediaScopedAndDeduplicated`、`TestRateLimitAndRevocation` |
+| `internal/im/dingtalk` | `Service.Disconnect`、`Service.Published` | `TestDeliveryUnknownNoRetryAndDisconnect` |
+| `internal/im/dingtalk` | `Service.Run` | `TestBindingWorkerIdleAndCommittedDiscovery`、`TestBindingWorkerExpiryAndLiveState`、`TestBindingWorkerFailedCommitDoesNotDiscover` |
+| `internal/im/dingtalk` | `NewClient`、`Client.Send`、`HTTPClient.Send` | `TestSendUsesApplicationTokenAndRecipientResult` |
+| `internal/im/dingtalk` | `Client.Stream`、`HTTPClient.Stream` | `TestStreamHeartbeatDoesNotWaitForMessageProcessing` |
+| `internal/im/dingtalk` | `Client.Download`、`HTTPClient.Download` | `TestUntrustedURLsNeverReceiveCredentials` |
+| `internal/im/dingtalk` | `Client.Upload`、`HTTPClient.Upload` | `TestUploadMultipartAndRejectedReceipt` |
+| `internal/im/feishu` | `New`、`Service.SetReceiver`、`Service.Connect`、`Receiver.ReceiveChannel`、`Service.AuthorizeChannel`、`Service.Disconnect` | `TestInboundIsolationDedupAndRebind` |
+| `internal/im/feishu` | `Service.Status`、`Service.CheckWebInput` | `TestBindingPermissionsAndSecrets` |
+| `internal/im/feishu` | `Service.StartLogin`、`Service.PollLogin`、`Service.CancelLogin` | `TestRegistrationThrottleCancellationAndRevocation` |
+| `internal/im/feishu` | `Service.Connected` | `TestCanceledInFlightRegistrationCannotBind` |
+| `internal/im/feishu` | `Service.Published` | `TestOtherChannelBlocksBindingAndPublishRollback` |
+| `internal/im/feishu` | `Service.Run` | `TestRunJoinsConnectionsOnShutdown` |
+| `internal/im/feishu` | `Client.Begin`、`HTTPClient.Begin` | `TestRegistrationRequestsOnlyPrivateChatScopes` |
+| `internal/im/feishu` | `Client.Poll`、`HTTPClient.Poll` | `TestRegistrationRejectsForeignURLAndLarkTenant` |
+| `internal/im/feishu` | `Client.Send`、`HTTPClient.Send` | `TestHTTPMessageEnvelopeUUIDAndErrors` |
+| `internal/im/feishu` | `Client.Check`、`HTTPClient.Check`、`Client.Listen`、`HTTPClient.Listen` | `TestCredentialCheckAndListenFailure` |
+| `internal/im/slack` | `New`、`Service.SetReceiver`、`Service.StartLogin`、`Service.CheckWebInput`、`Service.Status`、`Service.AuthorizeChannel`、`Service.Disconnect`、`Receiver.ReceiveChannel` | `TestPairingIdentityAndIngress` |
+| `internal/im/slack` | `Service.CheckAvailable`、`Service.Connected` | `TestAvailabilityAndConnectedBinding` |
+| `internal/im/slack` | `Service.Published` | `TestAttachmentsQuotesAndOutbound` |
+| `internal/im/slack` | `Service.Run` | `TestRestartRecoveryAndCancelledGate` |
+| `internal/im/slack` | `Client.Connect`、`HTTPClient.Connect` | `TestConnectRejectsUntrustedEndpointsAndCredentials` |
+| `internal/im/slack` | `Client.Identity`、`HTTPClient.Identity`、`Client.Download`、`HTTPClient.Download` | `TestIdentityChecksAndDownloadLimit` |
+| `internal/im/slack` | `Client.Upload`、`HTTPClient.Upload` | `TestMediaOriginAndUploadSequence` |
+| `internal/im/slack` | `Client.Send`、`HTTPClient.Send` | `TestWebAPIOutcomesAndPlainText` |
+| `internal/im/slack` | `Socket.Read`、`Socket.Ack`、`Socket.Close` | `TestSocketAcknowledgesOnlyAfterDurableInbox` |
+| `internal/im/telegram` | `New`、`Service.SetReceiver`、`Service.StartLogin`、`Service.PollLogin`、`Service.Confirm`、`Service.CheckWebInput`、`Service.Status`、`Service.Disconnect` | `TestBindingRequiresWebConfirmationAndLocksOnlyAfterCommit` |
+| `internal/im/telegram` | `Service.Connected`、`Service.CancelLogin` | `TestBindingCancellationExpiryConflictAndWebhook` |
+| `internal/im/telegram` | `Service.AuthorizeChannel`、`Receiver.ReceiveChannel` | `TestInboundIdentityDedupMediaAndCursor`、`TestMediaFailureAndRevocationDuringDownload` |
+| `internal/im/telegram` | `Service.Published` | `TestDeliveryUnknownRateLimitRestartAndCancellation` |
+| `internal/im/telegram` | `Service.Run` | `TestUnicodeChunksAndLifecycle` |
+| `internal/im/telegram` | `NewHTTPClient` | `TestClientRejectsRedirectAndUnsafePath` |
+| `internal/im/telegram` | `Client.Me`、`HTTPClient.Me`、`Client.Webhook`、`HTTPClient.Webhook` | `TestBotIdentityAndWebhookWireContract` |
+| `internal/im/telegram` | `Client.Send`、`HTTPClient.Send` | `TestHTTPProtocolAndSecretRedaction` |
+| `internal/im/telegram` | `Client.Poll`、`HTTPClient.Poll`、`Client.Download`、`HTTPClient.Download`、`Client.SendMedia`、`HTTPClient.SendMedia` | `TestPollingAndMediaWireContract` |
+
+| `internal/im/channelworker` | `Run`、`Changed`、`Wake` | `TestRunCommitRollbackDeadlineAndScope`、`TestRunFailedCommitAndDiscoveryAfterStartup`、`TestRunRevocationCancelsBusyWorkAndExpiresPairing`、`TestConnectionKeySerializesRebindingAcrossConversations` |
+| `internal/im/weixin` | `Service.Run` | `TestIdleChannelDoesNotAccessDatabase`、`TestActiveChannelSleepsAndWakesCommittedDeliveryAtDeadline` |
+| `internal/im/telegram` | `Service.Run` | `TestIdleChannelDoesNotAccessDatabase`、`TestActiveChannelSleepsAndWakesCommittedDeliveryAtDeadline` |
+| `internal/im/slack` | `Service.Run` | `TestIdleChannelDoesNotAccessDatabase`、`TestActiveChannelSleepsAndWakesCommittedDeliveryAtDeadline` |
+| `internal/im/feishu` | `Service.Run` | `TestIdleChannelDoesNotAccessDatabase`、`TestActiveChannelSleepsAndWakesCommittedDeliveryAtDeadline` |
+| `internal/im/dingtalk` | `Service.Run` | `TestIdleChannelDoesNotAccessDatabase`、`TestActiveChannelSleepsAndWakesCommittedDeliveryAtDeadline` |

@@ -7,7 +7,6 @@ import (
 	"io"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"molr.ai/runtime/internal/core"
@@ -44,75 +43,20 @@ func (s *Service) recoverDeliveries(ctx context.Context) error {
 	})
 }
 func (s *Service) Run(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+	go func() { defer close(done); s.expirePendingLogins(ctx) }()
+	defer func() { cancel(); <-done }()
 	if err := s.recoverDeliveries(ctx); err != nil {
 		return err
 	}
-	var wg sync.WaitGroup
-	type worker struct {
-		cancel context.CancelFunc
-		done   chan struct{}
-		bot    int64
+	err := s.runBindings(ctx)
+	if ctx.Err() != nil {
+		return nil
 	}
-	workers := map[core.ID]worker{}
-	defer func() {
-		for _, w := range workers {
-			w.cancel()
-		}
-		wg.Wait()
-	}()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for ctx.Err() == nil {
-			s.deliverNext(ctx)
-			if !sleep(ctx, time.Second) {
-				return
-			}
-		}
-	}()
-	for ctx.Err() == nil {
-		s.expireLogins()
-		rows, err := persistence.Select[Binding](ctx, s.store, bindingsBucket, persistence.Query{Where: []persistence.Filter{{Field: "State", Op: "in", Value: []string{"connected", "reconnecting", "blocked"}}}})
-		if err != nil {
-			return err
-		}
-		active := map[core.ID]Binding{}
-		for _, b := range rows {
-			if s.options.Live(ctx, b.OwnerID, b.AssistantID) == nil {
-				active[b.ID] = b
-			}
-		}
-		for id, w := range workers {
-			if _, ok := active[id]; !ok {
-				w.cancel()
-			}
-			select {
-			case <-w.done:
-				delete(workers, id)
-			default:
-			}
-		}
-		busy := map[int64]bool{}
-		for _, w := range workers {
-			busy[w.bot] = true
-		}
-		for id, b := range active {
-			if _, ok := workers[id]; ok || busy[b.BotID] {
-				continue
-			}
-			wc, cancel := context.WithCancel(ctx)
-			done := make(chan struct{})
-			workers[id] = worker{cancel, done, b.BotID}
-			busy[b.BotID] = true
-			wg.Add(1)
-			go func() { defer wg.Done(); defer close(done); s.pollLoop(wc, b) }()
-		}
-		if !sleep(ctx, time.Second) {
-			return nil
-		}
-	}
-	return nil
+	return err
 }
+
 func (s *Service) pollLoop(ctx context.Context, initial Binding) {
 	failures := 0
 	for ctx.Err() == nil {
@@ -322,27 +266,7 @@ func (s *Service) ingest(ctx context.Context, b Binding, token string, updates [
 		return nil
 	})
 }
-func (s *Service) deliverNext(ctx context.Context) {
-	rows, err := persistence.Select[Delivery](ctx, s.store, deliveriesBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("State", "pending")}})
-	if err != nil {
-		return
-	}
-	sortDeliveries(rows)
-	blocked := map[core.ID]bool{}
-	for _, d := range rows {
-		if blocked[d.BindingID] {
-			continue
-		}
-		blocked[d.BindingID] = true
-		if time.Now().Before(d.NextAttempt) {
-			continue
-		}
-		s.deliver(ctx, d)
-		if !sleep(ctx, 40*time.Millisecond) {
-			return
-		}
-	}
-}
+
 func (s *Service) sendAttachment(ctx context.Context, b Binding, token string, d Delivery) (int64, error) {
 	if s.options.Files == nil {
 		return 0, &apiError{Reason: "attachment_failed"}
@@ -361,12 +285,14 @@ func (s *Service) sendAttachment(ctx context.Context, b Binding, token string, d
 	}
 	return s.options.Client.SendMedia(ctx, token, b.ChatID, MediaFile{Name: file.File.Name, Type: file.File.MediaType, Data: data})
 }
-func (s *Service) deliver(ctx context.Context, d Delivery) {
+func (s *Service) deliver(ctx context.Context, d Delivery) error {
 	g := s.gate(d.OwnerID, d.AssistantID)
 	if err := g.acquire(ctx); err != nil {
-		return
+		return err
 	}
 	defer g.release()
+	// Bound consecutive sends without polling the queue while idle.
+	defer sleep(ctx, 40*time.Millisecond)
 	var b Binding
 	var token string
 	err := s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
@@ -400,7 +326,7 @@ func (s *Service) deliver(ctx context.Context, d Delivery) {
 		return s.saveDelivery(ctx, tx, d)
 	})
 	if err != nil {
-		return
+		return err
 	}
 	sendctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	if d.FileID == "" {
@@ -431,7 +357,7 @@ func (s *Service) deliver(ctx context.Context, d Delivery) {
 	}
 	savectx, stop := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer stop()
-	_ = s.store.Write(savectx, func(ctx context.Context, tx persistence.Tx) error {
+	return s.store.Write(savectx, func(ctx context.Context, tx persistence.Tx) error {
 		current, err := s.binding(ctx, b.OwnerID, b.ConversationID)
 		if err != nil {
 			return err
@@ -453,17 +379,42 @@ func (s *Service) deliver(ctx context.Context, d Delivery) {
 	})
 }
 
-// Expired pending tokens must not remain in memory when the browser is closed.
-func (s *Service) expireLogins() {
-	select {
-	case s.loginGate <- struct{}{}:
-		defer s.loginGate.release()
-	default:
-		return
-	}
-	for id, l := range s.logins {
-		if time.Now().After(l.ExpiresAt) {
-			delete(s.logins, id)
+// Expired pending tokens are removed at their deadline, even when the browser closes.
+func (s *Service) expirePendingLogins(ctx context.Context) {
+	timer := time.NewTimer(time.Hour)
+	timer.Stop()
+	defer timer.Stop()
+	for {
+		if err := s.loginGate.acquire(ctx); err != nil {
+			return
+		}
+		next := s.expireLoginsLocked()
+		s.loginGate.release()
+		timer.Stop()
+		var due <-chan time.Time
+		if !next.IsZero() {
+			timer.Reset(time.Until(next))
+			due = timer.C
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-s.loginWake:
+		case <-due:
 		}
 	}
+}
+
+func (s *Service) expireLoginsLocked() time.Time {
+	var next time.Time
+	for id, l := range s.logins {
+		if !time.Now().Before(l.ExpiresAt) {
+			delete(s.logins, id)
+			continue
+		}
+		if next.IsZero() || l.ExpiresAt.Before(next) {
+			next = l.ExpiresAt
+		}
+	}
+	return next
 }

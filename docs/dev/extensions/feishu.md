@@ -2,6 +2,8 @@
 
 固定适配器位于 `runtime/internal/im/feishu`，使用官方 Go SDK v3.12.2 的 WebSocket 客户端。应用注册协议以该版本 `scene/registration` 为依据，由有超时、响应大小限制和域名限制的 HTTP 客户端执行。用户操作见[飞书聊天入口](../../user/chat-channels/feishu.md)。
 
+后台连接和队列使用[统一的提交通知与截止时间调度](../architecture/overview.md#聊天渠道后台调度)，空闲时不轮询本地绑定或消息队列。
+
 ## 身份和生命周期
 
 一个应用只绑定一个账号下的一位助理。绑定保存应用 ID、应用内 Open ID、首次有效消息的租户标识及代际 ID，App Secret 用主密钥 AES-GCM 加密，AAD 包含账号、绑定和应用。每次入站要求应用、发送者和租户匹配，只接受 `user` 与 `p2p`。组消息及机器人回流被忽略。

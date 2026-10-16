@@ -282,3 +282,15 @@ func TestRunStopsWorkers(t *testing.T) {
 		t.Fatal("workers did not stop")
 	}
 }
+
+func TestAvailabilityReservesPairingAndExpires(t *testing.T) {
+	f := setup(t)
+	must(t, f.s.CheckAvailable(t.Context(), "owner", "chat"))
+	b, _ := f.start(t)
+	if core.CodeOf(f.s.CheckAvailable(t.Context(), "owner", "chat")) != core.Conflict {
+		t.Fatal("pairing not reserved")
+	}
+	b.ExpiresAt = time.Now().Add(-time.Second)
+	must(t, f.db.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error { return f.s.saveBinding(ctx, tx, b) }))
+	must(t, f.s.CheckAvailable(t.Context(), "owner", "chat"))
+}

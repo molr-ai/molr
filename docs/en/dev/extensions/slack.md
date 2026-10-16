@@ -2,6 +2,8 @@
 
 The fixed Go adapter in `runtime/internal/im/slack` uses Socket Mode and the Web API. It does not load a resident plugin. Setup is described in [Slack chat entrance](../../user/chat-channels/slack.md).
 
+Background connections and queues use [shared commit notifications and deadline scheduling](../architecture/overview.md#chat-channel-background-scheduling), without polling local binding or message collections while idle.
+
 ## Identity and ingress
 
 `auth.test` and `bots.info` verify workspace, bot and app identity; the Socket Mode hello must match that app. Bindings fix the Molr owner, assistant, existing conversation, Slack workspace, app, bot, member and DM. Creation and pairing confirmation recheck assistant authorization and competing chat entrances.

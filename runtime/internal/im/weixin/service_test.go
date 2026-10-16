@@ -354,9 +354,36 @@ func TestRestartKeepsCursorAndMarksInFlightUnknown(t *testing.T) {
 	}))
 	restarted, err := New(f.db, Options{MasterKey: bytes.Repeat([]byte{1}, 32), Client: f.client, Authorize: f.s.options.Authorize, Live: f.s.options.Live, Receive: f.chat.(Receiver)})
 	must(t, err)
-	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
-	defer cancel()
-	must(t, restarted.Run(ctx))
+	ctx, cancel := context.WithCancel(t.Context())
+	done, stopped := make(chan error, 1), make(chan struct{})
+	go func() { defer close(stopped); done <- restarted.Run(ctx) }()
+	defer func() {
+		cancel()
+		select {
+		case <-stopped:
+		case <-time.After(5 * time.Second):
+			t.Error("restart worker did not stop")
+		}
+	}()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		recovered, err := persistence.Load[Delivery](t.Context(), f.db, deliveriesBucket, persistence.Key(d.OwnerID, d.ID))
+		must(t, err)
+		if recovered.State == "unknown" {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("in-flight delivery was not recovered")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	cancel()
+	select {
+	case err := <-done:
+		must(t, err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("restart worker did not join")
+	}
 	current, err := restarted.binding(t.Context(), "owner", "chat")
 	must(t, err)
 	secret, err := restarted.open(current)

@@ -219,3 +219,7 @@
 | `internal/auth` | `Manager.Collect` | `TestAuthCollectionBoundsAndPreservesLiveCredentials` |
 | `internal/auth` | `Manager.RevokeOtherSessions`, `Service.RevokeOtherSessions` | `TestDeviceSessionsAreAccountScopedAndOtherDevicesRevokeIndependently` |
 | `internal/auth` | `Manager.RunGC` | `internal/app.TestBuildRealMessageAgentAndRestart`, `internal/app.TestTDDApplicationCanceledContextReleasesResources` |
+
+| 包 | 接口 / 方法 | 测试 |
+| --- | --- | --- |
+| `internal/auth` | `AccountStateSignal` | `TestAccountStateSignalOnlyCommittedLifecycleChanges` |

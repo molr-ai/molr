@@ -2,6 +2,8 @@
 
 The fixed Go adapter is located at `runtime/internal/im/weixin`. Protocol verification is based on `@tencent-weixin/openclaw-weixin@2.4.9` (2026-10-06); refer to [Tencent Protocol Description](https://github.com/Tencent/openclaw-weixin/blob/main/docs/protocol.md). This is a fixed channel adapter; it does not load OpenClaw or persistent backend plugins. For user operations, see [WeChat Chat Entry](../../user/chat-channels/weixin.md); for request fields, see [HTTP API](../reference/http-api.md).
 
+Background connections and queues use [shared commit notifications and deadline scheduling](../architecture/overview.md#chat-channel-background-scheduling), without polling local binding or message collections while idle.
+
 ## Entry and Identity
 
 Bindings belong to Molr users, assistants, and existing sessions, while fixing the WeChat bot and the scanning user. Scan results are confirmed only by authenticated requests with assistant write permissions. QR code requests are stored in-process and expire after five minutes; late confirmations after cancellation cannot take effect; restarts require re-initiating incomplete scans. Completed bindings are persisted and do not depend on browser session survival.

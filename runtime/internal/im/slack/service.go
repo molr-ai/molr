@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"molr.ai/runtime/internal/im/channelworker"
 	"molr.ai/runtime/internal/notification"
 	"sort"
 	"strings"
@@ -37,6 +38,7 @@ type Options struct {
 	Client        Client
 	Authorize     func(context.Context, core.Principal, core.ID, bool) (Target, error)
 	Live          func(context.Context, core.ID, core.ID) error
+	LiveSignals   func(core.ID, core.ID) []persistence.SignalKey
 	Receive       Receiver
 	CheckConnect  func(context.Context, core.ID, core.ID) error
 	PublicURL     string
@@ -194,6 +196,11 @@ func (s *Service) syncConnectionNotice(ctx context.Context, b Binding) error {
 	return notification.Sync(ctx, s.store, b.OwnerID, notification.Input{Kind: "slack.connection", Code: b.State, Source: core.Object{Kind: "assistant", ID: b.AssistantID}, AssistantID: b.AssistantID}, b.State == "login_required" || b.State == "reconnecting")
 }
 func (s *Service) notify(ctx context.Context, b Binding) error {
+	if err := s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		return channelworker.Changed(ctx, tx, bindingsBucket, b.OwnerID, b.ConversationID)
+	}); err != nil {
+		return err
+	}
 	if err := s.syncConnectionNotice(ctx, b); err != nil {
 		return err
 	}

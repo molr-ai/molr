@@ -2,6 +2,8 @@
 
 The fixed Go adapter in `runtime/internal/im/dingtalk` receives private robot messages through Stream and sends replies with an application access token. See [DingTalk chat entry](../../user/chat-channels/dingtalk.md). Protocol references are the [official Stream description](https://open-dingtalk.github.io/developerpedia/docs/learn/stream/protocol/), [message structures](https://open-dingtalk.github.io/developerpedia/docs/learn/bot/message/) and [official channel SDK](https://github.com/DingTalk-Real-AI/dingtalk-channel-sdk-go), checked on 2026-10-16.
 
+Background connections and queues use [shared commit notifications and deadline scheduling](../architecture/overview.md#chat-channel-background-scheduling), without polling local binding or message collections while idle.
+
 ## Binding and trust boundaries
 
 Each application binds to one assistant per instance. Pairing records contain a random binding generation, application ID, a hash of a ten-minute pairing code and AES-GCM encrypted credentials with owner/binding AAD. Status DTOs exclude credentials, tokens and codes. The code appears only in the creation response, never in chat or model context; duplicate pairing callbacks are deduplicated. Workers remove expired unpaired records.
@@ -9,6 +11,7 @@ Each application binds to one assistant per instance. Pairing records contain a 
 Pairing accepts only `conversationType=1`, the configured robot, the robot's organization and an identified employee. Once paired, organization, employee ID, sender ID and private conversation ID must all match. The binding transaction rechecks account/assistant status and exclusivity with Weixin, Telegram and Slack; other channels also check active DingTalk bindings and unexpired pairing reservations. Binding generations isolate revoked connections and late callbacks.
 
 Ingress uses trusted `conversation.ReceiveChannel` and `files.ChannelStore`, without issuing user sessions or API tokens. Ordinary WebUI/SDK/plugin writes pass both channels' `CheckWebInput`. Message and deduplication records commit atomically. Downloads run outside transactions, with binding rechecks at file commit and message association.
+
 
 ## Transport and delivery
 

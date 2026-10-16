@@ -19,6 +19,7 @@ import (
 )
 
 type testClient struct {
+	onSend    func()
 	sent      []string
 	sendError error
 	downloads int
@@ -33,6 +34,9 @@ func (c *testClient) Connect(context.Context, string, string) (Socket, error) {
 }
 func (c *testClient) Send(_ context.Context, _, _, text string) (string, error) {
 	c.sent = append(c.sent, text)
+	if c.onSend != nil {
+		c.onSend()
+	}
 	return "2000000000.000001", c.sendError
 }
 func (c *testClient) Download(_ context.Context, _ string, f File, _ int64) (Media, error) {
@@ -367,6 +371,7 @@ type streamSocket struct {
 	ctx    context.Context
 	events chan Envelope
 	acks   chan string
+	closed bool
 }
 
 func (s *streamSocket) Read() (Envelope, error) {
@@ -385,7 +390,7 @@ func (s *streamSocket) Ack(id string) error {
 		return s.ctx.Err()
 	}
 }
-func (s *streamSocket) Close() error { return nil }
+func (s *streamSocket) Close() error { s.closed = true; return nil }
 func TestSocketAcknowledgesOnlyAfterDurableInbox(t *testing.T) {
 	f := setup(t)
 	b := f.bind(t)
@@ -418,5 +423,27 @@ func TestSocketAcknowledgesOnlyAfterDurableInbox(t *testing.T) {
 	case <-done:
 	case <-time.After(3 * time.Second):
 		t.Fatal("socket did not stop")
+	}
+	if !stream.closed {
+		t.Fatal("socket was not closed")
+	}
+}
+
+func TestAvailabilityAndConnectedBinding(t *testing.T) {
+	f := setup(t)
+	must(t, f.s.CheckAvailable(t.Context(), "owner", "chat"))
+	bound, err := f.s.Connected(t.Context(), "owner", "chat")
+	must(t, err)
+	if bound {
+		t.Fatal("unbound chat connected")
+	}
+	f.bind(t)
+	if core.CodeOf(f.s.CheckAvailable(t.Context(), "owner", "chat")) != core.Conflict {
+		t.Fatal("binding not reserved")
+	}
+	bound, err = f.s.Connected(t.Context(), "owner", "chat")
+	must(t, err)
+	if !bound {
+		t.Fatal("bound chat disconnected")
 	}
 }

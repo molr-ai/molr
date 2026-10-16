@@ -37,3 +37,8 @@ func (m *Manager) WatchPrincipal(p core.Principal) (*PrincipalWatch, error) {
 func (w *PrincipalWatch) Check(ctx context.Context) (time.Duration, error) {
 	return w.manager.principalValidity(ctx, w.principal)
 }
+
+// AccountStateSignal wakes observers when an account is disabled or enabled.
+func AccountStateSignal(owner core.ID) persistence.SignalKey {
+	return persistence.SignalKey{Namespace: "auth.account-state", Key: string(owner)}
+}

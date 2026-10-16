@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
-	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -228,91 +227,16 @@ func (s *Service) recover(ctx context.Context) error {
 
 // Run owns all listeners and the delivery worker, and waits for them before returning.
 func (s *Service) Run(ctx context.Context) error {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 	if err := s.recover(ctx); err != nil {
 		return err
 	}
-	type worker struct {
-		cancel context.CancelFunc
-		done   chan struct{}
+	err := s.runBindings(ctx)
+	if ctx.Err() != nil {
+		return nil
 	}
-	workers := map[core.ID]worker{}
-	var wg sync.WaitGroup
-	defer func() {
-		cancel()
-		for _, w := range workers {
-			w.cancel()
-		}
-		wg.Wait()
-	}()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for ctx.Err() == nil {
-			_ = s.deliverNext(ctx)
-			if !sleep(ctx, time.Second) {
-				return
-			}
-		}
-	}()
-	for ctx.Err() == nil {
-		rows, err := persistence.Select[Binding](ctx, s.store, bindingsBucket, persistence.Query{Where: []persistence.Filter{{Field: "State", Op: "in", Value: []string{"connecting", "connected", "reconnecting"}}}})
-		if err != nil {
-			return err
-		}
-		active := map[core.ID]bool{}
-		for _, b := range rows {
-			if s.options.Live(ctx, b.OwnerID, b.AssistantID) != nil {
-				continue
-			}
-			active[b.ID] = true
-			if _, ok := workers[b.ID]; !ok {
-				workerCtx, stop := context.WithCancel(ctx)
-				done := make(chan struct{})
-				workers[b.ID] = worker{stop, done}
-				wg.Add(1)
-				go func() { defer wg.Done(); defer close(done); s.listen(workerCtx, b) }()
-			}
-		}
-		for id, w := range workers {
-			if !active[id] {
-				w.cancel()
-			}
-			select {
-			case <-w.done:
-				delete(workers, id)
-			default:
-			}
-		}
-		if !sleep(ctx, time.Second) {
-			return nil
-		}
-	}
-	return nil
+	return err
 }
-func (s *Service) deliverNext(ctx context.Context) error {
-	bindings, err := persistence.Select[Binding](ctx, s.store, bindingsBucket, persistence.Query{Where: []persistence.Filter{{Field: "State", Op: "in", Value: []string{"connecting", "connected", "reconnecting"}}}})
-	if err != nil {
-		return err
-	}
-	for _, b := range bindings {
-		if s.options.Live(ctx, b.OwnerID, b.AssistantID) != nil {
-			continue
-		}
-		rows, err := persistence.Select[Delivery](ctx, s.store, deliveriesBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("BindingID", b.ID), persistence.Eq("State", "pending")}, OrderBy: "Sequence", ThenBy: "Part", Limit: 1})
-		if err != nil {
-			return err
-		}
-		if len(rows) == 0 || time.Now().Before(rows[0].NextAttempt) {
-			continue
-		}
-		if err = s.deliver(ctx, rows[0]); err != nil {
-			return err
-		}
-	}
-	return nil
-}
+
 func (s *Service) deliver(ctx context.Context, d Delivery) error {
 	unlock, err := s.lock(ctx, d.OwnerID, d.AssistantID)
 	if err != nil {
