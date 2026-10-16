@@ -551,3 +551,7 @@ API 合同测试使用真实 HTTP server、Auth、CSRF、持久限流、Realtime
 | `POST /api/telegram/disconnect` | `AssistantID` | `null`；删除绑定并取消未完成投递 |
 
 状态包括 `disconnected`、`connected`、`reconnecting`、`token_invalid`、`blocked`、`poll_conflict`、`paused`。投递状态包括 `pending`、`sending`、`accepted`、`failed`、`unknown`、`canceled`。变化发出 `telegram.changed`。每位助理只能绑定一个外部渠道，提交时在事务中检查；绑定期间普通聊天写入返回 `failed_precondition`。机制见[Telegram 渠道](https://molr.ai/zh/docs/dev/extensions/telegram/)。
+
+## 钉钉聊天入口
+
+钉钉状态、配对与解绑接口见[钉钉渠道 API](https://molr.ai/zh/docs/dev/extensions/dingtalk/#api)。

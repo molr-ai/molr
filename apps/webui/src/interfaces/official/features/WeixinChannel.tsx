@@ -1,3 +1,6 @@
+import { DingtalkChannel } from './DingtalkChannel';
+import { dingtalkCopy } from '../../../dingtalk-copy';
+import type { DingtalkStatus } from '../../../api/types';
 import { SlackChannel } from './SlackChannel';
 import { useErrorToast } from '../../../error-toasts';
 import { useEffect, useRef, useState } from 'react';
@@ -19,6 +22,9 @@ export function ChatChannelDialog({ assistant, onClose }: { assistant: Assistant
  const telegram = useQuery<TelegramStatus>(`/api/assistants/${assistant.ID}/telegram`);
  const telegramBound = telegram.data?.Channel === 'telegram';
  const slack = useQuery<SlackStatus>(`/api/assistants/${assistant.ID}/slack`);
+ const ding = useQuery<DingtalkStatus>(`/api/assistants/${assistant.ID}/dingtalk`);
+ const dingBound = ding.data?.Channel === 'dingtalk';
+ const dingReserved = !!ding.data && !['disconnected', 'expired'].includes(ding.data.State);
  const slackReserved = !!slack.data && slack.data.State !== 'disconnected';
  const [telegramOpen, setTelegramOpen] = useState(false);
  const action = useAction();
@@ -27,23 +33,26 @@ export function ChatChannelDialog({ assistant, onClose }: { assistant: Assistant
  const bound = status.data?.Channel === 'weixin';
  const changed = () => invalidateTopics(['weixin']);
  async function begin() { await action.run(async () => { setRecognized(false); const next = await api.post<WeixinLogin>('/api/weixin/login', { AssistantID: assistant.ID }); if (next.Status === 'already_connected') { setLogin(null); setRecognized(true); changed(); } else setLogin(next); }, undefined, false); }
- useErrorToast(!login && !disconnect ? action.error || status.error : null, action.error ? begin : status.reload);
+ useErrorToast(!login && !disconnect ? action.error || status.error || ding.error : null, action.error ? begin : status.reload);
   return <Dialog open title={t.title} description={assistant.Name} dismissible={!action.busy && !login && !disconnect && !telegramOpen} onOpenChange={open => { if (!open) onClose(); }}>
+ <div className="weixin-settings">
  <section className="weixin-settings" aria-label={t.current}>
-  <div className="record-heading"><h3>{t.current}</h3>{status.data && <Badge tone={bound ? 'positive' : 'neutral'}>{bound ? t.weixin : telegramBound ? telegramCopy[locale].channel : slack.data?.Channel === 'slack' ? 'Slack' : t.webui}</Badge>}</div>
-  <h3>{telegramBound ? telegramCopy[locale].channel : t.weixin}</h3><p className="muted">{telegramBound ? telegramCopy[locale].help : t.help}</p>{!telegramBound && <p className="muted">{t.mediaSupport}</p>}
+  <div className="record-heading"><h3>{t.current}</h3>{status.data && <Badge tone={bound || telegramBound || dingBound || slack.data?.Channel === 'slack' ? 'positive' : 'neutral'}>{dingBound ? dingtalkCopy[locale].name : bound ? t.weixin : telegramBound ? telegramCopy[locale].channel : slack.data?.Channel === 'slack' ? 'Slack' : t.webui}</Badge>}</div>
+  {!dingBound && <><h3>{telegramBound ? telegramCopy[locale].channel : t.weixin}</h3><p className="muted">{telegramBound ? telegramCopy[locale].help : t.help}</p>{!telegramBound && <p className="muted">{t.mediaSupport}</p>}</>}
   {recognized && <Alert tone="positive" title={t.states.already_connected} />}
   {bound && status.data && <>{status.data.State === 'connected' ? <Alert tone="positive" title={t.states.connected} /> : <Alert tone="warning" title={t.states[status.data.State]} />}{status.data.State === 'connected' && !status.data.LastInboundAt && <p>{t.firstMessage}</p>}</>}
   <div className="form-actions">
-   {(!bound || status.data?.State === 'login_required') && !telegramBound && <Button variant="secondary" disabled={assistant.State !== 'active' || !status.data || !telegram.data || !slack.data || slackReserved} loading={action.busy} onClick={() => void begin()}>{bound ? t.reconnect : t.connect}</Button>}
+   {(!bound || status.data?.State === 'login_required') && !telegramBound && !dingBound && <Button variant="secondary" disabled={assistant.State !== 'active' || !status.data || !telegram.data || !slack.data || !ding.data || dingReserved || slackReserved} loading={action.busy} onClick={() => void begin()}>{bound ? t.reconnect : t.connect}</Button>}
    {bound && <Button variant="secondary" onClick={() => setDisconnect(true)}>{t.disconnect}</Button>}
-   {!bound && <Button variant="secondary" disabled={!telegram.data || !status.data || !slack.data || slackReserved || assistant.State !== 'active' && !telegramBound} onClick={() => setTelegramOpen(true)}>{telegramBound ? telegramCopy[locale].manage : telegramCopy[locale].connect}</Button>}
+   {!bound && !dingBound && <Button variant="secondary" disabled={!telegram.data || !status.data || !slack.data || !ding.data || dingReserved || slackReserved || assistant.State !== 'active' && !telegramBound} onClick={() => setTelegramOpen(true)}>{telegramBound ? telegramCopy[locale].manage : telegramCopy[locale].connect}</Button>}
   </div>
   <ModalPresence>{telegramOpen && <TelegramChannel assistant={assistant} onClose={() => { setTelegramOpen(false); invalidateTopics(['telegram']); }} />}</ModalPresence>
   <ModalPresence>{login && <LoginDialog assistantID={assistant.ID} login={login} onChange={setLogin} onClose={() => { setLogin(null); changed(); }} onRefresh={begin} />}</ModalPresence>
   <ModalPresence>{disconnect && <Confirm notify={false} title={t.disconnectTitle} description={t.disconnectHelp} onClose={() => setDisconnect(false)} onConfirm={async () => { await api.post('/api/weixin/disconnect', { AssistantID: assistant.ID }); changed(); }} />}</ModalPresence>
  </section>
- <SlackChannel assistant={assistant} disabled={!status.data || !telegram.data || bound || telegramBound || !!login || telegramOpen} />
+ <SlackChannel assistant={assistant} disabled={!status.data || !telegram.data || !ding.data || dingReserved || bound || telegramBound || !!login || telegramOpen} />
+ <DingtalkChannel assistant={assistant} status={ding.data} reload={ding.reload} disabled={!status.data || !telegram.data || !slack.data || bound || telegramBound || slackReserved || !!login || telegramOpen} />
+ </div>
  </Dialog>;
 }
 function LoginDialog({ assistantID, login, onChange, onClose, onRefresh }: { assistantID: string; login: WeixinLogin; onChange: (v: WeixinLogin) => void; onClose: () => void; onRefresh: () => Promise<void> }) {

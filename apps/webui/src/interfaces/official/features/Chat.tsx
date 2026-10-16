@@ -1,6 +1,8 @@
 import { FolderOpen } from 'lucide-react';
 import { useErrorToast } from '../../../error-toasts';
 import { AssistantNotifications } from '../../../notifications/AssistantNotifications';
+import { dingtalkCopy } from '../../../dingtalk-copy';
+import type { DingtalkStatus } from '../../../api/types';
 import { weixinCopy } from '../../../weixin-copy';
 import { slackCopy } from '../../../slack-copy';
 import { telegramCopy } from '../../../telegram-copy';
@@ -37,9 +39,11 @@ export function Chat({ assistant, conversation, timeZone, draft, updateDraft, on
   const slack = slackStatus.data?.Channel === 'slack';
   const weixin = channel.data?.Channel === 'weixin';
   const telegramBound = telegram.data?.Channel === 'telegram';
-  const externalChannel = weixin || telegramBound || slack;
-  const chatReadOnly = !channel.data || !telegram.data || !slackStatus.data || externalChannel;
-  const channelCopy = slack ? slackCopy[locale] : telegramBound ? { ...weixinCopy[locale], ...telegramCopy[locale] } : weixinCopy[locale];
+  const ding = useQuery<DingtalkStatus>(`/api/assistants/${assistant.ID}/dingtalk`);
+  const dingtalk = ding.data?.Channel === 'dingtalk';
+  const externalChannel = weixin || telegramBound || slack || dingtalk;
+  const chatReadOnly = !channel.data || !telegram.data || !slackStatus.data || !ding.data || externalChannel;
+  const channelCopy = dingtalk ? { ...weixinCopy[locale], ...dingtalkCopy[locale] } : slack ? slackCopy[locale] : telegramBound ? { ...weixinCopy[locale], ...telegramCopy[locale] } : weixinCopy[locale];
   const history = useChatHistory(assistant.ConversationID, targetMessageID);
   const [expediteBusy, setExpediteBusy] = useState(false), [expediteFailed, setExpediteFailed] = useState(false), [requestedThrough, setRequestedThrough] = useState(0);
   useEffect(() => { setExpediteBusy(false); setExpediteFailed(false); setRequestedThrough(0); }, [assistant.ID]);
@@ -56,7 +60,7 @@ export function Chat({ assistant, conversation, timeZone, draft, updateDraft, on
   const draftAttachments = useFilePreviews(draft.files);
   const archived = assistant.State === 'dismissed' || conversation?.Archived;
   const lastSequence = history.messages.at(-1)?.Sequence ?? 0;
-  useErrorToast(action.error || history.error || status.error || channel.error, action.error ? send : history.error ? invalidate : status.error ? status.reload : channel.reload);
+  useErrorToast(action.error || history.error || status.error || channel.error || ding.error, action.error ? send : history.error ? invalidate : status.error ? status.reload : channel.error ? channel.reload : ding.reload);
   function markRead() {
     if (targetMessageID || !bottom.current || document.visibilityState !== 'visible' || !document.hasFocus() || isChatObscured() || lastSequence <= Math.max(readThrough.current, conversation?.LastReadSequence ?? 0)) return;
     const previous = readThrough.current; readThrough.current = lastSequence;
@@ -181,7 +185,7 @@ export function Chat({ assistant, conversation, timeZone, draft, updateDraft, on
     </div>
     {showLatest && <Button className="chat-return-latest" variant="secondary" onClick={returnToLatest}><ArrowDown size={16} aria-hidden="true" />{t.chat.returnLatest}</Button>}
     </div>
-    {!channel.data || !telegram.data || !slackStatus.data ? <Loading /> : <div className="chat-input"><ChatComposer lock={externalChannel ? { title: channelCopy.readonly, description: channelCopy.readonlyHelp, action: <Button variant="secondary" size="sm" onClick={() => onAction('channel')}>{channelCopy.manage}</Button> } : undefined} commands={[{ name: 'compress', description: t.chat.compress, keywords: ['压缩', '上下文'], disabled: compressing }]} value={draft.text} onValueChange={text => updateDraft({ ...draft, text })} onSubmit={() => void send()} placeholder={t.chat.placeholder} disabled={chatReadOnly || archived || uploading || action.busy} attachments={draftAttachments}
+    {!channel.data || !telegram.data || !slackStatus.data || !ding.data ? <Loading /> : <div className="chat-input"><ChatComposer lock={externalChannel ? { title: channelCopy.readonly, description: channelCopy.readonlyHelp, action: <Button variant="secondary" size="sm" onClick={() => onAction('channel')}>{channelCopy.manage}</Button> } : undefined} commands={[{ name: 'compress', description: t.chat.compress, keywords: ['压缩', '上下文'], disabled: compressing }]} value={draft.text} onValueChange={text => updateDraft({ ...draft, text })} onSubmit={() => void send()} placeholder={t.chat.placeholder} disabled={chatReadOnly || archived || uploading || action.busy} attachments={draftAttachments}
       onAttachFiles={files => void attach(files)} onRemoveAttachment={id => updateDraft({ ...draft, files: draft.files.filter(file => file.ID !== id) })} notice={uploading ? t.chat.uploading : dreaming ? `${t.chat.dreaming}${status.data?.DreamDeadline ? ` · ${new Date(status.data.DreamDeadline).toLocaleTimeString()} ${locale.startsWith('zh') ? '前结束，消息排队等待' : 'deadline; messages queued'}` : ''}` : notice || (status.data?.Compression?.State === 'failed' ? t.chat.compressFailed : '')} processingLabel={compressing ? t.chat.compressing : dreaming ? t.chat.dreaming : undefined} sending={working || dreaming} allowSendWhileSending onStop={working || dreaming ? () => void action.run(() => api.post(`/api/assistants/${assistant.ID}/stop`), undefined, false) : undefined} />
     </div>}
   </section>;

@@ -29,3 +29,5 @@ For client requests, see [HTTP API](reference/http-api.md); for internal module 
 ## Maintaining Releases
 
 [Release Maintenance](releasing/releases.md) manages versions, channels, and build releases; before committing and distributing, verify [Public Content and File Isolation](releasing/public-content.md) and [Licenses](releasing/licensing.md).
+
+[DingTalk channel](extensions/dingtalk.md)

@@ -26,6 +26,7 @@ func (s *HTTPServer) businessRoutes() {
 	s.weixinRoutes()
 	s.telegramRoutes()
 	s.slackRoutes()
+	s.dingtalkRoutes()
 	s.handle("GET /api/assistants/activity", s.assistantActivity)
 	s.handle("GET /api/plans/events", func(r *http.Request) (any, error) {
 		q := r.URL.Query()

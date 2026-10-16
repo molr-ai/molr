@@ -551,3 +551,7 @@ These endpoints require a live account session and assistant read/write permissi
 | `POST /api/telegram/disconnect` | `AssistantID` | `null`; removes binding and cancels unfinished deliveries |
 
 States are `disconnected`, `connected`, `reconnecting`, `token_invalid`, `blocked`, `poll_conflict`, and `paused`. Delivery states are `pending`, `sending`, `accepted`, `failed`, `unknown`, and `canceled`. Changes emit `telegram.changed`. One active external channel per assistant is enforced transactionally; ordinary conversation sends fail with `failed_precondition` while bound. See [Telegram channel](../extensions/telegram.md).
+
+## DingTalk chat entry
+
+See [DingTalk channel API](../extensions/dingtalk.md#api) for status, pairing and disconnection.

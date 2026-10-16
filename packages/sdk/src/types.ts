@@ -143,3 +143,6 @@ export interface WorkspaceEntry { Name: string; Path: string; Type: 'file' | 'di
 export interface WorkspaceListing { Entries: WorkspaceEntry[]; Version: string; NextOffset: number; Truncated: boolean }
 export interface WorkspaceText extends WorkspaceEntry { Text: string; Editable: boolean; Truncated: boolean }
 export interface WorkspaceOperation { Action: 'write' | 'mkdir' | 'move' | 'delete'; Path: string; ToPath?: string; Text?: string; ExpectedVersion?: string }
+
+export type DingtalkStatus = { Channel: 'webui' | 'dingtalk'; State: 'disconnected' | 'connecting' | 'pairing' | 'connected' | 'reconnecting' | 'credential_required' | 'expired' | 'paused'; ClientID: string; LastError: string; ConnectedAt: string | null; LastInboundAt: string | null; ExpiresAt: string };
+export type DingtalkPairing = { Code: string; ExpiresAt: string };
