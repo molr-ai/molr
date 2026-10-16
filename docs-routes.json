@@ -240,6 +240,16 @@
     "section": "user"
   },
   {
+    "file": "user/best-practices/x.md",
+    "path": "/docs/user/best-practices/x/",
+    "label": "操作 X（推特）",
+    "group": "最佳实践",
+    "englishLabel": "Use X (Twitter)",
+    "englishGroup": "Best practices",
+    "root": "docs",
+    "section": "user"
+  },
+  {
     "file": "user/best-practices/github.md",
     "path": "/docs/user/best-practices/github/",
     "label": "操作 GitHub",

@@ -12,6 +12,7 @@ Give your assistant a concrete task so it can choose tools to retrieve informati
 | ClawEmail | Official Mail-CLI (`mail-cli`, recommended) | [Use ClawEmail](clawemail.md) |
 | Zhihu | Official Zhihu CLI | [Use Zhihu](zhihu.md) |
 | Weibo | Official Weibo CLI (`weibo-cli`) | [Use Weibo](weibo.md) |
+| X (Twitter) | Official xurl CLI + workspace Skill | [Use X (Twitter)](x.md) |
 | GitHub | Official GitHub CLI (`gh`) | [Use GitHub](github.md) |
 | Codex coding tasks | Official Codex CLI | [Use Codex](codex.md) |
 | ZCode coding tasks | Z.ai's official ZCode CLI | [Use ZCode](zcode.md) |

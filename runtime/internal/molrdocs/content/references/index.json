@@ -384,6 +384,22 @@
     }
   },
   {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/best-practices/x.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "操作 X（推特）",
+      "en": "Use X (Twitter)"
+    },
+    "topics": {
+      "zh": "最佳实践",
+      "en": "Best practices"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/user/best-practices/x/",
+      "en": "https://molr.ai/en/docs/user/best-practices/x/"
+    }
+  },
+  {
     "path": "/molr/.agents/skills/molr-docs/references/docs/user/best-practices/github.md",
     "contentLanguage": "zh",
     "titles": {

@@ -12,6 +12,7 @@
 | ClawEmail 邮箱 | 官方 Mail-CLI（`mail-cli`，推荐） | [操作 ClawEmail](clawemail.md) |
 | 知乎 | 官方 Zhihu CLI | [操作知乎](zhihu.md) |
 | 微博 | 官方 Weibo CLI（`weibo-cli`） | [操作微博](weibo.md) |
+| X（推特） | 官方 xurl CLI + 工作区 Skill | [操作 X（推特）](x.md) |
 | GitHub | 官方 GitHub CLI（`gh`） | [操作 GitHub](github.md) |
 | Codex 编程任务 | 官方 Codex CLI | [操作 Codex](codex.md) |
 | ZCode 编程任务 | Z.ai 官方 ZCode CLI | [操作 ZCode](zcode.md) |
