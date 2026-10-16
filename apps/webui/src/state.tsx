@@ -84,6 +84,7 @@ function queryTopic(path: string) {
   const shell = path.match(/^\/api\/assistants\/([^/]+)\/shell-tasks/);
   if (shell) return `shell-tasks:${shell[1]}`;
   if (/\/assistants\/[^/]+\/weixin/.test(path)) return 'weixin';
+  if (/\/assistants\/[^/]+\/slack/.test(path)) return 'slack';
   if (/\/assistants\/[^/]+\/telegram/.test(path)) return 'telegram';
   if (path === '/api/account/quotas' || path === '/api/admin/usage' || path.startsWith('/api/account/usage?') || path.startsWith('/api/admin/usage/analytics?')) return 'usage';
   if (/\/debug\/runs\/[^/]+\/steps\//.test(path)) return 'debug-payload';
@@ -113,6 +114,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (visible.Topic === 'shell.tasks' && visible.Object?.ID) publish.current([`shell-tasks:${visible.Object.ID}`]);
       else if (visible.Topic === 'notification.changed') publish.current(['notifications']);
       else if (visible.Topic === 'weixin.changed') publish.current(['weixin']);
+      else if (visible.Topic === 'slack.changed') publish.current(['slack']);
       else if (visible.Topic === 'telegram.changed') publish.current(['telegram']);
       else if (visible.Topic === 'assistant.profile') publish.current(['assistants', 'conversations']);
       else if (visible.Topic.startsWith('assistant.') && visible.Object?.ID) publish.current([`status:${visible.Object.ID}`, 'activity', 'tasks', 'dreams', 'memories', 'usage']);
@@ -146,6 +148,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (path === '/api/updates/check') return; // UpdateProvider refreshes its snapshot after a check.
       if (['/api/weixin/poll', '/api/weixin/cancel', '/api/telegram/poll', '/api/telegram/cancel'].includes(path)) return;
       if (path.startsWith('/api/weixin/')) changed(['weixin']);
+      else if (path.startsWith('/api/slack/')) changed(['slack']);
       else if (path.startsWith('/api/telegram/')) changed(['telegram']);
       else if (path.includes('/conversations/read')) changed(['conversations']);
       else if (path.includes('/conversations/feedback')) return; // Message feedback reconciles its exact conversation.

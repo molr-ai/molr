@@ -27,7 +27,7 @@ test('Telegram requires confirmation, preserves drafts, survives refresh and dis
  await page.goto(`/#/assistants/${assistant.ID}`);
  await expect(page.locator('.chat-input textarea')).toBeEnabled(); await page.locator('.chat-input textarea').fill('preserved draft');
  async function open() { await page.locator('.chat-header').getByRole('button', { name: 'More', exact: true }).click(); await page.getByRole('menuitem', { name: 'Switch chat channel', exact: true }).click(); }
- async function begin() { await page.getByRole('button', { name: 'Connect Telegram', exact: true }).click(); await page.getByLabel('Bot Token', { exact: true }).fill('123456:synthetic-token-for-ui-tests'); await page.getByRole('button', { name: 'Verify and continue', exact: true }).click(); }
+ async function begin() { await page.getByRole('button', { name: 'Connect Telegram', exact: true }).click(); await page.getByRole('dialog', { name: 'Connect Telegram', exact: true }).getByLabel('Bot Token', { exact: true }).fill('123456:synthetic-token-for-ui-tests'); await page.getByRole('button', { name: 'Verify and continue', exact: true }).click(); }
  await open(); await begin(); await expect(page.getByRole('link', { name: 'Open Telegram', exact: true })).toHaveAttribute('href', 'https://t.me/fixture_bot?start=fixture-code'); expect(bound).toBe(false);
  await page.getByRole('button', { name: 'Cancel connection', exact: true }).click(); expect(canceled).toBe(1); expect(bound).toBe(false);
  await begin();

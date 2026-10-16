@@ -3,3 +3,6 @@
 .weixin-settings p, .weixin-login p { line-height: 1.6; }
 .weixin-login { display: grid; gap: 16px; }
 .weixin-qr { display: block; width: min(256px, 100%); height: auto; margin: auto; border: 1px solid var(--color-border); border-radius: 8px; }
+
+.slack-pair-code { overflow-wrap: anywhere; user-select: all; }
+.weixin-settings + .weixin-settings { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--color-border); }

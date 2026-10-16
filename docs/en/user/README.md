@@ -18,7 +18,7 @@ This guide is for members using an existing Molr service. Start with a service a
 
 ## Chat channels and practical tasks
 
-[WeChat](chat-channels/weixin.md) and [Telegram](chat-channels/telegram.md) cover binding, messages and disconnecting. Explore [best practices](best-practices/README.md) for browsers, DingTalk, Feishu, email, Zhihu, GitHub and Google services.
+[WeChat](chat-channels/weixin.md), [Telegram](chat-channels/telegram.md) and [Slack](chat-channels/slack.md) cover binding, messages and disconnecting. Explore [best practices](best-practices/README.md) for browsers, DingTalk, Feishu, email, Zhihu, GitHub and Google services.
 
 ## When something goes wrong
 

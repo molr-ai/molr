@@ -43,6 +43,7 @@ import (
 	"molr.ai/runtime/internal/event"
 	"molr.ai/runtime/internal/im/conversation"
 	"molr.ai/runtime/internal/im/realtime"
+	"molr.ai/runtime/internal/im/slack"
 	"molr.ai/runtime/internal/im/telegram"
 	"molr.ai/runtime/internal/im/weixin"
 	"molr.ai/runtime/internal/persistence"
@@ -60,6 +61,7 @@ import (
 type Bundle struct {
 	weixin      *weixin.Service
 	telegram    *telegram.Service
+	slack       *slack.Service
 	remote      *sandboxRouter
 	shellTasks  *shellTasks
 	sandbox     *shellService
@@ -287,6 +289,7 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 	}
 	var channels *weixin.Service
 	var telegramChannel *telegram.Service
+	var slackChannel *slack.Service
 	channelRouter := &chatChannels{}
 	fileService := files.NewService(store, b.objects, files.Options{Authorizer: permissions, AuthorizeChannel: func(ctx context.Context, owner, chat, binding core.ID) error {
 		if len(channelRouter.items) == 0 {
@@ -296,10 +299,15 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 	}, MaxUploadBytes: cfg.Execution.MaxUploadBytes, DiskQuota: func() int64 { return cfg.Execution.MaxDiskBytes }})
 	visible := realtime.NewStore(store)
 	channels, err = weixin.New(store, weixin.Options{CheckBinding: func(ctx context.Context, owner, chat core.ID) error {
-		if telegramChannel == nil {
-			return nil
+		if telegramChannel != nil {
+			if err := telegramChannel.CheckWebInput(ctx, owner, chat); err != nil {
+				return err
+			}
 		}
-		return telegramChannel.CheckWebInput(ctx, owner, chat)
+		if slackChannel != nil {
+			return slackChannel.CheckAvailable(ctx, owner, chat)
+		}
+		return nil
 	}, MasterKey: key, PublicURL: cfg.HTTP.PublicURL, Files: fileService.(files.ChannelStore), MaxMediaBytes: cfg.Execution.MaxUploadBytes,
 		Authorize: func(ctx context.Context, p core.Principal, id core.ID, write bool) (weixin.Target, error) {
 			if err := p.RequireOwner(); err != nil {
@@ -342,7 +350,15 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 	if err != nil {
 		return nil, err
 	}
-	telegramChannel, err = telegram.New(store, telegram.Options{MasterKey: key, Client: telegramClient, PublicURL: cfg.HTTP.PublicURL, Files: fileService.(files.ChannelStore), MaxMediaBytes: cfg.Execution.MaxUploadBytes, CheckBinding: channels.CheckWebInput,
+	telegramChannel, err = telegram.New(store, telegram.Options{MasterKey: key, Client: telegramClient, PublicURL: cfg.HTTP.PublicURL, Files: fileService.(files.ChannelStore), MaxMediaBytes: cfg.Execution.MaxUploadBytes, CheckBinding: func(ctx context.Context, owner, chat core.ID) error {
+		if err := channels.CheckWebInput(ctx, owner, chat); err != nil {
+			return err
+		}
+		if slackChannel != nil {
+			return slackChannel.CheckAvailable(ctx, owner, chat)
+		}
+		return nil
+	},
 		Authorize: func(ctx context.Context, p core.Principal, id core.ID, write bool) (telegram.Target, error) {
 			if err := p.RequireOwner(); err != nil {
 				return telegram.Target{}, err
@@ -379,11 +395,55 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		return nil, err
 	}
 	b.telegram = telegramChannel
-	channelRouter.items = []chatChannel{channels, telegramChannel}
+	slackChannel, err = slack.New(store, slack.Options{MasterKey: key, PublicURL: cfg.HTTP.PublicURL, Files: fileService.(files.ChannelStore), MaxMediaBytes: cfg.Execution.MaxUploadBytes,
+		Authorize: func(ctx context.Context, p core.Principal, id core.ID, write bool) (slack.Target, error) {
+			if err := p.RequireOwner(); err != nil {
+				return slack.Target{}, err
+			}
+			action := policy.Read
+			if write {
+				action = policy.Write
+			}
+			if err := permissions.Require(ctx, p, policy.CheckRequest{Target: core.Object{Kind: "assistant", ID: id}, Action: action}); err != nil {
+				return slack.Target{}, err
+			}
+			a, err := assistant.NewRepository(store).Get(ctx, p.OwnerID, id)
+			return slack.Target{ConversationID: a.ConversationID, Active: a.State == assistant.Active}, err
+		}, Live: func(ctx context.Context, owner, id core.ID) error {
+			account, err := auth.NewRepository(store).AccountByID(ctx, owner)
+			if err != nil {
+				return err
+			}
+			if account.Account.Disabled {
+				return core.NewError(core.Forbidden, "account disabled")
+			}
+			a, err := assistant.NewRepository(store).Get(ctx, owner, id)
+			if err != nil {
+				return err
+			}
+			if a.State != assistant.Active {
+				return core.NewError(core.Forbidden, "assistant inactive")
+			}
+			return nil
+		},
+		CheckConnect: func(ctx context.Context, owner, chat core.ID) error {
+			if err := channels.CheckWebInput(ctx, owner, chat); err != nil {
+				return err
+			}
+			return telegramChannel.CheckWebInput(ctx, owner, chat)
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	b.slack = slackChannel
+
+	channelRouter.items = []chatChannel{channels, telegramChannel, slackChannel}
 
 	chat := conversation.NewService(store, conversation.Options{Authorizer: permissions, Visible: visible, CheckWebInput: channelRouter.CheckWebInput, AuthorizeChannel: channelRouter.AuthorizeChannel, ValidateChannelFile: fileService.(files.ChannelStore).ValidateChannelFile, Published: channelRouter.Published})
 	channels.SetReceiver(chat.(weixin.Receiver))
 	telegramChannel.SetReceiver(chat.(telegram.Receiver))
+	slackChannel.SetReceiver(chat.(slack.Receiver))
 	providers := adapters.providers()
 	for name, provider := range sandboxProviders(cfg) {
 		providers[name] = provider
@@ -695,6 +755,13 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		if channelDoc != nil {
 			docs = append(docs, *channelDoc)
 		}
+		slackDoc, err := slackContext(ctx, store, slackChannel, r.Execution)
+		if err != nil {
+			return nil, err
+		}
+		if slackDoc != nil {
+			docs = append(docs, *slackDoc)
+		}
 		docs = append(docs, profileDoc)
 		docs = append(docs, permissionDocs...)
 		mem, err := memoryContext.context(ctx, r)
@@ -899,7 +966,7 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 			}
 		}
 		return b.shellTasks.browserManage(ctx, p, id, q)
-	}, BrowserSettings: b.shellTasks.browserSettings, BrowserStream: b.shellTasks.browserFrames, Updates: updateService, UpgradeInfo: installation, Notifications: notification.New(store, permissions), Weixin: channels, Telegram: telegramChannel, Accounts: identity, Setup: b.setup, DiscoverProviders: func(ctx context.Context, p core.Principal) (any, error) {
+	}, BrowserSettings: b.shellTasks.browserSettings, BrowserStream: b.shellTasks.browserFrames, Updates: updateService, UpgradeInfo: installation, Notifications: notification.New(store, permissions), Weixin: channels, Telegram: telegramChannel, Slack: slackChannel, Accounts: identity, Setup: b.setup, DiscoverProviders: func(ctx context.Context, p core.Principal) (any, error) {
 		if err := identity.RequireAdministrator(ctx, p); err != nil {
 			return nil, err
 		}

@@ -224,6 +224,22 @@
     }
   },
   {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/chat-channels/slack.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "微信聊天入口",
+      "en": "WeChat chat channel"
+    },
+    "topics": {
+      "zh": "连接聊天入口",
+      "en": "Connect chat channels"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/user/chat-channels/slack/",
+      "en": "https://molr.ai/en/docs/user/chat-channels/slack/"
+    }
+  },
+  {
     "path": "/molr/.agents/skills/molr-docs/references/docs/user/best-practices/README.md",
     "contentLanguage": "zh",
     "titles": {
@@ -1293,6 +1309,22 @@
     "urls": {
       "zh": "https://molr.ai/zh/docs/dev/extensions/telegram/",
       "en": "https://molr.ai/en/docs/dev/extensions/telegram/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/extensions/slack.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "微信渠道",
+      "en": "WeChat channel"
+    },
+    "topics": {
+      "zh": "扩展",
+      "en": "Extensions"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/dev/extensions/slack/",
+      "en": "https://molr.ai/en/docs/dev/extensions/slack/"
     }
   },
   {

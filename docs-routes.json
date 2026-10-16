@@ -140,6 +140,16 @@
     "section": "user"
   },
   {
+    "file": "user/chat-channels/slack.md",
+    "path": "/docs/user/chat-channels/slack/",
+    "label": "微信聊天入口",
+    "group": "连接聊天入口",
+    "englishLabel": "WeChat chat channel",
+    "englishGroup": "Connect chat channels",
+    "root": "docs",
+    "section": "user"
+  },
+  {
     "file": "user/best-practices/README.md",
     "path": "/docs/user/best-practices/",
     "label": "最佳实践概览",
@@ -805,6 +815,16 @@
     "label": "Telegram 渠道",
     "group": "扩展",
     "englishLabel": "Telegram channel",
+    "englishGroup": "Extensions",
+    "root": "docs",
+    "section": "dev"
+  },
+  {
+    "file": "dev/extensions/slack.md",
+    "path": "/docs/dev/extensions/slack/",
+    "label": "微信渠道",
+    "group": "扩展",
+    "englishLabel": "WeChat channel",
     "englishGroup": "Extensions",
     "root": "docs",
     "section": "dev"

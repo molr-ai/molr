@@ -24,7 +24,7 @@
 
 - [前端架构](frontend/architecture.md)、[主题与页面解析](frontend/themes.md)：SDK、Host、页面装载与状态恢复。
 - [品牌](frontend/brand.md)、[设计系统](frontend/design-system.md)、[交互约定](frontend/interaction.md)：视觉资源、语义颜色、无障碍与共用交互；组件属性查[组件 API](../../packages/ui/COMPONENTS.md)。
-- [插件机制](extensions/plugins.md)、[微信渠道](extensions/weixin.md)、[Telegram 渠道](extensions/telegram.md)：扩展协议、授权、生命周期与消息投递。
+- [插件机制](extensions/plugins.md)、[微信渠道](extensions/weixin.md)、[Telegram 渠道](extensions/telegram.md)、[Slack 渠道](extensions/slack.md)：扩展协议、授权、生命周期与消息投递。
 
 ## 维护发行
 
