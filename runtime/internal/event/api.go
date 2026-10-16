@@ -35,10 +35,24 @@ const (
 	UserStopped                 Kind = "user_stopped"
 )
 
+// Recovery links a new execution to interrupted work. It is internal input,
+// never a user message or a grant. Source preserves the original stop boundary.
+type Recovery struct {
+	PreviousEventID, PreviousExecutionID core.ID
+	SourceKind                           Kind
+	SourceCreatedAt                      time.Time
+	SourceMessageSequence                uint64
+	Reason                               string
+	InterruptedAt                        *time.Time `json:",omitempty"`
+	// Step preserves the task's execution limit across recovery events.
+	Step, Attempts int
+}
+
 // AssistantEvent references its actual source and is never a chat message.
 // TaskID associates a scheduled occurrence or a resume event with its execution. ScheduleVersion belongs only to
 // ScheduleDue; zero supports legacy inputs, new dispatchers provide the revision.
 type AssistantEvent struct {
+	Recovery     *Recovery `json:",omitempty"`
 	DeliveryMode DeliveryMode
 	// Manual compression bypasses the automatic threshold, never capacity checks.
 	Manual  bool            `json:",omitempty"`
@@ -76,6 +90,11 @@ func (e AssistantEvent) Delivery() DeliveryMode {
 }
 func (e AssistantEvent) Validate() error {
 	mode := e.Delivery()
+	if r := e.Recovery; r != nil {
+		if e.Kind != ResumeRequested || r.PreviousEventID.Validate() != nil || r.PreviousExecutionID.Validate() != nil || r.SourceCreatedAt.IsZero() || r.SourceCreatedAt.After(e.CreatedAt) || r.SourceKind == "" || r.Step < 0 || r.Attempts < 1 || (r.Reason != "runtime_stopped" && r.Reason != "runtime_interrupted") || (r.InterruptedAt != nil && (r.InterruptedAt.IsZero() || r.InterruptedAt.After(e.CreatedAt))) {
+			return core.Invalid("recovery", "invalid runtime recovery source")
+		}
+	}
 	if mode != Interrupt && mode != AfterStep && mode != WhenIdle {
 		return core.Invalid("delivery_mode", "unknown delivery mode")
 	}

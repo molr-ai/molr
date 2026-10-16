@@ -17,9 +17,13 @@ const (
 	Failed      JobState = "failed"
 	NeedsReview JobState = "needs_review"
 	Canceled    JobState = "canceled"
+	Interrupted JobState = "interrupted"
 )
 
 type Job struct {
+	InterruptedAt *time.Time `json:",omitempty"`
+	// RecoveryEventID fences an interrupted job without reporting user cancellation.
+	RecoveryEventID core.ID `json:",omitempty"`
 	// QueueKey orders independent work before dreams, then exact UTC time and ID.
 	QueueKey string
 	// JoinedTo binds expedited input to its existing turn until checkpoint commit.

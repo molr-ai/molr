@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"sync"
 	"time"
 
@@ -26,6 +27,7 @@ import (
 var loopInstructions = prompt.Text("loop", nil)
 
 type Options struct {
+	RecoveryAllowed     func(context.Context, Turn) (bool, error)
 	ModelSource         func(context.Context, core.Principal, core.ID) (model.StateSource, error)
 	CheckEnvironment    func(context.Context) error
 	ModelRetry          RetryPolicy
@@ -270,6 +272,9 @@ func stableID(parts ...string) core.ID {
 	return core.ID(hex.EncodeToString(sum[:]))
 }
 func (e *Engine) Handle(ctx context.Context, t Turn) (outcome Outcome, resultErr error) {
+	if t.Event.Recovery != nil {
+		defer func() { e.finishRecoveryFailure(ctx, t, resultErr) }()
+	}
 	if err := t.Validate(); err != nil {
 		return Outcome{}, err
 	}
@@ -335,6 +340,9 @@ func (e *Engine) Handle(ctx context.Context, t Turn) (outcome Outcome, resultErr
 		if status.State == Stopped || status.State == Paused {
 			return core.NewError(core.FailedPrecondition, "assistant execution is stopped")
 		}
+		if err := e.checkRecovery(ctx, t); err != nil {
+			return err
+		}
 		if err := e.rejectSuperseded(ctx, t); err != nil {
 			return err
 		}
@@ -383,6 +391,9 @@ func (e *Engine) Handle(ctx context.Context, t Turn) (outcome Outcome, resultErr
 				state = "canceled"
 			}
 		}
+		if errors.Is(context.Cause(ctx), scheduler.ErrRuntimeInterrupted) && resultErr != nil {
+			state, reason = "interrupted", "runtime_stopped"
+		}
 		if scheduler.IsDeferred(resultErr) {
 			state = "retrying"
 		}
@@ -402,7 +413,7 @@ func (e *Engine) Handle(ctx context.Context, t Turn) (outcome Outcome, resultErr
 		e.options.Trace.Finish(traceCtx, state, reason)
 	}()
 	defer func() {
-		if resultErr == nil || scheduler.IsDeferred(resultErr) {
+		if resultErr == nil || scheduler.IsDeferred(resultErr) || errors.Is(context.Cause(ctx), scheduler.ErrRuntimeInterrupted) {
 			return
 		}
 		finishCtx, finishCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)

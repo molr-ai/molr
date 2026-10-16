@@ -19,6 +19,7 @@ const (
 	Failed      = event.Failed
 	NeedsReview = event.NeedsReview
 	Canceled    = event.Canceled
+	Interrupted = event.Interrupted
 )
 
 type Job = event.Job
@@ -40,7 +41,8 @@ type RetryRequest struct {
 }
 
 // Lifecycle starts bounded workers and the timer; one active turn per assistant.
-// Recover reconciles running operations before retrying and uses current grants.
+// Recover hands ordinary interrupted work to independent resume events when configured;
+// specialized jobs reconcile their operations before retrying. Current grants apply.
 // Shutdown stops claims and checkpoints work within the supplied deadline.
 type Control interface {
 	Jobs(context.Context, core.Principal, Query) (core.Page[Job], error)

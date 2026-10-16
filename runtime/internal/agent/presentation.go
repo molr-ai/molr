@@ -127,7 +127,8 @@ func eventPayload(e event.AssistantEvent) string {
 		CreatedAt             string
 		ExecutionID           core.ID
 		Details               json.RawMessage `json:",omitempty"`
-	}{ID: e.ID, Kind: e.Kind, MessageID: e.MessageID, ScheduleID: e.ScheduleID, ScheduleVersion: e.ScheduleVersion, OperationID: e.OperationID, TaskID: e.TaskID, ExecutionID: e.ExecutionID, Details: e.Details}
+		Recovery              *event.Recovery `json:",omitempty"`
+	}{ID: e.ID, Kind: e.Kind, MessageID: e.MessageID, ScheduleID: e.ScheduleID, ScheduleVersion: e.ScheduleVersion, OperationID: e.OperationID, TaskID: e.TaskID, ExecutionID: e.ExecutionID, Details: e.Details, Recovery: e.Recovery}
 	if !e.CreatedAt.IsZero() {
 		view.CreatedAt = e.CreatedAt.Format("2006-01-02T15:04:05.999999999Z07:00")
 	}
@@ -143,10 +144,14 @@ func eventPayload(e event.AssistantEvent) string {
 }
 func eventText(e event.AssistantEvent, conversation core.ID) string {
 	body := eventPayload(e)
-	return prompt.Text("event", struct {
+	text := prompt.Text("event", struct {
 		Event, Conversation      string
 		Shell, UserMessage, Born bool
 	}{body, string(conversation), e.Kind == event.ShellTaskFinished || e.Kind == event.ShellTasksRunning, e.Kind == event.UserMessage, e.Kind == event.Born})
+	if e.Recovery != nil {
+		text += "\n" + prompt.Text("resume", nil)
+	}
+	return text
 }
 func contextText(snapshot *automaticContext) string {
 	view := struct {

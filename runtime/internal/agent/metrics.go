@@ -140,7 +140,7 @@ func (e *Engine) MessageMetrics(ctx context.Context, p core.Principal, conversat
 		job := jobs[0]
 		out.State = string(job.State)
 		out.Retries = max(0, job.Attempts-1)
-		terminal := job.State == scheduler.Done || job.State == scheduler.Canceled || job.State == scheduler.Failed
+		terminal := job.State == scheduler.Interrupted || job.State == scheduler.Done || job.State == scheduler.Canceled || job.State == scheduler.Failed
 		var timing turnTiming
 		err = tx.Get(ctx, "agent.turn_timing", persistence.Key(p.OwnerID, out.TurnID), &timing)
 		if err != nil && !persistence.Missing(err) {

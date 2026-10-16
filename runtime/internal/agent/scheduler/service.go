@@ -27,9 +27,12 @@ type Options struct {
 	// DrainMessages consumes the IM outbox after committed message arrivals.
 	DrainMessages func(context.Context) error
 	// Tick persists due schedule occurrences; it does not publish virtual messages.
-	Tick          func(context.Context, time.Time) error
-	Reconcile     func(context.Context, Job) (State, error)
-	Conversations conversation.Repository
+	Tick      func(context.Context, time.Time) error
+	Reconcile func(context.Context, Job) (State, error)
+	// RecoverInterrupted atomically hands ordinary work to a new resume event.
+	// false leaves specialized jobs (dream batches) to normal reconciliation.
+	RecoverInterrupted func(context.Context, Job) (bool, error)
+	Conversations      conversation.Repository
 }
 type activeClaim struct {
 	cancel  context.CancelFunc
@@ -204,11 +207,16 @@ func (s *service) Run(ctx context.Context) error {
 					}
 					continue
 				}
-				turnCtx, stop := context.WithCancel(runCtx)
+				// A service shutdown is not an explicit user/job cancellation.
+				turnCtx, stopCause := context.WithCancelCause(context.WithoutCancel(runCtx))
+				stopWatch := context.AfterFunc(runCtx, func() { stopCause(ErrRuntimeInterrupted) })
+				stop := func() { stopCause(context.Canceled) }
 				s.mu.Lock()
 				s.active[persistence.Key(claim.Job.Event.OwnerID, claim.Job.Event.ID)] = activeClaim{stop, claim.Job.Version}
 				s.mu.Unlock()
 				err = s.options.Handle(turnCtx, claim)
+				interrupted := errors.Is(context.Cause(turnCtx), ErrRuntimeInterrupted)
+				stopWatch()
 				stop()
 				s.mu.Lock()
 				if key := persistence.Key(claim.Job.Event.OwnerID, claim.Job.Event.ID); s.active[key].version == claim.Job.Version {
@@ -227,6 +235,13 @@ func (s *service) Run(ctx context.Context) error {
 					}
 					if err == nil {
 						return s.queue.Ack(ctx, claim.Principal, current.Event.ID, current.Version)
+					}
+					if interrupted && !IsDeferred(err) {
+						at := s.options.Now().UTC()
+						current.InterruptedAt = &at
+						current.Version++
+						// Leave Running for startup reconciliation; never re-claim in this process.
+						return saveJob(ctx, tx, current)
 					}
 					// A failure may follow an external effect. Recovery examines its durable
 					// evidence before deciding whether another attempt is safe.
@@ -290,6 +305,15 @@ func (s *service) recover(ctx context.Context) error {
 		return err
 	}
 	for _, job := range jobs {
+		if s.options.RecoverInterrupted != nil {
+			handled, err := s.options.RecoverInterrupted(ctx, job)
+			if err != nil {
+				return err
+			}
+			if handled {
+				continue
+			}
+		}
 		if job.State != Running {
 			continue
 		}

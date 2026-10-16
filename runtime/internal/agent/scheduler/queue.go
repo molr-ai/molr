@@ -21,7 +21,7 @@ func NewQueue(store persistence.Store) Queue { return &queue{store} }
 // boundaries is reused only within the caller's transaction; nil reads fresh state.
 func visibleJob(ctx context.Context, store persistence.Store, job Job, boundaries map[string]event.InterruptBoundary) (Job, error) {
 	job.Event.DeliveryMode = job.Event.Delivery()
-	if job.State == Done || job.State == Canceled {
+	if job.State == Done || job.State == Canceled || job.State == Interrupted {
 		return job, nil
 	}
 	key := persistence.Key(job.Event.OwnerID, job.Event.AssistantID)

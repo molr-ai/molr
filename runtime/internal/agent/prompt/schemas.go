@@ -38,7 +38,7 @@ var schemas = map[string]*shape{
 	"permissions":             object("Total Truncated", required("Granted", array(grant))),
 	"permission_requests":     array(request),
 	"skill":                   object("name path frontmatter read_tool"),
-	"event":                   object("ID Kind MessageID ScheduleID ScheduleVersion OccurrenceAt OperationID TaskID CreatedAt ExecutionID", nested("Details", object("ID Mode State Failure StartedAt FinishedAt StdoutPath StderrPath BrowserTaskID Notice", nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")), nested("Tasks", array(shell))))),
+	"event":                   object("ID Kind MessageID ScheduleID ScheduleVersion OccurrenceAt OperationID TaskID CreatedAt ExecutionID", nested("Recovery", object("PreviousEventID PreviousExecutionID SourceKind SourceCreatedAt Reason InterruptedAt")), nested("Details", object("ID Mode State Failure StartedAt FinishedAt StdoutPath StderrPath BrowserTaskID Notice", nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")), nested("Tasks", array(shell))))),
 	"failure":                 object("ok operation_id", nested("error", failure)),
 	"conversation_read":       object("NextCursor", required("Items", array(message)), nested("Attachments", &shape{dictionary: file})),
 	"conversation_publish":    object("ID ConversationID Sequence CreatedAt"),

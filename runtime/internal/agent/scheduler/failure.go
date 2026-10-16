@@ -6,6 +6,9 @@ import (
 	"time"
 )
 
+// ErrRuntimeInterrupted identifies lifecycle cancellation, not a user stop.
+var ErrRuntimeInterrupted = errors.New("runtime interrupted")
+
 // Deferred is a nonterminal result. The caller has durably saved its cursor
 // and the queue transition before returning it.
 type Deferred struct {

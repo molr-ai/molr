@@ -348,6 +348,12 @@ func (e *Engine) prepareExecution(ctx context.Context, t Turn) (Checkpoint, turn
 		return cp, turnProgress{}, err
 	}
 	p := turnProgress{Revision: cp.Sequence, Inputs: inputs, Automatic: s.Automatic, Usage: s.Usage}
+	if t.Event.Recovery != nil {
+		p.Step = t.Event.Recovery.Step
+		if old != nil {
+			p.PublishAttempted, p.PublishReminded = old.PublishAttempted, old.PublishReminded
+		}
+	}
 	err = e.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		current, err := e.checkpoints.Load(ctx, t.Principal.OwnerID, t.Event.AssistantID)
 		if err != nil && !persistence.Missing(err) {
@@ -358,6 +364,12 @@ func (e *Engine) prepareExecution(ctx context.Context, t Turn) (Checkpoint, turn
 		}
 		if old != nil {
 			oldProgress := turnProgress{Handled: old.Handled, Joined: old.Joined}
+			if err = releaseRetries(ctx, tx, t.Principal.OwnerID, t.Event.AssistantID, old.Event.ID); err != nil {
+				return err
+			}
+			if err = e.discardPendingRecovery(ctx, tx, old.turn(), t.Event.ID); err != nil {
+				return err
+			}
 			if err = e.finishExpedite(ctx, old.turn(), oldProgress); err != nil {
 				return err
 			}
@@ -368,7 +380,7 @@ func (e *Engine) prepareExecution(ctx context.Context, t Turn) (Checkpoint, turn
 			if err != nil && !persistence.Missing(err) {
 				return err
 			}
-			if err == nil && job.State != scheduler.Done && job.State != scheduler.Canceled {
+			if err == nil && job.State != scheduler.Done && job.State != scheduler.Canceled && job.State != scheduler.Interrupted {
 				job.State = scheduler.Canceled
 				job.FailureCode = core.Canceled
 				job.Version++

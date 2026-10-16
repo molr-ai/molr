@@ -50,6 +50,10 @@ Drag the slider to choose a custom threshold, or click “Restore default” to 
 
 Lower thresholds reduce history in subsequent requests but increase summary calls and may lose detail. Actual costs also depend on model pricing and cache hits. Long conversations are automatically compressed at the threshold. The compression request retains the complete current context and appends compression instructions; only after success is the active context rebuilt with a summary; original chats and execution records are retained, and there is no need to manually clear the chat. Usage estimation does not block requests; actual context overflow is determined by the error code returned by the model service.
 
+## Service restarts and task recovery
+
+After a service restart, in-flight tasks automatically wake the assistant to continue; you do not need to send “continue.” The assistant preserves completed work, checks interrupted operations and reads new user messages first. Successful recovery needs no extra announcement. Work you stopped, paused or reset is not restarted by recovery. Repeated interruptions, unreadable progress or a specific condition requiring your help produce an explanation only when work cannot continue.
+
 ## Input Box Commands and Context Compression
 
 Entering `/` at the beginning of the message input box allows you to view commands; entering `/com` or `/压` filters the compression command. Use arrow keys to select, Tab or Enter to complete, and Esc to close; after completion, press Enter again or click send to execute. Entering a complete English command or Chinese alias allows direct sending; Shift+Enter still inserts a line break, and Chinese input method word selection does not execute commands.

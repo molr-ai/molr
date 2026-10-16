@@ -15,6 +15,9 @@ type InterruptBoundary struct {
 }
 
 func (b InterruptBoundary) Blocks(e AssistantEvent) bool {
+	if r := e.Recovery; r != nil {
+		return b.Blocks(AssistantEvent{Kind: r.SourceKind, CreatedAt: r.SourceCreatedAt, MessageSequence: r.SourceMessageSequence})
+	}
 	if b.At.IsZero() || e.Kind == UserStopped {
 		return false
 	}

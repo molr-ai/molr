@@ -842,7 +842,19 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 	environment := localEnvironment(cfg)
 	b.remote = sandboxRouter
 	queue := scheduler.NewQueue(store)
-	engine := agent.NewRuntime(store, agent.Options{ModelSource: func(ctx context.Context, p core.Principal, id core.ID) (model.StateSource, error) {
+	engine := agent.NewRuntime(store, agent.Options{RecoveryAllowed: func(ctx context.Context, t agent.Turn) (bool, error) {
+		if t.Event.TaskID == "" {
+			return true, nil
+		}
+		v, err := persistence.Load[task.Task](ctx, store, "business.tasks", persistence.Key(t.Principal.OwnerID, t.Event.TaskID))
+		if persistence.Missing(err) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		return v.AssistantID == t.Event.AssistantID && v.State != task.Paused && v.State != task.Canceled && v.State != task.Completed && v.State != task.Failed, nil
+	}, ModelSource: func(ctx context.Context, p core.Principal, id core.ID) (model.StateSource, error) {
 		provider, err := adapters.provider(ctx, p, id)
 		return provider.StateSource(), err
 	}, CheckEnvironment: environment, CompressionTokens: func(ctx context.Context, p core.Principal, id core.ID) (int, error) {
@@ -993,7 +1005,7 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 	dispatcher := schedule.NewDispatcher(store)
 	dispatcher.Ready = plans.ScheduleReady
 	dispatcher.Start = plans.StartScheduled
-	worker := scheduler.NewService(store, scheduler.Options{Ready: func(ctx context.Context) bool { return environment(ctx) == nil }, Authorizer: permissions, Concurrency: cfg.Execution.MaxAssistants, Handle: func(ctx context.Context, c scheduler.Claim) error {
+	worker := scheduler.NewService(store, scheduler.Options{Ready: func(ctx context.Context) bool { return environment(ctx) == nil }, Authorizer: permissions, Concurrency: cfg.Execution.MaxAssistants, RecoverInterrupted: engine.RecoverInterrupted, Handle: func(ctx context.Context, c scheduler.Claim) error {
 		// Upgrade already-queued legacy schedule events inside their current job,
 		// without creating another wakeup or impersonating an owner session.
 		if c.Job.Event.Kind == event.ScheduleDue && c.Job.Event.TaskID == "" {
@@ -1031,7 +1043,7 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 			}
 		}
 		_, err := engine.Handle(ctx, agent.Turn{Principal: c.Principal, Event: c.Job.Event, Attempt: c.Job.Attempts})
-		if err != nil && !scheduler.IsDeferred(err) && c.Job.Event.Kind == event.DreamDue {
+		if err != nil && ctx.Err() == nil && !scheduler.IsDeferred(err) && c.Job.Event.Kind == event.DreamDue {
 			finishCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 			defer cancel()
 			if saveErr := dreams.Failed(finishCtx, c.Job.Event, err); saveErr != nil {
