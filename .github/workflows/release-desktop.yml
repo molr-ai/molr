@@ -51,7 +51,7 @@ jobs:
       - if: runner.os != 'Windows'
         name: Native desktop Runtime lifecycle
         run: node apps/desktop/tests/local-runtime.mjs
-      - name: Sign, notarize and package desktop
+      - name: Package desktop (sign and notarize when credentials are configured)
         run: npm run package:desktop
         env:
           CSC_LINK: ${{ runner.os == 'macOS' && secrets.MAC_CSC_LINK || runner.os == 'Windows' && secrets.WIN_CSC_LINK || '' }}

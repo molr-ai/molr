@@ -24,7 +24,7 @@
     "deploy/docker/vendor/LICENSE.moby": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
     "deploy/docker/seccomp-isolated.json": "7f176503fddf85b01daf167d2970beb395710eee32e7d5add40fc15b0dc6d34a",
     "apps/desktop/package.json": "00c87cfefecff3947c064843210a0a56879a5ab1588de633b321b80d18feadab",
-    "apps/desktop/scripts/package.mjs": "576144c979950ec0cf43fb9cddaf2ee3cf19b764b557f6e366107d7f1edebb9e"
+    "apps/desktop/scripts/package.mjs": "8cae27f2b93c1d4d05164263a5d15a4a053e4555cd6baabb7a9379702a32c181"
   },
   "npm": [
     {

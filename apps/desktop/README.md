@@ -63,23 +63,23 @@ npm run package:desktop -- --dir
 
 Windows skips the Runtime build. Outputs under `dist/desktop/<os>-<arch>` include DEB, DMG or NSIS installer, SHA-256 and `desktop-manifest.json`. Explicit file lists include Molr notices, Electron's LICENSE and the matching distribution's `LICENSES.chromium.html`. Windows omits Go programs and the local-service adapter.
 
-Versions ending in `-local` are evaluation builds. Other versions require a clean checkout. macOS signing uses `CSC_LINK`/`CSC_KEY_PASSWORD` and notarization uses `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`; Windows uses its signing identity via `CSC_LINK`/`CSC_KEY_PASSWORD`. Store credentials in CI secrets. Native acceptance and verification of production signatures/notarization precede publication. Packaging never uploads or publishes files.
+Versions ending in `-local` are evaluation builds. Other versions require a clean checkout. macOS signing uses `CSC_LINK`/`CSC_KEY_PASSWORD` and notarization uses `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`; Windows uses its signing identity via `CSC_LINK`/`CSC_KEY_PASSWORD`. Store credentials in CI secrets. Native acceptance and any configured signing/notarization precede publication. Packaging never uploads or publishes files.
 
 Desktop updates are manual: install the new desktop package, then explicitly update its managed Runtime. Remote Runtimes are maintained by their operators. Background desktop update download/install is not implemented.
 
-After native acceptance and signing, collect per-platform manifests under distinct filenames:
+After native acceptance and packaging, collect per-platform manifests under distinct filenames:
 
 ```bash
 node scripts/desktop-catalog.mjs --manifests <reviewed-manifests> --base-url https://downloads.example.com/desktop/<version>
 MOLR_DESKTOP_CATALOG=.cache/desktop-catalog/catalog.json VITE_SITE_MODE=live npm run dev:website
 ```
 
-`--existing <catalog.json>` preserves other channels. The website publishes only the validated `/releases/desktop/catalog.json`; installers stay on the release host. Without a catalog it shows no desktop installers. Local builds and unsigned macOS/Windows artifacts cannot enter the release catalog.
+`--existing <catalog.json>` preserves other channels. The website publishes only the validated `/releases/desktop/catalog.json`; installers stay on the release host. Without a catalog it shows no desktop installers. Local builds cannot enter the release catalog. Public builds must declare their actual publisher-signing status; unsigned Windows and ad-hoc signed, unnotarized macOS test builds are temporarily allowed and labeled on the download page.
 
 ## GitHub Release integration
 
 `release-build.yml` calls `release-desktop.yml` for the same commit and version as Runtime. All five native targets must pass desktop and Runtime lifecycle tests before publication. The collector verifies the complete platform set, build identity and SHA-256 sidecars, then the existing publisher uploads installers, checksums and a combined `desktop-manifest.json` into the same GitHub Release draft as Runtime and source. A failure keeps the release unpublished; retries never overwrite different bytes. The independent `desktop.yml` only creates unsigned evaluation artifacts for PRs and manual checks.
 
-The `release` environment supplies `MAC_CSC_LINK`, `MAC_CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`, `WIN_CSC_LINK` and `WIN_CSC_KEY_PASSWORD`. Certificate links use electron-builder's certificate input format. The Mac app and its two bundled Go binaries are signed; the app is notarized. Missing required signing credentials fail the build. Local evaluation builds use ad-hoc signing on macOS and do not enter public catalogs.
+The `release` environment supplies `MAC_CSC_LINK`, `MAC_CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`, `WIN_CSC_LINK` and `WIN_CSC_KEY_PASSWORD`. Certificate links use electron-builder's certificate input format. With complete credentials, the Mac app and its two bundled Go binaries are signed and the app is notarized. While certificates are pending, absent credentials produce unsigned Windows packages or ad-hoc signed macOS packages without notarization (`signed: false`). Partial credentials or configured signing failures fail the build. Restore missing-credential rejection in `scripts/signing.mjs` and require signatures in release collection/publication once certificates are ready. Local evaluation builds use ad-hoc signing on macOS and do not enter public catalogs.
 
-`release:catalog` and `build:website:release` read the latest stable, preview and nightly GitHub Releases under the shared bounded SemVer selection policy. Desktop manifests must match Runtime's commit/version and declare all five signed/native targets with downloadable assets. Releases before desktop support produce no desktop entry. The combined catalog includes `desktop/catalog.json`, so production builds need no manually supplied `MOLR_DESKTOP_CATALOG`. Post-release website verification waits for both Runtime and desktop catalogs to match GitHub.
+`release:catalog` and `build:website:release` read the latest stable, preview and nightly GitHub Releases under the shared bounded SemVer selection policy. Desktop manifests must match Runtime's commit/version and declare all five native targets with explicit signing status and downloadable assets. Releases before desktop support produce no desktop entry. The combined catalog includes `desktop/catalog.json`, so production builds need no manually supplied `MOLR_DESKTOP_CATALOG`. Post-release website verification waits for both Runtime and desktop catalogs to match GitHub.

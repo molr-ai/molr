@@ -8,11 +8,24 @@ import { fixture, desktopFixture } from './release-test-fixtures.mjs';
 import { collectDesktopRelease, validateDesktopRelease, desktopCatalog } from './desktop-release.mjs';
 import { publishedDesktopCatalog, writeCatalog } from './release-catalog.mjs';
 import { readCatalog } from './check-release-catalog.mjs';
+import { desktopSigning } from '../apps/desktop/scripts/signing.mjs';
 
-test('collect native packages requires the entire matching, signed and checksummed matrix', t => {
+test('desktop signing allows absent credentials but rejects partial configuration', () => {
+  for (const os of ['darwin', 'win32']) assert.equal(desktopSigning(os, false, {}), false);
+  const mac = { CSC_LINK: 'fixture', APPLE_ID: 'fixture', APPLE_APP_SPECIFIC_PASSWORD: 'fixture', APPLE_TEAM_ID: 'fixture' };
+  assert.equal(desktopSigning('darwin', false, mac), true);
+  for (const key of Object.keys(mac)) { const partial = { ...mac }; delete partial[key]; assert.throws(() => desktopSigning('darwin', false, partial), /Incomplete/); }
+  assert.equal(desktopSigning('win32', false, { CSC_LINK: 'fixture' }), true);
+  assert.throws(() => desktopSigning('win32', false, { CSC_KEY_PASSWORD: 'fixture' }), /Incomplete/);
+  assert.equal(desktopSigning('darwin', true, mac), false);
+  assert.equal(desktopSigning('linux', false, mac), false);
+});
+
+test('collect native packages requires the entire matching and checksummed matrix and preserves signing status', t => {
   const dir = mkdtempSync(join(tmpdir(), 'molr-desktop-release-')); t.after(() => rmSync(dir, { recursive: true, force: true }));
   const source = join(dir, 'native'), destination = join(dir, 'release'); mkdirSync(source); mkdirSync(destination);
   const runtime = fixture(), m = desktopFixture(runtime);
+  for (const p of m.platforms) p.signed = false;
   writeFileSync(join(destination, 'manifest.json'), JSON.stringify(runtime));
   for (const p of m.platforms) {
     const native = join(source, `${p.os}-${p.arch}`); mkdirSync(native);
@@ -23,10 +36,12 @@ test('collect native packages requires the entire matching, signed and checksumm
   }
   const collected = collectDesktopRelease(source, destination, 'example/molr');
   assert.equal(collected.platforms.length, 5);
+  assert(collected.platforms.every(p => p.signed === false));
+  assert(desktopCatalog([collected]).channels.stable.platforms.every(p => p.signed === false));
   for (const p of m.platforms) assert.equal(createHash('sha256').update(readFileSync(join(destination, p.file))).digest('hex'), p.sha256);
   const check = changed => assert.throws(() => validateDesktopRelease(changed, 'example/molr', runtime));
   check({ ...m, platforms: m.platforms.slice(1) }); check({ ...m, commit: 'f'.repeat(40) });
-  const unsigned = structuredClone(m); unsigned.platforms.find(p => p.os === 'win32').signed = false; check(unsigned);
+  const unknown = structuredClone(m); delete unknown.platforms.find(p => p.os === 'win32').signed; check(unknown);
   const unsafe = structuredClone(m); unsafe.platforms[0].file = '../private'; check(unsafe);
   writeFileSync(join(source, 'linux-amd64', m.platforms[0].file), 'corrupt');
   assert.throws(() => collectDesktopRelease(source, destination, 'example/molr'), /checksum/);

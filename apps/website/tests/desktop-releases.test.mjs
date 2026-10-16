@@ -5,11 +5,11 @@ import { createServer } from 'vite';
 import { chromium, expect } from '@playwright/test';
 import { resolve } from 'node:path';
 const file = 'molr-desktop_0.1.0_win32-amd64_client.exe';
-const platform = { os: 'win32', arch: 'amd64', variant: 'client', file, sha256: 'a'.repeat(64), url: `https://downloads.example.com/${file}` };
+const platform = { os: 'win32', arch: 'amd64', variant: 'client', signed: false, file, sha256: 'a'.repeat(64), url: `https://downloads.example.com/${file}` };
 const sample = () => ({ schema: 1, channels: { stable: { version: '0.1.0', platforms: [{ ...platform }] }, preview: null, nightly: null } });
 test('desktop catalog enforces Windows client edition and HTTPS artifact identity', () => {
   assert.deepEqual(readDesktopCatalog(sample()), sample());
-  for (const change of [{ variant: 'full' }, { url: 'javascript:alert(1)' }, { url: `http://downloads.example.com/${file}` }, { file: '../private' }, { sha256: 'bad' }]) {
+  for (const change of [{ signed: undefined }, { signed: 'false' }, { variant: 'full' }, { url: 'javascript:alert(1)' }, { url: `http://downloads.example.com/${file}` }, { file: '../private' }, { sha256: 'bad' }]) {
     const c = sample(); Object.assign(c.channels.stable.platforms[0], change); assert.throws(() => readDesktopCatalog(c));
   }
   const duplicate = sample(); duplicate.channels.stable.platforms.push(platform); assert.throws(() => readDesktopCatalog(duplicate));
@@ -26,12 +26,24 @@ test('desktop download UI shows edition and does not invent missing releases', {
   try {
     await server.listen();
     const page = await browser.newPage({ locale: 'en-US' });
-    await page.route('**/releases/desktop/catalog.json', route => route.fulfill({ json: sample() }));
+    let catalog = sample();
+    await page.route('**/releases/desktop/catalog.json', route => route.fulfill({ json: catalog }));
     await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/en/`);
     const section = page.locator('#install');
     await section.getByRole('button', { name: 'Desktop app', exact: true }).click();
     await expect(section.getByText('Client · remote connections only · v0.1.0')).toBeVisible();
     await expect(section.getByRole('link', { name: 'Download installer' })).toHaveAttribute('href', platform.url);
+    await expect(section.getByText(/Unsigned test build/)).toBeVisible();
+    const macFile = 'molr-desktop_0.1.0_darwin-arm64_full.dmg';
+    catalog.channels.stable.platforms = [{ ...platform, os: 'darwin', arch: 'arm64', variant: 'full', file: macFile, url: `https://downloads.example.com/${macFile}` }];
+    await page.reload();
+    await section.getByRole('button', { name: 'Desktop app', exact: true }).click();
+    await expect(section.getByText(/Unnotarized test build/)).toBeVisible();
+    catalog.channels.stable.platforms[0].signed = true;
+    await page.reload();
+    await section.getByRole('button', { name: 'Desktop app', exact: true }).click();
+    await expect(section.getByRole('link', { name: 'Download installer' })).toBeVisible();
+    await expect(section.getByText(/Unnotarized test build/)).toHaveCount(0);
     await section.getByRole('group', { name: 'Desktop release channel' }).getByRole('button', { name: 'preview', exact: true }).click();
     await expect(section.getByText('No desktop installers have been published in this channel.')).toBeVisible();
     await expect(section.getByRole('link', { name: 'Download installer' })).toHaveCount(0);

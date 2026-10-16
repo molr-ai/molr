@@ -18,7 +18,7 @@ export function validateDesktopRelease(m, repository, runtime) {
   if (JSON.stringify(ids) !== JSON.stringify(desktopPlatforms)) throw new Error('Incomplete desktop platform matrix');
   for (const p of m.platforms) {
     if (p.url !== base + p.file || p.checksum_url !== base + p.file + '.sha256') throw new Error('Desktop asset URL mismatch');
-    if (p.os !== 'linux' && p.signed !== true) throw new Error('Unsigned desktop release');
+    if (typeof p.signed !== 'boolean') throw new Error('Desktop signing status required');
   }
   return m;
 }

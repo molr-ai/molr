@@ -4,12 +4,14 @@ import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
-test('catalog promotion rejects unsigned Windows, local versions and mismatched artifacts', t => {
+test('catalog promotion preserves signing status and rejects unknown status, local versions and mismatched artifacts', t => {
   const dir = mkdtempSync(join(tmpdir(), 'molr-desktop-catalog-')); t.after(() => rmSync(dir, { recursive: true, force: true }));
   const manifests = join(dir, 'manifests'); mkdirSync(manifests);
   const m = { schema: 1, version: '0.1.0', commit: 'a'.repeat(40), os: 'win32', arch: 'amd64', variant: 'client', signed: false, artifacts: [{ file: 'molr-desktop_0.1.0_win32-amd64_client.exe', sha256: 'b'.repeat(64) }] };
   const invoke = () => { writeFileSync(join(manifests, 'windows.json'), JSON.stringify(m)); return spawnSync(process.execPath, [resolve(import.meta.dirname, '../../../scripts/desktop-catalog.mjs'), '--manifests', manifests, '--base-url', 'https://downloads.example.com/desktop/0.1.0', '--directory', join(dir, 'out')], { encoding: 'utf8' }); };
-  assert.notEqual(invoke().status, 0);
+  assert.equal(invoke().status, 0);
+  assert.equal(JSON.parse(readFileSync(join(dir, 'out/catalog.json'))).channels.stable.platforms[0].signed, false);
+  delete m.signed; assert.notEqual(invoke().status, 0);
   m.signed = true; assert.equal(invoke().status, 0);
   const c = JSON.parse(readFileSync(join(dir, 'out/catalog.json'))); assert.equal(c.channels.stable.platforms[0].variant, 'client');
   m.variant = 'full'; assert.notEqual(invoke().status, 0); m.variant = 'client';

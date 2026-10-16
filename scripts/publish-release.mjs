@@ -10,6 +10,10 @@ const tag = `v${m.version}`, repository = process.env.GITHUB_REPOSITORY;
 if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository || '')) throw new Error('GitHub repository required');
 const desktop = validateDesktopRelease(JSON.parse(readFileSync(resolve(directory, 'desktop-manifest.json'))), repository, m);
 const desktopFiles = desktopReleaseFiles(desktop, directory);
+const signingNotes = [
+  desktop.platforms.some(p => p.os === 'win32' && !p.signed) ? 'Windows 桌面包未签名，系统可能提示未知发布者或阻止运行。 / Windows desktop installers are unsigned; device security policies may warn or block execution.' : '',
+  desktop.platforms.some(p => p.os === 'darwin' && !p.signed) ? 'macOS 桌面包仅使用 ad-hoc 签名，未经过 Apple 公证，系统可能阻止首次打开。 / macOS desktop apps are ad-hoc signed without Apple notarization; the first launch may be blocked.' : '',
+].filter(Boolean).join('\n\n');
 const gh = (...args) => execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
 const mutateRelease = (method, path, body) => JSON.parse(execFileSync('gh', ['api', path, '--method', method, '--input', '-'], { encoding: 'utf8', input: JSON.stringify(body) }));
 const releases = JSON.parse(gh('api', `repos/${repository}/releases?per_page=100`, '--paginate', '--slurp')).flat();
@@ -21,6 +25,7 @@ if (!release) {
   release = mutateRelease('POST', `repos/${repository}/releases`, {
     tag_name: tag, target_commitish: m.commit, name: tag, draft: true,
     prerelease: m.channel !== 'stable', generate_release_notes: true, make_latest: 'false',
+    ...(signingNotes ? { body: signingNotes } : {}),
   });
 }
 if (!Number.isSafeInteger(release.id) || release.id < 1 || release.tag_name !== tag || !Array.isArray(release.assets)) throw new Error(`Invalid release response: ${tag}`);

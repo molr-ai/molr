@@ -61,7 +61,7 @@ The full edition's Install and start action creates a dedicated user service lis
 
 Closing windows or quitting the app leaves the Runtime running. Sleep, shutdown or termination of the user service affects tasks. Explicitly stop, restart or uninstall the Runtime in the management interface; uninstall retains configuration and data. Removing the desktop application itself does not uninstall its background Runtime, so remove the service from inside the app first when needed.
 
-Desktop upgrades currently use a manually downloaded installer, followed by an explicit upgrade of its managed Runtime. CLI/web update entry points do not update desktop-managed instances. Operators maintain remote and WSL Runtimes independently. Production macOS/Windows releases require native acceptance and signing, plus notarization on macOS. Local builds are evaluation artifacts, not published releases.
+Desktop upgrades currently use a manually downloaded installer, followed by an explicit upgrade of its managed Runtime. CLI/web update entry points do not update desktop-managed instances. Operators maintain remote and WSL Runtimes independently. Desktop releases require native acceptance. While certificates are pending, Windows temporarily provides unsigned test builds and macOS provides ad-hoc signed, unnotarized test builds. Download pages show this status; the operating system may warn about an unknown publisher or block launch. Local builds are evaluation artifacts, not published releases.
 
 ### Are Runtime and Sandbox optional?
 

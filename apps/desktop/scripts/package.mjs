@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, existsSync, mkdirSync, readdirSync, writeFileSync, lstatSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { createHash } from 'node:crypto';
+import { desktopSigning } from './signing.mjs';
 
 const root = resolve(import.meta.dirname, '../../..');
 const project = join(root, 'apps/desktop');
@@ -28,8 +29,8 @@ if (full) {
     if (!stat.isFile() || (name.startsWith('bin/') && (stat.mode & 0o777) !== 0o755)) throw new Error(`Unsafe Runtime resource: ${name}`);
   }
 }
-if (!local && os === 'darwin' && (!process.env.CSC_LINK || !process.env.APPLE_ID || !process.env.APPLE_APP_SPECIFIC_PASSWORD || !process.env.APPLE_TEAM_ID)) throw new Error('macOS releases require Developer ID signing and notarization credentials');
-if (!local && os === 'win32' && !process.env.CSC_LINK) throw new Error('Windows releases require code-signing credentials');
+const signed = desktopSigning(os, local);
+if (!signed && os !== 'linux') console.log(os === 'darwin' ? 'Packaging without Developer ID or notarization (ad-hoc signing).' : 'Packaging without Windows code signing.');
 const output = join(root, 'dist/desktop', `${os}-${goArch}`);
 mkdirSync(output, { recursive: true });
 const electronRoot = resolve(root, 'node_modules/electron/dist');
@@ -51,11 +52,11 @@ const config = {
     ...(full ? [{ from: packageRoot, to: 'runtime', filter: ['bin/molr', 'bin/molr-setup', 'release.json', 'LICENSE', 'THIRD_PARTY_NOTICES.md'] }] : []),
   ],
   asar: true, npmRebuild: false,
-  forceCodeSigning: !local && os !== 'linux',
+  forceCodeSigning: signed,
   artifactName: `molr-desktop_${version}_${os}-${goArch}_${variant}.\${ext}`,
   linux: { target: ['deb'], executableName: 'molr-desktop', category: 'Utility', maintainer: 'Molr contributors', syncDesktopName: true, icon: join(root, 'packages/ui/public/brand/molr-icon-512.png') },
   deb: { packageName: 'molr-desktop', depends: ['libgtk-3-0', 'libnotify4', 'libnss3', 'libxss1', 'libxtst6', 'xdg-utils', 'libatspi2.0-0', 'libuuid1', 'libsecret-1-0', 'libgbm1', 'libasound2t64 | libasound2', 'libcups2t64 | libcups2', 'bubblewrap', 'busybox-static', 'util-linux', 'ca-certificates', 'systemd (>= 254)'] },
-  mac: { target: ['dmg'], category: 'public.app-category.productivity', minimumSystemVersion: '13.0', hardenedRuntime: !local, notarize: !local, binaries: ['Contents/Resources/runtime/bin/molr', 'Contents/Resources/runtime/bin/molr-setup'], identity: local ? '-' : undefined, icon: join(root, 'packages/ui/public/brand/molr-icon-1024.png') },
+  mac: { target: ['dmg'], category: 'public.app-category.productivity', minimumSystemVersion: '13.0', hardenedRuntime: signed, notarize: signed, binaries: ['Contents/Resources/runtime/bin/molr', 'Contents/Resources/runtime/bin/molr-setup'], identity: signed ? undefined : '-', icon: join(root, 'packages/ui/public/brand/molr-icon-1024.png') },
   win: { target: ['nsis'], executableName: 'Molr', icon: join(root, 'packages/ui/public/brand/molr-icon-256.png') },
   nsis: { oneClick: false, perMachine: false, allowToChangeInstallationDirectory: true, deleteAppDataOnUninstall: false },
 };
@@ -68,7 +69,7 @@ for (const file of files.filter(file => /\.(deb|dmg|exe)$/.test(file))) {
   writeFileSync(`${file}.sha256`, `${sha256}  ${name}\n`);
   artifacts.push({ file: name, sha256 });
 }
-writeFileSync(join(output, 'desktop-manifest.json'), JSON.stringify({ schema: 1, version, commit, os, arch: goArch, variant, signed: !local && os !== 'linux', artifacts }, null, 2) + '\n');
+writeFileSync(join(output, 'desktop-manifest.json'), JSON.stringify({ schema: 1, version, commit, os, arch: goArch, variant, signed, artifacts }, null, 2) + '\n');
 // Windows must contain neither the Go binaries nor their privileged adapter.
 if (!full) {
   const resources = join(output, 'win-unpacked/resources');
