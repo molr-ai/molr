@@ -467,16 +467,208 @@
     "path": "/molr/.agents/skills/molr-docs/references/docs/admin/resources/models.md",
     "contentLanguage": "zh",
     "titles": {
-      "zh": "连接与管理模型",
-      "en": "Model connections"
+      "zh": "模型接入概览",
+      "en": "Model connection overview"
     },
     "topics": {
-      "zh": "接入资源",
-      "en": "Connect resources"
+      "zh": "接入模型",
+      "en": "Connect models"
     },
     "urls": {
       "zh": "https://molr.ai/zh/docs/admin/resources/models/",
       "en": "https://molr.ai/en/docs/admin/resources/models/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/resources/providers/openai.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "接入 OpenAI",
+      "en": "Connect OpenAI"
+    },
+    "topics": {
+      "zh": "接入模型",
+      "en": "Connect models"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/resources/providers/openai/",
+      "en": "https://molr.ai/en/docs/admin/resources/providers/openai/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/resources/providers/deepseek.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "接入 DeepSeek",
+      "en": "Connect DeepSeek"
+    },
+    "topics": {
+      "zh": "接入模型",
+      "en": "Connect models"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/resources/providers/deepseek/",
+      "en": "https://molr.ai/en/docs/admin/resources/providers/deepseek/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/resources/providers/bailian.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "接入百炼",
+      "en": "Connect Bailian"
+    },
+    "topics": {
+      "zh": "接入模型",
+      "en": "Connect models"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/resources/providers/bailian/",
+      "en": "https://molr.ai/en/docs/admin/resources/providers/bailian/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/resources/providers/zhipu.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "接入智谱",
+      "en": "Connect Zhipu"
+    },
+    "topics": {
+      "zh": "接入模型",
+      "en": "Connect models"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/resources/providers/zhipu/",
+      "en": "https://molr.ai/en/docs/admin/resources/providers/zhipu/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/resources/providers/zai.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "接入 Z.AI",
+      "en": "Connect Z.AI"
+    },
+    "topics": {
+      "zh": "接入模型",
+      "en": "Connect models"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/resources/providers/zai/",
+      "en": "https://molr.ai/en/docs/admin/resources/providers/zai/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/resources/providers/moonshot.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "接入 Moonshot / Kimi",
+      "en": "Connect Moonshot / Kimi"
+    },
+    "topics": {
+      "zh": "接入模型",
+      "en": "Connect models"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/resources/providers/moonshot/",
+      "en": "https://molr.ai/en/docs/admin/resources/providers/moonshot/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/resources/providers/opencode.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "接入 OpenCode",
+      "en": "Connect OpenCode"
+    },
+    "topics": {
+      "zh": "接入模型",
+      "en": "Connect models"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/resources/providers/opencode/",
+      "en": "https://molr.ai/en/docs/admin/resources/providers/opencode/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/resources/providers/ollama.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "接入 Ollama",
+      "en": "Connect Ollama"
+    },
+    "topics": {
+      "zh": "接入模型",
+      "en": "Connect models"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/resources/providers/ollama/",
+      "en": "https://molr.ai/en/docs/admin/resources/providers/ollama/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/resources/providers/llamacpp.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "接入 llama.cpp",
+      "en": "Connect llama.cpp"
+    },
+    "topics": {
+      "zh": "接入模型",
+      "en": "Connect models"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/resources/providers/llamacpp/",
+      "en": "https://molr.ai/en/docs/admin/resources/providers/llamacpp/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/resources/providers/vllm.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "接入 vLLM",
+      "en": "Connect vLLM"
+    },
+    "topics": {
+      "zh": "接入模型",
+      "en": "Connect models"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/resources/providers/vllm/",
+      "en": "https://molr.ai/en/docs/admin/resources/providers/vllm/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/resources/providers/sglang.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "接入 SGLang",
+      "en": "Connect SGLang"
+    },
+    "topics": {
+      "zh": "接入模型",
+      "en": "Connect models"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/resources/providers/sglang/",
+      "en": "https://molr.ai/en/docs/admin/resources/providers/sglang/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/resources/providers/custom.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "接入自定义服务",
+      "en": "Connect a custom service"
+    },
+    "topics": {
+      "zh": "接入模型",
+      "en": "Connect models"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/resources/providers/custom/",
+      "en": "https://molr.ai/en/docs/admin/resources/providers/custom/"
     }
   },
   {

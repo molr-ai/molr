@@ -14,7 +14,7 @@ Follow [Set up a Molr instance](getting-started.md) for installation, initializa
 
 ## Connect resources
 
-- [Model connections](resources/models.md): providers, capabilities, prices and credentials.
+- [Model connection overview](resources/models.md): supported methods, provider guides, subscription policies, and alternatives.
 - [Sandbox resources](resources/sandbox.md): connect execution machines and register storage, compute and network scopes.
 - [Linux sandbox deployment](sandbox/linux.md), [Standalone sandbox service](sandbox/remote.md): system dependencies, isolation, GPUs and remote execution nodes.
 

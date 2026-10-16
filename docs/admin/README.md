@@ -14,7 +14,7 @@
 
 ## 接入资源
 
-- [连接与管理模型](resources/models.md)：提供商、能力、价格与凭证。
+- [模型接入概览](resources/models.md)：支持方式对照、各提供商接入指南、订阅政策与替代方案。
 - [管理沙盒资源](resources/sandbox.md)：连接执行机器，登记存储、计算与网络范围。
 - [Linux 沙盒部署](sandbox/linux.md)、[独立沙盒服务](sandbox/remote.md)：系统依赖、隔离、GPU 与远程执行节点。
 

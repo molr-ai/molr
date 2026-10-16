@@ -292,10 +292,130 @@
   {
     "file": "admin/resources/models.md",
     "path": "/docs/admin/resources/models/",
-    "label": "连接与管理模型",
-    "group": "接入资源",
-    "englishLabel": "Model connections",
-    "englishGroup": "Connect resources",
+    "label": "模型接入概览",
+    "group": "接入模型",
+    "englishLabel": "Model connection overview",
+    "englishGroup": "Connect models",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
+    "file": "admin/resources/providers/openai.md",
+    "path": "/docs/admin/resources/providers/openai/",
+    "label": "接入 OpenAI",
+    "group": "接入模型",
+    "englishLabel": "Connect OpenAI",
+    "englishGroup": "Connect models",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
+    "file": "admin/resources/providers/deepseek.md",
+    "path": "/docs/admin/resources/providers/deepseek/",
+    "label": "接入 DeepSeek",
+    "group": "接入模型",
+    "englishLabel": "Connect DeepSeek",
+    "englishGroup": "Connect models",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
+    "file": "admin/resources/providers/bailian.md",
+    "path": "/docs/admin/resources/providers/bailian/",
+    "label": "接入百炼",
+    "group": "接入模型",
+    "englishLabel": "Connect Bailian",
+    "englishGroup": "Connect models",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
+    "file": "admin/resources/providers/zhipu.md",
+    "path": "/docs/admin/resources/providers/zhipu/",
+    "label": "接入智谱",
+    "group": "接入模型",
+    "englishLabel": "Connect Zhipu",
+    "englishGroup": "Connect models",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
+    "file": "admin/resources/providers/zai.md",
+    "path": "/docs/admin/resources/providers/zai/",
+    "label": "接入 Z.AI",
+    "group": "接入模型",
+    "englishLabel": "Connect Z.AI",
+    "englishGroup": "Connect models",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
+    "file": "admin/resources/providers/moonshot.md",
+    "path": "/docs/admin/resources/providers/moonshot/",
+    "label": "接入 Moonshot / Kimi",
+    "group": "接入模型",
+    "englishLabel": "Connect Moonshot / Kimi",
+    "englishGroup": "Connect models",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
+    "file": "admin/resources/providers/opencode.md",
+    "path": "/docs/admin/resources/providers/opencode/",
+    "label": "接入 OpenCode",
+    "group": "接入模型",
+    "englishLabel": "Connect OpenCode",
+    "englishGroup": "Connect models",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
+    "file": "admin/resources/providers/ollama.md",
+    "path": "/docs/admin/resources/providers/ollama/",
+    "label": "接入 Ollama",
+    "group": "接入模型",
+    "englishLabel": "Connect Ollama",
+    "englishGroup": "Connect models",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
+    "file": "admin/resources/providers/llamacpp.md",
+    "path": "/docs/admin/resources/providers/llamacpp/",
+    "label": "接入 llama.cpp",
+    "group": "接入模型",
+    "englishLabel": "Connect llama.cpp",
+    "englishGroup": "Connect models",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
+    "file": "admin/resources/providers/vllm.md",
+    "path": "/docs/admin/resources/providers/vllm/",
+    "label": "接入 vLLM",
+    "group": "接入模型",
+    "englishLabel": "Connect vLLM",
+    "englishGroup": "Connect models",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
+    "file": "admin/resources/providers/sglang.md",
+    "path": "/docs/admin/resources/providers/sglang/",
+    "label": "接入 SGLang",
+    "group": "接入模型",
+    "englishLabel": "Connect SGLang",
+    "englishGroup": "Connect models",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
+    "file": "admin/resources/providers/custom.md",
+    "path": "/docs/admin/resources/providers/custom/",
+    "label": "接入自定义服务",
+    "group": "接入模型",
+    "englishLabel": "Connect a custom service",
+    "englishGroup": "Connect models",
     "root": "docs",
     "section": "admin"
   },
