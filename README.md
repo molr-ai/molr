@@ -20,7 +20,7 @@
 
 Molr is a self-hosted personal AI assistant that runs on your own device and connects to the models you choose. From a desktop or mobile browser, delegate tasks through ongoing conversations, use plans to guide execution, and review progress and deliverables in one place. You control each assistant's memory, file access permissions, and budget.
 
-![Molr assistant fills in a demo event registration form in the built-in browser, ready for review before submission](docs/assets/molr-browser.webp)
+![Browser interface demo](docs/assets/molr-browser.webp)
 
 > [!WARNING]
 > **Project status:** Molr is under active development and has no stable release yet. You may encounter instability, and future versions may introduce breaking changes.
