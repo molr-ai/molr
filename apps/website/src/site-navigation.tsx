@@ -128,15 +128,36 @@ export function RouteEffects({ navigation, children }: { navigation: Navigation;
       if (focusTarget && !focusTarget.hasAttribute('tabindex')) focusTarget.setAttribute('tabindex', '-1');
       focusTarget?.focus({ preventScroll: true });
     }
-    if (navigation.action === 'pop' && navigation.position) {
-      window.scrollTo({ left: navigation.position[0], top: navigation.position[1], behavior: 'instant' });
-    } else if (target) {
-      if (navigation.action === 'push' && navigation.pathname === '/' && target.id === 'install' &&
-        !window.matchMedia('(prefers-reduced-motion: reduce)').matches) return scrollToInstallation(target);
-      target.scrollIntoView({ behavior: 'instant' });
-    } else if (navigation.action !== 'initial') {
-      window.scrollTo({ left: 0, top: 0, behavior: 'instant' });
-    }
+    const restore = () => {
+      if (navigation.action === 'pop' && navigation.position) {
+        window.scrollTo({ left: navigation.position[0], top: navigation.position[1], behavior: 'instant' });
+      } else if (target) {
+        if (navigation.action === 'push' && navigation.pathname === '/' && target.id === 'install' &&
+          !window.matchMedia('(prefers-reduced-motion: reduce)').matches) return scrollToInstallation(target);
+        target.scrollIntoView({ behavior: 'instant' });
+      } else if (navigation.action !== 'initial') {
+        window.scrollTo({ left: 0, top: 0, behavior: 'instant' });
+      }
+    };
+    const stopAnimation = restore();
+    const main = document.getElementById('main');
+    const pendingDiagrams = () => main?.querySelector('.docs-mermaid[aria-busy="true"]');
+    if (!main || !pendingDiagrams() || !(navigation.position || target)) return stopAnimation;
+    // Diagram heights are unknown until rendering finishes. Restore the saved
+    // position/anchor again after layout settles, unless the reader has moved on.
+    const cancel = () => {
+      observer.disconnect();
+      for (const event of ['wheel', 'touchstart', 'keydown', 'pointerdown']) window.removeEventListener(event, cancel);
+      stopAnimation?.();
+    };
+    const observer = new MutationObserver(() => {
+      if (pendingDiagrams()) return;
+      cancel();
+      restore();
+    });
+    observer.observe(main, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-busy'] });
+    for (const event of ['wheel', 'touchstart', 'keydown', 'pointerdown']) window.addEventListener(event, cancel, { passive: true });
+    return cancel;
   }, [navigation]);
   return children;
 }

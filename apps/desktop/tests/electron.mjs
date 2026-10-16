@@ -1,0 +1,97 @@
+// Real Electron processes and storage partitions; the HTTP fixture tests transport
+// isolation. Native Runtime acceptance is a separate test, never inferred here.
+import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
+import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { resolve, join } from 'node:path';
+import { _electron as electron, expect } from '@playwright/test';
+const root = resolve(import.meta.dirname, '../../..');
+const data = mkdtempSync(join(tmpdir(), 'molr-desktop-test-'));
+const screenshots = join(root, '.cache/acceptance/desktop'); mkdirSync(screenshots, { recursive: true });
+const fixture = createServer((req, res) => {
+  if (req.url === '/cookie') { res.setHeader('Set-Cookie', 'fixture_session=first; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400'); return res.end('ok'); }
+  if (req.url === '/who') return res.end(req.headers.cookie ?? '');
+  if (req.url === '/stream') { res.writeHead(200, { 'Content-Type': 'text/event-stream' }); res.write('data: fixture-ready\n\n'); req.on('close', () => res.end()); return; }
+  res.setHeader('Content-Type', 'text/html'); res.end('<!doctype html><h1>Runtime fixture</h1><a href="file:///tmp/private">unsafe</a>');
+});
+await new Promise(resolve => fixture.listen(0, '127.0.0.1', resolve));
+const url = `http://127.0.0.1:${fixture.address().port}`;
+let app;
+async function launch() {
+  const env = { ...process.env, MOLR_DESKTOP_DATA: data };
+  delete env.MOLR_DESKTOP_RUNTIME; delete env.MOLR_DESKTOP_DEV_URL; delete env.ELECTRON_RUN_AS_NODE;
+  app = await electron.launch({ args: [join(root, 'apps/desktop')], env, chromiumSandbox: true, timeout: 30000 });
+  assert.equal(await app.evaluate(() => process.argv.includes('--no-sandbox')), false);
+  return app.firstWindow();
+}
+async function remote(code) {
+  return app.evaluate(async ({ webContents }, { url, code }) => {
+    const wc = webContents.getAllWebContents().find(c => c.getURL().startsWith(url));
+    if (!wc) throw new Error('Runtime view not found: ' + JSON.stringify(webContents.getAllWebContents().map(c => ({ url: c.getURL(), type: c.getType() }))));
+    return wc.executeJavaScript(code);
+  }, { url, code });
+}
+async function waitRuntime(page) { await expect.poll(() => page.evaluate(async () => (await window.molrDesktop.state()).view), { timeout: 35000 }).toBe('runtime'); }
+try {
+  let page = await launch();
+  await page.getByRole('heading', { name: '连接你的 Runtime' }).waitFor();
+  await page.getByRole('button', { name: '添加连接', exact: true }).click();
+  await page.getByLabel('连接名称', { exact: true }).fill('Fixture one');
+  await page.getByLabel('Runtime 地址', { exact: true }).fill(url);
+  await page.getByRole('switch').check();
+  await page.getByRole('button', { name: '保存连接' }).click();
+  await page.getByRole('heading', { name: 'Fixture one' }).waitFor();
+  await page.evaluate(async url => window.molrDesktop.save({ name: 'Fixture two', url, allowHTTP: true }), url);
+  const [one, two] = (await page.evaluate(() => window.molrDesktop.state())).connections;
+  await page.evaluate(id => window.molrDesktop.connect(id), one.id); await waitRuntime(page);
+  assert.deepEqual(await remote('({ bridge: typeof window.molrDesktop, require: typeof require, process: typeof process })'), { bridge: 'undefined', require: 'undefined', process: 'undefined' });
+  await app.evaluate(async ({ webContents }, url) => {
+    const wc = webContents.getAllWebContents().find(c => c.getURL().startsWith(url)); wc.focus();
+    await wc.executeJavaScript("navigator.clipboard.writeText('molr-desktop-copy-fixture')", true);
+  }, url);
+  assert.equal(await app.evaluate(({ clipboard }) => clipboard.readText()), 'molr-desktop-copy-fixture');
+  assert.equal(await remote("fetch('/cookie').then(() => fetch('/who')).then(r => r.text())"), 'fixture_session=first');
+  assert.equal(await remote("new Promise(resolve => { const e = new EventSource('/stream'); e.onmessage = m => { e.close(); resolve(m.data); }; })"), 'fixture-ready');
+  assert.equal(await remote(`new Promise(resolve => {
+    const frame = document.createElement('iframe'); frame.sandbox = 'allow-scripts';
+    const url = URL.createObjectURL(new Blob(['<script>parent.postMessage("plugin-ready", "*")<\\/script>'], {type:'text/html'}));
+    const timer = setTimeout(() => resolve('timeout'), 5000);
+    window.addEventListener('message', function listener(event) { if (event.source === frame.contentWindow && event.data === 'plugin-ready') { clearTimeout(timer); window.removeEventListener('message', listener); frame.remove(); URL.revokeObjectURL(url); resolve(event.data); } });
+    frame.src = url; document.body.append(frame);
+  })`), 'plugin-ready');
+  const preferences = await app.evaluate(({ webContents }, url) => webContents.getAllWebContents().find(c => c.getURL().startsWith(url)).getLastWebPreferences(), url);
+  assert.equal(preferences.sandbox, true); assert.equal(preferences.contextIsolation, true); assert.equal(preferences.nodeIntegration, false); assert.equal(preferences.webSecurity, true);
+  await page.evaluate(() => window.molrDesktop.manager());
+  await page.evaluate(id => window.molrDesktop.connect(id), two.id); await waitRuntime(page);
+  assert.equal(await remote("fetch('/who').then(r => r.text())"), '');
+  await page.evaluate(() => window.molrDesktop.manager());
+  await app.close();
+  page = await launch();
+  await page.getByRole('heading', { name: '连接你的 Runtime' }).waitFor();
+  await page.evaluate(id => window.molrDesktop.connect(id), one.id); await waitRuntime(page);
+  assert.equal(await remote("fetch('/who').then(r => r.text())"), 'fixture_session=first', 'Persistent login survives desktop restart');
+  await remote("localStorage.setItem('fixture', 'persisted')");
+  await page.evaluate(() => window.molrDesktop.manager());
+  await page.evaluate(id => window.molrDesktop.connect(id), one.id); await waitRuntime(page);
+  assert.equal(await remote("localStorage.getItem('fixture')"), 'persisted');
+  await page.evaluate(() => window.molrDesktop.manager());
+  await page.evaluate(() => window.molrDesktop.save({ name: 'Offline', url: 'http://127.0.0.1:1', allowHTTP: true }));
+  const offline = (await page.evaluate(() => window.molrDesktop.state())).connections.find(c => c.name === 'Offline');
+  await page.evaluate(id => window.molrDesktop.connect(id), offline.id);
+  await page.getByRole('heading', { name: '暂时无法连接' }).waitFor();
+  await page.getByRole('button', { name: '返回连接列表' }).click();
+  for (const theme of ['light', 'dark']) for (const palette of ['forest', 'ocean', 'iris', 'sand', 'rose', 'monochrome']) {
+    await page.evaluate(({ theme, palette }) => { localStorage.setItem('molr-theme', theme); localStorage.setItem('molr-desktop-palette', palette); }, { theme, palette });
+    await page.reload(); await page.getByRole('heading', { name: '连接你的 Runtime' }).waitFor();
+    await page.screenshot({ path: join(screenshots, `${palette}-${theme}.png`) });
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  }
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(640, 720));
+  await page.screenshot({ path: join(screenshots, 'narrow.png') });
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  console.log('Electron acceptance passed: isolated sessions, restart, SSE, remote privilege boundary, recovery, six palettes/light-dark and narrow layout.');
+} finally {
+  await app?.close(); fixture.closeAllConnections(); await new Promise(resolve => fixture.close(resolve));
+  rmSync(data, { recursive: true, force: true });
+}

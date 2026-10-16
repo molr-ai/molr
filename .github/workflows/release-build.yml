@@ -89,9 +89,17 @@ jobs:
     with:
       artifact-prefix: release-
       ref: ${{ needs.prepare.outputs.commit }}
+  desktop:
+    needs: prepare
+    if: needs.prepare.outputs.existing != 'true'
+    uses: ./.github/workflows/release-desktop.yml
+    with:
+      ref: ${{ needs.prepare.outputs.commit }}
+      version: ${{ needs.prepare.outputs.version }}
+    secrets: inherit
   publish:
-    needs: [prepare, build, installer-acceptance]
-    if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.build.result == 'success' && needs.installer-acceptance.result == 'success' }}
+    needs: [prepare, build, installer-acceptance, desktop]
+    if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.build.result == 'success' && needs.installer-acceptance.result == 'success' && needs.desktop.result == 'success' }}
     runs-on: ubuntu-24.04
     environment: release
     permissions:
@@ -108,11 +116,16 @@ jobs:
           pattern: release-*
           path: dist/releases
           merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-release-*
+          path: dist/desktop-release
       - run: npm run build:source -- --ref HEAD --output dist/releases
       - run: npm run release:manifest -- --version "$MOLR_VERSION" --repository "$GITHUB_REPOSITORY"
         env:
           MOLR_VERSION: ${{ needs.prepare.outputs.version }}
           MOLR_PUBLISHED_AT: ${{ needs.prepare.outputs.published_at }}
+      - run: node scripts/desktop-release.mjs
       - run: node scripts/publish-release.mjs
         env:
           GH_TOKEN: ${{ github.token }}

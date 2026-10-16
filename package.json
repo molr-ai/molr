@@ -9,6 +9,11 @@
     "packages/*"
   ],
   "scripts": {
+    "dev:desktop": "npm run dev --workspace @molr/desktop --",
+    "build:desktop": "npm run build --workspace @molr/desktop",
+    "test:desktop": "npm run test --workspace @molr/desktop",
+    "test:desktop:electron": "npm run test:electron --workspace @molr/desktop",
+    "package:desktop": "npm run package --workspace @molr/desktop --",
     "dev": "npm run dev --workspace @molr/webui --",
     "dev:design": "npm run dev --workspace @molr/ui-design --",
     "dev:website": "npm run dev --workspace @molr/website --",
@@ -37,7 +42,7 @@
     "check:platforms": "node scripts/generate-platforms.mjs --check",
     "release:manifest": "node scripts/release-manifest.mjs",
     "release:catalog": "node scripts/release-catalog.mjs",
-    "test:release-flow": "node --test scripts/test-release-flow.mjs scripts/test-release-publish.mjs scripts/test-website-deployment.mjs",
+    "test:release-flow": "node --test scripts/test-release-flow.mjs scripts/test-release-publish.mjs scripts/test-website-deployment.mjs scripts/test-desktop-release.mjs",
     "test:release-install": "node scripts/test-release-install.mjs",
     "build:website:release": "node scripts/build-release-website.mjs",
     "docs:generate": "node scripts/generate-molr-docs.mjs",

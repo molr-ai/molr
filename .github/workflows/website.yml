@@ -18,7 +18,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22.21.0'
-      - name: Collect the expected published catalog
+      - name: Collect Runtime and desktop catalogs from GitHub Releases
         run: npm run release:catalog
         env:
           GH_TOKEN: ${{ github.token }}
@@ -27,7 +27,7 @@ jobs:
         run: node scripts/trigger-website.mjs
         env:
           CLOUDFLARE_DEPLOY_HOOK: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK }}
-      - name: Wait for the public release catalog
+      - name: Wait for the public Runtime and desktop catalogs
         run: node scripts/verify-release-site.mjs
         env:
           MOLR_RELEASE_URL: ${{ vars.MOLR_RELEASE_URL || 'https://molr.ai/releases' }}

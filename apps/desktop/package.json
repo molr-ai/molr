@@ -1,0 +1,35 @@
+{
+  "name": "@molr/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "Molr desktop client and local Runtime manager",
+  "author": "Molr contributors",
+  "main": "dist/main/main/index.js",
+  "scripts": {
+    "dev": "vite",
+    "start": "electron .",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.main.json --noEmit",
+    "build": "npm run typecheck && tsc -p tsconfig.main.json && vite build",
+    "test": "tsc -p tsconfig.main.json && node --test tests/*.test.mjs",
+    "test:electron": "node tests/electron.mjs",
+    "package": "node scripts/package.mjs"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@molr/ui": "0.1.0",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^22.19.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "electron": "44.8.0",
+    "electron-builder": "26.15.3",
+    "lucide-react": "^1.20.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "typescript": "~5.9.3",
+    "vite": "^8.3.0"
+  }
+}

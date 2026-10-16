@@ -2,6 +2,81 @@
 
 Choose “Let an Agent install for me” on the website and copy the instructions to an Agent with access to the target device. It can inspect, install, and verify the environment; see [Agent installation](agent-install.md).
 
+## Clients, Runtime and Sandbox
+
+Clients display the interface, handle sign-in and connect to instances. Runtime runs assistants and persists their data. Sandbox provides file access and command execution. Connecting a desktop app to a Runtime on another computer does not move that computer's assistants or data to the client.
+
+| Component | Responsibility and location |
+| --- | --- |
+| Mobile client | Mobile users currently access WebUI in a phone browser; there is no native iOS/Android App installer. Phones connect to a reachable Runtime and do not host Runtime or Sandbox. |
+| Desktop app | Manages connections, separate sign-in sessions and the WebUI container. Linux/macOS full editions can also install and manage a local Runtime. Windows connects only to remote Runtimes, including instances in WSL. |
+| WebUI | Provides chat, assistant, resource and administration pages in a browser or desktop app. Release Runtime binaries embed WebUI and serve pages and APIs at the same address; no separate frontend server is required. The desktop app loads WebUI from the connected Runtime. |
+| Runtime | Provides accounts, Agent execution, scheduling, model calls and persistence. Databases, conversations, memory, attachments and assistant workspaces live on the Runtime device. Model services are configured separately; packages include neither model weights nor inference servers. |
+| Built-in Sandbox | Compiled into Runtime to manage controlled local file access and commands. Linux uses Bubblewrap and other system capabilities; macOS uses Seatbelt. Local execution does not require a separate `molr-sandbox` service. |
+| Independent Sandbox | Runs `molr-sandbox` on another Linux/macOS device, connected to Runtime over HTTPS. Provides authorized directories and execution, without hosting accounts, Agents, chat sessions or WebUI. |
+
+```mermaid
+flowchart TB
+    Browser[Desktop or mobile browser] -->|Access WebUI| Runtime
+    Desktop[Desktop app] -->|Load WebUI / connect to API| Runtime
+    Desktop -.->|Optionally create a local service on Linux/macOS| Runtime
+    subgraph Host[Runtime device: local or remote]
+        Runtime[Runtime: embedded WebUI / Agent / API]
+        Data[Database / conversations / memory / assistant workspaces]
+        Local[Built-in Sandbox: local files / commands]
+        Runtime --> Data
+        Runtime --> Local
+    end
+    Runtime -->|HTTPS / authorized calls| Remote[Independent Sandbox: Linux or macOS]
+    Runtime -->|Model calls| Model[Separately configured local or cloud models]
+```
+
+Clients connect to Runtime; Runtime connects to additional execution nodes. A remote Runtime hosts the complete assistant service, while a remote Sandbox adds execution and directory resources. Authorized directories on a remote node remain on that node; the assistant's own workspace stays on the Runtime device. See [sandbox resources](../resources/sandbox.md) and [independent Sandbox deployment](../sandbox/remote.md).
+
+The desktop app's Electron renderer sandbox restricts web pages' access to desktop system interfaces. The Sandbox described above restricts assistants' file and command operations. These are separate protections.
+
+## What each package contains
+
+The website lists installers actually published in GitHub Releases. The table describes each artifact's contents. The target device or package manager prepares system dependencies; they are not necessarily bundled inside the installer.
+
+| Package or entry point | Included components | Installation and use |
+| --- | --- | --- |
+| Linux full desktop `.deb`, AMD64/ARM64 | Electron desktop app, connection manager, `molr` with embedded WebUI and built-in Sandbox, and `molr-setup` | After installing the desktop app, connect only to remote Runtimes or create a local service from the app. The DEB declares Bubblewrap, static BusyBox, systemd and other dependencies for the package manager to prepare. |
+| macOS full desktop `.dmg`, Apple Silicon/Intel | An `.app` containing Electron, connection manager, `molr` with embedded WebUI and built-in Sandbox, and `molr-setup` | Create a launchd user service on demand after installing the app. Commands default to disabled and can be enabled using the macOS sandbox configuration. |
+| Windows desktop client `.exe`, AMD64 | Electron desktop app and connection manager | Contains no `molr`, `molr-setup` or local Sandbox. Connect to a Linux/macOS Runtime or one deployed separately in WSL. The app does not install or start WSL. |
+| Linux/macOS Runtime `.tar.gz`, AMD64/ARM64 | `bin/molr` with embedded WebUI and built-in Sandbox, `bin/molr-setup`, release metadata and licenses | Includes neither Electron nor the independent `molr-sandbox` program. Install the service using the CLI, then connect through a browser or client. The website's `install.sh` downloads this type of Runtime package. |
+| Independent `molr-sandbox` | Remote Sandbox service executable | Currently built from source following the [node deployment guide](../sandbox/remote.md). It is not included in the packages above or installed by `molr-setup`. |
+| Source archive | Project source reviewed for distribution | For building your own artifacts, not a compiled application installer. See [source deployment](source-build.md) for build dependencies. |
+| Docker | Locally built image with `molr`, embedded WebUI and the built-in Sandbox implementation | Includes neither the desktop app nor `molr-setup`. The base image defaults to commands disabled; the `isolated` target adds Linux isolation dependencies. No official prebuilt image is currently provided. See [Docker deployment](docker.md). |
+
+WebUI needs no separate installer. Phones currently use that same WebUI, with no native mobile App download. Desktop and Runtime packages carry licenses and third-party notices; desktop packages additionally preserve Electron/Chromium license materials.
+
+## Desktop app
+
+The website's Desktop app option lists installers from the published channel catalog. It shows no available version when no artifacts have been published. Source builds and native verification commands are in the [desktop README](../../../../apps/desktop/README.md).
+
+Linux/macOS full editions include a Runtime and can connect to remote instances. Windows is a remote-only client; a Runtime inside WSL is also added as a remote connection. Add a connection with a name and Runtime root URL, then sign in on that instance. HTTPS is the default; loopback or trusted private-network HTTP requires explicit opt-in and has no transport encryption. Connections have independent login state; changing the server origin creates a new session.
+
+The full edition's Install and start action creates a dedicated user service listening on loopback. Existing CLI installations remain independent and can be added as external connections. Linux retains the sandbox prerequisites below. Resolve missing dependencies, host-policy errors or directory permissions before retrying. macOS retains its disabled-command default and platform-specific sandbox boundaries.
+
+Closing windows or quitting the app leaves the Runtime running. Sleep, shutdown or termination of the user service affects tasks. Explicitly stop, restart or uninstall the Runtime in the management interface; uninstall retains configuration and data. Removing the desktop application itself does not uninstall its background Runtime, so remove the service from inside the app first when needed.
+
+Desktop upgrades currently use a manually downloaded installer, followed by an explicit upgrade of its managed Runtime. CLI/web update entry points do not update desktop-managed instances. Operators maintain remote and WSL Runtimes independently. Production macOS/Windows releases require native acceptance and signing, plus notarization on macOS. Local builds are evaluation artifacts, not published releases.
+
+### Are Runtime and Sandbox optional?
+
+Bundled program files, background service creation and command capabilities are separate choices:
+
+| Action | Current choice |
+| --- | --- |
+| Exclude Runtime files from the Linux/macOS full edition | Not available. Full packages always include Runtime, with no component selection page or separate Linux/macOS client-only installer. |
+| Create and start a local Runtime service | Optional. Opening the app for the first time does not create a service; Install and start does. Skip this step when connecting only to remote instances. |
+| Install or omit the built-in Sandbox separately | There is no separate installation step or checkbox: it is part of Runtime. An independent `molr-sandbox` node is not deployed automatically. |
+| Enable local commands | Controlled by Runtime configuration; the desktop installation interface has no toggle yet. New Linux instances enable commands by default; macOS disables them. Change the instance's `sandbox.enabled` and restart to switch. Chat, files and memory remain available when disabled, as do separately configured remote Sandboxes. Assistants still need the relevant grants to execute commands. |
+| Skip the Linux DEB's sandbox system dependencies | Not available. Installing the DEB requires its declared sandbox dependencies even for remote-only use. Skipping local service creation does not remove those package dependencies. |
+
+Local Runtime service creation is already optional. Selecting Runtime and Sandbox as separate installation components is not implemented. See [native macOS command permissions](../sandbox/macos.md) and [Linux sandbox deployment](../sandbox/linux.md) for configuration and authorization.
+
 ## Environment requirements
 
 The following are initial sizing estimates for running the Molr service (Runtime and WebUI) while connecting to cloud models or models hosted on another device. They have not yet been validated by systematic performance benchmarks. The minimum configuration targets service startup and occasional single-user chat; the recommended configuration leaves room for daily use and a few concurrent tasks.

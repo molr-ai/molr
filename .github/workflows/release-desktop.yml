@@ -1,0 +1,72 @@
+name: Build release desktop installers
+on:
+  workflow_call:
+    inputs:
+      ref:
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  desktop:
+    environment: release
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, macos-15-intel, windows-2025]
+    runs-on: ${{ matrix.runner }}
+    env:
+      MOLR_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.21.0'
+      - if: runner.os != 'Windows'
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: runtime/.go-version
+          cache-dependency-path: runtime/go.sum
+      - if: runner.os == 'Linux'
+        uses: ./.github/actions/prepare-sandbox
+      - run: npm ci
+      - run: node node_modules/electron/install.js
+      - run: npm run test:desktop && npm run build:desktop
+      - if: runner.os != 'Linux'
+        run: npm run test:desktop:electron
+      - if: runner.os == 'Linux'
+        run: |
+          if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ] && [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" = 1 ]; then
+            aa-exec -p chrome -- xvfb-run -a npm run test:desktop:electron
+          else
+            xvfb-run -a npm run test:desktop:electron
+          fi
+      - if: runner.os != 'Windows'
+        run: npm run build:release
+      - if: runner.os != 'Windows'
+        name: Native desktop Runtime lifecycle
+        run: node apps/desktop/tests/local-runtime.mjs
+      - name: Sign, notarize and package desktop
+        run: npm run package:desktop
+        env:
+          CSC_LINK: ${{ runner.os == 'macOS' && secrets.MAC_CSC_LINK || runner.os == 'Windows' && secrets.WIN_CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ runner.os == 'macOS' && secrets.MAC_CSC_KEY_PASSWORD || runner.os == 'Windows' && secrets.WIN_CSC_KEY_PASSWORD || '' }}
+          APPLE_ID: ${{ runner.os == 'macOS' && secrets.APPLE_ID || '' }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ runner.os == 'macOS' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ runner.os == 'macOS' && secrets.APPLE_TEAM_ID || '' }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-release-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            dist/desktop/**/*.deb
+            dist/desktop/**/*.dmg
+            dist/desktop/**/*.exe
+            dist/desktop/**/*.sha256
+            dist/desktop/**/desktop-manifest.json
+          if-no-files-found: error
+          retention-days: 14

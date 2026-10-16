@@ -167,7 +167,7 @@ func (e *Engine) verify(r *installrecord.Record, cfg map[string]any) (string, er
 		return "", fmt.Errorf("sandbox verification failed: %s", c.Reason)
 	}
 	r.Health = "verified"
-	if e.Options.JSON {
+	if e.Options.JSON && e.Options.Command != "desktop" {
 		return "", nil
 	}
 	var proof struct {

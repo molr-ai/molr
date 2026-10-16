@@ -28,6 +28,7 @@ type Updates struct {
 	Channel string `json:"channel"`
 }
 type Record struct {
+	Manager     string  `json:"manager,omitempty"`
 	Home        string  `json:"home,omitempty"`
 	Schema      int     `json:"schema"`
 	State       string  `json:"state"`
@@ -65,6 +66,9 @@ func (r Record) UpdateSource() string {
 	return strings.TrimRight(r.Updates.Source, "/") + "/" + r.Updates.Channel
 }
 func (r Record) Validate() error {
+	if r.Manager != "" && r.Manager != "desktop" {
+		return fmt.Errorf("unknown installation manager")
+	}
 	instance, err := Instance(r.Name)
 	if err != nil {
 		return err

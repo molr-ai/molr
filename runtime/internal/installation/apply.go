@@ -247,8 +247,12 @@ func (e *Engine) apply(p *Plan) (resultErr error) {
 	e.serviceInstructions(r)
 	e.UI.print("Update: %s update\nUninstall: %s uninstall", shellJoin([]string{filepath.Join(r.Paths.Program, "bin/molr-setup")}), shellJoin([]string{filepath.Join(r.Paths.Program, "bin/molr-setup")}))
 	if link != "" {
-		e.UI.print("One-time login link (15 minutes):\n%s", link)
-		e.openBrowser(link, r.System)
+		if e.Options.Command == "desktop" {
+			e.desktopLogin = link
+		} else {
+			e.UI.print("One-time login link (15 minutes):\n%s", link)
+			e.openBrowser(link, r.System)
+		}
 	}
 	if r.Health == "verification_pending" {
 		e.UI.print("Verify with current credentials: %s doctor -config %s -password-stdin", shellJoin(asUser(r, runtime)), shellJoin([]string{configPath}))

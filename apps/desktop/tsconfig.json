@@ -1,0 +1,6 @@
+{
+  "extends": "../webui/tsconfig.json",
+  "compilerOptions": { "types": ["vite/client", "node"] },
+  "include": ["src/renderer", "src/shared.ts", "vite.config.ts"],
+  "exclude": ["dist"]
+}

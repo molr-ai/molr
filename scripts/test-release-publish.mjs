@@ -4,7 +4,18 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'nod
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fixture } from './release-test-fixtures.mjs';
+import { createHash } from 'node:crypto';
+import { fixture, desktopFixture } from './release-test-fixtures.mjs';
+function writeDesktop(directory, runtime) {
+  const m = desktopFixture(runtime), bytes = Buffer.from('artificial desktop installer');
+  for (const p of m.platforms) {
+    p.sha256 = createHash('sha256').update(bytes).digest('hex');
+    writeFileSync(join(directory, p.file), bytes);
+    writeFileSync(join(directory, p.file + '.sha256'), `${p.sha256}  ${p.file}\n`);
+  }
+  writeFileSync(join(directory, 'desktop-manifest.json'), JSON.stringify(m));
+  return ['desktop-manifest.json', ...m.platforms.flatMap(p => [p.file, p.file + '.sha256'])];
+}
 const publisher = resolve(import.meta.dirname, 'publish-release.mjs');
 const fakeGH = `#!/usr/bin/env python3
 import os,json,sys,pathlib,base64,urllib.parse
@@ -52,12 +63,18 @@ test('publication resumes an interrupted draft, refuses overwrites, and never pu
     const mock = join(directory, 'fetch.mjs'); writeFileSync(mock, 'globalThis.fetch = async () => ({ok: true});');
     const m = fixture('0.2.0-rc.1');
     writeFileSync(join(artifacts, 'manifest.json'), JSON.stringify(m));
+    const desktopFiles = writeDesktop(artifacts, m);
     for (const file of m.platforms.flatMap(p => [p.file, p.file+'.sha256'])) writeFileSync(join(artifacts, file), 'artificial public fixture');
     const run = (extra = {}) => spawnSync(process.execPath, ['--import', mock, publisher], { encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, MOCK_STATE: state, MOLR_DIST_DIR: artifacts, GITHUB_REPOSITORY: 'example/molr', ...extra } });
+    const desktopPath = join(artifacts, desktopFiles[1]);
+    writeFileSync(desktopPath, 'corrupted installer');
+    assert.notEqual(run().status, 0);
+    assert.equal(JSON.parse(readFileSync(state)).calls.length, 0, 'No GitHub mutations before desktop validation');
+    writeDesktop(artifacts, m);
     assert.notEqual(run({ FAIL_UPLOAD: '1' }).status, 0);
     let s = JSON.parse(readFileSync(state)); assert(s.release.draft); assert.equal(s.release.assets.length, 2);
     let result = run(); assert.equal(result.status, 0, result.stderr);
-    s = JSON.parse(readFileSync(state)); assert.equal(s.release.draft, false); assert.equal(s.release.assets.length, 1 + m.platforms.length * 2);
+    s = JSON.parse(readFileSync(state)); assert.equal(s.release.draft, false); assert.equal(s.release.assets.length, 1 + desktopFiles.length + m.platforms.length * 2);
     assert(s.bodies.filter(b => b.draft === false).every(b => b.make_latest === 'false'));
     result = run(); assert.equal(result.status, 0, result.stderr);
     const before = JSON.parse(readFileSync(state)).release;
@@ -78,6 +95,7 @@ test('new releases use the creation response even when the list stays stale; tag
       const mock = join(directory, 'fetch.mjs'); writeFileSync(mock, 'globalThis.fetch = async () => ({ok: true});');
       const m = fixture(version);
       writeFileSync(join(artifacts, 'manifest.json'), JSON.stringify(m));
+      const desktopFiles = writeDesktop(artifacts, m);
       for (const file of m.platforms.flatMap(p => [p.file, p.file + '.sha256'])) writeFileSync(join(artifacts, file), 'artificial fixture');
       // Stale local outputs must not become release attachments.
       writeFileSync(join(artifacts, 'install.sh'), 'unused'); writeFileSync(join(artifacts, 'install.sh.sha256'), 'unused');
@@ -88,7 +106,7 @@ test('new releases use the creation response even when the list stays stale; tag
       assert.equal(s.release.draft, false); assert.equal(s.release.prerelease, m.channel !== 'stable');
       assert.equal(s.release.target_commitish, m.commit);
       assert.equal(s.release.make_latest, String(m.channel === 'stable'));
-      assert.deepEqual(s.release.assets.map(a => a.name), ['manifest.json', ...m.platforms.flatMap(p => [p.file, p.file + '.sha256'])]);
+      assert.deepEqual(s.release.assets.map(a => a.name), ['manifest.json', ...desktopFiles, ...m.platforms.flatMap(p => [p.file, p.file + '.sha256'])]);
       reset();
       const missingTag = run({ MISSING_TAG: '1' });
       if (m.channel === 'nightly') assert.equal(missingTag.status, 0, missingTag.stderr);

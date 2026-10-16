@@ -150,6 +150,9 @@ type releaseAsset struct {
 }
 
 func (e *Engine) update(r *installrecord.Record) error {
+	if r.Manager == "desktop" {
+		return fmt.Errorf("this Runtime is updated by Molr Desktop")
+	}
 	e.UI.step(1, "Check release source")
 	subscription := r.Updates
 	if e.Options.Source != "" {

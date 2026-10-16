@@ -1,0 +1,65 @@
+name: Desktop acceptance
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'apps/desktop/**'
+      - 'packages/ui/**'
+      - 'runtime/internal/installation/**'
+      - 'runtime/internal/installrecord/**'
+      - 'package-lock.json'
+      - '.github/workflows/desktop.yml'
+      - '.github/workflows/release-desktop.yml'
+      - 'scripts/desktop-*.mjs'
+permissions:
+  contents: read
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, macos-15-intel, windows-2025]
+    runs-on: ${{ matrix.runner }}
+    env:
+      MOLR_VERSION: 0.1.0-local
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.21.0'
+      - if: runner.os != 'Windows'
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: runtime/.go-version
+          cache-dependency-path: runtime/go.sum
+      - if: runner.os == 'Linux'
+        uses: ./.github/actions/prepare-sandbox
+      - run: npm ci
+      - run: node node_modules/electron/install.js
+      - run: npm run test:desktop && npm run build:desktop
+      - if: runner.os != 'Linux'
+        run: npm run test:desktop:electron
+      - if: runner.os == 'Linux'
+        run: |
+          if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ] && [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" = 1 ]; then
+            aa-exec -p chrome -- xvfb-run -a npm run test:desktop:electron
+          else
+            xvfb-run -a npm run test:desktop:electron
+          fi
+      - if: runner.os != 'Windows'
+        run: npm run build:release
+      - if: runner.os != 'Windows'
+        name: Native desktop Runtime lifecycle
+        run: node apps/desktop/tests/local-runtime.mjs
+      - run: npm run package:desktop
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            dist/desktop/**/*.deb
+            dist/desktop/**/*.dmg
+            dist/desktop/**/*.exe
+            dist/desktop/**/*.sha256
+            dist/desktop/**/desktop-manifest.json
+          if-no-files-found: error
+          retention-days: 7

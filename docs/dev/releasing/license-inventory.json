@@ -4,7 +4,7 @@
   "baseCommit": "5289ebc",
   "scope": "License compatibility and notice delivery review; see docs/dev/releasing/licensing.md.",
   "inputs": {
-    "package-lock.json": "0e71e3596fa24b383c0acc7b53b43c550adbe3b855d484e56c51c3f561f970b5",
+    "package-lock.json": "7c72cd77b47bc009d3f76e29fa2f21e29b3e28e396411a8e6135e734a2260564",
     "runtime/go.mod": "38206cadbc49039fe97bf56aad389ebb8151d91cf9b28afa3150abe37ca50276",
     "runtime/go.sum": "7738bd454ff9675f6f7a37d8728acd76bc25b049e6fc3b71cd6faee870e097d4",
     "runtime/.go-version": "6c075150045fda9bac31bb93cf5a0a0bc91622a75c1f10fb2971e6f994c6d4d6",
@@ -14,7 +14,7 @@
     "scripts/build-release.mjs": "17a7253510ed07b71f8dd163b183d8418b95b750da7403e0064cebe73df3cc07",
     "apps/website/src/GithubMark.tsx": "7d0d38bb13335793c5ed91d5f27ffc8e5fc2811d7eff9ce6e59a6f6d33d5a37a",
     "apps/website/src/site-links.ts": "f360bbe44df89647e5d43207230ab65ee7b2c899aa2f680f1863bba125d2c1cd",
-    "THIRD_PARTY_NOTICES.md": "c5e3488cd52d2a26af994cff425539f751e9f25c22f28e76e4f0761bae153acd",
+    "THIRD_PARTY_NOTICES.md": "205054f1cc51e90aa2f0d310e01f5c904d52aaf8eb9408253bb56a2f1fe71740",
     "scripts/license-assets.ts": "2f17e19230ad1b6fa1b44bfd974abec0d2c36522dd009ebed61151040eb715db",
     "scripts/update-third-party-notices.py": "468adbcab07505c888e08017ac41534c4eecc29285721274e3544026e0ef4be8",
     "scripts/promote-release.mjs": "3875373d2fe869b79eda684b6deef53173f8f0af7cf1e41f25f9ea977f972e27",
@@ -22,7 +22,9 @@
     "scripts/package-release.py": "190091dcc7d7d6df27c8f683ac321764f6ded95f928638f8bcf7d7ee1111cece",
     "deploy/docker/vendor/moby-seccomp.json": "6416b47770785a41ac59073cdc77d9fe98517df2799dc83ef207e622de3053f6",
     "deploy/docker/vendor/LICENSE.moby": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
-    "deploy/docker/seccomp-isolated.json": "7f176503fddf85b01daf167d2970beb395710eee32e7d5add40fc15b0dc6d34a"
+    "deploy/docker/seccomp-isolated.json": "7f176503fddf85b01daf167d2970beb395710eee32e7d5add40fc15b0dc6d34a",
+    "apps/desktop/package.json": "00c87cfefecff3947c064843210a0a56879a5ab1588de633b321b80d18feadab",
+    "apps/desktop/scripts/package.mjs": "576144c979950ec0cf43fb9cddaf2ee3cf19b764b557f6e366107d7f1edebb9e"
   },
   "npm": [
     {
@@ -166,6 +168,418 @@
       }
     },
     {
+      "path": "node_modules/@electron-internal/extract-zip",
+      "name": "@electron-internal/extract-zip",
+      "version": "1.0.5",
+      "declaredLicense": "BSD-2-Clause",
+      "reviewedLicense": "BSD-2-Clause",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [],
+      "source": {
+        "url": "https://github.com/electron/extract-zip"
+      },
+      "reviewNote": "Build-only dependency; reviewed package license declaration and upstream repository. Not included in desktop application files."
+    },
+    {
+      "path": "node_modules/@electron/asar",
+      "name": "@electron/asar",
+      "version": "3.4.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.md",
+          "sha256": "d5af8fc171f6f600c0ab4e7597dca398dda80dbe6821ce01cef78e859e7a00f8"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/electron/asar.git"
+      }
+    },
+    {
+      "path": "node_modules/@electron/asar/node_modules/balanced-match",
+      "name": "balanced-match",
+      "version": "1.0.2",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.md",
+          "sha256": "a1bd5deadb6a06dd74efa852c1b8b23f63b67f2214fbe9c8bd591da51da69268"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/juliangruber/balanced-match.git"
+      }
+    },
+    {
+      "path": "node_modules/@electron/asar/node_modules/brace-expansion",
+      "name": "brace-expansion",
+      "version": "1.1.21",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "68f12f6e2c33688699249c01d8f9623c534da20aa71989c57b061b7bc1676d14"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/juliangruber/brace-expansion.git"
+      }
+    },
+    {
+      "path": "node_modules/@electron/asar/node_modules/commander",
+      "name": "commander",
+      "version": "5.1.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "04512a63dce4d2d506ad612dc0bd7681ccf6e3655f7b6eaef7dfac8323d1ec0b"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/tj/commander.js.git"
+      }
+    },
+    {
+      "path": "node_modules/@electron/asar/node_modules/minimatch",
+      "name": "minimatch",
+      "version": "3.1.5",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/isaacs/minimatch.git"
+      }
+    },
+    {
+      "path": "node_modules/@electron/fuses",
+      "name": "@electron/fuses",
+      "version": "1.8.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "24e49a190cf97a2127e0588981e82ff6e4357632278c9ab510f328a2689eca53"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/electron/fuses.git"
+      }
+    },
+    {
+      "path": "node_modules/@electron/fuses/node_modules/fs-extra",
+      "name": "fs-extra",
+      "version": "9.1.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "1e76029602ae9b21cc4e612db2496d92febed882ba13ba745f8b3309e85f9d39"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/jprichardson/node-fs-extra"
+      }
+    },
+    {
+      "path": "node_modules/@electron/get",
+      "name": "@electron/get",
+      "version": "5.1.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "edab8abb78d9c5b36944c3e00aebf6a90eb32378993f49ac8a3904007029c629"
+        }
+      ],
+      "source": "https://github.com/electron/get"
+    },
+    {
+      "path": "node_modules/@electron/notarize",
+      "name": "@electron/notarize",
+      "version": "2.5.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "60e42db5f32611ac978f4be323cba0511d1375a1af10f32d2a8bba9b291d9de2"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/electron/notarize.git"
+      }
+    },
+    {
+      "path": "node_modules/@electron/notarize/node_modules/fs-extra",
+      "name": "fs-extra",
+      "version": "9.1.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "1e76029602ae9b21cc4e612db2496d92febed882ba13ba745f8b3309e85f9d39"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/jprichardson/node-fs-extra"
+      }
+    },
+    {
+      "path": "node_modules/@electron/osx-sign",
+      "name": "@electron/osx-sign",
+      "version": "1.3.3",
+      "declaredLicense": "BSD-2-Clause",
+      "reviewedLicense": "BSD-2-Clause",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "fe6ac932d2a16058886ab32ce601b50ce2b9d65925305b72227a184185552535"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/electron/osx-sign.git"
+      }
+    },
+    {
+      "path": "node_modules/@electron/osx-sign/node_modules/isbinaryfile",
+      "name": "isbinaryfile",
+      "version": "4.0.10",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.txt",
+          "sha256": "2eedc70f2242aaf269e86e2c85eabeb875dc524d187d5953016b24091d26a843"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/gjtorikian/isBinaryFile"
+      }
+    },
+    {
+      "path": "node_modules/@electron/rebuild",
+      "name": "@electron/rebuild",
+      "version": "4.2.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "edab8abb78d9c5b36944c3e00aebf6a90eb32378993f49ac8a3904007029c629"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/electron/rebuild.git"
+      }
+    },
+    {
+      "path": "node_modules/@electron/universal",
+      "name": "@electron/universal",
+      "version": "2.0.3",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "edab8abb78d9c5b36944c3e00aebf6a90eb32378993f49ac8a3904007029c629"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/electron/universal.git"
+      }
+    },
+    {
+      "path": "node_modules/@electron/universal/node_modules/balanced-match",
+      "name": "balanced-match",
+      "version": "1.0.2",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.md",
+          "sha256": "a1bd5deadb6a06dd74efa852c1b8b23f63b67f2214fbe9c8bd591da51da69268"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/juliangruber/balanced-match.git"
+      }
+    },
+    {
+      "path": "node_modules/@electron/universal/node_modules/brace-expansion",
+      "name": "brace-expansion",
+      "version": "2.1.7",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "68f12f6e2c33688699249c01d8f9623c534da20aa71989c57b061b7bc1676d14"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/juliangruber/brace-expansion.git"
+      }
+    },
+    {
+      "path": "node_modules/@electron/universal/node_modules/fs-extra",
+      "name": "fs-extra",
+      "version": "11.4.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "c6a7de1428955aa5a692f4d3a3d3ede658d959616944713337cda296736442e1"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/jprichardson/node-fs-extra.git"
+      }
+    },
+    {
+      "path": "node_modules/@electron/universal/node_modules/minimatch",
+      "name": "minimatch",
+      "version": "9.0.9",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "d11323827fa4edeaafc437cc5b91b6971b335f0127efeeb42bf5122fe8657e8f"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/isaacs/minimatch.git"
+      }
+    },
+    {
+      "path": "node_modules/@electron/windows-sign",
+      "name": "@electron/windows-sign",
+      "version": "1.2.2",
+      "declaredLicense": "BSD-2-Clause",
+      "reviewedLicense": "BSD-2-Clause",
+      "developmentOnly": true,
+      "optional": true,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "77cbd788d921cacb2eb6b35c96a37f6752a05c69884387a4e9b1588bacec8e4a"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/electron/windows-sign.git"
+      }
+    },
+    {
+      "path": "node_modules/@electron/windows-sign/node_modules/fs-extra",
+      "name": "fs-extra",
+      "version": "11.4.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": true,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "c6a7de1428955aa5a692f4d3a3d3ede658d959616944713337cda296736442e1"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/jprichardson/node-fs-extra.git"
+      }
+    },
+    {
       "path": "node_modules/@fontsource-variable/dm-sans",
       "name": "@fontsource-variable/dm-sans",
       "version": "5.3.0",
@@ -229,6 +643,83 @@
       }
     },
     {
+      "path": "node_modules/@isaacs/fs-minipass",
+      "name": "@isaacs/fs-minipass",
+      "version": "4.0.1",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/npm/fs-minipass.git"
+      }
+    },
+    {
+      "path": "node_modules/@malept/cross-spawn-promise",
+      "name": "@malept/cross-spawn-promise",
+      "version": "2.0.0",
+      "declaredLicense": "Apache-2.0",
+      "reviewedLicense": "Apache-2.0",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ],
+      "source": "https://github.com/malept/cross-spawn-promise"
+    },
+    {
+      "path": "node_modules/@malept/flatpak-bundler",
+      "name": "@malept/flatpak-bundler",
+      "version": "0.4.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "503b8b4d83781a017ffee6b4ec40d7d8da68be5f898004bfeb4ef4a7cb52ef23"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/malept/flatpak-bundler.git"
+      }
+    },
+    {
+      "path": "node_modules/@malept/flatpak-bundler/node_modules/fs-extra",
+      "name": "fs-extra",
+      "version": "9.1.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "1e76029602ae9b21cc4e612db2496d92febed882ba13ba745f8b3309e85f9d39"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/jprichardson/node-fs-extra"
+      }
+    },
+    {
       "path": "node_modules/@mermaid-js/parser",
       "name": "@mermaid-js/parser",
       "version": "2.0.0",
@@ -250,6 +741,26 @@
       }
     },
     {
+      "path": "node_modules/@noble/hashes",
+      "name": "@noble/hashes",
+      "version": "2.4.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "4f221aee6e072336700c408c68ab3b96a3fc09f6aebe6f48f1bd99e5ef13faec"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/paulmillr/noble-hashes.git"
+      }
+    },
+    {
       "path": "node_modules/@oxc-project/types",
       "name": "@oxc-project/types",
       "version": "0.150.0",
@@ -268,6 +779,87 @@
         "type": "git",
         "url": "git+https://github.com/oxc-project/oxc.git",
         "directory": "npm/oxc-types"
+      }
+    },
+    {
+      "path": "node_modules/@peculiar/asn1-schema",
+      "name": "@peculiar/asn1-schema",
+      "version": "2.11.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "1ecdd8e8977af83c07c5f97bec87b47d27059b7ea323ca3160fbfa2314f5d99c"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/PeculiarVentures/asn1-schema",
+        "directory": "packages/schema"
+      }
+    },
+    {
+      "path": "node_modules/@peculiar/json-schema",
+      "name": "@peculiar/json-schema",
+      "version": "1.1.12",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "83e4dd21429a91fb7cea67a476032a9641425e5355df2e0f589a738b6ec9fd2c"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/PeculiarVentures/json-schema.git"
+      }
+    },
+    {
+      "path": "node_modules/@peculiar/utils",
+      "name": "@peculiar/utils",
+      "version": "2.0.3",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "ce2ae0f0066d1be56ab4ec851cc611805bb95cdc8dd858b301e22ee54b351d43"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/PeculiarVentures/pvtsutils"
+      }
+    },
+    {
+      "path": "node_modules/@peculiar/webcrypto",
+      "name": "@peculiar/webcrypto",
+      "version": "1.7.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.md",
+          "sha256": "06fa9b6896b5e0062651f1a769d08f19892e76f2c1b42329f60f4cdd8de4c378"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/PeculiarVentures/webcrypto"
       }
     },
     {
@@ -658,6 +1250,64 @@
         "type": "git",
         "url": "git+https://github.com/rolldown/plugins.git",
         "directory": "packages/pluginutils"
+      }
+    },
+    {
+      "path": "node_modules/@sindresorhus/is",
+      "name": "@sindresorhus/is",
+      "version": "4.6.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3"
+        }
+      ],
+      "source": "sindresorhus/is"
+    },
+    {
+      "path": "node_modules/@szmarczak/http-timer",
+      "name": "@szmarczak/http-timer",
+      "version": "4.0.6",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "0194571d45a06ea2a22ceb51f981e3be92525966d28847dbc0d9982603bf90de"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/szmarczak/http-timer.git"
+      }
+    },
+    {
+      "path": "node_modules/@types/cacheable-request",
+      "name": "@types/cacheable-request",
+      "version": "6.0.3",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+        "directory": "types/cacheable-request"
       }
     },
     {
@@ -1375,6 +2025,27 @@
       }
     },
     {
+      "path": "node_modules/@types/fs-extra",
+      "name": "@types/fs-extra",
+      "version": "9.0.13",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+        "directory": "types/fs-extra"
+      }
+    },
+    {
       "path": "node_modules/@types/geojson",
       "name": "@types/geojson",
       "version": "7946.0.16",
@@ -1417,6 +2088,27 @@
       }
     },
     {
+      "path": "node_modules/@types/http-cache-semantics",
+      "name": "@types/http-cache-semantics",
+      "version": "4.2.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+        "directory": "types/http-cache-semantics"
+      }
+    },
+    {
       "path": "node_modules/@types/katex",
       "name": "@types/katex",
       "version": "0.16.8",
@@ -1435,6 +2127,27 @@
         "type": "git",
         "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
         "directory": "types/katex"
+      }
+    },
+    {
+      "path": "node_modules/@types/keyv",
+      "name": "@types/keyv",
+      "version": "3.1.4",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+        "directory": "types/keyv"
       }
     },
     {
@@ -1564,6 +2277,27 @@
       }
     },
     {
+      "path": "node_modules/@types/responselike",
+      "name": "@types/responselike",
+      "version": "1.0.3",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+        "directory": "types/responselike"
+      }
+    },
+    {
       "path": "node_modules/@types/trusted-types",
       "name": "@types/trusted-types",
       "version": "2.0.7",
@@ -1667,6 +2401,84 @@
       }
     },
     {
+      "path": "node_modules/@xmldom/xmldom",
+      "name": "@xmldom/xmldom",
+      "version": "0.8.15",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "4da724fc305d81606b245b324d4d2586916b9d248b23d82183df753ace0fdf71"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/xmldom/xmldom.git"
+      }
+    },
+    {
+      "path": "node_modules/abbrev",
+      "name": "abbrev",
+      "version": "4.0.0",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "9e0d5c7989f7e9f07d7c4b158aceff270f235eb7464ace41c5e7b200834a43e0"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/npm/abbrev-js.git"
+      }
+    },
+    {
+      "path": "node_modules/agent-base",
+      "name": "agent-base",
+      "version": "7.1.4",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "8d8c55319c7729d57be811c747452636688d54f19701ee0752b6b15ad3771d9a"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/TooTallNate/proxy-agents.git",
+        "directory": "packages/agent-base"
+      }
+    },
+    {
+      "path": "node_modules/ajv",
+      "name": "ajv",
+      "version": "8.20.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "a05350a88e318e4f5f2c2a1ff1e2e88daa4dd38e6e78b71cccae422bdc762cc3"
+        }
+      ],
+      "source": "ajv-validator/ajv"
+    },
+    {
       "path": "node_modules/ansi-regex",
       "name": "ansi-regex",
       "version": "5.0.1",
@@ -1701,6 +2513,308 @@
       "source": "chalk/ansi-styles"
     },
     {
+      "path": "node_modules/app-builder-lib",
+      "name": "app-builder-lib",
+      "version": "26.15.3",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/electron-userland/electron-builder.git",
+        "directory": "packages/app-builder-lib"
+      },
+      "reviewNote": "Build-only dependency; reviewed package license declaration and upstream repository. Not included in desktop application files."
+    },
+    {
+      "path": "node_modules/app-builder-lib/node_modules/@electron/get",
+      "name": "@electron/get",
+      "version": "3.1.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "edab8abb78d9c5b36944c3e00aebf6a90eb32378993f49ac8a3904007029c629"
+        }
+      ],
+      "source": "https://github.com/electron/get"
+    },
+    {
+      "path": "node_modules/app-builder-lib/node_modules/@electron/get/node_modules/fs-extra",
+      "name": "fs-extra",
+      "version": "8.1.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "1e76029602ae9b21cc4e612db2496d92febed882ba13ba745f8b3309e85f9d39"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/jprichardson/node-fs-extra"
+      }
+    },
+    {
+      "path": "node_modules/app-builder-lib/node_modules/@electron/get/node_modules/semver",
+      "name": "semver",
+      "version": "6.3.1",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/npm/node-semver.git"
+      }
+    },
+    {
+      "path": "node_modules/app-builder-lib/node_modules/ci-info",
+      "name": "ci-info",
+      "version": "4.3.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "f58943cb354fb2707fea2f7b26b04e6014ddb56835cdfd414c9d2c6c59165b64"
+        }
+      ],
+      "source": "github:watson/ci-info"
+    },
+    {
+      "path": "node_modules/app-builder-lib/node_modules/env-paths",
+      "name": "env-paths",
+      "version": "2.2.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
+        }
+      ],
+      "source": "sindresorhus/env-paths"
+    },
+    {
+      "path": "node_modules/app-builder-lib/node_modules/jsonfile",
+      "name": "jsonfile",
+      "version": "4.0.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "a9801fb52ba22ef808682a094da8a7a480584b7ed0dfd0d888ab543616335031"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git@github.com:jprichardson/node-jsonfile.git"
+      }
+    },
+    {
+      "path": "node_modules/app-builder-lib/node_modules/semver",
+      "name": "semver",
+      "version": "7.7.4",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/npm/node-semver.git"
+      }
+    },
+    {
+      "path": "node_modules/app-builder-lib/node_modules/universalify",
+      "name": "universalify",
+      "version": "0.1.2",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "3fda5977c0904e226190b4e21d64340c1731e2142d6fe5f3dee0090a216b8b63"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/RyanZim/universalify.git"
+      }
+    },
+    {
+      "path": "node_modules/argparse",
+      "name": "argparse",
+      "version": "2.0.1",
+      "declaredLicense": "Python-2.0",
+      "reviewedLicense": "Python-2.0",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "de4d1f2d2ad5ad0cfd1657a106476b31cb5db5ef9d1ff842b237c0c81f0c8a23"
+        }
+      ],
+      "source": "nodeca/argparse"
+    },
+    {
+      "path": "node_modules/asn1js",
+      "name": "asn1js",
+      "version": "3.0.10",
+      "declaredLicense": "BSD-3-Clause",
+      "reviewedLicense": "BSD-3-Clause",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "ebe5d98519d0dfcbcb80e20b22a56e7321e8557cd14355760434bbd4c1f4f683"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/PeculiarVentures/ASN1.js"
+      }
+    },
+    {
+      "path": "node_modules/async",
+      "name": "async",
+      "version": "3.2.6",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "d9fed24f132985934fca621c4dc1dfb53e03377a24d0568d424383d7eaa9c0ac"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/caolan/async.git"
+      }
+    },
+    {
+      "path": "node_modules/async-exit-hook",
+      "name": "async-exit-hook",
+      "version": "2.0.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "6fb9754611c20f6649f68805e8c990e83261f29316e29de9e6cedae607b8634c"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/tapppi/async-exit-hook.git"
+      }
+    },
+    {
+      "path": "node_modules/asynckit",
+      "name": "asynckit",
+      "version": "0.4.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "1953150d5d4b10c7542cee6f6e0c613b2682545233f069d75cfff1936386ce10"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/alexindigo/asynckit.git"
+      }
+    },
+    {
+      "path": "node_modules/at-least-node",
+      "name": "at-least-node",
+      "version": "1.0.0",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "ecc042b5f1cdc6854fc00486065084bed877daa8a7fadce15ef943a550d1dff0"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/RyanZim/at-least-node.git"
+      }
+    },
+    {
+      "path": "node_modules/aws4",
+      "name": "aws4",
+      "version": "1.13.2",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "c366fee901d0ff03629d5b39509565785e5be424c73c85eef885f4e40eb32578"
+        }
+      ],
+      "source": "github:mhart/aws4"
+    },
+    {
       "path": "node_modules/bail",
       "name": "bail",
       "version": "2.0.2",
@@ -1716,6 +2830,242 @@
         }
       ],
       "source": "wooorm/bail"
+    },
+    {
+      "path": "node_modules/balanced-match",
+      "name": "balanced-match",
+      "version": "4.0.4",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.md",
+          "sha256": "d408f38ffa3355c5faec517153295338892eb0f1ea43f57874bb23c6075979b5"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/juliangruber/balanced-match.git"
+      }
+    },
+    {
+      "path": "node_modules/base64-js",
+      "name": "base64-js",
+      "version": "1.5.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "5b37224c080cdcc97c871ada971c224e9926370fe74f11b539aa1cf9f3b1aca1"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/beatgammit/base64-js.git"
+      }
+    },
+    {
+      "path": "node_modules/bluebird",
+      "name": "bluebird",
+      "version": "3.7.2",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "87092fe7ffd1e92eba5d1dd39b73a73fdb4fdd4df3474beacc3d9f6b08ece82c"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/petkaantonov/bluebird.git"
+      }
+    },
+    {
+      "path": "node_modules/boolean",
+      "name": "boolean",
+      "version": "3.2.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": true,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.txt",
+          "sha256": "8e4aa1aef825c37d6f74d4b867dccb7b059b66c75ecdedc74834e2f403568a27"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/thenativeweb/boolean.git"
+      }
+    },
+    {
+      "path": "node_modules/brace-expansion",
+      "name": "brace-expansion",
+      "version": "5.0.12",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "9c63a23124d68cd30cd316a94a1a0bca34f032786df6df69fc4b5f136bac8d2e"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/juliangruber/brace-expansion.git"
+      }
+    },
+    {
+      "path": "node_modules/buffer-from",
+      "name": "buffer-from",
+      "version": "1.1.2",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "14275f5c8139d02054c5259d52a88ccbba662a86af18c30f071c8d082dc6004c"
+        }
+      ],
+      "source": "LinusU/buffer-from"
+    },
+    {
+      "path": "node_modules/builder-util",
+      "name": "builder-util",
+      "version": "26.15.3",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "bed8d0ab3e6031817f775a641ff37313b0f5591bc8ba0ed79b978dafbd4231ce"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/electron-userland/electron-builder.git",
+        "directory": "packages/builder-util"
+      }
+    },
+    {
+      "path": "node_modules/builder-util-runtime",
+      "name": "builder-util-runtime",
+      "version": "9.7.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "bed8d0ab3e6031817f775a641ff37313b0f5591bc8ba0ed79b978dafbd4231ce"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/electron-userland/electron-builder.git",
+        "directory": "packages/builder-util-runtime"
+      }
+    },
+    {
+      "path": "node_modules/bytestreamjs",
+      "name": "bytestreamjs",
+      "version": "2.0.1",
+      "declaredLicense": "BSD-3-Clause",
+      "reviewedLicense": "BSD-3-Clause",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "f0fd6a4bf9bf46cfcea2005f800305fbb72cd0152b3c269cf496388258ee08f9"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/PeculiarVentures/ByteStream.js.git"
+      }
+    },
+    {
+      "path": "node_modules/cacheable-lookup",
+      "name": "cacheable-lookup",
+      "version": "5.0.4",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "b35de79efc88b23c73dd431df6075bed0890db0db1544ee3d57b046aa7a8e72b"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/szmarczak/cacheable-lookup.git"
+      }
+    },
+    {
+      "path": "node_modules/cacheable-request",
+      "name": "cacheable-request",
+      "version": "7.0.4",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "861908ec818ff6142fdd6c4b66d6264c206d3d5a46003b1342e1853a9a85abac"
+        }
+      ],
+      "source": "lukechilds/cacheable-request"
+    },
+    {
+      "path": "node_modules/call-bind-apply-helpers",
+      "name": "call-bind-apply-helpers",
+      "version": "1.0.2",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "5e325595b4ea8cfec3802f545b1def5d7b73e4a5b8e9ba63e32a320f67732292"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/ljharb/call-bind-apply-helpers.git"
+      }
     },
     {
       "path": "node_modules/camelcase",
@@ -1750,6 +3100,23 @@
         }
       ],
       "source": "wooorm/ccount"
+    },
+    {
+      "path": "node_modules/chalk",
+      "name": "chalk",
+      "version": "4.1.2",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
+        }
+      ],
+      "source": "chalk/chalk"
     },
     {
       "path": "node_modules/character-entities",
@@ -1840,6 +3207,59 @@
       }
     },
     {
+      "path": "node_modules/chownr",
+      "name": "chownr",
+      "version": "3.0.0",
+      "declaredLicense": "BlueOak-1.0.0",
+      "reviewedLicense": "BlueOak-1.0.0",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.md",
+          "sha256": "a49c9ba464796f65b59fca3f1e6ca40912df1e859f575383223f7ec6c5baae09"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/isaacs/chownr.git"
+      }
+    },
+    {
+      "path": "node_modules/chromium-pickle-js",
+      "name": "chromium-pickle-js",
+      "version": "0.2.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/electron/node-chromium-pickle-js.git"
+      },
+      "reviewNote": "Build-only dependency; reviewed package license declaration and upstream repository. Not included in desktop application files."
+    },
+    {
+      "path": "node_modules/ci-info",
+      "name": "ci-info",
+      "version": "4.4.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "f58943cb354fb2707fea2f7b26b04e6014ddb56835cdfd414c9d2c6c59165b64"
+        }
+      ],
+      "source": "github:watson/ci-info"
+    },
+    {
       "path": "node_modules/cliui",
       "name": "cliui",
       "version": "6.0.0",
@@ -1857,6 +3277,26 @@
       "source": {
         "type": "git",
         "url": "http://github.com/yargs/cliui.git"
+      }
+    },
+    {
+      "path": "node_modules/clone-response",
+      "name": "clone-response",
+      "version": "1.0.3",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "861908ec818ff6142fdd6c4b66d6264c206d3d5a46003b1342e1853a9a85abac"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/sindresorhus/clone-response.git"
       }
     },
     {
@@ -1897,6 +3337,26 @@
       }
     },
     {
+      "path": "node_modules/combined-stream",
+      "name": "combined-stream",
+      "version": "1.0.8",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "License",
+          "sha256": "47eb8ca82c798246774946d1be0f9aa08f025fa8325ced0947aeeb4c05fe5547"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/felixge/node-combined-stream.git"
+      }
+    },
+    {
       "path": "node_modules/comma-separated-tokens",
       "name": "comma-separated-tokens",
       "version": "2.0.3",
@@ -1934,6 +3394,59 @@
       }
     },
     {
+      "path": "node_modules/compare-version",
+      "name": "compare-version",
+      "version": "0.1.2",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [],
+      "source": "kevva/compare-version",
+      "reviewNote": "Build-only dependency; reviewed package license declaration and upstream repository. Not included in desktop application files."
+    },
+    {
+      "path": "node_modules/concat-map",
+      "name": "concat-map",
+      "version": "0.0.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "435a6722c786b0a56fbe7387028f1d9d3f3a2d0fb615bb8fee118727c3f59b7b"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/substack/node-concat-map.git"
+      }
+    },
+    {
+      "path": "node_modules/core-util-is",
+      "name": "core-util-is",
+      "version": "1.0.3",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "33b734d60042d0fe0c92dd1fc1e874193a1c899ec3e276a2eb935d2d0bf5b710"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/isaacs/core-util-is"
+      }
+    },
+    {
       "path": "node_modules/cose-base",
       "name": "cose-base",
       "version": "1.0.3",
@@ -1951,6 +3464,82 @@
       "source": {
         "type": "git",
         "url": "git+https://github.com/iVis-at-Bilkent/cose-base.git"
+      }
+    },
+    {
+      "path": "node_modules/cross-dirname",
+      "name": "cross-dirname",
+      "version": "0.1.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": true,
+      "installedForReview": true,
+      "licenseFiles": [],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/JumpLink/cross-dirname.git"
+      },
+      "reviewNote": "Build-only dependency; reviewed package license declaration and upstream repository. Not included in desktop application files."
+    },
+    {
+      "path": "node_modules/cross-spawn",
+      "name": "cross-spawn",
+      "version": "7.0.6",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "aaa78451b6fecd1b9c4594c796c133c0e90cad100372ff8bc6de615e9ef9adf1"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git@github.com:moxystudio/node-cross-spawn.git"
+      }
+    },
+    {
+      "path": "node_modules/cross-spawn/node_modules/isexe",
+      "name": "isexe",
+      "version": "2.0.0",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/isaacs/isexe.git"
+      }
+    },
+    {
+      "path": "node_modules/cross-spawn/node_modules/which",
+      "name": "which",
+      "version": "2.0.2",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/isaacs/node-which.git"
       }
     },
     {
@@ -2889,6 +4478,100 @@
       "source": "wooorm/decode-named-character-reference"
     },
     {
+      "path": "node_modules/decompress-response",
+      "name": "decompress-response",
+      "version": "6.0.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3"
+        }
+      ],
+      "source": "sindresorhus/decompress-response"
+    },
+    {
+      "path": "node_modules/decompress-response/node_modules/mimic-response",
+      "name": "mimic-response",
+      "version": "3.1.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3"
+        }
+      ],
+      "source": "sindresorhus/mimic-response"
+    },
+    {
+      "path": "node_modules/defer-to-connect",
+      "name": "defer-to-connect",
+      "version": "2.0.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "0194571d45a06ea2a22ceb51f981e3be92525966d28847dbc0d9982603bf90de"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/szmarczak/defer-to-connect.git"
+      }
+    },
+    {
+      "path": "node_modules/define-data-property",
+      "name": "define-data-property",
+      "version": "1.1.4",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": true,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "b41d08bc3624d8c436fc80237d73ebb361985a67f4504bbcd703e5ca2b27254c"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/ljharb/define-data-property.git"
+      }
+    },
+    {
+      "path": "node_modules/define-properties",
+      "name": "define-properties",
+      "version": "1.2.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": true,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "00d402c2bbe7c67369bd01ce2c16b8ed46ccc949a1ee2d6bb8f9606afa8c7434"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/ljharb/define-properties.git"
+      }
+    },
+    {
       "path": "node_modules/delaunator",
       "name": "delaunator",
       "version": "5.1.0",
@@ -2906,6 +4589,26 @@
       "source": {
         "type": "git",
         "url": "https://github.com/mapbox/delaunator.git"
+      }
+    },
+    {
+      "path": "node_modules/delayed-stream",
+      "name": "delayed-stream",
+      "version": "1.0.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "License",
+          "sha256": "47eb8ca82c798246774946d1be0f9aa08f025fa8325ced0947aeeb4c05fe5547"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/felixge/node-delayed-stream.git"
       }
     },
     {
@@ -2946,6 +4649,26 @@
       }
     },
     {
+      "path": "node_modules/detect-node",
+      "name": "detect-node",
+      "version": "2.1.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": true,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "54b32293ea560d22cd9b62af9b2cda1a030d910a48c6601d227c5ff2338d95f8"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/iliakan/detect-node"
+      }
+    },
+    {
       "path": "node_modules/devlop",
       "name": "devlop",
       "version": "1.1.0",
@@ -2983,6 +4706,120 @@
       }
     },
     {
+      "path": "node_modules/dir-compare",
+      "name": "dir-compare",
+      "version": "4.2.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "4b5d70dad6961c6f676e8a1dbd408e4869c1996dff9fc7d7d49c04916c60751f"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/gliviu/dir-compare"
+      }
+    },
+    {
+      "path": "node_modules/dir-compare/node_modules/balanced-match",
+      "name": "balanced-match",
+      "version": "1.0.2",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.md",
+          "sha256": "a1bd5deadb6a06dd74efa852c1b8b23f63b67f2214fbe9c8bd591da51da69268"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/juliangruber/balanced-match.git"
+      }
+    },
+    {
+      "path": "node_modules/dir-compare/node_modules/brace-expansion",
+      "name": "brace-expansion",
+      "version": "1.1.21",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "68f12f6e2c33688699249c01d8f9623c534da20aa71989c57b061b7bc1676d14"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/juliangruber/brace-expansion.git"
+      }
+    },
+    {
+      "path": "node_modules/dir-compare/node_modules/minimatch",
+      "name": "minimatch",
+      "version": "3.1.5",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/isaacs/minimatch.git"
+      }
+    },
+    {
+      "path": "node_modules/dir-compare/node_modules/p-limit",
+      "name": "p-limit",
+      "version": "3.1.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3"
+        }
+      ],
+      "source": "sindresorhus/p-limit"
+    },
+    {
+      "path": "node_modules/dmg-builder",
+      "name": "dmg-builder",
+      "version": "26.15.3",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/electron-userland/electron-builder.git",
+        "directory": "packages/dmg-builder"
+      },
+      "reviewNote": "Build-only dependency; reviewed package license declaration and upstream repository. Not included in desktop application files."
+    },
+    {
       "path": "node_modules/dompurify",
       "name": "dompurify",
       "version": "3.4.16",
@@ -3004,6 +4841,396 @@
       "source": {
         "type": "git",
         "url": "git://github.com/cure53/DOMPurify.git"
+      }
+    },
+    {
+      "path": "node_modules/dotenv",
+      "name": "dotenv",
+      "version": "16.6.1",
+      "declaredLicense": "BSD-2-Clause",
+      "reviewedLicense": "BSD-2-Clause",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "74b629b24865e1e83c5277ee84590b7937644d6fd959d0c7bdce758676cd2ced"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/motdotla/dotenv.git"
+      }
+    },
+    {
+      "path": "node_modules/dotenv-expand",
+      "name": "dotenv-expand",
+      "version": "11.0.7",
+      "declaredLicense": "BSD-2-Clause",
+      "reviewedLicense": "BSD-2-Clause",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "3726b9470c3a6b54e1ebcc1d802d37089b5a5fc97273b52b2cee578a4421ec45"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/motdotla/dotenv-expand"
+      }
+    },
+    {
+      "path": "node_modules/dunder-proto",
+      "name": "dunder-proto",
+      "version": "1.0.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "2b770a704c15de238c3f622b01b0044ddd60b49ee30608ea6991ebf19db7a7a1"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/es-shims/dunder-proto.git"
+      }
+    },
+    {
+      "path": "node_modules/duplexer2",
+      "name": "duplexer2",
+      "version": "0.1.4",
+      "declaredLicense": "BSD-3-Clause",
+      "reviewedLicense": "BSD-3-Clause",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.md",
+          "sha256": "252a200ba7a38686f7954ec4cb09b3ad7788fa099eb724de167d7ab16b1244b9"
+        }
+      ],
+      "source": "deoxxa/duplexer2"
+    },
+    {
+      "path": "node_modules/ejs",
+      "name": "ejs",
+      "version": "3.1.10",
+      "declaredLicense": "Apache-2.0",
+      "reviewedLicense": "Apache-2.0",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/mde/ejs.git"
+      }
+    },
+    {
+      "path": "node_modules/electron",
+      "name": "electron",
+      "version": "44.8.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "5154e165bd6c2cc0cfbcd8916498c7abab0497923bafcd5cb07673fe8480087d"
+        }
+      ],
+      "source": "https://github.com/electron/electron",
+      "reviewNote": "Electron itself and platform-specific Chromium/Node notices are delivered from the official binary distribution; see desktop packaging."
+    },
+    {
+      "path": "node_modules/electron-builder",
+      "name": "electron-builder",
+      "version": "26.15.3",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "bed8d0ab3e6031817f775a641ff37313b0f5591bc8ba0ed79b978dafbd4231ce"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/electron-userland/electron-builder.git",
+        "directory": "packages/electron-builder"
+      }
+    },
+    {
+      "path": "node_modules/electron-builder-squirrel-windows",
+      "name": "electron-builder-squirrel-windows",
+      "version": "26.15.3",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "bed8d0ab3e6031817f775a641ff37313b0f5591bc8ba0ed79b978dafbd4231ce"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/electron-userland/electron-builder.git",
+        "directory": "packages/electron-builder-squirrel-windows"
+      }
+    },
+    {
+      "path": "node_modules/electron-builder/node_modules/cliui",
+      "name": "cliui",
+      "version": "8.0.1",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.txt",
+          "sha256": "2dc0465729366c3a7890dfa9e972a1ba7048a26c02116fb8b419a6a1ac110149"
+        }
+      ],
+      "source": "yargs/cliui"
+    },
+    {
+      "path": "node_modules/electron-builder/node_modules/wrap-ansi",
+      "name": "wrap-ansi",
+      "version": "7.0.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3"
+        }
+      ],
+      "source": "chalk/wrap-ansi"
+    },
+    {
+      "path": "node_modules/electron-builder/node_modules/y18n",
+      "name": "y18n",
+      "version": "5.0.8",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "2034cce3b6fafcddd642c4175e01d3ddfc332a53b9f20fdc46b1466dc89ac469"
+        }
+      ],
+      "source": "yargs/y18n"
+    },
+    {
+      "path": "node_modules/electron-builder/node_modules/yargs",
+      "name": "yargs",
+      "version": "17.7.3",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "2f1a503bfab84b3ba7393627308b3274501e459e3b5185bbb56bbf16cb1602d4"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/yargs/yargs.git"
+      }
+    },
+    {
+      "path": "node_modules/electron-builder/node_modules/yargs-parser",
+      "name": "yargs-parser",
+      "version": "21.1.1",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.txt",
+          "sha256": "365496ca1f56da40b23c9815fc40fa9005847b2f8f8fd1c1a4929ef25ec8cd1d"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/yargs/yargs-parser.git"
+      }
+    },
+    {
+      "path": "node_modules/electron-publish",
+      "name": "electron-publish",
+      "version": "26.15.3",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "bed8d0ab3e6031817f775a641ff37313b0f5591bc8ba0ed79b978dafbd4231ce"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/electron-userland/electron-builder.git",
+        "directory": "packages/electron-publish"
+      }
+    },
+    {
+      "path": "node_modules/electron-winstaller",
+      "name": "electron-winstaller",
+      "version": "5.4.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "379ecb81d11a2c2a72225e0cf8cd04803b220da64e1668042ddd0d04bd1c8666"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/electron/windows-installer"
+      }
+    },
+    {
+      "path": "node_modules/electron-winstaller/node_modules/fs-extra",
+      "name": "fs-extra",
+      "version": "7.0.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "1e76029602ae9b21cc4e612db2496d92febed882ba13ba745f8b3309e85f9d39"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/jprichardson/node-fs-extra"
+      }
+    },
+    {
+      "path": "node_modules/electron-winstaller/node_modules/jsonfile",
+      "name": "jsonfile",
+      "version": "4.0.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "a9801fb52ba22ef808682a094da8a7a480584b7ed0dfd0d888ab543616335031"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git@github.com:jprichardson/node-jsonfile.git"
+      }
+    },
+    {
+      "path": "node_modules/electron-winstaller/node_modules/universalify",
+      "name": "universalify",
+      "version": "0.1.2",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "3fda5977c0904e226190b4e21d64340c1731e2142d6fe5f3dee0090a216b8b63"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/RyanZim/universalify.git"
+      }
+    },
+    {
+      "path": "node_modules/electron/node_modules/@types/node",
+      "name": "@types/node",
+      "version": "24.19.2",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+        "directory": "types/node"
+      }
+    },
+    {
+      "path": "node_modules/electron/node_modules/undici-types",
+      "name": "undici-types",
+      "version": "7.24.6",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "a6db8096b2707bc0102d256917d4d33f298ba36d8c3f25de067a2b5bb379db27"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/nodejs/undici.git"
       }
     },
     {
@@ -3047,6 +5274,26 @@
       }
     },
     {
+      "path": "node_modules/end-of-stream",
+      "name": "end-of-stream",
+      "version": "1.4.5",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "3fe8d55a98dbf260eace67c00cf9bc53edb46234e840098a0b93df3096b97fb6"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/mafintosh/end-of-stream.git"
+      }
+    },
+    {
       "path": "node_modules/entities",
       "name": "entities",
       "version": "6.0.1",
@@ -3064,6 +5311,119 @@
       "source": {
         "type": "git",
         "url": "git://github.com/fb55/entities.git"
+      }
+    },
+    {
+      "path": "node_modules/env-paths",
+      "name": "env-paths",
+      "version": "3.0.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3"
+        }
+      ],
+      "source": "sindresorhus/env-paths"
+    },
+    {
+      "path": "node_modules/err-code",
+      "name": "err-code",
+      "version": "2.0.3",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/IndigoUnited/js-err-code.git"
+      },
+      "reviewNote": "Build-only dependency; reviewed package license declaration and upstream repository. Not included in desktop application files."
+    },
+    {
+      "path": "node_modules/es-define-property",
+      "name": "es-define-property",
+      "version": "1.0.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "5e325595b4ea8cfec3802f545b1def5d7b73e4a5b8e9ba63e32a320f67732292"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/ljharb/es-define-property.git"
+      }
+    },
+    {
+      "path": "node_modules/es-errors",
+      "name": "es-errors",
+      "version": "1.3.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "5e325595b4ea8cfec3802f545b1def5d7b73e4a5b8e9ba63e32a320f67732292"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/ljharb/es-errors.git"
+      }
+    },
+    {
+      "path": "node_modules/es-object-atoms",
+      "name": "es-object-atoms",
+      "version": "1.1.2",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "5e325595b4ea8cfec3802f545b1def5d7b73e4a5b8e9ba63e32a320f67732292"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/ljharb/es-object-atoms.git"
+      }
+    },
+    {
+      "path": "node_modules/es-set-tostringtag",
+      "name": "es-set-tostringtag",
+      "version": "2.1.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "1a3aeb1f1398bd697d57c3c585faadf59d825aca6e3162cd7eeb72ff76eb2466"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/es-shims/es-set-tostringtag.git"
       }
     },
     {
@@ -3089,6 +5449,43 @@
         "type": "git",
         "url": "https://github.com/toss/es-toolkit.git"
       }
+    },
+    {
+      "path": "node_modules/es6-error",
+      "name": "es6-error",
+      "version": "4.1.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": true,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.md",
+          "sha256": "9f655c5baa5a6f254d1e87f27e14d04acaff4bd0b489ea3c2f33723919da2f44"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/bjyoungblood/es6-error.git"
+      }
+    },
+    {
+      "path": "node_modules/escalade",
+      "name": "escalade",
+      "version": "3.2.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "9a9edad7baae52622bddf3c15b2ef8a33d2c89f2d25408ad13e8a7481c6b0c97"
+        }
+      ],
+      "source": "lukeed/escalade"
     },
     {
       "path": "node_modules/escape-string-regexp",
@@ -3125,6 +5522,26 @@
       "source": "syntax-tree/estree-util-is-identifier-name"
     },
     {
+      "path": "node_modules/exponential-backoff",
+      "name": "exponential-backoff",
+      "version": "3.1.3",
+      "declaredLicense": "Apache-2.0",
+      "reviewedLicense": "Apache-2.0",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "f5afc95c69e116ea6b1755f91a8763f53eadb78b4f1582a08d2d18586a03a117"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/coveooss/exponential-backoff.git"
+      }
+    },
+    {
       "path": "node_modules/extend",
       "name": "extend",
       "version": "3.0.2",
@@ -3142,6 +5559,46 @@
       "source": {
         "type": "git",
         "url": "https://github.com/justmoon/node-extend.git"
+      }
+    },
+    {
+      "path": "node_modules/fast-deep-equal",
+      "name": "fast-deep-equal",
+      "version": "3.1.3",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "7bf9b2de73a6b356761c948d0e9eeb4be6c1270bd04c79cd489c1e400ffdfc1a"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/epoberezkin/fast-deep-equal.git"
+      }
+    },
+    {
+      "path": "node_modules/fast-uri",
+      "name": "fast-uri",
+      "version": "3.1.8",
+      "declaredLicense": "BSD-3-Clause",
+      "reviewedLicense": "BSD-3-Clause",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "b010b0dfdfdb23d7396e03b82cd4621fc9bb8f95d6b0aea70b9c24e12074c786"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/fastify/fast-uri.git"
       }
     },
     {
@@ -3165,6 +5622,82 @@
       }
     },
     {
+      "path": "node_modules/filelist",
+      "name": "filelist",
+      "version": "1.0.6",
+      "declaredLicense": "Apache-2.0",
+      "reviewedLicense": "Apache-2.0",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/mde/filelist.git"
+      },
+      "reviewNote": "Build-only dependency; reviewed package license declaration and upstream repository. Not included in desktop application files."
+    },
+    {
+      "path": "node_modules/filelist/node_modules/balanced-match",
+      "name": "balanced-match",
+      "version": "1.0.2",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.md",
+          "sha256": "a1bd5deadb6a06dd74efa852c1b8b23f63b67f2214fbe9c8bd591da51da69268"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/juliangruber/balanced-match.git"
+      }
+    },
+    {
+      "path": "node_modules/filelist/node_modules/brace-expansion",
+      "name": "brace-expansion",
+      "version": "2.1.7",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "68f12f6e2c33688699249c01d8f9623c534da20aa71989c57b061b7bc1676d14"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/juliangruber/brace-expansion.git"
+      }
+    },
+    {
+      "path": "node_modules/filelist/node_modules/minimatch",
+      "name": "minimatch",
+      "version": "5.1.9",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "d11323827fa4edeaafc437cc5b91b6971b335f0127efeeb42bf5122fe8657e8f"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/isaacs/minimatch.git"
+      }
+    },
+    {
       "path": "node_modules/find-up",
       "name": "find-up",
       "version": "4.1.0",
@@ -3182,6 +5715,66 @@
       "source": "sindresorhus/find-up"
     },
     {
+      "path": "node_modules/form-data",
+      "name": "form-data",
+      "version": "4.0.6",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "License",
+          "sha256": "e5b780d4f38d1d3328e3e53186c4e62d3fa149ea6f2bacd5de5ad0c30ac85343"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/form-data/form-data.git"
+      }
+    },
+    {
+      "path": "node_modules/fs-extra",
+      "name": "fs-extra",
+      "version": "10.1.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "1e76029602ae9b21cc4e612db2496d92febed882ba13ba745f8b3309e85f9d39"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/jprichardson/node-fs-extra"
+      }
+    },
+    {
+      "path": "node_modules/fs.realpath",
+      "name": "fs.realpath",
+      "version": "1.0.0",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "8465b04b67f473341171b5c9c8b2c741a4a395b3f6ed58339b3a4f4db3db7472"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/isaacs/fs.realpath.git"
+      }
+    },
+    {
       "path": "node_modules/fsevents",
       "name": "fsevents",
       "version": "2.3.3",
@@ -3192,6 +5785,26 @@
       "installedForReview": false,
       "licenseFiles": [],
       "additionalEvidence": "Other-platform optional package: lock metadata and same-version package family only; binary contents not examined."
+    },
+    {
+      "path": "node_modules/function-bind",
+      "name": "function-bind",
+      "version": "1.1.2",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "773e131a7684726005a7e4688a80b4620033bc08499bc1404dd1a1eb3bca725e"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/Raynos/function-bind.git"
+      }
     },
     {
       "path": "node_modules/get-caller-file",
@@ -3214,6 +5827,240 @@
       }
     },
     {
+      "path": "node_modules/get-intrinsic",
+      "name": "get-intrinsic",
+      "version": "1.3.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "39c5ec504cf6bd5cd782a7c695828e09189df79f5d94840e4f08feb97b9fd416"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/ljharb/get-intrinsic.git"
+      }
+    },
+    {
+      "path": "node_modules/get-proto",
+      "name": "get-proto",
+      "version": "1.0.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "be46ce1e3b0479af9ce82d22b465a6d7d2ff084fca0aaf3d54172da2b5eb5781"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/ljharb/get-proto.git"
+      }
+    },
+    {
+      "path": "node_modules/get-stream",
+      "name": "get-stream",
+      "version": "5.2.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3"
+        }
+      ],
+      "source": "sindresorhus/get-stream"
+    },
+    {
+      "path": "node_modules/glob",
+      "name": "glob",
+      "version": "7.2.3",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "6236fa0b88a4a0cce3dda0367979491b2052b3c8d6b1c10b3668de083e86a7f0"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/isaacs/node-glob.git"
+      }
+    },
+    {
+      "path": "node_modules/glob/node_modules/balanced-match",
+      "name": "balanced-match",
+      "version": "1.0.2",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.md",
+          "sha256": "a1bd5deadb6a06dd74efa852c1b8b23f63b67f2214fbe9c8bd591da51da69268"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/juliangruber/balanced-match.git"
+      }
+    },
+    {
+      "path": "node_modules/glob/node_modules/brace-expansion",
+      "name": "brace-expansion",
+      "version": "1.1.21",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "68f12f6e2c33688699249c01d8f9623c534da20aa71989c57b061b7bc1676d14"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/juliangruber/brace-expansion.git"
+      }
+    },
+    {
+      "path": "node_modules/glob/node_modules/minimatch",
+      "name": "minimatch",
+      "version": "3.1.5",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/isaacs/minimatch.git"
+      }
+    },
+    {
+      "path": "node_modules/global-agent",
+      "name": "global-agent",
+      "version": "3.0.0",
+      "declaredLicense": "BSD-3-Clause",
+      "reviewedLicense": "BSD-3-Clause",
+      "developmentOnly": true,
+      "optional": true,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "ba98e94118579117505f6f11fd9a4354c5e65ece03b4898d8b8f7785efcd25c1"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/gajus/global-agent"
+      }
+    },
+    {
+      "path": "node_modules/globalthis",
+      "name": "globalthis",
+      "version": "1.0.4",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": true,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "acfaf437865d82f0fa9b9cdcae8b550bed8d011adaa5b42d973191caf99f62a8"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/ljharb/System.global.git"
+      }
+    },
+    {
+      "path": "node_modules/gopd",
+      "name": "gopd",
+      "version": "1.2.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "d90bf0a089da4cf43d644ed240a0b3825dcdb705e64e38371d56995a4cc9e4c5"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/ljharb/gopd.git"
+      }
+    },
+    {
+      "path": "node_modules/got",
+      "name": "got",
+      "version": "11.8.6",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
+        }
+      ],
+      "source": "sindresorhus/got"
+    },
+    {
+      "path": "node_modules/graceful-fs",
+      "name": "graceful-fs",
+      "version": "4.2.11",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "f65c5d9f22a317b2a10803bd1868461ce6499c2ed7217bc80c0cc772a748789c"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/isaacs/node-graceful-fs"
+      }
+    },
+    {
       "path": "node_modules/hachure-fill",
       "name": "hachure-fill",
       "version": "0.5.2",
@@ -3231,6 +6078,103 @@
       "source": {
         "type": "git",
         "url": "git+https://github.com/pshihn/hachure-fill.git"
+      }
+    },
+    {
+      "path": "node_modules/has-flag",
+      "name": "has-flag",
+      "version": "4.0.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
+        }
+      ],
+      "source": "sindresorhus/has-flag"
+    },
+    {
+      "path": "node_modules/has-property-descriptors",
+      "name": "has-property-descriptors",
+      "version": "1.0.2",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": true,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "0f0ca96f50793990031ebc488a38f7292ff70bce8ab6a8e5eeda674abc32ccdf"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/inspect-js/has-property-descriptors.git"
+      }
+    },
+    {
+      "path": "node_modules/has-symbols",
+      "name": "has-symbols",
+      "version": "1.1.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "206c1adcf206dc0031b11232f5b054ec5f1662407ab1ca415247921cab2068ab"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/inspect-js/has-symbols.git"
+      }
+    },
+    {
+      "path": "node_modules/has-tostringtag",
+      "name": "has-tostringtag",
+      "version": "1.0.2",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "e2560e002e13281578c75c850061d9255c33d16d732939e8c2db64c2506642fa"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/inspect-js/has-tostringtag.git"
+      }
+    },
+    {
+      "path": "node_modules/hasown",
+      "name": "hasown",
+      "version": "2.0.4",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "bf9b0d665be2a689851eea667ca9f42066ea1d903b38349c51e6a44b2577680a"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/inspect-js/hasOwn.git"
       }
     },
     {
@@ -3404,6 +6348,26 @@
       "source": "syntax-tree/hastscript"
     },
     {
+      "path": "node_modules/hosted-git-info",
+      "name": "hosted-git-info",
+      "version": "4.1.0",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "c1476ec53119cd4c8370f91f5152ac76312a29b4fae2d49b5e0e0970fe0fa5ee"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/npm/hosted-git-info.git"
+      }
+    },
+    {
       "path": "node_modules/html-url-attributes",
       "name": "html-url-attributes",
       "version": "3.0.1",
@@ -3419,6 +6383,88 @@
         }
       ],
       "source": "https://github.com/rehypejs/rehype-minify/tree/main/packages/html-url-attributes"
+    },
+    {
+      "path": "node_modules/http-cache-semantics",
+      "name": "http-cache-semantics",
+      "version": "4.3.0",
+      "declaredLicense": "BSD-2-Clause",
+      "reviewedLicense": "BSD-2-Clause",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "ab868ad5a2ef5068560d9cd3b2180ec63c140bb4c5cae1ba779d300a0ac74fa3"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/kornelski/http-cache-semantics.git"
+      }
+    },
+    {
+      "path": "node_modules/http-proxy-agent",
+      "name": "http-proxy-agent",
+      "version": "7.0.2",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "71368fd0f5b4129191e9afcd1e1ef2dc89a9090d3e4d80bbab92dafd032b3bef"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/TooTallNate/proxy-agents.git",
+        "directory": "packages/http-proxy-agent"
+      }
+    },
+    {
+      "path": "node_modules/http2-wrapper",
+      "name": "http2-wrapper",
+      "version": "1.0.3",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "0194571d45a06ea2a22ceb51f981e3be92525966d28847dbc0d9982603bf90de"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/szmarczak/http2-wrapper.git"
+      }
+    },
+    {
+      "path": "node_modules/https-proxy-agent",
+      "name": "https-proxy-agent",
+      "version": "7.0.6",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "8d8c55319c7729d57be811c747452636688d54f19701ee0752b6b15ad3771d9a"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/TooTallNate/proxy-agents.git",
+        "directory": "packages/https-proxy-agent"
+      }
     },
     {
       "path": "node_modules/iconv-lite",
@@ -3456,6 +6502,43 @@
         }
       ],
       "source": "wooorm/import-meta-resolve"
+    },
+    {
+      "path": "node_modules/inflight",
+      "name": "inflight",
+      "version": "1.0.6",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "05dc4d785ac3a488676d3ed10e901b75ad89dafcc63f8e66610fd4a39cc5c7e8"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/npm/inflight.git"
+      }
+    },
+    {
+      "path": "node_modules/inherits",
+      "name": "inherits",
+      "version": "2.0.4",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "5ffe28e7ade7d8f10d85d5337a73fd793dac5c462fb9a28fbf8c5046c7fbca3b"
+        }
+      ],
+      "source": "git://github.com/isaacs/inherits"
     },
     {
       "path": "node_modules/inline-style-parser",
@@ -3600,6 +6683,209 @@
       "source": "sindresorhus/is-plain-obj"
     },
     {
+      "path": "node_modules/isarray",
+      "name": "isarray",
+      "version": "1.0.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/juliangruber/isarray.git"
+      },
+      "reviewNote": "Build-only dependency; reviewed package license declaration and upstream repository. Not included in desktop application files."
+    },
+    {
+      "path": "node_modules/isbinaryfile",
+      "name": "isbinaryfile",
+      "version": "5.0.7",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.txt",
+          "sha256": "2eedc70f2242aaf269e86e2c85eabeb875dc524d187d5953016b24091d26a843"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/gjtorikian/isBinaryFile"
+      }
+    },
+    {
+      "path": "node_modules/isexe",
+      "name": "isexe",
+      "version": "3.1.5",
+      "declaredLicense": "BlueOak-1.0.0",
+      "reviewedLicense": "BlueOak-1.0.0",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.md",
+          "sha256": "8a1af140fdfbf5afd3df27f7e662f989c5b963a300020dfafce42033cae9e004"
+        }
+      ],
+      "source": "https://github.com/isaacs/isexe"
+    },
+    {
+      "path": "node_modules/jake",
+      "name": "jake",
+      "version": "10.9.4",
+      "declaredLicense": "Apache-2.0",
+      "reviewedLicense": "Apache-2.0",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/jakejs/jake.git"
+      },
+      "reviewNote": "Build-only dependency; reviewed package license declaration and upstream repository. Not included in desktop application files."
+    },
+    {
+      "path": "node_modules/jiti",
+      "name": "jiti",
+      "version": "2.7.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "46231df5a7733c3f52f11b71f3df61813007745b62b09031acfb45fb42d75082"
+        }
+      ],
+      "source": "unjs/jiti"
+    },
+    {
+      "path": "node_modules/js-yaml",
+      "name": "js-yaml",
+      "version": "4.3.2",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "a07bc24468b9654ce76a547d47a2db282d07733b715db4c73a98bd63961f9550"
+        }
+      ],
+      "source": "nodeca/js-yaml"
+    },
+    {
+      "path": "node_modules/json-buffer",
+      "name": "json-buffer",
+      "version": "3.0.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "715f1f0f2eb7688e53e4e958acdc7fc9e365ae3eaf26efc2604b93cc65fdc3f5"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/dominictarr/json-buffer.git"
+      }
+    },
+    {
+      "path": "node_modules/json-schema-traverse",
+      "name": "json-schema-traverse",
+      "version": "1.0.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "7bf9b2de73a6b356761c948d0e9eeb4be6c1270bd04c79cd489c1e400ffdfc1a"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/epoberezkin/json-schema-traverse.git"
+      }
+    },
+    {
+      "path": "node_modules/json-stringify-safe",
+      "name": "json-stringify-safe",
+      "version": "5.0.1",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": true,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/isaacs/json-stringify-safe"
+      }
+    },
+    {
+      "path": "node_modules/json5",
+      "name": "json5",
+      "version": "2.2.3",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.md",
+          "sha256": "53e59feb13058722d977c699eb0407c7bce2f93c949b681bbd2ff31698535927"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/json5/json5.git"
+      }
+    },
+    {
+      "path": "node_modules/jsonfile",
+      "name": "jsonfile",
+      "version": "6.2.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "a9801fb52ba22ef808682a094da8a7a480584b7ed0dfd0d888ab543616335031"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git@github.com:jprichardson/node-jsonfile.git"
+      }
+    },
+    {
       "path": "node_modules/katex",
       "name": "katex",
       "version": "0.16.47",
@@ -3640,6 +6926,22 @@
       }
     },
     {
+      "path": "node_modules/keyv",
+      "name": "keyv",
+      "version": "4.5.4",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/jaredwray/keyv.git"
+      },
+      "reviewNote": "Build-only dependency; reviewed package license declaration and upstream repository. Not included in desktop application files."
+    },
+    {
       "path": "node_modules/khroma",
       "name": "khroma",
       "version": "2.1.0",
@@ -3676,6 +6978,19 @@
         "type": "git",
         "url": "git+https://github.com/iVis-at-Bilkent/layout-base.git"
       }
+    },
+    {
+      "path": "node_modules/lazy-val",
+      "name": "lazy-val",
+      "version": "1.0.5",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [],
+      "source": "develar/lazy-val",
+      "reviewNote": "Build-only dependency; reviewed package license declaration and upstream repository. Not included in desktop application files."
     },
     {
       "path": "node_modules/lightningcss",
@@ -3855,6 +7170,23 @@
       "source": "sindresorhus/locate-path"
     },
     {
+      "path": "node_modules/lodash",
+      "name": "lodash",
+      "version": "4.18.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "f71e8ed126b46346494aad5486874cd8f0aafe95092ed67d2e3cb6110f939abc"
+        }
+      ],
+      "source": "lodash/lodash"
+    },
+    {
       "path": "node_modules/lodash-es",
       "name": "lodash-es",
       "version": "4.17.23",
@@ -3887,6 +7219,40 @@
         }
       ],
       "source": "wooorm/longest-streak"
+    },
+    {
+      "path": "node_modules/lowercase-keys",
+      "name": "lowercase-keys",
+      "version": "2.0.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
+        }
+      ],
+      "source": "sindresorhus/lowercase-keys"
+    },
+    {
+      "path": "node_modules/lru-cache",
+      "name": "lru-cache",
+      "version": "6.0.0",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+        }
+      ],
+      "source": "git://github.com/isaacs/node-lru-cache.git"
     },
     {
       "path": "node_modules/lucide-react",
@@ -3947,6 +7313,60 @@
       "source": {
         "type": "git",
         "url": "git://github.com/markedjs/marked.git"
+      }
+    },
+    {
+      "path": "node_modules/matcher",
+      "name": "matcher",
+      "version": "3.0.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": true,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3"
+        }
+      ],
+      "source": "sindresorhus/matcher"
+    },
+    {
+      "path": "node_modules/matcher/node_modules/escape-string-regexp",
+      "name": "escape-string-regexp",
+      "version": "4.0.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": true,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3"
+        }
+      ],
+      "source": "sindresorhus/escape-string-regexp"
+    },
+    {
+      "path": "node_modules/math-intrinsics",
+      "name": "math-intrinsics",
+      "version": "1.1.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "2b770a704c15de238c3f622b01b0044ddd60b49ee30608ea6991ebf19db7a7a1"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/es-shims/math-intrinsics.git"
       }
     },
     {
@@ -4769,6 +8189,174 @@
       "source": "https://github.com/micromark/micromark/tree/main/packages/micromark-util-types"
     },
     {
+      "path": "node_modules/mime",
+      "name": "mime",
+      "version": "2.6.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "8f2658c03422c408b2b2ce4d151decc3b1a6fd3d86e5ca9433777bccdcdf75a2"
+        }
+      ],
+      "source": {
+        "url": "https://github.com/broofa/mime",
+        "type": "git"
+      }
+    },
+    {
+      "path": "node_modules/mime-db",
+      "name": "mime-db",
+      "version": "1.52.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "cc1dfd4dafa27271e8212cd3b274eeb3f262e40a6fdab36ddc3f9696f706f58b"
+        }
+      ],
+      "source": "jshttp/mime-db"
+    },
+    {
+      "path": "node_modules/mime-types",
+      "name": "mime-types",
+      "version": "2.1.35",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "71f83c4c0621102a56d9853812777b85751bce7e9726f686f5b056c1f8a4b0e6"
+        }
+      ],
+      "source": "jshttp/mime-types"
+    },
+    {
+      "path": "node_modules/mimic-response",
+      "name": "mimic-response",
+      "version": "1.0.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
+        }
+      ],
+      "source": "sindresorhus/mimic-response"
+    },
+    {
+      "path": "node_modules/minimatch",
+      "name": "minimatch",
+      "version": "10.2.6",
+      "declaredLicense": "BlueOak-1.0.0",
+      "reviewedLicense": "BlueOak-1.0.0",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.md",
+          "sha256": "2c7c5d22ed5a8ee968c64757710979afcd77438c48b4a265b94e615babd8a901"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git@github.com:isaacs/minimatch"
+      }
+    },
+    {
+      "path": "node_modules/minimist",
+      "name": "minimist",
+      "version": "1.2.8",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "435a6722c786b0a56fbe7387028f1d9d3f3a2d0fb615bb8fee118727c3f59b7b"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/minimistjs/minimist.git"
+      }
+    },
+    {
+      "path": "node_modules/minipass",
+      "name": "minipass",
+      "version": "7.1.3",
+      "declaredLicense": "BlueOak-1.0.0",
+      "reviewedLicense": "BlueOak-1.0.0",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.md",
+          "sha256": "8a1af140fdfbf5afd3df27f7e662f989c5b963a300020dfafce42033cae9e004"
+        }
+      ],
+      "source": "https://github.com/isaacs/minipass"
+    },
+    {
+      "path": "node_modules/minizlib",
+      "name": "minizlib",
+      "version": "3.1.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "df05697a04b8997c79d423930534e59cc18828f6e22d0c8c2d62fcbea1c4f50b"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/isaacs/minizlib.git"
+      }
+    },
+    {
+      "path": "node_modules/mkdirp",
+      "name": "mkdirp",
+      "version": "0.5.6",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "05991c2e8f070b69ec5b656c2c12fd07cd0153dd157d39b050b82af59b319a01"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/substack/node-mkdirp.git"
+      }
+    },
+    {
       "path": "node_modules/ms",
       "name": "ms",
       "version": "2.1.3",
@@ -4801,6 +8389,250 @@
         }
       ],
       "source": "ai/nanoid"
+    },
+    {
+      "path": "node_modules/node-abi",
+      "name": "node-abi",
+      "version": "4.37.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "9a508cd4122f2dc1cc39f8ab0b6950efbc49fb087a581c7177a4b8c9d5d0d6a1"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/electron/node-abi.git"
+      }
+    },
+    {
+      "path": "node_modules/node-api-version",
+      "name": "node-api-version",
+      "version": "0.2.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/timfish/node-api-version"
+      },
+      "reviewNote": "Build-only dependency; reviewed package license declaration and upstream repository. Not included in desktop application files."
+    },
+    {
+      "path": "node_modules/node-gyp",
+      "name": "node-gyp",
+      "version": "12.4.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "662a1b0115251cfb29c6aed0f221f8847bc49c6365d1c53a62c9f4bccc2489c3"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/nodejs/node-gyp.git"
+      }
+    },
+    {
+      "path": "node_modules/node-gyp/node_modules/env-paths",
+      "name": "env-paths",
+      "version": "2.2.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
+        }
+      ],
+      "source": "sindresorhus/env-paths"
+    },
+    {
+      "path": "node_modules/node-gyp/node_modules/isexe",
+      "name": "isexe",
+      "version": "4.0.0",
+      "declaredLicense": "BlueOak-1.0.0",
+      "reviewedLicense": "BlueOak-1.0.0",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.md",
+          "sha256": "8a1af140fdfbf5afd3df27f7e662f989c5b963a300020dfafce42033cae9e004"
+        }
+      ],
+      "source": "https://github.com/isaacs/isexe"
+    },
+    {
+      "path": "node_modules/node-gyp/node_modules/undici",
+      "name": "undici",
+      "version": "6.29.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "a6db8096b2707bc0102d256917d4d33f298ba36d8c3f25de067a2b5bb379db27"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/nodejs/undici.git"
+      }
+    },
+    {
+      "path": "node_modules/node-gyp/node_modules/which",
+      "name": "which",
+      "version": "6.0.1",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/npm/node-which.git"
+      }
+    },
+    {
+      "path": "node_modules/node-int64",
+      "name": "node-int64",
+      "version": "0.4.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "8f85aab053e268546014761da47630a09886626afbd0d8d440cb2c69611bb8d3"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/broofa/node-int64"
+      }
+    },
+    {
+      "path": "node_modules/nopt",
+      "name": "nopt",
+      "version": "9.0.0",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/npm/nopt.git"
+      }
+    },
+    {
+      "path": "node_modules/normalize-url",
+      "name": "normalize-url",
+      "version": "6.1.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
+        }
+      ],
+      "source": "sindresorhus/normalize-url"
+    },
+    {
+      "path": "node_modules/object-keys",
+      "name": "object-keys",
+      "version": "1.1.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": true,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "5640e5cbe2e9f57f6ccfdd8dbfbeadb875495bdbcb69d2666ce3177ccd0942e4"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/ljharb/object-keys.git"
+      }
+    },
+    {
+      "path": "node_modules/once",
+      "name": "once",
+      "version": "1.4.0",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/isaacs/once"
+      }
+    },
+    {
+      "path": "node_modules/p-cancelable",
+      "name": "p-cancelable",
+      "version": "2.1.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
+        }
+      ],
+      "source": "sindresorhus/p-cancelable"
     },
     {
       "path": "node_modules/p-limit",
@@ -4969,6 +8801,60 @@
       "source": "sindresorhus/path-exists"
     },
     {
+      "path": "node_modules/path-is-absolute",
+      "name": "path-is-absolute",
+      "version": "1.0.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "6fb9754611c20f6649f68805e8c990e83261f29316e29de9e6cedae607b8634c"
+        }
+      ],
+      "source": "sindresorhus/path-is-absolute"
+    },
+    {
+      "path": "node_modules/path-key",
+      "name": "path-key",
+      "version": "3.1.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
+        }
+      ],
+      "source": "sindresorhus/path-key"
+    },
+    {
+      "path": "node_modules/pe-library",
+      "name": "pe-library",
+      "version": "0.4.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "ad05317184b8cd78a770c1f55e386f600fd23feb88596c797ceb3ccd49f7d6bc"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/jet2jet/pe-library-js.git"
+      }
+    },
+    {
       "path": "node_modules/picocolors",
       "name": "picocolors",
       "version": "1.1.1",
@@ -5001,6 +8887,46 @@
         }
       ],
       "source": "micromatch/picomatch"
+    },
+    {
+      "path": "node_modules/pkijs",
+      "name": "pkijs",
+      "version": "3.4.1",
+      "declaredLicense": "BSD-3-Clause",
+      "reviewedLicense": "BSD-3-Clause",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "d27a2aa238102924ea75da808f79253484347d824b9b7b077837e4232f9493f5"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/PeculiarVentures/PKI.js"
+      }
+    },
+    {
+      "path": "node_modules/pkijs/node_modules/@noble/hashes",
+      "name": "@noble/hashes",
+      "version": "1.8.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "4f221aee6e072336700c408c68ab3b96a3fc09f6aebe6f48f1bd99e5ef13faec"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/paulmillr/noble-hashes.git"
+      }
     },
     {
       "path": "node_modules/playwright",
@@ -5048,6 +8974,26 @@
       "source": {
         "type": "git",
         "url": "git+https://github.com/microsoft/playwright.git"
+      }
+    },
+    {
+      "path": "node_modules/plist",
+      "name": "plist",
+      "version": "3.1.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "3677dc86e6e5f119b500c308cc24cf533e2eb44c41050ea64584e049e5b70161"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/TooTallNate/node-plist.git"
       }
     },
     {
@@ -5128,6 +9074,146 @@
       "source": "postcss/postcss"
     },
     {
+      "path": "node_modules/postject",
+      "name": "postject",
+      "version": "1.0.0-alpha.6",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": true,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "6546657539feb5b454f400db317e71fa39ff5cd048fa5d78ae0ada2df72f1ea7"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git@github.com:nodejs/postject.git"
+      }
+    },
+    {
+      "path": "node_modules/postject/node_modules/commander",
+      "name": "commander",
+      "version": "9.5.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": true,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "04512a63dce4d2d506ad612dc0bd7681ccf6e3655f7b6eaef7dfac8323d1ec0b"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/tj/commander.js.git"
+      }
+    },
+    {
+      "path": "node_modules/proc-log",
+      "name": "proc-log",
+      "version": "6.1.0",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "dc32a0dee275e0a9aeffbc974dbf4899a30dcdc2e5ffa8934aecb69261065864"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/npm/proc-log.git"
+      }
+    },
+    {
+      "path": "node_modules/process-nextick-args",
+      "name": "process-nextick-args",
+      "version": "2.0.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license.md",
+          "sha256": "ecdccbcf39024f624ded480c01c0b25458e1eca8f26ecf040933865ce56d9a4f"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/calvinmetcalf/process-nextick-args.git"
+      }
+    },
+    {
+      "path": "node_modules/progress",
+      "name": "progress",
+      "version": "2.0.3",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "d7d2a7786de7c7cfd96f920c6f12927d74e1d2a861ca4498bf465c3bc3f4c21c"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/visionmedia/node-progress"
+      }
+    },
+    {
+      "path": "node_modules/promise-retry",
+      "name": "promise-retry",
+      "version": "2.0.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "b1344bd78ebcbf8a359225ec444d038a653c6a5f9ecf405a50d4a5c11fbf27d1"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/IndigoUnited/node-promise-retry.git"
+      }
+    },
+    {
+      "path": "node_modules/proper-lockfile",
+      "name": "proper-lockfile",
+      "version": "4.1.2",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "aaa78451b6fecd1b9c4594c796c133c0e90cad100372ff8bc6de615e9ef9adf1"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git@github.com:moxystudio/node-proper-lockfile.git"
+      }
+    },
+    {
       "path": "node_modules/property-information",
       "name": "property-information",
       "version": "7.2.0",
@@ -5143,6 +9229,63 @@
         }
       ],
       "source": "wooorm/property-information"
+    },
+    {
+      "path": "node_modules/pump",
+      "name": "pump",
+      "version": "3.0.4",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "3fe8d55a98dbf260eace67c00cf9bc53edb46234e840098a0b93df3096b97fb6"
+        }
+      ],
+      "source": "git://github.com/mafintosh/pump.git"
+    },
+    {
+      "path": "node_modules/pvtsutils",
+      "name": "pvtsutils",
+      "version": "1.3.6",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "c620c1d08a47c93ce242914a4269b86e41df5a97845325725a5f83d5d6f9d7fd"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/PeculiarVentures/pvtsutils"
+      }
+    },
+    {
+      "path": "node_modules/pvutils",
+      "name": "pvutils",
+      "version": "1.2.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "15c88630f1e778db64a446cb31b67362cc9eb7a048fdf5ac7ab51905b74464cd"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/PeculiarVentures/pvutils"
+      }
     },
     {
       "path": "node_modules/qrcode",
@@ -5163,6 +9306,23 @@
         "type": "git",
         "url": "git://github.com/soldair/node-qrcode.git"
       }
+    },
+    {
+      "path": "node_modules/quick-lru",
+      "name": "quick-lru",
+      "version": "5.1.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
+        }
+      ],
+      "source": "sindresorhus/quick-lru"
     },
     {
       "path": "node_modules/react",
@@ -5222,6 +9382,42 @@
         }
       ],
       "source": "remarkjs/react-markdown"
+    },
+    {
+      "path": "node_modules/read-binary-file-arch",
+      "name": "read-binary-file-arch",
+      "version": "1.0.6",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [],
+      "source": {
+        "type": "git",
+        "url": "git+ssh://git@github.com/samuelmaddock/read-binary-file-arch.git"
+      },
+      "reviewNote": "Build-only dependency; reviewed package license declaration and upstream repository. Not included in desktop application files."
+    },
+    {
+      "path": "node_modules/readable-stream",
+      "name": "readable-stream",
+      "version": "2.3.8",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "ec62dc96da0099b87f4511736c87309335527fb7031639493e06c95728dc8c54"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/nodejs/readable-stream"
+      }
     },
     {
       "path": "node_modules/rehype-katex",
@@ -5355,6 +9551,23 @@
       }
     },
     {
+      "path": "node_modules/require-from-string",
+      "name": "require-from-string",
+      "version": "2.0.2",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "6ee0feb1f6ef996ff5a68600f8cf98909cf412d39ef3cdceaefd87d636fa1b7f"
+        }
+      ],
+      "source": "floatdrop/require-from-string"
+    },
+    {
       "path": "node_modules/require-main-filename",
       "name": "require-main-filename",
       "version": "2.0.0",
@@ -5372,6 +9585,123 @@
       "source": {
         "type": "git",
         "url": "git+ssh://git@github.com/yargs/require-main-filename.git"
+      }
+    },
+    {
+      "path": "node_modules/resedit",
+      "name": "resedit",
+      "version": "1.7.2",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "ad05317184b8cd78a770c1f55e386f600fd23feb88596c797ceb3ccd49f7d6bc"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/jet2jet/resedit-js.git"
+      }
+    },
+    {
+      "path": "node_modules/resolve-alpn",
+      "name": "resolve-alpn",
+      "version": "1.2.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "03b347a3d13b0e5bdb8fc5edeed0286b1be51441c6490a90710692d227136e0d"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/szmarczak/resolve-alpn.git"
+      }
+    },
+    {
+      "path": "node_modules/responselike",
+      "name": "responselike",
+      "version": "2.0.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "2c4e066228dbca96c8c6e8bef5377306f227ffa1d87a18a218b230e13ac5d39e"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/sindresorhus/responselike.git"
+      }
+    },
+    {
+      "path": "node_modules/retry",
+      "name": "retry",
+      "version": "0.12.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "License",
+          "sha256": "01ad164273e8e095abc9dbd1c21e194594a671af7d528cb43ee7b4c903ba7da3"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/tim-kos/node-retry.git"
+      }
+    },
+    {
+      "path": "node_modules/rimraf",
+      "name": "rimraf",
+      "version": "2.6.3",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+        }
+      ],
+      "source": "git://github.com/isaacs/rimraf.git"
+    },
+    {
+      "path": "node_modules/roarr",
+      "name": "roarr",
+      "version": "2.15.4",
+      "declaredLicense": "BSD-3-Clause",
+      "reviewedLicense": "BSD-3-Clause",
+      "developmentOnly": true,
+      "optional": true,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "ba98e94118579117505f6f11fd9a4354c5e65ece03b4898d8b8f7785efcd25c1"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git@github.com:gajus/roarr.git"
       }
     },
     {
@@ -5456,6 +9786,26 @@
       }
     },
     {
+      "path": "node_modules/safe-buffer",
+      "name": "safe-buffer",
+      "version": "5.1.2",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "c7cc929b57080f4b9d0c6cf57669f0463fc5b39906344dfc8d3bc43426b30eac"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/feross/safe-buffer.git"
+      }
+    },
+    {
       "path": "node_modules/safer-buffer",
       "name": "safer-buffer",
       "version": "2.1.2",
@@ -5473,6 +9823,46 @@
       "source": {
         "type": "git",
         "url": "git+https://github.com/ChALkeR/safer-buffer.git"
+      }
+    },
+    {
+      "path": "node_modules/sanitize-filename",
+      "name": "sanitize-filename",
+      "version": "1.6.4",
+      "declaredLicense": "WTFPL OR ISC",
+      "reviewedLicense": "WTFPL OR ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.md",
+          "sha256": "69dbd0bb60112fbdd6da878a5ecddee7ddac764d669591d7846cb0310c6e7be8"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git@github.com:parshap/node-sanitize-filename.git"
+      }
+    },
+    {
+      "path": "node_modules/sax",
+      "name": "sax",
+      "version": "1.6.1",
+      "declaredLicense": "BlueOak-1.0.0",
+      "reviewedLicense": "BlueOak-1.0.0",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.md",
+          "sha256": "8a1af140fdfbf5afd3df27f7e662f989c5b963a300020dfafce42033cae9e004"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+ssh://git@github.com/isaacs/sax-js.git"
       }
     },
     {
@@ -5497,6 +9887,63 @@
       }
     },
     {
+      "path": "node_modules/semver",
+      "name": "semver",
+      "version": "7.8.5",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/npm/node-semver.git"
+      }
+    },
+    {
+      "path": "node_modules/semver-compare",
+      "name": "semver-compare",
+      "version": "1.0.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": true,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "435a6722c786b0a56fbe7387028f1d9d3f3a2d0fb615bb8fee118727c3f59b7b"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/substack/semver-compare.git"
+      }
+    },
+    {
+      "path": "node_modules/serialize-error",
+      "name": "serialize-error",
+      "version": "7.0.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": true,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3"
+        }
+      ],
+      "source": "sindresorhus/serialize-error"
+    },
+    {
       "path": "node_modules/set-blocking",
       "name": "set-blocking",
       "version": "2.0.0",
@@ -5517,6 +9964,100 @@
       }
     },
     {
+      "path": "node_modules/shebang-command",
+      "name": "shebang-command",
+      "version": "2.0.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "69dee148a2cc470554dfa7142e830662062394d0fe67cddd379aba90dc60d6b3"
+        }
+      ],
+      "source": "kevva/shebang-command"
+    },
+    {
+      "path": "node_modules/shebang-regex",
+      "name": "shebang-regex",
+      "version": "3.0.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
+        }
+      ],
+      "source": "sindresorhus/shebang-regex"
+    },
+    {
+      "path": "node_modules/signal-exit",
+      "name": "signal-exit",
+      "version": "3.0.7",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.txt",
+          "sha256": "e05b1eaf5b5f99b7ad75cd1f38858ff9a311780b97715ead67936d60bf96aa7e"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/tapjs/signal-exit.git"
+      }
+    },
+    {
+      "path": "node_modules/simple-update-notifier",
+      "name": "simple-update-notifier",
+      "version": "2.0.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "c34396f8f573f642c7ce5d18fb9b46b2d85e46979f8c06facca387c5293baede"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/alexbrazier/simple-update-notifier.git"
+      }
+    },
+    {
+      "path": "node_modules/source-map",
+      "name": "source-map",
+      "version": "0.6.1",
+      "declaredLicense": "BSD-3-Clause",
+      "reviewedLicense": "BSD-3-Clause",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "6cb0631f71c7749763fd3dd1d5bee52dd1070ec17f2edc1710079ad070bd2fbd"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "http://github.com/mozilla/source-map.git"
+      }
+    },
+    {
       "path": "node_modules/source-map-js",
       "name": "source-map-js",
       "version": "1.2.1",
@@ -5532,6 +10073,26 @@
         }
       ],
       "source": "7rulnik/source-map-js"
+    },
+    {
+      "path": "node_modules/source-map-support",
+      "name": "source-map-support",
+      "version": "0.5.21",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.md",
+          "sha256": "3a7d3bb198e909ed642bd68bd29a7d7c09a636d27a51ec663d35f00c4760ec42"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/evanw/node-source-map-support"
+      }
     },
     {
       "path": "node_modules/space-separated-tokens",
@@ -5551,6 +10112,46 @@
       "source": "wooorm/space-separated-tokens"
     },
     {
+      "path": "node_modules/sprintf-js",
+      "name": "sprintf-js",
+      "version": "1.1.3",
+      "declaredLicense": "BSD-3-Clause",
+      "reviewedLicense": "BSD-3-Clause",
+      "developmentOnly": true,
+      "optional": true,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "f8287e4dd9480be58c56aca4a55c23b782c43a86e69aabad78fff4df0d29edef"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/alexei/sprintf.js.git"
+      }
+    },
+    {
+      "path": "node_modules/stat-mode",
+      "name": "stat-mode",
+      "version": "1.0.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "57e9315162353f033b16b7dfb95dd1aab998a0c8dcae9f198988c4a25ffebc0d"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/TooTallNate/stat-mode.git"
+      }
+    },
+    {
       "path": "node_modules/string-width",
       "name": "string-width",
       "version": "4.2.3",
@@ -5566,6 +10167,26 @@
         }
       ],
       "source": "sindresorhus/string-width"
+    },
+    {
+      "path": "node_modules/string_decoder",
+      "name": "string_decoder",
+      "version": "1.1.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "11f2aafb37d06b3ee5bdaf06e9811141d0da05263c316f3d627f45c20d43261b"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/nodejs/string_decoder.git"
+      }
     },
     {
       "path": "node_modules/stringify-entities",
@@ -5659,6 +10280,156 @@
       "source": "https://github.com/thysultan/stylis.js"
     },
     {
+      "path": "node_modules/sumchecker",
+      "name": "sumchecker",
+      "version": "3.0.1",
+      "declaredLicense": "Apache-2.0",
+      "reviewedLicense": "Apache-2.0",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/malept/sumchecker.git"
+      }
+    },
+    {
+      "path": "node_modules/supports-color",
+      "name": "supports-color",
+      "version": "7.2.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
+        }
+      ],
+      "source": "chalk/supports-color"
+    },
+    {
+      "path": "node_modules/tar",
+      "name": "tar",
+      "version": "7.5.22",
+      "declaredLicense": "BlueOak-1.0.0",
+      "reviewedLicense": "BlueOak-1.0.0",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.md",
+          "sha256": "8a1af140fdfbf5afd3df27f7e662f989c5b963a300020dfafce42033cae9e004"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/isaacs/node-tar.git"
+      }
+    },
+    {
+      "path": "node_modules/tar/node_modules/yallist",
+      "name": "yallist",
+      "version": "5.0.0",
+      "declaredLicense": "BlueOak-1.0.0",
+      "reviewedLicense": "BlueOak-1.0.0",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.md",
+          "sha256": "a49c9ba464796f65b59fca3f1e6ca40912df1e859f575383223f7ec6c5baae09"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/isaacs/yallist.git"
+      }
+    },
+    {
+      "path": "node_modules/temp",
+      "name": "temp",
+      "version": "0.9.4",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "63053a2fc2b06fe2138fa128ab29c487e28e38be8a7b9c16a4ef7209e945c0b0"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/bruce/node-temp.git"
+      }
+    },
+    {
+      "path": "node_modules/temp-file",
+      "name": "temp-file",
+      "version": "3.4.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [],
+      "source": "develar/temp-file",
+      "reviewNote": "Build-only dependency; reviewed package license declaration and upstream repository. Not included in desktop application files."
+    },
+    {
+      "path": "node_modules/tiny-async-pool",
+      "name": "tiny-async-pool",
+      "version": "1.3.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE-MIT",
+          "sha256": "b454bece2de2ec708e14ce7596c36a853e04fbe763b85f63169ea6cd62a10f29"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git@github.com:rxaviers/async-pool.git"
+      }
+    },
+    {
+      "path": "node_modules/tiny-async-pool/node_modules/semver",
+      "name": "semver",
+      "version": "5.7.2",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/npm/node-semver.git"
+      }
+    },
+    {
       "path": "node_modules/tinyexec",
       "name": "tinyexec",
       "version": "1.3.1",
@@ -5699,6 +10470,39 @@
       }
     },
     {
+      "path": "node_modules/tmp",
+      "name": "tmp",
+      "version": "0.2.7",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "162413c61e0982abe89a06bf7a02ec760dc49a7364d838bd9f01daebb5b95954"
+        }
+      ],
+      "source": "https://github.com/raszi/node-tmp.git"
+    },
+    {
+      "path": "node_modules/tmp-promise",
+      "name": "tmp-promise",
+      "version": "3.0.3",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/benjamingr/tmp-promise.git"
+      },
+      "reviewNote": "Build-only dependency; reviewed package license declaration and upstream repository. Not included in desktop application files."
+    },
+    {
       "path": "node_modules/trim-lines",
       "name": "trim-lines",
       "version": "3.0.1",
@@ -5733,6 +10537,22 @@
       "source": "wooorm/trough"
     },
     {
+      "path": "node_modules/truncate-utf8-bytes",
+      "name": "truncate-utf8-bytes",
+      "version": "1.0.2",
+      "declaredLicense": "WTFPL",
+      "reviewedLicense": "WTFPL",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/parshap/truncate-utf8-bytes.git"
+      },
+      "reviewNote": "Build-only dependency; reviewed package license declaration and upstream repository. Not included in desktop application files."
+    },
+    {
       "path": "node_modules/ts-dedent",
       "name": "ts-dedent",
       "version": "2.3.0",
@@ -5753,6 +10573,43 @@
       }
     },
     {
+      "path": "node_modules/tslib",
+      "name": "tslib",
+      "version": "2.8.1",
+      "declaredLicense": "0BSD",
+      "reviewedLicense": "0BSD",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.txt",
+          "sha256": "210b19e543130388c68654b7497e967119ce17145f66ab7d85688fbd70f08751"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/Microsoft/tslib.git"
+      }
+    },
+    {
+      "path": "node_modules/type-fest",
+      "name": "type-fest",
+      "version": "0.13.1",
+      "declaredLicense": "(MIT OR CC0-1.0)",
+      "reviewedLicense": "(MIT OR CC0-1.0)",
+      "developmentOnly": true,
+      "optional": true,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "64a93ffc0a06a2266dbb57ed7ebe3b56ba66ab337b6347fabdbf86c76819fbae"
+        }
+      ],
+      "source": "sindresorhus/type-fest"
+    },
+    {
       "path": "node_modules/typescript",
       "name": "typescript",
       "version": "5.9.3",
@@ -5770,6 +10627,26 @@
       "source": {
         "type": "git",
         "url": "https://github.com/microsoft/TypeScript.git"
+      }
+    },
+    {
+      "path": "node_modules/undici",
+      "name": "undici",
+      "version": "7.30.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": true,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "a6db8096b2707bc0102d256917d4d33f298ba36d8c3f25de067a2b5bb379db27"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/nodejs/undici.git"
       }
     },
     {
@@ -5929,6 +10806,110 @@
       "source": "syntax-tree/unist-util-visit-parents"
     },
     {
+      "path": "node_modules/universalify",
+      "name": "universalify",
+      "version": "2.0.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "3fda5977c0904e226190b4e21d64340c1731e2142d6fe5f3dee0090a216b8b63"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/RyanZim/universalify.git"
+      }
+    },
+    {
+      "path": "node_modules/unzipper",
+      "name": "unzipper",
+      "version": "0.12.5",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "b9e9abeaf8b92573dc28915d4948dbce30d55b30c688d109898b35e6105c4215"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/ZJONSSON/node-unzipper.git"
+      }
+    },
+    {
+      "path": "node_modules/unzipper/node_modules/fs-extra",
+      "name": "fs-extra",
+      "version": "11.3.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "c6a7de1428955aa5a692f4d3a3d3ede658d959616944713337cda296736442e1"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/jprichardson/node-fs-extra"
+      }
+    },
+    {
+      "path": "node_modules/utf8-byte-length",
+      "name": "utf8-byte-length",
+      "version": "1.0.5",
+      "declaredLicense": "(WTFPL OR MIT)",
+      "reviewedLicense": "(WTFPL OR MIT)",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.MIT.txt",
+          "sha256": "bfefe6b48c92732f278120d7a3bf682c3b01e25fdc2e0327544cbb62a2fa9a8e"
+        },
+        {
+          "file": "LICENSE.WTFPL.txt",
+          "sha256": "184d8dd2923c05139a55da1ff61a367e45ca596ac4fb96a26856c3c90003c4bb"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/parshap/utf8-byte-length.git"
+      }
+    },
+    {
+      "path": "node_modules/util-deprecate",
+      "name": "util-deprecate",
+      "version": "1.0.2",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "0154425673db15cdfa80ecba2c9b1f1a867f7197a006764712849bfc3a93cbb7"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/TooTallNate/util-deprecate.git"
+      }
+    },
+    {
       "path": "node_modules/uuid",
       "name": "uuid",
       "version": "14.0.2",
@@ -6038,6 +11019,46 @@
       "source": "wooorm/web-namespaces"
     },
     {
+      "path": "node_modules/webcrypto-core",
+      "name": "webcrypto-core",
+      "version": "1.9.2",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "77f65dc73794f48cbf111484def84366d470b0fab2b4c51c564c3ce62ea028b8"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/PeculiarVentures/webcrypto-core"
+      }
+    },
+    {
+      "path": "node_modules/which",
+      "name": "which",
+      "version": "5.0.0",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/npm/node-which.git"
+      }
+    },
+    {
       "path": "node_modules/which-module",
       "name": "which-module",
       "version": "2.0.1",
@@ -6075,6 +11096,46 @@
       "source": "chalk/wrap-ansi"
     },
     {
+      "path": "node_modules/wrappy",
+      "name": "wrappy",
+      "version": "1.0.2",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "https://github.com/npm/wrappy"
+      }
+    },
+    {
+      "path": "node_modules/xmlbuilder",
+      "name": "xmlbuilder",
+      "version": "15.1.1",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "e368bc4263b466cf98c225af15e300549e00da8859416a4536109e9654d434a8"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git://github.com/oozcitak/xmlbuilder-js.git"
+      }
+    },
+    {
       "path": "node_modules/y18n",
       "name": "y18n",
       "version": "4.0.3",
@@ -6092,6 +11153,26 @@
       "source": {
         "type": "git",
         "url": "git@github.com:yargs/y18n.git"
+      }
+    },
+    {
+      "path": "node_modules/yallist",
+      "name": "yallist",
+      "version": "4.0.0",
+      "declaredLicense": "ISC",
+      "reviewedLicense": "ISC",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+        }
+      ],
+      "source": {
+        "type": "git",
+        "url": "git+https://github.com/isaacs/yallist.git"
       }
     },
     {
@@ -6133,6 +11214,23 @@
         "type": "git",
         "url": "https://github.com/yargs/yargs-parser.git"
       }
+    },
+    {
+      "path": "node_modules/yocto-queue",
+      "name": "yocto-queue",
+      "version": "0.1.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": true,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "license",
+          "sha256": "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3"
+        }
+      ],
+      "source": "sindresorhus/yocto-queue"
     },
     {
       "path": "node_modules/zwitch",

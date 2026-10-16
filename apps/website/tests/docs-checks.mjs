@@ -145,6 +145,8 @@ async function checkClientNavigation(page, url) {
     await search.fill('');
     await page.keyboard.press('Escape');
 
+    // Record reading positions only after the installation architecture diagram settles.
+    await expect(page.locator('.docs-mermaid svg')).toHaveCount(1);
     const sandboxLink = page.getByRole('link', { name: '沙盒检查', exact: true });
     await sandboxLink.scrollIntoViewIfNeeded();
     const originalScroll = await page.evaluate(() => window.scrollY);
@@ -155,6 +157,7 @@ async function checkClientNavigation(page, url) {
     const sandboxScroll = await page.evaluate(() => window.scrollY);
     await page.goBack();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('安装与服务管理');
+    await expect(page.locator('.docs-mermaid svg')).toHaveCount(1);
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeCloseTo(originalScroll, 0);
     await page.goForward();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Linux 沙盒部署');

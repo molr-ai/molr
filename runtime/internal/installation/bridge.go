@@ -78,6 +78,9 @@ func (m *Maintenance) available(ctx context.Context, update bool) error {
 		return componentError("maintenance_not_installed", "installed molr-setup required")
 	}
 	r := m.record
+	if update && r.Manager == "desktop" {
+		return componentError("maintenance_desktop_managed", "update this Runtime in Molr Desktop")
+	}
 	uid := os.Geteuid()
 	if uid != r.UID {
 		return componentError("maintenance_permission_denied", "service account required")

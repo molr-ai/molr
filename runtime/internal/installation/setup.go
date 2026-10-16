@@ -35,6 +35,7 @@ type Options struct {
 	NonInteractive, Interactive, DryRun, Yes, InstallDeps, SkipDependencies, NoStart, NoBrowser, Repair, Purge, AllowDowngrade bool
 }
 type Engine struct {
+	desktopLogin                string
 	downloadBase, downloadTotal int64
 	componentTransport          http.RoundTripper
 	handoff                     func(context.Context, []string, *os.File) error
@@ -69,17 +70,17 @@ func parseOptions(args []string, diagnostics io.Writer) (Options, error) {
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 		o.Command = args[0]
 		args = args[1:]
-		if o.Command != "update" && o.Command != "uninstall" && o.Command != "status" && o.Command != "components" && o.Command != "tasks" {
+		if o.Command != "update" && o.Command != "uninstall" && o.Command != "status" && o.Command != "components" && o.Command != "tasks" && o.Command != "desktop" {
 			return o, fmt.Errorf("unknown command %q; omit a subcommand to install the current package", o.Command)
 		}
 	}
-	if o.Command == "components" || o.Command == "tasks" {
+	if o.Command == "components" || o.Command == "tasks" || o.Command == "desktop" {
 		if len(args) == 0 {
 			return o, fmt.Errorf("subcommand required")
 		}
 		o.TaskAction = args[0]
 		args = args[1:]
-		if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		if o.Command != "desktop" && len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 			if o.Command == "components" {
 				o.Component = args[0]
 			} else {
@@ -135,6 +136,11 @@ func parseOptions(args []string, diagnostics io.Writer) (Options, error) {
 	}
 	if o.NonInteractive {
 		o.Mode = "non-interactive"
+	}
+	if o.Command == "desktop" {
+		if !o.JSON || !o.NonInteractive || !o.NameSet || !strings.HasPrefix(o.Name, "molr-desktop-") || o.User != "" || o.Record != "" || o.Config != "" || o.InitOwner != "" || o.Purge || o.AllowDowngrade || o.NoStart {
+			return o, fmt.Errorf("desktop requires --json --non-interactive --name molr-desktop-<id> and a current-user managed instance")
+		}
 	}
 	if o.Permissions != "ask" && o.Permissions != "fix" && o.Permissions != "ignore" {
 		return o, fmt.Errorf("invalid directory permission policy")
@@ -251,6 +257,9 @@ func readRecord(path string, owner bool) (*installrecord.Record, error) {
 	return r, nil
 }
 func (e *Engine) execute() error {
+	if e.Options.Command == "desktop" {
+		return e.desktopCommand()
+	}
 	if e.Options.Command == "components" || e.Options.Command == "tasks" {
 		return e.componentCommand()
 	}
@@ -270,6 +279,9 @@ func (e *Engine) execute() error {
 			return e.uninstall(r)
 		}
 		if e.Options.Command == "update" {
+			if r.Manager == "desktop" {
+				return fmt.Errorf("this Runtime is updated by Molr Desktop")
+			}
 			if e.Options.TaskID != "" {
 				if err := e.beginTask(r, "update", "", e.Options.Version); err != nil {
 					return err
@@ -373,6 +385,9 @@ func (e *Engine) plan(pkg *Package, previous *installrecord.Record) (*Plan, erro
 	uid := os.Geteuid()
 	var r installrecord.Record
 	if previous != nil {
+		if o.Command == "desktop" && previous.Manager != "desktop" {
+			return nil, fmt.Errorf("cannot adopt an externally managed installation")
+		}
 		r = *previous
 		account, err := lookupAccount(r.User)
 		if err != nil || account.UID != r.UID || account.GID != r.GID {
@@ -435,6 +450,9 @@ func (e *Engine) plan(pkg *Package, previous *installrecord.Record) (*Plan, erro
 			return nil, fmt.Errorf("unmanaged service exists: %s", p.Unit)
 		}
 		r = installrecord.Record{Home: a.Home, Schema: 1, State: "installing", Name: o.Name, User: a.Name, UID: a.UID, GID: a.GID, OwnerUID: uid, System: system, Paths: p, ProgramRoot: base, DataDir: p.Data, ManagedData: true, Updates: installrecord.Updates{Source: "https://molr.ai/releases", Channel: channelFor(pkg.Build.Version)}}
+		if o.Command == "desktop" {
+			r.Manager = "desktop"
+		}
 	}
 	if r.OwnerUID != uid {
 		return nil, fmt.Errorf("installation owner mismatch")
@@ -498,6 +516,10 @@ func (e *Engine) plan(pkg *Package, previous *installrecord.Record) (*Plan, erro
 			return nil, err
 		}
 		cfg["http"] = http
+		if o.Command == "desktop" {
+			address := fmt.Sprintf("127.0.0.1:%s", strings.TrimPrefix(http["listen"].(string), "0.0.0.0:"))
+			cfg["http"] = map[string]any{"listen": address, "public_url": "http://" + address, "tls_mode": "local"}
+		}
 	}
 	if o.Config != "" && previous == nil && !o.NoStart && o.InitOwner == "" {
 		return nil, fmt.Errorf("custom configuration needs --init-owner NAME (password on stdin), or --no-start")
@@ -606,7 +628,7 @@ func (e *Engine) install(pkg *Package, existing *installrecord.Record) error {
 		if !ok {
 			return fmt.Errorf("cannot compare installed and package versions")
 		}
-		if n == 0 && pkg.Build.Commit == p.Previous.Build.Commit && !e.Options.DryRun {
+		if n == 0 && pkg.Build.Commit == p.Previous.Build.Commit && !e.Options.DryRun && e.Options.Command != "desktop" {
 			return e.maintenance(p.Previous)
 		}
 		if n < 0 && !e.Options.AllowDowngrade {

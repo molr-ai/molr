@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 const source = (process.env.MOLR_RELEASE_URL || 'https://molr.ai/releases').replace(/\/$/, '');
 const expected = JSON.parse(readFileSync('.cache/release-catalog/catalog.json'));
+const expectedDesktop = JSON.parse(readFileSync('.cache/release-catalog/desktop/catalog.json'));
 let actual;
 const timeout = Number(process.env.MOLR_SITE_WAIT_SECONDS || 1200);
 if (!Number.isFinite(timeout) || timeout < 1 || timeout > 1800) throw new Error('Invalid website wait timeout');
@@ -12,6 +13,8 @@ while (true) {
     const response = await fetch(`${source}/catalog.json`, { cache: 'no-store', signal: AbortSignal.timeout(10000) });
     actual = await response.json();
     assert.deepEqual(actual, expected);
+    const desktop = await fetch(`${source}/desktop/catalog.json`, { cache: 'no-store', signal: AbortSignal.timeout(10000) });
+    assert(desktop.ok); assert.deepEqual(await desktop.json(), expectedDesktop);
     const installer = await fetch(new URL('../install.sh', `${source}/`), { cache: 'no-store', signal: AbortSignal.timeout(10000) });
     assert(installer.ok); assert.equal(await installer.text(), expectedScript);
     break;
@@ -26,4 +29,4 @@ for (const [channel, release] of Object.entries(expected.channels)) {
     assert.equal(pointer.sha256, p.sha256); assert.equal(pointer.version, release.version);
   }
 }
-console.log('Public website installer and release channels verified');
+console.log('Public website installer, Runtime and desktop release channels verified');

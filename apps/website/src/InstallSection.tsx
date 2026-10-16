@@ -10,6 +10,7 @@ import './install.css';
 import { AgentInstall, agentInstallPath } from './AgentInstall';
 import { InstallCommand } from './InstallCommand';
 import { Icon } from './HomeIcon';
+import { DesktopDownloads } from './DesktopDownloads';
 
 function OptionRow({ label, children }: { label: string; children: ReactNode }) {
   return <div className="home-install-option-row" role="group" aria-label={label}>
@@ -20,7 +21,7 @@ function OptionRow({ label, children }: { label: string; children: ReactNode }) 
 
 export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Locale }) {
   const t = installMessages[locale];
-  const [method, setMethod] = useState<'command' | 'download' | 'docker' | 'agent'>('command');
+  const [method, setMethod] = useState<'command' | 'download' | 'docker' | 'agent' | 'desktop'>('command');
   const [channel, setChannel] = useState<Channel>('stable');
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [selectedOS, setOS] = useState('linux');
@@ -57,10 +58,11 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
         <button type="button" aria-pressed={method === 'download'} aria-controls="install-details" onClick={() => setMethod('download')}><Icon name="download" /><span>{t.download}</span></button>
         <button type="button" aria-pressed={method === 'docker'} aria-controls="install-details" onClick={() => setMethod('docker')}><Icon name="container" /><span>{t.docker}</span></button>
         <button type="button" aria-pressed={method === 'agent'} aria-controls="install-details" onClick={() => setMethod('agent')}><Icon name="bot" /><span>{t.agent}</span></button>
+        <button type="button" aria-pressed={method === 'desktop'} aria-controls="install-details" onClick={() => setMethod('desktop')}><Icon name="download" /><span>{locale === 'zh' ? '桌面应用' : 'Desktop app'}</span></button>
       </div>
       <div className="home-install-workspace">
         <div className="home-install-config">
-          {method === 'docker' ? <>
+          {method === 'desktop' ? <p className="home-install-channel-note">{locale === 'zh' ? '连接已有 Runtime，或使用 Linux/macOS 完整版在本机运行。' : 'Connect to an existing Runtime, or run locally with the Linux/macOS full edition.'}</p> : method === 'docker' ? <>
             <span className="home-install-option-label">{t.dockerIncludes}</span>
             <p className="home-install-channel-note">{t.dockerRequirements}</p>
           </> : <>
@@ -82,7 +84,7 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
           </>}
         </div>
         <div id="install-details" className="home-install-result">
-        {method === 'agent' ? <>
+        {method === 'desktop' ? <DesktopDownloads locale={locale} source={source} /> : method === 'agent' ? <>
           <AgentInstall key={`${locale}-${channel}`} locale={locale} channel={channel} />
           {error ? <p className="home-install-status" role="status">{t.agentUnavailable} <button type="button" onClick={() => setAttempt(v => v + 1)}>{t.retry}</button></p>
             : !catalog ? <p className="home-install-status" role="status">{t.loading}</p>

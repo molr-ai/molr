@@ -5,7 +5,9 @@ Molr 采用 Go 模块化单体，使用 SQLite 与本地文件保存数据。Web
 ## 组成
 
 - Go Runtime 提供身份认证、数据持久化、Agent 执行、计划、资源授权和费用管理。
-- WebUI 连接真实 Runtime，桌面和手机浏览器使用同一服务。
+- WebUI 随发行 Runtime 内嵌，由电脑／手机浏览器或桌面 app 连接同一实例。
+- Electron 桌面 app 管理连接；Linux/macOS 包可按需创建随包附带的本机 Runtime 服务，Windows 只连接远程 Runtime（包括 WSL）。
+- 手机当前通过浏览器使用 WebUI，尚未实现原生 iOS／Android App。各包内容和安装选择见[安装与服务管理](../../admin/deployment/installation.md)。
 - UI Design 使用模拟数据展示组件和交互；其 Desktop／Mobile／CLI 视图不代表独立原生客户端。
 - 官网提供产品介绍和公开文档，与用户的 Runtime 实例分别部署。
 
@@ -13,7 +15,7 @@ Molr 采用 Go 模块化单体，使用 SQLite 与本地文件保存数据。Web
 
 ```mermaid
 flowchart TD
-    UI[WebUI：桌面与手机浏览器] --> API
+    UI[WebUI：浏览器与桌面 app] --> API
     subgraph SERVER[Go Molr Server：单一部署单元]
         API[API / 认证] --> IM[IM：会话 / 消息 / 实时投递]
         API --> B[业务：助理 / 任务 / 日程 / 资源]
@@ -26,6 +28,8 @@ flowchart TD
         A --> D
     end
     A --> MODELS[本地或云端模型与授权资源]
+    A --> LOCAL[内置本机 Sandbox]
+    A -->|HTTPS| REMOTE[独立 Linux/macOS Sandbox]
 ```
 
 单一 Go 主进程承载核心模块，模块之间直接调用接口。需要执行外部程序时，由内置工具管理受控子进程。默认只启动一个 server，使用一个数据目录和一个对外入口。

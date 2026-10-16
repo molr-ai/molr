@@ -2,16 +2,19 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
+import { validateDesktopRelease, desktopReleaseFiles } from './desktop-release.mjs';
 import { validateManifest, compareVersions } from './release-lib.mjs';
 const directory = resolve(process.env.MOLR_DIST_DIR || 'dist/releases');
 const m = validateManifest(JSON.parse(readFileSync(resolve(directory, 'manifest.json'))));
 const tag = `v${m.version}`, repository = process.env.GITHUB_REPOSITORY;
 if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository || '')) throw new Error('GitHub repository required');
+const desktop = validateDesktopRelease(JSON.parse(readFileSync(resolve(directory, 'desktop-manifest.json'))), repository, m);
+const desktopFiles = desktopReleaseFiles(desktop, directory);
 const gh = (...args) => execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
 const mutateRelease = (method, path, body) => JSON.parse(execFileSync('gh', ['api', path, '--method', method, '--input', '-'], { encoding: 'utf8', input: JSON.stringify(body) }));
 const releases = JSON.parse(gh('api', `repos/${repository}/releases?per_page=100`, '--paginate', '--slurp')).flat();
 let release = releases.find(r => r.tag_name === tag);
-const files = ['manifest.json', ...m.platforms.flatMap(p => [p.file, `${p.file}.sha256`]), ...readdirSync(directory).filter(n => /^molr_source_[0-9a-f]+\.tar\.gz(?:\.sha256)?$/.test(n))];
+const files = ['manifest.json', ...desktopFiles, ...m.platforms.flatMap(p => [p.file, `${p.file}.sha256`]), ...readdirSync(directory).filter(n => /^molr_source_[0-9a-f]+\.tar\.gz(?:\.sha256)?$/.test(n))];
 if (!release) {
   if (m.channel !== 'nightly') gh('api', `repos/${repository}/git/ref/tags/${tag}`);
   // Use the creation response: a new draft may not appear in the list yet.

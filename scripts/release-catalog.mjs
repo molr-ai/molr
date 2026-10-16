@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
+import { desktopCatalog, validateDesktopRelease } from './desktop-release.mjs';
 import { channels, compareVersions, releaseChannel, selectChannels, validateManifest } from './release-lib.mjs';
 
 async function githubReleaseRequest(repository, path) {
@@ -68,6 +69,37 @@ async function releaseManifest(repository, r) {
   }
 }
 
+// Desktop installers belong to the same selected GitHub releases as Runtime.
+// A release predating desktop support contributes no desktop downloads.
+export async function publishedDesktopCatalog(repository, releases) {
+  const desktop = [];
+  for (const runtime of releases) {
+    const response = await githubReleaseRequest(repository, `/tags/v${runtime.version}`);
+    if (!response.ok) throw new Error(`Desktop release lookup failed: v${runtime.version}, HTTP ${response.status}`);
+    const r = await response.json();
+    if (r.draft || r.tag_name !== `v${runtime.version}` || r.prerelease !== (runtime.channel !== 'stable') || !Array.isArray(r.assets)) throw new Error('Desktop release identity mismatch');
+    const asset = r.assets.find(a => a.name === 'desktop-manifest.json');
+    if (!asset) {
+      if (r.assets.some(a => a.name.startsWith('molr-desktop_'))) throw new Error(`Missing desktop manifest: ${r.tag_name}`);
+      continue;
+    }
+    const base = `https://github.com/${repository}/releases/download/${r.tag_name}/`;
+    if (asset.browser_download_url !== base + 'desktop-manifest.json') throw new Error('Desktop manifest URL mismatch');
+    const manifestResponse = await fetch(asset.browser_download_url, { signal: AbortSignal.timeout(30000) });
+    if (!manifestResponse.ok) throw new Error(`Desktop manifest download failed: ${r.tag_name}`);
+    const m = validateDesktopRelease(await manifestResponse.json(), repository, runtime);
+    for (const p of m.platforms) for (const [name, url, digest] of [[p.file, p.url, p.sha256], [p.file + '.sha256', p.checksum_url]]) {
+      const attachment = r.assets.find(a => a.name === name && a.browser_download_url === url);
+      if (!attachment) throw new Error(`Missing desktop asset: ${name}`);
+      if (digest && attachment.digest && attachment.digest !== `sha256:${digest}`) throw new Error(`Desktop asset digest mismatch: ${name}`);
+      const available = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(30000) });
+      if (!available.ok) throw new Error(`Desktop download is unavailable: ${name}`);
+    }
+    desktop.push(m);
+  }
+  return desktopCatalog(desktop);
+}
+
 export async function verifyChannelDownloads(releases) {
   const urls = new Set();
   for (const m of Object.values(selectChannels(releases))) {
@@ -104,8 +136,9 @@ export function catalogFiles(releases) {
   return files;
 }
 
-export function writeCatalog(releases, directory) {
+export function writeCatalog(releases, directory, desktop) {
   const files = catalogFiles(releases);
+  if (desktop) files['desktop/catalog.json'] = desktop;
   for (const [name, value] of Object.entries(files)) {
     const path = resolve(directory, name);
     mkdirSync(resolve(path, '..'), { recursive: true });
@@ -116,8 +149,10 @@ export function writeCatalog(releases, directory) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const { values } = parseArgs({ options: { repository: { type: 'string' }, directory: { type: 'string', default: '.cache/release-catalog' } } });
-  const releases = await publishedReleases(values.repository || process.env.MOLR_RELEASE_REPOSITORY || process.env.GITHUB_REPOSITORY || 'molr-ai/molr');
+  const repository = values.repository || process.env.MOLR_RELEASE_REPOSITORY || process.env.GITHUB_REPOSITORY || 'molr-ai/molr';
+  const releases = await publishedReleases(repository);
   await verifyChannelDownloads(releases);
-  writeCatalog(releases, values.directory);
+  const desktop = await publishedDesktopCatalog(repository, releases);
+  writeCatalog(releases, values.directory, desktop);
   console.log(`Catalog: ${releases.length} published releases`);
 }

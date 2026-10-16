@@ -2,6 +2,8 @@
 
 WebUI 管理账号会话、导航与页面装载；SDK、Host 和共享 UI 包分别维护协议、主题解析及基础组件。
 
+桌面入口位于 [`apps/desktop`](../../../apps/desktop/README.md)。可信管理界面负责连接和本机服务；独立、启用沙盒的 Electron `WebContentsView` 加载所选 Runtime 自带的 WebUI，每个连接使用独立持久化会话。远程页面不注入 preload，也不能调用桌面管理 IPC。Windows 包仅包含客户端；Linux/macOS 包携带独立 Runtime，通过现有安装器管理专属实例。关闭桌面窗口不停止服务。
+
 ## 实现边界
 
 - `packages/sdk` / `@molr/sdk`：Runtime 客户端、DTO、分页、幂等写入、上传下载、错误、SSE 和 UI/Host 协议，不依赖 React 或 `@molr/ui`。

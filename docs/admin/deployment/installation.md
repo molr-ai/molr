@@ -2,6 +2,81 @@
 
 在官网选择「让 Agent 为我安装」并复制指令，可由能够操作目标设备的 Agent 完成环境检查、安装与验证，流程见[让 Agent 为我安装](agent-install.md)。
 
+## 客户端、Runtime 与 Sandbox
+
+客户端负责显示界面、登录和连接实例；Runtime 负责运行助理并保存数据；Sandbox 提供文件访问和命令执行能力。把桌面 app 连到另一台电脑上的 Runtime，不会把那台电脑的助理或数据搬到桌面端。
+
+| 组件 | 职责与部署位置 |
+| --- | --- |
+| 手机端 | 当前使用手机浏览器访问 WebUI，没有原生 iOS／Android App 安装包。手机连接可访问的 Runtime，不在手机上部署 Runtime 或 Sandbox。 |
+| 桌面 app | 提供连接管理、独立登录会话和 WebUI 容器。Linux/macOS 完整版还可安装和管理本机 Runtime；Windows 客户端只连接远程 Runtime，WSL 也按远程实例处理。 |
+| WebUI | 聊天、助理、资源和管理页面，在浏览器或桌面 app 中运行。正式 Runtime 内嵌 WebUI，由同一服务地址提供网页和 API，无需单独安装前端服务器。桌面 app 从所连接的 Runtime 加载 WebUI。 |
+| Runtime | 提供账号、Agent 执行、任务调度、模型调用及持久化。数据库、会话、记忆、附件和助理工作区保存在 Runtime 所在设备。模型服务独立配置，安装包不包含模型权重或推理服务。 |
+| 内置 Sandbox | 编译在 Runtime 中，管理本机受控文件访问和命令执行。Linux 使用 Bubblewrap 等系统能力，macOS 使用 Seatbelt；本机运行不需要另装 `molr-sandbox` 服务。 |
+| 独立 Sandbox | 在另一台 Linux/macOS 设备运行 `molr-sandbox`，由 Runtime 通过 HTTPS 连接。只提供授权目录与执行能力，不承载账号、Agent、聊天会话或 WebUI。 |
+
+```mermaid
+flowchart TB
+    Browser[电脑或手机浏览器] -->|访问 WebUI| Runtime
+    Desktop[桌面 app] -->|加载 WebUI / 连接 API| Runtime
+    Desktop -.->|Linux/macOS 可选创建本机服务| Runtime
+    subgraph Host[Runtime 所在设备：本机或远程]
+        Runtime[Runtime：内嵌 WebUI / Agent / API]
+        Data[数据库 / 会话 / 记忆 / 助理工作区]
+        Local[内置 Sandbox：本机文件 / 命令执行]
+        Runtime --> Data
+        Runtime --> Local
+    end
+    Runtime -->|HTTPS / 授权调用| Remote[独立 Sandbox：Linux 或 macOS]
+    Runtime -->|模型调用| Model[独立配置的本地或云端模型]
+```
+
+客户端连接的是 Runtime；额外执行节点由 Runtime 连接。远程 Runtime 与远程 Sandbox 是两种部署关系：前者运行整套助理服务，后者只增加执行和目录资源。独立节点上的已授权目录位于该节点，助理自身的工作区仍在 Runtime 设备。具体权限与部署见[沙盒资源](../resources/sandbox.md)和[独立 Sandbox 服务](../sandbox/remote.md)。
+
+桌面 app 的 Electron 渲染进程沙盒用于限制网页访问桌面系统接口；上文的 Sandbox 用于限制助理的文件和命令操作，两者分别起作用。
+
+## 安装包包含哪些组件
+
+官网只展示 GitHub Releases 中实际发布的安装包。下表说明各类产物的内容；系统依赖由目标设备或包管理器准备，不等于全部打进了安装包。
+
+| 安装包或入口 | 包含的组件 | 安装与使用方式 |
+| --- | --- | --- |
+| Linux 桌面完整版 `.deb`，AMD64／ARM64 | Electron 桌面程序、连接管理界面、`molr`（内嵌 WebUI 和本机 Sandbox）、`molr-setup` | 安装桌面程序后，可只连远程 Runtime，也可在应用内创建本机服务。DEB 声明 Bubblewrap、静态 BusyBox、systemd 等依赖，由包管理器准备。 |
+| macOS 桌面完整版 `.dmg`，Apple Silicon／Intel | `.app` 内含 Electron、连接管理界面、`molr`（内嵌 WebUI 和本机 Sandbox）、`molr-setup` | 安装桌面程序后按需创建 launchd 用户服务；命令执行默认关闭，可按 macOS 沙盒文档配置开启。 |
+| Windows 桌面客户端 `.exe`，AMD64 | Electron 桌面程序和连接管理界面 | 不含 `molr`、`molr-setup` 或本机 Sandbox；连接 Linux/macOS Runtime，或另行部署在 WSL 中的 Runtime。不会安装或启动 WSL。 |
+| Linux/macOS Runtime `.tar.gz`，AMD64／ARM64 | `bin/molr`（内嵌 WebUI 和本机 Sandbox）、`bin/molr-setup`、发行元数据和许可证 | 不含 Electron 桌面程序，也不含独立 `molr-sandbox`。通过 CLI 安装服务，再用浏览器或客户端连接。官网 `install.sh` 下载的就是这类 Runtime 包。 |
+| 独立 `molr-sandbox` | 远程 Sandbox 服务程序 | 当前按[独立节点文档](../sandbox/remote.md)从源码构建，未纳入上述安装包或 `molr-setup` 安装流程。 |
+| 源码归档 | 经发布检查的项目源码 | 用于自行构建，不是编译好的应用安装包；构建依赖见[源码部署](source-build.md)。 |
+| Docker | 本地构建的镜像包含 `molr`、内嵌 WebUI 和本机 Sandbox 实现 | 不含桌面 app 或 `molr-setup`。基础镜像默认关闭命令执行；`isolated` 构建目标另带 Linux 隔离依赖。当前没有官方预构建镜像，见[Docker 部署](docker.md)。 |
+
+WebUI 无需另外下载安装包；手机当前使用同一 WebUI，没有可下载的原生手机 App。桌面包和 Runtime 包均随附许可证与第三方声明，桌面包另保留 Electron/Chromium 的许可资料。
+
+## 桌面应用
+
+官网“桌面应用”入口按已发布的渠道清单显示安装包；没有发布产物时显示暂无版本。源码构建与原生验收命令见[桌面 README](../../../apps/desktop/README.md)。
+
+Linux/macOS 完整版包含 Runtime，也可连接远程实例。Windows 客户端只连接远程 Runtime；WSL 中的 Runtime 同样按远程连接添加。点击“添加连接”，填写名称和 Runtime 根地址，然后在该实例页面登录。HTTPS 为默认选择；回环或可信私网 HTTP 需要显式启用，没有传输加密。每个连接独立保存登录状态，修改服务器地址会使用新会话。
+
+完整版选择“安装并启动”后创建专属用户服务，默认仅监听回环地址。已有 CLI 安装保持独立，可作为远程连接添加。Linux 依赖沿用下文沙盒环境要求；依赖、主机策略或目录权限检查失败时先修复环境，再重试。macOS 默认关闭命令执行，能力边界仍遵守 macOS 沙盒说明。
+
+关闭窗口或退出桌面 app 后，本机服务继续运行；休眠、关机或用户服务退出会影响任务。停止、重启或卸载需在桌面管理界面明确操作，卸载默认保留配置和数据。删除桌面应用本身不等于卸载后台 Runtime；需移除服务时先在应用中卸载 Runtime。
+
+桌面程序目前通过下载安装新版手动升级，再明确更新其管理的 Runtime。CLI/Web 更新入口不更新桌面管理的实例。远程 Runtime 和 WSL Runtime 由各自部署方维护。正式 macOS/Windows 发布需要原生验收与签名，macOS 另需公证；本地构建不作为已正式发布的安装包。
+
+### Runtime 和 Sandbox 是否可选
+
+这里需要区分安装包携带程序、创建后台服务和开启执行能力：
+
+| 操作 | 当前是否可选 |
+| --- | --- |
+| 从 Linux/macOS 完整版中排除 Runtime 文件 | 不可选。完整包固定携带 Runtime，没有组件勾选页，也没有单独的 Linux/macOS 纯客户端安装包。 |
+| 创建并启动本机 Runtime 服务 | 可选。首次打开桌面 app 不会自动创建服务；点击“安装并启动”才执行。只连远程实例时可跳过这一步。 |
+| 单独安装或不安装内置 Sandbox | 没有独立安装步骤或勾选项，它是 Runtime 的一部分。也不会自动部署独立 `molr-sandbox` 节点。 |
+| 开启本机命令执行 | 属于 Runtime 配置，桌面安装界面尚未提供开关。新建 Linux 实例默认开启；macOS 默认关闭。可修改该实例的 `sandbox.enabled` 并重启；关闭后聊天、文件和记忆仍可用，也能使用另行配置的远程 Sandbox。执行命令仍需为助理授予相应权限。 |
+| 跳过 Linux DEB 的沙盒系统依赖 | 当前不可选。即使只连接远程 Runtime，安装 DEB 时仍需满足它声明的沙盒依赖；跳过创建本机服务不会去掉这些包依赖。 |
+
+因此，当前已有“按需创建本机 Runtime 服务”，尚未实现“安装时分别勾选 Runtime／Sandbox 组件”。macOS 的执行配置见[macOS 原生命令权限](../sandbox/macos.md)，Linux 的执行环境与授权见[Linux 沙盒部署](../sandbox/linux.md)。
+
 ## 环境要求
 
 以下为运行 Molr 服务（Runtime 与 WebUI）、连接云端或其他设备上的模型时的初步容量建议，尚未经系统性性能基准验证。最低配置用于启动服务和单人少量对话；推荐配置为日常使用和少量并发任务预留余量。

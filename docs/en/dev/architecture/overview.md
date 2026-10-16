@@ -1,11 +1,13 @@
 # Architecture Overview
 
-Molr adopts a Go modular monolith, using SQLite and local files for data storage. The WebUI connects to the Runtime via HTTP and SSE; command execution can use the built-in sandbox or an independent Linux Sandbox.
+Molr adopts a Go modular monolith, using SQLite and local files for data storage. The WebUI connects to the Runtime via HTTP and SSE; command execution can use the built-in sandbox or an independent Linux/macOS Sandbox.
 
 ## Components
 
 - The Go Runtime provides identity authentication, data persistence, Agent execution, planning, resource authorization, and cost management.
-- The WebUI connects to the real Runtime; desktop and mobile browsers use the same service.
+- WebUI is embedded in release Runtime binaries and connects to the same instance from desktop/mobile browsers or the desktop app.
+- The Electron desktop app manages connections; Linux/macOS packages can optionally create a bundled local Runtime service, while Windows connects only to remote Runtimes, including WSL.
+- Phones currently use WebUI in a browser; no native iOS/Android App is implemented. Package contents and installation choices are described in [Installation and service management](../../admin/deployment/installation.md).
 - UI Design uses mock data to display components and interactions; its Desktop/Mobile/CLI views do not represent independent native clients.
 - The official website provides product introductions and public documentation, deployed separately from user Runtime instances.
 
@@ -13,7 +15,7 @@ Molr adopts a Go modular monolith, using SQLite and local files for data storage
 
 ```mermaid
 flowchart TD
-    UI[WebUI: desktop and mobile browsers] --> API
+    UI[WebUI: browsers and desktop app] --> API
     subgraph SERVER[Go Molr Server: single deployment unit]
         API[API / authentication] --> IM[IM: conversations / messages / live delivery]
         API --> B[Business: assistants / tasks / schedules / resources]
@@ -26,6 +28,8 @@ flowchart TD
         A --> D
     end
     A --> MODELS[Local or cloud models and authorized resources]
+    A --> LOCAL[Built-in local Sandbox]
+    A -->|HTTPS| REMOTE[Independent Linux/macOS Sandbox]
 ```
 
 A single Go main process hosts core modules, which call interfaces directly. When external programs need to be executed, built-in tools manage controlled subprocesses. By default, only one server is started, using one data directory and one external entry point.

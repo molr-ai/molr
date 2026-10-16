@@ -5,6 +5,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import type { Plugin } from 'vite';
+import { readDesktopCatalog } from './src/desktop-releases';
 
 // One bootstrap source; production catalogs contain URLs, never binary packages.
 export function installerPlugin(): Plugin {
@@ -24,6 +25,10 @@ export function installerPlugin(): Plugin {
  const guide = (name: string) => readFileSync(guidePaths[name], 'utf8');
  const assets = () => {
   const files: Record<string, string | Buffer> = { 'install.sh': script(), ...Object.fromEntries(Object.keys(guidePaths).map(name => [name, guide(name)])) };
+  const desktop = process.env.MOLR_DESKTOP_CATALOG;
+  if (desktop && catalogDir) throw new Error('Use either MOLR_DESKTOP_CATALOG or a combined MOLR_CATALOG_DIR');
+  const desktopCatalog = readDesktopCatalog(desktop ? JSON.parse(readFileSync(resolve(root, desktop), 'utf8')) : { schema: 1, channels: { stable: null, preview: null, nightly: null } });
+  files['releases/desktop/catalog.json'] = JSON.stringify(desktopCatalog);
   if (catalogDir) {
    checkReleaseFiles('release-directory', catalogDir);
    const collect = (path: string, prefix: string) => {

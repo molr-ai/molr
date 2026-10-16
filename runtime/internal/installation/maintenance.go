@@ -231,7 +231,13 @@ func (e *Engine) progress(stage string, downloaded, total int64) error {
 	e.task.Stage = stage
 	e.task.Downloaded = downloaded
 	e.task.Total = total
-	return writeTask(e.taskRecord, e.task)
+	if err := writeTask(e.taskRecord, e.task); err != nil {
+		return err
+	}
+	if e.Options.Command == "desktop" {
+		return json.NewEncoder(e.machineOut).Encode(map[string]string{"type": "progress", "stage": stage})
+	}
+	return nil
 }
 func (e *Engine) finishTask(err error) error {
 	if e.task == nil {
