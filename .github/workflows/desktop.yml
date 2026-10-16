@@ -52,6 +52,10 @@ jobs:
         name: Native desktop Runtime lifecycle
         run: node apps/desktop/tests/local-runtime.mjs
       - run: npm run package:desktop
+        env:
+          # Match the empty values produced by missing release-environment secrets.
+          CSC_LINK: ''
+          CSC_KEY_PASSWORD: ''
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ runner.os }}-${{ runner.arch }}

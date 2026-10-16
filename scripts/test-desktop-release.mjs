@@ -12,6 +12,12 @@ import { desktopSigning } from '../apps/desktop/scripts/signing.mjs';
 
 test('desktop signing allows absent credentials but rejects partial configuration', () => {
   for (const os of ['darwin', 'win32']) assert.equal(desktopSigning(os, false, {}), false);
+  for (const local of [true, false]) {
+    const empty = { CSC_LINK: '', CSC_KEY_PASSWORD: '', APPLE_ID: '', APPLE_APP_SPECIFIC_PASSWORD: '', APPLE_TEAM_ID: '' };
+    assert.equal(desktopSigning('darwin', local, empty), false);
+    assert.equal(empty.CSC_LINK, undefined, 'electron-builder must not receive an empty certificate path');
+    assert.equal(empty.CSC_KEY_PASSWORD, undefined);
+  }
   const mac = { CSC_LINK: 'fixture', APPLE_ID: 'fixture', APPLE_APP_SPECIFIC_PASSWORD: 'fixture', APPLE_TEAM_ID: 'fixture' };
   assert.equal(desktopSigning('darwin', false, mac), true);
   for (const key of Object.keys(mac)) { const partial = { ...mac }; delete partial[key]; assert.throws(() => desktopSigning('darwin', false, partial), /Incomplete/); }
