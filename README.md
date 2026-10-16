@@ -57,6 +57,14 @@ The installer detects the architecture, checks dependencies, and configures the 
 - [Building from source](docs/en/admin/deployment/source-build.md): build and deploy Molr yourself.
 - [Deployment and maintenance](docs/en/admin/README.md): HTTPS, sandbox dependencies, and backup and recovery.
 
+## Near-term roadmap
+
+- [ ] **Desktop app** — Provide an installable desktop client for connecting to Molr services and working with chats, plans, and deliverables.
+- [ ] **Windows sandbox support** — Run commands in a controlled native Windows environment with file and network permissions and task cancellation.
+- [ ] **Multi-assistant group chats** — Bring multiple assistants into one conversation, address participants with @mentions, and share group messages and deliverables.
+
+See the [full roadmap](docs/en/dev/roadmap.md) for scope, completion criteria, longer-term plans, and features under consideration.
+
 ## Documentation
 
 Choose the user, administrator, or developer guide for your task.

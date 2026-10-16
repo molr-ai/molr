@@ -2,6 +2,8 @@
 
 本目录面向贡献者与维护者。日常使用见[用户指南](../user/README.md)，安装、资源接入和运维见[管理员指南](../admin/README.md)。
 
+[路线图](roadmap.md)列出近期要做、远期计划和尚未决定的功能，以及各项的范围和完成标准。
+
 ## 开始贡献
 
 先阅读[开发协作与验收](contributing/development.md)，按 worktree 规范开展任务；文档内容归属、链接更新和官网发布检查见[文档维护约定](contributing/documentation.md)。[AGENTS.md](../../AGENTS.md) 列出编码任务必读规范。

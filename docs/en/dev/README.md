@@ -2,6 +2,8 @@
 
 This guide is for contributors and maintainers. For everyday tasks, see the [user guide](../user/README.md); for installation, resource connections and operations, see the [administrator guide](../admin/README.md).
 
+The [roadmap](roadmap.md) lists near-term work, longer-term plans, and features under consideration, with their scope and completion criteria.
+
 ## Getting Started with Contributions
 
 First, read [Development Collaboration and Acceptance](../../dev/contributing/development.md) and conduct tasks according to the worktree specifications; for documentation content ownership, link updates, and official website release checks, see [Documentation Maintenance Conventions](contributing/documentation.md). [AGENTS.md](../../../AGENTS.md) lists mandatory coding standards.

@@ -57,6 +57,14 @@ curl -fsSL https://molr.ai/install.sh | sh
 - [从源码构建](docs/admin/deployment/source-build.md)：自行构建与部署。
 - [部署与维护](docs/admin/README.md)：HTTPS、沙盒依赖和备份恢复。
 
+## 近期路线图
+
+- [ ] **桌面 App** — 提供独立安装的桌面客户端，连接 Molr 服务，处理聊天、计划和交付物。
+- [ ] **Windows 沙盒支持** — 在原生 Windows 环境中受控执行命令，接入文件、网络授权与任务停止机制。
+- [ ] **多助理群聊** — 在同一会话中加入多位助理，通过 @ 指定参与者，共享群内消息和交付物。
+
+范围与完成标准，以及远期计划和待定项，见[完整路线图](docs/dev/roadmap.md)。
+
 ## 文档
 
 | 入口 | 内容 |
