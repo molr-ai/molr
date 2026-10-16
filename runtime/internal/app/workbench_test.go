@@ -69,6 +69,13 @@ func TestWorkbenchCapturesActualLoopAndKeepsPrivateDataOutOfChat(t *testing.T) {
 	var calls atomic.Int32
 	var chatID atomic.Value
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// The model transport closes each connection. Consume the request before
+		// replying so the server cannot close while the client is still writing.
+		if _, err := io.Copy(io.Discard, r.Body); err != nil {
+			t.Errorf("read model request: %v", err)
+			http.Error(w, "invalid model request", http.StatusBadRequest)
+			return
+		}
 		n := calls.Add(1)
 		msg := map[string]any{"role": "assistant", "content": "PRIVATE_MODEL_OUTPUT"}
 		finish := "stop"
