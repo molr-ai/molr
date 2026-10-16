@@ -12,6 +12,8 @@ Give your assistant a concrete task so it can choose tools to retrieve informati
 | ClawEmail | Official Mail-CLI (`mail-cli`, recommended) | [Use ClawEmail](clawemail.md) |
 | Zhihu | Official Zhihu CLI | [Use Zhihu](zhihu.md) |
 | GitHub | Official GitHub CLI (`gh`) | [Use GitHub](github.md) |
+| Codex coding tasks | Official Codex CLI | [Use Codex](codex.md) |
+| ZCode coding tasks | Z.ai's official ZCode CLI | [Use ZCode](zcode.md) |
 | Google services | Google Workspace CLI (`gws`) | [Use Google Services](google.md) |
 
 ## Prepare the Execution Environment

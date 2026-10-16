@@ -320,6 +320,38 @@
     }
   },
   {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/best-practices/codex.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "操作 Codex",
+      "en": "Use Codex"
+    },
+    "topics": {
+      "zh": "最佳实践",
+      "en": "Best practices"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/user/best-practices/codex/",
+      "en": "https://molr.ai/en/docs/user/best-practices/codex/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/best-practices/zcode.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "操作 ZCode",
+      "en": "Use ZCode"
+    },
+    "topics": {
+      "zh": "最佳实践",
+      "en": "Best practices"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/user/best-practices/zcode/",
+      "en": "https://molr.ai/en/docs/user/best-practices/zcode/"
+    }
+  },
+  {
     "path": "/molr/.agents/skills/molr-docs/references/docs/user/best-practices/google.md",
     "contentLanguage": "zh",
     "titles": {

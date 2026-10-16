@@ -12,6 +12,8 @@
 | ClawEmail 邮箱 | 官方 Mail-CLI（`mail-cli`，推荐） | [操作 ClawEmail](clawemail.md) |
 | 知乎 | 官方 Zhihu CLI | [操作知乎](zhihu.md) |
 | GitHub | 官方 GitHub CLI（`gh`） | [操作 GitHub](github.md) |
+| Codex 编程任务 | 官方 Codex CLI | [操作 Codex](codex.md) |
+| ZCode 编程任务 | Z.ai 官方 ZCode CLI | [操作 ZCode](zcode.md) |
 | Google 服务 | Google Workspace CLI（`gws`） | [操作 Google 服务](google.md) |
 
 ## 准备执行环境

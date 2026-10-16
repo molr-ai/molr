@@ -12,6 +12,8 @@
 | ClawEmail 邮箱 | 官方 Mail-CLI（`mail-cli`，推荐） | [操作 ClawEmail](https://molr.ai/zh/docs/user/best-practices/clawemail/) |
 | 知乎 | 官方 Zhihu CLI | [操作知乎](https://molr.ai/zh/docs/user/best-practices/zhihu/) |
 | GitHub | 官方 GitHub CLI（`gh`） | [操作 GitHub](https://molr.ai/zh/docs/user/best-practices/github/) |
+| Codex 编程任务 | 官方 Codex CLI | [操作 Codex](https://molr.ai/zh/docs/user/best-practices/codex/) |
+| ZCode 编程任务 | Z.ai 官方 ZCode CLI | [操作 ZCode](https://molr.ai/zh/docs/user/best-practices/zcode/) |
 | Google 服务 | Google Workspace CLI（`gws`） | [操作 Google 服务](https://molr.ai/zh/docs/user/best-practices/google/) |
 
 ## 准备执行环境

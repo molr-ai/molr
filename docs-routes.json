@@ -200,6 +200,26 @@
     "section": "user"
   },
   {
+    "file": "user/best-practices/codex.md",
+    "path": "/docs/user/best-practices/codex/",
+    "label": "操作 Codex",
+    "group": "最佳实践",
+    "englishLabel": "Use Codex",
+    "englishGroup": "Best practices",
+    "root": "docs",
+    "section": "user"
+  },
+  {
+    "file": "user/best-practices/zcode.md",
+    "path": "/docs/user/best-practices/zcode/",
+    "label": "操作 ZCode",
+    "group": "最佳实践",
+    "englishLabel": "Use ZCode",
+    "englishGroup": "Best practices",
+    "root": "docs",
+    "section": "user"
+  },
+  {
     "file": "user/best-practices/google.md",
     "path": "/docs/user/best-practices/google/",
     "label": "操作 Google 服务",
