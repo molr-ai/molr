@@ -230,6 +230,16 @@
     "section": "user"
   },
   {
+    "file": "user/best-practices/weibo.md",
+    "path": "/docs/user/best-practices/weibo/",
+    "label": "操作微博",
+    "group": "最佳实践",
+    "englishLabel": "Use Weibo",
+    "englishGroup": "Best practices",
+    "root": "docs",
+    "section": "user"
+  },
+  {
     "file": "user/best-practices/github.md",
     "path": "/docs/user/best-practices/github/",
     "label": "操作 GitHub",

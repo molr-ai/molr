@@ -368,6 +368,22 @@
     }
   },
   {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/best-practices/weibo.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "操作微博",
+      "en": "Use Weibo"
+    },
+    "topics": {
+      "zh": "最佳实践",
+      "en": "Best practices"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/user/best-practices/weibo/",
+      "en": "https://molr.ai/en/docs/user/best-practices/weibo/"
+    }
+  },
+  {
     "path": "/molr/.agents/skills/molr-docs/references/docs/user/best-practices/github.md",
     "contentLanguage": "zh",
     "titles": {
