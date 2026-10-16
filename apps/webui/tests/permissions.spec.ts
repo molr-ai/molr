@@ -44,6 +44,12 @@ for (const decision of ['approve', 'reject']) test(`permission request ${decisio
   const grantsBefore = await (await page.request.get(`/api/grants?assistant_id=${assistant.ID}`)).json();
   expect(grantsBefore.Items).toHaveLength(1); // only the model chosen at hiring
   if (decision === 'approve') {
+    const input = page.getByRole('textbox', { name: 'Message your assistant', exact: true });
+    await input.fill('/权限审批 同意');
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    await expect(page.locator('.composer-notice')).toContainText('This request needs a resource or quota.');
+    await expect(page.locator('.permission-request-card')).toContainText('Awaiting permission');
+    await input.fill('');
     await page.locator('.permission-request-card').getByRole('button', { name: 'Review permission', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Review permission', exact: true });
     await expect(dialog.getByRole('combobox', { name: 'Resource type', exact: true })).toContainText('Sandboxes');

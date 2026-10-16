@@ -105,7 +105,7 @@ export function ChatTypingIndicator({ label }: { label?: string }) {
   return <ChatStatus status="typing" label={label} />;
 }
 
-export type ChatComposerCommand = { name: string; description: string; keywords?: readonly string[]; disabled?: boolean };
+export type ChatComposerCommand = { name: string; description: string; aliases?: readonly string[]; keywords?: readonly string[]; disabled?: boolean };
 export type ChatComposerProps = {
   lock?: { title: string; description?: ReactNode; action?: ReactNode };
   commands?: readonly ChatComposerCommand[];
@@ -135,8 +135,12 @@ export function ChatComposer({ lock, commands = [], value, onValueChange, onSubm
   const [focused, setFocused] = useState(false), [dismissed, setDismissed] = useState<string | null>(null), [activeCommand, setActiveCommand] = useState(0), [caret, setCaret] = useState(0);
   useLayoutEffect(() => { if (textarea.current && document.activeElement === textarea.current) setCaret(textarea.current.selectionStart); }, [value]);
   useLayoutEffect(() => { if (locked) setFocused(false); }, [locked]);
-  const query = /^\/([^\s/]*)$/.exec(value)?.[1];
-  const commandMatches = query === undefined ? [] : commands.filter(command => [command.name, ...(command.keywords ?? [])].some(word => word.toLocaleLowerCase().includes(query.toLocaleLowerCase())));
+  const query = /^\/([^/\r\n]*)$/.exec(value)?.[1];
+  const commandMatches = query === undefined ? [] : commands.flatMap(command => {
+    const search = query.toLocaleLowerCase();
+    const name = [command.name, ...(command.aliases ?? [])].find(word => word.toLocaleLowerCase().includes(search));
+    return name ? [{ ...command, name }] : (command.keywords ?? []).some(word => word.toLocaleLowerCase().includes(search)) ? [command] : [];
+  });
   const commandMenu = focused && !disabled && !recording && commands.length > 0 && query !== undefined && caret === value.length && dismissed !== value;
   const selectedCommand = Math.min(activeCommand, commandMatches.length - 1);
   function completeCommand(index: number) {

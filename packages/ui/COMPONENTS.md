@@ -297,7 +297,8 @@ const [range, setRange] = useState<[number, number]>([20, 80]);
 
 组件保留源字符串与空白，不执行代码、不插入 HTML。无效 JSON、超过 100,000 字符或超过约 10,000 个标记的内容回退为完整纯文本，限制高亮开销但不截断数据。需要格式化时由调用方显式提供缩进后的字符串。UI Design 的「设计基础 → 代码高亮」可切换格式、换行和编辑示例。
 
-`ChatComposer.commands` 可选地提供 `{ name, description, keywords?, disabled? }[]`。组件负责输入开头的斜杠菜单、键盘与输入法行为，选择只补全文本；实际指令执行由调用方 `onSubmit` 根据完整输入分发。路径及正文中的斜杠保持普通输入。未传入 commands 的调用保持原有行为。
+`ChatComposer.commands` 可选地提供 `{ name, description, aliases?, keywords?, disabled? }[]`。组件负责输入开头的斜杠菜单、键盘与输入法行为，选择只补全文本；实际指令执行由调用方 `onSubmit` 根据完整输入分发。路径及正文中的斜杠保持普通输入。未传入 commands 的调用保持原有行为。
+`ChatComposerCommand.aliases?: readonly string[]` 指定可补全别名（不含 `/`）；按别名筛选时补全该别名。`name` 与别名均支持空格分隔的子命令。业务调用方负责解析别名并限制指令生效条件。
 
 指令菜单复用 Select 浮层及选项样式，最大宽度 360 px，默认在输入框上方，不足时调整到下方。浮层使用原生非模态 popover，遵循 `ModalScope` 和 `visualViewport` 边界，焦点保留在 textarea；方向键仅滚动候选列表，触屏不显示键盘提示。示例入口为 UI Design `?components=chat#command-selector`。
 

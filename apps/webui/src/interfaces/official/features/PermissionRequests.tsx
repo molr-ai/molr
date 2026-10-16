@@ -7,7 +7,7 @@ import { ConstraintsEditor, constraintsForNode, ConstraintsSummary, TemporaryCon
 import type { PermissionRequestInput } from '../../../api/types';
 import { Folder, Globe, Server, Sparkles, Wrench } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
-import { ModalPresence, Badge, Button, Card, ChatCard, DateTimePicker, Dialog, Select, Textarea } from '@molr/ui';
+import { ModalPresence, Badge, Button, Card, ChatCard, ChatCopyButton, DateTimePicker, Dialog, Select, Textarea } from '@molr/ui';
 import { PermissionExpiry, PermissionScope } from './PermissionScope';
 import type { Assistant, Grant, Model, PermissionRequest, Resource } from '../../../api/types';
 import { api, APIError } from '../../../api/client';
@@ -47,6 +47,7 @@ export function PermissionRequestCard({ requestID, assistant, title, summary, ti
       {approved ? grants.map(item => <PermissionScope key={item.ID} grant={item} showExpiry={!sharedExpiry} timeZone={timeZone} />)
         : proposals.map((item, index) => <PermissionScope key={index} input={item} showReason={index > 0} showExpiry={!sharedExpiry} timeZone={timeZone} />)}
     </div>
+    {state === 'pending' && <div className="permission-request-expiry"><span>{zh ? '申请 ID' : 'Request ID'}</span><code style={{ overflowWrap: 'anywhere', minWidth: 0 }}>{requestID}</code><ChatCopyButton text={requestID} label={zh ? '复制申请 ID' : 'Copy request ID'} /></div>}
     {sharedExpiry && <div className="permission-request-expiry"><span>{zh ? '授权至' : 'Expires'}</span><PermissionExpiry value={expiries[0]} timeZone={timeZone} /></div>}
   </ChatCard>
   <ModalPresence>{review && request && <PermissionReview request={request} assistant={assistant} onClose={() => setReview(false)} />}</ModalPresence>

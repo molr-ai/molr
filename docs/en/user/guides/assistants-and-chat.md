@@ -52,9 +52,25 @@ Lower thresholds reduce history in subsequent requests but increase summary call
 
 ## Input Box Commands and Context Compression
 
-Entering `/` at the beginning of the message input box allows you to view commands; entering `/com` or `/压缩` filters `/compress`. Use arrow keys to select, Tab or Enter to complete, and Esc to close; after completion, press Enter again or click send to execute. Entering `/compress` completely allows direct sending; Shift+Enter still inserts a line break, and Chinese input method word selection does not execute commands.
+Entering `/` at the beginning of the message input box allows you to view commands; entering `/com` or `/压` filters the compression command. Use arrow keys to select, Tab or Enter to complete, and Esc to close; after completion, press Enter again or click send to execute. Entering a complete English command or Chinese alias allows direct sending; Shift+Enter still inserts a line break, and Chinese input method word selection does not execute commands.
 
-`/compress` queues a context compression event: it waits for the current model response and the entire batch of tool calls for that response to complete before compressing; if the assistant is idle, it processes directly; during dreaming, it waits for the dreaming session to end. This command accepts no parameters, does not generate chat messages, and does not send or remove attached attachments. When the threshold is reached automatically, the same event mechanism is used, and duplicate requests are merged.
+| Command | Chinese alias | Available when |
+| --- | --- | --- |
+| `/compress` | `/压缩` | The assistant is available |
+| `/permission approve` | `/权限审批 同意` | The current assistant has pending permission requests |
+| `/permission reject` | `/权限审批 拒绝` | The current assistant has pending permission requests |
+
+Permission commands appear in the menu while requests are pending, with Chinese alias completion. Without an argument, they resolve the current assistant’s newest pending request; resolved requests are excluded.
+
+- `/permission approve <id>` or `/权限审批 同意 <id>` approves a specific request. Replace `<id>` with the complete request ID copied from its permission card, without angle brackets.
+- `/permission approve all` or `/权限审批 同意 全部` approves all requests pending for the current assistant when the command is sent.
+- Replace `approve` with `reject`, or `同意` with `拒绝`, to reject the newest, specified, or all requests. Both languages accept `all` and `全部`.
+
+Approval preserves the proposed resources, actions, scopes, quotas, and expiry, including grouped items. Rejection grants no access. Missing resources or quotas require “Review permission” on the card. IDs must exactly match a pending request for the current assistant; an unknown ID never falls back to another request. State and version are checked before execution; commands without an argument also check that the newest request has not changed.
+
+Batch commands check all selected requests before submitting them sequentially. A failure stops processing and reports the completed count. Successful decisions remain in effect; review remaining requests before retrying. Requests arriving during processing are excluded from that batch. Outside the approval flow, commands only show a notice. They do not create chat messages and retain attached files in the composer.
+
+`/compress` (or `/压缩`) queues a context compression event: it waits for the current model response and the entire batch of tool calls for that response to complete before compressing; if the assistant is idle, it processes directly; during dreaming, it waits for the dreaming session to end. This command accepts no parameters, does not generate chat messages, and does not send or remove attached attachments. When the threshold is reached automatically, the same event mechanism is used, and duplicate requests are merged.
 
 Only when compression is actually processed does the assistant status display "Compressing context". Compression retains chats, files, memories, and execution evidence, and continues the original work after completion; on failure, the original context is retained and an error is prompted. Calling the summary model uses the current model authorization and budget. Normal messages continue to queue; "Urgent" still interrupts model generation; Shell completion notifications and running reminders are integrated after the current step ends.
 

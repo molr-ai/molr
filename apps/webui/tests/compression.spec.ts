@@ -30,9 +30,9 @@ test('slash completion, compression event, live status and retained history', as
   await input.press('Escape');
   await expect(page.getByRole('listbox', { name: 'Commands' })).toBeHidden();
   await expect(input).toHaveValue('/');
-  await input.fill('/com');
+  await input.fill(info.project.name === 'mobile' ? '/压' : '/com');
   await input.press('Enter');
-  await expect(input).toHaveValue('/compress');
+  await expect(input).toHaveValue(info.project.name === 'mobile' ? '/压缩' : '/compress');
   await expect(page.getByRole('listbox', { name: 'Commands' })).toBeHidden();
   expect((await status()).Context.Compressions).toBe(0);
   await input.press('Enter');

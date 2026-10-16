@@ -58,7 +58,7 @@ export function permissionModel(input, response) {
     if (!listing) call('permission_list', {});
     else {
       const target = listing.Requestable.find(r => r.Kind === 'compute');
-      const quota = input.model.startsWith('Permission quota ');
+      const quota = input.model.startsWith('Permission quota ') || input.model.startsWith('Permission grouped ');
       const gpu = input.model.startsWith('Permission gpu ');
       const cpu = input.model.startsWith('Permission cpu ');
       const network = quota ? listing.Requestable.find(r => r.Kind === 'network') : null;
