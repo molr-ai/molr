@@ -37,7 +37,11 @@ const model = createServer(async (request, response) => {
   if (request.method === 'GET' && request.url === '/workspace-skill.md') { response.end('---\nname: workspace-cli\ndescription: Use the workspace CLI to check its version.\n---\nRun /work/.local/bin/workspace-cli --version with shell_execute.\n'); return; }
   if (request.method === 'GET' && request.url === '/workspace-cli.sh') { response.end('#!/bin/sh\nprintf \"fixture-cli-1\\n\"\n'); return; }
   if (request.method === 'GET' && request.url === '/quota-fixture') { response.end('quota-fixture\n'.repeat(1024)); return; }
-  if (request.method === 'GET' && ['/v1/models', '/private/v1/models'].includes(request.url)) {
+  if (request.method === 'GET' && request.url === '/anthropic/v1/models') {
+    if (request.headers['x-api-key'] !== 'test-provider-secret' || request.headers['anthropic-version'] !== '2023-06-01' || request.headers.authorization) { response.writeHead(401).end(); return; }
+    response.setHeader('Content-Type', 'application/json'); response.end(JSON.stringify({ data: [{ id: 'claude-fixture', max_input_tokens: 200000, max_tokens: 8192 }], has_more: false })); return;
+  }
+  if (request.method === 'GET' && ['/v1/models', '/private/v1/models'].includes(request.url?.split('?')[0])) {
     if (request.url.startsWith('/private/') && !['Bearer test-provider-secret', 'Bearer rotated-provider-secret'].includes(request.headers.authorization)) { response.writeHead(401).end(); return; }
     response.setHeader('Content-Type', 'application/json'); response.end(JSON.stringify({ data: [{ id: 'discovered-one' }, { id: 'discovered-two' }] })); return;
   }

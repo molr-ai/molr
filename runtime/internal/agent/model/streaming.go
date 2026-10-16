@@ -15,6 +15,7 @@ import (
 // Each field is materialized once at the end of assembly.
 type streamCall struct {
 	id, name, arguments strings.Builder
+	extra               *googleExtraContent
 }
 
 // readChatStream assembles a normal completion for the existing protocol adapters
@@ -102,10 +103,11 @@ func readChatStream(protocol Protocol, reader io.Reader, started time.Time, now 
 					}
 				case "tool_calls":
 					var parts []struct {
-						Index    int    `json:"index"`
-						ID       string `json:"id"`
-						Type     string `json:"type"`
-						Function struct {
+						ExtraContent *googleExtraContent `json:"extra_content"`
+						Index        int                 `json:"index"`
+						ID           string              `json:"id"`
+						Type         string              `json:"type"`
+						Function     struct {
 							Name      string `json:"name"`
 							Arguments string `json:"arguments"`
 						} `json:"function"`
@@ -121,6 +123,12 @@ func readChatStream(protocol Protocol, reader io.Reader, started time.Time, now 
 						if call == nil {
 							call = &streamCall{}
 							calls[part.Index] = call
+						}
+						if protocol == GeminiChat && part.ExtraContent != nil {
+							if call.extra != nil && call.extra.Google.ThoughtSignature != part.ExtraContent.Google.ThoughtSignature {
+								return invalid()
+							}
+							call.extra = part.ExtraContent
 						}
 						call.id.WriteString(part.ID)
 						if part.Type != "" && part.Type != "function" {
@@ -199,7 +207,7 @@ func readChatStream(protocol Protocol, reader io.Reader, started time.Time, now 
 			if calls[i] == nil {
 				return nil, nil, timing, invalid()
 			}
-			ordered[i] = wireCall{ID: calls[i].id.String(), Type: "function"}
+			ordered[i] = wireCall{ID: calls[i].id.String(), Type: "function", ExtraContent: calls[i].extra}
 			ordered[i].Function.Name = calls[i].name.String()
 			ordered[i].Function.Arguments = calls[i].arguments.String()
 		}

@@ -528,6 +528,102 @@
     }
   },
   {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/resources/providers/anthropic.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "接入 Anthropic / Claude",
+      "en": "Connect Anthropic / Claude"
+    },
+    "topics": {
+      "zh": "接入模型",
+      "en": "Connect models"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/resources/providers/anthropic/",
+      "en": "https://molr.ai/en/docs/admin/resources/providers/anthropic/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/resources/providers/gemini.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "接入 Google Gemini",
+      "en": "Connect Google Gemini"
+    },
+    "topics": {
+      "zh": "接入模型",
+      "en": "Connect models"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/resources/providers/gemini/",
+      "en": "https://molr.ai/en/docs/admin/resources/providers/gemini/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/resources/providers/minimax.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "接入 MiniMax",
+      "en": "Connect MiniMax"
+    },
+    "topics": {
+      "zh": "接入模型",
+      "en": "Connect models"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/resources/providers/minimax/",
+      "en": "https://molr.ai/en/docs/admin/resources/providers/minimax/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/resources/providers/volcengine.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "接入 Volcengine · 火山方舟",
+      "en": "Connect Volcengine · 火山方舟"
+    },
+    "topics": {
+      "zh": "接入模型",
+      "en": "Connect models"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/resources/providers/volcengine/",
+      "en": "https://molr.ai/en/docs/admin/resources/providers/volcengine/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/resources/providers/siliconflow.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "接入 SiliconFlow · 硅基流动",
+      "en": "Connect SiliconFlow · 硅基流动"
+    },
+    "topics": {
+      "zh": "接入模型",
+      "en": "Connect models"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/resources/providers/siliconflow/",
+      "en": "https://molr.ai/en/docs/admin/resources/providers/siliconflow/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/resources/providers/lmstudio.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "接入 LM Studio",
+      "en": "Connect LM Studio"
+    },
+    "topics": {
+      "zh": "接入模型",
+      "en": "Connect models"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/resources/providers/lmstudio/",
+      "en": "https://molr.ai/en/docs/admin/resources/providers/lmstudio/"
+    }
+  },
+  {
     "path": "/molr/.agents/skills/molr-docs/references/docs/admin/resources/providers/openrouter.md",
     "contentLanguage": "zh",
     "titles": {

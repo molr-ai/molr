@@ -52,7 +52,7 @@ func (a adapters) providers() map[string]resource.Provider {
 				return nil, core.Invalid("binding", "sandbox target not supported by model provider")
 			}
 			switch b.PricingProvider {
-			case "", "openai", "openrouter", "deepseek", "bailian", "zhipu", "moonshot", "ollama", "llamacpp", "vllm", "sglang", "custom":
+			case "", "openai", "openrouter", "deepseek", "bailian", "zhipu", "moonshot", "ollama", "llamacpp", "vllm", "sglang", "anthropic", "gemini", "minimax", "volcengine", "siliconflow", "lmstudio", "zai", "custom":
 			default:
 				return nil, core.Invalid("pricing_provider", "unknown provider preset")
 			}

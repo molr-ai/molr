@@ -8,15 +8,19 @@ Runtime remains a monolithic Go service. `internal/agent/model` uses fixed built
 - The model client is responsible for permissions, credentials, network access, idempotency records, and cost settlement.
 - The protocol adapter is responsible for request encoding, response parsing, and saving and returning backend-specific state.
 
-Currently, three protocols are integrated:
+Currently, seven protocols are integrated:
 
 | Protocol | Request and State |
 | --- | --- |
+| `anthropic-messages` | Native Messages, `x-api-key` authentication, content blocks, tool results, SSE, and signed state replay |
+| `gemini-chat-completions` | Google’s official compatibility API; retains per-call thought signatures and omits `store` |
+| `minimax-chat-completions` | Compatible reasoning with `reasoning_split: true` to separate thinking from visible text |
+| `reasoning-chat-completions` | Volcengine, SiliconFlow, and Z.AI; uses `max_tokens`, replays same-source `reasoning_content`, omits `store` |
 | `openai-chat-completions` | Generic Chat Completions, using `max_completion_tokens` and `store: false`, does not adopt DeepSeek extension fields |
 | `openrouter-chat-completions` | Uses `max_tokens`; preserves `reasoning`/`reasoning_details`, without `store` |
 | `deepseek-chat-completions` | Uses `max_tokens`, does not send OpenAI's `store` parameter; handles `reasoning_content` and DeepSeek cache usage |
 
-The application layer resolves the protocol based on the Provider preset selected by the user, rather than guessing based on model name or service address. In the current resources, this preset field is still named `PricingProvider`; selecting DeepSeek or OpenRouter enables its dedicated protocol, while other presets use the generic protocol. Setting manual prices does not change protocol selection. Custom presets are not automatic detectors for arbitrary backend protocols.
+The application layer resolves the protocol based on the Provider preset selected by the user, rather than guessing based on model name or service address. In the current resources, this preset field is still named `PricingProvider`; presets explicitly select one of the protocols above. Setting manual prices does not change protocol selection. Custom presets are not automatic detectors for arbitrary backend protocols.
 
 All model inference requests (including dreaming, context compression, and retries), model list queries, connection tests, and local model discovery uniformly carry `User-Agent: molr/<版本号>`. The version comes from `internal/buildinfo.Version`, consistent with `molr version`; release builds inject it via `-ldflags -X`, while development builds without an injected version use `molr/development`.
 
@@ -29,6 +33,16 @@ Each model resolution reads the target binding, resource status, and current use
 ## Cloud-Compatible Service Presets
 
 Bailian (`bailian`), Zhipu (`zhipu`), and Moonshot (`moonshot`) are consistent with WebUI presets. Saving, editing, and model discovery preserve their respective provider identities, using the `openai-chat-completions` protocol and API Key authentication. These presets do not represent integration with vendor-native protocols; unknown prices still require configuration and are not automatically considered free.
+
+## Anthropic and Gemini
+
+Anthropic maps the first system instruction to top-level `system` and combines consecutive same-role blocks into native messages. Batched tool results precede supplemental images. Signed thinking blocks retain their order; replay checks source identity and consistency with the context text and tool calls. SSE requires complete blocks, a stop reason, output usage, and `message_stop`; errors and interruptions cannot establish success. Total input includes ordinary input plus cache reads. Cache writes are not requested; nonzero cache-write usage requires cost reconciliation. Model discovery follows `after_id` pagination, bounded at 2 MiB and 500 entries across all pages, and reads declared `max_input_tokens` and `max_tokens`.
+
+Gemini uses the official Chat Completions compatibility API. Stream assembly retains each tool call’s `extra_content.google.thought_signature`; replay matches backend identity, call ID, function name, and arguments, without forwarding arbitrary extensions. Both adapters include continuation state in context estimates and keep it out of chat messages. References: [Anthropic](https://platform.claude.com/docs/en/api/messages/create) and [Gemini signatures](https://ai.google.dev/gemini-api/docs/generate-content/thought-signatures).
+
+MiniMax, Volcengine, SiliconFlow, and Z.AI share a compatible reasoning adapter that replays only same-source `reasoning_content`, without requiring it on every historical message or forcing vendor thinking switches. SiliconFlow discovery filters with `sub_type=chat`. New presets do not include automatic tariffs.
+
+LM Studio uses generic Chat Completions and adds port 1234 to local scanning. Read-only `/api/v0/models` type, load-state, and compatibility metadata identify the service without loading models. Saved connections continue to discover through `/v1/models`.
 
 ## OpenRouter
 

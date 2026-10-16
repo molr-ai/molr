@@ -17,7 +17,7 @@ func TestProviderPresetSelectsProtocolIndependentlyOfPriceAndAddress(t *testing.
 		preset   string
 		protocol model.Protocol
 	}{
-		{"openrouter", model.OpenRouterChat}, {"deepseek", model.DeepSeekChat}, {"openai", model.OpenAIChat}, {"bailian", model.OpenAIChat}, {"zhipu", model.OpenAIChat}, {"moonshot", model.OpenAIChat}, {"ollama", model.OpenAIChat}, {"vllm", model.OpenAIChat}, {"sglang", model.OpenAIChat}, {"custom", model.OpenAIChat}, {"", model.OpenAIChat},
+		{"anthropic", model.AnthropicMessages}, {"gemini", model.GeminiChat}, {"minimax", model.MiniMaxChat}, {"volcengine", model.ReasoningChat}, {"siliconflow", model.ReasoningChat}, {"zai", model.ReasoningChat}, {"lmstudio", model.OpenAIChat}, {"openrouter", model.OpenRouterChat}, {"deepseek", model.DeepSeekChat}, {"openai", model.OpenAIChat}, {"bailian", model.OpenAIChat}, {"zhipu", model.OpenAIChat}, {"moonshot", model.OpenAIChat}, {"ollama", model.OpenAIChat}, {"vllm", model.OpenAIChat}, {"sglang", model.OpenAIChat}, {"custom", model.OpenAIChat}, {"", model.OpenAIChat},
 	} {
 		t.Run(tc.preset, func(t *testing.T) {
 			binding := resource.Binding{PricingProvider: tc.preset, Endpoint: "https://proxy.example/v1/chat/completions"}

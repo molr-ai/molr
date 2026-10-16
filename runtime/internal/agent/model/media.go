@@ -50,7 +50,7 @@ func mediaMessages(req Request, provider Provider, base []wireMessage) ([]wireMe
 			if part.Timestamp != nil {
 				label += fmt.Sprintf(" Video frame sampled near %.3f seconds; no audio.", *part.Timestamp)
 			}
-			supported := part.Kind == "image" && provider.Model.SupportsImages || part.Kind == "audio" && provider.Model.SupportsAudio && provider.Protocol != DeepSeekChat
+			supported := part.Kind == "image" && provider.Model.SupportsImages || part.Kind == "audio" && provider.Model.SupportsAudio && provider.Protocol != DeepSeekChat && provider.Protocol != AnthropicMessages
 			if !supported || len(part.Data) == 0 {
 				pending = append(pending, map[string]any{"type": "text", "text": label + " Content is not loaded for this request; inspect or read the file again if needed."})
 				continue

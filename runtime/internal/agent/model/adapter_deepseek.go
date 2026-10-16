@@ -97,7 +97,10 @@ func ReplayedReasoning(in Input, source StateSource) (*string, error) {
 		}
 		return state.Reasoning, nil
 	}
-	if source.Protocol != DeepSeekChat {
+	if source.Protocol == AnthropicMessages || source.Protocol == GeminiChat {
+		return continuationEstimate(in, source)
+	}
+	if source.Protocol != DeepSeekChat && source.Protocol != ReasoningChat && source.Protocol != MiniMaxChat {
 		return nil, nil
 	}
 	var state deepSeekState

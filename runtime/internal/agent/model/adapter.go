@@ -27,6 +27,14 @@ func adapterFor(protocol Protocol) (protocolAdapter, error) {
 		return openAIChatAdapter{}, nil
 	case OpenRouterChat:
 		return openRouterChatAdapter{}, nil
+	case AnthropicMessages:
+		return anthropicAdapter{}, nil
+	case GeminiChat:
+		return geminiChatAdapter{}, nil
+	case MiniMaxChat:
+		return reasoningChatAdapter{splitThinking: true}, nil
+	case ReasoningChat:
+		return reasoningChatAdapter{}, nil
 	case DeepSeekChat:
 		return deepSeekChatAdapter{}, nil
 	default:

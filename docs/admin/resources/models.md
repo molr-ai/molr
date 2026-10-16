@@ -18,20 +18,27 @@
 | llama.cpp | 内置预设；OpenAI 兼容接口、本机发现 | 无认证或 API Key | [接入 llama.cpp](providers/llamacpp.md) |
 | vLLM | 内置预设；OpenAI 兼容接口、本机发现 | 无认证或 API Key | [接入 vLLM](providers/vllm.md) |
 | SGLang | 内置预设；OpenAI 兼容接口、本机发现 | 无认证或 API Key | [接入 SGLang](providers/sglang.md) |
+| Anthropic / Claude | 内置预设；Anthropic Messages | API Key | [接入 Anthropic / Claude](providers/anthropic.md) |
+| Google Gemini | 内置预设；Gemini Chat Completions | API Key | [接入 Google Gemini](providers/gemini.md) |
+| MiniMax | 内置预设；Chat Completions | API Key | [接入 MiniMax](providers/minimax.md) |
+| Volcengine · 火山方舟 | 内置预设；Chat Completions | API Key | [接入 Volcengine · 火山方舟](providers/volcengine.md) |
+| SiliconFlow · 硅基流动 | 内置预设；Chat Completions | API Key | [接入 SiliconFlow · 硅基流动](providers/siliconflow.md) |
+| LM Studio | 内置预设；OpenAI-compatible Chat Completions | 无认证或 API Key | [接入 LM Studio](providers/lmstudio.md) |
+| Z.AI | 内置预设；Chat Completions | API Key | [接入 Z.AI](providers/zai.md) |
 | 自定义服务／网关 | 自定义入口；需满足 Chat Completions 契约 | 无认证或 Bearer API Key | [接入自定义服务](providers/custom.md) |
 
-Z.AI 标准 API 可按[自定义服务方式评估接入](providers/zai.md)，没有专用预设。[OpenCode](providers/opencode.md) 的模型发现和多协议适配尚未完整支持，不列为已支持的提供商。
+[OpenCode](providers/opencode.md) 的模型发现和多协议适配尚未完整支持，不列为已支持的提供商。
 
-当前没有通用 OAuth 登录、OpenAI Responses、Anthropic Messages 或 Gemini 原生协议入口。修改地址不会自动转换协议；自定义入口也不会自动启用 DeepSeek 专属推理状态处理。
+当前没有通用 OAuth 登录、OpenAI Responses 或 Gemini 原生协议入口；Gemini 预设使用官方兼容接口。修改地址不会自动转换协议；自定义入口也不会自动启用 DeepSeek 专属推理状态处理。
 
 ## 连接提供商
 
 1. 在「资源 → 模型」右上角更多菜单中选择「连接提供商」。
-2. 按提供商说明选择预设，填写服务基础地址和认证信息；界面会补齐 `/chat/completions`。
+2. 按提供商说明选择预设，填写服务基础地址和认证信息；界面为 Anthropic 补齐 `/messages`，其他预设补齐 `/chat/completions`。
 3. 测试连接并保存，再刷新模型列表。连接测试读取目录，不执行真实推理。
 4. 配置模型能力、上下文容量、输出上限与价格，完成用户组分配，再用实际对话和工具调用验证。
 
-一个连接可以包含多个模型。目录无法获取时，先检查目录路径和认证要求；已保存连接可手动添加模型，但不能因此解决协议或授权不匹配。首次引导和连接窗口会探测 Runtime 所在设备的 Ollama、llama.cpp、vLLM 与 SGLang；仅查询接口，不启动服务或下载模型。
+一个连接可以包含多个模型。目录无法获取时，先检查目录路径和认证要求；已保存连接可手动添加模型，但不能因此解决协议或授权不匹配。首次引导和连接窗口会探测 Runtime 所在设备的 Ollama、llama.cpp、vLLM、SGLang 与 LM Studio；仅查询接口，不启动服务或下载模型。
 
 ## 如何接入订阅套餐
 

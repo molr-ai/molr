@@ -734,7 +734,7 @@ test('provider search and cloud/local filters preserve drafts and preset endpoin
   await form.getByLabel('API key', { exact: true }).fill('retained-openai-draft');
   for (const [query, name, endpoint] of [
     ['  阿里云  ', 'Aliyun Bailian · 阿里云百炼', 'https://dashscope.aliyuncs.com/compatible-mode/v1'],
-    ['GLM', 'Zhipu · 智谱', 'https://open.bigmodel.cn/api/paas/v4'],
+    ['智谱', 'Zhipu · 智谱', 'https://open.bigmodel.cn/api/paas/v4'],
     ['kImI', 'Moonshot AI · 月之暗面', 'https://api.moonshot.cn/v1'],
   ]) {
     await search.fill(query);
@@ -749,21 +749,21 @@ test('provider search and cloud/local filters preserve drafts and preset endpoin
   await expect(choices.getByRole('button')).toHaveCount(0);
   await expect(dialog.locator('.provider-connect-providers').getByRole('status')).toContainText('No matching providers');
   await search.fill('');
-  await expect(choices.getByRole('button')).toHaveText(['llama.cpp', 'Ollama', 'SGLang', 'vLLM', 'Custom service']);
+  await expect(choices.getByRole('button')).toHaveText(['llama.cpp', 'LM Studio', 'Ollama', 'SGLang', 'vLLM', 'Custom service']);
   await choices.getByRole('button', { name: 'Ollama', exact: true }).click();
   await expect(form.getByRole('combobox', { name: 'Authentication' })).toContainText('No authentication');
   await dialog.getByRole('radio', { name: 'Cloud', exact: true }).check();
-  await expect(choices.getByRole('button')).toHaveText(['Aliyun Bailian · 阿里云百炼', 'DeepSeek · 深度求索', 'Moonshot AI · 月之暗面', 'OpenAI', 'OpenRouter', 'Zhipu · 智谱', 'Custom service']);
+  await expect(choices.getByRole('button')).toHaveText(['Aliyun Bailian · 阿里云百炼', 'Anthropic', 'DeepSeek · 深度求索', 'Google Gemini', 'MiniMax', 'Moonshot AI · 月之暗面', 'OpenAI', 'OpenRouter', 'SiliconFlow · 硅基流动', 'Volcengine · 火山方舟', 'Z.AI', 'Zhipu · 智谱', 'Custom service']);
   await choices.getByRole('button', { name: 'Moonshot AI · 月之暗面', exact: true }).click();
   await expect(form.getByLabel('API key', { exact: true })).toHaveValue('draft-Moonshot AI · 月之暗面');
   await choices.getByRole('button', { name: 'OpenAI', exact: true }).click();
   await expect(form.getByLabel('API key', { exact: true })).toHaveValue('retained-openai-draft');
   await dialog.getByRole('radio', { name: 'All', exact: true }).check();
-  await expect(choices.getByRole('button')).toHaveCount(11);
+  await expect(choices.getByRole('button')).toHaveCount(18);
   await search.fill('nothing-matches');
   await expect(dialog.locator('.provider-connect-providers').getByRole('status')).toContainText('No matching providers');
   await dialog.getByRole('button', { name: 'Clear search', exact: true }).click();
-  await expect(choices.getByRole('button')).toHaveCount(11);
+  await expect(choices.getByRole('button')).toHaveCount(18);
 });
 
 test('provider connection discovers models without manual configuration and keeps credentials scoped', async ({ page }, info) => {
@@ -774,7 +774,7 @@ test('provider connection discovers models without manual configuration and keep
   const dialog = page.getByRole('dialog', { name: 'Connect provider', exact: true });
   const providers = dialog.getByRole('group', { name: 'Model providers', exact: true });
   const form = dialog.getByRole('form', { name: 'Provider configuration', exact: true });
-  await expect(providers.getByRole('button')).toHaveText(['Aliyun Bailian · 阿里云百炼', 'DeepSeek · 深度求索', 'llama.cpp', 'Moonshot AI · 月之暗面', 'Ollama', 'OpenAI', 'OpenRouter', 'SGLang', 'vLLM', 'Zhipu · 智谱', 'Custom service']);
+  await expect(providers.getByRole('button')).toHaveText(['Aliyun Bailian · 阿里云百炼', 'Anthropic', 'DeepSeek · 深度求索', 'Google Gemini', 'llama.cpp', 'LM Studio', 'MiniMax', 'Moonshot AI · 月之暗面', 'Ollama', 'OpenAI', 'OpenRouter', 'SGLang', 'SiliconFlow · 硅基流动', 'vLLM', 'Volcengine · 火山方舟', 'Z.AI', 'Zhipu · 智谱', 'Custom service']);
   await expect(form.getByRole('textbox', { name: 'Service URL', exact: true })).not.toBeVisible();
   await expect(form.getByRole('textbox', { name: 'Model identifier', exact: true })).toHaveCount(0);
   await expect(form.getByRole('spinbutton')).toHaveCount(0);

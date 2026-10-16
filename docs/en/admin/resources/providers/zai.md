@@ -1,13 +1,21 @@
 # Connect Z.AI
 
-Return to the [model connection overview](../models.md). Check Z.AI addresses and account permissions separately; Molr's [Zhipu preset](zhipu.md) targets the mainland China platform.
+Return to the [model connection overview](../models.md). Molr provides a Z.AI preset.
 
-## Standard API
+## Connection settings
 
-Molr has no dedicated Z.AI preset. With standard API entitlement, select "Custom service", use `https://api.z.ai/api/paas/v4` and your API key, and evaluate Chat Completions models. This entry has not undergone live validation as a dedicated provider. [Z.AI API documentation](https://docs.z.ai/api-reference/introduction)
+| Setting | Value |
+| --- | --- |
+| Default base URL | `https://api.z.ai/api/paas/v4` |
+| Protocol | Chat Completions |
+| Authentication | API Key |
 
-Follow the [custom service guide](custom.md) to verify discovery, tools, streaming usage, and prices. If discovery is unavailable, add models manually after saving. Standard API and Coding Plan endpoints have separate entitlements; changing addresses does not convert subscription allowance into API credit.
+Select “Z.AI” and enter a standard Z.AI API key. The preset is separate from the Chinese Zhipu platform and preserves Z.AI identity and same-source `reasoning_content` without forcing a model-specific thinking mode. Add models manually after saving if discovery is unavailable. GLM Coding Plan endpoints and subscription entitlements are outside this standard API preset; see the [connection overview](../models.md#how-to-connect-subscription-plans).
 
-## GLM Coding Plan subscriptions
+Follow the [connection steps](../models.md#connecting-providers) to test, save, and refresh models. Anthropic appends `/messages`; other presets append `/chat/completions`.
 
-Molr does not currently provide built-in support for this subscription plan. To use it, see [How to connect subscription plans](../models.md#how-to-connect-subscription-plans).
+## Capabilities and validation
+
+Connection tests read the catalog without inference. Configure capabilities, context, output limits, and prices, then verify real conversations and complete tool round trips. Unknown prices are not treated as free. Protocol and UI regressions use synthetic servers and do not establish online validation of every model.
+
+[Official API documentation](https://docs.z.ai/api-reference/llm/chat-completion).

@@ -24,12 +24,12 @@ type LocalProvider struct {
 	ResourceID core.ID
 }
 
-var localProviderOrigins = []string{"http://127.0.0.1:11434", "http://127.0.0.1:8080", "http://127.0.0.1:8000", "http://127.0.0.1:30000"}
+var localProviderOrigins = []string{"http://127.0.0.1:11434", "http://127.0.0.1:8080", "http://127.0.0.1:8000", "http://127.0.0.1:30000", "http://127.0.0.1:1234"}
 
 func probeLocalProvider(ctx context.Context, client *http.Client, origin string) *LocalProvider {
 	result := &LocalProvider{Name: "OpenAI compatible", Preset: "custom", Endpoint: origin + "/v1", Models: []string{}}
-	// Both requests only read catalog metadata. Never generate or load models.
-	for _, path := range []string{"/api/tags", "/v1/models"} {
+	// All requests only read catalog metadata. Never generate or load models.
+	for _, path := range []string{"/api/tags", "/api/v0/models", "/v1/models"} {
 		req, err := http.NewRequestWithContext(ctx, "GET", origin+path, nil)
 		if err != nil {
 			return nil
@@ -60,7 +60,13 @@ func probeLocalProvider(ctx context.Context, client *http.Client, origin string)
 		}
 		var body struct {
 			Models []struct{ Name string }
-			Data   []struct{ ID string }
+			Data   []struct {
+				ID                string
+				Type              string
+				State             string
+				CompatibilityType string `json:"compatibility_type"`
+			}
+			Object string
 		}
 		if json.Unmarshal(data, &body) != nil {
 			continue
@@ -72,6 +78,21 @@ func probeLocalProvider(ctx context.Context, client *http.Client, origin string)
 			for _, m := range body.Models {
 				names = append(names, m.Name)
 			}
+		} else if path == "/api/v0/models" && body.Data != nil && body.Object == "list" {
+			valid := len(body.Data) > 0
+			for _, m := range body.Data {
+				if m.CompatibilityType == "" || (m.State != "loaded" && m.State != "not-loaded") {
+					valid = false
+					break
+				}
+				if m.Type == "llm" || m.Type == "vlm" {
+					names = append(names, m.ID)
+				}
+			}
+			if !valid {
+				continue
+			}
+			result.Name, result.Preset = "LM Studio", "lmstudio"
 		} else if path == "/v1/models" && body.Data != nil {
 			for _, m := range body.Data {
 				names = append(names, m.ID)

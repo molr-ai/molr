@@ -18,20 +18,27 @@ A built-in preset provides a connection entry and protocol adapter; it does not 
 | llama.cpp | Built-in preset; OpenAI-compatible API and local discovery | None or API key | [Connect llama.cpp](providers/llamacpp.md) |
 | vLLM | Built-in preset; OpenAI-compatible API and local discovery | None or API key | [Connect vLLM](providers/vllm.md) |
 | SGLang | Built-in preset; OpenAI-compatible API and local discovery | None or API key | [Connect SGLang](providers/sglang.md) |
+| Anthropic / Claude | Built-in preset; Anthropic Messages | API Key | [Connect Anthropic / Claude](providers/anthropic.md) |
+| Google Gemini | Built-in preset; Gemini Chat Completions | API Key | [Connect Google Gemini](providers/gemini.md) |
+| MiniMax | Built-in preset; Chat Completions | API Key | [Connect MiniMax](providers/minimax.md) |
+| Volcengine · 火山方舟 | Built-in preset; Chat Completions | API Key | [Connect Volcengine · 火山方舟](providers/volcengine.md) |
+| SiliconFlow · 硅基流动 | Built-in preset; Chat Completions | API Key | [Connect SiliconFlow · 硅基流动](providers/siliconflow.md) |
+| LM Studio | Built-in preset; OpenAI-compatible Chat Completions | None or API key | [Connect LM Studio](providers/lmstudio.md) |
+| Z.AI | Built-in preset; Chat Completions | API Key | [Connect Z.AI](providers/zai.md) |
 | Custom service / gateway | Custom connection; requires the Chat Completions contract | None or Bearer API key | [Connect a custom service](providers/custom.md) |
 
-Z.AI's standard API can be [evaluated through a custom connection](providers/zai.md); it has no dedicated preset. [OpenCode](providers/opencode.md) discovery and protocol coverage are incomplete, so it is not listed as a supported provider.
+[OpenCode](providers/opencode.md) discovery and protocol coverage are incomplete, so it is not listed as a supported provider.
 
-There is no generic OAuth login or native OpenAI Responses, Anthropic Messages, or Gemini connection. Changing an address does not convert protocols. A custom connection does not automatically enable DeepSeek-specific reasoning state handling.
+There is no generic OAuth login, OpenAI Responses, or native Gemini connection; the Gemini preset uses Google’s official compatibility API. Changing an address does not convert protocols. A custom connection does not automatically enable DeepSeek-specific reasoning state handling.
 
 ## Connecting providers
 
 1. In "Resources → Models", select "Connect Provider" from the top-right More menu.
-2. Select the preset and enter the base address and credentials from the provider guide. The UI appends `/chat/completions`.
+2. Select the preset and enter the base address and credentials from the provider guide. The UI appends `/messages` for Anthropic and `/chat/completions` for other presets.
 3. Test and save the connection, then refresh the model list. Testing reads the catalog without running inference.
 4. Configure capabilities, context capacity, output limits, and prices, assign models to groups, and verify with real conversations and tool calls.
 
-One connection can contain multiple models. If discovery fails, check the catalog path and authentication requirements. You can add models manually to a saved connection, but this does not resolve protocol or authorization mismatches. Initial setup and the connection dialog probe Ollama, llama.cpp, vLLM, and SGLang on the Runtime device without starting services or downloading models.
+One connection can contain multiple models. If discovery fails, check the catalog path and authentication requirements. You can add models manually to a saved connection, but this does not resolve protocol or authorization mismatches. Initial setup and the connection dialog probe Ollama, llama.cpp, vLLM, SGLang, and LM Studio on the Runtime device without starting services or downloading models.
 
 ## How to connect subscription plans
 

@@ -330,6 +330,66 @@
     "section": "admin"
   },
   {
+    "file": "admin/resources/providers/anthropic.md",
+    "path": "/docs/admin/resources/providers/anthropic/",
+    "label": "接入 Anthropic / Claude",
+    "group": "接入模型",
+    "englishLabel": "Connect Anthropic / Claude",
+    "englishGroup": "Connect models",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
+    "file": "admin/resources/providers/gemini.md",
+    "path": "/docs/admin/resources/providers/gemini/",
+    "label": "接入 Google Gemini",
+    "group": "接入模型",
+    "englishLabel": "Connect Google Gemini",
+    "englishGroup": "Connect models",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
+    "file": "admin/resources/providers/minimax.md",
+    "path": "/docs/admin/resources/providers/minimax/",
+    "label": "接入 MiniMax",
+    "group": "接入模型",
+    "englishLabel": "Connect MiniMax",
+    "englishGroup": "Connect models",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
+    "file": "admin/resources/providers/volcengine.md",
+    "path": "/docs/admin/resources/providers/volcengine/",
+    "label": "接入 Volcengine · 火山方舟",
+    "group": "接入模型",
+    "englishLabel": "Connect Volcengine · 火山方舟",
+    "englishGroup": "Connect models",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
+    "file": "admin/resources/providers/siliconflow.md",
+    "path": "/docs/admin/resources/providers/siliconflow/",
+    "label": "接入 SiliconFlow · 硅基流动",
+    "group": "接入模型",
+    "englishLabel": "Connect SiliconFlow · 硅基流动",
+    "englishGroup": "Connect models",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
+    "file": "admin/resources/providers/lmstudio.md",
+    "path": "/docs/admin/resources/providers/lmstudio/",
+    "label": "接入 LM Studio",
+    "group": "接入模型",
+    "englishLabel": "Connect LM Studio",
+    "englishGroup": "Connect models",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
     "file": "admin/resources/providers/openrouter.md",
     "path": "/docs/admin/resources/providers/openrouter/",
     "label": "接入 OpenRouter",

@@ -190,7 +190,7 @@ func TestProbeLocalProviderOnlyReadsMetadata(t *testing.T) {
 				if r.Method != "GET" {
 					t.Error("unexpected inference")
 				}
-				if r.URL.Path == "/api/tags" {
+				if r.URL.Path == "/api/tags" || r.URL.Path == "/api/v0/models" {
 					w.WriteHeader(404)
 					return
 				}

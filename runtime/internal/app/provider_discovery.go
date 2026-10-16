@@ -71,6 +71,14 @@ func (a adapters) resolvedModel(r resource.Resource, b resource.Binding, entry m
 		protocol = model.OpenRouterChat
 	} else if b.PricingProvider == "deepseek" {
 		protocol = model.DeepSeekChat
+	} else if b.PricingProvider == "anthropic" {
+		protocol = model.AnthropicMessages
+	} else if b.PricingProvider == "gemini" {
+		protocol = model.GeminiChat
+	} else if b.PricingProvider == "minimax" {
+		protocol = model.MiniMaxChat
+	} else if b.PricingProvider == "volcengine" || b.PricingProvider == "siliconflow" || b.PricingProvider == "zai" {
+		protocol = model.ReasoningChat
 	} else if b.PricingProvider == "" {
 		u, err := url.Parse(b.Endpoint)
 		if err == nil && u.Scheme == "https" && strings.EqualFold(u.Hostname(), "api.deepseek.com") && (u.Port() == "" || u.Port() == "443") && u.User == nil {
@@ -99,7 +107,7 @@ func (a adapters) resolvedModel(r resource.Resource, b resource.Binding, entry m
 	if m.OutputLimit > 0 {
 		output, outputSource = m.OutputLimit, "manual"
 	}
-	return model.Provider{Protocol: protocol, Model: model.Model{ID: entry.id, ResourceID: r.ID, Name: m.Name, SupportsTools: m.SupportsTools, SupportsImages: m.SupportsImages, SupportsAudio: m.SupportsAudio && protocol != model.DeepSeekChat, ContextLimit: manual, ProviderContextLimit: declared, EffectiveContextLimit: effective, ContextLimitSource: source, OutputLimit: m.OutputLimit, ProviderOutputLimit: m.ProviderOutputLimit, EffectiveOutputLimit: output, OutputLimitSource: outputSource, Pricing: price, PricingInfo: info}, Endpoint: b.Endpoint, CredentialID: b.CredentialID, Pricing: price, ReservePricing: reserve}
+	return model.Provider{Protocol: protocol, Model: model.Model{ID: entry.id, ResourceID: r.ID, Name: m.Name, SupportsTools: m.SupportsTools, SupportsImages: m.SupportsImages, SupportsAudio: m.SupportsAudio && protocol != model.DeepSeekChat && protocol != model.AnthropicMessages, ContextLimit: manual, ProviderContextLimit: declared, EffectiveContextLimit: effective, ContextLimitSource: source, OutputLimit: m.OutputLimit, ProviderOutputLimit: m.ProviderOutputLimit, EffectiveOutputLimit: output, OutputLimitSource: outputSource, Pricing: price, PricingInfo: info}, Endpoint: b.Endpoint, CredentialID: b.CredentialID, Pricing: price, ReservePricing: reserve}
 }
 func (a adapters) provider(ctx context.Context, p core.Principal, id core.ID) (out model.Provider, err error) {
 	err = a.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
@@ -204,11 +212,19 @@ func (a adapters) ownerNetworkBinding(ctx context.Context, p core.Principal, id 
 func fetchProviderModels(ctx context.Context, client *http.Client, endpoint string, secret core.Secret, preset string) ([]resource.ModelConfig, error) {
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
+	if preset == "anthropic" {
+		return fetchAnthropicModels(ctx, client, endpoint, secret)
+	}
 	u, err := url.Parse(endpoint)
 	if err != nil {
 		return nil, core.Invalid("endpoint", "invalid endpoint")
 	}
 	u.Path = strings.TrimRight(strings.TrimSuffix(u.Path, "/chat/completions"), "/") + "/models"
+	if preset == "siliconflow" {
+		q := u.Query()
+		q.Set("sub_type", "chat")
+		u.RawQuery = q.Encode()
+	}
 	rows := []resource.ModelConfig{}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {

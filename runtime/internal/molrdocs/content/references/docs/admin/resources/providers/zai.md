@@ -1,13 +1,21 @@
 # 接入 Z.AI
 
-返回[模型接入概览](https://molr.ai/zh/docs/admin/resources/models/)。Z.AI 的服务地址和账号权限需单独核对；Molr 的[智谱预设](https://molr.ai/zh/docs/admin/resources/providers/zhipu/)指向中国区开放平台。
+返回[模型接入概览](https://molr.ai/zh/docs/admin/resources/models/)。Molr 提供 Z.AI 连接预设。
 
-## 标准 API
+## 连接配置
 
-Molr 没有 Z.AI 专用预设。具有标准 API 权限时，可选择「自定义服务」，按官方文档填写 `https://api.z.ai/api/paas/v4` 和 API Key，评估 Chat Completions 模型。此入口尚未作为独立提供商完成在线验收。[Z.AI API 文档](https://docs.z.ai/api-reference/introduction)
+| 配置项 | 值 |
+| --- | --- |
+| 默认基础地址 | `https://api.z.ai/api/paas/v4` |
+| 协议 | Chat Completions |
+| 认证 | API Key |
 
-按[自定义服务说明](https://molr.ai/zh/docs/admin/resources/providers/custom/)验证目录、工具调用、流式用量与价格；如果目录不可用，可以在保存后手动添加模型。标准 API 与 Coding Plan 专用端点的权益不同，改地址不会将订阅额度转换为标准 API 额度。
+选择「Z.AI」，填写 Z.AI 标准 API Key。该预设与中国区智谱预设独立，保留 Z.AI 身份与同源 `reasoning_content`，不会强制开启特定模型的思考模式。目录不可用时可保存后手动添加模型。GLM Coding Plan 的专用端点和订阅权益不属于此标准 API 预设；订阅接入见[模型接入概览](https://molr.ai/zh/docs/admin/resources/models/#如何接入订阅套餐)。
 
-## GLM Coding Plan 订阅
+按[通用连接步骤](https://molr.ai/zh/docs/admin/resources/models/#连接提供商)测试、保存并刷新模型；Anthropic 自动补齐 `/messages`，其他预设补齐 `/chat/completions`。
 
-Molr 目前尚未内置支持该订阅套餐。如需使用，请参考[如何接入订阅套餐](https://molr.ai/zh/docs/admin/resources/models/#如何接入订阅套餐)。
+## 能力与验收
+
+连接测试只读取目录，不执行推理。配置模型能力、上下文、输出上限和价格后，再验证真实对话及完整工具调用；未知价格不会按免费处理。协议与界面回归使用人工模拟服务，不代表全部在线模型已完成验收。
+
+[官方接口文档](https://docs.z.ai/api-reference/llm/chat-completion)。

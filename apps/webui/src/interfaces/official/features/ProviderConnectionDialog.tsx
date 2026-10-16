@@ -14,6 +14,13 @@ import { Loading, useAction } from '../components/common';
 type AuthenticationMethod = 'api-key' | 'none' | 'oauth';
 const providers = [
   { id: 'openai', name: 'OpenAI', category: 'cloud', aliases: '', endpoint: 'https://api.openai.com/v1', icon: Cloud, methods: ['api-key'] },
+  { id: 'anthropic', name: 'Anthropic', category: 'cloud', aliases: 'Claude', endpoint: 'https://api.anthropic.com/v1', icon: Cloud, methods: ['api-key'] },
+  { id: 'gemini', name: 'Google Gemini', category: 'cloud', aliases: 'Google AI Studio 谷歌', endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai', icon: Cloud, methods: ['api-key'] },
+  { id: 'minimax', name: 'MiniMax', category: 'cloud', aliases: '稀宇', endpoint: 'https://api.minimax.cn/v1', icon: Cloud, methods: ['api-key'] },
+  { id: 'volcengine', name: 'Volcengine', category: 'cloud', aliases: '火山方舟 火山引擎 豆包 Doubao Ark ByteDance', endpoint: 'https://ark.cn-beijing.volces.com/api/v3', icon: Cloud, methods: ['api-key'] },
+  { id: 'siliconflow', name: 'SiliconFlow', category: 'cloud', aliases: '硅基流动', endpoint: 'https://api.siliconflow.cn/v1', icon: Cloud, methods: ['api-key'] },
+  { id: 'zai', name: 'Z.AI', category: 'cloud', aliases: 'ZAI GLM', endpoint: 'https://api.z.ai/api/paas/v4', icon: Cloud, methods: ['api-key'] },
+  { id: 'lmstudio', name: 'LM Studio', category: 'local', aliases: 'LMStudio', endpoint: 'http://127.0.0.1:1234/v1', icon: Monitor, methods: ['none', 'api-key'] },
   { id: 'openrouter', name: 'OpenRouter', category: 'cloud', aliases: 'Open Router', endpoint: 'https://openrouter.ai/api/v1', icon: Cloud, methods: ['api-key'] },
   { id: 'deepseek', name: 'DeepSeek', category: 'cloud', aliases: '深度求索', endpoint: 'https://api.deepseek.com/v1', icon: Cloud, methods: ['api-key'] },
   { id: 'bailian', name: 'Aliyun Bailian', category: 'cloud', aliases: '百炼 阿里云 通义千问 Alibaba Cloud Bailian DashScope Qwen', endpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1', icon: Cloud, methods: ['api-key'] },
@@ -30,7 +37,7 @@ type ProviderID = typeof providers[number]['id'];
 type Connection = { Resource: Resource; Endpoint: string; CredentialID: string; PricingProvider?: ProviderID };
 type Props = { inline?: boolean; resourceID?: string; onConnected: (resource: Resource) => void; onClose: () => void };
 type Draft = { name: string; endpoint: string; authentication: AuthenticationMethod; apiKey: string; replaceKey: boolean };
-const baseURL = (value: string) => value.replace(/\/chat\/completions\/?$/, '').replace(/\/$/, '');
+const baseURL = (value: string) => value.replace(/\/(?:chat\/completions|messages)\/?$/, '').replace(/\/$/, '');
 function newDraft(id: ProviderID): Draft {
   const provider = providers.find(provider => provider.id === id)!;
   return { name: '', endpoint: provider.endpoint, authentication: provider.methods[0], apiKey: '', replaceKey: true };
@@ -78,7 +85,8 @@ function ProviderForm({ inline, initial, onConnected, onClose }: Omit<Props, 're
   useErrorToast(action.error);
   function endpoint() {
     const url = new URL(draft.endpoint.trim() || selected.endpoint);
-    if (!url.pathname.endsWith('/chat/completions')) url.pathname = `${url.pathname.replace(/\/$/, '')}/chat/completions`;
+    const suffix = provider === 'anthropic' ? '/messages' : '/chat/completions';
+    if (!url.pathname.endsWith(suffix)) url.pathname = `${url.pathname.replace(/\/$/, '')}${suffix}`;
     return { Endpoint: url.toString(), AllowedOrigins: [url.origin] };
   }
   async function testConnection() {

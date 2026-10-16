@@ -225,7 +225,7 @@ func TestModelTransportUsesTenMinuteTimeout(t *testing.T) {
 }
 
 func TestCompatibleProviderPresetsSaveDiscoverAndRefresh(t *testing.T) {
-	for _, preset := range []string{"vllm", "sglang", "bailian", "zhipu", "moonshot"} {
+	for _, preset := range []string{"vllm", "sglang", "bailian", "zhipu", "moonshot", "gemini", "minimax", "volcengine", "siliconflow", "lmstudio", "zai"} {
 		for _, useKey := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/key=%t", preset, useKey), func(t *testing.T) {
 				b, err := Build(t.Context(), testConfig(t))

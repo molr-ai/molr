@@ -8,15 +8,19 @@ Runtime 仍是单体 Go 服务。`internal/agent/model` 使用固定的内置协
 - 模型客户端负责权限、凭证、网络访问、幂等记录和费用结算。
 - 协议适配器负责请求编码、响应解析，以及后端专属状态的保存与回传。
 
-目前接入三种协议：
+目前接入七种协议：
 
 | 协议 | 请求与状态 |
 | --- | --- |
+| `anthropic-messages` | 原生 Messages，`x-api-key` 认证，内容块、工具结果、SSE 与签名状态回传 |
+| `gemini-chat-completions` | Google 官方兼容接口，保留每个工具调用上的思考签名，不发送 `store` |
+| `minimax-chat-completions` | 兼容推理协议，加 `reasoning_split: true` 分离思考与正文 |
+| `reasoning-chat-completions` | 火山方舟、硅基流动、Z.AI；使用 `max_tokens`，保留同源 `reasoning_content`，不发送 `store` |
 | `openai-chat-completions` | 通用 Chat Completions，使用 `max_completion_tokens`、`store: false`，不采纳 DeepSeek 扩展字段 |
 | `openrouter-chat-completions` | 使用 `max_tokens`；保留 `reasoning`／`reasoning_details`，不发送 `store` |
 | `deepseek-chat-completions` | 使用 `max_tokens`，不发送 OpenAI 的 `store` 参数；处理 `reasoning_content` 与 DeepSeek 缓存用量 |
 
-应用层根据用户选中的 Provider 预设解析协议，不根据模型名称或服务地址猜测。当前资源中该预设字段仍名为 `PricingProvider`；选择 DeepSeek 或 OpenRouter 预设会启用各自协议，其余现有预设使用通用协议。设置手动价格不改变协议选择。自定义预设不是任意后端协议的自动检测器。
+应用层根据用户选中的 Provider 预设解析协议，不根据模型名称或服务地址猜测。当前资源中该预设字段仍名为 `PricingProvider`；预设显式选择上表中的协议。设置手动价格不改变协议选择。自定义预设不是任意后端协议的自动检测器。
 
 所有模型推理请求（包括做梦、上下文压缩和重试）、模型列表查询、连接测试及本地模型发现统一携带 `User-Agent: molr/<版本号>`。版本来自 `internal/buildinfo.Version`，与 `molr version` 一致；发行构建通过 `-ldflags -X` 注入，未注入版本的开发构建使用 `molr/development`。
 
@@ -29,6 +33,16 @@ Runtime 仍是单体 Go 服务。`internal/agent/model` 使用固定的内置协
 ## 云端兼容服务预设
 
 百炼（`bailian`）、智谱（`zhipu`）和 Moonshot（`moonshot`）与 WebUI 预设一致，保存、编辑及模型发现保留各自的提供商身份，使用 `openai-chat-completions` 协议与 API Key 认证。这些预设不代表接入厂商原生协议；未知价格仍需配置，不自动视为免费。
+
+## Anthropic 与 Gemini
+
+Anthropic 将首条系统指令置于顶层 `system`，将连续同角色内容合并为原生消息。批量工具结果先于补充图片输入。签名思考块保留原顺序，回传前核对来源与上下文中的正文、工具调用一致性。SSE 必须收到完整块、结束原因、输出用量和 `message_stop`；错误或中断不能记为成功。输入总量为普通输入加缓存读取；不主动请求缓存写入，非零缓存写入用量保留为待核对费用。目录按 `after_id` 分页，所有页共限 2 MiB、500 项，读取声明的 `max_input_tokens` 与 `max_tokens`。
+
+Gemini 使用官方 Chat Completions 兼容 API。流式组装保留每个工具调用的 `extra_content.google.thought_signature`，回传时同时匹配后端来源、调用 ID、函数名和参数；不回传任意扩展。二者专属状态参与上下文估算，仍不进入聊天正文。协议依据见 [Anthropic](https://platform.claude.com/docs/en/api/messages/create) 与 [Gemini 签名](https://ai.google.dev/gemini-api/docs/generate-content/thought-signatures)。
+
+MiniMax、火山方舟、硅基流动与 Z.AI 共用兼容推理适配器，只回传同源 `reasoning_content`，不强制全部历史消息具有该字段，也不主动设置厂商思考开关。硅基流动目录添加 `sub_type=chat` 过滤。新增预设不附带自动价格。
+
+LM Studio 使用通用 Chat Completions，默认本机扫描增加 1234 端口；只读 `/api/v0/models` 的类型、加载状态和兼容格式用于识别，不执行模型加载。保存后的模型发现沿用 `/v1/models`。
 
 ## OpenRouter
 

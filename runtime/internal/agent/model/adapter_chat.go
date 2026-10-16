@@ -9,9 +9,10 @@ import (
 var functionName = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,64}$`)
 
 type wireCall struct {
-	ID       string `json:"id"`
-	Type     string `json:"type"`
-	Function struct {
+	ExtraContent *googleExtraContent `json:"extra_content,omitempty"`
+	ID           string              `json:"id"`
+	Type         string              `json:"type"`
+	Function     struct {
 		Name      string `json:"name"`
 		Arguments string `json:"arguments"`
 	} `json:"function"`
@@ -35,6 +36,7 @@ type chatStreamOptions struct {
 	IncludeUsage bool `json:"include_usage"`
 }
 type chatRequest[M any] struct {
+	ReasoningSplit      bool               `json:"reasoning_split,omitempty"`
 	StreamOptions       *chatStreamOptions `json:"stream_options,omitempty"`
 	Model               string             `json:"model"`
 	Messages            []M                `json:"messages"`
