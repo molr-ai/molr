@@ -70,5 +70,5 @@ func init() {
 	schemas["browser_action"] = object("ok", nested("data", browserData))
 	schemas["browser_action"].fields = append(schemas["browser_action"].fields, schemas["file_read"].fields...)
 	schemas["shell_execute"] = &shape{fields: append(append([]field{}, shell.fields...), nested("Task", shell))}
-	schemas["archive"] = object("full_result_path full_result_sandbox_id bytes", nested("details", object("SandboxID ok operation_id Path TargetKind Version NextOffset NextByteOffset Truncated Total TotalCount Count HasMore NextCursor OutputComplete StdoutPath StderrPath StdoutBytes StderrBytes", nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")), nested("error", failure))))
+	schemas["archive"] = object("full_result_path full_result_sandbox_id bytes read", nested("details", object("SandboxID ok operation_id Path TargetKind Version NextOffset NextByteOffset Truncated Total TotalCount Count HasMore NextCursor OutputComplete StdoutPath StderrPath StdoutBytes StderrBytes", nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")), nested("error", failure))))
 }

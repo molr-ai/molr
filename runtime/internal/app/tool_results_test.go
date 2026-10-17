@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"molr.ai/runtime/internal/agent/prompt"
 	"molr.ai/runtime/internal/agent/tools"
 	"molr.ai/runtime/internal/config"
 	"molr.ai/runtime/internal/core"
@@ -23,25 +24,40 @@ func TestLargeToolResultIsSavedAndReadableInChunks(t *testing.T) {
 	if len(result.Content) > toolInlineLimit {
 		t.Fatal("inline result too large")
 	}
+	visible, err := prompt.Structured("archive", string(result.Content))
+	need(t, err)
 	var envelope struct {
 		FullResultPath string                     `json:"full_result_path"`
 		Details        map[string]json.RawMessage `json:"details"`
+		Read           string                     `json:"read"`
 	}
-	need(t, json.Unmarshal(result.Content, &envelope))
+	need(t, json.Unmarshal([]byte(visible), &envelope))
 	if !strings.HasPrefix(envelope.FullResultPath, "/work/.local/state/molr/tool-result-") || envelope.Details["Exit"] == nil {
 		t.Fatal("result metadata missing")
+	}
+	for _, instruction := range []string{"file_read", "byte_offset=0", "max_bytes=4096", "NextByteOffset", "Do not repeat the original operation"} {
+		if !strings.Contains(envelope.Read, instruction) {
+			t.Fatalf("model-visible archive lost read guidance %q: %s", instruction, visible)
+		}
 	}
 	var collected bytes.Buffer
 	offset := int64(0)
 	for {
 		data, err := fs.read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: tools.FileTarget{Path: envelope.FullResultPath}, ByteOffset: &offset, MaxBytes: 4096})
 		need(t, err)
+		bounded, err := fs.boundResult(t.Context(), f.execution, tools.Result{Content: data})
+		need(t, err)
+		if !bytes.Equal(bounded.Content, data) {
+			t.Fatal("bounded read archived its output again")
+		}
+		visible, err := prompt.Structured("file_read", string(bounded.Content))
+		need(t, err)
 		var part struct {
 			Text           string
 			NextByteOffset int64
 			Truncated      bool
 		}
-		need(t, json.Unmarshal(data, &part))
+		need(t, json.Unmarshal([]byte(visible), &part))
 		collected.WriteString(part.Text)
 		if !part.Truncated {
 			break
