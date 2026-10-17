@@ -32,10 +32,12 @@
 | `internal/config` | `Config.Validate` | `TestTDDConfigDefaultAndDirectTLS`, `TestTDDConfigRejectsUnboundedOrAmbiguousConfiguration` |
 | `internal/config` | `Config.OwnListenPort` | `TestNetworkPresetBoundaries` |
 | `internal/config` | `Load` | `TestTDDConfigLoadStrictAndBounded` |
+| `internal/config` | `SandboxPreset` | `TestResourcePresetsExpandAndRoundTrip` |
 | `internal/config` | `Duration.Value` | `TestTDDConfigDurationRoundTripAndInvalidInput` |
 | `internal/config` | `Duration.MarshalJSON` | `TestTDDConfigDurationRoundTripAndInvalidInput` |
 | `internal/config` | `Duration.UnmarshalJSON` | `TestTDDConfigDurationRoundTripAndInvalidInput` |
 | `internal/platform` | `NativeSandbox` | `TestNativeSandboxSelectsHostPlatform` |
+| `internal/platform` | `MachineCapacity`, `FilesystemCapacity` | `TestMachineCapacity` |
 | `internal/platform` | `ResourceEnvironment` | `internal/platform/sandbox.TestSeatbeltRemoteExecutionScopes`, `internal/app.TestRemoteNativeSandboxIntegration` |
 | `internal/platform` | `Capabilities.ControlledReady` | `TestControlledReadyRequiresBackendIsolation` |
 | `internal/platform` | `AssistantWorkspace` | `TestAssistantWorkspaceIdentityAndOverrides` |
@@ -179,6 +181,7 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/sandboxmanager` | `Manager.Renew`, `Manager.Cancel`, `Manager.Revoke` | `TestRevocationFencesLateRequestsAndCancelsRunning`, `TestLeaseExpiryStopsWork`, `TestTLSCredentialAndPinnedIdentity` |
 | `internal/sandboxmanager` | `Manager.Read` | `TestReadEndpointCannotMutate` |
 | `internal/sandboxmanager` | `Handler`, `NewClient`, `Client.Info`, `Client.Get`, `Client.Execute`, `Client.Await`, `Client.Cancel`, `Client.Revoke` | `TestTLSCredentialAndPinnedIdentity`, `TestRevocationFencesLateRequestsAndCancelsRunning` |
+| `internal/sandboxmanager` | `Client.Directory` | `TestDirectoryClientRoundTripAndBackendErrors`, `TestDirectoryClientRequiresServiceAuthentication`, `TestDirectoryClientRejectsUnsupportedBackend` |
 | `internal/sandboxmanager` | `Backend.Info`, `Backend.Call`, `Backend.Cancel`, `Backend.Close` | `TestTLSCredentialAndPinnedIdentity`, `TestRevocationFencesLateRequestsAndCancelsRunning` |
 | `internal/app` | `ServeSandbox` | `TestStandaloneSandboxRequiresTLS`, `TestRemoteSandboxStorageRoutingAuthorizationAndContext` |
 | `internal/config` | `SandboxNetwork.Target` | `TestSandboxNetworkConfiguration` |
@@ -294,10 +297,12 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/core` | `CheckGPUDevices`, `ComputeConstraints.GPUDevices`, `ValidateGPUDevices` | `TestGPUDevicesAreExplicitAndBounded` |
 | `internal/platform` | `ConfiguredHTTPClient` | `TestConfiguredHTTPClientPinsExplicitLocalSource` |
 | `internal/platform/sandbox` | `Runner.GPUs` | `TestLinuxGPUIsolation` |
+| `internal/platform/sandbox` | `Runner.GPUSnapshot` | `TestGPUSnapshotPreservesInventoryWhenSamplingCanceled`, `TestGPUSnapshotWithoutDevices`, `TestGPUUsageSnapshotParsesUnknownAndZero`, `TestGPUUsageDoesNotChangeInventoryOrAvailability` |
 | `internal/installation` | `Run`, `VerificationPending.Error` | `TestCommandHelpAndVersionWithoutPackage` |
 | `internal/maintenance` | `ComponentError.Error`, `Task.Active` | `internal/installation.TestComponentDownloadChecksDigestSizeAndSource`, `internal/installation.TestMaintenanceLockSerializesCLIAndRuntime` |
 | `internal/installation` | `NewMaintenance`, `Maintenance.CanUpdate`, `Maintenance.Cancel`, `Maintenance.Enabled`, `Maintenance.Latest`, `Maintenance.Programs`, `Maintenance.ProtectedRoots`, `Maintenance.Snapshot`, `Maintenance.Start`, `Maintenance.Task` | `TestUnmanagedMaintenanceFailsClosed`, `internal/app.TestMaintenanceAPIRequiresAuthenticationCSRFAndKnownRequests` |
 | `internal/installrecord` | `Instance`, `Read`, `Record.File`, `Record.UpdateSource`, `Record.Validate` | `TestReceiptRejectsUnrelatedPathsAndWritableRecords` |
+| `internal/installrecord` | `Record.Binary`, `Record.ServiceArgs` | `TestServiceArgsKeepRuntimeAndSandboxBoundaries`, `internal/installation.TestSandboxInstallPlanAndSecrets` |
 
 ## `internal/browser`
 

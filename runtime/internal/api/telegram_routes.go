@@ -20,7 +20,9 @@ func (s *HTTPServer) telegramRoutes() {
 	route(s, "POST /api/telegram/login", func(ctx context.Context, p core.Principal, r struct {
 		AssistantID core.ID
 		Token       string
-	}) (any, error) { return s.options.Telegram.StartLogin(ctx, p, r.AssistantID, r.Token) })
+	}) (any, error) {
+		return s.options.Telegram.StartLogin(ctx, p, r.AssistantID, r.Token)
+	})
 	route(s, "POST /api/telegram/poll", func(ctx context.Context, p core.Principal, r struct{ AssistantID, ID core.ID }) (any, error) {
 		return s.options.Telegram.PollLogin(ctx, p, r.AssistantID, r.ID)
 	})
