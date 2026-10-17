@@ -98,7 +98,8 @@ test('install section follows published channels and platform availability', { t
     await section.getByRole('button', { name: 'Install with Docker', exact: true }).click();
     await expect(section.getByRole('group', { name: 'Release channel', exact: true })).toHaveCount(0);
     await expect(section.locator('pre')).toContainText('docker compose build');
-    await expect(section.getByRole('link', { name: 'Configure and start Docker' })).toHaveAttribute('href', '/en/docs/admin/deployment/docker/');
+    await expect(section.getByRole('link', { name: 'Configure and start Docker' })).toHaveCount(0);
+    await expect(section.getByRole('link', { name: 'Installation guide' })).toHaveAttribute('href', '/en/docs/admin/deployment/docker/');
     await section.getByRole('button', { name: 'Copy command', exact: true }).click();
     assert.equal(await page.evaluate(() => navigator.clipboard.readText()), await section.locator('pre').innerText());
     const screenshots = resolve(import.meta.dirname, '../test-results/releases'); mkdirSync(screenshots, { recursive: true });

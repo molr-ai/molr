@@ -15,6 +15,7 @@ export function Icon({ name, className = '' }: { name: string; className?: strin
     chat: <path d="M20 11a8 8 0 0 1-8 8H4l1-4a8 8 0 1 1 15-4Z" />,
     plan: <><rect x="4" y="5" width="16" height="16" rx="3" /><path d="M8 3v4m8-4v4M4 11h16m-12 4h3m3 0h2" /></>,
     folder: <path d="M3 7V5h6l2 3h10v12H3V7Z" />,
+    copy: <><rect x="8" y="8" width="12" height="13" rx="2" /><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" /></>,
     check: <path d="m5 12 4 4L19 6" />,
     file: <><path d="M14 3H5v18h14V8l-5-5Zm0 0v6h5M8 13h8m-8 4h6" /></>,
     shield: <><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z" /><path d="m8 12 3 3 5-5" /></>,

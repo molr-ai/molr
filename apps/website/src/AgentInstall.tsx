@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { copyTextToClipboard } from '@molr/ui';
 import type { Locale } from './site-content';
+import { channels } from './release-data';
 import type { Channel } from './release-data';
 import { installMessages } from './install-content';
+import { Icon } from './HomeIcon';
 
 export const agentInstallPath = '/docs/admin/deployment/agent-install/';
 export const agentInstallMarkdown = { zh: '/agent-install.md', en: '/en/agent-install.md' } as const;
@@ -23,7 +25,7 @@ If this channel has no compatible release, tell me so I can choose another chann
 When finished, give me the access address, a one-time login link, the installed version, and verification results. Clearly identify any unfinished steps.`;
 }
 
-export function AgentInstall({ locale, channel }: { locale: Locale; channel: Channel }) {
+export function AgentInstall({ locale, channel, onChannelChange }: { locale: Locale; channel: Channel; onChannelChange: (channel: Channel) => void }) {
   const t = installMessages[locale];
   const prompt = agentInstallPrompt(locale, channel);
   const [status, setStatus] = useState<'idle' | 'copied' | 'error'>('idle');
@@ -39,9 +41,16 @@ export function AgentInstall({ locale, channel }: { locale: Locale; channel: Cha
   return <div className="home-install-details">
     <div className="home-install-heading"><h3>{t.agentTitle}</h3></div>
     <p>{t.agentBody}</p>
+    <div className="home-install-channels">
+      <div className="home-install-options" role="group" aria-label={t.channel}>{channels.map(c => <button type="button" key={c} aria-pressed={channel === c} onClick={() => { setStatus('idle'); onChannelChange(c); }}>{t[c]}</button>)}</div>
+      <p>{t[`${channel}Description`]}</p>
+    </div>
     <div className="home-install-prompt" role="group" aria-label={t.agentPromptLabel}>
+      <div className="home-install-snippet-toolbar">
+        <span><Icon name="bot" />{t.agentPromptLabel}</span>
+        <button type="button" onClick={copy}><Icon name={status === 'copied' ? 'check' : 'copy'} />{status === 'copied' ? t.copied : t.agentCopy}</button>
+      </div>
       <p className="home-install-prompt-text">{prompt}</p>
-      <button className="home-button home-button-primary" type="button" onClick={copy}>{status === 'copied' ? t.copied : t.agentCopy}</button>
       <span className={status === 'error' ? 'home-install-copy-error' : 'ui-sr-only'} role="status">{status === 'copied' ? t.copied : status === 'error' ? t.agentCopyError : ''}</span>
     </div>
   </div>;
