@@ -10,7 +10,7 @@ export async function checkDocsFeatures({ browser, url }) {
       const title = locale === 'zh' ? '操作 GitHub' : 'Use GitHub';
       await page.goto(`${url}/${locale}/docs/user/best-practices/github/`);
       const prompts = page.locator('.docs-prompt');
-      await expect(prompts).toHaveCount(4);
+      await expect(prompts).toHaveCount(5);
       await expect(page.locator('.docs-prose')).not.toContainText('[!PROMPT]');
       const text = (await prompts.first().locator('.docs-prompt-content').innerText()).trim();
       await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.copiedPrompt = text; } } }));
