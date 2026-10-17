@@ -12,6 +12,7 @@ export type { BadgeProps, ButtonProps, SwitchProps, TextFieldProps } from './com
 export { SecretField } from './components/SecretField';
 export type { SecretFieldProps } from './components/SecretField';
 export { Select } from './components/Select';
+export { DateTimeCalendar } from './components/DateTimeCalendar';
 export { DateTimePicker } from './components/DateTimePicker';
 export type { DateTimePickerProps, DateTimePreset } from './components/DateTimePicker';
 export type { SelectOption, SelectProps } from './components/Select';

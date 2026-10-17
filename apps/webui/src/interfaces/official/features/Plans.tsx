@@ -1,7 +1,7 @@
 import { useErrorToast } from '../../../error-toasts';
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ModalPresence, Button, Checkbox, DateTimePicker, Dialog, Drawer, DropdownMenu, IconButton, Select, Textarea, TextField, planDate, useBreakpoint, useChoiceScroll } from '@molr/ui';
-import { ArrowRight, Bot, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Ellipsis, GitBranch, History, List, Pause, Pencil, Play, Plus, Repeat2, SlidersHorizontal, Trash2, UserRound, X } from 'lucide-react';
+import { ArrowRight, Bot, CalendarDays, Check, ChevronDown, ChevronLeft, Clock3, Ellipsis, GitBranch, History, List, Pause, Pencil, Play, Plus, Repeat2, SlidersHorizontal, Trash2, UserRound, X } from 'lucide-react';
 import { api, APIError } from '../../../api/client';
 import type { Assistant, Schedule, Todo, Plan, PlanRef, PlanEvent } from '../../../api/types';
 import { useCopy, useQuery } from '../../../state';
@@ -9,6 +9,8 @@ import { Confirm, EditDialog, Loading, PageHeader, localDateTime, zonedInput, zo
 import { planMessages } from '../../../plan-messages';
 import { ExecutionDetails } from './ExecutionDetails';
 import { DreamConflictNotice } from './DreamConflictNotice';
+import { PlanCalendarToolbar } from './PlanCalendarToolbar';
+import { PlanWeekCalendar, weekDays } from './PlanWeekCalendar';
 import { PlanMonthCalendar, monthDays } from './PlanMonthCalendar';
 import { calendarEvents, eventDone, eventKey, eventsOnDay, usePlanEvents } from './plan-events';
 import './plans.css';
@@ -25,7 +27,8 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
   const { locale, t: copy } = useCopy(), t = planMessages[locale], action = useAction(), mobile = useBreakpoint('mobile');
   const appliedSelection = useRef('');
   const scopeID = useId(), listRef = useRef<HTMLDivElement>(null);
-  const [view, setView] = useState('list'), [date, setDate] = useState(planDate()), [month, setMonth] = useState(planDate()), [owner, setOwner] = useState(assistantID || 'all'), [kind, setKind] = useState('all'), [status, setStatus] = useState('all');
+  const [view, setView] = useState(embedded ? 'list' : 'calendar'), [date, setDate] = useState(planDate()), [month, setMonth] = useState(planDate()), [owner, setOwner] = useState(assistantID || 'all'), [kind, setKind] = useState('all'), [status, setStatus] = useState('all');
+  const [calendarMode, setCalendarMode] = useState<'week' | 'month'>('week');
   const [listScope, setListScope] = useState<(typeof listScopes)[number]>('upcoming'), [selectedAt, setSelectedAt] = useState<string>(), [dayAgenda, setDayAgenda] = useState('');
   const viewRef = useChoiceScroll(view);
   const [listFrom] = useState(() => new Date().toISOString());
@@ -34,7 +37,7 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
   const retainedDetail = useRef<ReactNode>(null);
   const listOwner = embedded ? assistantID || '' : owner;
   const [expanded, setExpanded] = useState(''), [editing, setEditing] = useState<Entry | 'new' | null>(null), [deleting, setDeleting] = useState<Plan | null>(null), [configuring, setConfiguring] = useState<Plan | null>(null), [completing, setCompleting] = useState<{ plan: Plan; at?: string } | null>(null);
-  const anchor = new Date(`${month}T12:00:00`), visibleDays=monthDays(month);
+  const visibleDays=view === 'calendar' && calendarMode === 'week' ? weekDays(month) : monthDays(month);
   const from = new Date(visibleDays[0]);from.setHours(0,0,0,0);
   const until = new Date(visibleDays[visibleDays.length-1]);until.setDate(until.getDate()+1);until.setHours(0,0,0,0);
   const upcoming=usePlanEvents((embedded || view==='list' && listScope==='upcoming') && (!embedded || assistantID) ? `/api/plans/events?from=${encodeURIComponent(listFrom)}&limit=${embedded ? 10 : 50}&scope=${encodeURIComponent(listOwner)}&kind=${embedded ? 'all' : kind}&state=${embedded ? 'all' : status}` : null);
@@ -84,7 +87,7 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
   const repeat = (rule: string) => !rule ? t.once : rule === 'FREQ=DAILY' ? t.daily : rule === 'FREQ=WEEKLY' ? t.weekly : t.customRepeat;
   function pause(p: Plan) { void action.run(() => api.mutate('/api/plans/configure', { Ref: p.Ref, Dependencies: p.Links.Dependencies ?? [], Handoff: p.Links.Handoff, Paused: !p.Links.Paused }, p.Links.Version)); }
   function start(p: Plan) { void action.run(() => api.mutate('/api/plans/execute', { Ref: p.Ref, Action: 'start', OccurrenceAt: occurrence(p) || null }, p.Links.Version), () => setExpanded(refKey(p.Ref))); }
-  function shift(offset: number) { const next = planDate(new Date(anchor.getFullYear(), anchor.getMonth() + offset, 1, 12)); setMonth(next); setDate(next); setExpanded(''); }
+  function selectCalendarDate(value: string) { setMonth(value); setDate(value); setExpanded(''); setSelectedAt(undefined); setDayAgenda(''); }
   function selectDate(value: string) { setDate(value); setExpanded(''); setSelectedAt(undefined); setDayAgenda(value); }
   function selectEvent(event: PlanEvent) { setExpanded(refKey(event.Plan.Ref)); setSelectedAt(event.At); setDayAgenda(''); }
   function selectPlan(p: Plan, at?: string) {
@@ -194,9 +197,10 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
     <div className="plans-content">
       <div className="plans-master" ref={listRef} inert={!!embedded && !!selected} aria-hidden={embedded && selected ? true : undefined}>
         {plans.loading && !plans.data && <Loading />}
-        {!embedded && view === 'calendar' ? <section className="plans-calendar-section">
-          <div className="plans-calendar-toolbar"><h2>{anchor.toLocaleDateString(locale,{year:'numeric',month:'long'})}</h2><div><IconButton label={t.previous} onClick={()=>shift(-1)}><ChevronLeft size={16}/></IconButton><Button size="sm" variant="ghost" onClick={()=>{setDate(planDate());setMonth(planDate());setExpanded('');}}>{t.today}</Button><IconButton label={t.next} onClick={()=>shift(1)}><ChevronRight size={16}/></IconButton></div><DateTimePicker className="plans-date-jump" label={t.month} mode="month" size="sm" value={new Date(anchor.getFullYear(),anchor.getMonth(),1,12).toISOString()} onValueChange={value=>{if(value){const next=planDate(new Date(value));setMonth(next);setDate(next);setExpanded('');}}}/></div>
-          <PlanMonthCalendar month={month} date={date} locale={locale} events={scheduledEvents} onDay={selectDate} onEvent={selectEvent} moreLabel={(count,day)=>t.moreEvents(count,day)}/>
+        {!embedded && view === 'calendar' ? <section className="plans-calendar-section" data-mode={calendarMode}>
+          <PlanCalendarToolbar date={month} mode={calendarMode} locale={locale} onDate={selectCalendarDate} onMode={mode=>{setCalendarMode(mode);setExpanded('');setSelectedAt(undefined);setDayAgenda('');}}/>
+          {calendarMode === 'week' ? <PlanWeekCalendar date={month} selectedDate={date} locale={locale} events={scheduledEvents} selectedKey={selected ? eventKey(selected,selectedAt) : undefined} onDay={selectDate} onEvent={selectEvent}/> : <PlanMonthCalendar month={month} date={date} locale={locale} events={scheduledEvents} onDay={selectDate} onEvent={selectEvent} moreLabel={(count,day)=>t.moreEvents(count,day)}/>}
+
         </section> : <>
           <div className="plan-list plans-list" aria-label={t.eventList}>{listRows.map(event=>row(event.Plan,event.At||undefined))}</div>
           {upcoming.loading&&listScope==='upcoming'&&<Loading/>}

@@ -98,7 +98,7 @@ import '@molr/ui/styles.css';
 
 移动端隐藏滚动条但保留触摸滑动。选中首项或末项时滚到开头或末尾；中间项未完整显示时，滚动到完整可见，并尽量露出滚动方向一侧相邻项的 12 px。自动定位使用平滑滚动，系统开启减少动态效果时直接定位。中间项已完整可见时不调整位置；再次点击当前项、容器尺寸变化或隐藏面板重新显示时也会核对位置。`Tabs` 与 `SegmentedControl` 内置此行为，使用原生按钮组合的 `ui-choice-list` 可将 `useChoiceScroll(当前值)` 返回的 ref 绑定到列表，复用相同规则。
 
-需要保留按钮语义及再次点击行为的组合控件，使用 `ui-choice-list ui-choice-list--line` 或 `ui-choice-list ui-choice-list--segmented` 容器，直接子项为按钮，以 `aria-pressed`（选项）或 `aria-current="page"`（当前位置）表达选中状态，并为组提供名称。它们复用相同的底层样式；页面样式只负责布局，不另设圆角、选中色或字号。内容面板仍优先使用 `Tabs`，表单单选使用 `SegmentedControl`。
+需要保留按钮语义及再次点击行为的组合控件，使用 `ui-choice-list ui-choice-list--line` 或 `ui-choice-list ui-choice-list--segmented` 容器，直接子项为按钮，以 `aria-pressed`（选项）或 `aria-current="page"`（当前位置）表达选中状态，并为组提供名称。它们复用相同的底层样式；页面样式只负责布局，不另设圆角、选中色或字号。内容面板仍优先使用 `Tabs`，表单单选使用 `SegmentedControl`。工具栏中的紧凑按钮组可添加 `ui-choice-list--sm`，与 `Tabs size="sm"` 共用尺寸。
 
 `Breadcrumb` 的末项为当前位置，其余有 `href` 的条目为链接。`Pagination` 使用从 1 开始的页码；首尾按钮在边界禁用，页数较多时省略中间页码，手机显示当前页与前后按钮。数据获取、排序与切页由调用方负责。
 
@@ -267,6 +267,8 @@ npm run test:ui
 `DateTimePicker` 使用 `value: string | null` 与 `onValueChange`，ISO 字符串表示时刻，`null` 表示无到期时间。复用次要 `Button` 展示紧凑连续按钮组，使用细边框与选中底色，窄屏保持单行并横向滚动。默认提供 `1d`、`7d`、`1m`、`forever` 快捷项，使用 `presets` 可裁剪；「自定义」打开项目内的日历浮层，复用 `Popover`、`Button` 与 `Select`，移动端跟随容器使用抽屉。采用左侧日历、右侧时分滚动列的双栏布局，支持月份／年份切换、日历键盘导航、时分滚动选择与最小时间校验，滚动时自动吸附并高亮选中值，支持点击数字与方向键／Home／End／PageUp／PageDown。确定后才提交；取消不改原值。选定日期显示在按钮中，不另显示第二行摘要。展示、编辑和快捷项使用 `timeZone` 指定的时区；未指定时使用浏览器本地时区，提交 ISO 时刻。1天和7天按该时区的日历推进，1个月按自然月推进，月底取目标月最后一个有效日；快捷项保留当前秒和毫秒。若目标时分因夏令时切换而不存在，显示错误并保留原值，不触发 `onValueChange`。`min` 接收 ISO 时刻；自定义选择会禁用早于最小时间的日期，所选时分不足时禁止确认。支持 `disabled`、`description`、`error` 与 `size="sm" | "md" | "lg"`。UI Design → 输入与操作中包含可操作示例。
 
 按钮默认使用常规字重 `400`。日期按钮组直接沿用 Button 的 sm / md / lg 高度与内边距，不单独定义一套尺寸。
+
+`DateTimeCalendar` 是同一选择器的编辑面板。需要以当前周／月范围作为触发器时，可用 `Popover` 与共享 `Button` 组合它；打开时挂载面板，传入 `value`、`mode`（`date` / `month` / `datetime` / `time`）、可选 `min` / `timeZone`、`onApply` 与 `onCancel`。应用在确认后更新范围并关闭浮层，取消保留原范围，关闭时将焦点还给触发器。
 
 
 ### RangeSlider 双端范围选择器

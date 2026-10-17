@@ -23,6 +23,8 @@ The current assistant in both the default and test themes is determined by the r
 
 If a page fails to load, the shell retains navigation and offers actions to restore the default theme or open theme settings. Restoring the default theme first updates account settings, then reloads the application after success to clear cached module loading errors. If Runtime is temporarily unavailable or saving fails, the default theme is restored only within the current session, without reloading. Business pages handle normal API errors.
 
+WebUI renders the weekly calendar with `PlanWeekCalendar`. The plans page defaults to week mode, while embedded chat plans retain their list. Week and month modes query the same plan endpoint for their visible date range, using Runtime recurrence projections and event identities. The timeline uses the browser’s local timezone, splits events at local midnight, and allocates overlapping columns using the minimum clickable height. Events without an end time mark only their occurrence time. Date navigation uses calendar arithmetic across daylight-saving changes. Shared plan type tokens supply colors, with icons and state styles as additional cues.
+
 ## Extension Foundations
 
 The SDK's `connectUI()`, standalone page manifests, and isolated iframe adapter remain foundations for further development. External product pages use the separate, narrower contract in the [Plugin System](../extensions/plugins.md); the early general-purpose iframe HTTP proxy is not a plugin entry point.

@@ -116,11 +116,11 @@ html:has(.ui-dialog[open]:not([data-contained])) { overflow: hidden; }
 :is(.ui-tabs--segmented > .ui-tabs__list, .segmented-control .radio-group__options, .ui-choice-list--segmented) { width: fit-content; gap: 4px; padding: 4px; border: 0; border-radius: var(--radius-control); background: var(--color-background); }
 :is(.ui-tabs--segmented > .ui-tabs__list, .segmented-control .radio-group__options, .ui-choice-list--segmented) > :is(button, .radio-option) { border-radius: var(--space-1); }
 :is(.ui-tabs--segmented > .ui-tabs__list, .segmented-control .radio-group__options, .ui-choice-list--segmented) > :is([aria-selected='true'], [aria-pressed='true'], [aria-current='page'], :has(input:checked)) { background: var(--color-surface); box-shadow: var(--shadow-control); }
-.ui-tabs--sm > .ui-tabs__list { --choice-target-height: 28px; }
-.ui-tabs--sm > .ui-tabs__list > button { padding: 4px 10px; font-size: var(--text-xs); gap: 6px; }
+:is(.ui-tabs--sm > .ui-tabs__list, .ui-choice-list--sm) { --choice-target-height: 28px; }
+:is(.ui-tabs--sm > .ui-tabs__list, .ui-choice-list--sm) > button { padding: 4px 10px; font-size: var(--text-xs); gap: 6px; }
 .ui-tabs--sm.ui-tabs--line > .ui-tabs__list > button { padding-inline: 2px; }
-.ui-tabs--sm.ui-tabs--segmented > .ui-tabs__list { padding: 3px; gap: 3px; }
-.ui-tabs--sm > .ui-tabs__list svg { width: 14px; height: 14px; }
+:is(.ui-tabs--sm.ui-tabs--segmented > .ui-tabs__list, .ui-choice-list--sm.ui-choice-list--segmented) { padding: 3px; gap: 3px; }
+:is(.ui-tabs--sm > .ui-tabs__list, .ui-choice-list--sm) svg { width: 14px; height: 14px; }
 .ui-tabs__panel { padding-top: 20px; }
 .ui-tabs__panel[hidden] { display: none; }
 .ui-tabs--vertical { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 24px; }
