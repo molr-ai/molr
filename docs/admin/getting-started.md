@@ -12,19 +12,23 @@
 
 ## 安装与初始化
 
+本指南部署 Runtime 的 `server` 模式（默认），提供 WebUI、账号、助理和本机沙盒能力。已有完整服务、只需增加其他设备资源时，使用同一 Runtime 包的 `sandbox` 模式，按[沙盒节点部署](sandbox/remote.md)操作；节点不初始化账号或助理。桌面应用的本机服务与远程连接见[安装指南](deployment/installation.md#桌面应用)。
+
 使用 Docker 时，按 [Docker 部署](deployment/docker.md)构建包含 Runtime 与 WebUI 的镜像，并完成配置与账号初始化；下文为原生安装方式。
 
-从官网安装区选择一个已有版本的渠道，再选择目标平台。可用版本以官网发布清单为准；暂无版本的渠道不会提供下载入口。当前平台定义为 Linux amd64／arm64，安装包包含 Runtime 与 WebUI，静态 BusyBox 等沙盒依赖通过目标机系统包管理器提供。
+从官网「部署服务 → 部署 Molr」选择一个已有版本的渠道，安装命令会自动检测系统与架构。可用版本以官网发布清单为准；暂无版本的渠道不会提供下载入口。原生安装支持 Linux 和 macOS 的 AMD64／ARM64，安装包包含 Runtime 与 WebUI。Linux 的 Bubblewrap、静态 BusyBox 等依赖由目标机系统包管理器提供；macOS 使用系统 Seatbelt。
 
 直接运行官网安装脚本并选择渠道，无需保存脚本文件：
 
 ```bash
-curl -fsSL https://molr.ai/install.sh | sh
+curl -fsSL https://molr.ai/install.sh | sh -s -- --mode server
 ```
 
 示例使用 stable；该渠道暂无版本时，在官网选择已有版本的 preview 或 nightly，并使用官网生成的渠道安装命令。使用者无需安装 Go、Node.js 或单独部署网页。
 
-首次安装默认使用当前普通用户、从 8787 开始选择空闲端口、安装 systemd 用户服务并生成独立配置。root 执行时须通过 `--user molr` 指定非 root 运行账户。依赖缺失时，apt 系系统会询问是否安装；其他系统需按输出补齐依赖。systemd 用户管理器必须可用；需要退出登录后继续运行时，按安装提示配置 linger。
+首次安装默认使用当前普通用户，从 8787 开始选择空闲端口并生成独立配置。Linux 安装 systemd 用户服务；root 执行时须通过 `--user molr` 指定非 root 运行账户。依赖缺失时，apt 系系统会询问是否安装；其他系统按输出补齐依赖。systemd 用户管理器必须可用；需要退出登录后继续运行时，按提示配置 linger。macOS 13 及以上使用当前普通用户的 launchd 服务，不使用 sudo。
+
+资源权限预设与运行模式独立。交互安装可选择宽松或最小权限；非交互安装未指定时使用最小权限，关闭命令执行，完整服务仍提供内置工作区存储。需要开放本机目录、网络和计算资源时选择 `--resource-preset permissive`，助理仍需授权。具体范围见[资源权限预设](deployment/installation.md#runtime-模式与资源权限预设)。
 
 安装完成会输出局域网访问地址和有效期 15 分钟的一次性登录链接。点击链接并确认登录后进入首次引导：
 
