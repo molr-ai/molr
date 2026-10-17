@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"molr.ai/runtime/internal/agent/prompt"
 	"molr.ai/runtime/internal/business/resource"
+	"molr.ai/runtime/internal/config"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/platform"
@@ -157,5 +158,26 @@ func TestQuotaGrantsRequireExplicitLimits(t *testing.T) {
 	}))
 	if _, err := executionGrant(t.Context(), f.b.store, f.execution, f.compute.ID); core.CodeOf(err) != core.Forbidden {
 		t.Fatalf("execution without limits authorized: %v", err)
+	}
+}
+
+func TestComputeGrantCanExceedFormerImplicitCeilings(t *testing.T) {
+	if platform.NativeSandbox() {
+		t.Skip("macOS uses duration-only compute grants")
+	}
+	sandbox := config.Defaults("/var/lib/molr").Sandbox
+	grant := policy.ComputeConstraints{CPUPercent: 12800, MemoryBytes: 128 << 30, Processes: 8192, TempBytes: 64 << 20, UnlimitedDuration: true}
+	command := platform.Command{Limits: platform.Limits{CPUPercent: sandbox.CPUPercent, MemoryBytes: sandbox.MemoryBytes, Processes: sandbox.Processes}}
+	need(t, applyComputeConstraints(&command, &grant, sandbox.ComputeCeilings()))
+	if command.Limits.CPUPercent != grant.CPUPercent || command.Limits.MemoryBytes != grant.MemoryBytes || command.Limits.Processes != grant.Processes {
+		t.Fatalf("base defaults capped authorized execution: %+v", command.Limits)
+	}
+	for _, limits := range []platform.Limits{
+		{CPUPercent: 6400}, {MemoryBytes: 64 << 30}, {Processes: 4096},
+	} {
+		sandbox.AuthorizationCeilings = limits
+		if applyComputeConstraints(&platform.Command{}, &grant, sandbox.ComputeCeilings()) == nil {
+			t.Fatalf("explicit deployment ceiling ignored: %+v", limits)
+		}
 	}
 }

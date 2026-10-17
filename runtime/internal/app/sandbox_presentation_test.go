@@ -125,12 +125,18 @@ func TestSandboxPresentationPreservesCredentialsAndOwnerBoundary(t *testing.T) {
 	out, err = call(f.owner, "details", map[string]any{"ID": view.ID})
 	need(t, err)
 	details := out.([]sandboxResourceDetail)
+	if len(details) != 1 || details[0].Capacity == nil || details[0].Capacity.StorageBytes <= 0 {
+		t.Fatal("remote filesystem capacity missing", details)
+	}
 	if len(details) != 1 || details[0].ID != remote.ID || details[0].SourceID != directoryID(root) || details[0].Path != "" {
 		t.Fatal("remote details exposed incorrect metadata", details)
 	}
 	out, err = call(f.owner, "details", map[string]any{"ID": "local"})
 	need(t, err)
 	details = out.([]sandboxResourceDetail)
+	if len(details) != 1 || details[0].Capacity == nil || details[0].Capacity.StorageBytes <= 0 {
+		t.Fatal("local filesystem capacity missing", details)
+	}
 	if len(details) != 1 || details[0].ID != f.storage.ID || details[0].Path != f.root || details[0].SourceID != directoryID(f.root) {
 		t.Fatal("local source missing", details)
 	}

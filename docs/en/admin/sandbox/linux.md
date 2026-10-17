@@ -209,7 +209,7 @@ Results record exit status, standard output, and errors item by item, distinguis
 
 ## Authorization Quotas and Deployment Boundaries
 
-`sandbox.authorization_ceilings` limits the computable and network upper bounds that can be approved; it is separate from the sandbox basic protection configuration; compute and network authorization must explicitly specify independent quotas. Current nested fields adopt the names of capability DTOs, for example:
+`sandbox.authorization_ceilings` limits the computable and network upper bounds that can be approved; it is separate from the sandbox basic protection configuration; compute and network authorization must explicitly specify independent quotas. Omitting `CPUPercent`, `MemoryBytes`, or `Processes`, or setting them to `0`, adds no deployment ceiling for that resource; the compute page displays machine capacity. An explicit positive value is bounded by machine capacity. Setting one field does not inject default ceilings for the other two. Current nested fields adopt the names of capability DTOs, for example:
 
 ```json
 {

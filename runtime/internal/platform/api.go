@@ -18,10 +18,12 @@ type GPUConfig struct {
 	Devices    []string `json:"devices"`
 }
 type GPUDevice struct {
-	ID, Name, Vendor string
-	MemoryBytes      int64
-	Available        bool
-	Reason           string
+	UtilizationPercent *float64
+	MemoryUsedBytes    *int64
+	ID, Name, Vendor   string
+	MemoryBytes        int64
+	Available          bool
+	Reason             string
 }
 type Capabilities struct {
 	FullAccess       bool

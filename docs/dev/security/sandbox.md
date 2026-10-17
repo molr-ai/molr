@@ -9,6 +9,8 @@ Linux 使用 Bubblewrap、seccomp、cgroup v2 和受控网络出口。macOS 使�
 
 管理接口接收 `SourceID` 和可选相对子目录 `Path`；无 `SourceID` 时 `Path` 是目标机器的绝对路径或 `~/` 路径。后端按当前部署根范围验证，并复用外部目录的文件身份、符号链接和私有路径保护。远端协议提供认证的 `/v2/sandbox/directory` 解析接口；目录引用携带来源和路径，每次文件或挂载操作重新解析，不把引用当作权限。只读根覆盖子目录，包含只读子树的可写挂载同样被拒绝。
 
+沙盒信息的 `HostCapacity` 报告机器 CPU、物理内存和系统进程上限，供计算页与 `AuthorizationCeilings` 取较小值展示，不改变授权或执行约束。资源详情的 `Capacity` 从目录所在文件系统探测容量和普通用户可用空间；远程目录通过节点的 Directory 接口探测，不使用 Runtime 本机磁盘。尚未创建的本地工作区使用最近已存在的父目录所在文件系统，并扣除 `min_free_disk_bytes`。`StorageCeilingBytes` 发布当前用户组的工作区存储上限，仅用于工作区；普通目录按所在文件系统展示。探测失败保留零值，页面显示未知，不回退为无限容量。 `HostCapacity.CPUUsagePercent` 与 `MemoryUsedBytes` 为可空的占用快照，空值不渲染为零占用。Linux CPU 读取 `/proc/stat` 两次、间隔 100 ms，以计数差计算利用率；内存以总内存减 `/proc/meminfo` 的 `MemAvailable` 计算。macOS 使用固定参数调用系统 `/usr/bin/top` 采集两次日志样本，并设两秒超时，参见 [top(1)](https://github.com/apple-oss-distributions/top/blob/main/top.1)。文件系统返回 `StorageTotalBytes` 与 `StorageUsedBytes`，保留空间不计入已使用量。页面复用共享 Progress 组件，只在查询刷新时更新；进度条分母为整机／整盘容量，与授权上限分开。
+
 ## 平台边界
 
 基础文件能力与命令执行分开报告。`textfiles/files_unix.go` 维护公共文件版本、授权重查和原子提交；Linux 使用 `openat2`，macOS 使用 `O_NOFOLLOW_ANY` 在内核路径解析时拒绝所有组件的符号链接，并使用排他 rename。仅识别 macOS 固定系统目录别名，不放行工作区或外部资源中的用户符号链接。硬链接和特殊文件检查继续保留。受保护目录的重叠检查同时比较文件身份，防止大小写或系统别名暴露 Runtime 私有目录。
@@ -46,6 +48,8 @@ Linux 后端已位于 `runtime/internal/platform/sandbox`，复用 `platform.Run
 文件工具的 `openat2` 检查不会自动约束任意程序；文件工具与直接挂载的差异见 [工具合同](../reference/file-tools.md)。模型脚本交给沙盒内固定 Shell，宿主启动参数、资源路径与执行身份由可信代码构造。
 
 ## GPU 执行边界
+
+GPU 展示快照通过 `Runner.GPUSnapshot` 获取：在启动设备清单的副本上按硬件 UUID 合并 `nvidia-smi` 的 `utilization.gpu` 与 `memory.used`，两秒超时，缺失指标为 null。采样不扩展设备清单、不修改启动能力检查结果，也不改变授权设备范围。
 
 `Sandbox.GPU` 是部署白名单，`ComputeConstraints.GPU.DeviceIDs` 是助理计算授权范围；用户组缺省 GPU 范围为空。`ComputeCeilings()` 将部署白名单带入能力、审批和执行检查，不接受第二份独立 GPU 上限配置。普通 `shell_execute` 自动使用生效授权，不接受设备或挂载参数。设备身份采用节点内硬件 UUID；执行前重新核对 UUID 与设备节点的映射，并通过固定 FD 挂载经过验证的字符设备。CPU 调用不挂载 GPU，GPU 错误不降级执行。
 

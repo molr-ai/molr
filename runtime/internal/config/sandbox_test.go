@@ -278,3 +278,48 @@ func TestWorkspaceConfigurationValidatedWithCommandsDisabled(t *testing.T) {
 		}
 	}
 }
+
+// Omitted deployment ceilings must not silently limit larger machines. Explicit
+// ceilings remain independent per field when JSON is overlaid on defaults.
+func TestSandboxComputeCeilingsFollowConfiguration(t *testing.T) {
+	if platform.NativeSandbox() {
+		t.Skip("macOS does not accept hard resource ceilings")
+	}
+	const base = `{"data_dir":"/var/lib/molr","http":{"public_url":"https://molr.example.com","tls_mode":"proxy","trusted_proxies":["192.0.2.10/32"]}%s}`
+	for _, tc := range []struct {
+		name, sandbox string
+		cpu           int
+		memory        int64
+		processes     int
+	}{
+		{name: "sandbox omitted"},
+		{name: "ceilings omitted", sandbox: `,"sandbox":{}`},
+		{name: "empty ceilings", sandbox: `,"sandbox":{"authorization_ceilings":{}}`},
+		{name: "explicit zero", sandbox: `,"sandbox":{"authorization_ceilings":{"CPUPercent":0,"MemoryBytes":0,"Processes":0}}`},
+		{name: "explicit ceilings", sandbox: `,"sandbox":{"authorization_ceilings":{"CPUPercent":800,"MemoryBytes":17179869184,"Processes":512}}`, cpu: 800, memory: 16 << 30, processes: 512},
+		{name: "memory only", sandbox: `,"sandbox":{"authorization_ceilings":{"MemoryBytes":17179869184}}`, memory: 16 << 30},
+		{name: "cpu only", sandbox: `,"sandbox":{"authorization_ceilings":{"CPUPercent":800}}`, cpu: 800},
+		{name: "processes only", sandbox: `,"sandbox":{"authorization_ceilings":{"Processes":512}}`, processes: 512},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, err := Load(strings.NewReader(fmt.Sprintf(base, tc.sandbox)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			raw := c.Sandbox.AuthorizationCeilings
+			if raw.CPUPercent != tc.cpu || raw.MemoryBytes != tc.memory || raw.Processes != tc.processes {
+				t.Fatalf("implicit or overwritten ceiling: %+v", raw)
+			}
+			effective := c.Sandbox.ComputeCeilings()
+			if tc.cpu == 0 && effective.CPUPercent <= 6400 || tc.cpu > 0 && effective.CPUPercent != tc.cpu {
+				t.Fatalf("CPU ceiling: %+v", effective)
+			}
+			if tc.memory == 0 && effective.MemoryBytes <= 64<<30 || tc.memory > 0 && effective.MemoryBytes != tc.memory {
+				t.Fatalf("memory ceiling: %+v", effective)
+			}
+			if tc.processes == 0 && effective.Processes <= 4096 || tc.processes > 0 && effective.Processes != tc.processes {
+				t.Fatalf("process ceiling: %+v", effective)
+			}
+		})
+	}
+}

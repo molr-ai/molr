@@ -85,11 +85,12 @@ func directoryID(p string) string { return "dir_" + digestBytes([]byte(p))[:24] 
 func (b *remoteSandboxBackend) Info(ctx context.Context) (sm.Info, error) {
 	s := b.cfg.Sandbox
 	out := sm.Info{Build: buildinfo.Current(), AllowDirectoryPaths: !s.RestrictDirectories, WorkspaceProjectQuotas: false, ResourceQuotas: true, UserGroupQuotas: true, AuthorizationCeilings: s.ComputeCeilings(), PortForwarding: true, ShellSessions: true, Protocol: sm.ProtocolVersion, Enabled: s.Enabled, Storage: s.Enabled && textfiles.Supported(), Directories: []sm.Directory{}, Networks: []sm.Network{}, Capabilities: platform.Capabilities{OS: runtime.GOOS, Reason: "sandbox_disabled"}, Limits: platform.Limits{MemoryBytes: s.MemoryBytes, Processes: s.Processes, CPUPercent: s.CPUPercent, TempBytes: s.TempBytes, MaxFileBytes: s.MaxFileBytes, NetworkBytes: s.NetworkBytes, NetworkConnections: s.NetworkConnections}, TimeoutSeconds: 0}
+	out.HostCapacity = platform.MachineCapacity()
 	if !s.Enabled {
 		return out, nil
 	}
 	out.Capabilities, _ = b.runner.Capabilities(ctx)
-	out.GPUs = b.runner.GPUs()
+	out.GPUs = b.runner.GPUSnapshot(ctx)
 	if s.GPU.AllDevices {
 		for _, g := range out.GPUs {
 			out.AuthorizationCeilings.GPUDeviceIDs = append(out.AuthorizationCeilings.GPUDeviceIDs, g.ID)

@@ -10,6 +10,7 @@ import (
 	"molr.ai/runtime/internal/business/resource"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
+	"molr.ai/runtime/internal/platform"
 	sm "molr.ai/runtime/internal/sandboxmanager"
 )
 
@@ -144,6 +145,7 @@ func (s *sandboxRouter) renameSandbox(ctx context.Context, p core.Principal, raw
 // Metadata is available only through the owner API, never permission_list or tool
 // results. Remote host paths and all connection secrets remain inaccessible.
 type sandboxResourceDetail struct {
+	Capacity       *platform.StorageCapacity `json:",omitempty"`
 	ID             core.ID
 	SourceID, Path string
 }
@@ -157,6 +159,7 @@ func (s *sandboxRouter) sandboxResourceDetails(ctx context.Context, p core.Princ
 		return nil, core.Invalid("sandbox_id", "required")
 	}
 	out := []sandboxResourceDetail{}
+	remoteDirectories := map[int]sm.DirectoryRequest{}
 	err := s.adapters.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		if q.ID != "local" {
 			c, err := persistence.LoadCatalog[sandboxConnection](ctx, s.adapters.store, "sandbox.connections", p.OwnerID, q.ID)
@@ -184,6 +187,9 @@ func (s *sandboxRouter) sandboxResourceDetails(ctx context.Context, p core.Princ
 				if ref, err := directoryReference(b.SandboxResource); err == nil {
 					v.SourceID = ref.SourceID
 					v.Path = ref.Path
+					if r.State == resource.Available {
+						remoteDirectories[len(out)] = ref
+					}
 				}
 			}
 			if q.ID == "local" {
@@ -191,6 +197,15 @@ func (s *sandboxRouter) sandboxResourceDetails(ctx context.Context, p core.Princ
 				case resource.Storage:
 					v.SourceID = directoryID(b.RootPath)
 					v.Path = b.RootPath
+					if r.State == resource.Available {
+						root, reserve := b.RootPath, int64(0)
+						if r.Provider == "managed-workspace" {
+							root = platform.AssistantWorkspace(s.adapters.dataDir, s.adapters.storageConfig.WorkRoot, "", "")
+							reserve = s.adapters.storageConfig.MinFreeDiskBytes
+						}
+						capacity := platform.FilesystemCapacity(root, reserve)
+						v.Capacity = &capacity
+					}
 				case resource.Compute:
 					v.SourceID = "compute"
 				case resource.Network:
@@ -201,5 +216,20 @@ func (s *sandboxRouter) sandboxResourceDetails(ctx context.Context, p core.Princ
 		}
 		return nil
 	})
+	if err == nil && len(remoteDirectories) > 0 {
+		connection, e := s.connection(ctx, p, q.ID)
+		if e == nil {
+			client, e := s.client(ctx, p, connection)
+			if e == nil {
+				probe, cancel := context.WithTimeout(ctx, 3*time.Second)
+				defer cancel()
+				for index, request := range remoteDirectories {
+					if directory, e := client.Directory(probe, request); e == nil {
+						out[index].Capacity = &directory.Capacity
+					}
+				}
+			}
+		}
+	}
 	return out, err
 }

@@ -4,7 +4,8 @@ import { fullAccessHelp } from '../../../full-access';
 import { fullAccessLabel, sandboxPermissions } from './PermissionTargetFields';
 import type { SandboxPermission } from './PermissionTargetFields';
 import { useEffect, useState } from 'react';
-import { ModalPresence, Alert, Badge, Button, DropdownMenu, IconButton, Select, SlidingHighlight, Tabs, TextField, useBreakpoint } from '@molr/ui';
+import type { ReactNode } from 'react';
+import { ModalPresence, Alert, Badge, Button, Progress, DropdownMenu, IconButton, Select, SlidingHighlight, Tabs, TextField, useBreakpoint } from '@molr/ui';
 import type { MenuItem } from '@molr/ui';
 import { Cpu, Ellipsis, Globe, HardDrive, Pencil, Plus, RefreshCw, Server, ShieldCheck, Unplug, Users } from 'lucide-react';
 import type { Assistant, Grant, Resource } from '../../../api/types';
@@ -12,7 +13,7 @@ import type { SandboxInfo, SandboxKind, SandboxResourceDetail, SandboxView } fro
 export type { SandboxView } from '../../../sandbox-types';
 import { api } from '../../../api/client';
 import { useCopy, useQuery } from '../../../state';
-import { useSandboxCopy } from '../../../sandbox-copy';
+import { sandboxResourceName, useSandboxCopy } from '../../../sandbox-copy';
 import { useSandboxPreference } from '../../../sandbox-navigation';
 import { sandboxReason } from '../../../sandbox';
 import { SettingsHelp } from '../components/SettingsHelp';
@@ -78,6 +79,7 @@ export function Sandboxes({ resources, resourceID = '' }: { resources: Resource[
         {!connected || !sandbox.Info.Enabled ? <Alert tone="warning" title={sandbox.State === 'disconnected' ? copy.disconnected : sandbox.State === 'disabled' ? copy.disabled : !connected ? copy.offline : copy.disabled}>{sandbox.State === 'disconnected' ? copy.reconnectHelp : sandbox.State === 'disabled' ? copy.disabledHelp : !connected ? connectionError(copy, sandbox.ConnectionReason) : copy.disabledHelp}{sandbox.State === 'offline' && <p>{copy.snapshot}</p>}</Alert> : null}
         <Tabs label={copy.title} value={kind} onValueChange={setKind} items={kinds.map(value => { const Icon = icons[value]; return { value, label: value === 'full_access' ? fullAccessLabel(locale === 'zh') : copy[value], icon: <Icon size={15} />, content: value === kind && (kind === 'full_access' ? <FullAccessSection sandbox={sandbox} resources={resources} grants={liveGrants} ready={grantDataReady} onAccess={setAccess} /> : <div className="sandbox-section">
           {kind === 'compute' && <ComputeSummary sandbox={sandbox} />}
+          {kind === 'storage' && <StorageSummary sandbox={sandbox} resources={rows} details={details.data} loading={details.loading && !details.data} />}
           {kind === 'network' && <div className="sandbox-workspace-summary sandbox-network-summary"><Globe size={18} /><div><h3>{copy.networkOverview}</h3><p>{sandbox?.Info.Capabilities.NetworkBackend==='seatbelt-toggle' ? copy.nativeNetworkHelp : copy.networkQuotaHelp}</p></div><SettingsHelp label={copy.networkOverview} content={sandbox?.Info.Capabilities.NetworkBackend==='seatbelt-toggle' ? copy.nativeNetworkHelp : `${copy.automaticNetwork} ${copy.networkTransportHelp}`} /></div>}
           {kind === 'storage' && sandbox.Local && <div className="sandbox-workspace-summary sandbox-storage-summary"><HardDrive size={18} /><div><h3>{copy.workspace} <code>/work</code></h3><p>{copy.workspaceDescription}</p></div><Badge dot={false}>{enabled && sandbox.Info.Storage ? copy.available : copy.unavailableShort}</Badge></div>}
           <div className="sandbox-section-heading"><h3>{kind === 'storage' ? copy.directories : kind === 'network' ? copy.networkPolicy : copy.compute}</h3><div className="sandbox-row-actions"><SettingsHelp label={copy.sourceLabel} content={copy.limitsHelp} />{(canAdd || kind === 'storage') && <Button size="sm" variant="secondary" disabled={!canAdd} onClick={() => setAdding(true)}><Plus size={14} />{addLabel}</Button>}</div></div>
@@ -85,9 +87,9 @@ export function Sandboxes({ resources, resourceID = '' }: { resources: Resource[
             const detail = details.data?.find(item => item.ID === resource.ID), count = new Set(liveGrants.filter(grant => grant.ResourceID === resource.ID && !grant.Scope.FullAccess).map(grant => grant.AssistantID)).size;
             const resourceMenu: MenuItem[] = [{ id: 'rename', label: copy.rename, icon: <Pencil size={15} />, onSelect: () => setRenaming(resource) }, ...(resource.State !== 'disconnected' && resource.Provider !== 'managed-workspace' ? [{ id: 'disconnect', label: t.resources.disconnect, icon: <Unplug size={15} />, danger: true, separatorBefore: true, onSelect: () => setRemoving(resource) }] : [])];
             return <article className="sandbox-resource" key={resource.ID} data-resource-id={resource.ID}>
-              <div className="sandbox-resource-body"><div className="sandbox-resource-heading"><h3>{resource.Name}</h3><Badge dot={false} tone={resource.State === 'disconnected' ? 'neutral' : kind === 'storage' ? 'neutral' : enabled ? 'positive' : 'neutral'}>{resource.State === 'disconnected' ? copy.disconnected : kind === 'storage' ? resource.Actions.includes('write') ? copy.readWrite : copy.readOnly : enabled ? copy.available : copy.unavailableShort}</Badge></div>
+              <div className="sandbox-resource-body"><div className="sandbox-resource-heading"><h3>{sandboxResourceName(resource, copy)}</h3><Badge dot={false} tone={resource.State === 'disconnected' ? 'neutral' : kind === 'storage' ? 'neutral' : enabled ? 'positive' : 'neutral'}>{resource.State === 'disconnected' ? copy.disconnected : kind === 'storage' ? resource.Actions.includes('write') ? copy.readWrite : copy.readOnly : enabled ? copy.available : copy.unavailableShort}</Badge></div>
               <ResourceDetails sandbox={sandbox} resource={resource} detail={detail} loading={details.loading && !details.data} /></div>
-              <div className="sandbox-resource-footer"><Button size="sm" variant="ghost" onClick={() => setAccess(resource)} disabled={!grantDataReady}><Users size={15} />{grantDataReady ? count ? `${copy.authorized} · ${count}` : copy.grant : t.loading}</Button><DropdownMenu label={t.more} align="end" trigger={<IconButton label={`${t.more} · ${resource.Name}`}><Ellipsis size={16} /></IconButton>} items={resourceMenu} />{!count && grantDataReady && <span className="muted">{copy.noAccess}</span>}</div>
+              <div className="sandbox-resource-footer"><Button size="sm" variant="ghost" onClick={() => setAccess(resource)} disabled={!grantDataReady}><Users size={15} />{grantDataReady ? count ? `${copy.authorized} · ${count}` : copy.grant : t.loading}</Button><DropdownMenu label={t.more} align="end" trigger={<IconButton label={`${t.more} · ${sandboxResourceName(resource, copy)}`}><Ellipsis size={16} /></IconButton>} items={resourceMenu} />{!count && grantDataReady && <span className="muted">{copy.noAccess}</span>}</div>
             </article>;
           })}</div>}
         </div>) }; })} />
@@ -117,10 +119,45 @@ function FullAccessSection({ sandbox, resources, grants, ready, onAccess }: { sa
     {!available && <p className="muted sandbox-resource-description">{zh ? '此沙盒尚未开放完全访问权限。' : 'Full access is not available on this sandbox.'}</p>}
   </div>;
 }
+function capacityLimit(machine: number | undefined, ceiling: number | undefined): number | undefined {
+  const values = [machine, ceiling].filter((value): value is number => value !== undefined && value > 0);
+  return values.length ? Math.min(...values) : undefined;
+}
+function capacityBytes(value: number | undefined, locale: string) {
+  if (value === undefined || value < 0) return locale === 'zh' ? '未知' : 'Unknown';
+  if (value === 0) return '0 B';
+  const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB'];
+  const unit = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
+  return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(value / 1024 ** unit)} ${units[unit]}`;
+}
+function UsageSnapshot({ label, value, detail }: { label: string; value: number | null | undefined; detail?: string }) {
+  const { locale } = useCopy();
+  if (value == null || !Number.isFinite(value) || value < 0 || value > 100) return <small className="sandbox-usage-unavailable muted">{locale === 'zh' ? '占用信息暂不可用' : 'Usage unavailable'}</small>;
+  return <div title={detail}><Progress className="sandbox-usage" label={label} value={value} valueText={new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 1 }).format(value / 100)} /></div>;
+}
+function StorageSummary({ sandbox, resources, details, loading }: { sandbox: SandboxView; resources: Resource[]; details?: SandboxResourceDetail[]; loading: boolean }) {
+  const { t, locale } = useCopy(), zh = locale === 'zh', copy = useSandboxCopy();
+  const directories = resources.filter(resource => resource.State !== 'disconnected');
+  return <div className="sandbox-compute-summary"><div className="sandbox-section-heading"><h3>{zh ? '可使用的存储空间上限' : 'Available storage capacity'}</h3><span className="muted">{zh ? '由存储配额或磁盘容量决定' : 'Bounded by storage quotas or disk capacity'}</span></div>
+    {loading ? <p className="muted">{t.loading}</p> : <dl className="sandbox-limits">{directories.length ? directories.map(resource => {
+      const capacity = details?.find(detail => detail.ID === resource.ID)?.Capacity;
+      const limit = capacityLimit(capacity?.StorageBytes, resource.Provider === 'managed-workspace' ? sandbox.Info.StorageCeilingBytes : undefined);
+      return <div key={resource.ID}><dt>{sandboxResourceName(resource, copy)}</dt><dd>{capacityBytes(limit, locale)}</dd><UsageSnapshot label={zh ? '磁盘占用' : 'Disk usage'} value={capacity && capacity.StorageTotalBytes > 0 ? capacity.StorageUsedBytes / capacity.StorageTotalBytes * 100 : undefined} detail={capacity ? `${zh ? '磁盘剩余' : 'Disk free'} · ${capacity.StorageAvailableBytes === 0 ? '0 B' : capacityBytes(capacity.StorageAvailableBytes, locale)}` : undefined} /></div>;
+    }) : <div><dt>{zh ? '连接目录后显示其容量' : 'Connect a directory to see its capacity'}</dt><dd>—</dd></div>}</dl>}
+  </div>;
+}
 function ComputeSummary({ sandbox }: { sandbox: SandboxView }) {
   const { t, locale } = useCopy(), copy = useSandboxCopy(), caps = sandbox.Info.Capabilities, ready = isConnected(sandbox) && sandbox.Info.Enabled && caps.Shell;
-  const rows = [...(sandbox.Info.GPUs?.length ? [['GPU', sandbox.Info.GPUs.map(g=>`${gpuName(g.ID,sandbox.Info.GPUs!,locale)}${g.Available?'':locale==='zh'?'（不可用）':' (unavailable)'}`).join(' / ')]] : []), ...(caps.ResourceLimits ? [[copy.cpu, `${(sandbox.Info.AuthorizationCeilings??sandbox.Info.Limits).CPUPercent}%`], [copy.memory, `${Math.round((sandbox.Info.AuthorizationCeilings??sandbox.Info.Limits).MemoryBytes / 1048576)} MiB`], [copy.processes, String((sandbox.Info.AuthorizationCeilings??sandbox.Info.Limits).Processes)]] : []), [copy.timeout, locale === 'zh' ? '由助理的计算授权决定' : 'Defined by the assistant’s compute grant']];
-  return <div className="sandbox-compute-summary"><div className="sandbox-section-heading"><h3>{locale === 'zh' ? '可申请的计算能力上限' : 'Requestable compute capacity'}</h3><span className="muted">{copy.deploymentLimits}</span></div><dl className="sandbox-limits">{rows.map(([label, value]) => <div key={label} className={label === 'GPU' || label === copy.timeout ? 'sandbox-limit-description' : undefined}><dt>{label}</dt><dd>{value}</dd></div>)}</dl><div className="sandbox-isolation"><ShieldCheck size={16} /><span>{ready ? caps.NetworkBackend==='seatbelt-toggle' ? copy.nativeIsolationReady : copy.isolationReady : sandboxReason(t, caps.Reason)}</span><SettingsHelp label={copy.isolation} content={caps.NetworkBackend==='seatbelt-toggle' ? copy.nativeIsolationHelp : copy.isolationHelp} /></div></div>;
+  const host = sandbox.Info.HostCapacity, ceilings = sandbox.Info.AuthorizationCeilings;
+  const cpu = capacityLimit(host?.CPUPercent, ceilings?.CPUPercent), memory = capacityLimit(host?.MemoryBytes, ceilings?.MemoryBytes), processes = capacityLimit(host?.Processes, ceilings?.Processes);
+  const unknown = locale === 'zh' ? '未知' : 'Unknown';
+  const rows: [string, ReactNode][] = [
+    [copy.cpu, cpu ? `${new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(cpu / 100)} ${locale === 'zh' ? '核' : 'cores'} · ${cpu}%` : unknown],
+    [copy.memory, capacityBytes(memory, locale)], [copy.processes, processes ? new Intl.NumberFormat(locale).format(processes) : unknown],
+    [copy.timeout, locale === 'zh' ? '由助理的计算授权决定' : 'Defined by the assistant’s compute grant'],
+    ...(sandbox.Info.GPUs?.length ? [['GPU', <div className="sandbox-gpu-list">{sandbox.Info.GPUs.map(g => <div className="sandbox-gpu" key={g.ID}><span>{gpuName(g.ID, sandbox.Info.GPUs!, locale)}{g.Available ? '' : locale === 'zh' ? '（不可用）' : ' (unavailable)'}</span><div className="sandbox-gpu-usage"><UsageSnapshot label={locale === 'zh' ? 'GPU 占用' : 'GPU usage'} value={g.UtilizationPercent} /><UsageSnapshot label={locale === 'zh' ? '显存占用' : 'GPU memory usage'} value={g.MemoryUsedBytes != null && g.MemoryBytes > 0 ? g.MemoryUsedBytes / g.MemoryBytes * 100 : undefined} detail={g.MemoryUsedBytes != null ? `${capacityBytes(g.MemoryUsedBytes, locale)} / ${capacityBytes(g.MemoryBytes, locale)}` : undefined} /></div></div>)}</div>] as [string, ReactNode]] : []),
+  ];
+  return <div className="sandbox-compute-summary"><div className="sandbox-section-heading"><h3>{locale === 'zh' ? '可申请的计算能力上限' : 'Requestable compute capacity'}</h3><span className="muted">{locale === 'zh' ? '由沙盒限制或机器容量决定' : 'Bounded by sandbox limits or machine capacity'}</span></div><dl className="sandbox-limits">{rows.map(([label, value]) => <div key={label} className={label === 'GPU' || label === copy.timeout ? 'sandbox-limit-description' : undefined}><dt>{label}</dt><dd>{value}</dd>{label === copy.cpu && <UsageSnapshot label={locale === 'zh' ? '机器占用' : 'Machine usage'} value={host?.CPUUsagePercent} />}{label === copy.memory && <UsageSnapshot label={locale === 'zh' ? '机器占用' : 'Machine usage'} value={host?.MemoryUsedBytes != null && host.MemoryBytes > 0 ? host.MemoryUsedBytes / host.MemoryBytes * 100 : undefined} detail={host?.MemoryUsedBytes != null ? `${capacityBytes(host.MemoryUsedBytes, locale)} / ${capacityBytes(host.MemoryBytes, locale)}` : undefined} />}</div>)}</dl><div className="sandbox-isolation"><ShieldCheck size={16} /><span>{ready ? caps.NetworkBackend==='seatbelt-toggle' ? copy.nativeIsolationReady : copy.isolationReady : sandboxReason(t, caps.Reason)}</span><SettingsHelp label={copy.isolation} content={caps.NetworkBackend==='seatbelt-toggle' ? copy.nativeIsolationHelp : copy.isolationHelp} /></div></div>;
 }
 function ResourceDetails({ sandbox, resource, detail, loading }: { sandbox: SandboxView; resource: Resource; detail?: SandboxResourceDetail; loading: boolean }) {
   const { t } = useCopy(), copy = useSandboxCopy();
@@ -185,6 +222,6 @@ function RenameSandbox({ sandbox, onClose }: { sandbox: SandboxView; onClose: ()
   return <EditDialog title={copy.rename} onClose={onClose} onSubmit={() => api.mutate('/api/sandboxes/rename', { ID: sandbox.ID, Name: name.trim() }, sandbox.Version)}><TextField label={t.name} value={name} onChange={event => setName(event.target.value)} required maxLength={256} /></EditDialog>;
 }
 function RenameSandboxResource({ resource, onClose }: { resource: Resource; onClose: () => void }) {
-  const { t } = useCopy(), copy = useSandboxCopy(), [name, setName] = useState(resource.Name);
-  return <EditDialog title={copy.rename} onClose={onClose} onSubmit={() => api.mutate('/api/resources/update', { ID: resource.ID, Name: name.trim() }, resource.Version)}><TextField label={t.name} value={name} onChange={event => setName(event.target.value)} required maxLength={256} /></EditDialog>;
+  const { t } = useCopy(), copy = useSandboxCopy(), [name, setName] = useState(sandboxResourceName(resource, copy));
+  return <EditDialog title={copy.rename} onClose={onClose} onSubmit={() => api.mutate('/api/resources/update', { ID: resource.ID, Name: name.trim() === sandboxResourceName(resource, copy) ? resource.Name : name.trim() }, resource.Version)}><TextField label={t.name} value={name} onChange={event => setName(event.target.value)} required maxLength={256} /></EditDialog>;
 }

@@ -2,7 +2,10 @@
 
 package sandbox
 
-import "molr.ai/runtime/internal/platform"
+import (
+	"context"
+	"molr.ai/runtime/internal/platform"
+)
 
 func (r *Runner) checkGPUAccess(c platform.Command) error {
 	if len(c.GPUDeviceIDs) > 0 {
@@ -10,3 +13,5 @@ func (r *Runner) checkGPUAccess(c platform.Command) error {
 	}
 	return nil
 }
+
+func sampleGPUUsage(context.Context, []platform.GPUDevice) {}

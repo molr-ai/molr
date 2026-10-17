@@ -24,23 +24,31 @@ import (
 
 // Driver libraries are supplied by the existing read-only host tools mounts.
 // No host installation, device creation, CDI hooks or privileged daemon is used.
-func nvidiaInventory(ctx context.Context) ([]platform.GPUDevice, map[string]gpuNode, error) {
+func nvidiaSMI(ctx context.Context, args ...string) ([]byte, error) {
 	f, err := pin("/usr/bin/nvidia-smi", false)
 	if err != nil {
-		return nil, nil, unavailable("gpu_driver_unavailable")
+		return nil, unavailable("gpu_driver_unavailable")
 	}
 	defer f.Close()
 	st, err := f.Stat()
 	if err != nil || !st.Mode().IsRegular() || st.Mode()&0022 != 0 {
-		return nil, nil, unavailable("gpu_driver_unavailable")
+		return nil, unavailable("gpu_driver_unavailable")
 	}
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "/usr/bin/nvidia-smi", "-q", "-x")
+	cmd := exec.CommandContext(ctx, "/usr/bin/nvidia-smi", args...)
 	cmd.Env = []string{"PATH=/usr/bin:/bin", "LANG=C"}
 	out, err := cmd.Output()
 	if err != nil || len(out) > 4<<20 {
-		return nil, nil, unavailable("gpu_driver_unavailable")
+		return nil, unavailable("gpu_driver_unavailable")
+	}
+	return out, nil
+}
+
+func nvidiaInventory(ctx context.Context) ([]platform.GPUDevice, map[string]gpuNode, error) {
+	out, err := nvidiaSMI(ctx, "-q", "-x")
+	if err != nil {
+		return nil, nil, err
 	}
 	var inventory struct {
 		GPUs []struct {

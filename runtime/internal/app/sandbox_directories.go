@@ -11,6 +11,7 @@ import (
 	"molr.ai/runtime/internal/business/resource"
 	"molr.ai/runtime/internal/config"
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/platform"
 	sm "molr.ai/runtime/internal/sandboxmanager"
 	"molr.ai/runtime/internal/textfiles"
 )
@@ -108,7 +109,7 @@ func resolveSandboxDirectory(ctx context.Context, a adapters, q sm.DirectoryRequ
 		raw, _ := json.Marshal(ref)
 		id = directoryReferencePrefix + base64.RawURLEncoding.EncodeToString(raw)
 	}
-	return sm.Directory{ID: id, Name: filepath.Base(root), ReadOnly: ro, Path: root}, nil
+	return sm.Directory{Capacity: platform.FilesystemCapacity(root, 0), ID: id, Name: filepath.Base(root), ReadOnly: ro, Path: root}, nil
 }
 
 func directoryReference(id string) (sm.DirectoryRequest, error) {

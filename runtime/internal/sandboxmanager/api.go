@@ -20,6 +20,7 @@ const MaxRequest = 32 << 20
 
 type DirectoryRequest struct{ SourceID, Path string }
 type Directory struct {
+	Capacity platform.StorageCapacity
 	Path     string `json:",omitempty"`
 	ID, Name string
 	ReadOnly bool
@@ -29,6 +30,8 @@ type Network struct {
 	Target   platform.NetworkTarget
 }
 type Info struct {
+	HostCapacity           platform.HostCapacity
+	StorageCeilingBytes    int64
 	Build                  buildinfo.Info
 	AllowDirectoryPaths    bool
 	GPUs                   []platform.GPUDevice `json:",omitempty"`

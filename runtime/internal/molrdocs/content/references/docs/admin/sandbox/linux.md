@@ -209,7 +209,7 @@ python3 runtime/scripts/check-host-tools.py host-sandbox-connection.json tool-re
 
 ## 授权额度与部署边界
 
-`sandbox.authorization_ceilings` 限定可批准的计算与网络上限；它与沙盒基础保护配置分开；计算和网络授权必须显式指定独立额度。当前嵌套字段采用能力 DTO 的名称，例如：
+`sandbox.authorization_ceilings` 限定可批准的计算与网络上限；它与沙盒基础保护配置分开；计算和网络授权必须显式指定独立额度。`CPUPercent`、`MemoryBytes` 和 `Processes` 省略或为 `0` 时不额外设置部署上限，计算页按机器容量展示；显式配置正值时取配置值与机器容量中的较小值。只配置某一项不会为其他两项注入默认上限。当前嵌套字段采用能力 DTO 的名称，例如：
 
 ```json
 {

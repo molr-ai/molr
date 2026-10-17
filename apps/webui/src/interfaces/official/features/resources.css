@@ -118,8 +118,15 @@
 .sandbox-limits { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 20px 24px; margin: 20px 0; }
 .sandbox-limits > div { min-width: 0; }
 .sandbox-limits .sandbox-limit-description dd { font-size: 12px; font-weight: 400; line-height: 1.7; }
+.sandbox-gpu-list { display: flex; flex-direction: column; gap: 16px; }
+.sandbox-gpu-usage { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; max-width: 504px; }
+.sandbox-limits .sandbox-limit-description:has(.sandbox-gpu-list) { grid-column: 1 / -1; }
 .sandbox-limits dt { font-size: 11px; color: var(--color-text-muted); }
 .sandbox-limits dd { margin: 6px 0 0; font-size: 17px; font-weight: 550; overflow-wrap: anywhere; }
+.sandbox-usage { gap: 6px; margin-top: 10px; max-width: 240px; }
+.sandbox-usage .ui-progress__track { height: 4px; grid-row: 1; }
+.sandbox-usage .ui-progress__label { font-size: 11px; font-weight: 400; color: var(--color-text-muted); gap: 8px; }
+.sandbox-usage-unavailable { display: block; margin-top: 10px; font-size: 11px; }
 .sandbox-isolation { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--color-text-muted); }
 .sandbox-isolation > svg { flex-shrink: 0; }
 .sandbox-isolation > span { flex: 1; }

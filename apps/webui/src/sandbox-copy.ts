@@ -48,3 +48,8 @@ const en: typeof zh = {
  storage: 'Storage', compute: 'Compute', network: 'Network', readOnly: 'Read only', readWrite: 'Read and write', memory: 'Memory limit', processes: 'Process limit', cpu: 'CPU limit', timeout: 'Execution timeout', seconds: 'seconds', exclusions: 'Excluded ranges', networkHelp: 'Exclusions apply only to this network. Destinations are also checked at connection time.', workspace: 'Local workspace', workspaceHelp: 'Each assistant has one private /work on this Runtime. Remote computers provide authorized directories and compute, not assistant workspaces.', toolsHelp: 'Tools are built into Runtime. Sandbox tools check the selected sandbox, resource scope and assistant grants.', noTools: 'Tool catalog unavailable', platform: 'Platform', isolation: 'Isolation status', sandboxFilter: 'Sandbox', all: 'All sandboxes', select: 'Select sandbox', configured: 'Configured', showDetails: 'Capabilities and limits',
 };
 export function useSandboxCopy() { const { locale } = useCopy(); return locale.startsWith('zh') ? zh : en; }
+
+/** Translate only the built-in default; preserve user-assigned resource names. */
+export function sandboxResourceName(resource: { Provider: string; Name: string }, copy: { workspace: string }) {
+  return resource.Provider === 'managed-workspace' && resource.Name === 'Assistant workspace' ? copy.workspace : resource.Name;
+}

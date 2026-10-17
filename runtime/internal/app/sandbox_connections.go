@@ -112,12 +112,13 @@ func (s *sandboxRouter) newClient(p core.Principal, endpoint, fingerprint string
 func (s *sandboxRouter) localInfo(ctx context.Context) sm.Info {
 	cfg := s.adapters.storageConfig
 	info := sm.Info{AllowDirectoryPaths: !cfg.RestrictDirectories, WorkspaceProjectQuotas: cfg.WorkspaceProjectQuotas, ResourceQuotas: true, UserGroupQuotas: true, AuthorizationCeilings: cfg.ComputeCeilings(), ShellSessions: true, Protocol: sm.ProtocolVersion, Enabled: true, Storage: textfiles.Supported(), Capabilities: platform.Capabilities{OS: runtime.GOOS, Reason: "sandbox_disabled"}, Directories: []sm.Directory{}, Networks: []sm.Network{}, Limits: platform.Limits{MemoryBytes: cfg.MemoryBytes, Processes: cfg.Processes, CPUPercent: cfg.CPUPercent, TempBytes: cfg.TempBytes, MaxFileBytes: cfg.MaxFileBytes, NetworkBytes: cfg.NetworkBytes, NetworkConnections: cfg.NetworkConnections}, TimeoutSeconds: 0}
+	info.HostCapacity = platform.MachineCapacity()
 	if platform.NativeSandbox() {
 		info.Capabilities.NetworkBackend = "seatbelt-toggle"
 	}
 	if s.shell != nil {
 		info.Capabilities, _ = s.shell.runner.Capabilities(ctx)
-		info.GPUs = s.shell.runner.GPUs()
+		info.GPUs = s.shell.runner.GPUSnapshot(ctx)
 		if cfg.GPU.AllDevices {
 			for _, g := range info.GPUs {
 				info.AuthorizationCeilings.GPUDeviceIDs = append(info.AuthorizationCeilings.GPUDeviceIDs, g.ID)
@@ -210,6 +211,9 @@ func (s *sandboxRouter) admin(ctx context.Context, p core.Principal, action stri
 				v.Info.Capabilities.FullAccess = v.Info.Capabilities.FullAccess && ref.AllowFullAccess
 				v.Endpoint = ""
 				v.Fingerprint = ""
+				if storage := ref.Quota.Storage; storage != nil {
+					v.Info.StorageCeilingBytes = storage.CapacityBytes
+				}
 				if c := ref.Quota.Compute; c != nil {
 					v.Info.AuthorizationCeilings.CPUPercent = min(v.Info.AuthorizationCeilings.CPUPercent, c.CPUPercent)
 					v.Info.AuthorizationCeilings.MemoryBytes = min(v.Info.AuthorizationCeilings.MemoryBytes, c.MemoryBytes)

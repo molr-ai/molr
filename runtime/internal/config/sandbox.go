@@ -63,7 +63,7 @@ func sandboxDefaults() Sandbox {
 	if platform.NativeSandbox() {
 		return Sandbox{Enabled: true, NetworkPresets: []string{"network"}, ToolDirectories: []string{"/opt/homebrew", "/usr/local", "/Library/Developer/CommandLineTools"}, Timeout: Duration(10 * time.Minute), MaxOutputBytes: 64 << 10}
 	}
-	return Sandbox{AuthorizationCeilings: platform.Limits{CPUPercent: 6400, MemoryBytes: 64 << 30, Processes: 4096, TempBytes: 8 << 30, MaxFileBytes: 1 << 40, NetworkBytes: 1 << 40, NetworkConnections: 128}, Enabled: true, NetworkBytes: 64 << 20, NetworkConnections: 16, NetworkPresets: []string{"internet", "lan", "host"}, MinFreeDiskBytes: 256 << 20, MaxFileBytes: 1 << 30, Timeout: Duration(10 * time.Minute), MemoryBytes: 512 << 20, Processes: 64, CPUPercent: 100, TempBytes: 64 << 20, MaxOutputBytes: 64 << 10}
+	return Sandbox{AuthorizationCeilings: platform.Limits{TempBytes: 8 << 30, MaxFileBytes: 1 << 40, NetworkBytes: 1 << 40, NetworkConnections: 128}, Enabled: true, NetworkBytes: 64 << 20, NetworkConnections: 16, NetworkPresets: []string{"internet", "lan", "host"}, MinFreeDiskBytes: 256 << 20, MaxFileBytes: 1 << 30, Timeout: Duration(10 * time.Minute), MemoryBytes: 512 << 20, Processes: 64, CPUPercent: 100, TempBytes: 64 << 20, MaxOutputBytes: 64 << 10}
 }
 func (s Sandbox) ComputeCeilings() platform.Limits {
 	v := s.AuthorizationCeilings
