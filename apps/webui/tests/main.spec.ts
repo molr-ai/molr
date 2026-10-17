@@ -11,11 +11,15 @@ const csrfCookie = `molr_dev_csrf_p${new URL(base).port}`, sessionCookie = `molr
 const modelOrigin = `http://127.0.0.1:${process.env.MOLR_E2E_MODEL_PORT ?? 18882}`;
 // Resource cards keep model and provider actions in a menu.
 async function cardAction(page: Page, card: Locator, name: string) {
+  const drawer = page.locator('.provider-models-drawer');
+  if (await drawer.isVisible()) { await drawer.locator('.ui-dialog__header').getByRole('button', { name: 'Close', exact: true }).click(); await expect(drawer).not.toBeVisible(); }
   await card.getByRole('button', { name: 'More', exact: true }).click();
   await page.getByRole('menu', { name: 'More', exact: true }).getByRole('menuitem', { name, exact: true }).click();
 }
 // Desktop exposes settings in the sidebar; mobile exposes the account in the assistant list.
 async function openUserSettings(page: Page) {
+  const drawer = page.locator('.provider-models-drawer');
+  if (await drawer.isVisible()) await drawer.locator('.ui-dialog__header').getByRole('button', { name: 'Close', exact: true }).click();
   const navigation = page.getByRole('navigation', { name: 'Molr', exact: true });
   const sidebar = navigation.getByRole('button', { name: 'User settings', exact: true });
   if (await sidebar.isVisible()) await sidebar.click();
@@ -47,12 +51,11 @@ async function openSettingsSection(page: Page, name: string) {
   await item.click();
 }
 const settingsPane = (page: Page) => page.locator('.settings-pane:visible');
-// Resources render as expandable rows; details (models, actions) live in the expanded region.
+// Provider rows open model lists in a drawer.
 const resourceRow = (page: Page, name: string) => page.locator('.resource-row').filter({ has: page.getByRole('heading', { name, exact: true }) });
 const resourceCategory = (page: Page, name: string) => page.getByRole('tab', { name, exact: true });
-async function expandResource(row: Locator) {
-  const toggle = row.locator('h2 button[aria-expanded]');
-  if (await toggle.getAttribute('aria-expanded') === 'false') await toggle.click();
+async function openProviderModels(row: Locator) {
+  await row.locator('h2 button').click();
 }
 async function login(page: Page) {
   await page.goto('/');
@@ -110,7 +113,7 @@ test('model setup, automatic hire permission, real agent reply, attachments and 
   await form.getByRole('button', { name: 'Connect provider', exact: true }).click(); await expect(form).not.toBeVisible();
   await page.getByRole('list', { name: 'Notifications', exact: true }).getByRole('button', { name: 'Close', exact: true }).click();
   const providerCard = resourceRow(page, resourceName);
-  await expandResource(providerCard);
+  await openProviderModels(providerCard);
   await cardAction(page, providerCard, 'Add model');
   const modelForm = page.getByRole('dialog', { name: 'Add model', exact: true });
   await expect(modelForm.getByLabel('API Key', { exact: false })).toHaveCount(0);
@@ -118,6 +121,7 @@ test('model setup, automatic hire permission, real agent reply, attachments and 
   for (const label of ['Input price (USD / million tokens)', 'Output price (USD / million tokens)', 'Cached input price (USD / million tokens)']) await modelForm.getByRole('spinbutton', { name: label, exact: true }).fill('0');
   await modelForm.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(modelForm).not.toBeVisible();
+  await page.locator('.provider-models-drawer > .ui-dialog__header').getByRole('button', { name: 'Close', exact: true }).click();
   await expect(providerCard).toContainText(resourceName);
   await page.getByRole('navigation').getByRole('button', { name: 'Assistants', exact: true }).click();
   await page.getByRole('button', { name: 'Hire new assistant', exact: true }).first().click();
@@ -129,11 +133,12 @@ test('model setup, automatic hire permission, real agent reply, attachments and 
   await expect(page.locator('.chat-header h1')).toHaveText(assistantName);
   // Birth publishes its own reply. Finish that turn before testing user feedback.
   await expect(page.locator('.ui-chat-message--assistant')).toHaveCount(1, { timeout: 20000 });
-  await expect(page.locator('.chat-header [data-status="idle"]')).toBeVisible();
   const assistantID = new URL(page.url()).hash.match(/^#\/assistants\/([^?]+)/)![1];
   const assistant = await (await page.request.get(`/api/assistants/${assistantID}`)).json();
   await expect.poll(async () => (await (await page.request.get(`/api/assistants/${assistantID}/status`)).json()).State).toBe('idle');
   const before = await (await page.request.get(`/api/conversations/${assistant.ConversationID}`)).json();
+  const savedNotices = page.locator('.ui-toasts').getByRole('button', { name: 'Close', exact: true });
+  while (await savedNotices.count()) await savedNotices.first().click();
   await page.getByRole('textbox', { name: 'Message your assistant', exact: true }).fill('Please acknowledge this real message.');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   await expect(page.locator('.ui-chat-message--assistant')).toHaveCount(2, { timeout: 20000 });
@@ -815,14 +820,14 @@ test('provider connection discovers models without manual configuration and keep
   const resource = await (await created).json();
   await expect(dialog).not.toBeVisible();
   const card = resourceRow(page, name);
-  await expandResource(card);
-  await expect(card).toContainText('discovered-one'); await expect(card).toContainText('discovered-two');
-  await expect(card.getByText('Pricing not configured', { exact: true })).toHaveCount(2);
+  await openProviderModels(card);
+  await expect(page.locator('.provider-models-page').first()).toContainText('discovered-one'); await expect(page.locator('.provider-models-page').first()).toContainText('discovered-two');
+  await expect(page.locator('.provider-models-page').first().getByText('Pricing not configured', { exact: true })).toHaveCount(2);
   const catalog = await (await page.request.get('/api/models')).json();
   const models = catalog.filter((model: { ResourceID: string }) => model.ResourceID === resource.ID);
   expect(models).toHaveLength(2); expect(models.every((model: { ID: string }) => model.ID !== resource.ID)).toBe(true);
   await page.getByRole('list', { name: 'Notifications', exact: true }).getByRole('button', { name: 'Close', exact: true }).click();
-  await card.locator('li').filter({ hasText: 'discovered-one' }).getByRole('button', { name: 'Configure model', exact: true }).click();
+  await page.locator('.provider-models-page').first().locator('li').filter({ hasText: 'discovered-one' }).getByRole('button', { name: 'Configure model', exact: true }).click();
   const configuration = page.getByRole('dialog', { name: 'Configure model', exact: true });
   const prices = configuration.getByRole('spinbutton', { name: /^(Input|Output|Cached input) price/ });
   await expect(prices).toHaveCount(3);
@@ -830,10 +835,11 @@ test('provider connection discovers models without manual configuration and keep
   await configuration.getByRole('spinbutton', { name: 'Manual context limit (tokens, optional)', exact: true }).fill('8192');
   await configuration.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(configuration).not.toBeVisible();
-  await expect(card.getByText('Pricing not configured', { exact: true })).toHaveCount(1);
+  await expect(page.locator('.provider-models-page').first().getByText('Pricing not configured', { exact: true })).toHaveCount(1);
   await cardAction(page, card, 'Refresh models');
-  await expect(card).toContainText('discovered-two');
-  await expect(card.getByText('Pricing not configured', { exact: true })).toHaveCount(1);
+  await openProviderModels(card);
+  await expect(page.locator('.provider-models-page').first()).toContainText('discovered-two');
+  await expect(page.locator('.provider-models-page').first().getByText('Pricing not configured', { exact: true })).toHaveCount(1);
 });
 
 test('provider API key is stored in the vault and used for model discovery', async ({ page }, info) => {
@@ -869,8 +875,8 @@ test('provider API key is stored in the vault and used for model discovery', asy
   await expect(page.getByRole('dialog', { name: 'Verify identity', exact: true })).toHaveCount(0);
   await expect(dialog).not.toBeVisible();
   const card = resourceRow(page, name);
-  await expandResource(card);
-  await expect(card).toContainText('discovered-one');
+  await openProviderModels(card);
+  await expect(page.locator('.provider-models-page').first()).toContainText('discovered-one');
   const credentials = await (await page.request.get('/api/credentials')).text();
   expect(credentials).toContain(name);
   expect(credentials).not.toContain('test-provider-secret');
@@ -1009,7 +1015,7 @@ test('disconnected providers can be deleted while assistants are kept', async ({
   const assistant = await seedAssistant(page, name);
   await page.getByRole('navigation').getByRole('button', { name: 'Resources', exact: true }).click();
   const card = resourceRow(page, name);
-  await expandResource(card);
+  await openProviderModels(card);
   await cardAction(page, card, 'Disconnect resource');
   await page.getByRole('dialog', { name: 'Disconnect resource', exact: true }).getByRole('button', { name: 'Confirm', exact: true }).click();
   await card.getByRole('button', { name: 'More', exact: true }).click();
@@ -1574,10 +1580,10 @@ test('DeepSeek built-in pricing stays automatic when model settings are saved', 
   await page.getByRole('navigation').getByRole('button', { name: 'Resources', exact: true }).click();
   await page.reload();
   const card = resourceRow(page, name);
-  await expandResource(card);
-  await expect(card.getByText('Pricing not configured', { exact: true })).toHaveCount(0);
+  await openProviderModels(card);
+  await expect(page.locator('.provider-models-page').first().getByText('Pricing not configured', { exact: true })).toHaveCount(0);
   const configure = async () => {
-    await card.getByRole('button', { name: 'Configure model', exact: true }).click();
+    await page.locator('.provider-models-page').first().getByRole('button', { name: 'Configure model', exact: true }).click();
     return page.getByRole('dialog', { name: 'Configure model', exact: true });
   };
   let dialog = await configure();
@@ -1680,7 +1686,7 @@ test('currency preferences preserve native budgets and prices and show the confi
     while (await toastClose.count()) await toastClose.first().click();
     await page.getByRole('navigation').getByRole('button', { name: 'Resources', exact: true }).click();
     const card = resourceRow(page, `${name} seed`);
-    await expandResource(card);
+    await openProviderModels(card);
     await cardAction(page, card, 'Add model');
     const model = page.getByRole('dialog', { name: 'Add model', exact: true });
     await expect(model.getByRole('combobox', { name: 'Currency', exact: true })).toContainText('Chinese yuan CNY');
@@ -1702,7 +1708,7 @@ test('currency preferences preserve native budgets and prices and show the confi
     const edit = page.getByRole('dialog', { name: 'Assistant information', exact: true });
     await expect(edit.getByRole('combobox', { name: 'Currency', exact: true })).toContainText('Chinese yuan CNY');
     await expect(edit.getByRole('spinbutton', { name: 'Spending limit (CNY)', exact: true })).toHaveValue('7');
-    await expect(edit.locator('dd').first()).toHaveText(/≈ [\d,.]+ USD/);
+    await expect(edit.locator('.connection-details > div').filter({ has: page.getByText('Saved spending limit', { exact: true }) }).locator('dd')).toHaveText(/≈ [\d,.]+ USD/);
     await edit.getByRole('button', { name: 'Save', exact: true }).click(); await expect(edit).not.toBeVisible();
     expect((await (await page.request.get(`/api/assistants/${assistant.ID}`)).json()).Budget).toEqual(assistant.Budget);
     await assistantMenu(page, 'Assistant information');
@@ -2545,8 +2551,8 @@ for (const [preset, name, endpoint] of [
   const resource = await response.json();
   await expect(dialog).not.toBeVisible();
   const card = resourceRow(page, resourceName);
-  await expandResource(card);
-  await expect(card).toContainText('discovered-one');
+  await openProviderModels(card);
+  await expect(page.locator('.provider-models-page').first()).toContainText('discovered-one');
   const connection = await (await page.request.get(`/api/resources/${resource.ID}/connection`)).json();
   expect(connection.PricingProvider).toBe(preset);
   expect(Boolean(connection.CredentialID)).toBe(useKey);
@@ -2618,8 +2624,8 @@ test('OpenRouter preset discovers metadata and preserves streamed reasoning thro
   const resource = await (await saved).json();
   await expect(dialog).not.toBeVisible();
   const card = resourceRow(page, name);
-  await expandResource(card);
-  await expect(card).toContainText('fixture/router');
+  await openProviderModels(card);
+  await expect(page.locator('.provider-models-page').first()).toContainText('fixture/router');
   const models = await (await page.request.get('/api/models')).json();
   const model = models.find((item: { ResourceID: string }) => item.ResourceID === resource.ID);
   expect(model).toMatchObject({ SupportsTools: true, SupportsImages: true, EffectiveContextLimit: 131072, EffectiveOutputLimit: 8192, PricingInfo: { Source: 'provider' } });

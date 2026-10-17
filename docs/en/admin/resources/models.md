@@ -38,6 +38,8 @@ There is no generic OAuth login, OpenAI Responses, or native Gemini connection; 
 3. Test and save the connection, then refresh the model list. Testing reads the catalog without running inference.
 4. Configure capabilities, context capacity, output limits, and prices, assign models to groups, and verify with real conversations and tool calls.
 
+Click a provider to view its models in a drawer. "Configure model" slides left to the configuration page, with a back button in the header. Saving or cancelling returns to the list. "Add model" is available in the drawer and provider menu.
+
 One connection can contain multiple models. If discovery fails, check the catalog path and authentication requirements. You can add models manually to a saved connection, but this does not resolve protocol or authorization mismatches. Initial setup and the connection dialog probe Ollama, llama.cpp, vLLM, SGLang, and LM Studio on the Runtime device without starting services or downloading models.
 
 ## How to connect subscription plans

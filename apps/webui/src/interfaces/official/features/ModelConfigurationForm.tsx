@@ -1,17 +1,13 @@
-import { CurrencyDialog, CurrencySelect, MoneyText } from '../components/Money';
+import { CurrencySelect, MoneyText } from '../components/Money';
 import { useState } from 'react';
 import { Switch, TextField } from '@molr/ui';
 import { api, APIError } from '../../../api/client';
 import type { CurrencyCode, CurrencyContext, Model, Resource } from '../../../api/types';
 import { useCopy } from '../../../state';
-import { EditDialog, micros } from '../components/common';
+import { EditForm, micros, useAction } from '../components/common';
 
-type Props = { resource: Resource; model?: Model; onClose: () => void };
-export function ModelConfigurationDialog(props: Props) {
-  const { t } = useCopy();
-  return <CurrencyDialog title={props.model ? t.resources.configureModel : t.resources.addModel} onClose={props.onClose}>{context => <ModelConfigurationForm {...props} currencyContext={context} />}</CurrencyDialog>;
-}
-function ModelConfigurationForm({ resource, model, onClose, currencyContext }: Props & { currencyContext: CurrencyContext }) {
+type Props = { resource: Resource; model?: Model; onClose: () => void; currencyContext: CurrencyContext; action: ReturnType<typeof useAction> };
+export function ModelConfigurationForm({ resource, model, onClose, currencyContext, action }: Props) {
   const { t } = useCopy();
   const [currency, setCurrency] = useState<CurrencyCode>((model?.Pricing?.Currency as CurrencyCode) || currencyContext.Currency);
   const automatic = model?.PricingInfo?.Automatic;
@@ -25,7 +21,7 @@ function ModelConfigurationForm({ resource, model, onClose, currencyContext }: P
   const [input, setInput] = useState(model?.Pricing ? String(model.Pricing.InputMicrosPerMillion / 1_000_000) : '');
   const [output, setOutput] = useState(model?.Pricing ? String(model.Pricing.OutputMicrosPerMillion / 1_000_000) : '');
   const [cached, setCached] = useState(model?.Pricing ? String(model.Pricing.CachedInputMicrosPerMillion / 1_000_000) : '');
-  return <EditDialog title={model ? t.resources.configureModel : t.resources.addModel} onClose={onClose} onSubmit={async () => {
+  return <EditForm action={action} onClose={onClose} onSubmit={async () => {
     const prices = [input, output, cached], all = prices.every(value => value !== '');
     if (customPricing && prices.some(value => value !== '') && !all) throw new APIError('invalid_argument');
     await api.mutate('/api/resources/configure-model', { ID: resource.ID, Model: { Name: name.trim(), ContextLimit: Number(context), OutputLimit: Number(outputLimit), SupportsTools: tools, SupportsImages: images, SupportsAudio: audio,
@@ -45,5 +41,5 @@ function ModelConfigurationForm({ resource, model, onClose, currencyContext }: P
     <TextField label={t.resources.cachedPrice.replace('{currency}', currency)} type="number" min="0" max={input || undefined} step="0.000001" value={cached} onChange={event => setCached(event.target.value)} />
     {audio && <TextField label={t.resources.audioInputPrice.replace("{currency}", currency)} type="number" min="0" step="0.000001" value={audioPrice} onChange={event => setAudioPrice(event.target.value)} />}
     </>}
-  </EditDialog>;
+  </EditForm>;
 }
