@@ -22,12 +22,15 @@ test('provider drawer slides between models and configuration, restores scroll a
   await expect(drawer).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(1);
   const list = drawer.locator('.provider-models-page').first();
-  const configure = list.getByRole('button', { name: 'Configure model', exact: true }).last();
+  await expect(list.getByRole('button', { name: 'Configure model', exact: true })).toHaveCount(0);
+  const configure = list.locator('.resource-model-open').last();
   const modelName = await list.locator('li').last().locator('strong').innerText();
-  await configure.scrollIntoViewIfNeeded();
+  const lastRow = list.locator('li').last();
+  await lastRow.scrollIntoViewIfNeeded();
   const scroll = await list.evaluate(element => element.scrollTop);
   expect(scroll).toBeGreaterThan(0);
-  await configure.click();
+  const box = (await lastRow.boundingBox())!;
+  await lastRow.click({ position: { x: box.width - 8, y: box.height - 8 } });
   const back = drawer.getByRole('button', { name: 'Back', exact: true });
   await expect(back).toBeFocused();
   await expect(list).toHaveAttribute('inert', '');
@@ -37,7 +40,7 @@ test('provider drawer slides between models and configuration, restores scroll a
   await back.click();
   await expect(configure).toBeFocused();
   expect(await list.evaluate(element => element.scrollTop)).toBe(scroll);
-  await configure.click();
+  await configure.press('Enter');
   await expect(context).toHaveValue('');
   await context.fill('65536');
   await drawer.getByRole('button', { name: 'Save', exact: true }).click();
@@ -51,7 +54,7 @@ test('provider drawer slides between models and configuration, restores scroll a
   await expect(drawer).toHaveAccessibleName(name);
   await expect(list).toContainText('added-in-drawer');
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await list.getByRole('button', { name: 'Configure model', exact: true }).first().click();
+  await list.locator('.resource-model-open').first().click();
   await expect(drawer.locator('.provider-models-pages')).toHaveCSS('transition-duration', '0s');
   await drawer.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.keyboard.press('Escape');
@@ -63,7 +66,7 @@ test('provider drawer slides between models and configuration, restores scroll a
   let release!: () => void;
   const pending = new Promise<void>(resolve => { release = resolve; });
   await page.route(`**/api/resources/${resource.ID}`, async route => { await pending; await route.continue(); });
-  await list.getByRole('button', { name: 'Configure model', exact: true }).first().click();
+  await list.locator('.resource-model-open').first().click();
   await back.click();
   release();
   await expect(drawer).toHaveAccessibleName(name);

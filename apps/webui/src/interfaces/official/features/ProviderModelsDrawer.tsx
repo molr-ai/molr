@@ -48,9 +48,9 @@ export function ProviderModelsDrawer({ resource, models, loading, addModel, onCl
       <div className="provider-models-page" inert={detail} aria-hidden={detail}>
         <div className="provider-models-toolbar"><h3>{t.resources.providerModels}</h3><Button ref={addRef} size="sm" variant="ghost" disabled={resource.State !== 'available'} onClick={event => configure(undefined, event.currentTarget)}><Plus size={14} />{t.resources.addModel}</Button></div>
         {loading ? <Loading /> : models.length ? <ul className="resource-models-list">{models.map(model => <li key={model.ID}>
-          <div className="resource-model-copy"><div className="resource-model-name"><strong>{model.Name}</strong>{!model.Pricing && <Badge tone="warning">{t.resources.pricingUnknown}</Badge>}</div>
+          <div className="resource-model-copy"><div className="resource-model-name"><strong><button type="button" className="resource-model-open row-open" disabled={resource.State !== 'available'} onClick={event => configure(model, event.currentTarget)}>{model.Name}</button></strong>{!model.Pricing && <Badge tone="warning">{t.resources.pricingUnknown}</Badge>}</div>
             <dl className="resource-model-limits"><div><dt>{t.resources.contextWindow}</dt><dd>{(model.EffectiveContextLimit ?? 262144).toLocaleString()} tokens <small>· {t.resources.contextSources[model.ContextLimitSource ?? 'fallback']}</small></dd></div><div><dt>{t.resources.outputWindow}</dt><dd>{(model.EffectiveOutputLimit ?? 32768).toLocaleString()} tokens <small>· {t.resources.contextSources[model.OutputLimitSource ?? 'fallback']}</small></dd></div></dl>
-          </div><Button size="sm" variant="ghost" disabled={resource.State !== 'available'} onClick={event => configure(model, event.currentTarget)}>{t.resources.configureModel}</Button>
+          </div>
         </li>)}</ul> : <p className="muted">{t.resources.noDiscoveredModels}</p>}
       </div>
       <div ref={detailRef} className="provider-models-page" inert={!detail} aria-hidden={!detail}>

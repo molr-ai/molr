@@ -827,7 +827,7 @@ test('provider connection discovers models without manual configuration and keep
   const models = catalog.filter((model: { ResourceID: string }) => model.ResourceID === resource.ID);
   expect(models).toHaveLength(2); expect(models.every((model: { ID: string }) => model.ID !== resource.ID)).toBe(true);
   await page.getByRole('list', { name: 'Notifications', exact: true }).getByRole('button', { name: 'Close', exact: true }).click();
-  await page.locator('.provider-models-page').first().locator('li').filter({ hasText: 'discovered-one' }).getByRole('button', { name: 'Configure model', exact: true }).click();
+  await page.locator('.provider-models-page').first().locator('li').filter({ hasText: 'discovered-one' }).locator('.resource-model-open').click();
   const configuration = page.getByRole('dialog', { name: 'Configure model', exact: true });
   const prices = configuration.getByRole('spinbutton', { name: /^(Input|Output|Cached input) price/ });
   await expect(prices).toHaveCount(3);
@@ -1583,7 +1583,7 @@ test('DeepSeek built-in pricing stays automatic when model settings are saved', 
   await openProviderModels(card);
   await expect(page.locator('.provider-models-page').first().getByText('Pricing not configured', { exact: true })).toHaveCount(0);
   const configure = async () => {
-    await page.locator('.provider-models-page').first().getByRole('button', { name: 'Configure model', exact: true }).click();
+    await page.locator('.provider-models-page').first().locator('.resource-model-open').click();
     return page.getByRole('dialog', { name: 'Configure model', exact: true });
   };
   let dialog = await configure();

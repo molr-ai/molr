@@ -12,7 +12,7 @@ test('unset context stays blank when saving, manual override can be cleared',asy
  const name=`Context ${info.project.name}-${Date.now()}`;
  const resource=await post(page,'/api/resources',{Name:name,Kind:'model',Provider:'openai-compatible',Binding:{Endpoint:origin,AllowedOrigins:[origin],Models:[{Name:name,ContextLimit:0,SupportsTools:true,Pricing:{Currency:'USD',InputMicrosPerMillion:0,OutputMicrosPerMillion:0,CachedInputMicrosPerMillion:0}}]}});
  await page.goto('/#/resources');await page.reload();const provider=page.locator('.resource-row').filter({has:page.getByRole('heading',{name,exact:true})});await provider.locator('h2 button').click();const row=page.locator('.provider-models-page').first();await expect(row).toContainText('262,144 tokens · System fallback');
- const open=async()=>{await row.getByRole('button',{name:'Configure model',exact:true}).click();return page.getByRole('dialog',{name:'Configure model',exact:true});};
+ const open=async()=>{await row.getByRole('button',{name,exact:true}).click();return page.getByRole('dialog',{name:'Configure model',exact:true});};
  let dialog=await open();let field=dialog.getByRole('spinbutton',{name:'Manual context limit (tokens, optional)',exact:true});await expect(field).toHaveValue('');await expect(field).toHaveAttribute('placeholder','262144');await expect(dialog.getByRole('spinbutton',{name:'Manual output limit (tokens, optional)',exact:true})).toHaveValue('');await expect(dialog.getByRole('spinbutton',{name:'Manual output limit (tokens, optional)',exact:true})).toHaveAttribute('placeholder','32768');await dialog.getByRole('button',{name:'Save',exact:true}).click();await expect(dialog).not.toBeVisible();
  const catalog=async()=>{const all=await(await page.request.get('/api/models')).json();return all.find((m:any)=>m.ResourceID===resource.ID);};expect((await catalog()).ContextLimit).toBe(0);
  dialog=await open();field=dialog.getByRole('spinbutton',{name:'Manual context limit (tokens, optional)',exact:true});await field.fill('65536');await dialog.getByRole('button',{name:'Save',exact:true}).click();await expect(row).toContainText('65,536 tokens · Manual');
@@ -33,7 +33,7 @@ test('model output limit inherits provider, saves manual override and clears it'
  await provider.locator('h2 button').click();
  const row=page.locator('.provider-models-page').first();
  await expect(row).toContainText('Maximum output8,192 tokens · Provider');
- const open=async()=>{await row.getByRole('button',{name:'Configure model',exact:true}).click();return page.getByRole('dialog',{name:'Configure model',exact:true});};
+ const open=async()=>{await row.getByRole('button',{name,exact:true}).click();return page.getByRole('dialog',{name:'Configure model',exact:true});};
  let dialog=await open();
  let field=dialog.getByRole('spinbutton',{name:'Manual output limit (tokens, optional)',exact:true});
  await expect(field).toHaveValue('');await expect(field).toHaveAttribute('placeholder','8192');

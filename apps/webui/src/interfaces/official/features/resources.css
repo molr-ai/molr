@@ -26,11 +26,15 @@
 .resource-row-copy h2 button { font-size: 13px; font-weight: 500; color: var(--color-text); background: none; border: 0; padding: 0; cursor: pointer; text-align: left; overflow-wrap: anywhere; }
 .resource-row-meta { margin: 2px 0 0; font-size: 11px; color: var(--color-text-muted); }
 .resource-models-list { list-style: none; margin: 0; padding: 0; }
-.resource-models-list > li { display: flex; align-items: flex-start; gap: 16px; padding: 16px 0; }
-.resource-models-list > li:first-child { padding-top: 0; }
-.resource-models-list > li:last-child { padding-bottom: 0; }
+.resource-models-list > li { position: relative; padding: 16px 8px; }
 .resource-models-list > li + li { border-top: 1px solid var(--color-border); }
-.resource-models-list > li > .button { flex-shrink: 0; }
+.resource-model-open { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.resource-model-open:disabled { color: var(--color-text-muted); }
+.resource-model-open:disabled::after { cursor: not-allowed; }
+.resource-models-list > li:has(.resource-model-open:active:not(:disabled)) { background: var(--color-selected-bg); }
+@media (hover: hover) and (pointer: fine) {
+  .resource-models-list > li:has(.resource-model-open:not(:disabled)):hover { background: var(--color-neutral-bg); }
+}
 .resource-model-copy { flex: 1; min-width: 0; }
 .resource-model-name { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .resource-model-name strong { font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
@@ -192,8 +196,6 @@
 }
 @media (--molr-mobile) {
   .provider-models-page { padding: 16px; }
-  .provider-models-drawer .resource-models-list > li { flex-wrap: wrap; gap: 8px; }
-  .provider-models-drawer .resource-model-copy { flex-basis: 100%; }
 }
 
 .provider-models-drawer.ui-drawer[data-side='bottom'] { width: 100%; height: 88dvh; }
