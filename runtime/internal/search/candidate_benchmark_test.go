@@ -23,7 +23,7 @@ func BenchmarkSearchSparseCandidates(b *testing.B) {
 			}
 			defer db.Close()
 			err = db.Write(b.Context(), func(ctx context.Context, tx persistence.Tx) error {
-				if err := tx.Put(ctx, "im.conversations", "owner/chat", conversation.Conversation{ID: "chat", OwnerID: "owner", PeerID: "assistant"}); err != nil {
+				if err := tx.Put(ctx, "im.conversations", "owner/chat", conversation.Conversation{ID: "chat", OwnerID: "owner", PeerID: "assistant", LastSequence: uint64(count)}); err != nil {
 					return err
 				}
 				for i, doc := range candidateDocuments(count) {

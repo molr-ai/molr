@@ -87,7 +87,7 @@ func TestSearchMessageTraversalBoundsAssistantArchiveAndOwner(t *testing.T) {
 			archived        bool
 			count           int
 		}{{"owner", "chosen", "assistant", false, 501}, {"owner", "archive", "assistant", true, 300}, {"owner", "unrelated", "someone-else", false, 700}, {"other", "foreign", "assistant", false, 400}} {
-			if err := tx.Put(ctx, "im.conversations", persistence.Key(c.owner, c.id), conversation.Conversation{ID: c.id, OwnerID: c.owner, PeerID: c.peer, Archived: c.archived}); err != nil {
+			if err := tx.Put(ctx, "im.conversations", persistence.Key(c.owner, c.id), conversation.Conversation{ID: c.id, OwnerID: c.owner, PeerID: c.peer, Archived: c.archived, LastSequence: uint64(c.count)}); err != nil {
 				return err
 			}
 			for i := 0; i < c.count; i++ {

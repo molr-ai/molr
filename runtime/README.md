@@ -197,7 +197,7 @@ Chat Completions 的文本与工具字段使用增量缓冲组装，避免长输
 
 ### 搜索读取范围回归
 
-`go test ./internal/search ./internal/persistence/sqlitestore` 检查来源与助理过滤在读取阶段生效、归档与账号隔离、分页排序、授权撤销和查询计划。`go test ./internal/search -run '^$' -bench BenchmarkSearchAssistantHistory -benchmem` 比较 1 千与 1 万条无关消息历史下的助理名称搜索；无关消息不会被加载，具体耗时取决于运行环境。
+`go test ./internal/search ./internal/persistence/sqlitestore` 检查来源与助理过滤在读取阶段生效、归档与账号隔离、分页排序、授权撤销和查询计划；阻塞真实记忆文件扫描时验证其他账号仍可写入消息，并检查消息批次释放事务、追加高水位、扫描期间撤权／删除／身份失效。搜索采用分批实时读取语义，见[搜索的读取范围](../docs/dev/architecture/overview.md#搜索的读取范围)。`go test ./internal/search -run '^$' -bench BenchmarkSearchAssistantHistory -benchmem` 比较 1 千与 1 万条无关消息历史下的助理名称搜索；无关消息不会被加载，具体耗时取决于运行环境。
 
 ### 工作台保留检查
 

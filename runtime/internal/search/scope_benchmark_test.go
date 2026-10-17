@@ -26,7 +26,7 @@ func BenchmarkSearchAssistantHistory(b *testing.B) {
 				if err := tx.Put(ctx, "business.assistants", "owner/assistant", assistant.Assistant{ID: "assistant", OwnerID: "owner", Name: "Budget assistant", State: assistant.Active}); err != nil {
 					return err
 				}
-				if err := tx.Put(ctx, "im.conversations", "owner/chat", conversation.Conversation{ID: "chat", OwnerID: "owner", PeerID: "assistant"}); err != nil {
+				if err := tx.Put(ctx, "im.conversations", "owner/chat", conversation.Conversation{ID: "chat", OwnerID: "owner", PeerID: "assistant", LastSequence: uint64(count)}); err != nil {
 					return err
 				}
 				for i := 0; i < count; i++ {

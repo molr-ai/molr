@@ -245,113 +245,130 @@ func (s *service) Search(ctx context.Context, p core.Principal, q Query) (Result
 	if _, err := q.Page.Normalize(); err != nil {
 		return result, err
 	}
-	err := s.read(ctx, p, "", policy.Read, false, func(ctx context.Context) error {
-		hits := []Hit{}
-		needle := strings.ToLower(strings.TrimSpace(q.Text))
-		accept := func(doc Document) error {
-			if err := persistence.CheckContext(ctx); err != nil {
-				return err
-			}
-			if doc.OwnerID != p.OwnerID || doc.Deleted || doc.Archived && !q.IncludeArchived || q.AssistantID != "" && q.AssistantID != doc.AssistantID || !selectedSource(q, doc.Source) {
-				return nil
-			}
-			target := doc.Object
-			if doc.Source == Memories {
-				if p.Kind == core.ActorAssistant && doc.AssistantID != "" && doc.AssistantID != p.SubjectID {
-					return nil
-				}
-				target = core.Object{Kind: "memory"}
-			}
-			// Text filtering cannot publish a result. Only matching candidates need
-			// the object check below; counts, snippets and ranking remain authorized.
-			text := strings.ToLower(doc.Title + " " + doc.Text)
-			if needle != "" && !strings.Contains(text, needle) {
-				return nil
-			}
-			if err := s.options.Authorizer.Require(ctx, p, policy.CheckRequest{Target: target, Action: policy.Read}); err != nil {
-				if core.CodeOf(err) == core.Forbidden || core.CodeOf(err) == core.NotFound {
-					return nil
-				}
-				return err
-			}
-			snippet := make([]rune, 0, 240)
-			for _, char := range doc.Text {
-				if len(snippet) == 240 {
-					break
-				}
-				snippet = append(snippet, char)
-			}
-			score := float64(strings.Count(text, needle))
-			if needle == "" {
-				score = 1
-			}
-			hits = append(hits, Hit{Memory: doc.Memory, Source: doc.Source, Object: doc.Object, AssistantID: doc.AssistantID, Title: doc.Title, Snippet: string(snippet), FileID: doc.FileID, Score: score})
-			result.Counts[doc.Source]++
-			return nil
-		}
-		if s.options.Documents != nil {
-			documents, err := s.options.Documents(ctx, p.OwnerID)
-			if err != nil {
-				return err
-			}
-			for _, doc := range documents {
-				if err := accept(doc); err != nil {
-					return err
-				}
-			}
-		} else if err := s.walkDocuments(ctx, p.OwnerID, q, accept); err != nil {
+	if err := s.authorize(ctx, p, core.Object{Kind: objectKind}, policy.Read, false); err != nil {
+		return result, err
+	}
+	hits := []Hit{}
+	needle := strings.ToLower(strings.TrimSpace(q.Text))
+	accept := func(doc Document) error {
+		if err := persistence.CheckContext(ctx); err != nil {
 			return err
 		}
-		if s.options.Memories != nil && selectedSource(q, Memories) {
-			scopes := []memory.Scope{memory.Assistant}
-			if q.AssistantID == "" {
-				scopes = append(scopes, memory.Global)
-			}
-			for _, scope := range scopes {
-				query := memory.Query{Scope: scope, AssistantID: q.AssistantID, Page: core.PageRequest{Limit: 200}}
-				total := 0
-				for {
-					page, err := s.options.Memories.List(ctx, p, query)
-					if err != nil {
-						return err
-					}
-					for _, m := range page.Items {
-						total += len(m.Text)
-						if total > 8<<20 {
-							return core.NewError(core.FailedPrecondition, "memory content scan limit exceeded")
-						}
-						if err := accept(Document{OwnerID: p.OwnerID, Object: core.Object{Kind: "memory"}, Memory: &m.Ref, Source: Memories, AssistantID: m.AssistantID, Title: m.Path, Text: m.Text}); err != nil {
-							return err
-						}
-					}
-					if page.NextCursor == "" {
-						break
-					}
-					query.Page.Cursor = page.NextCursor
-				}
+		if doc.OwnerID != p.OwnerID || doc.Deleted || doc.Archived && !q.IncludeArchived || q.AssistantID != "" && q.AssistantID != doc.AssistantID || !selectedSource(q, doc.Source) {
+			return nil
+		}
+		if doc.Source == Memories {
+			if p.Kind == core.ActorAssistant && doc.AssistantID != "" && doc.AssistantID != p.SubjectID {
+				return nil
 			}
 		}
-		sort.Slice(hits, func(i, j int) bool {
-			if hits[i].Score != hits[j].Score {
-				return hits[i].Score > hits[j].Score
+		// Collect matching candidates without holding a database transaction.
+		// Authorize them after all potentially slow source reads finish.
+		text := strings.ToLower(doc.Title + " " + doc.Text)
+		if needle != "" && !strings.Contains(text, needle) {
+			return nil
+		}
+		snippet := make([]rune, 0, 240)
+		for _, char := range doc.Text {
+			if len(snippet) == 240 {
+				break
 			}
-			a, b := hits[i], hits[j]
-			key := func(h Hit) string {
-				if h.Memory != nil {
-					return "memory/" + string(h.Memory.Scope) + "/" + string(h.Memory.AssistantID) + "/" + h.Memory.Path
+			snippet = append(snippet, char)
+		}
+		score := float64(strings.Count(text, needle))
+		if needle == "" {
+			score = 1
+		}
+		hits = append(hits, Hit{Memory: doc.Memory, Source: doc.Source, Object: doc.Object, AssistantID: doc.AssistantID, Title: doc.Title, Snippet: string(snippet), FileID: doc.FileID, Score: score})
+		return nil
+	}
+	if s.options.Documents != nil {
+		documents, err := s.options.Documents(ctx, p.OwnerID)
+		if err != nil {
+			return result, err
+		}
+		for _, doc := range documents {
+			if err := accept(doc); err != nil {
+				return result, err
+			}
+		}
+	} else if err := s.walkDocuments(ctx, p.OwnerID, q, accept); err != nil {
+		return result, err
+	}
+	if s.options.Memories != nil && selectedSource(q, Memories) {
+		scopes := []memory.Scope{memory.Assistant}
+		if q.AssistantID == "" {
+			scopes = append(scopes, memory.Global)
+		}
+		for _, scope := range scopes {
+			query := memory.Query{Scope: scope, AssistantID: q.AssistantID, Page: core.PageRequest{Limit: 200}}
+			total := 0
+			for {
+				page, err := s.options.Memories.List(ctx, p, query)
+				if err != nil {
+					return result, err
 				}
-				return h.Object.Kind + string(h.Object.ID)
+				for _, m := range page.Items {
+					total += len(m.Text)
+					if total > 8<<20 {
+						return result, core.NewError(core.FailedPrecondition, "memory content scan limit exceeded")
+					}
+					if err := accept(Document{OwnerID: p.OwnerID, Object: core.Object{Kind: "memory"}, Memory: &m.Ref, Source: Memories, AssistantID: m.AssistantID, Title: m.Path, Text: m.Text}); err != nil {
+						return result, err
+					}
+				}
+				if page.NextCursor == "" {
+					break
+				}
+				query.Page.Cursor = page.NextCursor
 			}
-			return key(a) < key(b)
-		})
-		page := q.Page
-		q.Page = core.PageRequest{}
-		var err error
-		result.Hits, err = paginate(hits, p.OwnerID, q, page)
-		return err
+		}
+	}
+	// A grant can change while files or later batches are being read. Check
+	// every matching object now, before publishing counts or ranked results.
+	allowed := hits[:0]
+	for _, hit := range hits {
+		if err := persistence.CheckContext(ctx); err != nil {
+			return result, err
+		}
+		target := hit.Object
+		if hit.Source == Memories {
+			target = core.Object{Kind: "memory"}
+		}
+		if err := s.options.Authorizer.Require(ctx, p, policy.CheckRequest{Target: target, Action: policy.Read}); err != nil {
+			if core.CodeOf(err) == core.Forbidden || core.CodeOf(err) == core.NotFound {
+				continue
+			}
+			return result, err
+		}
+		allowed = append(allowed, hit)
+		result.Counts[hit.Source]++
+	}
+	hits = allowed
+
+	sort.Slice(hits, func(i, j int) bool {
+		if hits[i].Score != hits[j].Score {
+			return hits[i].Score > hits[j].Score
+		}
+		a, b := hits[i], hits[j]
+		key := func(h Hit) string {
+			if h.Memory != nil {
+				return "memory/" + string(h.Memory.Scope) + "/" + string(h.Memory.AssistantID) + "/" + h.Memory.Path
+			}
+			return h.Object.Kind + string(h.Object.ID)
+		}
+		return key(a) < key(b)
 	})
-	return result, err
+	page := q.Page
+	q.Page = core.PageRequest{}
+	var err error
+	result.Hits, err = paginate(hits, p.OwnerID, q, page)
+	if err != nil {
+		return result, err
+	}
+	return result, s.authorize(ctx, p, core.Object{Kind: objectKind}, policy.Read, false)
 }
+
 func indexKey(owner core.ID, object core.Object) string {
 	return persistence.Key(owner, core.ID(object.Kind+"/"+string(object.ID)))
 }

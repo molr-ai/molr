@@ -12,7 +12,7 @@ Skills, memory, and reviews use their corresponding directories under `.agents/`
 
 The assistant automatically receives information about these paths, their purposes, persistence, and availability, and searches for specific files as needed. The root `AGENTS.md` is loaded automatically; when entering a specific working directory, the assistant first lists the directory, then loads instructions from that directory and its parents. Files with the same name in attachments, delivery directories, caches, and runtime artifacts do not automatically become instructions. Directory conventions do not grant additional file or command permissions.
 
-Chat results in global search enter the corresponding assistant, automatically loading the history page where the target is located and highlighting the message; links preserve the message position and remain locatable after refresh. Clicking "Return to latest messages" goes back to the end of the session. If the target does not exist or is inaccessible, a clear prompt is provided.
+Chat results in global search enter the corresponding assistant, automatically loading the history page where the target is located and highlighting the message; links preserve the message position and remain locatable after refresh. Clicking "Return to latest messages" goes back to the end of the session. If the target does not exist or is inaccessible, a clear prompt is provided. Search reads current content in batches. Additions, deletions, or permission changes during a search can change result counts and later pages; run the search again to see updated results.
 
 ## How Users Use It
 
