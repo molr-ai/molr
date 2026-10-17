@@ -50,6 +50,14 @@ The Checkpoint JSON retains `Inputs` and `Automatic` (valid snapshot, applied ve
 
 Currently, idle assistants are not actively woken up due to file changes. When idle, the latest version is loaded before the next normal event execution; consecutive multiple file modifications are naturally merged into the latest content seen at that boundary.
 
+## Execution stages and failure cleanup
+
+`Engine.Handle` owns validation, per-assistant serialization, and the active execution lifetime. Execution prepares context, obtains a model response, saves tool results, and commits the final checkpoint. A model interruption returns to preparation; a boundary event discovered during commit resumes the execution loop. The model response is persisted before tools start, and each tool result is persisted before its cursor advances. The final checkpoint, status, handled receipt, and event acknowledgement share a transaction. Dream files commit before that transaction using their own durable recovery plan.
+
+Failure cleanup only updates working state still owned by the current execution. Deferred retries and Runtime shutdown interruptions retain recovery state; ordinary cancellation still attempts persistence with a separate five-second context. A failed status write is logged by Runtime and recorded as `turn.cleanup_failed` when the workbench is available and the cleanup context has not expired. The original execution error is returned unchanged so scheduler classification is preserved. Timing cleanup failures are logged separately when an execution error already exists, and returned when execution otherwise succeeded.
+
+Run `go test ./internal/agent/...` from `runtime/` to cover model and tool interruption, permission waits, compression, dreams, idempotent retries after final transaction rollback, and error classification and diagnostics when cleanup persistence fails.
+
 ## Verification and Observation
 
 The workbench records private `context.changed` steps; `model.start` displays the actual injected content and Tools of the same version, and `Automatic` can be viewed in the checkpoint. This information is not exposed through the normal chat stream.
