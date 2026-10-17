@@ -984,10 +984,13 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		}
 		return queue.Ack(ctx, t.Principal, t.Event.ID, job.Version)
 	}})
+	cloneFiles := memory.NewFiles(memory.FileOptions{JournalRoot: filepath.Join(cfg.DataDir, "memory-operations"), Roots: func(ctx context.Context, owner core.ID, query memory.RootQuery) ([]memory.Root, error) {
+		return memoryRoots(ctx, store, cfg.DataDir, adapters.storageConfig.WorkRoot, owner, query, true)
+	}})
 	assistants := assistant.NewService(store, assistant.Options{ContextWindow: func(ctx context.Context, p core.Principal, id core.ID) (int, error) {
 		provider, err := adapters.provider(ctx, p, id)
 		return provider.Model.ContextWindow(), err
-	}, CopyMemory: memoryFiles.Clone, Authorizer: permissions, Conversations: conversation.NewRepository(store), Grants: policy.NewRepository(store), Loop: engine.Lifecycle, CheckModel: func(ctx context.Context, p core.Principal, id core.ID) error {
+	}, CopyMemory: cloneFiles.CloneStaged, Authorizer: permissions, Conversations: conversation.NewRepository(store), Grants: policy.NewRepository(store), Loop: engine.Lifecycle, CheckModel: func(ctx context.Context, p core.Principal, id core.ID) error {
 		if id == "" {
 			return nil
 		}
@@ -1196,6 +1199,9 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		b.Application.(*Runtime).prepareSandbox = b.sandbox.startup
 	}
 	b.Application.(*Runtime).recoverCalls = func(ctx context.Context) error {
+		if err := assistants.RecoverClones(ctx); err != nil {
+			log.Printf("assistant clone recovery incomplete: %v", err)
+		}
 		if err := recoverCallUsage(ctx, store); err != nil {
 			return err
 		}

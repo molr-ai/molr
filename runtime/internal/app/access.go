@@ -181,6 +181,7 @@ func (a access) owns(ctx context.Context, p core.Principal, o core.Object) error
 	type record struct {
 		OwnerID, AssistantID, PeerID, TaskID core.ID
 		Scope                                string
+		State                                assistant.State
 	}
 	row, err := persistence.Load[record](ctx, a.store, bucket, persistence.Key(p.OwnerID, o.ID))
 	if persistence.Missing(err) && owner && o.Kind == "assistant" {
@@ -192,6 +193,18 @@ func (a access) owns(ctx context.Context, p core.Principal, o core.Object) error
 	// Export/rebuild records are owner-keyed and do not duplicate OwnerID.
 	if row.OwnerID != p.OwnerID && !(owner && (o.Kind == "settings" || o.Kind == "search")) {
 		return denied()
+	}
+	if o.Kind == "assistant" && row.State == assistant.Cloning {
+		return denied()
+	}
+	if o.Kind == "conversation" {
+		peer, err := persistence.Load[struct{ State assistant.State }](ctx, a.store, "business.assistants", persistence.Key(p.OwnerID, row.PeerID))
+		if err != nil && !persistence.Missing(err) {
+			return err
+		}
+		if peer.State == assistant.Cloning {
+			return denied()
+		}
 	}
 	if owner {
 		return nil

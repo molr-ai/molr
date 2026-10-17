@@ -79,7 +79,21 @@ func (s *service) List(ctx context.Context, p core.Principal, q core.PageRequest
 			return err
 		}
 		result, err = s.repo.List(ctx, p.OwnerID, q)
-		return err
+		if err != nil {
+			return err
+		}
+		visible := result.Items[:0]
+		for _, chat := range result.Items {
+			if err := s.authorize(ctx, p, policy.Read, chat.ID); err != nil {
+				if core.CodeOf(err) == core.Forbidden {
+					continue
+				}
+				return err
+			}
+			visible = append(visible, chat)
+		}
+		result.Items = visible
+		return nil
 	})
 	return
 }

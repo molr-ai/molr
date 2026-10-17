@@ -10,6 +10,7 @@ import (
 	avatarutil "molr.ai/runtime/internal/avatar"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"molr.ai/runtime/internal/business/schedule"
@@ -56,7 +57,19 @@ func (s *service) authorize(ctx context.Context, p core.Principal, target core.O
 	if s.options.Authorizer == nil {
 		return core.NewError(core.Unavailable, "authorization not configured")
 	}
-	return s.options.Authorizer.Require(ctx, p, policy.CheckRequest{Target: target, Action: action})
+	if err := s.options.Authorizer.Require(ctx, p, policy.CheckRequest{Target: target, Action: action}); err != nil {
+		return err
+	}
+	if target.ID != "" {
+		v, err := s.repo.Get(ctx, p.OwnerID, target.ID)
+		if err != nil && !persistence.Missing(err) {
+			return err
+		}
+		if err == nil && v.State == Cloning {
+			return core.NewError(core.FailedPrecondition, "assistant clone is incomplete; retry the original clone request")
+		}
+	}
+	return nil
 }
 func (s *service) read(ctx context.Context, p core.Principal, id core.ID, action policy.Action, ownerOnly bool, fn func(context.Context) error) error {
 	return s.store.Read(ctx, func(ctx context.Context, _ persistence.Tx) error {
@@ -212,20 +225,22 @@ type service struct {
 	store   persistence.Store
 	repo    Repository
 	options Options
+	cloneMu sync.Mutex
+	clones  map[string]*cloneGate
 }
 
 func NewRepository(store persistence.Store) Repository { return &repository{store: store} }
-func NewService(store persistence.Store, options Options) Service {
+func NewService(store persistence.Store, options Options) *service {
 	if options.Conversations == nil {
 		options.Conversations = conversation.NewRepository(store)
 	}
-	return &service{store: store, repo: NewRepository(store), options: options}
+	return &service{store: store, repo: NewRepository(store), options: options, clones: make(map[string]*cloneGate)}
 }
 func (r *repository) Get(ctx context.Context, owner, id core.ID) (Assistant, error) {
 	return persistence.Load[Assistant](ctx, r.store, bucket, persistence.Key(owner, id))
 }
 func (r *repository) List(ctx context.Context, owner core.ID, q Query) (core.Page[Assistant], error) {
-	filters := []persistence.Filter{persistence.Eq("OwnerID", owner)}
+	filters := []persistence.Filter{persistence.Eq("OwnerID", owner), {Field: "State", Op: "in", Value: []State{Active, Dismissed}}}
 	if q.State != "" {
 		filters = append(filters, persistence.Eq("State", q.State))
 	}
@@ -620,6 +635,11 @@ func (s *service) Rehire(ctx context.Context, p core.Principal, req RehireReques
 	})
 }
 func (s *service) Clone(ctx context.Context, p core.Principal, req CloneRequest) (Assistant, error) {
+	unlock, err := s.lockClone(ctx, persistence.Key(p.OwnerID, core.ID(string(req.SourceID)+"/"+req.Mutation.IdempotencyKey)))
+	if err != nil {
+		return Assistant{}, err
+	}
+	defer unlock()
 	result, err := mutate(ctx, s, p, "clone", req.SourceID, req.Mutation, req, false, true, func(ctx context.Context) (Assistant, error) {
 		source, err := s.repo.Get(ctx, p.OwnerID, req.SourceID)
 		if err != nil {
@@ -633,6 +653,12 @@ func (s *service) Clone(ctx context.Context, p core.Principal, req CloneRequest)
 			return Assistant{}, core.WithReason(core.NewError(core.BudgetExceeded, "source assistant budget not configured"), core.AssistantBudgetMissing)
 		}
 		v := Assistant{ID: s.id(), OwnerID: p.OwnerID, Name: name, Avatar: source.Avatar, State: Active, ConversationID: s.id(), ModelID: source.ModelID, ContextCompressionTokens: source.ContextCompressionTokens, Budget: source.Budget, Version: 1, CreatedAt: s.now(), UpdatedAt: s.now()}
+		if req.CopyMemory {
+			if s.options.CopyMemory == nil {
+				return Assistant{}, core.NewError(core.Unavailable, "memory file copy unavailable")
+			}
+			v.State = Cloning
+		}
 		if err = s.repo.Insert(ctx, v); err != nil {
 			return v, err
 		}
@@ -675,21 +701,26 @@ func (s *service) Clone(ctx context.Context, p core.Principal, req CloneRequest)
 			}
 		}
 		if req.CopyMemory {
-			return v, nil
+			chat, err := s.options.Conversations.Get(ctx, p.OwnerID, v.ConversationID)
+			if err != nil {
+				return v, err
+			}
+			if err = s.options.Conversations.SetArchived(ctx, p.OwnerID, chat.ID, true, chat.Version); err != nil {
+				return v, err
+			}
+			err = s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+				return tx.Put(ctx, cloneBucket, persistence.Key(p.OwnerID, v.ID), pendingClone{OwnerID: p.OwnerID, AssistantID: v.ID, Request: req})
+			})
+			return v, err
 		}
 		return v, s.loop(ctx, p, v.ID, "initialize")
 	})
-	if err == nil && req.CopyMemory {
-		if s.options.CopyMemory == nil {
-			return result, core.NewError(core.Unavailable, "memory file copy unavailable")
-		}
-		err = s.options.CopyMemory(ctx, p, req.SourceID, result.ID)
-		if err == nil {
-			err = s.store.Write(ctx, func(ctx context.Context, _ persistence.Tx) error { return s.loop(ctx, p, result.ID, "initialize") })
-		}
+	if err != nil || result.State != Cloning {
+		return result, err
 	}
-	return result, err
+	return s.finishClone(ctx, p, req, result, true)
 }
+
 func (s *service) Groups(ctx context.Context, p core.Principal, q core.PageRequest) (core.Page[Group], error) {
 	var result core.Page[Group]
 	err := s.read(ctx, p, "", policy.Read, true, func(ctx context.Context) error {

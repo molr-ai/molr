@@ -178,6 +178,7 @@ Clone/返聘授权契约细化：新授权具有新 ID，并绑定目标助理�
 | `internal/business/memory` | `Files.Delete` | `TestFileRepositoryVersionAndIsolation` |
 | `internal/business/memory` | `Files.Preview` | `TestDiskForgetRecordsAndCloneExport` |
 | `internal/business/memory` | `Files.Clone` | `TestDiskForgetRecordsAndCloneExport` |
+| `internal/business/memory` | `Files.CloneStaged` | `TestStagedCloneResumesInterruptedFileWithoutWeakeningNormalReplay` |
 | `internal/business/memory` | `Files.Export` | `TestDiskForgetRecordsAndCloneExport` |
 | `internal/business/memory` | `Files.Suppressed` | `TestHybridRecallAndSuppression` |
 | `internal/business/memory` | `Mutation.Validate` | `TestTDDServiceOwnershipAndValidation` |

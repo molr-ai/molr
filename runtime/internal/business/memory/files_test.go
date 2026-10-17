@@ -342,3 +342,49 @@ func TestReviewFilesUseSemanticPathsAndForgetSourceReferences(t *testing.T) {
 		t.Fatal("review resurrected", version, err)
 	}
 }
+
+func TestStagedCloneResumesInterruptedFileWithoutWeakeningNormalReplay(t *testing.T) {
+	for _, changed := range []bool{false, true} {
+		t.Run(map[bool]string{false: "unchanged source", true: "changed source"}[changed], func(t *testing.T) {
+			files, _, _ := diskFixture(t)
+			ctx := t.Context()
+			m, err := files.Put(ctx, Memory{OwnerID: "owner", Text: "Before", Ref: Ref{Scope: Assistant, AssistantID: "assistant", Path: ".agents/memory/interrupted.md"}}, "", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			options := files.options
+			options.BeforeCommit = func() error { return core.NewError(core.Canceled, "interrupted before target write") }
+			interrupted := NewFiles(options)
+			if err = interrupted.CloneStaged(ctx, owner(), "assistant", "another"); core.CodeOf(err) != core.Canceled {
+				t.Fatal(err)
+			}
+			// Simulate reopening the file service after a crash. The journal contains a
+			// started marker, while the destination file was never created.
+			restarted := NewFiles(files.options)
+			if err = restarted.Clone(ctx, owner(), "assistant", "another"); core.CodeOf(err) != core.Conflict {
+				t.Fatal("normal replay lost missing-file protection", err)
+			}
+			if changed {
+				m.Text = "Changed after staging"
+				if _, err = files.Put(ctx, m, m.Version, nil); err != nil {
+					t.Fatal(err)
+				}
+			}
+			err = restarted.CloneStaged(ctx, owner(), "assistant", "another")
+			if changed {
+				if core.CodeOf(err) != core.Conflict {
+					t.Fatal("source version changed unnoticed", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal("staged file could not resume", err)
+			}
+			m.AssistantID = "another"
+			got, err := files.Get(ctx, "owner", m.Ref)
+			if err != nil || got.Text != "Before" {
+				t.Fatal(got, err)
+			}
+		})
+	}
+}

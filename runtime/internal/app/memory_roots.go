@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"molr.ai/runtime/internal/business/assistant"
 	"molr.ai/runtime/internal/business/memory"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
@@ -9,6 +10,10 @@ import (
 )
 
 func runtimeMemoryRoots(ctx context.Context, store persistence.Store, dataDir, workRoot string, owner core.ID, q memory.RootQuery) ([]memory.Root, error) {
+	return memoryRoots(ctx, store, dataDir, workRoot, owner, q, false)
+}
+
+func memoryRoots(ctx context.Context, store persistence.Store, dataDir, workRoot string, owner core.ID, q memory.RootQuery, staged bool) ([]memory.Root, error) {
 	roots := []memory.Root{}
 	if q.Scope != "" && q.Scope != memory.Global && q.Scope != memory.Assistant {
 		return roots, nil
@@ -20,6 +25,9 @@ func runtimeMemoryRoots(ctx context.Context, store persistence.Store, dataDir, w
 		return roots, nil
 	}
 	query := persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner)}, Fields: []string{"ID", "OwnerID"}}
+	if !staged {
+		query.Any = [][]persistence.Filter{{{Field: "State", Op: "!=", Value: assistant.Cloning}}, {persistence.Eq("State", nil)}}
+	}
 	if q.AssistantID != "" {
 		query.Where = append(query.Where, persistence.Eq("key", persistence.Key(owner, q.AssistantID)))
 		query.Limit = 1

@@ -82,6 +82,17 @@ func (f *Files) Export(ctx context.Context, owner core.ID, write func(string, []
 // Completion receipts live outside agent workspaces so replay does not recreate
 // files the cloned assistant subsequently removed.
 func (f *Files) Clone(ctx context.Context, p core.Principal, source, target core.ID) error {
+	return f.clone(ctx, p, source, target, false)
+}
+
+// CloneStaged is a trusted business port. The caller must keep the destination
+// unavailable to users and executions until the complete clone commits. That
+// permits retrying a started file write that crashed before creating its target.
+func (f *Files) CloneStaged(ctx context.Context, p core.Principal, source, target core.ID) error {
+	return f.clone(ctx, p, source, target, true)
+}
+
+func (f *Files) clone(ctx context.Context, p core.Principal, source, target core.ID, staged bool) error {
 	if err := p.RequireOwner(); err != nil {
 		return err
 	}
@@ -156,7 +167,7 @@ func (f *Files) Clone(ctx context.Context, p core.Principal, source, target core
 				return conflict()
 			}
 		} else if core.CodeOf(e) == core.NotFound {
-			if started {
+			if started && !staged {
 				return core.NewError(core.Conflict, "partially copied memory is missing; review destination")
 			}
 			m, e := f.Get(ctx, p.OwnerID, item.Source)
@@ -178,9 +189,11 @@ func (f *Files) Clone(ctx context.Context, p core.Principal, source, target core
 			if m.Version != item.TargetVersion {
 				return conflict()
 			}
-			stat, e = textfiles.Replace(ctx, journal, key, "false", false, "", func() error { return ctx.Err() })
-			if e != nil {
-				return e
+			if !started {
+				stat, e = textfiles.Replace(ctx, journal, key, "false", false, "", func() error { return ctx.Err() })
+				if e != nil {
+					return e
+				}
 			}
 			if _, e = f.Put(ctx, m, "", nil); e != nil {
 				return e
