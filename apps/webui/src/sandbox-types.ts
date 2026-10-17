@@ -3,7 +3,7 @@ export type SandboxNetworkTarget = { Protocols: string[]; Addresses: string[]; P
 export type GPUDevice = { ID: string; Name: string; Vendor: string; MemoryBytes: number; Available: boolean; Reason: string };
 export type SandboxInfo = {
  GPUs?: GPUDevice[];
-  Enabled: boolean; Storage: boolean; ShellSessions?: boolean;
+  AllowDirectoryPaths?: boolean; Enabled: boolean; Storage: boolean; ShellSessions?: boolean;
   Capabilities: { FullAccess?: boolean; OS: string; NetworkBackend?: string; NetworkProtocols?: string[]; Shell: boolean; Reason: string; ProcessIsolation: boolean; FileIsolation: boolean; NetworkIsolation: boolean; ResourceLimits: boolean };
   Directories: { ID: string; Name: string; ReadOnly: boolean }[];
   Networks: { ID: string; Name: string; Target: SandboxNetworkTarget }[];

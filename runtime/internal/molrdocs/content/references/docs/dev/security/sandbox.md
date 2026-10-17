@@ -3,6 +3,12 @@
 Linux 使用 Bubblewrap、seccomp、cgroup v2 和受控网络出口。macOS 使用原生 Seatbelt 文件策略与网络开关。两者保留相同授权和任务管理接口，各自报告能执行的限制；Windows 后端未实现。部署见 [Linux](https://molr.ai/zh/docs/admin/sandbox/linux/) 和 [macOS](https://molr.ai/zh/docs/admin/sandbox/macos/)。
 
 
+## 部署预设与目录接入
+
+`config.SandboxPreset` 只在安装或显式维护时展开配置，不持久化模式。内置与远程沙盒共用字段：`restrict_directories` 决定目录候选范围，`enabled` 控制执行／节点，网络规则和 GPU 配置决定可分配资源。Linux 授权上限中的零表示不额外设置部署上限，实际返回执行后端可表达的容量；`gpu.all_devices: true` 发现全部支持的设备，助理与用户组仍使用显式设备授权。
+
+管理接口接收 `SourceID` 和可选相对子目录 `Path`；无 `SourceID` 时 `Path` 是目标机器的绝对路径或 `~/` 路径。后端按当前部署根范围验证，并复用外部目录的文件身份、符号链接和私有路径保护。远端协议提供认证的 `/v2/sandbox/directory` 解析接口；目录引用携带来源和路径，每次文件或挂载操作重新解析，不把引用当作权限。只读根覆盖子目录，包含只读子树的可写挂载同样被拒绝。
+
 ## 平台边界
 
 基础文件能力与命令执行分开报告。`textfiles/files_unix.go` 维护公共文件版本、授权重查和原子提交；Linux 使用 `openat2`，macOS 使用 `O_NOFOLLOW_ANY` 在内核路径解析时拒绝所有组件的符号链接，并使用排他 rename。仅识别 macOS 固定系统目录别名，不放行工作区或外部资源中的用户符号链接。硬链接和特殊文件检查继续保留。受保护目录的重叠检查同时比较文件身份，防止大小写或系统别名暴露 Runtime 私有目录。
@@ -137,7 +143,7 @@ gVisor Go netstack 将流量转换为普通 TCP/UDP 连接。传输协议、目�
 
 内部 DNS 支持 TCP/UDP 的 A/AAAA 查询，使用系统解析器处理真实 CNAME。返回执行内虚拟地址，将域名身份绑定到连接；新连接重新解析，所有实际答案都须获授权，然后直拨已检查 IP。不会将域名直接转成全局 IP 白名单。虚拟映射限定 1024 项，TTL 30 秒，DNS 并发单独限定 8，不能从外部覆盖或跨执行复用。未授权域名、任意 DNS 记录类型和未知虚拟 IP 均拒绝。
 
-网络授权只表达主机/地址、端口、TCP/UDP，不表达 TLS 内的 URL 路径或内容。内置 internet/lan/host（互联网访问／局域网访问／宿主机访问）三项预设只是候选资源，连接和助理授权仍显式进行；三项均开放 TCP/UDP 全部端口，host 包含本服务自身监听端口；lan 仅含 RFC1918/ULA、不含回环，宿主局域网地址仍按 lan 判断；部署可关闭预设。旧的未声明协议配置拒绝加载；远程协议使用 `/v2/sandbox/` 和 `Protocol=8`，连接和执行前拒绝旧服务。详细配置、内部宿主别名和限额见 [部署说明](https://molr.ai/zh/docs/admin/sandbox/linux/)。
+网络授权只表达主机/地址、端口、TCP/UDP，不表达 TLS 内的 URL 路径或内容。内置 internet/lan/host（互联网访问／局域网访问／宿主机访问）三项预设只是候选资源，连接和助理授权仍显式进行；三项均开放 TCP/UDP 全部端口，host 包含本服务自身监听端口；lan 仅含 RFC1918/ULA、不含回环，宿主局域网地址仍按 lan 判断；部署可关闭预设。旧的未声明协议配置拒绝加载；远程协议使用 `/v2/sandbox/` 和 `Protocol=9`，连接和执行前拒绝旧服务。详细配置、内部宿主别名和限额见 [部署说明](https://molr.ai/zh/docs/admin/sandbox/linux/)。
 
 就绪探针实际执行隔离命令，并在临时回环端点上验证 DNS、TUN 与 TCP 转发，不依赖公网。宿主工具环境通过标准 curl 下载；最小 BusyBox 环境不承诺 HTTPS 下载能力。工具参数不是强制边界，网络仍由 Runtime 授权。`NetworkBackend=transparent`、`NetworkProtocols=[tcp,udp]` 随能力接口报告；不得仅凭进程存活宣称网络就绪。
 

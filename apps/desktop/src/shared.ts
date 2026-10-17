@@ -4,6 +4,7 @@ export type LocalStatus = {
   available: boolean; installed: boolean; state: string; health?: string; version?: string;
   url?: string; record?: string; error?: string; bundledVersion?: string;
 };
+export type ResourcePreset = 'permissive' | 'least-privilege';
 export type LocalAction = 'install' | 'start' | 'stop' | 'restart' | 'upgrade' | 'uninstall';
 export type DesktopState = {
   connections: Connection[]; lastConnection?: string; active?: string;
@@ -17,7 +18,7 @@ export type DesktopAPI = {
   connect(id: string): Promise<void>;
   manager(): Promise<void>;
   refreshLocal(): Promise<void>;
-  localAction(action: LocalAction): Promise<void>;
+  localAction(action: LocalAction, preset?: ResourcePreset): Promise<void>;
   openLogs(): Promise<void>;
   openDownloads(): Promise<void>;
   subscribe(callback: (state: DesktopState) => void): () => void;

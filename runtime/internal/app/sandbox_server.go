@@ -18,6 +18,7 @@ import (
 // ServeSandbox runs only the resource service: no owner account, Agent Loop,
 // conversations, model credentials or Runtime API is initialized.
 func ServeSandbox(ctx context.Context, cfg config.Config, token core.Secret) (err error) {
+	cfg.Sandbox.ProtectedRoots = newMaintenance(cfg.ConfigPath, false).ProtectedRoots()
 	if err := cfg.Validate(); err != nil {
 		return err
 	}

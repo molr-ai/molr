@@ -180,6 +180,12 @@ func (s *sandboxRouter) sandboxResourceDetails(ctx context.Context, p core.Princ
 				return err
 			}
 			v := sandboxResourceDetail{ID: r.ID, SourceID: b.SandboxResource}
+			if q.ID != "local" && r.Kind == resource.Storage {
+				if ref, err := directoryReference(b.SandboxResource); err == nil {
+					v.SourceID = ref.SourceID
+					v.Path = ref.Path
+				}
+			}
 			if q.ID == "local" {
 				switch r.Kind {
 				case resource.Storage:

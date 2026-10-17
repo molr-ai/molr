@@ -311,7 +311,7 @@ func TestUpdateVerifiesArchiveBeforeHandingOffToNewSetup(t *testing.T) {
 	gz := gzip.NewWriter(&archive)
 	tw := tar.NewWriter(gz)
 	metadata, _ := json.Marshal(build)
-	for name, data := range map[string][]byte{"LICENSE": []byte("fixture"), "THIRD_PARTY_NOTICES.md": []byte("fixture"), "release.json": metadata, "bin/molr": binary, "bin/molr-setup": binary} {
+	for name, data := range map[string][]byte{"LICENSE": []byte("fixture"), "THIRD_PARTY_NOTICES.md": []byte("fixture"), "release.json": metadata, "bin/molr": binary, "bin/molr-setup": binary, "bin/molr-sandbox": binary} {
 		if err = tw.WriteHeader(&tar.Header{Name: "molr/" + name, Typeflag: tar.TypeReg, Mode: 0755, Size: int64(len(data))}); err != nil {
 			t.Fatal(err)
 		}

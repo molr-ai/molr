@@ -180,8 +180,12 @@ func (s *sandboxRouter) list(ctx context.Context, p core.Principal) (json.RawMes
 				reason = "sandbox_offline"
 			} else if item.Kind == resource.Storage {
 				found := r.Provider == "managed-workspace"
+				reference, referenceErr := directoryReference(binding.SandboxResource)
+				if referenceErr == nil && reference.SourceID == "" && info.AllowDirectoryPaths {
+					found = true
+				}
 				for _, d := range info.Directories {
-					if d.ID == binding.SandboxResource {
+					if d.ID == binding.SandboxResource || (referenceErr == nil && d.ID == reference.SourceID) {
 						found = true
 						if d.ReadOnly && op.Action == policy.Write {
 							reason = "storage_read_only"

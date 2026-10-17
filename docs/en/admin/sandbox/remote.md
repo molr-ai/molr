@@ -8,7 +8,19 @@ This page is intended for deployers. After the service starts, administrators [c
 
 Remote nodes also support on-demand [Full Access permissions](linux.md#granting-full-access-on-demand): configure `sandbox.allow_full_access: true` on the remote side, then grant the assistant Full Access compute permissions for that node. Local configuration does not enable this capability on the remote side. Standard isolation and explicit Full Access calls can coexist; the latter directly uses the remote service's system identity and environment.
 
-The current Sandbox capability protocol is version 8, with the transport path `/v2/sandbox/`; the Runtime and remote node versions must match. Linux network configuration explicitly declares TCP/UDP, and rules take effect on the execution machine. See [Network Configuration](linux.md#network-and-advanced-deployment).
+The current Sandbox capability protocol is version 9, with the transport path `/v2/sandbox/`; the Runtime and remote node versions must match. Linux network configuration explicitly declares TCP/UDP, and rules take effect on the execution machine. See [Network Configuration](linux.md#network-and-advanced-deployment).
+
+## Install with setup
+
+Linux/macOS service packages contain `molr`, `molr-sandbox` and `molr-setup`. Run on the target machine:
+
+```bash
+./bin/molr-setup --target sandbox --name molr-node --resource-preset permissive
+```
+
+Choose `least-privilege` to initially disable resources and adjust them later. Setup installs only the standalone service and maintenance executable, prepares systemd/launchd, an HTTPS certificate and private token, verifies capabilities and reports connection information. The token lives in `sandbox-token` in the data directory and is never printed in setup logs. For custom configuration use `--config` with HTTPS settings and certificates; setup still generates the token. Do not use `--init-owner`.
+
+The installed `molr-setup status` shows connection information; `update` upgrades and `uninstall` removes the service while retaining configuration and data. See [installation presets](../deployment/installation.md#installation-target-and-resource-permission-presets).
 
 ## Build and Startup
 
@@ -53,7 +65,7 @@ The service uses the Runtime's strict configuration format. For example:
 }
 ```
 
-The remote service always exposes only the directories in `directories`; `restrict_directories: false` does not expand the scope of the remote protocol. Actual paths remain only on the server side, and the Runtime references opaque directory IDs. The private data directory, workspaces, and allowed external directories must not overlap.
+With `restrict_directories: true`, administrators can connect configured roots and their subdirectories; false permits entering local paths on the remote machine. The remote node resolves and validates directories. Runtime stores references, which are checked against current deployment scope on every use. External directories cannot overlap private data, installation assets or managed workspaces.
 
 Use a separate systemd user service:
 
@@ -71,7 +83,7 @@ Service names use the `molr-` prefix, and each instance uses a different unit, p
 
 ## macOS nodes
 
-macOS uses the same `molr-sandbox -config … -token-file …` command, TLS and token authentication. Standalone nodes currently require a source build and are not managed by `molr-setup`. Build on the target Mac and validate ARM64 and AMD64 natively.
+macOS uses the same `molr-sandbox -config … -token-file …` command, TLS and token authentication. Standalone nodes support `molr-setup --target sandbox` and source deployment. Build on the target Mac and validate ARM64 and AMD64 natively.
 
 Use Mac absolute paths for `data_dir`, certificates, private keys, tokens and directories. Replace the example's `sandbox` section with:
 

@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"molr.ai/runtime/internal/textfiles"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"molr.ai/runtime/internal/business/resource"
@@ -51,19 +53,21 @@ func (a adapters) storageBinding(ctx context.Context, p core.Principal, id core.
 	if _, err = a.providers()["local-directory"].Validate(ctx, b); err != nil {
 		return b, err
 	}
-	configured := false
-	for _, d := range a.storageConfig.Directories {
-		if d.Path != b.RootPath {
-			continue
+	readOnly, err := directoryPolicy(a.storageConfig, b.RootPath)
+	if err != nil {
+		return b, err
+	}
+	if action != policy.Read {
+		for _, d := range a.storageConfig.Directories {
+			if d.ReadOnly && textfiles.Overlaps(d.Path, filepath.Join(b.RootPath, strings.TrimPrefix(destination, "/"))) {
+				readOnly = true
+			}
 		}
-		configured = true
-		if d.ReadOnly && action != policy.Read {
+		if readOnly {
 			return b, core.WithReason(core.NewError(core.Forbidden, "storage is read-only by deployment"), "storage_read_only")
 		}
 	}
-	if !configured && a.storageConfig.RestrictDirectories {
-		return b, core.WithReason(core.NewError(core.Forbidden, "storage disabled by deployment"), "storage_disabled")
-	}
+
 	return b, nil
 }
 

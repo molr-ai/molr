@@ -24,6 +24,9 @@ import (
 )
 
 func (e *Engine) verify(r *installrecord.Record, cfg map[string]any) (string, error) {
+	if r.Target == "sandbox" {
+		return "", e.verifySandbox(r, cfg)
+	}
 	h, ok := cfg["http"].(map[string]any)
 	if !ok {
 		return "", fmt.Errorf("http configuration required")

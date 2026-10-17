@@ -226,6 +226,8 @@ Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugi
 | POST | `/api/todos/delete` |
 | POST | `/api/todos/update` |
 
+目录接入：`POST /api/sandboxes/resource` 的存储请求可带 `SourceID` 与相对子目录 `Path`；部署允许任意目录时，省略 `SourceID` 并填写目标机器的绝对路径或 `~/` 路径。`GET /api/sandboxes` 的 `Info.AllowDirectoryPaths` 表示是否允许此操作。权限和目录范围在服务器校验。
+
 HTTP 限流在事务内读取并更新持久计数，通过的请求占用当前窗口额度；额度已耗尽时返回 429 和 `Retry-After`，不重写未变化的计数，也不延长窗口。并发请求共享事务计数，重启保留窗口；存储失败时拒绝放行。
 
 ## 认证与浏览器流程
@@ -413,11 +415,11 @@ WebUI 采用「资源类型：沙盒 → 选择沙盒 → 权限类型：存储�
 - 模型 `permission_request` 与组合子申请：`full_access: true`，不得附带额度；仍需到期时间。`permission_list` 保留可申请与已授权的 Full Access 元数据。
 - 模型命令／文件调用：`full_access: true` 选择直接路径，每次重新校验授权；省略时继续普通路径。Shell 任务返回 `FullAccess`；十个任务的并发上限仅适用于普通隔离任务。
 - 用户组沙盒引用：`Resources[].AllowFullAccess`，默认 false，仅 `Kind: "sandbox"` 可设置。管理员目录返回 `FullAccessAvailable`；撤回组委派同时使已有授权失效。
-- 远程协议版本 8，URL 仍为 `/v2/sandbox/`，可信请求携带 `FullAccess`。两端分别检查部署能力与授权租约，不依赖旧缓存自动提权。
+- 远程协议版本 9，URL 仍为 `/v2/sandbox/`，可信请求携带 `FullAccess`。两端分别检查部署能力与授权租约，不依赖旧缓存自动提权。
 
 ### 计算权限中的 GPU
 
-`SandboxInfo.GPUs` 返回 `{ID, Name, Vendor, MemoryBytes, Available, Reason}` 数组；`AuthorizationCeilings.GPUDeviceIDs` 为部署与用户组允许的设备范围。`Constraints.compute.gpu` 可选，结构为 `{"device_ids":["GPU-00000000-0000-0000-0000-000000000001"]}`；缺省或空列表无 GPU 权限。基础／临时授权及 `permission_request` 使用同一字段。`shell_execute` 不新增 GPU 参数，按 `compute_id` 的生效授权注入；任务详情 `GPUDeviceIDs` 记录启动设备。远程沙盒协议版本为 8。
+`SandboxInfo.GPUs` 返回 `{ID, Name, Vendor, MemoryBytes, Available, Reason}` 数组；`AuthorizationCeilings.GPUDeviceIDs` 为部署与用户组允许的设备范围。`Constraints.compute.gpu` 可选，结构为 `{"device_ids":["GPU-00000000-0000-0000-0000-000000000001"]}`；缺省或空列表无 GPU 权限。基础／临时授权及 `permission_request` 使用同一字段。`shell_execute` 不新增 GPU 参数，按 `compute_id` 的生效授权注入；任务详情 `GPUDeviceIDs` 记录启动设备。远程沙盒协议版本为 9。
 
 ## Agent Shell 沙盒
 

@@ -149,6 +149,13 @@ func (a adapters) providers() map[string]resource.Provider {
 			if err != nil || !info.IsDir() {
 				return nil, core.Invalid("root_path", "directory required")
 			}
+			readOnly, err := directoryPolicy(a.storageConfig, root)
+			if err != nil {
+				return nil, err
+			}
+			if readOnly {
+				return []string{"read"}, nil
+			}
 			return []string{"read", "write"}, nil
 		}, Check: func(_ context.Context, b resource.Binding) (resource.Status, error) {
 			info, err := os.Stat(b.RootPath)

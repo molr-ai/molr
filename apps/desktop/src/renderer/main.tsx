@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ArrowLeft, ArrowRight, Check, CircleHelp, ExternalLink, Monitor, Plus, RefreshCw, Server, Settings2, Trash2 } from 'lucide-react';
-import { Badge, Button, IconButton, Logo, TextField, Switch, ThemeSelect, PaletteSelect, UIProvider, useTheme, usePalettePreference } from '@molr/ui';
-import type { Connection, ConnectionInput, DesktopAPI, DesktopState, LocalAction } from '../shared';
+import { Select, Badge, Button, IconButton, Logo, TextField, Switch, ThemeSelect, PaletteSelect, UIProvider, useTheme, usePalettePreference } from '@molr/ui';
+import type { Connection, ConnectionInput, DesktopAPI, DesktopState, LocalAction, ResourcePreset } from '../shared';
 import '@molr/ui/styles.css';
 import './style.css';
 
@@ -17,6 +17,7 @@ function App() {
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
   const [settings, setSettings] = useState(false);
+  const [resourcePreset, setResourcePreset] = useState<ResourcePreset>('permissive');
   const { theme, preference, changePreference } = useTheme();
   const { palette, changePalette } = usePalettePreference('molr-desktop-palette', theme);
   useEffect(() => {
@@ -37,7 +38,7 @@ function App() {
   const local = state.local;
   const runtimeReady = local.state === 'active' || local.state === 'running';
   const connect = (c: Connection) => void run(() => bridge!.connect(c.id));
-  function localAction(action: LocalAction) { void run(() => bridge!.localAction(action)); }
+  function localAction(action: LocalAction) { void run(() => bridge!.localAction(action, action === 'install' && local.state !== 'uninstalled' ? resourcePreset : undefined)); }
   return <UIProvider locale="zh"><div className="desktop-app">
     <header className="desktop-toolbar">
       <div className="desktop-identity"><Logo markOnly variant={theme === 'dark' ? 'light' : 'dark'} /><strong>Molr</strong><span className="desktop-divider" /><span>{current?.name ?? '桌面工作台'}</span></div>
@@ -76,6 +77,8 @@ function App() {
           </form>}
           {local.available && <section className="desktop-local" aria-label="本机 Runtime">
             <div className="desktop-section-heading"><div className="desktop-section-icon"><Monitor size={24} /></div><div><h2>本机 Runtime</h2><p>{local.installed ? '助理和数据保存在这台电脑上' : '在这台电脑上运行你的助理'}</p></div><Badge tone={runtimeReady ? 'positive' : local.error ? 'danger' : 'neutral'}>{state.busy ? '正在维护' : stateNames[local.state] ?? local.state}</Badge></div>
+            {!local.installed && local.state !== 'uninstalled' && <div className="desktop-settings-fields"><Select label="资源权限预设" value={resourcePreset} onValueChange={setResourcePreset} disabled={disabled} options={[{value:'permissive',label:'宽松预设（个人部署推荐）'},{value:'least-privilege',label:'最小权限预设'}]} /><p className="desktop-hint">{resourcePreset === 'permissive' ? '在运行账户的系统权限范围内，允许接入任意本机目录、网络及计算资源，通过 Molr 配置和分配权限。助理仍需单独授权。' : '默认不开放本机目录、网络访问或命令执行资源。随后可按需调整部署配置，再为助理授权。'}</p></div>}
+            {local.state === 'uninstalled' && <p className="desktop-hint">重新安装会沿用保留的账号、数据和资源权限配置。</p>}
             {local.error && <p className="desktop-error" role="alert">{local.error}</p>}
             {local.installed && <p className="desktop-hint">版本 {local.version} · {local.health === 'verified' ? '安装器能力验证已通过' : local.health === 'verification_pending' ? '请登录 Runtime 检查能力状态' : runtimeReady ? '请登录 Runtime 检查能力状态' : '启动后可继续使用'}</p>}
             <div className="desktop-actions">

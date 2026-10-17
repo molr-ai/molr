@@ -15,6 +15,7 @@ import (
 
 	"molr.ai/runtime/internal/agent/model"
 	"molr.ai/runtime/internal/agent/tools"
+	"molr.ai/runtime/internal/buildinfo"
 	"molr.ai/runtime/internal/config"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/media"
@@ -83,12 +84,18 @@ func newSandboxBackend(ctx context.Context, cfg config.Config, store persistence
 func directoryID(p string) string { return "dir_" + digestBytes([]byte(p))[:24] }
 func (b *remoteSandboxBackend) Info(ctx context.Context) (sm.Info, error) {
 	s := b.cfg.Sandbox
-	out := sm.Info{WorkspaceProjectQuotas: false, ResourceQuotas: true, UserGroupQuotas: true, AuthorizationCeilings: s.ComputeCeilings(), PortForwarding: true, ShellSessions: true, Protocol: sm.ProtocolVersion, Enabled: s.Enabled, Storage: s.Enabled && textfiles.Supported(), Directories: []sm.Directory{}, Networks: []sm.Network{}, Capabilities: platform.Capabilities{OS: runtime.GOOS, Reason: "sandbox_disabled"}, Limits: platform.Limits{MemoryBytes: s.MemoryBytes, Processes: s.Processes, CPUPercent: s.CPUPercent, TempBytes: s.TempBytes, MaxFileBytes: s.MaxFileBytes, NetworkBytes: s.NetworkBytes, NetworkConnections: s.NetworkConnections}, TimeoutSeconds: 0}
+	out := sm.Info{Build: buildinfo.Current(), AllowDirectoryPaths: !s.RestrictDirectories, WorkspaceProjectQuotas: false, ResourceQuotas: true, UserGroupQuotas: true, AuthorizationCeilings: s.ComputeCeilings(), PortForwarding: true, ShellSessions: true, Protocol: sm.ProtocolVersion, Enabled: s.Enabled, Storage: s.Enabled && textfiles.Supported(), Directories: []sm.Directory{}, Networks: []sm.Network{}, Capabilities: platform.Capabilities{OS: runtime.GOOS, Reason: "sandbox_disabled"}, Limits: platform.Limits{MemoryBytes: s.MemoryBytes, Processes: s.Processes, CPUPercent: s.CPUPercent, TempBytes: s.TempBytes, MaxFileBytes: s.MaxFileBytes, NetworkBytes: s.NetworkBytes, NetworkConnections: s.NetworkConnections}, TimeoutSeconds: 0}
 	if !s.Enabled {
 		return out, nil
 	}
 	out.Capabilities, _ = b.runner.Capabilities(ctx)
 	out.GPUs = b.runner.GPUs()
+	if s.GPU.AllDevices {
+		for _, g := range out.GPUs {
+			out.AuthorizationCeilings.GPUDeviceIDs = append(out.AuthorizationCeilings.GPUDeviceIDs, g.ID)
+		}
+	}
+	out.AuthorizationCeilings.AllGPUDevices = false
 	for _, d := range s.Directories {
 		out.Directories = append(out.Directories, sm.Directory{ID: directoryID(d.Path), Name: filepath.Base(d.Path), ReadOnly: d.ReadOnly})
 	}
@@ -115,12 +122,10 @@ func (b *remoteSandboxBackend) resolve(ctx context.Context, e core.Execution, t 
 				if scope.ResourceID != t.ResourceID {
 					continue
 				}
-				for _, d := range b.cfg.Sandbox.Directories {
-					if directoryID(d.Path) == scope.DirectoryID {
-						t.Path = filepath.Join(d.Path, strings.TrimPrefix(t.Path, "/"))
-						found = true
-						break
-					}
+				if d, err := b.directory(ctx, scope.DirectoryID); err == nil {
+					t.Path = filepath.Join(d.Path, strings.TrimPrefix(t.Path, "/"))
+					found = true
+					break
 				}
 			}
 			if !found {
@@ -163,14 +168,21 @@ func (b *remoteSandboxBackend) resolve(ctx context.Context, e core.Execution, t 
 		if !allowed {
 			continue
 		}
-		for _, d := range b.cfg.Sandbox.Directories {
-			if directoryID(d.Path) == scope.DirectoryID {
-				if d.ReadOnly && scope.Write {
-					return "", "", denied()
+		d, err := b.directory(ctx, scope.DirectoryID)
+		if err != nil {
+			return "", "", err
+		}
+		if scope.Write {
+			for _, entry := range b.cfg.Sandbox.Directories {
+				if entry.ReadOnly && textfiles.Overlaps(entry.Path, filepath.Join(d.Path, strings.TrimPrefix(name, "/"))) {
+					d.ReadOnly = true
 				}
-				return d.Path, strings.TrimPrefix(name, "/"), nil
+			}
+			if d.ReadOnly {
+				return "", "", denied()
 			}
 		}
+		return d.Path, strings.TrimPrefix(name, "/"), nil
 	}
 	return "", "", denied()
 }

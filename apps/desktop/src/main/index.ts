@@ -4,7 +4,7 @@ import { join, resolve, relative, sep, basename } from 'node:path';
 import { existsSync, realpathSync, mkdirSync, statSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ConnectionStore, partition, sameOrigin, externalURL, allowedFrameURL } from './connections.js';
-import type { Connection, ConnectionInput, DesktopState, LocalAction, LocalStatus } from '../shared.js';
+import type { Connection, ConnectionInput, DesktopState, LocalAction, ResourcePreset, LocalStatus } from '../shared.js';
 import type { LocalRuntime } from '../runtime/local.js';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
@@ -127,7 +127,7 @@ async function refreshLocal() {
   try { localStatus = await local.status(); } catch (e) { localStatus = { ...localStatus, error: String((e as Error).message), state: 'failed' }; }
   changed();
 }
-async function localAction(action: LocalAction) {
+async function localAction(action: LocalAction, preset?: ResourcePreset) {
   if (!local) throw new Error('当前安装包不包含本机 Runtime。');
   if (busy) throw new Error('请等待当前维护操作完成。');
   if (!['install', 'start', 'stop', 'restart', 'upgrade', 'uninstall'].includes(action)) throw new Error('无效的操作。');
@@ -153,7 +153,7 @@ async function localAction(action: LocalAction) {
     }
     const previous = store.data.connections.find(c => c.kind === 'managed-local');
     if (previous?.id === active) manager();
-    const result = await local.action(action);
+    const result = await local.action(action, preset);
     await refreshLocal();
     if (result.installed && result.url) {
       const c = store.managed(result.url);

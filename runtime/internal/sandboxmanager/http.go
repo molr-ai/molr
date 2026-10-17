@@ -81,6 +81,17 @@ func Handler(m *Manager, token core.Secret) (http.Handler, error) {
 				return nil
 			}
 			switch r.URL.Path {
+			case "/v2/sandbox/directory":
+				var q DirectoryRequest
+				if err = decode(&q); err == nil {
+					if backend, ok := m.Backend.(interface {
+						Directory(context.Context, DirectoryRequest) (Directory, error)
+					}); ok {
+						value, err = backend.Directory(r.Context(), q)
+					} else {
+						err = core.NewError(core.Unavailable, "directory selection unavailable")
+					}
+				}
 			case "/v2/sandbox/quotas":
 				var q Request
 				if err = decode(&q); err == nil {
@@ -239,6 +250,11 @@ func (c *Client) call(ctx context.Context, method string, input, output any) err
 		return json.Unmarshal(reply.Data, output)
 	}
 	return nil
+}
+func (c *Client) Directory(ctx context.Context, q DirectoryRequest) (Directory, error) {
+	var out Directory
+	err := c.call(ctx, "directory", q, &out)
+	return out, err
 }
 func (c *Client) Info(ctx context.Context) (Info, error) {
 	var out Info

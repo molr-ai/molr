@@ -226,6 +226,8 @@ Verified on 2026-10-03 against the registrations in `runtime/internal/api/*_rout
 | POST | `/api/todos/delete` |
 | POST | `/api/todos/update` |
 
+Storage connections: `POST /api/sandboxes/resource` accepts `SourceID` and relative subdirectory `Path`. When unrestricted directories are permitted, omit `SourceID` and supply an absolute path or `~/` on the target machine. `Info.AllowDirectoryPaths` in `GET /api/sandboxes` advertises this capability. The server validates authorization and deployment scope.
+
 HTTP rate limiting reads and updates persistent counters within a transaction; passing requests consume the current window quota. When the quota is exhausted, it returns 429 and `Retry-After`, without rewriting unchanged counters or extending the window. Concurrent requests share the transaction counter, and the window is preserved across restarts; if storage fails, requests are denied.
 
 ## Authentication and Browser Flow
@@ -413,11 +415,11 @@ The WebUI uses a display hierarchy of "Resource Type: Sandbox → Select Sandbox
 - Model `permission_request` and Combined Sub-requests: `full_access: true`, must not include quotas; expiration time is still required. `permission_list` retains metadata for Full Access that is requestable and already authorized.
 - Model Command/File Invocation: `full_access: true` selects the direct path, re-validating authorization each time; if omitted, the standard path is used. Shell tasks return `FullAccess`; the concurrency limit of ten tasks applies only to standard isolated tasks.
 - User Group Sandbox Reference: `Resources[].AllowFullAccess`, default false, can only be set by `Kind: "sandbox"`. The admin directory returns `FullAccessAvailable`; revoking group delegation simultaneously invalidates existing authorizations.
-- Remote protocol version 8, URL remains `/v2/sandbox/`, trusted requests carry `FullAccess`. Both ends check deployment capabilities and authorization leases separately, not relying on old caches for automatic privilege escalation.
+- Remote protocol version 9, URL remains `/v2/sandbox/`, trusted requests carry `FullAccess`. Both ends check deployment capabilities and authorization leases separately, not relying on old caches for automatic privilege escalation.
 
 ### GPU in Compute Permissions
 
-`SandboxInfo.GPUs` returns a `{ID, Name, Vendor, MemoryBytes, Available, Reason}` array; `AuthorizationCeilings.GPUDeviceIDs` is the device scope allowed by the deployment and user group. `Constraints.compute.gpu` is optional, with the structure `{"device_ids":["GPU-00000000-0000-0000-0000-000000000001"]}`; default or empty list means no GPU permissions. Base/temporary authorizations and `permission_request` use the same field. `shell_execute` does not add new GPU parameters, injecting them based on the effective authorization of `compute_id`; task details `GPUDeviceIDs` record the startup device. The remote sandbox protocol version is 8.
+`SandboxInfo.GPUs` returns a `{ID, Name, Vendor, MemoryBytes, Available, Reason}` array; `AuthorizationCeilings.GPUDeviceIDs` is the device scope allowed by the deployment and user group. `Constraints.compute.gpu` is optional, with the structure `{"device_ids":["GPU-00000000-0000-0000-0000-000000000001"]}`; default or empty list means no GPU permissions. Base/temporary authorizations and `permission_request` use the same field. `shell_execute` does not add new GPU parameters, injecting them based on the effective authorization of `compute_id`; task details `GPUDeviceIDs` record the startup device. The remote sandbox protocol version is 9.
 
 ## Agent Shell Sandbox
 

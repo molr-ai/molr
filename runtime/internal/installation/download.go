@@ -359,7 +359,7 @@ func extractPackage(archive, destination string) (string, error) {
 	}
 	defer gz.Close()
 	reader := tar.NewReader(gz)
-	allowed := map[string]os.FileMode{"molr/LICENSE": 0644, "molr/THIRD_PARTY_NOTICES.md": 0644, "molr/release.json": 0644, "molr/bin/molr": 0755, "molr/bin/molr-setup": 0755}
+	allowed := map[string]os.FileMode{"molr/LICENSE": 0644, "molr/THIRD_PARTY_NOTICES.md": 0644, "molr/release.json": 0644, "molr/bin/molr": 0755, "molr/bin/molr-setup": 0755, "molr/bin/molr-sandbox": 0755}
 	seen := map[string]bool{}
 	var size int64
 	for {
@@ -410,7 +410,7 @@ func extractPackage(archive, destination string) (string, error) {
 		return "", fmt.Errorf("incomplete release package")
 	}
 	root := filepath.Join(destination, "molr")
-	for _, name := range []string{"molr", "molr-setup"} {
+	for _, name := range []string{"molr", "molr-setup", "molr-sandbox"} {
 		if err = checkExecutable(filepath.Join(root, "bin", name), runtime.GOARCH); err != nil {
 			return "", err
 		}

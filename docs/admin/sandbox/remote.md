@@ -8,7 +8,19 @@ Runtime 内置本机 sandbox_manager，无需额外启动本机服务。主 Runt
 
 远程节点同样支持按需 [Full Access 权限](linux.md#按需授予-full-access)：在远端配置 `sandbox.allow_full_access: true`，再为助理授予该节点的 Full Access 计算权限。本机配置不会替远端开放该能力。普通隔离与显式 Full Access 调用可以共存；后者直接使用远端服务的系统身份和环境。
 
-当前 Sandbox 能力协议为版本 8，传输路径为 `/v2/sandbox/`；Runtime 与远程节点版本必须匹配。Linux 网络配置显式声明 TCP/UDP，规则在执行机器生效，见[网络配置](linux.md#网络与高级部署)。
+当前 Sandbox 能力协议为版本 9，传输路径为 `/v2/sandbox/`；Runtime 与远程节点版本必须匹配。Linux 网络配置显式声明 TCP/UDP，规则在执行机器生效，见[网络配置](linux.md#网络与高级部署)。
+
+## 使用安装器
+
+Linux/macOS 服务包同时包含 `molr`、`molr-sandbox` 和 `molr-setup`。在目标机器执行：
+
+```bash
+./bin/molr-setup --target sandbox --name molr-node --resource-preset permissive
+```
+
+可选择 `least-privilege` 预设，默认关闭资源，随后按需调整。安装器仅安装独立沙盒和维护程序，准备 systemd／launchd 服务、HTTPS 证书及私有令牌，验证节点能力后输出连接信息。令牌保存在数据目录的 `sandbox-token`，不会打印在安装日志中。使用自定义配置时通过 `--config` 提供 HTTPS 配置与证书；令牌仍由安装器生成，不使用 `--init-owner`。
+
+通过安装后的 `molr-setup status` 查看连接信息，`update` 升级，`uninstall` 卸载并保留配置和数据。完整预设说明见[安装指南](../deployment/installation.md#安装目标与资源权限预设)。
 
 ## 构建与启动
 
@@ -53,7 +65,7 @@ go version -m ../.cache/build/molr-sandbox
 }
 ```
 
-远程服务始终只暴露 `directories` 中的目录，`restrict_directories: false` 不扩大远程协议的范围。实际路径仅留在服务端，Runtime 引用不透明的目录 ID。私有数据目录、工作区和允许的外部目录不得重叠。
+`restrict_directories: true` 时，管理员可接入 `directories` 配置的根目录或其子目录；false 时可填写远端本机路径。目录在远端解析和校验，Runtime 保存目录引用，每次执行都重新检查当前部署范围。私有数据目录、安装资产、工作区和允许的外部目录不得重叠。
 
 Linux 使用独立的 systemd 用户服务：
 
@@ -71,7 +83,7 @@ Restart=on-failure
 
 ## macOS 节点
 
-macOS 使用相同的 `molr-sandbox -config … -token-file …` 命令、TLS 与令牌认证。当前独立节点通过源码构建部署，未接入 `molr-setup`。构建应在目标 Mac 原生完成，ARM64 与 AMD64 分别验收。
+macOS 使用相同的 `molr-sandbox -config … -token-file …` 命令、TLS 与令牌认证。独立节点支持 `molr-setup --target sandbox` 安装，也可从源码构建。构建应在目标 Mac 原生完成，ARM64 与 AMD64 分别验收。
 
 配置中的 `data_dir`、证书、私钥、令牌和目录全部使用 Mac 上的绝对路径。将上例的 `sandbox` 替换为：
 

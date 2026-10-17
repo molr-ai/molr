@@ -251,7 +251,11 @@ func renderUnit(r *installrecord.Record, delegate bool) string {
 	if delegate {
 		delegation = "Delegate=yes\nDelegateSubgroup=supervisor\n"
 	}
-	return fmt.Sprintf("[Unit]\nDescription=Molr Runtime\n\n[Service]\nType=exec\n%s%sKillMode=control-group\nUMask=0077\nNoNewPrivileges=yes\nRestart=on-failure\nTimeoutStopSec=30\nEnvironment=%s\nEnvironment=%s\nExecStart=%s serve -config %s\n\n[Install]\nWantedBy=%s\n", identity, delegation, unitQuote("TMPDIR="+filepath.Join(r.Paths.Cache, "tmp")), unitQuote("XDG_CACHE_HOME="+r.Paths.Cache), unitQuote(filepath.Join(r.Paths.Program, "bin/molr")), unitQuote(filepath.Join(r.Paths.Config, "server.json")), target)
+	args := []string{}
+	for _, arg := range r.ServiceArgs() {
+		args = append(args, unitQuote(arg))
+	}
+	return fmt.Sprintf("[Unit]\nDescription=Molr service\n\n[Service]\nType=exec\n%s%sKillMode=control-group\nUMask=0077\nNoNewPrivileges=yes\nRestart=on-failure\nTimeoutStopSec=30\nEnvironment=%s\nEnvironment=%s\nExecStart=%s\n\n[Install]\nWantedBy=%s\n", identity, delegation, unitQuote("TMPDIR="+filepath.Join(r.Paths.Cache, "tmp")), unitQuote("XDG_CACHE_HOME="+r.Paths.Cache), strings.Join(args, " "), target)
 }
 
 // Only an explicit CLI --install-deps reaches package/policy preparation.

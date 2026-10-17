@@ -6,7 +6,7 @@ This page is for administrators. In "Resources → Sandbox", connect execution m
 
 ## Local Resources and Member Scope
 
-Local sandboxes are built into the Runtime and do not require starting a separate service. Compute resources are automatically registered; external directories and networks are added in the corresponding sandbox partitions, and the page can only select scopes allowed by the deployment. Connecting and adding resources does not automatically grant assistant permissions.
+Local sandboxes are built into the Runtime and do not require starting a separate service. Compute resources are automatically registered; external directories and networks are added in the corresponding sandbox partitions. Unrestricted directory configuration accepts absolute paths or `~/` on that machine. Restricted configuration offers exposed roots and optional relative subdirectories. Connecting and adding resources does not automatically grant assistant permissions.
 
 Assign sandboxes and tools via [User Groups](../administration/users-and-groups.md); members then approve directory read/write, compute, and network permissions for their own assistants. GPU devices must first be opened by the deployer, then selected in the user group's compute configuration; an empty selection means GPUs are not allowed. Full Access also requires deployment enablement and explicit administrator permission to grant it to the corresponding user groups.
 

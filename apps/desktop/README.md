@@ -2,7 +2,7 @@
 
 Electron hosts the existing Runtime WebUI in a separate, sandboxed `WebContentsView`. The bundled React interface manages connections and the desktop-owned local service. Remote content has no preload or desktop IPC.
 
-Linux/macOS packages include `molr` and `molr-setup`; Windows contains only the client. WSL is an ordinary remote connection, including localhost addresses. Each connection has an independent persistent storage partition. Changing its origin rotates the partition; removing it clears its session and storage. Only one Runtime view is active at a time.
+Linux/macOS packages include `molr`, `molr-sandbox` and `molr-setup`; Windows contains only the client. WSL is an ordinary remote connection, including localhost addresses. Each connection has an independent persistent storage partition. Changing its origin rotates the partition; removing it clears its session and storage. Only one Runtime view is active at a time.
 
 ## Development
 
@@ -29,7 +29,7 @@ For local management, run `npm run build:release` on Linux/macOS and set `MOLR_D
 
 The desktop creates a unique `molr-desktop-<id>` instance and stores its identity in its application data directory. `installation.json` remains authoritative and marks `manager: "desktop"`. Existing CLI installations are not adopted. The Go installer owns locking, permission checks, atomic replacement, rollback, service registration and authenticated health checks.
 
-The local interface is `molr-setup desktop <status|plan|install|upgrade|start|stop|restart|uninstall> --json --non-interactive --name molr-desktop-<id> --program-root <directory>`. JSON lines contain maintenance receipts and a `type: "desktop"` result. The first-install `loginURL` is ephemeral: consume it only in the matching Runtime view; never log or save it. Status contains no credentials. New instances listen on loopback. Linux enables isolation; macOS retains its existing disabled-command default.
+The local interface is `molr-setup desktop <status|plan|install|upgrade|start|stop|restart|uninstall> --json --non-interactive --name molr-desktop-<id> --program-root <directory>`. JSON lines contain maintenance receipts and a `type: "desktop"` result. The first-install `loginURL` is ephemeral: consume it only in the matching Runtime view; never log or save it. Status contains no credentials. New instances listen on loopback. The creation form selects `--resource-preset permissive|least-privilege` (initially permissive). Omitting it in unattended setup uses least privilege. Presets expand into editable sandbox settings; updates preserve them. Standalone Sandbox installation is available through CLI `molr-setup --target sandbox`.
 
 Closing or quitting the desktop leaves the Runtime running. Explicit stop/restart/upgrade/uninstall requires native confirmation and shows currently visible running tasks when authenticated. Other accounts and channels may also be executing. Uninstall retains configuration and data. CLI/web automatic updates refuse desktop-managed instances; upgrade them explicitly from the desktop's bundled package.
 

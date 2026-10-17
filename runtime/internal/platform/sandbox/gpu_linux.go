@@ -108,6 +108,13 @@ func (r *Runner) prepareGPU(ctx context.Context) {
 		fail(string(core.ReasonOf(err)))
 		return
 	}
+	if r.options.GPU.AllDevices {
+		r.gpuDevices = append([]platform.GPUDevice(nil), inventory...)
+		r.options.GPU.Devices = nil
+		for _, d := range inventory {
+			r.options.GPU.Devices = append(r.options.GPU.Devices, d.ID)
+		}
+	}
 	r.gpuNodes = nodes
 	for i, d := range r.gpuDevices {
 		idx := slices.IndexFunc(inventory, func(v platform.GPUDevice) bool { return v.ID == d.ID })

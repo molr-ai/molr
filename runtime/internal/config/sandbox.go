@@ -67,6 +67,31 @@ func sandboxDefaults() Sandbox {
 }
 func (s Sandbox) ComputeCeilings() platform.Limits {
 	v := s.AuthorizationCeilings
+	if !platform.NativeSandbox() {
+		// Zero means no deployment ceiling; protocol/backend capacity bounds remain.
+		if v.CPUPercent == 0 {
+			v.CPUPercent = 1000000
+		}
+		if v.MemoryBytes == 0 {
+			v.MemoryBytes = 1<<53 - 1
+		}
+		if v.Processes == 0 {
+			v.Processes = 1<<31 - 1
+		}
+		if v.TempBytes == 0 {
+			v.TempBytes = v.MemoryBytes
+		}
+		if v.MaxFileBytes == 0 {
+			v.MaxFileBytes = 1<<53 - 1
+		}
+		if v.NetworkBytes == 0 {
+			v.NetworkBytes = 1 << 50
+		}
+		if v.NetworkConnections == 0 {
+			v.NetworkConnections = 128
+		}
+	}
+	v.AllGPUDevices = s.GPU.Enabled && s.GPU.AllDevices
 	v.GPUDeviceIDs = nil
 	if s.GPU.Enabled {
 		v.GPUDeviceIDs = append([]string(nil), s.GPU.Devices...)
@@ -80,10 +105,14 @@ func (s Sandbox) validate(data string, ownPort uint16) error {
 	if len(s.AuthorizationCeilings.GPUDeviceIDs) > 0 {
 		return core.Invalid("sandbox.authorization_ceilings", "configure GPU devices through sandbox.gpu")
 	}
-	if s.GPU.Enabled && len(s.GPU.Devices) == 0 {
+	if s.GPU.AllDevices && len(s.GPU.Devices) > 0 {
+		return core.Invalid("sandbox.gpu", "choose all_devices or an explicit device list")
+	}
+	if s.GPU.Enabled && !s.GPU.AllDevices && len(s.GPU.Devices) == 0 {
 		return core.Invalid("sandbox.gpu.devices", "explicit GPU device list required")
 	}
-	if !platform.NativeSandbox() && (s.AuthorizationCeilings.NetworkConnections < 1 || s.AuthorizationCeilings.NetworkConnections > 128 || s.AuthorizationCeilings.NetworkBytes < 1 || s.AuthorizationCeilings.NetworkBytes > 1<<50 || s.AuthorizationCeilings.CPUPercent < 1 || s.AuthorizationCeilings.CPUPercent > 1000000 || s.AuthorizationCeilings.MemoryBytes < 32<<20 || s.AuthorizationCeilings.Processes < 8 || s.AuthorizationCeilings.TempBytes < 1 || s.AuthorizationCeilings.TempBytes > s.AuthorizationCeilings.MemoryBytes) {
+	maxLimits := s.ComputeCeilings()
+	if !platform.NativeSandbox() && (maxLimits.NetworkConnections < 1 || maxLimits.NetworkConnections > 128 || maxLimits.NetworkBytes < 1 || maxLimits.NetworkBytes > 1<<50 || maxLimits.CPUPercent < 1 || maxLimits.CPUPercent > 1000000 || maxLimits.MemoryBytes < 32<<20 || maxLimits.Processes < 8 || maxLimits.TempBytes < 1 || maxLimits.TempBytes > maxLimits.MemoryBytes) {
 		return core.Invalid("sandbox.authorization_ceilings", "invalid deployment ceilings")
 	}
 	if s.HostToolsUser != "" && s.HostToolsUser != "molr-sandbox" && s.HostToolsUser != "current" {
@@ -106,7 +135,7 @@ func (s Sandbox) validate(data string, ownPort uint16) error {
 		return core.Invalid("sandbox", "invalid limits")
 	}
 	if platform.NativeSandbox() {
-		if s.MemoryBytes != 0 || s.Processes != 0 || s.CPUPercent != 0 || s.TempBytes != 0 || s.MaxFileBytes != 0 || s.NetworkBytes != 0 || s.NetworkConnections != 0 || s.MinFreeDiskBytes != 0 || s.WorkspaceProjectQuotas || s.GPU.Enabled || len(s.GPU.Devices) > 0 || s.Bwrap != "" || s.RootFS != "" || s.CgroupRoot != "" || len(s.Networks) > 0 {
+		if s.MemoryBytes != 0 || s.Processes != 0 || s.CPUPercent != 0 || s.TempBytes != 0 || s.MaxFileBytes != 0 || s.NetworkBytes != 0 || s.NetworkConnections != 0 || s.MinFreeDiskBytes != 0 || s.WorkspaceProjectQuotas || s.GPU.Enabled || s.GPU.AllDevices || len(s.GPU.Devices) > 0 || s.Bwrap != "" || s.RootFS != "" || s.CgroupRoot != "" || len(s.Networks) > 0 {
 			return core.Invalid("sandbox", "macOS supports file scopes, execution duration and a network toggle; hard quotas and Linux backends are unsupported")
 		}
 		max := s.AuthorizationCeilings

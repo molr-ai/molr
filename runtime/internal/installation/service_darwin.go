@@ -88,7 +88,7 @@ func plistString(s string) string {
 }
 func renderLaunchAgent(r *installrecord.Record) string {
 	args := ""
-	for _, s := range []string{filepath.Join(r.Paths.Program, "bin/molr"), "serve", "-config", filepath.Join(r.Paths.Config, "server.json")} {
+	for _, s := range r.ServiceArgs() {
 		args += plistString(s)
 	}
 	// Both session types support a desktop login or an SSH-only user domain.

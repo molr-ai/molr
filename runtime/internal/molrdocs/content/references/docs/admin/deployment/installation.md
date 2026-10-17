@@ -42,10 +42,10 @@ flowchart TB
 | 安装包或入口 | 包含的组件 | 安装与使用方式 |
 | --- | --- | --- |
 | Linux 桌面完整版 `.deb`，AMD64／ARM64 | Electron 桌面程序、连接管理界面、`molr`（内嵌 WebUI 和本机 Sandbox）、`molr-setup` | 安装桌面程序后，可只连远程 Runtime，也可在应用内创建本机服务。DEB 声明 Bubblewrap、静态 BusyBox、systemd 等依赖，由包管理器准备。 |
-| macOS 桌面完整版 `.dmg`，Apple Silicon／Intel | `.app` 内含 Electron、连接管理界面、`molr`（内嵌 WebUI 和本机 Sandbox）、`molr-setup` | 安装桌面程序后按需创建 launchd 用户服务；命令执行默认关闭，可按 macOS 沙盒文档配置开启。 |
+| macOS 桌面完整版 `.dmg`，Apple Silicon／Intel | `.app` 内含 Electron、连接管理界面、`molr`（内嵌 WebUI 和本机 Sandbox）、`molr-setup` | 安装桌面程序后按需创建 launchd 用户服务；创建服务时选择资源权限预设，命令能力由生成的配置决定。 |
 | Windows 桌面客户端 `.exe`，AMD64 | Electron 桌面程序和连接管理界面 | 不含 `molr`、`molr-setup` 或本机 Sandbox；连接 Linux/macOS Runtime，或另行部署在 WSL 中的 Runtime。不会安装或启动 WSL。 |
-| Linux/macOS Runtime `.tar.gz`，AMD64／ARM64 | `bin/molr`（内嵌 WebUI 和本机 Sandbox）、`bin/molr-setup`、发行元数据和许可证 | 不含 Electron 桌面程序，也不含独立 `molr-sandbox`。通过 CLI 安装服务，再用浏览器或客户端连接。官网 `install.sh` 下载的就是这类 Runtime 包。 |
-| 独立 `molr-sandbox` | 远程 Sandbox 服务程序 | 当前按[独立节点文档](https://molr.ai/zh/docs/admin/sandbox/remote/)从源码构建，未纳入上述安装包或 `molr-setup` 安装流程。 |
+| Linux/macOS Runtime `.tar.gz`，AMD64／ARM64 | `bin/molr`（内嵌 WebUI 和本机 Sandbox）、`bin/molr-setup`、发行元数据和许可证 | 包含独立 `molr-sandbox`，不含 Electron 桌面程序。通过 CLI 选择安装 Runtime 或独立沙盒服务，再用浏览器或客户端连接。官网 `install.sh` 下载的就是这类 Runtime 包。 |
+| 独立 `molr-sandbox` | 远程 Sandbox 服务程序 | 包含在 Linux/macOS 服务包中，通过 `molr-setup --target sandbox` 安装。也可按[独立节点文档](https://molr.ai/zh/docs/admin/sandbox/remote/)从源码构建。 |
 | 源码归档 | 经发布检查的项目源码 | 用于自行构建，不是编译好的应用安装包；构建依赖见[源码部署](https://molr.ai/zh/docs/admin/deployment/source-build/)。 |
 | Docker | 本地构建的镜像包含 `molr`、内嵌 WebUI 和本机 Sandbox 实现 | 不含桌面 app 或 `molr-setup`。基础镜像默认关闭命令执行；`isolated` 构建目标另带 Linux 隔离依赖。当前没有官方预构建镜像，见[Docker 部署](https://molr.ai/zh/docs/admin/deployment/docker/)。 |
 
@@ -72,7 +72,7 @@ Linux/macOS 完整版包含 Runtime，也可连接远程实例。Windows 客户�
 | 从 Linux/macOS 完整版中排除 Runtime 文件 | 不可选。完整包固定携带 Runtime，没有组件勾选页，也没有单独的 Linux/macOS 纯客户端安装包。 |
 | 创建并启动本机 Runtime 服务 | 可选。首次打开桌面 app 不会自动创建服务；点击“安装并启动”才执行。只连远程实例时可跳过这一步。 |
 | 单独安装或不安装内置 Sandbox | 没有独立安装步骤或勾选项，它是 Runtime 的一部分。也不会自动部署独立 `molr-sandbox` 节点。 |
-| 开启本机命令执行 | 属于 Runtime 配置，桌面安装界面尚未提供开关。新建 Linux 实例默认开启；macOS 默认关闭。可修改该实例的 `sandbox.enabled` 并重启；关闭后聊天、文件和记忆仍可用，也能使用另行配置的远程 Sandbox。执行命令仍需为助理授予相应权限。 |
+| 开启本机命令执行 | 创建服务前选择资源权限预设；宽松预设开启，最小权限预设关闭。随后可修改 `sandbox.enabled` 并重启。助理仍需计算授权。 |
 | 跳过 Linux DEB 的沙盒系统依赖 | 当前不可选。即使只连接远程 Runtime，安装 DEB 时仍需满足它声明的沙盒依赖；跳过创建本机服务不会去掉这些包依赖。 |
 
 因此，当前已有“按需创建本机 Runtime 服务”，尚未实现“安装时分别勾选 Runtime／Sandbox 组件”。macOS 的执行配置见[macOS 原生命令权限](https://molr.ai/zh/docs/admin/sandbox/macos/)，Linux 的执行环境与授权见[Linux 沙盒部署](https://molr.ai/zh/docs/admin/sandbox/linux/)。
@@ -94,6 +94,31 @@ CPU 架构须为 64 位 x86（amd64）或 ARM（arm64）。
 
 Linux 使用 systemd；macOS 使用下文的用户级 launchd 安装。源码开发另见[源码部署](https://molr.ai/zh/docs/admin/deployment/source-build/)。
 
+## 安装目标与资源权限预设
+
+首次安装可选择完整 Runtime 或独立沙盒。完整 Runtime 提供账号、助理、WebUI 和内置沙盒；独立沙盒只为另一台 Runtime 提供资源，不创建 Runtime 账号或助理工作区。
+
+```bash
+./bin/molr-setup --target runtime --resource-preset permissive
+./bin/molr-setup --target sandbox --name molr-node --resource-preset least-privilege
+```
+
+交互安装在生成配置前询问安装目标和资源权限预设。非交互安装未指定时选择完整 Runtime 和最小权限预设。桌面端创建本机 Runtime 时展示预设选择，预选宽松预设。
+
+- **宽松预设（个人部署推荐）**：在运行账户的系统权限范围内，允许接入任意本机目录、网络及计算资源，通过 Molr 配置和分配权限。助理仍需单独授权。Linux 自动发现支持的 GPU；CPU、内存等授权额度不额外设置部署上限，执行后端和协议容量边界仍适用。Full Access 能力开放，但仍需单独授权且显式调用。
+- **最小权限预设**：默认不开放本机目录、网络访问或命令执行资源。随后可调整部署配置开放资源，再为助理授权。Runtime 自身的数据存储和助理内置工作区仍可使用；独立沙盒的 `enabled: false` 则关闭整个节点的资源服务。
+
+预设只生成普通配置字段，不保存运行模式。`--config` 与 `--resource-preset` 互斥；升级、修复和重新连接保留现有配置。已有实例可先预览，再显式应用预设：
+
+```bash
+/path/to/molr-setup configure --resource-preset permissive --dry-run
+/path/to/molr-setup configure --resource-preset permissive
+```
+
+维护命令展示变更字段，保留服务路径、凭据及助理授权；运行中的实例会重启，停止的实例保持停止。此前的目录、网络规则和 GPU 选择会被所选预设替换。仍可直接编辑配置逐项调整。
+
+独立沙盒安装自动生成 HTTPS 证书与私有服务令牌，结果显示服务地址、证书指纹和令牌文件位置；在 Runtime 的「资源 → 沙盒 → 连接沙盒」使用它们。安装、状态查询、升级及卸载使用同一 `molr-setup`；普通卸载保留配置、证书、令牌和数据。部署细节见[独立沙盒](https://molr.ai/zh/docs/admin/sandbox/remote/)。
+
 ## macOS 命令行安装
 
 macOS 13 及以上提供 Apple Silicon（ARM64）和 Intel（AMD64）发行包，包含内嵌 WebUI 的 `molr` 和 `molr-setup`。用户无需安装 Go、Node.js、Python 或 Homebrew。官网命令在终端中执行，自动选择本机架构：
@@ -114,7 +139,7 @@ curl -fsSL https://molr.ai/install.sh | sh
 
 普通卸载保留配置和数据；明确清除使用 `uninstall --purge --yes`。更新保留账号、配置和工作区，应用内一键更新暂不支持 macOS，请使用上述 CLI。安装器检查发行包与 Mach-O 代码签名；当前采用 ad-hoc 签名，不提供 Developer ID 身份签名或 Apple 公证，支持范围为终端安装流程。
 
-默认 `sandbox.enabled: false`，聊天、文件和记忆可用。设置 `sandbox.enabled: true` 并重启后可使用 Seatbelt 受控命令，按需授予计算、文件和网络权限。Full Access 需要另外启用 `sandbox.allow_full_access` 并独立授权。配置与能力边界见 [macOS 原生命令权限](https://molr.ai/zh/docs/admin/sandbox/macos/)。
+首次安装按所选资源权限预设生成 `sandbox.enabled`；未指定预设的非交互安装为 false，聊天、文件和记忆可用。设置 `sandbox.enabled: true` 并重启后可使用 Seatbelt 受控命令，按需授予计算、文件和网络权限。Full Access 需要另外启用 `sandbox.allow_full_access` 并独立授权。配置与能力边界见 [macOS 原生命令权限](https://molr.ai/zh/docs/admin/sandbox/macos/)。
 
 离线下载归档及相邻 `.sha256` 后，使用 `shasum -a 256 -c <归档>.sha256` 校验，再解压并运行 `./bin/molr-setup`。不要用 Finder 双击裸命令行程序代替终端安装。
 

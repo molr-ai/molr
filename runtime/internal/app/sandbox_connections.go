@@ -111,14 +111,20 @@ func (s *sandboxRouter) newClient(p core.Principal, endpoint, fingerprint string
 }
 func (s *sandboxRouter) localInfo(ctx context.Context) sm.Info {
 	cfg := s.adapters.storageConfig
-	info := sm.Info{WorkspaceProjectQuotas: cfg.WorkspaceProjectQuotas, ResourceQuotas: true, UserGroupQuotas: true, AuthorizationCeilings: cfg.ComputeCeilings(), ShellSessions: true, Protocol: sm.ProtocolVersion, Enabled: true, Storage: textfiles.Supported(), Capabilities: platform.Capabilities{OS: runtime.GOOS, Reason: "sandbox_disabled"}, Directories: []sm.Directory{}, Networks: []sm.Network{}, Limits: platform.Limits{MemoryBytes: cfg.MemoryBytes, Processes: cfg.Processes, CPUPercent: cfg.CPUPercent, TempBytes: cfg.TempBytes, MaxFileBytes: cfg.MaxFileBytes, NetworkBytes: cfg.NetworkBytes, NetworkConnections: cfg.NetworkConnections}, TimeoutSeconds: 0}
+	info := sm.Info{AllowDirectoryPaths: !cfg.RestrictDirectories, WorkspaceProjectQuotas: cfg.WorkspaceProjectQuotas, ResourceQuotas: true, UserGroupQuotas: true, AuthorizationCeilings: cfg.ComputeCeilings(), ShellSessions: true, Protocol: sm.ProtocolVersion, Enabled: true, Storage: textfiles.Supported(), Capabilities: platform.Capabilities{OS: runtime.GOOS, Reason: "sandbox_disabled"}, Directories: []sm.Directory{}, Networks: []sm.Network{}, Limits: platform.Limits{MemoryBytes: cfg.MemoryBytes, Processes: cfg.Processes, CPUPercent: cfg.CPUPercent, TempBytes: cfg.TempBytes, MaxFileBytes: cfg.MaxFileBytes, NetworkBytes: cfg.NetworkBytes, NetworkConnections: cfg.NetworkConnections}, TimeoutSeconds: 0}
 	if platform.NativeSandbox() {
 		info.Capabilities.NetworkBackend = "seatbelt-toggle"
 	}
 	if s.shell != nil {
 		info.Capabilities, _ = s.shell.runner.Capabilities(ctx)
 		info.GPUs = s.shell.runner.GPUs()
+		if cfg.GPU.AllDevices {
+			for _, g := range info.GPUs {
+				info.AuthorizationCeilings.GPUDeviceIDs = append(info.AuthorizationCeilings.GPUDeviceIDs, g.ID)
+			}
+		}
 	}
+	info.AuthorizationCeilings.AllGPUDevices = false
 	for _, d := range cfg.Directories {
 		info.Directories = append(info.Directories, sm.Directory{ID: directoryID(d.Path), Name: filepath.Base(d.Path), ReadOnly: d.ReadOnly})
 	}
@@ -353,10 +359,10 @@ func (s *sandboxRouter) admin(ctx context.Context, p core.Principal, action stri
 }
 func (s *sandboxRouter) connectResource(ctx context.Context, p core.Principal, raw json.RawMessage) (any, error) {
 	var q struct {
-		SandboxID      core.ID
-		Kind           resource.Kind
-		SourceID, Name string
-		Mutation       core.Mutation
+		SandboxID            core.ID
+		Kind                 resource.Kind
+		SourceID, Name, Path string
+		Mutation             core.Mutation
 	}
 	if err := decodeSandboxArgs(raw, &q); err != nil {
 		return nil, err
@@ -392,23 +398,36 @@ func (s *sandboxRouter) connectResource(ctx context.Context, p core.Principal, r
 	provider := "remote-" + string(q.Kind)
 	switch q.Kind {
 	case resource.Storage:
-		for _, d := range info.Directories {
-			if d.ID == q.SourceID {
-				actions = []string{"read"}
-				if !d.ReadOnly {
-					actions = append(actions, "write")
-				}
-			}
-		}
+		request := sm.DirectoryRequest{SourceID: q.SourceID, Path: q.Path}
+		var dir sm.Directory
+		var err error
 		if q.SandboxID == "local" {
+			dir, err = resolveSandboxDirectory(ctx, s.adapters, request)
 			provider = "local-directory"
-			for _, d := range s.adapters.storageConfig.Directories {
-				if directoryID(d.Path) == q.SourceID {
-					binding.RootPath = d.Path
+			binding.RootPath = dir.Path
+		} else {
+			var c sandboxConnection
+			c, err = s.connection(ctx, p, q.SandboxID)
+			if err == nil {
+				var client *sm.Client
+				client, err = s.client(ctx, p, c)
+				if err == nil {
+					dir, err = client.Directory(ctx, request)
 				}
 			}
+			binding.SandboxResource = dir.ID
+		}
+		if err != nil {
+			return nil, err
+		}
+		actions = []string{"read"}
+		if !dir.ReadOnly {
+			actions = append(actions, "write")
 		}
 	case resource.Compute:
+		if q.SandboxID == "local" && !s.adapters.storageConfig.Enabled {
+			return nil, core.NewError(core.Unavailable, "command execution disabled by deployment")
+		}
 		if q.SourceID != "compute" {
 			return nil, core.Invalid("source", "compute required")
 		}

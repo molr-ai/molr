@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, appendFileSync, lstatSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import type { LocalAction, LocalStatus } from '../shared.js';
+import type { LocalAction, LocalStatus, ResourcePreset } from '../shared.js';
 
 type Receipt = { type: 'desktop'; installed: boolean; state: string; health?: string; version?: string; url?: string; record?: string; loginURL?: string; missing?: string[] };
 export class LocalRuntime {
@@ -24,11 +24,12 @@ export class LocalRuntime {
     this.programRoot = resolve(directory, 'program');
     this.logFile = join(directory, 'maintenance.log');
   }
-  private async invoke(action: string): Promise<Receipt> {
+  private async invoke(action: string, preset?: ResourcePreset): Promise<Receipt> {
     const executable = join(this.packageRoot, 'bin', 'molr-setup');
     const stat = lstatSync(executable);
     if (!stat.isFile() || (stat.mode & 0o022) !== 0) throw new Error('Runtime 安装器权限不安全。');
     const args = ['desktop', action, '--name', this.name, '--program-root', this.programRoot, '--json', '--non-interactive', '--no-browser'];
+    if (preset) args.push('--resource-preset', preset);
     if (action !== 'status' && action !== 'plan') args.push('--yes');
     return new Promise((accept, reject) => {
       const child = spawn(executable, args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
@@ -62,16 +63,18 @@ export class LocalRuntime {
     const r = await this.invoke('status');
     return { available: true, installed: r.installed, state: r.state, health: r.health, version: r.version, url: r.url, record: r.record, bundledVersion: this.bundledVersion };
   }
-  async action(action: LocalAction) {
+  async action(action: LocalAction, preset?: ResourcePreset) {
     if (!['install', 'start', 'stop', 'restart', 'upgrade', 'uninstall'].includes(action)) throw new Error('不支持的本机操作。');
+    if (preset && (!['permissive', 'least-privilege'].includes(preset) || action !== 'install')) throw new Error('权限预设仅用于首次安装。');
+    if (action === 'install' && !preset) preset = 'least-privilege';
     if (this.active) throw new Error('另一项维护操作正在进行。');
     this.active = true;
     try {
       if (action === 'install' || action === 'upgrade') {
-        const plan = await this.invoke('plan');
+        const plan = await this.invoke('plan', preset);
         if (plan.missing?.length) throw new Error(`请先准备系统依赖，再重试：${plan.missing.join('、')}。Linux 完整版需要 systemd 254+、cgroup v2、Bubblewrap、静态 BusyBox、util-linux 和 CA 证书。`);
       }
-      return await this.invoke(action);
+      return await this.invoke(action, preset);
     } finally { this.active = false; }
   }
 }

@@ -42,10 +42,10 @@ The website lists installers actually published in GitHub Releases. The table de
 | Package or entry point | Included components | Installation and use |
 | --- | --- | --- |
 | Linux full desktop `.deb`, AMD64/ARM64 | Electron desktop app, connection manager, `molr` with embedded WebUI and built-in Sandbox, and `molr-setup` | After installing the desktop app, connect only to remote Runtimes or create a local service from the app. The DEB declares Bubblewrap, static BusyBox, systemd and other dependencies for the package manager to prepare. |
-| macOS full desktop `.dmg`, Apple Silicon/Intel | An `.app` containing Electron, connection manager, `molr` with embedded WebUI and built-in Sandbox, and `molr-setup` | Create a launchd user service on demand after installing the app. Commands default to disabled and can be enabled using the macOS sandbox configuration. |
+| macOS full desktop `.dmg`, Apple Silicon/Intel | An `.app` containing Electron, connection manager, `molr` with embedded WebUI and built-in Sandbox, and `molr-setup` | Create a launchd user service on demand after installing the app. Choose a resource permission preset when creating the service; generated settings control command capabilities. |
 | Windows desktop client `.exe`, AMD64 | Electron desktop app and connection manager | Contains no `molr`, `molr-setup` or local Sandbox. Connect to a Linux/macOS Runtime or one deployed separately in WSL. The app does not install or start WSL. |
-| Linux/macOS Runtime `.tar.gz`, AMD64/ARM64 | `bin/molr` with embedded WebUI and built-in Sandbox, `bin/molr-setup`, release metadata and licenses | Includes neither Electron nor the independent `molr-sandbox` program. Install the service using the CLI, then connect through a browser or client. The website's `install.sh` downloads this type of Runtime package. |
-| Independent `molr-sandbox` | Remote Sandbox service executable | Currently built from source following the [node deployment guide](../sandbox/remote.md). It is not included in the packages above or installed by `molr-setup`. |
+| Linux/macOS Runtime `.tar.gz`, AMD64/ARM64 | `bin/molr` with embedded WebUI and built-in Sandbox, `bin/molr-setup`, release metadata and licenses | Includes standalone `molr-sandbox` but not Electron. Choose Runtime or standalone Sandbox using the CLI, then connect through a browser or client. The website's `install.sh` downloads this type of Runtime package. |
+| Independent `molr-sandbox` | Remote Sandbox service executable | Included in Linux/macOS service packages; install with `molr-setup --target sandbox`. Source builds remain available in the [node deployment guide](../sandbox/remote.md). |
 | Source archive | Project source reviewed for distribution | For building your own artifacts, not a compiled application installer. See [source deployment](source-build.md) for build dependencies. |
 | Docker | Locally built image with `molr`, embedded WebUI and the built-in Sandbox implementation | Includes neither the desktop app nor `molr-setup`. The base image defaults to commands disabled; the `isolated` target adds Linux isolation dependencies. No official prebuilt image is currently provided. See [Docker deployment](docker.md). |
 
@@ -94,6 +94,31 @@ Running a local model on the same device requires additional storage for model w
 
 For native macOS Runtime builds, Full Access, and service management, see [source deployment](source-build.md#native-macos-execution). The systemd steps below apply to Linux; macOS uses the user launchd installation described below.
 
+## Installation target and resource permission presets
+
+A new installation can run a full Runtime or a standalone Sandbox. Runtime provides accounts, assistants, WebUI and its built-in sandbox. A standalone Sandbox supplies resources to another Runtime without creating Runtime accounts or assistant workspaces.
+
+```bash
+./bin/molr-setup --target runtime --resource-preset permissive
+./bin/molr-setup --target sandbox --name molr-node --resource-preset least-privilege
+```
+
+Interactive setup asks for the target and preset before generating configuration. Unattended setup defaults to Runtime and least privilege when omitted. Desktop shows the preset choice before creating a local Runtime, initially selecting permissive.
+
+- **Permissive (recommended for personal deployments)**: connect local directories, networks and compute within the service account's OS permissions, then configure and assign access in Molr. Assistants still require individual grants. Linux discovers supported GPUs. No additional deployment ceilings are set for CPU, memory and other authorization quotas; backend and protocol capacity bounds still apply. Full Access is exposed but requires a separate grant and explicit invocation.
+- **Least privilege**: expose no local directories, network access or command execution. Adjust deployment configuration later to expose resources, then grant assistants access. Runtime data and built-in assistant workspaces remain usable. On standalone nodes, `enabled: false` disables the entire node's resources.
+
+Presets generate ordinary settings; no runtime mode is stored. `--config` and `--resource-preset` are mutually exclusive. Updates, repairs and reconnects preserve existing configuration. Preview and explicitly apply a preset to an installed instance:
+
+```bash
+/path/to/molr-setup configure --resource-preset permissive --dry-run
+/path/to/molr-setup configure --resource-preset permissive
+```
+
+Maintenance shows changed fields and preserves service paths, credentials and assistant grants. Running instances restart; stopped instances remain stopped. Existing directory rules, network rules and GPU selections are replaced by the selected preset. Settings can also be edited individually.
+
+Standalone installation generates an HTTPS certificate and private service token. Results show the address, certificate fingerprint and token file location for Runtime's Resources → Sandboxes → Connect sandbox form. The same `molr-setup` manages installation, status, updates and uninstall. Normal uninstall preserves configuration, certificates, tokens and data. See [standalone deployment](../sandbox/remote.md).
+
 ## macOS command-line installation
 
 macOS 13 and later has Apple Silicon (ARM64) and Intel (AMD64) packages containing `molr` with its embedded WebUI and `molr-setup`. End users do not need Go, Node.js, Python, or Homebrew. Run the website command in Terminal; it selects the native architecture:
@@ -114,7 +139,7 @@ The default program directory is `~/Library/Application Support/Molr/program/def
 
 Normal uninstall retains configuration and data; explicitly remove them with `uninstall --purge --yes`. Updates preserve accounts, configuration, and workspaces. In-app updates are not yet supported on macOS; use the CLI. Setup verifies the archive and Mach-O code signatures. Packages currently use ad-hoc signatures without Developer ID signing or Apple notarization; the supported distribution path is Terminal installation.
 
-The installer defaults to `sandbox.enabled: false`; chat, files, and memory remain available. Set `sandbox.enabled: true` and restart to enable Seatbelt-controlled commands, then grant compute, file, and network access as needed. Full Access requires a separate `sandbox.allow_full_access` opt-in and grant. See [native macOS command permissions](../sandbox/macos.md).
+Unattended installation without an explicit preset uses `sandbox.enabled: false`; chat, files, and memory remain available. Set `sandbox.enabled: true` and restart to enable Seatbelt-controlled commands, then grant compute, file, and network access as needed. Full Access requires a separate `sandbox.allow_full_access` opt-in and grant. See [native macOS command permissions](../sandbox/macos.md).
 
 For offline installation, download the archive and adjacent `.sha256`, verify with `shasum -a 256 -c <archive>.sha256`, extract, and run `./bin/molr-setup`. Do not substitute Finder double-clicking a bare executable for Terminal installation.
 

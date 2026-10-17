@@ -16,7 +16,7 @@ const runtime = new LocalRuntime(packageRoot, join(directory, 'manager'));
 let record, session;
 try {
   assert.equal((await runtime.status()).installed, false);
-  const installed = await runtime.action('install');
+  const installed = await runtime.action('install', 'permissive');
   assert.equal(installed.installed, true); assert.equal(installed.health, 'verified');
   record = JSON.parse(readFileSync(installed.record));
   assert.equal(record.manager, 'desktop'); assert.equal(record.system, false);
@@ -34,7 +34,7 @@ try {
   if (process.platform === 'linux') {
     assert.equal(health.Enabled, true); assert.equal(health.Capabilities.Reason, 'available');
     for (const key of ['Shell', 'ProcessIsolation', 'FileIsolation', 'NetworkIsolation', 'ResourceLimits']) assert.equal(health.Capabilities[key], true, key);
-  } else { assert.equal(health.Enabled, false); assert.equal(health.Storage, true); }
+  } else { assert.equal(health.Enabled, true); assert.equal(health.Storage, true); assert.equal(health.Capabilities.NetworkBackend, 'seatbelt-toggle'); }
   const status = await runtime.status(); assert(['active', 'running'].includes(status.state));
   await runtime.action('upgrade');
   assert.equal((await session.get('/api/auth/me')).status(), 200, 'Bundled update preserves login session and account data');

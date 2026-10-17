@@ -45,10 +45,10 @@ try {
   };
   const health = doctor();
   if (process.platform === 'darwin') {
-    assert.equal(health.Sandbox.Enabled, false);
+    assert.equal(health.Sandbox.Enabled, true);
     assert.equal(health.Sandbox.Storage, true);
     assert.equal(health.Runtime.build.os, 'darwin');
-    assert.equal(health.Sandbox.Capabilities.Shell, false);
+    assert.equal(health.Sandbox.Capabilities.Shell, true);
     run('/usr/bin/codesign', ['--verify', '--strict', binary]);
   } else {
     assert.equal(health.Sandbox.Enabled, true);

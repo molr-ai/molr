@@ -27,7 +27,9 @@ try:
                 break
             sys.stdout.buffer.write(chunk); sys.stdout.buffer.flush()
             pending += chunk
-            for prompt, answer in ((b'Fix permissions [f, recommended], ignore and continue [i], or quit [q]? ', b'f\n'),
+            for prompt, answer in ((b'Install [r] full Runtime or [s] standalone Sandbox? [r]: ', b'r\n'),
+                                   (b'Resource preset: [p] permissive / [l] least privilege [l]: ', b'p\n'),
+                                   (b'Fix permissions [f, recommended], ignore and continue [i], or quit [q]? ', b'f\n'),
                                    (b'Apply this installation plan? [y/N] ', b'y\n'),
                                    (b'Install system dependencies with APT? [y/N] ', b'y\n'),
                                    (b'Prepare and load the distribution Bubblewrap AppArmor policy (preserve existing policies)? [y/N] ', b'y\n')):

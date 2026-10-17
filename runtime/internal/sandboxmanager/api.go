@@ -7,17 +7,20 @@ import (
 	"encoding/json"
 	"time"
 
+	"molr.ai/runtime/internal/buildinfo"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/platform"
 	"molr.ai/runtime/internal/policy"
 )
 
-const ProtocolVersion = 8
+const ProtocolVersion = 9
 const LeaseDuration = 15 * time.Second
 const MaxMessage = 96 << 20
 const MaxRequest = 32 << 20
 
+type DirectoryRequest struct{ SourceID, Path string }
 type Directory struct {
+	Path     string `json:",omitempty"`
 	ID, Name string
 	ReadOnly bool
 }
@@ -26,6 +29,8 @@ type Network struct {
 	Target   platform.NetworkTarget
 }
 type Info struct {
+	Build                  buildinfo.Info
+	AllowDirectoryPaths    bool
 	GPUs                   []platform.GPUDevice `json:",omitempty"`
 	WorkspaceProjectQuotas bool
 	ResourceQuotas         bool

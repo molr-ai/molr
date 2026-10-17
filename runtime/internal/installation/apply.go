@@ -15,7 +15,7 @@ import (
 	"molr.ai/runtime/internal/installrecord"
 )
 
-var programFiles = []string{"bin/molr", "bin/molr-setup", "bin/molr.previous", "bin/molr-setup.previous", "LICENSE", "THIRD_PARTY_NOTICES.md", "release.json"}
+var programFiles = []string{"bin/molr", "bin/molr-setup", "bin/molr.previous", "bin/molr-setup.previous", "bin/molr-sandbox", "bin/molr-sandbox.previous", "LICENSE", "THIRD_PARTY_NOTICES.md", "release.json"}
 
 func writeRecord(r *installrecord.Record) error {
 	mode := os.FileMode(0600)
@@ -102,7 +102,10 @@ func (e *Engine) apply(p *Plan) (resultErr error) {
 		}
 	}
 	// Check access and both executable identities as the actual service account before replacing anything.
-	for _, name := range []string{"molr", "molr-setup"} {
+	for _, name := range []string{r.Binary(), "molr-setup"} {
+		if err := checkExecutable(filepath.Join(p.Package.Root, "bin", name), r.Build.Arch); err != nil {
+			return err
+		}
 		b, err := e.run(asUser(r, filepath.Join(p.Package.Root, "bin", name), "version", "--json"), true)
 		if err != nil {
 			return err
@@ -190,7 +193,7 @@ func (e *Engine) apply(p *Plan) (resultErr error) {
 	if err = atomicWrite(configPath, bytes.NewReader(jsonBytes(p.Config)), mode, r.OwnerUID, r.GID); err != nil {
 		return err
 	}
-	for _, name := range []string{"molr", "molr-setup"} {
+	for _, name := range []string{r.Binary(), "molr-setup"} {
 		destination := filepath.Join(r.Paths.Program, "bin", name)
 		if _, err = os.Stat(destination); err == nil {
 			if err = copyFile(destination+".previous", destination, 0755, r.OwnerUID, r.GID); err != nil {
@@ -208,7 +211,11 @@ func (e *Engine) apply(p *Plan) (resultErr error) {
 	}
 	runtime := filepath.Join(r.Paths.Program, "bin/molr")
 	_, databaseErr := os.Stat(filepath.Join(r.DataDir, "runtime.db"))
-	if e.Options.InitOwner != "" {
+	if r.Target == "sandbox" {
+		if err = e.prepareSandboxSecrets(r, p.Config); err != nil {
+			return err
+		}
+	} else if e.Options.InitOwner != "" {
 		if _, err = e.Command(e.Ctx, asUser(r, runtime, "init", "-config", configPath, "-username", e.Options.InitOwner, "-password-stdin"), e.Input, nil, e.UI.Out, e.UI.Err); err != nil {
 			return err
 		}
@@ -245,6 +252,11 @@ func (e *Engine) apply(p *Plan) (resultErr error) {
 	e.UI.step(5, "Result and next steps")
 	e.UI.print("Result: %s\nInstance: %s\nVersion: %s\nProgram: %s\nConfiguration: %s\nData: %s", r.Health, r.Name, r.Build.Version, r.Paths.Program, configPath, r.DataDir)
 	e.serviceInstructions(r)
+	if r.Target == "sandbox" {
+		if err = e.sandboxInstructions(r, p.Config); err != nil {
+			return err
+		}
+	}
 	e.UI.print("Update: %s update\nUninstall: %s uninstall", shellJoin([]string{filepath.Join(r.Paths.Program, "bin/molr-setup")}), shellJoin([]string{filepath.Join(r.Paths.Program, "bin/molr-setup")}))
 	if link != "" {
 		if e.Options.Command == "desktop" {

@@ -162,14 +162,17 @@ func TestResourceCatalogSeparatesScopeAndRuntimeStorage(t *testing.T) {
 func TestStorageDeploymentRestrictionsApplyToDiscoveryFilesAndShell(t *testing.T) {
 	for _, mode := range []string{"readonly", "disabled"} {
 		t.Run(mode, func(t *testing.T) {
-			f := newResourceAccessFixture(t, func(cfg *config.Config, root string) {
-				if mode == "readonly" {
-					cfg.Sandbox.Directories = []config.SandboxDirectory{{Path: root, ReadOnly: true}}
-				} else {
-					cfg.Sandbox.RestrictDirectories = true
-				}
-			})
+			f := newResourceAccessFixture(t, nil)
 			f.grant(t, f.storage.ID, "all", []policy.Action{policy.Read, policy.Write}, policy.Scope{}, nil)
+			// Tighten deployment after resources and grants already exist.
+			if mode == "readonly" {
+				f.ad.storageConfig.Directories = []config.SandboxDirectory{{Path: f.root, ReadOnly: true}}
+			} else {
+				f.ad.storageConfig.RestrictDirectories = true
+			}
+			f.catalog.adapters = f.ad
+			f.b.sandbox.config = f.ad.storageConfig
+
 			out := f.list(t)
 			op := lookupOperation(t, out, f.storage.ID, "/", policy.Write, "file_write")
 			want := "storage_read_only"

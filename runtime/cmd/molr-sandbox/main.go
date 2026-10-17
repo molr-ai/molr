@@ -5,8 +5,10 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/tls"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"molr.ai/runtime/internal/buildinfo"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -20,6 +22,14 @@ import (
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "version" {
+		if len(os.Args) == 3 && os.Args[2] == "--json" {
+			_ = json.NewEncoder(os.Stdout).Encode(buildinfo.Current())
+		} else {
+			fmt.Println("molr-sandbox", buildinfo.Version)
+		}
+		return
+	}
 	if len(os.Args) == 2 && os.Args[1] == "sandbox-supervisor" {
 		os.Exit(sandbox.SupervisorMain())
 	}
@@ -52,6 +62,7 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	cfg.ConfigPath = *path
 	for _, secretPath := range []string{*tokenPath, cfg.HTTP.KeyFile} {
 		rel, err := filepath.Rel(cfg.DataDir, secretPath)
 		if err != nil || !filepath.IsLocal(rel) {

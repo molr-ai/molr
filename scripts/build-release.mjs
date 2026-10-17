@@ -32,7 +32,7 @@ for (const name of ['LICENSE', 'THIRD_PARTY_NOTICES.md']) cpSync(`${root}/${name
 const go = process.env.GO || 'go';
 const epoch = execFileSync('git', ['show', '-s', '--format=%ct', commit], { encoding: 'utf8' }).trim();
 const buildTime = new Date(Number(epoch) * 1000).toISOString();
-for (const name of ['molr', 'molr-setup']) {
+for (const name of ['molr', 'molr-setup', 'molr-sandbox']) {
   run(go, ['build', '-trimpath', ...(name === 'molr' ? ['-tags', 'webui'] : []), '-ldflags', `-X molr.ai/runtime/internal/buildinfo.Version=${version} -X molr.ai/runtime/internal/buildinfo.Commit=${commit} -X molr.ai/runtime/internal/buildinfo.BuiltAt=${buildTime}`, '-o', `${stage}/bin/${name}`, `./cmd/${name}`], { cwd: resolve('runtime'), env: { ...process.env, CGO_ENABLED: '0', GOOS: os, GOARCH: arch, GOTOOLCHAIN: `go${readFileSync('runtime/.go-version', 'utf8').trim()}`, GOCACHE: process.env.GOCACHE || resolve('.cache/go-build'), GOMODCACHE: process.env.GOMODCACHE || resolve('.cache/go-mod') } });
   const binary = `${stage}/bin/${name}`;
   chmodSync(binary, 0o755);

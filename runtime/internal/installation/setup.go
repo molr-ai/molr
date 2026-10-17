@@ -21,11 +21,13 @@ import (
 	"syscall"
 
 	"molr.ai/runtime/internal/buildinfo"
+	"molr.ai/runtime/internal/config"
 	"molr.ai/runtime/internal/installrecord"
 	"molr.ai/runtime/internal/updates"
 )
 
 type Options struct {
+	Target, Preset                                                                                                             string
 	Component, TaskID, TaskAction                                                                                              string
 	JSON                                                                                                                       bool
 	LockFD                                                                                                                     int
@@ -70,7 +72,7 @@ func parseOptions(args []string, diagnostics io.Writer) (Options, error) {
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 		o.Command = args[0]
 		args = args[1:]
-		if o.Command != "update" && o.Command != "uninstall" && o.Command != "status" && o.Command != "components" && o.Command != "tasks" && o.Command != "desktop" {
+		if o.Command != "update" && o.Command != "uninstall" && o.Command != "status" && o.Command != "components" && o.Command != "tasks" && o.Command != "desktop" && o.Command != "configure" {
 			return o, fmt.Errorf("unknown command %q; omit a subcommand to install the current package", o.Command)
 		}
 	}
@@ -101,6 +103,8 @@ func parseOptions(args []string, diagnostics io.Writer) (Options, error) {
 	f.StringVar(&o.Name, "name", "molr", "instance service name")
 	f.StringVar(&o.User, "user", "", "system service account; requires root")
 	f.StringVar(&o.ProgramRoot, "program-root", "", "program base directory; instance gets its own child")
+	f.StringVar(&o.Target, "target", "", "install runtime or sandbox (new installations only)")
+	f.StringVar(&o.Preset, "resource-preset", "", "initial resource permissions: permissive or least-privilege")
 	f.StringVar(&o.Config, "config", "", "initial JSON configuration; existing configuration is preserved")
 	f.StringVar(&o.Record, "record", "", "explicit installation.json to manage")
 	f.StringVar(&o.Permissions, "directory-permissions", "ask", "ask, fix, or ignore writable directories")
@@ -128,6 +132,18 @@ func parseOptions(args []string, diagnostics io.Writer) (Options, error) {
 			o.NameSet = true
 		}
 	})
+	if o.Target != "" && o.Target != "runtime" && o.Target != "sandbox" {
+		return o, fmt.Errorf("--target must be runtime or sandbox")
+	}
+	if o.Preset != "" && o.Preset != "permissive" && o.Preset != "least-privilege" {
+		return o, fmt.Errorf("invalid resource preset")
+	}
+	if o.Config != "" && o.Preset != "" {
+		return o, fmt.Errorf("choose --config or --resource-preset")
+	}
+	if o.Target == "sandbox" && (o.InitOwner != "" || o.Command == "desktop") {
+		return o, fmt.Errorf("standalone sandbox does not initialize Runtime accounts")
+	}
 	if o.Interactive && o.NonInteractive {
 		return o, fmt.Errorf("choose either --interactive or --non-interactive")
 	}
@@ -208,7 +224,7 @@ func Run(ctx context.Context, args []string, input io.Reader, out, diagnostics i
 	return err
 }
 func (e *Engine) packageAt(root string) (*Package, error) {
-	for _, name := range []string{"release.json", "LICENSE", "THIRD_PARTY_NOTICES.md", "bin/molr", "bin/molr-setup"} {
+	for _, name := range []string{"release.json", "LICENSE", "THIRD_PARTY_NOTICES.md", "bin/molr-setup"} {
 		p := filepath.Join(root, name)
 		if err := checkPath(p); err != nil {
 			return nil, err
@@ -229,7 +245,7 @@ func (e *Engine) packageAt(root string) (*Package, error) {
 	if b.Version != e.Build.Version || b.Commit != e.Build.Commit || b.OS != runtime.GOOS || b.Arch != runtime.GOARCH {
 		return nil, fmt.Errorf("package identity does not match molr-setup")
 	}
-	for _, name := range []string{"molr", "molr-setup"} {
+	for _, name := range []string{"molr-setup"} {
 		if err = checkExecutable(filepath.Join(root, "bin", name), b.Arch); err != nil {
 			return nil, err
 		}
@@ -269,11 +285,20 @@ func (e *Engine) execute() error {
 		if err != nil {
 			return err
 		}
+		if e.Options.Preset != "" && e.Options.Command != "configure" {
+			e.UI.print("Existing configuration is preserved; use configure --resource-preset to explicitly change resource permissions.")
+		}
+		if e.Options.Target != "" && e.Options.Target != r.Target && !(e.Options.Target == "runtime" && r.Target == "") {
+			return fmt.Errorf("cannot change installation target")
+		}
 		if e.Options.Record != "" && e.Options.Record != installedPath {
 			return fmt.Errorf("installed tool manages its own instance; use that instance's tool")
 		}
 		if e.Options.NameSet && e.Options.Name != r.Name {
 			return fmt.Errorf("--name does not match installed instance")
+		}
+		if e.Options.Command == "configure" {
+			return e.configureResources(r)
 		}
 		if e.Options.Command == "uninstall" {
 			return e.uninstall(r)
@@ -316,6 +341,8 @@ func (e *Engine) execute() error {
 		existing = r
 	}
 	switch e.Options.Command {
+	case "configure":
+		return e.configureResources(existing)
 	case "uninstall":
 		return e.uninstall(existing)
 	case "update":
@@ -338,14 +365,25 @@ func (e *Engine) maintenance(r *installrecord.Record) error {
 		}
 		e.UI.print("Service: %s (%s), PID: %s", state["ActiveState"], state["LoadState"], state["MainPID"])
 	}
+	if r.Target == "sandbox" {
+		cfg, err := desktopConfig(r)
+		if err != nil {
+			return err
+		}
+		if err = e.sandboxInstructions(r, cfg); err != nil {
+			return err
+		}
+	}
 	if e.Options.Command == "status" || e.Options.DryRun || !e.UI.interactive() {
 		return nil
 	}
-	answer, err := e.UI.answer("[u] Check/update, [r] repair, [x] uninstall, [q] exit: ")
+	answer, err := e.UI.answer("[u] Check/update, [r] repair, [p] resource preset, [x] uninstall, [q] exit: ")
 	if err != nil {
 		return err
 	}
 	switch answer {
+	case "p":
+		return e.configureResources(r)
 	case "u":
 		return e.update(r)
 	case "r":
@@ -389,6 +427,12 @@ func (e *Engine) plan(pkg *Package, previous *installrecord.Record) (*Plan, erro
 			return nil, fmt.Errorf("cannot adopt an externally managed installation")
 		}
 		r = *previous
+		if o.Target != "" && o.Target != r.Target && !(o.Target == "runtime" && r.Target == "") {
+			return nil, fmt.Errorf("cannot change installation target")
+		}
+		if o.Preset != "" {
+			e.UI.print("Existing configuration is preserved; the initial resource preset is not reapplied.")
+		}
 		account, err := lookupAccount(r.User)
 		if err != nil || account.UID != r.UID || account.GID != r.GID {
 			return nil, fmt.Errorf("installed service account identity changed")
@@ -449,7 +493,7 @@ func (e *Engine) plan(pkg *Package, previous *installrecord.Record) (*Plan, erro
 		if _, err = os.Lstat(p.Unit); err == nil {
 			return nil, fmt.Errorf("unmanaged service exists: %s", p.Unit)
 		}
-		r = installrecord.Record{Home: a.Home, Schema: 1, State: "installing", Name: o.Name, User: a.Name, UID: a.UID, GID: a.GID, OwnerUID: uid, System: system, Paths: p, ProgramRoot: base, DataDir: p.Data, ManagedData: true, Updates: installrecord.Updates{Source: "https://molr.ai/releases", Channel: channelFor(pkg.Build.Version)}}
+		r = installrecord.Record{Target: o.Target, Home: a.Home, Schema: 1, State: "installing", Name: o.Name, User: a.Name, UID: a.UID, GID: a.GID, OwnerUID: uid, System: system, Paths: p, ProgramRoot: base, DataDir: p.Data, ManagedData: true, Updates: installrecord.Updates{Source: "https://molr.ai/releases", Channel: channelFor(pkg.Build.Version)}}
 		if o.Command == "desktop" {
 			r.Manager = "desktop"
 		}
@@ -472,6 +516,7 @@ func (e *Engine) plan(pkg *Package, previous *installrecord.Record) (*Plan, erro
 	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
 		source = o.Config
 	}
+
 	if source != "" {
 		data, err := os.ReadFile(source)
 		if err != nil {
@@ -490,6 +535,50 @@ func (e *Engine) plan(pkg *Package, previous *installrecord.Record) (*Plan, erro
 		r.ManagedData = p == r.Paths.Data
 	}
 	cfg["data_dir"] = r.DataDir
+	if source == "" && previous == nil {
+		if r.Target == "" {
+			r.Target = "runtime"
+			if e.UI.interactive() && o.Command != "desktop" && o.Command != "configure" {
+				answer, err := e.UI.answer("Install [r] full Runtime or [s] standalone Sandbox? [r]: ")
+				if err != nil {
+					return nil, err
+				}
+				if answer == "s" {
+					r.Target = "sandbox"
+				} else if answer != "" && answer != "r" {
+					return nil, fmt.Errorf("invalid installation target")
+				}
+			}
+		}
+		preset := o.Preset
+		if preset == "" && e.UI.interactive() {
+			e.UI.print("Permissive (recommended for personal deployments): allow connecting local directories, networks and compute within the service account's OS permissions. Assistants still require grants.\nLeast privilege: expose no external directories, networks or command execution; enable resources later in deployment configuration.")
+			answer, err := e.UI.answer("Resource preset: [p] permissive / [l] least privilege [l]: ")
+			if err != nil {
+				return nil, err
+			}
+			if answer == "p" {
+				preset = "permissive"
+			} else if answer != "" && answer != "l" {
+				return nil, fmt.Errorf("invalid resource preset")
+			}
+		}
+		if preset == "" {
+			preset = "least-privilege"
+		}
+		initial, err := config.SandboxPreset(preset)
+		if err != nil {
+			return nil, err
+		}
+		var value map[string]any
+		if err = json.Unmarshal(jsonBytes(initial), &value); err != nil {
+			return nil, err
+		}
+		cfg["sandbox"] = value
+	}
+	if r.Target == "" {
+		r.Target = "runtime"
+	}
 	sandbox, err := object(cfg, "sandbox")
 	if err != nil {
 		return nil, err
@@ -521,8 +610,30 @@ func (e *Engine) plan(pkg *Package, previous *installrecord.Record) (*Plan, erro
 			cfg["http"] = map[string]any{"listen": address, "public_url": "http://" + address, "tls_mode": "local"}
 		}
 	}
-	if o.Config != "" && previous == nil && !o.NoStart && o.InitOwner == "" {
+	if r.Target == "sandbox" && source == "" {
+		h := cfg["http"].(map[string]any)
+		h["tls_mode"] = "direct"
+		delete(h, "allowed_origins")
+		h["public_url"] = strings.Replace(h["public_url"].(string), "http://", "https://", 1)
+		h["cert_file"] = filepath.Join(r.DataDir, "sandbox.crt")
+		h["key_file"] = filepath.Join(r.DataDir, "sandbox.key")
+	}
+	if r.Target != "sandbox" && o.Config != "" && previous == nil && !o.NoStart && o.InitOwner == "" {
 		return nil, fmt.Errorf("custom configuration needs --init-owner NAME (password on stdin), or --no-start")
+	}
+	if _, err := config.Load(strings.NewReader(string(jsonBytes(cfg)))); err != nil {
+		return nil, err
+	}
+	if r.Target == "sandbox" {
+		h, ok := cfg["http"].(map[string]any)
+		if !ok || h["tls_mode"] != "direct" {
+			return nil, fmt.Errorf("standalone sandbox requires direct TLS")
+		}
+		key, _ := h["key_file"].(string)
+		rel, err := filepath.Rel(r.DataDir, key)
+		if err != nil || !filepath.IsLocal(rel) {
+			return nil, fmt.Errorf("sandbox TLS key must be inside data_dir")
+		}
 	}
 	if err = checkPath(r.DataDir); err != nil {
 		return nil, err
@@ -579,6 +690,7 @@ func object(v map[string]any, key string) (map[string]any, error) {
 }
 func (e *Engine) showPlan(p *Plan) {
 	r := p.Record
+	e.UI.print("Install target: %s", r.Target)
 	e.UI.print("System: %s / %s\nInstance: %s\nAccount: %s\nPackage: %s\nProgram: %s\nConfiguration: %s\nData: %s\nUpdates: %s", hostLabel(), runtime.GOARCH, r.Name, r.User, r.Build.Version, r.Paths.Program, r.Paths.Config, r.DataDir, r.UpdateSource())
 	if p.Previous != nil {
 		e.UI.print("Installed version: %s (%s)", p.Previous.Build.Version, p.Previous.State)
