@@ -32,6 +32,7 @@ test('agent installation instructions work across channels, locales, catalog fai
     await page.goto(url);
     const section = page.locator('#install');
     await section.getByRole('button', { name: 'Let an Agent install for me', exact: true }).click();
+    await section.locator('.home-install-advanced > summary').click();
     await expect(section.getByRole('group', { name: 'Release channel', exact: true })).toBeVisible();
     for (const name of ['Operating system', 'Architecture', 'Download tool']) await expect(section.getByRole('group', { name, exact: true })).toHaveCount(0);
     await expect(section.locator('pre')).toHaveCount(0);
@@ -46,6 +47,12 @@ test('agent installation instructions work across channels, locales, catalog fai
       await expect(prompt).toContainText(`(${channel})`);
       await expect(section.getByRole('button', { name: 'Copied', exact: true })).toBeVisible();
     }
+    await expect(prompt).toContainText('--mode server');
+    await expect(prompt).toContainText('one-time login link');
+    await section.getByRole('button', { name: 'Add a sandbox node', exact: true }).click();
+    await expect(prompt).toContainText('--mode sandbox');
+    await expect(prompt).toContainText('node address');
+    await expect(prompt).not.toContainText('one-time login link');
     const screenshots = resolve(root, 'test-results/agent-install');
     mkdirSync(screenshots, { recursive: true });
     for (const width of [320, 1440]) {

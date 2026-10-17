@@ -25,13 +25,13 @@ export const homeMessages = {
     sectionLabel: '从对话，到行动', environmentHeading: '连接你的设备，拓展助理的能力',
     environmentIntro: '从电脑上的文件，到服务器上的任务，让 Molr 通过连接的设备，在你授权的范围内帮你处理。',
     environmentPoints: [
-      { title: '多台设备，一位助理', body: '在 Linux 设备上安装沙盒服务，即可让 Molr 连接并使用这台设备的文件与工具。' },
+      { title: '多台设备，一位助理', body: '将设备添加为沙盒节点，即可让已有的 Molr 服务连接并使用这台设备的文件与工具。' },
       { title: '每台设备，各有边界', body: '按设备设置可用资源与操作权限，让助理在需要的地方行动。' },
     ],
-    environmentName: '你的设备，与 Molr 相连', environmentLocation: '跨设备连接 · Linux 沙盒',
+    environmentName: '你的设备，与 Molr 相连', environmentLocation: '跨设备连接 · 沙盒节点',
     environmentDevices: [{ icon: 'devices', name: '我的电脑' }, { icon: 'server', name: '家用服务器' }],
     workflowSteps: [
-      { icon: 'server', title: '连接设备', body: '安装沙盒服务，将设备连接到 Molr。' },
+      { icon: 'server', title: '连接设备', body: '添加沙盒节点，将设备连接到已有的 Molr 服务。' },
       { icon: 'shield', title: '设定边界', body: '为每台设备授权可用的文件、工具与操作。' },
       { icon: 'check', title: '交给 Molr', body: '读取电脑上的资料，执行服务器上的任务。' },
     ],
@@ -101,13 +101,13 @@ export const homeMessages = {
     sectionLabel: 'From conversation to action', environmentHeading: 'Connect your devices. Expand what your assistant can do.',
     environmentIntro: 'From files on your computer to tasks on your server, let Molr help through your connected devices, within the permissions you grant.',
     environmentPoints: [
-      { title: 'Multiple devices, one assistant', body: 'Install the sandbox service on a Linux device so Molr can connect and use its files and tools.' },
+      { title: 'Multiple devices, one assistant', body: 'Add a device as a sandbox node so your existing Molr server can connect and use its files and tools.' },
       { title: 'Clear boundaries for each device', body: 'Choose the resources and actions available on each device so your assistant can help where you need it.' },
     ],
-    environmentName: 'Your devices, connected to Molr', environmentLocation: 'Device connections · Linux sandbox',
+    environmentName: 'Your devices, connected to Molr', environmentLocation: 'Device connections · Sandbox nodes',
     environmentDevices: [{ icon: 'devices', name: 'My computer' }, { icon: 'server', name: 'Home server' }],
     workflowSteps: [
-      { icon: 'server', title: 'Connect your devices', body: 'Install the sandbox service and connect each device to Molr.' },
+      { icon: 'server', title: 'Connect your devices', body: 'Add a sandbox node and connect each device to your existing Molr server.' },
       { icon: 'shield', title: 'Set the boundaries', body: 'Grant access to files, tools and actions on each device.' },
       { icon: 'check', title: 'Hand it over to Molr', body: 'Read files on your computer and run tasks on your server.' },
     ],

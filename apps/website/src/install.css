@@ -144,3 +144,13 @@
 .home-install-prerequisites > .home-icon { flex-shrink: 0; margin-top: 3px; color: var(--color-text-muted); }
 .home-install-prerequisites strong { font-weight: 500; }
 .home-install-prerequisites p { margin: 4px 0 0; color: var(--color-text-muted); }
+
+.home-install-role { padding-bottom: 24px; border-bottom: 1px solid var(--color-border); }
+.home-install-role > p { margin: 14px 0 0; color: var(--color-text-muted); font-size: 13px; line-height: 1.85; max-width: 75ch; }
+.home-install-helpers { margin-top: 24px; }
+.home-install-advanced { margin-block: 20px 28px; padding-bottom: 20px; border-bottom: 1px solid var(--color-border); }
+.home-install-advanced > summary, .home-install-other > summary { cursor: pointer; color: var(--color-text-muted); font-size: 12px; line-height: 1.8; }
+.home-install-advanced > .home-install-option-row { margin-top: 20px; }
+.home-install-advanced > .home-install-channel-note { margin-top: 10px; }
+.home-install-other { margin-top: 28px; }
+.home-install-other button { margin-top: 12px; padding: 8px 0; color: var(--color-text); background: transparent; border: 0; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }

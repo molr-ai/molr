@@ -17,9 +17,11 @@ test('browser rejects unsafe catalog links and installs latest channel releases'
   assert.throws(() => readCatalog(bad));
   const badFile = structuredClone(catalog); badFile.channels.stable.platforms[0].file = '$(touch injected).tar.gz';
   assert.throws(() => readCatalog(badFile));
-  assert.equal(installCommand(), "curl -fsSL https://molr.ai/install.sh | sh");
-  assert.equal(installCommand('preview'), "curl -fsSL https://molr.ai/install.sh | sh -s -- --channel preview");
-  assert.equal(installCommand('nightly'), "curl -fsSL https://molr.ai/install.sh | sh -s -- --channel nightly");
+  assert.equal(installCommand(), "curl -fsSL https://molr.ai/install.sh | sh -s -- --mode server");
+  assert.equal(installCommand('preview'), "curl -fsSL https://molr.ai/install.sh | sh -s -- --mode server --channel preview");
+  assert.equal(installCommand('stable', { mode: 'sandbox' }), 'curl -fsSL https://molr.ai/install.sh | sh -s -- --mode sandbox');
+  assert.match(packageInstallCommand(catalog.channels.stable.platforms[0], 'stable', 'sandbox'), /molr-setup --channel stable --mode sandbox$/);
+  assert.equal(installCommand('nightly'), "curl -fsSL https://molr.ai/install.sh | sh -s -- --mode server --channel nightly");
 });
 test('install section follows published channels and platform availability', { timeout: 90000 }, async () => {
   const before = process.env.VITE_SITE_MODE; process.env.VITE_SITE_MODE = 'live';
@@ -34,12 +36,16 @@ test('install section follows published channels and platform availability', { t
     await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/`);
     const section = page.locator('#install');
     await expect(section.getByText('v0.1.0', { exact: true })).toBeVisible();
-    await expect(section.getByRole('group', { name: 'Architecture', exact: true }).getByRole('button')).toHaveCount(1);
+    await expect(section.getByRole('group', { name: 'Installation entry' }).getByRole('button')).toHaveCount(2);
+    await expect(section.locator('.home-install-advanced')).not.toHaveAttribute('open');
+    await expect(section.locator('pre')).not.toContainText('--arch');
+    await section.locator('.home-install-advanced > summary').click();
+    await expect(section.getByRole('group', { name: 'Architecture', exact: true }).getByRole('button')).toHaveCount(2);
     const installerURL = 'https://molr.ai/install.sh';
     await expect(section.locator('pre')).toContainText(`curl -fsSL ${installerURL}`);
     await expect(section.locator('pre')).not.toContainText('--channel');
     await expect(section.locator('pre')).not.toContainText('--version');
-    await expect(section.locator('pre')).toContainText('--arch amd64');
+    await expect(section.locator('pre')).toContainText('--mode server');
     const hero = page.locator('.home-hero-install');
     await expect(hero.getByRole('tab')).toHaveCount(2);
     await expect(hero.getByRole('tab', { name: 'Linux', exact: true })).toHaveAttribute('aria-selected', 'true');
@@ -54,21 +60,22 @@ test('install section follows published channels and platform availability', { t
     await hero.getByRole('link', { name: 'More platforms & versions' }).click();
     await expect(page).toHaveURL(/#install$/);
     await section.getByRole('button', { name: 'Preview', exact: true }).click();
-    await expect(section.getByRole('group', { name: 'Architecture', exact: true }).getByRole('button')).toHaveCount(2);
+    await expect(section.getByRole('group', { name: 'Architecture', exact: true }).getByRole('button')).toHaveCount(3);
     await expect(section.locator('pre')).toContainText('--channel preview');
     await section.getByRole('button', { name: 'Copy command', exact: true }).click();
     const copied = await page.evaluate(() => navigator.clipboard.readText());
     assert(copied.includes(`curl -fsSL ${installerURL}`));
     assert(copied.includes('--channel preview'));
     assert(!copied.includes('--version'));
-    assert(copied.includes('--arch amd64'));
+    assert(!copied.includes('--arch'));
+    assert(copied.includes('--mode server'));
     await expect(section.getByRole('button', { name: 'Copied', exact: true })).toBeVisible();
     await expect(section.getByRole('button', { name: 'Copy command', exact: true })).toBeVisible({ timeout: 4000 });
     await expect(hero.locator('pre:visible')).not.toContainText('--channel');
     await section.getByRole('button', { name: 'ARM64', exact: true }).click();
     await expect(section.locator('pre')).toContainText('--arch arm64');
     await section.getByRole('button', { name: 'wget', exact: true }).click();
-    await expect(section.locator('pre')).toHaveText('wget -qO- https://molr.ai/install.sh | sh -s -- --channel preview --arch arm64');
+    await expect(section.locator('pre')).toHaveText('wget -qO- https://molr.ai/install.sh | sh -s -- --mode server --channel preview --arch arm64');
     await section.getByRole('button', { name: 'Download package', exact: true }).click();
     await expect(section.getByRole('group', { name: 'Download tool', exact: true })).toHaveCount(0);
     await expect(section.locator('.home-install-address a')).toHaveText(catalog.channels.preview.platforms[1].url);
@@ -95,6 +102,7 @@ test('install section follows published channels and platform availability', { t
     await expect(section.locator('.home-install-requirements')).not.toContainText('systemd');
     await section.getByRole('button', { name: 'Intel', exact: true }).click();
     await expect(section.getByRole('link', { name: 'Download package', exact: true })).toHaveAttribute('href', /darwin_amd64.tar.gz$/);
+    await section.locator('.home-install-other > summary').click();
     await section.getByRole('button', { name: 'Install with Docker', exact: true }).click();
     await expect(section.getByRole('group', { name: 'Release channel', exact: true })).toHaveCount(0);
     await expect(section.locator('pre')).toContainText('docker compose build');
@@ -102,6 +110,13 @@ test('install section follows published channels and platform availability', { t
     await expect(section.getByRole('link', { name: 'Installation guide' })).toHaveAttribute('href', '/en/docs/admin/deployment/docker/');
     await section.getByRole('button', { name: 'Copy command', exact: true }).click();
     assert.equal(await page.evaluate(() => navigator.clipboard.readText()), await section.locator('pre').innerText());
+    await section.getByRole('button', { name: 'Add a sandbox node', exact: true }).click();
+    await expect(section.getByRole('button', { name: 'Install with Docker', exact: true })).toHaveCount(0);
+    await expect(section.locator('pre')).toContainText('--mode sandbox');
+    await expect(section.locator('pre')).not.toContainText('docker');
+    await section.getByRole('button', { name: 'Download package', exact: true }).click();
+    await expect(section.locator('pre')).toContainText('./bin/molr-setup --channel nightly --mode sandbox');
+    await section.getByRole('button', { name: 'Command line', exact: true }).click();
     const screenshots = resolve(import.meta.dirname, '../test-results/releases'); mkdirSync(screenshots, { recursive: true });
     for (const theme of ['light', 'dark']) for (const palette of ['forest', 'ocean', 'iris', 'sand', 'rose', 'monochrome']) for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 900 });
@@ -109,6 +124,7 @@ test('install section follows published channels and platform availability', { t
       // The installation section keeps its forest/dark brand surface in every page theme.
       await expect(section).toHaveAttribute('data-palette', 'forest');
       await expect(section).toHaveAttribute('data-theme', 'dark');
+      await page.evaluate(() => document.activeElement?.blur());
       await section.screenshot({ path: `${screenshots}/${theme}-${palette}-${width}.png` });
       await hero.screenshot({ path: `${screenshots}/hero-${theme}-${palette}-${width}.png` });
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
@@ -117,14 +133,17 @@ test('install section follows published channels and platform availability', { t
     await page.reload();
     await expect(section.getByRole('status')).toContainText('No published release');
     await expect(section.getByRole('link', { name: 'Download package', exact: true })).toHaveCount(0);
+    await section.locator('.home-install-other > summary').click();
     await section.getByRole('button', { name: 'Install with Docker', exact: true }).click();
     await expect(section.locator('pre')).toContainText('docker compose build');
     await expect(section.getByRole('status')).toHaveCount(0);
     await section.getByRole('button', { name: /Command line/ }).click();
+    await section.locator('.home-install-advanced > summary').click();
     await section.getByRole('button', { name: 'Preview', exact: true }).click();
     await expect(section.locator('pre')).toContainText('--channel preview');
     response = {};
     await page.reload(); await expect(section.getByRole('alert')).toContainText('temporarily unavailable');
+    await section.locator('.home-install-other > summary').click();
     await section.getByRole('button', { name: 'Install with Docker', exact: true }).click();
     await expect(section.locator('pre')).toContainText('docker compose build');
     await expect(section.getByRole('alert')).toHaveCount(0);
@@ -132,6 +151,16 @@ test('install section follows published channels and platform availability', { t
     response = catalog;
     await section.getByRole('button', { name: 'Retry', exact: true }).click();
     await expect(section.getByText('v0.1.0', { exact: true })).toBeVisible();
+    // Automatic commands cover architectures across OSes, regardless of the last manual download.
+    response = { ...catalog, channels: { ...catalog.channels, stable: release('0.1.0', 'stable', [platforms[0], platforms.find(p => p.os === 'darwin' && p.arch === 'arm64')]) } };
+    await page.reload();
+    await section.getByRole('button', { name: 'Download package', exact: true }).click();
+    await section.getByRole('button', { name: 'x64 / AMD64', exact: true }).click();
+    await section.getByRole('button', { name: 'Command line', exact: true }).click();
+    await expect(section.locator('pre')).not.toContainText('--arch');
+    await section.locator('.home-install-advanced > summary').click();
+    await section.getByRole('button', { name: 'ARM64', exact: true }).click();
+    await expect(section.locator('pre')).toContainText('--arch arm64');
   } finally {
     await browser.close(); await server.close();
     if (before === undefined) delete process.env.VITE_SITE_MODE; else process.env.VITE_SITE_MODE = before;

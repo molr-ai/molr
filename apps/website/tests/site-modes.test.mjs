@@ -152,6 +152,7 @@ test('website state builds and browser behavior', { timeout: 240_000 }, async t 
               await expect(page.getByRole('heading', { name: '给好奇心，一个工作空间。' })).toBeInViewport();
               const installer = page.locator('#install');
               await expect(installer.getByRole('link', { name: '详细安装指南' })).toHaveAttribute('href', '/zh/docs/admin/getting-started/');
+              await installer.locator('.home-install-advanced > summary').click();
               await expect(installer.getByRole('button', { name: '正式版', exact: true })).toHaveAttribute('aria-pressed', 'true');
               await expect(installer.getByRole('status')).toContainText('该渠道暂无已发布版本');
               await installer.getByRole('button', { name: '预发布版', exact: true }).click();

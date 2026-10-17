@@ -32,6 +32,7 @@ test('desktop download UI shows edition and does not invent missing releases', {
     const section = page.locator('#install');
     await section.getByRole('button', { name: 'Desktop app', exact: true }).click();
     await expect(section.getByText('Client · remote connections only')).toBeVisible();
+    await expect(section.getByRole('link', { name: 'Installation guide' })).toHaveAttribute('href', '/en/docs/admin/deployment/installation/');
     await expect(section.getByRole('link', { name: 'Download installer' })).toHaveAttribute('href', platform.url);
     await expect(section.getByText(/Unsigned test build/)).toBeVisible();
     const macFile = 'molr-desktop_0.1.0_darwin-arm64_full.dmg';
@@ -44,6 +45,7 @@ test('desktop download UI shows edition and does not invent missing releases', {
     await section.getByRole('button', { name: 'Desktop app', exact: true }).click();
     await expect(section.getByRole('link', { name: 'Download installer' })).toBeVisible();
     await expect(section.getByText(/Unnotarized test build/)).toHaveCount(0);
+    await section.locator('.home-install-advanced > summary').click();
     await section.getByRole('group', { name: 'Desktop release channel' }).getByRole('button', { name: 'Preview', exact: true }).click();
     await expect(section.getByText('No desktop installers have been published in this channel.')).toBeVisible();
     await expect(section.getByRole('link', { name: 'Download installer' })).toHaveCount(0);
