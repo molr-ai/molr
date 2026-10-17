@@ -72,7 +72,7 @@ export function PlanWeekCalendar({ date, selectedDate, locale, events, selectedK
                 const kind = event.Plan.Schedule?.Kind === 'assistant_plan' ? 'automatic' : event.Plan.Schedule ? 'event' : 'item';
                 const Icon = done ? Check : event.Plan.Links.Paused ? Pause : kind === 'automatic' ? Repeat2 : kind === 'event' ? Clock3 : ListTodo;
                 const label = `${event.Plan.Title} · ${t[kind]} · ${new Date(event.At).toLocaleString(locale)}${finish ? ` – ${new Date(finish).toLocaleString(locale)}` : ''}${done ? ` · ${t.done}` : ''}${event.Plan.Links.Paused ? ` · ${t.paused}` : ''}`;
-                return <button type="button" key={event.Key} className="plans-week-event" data-kind={kind} data-completed={done} data-paused={event.Plan.Links.Paused} data-selected={event.Key === selectedKey} data-event-key={event.Key}
+                return <button type="button" key={event.Key} className="plans-week-event" data-kind={kind} data-completed={done} data-paused={event.Plan.Links.Paused} data-selected={event.Key === selectedKey} data-event-key={event.Key} data-compact={bottom - top === 30}
                   style={{ top: `${top / 1440 * 100}%`, height: `calc(${(bottom - top) / 1440 * 100}% - 2px)`, left: `calc(${column / columns * 100}% + 3px)`, width: `calc(${100 / columns}% - 6px)` }}
                   title={label} aria-label={label} onClick={() => onEvent(event)}>
                   <span className="plans-week-event-title"><Icon size={12} /><strong>{event.Plan.Title}</strong></span>
