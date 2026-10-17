@@ -51,7 +51,7 @@ docker compose exec molr cat /data/initial-password
 
 ### 独立 Linux 沙盒
 
-在另一台 Linux 设备或宿主机上按[独立沙盒服务](../sandbox/remote.md)部署 `molr-sandbox`，在 WebUI 中连接资源，再为助理授予计算、目录和网络权限。主容器保持默认配置；远程节点需通过自己的隔离能力检查。
+在另一台 Linux 设备或宿主机上按[独立沙盒服务](../sandbox/remote.md)部署 `molr serve --mode sandbox`，在 WebUI 中连接资源，再为助理授予计算、目录和网络权限。主容器保持默认配置；远程节点需通过自己的隔离能力检查。
 
 连接局域网模型或沙盒时，在主容器配置的 `network.allowed_private_ips` 中显式加入目标数字 IP。容器的 `127.0.0.1` 指向容器自身，不能用于访问宿主机上的模型或沙盒。远程节点不会自动获得主容器的 `/work` 文件；需要访问的远端目录按资源授权登记。
 

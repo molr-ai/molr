@@ -1,5 +1,7 @@
 # Release Maintenance
 
+Runtime packages contain `bin/molr` and the `bin/molr-setup` maintenance tool. The same `molr` runs the complete service or a sandbox node with `serve --mode server|sandbox`; install with `molr-setup --mode server|sandbox`. The installation record retains the mode across updates and repairs.
+
 Release packages are stored in GitHub Releases. The official website and release manifests are deployed together as static resources via Cloudflare Workers. The current artifacts are Linux/macOS Runtime packages with an embedded WebUI; platform and environment requirements are uniformly defined in [`release/platforms.json`](../../../../release/platforms.json).
 
 

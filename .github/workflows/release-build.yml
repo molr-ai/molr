@@ -73,7 +73,9 @@ jobs:
       - if: matrix.os == 'linux'
         uses: ./.github/actions/prepare-sandbox
       - name: Native installation and sandbox acceptance
-        run: npm run test:release-install
+        run: |
+          MOLR_TEST_MODE=server npm run test:release-install
+          MOLR_TEST_MODE=sandbox npm run test:release-install
         env:
           MOLR_TEST_ARCHIVE: dist/releases/molr_${{ needs.prepare.outputs.version }}_${{ matrix.os }}_${{ matrix.arch }}.tar.gz
       - uses: actions/upload-artifact@v4

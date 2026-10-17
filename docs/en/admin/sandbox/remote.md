@@ -1,8 +1,8 @@
 # Standalone Sandbox Service
 
-Runtime includes its local sandbox_manager. In the main Runtime, `sandbox.enabled: false` disables local command execution while workspaces, file tools, and remote connections remain available. In standalone `molr-sandbox`, the same switch still controls the whole remote node. Remote nodes support Linux and macOS. File operations need no compute grant but retain workspace ownership and directory authorization checks.
+Runtime includes its local sandbox_manager. In the main Runtime, `sandbox.enabled: false` disables local command execution while workspaces, file tools, and remote connections remain available. In Runtime `sandbox` mode, the same switch still controls the whole remote node. Remote nodes support Linux and macOS. File operations need no compute grant but retain workspace ownership and directory authorization checks.
 
-Remote computers run `molr-sandbox`, providing only controlled execution and authorized directories. They do not initialize accounts, Agents, sessions, assistant workspaces, or model services. The assistant and its unique `/work` always reside locally within the Runtime. Nodes reuse their platform file tools and execution backend: Bubblewrap on Linux and Seatbelt on macOS; the common protocol does not include Bubblewrap or cgroup paths.
+Remote computers run `molr serve --mode sandbox`, providing only controlled execution and authorized directories. They do not initialize accounts, Agents, sessions, assistant workspaces, or model services. The assistant and its unique `/work` always reside locally within the Runtime. Nodes reuse their platform file tools and execution backend: Bubblewrap on Linux and Seatbelt on macOS; the common protocol does not include Bubblewrap or cgroup paths.
 
 This page is intended for deployers. After the service starts, administrators [connect to the sandbox](../resources/sandbox.md#connect-in-the-webui), and members use resources allowed by their user groups and authorize their own assistants.
 
@@ -12,15 +12,15 @@ The current Sandbox capability protocol is version 9, with the transport path `/
 
 ## Install with setup
 
-Linux/macOS service packages contain `molr`, `molr-sandbox` and `molr-setup`. Run on the target machine:
+Linux/macOS service packages contain `molr` and `molr-setup`. Run on the target machine:
 
 ```bash
-./bin/molr-setup --target sandbox --name molr-node --resource-preset permissive
+./bin/molr-setup --mode sandbox --name molr-node --resource-preset permissive
 ```
 
-Choose `least-privilege` to initially disable resources and adjust them later. Setup installs only the standalone service and maintenance executable, prepares systemd/launchd, an HTTPS certificate and private token, verifies capabilities and reports connection information. The token lives in `sandbox-token` in the data directory and is never printed in setup logs. For custom configuration use `--config` with HTTPS settings and certificates; setup still generates the token. Do not use `--init-owner`.
+Choose `least-privilege` to initially disable resources and adjust them later. Setup installs the same Runtime and maintenance executable in `sandbox` mode, prepares systemd/launchd, an HTTPS certificate and private token, verifies capabilities and reports connection information. The token lives in `sandbox-token` in the data directory and is never printed in setup logs. For custom configuration use `--config` with HTTPS settings and certificates; setup still generates the token. Do not use `--init-owner`.
 
-The installed `molr-setup status` shows connection information; `update` upgrades and `uninstall` removes the service while retaining configuration and data. See [installation presets](../deployment/installation.md#installation-target-and-resource-permission-presets).
+The installed `molr-setup status` shows connection information; `update` upgrades and `uninstall` removes the service while retaining configuration and data. See [installation presets](../deployment/installation.md#runtime-modes-and-resource-permission-presets).
 
 ## Build and Startup
 
@@ -29,10 +29,10 @@ Use the Go version specified by `runtime/.go-version` in the deployment checkout
 ```bash
 mkdir -p .cache/build
 cd runtime
-CGO_ENABLED=0 go build -o ../.cache/build/molr-sandbox ./cmd/molr-sandbox
-chmod 0755 ../.cache/build/molr-sandbox
-file ../.cache/build/molr-sandbox
-go version -m ../.cache/build/molr-sandbox
+CGO_ENABLED=0 go build -o ../.cache/build/molr ./cmd/molr
+chmod 0755 ../.cache/build/molr
+file ../.cache/build/molr
+go version -m ../.cache/build/molr
 ```
 
 Verify a static Linux ELF or macOS Mach-O, `CGO_ENABLED=0`, and `0755` permissions. On macOS, run `codesign --force --sign - <binary>` and verify with `codesign --verify --strict <binary>`. On Linux, like the Runtime, this requires Bubblewrap, static BusyBox, user namespaces, and cgroup v2 delegation. For complete requirements, see [Linux Sandbox Deployment](linux.md).
@@ -72,7 +72,7 @@ Use a separate systemd user service:
 ```ini
 [Service]
 Type=exec
-ExecStart=/path/molr-sandbox -config /private/sandbox.json -token-file /srv/molr-sandbox/private/service.token
+ExecStart=/path/molr serve --mode sandbox -config /private/sandbox.json -token-file /srv/molr-sandbox/private/service.token
 Delegate=yes
 DelegateSubgroup=supervisor
 KillMode=control-group
@@ -83,7 +83,7 @@ Service names use the `molr-` prefix, and each instance uses a different unit, p
 
 ## macOS nodes
 
-macOS uses the same `molr-sandbox -config … -token-file …` command, TLS and token authentication. Standalone nodes support `molr-setup --target sandbox` and source deployment. Build on the target Mac and validate ARM64 and AMD64 natively.
+macOS uses the same `molr serve --mode sandbox -config … -token-file …` command, TLS and token authentication. Standalone nodes support `molr-setup --mode sandbox` and source deployment. Build on the target Mac and validate ARM64 and AMD64 natively.
 
 Use Mac absolute paths for `data_dir`, certificates, private keys, tokens and directories. Replace the example's `sandbox` section with:
 
@@ -113,7 +113,10 @@ Manage the node with a dedicated launchd configuration. Replace every path and c
 <plist version="1.0"><dict>
   <key>Label</key><string>ai.molr.remote-sandbox</string>
   <key>ProgramArguments</key><array>
-    <string>/Users/example/molr/bin/molr-sandbox</string>
+    <string>/Users/example/molr/bin/molr</string>
+    <string>serve</string>
+    <string>--mode</string>
+    <string>sandbox</string>
     <string>-config</string><string>/Users/example/molr/private/sandbox.json</string>
     <string>-token-file</string><string>/Users/example/molr/private/service.token</string>
   </array>

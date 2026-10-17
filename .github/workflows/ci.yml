@@ -42,7 +42,9 @@ jobs:
       - name: Native installation and sandbox acceptance
         run: |
           arch=$(node -p '({x64: "amd64", arm64: "arm64"})[process.arch]')
-          MOLR_TEST_ARCHIVE="dist/releases/molr_0.1.0-local_linux_${arch}.tar.gz" npm run test:release-install
+          for mode in server sandbox; do
+            MOLR_TEST_MODE="$mode" MOLR_TEST_ARCHIVE="dist/releases/molr_0.1.0-local_linux_${arch}.tar.gz" npm run test:release-install
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: ci-install-linux-${{ runner.arch == 'X64' && 'amd64' || 'arm64' }}

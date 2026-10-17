@@ -1,8 +1,8 @@
 # 独立 Sandbox 服务
 
-Runtime 内置本机 sandbox_manager，无需额外启动本机服务。主 Runtime 的 `sandbox.enabled: false` 关闭本机命令执行，工作区、文件工具和远程连接仍可用。独立 `molr-sandbox` 的同名开关仍控制整个远程节点；远程节点支持 Linux 和 macOS。文件操作不要求计算授权，但仍受工作区归属与目录权限限制。
+Runtime 内置本机 sandbox_manager，无需额外启动本机服务。主 Runtime 的 `sandbox.enabled: false` 关闭本机命令执行，工作区、文件工具和远程连接仍可用。Runtime 的 `sandbox` 模式中，同名开关仍控制整个远程节点；远程节点支持 Linux 和 macOS。文件操作不要求计算授权，但仍受工作区归属与目录权限限制。
 
-远程电脑运行 `molr-sandbox`，只提供受控执行与已授权目录，不初始化账号、Agent、会话、助理工作区或模型服务。助理及其唯一 `/work` 始终位于 Runtime 本地。节点复用对应平台的文件工具与执行后端：Linux 使用 Bubblewrap，macOS 使用 Seatbelt；公共协议不包含 Bubblewrap 或 cgroup 路径。
+远程电脑运行 `molr serve --mode sandbox`，只提供受控执行与已授权目录，不初始化账号、Agent、会话、助理工作区或模型服务。助理及其唯一 `/work` 始终位于 Runtime 本地。节点复用对应平台的文件工具与执行后端：Linux 使用 Bubblewrap，macOS 使用 Seatbelt；公共协议不包含 Bubblewrap 或 cgroup 路径。
 
 本页面向部署者。服务启动后由管理员[连接沙盒](https://molr.ai/zh/docs/admin/resources/sandbox/#在-webui-连接)，成员使用所属用户组允许的资源并为自己的助理授权。
 
@@ -12,15 +12,15 @@ Runtime 内置本机 sandbox_manager，无需额外启动本机服务。主 Runt
 
 ## 使用安装器
 
-Linux/macOS 服务包同时包含 `molr`、`molr-sandbox` 和 `molr-setup`。在目标机器执行：
+Linux/macOS 服务包同时包含 `molr` 和 `molr-setup`。在目标机器执行：
 
 ```bash
-./bin/molr-setup --target sandbox --name molr-node --resource-preset permissive
+./bin/molr-setup --mode sandbox --name molr-node --resource-preset permissive
 ```
 
-可选择 `least-privilege` 预设，默认关闭资源，随后按需调整。安装器仅安装独立沙盒和维护程序，准备 systemd／launchd 服务、HTTPS 证书及私有令牌，验证节点能力后输出连接信息。令牌保存在数据目录的 `sandbox-token`，不会打印在安装日志中。使用自定义配置时通过 `--config` 提供 HTTPS 配置与证书；令牌仍由安装器生成，不使用 `--init-owner`。
+可选择 `least-privilege` 预设，默认关闭资源，随后按需调整。安装器安装同一 Runtime 与维护程序，并配置 `sandbox` 模式，准备 systemd／launchd 服务、HTTPS 证书及私有令牌，验证节点能力后输出连接信息。令牌保存在数据目录的 `sandbox-token`，不会打印在安装日志中。使用自定义配置时通过 `--config` 提供 HTTPS 配置与证书；令牌仍由安装器生成，不使用 `--init-owner`。
 
-通过安装后的 `molr-setup status` 查看连接信息，`update` 升级，`uninstall` 卸载并保留配置和数据。完整预设说明见[安装指南](https://molr.ai/zh/docs/admin/deployment/installation/#安装目标与资源权限预设)。
+通过安装后的 `molr-setup status` 查看连接信息，`update` 升级，`uninstall` 卸载并保留配置和数据。完整预设说明见[安装指南](https://molr.ai/zh/docs/admin/deployment/installation/#runtime-模式与资源权限预设)。
 
 ## 构建与启动
 
@@ -29,10 +29,10 @@ Linux/macOS 服务包同时包含 `molr`、`molr-sandbox` 和 `molr-setup`。在
 ```bash
 mkdir -p .cache/build
 cd runtime
-CGO_ENABLED=0 go build -o ../.cache/build/molr-sandbox ./cmd/molr-sandbox
-chmod 0755 ../.cache/build/molr-sandbox
-file ../.cache/build/molr-sandbox
-go version -m ../.cache/build/molr-sandbox
+CGO_ENABLED=0 go build -o ../.cache/build/molr ./cmd/molr
+chmod 0755 ../.cache/build/molr
+file ../.cache/build/molr
+go version -m ../.cache/build/molr
 ```
 
 确认 Linux 静态 ELF 或 macOS Mach-O、`CGO_ENABLED=0` 和 `0755` 权限。macOS 产物执行 `codesign --force --sign - <binary>` 并用 `codesign --verify --strict <binary>` 验证。Linux 与 Runtime 相同，需要 Bubblewrap、静态 BusyBox、user namespace 和 cgroup v2 委派。完整要求见 [Linux 沙盒部署](https://molr.ai/zh/docs/admin/sandbox/linux/)。
@@ -72,7 +72,7 @@ Linux 使用独立的 systemd 用户服务：
 ```ini
 [Service]
 Type=exec
-ExecStart=/path/molr-sandbox -config /private/sandbox.json -token-file /srv/molr-sandbox/private/service.token
+ExecStart=/path/molr serve --mode sandbox -config /private/sandbox.json -token-file /srv/molr-sandbox/private/service.token
 Delegate=yes
 DelegateSubgroup=supervisor
 KillMode=control-group
@@ -83,7 +83,7 @@ Restart=on-failure
 
 ## macOS 节点
 
-macOS 使用相同的 `molr-sandbox -config … -token-file …` 命令、TLS 与令牌认证。独立节点支持 `molr-setup --target sandbox` 安装，也可从源码构建。构建应在目标 Mac 原生完成，ARM64 与 AMD64 分别验收。
+macOS 使用相同的 `molr serve --mode sandbox -config … -token-file …` 命令、TLS 与令牌认证。独立节点支持 `molr-setup --mode sandbox` 安装，也可从源码构建。构建应在目标 Mac 原生完成，ARM64 与 AMD64 分别验收。
 
 配置中的 `data_dir`、证书、私钥、令牌和目录全部使用 Mac 上的绝对路径。将上例的 `sandbox` 替换为：
 
@@ -113,7 +113,10 @@ macOS 使用相同的 `molr-sandbox -config … -token-file …` 命令、TLS �
 <plist version="1.0"><dict>
   <key>Label</key><string>ai.molr.remote-sandbox</string>
   <key>ProgramArguments</key><array>
-    <string>/Users/example/molr/bin/molr-sandbox</string>
+    <string>/Users/example/molr/bin/molr</string>
+    <string>serve</string>
+    <string>--mode</string>
+    <string>sandbox</string>
     <string>-config</string><string>/Users/example/molr/private/sandbox.json</string>
     <string>-token-file</string><string>/Users/example/molr/private/service.token</string>
   </array>

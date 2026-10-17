@@ -27,14 +27,14 @@ import (
 )
 
 type Options struct {
-	Target, Preset                                                                                                             string
-	Component, TaskID, TaskAction                                                                                              string
-	JSON                                                                                                                       bool
-	LockFD                                                                                                                     int
-	Command, Mode, Name, User, ProgramRoot, Config, Record, Source, Channel, Version, PublicHost, Permissions, InitOwner       string
-	NameSet                                                                                                                    bool
-	Port                                                                                                                       int
-	NonInteractive, Interactive, DryRun, Yes, InstallDeps, SkipDependencies, NoStart, NoBrowser, Repair, Purge, AllowDowngrade bool
+	Mode, Preset                                                                                                                    string
+	Component, TaskID, TaskAction                                                                                                   string
+	JSON                                                                                                                            bool
+	LockFD                                                                                                                          int
+	Command, InteractionMode, Name, User, ProgramRoot, Config, Record, Source, Channel, Version, PublicHost, Permissions, InitOwner string
+	NameSet                                                                                                                         bool
+	Port                                                                                                                            int
+	NonInteractive, Interactive, DryRun, Yes, InstallDeps, SkipDependencies, NoStart, NoBrowser, Repair, Purge, AllowDowngrade      bool
 }
 type Engine struct {
 	desktopLogin                string
@@ -68,7 +68,7 @@ type Plan struct {
 }
 
 func parseOptions(args []string, diagnostics io.Writer) (Options, error) {
-	o := Options{Command: "setup", Name: "molr", Permissions: "ask", Mode: "auto"}
+	o := Options{Command: "setup", Name: "molr", Permissions: "ask", InteractionMode: "auto"}
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 		o.Command = args[0]
 		args = args[1:]
@@ -103,7 +103,7 @@ func parseOptions(args []string, diagnostics io.Writer) (Options, error) {
 	f.StringVar(&o.Name, "name", "molr", "instance service name")
 	f.StringVar(&o.User, "user", "", "system service account; requires root")
 	f.StringVar(&o.ProgramRoot, "program-root", "", "program base directory; instance gets its own child")
-	f.StringVar(&o.Target, "target", "", "install runtime or sandbox (new installations only)")
+	f.StringVar(&o.Mode, "mode", "", "Runtime mode: server (default) or sandbox; saved for maintenance")
 	f.StringVar(&o.Preset, "resource-preset", "", "initial resource permissions: permissive or least-privilege")
 	f.StringVar(&o.Config, "config", "", "initial JSON configuration; existing configuration is preserved")
 	f.StringVar(&o.Record, "record", "", "explicit installation.json to manage")
@@ -132,8 +132,8 @@ func parseOptions(args []string, diagnostics io.Writer) (Options, error) {
 			o.NameSet = true
 		}
 	})
-	if o.Target != "" && o.Target != "runtime" && o.Target != "sandbox" {
-		return o, fmt.Errorf("--target must be runtime or sandbox")
+	if o.Mode != "" && o.Mode != "server" && o.Mode != "sandbox" {
+		return o, fmt.Errorf("--mode must be server or sandbox")
 	}
 	if o.Preset != "" && o.Preset != "permissive" && o.Preset != "least-privilege" {
 		return o, fmt.Errorf("invalid resource preset")
@@ -141,17 +141,17 @@ func parseOptions(args []string, diagnostics io.Writer) (Options, error) {
 	if o.Config != "" && o.Preset != "" {
 		return o, fmt.Errorf("choose --config or --resource-preset")
 	}
-	if o.Target == "sandbox" && (o.InitOwner != "" || o.Command == "desktop") {
+	if o.Mode == "sandbox" && (o.InitOwner != "" || o.Command == "desktop") {
 		return o, fmt.Errorf("standalone sandbox does not initialize Runtime accounts")
 	}
 	if o.Interactive && o.NonInteractive {
 		return o, fmt.Errorf("choose either --interactive or --non-interactive")
 	}
 	if o.Interactive {
-		o.Mode = "interactive"
+		o.InteractionMode = "interactive"
 	}
 	if o.NonInteractive {
-		o.Mode = "non-interactive"
+		o.InteractionMode = "non-interactive"
 	}
 	if o.Command == "desktop" {
 		if !o.JSON || !o.NonInteractive || !o.NameSet || !strings.HasPrefix(o.Name, "molr-desktop-") || o.User != "" || o.Record != "" || o.Config != "" || o.InitOwner != "" || o.Purge || o.AllowDowngrade || o.NoStart {
@@ -191,7 +191,7 @@ func Run(ctx context.Context, args []string, input io.Reader, out, diagnostics i
 	if o.JSON {
 		humanOut = diagnostics
 	}
-	ui, err := newUI(o.Mode, o.DryRun, humanOut, diagnostics)
+	ui, err := newUI(o.InteractionMode, o.DryRun, humanOut, diagnostics)
 	if err != nil {
 		return err
 	}
@@ -288,8 +288,8 @@ func (e *Engine) execute() error {
 		if e.Options.Preset != "" && e.Options.Command != "configure" {
 			e.UI.print("Existing configuration is preserved; use configure --resource-preset to explicitly change resource permissions.")
 		}
-		if e.Options.Target != "" && e.Options.Target != r.Target && !(e.Options.Target == "runtime" && r.Target == "") {
-			return fmt.Errorf("cannot change installation target")
+		if e.Options.Mode != "" && e.Options.Mode != r.Mode {
+			return fmt.Errorf("cannot change Runtime mode")
 		}
 		if e.Options.Record != "" && e.Options.Record != installedPath {
 			return fmt.Errorf("installed tool manages its own instance; use that instance's tool")
@@ -340,6 +340,9 @@ func (e *Engine) execute() error {
 		}
 		existing = r
 	}
+	if existing != nil && e.Options.Mode != "" && e.Options.Mode != existing.Mode {
+		return fmt.Errorf("cannot change Runtime mode")
+	}
 	switch e.Options.Command {
 	case "configure":
 		return e.configureResources(existing)
@@ -357,7 +360,7 @@ func (e *Engine) execute() error {
 	return e.install(pkg, existing)
 }
 func (e *Engine) maintenance(r *installrecord.Record) error {
-	e.UI.print("Instance: %s\nVersion: %s\nState: %s\nProgram: %s\nUpdates: %s", r.Name, r.Build.Version, r.State, r.Paths.Program, r.UpdateSource())
+	e.UI.print("Instance: %s\nMode: %s\nVersion: %s\nState: %s\nProgram: %s\nUpdates: %s", r.Name, r.Mode, r.Build.Version, r.State, r.Paths.Program, r.UpdateSource())
 	if e.Options.Command == "status" && !e.Options.DryRun {
 		state, err := e.unitState(r)
 		if err != nil {
@@ -365,7 +368,7 @@ func (e *Engine) maintenance(r *installrecord.Record) error {
 		}
 		e.UI.print("Service: %s (%s), PID: %s", state["ActiveState"], state["LoadState"], state["MainPID"])
 	}
-	if r.Target == "sandbox" {
+	if r.Mode == "sandbox" {
 		cfg, err := desktopConfig(r)
 		if err != nil {
 			return err
@@ -427,8 +430,8 @@ func (e *Engine) plan(pkg *Package, previous *installrecord.Record) (*Plan, erro
 			return nil, fmt.Errorf("cannot adopt an externally managed installation")
 		}
 		r = *previous
-		if o.Target != "" && o.Target != r.Target && !(o.Target == "runtime" && r.Target == "") {
-			return nil, fmt.Errorf("cannot change installation target")
+		if o.Mode != "" && o.Mode != r.Mode {
+			return nil, fmt.Errorf("cannot change Runtime mode")
 		}
 		if o.Preset != "" {
 			e.UI.print("Existing configuration is preserved; the initial resource preset is not reapplied.")
@@ -493,7 +496,7 @@ func (e *Engine) plan(pkg *Package, previous *installrecord.Record) (*Plan, erro
 		if _, err = os.Lstat(p.Unit); err == nil {
 			return nil, fmt.Errorf("unmanaged service exists: %s", p.Unit)
 		}
-		r = installrecord.Record{Target: o.Target, Home: a.Home, Schema: 1, State: "installing", Name: o.Name, User: a.Name, UID: a.UID, GID: a.GID, OwnerUID: uid, System: system, Paths: p, ProgramRoot: base, DataDir: p.Data, ManagedData: true, Updates: installrecord.Updates{Source: "https://molr.ai/releases", Channel: channelFor(pkg.Build.Version)}}
+		r = installrecord.Record{Mode: o.Mode, Home: a.Home, Schema: 1, State: "installing", Name: o.Name, User: a.Name, UID: a.UID, GID: a.GID, OwnerUID: uid, System: system, Paths: p, ProgramRoot: base, DataDir: p.Data, ManagedData: true, Updates: installrecord.Updates{Source: "https://molr.ai/releases", Channel: channelFor(pkg.Build.Version)}}
 		if o.Command == "desktop" {
 			r.Manager = "desktop"
 		}
@@ -536,17 +539,17 @@ func (e *Engine) plan(pkg *Package, previous *installrecord.Record) (*Plan, erro
 	}
 	cfg["data_dir"] = r.DataDir
 	if source == "" && previous == nil {
-		if r.Target == "" {
-			r.Target = "runtime"
+		if r.Mode == "" {
+			r.Mode = "server"
 			if e.UI.interactive() && o.Command != "desktop" && o.Command != "configure" {
-				answer, err := e.UI.answer("Install [r] full Runtime or [s] standalone Sandbox? [r]: ")
+				answer, err := e.UI.answer("Runtime mode: [r] server / [s] sandbox node [r]: ")
 				if err != nil {
 					return nil, err
 				}
 				if answer == "s" {
-					r.Target = "sandbox"
+					r.Mode = "sandbox"
 				} else if answer != "" && answer != "r" {
-					return nil, fmt.Errorf("invalid installation target")
+					return nil, fmt.Errorf("invalid Runtime mode")
 				}
 			}
 		}
@@ -576,8 +579,8 @@ func (e *Engine) plan(pkg *Package, previous *installrecord.Record) (*Plan, erro
 		}
 		cfg["sandbox"] = value
 	}
-	if r.Target == "" {
-		r.Target = "runtime"
+	if r.Mode == "" {
+		r.Mode = "server"
 	}
 	sandbox, err := object(cfg, "sandbox")
 	if err != nil {
@@ -610,7 +613,7 @@ func (e *Engine) plan(pkg *Package, previous *installrecord.Record) (*Plan, erro
 			cfg["http"] = map[string]any{"listen": address, "public_url": "http://" + address, "tls_mode": "local"}
 		}
 	}
-	if r.Target == "sandbox" && source == "" {
+	if r.Mode == "sandbox" && source == "" {
 		h := cfg["http"].(map[string]any)
 		h["tls_mode"] = "direct"
 		delete(h, "allowed_origins")
@@ -618,13 +621,13 @@ func (e *Engine) plan(pkg *Package, previous *installrecord.Record) (*Plan, erro
 		h["cert_file"] = filepath.Join(r.DataDir, "sandbox.crt")
 		h["key_file"] = filepath.Join(r.DataDir, "sandbox.key")
 	}
-	if r.Target != "sandbox" && o.Config != "" && previous == nil && !o.NoStart && o.InitOwner == "" {
+	if r.Mode != "sandbox" && o.Config != "" && previous == nil && !o.NoStart && o.InitOwner == "" {
 		return nil, fmt.Errorf("custom configuration needs --init-owner NAME (password on stdin), or --no-start")
 	}
 	if _, err := config.Load(strings.NewReader(string(jsonBytes(cfg)))); err != nil {
 		return nil, err
 	}
-	if r.Target == "sandbox" {
+	if r.Mode == "sandbox" {
 		h, ok := cfg["http"].(map[string]any)
 		if !ok || h["tls_mode"] != "direct" {
 			return nil, fmt.Errorf("standalone sandbox requires direct TLS")
@@ -690,7 +693,7 @@ func object(v map[string]any, key string) (map[string]any, error) {
 }
 func (e *Engine) showPlan(p *Plan) {
 	r := p.Record
-	e.UI.print("Install target: %s", r.Target)
+	e.UI.print("Runtime mode: %s", r.Mode)
 	e.UI.print("System: %s / %s\nInstance: %s\nAccount: %s\nPackage: %s\nProgram: %s\nConfiguration: %s\nData: %s\nUpdates: %s", hostLabel(), runtime.GOARCH, r.Name, r.User, r.Build.Version, r.Paths.Program, r.Paths.Config, r.DataDir, r.UpdateSource())
 	if p.Previous != nil {
 		e.UI.print("Installed version: %s (%s)", p.Previous.Build.Version, p.Previous.State)

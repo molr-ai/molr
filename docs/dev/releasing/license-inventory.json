@@ -11,7 +11,7 @@
     "runtime/internal/voicecodec/silk.wasm": "13de15803937f44593398fee46d1dd7ee4ea2f04c819f8f887525b4cd9b60bf7",
     "runtime/internal/voicecodec/README.md": "0b8a2c9634b6361a46c4ca75120a734a3f247d3779c46db62e4487578840caa5",
     "runtime/internal/voicecodec/source/build.py": "edeadc1e9acb2f77ad9caf10bc36965a9e988497a18e35b8a70a790092e4879c",
-    "scripts/build-release.mjs": "50eb43f107858c2b3347624f7e1e3eb7dc2ca056c92ea42f18b290484a76d181",
+    "scripts/build-release.mjs": "17a7253510ed07b71f8dd163b183d8418b95b750da7403e0064cebe73df3cc07",
     "apps/website/src/GithubMark.tsx": "7d0d38bb13335793c5ed91d5f27ffc8e5fc2811d7eff9ce6e59a6f6d33d5a37a",
     "apps/website/src/site-links.ts": "f360bbe44df89647e5d43207230ab65ee7b2c899aa2f680f1863bba125d2c1cd",
     "THIRD_PARTY_NOTICES.md": "205054f1cc51e90aa2f0d310e01f5c904d52aaf8eb9408253bb56a2f1fe71740",
@@ -24,7 +24,7 @@
     "deploy/docker/vendor/LICENSE.moby": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
     "deploy/docker/seccomp-isolated.json": "7f176503fddf85b01daf167d2970beb395710eee32e7d5add40fc15b0dc6d34a",
     "apps/desktop/package.json": "00c87cfefecff3947c064843210a0a56879a5ab1588de633b321b80d18feadab",
-    "apps/desktop/scripts/package.mjs": "61c732b15572bae1bf2e62e8c5e2808e6a5f836139067ffc70d8119c6c52f45d"
+    "apps/desktop/scripts/package.mjs": "8cae27f2b93c1d4d05164263a5d15a4a053e4555cd6baabb7a9379702a32c181"
   },
   "npm": [
     {

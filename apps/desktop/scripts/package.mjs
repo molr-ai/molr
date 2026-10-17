@@ -24,7 +24,7 @@ if (full) {
   if (!existsSync(join(packageRoot, 'release.json'))) throw new Error('Run npm run build:release first, using the same version and commit');
   const meta = JSON.parse(readFileSync(join(packageRoot, 'release.json')));
   if (meta.os !== os || meta.arch !== goArch || meta.version !== version || meta.commit !== commit) throw new Error('Bundled Runtime identity mismatch');
-  for (const name of ['bin/molr', 'bin/molr-setup', 'bin/molr-sandbox', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'release.json']) {
+  for (const name of ['bin/molr', 'bin/molr-setup', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'release.json']) {
     const stat = lstatSync(join(packageRoot, name));
     if (!stat.isFile() || (name.startsWith('bin/') && (stat.mode & 0o777) !== 0o755)) throw new Error(`Unsafe Runtime resource: ${name}`);
   }
@@ -49,14 +49,14 @@ const config = {
     { from: join(root, 'THIRD_PARTY_NOTICES.md'), to: 'THIRD_PARTY_NOTICES.md' },
     { from: join(electronRoot, 'LICENSE'), to: 'licenses/Electron-LICENSE' },
     { from: join(electronRoot, 'LICENSES.chromium.html'), to: 'licenses/LICENSES.chromium.html' },
-    ...(full ? [{ from: packageRoot, to: 'runtime', filter: ['bin/molr', 'bin/molr-setup', 'bin/molr-sandbox', 'release.json', 'LICENSE', 'THIRD_PARTY_NOTICES.md'] }] : []),
+    ...(full ? [{ from: packageRoot, to: 'runtime', filter: ['bin/molr', 'bin/molr-setup', 'release.json', 'LICENSE', 'THIRD_PARTY_NOTICES.md'] }] : []),
   ],
   asar: true, npmRebuild: false,
   forceCodeSigning: signed,
   artifactName: `molr-desktop_${version}_${os}-${goArch}_${variant}.\${ext}`,
   linux: { target: ['deb'], executableName: 'molr-desktop', category: 'Utility', maintainer: 'Molr contributors', syncDesktopName: true, icon: join(root, 'packages/ui/public/brand/molr-icon-512.png') },
   deb: { packageName: 'molr-desktop', depends: ['libgtk-3-0', 'libnotify4', 'libnss3', 'libxss1', 'libxtst6', 'xdg-utils', 'libatspi2.0-0', 'libuuid1', 'libsecret-1-0', 'libgbm1', 'libasound2t64 | libasound2', 'libcups2t64 | libcups2', 'bubblewrap', 'busybox-static', 'util-linux', 'ca-certificates', 'systemd (>= 254)'] },
-  mac: { target: ['dmg'], category: 'public.app-category.productivity', minimumSystemVersion: '13.0', hardenedRuntime: signed, notarize: signed, binaries: ['Contents/Resources/runtime/bin/molr', 'Contents/Resources/runtime/bin/molr-setup', 'Contents/Resources/runtime/bin/molr-sandbox'], identity: signed ? undefined : '-', icon: join(root, 'packages/ui/public/brand/molr-icon-1024.png') },
+  mac: { target: ['dmg'], category: 'public.app-category.productivity', minimumSystemVersion: '13.0', hardenedRuntime: signed, notarize: signed, binaries: ['Contents/Resources/runtime/bin/molr', 'Contents/Resources/runtime/bin/molr-setup'], identity: signed ? undefined : '-', icon: join(root, 'packages/ui/public/brand/molr-icon-1024.png') },
   win: { target: ['nsis'], executableName: 'Molr', icon: join(root, 'packages/ui/public/brand/molr-icon-256.png') },
   nsis: { oneClick: false, perMachine: false, allowToChangeInstallationDirectory: true, deleteAppDataOnUninstall: false },
 };

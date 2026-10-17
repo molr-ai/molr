@@ -1,6 +1,6 @@
 # Let an Agent install for me
 
-Choose “Let an Agent install for me” in the website installation section, select a release channel, and copy the instructions to an Agent that can read URLs and use the target device’s terminal. The Agent detects the OS, architecture, and download tool. You can copy instructions on a phone, but the Agent still needs terminal access to the target device.
+Choose “Deploy service” on the website, select “Deploy Molr” or “Add sandbox node” and a release channel, then use the “Let an Agent install for me” helper to copy the instructions to an Agent that can read URLs and use the target device’s terminal. The Agent detects the OS, architecture, and download tool. You can copy instructions on a phone, but the Agent still needs terminal access to the target device.
 
 This guide is also available as Markdown without JavaScript: [中文](https://molr.ai/agent-install.md), [English](https://molr.ai/en/agent-install.md). The following workflow is for the installing Agent.
 
@@ -11,6 +11,8 @@ Identify the target device from the user’s instructions. Ask if it is unclear;
 Inspect the OS, architecture, current account, service manager, available space, and existing Molr services and installation records. The release catalog defines supported native targets. macOS uses the current non-root user’s launchd service, without sudo. Linux defaults to the current non-root user’s systemd service. Root installation requires an explicit non-root `--user USER`.
 
 If an instance exists, run its `molr-setup status --non-interactive` and check the version, paths, and service. A working instance can be handed over directly; updates, repairs, or additional instances must match the user’s intent. Do not delete installation records or data to bypass problems. Use the actual program paths reported by the instance for maintenance commands.
+
+Choose `server` (default) for complete Molr or `sandbox` to add a resource node to an existing Molr server. Both use the same Runtime package. The installation record retains the mode for maintenance; updates and repairs cannot change it. Resource presets are independent of the mode.
 
 ## Check releases
 
@@ -24,8 +26,10 @@ Download the official script into a private temporary directory on the target de
 
 ```sh
 curl -fsSL --proto '=https' --proto-redir '=https' https://molr.ai/install.sh -o install.sh
-sh install.sh --channel stable --non-interactive --dry-run
+sh install.sh --channel stable --mode server --non-interactive --dry-run
 ```
+
+For a sandbox node, replace `--mode server` with `--mode sandbox` in both example commands; use `--name molr-node` for a separate instance. To expose commands and directories within the user’s authorization, explicitly select `--resource-preset permissive`. Unattended setup without a preset uses least privilege.
 
 Use wget instead of curl if available. Replace stable with the selected channel; omit `--arch` to let the installer detect the device architecture. To pin the preview and execution to the same version, pass a catalog version with `--version VERSION` in both calls. The bootstrap downloads and verifies the package before running its `molr-setup`; do not bypass verification.
 
@@ -38,7 +42,7 @@ Briefly explain the actual changes. Continue routine installation within existin
 Once the environment and permissions meet the requirements, execute the same script with the selected channel and inspected options:
 
 ```sh
-sh install.sh --channel stable --non-interactive --no-browser
+sh install.sh --channel stable --mode server --non-interactive --no-browser
 ```
 
 Add options according to the inspection:
@@ -62,9 +66,11 @@ Use the actual installer result:
 | `not_started` | `--no-start` was used; the service has not started and is not ready for use |
 | Other failure | Report the failed stage and inspect the corresponding service logs before proceeding |
 
-Repeating the same version may only display status; exit code 0 alone does not prove a fresh verification. When additional checks are needed, run `molr doctor -config CONFIG` using the actual binary and configuration paths. After a password change, use `-password-stdin`; supply an MFA code as required. Use private input for credentials, never chat, command-line password arguments, or public logs. Wait for HTTP readiness before authentication, reuse valid sessions, and stop repeated logins on HTTP 429 until the rate limit allows them.
+Repeating the same version may only display status; exit code 0 alone does not prove a fresh verification. For `server` mode, when additional checks are needed, run `molr doctor -config CONFIG` using the actual binary and configuration paths. After a password change, use `-password-stdin`; supply an MFA code as required. Use private input for credentials, never chat, command-line password arguments, or public logs. Wait for HTTP readiness before authentication, reuse valid sessions, and stop repeated logins on HTTP 429 until the rate limit allows them.
 
-Linux enables the sandbox by default. Authenticated `/api/sandbox` verification must include `Enabled=true`, `Capabilities.Reason=available`, and `Shell`, `ProcessIsolation`, `FileIsolation`, `NetworkIsolation`, and `ResourceLimits` all true. macOS disables command execution by default; verify storage availability and tell the user that execution is disabled. Do not enable Full Access for installation. If the user explicitly configured different capabilities, verify that actual configuration.
+Verify the actual resource configuration; mode does not imply permissions. With Linux command execution enabled, authenticated `/api/sandbox` checks must show `Enabled=true`, `Capabilities.Reason=available`, and Shell, ProcessIsolation, FileIsolation, NetworkIsolation, ResourceLimits all true. macOS controlled execution requires Shell, FileIsolation, NetworkIsolation true, NetworkBackend seatbelt-toggle, and ProcessIsolation and ResourceLimits false. Least privilege disables commands: server mode retains built-in workspace storage, while sandbox mode disables the whole resource node.
+
+In `sandbox` mode the installer verifies HTTPS capabilities using the node token. Do not run `molr doctor`, initialize users or models, or generate login links. Hand over the node HTTPS address, certificate SHA-256 fingerprint, and token file location, then connect it from the complete server’s Resources → Sandboxes page. Transfer tokens privately. The following login handover steps apply only to `server` mode.
 
 Report the installed version and channel, target device, access address, service status, verification result, and unfinished steps. After a successful first install, privately hand over the installer’s 15-minute one-time login link with its validity period. Do not open or redeem it first. If no link was generated or it expired, use `molr access -config CONFIG` with current credentials via private input when needed. If credentials are unavailable, explain that the login entry is missing; never invent a link.
 

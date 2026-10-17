@@ -16,7 +16,7 @@ import (
 func TestSandboxInstallPlanAndSecrets(t *testing.T) {
 	e, r := fixture(t)
 	e.Options.Name = "molr-node-new"
-	e.Options.Target = "sandbox"
+	e.Options.Mode = "sandbox"
 	e.Options.Preset = "permissive"
 	e.Options.ProgramRoot = r.ProgramRoot
 	e.Options.Port = 18789
@@ -25,8 +25,8 @@ func TestSandboxInstallPlanAndSecrets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.Record.Target != "sandbox" || !p.Sandbox || p.Record.Manager != "" {
-		t.Fatal("wrong installation target")
+	if p.Record.Mode != "sandbox" || !p.Sandbox || p.Record.Manager != "" {
+		t.Fatal("wrong Runtime mode")
 	}
 	h := p.Config["http"].(map[string]any)
 	if h["tls_mode"] != "direct" || !strings.HasPrefix(h["public_url"].(string), "https://") {
@@ -69,7 +69,7 @@ func TestSandboxInstallPlanAndSecrets(t *testing.T) {
 		t.Fatal("secret printed in receipt")
 	}
 	args := strings.Join(p.Record.ServiceArgs(), " ")
-	if !strings.Contains(args, "molr-sandbox -config") || !strings.Contains(args, "-token-file") || strings.Contains(args, " serve ") {
+	if !strings.Contains(args, "molr serve --mode sandbox -config") || !strings.Contains(args, "-token-file") {
 		t.Fatal(args)
 	}
 	if _, err = os.Stat(filepath.Join(p.Record.DataDir, "runtime.db")); !os.IsNotExist(err) {
@@ -116,13 +116,46 @@ func TestPresetCannotOverwriteExistingConfiguration(t *testing.T) {
 	}
 }
 func TestPresetOptionsRejectAmbiguity(t *testing.T) {
-	for _, args := range [][]string{{"--target", "invalid"}, {"--resource-preset", "personal"}, {"--config", "server.json", "--resource-preset", "permissive"}, {"--target", "sandbox", "--init-owner", "owner"}} {
+	for _, args := range [][]string{{"--mode", "invalid"}, {"--resource-preset", "personal"}, {"--config", "server.json", "--resource-preset", "permissive"}, {"--mode", "sandbox", "--init-owner", "owner"}} {
 		if _, err := parseOptions(args, io.Discard); err == nil {
 			t.Fatalf("accepted %v", args)
 		}
 	}
-	o, err := parseOptions([]string{"--target", "sandbox", "--resource-preset", "least-privilege"}, io.Discard)
-	if err != nil || o.Target != "sandbox" || o.Preset != "least-privilege" {
+	o, err := parseOptions([]string{"--mode", "sandbox", "--resource-preset", "least-privilege"}, io.Discard)
+	if err != nil || o.Mode != "sandbox" || o.Preset != "least-privilege" {
 		t.Fatalf("%+v %v", o, err)
+	}
+}
+
+func TestMaintenancePreservesModeAndRejectsSwitch(t *testing.T) {
+	for _, mode := range []string{"server", "sandbox"} {
+		t.Run(mode, func(t *testing.T) {
+			e, r := fixture(t)
+			r.Mode = mode
+			cfg := map[string]any{"data_dir": r.DataDir, "sandbox": map[string]any{"enabled": false, "host_tools": true}, "http": map[string]any{"listen": "127.0.0.1:18790", "public_url": "http://127.0.0.1:18790", "tls_mode": "local"}}
+			if mode == "sandbox" {
+				cfg["http"] = map[string]any{"listen": "127.0.0.1:18790", "public_url": "https://127.0.0.1:18790", "tls_mode": "direct", "key_file": filepath.Join(r.DataDir, "sandbox.key"), "cert_file": filepath.Join(r.DataDir, "sandbox.crt")}
+			}
+			if err := os.WriteFile(filepath.Join(r.Paths.Config, "server.json"), jsonBytes(cfg), 0600); err != nil {
+				t.Fatal(err)
+			}
+			for _, repair := range []bool{false, true} {
+				e.Options.Repair = repair
+				p, err := e.plan(&Package{Build: r.Build}, r)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if p.Record.Mode != mode || p.Record.Binary() != "molr" {
+					t.Fatal("maintenance changed service mode")
+				}
+			}
+			e.Options.Mode = "sandbox"
+			if mode == "sandbox" {
+				e.Options.Mode = "server"
+			}
+			if _, err := e.plan(&Package{Build: r.Build}, r); err == nil {
+				t.Fatal("maintenance changed mode")
+			}
+		})
 	}
 }

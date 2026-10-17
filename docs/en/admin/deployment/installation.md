@@ -4,16 +4,16 @@ Choose “Let an Agent install for me” on the website and copy the instruction
 
 ## Clients, Runtime and Sandbox
 
-Clients display the interface, handle sign-in and connect to instances. Runtime runs assistants and persists their data. Sandbox provides file access and command execution. Connecting a desktop app to a Runtime on another computer does not move that computer's assistants or data to the client.
+Clients display the interface, handle sign-in and connect to instances. Runtime `server` mode runs assistants and persists their data; `sandbox` mode supplies another device’s directories and execution resources to an existing server. The complete server also includes local Sandbox capabilities. Connecting a desktop app to a Runtime on another computer does not move that computer's assistants or data to the client.
 
 | Component | Responsibility and location |
 | --- | --- |
 | Mobile client | Mobile users currently access WebUI in a phone browser; there is no native iOS/Android App installer. Phones connect to a reachable Runtime and do not host Runtime or Sandbox. |
 | Desktop app | Manages connections, separate sign-in sessions and the WebUI container. Linux/macOS full editions can also install and manage a local Runtime. Windows connects only to remote Runtimes, including instances in WSL. |
 | WebUI | Provides chat, assistant, resource and administration pages in a browser or desktop app. Release Runtime binaries embed WebUI and serve pages and APIs at the same address; no separate frontend server is required. The desktop app loads WebUI from the connected Runtime. |
-| Runtime | Provides accounts, Agent execution, scheduling, model calls and persistence. Databases, conversations, memory, attachments and assistant workspaces live on the Runtime device. Model services are configured separately; packages include neither model weights nor inference servers. |
-| Built-in Sandbox | Compiled into Runtime to manage controlled local file access and commands. Linux uses Bubblewrap and other system capabilities; macOS uses Seatbelt. Local execution does not require a separate `molr-sandbox` service. |
-| Independent Sandbox | Runs `molr-sandbox` on another Linux/macOS device, connected to Runtime over HTTPS. Provides authorized directories and execution, without hosting accounts, Agents, chat sessions or WebUI. |
+| Runtime | One service program with `server` and `sandbox` modes. `server` provides accounts, Agent execution, scheduling, model calls and persistence. Databases, conversations, memory, attachments and assistant workspaces live on the Runtime device. Model services are configured separately; packages include neither model weights nor inference servers. |
+| Built-in Sandbox | Compiled into Runtime to manage controlled local file access and commands. Linux uses Bubblewrap and other system capabilities; macOS uses Seatbelt. Local execution needs no additional sandbox node. |
+| Independent Sandbox | Runs `molr serve --mode sandbox` on another Linux/macOS device, connected to Runtime over HTTPS. Provides authorized directories and execution, without hosting accounts, Agents, chat sessions or WebUI. |
 
 ```mermaid
 flowchart TB
@@ -44,8 +44,7 @@ The website lists installers actually published in GitHub Releases. The table de
 | Linux full desktop `.deb`, AMD64/ARM64 | Electron desktop app, connection manager, `molr` with embedded WebUI and built-in Sandbox, and `molr-setup` | After installing the desktop app, connect only to remote Runtimes or create a local service from the app. The DEB declares Bubblewrap, static BusyBox, systemd and other dependencies for the package manager to prepare. |
 | macOS full desktop `.dmg`, Apple Silicon/Intel | An `.app` containing Electron, connection manager, `molr` with embedded WebUI and built-in Sandbox, and `molr-setup` | Create a launchd user service on demand after installing the app. Choose a resource permission preset when creating the service; generated settings control command capabilities. |
 | Windows desktop client `.exe`, AMD64 | Electron desktop app and connection manager | Contains no `molr`, `molr-setup` or local Sandbox. Connect to a Linux/macOS Runtime or one deployed separately in WSL. The app does not install or start WSL. |
-| Linux/macOS Runtime `.tar.gz`, AMD64/ARM64 | `bin/molr` with embedded WebUI and built-in Sandbox, `bin/molr-setup`, release metadata and licenses | Includes standalone `molr-sandbox` but not Electron. Choose Runtime or standalone Sandbox using the CLI, then connect through a browser or client. The website's `install.sh` downloads this type of Runtime package. |
-| Independent `molr-sandbox` | Remote Sandbox service executable | Included in Linux/macOS service packages; install with `molr-setup --target sandbox`. Source builds remain available in the [node deployment guide](../sandbox/remote.md). |
+| Linux/macOS Runtime `.tar.gz`, AMD64/ARM64 | `bin/molr` with embedded WebUI and built-in Sandbox, `bin/molr-setup`, release metadata and licenses | The same `molr` binary supports `server` and `sandbox` modes, without Electron. Choose the service mode using the CLI, then connect through a browser or client. The website's `install.sh` downloads this type of Runtime package. |
 | Source archive | Project source reviewed for distribution | For building your own artifacts, not a compiled application installer. See [source deployment](source-build.md) for build dependencies. |
 | Docker | Locally built image with `molr`, embedded WebUI and the built-in Sandbox implementation | Includes neither the desktop app nor `molr-setup`. The base image defaults to commands disabled; the `isolated` target adds Linux isolation dependencies. No official prebuilt image is currently provided. See [Docker deployment](docker.md). |
 
@@ -57,7 +56,7 @@ The website's Desktop app option lists installers from the published channel cat
 
 Linux/macOS full editions include a Runtime and can connect to remote instances. Windows is a remote-only client; a Runtime inside WSL is also added as a remote connection. Add a connection with a name and Runtime root URL, then sign in on that instance. HTTPS is the default; loopback or trusted private-network HTTP requires explicit opt-in and has no transport encryption. Connections have independent login state; changing the server origin creates a new session.
 
-The full edition's Install and start action creates a dedicated user service listening on loopback. Existing CLI installations remain independent and can be added as external connections. Linux retains the sandbox prerequisites below. Resolve missing dependencies, host-policy errors or directory permissions before retrying. macOS retains its disabled-command default and platform-specific sandbox boundaries.
+The full edition's Install and start action creates a dedicated user service listening on loopback. Existing CLI installations remain independent and can be added as external connections. Linux retains the sandbox prerequisites below. Resolve missing dependencies, host-policy errors or directory permissions before retrying. macOS command execution follows the selected resource preset and its platform-specific sandbox boundaries.
 
 Closing windows or quitting the app leaves the Runtime running. Sleep, shutdown or termination of the user service affects tasks. Explicitly stop, restart or uninstall the Runtime in the management interface; uninstall retains configuration and data. Removing the desktop application itself does not uninstall its background Runtime, so remove the service from inside the app first when needed.
 
@@ -71,7 +70,7 @@ Bundled program files, background service creation and command capabilities are 
 | --- | --- |
 | Exclude Runtime files from the Linux/macOS full edition | Not available. Full packages always include Runtime, with no component selection page or separate Linux/macOS client-only installer. |
 | Create and start a local Runtime service | Optional. Opening the app for the first time does not create a service; Install and start does. Skip this step when connecting only to remote instances. |
-| Install or omit the built-in Sandbox separately | There is no separate installation step or checkbox: it is part of Runtime. An independent `molr-sandbox` node is not deployed automatically. |
+| Install or omit the built-in Sandbox separately | There is no separate installation step or checkbox: it is part of Runtime. Additional sandbox nodes are not deployed automatically. |
 | Enable local commands | Controlled by Runtime configuration; the desktop installation interface has no toggle yet. New Linux instances enable commands by default; macOS disables them. Change the instance's `sandbox.enabled` and restart to switch. Chat, files and memory remain available when disabled, as do separately configured remote Sandboxes. Assistants still need the relevant grants to execute commands. |
 | Skip the Linux DEB's sandbox system dependencies | Not available. Installing the DEB requires its declared sandbox dependencies even for remote-only use. Skipping local service creation does not remove those package dependencies. |
 
@@ -94,21 +93,21 @@ Running a local model on the same device requires additional storage for model w
 
 For native macOS Runtime builds, Full Access, and service management, see [source deployment](source-build.md#native-macos-execution). The systemd steps below apply to Linux; macOS uses the user launchd installation described below.
 
-## Installation target and resource permission presets
+## Runtime modes and resource permission presets
 
-A new installation can run a full Runtime or a standalone Sandbox. Runtime provides accounts, assistants, WebUI and its built-in sandbox. A standalone Sandbox supplies resources to another Runtime without creating Runtime accounts or assistant workspaces.
+The same Runtime package supports `server` (default) and `sandbox` modes for a complete service or a resource node. Runtime provides accounts, assistants, WebUI and its built-in sandbox. A standalone Sandbox supplies resources to another Runtime without creating Runtime accounts or assistant workspaces.
 
 ```bash
-./bin/molr-setup --target runtime --resource-preset permissive
-./bin/molr-setup --target sandbox --name molr-node --resource-preset least-privilege
+./bin/molr-setup --mode server --resource-preset permissive
+./bin/molr-setup --mode sandbox --name molr-node --resource-preset least-privilege
 ```
 
-Interactive setup asks for the target and preset before generating configuration. Unattended setup defaults to Runtime and least privilege when omitted. Desktop shows the preset choice before creating a local Runtime, initially selecting permissive.
+The installer records the mode and generates `molr serve --mode server|sandbox` for the service. Updates, repairs, and restarts retain it. Interactive setup asks for the mode only when `--mode` is omitted; resource permissions are selected independently. Unattended setup defaults to `server` and least privilege. Desktop shows the preset choice before creating a local Runtime, initially selecting permissive.
 
 - **Permissive (recommended for personal deployments)**: connect local directories, networks and compute within the service account's OS permissions, then configure and assign access in Molr. Assistants still require individual grants. Linux discovers supported GPUs. No additional deployment ceilings are set for CPU, memory and other authorization quotas; backend and protocol capacity bounds still apply. Full Access is exposed but requires a separate grant and explicit invocation.
 - **Least privilege**: expose no local directories, network access or command execution. Adjust deployment configuration later to expose resources, then grant assistants access. Runtime data and built-in assistant workspaces remain usable. On standalone nodes, `enabled: false` disables the entire node's resources.
 
-Presets generate ordinary settings; no runtime mode is stored. `--config` and `--resource-preset` are mutually exclusive. Updates, repairs and reconnects preserve existing configuration. Preview and explicitly apply a preset to an installed instance:
+Resource presets generate ordinary settings independently of the mode saved in the installation record. `--config` and `--resource-preset` are mutually exclusive. Updates, repairs and reconnects preserve existing configuration. Preview and explicitly apply a preset to an installed instance:
 
 ```bash
 /path/to/molr-setup configure --resource-preset permissive --dry-run

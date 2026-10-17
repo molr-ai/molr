@@ -63,7 +63,7 @@ Common causes include `gpu_host_tools_required` (host tool mode not enabled), `g
 
 The same node can handle both normal isolated calls and Full Access calls simultaneously. Full Access is a permission type parallel to storage, compute, and network under the sandbox, and is not open by default. It is not a node running mode and is not automatically enabled upon isolation failure.
 
-Deployers enable it in `molr` or `molr-sandbox` configurations:
+Deployers enable it in `molr` or `molr serve --mode sandbox` configurations:
 
 ```json
 { "sandbox": { "enabled": true, "allow_full_access": true } }
@@ -183,7 +183,7 @@ No Debian tool image is required, and `/usr` or personal software environments a
 }
 ```
 
-The sandbox inherits the Runtime's host identity. The installer defaults to the current user; after selecting an account via `sudo … --user USER`, the entire Runtime's file operations, background tasks, and sandbox use that user. Existing accounts retain their group permissions; newly created accounts have no additional groups. See [Selecting the Running Account During Installation](../deployment/installation.md#selecting-the-runtime-account-during-installation) for installation parameters and the automatic account creation process. Local execution does not require a separate `molr-sandbox` service.
+The sandbox inherits the Runtime's host identity. The installer defaults to the current user; after selecting an account via `sudo … --user USER`, the entire Runtime's file operations, background tasks, and sandbox use that user. Existing accounts retain their group permissions; newly created accounts have no additional groups. See [Selecting the Running Account During Installation](../deployment/installation.md#selecting-the-runtime-account-during-installation) for installation parameters and the automatic account creation process. Local execution needs no additional sandbox node.
 
 When `host_tools: false` is set or omitted, directly started Runtimes retain a minimal BusyBox environment; the installer defaults to enabling host tools during the first installation when there is no custom rootfs. The service account is determined by deployment and cannot be switched via sandbox configuration.
 

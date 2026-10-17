@@ -1,6 +1,6 @@
 # 让 Agent 为我安装
 
-在官网安装区选择「让 Agent 为我安装」，选择发布渠道并复制安装指令，发送给能读取网址、操作目标设备终端的 Agent。系统、架构和下载工具由 Agent 检测。手机上也可以复制指令，但 Agent 仍需要目标设备的终端访问能力。
+在官网选择「部署服务」，按用途选择「部署 Molr」或「添加沙盒节点」及发布渠道，再通过辅助入口「让 Agent 为我安装」复制指令，发送给能读取网址、操作目标设备终端的 Agent。系统、架构和下载工具由 Agent 检测。手机上也可以复制指令，但 Agent 仍需要目标设备的终端访问能力。
 
 本文同时以无需 JavaScript 的 Markdown 发布：[中文](https://molr.ai/agent-install.md)、[English](https://molr.ai/en/agent-install.md)。以下是 Agent 的执行流程。
 
@@ -11,6 +11,8 @@
 检查系统、架构、当前账户、服务管理器、可用空间和已有 Molr 服务及安装记录。原生安装支持范围以发布目录为准。macOS 使用当前普通用户的 launchd 服务，不使用 sudo；Linux 默认使用当前普通用户的 systemd 服务。root 安装必须显式指定非 root 的 `--user USER`。
 
 发现已有实例，先运行该实例的 `molr-setup status --non-interactive`，核对版本、路径和服务。正常运行的实例可以直接交付；升级、修复或另建实例应符合用户意图。不要删除安装记录或数据来绕过问题。维护命令使用实例输出的实际程序路径。
+
+选择 `server`（默认）部署完整 Molr，或选择 `sandbox` 为已有 Molr 添加沙盒节点。两种模式使用同一个 Runtime 包。安装记录保存模式，维护时沿用；不能通过升级或修复切换模式。资源权限预设与运行模式独立。
 
 ## 检查发布信息
 
@@ -24,8 +26,10 @@
 
 ```sh
 curl -fsSL --proto '=https' --proto-redir '=https' https://molr.ai/install.sh -o install.sh
-sh install.sh --channel stable --non-interactive --dry-run
+sh install.sh --channel stable --mode server --non-interactive --dry-run
 ```
+
+沙盒节点将两条示例命令中的 `--mode server` 换成 `--mode sandbox`，并可用 `--name molr-node` 区分实例。需要开放命令和目录资源时，在用户授权范围内显式选择 `--resource-preset permissive`；未指定的非交互安装使用最小权限预设。
 
 可用 wget 代替 curl。将示例中的 stable 换成用户所选渠道；无需传入 `--arch`，安装器自动检测本机架构。需要固定预览和执行的版本时，两次调用都指定发布目录中的 `--version VERSION`。下载器会下载并校验发行包，再执行包内 `molr-setup`；不绕过校验。
 
@@ -38,7 +42,7 @@ sh install.sh --channel stable --non-interactive --dry-run
 环境和权限满足要求时，使用同一脚本、渠道和已检查的参数执行：
 
 ```sh
-sh install.sh --channel stable --non-interactive --no-browser
+sh install.sh --channel stable --mode server --non-interactive --no-browser
 ```
 
 按检查结果添加参数：
@@ -62,9 +66,11 @@ sh install.sh --channel stable --non-interactive --no-browser
 | `not_started` | 使用了 `--no-start`，服务尚未启动，不能报告安装已可用 |
 | 其他失败 | 报告具体失败阶段，检查对应服务日志后处理 |
 
-同版本重复运行可能只显示状态，不能把退出码 0 当作本次验证成功。需要补充验证时，使用实际程序与配置路径运行 `molr doctor -config CONFIG`。已改密码时用 `-password-stdin`，启用 MFA 时按命令要求提供验证码；凭据通过私密输入传递，不写进聊天、命令行参数或公开日志。先等待 HTTP 就绪，再执行认证验证；复用有效会话，遇到 429 停止重复登录并按限流要求等待。
+同版本重复运行可能只显示状态，不能把退出码 0 当作本次验证成功。`server` 模式需要补充验证时，使用实际程序与配置路径运行 `molr doctor -config CONFIG`。已改密码时用 `-password-stdin`，启用 MFA 时按命令要求提供验证码；凭据通过私密输入传递，不写进聊天、命令行参数或公开日志。先等待 HTTP 就绪，再执行认证验证；复用有效会话，遇到 429 停止重复登录并按限流要求等待。
 
-Linux 默认启用沙盒，验证应包含已认证的 `/api/sandbox`：`Enabled=true`、`Capabilities.Reason=available`，以及 `Shell`、`ProcessIsolation`、`FileIsolation`、`NetworkIsolation`、`ResourceLimits` 均为 true。macOS 默认关闭命令执行，验证存储可用并明确告诉用户这一状态；不要为了安装开启 Full Access。用户已显式配置其他能力时按实际配置验证。
+按实际资源配置验证能力，不能根据模式推断权限。启用 Linux 命令执行时，已认证 `/api/sandbox` 应返回 `Enabled=true`、`Capabilities.Reason=available`，且 `Shell`、`ProcessIsolation`、`FileIsolation`、`NetworkIsolation`、`ResourceLimits` 均为 true。macOS 受控执行应返回 Shell、FileIsolation、NetworkIsolation 为 true，NetworkBackend 为 seatbelt-toggle，ProcessIsolation 与 ResourceLimits 为 false。最小权限预设关闭命令执行；server 模式仍提供内置工作区存储，sandbox 模式则关闭整个资源节点。
+
+`sandbox` 模式由安装器使用节点令牌检查 HTTPS 能力接口；不运行 `molr doctor`、不初始化用户或模型、不生成登录链接。交付节点 HTTPS 地址、证书 SHA-256 指纹和令牌文件位置，引导用户在完整服务的「资源 → 沙盒」连接；令牌通过私密渠道传递。以下登录交付步骤仅适用于 `server` 模式。
 
 交付已安装版本与渠道、目标设备、访问地址、服务状态、验证结果，以及尚未完成的步骤。初次安装成功时将安装器生成的 15 分钟一次性登录链接私下交给用户，注明有效期，不预先打开或兑换。链接未生成或过期时可使用 `molr access -config CONFIG`，按需要通过私密输入提供当前凭据；无法取得凭据时说明缺少登录入口，不伪造链接。
 

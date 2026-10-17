@@ -180,7 +180,7 @@ func (e *Engine) componentCommand() error {
 	if e.Options.JSON {
 		out = e.machineOut
 	}
-	if r.Target == "sandbox" && e.Options.Command == "components" {
+	if r.Mode == "sandbox" && e.Options.Command == "components" {
 		return fmt.Errorf("browser components require a full Runtime installation")
 	}
 	if e.Options.Command == "tasks" {

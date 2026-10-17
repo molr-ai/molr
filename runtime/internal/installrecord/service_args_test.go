@@ -11,17 +11,16 @@ func TestServiceArgsKeepRuntimeAndSandboxBoundaries(t *testing.T) {
 	program := filepath.Join(root, "program with spaces")
 	config := filepath.Join(root, "config with spaces")
 	data := filepath.Join(root, "data with spaces")
-	runtimeArgs := []string{filepath.Join(program, "bin", "molr"), "serve", "-config", filepath.Join(config, "server.json")}
+	runtimeArgs := []string{filepath.Join(program, "bin", "molr"), "serve", "--mode", "server", "-config", filepath.Join(config, "server.json")}
 	for _, tc := range []struct {
 		name, target, binary string
 		args                 []string
 	}{
-		{"default", "", "molr", runtimeArgs},
-		{"runtime", "runtime", "molr", runtimeArgs},
-		{"sandbox", "sandbox", "molr-sandbox", []string{filepath.Join(program, "bin", "molr-sandbox"), "-config", filepath.Join(config, "server.json"), "-token-file", filepath.Join(data, "sandbox-token")}},
+		{"server", "server", "molr", runtimeArgs},
+		{"sandbox", "sandbox", "molr", []string{filepath.Join(program, "bin", "molr"), "serve", "--mode", "sandbox", "-config", filepath.Join(config, "server.json"), "-token-file", filepath.Join(data, "sandbox-token")}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			record := Record{Target: tc.target, Paths: Paths{Program: program, Config: config}, DataDir: data}
+			record := Record{Mode: tc.target, Paths: Paths{Program: program, Config: config}, DataDir: data}
 			if got := record.Binary(); got != tc.binary {
 				t.Fatalf("binary = %q, want %q", got, tc.binary)
 			}

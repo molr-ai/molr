@@ -6,6 +6,9 @@ import { resolve } from 'node:path';
 import { tmpdir, userInfo } from 'node:os';
 import { createServer } from 'node:net';
 import { createHash } from 'node:crypto';
+import { request as httpsRequest } from 'node:https';
+const mode = process.env.MOLR_TEST_MODE || 'server';
+assert(['server', 'sandbox'].includes(mode));
 const archive = resolve(process.env.MOLR_TEST_ARCHIVE || process.argv[2] || '');
 const version = JSON.parse(execFileSync('tar', ['-xOf', archive, 'molr/release.json'], { encoding: 'utf8' })).version;
 const directory = realpathSync(mkdtempSync(`${tmpdir()}/molr release test-`)), name = `molr-release-test-${process.pid}`;
@@ -15,7 +18,7 @@ const env = { ...process.env, XDG_CONFIG_HOME: `${directory}/config`, XDG_DATA_H
 const run = (cmd, args) => execFileSync(cmd, args, { env, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
 try {
   chmodSync(directory, 0o775);
-  const args = ['scripts/install.sh', '--archive', archive, '--name', name, '--program-root', `${directory}/program`, '--port', String(port), '--public-host', '127.0.0.1', '--no-browser', ...(process.env.MOLR_TEST_PREPARE === '1' ? [] : ['--skip-dependencies'])];
+  const args = ['scripts/install.sh', '--archive', archive, '--mode', mode, '--name', name, '--program-root', `${directory}/program`, '--port', String(port), '--public-host', '127.0.0.1', '--no-browser', ...(process.env.MOLR_TEST_PREPARE === '1' ? [] : ['--skip-dependencies'])];
   const preview = run('sh', [...args, '--non-interactive', '--dry-run']);
   assert(preview.includes('Dry run complete'));
   assert(!existsSync(`${directory}/program`));
@@ -43,11 +46,29 @@ try {
       throw error;
     }
   };
-  const health = doctor();
+  const receipt = JSON.parse(readFileSync(find(`${directory}/program`, 'installation.json')[0]));
+  assert.equal(receipt.mode, mode);
+  assert(!existsSync(resolve(binary, '../molr-sandbox')));
+  const sandboxRequest = async path => {
+    const cfg = JSON.parse(readFileSync(config));
+    return new Promise((resolve, reject) => {
+      const req = httpsRequest(`${cfg.http.public_url}${path}`, { ca: readFileSync(cfg.http.cert_file), headers: { Authorization: `Bearer ${readFileSync(`${cfg.data_dir}/sandbox-token`, 'utf8').trim()}` } }, res => {
+        let body = ''; res.on('data', b => body += b); res.on('end', () => resolve({ status: res.statusCode, body: JSON.parse(body) }));
+      }); req.on('error', reject); req.end();
+    });
+  };
+  const health = mode === 'server' ? doctor() : { Sandbox: (await sandboxRequest('/v2/sandbox/info')).body.Data };
+  if (mode === 'sandbox') {
+    assert(!existsSync(`${receipt.data_dir}/runtime.db`));
+    assert(!existsSync(`${receipt.data_dir}/initial-password`));
+    assert.equal((await sandboxRequest('/api/auth/me')).body.Code, 'not_found');
+    assert.equal((await sandboxRequest('/api/sandbox')).body.Code, 'not_found');
+    assert(!first.includes('One-time login link'));
+  }
   if (process.platform === 'darwin') {
     assert.equal(health.Sandbox.Enabled, true);
     assert.equal(health.Sandbox.Storage, true);
-    assert.equal(health.Runtime.build.os, 'darwin');
+    assert.equal(mode === 'server' ? health.Runtime.build.os : health.Sandbox.Build.os, 'darwin');
     assert.equal(health.Sandbox.Capabilities.Shell, true);
     run('/usr/bin/codesign', ['--verify', '--strict', binary]);
   } else {
@@ -56,7 +77,7 @@ try {
     for (const field of ['Shell', 'ProcessIsolation', 'FileIsolation', 'NetworkIsolation', 'ResourceLimits']) assert.equal(health.Sandbox.Capabilities[field], true, field);
   }
   assert(run(binary, ['version']).includes(version));
-  const web = await fetch(`http://127.0.0.1:${port}/`); assert(web.ok); assert((await web.text()).includes('/assets/'), 'Release must embed the WebUI');
+  if (mode === 'server') { const web = await fetch(`http://127.0.0.1:${port}/`); assert(web.ok); assert((await web.text()).includes('/assets/'), 'Release must embed the WebUI'); }
   // Reinstall the same final archive: the data and owner must remain intact.
   const before = readFileSync(config);
   const second = run('sh', [...args, '--non-interactive', '--repair', '--directory-permissions', 'fix']);
@@ -86,6 +107,7 @@ try {
     assert(updated.includes('Starting verified package installer'));
     assert(updated.includes('Result: verified'));
     assert.deepEqual(readFileSync(config), before);
+    assert.equal(JSON.parse(readFileSync(receipt.paths.program + '/installation.json')).mode, mode);
   } finally { mirror.kill('SIGTERM'); }
   // Four authentications total: initial install, doctor, repair and update.
   // Verify retained-data reinstallation without starting or authenticating again.
@@ -97,7 +119,7 @@ try {
   run(resolve(binary, '../molr-setup'), ['uninstall', '--purge', '--yes']);
   assert(!existsSync(binary));
   assert(!existsSync(config));
-  console.log(`Native install/repair/download-update/retained-data reinstall/sandbox/purge acceptance passed: ${version}`);
+  console.log(`Native install/repair/download-update/retained-data reinstall/sandbox/purge acceptance passed (${mode}): ${version}`);
 } catch (error) {
   // Installer output can include one-time links; keep subprocess output out of CI logs.
   if (process.env.MOLR_TEST_DIAGNOSTICS) writeFileSync(process.env.MOLR_TEST_DIAGNOSTICS, String(error.stack || error) + '\n' + String(error.stdout || '') + '\n' + String(error.stderr || ''), {mode:0o600});

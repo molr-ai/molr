@@ -13,7 +13,7 @@ func TestInstallationReceiptRequiresMatchingExecutableAndCompletedInstall(t *tes
 	program := filepath.Join(dir, "program/test")
 	config := filepath.Join(dir, "config/molr/test")
 	os.MkdirAll(program, 0755)
-	r := installrecord.Record{Schema: 1, State: "installed", Name: "molr-test", User: "fixture", UID: 1000, GID: 1000, OwnerUID: 1000, ProgramRoot: filepath.Dir(program), Paths: installrecord.Paths{Program: program, Config: config, Data: filepath.Join(dir, "data/molr/test"), Cache: filepath.Join(dir, "cache/molr/test"), Unit: filepath.Join(dir, "config/systemd/user/molr-test.service")}, DataDir: filepath.Join(dir, "data/molr/test"), ManagedData: true, Updates: installrecord.Updates{Source: "https://example.com/releases", Channel: "preview"}}
+	r := installrecord.Record{Mode: "server", Schema: 1, State: "installed", Name: "molr-test", User: "fixture", UID: 1000, GID: 1000, OwnerUID: 1000, ProgramRoot: filepath.Dir(program), Paths: installrecord.Paths{Program: program, Config: config, Data: filepath.Join(dir, "data/molr/test"), Cache: filepath.Join(dir, "cache/molr/test"), Unit: filepath.Join(dir, "config/systemd/user/molr-test.service")}, DataDir: filepath.Join(dir, "data/molr/test"), ManagedData: true, Updates: installrecord.Updates{Source: "https://example.com/releases", Channel: "preview"}}
 	write := func() {
 		data, _ := json.Marshal(r)
 		if err := os.WriteFile(r.File(), data, 0600); err != nil {

@@ -28,7 +28,7 @@ type Updates struct {
 	Channel string `json:"channel"`
 }
 type Record struct {
-	Target      string  `json:"target,omitempty"`
+	Mode        string  `json:"mode"`
 	Manager     string  `json:"manager,omitempty"`
 	Home        string  `json:"home,omitempty"`
 	Schema      int     `json:"schema"`
@@ -59,19 +59,11 @@ func Instance(name string) (string, error) {
 	}
 	return strings.TrimPrefix(name, "molr-"), nil
 }
-func (r Record) Binary() string {
-	if r.Target == "sandbox" {
-		return "molr-sandbox"
-	}
-	return "molr"
-}
+func (r Record) Binary() string { return "molr" }
 func (r Record) ServiceArgs() []string {
-	args := []string{filepath.Join(r.Paths.Program, "bin", r.Binary())}
-	if r.Target != "sandbox" {
-		args = append(args, "serve")
-	}
-	args = append(args, "-config", filepath.Join(r.Paths.Config, "server.json"))
-	if r.Target == "sandbox" {
+	mode := r.Mode
+	args := []string{filepath.Join(r.Paths.Program, "bin", r.Binary()), "serve", "--mode", mode, "-config", filepath.Join(r.Paths.Config, "server.json")}
+	if mode == "sandbox" {
 		args = append(args, "-token-file", filepath.Join(r.DataDir, "sandbox-token"))
 	}
 	return args
@@ -84,10 +76,10 @@ func (r Record) UpdateSource() string {
 	return strings.TrimRight(r.Updates.Source, "/") + "/" + r.Updates.Channel
 }
 func (r Record) Validate() error {
-	if r.Target != "" && r.Target != "runtime" && r.Target != "sandbox" {
-		return fmt.Errorf("invalid installation target")
+	if r.Mode != "server" && r.Mode != "sandbox" {
+		return fmt.Errorf("invalid Runtime mode")
 	}
-	if r.Target == "sandbox" && r.Manager == "desktop" {
+	if r.Mode == "sandbox" && r.Manager == "desktop" {
 		return fmt.Errorf("desktop manages Runtime instances")
 	}
 	if r.Manager != "" && r.Manager != "desktop" {

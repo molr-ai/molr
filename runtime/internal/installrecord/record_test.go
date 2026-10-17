@@ -11,7 +11,7 @@ func TestReceiptRejectsUnrelatedPathsAndWritableRecords(t *testing.T) {
 	dir := t.TempDir()
 	program := filepath.Join(dir, "program/test")
 	os.MkdirAll(program, 0755)
-	r := Record{Schema: 1, State: "installed", Name: "molr-test", User: "fixture", UID: 1000, GID: 1000, OwnerUID: 1000, ProgramRoot: filepath.Dir(program), Paths: Paths{Program: program, Config: filepath.Join(dir, "config/molr/test"), Data: filepath.Join(dir, "data/molr/test"), Cache: filepath.Join(dir, "cache/molr/test"), Unit: filepath.Join(dir, "config/systemd/user/molr-test.service")}, DataDir: filepath.Join(dir, "data/molr/test"), ManagedData: true, Updates: Updates{Source: "https://example.com/releases", Channel: "preview"}}
+	r := Record{Mode: "server", Schema: 1, State: "installed", Name: "molr-test", User: "fixture", UID: 1000, GID: 1000, OwnerUID: 1000, ProgramRoot: filepath.Dir(program), Paths: Paths{Program: program, Config: filepath.Join(dir, "config/molr/test"), Data: filepath.Join(dir, "data/molr/test"), Cache: filepath.Join(dir, "cache/molr/test"), Unit: filepath.Join(dir, "config/systemd/user/molr-test.service")}, DataDir: filepath.Join(dir, "data/molr/test"), ManagedData: true, Updates: Updates{Source: "https://example.com/releases", Channel: "preview"}}
 	if err := r.Validate(); err != nil {
 		t.Fatal(err)
 	}

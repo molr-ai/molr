@@ -135,7 +135,7 @@ OpenAI-compatible and DeepSeek chat requests use SSE with `stream_options.includ
 
 ## 本机与远程沙盒
 
-Runtime 内嵌本机 sandbox_manager；可另行构建 `./cmd/molr-sandbox` 在其他 Linux 或 macOS 机器上提供存储、计算和网络。WebUI 资源页分为模型、工具、沙盒，助理可设置默认沙盒。部署配置、独立服务安全边界和当前限制见 [远程沙盒部署](../docs/admin/sandbox/remote.md)。
+同一 Runtime 程序通过 `molr serve --mode server|sandbox --config CONFIG` 启动，默认 `server` 模式提供完整服务及本机 sandbox_manager；`sandbox` 模式仅在 Linux 或 macOS 机器上提供远程存储、计算和网络资源。安装器使用 `molr-setup --mode server|sandbox` 并保存模式供维护命令沿用。WebUI 资源页分为模型、工具、沙盒，助理可设置默认沙盒。部署配置、独立服务安全边界和当前限制见 [远程沙盒部署](../docs/admin/sandbox/remote.md)。
 
 ### 实时连接鉴权回归
 

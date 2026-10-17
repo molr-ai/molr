@@ -15,7 +15,7 @@ import (
 	"molr.ai/runtime/internal/installrecord"
 )
 
-var programFiles = []string{"bin/molr", "bin/molr-setup", "bin/molr.previous", "bin/molr-setup.previous", "bin/molr-sandbox", "bin/molr-sandbox.previous", "LICENSE", "THIRD_PARTY_NOTICES.md", "release.json"}
+var programFiles = []string{"bin/molr", "bin/molr-setup", "bin/molr.previous", "bin/molr-setup.previous", "LICENSE", "THIRD_PARTY_NOTICES.md", "release.json"}
 
 func writeRecord(r *installrecord.Record) error {
 	mode := os.FileMode(0600)
@@ -211,7 +211,7 @@ func (e *Engine) apply(p *Plan) (resultErr error) {
 	}
 	runtime := filepath.Join(r.Paths.Program, "bin/molr")
 	_, databaseErr := os.Stat(filepath.Join(r.DataDir, "runtime.db"))
-	if r.Target == "sandbox" {
+	if r.Mode == "sandbox" {
 		if err = e.prepareSandboxSecrets(r, p.Config); err != nil {
 			return err
 		}
@@ -252,7 +252,7 @@ func (e *Engine) apply(p *Plan) (resultErr error) {
 	e.UI.step(5, "Result and next steps")
 	e.UI.print("Result: %s\nInstance: %s\nVersion: %s\nProgram: %s\nConfiguration: %s\nData: %s", r.Health, r.Name, r.Build.Version, r.Paths.Program, configPath, r.DataDir)
 	e.serviceInstructions(r)
-	if r.Target == "sandbox" {
+	if r.Mode == "sandbox" {
 		if err = e.sandboxInstructions(r, p.Config); err != nil {
 			return err
 		}

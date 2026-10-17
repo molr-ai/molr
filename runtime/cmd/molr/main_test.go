@@ -202,3 +202,21 @@ func TestBootstrapGeneratesPrivateCredentialsOnce(t *testing.T) {
 	defer b.Close()
 	_, _ = cliLogin(t, b, string(password))
 }
+
+func TestCLIModeRejectsAccountCommandsAndInvalidCombinations(t *testing.T) {
+	cfg, path := cliConfig(t)
+	for _, command := range []string{"bootstrap", "init", "access", "doctor", "recover", "backup", "restore"} {
+		_, err := invokeCLI(t, t.Context(), []string{command, "--mode", "sandbox", "--config", path}, "")
+		if err == nil || !strings.Contains(err.Error(), "sandbox mode only supports serve") {
+			t.Fatalf("%s: %v", command, err)
+		}
+	}
+	for _, args := range [][]string{{"serve", "--mode", "full"}, {"serve", "--mode", "server", "--token-file", "token"}, {"init", "--token-file", "token"}} {
+		if _, err := invokeCLI(t, t.Context(), args, ""); err == nil {
+			t.Fatalf("accepted %v", args)
+		}
+	}
+	if _, err := os.Stat(cfg.DataDir); !os.IsNotExist(err) {
+		t.Fatal("invalid mode created Runtime state")
+	}
+}

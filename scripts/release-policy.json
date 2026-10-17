@@ -90,7 +90,6 @@
     "THIRD_PARTY_NOTICES.md",
     "bin/molr",
     "bin/molr-setup",
-    "bin/molr-sandbox",
     "release.json"
   ]
 }

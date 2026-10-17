@@ -64,4 +64,6 @@ jobs:
         run: |
           archives=(dist/releases/*.tar.gz)
           test "${#archives[@]}" -eq 1
-          MOLR_TEST_ARCHIVE="${archives[0]}" node scripts/test-release-install.mjs
+          for mode in server sandbox; do
+            MOLR_TEST_MODE="$mode" MOLR_TEST_ARCHIVE="${archives[0]}" node scripts/test-release-install.mjs
+          done

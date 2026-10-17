@@ -39,7 +39,7 @@ func fixture(t *testing.T) (*Engine, *installrecord.Record) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := &installrecord.Record{Home: dir, Schema: 1, State: "installed", Name: "molr-test", User: a.Name, UID: a.UID, GID: a.GID, OwnerUID: a.UID, ProgramRoot: base, Paths: paths, DataDir: paths.Data, ManagedData: true, Build: installrecord.Build{Version: "0.1.0", Commit: strings.Repeat("a", 40), OS: runtime.GOOS, Arch: runtime.GOARCH}, Updates: installrecord.Updates{Source: "https://example.com/releases", Channel: "stable"}}
+	r := &installrecord.Record{Mode: "server", Home: dir, Schema: 1, State: "installed", Name: "molr-test", User: a.Name, UID: a.UID, GID: a.GID, OwnerUID: a.UID, ProgramRoot: base, Paths: paths, DataDir: paths.Data, ManagedData: true, Build: installrecord.Build{Version: "0.1.0", Commit: strings.Repeat("a", 40), OS: runtime.GOOS, Arch: runtime.GOARCH}, Updates: installrecord.Updates{Source: "https://example.com/releases", Channel: "stable"}}
 	for _, p := range []string{paths.Program, paths.Config, paths.Data, paths.Cache, filepath.Dir(paths.Unit)} {
 		if err = os.MkdirAll(p, 0755); err != nil {
 			t.Fatal(err)
@@ -311,7 +311,7 @@ func TestUpdateVerifiesArchiveBeforeHandingOffToNewSetup(t *testing.T) {
 	gz := gzip.NewWriter(&archive)
 	tw := tar.NewWriter(gz)
 	metadata, _ := json.Marshal(build)
-	for name, data := range map[string][]byte{"LICENSE": []byte("fixture"), "THIRD_PARTY_NOTICES.md": []byte("fixture"), "release.json": metadata, "bin/molr": binary, "bin/molr-setup": binary, "bin/molr-sandbox": binary} {
+	for name, data := range map[string][]byte{"LICENSE": []byte("fixture"), "THIRD_PARTY_NOTICES.md": []byte("fixture"), "release.json": metadata, "bin/molr": binary, "bin/molr-setup": binary} {
 		if err = tw.WriteHeader(&tar.Header{Name: "molr/" + name, Typeflag: tar.TypeReg, Mode: 0755, Size: int64(len(data))}); err != nil {
 			t.Fatal(err)
 		}

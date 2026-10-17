@@ -63,7 +63,7 @@ GPU 执行仍保留文件、进程和网络隔离。CUDA 所需的抽象 Unix SE
 
 同一节点可以同时处理普通隔离调用和 Full Access 调用。Full Access（完全访问）是沙盒下与存储、计算、网络并列的权限类型，默认不开放；它不是节点运行模式，也不会在隔离失败时自动启用。
 
-部署者在 `molr` 或 `molr-sandbox` 配置中开启：
+部署者在 `molr` 或 `molr serve --mode sandbox` 配置中开启：
 
 ```json
 { "sandbox": { "enabled": true, "allow_full_access": true } }
@@ -183,7 +183,7 @@ DNS 服务仅在执行内部提供，支持 UDP/TCP 的 A/AAAA 查询，调用�
 }
 ```
 
-沙盒继承 Runtime 的宿主身份。安装器默认使用当前用户；通过 `sudo … --user USER` 选择账户后，整个 Runtime 的文件操作、后台任务和沙盒都使用该用户。已有账户保留其组权限；新建账户没有附加组。安装参数及自动创建账户流程见 [安装时选择运行账户](../deployment/installation.md#安装时选择运行账户)。本机执行不需要单独的 `molr-sandbox` 服务。
+沙盒继承 Runtime 的宿主身份。安装器默认使用当前用户；通过 `sudo … --user USER` 选择账户后，整个 Runtime 的文件操作、后台任务和沙盒都使用该用户。已有账户保留其组权限；新建账户没有附加组。安装参数及自动创建账户流程见 [安装时选择运行账户](../deployment/installation.md#安装时选择运行账户)。本机执行无需单独部署沙盒节点。
 
 `host_tools: false` 或省略时，直接启动的 Runtime 保留最小 BusyBox 环境；安装器在首次安装且没有自定义 rootfs 时默认打开宿主工具。服务账户由部署决定，不能通过沙盒配置切换。
 

@@ -1,5 +1,7 @@
 # 发行维护
 
+Runtime 发行包仅包含 `bin/molr` 与安装维护工具 `bin/molr-setup`。同一个 `molr` 通过 `serve --mode server|sandbox` 选择完整服务或沙盒节点；安装时使用 `molr-setup --mode server|sandbox`。模式保存在安装记录中，升级和修复沿用原模式。
+
 发行包存放在 GitHub Releases，官网与发布清单通过 Cloudflare Workers 静态资源一起部署。当前产物是内嵌 WebUI 的 Linux/macOS Runtime；平台与环境要求统一定义在 [`release/platforms.json`](../../../release/platforms.json)。
 
 

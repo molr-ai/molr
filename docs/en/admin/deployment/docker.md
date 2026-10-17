@@ -51,7 +51,7 @@ The default example explicitly sets `sandbox.enabled: false`. The web interface,
 
 ### Separate Linux sandbox
 
-Deploy `molr-sandbox` on another Linux device or the host using the [standalone sandbox guide](../sandbox/remote.md), connect the resource in WebUI, and grant assistants compute, directory, and network permissions. Keep the main container's default configuration. The remote node must pass its own isolation checks.
+Deploy `molr serve --mode sandbox` on another Linux device or the host using the [standalone sandbox guide](../sandbox/remote.md), connect the resource in WebUI, and grant assistants compute, directory, and network permissions. Keep the main container's default configuration. The remote node must pass its own isolation checks.
 
 For LAN models or sandboxes, explicitly add the target numeric IP to the main container's `network.allowed_private_ips`. Container `127.0.0.1` refers to the container itself, not host services. Remote nodes do not automatically receive the main container's `/work` files; register the remote directories that assistants need through resource permissions.
 

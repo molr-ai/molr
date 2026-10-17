@@ -1,4 +1,4 @@
-// molr runs the self-host Runtime with an embedded local sandbox.
+// molr runs the Runtime as a complete server or a sandbox resource node.
 package main
 
 import (
@@ -61,7 +61,7 @@ func run(ctx context.Context, args []string, input io.Reader, output, diagnostic
 		return nil
 	}
 	if len(args) == 0 {
-		fmt.Fprintln(output, "Usage: molr <bootstrap|init|serve|access|doctor|recover|backup|restore|version> -config /path/server.json")
+		fmt.Fprintln(output, "Usage: molr <bootstrap|init|serve|access|doctor|recover|backup|restore|version> --config /path/server.json\n       molr serve --mode server|sandbox --config /path/server.json")
 		return nil
 	}
 	command := args[0]
@@ -72,6 +72,8 @@ func run(ctx context.Context, args []string, input io.Reader, output, diagnostic
 	}
 	flags := flag.NewFlagSet(command, flag.ContinueOnError)
 	flags.SetOutput(diagnostics)
+	mode := flags.String("mode", "server", "Runtime mode: server or sandbox (serve only)")
+	tokenPath := flags.String("token-file", "", "sandbox service token file; defaults to data_dir/sandbox-token")
 	configPath := flags.String("config", "configs/server.example.json", "strict server configuration JSON")
 	username := flags.String("username", "owner", "initial owner username")
 	passwordStdin := flags.Bool("password-stdin", false, "read password from standard input (init/recover only)")
@@ -84,6 +86,15 @@ func run(ctx context.Context, args []string, input io.Reader, output, diagnostic
 	if flags.NArg() != 0 {
 		return fmt.Errorf("unexpected positional arguments")
 	}
+	if *mode != "server" && *mode != "sandbox" {
+		return core.Invalid("mode", "must be server or sandbox")
+	}
+	if *mode == "sandbox" && command != "serve" {
+		return core.Invalid("mode", "sandbox mode only supports serve")
+	}
+	if *tokenPath != "" && (*mode != "sandbox" || command != "serve") {
+		return core.Invalid("token_file", "token-file requires serve --mode sandbox")
+	}
 	file, err := os.Open(*configPath)
 	if err != nil {
 		return fmt.Errorf("open config: %w", err)
@@ -93,6 +104,9 @@ func run(ctx context.Context, args []string, input io.Reader, output, diagnostic
 	_ = file.Close()
 	if err != nil {
 		return err
+	}
+	if *mode == "sandbox" {
+		return serveSandbox(ctx, cfg, *tokenPath, diagnostics)
 	}
 	if command == "restore" {
 		if *manifest == "" {
