@@ -2,6 +2,7 @@ package testkit
 
 import (
 	"context"
+	"fmt"
 	"molr.ai/runtime/internal/persistence"
 	"sync/atomic"
 	"testing"
@@ -34,21 +35,35 @@ func (s *IdleStore) Watch(key persistence.SignalKey) (persistence.Watch, error) 
 }
 func (s *IdleStore) RequireIdle(t *testing.T) {
 	t.Helper()
-	deadline := time.Now().Add(3 * time.Second)
-	for {
-		before := s.Calls.Load()
-		time.Sleep(250 * time.Millisecond)
-		if before == s.Calls.Load() && s.Watches.Load() > 0 && s.Active.Load() == 0 {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("channel never became idle")
-		}
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	if err := s.waitIdle(ctx); err != nil {
+		t.Fatal(err)
 	}
-	before := s.Calls.Load()
+}
+
+func (s *IdleStore) waitIdle(ctx context.Context) error {
 	// Longer than both former 1s connection/delivery and 250ms inbox periods.
-	time.Sleep(1200 * time.Millisecond)
-	if after := s.Calls.Load(); after != before {
-		t.Fatalf("idle channel accessed storage: %d -> %d", before, after)
+	// Every transaction resets the window, including work from a delayed wakeup.
+	const quietWindow = 1200 * time.Millisecond
+	ticker := time.NewTicker(25 * time.Millisecond)
+	defer ticker.Stop()
+	previous := s.Calls.Load()
+	var quietSince time.Time
+	for {
+		calls := s.Calls.Load()
+		if calls != previous || s.Active.Load() != 0 || s.Watches.Load() == 0 {
+			quietSince = time.Time{}
+		} else if quietSince.IsZero() {
+			quietSince = time.Now()
+		} else if time.Since(quietSince) >= quietWindow {
+			return nil
+		}
+		previous = calls
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("channel did not sustain %s without storage activity (calls=%d active=%d watches=%d): %w", quietWindow, s.Calls.Load(), s.Active.Load(), s.Watches.Load(), ctx.Err())
+		case <-ticker.C:
+		}
 	}
 }

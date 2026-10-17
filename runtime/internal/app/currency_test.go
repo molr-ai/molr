@@ -16,6 +16,7 @@ import (
 	"molr.ai/runtime/internal/event"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/policy"
+	"molr.ai/runtime/tests/testkit"
 )
 
 func TestNativeModelCurrencySurvivesDispatchSettlementAndPreferences(t *testing.T) {
@@ -25,6 +26,9 @@ func TestNativeModelCurrencySurvivesDispatchSettlementAndPreferences(t *testing.
 	ctx := t.Context()
 	p, _ := ownerSession(t, b)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !testkit.DrainRequestBody(t, r) {
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"id":"native","choices":[{"message":{"role":"assistant","content":"done"},"finish_reason":"stop"}],"usage":{"prompt_tokens":8,"completion_tokens":2}}`))
 	}))

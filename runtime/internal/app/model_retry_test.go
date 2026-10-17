@@ -23,6 +23,7 @@ import (
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/policy"
 	"molr.ai/runtime/internal/quota"
+	"molr.ai/runtime/tests/testkit"
 )
 
 func retryFixture(t *testing.T, handler http.HandlerFunc) (*Bundle, core.Principal, assistant.Assistant, config.Config) {
@@ -181,10 +182,7 @@ func TestModelPermanentUnknownAndExhaustedFailures(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var calls atomic.Int32
 			b, p, a, _ := retryFixture(t, func(w http.ResponseWriter, r *http.Request) {
-				// Drain the large model request before replying; otherwise net/http
-				// may close the connection while the client is still writing it.
-				if _, err := io.Copy(io.Discard, r.Body); err != nil {
-					t.Errorf("read model request: %v", err)
+				if !testkit.DrainRequestBody(t, r) {
 					return
 				}
 				calls.Add(1)
@@ -234,6 +232,9 @@ func deferFirstRetry(t *testing.T, b *Bundle, p core.Principal, a assistant.Assi
 func TestModelRetrySurvivesRuntimeRestart(t *testing.T) {
 	var calls atomic.Int32
 	b, p, a, cfg := retryFixture(t, func(w http.ResponseWriter, r *http.Request) {
+		if !testkit.DrainRequestBody(t, r) {
+			return
+		}
 		if calls.Add(1) == 1 {
 			w.Header().Set("Retry-After", "1")
 			w.WriteHeader(429)
@@ -262,6 +263,9 @@ func TestModelRetryStopAndRevocationPreventAnotherRequest(t *testing.T) {
 		t.Run(action, func(t *testing.T) {
 			var calls atomic.Int32
 			b, p, a, _ := retryFixture(t, func(w http.ResponseWriter, r *http.Request) {
+				if !testkit.DrainRequestBody(t, r) {
+					return
+				}
 				calls.Add(1)
 				w.Header().Set("Retry-After", "1")
 				w.WriteHeader(429)
@@ -300,6 +304,9 @@ func TestModelRetryStopAndRevocationPreventAnotherRequest(t *testing.T) {
 func TestExpediteSupersedesSleepingRetryWithoutWaitingForDelay(t *testing.T) {
 	var calls atomic.Int32
 	b, p, a, _ := retryFixture(t, func(w http.ResponseWriter, r *http.Request) {
+		if !testkit.DrainRequestBody(t, r) {
+			return
+		}
 		if calls.Add(1) == 1 {
 			w.Header().Set("Retry-After", "60")
 			w.WriteHeader(429)
@@ -328,6 +335,7 @@ func TestExpediteSupersedesSleepingRetryWithoutWaitingForDelay(t *testing.T) {
 func TestCanceledModelCallReleasesLocalHoldWithoutRetry(t *testing.T) {
 	started := make(chan struct{})
 	release := make(chan struct{})
+	// Intentionally leave the request unread while exercising client cancellation.
 	b, p, a, _ := retryFixture(t, func(w http.ResponseWriter, r *http.Request) { close(started); <-release })
 	defer close(release)
 	need(t, event.NewWriter(b.store).AppendAssistant(t.Context(), event.AssistantEvent{ID: "cancel-quota", OwnerID: p.OwnerID, AssistantID: a.ID, Kind: event.ResumeRequested, CreatedAt: time.Now()}))

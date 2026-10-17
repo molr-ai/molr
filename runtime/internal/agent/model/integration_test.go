@@ -73,6 +73,9 @@ func TestTDDModelLateResponseRetainsSpendAfterExecutionRevocation(t *testing.T) 
 	entered := make(chan struct{})
 	release := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !testkit.DrainRequestBody(t, r) {
+			return
+		}
 		close(entered)
 		select {
 		case <-release:
@@ -128,6 +131,9 @@ func TestTDDModelScopedGrantUsesConfiguredEndpointForCatalogAndDispatch(t *testi
 	defer db.Close()
 	var calls atomic.Int64
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !testkit.DrainRequestBody(t, r) {
+			return
+		}
 		calls.Add(1)
 		_, _ = w.Write([]byte(`{"id":"scoped-result","choices":[{"message":{"role":"assistant","content":"allowed"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1}}`))
 	}))

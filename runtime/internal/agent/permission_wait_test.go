@@ -21,6 +21,9 @@ import (
 func TestPermissionRequestWaitsBeforeDependentCallsAndContinuesAfterRestart(t *testing.T) {
 	var modelCalls, requests atomic.Int32
 	f, db := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !testkit.DrainRequestBody(t, r) {
+			return
+		}
 		if modelCalls.Add(1) == 1 {
 			completeModel(w, []any{
 				stateTestCall("request", "permission_request", `{"resource_kind":"storage","resource_id":"storage","resource_description":"Reports","actions":["read"],"path_prefixes":["/reports"],"expires_at":"2099-01-01T00:00:00Z","reason":"Analyze reports"}`),

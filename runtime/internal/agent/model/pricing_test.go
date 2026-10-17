@@ -15,6 +15,7 @@ import (
 	"molr.ai/runtime/internal/persistence/sqlitestore"
 	"molr.ai/runtime/internal/policy"
 	"molr.ai/runtime/internal/pricing"
+	"molr.ai/runtime/tests/testkit"
 )
 
 func TestDeepSeekCacheUsageAndInvocationPricingSnapshot(t *testing.T) {
@@ -41,6 +42,9 @@ func TestDeepSeekCacheUsageAndInvocationPricingSnapshot(t *testing.T) {
 			// Replace the tariff after request dispatch, before receiving usage.
 			replacement := `{"schema_version":1,"version":"next","currency":"USD","providers":[{"id":"deepseek","origins":["https://api.deepseek.com"],"schedule":{"holiday_timezone":"UTC"},"models":[{"id":"deepseek-flash","off_peak":{"input_micros_per_million":1000000,"output_micros_per_million":1000000,"cached_input_micros_per_million":1000000},"peak":{"input_micros_per_million":1000000,"output_micros_per_million":1000000,"cached_input_micros_per_million":1000000}}]}]}`
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if !testkit.DrainRequestBody(t, r) {
+					return
+				}
 				if err := catalog.Reload(strings.NewReader(replacement)); err != nil {
 					t.Error(err)
 				}

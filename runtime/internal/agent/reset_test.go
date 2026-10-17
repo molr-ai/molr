@@ -93,6 +93,7 @@ func TestResetContextPreservesProductDataAndFencesOldEvents(t *testing.T) {
 
 func TestResetContextCancelsActiveCallAndRejectsLateCheckpoint(t *testing.T) {
 	entered, release := make(chan struct{}), make(chan struct{})
+	// Intentionally leave the request unread until reset cancels the client.
 	f, _ := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		close(entered)
 		<-release

@@ -49,6 +49,9 @@ func TestPublishReminderContinuesOnceAndAllowsSilence(t *testing.T) {
 func TestPublishReminderCanRecoverMissingReply(t *testing.T) {
 	var calls atomic.Int32
 	f, _ := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !testkit.DrainRequestBody(t, r) {
+			return
+		}
 		if calls.Add(1) == 2 {
 			completeModel(w, []any{stateTestCall("send", "conversation_publish", `{"conversation_id":"chat","text":"Delivered after reminder"}`)})
 			return
@@ -67,6 +70,9 @@ func TestPublishAttemptSuppressesReminderEvenOnFailure(t *testing.T) {
 		t.Run(args, func(t *testing.T) {
 			var calls atomic.Int32
 			f, _ := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if !testkit.DrainRequestBody(t, r) {
+					return
+				}
 				if calls.Add(1) == 1 {
 					completeModel(w, []any{stateTestCall("send", "conversation_publish", args)})
 					return

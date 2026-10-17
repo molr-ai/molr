@@ -55,7 +55,9 @@ func cliLogin(t *testing.T, b *app.Bundle, password string) (core.Principal, cor
 }
 func TestCLIInitRecoverBackupRestoreLifecycleWithoutListener(t *testing.T) {
 	cfg, path := cliConfig(t)
-	ctx := testkit.Context(t)
+	// This is a multi-command lifecycle, not a ten-second latency assertion.
+	// Use the test runner's timeout across hashing, database opens and restores.
+	ctx := t.Context()
 	oldPassword := "cli-original-password-12345!"
 	newPassword := "cli-recovered-password-67890!"
 	output, err := invokeCLI(t, ctx, []string{"init", "-config", path, "-password-stdin"}, oldPassword+"\n")

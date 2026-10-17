@@ -16,6 +16,7 @@ import (
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/event"
 	"molr.ai/runtime/internal/policy"
+	"molr.ai/runtime/tests/testkit"
 )
 
 func TestWaitingReasonsDescribeActualBlockers(t *testing.T) {
@@ -28,6 +29,9 @@ func TestWaitingReasonsDescribeActualBlockers(t *testing.T) {
 			ctx := t.Context()
 			var calls atomic.Int32
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if !testkit.DrainRequestBody(t, r) {
+					return
+				}
 				calls.Add(1)
 				code := http.StatusUnauthorized
 				if reason == "model_rate_limited" {

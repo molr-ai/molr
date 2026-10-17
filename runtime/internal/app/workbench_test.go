@@ -20,6 +20,7 @@ import (
 	"molr.ai/runtime/internal/debugtrace"
 	"molr.ai/runtime/internal/im/conversation"
 	"molr.ai/runtime/internal/persistence"
+	"molr.ai/runtime/tests/testkit"
 )
 
 func showWorkbench(t *testing.T, b *Bundle, p core.Principal, enabled bool) error {
@@ -69,11 +70,7 @@ func TestWorkbenchCapturesActualLoopAndKeepsPrivateDataOutOfChat(t *testing.T) {
 	var calls atomic.Int32
 	var chatID atomic.Value
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// The model transport closes each connection. Consume the request before
-		// replying so the server cannot close while the client is still writing.
-		if _, err := io.Copy(io.Discard, r.Body); err != nil {
-			t.Errorf("read model request: %v", err)
-			http.Error(w, "invalid model request", http.StatusBadRequest)
+		if !testkit.DrainRequestBody(t, r) {
 			return
 		}
 		n := calls.Add(1)

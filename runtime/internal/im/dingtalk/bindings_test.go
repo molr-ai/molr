@@ -10,12 +10,12 @@ import (
 
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
+	"molr.ai/runtime/tests/testkit"
 )
 
 type bindingStore struct {
-	persistence.Store
+	*testkit.IdleStore
 	scans    atomic.Int32
-	reads    atomic.Int32
 	snapshot func()
 	once     sync.Once
 }
@@ -26,7 +26,7 @@ type bindingTx struct {
 
 func (s *bindingStore) Read(ctx context.Context, fn func(context.Context, persistence.Tx) error) error {
 	before := s.scans.Load()
-	err := s.Store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error { return fn(ctx, bindingTx{tx, s}) })
+	err := s.IdleStore.Read(ctx, func(ctx context.Context, tx persistence.Tx) error { return fn(ctx, bindingTx{tx, s}) })
 	if s.snapshot != nil && s.scans.Load() > before {
 		s.once.Do(s.snapshot)
 	}
@@ -37,12 +37,6 @@ func (tx bindingTx) Scan(ctx context.Context, bucket string) ([]persistence.Reco
 		tx.store.scans.Add(1)
 	}
 	return tx.Tx.Scan(ctx, bucket)
-}
-func (tx bindingTx) Get(ctx context.Context, bucket, key string, out any) error {
-	if bucket == bindingsBucket {
-		tx.store.reads.Add(1)
-	}
-	return tx.Tx.Get(ctx, bucket, key, out)
 }
 
 type observedClient struct {
@@ -71,7 +65,7 @@ func runObserved(t *testing.T, f *fixture) (*observedClient, *bindingStore) {
 	t.Helper()
 	c := &observedClient{fakeClient: f.client, started: make(chan string, 16), stopped: make(chan string, 16)}
 	f.s.options.Client = c
-	store := &bindingStore{Store: f.db}
+	store := &bindingStore{IdleStore: &testkit.IdleStore{Store: f.db}}
 	f.s.store = store
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
@@ -115,12 +109,11 @@ func TestBindingWorkerIdleAndCommittedDiscovery(t *testing.T) {
 	}
 	f.start(t)
 	awaitStream(t, c.started)
-	// Observe quiescence after the committed ready callback, across the former poll period.
-	time.Sleep(50 * time.Millisecond)
-	reads := store.reads.Load()
-	time.Sleep(1200 * time.Millisecond)
-	if store.scans.Load() != 1 || store.reads.Load() != reads {
-		t.Fatalf("idle binding polling: scans=%d reads=%d -> %d", store.scans.Load(), reads, store.reads.Load())
+	// Ready commits a change; observer and delivery workers consume it asynchronously.
+	// Wait for all transactions to settle and a full quiet window, not a fixed grace period.
+	store.RequireIdle(t)
+	if store.scans.Load() != 1 {
+		t.Fatalf("idle binding rescanned: scans=%d", store.scans.Load())
 	}
 	must(t, f.s.Disconnect(t.Context(), f.owner, "assistant"))
 	awaitStream(t, c.stopped)
@@ -192,7 +185,7 @@ func TestBindingWorkerFailedCommitDoesNotDiscover(t *testing.T) {
 func TestBindingCreatedDuringStartupSnapshotIsNotLost(t *testing.T) {
 	f := setup(t)
 	captured, release := make(chan struct{}), make(chan struct{})
-	store := &bindingStore{Store: f.db, snapshot: func() { close(captured); <-release }}
+	store := &bindingStore{IdleStore: &testkit.IdleStore{Store: f.db}, snapshot: func() { close(captured); <-release }}
 	f.s.store = store
 	client := &observedClient{fakeClient: f.client, started: make(chan string, 4), stopped: make(chan string, 4)}
 	f.s.options.Client = client

@@ -71,6 +71,9 @@ func TestContextChangesRefreshWithinTurnAndAcrossRestart(t *testing.T) {
 	var phase atomic.Int64
 	var calls atomic.Int64
 	f, db := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !testkit.DrainRequestBody(t, r) {
+			return
+		}
 		n := calls.Add(1)
 		if n <= 2 {
 			phase.Store(1)
@@ -295,6 +298,9 @@ func TestUserPreferencesReplaceLegacyTimeContextAndStayStableAcrossClockChanges(
 
 func TestChatChannelContextReachesModelAndIsRemovedOnDisconnect(t *testing.T) {
 	f, db := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !testkit.DrainRequestBody(t, r) {
+			return
+		}
 		_, _ = w.Write([]byte(`{"id":"completion","choices":[{"message":{"role":"assistant","content":"done"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":3}}`))
 	}))
 	engine := f.Runtime.(*Engine)

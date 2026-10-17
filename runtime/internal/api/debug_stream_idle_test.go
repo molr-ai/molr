@@ -25,6 +25,7 @@ type observedDebugRevision struct {
 	debugtrace.Control
 	reads      atomic.Int64
 	principals chan core.Principal
+	completed  chan struct{}
 }
 
 func (d *observedDebugRevision) Revision(ctx context.Context, p core.Principal) (uint64, error) {
@@ -35,7 +36,14 @@ func (d *observedDebugRevision) Revision(ctx context.Context, p core.Principal) 
 		default:
 		}
 	}
-	return d.Control.Revision(ctx, p)
+	revision, err := d.Control.Revision(ctx, p)
+	if d.completed != nil {
+		select {
+		case d.completed <- struct{}{}:
+		default:
+		}
+	}
+	return revision, err
 }
 
 func TestDebugStreamIdleDoesNotPoll(t *testing.T) {
@@ -176,7 +184,13 @@ func TestDebugStreamClosesAtCredentialExpiry(t *testing.T) {
 	store, err := sqlitestore.Open(filepath.Join(t.TempDir(), "expiry.db"))
 	testkit.RequireNoError(t, err)
 	defer store.Close()
-	identity, err := auth.NewService(store, auth.Options{MasterKey: make([]byte, 32), Origin: "https://molr.example", SessionIdle: 700 * time.Millisecond})
+	// Keep authentication time fixed through hashing, TLS and stream setup.
+	// Advance it only after the stream has checked a still-valid credential.
+	issuedAt := time.Now()
+	var clockOffset atomic.Int64
+	identity, err := auth.NewService(store, auth.Options{MasterKey: make([]byte, 32), Origin: "https://molr.example", SessionIdle: 700 * time.Millisecond, Now: func() time.Time {
+		return issuedAt.Add(time.Duration(clockOffset.Load()))
+	}})
 	testkit.RequireNoError(t, err)
 	password := core.NewSecret("synthetic-expiry-password-123!")
 	_, err = identity.Initialize(t.Context(), auth.InitializeRequest{Username: "owner", Password: password})
@@ -184,7 +198,8 @@ func TestDebugStreamClosesAtCredentialExpiry(t *testing.T) {
 	login, err := identity.Login(t.Context(), auth.LoginRequest{Username: "owner", Password: password})
 	testkit.RequireNoError(t, err)
 	implementation.services.Auth = identity
-	implementation.services.Debug = debugtrace.New(store, debugtrace.Options{Enabled: true, Authorize: func(ctx context.Context, p core.Principal) error { return identity.CheckScope(ctx, p, "debug.read") }})
+	trace := &observedDebugRevision{completed: make(chan struct{}, 4), Control: debugtrace.New(store, debugtrace.Options{Enabled: true, Authorize: func(ctx context.Context, p core.Principal) error { return identity.CheckScope(ctx, p, "debug.read") }})}
+	implementation.services.Debug = trace
 	server := httptest.NewTLSServer(f.Server.Handler())
 	defer server.Close()
 	r, err := http.NewRequest("GET", server.URL+"/api/debug/stream", nil)
@@ -192,7 +207,7 @@ func TestDebugStreamClosesAtCredentialExpiry(t *testing.T) {
 	r.Host = "molr.example"
 	r.AddCookie(&http.Cookie{Name: sessionCookie, Value: login.Session.Token.Reveal()})
 	r.Header.Set("Origin", "https://molr.example")
-	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	response, err := server.Client().Do(r.WithContext(ctx))
 	testkit.RequireNoError(t, err)
@@ -200,13 +215,27 @@ func TestDebugStreamClosesAtCredentialExpiry(t *testing.T) {
 	if response.StatusCode != 200 {
 		t.Fatal(response.Status)
 	}
-	started := time.Now()
-	_, err = io.Copy(io.Discard, response.Body)
-	testkit.RequireNoError(t, err)
-	if ctx.Err() != nil || time.Since(started) > 1500*time.Millisecond {
-		t.Fatal("credential expiry did not promptly close stream")
+	done := make(chan error, 1)
+	go func() { _, err := io.Copy(io.Discard, response.Body); done <- err }()
+	<-trace.completed // Initial revision, before the connected response.
+	deadline := time.NewTimer(10 * time.Second)
+	defer deadline.Stop()
+	select {
+	case <-trace.completed: // The expiry timer rechecked a still-valid credential.
+	case err := <-done:
+		t.Fatalf("stream closed before credential expiry: %v", err)
+	case <-deadline.C:
+		t.Fatal("stream did not recheck credential at its deadline")
 	}
-	if time.Since(started) < 300*time.Millisecond {
-		t.Fatal("stream closed before credential expiry")
+	// No revocation notification is sent; the stream must wake on its expiry timer.
+	clockOffset.Store(int64(time.Second))
+	select {
+	case err := <-done:
+		testkit.RequireNoError(t, err)
+		if ctx.Err() != nil {
+			t.Fatal("only request cancellation closed stream")
+		}
+	case <-deadline.C:
+		t.Fatal("credential expiry did not close stream")
 	}
 }

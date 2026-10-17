@@ -13,6 +13,7 @@ import (
 	"molr.ai/runtime/internal/im/conversation"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/policy"
+	"molr.ai/runtime/tests/testkit"
 )
 
 func TestCompactionRetainsOriginalHistoryAndResumes(t *testing.T) {
@@ -57,7 +58,12 @@ func TestCompactionRetainsOriginalHistoryAndResumes(t *testing.T) {
 }
 
 func TestCompactionFailureKeepsInputs(t *testing.T) {
-	f, db := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(503) }))
+	f, db := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !testkit.DrainRequestBody(t, r) {
+			return
+		}
+		w.WriteHeader(503)
+	}))
 	e := f.Runtime.(*Engine)
 	e.options.ContextWindow = func(context.Context, core.Principal, core.ID) (int, error) { return 32768, nil }
 	p := turnProgress{Inputs: []model.Input{{Role: model.System, Text: loopInstructions}, {Role: model.User, Text: strings.Repeat("original history ", 12000)}}}
@@ -102,6 +108,9 @@ func TestOldMessageAndJSONCapsNoLongerBlock(t *testing.T) {
 func TestToolArtifactFailureDoesNotRepeatPublishedMessage(t *testing.T) {
 	calls := 0
 	f, db := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !testkit.DrainRequestBody(t, r) {
+			return
+		}
 		calls++
 		w.Header().Set("Content-Type", "application/json")
 		if calls == 1 {
@@ -142,6 +151,9 @@ func TestToolArtifactFailureDoesNotRepeatPublishedMessage(t *testing.T) {
 
 func TestCompactionDoesNotInjectSummaryReasoningIntoContinuation(t *testing.T) {
 	f, _ := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !testkit.DrainRequestBody(t, r) {
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"id":"summary","choices":[{"message":{"role":"assistant","content":"goals and progress retained","reasoning_content":"summary reasoning"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":5}}`))
 	}), model.DeepSeekChat)
@@ -211,6 +223,9 @@ func TestSingleSummaryRejectsIncompleteOutput(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			calls := 0
 			f, db := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if !testkit.DrainRequestBody(t, r) {
+					return
+				}
 				calls++
 				msg := map[string]any{"role": "assistant", "content": tc.text, "reasoning_content": "private reasoning"}
 				if tc.calls {
@@ -284,6 +299,9 @@ func TestOversizedEstimateStillSendsCompleteSummaryRequest(t *testing.T) {
 func TestProviderContextRejectionRetainsHistory(t *testing.T) {
 	calls := 0
 	f, db := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !testkit.DrainRequestBody(t, r) {
+			return
+		}
 		calls++
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(`{"error":{"code":"context_length_exceeded","message":"private prompt details"}}`))
@@ -320,6 +338,9 @@ func TestInputEstimateMatchesReplayedReasoning(t *testing.T) {
 
 func TestSuccessfulSummaryIsNotRejectedByEstimates(t *testing.T) {
 	f, _ := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !testkit.DrainRequestBody(t, r) {
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{"id": "summary", "choices": []any{map[string]any{"message": map[string]any{"role": "assistant", "content": strings.Repeat("summary ", 20000)}, "finish_reason": "stop"}}, "usage": map[string]int{"prompt_tokens": 100, "completion_tokens": 500}})
 	}))
@@ -395,6 +416,9 @@ func TestDefaultCompressionThresholdUsesMeasuredBaseline(t *testing.T) {
 
 func TestMeasuredInputBaselineExcludesUnsentOutputReasoning(t *testing.T) {
 	f, _ := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !testkit.DrainRequestBody(t, r) {
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"id":"response","choices":[{"message":{"role":"assistant","content":"answer","reasoning":"private long reasoning"},"finish_reason":"stop"}],"usage":{"prompt_tokens":100,"completion_tokens":10000}}`))
 	}))

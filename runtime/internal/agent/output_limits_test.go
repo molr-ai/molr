@@ -8,6 +8,7 @@ import (
 
 	"molr.ai/runtime/internal/agent/model"
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/tests/testkit"
 )
 
 func TestExecutionStepLimitDefaultsAndCeiling(t *testing.T) {
@@ -22,6 +23,9 @@ func TestExecutionStepLimitDefaultsAndCeiling(t *testing.T) {
 func TestDefaultExecutionContinuesPastTwelveSteps(t *testing.T) {
 	calls := 0
 	f, _ := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !testkit.DrainRequestBody(t, r) {
+			return
+		}
 		calls++
 		w.Header().Set("Content-Type", "application/json")
 		if calls <= 13 {

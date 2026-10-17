@@ -68,6 +68,9 @@ func TestCompressionAfterFinalResponseAndStatus(t *testing.T) {
 	summary, finish := make(chan struct{}), make(chan struct{})
 	var calls atomic.Int32
 	f, db := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !testkit.DrainRequestBody(t, r) {
+			return
+		}
 		n := calls.Add(1)
 		if n == 1 {
 			close(started)
@@ -191,6 +194,9 @@ func TestCompressionRetryAfterFinalResponseResumesSummaryOnly(t *testing.T) {
 	started, release := make(chan struct{}), make(chan struct{})
 	var calls atomic.Int32
 	f, _ := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !testkit.DrainRequestBody(t, r) {
+			return
+		}
 		switch calls.Add(1) {
 		case 1:
 			close(started)
@@ -248,6 +254,9 @@ func (b *compressionBatchTools) Execute(ctx context.Context, c tools.Call) (tool
 func TestCompressionWaitsForWholeToolBatch(t *testing.T) {
 	var calls atomic.Int32
 	f, _ := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !testkit.DrainRequestBody(t, r) {
+			return
+		}
 		if calls.Add(1) == 1 {
 			completeModel(w, []any{stateTestCall("first", "conversation_publish", `{"conversation_id":"chat","text":"first effect"}`), stateTestCall("second", "conversation_publish", `{"conversation_id":"chat","text":"second effect"}`)})
 			return
