@@ -25,8 +25,6 @@ type progressReference struct {
 }
 type executionCursor struct {
 	PermissionPending bool
-	PublishAttempted  bool
-	PublishReminded   bool
 	Event             event.AssistantEvent
 	ExecutionID       core.ID
 	Definitions       []model.ToolDefinition
@@ -41,19 +39,18 @@ type pendingEvidence struct {
 }
 
 func cursor(t Turn, p turnProgress) *executionCursor {
-	return &executionCursor{PermissionPending: p.PermissionPending, PublishAttempted: p.PublishAttempted, PublishReminded: p.PublishReminded, Event: t.Event, ExecutionID: t.Principal.ExecutionID, Definitions: p.Definitions, Response: p.Response != nil, NextTool: p.NextTool, Step: p.Step, Handled: p.Handled, Joined: p.Joined, Finished: p.Finished}
+	return &executionCursor{PermissionPending: p.PermissionPending, Event: t.Event, ExecutionID: t.Principal.ExecutionID, Definitions: p.Definitions, Response: p.Response != nil, NextTool: p.NextTool, Step: p.Step, Handled: p.Handled, Joined: p.Joined, Finished: p.Finished}
 }
 func (c executionCursor) turn() Turn {
 	return Turn{Event: c.Event, Principal: core.Principal{OwnerID: c.Event.OwnerID, SubjectID: c.Event.AssistantID, Kind: core.ActorAssistant, ExecutionID: c.ExecutionID}}
 }
 func stateProgress(c Checkpoint, s privateContext) (turnProgress, error) {
-	p := turnProgress{Revision: c.Sequence, Inputs: runtimeNotificationRoles(s.Inputs), Automatic: s.Automatic, Usage: s.Usage}
+	p := turnProgress{Revision: c.Sequence, Inputs: runtimeNotificationRoles(s.Inputs), Automatic: s.Automatic, Usage: s.Usage, Publish: s.Publish}
 	if s.Current == nil {
 		return p, nil
 	}
 	v := s.Current
 	p.PermissionPending = v.PermissionPending
-	p.PublishAttempted, p.PublishReminded = v.PublishAttempted, v.PublishReminded
 	p.Definitions, p.NextTool, p.Step, p.Handled, p.Joined, p.Finished = v.Definitions, v.NextTool, v.Step, v.Handled, v.Joined, v.Finished
 	if v.Response {
 		for i := len(p.Inputs) - 1; i >= 0; i-- {
@@ -138,7 +135,7 @@ func (e *Engine) saveProgress(ctx context.Context, t Turn, p *turnProgress, mode
 		if err != nil {
 			return err
 		}
-		s.Inputs, s.Automatic, s.Usage, s.Current = p.Inputs, p.Automatic, p.Usage, cursor(t, *p)
+		s.Inputs, s.Automatic, s.Usage, s.Current, s.Publish = p.Inputs, p.Automatic, p.Usage, cursor(t, *p), p.Publish
 		// A returned tool failure can still represent uncertain external effects.
 		if p.Response != nil && p.NextTool > 0 {
 			call := p.Response.Calls[p.NextTool-1]
@@ -258,6 +255,15 @@ func (e *Engine) closePending(ctx context.Context, t Turn, s *privateContext, pr
 			if err != nil {
 				return err
 			}
+			// The tool receipt may commit before the publication marker does.
+			// Recover that attempt before carrying the boundary into a new run.
+			if call.Name == "conversation_publish" && !s.Publish.Attempted {
+				op, err := operation.NewRepository(e.store).Get(ctx, t.Principal.OwnerID, ref.OperationID)
+				if err != nil && !persistence.Missing(err) {
+					return err
+				}
+				s.Publish.Attempted = err == nil && op.State != operation.Prepared
+			}
 			p.Inputs = append(p.Inputs, reply)
 			if pending {
 				s.PendingEvidence = append(s.PendingEvidence, ref)
@@ -347,12 +353,10 @@ func (e *Engine) prepareExecution(ctx context.Context, t Turn) (Checkpoint, turn
 	if err != nil {
 		return cp, turnProgress{}, err
 	}
-	p := turnProgress{Revision: cp.Sequence, Inputs: inputs, Automatic: s.Automatic, Usage: s.Usage}
+	p := turnProgress{Revision: cp.Sequence, Inputs: inputs, Automatic: s.Automatic, Usage: s.Usage, Publish: s.Publish}
+	p.Publish.accept(t.Event)
 	if t.Event.Recovery != nil {
 		p.Step = t.Event.Recovery.Step
-		if old != nil {
-			p.PublishAttempted, p.PublishReminded = old.PublishAttempted, old.PublishReminded
-		}
 	}
 	err = e.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		current, err := e.checkpoints.Load(ctx, t.Principal.OwnerID, t.Event.AssistantID)
@@ -390,7 +394,7 @@ func (e *Engine) prepareExecution(ctx context.Context, t Turn) (Checkpoint, turn
 			}
 		}
 		// Persist updated pending-evidence metadata along with the new inputs/cursor.
-		s.Inputs, s.Automatic, s.Usage, s.Current = p.Inputs, p.Automatic, p.Usage, cursor(t, p)
+		s.Inputs, s.Automatic, s.Usage, s.Current, s.Publish = p.Inputs, p.Automatic, p.Usage, cursor(t, p), p.Publish
 		data, err := json.Marshal(s)
 		if err != nil {
 			return err

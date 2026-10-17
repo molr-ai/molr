@@ -187,7 +187,7 @@ func (e *Engine) interruptCheckpoint(ctx context.Context, p core.Principal, id, 
 				return err
 			}
 			if source.Kind != event.DreamDue {
-				saved = privateContext{Inputs: legacy.Inputs, Automatic: legacy.Automatic, Usage: legacy.Usage, Current: cursor(Turn{Event: source, Principal: core.Principal{OwnerID: p.OwnerID, SubjectID: id, Kind: core.ActorAssistant, ExecutionID: control.ExecutionID}}, legacy)}
+				saved = privateContext{Inputs: legacy.Inputs, Automatic: legacy.Automatic, Usage: legacy.Usage, Publish: legacy.Publish, Current: cursor(Turn{Event: source, Principal: core.Principal{OwnerID: p.OwnerID, SubjectID: id, Kind: core.ActorAssistant, ExecutionID: control.ExecutionID}}, legacy)}
 			}
 		}
 	}

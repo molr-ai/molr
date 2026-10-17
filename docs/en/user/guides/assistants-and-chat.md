@@ -14,7 +14,7 @@ When cloning, only explicitly selected content and still-valid authorizations ar
 
 Assistant thinking and internal tool calls do not all enter the chat. The page displays messages explicitly published by the assistant; background plans can execute without new user messages, and scheduled triggers do not masquerade as messages sent by you.
 
-If the assistant finishes processing a user message without calling the send tool, the system privately reminds it whether it forgot to send a message, at most once per turn. The assistant can still determine that no reply is needed and remain silent; the reminder does not automatically send internal replies to the chat, nor does it bypass stop, permissions, or execution quotas.
+If the assistant is about to finish without having called the send tool since the latest accepted user message, the system privately reminds it whether it forgot to send a message. Each user message can trigger at most one reminder across permission approval, recovery, and background continuation; permission cards do not count as send-tool calls. The assistant may still decide that no reply is needed and remain silent. The reminder does not automatically publish internal replies or bypass stops, permissions, or execution quotas. A previously sent progress message suppresses the reminder, so this check does not guarantee delivery of a final result.
 
 ## Name, Avatar and Status
 

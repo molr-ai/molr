@@ -56,6 +56,7 @@ type automaticContext struct {
 	Changes []contextChange    `json:"changes"`
 }
 type privateContext struct {
+	Publish         publishReminderState
 	Current         *executionCursor  `json:",omitempty"`
 	PendingEvidence []pendingEvidence `json:",omitempty"`
 	Usage           *contextUsage     `json:",omitempty"`

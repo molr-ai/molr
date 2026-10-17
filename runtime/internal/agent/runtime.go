@@ -697,7 +697,7 @@ resume:
 				}
 				e.setPhase(key, "tool")
 				if call.Name == "conversation_publish" {
-					progress.PublishAttempted = true
+					progress.Publish.Attempted = true
 				}
 				e.options.Trace.Record(runCtx, "tool.start", "started", toolExecution.OperationID, map[string]any{"Name": call.Name, "CallID": call.ID, "Arguments": call.Arguments})
 				result, err = e.options.Dependencies.Tools.Execute(runCtx, invocation)
@@ -741,12 +741,12 @@ resume:
 		progress.NextTool = 0
 		progress.Step++
 		progress.Finished = len(response.Calls) == 0 || progress.PermissionPending
-		// Continue a silent user-message turn once, using the normal step,
-		// budget and cancellation limits. Persist the reminder with its input
-		// so replay, retries and context compaction cannot replenish it.
-		if progress.Finished && !progress.PermissionPending && !progress.PublishAttempted && !progress.PublishReminded && (t.Event.Kind == event.UserMessage || len(progress.Joined) > 0) {
+		// Check publication since the latest accepted user event, including
+		// subsequent permission decisions and background executions. The
+		// checkpoint keeps the marker together with the reminder input.
+		if progress.Finished && !progress.PermissionPending && progress.Publish.UserEventID != "" && !progress.Publish.Attempted && !progress.Publish.Reminded {
 			progress.Inputs = append(progress.Inputs, model.Input{Role: model.User, Text: prompt.Text("publish-reminder", nil)})
-			progress.PublishReminded = true
+			progress.Publish.Reminded = true
 			progress.Finished = false
 		}
 		if err := e.saveProgress(runCtx, t, &progress, progressIfChanged); err != nil {
@@ -778,7 +778,7 @@ resume:
 	inputs, automatic := progress.Inputs, progress.Automatic
 
 	e.options.Trace.Record(runCtx, "context.final", "succeeded", "", map[string]any{"Inputs": inputs})
-	private, err := json.Marshal(privateContext{Inputs: contextHistory(inputs), Automatic: automatic, Usage: progress.Usage})
+	private, err := json.Marshal(privateContext{Inputs: contextHistory(inputs), Automatic: automatic, Usage: progress.Usage, Publish: progress.Publish})
 	if err != nil {
 		return Outcome{}, err
 	}

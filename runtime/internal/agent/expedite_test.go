@@ -351,7 +351,7 @@ func (b *failAfterExpediteTool) Execute(ctx context.Context, c tools.Call) (tool
 }
 func TestExpediteRecoveryKeepsCompletedToolResult(t *testing.T) {
 	var calls atomic.Int32
-	body := make(chan string, 1)
+	body := make(chan string, 2)
 	f, db := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		data, _ := io.ReadAll(r.Body)
 		if calls.Add(1) == 1 {
@@ -378,6 +378,10 @@ func TestExpediteRecoveryKeepsCompletedToolResult(t *testing.T) {
 	_, err = f.Restart().Handle(t.Context(), f.Turn)
 	testkit.RequireNoError(t, err)
 	request := awaitExpedite(t, body)
+	reminded := awaitExpedite(t, body)
+	if calls.Load() != 3 || !strings.Contains(reminded, "Runtime reminder: Did you forget to send a message?") {
+		t.Fatal("new urgent user event did not receive its reminder")
+	}
 	if !strings.Contains(request, "completed-before-crash") || !strings.Contains(request, "not executed: user expedited") {
 		t.Fatal("recovery lost real tool outcome", request)
 	}

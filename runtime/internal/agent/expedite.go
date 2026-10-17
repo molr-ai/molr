@@ -47,8 +47,7 @@ type expediteReceipt struct {
 }
 type turnProgress struct {
 	PermissionPending bool
-	PublishAttempted  bool
-	PublishReminded   bool
+	Publish           publishReminderState
 	Revision          uint64        `json:",omitempty"`
 	Usage             *contextUsage `json:",omitempty"`
 	Definitions       []model.ToolDefinition
@@ -317,6 +316,7 @@ func (e *Engine) intakeExpedite(ctx context.Context, t Turn, p *turnProgress) er
 		}
 		next.Inputs = append(next.Inputs, model.Input{Role: model.User, Text: toolText("conversation_read", string(result.Content)), ReadMessageIDs: []core.ID{id}})
 		next.Joined = append(next.Joined, id)
+		next.Publish.accept(scheduler.UserMessageEvent(t.Principal.OwnerID, t.Event.AssistantID, page.Items[0]))
 		messages = append(messages, page.Items[0])
 	}
 	if err := checkContextSize(next.Inputs); err != nil {
