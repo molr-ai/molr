@@ -1,1 +1,55 @@
-<!doctype html><html><body>Build with npm run build:release to include Molr WebUI.</body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Please install the Release version of Runtime</title>
+  </head>
+  <body>
+    <main>
+      <h1 id="heading">Please install the Release version of Runtime</h1>
+      <p id="description">This Runtime is a development build and does not support connections through the Molr App.</p>
+      <p id="instruction">To use the App, please install the Release version of Runtime and reconnect.</p>
+      <label id="language-label" for="language">Language</label>
+      <select id="language">
+        <option value="zh" lang="zh">中文</option>
+        <option value="en" lang="en">English</option>
+      </select>
+    </main>
+    <script>
+      const messages = {
+        zh: {
+          heading: '请安装 Release 版 Runtime',
+          description: '当前 Runtime 为开发版，不支持通过 Molr App 连接使用。',
+          instruction: '如需使用 App，请安装 Release 版 Runtime 后重新连接。',
+          'language-label': '语言',
+        },
+        en: {
+          heading: 'Please install the Release version of Runtime',
+          description: 'This Runtime is a development build and does not support connections through the Molr App.',
+          instruction: 'To use the App, please install the Release version of Runtime and reconnect.',
+          'language-label': 'Language',
+        },
+      };
+      const language = document.getElementById('language');
+      function render(locale) {
+        document.documentElement.lang = locale;
+        document.title = messages[locale].heading;
+        for (const [id, text] of Object.entries(messages[locale])) {
+          document.getElementById(id).textContent = text;
+        }
+        language.value = locale;
+      }
+      let locale = navigator.language.toLowerCase().startsWith('zh') ? 'zh' : 'en';
+      try {
+        const saved = localStorage.getItem('molr-webui-locale');
+        if (saved === 'zh' || saved === 'en') locale = saved;
+      } catch { /* Language selection also works without browser storage. */ }
+      render(locale);
+      language.addEventListener('change', () => {
+        render(language.value);
+        try { localStorage.setItem('molr-webui-locale', language.value); } catch { /* Storage is optional. */ }
+      });
+    </script>
+  </body>
+</html>
