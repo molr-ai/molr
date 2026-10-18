@@ -68,7 +68,11 @@ func TestWindowsConfinedFiles(t *testing.T) {
 }
 
 func TestWindowsRootPinnedDuringMutation(t *testing.T) {
-	root := t.TempDir()
+	parent := t.TempDir()
+	root := filepath.Join(parent, "root")
+	if err := os.Mkdir(root, 0700); err != nil {
+		t.Fatal(err)
+	}
 	handle, err := openRoot(root, ".")
 	if err != nil {
 		t.Fatal(err)
@@ -76,6 +80,10 @@ func TestWindowsRootPinnedDuringMutation(t *testing.T) {
 	defer handle.Close()
 	if err = os.Rename(root, root+"-replaced"); err == nil {
 		t.Fatal("resource root replaced during pinned operation")
+	}
+	if err = os.Rename(parent, parent+"-replaced"); err == nil {
+		_ = os.Rename(parent+"-replaced", parent)
+		t.Fatal("resource ancestor replaced during pinned operation")
 	}
 	for _, bad := range []string{`\\server\share`, `\\?\C:\`, `\\.\C:\`} {
 		if r, err := openRoot(bad, "."); err == nil {

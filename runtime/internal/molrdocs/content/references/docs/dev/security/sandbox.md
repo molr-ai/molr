@@ -189,6 +189,8 @@ Shell 有副作用。操作 ID、计划摘要与授权版本应在启动前持�
 
 macOS 与 Windows 均提供受控 Shell 和独立授权的 Full Access。Windows 每次执行创建独立 AppContainer SID，授权目录的祖先句柄在执行期间禁止删除/重命名；ACL 只添加该 SID 的必要权限，任务进程树归零后撤销。恢复日志记录 scope 文件身份；目录丢失、身份改变或撤权失败时关闭受控执行，不丢弃恢复记录。启动探针实测允许的工作区写入、私有文件读写拒绝、只读 scope 写入拒绝，并核验实际子进程 AppContainer token。网络探针使用 TEST-NET 目标：禁网要求 AccessDenied，开网要求不因权限拒绝；这不表示公网可达。接口复用不代表各平台安全能力天然等价。[Microsoft AppContainer](https://learn.microsoft.com/en-us/windows/win32/secauthz/appcontainer-isolation) · [Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects) · [Apple App Sandbox 继承](https://developer.apple.com/library/archive/documentation/Miscellaneous/Reference/EntitlementKeyReference/Chapters/EnablingAppSandbox.html)
 
+Windows 受控 PowerShell 为当前授权目录创建进程内的 `Molr:\` 工作驱动器，使目录解析无需读取未授权祖先的属性。`LOCALAPPDATA` 指向本次已授权临时目录；宿主环境变量不整体传入子进程。网络探针使用 Windows PowerShell 5.1 支持的 `BeginConnect` / `EndConnect`，实际拒绝访问仍由 AppContainer 网络能力核验。
+
 ## 6. 部署与本机评估
 
 生产部署依赖 Bubblewrap、合适的 Linux 内核、可用 user namespace、cgroup v2 委派，以及受控 rootfs。推荐使用独立非特权账号，通过 systemd 服务委派执行子树；安装程序负责依赖与服务集成；Runtime 自动生成运行资产、工作目录，自动发现委派或申请专用临时单元，并执行实际隔离探针。用户无需配置这些内部路径，WebUI 或 Agent 不得修改 sysctl、AppArmor、服务权限或挂载策略。运行时不调用 sudo，也不要求整个 Molr Server 以 root 运行。

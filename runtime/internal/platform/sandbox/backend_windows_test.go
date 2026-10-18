@@ -16,12 +16,24 @@ import (
 	"time"
 )
 
+func windowsTestDirectory(t *testing.T) string {
+	t.Helper()
+	// Windows TEMP may use an 8.3 alias; fixtures need the canonical path
+	// required by the production scope checks.
+	directory, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return directory
+}
+
 func TestWindowsNativeBackend(t *testing.T) {
 	helper := os.Getenv("MOLR_TEST_BINARY")
 	if helper == "" {
 		t.Skip("set MOLR_TEST_BINARY to the native Windows Runtime for enforcement acceptance")
 	}
-	private := t.TempDir()
+	t.Setenv("MOLR_TEST_HOST_SECRET", "host-only")
+	private := windowsTestDirectory(t)
 	if err := platform.PrivateDirectory(private); err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +70,7 @@ func TestWindowsNativeBackend(t *testing.T) {
 	if err = os.WriteFile(filepath.Join(existingWork, "existing.txt"), []byte("existing"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	command := platform.Command{Script: `[IO.File]::Move((Join-Path $env:MOLR_WORKSPACE 'existing.txt'),(Join-Path $env:MOLR_WORKSPACE 'renamed.txt')); [IO.File]::Delete((Join-Path $env:MOLR_WORKSPACE 'renamed.txt')); [IO.File]::WriteAllText((Join-Path $env:MOLR_WORKSPACE 'output.txt'),'中文'); Write-Output '中文'; exit 0`, Directory: "/work", MaxOutputBytes: 4096, Timeout: 10 * time.Second, RequireIsolation: true}
+	command := platform.Command{Script: `$ErrorActionPreference='Stop'; Set-Content -LiteralPath 'relative.txt' -Value 'relative-ok' -NoNewline; if($env:MOLR_TEST_HOST_SECRET){exit 20}; [IO.File]::Move((Join-Path $env:MOLR_WORKSPACE 'existing.txt'),(Join-Path $env:MOLR_WORKSPACE 'renamed.txt')); [IO.File]::Delete((Join-Path $env:MOLR_WORKSPACE 'renamed.txt')); [IO.File]::WriteAllText((Join-Path $env:MOLR_WORKSPACE 'output.txt'),'中文'); Write-Output '中文'; exit 0`, Directory: "/work", MaxOutputBytes: 4096, Timeout: 10 * time.Second, RequireIsolation: true}
 	proc, err := r.Start(ctx, e, command)
 	if err != nil {
 		t.Fatal(err)
@@ -72,6 +84,9 @@ func TestWindowsNativeBackend(t *testing.T) {
 	if !strings.Contains(string(data), "中文") {
 		t.Fatal(string(data))
 	}
+	if contents, err := os.ReadFile(filepath.Join(existingWork, "relative.txt")); err != nil || string(contents) != "relative-ok" {
+		t.Fatalf("PowerShell working drive: %q, %v", contents, err)
+	}
 	entries, err := os.ReadDir(r.containerDirectory())
 	if err != nil || len(entries) != 0 {
 		t.Fatal("profile journal was not cleaned", entries, err)
@@ -79,7 +94,7 @@ func TestWindowsNativeBackend(t *testing.T) {
 	e.OperationID = "revoke"
 	work := platform.AssistantWorkspace(private, "", e.Principal.OwnerID, e.AssistantID)
 	marker := filepath.Join(work, "child.pid")
-	command.Script = `$child=Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe') -ArgumentList '-NoLogo -NoProfile -NonInteractive -Command Start-Sleep -Seconds 120' -PassThru -NoNewWindow; [IO.File]::WriteAllText((Join-Path $env:MOLR_WORKSPACE 'child.pid'),[string]$child.Id); Start-Sleep -Seconds 120`
+	command.Script = `$ErrorActionPreference='Stop'; $child=Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe') -ArgumentList '-NoLogo -NoProfile -NonInteractive -Command Start-Sleep -Seconds 120' -PassThru -NoNewWindow; [IO.File]::WriteAllText((Join-Path $env:MOLR_WORKSPACE 'child.pid.tmp'),[string]$child.Id); [IO.File]::Move((Join-Path $env:MOLR_WORKSPACE 'child.pid.tmp'),(Join-Path $env:MOLR_WORKSPACE 'child.pid')); Start-Sleep -Seconds 120`
 	proc, err = r.Start(ctx, e, command)
 	if err != nil {
 		t.Fatal(err)
@@ -137,8 +152,8 @@ func TestWindowsNativeBackend(t *testing.T) {
 	}
 }
 func TestWindowsScopeGuards(t *testing.T) {
-	root := t.TempDir()
-	outside := t.TempDir()
+	root := windowsTestDirectory(t)
+	outside := windowsTestDirectory(t)
 	r := New(Options{PrivateRoot: root})
 	if _, err := r.externalScope(filepath.Dir(root)); err == nil {
 		t.Fatal("private parent granted")
@@ -165,8 +180,8 @@ func TestWindowsScopeGuards(t *testing.T) {
 }
 
 func TestWindowsScopeHardlinksRejectedBeforeACLMutation(t *testing.T) {
-	private := t.TempDir()
-	external := t.TempDir()
+	private := windowsTestDirectory(t)
+	external := windowsTestDirectory(t)
 	work := filepath.Join(private, "work")
 	if err := os.Mkdir(work, 0700); err != nil {
 		t.Fatal(err)
@@ -215,8 +230,8 @@ func TestWindowsRemoteDirectoryAliases(t *testing.T) {
 	if helper == "" {
 		t.Skip("native Windows Runtime required")
 	}
-	private := t.TempDir()
-	resource := t.TempDir()
+	private := windowsTestDirectory(t)
+	resource := windowsTestDirectory(t)
 	if err := platform.PrivateDirectory(private); err != nil {
 		t.Fatal(err)
 	}
@@ -230,7 +245,7 @@ func TestWindowsRemoteDirectoryAliases(t *testing.T) {
 	for index, directory := range []string{"/tmp", "/resources/input"} {
 		e := testExecution()
 		e.OperationID = core.ID("remote-" + strconv.Itoa(index))
-		c := platform.Command{Script: `if($env:MOLR_WORKSPACE){exit 10}; [IO.File]::WriteAllText((Join-Path (Get-Location).Path 'result.txt'),'ok'); exit 0`, Directory: directory, Timeout: 10 * time.Second, MaxOutputBytes: 4096, RequireIsolation: true, Mounts: []platform.Mount{{Source: resource, Destination: "/resources/input"}}}
+		c := platform.Command{Script: `$ErrorActionPreference='Stop'; if($env:MOLR_WORKSPACE){exit 10}; [IO.File]::WriteAllText((Join-Path (Get-Location).ProviderPath 'result.txt'),'ok'); exit 0`, Directory: directory, Timeout: 10 * time.Second, MaxOutputBytes: 4096, RequireIsolation: true, Mounts: []platform.Mount{{Source: resource, Destination: "/resources/input"}}}
 		proc, err := r.Start(ctx, e, c)
 		if err != nil {
 			t.Fatal(err)

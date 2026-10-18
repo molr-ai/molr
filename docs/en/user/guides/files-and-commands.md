@@ -2,6 +2,8 @@
 
 Controlled macOS commands use Seatbelt, duration-only compute grants, and a network permission toggle. Linux hard resource quotas are unavailable. See [native macOS command permissions](../../admin/sandbox/macos.md) for paths, revocation, and forwarding boundaries.
 
+Controlled Windows commands use PowerShell. Each command starts on the `Molr:\` drive rooted at its authorized working directory, so relative paths work directly. Use `(Get-Location).ProviderPath` when passing the current directory to .NET file APIs or external programs that require a native Windows path.
+
 First, confirm that the assistant has the required directory and compute permissions. File tools, Shell, and network authorizations are managed separately; see [Permissions and Budgets](permissions-and-budget.md) for specific operations.
 
 ## Workspace and Files

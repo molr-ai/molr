@@ -115,7 +115,9 @@ func pinScope(path string) ([]windows.Handle, string, error) {
 		if index > 0 {
 			current = filepath.Join(current, part)
 		}
-		access := uint32(windows.FILE_READ_ATTRIBUTES)
+		// Attribute-only handles do not enforce sharing restrictions. Directory
+		// read access keeps ancestors pinned against rename until ACL revocation.
+		access := uint32(windows.FILE_READ_ATTRIBUTES | windows.FILE_LIST_DIRECTORY)
 		if index == len(parts) {
 			access |= windows.READ_CONTROL | windows.WRITE_DAC
 		}
@@ -354,7 +356,7 @@ func (r *Runner) configureContainer(ctx context.Context, cmd *exec.Cmd, work str
 				return nil
 			}
 			name, _ := windows.UTF16PtrFromString(path)
-			h, err := windows.CreateFile(name, windows.FILE_READ_ATTRIBUTES, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE, nil, windows.OPEN_EXISTING, windows.FILE_FLAG_BACKUP_SEMANTICS|windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
+			h, err := windows.CreateFile(name, windows.FILE_READ_ATTRIBUTES|windows.FILE_READ_DATA, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE, nil, windows.OPEN_EXISTING, windows.FILE_FLAG_BACKUP_SEMANTICS|windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
 			if err != nil {
 				return err
 			}
@@ -424,7 +426,9 @@ func (r *Runner) configureContainer(ctx context.Context, cmd *exec.Cmd, work str
 		windows.CloseHandle(handle)
 	}
 	descendants = nil
-	environment := []string{"SystemRoot=" + os.Getenv("SystemRoot"), "WINDIR=" + os.Getenv("SystemRoot"), "PATH=" + filepath.Join(os.Getenv("SystemRoot"), "System32"), "USERPROFILE=" + work, "TEMP=" + temp, "TMP=" + temp}
+	// CreateProcess requires LOCALAPPDATA for AppContainer startup. Keep it in
+	// the granted temporary scope rather than inheriting the host profile.
+	environment := []string{"SystemRoot=" + os.Getenv("SystemRoot"), "WINDIR=" + os.Getenv("SystemRoot"), "PATH=" + filepath.Join(os.Getenv("SystemRoot"), "System32"), "USERPROFILE=" + work, "LOCALAPPDATA=" + temp, "TEMP=" + temp, "TMP=" + temp}
 	if !r.options.NoWorkspace {
 		environment = append(environment, "MOLR_WORKSPACE="+work, "MOLR_GLOBAL="+global)
 	}
@@ -497,8 +501,10 @@ func (r *Runner) prepare(ctx context.Context) error {
 	probeOptions := r.options
 	probeOptions.NoWorkspace = false
 	probeRunner := New(probeOptions)
+	// Windows PowerShell 5.1 uses .NET Framework, whose Socket has no
+	// ConnectAsync(IPAddress, int) overload. Use its supported APM methods.
 	for _, network := range []bool{false, true} {
-		script := `$ErrorActionPreference='Stop'; [IO.File]::WriteAllText(` + psLiteral(filepath.Join(work, "result")) + `, 'probe'); try { [IO.File]::ReadAllText(` + psLiteral(secret) + `); exit 11 } catch [UnauthorizedAccessException] {} ; try { [IO.File]::WriteAllText(` + psLiteral(secret) + `, 'changed'); exit 12 } catch [UnauthorizedAccessException] {} ; $s=[Net.Sockets.Socket]::new([Net.Sockets.AddressFamily]::InterNetwork,[Net.Sockets.SocketType]::Stream,[Net.Sockets.ProtocolType]::Tcp); $denied=$false; try { $t=$s.ConnectAsync([Net.IPAddress]::Parse('192.0.2.1'),9); $null=$t.Wait(1200) } catch { $x=$_.Exception; while($x.InnerException){$x=$x.InnerException}; $denied=($x -is [Net.Sockets.SocketException] -and $x.SocketErrorCode -eq [Net.Sockets.SocketError]::AccessDenied) } finally { $s.Dispose() }; `
+		script := `$ErrorActionPreference='Stop'; [IO.File]::WriteAllText(` + psLiteral(filepath.Join(work, "result")) + `, 'probe'); try { [IO.File]::ReadAllText(` + psLiteral(secret) + `); exit 11 } catch [UnauthorizedAccessException] {} ; try { [IO.File]::WriteAllText(` + psLiteral(secret) + `, 'changed'); exit 12 } catch [UnauthorizedAccessException] {} ; $s=[Net.Sockets.Socket]::new([Net.Sockets.AddressFamily]::InterNetwork,[Net.Sockets.SocketType]::Stream,[Net.Sockets.ProtocolType]::Tcp); $denied=$false; try { $pending=$s.BeginConnect([Net.IPAddress]::Parse('192.0.2.1'),9,$null,$null); $wait=$pending.AsyncWaitHandle; try { if($wait.WaitOne(1200)){$s.EndConnect($pending)} } finally { $wait.Close() } } catch { $x=$_.Exception; while($x.InnerException){$x=$x.InnerException}; $denied=($x -is [Net.Sockets.SocketException] -and $x.SocketErrorCode -eq [Net.Sockets.SocketError]::AccessDenied) } finally { $s.Dispose() }; `
 		if network {
 			script += `if($denied){exit 14}`
 		} else {

@@ -71,7 +71,7 @@ func openRoot(directory, name string) (*confinedRoot, error) {
 		if err != nil {
 			return fail(err)
 		}
-		h, err := windows.CreateFile(p, windows.FILE_READ_ATTRIBUTES, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE, nil, windows.OPEN_EXISTING, windows.FILE_FLAG_BACKUP_SEMANTICS|windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
+		h, err := windows.CreateFile(p, windows.FILE_READ_ATTRIBUTES|windows.FILE_LIST_DIRECTORY, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE, nil, windows.OPEN_EXISTING, windows.FILE_FLAG_BACKUP_SEMANTICS|windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
 		if err != nil {
 			return fail(err)
 		}
@@ -413,7 +413,8 @@ func Move(ctx context.Context, directory, from, to, expected string, dir bool, a
 	if err = ctx.Err(); err != nil {
 		return "", err
 	}
-	if err = windows.SetFileInformationByHandle(windows.Handle(locked.Fd()), windows.FileRenameInfo, &buffer[0], uint32(len(buffer))); err != nil {
+	var status windows.IO_STATUS_BLOCK
+	if err = windows.NtSetInformationFile(windows.Handle(locked.Fd()), &status, &buffer[0], uint32(len(buffer)), windows.FileRenameInformation); err != nil {
 		return "", resourceOpenError(err)
 	}
 	return Version(locked)

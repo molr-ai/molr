@@ -1,7 +1,8 @@
 // Native systemd/launchd acceptance. Uses a unique desktop-owned instance and
 // private XDG directories; never reuses an existing Runtime's data or credentials.
 import assert from 'node:assert/strict';
-import { mkdtempSync, realpathSync, readFileSync, existsSync, rmSync, cpSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, realpathSync, readFileSync, existsSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
+import { cp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { LocalRuntime } from '../dist/main/runtime/local.js';
@@ -50,7 +51,8 @@ try {
   } else if (process.platform === 'win32') { assert.equal(health.Enabled, true); assert.equal(health.Storage, true); assert.equal(health.Capabilities.Reason, 'available'); assert.equal(health.Capabilities.NetworkBackend, 'appcontainer-toggle'); assert.equal(health.Capabilities.Shell, true); assert.equal(health.Capabilities.FullAccess, true); assert.equal(health.Capabilities.ProcessIsolation, false); assert.equal(health.Capabilities.ResourceLimits, false); } else { assert.equal(health.Enabled, true); assert.equal(health.Storage, true); assert.equal(health.Capabilities.NetworkBackend, 'seatbelt-toggle'); }
   const status = await runtime.status(); assert(['active', 'running'].includes(status.state));
   if (process.platform === 'win32') {
-    const invalidPackage = join(directory, 'invalid-package'); cpSync(packageRoot, invalidPackage, { recursive: true });
+    // Node 22.21's cpSync mishandles non-ASCII Windows paths (nodejs/node#61950).
+    const invalidPackage = join(directory, 'invalid-package'); await cp(packageRoot, invalidPackage, { recursive: true });
     const metadataPath = join(invalidPackage, 'release.json'); const metadata = JSON.parse(readFileSync(metadataPath));
     metadata.version = '999.0.0-local'; writeFileSync(metadataPath, JSON.stringify(metadata));
     const broken = new LocalRuntime(invalidPackage, join(directory, 'manager'));

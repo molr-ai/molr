@@ -2,6 +2,8 @@
 
 macOS 受控命令使用 Seatbelt，计算只控制时长，网络采用授权开关，不提供 Linux 资源硬配额。原生路径、撤权和转发边界见 [macOS 原生命令权限](https://molr.ai/zh/docs/admin/sandbox/macos/)。
 
+Windows 受控命令使用 PowerShell。每次命令的当前目录通过 `Molr:\` 驱动器指向本次已授权的工作目录，可直接使用相对路径；向 .NET 文件 API 或外部程序传递当前目录时，使用 `(Get-Location).ProviderPath` 获取原生 Windows 路径。
+
 先确认助理拥有所需目录和计算权限。文件工具、Shell 与网络授权分别管理，具体操作见[权限与预算](https://molr.ai/zh/docs/user/guides/permissions-and-budget/)。
 
 ## 工作区与文件
