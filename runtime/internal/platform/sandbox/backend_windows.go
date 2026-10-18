@@ -429,6 +429,9 @@ func (r *Runner) configureContainer(ctx context.Context, cmd *exec.Cmd, work str
 	// CreateProcess requires LOCALAPPDATA for AppContainer startup. Keep it in
 	// the granted temporary scope rather than inheriting the host profile.
 	environment := []string{"SystemRoot=" + os.Getenv("SystemRoot"), "WINDIR=" + os.Getenv("SystemRoot"), "PATH=" + filepath.Join(os.Getenv("SystemRoot"), "System32"), "USERPROFILE=" + work, "LOCALAPPDATA=" + temp, "TEMP=" + temp, "TMP=" + temp}
+	// Module discovery must use Windows PowerShell's own modules, independently
+	// of the host's PowerShell edition and user/module search path configuration.
+	environment = append(environment, "PSModulePath="+filepath.Join(filepath.Dir(windowsShell()), "Modules"))
 	if !r.options.NoWorkspace {
 		environment = append(environment, "MOLR_WORKSPACE="+work, "MOLR_GLOBAL="+global)
 	}
@@ -512,6 +515,8 @@ func (r *Runner) prepare(ctx context.Context) error {
 		}
 		script += `; if([IO.File]::ReadAllText(` + psLiteral(readFile) + `) -ne 'read'){exit 15}; try{[IO.File]::WriteAllText(` + psLiteral(readFile) + `,'changed');exit 16}catch [UnauthorizedAccessException]{}; exit 0`
 		cmd := exec.CommandContext(ctx, windowsShell())
+		var probeOutput bytes.Buffer
+		cmd.Stdout, cmd.Stderr = &probeOutput, &probeOutput
 		cmd.Dir = work
 		cmd.Env = []string{"MOLR_GLOBAL=" + readonly}
 		cleanup, e := probeRunner.configureContainer(ctx, cmd, work, platform.Command{Script: script, NetworkAccess: network})
@@ -537,7 +542,7 @@ func (r *Runner) prepare(ctx context.Context) error {
 		}
 		cleanErr := cleanup()
 		if e != nil || cleanErr != nil {
-			return unavailable("sandbox_appcontainer_probe_failed")
+			return fmt.Errorf("%w: network=%t, process=%v, output=%q, cleanup=%v", unavailable("sandbox_appcontainer_probe_failed"), network, e, probeOutput.String(), cleanErr)
 		}
 	}
 	return nil

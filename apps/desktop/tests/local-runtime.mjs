@@ -9,7 +9,9 @@ import { LocalRuntime } from '../dist/main/runtime/local.js';
 const root = resolve(import.meta.dirname, '../../..');
 const arch = process.arch === 'arm64' ? 'arm64' : 'amd64';
 const packageRoot = resolve(root, process.env.MOLR_DESKTOP_RUNTIME_PACKAGE || `.cache/release/${process.platform}-${arch}/molr`);
-const directory = realpathSync(mkdtempSync(join(tmpdir(), process.platform === 'win32' ? 'molr-中文路径-' : 'molr-desktop-native-')));
+// The JS realpath implementation keeps Windows 8.3 aliases used by CI's TEMP.
+const canonicalPath = process.platform === 'win32' ? realpathSync.native : realpathSync;
+const directory = canonicalPath(mkdtempSync(join(tmpdir(), process.platform === 'win32' ? 'molr-中文路径-' : 'molr-desktop-native-')));
 process.env.XDG_CONFIG_HOME = join(directory, 'config');
 process.env.XDG_DATA_HOME = join(directory, 'data');
 process.env.XDG_CACHE_HOME = join(directory, 'cache');

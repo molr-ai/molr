@@ -6,6 +6,7 @@ import (
 	"golang.org/x/sys/windows"
 	"io"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"syscall"
@@ -139,7 +140,9 @@ func runContainer(spec containerLaunch) (int, error) {
 	// PowerShell's volume-rooted location resolver reads ancestor attributes,
 	// which are deliberately outside the granted scope. Root its working drive
 	// at the authorized directory; ProviderPath remains the native Windows path.
-	script := "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new(); try { New-PSDrive -Name Molr -PSProvider FileSystem -Root " + psLiteral(spec.Directory) + " -Scope Global -ErrorAction Stop | Out-Null; Set-Location -LiteralPath 'Molr:\\' -ErrorAction Stop } catch { [Console]::Error.WriteLine($_.Exception.Message); exit 125 }; " + spec.Script
+	module := filepath.Join(filepath.Dir(windowsShell()), "Modules", "Microsoft.PowerShell.Management", "Microsoft.PowerShell.Management.psd1")
+	utility := filepath.Join(filepath.Dir(windowsShell()), "Modules", "Microsoft.PowerShell.Utility", "Microsoft.PowerShell.Utility.psd1")
+	script := "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new(); try { Import-Module -Name " + psLiteral(module) + "," + psLiteral(utility) + " -ErrorAction Stop; New-PSDrive -Name Molr -PSProvider FileSystem -Root " + psLiteral(spec.Directory) + " -Scope Global -ErrorAction Stop | Out-Null; Set-Location -LiteralPath 'Molr:\\' -ErrorAction Stop } catch { [Console]::Error.WriteLine($_.Exception.Message); exit 125 }; " + spec.Script
 	args := []string{windowsShell(), "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script}
 	for i := range args {
 		args[i] = syscall.EscapeArg(args[i])

@@ -60,7 +60,7 @@ func TestWindowsNativeBackend(t *testing.T) {
 
 	caps, err := r.Capabilities(ctx)
 	if err != nil || !caps.ControlledReady() || caps.NetworkBackend != "appcontainer-toggle" || !caps.FullAccess || caps.ProcessIsolation || caps.ResourceLimits {
-		t.Fatal(caps, err)
+		t.Fatal(caps, err, "prepare:", r.prepareErr)
 	}
 	e := testExecution()
 	existingWork := platform.AssistantWorkspace(private, "", e.Principal.OwnerID, e.AssistantID)
