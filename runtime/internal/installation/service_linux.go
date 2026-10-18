@@ -3,11 +3,13 @@
 package installation
 
 import (
+	"context"
 	"fmt"
 	"molr.ai/runtime/internal/installrecord"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 func (e *Engine) unitState(r *installrecord.Record) (map[string]string, error) {
@@ -86,12 +88,48 @@ func (e *Engine) startService(r *installrecord.Record, delegate bool, start bool
 	if err := e.service(r, "enable", r.Paths.Unit); err != nil {
 		return err
 	}
-	return e.service(r, "restart", r.Name+".service")
+	if err := e.service(r, "restart", r.Name+".service"); err != nil {
+		return err
+	}
+	e.ensureLinger(r)
+	return nil
 }
+
+// Linger belongs to the account, not the installation. Never disable it on
+// uninstall or invoke an authentication prompt from unattended maintenance.
+func (e *Engine) ensureLinger(r *installrecord.Record) {
+	if r.System {
+		return
+	}
+	ctx, cancel := context.WithTimeout(e.Ctx, 10*time.Second)
+	defer cancel()
+	run := func(args ...string) ([]byte, error) {
+		return e.Command(ctx, append([]string{"loginctl", "--no-ask-password"}, args...), nil, nil, nil, nil)
+	}
+	check := func() bool {
+		data, err := run("show-user", r.User, "--property=Linger", "--value")
+		return err == nil && strings.TrimSpace(string(data)) == "yes"
+	}
+	if check() {
+		e.UI.print("User linger is enabled for %s; the service can run after logout.", r.User)
+		return
+	}
+	e.UI.print("Enabling user linger for %s so the service can run after logout...", r.User)
+	_, err := run("enable-linger", r.User)
+	if err == nil && check() {
+		e.UI.print("User linger is enabled for %s; the service can run after logout.", r.User)
+		return
+	}
+	if err != nil {
+		e.UI.print("Could not automatically enable user linger: %v", err)
+	}
+	e.UI.print("Warning: user linger could not be verified. The service may stop after the last login session ends. Administrator authorization may be required.\nTo enable it, run: sudo loginctl enable-linger %s\nThen verify: loginctl show-user %s -p Linger (expected: Linger=yes)", shellJoin([]string{r.User}), shellJoin([]string{r.User}))
+}
+
 func (e *Engine) serviceInstructions(r *installrecord.Record) {
 	e.UI.print("Service status: %s status %s.service\nService logs: journalctl %s-u %s.service -n 50 --no-pager", shellJoin(control(r)), r.Name, map[bool]string{false: "--user "}[r.System], r.Name)
-	if !r.System {
-		e.UI.print("For operation after logout: sudo loginctl enable-linger %s", r.User)
+	if !r.System && e.Options.NoStart {
+		e.UI.print("User linger was not changed (--no-start). For operation after logout: sudo loginctl enable-linger %s", shellJoin([]string{r.User}))
 	}
 	if e.Options.NoStart {
 		e.UI.print("Start after initialization: %s enable --now %s", shellJoin(control(r)), shellJoin([]string{r.Paths.Unit}))

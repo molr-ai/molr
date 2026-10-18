@@ -241,7 +241,7 @@ Service `molr` uses instance `default`; `molr-demo` uses `demo`. `molr-default` 
 
 Program, configuration, data and cache directories must not overlap. Custom `data_dir` and external workspaces retain their configured paths and must be accessible to the service account. Databases, keys, attachments and assistant workspaces are persistent data; caches can be rebuilt. Licenses are installed with the programs and available in WebUI at `/LICENSE` and `/THIRD_PARTY_NOTICES.md`.
 
-An administrator can run `loginctl enable-linger USER` to keep a user service running after logout. System services need no linger. See [Docker deployment](docker.md) to run the complete application with WebUI, persistent data, and optional command execution.
+After starting a Linux user service, the installer checks linger. If it is disabled or its state cannot be confirmed, the installer attempts to enable it and verifies the result. This step never prompts for a password or invokes sudo. If authorization is required, the command is unavailable, or verification fails, installation continues with a warning that the service may stop after the last login session ends. Follow the instructions to run `sudo loginctl enable-linger USER`, then confirm `Linger=yes` with `loginctl show-user USER -p Linger`. Linger applies to the entire Linux user account and is retained on uninstall. `--dry-run` and `--no-start` leave linger unchanged; system services need no linger. See [Docker deployment](docker.md) to run the complete application with WebUI, persistent data, and optional command execution.
 
 ## Updates and repeated execution
 

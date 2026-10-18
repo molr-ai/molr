@@ -120,6 +120,8 @@ MOLR_TEST_ARCHIVE=dist/releases/molr_0.1.0-local_linux_amd64.tar.gz npm run test
 
 计划阶段读取并检查环境；交互和静默模式共用计划与执行代码。确认和目录策略在写入前完成，`--dry-run` 不执行变更。终端输入来自 `/dev/tty`，因此管道启动仍可交互。静默模式使用 `sudo -n`，APT 禁用交互并保留原配置。程序以临时文件和原子重命名更新，保留上版二进制与配置；中断可能留下 `installing` 状态，需要完整包重新执行。验证失败不会被报告为健康安装。
 
+Linux 用户服务在成功启动后通过 `loginctl --no-ask-password` 检查并尝试开启 linger，成功提示以再次读取 `Linger=yes` 为准；命令共用十秒超时，不触发交互授权或 sudo。失败时保留服务安装并输出登出风险、管理员开启命令及验证命令。系统服务、`--dry-run`、`--no-start` 不改变 linger；卸载保留账号级设置。`service_linux_test.go` 覆盖已开启、自动开启、权限不足、命令不可用、超时、验证失败及跳过分支。
+
 `install.sh` 是 POSIX 下载器，使用已有 curl 或 wget。渠道目录额外生成 `download-<平台>.txt`，固定七行依次为协议标识、版本、commit、平台 ID、文件名、URL、SHA-256；同一 manifest 生成渠道与历史版本描述，避免 shell 解析 JSON 或执行远端文本。下载器逐个向固定路径提取五个白名单文件。Go 更新器读取 JSON manifest，通过标准库 HTTP、SHA-256 和 tar/gzip 验证下载，随后执行新包的 `molr-setup`。更新订阅由安装记录供 Runtime 和 WebUI 使用；WebUI 生成已安装维护程序的更新命令。
 
 扩展发行版时，在主机适配模块增加包管理或服务实现，并向独立验收矩阵增加系统／版本／架构组合。已经手动满足能力要求的未知发行版不会被拒绝。增加矩阵项前须有能运行真实服务、cgroup 与沙盒探针的环境；容器内文件测试不能代替这部分验收。
