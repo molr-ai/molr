@@ -84,9 +84,9 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 .chat-identity { display: flex; align-items: center; gap: 10px; min-width: 0; }.chat-identity h1 { flex-shrink: 0; max-width: min(36vw, 20rem); font-size: var(--text-base); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.chat-identity .ui-chat-status { flex: 0 1 auto; overflow: hidden; }.chat-identity .ui-chat-status__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.chat-header .button { min-height: 36px; height: 36px; }
 .chat-history { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 28px max(24px, calc((100% - 860px) / 2)); }.chat-input { padding: 12px max(24px, calc((100% - 860px) / 2)) 24px; }.chat-input .message-composer { background: var(--color-surface); }.chat-history .ui-chat-message { margin-bottom: 28px; }
 .chat-history { background: transparent; }
-/* Fade only content; browser chrome and floating drawers/dialogs keep their own styles. */
+/* Fade only content; active browser/terminal chrome and floating panels keep their own styles. */
 .chat-history,
-.chat-side-panel[data-docked] .ui-drawer[data-docked]:not(.browser-drawer--running) > .ui-dialog__body {
+.chat-side-panel[data-docked] .ui-drawer[data-docked]:not(.browser-drawer--running, .terminal-drawer--running) > .ui-dialog__body {
   mask-image: linear-gradient(to bottom, transparent, var(--color-text) 20px);
 }
 .chat-history-region { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0; }
@@ -278,7 +278,7 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 .chat-side-panel:is([data-kind='tasks'], [data-kind='shell_tasks']) { --chat-panel-width: var(--assistant-tasks-width); }
 .chat-side-panel[data-docked] .ui-drawer[data-docked] { flex: none; width: var(--chat-panel-width); min-width: var(--chat-panel-width); border-left: 0; }
 .chat-side-panel[data-docked] .ui-dialog__header { height: var(--chat-header-height); min-height: var(--chat-header-height); align-items: center; padding: 0 20px; }
-.chat-side-panel[data-docked] .ui-drawer[data-docked]:not(.browser-drawer--running) > .ui-dialog__header { border-bottom: 0; }
+.chat-side-panel[data-docked] .ui-drawer[data-docked]:not(.browser-drawer--running, .terminal-drawer--running) > .ui-dialog__header { border-bottom: 0; }
 .chat-side-panel[data-docked] .ui-dialog__header > div { min-width: 0; }
 .chat-side-panel[data-docked] .ui-dialog__header :is(h2, .browser-window-heading > span) { font-size: var(--text-base); font-weight: 550; color: var(--color-text); line-height: 1.6; letter-spacing: normal; }
 .chat-side-panel[data-docked] .ui-dialog__header > div > p { display: none; }

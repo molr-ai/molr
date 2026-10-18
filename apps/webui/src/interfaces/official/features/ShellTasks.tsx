@@ -1,3 +1,4 @@
+import { TerminalSession } from './TerminalSession';
 import { GPUDeviceList } from './GPUAccess';
 import type { SandboxView } from '../../../sandbox-types';
 import { DismissibleAlert } from '../components/DismissibleAlert';
@@ -48,9 +49,8 @@ export function ShellTasks({ assistantID, docked, onClose }: { assistantID: stri
   const { items, error: listError, loading, refresh } = useShellTaskList(assistantID, 2000);
   const sandboxes = useQuery<SandboxView[]>('/api/sandboxes');
   const [selected, setSelected] = useState('');
-  const [error, setError] = useState(false), [busy, setBusy] = useState(false), [output, setOutput] = useState(''), [input, setInput] = useState('');
+  const [error, setError] = useState(false), [busy, setBusy] = useState(false), [output, setOutput] = useState('');
   const [stream, setStream] = useState<'stdout' | 'stderr'>('stdout');
-  const draftVersion = useRef(0);
   const cursor = useRef(0), contentRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
@@ -65,9 +65,8 @@ export function ShellTasks({ assistantID, docked, onClose }: { assistantID: stri
   const selectedTask = items.find(item => item.ID === selected);
   const taskState = useRef(selectedTask); taskState.current = selectedTask;
   useEffect(() => {
-    draftVersion.current++;
-    cursor.current = 0; setOutput(''); setInput(''); setError(false);
-    if (!selected) return;
+    cursor.current = 0; setOutput(''); setError(false);
+    if (!selected || taskState.current?.Mode === 'tty') return;
     const loop = poll(async signal => {
       try {
         const data = await api.read<ShellTaskOutput>(path, { action: 'read', task_id: selected, cursor: cursor.current, stream }, signal);
@@ -81,12 +80,10 @@ export function ShellTasks({ assistantID, docked, onClose }: { assistantID: stri
     });
     return () => loop.stop();
   }, [path, selected, stream]);
-  async function act(request: ShellTaskAction, submittedDraft?: number) {
+  async function act(request: ShellTaskAction) {
     setBusy(true); setError(false);
     try {
       await api.post(path, request);
-      // Only a submitted, unchanged draft is consumed; control writes do not submit it.
-      if (submittedDraft === draftVersion.current) setInput('');
       await refresh();
     }
     catch { setError(true); }
@@ -133,15 +130,11 @@ export function ShellTasks({ assistantID, docked, onClose }: { assistantID: stri
             <p className="shell-task-note">{zh ? '任务结束后自动关闭。非 HTTP 服务请使用上面的 TCP 地址。' : 'Forwarding closes with the task. For other protocols, use the TCP address above.'}</p>
           </section>}
           {task.Result?.OutputComplete === false && <Alert tone="warning" title={zh ? '输出不完整' : 'Output incomplete'}>{zh ? '输出归档已达到限额或磁盘写入失败。' : 'The output quota was reached or a disk write failed.'}</Alert>}
-          <section className="shell-task-console" aria-label={zh ? '输出' : 'Output'}>
-            <div className="shell-task-console-heading"><h4><Terminal size={15} aria-hidden="true" />{zh ? '输出' : 'Output'}</h4>{task.Mode !== 'tty' && <SegmentedControl hideLabel label={zh ? '输出流' : 'Output stream'} value={stream} onValueChange={setStream} options={[{ value: 'stdout', label: 'stdout' }, { value: 'stderr', label: 'stderr' }]} />}</div>
+          {task.Mode === 'tty' ? <TerminalSession key={task.ID} assistantID={assistantID} task={task} refresh={refresh}/> : <section className="shell-task-console" aria-label={zh ? '输出' : 'Output'}>
+            <div className="shell-task-console-heading"><h4><Terminal size={15} aria-hidden="true" />{zh ? '输出' : 'Output'}</h4><SegmentedControl hideLabel label={zh ? '输出流' : 'Output stream'} value={stream} onValueChange={setStream} options={[{ value: 'stdout', label: 'stdout' }, { value: 'stderr', label: 'stderr' }]} /></div>
             <pre className="shell-task-output" tabIndex={0} aria-label={zh ? '任务输出' : 'Task output'}>{output || (task.State === 'running' ? (zh ? '等待输出…' : 'Waiting for output…') : (zh ? '此输出流没有内容' : 'No output in this stream'))}</pre>
-          </section>
-          {task.Mode === 'tty' && task.State === 'running' && <form className="shell-task-input" onSubmit={event => { event.preventDefault(); void act({ action: 'write', task_id: task.ID, data: input + '\n' }, draftVersion.current); }}>
-            <label>{zh ? '终端输入' : 'Terminal input'}<textarea value={input} placeholder={zh ? '输入命令或回复交互提示' : 'Enter a command or respond to a prompt'} maxLength={8000} onChange={event => { draftVersion.current++; setInput(event.target.value); }} autoComplete="off" spellCheck={false} /></label>
-            <div className="shell-task-input-actions"><span>{zh ? '发送时附加换行' : 'A newline is added on send'}</span><Button type="submit" size="sm" disabled={busy}>{zh ? '发送' : 'Send'}</Button></div>
-          </form>}
-          {task.State === 'running' && <div className="shell-task-controls"><div>{task.Mode === 'tty' && <><Button variant="secondary" size="sm" disabled={busy} onClick={() => void act({ action: 'interrupt', task_id: task.ID })}>Ctrl-C</Button><Button variant="secondary" size="sm" disabled={busy} onClick={() => void act({ action: 'write', task_id: task.ID, data: '\x04' })}>Ctrl-D</Button></>}</div><Button variant="ghost" size="sm" className="shell-task-stop" disabled={busy} onClick={() => void act({ action: 'stop', task_id: task.ID })}>{zh ? '停止任务' : 'Stop task'}</Button></div>}
+          </section>}
+          {task.State === 'running' && task.Mode !== 'tty' && <Button variant="ghost" size="sm" disabled={busy} onClick={() => void act({ action: 'stop', task_id: task.ID })}>{zh ? '停止任务' : 'Stop task'}</Button>}
           <details className="shell-task-info">
             <summary>{zh ? '执行信息' : 'Execution details'}</summary>
             <dl>{!!task.GPUDeviceIDs?.length && <div><dt>GPU</dt><dd><GPUDeviceList ids={task.GPUDeviceIDs} devices={sandboxes.data?.find(node=>node.ID===(task.SandboxID||'local'))?.Info.GPUs??[]} /></dd></div>}<div><dt>{zh ? '开始时间' : 'Started'}</dt><dd>{new Date(task.StartedAt).toLocaleString(locale)}</dd></div>{task.FinishedAt && <div><dt>{zh ? '结束时间' : 'Finished'}</dt><dd>{new Date(task.FinishedAt).toLocaleString(locale)}</dd></div>}{task.Result?.Exit && <div><dt>{zh ? '退出码' : 'Exit code'}</dt><dd>{task.Result.Exit.Code}</dd></div>}{task.Failure && <div><dt>{zh ? '结束原因' : 'Exit reason'}</dt><dd>{task.Failure}</dd></div>}<div><dt>{zh ? '任务 ID' : 'Task ID'}</dt><dd><code>{task.ID}</code></dd></div><div><dt>{zh ? '完整命令' : 'Full command'}</dt><dd><pre>{task.Script || 'sh'}</pre></dd></div><div><dt>{task.Mode === 'tty' ? 'TTY' : 'stdout'}</dt><dd><code>{task.StdoutPath || '—'}</code></dd></div>{task.Mode !== 'tty' && <div><dt>stderr</dt><dd><code>{task.StderrPath || '—'}</code></dd></div>}</dl>

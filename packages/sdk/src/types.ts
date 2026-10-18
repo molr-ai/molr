@@ -88,15 +88,16 @@ export type BrowserProxySummary = { Mode: 'direct' | 'proxy'; Server: string; By
 export type BrowserProxySettings = BrowserProxySummary & { Username: string; PasswordConfigured: boolean };
 export type BrowserNetworkFailure = { TaskID: string; At: string; Reason: string; Message: string; Proxy: BrowserProxySummary; Sandbox?: {Reason: string; At: string} };
 export type BrowserStatus = { Proxy?: BrowserProxySummary; ProxyAppliesTo?: 'current_session' | 'next_start'; RestartRequired?: boolean; LastNetworkFailure?: BrowserNetworkFailure; LastFailure?: { TaskID: string; Reason: string }; ComponentsEnabled?: boolean; Preparation?: { task_id: string; state: string; error_code?: string }; Available: boolean; Reason?: string; Task?: ShellTask; ControllerIsCurrentSession?: boolean; ControllerClientID?: string; TabCount?: number };
-export type ShellTask = { Kind?: 'shell' | 'browser'; Browser?: BrowserControl; GPUDeviceIDs?: string[]; FullAccess?: boolean;
+export type TerminalControl = { Control: 'assistant' | 'user'; Generation: number; Rows: number; Cols: number; NeedsRead: boolean; ControllerIsCurrentSession?: boolean; ControllerClientID?: string };
+export type ShellTask = { Terminal?: TerminalControl; CreatedBy?: 'user' | 'assistant'; Kind?: 'shell' | 'browser'; Browser?: BrowserControl; GPUDeviceIDs?: string[]; FullAccess?: boolean;
   Forwards?: ShellForward[];
   ID: string; OwnerID: string; AssistantID: string; SandboxID: string;
   Mode: 'foreground' | 'background' | 'tty'; State: 'running' | 'completed' | 'failed' | 'stopped' | 'interrupted';
   Script: string; StartedAt: string; FinishedAt?: string; StdoutPath: string; StderrPath: string;
   Failure?: string; Result?: { Exit?: { Code: number; Reason: string; TimedOut: boolean }; Stdout?: string; Stderr?: string; OutputComplete?: boolean };
 };
-export type ShellTaskAction = { action: 'list' | 'read' | 'write' | 'interrupt' | 'stop' | 'stop_all' | 'resize'; task_id?: string; cursor?: number; stream?: 'stdout' | 'stderr'; data?: string; rows?: number; cols?: number };
-export type ShellTaskOutput = { Finished?: boolean; OutputComplete?: boolean; Output: string; NextCursor: number; Path: string };
+export type ShellTaskAction = { action: 'list' | 'read' | 'write' | 'interrupt' | 'stop' | 'stop_all' | 'resize' | 'takeover' | 'release'; client_id?: string; generation?: number; sequence?: number; encoding?: 'base64'; task_id?: string; cursor?: number; stream?: 'stdout' | 'stderr'; data?: string; rows?: number; cols?: number };
+export type ShellTaskOutput = { Terminal?: TerminalControl; Finished?: boolean; OutputComplete?: boolean; Output: string; NextCursor: number; Path: string };
 
 export type PermissionRequestInput = { full_access?: boolean; constraints?: ResourceConstraints; temporary?: TemporaryConstraints; grant_id?: ID; grant_version?: number; resource_kind: Resource['Kind']; resource_id?: ID; model_id?: ID; resource_description: string; actions: string[]; path_prefixes?: string[]; expires_at?: string; reason: string; additional_requests?: PermissionRequestInput[]; };
 

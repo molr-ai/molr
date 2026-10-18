@@ -10,6 +10,7 @@ import { slackCopy } from '../../../slack-copy';
 import { telegramCopy } from '../../../telegram-copy';
 import type { TelegramStatus, WeixinStatus, SlackStatus } from '../../../api/types';
 import { BrowserButton } from './Browser';
+import { TerminalButton } from './Terminals';
 import { ShellTasksButton } from './ShellTasks';
 import { ConversationCard } from './ConversationCard';
 import { PermissionRequestCard } from './PermissionRequests';
@@ -25,7 +26,7 @@ import { isChatObscured, onChatRevealed } from '../../../chat-visibility';
 import { Empty, Loading, useAction } from '../components/common';
 
 export type Draft = { text: string; files: FileInfo[] };
-export type AssistantAction = 'channel' | 'info' | 'clone' | 'dismiss' | 'permissions' | 'tasks' | 'shell_tasks' | 'browser' | 'files' | 'pin';
+export type AssistantAction = 'channel' | 'info' | 'clone' | 'dismiss' | 'permissions' | 'tasks' | 'shell_tasks' | 'browser' | 'files' | 'terminal' | 'pin';
 export function Chat({ assistant, conversation, timeZone, draft, updateDraft, onAction, onBack, onCard, onDebug, targetMessageID = '', onClearTarget }: {
   targetMessageID?: string; onClearTarget: () => void;
   assistant: Assistant; conversation?: Conversation; timeZone?: string; draft: Draft; updateDraft: (draft: Draft | ((previous: Draft) => Draft)) => void;
@@ -211,7 +212,7 @@ export function Chat({ assistant, conversation, timeZone, draft, updateDraft, on
   }
   return <section className="chat-panel" aria-label={assistant.Name}>
     <header className="chat-header"><div className="chat-identity">{onBack && <IconButton label={t.assistants.back} onClick={onBack}><ArrowLeft size={20} /></IconButton>}<h1><button type="button" className="chat-assistant-info" aria-label={t.assistantInfo.open(assistant.Name)} onClick={() => onAction('info')}>{assistant.Name}</button></h1><ChatStatus compact status={working || dreaming ? 'acting' : state === 'waiting' ? 'waiting' : state === 'stopped' ? 'stopped' : 'idle'} label={archived ? t.chat.archived : compressing ? t.chat.compressing : state === 'idle' && assistant.Status ? assistant.Status : t.chat[state]} /></div>
-      <div className="form-actions"><IconButton label={locale === 'zh' ? '资源管理器' : 'File explorer'} disabled={archived} onClick={() => onAction('files')}><FolderOpen size={20} /></IconButton><BrowserButton assistantID={assistant.ID} disabled={archived} onOpen={() => onAction('browser')} /><ShellTasksButton assistantID={assistant.ID} disabled={archived} onOpen={() => onAction('shell_tasks')} /><IconButton label={t.nav.plans} onClick={() => onAction('tasks')}><CalendarClock size={20} /></IconButton><DropdownMenu label={t.more} align="end" trigger={<IconButton label={t.more}><Ellipsis size={20} /></IconButton>} items={[
+      <div className="form-actions"><IconButton label={locale === 'zh' ? '资源管理器' : 'File explorer'} disabled={archived} onClick={() => onAction('files')}><FolderOpen size={20} /></IconButton><BrowserButton assistantID={assistant.ID} disabled={archived} onOpen={() => onAction('browser')} /><TerminalButton assistantID={assistant.ID} disabled={archived} onOpen={() => onAction('terminal')} /><ShellTasksButton assistantID={assistant.ID} disabled={archived} onOpen={() => onAction('shell_tasks')} /><IconButton label={t.nav.plans} onClick={() => onAction('tasks')}><CalendarClock size={20} /></IconButton><DropdownMenu label={t.more} align="end" trigger={<IconButton label={t.more}><Ellipsis size={20} /></IconButton>} items={[
         ...(onDebug ? [{ id: 'debug', label: t.workbench.debugAssistant, onSelect: onDebug }] : []),
         { id: 'info', label: t.assistantInfo.title, onSelect: () => onAction('info') }, { id: 'pin', label: assistant.Pinned ? t.assistants.unpin : t.assistants.pin, disabled: archived, onSelect: () => onAction('pin') },
         { id: 'channel', label: channelCopy.switchChannel, onSelect: () => onAction('channel') },

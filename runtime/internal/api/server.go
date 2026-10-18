@@ -72,6 +72,8 @@ type Options struct {
 	MCP                *mcpclient.Service
 	PermissionRequests permissionRequestService
 	SandboxAdmin       func(context.Context, core.Principal, string, json.RawMessage) (any, error)
+	TerminalStart      func(context.Context, core.Principal, core.ID, json.RawMessage) (json.RawMessage, error)
+	TerminalStream     func(context.Context, core.Principal, core.ID, core.ID, int64, func(json.RawMessage) error) error
 	ShellTasks         func(context.Context, core.Principal, core.ID, json.RawMessage) (json.RawMessage, error)
 	SandboxInfo        func(context.Context, core.Principal) (any, error)
 	Limiter            RateLimiter
@@ -380,7 +382,7 @@ func (s *HTTPServer) dispatch(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if r.URL.Path != "/api/events/stream" && r.URL.Path != "/api/debug/stream" && !strings.HasSuffix(r.URL.Path, "/browser/stream") {
+	if r.URL.Path != "/api/events/stream" && r.URL.Path != "/api/debug/stream" && !strings.HasSuffix(r.URL.Path, "/browser/stream") && !(strings.Contains(r.URL.Path, "/terminals/") && strings.HasSuffix(r.URL.Path, "/stream")) {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, s.config.HTTP.RequestTimeout.Value())
 		defer cancel()

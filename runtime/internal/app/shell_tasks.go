@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"molr.ai/runtime/internal/maintenance"
@@ -29,6 +30,8 @@ const shellTaskLimit = 10
 const shellReminderInterval = 5 * time.Minute
 
 type shellTask struct {
+	Terminal                 *terminalState `json:",omitempty"`
+	CreatedBy                string         `json:",omitempty"`
 	Kind                     string
 	Browser                  *browserState `json:",omitempty"`
 	GPUDeviceIDs             []string      `json:",omitempty"`
@@ -49,12 +52,13 @@ type managedShellKey struct{}
 // Unexported, process-local capability; never derived from tool arguments. It
 // authorizes only the original execution while the manager retains its slot.
 type managedShell struct {
-	e       core.Execution
-	alive   atomic.Bool
-	control func(context.Context, tools.ShellTaskRequest) (json.RawMessage, error)
-	routed  func(core.ID) error
-	observe func(func() platform.NetworkDiagnostic)
-	started func(string, string, []string, func(context.Context, tools.ShellTaskRequest) (json.RawMessage, error)) error
+	terminal *terminalState
+	e        core.Execution
+	alive    atomic.Bool
+	control  func(context.Context, tools.ShellTaskRequest) (json.RawMessage, error)
+	routed   func(core.ID) error
+	observe  func(func() platform.NetworkDiagnostic)
+	started  func(string, string, []string, func(context.Context, tools.ShellTaskRequest) (json.RawMessage, error)) error
 }
 
 func managedShellFor(ctx context.Context, e core.Execution) *managedShell {
@@ -70,6 +74,7 @@ func managedPrincipal(ctx context.Context, p core.Principal) bool {
 }
 
 type runningShell struct {
+	terminalGate       sync.Mutex
 	browserGate        sync.Mutex
 	browserHTTPOnce    sync.Once
 	browserHTTP        *http.Client
@@ -122,7 +127,7 @@ func (s *shellTasks) save(ctx context.Context, t shellTask) error {
 		if err := tx.Put(ctx, shellTasksBucket, persistence.Key(t.OwnerID, t.ID), t); err != nil {
 			return err
 		}
-		if previous.State == t.State {
+		if previous.State == t.State && terminalGeneration(previous.Terminal) == terminalGeneration(t.Terminal) {
 			return nil
 		}
 		return realtime.NewStore(s.store).Append(ctx, realtime.Visible{ID: randomOperation(), OwnerID: t.OwnerID, Topic: "shell.tasks", Object: core.Object{Kind: "assistant", ID: t.AssistantID}, CreatedAt: time.Now().UTC()})
@@ -217,6 +222,15 @@ func (s *shellTasks) execute(ctx context.Context, e core.Execution, req tools.Sh
 	r := &runningShell{task: shellTask{FullAccess: req.FullAccess, SandboxID: sandboxID, ID: e.OperationID, OwnerID: e.Principal.OwnerID, AssistantID: e.AssistantID, Mode: mode, State: "running", Script: req.Script, StartedAt: time.Now().UTC()}, cancel: cancel, done: make(chan struct{}), ready: make(chan struct{}), scope: cap}
 	r.browserCtx = run
 	r.task.Kind = "shell"
+	if req.TTY {
+		r.task.Terminal = &terminalState{Control: "assistant", Generation: 1, Rows: 24, Cols: 80}
+		r.task.CreatedBy = "assistant"
+		if launch := managedShellFor(ctx, e); launch != nil && launch.terminal != nil {
+			state := *launch.terminal
+			r.task.Terminal = &state
+			r.task.CreatedBy = "user"
+		}
+	}
 	if req.Browser != nil {
 		r.task.Kind = "browser"
 		r.task.Browser = &browserState{Control: "assistant", Generation: 1, Proxy: req.Browser.Proxy.ProxySummary}
@@ -406,7 +420,7 @@ func (s *shellTasks) finish(ctx context.Context, t shellTask) error {
 	})
 }
 func (s *shellTasks) armLocked(t shellTask) {
-	if t.Mode == "foreground" {
+	if !shellNeedsReminder(t) {
 		return
 	}
 	key := persistence.Key(t.OwnerID, t.AssistantID)
@@ -416,7 +430,7 @@ func (s *shellTasks) armLocked(t shellTask) {
 }
 func (s *shellTasks) disarmLocked(owner, id core.ID) {
 	for _, r := range s.active {
-		if r.task.OwnerID == owner && r.task.AssistantID == id && r.task.Mode != "foreground" {
+		if r.task.OwnerID == owner && r.task.AssistantID == id && shellNeedsReminder(r.task) {
 			return
 		}
 	}
@@ -550,6 +564,13 @@ func (s *shellTasks) manage(ctx context.Context, p core.Principal, id core.ID, q
 						t.Result, _ = json.Marshal(meta)
 					}
 				}
+				s.mu.Lock()
+				if active := s.active[string(p.OwnerID)+"/"+string(t.ID)]; active != nil {
+					t.Terminal = terminalView(active.task.Terminal, p)
+				} else {
+					t.Terminal = terminalView(t.Terminal, p)
+				}
+				s.mu.Unlock()
 				items = append(items, t)
 			}
 		}
@@ -557,18 +578,37 @@ func (s *shellTasks) manage(ctx context.Context, p core.Principal, id core.ID, q
 		return json.Marshal(map[string]any{"Items": items, "Limit": shellTaskLimit, "LimitAppliesTo": "isolated"})
 	}
 	if q.Action == "stop_all" {
+		type target struct {
+			run        *runningShell
+			generation uint64
+		}
+		var targets []target
 		s.mu.Lock()
 		for _, r := range s.active {
-			if r.task.OwnerID == p.OwnerID && r.task.AssistantID == id {
-				if p.Kind == core.ActorAssistant && r.task.Kind == "browser" {
-					continue
-				}
-				r.cancel()
+			if r.task.OwnerID != p.OwnerID || r.task.AssistantID != id || p.Kind == core.ActorAssistant && r.task.Kind == "browser" {
+				continue
 			}
+			targets = append(targets, target{r, terminalGeneration(r.task.Terminal)})
 		}
 		s.mu.Unlock()
+		for _, target := range targets {
+			r := target.run
+			r.terminalGate.Lock()
+			s.mu.Lock()
+			allowed := true
+			if p.Kind == core.ActorAssistant && r.task.Terminal != nil {
+				state := r.task.Terminal
+				allowed = state.Generation == target.generation && state.Control == "assistant" && !state.NeedsRead && (state.readExecution == "" || state.readExecution == p.ExecutionID)
+			}
+			if allowed {
+				r.cancel()
+			}
+			s.mu.Unlock()
+			r.terminalGate.Unlock()
+		}
 		return json.Marshal(map[string]bool{"Stopping": true})
 	}
+
 	t, err := persistence.Load[shellTask](ctx, s.store, shellTasksBucket, persistence.Key(p.OwnerID, q.TaskID))
 	if err != nil {
 		return nil, err
@@ -587,6 +627,9 @@ func (s *shellTasks) manage(ctx context.Context, p core.Principal, id core.ID, q
 		if p.Kind == core.ActorAssistant {
 			return nil, core.NewError(core.Forbidden, "use browser_session to close browser tasks; user takeover must be respected")
 		}
+	}
+	if r != nil && r.task.Terminal != nil {
+		return s.terminalManage(ctx, p, id, r, q)
 	}
 	if q.Action == "stop" {
 		if r != nil && r.task.Kind == "browser" {
@@ -651,14 +694,18 @@ func readShellOutput(root, out, stderr string, q tools.ShellTaskRequest) (json.R
 	if err != nil && err != io.EOF {
 		return nil, err
 	}
-	return json.Marshal(map[string]any{"Output": string(buf[:n]), "NextCursor": q.Cursor + int64(n), "Path": path})
+	output := string(buf[:n])
+	if q.Encoding == "base64" {
+		output = base64.StdEncoding.EncodeToString(buf[:n])
+	}
+	return json.Marshal(map[string]any{"Output": output, "NextCursor": q.Cursor + int64(n), "Path": path})
 }
 
 func (s *shellTasks) reminderDetailsLocked(owner, id core.ID, now time.Time) json.RawMessage {
 	items := []map[string]any{}
 	for _, r := range s.active {
 		t := r.task
-		if t.OwnerID == owner && t.AssistantID == id && t.Mode != "foreground" && t.State == "running" {
+		if t.OwnerID == owner && t.AssistantID == id && shellNeedsReminder(t) && t.State == "running" {
 			script := t.Script
 			if len(script) > 512 {
 				script = script[:512]

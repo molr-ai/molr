@@ -2,11 +2,63 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"molr.ai/runtime/internal/core"
 	"net/http"
+	"strconv"
+	"time"
 )
 
 func (s *HTTPServer) sandboxRoutes() {
+	s.handle("POST /api/assistants/{id}/terminals", func(r *http.Request) (any, error) {
+		id, err := pathID(r)
+		if err != nil {
+			return nil, err
+		}
+		raw, err := decode[json.RawMessage](r)
+		if err != nil {
+			return nil, err
+		}
+		if s.options.TerminalStart == nil {
+			return nil, core.NewError(core.Unavailable, "terminal unavailable")
+		}
+		return s.options.TerminalStart(r.Context(), principal(r), id, raw)
+	})
+	s.mux.HandleFunc("GET /api/assistants/{id}/terminals/{task}/stream", func(w http.ResponseWriter, r *http.Request) {
+		id, err := pathID(r)
+		if err != nil {
+			fail(w, err, info(r).ID)
+			return
+		}
+		task := core.ID(r.PathValue("task"))
+		cursor, err := strconv.ParseInt(r.URL.Query().Get("cursor"), 10, 64)
+		if err != nil || cursor < 0 || task.Validate() != nil {
+			fail(w, core.Invalid("cursor", "valid task and byte cursor required"), info(r).ID)
+			return
+		}
+		if s.options.TerminalStream == nil {
+			fail(w, core.NewError(core.Unavailable, "terminal unavailable"), info(r).ID)
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("X-Accel-Buffering", "no")
+		controller := http.NewResponseController(w)
+		started := false
+		err = s.options.TerminalStream(r.Context(), principal(r), id, task, cursor, func(raw json.RawMessage) error {
+			controller.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			started = true
+			if _, err := fmt.Fprintf(w, "data: %s\n\n", raw); err != nil {
+				return err
+			}
+			return controller.Flush()
+		})
+		if !started && err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			fail(w, err, info(r).ID)
+		}
+	})
+
 	invoke := func(r *http.Request, action string, raw json.RawMessage) (any, error) {
 		if s.options.SandboxAdmin == nil {
 			return nil, core.NewError(core.Unavailable, "sandbox manager unavailable")

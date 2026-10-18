@@ -1,4 +1,4 @@
-:root {
+:root, [data-ui-theme] {
   color-scheme: light;
 
   /* Brand */
@@ -113,7 +113,7 @@
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-:root[data-theme='dark'] {
+:root[data-theme='dark'], [data-ui-theme][data-theme='dark'] {
   color-scheme: dark;
 
   --color-shadow: #000000;
@@ -181,3 +181,21 @@
   --color-usage-3: color-mix(in srgb, var(--color-usage-base) 60%, var(--color-page-background));
   --color-usage-on-medium: var(--color-page-background);
 }
+
+/* Live terminals resolve ANSI roles within their own semantic theme scope. */
+[data-ui-theme] {
+ --color-terminal-background: var(--color-surface);
+ --color-terminal-foreground: var(--color-text);
+ --color-terminal-selection: var(--color-selected-bg);
+ --color-terminal-black: var(--color-text);
+ --color-terminal-bright-black: var(--color-text-muted);
+ --color-terminal-white: var(--color-text);
+ --color-terminal-red: var(--color-danger);
+ --color-terminal-green: var(--color-positive);
+ --color-terminal-yellow: var(--color-warning);
+ --color-terminal-blue: var(--color-code-property);
+ --color-terminal-magenta: var(--color-code-literal);
+ --color-terminal-cyan: #0c6a78;
+}
+
+[data-ui-theme][data-theme='dark'] { --color-terminal-cyan: #79cbd2; }

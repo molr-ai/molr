@@ -65,6 +65,7 @@ Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugi
 | GET | `/api/assistants/{id}` |
 | GET | `/api/assistants/{id}/capabilities` |
 | GET | `/api/assistants/{id}/shell-tasks` |
+| GET | `/api/assistants/{id}/terminals/{task}/stream` |
 | GET | `/api/assistants/{id}/status` |
 | GET | `/api/audit` |
 | GET | `/api/auth/csrf` |
@@ -150,6 +151,7 @@ Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugi
 | POST | `/api/assistants/{id}/compress` |
 | POST | `/api/assistants/{id}/expedite` |
 | POST | `/api/assistants/{id}/shell-tasks` |
+| POST | `/api/assistants/{id}/terminals` |
 | POST | `/api/assistants/{id}/stop` |
 | POST | `/api/auth/login` |
 | POST | `/api/auth/sessions/revoke-others` |
@@ -445,7 +447,7 @@ Runtime 启动时自动准备并探测命令环境，自动登记本机计算资
 ### Shell 任务管理
 
 - `GET /api/assistants/{id}/shell-tasks`：当前所有者读取该助理的所有运行任务及最近 50 条历史记录，返回 `Items` 和 `Limit: 10`。模式为 `foreground/background/tty`，状态为 `running/completed/failed/stopped/interrupted`。
-- `POST /api/assistants/{id}/shell-tasks`：`action` 为 `read/write/interrupt/stop/stop_all/resize/list`。单任务操作使用 `task_id`；读取可传 `cursor`、`stream`，返回 `Output`、`NextCursor`、`Path`；结束任务还返回 `Finished`（输出捕获已结束）和 `OutputComplete`（捕获是否完整）。`Finished=true` 且当前流读空后可停止读取，不能将截断导致的 `OutputComplete=false` 当作任务仍在执行。读取是只读操作，客户端不应据 POST 方法触发业务数据失效。TTY 输入传 `data`（最多 8 KiB），resize 传 `rows/cols`（1–500）。所有者会话仍需 CSRF，跨所有者或助理访问拒绝。
+- `POST /api/assistants/{id}/shell-tasks`：`action` 为 `read/write/interrupt/stop/stop_all/resize/list/takeover/release`。单任务操作使用 `task_id`；读取可传 `cursor`、`stream`，返回 `Output`、`NextCursor`、`Path`；结束任务还返回 `Finished`（输出捕获已结束）和 `OutputComplete`（捕获是否完整）。`Finished=true` 且当前流读空后可停止读取，不能将截断导致的 `OutputComplete=false` 当作任务仍在执行。读取是只读操作，客户端不应据 POST 方法触发业务数据失效。TTY 输入传 `data`（最多 8 KiB），resize 传 `rows/cols`（1–500）。所有者会话仍需 CSRF，跨所有者或助理访问拒绝。
 - Shell 任务首次创建及状态变化在同一事务中追加 `shell.tasks` SSE，仅包含所属助理引用，不包含命令和输出；客户端据此刷新对应任务列表，保留低频校准。
 - 模型使用相同语义的 `shell_task` 工具，只能管理自身任务。`shell_execute` 新增 `tty/background/timeout_seconds`，前台等待最多 60 秒。可选 `forward_ports` 声明最多 4 个 HTTP/WS 服务端口。创建回执的 `Task.Forwards` 及任务列表 `Forwards` 返回 `Protocol/Port/Address/URL/State`，状态为 `waiting/ready/closed`；地址统一位于 Runtime 机器，URL 要求当前 Molr 登录态。创建回执包含任务及通知说明；完成和运行提醒使用 `shell_task_finished` / `shell_tasks_running` 事件，结构化信息位于 `Details`，不伪造聊天消息。
 
@@ -581,3 +583,10 @@ API 合同测试使用真实 HTTP server、Auth、CSRF、持久限流、Realtime
 ## 钉钉聊天入口
 
 钉钉状态、配对与解绑接口见[钉钉渠道 API](../extensions/dingtalk.md#api)。
+
+### 终端会话与接管
+
+- `POST /api/assistants/{id}/terminals`：已认证所有者传 `request_id`（唯一请求标识）、`client_id`（当前窗口标识）、`compute_id`。服务端以助理身份启动本机受控 TTY，默认 `/work`，自动选择已授权网络。重试同一个 request_id 返回已有任务，不重放命令。返回 `Task`。
+- 任务的 `Terminal` 返回 `Control`（assistant/user）、`Generation`、`Rows`、`Cols`、`NeedsRead`。列表及读取按当前认证会话投影 `ControllerIsCurrentSession` 和 `ControllerClientID`；`CreatedBy` 表示 user/assistant。TTY 写入、中断、缩放、停止及交接必须携带当前 generation；用户还需匹配 client_id 与登录会话，写入类操作带递增 sequence，拒绝重复或迟到输入。takeover/release 仅所有者可用。助理 stop_all 跳过用户控制或尚未完成交接读屏的 TTY；用户 stop_all 保留停止全部的管理能力。
+- release 生成 `terminal_control_returned` 事件。助理在该 generation 下读取到最新一页后才可操作；其他执行轮次须重新读取。用户控制期间不发送 TTY 运行提醒。
+- `GET /api/assistants/{id}/terminals/{task}/stream?cursor=0`：认证 SSE 输出，每帧包含 base64 `Output`、字节游标 `NextCursor`，活跃会话携带 `Terminal`，结束后携带 `Finished`。从最后已消费游标重连，不重新启动进程。`shell-tasks` read 也支持 `encoding:base64`，原文本读取保留。接收端按原始字节连续解码；到达输出归档限额时沿用现有任务终止和不完整标记。

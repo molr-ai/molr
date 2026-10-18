@@ -27,6 +27,7 @@ import { AssistantInfo } from './features/AssistantInfo';
 import { Tasks } from './features/Tasks';
 import { Browser } from './features/Browser';
 import type { BrowserBounds } from './features/useBrowserView';
+import { Terminals } from './features/Terminals';
 import { ShellTasks } from './features/ShellTasks';
 import { Search } from './features/Search';
 import { usePanelDocking } from '../../use-panel-docking';
@@ -45,6 +46,8 @@ export function OfficialPage({ chatLayout = 'default' }: { chatLayout?: 'default
   const [chatWorkspace, setChatWorkspace] = useState<HTMLDivElement | null>(null);
   const panelDocked = usePanelDocking(chatWorkspace) && !mobile && chatLayout === 'default';
   const [browserFloating, setBrowserFloating] = useState(true);
+  const [terminalFloating, setTerminalFloating] = useState(true);
+  const terminalBounds = useRef<FloatingBounds | null>(null);
   const [filesFloating, setFilesFloating] = useState(true);
   const filesBounds = useRef<FloatingBounds | null>(null);
   const filesMemory = useRef(new Map<string, ExplorerMemory>());
@@ -108,10 +111,11 @@ export function OfficialPage({ chatLayout = 'default' }: { chatLayout?: 'default
           </aside>}
           <MobileChatPresence enabled={mobile}>{selected && (chatLayout === 'focus' || !mobile || id) ? <Chat targetMessageID={messageID} onClearTarget={() => go('assistants', selected.ID)} timeZone={settings.data?.Timezone} onDebug={workbenchVisible ? turnID => go('workbench', selected.ID, turnID) : undefined} key={selected.ID} assistant={selected} conversation={conversations.data?.find(conversation => conversation.ID === selected.ConversationID)} draft={drafts[selected.ID] ?? { text: '', files: [] }} updateDraft={update => setDrafts(previous => ({ ...previous, [selected.ID]: typeof update === 'function' ? update(previous[selected.ID] ?? { text: '', files: [] }) : update }))} onBack={mobile ? () => go('assistants') : undefined} onAction={assistantAction} onCard={(kind, target) => { if (kind === 'task') { setTaskCard(target); setDialog({ kind: 'tasks', assistant: selected }); } else go(kind === 'resource' ? 'resources' : kind === 'settings' ? 'settings' : 'schedules', target); }} /> : null}</MobileChatPresence>
           {!selected && !mobile && <div className="workspace-empty"><EmptyState title={t.chat.workspaceTitle} illustration={<Logo markOnly animation="static" variant={theme === 'dark' ? 'light' : 'dark'} className="workspace-empty__logo" />} /></div>}
-          <ChatSidePanel panel={isChatPanel(dialog) ? dialog : null} docked={panelDocked} floating={{ browser: floating, files: filesFloating && !mobile }}>{panel => <>
+          <ChatSidePanel panel={isChatPanel(dialog) ? dialog : null} docked={panelDocked} floating={{ terminal: terminalFloating && !mobile, browser: floating, files: filesFloating && !mobile }}>{panel => <>
             {(panel.kind === 'info' || panel.kind === 'permissions') && <AssistantInfo docked={panelDocked} assistant={assistants.data?.find(item => item.ID === panel.assistant.ID) ?? panel.assistant} models={models.data ?? []} initialTab={panel.kind === 'permissions' ? 'permissions' : 'overview'} onClose={() => setDialog(null)} onDebug={workbenchVisible ? () => { setDialog(null); go('workbench', panel.assistant.ID); } : undefined} />}
             {panel.kind === 'files' && <WorkspaceFiles key={panel.assistant.ID} assistantID={panel.assistant.ID} assistantName={panel.assistant.Name} docked={panelDocked} floating={filesFloating && !mobile} onFloatingChange={setFilesFloating} bounds={filesBounds} memory={explorerMemory(panel.assistant.ID)} onClose={() => setDialog(null)} />}
             {panel.kind === 'browser' && <Browser key={panel.assistant.ID} floating={floating} onFloatingChange={setBrowserFloating} bounds={browserBounds} docked={panelDocked} assistantID={panel.assistant.ID} onClose={() => setDialog(null)} />}
+            {panel.kind === 'terminal' && <Terminals key={panel.assistant.ID} assistantID={panel.assistant.ID} assistantName={panel.assistant.Name} docked={panelDocked} floating={terminalFloating && !mobile} onFloatingChange={setTerminalFloating} bounds={terminalBounds} onClose={() => setDialog(null)} />}
             {panel.kind === 'shell_tasks' && <ShellTasks key={panel.assistant.ID} docked={panelDocked} assistantID={panel.assistant.ID} onClose={() => setDialog(null)} />}
             {panel.kind === 'tasks' && <Tasks docked={panelDocked} assistantID={panel.assistant.ID} taskID={taskCard} onClose={() => setDialog(null)} />}
           </>}</ChatSidePanel>

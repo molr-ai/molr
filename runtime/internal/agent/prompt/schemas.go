@@ -12,7 +12,8 @@ var file = object("ID Name MediaType Size State Path Version")
 var message = object("ID ConversationID Sequence Sender CreatedAt", nested("Content", object("Kind", required("Text", scalar), nested("Card", object("Kind TargetID Title Summary")), nested("AttachmentIDs", array(scalar)))))
 var operation = object("Action Via Available Reason")
 var capabilities = object("OS NetworkBackend FullAccess Shell ProcessIsolation FileIsolation NetworkIsolation ResourceLimits Reason")
-var shell = object("ID TaskID Kind SandboxID OutputSandboxID FullAccess Mode State Script Failure StartedAt FinishedAt Stdout Stderr StdoutPath StderrPath Output NextCursor Path Stopping Bytes Truncated OutputComplete CaptureReason StdoutBytes StderrBytes", nested("GPUDeviceIDs", array(scalar)), nested("Forwards", array(object("Protocol Port Address URL State"))), nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")))
+var terminalControl = object("Control Generation Rows Cols NeedsRead")
+var shell = object("ID TaskID Kind CreatedBy SandboxID OutputSandboxID FullAccess Mode State Script Failure StartedAt FinishedAt Stdout Stderr StdoutPath StderrPath Output NextCursor Path Stopping Bytes Truncated OutputComplete CaptureReason StdoutBytes StderrBytes", nested("GPUDeviceIDs", array(scalar)), nested("Forwards", array(object("Protocol Port Address URL State"))), nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")))
 var browserProxy = object("Mode Server Authentication Version", nested("Bypass", array(scalar)))
 var browserNetworkFailure = object("TaskID At Reason Message", nested("Proxy", browserProxy), nested("Sandbox", object("Reason At")))
 var browserControl = object("Control NeedsSnapshot Generation", nested("Proxy", browserProxy), nested("LastNetworkFailure", browserNetworkFailure))
@@ -38,7 +39,7 @@ var schemas = map[string]*shape{
 	"permissions":             object("Total Truncated", required("Granted", array(grant))),
 	"permission_requests":     array(request),
 	"skill":                   object("name path frontmatter read_tool"),
-	"event":                   object("ID Kind MessageID ScheduleID ScheduleVersion OccurrenceAt OperationID TaskID CreatedAt ExecutionID", nested("Recovery", object("PreviousEventID PreviousExecutionID SourceKind SourceCreatedAt Reason InterruptedAt")), nested("Details", object("ID Mode State Failure StartedAt FinishedAt StdoutPath StderrPath BrowserTaskID Notice", nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")), nested("Tasks", array(shell))))),
+	"event":                   object("ID Kind MessageID ScheduleID ScheduleVersion OccurrenceAt OperationID TaskID CreatedAt ExecutionID", nested("Recovery", object("PreviousEventID PreviousExecutionID SourceKind SourceCreatedAt Reason InterruptedAt")), nested("Details", object("ID Mode State Failure StartedAt FinishedAt StdoutPath StderrPath BrowserTaskID TerminalTaskID Generation Notice", nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")), nested("Tasks", array(shell))))),
 	"failure":                 object("ok operation_id", nested("error", failure)),
 	"conversation_read":       object("NextCursor", required("Items", array(message)), nested("Attachments", &shape{dictionary: file})),
 	"conversation_publish":    object("ID ConversationID Sequence CreatedAt"),
@@ -54,7 +55,7 @@ var schemas = map[string]*shape{
 	"permission_list":         permissions,
 	"permission_request":      request,
 	"shell_execute":           shell,
-	"shell_task":              object("Output NextCursor Path Stopping Accepted Started Bytes Limit", required("Items", array(shell))),
+	"shell_task":              object("Output NextCursor Path Stopping Accepted Started Bytes Limit", required("Items", array(shell)), nested("Terminal", terminalControl)),
 	"plan_list":               object("NextCursor", required("Items", array(plan))),
 	"plan_read":               plan,
 	"plan_manage":             plan,
@@ -65,7 +66,7 @@ func init() {
 	requestInput.fields = append(requestInput.fields, nested("additional_requests", array(entry)))
 	request.fields = append(request.fields, nested("GrantedAll", array(grant)))
 	shell.fields = append(shell.fields, nested("Result", object("Stdout Stderr Truncated OutputComplete StdoutPath StderrPath StdoutBytes StderrBytes", nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")))))
-	shell.fields = append(shell.fields, nested("Browser", browserControl))
+	shell.fields = append(shell.fields, nested("Browser", browserControl), nested("Terminal", terminalControl))
 	schemas["browser_session"] = object("Available Reason Stopping Graceful ProxyAppliesTo RestartRequired", nested("Task", shell), nested("Proxy", browserProxy), nested("LastNetworkFailure", browserNetworkFailure), nested("LastFailure", object("TaskID Reason", nested("Proxy", browserProxy))))
 	schemas["browser_action"] = object("ok", nested("data", browserData))
 	schemas["browser_action"].fields = append(schemas["browser_action"].fields, schemas["file_read"].fields...)

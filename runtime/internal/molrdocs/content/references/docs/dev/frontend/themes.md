@@ -15,6 +15,8 @@
 
 不提供独立主题管理页面或逐页选择器。外部主题由管理员通过“插件”页面导入、授权和启用，随后出现在主题选择器；插件版本和安装统一由插件管理。个人主题页地址为 `/#/account/theme`；`/#/settings/*` 用于管理员设置。
 
+终端窗口可独立选择跟随应用、浅色或深色，偏好以 `molr.terminal-theme` 保存在当前浏览器。`data-ui-theme` 作用域复用共享明暗语义 token，`data-palette` 跟随应用配色；窗口标题、控件和 xterm 使用同一作用域。xterm 观察根节点与窗口的主题属性，通过 `getComputedStyle()` 更新 ANSI 颜色，无需重建终端或连接。
+
 ## 主题选择与页面解析
 
 账号设置只保存一个主题身份，不保存用户自定义的页面映射。Runtime 的 `Settings.UITheme` 使用 `id@version`，前端解析为：

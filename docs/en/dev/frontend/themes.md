@@ -15,6 +15,8 @@ Users select a complete theme. **Which pages are replaced is determined by the t
 
 No standalone theme management page or per-page selector is provided. External themes are imported, authorized, and enabled by administrators via the "Plugins" page, and then appear in the theme selector; plugin versions and installations are uniformly managed by Plugin Management. The personal theme page address is `/#/account/theme`; `/#/settings/*` is used for administrator settings.
 
+Terminal windows offer Follow app, Light and Dark independently, storing the preference in this browser under `molr.terminal-theme`. A `data-ui-theme` scope reuses the shared light/dark semantic tokens, while `data-palette` follows the app palette. Window chrome, controls and xterm share this scope. xterm observes theme attributes on both the document root and the window and updates ANSI colors through `getComputedStyle()` without recreating the terminal or connection.
+
 ## Theme Selection and Page Resolution
 
 Account settings save only one theme identity and do not save user-defined page mappings. Runtime's `Settings.UITheme` uses `id@version`, which the frontend resolves as:

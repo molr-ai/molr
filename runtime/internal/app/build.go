@@ -1184,7 +1184,7 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		AdminUsage: func(ctx context.Context, p core.Principal) (any, error) { return adminUsage(ctx, store, identity, p) },
 		AccountQuotas: func(ctx context.Context, p core.Principal) (any, error) {
 			return accountQuotas(ctx, store, identity, p)
-		}, Plugins: pluginService, MCP: mcpService, ShellTasks: func(ctx context.Context, p core.Principal, id core.ID, raw json.RawMessage) (json.RawMessage, error) {
+		}, Plugins: pluginService, MCP: mcpService, TerminalStart: b.shellTasks.startTerminal, TerminalStream: b.shellTasks.terminalFrames, ShellTasks: func(ctx context.Context, p core.Principal, id core.ID, raw json.RawMessage) (json.RawMessage, error) {
 			if err := p.RequireOwner(); err != nil {
 				return nil, err
 			}

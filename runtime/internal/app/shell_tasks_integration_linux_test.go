@@ -60,7 +60,9 @@ func TestShellTasksRealDetachedAuthorizationAndTTY(t *testing.T) {
 	need(t, b.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
 		return tx.Delete(ctx, "agent.jobs", persistence.Key(owner.OwnerID, "shell-job"))
 	}))
-	_, err = s.manage(t.Context(), owner, e.AssistantID, tools.ShellTaskRequest{Action: "write", TaskID: "terminal", Data: "echo terminal_survived\n"})
+	_, err = s.manage(t.Context(), owner, e.AssistantID, tools.ShellTaskRequest{Action: "takeover", TaskID: "terminal", ClientID: "integration", Generation: 1})
+	need(t, err)
+	_, err = s.manage(t.Context(), owner, e.AssistantID, tools.ShellTaskRequest{Action: "write", TaskID: "terminal", ClientID: "integration", Generation: 2, Sequence: 1, Data: "echo terminal_survived\n"})
 	need(t, err)
 	time.Sleep(2300 * time.Millisecond)
 	bg, err := persistence.Load[shellTask](t.Context(), b.store, shellTasksBucket, persistence.Key(owner.OwnerID, "background"))
@@ -135,7 +137,7 @@ func TestShellTasksRemoteTTYAndArchivedOutput(t *testing.T) {
 	need(t, err)
 	deadline := time.Now().Add(8 * time.Second)
 	for {
-		_, err = b.shellTasks.manage(t.Context(), owner, e.AssistantID, tools.ShellTaskRequest{Action: "write", TaskID: e.OperationID, Data: "echo remote_tty_ok; exit\n"})
+		_, err = b.shellTasks.manage(t.Context(), e.Principal, e.AssistantID, tools.ShellTaskRequest{Action: "write", TaskID: e.OperationID, Generation: 1, Data: "echo remote_tty_ok; exit\n"})
 		if err == nil {
 			break
 		}

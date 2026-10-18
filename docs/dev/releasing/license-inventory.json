@@ -4,7 +4,7 @@
   "baseCommit": "0e38689",
   "scope": "License compatibility and notice delivery review; see docs/dev/releasing/licensing.md.",
   "inputs": {
-    "package-lock.json": "427eaababa72f2cb95b2c7ef0912941c21e170f4ac53740f2a50c64d928f1b8b",
+    "package-lock.json": "1fda19cef0b4f4581d3955955065aa091ba7acced4968f28b23e0410f4dffd6c",
     "runtime/go.mod": "2981cdb18ba6d23f767f200ce8bac921b410890f0fbe4ab0ab7c038366754177",
     "runtime/go.sum": "62419963ae93fb75137f059806eaf5af2cd04c334a38f01e18468fd594ab4319",
     "runtime/.go-version": "6c075150045fda9bac31bb93cf5a0a0bc91622a75c1f10fb2971e6f994c6d4d6",
@@ -14,7 +14,7 @@
     "scripts/build-release.mjs": "17a7253510ed07b71f8dd163b183d8418b95b750da7403e0064cebe73df3cc07",
     "apps/website/src/GithubMark.tsx": "7d0d38bb13335793c5ed91d5f27ffc8e5fc2811d7eff9ce6e59a6f6d33d5a37a",
     "apps/website/src/site-links.ts": "f360bbe44df89647e5d43207230ab65ee7b2c899aa2f680f1863bba125d2c1cd",
-    "THIRD_PARTY_NOTICES.md": "20d7391103b01d69dcbb3d05dfa330a8dd8d80ad2c9f368cde74094eec49921c",
+    "THIRD_PARTY_NOTICES.md": "6705fa64094c26cb84115ad14e44b0456045f9134fec47d7ad2829042cef6a6c",
     "scripts/license-assets.ts": "2f17e19230ad1b6fa1b44bfd974abec0d2c36522dd009ebed61151040eb715db",
     "scripts/update-third-party-notices.py": "468adbcab07505c888e08017ac41534c4eecc29285721274e3544026e0ef4be8",
     "scripts/promote-release.mjs": "3875373d2fe869b79eda684b6deef53173f8f0af7cf1e41f25f9ea977f972e27",
@@ -2440,6 +2440,40 @@
         "type": "git",
         "url": "git://github.com/xmldom/xmldom.git"
       }
+    },
+    {
+      "path": "node_modules/@xterm/addon-fit",
+      "name": "@xterm/addon-fit",
+      "version": "0.11.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": false,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "e256f01188af527e4d06d21d06fbf785ae9c50d4b328bf03cbe0ba7f0aa4228f"
+        }
+      ],
+      "source": "https://github.com/xtermjs/xterm.js/tree/master/addons/addon-fit"
+    },
+    {
+      "path": "node_modules/@xterm/xterm",
+      "name": "@xterm/xterm",
+      "version": "6.0.0",
+      "declaredLicense": "MIT",
+      "reviewedLicense": "MIT",
+      "developmentOnly": false,
+      "optional": false,
+      "installedForReview": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "b569f629d00f2626a8100df2a1798210535621e42164dfd426a6fe5aac7b0ccd"
+        }
+      ],
+      "source": "https://github.com/xtermjs/xterm.js"
     },
     {
       "path": "node_modules/abbrev",

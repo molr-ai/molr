@@ -65,6 +65,7 @@ Verified on 2026-10-03 against the registrations in `runtime/internal/api/*_rout
 | GET | `/api/assistants/{id}` |
 | GET | `/api/assistants/{id}/capabilities` |
 | GET | `/api/assistants/{id}/shell-tasks` |
+| GET | `/api/assistants/{id}/terminals/{task}/stream` |
 | GET | `/api/assistants/{id}/status` |
 | GET | `/api/audit` |
 | GET | `/api/auth/csrf` |
@@ -150,6 +151,7 @@ Verified on 2026-10-03 against the registrations in `runtime/internal/api/*_rout
 | POST | `/api/assistants/{id}/compress` |
 | POST | `/api/assistants/{id}/expedite` |
 | POST | `/api/assistants/{id}/shell-tasks` |
+| POST | `/api/assistants/{id}/terminals` |
 | POST | `/api/assistants/{id}/stop` |
 | POST | `/api/auth/login` |
 | POST | `/api/auth/sessions/revoke-others` |
@@ -445,7 +447,7 @@ Appearance preferences: `Settings.Theme` maintains `system` / `light` / `dark`; 
 ### Shell Task Management
 
 - `GET /api/assistants/{id}/shell-tasks`: The current owner reads all running tasks and the most recent 50 history records for the assistant, returning `Items` and `Limit: 10`. The mode is `foreground/background/tty`, and the status is `running/completed/failed/stopped/interrupted`.
-- `POST /api/assistants/{id}/shell-tasks`: `action` is `read/write/interrupt/stop/stop_all/resize/list`. Single-task operations use `task_id`; reads can pass `cursor`, `stream`, returning `Output`, `NextCursor`, `Path`; ending a task also returns `Finished` (output capture ended) and `OutputComplete` (whether capture is complete). `Finished=true` and after the current stream is read empty, reading can stop; `OutputComplete=false` caused by truncation must not be treated as the task still executing. Reading is a read-only operation; clients should not trigger business data invalidation based on the POST method. TTY input passes `data` (max 8 KiB), resize passes `rows/cols` (1–500). Owner sessions still require CSRF; cross-owner or cross-assistant access is denied.
+- `POST /api/assistants/{id}/shell-tasks`: `action` is `read/write/interrupt/stop/stop_all/resize/list/takeover/release`. Single-task operations use `task_id`; reads can pass `cursor`, `stream`, returning `Output`, `NextCursor`, `Path`; ending a task also returns `Finished` (output capture ended) and `OutputComplete` (whether capture is complete). `Finished=true` and after the current stream is read empty, reading can stop; `OutputComplete=false` caused by truncation must not be treated as the task still executing. Reading is a read-only operation; clients should not trigger business data invalidation based on the POST method. TTY input passes `data` (max 8 KiB), resize passes `rows/cols` (1–500). Owner sessions still require CSRF; cross-owner or cross-assistant access is denied.
 - The first creation of a Shell task and status changes append `shell.tasks` SSE in the same transaction, containing only the owning assistant reference, not commands or output; clients refresh the corresponding task list based on this, retaining low-frequency calibration.
 - The model uses the `shell_task` tool with the same semantics, which can only manage its own tasks. `shell_execute` adds `tty/background/timeout_seconds`, with foreground waiting up to 60 seconds. Optional `forward_ports` declares up to 4 HTTP/WS service ports. The `Task.Forwards` in the creation receipt and `Forwards` in the task list return `Protocol/Port/Address/URL/State`, with status `waiting/ready/closed`; addresses are uniformly located on the Runtime machine, and URLs require the current Molr session. The creation receipt includes the task and notification description; completion and running reminders use `shell_task_finished` / `shell_tasks_running` events, with structured information in `Details`, not faking chat messages.
 
@@ -582,3 +584,10 @@ States are `disconnected`, `connected`, `reconnecting`, `token_invalid`, `blocke
 ## DingTalk chat entry
 
 See [DingTalk channel API](../extensions/dingtalk.md#api) for status, pairing and disconnection.
+
+### Terminal sessions and control
+
+- `POST /api/assistants/{id}/terminals`: the authenticated owner supplies a unique `request_id`, a window `client_id` and a `compute_id`. The server starts a local controlled TTY as the assistant, in its workspace (`/work`), selecting granted networks automatically. Reusing request_id returns the recorded task without replaying commands. Returns `Task`.
+- `Terminal` includes `Control` (assistant/user), `Generation`, `Rows`, `Cols`, `NeedsRead`. List/read project `ControllerIsCurrentSession` and `ControllerClientID` for the authenticated session; `CreatedBy` identifies user/assistant. TTY mutations and handoffs require the current generation. Owner mutations also match client_id and login session, with increasing sequence numbers rejecting duplicate or stale input. takeover/release are owner-only. Assistant stop_all skips user-controlled TTY sessions and sessions still requiring a fresh handoff read; owner stop_all retains its administrative ability to stop all tasks.
+- release emits `terminal_control_returned`. The assistant must read through the latest output page with that generation before operating; another execution must read again. User-controlled TTY sessions do not produce running reminders.
+- `GET /api/assistants/{id}/terminals/{task}/stream?cursor=0`: authenticated SSE frames carry base64 `Output`, byte `NextCursor`, live `Terminal` state, and `Finished` after completion. Reconnect from the last consumed cursor without restarting a process. shell-tasks read also accepts `encoding:base64`; text reads remain available. Decode bytes continuously across frames. Archive limits retain existing task termination and incomplete-output semantics.

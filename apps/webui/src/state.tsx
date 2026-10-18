@@ -171,7 +171,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       else if (path.includes('/conversations/read')) changed(['conversations']);
       else if (path.includes('/conversations/feedback')) return; // Message feedback reconciles its exact conversation.
       else if (path.includes('/conversations/messages')) changed(['conversations', 'status']); // The caller and SSE invalidate the affected conversation.
-      else if (/\/assistants\/[^/]+\/shell-tasks$/.test(path)) changed([queryTopic(path)]);
+      // Terminal keystrokes must not trigger a list reload for every chunk.
+      // Controls refresh their panel; lifecycle changes arrive via shell.tasks.
+      else if (/\/assistants\/[^/]+\/shell-tasks$/.test(path)) return;
       // Browser controls reconcile their own status; pointer/keyboard input must
       // not invalidate unrelated assistant, conversation, schedule or grant data.
       else if (/\/assistants\/[^/]+\/browser$/.test(path)) return;

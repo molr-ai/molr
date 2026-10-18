@@ -3,9 +3,9 @@ import type { ReactNode } from 'react';
 import { ModalPresence, useUILocale } from '@molr/ui';
 import type { Assistant } from '../../../api/types';
 
-export type ChatPanelSelection = { kind: 'info' | 'permissions' | 'tasks' | 'shell_tasks' | 'browser' | 'files'; assistant: Assistant };
+export type ChatPanelSelection = { kind: 'info' | 'permissions' | 'tasks' | 'shell_tasks' | 'browser' | 'files' | 'terminal'; assistant: Assistant };
 export function isChatPanel(value: { kind: string; assistant: Assistant } | null): value is ChatPanelSelection {
-  return !!value && ['info', 'permissions', 'tasks', 'shell_tasks', 'browser', 'files'].includes(value.kind);
+  return !!value && ['info', 'permissions', 'tasks', 'shell_tasks', 'browser', 'files', 'terminal'].includes(value.kind);
 }
 
 /** Keep the panel mounted until its layout space has finished collapsing. */
