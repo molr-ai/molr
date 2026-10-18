@@ -50,8 +50,9 @@ export function HeroDownload({ locale }: { locale: Locale }) {
             </div>
           </div>
         </Popover>
-      </div> : <p className="home-download-status" role="status">{status}{error && <Button variant="ghost" size="sm" onClick={retry}>{zh ? '重试' : 'Retry'}</Button>}</p>}
-      <a className="button button--secondary button--lg" href={localizedDocPath(siteLinks.userDocs!, locale)}>{zh ? '查看文档' : 'View docs'}</a>
+      </div> : !loading && !error ? <div role="status"><Button size="lg" className="home-download-pending" disabled><Icon name="download" />{status}</Button></div>
+        : <p className="home-download-status" role="status">{status}{error && <Button variant="ghost" size="sm" onClick={retry}>{zh ? '重试' : 'Retry'}</Button>}</p>}
+      <a className="button button--secondary button--lg" href={localizedDocPath(siteLinks.userDocs!, locale)}><Icon name="book" />{zh ? '查看文档' : 'View docs'}</a>
     </div>
     {available && <p className="home-download-meta" role="status">{status}</p>}
     {available && <p className="home-download-edition">{platform.os === 'win32'
@@ -60,6 +61,6 @@ export function HeroDownload({ locale }: { locale: Locale }) {
     {available && !platform.signed && platform.os !== 'linux' && <p className="home-download-signing">{platform.os === 'darwin'
       ? (zh ? '未公证测试包，macOS 可能阻止首次打开。' : 'Unnotarized test build; macOS may block the first launch.')
       : (zh ? '未签名测试包，Windows 可能提示未知发布者。' : 'Unsigned test build; Windows may show an unknown publisher warning.')}</p>}
-    <a className="home-download-alternatives" href="#install">{zh ? '更多安装方式' : 'More installation methods'}<Icon name="arrow" /></a>
+    <a className="home-download-alternatives" href="#install">{zh ? '更多安装方式' : 'More installation methods'}<Icon name="down" /></a>
   </div>;
 }

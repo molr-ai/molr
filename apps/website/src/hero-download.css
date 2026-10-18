@@ -5,6 +5,7 @@
 .home-download-more { width: 48px; padding-inline: 0; flex-shrink: 0; border-left: 1px solid color-mix(in srgb, var(--color-on-primary) 25%, transparent); border-start-start-radius: 0; border-end-start-radius: 0; }
 .home-download-primary:focus-visible, .home-download-more:focus-visible { position: relative; z-index: 1; }
 .home-download-status { display: inline-flex; align-items: center; gap: 8px; margin: 0; color: var(--color-text-muted); }
+.home-download-pending:disabled { opacity: 1; cursor: default; background: var(--color-primary); }
 .home-download-alternatives { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 16px; font-size: var(--text-sm); }
 .home-download-alternatives:hover { text-decoration: underline; text-underline-offset: 4px; }
 .home-page .home-download-meta { margin-top: 16px; color: var(--color-text-muted); font-size: var(--text-sm); }

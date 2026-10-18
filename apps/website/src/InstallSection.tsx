@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { SegmentedControl, Tabs } from '@molr/ui';
+import { Button, SegmentedControl, Tabs, useChoiceScroll } from '@molr/ui';
 import type { HomeCopy } from './home-content';
 import type { Locale } from './site-content';
 import { installMessages } from './install-content';
@@ -18,8 +18,9 @@ type InstallMethod = 'command' | 'download' | 'docker' | 'agent';
 
 export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Locale }) {
   const t = installMessages[locale];
-  const [entry, setEntry] = useState<'desktop' | 'server'>('server');
-  const [mode, setMode] = useState<RuntimeMode>('server');
+  const [entry, setEntry] = useState<'desktop' | RuntimeMode>('server');
+  const entryList = useChoiceScroll(entry);
+  const mode: RuntimeMode = entry === 'sandbox' ? 'sandbox' : 'server';
   const [method, setMethod] = useState<InstallMethod>('command');
   const [autoArch, setAutoArch] = useState(true);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
@@ -104,7 +105,6 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
   </>;
   const servicePanel = <>
     <div className="home-install-role">
-      <SegmentedControl label={t.mode} value={mode} onValueChange={value => { setMode(value); if (value === 'sandbox' && method === 'docker') setMethod('command'); }} options={(['server', 'sandbox'] as const).map(value => ({ value, label: t[value] }))} />
       <p>{mode === 'server' ? t.serverBody : t.sandboxBody}</p>
     </div>
     <Tabs label={t.auxiliary} value={method} onValueChange={setMethod} className="home-install-method-tabs"
@@ -115,11 +115,16 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
     <h2 id="start-title">{copy.startHeading}</h2>
     <p className="home-section-intro">{t.browser}</p>
     <div className="home-installer">
-      <Tabs label={t.method} value={entry} onValueChange={setEntry} className="home-install-entry-tabs" items={[
-        { value: 'desktop', label: t.desktop, icon: <Icon name="devices" />, content: entry === 'desktop' ? <DesktopDownloads locale={locale} source={source} /> : null },
-        { value: 'server', label: t.deploy, icon: <Icon name="server" />, content: entry === 'server' ? servicePanel : null },
-      ]} />
-      <div className="home-install-footer"><span>{entry === 'desktop' ? (locale === 'zh' ? '选择与你的操作系统和处理器匹配的安装包。' : 'Choose an installer for your operating system and processor.') : method === 'agent' ? t.agentHint : method === 'docker' ? t.dockerHint : (locale === 'zh' ? '运行模式与资源权限分别配置。' : 'Runtime mode and resource permissions are configured separately.')}</span><a href={localizedDocPath(entry === 'desktop' ? '/docs/admin/deployment/installation/' : method === 'agent' ? agentInstallPath : method === 'docker' ? '/docs/admin/deployment/docker/' : mode === 'sandbox' ? '/docs/admin/sandbox/remote/' : siteLinks.install!, locale)}>{entry === 'server' && method === 'agent' ? t.agentGuide : t.guide}<span aria-hidden="true"> ↗</span></a></div>
+      <div ref={entryList} className="home-install-entries" role="group" aria-label={t.method}>
+        {(['desktop', 'server', 'sandbox'] as const).map(value => <Button key={value} variant="ghost" className="home-install-entry-button" aria-pressed={entry === value} aria-controls="install-details"
+          onClick={() => { setEntry(value); if (value === 'sandbox' && method === 'docker') setMethod('command'); }}>
+          <Icon name={value === 'desktop' ? 'devices' : value === 'server' ? 'server' : 'shield'} />{t[value]}
+        </Button>)}
+      </div>
+      <div id="install-details" className="home-install-result">
+        {entry === 'desktop' ? <DesktopDownloads locale={locale} source={source} /> : servicePanel}
+      </div>
+      <div className="home-install-footer"><span>{entry === 'desktop' ? (locale === 'zh' ? '选择与你的操作系统和处理器匹配的安装包。' : 'Choose an installer for your operating system and processor.') : method === 'agent' ? t.agentHint : method === 'docker' ? t.dockerHint : (locale === 'zh' ? '运行模式与资源权限分别配置。' : 'Runtime mode and resource permissions are configured separately.')}</span><a href={localizedDocPath(entry === 'desktop' ? '/docs/admin/deployment/installation/' : method === 'agent' ? agentInstallPath : method === 'docker' ? '/docs/admin/deployment/docker/' : mode === 'sandbox' ? '/docs/admin/sandbox/remote/' : siteLinks.install!, locale)}>{entry !== 'desktop' && method === 'agent' ? t.agentGuide : t.guide}<span aria-hidden="true"> ↗</span></a></div>
     </div>
   </section>;
 }

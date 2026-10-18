@@ -43,7 +43,7 @@ test('agent installation instructions work across modes, locales, catalog failur
     assert.equal(await page.evaluate(() => navigator.clipboard.readText()), await prompt.innerText());
     await expect(prompt).toContainText('--mode server');
     await expect(prompt).toContainText('one-time login link');
-    await section.getByRole('radio', { name: 'Add a sandbox node', exact: true }).click();
+    await section.getByRole('button', { name: 'Deploy sandbox', exact: true }).click();
     await expect(prompt).toContainText('--mode sandbox');
     await expect(prompt).toContainText('node address');
     await expect(prompt).not.toContainText('one-time login link');

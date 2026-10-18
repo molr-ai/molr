@@ -92,7 +92,9 @@ test('hero downloads detected platform directly, supports manual selection and h
     await page.reload();
     await expect(hero.locator('.home-download-primary')).toHaveCount(0);
     await expect(hero.getByRole('button', { name: '更多下载选项' })).toHaveCount(0);
-    await expect(hero.locator('button:disabled')).toHaveCount(0);
+    await expect(hero.getByRole('button', { name: '即将推出', exact: true })).toBeDisabled();
+    await expect(hero.getByRole('button', { name: '即将推出', exact: true })).toHaveCSS('opacity', '1');
+    await expect(hero.getByRole('button', { name: '即将推出', exact: true }).locator('svg')).toHaveCount(1);
     await expect(hero.getByRole('status')).toHaveText('即将推出');
     failure = true; await page.reload();
     await expect(hero.getByRole('status')).toContainText('暂时无法');

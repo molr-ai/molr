@@ -34,7 +34,7 @@ test('service installation preserves platform, mode, copy and error flows withou
     await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/`);
     const section = page.locator('#install');
     await expect(section.getByText('v0.1.0', { exact: true })).toBeVisible();
-    await expect(section.getByRole('tablist', { name: 'Installation entry' }).getByRole('tab')).toHaveCount(2);
+    await expect(section.getByRole('group', { name: 'Installation entry' }).getByRole('button')).toHaveCount(3);
     await expect(section.getByRole('button', { name: /^(Stable|Preview|Nightly)$/ })).toHaveCount(0);
     await expect(section.locator('pre')).toContainText('--version 0.1.0');
     await expect(section.locator('pre')).not.toContainText('--channel');
@@ -61,12 +61,16 @@ test('service installation preserves platform, mode, copy and error flows withou
     await expect(section.getByRole('tab', { name: 'Install with Docker', exact: true })).toHaveAttribute('aria-selected', 'true');
     await expect(section.locator('pre')).toContainText('docker compose build');
     await expect(section.getByRole('link', { name: 'Installation guide' })).toHaveAttribute('href', '/en/docs/admin/deployment/docker/');
-    await section.getByRole('radio', { name: 'Add a sandbox node', exact: true }).click();
+    await section.getByRole('button', { name: 'Deploy sandbox', exact: true }).click();
     await expect(section.getByRole('tab', { name: 'Install with Docker', exact: true })).toHaveCount(0);
     await expect(section.locator('pre')).toContainText('--mode sandbox');
     await expect(section.getByRole('link', { name: 'Installation guide' })).toHaveAttribute('href', '/en/docs/admin/sandbox/remote/');
     await section.getByRole('tab', { name: 'Download package', exact: true }).click();
     await expect(section.locator('pre')).toContainText('./bin/molr-setup --mode sandbox');
+    await section.getByRole('button', { name: 'Desktop app', exact: true }).click();
+    await section.getByRole('button', { name: 'Deploy backend', exact: true }).click();
+    await expect(section.locator('pre')).toContainText('./bin/molr-setup --mode server');
+    await expect(section.getByRole('tab', { name: 'Install with Docker', exact: true })).toBeVisible();
     response = { schema: 1, channels: { stable: null, preview: catalog.channels.preview, nightly: null } };
     await page.reload();
     await expect(section.locator('pre')).toContainText('--version 0.2.0-rc.1');

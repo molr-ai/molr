@@ -30,7 +30,7 @@ test('desktop download UI shows edition and does not invent missing releases', {
     await page.route('**/releases/desktop/catalog.json', route => route.fulfill({ json: catalog }));
     await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/en/`);
     const section = page.locator('#install');
-    await section.getByRole('tab', { name: 'Desktop app', exact: true }).click();
+    await section.getByRole('button', { name: 'Desktop app', exact: true }).click();
     await expect(section.getByText('Client · remote connections only')).toBeVisible();
     await expect(section.getByRole('link', { name: 'Installation guide' })).toHaveAttribute('href', '/en/docs/admin/deployment/installation/');
     await expect(section.getByRole('link', { name: 'Download installer' })).toHaveAttribute('href', platform.url);
@@ -38,16 +38,16 @@ test('desktop download UI shows edition and does not invent missing releases', {
     const macFile = 'molr-desktop_0.1.0_darwin-arm64_full.dmg';
     catalog.channels.stable.platforms = [{ ...platform, os: 'darwin', arch: 'arm64', variant: 'full', file: macFile, url: `https://downloads.example.com/${macFile}` }];
     await page.reload();
-    await section.getByRole('tab', { name: 'Desktop app', exact: true }).click();
+    await section.getByRole('button', { name: 'Desktop app', exact: true }).click();
     await expect(section.getByText(/Unnotarized test build/)).toBeVisible();
     catalog.channels.stable.platforms[0].signed = true;
     await page.reload();
-    await section.getByRole('tab', { name: 'Desktop app', exact: true }).click();
+    await section.getByRole('button', { name: 'Desktop app', exact: true }).click();
     await expect(section.getByRole('link', { name: 'Download installer' })).toBeVisible();
     await expect(section.getByText(/Unnotarized test build/)).toHaveCount(0);
     catalog = { schema: 1, channels: { stable: null, preview: null, nightly: null } };
     await page.reload();
-    await section.getByRole('tab', { name: 'Desktop app', exact: true }).click();
+    await section.getByRole('button', { name: 'Desktop app', exact: true }).click();
     await expect(section.getByText('Coming soon')).toBeVisible();
     await expect(section.getByRole('link', { name: 'Download installer' })).toHaveCount(0);
   } finally { await browser.close(); await server.close(); if (before === undefined) delete process.env.VITE_SITE_MODE; else process.env.VITE_SITE_MODE = before; }
