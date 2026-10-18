@@ -165,7 +165,18 @@ curl -fsSL https://molr.ai/install.sh | sh -s -- --channel nightly
 curl -fsSL https://molr.ai/install.sh | sh -s -- --channel preview --version 0.2.0-rc.1
 ```
 
-官网不提供渠道切换，按 stable、preview、nightly 的顺序展示第一个可用发布。命令通过 `--version` 安装页面所示版本。安装选项可指定处理器架构和 curl／wget；`--arch amd64` 或 `--arch arm64` 与运行设备不符时，在下载和安装前停止，省略时自动检测。手动下载可选择系统与架构，展示文件、校验信息和 `molr-setup --mode` 命令。需要手动选择渠道时使用本页的 `--channel` 参数。
+官网的后端与沙盒入口使用 curl，自动检测系统和架构，安装正式渠道最新版；没有正式发行包时显示“即将推出”。版本号统一显示在安装区域右上角，页面不提供架构、下载工具或版本选项。手动下载按浏览器匹配正式发行包，无法匹配时显示列表首项；部署其他设备时，从 [GitHub Releases](https://github.com/molr-ai/molr/releases) 选择目标系统、架构及版本，下载归档和同名 `.sha256` 文件后离线安装。
+
+指定架构、版本或下载工具时，可调整以下命令。`--arch amd64` 或 `--arch arm64` 用于核对设备架构，不匹配时在下载前停止；省略则自动检测。`--version` 必须对应发布目录中存在的版本，省略时安装所选渠道最新版；默认渠道为 stable。沙盒节点将 `--mode server` 改为 `--mode sandbox`。
+
+```bash
+# Specify architecture and version
+curl -fsSL https://molr.ai/install.sh | sh -s -- --mode server --arch arm64 --version 0.1.0
+# Use wget when curl is unavailable
+wget -qO- https://molr.ai/install.sh | sh -s -- --mode server
+```
+
+预发布版与 Nightly 使用上文的 `--channel` 参数。桌面应用下载按 stable、preview、nightly 的顺序展示第一个可用发布。
 
 stable 为正式版，preview 为 beta／rc 和后续正式版，nightly 为每日构建。未发布版本的渠道不会自动回退到其他渠道。下载器显示版本、架构、包名、来源、摘要及下载进度，校验后调用包内安装器。它使用已有的 curl 或 wget、tar、gzip 和 SHA-256 工具，不自动安装下载工具；安装维护程序本身无需 Python、curl 或 iproute2。
 

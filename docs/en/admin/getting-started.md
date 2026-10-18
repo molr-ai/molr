@@ -16,7 +16,7 @@ This guide deploys Runtime in `server` mode (the default), providing WebUI, acco
 
 For Docker, follow [Docker deployment](deployment/docker.md) to build Runtime and WebUI together, configure access, and initialize the account. The steps below describe native installation.
 
-Copy the command under “Deploy a server → Deploy Molr” on the website. It pins the displayed available release and detects the OS and architecture. No download is offered when no release is available. Native packages support Linux and macOS on AMD64/ARM64 and include Runtime and WebUI. Linux Bubblewrap and static BusyBox dependencies come from the target system’s package manager; macOS uses system Seatbelt.
+Copy the command under “Deploy backend” on the website. It uses curl, detects the OS and architecture automatically, and installs the latest stable release. It shows “Coming soon” when no stable package is available. Native packages support Linux and macOS on AMD64/ARM64 and include Runtime and WebUI. Linux Bubblewrap and static BusyBox dependencies come from the target system’s package manager; macOS uses system Seatbelt.
 
 Alternatively, run the installer with the default stable channel, without saving a script file:
 
@@ -24,7 +24,7 @@ Alternatively, run the installer with the default stable channel, without saving
 curl -fsSL https://molr.ai/install.sh | sh -s -- --mode server
 ```
 
-To select another channel, append `--channel preview` or `--channel nightly`. See [installation and service management](deployment/installation.md) for channels and versions. The website has no channel selector; its command installs the displayed version. Users do not need Go, Node.js, or a separate web server.
+To select another channel, append `--channel preview` or `--channel nightly`. See [installation and service management](deployment/installation.md) for channels and versions. The website has no channel selector; its command always installs the latest stable release. Users do not need Go, Node.js, or a separate web server.
 
 First installation uses the current non-root user, selects an available port starting at 8787, and creates independent configuration. Linux installs a systemd user service; root execution requires a non-root account via `--user molr`. APT systems can prepare missing dependencies when authorized; other systems follow the reported requirements. The systemd user manager must be available; configure linger as instructed to keep running after logout. macOS 13 or later uses the current non-root user’s launchd service, without sudo.
 

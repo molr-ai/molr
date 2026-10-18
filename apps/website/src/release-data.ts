@@ -24,16 +24,13 @@ export function readCatalog(value: unknown): Catalog {
   }
   return catalog;
 }
-export type DownloadTool = 'curl' | 'wget';
 export type RuntimeMode = 'server' | 'sandbox';
 export function publishedChannel(catalog: { channels: Record<Channel, unknown> } | null | undefined): Channel {
   return channels.find(channel => catalog?.channels[channel]) || 'stable';
 }
 
-export function installCommand(version: string, { arch, tool = 'curl', mode = 'server' }: { arch?: string; tool?: DownloadTool; mode?: RuntimeMode } = {}): string {
-  const options = [`--mode ${mode}`, `--version ${version}`, arch ? `--arch ${arch}` : ''].filter(Boolean);
-  const download = tool === 'wget' ? 'wget -qO-' : 'curl -fsSL';
-  return `${download} https://molr.ai/install.sh | sh -s -- ${options.join(' ')}`;
+export function installCommand(mode: RuntimeMode = 'server'): string {
+  return `curl -fsSL https://molr.ai/install.sh | sh -s -- --mode ${mode}`;
 }
 
 export function packageInstallCommand(platform: ReleasePlatform, mode: RuntimeMode = 'server'): string {

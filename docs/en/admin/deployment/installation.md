@@ -166,7 +166,18 @@ curl -fsSL https://molr.ai/install.sh | sh -s -- --channel nightly
 curl -fsSL https://molr.ai/install.sh | sh -s -- --channel preview --version 0.2.0-rc.1
 ```
 
-The website has no channel selector. It displays the first available release in stable, preview, nightly order and pins the shown version with `--version`. Installation options offer architecture and curl/wget; `--arch amd64` or `--arch arm64` stops before downloading if it does not match the device. Omit it for automatic detection. Manual downloads offer OS and architecture choices, checksums, and a `molr-setup --mode` command. Use the `--channel` options on this page to select a channel explicitly.
+The website’s backend and sandbox entries use curl, detect the OS and architecture automatically, and install the latest stable release. They show “Coming soon” when no stable package is available. The version appears in the installation area’s top-right corner; architecture, download tool, and version controls are omitted. Manual downloads match the browser or default to the first stable target. To deploy another device, select its OS, architecture, and version in [GitHub Releases](https://github.com/molr-ai/molr/releases), download the archive and matching `.sha256` file, and install offline.
+
+To choose an architecture, version, or download tool, adapt these commands. `--arch amd64` or `--arch arm64` checks the device architecture and stops before downloading on a mismatch; omit it for automatic detection. `--version` must refer to a version in the release catalog; omit it to install the latest release in the selected channel, which defaults to stable. For a sandbox node, replace `--mode server` with `--mode sandbox`.
+
+```bash
+# Specify architecture and version
+curl -fsSL https://molr.ai/install.sh | sh -s -- --mode server --arch arm64 --version 0.1.0
+# Use wget when curl is unavailable
+wget -qO- https://molr.ai/install.sh | sh -s -- --mode server
+```
+
+Use the `--channel` options above for preview and nightly releases. Desktop downloads display the first available release in stable, preview, nightly order.
 
 Stable tracks final releases, preview tracks beta/RC and subsequent final releases, and nightly tracks daily builds. Empty channels do not fall back to other channels. The downloader displays version, architecture, filename, source, checksum and progress, verifies the package, then runs its installer. It uses existing curl or wget, tar, gzip and a SHA-256 tool without installing download tools. The maintenance program itself needs no Python, curl or iproute2.
 

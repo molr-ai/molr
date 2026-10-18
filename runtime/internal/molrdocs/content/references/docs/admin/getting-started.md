@@ -16,7 +16,7 @@
 
 使用 Docker 时，按 [Docker 部署](https://molr.ai/zh/docs/admin/deployment/docker/)构建包含 Runtime 与 WebUI 的镜像，并完成配置与账号初始化；下文为原生安装方式。
 
-从官网「部署服务 → 部署 Molr」复制安装命令。官网显示默认可用版本，命令会锁定该版本并自动检测系统与架构；没有发布版本时不提供下载入口。原生安装支持 Linux 和 macOS 的 AMD64／ARM64，安装包包含 Runtime 与 WebUI。Linux 的 Bubblewrap、静态 BusyBox 等依赖由目标机系统包管理器提供；macOS 使用系统 Seatbelt。
+从官网「部署后端」复制安装命令。默认使用 curl，自动检测系统与架构，安装正式渠道最新版；没有正式发行包时显示“即将推出”。原生安装支持 Linux 和 macOS 的 AMD64／ARM64，安装包包含 Runtime 与 WebUI。Linux 的 Bubblewrap、静态 BusyBox 等依赖由目标机系统包管理器提供；macOS 使用系统 Seatbelt。
 
 也可直接运行安装脚本，使用默认 stable 渠道，无需保存脚本文件：
 
@@ -24,7 +24,7 @@
 curl -fsSL https://molr.ai/install.sh | sh -s -- --mode server
 ```
 
-需要指定渠道时，在命令末尾添加 `--channel preview` 或 `--channel nightly`；渠道及版本说明见[安装与服务管理](https://molr.ai/zh/docs/admin/deployment/installation/)。官网不提供渠道切换，使用其命令即可安装页面所示版本。使用者无需安装 Go、Node.js 或单独部署网页。
+需要指定渠道时，在命令末尾添加 `--channel preview` 或 `--channel nightly`；渠道及版本说明见[安装与服务管理](https://molr.ai/zh/docs/admin/deployment/installation/)。官网不提供渠道切换，其命令始终安装正式渠道最新版。使用者无需安装 Go、Node.js 或单独部署网页。
 
 首次安装默认使用当前普通用户，从 8787 开始选择空闲端口并生成独立配置。Linux 安装 systemd 用户服务；root 执行时须通过 `--user molr` 指定非 root 运行账户。依赖缺失时，apt 系系统会询问是否安装；其他系统按输出补齐依赖。systemd 用户管理器必须可用；需要退出登录后继续运行时，按提示配置 linger。macOS 13 及以上使用当前普通用户的 launchd 服务，不使用 sudo。
 

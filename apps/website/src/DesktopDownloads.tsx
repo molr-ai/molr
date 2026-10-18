@@ -1,19 +1,18 @@
 import type { Locale } from './site-content';
-import { useDesktopRelease } from './use-desktop-release';
+import type { useDesktopRelease } from './use-desktop-release';
 import { installMessages } from './install-content';
 import { Icon } from './HomeIcon';
 import { InstallStatus } from './InstallStatus';
 
-export function DesktopDownloads({ locale, source }: { locale: Locale; source: string }) {
+export function DesktopDownloads({ locale, releaseState }: { locale: Locale; releaseState: ReturnType<typeof useDesktopRelease> }) {
   const zh = locale === 'zh';
   const t = installMessages[locale];
-  const { release, loading, error, retry } = useDesktopRelease(source);
+  const { release, loading, error, retry } = releaseState;
   return <div className="home-desktop-downloads">
     <div className="home-desktop-header">
       <div className="home-install-heading"><h3>{zh ? 'Molr 桌面应用' : 'Molr desktop app'}</h3>
         <p>{zh ? '在桌面上，与你的助理保持连接。' : 'Stay connected to your assistant, right from your desktop.'}</p>
       </div>
-      {release && !error && <span className="home-desktop-version">v{release.version}</span>}
     </div>
     <div className="home-desktop-editions">
       <div><Icon name="devices" /><p><strong>{zh ? '本机运行，也能远程连接' : 'Run locally or connect remotely'}</strong><span>{zh ? 'Linux / macOS 包含 Runtime，可创建本机服务或连接远程服务。' : 'Linux / macOS includes the Runtime to create a local server or connect remotely.'}</span></p></div>

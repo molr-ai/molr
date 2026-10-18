@@ -27,7 +27,7 @@ export function HeroDownload({ locale }: { locale: Locale }) {
   const available = !loading && !error && platform && release;
   const platformLabel = (p: DesktopPlatform) => `${desktopOSLabel(p.os)} · ${desktopArchLabel(p)}`;
   const isCurrentDevice = (p: DesktopPlatform) => p.os === device.os && p.arch === device.arch;
-  const label = platform ? platformLabel(platform) : '';
+  const label = platform ? `${zh ? '下载' : 'Download'} Molr (${desktopOSLabel(platform.os)}·${desktopArchLabel(platform)})` : '';
   const optionsTitle = zh ? '选择下载版本' : 'Choose a download';
   const status = loading ? (zh ? '正在读取下载信息…' : 'Loading downloads…')
     : error ? (zh ? '暂时无法读取下载信息。' : 'Downloads are temporarily unavailable.')
@@ -38,7 +38,7 @@ export function HeroDownload({ locale }: { locale: Locale }) {
   return <div className="home-hero-install home-hero-download">
     <div className="home-download-actions">
       {available ? <div className="home-download-split">
-        <a className="button button--primary button--lg home-download-primary" href={platform.url} aria-label={`${zh ? '下载' : 'Download'} ${label}`}><Icon name="download" />{label}</a>
+        <a className="button button--primary button--lg home-download-primary" href={platform.url}><Icon name="download" />{label}</a>
         <Popover title={optionsTitle} align="end" width={360} maxHeight={480} open={open} onOpenChange={setOpen}
           trigger={<Button ref={more} size="lg" className="home-download-more" aria-label={zh ? '更多下载选项' : 'More download options'}><UIIcon name="chevron-down" /></Button>}>
           <div className="home-download-options">

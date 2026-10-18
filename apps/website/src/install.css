@@ -1,7 +1,5 @@
 .home-installer { margin-top: 40px; text-align: left; border-radius: 16px; background: var(--color-surface); overflow: hidden; }
 .home-installer button:focus-visible, .home-installer a:focus-visible, .home-installer summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
-.home-install-result-meta { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 20px; font: 11px/1.7 var(--font-mono); color: var(--color-text-muted); }
-.home-install-result-meta strong { font-weight: 400; overflow-wrap: anywhere; }
 .home-install-heading h3 { font-size: 23px; font-weight: 500; letter-spacing: -.025em; line-height: 1.4; }
 .home-install-details > p { color: var(--color-text-muted); font-size: 13px; line-height: 1.85; margin-top: 10px; }
 .home-install-terminal { margin-top: 24px; border-radius: 10px; background: var(--color-background); overflow: hidden; }
@@ -37,7 +35,6 @@
 .home-install-status button { color: var(--color-text); background: transparent; border: 0; padding: 0; font: inherit; text-decoration: underline; text-underline-offset: 3px; }
 @media (--molr-mobile) {
   .home-installer { margin-top: 28px; border-radius: 12px; }
-  .home-install-result-meta { gap: 6px 12px; margin-bottom: 14px; font-size: 10px; }
   .home-install-heading h3 { font-size: 21px; }
   .home-install-terminal > div, .home-install-snippet-toolbar { gap: 8px; padding: 10px 12px 0; }
   .home-install-terminal pre { padding: 16px; font-size: 12px; }
@@ -56,8 +53,7 @@
 .home-install-snippet-toolbar button { margin-left: auto; }
 .home-desktop-header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .home-desktop-header p { margin: 8px 0 0; font-size: 13px; line-height: 1.85; color: var(--color-text-muted); }
-.home-desktop-version { padding: 5px 10px; border-radius: 6px; color: var(--color-text-muted); font: 11px/1.6 var(--font-mono); overflow-wrap: anywhere; }
-.home-desktop-editions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--color-border); }
+.home-desktop-editions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 24px; padding-bottom: 24px; margin-bottom: 24px; border-bottom: 1px solid var(--color-border); }
 .home-desktop-editions > div { display: flex; gap: 12px; align-items: flex-start; }
 .home-desktop-editions .home-icon { flex-shrink: 0; margin-top: 3px; color: var(--color-text-muted); }
 .home-desktop-editions p { margin: 0; font-size: 12px; line-height: 1.8; }
@@ -98,18 +94,18 @@
 
 .home-install-role { padding-bottom: 24px; border-bottom: 1px solid var(--color-border); }
 .home-install-role > p { margin: 0; color: var(--color-text-muted); font-size: 13px; line-height: 1.85; max-width: 75ch; }
-.home-install-advanced { margin-block: 20px 28px; padding-bottom: 20px; border-bottom: 1px solid var(--color-border); }
-.home-install-advanced > summary { cursor: pointer; color: var(--color-text-muted); font-size: 12px; line-height: 1.8; }
 
-.home-install-entries { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px 24px; border-bottom: 1px solid var(--color-border); }
+.home-install-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 24px; border-bottom: 1px solid var(--color-border); }
+.home-install-entries { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.home-install-version { flex-shrink: 0; margin-left: auto; color: var(--color-text-muted); font: 11px/1.6 var(--font-mono); overflow-wrap: anywhere; }
 .home-install-entries .home-install-entry-button { color: var(--color-text-muted); }
 .home-install-entry-button[aria-pressed='true'] { background: var(--color-neutral-bg); color: var(--color-text); }
 .home-install-result { min-width: 0; padding: 28px; }
 .home-install-method-tabs { margin-top: 24px; }
-.home-install-advanced > .radio-group { margin-top: 20px; }
 .home-page a.button--primary, .home-page button.button--primary { color: var(--color-on-primary); }
 @media (--molr-mobile) {
-  .home-install-entries { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 4px; padding: 12px 16px; }
+  .home-install-header { flex-wrap: wrap; gap: 8px; padding: 12px 16px; }
+  .home-install-entries { width: 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 4px; }
   .home-install-entry-button { flex-shrink: 0; }
   .home-install-result { padding: 20px 16px; }
 }

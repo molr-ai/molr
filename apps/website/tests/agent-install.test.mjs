@@ -55,7 +55,7 @@ test('agent installation instructions work across modes, locales, catalog failur
       await section.screenshot({ path: `${screenshots}/en-${width}.png` });
     }
     await page.getByRole('button', { name: '切换到中文', exact: true }).click();
-    await expect(prompt).not.toContainText('渠道');
+    await expect(prompt).toContainText('正式渠道最新版 Molr');
     await expect(prompt).toContainText('https://molr.ai/agent-install.md');
     await section.getByRole('button', { name: '复制安装指令', exact: true }).click();
     assert.equal(await page.evaluate(() => navigator.clipboard.readText()), await prompt.innerText());
@@ -81,8 +81,9 @@ test('agent installation instructions work across modes, locales, catalog failur
     const file = `molr_0.1.0_${platform.os}_${platform.arch}.tar.gz`;
     response.channels.stable = { schema: 1, version: '0.1.0', channel: 'stable', commit: 'a'.repeat(40), published_at: '2026-10-15T00:00:00Z', notes_url: 'https://example.com/notes', platforms: [{ ...platform, file, sha256: 'b'.repeat(64), url: `https://example.com/${file}`, checksum_url: `https://example.com/${file}.sha256` }] };
     await section.getByRole('button', { name: '重试', exact: true }).click();
-    await expect(section.locator('.home-install-requirements')).toContainText('v0.1.0');
-    await expect(prompt).toContainText('Molr v0.1.0');
+    await expect(section.locator('.home-install-header .home-install-version')).toHaveText('v0.1.0');
+    await expect(prompt).toContainText('正式渠道最新版 Molr');
+    await expect(prompt).not.toContainText('v0.1.0');
     // Exercise the LAN HTTP clipboard fallback and its manual-copy error message.
     await page.evaluate(() => {
       Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });
