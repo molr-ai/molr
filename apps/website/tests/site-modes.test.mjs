@@ -22,7 +22,8 @@ test('website state builds and browser behavior', { timeout: 240_000 }, async t 
   const screenshots = join(root, 'test-results', 'site-modes');
   await mkdir(screenshots, { recursive: true });
   const originalMode = process.env.VITE_SITE_MODE;
-  const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined });
+  // Exercise native new-tab behavior in full Chromium; older headless-shell builds can crash here.
+  const browser = await chromium.launch({ channel: 'chromium', executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined });
   try {
     for (const [mode, copy] of Object.entries(headings)) {
       process.env.VITE_SITE_MODE = mode;

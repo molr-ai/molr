@@ -22,7 +22,7 @@ test('desktop catalogs never publish unknown metadata or local builds', () => {
 test('desktop download UI shows edition and does not invent missing releases', { timeout: 60000 }, async () => {
   const before = process.env.VITE_SITE_MODE; process.env.VITE_SITE_MODE = 'live';
   const server = await createServer({ root: resolve(import.meta.dirname, '..'), logLevel: 'silent', server: { host: '127.0.0.1', port: 0 } });
-  const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined });
+  const browser = await chromium.launch({ channel: 'chromium', executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined });
   try {
     await server.listen();
     const page = await browser.newPage({ locale: 'en-US' });

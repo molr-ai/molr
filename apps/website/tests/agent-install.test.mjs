@@ -14,7 +14,7 @@ test('agent installation instructions work across modes, locales, catalog failur
   const server = await createServer({ root, logLevel: 'silent', server: { host: '127.0.0.1', port: 0 } });
   let browser;
   try {
-    browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined });
+    browser = await chromium.launch({ channel: 'chromium', executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined });
     await server.listen();
     const url = `http://127.0.0.1:${server.httpServer.address().port}`;
     for (const [path, source] of [['/agent-install.md', 'docs/admin/deployment/agent-install.md'], ['/en/agent-install.md', 'docs/en/admin/deployment/agent-install.md']]) {

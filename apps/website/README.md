@@ -83,7 +83,9 @@ Vite 的 `publicDir` 指向共享 UI 包的 `public/`。`/theme-init.js` 在首�
 
 ## 验证
 
-在仓库根目录运行 `npm run test:website`。首次使用需 `npx playwright install chromium`；也可通过 `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` 指定已安装的 Chromium。
+在仓库根目录运行 `npm run test:website`。首次使用和升级 Playwright 后执行 `npx playwright install chromium`，安装与锁文件版本匹配的浏览器。官网测试统一使用 `channel: 'chromium'` 的完整 Chromium 无头模式，覆盖 Ctrl/Cmd 点击链接原生新开标签页；`chrome-headless-shell` 在此场景可能崩溃并表现为加载超时。需要指定本机浏览器时，`PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` 应指向已验证兼容的完整 Chromium / Chrome 可执行文件。
+
+浏览器安装文件可由同一用户的多个 worktree 共享。Linux 默认缓存为 `~/.cache/ms-playwright`，Playwright 按所需版本自动选择；也可统一设置 `PLAYWRIGHT_BROWSERS_PATH`，安装和测试时使用同一目录。共享范围仅为版本化浏览器安装文件，`node_modules`、测试结果、浏览器进程、临时用户目录和登录状态仍按任务隔离。官网只使用完整 Chromium，首次安装可加 `--no-shell`；共享缓存中需要保留其他任务使用的旧版本时加 `--no-remove`。
 
 测试分别构建三种模式，在监听 `0.0.0.0` 的临时预览服务上检查中英文、桌面与手机、深浅色、元信息和无 JavaScript 兜底，并验证状态页的十种语言轮播、后台暂停与减少动态效果，以及主页场景切换、语言／主题刷新持久化、存储不可用、占位入口、安装锚点、设备检测、两种安装方式切换及复制结果。构建产物使用临时目录，测试结束后清理；截图保存在忽略提交的 `apps/website/test-results/site-modes/`。
 
