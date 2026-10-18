@@ -102,6 +102,9 @@ function ModalView({ open, onOpenChange, onAfterClose, title, description, child
       modeFocus.current = null;
     }
     if (docked || !drawer || !dialog.open) {
+      // A retained mobile sheet may reopen as a desktop dialog after resizing.
+      // Its completed exit left the shared backdrop transparent.
+      if (contained && !drawer && backdropRef.current) backdropRef.current.style.opacity = open ? '1' : '0';
       if (!open) {
         if (dialog.open) closeDialog(dialog);
         unregisterToast.current?.(); unregisterToast.current = null;

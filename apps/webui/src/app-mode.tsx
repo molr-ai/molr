@@ -1,18 +1,28 @@
-import { useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
 import { Copy, Minus, Square, Unplug, X } from 'lucide-react';
-import { Button, IconButton, ModalScope } from '@molr/ui';
+import { Button, IconButton, Logo, ModalScope, useBreakpoint, useTheme } from '@molr/ui';
 import type { AppInfo, MolrAppAPI } from '@molr/ui-host/app';
 import { useCopy } from './state';
 import './app-mode.css';
 
 declare global { interface Window { molrApp?: MolrAppAPI } }
 
+const TitlebarBrandContext = createContext<HTMLDivElement | null>(null);
+export function AppTitlebarBrand({ children }: { children: ReactNode }) {
+  const target = useContext(TitlebarBrandContext);
+  return target ? createPortal(children, target) : null;
+}
+
 /** Outside the session gate and custom UI frames so controls survive failures. */
 export function AppFrame({ children }: { children: ReactNode }) {
   const bridge = window.molrApp;
   const { locale } = useCopy();
-  const [content, setContent] = useState<HTMLDivElement | null>(null);
+  const { theme } = useTheme();
+  const mobile = useBreakpoint('mobile');
+  const [frame, setFrame] = useState<HTMLDivElement | null>(null);
+  const [brand, setBrand] = useState<HTMLDivElement | null>(null);
   const [info, setInfo] = useState<AppInfo>();
   const [error, setError] = useState('');
   const [disconnecting, setDisconnecting] = useState(false);
@@ -33,9 +43,10 @@ export function AppFrame({ children }: { children: ReactNode }) {
     try { await action(); } catch (error) { setError((error as Error).message); setDisconnecting(false); }
   }
   const restore = info?.window.maximized || info?.window.fullscreen;
-  return <div className="app-frame" data-app-platform={info?.platform}>
+  return <TitlebarBrandContext.Provider value={brand}><div ref={setFrame} className="app-frame" data-app-platform={info?.platform}>
+    <ModalScope container={frame} presentation={mobile ? 'sheet' : 'dialog'}>
     <header className="app-titlebar" aria-label={zh ? '桌面窗口' : 'Desktop window'}>
-      <div className="app-titlebar-identity"><strong>Molr</strong><span title={info?.connection.url}>{info?.connection.name}</span></div>
+      <div className="app-titlebar-identity"><div ref={setBrand} className="app-titlebar-brand"><Logo variant={theme === 'dark' ? 'light' : 'dark'} /></div><span title={info?.connection.url}>{info?.connection.name}</span></div>
       <div className="app-titlebar-actions">
         <Button variant="ghost" size="sm" disabled={disconnecting} onClick={() => { setDisconnecting(true); void run(() => bridge!.disconnect()); }}><Unplug size={16} /><span className="app-disconnect-label">{zh ? '断开连接' : 'Disconnect'}</span></Button>
         <div className="app-window-controls">
@@ -46,6 +57,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
       </div>
     </header>
     {error && <div className="app-frame-error" role="alert">{error}</div>}
-    <div ref={setContent} className="app-frame-content"><ModalScope container={content} presentation="dialog">{children}</ModalScope></div>
-  </div>;
+    <div className="app-frame-content">{children}</div>
+    </ModalScope>
+  </div></TitlebarBrandContext.Provider>;
 }

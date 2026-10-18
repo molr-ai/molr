@@ -41,7 +41,7 @@ function App() {
   function localAction(action: LocalAction) { void run(() => bridge!.localAction(action, action === 'install' && local.state !== 'uninstalled' ? resourcePreset : undefined)); }
   return <UIProvider locale="zh"><div className="desktop-app">
     {state.view !== 'runtime' && <header className="desktop-toolbar">
-      <div className="desktop-identity"><Logo markOnly variant={theme === 'dark' ? 'light' : 'dark'} /><strong>Molr</strong><span className="desktop-divider" /><span>{current?.name ?? '桌面工作台'}</span></div>
+      <div className="desktop-identity"><Logo variant={theme === 'dark' ? 'light' : 'dark'} /><span className="desktop-divider" /><span>{current?.name ?? '桌面工作台'}</span></div>
       <div className="desktop-toolbar-actions">
         {!showManager && <Button variant="ghost" size="sm" onClick={() => void run(() => bridge!.manager())}><ArrowLeft size={16} /> 管理连接</Button>}
         {showManager && <IconButton label="桌面设置" onClick={() => setSettings(!settings)}><Settings2 size={18} /></IconButton>}
@@ -58,7 +58,7 @@ function App() {
         {error && <div className="desktop-error" role="alert">{error}</div>}
         {!local.available && local.error && <div className="desktop-error" role="alert">本机 Runtime 管理暂不可用：{local.error}</div>}
         {!showManager ? <section className="desktop-recovery">
-          <Logo markOnly animation={state.view === 'loading' ? 'loading' : 'idle'} variant={theme === 'dark' ? 'light' : 'dark'} />
+          <Logo animation={state.view === 'loading' ? 'loading' : 'idle'} variant={theme === 'dark' ? 'light' : 'dark'} />
           <h1>{state.view === 'loading' ? '正在连接' : '暂时无法连接'}</h1>
           <p>{state.error ?? current?.url}</p>
           <div className="desktop-actions">

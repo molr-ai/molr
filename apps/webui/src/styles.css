@@ -36,8 +36,9 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 .row-open:focus-visible { outline: none; }
 .row-open:focus-visible::after { outline: 2px solid var(--color-focus); outline-offset: -2px; }
 .interactive-list-row :is(.button, .ui-icon-button, .plan-expanded, .resource-row-detail), .assistant-plan-row :is(.button, .ui-icon-button, .plan-expanded) { position: relative; z-index: 1; }
-.login-page { --page-glow: var(--color-selected-bg); background: radial-gradient(ellipse at 15% 10%, var(--page-glow), transparent 65%) var(--color-page-background); }
-:root[data-theme='dark'] .login-page { --page-glow: var(--color-surface); background-image: radial-gradient(ellipse at 100% 100%, var(--page-glow), transparent 65%); }
+.login-page, .app-frame:has(.login-page) { --page-glow: var(--color-selected-bg); --login-glow-position: 15% 10%; background: radial-gradient(ellipse at var(--login-glow-position), var(--page-glow), transparent 65%) var(--color-page-background); }
+:root[data-theme='dark'] :is(.login-page, .app-frame:has(.login-page)) { --page-glow: var(--color-surface); --login-glow-position: 100% 100%; }
+.app-frame .login-page { background: transparent; }
 .login-card { width: min(420px, 100%); padding: 36px; border-radius: var(--radius-card); background: var(--color-surface); display: grid; gap: 20px; }
 .login-card .logo { --logo-width: 128px; margin-bottom: 16px; } .login-card h1 { font-size: 28px; letter-spacing: -.04em; } .login-card > .select { max-width: 140px; }
 .editor { display: grid; gap: 18px; min-width: 0; } .editor > .button { justify-self: start; } .editor > .form-actions { justify-content: flex-end; }

@@ -1,4 +1,4 @@
-import { AppFrame } from './app-mode';
+import { AppFrame, AppTitlebarBrand } from './app-mode';
 import { UpdateProvider, UpdateBadge } from './updates/provider';
 import { ErrorToastProvider, useErrorToast } from './error-toasts';
 import { SetupGate } from './setup';
@@ -45,6 +45,10 @@ function SessionGate() {
 const icons = { assistants: MessagesSquare, plans: CalendarClock, resources: Folder, extensions: Puzzle, workbench: FlaskConical };
 // Trusted in-process adapter. Selection/resolution is identical for partial official and external packages.
 const builtinEntries: Record<string, typeof OfficialPage> = { official: OfficialPage, 'test-chat': TestChatPage };
+function WorkspaceModals({ container, mobile, children }: { container: HTMLElement | null; mobile: boolean; children: ReactNode }) {
+  // App mode owns one modal scope around the whole window, including its titlebar.
+  return window.molrApp ? children : <ModalScope container={container} enabled={mobile}>{children}</ModalScope>;
+}
 function WorkspaceHost() {
   const { t, locale, setLocale } = useCopy(), copy = hostCopy[locale], { theme, changePreference } = useTheme(), { changePalette } = useAppearance();
   const session = useSession(), administrator = session.principal?.User?.Administrator === true;
@@ -78,9 +82,10 @@ function WorkspaceHost() {
   const mobileNavigation = mobile && !(page === 'assistants' && id);
   const NativePage = builtinEntries[selected.manifest.pages[uiPage]!];
   if (host.loading) return <main className="session-page"><Loading /></main>;
-  return <UIProvider locale={locale} reducedMotion={settings.data?.ReducedMotion}><div ref={setScope} className={`workspace${mobile ? ' workspace--mobile' : ''}${mobileNavigation ? ' workspace--mobile-nav' : ''}`}><ModalScope container={scope} enabled={mobile || !!window.molrApp} presentation={mobile ? 'sheet' : 'dialog'}>
+  return <UIProvider locale={locale} reducedMotion={settings.data?.ReducedMotion}><div ref={setScope} className={`workspace${mobile ? ' workspace--mobile' : ''}${mobileNavigation ? ' workspace--mobile-nav' : ''}`}><WorkspaceModals container={scope} mobile={mobile}>
+    {window.molrApp && <AppTitlebarBrand><ConnectionLogo state={connection} onRetry={retryConnection} tooltipSide="bottom" variant={theme === 'dark' ? 'light' : 'dark'} /></AppTitlebarBrand>}
     <nav className="workspace-nav" aria-label={t.app} aria-hidden={mobile && !mobileNavigation || undefined} inert={mobile && !mobileNavigation}>
-      {!mobile && <ConnectionLogo markOnly className="workspace-logo" state={connection} onRetry={retryConnection} tooltipSide="right" variant={theme === 'dark' ? 'light' : 'dark'} />}
+      {!mobile && !window.molrApp && <ConnectionLogo markOnly className="workspace-logo" state={connection} onRetry={retryConnection} tooltipSide="right" variant={theme === 'dark' ? 'light' : 'dark'} />}
       {!mobile && selected.runtime === 'builtin' && <Tooltip content={t.search} side="right" width="auto"><button type="button" className="nav-button nav-search" aria-label={t.search} aria-haspopup="dialog" onClick={() => window.dispatchEvent(new Event('molr:search'))}><span className="nav-icon"><SearchIcon size={22} /></span></button></Tooltip>}
       {(Object.keys(icons) as (keyof typeof icons)[]).filter(key => (key !== 'resources' || administrator) && (key !== 'workbench' || workbenchVisible) && (key !== 'extensions' || pluginsVisible)).map(key => { const Icon = icons[key], label = key === 'extensions' ? pluginCopy[locale].extensions : t.nav[key]; return <Tooltip key={key} content={label} side={mobile ? 'top' : 'right'} width="auto"><button className="nav-button" type="button" aria-label={label} aria-current={page === key ? 'page' : undefined} aria-describedby={key === 'assistants' && unread > 0 ? 'nav-unread-count' : undefined} onClick={() => navigate(key)}><span className="nav-icon"><Icon size={22} />{key === 'assistants' && unread > 0 && <span className="nav-unread" id="nav-unread-count" role="status" aria-label={t.assistants.unread(unread)}>{unread > 99 ? '99+' : unread}</span>}</span><span>{key === 'extensions' ? pluginCopy[locale].nav : t.nav[key]}</span></button></Tooltip>; })}
       {!mobile && <div className="nav-account-actions">
@@ -95,7 +100,7 @@ function WorkspaceHost() {
       </PageBoundary>
     </main>
     </div>
-  </ModalScope></div></UIProvider>;
+  </WorkspaceModals></div></UIProvider>;
 }
 class PageBoundary extends Component<{ children: ReactNode; fallback: ReactNode; routeKey: string }, { failed: boolean }> {
   state = { failed: false };
