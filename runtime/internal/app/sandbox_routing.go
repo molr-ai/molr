@@ -149,7 +149,7 @@ func (s *sandboxRouter) remote(ctx context.Context, e core.Execution, id core.ID
 		q.Deadline = time.Time{}
 	}
 	relevant := map[core.ID]bool{}
-	if c.View.Info.Capabilities.NetworkBackend == "seatbelt-toggle" && !q.FullAccess {
+	if c.View.Info.Capabilities.NetworkToggle() && !q.FullAccess {
 		for _, n := range q.NetworkAuthorizations {
 			if n.ExpiresAt != nil && (q.Deadline.IsZero() || n.ExpiresAt.Before(q.Deadline)) {
 				q.Deadline = *n.ExpiresAt
@@ -518,7 +518,7 @@ func (s *sandboxRouter) shellExecute(ctx context.Context, e core.Execution, req 
 			q.GroupComputeConstraints = ref.Quota.Compute
 		}
 	}
-	nativeNetwork := info.Capabilities.NetworkBackend == "seatbelt-toggle"
+	nativeNetwork := info.Capabilities.NetworkToggle()
 	initialized := false
 	check := func(ctx context.Context) error {
 		currentRef, err := groupReference(ctx, s.adapters.store, e.Principal.OwnerID, "sandbox", id)

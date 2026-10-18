@@ -15,7 +15,7 @@ if (version.endsWith('-local') || !/^[a-f0-9]{40}$/.test(commit)) throw new Erro
 const channel = releaseChannel(version);
 const platforms = [], seen = new Set();
 for (const m of manifests) {
-  if (m.schema !== 1 || m.version !== version || m.commit !== commit || !['linux', 'darwin', 'win32'].includes(m.os) || !['amd64', 'arm64'].includes(m.arch) || m.variant !== (m.os === 'win32' ? 'client' : 'full') || typeof m.signed !== 'boolean' || !Array.isArray(m.artifacts) || m.artifacts.length !== 1) throw new Error('Inconsistent desktop manifest');
+  if (m.schema !== 1 || m.version !== version || m.commit !== commit || !['linux', 'darwin', 'win32'].includes(m.os) || !['amd64', 'arm64'].includes(m.arch) || m.variant !== 'full' || typeof m.signed !== 'boolean' || !Array.isArray(m.artifacts) || m.artifacts.length !== 1) throw new Error('Inconsistent desktop manifest');
   const id = `${m.os}-${m.arch}`; if (seen.has(id)) throw new Error('Duplicate platform'); seen.add(id);
   const a = m.artifacts[0], ext = { linux: 'deb', darwin: 'dmg', win32: 'exe' }[m.os];
   if (a.file !== `molr-desktop_${version}_${id}_${m.variant}.${ext}` || !/^[a-f0-9]{64}$/.test(a.sha256)) throw new Error('Invalid desktop artifact');

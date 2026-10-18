@@ -1,3 +1,4 @@
+import { usesNetworkToggle } from '../../../sandbox-types';
 import { GPUAccessSummary } from './GPUAccess';
 import { gpuName } from '../../../gpu';
 import { Checkbox, DateTimePicker, Select, TextField } from '@molr/ui';
@@ -12,7 +13,7 @@ export function suggestedConstraints(kind: string, native = false): ResourceCons
 }
 // Normalize only when the node's contract is known; keep user-selected duration.
 export function constraintsForNode(kind:string, value:ResourceConstraints|undefined, info?:SandboxInfo):ResourceConstraints|undefined {
- if(info?.Capabilities.NetworkBackend!=='seatbelt-toggle')return value;
+ if(!usesNetworkToggle(info?.Capabilities.NetworkBackend))return value;
  if(kind!=='compute')return undefined;
  const c=value?.compute??suggestedConstraints('compute',true)!.compute!;
  return {compute:{...c,cpu_percent:0,memory_bytes:0,processes:0,temp_bytes:0,gpu:undefined}};
@@ -38,7 +39,7 @@ export function ConstraintsEditor({kind,value,onChange,lockNetworkPeriod=false,c
    {field(zh?'进程／线程总数':'Total processes / threads',c.processes,v=>onChange({compute:{...c,processes:v}}),8)}
    {field(zh?'内存临时盘 /tmp（MiB）':'RAM disk (/tmp) (MiB)',c.temp_bytes/1048576,v=>onChange({compute:{...c,temp_bytes:Math.round(v*1048576)}}),1,1,zh?'每次执行独立，写入占用计算内存，结束后清空。':'Private to each execution; writes count toward compute memory and are cleared when execution ends.')}
    </>}
-   {c.cpu_percent===0&&<p className="muted">{zh?'macOS 仅控制运行时长，不提供 CPU、内存、进程或磁盘硬配额。':'macOS controls execution duration; CPU, memory, process and disk hard quotas are unavailable.'}</p>}
+   {c.cpu_percent===0&&<p className="muted">{zh?'此执行后端仅控制运行时长，不提供 CPU、内存、进程或磁盘硬配额。':'This execution backend controls duration; CPU, memory, process and disk hard quotas are unavailable.'}</p>}
    <Checkbox label={zh?'不限制单次运行时长':'No per-execution duration limit'} checked={c.unlimited_duration} onChange={e=>onChange({compute:{...c,unlimited_duration:e.target.checked,max_duration_seconds:e.target.checked?0:1800}})}/>
    {!c.unlimited_duration&&field(zh?'单次最长运行（分钟）':'Maximum execution duration (minutes)',c.max_duration_seconds/60,v=>onChange({compute:{...c,max_duration_seconds:Math.round(v*60)}}),1/60,1/60)}
   </>}

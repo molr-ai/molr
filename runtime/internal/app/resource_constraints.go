@@ -182,5 +182,5 @@ func nativeNetworkResource(ctx context.Context, store persistence.Store, owner c
 	if err != nil {
 		return false, err
 	}
-	return connection.View.Info.Capabilities.NetworkBackend == "seatbelt-toggle", nil
+	return connection.View.Info.Capabilities.NetworkToggle(), nil
 }

@@ -33,6 +33,11 @@ func describeNetwork(info sm.Info, targetID string) *networkPermissionScope {
 		out.Restrictions = []string{"This grant permits direct TCP/UDP networking to any destination and listening on any interface or port. There are no destination, traffic or connection quotas. Without the grant, or with network_mode:none, IP networking and listening are denied.", "Forwarded ports select authenticated HTTP/WebSocket relays to host loopback; they do not restrict listeners or prove task ownership. Directly reachable listeners are outside the relay authentication."}
 		out.LoopbackAccess = "localhost belongs to the host. Arbitrary Unix sockets remain denied."
 	}
+	if info.Capabilities.NetworkBackend == "appcontainer-toggle" {
+		out.Mode = "all_ip"
+		out.Restrictions = []string{"This grant enables AppContainer Internet and private-network capabilities. Windows firewall and AppContainer rules still apply. Destination allowlists, traffic quotas and connection quotas are unavailable. Without the grant, or with network_mode:none, network capabilities are withheld.", "Authenticated port forwarding is unavailable for this backend. A network grant does not guarantee a listening service is reachable."}
+		out.LoopbackAccess = "AppContainer loopback restrictions remain enabled. A network grant does not allow access to host localhost services; Molr does not install loopback exemptions."
+	}
 	if !info.Enabled {
 		out.Reason = info.Capabilities.Reason
 		if out.Reason == "" {
@@ -53,7 +58,7 @@ func describeNetwork(info sm.Info, targetID string) *networkPermissionScope {
 func localNetworkInfo(a adapters) sm.Info {
 	info := sm.Info{Enabled: a.storageConfig.Enabled, Limits: platform.Limits{NetworkBytes: a.storageConfig.NetworkBytes, NetworkConnections: a.storageConfig.NetworkConnections}}
 	if platform.NativeSandbox() {
-		info.Capabilities.NetworkBackend = "seatbelt-toggle"
+		info.Capabilities.NetworkBackend = platform.NativeNetworkBackend()
 	}
 	for _, n := range a.storageConfig.NetworkTargets(a.ownPort) {
 		info.Networks = append(info.Networks, sm.Network{ID: n.Name, Target: n.Target()})

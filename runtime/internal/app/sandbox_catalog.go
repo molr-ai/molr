@@ -75,7 +75,7 @@ func (s *sandboxRouter) list(ctx context.Context, p core.Principal) (json.RawMes
 			info := load(item.SandboxID)
 			item.FullAccessAvailable = item.Kind == resource.Compute && info.Capabilities.FullAccess
 			item.AuthorizationCeilings = &info.AuthorizationCeilings
-			if info.Capabilities.NetworkBackend == "seatbelt-toggle" {
+			if info.Capabilities.NetworkToggle() {
 				item.ConstraintMode = "native_duration_and_network_toggle"
 			}
 			if item.Kind == resource.Compute {
@@ -139,7 +139,7 @@ func (s *sandboxRouter) list(ctx context.Context, p core.Principal) (json.RawMes
 			continue
 		}
 		info := infos[item.SandboxID]
-		if item.Kind == resource.Storage && item.SandboxID != "local" && info.Capabilities.NetworkBackend == "seatbelt-toggle" {
+		if item.Kind == resource.Storage && item.SandboxID != "local" && info.Capabilities.NetworkToggle() {
 			item.ShellEnvironment = platform.ResourceEnvironment(resourceShellPath(item.ResourceID, item.Path))
 			item.ShellPath = ""
 		}
@@ -252,6 +252,12 @@ func (s *sandboxRouter) list(ctx context.Context, p core.Principal) (json.RawMes
 			out.Sandboxes[len(out.Sandboxes)-1].Description = "Controlled macOS commands use Seatbelt file scopes and a network toggle in the native host environment. Use $MOLR_WORKSPACE, $MOLR_GLOBAL, $TMPDIR and resource ShellPath values in scripts; /work, /global and /resources are file-tool paths, not shell mounts. Compute grants control duration only; no CPU, memory, process, disk or network quotas. Cancellation targets the process group; detached descendants may survive. Full Access requires its separate explicit grant and full_access:true."
 			if id != "local" {
 				out.Sandboxes[len(out.Sandboxes)-1].Description = "Remote macOS commands use Seatbelt file scopes and a network toggle. There is no /work, /global or persistent home. Use $TMPDIR for temporary files. For each authorized directory pass its ResourceID and exact Path in files, then access it using the variable named ShellEnvironment (quote the expansion). directory accepts /tmp or the corresponding /resources/<ResourceID>/<Path> alias; these aliases are not shell mounts. Compute controls duration only; no hard resource or network quotas. Network revocation stops the managed process group; detached descendants may survive. Full Access requires its separate grant and full_access:true and uses actual host paths."
+			}
+		}
+		if info.Capabilities.NetworkBackend == "appcontainer-toggle" {
+			out.Sandboxes[len(out.Sandboxes)-1].Description = "Controlled Windows commands use PowerShell in AppContainer with scoped file permissions and a network capability toggle. Use $env:MOLR_WORKSPACE, $env:MOLR_GLOBAL and $env:TEMP; file-tool aliases are not shell mounts. Resource ShellPath values are native Windows paths: quote them as PowerShell paths. Compute grants control duration only; CPU, memory, process, disk and network hard quotas are unavailable. Job Objects manage the execution process tree, not a process namespace. Loopback exemptions, authenticated port forwarding and interactive terminals are unavailable. Full Access requires its separate grant and explicit full_access:true; it runs PowerShell with the Runtime account's permissions."
+			if id != "local" {
+				out.Sandboxes[len(out.Sandboxes)-1].Description = "Remote Windows commands use PowerShell in AppContainer. There is no assistant workspace or persistent home; use $env:TEMP for temporary files. For each authorized directory pass its ResourceID and exact Path in files, then use $env:<ShellEnvironment> in the script. Compute grants control duration only; hard resource and network quotas are unavailable. AppContainer loopback restrictions remain enabled. Authenticated port forwarding and interactive terminals are unavailable. Full Access requires its separate grant and explicit full_access:true and uses real Windows paths."
 			}
 		}
 		reason := ""

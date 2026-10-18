@@ -24,7 +24,7 @@ export function DesktopDownloads({ locale, releaseState }: { locale: Locale; rel
         return <section className="home-desktop-platform" key={os} aria-labelledby={`desktop-${os}`}>
           <div className="home-desktop-platform-heading"><SystemIcon os={os} /><span className="home-desktop-format">{({ linux: '.deb', darwin: '.dmg', win32: '.exe' })[os]}</span></div>
           <h4 id={`desktop-${os}`}>{({ linux: 'Linux', darwin: 'macOS', win32: 'Windows' })[os]}</h4>
-          <p className="home-desktop-edition">{os === 'win32' ? (zh ? '客户端 · 仅远程连接' : 'Client · remote connections only') : (zh ? '完整版 · 包含 Runtime' : 'Full · includes Runtime')}</p>
+          <p className="home-desktop-edition">{zh ? '完整版 · 包含 Runtime' : 'Full · includes Runtime'}</p>
           <div className="home-desktop-artifacts">{platforms.map(p => <div className="home-desktop-artifact" key={p.arch}>
             <span className="home-desktop-arch">{os === 'darwin' ? (p.arch === 'arm64' ? 'Apple Silicon' : 'Intel') : (p.arch === 'amd64' ? 'AMD64' : 'ARM64')}</span>
             <a className="button button--primary button--md" href={p.url}><Icon name="download" />{zh ? '下载安装包' : 'Download installer'}</a>

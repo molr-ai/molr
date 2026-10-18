@@ -42,12 +42,18 @@ test('collect native packages requires the entire matching and checksummed matri
   }
   const collected = collectDesktopRelease(source, destination, 'example/molr');
   assert.equal(collected.platforms.length, 5);
+  assert.equal(collected.platforms.find(p => p.os === 'win32').variant, 'full');
   assert(collected.platforms.every(p => p.signed === false));
   assert(desktopCatalog([collected]).channels.stable.platforms.every(p => p.signed === false));
   for (const p of m.platforms) assert.equal(createHash('sha256').update(readFileSync(join(destination, p.file))).digest('hex'), p.sha256);
   const check = changed => assert.throws(() => validateDesktopRelease(changed, 'example/molr', runtime));
   check({ ...m, platforms: m.platforms.slice(1) }); check({ ...m, commit: 'f'.repeat(40) });
   const unknown = structuredClone(m); delete unknown.platforms.find(p => p.os === 'win32').signed; check(unknown);
+  const clientOnly = structuredClone(m);
+  const windows = clientOnly.platforms.find(p => p.os === 'win32');
+  windows.variant = 'client';
+  for (const field of ['file', 'url', 'checksum_url']) windows[field] = windows[field].replace('_full.exe', '_client.exe');
+  check(clientOnly);
   const unsafe = structuredClone(m); unsafe.platforms[0].file = '../private'; check(unsafe);
   writeFileSync(join(source, 'linux-amd64', m.platforms[0].file), 'corrupt');
   assert.throws(() => collectDesktopRelease(source, destination, 'example/molr'), /checksum/);

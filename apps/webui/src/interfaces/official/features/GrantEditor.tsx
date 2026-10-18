@@ -1,3 +1,4 @@
+import { usesNetworkToggle } from '../../../sandbox-types';
 import { useErrorToast } from '../../../error-toasts';
 import { useEffect, useState } from 'react';
 import { DateTimePicker, Select, Textarea } from '@molr/ui';
@@ -31,7 +32,7 @@ export function GrantEditor({ assistant, assistants, resources, grant, initialRe
   const current = modelResourceID ? { ...target, resourceID: modelResourceID } : target;
   const resource = resources.find(r => r.ID === current.resourceID);
   const node=sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info;
-  useEffect(()=>{ if(node?.Capabilities.NetworkBackend==='seatbelt-toggle') {setConstraints(c=>constraintsForNode(target.kind,c,node));setTemporary(v=>{if(!v)return v;const limits=constraintsForNode(target.kind,v.limits,node);return limits?{...v,limits}:undefined;});} },[node?.Capabilities.NetworkBackend,target.kind,target.resourceID]);
+  useEffect(()=>{ if(usesNetworkToggle(node?.Capabilities.NetworkBackend)) {setConstraints(c=>constraintsForNode(target.kind,c,node));setTemporary(v=>{if(!v)return v;const limits=constraintsForNode(target.kind,v.limits,node);return limits?{...v,limits}:undefined;});} },[node?.Capabilities.NetworkBackend,target.kind,target.resourceID]);
   function select(next: PermissionTarget) {
     if (next.resourceID !== current.resourceID || next.fullAccess !== current.fullAccess) {
       const resource = resources.find(r => r.ID === next.resourceID);
@@ -52,7 +53,7 @@ export function GrantEditor({ assistant, assistants, resources, grant, initialRe
     {!target.fullAccess && <>
       <Select multiple label={t.resources.actions} value={actions} onValueChange={setActions} options={permissionOptions(t, resource)} />
       {target.kind === 'storage' && <Textarea label={t.resources.pathPrefixes} description={copy.pathsHelp} value={paths} onChange={e => setPaths(e.target.value)} placeholder="/" rows={3} />}
-      {target.kind==='network'&&node?.Capabilities.NetworkBackend==='seatbelt-toggle'&&<p className="muted">{copy.nativeNetworkHelp}</p>}
+      {target.kind==='network'&&usesNetworkToggle(node?.Capabilities.NetworkBackend)&&<p className="muted">{node?.Capabilities.NetworkBackend === 'appcontainer-toggle' ? copy.windowsNetworkHelp : copy.nativeNetworkHelp}</p>}
       <ConstraintsEditor gpus={sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info.GPUs} kind={target.kind} value={constraints} onChange={setConstraints} lockNetworkPeriod={!!grant?.Constraints?.network} />
       <TemporaryConstraintsEditor gpus={sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info.GPUs} kind={target.kind} base={constraints} value={temporary} onChange={setTemporary} />
     </>}

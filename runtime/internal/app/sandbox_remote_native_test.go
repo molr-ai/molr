@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -35,7 +36,7 @@ func TestRemoteNativeSandboxIntegration(t *testing.T) {
 		need(t, err)
 		need(t, json.Unmarshal(raw, &target))
 	} else {
-		if !platform.NativeSandbox() {
+		if runtime.GOOS != "darwin" {
 			t.Skip("native macOS or MOLR_TEST_NATIVE_NODE required")
 		}
 		cfg := testConfig(t)

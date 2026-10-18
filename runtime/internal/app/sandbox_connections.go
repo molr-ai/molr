@@ -114,7 +114,7 @@ func (s *sandboxRouter) localInfo(ctx context.Context) sm.Info {
 	info := sm.Info{AllowDirectoryPaths: !cfg.RestrictDirectories, WorkspaceProjectQuotas: cfg.WorkspaceProjectQuotas, ResourceQuotas: true, UserGroupQuotas: true, AuthorizationCeilings: cfg.ComputeCeilings(), ShellSessions: true, Protocol: sm.ProtocolVersion, Enabled: true, Storage: textfiles.Supported(), Capabilities: platform.Capabilities{OS: runtime.GOOS, Reason: "sandbox_disabled"}, Directories: []sm.Directory{}, Networks: []sm.Network{}, Limits: platform.Limits{MemoryBytes: cfg.MemoryBytes, Processes: cfg.Processes, CPUPercent: cfg.CPUPercent, TempBytes: cfg.TempBytes, MaxFileBytes: cfg.MaxFileBytes, NetworkBytes: cfg.NetworkBytes, NetworkConnections: cfg.NetworkConnections}, TimeoutSeconds: 0}
 	info.HostCapacity = platform.MachineCapacity()
 	if platform.NativeSandbox() {
-		info.Capabilities.NetworkBackend = "seatbelt-toggle"
+		info.Capabilities.NetworkBackend = platform.NativeNetworkBackend()
 	}
 	if s.shell != nil {
 		info.Capabilities, _ = s.shell.runner.Capabilities(ctx)
