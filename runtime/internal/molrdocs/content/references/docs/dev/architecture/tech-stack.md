@@ -24,7 +24,7 @@ SQLite 已实际使用，不再是待选存储方案。HTTP、命令行入口、
 
 Agent 已能在获准 Linux 沙盒中运行脚本，并从自己的工作区读取项目指令和 Skills；这不同于给 Runtime 动态安装 Go 模块。客户端已有 SDK、内置主题与插件主题机制；管理员可导入本地 ZIP 插件包或从公开 HTTPS 链接添加，并授权启用。详见 [上下文更新](https://molr.ai/zh/docs/dev/runtime/agent-context/) 和 [UI 包设计](https://molr.ai/zh/docs/dev/frontend/themes/)。
 
-当前只设计单实例运行，没有多副本调度、跨 Runtime 自动接管、服务发现或 PostgreSQL 适配。macOS 支持安全文件工具及显式 Full Access，不提供 Linux 隔离 Shell；Windows 后端尚未实现。
+当前只设计单实例运行，没有多副本调度、跨 Runtime 自动接管、服务发现或 PostgreSQL 适配。macOS 使用 Seatbelt，Windows 使用 AppContainer；两者提供受控 Shell、文件工具及独立授权的 Full Access，按实际能力报告文件/网络隔离与配额限制，见[沙盒设计](https://molr.ai/zh/docs/dev/security/sandbox/)。
 
 ## 存储与恢复原则
 

@@ -88,6 +88,13 @@ func directFilePath(data, work string, e core.Execution, t tools.FileTarget) (st
 	if actual, err := filepath.EvalSymlinks(name); err == nil {
 		name = actual
 	}
+	if volume := filepath.VolumeName(name); volume != "" {
+		relative := strings.TrimLeft(strings.TrimPrefix(filepath.Clean(name), volume), `/\`)
+		if relative == "" {
+			relative = "."
+		}
+		return volume + string(filepath.Separator), relative, nil
+	}
 	name = strings.TrimPrefix(filepath.Clean(name), "/")
 	if name == "" {
 		name = "."

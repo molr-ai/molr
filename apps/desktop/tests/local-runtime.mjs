@@ -1,7 +1,7 @@
 // Native systemd/launchd acceptance. Uses a unique desktop-owned instance and
 // private XDG directories; never reuses an existing Runtime's data or credentials.
 import assert from 'node:assert/strict';
-import { mkdtempSync, realpathSync, readFileSync, existsSync, rmSync } from 'node:fs';
+import { mkdtempSync, realpathSync, readFileSync, existsSync, rmSync, cpSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { LocalRuntime } from '../dist/main/runtime/local.js';
@@ -22,7 +22,7 @@ try {
   assert.equal(record.manager, 'desktop'); assert.equal(record.system, false);
   assert(installed.url.startsWith('http://127.0.0.1:'));
   assert(installed.loginURL?.startsWith(installed.url + '/#/login?token='));
-  const log = readFileSync(runtime.logFile, 'utf8'); assert(!log.includes('/#/login?token='));
+  const log = existsSync(runtime.logFile) ? readFileSync(runtime.logFile, 'utf8') : ''; assert(!log.includes('/#/login?token='));
   const { request } = await import('@playwright/test');
   session = await request.newContext({ baseURL: installed.url, extraHTTPHeaders: { Origin: installed.url } });
   const csrf = (await (await session.get('/api/auth/csrf')).json()).csrf_token;
@@ -34,8 +34,17 @@ try {
   if (process.platform === 'linux') {
     assert.equal(health.Enabled, true); assert.equal(health.Capabilities.Reason, 'available');
     for (const key of ['Shell', 'ProcessIsolation', 'FileIsolation', 'NetworkIsolation', 'ResourceLimits']) assert.equal(health.Capabilities[key], true, key);
-  } else { assert.equal(health.Enabled, true); assert.equal(health.Storage, true); assert.equal(health.Capabilities.NetworkBackend, 'seatbelt-toggle'); }
+  } else if (process.platform === 'win32') { assert.equal(health.Enabled, true); assert.equal(health.Storage, true); assert.equal(health.Capabilities.Reason, 'available'); assert.equal(health.Capabilities.NetworkBackend, 'appcontainer-toggle'); assert.equal(health.Capabilities.Shell, true); assert.equal(health.Capabilities.FullAccess, true); assert.equal(health.Capabilities.ProcessIsolation, false); assert.equal(health.Capabilities.ResourceLimits, false); } else { assert.equal(health.Enabled, true); assert.equal(health.Storage, true); assert.equal(health.Capabilities.NetworkBackend, 'seatbelt-toggle'); }
   const status = await runtime.status(); assert(['active', 'running'].includes(status.state));
+  if (process.platform === 'win32') {
+    const invalidPackage = join(directory, 'invalid-package'); cpSync(packageRoot, invalidPackage, { recursive: true });
+    const metadataPath = join(invalidPackage, 'release.json'); const metadata = JSON.parse(readFileSync(metadataPath));
+    metadata.version = '999.0.0-local'; writeFileSync(metadataPath, JSON.stringify(metadata));
+    const broken = new LocalRuntime(invalidPackage, join(directory, 'manager'));
+    await assert.rejects(broken.action('upgrade'), /binary does not match release/);
+    assert.equal((await runtime.status()).state, 'running', 'Failed upgrade restores the previous task');
+    assert.equal((await session.get('/api/auth/me')).status(), 200, 'Failed upgrade preserves account and session');
+  }
   await runtime.action('upgrade');
   assert.equal((await session.get('/api/auth/me')).status(), 200, 'Bundled update preserves login session and account data');
   // Dropping the manager object does not stop its service.
@@ -51,6 +60,14 @@ try {
   assert.equal((await runtime.status()).installed, false);
   assert(existsSync(join(record.data_dir, 'runtime.db')), 'Uninstall must preserve data');
   assert(!existsSync(record.paths.unit), 'Uninstall must unregister the service');
+  if (process.platform === 'win32') {
+    rmSync(join(record.data_dir, 'initial-password'));
+    const reinstalled = await runtime.action('install', 'least-privilege');
+    assert.equal(reinstalled.installed, true); assert.equal(reinstalled.loginURL, undefined);
+    assert.equal(reinstalled.health, 'verification_pending');
+    await runtime.action('uninstall');
+  }
+
   console.log('Native desktop Runtime passed: owned install, authenticated capabilities, background service, stop/start, persistent session, uninstall preserves data.');
 } finally {
   await session?.dispose();

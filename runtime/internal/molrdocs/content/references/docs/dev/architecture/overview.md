@@ -6,7 +6,7 @@ Molr 采用 Go 模块化单体，使用 SQLite 与本地文件保存数据。Web
 
 - Go Runtime 提供身份认证、数据持久化、Agent 执行、计划、资源授权和费用管理。
 - WebUI 随发行 Runtime 内嵌，由电脑／手机浏览器或桌面 app 连接同一实例。
-- Electron 桌面 app 管理连接；Linux/macOS 包可按需创建随包附带的本机 Runtime 服务，Windows 只连接远程 Runtime（包括 WSL）。
+- Electron 桌面 app 管理连接；Linux、macOS 和 Windows 包均可按需创建随包附带的原生 Runtime 服务，也可连接远程实例。
 - 手机当前通过浏览器使用 WebUI，尚未实现原生 iOS／Android App。各包内容和安装选择见[安装与服务管理](https://molr.ai/zh/docs/admin/deployment/installation/)。
 - UI Design 使用模拟数据展示组件和交互；其 Desktop／Mobile／CLI 视图不代表独立原生客户端。
 - 官网提供产品介绍和公开文档，与用户的 Runtime 实例分别部署。

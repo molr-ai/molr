@@ -21,7 +21,7 @@ func (r *Runner) validateMode(c platform.Command) error {
 		return core.Invalid("directory", "remote computers have no assistant workspace")
 	}
 	if !c.FullAccess {
-		if runtime.GOOS == "darwin" {
+		if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
 			return validateSeatbelt(c)
 		}
 		return validate(c)

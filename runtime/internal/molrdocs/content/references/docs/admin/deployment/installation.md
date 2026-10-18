@@ -9,7 +9,7 @@
 | 组件 | 职责与部署位置 |
 | --- | --- |
 | 手机端 | 当前使用手机浏览器访问 WebUI，没有原生 iOS／Android App 安装包。手机连接可访问的 Runtime，不在手机上部署 Runtime 或 Sandbox。 |
-| 桌面 app | 提供连接管理、独立登录会话和 WebUI 容器。Linux/macOS 完整版还可安装和管理本机 Runtime；Windows 客户端只连接远程 Runtime，WSL 也按远程实例处理。 |
+| 桌面 app | 提供连接管理、独立登录会话和 WebUI 容器。Linux、macOS 和 Windows 完整版均可安装和管理本机 Runtime；WSL 也按远程实例处理。 |
 | WebUI | 聊天、助理、资源和管理页面，在浏览器或桌面 app 中运行。正式 Runtime 内嵌 WebUI，由同一服务地址提供网页和 API，无需单独安装前端服务器。桌面 app 从所连接的 Runtime 加载 WebUI。 |
 | Runtime | 同一个服务程序支持 `server` 和 `sandbox` 两种模式。`server` 模式提供账号、Agent 执行、任务调度、模型调用及持久化。数据库、会话、记忆、附件和助理工作区保存在 Runtime 所在设备。模型服务独立配置，安装包不包含模型权重或推理服务。 |
 | 内置 Sandbox | 编译在 Runtime 中，管理本机受控文件访问和命令执行。Linux 使用 Bubblewrap 等系统能力，macOS 使用 Seatbelt；本机运行无需单独部署沙盒节点。 |
@@ -43,7 +43,7 @@ flowchart TB
 | --- | --- | --- |
 | Linux 桌面完整版 `.deb`，AMD64／ARM64 | Electron 桌面程序、连接管理界面、`molr`（内嵌 WebUI 和本机 Sandbox）、`molr-setup` | 安装桌面程序后，可只连远程 Runtime，也可在应用内创建本机服务。DEB 声明 Bubblewrap、静态 BusyBox、systemd 等依赖，由包管理器准备。 |
 | macOS 桌面完整版 `.dmg`，Apple Silicon／Intel | `.app` 内含 Electron、连接管理界面、`molr`（内嵌 WebUI 和本机 Sandbox）、`molr-setup` | 安装桌面程序后按需创建 launchd 用户服务；创建服务时选择资源权限预设，命令能力由生成的配置决定。 |
-| Windows 桌面客户端 `.exe`，AMD64 | Electron 桌面程序和连接管理界面 | 不含 `molr`、`molr-setup` 或本机 Sandbox；连接 Linux/macOS Runtime，或另行部署在 WSL 中的 Runtime。不会安装或启动 WSL。 |
+| Windows 桌面完整版 `.exe`，AMD64 | Electron、连接管理界面、内嵌 WebUI 的 `molr.exe` 和 `molr-setup.exe` | 按需创建当前用户的计划任务，登录 Windows 后自动启动；无需 WSL。受控 PowerShell 使用 AppContainer 文件权限与网络开关，Full Access 独立授权。 |
 | Linux/macOS Runtime `.tar.gz`，AMD64／ARM64 | `bin/molr`（内嵌 WebUI 和本机 Sandbox）、`bin/molr-setup`、发行元数据和许可证 | 同一 `molr` 程序支持 `server` 和 `sandbox` 模式，不含 Electron 桌面程序。通过 CLI 选择服务模式，再用浏览器或客户端连接。官网 `install.sh` 下载的就是这类 Runtime 包。 |
 | 源码归档 | 经发布检查的项目源码 | 用于自行构建，不是编译好的应用安装包；构建依赖见[源码部署](https://molr.ai/zh/docs/admin/deployment/source-build/)。 |
 | Docker | 本地构建的镜像包含 `molr`、内嵌 WebUI 和本机 Sandbox 实现 | 不含桌面 app 或 `molr-setup`。基础镜像默认关闭命令执行；`isolated` 构建目标另带 Linux 隔离依赖。当前没有官方预构建镜像，见[Docker 部署](https://molr.ai/zh/docs/admin/deployment/docker/)。 |
@@ -54,9 +54,11 @@ WebUI 无需另外下载安装包；手机当前使用同一 WebUI，没有可�
 
 官网“桌面应用”入口按已发布的渠道清单显示安装包；没有发布产物时显示暂无版本。源码构建与原生验收命令见[桌面 README](https://github.com/molr-ai/molr/blob/main/apps/desktop/README.md)。
 
-Linux/macOS 完整版包含 Runtime，也可连接远程实例。Windows 客户端只连接远程 Runtime；WSL 中的 Runtime 同样按远程连接添加。点击“添加连接”，填写名称和 Runtime 根地址，然后在该实例页面登录。HTTPS 为默认选择；回环或可信私网 HTTP 需要显式启用，没有传输加密。每个连接独立保存登录状态，修改服务器地址会使用新会话。
+Linux、macOS 和 Windows 完整版均包含原生 Runtime，也可连接远程实例；WSL 中的 Runtime 按远程连接添加。点击“添加连接”，填写名称和 Runtime 根地址，然后在该实例页面登录。HTTPS 为默认选择；回环或可信私网 HTTP 需要显式启用，没有传输加密。每个连接独立保存登录状态，修改服务器地址会使用新会话。
 
 完整版选择“安装并启动”后创建专属用户服务，默认仅监听回环地址。已有 CLI 安装保持独立，可作为远程连接添加。Linux 依赖沿用下文沙盒环境要求；依赖、主机策略或目录权限检查失败时先修复环境，再重试。macOS 命令执行由所选权限预设决定，能力边界仍遵守 macOS 沙盒说明。
+
+Windows 本机 Runtime 使用当前用户的计划任务，在登录后自动启动，注销 Windows 用户会停止该会话的服务。AppContainer 不支持任意 CLI 的兼容性保证；启动探针失败时拒绝受控执行。Windows 按当前用户串行运行受控命令，同时启动返回忙碌状态；授权目录总计超过 100,000 个条目会被拒绝。Windows 当前不提供 TTY、受控端口转发和硬资源配额；网络开关仍受系统防火墙与 AppContainer 回环限制。
 
 关闭窗口或退出桌面 app 后，本机服务继续运行；休眠、关机或用户服务退出会影响任务。停止、重启或卸载需在桌面管理界面明确操作，卸载默认保留配置和数据。删除桌面应用本身不等于卸载后台 Runtime；需移除服务时先在应用中卸载 Runtime。
 

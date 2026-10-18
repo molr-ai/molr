@@ -2,7 +2,7 @@
 
 WebUI 管理账号会话、导航与页面装载；SDK、Host 和共享 UI 包分别维护协议、主题解析及基础组件。
 
-桌面入口位于 [`apps/desktop`](https://github.com/molr-ai/molr/blob/main/apps/desktop/README.md)。可信管理界面负责连接和本机服务；独立、启用沙盒的 Electron `WebContentsView` 加载所选 Runtime 自带的 WebUI，每个连接使用独立持久化会话。远程页面不注入 preload，也不能调用桌面管理 IPC。Windows 包仅包含客户端；Linux/macOS 包携带独立 Runtime，通过现有安装器管理专属实例。关闭桌面窗口不停止服务。
+桌面入口位于 [`apps/desktop`](https://github.com/molr-ai/molr/blob/main/apps/desktop/README.md)。可信管理界面负责连接和本机服务；独立、启用沙盒的 Electron `WebContentsView` 加载所选 Runtime 自带的 WebUI，每个连接使用独立持久化会话。远程页面不注入 preload，也不能调用桌面管理 IPC。Linux、macOS 和 Windows 包均携带独立原生 Runtime，由安装器管理专属实例。关闭桌面窗口不停止服务。
 
 ## 实现边界
 

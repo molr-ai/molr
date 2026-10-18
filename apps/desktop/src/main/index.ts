@@ -190,7 +190,7 @@ async function main() {
     } catch { return new Response(null, { status: 404 }); }
   });
   const packageRoot = app.isPackaged ? join(process.resourcesPath, 'runtime') : process.env.MOLR_DESKTOP_RUNTIME;
-  if (process.platform !== 'win32' && packageRoot && existsSync(join(packageRoot, 'release.json'))) {
+  if (packageRoot && existsSync(join(packageRoot, 'release.json'))) {
     try {
       const { LocalRuntime } = await import('../runtime/local.js');
       local = new LocalRuntime(packageRoot, join(app.getPath('userData'), 'runtime'), stage => { progress = stage; changed(); });
@@ -212,7 +212,7 @@ async function main() {
     await clearSession(id); store.remove(id); changed();
   });
   handle('connect', connect); handle('manager', manager);
-  // Windows builds neither ship this module nor expose local management IPC.
+  // Local management is exposed only when a matching bundled Runtime is available.
   if (local) {
     handle('local-status', refreshLocal); handle('local-action', localAction);
     handle('logs', async () => { if (local && existsSync(local.logFile)) shell.showItemInFolder(local.logFile); });

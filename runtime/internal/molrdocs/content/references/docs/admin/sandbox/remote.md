@@ -1,8 +1,8 @@
 # 独立 Sandbox 服务
 
-Runtime 内置本机 sandbox_manager，无需额外启动本机服务。主 Runtime 的 `sandbox.enabled: false` 关闭本机命令执行，工作区、文件工具和远程连接仍可用。Runtime 的 `sandbox` 模式中，同名开关仍控制整个远程节点；远程节点支持 Linux 和 macOS。文件操作不要求计算授权，但仍受工作区归属与目录权限限制。
+Runtime 内置本机 sandbox_manager，无需额外启动本机服务。主 Runtime 的 `sandbox.enabled: false` 关闭本机命令执行，工作区、文件工具和远程连接仍可用。Runtime 的 `sandbox` 模式中，同名开关仍控制整个远程节点；远程节点支持 Linux、macOS 和 Windows。文件操作不要求计算授权，但仍受工作区归属与目录权限限制。
 
-远程电脑运行 `molr serve --mode sandbox`，只提供受控执行与已授权目录，不初始化账号、Agent、会话、助理工作区或模型服务。助理及其唯一 `/work` 始终位于 Runtime 本地。节点复用对应平台的文件工具与执行后端：Linux 使用 Bubblewrap，macOS 使用 Seatbelt；公共协议不包含 Bubblewrap 或 cgroup 路径。
+远程电脑运行 `molr serve --mode sandbox`，只提供受控执行与已授权目录，不初始化账号、Agent、会话、助理工作区或模型服务。助理及其唯一 `/work` 始终位于 Runtime 本地。节点复用对应平台的文件工具与执行后端：Linux 使用 Bubblewrap，macOS 使用 Seatbelt，Windows 使用 AppContainer；公共协议不包含 Bubblewrap 或 cgroup 路径。
 
 本页面向部署者。服务启动后由管理员[连接沙盒](https://molr.ai/zh/docs/admin/resources/sandbox/#在-webui-连接)，成员使用所属用户组允许的资源并为自己的助理授权。
 
@@ -150,7 +150,7 @@ Runtime 和服务使用 `/v2/sandbox/*` HTTPS 协议，证书指纹固定信任�
 
 启动、升级或重启后，必须认证检查 Runtime `/api/sandbox` 以及 `/api/sandboxes` 中远程实例的能力。Linux 计算就绪要求 `Reason=available`，且 Shell、进程、文件、网络隔离和资源限制均为 true；HTTP 连通不能代替隔离验证。
 
-Windows 尚未实现，平台差异见[沙盒设计](https://molr.ai/zh/docs/dev/security/sandbox/)。
+Windows 节点通过源码构建的 `molr.exe serve --mode sandbox` 和手动配置启动；桌面安装器目前只管理完整 Runtime。Windows 使用 PowerShell 和网络开关，不支持 TTY、受控端口转发或硬配额。受控目录应为原生盘符路径，脚本使用 `$env:<ShellEnvironment>`；`/tmp` 和 `/resources/...` 只作为工作目录参数别名解析。平台差异见[沙盒设计](https://molr.ai/zh/docs/dev/security/sandbox/)。
 
 ## 文件与执行生命周期
 

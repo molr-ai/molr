@@ -1,8 +1,8 @@
 # Standalone Sandbox Service
 
-Runtime includes its local sandbox_manager. In the main Runtime, `sandbox.enabled: false` disables local command execution while workspaces, file tools, and remote connections remain available. In Runtime `sandbox` mode, the same switch still controls the whole remote node. Remote nodes support Linux and macOS. File operations need no compute grant but retain workspace ownership and directory authorization checks.
+Runtime includes its local sandbox_manager. In the main Runtime, `sandbox.enabled: false` disables local command execution while workspaces, file tools, and remote connections remain available. In Runtime `sandbox` mode, the same switch still controls the whole remote node. Remote nodes support Linux, macOS and Windows. File operations need no compute grant but retain workspace ownership and directory authorization checks.
 
-Remote computers run `molr serve --mode sandbox`, providing only controlled execution and authorized directories. They do not initialize accounts, Agents, sessions, assistant workspaces, or model services. The assistant and its unique `/work` always reside locally within the Runtime. Nodes reuse their platform file tools and execution backend: Bubblewrap on Linux and Seatbelt on macOS; the common protocol does not include Bubblewrap or cgroup paths.
+Remote computers run `molr serve --mode sandbox`, providing only controlled execution and authorized directories. They do not initialize accounts, Agents, sessions, assistant workspaces, or model services. The assistant and its unique `/work` always reside locally within the Runtime. Nodes reuse their platform file tools and execution backend: Bubblewrap on Linux, Seatbelt on macOS and AppContainer on Windows; the common protocol does not include Bubblewrap or cgroup paths.
 
 This page is intended for deployers. After the service starts, administrators [connect to the sandbox](../resources/sandbox.md#connect-in-the-webui), and members use resources allowed by their user groups and authorize their own assistants.
 
@@ -150,7 +150,7 @@ Connection tokens are encrypted and stored in the Runtime's private database; pa
 
 After startup, upgrade, or restart, you must authenticate and check the Runtime `/api/sandbox` and the capabilities of remote instances in `/api/sandboxes`. Linux compute readiness requires `Reason=available`, and Shell, process, file, network isolation, and resource limits must all be true; HTTP connectivity cannot replace isolation verification.
 
-For platform differences and the unimplemented Windows backend, see [Sandbox Design](../../dev/security/sandbox.md).
+Windows nodes use a source-built `molr.exe serve --mode sandbox` and manual configuration; the desktop installer manages complete Runtime instances only. Windows uses PowerShell and a network toggle, with no TTY, controlled port forwarding or hard quotas. Configure native drive-letter directory paths and use `$env:<ShellEnvironment>` in scripts; `/tmp` and `/resources/...` are working-directory aliases only. For platform differences, see [Sandbox Design](../../dev/security/sandbox.md).
 
 ## File and Execution Lifecycle
 

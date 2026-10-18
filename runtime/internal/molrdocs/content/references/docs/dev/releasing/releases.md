@@ -9,7 +9,7 @@ Runtime 发行包仅包含 `bin/molr` 与安装维护工具 `bin/molr-setup`。�
 
 ## 桌面安装包
 
-Release 与 Nightly 的共用流程调用 `release-desktop.yml`，在五个原生目标上构建 Linux AMD64／ARM64 DEB、macOS AMD64／ARM64 DMG 和 Windows AMD64 NSIS EXE。Linux/macOS 附带同版本 Runtime，Windows 仅连接远程 Runtime（包括 WSL）。桌面测试、Runtime 生命周期验收、打包及已配置的签名流程全部成功后，发布任务核对平台完整性、commit、版本和 SHA-256，再将安装包、校验文件及汇总 `desktop-manifest.json` 与 Runtime 附件一起上传同一个 GitHub Release 草稿。缺包或校验失败会阻止发布。PR 的 `desktop.yml` 仅上传本地评估包到 Actions artifacts。
+Release 与 Nightly 的共用流程调用 `release-desktop.yml`，在五个原生目标上构建 Linux AMD64／ARM64 DEB、macOS AMD64／ARM64 DMG 和 Windows AMD64 NSIS EXE。三个平台均附带同版本原生 Runtime；Windows payload 由 `apps/desktop/scripts/build-windows-runtime.mjs` 构建，通过桌面安装包分发，不改变 Unix `install.sh` 平台清单。桌面测试、Runtime 生命周期验收、打包及已配置的签名流程全部成功后，发布任务核对平台完整性、commit、版本和 SHA-256，再将安装包、校验文件及汇总 `desktop-manifest.json` 与 Runtime 附件一起上传同一个 GitHub Release 草稿。缺包或校验失败会阻止发布。PR 的 `desktop.yml` 仅上传本地评估包到 Actions artifacts。
 
 `release` environment 配置 `MAC_CSC_LINK`、`MAC_CSC_KEY_PASSWORD`、`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID`、`WIN_CSC_LINK` 和 `WIN_CSC_KEY_PASSWORD`。证书使用 electron-builder 支持的输入格式；macOS 对应用与内置 Go 二进制签名并进行应用公证，Windows 对安装包签名。证书申请期间暂时允许不配置凭据：Windows 发布未签名安装包，macOS 使用 ad-hoc 签名并跳过公证。配置了部分凭据时构建失败；完整配置后执行签名和公证，失败不会降级。清单的 `signed` 字段表示发布者签名，macOS ad-hoc 为 `false`；官网和 Release 说明展示未签名／未公证状态。本地 `-local` 构建仍不进入公开渠道。证书就绪后，在 `apps/desktop/scripts/signing.mjs` 恢复无凭据失败，并在产物汇总和发布前恢复签名必需校验；官网仍保留历史版本的实际签名状态。
 

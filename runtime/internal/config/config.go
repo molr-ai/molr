@@ -225,7 +225,7 @@ func (c Config) Validate() error {
 	if c.Pricing.RulesFile != "" && !filepath.IsAbs(c.Pricing.RulesFile) {
 		return core.Invalid("pricing.rules_file", "absolute rules file path required")
 	}
-	if !filepath.IsAbs(c.DataDir) || filepath.Clean(c.DataDir) == string(filepath.Separator) {
+	if !filepath.IsAbs(c.DataDir) || filepath.Dir(filepath.Clean(c.DataDir)) == filepath.Clean(c.DataDir) {
 		return core.Invalid("data_dir", "dedicated absolute directory required")
 	}
 	host, port, err := net.SplitHostPort(c.HTTP.Listen)

@@ -27,8 +27,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22.21.0'
-      - if: runner.os != 'Windows'
-        uses: actions/setup-go@v6
+      - uses: actions/setup-go@v6
         with:
           go-version-file: runtime/.go-version
           cache-dependency-path: runtime/go.sum
@@ -48,8 +47,16 @@ jobs:
           fi
       - if: runner.os != 'Windows'
         run: npm run build:release
-      - if: runner.os != 'Windows'
-        name: Native desktop Runtime lifecycle
+      - if: runner.os == 'Windows'
+        run: node apps/desktop/scripts/build-windows-runtime.mjs
+      - if: runner.os == 'Windows'
+        name: Native Windows backend
+        shell: pwsh
+        run: |
+          $env:CGO_ENABLED = '0'
+          $env:MOLR_TEST_BINARY = (Resolve-Path '.cache/release/win32-amd64/molr/bin/molr.exe').Path
+          go -C runtime test ./internal/platform/sandbox ./internal/textfiles ./internal/installationwindows ./internal/config ./internal/platform ./internal/persistence/sqlitestore -run "TestWindows|TestControlledReady|TestNativeSandbox" -count=1
+      - name: Native desktop Runtime lifecycle
         run: node apps/desktop/tests/local-runtime.mjs
       - run: npm run package:desktop
         env:

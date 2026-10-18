@@ -14,7 +14,7 @@ export class LocalRuntime {
   constructor(private packageRoot: string, directory: string, private onProgress?: (stage: string) => void) {
     const release = JSON.parse(readFileSync(join(packageRoot, 'release.json'), 'utf8'));
     const goArch = ({ x64: 'amd64', arm64: 'arm64' } as Record<string, string>)[process.arch];
-    if (!['linux', 'darwin'].includes(process.platform) || release.os !== process.platform || release.arch !== goArch || typeof release.version !== 'string') throw new Error('附带的 Runtime 与当前平台不匹配。');
+    if (!['linux', 'darwin', 'win32'].includes(process.platform) || release.os !== (process.platform === 'win32' ? 'windows' : process.platform) || release.arch !== goArch || typeof release.version !== 'string') throw new Error('附带的 Runtime 与当前平台不匹配。');
     this.bundledVersion = release.version;
     mkdirSync(directory, { recursive: true, mode: 0o700 });
     const identityFile = join(directory, 'instance.json');
@@ -25,9 +25,9 @@ export class LocalRuntime {
     this.logFile = join(directory, 'maintenance.log');
   }
   private async invoke(action: string, preset?: ResourcePreset): Promise<Receipt> {
-    const executable = join(this.packageRoot, 'bin', 'molr-setup');
+    const executable = join(this.packageRoot, 'bin', process.platform === 'win32' ? 'molr-setup.exe' : 'molr-setup');
     const stat = lstatSync(executable);
-    if (!stat.isFile() || (stat.mode & 0o022) !== 0) throw new Error('Runtime 安装器权限不安全。');
+    if (!stat.isFile() || (process.platform !== 'win32' && (stat.mode & 0o022) !== 0)) throw new Error('Runtime 安装器权限不安全。');
     const args = ['desktop', action, '--name', this.name, '--program-root', this.programRoot, '--json', '--non-interactive', '--no-browser'];
     if (preset) args.push('--resource-preset', preset);
     if (action !== 'status' && action !== 'plan') args.push('--yes');

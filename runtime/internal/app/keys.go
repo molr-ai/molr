@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"io"
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/platform"
 	"os"
 	"path/filepath"
 )
@@ -19,7 +20,7 @@ func prepareDirectory(path string) error {
 	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 		return core.Invalid("data_dir", "real private directory required")
 	}
-	return os.Chmod(path, 0700)
+	return platform.PrivateDirectory(path)
 }
 func masterKey(dir string) ([]byte, error) {
 	keydir := filepath.Join(dir, "keys")
@@ -33,7 +34,7 @@ func masterKey(dir string) ([]byte, error) {
 	defer root.Close()
 	info, err := root.Lstat("master.key")
 	if err == nil {
-		if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
+		if !platform.PrivateFile(filepath.Join(keydir, "master.key"), info) {
 			return nil, core.NewError(core.FailedPrecondition, "master key must be a private regular file")
 		}
 		f, err := root.Open("master.key")

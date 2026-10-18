@@ -12,6 +12,7 @@ import (
 
 	"molr.ai/runtime/internal/app"
 	"molr.ai/runtime/internal/config"
+ "molr.ai/runtime/internal/platform"
 	"molr.ai/runtime/internal/core"
 )
 
@@ -37,7 +38,7 @@ func serveSandbox(ctx context.Context, cfg config.Config, tokenPath string, diag
 	if err != nil {
 		return err
 	}
-	if !st.Mode().IsRegular() || st.Mode().Perm()&0077 != 0 || st.Size() > 4096 {
+	if !platform.PrivateFile(tokenPath, st) || st.Size() > 4096 {
 		return core.Invalid("token_file", "private regular file required")
 	}
 	token, err := os.ReadFile(tokenPath)

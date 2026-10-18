@@ -2,7 +2,7 @@
 
 WebUI manages account sessions, navigation, and page loading. The SDK, Host, and shared UI packages maintain the protocol, theme resolution, and base components respectively.
 
-The desktop entry point is [`apps/desktop`](../../../../apps/desktop/README.md). Its trusted management interface handles connections and local services. A separate sandboxed Electron `WebContentsView` loads the selected Runtime's WebUI with an independent persistent session per connection. Remote pages have no preload or desktop-management IPC. Windows packages contain only the client; Linux/macOS bundle an independent Runtime managed through the existing installer. Closing desktop windows does not stop the service.
+The desktop entry point is [`apps/desktop`](../../../../apps/desktop/README.md). Its trusted management interface handles connections and local services. A separate sandboxed Electron `WebContentsView` loads the selected Runtime's WebUI with an independent persistent session per connection. Remote pages have no preload or desktop-management IPC. Linux, macOS and Windows bundle an independent native Runtime managed through the installer. Closing desktop windows does not stop the service.
 
 ## Implementation Boundaries
 

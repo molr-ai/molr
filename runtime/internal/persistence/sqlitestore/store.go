@@ -76,7 +76,7 @@ func Open(path string) (*Store, error) {
 	if err := os.Chmod(path, 0600); err != nil {
 		return nil, err
 	}
-	dsn := (&url.URL{Scheme: "file", Path: path}).String() + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)"
+	dsn := FileURL(path) + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
@@ -412,4 +412,14 @@ func (s *Store) Snapshot(ctx context.Context, path string) error {
 		return fmt.Errorf("protect snapshot: %w", err)
 	}
 	return nil
+}
+
+// FileURL encodes a native absolute path as a SQLite file URI, including drive
+// letters on Windows (file:///C:/...) rather than a hostname named C:.
+func FileURL(path string) string {
+	value := filepath.ToSlash(path)
+	if filepath.VolumeName(path) != "" && !strings.HasPrefix(value, "/") {
+		value = "/" + value
+	}
+	return (&url.URL{Scheme: "file", Path: value}).String()
 }

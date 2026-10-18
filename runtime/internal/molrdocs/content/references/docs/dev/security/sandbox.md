@@ -1,6 +1,6 @@
 # Agent Shell 沙盒实现与边界
 
-Linux 使用 Bubblewrap、seccomp、cgroup v2 和受控网络出口。macOS 使用原生 Seatbelt 文件策略与网络开关。两者保留相同授权和任务管理接口，各自报告能执行的限制；Windows 后端未实现。部署见 [Linux](https://molr.ai/zh/docs/admin/sandbox/linux/) 和 [macOS](https://molr.ai/zh/docs/admin/sandbox/macos/)。
+Linux 使用 Bubblewrap、seccomp、cgroup v2 和受控网络出口。macOS 使用原生 Seatbelt 文件策略与网络开关。Windows 使用原生 AppContainer、按执行分配的文件 ACL 与网络能力开关。各平台保留相同授权和任务管理接口，按实际后端报告能执行的限制。部署见 [Linux](https://molr.ai/zh/docs/admin/sandbox/linux/) 和 [macOS](https://molr.ai/zh/docs/admin/sandbox/macos/)。
 
 
 ## 部署预设与目录接入
@@ -179,15 +179,15 @@ Shell 有副作用。操作 ID、计划摘要与授权版本应在启动前持�
 
 能力报告必须表达真实隔离探针结果，后端不能删除不支持的限制后继续执行。进程正常退出不代表业务任务自动验收成功；记录输出、退出分类和显式产物，不承诺完整文件变更清单。
 
-宿主路径只在可信适配层存在。资源内路径使用独立逻辑表示，再由后端映射；不能在跨平台共享代码中假定 `/workspace`、盘符或大小写规则。未来 Windows 必须单独处理 UNC、重解析点、junction、ADS、命名管道及句柄继承。Shell 类型明确为 POSIX shell、PowerShell 等，不能把同一脚本字符串自动换解释器执行。
+宿主路径只在可信适配层存在。资源内路径使用独立逻辑表示，再由后端映射；不能在跨平台共享代码中假定 `/workspace`、盘符或大小写规则。Windows 拒绝 UNC、ADS、设备路径和受控目录重解析点；Go `os.Root` 约束文件工具的路径解析，AppContainer 子进程只继承标准输入输出句柄。Shell 类型明确为 POSIX shell、PowerShell 等，不能把同一脚本字符串自动换解释器执行。
 
 | 平台 | 实现方向 | 必须独立验证的差异 |
 | --- | --- | --- |
 | Linux，一期 | Bubblewrap + seccomp + cgroup v2 + 受控出口 | user namespace、AppArmor、cgroup 委派、内核与 CPU 架构兼容 |
 | macOS | 本机与远程 Seatbelt 受控执行、安全文件操作及独立 Full Access | 原生验证路径、文件锁、PTY、网络开关与撤权；不提供进程命名空间和资源硬配额 |
-| Windows，未来 | 评估 AppContainer／受限身份、ACL、Job Object 与受控网络策略 | 任意 CLI 兼容性、句柄和文件权限、网络强制出口；Job Object 负责生命周期/资源管理，不能单独充当文件与网络沙盒 |
+| Windows | AppContainer SID、文件 ACL、网络能力开关及 Job Object 进程树回收 | PowerShell；文件/网络隔离为 true，进程命名空间/硬配额为 false；无 TTY、受控端口转发或细粒度网络目标 |
 
-macOS 支持 Seatbelt 受控 Shell 和独立授权的 Full Access；Windows 后端尚未实现。WSL2 后端若未来提供，应明确显示为 Linux 执行环境，不算原生 Windows 后端。接口复用不代表各平台安全能力天然等价。[Microsoft AppContainer](https://learn.microsoft.com/en-us/windows/win32/secauthz/appcontainer-isolation) · [Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects) · [Apple App Sandbox 继承](https://developer.apple.com/library/archive/documentation/Miscellaneous/Reference/EntitlementKeyReference/Chapters/EnablingAppSandbox.html)
+macOS 与 Windows 均提供受控 Shell 和独立授权的 Full Access。Windows 每次执行创建独立 AppContainer SID，授权目录的祖先句柄在执行期间禁止删除/重命名；ACL 只添加该 SID 的必要权限，任务进程树归零后撤销。恢复日志记录 scope 文件身份；目录丢失、身份改变或撤权失败时关闭受控执行，不丢弃恢复记录。启动探针实测允许的工作区写入、私有文件读写拒绝、只读 scope 写入拒绝，并核验实际子进程 AppContainer token。网络探针使用 TEST-NET 目标：禁网要求 AccessDenied，开网要求不因权限拒绝；这不表示公网可达。接口复用不代表各平台安全能力天然等价。[Microsoft AppContainer](https://learn.microsoft.com/en-us/windows/win32/secauthz/appcontainer-isolation) · [Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects) · [Apple App Sandbox 继承](https://developer.apple.com/library/archive/documentation/Miscellaneous/Reference/EntitlementKeyReference/Chapters/EnablingAppSandbox.html)
 
 ## 6. 部署与本机评估
 

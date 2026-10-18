@@ -41,7 +41,7 @@ func bootstrap(ctx context.Context, b *app.Bundle, cfg config.Config, username s
 		if e != nil {
 			return e
 		}
-		if !info.Mode().IsRegular() || info.Mode().Perm() != 0600 {
+		if !platform.PrivateFile(name, info) {
 			return fmt.Errorf("initial-password must be a private regular file")
 		}
 		passwordBytes, err = os.ReadFile(name)

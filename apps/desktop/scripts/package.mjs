@@ -14,19 +14,20 @@ const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding:
 if (!local && execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' }).trim()) throw new Error('Release builds require a clean checkout');
 const os = process.platform, arch = process.arch;
 if (!['linux', 'darwin', 'win32'].includes(os) || !['x64', 'arm64'].includes(arch)) throw new Error('Build on a supported native runner');
-const full = os !== 'win32';
+const runtimeOS = os === 'win32' ? 'windows' : os;
+const runtimeFiles = os === 'win32' ? ['bin/molr.exe', 'bin/molr-setup.exe'] : ['bin/molr', 'bin/molr-setup'];
 const goArch = arch === 'x64' ? 'amd64' : 'arm64';
 const run = (command, args) => execFileSync(command, args, { cwd: root, stdio: 'inherit', shell: process.platform === 'win32' });
 run('npm', ['run', 'check:release']); run('npm', ['run', 'check:licenses']);
 run('npm', ['run', 'build', '--workspace', '@molr/desktop']);
 const packageRoot = resolve(root, process.env.MOLR_DESKTOP_RUNTIME_PACKAGE || `.cache/release/${os}-${goArch}/molr`);
-if (full) {
-  if (!existsSync(join(packageRoot, 'release.json'))) throw new Error('Run npm run build:release first, using the same version and commit');
+{
+  if (!existsSync(join(packageRoot, 'release.json'))) throw new Error('Build the matching native Runtime payload first (build:release on Unix, build-windows-runtime.mjs on Windows)');
   const meta = JSON.parse(readFileSync(join(packageRoot, 'release.json')));
-  if (meta.os !== os || meta.arch !== goArch || meta.version !== version || meta.commit !== commit) throw new Error('Bundled Runtime identity mismatch');
-  for (const name of ['bin/molr', 'bin/molr-setup', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'release.json']) {
+  if (meta.os !== runtimeOS || meta.arch !== goArch || meta.version !== version || meta.commit !== commit) throw new Error('Bundled Runtime identity mismatch');
+  for (const name of [...runtimeFiles, 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'release.json']) {
     const stat = lstatSync(join(packageRoot, name));
-    if (!stat.isFile() || (name.startsWith('bin/') && (stat.mode & 0o777) !== 0o755)) throw new Error(`Unsafe Runtime resource: ${name}`);
+    if (!stat.isFile() || (os !== 'win32' && name.startsWith('bin/') && (stat.mode & 0o777) !== 0o755)) throw new Error(`Unsafe Runtime resource: ${name}`);
   }
 }
 const signed = desktopSigning(os, local);
@@ -37,19 +38,19 @@ const electronRoot = resolve(root, 'node_modules/electron/dist');
 for (const filename of ['LICENSE', 'LICENSES.chromium.html']) {
   if (!existsSync(join(electronRoot, filename))) throw new Error(`Electron distribution notice missing: ${filename}`);
 }
-const variant = full ? 'full' : 'client';
+const variant = 'full';
 const config = {
   appId: 'ai.molr.desktop', productName: 'Molr', electronVersion: '44.8.0',
   electronDist: electronRoot,
   directories: { app: project, output, buildResources: join(root, 'packages/ui/public/brand') },
   extraMetadata: { version, homepage: 'https://molr.ai/', desktopName: 'molr.desktop' },
-  files: ['dist/main/main/**', 'dist/main/preload/**', 'dist/main/shared.js', 'dist/renderer/**', ...(full ? ['dist/main/runtime/**'] : []), 'package.json'],
+  files: ['dist/main/main/**', 'dist/main/preload/**', 'dist/main/shared.js', 'dist/renderer/**', 'dist/main/runtime/**', 'package.json'],
   extraResources: [
     { from: join(root, 'LICENSE'), to: 'LICENSE' },
     { from: join(root, 'THIRD_PARTY_NOTICES.md'), to: 'THIRD_PARTY_NOTICES.md' },
     { from: join(electronRoot, 'LICENSE'), to: 'licenses/Electron-LICENSE' },
     { from: join(electronRoot, 'LICENSES.chromium.html'), to: 'licenses/LICENSES.chromium.html' },
-    ...(full ? [{ from: packageRoot, to: 'runtime', filter: ['bin/molr', 'bin/molr-setup', 'release.json', 'LICENSE', 'THIRD_PARTY_NOTICES.md'] }] : []),
+    { from: packageRoot, to: 'runtime', filter: [...runtimeFiles, 'release.json', 'LICENSE', 'THIRD_PARTY_NOTICES.md'] },
   ],
   asar: true, npmRebuild: false,
   forceCodeSigning: signed,
@@ -70,9 +71,4 @@ for (const file of files.filter(file => /\.(deb|dmg|exe)$/.test(file))) {
   artifacts.push({ file: name, sha256 });
 }
 writeFileSync(join(output, 'desktop-manifest.json'), JSON.stringify({ schema: 1, version, commit, os, arch: goArch, variant, signed, artifacts }, null, 2) + '\n');
-// Windows must contain neither the Go binaries nor their privileged adapter.
-if (!full) {
-  const resources = join(output, 'win-unpacked/resources');
-  if (existsSync(join(resources, 'runtime'))) throw new Error('Windows client unexpectedly includes a Runtime');
-}
 console.log(`Desktop artifacts: ${output} (${readdirSync(output).length} entries)`);

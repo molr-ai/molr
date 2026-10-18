@@ -6,7 +6,7 @@ Molr adopts a Go modular monolith, using SQLite and local files for data storage
 
 - The Go Runtime provides identity authentication, data persistence, Agent execution, planning, resource authorization, and cost management.
 - WebUI is embedded in release Runtime binaries and connects to the same instance from desktop/mobile browsers or the desktop app.
-- The Electron desktop app manages connections; Linux/macOS packages can optionally create a bundled local Runtime service, while Windows connects only to remote Runtimes, including WSL.
+- The Electron desktop app manages connections; Linux, macOS and Windows packages can optionally create a bundled native Runtime service and can connect to remote instances.
 - Phones currently use WebUI in a browser; no native iOS/Android App is implemented. Package contents and installation choices are described in [Installation and service management](../../admin/deployment/installation.md).
 - UI Design uses mock data to display components and interactions; its Desktop/Mobile/CLI views do not represent independent native clients.
 - The official website provides product introductions and public documentation, deployed separately from user Runtime instances.

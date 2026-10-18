@@ -19,6 +19,7 @@ import (
 	"molr.ai/runtime/internal/buildinfo"
 	"molr.ai/runtime/internal/config"
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/platform"
 	"molr.ai/runtime/internal/platform/sandbox"
 	"molr.ai/runtime/internal/storage/sqlite"
 )
@@ -52,7 +53,7 @@ func password(r io.Reader) (core.Secret, error) {
 	}
 	return core.NewSecret(value), nil
 }
-func run(ctx context.Context, args []string, input io.Reader, output, diagnostics io.Writer) error {
+func run(ctx context.Context, args []string, input io.Reader, output, diagnostics io.Writer) (resultErr error) {
 	if len(args) == 2 && args[0] == "version" && args[1] == "--json" {
 		return json.NewEncoder(output).Encode(buildinfo.Current())
 	}
@@ -74,6 +75,7 @@ func run(ctx context.Context, args []string, input io.Reader, output, diagnostic
 	flags.SetOutput(diagnostics)
 	mode := flags.String("mode", "server", "Runtime mode: server or sandbox (serve only)")
 	tokenPath := flags.String("token-file", "", "sandbox service token file; defaults to data_dir/sandbox-token")
+	logPath := flags.String("log-file", "", "append service diagnostics to a private file (serve only)")
 	configPath := flags.String("config", "configs/server.example.json", "strict server configuration JSON")
 	username := flags.String("username", "owner", "initial owner username")
 	passwordStdin := flags.Bool("password-stdin", false, "read password from standard input (init/recover only)")
@@ -85,6 +87,22 @@ func run(ctx context.Context, args []string, input io.Reader, output, diagnostic
 	}
 	if flags.NArg() != 0 {
 		return fmt.Errorf("unexpected positional arguments")
+	}
+	if *logPath != "" {
+		if command != "serve" || !filepath.IsAbs(*logPath) {
+			return core.Invalid("log_file", "absolute path and serve command required")
+		}
+		log, err := os.OpenFile(*logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+		if err != nil {
+			return err
+		}
+		diagnostics = log
+		defer func() {
+			if resultErr != nil {
+				fmt.Fprintln(log, "molr:", resultErr)
+			}
+			log.Close()
+		}()
 	}
 	if *mode != "server" && *mode != "sandbox" {
 		return core.Invalid("mode", "must be server or sandbox")
@@ -104,6 +122,14 @@ func run(ctx context.Context, args []string, input io.Reader, output, diagnostic
 	_ = file.Close()
 	if err != nil {
 		return err
+	}
+	if command == "serve" {
+		var cleanup func()
+		ctx, cleanup, err = platform.ServiceContext(ctx, cfg.DataDir)
+		if err != nil {
+			return err
+		}
+		defer cleanup()
 	}
 	if *mode == "sandbox" {
 		return serveSandbox(ctx, cfg, *tokenPath, diagnostics)

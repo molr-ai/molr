@@ -47,6 +47,7 @@ type Runner struct {
 	closed              bool
 	release             func()
 	recovered           bool
+	prepareMu           sync.Mutex
 	prepareOnce         sync.Once
 	prepareErr          error
 	prepared            bool
@@ -56,6 +57,8 @@ type Runner struct {
 // Prepare creates managed assets and obtains OS isolation resources. It never
 // installs packages, modifies global settings, or falls back to host execution.
 func (r *Runner) Prepare(ctx context.Context) error {
+	r.prepareMu.Lock()
+	defer r.prepareMu.Unlock()
 	r.prepareOnce.Do(func() {
 		r.mu.Lock()
 		defer r.mu.Unlock()
@@ -68,6 +71,10 @@ func (r *Runner) Prepare(ctx context.Context) error {
 	})
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if runtime.GOOS == "windows" && core.ReasonOf(r.prepareErr) == "sandbox_file_scope_busy" {
+		r.prepareOnce = sync.Once{}
+		r.prepared = false
+	}
 	return r.prepareErr
 }
 
@@ -90,9 +97,21 @@ func key(e core.Execution) string {
 	return string(e.Principal.OwnerID) + "/" + string(e.AssistantID) + "/" + string(e.OperationID)
 }
 func (r *Runner) Capabilities(ctx context.Context) (platform.Capabilities, error) {
-	c := platform.Capabilities{OS: runtime.GOOS, Reason: "sandbox_not_configured"}
+	if runtime.GOOS == "windows" {
+		r.mu.Lock()
+		retry := core.ReasonOf(r.prepareErr) == "sandbox_file_scope_busy"
+		r.mu.Unlock()
+		if retry {
+			_ = r.Prepare(ctx)
+		}
+	}
+
+	c := platform.Capabilities{OS: runtime.GOOS, Reason: "sandbox_not_configured", ShellType: "posix-sh"}
+	if runtime.GOOS == "windows" {
+		c.ShellType = "powershell"
+	}
 	if platform.NativeSandbox() {
-		c.NetworkBackend = "seatbelt-toggle"
+		c.NetworkBackend = platform.NativeNetworkBackend()
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -124,9 +143,9 @@ func (r *Runner) Capabilities(ctx context.Context) (platform.Capabilities, error
 	c.NetworkBackend = "transparent"
 	c.NetworkProtocols = []string{"tcp", "udp"}
 	c.DiskProtection = "file_limit_and_free_space_guard"
-	if runtime.GOOS == "darwin" {
+	if platform.NativeSandbox() {
 		c.ProcessIsolation, c.ResourceLimits = false, false
-		c.NetworkBackend = "seatbelt-toggle"
+		c.NetworkBackend = platform.NativeNetworkBackend()
 		c.DiskProtection = "none"
 	}
 	return c, nil

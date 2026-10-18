@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
-	"net/url"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
@@ -115,7 +114,7 @@ func (d *DB) Check(ctx context.Context) error {
 	return checkFile(ctx, d.path)
 }
 func checkFile(ctx context.Context, path string) error {
-	dsn := (&url.URL{Scheme: "file", Path: path}).String() + "?mode=ro"
+	dsn := sqlitestore.FileURL(path) + "?mode=ro"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return err

@@ -101,7 +101,7 @@ function App() {
               </li>)}
             </ul>}
           </section>
-          <footer className="desktop-footer"><span>每个连接独立保存登录状态，助理与数据由对应 Runtime 管理。</span>{state.platform === 'win32' && <span>Windows 客户端 · WSL 通过远程连接使用</span>}</footer>
+          <footer className="desktop-footer"><span>每个连接独立保存登录状态，助理与数据由对应 Runtime 管理。</span>{state.platform === 'win32' && <span>Windows 原生 Runtime · PowerShell / AppContainer</span>}</footer>
         </>}
       </main>}
   </div></UIProvider>;
