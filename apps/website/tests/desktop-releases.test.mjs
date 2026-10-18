@@ -46,6 +46,16 @@ test('desktop download UI shows edition and does not invent missing releases', {
     await section.getByRole('button', { name: 'Desktop app', exact: true }).click();
     await expect(section.getByRole('link', { name: 'Download installer' })).toBeVisible();
     await expect(section.getByText(/Unnotarized test build/)).toHaveCount(0);
+    for (const [channel, version] of [['preview', '0.2.0-rc.6'], ['nightly', '0.2.0-0.nightly.20261011.0.gaaaaaaa']]) {
+      const prereleaseFile = `molr-desktop_${version}_win32-amd64_full.exe`;
+      catalog = { schema: 1, channels: { stable: null, preview: null, nightly: null,
+        [channel]: { version, platforms: [{ ...platform, file: prereleaseFile, url: `https://downloads.example.com/${prereleaseFile}` }] } } };
+      await page.reload();
+      await section.getByRole('button', { name: 'Desktop app', exact: true }).click();
+      await expect(section.getByText('Coming soon')).toBeVisible();
+      await expect(section.getByRole('link', { name: 'Download installer' })).toHaveCount(0);
+      await expect(page.locator('.home-hero-download .home-download-primary')).toHaveCount(0);
+    }
     catalog = { schema: 1, channels: { stable: null, preview: null, nightly: null } };
     await page.reload();
     await section.getByRole('button', { name: 'Desktop app', exact: true }).click();

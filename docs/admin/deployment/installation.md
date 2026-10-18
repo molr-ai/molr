@@ -37,7 +37,7 @@ flowchart TB
 
 ## 安装包包含哪些组件
 
-官网只展示 GitHub Releases 中实际发布的安装包。下表说明各类产物的内容；系统依赖由目标设备或包管理器准备，不等于全部打进了安装包。
+官网只展示 GitHub Releases 中正式发布的安装包，排除草稿、预发布版和 Nightly。下表说明各类产物的内容；系统依赖由目标设备或包管理器准备，不等于全部打进了安装包。
 
 | 安装包或入口 | 包含的组件 | 安装与使用方式 |
 | --- | --- | --- |
@@ -52,7 +52,7 @@ WebUI 无需另外下载安装包；手机当前使用同一 WebUI，没有可�
 
 ## 桌面应用
 
-官网“桌面应用”入口按已发布的渠道清单显示安装包；没有发布产物时显示暂无版本。源码构建与原生验收命令见[桌面 README](../../../apps/desktop/README.md)。
+官网“桌面应用”入口只按正式渠道清单显示安装包；没有正式版时显示“即将推出”。源码构建与原生验收命令见[桌面 README](../../../apps/desktop/README.md)。
 
 Linux、macOS 和 Windows 完整版均包含原生 Runtime，也可连接远程实例；WSL 中的 Runtime 按远程连接添加。点击“添加连接”，填写名称和 Runtime 根地址，然后在该实例页面登录。HTTPS 为默认选择；回环或可信私网 HTTP 需要显式启用，没有传输加密。每个连接独立保存登录状态，修改服务器地址会使用新会话。
 
@@ -161,10 +161,6 @@ cd molr
 
 ```bash
 curl -fsSL https://molr.ai/install.sh | sh
-curl -fsSL https://molr.ai/install.sh | sh -s -- --channel preview
-curl -fsSL https://molr.ai/install.sh | sh -s -- --channel nightly
-# Pin a version and keep its update subscription
-curl -fsSL https://molr.ai/install.sh | sh -s -- --channel preview --version 0.2.0-rc.1
 ```
 
 官网的后端与沙盒入口使用 curl，自动检测系统和架构，安装正式渠道最新版；没有正式发行包时显示“即将推出”。版本号统一显示在安装区域右上角，页面不提供架构、下载工具或版本选项。官网只提供命令安装和 Agent 安装。需要手动或离线安装时，从 [GitHub Releases](https://github.com/molr-ai/molr/releases) 选择目标系统、架构及版本，下载归档和同名 `.sha256` 文件后，按本节步骤安装。Docker 安装见 [Docker 部署](docker.md)。
@@ -178,7 +174,7 @@ curl -fsSL https://molr.ai/install.sh | sh -s -- --mode server --arch arm64 --ve
 wget -qO- https://molr.ai/install.sh | sh -s -- --mode server
 ```
 
-预发布版与 Nightly 使用上文的 `--channel` 参数。桌面应用下载按 stable、preview、nightly 的顺序展示第一个可用发布。
+官网桌面下载、后端与沙盒入口只展示正式版。预发布版与 Nightly 可从 GitHub Releases 下载后离线安装；使用提供这些渠道的其他发布源时，通过 `--source URL --channel preview` 或 `--source URL --channel nightly` 选择。
 
 stable 为正式版，preview 为 beta／rc 和后续正式版，nightly 为每日构建。未发布版本的渠道不会自动回退到其他渠道。下载器显示版本、架构、包名、来源、摘要及下载进度，校验后调用包内安装器。它使用已有的 curl 或 wget、tar、gzip 和 SHA-256 工具，不自动安装下载工具；安装维护程序本身无需 Python、curl 或 iproute2。
 
@@ -190,7 +186,7 @@ sh install.sh --archive /path/package.tar.gz
 
 相邻的 `package.tar.gz.sha256` 必须存在。直接运行已解压的安装包不需要网络；系统依赖应提前准备。SHA-256 用于核对下载内容，不是独立的发布者签名。
 
-官网发布源只提供近期筛选出的正式版、预发布及 nightly 版本清单；`--version` 必须是当前目录中包含的版本。安装其他历史版本时，从 GitHub Releases 下载对应归档和 SHA-256 文件，按上文离线安装。
+官网发布源只提供扫描范围内最新正式版的清单；`--version` 必须是当前目录中包含的版本。安装其他历史版本时，从 GitHub Releases 下载对应归档和 SHA-256 文件，按上文离线安装。
 
 ## 交互式与静默安装
 

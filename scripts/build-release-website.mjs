@@ -8,7 +8,7 @@ process.chdir(root);
 const run = (...args) => execFileSync('npm', ['run', ...args], { stdio: 'inherit' });
 run('check:release'); run('check:licenses'); run('check:platforms');
 const repository = process.env.MOLR_RELEASE_REPOSITORY || process.env.GITHUB_REPOSITORY || 'molr-ai/molr';
-const releases = await publishedReleases(repository);
+const releases = await publishedReleases(repository, { stableOnly: true });
 await verifyChannelDownloads(releases);
 const desktop = await publishedDesktopCatalog(repository, releases);
 mkdirSync(resolve(root, '.cache'), { recursive: true });

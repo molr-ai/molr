@@ -113,7 +113,8 @@ test('hero downloads detected platform directly, supports manual selection and h
     await page.keyboard.press('Escape');
     catalog = { schema: 1, channels: { stable: null, preview: sample().channels.preview, nightly: null } };
     await page.reload();
-    await expect(hero.getByRole('link', { name: '下载 Molr 桌面版 (Windows · AMD64)' })).toHaveAttribute('href', catalog.channels.preview.platforms[0].url);
+    await expect(hero.locator('.home-download-primary')).toHaveCount(0);
+    await expect(hero.getByRole('button', { name: '即将推出', exact: true })).toBeDisabled();
     catalog = { schema: 1, channels: { stable: null, preview: null, nightly: null } };
     await page.reload();
     await expect(hero.locator('.home-download-primary')).toHaveCount(0);

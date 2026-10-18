@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { readDesktopCatalog, type DesktopCatalog } from './desktop-releases';
-import { publishedChannel } from './release-data';
 
 export function useDesktopRelease(source: string) {
   const [catalog, setCatalog] = useState<DesktopCatalog>();
@@ -15,5 +14,5 @@ export function useDesktopRelease(source: string) {
     }).then(value => setCatalog(readDesktopCatalog(value))).catch(() => { if (!abort.signal.aborted) setError(true); });
     return () => abort.abort();
   }, [source, attempt]);
-  return { release: catalog?.channels[publishedChannel(catalog)], loading: !catalog && !error, error, retry: () => setAttempt(x => x + 1) };
+  return { release: catalog?.channels.stable, loading: !catalog && !error, error, retry: () => setAttempt(x => x + 1) };
 }

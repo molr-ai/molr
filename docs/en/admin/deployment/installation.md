@@ -37,7 +37,7 @@ The desktop app's Electron renderer sandbox restricts web pages' access to deskt
 
 ## What each package contains
 
-The website lists installers actually published in GitHub Releases. The table describes each artifact's contents. The target device or package manager prepares system dependencies; they are not necessarily bundled inside the installer.
+The website lists only stable installers published in GitHub Releases, excluding drafts, prereleases and nightly builds. The table describes each artifact's contents. The target device or package manager prepares system dependencies; they are not necessarily bundled inside the installer.
 
 | Package or entry point | Included components | Installation and use |
 | --- | --- | --- |
@@ -52,7 +52,7 @@ WebUI needs no separate installer. Phones currently use that same WebUI, with no
 
 ## Desktop app
 
-The website's Desktop app option lists installers from the published channel catalog. It shows no available version when no artifacts have been published. Source builds and native verification commands are in the [desktop README](../../../../apps/desktop/README.md).
+The website's Desktop app option lists only stable installers. It shows “Coming soon” when no stable version has been published. Source builds and native verification commands are in the [desktop README](../../../../apps/desktop/README.md).
 
 Linux, macOS and Windows full editions include a native Runtime and can connect to remote instances. A Runtime inside WSL is added as a remote connection. Add a connection with a name and Runtime root URL, then sign in on that instance. HTTPS is the default; loopback or trusted private-network HTTP requires explicit opt-in and has no transport encryption. Connections have independent login state; changing the server origin creates a new session.
 
@@ -160,10 +160,6 @@ For an initial online installation, use the website downloader:
 
 ```bash
 curl -fsSL https://molr.ai/install.sh | sh
-curl -fsSL https://molr.ai/install.sh | sh -s -- --channel preview
-curl -fsSL https://molr.ai/install.sh | sh -s -- --channel nightly
-# Pin a version and keep its update subscription
-curl -fsSL https://molr.ai/install.sh | sh -s -- --channel preview --version 0.2.0-rc.1
 ```
 
 The website’s backend and sandbox entries use curl, detect the OS and architecture automatically, and install the latest stable release. They show “Coming soon” when no stable package is available. The version appears in the installation area’s top-right corner; architecture, download tool, and version controls are omitted. The website offers command-line and Agent installation. For manual or offline installation, select the target OS, architecture, and version in [GitHub Releases](https://github.com/molr-ai/molr/releases), download the archive and matching `.sha256` file, and follow the steps in this section. For containers, see [Docker deployment](docker.md).
@@ -177,7 +173,7 @@ curl -fsSL https://molr.ai/install.sh | sh -s -- --mode server --arch arm64 --ve
 wget -qO- https://molr.ai/install.sh | sh -s -- --mode server
 ```
 
-Use the `--channel` options above for preview and nightly releases. Desktop downloads display the first available release in stable, preview, nightly order.
+Website desktop, backend and sandbox entries display only stable releases. Download prerelease and nightly packages from GitHub Releases for offline installation. With another source that publishes these channels, select them using `--source URL --channel preview` or `--source URL --channel nightly`.
 
 Stable tracks final releases, preview tracks beta/RC and subsequent final releases, and nightly tracks daily builds. Empty channels do not fall back to other channels. The downloader displays version, architecture, filename, source, checksum and progress, verifies the package, then runs its installer. It uses existing curl or wget, tar, gzip and a SHA-256 tool without installing download tools. The maintenance program itself needs no Python, curl or iproute2.
 
@@ -189,7 +185,7 @@ sh install.sh --archive /path/package.tar.gz
 
 An adjacent `package.tar.gz.sha256` is required. Running an extracted package needs no network when system dependencies are prepared. SHA-256 verifies downloaded content; it is not an independent publisher signature.
 
-The website source contains manifests only for the stable, prerelease and nightly versions selected from recent releases. `--version` must name a version in the current catalog. For other historical versions, download the archive and SHA-256 file from GitHub Releases and use the offline installation steps above.
+The website source contains manifests only for the latest stable version within the scan window. `--version` must name a version in the current catalog. For other historical versions, download the archive and SHA-256 file from GitHub Releases and use the offline installation steps above.
 
 ## Interactive and unattended installation
 

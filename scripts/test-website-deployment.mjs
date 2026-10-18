@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { publishedRelease, publishedReleases, verifyChannelDownloads } from './release-catalog.mjs';
+import { publishedRelease, publishedReleases, publishedDesktopCatalog, catalogFiles, verifyChannelDownloads } from './release-catalog.mjs';
 import { triggerWebsite } from './trigger-website.mjs';
 import { fixture } from './release-test-fixtures.mjs';
 
@@ -130,4 +130,64 @@ test('hook failures never disclose its secret URL',async t=>{
  const hook='https://api.cloudflare.com/client/v4/workers/builds/deploy_hooks/private-fixture';
  t.mock.method(globalThis,'fetch',async()=>{throw new Error(`failed request ${hook}`)});
  await assert.rejects(triggerWebsite(hook),error=>!String(error).includes('private-fixture')&&!String(error).includes('api.cloudflare.com'));
+});
+
+
+test('website selects only the highest stable release before fetching any manifest', async t => {
+ const stable = fixture('0.3.0'), older = fixture('0.2.0');
+ const metadata = [
+  githubRelease(older), githubRelease(fixture('0.4.0-rc.6')),
+  githubRelease(fixture('0.5.0-0.nightly.20261011.0.gaaaaaaa')),
+  { ...githubRelease(fixture('9.0.0')), prerelease: true },
+  { ...githubRelease(fixture('10.0.0-rc.1')), prerelease: false },
+  { ...githubRelease(fixture('11.0.0')), draft: true }, githubRelease(stable),
+ ];
+ const calls = [];
+ t.mock.method(globalThis, 'fetch', async url => {
+  calls.push(String(url));
+  if (String(url).startsWith('https://api.github.com/')) return Response.json(metadata);
+  assert.equal(String(url), `https://github.com/example/molr/releases/download/v${stable.version}/manifest.json`);
+  return Response.json(stable);
+ });
+ assert.deepEqual(await publishedReleases('example/molr', { stableOnly: true }), [stable]);
+ assert.equal(calls.length, 2, 'Prerelease and historical manifests must not be read');
+ const files = catalogFiles([stable]);
+ assert.equal(files['catalog.json'].channels.stable.version, stable.version);
+ assert.equal(files['catalog.json'].channels.preview.version, stable.version);
+ assert.equal(files['catalog.json'].channels.nightly, null);
+});
+
+test('website with only prereleases produces empty Runtime and desktop catalogs without fetching assets', async t => {
+ const prereleases = [fixture('0.1.0-rc.6'), fixture('0.1.0-0.nightly.20261011.0.gaaaaaaa')];
+ const calls = [];
+ t.mock.method(globalThis, 'fetch', async url => {
+  calls.push(String(url));
+  assert.equal(String(url), 'https://api.github.com/repos/example/molr/releases?per_page=100&page=1');
+  // Their manifests may be obsolete or malformed. No asset fetch is allowed.
+  return Response.json(prereleases.map(m => ({ ...githubRelease(m), assets: [
+   { name: 'manifest.json', browser_download_url: 'https://example.com/obsolete-runtime' },
+   { name: 'desktop-manifest.json', browser_download_url: 'https://example.com/obsolete-desktop' },
+  ] })));
+ });
+ const releases = await publishedReleases('example/molr', { stableOnly: true });
+ assert.deepEqual(releases, []);
+ await verifyChannelDownloads(releases);
+ const empty = { schema: 1, channels: { stable: null, preview: null, nightly: null } };
+ assert.deepEqual(await publishedDesktopCatalog('example/molr', releases), empty);
+ assert.deepEqual(catalogFiles(releases), { 'catalog.json': empty });
+ assert.equal(calls.length, 1);
+});
+
+test('stable-only scan respects the limit and still rejects an invalid selected stable release', async t => {
+ const rc = githubRelease(fixture('1.0.0-rc.1')), stable = fixture('0.3.0');
+ let limit = 1;
+ t.mock.method(globalThis, 'fetch', async url => {
+  if (String(url).startsWith('https://api.github.com/')) return Response.json([rc, githubRelease(stable)]);
+  assert.equal(limit, 2);
+  const invalid = structuredClone(stable); delete invalid.platforms[0].sha256;
+  return Response.json(invalid);
+ });
+ assert.deepEqual(await publishedReleases('example/molr', { stableOnly: true, limit }), []);
+ limit = 2;
+ await assert.rejects(publishedReleases('example/molr', { stableOnly: true, limit }), /Release v0\.3\.0: Missing manifest fields/);
 });

@@ -13,7 +13,7 @@ Release 与 Nightly 的共用流程调用 `release-desktop.yml`，在五个原�
 
 `release` environment 配置 `MAC_CSC_LINK`、`MAC_CSC_KEY_PASSWORD`、`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID`、`WIN_CSC_LINK` 和 `WIN_CSC_KEY_PASSWORD`。证书使用 electron-builder 支持的输入格式；macOS 对应用与内置 Go 二进制签名并进行应用公证，Windows 对安装包签名。证书申请期间暂时允许不配置凭据：Windows 发布未签名安装包，macOS 使用 ad-hoc 签名并跳过公证。配置了部分凭据时构建失败；完整配置后执行签名和公证，失败不会降级。清单的 `signed` 字段表示发布者签名，macOS ad-hoc 为 `false`；官网和 Release 说明展示未签名／未公证状态。本地 `-local` 构建仍不进入公开渠道。证书就绪后，在 `apps/desktop/scripts/signing.mjs` 恢复无凭据失败，并在产物汇总和发布前恢复签名必需校验；官网仍保留历史版本的实际签名状态。
 
-官网构建和 `release:catalog` 从下文选择的最新 GitHub Releases 读取桌面 manifest，核对同版本 Runtime 的 commit、五个平台及附件链接，生成 `/releases/desktop/catalog.json`。早于桌面支持的 Release 不产生桌面下载入口；选中 Release 的桌面清单损坏时构建失败，不回退旧版。生产构建不需要手工提供桌面 catalog。发布后的官网同步同时验证 Runtime 和桌面目录已更新，安装包仍由 GitHub 提供。
+官网构建和 `release:catalog` 从下文选择的最新正式 GitHub Release 读取桌面 manifest，核对同版本 Runtime 的 commit、五个平台及附件链接，生成 `/releases/desktop/catalog.json`。早于桌面支持的 Release 不产生桌面下载入口；选中 Release 的桌面清单损坏时构建失败，不回退旧版。生产构建不需要手工提供桌面 catalog。发布后的官网同步同时验证 Runtime 和桌面目录已更新，安装包仍由 GitHub 提供。
 
 ## 首次启用
 
@@ -64,15 +64,15 @@ CI 与发布使用同一个 `prepare-sandbox` action 准备 runner。Ubuntu 启�
 
 发布附件包含两个架构包及 SHA-256、经过源码发布检查的源码包及 SHA-256、`manifest.json`。`install.sh` 由官网统一提供，用于下载、校验并调用包内安装器；Release 不再附带脚本或在 manifest 中记录脚本 URL、摘要。手动安装直接校验并解压归档，运行 `./bin/molr-setup`。版本和附件保持不可变。已有同名附件时只接受摘要相同的内容，不覆盖；已完成发布的同 commit 版本直接跳过构建。创建草稿直接使用 GitHub API 返回的 release ID，附件上传和发布均按该 ID 操作，不依赖刚创建的草稿立即出现在列表中。正式版和预发布版创建前验证远端 tag 已存在；nightly 允许发布时创建 tag。草稿上传失败可重新运行原工作流的失败任务，复用构建 artifacts；重新完整运行会校验已存在附件，存在差异时需要检查原因或使用新版本。RC 转正式版使用新的正式版 tag 和构建。
 
-`release-catalog.mjs` 默认只检查 GitHub 列表前 100 条 Release 元数据，忽略草稿、没有 manifest 附件或版本号不符合协议的条目。在此范围内按 SemVer 选出正式版、beta／rc、nightly 各一个最高版本，再下载并校验最多三份 `manifest.json`；不会下载安装包内容，下载链接只用 HEAD 检查。未选中的历史 manifest 不参与校验；选中版本校验失败时报告版本号并停止，不静默回退。正式版仍可进入 preview 渠道，nightly 不能进入其他渠道。
+`release-catalog.mjs` 的命令行入口与官网构建默认只检查 GitHub 列表前 100 条 Release 元数据。在下载附件前排除草稿、`prerelease` 不为 `false` 的记录、beta／rc／nightly 版本、没有 manifest 附件或版本号不符合协议的条目，只选择最高正式版并校验其 Runtime 和桌面清单。未选中的历史及预发布清单不参与校验；正式版清单损坏仍会使构建失败，不静默回退。没有正式版时输出两个空 catalog，官网正常构建并显示“即将推出”。目录结构保留三个渠道键：preview 可指向同一个正式版，nightly 为空。发布任务调用的共享收集函数仍默认按三类版本筛选，保留 nightly 去重与发布重试行为。
 
-用正整数环境变量 `MOLR_RELEASE_SCAN_LIMIT` 调整检查条数 N；每页最多 100 条，最多请求 `ceil(N / 100)` 页，最后一页超出 N 的条目不参与筛选。Cloudflare 构建变量和 GitHub 仓库同名变量应保持一致，website workflow 默认使用 100。范围内缺少某类版本时不再扫描更早记录，因此长期未更新的渠道可能为空（preview 仍按原规则接受正式版）。发布重试按确切 tag 查询，不受官网窗口限制。
+用正整数环境变量 `MOLR_RELEASE_SCAN_LIMIT` 调整检查条数 N；每页最多 100 条，最多请求 `ceil(N / 100)` 页，最后一页超出 N 的条目不参与筛选。Cloudflare 构建变量和 GitHub 仓库同名变量应保持一致，website workflow 默认使用 100。扫描范围内没有正式版时不再搜索更早记录。发布重试按确切 tag 查询，不受官网窗口限制。
 
 Manifest 的顶层、平台条目及 requirements 必须包含规定字段，并通过字段值校验；额外字段不影响校验，原样保留在版本快照中。
 
 官网由 Cloudflare 从 main 构建，每次构建生成所选版本的发行目录并部署静态资源，包括 `/install.sh`、`/releases/catalog.json`、各渠道 manifest 和 Runtime 使用的 `latest-<平台>.json`、所选版本的 `/releases/versions/<版本>.json`。官网不再保存所有历史版本的清单；未入选版本从 GitHub Releases 下载归档和校验文件后离线安装。上述入口使用 `Cache-Control: no-cache`。安装包仍从 GitHub 下载，不上传到 Worker。部署失败保留此前整个站点和渠道目录；检查 Cloudflare 构建日志，修复构建配置、hook 或网络后单独重跑 website workflow。
 
-官网首屏使用带标题栏的终端窗口展示 stable 安装命令，复制按钮位于框内，上方平台 tab 只显示已支持的 Linux；更多平台和版本入口跳转到底部安装区。无论开发或部署环境，展示与复制的命令固定使用 `https://molr.ai/install.sh`；stable 省略默认渠道参数，preview／nightly 显式指定渠道，均获取所选渠道最新版。底部安装区按渠道、操作系统和架构分组选项，命令安装可切换 curl／wget 并携带 `--arch`，下载器在下载前核对目标设备架构。安装包方式展示文件 URL、SHA-256 和校验成功后才继续的安装命令，传入所选渠道以保留更新订阅。命令不携带发布源或版本参数；自定义发布源及指定版本的用法在安装文档中提供。
+官网首屏和底部桌面下载只展示正式版安装包；后端与沙盒安装命令固定使用 `https://molr.ai/install.sh`，默认安装 stable 最新版，自动检测系统与架构。没有正式版时显示“即将推出”，不回退到 preview 或 nightly。页面不提供渠道切换；自定义发布源、渠道与指定版本的用法见安装文档。
 
 ## 平台维护
 

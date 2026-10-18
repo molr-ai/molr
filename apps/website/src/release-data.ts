@@ -25,9 +25,6 @@ export function readCatalog(value: unknown): Catalog {
   return catalog;
 }
 export type RuntimeMode = 'server' | 'sandbox';
-export function publishedChannel(catalog: { channels: Record<Channel, unknown> } | null | undefined): Channel {
-  return channels.find(channel => catalog?.channels[channel]) || 'stable';
-}
 
 export function installCommand(mode: RuntimeMode = 'server'): string {
   return `curl -fsSL https://molr.ai/install.sh | sh -s -- --mode ${mode}`;

@@ -12,7 +12,7 @@ async function githubReleaseRequest(repository, path) {
   return fetch(`https://api.github.com/repos/${repository}/releases${path}`, { headers, redirect: 'error', signal: AbortSignal.timeout(30000) });
 }
 
-export async function publishedReleases(repository, { limit = Number(process.env.MOLR_RELEASE_SCAN_LIMIT || 100) } = {}) {
+export async function publishedReleases(repository, { limit = Number(process.env.MOLR_RELEASE_SCAN_LIMIT || 100), stableOnly = false } = {}) {
   if (!Number.isSafeInteger(limit) || limit < 1) throw new Error('MOLR_RELEASE_SCAN_LIMIT must be a positive safe integer');
   const selected = Object.fromEntries(channels.map(c => [c, null]));
   const pageSize = Math.min(limit, 100);
@@ -26,6 +26,8 @@ export async function publishedReleases(repository, { limit = Number(process.env
       let channel;
       try { channel = releaseChannel(r.tag_name?.startsWith('v') ? r.tag_name.slice(1) : ''); }
       catch { continue; } // Releases outside our version protocol are not installable.
+      // Website builds must skip prerelease assets before downloading or validating them.
+      if (stableOnly && (r.prerelease !== false || channel !== 'stable')) continue;
       const previous = selected[channel];
       if (!previous || compareVersions(r.tag_name.slice(1), previous.tag_name.slice(1)) > 0) selected[channel] = r;
     }
@@ -150,7 +152,7 @@ export function writeCatalog(releases, directory, desktop) {
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const { values } = parseArgs({ options: { repository: { type: 'string' }, directory: { type: 'string', default: '.cache/release-catalog' } } });
   const repository = values.repository || process.env.MOLR_RELEASE_REPOSITORY || process.env.GITHUB_REPOSITORY || 'molr-ai/molr';
-  const releases = await publishedReleases(repository);
+  const releases = await publishedReleases(repository, { stableOnly: true });
   await verifyChannelDownloads(releases);
   const desktop = await publishedDesktopCatalog(repository, releases);
   writeCatalog(releases, values.directory, desktop);

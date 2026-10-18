@@ -4,7 +4,7 @@ import { chromium, expect } from '@playwright/test';
 import { createServer } from 'vite';
 import { resolve } from 'node:path';
 import { readFileSync } from 'node:fs';
-import { readCatalog, installCommand, publishedChannel } from '../src/release-data.ts';
+import { readCatalog, installCommand } from '../src/release-data.ts';
 const platforms = JSON.parse(readFileSync(new URL('../../../release/platforms.json', import.meta.url))).platforms;
 function release(version, channel, targets = platforms) {
   const base = `https://github.com/example/molr/releases/download/v${version}`;
@@ -16,8 +16,6 @@ test('default commands use latest stable and reject unsafe catalog links', () =>
   for (const patch of [{ url: "https://example.com/a'bad" }, { file: '$(touch injected).tar.gz' }]) {
     const bad = structuredClone(catalog); Object.assign(bad.channels.stable.platforms[0], patch); assert.throws(() => readCatalog(bad));
   }
-  assert.equal(publishedChannel(catalog), 'stable');
-  assert.equal(publishedChannel({ channels: { stable: null, preview: catalog.channels.preview, nightly: catalog.channels.nightly } }), 'preview');
   assert.equal(installCommand(), 'curl -fsSL https://molr.ai/install.sh | sh -s -- --mode server');
   assert.equal(installCommand('sandbox'), 'curl -fsSL https://molr.ai/install.sh | sh -s -- --mode sandbox');
 });

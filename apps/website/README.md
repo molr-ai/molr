@@ -24,7 +24,7 @@ npm run preview:website
 | 部署命令 | `npx wrangler@4.45.0 deploy` |
 | 构建变量 | `NODE_VERSION=22.21.0`、`VITE_SITE_MODE=live` |
 
-发布构建命令默认检查最近 100 条公开 GitHub Release 元数据，按版本号选取正式版、预发布及 nightly 各一个，下载最多三份 manifest 并验证渠道目录，再构建官网；不依赖 GitHub CLI。Cloudflare 自己管理部署认证，GitHub 无需配置 Cloudflare Account ID／API token。普通本地构建仍使用 `npm run build:website`，不会自动联网读取发行信息。`MOLR_RELEASE_SCAN_LIMIT` 可调整检查条数，Cloudflare 构建变量与 GitHub 仓库变量应保持一致；窗口内缺少的渠道不会触发历史扫描。
+发布构建命令默认检查最近 100 条公开 GitHub Release 元数据，先排除草稿与预发布记录，只选取最高正式版并验证其 Runtime 和桌面清单，再构建官网；没有正式版时生成空目录并正常构建；不依赖 GitHub CLI。Cloudflare 自己管理部署认证，GitHub 无需配置 Cloudflare Account ID／API token。普通本地构建仍使用 `npm run build:website`，不会自动联网读取发行信息。`MOLR_RELEASE_SCAN_LIMIT` 可调整检查条数，Cloudflare 构建变量与 GitHub 仓库变量应保持一致；窗口内没有正式版时不会触发更早的历史扫描。
 
 在 Cloudflare Worker 的 Settings → Builds → Deploy Hooks 创建绑定 `main` 的 hook，将 URL 保存到 GitHub 仓库 secret `CLOUDFLARE_DEPLOY_HOOK`。`.github/workflows/website.yml` 在 release 完成后请求重新构建，并等待官网清单及安装脚本更新；main push 仍由原生仓库集成触发。详细配置、变量和重试见[发行维护](../../docs/dev/releasing/releases.md)。Runtime 按[部署指南](../../docs/admin/README.md)独立部署。
 
@@ -59,7 +59,7 @@ VITE_SITE_MODE=live npm run build:website
 
 导航包括主页、文档、GitHub、语言和明暗切换。首屏提供桌面应用下载按钮和“更多下载选项”下拉，按浏览器提供的操作系统与架构匹配安装包；无法匹配时默认选择列表第一项。下拉按清单原顺序列出实际发布的平台和架构，选择后更新主下载链接。主按钮第一行显示“下载 Molr 桌面版”，第二行以小字号、70% 不透明度显示系统图标及“系统 · 架构”，图标随平台选择更新。下载按钮组固定宽度 280px，受容器宽度约束，切换平台时保持宽度不变。下载图标与文字间距为 12px，下载与下拉图标均为 20px，下拉区域宽 56px，图标在按钮内垂直居中；下拉选项以单行“系统 · 架构”显示，例如“Windows · AMD64”和“macOS · Apple Silicon”。下拉选项与桌面安装区三个平台面板统一使用 Phosphor Icons 的 Apple、Windows、Linux 系统图标，通过 `SystemIcon.tsx` 按需导入，继承语义文字颜色，原始 MIT 许可随第三方通知交付；仅在系统与架构均匹配浏览器检测结果时显示“当前设备”标签，手动选择其他平台不会改变该标签。版本号只在下拉内展示，主按钮下方不再展示版本、文件格式或客户端说明。可用时使用 User-Agent Client Hints 获取架构；无法使用时读取浏览器平台信息，macOS 的 Intel User-Agent 不作为可靠的处理器判断。不根据浏览器型号生成下载地址。下载按钮旁提供带书本图标的“查看文档”按钮。下载按钮组、文档按钮与“即将推出”状态统一为 64px 高；文档按钮按内容确定宽度，即将推出按钮与下载按钮组均宽 280px，窄屏空间不足时自动换行。下方“更多版本和安装方式”链接跳转底部安装区。无可用安装包时，主按钮显示下载图标和“即将推出”，图标与文字左对齐并沿用可下载状态的左侧位置，使用虚线边框、透明底色，右侧保留 56px 下拉图标区域并以虚线分隔；整组不可交互，不打开空的下载下拉。“更多版本和安装方式”使用向下箭头。
 
-官网安装入口不提供渠道切换。桌面下载按 stable、preview、nightly 的优先顺序取第一个可用发布；后端与沙盒只使用正式渠道最新版，不回退到预发布或 Nightly。对应发布为空时显示“即将推出”，读取失败可重试。渠道选择和命令参数在管理员文档中说明。顶部下载与底部桌面下载共用目录读取逻辑。
+官网安装入口不提供渠道切换。桌面下载、后端与沙盒都只使用正式渠道最新版，不回退到预发布或 Nightly。对应发布为空时显示“即将推出”，读取失败可重试。渠道选择和命令参数在管理员文档中说明。顶部下载与底部桌面下载共用目录读取逻辑。
 
 底部安装面板提供“桌面应用 / 部署后端 / 部署沙盒”三个按钮入口，选中项使用中性底色。默认选择部署后端，对应 server 模式；部署沙盒对应 sandbox 模式。模式与资源权限分别配置。命令固定使用 curl，省略版本和架构参数，安装器自动检测系统与架构并安装正式渠道最新版。页面不再提供安装选项或下载工具选择，具体参数在详细安装指南中说明。后端与沙盒仅提供命令安装和 Agent 安装；下载安装包与 Docker 部署只在详细安装指南中介绍。Agent 指令要求正式渠道最新版和当前模式。所选产物的版本号统一放在安装入口行右上角。内容区直接呈现说明与操作，不重复显示桌面应用、后端、沙盒或 Agent 安装标题。
 
@@ -101,7 +101,7 @@ Vite 的 `publicDir` 指向共享 UI 包的 `public/`。`/theme-init.js` 在首�
 
 ## 本地安装分发
 
-`installer-plugin.ts` 从 `scripts/install.sh` 输出 `/install.sh`。生产构建使用 `MOLR_CATALOG_DIR` 指定经过验证的渠道目录，输出到 `/releases/`。目录只含公开版本信息与 GitHub 下载地址，二进制不进入 Worker。安装区运行时读取 `/releases/catalog.json`，自动展示正式发布的平台、最新版安装命令及 Agent 指令；无版本时显示空状态，读取失败时可重试。
+`installer-plugin.ts` 从 `scripts/install.sh` 输出 `/install.sh`。生产构建与 `release:catalog` 在读取附件前排除 GitHub 草稿、预发布标记及 beta／rc／nightly 版本，只收集扫描范围内最高的正式版。没有正式版时生成空目录并正常构建，过期或损坏的预发布清单不参与验证。`MOLR_CATALOG_DIR` 指定经过验证的目录，输出到 `/releases/`。目录只含公开版本信息与 GitHub 下载地址，二进制不进入 Worker。安装区运行时读取 `/releases/catalog.json`，自动展示正式发布的平台、最新版安装命令及 Agent 指令；无版本时显示空状态，读取失败时可重试。
 
 `MOLR_RELEASE_URL` 配置脚本默认发布源，默认为 `https://molr.ai/releases`；安装区默认使用当前站点 `/releases`，跨域源可用 `VITE_RELEASE_SOURCE` 指定。验收使用 `MOLR_CATALOG_DIR=.cache/release-catalog VITE_SITE_MODE=live npm run dev:website`。未指定 catalog 时输出空目录，不把开发包当作公开发行版。保留 `MOLR_RELEASE_DIR` 供本地校验包下载，放在 `/packages/`，不能与 catalog 同时配置。
 
