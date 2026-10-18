@@ -32,6 +32,7 @@ test('desktop download UI shows edition and does not invent missing releases', {
     const section = page.locator('#install');
     await section.getByRole('button', { name: 'Desktop app', exact: true }).click();
     await expect(section.getByText('Client · remote connections only')).toBeVisible();
+    await expect(section.getByRole('heading', { level: 3 })).toHaveCount(0);
     await expect(section.getByRole('link', { name: 'Installation guide' })).toHaveAttribute('href', '/en/docs/admin/deployment/installation/');
     await expect(section.getByRole('link', { name: 'Download installer' })).toHaveAttribute('href', platform.url);
     await expect(section.getByText(/Unsigned test build/)).toBeVisible();

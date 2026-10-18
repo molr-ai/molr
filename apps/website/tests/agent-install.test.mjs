@@ -35,6 +35,7 @@ test('agent installation instructions work across modes, locales, catalog failur
     await expect(section.getByRole('group', { name: 'Release channel', exact: true })).toHaveCount(0);
     for (const name of ['Operating system', 'Architecture', 'Download tool']) await expect(section.getByRole('group', { name, exact: true })).toHaveCount(0);
     await expect(section.locator('pre')).toHaveCount(0);
+    await expect(section.getByRole('heading', { level: 3 })).toHaveCount(0);
     const prompt = section.locator('.home-install-prompt-text');
     await expect(prompt).not.toContainText('channel');
     await expect(prompt).toContainText('https://molr.ai/en/agent-install.md');

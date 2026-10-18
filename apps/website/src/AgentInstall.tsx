@@ -37,7 +37,6 @@ export function AgentInstall({ locale, mode }: { locale: Locale; mode: RuntimeMo
     catch { setStatus('error'); }
   }
   return <div className="home-install-details">
-    <div className="home-install-heading"><h3>{t.agentTitle}</h3></div>
     <p>{t.agentBody}</p>
     <div className="home-install-prompt" role="group" aria-label={t.agentPromptLabel}>
       <div className="home-install-snippet-toolbar">

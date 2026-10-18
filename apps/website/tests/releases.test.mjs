@@ -38,6 +38,7 @@ test('service installation offers command and Agent methods with stable-only, mo
     await expect(section.locator('pre')).toHaveText(installCommand());
     await expect(section.locator('.home-install-header .home-install-version')).toHaveText('v0.1.0');
     await expect(section.getByRole('radio')).toHaveCount(0);
+    await expect(section.getByRole('heading', { level: 3 })).toHaveCount(0);
     await expect(section.locator('.home-install-advanced')).toHaveCount(0);
     await expect(section.locator('pre')).not.toContainText('--channel');
     await expect(section.locator('pre')).not.toContainText('--arch');
@@ -55,6 +56,7 @@ test('service installation offers command and Agent methods with stable-only, mo
     await expect(section.locator('.home-install-prompt-text')).toContainText('--mode sandbox');
     await section.getByRole('tab', { name: 'Command line', exact: true }).click();
     await expect(section.locator('pre')).toHaveText(installCommand('sandbox'));
+    await expect(section.getByRole('heading', { level: 3 })).toHaveCount(0);
     await expect(section.getByRole('link', { name: 'Installation guide' })).toHaveAttribute('href', '/en/docs/admin/sandbox/remote/');
     await section.getByRole('button', { name: 'Desktop app', exact: true }).click();
     await section.getByRole('button', { name: 'Deploy backend', exact: true }).click();

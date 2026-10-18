@@ -2,9 +2,6 @@ import type { ReactNode } from 'react';
 
 export function Icon({ name, className = '' }: { name: string; className?: string }) {
   const paths: Record<string, ReactNode> = {
-    windows: <><path d="M3 5 10 4v7H3V5Zm10-1.5L21 2v9h-8V3.5ZM3 14h7v7l-7-1v-6Zm10 0h8v9l-8-1.5V14Z" /></>,
-    apple: <><path d="M12 7c-2-2-6-2-8 1-2 4 1 10 4 12 1 1 3-1 4-1s3 2 4 1c2-1 4-4 4-6-4-1-4-5-1-7-2-2-5-2-7 0Z" /><path d="M12 5c0-3 2-4 4-4 0 2-1 4-4 4Z" /></>,
-    linux: <><path d="M8 10V7a4 4 0 0 1 8 0v3c3 3 4 7 1 9H7c-3-2-2-6 1-9Z" /><ellipse cx="12" cy="14.5" rx="3" ry="4.5" /><path d="m10 8 2 1 2-1M5 18l-2 3h6l-1-2m11-1 2 3h-6l1-2M10 6h.01M14 6h.01" /></>,
     arrow: <path d="M5 12h14m-5-5 5 5-5 5" />,
     down: <path d="M12 5v14m-5-5 5 5 5-5" />,
     terminal: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="m7 9 3 3-3 3m6 0h4" /></>,

@@ -5,6 +5,7 @@ import type { DesktopPlatform } from './desktop-releases';
 import { browserDesktopTarget, desktopOSLabel, desktopArchLabel, preferredDesktopPlatform, type DesktopTarget } from './desktop-target';
 import { useDesktopRelease } from './use-desktop-release';
 import { Icon } from './HomeIcon';
+import { SystemIcon } from './SystemIcon';
 import './hero-download.css';
 
 export function HeroDownload({ locale }: { locale: Locale }) {
@@ -45,7 +46,7 @@ export function HeroDownload({ locale }: { locale: Locale }) {
             <p className="home-download-version">v{release.version}</p>
             <div role="group" aria-label={zh ? '系统与处理器' : 'Operating system and processor'}>
               {platforms.map(p => <button type="button" key={`${p.os}-${p.arch}`} aria-pressed={platform.os === p.os && platform.arch === p.arch} onClick={() => choose(p)}>
-                <span className="home-download-option-label"><Icon name={({ darwin: 'apple', win32: 'windows', linux: 'linux' })[p.os]} />{platformLabel(p)}</span>
+                <span className="home-download-option-label"><SystemIcon os={p.os} />{platformLabel(p)}</span>
                 {isCurrentDevice(p) ? <Badge size="sm" dot={false}>{zh ? '当前设备' : 'This device'}</Badge>
                   : platform.os === p.os && platform.arch === p.arch && <Icon name="check" />}
               </button>)}

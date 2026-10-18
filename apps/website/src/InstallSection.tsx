@@ -54,7 +54,6 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
     : !release ? <InstallStatus>{t.empty}</InstallStatus>
     : <>
       <div className="home-install-details">
-        <div className="home-install-heading"><h3>{t[mode]}</h3></div>
         <p>{t.commandBody}</p>
         <InstallCommand key={command} command={command} locale={locale} />
       </div>
