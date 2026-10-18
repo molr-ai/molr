@@ -54,6 +54,12 @@ In-app alerts and desktop notifications already exist, but [notifications are no
 - **Completion criteria**: Validate delivery with the page closed, click navigation, deduplication, unsubscription, and disabling delivery after sign-out on supported browsers and devices. Users can control notification types and content previews.
 - **Boundaries**: First establish how self-hosted instances connect to push delivery, required network access, and supported platforms. If an external push service is involved, document which data it receives.
 
+### Smart home and device control
+
+- **Scope**: Integrate Home Assistant, Xiaomi Home (Mi Home), cameras, Bambu Lab 3D printers, and other platforms and devices. With user permission, assistants can read device status, perform control actions, and include devices in automated tasks. This covers home device control, viewing camera feeds and using available camera controls, and checking print status and controlling print jobs.
+- **Completion criteria**: Validate connections, status reads, control actions, and result reporting on real devices for each integration. Correctly report offline devices, failed operations, and revoked permissions, and stop operations that are no longer authorized.
+- **Boundaries**: Supported models, connection protocols, and operations will be defined for each integration. Camera feed access and device control require separate permissions. Actions that operate physical devices, such as starting a print, follow the user's approval settings.
+
 ## Under consideration
 
 ### Simultaneous chat entry points
