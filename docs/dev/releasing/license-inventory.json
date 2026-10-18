@@ -4,7 +4,7 @@
   "baseCommit": "0e38689",
   "scope": "License compatibility and notice delivery review; see docs/dev/releasing/licensing.md.",
   "inputs": {
-    "package-lock.json": "aac580f79efc23f6ac81b4c249db845df29707222b91d372179d5c7f18df813d",
+    "package-lock.json": "427eaababa72f2cb95b2c7ef0912941c21e170f4ac53740f2a50c64d928f1b8b",
     "runtime/go.mod": "2981cdb18ba6d23f767f200ce8bac921b410890f0fbe4ab0ab7c038366754177",
     "runtime/go.sum": "62419963ae93fb75137f059806eaf5af2cd04c334a38f01e18468fd594ab4319",
     "runtime/.go-version": "6c075150045fda9bac31bb93cf5a0a0bc91622a75c1f10fb2971e6f994c6d4d6",
@@ -23,7 +23,7 @@
     "deploy/docker/vendor/moby-seccomp.json": "6416b47770785a41ac59073cdc77d9fe98517df2799dc83ef207e622de3053f6",
     "deploy/docker/vendor/LICENSE.moby": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
     "deploy/docker/seccomp-isolated.json": "7f176503fddf85b01daf167d2970beb395710eee32e7d5add40fc15b0dc6d34a",
-    "apps/desktop/package.json": "00c87cfefecff3947c064843210a0a56879a5ab1588de633b321b80d18feadab",
+    "apps/desktop/package.json": "17f227b5bb8021020d7b01a96da1fdd50b202c540a1a767d229f99b5a8e9564d",
     "apps/desktop/scripts/package.mjs": "5c5ffa98a5dd4b6d62e72f5163d83cf044aacecffd3e7a3bb6d39d6bb78de357",
     "apps/desktop/scripts/build-windows-runtime.mjs": "d4a0bbc4f59f0e5a9c923568ce054c099f6b0fb69f042c084d6945911ab07a26"
   },

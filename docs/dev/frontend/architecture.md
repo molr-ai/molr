@@ -2,7 +2,7 @@
 
 WebUI 管理账号会话、导航与页面装载；SDK、Host 和共享 UI 包分别维护协议、主题解析及基础组件。
 
-桌面入口位于 [`apps/desktop`](../../../apps/desktop/README.md)。可信管理界面负责连接和本机服务；独立、启用沙盒的 Electron `WebContentsView` 加载所选 Runtime 自带的 WebUI，每个连接使用独立持久化会话。远程页面不注入 preload，也不能调用桌面管理 IPC。Linux、macOS 和 Windows 包均携带独立原生 Runtime，由安装器管理专属实例。关闭桌面窗口不停止服务。
+桌面入口位于 [`apps/desktop`](../../../apps/desktop/README.md)。可信管理界面负责连接和本机服务；独立、启用沙盒的 Electron `WebContentsView` 加载所选 Runtime 自带的 WebUI，每个连接使用独立持久化会话。远程主页面仅通过独立 preload 获得受限的 `window.molrApp` 接口，不能调用桌面管理 IPC；插件子 frame 不获得该接口。Linux、macOS 和 Windows 包均携带独立原生 Runtime，由安装器管理专属实例。关闭桌面窗口不停止服务。
 
 ## 实现边界
 
@@ -32,3 +32,9 @@ SDK 中的 `connectUI()`、独立页面清单和隔离 iframe 适配器保留为
 插件主题可以使用或不使用 `@molr/ui`，只需遵守 SDK/Host 契约。远程页面必须经过来源与权限确认；不能仅修改浏览器配置就获得执行权限。页面映射始终由主题定义，用户仍然只选择主题。
 
 已有隔离适配器使用不带 same-origin 权限的 iframe 和私有 MessageChannel；逐请求校验方法、规范路径和授权范围，不向页面传递宿主 Cookie、CSRF 或 Bearer。权限表位于 `packages/ui-host/src/permissions.ts`。发布者需维护不可变版本资产；仅固定入口 URL 不等于锁定远程资产内容。
+
+## 桌面 App 模式
+
+Electron 在连接前后保留内置连接管理界面。连接 Runtime 时，独立且启用 Chromium 沙盒的 WebContentsView 通过专用 preload 向主页面暴露 `window.molrApp`；接口类型定义在 `@molr/ui-host/app`。WebUI 的 `AppFrame` 在认证门禁和页面主题之外完成握手，显示拖动区域、窗口控制与断开连接。语言、配色和明暗模式继续使用公共 Provider。普通浏览器没有桥接接口，保持原有网页布局。
+
+桌面主进程校验当前 WebContents、主 frame、已配置连接来源和参数。远程页面仅能读取当前连接、控制当前窗口及断开；连接增删和本机服务管理仍由内置 UI 的独立接口负责。插件及自定义主题 iframe 不获得桌面接口。远程视图填满无边框窗口，加载失败、崩溃或握手超时回到内置恢复界面。断开保留连接分区与登录状态，不停止 Runtime。

@@ -1,6 +1,6 @@
 # Molr Desktop
 
-Electron hosts the existing Runtime WebUI in a separate, sandboxed `WebContentsView`. The bundled React interface manages connections and the desktop-owned local service. Remote content has no preload or desktop IPC.
+Electron hosts the existing Runtime WebUI in a separate, sandboxed `WebContentsView`. The bundled React interface manages connections and the desktop-owned local service. The active Runtime main frame receives only the narrow `window.molrApp` bridge; it cannot access connection management or local-service IPC.
 
 All desktop packages include the native Runtime and installer (`molr.exe` and `molr-setup.exe` on Windows). WSL is an ordinary remote connection, including localhost addresses. Each connection has an independent persistent storage partition. Changing its origin rotates the partition; removing it clears its session and storage. Only one Runtime view is active at a time.
 
@@ -25,6 +25,14 @@ Without that variable, Electron loads the built UI through `molr-desktop://app/`
 
 For local management, run `npm run build:release` on Linux/macOS or `node apps/desktop/scripts/build-windows-runtime.mjs` on Windows and set `MOLR_DESKTOP_RUNTIME` to `.cache/release/<os>-<arch>/molr` (absolute path). Packaged applications always use their fixed `resources/runtime` directory.
 
+## Window and App mode
+
+Before connecting, while loading, and after disconnect or failure, the bundled interface owns the window controls and connection manager. After the Runtime WebUI completes its App-mode handshake, its `WebContentsView` fills the frameless window. The bundled toolbar is hidden. WebUI owns the draggable title area, current connection name, minimize/maximize/restore/close buttons, and Disconnect action, including on login and error screens. Ordinary browser visits retain web mode.
+
+`@molr/ui-host/app` defines the shared type-only contract. The sandboxed Runtime preload exposes `getInfo`, `window.minimize`, `window.toggleMaximize`, `window.close`, `disconnect`, and a disposable window-state subscription. Main-process handlers validate the active WebContents, main frame, connection origin, and argument count. Plugin and custom-theme iframes do not receive the bridge. `molrDesktop`, service management, arbitrary IPC, filesystem and command access stay unavailable to Runtime pages.
+
+Disconnect returns to the connection list without clearing authentication or stopping Runtime tasks; unfinished downloads from the closing view are cancelled. Failed navigation, renderer crashes and handshake timeout return to the bundled recovery screen. Ctrl/Cmd+Shift+M returns to connection management and Ctrl/Cmd+R reconnects. Windows/Linux have no application menu bar; Ctrl+plus/minus/0 controls zoom and F11 toggles full screen. macOS retains its system application menu. Native Windows Snap Layout hover and platform-specific window-manager behavior require native acceptance.
+
 ## Local service ownership
 
 The desktop creates a unique `molr-desktop-<id>` instance and stores its identity in its application data directory. `installation.json` remains authoritative and marks `manager: "desktop"`. Existing CLI installations are not adopted. The Go installer owns locking, permission checks, versioned programs, rollback, service registration and initial authenticated health checks. Subsequent starts report `verification_pending` until independently authenticated; they never reuse the initial password after account setup.
@@ -40,6 +48,8 @@ Linux requires systemd 254+, cgroup v2 delegation, Bubblewrap, static BusyBox, u
 ```bash
 npm run test:desktop
 npm run test:desktop:electron
+# Real WebUI/Runtime App-mode acceptance (isolated initialized server):
+MOLR_DESKTOP_WEBUI_URL=http://127.0.0.1:5193 MOLR_DESKTOP_TEST_LINK=/path/to/test-link.json node apps/desktop/tests/app-mode.mjs
 # Linux without a display: xvfb-run -a npm run test:desktop:electron
 npm run build:release
 node apps/desktop/tests/local-runtime.mjs

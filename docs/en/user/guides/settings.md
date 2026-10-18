@@ -35,3 +35,9 @@ The last section of user settings, "About", displays the versions of WebUI and R
 ## Data Export
 
 User Settings → Personal Data Export packages the current account's data into a ZIP file, which can be downloaded from the page after generation. By default, it includes shared and assistant-private memories (including core, topic, review, and forgetting records), assistant profiles, tasks and revisions, to-dos and plans, account settings, resource records belonging to the current account, as well as dreaming configurations and processing records. During export, you can optionally include chat history (checked by default) and attachments and deliverables (unchecked by default). If the export request is cancelled or times out, the Runtime stops reading attachments and closes opened files; incomplete archives are not published. Data export is not a complete service disaster recovery. Deployers still need to back up the database, files, assistant workspaces, configurations, and keys. See [Deployment and Maintenance](../../admin/deployment/maintenance.md).
+
+## Desktop client window
+
+After connecting to Runtime in the desktop client, the top bar shows the current connection, Disconnect and minimize/maximize/restore/close controls. Drag the empty title area to move the window. These controls remain available on login and error pages. Browser visits do not show desktop window controls.
+
+Disconnect returns to the desktop connection list and preserves authentication for the next connection. Closing the window or disconnecting leaves Runtime and background tasks running. Unfinished downloads from the current page are cancelled and must be restarted. Failed connections or renderer crashes return to the bundled recovery screen, where you can retry or select another connection.

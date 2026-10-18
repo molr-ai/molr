@@ -49,8 +49,8 @@ function ModalView({ open, onOpenChange, onAfterClose, title, description, child
   const scope = useModalScope();
   const parentDialog = useContext(ModalParentContext);
   const contained = !!scope?.container && !docked;
-  const drawer = contained || requestedDrawer;
-  const drawerSide = contained ? 'bottom' : requestedSide;
+  const drawer = contained && scope?.presentation !== 'dialog' || requestedDrawer;
+  const drawerSide = contained && scope?.presentation !== 'dialog' ? 'bottom' : requestedSide;
   const id = useId();
   const ref = useRef<HTMLDialogElement>(null);
   // Opt-in drawers keep one portal target across docked/native/contained modes.
@@ -238,7 +238,7 @@ function ModalView({ open, onOpenChange, onAfterClose, title, description, child
     {footer && <footer className="ui-dialog__footer">{footer}</footer>}
     </ModalParentContext.Provider>
   </dialog>;
-  const layer = <div ref={layerRef} className={contained ? 'ui-modal-layer' : 'ui-modal-host'} hidden={contained && !open && !present}
+  const layer = <div ref={layerRef} className={contained ? `ui-modal-layer${scope?.presentation === 'dialog' ? ' ui-modal-layer--dialog' : ''}` : 'ui-modal-host'} hidden={contained && !open && !present}
     onPointerDown={event => { if (contained) startedOutside.current = event.target === backdropRef.current; }}
     onClick={event => {
       if (contained && event.target === backdropRef.current && startedOutside.current && dismissible) onOpenChange(false);

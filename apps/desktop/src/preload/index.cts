@@ -2,6 +2,9 @@ import electron = require('electron');
 import type { DesktopAPI } from '../shared.js';
 const { contextBridge, ipcRenderer } = electron;
 const api: DesktopAPI = {
+  minimize: () => ipcRenderer.invoke('desktop:minimize'),
+  toggleMaximize: () => ipcRenderer.invoke('desktop:toggle-maximize'),
+  close: () => ipcRenderer.invoke('desktop:close'),
   state: () => ipcRenderer.invoke('desktop:state'),
   save: input => ipcRenderer.invoke('desktop:save', input),
   remove: id => ipcRenderer.invoke('desktop:remove', id),

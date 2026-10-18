@@ -1,0 +1,18 @@
+.app-frame { --app-titlebar-height: 44px; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; background: var(--color-background); }
+.app-titlebar { height: var(--app-titlebar-height); flex: 0 0 var(--app-titlebar-height); display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 8px 0 16px; color: var(--color-text); user-select: none; app-region: drag; -webkit-app-region: drag; }
+.app-titlebar-identity { min-width: 0; display: flex; align-items: center; gap: 12px; font-size: var(--text-sm); }
+.app-titlebar-identity strong { font-weight: 600; }
+.app-titlebar-identity span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--color-text-muted); }
+.app-titlebar-actions, .app-window-controls { display: flex; align-items: center; gap: 2px; flex-shrink: 0; app-region: no-drag; -webkit-app-region: no-drag; }
+.app-titlebar-actions > .button { display: flex; gap: 6px; margin-right: 8px; }
+.app-window-controls .app-window-close:hover { background: var(--color-danger-bg); color: var(--color-danger); }
+.app-frame-content { position: relative; isolation: isolate; flex: 1; min-height: 0; overflow: auto; }
+.app-frame .workspace { position: relative; }
+.app-frame .workspace, .app-frame .session-page, .app-frame .login-page { height: 100%; }
+.app-frame .setup-page { min-height: 100%; }
+.app-frame-error { flex-shrink: 0; padding: 8px 16px; color: var(--color-danger); background: var(--color-danger-bg); font-size: var(--text-sm); }
+@media (max-width: 480px) {
+  .app-titlebar { gap: 4px; padding-left: 8px; }
+  .app-titlebar-identity { gap: 6px; }
+  .app-titlebar-actions > .button { margin-right: 0; }
+}

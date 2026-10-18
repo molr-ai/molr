@@ -1,3 +1,4 @@
+import type { AppWindowState } from '@molr/ui-host/app';
 export type Connection = { id: string; name: string; url: string; kind: 'remote' | 'managed-local'; allowHTTP: boolean };
 export type ConnectionInput = { id?: string; name: string; url: string; allowHTTP: boolean };
 export type LocalStatus = {
@@ -9,9 +10,12 @@ export type LocalAction = 'install' | 'start' | 'stop' | 'restart' | 'upgrade' |
 export type DesktopState = {
   connections: Connection[]; lastConnection?: string; active?: string;
   view: 'manager' | 'loading' | 'runtime' | 'failed'; error?: string;
-  local: LocalStatus; busy?: string; progress?: string; version: string; platform: string;
+  local: LocalStatus; busy?: string; progress?: string; version: string; platform: string; window: AppWindowState;
 };
 export type DesktopAPI = {
+  minimize(): Promise<void>;
+  toggleMaximize(): Promise<void>;
+  close(): Promise<void>;
   state(): Promise<DesktopState>;
   save(input: ConnectionInput): Promise<void>;
   remove(id: string): Promise<void>;

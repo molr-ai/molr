@@ -58,3 +58,8 @@ button, input { font: inherit; }
   .desktop-section-heading { gap: 10px; flex-wrap: wrap; }
   .desktop-settings { padding: 20px 12px; }
 }
+
+.desktop-toolbar { app-region: drag; -webkit-app-region: drag; user-select: none; padding-right: 8px; }
+.desktop-toolbar-actions { app-region: no-drag; -webkit-app-region: no-drag; }
+.desktop-window-controls { display: flex; gap: 2px; }
+.desktop-window-controls .desktop-close:hover { background: var(--color-danger-bg); color: var(--color-danger); }

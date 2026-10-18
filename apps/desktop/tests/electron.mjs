@@ -13,7 +13,7 @@ const fixture = createServer((req, res) => {
   if (req.url === '/cookie') { res.setHeader('Set-Cookie', 'fixture_session=first; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400'); return res.end('ok'); }
   if (req.url === '/who') return res.end(req.headers.cookie ?? '');
   if (req.url === '/stream') { res.writeHead(200, { 'Content-Type': 'text/event-stream' }); res.write('data: fixture-ready\n\n'); req.on('close', () => res.end()); return; }
-  res.setHeader('Content-Type', 'text/html'); res.end('<!doctype html><h1>Runtime fixture</h1><a href="file:///tmp/private">unsafe</a>');
+  res.setHeader('Content-Type', 'text/html'); res.end('<!doctype html><script>window.molrApp.getInfo()</script><h1>Runtime fixture</h1><a href="file:///tmp/private">unsafe</a>');
 });
 await new Promise(resolve => fixture.listen(0, '127.0.0.1', resolve));
 const url = `http://127.0.0.1:${fixture.address().port}`;
@@ -46,6 +46,19 @@ try {
   const [one, two] = (await page.evaluate(() => window.molrDesktop.state())).connections;
   await page.evaluate(id => window.molrDesktop.connect(id), one.id); await waitRuntime(page);
   assert.deepEqual(await remote('({ bridge: typeof window.molrDesktop, require: typeof require, process: typeof process })'), { bridge: 'undefined', require: 'undefined', process: 'undefined' });
+  assert.equal((await remote('window.molrApp.getInfo()')).apiVersion, 1);
+  assert.deepEqual(await remote('Object.keys(window.molrApp).sort()'), ['disconnect', 'getInfo', 'onWindowStateChanged', 'window']);
+  assert.equal(await page.locator('.desktop-toolbar').count(), 0);
+  assert.deepEqual(await app.evaluate(({ BrowserWindow }) => {
+    const w = BrowserWindow.getAllWindows()[0], [width, height] = w.getContentSize();
+    return { actual: w.contentView.children.find(view => view.webContents !== w.webContents).getBounds(), expected: { x: 0, y: 0, width, height }, menu: w.isMenuBarVisible() };
+  }).then(({ actual, expected, menu }) => ({ equal: JSON.stringify(actual) === JSON.stringify(expected), menu })), { equal: true, menu: false });
+  // A different WebContents using the same preload still cannot invoke controls.
+  assert.match(await app.evaluate(async ({ BrowserWindow }, { url, preload }) => {
+    const w = new BrowserWindow({ show: false, webPreferences: { preload, sandbox: true, nodeIntegration: false, contextIsolation: true } });
+    try { await w.loadURL(url + '/untrusted'); return await w.webContents.executeJavaScript('window.molrApp.getInfo().then(() => "unexpected", error => error.message)'); }
+    finally { w.destroy(); }
+  }, { url, preload: join(root, 'apps/desktop/dist/main/preload/runtime.cjs') }), /unavailable to this page/);
   await app.evaluate(async ({ webContents }, url) => {
     const wc = webContents.getAllWebContents().find(c => c.getURL().startsWith(url)); wc.focus();
     await wc.executeJavaScript("navigator.clipboard.writeText('molr-desktop-copy-fixture')", true);
@@ -55,14 +68,15 @@ try {
   assert.equal(await remote("new Promise(resolve => { const e = new EventSource('/stream'); e.onmessage = m => { e.close(); resolve(m.data); }; })"), 'fixture-ready');
   assert.equal(await remote(`new Promise(resolve => {
     const frame = document.createElement('iframe'); frame.sandbox = 'allow-scripts';
-    const url = URL.createObjectURL(new Blob(['<script>parent.postMessage("plugin-ready", "*")<\\/script>'], {type:'text/html'}));
+    const url = URL.createObjectURL(new Blob(['<script>parent.postMessage(typeof window.molrApp === "undefined" ? "plugin-ready" : "leaked-bridge", "*")<\\/script>'], {type:'text/html'}));
     const timer = setTimeout(() => resolve('timeout'), 5000);
     window.addEventListener('message', function listener(event) { if (event.source === frame.contentWindow && event.data === 'plugin-ready') { clearTimeout(timer); window.removeEventListener('message', listener); frame.remove(); URL.revokeObjectURL(url); resolve(event.data); } });
     frame.src = url; document.body.append(frame);
   })`), 'plugin-ready');
   const preferences = await app.evaluate(({ webContents }, url) => webContents.getAllWebContents().find(c => c.getURL().startsWith(url)).getLastWebPreferences(), url);
   assert.equal(preferences.sandbox, true); assert.equal(preferences.contextIsolation, true); assert.equal(preferences.nodeIntegration, false); assert.equal(preferences.webSecurity, true);
-  await page.evaluate(() => window.molrDesktop.manager());
+  await remote('window.molrApp.disconnect()');
+  await page.getByRole('heading', { name: '连接你的 Runtime' }).waitFor();
   await page.evaluate(id => window.molrDesktop.connect(id), two.id); await waitRuntime(page);
   assert.equal(await remote("fetch('/who').then(r => r.text())"), '');
   await page.evaluate(() => window.molrDesktop.manager());

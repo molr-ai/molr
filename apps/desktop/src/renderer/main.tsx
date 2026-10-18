@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ArrowLeft, ArrowRight, Check, CircleHelp, ExternalLink, Monitor, Plus, RefreshCw, Server, Settings2, Trash2 } from 'lucide-react';
+import { Minus, Square, Copy, X, ArrowLeft, ArrowRight, Check, CircleHelp, ExternalLink, Monitor, Plus, RefreshCw, Server, Settings2, Trash2 } from 'lucide-react';
 import { Select, Badge, Button, IconButton, Logo, TextField, Switch, ThemeSelect, PaletteSelect, UIProvider, useTheme, usePalettePreference } from '@molr/ui';
 import type { Connection, ConnectionInput, DesktopAPI, DesktopState, LocalAction, ResourcePreset } from '../shared';
 import '@molr/ui/styles.css';
@@ -8,7 +8,7 @@ import './style.css';
 
 declare global { interface Window { molrDesktop?: DesktopAPI } }
 const bridge = window.molrDesktop;
-const initial: DesktopState = { connections: [], view: 'manager', local: { available: false, installed: false, state: 'unavailable' }, version: '', platform: '' };
+const initial: DesktopState = { connections: [], view: 'manager', local: { available: false, installed: false, state: 'unavailable' }, version: '', platform: '', window: { maximized: false, fullscreen: false } };
 const actionNames: Record<LocalAction, string> = { install: '安装并启动', start: '启动', stop: '停止', restart: '重启', upgrade: '更新本机 Runtime', uninstall: '卸载 Runtime' };
 const stateNames: Record<string, string> = { active: '运行中', running: '运行中', inactive: '已停止', failed: '需要处理', installed: '已安装', installing: '安装未完成', uninstalled: '已卸载，数据已保留', missing: '尚未安装', unavailable: '仅远程连接', activating: '启动中', deactivating: '停止中' };
 function App() {
@@ -40,13 +40,18 @@ function App() {
   const connect = (c: Connection) => void run(() => bridge!.connect(c.id));
   function localAction(action: LocalAction) { void run(() => bridge!.localAction(action, action === 'install' && local.state !== 'uninstalled' ? resourcePreset : undefined)); }
   return <UIProvider locale="zh"><div className="desktop-app">
-    <header className="desktop-toolbar">
+    {state.view !== 'runtime' && <header className="desktop-toolbar">
       <div className="desktop-identity"><Logo markOnly variant={theme === 'dark' ? 'light' : 'dark'} /><strong>Molr</strong><span className="desktop-divider" /><span>{current?.name ?? '桌面工作台'}</span></div>
       <div className="desktop-toolbar-actions">
         {!showManager && <Button variant="ghost" size="sm" onClick={() => void run(() => bridge!.manager())}><ArrowLeft size={16} /> 管理连接</Button>}
         {showManager && <IconButton label="桌面设置" onClick={() => setSettings(!settings)}><Settings2 size={18} /></IconButton>}
+        {bridge && <div className="desktop-window-controls">
+          <IconButton label="最小化" onClick={() => void run(() => bridge.minimize())}><Minus size={16} /></IconButton>
+          <IconButton label={state.window.maximized || state.window.fullscreen ? '还原窗口' : '最大化'} onClick={() => void run(() => bridge.toggleMaximize())}>{state.window.maximized || state.window.fullscreen ? <Copy size={14} /> : <Square size={14} />}</IconButton>
+          <IconButton label="关闭窗口" className="desktop-close" onClick={() => void run(() => bridge.close())}><X size={18} /></IconButton>
+        </div>}
       </div>
-    </header>
+    </header>}
     {state.view === 'runtime' ? <div className="desktop-runtime-placeholder" aria-label="Runtime 页面" /> :
       <main className="desktop-main">
         {!bridge && <div className="desktop-notice" role="status"><CircleHelp size={18} /><span>这是桌面管理界面的浏览器预览。连接和本机服务管理请在 Molr 桌面应用中使用。</span></div>}

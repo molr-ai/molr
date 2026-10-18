@@ -2,7 +2,7 @@
 
 WebUI manages account sessions, navigation, and page loading. The SDK, Host, and shared UI packages maintain the protocol, theme resolution, and base components respectively.
 
-The desktop entry point is [`apps/desktop`](../../../../apps/desktop/README.md). Its trusted management interface handles connections and local services. A separate sandboxed Electron `WebContentsView` loads the selected Runtime's WebUI with an independent persistent session per connection. Remote pages have no preload or desktop-management IPC. Linux, macOS and Windows bundle an independent native Runtime managed through the installer. Closing desktop windows does not stop the service.
+The desktop entry point is [`apps/desktop`](../../../../apps/desktop/README.md). Its trusted management interface handles connections and local services. A separate sandboxed Electron `WebContentsView` loads the selected Runtime's WebUI with an independent persistent session per connection. The remote main frame receives only a restricted `window.molrApp` API through a dedicated preload, without desktop-management IPC; plugin subframes receive no bridge. Linux, macOS and Windows bundle an independent native Runtime managed through the installer. Closing desktop windows does not stop the service.
 
 ## Implementation Boundaries
 
@@ -32,3 +32,9 @@ The SDK's `connectUI()`, standalone page manifests, and isolated iframe adapter 
 Plugin themes may choose whether to use `@molr/ui`, provided they follow the SDK/Host contract. Remote pages require origin and permission approval; changing browser configuration alone cannot grant execution permission. Themes always define page mappings, while users select only the theme.
 
 The existing isolation adapter uses an iframe without same-origin permission and a private MessageChannel. It validates the method, canonical path, and authorization scope for every request, and does not pass host Cookies, CSRF proofs, or Bearer tokens to the page. The permission table is in `packages/ui-host/src/permissions.ts`. Publishers must maintain immutable versioned assets; pinning the entry URL alone does not pin the contents of remote assets.
+
+## Desktop App mode
+
+Electron keeps its bundled connection manager before connecting and after disconnecting. A separate Chromium-sandboxed WebContentsView uses a dedicated preload to expose `window.molrApp` to the Runtime main frame; `@molr/ui-host/app` defines the type contract. WebUI’s `AppFrame` performs the handshake outside authentication gates and page themes, providing the drag region, window controls and Disconnect action. Shared providers continue to manage locale, palette and light/dark mode. Ordinary browsers have no bridge and retain the web layout.
+
+The desktop main process validates the current WebContents, main frame, configured connection origin and arguments. Runtime pages can only read the current connection, control the current window and disconnect. Connection editing and local-service management remain behind the bundled UI’s separate API. Plugin and custom-theme iframes receive no desktop bridge. The Runtime view fills the frameless window; failed navigation, crashes or handshake timeout return to bundled recovery. Disconnect preserves partition storage and authentication and leaves Runtime running.

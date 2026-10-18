@@ -5,6 +5,7 @@ import { existsSync, realpathSync, mkdirSync, statSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ConnectionStore, partition, sameOrigin, externalURL, allowedFrameURL } from './connections.js';
 import type { Connection, ConnectionInput, DesktopState, LocalAction, ResourcePreset, LocalStatus } from '../shared.js';
+import type { AppInfo, AppWindowState } from '@molr/ui-host/app';
 import type { LocalRuntime } from '../runtime/local.js';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
@@ -23,6 +24,7 @@ let progress: string | undefined;
 let localStatus: LocalStatus = { available: false, installed: false, state: 'unavailable' };
 let loadingTimer: ReturnType<typeof setTimeout> | undefined;
 let quitting = false;
+let runtimeLoaded = false, runtimeReady = false;
 const sessions = new Map<string, Session>();
 const managedDownloads = new Map<number, Set<Electron.DownloadItem>>();
 const appVersion = app.getVersion();
@@ -30,19 +32,42 @@ const devURL = !app.isPackaged ? process.env.MOLR_DESKTOP_DEV_URL : undefined;
 if (devURL && (!/^http:\/\/(127\.0\.0\.1|localhost):\d+\/$/.test(devURL))) throw new Error('Development UI must use a loopback HTTP origin.');
 const trustedURL = devURL ?? managerURL;
 
-function snapshot(): DesktopState { return { ...store.data, active, view, error, local: localStatus, busy, progress, version: appVersion, platform: process.platform }; }
+function snapshot(): DesktopState { return { ...store.data, active, view, error, local: localStatus, busy, progress, version: appVersion, platform: process.platform, window: windowState() }; }
 function changed() { if (win && !win.isDestroyed()) win.webContents.send('desktop:changed', snapshot()); }
 function authorized(event: IpcMainInvokeEvent) {
   if (!win || event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame || event.senderFrame.url.split('#')[0] !== trustedURL) throw new Error('Desktop management is unavailable to this page.');
 }
 function handle(name: string, fn: (...args: any[]) => unknown) { ipcMain.handle(`desktop:${name}`, (event, ...args) => { authorized(event); return fn(...args); }); }
+function windowState(): AppWindowState { return { maximized: win?.isMaximized() ?? false, fullscreen: win?.isFullScreen() ?? false }; }
+function windowChanged() {
+  changed();
+  const contents = runtimeView?.webContents;
+  if (contents && !contents.isDestroyed() && active && sameOrigin(contents.getURL(), store.get(active).url)) contents.send('app:window-state', windowState());
+}
+function appHandle(name: string, fn: () => unknown) {
+  ipcMain.handle(`app:${name}`, (event, ...args: unknown[]) => {
+    const contents = runtimeView?.webContents;
+    if (!win || !contents || !active || event.sender !== contents || event.senderFrame !== contents.mainFrame || !sameOrigin(event.senderFrame.url, store.get(active).url)) throw new Error('App controls are unavailable to this page.');
+    if (args.length) throw new Error('This operation takes no arguments.');
+    return fn();
+  });
+}
+function toggleMaximize() { if (win?.isFullScreen()) win.setFullScreen(false); else if (win?.isMaximized()) win.unmaximize(); else win?.maximize(); }
+// Return IPC replies before tearing down the calling renderer. Also guard
+// against a newly connected view/window being affected by a stale request.
+function disconnectLater() { const current = runtimeView; setTimeout(() => { if (runtimeView === current) manager(); }, 0); }
+function closeLater() { const current = win; setTimeout(() => { if (win === current) current?.close(); }, 0); }
 function layout() {
   if (!win || !runtimeView) return;
   const [width, height] = win.getContentSize();
-  runtimeView.setBounds({ x: 0, y: 64, width, height: Math.max(0, height - 64) });
+  runtimeView.setBounds({ x: 0, y: 0, width, height });
+}
+function revealRuntime() {
+  if (!runtimeLoaded || !runtimeReady || !runtimeView || view === 'runtime') return;
+  clearTimeout(loadingTimer); runtimeView.setVisible(true); runtimeView.webContents.focus(); view = 'runtime'; error = undefined; changed();
 }
 function discard() {
-  clearTimeout(loadingTimer);
+  clearTimeout(loadingTimer); runtimeLoaded = false; runtimeReady = false;
   if (!runtimeView) return;
   const old = runtimeView; runtimeView = undefined;
   if (win && !win.isDestroyed()) win.contentView.removeChildView(old);
@@ -50,7 +75,7 @@ function discard() {
   managedDownloads.delete(old.webContents.id);
   old.webContents.close({ waitForBeforeUnload: false });
 }
-function manager() { discard(); active = undefined; view = 'manager'; error = undefined; changed(); }
+function manager() { discard(); active = undefined; view = 'manager'; error = undefined; changed(); win?.webContents.focus(); }
 function failed(message: string) { discard(); view = 'failed'; error = message; changed(); }
 async function clearSession(id: string) {
   const ses = session.fromPartition(partition(id));
@@ -90,6 +115,7 @@ function configureSession(connection: Connection) {
   return ses;
 }
 function guardRuntime(contents: WebContents, connection: Connection) {
+  installShortcuts(contents);
   contents.setWindowOpenHandler(({ url }) => { void askExternal(url); return { action: 'deny' }; });
   contents.on('will-navigate', (event, url) => { if (!sameOrigin(url, connection.url)) { event.preventDefault(); void askExternal(url); } });
   contents.on('will-redirect', (event, url) => { if (!allowedFrameURL(url, connection.url, event.isMainFrame)) { event.preventDefault(); if (event.isMainFrame && runtimeView?.webContents === contents) failed('Runtime 重定向到了其他地址，请检查连接配置。'); } });
@@ -109,16 +135,22 @@ async function connect(id: string, loginURL?: string) {
   if (connection.kind === 'managed-local' && !local) throw new Error('当前安装包不能管理本机 Runtime。');
   if (loginURL && !sameOrigin(loginURL, connection.url)) throw new Error('登录地址与本机 Runtime 不匹配。');
   discard(); active = id; view = 'loading'; error = undefined; store.select(id); changed();
-  const contentsView = new WebContentsView({ webPreferences: { session: configureSession(connection), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, allowRunningInsecureContent: false, webviewTag: false, navigateOnDragDrop: false } });
+  const contentsView = new WebContentsView({ webPreferences: { preload: join(here, '../preload/runtime.cjs'), session: configureSession(connection), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, allowRunningInsecureContent: false, webviewTag: false, navigateOnDragDrop: false } });
   runtimeView = contentsView;
   contentsView.setVisible(false);
   win!.contentView.addChildView(contentsView); layout();
   guardRuntime(contentsView.webContents, connection);
+  contentsView.webContents.on('did-start-navigation', details => {
+    if (!details.isMainFrame || details.isSameDocument || runtimeView !== contentsView) return;
+    runtimeLoaded = false; runtimeReady = false; contentsView.setVisible(false); view = 'loading'; error = undefined; changed();
+    clearTimeout(loadingTimer);
+    loadingTimer = setTimeout(() => { if (runtimeView === contentsView && view === 'loading') failed('连接超时，或 WebUI 未能启动 App 模式。请重试连接。'); }, 30000);
+  });
+  contentsView.webContents.on('preload-error', () => { if (runtimeView === contentsView) failed('桌面接口加载失败，请重启桌面应用。'); });
   contentsView.webContents.on('did-finish-load', () => {
     if (runtimeView !== contentsView || !sameOrigin(contentsView.webContents.getURL(), connection.url)) return;
-    clearTimeout(loadingTimer); contentsView.setVisible(true); view = 'runtime'; error = undefined; changed();
+    runtimeLoaded = true; revealRuntime();
   });
-  loadingTimer = setTimeout(() => { if (runtimeView === contentsView && view === 'loading') failed('连接超时，请检查 Runtime 是否正在运行。'); }, 30000);
   // The renderer is untrusted. Successful navigation is not authenticated health.
   void contentsView.webContents.loadURL(loginURL ?? connection.url).catch(() => {});
 }
@@ -165,8 +197,11 @@ async function localAction(action: LocalAction, preset?: ResourcePreset) {
   } finally { busy = undefined; progress = undefined; await refreshLocal(); changed(); }
 }
 async function createWindow() {
-  win = new BrowserWindow({ width: 1180, height: 820, minWidth: 620, minHeight: 540, title: 'Molr', show: false, webPreferences: { preload: join(here, '../preload/index.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, webviewTag: false } });
+  win = new BrowserWindow({ width: 1180, height: 820, minWidth: 620, minHeight: 540, title: 'Molr', frame: false, show: false, webPreferences: { preload: join(here, '../preload/index.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, webviewTag: false } });
   win.on('resize', layout);
+  win.on('maximize', windowChanged); win.on('unmaximize', windowChanged);
+  win.on('enter-full-screen', windowChanged); win.on('leave-full-screen', windowChanged);
+  installShortcuts(win.webContents);
   win.on('close', event => { if (busy) { event.preventDefault(); void dialog.showMessageBox(win!, { message: '本机 Runtime 正在维护，请等待操作结束后退出。' }); } });
   win.on('closed', () => { discard(); win = undefined; active = undefined; view = 'manager'; error = undefined; });
   win.webContents.on('will-navigate', event => event.preventDefault());
@@ -174,6 +209,18 @@ async function createWindow() {
   win.webContents.session.setPermissionRequestHandler((_c, _p, callback) => callback(false));
   win.once('ready-to-show', () => win?.show());
   await win.loadURL(trustedURL);
+}
+function installShortcuts(contents: WebContents) {
+  contents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown' || input.alt) return;
+    const modifier = process.platform === 'darwin' ? input.meta : input.control;
+    if (modifier && input.shift && input.key.toLowerCase() === 'm') { event.preventDefault(); manager(); }
+    else if (modifier && !input.shift && input.key.toLowerCase() === 'r' && active) { event.preventDefault(); void connect(active); }
+    else if (process.platform !== 'darwin' && modifier && ['0', '+', '=', '-'].includes(input.key)) {
+      event.preventDefault(); const delta = input.key === '-' ? -0.5 : 0.5;
+      contents.setZoomLevel(input.key === '0' ? 0 : Math.max(-3, Math.min(3, contents.getZoomLevel() + delta)));
+    } else if (process.platform !== 'darwin' && input.key === 'F11') { event.preventDefault(); win?.setFullScreen(!win.isFullScreen()); }
+  });
 }
 async function main() {
   await app.whenReady();
@@ -200,6 +247,9 @@ async function main() {
     } catch (e) { localStatus = { available: false, installed: false, state: 'failed', error: (e as Error).message }; }
   }
   handle('state', snapshot);
+  handle('minimize', () => win?.minimize()); handle('toggle-maximize', toggleMaximize); handle('close', closeLater);
+  appHandle('info', (): AppInfo => { runtimeReady = true; revealRuntime(); return { apiVersion: 1, platform: process.platform, connection: { name: store.get(active!).name, url: store.get(active!).url }, window: windowState() }; });
+  appHandle('minimize', () => win?.minimize()); appHandle('toggle-maximize', toggleMaximize); appHandle('close', closeLater); appHandle('disconnect', disconnectLater);
   handle('save', async (input: ConnectionInput) => {
     if (input?.id === active) manager();
     const result = store.save(input); if (result.retired) await clearSession(result.retired); changed();
@@ -218,11 +268,11 @@ async function main() {
     handle('logs', async () => { if (local && existsSync(local.logFile)) shell.showItemInFolder(local.logFile); });
   }
   handle('downloads', () => shell.openExternal('https://molr.ai/'));
-  Menu.setApplicationMenu(Menu.buildFromTemplate([
+  Menu.setApplicationMenu(process.platform === 'darwin' ? Menu.buildFromTemplate([
     ...(process.platform === 'darwin' ? [{ role: 'appMenu' as const }] : []),
     { label: '连接', submenu: [{ label: '管理连接', accelerator: 'CmdOrCtrl+Shift+M', click: manager }, { label: '重新连接', accelerator: 'CmdOrCtrl+R', click: () => { if (active) void connect(active); } }, { type: 'separator' }, { role: 'quit', label: '退出桌面应用（Runtime 继续运行）' }] },
     { role: 'editMenu' }, { role: 'viewMenu', submenu: [{ role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { role: 'togglefullscreen' }] },
-  ]));
+  ]) : null);
   await createWindow();
   powerMonitor.on('resume', () => { void refreshLocal(); });
 }

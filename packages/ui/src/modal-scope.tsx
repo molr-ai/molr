@@ -3,13 +3,14 @@ import type { ReactNode } from 'react';
 
 export type ModalScopeValue = {
   container: HTMLElement | null;
+  presentation: 'sheet' | 'dialog';
   register: (layer: HTMLElement, origin: HTMLElement | null, parentDialog?: HTMLElement | null) => () => void;
   resolveFocus: (target: HTMLElement | null) => HTMLElement | null;
 };
 const ModalScopeContext = createContext<ModalScopeValue | null>(null);
 
 /** Keep modal sheets and their backdrops inside an embedded application. */
-export function ModalScope({ container, enabled = true, children }: { container: HTMLElement | null; enabled?: boolean; children: ReactNode }) {
+export function ModalScope({ container, enabled = true, presentation = 'sheet', children }: { container: HTMLElement | null; enabled?: boolean; presentation?: 'sheet' | 'dialog'; children: ReactNode }) {
   const content = useRef<HTMLDivElement>(null);
   const layers = useRef<HTMLElement[]>([]);
   const parents = useRef(new WeakMap<HTMLElement, HTMLElement | null>());
@@ -50,7 +51,7 @@ export function ModalScope({ container, enabled = true, children }: { container:
     const remaining = layers.current.at(-1)?.querySelector<HTMLElement>('dialog[open] [tabindex="-1"]') ?? null;
     return available(remaining) ? remaining : available(originalFocus.current) ? originalFocus.current : null;
   }, []);
-  const scope = useMemo(() => ({ container, register, resolveFocus }), [container, register, resolveFocus]);
+  const scope = useMemo(() => ({ container, presentation, register, resolveFocus }), [container, presentation, register, resolveFocus]);
   return <ModalScopeContext.Provider value={enabled ? scope : null}>
     <div ref={attachContent} className="ui-modal-scope-content">{children}</div>
   </ModalScopeContext.Provider>;

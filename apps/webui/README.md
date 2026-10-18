@@ -2,6 +2,10 @@
 
 连接真实 Go Runtime 的独立 Web 应用。`apps/ui-design` 继续保留交互原型；本应用不引用它的 demo store、模拟任务或示例数据。
 
+## 桌面 App 模式
+
+同一份 WebUI 在浏览器中保持网页布局，在 Electron 主页面检测 `window.molrApp` 并完成 `getInfo()` 握手后进入 App 模式。`AppFrame` 位于语言、主题 Provider 内和认证门禁外，统一呈现窗口拖动区域、当前连接、断开和窗口控制；登录、初始化、故障和自定义主题页面均保留这些入口。接口类型由 `@molr/ui-host/app` 提供；权限校验由桌面主进程完成。插件 iframe 不获得桌面 API。断开返回桌面内置连接列表，保留登录状态及 Runtime 后台运行。
+
 ## 首次引导与内嵌部署
 
 发行构建将 WebUI 内嵌到 Runtime，同源提供网页和 API。新安装的管理员登录后进入 `SetupGate`，共享 ProviderConnectionDialog 的连接与自动发现能力，完成模型、价格和预算确认后由 `/api/setup` 原子创建默认 Molr 助理。已初始化账号和普通成员不强制显示引导。

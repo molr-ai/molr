@@ -1,3 +1,4 @@
+import { AppFrame } from './app-mode';
 import { UpdateProvider, UpdateBadge } from './updates/provider';
 import { ErrorToastProvider, useErrorToast } from './error-toasts';
 import { SetupGate } from './setup';
@@ -27,7 +28,7 @@ const ExtensionPages = lazy(() => import('./plugins/Plugins').then(module => ({ 
 const PluginFrame = lazy(() => import('./plugins/PluginFrame').then(module => ({ default: module.PluginFrame })));
 const FramePage = lazy(() => import('./ui-host/FramePage').then(module => ({ default: module.FramePage })));
 
-export function App() { return <LocaleProvider><SessionProvider><ErrorToastScope /></SessionProvider></LocaleProvider>; }
+export function App() { return <LocaleProvider><AppFrame><SessionProvider><ErrorToastScope /></SessionProvider></AppFrame></LocaleProvider>; }
 function ErrorToastScope() {
  const { principal } = useSession();
  return <ErrorToastProvider key={principal?.SessionID ?? 'anonymous'}><SessionGate /></ErrorToastProvider>;
@@ -77,7 +78,7 @@ function WorkspaceHost() {
   const mobileNavigation = mobile && !(page === 'assistants' && id);
   const NativePage = builtinEntries[selected.manifest.pages[uiPage]!];
   if (host.loading) return <main className="session-page"><Loading /></main>;
-  return <UIProvider locale={locale} reducedMotion={settings.data?.ReducedMotion}><div ref={setScope} className={`workspace${mobile ? ' workspace--mobile' : ''}${mobileNavigation ? ' workspace--mobile-nav' : ''}`}><ModalScope container={scope} enabled={mobile}>
+  return <UIProvider locale={locale} reducedMotion={settings.data?.ReducedMotion}><div ref={setScope} className={`workspace${mobile ? ' workspace--mobile' : ''}${mobileNavigation ? ' workspace--mobile-nav' : ''}`}><ModalScope container={scope} enabled={mobile || !!window.molrApp} presentation={mobile ? 'sheet' : 'dialog'}>
     <nav className="workspace-nav" aria-label={t.app} aria-hidden={mobile && !mobileNavigation || undefined} inert={mobile && !mobileNavigation}>
       {!mobile && <ConnectionLogo markOnly className="workspace-logo" state={connection} onRetry={retryConnection} tooltipSide="right" variant={theme === 'dark' ? 'light' : 'dark'} />}
       {!mobile && selected.runtime === 'builtin' && <Tooltip content={t.search} side="right" width="auto"><button type="button" className="nav-button nav-search" aria-label={t.search} aria-haspopup="dialog" onClick={() => window.dispatchEvent(new Event('molr:search'))}><span className="nav-icon"><SearchIcon size={22} /></span></button></Tooltip>}
