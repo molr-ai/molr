@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, Popover, UIIcon } from '@molr/ui';
+import { Badge, Button, Popover, UIIcon } from '@molr/ui';
 import { localizedDocPath } from './doc-locale';
 import { siteLinks } from './site-links';
 import type { Locale } from './site-content';
@@ -26,12 +26,12 @@ export function HeroDownload({ locale }: { locale: Locale }) {
   const platform = preferredDesktopPlatform(platforms, selection || device);
   const available = !loading && !error && platform && release;
   const platformLabel = (p: DesktopPlatform) => `${desktopOSLabel(p.os)} · ${desktopArchLabel(p)}`;
+  const isCurrentDevice = (p: DesktopPlatform) => p.os === device.os && p.arch === device.arch;
   const label = platform ? platformLabel(platform) : '';
   const optionsTitle = zh ? '选择下载版本' : 'Choose a download';
   const status = loading ? (zh ? '正在读取下载信息…' : 'Loading downloads…')
     : error ? (zh ? '暂时无法读取下载信息。' : 'Downloads are temporarily unavailable.')
-    : !platform ? (zh ? '即将推出' : 'Coming soon')
-    : `v${release!.version} · ${desktopArchLabel(platform)} · ${platform.file.split('.').at(-1)!.toUpperCase()}`;
+    : (zh ? '即将推出' : 'Coming soon');
   function choose(p: DesktopPlatform) {
     setSelection({ os: p.os, arch: p.arch }); setOpen(false); more.current?.focus();
   }
@@ -45,8 +45,9 @@ export function HeroDownload({ locale }: { locale: Locale }) {
             <p className="home-download-version">v{release.version}</p>
             <div role="group" aria-label={zh ? '系统与处理器' : 'Operating system and processor'}>
               {platforms.map(p => <button type="button" key={`${p.os}-${p.arch}`} aria-pressed={platform.os === p.os && platform.arch === p.arch} onClick={() => choose(p)}>
-                <span>{platformLabel(p)}</span>
-                {platform.os === p.os && platform.arch === p.arch && <Icon name="check" />}
+                <span className="home-download-option-label"><Icon name={({ darwin: 'apple', win32: 'windows', linux: 'linux' })[p.os]} />{platformLabel(p)}</span>
+                {isCurrentDevice(p) ? <Badge size="sm" dot={false}>{zh ? '当前设备' : 'This device'}</Badge>
+                  : platform.os === p.os && platform.arch === p.arch && <Icon name="check" />}
               </button>)}
             </div>
           </div>
@@ -55,10 +56,6 @@ export function HeroDownload({ locale }: { locale: Locale }) {
         : <p className="home-download-status" role="status">{status}{error && <Button variant="ghost" size="sm" onClick={retry}>{zh ? '重试' : 'Retry'}</Button>}</p>}
       <a className="button button--secondary button--lg" href={localizedDocPath(siteLinks.userDocs!, locale)}><Icon name="book" />{zh ? '查看文档' : 'View docs'}</a>
     </div>
-    {available && <p className="home-download-meta" role="status">{status}</p>}
-    {available && <p className="home-download-edition">{platform.os === 'win32'
-      ? (zh ? '桌面客户端 · 连接已有 Molr 服务' : 'Desktop client · connect to an existing Molr server')
-      : (zh ? '桌面应用 · 本机运行或连接远程服务' : 'Desktop app · run locally or connect remotely')}</p>}
     {available && !platform.signed && platform.os !== 'linux' && <p className="home-download-signing">{platform.os === 'darwin'
       ? (zh ? '未公证测试包，macOS 可能阻止首次打开。' : 'Unnotarized test build; macOS may block the first launch.')
       : (zh ? '未签名测试包，Windows 可能提示未知发布者。' : 'Unsigned test build; Windows may show an unknown publisher warning.')}</p>}

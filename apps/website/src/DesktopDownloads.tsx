@@ -30,7 +30,7 @@ export function DesktopDownloads({ locale, source }: { locale: Locale; source: s
           <h4 id={`desktop-${os}`}>{({ linux: 'Linux', darwin: 'macOS', win32: 'Windows' })[os]}</h4>
           <p className="home-desktop-edition">{os === 'win32' ? (zh ? '客户端 · 仅远程连接' : 'Client · remote connections only') : (zh ? '完整版 · 包含 Runtime' : 'Full · includes Runtime')}</p>
           <div className="home-desktop-artifacts">{platforms.map(p => <div className="home-desktop-artifact" key={p.arch}>
-            <span className="home-desktop-arch">{os === 'darwin' ? (p.arch === 'arm64' ? 'Apple Silicon' : 'Intel') : (p.arch === 'amd64' ? 'x64 / AMD64' : 'ARM64')}</span>
+            <span className="home-desktop-arch">{os === 'darwin' ? (p.arch === 'arm64' ? 'Apple Silicon' : 'Intel') : (p.arch === 'amd64' ? 'AMD64' : 'ARM64')}</span>
             <a className="button button--primary button--md" href={p.url}><Icon name="download" />{zh ? '下载安装包' : 'Download installer'}</a>
             {!p.signed && os === 'win32' && <p className="home-desktop-warning">{zh ? '未签名测试包：Windows 可能提示未知发布者，或按设备安全策略阻止运行。' : 'Unsigned test build: Windows may show an unknown publisher warning or block execution under device security policies.'}</p>}
             {!p.signed && os === 'darwin' && <p className="home-desktop-warning">{zh ? '未公证测试包：仅使用 ad-hoc 签名，macOS 可能阻止首次打开。' : 'Unnotarized test build: ad-hoc signed only; macOS may block the first launch.'}</p>}

@@ -31,4 +31,4 @@ export function preferredDesktopPlatform(platforms: DesktopPlatform[], target: D
 }
 
 export const desktopOSLabel = (os: DesktopPlatform['os']) => ({ linux: 'Linux', darwin: 'macOS', win32: 'Windows' })[os];
-export const desktopArchLabel = (p: DesktopPlatform) => p.os === 'darwin' ? (p.arch === 'arm64' ? 'Apple Silicon' : 'Intel') : (p.arch === 'arm64' ? 'ARM64' : 'x64 / AMD64');
+export const desktopArchLabel = (p: DesktopPlatform) => p.os === 'darwin' ? (p.arch === 'arm64' ? 'Apple Silicon' : 'Intel') : (p.arch === 'arm64' ? 'ARM64' : 'AMD64');

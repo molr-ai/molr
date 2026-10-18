@@ -49,7 +49,7 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
   const command = platform ? installCommand(release!.version, { arch: autoArch ? undefined : commandArch, tool, mode }) : '';
   const packageCommand = platform ? packageInstallCommand(platform, mode) : '';
   const osLabel = (value: string) => ({ linux: 'Linux', darwin: 'macOS', windows: 'Windows' })[value] || value;
-  const archLabel = (value: string) => (os === 'darwin' ? { amd64: 'Intel', arm64: 'Apple Silicon' } : { amd64: 'x64 / AMD64', arm64: 'ARM64' })[value] || value;
+  const archLabel = (value: string) => (os === 'darwin' ? { amd64: 'Intel', arm64: 'Apple Silicon' } : { amd64: 'AMD64', arm64: 'ARM64' })[value] || value;
   const methods: InstallMethod[] = ['command', 'download', 'agent', ...(mode === 'server' ? ['docker' as const] : [])];
   const methodPanel = <>
     {(method === 'command' || method === 'download') && release && platform && !error && <details key={method} className="home-install-advanced" open={method === 'download' ? true : undefined}>
@@ -59,7 +59,7 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
         onValueChange={value => { if (value === 'auto') setAutoArch(true); else { setArch(value); if (method === 'command') setAutoArch(false); } }}
         options={[
           ...(method === 'command' ? [{ value: 'auto', label: t.automatic }] : []),
-          ...(method === 'command' ? architectures : targets.map(p => p.arch)).map(value => ({ value, label: method === 'command' ? ({ amd64: 'x64 / AMD64', arm64: 'ARM64' }[value] || value) : archLabel(value) })),
+          ...(method === 'command' ? architectures : targets.map(p => p.arch)).map(value => ({ value, label: method === 'command' ? ({ amd64: 'AMD64', arm64: 'ARM64' }[value] || value) : archLabel(value) })),
         ]} />
       {method === 'command' && <SegmentedControl label={t.downloadTool} value={tool} onValueChange={setTool} options={(['curl', 'wget'] as const).map(value => ({ value, label: value }))} />}
     </details>}
