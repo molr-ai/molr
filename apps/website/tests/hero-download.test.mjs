@@ -7,7 +7,7 @@ import { resolve } from 'node:path';
 import { desktopTarget, browserDesktopTarget, preferredDesktopPlatform } from '../src/desktop-target.ts';
 
 const artifact = (os, arch, version = '0.1.0') => {
-  const variant = os === 'win32' ? 'client' : 'full';
+  const variant = 'full';
   const file = `molr-desktop_${version}_${os}-${arch}_${variant}.${({ darwin: 'dmg', win32: 'exe', linux: 'deb' })[os]}`;
   return { os, arch, variant, signed: true, file, sha256: 'a'.repeat(64), url: `https://downloads.example.com/${file}` };
 };
