@@ -2,7 +2,6 @@ package installationwindows
 
 import (
 	"context"
-	"encoding/xml"
 	"os"
 	"path/filepath"
 	"strings"
@@ -62,14 +61,12 @@ func TestWindowsSchedulerUnicodeRegistration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var task struct {
-		Actions struct{ Exec struct{ Arguments string } }
-	}
-	if err = xml.Unmarshal(query, &task); err != nil {
+	task, err := parseTaskXML(query)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(task.Actions.Exec.Arguments, config) {
-		t.Fatal(task.Actions.Exec.Arguments)
+	if !strings.Contains(task.Actions[0].Exec[0].Arguments, config) {
+		t.Fatal(task.Actions[0].Exec[0].Arguments)
 	}
 	if err = verifyTask(ctx, r, config); err != nil {
 		t.Fatal(err)

@@ -253,6 +253,19 @@ func Run(ctx context.Context, args []string, out, diagnostics io.Writer) (result
 	if !bytes.Equal(initialRecord, currentRecord) {
 		return fmt.Errorf("installation changed since inspection; retry")
 	}
+	if action == "install" && r.Installed {
+		return fmt.Errorf("Runtime already installed")
+	}
+	if action != "install" && !r.Installed {
+		return fmt.Errorf("installed Runtime required")
+	}
+	// Validate the registered task before arming upgrade rollback. A rejected
+	// ownership check must never stop or overwrite a different scheduled task.
+	if r.Installed {
+		if e = verifyTask(ctx, r, configPath); e != nil {
+			return e
+		}
+	}
 	first := false
 	if action == "upgrade" {
 		previous := r
@@ -292,17 +305,6 @@ func Run(ctx context.Context, args []string, out, diagnostics io.Writer) (result
 				resultErr = errors.Join(resultErr, fmt.Errorf("previous Runtime recovery failed: %w", err))
 			}
 		}()
-	}
-	if action == "install" && r.Installed {
-		return fmt.Errorf("Runtime already installed")
-	}
-	if action != "install" && !r.Installed {
-		return fmt.Errorf("installed Runtime required")
-	}
-	if r.Installed {
-		if e = verifyTask(ctx, r, configPath); e != nil {
-			return e
-		}
 	}
 	if action == "stop" || action == "restart" || action == "upgrade" || action == "uninstall" {
 		if e = stop(ctx, r); e != nil {
@@ -457,31 +459,9 @@ func verifyTask(ctx context.Context, r record, configPath string) error {
 	if err != nil {
 		return err
 	}
-	type taskIdentity struct {
-		Principals struct {
-			Principal struct {
-				UserID   string `xml:"UserId"`
-				Logon    string `xml:"LogonType"`
-				RunLevel string
-			}
-		}
-		Actions struct {
-			Exec []struct{ Command, Arguments, WorkingDirectory string }
-		}
-	}
-	var actual, expected taskIdentity
-	if err = xml.Unmarshal(raw, &actual); err != nil {
-		return err
-	}
 	sid, err := currentSID()
 	if err != nil {
 		return err
 	}
-	if err = xml.Unmarshal([]byte(taskXML(r, configPath, sid)), &expected); err != nil {
-		return err
-	}
-	if len(actual.Actions.Exec) != 1 || actual.Principals != expected.Principals || actual.Actions.Exec[0] != expected.Actions.Exec[0] {
-		return fmt.Errorf("scheduled task belongs to another installation or user")
-	}
-	return nil
+	return compareTaskIdentity(raw, []byte(taskXML(r, configPath, sid)))
 }
