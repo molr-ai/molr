@@ -46,11 +46,14 @@ test('hero downloads detected platform directly, supports manual selection and h
     const more = hero.getByRole('button', { name: 'More download options' });
     const panel = page.getByRole('dialog', { name: 'Choose a download' });
     await expect(hero.getByRole('link', { name: 'Download Molr Desktop (Windows · AMD64)' })).toHaveAttribute('href', platforms[2].url);
-    await expect(hero.getByRole('link', { name: 'View docs', exact: true })).toHaveAttribute('href', '/en/docs/user/');
+    await expect(hero.getByRole('link', { name: 'View docs', exact: true })).toHaveCount(0);
     await expect(hero.getByRole('link', { name: 'More installation methods', exact: true })).toHaveAttribute('href', '#install');
-    await expect(hero.locator('.home-download-actions').getByRole('link')).toHaveCount(2);
+    await expect(hero.locator('.home-download-actions').getByRole('link')).toHaveCount(1);
     await expect(hero.locator('.home-download-label > span')).toHaveText('Download Molr Desktop');
     await expect(hero.locator('.home-download-label > small')).toHaveText('Windows · AMD64');
+    await expect(hero.locator('.home-download-label > small')).toHaveCSS('opacity', '0.7');
+    const originalWidth = (await hero.locator('.home-download-primary').boundingBox()).width;
+    await expect(hero.locator('.home-download-split')).toHaveCSS('width', '280px');
     const titleBox = await hero.locator('.home-download-label > span').boundingBox();
     const detailBox = await hero.locator('.home-download-label > small').boundingBox();
     assert(detailBox.y >= titleBox.y + titleBox.height);
@@ -69,6 +72,7 @@ test('hero downloads detected platform directly, supports manual selection and h
     await panel.getByRole('button', { name: 'macOS · Intel' }).click();
     await expect(panel).not.toBeVisible();
     await expect(more).toBeFocused();
+    assert.equal((await hero.locator('.home-download-primary').boundingBox()).width, originalWidth);
     await expect(hero.getByRole('link', { name: 'Download Molr Desktop (macOS · Intel)' })).toHaveAttribute('href', platforms[1].url);
     await more.click();
     await expect(panel.getByRole('button', { name: 'Windows · AMD64 This device', exact: true })).toHaveAttribute('aria-pressed', 'false');

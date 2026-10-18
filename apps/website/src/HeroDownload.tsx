@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { Badge, Button, Popover, UIIcon } from '@molr/ui';
-import { localizedDocPath } from './doc-locale';
-import { siteLinks } from './site-links';
 import type { Locale } from './site-content';
 import type { DesktopPlatform } from './desktop-releases';
 import { browserDesktopTarget, desktopOSLabel, desktopArchLabel, preferredDesktopPlatform, type DesktopTarget } from './desktop-target';
@@ -56,7 +54,6 @@ export function HeroDownload({ locale }: { locale: Locale }) {
         </Popover>
       </div> : !loading && !error ? <div role="status"><Button variant="secondary" size="lg" className="home-download-pending" disabled><Icon name="download" />{status}</Button></div>
         : <p className="home-download-status" role="status">{status}{error && <Button variant="ghost" size="sm" onClick={retry}>{zh ? '重试' : 'Retry'}</Button>}</p>}
-      <a className="button button--secondary button--lg" href={localizedDocPath(siteLinks.userDocs!, locale)}><Icon name="book" />{zh ? '查看文档' : 'View docs'}</a>
     </div>
     {available && !platform.signed && platform.os !== 'linux' && <p className="home-download-signing">{platform.os === 'darwin'
       ? (zh ? '未公证测试包，macOS 可能阻止首次打开。' : 'Unnotarized test build; macOS may block the first launch.')

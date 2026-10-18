@@ -146,8 +146,8 @@ test('website state builds and browser behavior', { timeout: 240_000 }, async t 
                 await expect(link).toHaveAttribute('href', 'https://github.com/molr-ai/molr');
                 await expect(link).not.toHaveAttribute('aria-disabled', 'true');
               }
-              await expect(page.locator('.home-download-actions').getByRole('link')).toHaveCount(1);
-              await expect(page.locator('.home-download-actions').getByRole('link', { name: '查看文档', exact: true })).toHaveAttribute('href', '/zh/docs/user/');
+              await expect(page.locator('.home-download-actions').getByRole('link')).toHaveCount(0);
+              await expect(page.locator('.home-download-actions').getByRole('link', { name: '查看文档', exact: true })).toHaveCount(0);
               await page.locator('.home-hero-download').getByRole('link', { name: '更多安装方式', exact: true }).click();
               await expect(page).toHaveURL(/#install$/);
               await expect(page.getByRole('heading', { name: '给好奇心，一个工作空间。' })).toBeInViewport();
