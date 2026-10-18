@@ -32,6 +32,7 @@ type Capabilities struct {
 	FileIsolation    bool
 	NetworkIsolation bool
 	Shell            bool
+	ShellType        string
 	ResourceLimits   bool
 	NetworkBackend   string
 	NetworkProtocols []string

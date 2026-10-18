@@ -5,6 +5,7 @@ import (
 	"molr.ai/runtime/internal/platform"
 	"molr.ai/runtime/internal/textfiles"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -61,7 +62,11 @@ func (n SandboxNetwork) Target() platform.NetworkTarget {
 
 func sandboxDefaults() Sandbox {
 	if platform.NativeSandbox() {
-		return Sandbox{Enabled: true, NetworkPresets: []string{"network"}, ToolDirectories: []string{"/opt/homebrew", "/usr/local", "/Library/Developer/CommandLineTools"}, Timeout: Duration(10 * time.Minute), MaxOutputBytes: 64 << 10}
+		s := Sandbox{Enabled: true, NetworkPresets: []string{"network"}, Timeout: Duration(10 * time.Minute), MaxOutputBytes: 64 << 10}
+		if runtime.GOOS == "darwin" {
+			s.ToolDirectories = []string{"/opt/homebrew", "/usr/local", "/Library/Developer/CommandLineTools"}
+		}
+		return s
 	}
 	return Sandbox{AuthorizationCeilings: platform.Limits{TempBytes: 8 << 30, MaxFileBytes: 1 << 40, NetworkBytes: 1 << 40, NetworkConnections: 128}, Enabled: true, NetworkBytes: 64 << 20, NetworkConnections: 16, NetworkPresets: []string{"internet", "lan", "host"}, MinFreeDiskBytes: 256 << 20, MaxFileBytes: 1 << 30, Timeout: Duration(10 * time.Minute), MemoryBytes: 512 << 20, Processes: 64, CPUPercent: 100, TempBytes: 64 << 20, MaxOutputBytes: 64 << 10}
 }
@@ -127,7 +132,7 @@ func (s Sandbox) validate(data string, ownPort uint16) error {
 		if p == "" {
 			continue
 		}
-		if !filepath.IsAbs(p) || filepath.Clean(p) != p || p == string(filepath.Separator) {
+		if !filepath.IsAbs(p) || filepath.Clean(p) != p || filepath.Dir(p) == p {
 			return core.Invalid("sandbox", "dedicated absolute deployment paths required")
 		}
 	}
@@ -136,20 +141,20 @@ func (s Sandbox) validate(data string, ownPort uint16) error {
 	}
 	if platform.NativeSandbox() {
 		if s.MemoryBytes != 0 || s.Processes != 0 || s.CPUPercent != 0 || s.TempBytes != 0 || s.MaxFileBytes != 0 || s.NetworkBytes != 0 || s.NetworkConnections != 0 || s.MinFreeDiskBytes != 0 || s.WorkspaceProjectQuotas || s.GPU.Enabled || s.GPU.AllDevices || len(s.GPU.Devices) > 0 || s.Bwrap != "" || s.RootFS != "" || s.CgroupRoot != "" || len(s.Networks) > 0 {
-			return core.Invalid("sandbox", "macOS supports file scopes, execution duration and a network toggle; hard quotas and Linux backends are unsupported")
+			return core.Invalid("sandbox", "this native backend supports file scopes, execution duration and a network toggle; hard quotas and Linux backends are unsupported")
 		}
 		max := s.AuthorizationCeilings
 		if max.CPUPercent != 0 || max.MemoryBytes != 0 || max.Processes != 0 || max.TempBytes != 0 || max.MaxFileBytes != 0 || max.NetworkBytes != 0 || max.NetworkConnections != 0 {
-			return core.Invalid("sandbox.authorization_ceilings", "hard quotas are unsupported on macOS")
+			return core.Invalid("sandbox.authorization_ceilings", "hard quotas are unsupported by this native backend")
 		}
 		if s.Timeout <= 0 || s.Timeout > Duration(time.Hour) || s.MaxOutputBytes < 1 || s.MaxOutputBytes > 128<<10 || len(s.Directories) > 32 {
 			return core.Invalid("sandbox", "invalid limits")
 		}
 	} else if len(s.ToolDirectories) > 0 {
-		return core.Invalid("sandbox.tool_directories", "native macOS tools only")
+		return core.Invalid("sandbox.tool_directories", "native macOS or Windows tools only")
 	}
 	for _, dir := range s.ToolDirectories {
-		if !filepath.IsAbs(dir) || filepath.Clean(dir) != dir || dir == "/" || textfiles.Overlaps(dir, data) || textfiles.Overlaps(dir, s.WorkRoot) {
+		if !filepath.IsAbs(dir) || filepath.Clean(dir) != dir || filepath.Dir(dir) == dir || textfiles.Overlaps(dir, data) || textfiles.Overlaps(dir, s.WorkRoot) {
 			return core.Invalid("sandbox.tool_directories", "dedicated tool directories must not overlap private data or workspaces")
 		}
 	}
@@ -159,7 +164,7 @@ func (s Sandbox) validate(data string, ownPort uint16) error {
 	}
 	seen := map[string]bool{}
 	for _, d := range s.Directories {
-		if !filepath.IsAbs(d.Path) || filepath.Clean(d.Path) != d.Path || d.Path == string(filepath.Separator) || seen[d.Path] {
+		if !filepath.IsAbs(d.Path) || filepath.Clean(d.Path) != d.Path || filepath.Dir(d.Path) == d.Path || seen[d.Path] {
 			return core.Invalid("sandbox.directories", "invalid resource directory")
 		}
 		for _, p := range []string{data, s.RootFS, s.WorkRoot, s.Bwrap, s.CgroupRoot} {
@@ -202,12 +207,12 @@ func (s Sandbox) availableNetworks(ownPort uint16) ([]SandboxNetwork, error) {
 		seen[id] = true
 		n := SandboxNetwork{Name: "preset:" + id, Protocols: []string{"tcp", "udp"}, Ports: []string{"1-65535"}}
 		if platform.NativeSandbox() && id != "network" {
-			return nil, core.Invalid("network_presets", "macOS supports only the network toggle preset")
+			return nil, core.Invalid("network_presets", "this native backend supports only the network toggle preset")
 		}
 		switch id {
 		case "network":
 			if !platform.NativeSandbox() {
-				return nil, core.Invalid("network_presets", "network toggle requires macOS")
+				return nil, core.Invalid("network_presets", "network toggle requires a native macOS or Windows backend")
 			}
 			n.Addresses = []string{"0.0.0.0/0", "::/0"}
 		case "internet":

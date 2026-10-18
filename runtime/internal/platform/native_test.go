@@ -8,7 +8,7 @@ import (
 )
 
 func TestNativeSandboxSelectsHostPlatform(t *testing.T) {
-	if got := platform.NativeSandbox(); got != (runtime.GOOS == "darwin") {
+	if got := platform.NativeSandbox(); got != (runtime.GOOS == "darwin" || runtime.GOOS == "windows") {
 		t.Fatalf("NativeSandbox() = %v on %s", got, runtime.GOOS)
 	}
 }
@@ -16,7 +16,8 @@ func TestNativeSandboxSelectsHostPlatform(t *testing.T) {
 func TestControlledReadyRequiresBackendIsolation(t *testing.T) {
 	linux := platform.Capabilities{OS: "linux", Reason: "available", Shell: true, FileIsolation: true, NetworkIsolation: true, ProcessIsolation: true, ResourceLimits: true}
 	mac := platform.Capabilities{OS: "darwin", Reason: "available", Shell: true, FileIsolation: true, NetworkIsolation: true, NetworkBackend: "seatbelt-toggle"}
-	for _, backend := range []platform.Capabilities{linux, mac} {
+	windows := platform.Capabilities{OS: "windows", Reason: "available", Shell: true, FileIsolation: true, NetworkIsolation: true, NetworkBackend: "appcontainer-toggle"}
+	for _, backend := range []platform.Capabilities{linux, mac, windows} {
 		t.Run(backend.OS, func(t *testing.T) {
 			if !backend.ControlledReady() {
 				t.Fatal("ready backend rejected")
@@ -49,6 +50,10 @@ func TestControlledReadyRequiresBackendIsolation(t *testing.T) {
 		if c.ControlledReady() {
 			t.Fatal("Linux backend without hard isolation accepted")
 		}
+	}
+	windows.NetworkBackend = "seatbelt-toggle"
+	if windows.ControlledReady() {
+		t.Fatal("Windows accepted a macOS backend")
 	}
 	mac.NetworkBackend = ""
 	if mac.ControlledReady() {
