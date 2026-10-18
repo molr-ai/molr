@@ -8,7 +8,7 @@ import type { Plugin, ProxyOptions, ViteDevServer } from 'vite';
 import react from '@vitejs/plugin-react';
 import { themedBrandPlugin } from '@molr/ui/themed-brand-plugin';
 import breakpointQueries from '@molr/ui/postcss-breakpoints';
-import { browserCookie, runtimeCookies } from './cookie-proxy.ts';
+import { browserCookie, browserCookieName, runtimeCookies } from './cookie-proxy.ts';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const version = process.env.MOLR_VERSION || 'development';
@@ -27,6 +27,8 @@ const proxy: ProxyOptions = { target: target.origin, changeOrigin: true, xfwd: f
     else request.removeHeader('Cookie');
   });
   server.on('proxyRes', (response, incoming) => {
+    const csrfCookie = response.headers['x-molr-csrf-cookie'];
+    if (typeof csrfCookie === 'string') response.headers['x-molr-csrf-cookie'] = browserCookieName(csrfCookie, port(incoming.headers.host));
     const cookies = response.headers['set-cookie'];
     if (cookies) response.headers['set-cookie'] = cookies.map(cookie => browserCookie(cookie, port(incoming.headers.host)));
   });

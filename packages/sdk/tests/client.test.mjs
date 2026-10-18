@@ -27,13 +27,15 @@ for (const method of ['get', 'read', 'download']) {
       const controller = new AbortController();
       let bodyStarted;
       const started = new Promise(resolve => { bodyStarted = resolve; });
+      const { api, onMutation, onSessionExpired } = createClient();
+      globalThis.fetch = async () => Response.json({}, { headers: { 'X-Molr-CSRF-Cookie': 'molr_dev_csrf' } });
+      await api.get('/api/auth/me');
       globalThis.fetch = async (_path, { signal }) => new Response(new ReadableStream({
         start(stream) {
           signal.addEventListener('abort', () => stream.error(signal.reason), { once: true });
         },
         pull() { bodyStarted(); },
       }), { status, headers: { 'Content-Type': 'application/json' } });
-      const { api, onMutation, onSessionExpired } = createClient();
       let mutations = 0, expirations = 0;
       onMutation(() => mutations++);
       onSessionExpired(() => expirations++);
@@ -62,6 +64,8 @@ test('malformed successful JSON remains invalid_response and HTTP errors retain 
 
 test('HTTP error reasons survive without exposing diagnostic messages', async () => withBrowser(async () => {
   const { api } = createClient();
+  globalThis.fetch = async () => Response.json({}, { headers: { 'X-Molr-CSRF-Cookie': 'molr_dev_csrf' } });
+  await api.get('/api/auth/me');
   for (const reason of ['network_private_address_denied', undefined, { secret: 'private' }]) {
     globalThis.fetch = async () => Response.json({ code: 'invalid_argument', reason, message: 'private diagnostic' }, { status: 400 });
     await assert.rejects(api.post('/api/resources/test-connection'), error => error instanceof APIError
@@ -75,6 +79,60 @@ for (const [header, expected] of [["3661", 3661000], [null, 0], ["invalid", 0]])
   const { api } = createClient();
   globalThis.fetch = async () => Response.json({ code: 'rate_limited' }, { status: 429, headers: header ? { 'Retry-After': header } : {} });
   const before = Date.now();
-  await assert.rejects(api.post('/api/auth/login'), error => expected ? error.retryAt >= before + expected && error.retryAt <= Date.now() + expected : error.retryAt === 0);
+  await assert.rejects(api.post('/api/auth/login', {}, 'synthetic-prelogin'), error => expected ? error.retryAt >= before + expected && error.retryAt <= Date.now() + expected : error.retryAt === 0);
  }));
 }
+
+for (const name of ['molr_lan_csrf_p5193', 'molr_dev_csrf_p5193', '__Host-molr_csrf_p5193', '__Host-molr_csrf', 'molr_dev_csrf']) {
+  test(`uses only the Runtime-selected ${name} with competing cookies present`, async () => withBrowser(async () => {
+    const candidates = ['molr_lan_csrf_p5193', 'molr_dev_csrf_p5193', '__Host-molr_csrf_p5193', '__Host-molr_csrf', 'molr_dev_csrf', 'molr_lan_csrf_p5194'];
+    document.cookie = candidates.map(candidate => `${candidate}=${candidate === name ? 'current-proof' : 'stale-proof'}`).join('; ');
+    const client = createClient();
+    assert.equal(client.csrfToken(), '', 'No cookie guessing before Runtime discovery');
+    const calls = [];
+    globalThis.fetch = async (path, init) => {
+      calls.push(path);
+      if (path === '/api/auth/me') return Response.json({}, { headers: { 'X-Molr-CSRF-Cookie': name } });
+      assert.equal(init.headers.get('X-CSRF-Token'), 'current-proof');
+      return Response.json({ verification: 'synthetic-proof' }, { headers: { 'X-Molr-CSRF-Cookie': name } });
+    };
+    await client.api.post('/api/auth/reauthenticate', { password: 'synthetic-password', purpose: 'password.change' });
+    assert.deepEqual(calls, ['/api/auth/me', '/api/auth/reauthenticate']);
+    // Reloaded clients rediscover the selector. Live clients read the cookie
+    // again when another tab rotates or removes the current session.
+    const reloaded = createClient();
+    await reloaded.api.get('/api/auth/me');
+    assert.equal(reloaded.csrfToken(), 'current-proof');
+    document.cookie = document.cookie.replace(`${name}=current-proof`, `${name}=rotated-proof`);
+    assert.equal(client.csrfToken(), 'rotated-proof');
+    document.cookie = candidates.filter(candidate => candidate !== name).map(candidate => `${candidate}=stale-proof`).join('; ');
+    assert.equal(client.csrfToken(), '', 'Missing selected cookie must not fall back to an old identity');
+  }));
+}
+
+test('login uses the explicit pre-login proof and selects the returned session cookie', async () => withBrowser(async () => {
+  const client = createClient();
+  const calls = [];
+  document.cookie = 'molr_dev_csrf_p5193=old-proof; molr_lan_csrf_p5193=current-proof';
+  globalThis.fetch = async (path, init) => {
+    calls.push(path);
+    assert.equal(init.headers.get('X-CSRF-Token'), 'prelogin-proof');
+    return Response.json({}, { headers: { 'X-Molr-CSRF-Cookie': 'molr_lan_csrf_p5193' } });
+  };
+  await client.api.post('/api/auth/login', {}, 'prelogin-proof');
+  assert.deepEqual(calls, ['/api/auth/login']);
+  assert.equal(client.csrfToken(), 'current-proof');
+}));
+
+test('missing or invalid cookie discovery never sends the pending mutation', async () => withBrowser(async () => {
+  for (const name of ['', 'unrelated_cookie', 'molr_lan_csrf_p5193; unsafe']) {
+    const client = createClient(), calls = [];
+    document.cookie = 'molr_dev_csrf=old-proof';
+    globalThis.fetch = async path => {
+      calls.push(path);
+      return Response.json({}, { headers: { 'X-Molr-CSRF-Cookie': name } });
+    };
+    await assert.rejects(client.api.post('/api/auth/password', {}), error => error.code === 'invalid_response');
+    assert.deepEqual(calls, ['/api/auth/me']);
+  }
+}));

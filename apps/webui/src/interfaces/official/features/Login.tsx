@@ -27,7 +27,7 @@ export function Login() {
       await session.reload();
     } catch (error) { if (error instanceof APIError && error.code === 'login_interrupted') { setChallenge(''); setCode(''); } setError(error); } finally { setBusy(false); }
   }
-  return <main className="login-page"><section className="login-card"><Logo animation="daily" interactive variant={theme === 'dark' ? 'light' : 'dark'} /><h1>{t.welcome}</h1><p>{t.subtitle}</p>
+  return <main className="login-page"><section className="login-card"><Logo animation="daily" interactive variant={theme === 'dark' ? 'light' : 'dark'} /><p>{t.subtitle}</p>
     <form className="editor" onSubmit={event => { event.preventDefault(); void submit(); }}>
       {challenge ? <TextField label={t.mfa} autoFocus name="verification-code" autoComplete="one-time-code" value={code} onChange={event => setCode(event.target.value)} required maxLength={128} /> : <><TextField label={t.username} name="username" autoComplete="username" value={username} onChange={event => setUsername(event.target.value)} required maxLength={128} /><TextField label={t.password} type="password" name="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} required /></>}
       {!challenge && <Checkbox label={t.keepSignedIn} checked={rememberMe} disabled={busy} onChange={event => setRememberMe(event.target.checked)} />}

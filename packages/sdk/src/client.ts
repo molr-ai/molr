@@ -1,6 +1,5 @@
 import type { FileInfo, Page } from './types';
 import type { RuntimeTransport } from './transport';
-const scopedCookieName = (name: string, port: string) => `${name}_p${port}`;
 
 export class APIError extends Error {
   constructor(public code: string, public requestID = '', public status = 0, public retryAt = 0, public reason = '') { super(code); }
@@ -11,15 +10,11 @@ export function createClient(transport?: RuntimeTransport) {
   const sessionEvents = new EventTarget();
   function onMutation(callback: (path: string) => void) { const changed = (event: Event) => callback((event as CustomEvent<string>).detail); sessionEvents.addEventListener('mutation', changed); return () => sessionEvents.removeEventListener('mutation', changed); }
   function onSessionExpired(callback: () => void) { sessionEvents.addEventListener('expired', callback); return () => sessionEvents.removeEventListener('expired', callback); }
+  let csrfCookieName = '';
   function csrfToken() {
-    const names = ['__Host-molr_csrf', 'molr_dev_csrf', 'molr_lan_csrf'];
-    const port = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
-    // Vite scopes cookies; production static deployments use Runtime's names.
-    for (const name of [...names.map(name => scopedCookieName(name, port)), ...names]) {
-      const value = document.cookie.split('; ').find(cookie => cookie.startsWith(`${name}=`))?.slice(name.length + 1);
-      if (value) return decodeURIComponent(value);
-    }
-    return '';
+    if (!csrfCookieName) return '';
+    const value = document.cookie.split(';').map(cookie => cookie.trim()).find(cookie => cookie.startsWith(`${csrfCookieName}=`))?.slice(csrfCookieName.length + 1);
+    return value ? decodeURIComponent(value) : '';
   }
 
   const attempts = new Map<string, string>();
@@ -38,6 +33,12 @@ export function createClient(transport?: RuntimeTransport) {
         throw error;
       }
     }
+    // Discover the active Runtime cookie before the first authenticated write.
+    // Login supplies its separate pre-login proof explicitly.
+    if (init.method && init.method !== 'GET' && csrf === undefined && !csrfCookieName) {
+      await request('/api/auth/me', { signal: init.signal });
+      if (!csrfCookieName) throw new APIError('invalid_response');
+    }
     const headers = new Headers(init.headers);
     if (init.body && typeof init.body === 'string') headers.set('Content-Type', 'application/json');
     if (init.method && init.method !== 'GET') headers.set('X-CSRF-Token', csrf ?? csrfToken());
@@ -46,6 +47,8 @@ export function createClient(transport?: RuntimeTransport) {
     let response: Response;
     try { response = await fetch(path, { ...init, headers, credentials: 'same-origin', cache: 'no-store' }); }
     catch (error) { if (error instanceof DOMException && error.name === 'AbortError') throw error; throw new APIError('unavailable'); }
+    const cookieName = response.headers.get('X-Molr-CSRF-Cookie');
+    if (cookieName && /^(?:__Host-molr_|molr_dev_|molr_lan_)csrf(?:_p[0-9]+)?$/.test(cookieName)) csrfCookieName = cookieName;
     let data: any;
     try { data = binary && response.ok ? await response.blob() : await response.json(); }
     catch (error) {

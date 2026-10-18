@@ -30,6 +30,10 @@ async function fixture(fetch, check) {
   const values = { window, document: { cookie: 'molr_dev_csrf_p80=synthetic-current-session' }, navigator: { onLine: true }, fetch: (...args) => { calls.push(args); return fetch(...args); }, EventSource: FakeEventSource };
   for (const [key, value] of Object.entries(values)) Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
   clearClientState();
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => Response.json({}, { headers: { 'X-Molr-CSRF-Cookie': 'molr_dev_csrf_p80' } });
+  await api.get('/api/auth/me');
+  globalThis.fetch = realFetch;
   const unsubscribe = onSessionExpired(() => expired++);
   try {
     subscription = subscribeRuntime({ onUpdate() {}, onRestore() {}, onConnection(state) { states.push(state); } });

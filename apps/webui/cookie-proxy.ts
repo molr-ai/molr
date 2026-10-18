@@ -11,11 +11,13 @@ export function runtimeCookies(header: string | undefined, port: string, runtime
   }).join('; ');
 }
 
+export function browserCookieName(name: string, port: string) {
+  if (/^(?:molr_lan_|molr_dev_|__Host-molr_)(session|csrf|login)_p[0-9]+$/.test(name)) return name.replace(/_p[0-9]+$/, `_p${port}`);
+  return authCookieNames.some(known => known === name) ? scopedCookieName(name, port) : name;
+}
+
 export function browserCookie(cookie: string, port: string) {
   const separator = cookie.indexOf('=');
-  const name = cookie.slice(0, separator);
-  if (/^(?:molr_lan_|molr_dev_|__Host-molr_)(session|csrf|login)_p[0-9]+$/.test(name)) return name.replace(/_p[0-9]+$/, `_p${port}`) + cookie.slice(separator);
-  if (!authCookieNames.some(known => known === name)) return cookie;
   // Preserve HttpOnly, Secure, SameSite, Path and expiry, including deletions.
-  return scopedCookieName(name, port) + cookie.slice(separator);
+  return browserCookieName(cookie.slice(0, separator), port) + cookie.slice(separator);
 }

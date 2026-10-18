@@ -34,7 +34,6 @@ export function LoginLinkLogin({ attempt }: { attempt: LoginLinkAttempt }) {
   useErrorToast(!busy && !invalid ? error : null);
   return <main className="login-page"><section className="login-card">
     <Logo animation="daily" interactive variant={theme === 'dark' ? 'light' : 'dark'} />
-    <h1>{t.loginLinks.signIn}</h1>
     {!invalid && !error && !confirmed && (expires ? <>
       <p>{t.loginLinks.confirmHelp(new Date(expires).toLocaleString(locale))}</p>
       <Button onClick={() => { notices?.rearm(); setBusy(true); setConfirmed(true); }}>{t.loginLinks.confirm}</Button>
