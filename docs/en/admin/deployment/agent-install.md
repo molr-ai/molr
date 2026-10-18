@@ -1,6 +1,6 @@
 # Let an Agent install for me
 
-Choose “Deploy service” on the website, select “Deploy Molr” or “Add sandbox node” and a release channel, then use the “Let an Agent install for me” helper to copy the instructions to an Agent that can read URLs and use the target device’s terminal. The Agent detects the OS, architecture, and download tool. You can copy instructions on a phone, but the Agent still needs terminal access to the target device.
+Choose “Deploy a server” on the website, select “Deploy Molr” or “Add a sandbox node”, then use the “Let an Agent install for me” helper to copy the instructions to an Agent that can read URLs and use the target device’s terminal. The Agent detects the OS, architecture, and download tool. You can copy instructions on a phone, but the Agent still needs terminal access to the target device.
 
 This guide is also available as Markdown without JavaScript: [中文](https://molr.ai/agent-install.md), [English](https://molr.ai/en/agent-install.md). The following workflow is for the installing Agent.
 
@@ -16,7 +16,7 @@ Choose `server` (default) for complete Molr or `sandbox` to add a resource node 
 
 ## Check releases
 
-Read `https://molr.ai/releases/catalog.json` and check the user’s selected `stable`, `preview`, or `nightly` channel for a matching OS and architecture and its requirements. Default to stable only when the user has not selected a channel. If the channel is empty or lacks a compatible platform, explain and let the user choose; do not switch channels automatically.
+When the website instructions include a version, verify that version and the target platform in the release catalog and pass `--version VERSION` to both preview and installation. Do not substitute another version. For explicit channel selection or instructions without a version, read `https://molr.ai/releases/catalog.json` and check the user’s selected `stable`, `preview`, or `nightly` channel for a matching OS and architecture and its requirements. Default to stable only when the user has not selected a channel. If the channel is empty or lacks a compatible platform, explain and let the user choose; do not switch channels automatically.
 
 If fetching fails, report that release information is unavailable and retry on the target device when appropriate. Do not invent versions or download URLs, or substitute unofficial packages. For Docker, follow [Docker deployment](https://molr.ai/en/docs/admin/deployment/docker/). Explain available alternatives for other unsupported environments.
 

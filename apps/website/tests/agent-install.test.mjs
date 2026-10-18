@@ -8,7 +8,7 @@ import { resolve } from 'node:path';
 const root = resolve(import.meta.dirname, '..');
 const repository = resolve(root, '../..');
 
-test('agent installation instructions work across channels, locales, catalog failures and narrow screens', { timeout: 90000 }, async () => {
+test('agent installation instructions work across modes, locales, catalog failures and narrow screens', { timeout: 90000 }, async () => {
   const before = process.env.VITE_SITE_MODE;
   process.env.VITE_SITE_MODE = 'live';
   const server = await createServer({ root, logLevel: 'silent', server: { host: '127.0.0.1', port: 0 } });
@@ -32,21 +32,15 @@ test('agent installation instructions work across channels, locales, catalog fai
     await page.goto(url);
     const section = page.locator('#install');
     await section.getByRole('button', { name: 'Let an Agent install for me', exact: true }).click();
-    await section.locator('.home-install-advanced > summary').click();
-    await expect(section.getByRole('group', { name: 'Release channel', exact: true })).toBeVisible();
+    await expect(section.getByRole('group', { name: 'Release channel', exact: true })).toHaveCount(0);
     for (const name of ['Operating system', 'Architecture', 'Download tool']) await expect(section.getByRole('group', { name, exact: true })).toHaveCount(0);
     await expect(section.locator('pre')).toHaveCount(0);
     const prompt = section.locator('.home-install-prompt-text');
-    await expect(prompt).toContainText('Stable (stable)');
+    await expect(prompt).not.toContainText('channel');
     await expect(prompt).toContainText('https://molr.ai/en/agent-install.md');
-    await expect(section.locator('.home-install-status')).toContainText('No published release');
-    for (const [name, channel] of [['Preview', 'preview'], ['Nightly', 'nightly'], ['Stable', 'stable']]) {
-      await section.getByRole('button', { name, exact: true }).click();
-      await section.getByRole('button', { name: 'Copy installation instructions', exact: true }).click();
-      assert.equal(await page.evaluate(() => navigator.clipboard.readText()), await prompt.innerText());
-      await expect(prompt).toContainText(`(${channel})`);
-      await expect(section.getByRole('button', { name: 'Copied', exact: true })).toBeVisible();
-    }
+    await expect(section.locator('.home-install-status')).toContainText('No release has been published');
+    await section.getByRole('button', { name: 'Copy installation instructions', exact: true }).click();
+    assert.equal(await page.evaluate(() => navigator.clipboard.readText()), await prompt.innerText());
     await expect(prompt).toContainText('--mode server');
     await expect(prompt).toContainText('one-time login link');
     await section.getByRole('button', { name: 'Add a sandbox node', exact: true }).click();
@@ -61,7 +55,7 @@ test('agent installation instructions work across channels, locales, catalog fai
       await section.screenshot({ path: `${screenshots}/en-${width}.png` });
     }
     await page.getByRole('button', { name: '切换到中文', exact: true }).click();
-    await expect(prompt).toContainText('正式版 (stable)');
+    await expect(prompt).not.toContainText('渠道');
     await expect(prompt).toContainText('https://molr.ai/agent-install.md');
     await section.getByRole('button', { name: '复制安装指令', exact: true }).click();
     assert.equal(await page.evaluate(() => navigator.clipboard.readText()), await prompt.innerText());
@@ -88,6 +82,7 @@ test('agent installation instructions work across channels, locales, catalog fai
     response.channels.stable = { schema: 1, version: '0.1.0', channel: 'stable', commit: 'a'.repeat(40), published_at: '2026-10-15T00:00:00Z', notes_url: 'https://example.com/notes', platforms: [{ ...platform, file, sha256: 'b'.repeat(64), url: `https://example.com/${file}`, checksum_url: `https://example.com/${file}.sha256` }] };
     await section.getByRole('button', { name: '重试', exact: true }).click();
     await expect(section.locator('.home-install-requirements')).toContainText('v0.1.0');
+    await expect(prompt).toContainText('Molr v0.1.0');
     // Exercise the LAN HTTP clipboard fallback and its manual-copy error message.
     await page.evaluate(() => {
       Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });

@@ -1,5 +1,5 @@
-import { useState, type CSSProperties, type ReactNode } from 'react';
-import { Logo, Tabs, paletteBrandColors, useTheme } from '@molr/ui';
+import type { CSSProperties, ReactNode } from 'react';
+import { Logo, paletteBrandColors, useTheme } from '@molr/ui';
 import { Icon } from './HomeIcon';
 import { ProductPreview } from './ProductPreview';
 import { homeMessages, type HomeCopy } from './home-content';
@@ -9,8 +9,7 @@ import { GithubMark } from './GithubMark';
 import type { Locale } from './site-content';
 import { SiteHeader } from './SiteHeader';
 import { InstallSection } from './InstallSection';
-import { InstallCommand } from './InstallCommand';
-import { installCommand } from './release-data';
+import { HeroDownload } from './HeroDownload';
 
 // Reuse the UI Design palette values; decorative colors stay local to the homepage.
 const brandColors = Object.fromEntries(
@@ -95,8 +94,6 @@ function ControlScene({ copy }: { copy: HomeCopy }) {
 
 export function HomePage({ heading, locale, changeLocale }: { heading: string; locale: Locale; changeLocale: (locale: Locale) => void }) {
   const copy = homeMessages[locale];
-  const command = installCommand();
-  const [installPlatform, setInstallPlatform] = useState('linux');
   const { theme } = useTheme();
   return <div className="home-page" id="top" style={brandColors}>
     <a className="home-skip" href="#main">{copy.skip}</a>
@@ -113,13 +110,7 @@ export function HomePage({ heading, locale, changeLocale }: { heading: string; l
         </div>
         <div className="home-eyebrow"><span />{copy.eyebrow}</div>
         <h1 id="home-title"><span>{heading}</span></h1><p className="home-subtitle">{copy.subtitle}</p>
-        <div className="home-hero-install">
-          <Tabs className="home-install-tabs" label={copy.installPlatforms} value={installPlatform} onValueChange={setInstallPlatform} items={[
-            { value: 'linux', label: 'Linux', content: <InstallCommand key={command} command={command} locale={locale} terminal /> },
-            { value: 'darwin', label: 'macOS', content: <InstallCommand key={`mac-${command}`} command={command} locale={locale} terminal /> },
-          ]} />
-          <div className="home-hero-ctas"><a className="home-button" href="#install">{copy.moreInstall}<Icon name="down" /></a></div>
-        </div>
+        <HeroDownload locale={locale} />
         <ProductPreview copy={copy} locale={locale} />
       </section>
       <StorySection id="environment" label={copy.sectionLabel} heading={copy.environmentHeading} intro={copy.environmentIntro} points={copy.environmentPoints}>

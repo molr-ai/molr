@@ -45,9 +45,10 @@ test('desktop download UI shows edition and does not invent missing releases', {
     await section.getByRole('button', { name: 'Desktop app', exact: true }).click();
     await expect(section.getByRole('link', { name: 'Download installer' })).toBeVisible();
     await expect(section.getByText(/Unnotarized test build/)).toHaveCount(0);
-    await section.locator('.home-install-advanced > summary').click();
-    await section.getByRole('group', { name: 'Desktop release channel' }).getByRole('button', { name: 'Preview', exact: true }).click();
-    await expect(section.getByText('No desktop installers have been published in this channel.')).toBeVisible();
+    catalog = { schema: 1, channels: { stable: null, preview: null, nightly: null } };
+    await page.reload();
+    await section.getByRole('button', { name: 'Desktop app', exact: true }).click();
+    await expect(section.getByText('No desktop installers have been published yet.')).toBeVisible();
     await expect(section.getByRole('link', { name: 'Download installer' })).toHaveCount(0);
   } finally { await browser.close(); await server.close(); if (before === undefined) delete process.env.VITE_SITE_MODE; else process.env.VITE_SITE_MODE = before; }
 });

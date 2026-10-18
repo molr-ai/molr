@@ -4,8 +4,8 @@ import type { Locale } from './site-content';
 import { installMessages } from './install-content';
 import { localizedDocPath } from './doc-locale';
 import { siteLinks } from './site-links';
-import { channels, installCommand, packageInstallCommand, readCatalog } from './release-data';
-import type { Catalog, Channel, DownloadTool, RuntimeMode } from './release-data';
+import { publishedChannel, installCommand, packageInstallCommand, readCatalog } from './release-data';
+import type { Catalog, DownloadTool, RuntimeMode } from './release-data';
 import './install.css';
 import { AgentInstall, agentInstallPath } from './AgentInstall';
 import { InstallCommand } from './InstallCommand';
@@ -26,7 +26,6 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
   const [mode, setMode] = useState<RuntimeMode>('server');
   const [method, setMethod] = useState<'command' | 'download' | 'docker' | 'agent'>('command');
   const [autoArch, setAutoArch] = useState(true);
-  const [channel, setChannel] = useState<Channel>('stable');
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [selectedOS, setOS] = useState('linux');
   const [selectedArch, setArch] = useState('amd64');
@@ -42,7 +41,7 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
       .catch(() => { if (!controller.signal.aborted) setError(true); });
     return () => controller.abort();
   }, [source, attempt]);
-  const release = catalog?.channels[channel];
+  const release = catalog?.channels[publishedChannel(catalog)];
   const platforms = release?.platforms || [];
   const systems = [...new Set(platforms.map(p => p.os))];
   const os = systems.includes(selectedOS) ? selectedOS : systems[0];
@@ -50,8 +49,8 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
   const platform = targets.find(p => p.arch === selectedArch) || targets[0];
   const architectures = [...new Set(platforms.map(p => p.arch))];
   const commandArch = architectures.includes(selectedArch) ? selectedArch : architectures[0];
-  const command = platform ? installCommand(channel, { arch: autoArch ? undefined : commandArch, tool, mode }) : '';
-  const packageCommand = platform ? packageInstallCommand(platform, channel, mode) : '';
+  const command = platform ? installCommand(release!.version, { arch: autoArch ? undefined : commandArch, tool, mode }) : '';
+  const packageCommand = platform ? packageInstallCommand(platform, mode) : '';
   const osLabel = (value: string) => ({ linux: 'Linux', darwin: 'macOS', windows: 'Windows' })[value] || value;
   const archLabel = (value: string) => (os === 'darwin' ? { amd64: 'Intel', arm64: 'Apple Silicon' } : { amd64: 'x64 / AMD64', arm64: 'ARM64' })[value] || value;
   return <section id="install" data-palette="forest" data-theme="dark" className="home-start home-container" aria-labelledby="start-title">
@@ -75,13 +74,9 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
           <div className="home-install-options home-install-helpers" role="group" aria-label={t.auxiliary}>
             {(['command', 'download', 'agent'] as const).map(value => <button key={value} type="button" aria-pressed={method === value} onClick={() => setMethod(value)}>{t[value]}</button>)}
           </div>
-          {method !== 'docker' && <details key={method} className="home-install-advanced" open={method === 'download' ? true : undefined}>
-            <summary>{t.advanced} · {t[channel]}</summary>
-            <OptionRow label={t.channel}>
-              {channels.map(c => <button type="button" key={c} aria-pressed={channel === c} onClick={() => setChannel(c)}>{t[c]}</button>)}
-            </OptionRow>
-            <p className="home-install-channel-note">{t[`${channel}Description`]}</p>
-            {method !== 'agent' && release && !error && <>
+          {(method === 'command' || method === 'download') && <details key={method} className="home-install-advanced" open={method === 'download' ? true : undefined}>
+            <summary>{t.advanced}</summary>
+            {release && !error && <>
               {method === 'download' && <OptionRow label={t.system}>
                 {systems.map(system => <button type="button" key={system} aria-pressed={os === system} onClick={() => setOS(system)}>{osLabel(system)}</button>)}
               </OptionRow>}
@@ -95,11 +90,11 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
             </>}
           </details>}
           {method === 'agent' ? <>
-          <AgentInstall key={`${locale}-${channel}-${mode}`} locale={locale} channel={channel} mode={mode} />
+          <AgentInstall key={`${locale}-${release?.version}-${mode}`} locale={locale} version={error ? undefined : release?.version} mode={mode} />
           {error ? <p className="home-install-status" role="status">{t.agentUnavailable} <button type="button" onClick={() => setAttempt(v => v + 1)}>{t.retry}</button></p>
             : !catalog ? <p className="home-install-status" role="status">{t.loading}</p>
             : !release || !platform ? <p className="home-install-status" role="status">{t.agentEmpty}</p>
-            : <p className="home-install-requirements">{t[channel]} · v{release.version} · {[...new Set(platforms.map(p => osLabel(p.os)))].join(' / ')}</p>}
+            : <p className="home-install-requirements">v{release.version} · {[...new Set(platforms.map(p => osLabel(p.os)))].join(' / ')}</p>}
         </> : method === 'docker' ? <div className="home-install-details">
           <div className="home-install-heading"><h3>{t.dockerTitle}</h3></div>
           <p>{t.dockerBody}</p>
@@ -110,7 +105,7 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
           : !catalog ? <InstallStatus>{t.loading}</InstallStatus>
           : !release || !platform ? <InstallStatus>{t.empty}</InstallStatus>
           : <>
-            <div className="home-install-result-meta"><span>{method === 'command' ? t[channel] : `${osLabel(os)} / ${archLabel(platform.arch)}`}</span><strong>v{release.version}</strong></div>
+            <div className="home-install-result-meta"><span>{method === 'command' ? t[mode] : `${osLabel(os)} / ${archLabel(platform.arch)}`}</span><strong>v{release.version}</strong></div>
             <div className="home-install-details">
               <div className="home-install-heading"><h3>{method === 'command' ? t[mode] : t.downloadTitle}</h3></div>
               <p>{method === 'command' ? t.commandBody : t.downloadBody}</p>

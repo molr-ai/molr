@@ -26,15 +26,17 @@ export function readCatalog(value: unknown): Catalog {
 }
 export type DownloadTool = 'curl' | 'wget';
 export type RuntimeMode = 'server' | 'sandbox';
-export function installCommand(channel: Channel = 'stable', { arch, tool = 'curl', mode = 'server' }: { arch?: string; tool?: DownloadTool; mode?: RuntimeMode } = {}): string {
-  const options = [`--mode ${mode}`, channel === 'stable' ? '' : `--channel ${channel}`, arch ? `--arch ${arch}` : ''].filter(Boolean);
-  const download = tool === 'wget' ? 'wget -qO-' : 'curl -fsSL';
-  return `${download} https://molr.ai/install.sh | sh${options.length ? ` -s -- ${options.join(' ')}` : ''}`;
+export function publishedChannel(catalog: { channels: Record<Channel, unknown> } | null | undefined): Channel {
+  return channels.find(channel => catalog?.channels[channel]) || 'stable';
 }
 
-export function packageInstallCommand(platform: ReleasePlatform, channel: Channel, mode: RuntimeMode = 'server'): string {
-  return `${platform.os === 'darwin' ? 'shasum -a 256' : 'sha256sum'} -c ${platform.file}.sha256 &&
-tar -xzf ${platform.file} &&
-cd molr &&
-./bin/molr-setup --channel ${channel} --mode ${mode}`;
+export function installCommand(version: string, { arch, tool = 'curl', mode = 'server' }: { arch?: string; tool?: DownloadTool; mode?: RuntimeMode } = {}): string {
+  const options = [`--mode ${mode}`, `--version ${version}`, arch ? `--arch ${arch}` : ''].filter(Boolean);
+  const download = tool === 'wget' ? 'wget -qO-' : 'curl -fsSL';
+  return `${download} https://molr.ai/install.sh | sh -s -- ${options.join(' ')}`;
+}
+
+export function packageInstallCommand(platform: ReleasePlatform, mode: RuntimeMode = 'server'): string {
+  return `${platform.os === 'darwin' ? 'shasum -a 256' : 'sha256sum'} -c ${platform.file}.sha256 &&\n` +
+    `tar -xzf ${platform.file} &&\ncd molr &&\n./bin/molr-setup --mode ${mode}`;
 }

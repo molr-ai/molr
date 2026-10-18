@@ -1,9 +1,5 @@
-import { useEffect, useState } from 'react';
 import type { Locale } from './site-content';
-import { channels } from './release-data';
-import type { Channel } from './release-data';
-import { readDesktopCatalog } from './desktop-releases';
-import type { DesktopCatalog } from './desktop-releases';
+import { useDesktopRelease } from './use-desktop-release';
 import { installMessages } from './install-content';
 import { Icon } from './HomeIcon';
 import { InstallStatus } from './InstallStatus';
@@ -11,20 +7,7 @@ import { InstallStatus } from './InstallStatus';
 export function DesktopDownloads({ locale, source }: { locale: Locale; source: string }) {
   const zh = locale === 'zh';
   const t = installMessages[locale];
-  const [catalog, setCatalog] = useState<DesktopCatalog>();
-  const [error, setError] = useState(false);
-  const [attempt, setAttempt] = useState(0);
-  const [channel, setChannel] = useState<Channel>('stable');
-  useEffect(() => {
-    const abort = new AbortController(); setError(false); setCatalog(undefined);
-    fetch(`${source}/desktop/catalog.json`, { signal: abort.signal, cache: 'no-cache' }).then(async response => {
-      if (response.status === 404) return { schema: 1, channels: { stable: null, preview: null, nightly: null } };
-      if (!response.ok) throw new Error('Unavailable');
-      return response.json();
-    }).then(value => setCatalog(readDesktopCatalog(value))).catch(() => { if (!abort.signal.aborted) setError(true); });
-    return () => abort.abort();
-  }, [source, attempt]);
-  const release = catalog?.channels[channel];
+  const { release, loading, error, retry } = useDesktopRelease(source);
   return <div className="home-desktop-downloads">
     <div className="home-desktop-header">
       <div className="home-install-heading"><h3>{zh ? 'Molr 桌面应用' : 'Molr desktop app'}</h3>
@@ -36,14 +19,8 @@ export function DesktopDownloads({ locale, source }: { locale: Locale; source: s
       <div><Icon name="devices" /><p><strong>{zh ? '本机运行，也能远程连接' : 'Run locally or connect remotely'}</strong><span>{zh ? 'Linux / macOS 包含 Runtime，可创建本机服务或连接远程服务。' : 'Linux / macOS includes the Runtime to create a local server or connect remotely.'}</span></p></div>
       <div><Icon name="server" /><p><strong>{zh ? '连接你已有的服务' : 'Connect to your existing server'}</strong><span>{zh ? 'Windows 客户端连接远程 Runtime，也支持 WSL。' : 'The Windows client connects to a remote Runtime, including WSL.'}</span></p></div>
     </div>
-    <details className="home-install-advanced"><summary>{t.channel} · {t[channel]}</summary>
-    <div className="home-install-channels">
-      <div className="home-install-options" role="group" aria-label={zh ? '桌面发行渠道' : 'Desktop release channel'}>{channels.map(c => <button type="button" key={c} aria-pressed={channel === c} onClick={() => setChannel(c)}>{t[c]}</button>)}</div>
-      <p>{t[`${channel}Description`]}</p>
-    </div>
-    </details>
-    {error || !catalog || !release ? <InstallStatus error={error} hint={catalog && !error ? (zh ? '可切换发布渠道，查看其他可用版本。' : 'Switch release channels to check other available versions.') : undefined}>
-      {error ? <>{zh ? '暂时无法读取桌面发行信息。' : 'Desktop releases are currently unavailable.'} <button type="button" onClick={() => setAttempt(x => x + 1)}>{t.retry}</button></> : !catalog ? t.loading : (zh ? '此渠道暂无已发布的桌面安装包。' : 'No desktop installers have been published in this channel.')}
+    {error || loading || !release ? <InstallStatus error={error}>
+      {error ? <>{zh ? '暂时无法读取桌面发行信息。' : 'Desktop releases are currently unavailable.'} <button type="button" onClick={retry}>{t.retry}</button></> : loading ? t.loading : (zh ? '暂无已发布的桌面安装包。' : 'No desktop installers have been published yet.')}
     </InstallStatus> : <div className="home-desktop-grid">
       {(['darwin', 'win32', 'linux'] as const).map(os => {
         const platforms = release.platforms.filter(p => p.os === os);

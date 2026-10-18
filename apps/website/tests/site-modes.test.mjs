@@ -146,17 +146,15 @@ test('website state builds and browser behavior', { timeout: 240_000 }, async t 
                 await expect(link).toHaveAttribute('href', 'https://github.com/molr-ai/molr');
                 await expect(link).not.toHaveAttribute('aria-disabled', 'true');
               }
-              await expect(page.locator('.home-hero-ctas').getByRole('link')).toHaveCount(1);
-              await page.locator('.home-hero-ctas').getByRole('link', { name: '更多平台和版本', exact: true }).click();
+              await expect(page.locator('.home-download-actions').getByRole('link')).toHaveCount(1);
+              await page.locator('.home-download-actions').getByRole('link', { name: '部署服务', exact: true }).click();
               await expect(page).toHaveURL(/#install$/);
               await expect(page.getByRole('heading', { name: '给好奇心，一个工作空间。' })).toBeInViewport();
               const installer = page.locator('#install');
               await expect(installer.getByRole('link', { name: '详细安装指南' })).toHaveAttribute('href', '/zh/docs/admin/getting-started/');
               await installer.locator('.home-install-advanced > summary').click();
-              await expect(installer.getByRole('button', { name: '正式版', exact: true })).toHaveAttribute('aria-pressed', 'true');
-              await expect(installer.getByRole('status')).toContainText('该渠道暂无已发布版本');
-              await installer.getByRole('button', { name: '预发布版', exact: true }).click();
-              await expect(installer.getByRole('status')).toContainText('该渠道暂无已发布版本');
+              await expect(installer.getByRole('button', { name: /正式版|预发布版|Nightly/ })).toHaveCount(0);
+              await expect(installer.getByRole('status')).toContainText('暂无已发布版本');
               await expect(installer.getByRole('link', { name: '下载安装包', exact: true })).toHaveCount(0);
               await page.getByRole('button', { name: 'Switch to English', exact: true }).click();
               await page.getByRole('button', { name: 'Switch to dark mode', exact: true }).click();

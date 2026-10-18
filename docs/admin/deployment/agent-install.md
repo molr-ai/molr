@@ -1,6 +1,6 @@
 # 让 Agent 为我安装
 
-在官网选择「部署服务」，按用途选择「部署 Molr」或「添加沙盒节点」及发布渠道，再通过辅助入口「让 Agent 为我安装」复制指令，发送给能读取网址、操作目标设备终端的 Agent。系统、架构和下载工具由 Agent 检测。手机上也可以复制指令，但 Agent 仍需要目标设备的终端访问能力。
+在官网选择「部署服务」，按用途选择「部署 Molr」或「添加沙盒节点」，再通过辅助入口「让 Agent 为我安装」复制指令，发送给能读取网址、操作目标设备终端的 Agent。系统、架构和下载工具由 Agent 检测。手机上也可以复制指令，但 Agent 仍需要目标设备的终端访问能力。
 
 本文同时以无需 JavaScript 的 Markdown 发布：[中文](https://molr.ai/agent-install.md)、[English](https://molr.ai/en/agent-install.md)。以下是 Agent 的执行流程。
 
@@ -16,7 +16,7 @@
 
 ## 检查发布信息
 
-读取 `https://molr.ai/releases/catalog.json`，检查用户选择的 `stable`、`preview` 或 `nightly` 渠道是否有匹配系统和架构的发行包及其环境要求。用户未指定渠道时使用 stable；渠道为空或没有适用平台时，说明情况并让用户选择，不自动切换渠道。
+官网指令包含版本号时，先在发布清单中核对该版本与目标平台，预览和执行均传入 `--version VERSION`，不要改装其他版本。需要明确选择渠道或指令未指定版本时，读取 `https://molr.ai/releases/catalog.json`，检查用户选择的 `stable`、`preview` 或 `nightly` 渠道是否有匹配系统和架构的发行包及其环境要求。用户未指定渠道时使用 stable；渠道为空或没有适用平台时，说明情况并让用户选择，不自动切换渠道。
 
 读取失败时报告发布信息暂不可用，可以在目标设备重试。不要编造版本、下载地址或从非官方来源补包。需要 Docker 时按 [Docker 部署](https://molr.ai/zh/docs/admin/deployment/docker/)处理；其他不支持的环境先说明可选路径。
 
