@@ -45,16 +45,16 @@ test('hero downloads detected platform directly, supports manual selection and h
     const hero = page.locator('.home-hero-download');
     const more = hero.getByRole('button', { name: 'More download options' });
     const panel = page.getByRole('dialog', { name: 'Choose a download' });
-    await expect(hero.getByRole('link', { name: 'Download Molr (Windows·AMD64)' })).toHaveAttribute('href', platforms[2].url);
+    await expect(hero.getByRole('link', { name: 'Download Molr Desktop (Windows · AMD64)' })).toHaveAttribute('href', platforms[2].url);
     await expect(hero.getByRole('link', { name: 'View docs', exact: true })).toHaveAttribute('href', '/en/docs/user/');
     await expect(hero.getByRole('link', { name: 'More installation methods', exact: true })).toHaveAttribute('href', '#install');
     await expect(hero.locator('.home-download-actions').getByRole('link')).toHaveCount(2);
-    await expect(hero.locator('.home-download-primary')).toHaveText('Download Molr (Windows·AMD64)');
+    await expect(hero.locator('.home-download-primary')).toHaveText('Download Molr Desktop (Windows · AMD64)');
     await expect(hero.locator('pre')).toHaveCount(0);
     await expect(hero.locator('.home-download-meta, .home-download-edition')).toHaveCount(0);
     await expect(page.getByRole('button', { name: /^(Stable|Preview|Nightly)$/ })).toHaveCount(0);
     const download = page.waitForEvent('download');
-    await hero.getByRole('link', { name: 'Download Molr (Windows·AMD64)' }).click();
+    await hero.getByRole('link', { name: 'Download Molr Desktop (Windows · AMD64)' }).click();
     assert.equal((await download).suggestedFilename(), platforms[2].file);
     await more.click();
     await expect(panel).toBeVisible();
@@ -64,7 +64,7 @@ test('hero downloads detected platform directly, supports manual selection and h
     await panel.getByRole('button', { name: 'macOS · Intel' }).click();
     await expect(panel).not.toBeVisible();
     await expect(more).toBeFocused();
-    await expect(hero.getByRole('link', { name: 'Download Molr (macOS·Intel)' })).toHaveAttribute('href', platforms[1].url);
+    await expect(hero.getByRole('link', { name: 'Download Molr Desktop (macOS · Intel)' })).toHaveAttribute('href', platforms[1].url);
     await more.click();
     await expect(panel.getByRole('button', { name: 'Windows · AMD64 This device', exact: true })).toHaveAttribute('aria-pressed', 'false');
     await expect(panel.getByRole('button', { name: 'macOS · Intel', exact: true })).toHaveAttribute('aria-pressed', 'true');
@@ -84,7 +84,7 @@ test('hero downloads detected platform directly, supports manual selection and h
       await page.keyboard.press('Escape');
     }
     await page.getByRole('button', { name: '切换到中文', exact: true }).click();
-    await expect(hero.getByRole('link', { name: '下载 Molr (macOS·Intel)' })).toHaveAttribute('href', platforms[1].url);
+    await expect(hero.getByRole('link', { name: '下载 Molr 桌面版 (macOS · Intel)' })).toHaveAttribute('href', platforms[1].url);
     await expect(page.getByRole('button', { name: /^(正式版|预发布版|Nightly)$/ })).toHaveCount(0);
     // Unsupported detection uses the first item in the same list, without hiding alternatives.
     await page.addInitScript(() => {
@@ -93,13 +93,13 @@ test('hero downloads detected platform directly, supports manual selection and h
       Object.defineProperty(navigator, 'platform', { configurable: true, value: 'unknown' });
     });
     await page.reload();
-    await expect(hero.getByRole('link', { name: '下载 Molr (macOS·Apple Silicon)' })).toHaveAttribute('href', platforms[0].url);
+    await expect(hero.getByRole('link', { name: '下载 Molr 桌面版 (macOS · Apple Silicon)' })).toHaveAttribute('href', platforms[0].url);
     await hero.getByRole('button', { name: '更多下载选项', exact: true }).click();
     await expect(page.getByRole('dialog').getByText('当前设备', { exact: true })).toHaveCount(0);
     await page.keyboard.press('Escape');
     catalog = { schema: 1, channels: { stable: null, preview: sample().channels.preview, nightly: null } };
     await page.reload();
-    await expect(hero.getByRole('link', { name: '下载 Molr (Windows·AMD64)' })).toHaveAttribute('href', catalog.channels.preview.platforms[0].url);
+    await expect(hero.getByRole('link', { name: '下载 Molr 桌面版 (Windows · AMD64)' })).toHaveAttribute('href', catalog.channels.preview.platforms[0].url);
     catalog = { schema: 1, channels: { stable: null, preview: null, nightly: null } };
     await page.reload();
     await expect(hero.locator('.home-download-primary')).toHaveCount(0);
@@ -113,7 +113,7 @@ test('hero downloads detected platform directly, supports manual selection and h
     await expect(hero.getByRole('status')).toContainText('暂时无法');
     failure = false; catalog = sample();
     await hero.getByRole('button', { name: '重试', exact: true }).click();
-    await expect(hero.getByRole('link', { name: '下载 Molr (macOS·Apple Silicon)' })).toHaveAttribute('href', platforms[0].url);
+    await expect(hero.getByRole('link', { name: '下载 Molr 桌面版 (macOS · Apple Silicon)' })).toHaveAttribute('href', platforms[0].url);
   } finally {
     await browser.close(); await server.close();
     if (before === undefined) delete process.env.VITE_SITE_MODE; else process.env.VITE_SITE_MODE = before;

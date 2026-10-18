@@ -27,7 +27,7 @@ export function HeroDownload({ locale }: { locale: Locale }) {
   const available = !loading && !error && platform && release;
   const platformLabel = (p: DesktopPlatform) => `${desktopOSLabel(p.os)} · ${desktopArchLabel(p)}`;
   const isCurrentDevice = (p: DesktopPlatform) => p.os === device.os && p.arch === device.arch;
-  const label = platform ? `${zh ? '下载' : 'Download'} Molr (${desktopOSLabel(platform.os)}·${desktopArchLabel(platform)})` : '';
+  const label = platform ? `${zh ? '下载 Molr 桌面版' : 'Download Molr Desktop'} (${platformLabel(platform)})` : '';
   const optionsTitle = zh ? '选择下载版本' : 'Choose a download';
   const status = loading ? (zh ? '正在读取下载信息…' : 'Loading downloads…')
     : error ? (zh ? '暂时无法读取下载信息。' : 'Downloads are temporarily unavailable.')
