@@ -8,6 +8,24 @@
 </p>
 
 <p align="center">
+  <a href="#近期路线图">
+    <img src="https://img.shields.io/badge/status-in%20development-orange" alt="状态：开发中" />
+  </a>
+  <a href="https://github.com/molr-ai/molr/actions/workflows/ci.yml?query=branch%3Amain">
+    <img src="https://github.com/molr-ai/molr/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" />
+  </a>
+  <a href="https://github.com/molr-ai/molr/releases">
+    <img src="https://img.shields.io/github/v/release/molr-ai/molr?include_prereleases&amp;sort=date&amp;label=latest" alt="最新发布版本，包含正式版、预发布和 Nightly" />
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/license-MIT-blue" alt="许可证：MIT" />
+  </a>
+  <a href="docs/README.md">
+    <img src="https://img.shields.io/badge/docs-%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-blue" alt="文档：简体中文" />
+  </a>
+</p>
+
+<p align="center">
   <a href="README.md">English</a> | <strong>简体中文</strong>
 </p>
 

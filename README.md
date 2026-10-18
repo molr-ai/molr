@@ -8,6 +8,24 @@
 </p>
 
 <p align="center">
+  <a href="#near-term-roadmap">
+    <img src="https://img.shields.io/badge/status-in%20development-orange" alt="Status: in development" />
+  </a>
+  <a href="https://github.com/molr-ai/molr/actions/workflows/ci.yml?query=branch%3Amain">
+    <img src="https://github.com/molr-ai/molr/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" />
+  </a>
+  <a href="https://github.com/molr-ai/molr/releases">
+    <img src="https://img.shields.io/github/v/release/molr-ai/molr?include_prereleases&amp;sort=date&amp;label=latest" alt="Latest release, including prereleases and nightly builds" />
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT" />
+  </a>
+  <a href="docs/en/README.md">
+    <img src="https://img.shields.io/badge/docs-English-blue" alt="Documentation: English" />
+  </a>
+</p>
+
+<p align="center">
   <strong>English</strong> | <a href="README.zh-CN.md">简体中文</a>
 </p>
 
