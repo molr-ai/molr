@@ -155,15 +155,17 @@ func TestRemoteNativeSandboxIntegration(t *testing.T) {
 	need(t, err)
 	deadline := time.Now().Add(10 * time.Second)
 	for {
-		_, err = b.shellTasks.manage(t.Context(), owner, e.AssistantID, tools.ShellTaskRequest{Action: "write", TaskID: e.OperationID, Data: "hello\n"})
+		_, err = b.shellTasks.manage(t.Context(), owner, e.AssistantID, tools.ShellTaskRequest{Action: "takeover", TaskID: e.OperationID, ClientID: "remote-native-terminal", Generation: 1})
 		if err == nil {
 			break
 		}
-		if time.Now().After(deadline) {
+		if core.CodeOf(err) != core.FailedPrecondition || time.Now().After(deadline) {
 			t.Fatal(err)
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
+	_, err = b.shellTasks.manage(t.Context(), owner, e.AssistantID, tools.ShellTaskRequest{Action: "write", TaskID: e.OperationID, ClientID: "remote-native-terminal", Generation: 2, Sequence: 1, Data: "hello\n"})
+	need(t, err)
 	// Exercise at least one authorization renewal before revocation.
 	time.Sleep(3500 * time.Millisecond)
 	need(t, b.Services.Grants.Revoke(t.Context(), owner, policy.RevokeRequest{GrantID: ng.ID, Mutation: core.Mutation{IdempotencyKey: "revoke-network", ExpectedVersion: ng.Version}}))

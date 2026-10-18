@@ -30,10 +30,13 @@ func TestSandboxDirectorySelectionAndPolicyRecheck(t *testing.T) {
 	}
 	ref, err := directoryReference(d.ID)
 	need(t, err)
+	// Other filesystem users may change disk usage between reference lookups.
+	need(t, os.WriteFile(filepath.Join(child, "capacity-change"), make([]byte, 1<<20), 0600))
 	resolved, err := resolveSandboxDirectory(t.Context(), ad, ref)
 	need(t, err)
-	if resolved != d {
-		t.Fatal("saved reference changed")
+	// Capacity is a live filesystem snapshot, not part of the saved binding.
+	if resolved.ID != d.ID || resolved.Path != d.Path || resolved.Name != d.Name || resolved.ReadOnly != d.ReadOnly {
+		t.Fatalf("saved reference changed: before=%+v after=%+v", d, resolved)
 	}
 	for _, bad := range []sm.DirectoryRequest{{SourceID: q.SourceID, Path: "../"}, {SourceID: q.SourceID, Path: other}, {Path: other}, {Path: private}} {
 		if _, err := resolveSandboxDirectory(t.Context(), ad, bad); err == nil {

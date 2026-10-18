@@ -119,15 +119,22 @@ func TestNativeSandboxGrantRoutingAndRevocation(t *testing.T) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	_, err = b.shellTasks.manage(ctx, owner, e.AssistantID, tools.ShellTaskRequest{Action: "write", TaskID: e.OperationID, Data: "echo TERMINAL_OK\n"})
+	_, err = b.shellTasks.manage(ctx, owner, e.AssistantID, tools.ShellTaskRequest{Action: "takeover", TaskID: e.OperationID, ClientID: "native-terminal", Generation: 1})
 	need(t, err)
-	time.Sleep(100 * time.Millisecond)
-	raw, err = b.shellTasks.manage(ctx, owner, e.AssistantID, tools.ShellTaskRequest{Action: "read", TaskID: e.OperationID})
+	_, err = b.shellTasks.manage(ctx, owner, e.AssistantID, tools.ShellTaskRequest{Action: "write", TaskID: e.OperationID, ClientID: "native-terminal", Generation: 2, Sequence: 1, Data: "printf 'TERMINAL_%s\\n' OK\n"})
 	need(t, err)
-	if !strings.Contains(string(raw), "TERMINAL_OK") {
-		t.Fatal(string(raw))
+	for deadline := time.Now().Add(3 * time.Second); ; {
+		raw, err = b.shellTasks.manage(ctx, owner, e.AssistantID, tools.ShellTaskRequest{Action: "read", TaskID: e.OperationID})
+		need(t, err)
+		if strings.Contains(string(raw), "TERMINAL_OK") {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("terminal output not ready: %s", raw)
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
-	_, err = b.shellTasks.manage(ctx, owner, e.AssistantID, tools.ShellTaskRequest{Action: "stop", TaskID: e.OperationID})
+	_, err = b.shellTasks.manage(ctx, owner, e.AssistantID, tools.ShellTaskRequest{Action: "stop", TaskID: e.OperationID, ClientID: "native-terminal", Generation: 2, Sequence: 2})
 	need(t, err)
 	rows, err := persistence.Select[policy.Grant](ctx, b.store, "security.grants", persistence.Query{})
 	need(t, err)
