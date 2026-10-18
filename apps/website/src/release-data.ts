@@ -32,8 +32,3 @@ export function publishedChannel(catalog: { channels: Record<Channel, unknown> }
 export function installCommand(mode: RuntimeMode = 'server'): string {
   return `curl -fsSL https://molr.ai/install.sh | sh -s -- --mode ${mode}`;
 }
-
-export function packageInstallCommand(platform: ReleasePlatform, mode: RuntimeMode = 'server'): string {
-  return `${platform.os === 'darwin' ? 'shasum -a 256' : 'sha256sum'} -c ${platform.file}.sha256 &&\n` +
-    `tar -xzf ${platform.file} &&\ncd molr &&\n./bin/molr-setup --mode ${mode}`;
-}

@@ -165,7 +165,7 @@ curl -fsSL https://molr.ai/install.sh | sh -s -- --channel nightly
 curl -fsSL https://molr.ai/install.sh | sh -s -- --channel preview --version 0.2.0-rc.1
 ```
 
-官网的后端与沙盒入口使用 curl，自动检测系统和架构，安装正式渠道最新版；没有正式发行包时显示“即将推出”。版本号统一显示在安装区域右上角，页面不提供架构、下载工具或版本选项。手动下载按浏览器匹配正式发行包，无法匹配时显示列表首项；部署其他设备时，从 [GitHub Releases](https://github.com/molr-ai/molr/releases) 选择目标系统、架构及版本，下载归档和同名 `.sha256` 文件后离线安装。
+官网的后端与沙盒入口使用 curl，自动检测系统和架构，安装正式渠道最新版；没有正式发行包时显示“即将推出”。版本号统一显示在安装区域右上角，页面不提供架构、下载工具或版本选项。官网只提供命令安装和 Agent 安装。需要手动或离线安装时，从 [GitHub Releases](https://github.com/molr-ai/molr/releases) 选择目标系统、架构及版本，下载归档和同名 `.sha256` 文件后，按本节步骤安装。Docker 安装见 [Docker 部署](https://molr.ai/zh/docs/admin/deployment/docker/)。
 
 指定架构、版本或下载工具时，可调整以下命令。`--arch amd64` 或 `--arch arm64` 用于核对设备架构，不匹配时在下载前停止；省略则自动检测。`--version` 必须对应发布目录中存在的版本，省略时安装所选渠道最新版；默认渠道为 stable。沙盒节点将 `--mode server` 改为 `--mode sandbox`。
 

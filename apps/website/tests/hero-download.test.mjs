@@ -49,7 +49,12 @@ test('hero downloads detected platform directly, supports manual selection and h
     await expect(hero.getByRole('link', { name: 'View docs', exact: true })).toHaveAttribute('href', '/en/docs/user/');
     await expect(hero.getByRole('link', { name: 'More installation methods', exact: true })).toHaveAttribute('href', '#install');
     await expect(hero.locator('.home-download-actions').getByRole('link')).toHaveCount(2);
-    await expect(hero.locator('.home-download-primary')).toHaveText('Download Molr Desktop (Windows · AMD64)');
+    await expect(hero.locator('.home-download-label > span')).toHaveText('Download Molr Desktop');
+    await expect(hero.locator('.home-download-label > small')).toHaveText('Windows · AMD64');
+    const titleBox = await hero.locator('.home-download-label > span').boundingBox();
+    const detailBox = await hero.locator('.home-download-label > small').boundingBox();
+    assert(detailBox.y >= titleBox.y + titleBox.height);
+    assert(await hero.locator('.home-download-label').evaluate(el => parseFloat(getComputedStyle(el.querySelector('small')).fontSize) < parseFloat(getComputedStyle(el.querySelector('span')).fontSize)));
     await expect(hero.locator('pre')).toHaveCount(0);
     await expect(hero.locator('.home-download-meta, .home-download-edition')).toHaveCount(0);
     await expect(page.getByRole('button', { name: /^(Stable|Preview|Nightly)$/ })).toHaveCount(0);
