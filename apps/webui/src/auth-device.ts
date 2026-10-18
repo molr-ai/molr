@@ -86,7 +86,12 @@ export class BrowserLogin {
     try {
       const proof = await api.get<{ csrf_token: string }>('/api/auth/csrf');
       this.csrf = proof.csrf_token;
-      const result = await api.post<T>(path, { ...input, device_id: this.device, device_name: browserDeviceName(), client_type: 'web' }, this.csrf);
+      const result = await api.post<T>(path, { ...input, device_id: this.device, device_name: browserDeviceName(), client_type: 'web' }, this.csrf).catch(error => {
+        if (path === '/api/auth/login' && error instanceof APIError && error.code === 'unauthenticated') {
+          throw new APIError('invalid_credentials', error.requestID, error.status, error.retryAt, error.reason);
+        }
+        throw error;
+      });
       this.challenge = result.challenge ?? '';
       if (!this.challenge) await this.close();
       return result;
@@ -97,7 +102,12 @@ export class BrowserLogin {
     try {
       await this.assertLease();
       if (!this.challenge) throw new APIError('login_interrupted');
-      await api.post('/api/auth/mfa/complete', { challenge: this.challenge, code, device_id: this.device, client_type: 'web' }, this.csrf);
+      await api.post('/api/auth/mfa/complete', { challenge: this.challenge, code, device_id: this.device, client_type: 'web' }, this.csrf).catch(error => {
+        if (error instanceof APIError && error.code === 'unauthenticated') {
+          throw new APIError('invalid_verification_code', error.requestID, error.status, error.retryAt, error.reason);
+        }
+        throw error;
+      });
       await this.close();
     } catch (error) {
       if (error instanceof APIError && (error.status === 409 || error.code === 'login_interrupted')) { await this.close(); throw new APIError('login_interrupted'); }

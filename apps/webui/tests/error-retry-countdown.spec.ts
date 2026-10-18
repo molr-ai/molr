@@ -38,7 +38,7 @@ test('fractional deadline enables retry when it expires and never before',async(
  await page.clock.runFor(1);await expect(retry).toBeEnabled();await expect(retry).toHaveText('Retry');
 });
 
-test('an error without a retry action remains idle',async({page})=>{
+test('an error without a retry action updates its remaining wait',async({page})=>{
  await page.getByRole('button',{name:'Toggle retry action',exact:true}).click();
  await page.getByRole('button',{name:'Wait 5 seconds',exact:true}).click();
  await expect(page.locator('.ui-toast--warning')).toBeVisible();
@@ -46,7 +46,7 @@ test('an error without a retry action remains idle',async({page})=>{
  await page.clock.runFor(50);
  const before=await page.evaluate(()=>window.retryNoticeWakeups);
  await page.clock.runFor(3000);
- expect(await page.evaluate(()=>window.retryNoticeWakeups)).toBe(before);
+ expect(await page.evaluate(()=>window.retryNoticeWakeups)).toBeGreaterThan(before);
  await page.getByRole('button',{name:'Toggle retry action',exact:true}).click();
  await expect(page.locator('.ui-toast__action')).toBeDisabled();
  await page.clock.runFor(2000);await expect(page.locator('.ui-toast__action')).toBeEnabled();
@@ -67,7 +67,7 @@ test('replacing a deadline cancels the previous countdown',async({page})=>{
  expect(await page.evaluate(()=>window.retryNoticeWakeups)).toBe(before);
 });
 
-for(const action of ['Clear error','Toggle retry action','Toggle notice','Close']) {
+for(const action of ['Clear error','Toggle notice','Close']) {
  test(`${action} cancels the active countdown`,async({page})=>{
   await page.getByRole('button',{name:'Wait 5 seconds',exact:true}).click();
   await expect(page.locator('.ui-toast__action')).toBeDisabled();await page.clock.runFor(1000);

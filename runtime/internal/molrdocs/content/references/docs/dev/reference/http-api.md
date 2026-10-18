@@ -235,7 +235,11 @@ Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugi
 
 HTTP 限流在事务内读取并更新持久计数，通过的请求占用当前窗口额度；额度已耗尽时返回 429 和 `Retry-After`，不重写未变化的计数，也不延长窗口。并发请求共享事务计数，重启保留窗口；存储失败时拒绝放行。
 
+认证限流也通过 `Retry-After` 返回向上取整的剩余秒数。密码登录同时检查账号的一分钟窗口和来源地址的十分钟窗口；两者均已耗尽时返回较长的等待时间。前端只根据服务器提供的有效等待时间显示倒计时，不将内部退避估算显示为确定的恢复时间。
+
 ## 认证与浏览器流程
+
+`POST /api/auth/login` 的 `remember_me` 布尔字段控制 Cookie 持久化：`true` 时会话 Cookie 和 CSRF proof Cookie 均设置会话的绝对到期时间，`false` 或省略时均不设置 `Expires`／`Max-Age`，使用浏览器会话 Cookie。WebUI 默认勾选；MFA challenge 在服务端保留此选择，完成验证时不能更改。一次性链接登录继续使用持久 Cookie。两种 Cookie 模式共享服务端有效期，默认闲置 7 天、绝对 30 天；分别由 `auth.session_idle` 和 `auth.session_lifetime` 配置。
 
 1. `GET /api/auth/csrf` 获取 `csrf_token`，server 同时设置独立的预登录 Cookie。
 2. `POST /api/auth/login` 发送 JSON `username`、`password`，携带 Cookie、`Origin` 与 `X-CSRF-Token`。启用 MFA 时返回 `challenge`，再调用 `/api/auth/mfa/complete`。

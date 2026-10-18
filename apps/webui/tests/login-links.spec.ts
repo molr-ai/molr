@@ -139,9 +139,32 @@ test('login links still require MFA and finish at the saved destination', async 
     await next.getByRole('button', { name: 'Confirm sign-in', exact: true }).click();
     await expect(next.getByLabel('Authenticator or recovery code', { exact: true })).toBeVisible();
     await expect(next.getByRole('navigation', { name: 'Molr' })).toHaveCount(0);
+    await next.getByLabel('Authenticator or recovery code', { exact: true }).fill('invalid-recovery-code');
+    await next.getByRole('button', { name: 'Verify', exact: true }).click();
+    await expect(next.getByText('Invalid authenticator or recovery code. Please try again.', { exact: true })).toBeVisible();
     await next.getByLabel('Authenticator or recovery code', { exact: true }).fill(codes.recovery_codes[0]);
     await next.getByRole('button', { name: 'Verify', exact: true }).click();
     await expect(settingsNavItem(next, 'Theme')).toHaveAttribute('aria-current', 'page');
+    for (const remember of [false, true]) {
+      const passwordContext = await browser.newContext({ locale: 'en-US' });
+      try {
+        const passwordPage = await passwordContext.newPage();
+        await passwordPage.goto(base);
+        await passwordPage.getByLabel('Username', { exact: true }).fill('owner');
+        await passwordPage.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!');
+        await passwordPage.getByRole('checkbox', { name: 'Keep me signed in', exact: true }).setChecked(remember);
+        await passwordPage.getByRole('button', { name: 'Sign in', exact: true }).click();
+        await passwordPage.getByLabel('Authenticator or recovery code', { exact: true }).fill('invalid-recovery-code');
+        await passwordPage.getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(passwordPage.getByText('Invalid authenticator or recovery code. Please try again.', { exact: true })).toBeVisible();
+        await passwordPage.getByLabel('Authenticator or recovery code', { exact: true }).fill(codes.recovery_codes[remember ? 3 : 2]);
+        await passwordPage.getByRole('button', { name: 'Verify', exact: true }).click();
+        await expect(passwordPage.getByRole('navigation', { name: 'Molr' })).toBeVisible();
+        const cookies = (await passwordContext.cookies()).filter(cookie => /^molr_dev_(session|csrf)_p/.test(cookie.name));
+        expect(cookies).toHaveLength(2);
+        for (const cookie of cookies) expect(cookie.expires > 0).toBe(remember);
+      } finally { await passwordContext.close(); }
+    }
   } finally {
     await other.close();
     const proof = await post('/api/auth/reauthenticate', { password: 'webui-e2e-password-2026!', mfa_code: codes.recovery_codes[1], purpose: 'mfa.disable' });

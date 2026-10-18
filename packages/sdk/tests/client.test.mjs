@@ -69,3 +69,12 @@ test('HTTP error reasons survive without exposing diagnostic messages', async ()
       && error.reason === (typeof reason === 'string' ? reason : '') && !error.message.includes('private diagnostic'));
   }
 }));
+
+for (const [header, expected] of [["3661", 3661000], [null, 0], ["invalid", 0]]) {
+ test(`rate-limit wait uses only a valid Retry-After header (${header})`, async () => withBrowser(async () => {
+  const { api } = createClient();
+  globalThis.fetch = async () => Response.json({ code: 'rate_limited' }, { status: 429, headers: header ? { 'Retry-After': header } : {} });
+  const before = Date.now();
+  await assert.rejects(api.post('/api/auth/login'), error => expected ? error.retryAt >= before + expected && error.retryAt <= Date.now() + expected : error.retryAt === 0);
+ }));
+}

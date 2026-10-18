@@ -10,11 +10,15 @@ import (
 )
 
 func (s *HTTPServer) session(w http.ResponseWriter, issued auth.SessionIssued, target ...string) {
-	http.SetCookie(w, &http.Cookie{Name: s.cookieName(sessionCookie), Value: issued.Token.Reveal(), Path: "/", Secure: !s.config.HTTP.PlainHTTP(), HttpOnly: true, SameSite: http.SameSiteStrictMode, Expires: issued.Session.ExpiresAt})
+	var expires time.Time
+	if issued.RememberMe {
+		expires = issued.Session.ExpiresAt
+	}
+	http.SetCookie(w, &http.Cookie{Name: s.cookieName(sessionCookie), Value: issued.Token.Reveal(), Path: "/", Secure: !s.config.HTTP.PlainHTTP(), HttpOnly: true, SameSite: http.SameSiteStrictMode, Expires: expires})
 	// This is a separate proof, never the session credential. Browser clients
 	// can restore it after a reload or in another tab; CheckCSRF still compares
 	// its header value against the authenticated session's persisted digest.
-	http.SetCookie(w, &http.Cookie{Name: s.cookieName(csrfCookie), Value: issued.CSRF.Reveal(), Path: "/", Secure: !s.config.HTTP.PlainHTTP(), SameSite: http.SameSiteStrictMode, Expires: issued.Session.ExpiresAt})
+	http.SetCookie(w, &http.Cookie{Name: s.cookieName(csrfCookie), Value: issued.CSRF.Reveal(), Path: "/", Secure: !s.config.HTTP.PlainHTTP(), SameSite: http.SameSiteStrictMode, Expires: expires})
 	http.SetCookie(w, &http.Cookie{Name: s.cookieName(loginCookie), Path: "/", Secure: !s.config.HTTP.PlainHTTP(), HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: -1})
 	response := map[string]any{"session": issued.Session, "csrf_token": issued.CSRF.Reveal()}
 	if len(target) == 1 {
@@ -53,6 +57,7 @@ func (s *HTTPServer) authRoutes() {
 	s.mux.HandleFunc("POST /api/auth/login", func(w http.ResponseWriter, r *http.Request) {
 		input, err := decode[struct {
 			Username   string `json:"username"`
+			RememberMe bool   `json:"remember_me"`
 			Password   string `json:"password"`
 			DeviceName string `json:"device_name"`
 			DeviceID   string `json:"device_id"`
@@ -62,7 +67,7 @@ func (s *HTTPServer) authRoutes() {
 			fail(w, err, info(r).ID)
 			return
 		}
-		result, err := s.services.Auth.Login(r.Context(), auth.LoginRequest{Username: input.Username, Password: core.NewSecret(input.Password), Client: auth.Client{Address: info(r).ClientAddress, UserAgent: r.UserAgent(), DeviceName: input.DeviceName, DeviceID: input.DeviceID, ClientType: input.ClientType}})
+		result, err := s.services.Auth.Login(r.Context(), auth.LoginRequest{RememberMe: input.RememberMe, Username: input.Username, Password: core.NewSecret(input.Password), Client: auth.Client{Address: info(r).ClientAddress, UserAgent: r.UserAgent(), DeviceName: input.DeviceName, DeviceID: input.DeviceID, ClientType: input.ClientType}})
 		if err != nil {
 			fail(w, err, info(r).ID)
 			return

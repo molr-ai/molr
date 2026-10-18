@@ -139,7 +139,7 @@ func (m *Manager) RevokeLoginLink(ctx context.Context, p core.Principal, id core
 
 // PreviewLoginLink reads only display metadata; it never consumes the link or issues a session.
 func (m *Manager) PreviewLoginLink(ctx context.Context, req PreviewLoginLinkRequest) (LoginLinkPreview, error) {
-	if err := m.limit(ctx, "login-link-preview-address:"+req.Client.Address, time.Minute); err != nil {
+	if err := m.limit(ctx, authLimit{"login-link-preview-address:" + req.Client.Address, time.Minute}); err != nil {
 		return LoginLinkPreview{}, err
 	}
 	if req.Token.Empty() || len(req.Token.Reveal()) > 128 {
@@ -171,7 +171,7 @@ func (m *Manager) PreviewLoginLink(ctx context.Context, req PreviewLoginLinkRequ
 }
 
 func (m *Manager) RedeemLoginLink(ctx context.Context, req RedeemLoginLinkRequest) (LoginLinkResult, error) {
-	if err := m.limit(ctx, "login-link-address:"+req.Client.Address, time.Minute); err != nil {
+	if err := m.limit(ctx, authLimit{"login-link-address:" + req.Client.Address, time.Minute}); err != nil {
 		return LoginLinkResult{}, err
 	}
 	if req.Token.Empty() || len(req.Token.Reveal()) > 128 {
@@ -216,12 +216,12 @@ func (m *Manager) RedeemLoginLink(ctx context.Context, req RedeemLoginLinkReques
 			if err := tx.Put(ctx, loginLinksBucket, key, record); err != nil {
 				return err
 			}
-			if err := m.repo.PutChallenge(ctx, StoredChallenge{Digest: digest(raw), AccountID: record.AccountID, Purpose: "login", ExpiresAt: expiry, LoginLinkDigest: key, DeviceDigest: req.Client.deviceDigest, ClientType: req.Client.ClientType, DeviceName: req.Client.DeviceName, ExpectedSession: req.Client.expectedSession}); err != nil {
+			if err := m.repo.PutChallenge(ctx, StoredChallenge{Digest: digest(raw), AccountID: record.AccountID, Purpose: "login", ExpiresAt: expiry, LoginLinkDigest: key, DeviceDigest: req.Client.deviceDigest, ClientType: req.Client.ClientType, DeviceName: req.Client.DeviceName, ExpectedSession: req.Client.expectedSession, RememberMe: true}); err != nil {
 				return err
 			}
 			out.Challenge = &Challenge{ID: core.NewSecret(raw), ExpiresAt: expiry}
 		} else {
-			issued, err := m.issueSession(ctx, record.AccountID, req.Client)
+			issued, err := m.issueSession(ctx, record.AccountID, req.Client, true)
 			if err != nil {
 				return err
 			}

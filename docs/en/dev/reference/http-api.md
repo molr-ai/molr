@@ -235,7 +235,11 @@ Storage connections: `POST /api/sandboxes/resource` accepts `SourceID` and relat
 
 HTTP rate limiting reads and updates persistent counters within a transaction; passing requests consume the current window quota. When the quota is exhausted, it returns 429 and `Retry-After`, without rewriting unchanged counters or extending the window. Concurrent requests share the transaction counter, and the window is preserved across restarts; if storage fails, requests are denied.
 
+Authentication rate limits also return the remaining wait in whole seconds, rounded up, through `Retry-After`. Password sign-in checks a one-minute account window and a ten-minute source-address window; when both are exhausted, the longer wait is returned. The frontend displays a countdown only for a valid server-provided wait, without presenting internal backoff estimates as a known recovery time.
+
 ## Authentication and Browser Flow
+
+The boolean `remember_me` field on `POST /api/auth/login` controls cookie persistence. When true, both the session and CSRF proof cookies use the session’s absolute expiration. When false or omitted, neither cookie sets `Expires` or `Max-Age`; they are browser session cookies. WebUI selects this option by default. MFA challenges retain the choice server-side, and completion cannot change it. One-time login links continue to use persistent cookies. Both modes share the server limits: 7 days idle and 30 days absolute by default, configured through `auth.session_idle` and `auth.session_lifetime`.
 
 1. `GET /api/auth/csrf` obtains `csrf_token`, and the server simultaneously sets an independent pre-login Cookie.
 2. `POST /api/auth/login` sends JSON `username`, `password`, carrying Cookies, `Origin`, and `X-CSRF-Token`. If MFA is enabled, it returns `challenge`, then calls `/api/auth/mfa/complete`.

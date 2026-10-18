@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence/sqlitestore"
 	"molr.ai/runtime/tests/testkit"
@@ -114,6 +115,10 @@ func TestLoginAddressQuarantineOutlivesAccountWindow(t *testing.T) {
 	if _, err = manager.Login(ctx, LoginRequest{Username: "owner", Password: core.NewSecret("strong-initial-password-123!"), Client: attacker}); core.CodeOf(err) != core.RateLimited {
 		t.Fatalf("expected rate limit on sixth attempt, got %v", err)
 	}
+	var limited *core.Error
+	if !errors.As(err, &limited) || limited.RetryAfter != 10*time.Minute {
+		t.Fatalf("combined retry delay: %v", err)
+	}
 	// Two minutes later the one-minute account window has reset, but the
 	// ten-minute address quarantine must still hold the attacker back.
 	mu.Lock()
@@ -121,6 +126,9 @@ func TestLoginAddressQuarantineOutlivesAccountWindow(t *testing.T) {
 	mu.Unlock()
 	if _, err = manager.Login(ctx, LoginRequest{Username: "owner", Password: core.NewSecret("wrong-password-attempt"), Client: attacker}); core.CodeOf(err) != core.RateLimited {
 		t.Fatalf("expected address quarantine to persist, got %v", err)
+	}
+	if !errors.As(err, &limited) || limited.RetryAfter != 8*time.Minute {
+		t.Fatalf("remaining retry delay: %v", err)
 	}
 	// The owner from a different address is unaffected by the quarantine and
 	// by anything the attacker poured into the account bucket.
@@ -139,4 +147,23 @@ func TestLoginAddressQuarantineOutlivesAccountWindow(t *testing.T) {
 	if _, err = manager.Login(ctx, LoginRequest{Username: "owner", Password: core.NewSecret("strong-initial-password-123!"), Client: attacker}); err != nil {
 		t.Fatalf("quarantine must expire: %v", err)
 	}
+}
+
+func TestLimitRetryAfterDecreasesWithoutExtendingWindow(t *testing.T) {
+	f := fixture(t)
+	manager := f.Service.(*Manager)
+	ctx := testkit.Context(t)
+	rule := authLimit{"retry-after-fixture", time.Minute}
+	for i := 0; i < 5; i++ {
+		testkit.RequireNoError(t, manager.limit(ctx, rule))
+	}
+	for _, delay := range []time.Duration{time.Minute, time.Minute - 1500*time.Millisecond} {
+		var limited *core.Error
+		if err := manager.limit(ctx, rule); !errors.As(err, &limited) || limited.RetryAfter != delay {
+			t.Fatalf("expected %v, got %+v", delay, limited)
+		}
+		f.Advance(1500 * time.Millisecond)
+	}
+	f.Advance(57 * time.Second)
+	testkit.RequireNoError(t, manager.limit(ctx, rule))
 }

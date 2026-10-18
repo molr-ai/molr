@@ -22,14 +22,27 @@ const LocaleContext = createContext({ locale: 'zh' as UILocale, setLocale: (_: U
 export function LocaleProvider({ children }: { children: ReactNode }) {
   const { theme } = useTheme();
   const appearance = usePalettePreference('molr-webui-palette', theme, `${import.meta.env.BASE_URL}brand`);
-  const [locale, setLocaleState] = useState<UILocale>(() => {
-    try { const value = localStorage.getItem('molr-webui-locale'); if (value === 'zh' || value === 'en') return value; } catch { /* storage is optional */ }
-    return navigator.language.toLowerCase().startsWith('zh') ? 'zh' : 'en';
-  });
-  const setLocale = useCallback((value: UILocale) => { setLocaleState(value); try { localStorage.setItem('molr-webui-locale', value); } catch { /* memory fallback */ } }, []);
+  const [locale, setLocaleState] = useState<UILocale>(preferredLocale);
+  const setLocale = useCallback((value: UILocale) => {
+    setLocaleState(value);
+    try { document.cookie = `${localeCookieName()}=${value}; Path=/; Max-Age=31536000; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`; } catch { /* The current page still keeps its preference. */ }
+  }, []);
+  useEffect(() => {
+    const sync = () => setLocaleState(preferredLocale());
+    window.addEventListener('languagechange', sync);
+    return () => window.removeEventListener('languagechange', sync);
+  }, []);
   useEffect(() => { document.documentElement.lang = locale === 'zh' ? 'zh-CN' : 'en'; }, [locale]);
   const value = useMemo(() => ({ locale, setLocale }), [locale, setLocale]);
   return <LocaleContext.Provider value={value}><PaletteContext.Provider value={appearance}><UIProvider locale={locale} brandAssetBase={paletteAssetBase(appearance.palette, `${import.meta.env.BASE_URL}brand`)}><ToastProvider>{children}</ToastProvider></UIProvider></PaletteContext.Provider></LocaleContext.Provider>;
+}
+function localeCookieName() { return `molr_locale_p${location.port || (location.protocol === 'https:' ? '443' : '80')}`; }
+function preferredLocale(): UILocale {
+  try {
+    const value = document.cookie.split('; ').find(cookie => cookie.startsWith(`${localeCookieName()}=`))?.split('=')[1];
+    if (value === 'zh' || value === 'en') return value;
+  } catch { /* Browser language remains available without cookies. */ }
+  return navigator.language.toLowerCase().startsWith('zh') ? 'zh' : 'en';
 }
 export function useCopy() { const value = useContext(LocaleContext); return { ...value, t: messages[value.locale] }; }
 

@@ -23,7 +23,7 @@ export function createClient(transport?: RuntimeTransport) {
   }
 
   const attempts = new Map<string, string>();
-  let cooldown: { identity: string; error: APIError } | undefined;
+  let cooldown: { identity: string; until: number; error: APIError } | undefined;
   function clearClientState() { attempts.clear(); cooldown = undefined; }
 
   async function request<T>(path: string, init: RequestInit = {}, csrf?: string, binary = false, readOnly = false, expireOnUnauthorized = false): Promise<T> {
@@ -42,7 +42,7 @@ export function createClient(transport?: RuntimeTransport) {
     if (init.body && typeof init.body === 'string') headers.set('Content-Type', 'application/json');
     if (init.method && init.method !== 'GET') headers.set('X-CSRF-Token', csrf ?? csrfToken());
     const requestIdentity = csrfToken();
-    if ((readOnly || !init.method || init.method === 'GET') && !path.startsWith('/api/auth/') && cooldown?.identity === requestIdentity && cooldown.error.retryAt > Date.now()) throw cooldown.error;
+    if ((readOnly || !init.method || init.method === 'GET') && !path.startsWith('/api/auth/') && cooldown?.identity === requestIdentity && cooldown.until > Date.now()) throw cooldown.error;
     let response: Response;
     try { response = await fetch(path, { ...init, headers, credentials: 'same-origin', cache: 'no-store' }); }
     catch (error) { if (error instanceof DOMException && error.name === 'AbortError') throw error; throw new APIError('unavailable'); }
@@ -56,9 +56,9 @@ export function createClient(transport?: RuntimeTransport) {
       if (response.status === 401 && !init.signal?.aborted && requestIdentity === csrfToken() && (path !== '/api/auth/me' || expireOnUnauthorized) && !path.startsWith('/api/auth/login') && !path.startsWith('/api/auth/mfa/complete') && path !== '/api/auth/reauthenticate' && path !== '/api/auth/mfa/confirm') sessionEvents.dispatchEvent(new Event('expired'));
       const retryAfter = response.headers.get('Retry-After');
       const seconds = retryAfter && /^\d+$/.test(retryAfter) ? Number(retryAfter) : NaN;
-      const retryAt = response.status === 429 ? Number.isFinite(seconds) ? Date.now() + seconds * 1000 : Math.max(Date.now() + 1000, Date.parse(retryAfter ?? '') || Date.now() + 60000) : 0;
+      const retryAt = response.status === 429 ? Number.isFinite(seconds) ? Date.now() + seconds * 1000 : Math.max(0, Date.parse(retryAfter ?? '') || 0) : 0;
       const error = new APIError(data?.code ?? 'unavailable', data?.request_id ?? '', response.status, retryAt, typeof data?.reason === 'string' ? data.reason : '');
-      if (response.status === 429 && !path.startsWith('/api/auth/')) cooldown = { identity: requestIdentity, error };
+      if (response.status === 429 && !path.startsWith('/api/auth/')) cooldown = { identity: requestIdentity, until: retryAt || Date.now() + 60000, error };
       throw error;
     }
     if (!readOnly && init.method && init.method !== 'GET') sessionEvents.dispatchEvent(new CustomEvent('mutation', { detail: path }));

@@ -4,7 +4,7 @@ import { useModalScope, useToast } from '@molr/ui';
 import { APIError } from './api/client';
 import { useCopy, useData } from './state';
 
-type Source = { toast: ReturnType<typeof useToast>['toast']; boundary: HTMLElement | null; title: string; retryLabel: string; retryAt: number; retry?: () => void };
+type Source = { toast: ReturnType<typeof useToast>['toast']; boundary: HTMLElement | null; title: string; waitTitle?: (seconds: number) => string; retryLabel: string; retryAt: number; retry?: () => void };
 type Group = { sources: Map<string, Source>; toastID?: number; boundary?: HTMLElement | null; dismissed: boolean; timer?: ReturnType<typeof setTimeout> };
 const shared = (key: string) => key === 'unavailable' || key === 'rate_limited';
 
@@ -42,18 +42,18 @@ class ErrorToasts {
   group.boundary = source.boundary;
   const remaining = Math.max(0, Math.ceil((source.retryAt - Date.now()) / 1000));
   const options = {
-   title: source.title, tone: key === 'rate_limited' ? 'warning' as const : 'danger' as const,
+   title: source.waitTitle ? source.waitTitle(remaining) : source.title, tone: key === 'rate_limited' ? 'warning' as const : 'danger' as const,
    // Retriable errors stay available; ordinary feedback uses Toast's timeout.
    duration: source.retry ? 0 : 5000,
    onDismiss: () => { group.dismissed = true; group.toastID = undefined; clearTimeout(group.timer); group.timer = undefined; },
    action: source.retry ? {
-    label: source.retryLabel + (remaining ? ` (${remaining}s)` : ''), disabled: remaining > 0,
+    label: source.retryLabel, disabled: remaining > 0,
     onClick: () => { this.rearm(); source.retry?.(); },
    } : undefined,
   };
   if (group.toastID === undefined) group.toastID = source.toast(options);
   else this.toasts.update(group.toastID, options);
-  if (source.retry && remaining) group.timer = setTimeout(() => this.sync(key, group), Math.min(1000, source.retryAt - Date.now()));
+  if ((source.retry || source.waitTitle) && remaining) group.timer = setTimeout(() => this.sync(key, group), Math.min(1000, source.retryAt - Date.now()));
  }
  dispose = () => {
   for (const group of this.groups.values()) { clearTimeout(group.timer); if (group.toastID !== undefined) this.toasts.dismiss(group.toastID); }
@@ -81,6 +81,6 @@ export function useErrorToast(error: unknown, retry?: () => void) {
  const retryAt = error instanceof APIError ? error.retryAt : 0, hasRetry = !!retry;
  useEffect(() => () => { if (key) errors?.remove(key, id); }, [errors, key, id]);
  useEffect(() => {
-  if (key) errors?.set(key, id, { toast, boundary, title, retryLabel: t.retry, retryAt, retry: hasRetry ? () => retryRef.current?.() : undefined });
- }, [errors, key, id, toast, boundary, title, t.retry, retryAt, hasRetry]);
+  if (key) errors?.set(key, id, { toast, boundary, title, waitTitle: code === 'rate_limited' && retryAt > 0 ? t.rateLimitedWait : undefined, retryLabel: t.retry, retryAt, retry: hasRetry ? () => retryRef.current?.() : undefined });
+ }, [errors, key, id, toast, boundary, title, code, t.rateLimitedWait, t.retry, retryAt, hasRetry]);
 }

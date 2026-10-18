@@ -53,7 +53,7 @@ func NewService(store persistence.Store, o Options) (*Manager, error) {
 		o.SessionLifetime = 30 * 24 * time.Hour
 	}
 	if o.SessionIdle <= 0 {
-		o.SessionIdle = 24 * time.Hour
+		o.SessionIdle = 7 * 24 * time.Hour
 	}
 	if o.VerificationLifetime <= 0 {
 		o.VerificationLifetime = 5 * time.Minute
@@ -257,28 +257,51 @@ type loginLimit struct {
 	Attempts int
 }
 
-func (m *Manager) limit(ctx context.Context, key string, window time.Duration) error {
-	var result error
+type authLimit struct {
+	key    string
+	window time.Duration
+}
+
+func (m *Manager) limit(ctx context.Context, limits ...authLimit) error {
+	var result *core.Error
 	e := m.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		var l loginLimit
-		e := tx.Get(ctx, "auth.limits", digest(key), &l)
-		if e != nil && !persistence.Missing(e) {
-			return e
-		}
 		now := m.options.Now()
-		if !now.Before(l.Window.Add(window)) {
-			l = loginLimit{Window: now}
+		for _, rule := range limits {
+			var l loginLimit
+			e := tx.Get(ctx, "auth.limits", digest(rule.key), &l)
+			if e != nil && !persistence.Missing(e) {
+				return e
+			}
+			if !now.Before(l.Window.Add(rule.window)) {
+				l = loginLimit{Window: now}
+			}
+			if result == nil {
+				l.Attempts++
+				if e := tx.Put(ctx, "auth.limits", digest(rule.key), l); e != nil {
+					return e
+				}
+				if l.Attempts <= m.options.LoginAttemptsPerMinute {
+					continue
+				}
+				result = core.NewError(core.RateLimited, "authentication rate limited")
+			} else if l.Attempts < m.options.LoginAttemptsPerMinute {
+				continue
+			}
+			// Preserve short-circuit accounting, but include every exhausted window
+			// in the wait time so the shorter account window cannot hide quarantine.
+			if delay := l.Window.Add(rule.window).Sub(now); delay > result.RetryAfter {
+				result.RetryAfter = delay
+			}
 		}
-		l.Attempts++
-		if l.Attempts > m.options.LoginAttemptsPerMinute {
-			result = core.NewError(core.RateLimited, "authentication rate limited")
-		}
-		return tx.Put(ctx, "auth.limits", digest(key), l)
+		return nil
 	})
 	if e != nil {
 		return e
 	}
-	return result
+	if result != nil {
+		return result
+	}
+	return nil
 }
 func (m *Manager) Login(ctx context.Context, r LoginRequest) (LoginResult, error) {
 	if err := validateClient(r.Client); err != nil {
@@ -287,12 +310,8 @@ func (m *Manager) Login(ctx context.Context, r LoginRequest) (LoginResult, error
 	if e := persistence.CheckContext(ctx); e != nil {
 		return LoginResult{}, e
 	}
-	if e := m.limit(ctx, "login-account:"+r.Username, time.Minute); e != nil {
-		return LoginResult{}, e
-	}
-	// A long address window quarantines an abusive source for ten minutes so it
-	// cannot keep the account bucket saturated and lock out the owner.
-	if e := m.limit(ctx, "login-address:"+r.Client.Address, 10*time.Minute); e != nil {
+	// The address window outlives the account window to quarantine abusive sources.
+	if e := m.limit(ctx, authLimit{"login-account:" + r.Username, time.Minute}, authLimit{"login-address:" + r.Client.Address, 10 * time.Minute}); e != nil {
 		return LoginResult{}, e
 	}
 	a, e := m.repo.AccountByUsername(ctx, r.Username)
@@ -328,13 +347,13 @@ func (m *Manager) Login(ctx context.Context, r LoginRequest) (LoginResult, error
 		if a.Account.MFAEnabled {
 			raw := randomSecret()
 			expiry := m.options.Now().Add(5 * time.Minute)
-			if e = m.repo.PutChallenge(ctx, StoredChallenge{Digest: digest(raw), AccountID: a.Account.ID, Purpose: "login", ExpiresAt: expiry, DeviceDigest: r.Client.deviceDigest, ClientType: r.Client.ClientType, DeviceName: r.Client.DeviceName, ExpectedSession: r.Client.expectedSession}); e != nil {
+			if e = m.repo.PutChallenge(ctx, StoredChallenge{Digest: digest(raw), AccountID: a.Account.ID, Purpose: "login", ExpiresAt: expiry, DeviceDigest: r.Client.deviceDigest, ClientType: r.Client.ClientType, DeviceName: r.Client.DeviceName, ExpectedSession: r.Client.expectedSession, RememberMe: r.RememberMe}); e != nil {
 				return e
 			}
 			out.Challenge = &Challenge{ID: core.NewSecret(raw), ExpiresAt: expiry}
 			return nil
 		}
-		s, e := m.issueSession(ctx, a.Account.ID, r.Client)
+		s, e := m.issueSession(ctx, a.Account.ID, r.Client, r.RememberMe)
 		out.Session = &s
 		return e
 	})
@@ -455,7 +474,7 @@ func (m *Manager) CompleteMFA(ctx context.Context, r MFAChallengeResponse) (Sess
 				return e
 			}
 		}
-		result, e = m.issueSession(ctx, a.Account.ID, r.Client)
+		result, e = m.issueSession(ctx, a.Account.ID, r.Client, c.RememberMe)
 		return e
 	})
 	if e != nil {
@@ -470,7 +489,7 @@ func (m *Manager) Reauthenticate(ctx context.Context, p core.Principal, r Reauth
 	if r.Purpose == "" || len(r.Purpose) > 128 {
 		return Verification{}, core.Invalid("purpose", "required")
 	}
-	if e := m.limit(ctx, "reauth:"+string(p.SessionID), time.Minute); e != nil {
+	if e := m.limit(ctx, authLimit{"reauth:" + string(p.SessionID), time.Minute}); e != nil {
 		return Verification{}, e
 	}
 	var out Verification
@@ -672,7 +691,7 @@ func (m *Manager) ConfirmMFAEnrollment(ctx context.Context, p core.Principal, r 
 	if e := m.ownerSession(ctx, p); e != nil {
 		return RecoveryCodes{}, e
 	}
-	if e := m.limit(ctx, "mfa-enrollment:"+string(p.SessionID), time.Minute); e != nil {
+	if e := m.limit(ctx, authLimit{"mfa-enrollment:" + string(p.SessionID), time.Minute}); e != nil {
 		return RecoveryCodes{}, e
 	}
 	var out RecoveryCodes

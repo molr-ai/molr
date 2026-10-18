@@ -64,7 +64,7 @@ func (m *Manager) prepareDevice(ctx context.Context, owner core.ID, c *Client) e
 	return err
 }
 
-func (m *Manager) issueSession(ctx context.Context, owner core.ID, c Client) (SessionIssued, error) {
+func (m *Manager) issueSession(ctx context.Context, owner core.ID, c Client, rememberMe bool) (SessionIssued, error) {
 	var out SessionIssued
 	err := m.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		old, err := m.deviceSession(ctx, owner, c.deviceDigest)
@@ -87,6 +87,7 @@ func (m *Manager) issueSession(ctx context.Context, owner core.ID, c Client) (Se
 			name = "Unknown device"
 		}
 		out = SessionIssued{
+			RememberMe: rememberMe,
 			Session: Session{ID: newID(), AccountID: owner, DeviceName: name, ClientType: c.ClientType,
 				CreatedAt: created, LastLoginAt: now, LastSeenAt: now, ExpiresAt: now.Add(m.options.SessionLifetime)},
 			Token: core.NewSecret(randomSecret()), CSRF: core.NewSecret(randomSecret()),

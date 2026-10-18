@@ -139,7 +139,7 @@ func Defaults(dataDir string) Config {
 		Debug:       Debug{MaxRuns: 1000, MaxPayloadBytes: 4 << 20},
 		Network:     Network{AllowedPrivateIPs: []string{"127.0.0.1"}},
 		HTTP:        HTTP{Listen: "0.0.0.0:8080", TLSMode: DirectTLS, ReadHeaderTimeout: Duration(10 * time.Second), RequestTimeout: Duration(30 * time.Second), StreamWriteTimeout: Duration(10 * time.Second), MaxBodyBytes: 1 << 20, MaxSSEConnections: 20, RequestsPerMinute: 600},
-		Auth:        Auth{SessionIdle: Duration(24 * time.Hour), SessionLifetime: Duration(30 * 24 * time.Hour), VerificationLifetime: Duration(5 * time.Minute), LoginAttemptsPerMinute: 5},
+		Auth:        Auth{SessionIdle: Duration(7 * 24 * time.Hour), SessionLifetime: Duration(30 * 24 * time.Hour), VerificationLifetime: Duration(5 * time.Minute), LoginAttemptsPerMinute: 5},
 		Execution:   Execution{ModelRetry: ModelRetry{MaxAttempts: 4, BaseDelay: Duration(2 * time.Second), MaxDelay: Duration(30 * time.Second), MaxWait: Duration(120 * time.Second), Deadline: Duration(10 * time.Minute)}, MaxAssistants: 4, MaxModelCalls: 4, MaxToolCalls: 4, MaxIndexJobs: 1, MaxUploadBytes: 20 << 20, MaxDiskBytes: 10 << 30, ShutdownTimeout: Duration(30 * time.Second)},
 	}
 }

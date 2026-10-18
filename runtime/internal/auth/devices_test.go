@@ -144,7 +144,7 @@ func TestDeviceGenerationSerializesConcurrentIssuance(t *testing.T) {
 	results := make(chan error, 2)
 	var group sync.WaitGroup
 	for range 2 {
-		group.Go(func() { _, err := m.issueSession(t.Context(), p.OwnerID, client); results <- err })
+		group.Go(func() { _, err := m.issueSession(t.Context(), p.OwnerID, client, true); results <- err })
 	}
 	group.Wait()
 	close(results)

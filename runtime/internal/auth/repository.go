@@ -31,6 +31,7 @@ type StoredToken struct {
 	RevokedAt *time.Time
 }
 type StoredChallenge struct {
+	RememberMe       bool
 	DeviceDigest     string
 	ClientType       string
 	DeviceName       string

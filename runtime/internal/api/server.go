@@ -184,6 +184,14 @@ func sendJSON(w http.ResponseWriter, status int, value any) {
 }
 func fail(w http.ResponseWriter, err error, id core.ID) {
 	status, body := PublicError(err, id)
+	var typed *core.Error
+	if status == http.StatusTooManyRequests && errors.As(err, &typed) && typed.RetryAfter > 0 {
+		seconds := typed.RetryAfter / time.Second
+		if typed.RetryAfter%time.Second != 0 {
+			seconds++
+		}
+		w.Header().Set("Retry-After", strconv.FormatInt(int64(seconds), 10))
+	}
 	sendJSON(w, status, body)
 }
 
@@ -333,8 +341,7 @@ func (s *HTTPServer) dispatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !allowance.Allowed {
-		w.Header().Set("Retry-After", strconv.Itoa(int(allowance.RetryAfter.Seconds())+1))
-		fail(w, core.NewError(core.RateLimited, "request rate limited"), id)
+		fail(w, &core.Error{Code: core.RateLimited, Message: "request rate limited", RetryAfter: allowance.RetryAfter}, id)
 		return
 	}
 	if r.URL.Path != "/api" && !strings.HasPrefix(r.URL.Path, "/api/") {

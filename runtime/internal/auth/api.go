@@ -85,9 +85,10 @@ type RecoveryRequest struct {
 	ResetMFA bool
 }
 type LoginRequest struct {
-	Username string
-	Password core.Secret
-	Client   Client
+	RememberMe bool
+	Username   string
+	Password   core.Secret
+	Client     Client
 }
 
 // Exactly one of Session and Challenge is populated. MFA challenges expire,
@@ -131,9 +132,10 @@ type Session struct {
 
 // Raw session tokens go only to Secure HttpOnly cookies; CSRF is a distinct token.
 type SessionIssued struct {
-	Session Session
-	Token   core.Secret
-	CSRF    core.Secret
+	RememberMe bool
+	Session    Session
+	Token      core.Secret
+	CSRF       core.Secret
 }
 type ReauthenticateRequest struct {
 	Password core.Secret
