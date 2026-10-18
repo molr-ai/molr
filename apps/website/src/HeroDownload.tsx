@@ -55,7 +55,12 @@ export function HeroDownload({ locale }: { locale: Locale }) {
             </div>
           </div>
         </Popover>
-      </div> : !loading && !error ? <div role="status" className="home-download-unavailable"><Button variant="secondary" size="lg" className="home-download-pending" disabled><Icon name="download" />{status}</Button></div>
+      </div> : !loading && !error ? <div role="status" className="home-download-unavailable">
+        <Button variant="secondary" size="lg" className="home-download-pending" disabled>
+          <span className="home-download-pending-label"><Icon name="download" />{status}</span>
+          <span className="home-download-pending-more" aria-hidden="true"><UIIcon name="chevron-down" /></span>
+        </Button>
+      </div>
         : <p className="home-download-status" role="status">{status}{error && <Button variant="ghost" size="sm" onClick={retry}>{zh ? '重试' : 'Retry'}</Button>}</p>}
       <a className="button button--secondary button--lg home-download-docs" href={localizedDocPath(siteLinks.userDocs!, locale)}><Icon name="book" />{zh ? '查看文档' : 'View docs'}</a>
     </div>

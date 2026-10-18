@@ -120,8 +120,13 @@ test('hero downloads detected platform directly, supports manual selection and h
     await expect(hero.getByRole('button', { name: '更多下载选项' })).toHaveCount(0);
     await expect(hero.getByRole('button', { name: '即将推出', exact: true })).toBeDisabled();
     await expect(hero.getByRole('button', { name: '即将推出', exact: true })).toHaveCSS('opacity', '1');
-    await expect(hero.getByRole('button', { name: '即将推出', exact: true }).locator('svg')).toHaveCount(1);
+    await expect(hero.getByRole('button', { name: '即将推出', exact: true }).locator('svg')).toHaveCount(2);
     await expect(hero.getByRole('button', { name: '即将推出', exact: true })).toHaveCSS('border-top-style', 'dashed');
+    await expect(hero.locator('.home-download-pending-more')).toHaveCSS('border-left-style', 'dashed');
+    await expect(hero.locator('.home-download-pending-more')).toHaveCSS('width', '56px');
+    await expect(hero.locator('.home-download-pending')).toHaveCSS('width', '280px');
+    await hero.locator('.home-download-pending-more').click({ force: true });
+    await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(hero.getByRole('status')).toHaveText('即将推出');
     await expect(hero.getByRole('link', { name: '查看文档', exact: true })).toHaveAttribute('href', '/zh/docs/user/');
     await expect(hero.getByRole('link', { name: '更多版本和安装方式', exact: true })).toHaveAttribute('href', '#install');
