@@ -46,9 +46,9 @@ test('hero downloads detected platform directly, supports manual selection and h
     const more = hero.getByRole('button', { name: 'More download options' });
     const panel = page.getByRole('dialog', { name: 'Choose a download' });
     await expect(hero.getByRole('link', { name: 'Download Molr Desktop (Windows · AMD64)' })).toHaveAttribute('href', platforms[2].url);
-    await expect(hero.getByRole('link', { name: 'View docs', exact: true })).toHaveCount(0);
-    await expect(hero.getByRole('link', { name: 'More installation methods', exact: true })).toHaveAttribute('href', '#install');
-    await expect(hero.locator('.home-download-actions').getByRole('link')).toHaveCount(1);
+    await expect(hero.getByRole('link', { name: 'View docs', exact: true })).toHaveAttribute('href', '/en/docs/user/');
+    await expect(hero.getByRole('link', { name: 'More versions and installation methods', exact: true })).toHaveAttribute('href', '#install');
+    await expect(hero.locator('.home-download-actions').getByRole('link')).toHaveCount(2);
     await expect(hero.locator('.home-download-label > span')).toHaveText('Download Molr Desktop');
     await expect(hero.locator('.home-download-label > small')).toHaveText('Windows · AMD64');
     await expect(hero.locator('.home-download-label > small')).toHaveCSS('opacity', '0.7');
@@ -85,6 +85,11 @@ test('hero downloads detected platform directly, supports manual selection and h
       if (await toggle.count()) await toggle.click();
       await page.locator('html').evaluate((el, value) => { el.dataset.palette = value; }, palette);
       await hero.scrollIntoViewIfNeeded();
+      const downloadBox = await hero.locator('.home-download-split').boundingBox();
+      const docsBox = await hero.locator('.home-download-docs').boundingBox();
+      assert.equal(downloadBox.height, docsBox.height);
+      assert(docsBox.width < downloadBox.width);
+      if (width === 1440) assert.equal(downloadBox.y, docsBox.y);
       await more.click();
       await expect.poll(async () => { const b = await panel.boundingBox(); return b && b.x >= 0 && b.x + b.width <= width; }).toBeTruthy();
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
@@ -118,6 +123,16 @@ test('hero downloads detected platform directly, supports manual selection and h
     await expect(hero.getByRole('button', { name: '即将推出', exact: true }).locator('svg')).toHaveCount(1);
     await expect(hero.getByRole('button', { name: '即将推出', exact: true })).toHaveCSS('border-top-style', 'dashed');
     await expect(hero.getByRole('status')).toHaveText('即将推出');
+    await expect(hero.getByRole('link', { name: '查看文档', exact: true })).toHaveAttribute('href', '/zh/docs/user/');
+    await expect(hero.getByRole('link', { name: '更多版本和安装方式', exact: true })).toHaveAttribute('href', '#install');
+    for (const width of [320, 1440]) {
+      await page.setViewportSize({ width, height: 1000 });
+      const pendingBox = await hero.locator('.home-download-pending').boundingBox();
+      const docsBox = await hero.locator('.home-download-docs').boundingBox();
+      assert.equal(pendingBox.height, docsBox.height);
+      if (width === 1440) assert.equal(pendingBox.y, docsBox.y);
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    }
     failure = true; await page.reload();
     await expect(hero.getByRole('status')).toContainText('暂时无法');
     failure = false; catalog = sample();

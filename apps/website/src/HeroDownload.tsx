@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Badge, Button, Popover, UIIcon } from '@molr/ui';
+import { localizedDocPath } from './doc-locale';
+import { siteLinks } from './site-links';
 import type { Locale } from './site-content';
 import type { DesktopPlatform } from './desktop-releases';
 import { browserDesktopTarget, desktopOSLabel, desktopArchLabel, preferredDesktopPlatform, type DesktopTarget } from './desktop-target';
@@ -38,7 +40,7 @@ export function HeroDownload({ locale }: { locale: Locale }) {
     <div className="home-download-actions">
       {available ? <div className="home-download-split">
         <a className="button button--primary button--lg home-download-primary" href={platform.url} aria-label={`${label} (${platformLabel(platform)})`}>
-          <Icon name="download" /><span className="home-download-label"><span>{label}</span><small>{platformLabel(platform)}</small></span>
+          <Icon name="download" /><span className="home-download-label"><span>{label}</span><small><SystemIcon os={platform.os} />{platformLabel(platform)}</small></span>
         </a>
         <Popover title={optionsTitle} align="end" width={360} maxHeight={480} open={open} onOpenChange={setOpen}
           trigger={<Button ref={more} size="lg" className="home-download-more" aria-label={zh ? '更多下载选项' : 'More download options'}><UIIcon name="chevron-down" /></Button>}>
@@ -53,12 +55,13 @@ export function HeroDownload({ locale }: { locale: Locale }) {
             </div>
           </div>
         </Popover>
-      </div> : !loading && !error ? <div role="status"><Button variant="secondary" size="lg" className="home-download-pending" disabled><Icon name="download" />{status}</Button></div>
+      </div> : !loading && !error ? <div role="status" className="home-download-unavailable"><Button variant="secondary" size="lg" className="home-download-pending" disabled><Icon name="download" />{status}</Button></div>
         : <p className="home-download-status" role="status">{status}{error && <Button variant="ghost" size="sm" onClick={retry}>{zh ? '重试' : 'Retry'}</Button>}</p>}
+      <a className="button button--secondary button--lg home-download-docs" href={localizedDocPath(siteLinks.userDocs!, locale)}><Icon name="book" />{zh ? '查看文档' : 'View docs'}</a>
     </div>
     {available && !platform.signed && platform.os !== 'linux' && <p className="home-download-signing">{platform.os === 'darwin'
       ? (zh ? '未公证测试包，macOS 可能阻止首次打开。' : 'Unnotarized test build; macOS may block the first launch.')
       : (zh ? '未签名测试包，Windows 可能提示未知发布者。' : 'Unsigned test build; Windows may show an unknown publisher warning.')}</p>}
-    <a className="home-download-alternatives" href="#install">{zh ? '更多安装方式' : 'More installation methods'}<Icon name="down" /></a>
+    <a className="home-download-alternatives" href="#install">{zh ? '更多版本和安装方式' : 'More versions and installation methods'}<Icon name="down" /></a>
   </div>;
 }
