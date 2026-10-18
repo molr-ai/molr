@@ -45,21 +45,22 @@ test('hero downloads detected platform directly, supports manual selection and h
     const hero = page.locator('.home-hero-download');
     const more = hero.getByRole('button', { name: 'More download options' });
     const panel = page.getByRole('dialog', { name: 'Choose a download' });
-    await expect(hero.getByRole('link', { name: 'Download for Windows' })).toHaveAttribute('href', platforms[2].url);
+    await expect(hero.getByRole('link', { name: 'Download Windows · x64 / AMD64' })).toHaveAttribute('href', platforms[2].url);
     await expect(hero.getByRole('link', { name: 'View docs', exact: true })).toHaveAttribute('href', '/en/docs/user/');
     await expect(hero.getByRole('link', { name: 'More installation methods', exact: true })).toHaveAttribute('href', '#install');
     await expect(hero.locator('.home-download-actions').getByRole('link')).toHaveCount(2);
+    await expect(hero.locator('.home-download-primary')).toHaveText('Windows · x64 / AMD64');
     await expect(hero.locator('pre')).toHaveCount(0);
     await expect(page.getByRole('button', { name: /^(Stable|Preview|Nightly)$/ })).toHaveCount(0);
     const download = page.waitForEvent('download');
-    await hero.getByRole('link', { name: 'Download for Windows' }).click();
+    await hero.getByRole('link', { name: 'Download Windows · x64 / AMD64' }).click();
     assert.equal((await download).suggestedFilename(), platforms[2].file);
     await more.click();
     await expect(panel).toBeVisible();
-    await panel.getByRole('button', { name: 'macOS Intel · DMG' }).click();
+    await panel.getByRole('button', { name: 'macOS · Intel' }).click();
     await expect(panel).not.toBeVisible();
     await expect(more).toBeFocused();
-    await expect(hero.getByRole('link', { name: 'Download for macOS' })).toHaveAttribute('href', platforms[1].url);
+    await expect(hero.getByRole('link', { name: 'Download macOS · Intel' })).toHaveAttribute('href', platforms[1].url);
     await more.click(); await page.keyboard.press('Escape'); await expect(panel).not.toBeVisible();
     const screenshots = resolve(import.meta.dirname, '../test-results/hero-download'); mkdirSync(screenshots, { recursive: true });
     for (const theme of ['light', 'dark']) for (const palette of ['forest', 'ocean', 'iris', 'sand', 'rose', 'monochrome']) for (const width of [320, 1440]) {
@@ -71,11 +72,12 @@ test('hero downloads detected platform directly, supports manual selection and h
       await more.click();
       await expect.poll(async () => { const b = await panel.boundingBox(); return b && b.x >= 0 && b.x + b.width <= width; }).toBeTruthy();
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      await expect(panel.getByRole('button', { name: 'macOS · Intel', exact: true })).toHaveCSS('white-space', 'nowrap');
       await page.screenshot({ path: `${screenshots}/${theme}-${palette}-${width}.png` });
       await page.keyboard.press('Escape');
     }
     await page.getByRole('button', { name: '切换到中文', exact: true }).click();
-    await expect(hero.getByRole('link', { name: '下载 macOS 版' })).toHaveAttribute('href', platforms[1].url);
+    await expect(hero.getByRole('link', { name: '下载 macOS · Intel' })).toHaveAttribute('href', platforms[1].url);
     await expect(page.getByRole('button', { name: /^(正式版|预发布版|Nightly)$/ })).toHaveCount(0);
     // Unsupported detection uses the first item in the same list, without hiding alternatives.
     await page.addInitScript(() => {
@@ -84,10 +86,10 @@ test('hero downloads detected platform directly, supports manual selection and h
       Object.defineProperty(navigator, 'platform', { configurable: true, value: 'unknown' });
     });
     await page.reload();
-    await expect(hero.getByRole('link', { name: '下载 macOS 版' })).toHaveAttribute('href', platforms[0].url);
+    await expect(hero.getByRole('link', { name: '下载 macOS · Apple Silicon' })).toHaveAttribute('href', platforms[0].url);
     catalog = { schema: 1, channels: { stable: null, preview: sample().channels.preview, nightly: null } };
     await page.reload();
-    await expect(hero.getByRole('link', { name: '下载 Windows 版' })).toHaveAttribute('href', catalog.channels.preview.platforms[0].url);
+    await expect(hero.getByRole('link', { name: '下载 Windows · x64 / AMD64' })).toHaveAttribute('href', catalog.channels.preview.platforms[0].url);
     catalog = { schema: 1, channels: { stable: null, preview: null, nightly: null } };
     await page.reload();
     await expect(hero.locator('.home-download-primary')).toHaveCount(0);
@@ -95,12 +97,13 @@ test('hero downloads detected platform directly, supports manual selection and h
     await expect(hero.getByRole('button', { name: '即将推出', exact: true })).toBeDisabled();
     await expect(hero.getByRole('button', { name: '即将推出', exact: true })).toHaveCSS('opacity', '1');
     await expect(hero.getByRole('button', { name: '即将推出', exact: true }).locator('svg')).toHaveCount(1);
+    await expect(hero.getByRole('button', { name: '即将推出', exact: true })).toHaveCSS('border-top-style', 'dashed');
     await expect(hero.getByRole('status')).toHaveText('即将推出');
     failure = true; await page.reload();
     await expect(hero.getByRole('status')).toContainText('暂时无法');
     failure = false; catalog = sample();
     await hero.getByRole('button', { name: '重试', exact: true }).click();
-    await expect(hero.getByRole('link', { name: '下载 macOS 版' })).toHaveAttribute('href', platforms[0].url);
+    await expect(hero.getByRole('link', { name: '下载 macOS · Apple Silicon' })).toHaveAttribute('href', platforms[0].url);
   } finally {
     await browser.close(); await server.close();
     if (before === undefined) delete process.env.VITE_SITE_MODE; else process.env.VITE_SITE_MODE = before;

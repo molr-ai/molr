@@ -25,7 +25,8 @@ export function HeroDownload({ locale }: { locale: Locale }) {
   const platforms = release?.platforms || [];
   const platform = preferredDesktopPlatform(platforms, selection || device);
   const available = !loading && !error && platform && release;
-  const label = platform ? (zh ? `下载 ${desktopOSLabel(platform.os)} 版` : `Download for ${desktopOSLabel(platform.os)}`) : (zh ? '下载桌面应用' : 'Download desktop app');
+  const platformLabel = (p: DesktopPlatform) => `${desktopOSLabel(p.os)} · ${desktopArchLabel(p)}`;
+  const label = platform ? platformLabel(platform) : '';
   const optionsTitle = zh ? '选择下载版本' : 'Choose a download';
   const status = loading ? (zh ? '正在读取下载信息…' : 'Loading downloads…')
     : error ? (zh ? '暂时无法读取下载信息。' : 'Downloads are temporarily unavailable.')
@@ -37,20 +38,20 @@ export function HeroDownload({ locale }: { locale: Locale }) {
   return <div className="home-hero-install home-hero-download">
     <div className="home-download-actions">
       {available ? <div className="home-download-split">
-        <a className="button button--primary button--lg home-download-primary" href={platform.url}><Icon name="download" />{label}</a>
+        <a className="button button--primary button--lg home-download-primary" href={platform.url} aria-label={`${zh ? '下载' : 'Download'} ${label}`}><Icon name="download" />{label}</a>
         <Popover title={optionsTitle} align="end" width={360} maxHeight={480} open={open} onOpenChange={setOpen}
           trigger={<Button ref={more} size="lg" className="home-download-more" aria-label={zh ? '更多下载选项' : 'More download options'}><UIIcon name="chevron-down" /></Button>}>
           <div className="home-download-options">
             <p className="home-download-version">v{release.version}</p>
             <div role="group" aria-label={zh ? '系统与处理器' : 'Operating system and processor'}>
               {platforms.map(p => <button type="button" key={`${p.os}-${p.arch}`} aria-pressed={platform.os === p.os && platform.arch === p.arch} onClick={() => choose(p)}>
-                <span><strong>{desktopOSLabel(p.os)}</strong><small>{desktopArchLabel(p)} · {p.file.split('.').at(-1)!.toUpperCase()}</small></span>
+                <span>{platformLabel(p)}</span>
                 {platform.os === p.os && platform.arch === p.arch && <Icon name="check" />}
               </button>)}
             </div>
           </div>
         </Popover>
-      </div> : !loading && !error ? <div role="status"><Button size="lg" className="home-download-pending" disabled><Icon name="download" />{status}</Button></div>
+      </div> : !loading && !error ? <div role="status"><Button variant="secondary" size="lg" className="home-download-pending" disabled><Icon name="download" />{status}</Button></div>
         : <p className="home-download-status" role="status">{status}{error && <Button variant="ghost" size="sm" onClick={retry}>{zh ? '重试' : 'Retry'}</Button>}</p>}
       <a className="button button--secondary button--lg" href={localizedDocPath(siteLinks.userDocs!, locale)}><Icon name="book" />{zh ? '查看文档' : 'View docs'}</a>
     </div>
