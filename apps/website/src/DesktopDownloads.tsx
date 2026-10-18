@@ -12,8 +12,8 @@ export function DesktopDownloads({ locale, releaseState }: { locale: Locale; rel
   return <div className="home-desktop-downloads">
     <p className="home-desktop-intro">{zh ? '在桌面上，与你的助理保持连接。' : 'Stay connected to your assistant, right from your desktop.'}</p>
     <div className="home-desktop-editions">
-      <div><Icon name="devices" /><p><strong>{zh ? '本机运行，也能远程连接' : 'Run locally or connect remotely'}</strong><span>{zh ? 'Linux / macOS 包含 Runtime，可创建本机服务或连接远程服务。' : 'Linux / macOS includes the Runtime to create a local server or connect remotely.'}</span></p></div>
-      <div><Icon name="server" /><p><strong>{zh ? '连接你已有的服务' : 'Connect to your existing server'}</strong><span>{zh ? 'Windows 客户端连接远程 Runtime，也支持 WSL。' : 'The Windows client connects to a remote Runtime, including WSL.'}</span></p></div>
+      <div><Icon name="monitor" /><p><strong>{zh ? '本机运行' : 'Run locally'}</strong><span>{zh ? '直接在当前设备上创建并运行后端服务。' : 'Create and run a backend service directly on this device.'}</span></p></div>
+      <div><Icon name="server" /><p><strong>{zh ? '连接远程后端' : 'Connect to a remote backend'}</strong><span>{zh ? '连接同一后端，在多台设备间无缝切换。' : 'Connect to the same backend and switch seamlessly between devices.'}</span></p></div>
     </div>
     {error || loading || !release ? <InstallStatus error={error}>
       {error ? <>{zh ? '暂时无法读取桌面发行信息。' : 'Desktop releases are currently unavailable.'} <button type="button" onClick={retry}>{t.retry}</button></> : loading ? t.loading : t.empty}

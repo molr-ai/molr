@@ -135,7 +135,9 @@ test('hero downloads detected platform directly, supports manual selection and h
       const pendingBox = await hero.locator('.home-download-pending').boundingBox();
       const docsBox = await hero.locator('.home-download-docs').boundingBox();
       assert.equal(pendingBox.height, docsBox.height);
-      if (width === 1440) assert.equal(pendingBox.y, docsBox.y);
+      if (width === 1440) await expect.poll(() => hero.evaluate(el =>
+        el.querySelector('.home-download-pending').getBoundingClientRect().top === el.querySelector('.home-download-docs').getBoundingClientRect().top,
+      )).toBe(true);
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     }
     failure = true; await page.reload();

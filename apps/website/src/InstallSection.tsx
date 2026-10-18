@@ -76,7 +76,7 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
         <div ref={entryList} className="home-install-entries" role="group" aria-label={t.method}>
           {(['desktop', 'server', 'sandbox'] as const).map(value => <Button key={value} variant="ghost" className="home-install-entry-button" aria-pressed={entry === value} aria-controls="install-details"
             onClick={() => setEntry(value)}>
-            <Icon name={value === 'desktop' ? 'devices' : value === 'server' ? 'server' : 'shield'} />{t[value]}
+            <Icon name={value === 'desktop' ? 'monitor' : value === 'server' ? 'server' : 'shield'} />{t[value]}
           </Button>)}
         </div>
         {version && <span className="home-install-version">v{version}</span>}

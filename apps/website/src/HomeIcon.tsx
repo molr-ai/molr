@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
+import { MonitorIcon } from '@phosphor-icons/react/dist/csr/Monitor';
 
 export function Icon({ name, className = '' }: { name: string; className?: string }) {
+  if (name === 'monitor') return <MonitorIcon className={`home-icon ${className}`} size={20} aria-hidden="true" />;
   const paths: Record<string, ReactNode> = {
     arrow: <path d="M5 12h14m-5-5 5 5-5 5" />,
     down: <path d="M12 5v14m-5-5 5 5 5-5" />,
