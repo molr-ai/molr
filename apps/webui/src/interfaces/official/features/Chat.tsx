@@ -221,7 +221,7 @@ export function Chat({ assistant, conversation, timeZone, draft, updateDraft, on
     </header>
     {archived && <Alert title={t.assistants.archived} />}
     <AssistantNotifications status={status.data ?? undefined} assistant={assistant} onAction={onAction} onNavigate={onCard}/>
-    {targetMessageID && <div className="chat-search-location" role="status"><span>{history.targetStatus === 'missing' ? t.chat.targetMissing : history.targetStatus === 'found' ? t.chat.targetFound : t.chat.targetLoading}</span><Button size="sm" variant="ghost" onClick={returnToLatest}>{t.chat.returnLatest}</Button></div>}
+    {targetMessageID && <div className="chat-search-location" role="status"><span>{history.targetStatus === 'missing' ? t.chat.targetMissing : history.targetStatus === 'found' ? t.chat.targetFound : t.chat.targetLoading}</span><Button size="sm" variant="ghost" onClick={returnToLatest}>{(conversation?.UnreadCount ?? 0) > 0 ? t.chat.newMessages : t.chat.returnLatest}</Button></div>}
     <div className="chat-history-region">
     <div className="chat-history" ref={log} role="log" tabIndex={-1} aria-label={t.chat.message} aria-live="polite" onScroll={() => { updateScrollPosition(); markRead(); }}>
       {history.more && <div className="chat-history-divider"><Button className="chat-history-divider__action" variant="ghost" size="sm" loading={history.loadingOlder} disabled={!!targetMessageID && history.targetStatus === 'loading'} onClick={() => { if (log.current) savedScroll.current = { top: log.current.scrollTop, height: log.current.scrollHeight }; history.loadOlder(); }}>{t.loadOlder}</Button></div>}
@@ -232,7 +232,7 @@ export function Chat({ assistant, conversation, timeZone, draft, updateDraft, on
           {covered && (expedited?.State === 'waiting_tool' || !working) && <small role="status">{working ? t.chat.expediteTool : t.chat.expediteWaiting}</small>}
         </div> : undefined : <TurnInformation message={message} revision={history.metadataVersions[message.ID] ?? 0} onDebug={onDebug} readOnly={!!archived} />} /></div>)}
     </div>
-    {showLatest && <Button className="chat-return-latest" variant="secondary" onClick={returnToLatest}><ArrowDown size={16} aria-hidden="true" />{t.chat.returnLatest}</Button>}
+    {showLatest && <Button className="chat-return-latest" variant="secondary" onClick={returnToLatest}><ArrowDown size={16} aria-hidden="true" />{(conversation?.UnreadCount ?? 0) > 0 ? t.chat.newMessages : t.chat.returnLatest}</Button>}
     </div>
     {!channel.data || !telegram.data || !slackStatus.data || !ding.data || !feishuStatus.data ? <Loading /> : <div className="chat-input"><ChatComposer lock={externalChannel ? { title: channelCopy.readonly, description: channelCopy.readonlyHelp, action: <Button variant="secondary" size="sm" onClick={() => onAction('channel')}>{channelCopy.manage}</Button> } : undefined} commands={[
       { name: 'compress', aliases: ['压缩'], description: `${t.chat.compress} · /压缩`, keywords: ['上下文'], disabled: compressing },

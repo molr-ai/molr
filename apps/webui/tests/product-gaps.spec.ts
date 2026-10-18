@@ -113,7 +113,7 @@ test('search locates old messages across pages, preserves links and handles miss
   await expect(page.getByText(needle, { exact: true })).toHaveCount(0);
   await page.goto(`/#/assistants/${a.ID}?message=missing-message`);
   await expect(page.getByText('This message does not exist or is no longer accessible.')).toBeVisible();
-  await page.getByRole('button', { name: 'Back to latest messages', exact: true }).click();
+  await page.getByRole('button', { name: 'Back to bottom', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/assistants/${a.ID}$`));
   await expect(page.getByRole('log').getByText('New while inspecting history', { exact: true })).toBeInViewport();
   await settings(page, { UITheme: 'molr.official@1.0.0' });
