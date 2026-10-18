@@ -64,10 +64,13 @@ try {
   assert.equal((await remote('window.molrApp.getInfo()')).apiVersion, 1);
   assert.deepEqual(await remote('Object.keys(window.molrApp).sort()'), ['disconnect', 'getInfo', 'onWindowStateChanged', 'window']);
   assert.equal(await page.locator('.desktop-toolbar').count(), 0);
-  assert.deepEqual(await app.evaluate(({ BrowserWindow }) => {
+  assert.equal(await app.evaluate(({ BrowserWindow }) => {
     const w = BrowserWindow.getAllWindows()[0], [width, height] = w.getContentSize();
-    return { actual: w.contentView.children.find(view => view.webContents !== w.webContents).getBounds(), expected: { x: 0, y: 0, width, height }, menu: w.isMenuBarVisible() };
-  }).then(({ actual, expected, menu }) => ({ equal: JSON.stringify(actual) === JSON.stringify(expected), menu })), { equal: true, menu: false });
+    return { actual: w.contentView.children.find(view => view.webContents !== w.webContents).getBounds(), expected: { x: 0, y: 0, width, height } };
+  }).then(({ actual, expected }) => JSON.stringify(actual) === JSON.stringify(expected)), true);
+  if (process.platform === 'win32' || process.platform === 'linux') {
+    assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isMenuBarVisible()), false);
+  }
   // A different WebContents using the same preload still cannot invoke controls.
   assert.match(await app.evaluate(async ({ BrowserWindow }, { url, preload }) => {
     const w = new BrowserWindow({ show: false, webPreferences: { preload, sandbox: true, nodeIntegration: false, contextIsolation: true } });
