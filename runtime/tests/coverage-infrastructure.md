@@ -323,3 +323,14 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/textfiles` | `Supported`, `SystemPath` | `internal/app.TestBuildRealMessageAgentAndRestart`, `TestPinnedFileLifecycleAndVersions`, `internal/app.TestResourceFileRejectsLinksAndSpecialFilesBeforeMutation` |
 
 | `internal/textfiles` | `Overlaps` | `TestProtectedPathsRejectAliasesAndDescendants`, `internal/app.TestDirectoryResourcesRejectProtectedCaseAliases` |
+
+## Native 平台与 Windows 安装
+
+| 包 | 接口 / 方法 | 测试 |
+| --- | --- | --- |
+| `internal/platform` | `NativeNetworkBackend` | `TestNativeSandboxSelectsHostPlatform` |
+| `internal/platform` | `Capabilities.NetworkToggle` | `TestControlledReadyRequiresBackendIsolation` |
+| `internal/platform` | `PrivateDirectory`, `PrivateFile` | `TestWindowsPrivateFileRejectsExtraAndComplexAllow` |
+| `internal/platform` | `ServiceContext`, `ServiceRunning`, `StopService` | `TestWindowsServiceLifecycle` |
+| `internal/installationwindows` | `Run` | `TestWindowsUpgradeRejectsUnownedTaskWithoutRollback` |
+| `internal/persistence/sqlitestore` | `FileURL` | `TestWindowsFileURL` |

@@ -356,3 +356,15 @@
 | `internal/im/slack` | `Service.Run` | `TestIdleChannelDoesNotAccessDatabase`、`TestActiveChannelSleepsAndWakesCommittedDeliveryAtDeadline` |
 | `internal/im/feishu` | `Service.Run` | `TestIdleChannelDoesNotAccessDatabase`、`TestActiveChannelSleepsAndWakesCommittedDeliveryAtDeadline` |
 | `internal/im/dingtalk` | `Service.Run` | `TestIdleChannelDoesNotAccessDatabase`、`TestActiveChannelSleepsAndWakesCommittedDeliveryAtDeadline` |
+
+## MCP 工具连接
+
+| 包 | 接口 / 方法 | 测试 |
+| --- | --- | --- |
+| `internal/agent/tools` | `IsExtension` | `internal/mcpclient.TestDiscoveryApprovalExecutionReplayAndChangedDefinition` |
+| `internal/mcpclient` | `New`, `Service.Refresh`, `Service.Execute`, `Service.History`, `Service.PrepareCall`, `Service.ValidateCall` | `TestDiscoveryApprovalExecutionReplayAndChangedDefinition` |
+| `internal/mcpclient` | `Service.Save` | `TestSaveIdempotencyAndImmutableEndpoint` |
+| `internal/mcpclient` | `Service.List` | `TestIdentityIsolationQuotaAndPermissionRevocation` |
+| `internal/mcpclient` | `Service.Definitions`, `Service.Remove`, `Service.Recover` | `TestOfflineCatalogRemovalAndRecovery` |
+| `internal/mcpclient` | `Connection.Origin`, `Service.ConnectionAccess` | `TestConnectionAccessIsolationAndDisable` |
+| `internal/mcpclient` | `Service.CancelOperation`, `Service.RevalidateRunning` | `TestRunningCallCancellationAndRevalidation` |

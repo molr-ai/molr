@@ -31,9 +31,10 @@ export async function checkDocs({ browser, url, outDir, screenshots }) {
       assert(html.includes('hreflang="zh-CN"') && html.includes('hreflang="en"'));
       assert(await page.locator('.docs-prose a').evaluateAll((links, language) => links.every(link => link.origin !== location.origin || link.pathname.startsWith(`/${language}/`) || link.pathname === '/'), locale));
       await expect(page.getByRole('navigation', { name: locale === 'zh' ? '文档目录' : 'Documentation navigation' }).locator('[aria-current="page"]'), path).toHaveCount(1);
-      for (const href of await page.locator('.docs-toc a').evaluateAll(links => links.map(link => link.getAttribute('href')))) {
-        assert(await page.evaluate(hash => document.getElementById(decodeURIComponent(hash.slice(1))) !== null, href));
-      }
+      const missingAnchors = await page.locator('.docs-toc a').evaluateAll(links => links
+        .map(link => link.getAttribute('href'))
+        .filter(hash => !document.getElementById(decodeURIComponent(hash.slice(1)))));
+      assert.deepEqual(missingAnchors, [], `Missing table-of-contents anchors in ${path}`);
       assert(await page.locator('.docs-prose a').evaluateAll(links => links.every(link => {
         const target = new URL(link.href);
         return target.origin !== location.origin || !target.pathname.endsWith('.md');

@@ -11,6 +11,10 @@ func TestNativeSandboxSelectsHostPlatform(t *testing.T) {
 	if got := platform.NativeSandbox(); got != (runtime.GOOS == "darwin" || runtime.GOOS == "windows") {
 		t.Fatalf("NativeSandbox() = %v on %s", got, runtime.GOOS)
 	}
+	want := map[string]string{"darwin": "seatbelt-toggle", "windows": "appcontainer-toggle"}[runtime.GOOS]
+	if got := platform.NativeNetworkBackend(); got != want {
+		t.Fatalf("NativeNetworkBackend() = %q, want %q", got, want)
+	}
 }
 
 func TestControlledReadyRequiresBackendIsolation(t *testing.T) {
@@ -19,6 +23,9 @@ func TestControlledReadyRequiresBackendIsolation(t *testing.T) {
 	windows := platform.Capabilities{OS: "windows", Reason: "available", Shell: true, FileIsolation: true, NetworkIsolation: true, NetworkBackend: "appcontainer-toggle"}
 	for _, backend := range []platform.Capabilities{linux, mac, windows} {
 		t.Run(backend.OS, func(t *testing.T) {
+			if backend.NetworkToggle() != (backend.OS != "linux") {
+				t.Fatal("incorrect network authorization semantics", backend)
+			}
 			if !backend.ControlledReady() {
 				t.Fatal("ready backend rejected")
 			}

@@ -3,6 +3,7 @@
 package app
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -371,17 +372,63 @@ func TestFullAccessDeploymentGateAndGrantExpiry(t *testing.T) {
 	})
 	t.Run("expiry", func(t *testing.T) {
 		f := newResourceAccessFixture(t, func(c *config.Config, _ string) { directConfig(c) })
-		until := time.Now().Add(time.Second)
-		_, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: f.execution.AssistantID, ResourceID: f.compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true}, ExpiresAt: &until, Mutation: core.Mutation{IdempotencyKey: "expires-full"}})
+		// Give startup an unexpired grant, then expire its persisted timestamp only
+		// after the real command has started. Native capability probes can take
+		// longer than the old one-second grant on CI runners.
+		until := time.Now().Add(time.Hour)
+		grant, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: f.execution.AssistantID, ResourceID: f.compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true}, ExpiresAt: &until, Mutation: core.Mutation{IdempotencyKey: "expires-full"}})
 		need(t, err)
 		e := f.execution
 		e.OperationID = "expires-call"
-		raw, err := f.b.sandbox.execute(t.Context(), e, tools.ShellRequest{FullAccess: true, ComputeID: f.compute.ID, Script: "sleep 30"})
+		marker := filepath.Join(t.TempDir(), "started")
+		req := tools.ShellRequest{FullAccess: true, ComputeID: f.compute.ID, Script: fmt.Sprintf("printf started > %q; exec sleep 60", marker)}
+		plan, err := f.b.sandbox.plan(t.Context(), e, req)
 		need(t, err)
-		var out struct{ Exit platform.Exit }
-		need(t, json.Unmarshal(raw, &out))
-		if out.Exit.Code == 0 {
-			t.Fatal("expired full-access command kept running")
+		if !plan.AuthorizationDeadline.Equal(until) {
+			t.Fatal("grant expiry was not propagated to the command", plan.AuthorizationDeadline)
+		}
+		ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+		defer cancel()
+		type result struct {
+			raw json.RawMessage
+			err error
+		}
+		done := make(chan result, 1)
+		go func() {
+			raw, err := f.b.sandbox.execute(ctx, e, req)
+			done <- result{raw, err}
+		}()
+		ticker := time.NewTicker(20 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			if data, err := os.ReadFile(marker); err == nil && string(data) == "started" {
+				break
+			}
+			select {
+			case result := <-done:
+				t.Fatalf("command finished before expiry: %s, %v", result.raw, result.err)
+			case <-ctx.Done():
+				t.Fatal("command did not start", ctx.Err())
+			case <-ticker.C:
+			}
+		}
+		// Adjust only time in the real store; do not revoke the grant or invoke
+		// cancellation. The runner must notice expiry during reauthorization.
+		need(t, f.b.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
+			past := time.Now().Add(-time.Second)
+			grant.ExpiresAt = &past
+			return tx.Put(ctx, "security.grants", persistence.Key(grant.OwnerID, grant.ID), grant)
+		}))
+		select {
+		case result := <-done:
+			need(t, result.err)
+			var out struct{ Exit platform.Exit }
+			need(t, json.Unmarshal(result.raw, &out))
+			if out.Exit.Code == 0 || out.Exit.Reason != "authorization_changed" {
+				t.Fatal("expired full-access command was not stopped by reauthorization", string(result.raw))
+			}
+		case <-ctx.Done():
+			t.Fatal("expired full-access command kept running", ctx.Err())
 		}
 		e.OperationID = "after-expiry"
 		if _, err := f.b.sandbox.execute(t.Context(), e, tools.ShellRequest{FullAccess: true, ComputeID: f.compute.ID, Script: "printf should-not-run"}); core.CodeOf(err) != core.Forbidden {

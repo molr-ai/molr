@@ -17,15 +17,15 @@ const headings = {
   live: { zh: '从好奇出发。', en: 'It starts with curiosity.' },
 };
 
-test('website state builds and browser behavior', { timeout: 240_000 }, async t => {
-  const temporary = await mkdtemp(join(tmpdir(), 'molr-website-'));
-  const screenshots = join(root, 'test-results', 'site-modes');
-  await mkdir(screenshots, { recursive: true });
-  const originalMode = process.env.VITE_SITE_MODE;
-  // Exercise native new-tab behavior in full Chromium; older headless-shell builds can crash here.
-  const browser = await chromium.launch({ channel: 'chromium', executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined });
-  try {
-    for (const [mode, copy] of Object.entries(headings)) {
+for (const [mode, copy] of Object.entries(headings)) {
+  test(`${mode}: website build and browser behavior`, { timeout: mode === 'live' ? 600_000 : 120_000 }, async t => {
+    const temporary = await mkdtemp(join(tmpdir(), 'molr-website-'));
+    const screenshots = join(root, 'test-results', 'site-modes');
+    await mkdir(screenshots, { recursive: true });
+    const originalMode = process.env.VITE_SITE_MODE;
+    // Exercise native new-tab behavior in full Chromium; older headless-shell builds can crash here.
+    const browser = await chromium.launch({ channel: 'chromium', executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined });
+    try {
       process.env.VITE_SITE_MODE = mode;
       const outDir = join(temporary, mode);
       await build({ root, logLevel: 'silent', build: { outDir, emptyOutDir: true } });
@@ -34,7 +34,7 @@ test('website state builds and browser behavior', { timeout: 240_000 }, async t 
       assert(address && typeof address !== 'string');
       const url = `http://127.0.0.1:${address.port}`;
       try {
-        await t.test(`${mode}: generated metadata and fallback match the configured page`, async () => {
+        await t.test(`${mode}: generated metadata and fallback match the configured page`, { timeout: 60_000 }, async () => {
           const html = await readFile(join(outDir, 'index.html'), 'utf8');
           assert(html.includes(`data-site-mode="${mode}"`));
           assert(!html.includes('__SITE_'));
@@ -67,7 +67,7 @@ test('website state builds and browser behavior', { timeout: 240_000 }, async t 
         for (const locale of ['en-US', 'zh-CN']) {
           for (const mobile of [false, true]) {
             const colorScheme = mobile ? 'dark' : 'light';
-            await t.test(`${mode}: ${locale}, ${mobile ? 'mobile dark' : 'desktop light'}`, async () => {
+            await t.test(`${mode}: ${locale}, ${mobile ? 'mobile dark' : 'desktop light'}`, { timeout: 60_000 }, async () => {
               const context = await browser.newContext({ locale, colorScheme, reducedMotion: 'reduce', viewport: mobile ? { width: 320, height: 700 } : { width: 1360, height: 1000 } });
               try {
                 const page = await context.newPage();
@@ -102,16 +102,16 @@ test('website state builds and browser behavior', { timeout: 240_000 }, async t 
         }
 
         if (mode === 'live') {
-          await t.test('documentation routes, source links, search, anchors and responsive reading', async () => {
+          await t.test('documentation routes, source links, search, anchors and responsive reading', { timeout: 300_000 }, async () => {
             await checkDocs({ browser, url, outDir, screenshots });
           });
-          await t.test('documentation search details and prompt copying', async () => {
+          await t.test('documentation search details and prompt copying', { timeout: 60_000 }, async () => {
             await checkDocsFeatures({ browser, url });
           });
-          await t.test('documentation search preserves articles and diagrams', async () => {
+          await t.test('documentation search preserves articles and diagrams', { timeout: 60_000 }, async () => {
             await checkDocsSearch({ browser, url });
           });
-          await t.test('homepage controls, persisted preferences and honest placeholder destinations', async () => {
+          await t.test('homepage controls, persisted preferences and honest placeholder destinations', { timeout: 60_000 }, async () => {
             const context = await browser.newContext({ locale: 'en-US', colorScheme: 'dark', viewport: { width: 1440, height: 1000 } });
             try {
               const page = await context.newPage();
@@ -171,7 +171,7 @@ test('website state builds and browser behavior', { timeout: 240_000 }, async t 
               }
             } finally { await context.close(); }
           });
-          await t.test('homepage language choice works when browser storage is unavailable', async () => {
+          await t.test('homepage language choice works when browser storage is unavailable', { timeout: 60_000 }, async () => {
             const context = await browser.newContext({ locale: 'en-US' });
             try {
               await context.addInitScript(() => {
@@ -189,7 +189,7 @@ test('website state builds and browser behavior', { timeout: 240_000 }, async t 
         }
 
         if (mode !== 'live') {
-          await t.test(`${mode}: multilingual rotation, background pause and reduced motion`, async () => {
+          await t.test(`${mode}: multilingual rotation, background pause and reduced motion`, { timeout: 60_000 }, async () => {
             const context = await browser.newContext({ locale: 'en-US', viewport: { width: 320, height: 700 } });
             try {
               const page = await context.newPage();
@@ -229,13 +229,22 @@ test('website state builds and browser behavior', { timeout: 240_000 }, async t 
       } finally {
         await new Promise((resolve, reject) => server.httpServer.close(error => error ? reject(error) : resolve()));
       }
+    } finally {
+      await browser.close();
+      if (originalMode === undefined) delete process.env.VITE_SITE_MODE;
+      else process.env.VITE_SITE_MODE = originalMode;
+      await rm(temporary, { recursive: true, force: true });
     }
-    await t.test('invalid configuration is rejected instead of silently showing the wrong page', async () => {
-      process.env.VITE_SITE_MODE = 'unknown';
-      await assert.rejects(build({ root, logLevel: 'silent', build: { outDir: join(temporary, 'invalid'), emptyOutDir: true } }), /Invalid VITE_SITE_MODE/);
-    });
+  });
+}
+
+test('invalid configuration is rejected instead of silently showing the wrong page', { timeout: 60_000 }, async () => {
+  const temporary = await mkdtemp(join(tmpdir(), 'molr-website-invalid-'));
+  const originalMode = process.env.VITE_SITE_MODE;
+  try {
+    process.env.VITE_SITE_MODE = 'unknown';
+    await assert.rejects(build({ root, logLevel: 'silent', build: { outDir: temporary, emptyOutDir: true } }), /Invalid VITE_SITE_MODE/);
   } finally {
-    await browser.close();
     if (originalMode === undefined) delete process.env.VITE_SITE_MODE;
     else process.env.VITE_SITE_MODE = originalMode;
     await rm(temporary, { recursive: true, force: true });
