@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { copyTextToClipboard } from '@molr/ui';
+import { Button, copyTextToClipboard } from '@molr/ui';
 import type { Locale } from './site-content';
 import type { RuntimeMode } from './release-data';
 import { installMessages } from './install-content';
@@ -43,7 +43,7 @@ export function AgentInstall({ locale, version, mode }: { locale: Locale; versio
     <div className="home-install-prompt" role="group" aria-label={t.agentPromptLabel}>
       <div className="home-install-snippet-toolbar">
         <span><Icon name="bot" />{t.agentPromptLabel}</span>
-        <button type="button" onClick={copy}><Icon name={status === 'copied' ? 'check' : 'copy'} />{status === 'copied' ? t.copied : t.agentCopy}</button>
+        <Button variant="ghost" size="sm" onClick={copy}><Icon name={status === 'copied' ? 'check' : 'copy'} />{status === 'copied' ? t.copied : t.agentCopy}</Button>
       </div>
       <p className="home-install-prompt-text">{prompt}</p>
       <span className={status === 'error' ? 'home-install-copy-error' : 'ui-sr-only'} role="status">{status === 'copied' ? t.copied : status === 'error' ? t.agentCopyError : ''}</span>

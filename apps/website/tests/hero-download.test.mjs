@@ -46,6 +46,9 @@ test('hero downloads detected platform directly, supports manual selection and h
     const more = hero.getByRole('button', { name: 'More download options' });
     const panel = page.getByRole('dialog', { name: 'Choose a download' });
     await expect(hero.getByRole('link', { name: 'Download for Windows' })).toHaveAttribute('href', platforms[2].url);
+    await expect(hero.getByRole('link', { name: 'View docs', exact: true })).toHaveAttribute('href', '/en/docs/user/');
+    await expect(hero.getByRole('link', { name: 'More installation methods', exact: true })).toHaveAttribute('href', '#install');
+    await expect(hero.locator('.home-download-actions').getByRole('link')).toHaveCount(2);
     await expect(hero.locator('pre')).toHaveCount(0);
     await expect(page.getByRole('button', { name: /^(Stable|Preview|Nightly)$/ })).toHaveCount(0);
     const download = page.waitForEvent('download');
@@ -87,10 +90,12 @@ test('hero downloads detected platform directly, supports manual selection and h
     await expect(hero.getByRole('link', { name: '下载 Windows 版' })).toHaveAttribute('href', catalog.channels.preview.platforms[0].url);
     catalog = { schema: 1, channels: { stable: null, preview: null, nightly: null } };
     await page.reload();
-    await expect(hero.locator('.home-download-primary')).toBeDisabled();
-    await expect(hero.locator('.home-download-meta')).toContainText('暂无已发布');
+    await expect(hero.locator('.home-download-primary')).toHaveCount(0);
+    await expect(hero.getByRole('button', { name: '更多下载选项' })).toHaveCount(0);
+    await expect(hero.locator('button:disabled')).toHaveCount(0);
+    await expect(hero.getByRole('status')).toHaveText('即将推出');
     failure = true; await page.reload();
-    await expect(hero.locator('.home-download-meta')).toContainText('暂时无法');
+    await expect(hero.getByRole('status')).toContainText('暂时无法');
     failure = false; catalog = sample();
     await hero.getByRole('button', { name: '重试', exact: true }).click();
     await expect(hero.getByRole('link', { name: '下载 macOS 版' })).toHaveAttribute('href', platforms[0].url);

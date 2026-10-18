@@ -1,9 +1,10 @@
-import { copyTextToClipboard } from '@molr/ui';
+import { Button, copyTextToClipboard } from '@molr/ui';
 import { useEffect, useState } from 'react';
 import type { Locale } from './site-content';
+import { Icon } from './HomeIcon';
 import { installMessages } from './install-content';
 
-export function InstallCommand({ command, locale, terminal = false }: { command: string; locale: Locale; terminal?: boolean }) {
+export function InstallCommand({ command, locale }: { command: string; locale: Locale }) {
   const t = installMessages[locale];
   const [copyFeedback, setCopyFeedback] = useState(0);
   const copied = copyFeedback > 0;
@@ -19,25 +20,10 @@ export function InstallCommand({ command, locale, terminal = false }: { command:
   };
   const action = copied ? t.copied : t.copyCommand;
   return <>
-    {terminal ? <div className="home-terminal-window">
-      <div className="home-terminal-titlebar">
-        <span className="home-terminal-controls" aria-hidden="true"><i /><i /><i /></span>
-        <span>Terminal</span><span className="home-terminal-shell" aria-hidden="true">sh</span>
-      </div>
-      <div className="home-terminal-command">
-      <span className="home-terminal-prompt" aria-hidden="true">$</span>
+    <div className="home-install-terminal">
+      <div><span><Icon name="terminal" />Terminal</span><Button variant="ghost" size="sm" onClick={copy} aria-live="polite"><Icon name={copied ? 'check' : 'copy'} />{action}</Button></div>
       <pre><code>{command}</code></pre>
-      <button type="button" onClick={copy} aria-label={action} title={action}>
-        <svg className={copied ? 'home-terminal-copy-success' : undefined} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          {copied ? <path d="m5 12 4 4L19 6" /> : <><rect x="8" y="8" width="12" height="13" rx="2" /><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" /></>}
-        </svg>
-      </button>
-      <span className="ui-sr-only" role="status">{copied ? t.copied : ''}</span>
-      </div>
-    </div> : <div className="home-install-terminal">
-      <div><span><span aria-hidden="true">&gt;_</span> Terminal</span><button type="button" onClick={copy} aria-live="polite"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{copied ? <path d="m5 12 4 4L19 6" /> : <><rect x="8" y="8" width="12" height="13" rx="2" /><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" /></>}</svg>{action}</button></div>
-      <pre><code>{command}</code></pre>
-    </div>}
+    </div>
     {failed && <p role="status">{t.copyError}</p>}
   </>;
 }

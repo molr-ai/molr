@@ -1,33 +1,13 @@
-.home-installer { margin-top: 40px; text-align: left; border: 1px solid var(--color-border); border-radius: 16px; background: var(--color-surface); overflow: hidden; }
-.home-install-methods { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px 24px; border-bottom: 1px solid var(--color-border); }
-.home-install-methods button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 10px 14px; border: 1px solid transparent; border-radius: 8px; background: transparent; font-size: 13px; color: var(--color-text-muted); }
-.home-install-methods button:hover { color: var(--color-text); background: var(--color-neutral-bg); }
-.home-install-methods button[aria-pressed='true'] { color: var(--color-text); background: var(--color-neutral-bg); }
-.home-install-methods button > span { text-wrap: balance; }
-.home-install-methods .home-icon { width: 17px; height: 17px; flex-shrink: 0; }
-.home-install-methods small { color: var(--color-text-muted); font-size: 10px; border-left: 1px solid var(--color-control-border-hover); padding-left: 8px; }
-.home-install-workspace { display: grid; grid-template-columns: minmax(280px, .8fr) minmax(0, 1.4fr); }
-.home-install-config { padding: 28px 24px; border-right: 1px solid var(--color-border); }
-.home-install-option-row + .home-install-option-row { margin-top: 24px; }
-.home-install-option-label { display: block; margin-bottom: 10px; color: var(--color-text-muted); font-size: 12px; }
-.home-install-options { display: flex; flex-wrap: wrap; gap: 6px; }
-.home-install-options button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; padding: 9px 12px; border: 1px solid var(--color-border); border-radius: 6px; background: transparent; color: var(--color-text-muted); font-size: 13px; transition: background-color 160ms, border-color 160ms, color 160ms; }
-.home-install-options button:hover { background: var(--color-neutral-bg); border-color: var(--color-control-border-hover); color: var(--color-text); }
-.home-install-options button[aria-pressed='true'] { background: var(--color-selected-bg); border-color: var(--color-focus); color: var(--color-text); }
-.home-install-options button[aria-pressed='true']::before { content: ''; width: 4px; height: 7px; flex-shrink: 0; margin: 0 2px 2px 0; border-right: 1.5px solid var(--color-focus); border-bottom: 1.5px solid var(--color-focus); transform: rotate(45deg); }
+.home-installer { margin-top: 40px; text-align: left; border-radius: 16px; background: var(--color-surface); overflow: hidden; }
 .home-installer button:focus-visible, .home-installer a:focus-visible, .home-installer summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
-.home-installer .home-install-channel-note { color: var(--color-text-muted); font-size: 11px; line-height: 1.8; margin: 24px 0 0; }
-.home-install-result { min-width: 0; padding: 28px; }
 .home-install-result-meta { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 20px; font: 11px/1.7 var(--font-mono); color: var(--color-text-muted); }
 .home-install-result-meta strong { font-weight: 400; overflow-wrap: anywhere; }
 .home-install-heading h3 { font-size: 23px; font-weight: 500; letter-spacing: -.025em; line-height: 1.4; }
 .home-install-details > p { color: var(--color-text-muted); font-size: 13px; line-height: 1.85; margin-top: 10px; }
-.home-install-terminal { margin-top: 24px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-background); overflow: hidden; }
-.home-install-terminal > div, .home-install-snippet-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px 0; font-size: 11px; color: var(--color-text-muted); }
+.home-install-terminal { margin-top: 24px; border-radius: 10px; background: var(--color-background); overflow: hidden; }
+.home-install-terminal > div, .home-install-snippet-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px 0; font-size: 11px; color: var(--color-text-muted); }
 .home-install-terminal > div > span, .home-install-snippet-toolbar > span { display: inline-flex; gap: 8px; align-items: center; }
-.home-install-terminal > div > span > span { font-family: var(--font-mono); color: var(--color-focus); }
-.home-install-terminal button, .home-install-snippet-toolbar button { display: inline-flex; align-items: center; gap: 7px; min-height: 32px; border: 0; border-radius: 5px; padding: 6px 8px; background: transparent; color: var(--color-text-muted); }
-.home-install-terminal button:hover, .home-install-snippet-toolbar button:hover { color: var(--color-text); background: var(--color-neutral-bg); }
+.home-install-terminal > div > span > .home-icon { color: var(--color-focus); }
 .home-install-terminal pre { margin: 0; padding: 20px 20px 24px; white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.9 var(--font-mono); }
 .home-install-terminal code { font: inherit; }
 .home-install-release { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 20px; color: var(--color-text-muted); font-size: 11px; }
@@ -36,12 +16,10 @@
 .home-install-package { margin: 24px 0; }
 .home-install-package-top { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
 .home-install-package-heading { flex: 1 1 240px; min-width: 0; display: flex; align-items: center; gap: 12px; }
-.home-install-package-heading > .home-icon { flex-shrink: 0; width: 36px; height: 40px; padding: 6px; border: 1px solid var(--color-border); border-radius: 6px; color: var(--color-text-muted); }
+.home-install-package-heading > .home-icon { flex-shrink: 0; width: 36px; height: 40px; padding: 6px; border-radius: 6px; color: var(--color-text-muted); }
 .home-install-package-heading > div { min-width: 0; }
 .home-install-archive { color: var(--color-text-muted); font-size: 10px; }
 .home-install-package h4 { font: 12px/1.8 var(--font-mono); margin-top: 2px; overflow-wrap: anywhere; }
-.home-installer .home-install-package .home-button { min-height: 40px; padding: 10px 16px; font-size: 12px; }
-.home-install-package .home-button .home-icon { width: 16px; height: 16px; }
 .home-install-address { display: grid; gap: 6px; margin-top: 20px; font-size: 11px; line-height: 1.8; }
 .home-install-address > span { color: var(--color-text-muted); }
 .home-install-address a { font-family: var(--font-mono); overflow-wrap: anywhere; color: var(--color-text-muted); }
@@ -57,40 +35,18 @@
 .home-install-footer a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .home-install-status { margin: 0; padding-block: 20px; color: var(--color-text-muted); font-size: 13px; line-height: 1.85; }
 .home-install-status button { color: var(--color-text); background: transparent; border: 0; padding: 0; font: inherit; text-decoration: underline; text-underline-offset: 3px; }
-@media (max-width: 1000px) {
-  .home-install-workspace { grid-template-columns: minmax(0, 1fr); }
-  .home-install-config { border-right: 0; border-bottom: 1px solid var(--color-border); }
-  .home-install-option-row { display: grid; grid-template-columns: 120px minmax(0, 1fr); align-items: center; gap: 12px; }
-  .home-install-option-row + .home-install-option-row { margin-top: 16px; }
-  .home-install-option-label { margin: 0; }
-  .home-install-result { padding: 24px; }
-}
 @media (--molr-mobile) {
   .home-installer { margin-top: 28px; border-radius: 12px; }
-  .home-install-methods { gap: 4px; padding: 10px; }
-  .home-install-methods button { flex: 1; gap: 6px; padding: 10px 6px; font-size: 12px; }
-  .home-install-methods small { display: none; }
-  .home-install-config, .home-install-result { padding: 20px 16px; }
-  .home-install-option-row { display: block; }
-  .home-install-option-row + .home-install-option-row { margin-top: 20px; }
-  .home-install-option-label { margin-bottom: 8px; font-size: 11px; }
-  .home-install-options { gap: 6px; }
-  .home-install-options button { min-height: 40px; padding: 8px 10px; font-size: 12px; }
   .home-install-result-meta { gap: 6px 12px; margin-bottom: 14px; font-size: 10px; }
   .home-install-heading h3 { font-size: 21px; }
   .home-install-terminal > div, .home-install-snippet-toolbar { gap: 8px; padding: 10px 12px 0; }
   .home-install-terminal pre { padding: 16px; font-size: 12px; }
-  .home-install-terminal button, .home-install-snippet-toolbar button { font-size: 10px; }
   .home-install-footer { padding: 16px; font-size: 10px; line-height: 1.8; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .home-install-options button { transition: none; }
-}
-.home-install-prompt { margin-top: 24px; overflow: hidden; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-background); }
+.home-install-prompt { margin-top: 24px; overflow: hidden; border-radius: 10px; background: var(--color-background); }
 .home-install-prompt .home-install-prompt-text { margin: 0; padding: 20px 20px 24px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.85; color: var(--color-text); }
 .home-install-copy-error { display: block; margin: 0 20px 20px; color: var(--color-text-muted); font-size: 12px; line-height: 1.8; }
 @media (--molr-mobile) {
-  .home-install-methods button { flex: 1 1 calc(50% - 4px); }
   .home-install-prompt .home-install-prompt-text { padding: 16px; font-size: 12px; }
   .home-install-snippet-toolbar { flex-wrap: wrap; }
 }
@@ -98,10 +54,9 @@
 .home-install-snippet-toolbar .home-icon { width: 15px; height: 15px; flex-shrink: 0; }
 .home-install-snippet-toolbar > span > .home-icon { color: var(--color-focus); }
 .home-install-snippet-toolbar button { margin-left: auto; }
-.home-install-workspace-full { grid-template-columns: minmax(0, 1fr); }
 .home-desktop-header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .home-desktop-header p { margin: 8px 0 0; font-size: 13px; line-height: 1.85; color: var(--color-text-muted); }
-.home-desktop-version { padding: 5px 10px; border: 1px solid var(--color-border); border-radius: 6px; color: var(--color-text-muted); font: 11px/1.6 var(--font-mono); overflow-wrap: anywhere; }
+.home-desktop-version { padding: 5px 10px; border-radius: 6px; color: var(--color-text-muted); font: 11px/1.6 var(--font-mono); overflow-wrap: anywhere; }
 .home-desktop-editions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--color-border); }
 .home-desktop-editions > div { display: flex; gap: 12px; align-items: flex-start; }
 .home-desktop-editions .home-icon { flex-shrink: 0; margin-top: 3px; color: var(--color-text-muted); }
@@ -109,11 +64,8 @@
 .home-desktop-editions strong, .home-desktop-editions span { display: block; }
 .home-desktop-editions strong { font-weight: 500; }
 .home-desktop-editions span { margin-top: 4px; color: var(--color-text-muted); }
-.home-install-channels { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; margin-block: 24px; }
-.home-install-channels p { margin: 0; font-size: 11px; line-height: 1.8; color: var(--color-text-muted); }
-.home-install-details > .home-install-channels { padding-top: 24px; border-top: 1px solid var(--color-border); }
 .home-desktop-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
-.home-desktop-platform { min-width: 0; padding: 20px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-background); }
+.home-desktop-platform { min-width: 0; padding: 20px; border-radius: 10px; background: var(--color-background); }
 .home-desktop-platform-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 20px; color: var(--color-text-muted); }
 .home-desktop-platform-heading > .home-icon { width: 28px; height: 28px; }
 .home-desktop-format { font: 11px/1.6 var(--font-mono); }
@@ -122,10 +74,10 @@
 .home-desktop-artifact { display: grid; gap: 12px; padding-top: 16px; border-top: 1px solid var(--color-border); }
 .home-desktop-artifact + .home-desktop-artifact { margin-top: 20px; }
 .home-desktop-arch { font-size: 12px; font-weight: 500; }
-.home-desktop-artifact .home-button { width: 100%; min-height: 40px; padding: 10px 12px; font-size: 12px; }
-.home-desktop-artifact .home-button .home-icon { width: 16px; height: 16px; flex-shrink: 0; }
+.home-desktop-artifact .button { width: 100%; }
+.home-desktop-artifact .button .home-icon { width: 16px; height: 16px; flex-shrink: 0; }
 .home-desktop-warning { margin: 0; font-size: 11px; line-height: 1.8; color: var(--color-text-muted); }
-.home-install-state { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 36px 20px; border: 1px dashed var(--color-border); border-radius: 10px; background: var(--color-background); }
+.home-install-state { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 36px 20px; border-radius: 10px; background: var(--color-background); }
 .home-install-state > .home-icon { width: 28px; height: 28px; color: var(--color-text-muted); }
 .home-install-state .home-install-status { padding: 16px 0 0; }
 .home-install-state > p:last-child:not(.home-install-status) { margin: 8px 0 0; font-size: 12px; line-height: 1.8; color: var(--color-text-muted); }
@@ -134,7 +86,6 @@
 }
 @media (--molr-mobile) {
   .home-desktop-editions { grid-template-columns: minmax(0, 1fr); gap: 16px; }
-  .home-install-channels { align-items: flex-start; flex-direction: column; gap: 10px; }
   .home-desktop-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .home-desktop-platform { padding: 20px 16px; }
   .home-install-state { padding: 28px 16px; }
@@ -147,10 +98,15 @@
 
 .home-install-role { padding-bottom: 24px; border-bottom: 1px solid var(--color-border); }
 .home-install-role > p { margin: 14px 0 0; color: var(--color-text-muted); font-size: 13px; line-height: 1.85; max-width: 75ch; }
-.home-install-helpers { margin-top: 24px; }
 .home-install-advanced { margin-block: 20px 28px; padding-bottom: 20px; border-bottom: 1px solid var(--color-border); }
-.home-install-advanced > summary, .home-install-other > summary { cursor: pointer; color: var(--color-text-muted); font-size: 12px; line-height: 1.8; }
-.home-install-advanced > .home-install-option-row { margin-top: 20px; }
-.home-install-advanced > .home-install-channel-note { margin-top: 10px; }
-.home-install-other { margin-top: 28px; }
-.home-install-other button { margin-top: 12px; padding: 8px 0; color: var(--color-text); background: transparent; border: 0; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
+.home-install-advanced > summary { cursor: pointer; color: var(--color-text-muted); font-size: 12px; line-height: 1.8; }
+
+.home-install-entry-tabs > .ui-tabs__list { padding-inline: 24px; padding-top: 8px; }
+.home-install-entry-tabs > .ui-tabs__panel { padding: 28px; }
+.home-install-method-tabs { margin-top: 24px; }
+.home-install-advanced > .radio-group { margin-top: 20px; }
+.home-page a.button--primary, .home-page button.button--primary { color: var(--color-on-primary); }
+@media (--molr-mobile) {
+  .home-install-entry-tabs > .ui-tabs__list { padding-inline: 16px; }
+  .home-install-entry-tabs > .ui-tabs__panel { padding: 20px 16px; }
+}
