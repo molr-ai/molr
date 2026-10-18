@@ -16,10 +16,12 @@ const env = { ...process.env, MOLR_DESKTOP_DATA: data }; delete env.ELECTRON_RUN
 let app, browser;
 try {
   app = await electron.launch({ args: [join(root, 'apps/desktop')], env, chromiumSandbox: true });
+  app.context().setDefaultTimeout(15000);
   const manager = await app.firstWindow();
   await manager.getByRole('heading', { name: '连接你的 Runtime' }).waitFor();
   await expect(manager.locator('.desktop-identity .logo__wordmark')).toBeVisible();
   assert.equal(await manager.locator('.desktop-identity strong').count(), 0);
+  assert.equal(await manager.locator('.desktop-divider').count(), 0);
   await manager.screenshot({path:join(screenshots,'manager.png')});
   await manager.evaluate(async url => { await window.molrDesktop.save({ name: 'App acceptance', url, allowHTTP: true }); const c=(await window.molrDesktop.state()).connections[0]; await window.molrDesktop.connect(c.id); }, url);
   await expect.poll(() => manager.evaluate(async () => (await window.molrDesktop.state()).view), { timeout: 30000 }).toBe('runtime');
@@ -77,13 +79,19 @@ try {
     for(const [size,width,height] of [['wide',1180,820],['narrow',640,720]]) {
       await app.evaluate(({BrowserWindow},{width,height})=>BrowserWindow.getAllWindows()[0].setSize(width,height),{width,height});
       await expect.poll(()=>runtime.evaluate(()=>innerWidth)).toBe(width);
+      await expect.poll(()=>runtime.locator('.workspace').evaluate(el=>el.classList.contains('workspace--mobile'))).toBe(size==='narrow');
       await expect.poll(()=>runtime.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
       assert(await runtime.locator('.app-titlebar').evaluate(el => {
-        const bar=el.getBoundingClientRect(), center=bar.top+bar.height/2;
-        return [...el.querySelectorAll('.app-titlebar-actions button, .app-titlebar-identity > span')].every(item=>{
+        const bar=el.getBoundingClientRect(), content=document.querySelector('.workspace-content').getBoundingClientRect();
+        const center=(bar.top+content.top)/2;
+        return Math.abs(bar.bottom-content.top)<1 && [...el.querySelectorAll('.app-titlebar-actions button, .app-titlebar-identity > span, .app-titlebar-brand')].every(item=>{
           const rect=item.getBoundingClientRect(); return Math.abs(rect.top+rect.height/2-center)<1;
         });
-      }), 'Titlebar controls and text are vertically centered');
+      }), 'Titlebar centers against the visible content edge without an extra strip below');
+      if(size==='narrow') assert(await runtime.evaluate(()=>{
+        const content=document.querySelector('.workspace-content').getBoundingClientRect(),nav=document.querySelector('.workspace-nav').getBoundingClientRect();
+        return nav.top>=content.bottom && nav.right<=innerWidth && nav.bottom<=innerHeight;
+      }), 'Narrow App navigation stays below the content');
       await runtime.screenshot({path:join(screenshots,`${palette}-${theme}-${size}.png`)});
       await runtime.evaluate(()=>window.dispatchEvent(new Event('molr:search')));
       await runtime.locator('dialog[open]').waitFor();

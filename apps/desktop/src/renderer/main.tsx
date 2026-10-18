@@ -49,7 +49,7 @@ function App() {
   function localAction(action: LocalAction) { void run(() => bridge!.localAction(action, action === 'install' && local.state !== 'uninstalled' ? resourcePreset : undefined)); }
   return <div className="desktop-app">
     {state.view !== 'runtime' && <header className="desktop-toolbar">
-      <div className="desktop-identity"><Logo animation="daily" assetBaseUrl={paletteAssetBase(palette)} variant={theme === 'dark' ? 'light' : 'dark'} /><span className="desktop-divider" /><span>{current?.name ?? '桌面工作台'}</span></div>
+      <div className="desktop-identity"><Logo animation="daily" assetBaseUrl={paletteAssetBase(palette)} variant={theme === 'dark' ? 'light' : 'dark'} /><span>{current?.name ?? '桌面工作台'}</span></div>
       <div className="desktop-toolbar-actions">
         {!showManager && <Button variant="ghost" size="sm" onClick={() => void run(() => bridge!.manager())}><ArrowLeft size={16} /> 管理连接</Button>}
         {showManager && <IconButton label="桌面设置" onClick={() => setSettings(!settings)}><Settings2 size={18} /></IconButton>}
