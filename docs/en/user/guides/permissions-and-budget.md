@@ -81,3 +81,7 @@ The sandbox Storage tab shows capacity and free disk space for the workspace and
 When deployment has opened GPU and user groups allow it, devices can be selected in assistant compute permissions; cards display model and VRAM, with short identifiers attached to devices of the same model. Regular commands use devices approved in the current compute permissions, and restore to base authorization after temporary configuration expires. Modifying compute authorization stops affected tasks, and new executions use the updated device range.
 
 GPU is shared access, with no VRAM reservation or compute power guarantee. When unavailable, it will not automatically switch to CPU or Full Access; verify the reason and contact the deployer, or remove GPU authorization to continue with regular compute.
+
+## MCP tool permissions
+
+After an administrator connects and enables an MCP tool, select it in assistant permissions and grant execution. Members first need group access to the connection and tool. Definition changes invalidate old grants and require a new grant. See [MCP tools](../../admin/resources/mcp.md).

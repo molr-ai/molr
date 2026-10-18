@@ -31,6 +31,7 @@ import (
 	"molr.ai/runtime/internal/im/slack"
 	"molr.ai/runtime/internal/im/telegram"
 	"molr.ai/runtime/internal/im/weixin"
+	"molr.ai/runtime/internal/mcpclient"
 	"molr.ai/runtime/internal/plugins"
 	"molr.ai/runtime/internal/policy"
 	"molr.ai/runtime/internal/webassets"
@@ -68,6 +69,7 @@ type Options struct {
 	AdminUsage         func(context.Context, core.Principal) (any, error)
 	AccountQuotas      func(context.Context, core.Principal) (any, error)
 	Plugins            *plugins.Service
+	MCP                *mcpclient.Service
 	PermissionRequests permissionRequestService
 	SandboxAdmin       func(context.Context, core.Principal, string, json.RawMessage) (any, error)
 	ShellTasks         func(context.Context, core.Principal, core.ID, json.RawMessage) (json.RawMessage, error)

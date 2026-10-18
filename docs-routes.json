@@ -380,6 +380,16 @@
     "section": "admin"
   },
   {
+    "file": "admin/resources/mcp.md",
+    "path": "/docs/admin/resources/mcp/",
+    "label": "MCP 工具",
+    "group": "接入模型",
+    "englishLabel": "MCP tools",
+    "englishGroup": "Connect models",
+    "root": "docs",
+    "section": "admin"
+  },
+  {
     "file": "admin/resources/providers/openai.md",
     "path": "/docs/admin/resources/providers/openai/",
     "label": "接入 OpenAI",
@@ -835,6 +845,16 @@
     "label": "插件机制（Plugin API 3）",
     "group": "扩展",
     "englishLabel": "Plugin system (Plugin API 3)",
+    "englishGroup": "Extensions",
+    "root": "docs",
+    "section": "dev"
+  },
+  {
+    "file": "dev/extensions/mcp.md",
+    "path": "/docs/dev/extensions/mcp/",
+    "label": "MCP 接入",
+    "group": "扩展",
+    "englishLabel": "MCP integration",
     "englishGroup": "Extensions",
     "root": "docs",
     "section": "dev"

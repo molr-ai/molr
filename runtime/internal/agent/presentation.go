@@ -93,6 +93,25 @@ func toolText(name, raw string) string {
 	if result.FullResultPath != "" {
 		name = "archive"
 	}
+	if strings.HasPrefix(name, "mcp_") {
+		// Project only the public result fields. Keep connection/owner identities in
+		// the receipt, and preserve the envelope across context re-rendering.
+		var value struct {
+			Tool               string          `json:"tool"`
+			Content            []string        `json:"content"`
+			StructuredContent  json.RawMessage `json:"structuredContent"`
+			IsError            bool            `json:"isError"`
+			UnsupportedContent []string        `json:"unsupportedContent"`
+		}
+		if len(raw) > 16<<10 || json.Unmarshal([]byte(raw), &value) != nil || value.Tool == "" || value.Content == nil {
+			return prompt.Text("tool-unavailable", nil)
+		}
+		safe, err := json.Marshal(value)
+		if err != nil {
+			return prompt.Text("tool-unavailable", nil)
+		}
+		return string(safe)
+	}
 	if strings.HasPrefix(name, "plg_") {
 		// HTTP payloads were already projected by the fixed plugin executor.
 		// Keep only the public envelope; connection and ownership metadata stay

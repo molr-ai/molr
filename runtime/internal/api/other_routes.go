@@ -98,6 +98,7 @@ func (s *HTTPServer) routes() {
 	s.browserRoutes()
 	s.workspaceRoutes()
 	s.pluginRoutes()
+	s.mcpRoutes()
 }
 func (s *HTTPServer) otherRoutes() {
 	s.handle("GET /api/setup", func(r *http.Request) (any, error) {

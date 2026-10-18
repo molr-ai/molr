@@ -127,6 +127,11 @@ Verified on 2026-10-03 against the registrations in `runtime/internal/api/*_rout
 | GET | `/api/todos` |
 | GET | `/api/todos/{id}` |
 | GET | `/api/tools` |
+| GET | `/api/mcp/connections` |
+| POST | `/api/mcp/connections/save` |
+| POST | `/api/mcp/connections/refresh` |
+| POST | `/api/mcp/connections/remove` |
+| GET | `/api/mcp/connections/{id}/history` |
 | GET | `/api/usage` |
 | POST | `/api/account/profile` |
 | POST | `/api/admin/groups` |

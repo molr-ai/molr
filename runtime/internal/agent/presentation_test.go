@@ -193,3 +193,25 @@ func TestProfileContextAndResultPresentation(t *testing.T) {
 		t.Fatal("malformed profile accepted")
 	}
 }
+
+func TestMCPResultPresentationPreservesContentAndErrorWithoutPrivateMetadata(t *testing.T) {
+	name := "mcp_" + strings.Repeat("b", 48)
+	for _, raw := range []string{
+		`{"tool":"lookup","content":["MCP fixture result"],"structuredContent":{"found":true},"isError":false,"unsupportedContent":[],"connection_id":"private-connection","OwnerID":"private-owner"}`,
+		`{"tool":"lookup","content":["service rejected input"],"structuredContent":null,"isError":true,"unsupportedContent":[]}`,
+	} {
+		out := toolText(name, raw)
+		if !strings.Contains(out, `"content"`) || strings.Contains(out, "private-") {
+			t.Fatal(out)
+		}
+		if toolText(name, out) != out {
+			t.Fatal("MCP presentation is not idempotent", out)
+		}
+		if strings.Contains(raw, `"isError":true`) && !strings.Contains(out, `"isError":true`) {
+			t.Fatal("lost business error", out)
+		}
+	}
+	if toolText(name, `{"tool":"lookup","content":"malformed"}`) != toolText("unknown", `{}`) {
+		t.Fatal("malformed envelope accepted")
+	}
+}

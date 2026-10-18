@@ -32,7 +32,7 @@ func queryProjections(bucket string, data []byte) ([]byte, error) {
 		fields = []string{"Session.LastSeenAt", "Session.ExpiresAt", "RevokedAt"}
 	case "auth.challenges":
 		fields = []string{"ExpiresAt"}
-	case "plugins.http-calls":
+	case "plugins.http-calls", "mcp.calls":
 		fields = []string{"CreatedAt"}
 	}
 	if len(fields) == 0 {

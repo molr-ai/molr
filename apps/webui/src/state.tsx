@@ -166,6 +166,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       else if (path === '/api/assistants') changed(['assistants', 'conversations']);
       else if (path.startsWith('/api/sandboxes')) changed(['sandboxes', 'resources', 'grants', 'capabilities', 'assistants']);
       else if (path.startsWith('/api/permission-requests')) changed(['permission-requests', 'grants', 'status']);
+      else if (path.startsWith('/api/mcp/')) changed(['mcp', 'tools', 'resources', 'grants', 'capabilities', 'admin', 'usage']);
       else if (path.startsWith('/api/resources')) changed(['resources', 'models', 'grants']);
       else changed([queryTopic(path)]);
     });

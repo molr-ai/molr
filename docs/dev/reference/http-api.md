@@ -127,6 +127,11 @@ Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugi
 | GET | `/api/todos` |
 | GET | `/api/todos/{id}` |
 | GET | `/api/tools` |
+| GET | `/api/mcp/connections` |
+| POST | `/api/mcp/connections/save` |
+| POST | `/api/mcp/connections/refresh` |
+| POST | `/api/mcp/connections/remove` |
+| GET | `/api/mcp/connections/{id}/history` |
 | GET | `/api/usage` |
 | POST | `/api/account/profile` |
 | POST | `/api/admin/groups` |

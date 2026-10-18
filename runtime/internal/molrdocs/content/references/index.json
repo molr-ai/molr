@@ -608,6 +608,22 @@
     }
   },
   {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/admin/resources/mcp.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "MCP 工具",
+      "en": "MCP tools"
+    },
+    "topics": {
+      "zh": "接入模型",
+      "en": "Connect models"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/admin/resources/mcp/",
+      "en": "https://molr.ai/en/docs/admin/resources/mcp/"
+    }
+  },
+  {
     "path": "/molr/.agents/skills/molr-docs/references/docs/admin/resources/providers/openai.md",
     "contentLanguage": "zh",
     "titles": {
@@ -1341,6 +1357,22 @@
     "urls": {
       "zh": "https://molr.ai/zh/docs/dev/extensions/plugins/",
       "en": "https://molr.ai/en/docs/dev/extensions/plugins/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/extensions/mcp.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "MCP 接入",
+      "en": "MCP integration"
+    },
+    "topics": {
+      "zh": "扩展",
+      "en": "Extensions"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/dev/extensions/mcp/",
+      "en": "https://molr.ai/en/docs/dev/extensions/mcp/"
     }
   },
   {

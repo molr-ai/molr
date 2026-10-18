@@ -10,6 +10,9 @@ import (
 )
 
 type Definition struct {
+	Source          string
+	ConnectionID    core.ID `json:",omitempty"`
+	RemoteName      string  `json:",omitempty"`
 	Name            string
 	Description     string
 	InputSchema     json.RawMessage

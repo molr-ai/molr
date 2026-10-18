@@ -129,6 +129,9 @@ func (e *executor) Catalog(ctx context.Context, p core.Principal) ([]Definition,
 		return nil, err
 	}
 	result := e.definitions()
+	for i := range result {
+		result[i].Source = "builtin"
+	}
 	if e.options.ExtensionDefinitions != nil {
 		extra, err := e.options.ExtensionDefinitions(ctx, p, true)
 		if err != nil {
@@ -270,7 +273,7 @@ func (e *executor) execute(ctx context.Context, call Call) (_ Result, runErr err
 	}
 	var definition *Definition
 	definitions := e.definitions()
-	if strings.HasPrefix(call.Name, "plg_") && e.options.ExtensionDefinitions != nil {
+	if IsExtension(call.Name) && e.options.ExtensionDefinitions != nil {
 		extra, err := e.options.ExtensionDefinitions(ctx, call.Execution.Principal, false)
 		if err != nil {
 			return Result{}, err
@@ -287,16 +290,12 @@ func (e *executor) execute(ctx context.Context, call Call) (_ Result, runErr err
 	if definition == nil {
 		return Result{}, core.NewError(core.NotFound, "unknown built-in tool")
 	}
-	authorizeName := call.Name
-	if strings.HasPrefix(call.Name, "plg_") {
-		authorizeName = call.Name
-	}
-	if err := e.authorize(ctx, call.Execution.Principal, authorizeName); err != nil {
+	if err := e.authorize(ctx, call.Execution.Principal, call.Name); err != nil {
 		return Result{}, err
 	}
 	var args arguments
 	var err error
-	if strings.HasPrefix(call.Name, "plg_") && e.options.ExtensionValidate != nil {
+	if IsExtension(call.Name) && e.options.ExtensionValidate != nil {
 		err = e.options.ExtensionValidate(ctx, call)
 	} else {
 		args, err = parse(call)
@@ -361,7 +360,7 @@ func (e *executor) execute(ctx context.Context, call Call) (_ Result, runErr err
 				return err
 			}
 		}
-		if strings.HasPrefix(call.Name, "plg_") && e.options.ExtensionPrepare != nil {
+		if IsExtension(call.Name) && e.options.ExtensionPrepare != nil {
 			_, err := e.options.ExtensionPrepare(ctx, call)
 			if err != nil {
 				return err
@@ -397,7 +396,7 @@ func (e *executor) execute(ctx context.Context, call Call) (_ Result, runErr err
 	if err != nil {
 		// File mutations reject these errors before commit; plan mutations run
 		// in one transaction. Other side effects remain unknown on failure.
-		rejected := (strings.HasPrefix(call.Name, "plg_") && core.ReasonOf(err) == "plugin_http_failed") || (core.ReasonOf(err) == "browser_user_controlled" || core.ReasonOf(err) == "browser_snapshot_required")
+		rejected := (IsExtension(call.Name) && (core.ReasonOf(err) == "plugin_http_failed" || core.ReasonOf(err) == "mcp_not_dispatched")) || (core.ReasonOf(err) == "browser_user_controlled" || core.ReasonOf(err) == "browser_snapshot_required")
 		if call.Name == "profile_update" || call.Name == "file_write" || call.Name == "file_edit" || call.Name == "file_move" || call.Name == "file_delete" || call.Name == "file_transfer" || call.Name == "conversation_attachment" || (strings.HasPrefix(call.Name, "plan_") || call.Name == "permission_request") {
 			switch core.CodeOf(err) {
 			case core.Conflict, core.InvalidArgument, core.Forbidden, core.NotFound, core.FailedPrecondition:
@@ -422,7 +421,7 @@ func (e *executor) execute(ctx context.Context, call Call) (_ Result, runErr err
 	return resultWithMedia(call.Name, op.ID, content), nil
 }
 func (e *executor) dispatch(ctx context.Context, call Call, args arguments) (json.RawMessage, error) {
-	if strings.HasPrefix(call.Name, "plg_") && e.options.ExtensionExecute != nil {
+	if IsExtension(call.Name) && e.options.ExtensionExecute != nil {
 		return e.options.ExtensionExecute(ctx, call)
 	}
 	switch call.Name {
@@ -482,7 +481,7 @@ func (e *executor) Cancel(ctx context.Context, execution core.Execution, id core
 		return core.NewError(core.Forbidden, "cancellation identity mismatch")
 	}
 	action := op.Action
-	if strings.HasPrefix(action, "plg_") {
+	if IsExtension(action) {
 		action = "catalog"
 	}
 	if err = e.authorize(ctx, execution.Principal, action); err != nil {
@@ -514,4 +513,9 @@ func resultWithMedia(name string, id core.ID, content json.RawMessage) Result {
 		}
 	}
 	return r
+}
+
+// IsExtension identifies the two trusted external tool adapters.
+func IsExtension(name string) bool {
+	return strings.HasPrefix(name, "plg_") || strings.HasPrefix(name, "mcp_")
 }

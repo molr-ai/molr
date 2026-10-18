@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "reviewedAt": "2026-10-16",
-  "baseCommit": "5289ebc",
+  "reviewedAt": "2026-10-18",
+  "baseCommit": "0e38689",
   "scope": "License compatibility and notice delivery review; see docs/dev/releasing/licensing.md.",
   "inputs": {
     "package-lock.json": "7c72cd77b47bc009d3f76e29fa2f21e29b3e28e396411a8e6135e734a2260564",
-    "runtime/go.mod": "38206cadbc49039fe97bf56aad389ebb8151d91cf9b28afa3150abe37ca50276",
-    "runtime/go.sum": "7738bd454ff9675f6f7a37d8728acd76bc25b049e6fc3b71cd6faee870e097d4",
+    "runtime/go.mod": "2981cdb18ba6d23f767f200ce8bac921b410890f0fbe4ab0ab7c038366754177",
+    "runtime/go.sum": "62419963ae93fb75137f059806eaf5af2cd04c334a38f01e18468fd594ab4319",
     "runtime/.go-version": "6c075150045fda9bac31bb93cf5a0a0bc91622a75c1f10fb2971e6f994c6d4d6",
     "runtime/internal/voicecodec/silk.wasm": "13de15803937f44593398fee46d1dd7ee4ea2f04c819f8f887525b4cd9b60bf7",
     "runtime/internal/voicecodec/README.md": "0b8a2c9634b6361a46c4ca75120a734a3f247d3779c46db62e4487578840caa5",
@@ -14,7 +14,7 @@
     "scripts/build-release.mjs": "17a7253510ed07b71f8dd163b183d8418b95b750da7403e0064cebe73df3cc07",
     "apps/website/src/GithubMark.tsx": "7d0d38bb13335793c5ed91d5f27ffc8e5fc2811d7eff9ce6e59a6f6d33d5a37a",
     "apps/website/src/site-links.ts": "f360bbe44df89647e5d43207230ab65ee7b2c899aa2f680f1863bba125d2c1cd",
-    "THIRD_PARTY_NOTICES.md": "205054f1cc51e90aa2f0d310e01f5c904d52aaf8eb9408253bb56a2f1fe71740",
+    "THIRD_PARTY_NOTICES.md": "e81d206d0041b295112c95dc49a2635418bd050bbf052b8ed345a1ee5f7b2b05",
     "scripts/license-assets.ts": "2f17e19230ad1b6fa1b44bfd974abec0d2c36522dd009ebed61151040eb715db",
     "scripts/update-third-party-notices.py": "468adbcab07505c888e08017ac41534c4eecc29285721274e3544026e0ef4be8",
     "scripts/promote-release.mjs": "3875373d2fe869b79eda684b6deef53173f8f0af7cf1e41f25f9ea977f972e27",
@@ -11291,6 +11291,19 @@
       "moduleChecksum": "h1:xf4v41cLI2Z6FxbKm+8Bu+m8ifhj15JuZ9sa0jZCMUU="
     },
     {
+      "name": "github.com/google/jsonschema-go",
+      "version": "v0.4.3",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "2d56c53449691d85d9aea245eb8dac12713e9075d70d5557b82ae1e94805b357"
+        }
+      ],
+      "moduleChecksum": "h1:/DBOLZTfDow7pe2GmaJNhltueGTtDKICi8V8p+DQPd0="
+    },
+    {
       "name": "github.com/google/uuid",
       "version": "v1.6.0",
       "license": "BSD-3-Clause",
@@ -11343,6 +11356,20 @@
       "moduleChecksum": "h1:tGZZoVgT/KiqK1c8ocVLeDS8BSWMRd47J3Lbz7vsReI="
     },
     {
+      "name": "github.com/modelcontextprotocol/go-sdk",
+      "version": "v1.7.0",
+      "license": "Apache-2.0 AND MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "af679003d933f045393a6a029f43da113f9ae364eac651d9ae268392985580f5"
+        }
+      ],
+      "moduleChecksum": "h1:yqjY2dsbKAC0LSuWZVBMrHgiG8ukXv6NRo0JiALay44=",
+      "additionalLicenses": "Upstream licensing transition: retain Apache-2.0 and MIT code notices. SDK documentation is CC-BY-4.0 and is not bundled as product documentation."
+    },
+    {
       "name": "github.com/ncruces/go-strftime",
       "version": "v1.0.0",
       "license": "MIT",
@@ -11367,6 +11394,32 @@
         }
       ],
       "moduleChecksum": "h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE="
+    },
+    {
+      "name": "github.com/segmentio/asm",
+      "version": "v1.1.3",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "e2a78de21d6d8ded2dff0f3189cd32e011630d785da127ebfbc8949012c0947b"
+        }
+      ],
+      "moduleChecksum": "h1:WM03sfUOENvvKexOLp+pCqgb/WDjsi7EK8gIsICtzhc="
+    },
+    {
+      "name": "github.com/segmentio/encoding",
+      "version": "v0.5.4",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "d6d71a1f7dc6539e371120cc7af6e3257e55ca79634d473211f217b8965b0f16"
+        }
+      ],
+      "moduleChecksum": "h1:OW1VRern8Nw6ITAtwSZ7Idrl3MXCFwXHPgqESYfvNt0="
     },
     {
       "name": "github.com/teambition/rrule-go",
@@ -11425,6 +11478,19 @@
       "moduleChecksum": "h1:DfiHV+j8bA32MFM7bfEunvT8IAqQ/NzSJHtcmW5zdEY="
     },
     {
+      "name": "github.com/yosida95/uritemplate/v3",
+      "version": "v3.0.2",
+      "license": "BSD-3-Clause",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "0761aadfb1921103752869ee942d4a71bdd54494697684d4b13dc17ad9781191"
+        }
+      ],
+      "moduleChecksum": "h1:Ed3Oyj9yrmi9087+NczuL5BwkIc4wvTb5zIM+UJPGz4="
+    },
+    {
       "name": "golang.org/x/crypto",
       "version": "v0.57.0",
       "license": "BSD-3-Clause",
@@ -11475,6 +11541,32 @@
         }
       ],
       "moduleChecksum": "h1:5zfYln+w5XCxwrnMMJPufRgNoXEaGxl0wo5GqPXyues="
+    },
+    {
+      "name": "golang.org/x/oauth2",
+      "version": "v0.36.0",
+      "license": "BSD-3-Clause",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        }
+      ],
+      "moduleChecksum": "h1:peZ/1z27fi9hUOFCAZaHyrpWG5lwe0RJEEEeH0ThlIs="
+    },
+    {
+      "name": "golang.org/x/sync",
+      "version": "v0.22.0",
+      "license": "BSD-3-Clause",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        }
+      ],
+      "moduleChecksum": "h1:SZjpbeLmrCk4xhRSZFNZW5gFUeCeFgjekvI/+gfScek="
     },
     {
       "name": "golang.org/x/sys",

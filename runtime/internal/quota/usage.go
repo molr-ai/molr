@@ -136,10 +136,25 @@ func ModelTotals(ctx context.Context, store persistence.Store, owner, model core
 // CallTotals counts through accounting indexes, never loading call records.
 // Connection owner may be empty when enforcing the shared connection ceiling.
 func CallTotals(ctx context.Context, store persistence.Store, kind string, owner, resource, exclude core.ID, from, until time.Time) (Totals, error) {
+	out, err := callTotals(ctx, store, kind, owner, resource, exclude, from, until)
+	if err != nil || kind != "connection" {
+		return out, err
+	}
+	extra, err := callTotals(ctx, store, "mcp", owner, resource, exclude, from, until)
+	out.Calls += extra.Calls
+	out.Active += extra.Active
+	out.Unknown += extra.Unknown
+	out.Carried += extra.Carried
+	return out, err
+}
+func callTotals(ctx context.Context, store persistence.Store, kind string, owner, resource, exclude core.ID, from, until time.Time) (Totals, error) {
 	out := emptyTotals()
 	bucket, resourceField := "agent.operations", "Action"
 	if kind == "connection" {
 		bucket, resourceField = "plugins.http-calls", "Connection.ID"
+	} else if kind == "mcp" {
+		bucket, resourceField = "mcp.calls", "Connection.ID"
+		kind = "connection"
 	} else if kind != "tool" {
 		return out, core.Invalid("usage.kind", "unsupported call kind")
 	}

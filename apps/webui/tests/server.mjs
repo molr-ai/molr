@@ -1,3 +1,4 @@
+import { mcpModel, mcpProvider } from './mcp-test-model.mjs';
 import { pluginHTTPTestModel, pluginHTTPProvider } from './plugin-http-test-model.mjs';
 import { createServer as createHTTPSServer } from 'node:https';
 import { profileModel } from './profile-model.mjs';
@@ -52,7 +53,7 @@ const model = createServer(async (request, response) => {
   }
   let raw = ''; for await (const part of request) raw += part;
   try {
-    const input = JSON.parse(raw); if (profileModel(input, response)) return; if (await compressionModel(input, response)) return; if (workspaceCLIModel(input, response)) return; if (pluginHTTPTestModel(input, response)) return; if (responseModel(input, response)) return; if (permissionModel(input, response)) return; if (retryModel(input, response)) return; if (input.model?.startsWith('Expedite ')) { await expediteModel(input, response); return; } const messages = input.messages ?? [];
+    const input = JSON.parse(raw); if (profileModel(input, response)) return; if (mcpModel(input, response)) return; if (await compressionModel(input, response)) return; if (workspaceCLIModel(input, response)) return; if (pluginHTTPTestModel(input, response)) return; if (responseModel(input, response)) return; if (permissionModel(input, response)) return; if (retryModel(input, response)) return; if (input.model?.startsWith('Expedite ')) { await expediteModel(input, response); return; } const messages = input.messages ?? [];
     const eventIndex = messages.findLastIndex(message => typeof message.content === 'string' && message.content.startsWith('Runtime event: '));
     const event = eventIndex >= 0 ? JSON.parse(messages[eventIndex].content.split('\n')[0].slice('Runtime event: '.length)) : {};
     const recent = messages.slice(eventIndex + 1), toolResults = recent.filter(message => message.role === 'tool');
@@ -104,11 +105,11 @@ const model = createServer(async (request, response) => {
 });
 await new Promise(resolve => model.listen(modelPort, '127.0.0.1', resolve));
 let pluginProvider;
-if (process.env.MOLR_E2E_PLUGIN_HTTP === '1') {
+if (process.env.MOLR_E2E_PLUGIN_HTTP === '1' || process.env.MOLR_E2E_MCP === '1') {
   const cert = join(directory, 'plugin-cert.pem'), key = join(directory, 'plugin-key.pem');
   await command('openssl', ['req', '-quiet', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', key, '-out', cert, '-days', '2', '-subj', '/CN=localhost', '-addext', 'subjectAltName=IP:127.0.0.1,DNS:localhost'], directory);
   env.SSL_CERT_FILE = cert;
-  pluginProvider = createHTTPSServer({ cert: await readFile(cert), key: await readFile(key) }, pluginHTTPProvider);
+  pluginProvider = createHTTPSServer({ cert: await readFile(cert), key: await readFile(key) }, process.env.MOLR_E2E_MCP === '1' ? mcpProvider : pluginHTTPProvider);
   await new Promise(resolve => pluginProvider.listen(Number(process.env.MOLR_E2E_PLUGIN_PORT ?? 18886), '127.0.0.1', resolve));
 }
 

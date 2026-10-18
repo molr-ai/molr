@@ -144,7 +144,7 @@ func (a access) owns(ctx context.Context, p core.Principal, o core.Object) error
 		return denied()
 	}
 	if o.Kind == "tool" {
-		if strings.HasPrefix(string(o.ID), "plg_") && len(o.ID) == 52 {
+		if (strings.HasPrefix(string(o.ID), "plg_") || strings.HasPrefix(string(o.ID), "mcp_")) && len(o.ID) == 52 {
 			return nil
 		}
 		switch o.ID {

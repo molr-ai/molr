@@ -24,6 +24,8 @@ For client requests, see [HTTP API](reference/http-api.md); for internal module 
 
 ## Developing Frontend and Extensions
 
+- [MCP integration](extensions/mcp.md): remote tool discovery, execution and authorization.
+
 - [Frontend Architecture](frontend/architecture.md), [Theme and Page Parsing](frontend/themes.md): SDK, Host, page loading, and state recovery.
 - [Branding](frontend/brand.md), [Design System](frontend/design-system.md), [Interaction Conventions](frontend/interaction.md): Visual resources, semantic colors, accessibility, and shared interactions; for component properties, see [Component API](../../../packages/ui/COMPONENTS.md).
 - [Plugin Mechanism](extensions/plugins.md), [WeChat Channel](extensions/weixin.md), [Feishu channel](extensions/feishu.md), [Telegram Channel](extensions/telegram.md), [Slack Channel](extensions/slack.md): Extension protocols, authorization, lifecycle, and message delivery.

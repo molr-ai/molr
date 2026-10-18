@@ -494,8 +494,8 @@ func (s *service) Update(ctx context.Context, p core.Principal, req UpdateReques
 		if !validText(req.Name, 4096) {
 			return v, invalid("name")
 		}
-		if v.Kind == Connection {
-			return v, core.NewError(core.Forbidden, "use plugin connection settings")
+		if v.Kind == Connection || v.Provider == "mcp" {
+			return v, core.NewError(core.Forbidden, "use the service connection settings")
 		}
 		v.Name = req.Name
 		v.Version++
@@ -508,8 +508,8 @@ func (s *service) Disconnect(ctx context.Context, p core.Principal, req Disconne
 		if err != nil {
 			return struct{}{}, err
 		}
-		if v.Kind == Connection {
-			return struct{}{}, core.NewError(core.Forbidden, "use plugin connection settings")
+		if v.Kind == Connection || v.Provider == "mcp" {
+			return struct{}{}, core.NewError(core.Forbidden, "use the service connection settings")
 		}
 		v.State = Disconnected
 		v.Version++

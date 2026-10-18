@@ -101,6 +101,17 @@ func inspectCapabilities(ctx context.Context, store persistence.Store, catalog t
 					}
 				}
 			}
+			if definition.Source == "mcp" {
+				item.Available = false
+				item.Reason = "permission_required"
+				for _, g := range grants {
+					if g.ResourceID == core.ID(definition.Name) && g.RevokedAt == nil && (g.ExpiresAt == nil || g.ExpiresAt.After(now)) && slices.Contains(g.Actions, policy.Execute) && !g.Scope.ReadOnly && g.Scope.ModelID == "" && len(g.Scope.PathPrefixes) == 0 && !g.Scope.FullAccess {
+						item.Available = true
+						item.Reason = "scoped_resources"
+						item.ResourceIDs = []core.ID{g.ResourceID}
+					}
+				}
+			}
 			if a.State != assistant.Active {
 				item.Available = false
 				item.Reason = "assistant_archived"

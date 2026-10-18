@@ -1,0 +1,61 @@
+import { test, expect, type Page } from '@playwright/test';
+const port = process.env.MOLR_TEST_PORT ?? '5193', origin = `http://127.0.0.1:${port}`;
+async function post(page: Page, path: string, data: object, status = 200) {
+  const csrf = (await page.context().cookies()).find(c => c.name === `molr_dev_csrf_p${port}`)!.value;
+  const result = await page.request.post(path, { headers: { Origin: origin, 'X-CSRF-Token': csrf }, data });
+  expect(result.status(), await result.text()).toBe(status); return result.json();
+}
+async function login(page: Page, user = 'owner', password = 'webui-e2e-password-2026!') {
+  await page.goto('/#/resources'); await page.getByLabel('Username', { exact: true }).fill(user); await page.getByLabel('Password', { exact: true }).fill(password); await page.getByRole('button', { name: 'Sign in', exact: true }).click(); await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeHidden();
+}
+test('MCP management, separate catalog, scoped grants, invocation and changed definition review', async ({ page, browser }, info) => {
+  test.skip(process.env.MOLR_E2E_MCP !== '1', 'requires the MCP TLS fixture'); test.setTimeout(90000);
+  await login(page);
+  await page.getByRole('tab', { name: 'Tools', exact: true }).click(); await expect(page.getByRole('tab', { name: 'Built-in tools', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await page.getByRole('tab', { name: 'MCP tools', exact: true }).click(); await page.getByRole('button', { name: 'Add MCP connection', exact: true }).click();
+  const editor = page.getByRole('dialog', { name: 'MCP connection', exact: true }), name = `MCP fixture ${info.project.name}`;
+  await editor.getByLabel('Connection name', { exact: true }).fill(name); await editor.getByLabel('MCP endpoint', { exact: true }).fill(`https://127.0.0.1:${process.env.MOLR_E2E_PLUGIN_PORT ?? 18886}/mcp`); await editor.getByLabel('Token', { exact: true }).fill('mcp-fixture-key'); await editor.getByRole('button', { name: 'Save connection', exact: true }).click(); await expect(editor).toBeHidden();
+  const drawer = page.getByRole('dialog', { name, exact: true }); await expect(drawer).toBeVisible(); await drawer.getByRole('button', { name: 'Test and refresh tools', exact: true }).click(); await drawer.locator('.tools-catalog-row').filter({ hasText: 'lookup' }).click(); const toolDrawer = page.getByRole('dialog', { name: 'lookup', exact: true }); await expect(toolDrawer.getByRole('checkbox', { name: 'Enable lookup', exact: true })).toBeVisible(); await expect(toolDrawer.getByRole('checkbox', { name: 'Enable lookup', exact: true })).not.toBeChecked(); await toolDrawer.getByRole('checkbox', { name: 'Enable lookup', exact: true }).click(); await expect(toolDrawer.getByRole('checkbox', { name: 'Enable lookup', exact: true })).toBeChecked();
+  let connection = (await (await page.request.get('/api/mcp/connections')).json()).find((c: { Name: string }) => c.Name === name); const toolID = connection.Tools[0].ID;
+  expect(JSON.stringify(connection)).not.toContain('mcp-fixture-key'); expect(connection.CredentialID).toBeUndefined();
+  const mutate = (path: string, data: object) => post(page, path, { ...data, Mutation: { IdempotencyKey: crypto.randomUUID() } });
+  const modelOrigin = `http://127.0.0.1:${process.env.MOLR_E2E_MODEL_PORT ?? 18882}`;
+  const resource = await mutate('/api/resources', { Name: name, Kind: 'model', Provider: 'openai-compatible', Binding: { Endpoint: modelOrigin, AllowedOrigins: [modelOrigin], Models: [{ Name: name, ContextLimit: 65536, SupportsTools: true, Pricing: { Currency: 'USD', InputMicrosPerMillion: 0, CachedInputMicrosPerMillion: 0, OutputMicrosPerMillion: 0 } }] } });
+  const model = (await (await page.request.get('/api/models')).json()).find((m: { ResourceID: string }) => m.ResourceID === resource.ID);
+  const assistant = await mutate('/api/assistants', { Name: name, ModelID: model.ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } });
+  let caps = await (await page.request.get(`/api/assistants/${assistant.ID}/capabilities`)).json(); expect(caps.Tools.find((t: { Name: string }) => t.Name === toolID).Available).toBe(false);
+  await toolDrawer.getByRole('button', { name: 'Grant to assistant', exact: true }).click(); const grantDialog = page.getByRole('dialog', { name: 'Grant assistant access', exact: true }); await expect(grantDialog).toBeVisible(); await grantDialog.getByRole('combobox', { name: 'Assistant', exact: true }).click(); await page.getByRole('option', { name, exact: true }).click(); await grantDialog.getByRole('button', { name: 'Save', exact: true }).click(); await expect(grantDialog).toBeHidden();
+  caps = await (await page.request.get(`/api/assistants/${assistant.ID}/capabilities`)).json(); expect(caps.Tools.find((t: { Name: string }) => t.Name === toolID).Available, JSON.stringify(caps)).toBe(true);
+  await page.screenshot({ path: info.outputPath('mcp-tools.png') });
+  for (const close of await page.locator('.ui-toasts').getByRole('button', { name: 'Close', exact: true }).all()) await close.click();
+  await page.goto(`/#/assistants/${assistant.ID}`); await page.getByRole('textbox', { name: 'Message your assistant', exact: true }).fill('Use MCP lookup.'); await page.getByRole('button', { name: 'Send', exact: true }).click(); await expect(page.locator('.chat-history')).toContainText('MCP fixture completed.', { timeout: 30000 });
+  const history = await (await page.request.get(`/api/mcp/connections/${connection.ID}/history`)).json(); expect(history).toHaveLength(1); expect(history[0].State).toBe('succeeded'); expect(JSON.stringify(history)).not.toContain('mcp-fixture-key');
+  const group = await mutate('/api/admin/groups', { Group: { Name: name, Resources: [{ Kind: 'connection', ID: connection.ID, Quota: {} }] } }); const username = `mcp-${info.project.name}`;
+  await mutate('/api/admin/users', { Username: username, DisplayName: username, Password: 'mcp-member-fixture-password!', GroupID: group.ID });
+  const context = await browser.newContext({ baseURL: origin }); const member = await context.newPage(); await login(member, username, 'mcp-member-fixture-password!');
+  const visible = await (await member.request.get('/api/mcp/connections')).json(); expect(visible).toHaveLength(1); expect(visible[0].Endpoint).toBe(''); expect(visible[0].Tools).toHaveLength(0);
+  await post(member, '/api/mcp/connections/refresh', { ID: connection.ID, Mutation: { IdempotencyKey: crypto.randomUUID(), ExpectedVersion: connection.Version } }, 403);
+  expect((await member.request.get(`/api/mcp/connections/${connection.ID}/history`)).status()).toBe(403); await context.close();
+  await page.goto('/#/resources'); await page.getByRole('tab', { name: 'Tools', exact: true }).click(); await page.getByRole('tab', { name: 'MCP tools', exact: true }).click(); await page.getByRole('button', { name: `Manage connection · ${name}`, exact: true }).click();
+  await drawer.getByRole('tab', { name: 'Call history', exact: true }).click(); await expect(drawer).toContainText('Succeeded');
+  await drawer.getByRole('button', { name: 'Disable', exact: true }).click(); await expect(drawer.getByRole('button', { name: 'Enable', exact: true })).toBeVisible();
+  expect((await (await page.request.get('/api/tools')).json()).some((t: { Name: string }) => t.Name === toolID)).toBe(false);
+  await drawer.getByRole('button', { name: 'Enable', exact: true }).click(); await expect(drawer.getByRole('button', { name: 'Disable', exact: true })).toBeVisible();
+  await page.request.get(`https://127.0.0.1:${process.env.MOLR_E2E_PLUGIN_PORT ?? 18886}/fixture/revise`, { ignoreHTTPSErrors: true, headers: { Authorization: 'Bearer mcp-fixture-key' } });
+  await drawer.getByRole('tab', { name: 'Tools', exact: true }).click(); await drawer.getByRole('button', { name: 'Test and refresh tools', exact: true }).click(); await expect(drawer.locator('.tools-catalog-row')).toContainText('Not enabled'); await drawer.locator('.tools-catalog-row').filter({ hasText: 'lookup' }).click(); await expect(toolDrawer.getByRole('checkbox', { name: 'Enable lookup', exact: true })).not.toBeChecked();
+  connection = (await (await page.request.get('/api/mcp/connections')).json()).find((c: { Name: string }) => c.Name === name); expect(connection.Tools[0].ID).not.toBe(toolID);
+  await toolDrawer.getByRole('button', { name: 'Close', exact: true }).click(); await expect(toolDrawer).toBeHidden();
+  await drawer.getByRole('button', { name: 'Close', exact: true }).click(); await expect(drawer).toBeHidden();
+  const catalog = page.locator('.mcp-connections'), search = catalog.getByRole('searchbox', { name: 'Search tools by name or function', exact: true });
+  await catalog.getByRole('group', { name: 'MCP connection filters' }).getByRole('button', { name: `${name} 1`, exact: true }).click();
+  await search.fill('look up artificial'); await expect(catalog.locator('.tools-catalog-row')).toHaveCount(1);
+  await expect(catalog.locator('.tools-catalog-copy > span')).toHaveCSS('-webkit-line-clamp', '2');
+  await search.fill('no-such-mcp-tool'); await expect(catalog).toContainText('No matching results');
+  await catalog.getByRole('button', { name: 'Clear filters', exact: true }).click();
+  const connections = await (await page.request.get('/api/mcp/connections')).json();
+  await expect(catalog.locator('.tools-catalog-row')).toHaveCount(connections.reduce((n: number, c: { Tools: unknown[] }) => n + c.Tools.length, 0));
+  await catalog.locator('.tools-catalog-row').first().click(); await expect(toolDrawer).toBeVisible();
+  await toolDrawer.getByRole('tab', { name: 'Input schema', exact: true }).click(); await expect(toolDrawer.locator('pre')).toContainText('query');
+  await toolDrawer.getByRole('button', { name: 'Close', exact: true }).click(); await expect(toolDrawer).toBeHidden();
+  await page.screenshot({ path: info.outputPath('mcp-catalog.png') }); await page.getByRole('tab', { name: 'Built-in tools', exact: true }).click(); await expect(page.locator('.tools-catalog')).toContainText('Read file'); await expect(page.locator('.tools-catalog')).not.toContainText('Look up artificial');
+});

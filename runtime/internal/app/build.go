@@ -48,6 +48,7 @@ import (
 	"molr.ai/runtime/internal/im/slack"
 	"molr.ai/runtime/internal/im/telegram"
 	"molr.ai/runtime/internal/im/weixin"
+	"molr.ai/runtime/internal/mcpclient"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/platform"
 	"molr.ai/runtime/internal/plugins"
@@ -145,9 +146,13 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 	access := access{store}
 	var validateReferences func(context.Context, core.Principal, []auth.ResourceReference) error
 	var pluginService *plugins.Service
+	var mcpService *mcpclient.Service
 	identity, err := auth.NewService(store, auth.Options{AfterAccessChange: func(ctx context.Context) {
 		if pluginService != nil {
 			pluginService.RevalidateRunning(ctx)
+		}
+		if mcpService != nil {
+			mcpService.RevalidateRunning(ctx)
 		}
 	}, ValidateResources: func(ctx context.Context, p core.Principal, r []auth.ResourceReference) error {
 		if validateReferences == nil {
@@ -256,6 +261,26 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		}
 		if resourceValue.Kind != resource.Connection {
 			return adapters.credentialAccess(ctx, q)
+		}
+		if resourceValue.Provider == "mcp" {
+			if mcpService == nil {
+				return denied()
+			}
+			c, err := mcpService.ConnectionAccess(ctx, p, q.ResourceID)
+			if err != nil {
+				return err
+			}
+			if c.CredentialID != q.CredentialID || c.Origin() != q.Origin {
+				return denied()
+			}
+			value, err := credential.NewRepository(store).Get(ctx, p.OwnerID, q.CredentialID)
+			if err != nil {
+				return err
+			}
+			if value.Metadata.Provider != "mcp:"+string(c.ID) {
+				return denied()
+			}
+			return nil
 		}
 		if pluginService == nil {
 			return core.NewError(core.Unavailable, "plugin connections unavailable")
@@ -803,9 +828,12 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 			return plans.List(ctx, p, time.Time{}, time.Time{})
 		},
 	})
+	mcpService = newMCPService(store, identity, permissions, vault, adapters)
+	grants = mcpGrants{Service: grants, mcp: mcpService}
+	extensions := externalTools{plugin: pluginService, mcp: mcpService}
 	profile := &profileTools{workspace: fileTools}
-	executor := tools.NewExecutor(store, tools.Options{ProfileUpdate: profile.update, CheckGroupQuota: func(ctx context.Context, c tools.Call) error { return checkGroupToolQuota(ctx, store, c) }, ExtensionDefinitions: pluginService.Definitions, ExtensionValidate: pluginService.ValidateCall, ExtensionPrepare: pluginService.PrepareCall, ExtensionExecute: pluginService.Execute, PermissionList: sandboxRouter.list, PermissionRequest: permissionRequests.create, Cancel: func(ctx context.Context, e core.Execution, id core.ID) error {
-		if pluginService.CancelOperation(e.Principal.OwnerID, id) {
+	executor := tools.NewExecutor(store, tools.Options{ProfileUpdate: profile.update, CheckGroupQuota: func(ctx context.Context, c tools.Call) error { return checkGroupToolQuota(ctx, store, c) }, ExtensionDefinitions: extensions.Definitions, ExtensionValidate: extensions.ValidateCall, ExtensionPrepare: extensions.PrepareCall, ExtensionExecute: extensions.Execute, PermissionList: sandboxRouter.list, PermissionRequest: permissionRequests.create, Cancel: func(ctx context.Context, e core.Execution, id core.ID) error {
+		if mcpService.CancelOperation(e.Principal.OwnerID, id) || pluginService.CancelOperation(e.Principal.OwnerID, id) {
 			return nil
 		}
 		return cancelTool(ctx, e, id)
@@ -1156,7 +1184,7 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		AdminUsage: func(ctx context.Context, p core.Principal) (any, error) { return adminUsage(ctx, store, identity, p) },
 		AccountQuotas: func(ctx context.Context, p core.Principal) (any, error) {
 			return accountQuotas(ctx, store, identity, p)
-		}, Plugins: pluginService, ShellTasks: func(ctx context.Context, p core.Principal, id core.ID, raw json.RawMessage) (json.RawMessage, error) {
+		}, Plugins: pluginService, MCP: mcpService, ShellTasks: func(ctx context.Context, p core.Principal, id core.ID, raw json.RawMessage) (json.RawMessage, error) {
 			if err := p.RequireOwner(); err != nil {
 				return nil, err
 			}
@@ -1203,6 +1231,9 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 			log.Printf("assistant clone recovery incomplete: %v", err)
 		}
 		if err := recoverCallUsage(ctx, store); err != nil {
+			return err
+		}
+		if err := mcpService.Recover(ctx); err != nil {
 			return err
 		}
 		return pluginService.RecoverHTTP(ctx)

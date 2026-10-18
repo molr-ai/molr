@@ -1,0 +1,23 @@
+.tools-workspace > .ui-tabs > .ui-tabs__panel { padding-top: 20px; }
+.mcp-connections { min-width: 0; }
+.mcp-catalog-toolbar { display: flex; align-items: flex-start; gap: 12px; padding-bottom: 16px; border-bottom: 1px solid var(--color-border); }
+.mcp-catalog-toolbar .tools-catalog-filters { flex: 1; min-width: 0; border: 0; padding: 0; }
+.mcp-catalog-toolbar .tools-catalog-filters button { max-width: 100%; }
+.mcp-catalog-toolbar .tools-catalog-filters button > span:not(.tools-catalog-count) { overflow-wrap: anywhere; }
+.mcp-catalog-group-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.mcp-catalog-group-heading h3 { flex: 1; min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.mcp-catalog-group-heading h3 svg { flex-shrink: 0; }
+.tools-catalog-state { margin-inline-start: 8px; font-size: 11px; font-weight: 400; color: var(--color-text-muted); }
+.mcp-detail-content { display: grid; gap: 16px; min-width: 0; }
+.mcp-detail-content p { line-height: 1.7; font-size: 12px; }
+.mcp-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.mcp-connection-tools ul { grid-template-columns: minmax(0, 1fr); }
+.mcp-tool-controls { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; width: 100%; }
+.mcp-tool-controls > label { min-width: 0; overflow-wrap: anywhere; }
+.mcp-history { list-style: none; padding: 0; margin: 16px 0 0; }
+.mcp-history > li { display: grid; gap: 6px; padding: 14px 0; border-bottom: 1px solid var(--color-border); overflow-wrap: anywhere; font-size: 13px; }
+.mcp-history small { color: var(--color-text-muted); }
+@media (--molr-mobile) {
+  .mcp-catalog-toolbar { flex-wrap: wrap; }
+  .mcp-catalog-toolbar .tools-catalog-filters { flex-basis: 100%; }
+}

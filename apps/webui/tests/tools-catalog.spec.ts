@@ -14,7 +14,7 @@ test('tool catalog combines categories and search, opens details and restores fo
   const response = await page.request.get('/api/tools');
   expect(response.ok()).toBe(true);
   const tools = await response.json();
-  const visible = tools.filter((tool: { Name: string }) => !tool.Name.startsWith('plg_'));
+  const visible = tools.filter((tool: { Name: string }) => !tool.Name.startsWith('plg_') && !tool.Name.startsWith('mcp_'));
   await expect(rows).toHaveCount(visible.length);
   const filters = page.getByRole('group', { name: 'Tool categories' });
   await filters.getByRole('button', { name: /Files and workspace/ }).click();

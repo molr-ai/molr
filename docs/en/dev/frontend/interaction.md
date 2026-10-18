@@ -46,6 +46,8 @@ The Security page follows the flat list and fine dividers of other settings page
 
 ## Resource Tool Directory
 
+The MCP catalog shares the built-in tool search, filter buttons, compact grouped rows and detail drawer, grouped by service connection. Filter counts follow the search. Each group provides connection management; tool details provide enablement and assistant grants, while connection details provide configuration and history. Plugin visibility does not affect MCP, and colors use shared semantic tokens.
+
 The Resource Tools page uses a compact grouped list. Search and categories jointly filter the directory, with category counts updating according to search results. Group definitions share `tool-groups.ts` with assistant information. Empty groups are not displayed. Plugin tools follow account plugin visibility settings. Shared `SearchField` and `Drawer` provide search clearing, keyboard operations, detail closing, and focus restoration. The top of the detail view centrally displays name, identifier, brief description, execution impact, and required operations. Below, shared `Tabs` switches between the original model tool description and parameter structure. The original text directly reads `Description` from the directory, preserving content as plain text. Long descriptions and parameters wrap automatically, sharing the drawer scroll area. Read/write impacts are distinguished by icons and text, using semantic colors adapted to each theme.
 
 ## Model Page Action Entries

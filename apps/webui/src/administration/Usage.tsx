@@ -83,7 +83,7 @@ export function AccountUsage() {
   const labels = t.assistantInfo.toolLabels as Record<string, { name: string }>;
   const models = useQuery<{ ID: string; Name: string }[]>('/api/models');
   const [filter, setFilter] = useState('all');
-  const data = query.data, resources = data?.Group.Resources.filter(r => r.Kind !== 'plugin' && pluginResourceVisible(r.Kind, pluginsVisible, r.ID) && (filter === 'all' || (!pluginsVisible && filter === 'connection') || r.Kind === filter)) ?? [];
+  const data = query.data, resources = data?.Group.Resources.filter(r => r.Kind !== 'plugin' && pluginResourceVisible(r.Kind, pluginsVisible, r.ID) && (filter === 'all' || r.Kind === filter)) ?? [];
   useErrorToast(query.error, query.reload);
   return <div className="usage-page" aria-busy={query.loading}>
     <UsageAnalytics onRefresh={query.reload} />
@@ -96,7 +96,7 @@ export function AccountUsage() {
         {pluginsVisible && <p className="usage-note">{zh ? 'HTTP 连接调用也计入工具次数，两项不可相加。' : 'HTTP connection calls also count as tool calls; do not add the two.'}</p>}
       </section>
       <ContextStorage value={data.ContextStorage} />
-      {!data.Group.Administrator && <section className="usage-allowances"><div className="usage-section-heading"><div><h3>{zh ? '当前成员额度' : 'Current member allowances'}</h3><p>{groupName(data.Group, zh)} · {zh ? '每位成员独立计量，所有助理合计使用' : 'Measured per member, across all assistants'}</p></div><Select size="sm" label={zh ? '资源类型' : 'Resource type'} value={!pluginsVisible && filter === 'connection' ? 'all' : filter} onValueChange={setFilter} options={[{ value: 'all', label: zh ? '全部资源' : 'All resources' }, { value: 'model', label: zh ? '模型' : 'Models' }, { value: 'tool', label: zh ? '工具' : 'Tools' }, ...(pluginsVisible ? [{ value: 'connection', label: zh ? '连接' : 'Connections' }] : []), { value: 'sandbox', label: zh ? '沙盒' : 'Sandboxes' }]} /></div>
+      {!data.Group.Administrator && <section className="usage-allowances"><div className="usage-section-heading"><div><h3>{zh ? '当前成员额度' : 'Current member allowances'}</h3><p>{groupName(data.Group, zh)} · {zh ? '每位成员独立计量，所有助理合计使用' : 'Measured per member, across all assistants'}</p></div><Select size="sm" label={zh ? '资源类型' : 'Resource type'} value={filter} onValueChange={setFilter} options={[{ value: 'all', label: zh ? '全部资源' : 'All resources' }, { value: 'model', label: zh ? '模型' : 'Models' }, { value: 'tool', label: zh ? '工具' : 'Tools' }, { value: 'connection', label: zh ? '连接' : 'Connections' }, { value: 'sandbox', label: zh ? '沙盒' : 'Sandboxes' }]} /></div>
         {resources.length ? <div className="usage-resources">{resources.map(ref => <ResourceAllowance key={`${ref.Kind}:${ref.ID}`} reference={ref} gpus={sandboxes.data?.find(node => ref.Kind === 'sandbox' && node.ID === ref.ID)?.Info.GPUs} used={data.Resources.find(v => v.Kind === ref.Kind && v.ID === ref.ID)} name={models.data?.find(m => ref.Kind === 'model' && m.ID === ref.ID)?.Name ?? (ref.Kind === 'tool' ? labels[ref.ID]?.name : ref.Kind === 'sandbox' && ref.ID === 'local' ? zh ? '本机沙盒' : 'Local sandbox' : undefined) ?? data.Resources.find(v => v.Kind === ref.Kind && v.ID === ref.ID)?.Name ?? ref.ID} />)}</div> : <Empty title={zh ? '暂无资源额度' : 'No resource allowances'} description={zh ? '当前用户组或筛选条件下没有可展示的资源。' : 'No resources match your group or filter.'} />}
       </section>}
       <p className="usage-note">{zh ? '统计时间：' : 'As of: '}{new Date(data.AsOf).toLocaleString(locale)}</p>

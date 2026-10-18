@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Badge, Button, Drawer, EmptyState, SearchField, Tabs } from '@molr/ui';
-import { ChevronRight, Eye, Layers, PenLine, Search, Wrench } from 'lucide-react';
+import { Button, Drawer, EmptyState, SearchField, Tabs } from '@molr/ui';
+import { Layers, Search, Wrench } from 'lucide-react';
 import type { ToolCapability } from '../../../api/types';
 import { useCopy, useQuery } from '../../../state';
 import { pluginResourceVisible, usePluginsVisible } from '../../../plugins/visibility';
@@ -9,15 +9,27 @@ import { useErrorToast } from '../../../error-toasts';
 import { toolGroup, toolGroups } from './tool-groups';
 import type { ToolGroup } from './tool-groups';
 import './tools-catalog.css';
+import { ToolCatalogRow } from './ToolCatalogRow';
+import { ToolDetails } from './ToolDetails';
+import { MCPConnections } from './MCPConnections';
 
 export function ToolsCatalog() {
+ const {locale}=useCopy(), zh=locale==='zh', pluginsVisible=usePluginsVisible();
+ const [source,setSource]=useState('builtin');
+ return <div className="tools-workspace"><Tabs label={zh?'工具来源':'Tool source'} value={source} onValueChange={setSource} items={[
+ {value:'builtin',label:zh?'内置工具':'Built-in tools',content:source==='builtin'?<ToolList source="builtin"/>:null},
+ {value:'mcp',label:zh?'MCP 工具':'MCP tools',content:source==='mcp'?<MCPConnections/>:null},
+ ...(pluginsVisible?[{value:'plugin',label:zh?'插件工具':'Plugin tools',content:source==='plugin'?<ToolList source="plugin"/>:null}]:[]),
+ ]}/></div>;
+}
+function ToolList({source}:{source:'builtin'|'plugin'}) {
   const { t } = useCopy(), copy = t.toolsCatalog, pluginsVisible = usePluginsVisible();
   const query = useQuery<ToolCapability[]>('/api/tools');
   useErrorToast(query.error, query.reload);
   const [search, setSearch] = useState(''), [group, setGroup] = useState<ToolGroup | 'all'>('all');
   const [selected, setSelected] = useState<string | null>(null);
   const labels = t.assistantInfo.toolLabels as Record<string, { name: string; description: string }>;
-  const tools = (query.data ?? []).filter(tool => pluginResourceVisible('tool', pluginsVisible, tool.Name));
+  const tools = (query.data ?? []).filter(tool => (tool.Source ?? (tool.Name.startsWith('plg_') ? 'plugin' : 'builtin')) === source && pluginResourceVisible('tool', pluginsVisible, tool.Name));
   const terms = search.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   const matches = tools.filter(tool => {
     const text = [tool.Name, labels[tool.Name]?.name, labels[tool.Name]?.description ?? tool.Description, t.assistantInfo.toolGroups[toolGroup(tool.Name)]].join(' ').toLocaleLowerCase();
@@ -40,39 +52,12 @@ export function ToolsCatalog() {
       <div className="tools-catalog-summary" role="status">{copy.results(shown.length, tools.length)}</div>
       {!shown.length ? <div className="tools-catalog-empty"><EmptyState illustration={tools.length ? <Search /> : <Wrench />} title={tools.length ? t.noResults : copy.empty} description={tools.length ? copy.noResultsHelp : copy.emptyHelp} />{tools.length > 0 && <Button variant="secondary" size="sm" onClick={() => { setSearch(''); setGroup('all'); }}>{copy.reset}</Button>}</div> : groups.filter(item => group === 'all' || group === item.key).map(item => item.tools.length > 0 && <section className="tools-catalog-group" key={item.key} aria-label={t.assistantInfo.toolGroups[item.key]}>
         <h3><item.icon size={16} aria-hidden="true" />{t.assistantInfo.toolGroups[item.key]}<span>{item.tools.length}</span></h3>
-        <ul>{item.tools.map(tool => {
-          return <li key={tool.Name}><button type="button" className="tools-catalog-row interactive-list-row" aria-haspopup="dialog" onClick={() => setSelected(tool.Name)}>
-            <span className="tools-catalog-icon"><item.icon size={18} aria-hidden="true" /></span>
-            <span className="tools-catalog-copy"><strong>{labels[tool.Name]?.name ?? tool.Name}</strong><span>{labels[tool.Name]?.description ?? tool.Description}</span></span>
-            <ChevronRight className="tools-catalog-chevron" size={16} aria-hidden="true" />
-          </button></li>;
-        })}</ul>
+        <ul>{item.tools.map(tool => <li key={tool.Name}><ToolCatalogRow name={labels[tool.Name]?.name ?? tool.Name} description={labels[tool.Name]?.description ?? tool.Description} icon={item.icon} onOpen={() => setSelected(tool.Name)} /></li>)}</ul>
       </section>)}
       <p className="tools-catalog-help">{copy.permissionsHelp}</p>
     </>}
     <Drawer open={!!detail} title={detail ? labels[detail.Name]?.name ?? detail.Name : t.assistantInfo.toolDetails} description={detail?.Name} className="tool-catalog-detail" onOpenChange={open => { if (!open) setSelected(null); }}>
       {detail && <ToolDetails key={detail.Name} tool={detail} summary={labels[detail.Name]?.description} />}
     </Drawer>
-  </div>;
-}
-
-function ToolDetails({ tool, summary }: { tool: ToolCapability; summary?: string }) {
-  const { t } = useCopy(), copy = t.toolsCatalog;
-  const [tab, setTab] = useState('description');
-  const EffectIcon = tool.SideEffect ? PenLine : Eye;
-  return <div className="tool-catalog-content">
-    <section className="tool-catalog-overview" aria-label={copy.overview}>
-      <Badge dot={false}>{t.assistantInfo.toolGroups[toolGroup(tool.Name)]}</Badge>
-      {summary && <p className="tool-catalog-description">{summary}</p>}
-      <dl className="tool-catalog-facts">
-        <div><dt>{t.assistantInfo.toolEffect}</dt><dd><EffectIcon size={15} aria-hidden="true" /><span>{tool.SideEffect ? t.assistantInfo.writesData : t.assistantInfo.readOnly}</span></dd></div>
-        <div><dt>{t.assistantInfo.requiredActions}</dt><dd>{tool.RequiredActions.map(action => (t.resourcePermissions.generic as Record<string, string>)[action] ?? action).join(' / ') || t.none}</dd></div>
-      </dl>
-      <p className="tool-catalog-permissions">{copy.permissionsHelp}</p>
-    </section>
-    <Tabs className="tool-catalog-definition" label={copy.definition} value={tab} onValueChange={setTab} items={[
-      { value: 'description', label: copy.modelDescription, content: <div className="tool-catalog-model-description">{tool.Description || copy.noDescription}</div> },
-      { value: 'schema', label: t.assistantInfo.inputSchema, content: <pre className="tool-catalog-schema" tabIndex={0} aria-label={t.assistantInfo.inputSchema}>{JSON.stringify(tool.InputSchema, null, 2)}</pre> },
-    ]} />
   </div>;
 }

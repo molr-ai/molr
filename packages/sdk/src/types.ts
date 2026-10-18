@@ -49,7 +49,7 @@ export type DebugToolSummary = { Kind: string; Text?: string; Count?: number };
 export type DebugStep = { Summary?: DebugToolSummary; LogicalID?: ID; Attempt?: number; MaxAttempts?: number; NextRetryAt?: string; ErrorReason?: string; HTTPStatus?: number; Sequence: number; Kind: string; State: string; OperationID: ID; At: string; DataStatus: string; Revision?: number; Name?: string; Preview?: string };
 export type DebugPayload = { Status: string; Data: Record<string, any> | null };
 
-export type ToolCapability = { Name: string; Description: string; InputSchema: unknown; RequiredActions: string[]; SideEffect: boolean; Available: boolean; Reason: string; ResourceIDs: string[] };
+export type ToolCapability = { Source?: 'builtin' | 'plugin' | 'mcp'; ConnectionID?: string; RemoteName?: string; Name: string; Description: string; InputSchema: unknown; RequiredActions: string[]; SideEffect: boolean; Available: boolean; Reason: string; ResourceIDs: string[] };
 export type AssistantCapabilities = { AssistantID: ID; Tools: ToolCapability[]; Skills: { Supported: boolean; Items: Array<{ ID: string; Name: string; Description: string; Version: string; Enabled: boolean; RequiredTools: string[]; RequiredActions: string[] }> } };
 
 export type PlanRef = { Kind: 'todo' | 'schedule'; ID: string };
@@ -149,3 +149,7 @@ export type DingtalkPairing = { Code: string; ExpiresAt: string };
 
 export type FeishuStatus = { Channel: 'webui' | 'feishu'; State: 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'credentials_required' | 'paused'; AppID: string; ConnectedAt: string | null; LastInboundAt: string | null; LastError: string };
 export type FeishuLogin = { ID: string; Status: 'waiting' | 'confirmed' | 'expired' | 'denied' | 'unsupported_tenant'; QRCode: string; ExpiresAt: string };
+
+export type MCPTool = { ID: ID; Name: string; Description: string; InputSchema: unknown; Enabled: boolean; Problem: string };
+export type MCPConnection = { ID: ID; Name: string; Endpoint: string; Auth: 'none' | 'bearer' | 'header'; Header: string; Enabled: boolean; Version: number; CallLimit: number; Concurrent: number; TimeoutSeconds: number; Tools: MCPTool[]; CheckedAt: string | null; Status: 'unchecked' | 'available' | 'offline'; Configured: boolean; Calls: number; Active: number };
+export type MCPCall = { ID: ID; OwnerID: ID; ToolName: string; State: 'prepared' | 'running' | 'succeeded' | 'tool_error' | 'failed' | 'unknown'; CreatedAt: string; DurationMS: number; Failure: string };
