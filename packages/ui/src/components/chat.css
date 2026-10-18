@@ -159,6 +159,15 @@
 .message-actions { position: relative; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .message-actions > .message-footer { margin-top: 0; }
 .ui-chat-message--user .message-actions { justify-content: flex-end; flex-wrap: nowrap; }
+.message-bottom { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.message-bottom:empty { display: none; }
+.message-bottom:has(> :is(.message-attachments, .message-images, .message-cards)) { margin-top: 12px; }
+.message-bottom > :is(.message-attachments, .message-images, .message-cards, .message-actions) { min-width: 0; max-width: 100%; margin-top: 0; }
+.message-bottom > .message-actions { flex-shrink: 0; }
+.ui-chat-message--user .message-bottom > .message-actions { margin-left: auto; }
+/* Images and rich cards keep their own row; file chips share spare space with actions. */
+.message-bottom > .message-images,
+.message-bottom > :is(.message-attachments, .message-cards):has(:is(.ui-image-gallery, .ui-chat-card)) { flex-basis: 100%; }
 .message-copy-button, .message-expedite-button { display: inline-grid; place-items: center; flex-shrink: 0; width: 28px; min-height: 28px; padding: 5px; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-text-muted); cursor: pointer; }
 .message-expedite-button { display: inline-flex; align-items: center; justify-content: center; width: auto; gap: 4px; font: inherit; font-size: var(--text-xs); line-height: 18px; white-space: nowrap; }
 .message-copy-button svg, .message-expedite-button svg { width: 15px; height: 15px; }

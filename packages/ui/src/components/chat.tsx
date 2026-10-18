@@ -49,13 +49,15 @@ export function ChatMessage({ text, role = 'assistant', sender, timestamp, timeZ
         {role !== 'user' && timeElement}
       </div>}
       {text && <ChatBubble role={role} text={text} />}
-      {attachments && <ChatAttachmentList files={attachments} className="message-attachments" />}
-      {!!images?.length && <ImageGallery images={images} className="message-images" />}
-      {cards && <div className="message-cards">{cards}</div>}
-      {(text || footer || (role === 'user' && readStatus)) && <div className="message-actions">
-        {text && <ChatCopyButton text={text} />}{footer}
-        {role === 'user' && readStatus && <small className="message-read-status" data-read-status={readStatus}>{readStatus === 'read' ? messages.chat.read : messages.chat.unread}</small>}
-      </div>}
+      <div className="message-bottom">
+        {!!attachments?.length && <ChatAttachmentList files={attachments} className="message-attachments" />}
+        {!!images?.length && <ImageGallery images={images} className="message-images" />}
+        {cards && <div className="message-cards">{cards}</div>}
+        {(text || footer || (role === 'user' && readStatus)) && <div className="message-actions">
+          {text && <ChatCopyButton text={text} />}{footer}
+          {role === 'user' && readStatus && <small className="message-read-status" data-read-status={readStatus}>{readStatus === 'read' ? messages.chat.read : messages.chat.unread}</small>}
+        </div>}
+      </div>
     </div>
   </article>;
 }

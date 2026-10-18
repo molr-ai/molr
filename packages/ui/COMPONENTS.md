@@ -106,7 +106,7 @@ import '@molr/ui/styles.css';
 
 助理消息气泡、`ChatCard`、文件附件、图片附件缩略图和用户默认头像使用 `--color-background`，在 `--color-surface` 聊天区域中形成层次；用户气泡使用 `--color-accent` 与 `--color-on-accent`，输入器保持 `--color-surface`。这些样式由共享组件提供，UI Design 与 WebUI 直接复用。
 
-`ChatBubble` 只接收 `text` 字符串，双方气泡均无边框、16 px 圆角；`role="user"` 使用 Lime 底色与 Forest 文字。用户气泡内的文本选中使用 Forest 底色与 Canvas 文字，避免与气泡底色重合。`ChatMessage` 组合头像、`sender`、文本、`attachments`、`images`、`cards` 和 `footer`，头像、图片、附件和卡片独立于文本气泡呈现。默认显示 32 × 32 px 圆形头像，未提供 `avatar` 时以发送者名称首字占位；可传入图片或图标。`showAvatar` 与 `showSender` 可独立开关，助理头像在左侧，用户头像在右侧。用户消息可传入 `readStatus="unread"` 或 `readStatus="read"`，在气泡和附件下方右对齐显示「未读／已读」，使用辅助文字色，不增加边框。未传值时不显示；助理消息不显示此状态，状态由调用方提供。
+`ChatBubble` 只接收 `text` 字符串，双方气泡均无边框、16 px 圆角；`role="user"` 使用 Lime 底色与 Forest 文字。用户气泡内的文本选中使用 Forest 底色与 Canvas 文字，避免与气泡底色重合。`ChatMessage` 组合头像、`sender`、文本、`attachments`、`images`、`cards` 和 `footer`，头像、图片、附件和卡片独立于文本气泡呈现。默认显示 32 × 32 px 圆形头像，未提供 `avatar` 时以发送者名称首字占位；可传入图片或图标。`showAvatar` 与 `showSender` 可独立开关，助理头像在左侧，用户头像在右侧。用户消息可传入 `readStatus="unread"` 或 `readStatus="read"`，「未读／已读」与复制等操作组成消息操作区，使用辅助文字色，不增加边框。文件附件与操作区在可用宽度足够时同一行展示；不足时操作区整体换行，用户消息仍靠右对齐。图片和富卡片独占一行，操作区显示在其下方。未传值时不显示；助理消息不显示此状态，状态由调用方提供。
 
 ```tsx
 <ChatMessage role="assistant" sender="Molr" text="已整理好出行资料。"
