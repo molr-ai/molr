@@ -22,6 +22,7 @@ async function launch() {
   const env = { ...process.env, MOLR_DESKTOP_DATA: data };
   delete env.MOLR_DESKTOP_RUNTIME; delete env.MOLR_DESKTOP_DEV_URL; delete env.ELECTRON_RUN_AS_NODE;
   app = await electron.launch({ args: [join(root, 'apps/desktop')], env, chromiumSandbox: true, timeout: 30000 });
+  app.context().setDefaultTimeout(15000);
   assert.equal(await app.evaluate(() => process.argv.includes('--no-sandbox')), false);
   return app.firstWindow();
 }
@@ -36,10 +37,24 @@ async function waitRuntime(page) { await expect.poll(() => page.evaluate(async (
 try {
   let page = await launch();
   await page.getByRole('heading', { name: '连接你的 Runtime' }).waitFor();
+  const logo = page.locator('.desktop-identity .logo img');
+  await expect(logo).toHaveAttribute('src', /molr-wordmark-(alive|playful)\.svg/);
+  await expect(page.locator('.desktop-identity picture source')).toHaveAttribute('media', '(prefers-reduced-motion: reduce)');
   await page.getByRole('button', { name: '添加连接', exact: true }).click();
   await page.getByLabel('连接名称', { exact: true }).fill('Fixture one');
-  await page.getByLabel('Runtime 地址', { exact: true }).fill(url);
+  await page.getByLabel('Runtime 地址', { exact: true }).fill('http://example.com');
   await page.getByRole('switch').check();
+  const beforeError = await page.locator('.desktop-intro').boundingBox();
+  await page.getByRole('button', { name: '保存连接' }).click();
+  await expect(page.locator('.ui-toast--danger [role="alert"]')).toBeVisible();
+  assert.equal(await page.locator('.desktop-error').count(), 0);
+  assert.deepEqual(await page.locator('.desktop-intro').boundingBox(), beforeError, 'Error Toast does not shift page layout');
+  await page.getByRole('button', { name: '保存连接' }).click();
+  await expect(page.locator('.ui-toast--danger')).toHaveCount(1);
+  await page.screenshot({path:join(screenshots,'error-toast.png'),animations:'disabled'});
+  await page.locator('.ui-toast--danger').getByRole('button', {name:'关闭',exact:true}).click();
+  await expect(page.locator('.ui-toast--danger')).toHaveCount(0);
+  await page.getByLabel('Runtime 地址', { exact: true }).fill(url);
   await page.getByRole('button', { name: '保存连接' }).click();
   await page.getByRole('heading', { name: 'Fixture one' }).waitFor();
   await page.evaluate(async url => window.molrDesktop.save({ name: 'Fixture two', url, allowHTTP: true }), url);
@@ -105,6 +120,9 @@ try {
   await page.screenshot({ path: join(screenshots, 'narrow.png') });
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   console.log('Electron acceptance passed: isolated sessions, restart, SSE, remote privilege boundary, recovery, six palettes/light-dark and narrow layout.');
+} catch (error) {
+  if (app) await (await app.firstWindow()).screenshot({path:join(screenshots,'failure.png')}).catch(()=>{});
+  throw error;
 } finally {
   await app?.close(); fixture.closeAllConnections(); await new Promise(resolve => fixture.close(resolve));
   rmSync(data, { recursive: true, force: true });

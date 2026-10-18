@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Minus, Square, Copy, X, ArrowLeft, ArrowRight, Check, CircleHelp, ExternalLink, Monitor, Plus, RefreshCw, Server, Settings2, Trash2 } from 'lucide-react';
-import { Select, Badge, Button, IconButton, Logo, TextField, Switch, ThemeSelect, PaletteSelect, UIProvider, useTheme, usePalettePreference } from '@molr/ui';
+import { Select, Badge, Button, IconButton, Logo, TextField, Switch, ThemeSelect, PaletteSelect, UIProvider, ToastProvider, useToast, useTheme, usePalettePreference, paletteAssetBase } from '@molr/ui';
 import type { Connection, ConnectionInput, DesktopAPI, DesktopState, LocalAction, ResourcePreset } from '../shared';
 import '@molr/ui/styles.css';
 import './style.css';
@@ -14,7 +14,14 @@ const stateNames: Record<string, string> = { active: '运行中', running: '运�
 function App() {
   const [state, setState] = useState(initial);
   const [form, setForm] = useState<ConnectionInput>();
-  const [error, setError] = useState('');
+  const { toast, dismiss } = useToast();
+  const lastError = useRef<number | undefined>(undefined);
+  const clearError = useCallback(() => { if (lastError.current !== undefined) dismiss(lastError.current); lastError.current = undefined; }, [dismiss]);
+  const reportError = useCallback((error: unknown) => {
+    clearError();
+    const message = (error instanceof Error ? error.message : String(error)).replace(/^Error invoking remote method '[^']+': Error: /, '');
+    lastError.current = toast({ tone: 'danger', title: '操作失败', description: message });
+  }, [clearError, toast]);
   const [pending, setPending] = useState(false);
   const [settings, setSettings] = useState(false);
   const [resourcePreset, setResourcePreset] = useState<ResourcePreset>('permissive');
@@ -24,12 +31,13 @@ function App() {
     if (!bridge) return;
     let mounted = true;
     const dispose = bridge.subscribe(s => { if (mounted) setState(s); });
-    void bridge.state().then(s => { if (mounted) setState(s); }).catch(e => setError(e.message));
+    void bridge.state().then(s => { if (mounted) setState(s); }).catch(e => { if (mounted) reportError(e); });
     return () => { mounted = false; dispose(); };
-  }, []);
+  }, [reportError]);
+  useEffect(() => { if (state.local.error) reportError(state.local.error); }, [state.local.error, reportError]);
   async function run(fn: () => Promise<unknown>) {
-    setPending(true); setError('');
-    try { await fn(); } catch (e) { setError((e as Error).message.replace(/^Error invoking remote method '[^']+': Error: /, '')); }
+    setPending(true); clearError();
+    try { await fn(); } catch (e) { reportError(e); }
     finally { setPending(false); }
   }
   const disabled = pending || !!state.busy || !bridge;
@@ -39,9 +47,9 @@ function App() {
   const runtimeReady = local.state === 'active' || local.state === 'running';
   const connect = (c: Connection) => void run(() => bridge!.connect(c.id));
   function localAction(action: LocalAction) { void run(() => bridge!.localAction(action, action === 'install' && local.state !== 'uninstalled' ? resourcePreset : undefined)); }
-  return <UIProvider locale="zh"><div className="desktop-app">
+  return <div className="desktop-app">
     {state.view !== 'runtime' && <header className="desktop-toolbar">
-      <div className="desktop-identity"><Logo variant={theme === 'dark' ? 'light' : 'dark'} /><span className="desktop-divider" /><span>{current?.name ?? '桌面工作台'}</span></div>
+      <div className="desktop-identity"><Logo animation="daily" assetBaseUrl={paletteAssetBase(palette)} variant={theme === 'dark' ? 'light' : 'dark'} /><span className="desktop-divider" /><span>{current?.name ?? '桌面工作台'}</span></div>
       <div className="desktop-toolbar-actions">
         {!showManager && <Button variant="ghost" size="sm" onClick={() => void run(() => bridge!.manager())}><ArrowLeft size={16} /> 管理连接</Button>}
         {showManager && <IconButton label="桌面设置" onClick={() => setSettings(!settings)}><Settings2 size={18} /></IconButton>}
@@ -55,10 +63,8 @@ function App() {
     {state.view === 'runtime' ? <div className="desktop-runtime-placeholder" aria-label="Runtime 页面" /> :
       <main className="desktop-main">
         {!bridge && <div className="desktop-notice" role="status"><CircleHelp size={18} /><span>这是桌面管理界面的浏览器预览。连接和本机服务管理请在 Molr 桌面应用中使用。</span></div>}
-        {error && <div className="desktop-error" role="alert">{error}</div>}
-        {!local.available && local.error && <div className="desktop-error" role="alert">本机 Runtime 管理暂不可用：{local.error}</div>}
         {!showManager ? <section className="desktop-recovery">
-          <Logo animation={state.view === 'loading' ? 'loading' : 'idle'} variant={theme === 'dark' ? 'light' : 'dark'} />
+          <Logo animation={state.view === 'loading' ? 'loading' : 'idle'} assetBaseUrl={paletteAssetBase(palette)} variant={theme === 'dark' ? 'light' : 'dark'} />
           <h1>{state.view === 'loading' ? '正在连接' : '暂时无法连接'}</h1>
           <p>{state.error ?? current?.url}</p>
           <div className="desktop-actions">
@@ -66,7 +72,7 @@ function App() {
             <Button variant="secondary" onClick={() => void run(() => bridge!.manager())}>返回连接列表</Button>
           </div>
         </section> : <>
-          <div className="desktop-intro"><div><p className="desktop-eyebrow">你的助理，从这里开始</p><h1>连接你的 Runtime</h1><p>选择助理运行的位置，接着完成你的工作。</p></div><Button disabled={disabled} onClick={() => { setForm({ name: '', url: '', allowHTTP: false }); setError(''); }}><Plus size={17} />添加连接</Button></div>
+          <div className="desktop-intro"><div><p className="desktop-eyebrow">你的助理，从这里开始</p><h1>连接你的 Runtime</h1><p>选择助理运行的位置，接着完成你的工作。</p></div><Button disabled={disabled} onClick={() => { setForm({ name: '', url: '', allowHTTP: false }); clearError(); }}><Plus size={17} />添加连接</Button></div>
           {settings && <section className="desktop-settings" aria-label="桌面设置">
             <h2>桌面设置</h2><div className="desktop-settings-fields"><ThemeSelect value={preference} onValueChange={changePreference} /><PaletteSelect locale="zh" palette={palette} onChange={changePalette} /></div>
             <p>关闭窗口或退出桌面应用后，本机 Runtime 继续运行。</p>
@@ -84,7 +90,6 @@ function App() {
             <div className="desktop-section-heading"><div className="desktop-section-icon"><Monitor size={24} /></div><div><h2>本机 Runtime</h2><p>{local.installed ? '助理和数据保存在这台电脑上' : '在这台电脑上运行你的助理'}</p></div><Badge tone={runtimeReady ? 'positive' : local.error ? 'danger' : 'neutral'}>{state.busy ? '正在维护' : stateNames[local.state] ?? local.state}</Badge></div>
             {!local.installed && local.state !== 'uninstalled' && <div className="desktop-settings-fields"><Select label="资源权限预设" value={resourcePreset} onValueChange={setResourcePreset} disabled={disabled} options={[{value:'permissive',label:'宽松预设（个人部署推荐）'},{value:'least-privilege',label:'最小权限预设'}]} /><p className="desktop-hint">{resourcePreset === 'permissive' ? '在运行账户的系统权限范围内，允许接入任意本机目录、网络及计算资源，通过 Molr 配置和分配权限。助理仍需单独授权。' : '默认不开放本机目录、网络访问或命令执行资源。随后可按需调整部署配置，再为助理授权。'}</p></div>}
             {local.state === 'uninstalled' && <p className="desktop-hint">重新安装会沿用保留的账号、数据和资源权限配置。</p>}
-            {local.error && <p className="desktop-error" role="alert">{local.error}</p>}
             {local.installed && <p className="desktop-hint">版本 {local.version} · {local.health === 'verified' ? '安装器能力验证已通过' : local.health === 'verification_pending' ? '请登录 Runtime 检查能力状态' : runtimeReady ? '请登录 Runtime 检查能力状态' : '启动后可继续使用'}</p>}
             <div className="desktop-actions">
               {!local.installed ? <Button disabled={disabled} loading={state.busy === 'install'} onClick={() => localAction('install')}>安装并启动<ArrowRight size={16} /></Button> : <>
@@ -109,6 +114,6 @@ function App() {
           <footer className="desktop-footer"><span>每个连接独立保存登录状态，助理与数据由对应 Runtime 管理。</span>{state.platform === 'win32' && <span>Windows 原生 Runtime · PowerShell / AppContainer</span>}</footer>
         </>}
       </main>}
-  </div></UIProvider>;
+  </div>;
 }
-createRoot(document.getElementById('root')!).render(<React.StrictMode><App /></React.StrictMode>);
+createRoot(document.getElementById('root')!).render(<React.StrictMode><UIProvider locale="zh"><ToastProvider><App /></ToastProvider></UIProvider></React.StrictMode>);

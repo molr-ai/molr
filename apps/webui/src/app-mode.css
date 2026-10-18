@@ -14,7 +14,6 @@
 .app-frame .workspace { position: relative; }
 .app-frame .workspace, .app-frame .session-page, .app-frame .login-page { height: 100%; }
 .app-frame .setup-page { min-height: 100%; }
-.app-frame-error { flex-shrink: 0; padding: 8px 16px; color: var(--color-danger); background: var(--color-danger-bg); font-size: var(--text-sm); }
 @media (max-width: 480px) {
   .app-titlebar { gap: 4px; padding-left: 8px; }
   .app-titlebar-identity { gap: 6px; }

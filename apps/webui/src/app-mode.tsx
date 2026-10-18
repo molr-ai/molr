@@ -1,8 +1,8 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
 import { Copy, Minus, Square, Unplug, X } from 'lucide-react';
-import { Button, IconButton, Logo, ModalScope, useBreakpoint, useTheme } from '@molr/ui';
+import { Button, IconButton, Logo, ModalScope, useBreakpoint, useTheme, useToast } from '@molr/ui';
 import type { AppInfo, MolrAppAPI } from '@molr/ui-host/app';
 import { useCopy } from './state';
 import './app-mode.css';
@@ -24,9 +24,14 @@ export function AppFrame({ children }: { children: ReactNode }) {
   const [frame, setFrame] = useState<HTMLDivElement | null>(null);
   const [brand, setBrand] = useState<HTMLDivElement | null>(null);
   const [info, setInfo] = useState<AppInfo>();
-  const [error, setError] = useState('');
+  const { toast, dismiss } = useToast();
+  const lastError = useRef<number | undefined>(undefined);
   const [disconnecting, setDisconnecting] = useState(false);
   const zh = locale === 'zh';
+  const reportError = useCallback((error: unknown) => {
+    if (lastError.current !== undefined) dismiss(lastError.current);
+    lastError.current = toast({ tone: 'danger', title: zh ? '桌面操作失败' : 'Desktop action failed', description: error instanceof Error ? error.message : String(error) });
+  }, [toast, dismiss, zh]);
   useEffect(() => {
     if (!bridge) return;
     let mounted = true;
@@ -34,13 +39,12 @@ export function AppFrame({ children }: { children: ReactNode }) {
     void bridge.getInfo().then(value => {
       if (value.apiVersion !== 1) throw new Error(zh ? '桌面接口版本不匹配' : 'Unsupported desktop API version');
       if (mounted) setInfo(value);
-    }).catch(error => { if (mounted) setError(String(error.message)); });
+    }).catch(error => { if (mounted) reportError(error); });
     return () => { mounted = false; dispose(); };
-  }, [bridge, zh]);
+  }, [bridge, zh, reportError]);
   if (!bridge) return children;
   async function run(action: () => Promise<void>) {
-    setError('');
-    try { await action(); } catch (error) { setError((error as Error).message); setDisconnecting(false); }
+    try { await action(); } catch (error) { reportError(error); setDisconnecting(false); }
   }
   const restore = info?.window.maximized || info?.window.fullscreen;
   return <TitlebarBrandContext.Provider value={brand}><div ref={setFrame} className="app-frame" data-app-platform={info?.platform}>
@@ -56,7 +60,6 @@ export function AppFrame({ children }: { children: ReactNode }) {
         </div>
       </div>
     </header>
-    {error && <div className="app-frame-error" role="alert">{error}</div>}
     <div className="app-frame-content">{children}</div>
     </ModalScope>
   </div></TitlebarBrandContext.Provider>;
