@@ -4,7 +4,6 @@ package installationwindows
 import (
 	"bytes"
 	"context"
-	"encoding/binary"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
@@ -71,9 +70,6 @@ func command(ctx context.Context, exe string, args ...string) ([]byte, error) {
 		return nil, fmt.Errorf("%s: %w: %s", filepath.Base(exe), e, strings.TrimSpace(string(b)))
 	}
 	return b, nil
-}
-func scheduler(ctx context.Context, args ...string) ([]byte, error) {
-	return command(ctx, filepath.Join(os.Getenv("SystemRoot"), "System32", "schtasks.exe"), args...)
 }
 func escaped(s string) string {
 	var out bytes.Buffer
@@ -397,13 +393,13 @@ func Run(ctx context.Context, args []string, out, diagnostics io.Writer) (result
 		if e != nil {
 			return e
 		}
-		first = strings.HasPrefix(string(bootstrap), "Owner: ")
+		first = needsInitialLogin(action, initialRecord, bootstrap)
 		fmt.Fprint(diagnostics, string(bootstrap))
 		sid, e := currentSID()
 		if e != nil {
 			return e
 		}
-		if e = os.WriteFile(r.Paths.Unit, []byte(taskXML(r, configPath, sid)), 0600); e != nil {
+		if e = os.WriteFile(r.Paths.Unit, taskXMLFile(taskXML(r, configPath, sid)), 0600); e != nil {
 			return e
 		}
 		if _, e = scheduler(ctx, "/Create", "/TN", *name, "/XML", r.Paths.Unit, "/F"); e != nil {
@@ -461,17 +457,6 @@ func verifyTask(ctx context.Context, r record, configPath string) error {
 	if err != nil {
 		return err
 	}
-	if len(raw) >= 2 && (raw[0] == 0xff && raw[1] == 0xfe || raw[1] == 0) {
-		if raw[0] == 0xff {
-			raw = raw[2:]
-		}
-		units := make([]uint16, len(raw)/2)
-		for i := range units {
-			units[i] = binary.LittleEndian.Uint16(raw[i*2:])
-		}
-		raw = []byte(windows.UTF16ToString(units))
-	}
-	raw = []byte(strings.ReplaceAll(string(raw), `encoding="UTF-16"`, `encoding="UTF-8"`))
 	type taskIdentity struct {
 		Principals struct {
 			Principal struct {

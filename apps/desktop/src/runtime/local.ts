@@ -33,6 +33,8 @@ export class LocalRuntime {
     if (action !== 'status' && action !== 'plan') args.push('--yes');
     return new Promise((accept, reject) => {
       const child = spawn(executable, args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+      child.stdout.setEncoding('utf8');
+      child.stderr.setEncoding('utf8');
       let stdout = '', stderr = '', partial = '', oversized = false;
       // Installer controls dependencies and privilege policy. No shell or password
       // is passed from a renderer, and stdout can contain a one-time login link.

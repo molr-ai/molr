@@ -1,14 +1,14 @@
 // Native systemd/launchd acceptance. Uses a unique desktop-owned instance and
 // private XDG directories; never reuses an existing Runtime's data or credentials.
 import assert from 'node:assert/strict';
-import { mkdtempSync, realpathSync, readFileSync, existsSync, rmSync, cpSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, realpathSync, readFileSync, existsSync, rmSync, cpSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { LocalRuntime } from '../dist/main/runtime/local.js';
 const root = resolve(import.meta.dirname, '../../..');
 const arch = process.arch === 'arm64' ? 'arm64' : 'amd64';
 const packageRoot = resolve(root, process.env.MOLR_DESKTOP_RUNTIME_PACKAGE || `.cache/release/${process.platform}-${arch}/molr`);
-const directory = realpathSync(mkdtempSync(join(tmpdir(), 'molr-desktop-native-')));
+const directory = realpathSync(mkdtempSync(join(tmpdir(), process.platform === 'win32' ? 'molr-中文路径-' : 'molr-desktop-native-')));
 process.env.XDG_CONFIG_HOME = join(directory, 'config');
 process.env.XDG_DATA_HOME = join(directory, 'data');
 process.env.XDG_CACHE_HOME = join(directory, 'cache');
@@ -16,7 +16,20 @@ const runtime = new LocalRuntime(packageRoot, join(directory, 'manager'));
 let record, session;
 try {
   assert.equal((await runtime.status()).installed, false);
+  let interruptedPassword;
+  if (process.platform === 'win32') {
+    // Reproduce a failure after bootstrap and before task registration: the
+    // XML destination is temporarily a directory. Retry must preserve the
+    // existing owner/password and still return the initial authenticated link.
+    const blockedXML = join(directory, 'manager', 'program', 'task.xml');
+    mkdirSync(blockedXML, { recursive: true });
+    await assert.rejects(runtime.action('install', 'permissive'));
+    assert.equal((await runtime.status()).installed, false);
+    interruptedPassword = readFileSync(join(directory, 'manager', 'program', 'data', 'initial-password'));
+    rmSync(blockedXML, { recursive: true });
+  }
   const installed = await runtime.action('install', 'permissive');
+  if (interruptedPassword) assert.deepEqual(readFileSync(join(directory, 'manager', 'program', 'data', 'initial-password')), interruptedPassword);
   assert.equal(installed.installed, true); assert.equal(installed.health, 'verified');
   record = JSON.parse(readFileSync(installed.record));
   assert.equal(record.manager, 'desktop'); assert.equal(record.system, false);
