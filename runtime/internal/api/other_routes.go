@@ -90,6 +90,7 @@ func (s *HTTPServer) routes() {
 	})
 	s.maintenanceRoutes()
 	s.authRoutes()
+	s.oauthRoutes()
 	s.notificationRoutes()
 	s.businessRoutes()
 	s.otherRoutes()

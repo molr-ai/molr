@@ -7,6 +7,8 @@ import { ConnectionStore, partition, sameOrigin, externalURL, allowedFrameURL } 
 import type { Connection, ConnectionInput, DesktopState, LocalAction, ResourcePreset, LocalStatus } from '../shared.js';
 import type { AppInfo, AppWindowState } from '@molr/ui-host/app';
 import type { LocalRuntime } from '../runtime/local.js';
+import { OAuthFlow } from './oauth.js';
+import { runtimeOAuthTransport } from './oauth-transport.js';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const rendererRoot = resolve(here, '../../renderer');
@@ -16,6 +18,7 @@ app.enableSandbox();
 // Test/development paths never change the packaged application's data directory.
 if (!app.isPackaged && process.env.MOLR_DESKTOP_DATA) app.setPath('userData', resolve(process.env.MOLR_DESKTOP_DATA));
 let win: BrowserWindow | undefined;
+const oauth = new OAuthFlow();
 let runtimeView: WebContentsView | undefined;
 let local: LocalRuntime | undefined;
 let store: ConnectionStore;
@@ -44,12 +47,12 @@ function windowChanged() {
   const contents = runtimeView?.webContents;
   if (contents && !contents.isDestroyed() && active && sameOrigin(contents.getURL(), store.get(active).url)) contents.send('app:window-state', windowState());
 }
-function appHandle(name: string, fn: () => unknown) {
+function appHandle(name: string, fn: (...args: unknown[]) => unknown, argumentCount = 0) {
   ipcMain.handle(`app:${name}`, (event, ...args: unknown[]) => {
     const contents = runtimeView?.webContents;
     if (!win || !contents || !active || event.sender !== contents || event.senderFrame !== contents.mainFrame || !sameOrigin(event.senderFrame.url, store.get(active).url)) throw new Error('App controls are unavailable to this page.');
-    if (args.length) throw new Error('This operation takes no arguments.');
-    return fn();
+    if (args.length !== argumentCount) throw new Error('Invalid argument count.');
+    return fn(...args);
   });
 }
 function toggleMaximize() { if (win?.isFullScreen()) win.setFullScreen(false); else if (win?.isMaximized()) win.unmaximize(); else win?.maximize(); }
@@ -67,6 +70,7 @@ function revealRuntime() {
   clearTimeout(loadingTimer); runtimeView.setVisible(true); runtimeView.webContents.focus(); view = 'runtime'; error = undefined; changed();
 }
 function discard() {
+  oauth.cancel();
   clearTimeout(loadingTimer); runtimeLoaded = false; runtimeReady = false;
   if (!runtimeView) return;
   const old = runtimeView; runtimeView = undefined;
@@ -142,6 +146,7 @@ async function connect(id: string, loginURL?: string) {
   guardRuntime(contentsView.webContents, connection);
   contentsView.webContents.on('did-start-navigation', details => {
     if (!details.isMainFrame || details.isSameDocument || runtimeView !== contentsView) return;
+    oauth.cancel();
     runtimeLoaded = false; runtimeReady = false; contentsView.setVisible(false); view = 'loading'; error = undefined; changed();
     clearTimeout(loadingTimer);
     loadingTimer = setTimeout(() => { if (runtimeView === contentsView && view === 'loading') failed('连接超时，或 WebUI 未能启动 App 模式。请重试连接。'); }, 30000);
@@ -250,6 +255,19 @@ async function main() {
   handle('minimize', () => win?.minimize()); handle('toggle-maximize', toggleMaximize); handle('close', closeLater);
   appHandle('info', (): AppInfo => { runtimeReady = true; revealRuntime(); return { apiVersion: 1, platform: process.platform, connection: { name: store.get(active!).name, url: store.get(active!).url }, window: windowState() }; });
   appHandle('minimize', () => win?.minimize()); appHandle('toggle-maximize', toggleMaximize); appHandle('close', closeLater); appHandle('disconnect', disconnectLater);
+  appHandle('oauth-cancel', () => oauth.cancel());
+  appHandle('oauth-authorize', provider => {
+    const current = runtimeView!, connection = store.get(active!), window = win!;
+    return oauth.authorize(provider, runtimeOAuthTransport({
+      url: connection.url, allowHTTP: connection.allowHTTP, session: current.webContents.session,
+      current: () => runtimeView === current && active === connection.id && !current.webContents.isDestroyed(),
+      confirm: async (origin, signal) => {
+        const result = await dialog.showMessageBox(window, { type: 'question', message: '在浏览器中授权服务？', detail: `授权网站：${origin}\n接收连接：${connection.name}\nRuntime：${connection.url}`, buttons: ['取消', '继续'], defaultId: 0, cancelId: 0, signal });
+        return result.response === 1;
+      },
+      openExternal: url => shell.openExternal(url),
+    }));
+  }, 1);
   handle('save', async (input: ConnectionInput) => {
     if (input?.id === active) manager();
     const result = store.save(input); if (result.retired) await clearSession(result.retired); changed();

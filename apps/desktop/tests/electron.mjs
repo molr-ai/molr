@@ -29,7 +29,7 @@ const watchdog = setTimeout(() => {
 async function launch() {
   const env = { ...process.env, MOLR_DESKTOP_DATA: data };
   delete env.MOLR_DESKTOP_RUNTIME; delete env.MOLR_DESKTOP_DEV_URL; delete env.ELECTRON_RUN_AS_NODE;
-  app = await electron.launch({ args: [join(root, 'apps/desktop')], env, chromiumSandbox: true, timeout: 30000 });
+  app = await electron.launch({ args: [join(root, 'apps/desktop'), ...(process.env.MOLR_DESKTOP_TEST_HEADLESS === '1' ? ['--ozone-platform=headless'] : [])], env, chromiumSandbox: true, timeout: 30000 });
   app.context().setDefaultTimeout(15000);
   assert.equal(await app.evaluate(() => process.argv.includes('--no-sandbox')), false);
   return app.firstWindow();
@@ -72,7 +72,7 @@ try {
   await page.evaluate(id => window.molrDesktop.connect(id), one.id); await waitRuntime(page);
   assert.deepEqual(await remote('({ bridge: typeof window.molrDesktop, require: typeof require, process: typeof process })'), { bridge: 'undefined', require: 'undefined', process: 'undefined' });
   assert.equal((await remote('window.molrApp.getInfo()')).apiVersion, 1);
-  assert.deepEqual(await remote('Object.keys(window.molrApp).sort()'), ['disconnect', 'getInfo', 'onWindowStateChanged', 'window']);
+  assert.deepEqual(await remote('Object.keys(window.molrApp).sort()'), ['disconnect', 'getInfo', 'oauth', 'onWindowStateChanged', 'window']);
   assert.equal(await page.locator('.desktop-toolbar').count(), 0);
   assert.equal(await app.evaluate(({ BrowserWindow }) => {
     const w = BrowserWindow.getAllWindows()[0], [width, height] = w.getContentSize();

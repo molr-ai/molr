@@ -41,4 +41,12 @@ App 模式的完整字标位于标题栏，工作区的连接状态和重试功�
 
 内置连接管理页使用共享完整 Logo 的昼夜动态版本，遵守系统减少动态效果设置。桌面维护操作与 App 标题栏操作失败复用共享 Toast，不插入占用页面布局的错误块；安装器详细输出仍保存在维护日志中。
 
-桌面主进程校验当前 WebContents、主 frame、已配置连接来源和参数。远程页面仅能读取当前连接、控制当前窗口及断开；连接增删和本机服务管理仍由内置 UI 的独立接口负责。插件及自定义主题 iframe 不获得桌面接口。远程视图填满无边框窗口，加载失败、崩溃或握手超时回到内置恢复界面。断开保留连接分区与登录状态，不停止 Runtime。
+桌面主进程校验当前 WebContents、主 frame、已配置连接来源和参数。远程页面能读取当前连接、控制当前窗口、断开及发起下述 OAuth 流程；连接增删和本机服务管理仍由内置 UI 的独立接口负责。插件及自定义主题 iframe 不获得桌面接口。远程视图填满无边框窗口，加载失败、崩溃或握手超时回到内置恢复界面。断开保留连接分区与登录状态，不停止 Runtime。
+
+## 桌面 OAuth 回调
+
+主页面通过 `window.molrApp.oauth.authorize(providerID)` 发起已注册服务的授权，通过 `oauth.cancel()` 取消等待。`authorize` 返回 `{ status, attemptId?, connectionId? }`；`status` 为 `connected`、`cancelled`、`failed` 或 `unknown`。调用不会返回授权码或 token。普通浏览器与 iframe 不拥有这一接口。
+
+客户端先监听临时 `127.0.0.1` 端口，再用当前连接分区的会话和 CSRF proof 请求 Runtime 准备授权。Runtime 管理 state、nonce 和 PKCE，客户端原生对话框展示授权网站及目标连接，随后打开系统浏览器。监听器只接受匹配 Host、路径、state 的单次 GET 回调，将白名单字段直接提交到固定 Runtime 接口。主进程逐次检查当前视图和登录身份；切换连接、主页面导航、关闭窗口、取消或超时都会关闭监听器。请求体、回调地址与凭据不写日志，也不传给插件。
+
+本机与远程 Runtime 使用同一流程，包括用户已明确启用的局域网 HTTP。授权码在客户端与 Runtime 之间传输，token 由 Runtime 服务适配器换取并保管；这不为 HTTP 增加传输加密。回调失败或状态未知不自动重试换取 token。服务适配器尚未接入，当前可通过独立模拟流程验收底座；契约及适配器职责见 [HTTP API](https://molr.ai/zh/docs/dev/reference/http-api/#桌面-oauth-授权)，运行方式见 [Desktop README](https://github.com/molr-ai/molr/blob/main/apps/desktop/README.md#local-oauth-callback-and-runtime-handoff)。

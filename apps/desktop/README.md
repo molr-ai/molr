@@ -29,9 +29,29 @@ For local management, run `npm run build:release` on Linux/macOS or `node apps/d
 
 Before connecting, while loading, and after disconnect or failure, the bundled interface owns the window controls and connection manager. After the Runtime WebUI completes its App-mode handshake, its `WebContentsView` fills the frameless window. The bundled toolbar is hidden. WebUI owns the draggable title area, current connection name, minimize/maximize/restore/close buttons, and Disconnect action, including on login and error screens. Ordinary browser visits retain web mode.
 
-`@molr/ui-host/app` defines the shared type-only contract. The sandboxed Runtime preload exposes `getInfo`, `window.minimize`, `window.toggleMaximize`, `window.close`, `disconnect`, and a disposable window-state subscription. Main-process handlers validate the active WebContents, main frame, connection origin, and argument count. Plugin and custom-theme iframes do not receive the bridge. `molrDesktop`, service management, arbitrary IPC, filesystem and command access stay unavailable to Runtime pages.
+`@molr/ui-host/app` defines the shared type-only contract. The sandboxed Runtime preload exposes `getInfo`, window controls, `disconnect`, a disposable window-state subscription, and the OAuth bridge described below. Main-process handlers validate the active WebContents, main frame, connection origin, and argument count. Plugin and custom-theme iframes do not receive the bridge. `molrDesktop`, service management, arbitrary IPC, filesystem and command access stay unavailable to Runtime pages.
 
 Disconnect returns to the connection list without clearing authentication or stopping Runtime tasks; unfinished downloads from the closing view are cancelled. Failed navigation, renderer crashes and handshake timeout return to the bundled recovery screen. Ctrl/Cmd+Shift+M returns to connection management and Ctrl/Cmd+R reconnects. Windows/Linux have no application menu bar; Ctrl+plus/minus/0 controls zoom and F11 toggles full screen. macOS retains its system application menu. Native Windows Snap Layout hover and platform-specific window-manager behavior require native acceptance.
+
+## Local OAuth callback and Runtime handoff
+
+`window.molrApp.oauth.authorize(providerID)` opens a short-lived `127.0.0.1` callback listener, prepares a session-bound attempt with the active Runtime, confirms the authorization website and destination in a native dialog, and opens the system browser. It sends the authorization code directly to the original Runtime using its existing session and CSRF proof. Tokens are exchanged, validated and stored by a registered Runtime provider; neither codes nor tokens are returned to WebUI. `oauth.cancel()` cancels the pending local flow. A view change, disconnect, window close or five-minute timeout closes the listener.
+
+The result contains `status` (`connected`, `cancelled`, `failed`, or `unknown`), an optional `attemptId`, and a `connectionId` on success. A lost completion response triggers a status query, never a repeated token exchange. An `unknown` result requires checking the Runtime attempt before starting another authorization. Once exchange has started, cancellation does not promise to undo credentials already saved.
+
+Local and remote Runtimes use the same flow. Explicitly enabled private-network HTTP connections are supported alongside HTTPS; HTTP has the same lack of transport confidentiality as ordinary Runtime traffic. External provider authorization uses HTTPS. The bridge supports OAuth authorization-code responses with S256 PKCE and a GET callback at `/auth/callback`; it does not expose arbitrary listening ports, forwarding targets or token storage. Provider registration, exchange, scope/identity validation, encrypted storage and refresh are service-specific adapters. This change supplies the shared mechanism and artificial fixtures only: ChatGPT, Google and X adapters are not registered in production. See the [HTTP contract](../../docs/dev/reference/http-api.md#桌面-oauth-授权) and [frontend architecture](../../docs/dev/frontend/architecture.md#桌面-oauth-回调).
+
+Run the full simulated flow in a real sandboxed Electron process after building:
+
+```bash
+node apps/desktop/tests/oauth-electron.mjs
+# Linux without a display, retaining Chromium sandboxing:
+aa-exec -p chrome -- node apps/desktop/tests/oauth-electron.mjs --headless
+# Keep an isolated artificial Runtime and interactive acceptance control page:
+aa-exec -p chrome -- node apps/desktop/tests/oauth-electron.mjs --headless --serve
+```
+
+The fixture replaces only native confirmation and system-browser opening at the test boundary. It exercises the real preload, main process, session cookies, CSRF, loopback listener and HTTP handoff; its artificial Runtime exchanges a one-time code with its artificial token endpoint. `--serve` binds the control page on port 5496 (`MOLR_OAUTH_DEMO_PORT` overrides it), with no real accounts or credentials. It is a test harness, not a production authentication endpoint. Native macOS and Windows acceptance remains platform-specific.
 
 ## Local service ownership
 

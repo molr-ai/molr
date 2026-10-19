@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"molr.ai/runtime/internal/buildinfo"
 	"molr.ai/runtime/internal/notification"
+	"molr.ai/runtime/internal/oauthbroker"
 	"molr.ai/runtime/internal/updates"
 	"molr.ai/runtime/internal/webassets"
 	"net/http"
@@ -1164,7 +1165,7 @@ func Build(ctx context.Context, cfg config.Config, options ...BuildOptions) (bun
 		}
 	}
 	updateService := updates.New(updateSource, cfg.Updates.AutoCheck, build, platform.ConfiguredHTTPClient(updateSource, updateAddresses))
-	b.HTTP, err = api.NewServer(cfg, b.Services, api.Options{RequestLogger: requestLogger, Workspace: &workspaceExplorer{ad: adapters, maxUpload: cfg.Execution.MaxUploadBytes}, Maintenance: maintenance, Browser: func(ctx context.Context, p core.Principal, id core.ID, raw json.RawMessage) (json.RawMessage, error) {
+	b.HTTP, err = api.NewServer(cfg, b.Services, api.Options{OAuth: oauthbroker.New(nil, identity.ValidatePrincipal), RequestLogger: requestLogger, Workspace: &workspaceExplorer{ad: adapters, maxUpload: cfg.Execution.MaxUploadBytes}, Maintenance: maintenance, Browser: func(ctx context.Context, p core.Principal, id core.ID, raw json.RawMessage) (json.RawMessage, error) {
 		q, err := tools.ParseBrowser(raw)
 		if err != nil {
 			return nil, err

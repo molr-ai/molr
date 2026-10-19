@@ -273,6 +273,23 @@ HTTP 限流在事务内读取并更新持久计数，通过的请求占用当前
 - 目标由创建时服务器保存，限定为已知站内路由；不接受 URL 中的跳转覆盖。链接有效期与会话有效期独立。修改密码、本机账号恢复、备份恢复均使旧链接失效。
 - 链接无效、已使用、已撤销或过期统一返回 `unauthenticated`，页面提示获取新链接或使用密码登录。请求响应禁止缓存，审计记录仅含链接 ID，不含原始 Token。
 
+## 桌面 OAuth 授权
+
+统一底座支持 OAuth 2.0 授权码、S256 PKCE 和本机 GET 回调。正式 Runtime 暂未注册具体服务适配器，未知 `Provider` 返回错误；测试中的模拟服务不属于产品接入能力。以下接口要求仍有效的用户浏览器会话，禁止 Bearer／助理身份，写入沿用 Origin 和 CSRF 检查。
+
+| 接口 | 请求与结果 |
+| --- | --- |
+| `POST /api/oauth/start` | `{ Provider, RedirectURI }`；返回 `{ ID, AuthorizationURL, State, ExpiresAt }`。回调固定为 `http://127.0.0.1:<port>/auth/callback`，端口由客户端先监听后提供 |
+| `POST /api/oauth/complete` | `{ ID, State, Code, ClientID?, Issuer?, Error? }`；`Code` 与 `Error` 必须恰有一项非空；返回 `{ ID, Status, ConnectionID? }` |
+| `POST /api/oauth/cancel` | `{ ID }`；返回当前结果，只取消尚未开始换取凭据的尝试 |
+| `GET /api/oauth/attempts/{id}` | 查询当前会话自己的尝试结果，不返回授权码、PKCE verifier 或 token |
+
+尝试绑定创建时的用户和会话，有效期五分钟，进程重启后失效；每个会话只允许一个进行中的尝试，全实例最多保留 128 项。状态为 `preparing`、`pending`、`completing`、`connected`、`cancelled` 或 `failed`。校验 state 后原子认领授权码，同一尝试的重复完成请求只读取状态，不再次换取凭据。交换已开始时取消返回 `completing`，不能承诺撤销已经保存的授权。完成请求响应丢失时查询状态；过期或重启后的记录不能用于推断外部副作用，应先核对服务连接。
+
+`internal/oauthbroker.Provider` 是服务端内部适配点：生成授权 URL，并在完成时执行 token 换取、issuer／身份／nonce／scope 校验、提交前的实时权限检查、凭据加密保存及后续刷新管理。只返回非秘密的连接 ID。授权端点必须是 HTTPS，适配器应固定可信服务商端点并沿用 Runtime 网络策略；页面不能提交任意 token 地址或凭据保存位置。适配器失败必须避免留下未经确认的连接，完成过程不把上游原始错误传到客户端。
+
+客户端只将授权码从临时监听器提交给原 Runtime；token 不经 WebUI 或该回调通道。Runtime 连接沿用现有传输策略，支持 HTTPS、本机 HTTP 和用户明确启用的局域网 HTTP；HTTP 不提供传输保密性。客户端接口、生命周期和模拟验收见[前端架构](../frontend/architecture.md#桌面-oauth-回调)及 [Desktop README](../../../apps/desktop/README.md#local-oauth-callback-and-runtime-handoff)。原生授权流程参考 [RFC 8252](https://www.rfc-editor.org/rfc/rfc8252) 与 [RFC 9700](https://www.rfc-editor.org/rfc/rfc9700)。
+
 ## 账号及用户组管理
 
 `GET /api/auth/me` 保留 Principal 字段并增加 `User`（显示名称、Avatar、组、Administrator、Disabled、Version）。用户只能读取自己的身份。

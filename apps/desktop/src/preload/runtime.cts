@@ -5,6 +5,10 @@ const { contextBridge, ipcRenderer } = electron;
 // receive this bridge, including Runtime plugin and custom UI frames.
 if (process.isMainFrame) {
   const api: MolrAppAPI = {
+    oauth: {
+      authorize: provider => ipcRenderer.invoke('app:oauth-authorize', provider),
+      cancel: () => ipcRenderer.invoke('app:oauth-cancel'),
+    },
     getInfo: () => ipcRenderer.invoke('app:info'),
     window: {
       minimize: () => ipcRenderer.invoke('app:minimize'),

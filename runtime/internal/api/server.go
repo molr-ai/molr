@@ -13,6 +13,7 @@ import (
 	"mime"
 	"molr.ai/runtime/internal/maintenance"
 	"molr.ai/runtime/internal/notification"
+	"molr.ai/runtime/internal/oauthbroker"
 	"molr.ai/runtime/internal/updates"
 	"net"
 	"net/http"
@@ -49,6 +50,7 @@ type permissionRequestService interface {
 }
 
 type Options struct {
+	OAuth              *oauthbroker.Broker
 	RequestLogger      *slog.Logger
 	Workspace          WorkspaceService
 	UsageAnalytics     func(context.Context, core.Principal, UsageQuery, bool) (any, error)

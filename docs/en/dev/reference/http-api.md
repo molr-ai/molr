@@ -273,6 +273,23 @@ Verifier binding first passes identity confirmation with the purpose `mfa.enroll
 - The target is saved by the server at creation time, limited to known internal routes; redirect overrides in the URL are not accepted. Link validity and session validity are independent. Password changes, local account recovery, and backup recovery all invalidate old links.
 - Invalid, used, revoked, or expired links uniformly return `unauthenticated`, and the page prompts to obtain a new link or log in with a password. Request responses prohibit caching, and audit records contain only the link ID, not the original Token.
 
+## Desktop OAuth Authorization
+
+The shared mechanism supports OAuth 2.0 authorization codes, S256 PKCE and a local GET callback. Production Runtime currently registers no service adapters; unknown `Provider` values fail. Artificial test providers are not product integrations. These endpoints require a live interactive user session, reject bearer/assistant identities, and retain Origin and CSRF checks for mutations.
+
+| Endpoint | Request and response |
+| --- | --- |
+| `POST /api/oauth/start` | `{ Provider, RedirectURI }`; returns `{ ID, AuthorizationURL, State, ExpiresAt }`. The callback is `http://127.0.0.1:<port>/auth/callback`, with the port allocated by the client's already listening socket |
+| `POST /api/oauth/complete` | `{ ID, State, Code, ClientID?, Issuer?, Error? }`; exactly one of `Code` and `Error` must be nonempty; returns `{ ID, Status, ConnectionID? }` |
+| `POST /api/oauth/cancel` | `{ ID }`; returns the current result and cancels only attempts whose exchange has not begun |
+| `GET /api/oauth/attempts/{id}` | Reads the current session's attempt result, never its code, PKCE verifier or tokens |
+
+Attempts bind the creating user and session, expire after five minutes and do not survive process restart. Each session has at most one active attempt; the instance retains at most 128 entries. States are `preparing`, `pending`, `completing`, `connected`, `cancelled` and `failed`. After validating state, the broker atomically claims the code. Repeated completion requests read the state without another token exchange. Cancellation during exchange returns `completing` and cannot promise to undo credentials already saved. Query status after a lost completion response. Expired or restarted attempts cannot establish external outcomes; check the service connection first.
+
+`internal/oauthbroker.Provider` is the internal service adapter: it builds the authorization URL and performs token exchange, issuer/identity/nonce/scope validation, a live authorization check before committing, encrypted credential persistence and subsequent refresh management. It returns only a non-secret connection ID. Authorization endpoints require HTTPS; adapters must pin trusted provider endpoints and retain Runtime network policy. Pages cannot supply arbitrary token endpoints or storage destinations. Failed adapters must not leave unconfirmed connections, and raw upstream errors are never forwarded to the client.
+
+The client relays only the authorization code from the temporary listener to the original Runtime. Tokens do not pass through WebUI or this callback channel. Runtime connections retain existing transport policy: HTTPS, local HTTP and explicitly enabled private-network HTTP are supported; HTTP provides no transport confidentiality. See [frontend architecture](../frontend/architecture.md#desktop-oauth-callback) and [Desktop README](../../../../apps/desktop/README.md#local-oauth-callback-and-runtime-handoff) for the client API, lifecycle and simulation. Native authorization follows [RFC 8252](https://www.rfc-editor.org/rfc/rfc8252) and [RFC 9700](https://www.rfc-editor.org/rfc/rfc9700).
+
 ## Account and User Group Management
 
 `GET /api/auth/me` retains the Principal field and adds `User` (Display Name, Avatar, Groups, Administrator, Disabled, Version). Users can only read their own identity.
