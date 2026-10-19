@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"log"
+	"log/slog"
 	"molr.ai/runtime/internal/buildinfo"
 	"molr.ai/runtime/internal/notification"
 	"molr.ai/runtime/internal/updates"
@@ -113,9 +114,17 @@ func (b *Bundle) Close() error {
 	return first
 }
 
+type BuildOptions struct {
+	RequestLogger *slog.Logger
+}
+
 // Build wires only fixed in-process adapters. Network access is constrained at
 // the actual dial; credentials never enter model/tool-visible configuration.
-func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
+func Build(ctx context.Context, cfg config.Config, options ...BuildOptions) (bundle *Bundle, err error) {
+	var requestLogger *slog.Logger
+	if len(options) > 0 {
+		requestLogger = options[0].RequestLogger
+	}
 	maintenance := newMaintenance(cfg.ConfigPath, cfg.Browser.AgentDirectory != "" || cfg.Browser.ChromiumDirectory != "")
 	cfg.Sandbox.ProtectedRoots = maintenance.ProtectedRoots()
 	if err = cfg.Validate(); err != nil {
@@ -1151,7 +1160,7 @@ func Build(ctx context.Context, cfg config.Config) (bundle *Bundle, err error) {
 		}
 	}
 	updateService := updates.New(updateSource, cfg.Updates.AutoCheck, build, platform.ConfiguredHTTPClient(updateSource, updateAddresses))
-	b.HTTP, err = api.NewServer(cfg, b.Services, api.Options{Workspace: &workspaceExplorer{ad: adapters, maxUpload: cfg.Execution.MaxUploadBytes}, Maintenance: maintenance, Browser: func(ctx context.Context, p core.Principal, id core.ID, raw json.RawMessage) (json.RawMessage, error) {
+	b.HTTP, err = api.NewServer(cfg, b.Services, api.Options{RequestLogger: requestLogger, Workspace: &workspaceExplorer{ad: adapters, maxUpload: cfg.Execution.MaxUploadBytes}, Maintenance: maintenance, Browser: func(ctx context.Context, p core.Principal, id core.ID, raw json.RawMessage) (json.RawMessage, error) {
 		q, err := tools.ParseBrowser(raw)
 		if err != nil {
 			return nil, err

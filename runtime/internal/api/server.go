@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"mime"
 	"molr.ai/runtime/internal/maintenance"
 	"molr.ai/runtime/internal/notification"
@@ -48,6 +49,7 @@ type permissionRequestService interface {
 }
 
 type Options struct {
+	RequestLogger      *slog.Logger
 	Workspace          WorkspaceService
 	UsageAnalytics     func(context.Context, core.Principal, UsageQuery, bool) (any, error)
 	Maintenance        maintenance.Service
@@ -105,6 +107,9 @@ func NewServer(cfg config.Config, services Services, o Options) (*HTTPServer, er
 	if o.Limiter == nil || o.PreLoginCSRF == nil {
 		return nil, core.Invalid("api", "rate limiter and pre-login CSRF issuer required")
 	}
+	if o.RequestLogger == nil {
+		o.RequestLogger = slog.Default()
+	}
 	if o.Listen == nil {
 		o.Listen = net.Listen
 	}
@@ -115,7 +120,7 @@ func NewServer(cfg config.Config, services Services, o Options) (*HTTPServer, er
 	s.http = &http.Server{Handler: s.Handler(), ReadHeaderTimeout: cfg.HTTP.ReadHeaderTimeout.Value(), IdleTimeout: 90 * time.Second, MaxHeaderBytes: 32 << 10, TLSConfig: &tls.Config{MinVersion: tls.VersionTLS12}}
 	return s, nil
 }
-func (s *HTTPServer) Handler() http.Handler { return http.HandlerFunc(s.dispatch) }
+func (s *HTTPServer) Handler() http.Handler { return http.HandlerFunc(s.observeRequest) }
 func (s *HTTPServer) Serve(ctx context.Context) error {
 	s.mu.Lock()
 	if s.serving || s.closing {
@@ -294,8 +299,7 @@ func (s *HTTPServer) authentication(r *http.Request) (auth.Authentication, error
 	}
 	return out, out.Validate()
 }
-func (s *HTTPServer) dispatch(w http.ResponseWriter, r *http.Request) {
-	id := requestID()
+func (s *HTTPServer) dispatch(w http.ResponseWriter, r *http.Request, id core.ID) {
 	w.Header().Set("X-Molr-CSRF-Cookie", s.cookieName(csrfCookie))
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -322,6 +326,7 @@ func (s *HTTPServer) dispatch(w http.ResponseWriter, r *http.Request) {
 	if origin != "" {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
+		w.Header().Set("Access-Control-Expose-Headers", "Server-Timing, X-Request-ID")
 		w.Header().Add("Vary", "Origin")
 	}
 	if r.Method == http.MethodOptions {

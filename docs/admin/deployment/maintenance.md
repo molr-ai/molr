@@ -58,6 +58,18 @@ Runtime 配置支持：
 
 独立 Linux 执行机器的部署与连接见 [远程 Sandbox 服务](../sandbox/remote.md)。本机沙盒仍内嵌于 Runtime，无需额外服务。
 
+## HTTP 接口耗时排查
+
+Runtime 默认为每次 `/api` 请求输出一条 `http_request` 结构化日志；`molr serve` 写入标准错误，使用 `--log-file /private/runtime.log` 时写入该文件，systemd 部署可通过对应服务的 journal 查看。日志包含 `request_id`、`method`、`route`（注册的路由模板）、`status`、`header_ms`、`duration_ms`、`bytes`、`stream`、`aborted`、`canceled` 与 `write_error`。不记录实际对象路径、查询参数、请求／响应正文、Cookie 或认证头；未匹配路由记录为 `unmatched`。
+
+在浏览器开发者工具的 Network 中选择慢请求，查看响应头 `X-Request-ID`，据此查找同一次请求的日志。`Server-Timing: runtime;dur=...` 以毫秒显示从进入 Runtime HTTP handler 到提交响应头的时间，与日志的 `header_ms` 对应，可在支持 Server Timing 的浏览器 Timing 面板中查看。它包括认证、限流、业务处理及提交响应头前的请求体读取；不包含进入 handler 前的连接／TLS、代理排队，也不包含响应头提交后的传输。
+
+- 浏览器等待首字节时间和 `header_ms` 都大：优先检查服务端处理及依赖；上传请求也可能在等待请求体。
+- 浏览器等待首字节时间明显大于 `header_ms`：检查浏览器排队、连接、代理和网络链路，差值不是精确的纯网络耗时。
+- `duration_ms` 明显大于 `header_ms`：请求在提交响应头后仍耗时，可能是响应生成或写出受阻，结合下载阶段、`bytes` 和 `write_error` 排查。
+
+`duration_ms` 统计到 handler 退出，包括响应写出时的等待，不表示客户端已收完数据。SSE 在连接结束时才输出日志，`stream=true` 的总时长是连接存活时间，不能当作慢接口；连接建立时即可读取 `Server-Timing`。客户端取消时 `canceled=true`；handler 异常退出时 `aborted=true`，若尚未提交响应头则 `status=0`。
+
 ## 模型响应诊断日志
 
 原始模型 HTTP／SSE 响应默认不保存，也不进入数据库。排障时可在服务配置中设置：

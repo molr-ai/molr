@@ -2,6 +2,8 @@
 
 Go 单体 server 使用显式注册的 `/api` 路由。这里不开放本机初始化/恢复、助理发布消息、检查点、工具执行、预算预留/结算和操作回执写入。
 
+所有 `/api` 响应携带服务端生成的 `X-Request-ID`，错误 JSON 的 `request_id` 与其一致。`Server-Timing` 中的 `runtime;dur` 单位为毫秒，统计 handler 进入至提交响应头的耗时，包括认证、限流和此前的请求体读取，不包含完整下载时间。允许的跨域响应通过 `Access-Control-Expose-Headers` 暴露这两个头。请求结束时输出带相同 ID 的结构化日志，字段及网络耗时判读见[HTTP 接口耗时排查](https://molr.ai/zh/docs/admin/deployment/maintenance/#http-接口耗时排查)。
+
 ## 公共协议边界
 
 客户端当前通过 HTTP/JSON 与 SSE 连接 Runtime；路由实现在 [`runtime/internal/api`](https://github.com/molr-ai/molr/blob/main/runtime/internal/api)，TypeScript DTO、客户端和续传逻辑在 [`@molr/sdk`](https://github.com/molr-ai/molr/blob/main/packages/sdk/README.md)。仓库没有独立的 OpenAPI／JSON Schema 分发包。HTTP 路径使用 `/api`，目前没有独立的客户端协议版本协商；对象的 `Version` / `ExpectedVersion` 用于并发修改检查，不代表协议版本。当前产品客户端是 WebUI；桌面与手机浏览器可连接同一 Runtime，独立 Desktop／Mobile／CLI 客户端不作为已发布能力。

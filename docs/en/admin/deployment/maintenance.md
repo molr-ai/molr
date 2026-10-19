@@ -58,6 +58,18 @@ Before upgrading, retain the old binary, configuration, and complete backup. Use
 
 For deployment and connection of independent Linux execution machines, see [Remote Sandbox Service](../sandbox/remote.md). Local sandboxes are still embedded in the Runtime and do not require additional services.
 
+## Diagnosing HTTP request latency
+
+Runtime emits one structured `http_request` log for every `/api` request by default. `molr serve` writes it to stderr, or to the file selected by `--log-file /private/runtime.log`; systemd deployments can use the service journal. Fields are `request_id`, `method`, `route` (the registered route template), `status`, `header_ms`, `duration_ms`, `bytes`, `stream`, `aborted`, `canceled`, and `write_error`. Actual object paths, query parameters, request/response bodies, cookies, and authentication headers are omitted. Unmatched routes use `unmatched`.
+
+Select a slow request in the browser Network panel and use its `X-Request-ID` response header to find the matching log. `Server-Timing: runtime;dur=...` reports milliseconds from entering the Runtime HTTP handler to committing response headers, matching `header_ms`. Browsers supporting Server Timing show it in the Timing panel. It includes authentication, rate limiting, business logic, and request body reads before headers are committed. It excludes connections/TLS and proxy queues before handler entry, and transfer after headers are committed.
+
+- Large browser time to first byte and large `header_ms`: investigate server processing and dependencies; uploads may also be waiting for the request body.
+- Browser time to first byte much larger than `header_ms`: inspect browser queues, connections, proxies, and the network. The difference is not an exact measurement of network latency.
+- `duration_ms` much larger than `header_ms`: work continues after headers are committed, potentially response generation or blocked writes. Compare the download phase, `bytes`, and `write_error`.
+
+`duration_ms` ends when the handler returns, including blocked response writes; it does not mean the client has received all bytes. SSE logs are emitted when connections end. For `stream=true`, total duration is connection lifetime, not slow request processing; `Server-Timing` is available as soon as the connection opens. Client cancellation sets `canceled=true`. An abnormal handler exit sets `aborted=true`; `status=0` means no response headers had been committed.
+
 ## Model Response Diagnostic Logs
 
 Raw model HTTP/SSE responses are not saved by default and do not enter the database. For troubleshooting, set the following in the service configuration:

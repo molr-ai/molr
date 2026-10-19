@@ -2,6 +2,8 @@
 
 The Go monolithic server uses explicitly registered `/api` routes. Local initialization/recovery, assistant message publishing, checkpoints, tool execution, budget reservation/settlement, and operation receipt writing are not exposed here.
 
+All `/api` responses carry a server-generated `X-Request-ID`, matching `request_id` in JSON errors. The `runtime;dur` metric in `Server-Timing` measures milliseconds from handler entry to committing response headers, including authentication, rate limiting, and request body reads up to that point; it does not cover the complete download. Allowed cross-origin responses expose both headers through `Access-Control-Expose-Headers`. A structured log with the same ID is emitted when the request ends; see [Diagnosing HTTP request latency](../../admin/deployment/maintenance.md#diagnosing-http-request-latency) for fields and interpretation.
+
 ## Public Protocol Boundaries
 
 Clients currently connect to the Runtime via HTTP/JSON and SSE; route implementations are in [`runtime/internal/api`](../../../../runtime/internal/api), and TypeScript DTOs, clients, and resumption logic are in [`@molr/sdk`](../../../../packages/sdk/README.md). The repository does not have a separate OpenAPI/JSON Schema distribution package. HTTP paths use `/api`, and there is currently no separate client protocol version negotiation; the `Version` / `ExpectedVersion` fields of objects are used for concurrent modification checks and do not represent protocol versions. The current product client is the WebUI; desktop and mobile browsers can connect to the same Runtime, while standalone Desktop/Mobile/CLI clients are not published capabilities.

@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -189,7 +190,7 @@ func run(ctx context.Context, args []string, input io.Reader, output, diagnostic
 		}
 		return online(ctx, cfg, command, *username, *mfaCode, secret, output)
 	}
-	bundle, err := app.Build(ctx, cfg)
+	bundle, err := app.Build(ctx, cfg, app.BuildOptions{RequestLogger: slog.New(slog.NewJSONHandler(diagnostics, nil))})
 	if err != nil {
 		return err
 	}
