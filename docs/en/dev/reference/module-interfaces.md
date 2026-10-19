@@ -71,6 +71,7 @@ Each business package provides `Service` and required `Repository`; task additio
 | --- | --- |
 | `app` | `Application`, `Dependencies.Validate`: Lifecycle and composition checks |
 | `config` | `Config`, `Defaults`, `Load`, `Validate`: Strict JSON configuration and public network security configuration validation |
+| `logging` | `Options`, `DefaultOptions`, `NewFile`, `OpenFile`: shared size/count policy, private permissions, concurrent writes, rotation, and archive cleanup; `NewFile` is lazy, while `OpenFile` immediately checks the destination and applies retention; share one writer per path within an instance |
 | `api` | `Server`, `Services`, `RateLimiter`, `PublicError`: Transport capability composition, rate limiting, and secure error mapping |
 | `auth` | `Service`, `Bootstrap`, `BrowserGuard`, `Repository`: Authentication, sessions, tokens, two-factor verification, CSRF, and local initialization |
 | `audit` | `Recorder`, `Reader`, `Repository`: Secure events without secret material and controlled queries |

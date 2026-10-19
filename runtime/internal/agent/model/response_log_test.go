@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"molr.ai/runtime/internal/logging"
 	"molr.ai/runtime/tests/testkit"
 )
 
@@ -22,7 +23,8 @@ func TestResponseLogCapturesHTTPAndSSEWithoutAffectingExecution(t *testing.T) {
 			f := newContractFixture(t)
 			c := f.Client.(*client)
 			directory := filepath.Join(t.TempDir(), "responses")
-			logger := NewResponseLogger(directory)
+			logger, err := NewResponseLogger(directory, logging.DefaultOptions())
+			testkit.RequireNoError(t, err)
 			if _, err := os.Stat(directory); !errors.Is(err, os.ErrNotExist) {
 				t.Fatal("created log before first response")
 			}
@@ -65,21 +67,21 @@ func TestResponseLogCapturesHTTPAndSSEWithoutAffectingExecution(t *testing.T) {
 
 func TestResponseLogRotationAndPermissions(t *testing.T) {
 	directory := filepath.Join(t.TempDir(), "logs")
-	logger := NewResponseLogger(directory)
-	logger.maxBytes = 300
+	logger, err := NewResponseLogger(directory, logging.Options{MaxFileBytes: 300, BackupFiles: 1})
+	testkit.RequireNoError(t, err)
 	for i := range 10 {
 		err := logger.Record(Request{}, RawResponse{Status: 200, Body: strings.Repeat("x", 40) + string(rune('a'+i))})
 		testkit.RequireNoError(t, err)
 	}
 	files, err := os.ReadDir(directory)
 	testkit.RequireNoError(t, err)
-	if len(files) != 3 {
+	if len(files) != 2 {
 		t.Fatal("rotation did not bound files", files)
 	}
 	for _, entry := range files {
 		info, err := entry.Info()
 		testkit.RequireNoError(t, err)
-		if info.Mode().Perm() != 0600 || info.Size() > logger.maxBytes {
+		if info.Mode().Perm() != 0600 || info.Size() > 300 {
 			t.Fatal("unsafe permissions or unbounded file", info)
 		}
 	}

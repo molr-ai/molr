@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/logging"
 )
 
 type TLSMode string
@@ -115,24 +116,26 @@ type Telegram struct {
 }
 
 type Config struct {
-	Telegram    Telegram    `json:"telegram"`
-	ConfigPath  string      `json:"-"`
-	Updates     Updates     `json:"updates"`
-	PortForward PortForward `json:"port_forward"`
-	Browser     Browser     `json:"browser"`
-	Sandbox     Sandbox     `json:"sandbox"`
-	DataDir     string      `json:"data_dir"`
-	HTTP        HTTP        `json:"http"`
-	Auth        Auth        `json:"auth"`
-	Execution   Execution   `json:"execution"`
-	Network     Network     `json:"network"`
-	Pricing     Pricing     `json:"pricing"`
-	Debug       Debug       `json:"debug"`
-	Diagnostics Diagnostics `json:"diagnostics"`
+	Logging     logging.Options `json:"logging"`
+	Telegram    Telegram        `json:"telegram"`
+	ConfigPath  string          `json:"-"`
+	Updates     Updates         `json:"updates"`
+	PortForward PortForward     `json:"port_forward"`
+	Browser     Browser         `json:"browser"`
+	Sandbox     Sandbox         `json:"sandbox"`
+	DataDir     string          `json:"data_dir"`
+	HTTP        HTTP            `json:"http"`
+	Auth        Auth            `json:"auth"`
+	Execution   Execution       `json:"execution"`
+	Network     Network         `json:"network"`
+	Pricing     Pricing         `json:"pricing"`
+	Debug       Debug           `json:"debug"`
+	Diagnostics Diagnostics     `json:"diagnostics"`
 }
 
 func Defaults(dataDir string) Config {
 	return Config{DataDir: dataDir,
+		Logging:     logging.DefaultOptions(),
 		Updates:     Updates{AutoCheck: true},
 		PortForward: PortForward{Enabled: true, ListenHost: "0.0.0.0"},
 		Sandbox:     sandboxDefaults(),
@@ -186,6 +189,9 @@ func (c Config) OwnListenPort() uint16 {
 }
 
 func (c Config) Validate() error {
+	if err := c.Logging.Validate(); err != nil {
+		return core.Invalid("logging", err.Error())
+	}
 	if c.Telegram.ProxyURL != "" {
 		u, err := url.Parse(c.Telegram.ProxyURL)
 		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {

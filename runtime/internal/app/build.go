@@ -728,7 +728,11 @@ func Build(ctx context.Context, cfg config.Config, options ...BuildOptions) (bun
 	sandboxRouter.files = fileTools
 	var responseLog func(model.Request, model.RawResponse) error
 	if cfg.Diagnostics.ModelResponses {
-		responseLog = model.NewResponseLogger(filepath.Join(cfg.DataDir, "logs", "model-responses")).Record
+		logger, err := model.NewResponseLogger(filepath.Join(cfg.DataDir, "logs", "model-responses"), cfg.Logging)
+		if err != nil {
+			return nil, err
+		}
+		responseLog = logger.Record
 	}
 	modelClient := model.NewClient(store, model.Options{ResponseLog: responseLog, Dispatched: func(ctx context.Context, request model.Request) error {
 		var ids []core.ID

@@ -71,6 +71,7 @@ IM 保存 `MessageCreated` outbox，Agent 调度消费并通过业务绑定找�
 | --- | --- |
 | `app` | `Application`、`Dependencies.Validate`：生命周期与组合检查 |
 | `config` | `Config`、`Defaults`、`Load`、`Validate`：严格 JSON 配置与公网安全配置校验 |
+| `logging` | `Options`、`DefaultOptions`、`NewFile`、`OpenFile`：统一文件日志大小／数量策略、私有权限、并发写入、轮转及旧文件清理；`NewFile` 首次写入才访问磁盘，`OpenFile` 立即验证目标并应用策略，同一路径在实例内共用一个 writer |
 | `api` | `Server`、`Services`、`RateLimiter`、`PublicError`：传输能力组合、限流与安全错误映射 |
 | `auth` | `Service`、`Bootstrap`、`BrowserGuard`、`Repository`：认证、会话、令牌、二次验证、CSRF 与本机初始化 |
 | `audit` | `Recorder`、`Reader`、`Repository`：无秘密材料的安全事件与受控查询 |

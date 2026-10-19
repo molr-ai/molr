@@ -58,6 +58,25 @@ Before upgrading, retain the old binary, configuration, and complete backup. Use
 
 For deployment and connection of independent Linux execution machines, see [Remote Sandbox Service](../sandbox/remote.md). Local sandboxes are still embedded in the Runtime and do not require additional services.
 
+## File logs and rotation
+
+Runtime-managed file logs use the shared `internal/logging` module, including service logs selected by `--log-file` (HTTP requests, startup, and runtime diagnostics) and optional model response logs. Callers define record formats; the shared module owns file permissions, concurrent writes, rotation, and archive cleanup. Standard output/error bypass file rotation; collection or redirection by journald, launchd, or a shell follows deployment policy.
+
+The service configuration applies one policy to each file log set. These are the defaults:
+
+```json
+{
+  "logging": {
+    "max_file_bytes": 268435456,
+    "backup_files": 1
+  }
+}
+```
+
+`max_file_bytes` is the positive integer size limit in bytes per file, defaulting to **256 MiB**. `backup_files` is the number of archived files, excluding the current file, from 0 to 100. The default keeps the current file and one archive, totaling at most approximately **512 MiB** per log set. Rotation occurs before a write would exceed the limit. Archives use `.1`, `.2`, and so on, with `.1` newest; the oldest files beyond the limit are deleted. With 0 backups, rotation retains only the new current file. A record larger than the file limit is rejected rather than split.
+
+Restart after changing the configuration. Service logs apply the policy when opened; enabled model logs apply it on the first write. Reducing size or retention removes archives exceeding the new policy. Newly created log directories use `0700`, and files use `0600`. Retention is based on size and count, with no age-based expiration. After disabling model logging, remove existing files according to deployment policy.
+
 ## Diagnosing HTTP request latency
 
 Runtime emits one structured `http_request` log for every `/api` request by default. `molr serve` writes it to stderr, or to the file selected by `--log-file /private/runtime.log`; systemd deployments can use the service journal. Fields are `request_id`, `method`, `route` (the registered route template), `status`, `header_ms`, `duration_ms`, `bytes`, `stream`, `aborted`, `canceled`, and `write_error`. Actual object paths, query parameters, request/response bodies, cookies, and authentication headers are omitted. Unmatched routes use `unmatched`.
@@ -80,7 +99,7 @@ Raw model HTTP/SSE responses are not saved by default and do not enter the datab
 }
 ```
 
-Takes effect after restart. Responses are written to `<data_dir>/logs/model-responses/responses.jsonl`, retaining at most the current file and two rotated files, each not exceeding 64 MiB, with file permissions 0600. Logs include response bodies and call IDs, and may contain conversation content; request authentication headers are not recorded. Log write failures do not affect model execution. Turning off the switch stops new records; existing files must be deleted according to the deployer's retention requirements.
+Takes effect after restart. Responses are written to `<data_dir>/logs/model-responses/responses.jsonl`, with file permissions and retention following the `logging` configuration above. Logs include response bodies and call IDs, and may contain conversation content; request authentication headers are not recorded. Log write failures do not affect model execution. Turning off the switch stops new records; existing files must be deleted according to the deployer's retention requirements.
 
 This switch is independent of `debug.enabled`; the workbench can still display summaries, standard message content, HTTP status, duration, and usage without enabling raw response logs.
 
