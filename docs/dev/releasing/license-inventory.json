@@ -24,8 +24,9 @@
     "deploy/docker/vendor/LICENSE.moby": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
     "deploy/docker/seccomp-isolated.json": "7f176503fddf85b01daf167d2970beb395710eee32e7d5add40fc15b0dc6d34a",
     "apps/desktop/package.json": "17f227b5bb8021020d7b01a96da1fdd50b202c540a1a767d229f99b5a8e9564d",
-    "apps/desktop/scripts/package.mjs": "5c5ffa98a5dd4b6d62e72f5163d83cf044aacecffd3e7a3bb6d39d6bb78de357",
-    "apps/desktop/scripts/build-windows-runtime.mjs": "d4a0bbc4f59f0e5a9c923568ce054c099f6b0fb69f042c084d6945911ab07a26"
+    "apps/desktop/scripts/package.mjs": "3eb43e21cd146736d59fef24085ff5907b02af06d910be8cd1fb652c23d76219",
+    "apps/desktop/scripts/build-windows-runtime.mjs": "d4a0bbc4f59f0e5a9c923568ce054c099f6b0fb69f042c084d6945911ab07a26",
+    "apps/desktop/scripts/notarization.mjs": "db7b156c42c584be3106d1224c44ff8c82a5728c426c1b659db5536257b94961"
   },
   "npm": [
     {

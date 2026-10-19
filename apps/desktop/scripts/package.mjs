@@ -4,6 +4,7 @@ import { readFileSync, existsSync, mkdirSync, readdirSync, writeFileSync, lstatS
 import { resolve, join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { desktopSigning } from './signing.mjs';
+import { prepareNotarization } from './notarization.mjs';
 
 const root = resolve(import.meta.dirname, '../../..');
 const project = join(root, 'apps/desktop');
@@ -13,6 +14,8 @@ const local = version.endsWith('-local');
 const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
 if (!local && execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' }).trim()) throw new Error('Release builds require a clean checkout');
 const os = process.platform, arch = process.arch;
+const deferNotarization = process.argv.includes('--defer-notarization');
+if (deferNotarization && (os !== 'darwin' || process.argv.includes('--dir'))) throw new Error('Deferred notarization requires a native macOS DMG build');
 if (!['linux', 'darwin', 'win32'].includes(os) || !['x64', 'arm64'].includes(arch)) throw new Error('Build on a supported native runner');
 const runtimeOS = os === 'win32' ? 'windows' : os;
 const runtimeFiles = os === 'win32' ? ['bin/molr.exe', 'bin/molr-setup.exe'] : ['bin/molr', 'bin/molr-setup'];
@@ -57,7 +60,8 @@ const config = {
   artifactName: `molr-desktop_${version}_${os}-${goArch}_${variant}.\${ext}`,
   linux: { target: ['deb'], executableName: 'molr-desktop', category: 'Utility', maintainer: 'Molr contributors', syncDesktopName: true, icon: join(root, 'packages/ui/public/brand/molr-icon-512.png') },
   deb: { packageName: 'molr-desktop', depends: ['libgtk-3-0', 'libnotify4', 'libnss3', 'libxss1', 'libxtst6', 'xdg-utils', 'libatspi2.0-0', 'libuuid1', 'libsecret-1-0', 'libgbm1', 'libasound2t64 | libasound2', 'libcups2t64 | libcups2', 'bubblewrap', 'busybox-static', 'util-linux', 'ca-certificates', 'systemd (>= 254)'] },
-  mac: { target: ['dmg'], category: 'public.app-category.productivity', minimumSystemVersion: '13.0', hardenedRuntime: signed, notarize: signed, binaries: ['Contents/Resources/runtime/bin/molr', 'Contents/Resources/runtime/bin/molr-setup'], identity: signed ? undefined : '-', icon: join(root, 'packages/ui/public/brand/molr-icon-1024.png') },
+  mac: { target: ['dmg'], category: 'public.app-category.productivity', minimumSystemVersion: '13.0', hardenedRuntime: signed, notarize: signed && !deferNotarization, binaries: ['Contents/Resources/runtime/bin/molr', 'Contents/Resources/runtime/bin/molr-setup'], identity: signed ? undefined : '-', icon: join(root, 'packages/ui/public/brand/molr-icon-1024.png') },
+  dmg: { sign: signed && deferNotarization },
   win: { target: ['nsis'], executableName: 'Molr', icon: join(root, 'packages/ui/public/brand/molr-icon-256.png') },
   nsis: { oneClick: false, perMachine: false, allowToChangeInstallationDirectory: true, deleteAppDataOnUninstall: false },
 };
@@ -67,8 +71,10 @@ const artifacts = [];
 for (const file of files.filter(file => /\.(deb|dmg|exe)$/.test(file))) {
   const name = file.split(/[\\/]/).pop();
   const sha256 = createHash('sha256').update(readFileSync(file)).digest('hex');
-  writeFileSync(`${file}.sha256`, `${sha256}  ${name}\n`);
+  if (!deferNotarization) writeFileSync(`${file}.sha256`, `${sha256}  ${name}\n`);
   artifacts.push({ file: name, sha256 });
 }
-writeFileSync(join(output, 'desktop-manifest.json'), JSON.stringify({ schema: 1, version, commit, os, arch: goArch, variant, signed, artifacts }, null, 2) + '\n');
+const manifest = { schema: 1, version, commit, os, arch: goArch, variant, signed, artifacts };
+if (deferNotarization) prepareNotarization(output, manifest);
+else writeFileSync(join(output, 'desktop-manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
 console.log(`Desktop artifacts: ${output} (${readdirSync(output).length} entries)`);

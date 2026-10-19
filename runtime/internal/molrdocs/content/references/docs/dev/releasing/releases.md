@@ -15,6 +15,10 @@ Release 与 Nightly 的共用流程调用 `release-desktop.yml`，在五个原�
 
 官网构建和 `release:catalog` 从下文选择的最新正式 GitHub Release 读取桌面 manifest，核对同版本 Runtime 的 commit、五个平台及附件链接，生成 `/releases/desktop/catalog.json`。早于桌面支持的 Release 不产生桌面下载入口；选中 Release 的桌面清单损坏时构建失败，不回退旧版。生产构建不需要手工提供桌面 catalog。发布后的官网同步同时验证 Runtime 和桌面目录已更新，安装包仍由 GitHub 提供。
 
+macOS 发布分为构建与公证完成两个任务。构建任务先签名应用、内置二进制和 DMG，将 DMG 提交给 Apple 后立即保存安装包、原始摘要、版本、commit 和申请 ID 到 `desktop-notarization-*` Actions artifact，保留 14 天，不保存凭据。Apple 为 DMG 及其嵌套应用生成公证票据。后续任务下载同一份产物，核对身份与摘要后查询申请；每次最长等待 30 分钟，短暂网络错误自动重试。审核通过后附加并验证票据，检查 Gatekeeper，再生成最终 SHA-256 和桌面清单。没有配置签名凭据时继续沿用上面的 ad-hoc 路径。
+
+公证仍在处理或查询失败时，重跑原 workflow 的失败任务即可继续同一申请，无需重新构建或提交。不要为等待公证完整重跑 workflow；完整重跑会创建新产物和新申请。审核拒绝会输出 Apple 诊断并阻止发布，需要修复后使用新版本。artifact 超过保留期后不能继续原产物，需要重新构建。手工恢复可在同 commit 的原生 macOS 检出中下载该 artifact，设置原版本的 `MOLR_VERSION` 和 Apple 凭据，执行 `node apps/desktop/scripts/notarization.mjs <产物目录>`；目录包含 DMG 和 `notarization.json`。
+
 ## 首次启用
 
 在 GitHub 仓库启用 Actions，并创建用于发行的 `release` environment。官网保留 Cloudflare Workers Builds 的 GitHub 仓库授权与 `main` 生产分支自动部署，不需要在 GitHub 设置 `CLOUDFLARE_ACCOUNT_ID`、`CLOUDFLARE_API_TOKEN` 或 `production` environment。
@@ -40,6 +44,8 @@ Cloudflare Worker 的 Settings → Builds 使用以下设置：
 GitHub Releases 必须公开可下载。建议启用 immutable releases，并对正式版本 tag 设置创建权限与更新／删除保护。workflow 只在发布任务授予 `contents: write`，PR 检查不接触部署 secret。环境审批是否开启由仓库维护者决定。
 
 PR 和 main 的 CI 在 `ubuntu-24.04`、`ubuntu-24.04-arm`、`macos-15`、`macos-15-intel` 上执行检查、构建和原生安装验收，官网浏览器测试在 AMD64 上执行。首次执行实际发布与 Cloudflare 部署后，以 Cloudflare 构建历史和 workflow 的公开下载、站点验证结果确认远端接通。本地测试不代表已经配置远端账户或执行过线上发布。
+
+官网测试按文件串行运行，使共用同一项目缓存的 Vite 服务和构建依次执行，避免并发依赖优化及浏览器负载导致原生 runner 超时。
 
 CI 与发布使用同一个 `prepare-sandbox` action 准备 runner。Ubuntu 启用 AppArmor 非特权 user namespace 限制时，从 `apparmor-profiles` 包安装并加载 `bwrap-userns-restrict`，随后在 `NoNewPrivileges=yes` 的临时服务中运行 Bubblewrap 探针；失败时输出对应内核拒绝日志。该配置只作用于临时 runner，系统的 user namespace 限制保持启用。
 

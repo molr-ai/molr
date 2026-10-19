@@ -58,15 +58,32 @@ jobs:
           go -C runtime test ./internal/platform/sandbox ./internal/textfiles ./internal/installationwindows ./internal/config ./internal/platform ./internal/persistence/sqlitestore -run "TestWindows|TestControlledReady|TestNativeSandbox" -count=1
       - name: Native desktop Runtime lifecycle
         run: node apps/desktop/tests/local-runtime.mjs
-      - name: Package desktop (sign and notarize when credentials are configured)
+      - if: runner.os != 'macOS'
+        name: Package desktop (sign when credentials are configured)
         run: npm run package:desktop
         env:
-          CSC_LINK: ${{ runner.os == 'macOS' && secrets.MAC_CSC_LINK || runner.os == 'Windows' && secrets.WIN_CSC_LINK || '' }}
-          CSC_KEY_PASSWORD: ${{ runner.os == 'macOS' && secrets.MAC_CSC_KEY_PASSWORD || runner.os == 'Windows' && secrets.WIN_CSC_KEY_PASSWORD || '' }}
-          APPLE_ID: ${{ runner.os == 'macOS' && secrets.APPLE_ID || '' }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ runner.os == 'macOS' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
-          APPLE_TEAM_ID: ${{ runner.os == 'macOS' && secrets.APPLE_TEAM_ID || '' }}
-      - uses: actions/upload-artifact@v4
+          CSC_LINK: ${{ runner.os == 'Windows' && secrets.WIN_CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ runner.os == 'Windows' && secrets.WIN_CSC_KEY_PASSWORD || '' }}
+      - if: runner.os == 'macOS'
+        name: Sign DMG and submit notarization without waiting
+        run: node apps/desktop/scripts/package.mjs --defer-notarization
+        env:
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      - if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-notarization-${{ runner.arch }}
+          path: |
+            dist/desktop/darwin-${{ runner.arch == 'ARM64' && 'arm64' || 'amd64' }}/*.dmg
+            dist/desktop/darwin-${{ runner.arch == 'ARM64' && 'arm64' || 'amd64' }}/notarization.json
+          if-no-files-found: error
+          retention-days: 14
+      - if: runner.os != 'macOS'
+        uses: actions/upload-artifact@v4
         with:
           name: desktop-release-${{ runner.os }}-${{ runner.arch }}
           path: |
@@ -75,5 +92,46 @@ jobs:
             dist/desktop/**/*.exe
             dist/desktop/**/*.sha256
             dist/desktop/**/desktop-manifest.json
+          if-no-files-found: error
+          retention-days: 14
+  notarize:
+    needs: desktop
+    environment: release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            arch: amd64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    env:
+      MOLR_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.21.0'
+      - uses: actions/download-artifact@v4
+        with:
+          name: desktop-notarization-${{ runner.arch }}
+          path: dist/notarization
+      - name: Resume notarization, staple and verify the saved DMG
+        run: node apps/desktop/scripts/notarization.mjs dist/notarization
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-release-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            dist/notarization/**/*.dmg
+            dist/notarization/**/*.sha256
+            dist/notarization/**/desktop-manifest.json
           if-no-files-found: error
           retention-days: 14
