@@ -28,10 +28,11 @@ test('Slack pairs without losing drafts, locks chat only after confirmation, and
  await page.goto(`/#/assistants/${a.ID}`);
  await expect(page.locator('.chat-input textarea')).toBeEnabled(); await page.locator('.chat-input textarea').fill('keep this draft');
  await page.locator('.chat-header').getByRole('button', { name: 'More', exact: true }).click(); await page.getByRole('menuitem', { name: 'Switch chat channel', exact: true }).click();
+ await page.getByRole('button', { name: 'Slack', exact: true }).click();
  const dialog = page.getByRole('dialog', { name: 'Chat channel', exact: true });
  await page.getByLabel('App Token', { exact: true }).fill('xapp-test'); await page.getByLabel('Bot Token', { exact: true }).fill('xoxb-test'); await page.getByLabel('Slack member ID', { exact: true }).fill('UUSER');
  await page.getByRole('button', { name: 'Connect Slack', exact: true }).click(); await expect(page.getByText('molr-test-pairing-code', { exact: true })).toBeVisible();
- await expect(page.getByRole('button', { name: 'Connect Weixin', exact: true })).toBeDisabled();
+ await expect(page.getByRole('button', { name: 'Connect Weixin', exact: true })).toHaveCount(0);
  for (const theme of ['light', 'dark']) for (const palette of ['forest', 'ocean', 'iris', 'sand', 'rose', 'monochrome']) {
   await page.evaluate(({ theme, palette }) => { document.documentElement.dataset.theme = theme; document.documentElement.dataset.palette = palette; }, { theme, palette });
   await expect(dialog).toBeVisible(); const box = await dialog.boundingBox(); expect(box!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
@@ -40,5 +41,5 @@ test('Slack pairs without losing drafts, locks chat only after confirmation, and
  await dialog.locator('header').getByRole('button', { name: 'Close', exact: true }).click(); await expect(page.locator('.chat-input textarea')).toHaveValue('keep this draft');
  state = 'connected'; await page.reload(); await expect(page.locator('.message-composer--locked')).toContainText('Send messages in Slack');
  await page.getByRole('button', { name: 'Manage Slack connection', exact: true }).click(); await page.getByRole('button', { name: 'Disconnect Slack', exact: true }).click(); await page.getByRole('button', { name: 'Confirm', exact: true }).click();
- await expect(page.getByRole('button', { name: 'Connect Slack', exact: true })).toBeVisible(); await dialog.locator('header').getByRole('button', { name: 'Close', exact: true }).click(); await expect(page.locator('.chat-input textarea')).toHaveValue('keep this draft');
+ await expect(page.getByRole('button', { name: 'Slack', exact: true })).toBeVisible(); await dialog.locator('header').getByRole('button', { name: 'Close', exact: true }).click(); await expect(page.locator('.chat-input textarea')).toHaveValue('keep this draft');
 });

@@ -25,6 +25,7 @@ import (
 func (s *HTTPServer) businessRoutes() {
 	s.weixinRoutes()
 	s.feishuRoutes()
+	s.qqRoutes()
 	s.telegramRoutes()
 	s.slackRoutes()
 	s.dingtalkRoutes()

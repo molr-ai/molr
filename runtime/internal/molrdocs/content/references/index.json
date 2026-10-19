@@ -224,6 +224,22 @@
     }
   },
   {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/chat-channels/qq.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "QQ 聊天入口",
+      "en": "QQ chat channel"
+    },
+    "topics": {
+      "zh": "连接聊天入口",
+      "en": "Connect chat channels"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/user/chat-channels/qq/",
+      "en": "https://molr.ai/en/docs/user/chat-channels/qq/"
+    }
+  },
+  {
     "path": "/molr/.agents/skills/molr-docs/references/docs/user/chat-channels/dingtalk.md",
     "contentLanguage": "zh",
     "titles": {
@@ -1405,6 +1421,22 @@
     "urls": {
       "zh": "https://molr.ai/zh/docs/dev/extensions/feishu/",
       "en": "https://molr.ai/en/docs/dev/extensions/feishu/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/extensions/qq.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "QQ 渠道",
+      "en": "QQ channel"
+    },
+    "topics": {
+      "zh": "扩展",
+      "en": "Extensions"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/dev/extensions/qq/",
+      "en": "https://molr.ai/en/docs/dev/extensions/qq/"
     }
   },
   {

@@ -154,3 +154,6 @@ export type FeishuLogin = { ID: string; Status: 'waiting' | 'confirmed' | 'expir
 export type MCPTool = { ID: ID; Name: string; Description: string; InputSchema: unknown; Enabled: boolean; Problem: string };
 export type MCPConnection = { ID: ID; Name: string; Endpoint: string; Auth: 'none' | 'bearer' | 'header'; Header: string; Enabled: boolean; Version: number; CallLimit: number; Concurrent: number; TimeoutSeconds: number; Tools: MCPTool[]; CheckedAt: string | null; Status: 'unchecked' | 'available' | 'offline'; Configured: boolean; Calls: number; Active: number };
 export type MCPCall = { ID: ID; OwnerID: ID; ToolName: string; State: 'prepared' | 'running' | 'succeeded' | 'tool_error' | 'failed' | 'unknown'; CreatedAt: string; DurationMS: number; Failure: string };
+
+export type QQStatus = { Channel: 'webui' | 'qq'; State: 'disconnected' | 'connecting' | 'pairing' | 'connected' | 'reconnecting' | 'credentials_required' | 'paused' | 'expired'; AppID: string; ConnectedAt: string | null; LastInboundAt: string | null; LastError: string };
+export type QQLogin = { ID: string; Status: 'waiting' | 'confirmed' | 'pairing' | 'expired' | 'denied'; QRCode: string; Code: string; ExpiresAt: string };

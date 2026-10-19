@@ -32,6 +32,7 @@ test('Feishu private chat connects, preserves drafts and disconnects', async ({ 
  await page.locator('.chat-input textarea').fill('preserved Feishu draft');
  await page.locator('.chat-header').getByRole('button',{name:'More',exact:true}).click();
  await page.getByRole('menuitem',{name:'Switch chat channel',exact:true}).click();
+ await page.getByRole('button',{name:'Feishu',exact:true}).click();
  await page.getByRole('button',{name:'Connect Feishu',exact:true}).click();
  await expect(page.getByRole('img',{name:'Scan with Feishu to authorize'})).toBeVisible();
  await expect(page.getByText(/Chat content on this channel is transmitted to Feishu/)).toBeVisible();
@@ -52,6 +53,7 @@ test('Feishu private chat connects, preserves drafts and disconnects', async ({ 
  await page.getByRole('button',{name:'Disconnect Feishu',exact:true}).click();
  await page.getByRole('button',{name:'Confirm',exact:true}).click();
  await expect(page.getByRole('dialog',{name:'Disconnect and restore WebUI chat?',exact:true})).toHaveCount(0);
+ await page.getByRole('button',{name:'Feishu',exact:true}).click();
  await page.getByRole('button',{name:'Use an existing app',exact:true}).click();
  await page.getByLabel('App ID',{exact:true}).fill('cli_fixture');
  await page.getByLabel('App Secret',{exact:true}).fill('fixture-secret');

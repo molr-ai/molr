@@ -25,3 +25,5 @@ This guide is for members using an existing Molr service. Start with a service a
 Use [Troubleshooting](troubleshooting.md) to check connections, permissions, budgets and execution status. Contact your administrator with the error and version when resources or server configuration need changes.
 
 For robot private chats, pairing and disconnection, see [DingTalk chat entry](chat-channels/dingtalk.md).
+
+[QQ chat](chat-channels/qq.md) supports QR registration or manual credentials.

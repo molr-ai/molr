@@ -29,6 +29,7 @@ import (
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/im/dingtalk"
 	"molr.ai/runtime/internal/im/feishu"
+	"molr.ai/runtime/internal/im/qq"
 	"molr.ai/runtime/internal/im/realtime"
 	"molr.ai/runtime/internal/im/slack"
 	"molr.ai/runtime/internal/im/telegram"
@@ -63,6 +64,7 @@ type Options struct {
 	Notifications      *notification.Service
 	Dingtalk           *dingtalk.Service
 	Feishu             *feishu.Service
+	QQ                 *qq.Service
 	Weixin             *weixin.Service
 	Telegram           *telegram.Service
 	Slack              *slack.Service

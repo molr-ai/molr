@@ -96,6 +96,7 @@ function queryTopic(path: string) {
   if (path === '/api/status') return 'runtime';
   const shell = path.match(/^\/api\/assistants\/([^/]+)\/shell-tasks/);
   if (shell) return `shell-tasks:${shell[1]}`;
+  if (/\/assistants\/[^/]+\/qq/.test(path)) return 'qq';
   if (/\/assistants\/[^/]+\/feishu/.test(path)) return 'feishu';
   if (/\/assistants\/[^/]+\/weixin/.test(path)) return 'weixin';
   if (/\/assistants\/[^/]+\/dingtalk/.test(path)) return 'dingtalk';
@@ -128,6 +129,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       for (const listener of eventListeners) listener(visible);
       if (visible.Topic === 'shell.tasks' && visible.Object?.ID) publish.current([`shell-tasks:${visible.Object.ID}`]);
       else if (visible.Topic === 'notification.changed') publish.current(['notifications']);
+      else if (visible.Topic === 'qq.changed') publish.current(['qq']);
       else if (visible.Topic === 'feishu.changed') publish.current(['feishu']);
       else if (visible.Topic === 'weixin.changed') publish.current(['weixin']);
       else if (visible.Topic === 'dingtalk.changed') publish.current(['dingtalk']);

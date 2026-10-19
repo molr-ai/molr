@@ -25,3 +25,5 @@
 从[使用问题排查](https://molr.ai/zh/docs/user/troubleshooting/)检查连接、权限、预算与执行状态。需要新增资源或修改服务器配置时，联系管理员并提供错误信息和版本。
 
 钉钉机器人单聊的连接、配对与解绑见[钉钉聊天入口](https://molr.ai/zh/docs/user/chat-channels/dingtalk/)。
+
+[QQ 聊天入口](https://molr.ai/zh/docs/user/chat-channels/qq/)支持扫码或手动凭据连接。

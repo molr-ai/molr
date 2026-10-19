@@ -1,0 +1,26 @@
+export const qqCopy = {
+ zh: {
+  name: 'QQ 聊天', connect: '扫码连接 QQ', manual: '手动填写凭据', appID: 'App ID', secret: 'App Secret', save: '连接机器人', scan: '使用 QQ 扫码并确认', open: '打开 QQ 授权页面', refresh: '刷新二维码', cancel: '取消连接', disconnect: '解绑 QQ',
+  help: '在 QQ 中与专属机器人私聊，继续使用这位助理。已有记录和上下文保留。',
+  media: '当前支持文字收发。附件和操作卡片通过 Molr 链接查看；收到的 QQ 附件会标记为未读取。',
+  privacy: '通过 QQ 入口收发的消息会传输给腾讯。扫码后请选择或创建专属机器人并确认授权。',
+  manualHelp: '在 QQ 开放平台创建机器人，复制 App ID 和 App Secret。连接后，在机器人私聊中发送配对码。',
+  pair: '请在 QQ 中找到这台机器人，私聊发送以下完整配对码。配对码有效期为 10 分钟，不会触发助理。', code: '配对码', lost: '配对码已不在当前页面，请取消后重新连接。',
+  readonly: '请通过 QQ 发送消息', readonlyHelp: '或解绑 QQ 以启用此输入框', manage: '管理 QQ 连接',
+  disconnectTitle: '解绑 QQ 并恢复 WebUI 聊天？', disconnectHelp: '已有记录和上下文保留，未发送的 QQ 回复会取消。',
+  delivery: 'QQ 消息投递', failed: 'QQ 拒绝发送，请检查连接状态和主动消息接收设置。', unknown: '发送结果未知，请先在 QQ 核对；不会自动重发。', pending: '发送受限，等待重试。',
+  states: { disconnected: '未连接', waiting: '等待扫码并确认', pairing: '等待 QQ 私聊配对', confirmed: '连接成功', connecting: '正在连接', connected: '已连接', reconnecting: '正在重连', credentials_required: '凭据或权限不可用，请解绑后重新连接', paused: '已暂停', expired: '连接已过期，请重新连接', denied: '授权未完成' },
+ },
+ en: {
+  name: 'QQ chat', connect: 'Connect QQ with QR code', manual: 'Enter credentials manually', appID: 'App ID', secret: 'App Secret', save: 'Connect bot', scan: 'Scan with QQ and confirm', open: 'Open QQ authorization', refresh: 'Refresh QR code', cancel: 'Cancel connection', disconnect: 'Disconnect QQ',
+  help: 'Chat with a dedicated QQ bot to continue with this assistant. Your history and context are preserved.',
+  media: 'Text messaging is supported. Attachments and cards are delivered as Molr links; incoming QQ attachments are marked unread.',
+  privacy: 'Messages on this channel are transmitted to Tencent. Scan to select or create a dedicated bot and authorize it.',
+  manualHelp: 'Create a bot on the QQ Open Platform and copy its App ID and App Secret. Then send the pairing code to the bot in a private chat.',
+  pair: 'Find this bot in QQ and send the entire pairing code in a private chat within 10 minutes. Pairing does not trigger the assistant.', code: 'Pairing code', lost: 'The pairing code is no longer on this page. Cancel and connect again.',
+  readonly: 'Send messages in QQ', readonlyHelp: 'Or disconnect QQ to enable this composer', manage: 'Manage QQ connection',
+  disconnectTitle: 'Disconnect QQ and restore WebUI chat?', disconnectHelp: 'History and context stay with you. Unsent QQ replies will be canceled.',
+  delivery: 'QQ delivery', failed: 'QQ rejected the message. Check the connection and proactive message settings.', unknown: 'Delivery is unconfirmed. Check QQ first; it will not be resent automatically.', pending: 'Rate limited; waiting to retry.',
+  states: { disconnected: 'Not connected', waiting: 'Waiting for scan and confirmation', pairing: 'Waiting for QQ private chat pairing', confirmed: 'Connected', connecting: 'Connecting', connected: 'Connected', reconnecting: 'Reconnecting', credentials_required: 'Credentials or permissions unavailable; disconnect and reconnect', paused: 'Paused', expired: 'Connection expired; connect again', denied: 'Authorization incomplete' },
+ },
+};

@@ -32,3 +32,5 @@
 ## 维护发行
 
 [发行维护](https://molr.ai/zh/docs/dev/releasing/releases/)管理版本、渠道和构建发布；提交与分发前核对[公开内容与文件隔离](https://molr.ai/zh/docs/dev/releasing/public-content/)及[许可证](https://molr.ai/zh/docs/dev/releasing/licensing/)。
+
+[QQ 渠道](https://molr.ai/zh/docs/dev/extensions/qq/)介绍扫码、配对和消息投递。

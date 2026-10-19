@@ -140,6 +140,16 @@
     "section": "user"
   },
   {
+    "file": "user/chat-channels/qq.md",
+    "path": "/docs/user/chat-channels/qq/",
+    "label": "QQ 聊天入口",
+    "group": "连接聊天入口",
+    "englishLabel": "QQ chat channel",
+    "englishGroup": "Connect chat channels",
+    "root": "docs",
+    "section": "user"
+  },
+  {
     "file": "user/chat-channels/dingtalk.md",
     "path": "/docs/user/chat-channels/dingtalk/",
     "label": "钉钉聊天入口",
@@ -875,6 +885,16 @@
     "label": "飞书渠道",
     "group": "扩展",
     "englishLabel": "WeChat channel",
+    "englishGroup": "Extensions",
+    "root": "docs",
+    "section": "dev"
+  },
+  {
+    "file": "dev/extensions/qq.md",
+    "path": "/docs/dev/extensions/qq/",
+    "label": "QQ 渠道",
+    "group": "扩展",
+    "englishLabel": "QQ channel",
     "englishGroup": "Extensions",
     "root": "docs",
     "section": "dev"

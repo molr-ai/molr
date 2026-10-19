@@ -40,8 +40,9 @@ test('Weixin binding keeps WebUI chat until confirmation and restores it on disc
  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
  await page.locator('.chat-header').getByRole('button', { name: 'More', exact: true }).click();
  await page.getByRole('menuitem', { name: 'Switch chat channel', exact: true }).click();
- await expect(page.getByRole('dialog', { name: 'Chat channel', exact: true })).toContainText('WebUI chat');
+ await expect(page.getByRole('dialog', { name: 'Chat channel', exact: true })).toContainText('Choose where to chat');
  await page.screenshot({ path: test.info().outputPath('chat-channel.png') });
+ await page.getByRole('button', { name: 'Weixin', exact: true }).click();
  await page.getByRole('button', { name: 'Connect Weixin', exact: true }).click();
  await expect(page.getByRole('img', { name: 'Scan with Weixin and confirm' })).toBeVisible();
  await expect(page.getByText('Data privacy', { exact: true })).toBeVisible();
@@ -65,13 +66,14 @@ test('Weixin binding keeps WebUI chat until confirmation and restores it on disc
  await page.reload();
  await expect(page.locator('.chat-input .message-composer--locked')).toBeVisible();
  await page.getByRole('button', { name: 'Manage Weixin connection', exact: true }).click();
- await expect(page.getByRole('dialog', { name: 'Chat channel', exact: true })).toContainText('Weixin chat');
+ await expect(page.getByRole('dialog', { name: 'Chat channel', exact: true })).toContainText('Bound');
  await expect(page.getByRole('tab', { name: 'Overview', exact: true })).toHaveCount(0);
  await page.getByRole('button', { name: 'Disconnect Weixin', exact: true }).click();
  await page.getByRole('button', { name: 'Confirm', exact: true }).click();
- await expect(page.getByRole('button', { name: 'Connect Weixin', exact: true })).toBeVisible();
+ await expect(page.getByRole('button', { name: 'Weixin', exact: true })).toBeVisible();
  // Expiry can be refreshed without changing the current chat channel.
  stage = 'expired';
+ await page.getByRole('button', { name: 'Weixin', exact: true }).click();
  await page.getByRole('button', { name: 'Connect Weixin', exact: true }).click();
  await expect(page.getByRole('button', { name: 'Refresh QR code', exact: true })).toBeVisible();
  const previous = generation; stage = 'need_verifycode';
@@ -160,6 +162,7 @@ test('rate limit appears once, can be dismissed, and pauses background retries',
  await page.locator('.chat-header').getByRole('button', { name: 'More', exact: true }).click();
  await page.getByRole('menuitem', { name: 'Switch chat channel', exact: true }).click();
  const dialog = page.getByRole('dialog', { name: 'Chat channel', exact: true });
+ await dialog.getByRole('button', { name: 'Weixin', exact: true }).click();
  await expect(dialog.getByRole('button', { name: 'Connect Weixin', exact: true })).toBeEnabled();
  let limited = 0;
  for (const suffix of ['status', 'weixin']) await page.route(`**/api/assistants/${assistant.ID}/${suffix}`, async route => {
@@ -204,6 +207,7 @@ test('already connected login skips QR and preserves the connection', async ({ p
  await page.goto(`/#/assistants/${assistant.ID}`);
  await page.locator('.chat-header').getByRole('button', { name: 'More', exact: true }).click();
  await page.getByRole('menuitem', { name: 'Switch chat channel', exact: true }).click();
+ await page.getByRole('button', { name: 'Weixin', exact: true }).click();
  await page.getByRole('button', { name: 'Connect Weixin', exact: true }).click();
  await expect(page.getByText('Already connected; no need to scan again', { exact: true })).toBeVisible();
  await expect(page.getByRole('button', { name: 'Disconnect Weixin', exact: true })).toBeVisible();

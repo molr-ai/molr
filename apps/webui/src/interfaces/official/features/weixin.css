@@ -6,3 +6,24 @@
 
 .slack-pair-code { overflow-wrap: anywhere; user-select: all; }
 .weixin-settings + .weixin-settings { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--color-border); }
+
+.chat-channel-drawer .ui-dialog__body { overflow: hidden; display: flex; flex-direction: column; }
+.channel-heading { display: flex; align-items: center; gap: 10px; }
+.channel-heading > span:first-of-type { flex: 1; }
+.channel-viewport { overflow: hidden; flex: 1; min-height: 0; }
+.channel-pages { display: flex; height: 100%; transition: transform 220ms ease; }
+.channel-pages[data-detail='true'] { transform: translateX(-100%); }
+.channel-page { flex: 0 0 100%; min-width: 0; overflow-y: auto; padding: 2px; overscroll-behavior: contain; }
+.channel-page[inert] { visibility: hidden; transition: visibility 220ms; }
+.channel-list > p { margin: 0 0 20px; line-height: 1.6; }
+.channel-choice { display: flex; align-items: center; gap: 14px; width: 100%; padding: 18px 12px; color: var(--color-text); background: transparent; border: 0; border-bottom: 1px solid var(--color-border); text-align: start; cursor: pointer; font: inherit; }
+.channel-choice > span:first-of-type { flex: 1; font-weight: 550; }
+.channel-choice > svg { color: var(--color-text-muted); }
+.channel-choice:hover { background: color-mix(in srgb, var(--color-text) 5%, transparent); }
+.channel-choice:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
+.channel-detail h3 { margin: 0; }
+.channel-detail form { display: grid; gap: 16px; }
+[data-reduced-motion='true'] .channel-pages, [data-reduced-motion='true'] .channel-page[inert] { transition: none; }
+@media (prefers-reduced-motion: reduce) { .channel-pages, .channel-page[inert] { transition: none; } }
+
+.channel-app-icon { width: 32px; height: 32px; flex: 0 0 32px; box-sizing: border-box; object-fit: contain; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-white); }

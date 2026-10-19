@@ -27,28 +27,28 @@ test('Telegram requires confirmation, preserves drafts, survives refresh and dis
  await page.goto(`/#/assistants/${assistant.ID}`);
  await expect(page.locator('.chat-input textarea')).toBeEnabled(); await page.locator('.chat-input textarea').fill('preserved draft');
  async function open() { await page.locator('.chat-header').getByRole('button', { name: 'More', exact: true }).click(); await page.getByRole('menuitem', { name: 'Switch chat channel', exact: true }).click(); }
- async function begin() { await page.getByRole('button', { name: 'Connect Telegram', exact: true }).click(); await page.getByRole('dialog', { name: 'Connect Telegram', exact: true }).getByLabel('Bot Token', { exact: true }).fill('123456:synthetic-token-for-ui-tests'); await page.getByRole('button', { name: 'Verify and continue', exact: true }).click(); }
+ async function begin() { await page.getByRole('button', { name: 'Telegram', exact: true }).click(); await page.getByRole('dialog', { name: 'Chat channel', exact: true }).getByLabel('Bot Token', { exact: true }).fill('123456:synthetic-token-for-ui-tests'); await page.getByRole('button', { name: 'Verify and continue', exact: true }).click(); }
  await open(); await begin(); await expect(page.getByRole('link', { name: 'Open Telegram', exact: true })).toHaveAttribute('href', 'https://t.me/fixture_bot?start=fixture-code'); expect(bound).toBe(false);
  await page.getByRole('button', { name: 'Cancel connection', exact: true }).click(); expect(canceled).toBe(1); expect(bound).toBe(false);
  await begin();
  for (const theme of ['light', 'dark']) for (const palette of ['forest', 'ocean', 'iris', 'sand', 'rose', 'monochrome']) {
   await page.evaluate(({ theme, palette }) => { document.documentElement.dataset.theme = theme; document.documentElement.dataset.palette = palette; }, { theme, palette });
   await expect(page.locator('.weixin-qr rect')).toHaveCSS('fill', 'rgb(255, 255, 255)'); await expect(page.locator('.weixin-qr path')).toHaveCSS('fill', 'rgb(0, 0, 0)');
-  const dialog = page.getByRole('dialog', { name: 'Connect Telegram', exact: true });
+  const dialog = page.getByRole('dialog', { name: 'Chat channel', exact: true });
   expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
   await page.screenshot({ path: test.info().outputPath(`telegram-${theme}-${palette}.png`) });
  }
  ready = true; await expect(page.getByText('Fixture User', { exact: true })).toBeVisible(); expect(bound).toBe(false);
- await page.getByRole('button', { name: 'Confirm connection', exact: true }).click(); await expect(page.getByRole('dialog', { name: 'Chat channel', exact: true }).getByRole('button', { name: 'Manage Telegram connection', exact: true })).toBeVisible();
+ await page.getByRole('button', { name: 'Confirm connection', exact: true }).click(); await expect(page.getByRole('dialog', { name: 'Chat channel', exact: true }).getByRole('button', { name: 'Disconnect Telegram', exact: true })).toBeVisible();
  await expect(page.getByRole('button', { name: 'Connect Weixin', exact: true })).toHaveCount(0);
  await page.getByRole('dialog', { name: 'Chat channel', exact: true }).getByRole('button', { name: 'Close', exact: true }).click();
  await expect(page.locator('.message-composer--locked')).toContainText('Send messages in Telegram'); await expect(page.locator('.chat-input textarea')).toHaveCount(0);
  state = 'blocked'; await page.reload(); await expect(page.locator('.message-composer--locked')).toBeVisible();
  await page.getByRole('button', { name: 'Manage Telegram connection', exact: true }).click();
- await page.getByRole('dialog', { name: 'Chat channel', exact: true }).getByRole('button', { name: 'Manage Telegram connection', exact: true }).click();
+
  await expect(page.getByText('Bot cannot send messages; unblock it in Telegram and send a message', { exact: true })).toBeVisible();
  await page.getByRole('button', { name: 'Disconnect Telegram', exact: true }).click(); await page.getByRole('button', { name: 'Confirm', exact: true }).click();
- await expect(page.getByRole('button', { name: 'Connect Telegram', exact: true })).toBeVisible();
+ await expect(page.getByRole('button', { name: 'Telegram', exact: true })).toBeVisible();
  await page.getByRole('dialog', { name: 'Chat channel', exact: true }).getByRole('button', { name: 'Close', exact: true }).click();
  await expect(page.locator('.chat-input textarea')).toBeEnabled();
 });

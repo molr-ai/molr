@@ -1,3 +1,5 @@
+import { qqCopy } from '../../../qq-copy';
+import type { QQStatus } from '@molr/sdk';
 import { FolderOpen } from 'lucide-react';
 import { useErrorToast } from '../../../error-toasts';
 import { AssistantNotifications } from '../../../notifications/AssistantNotifications';
@@ -46,9 +48,11 @@ export function Chat({ assistant, conversation, timeZone, draft, updateDraft, on
   const dingtalk = ding.data?.Channel === 'dingtalk';
   const feishuStatus = useQuery<FeishuStatus>(`/api/assistants/${assistant.ID}/feishu`);
  const feishu = feishuStatus.data?.Channel === 'feishu';
-  const externalChannel = feishu || weixin || telegramBound || slack || dingtalk;
-  const chatReadOnly = !channel.data || !telegram.data || !slackStatus.data || !ding.data || !feishuStatus.data || externalChannel;
-  const channelCopy = feishu ? { ...weixinCopy[locale], ...feishuCopy[locale] } : dingtalk ? { ...weixinCopy[locale], ...dingtalkCopy[locale] } : slack ? slackCopy[locale] : telegramBound ? { ...weixinCopy[locale], ...telegramCopy[locale] } : weixinCopy[locale];
+  const qqStatus = useQuery<QQStatus>(`/api/assistants/${assistant.ID}/qq`);
+ const qq = qqStatus.data?.Channel === 'qq';
+ const externalChannel = qq || feishu || weixin || telegramBound || slack || dingtalk;
+  const chatReadOnly = !channel.data || !telegram.data || !slackStatus.data || !ding.data || !feishuStatus.data || !qqStatus.data || externalChannel;
+  const channelCopy = qq ? { ...weixinCopy[locale], ...qqCopy[locale] } : feishu ? { ...weixinCopy[locale], ...feishuCopy[locale] } : dingtalk ? { ...weixinCopy[locale], ...dingtalkCopy[locale] } : slack ? slackCopy[locale] : telegramBound ? { ...weixinCopy[locale], ...telegramCopy[locale] } : weixinCopy[locale];
   const history = useChatHistory(assistant.ConversationID, targetMessageID);
   const [expediteBusy, setExpediteBusy] = useState(false), [expediteFailed, setExpediteFailed] = useState(false), [requestedThrough, setRequestedThrough] = useState(0);
   useEffect(() => { setExpediteBusy(false); setExpediteFailed(false); setRequestedThrough(0); }, [assistant.ID]);
@@ -65,7 +69,7 @@ export function Chat({ assistant, conversation, timeZone, draft, updateDraft, on
   const draftAttachments = useFilePreviews(draft.files);
   const archived = assistant.State === 'dismissed' || conversation?.Archived;
   const lastSequence = history.messages.at(-1)?.Sequence ?? 0;
-  useErrorToast(action.error || history.error || status.error || channel.error || ding.error || feishuStatus.error || permissions.error, action.error ? send : history.error ? invalidate : status.error ? status.reload : channel.error ? channel.reload : ding.error ? ding.reload : feishuStatus.error ? feishuStatus.reload : permissions.reload);
+  useErrorToast(action.error || history.error || status.error || channel.error || qqStatus.error || ding.error || feishuStatus.error || permissions.error, action.error ? send : history.error ? invalidate : status.error ? status.reload : channel.error ? channel.reload : qqStatus.error ? qqStatus.reload : ding.error ? ding.reload : feishuStatus.error ? feishuStatus.reload : permissions.reload);
   function markRead() {
     if (targetMessageID || !bottom.current || document.visibilityState !== 'visible' || !document.hasFocus() || isChatObscured() || lastSequence <= Math.max(readThrough.current, conversation?.LastReadSequence ?? 0)) return;
     const previous = readThrough.current; readThrough.current = lastSequence;
@@ -232,7 +236,7 @@ export function Chat({ assistant, conversation, timeZone, draft, updateDraft, on
     </div>
     {showLatest && <Button className="chat-return-latest" variant="secondary" onClick={returnToLatest}><ArrowDown size={16} aria-hidden="true" />{(conversation?.UnreadCount ?? 0) > 0 ? t.chat.newMessages : t.chat.returnLatest}</Button>}
     </div>
-    {!channel.data || !telegram.data || !slackStatus.data || !ding.data || !feishuStatus.data ? <Loading /> : <div className="chat-input"><ChatComposer lock={externalChannel ? { title: channelCopy.readonly, description: channelCopy.readonlyHelp, action: <Button variant="secondary" size="sm" onClick={() => onAction('channel')}>{channelCopy.manage}</Button> } : undefined} commands={[
+    {!channel.data || !telegram.data || !slackStatus.data || !ding.data || !feishuStatus.data || !qqStatus.data ? <Loading /> : <div className="chat-input"><ChatComposer lock={externalChannel ? { title: channelCopy.readonly, description: channelCopy.readonlyHelp, action: <Button variant="secondary" size="sm" onClick={() => onAction('channel')}>{channelCopy.manage}</Button> } : undefined} commands={[
       { name: 'compress', aliases: ['压缩'], description: `${t.chat.compress} · /压缩`, keywords: ['上下文'], disabled: compressing },
       ...(pendingPermissions.length ? [
         { name: 'permission approve', aliases: ['权限审批 同意'], description: locale === 'zh' ? '同意最新申请；可加 ID 或 all（全部）' : 'Approve latest; optionally add an ID or all' },

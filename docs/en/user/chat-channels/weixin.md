@@ -1,6 +1,6 @@
 # WeChat Chat Entry
 
-After an assistant is created, it defaults to chatting in the WebUI. Open the "..." menu in the top-right corner of the chat page and select "Switch chat channel". In the standalone popup, click "Connect WeChat", scan the QR code with WeChat, and confirm. If WeChat requires a pairing verification code, enter the code on the page.
+After an assistant is created, it defaults to chatting in the WebUI. Open the "..." menu in the top-right corner of the chat page and select "Switch chat channel". Select Weixin in the drawer, then click "Connect WeChat", scan the QR code with WeChat, and confirm. If WeChat requires a pairing verification code, enter the code on the page.
 
 The QR code page will indicate: Chat messages and attachments sent and received via the WeChat channel will be sent to Tencent, and Tencent may retain this data. Please be mindful of data privacy.
 

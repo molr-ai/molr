@@ -29,10 +29,11 @@ test('DingTalk pairing preserves WebUI input until bound and restores it on disc
  await page.locator('.chat-input textarea').fill('preserved draft');
  await page.locator('.chat-header').getByRole('button', { name: 'More', exact: true }).click();
  await page.getByRole('menuitem', { name: 'Switch chat channel', exact: true }).click();
+ await page.getByRole('button', { name: 'DingTalk', exact: true }).click();
  await page.getByRole('button', { name: 'Connect DingTalk', exact: true }).click();
  await page.getByLabel('Client ID (AppKey)', { exact: true }).fill('ding-fixture');
  await page.getByLabel('Client Secret (AppSecret)', { exact: true }).fill('fixture-app-secret');
- await page.getByRole('dialog', { name: 'Connect a DingTalk robot', exact: true }).getByRole('button', { name: 'Connect DingTalk', exact: true }).click();
+ await page.getByRole('region', { name: 'Connect a DingTalk robot', exact: true }).getByRole('button', { name: 'Connect DingTalk', exact: true }).click();
  await expect(page.getByLabel('One-time pairing code', { exact: true })).toHaveValue('molr-fixture-pairing-code');
  await expect(page.locator('.chat-input textarea')).toBeEnabled();
  for (const theme of ['light', 'dark']) for (const palette of ['forest', 'ocean', 'iris', 'sand', 'rose', 'monochrome']) {
@@ -50,7 +51,7 @@ test('DingTalk pairing preserves WebUI input until bound and restores it on disc
  await page.getByRole('button', { name: 'Manage DingTalk connection', exact: true }).click();
  await page.getByRole('button', { name: 'Disconnect DingTalk', exact: true }).click();
  await page.getByRole('button', { name: 'Confirm', exact: true }).click();
- await expect(page.getByRole('button', { name: 'Connect DingTalk', exact: true })).toBeVisible();
+ await expect(page.getByRole('button', { name: 'DingTalk', exact: true })).toBeVisible();
  await page.getByRole('dialog', { name: 'Chat channel', exact: true }).locator('header').getByRole('button', { name: 'Close', exact: true }).click();
  await expect(page.locator('.chat-input textarea')).toBeEnabled();
  await expect(page.locator('.chat-input textarea')).toHaveValue('preserved draft');
