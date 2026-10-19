@@ -8,7 +8,7 @@ import { resolve } from 'node:path';
 const root = resolve(import.meta.dirname, '..');
 const repository = resolve(root, '../..');
 
-test('agent installation instructions work across modes, locales, catalog failures and narrow screens', { timeout: 90000 }, async () => {
+test('agent installation instructions work across modes, locales, catalog failures and narrow screens', { timeout: 120000 }, async () => {
   const before = process.env.VITE_SITE_MODE;
   process.env.VITE_SITE_MODE = 'live';
   const server = await createServer({ root, logLevel: 'silent', server: { host: '127.0.0.1', port: 0 } });
@@ -68,7 +68,11 @@ test('agent installation instructions work across modes, locales, catalog failur
       await section.screenshot({ path: `${screenshots}/${theme}-${palette}-${width}.png` });
     }
     await section.getByRole('link', { name: '查看 Agent 安装说明' }).click();
-    await expect(page.getByRole('heading', { level: 1, name: '让 Agent 为我安装' })).toBeVisible();
+    await expect(page).toHaveURL(`${url}/zh/docs/admin/deployment/agent-install/`);
+    // The first docs visit loads and transforms the lazy module in the dev server.
+    // React keeps the homepage visible during that transition; URL changes alone
+    // do not mean the document is ready, especially on slower CI runners.
+    await expect(page.getByRole('heading', { level: 1, name: '让 Agent 为我安装', exact: true })).toBeVisible({ timeout: 30000 });
     await page.goto(url);
     failure = true;
     await page.reload();
