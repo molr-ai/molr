@@ -3,6 +3,10 @@
 Linux 使用 Bubblewrap、seccomp、cgroup v2 和受控网络出口。macOS 使用原生 Seatbelt 文件策略与网络开关。Windows 使用原生 AppContainer、按执行分配的文件 ACL 与网络能力开关。各平台保留相同授权和任务管理接口，按实际后端报告能执行的限制。部署见 [Linux](../../admin/sandbox/linux.md) 和 [macOS](../../admin/sandbox/macos.md)。
 
 
+
+沙盒列表的本机采样与远程检查最多同时执行四项，远程节点各保留三秒超时；单个节点失败不使整个列表失败。结果保持目录顺序，本机位于首项。请求取消时停止尚未开始的检查，并取消进行中的远程请求。
+
+
 ## 部署预设与目录接入
 
 `config.SandboxPreset` 只在安装或显式维护时展开配置，不持久化模式。内置与远程沙盒共用字段：`restrict_directories` 决定目录候选范围，`enabled` 控制执行／节点，网络规则和 GPU 配置决定可分配资源。Linux 授权上限中的零表示不额外设置部署上限，实际返回执行后端可表达的容量；`gpu.all_devices: true` 发现全部支持的设备，助理与用户组仍使用显式设备授权。

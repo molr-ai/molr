@@ -67,6 +67,15 @@ func (f *feed) Subscribe(ctx context.Context, p core.Principal, q Query) (Subscr
 	if err != nil {
 		return nil, err
 	}
+	// A new subscriber reads current snapshots, not the account's event history.
+	// Watch first: commits after this position must wake the subscription.
+	if q.After == "" {
+		q.After, err = f.store.Head(ctx, p.OwnerID, q.Topics)
+		if err != nil {
+			watch.Close()
+			return nil, err
+		}
+	}
 	var authorization AuthorizationWatch
 	if f.options.WatchAuthorization != nil {
 		authorization, err = f.options.WatchAuthorization(p)
@@ -82,13 +91,14 @@ func (f *feed) Subscribe(ctx context.Context, p core.Principal, q Query) (Subscr
 			authorization.Close()
 		}
 	})
-	return &subscription{feed: f, principal: p, query: q, ctx: subscriptionCtx, cancel: cancel, watch: watch, authorization: authorization, stopWatch: stopWatch}, nil
+	return &subscription{feed: f, principal: p, query: q, startCursor: q.After, ctx: subscriptionCtx, cancel: cancel, watch: watch, authorization: authorization, stopWatch: stopWatch}, nil
 }
 
 type subscription struct {
 	feed          *feed
 	principal     core.Principal
 	query         Query
+	startCursor   string
 	ctx           context.Context
 	cancel        context.CancelFunc
 	mu            sync.Mutex
@@ -97,6 +107,8 @@ type subscription struct {
 	authorization AuthorizationWatch
 	buffer        []Visible
 }
+
+func (s *subscription) StartCursor() string { return s.startCursor }
 
 func (s *subscription) Close() error {
 	s.cancel()

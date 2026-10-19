@@ -165,37 +165,9 @@ func (s *sandboxRouter) admin(ctx context.Context, p core.Principal, action stri
 	case "tools":
 		return s.catalog.Catalog(ctx, p)
 	case "list":
-		out := []sandboxView{{ID: "local", Name: "Local sandbox", Local: true, State: "available", Version: 1, Info: s.localInfo(ctx), CheckedAt: time.Now()}}
-		if !out[0].Info.Enabled {
-			out[0].State = "disabled"
-		}
-		rows, err := persistence.SelectCatalog[sandboxConnection](ctx, s.adapters.store, "sandbox.connections", p.OwnerID, persistence.Query{})
+		out, err := s.listSandboxes(ctx, p)
 		if err != nil {
 			return nil, err
-		}
-		for _, c := range rows {
-			if !catalogOwned(ctx, s.adapters.store, c.OwnerID, p.OwnerID) {
-				continue
-			}
-			v := c.View
-			v.CheckedAt = time.Now()
-			if v.State != "disconnected" {
-				client, err := s.client(ctx, p, c)
-				if err == nil {
-					check, cancel := context.WithTimeout(ctx, 3*time.Second)
-					v.Info, err = client.Info(check)
-					cancel()
-				}
-				if err != nil {
-					v.State = "offline"
-					v.ConnectionReason = string(sandboxDiagnosis(err).Reason)
-					v.Info = c.View.Info
-					v.Info.Enabled = false
-					v.Info.Storage = false
-					v.Info.Capabilities = platform.Capabilities{OS: v.Info.Capabilities.OS, Reason: "sandbox_offline"}
-				}
-			}
-			out = append(out, v)
 		}
 		visible := out[:0]
 		for _, v := range out {

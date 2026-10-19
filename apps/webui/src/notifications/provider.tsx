@@ -9,6 +9,7 @@ import { isChatObscured } from '../chat-visibility';
 import { useCopy, useData, useQuery, useSession } from '../state';
 import { createBrowserNotifications } from './browser';
 import { NotificationClaims } from './coordinator';
+import { NoticeQueue } from './notice-queue';
 import { MessageSound } from './sound';
 import type { SoundState } from './sound';
 import { notificationCopy } from './copy';
@@ -149,9 +150,13 @@ export function NotificationProvider({ children, createAdapter = createBrowserNo
     async function deliverNotice(id:string) {
       const tag=`notice:${id}`, started=revision, localRevision=revisions.get(`notice:${id}`);
       const canceled=()=>!active||revision!==started||revisions.get(tag)!==localRevision;
+      const displayed = toasts.has(tag) || executionToasts.has(tag) || [...noticeGroups.values()].includes(tag);
+      // Displayed notices still need read/dismiss/recovery updates. Otherwise
+      // disabled alerts and the initial snapshot need no per-notice lookup.
+      if (!active || !displayed && (!current.current.value.enabled || !noticeBaseline || noticeBaseline.has(id))) return;
       try {
         const n=await api.get<SystemNotice>(`/api/notifications/${id}`,controller.signal);
-        if(!active)return;
+        if(canceled())return;
         if(n.ReadAt||n.DismissedAt||n.ResolvedAt){close(tag);return;}
         if(!current.current.value.enabled||!noticeBaseline||noticeBaseline.has(n.ID)||focused()&&(n.AssistantID&&reading(n.AssistantID)||location.hash===current.current.noticeText.action(n)?.route))return;
         if(!await claims.claim(account,tag,1)||!active)return;
@@ -180,8 +185,12 @@ export function NotificationProvider({ children, createAdapter = createBrowserNo
         if (n.Kind === 'execution.failed') executionToasts.set(tag, { id: toastID, notice: n });
       }catch{/* Never display inaccessible or stale data. */}
     }
+    const noticeQueue = new NoticeQueue(deliverNotice, id => {
+      const tag = `notice:${id}`;
+      revisions.set(tag, (revisions.get(tag) ?? 0) + 1);
+    });
     async function event(event: RuntimeEvent) {
-      if(event.Topic==='notification.changed'&&event.Object?.ID){await deliverNotice(event.Object.ID);return;}
+      if(event.Topic==='notification.changed'&&event.Object?.ID){await noticeQueue.request(event.Object.ID, event.Version);return;}
       if (event.Topic === 'conversation.read') { const id = event.ConversationID ?? event.Object?.ID; if (id) close(id); return; }
       const prefs = current.current.value, conversation = event.ConversationID, id = event.Object?.ID;
       if (!baseline.current || !prefs.enabled || event.Topic !== 'message.created' || !conversation || !id) return;
@@ -204,7 +213,7 @@ export function NotificationProvider({ children, createAdapter = createBrowserNo
     }
     const unsubscribe = subscribeEvents(event);
     return () => {
-      active = false; refreshNoticeActions.current = () => {}; noticeInitialization.stop(); unsubscribe(); controller.abort(); channel?.close(); claims.close(); close(); sound.dispose(); audio.current = null; device.dispose(); adapter.current = null;
+      active = false; refreshNoticeActions.current = () => {}; noticeQueue.stop(); noticeInitialization.stop(); unsubscribe(); controller.abort(); channel?.close(); claims.close(); close(); sound.dispose(); audio.current = null; device.dispose(); adapter.current = null;
       window.removeEventListener('click', unlockSound); window.removeEventListener('keydown', unlockSound);
       window.removeEventListener('focus', sync); document.removeEventListener('visibilitychange', sync); window.removeEventListener('storage', storage);
     };

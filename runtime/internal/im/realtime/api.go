@@ -34,6 +34,8 @@ type Feed interface {
 	Subscribe(context.Context, core.Principal, Query) (Subscription, error)
 }
 type Subscription interface {
+	// StartCursor is fixed before Subscribe returns, including on an empty stream.
+	StartCursor() string
 	Next(context.Context) (Visible, error)
 	Close() error
 }
@@ -41,6 +43,7 @@ type Subscription interface {
 // Store is trusted-internal. Append participates in the business transaction.
 // Each client has its own cursor; replay never consumes another client's events.
 type Store interface {
+	Head(context.Context, core.ID, []string) (string, error)
 	Watch(core.ID) (persistence.Watch, error)
 	Append(context.Context, Visible) error
 	Replay(context.Context, core.ID, Query) (core.Page[Visible], error)

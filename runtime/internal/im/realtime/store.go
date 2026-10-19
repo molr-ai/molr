@@ -18,6 +18,16 @@ type stored struct{ store persistence.Store }
 
 // NewStore uses the caller's transaction when its context or Store is bound.
 func NewStore(store persistence.Store) Store { return &stored{store: store} }
+func (s *stored) Head(ctx context.Context, owner core.ID, topics []string) (string, error) {
+	if err := owner.Validate(); err != nil {
+		return "", err
+	}
+	seq, err := persistence.Load[uint64](ctx, s.store, countersBucket, persistence.Key(owner, "visible"))
+	if err != nil && !persistence.Missing(err) {
+		return "", err
+	}
+	return Cursor(owner, topics, seq)
+}
 func signalKey(owner core.ID) persistence.SignalKey {
 	return persistence.SignalKey{Namespace: visibleBucket, Key: string(owner)}
 }

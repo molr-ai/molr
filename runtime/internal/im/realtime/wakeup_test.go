@@ -191,7 +191,11 @@ func TestBufferedEventsStillCheckRevocationAndStoreClose(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			sub, err := NewFeed(store, Options{Authorizer: auth}).Subscribe(t.Context(), owner, Query{})
+			beginning, err := Cursor(owner.OwnerID, nil, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			sub, err := NewFeed(store, Options{Authorizer: auth}).Subscribe(t.Context(), owner, Query{After: beginning})
 			if err != nil {
 				t.Fatal(err)
 			}

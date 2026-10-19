@@ -15,6 +15,8 @@ The desktop entry point is [`apps/desktop`](../../../../apps/desktop/README.md).
 
 `@molr/ui` provides official shared components, CSS variables, and assets. When changing shared contracts, check their callers in WebUI, the website, and UI Design. The project has no stable release yet and does not retain an additional compatibility layer for older versions.
 
+The official plans, resources, settings and workbench pages, and chat side panels load on demand. Toolbar buttons keep lightweight subscriptions separate from panel code. Notification detail requests skip undisplayed notices when alerts are disabled or the notice belongs to the initial snapshot; concurrent changes to the same notice are serialized and coalesced by version, retaining a follow-up read for newer state. Displayed notices still reconcile read, dismissal and recovery.
+
 ## Shared State and Recovery
 
 Switching themes does not affect assistants, messages, or tasks in Runtime. Chat drafts use the `{ text, files }` format and are stored by account and assistant ID in the application shell's memory and the current tab's `sessionStorage`. The default and test themes share the same draft. Each page manages its other temporary state.

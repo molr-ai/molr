@@ -1,6 +1,29 @@
 import { test, expect, type Page } from '@playwright/test';
 import type { SystemNotice } from '@molr/sdk';
 const port=process.env.MOLR_TEST_PORT??'5193',base=`http://127.0.0.1:${port}`;
+
+test('disabled reminders receive live events without fetching notice details', async ({ page }, info) => {
+ await page.addInitScript(() => {
+  const Native = window.EventSource;
+  (window as any).noticeEvents = 0;
+  window.EventSource = class extends Native {
+   constructor(url: string | URL, options?: EventSourceInit) {
+    super(url, options);
+    if (String(url).startsWith('/api/events/stream')) this.addEventListener('update', event => {
+     if (JSON.parse((event as MessageEvent).data).Topic === 'notification.changed') (window as any).noticeEvents++;
+    });
+   }
+  };
+ });
+ let details = 0;
+ page.on('request', r => { if (r.method() === 'GET' && /^\/api\/notifications\/[^/]+$/.test(new URL(r.url()).pathname)) details++; });
+ await login(page);
+ await expect(page.locator('.assistant-workspace')).toBeVisible();
+ const assistant = await blockedAssistant(page, `Disabled reminder ${info.project.name}`);
+ await expect.poll(async () => (await notices(page, assistant.ID)).length).toBe(1);
+ await expect.poll(() => page.evaluate(() => (window as any).noticeEvents)).toBeGreaterThan(0);
+ expect(details).toBe(0);
+});
 async function login(page:Page){await page.goto(base);await page.getByLabel('Username',{exact:true}).fill('owner');await page.getByLabel('Password',{exact:true}).fill('webui-e2e-password-2026!');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('navigation',{name:'Molr'})).toBeVisible();}
 async function post(page:Page,path:string,data:object,mutation=true){const token=(await page.context().cookies()).find(c=>c.name===`molr_dev_csrf_p${port}`)!.value;const response=await page.request.post(base+path,{headers:{Origin:base,'X-CSRF-Token':token},data:mutation?{Mutation:{IdempotencyKey:crypto.randomUUID()},...data}:data});expect(response.ok(),await response.text()).toBe(true);return response.json();}
 async function notices(page:Page,id:string){return (await(await page.request.get(`${base}/api/notifications?assistant_id=${id}&filter=active`)).json()).Items as SystemNotice[];}

@@ -4,7 +4,7 @@ const connectionTimeout = 20_000;
 const recoveryDuration = 2400;
 /** Browser SSE transport with resumable reconnect and session-expiry checks. */
 export function subscribeRuntime(options: { onUpdate: (event: MessageEvent) => void; onRestore: () => void; onConnection: (state: RuntimeConnection) => void }) {
-  let active = true, interrupted = false, connectedBefore = false, cursor = '';
+  let active = true, interrupted = false, cursor = '';
   let stream: EventSource | null = null, authCheck: AbortController | null = null;
   let deadline: ReturnType<typeof setTimeout> | undefined, recovery: ReturnType<typeof setTimeout> | undefined;
   function clearTimers() { clearTimeout(deadline); deadline = undefined; clearTimeout(recovery); recovery = undefined; }
@@ -33,6 +33,14 @@ export function subscribeRuntime(options: { onUpdate: (event: MessageEvent) => v
     options.onConnection('reconnecting'); armDeadline();
     const current = new EventSource(`/api/events/stream${cursor ? `?after=${encodeURIComponent(cursor)}` : ''}`);
     stream = current;
+    current.addEventListener('ready', event => {
+      if (!active || stream !== current) return;
+      const message = event as MessageEvent;
+      if (message.lastEventId) cursor = message.lastEventId;
+      // Snapshots may have loaded before the server fixed this subscription's
+      // position. Refresh once after the handshake to cover that race.
+      options.onRestore();
+    });
     current.addEventListener('update', event => {
       if (!active || stream !== current) return;
       const message = event as MessageEvent;
@@ -44,8 +52,7 @@ export function subscribeRuntime(options: { onUpdate: (event: MessageEvent) => v
       clearTimers(); cancelAuthCheck();
       options.onConnection(interrupted ? 'recovered' : 'connected');
       if (interrupted) recovery = setTimeout(() => { if (active && stream === current) options.onConnection('connected'); }, recoveryDuration);
-      if (connectedBefore || interrupted) options.onRestore();
-      connectedBefore = true; interrupted = false;
+      interrupted = false;
     };
     current.onerror = () => {
       if (!active || stream !== current) return;

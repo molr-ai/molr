@@ -19,11 +19,11 @@ async function fixture(fetch, check) {
   const names = ['window', 'document', 'navigator', 'fetch', 'EventSource'];
   const saved = Object.fromEntries(names.map(name => [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
   let current, subscription, expired = 0;
-  const states = [], calls = [];
+  const states = [], calls = [], sources = [], restores = [];
   class FakeEventSource extends EventTarget {
     static CONNECTING = 0; static OPEN = 1; static CLOSED = 2;
     readyState = FakeEventSource.OPEN;
-    constructor() { super(); current = this; }
+    constructor(url) { super(); current = this; this.url = url; sources.push(this); }
     close() { this.readyState = FakeEventSource.CLOSED; }
   }
   const window = Object.assign(new EventTarget(), { location: { protocol: 'http:', port: '80' } });
@@ -36,10 +36,10 @@ async function fixture(fetch, check) {
   globalThis.fetch = realFetch;
   const unsubscribe = onSessionExpired(() => expired++);
   try {
-    subscription = subscribeRuntime({ onUpdate() {}, onRestore() {}, onConnection(state) { states.push(state); } });
+    subscription = subscribeRuntime({ onUpdate() {}, onRestore() { restores.push(true); }, onConnection(state) { states.push(state); } });
     current.onopen();
     await check({
-      subscription, calls, states, expired: () => expired,
+      subscription, calls, states, sources, restores, ready(cursor) { current.dispatchEvent(new MessageEvent('ready', { data: '{}', lastEventId: cursor })); }, expired: () => expired,
       fail(terminal = true) { current.readyState = terminal ? FakeEventSource.CLOSED : FakeEventSource.CONNECTING; current.onerror(); },
       open() { current.readyState = FakeEventSource.OPEN; current.onopen(); },
     });
@@ -117,3 +117,20 @@ test('an obsolete check cannot clear the newer pending verification', async () =
     assert.equal(f.expired(), 1);
   });
 });
+
+
+test('ready refreshes the initial snapshot and preserves its cursor before any live update', () => fixture(async () => Response.json({}), async f => {
+  assert.equal(f.restores.length, 0);
+  f.ready('initial-position');
+  assert.equal(f.restores.length, 1);
+  const stale = f.sources.at(-1);
+  f.subscription.retry();
+  assert.equal(f.sources.at(-1).url, '/api/events/stream?after=initial-position');
+  stale.dispatchEvent(new MessageEvent('ready', { lastEventId: 'stale' }));
+  assert.equal(f.restores.length, 1);
+  f.open(); f.ready('initial-position');
+  assert.equal(f.restores.length, 2);
+  f.sources.at(-1).dispatchEvent(new MessageEvent('update', { data: '{}', lastEventId: 'delivered-position' }));
+  f.subscription.retry();
+  assert.equal(f.sources.at(-1).url, '/api/events/stream?after=delivered-position');
+}));

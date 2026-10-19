@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ChangeEvent, KeyboardEvent, PointerEvent, RefObject, WheelEvent } from 'react';
-import { Alert, Badge, Button, Drawer, IconButton, Select, useBreakpoint, useToast, useUILocale } from '@molr/ui';
+import { Alert, Button, Drawer, IconButton, Select, useBreakpoint, useToast, useUILocale } from '@molr/ui';
 import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, CornerDownLeft, Globe, Hand, Keyboard, GripHorizontal, PanelRight, PictureInPicture2, Plus, Power, RefreshCw, X } from 'lucide-react';
 import { api, APIError, mutationKey } from '../../../api/client';
 import type { BrowserStatus, Grant, Resource } from '../../../api/types';
@@ -22,13 +22,6 @@ function windowClient(assistantID: string) {
   let client = clients.get(assistantID);
   if (!client) { client = { id: mutationKey(), sequence: 0, queue: Promise.resolve() }; clients.set(assistantID, client); }
   return client;
-}
-export function BrowserButton({ assistantID, disabled, onOpen }: { assistantID: string; disabled?: boolean; onOpen: () => void }) {
-  const { locale } = useCopy();
-  const cadence = useCallback((data?: BrowserStatus) => data?.Task ? 2000 : 5000, []);
-  const { data } = useQuery<BrowserStatus>(disabled ? null : `/api/assistants/${assistantID}/browser`, false, cadence);
-  const count = data?.Task ? data.TabCount : undefined;
-  return <IconButton className="chat-count-trigger" disabled={disabled} onClick={onOpen} label={`${locale === 'zh' ? '浏览器' : 'Browser'}${count ? ` (${count})` : ''}`}><Globe size={20}/>{!!count && <Badge tone="positive" size="sm" dot={false} aria-hidden="true">{count}</Badge>}</IconButton>;
 }
 export function Browser({ assistantID, docked, floating, onFloatingChange, bounds, onClose }: { assistantID: string; docked: boolean; floating: boolean; onFloatingChange: (floating: boolean) => void; bounds: RefObject<BrowserBounds | null>; onClose: () => void }) {
   const { locale } = useCopy(), zh = locale === 'zh', mobile = useBreakpoint('mobile');

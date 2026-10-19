@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
-import { Alert, Badge, Button, Drawer, IconButton, Select, Tooltip, useBreakpoint } from '@molr/ui';
+import { Alert, Button, Drawer, IconButton, Select, Tooltip, useBreakpoint } from '@molr/ui';
 import { Bot, ChevronLeft, ChevronRight, GripHorizontal, PanelRight, PictureInPicture2, Plus, Terminal, UserRound, X } from 'lucide-react';
 import { api, APIError, mutationKey } from '../../../api/client';
 import type { Grant, Resource, ShellTask } from '../../../api/types';
@@ -9,14 +9,6 @@ import { terminalClient, TerminalSession } from './TerminalSession';
 import { TerminalThemePicker, useTerminalTheme } from './terminalTheme';
 import { useFloatingPanel } from './useFloatingPanel';
 import type { FloatingBounds } from './useFloatingPanel';
-
-export function TerminalButton({ assistantID, disabled, onOpen }: { assistantID: string; disabled?: boolean; onOpen: () => void }) {
-  const { locale } = useCopy();
-  const cadence = useCallback((data?: { Items: ShellTask[] }) => data?.Items.some(task => task.Mode === 'tty' && task.State === 'running') ? 2000 : 5000, []);
-  const { data } = useQuery<{ Items: ShellTask[] }>(disabled ? null : `/api/assistants/${assistantID}/shell-tasks`, false, cadence);
-  const count = data?.Items.filter(task => task.Mode === 'tty' && task.State === 'running').length ?? 0;
-  return <IconButton className="chat-count-trigger" disabled={disabled} onClick={onOpen} label={`${locale === 'zh' ? '终端' : 'Terminal'}${count ? ` (${count})` : ''}`}><Terminal size={20}/>{count > 0 && <Badge tone="positive" size="sm" dot={false} aria-hidden="true">{count}</Badge>}</IconButton>;
-}
 
 const selections = new Map<string,string>();
 export function Terminals({ assistantID, assistantName, docked, floating, onFloatingChange, bounds, onClose }: { assistantID: string; assistantName: string; docked: boolean; floating: boolean; onFloatingChange: (value: boolean) => void; bounds: RefObject<FloatingBounds | null>; onClose: () => void }) {

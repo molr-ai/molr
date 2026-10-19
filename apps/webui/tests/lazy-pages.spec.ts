@@ -4,6 +4,20 @@ import type { Page } from '@playwright/test';
 // Exercise the production graph: the development server does not tree-shake.
 test.skip(process.env.MOLR_E2E_PREVIEW !== '1', 'Requires a production WebUI build and MOLR_E2E_PREVIEW=1');
 const port = process.env.MOLR_TEST_PORT ?? '5193', base = `http://127.0.0.1:${port}`;
+
+test('the assistant list defers secondary pages and panels until navigation', async ({ page }) => {
+  const scripts: string[] = [];
+  page.on('request', request => { if (request.resourceType() === 'script') scripts.push(new URL(request.url()).pathname); });
+  await page.goto('/#/assistants'); await signIn(page);
+  await expect(page.locator('.assistant-workspace')).toBeVisible();
+  expect(scripts.filter(path => /\/(Plans|Resources|Settings|Workbench|Browser|Terminals|ShellTasks|WorkspaceFiles|AssistantInfo|TerminalSession)-/.test(path))).toEqual([]);
+  await page.evaluate(() => { location.hash = '#/resources'; });
+  await expect.poll(() => scripts.some(path => /\/Resources-/.test(path))).toBe(true);
+  await expect(page.getByRole('navigation', { name: 'Molr', exact: true })).toBeVisible();
+  await page.evaluate(() => { location.hash = '#/plans'; });
+  await expect(page.getByRole('heading', { name: 'Plans', exact: true })).toBeVisible();
+  expect(scripts.some(path => /\/Plans-/.test(path))).toBe(true);
+});
 async function signIn(page: Page) {
   await page.getByRole('textbox', { name: 'Username', exact: true }).fill('owner');
   await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!');

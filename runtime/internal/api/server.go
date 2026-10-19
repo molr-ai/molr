@@ -507,7 +507,7 @@ func (s *HTTPServer) sse(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Accel-Buffering", "no")
 	control := http.NewResponseController(w)
 	_ = control.SetWriteDeadline(time.Now().Add(s.config.HTTP.StreamWriteTimeout.Value()))
-	if _, err = io.WriteString(w, ": connected\n\n"); err != nil {
+	if _, err = fmt.Fprintf(w, "id: %s\nevent: ready\ndata: {}\n\n", subscription.StartCursor()); err != nil {
 		return
 	}
 	if err = control.Flush(); err != nil {

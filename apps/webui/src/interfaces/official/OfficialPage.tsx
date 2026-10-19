@@ -1,4 +1,3 @@
-import { WorkspaceFiles } from './features/WorkspaceFiles';
 import type { ExplorerMemory } from './features/WorkspaceFiles';
 import type { FloatingBounds } from './features/useFloatingPanel';
 import { useErrorToast } from '../../error-toasts';
@@ -6,7 +5,7 @@ import { MobileChatPresence } from './components/MobileChatPresence';
 import { MobileAccountButton } from './components/MobileAccountButton';
 import { ChatChannelDialog } from './features/WeixinChannel';
 import { useUIHost } from '../../ui-host/store';
-import { useEffect, useId, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useId, useRef, useState } from 'react';
 import { ModalPresence, AssistantList, Button, EmptyState, IconButton, Logo, SearchField, Select, useBreakpoint, useTheme } from '@molr/ui';
 import { MessagesSquare, Pin, Plus, Search as SearchIcon } from 'lucide-react';
 import type { Assistant, AssistantActivity, Conversation, Model, RuntimeInfo, Settings as SettingsDTO } from '../../api/types';
@@ -19,19 +18,21 @@ import { Chat } from './features/Chat';
 import { AssistantMessagePreview } from './features/AssistantMessagePreview';
 import type { AssistantAction } from './features/Chat';
 import { CloneAssistant, HireAssistant } from './features/AssistantDialogs';
-import { Plans } from './features/Plans';
-import { Resources } from './features/Resources';
-import { Settings } from './features/Settings';
-import { Workbench } from './features/Workbench';
-import { AssistantInfo } from './features/AssistantInfo';
-import { Tasks } from './features/Tasks';
-import { Browser } from './features/Browser';
 import type { BrowserBounds } from './features/useBrowserView';
-import { Terminals } from './features/Terminals';
-import { ShellTasks } from './features/ShellTasks';
 import { Search } from './features/Search';
 import { usePanelDocking } from '../../use-panel-docking';
 import { ChatSidePanel, isChatPanel } from './components/ChatSidePanel';
+
+const Plans = lazy(() => import('./features/Plans').then(module => ({ default: module.Plans })));
+const Resources = lazy(() => import('./features/Resources').then(module => ({ default: module.Resources })));
+const Settings = lazy(() => import('./features/Settings').then(module => ({ default: module.Settings })));
+const Workbench = lazy(() => import('./features/Workbench').then(module => ({ default: module.Workbench })));
+const AssistantInfo = lazy(() => import('./features/AssistantInfo').then(module => ({ default: module.AssistantInfo })));
+const WorkspaceFiles = lazy(() => import('./features/WorkspaceFiles').then(module => ({ default: module.WorkspaceFiles })));
+const Browser = lazy(() => import('./features/Browser').then(module => ({ default: module.Browser })));
+const Terminals = lazy(() => import('./features/Terminals').then(module => ({ default: module.Terminals })));
+const ShellTasks = lazy(() => import('./features/ShellTasks').then(module => ({ default: module.ShellTasks })));
+const Tasks = lazy(() => import('./features/Tasks').then(module => ({ default: module.Tasks })));
 
 export function OfficialPage({ chatLayout = 'default' }: { chatLayout?: 'default' | 'focus' } = {}) {
   const { t } = useCopy(), { theme } = useTheme(), mobile = useBreakpoint('mobile');
@@ -112,14 +113,14 @@ export function OfficialPage({ chatLayout = 'default' }: { chatLayout?: 'default
           </aside>}
           <MobileChatPresence enabled={mobile}>{selected && (chatLayout === 'focus' || !mobile || id) ? <Chat targetMessageID={messageID} onClearTarget={() => go('assistants', selected.ID)} timeZone={settings.data?.Timezone} onDebug={workbenchVisible ? turnID => go('workbench', selected.ID, turnID) : undefined} key={selected.ID} assistant={selected} conversation={conversations.data?.find(conversation => conversation.ID === selected.ConversationID)} draft={drafts[selected.ID] ?? { text: '', files: [] }} updateDraft={update => setDrafts(previous => ({ ...previous, [selected.ID]: typeof update === 'function' ? update(previous[selected.ID] ?? { text: '', files: [] }) : update }))} onBack={mobile ? () => go('assistants') : undefined} onAction={assistantAction} onCard={(kind, target) => { if (kind === 'task') { setTaskCard(target); setDialog({ kind: 'tasks', assistant: selected }); } else go(kind === 'resource' ? 'resources' : kind === 'settings' ? 'settings' : 'schedules', target); }} /> : null}</MobileChatPresence>
           {!selected && !mobile && <div className="workspace-empty"><EmptyState title={t.chat.workspaceTitle} illustration={<Logo markOnly animation="static" variant={theme === 'dark' ? 'light' : 'dark'} className="workspace-empty__logo" />} /></div>}
-          <ChatSidePanel panel={isChatPanel(dialog) ? dialog : null} docked={panelDocked} floating={{ terminal: terminalFloating && !mobile, browser: floating, files: filesFloating && !mobile }}>{panel => <>
+          <ChatSidePanel panel={isChatPanel(dialog) ? dialog : null} docked={panelDocked} floating={{ terminal: terminalFloating && !mobile, browser: floating, files: filesFloating && !mobile }}>{panel => <Suspense fallback={<Loading />}>
             {(panel.kind === 'info' || panel.kind === 'permissions') && <AssistantInfo docked={panelDocked} assistant={assistants.data?.find(item => item.ID === panel.assistant.ID) ?? panel.assistant} models={models.data ?? []} initialTab={panel.kind === 'permissions' ? 'permissions' : 'overview'} onClose={closeDialog} onDebug={workbenchVisible ? () => { setDialog(null); go('workbench', panel.assistant.ID); } : undefined} />}
             {panel.kind === 'files' && <WorkspaceFiles key={panel.assistant.ID} assistantID={panel.assistant.ID} assistantName={panel.assistant.Name} docked={panelDocked} floating={filesFloating && !mobile} onFloatingChange={setFilesFloating} bounds={filesBounds} memory={explorerMemory(panel.assistant.ID)} onClose={closeDialog} />}
             {panel.kind === 'browser' && <Browser key={panel.assistant.ID} floating={floating} onFloatingChange={setBrowserFloating} bounds={browserBounds} docked={panelDocked} assistantID={panel.assistant.ID} onClose={closeDialog} />}
             {panel.kind === 'terminal' && <Terminals key={panel.assistant.ID} assistantID={panel.assistant.ID} assistantName={panel.assistant.Name} docked={panelDocked} floating={terminalFloating && !mobile} onFloatingChange={setTerminalFloating} bounds={terminalBounds} onClose={closeDialog} />}
             {panel.kind === 'shell_tasks' && <ShellTasks key={panel.assistant.ID} docked={panelDocked} assistantID={panel.assistant.ID} onClose={closeDialog} />}
             {panel.kind === 'tasks' && <Tasks docked={panelDocked} assistantID={panel.assistant.ID} taskID={taskCard} onClose={closeDialog} />}
-          </>}</ChatSidePanel>
+          </Suspense>}</ChatSidePanel>
         </div> : page === 'plans' || page === 'todos' || page === 'schedules' ? <Plans key={id} assistantID={id.startsWith('assistant-') ? id.slice(10) : undefined} selectedID={id} assistants={assistants.data ?? []} /> : page === 'resources' ? <Resources resourceID={id} /> : page === 'workbench' ? <Workbench turnID={turnID} eventID={eventID} timezone={settings.data?.Timezone} available={!!runtime.data?.workbench_available} assistants={assistants.data ?? []} assistantID={id} onSelectAssistant={value => go('workbench', value)} onSettings={() => go('account', 'general')} /> : <Settings initialTab={id} onSelectSection={value => go('account', value)} assistants={assistants.data ?? []} openAssistant={value => go('assistants', value)} />}
       <Search open={search} onClose={() => setSearch(false)} navigate={go} taskAssistantID={selected?.ID ?? active[0]?.ID} onOpenTasks={(assistantID, taskID) => { go('assistants', assistantID); setPendingTask({ assistantID, taskID }); }} /><ModalPresence>{hire && <HireAssistant defaultModelID={settings.data?.DefaultModelID} models={models.data ?? []} onClose={() => setHire(false)} onCreated={value => go('assistants', value)} />}</ModalPresence>
       <ModalPresence>{dialog?.kind === 'channel' && <ChatChannelDialog key={dialog.assistant.ID} assistant={assistants.data?.find(item => item.ID === dialog.assistant.ID) ?? dialog.assistant} onClose={closeDialog} />}</ModalPresence>

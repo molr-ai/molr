@@ -1,5 +1,5 @@
 export type RuntimeEvent = {
-  Topic: string; Object?: { ID: string }; ConversationID?: string;
+  Topic: string; Object?: { ID: string }; ConversationID?: string; Version?: number;
 };
 export type NotificationPreferences = { enabled: boolean; preview: boolean; sound: boolean; system: boolean };
 export type NotificationCapability = 'granted' | 'default' | 'denied' | 'insecure' | 'unsupported';

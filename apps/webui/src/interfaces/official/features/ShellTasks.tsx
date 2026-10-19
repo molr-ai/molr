@@ -1,9 +1,10 @@
+import { useShellTaskList } from './ChatTools';
 import { TerminalSession } from './TerminalSession';
 import { GPUDeviceList } from './GPUAccess';
 import type { SandboxView } from '../../../sandbox-types';
 import { DismissibleAlert } from '../components/DismissibleAlert';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Badge, Button, Drawer, IconButton, SegmentedControl, useBreakpoint } from '@molr/ui';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, Badge, Button, Drawer, SegmentedControl, useBreakpoint } from '@molr/ui';
 import { ArrowLeft, ChevronRight, Clock3, ListTodo, Terminal, ExternalLink, Copy } from 'lucide-react';
 import { api } from '../../../api/client';
 import type { ShellTask, ShellTaskAction, ShellTaskOutput } from '../../../api/types';
@@ -15,19 +16,6 @@ import './shell-tasks.css';
 // Output is untrusted plain text. A line terminal deliberately does not execute
 // OSC hyperlinks, clipboard sequences, HTML or terminal escape commands.
 const plain = (text: string) => text.replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, '').replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '').replace(/\r\n/g, '\n');
-function useShellTaskList(assistantID: string | null, interval: number) {
-  const path = assistantID ? `/api/assistants/${assistantID}/shell-tasks` : null;
-  const cadence = useCallback((data?: { Items: ShellTask[] }) => data?.Items.some(task => task.State === 'running') ? interval : 30_000, [interval]);
-  const query = useQuery<{ Items: ShellTask[] }>(path, false, cadence);
-  return { items: query.data?.Items ?? [], error: !!query.error, loading: query.loading && !query.data, refresh: query.reload };
-}
-
-export function ShellTasksButton({ assistantID, disabled, onOpen }: { assistantID: string; disabled?: boolean; onOpen: () => void }) {
-  const { locale } = useCopy(), { items } = useShellTaskList(disabled ? null : assistantID, 5000);
-  const running = items.filter(task => task.State === 'running').length;
-  return <IconButton className="chat-count-trigger" disabled={disabled} onClick={onOpen} label={`${locale === 'zh' ? '运行任务' : 'Running tasks'}${running > 0 ? ` (${running})` : ''}`}><ListTodo size={20} />{running > 0 && <Badge tone="positive" size="sm" dot={false} aria-hidden="true">{running}</Badge>}</IconButton>;
-}
-
 function authenticatedForwardURL(raw: string) {
  try {const url=new URL(raw);url.searchParams.set('__molr_login_port',window.location.port||(window.location.protocol==='https:'?'443':'80'));return url.href;}catch{return raw;}
 }

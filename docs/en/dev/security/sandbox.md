@@ -3,6 +3,10 @@
 Linux uses Bubblewrap, seccomp, cgroup v2, and controlled network egress. macOS uses native Seatbelt file scopes and a network toggle. Windows uses native AppContainer identities, per-execution file ACLs and a network capability toggle. All platforms share authorization and task-management interfaces while reporting their enforceable limits. Deployment: [Linux](../../admin/sandbox/linux.md), [macOS](../../admin/sandbox/macos.md).
 
 
+
+Sandbox list checks run with at most four concurrent workers, including local sampling. Remote nodes keep independent three-second deadlines; one node failure does not fail the list. Results retain catalog order with the local node first. Request cancellation stops queued checks and cancels in-flight remote requests.
+
+
 ## Deployment presets and directory connections
 
 `config.SandboxPreset` expands settings only during installation or explicit maintenance; no mode is persisted. Built-in and remote sandboxes share `restrict_directories`, `enabled`, network rules and GPU settings. Zero Linux authorization ceilings mean no additional deployment ceiling; advertised capacities retain backend bounds. `gpu.all_devices: true` discovers all supported devices; assistants and groups still require explicit device grants.
