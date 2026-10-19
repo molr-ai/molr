@@ -3,6 +3,7 @@ package businessintegration_test
 import (
 	"context"
 	"encoding/json"
+	"molr.ai/runtime/internal/objectaccess"
 	"path/filepath"
 	"testing"
 	"time"
@@ -54,39 +55,7 @@ func TestRealPolicyBusinessCollectionsGrantsAndVerification(t *testing.T) {
 	for _, id := range []core.ID{"assistant-a", "assistant-b"} {
 		testkit.RequireNoError(t, assistant.NewRepository(db).Insert(ctx, assistant.Assistant{ID: id, OwnerID: owner.OwnerID, Name: string(id), State: assistant.Active, ConversationID: core.ID("conversation-" + string(id)), Version: 1}))
 	}
-	owns := func(ctx context.Context, p core.Principal, o core.Object) error {
-		if o.ID == "" {
-			switch o.Kind {
-			case "todo", "task", "memory", "resource", "search", "settings":
-				return nil
-			}
-			return core.NewError(core.Forbidden, "unknown collection")
-		}
-		if o.Kind == "settings" && o.ID == p.OwnerID {
-			return nil
-		}
-		buckets := map[string]string{"assistant": "business.assistants", "todo": "business.todos", "task": "business.tasks", "resource": "business.resources", "settings": "business.exports", "search": "search.jobs"}
-		bucket, ok := buckets[o.Kind]
-		if !ok {
-			return core.NewError(core.Forbidden, "object not owned")
-		}
-		var row struct {
-			OwnerID, AssistantID core.ID
-			Scope                string
-		}
-		if err := db.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
-			return tx.Get(ctx, bucket, persistence.Key(p.OwnerID, o.ID), &row)
-		}); err != nil {
-			return err
-		}
-		if p.Kind == core.ActorOwner {
-			return nil
-		}
-		if o.Kind == "resource" || o.Kind == "assistant" && o.ID == p.SubjectID || row.AssistantID == p.SubjectID || o.Kind == "memory" && row.Scope == "shared" {
-			return nil
-		}
-		return core.NewError(core.Forbidden, "assistant binding mismatch")
-	}
+	owns := (objectaccess.Service{Store: db}).Require
 	authorizer, err := policy.NewService(db, policy.Options{ValidatePrincipal: authenticator.ValidatePrincipal, CheckScope: authenticator.CheckScope, Owns: owns, ResourceActions: func(ctx context.Context, p core.Principal, id core.ID) ([]string, error) {
 		r, err := resource.NewRepository(db).Get(ctx, p.OwnerID, id)
 		return r.Actions, err

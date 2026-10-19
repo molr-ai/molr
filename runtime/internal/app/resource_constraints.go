@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"molr.ai/runtime/internal/business/resource"
+	"molr.ai/runtime/internal/catalog"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/platform"
@@ -135,7 +136,7 @@ func validateResourceConstraints(ctx context.Context, store persistence.Store, p
 		return err
 	}
 	if sandboxOf(r) != "local" {
-		connection, err := persistence.LoadCatalog[sandboxConnection](ctx, store, "sandbox.connections", p.OwnerID, sandboxOf(r))
+		connection, err := catalog.Load[sandboxConnection](ctx, store, "sandbox.connections", sandboxOf(r))
 		if err != nil {
 			return err
 		}
@@ -178,7 +179,7 @@ func nativeNetworkResource(ctx context.Context, store persistence.Store, owner c
 	if sandboxOf(r) == "local" {
 		return platform.NativeSandbox(), nil
 	}
-	connection, err := persistence.LoadCatalog[sandboxConnection](ctx, store, "sandbox.connections", owner, sandboxOf(r))
+	connection, err := catalog.Load[sandboxConnection](ctx, store, "sandbox.connections", sandboxOf(r))
 	if err != nil {
 		return false, err
 	}

@@ -176,11 +176,6 @@ func Build(ctx context.Context, cfg config.Config, options ...BuildOptions) (bun
 		return nil, err
 	}
 	b.Bootstrap = identity
-	if err := store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		return tx.Put(ctx, "system.catalog", "enabled", true)
-	}); err != nil {
-		return nil, err
-	}
 	var exchangeRules io.Reader
 	if cfg.Pricing.ExchangeRatesFile != "" {
 		file, openErr := os.Open(cfg.Pricing.ExchangeRatesFile)
@@ -746,9 +741,6 @@ func Build(ctx context.Context, cfg config.Config, options ...BuildOptions) (bun
 	}
 	grantRouter = sandboxRouter
 	sandboxRouter.verify = identity.CheckVerification
-	if err = sandboxRouter.migrate(ctx); err != nil {
-		return nil, err
-	}
 	b.shellTasks = newShellTasks(store, sandboxRouter)
 	b.shellTasks.forwardConfig = cfg.PortForward
 	b.shellTasks.forwardHTTP = cfg.HTTP
@@ -781,9 +773,6 @@ func Build(ctx context.Context, cfg config.Config, options ...BuildOptions) (bun
 	}}
 	tasks := task.NewService(store, taskOptions)
 	plans = plan.New(store, permissions, tasks)
-	if err := plans.Migrate(ctx); err != nil {
-		return nil, err
-	}
 	operations := operation.NewService(store, operation.Options{Authorizer: permissions, Reconcile: func(ctx context.Context, op operation.Operation) (operation.Completion, error) {
 		if strings.HasPrefix(op.Action, "file_") || op.Action == "shell_execute" {
 			if result, err := sandboxRouter.reconcile(ctx, op); !persistence.Missing(err) {
@@ -1147,37 +1136,6 @@ func Build(ctx context.Context, cfg config.Config, options ...BuildOptions) (bun
 	dispatcher.Ready = plans.ScheduleReady
 	dispatcher.Start = plans.StartScheduled
 	worker := scheduler.NewService(store, scheduler.Options{Ready: func(ctx context.Context) bool { return environment(ctx) == nil }, Authorizer: permissions, Concurrency: cfg.Execution.MaxAssistants, RecoverInterrupted: engine.RecoverInterrupted, Handle: func(ctx context.Context, c scheduler.Claim) error {
-		// Upgrade already-queued legacy schedule events inside their current job,
-		// without creating another wakeup or impersonating an owner session.
-		if c.Job.Event.Kind == event.ScheduleDue && c.Job.Event.TaskID == "" {
-			if err := store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-				job, err := persistence.Load[scheduler.Job](ctx, store, "agent.jobs", persistence.Key(c.Principal.OwnerID, c.Job.Event.ID))
-				if err != nil {
-					return err
-				}
-				if job.Event.TaskID == "" {
-					source, err := schedule.NewRepository(store).Get(ctx, c.Principal.OwnerID, job.Event.ScheduleID)
-					if err != nil {
-						return err
-					}
-					taskID, err := plans.StartScheduled(ctx, source, job.Event.OccurrenceAt)
-					if err != nil {
-						return err
-					}
-					job.Event.TaskID = taskID
-					if err := event.SaveJob(ctx, tx, job); err != nil {
-						return err
-					}
-					if err := tx.Put(ctx, "agent.events", persistence.Key(c.Principal.OwnerID, job.Event.ID), job.Event); err != nil {
-						return err
-					}
-				}
-				c.Job.Event = job.Event
-				return nil
-			}); err != nil {
-				return err
-			}
-		}
 		if c.Job.Event.Kind == event.UserMessage {
 			if err := chat.AcceptUserMessage(ctx, core.Execution{Principal: c.Principal, AssistantID: c.Job.Event.AssistantID, OperationID: c.Job.Event.ID}, c.Job.Event.MessageID); err != nil {
 				return err

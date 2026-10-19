@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"image/color"
 	"molr.ai/runtime/internal/agent/model"
+	"molr.ai/runtime/internal/catalog"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -59,7 +60,7 @@ func TestRemoteSandboxStorageRoutingAuthorizationAndContext(t *testing.T) {
 	result, err := admin("connect", map[string]any{"Name": "Remote Linux", "Endpoint": server.URL, "Fingerprint": hex.EncodeToString(sum[:]), "Token": token, "Mutation": core.Mutation{IdempotencyKey: "connect"}})
 	need(t, err)
 	connection := result.(sandboxView)
-	persisted, err := persistence.Load[sandboxConnection](t.Context(), f.b.store, "sandbox.connections", persistence.Key(f.owner.OwnerID, connection.ID))
+	persisted, err := persistence.Load[sandboxConnection](t.Context(), f.b.store, "sandbox.connections", persistence.Key(catalog.Scope, connection.ID))
 	need(t, err)
 	encoded, _ := json.Marshal(persisted)
 	if strings.Contains(string(encoded), token) {

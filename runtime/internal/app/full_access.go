@@ -4,6 +4,7 @@ import (
 	"context"
 	"molr.ai/runtime/internal/agent/tools"
 	"molr.ai/runtime/internal/business/resource"
+	"molr.ai/runtime/internal/catalog"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/platform"
@@ -57,12 +58,12 @@ func (s *sandboxRouter) requireFullAccess(ctx context.Context, e core.Execution,
 	if err := groupFullAccess(ctx, s.adapters.store, e.Principal.OwnerID, id); err != nil {
 		return err
 	}
-	rows, err := persistence.SelectCatalog[resource.Resource](ctx, s.adapters.store, "business.resources", e.Principal.OwnerID, persistence.Query{Where: []persistence.Filter{persistence.Eq("Kind", resource.Compute), persistence.Eq("State", resource.Available)}})
+	rows, err := catalog.Select[resource.Resource](ctx, s.adapters.store, "business.resources", persistence.Query{Where: []persistence.Filter{persistence.Eq("Kind", resource.Compute), persistence.Eq("State", resource.Available)}})
 	if err != nil {
 		return err
 	}
 	for _, r := range rows {
-		if catalogOwned(ctx, s.adapters.store, r.OwnerID, e.Principal.OwnerID) && r.Kind == resource.Compute && sandboxOf(r) == id && r.State == resource.Available && s.adapters.policy.Require(ctx, e.Principal, policy.CheckRequest{Target: core.Object{Kind: "resource", ID: r.ID}, ResourceID: r.ID, Action: policy.Execute, FullAccess: true, Destination: "/"}) == nil {
+		if r.OwnerID == catalog.Scope && r.Kind == resource.Compute && sandboxOf(r) == id && r.State == resource.Available && s.adapters.policy.Require(ctx, e.Principal, policy.CheckRequest{Target: core.Object{Kind: "resource", ID: r.ID}, ResourceID: r.ID, Action: policy.Execute, FullAccess: true, Destination: "/"}) == nil {
 			return nil
 		}
 	}

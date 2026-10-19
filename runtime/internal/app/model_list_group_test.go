@@ -48,9 +48,6 @@ func modelGroupFixture(tb testing.TB) (adapters, core.Principal, *modelGroupRead
 	}
 	tb.Cleanup(func() { db.Close() })
 	err = db.Write(tb.Context(), func(ctx context.Context, tx persistence.Tx) error {
-		if err := tx.Put(ctx, "system.catalog", "enabled", true); err != nil {
-			return err
-		}
 		if err := tx.Put(ctx, "auth.bootstrap", "owner", struct{ AccountID core.ID }{"catalog"}); err != nil {
 			return err
 		}

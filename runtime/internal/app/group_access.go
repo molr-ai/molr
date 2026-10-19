@@ -5,15 +5,11 @@ import (
 	"molr.ai/runtime/internal/auth"
 	"molr.ai/runtime/internal/business/resource"
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/modelcatalog"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/policy"
 	"molr.ai/runtime/internal/quota"
 )
-
-func catalogOwned(ctx context.Context, store persistence.Store, actual, caller core.ID) bool {
-	owner, err := persistence.CatalogOwner(ctx, store, caller)
-	return err == nil && actual == owner
-}
 
 func groupPolicy(ctx context.Context, store persistence.Store, owner core.ID) (auth.UserGroup, error) {
 	// Standalone module stores have no accounts. Runtime always authenticates
@@ -71,11 +67,11 @@ func groupAccess(ctx context.Context, store persistence.Store, p core.Principal,
 		if err != nil {
 			return err
 		}
-		for _, entry := range modelEntries(r, b) {
-			if q.ModelID != "" && q.ModelID != entry.id {
+		for _, entry := range modelcatalog.Entries(r, b) {
+			if q.ModelID != "" && q.ModelID != entry.ID {
 				continue
 			}
-			if _, err := groupReference(ctx, store, p.OwnerID, "model", entry.id); err == nil {
+			if _, err := groupReference(ctx, store, p.OwnerID, "model", entry.ID); err == nil {
 				return nil
 			} else if core.CodeOf(err) != core.Forbidden {
 				return err

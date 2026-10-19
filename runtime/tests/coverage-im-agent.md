@@ -384,3 +384,5 @@
 | `internal/mcpclient` | `Service.Definitions`, `Service.Remove`, `Service.Recover` | `TestOfflineCatalogRemovalAndRecovery` |
 | `internal/mcpclient` | `Connection.Origin`, `Service.ConnectionAccess` | `TestConnectionAccessIsolationAndDisable` |
 | `internal/mcpclient` | `Service.CancelOperation`, `Service.RevalidateRunning` | `TestRunningCallCancellationAndRevalidation` |
+
+| `internal/im/conversation` | `LoadMessage`, `AttachmentConversations` | `internal/objectaccess.TestOwnershipUsesDomainRecordsAndAttachmentReferences` |

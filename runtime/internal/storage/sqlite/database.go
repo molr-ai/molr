@@ -16,7 +16,7 @@ import (
 	"molr.ai/runtime/internal/platform"
 )
 
-const schemaVersion uint32 = 1
+const schemaVersion uint32 = 2
 const checkpointVersion uint32 = 1
 
 // DB owns the engine and an OS-backed lock shared with offline restore. The
@@ -68,12 +68,6 @@ func (d *DB) migrationError() error {
 	err := d.migrationFault
 	d.migrationFault = nil
 	return err
-}
-func (d *DB) Within(ctx context.Context, fn func(Repositories) error) error {
-	if fn == nil {
-		return core.Invalid("transaction", "callback required")
-	}
-	return d.engine.Write(ctx, func(_ context.Context, tx persistence.Tx) error { return fn(&repositories{store: tx.Store()}) })
 }
 func (d *DB) Schema(ctx context.Context) (Schema, error) {
 	value, err := persistence.Load[Schema](ctx, d.engine, "system", "schema")

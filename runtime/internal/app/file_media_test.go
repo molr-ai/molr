@@ -10,6 +10,7 @@ import (
 	"molr.ai/runtime/internal/agent/tools"
 	"molr.ai/runtime/internal/business/resource"
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/modelcatalog"
 	"molr.ai/runtime/internal/policy"
 	"os"
 	"path/filepath"
@@ -21,9 +22,9 @@ func mediaTestModel(t *testing.T, f resourceAccessFixture) model.Provider {
 	binding := resource.Binding{Endpoint: "https://provider.example/v1/chat/completions", AllowedOrigins: []string{"https://provider.example"}, Models: []resource.ModelConfig{{Name: "vision", SupportsTools: true, SupportsImages: true, SupportsAudio: true, ContextLimit: 32768, Pricing: &resource.ModelPricing{Currency: "USD"}}}}
 	r, err := f.b.Services.Resources.Connect(t.Context(), f.owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "media-provider"}, Kind: resource.Model, Provider: "openai-compatible", Name: "media", Binding: binding})
 	need(t, err)
-	entry := modelEntries(r, binding)[0]
-	f.grant(t, r.ID, "media-model", []policy.Action{policy.Read, policy.Execute}, policy.Scope{ModelID: entry.id}, nil)
-	return f.ad.resolvedModel(r, binding, entry)
+	entry := modelcatalog.Entries(r, binding)[0]
+	f.grant(t, r.ID, "media-model", []policy.Action{policy.Read, policy.Execute}, policy.Scope{ModelID: entry.ID}, nil)
+	return f.ad.modelCatalog().Describe(r, binding, entry)
 }
 func testPNG(t *testing.T, c color.Color) []byte {
 	t.Helper()

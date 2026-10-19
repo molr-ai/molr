@@ -46,7 +46,7 @@ func workspaceQuotaFixture(tb testing.TB) (*workspaceQuotaReadStore, policy.Gran
 	}
 	tb.Cleanup(func() { db.Close() })
 	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	current := policy.Grant{ID: "current", OwnerID: "owner", AssistantID: "assistant", ResourceID: workspaceResourceID("owner", "local"), Actions: []policy.Action{policy.Write}, Constraints: &policy.Constraints{Storage: &policy.StorageConstraints{CapacityBytes: 2 << 30, MaxFileBytes: 1 << 20, MaxFiles: 200}}, UpdatedAt: at, Version: 1}
+	current := policy.Grant{ID: "current", OwnerID: "owner", AssistantID: "assistant", ResourceID: workspaceResourceID("local"), Actions: []policy.Action{policy.Write}, Constraints: &policy.Constraints{Storage: &policy.StorageConstraints{CapacityBytes: 2 << 30, MaxFileBytes: 1 << 20, MaxFiles: 200}}, UpdatedAt: at, Version: 1}
 	err = db.Write(tb.Context(), func(ctx context.Context, tx persistence.Tx) error {
 		for i := range 1000 {
 			g := current
@@ -165,14 +165,13 @@ func TestWorkspaceQuotaRetainsLifetimeAndFallbackSelection(t *testing.T) {
 func TestWorkspaceQuotaUsesCatalogResourceAndCallerGrantOwner(t *testing.T) {
 	store, current := workspaceQuotaFixture(t)
 	current.ID = "catalog-workspace"
-	current.ResourceID = workspaceResourceID("catalog-owner", "local")
+	current.ResourceID = workspaceResourceID("local")
 	current.Constraints = &policy.Constraints{Storage: &policy.StorageConstraints{CapacityBytes: 4 << 30, MaxFileBytes: 2 << 20, MaxFiles: 400}}
 	need(t, store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
 		for _, r := range []struct {
 			bucket, key string
 			value       any
 		}{
-			{"system.catalog", "enabled", true},
 			{"auth.bootstrap", "owner", struct{ AccountID core.ID }{"catalog-owner"}},
 			{"auth.accounts", "owner", struct{ Account auth.Account }{auth.Account{ID: "owner", GroupID: "members"}}},
 			{"auth.groups", "members", auth.UserGroup{ID: "members", Resources: []auth.ResourceReference{{Kind: "sandbox", ID: "local"}}}},
@@ -195,7 +194,7 @@ func TestWorkspaceQuotaUsesCatalogResourceAndCallerGrantOwner(t *testing.T) {
 	}))
 	got, err := workspaceConstraints(t.Context(), store, "owner", "assistant", "local")
 	need(t, err)
-	if got == nil || got.CapacityBytes != 4<<30 || store.grantRows != 1 {
+	if got == nil || got.CapacityBytes != 4<<30 || store.grantRows != 3 {
 		t.Fatal("catalog or caller scope lost", got, store.grantRows)
 	}
 }

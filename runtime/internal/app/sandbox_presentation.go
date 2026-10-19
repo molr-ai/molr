@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"molr.ai/runtime/internal/catalog"
 	"strings"
 	"time"
 
@@ -94,10 +95,7 @@ func (s *sandboxRouter) testConnection(ctx context.Context, p core.Principal, ra
 	return sandboxDiagnostic{Connected: true, Info: &info, CheckedAt: time.Now()}, nil
 }
 func (s *sandboxRouter) renameSandbox(ctx context.Context, p core.Principal, raw json.RawMessage) (any, error) {
-	catalogOwner, err := persistence.CatalogOwner(ctx, s.adapters.store, p.OwnerID)
-	if err != nil {
-		return nil, err
-	}
+	catalogOwner := catalog.Scope
 	var q struct {
 		ID       core.ID
 		Name     string
@@ -114,7 +112,7 @@ func (s *sandboxRouter) renameSandbox(ctx context.Context, p core.Principal, raw
 		return nil, core.Invalid("sandbox", "valid remote sandbox and name required")
 	}
 	var result sandboxView
-	err = s.adapters.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+	err := s.adapters.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		key := persistence.Key(catalogOwner, q.ID)
 		var current sandboxConnection
 		if err := tx.Get(ctx, "sandbox.connections", key, &current); err != nil {
@@ -162,20 +160,20 @@ func (s *sandboxRouter) sandboxResourceDetails(ctx context.Context, p core.Princ
 	remoteDirectories := map[int]sm.DirectoryRequest{}
 	err := s.adapters.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		if q.ID != "local" {
-			c, err := persistence.LoadCatalog[sandboxConnection](ctx, s.adapters.store, "sandbox.connections", p.OwnerID, q.ID)
+			c, err := catalog.Load[sandboxConnection](ctx, s.adapters.store, "sandbox.connections", q.ID)
 			if err != nil {
 				return err
 			}
-			if !catalogOwned(ctx, s.adapters.store, c.OwnerID, p.OwnerID) {
+			if c.OwnerID != catalog.Scope {
 				return denied()
 			}
 		}
-		rows, err := persistence.SelectCatalog[resource.Resource](ctx, s.adapters.store, "business.resources", p.OwnerID, persistence.Query{})
+		rows, err := catalog.Select[resource.Resource](ctx, s.adapters.store, "business.resources", persistence.Query{})
 		if err != nil {
 			return err
 		}
 		for _, r := range rows {
-			if !catalogOwned(ctx, s.adapters.store, r.OwnerID, p.OwnerID) || sandboxOf(r) != q.ID || (r.Kind != resource.Storage && r.Kind != resource.Compute && r.Kind != resource.Network) {
+			if r.OwnerID != catalog.Scope || sandboxOf(r) != q.ID || (r.Kind != resource.Storage && r.Kind != resource.Compute && r.Kind != resource.Network) {
 				continue
 			}
 			b, err := resource.NewRepository(s.adapters.store).Binding(ctx, p.OwnerID, r.ID)

@@ -73,7 +73,7 @@ func TestComputeQuotaOverridesDeploymentDefaultsAndBoundsDuration(t *testing.T) 
 
 func TestWorkspaceRegrantUsesCurrentAuthorizationInsteadOfHistoricalVersion(t *testing.T) {
 	f := newResourceAccessFixture(t, nil)
-	id := workspaceResourceID(f.owner.OwnerID, "local")
+	id := workspaceResourceID("local")
 	now := time.Now()
 	old := policy.Grant{ID: "old-storage", OwnerID: f.owner.OwnerID, AssistantID: f.execution.AssistantID, ResourceID: id, Actions: []policy.Action{policy.Write}, Constraints: &policy.Constraints{Storage: &policy.StorageConstraints{CapacityBytes: 1 << 30, MaxFileBytes: 1 << 20, MaxFiles: 100}}, Version: 20, RevokedAt: &now, UpdatedAt: now}
 	current := old
@@ -134,9 +134,9 @@ func TestQuotaGrantsRequireExplicitLimits(t *testing.T) {
 	network, err := f.b.Services.Resources.Connect(t.Context(), f.owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "network"}, Kind: resource.Network, Provider: "sandbox-network", Name: "Internet", Binding: resource.Binding{SandboxTarget: testNetworkPreset()}})
 	need(t, err)
 	need(t, ensureWorkspaceResource(t.Context(), f.b.store, f.owner.OwnerID, "local"))
-	for _, id := range []core.ID{f.compute.ID, network.ID, workspaceResourceID(f.owner.OwnerID, "local")} {
+	for _, id := range []core.ID{f.compute.ID, network.ID, workspaceResourceID("local")} {
 		actions := []policy.Action{policy.Execute}
-		if id == workspaceResourceID(f.owner.OwnerID, "local") {
+		if id == workspaceResourceID("local") {
 			actions = []policy.Action{policy.Write}
 		}
 		_, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{Mutation: core.Mutation{IdempotencyKey: string(id)}, AssistantID: f.execution.AssistantID, ResourceID: id, Actions: actions})

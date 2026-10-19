@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"molr.ai/runtime/internal/catalog"
 	"strconv"
 	"strings"
 	"time"
@@ -244,14 +245,10 @@ func (s *service) TestConnection(ctx context.Context, p core.Principal, req Test
 	return provider.Test(ctx, p, req)
 }
 func (r *repository) Get(ctx context.Context, owner, id core.ID) (Resource, error) {
-	return persistence.LoadCatalog[Resource](ctx, r.store, bucket, owner, id)
+	return catalog.Load[Resource](ctx, r.store, bucket, id)
 }
 func (r *repository) List(ctx context.Context, owner core.ID, q Query) (core.Page[Resource], error) {
-	var err error
-	owner, err = persistence.CatalogOwner(ctx, r.store, owner)
-	if err != nil {
-		return core.Page[Resource]{}, err
-	}
+	owner = catalog.Scope
 	filters := []persistence.Filter{persistence.Eq("OwnerID", owner)}
 	if q.Kind != "" {
 		filters = append(filters, persistence.Eq("Kind", q.Kind))
@@ -266,11 +263,7 @@ func (r *repository) List(ctx context.Context, owner core.ID, q Query) (core.Pag
 
 func (r *repository) Insert(ctx context.Context, v Resource, b Binding) error {
 	return r.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		var err error
-		v.OwnerID, err = persistence.CatalogOwner(ctx, r.store, v.OwnerID)
-		if err != nil {
-			return err
-		}
+		v.OwnerID = catalog.Scope
 		if b.ResourceID != v.ID {
 			return invalid("resource_id")
 		}
@@ -281,15 +274,11 @@ func (r *repository) Insert(ctx context.Context, v Resource, b Binding) error {
 	})
 }
 func (r *repository) Save(ctx context.Context, v Resource, expected core.Version) error {
-	var err error
-	v.OwnerID, err = persistence.CatalogOwner(ctx, r.store, v.OwnerID)
-	if err != nil {
-		return err
-	}
+	v.OwnerID = catalog.Scope
 	return save(ctx, r.store, bucket, persistence.Key(v.OwnerID, v.ID), v, expected, func(v Resource) core.Version { return v.Version })
 }
 func (r *repository) Binding(ctx context.Context, owner, id core.ID) (Binding, error) {
-	return persistence.LoadCatalog[Binding](ctx, r.store, bindingBucket, owner, id)
+	return catalog.Load[Binding](ctx, r.store, bindingBucket, id)
 }
 func (s *service) Connect(ctx context.Context, p core.Principal, req ConnectRequest) (Resource, error) {
 	return mutate(ctx, s, p, "connect", "", req.Mutation, req, false, true, func(ctx context.Context) (Resource, error) {
@@ -309,7 +298,7 @@ func (s *service) Connect(ctx context.Context, p core.Principal, req ConnectRequ
 		if err != nil {
 			return Resource{}, err
 		}
-		v := Resource{ID: s.id(), OwnerID: p.OwnerID, Kind: req.Kind, Name: req.Name, Provider: req.Provider, Actions: actions, State: Available, Version: 1}
+		v := Resource{ID: s.id(), OwnerID: catalog.Scope, Kind: req.Kind, Name: req.Name, Provider: req.Provider, Actions: actions, State: Available, Version: 1}
 		b := req.Binding
 		if req.Kind == Storage || req.Kind == Compute || req.Kind == Network {
 			v.SandboxID = b.SandboxID
@@ -373,7 +362,6 @@ func (s *service) RefreshModels(ctx context.Context, p core.Principal, req Refre
 					manual.ProviderContextLimit = merged[i].ProviderContextLimit
 					manual.ProviderOutputLimit = merged[i].ProviderOutputLimit
 					manual.ProviderPricing = merged[i].ProviderPricing
-					manual.ContextVersion = 1
 					merged[i] = manual
 					found = true
 					break
@@ -414,7 +402,6 @@ func (s *service) ConfigureModel(ctx context.Context, p core.Principal, req Conf
 		req.Model.ProviderContextLimit = 0 // Catalog metadata cannot be set through the owner form.
 		req.Model.ProviderOutputLimit = 0
 		req.Model.ProviderPricing = nil
-		req.Model.ContextVersion = 1
 		found := false
 		for i := range binding.Models {
 			if binding.Models[i].Name == req.Model.Name {
@@ -422,9 +409,6 @@ func (s *service) ConfigureModel(ctx context.Context, p core.Principal, req Conf
 				req.Model.ProviderContextLimit = previous.ProviderContextLimit
 				req.Model.ProviderOutputLimit = previous.ProviderOutputLimit
 				req.Model.ProviderPricing = previous.ProviderPricing
-				if previous.ContextVersion == 0 && previous.Discovered && previous.ContextLimit != 32768 {
-					req.Model.ProviderContextLimit = previous.ContextLimit
-				}
 				binding.Models[i] = req.Model
 				found = true
 				break

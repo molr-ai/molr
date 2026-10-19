@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"molr.ai/runtime/internal/modelcatalog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -75,7 +76,7 @@ func TestManualInterruptLeavesIdleAndAllLaterEventsCanRun(t *testing.T) {
 	modelConfig := resource.ModelConfig{Name: "stop-test", ContextLimit: 32768, SupportsTools: true, Pricing: &resource.ModelPricing{Currency: "USD"}}
 	r, err := b.Services.Resources.Connect(ctx, p, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "provider"}, Name: "Stop test", Kind: resource.Model, Provider: "openai-compatible", Binding: resource.Binding{Endpoint: provider.URL, AllowedOrigins: []string{provider.URL}, Models: []resource.ModelConfig{modelConfig}}})
 	need(t, err)
-	a, err := b.Services.Assistants.Hire(ctx, p, assistant.HireRequest{Mutation: core.Mutation{IdempotencyKey: "hire"}, Name: "Stop test", ModelID: modelEntries(r, resource.Binding{Models: []resource.ModelConfig{modelConfig}})[0].id, Budget: core.AssistantBudget{Limit: core.Money{Currency: "USD"}, Period: "daily"}})
+	a, err := b.Services.Assistants.Hire(ctx, p, assistant.HireRequest{Mutation: core.Mutation{IdempotencyKey: "hire"}, Name: "Stop test", ModelID: modelcatalog.Entries(r, resource.Binding{Models: []resource.ModelConfig{modelConfig}})[0].ID, Budget: core.AssistantBudget{Limit: core.Money{Currency: "USD"}, Period: "daily"}})
 	need(t, err)
 	send := func(key string) conversation.Message {
 		t.Helper()

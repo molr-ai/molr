@@ -3,6 +3,7 @@ package plugins
 import (
 	"context"
 	"encoding/json"
+	"molr.ai/runtime/internal/catalog"
 	"sort"
 	"strings"
 
@@ -67,7 +68,7 @@ type ConnectionRequest struct {
 }
 
 func (s *Service) connection(ctx context.Context, owner, id core.ID) (Connection, error) {
-	return persistence.LoadCatalog[Connection](ctx, s.store, "plugins.connections", owner, id)
+	return catalog.Load[Connection](ctx, s.store, "plugins.connections", id)
 }
 func (s *Service) checkConnection(ctx context.Context, p core.Principal, c Connection) error {
 	if s.options.CheckConnection == nil {

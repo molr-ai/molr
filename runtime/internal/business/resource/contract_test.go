@@ -6,6 +6,7 @@ package resource
 
 import (
 	"encoding/json"
+	"molr.ai/runtime/internal/catalog"
 	"strings"
 	"testing"
 
@@ -63,7 +64,7 @@ func TestTDDResourceConnectLifecycle(t *testing.T) {
 	f := testkit.RequireFactory(t, "resource", newContractFixture)
 	ctx := testkit.Context(t)
 	r := connect(t, f)
-	if r.ID == "" || r.OwnerID != "owner" || r.Version != 1 || r.Kind != Storage {
+	if r.ID == "" || r.OwnerID != catalog.Scope || r.Version != 1 || r.Kind != Storage {
 		t.Fatalf("connect: %+v", r)
 	}
 	replay := connect(t, f)
@@ -112,10 +113,8 @@ func TestTDDResourceOwnerOnlyAndSafeDescriptors(t *testing.T) {
 	r := connect(t, f)
 	_, err := f.Service.Get(ctx, otherOwner(), r.ID)
 	wantDenied(t, err)
-	page, err := f.Service.List(ctx, otherOwner(), Query{})
-	if err != nil || len(page.Items) != 0 {
-		t.Fatalf("leaked resources: %+v %v", page, err)
-	}
+	_, err = f.Service.List(ctx, otherOwner(), Query{})
+	wantDenied(t, err)
 	_, err = f.Service.Update(ctx, otherOwner(), UpdateRequest{Mutation: mutation("foreign-update", r.Version), ID: r.ID, Name: "Other"})
 	wantDenied(t, err)
 	_, err = f.Service.Check(ctx, otherOwner(), r.ID)
@@ -135,7 +134,7 @@ func TestTDDResourceOwnerOnlyAndSafeDescriptors(t *testing.T) {
 		}
 	}
 }
-func TestTDDResourceRepositoryBindingIsolation(t *testing.T) {
+func TestTDDResourceRepositorySharedCatalog(t *testing.T) {
 	f := testkit.RequireFactory(t, "resource", newContractFixture)
 	ctx := testkit.Context(t)
 	r := Resource{ID: "resource-row", OwnerID: "owner", Kind: Storage, Name: "Documents", Provider: f.SupportedProvider, State: Available, Version: 1}
@@ -149,8 +148,10 @@ func TestTDDResourceRepositoryBindingIsolation(t *testing.T) {
 	if err != nil || got.ID != r.ID {
 		t.Fatalf("get: %+v %v", got, err)
 	}
-	_, err = f.Repository.Get(ctx, "other", r.ID)
-	wantDenied(t, err)
+	shared, err := f.Repository.Get(ctx, "other", r.ID)
+	if err != nil || shared.OwnerID != catalog.Scope || shared.ID != r.ID {
+		t.Fatal(shared, err)
+	}
 	page, err := f.Repository.List(ctx, "owner", Query{})
 	if err != nil || len(page.Items) != 1 {
 		t.Fatalf("list: %+v %v", page, err)
@@ -159,8 +160,10 @@ func TestTDDResourceRepositoryBindingIsolation(t *testing.T) {
 	if err != nil || b.ResourceID != r.ID || b.CredentialID != binding.CredentialID {
 		t.Fatalf("binding: %+v %v", b, err)
 	}
-	_, err = f.Repository.Binding(ctx, "other", r.ID)
-	wantDenied(t, err)
+	sharedBinding, err := f.Repository.Binding(ctx, "other", r.ID)
+	if err != nil || sharedBinding.ResourceID != r.ID {
+		t.Fatal(sharedBinding, err)
+	}
 	r.Version = 2
 	r.Name = "Archive"
 	if err = f.Repository.Save(ctx, r, 1); err != nil {

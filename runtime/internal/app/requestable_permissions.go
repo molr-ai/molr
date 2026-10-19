@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"molr.ai/runtime/internal/catalog"
+	"molr.ai/runtime/internal/modelcatalog"
 	"sort"
 
 	"molr.ai/runtime/internal/business/resource"
@@ -34,14 +36,14 @@ type requestablePermission struct {
 }
 
 func requestablePermissions(ctx context.Context, store persistence.Store, owner core.ID) ([]requestablePermission, bool, error) {
-	resources, err := persistence.SelectCatalog[resource.Resource](ctx, store, "business.resources", owner, persistence.Query{})
+	resources, err := catalog.Select[resource.Resource](ctx, store, "business.resources", persistence.Query{})
 	if err != nil {
 		return nil, false, err
 	}
 	sort.Slice(resources, func(i, j int) bool { return resources[i].ID < resources[j].ID })
 	out := []requestablePermission{}
 	for _, r := range resources {
-		if !catalogOwned(ctx, store, r.OwnerID, owner) || r.State == resource.Disconnected {
+		if r.OwnerID != catalog.Scope || r.State == resource.Disconnected {
 			continue
 		}
 		actions := []policy.Action{}
@@ -65,19 +67,19 @@ func requestablePermissions(ctx context.Context, store persistence.Store, owner 
 			if err != nil {
 				return nil, false, err
 			}
-			for _, entry := range modelEntries(r, binding) {
+			for _, entry := range modelcatalog.Entries(r, binding) {
 				if len(out) == 200 {
 					return out, true, nil
 				}
-				if _, err := groupReference(ctx, store, owner, "model", entry.id); err != nil {
+				if _, err := groupReference(ctx, store, owner, "model", entry.ID); err != nil {
 					if core.CodeOf(err) == core.Forbidden {
 						continue
 					}
 					return nil, false, err
 				}
 				model := item
-				model.ModelID = entry.id
-				model.ModelName = entry.config.Name
+				model.ModelID = entry.ID
+				model.ModelName = entry.Config.Name
 				out = append(out, model)
 			}
 		} else {

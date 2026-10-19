@@ -74,6 +74,8 @@ All modules are compiled, released, and upgraded uniformly with the server. Runt
 
 Built-in capabilities uniformly check authorization, budget, and resource availability before execution. External programs cannot gain full access to server data and credentials. Retrieval reads authorized sources; memory reads local Markdown in real-time and does not save database index copies. Other reconstructable projections cannot modify original sessions or memory.
 
+`internal/catalog` owns the fixed installation resource namespace. `internal/modelcatalog` handles model resolution, pricing and group visibility. `internal/objectaccess` checks ownership through domain readers, including attachment references; `app` wires these capabilities into policy and execution. Startup and execution use the current data formats without upgrading old tasks, events or checkpoints.
+
 ## 4. How a Delegation is Executed
 
 1. The API validates the request; IM saves the real user message, message creation event, and visible event in the same transaction. Agent scheduling consumes the message event, finds the assistant based on session binding in Business, and atomically saves the deduplicated assistant input and message event consumption progress.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"molr.ai/runtime/internal/catalog"
 	"molr.ai/runtime/internal/credential"
 	"net/http"
 	"slices"
@@ -92,14 +93,10 @@ func (s *Service) load(ctx context.Context, owner core.ID, id string) (Installat
 	if !pluginID.MatchString(id) {
 		return Installation{}, invalid("invalid plugin ID")
 	}
-	return persistence.LoadCatalog[Installation](ctx, s.store, "plugins.installations", owner, Key(id))
+	return catalog.Load[Installation](ctx, s.store, "plugins.installations", Key(id))
 }
 func (s *Service) list(ctx context.Context, owner core.ID) ([]Installation, error) {
-	var e error
-	owner, e = persistence.CatalogOwner(ctx, s.store, owner)
-	if e != nil {
-		return nil, e
-	}
+	owner = catalog.Scope
 	all, err := persistence.Select[Installation](ctx, s.store, "plugins.installations", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner), persistence.Eq("Deleted", false)}})
 	out := []Installation{}
 	for _, v := range all {
@@ -172,10 +169,7 @@ func (s *Service) Install(ctx context.Context, p core.Principal, pkg Package) (I
 	}
 	var out Installation
 	err := s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		catalogOwner, err := persistence.CatalogOwner(ctx, s.store, p.OwnerID)
-		if err != nil {
-			return err
-		}
+		catalogOwner := catalog.Scope
 		old, err := s.load(ctx, p.OwnerID, pkg.Manifest.ID)
 		if err != nil && !persistence.Missing(err) {
 			return err
@@ -240,10 +234,7 @@ func (s *Service) Configure(ctx context.Context, p core.Principal, q Configure) 
 	defer s.mu.Unlock()
 	var out Installation
 	err := s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		catalogOwner, err := persistence.CatalogOwner(ctx, s.store, p.OwnerID)
-		if err != nil {
-			return err
-		}
+		catalogOwner := catalog.Scope
 		v, err := s.load(ctx, p.OwnerID, q.ID)
 		if err != nil {
 			return err
@@ -320,10 +311,7 @@ func (s *Service) Remove(ctx context.Context, p core.Principal, id string, expec
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	err := s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		catalogOwner, err := persistence.CatalogOwner(ctx, s.store, p.OwnerID)
-		if err != nil {
-			return err
-		}
+		catalogOwner := catalog.Scope
 		v, err := s.load(ctx, p.OwnerID, id)
 		if err != nil {
 			return err

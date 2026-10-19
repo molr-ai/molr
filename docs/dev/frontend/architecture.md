@@ -7,7 +7,7 @@ WebUI 管理账号会话、导航与页面装载；SDK、Host 和共享 UI 包�
 ## 实现边界
 
 - `packages/sdk` / `@molr/sdk`：Runtime 客户端、DTO、分页、幂等写入、上传下载、错误、SSE 和 UI/Host 协议，不依赖 React 或 `@molr/ui`。
-- `packages/ui-host` / `@molr/ui-host`：清单校验、固定版本主题身份、主题拥有的页面映射、原型隔离适配器的权限策略及插件主题类型。
+- `packages/ui-host` / `@molr/ui-host`：固定版本主题身份、主题拥有的页面映射、插件主题类型。
 - `apps/webui/src/App.tsx`：登录、导航、主题解析与页面加载、故障恢复。
 - `apps/webui/src/ui-host/ThemeSelector.tsx`：主题设置中的主题选择器。
 - `apps/webui/src/interfaces/official`：默认主题和原有产品组件。
@@ -29,11 +29,11 @@ WebUI 管理账号会话、导航与页面装载；SDK、Host 和共享 UI 包�
 
 ## 后续扩展预留
 
-SDK 中的 `connectUI()`、独立页面清单和隔离 iframe 适配器保留为后续开发基础，产品外部页面使用 [插件机制](../extensions/plugins.md) 的独立、较窄契约；早期通用 iframe HTTP 代理不作为插件接入入口。
+外部页面和主题统一通过 `connectPlugin()` 使用[插件机制](../extensions/plugins.md)的能力契约。宿主支持内置页面和已安装插件贡献。
 
 插件主题可以使用或不使用 `@molr/ui`，只需遵守 SDK/Host 契约。远程页面必须经过来源与权限确认；不能仅修改浏览器配置就获得执行权限。页面映射始终由主题定义，用户仍然只选择主题。
 
-已有隔离适配器使用不带 same-origin 权限的 iframe 和私有 MessageChannel；逐请求校验方法、规范路径和授权范围，不向页面传递宿主 Cookie、CSRF 或 Bearer。权限表位于 `packages/ui-host/src/permissions.ts`。发布者需维护不可变版本资产；仅固定入口 URL 不等于锁定远程资产内容。
+插件页面使用隔离 iframe 和私有 MessageChannel。`PluginFrame` 逐项检查命名操作及贡献声明的能力，不向页面传递宿主 Cookie、CSRF 或 Bearer；Runtime 校验已安装内容及权限。
 
 ## 桌面 App 模式
 

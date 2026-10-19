@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"molr.ai/runtime/internal/catalog"
 	"molr.ai/runtime/internal/textfiles"
 	"path"
 	"reflect"
@@ -732,12 +733,12 @@ func (s *sandboxRouter) available(ctx context.Context, p core.Principal) (bool, 
 			return true, nil
 		}
 	}
-	rows, err := persistence.SelectCatalog[resource.Resource](ctx, s.adapters.store, "business.resources", p.OwnerID, persistence.Query{Where: []persistence.Filter{persistence.Eq("Kind", resource.Compute), persistence.Eq("State", resource.Available)}})
+	rows, err := catalog.Select[resource.Resource](ctx, s.adapters.store, "business.resources", persistence.Query{Where: []persistence.Filter{persistence.Eq("Kind", resource.Compute), persistence.Eq("State", resource.Available)}})
 	if err != nil {
 		return false, err
 	}
 	for _, r := range rows {
-		if !catalogOwned(ctx, s.adapters.store, r.OwnerID, p.OwnerID) || r.Kind != resource.Compute || r.State != resource.Available || sandboxOf(r) == "local" {
+		if r.OwnerID != catalog.Scope || r.Kind != resource.Compute || r.State != resource.Available || sandboxOf(r) == "local" {
 			continue
 		}
 		c, err := s.connection(ctx, p, r.SandboxID)
@@ -758,12 +759,12 @@ func (s *sandboxRouter) available(ctx context.Context, p core.Principal) (bool, 
 	return false, nil
 }
 func (s *sandboxRouter) cancel(ctx context.Context, e core.Execution, id core.ID) error {
-	rows, err := persistence.SelectCatalog[sandboxConnection](ctx, s.adapters.store, "sandbox.connections", e.Principal.OwnerID, persistence.Query{})
+	rows, err := catalog.Select[sandboxConnection](ctx, s.adapters.store, "sandbox.connections", persistence.Query{})
 	if err != nil {
 		return err
 	}
 	for _, c := range rows {
-		if !catalogOwned(ctx, s.adapters.store, c.OwnerID, e.Principal.OwnerID) || c.View.State == "disconnected" {
+		if c.OwnerID != catalog.Scope || c.View.State == "disconnected" {
 			continue
 		}
 		client, err := s.client(ctx, e.Principal, c)

@@ -13,6 +13,7 @@ import (
 	"molr.ai/runtime/internal/business/resource"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/im/conversation"
+	"molr.ai/runtime/internal/modelcatalog"
 	"molr.ai/runtime/internal/persistence"
 	"net/http"
 	"net/http/httptest"
@@ -111,7 +112,7 @@ func TestDreamRealModelFormationAndFileSearch(t *testing.T) {
 	defer provider.Close()
 	r, err := b.Services.Resources.Connect(ctx, p, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "provider"}, Kind: resource.Model, Name: "test dream model", Provider: "openai-compatible", Binding: resource.Binding{Endpoint: provider.URL, AllowedOrigins: []string{provider.URL}, Models: []resource.ModelConfig{{Name: "dream-test", ContextLimit: 32768, SupportsTools: true, Pricing: &resource.ModelPricing{Currency: "USD"}}}}})
 	need(t, err)
-	a, err := b.Services.Assistants.Hire(ctx, p, assistant.HireRequest{Mutation: core.Mutation{IdempotencyKey: "hire"}, Name: "Dreamer", ModelID: modelEntries(r, resource.Binding{Models: []resource.ModelConfig{{Name: "dream-test"}}})[0].id, Budget: core.AssistantBudget{Limit: core.Money{Currency: "USD"}, Period: "daily"}})
+	a, err := b.Services.Assistants.Hire(ctx, p, assistant.HireRequest{Mutation: core.Mutation{IdempotencyKey: "hire"}, Name: "Dreamer", ModelID: modelcatalog.Entries(r, resource.Binding{Models: []resource.ModelConfig{{Name: "dream-test"}}})[0].ID, Budget: core.AssistantBudget{Limit: core.Money{Currency: "USD"}, Period: "daily"}})
 	need(t, err)
 	cancelPendingBirth(t, b, a)
 	chatID = string(a.ConversationID)

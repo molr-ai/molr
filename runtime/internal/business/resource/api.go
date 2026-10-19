@@ -71,7 +71,6 @@ type ModelConfig struct {
 	ProviderContextLimit int `json:",omitempty"`
 	OutputLimit          int // Zero means no manual override.
 	ProviderOutputLimit  int `json:",omitempty"`
-	ContextVersion       int `json:",omitempty"`
 	SupportsTools        bool
 	SupportsImages       bool
 	SupportsAudio        bool

@@ -28,9 +28,6 @@ func TestSandboxDefaultsEnabledWithoutBlockingUnconfiguredRuntime(t *testing.T) 
 				s.MemoryBytes = 0
 			}
 		},
-		func(s *Sandbox) { s.HostToolsUser = "bad/account" },
-		func(s *Sandbox) { s.HostToolsUser = "molr-sandbox-review" },
-		func(s *Sandbox) { s.HostToolsUser = "molr-sandbox"; s.RootFS = "/opt/custom-rootfs" },
 		func(s *Sandbox) {
 			if platform.NativeSandbox() {
 				s.MinFreeDiskBytes = 1
@@ -197,24 +194,8 @@ func TestNetworkPresetBoundaries(t *testing.T) {
 	}
 }
 
-func TestHostToolsIdentityModes(t *testing.T) {
-	for _, name := range []string{"", "current", "molr-sandbox"} {
-		s := sandboxDefaults()
-		s.HostToolsUser = name
-		if err := s.validate("/var/lib/molr", 8080); err != nil {
-			t.Fatalf("%s: %v", name, err)
-		}
-		if name != "" {
-			s.RootFS = "/opt/rootfs"
-			if s.validate("/var/lib/molr", 8080) == nil {
-				t.Fatal("mixed host and custom rootfs accepted")
-			}
-		}
-	}
-}
-
 func TestHostToolsInheritsDeploymentAccount(t *testing.T) {
-	for _, setting := range []string{`"host_tools":true`, `"host_tools_user":"current"`, `"host_tools_user":"molr-sandbox"`} {
+	for _, setting := range []string{`"host_tools":true`} {
 		raw := `{"data_dir":"/var/lib/molr","http":{"public_url":"https://molr.example.com","tls_mode":"proxy","trusted_proxies":["127.0.0.1/32"]},"sandbox":{` + setting + `}}`
 		c, err := Load(strings.NewReader(raw))
 		if err != nil || !c.Sandbox.UsesHostTools() {

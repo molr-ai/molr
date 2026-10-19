@@ -45,7 +45,7 @@ func (c executionCursor) turn() Turn {
 	return Turn{Event: c.Event, Principal: core.Principal{OwnerID: c.Event.OwnerID, SubjectID: c.Event.AssistantID, Kind: core.ActorAssistant, ExecutionID: c.ExecutionID}}
 }
 func stateProgress(c Checkpoint, s privateContext) (turnProgress, error) {
-	p := turnProgress{Revision: c.Sequence, Inputs: runtimeNotificationRoles(s.Inputs), Automatic: s.Automatic, Usage: s.Usage, Publish: s.Publish}
+	p := turnProgress{Revision: c.Sequence, Inputs: append([]model.Input(nil), s.Inputs...), Automatic: s.Automatic, Usage: s.Usage, Publish: s.Publish}
 	if s.Current == nil {
 		return p, nil
 	}

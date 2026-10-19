@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"molr.ai/runtime/internal/catalog"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"strconv"
@@ -16,13 +17,10 @@ type repository struct{ store persistence.Store }
 
 func NewRepository(store persistence.Store) Repository { return &repository{store} }
 func (r *repository) Get(ctx context.Context, owner, id core.ID) (EncryptedValue, error) {
-	return persistence.LoadCatalog[EncryptedValue](ctx, r.store, "security.credentials", owner, id)
+	return catalog.Load[EncryptedValue](ctx, r.store, "security.credentials", id)
 }
 func (r *repository) List(ctx context.Context, owner core.ID, p core.PageRequest) (core.Page[Credential], error) {
-	owner, err := persistence.CatalogOwner(ctx, r.store, owner)
-	if err != nil {
-		return core.Page[Credential]{}, err
-	}
+	owner = catalog.Scope
 	rows, err := persistence.Page[EncryptedValue](ctx, r.store, "security.credentials", persistence.Query{Where: []persistence.Filter{persistence.Eq("Metadata.OwnerID", owner)}, Fields: []string{"Metadata"}}, p, owner, nil)
 	out := core.Page[Credential]{Items: []Credential{}, NextCursor: rows.NextCursor}
 	for _, row := range rows.Items {
@@ -50,11 +48,7 @@ func (r *repository) Save(ctx context.Context, v EncryptedValue, version core.Ve
 	})
 }
 func (r *repository) Delete(ctx context.Context, owner, id core.ID, version core.Version) error {
-	var err error
-	owner, err = persistence.CatalogOwner(ctx, r.store, owner)
-	if err != nil {
-		return err
-	}
+	owner = catalog.Scope
 	return r.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		var old EncryptedValue
 		key := persistence.Key(owner, id)

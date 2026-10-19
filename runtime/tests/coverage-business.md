@@ -40,11 +40,11 @@
 | `internal/business/resource` | `Service.Update` | `TestTDDResourceConnectLifecycle`, `TestTDDResourceOwnerOnlyAndSafeDescriptors` |
 | `internal/business/resource` | `Service.Disconnect` | `TestTDDResourceConnectLifecycle`, `TestTDDResourceOwnerOnlyAndSafeDescriptors` |
 | `internal/business/resource` | `Service.Check` | `TestTDDResourceConnectLifecycle`, `TestTDDResourceOwnerOnlyAndSafeDescriptors` |
-| `internal/business/resource` | `Repository.Get` | `TestTDDResourceRepositoryBindingIsolation` |
-| `internal/business/resource` | `Repository.List` | `TestTDDResourceRepositoryBindingIsolation` |
-| `internal/business/resource` | `Repository.Insert` | `TestTDDResourceRepositoryBindingIsolation` |
-| `internal/business/resource` | `Repository.Save` | `TestTDDResourceRepositoryBindingIsolation` |
-| `internal/business/resource` | `Repository.Binding` | `TestTDDResourceRepositoryBindingIsolation` |
+| `internal/business/resource` | `Repository.Get` | `TestTDDResourceRepositorySharedCatalog` |
+| `internal/business/resource` | `Repository.List` | `TestTDDResourceRepositorySharedCatalog` |
+| `internal/business/resource` | `Repository.Insert` | `TestTDDResourceRepositorySharedCatalog` |
+| `internal/business/resource` | `Repository.Save` | `TestTDDResourceRepositorySharedCatalog` |
+| `internal/business/resource` | `Repository.Binding` | `TestTDDResourceRepositorySharedCatalog` |
 | `internal/business/resource` | `Repository.BindingForModel` | `TestModelBindingIndexTracksLifecycleAndRollback`、`TestModelBindingIndexSurvivesReopenAndSharedCatalog` |
 | `internal/business/resource` | `ModelID` | `TestModelIDRemainsStable` |
 | `internal/business/schedule` | `Service.Create` | `TestTDDServiceCRUD`, `TestTDDServiceOwnershipAndValidation`, `TestTDDCreateCommitFailureLeavesNoObject`, `TestTDDPersonalScheduleDoesNotWakeAssistant` |
@@ -125,7 +125,7 @@ Clone/返聘授权契约细化：新授权具有新 ID，并绑定目标助理�
 | `internal/business/task` | `NewService` | `TestTDDMissingAuthorizerFailsClosed` |
 | `internal/business/task` | `NewRepository` | `TestTDDTaskRepositoryAndAppendOnlyRevisions` |
 | `internal/business/resource` | `NewService` | `TestTDDMissingAuthorizerFailsClosed` |
-| `internal/business/resource` | `NewRepository` | `TestTDDResourceRepositoryBindingIsolation` |
+| `internal/business/resource` | `NewRepository` | `TestTDDResourceRepositorySharedCatalog` |
 | `internal/business/settings` | `NewService` | `TestTDDMissingAuthorizerFailsClosed` |
 | `internal/business/settings` | `NewRepository` | `TestTDDSettingsRepositoryVersionsAndExports` |
 | `internal/business/task` | `NewExecution` | `TestTDDRevisionPreservesOutputsAndTotalSpend` |
@@ -149,7 +149,7 @@ Clone/返聘授权契约细化：新授权具有新 ID，并绑定目标助理�
 | `internal/business/plan` | `Service.Configure`, `Coordinator.Configure` | `TestDependenciesRejectCyclesAndCrossOwnerAndPausePreventsHandoff`, `TestPausingFutureArrangementsDoesNotBlockCurrentPersonalExecution` |
 | `internal/business/plan` | `Service.Execute`, `Coordinator.Execute` | `TestPersonalHandoffCreatesExactlyOneLinkedExecutionWithSnapshot`, `TestFailedCommitRollsBackPersonalCompletion` |
 | `internal/business/plan` | `Service.List`, `Coordinator.List` | `TestPersonalHandoffCreatesExactlyOneLinkedExecutionWithSnapshot`, `TestNotifyModeDoesNotRunAndPersonalEvidenceCannotBeOverwritten` |
-| `internal/business/plan` | `Coordinator.BindTask`, `Coordinator.Migrate` | `TestOrdinaryTaskCreatesOnePlanAndMigrationIsIdempotent` |
+| `internal/business/plan` | `Coordinator.BindTask` | `TestOrdinaryTaskCreatesOnePlan` |
 | `internal/business/plan` | `Coordinator.ScheduleReady`, `Coordinator.StartScheduled` | `TestScheduledOccurrencesSharePlanAndRemainIndependent` |
 | `internal/business/plan` | `Coordinator.Tick` | `TestPersonalHandoffCreatesExactlyOneLinkedExecutionWithSnapshot`, `TestDependenciesRejectCyclesAndCrossOwnerAndPausePreventsHandoff`, `TestNotifyModeDoesNotRunAndPersonalEvidenceCannotBeOverwritten` |
 | `internal/business/schedule` | `CalendarTimes` | `TestCalendarUsesRecurrenceTimezoneAndDoesNotAdvancePausedPlan`, `TestCalendarIncludesOverlappingTimeBlocksAndExcludesEndBoundary` |
@@ -202,3 +202,6 @@ Clone/返聘授权契约细化：新授权具有新 ID，并绑定目标助理�
 | 包 | 接口 / 方法 | 测试 |
 | --- | --- | --- |
 | `internal/business/assistant` | `StateSignal` | `TestStateSignalOnlyCommittedLifecycleChanges` |
+
+| `internal/business/assistant` | `GetGroup` | `internal/objectaccess.TestOwnershipUsesDomainRecordsAndAttachmentReferences` |
+| `internal/search` | `LoadStatus` | `internal/objectaccess.TestOwnershipUsesDomainRecordsAndAttachmentReferences` |

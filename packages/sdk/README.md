@@ -3,10 +3,9 @@
 Framework-independent Runtime client and UI host contract. No React or @molr/ui dependency.
 
 - `@molr/sdk`: APIError, createClient, default browser api, DTOs, resumable subscribeRuntime.
-- `@molr/sdk/ui`: manifest, route, permission, context and draft types.
-- `@molr/sdk/host`: connectUI() for sandboxed UI documents.
+- `@molr/sdk/ui`: theme manifest, route and shared draft types.
 
-The direct client authenticates with same-origin cookies/CSRF. Runtime responses identify the active proof cookie through `X-Molr-CSRF-Cookie`; the development proxy rewrites its port together with `Set-Cookie`. Clients read only that cookie, including after reloads and cross-tab session rotation, and never fall back to stale cookies from another transport mode. A first authenticated write discovers the cookie through `/api/auth/me` if needed; login continues to use its explicit pre-login proof. Sandboxed interfaces must use connectUI(), which accesses only explicitly granted APIs via the host; credentials never enter the frame.
+The direct client authenticates with same-origin cookies/CSRF. Runtime responses identify the active proof cookie through `X-Molr-CSRF-Cookie`; the development proxy rewrites its port together with `Set-Cookie`. Clients read only that cookie, including after reloads and cross-tab session rotation, and never fall back to stale cookies from another transport mode. A first authenticated write discovers the cookie through `/api/auth/me` if needed; login continues to use its explicit pre-login proof. Sandboxed plugin pages use `connectPlugin()` and named capability-scoped operations; credentials never enter the frame.
 
 A fresh SSE subscription starts at the current committed position. The SDK retains the cursor from the server’s `ready` handshake and invokes `onRestore()` to refresh snapshots after subscription setup; reconnects resume from the last received cursor.
 

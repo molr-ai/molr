@@ -62,10 +62,10 @@
 | internal/credential | Access.Validate | TestAccessTrustedPrincipalAndOptionalExecution、TestAccessRequiresExactOriginAndBoundIdentifiers |
 | internal/credential | Broker.WithSecret | TestTDDBrokerDestinationAndLiveRevocation |
 | internal/credential | Broker.Refresh | TestTDDBrokerRefreshRechecksBinding |
-| internal/credential | Repository.Get | TestTDDRepositoryEncryptionIsolationAndCAS |
-| internal/credential | Repository.List | TestTDDRepositoryEncryptionIsolationAndCAS |
-| internal/credential | Repository.Save | TestTDDRepositoryEncryptionIsolationAndCAS |
-| internal/credential | Repository.Delete | TestTDDRepositoryEncryptionIsolationAndCAS |
+| internal/credential | Repository.Get | TestTDDRepositoryEncryptionCatalogAndCAS |
+| internal/credential | Repository.List | TestTDDRepositoryEncryptionCatalogAndCAS |
+| internal/credential | Repository.Save | TestTDDRepositoryEncryptionCatalogAndCAS |
+| internal/credential | Repository.Delete | TestTDDRepositoryEncryptionCatalogAndCAS |
 | internal/policy | Authorizer.Require | TestTDDGrantsAndLiveAuthorization |
 | internal/policy | Service.Require | TestTDDGrantsAndLiveAuthorization |
 | internal/policy | Grants.Grant | TestTDDGrantsAndLiveAuthorization |
@@ -227,3 +227,5 @@
 | 包 | 接口 / 方法 | 测试 |
 | --- | --- | --- |
 | `internal/auth` | `AccountStateSignal` | `TestAccountStateSignalOnlyCommittedLifecycleChanges` |
+
+| `internal/policy` | `LoadPermissionRequest` | `internal/objectaccess.TestOwnershipUsesDomainRecordsAndAttachmentReferences` |

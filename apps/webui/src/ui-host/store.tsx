@@ -25,12 +25,12 @@ export function UIHostProvider({ children }: { children: ReactNode }) {
   const pluginsVisible = query.data?.PluginsVisible === true;
   const pluginQuery = useQuery<PluginInstallation[]>(pluginsVisible ? '/api/plugins' : null);
   const plugins = pluginQuery.data ?? [];
-  const packages = useMemo<InstalledUI[]>(() => [...builtins, ...(pluginsVisible ? plugins : []).flatMap(p => (p.Manifest.contributes.themes ?? []).filter(t => pluginAllowed(p,t.capabilities)).map(t => ({ runtime: 'frame' as const, plugin: { ID: p.ID, Digest: p.Digest, Kind: 'theme' as const, Contribution: t.id, Page: '' }, manifest: { id: p.ID + '.' + t.id.replaceAll('_', '-'), name: t.name, version: p.Manifest.version, apiVersion: 1 as const, pages: t.pages, permissions: [] } })))], [pluginQuery.data, pluginsVisible]);
+  const packages = useMemo<InstalledUI[]>(() => [...builtins, ...(pluginsVisible ? plugins : []).flatMap(p => (p.Manifest.contributes.themes ?? []).filter(t => pluginAllowed(p,t.capabilities)).map(t => ({ runtime: 'plugin' as const, plugin: { ID: p.ID, Digest: p.Digest, Kind: 'theme' as const, Contribution: t.id, Page: '' }, manifest: { id: p.ID + '.' + t.id.replaceAll('_', '-'), name: t.name, version: p.Manifest.version, pages: t.pages } })))], [pluginQuery.data, pluginsVisible]);
   const [saved, setSaved] = useState<Settings | null>(null), [error, setError] = useState<unknown>(null), [busy, setBusy] = useState(false);
   const [recovering, setRecovering] = useState(false), writing = useRef(false);
   const current = saved && (!query.data || saved.Version > query.data.Version) ? saved : query.data;
   const selected = packages.find(item => packageKey(item.manifest) === current?.UITheme);
-  const configuration: UIConfiguration = !recovering && selected ? { schema: 2, selected: { id: selected.manifest.id, version: selected.manifest.version } } : defaultConfiguration();
+  const configuration: UIConfiguration = !recovering && selected ? { selected: { id: selected.manifest.id, version: selected.manifest.version } } : defaultConfiguration();
   const draftKey = `molr-ui-packages:v1:${principal!.OwnerID}:drafts`;
   const [drafts, updateDrafts] = useState<Record<string, ChatDraft>>(() => {
     try { const value = JSON.parse(sessionStorage.getItem(draftKey) || '{}'); return value && typeof value === 'object' && !Array.isArray(value) ? Object.fromEntries(Object.entries(value).filter((entry): entry is [string, ChatDraft] => /^[A-Za-z0-9_-]{1,128}$/.test(entry[0]) && isChatDraft(entry[1]))) : {}; } catch { return {}; }

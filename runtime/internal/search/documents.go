@@ -2,6 +2,7 @@ package search
 
 import (
 	"context"
+	"molr.ai/runtime/internal/catalog"
 
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
@@ -69,6 +70,9 @@ func (s *service) walkDocuments(ctx context.Context, owner core.ID, query Query,
 			continue
 		}
 		q := persistence.Query{Prefix: string(owner) + "/"}
+		if source.source == Resources {
+			q.Prefix = string(catalog.Scope) + "/"
+		}
 		if query.AssistantID != "" {
 			switch source.source {
 			case Assistants:

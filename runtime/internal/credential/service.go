@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"molr.ai/runtime/internal/auth"
+	"molr.ai/runtime/internal/catalog"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"time"
@@ -169,10 +170,7 @@ func (v *Vault) Put(ctx context.Context, p core.Principal, r PutRequest) (Creden
 		if id == "" {
 			id = credentialID()
 		}
-		catalogOwner, e := persistence.CatalogOwner(ctx, v.store, p.OwnerID)
-		if e != nil {
-			return e
-		}
+		catalogOwner := catalog.Scope
 		out = Credential{ID: id, OwnerID: catalogOwner, Provider: r.Provider, Label: r.Label, Version: r.Mutation.ExpectedVersion + 1}
 		encrypted, e := v.encrypt(out, r.Value)
 		if e != nil {

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"molr.ai/runtime/internal/catalog"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -25,12 +26,16 @@ func TestAssistantCapabilitiesAreReadOnlyScopedAndReflectStorageGrants(t *testin
 	put := func(bucket string, key core.ID, value any) {
 		t.Helper()
 		need(t, b.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-			return tx.Put(ctx, bucket, persistence.Key(p.OwnerID, key), value)
+			scope := p.OwnerID
+			if bucket == "business.resources" {
+				scope = catalog.Scope
+			}
+			return tx.Put(ctx, bucket, persistence.Key(scope, key), value)
 		}))
 	}
 	put("business.assistants", id, assistant.Assistant{ID: id, OwnerID: p.OwnerID, Name: "Capability test", State: assistant.Active, Version: 1})
 	need(t, b.Services.Agent.(*agent.Engine).Lifecycle(ctx, p, id, "initialize"))
-	put("business.resources", "storage", resource.Resource{ID: "storage", OwnerID: p.OwnerID, Kind: resource.Storage, State: resource.Available, Actions: []string{"read", "write"}})
+	put("business.resources", "storage", resource.Resource{ID: "storage", OwnerID: catalog.Scope, Kind: resource.Storage, State: resource.Available, Actions: []string{"read", "write"}})
 	now := time.Now()
 	past := now.Add(-time.Hour)
 	for _, tc := range []struct {
@@ -82,7 +87,7 @@ func TestAssistantCapabilitiesAreReadOnlyScopedAndReflectStorageGrants(t *testin
 		})
 	}
 	put("security.grants", "grant", policy.Grant{ID: "grant", OwnerID: p.OwnerID, AssistantID: id, ResourceID: "storage", Actions: []policy.Action{policy.Read}})
-	put("business.resources", "storage", resource.Resource{ID: "storage", OwnerID: p.OwnerID, Kind: resource.Storage, State: resource.Offline, Actions: []string{"read"}})
+	put("business.resources", "storage", resource.Resource{ID: "storage", OwnerID: catalog.Scope, Kind: resource.Storage, State: resource.Offline, Actions: []string{"read"}})
 	result, err := b.Services.Agent.Capabilities(ctx, p, id)
 	need(t, err)
 	for _, tool := range result.Tools {

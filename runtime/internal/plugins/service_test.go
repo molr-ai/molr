@@ -59,8 +59,8 @@ func TestInstallIsolationImmutableUpgradeAndRemoval(t *testing.T) {
 	other.SubjectID = "other"
 	list, err = s.List(t.Context(), other)
 	must(t, err)
-	if len(list) != 0 {
-		t.Fatal("owner leak")
+	if len(list) != 1 || list[0].ID != v.ID {
+		t.Fatal("shared installation missing")
 	}
 	v = activate(t, s, p, v)
 	q := UIRequest{ID: v.ID, Digest: v.Digest, Kind: "page", Contribution: "board", Method: "plans.list"}

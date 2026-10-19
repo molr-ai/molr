@@ -1,12 +1,11 @@
 import type { FileInfo, Page } from './types';
-import type { RuntimeTransport } from './transport';
 
 export class APIError extends Error {
   constructor(public code: string, public requestID = '', public status = 0, public retryAt = 0, public reason = '') { super(code); }
 }
 export function mutationKey() { return Array.from(crypto.getRandomValues(new Uint8Array(24)), byte => byte.toString(16).padStart(2, '0')).join(''); }
 
-export function createClient(transport?: RuntimeTransport) {
+export function createClient() {
   const sessionEvents = new EventTarget();
   function onMutation(callback: (path: string) => void) { const changed = (event: Event) => callback((event as CustomEvent<string>).detail); sessionEvents.addEventListener('mutation', changed); return () => sessionEvents.removeEventListener('mutation', changed); }
   function onSessionExpired(callback: () => void) { sessionEvents.addEventListener('expired', callback); return () => sessionEvents.removeEventListener('expired', callback); }
@@ -23,16 +22,6 @@ export function createClient(transport?: RuntimeTransport) {
 
   async function request<T>(path: string, init: RequestInit = {}, csrf?: string, binary = false, readOnly = false, expireOnUnauthorized = false): Promise<T> {
     if (!/^\/api\/[A-Za-z0-9/_-]+(?:\?[^#]*)?$/.test(path) || path.split('?')[0].includes('..') || path.includes('\\')) throw new APIError('invalid_argument');
-    if (transport) {
-      try {
-        const result = await transport<T>(path, init, binary);
-        if (!readOnly && init.method && init.method !== 'GET') sessionEvents.dispatchEvent(new CustomEvent('mutation', { detail: path }));
-        return result;
-      } catch (error) {
-        if (error instanceof APIError && error.status === 401) sessionEvents.dispatchEvent(new Event('expired'));
-        throw error;
-      }
-    }
     // Discover the active Runtime cookie before the first authenticated write.
     // Login supplies its separate pre-login proof explicitly.
     if (init.method && init.method !== 'GET' && csrf === undefined && !csrfCookieName) {

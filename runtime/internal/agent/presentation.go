@@ -20,34 +20,8 @@ func modelInputs(inputs []model.Input) []model.Input {
 			calls[call.ID] = call.Name
 		}
 
-		if in.RuntimeContext && strings.HasPrefix(in.Text, "Runtime context_changed: ") {
-			var legacy automaticContext
-			if json.NewDecoder(strings.NewReader(strings.TrimPrefix(in.Text, "Runtime context_changed: "))).Decode(&legacy) == nil && legacy.Kind == "context_changed" {
-				out[i].Text = contextText(&legacy)
-			}
-		}
-		if in.Role == model.System && strings.HasPrefix(in.Text, "Runtime control event: {") {
-			var legacy event.AssistantEvent
-			if json.NewDecoder(strings.NewReader(strings.TrimPrefix(in.Text, "Runtime control event: "))).Decode(&legacy) == nil {
-				out[i].Text = prompt.Text("control", eventPayload(legacy))
-			}
-		}
 		if in.Role == model.Tool {
 			out[i].Text = toolText(calls[in.ReplyTo], in.Text)
-		}
-		// Old checkpoint events may still contain serialized private fields.
-		// Re-render the known envelope without altering user-authored messages.
-		if in.Role == model.System && strings.HasPrefix(in.Text, "Runtime event: ") {
-			var legacy struct {
-				Event          event.AssistantEvent
-				ConversationID core.ID `json:"conversation_id"`
-			}
-			if json.NewDecoder(strings.NewReader(strings.TrimPrefix(in.Text, "Runtime event: "))).Decode(&legacy) == nil && legacy.Event.ID != "" && legacy.Event.Kind != "" {
-				// Legacy checkpoints stored triggering queries as system messages.
-				// Project them as user turns without rewriting recovery evidence.
-				out[i].Role = model.User
-				out[i].Text = eventText(legacy.Event, legacy.ConversationID)
-			}
 		}
 		if in.Role == model.User && len(in.ReadMessageIDs) > 0 && strings.HasPrefix(strings.TrimSpace(in.Text), "{") {
 			var delivered struct{ Items json.RawMessage }
@@ -57,27 +31,9 @@ func modelInputs(inputs []model.Input) []model.Input {
 		}
 
 	}
-	return runtimeNotificationRoles(out)
-}
-
-// Migrate only known Runtime notifications. Preserve custom system instructions,
-// message contents and trusted recovery/delivery metadata in stored checkpoints.
-func runtimeNotificationRoles(inputs []model.Input) []model.Input {
-	out := append([]model.Input(nil), inputs...)
-	for i, in := range out {
-		if in.Role != model.System {
-			continue
-		}
-		notification := in.RuntimeContext || in.Text == prompt.Text("expedite", nil)
-		for _, prefix := range []string{"Runtime recovery: ", "Runtime reconciled earlier operation ", "Runtime execution handoff: ", "Runtime control event: "} {
-			notification = notification || strings.HasPrefix(in.Text, prefix)
-		}
-		if notification {
-			out[i].Role = model.User
-		}
-	}
 	return out
 }
+
 func toolText(name, raw string) string {
 	var result struct {
 		Error          json.RawMessage `json:"error"`

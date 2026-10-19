@@ -20,8 +20,6 @@ type Sandbox struct {
 	WorkspaceProjectQuotas bool               `json:"workspace_project_quotas"`
 	AuthorizationCeilings  platform.Limits    `json:"authorization_ceilings"`
 	HostTools              bool               `json:"host_tools"`
-	// Deprecated: accepted for existing deployments; never switches OS identity.
-	HostToolsUser string `json:"host_tools_user,omitempty"`
 	// Enabled controls command execution. Workspace and file tools remain available.
 	Enabled             bool               `json:"enabled"`
 	Bwrap               string             `json:"bubblewrap"`
@@ -119,9 +117,6 @@ func (s Sandbox) validate(data string, ownPort uint16) error {
 	maxLimits := s.ComputeCeilings()
 	if !platform.NativeSandbox() && (maxLimits.NetworkConnections < 1 || maxLimits.NetworkConnections > 128 || maxLimits.NetworkBytes < 1 || maxLimits.NetworkBytes > 1<<50 || maxLimits.CPUPercent < 1 || maxLimits.CPUPercent > 1000000 || maxLimits.MemoryBytes < 32<<20 || maxLimits.Processes < 8 || maxLimits.TempBytes < 1 || maxLimits.TempBytes > maxLimits.MemoryBytes) {
 		return core.Invalid("sandbox.authorization_ceilings", "invalid deployment ceilings")
-	}
-	if s.HostToolsUser != "" && s.HostToolsUser != "molr-sandbox" && s.HostToolsUser != "current" {
-		return core.Invalid("sandbox.host_tools_user", "legacy host_tools_user must be current or molr-sandbox; use host_tools instead")
 	}
 	if s.UsesHostTools() && s.RootFS != "" {
 		return core.Invalid("sandbox.host_tools", "host tools and custom rootfs are incompatible")
@@ -234,7 +229,7 @@ func (s Sandbox) NetworkTargets(ownPort uint16) []SandboxNetwork {
 	return n
 }
 
-// UsesHostTools keeps old deployment files readable; the service manager owns identity.
+// UsesHostTools reports whether the sandbox shares the deployment account’s system tools.
 func (s Sandbox) UsesHostTools() bool {
-	return s.HostTools || s.HostToolsUser != ""
+	return s.HostTools
 }

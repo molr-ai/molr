@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"molr.ai/runtime/internal/modelcatalog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -50,7 +51,7 @@ func TestWaitingReasonsDescribeActualBlockers(t *testing.T) {
 			binding := resource.Binding{Endpoint: server.URL + "/v1/chat/completions", AllowedOrigins: []string{server.URL}, Models: []resource.ModelConfig{{Name: "test", ContextLimit: 32768, SupportsTools: true, Pricing: pricing}}}
 			r, err := b.Services.Resources.Connect(ctx, p, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "provider"}, Kind: resource.Model, Name: "Provider", Provider: "openai-compatible", Binding: binding})
 			need(t, err)
-			a, err := b.Services.Assistants.Hire(ctx, p, assistant.HireRequest{Budget: core.AssistantBudget{Limit: core.Money{Currency: "USD"}, Period: "daily"}, Mutation: core.Mutation{IdempotencyKey: "hire"}, Name: "Assistant", ModelID: modelEntries(r, binding)[0].id})
+			a, err := b.Services.Assistants.Hire(ctx, p, assistant.HireRequest{Budget: core.AssistantBudget{Limit: core.Money{Currency: "USD"}, Period: "daily"}, Mutation: core.Mutation{IdempotencyKey: "hire"}, Name: "Assistant", ModelID: modelcatalog.Entries(r, binding)[0].ID})
 			need(t, err)
 			if reason == "model_not_authorized" {
 				grants, err := b.Services.Grants.List(ctx, p, policy.Query{AssistantID: a.ID})

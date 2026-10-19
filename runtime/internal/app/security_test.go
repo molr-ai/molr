@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"molr.ai/runtime/internal/agent/tools"
+	"molr.ai/runtime/internal/modelcatalog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -134,5 +135,5 @@ func configureTestModel(t *testing.T, b *Bundle, p core.Principal) core.ID {
 	t.Helper()
 	r, err := b.Services.Resources.Connect(t.Context(), p, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "test-model"}, Kind: resource.Model, Name: "test", Provider: "openai-compatible", Binding: resource.Binding{Endpoint: "https://provider.example.test/v1/chat/completions", AllowedOrigins: []string{"https://provider.example.test"}, Models: []resource.ModelConfig{{Name: "test", ContextLimit: 8192, SupportsTools: true, Pricing: &resource.ModelPricing{Currency: "USD"}}}}})
 	need(t, err)
-	return modelEntries(r, resource.Binding{Models: []resource.ModelConfig{{Name: "test"}}})[0].id
+	return modelcatalog.Entries(r, resource.Binding{Models: []resource.ModelConfig{{Name: "test"}}})[0].ID
 }

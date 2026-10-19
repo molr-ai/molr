@@ -3,6 +3,7 @@ package app
 import (
 	"molr.ai/runtime/internal/agent/model"
 	"molr.ai/runtime/internal/business/resource"
+	"molr.ai/runtime/internal/modelcatalog"
 	"molr.ai/runtime/internal/pricing"
 	"testing"
 )
@@ -21,9 +22,9 @@ func TestProviderPresetSelectsProtocolIndependentlyOfPriceAndAddress(t *testing.
 	} {
 		t.Run(tc.preset, func(t *testing.T) {
 			binding := resource.Binding{PricingProvider: tc.preset, Endpoint: "https://proxy.example/v1/chat/completions"}
-			entry := modelEntry{id: "model"}
-			entry.config.Name = "custom-name"
-			provider := a.resolvedModel(resource.Resource{ID: "provider"}, binding, entry)
+			entry := modelcatalog.Entry{ID: "model"}
+			entry.Config.Name = "custom-name"
+			provider := a.modelCatalog().Describe(resource.Resource{ID: "provider"}, binding, entry)
 			if provider.Protocol != tc.protocol {
 				t.Fatalf("protocol=%s want %s", provider.Protocol, tc.protocol)
 			}
@@ -53,7 +54,7 @@ func TestUnspecifiedProviderProtocolRecognizesOnlyOfficialDeepSeekOrigin(t *test
 		{"https://proxy.example/v1/chat/completions", "", model.OpenAIChat},
 	} {
 		t.Run(tc.endpoint+"/"+tc.preset, func(t *testing.T) {
-			p := a.resolvedModel(resource.Resource{ID: "provider"}, resource.Binding{PricingProvider: tc.preset, Endpoint: tc.endpoint}, modelEntry{id: "model"})
+			p := a.modelCatalog().Describe(resource.Resource{ID: "provider"}, resource.Binding{PricingProvider: tc.preset, Endpoint: tc.endpoint}, modelcatalog.Entry{ID: "model"})
 			if p.Protocol != tc.want {
 				t.Fatalf("protocol=%s want %s", p.Protocol, tc.want)
 			}

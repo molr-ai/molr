@@ -68,36 +68,12 @@
 | `internal/storage/files` | `Repository.Insert` | `TestTDDFilesRepositoryOwnershipAndStates` |
 | `internal/storage/files` | `Repository.SetState` | `TestTDDFilesRepositoryOwnershipAndStates` |
 | `internal/storage/files` | `Repository.Delete` | `TestTDDFilesRepositoryOwnershipAndStates` |
-| `internal/storage/sqlite` | `Repositories.Auth` | `TestTDDSQLiteRepositoriesAreAvailableInTransaction` |
-| `internal/storage/sqlite` | `Repositories.Audit` | `TestTDDSQLiteRepositoriesAreAvailableInTransaction` |
-| `internal/storage/sqlite` | `Repositories.Assistants` | `TestTDDSQLiteRepositoriesAreAvailableInTransaction` |
-| `internal/storage/sqlite` | `Repositories.Conversations` | `TestTDDSQLiteRepositoriesAreAvailableInTransaction` |
-| `internal/storage/sqlite` | `Repositories.IMOutbox` | `TestTDDSQLiteRepositoriesAreAvailableInTransaction` |
-| `internal/storage/sqlite` | `Repositories.Tasks` | `TestTDDSQLiteRepositoriesAreAvailableInTransaction` |
-| `internal/storage/sqlite` | `Repositories.Todos` | `TestTDDSQLiteRepositoriesAreAvailableInTransaction` |
-| `internal/storage/sqlite` | `Repositories.Schedules` | `TestTDDSQLiteRepositoriesAreAvailableInTransaction` |
-| `internal/storage/sqlite` | `Repositories.Resources` | `TestTDDSQLiteRepositoriesAreAvailableInTransaction` |
-| `internal/storage/sqlite` | `Repositories.Settings` | `TestTDDSQLiteRepositoriesAreAvailableInTransaction` |
-| `internal/storage/sqlite` | `Repositories.Credentials` | `TestTDDSQLiteRepositoriesAreAvailableInTransaction` |
-| `internal/storage/sqlite` | `Repositories.Policy` | `TestTDDSQLiteRepositoriesAreAvailableInTransaction` |
-| `internal/storage/sqlite` | `Repositories.Operations` | `TestTDDSQLiteRepositoriesAreAvailableInTransaction` |
-| `internal/storage/sqlite` | `Repositories.ModelReceipts` | `TestTDDSQLiteRepositoriesAreAvailableInTransaction` |
-| `internal/storage/sqlite` | `Repositories.Checkpoints` | `TestTDDSQLiteRepositoriesAreAvailableInTransaction` |
-| `internal/storage/sqlite` | `Repositories.AssistantEvents` | `TestTDDSQLiteRepositoriesAreAvailableInTransaction` |
-| `internal/storage/sqlite` | `Repositories.Realtime` | `TestTDDSQLiteRepositoriesAreAvailableInTransaction` |
-| `internal/storage/sqlite` | `Repositories.Queue` | `TestTDDSQLiteRepositoriesAreAvailableInTransaction` |
-| `internal/storage/sqlite` | `Repositories.Files` | `TestTDDSQLiteRepositoriesAreAvailableInTransaction` |
-| `internal/storage/sqlite` | `Repositories.Idempotency` | `TestTDDSQLiteRepositoriesAreAvailableInTransaction` |
-| `internal/storage/sqlite` | `Transactions.Within` | `TestTDDSQLiteCallbackAndCommitErrorsRollBack`, `TestTDDSQLiteMessageOutboxAndVisibleEventCommitTogether`, `TestTDDSQLiteCanceledTransactionsDoNotCommit` |
-| `internal/storage/sqlite` | `Database.Within` | `TestTDDSQLiteCallbackAndCommitErrorsRollBack`, `TestTDDSQLiteMessageOutboxAndVisibleEventCommitTogether`, `TestTDDSQLiteCanceledTransactionsDoNotCommit` |
 | `internal/storage/sqlite` | `Database.Schema` | `TestTDDSQLiteMigrateSchemaCheckAndClose` |
-| `internal/storage/sqlite` | `Database.Migrate` | `TestTDDSQLiteMigrateSchemaCheckAndClose` |
+| `internal/storage/sqlite` | `Database.Migrate` | `TestTDDSQLiteMigrateSchemaCheckAndClose`, `TestPreviousSchemaIsRejectedWithoutConversion` |
 | `internal/storage/sqlite` | `Database.Check` | `TestTDDSQLiteMigrateSchemaCheckAndClose` |
 | `internal/storage/sqlite` | `Database.Close` | `TestTDDSQLiteMigrateSchemaCheckAndClose` |
 | `internal/storage/sqlite` | `Database.Backup` | `TestTDDSQLiteBackupRestoresDataOfflineAndRevokesAuthentication` |
 | `internal/storage/sqlite` | `Restorer.Restore` | `TestTDDSQLiteBackupRestoresDataOfflineAndRevokesAuthentication` |
-| `internal/storage/sqlite` | `Idempotency.Get` | `TestTDDSQLiteIdempotencyIsScopedAndPayloadBound`, `TestTDDSQLiteConcurrentIdempotencyKeyHasOneWinner` |
-| `internal/storage/sqlite` | `Idempotency.Insert` | `TestTDDSQLiteIdempotencyIsScopedAndPayloadBound`, `TestTDDSQLiteConcurrentIdempotencyKeyHasOneWinner` |
 
 补充行为：受控进程不能继承秘密环境或把参数当 Shell 执行；取消回收子进程；文件大小、配额、失败恢复与路径／符号链接边界；事务句柄过期、提交失败回滚、跨模块原子写入；离线备份恢复不复活认证凭据。工厂中的故障注入针对真实依赖，不能伪造被测接口返回值。
 
@@ -112,7 +88,6 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/storage/sqlite` | `DB.Store`, `DB.InjectMigrationError` | `TestTDDSQLiteMigrationFailureDoesNotAdvanceVersion` |
 | `internal/storage/sqlite` | `DB.FailNextCommit` | `TestTDDSQLiteCallbackAndCommitErrorsRollBack` |
 | `internal/storage/sqlite` | `DB.Close`, `DB.Check`, `DB.Migrate`, `DB.Schema` | `TestTDDSQLiteMigrateSchemaCheckAndClose` |
-| `internal/storage/sqlite` | `DB.Within` | `TestTDDSQLiteMessageOutboxAndVisibleEventCommitTogether`, `TestTDDSQLiteCommitPersistsAcrossReopen` |
 | `internal/storage/sqlite` | `DB.Backup` | `TestTDDSQLiteBackupRestoresDataOfflineAndRevokesAuthentication`, `TestTDDSQLiteCorruptBackupLeavesOriginalUntouched` |
 
 实际存储、系统边界及生产组合实现：
@@ -223,7 +198,6 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | 包 | 公开入口 | 验证 |
 | --- | --- | --- |
 | `internal/core` | `ResourceConstraints.Validate`, `ResourceConstraints.Kind` | `TestResourceConstraintsRejectAmbiguousOrUnboundedLimits` |
-| `internal/persistence` | `CatalogOwner`, `LoadCatalog` | `TestSharedCatalogKeepsPrivateNamespaces` |
 | `internal/quota` | `Ledger.ReserveMany`, `Ledger.ClaimMany` | `TestGroupTrafficBudgetSharedByAssistantsNotUsers`, `TestGroupPeriodChangePreservesTrafficAndPendingReservations` |
 | `internal/platform/sandbox` | `Runner.StopAccess` | `internal/app.TestFullAccessAndIsolationCoexist` |
 
@@ -273,7 +247,6 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | 包 | 公开入口 | 验证入口 |
 | --- | --- | --- |
 | `internal/persistence` | `Page` | `internal/persistence/sqlitestore.TestTimeKeysAndKeysetPagePreserveNanosecondsAndOffsets`、`internal/auth.TestCredentialLookupsAndSessionPagesBoundHistory` |
-| `internal/persistence` | `SelectCatalog` | `TestCatalogSelectionKeepsPrivateNamespaces` |
 | `internal/persistence` | `Tx.Sum`, `Tx.DeleteMatching` | `internal/persistence/sqlitestore.TestScopedAggregateAndDeletionRespectTransactions` |
 | `internal/persistence` | `Tx.Count` | `internal/persistence/sqlitestore.TestCountRespectsScopeLimitAndTransactions` |
 
@@ -342,3 +315,8 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/instancebackup` | `Capture`, `CheckDatabase` | `TestRuntimeArchiveRoundTrip`, `TestSandboxArchiveKeepsStateWithoutUserFiles` |
 | `internal/instancebackup` | `Configuration` | `TestRuntimeArchiveRoundTrip`, `TestCrossPlatformConfiguration` |
 | `internal/instancebackup` | `RelocateLinks` | `TestManagedLinksRelocatedWithoutChangingExternalReferences` |
+
+| `internal/storage/sqlite` | `Database.Store` | `TestTDDSQLiteMessageOutboxAndVisibleEventCommitTogether` |
+| `internal/catalog` | `Load`, `Select` | `TestCatalogScopeIndependentOfAccounts` |
+| `internal/modelcatalog` | `Entries`, `Service.Describe`, `Service.Resolve`, `Service.List` | `TestModelCatalogResolutionAndRevocation` |
+| `internal/objectaccess` | `Service.Require` | `TestOwnershipUsesDomainRecordsAndAttachmentReferences` |

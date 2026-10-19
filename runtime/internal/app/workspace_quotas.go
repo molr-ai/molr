@@ -4,6 +4,7 @@ import (
 	"context"
 	"molr.ai/runtime/internal/agent/tools"
 	"molr.ai/runtime/internal/business/resource"
+	"molr.ai/runtime/internal/catalog"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/platform"
@@ -15,16 +16,13 @@ import (
 	"time"
 )
 
-func workspaceResourceID(owner, sandbox core.ID) core.ID {
-	return core.ID("workspace_" + digestBytes([]byte(string(owner) + "/" + string(sandbox)))[:24])
+func workspaceResourceID(sandbox core.ID) core.ID {
+	return core.ID("workspace_" + digestBytes([]byte(string(catalog.Scope) + "/" + string(sandbox)))[:24])
 }
 func ensureWorkspaceResource(ctx context.Context, store persistence.Store, owner, sandbox core.ID) error {
-	catalogOwner, err := persistence.CatalogOwner(ctx, store, owner)
-	if err != nil {
-		return err
-	}
+	catalogOwner := catalog.Scope
 	owner = catalogOwner
-	id := workspaceResourceID(owner, sandbox)
+	id := workspaceResourceID(sandbox)
 	repo := resource.NewRepository(store)
 	if _, err := repo.Get(ctx, owner, id); err == nil {
 		return nil
@@ -34,11 +32,7 @@ func ensureWorkspaceResource(ctx context.Context, store persistence.Store, owner
 	return repo.Insert(ctx, resource.Resource{ID: id, OwnerID: owner, SandboxID: sandbox, Kind: resource.Storage, Provider: "managed-workspace", Name: "Assistant workspace", Actions: []string{"read", "write"}, State: resource.Available, Version: 1}, resource.Binding{ResourceID: id, SandboxID: sandbox, SandboxResource: "workspace"})
 }
 func workspaceConstraints(ctx context.Context, store persistence.Store, owner, assistant, sandbox core.ID) (*policy.StorageConstraints, error) {
-	catalogOwner, err := persistence.CatalogOwner(ctx, store, owner)
-	if err != nil {
-		return nil, err
-	}
-	id := workspaceResourceID(catalogOwner, sandbox)
+	id := workspaceResourceID(sandbox)
 	rows, err := persistence.Select[policy.Grant](ctx, store, "security.grants", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner), persistence.Eq("AssistantID", assistant), persistence.Eq("ResourceID", id)}})
 	if err != nil {
 		return nil, err

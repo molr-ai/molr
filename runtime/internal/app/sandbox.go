@@ -13,6 +13,7 @@ import (
 	"molr.ai/runtime/internal/audit"
 	"molr.ai/runtime/internal/auth"
 	"molr.ai/runtime/internal/business/resource"
+	"molr.ai/runtime/internal/catalog"
 	"molr.ai/runtime/internal/config"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
@@ -440,12 +441,12 @@ func (s *shellService) available(ctx context.Context, p core.Principal) (bool, e
 	if err != nil || (!caps.Shell && !caps.FullAccess) {
 		return false, err
 	}
-	resources, err := persistence.SelectCatalog[resource.Resource](ctx, s.store, "business.resources", p.OwnerID, persistence.Query{Where: []persistence.Filter{persistence.Eq("Kind", resource.Compute), persistence.Eq("Provider", "local-sandbox"), persistence.Eq("State", resource.Available)}})
+	resources, err := catalog.Select[resource.Resource](ctx, s.store, "business.resources", persistence.Query{Where: []persistence.Filter{persistence.Eq("Kind", resource.Compute), persistence.Eq("Provider", "local-sandbox"), persistence.Eq("State", resource.Available)}})
 	if err != nil {
 		return false, err
 	}
 	for _, r := range resources {
-		if catalogOwned(ctx, s.store, r.OwnerID, p.OwnerID) && r.Kind == resource.Compute && r.Provider == "local-sandbox" && r.State == resource.Available {
+		if r.OwnerID == catalog.Scope && r.Kind == resource.Compute && r.Provider == "local-sandbox" && r.State == resource.Available {
 			if computeAccess(ctx, s.policy, p, r.ID, caps) {
 				return true, nil
 			}

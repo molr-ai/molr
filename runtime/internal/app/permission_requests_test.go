@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"molr.ai/runtime/internal/agent/operation"
 	"molr.ai/runtime/internal/agent/tools"
+	"molr.ai/runtime/internal/catalog"
 	"molr.ai/runtime/internal/notification"
 	"molr.ai/runtime/internal/platform"
 	"strings"
@@ -178,7 +179,7 @@ func TestPermissionListRetainsGrantDetailsWhenResourceUnavailable(t *testing.T) 
 	offline := f.storage
 	offline.State = resource.Offline
 	need(t, f.b.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
-		return tx.Put(ctx, "business.resources", persistence.Key(f.owner.OwnerID, offline.ID), offline)
+		return tx.Put(ctx, "business.resources", persistence.Key(catalog.Scope, offline.ID), offline)
 	}))
 	// Deployment restrictions alone can make an operation unavailable. Regardless
 	// of availability, the authorization itself retains its exact lifetime/scope.

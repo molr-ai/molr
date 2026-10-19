@@ -1,6 +1,7 @@
 package app
 
 import (
+	"molr.ai/runtime/internal/modelcatalog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -41,7 +42,7 @@ func TestNativeModelCurrencySurvivesDispatchSettlementAndPreferences(t *testing.
 	if len(models) != 1 || models[0].Pricing.Currency != "CNY" {
 		t.Fatalf("native price lost: %+v", models)
 	}
-	a, err := b.Services.Assistants.Hire(ctx, p, assistant.HireRequest{Mutation: core.Mutation{IdempotencyKey: "hire"}, Name: "native", ModelID: modelEntries(r, binding)[0].id, Budget: core.AssistantBudget{Limit: core.Money{Currency: "USD", Micros: 1000000}, Period: "daily"}})
+	a, err := b.Services.Assistants.Hire(ctx, p, assistant.HireRequest{Mutation: core.Mutation{IdempotencyKey: "hire"}, Name: "native", ModelID: modelcatalog.Entries(r, binding)[0].ID, Budget: core.AssistantBudget{Limit: core.Money{Currency: "USD", Micros: 1000000}, Period: "daily"}})
 	need(t, err)
 	need(t, event.NewWriter(b.store).AppendAssistant(ctx, event.AssistantEvent{ID: "wake", OwnerID: p.OwnerID, AssistantID: a.ID, Kind: event.ResumeRequested, CreatedAt: time.Now()}))
 	claim, err := scheduler.NewQueue(b.store).Claim(ctx, time.Now())

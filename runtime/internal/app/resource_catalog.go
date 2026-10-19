@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"molr.ai/runtime/internal/modelcatalog"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -178,9 +179,9 @@ func (c resourceCatalog) list(ctx context.Context, p core.Principal) (json.RawMe
 					if err != nil {
 						return err
 					}
-					for _, entry := range modelEntries(r, b) {
-						if entry.id == item.ModelID {
-							item.ModelName = entry.config.Name
+					for _, entry := range modelcatalog.Entries(r, b) {
+						if entry.ID == item.ModelID {
+							item.ModelName = entry.Config.Name
 						}
 					}
 				}

@@ -40,6 +40,8 @@ Attachment objects are written, committed, and deleted serially by file ID; diff
 
 During recovery, existing receipts are settled first, then local call occupations left by the previous process are terminated; unknown external results retain records and are not automatically retried. Database snapshots are not complete disaster recovery; files, workspaces, configurations, and master keys must be preserved separately. See [Backup, Recovery, and Upgrade](../../admin/deployment/maintenance.md#backup-recovery-and-upgrades) for operational steps.
 
+The database schema version is 2. Installation resources use their own namespace; startup rejects version 1 databases without online or offline conversion. Version checks are separate from crash recovery of the current format.
+
 ## Build and Verification
 
 `runtime/Makefile` uses `.go-version` to fix the test toolchain. Runtime artifacts require explicit static builds and checks of the final linking method and permissions; deploying the main service also requires confirming the build commit and clean state, and deployability cannot be judged solely by the success of `go build`.

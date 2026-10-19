@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"molr.ai/runtime/internal/business/resource"
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/modelcatalog"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/persistence/sqlitestore"
 	"path/filepath"
@@ -29,7 +30,7 @@ func BenchmarkModelResolutionProviders(b *testing.B) {
 					if err := repo.Insert(ctx, r, binding); err != nil {
 						return err
 					}
-					target = modelEntries(r, binding)[1].id
+					target = modelcatalog.Entries(r, binding)[1].ID
 				}
 				return nil
 			})

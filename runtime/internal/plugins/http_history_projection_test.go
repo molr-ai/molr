@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"molr.ai/runtime/internal/catalog"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/persistence/sqlitestore"
@@ -45,10 +46,10 @@ func historyProjectionFixture(tb testing.TB) (*Service, core.Principal, Connecti
 	}
 	tb.Cleanup(func() { db.Close() })
 	p := core.Principal{OwnerID: "owner", SubjectID: "owner", Kind: core.ActorOwner, SessionID: "session"}
-	connection := Connection{ID: "connection", OwnerID: p.OwnerID, PluginID: "fixture.history", ProviderID: "provider"}
+	connection := Connection{ID: "connection", OwnerID: catalog.Scope, PluginID: "fixture.history", ProviderID: "provider"}
 	payload, _ := json.Marshal(map[string]any{"text": strings.Repeat("payload", 8192), "usage": map[string]any{"tokens": 7}})
 	err = db.Write(tb.Context(), func(ctx context.Context, tx persistence.Tx) error {
-		if err := tx.Put(ctx, "plugins.connections", persistence.Key(p.OwnerID, connection.ID), connection); err != nil {
+		if err := tx.Put(ctx, "plugins.connections", persistence.Key(catalog.Scope, connection.ID), connection); err != nil {
 			return err
 		}
 		for i := range 100 {

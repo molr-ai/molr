@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"molr.ai/runtime/internal/modelcatalog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -108,7 +109,7 @@ func testMessageAgentAndRestart(t *testing.T, commands bool) {
 	defer provider.Close()
 	r, err := b.Services.Resources.Connect(ctx, p, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "model"}, Kind: resource.Model, Name: "local model", Provider: "openai-compatible", Binding: resource.Binding{Endpoint: provider.URL, AllowedOrigins: []string{provider.URL}, Models: []resource.ModelConfig{{Name: "local-test", ContextLimit: 32768, SupportsTools: true, Pricing: &resource.ModelPricing{Currency: "USD"}}}}})
 	need(t, err)
-	a, err := b.Services.Assistants.Hire(ctx, p, assistant.HireRequest{Budget: core.AssistantBudget{Limit: core.Money{Currency: "USD"}, Period: "daily"}, Mutation: core.Mutation{IdempotencyKey: "hire"}, Name: "Molr", ModelID: modelEntries(r, resource.Binding{Models: []resource.ModelConfig{{Name: "local-test"}}})[0].id})
+	a, err := b.Services.Assistants.Hire(ctx, p, assistant.HireRequest{Budget: core.AssistantBudget{Limit: core.Money{Currency: "USD"}, Period: "daily"}, Mutation: core.Mutation{IdempotencyKey: "hire"}, Name: "Molr", ModelID: modelcatalog.Entries(r, resource.Binding{Models: []resource.ModelConfig{{Name: "local-test"}}})[0].ID})
 	need(t, err)
 	mu.Lock()
 	chatID = string(a.ConversationID)

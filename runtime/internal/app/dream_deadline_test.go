@@ -14,6 +14,7 @@ import (
 	"molr.ai/runtime/internal/business/schedule"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/im/conversation"
+	"molr.ai/runtime/internal/modelcatalog"
 	"molr.ai/runtime/internal/notification"
 	"molr.ai/runtime/internal/persistence"
 	"net/http"
@@ -105,7 +106,7 @@ func testDreamQueueRelease(t *testing.T, stop bool) {
 	defer provider.Close()
 	resourceRow, err := b.Services.Resources.Connect(ctx, p, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "provider"}, Kind: resource.Model, Name: "deadline model", Provider: "openai-compatible", Binding: resource.Binding{Endpoint: provider.URL, AllowedOrigins: []string{provider.URL}, Models: []resource.ModelConfig{{Name: "deadline-test", ContextLimit: 65536, SupportsTools: true, Pricing: &resource.ModelPricing{Currency: "USD"}}}}})
 	need(t, err)
-	a, err := b.Services.Assistants.Hire(ctx, p, assistant.HireRequest{Mutation: core.Mutation{IdempotencyKey: "hire"}, Name: "Dream deadline", ModelID: modelEntries(resourceRow, resource.Binding{Models: []resource.ModelConfig{{Name: "deadline-test"}}})[0].id, Budget: core.AssistantBudget{Limit: core.Money{Currency: "USD"}, Period: "daily"}})
+	a, err := b.Services.Assistants.Hire(ctx, p, assistant.HireRequest{Mutation: core.Mutation{IdempotencyKey: "hire"}, Name: "Dream deadline", ModelID: modelcatalog.Entries(resourceRow, resource.Binding{Models: []resource.ModelConfig{{Name: "deadline-test"}}})[0].ID, Budget: core.AssistantBudget{Limit: core.Money{Currency: "USD"}, Period: "daily"}})
 	need(t, err)
 	cancelPendingBirth(t, b, a)
 	chatID = string(a.ConversationID)

@@ -6,6 +6,7 @@ import (
 	"io"
 	"molr.ai/runtime/internal/buildinfo"
 	"molr.ai/runtime/internal/business/resource"
+	"molr.ai/runtime/internal/catalog"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/platform"
@@ -146,10 +147,7 @@ func (a adapters) discoverLocalProviders(ctx context.Context, p core.Principal) 
 		}(i, o)
 	}
 	wait.Wait()
-	owner, err := persistence.CatalogOwner(ctx, a.store, p.OwnerID)
-	if err != nil {
-		return nil, err
-	}
+	owner := catalog.Scope
 	rows, err := persistence.Select[resource.Resource](ctx, a.store, "business.resources", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner), persistence.Eq("Kind", resource.Model)}})
 	if err != nil {
 		return nil, err

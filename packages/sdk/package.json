@@ -7,7 +7,6 @@
   "exports": {
     ".": "./src/index.ts",
     "./ui": "./src/ui.ts",
-    "./host": "./src/host.ts",
     "./plugins": "./src/plugins.ts",
     "./plugin-host": "./src/plugin-host.ts"
   },

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"molr.ai/runtime/internal/catalog"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 )
@@ -30,10 +31,7 @@ func putBinding(ctx context.Context, tx persistence.Tx, owner core.ID, binding B
 }
 
 func (r *repository) BindingForModel(ctx context.Context, owner, id core.ID) (Binding, error) {
-	owner, err := persistence.CatalogOwner(ctx, r.store, owner)
-	if err != nil {
-		return Binding{}, err
-	}
+	owner = catalog.Scope
 	rows, err := persistence.Select[Binding](ctx, r.store, bindingBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerKey", owner), {Field: "ModelIDs", Op: "has", Value: string(id)}}, Limit: 1, Unordered: true})
 	if err != nil {
 		return Binding{}, err

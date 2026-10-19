@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import { defaultConfiguration, parseManifest, readConfiguration, requestPermission, resolveUI } from '@molr/ui-host';
+import { defaultConfiguration, resolveUI } from '@molr/ui-host';
 import { officialPackage } from '../src/interfaces/official/manifest';
 import { testPackage } from '../src/interfaces/test/manifest';
 import { expectFitsWebView } from './viewport';
@@ -31,15 +31,11 @@ async function assistant(page: Page) {
 }
 
 test('one selected theme determines every page; missing pages use the default theme', () => {
-  const packages = [officialPackage, testPackage], configuration = { schema: 2 as const, selected: { id: 'molr.test', version: '1.0.0' } };
+  const packages = [officialPackage, testPackage], configuration = { selected: { id: 'molr.test', version: '1.0.0' } };
   expect(resolveUI(configuration, packages, 'assistants')).toBe(testPackage);
+  expect(resolveUI(defaultConfiguration(), packages, 'assistants')).toBe(officialPackage);
+  expect(resolveUI({ selected: { id: 'missing.theme', version: '1.0.0' } }, packages, 'assistants')).toBe(officialPackage);
   for (const page of ['plans', 'resources', 'workbench', 'settings'] as const) expect(resolveUI(configuration, packages, page)).toBe(officialPackage);
-  expect(readConfiguration(JSON.stringify({ ...configuration, routes: { assistants: { id: 'evil.custom', version: '1.0.0' } }, installed: [{ manifest: { id: 'evil.custom' } }] }), packages)).toEqual(configuration);
-  expect(readConfiguration(JSON.stringify({ schema: 1, routes: { assistants: { id: 'evil.custom' } }, installed: [] }), packages)).toEqual(defaultConfiguration());
-  expect(readConfiguration(JSON.stringify({ schema: 2, selected: { id: 'evil.custom', version: '1.0.0' } }), packages)).toEqual(defaultConfiguration());
-  expect(() => parseManifest({ ...testPackage.manifest, apiVersion: 2 })).toThrow('incompatible_ui_api');
-  expect(requestPermission('GET', '/api/conversations/one/messages?limit=200')).toBe('chat.read');
-  expect(requestPermission('POST', '/api/auth/login-links')).toBeNull();
 });
 
 test('theme settings have one theme selector, persists its choice and exposes no package management', async ({ page }, info) => {

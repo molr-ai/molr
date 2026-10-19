@@ -5,6 +5,7 @@ import (
 	"molr.ai/runtime/internal/agent/tools"
 	"molr.ai/runtime/internal/auth"
 	"molr.ai/runtime/internal/business/resource"
+	"molr.ai/runtime/internal/catalog"
 	"molr.ai/runtime/internal/contextstore"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
@@ -26,12 +27,12 @@ type groupCatalogItem struct {
 
 func groupCatalog(ctx context.Context, p core.Principal, a adapters, s *sandboxRouter, t tools.Catalog) ([]groupCatalogItem, error) {
 	out := []groupCatalogItem{}
-	installed, err := persistence.SelectCatalog[plugins.Installation](ctx, a.store, "plugins.installations", p.OwnerID, persistence.Query{})
+	installed, err := catalog.Select[plugins.Installation](ctx, a.store, "plugins.installations", persistence.Query{})
 	if err != nil {
 		return nil, err
 	}
 	for _, v := range installed {
-		if !v.Deleted && catalogOwned(ctx, a.store, v.OwnerID, p.OwnerID) {
+		if !v.Deleted && v.OwnerID == catalog.Scope {
 			out = append(out, groupCatalogItem{Kind: "plugin", ID: plugins.Key(v.ID), Name: v.Manifest.Name})
 		}
 	}
@@ -42,12 +43,12 @@ func groupCatalog(ctx context.Context, p core.Principal, a adapters, s *sandboxR
 	for _, m := range models {
 		out = append(out, groupCatalogItem{Kind: "model", ID: m.ID, Name: m.Name})
 	}
-	shared, err := persistence.SelectCatalog[resource.Resource](ctx, a.store, "business.resources", p.OwnerID, persistence.Query{Where: []persistence.Filter{persistence.Eq("Kind", resource.Connection), persistence.Eq("State", resource.Available)}})
+	shared, err := catalog.Select[resource.Resource](ctx, a.store, "business.resources", persistence.Query{Where: []persistence.Filter{persistence.Eq("Kind", resource.Connection), persistence.Eq("State", resource.Available)}})
 	if err != nil {
 		return nil, err
 	}
 	for _, r := range shared {
-		if r.Kind == resource.Connection && r.State == resource.Available && catalogOwned(ctx, a.store, r.OwnerID, p.OwnerID) {
+		if r.Kind == resource.Connection && r.State == resource.Available && r.OwnerID == catalog.Scope {
 			out = append(out, groupCatalogItem{Kind: "connection", ID: r.ID, Name: r.Name})
 		}
 	}
@@ -63,12 +64,12 @@ func groupCatalog(ctx context.Context, p core.Principal, a adapters, s *sandboxR
 		limit := info.AuthorizationCeilings
 		out = append(out, groupCatalogItem{Kind: "sandbox", ID: "local", Name: "Local sandbox", GPUs: info.GPUs, Limits: &limit, FullAccessAvailable: info.Capabilities.FullAccess, WorkspaceQuotaSupported: info.WorkspaceProjectQuotas})
 	}
-	connections, err := persistence.SelectCatalog[sandboxConnection](ctx, a.store, "sandbox.connections", p.OwnerID, persistence.Query{})
+	connections, err := catalog.Select[sandboxConnection](ctx, a.store, "sandbox.connections", persistence.Query{})
 	if err != nil {
 		return nil, err
 	}
 	for _, c := range connections {
-		if catalogOwned(ctx, a.store, c.OwnerID, p.OwnerID) && c.View.State != "disconnected" {
+		if c.OwnerID == catalog.Scope && c.View.State != "disconnected" {
 			limit := c.View.Info.AuthorizationCeilings
 			out = append(out, groupCatalogItem{Kind: "sandbox", ID: c.View.ID, Name: c.View.Name, GPUs: c.View.Info.GPUs, Limits: &limit, FullAccessAvailable: c.View.Info.Capabilities.FullAccess, WorkspaceQuotaSupported: c.View.Info.WorkspaceProjectQuotas})
 		}
@@ -125,7 +126,7 @@ func accountQuotas(ctx context.Context, store persistence.Store, m *auth.Manager
 				if ref.ID == "local" {
 					v.Name = "Local sandbox"
 				} else {
-					c, loadErr := persistence.LoadCatalog[sandboxConnection](ctx, tx.Store(), "sandbox.connections", p.OwnerID, ref.ID)
+					c, loadErr := catalog.Load[sandboxConnection](ctx, tx.Store(), "sandbox.connections", ref.ID)
 					if loadErr == nil {
 						v.Name = c.View.Name
 					} else if !persistence.Missing(loadErr) {

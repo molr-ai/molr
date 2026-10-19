@@ -65,7 +65,7 @@ func setup(t *testing.T) *fixture {
 		}
 		return p.RequireOwner()
 	}, IsAdministrator: func(_ context.Context, p core.Principal) (bool, error) { return p.OwnerID == "owner", nil }, CheckConnection: func(ctx context.Context, p core.Principal, id core.ID) error {
-		if p.OwnerID == "blocked" {
+		if p.OwnerID != "owner" {
 			return denied()
 		}
 		return p.Validate()

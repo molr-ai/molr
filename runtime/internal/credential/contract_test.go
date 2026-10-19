@@ -2,6 +2,7 @@ package credential
 
 import (
 	"errors"
+	"molr.ai/runtime/internal/catalog"
 	"strings"
 	"testing"
 
@@ -70,7 +71,7 @@ func TestTDDCredentialMetadataLifecycle(t *testing.T) {
 	c := put(t, f)
 	got, err := f.Manager.Get(ctx, f.Owner, c.ID)
 	testkit.RequireNoError(t, err)
-	if got.ID != c.ID || got.OwnerID != f.Owner.OwnerID || got.Label != "provider key" {
+	if got.ID != c.ID || got.OwnerID != catalog.Scope || got.Label != "provider key" {
 		t.Fatal("metadata mismatch")
 	}
 	p, err := f.Manager.List(ctx, f.Owner, core.PageRequest{})
@@ -155,7 +156,7 @@ func TestTDDBrokerRefreshRechecksBinding(t *testing.T) {
 		t.Fatal("refresh bypassed revocation")
 	}
 }
-func TestTDDRepositoryEncryptionIsolationAndCAS(t *testing.T) {
+func TestTDDRepositoryEncryptionCatalogAndCAS(t *testing.T) {
 	f := fixture(t)
 	ctx := testkit.Context(t)
 	c := put(t, f)
@@ -165,13 +166,13 @@ func TestTDDRepositoryEncryptionIsolationAndCAS(t *testing.T) {
 	if len(enc.Ciphertext) == 0 || strings.Contains(string(enc.Ciphertext), "never-export-this-secret") || enc.KeyID == "" {
 		t.Fatal("credential not encrypted at rest")
 	}
-	foreign, err := r.List(ctx, f.OtherOwner.OwnerID, core.PageRequest{})
+	shared, err := r.List(ctx, f.OtherOwner.OwnerID, core.PageRequest{})
 	testkit.RequireNoError(t, err)
-	if len(foreign.Items) != 0 {
-		t.Fatal("metadata crossed owner boundary")
+	if len(shared.Items) != 1 || shared.Items[0].OwnerID != catalog.Scope {
+		t.Fatal("catalog metadata missing", shared)
 	}
-	if _, err = r.Get(ctx, f.OtherOwner.OwnerID, c.ID); err == nil {
-		t.Fatal("cross-owner encrypted value read")
+	if _, err := f.Manager.Get(ctx, f.OtherOwner, c.ID); err == nil {
+		t.Fatal("unauthenticated caller accessed shared credential")
 	}
 	enc.Metadata.Label = "renamed"
 	testkit.RequireNoError(t, r.Save(ctx, enc, c.Version))
@@ -182,9 +183,6 @@ func TestTDDRepositoryEncryptionIsolationAndCAS(t *testing.T) {
 	testkit.RequireNoError(t, err)
 	if updated.Metadata.Label != "renamed" || updated.Metadata.Version <= c.Version {
 		t.Fatal("CAS update missing")
-	}
-	if err = r.Delete(ctx, f.OtherOwner.OwnerID, c.ID, updated.Metadata.Version); err == nil {
-		t.Fatal("foreign owner deleted secret")
 	}
 	if err = r.Delete(ctx, f.Owner.OwnerID, c.ID, c.Version); err == nil {
 		t.Fatal("stale delete accepted")

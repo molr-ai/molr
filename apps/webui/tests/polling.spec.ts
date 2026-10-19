@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import { createClient } from '../../../packages/sdk/src/client';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
@@ -71,12 +70,19 @@ test('errors back off, events cannot bypass Retry-After, and recovered queries r
   await page.evaluate(() => (window as any).store.clear());
 });
 
-test('read-only POSTs do not emit mutations, writes still do', async () => {
-  const { api, onMutation } = createClient(async <T>() => ({ Output: '', NextCursor: 0 }) as T);
-  const changes: string[] = []; const release = onMutation(path => changes.push(path));
-  await api.read('/api/assistants/a/shell-tasks', { action: 'read' });
-  expect(changes).toEqual([]);
-  await api.post('/api/assistants/a/shell-tasks', { action: 'stop' });
-  expect(changes).toEqual(['/api/assistants/a/shell-tasks']);
-  release();
+test('read-only POSTs do not emit mutations, writes still do', async ({ page }) => {
+  await page.goto('/');
+  await page.route('**/api/auth/me', route => route.fulfill({ json: {}, headers: { 'X-Molr-CSRF-Cookie': 'molr_dev_csrf' } }));
+  await page.route('**/api/assistants/a/shell-tasks', route => route.fulfill({ json: { Output: '', NextCursor: 0 } }));
+  const changes = await page.evaluate(async runtimeClientPath => {
+    const { createClient } = await import('/@fs' + runtimeClientPath);
+    const { api, onMutation } = createClient();
+    const changes: string[] = []; const release = onMutation((path: string) => changes.push(path));
+    await api.read('/api/assistants/a/shell-tasks', { action: 'read' });
+    const afterRead = [...changes];
+    await api.post('/api/assistants/a/shell-tasks', { action: 'stop' });
+    release(); return { afterRead, afterWrite: changes };
+  }, new URL('../../../packages/sdk/src/client.ts', import.meta.url).pathname);
+  expect(changes.afterRead).toEqual([]);
+  expect(changes.afterWrite).toEqual(['/api/assistants/a/shell-tasks']);
 });

@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"molr.ai/runtime/internal/modelcatalog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -25,13 +26,13 @@ func TestBuiltInPricingAppliesToSavedModelsAndReloads(t *testing.T) {
 	r, err := b.Services.Resources.Connect(t.Context(), p, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "provider"}, Kind: resource.Model, Name: "DeepSeek", Provider: "openai-compatible", Binding: binding})
 	need(t, err)
 	a := adapters{store: b.store, pricing: b.Pricing, now: func() time.Time { return time.Date(2026, 9, 24, 5, 0, 0, 0, time.UTC) }}
-	entry := modelEntries(r, binding)[0]
-	model, err := a.provider(t.Context(), p, entry.id)
+	entry := modelcatalog.Entries(r, binding)[0]
+	model, err := a.provider(t.Context(), p, entry.ID)
 	need(t, err)
 	if model.Pricing == nil || model.Pricing.InputMicrosPerMillion != 150000 || model.Model.PricingInfo.Source != "builtin" {
 		t.Fatalf("missing automatic pricing: %+v", model)
 	}
-	estimate, err := a.estimate(t.Context(), entry.id, nil, 1000)
+	estimate, err := a.estimate(t.Context(), entry.ID, nil, 1000)
 	need(t, err)
 	if estimate.Micros != 11031 {
 		t.Fatalf("reservation should use peak rates: %+v", estimate)
@@ -40,19 +41,19 @@ func TestBuiltInPricingAppliesToSavedModelsAndReloads(t *testing.T) {
 	need(t, err)
 	data = bytes.Replace(data, []byte(`"input_micros_per_million": 150000`), []byte(`"input_micros_per_million": 200000`), 1)
 	need(t, b.Pricing.Reload(bytes.NewReader(data)))
-	next, err := a.provider(t.Context(), p, entry.id)
+	next, err := a.provider(t.Context(), p, entry.ID)
 	need(t, err)
 	if next.Pricing.InputMicrosPerMillion != 200000 || model.Pricing.InputMicrosPerMillion != 150000 {
 		t.Fatal("reload changed old snapshot or failed to update persisted model")
 	}
 	binding.Models[0].Pricing = &resource.ModelPricing{Currency: "USD", InputMicrosPerMillion: 10, OutputMicrosPerMillion: 20, CachedInputMicrosPerMillion: 1}
-	manual := a.resolvedModel(r, binding, modelEntries(r, binding)[0])
+	manual := a.modelCatalog().Describe(r, binding, modelcatalog.Entries(r, binding)[0])
 	if manual.Pricing.InputMicrosPerMillion != 10 || manual.Model.PricingInfo.Source != "manual" || manual.Model.PricingInfo.Automatic.InputMicrosPerMillion != 200000 {
 		t.Fatal("manual override lost")
 	}
 	binding.Models[0].Pricing = nil
 	binding.PricingProvider = "custom"
-	if a.resolvedModel(r, binding, modelEntries(r, binding)[0]).Pricing != nil {
+	if a.modelCatalog().Describe(r, binding, modelcatalog.Entries(r, binding)[0]).Pricing != nil {
 		t.Fatal("custom provider received official price")
 	}
 }

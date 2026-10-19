@@ -38,32 +38,33 @@ func TestContextPresentationDropsToolsAndKeepsExplicitEmptyAuthorization(t *test
 	}
 }
 
-func TestRuntimeNotificationRolesPreserveContentAndRecoveryMetadata(t *testing.T) {
+func TestRuntimeNotificationsPreserveContentAndRecoveryMetadata(t *testing.T) {
 	inputs := []model.Input{
 		{Role: model.System, Text: loopInstructions},
-		{Role: model.System, RuntimeContext: true, Text: "Runtime context_changed: current permissions"},
-		{Role: model.System, Text: prompt.Text("expedite", nil)},
-		{Role: model.System, Text: `Runtime recovery: model operation "op" ended with state "unknown".`},
-		{Role: model.System, Text: `Runtime reconciled earlier operation "op"; result is reference data.`},
-		{Role: model.System, Text: `Runtime execution handoff: previous event "old"; current event "new".`},
-		{Role: model.System, Text: `Runtime control event: {"Kind":"user_stopped"}`},
+		{Role: model.User, RuntimeContext: true, Text: "Runtime context_changed: current permissions"},
+		{Role: model.User, Text: prompt.Text("expedite", nil)},
+		{Role: model.User, Text: `Runtime recovery: model operation "op" ended with state "unknown".`},
+		{Role: model.User, Text: `Runtime reconciled earlier operation "op"; result is reference data.`},
+		{Role: model.User, Text: `Runtime execution handoff: previous event "old"; current event "new".`},
+		{Role: model.User, Text: `Runtime control event: {"Kind":"user_stopped"}`},
 		{Role: model.System, Text: "Custom system instructions"},
 		{Role: model.Tool, Text: `{"Text":"retained"}`, ReplyTo: "call", ToolOperationID: "op", ReadMessageIDs: []core.ID{"message"}},
 	}
 	before := contextHash(inputs)
 	want := append([]model.Input(nil), inputs...)
-	for i := 1; i <= 6; i++ {
-		want[i].Role = model.User
-	}
-	out := runtimeNotificationRoles(inputs)
-	if !reflect.DeepEqual(out, want) || contextHash(inputs) != before || !reflect.DeepEqual(runtimeNotificationRoles(out), out) {
-		t.Fatal("role migration changed content/metadata, mutated original evidence, or is not idempotent")
+	out := modelInputs(inputs)
+	if !reflect.DeepEqual(out[:8], want[:8]) || out[8].ToolOperationID != inputs[8].ToolOperationID || !reflect.DeepEqual(out[8].ReadMessageIDs, inputs[8].ReadMessageIDs) || contextHash(inputs) != before || !reflect.DeepEqual(modelInputs(out), out) {
+		t.Fatal("presentation changed content/metadata, mutated original evidence, or is not idempotent")
 	}
 	// Same-event recovery and a new event built from an older checkpoint both
 	// expose notifications as user inputs before model.start is recorded.
 	progress, err := stateProgress(Checkpoint{}, privateContext{Inputs: inputs})
 	if err != nil || !reflect.DeepEqual(progress.Inputs, want) {
 		t.Fatal("resumed context retained system notifications", err)
+	}
+	progress.Inputs[0].Text = "changed in running turn"
+	if inputs[0].Text != loopInstructions {
+		t.Fatal("running context mutated checkpoint inputs")
 	}
 	f, _ := makeLoopFixture(t, nil)
 	raw, _ := json.Marshal(privateContext{Inputs: inputs})
@@ -152,7 +153,7 @@ func TestLegacyProjectionDoesNotRewriteCustomInstructions(t *testing.T) {
 	}
 }
 
-func TestTriggeringEventIsAUserTurnAndLegacyProjectionKeepsEvidence(t *testing.T) {
+func TestTriggeringEventIsAUserTurn(t *testing.T) {
 	f, _ := makeLoopFixture(t, nil)
 	inputs, err := f.Context.Build(t.Context(), f.Turn)
 	if err != nil {
@@ -161,16 +162,6 @@ func TestTriggeringEventIsAUserTurnAndLegacyProjectionKeepsEvidence(t *testing.T
 	current := inputs[len(inputs)-1]
 	if current.Role != model.User || !strings.HasPrefix(current.Text, "Runtime event: ") {
 		t.Fatalf("event is not a query: %+v", current)
-	}
-	legacy := current
-	legacy.Role = model.System
-	original := []model.Input{{Role: model.System, Text: loopInstructions}, legacy}
-	projected := modelInputs(original)
-	if projected[1].Role != model.User || projected[1].Text != current.Text || original[1].Role != model.System {
-		t.Fatal("legacy projection lost event content or mutated checkpoint")
-	}
-	if contextHash(projected) != contextHash(modelInputs(projected)) {
-		t.Fatal("legacy event migration is not idempotent")
 	}
 	custom := []model.Input{{Role: model.System, Text: `Runtime event: {"custom":"not a runtime event"}`}}
 	if contextHash(custom) != contextHash(modelInputs(custom)) {

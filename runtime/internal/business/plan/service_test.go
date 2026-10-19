@@ -168,7 +168,7 @@ func TestDependenciesRejectCyclesAndCrossOwnerAndPausePreventsHandoff(t *testing
 		t.Fatal("resumed handoff missing")
 	}
 }
-func TestOrdinaryTaskCreatesOnePlanAndMigrationIsIdempotent(t *testing.T) {
+func TestOrdinaryTaskCreatesOnePlan(t *testing.T) {
 	s, db := fixture(t)
 	ctx := context.Background()
 	req := task.CreateRequest{Mutation: mutation("new", 0), AssistantID: "assistant", Goal: "Analyze sales"}
@@ -180,18 +180,9 @@ func TestOrdinaryTaskCreatesOnePlanAndMigrationIsIdempotent(t *testing.T) {
 	if err != nil || again.Plan != v.Plan || v.Plan.ID == "" {
 		t.Fatalf("bad link: %+v %v", v, err)
 	}
-	legacy := task.Task{ID: "legacy", OwnerID: "owner", AssistantID: "assistant", Goal: "Old task", Version: 1, State: task.Completed}
-	if err := task.NewRepository(db).Insert(ctx, legacy); err != nil {
-		t.Fatal(err)
-	}
-	for range 2 {
-		if err := s.Migrate(ctx); err != nil {
-			t.Fatal(err)
-		}
-	}
 	todos, _ := persistence.Scan[todo.Todo](ctx, db, "business.todos")
-	if len(todos) != 2 {
-		t.Fatalf("migration duplicated: %d", len(todos))
+	if len(todos) != 1 {
+		t.Fatalf("task creation duplicated plan: %d", len(todos))
 	}
 }
 func TestScheduledOccurrencesSharePlanAndRemainIndependent(t *testing.T) {

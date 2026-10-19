@@ -2,9 +2,12 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"molr.ai/runtime/internal/auth"
+	"molr.ai/runtime/internal/catalog"
 	"net/http/httptest"
 	"path/filepath"
 	"runtime"
@@ -84,7 +87,7 @@ func TestSandboxPresentationPreservesCredentialsAndOwnerBoundary(t *testing.T) {
 	need(t, err)
 	view := out.(sandboxView)
 	load := func() sandboxConnection {
-		c, e := persistence.Load[sandboxConnection](t.Context(), f.b.store, "sandbox.connections", persistence.Key(f.owner.OwnerID, view.ID))
+		c, e := persistence.Load[sandboxConnection](t.Context(), f.b.store, "sandbox.connections", persistence.Key(catalog.Scope, view.ID))
 		need(t, e)
 		return c
 	}
@@ -146,6 +149,15 @@ func TestSandboxPresentationPreservesCredentialsAndOwnerBoundary(t *testing.T) {
 			t.Fatal("assistant reached owner sandbox API", action, err)
 		}
 	}
+	need(t, f.b.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
+		if err := tx.Put(ctx, "auth.bootstrap", "owner", struct{ AccountID core.ID }{f.owner.OwnerID}); err != nil {
+			return err
+		}
+		if err := tx.Put(ctx, "auth.accounts", "other-owner", struct{ Account auth.Account }{auth.Account{ID: "other-owner", GroupID: "members"}}); err != nil {
+			return err
+		}
+		return tx.Put(ctx, "auth.groups", "members", auth.UserGroup{ID: "members"})
+	}))
 	other := f.owner
 	other.OwnerID = "other-owner"
 	other.SubjectID = "other-owner"

@@ -3,6 +3,7 @@ package search
 import (
 	"context"
 	"errors"
+	"molr.ai/runtime/internal/catalog"
 	"path/filepath"
 	"testing"
 	"time"
@@ -118,8 +119,8 @@ func init() {
 		ctx := testkit.Context(t)
 		ids := map[Source]core.ID{Assistants: "assistant", Resources: "resource", Tasks: "task", Memories: "memory", Messages: "message"}
 		fixturePut(t, db, "business.assistants", "owner/assistant", assistant.Assistant{ID: "assistant", OwnerID: "owner", Name: "Budget assistant", State: assistant.Active, ConversationID: "conversation", Version: 1})
-		resourceRow := resource.Resource{ID: "resource", OwnerID: "owner", Kind: resource.Storage, Name: "Budget resource", State: resource.Available, Version: 1}
-		fixturePut(t, db, "business.resources", "owner/resource", resourceRow)
+		resourceRow := resource.Resource{ID: "resource", OwnerID: catalog.Scope, Kind: resource.Storage, Name: "Budget resource", State: resource.Available, Version: 1}
+		fixturePut(t, db, "business.resources", persistence.Key(catalog.Scope, "resource"), resourceRow)
 		fixturePut(t, db, "business.tasks", "owner/task", task.Task{ID: "task", OwnerID: "owner", AssistantID: "assistant", Goal: "Budget review", State: task.Pending, Version: 1})
 		root := t.TempDir()
 		memoryFiles := memory.NewFiles(memory.FileOptions{JournalRoot: filepath.Join(root, "journal"), Roots: func(ctx context.Context, owner core.ID, query memory.RootQuery) ([]memory.Root, error) {
@@ -162,14 +163,14 @@ func init() {
 			}
 			if deleted {
 				if err := db.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-					return tx.Delete(ctx, "business.resources", "owner/resource")
+					return tx.Delete(ctx, "business.resources", persistence.Key(catalog.Scope, "resource"))
 				}); err != nil {
 					t.Fatal(err)
 				}
 			} else {
 				row := resourceRow
 				row.Version = version
-				fixturePut(t, db, "business.resources", "owner/resource", row)
+				fixturePut(t, db, "business.resources", persistence.Key(catalog.Scope, "resource"), row)
 			}
 		}, DrainIndex: func(ctx context.Context) error {
 			jobs, err := persistence.Scan[IndexStatus](ctx, db, statusBucket)

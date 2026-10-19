@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"molr.ai/runtime/internal/auth"
 	"molr.ai/runtime/internal/business/resource"
+	"molr.ai/runtime/internal/catalog"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/persistence/sqlitestore"
@@ -97,7 +98,7 @@ func TestModelResolutionReadsOnlySelectedProvider(t *testing.T) {
 	reads.cancelAfterResource = nil
 	// An unrelated unreadable binding cannot affect this model's resolution.
 	err = db.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
-		return tx.Delete(ctx, "business.bindings", "owner/provider-0000")
+		return tx.Delete(ctx, "business.bindings", persistence.Key(catalog.Scope, "provider-0000"))
 	})
 	if err != nil {
 		t.Fatal(err)

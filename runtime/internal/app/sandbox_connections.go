@@ -6,6 +6,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/json"
+	"molr.ai/runtime/internal/catalog"
 	"molr.ai/runtime/internal/textfiles"
 	"net/http"
 	"net/netip"
@@ -66,11 +67,11 @@ func newSandboxRouter(a adapters, shell *shellService, key []byte) (*sandboxRout
 	return &sandboxRouter{adapters: a, shell: shell, cipher: box}, nil
 }
 func (s *sandboxRouter) connection(ctx context.Context, p core.Principal, id core.ID) (sandboxConnection, error) {
-	c, err := persistence.LoadCatalog[sandboxConnection](ctx, s.adapters.store, "sandbox.connections", p.OwnerID, id)
+	c, err := catalog.Load[sandboxConnection](ctx, s.adapters.store, "sandbox.connections", id)
 	if err != nil {
 		return c, err
 	}
-	if !catalogOwned(ctx, s.adapters.store, c.OwnerID, p.OwnerID) || c.View.ID != id || c.View.State == "disconnected" {
+	if c.OwnerID != catalog.Scope || c.View.ID != id || c.View.State == "disconnected" {
 		return c, denied()
 	}
 	return c, nil
@@ -135,10 +136,7 @@ func (s *sandboxRouter) localInfo(ctx context.Context) sm.Info {
 	return info
 }
 func (s *sandboxRouter) admin(ctx context.Context, p core.Principal, action string, raw json.RawMessage) (any, error) {
-	catalogOwner, err := persistence.CatalogOwner(ctx, s.adapters.store, p.OwnerID)
-	if err != nil {
-		return nil, err
-	}
+	catalogOwner := catalog.Scope
 	if err := p.RequireOwner(); err != nil {
 		return nil, err
 	}
@@ -479,12 +477,12 @@ func (s *sandboxRouter) invalidate(ctx context.Context, p core.Principal) error 
 	if err != nil {
 		return err
 	}
-	rows, err := persistence.SelectCatalog[sandboxConnection](ctx, s.adapters.store, "sandbox.connections", p.OwnerID, persistence.Query{})
+	rows, err := catalog.Select[sandboxConnection](ctx, s.adapters.store, "sandbox.connections", persistence.Query{})
 	if err != nil {
 		return err
 	}
 	for _, c := range rows {
-		if !catalogOwned(ctx, s.adapters.store, c.OwnerID, p.OwnerID) || c.View.State == "disconnected" {
+		if c.OwnerID != catalog.Scope || c.View.State == "disconnected" {
 			continue
 		}
 		client, err := s.client(ctx, p, c)
@@ -495,29 +493,6 @@ func (s *sandboxRouter) invalidate(ctx context.Context, p core.Principal) error 
 		}
 	}
 	return nil
-}
-
-// Legacy resources remain addressable by their original IDs and grants.
-func (s *sandboxRouter) migrate(ctx context.Context) error {
-	return s.adapters.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		rows, err := tx.Query(ctx, "business.resources", persistence.Query{Any: [][]persistence.Filter{{persistence.Eq("SandboxID", "")}, {persistence.Eq("SandboxID", nil)}}})
-		if err != nil {
-			return err
-		}
-		for _, row := range rows {
-			r, err := persistence.Decode[resource.Resource](row)
-			if err != nil {
-				return err
-			}
-			if r.SandboxID == "" && (r.Kind == resource.Storage || r.Kind == resource.Compute || r.Kind == resource.Network) {
-				r.SandboxID = "local"
-				if err = tx.Put(ctx, "business.resources", row.Key, r); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	})
 }
 
 func (s *sandboxRouter) audit(ctx context.Context, p core.Principal, action string, id core.ID) error {

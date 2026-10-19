@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"math/big"
+	"molr.ai/runtime/internal/modelcatalog"
 	"molr.ai/runtime/internal/textfiles"
 	"net/http"
 	"net/netip"
@@ -266,9 +267,9 @@ func (a adapters) estimate(ctx context.Context, id core.ID, inputs []model.Input
 		if err != nil {
 			return core.Money{}, err
 		}
-		for _, entry := range modelEntries(r, b) {
-			if entry.id == id {
-				copy := a.resolvedModel(r, b, entry)
+		for _, entry := range modelcatalog.Entries(r, b) {
+			if entry.ID == id {
+				copy := a.modelCatalog().Describe(r, b, entry)
 				selected = &copy
 				break
 			}

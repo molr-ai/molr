@@ -13,6 +13,7 @@ import (
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/event"
 	"molr.ai/runtime/internal/im/conversation"
+	"molr.ai/runtime/internal/modelcatalog"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/policy"
 	"molr.ai/runtime/internal/storage/files"
@@ -48,7 +49,7 @@ func newMultiUserFixture(t *testing.T, configure ...func(*config.Config)) multiU
 	need(t, err)
 	binding, err := resource.NewRepository(b.store).Binding(ctx, admin.OwnerID, r.ID)
 	need(t, err)
-	id := modelEntries(r, binding)[0].id
+	id := modelcatalog.Entries(r, binding)[0].ID
 	g, err := m.SaveGroup(ctx, admin, auth.SaveGroupRequest{Mutation: core.Mutation{IdempotencyKey: "group"}, Group: auth.UserGroup{Name: "Family", Resources: []auth.ResourceReference{{Kind: "model", ID: id, Quota: auth.ResourceQuota{Budget: &core.Money{Currency: "USD", Micros: 1000000}, Period: "month", Timezone: "UTC"}}, {Kind: "tool", ID: "conversation_read", Quota: auth.ResourceQuota{Calls: 2, Period: "month", Timezone: "UTC"}}, {Kind: "tool", ID: "conversation_publish"}}}})
 	need(t, err)
 	create := func(name string) (core.Principal, auth.SessionIssued) {

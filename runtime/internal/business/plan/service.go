@@ -422,34 +422,6 @@ func (s *Coordinator) Execute(ctx context.Context, p core.Principal, req Execute
 	})
 }
 
-// Migrate wraps legacy standalone tasks once, preserving execution IDs and history.
-func (s *Coordinator) Migrate(ctx context.Context) error {
-	return s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		rows, err := persistence.Select[task.Task](ctx, s.store, "business.tasks", persistence.Query{Any: [][]persistence.Filter{{persistence.Eq("Plan.ID", "")}, {persistence.Eq("Plan.ID", nil)}}})
-		if err != nil {
-			return err
-		}
-		for _, v := range rows {
-			if v.Plan.ID != "" {
-				continue
-			}
-			ref := core.Object{Kind: "todo", ID: id()}
-			item := todo.Todo{ID: ref.ID, OwnerID: v.OwnerID, AssistantID: v.AssistantID, Title: v.Goal, Notes: v.Goal, Completed: v.State == task.Completed, Version: 1}
-			if err := todo.NewRepository(s.store).Insert(ctx, item); err != nil {
-				return err
-			}
-			v.Plan = ref
-			v.PlanTitle = v.Goal
-			v.PlanInstructions = v.Goal
-			v.PlanVersion = 1
-			if err := tx.Put(ctx, "business.tasks", persistence.Key(v.OwnerID, v.ID), v); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-}
-
 // startTrusted only runs from the transactional scheduler, after checking the stored plan and assignee.
 func (s *Coordinator) startTrusted(ctx context.Context, owner core.ID, p Plan, at *time.Time, emit bool) (task.Task, error) {
 	a, err := assistant.NewRepository(s.store).Get(ctx, owner, p.AssistantID)

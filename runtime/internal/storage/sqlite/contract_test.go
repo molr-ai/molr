@@ -2,9 +2,7 @@ package sqlite_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"reflect"
 	"testing"
 	"time"
 
@@ -13,6 +11,7 @@ import (
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/im/conversation"
 	"molr.ai/runtime/internal/im/realtime"
+	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/storage/sqlite"
 	"molr.ai/runtime/tests/testkit"
 )
@@ -41,36 +40,17 @@ func initialized(t *testing.T) (contractFixture, context.Context) {
 	f := fixture(t)
 	ctx := testkit.Context(t)
 	testkit.RequireNoError(t, f.DB.Migrate(ctx))
-	testkit.RequireNoError(t, f.DB.Within(ctx, func(r sqlite.Repositories) error {
-		return r.Auth().InsertAccount(ctx, auth.StoredAccount{Account: auth.Account{ID: "owner", Username: "owner", CreatedAt: time.Now()}, PasswordHash: core.NewSecret("opaque-password-hash"), Version: 1})
+	testkit.RequireNoError(t, f.DB.Store().Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		return auth.NewRepository(tx.Store()).InsertAccount(ctx, auth.StoredAccount{Account: auth.Account{ID: "owner", Username: "owner", CreatedAt: time.Now()}, PasswordHash: core.NewSecret("opaque-password-hash"), Version: 1})
 	}))
 	return f, ctx
 }
-func receipt(key string) sqlite.Receipt {
-	return sqlite.Receipt{OwnerID: "owner", Action: "test.write", Key: key, InputDigest: "digest-one", Result: json.RawMessage(`{"id":"result"}`), CreatedAt: time.Now()}
+func record(key string) todo.Todo {
+	return todo.Todo{ID: core.ID(key), OwnerID: "owner", Title: "Stored test data", Version: 1}
 }
-func stored(t *testing.T, db sqlite.Database, ctx context.Context, key string) (sqlite.Receipt, error) {
+func stored(t *testing.T, db sqlite.Database, ctx context.Context, key string) (todo.Todo, error) {
 	t.Helper()
-	var got sqlite.Receipt
-	err := db.Within(ctx, func(r sqlite.Repositories) error {
-		var e error
-		got, e = r.Idempotency().Get(ctx, "owner", "test.write", key)
-		return e
-	})
-	return got, err
-}
-func nonNil(t *testing.T, name string, value any) {
-	t.Helper()
-	if value == nil {
-		t.Fatalf("%s repository is nil", name)
-	}
-	v := reflect.ValueOf(value)
-	switch v.Kind() {
-	case reflect.Pointer, reflect.Interface, reflect.Map, reflect.Slice, reflect.Func, reflect.Chan:
-		if v.IsNil() {
-			t.Fatalf("%s repository is typed nil", name)
-		}
-	}
+	return todo.NewRepository(db.Store()).Get(ctx, "owner", core.ID(key))
 }
 
 func TestTDDSQLiteMigrateSchemaCheckAndClose(t *testing.T) {
@@ -91,7 +71,7 @@ func TestTDDSQLiteMigrateSchemaCheckAndClose(t *testing.T) {
 	testkit.RequireNoError(t, f.DB.Check(ctx))
 	testkit.RequireNoError(t, f.DB.Close())
 	called := false
-	err = f.DB.Within(ctx, func(sqlite.Repositories) error { called = true; return nil })
+	err = f.DB.Store().Write(ctx, func(context.Context, persistence.Tx) error { called = true; return nil })
 	if err == nil || called {
 		t.Fatal("closed database accepted new transaction")
 	}
@@ -117,31 +97,18 @@ func TestTDDSQLiteMigrationFailureDoesNotAdvanceVersion(t *testing.T) {
 	testkit.RequireCode(t, f.DB.Migrate(ctx), core.FailedPrecondition)
 }
 
-func TestTDDSQLiteRepositoriesAreAvailableInTransaction(t *testing.T) {
-	f, ctx := initialized(t)
-	testkit.RequireNoError(t, f.DB.Within(ctx, func(r sqlite.Repositories) error {
-		for name, repo := range map[string]any{
-			"Auth": r.Auth(), "Audit": r.Audit(), "Assistants": r.Assistants(), "Conversations": r.Conversations(), "IMOutbox": r.IMOutbox(),
-			"Tasks": r.Tasks(), "Todos": r.Todos(), "Schedules": r.Schedules(), "Resources": r.Resources(), "Settings": r.Settings(),
-			"Credentials": r.Credentials(), "Policy": r.Policy(), "Operations": r.Operations(), "ModelReceipts": r.ModelReceipts(), "Checkpoints": r.Checkpoints(),
-			"AssistantEvents": r.AssistantEvents(), "Realtime": r.Realtime(), "Queue": r.Queue(), "Files": r.Files(), "Idempotency": r.Idempotency(),
-		} {
-			nonNil(t, name, repo)
-		}
-		return nil
-	}))
-}
-
 func TestTDDSQLiteCommitPersistsAcrossReopen(t *testing.T) {
 	f, ctx := initialized(t)
-	want := receipt("persist")
-	testkit.RequireNoError(t, f.DB.Within(ctx, func(r sqlite.Repositories) error { return r.Idempotency().Insert(ctx, want) }))
+	want := record("persist")
+	testkit.RequireNoError(t, f.DB.Store().Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		return todo.NewRepository(tx.Store()).Insert(ctx, want)
+	}))
 	testkit.RequireNoError(t, f.DB.Close())
 	db := f.Reopen()
 	t.Cleanup(func() { _ = db.Close() })
-	got, err := stored(t, db, ctx, want.Key)
+	got, err := stored(t, db, ctx, string(want.ID))
 	testkit.RequireNoError(t, err)
-	if got.OwnerID != want.OwnerID || got.InputDigest != want.InputDigest || string(got.Result) != string(want.Result) {
+	if got.OwnerID != want.OwnerID || got.Title != want.Title {
 		t.Fatal("commit did not persist", got)
 	}
 }
@@ -154,11 +121,11 @@ func TestTDDSQLiteCallbackAndCommitErrorsRollBack(t *testing.T) {
 			if phase == "commit" {
 				f.FailNextCommit(injected)
 			}
-			err := f.DB.Within(ctx, func(r sqlite.Repositories) error {
-				if err := r.Idempotency().Insert(ctx, receipt("rollback")); err != nil {
+			err := f.DB.Store().Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+				if err := todo.NewRepository(tx.Store()).Insert(ctx, record("rollback")); err != nil {
 					return err
 				}
-				if err := r.Todos().Insert(ctx, todo.Todo{ID: "rollback-todo", OwnerID: "owner", Title: "must roll back", Version: 1}); err != nil {
+				if err := todo.NewRepository(tx.Store()).Insert(ctx, todo.Todo{ID: "rollback-todo", OwnerID: "owner", Title: "must roll back", Version: 1}); err != nil {
 					return err
 				}
 				if phase == "callback" {
@@ -174,8 +141,8 @@ func TestTDDSQLiteCallbackAndCommitErrorsRollBack(t *testing.T) {
 			}
 			_, err = stored(t, f.DB, ctx, "rollback")
 			testkit.RequireCode(t, err, core.NotFound)
-			testkit.RequireNoError(t, f.DB.Within(ctx, func(r sqlite.Repositories) error {
-				_, err := r.Todos().Get(ctx, "owner", "rollback-todo")
+			testkit.RequireNoError(t, f.DB.Store().Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+				_, err := todo.NewRepository(tx.Store()).Get(ctx, "owner", "rollback-todo")
 				testkit.RequireCode(t, err, core.NotFound)
 				return nil
 			}))
@@ -188,15 +155,15 @@ func TestTDDSQLiteCanceledTransactionsDoNotCommit(t *testing.T) {
 	canceled, cancel := context.WithCancel(ctx)
 	cancel()
 	called := false
-	err := f.DB.Within(canceled, func(sqlite.Repositories) error { called = true; return nil })
+	err := f.DB.Store().Write(canceled, func(context.Context, persistence.Tx) error { called = true; return nil })
 	testkit.RequireCode(t, err, core.Canceled)
 	if called {
 		t.Fatal("callback ran after cancellation")
 	}
 	during, cancelDuring := context.WithCancel(ctx)
 	defer cancelDuring()
-	err = f.DB.Within(during, func(r sqlite.Repositories) error {
-		if err := r.Idempotency().Insert(during, receipt("cancel-during")); err != nil {
+	err = f.DB.Store().Write(during, func(ctx context.Context, tx persistence.Tx) error {
+		if err := todo.NewRepository(tx.Store()).Insert(ctx, record("cancel-during")); err != nil {
 			return err
 		}
 		cancelDuring()
@@ -209,76 +176,13 @@ func TestTDDSQLiteCanceledTransactionsDoNotCommit(t *testing.T) {
 
 func TestTDDSQLiteExpiredTransactionHandleCannotWrite(t *testing.T) {
 	f, ctx := initialized(t)
-	var escaped sqlite.Idempotency
-	testkit.RequireNoError(t, f.DB.Within(ctx, func(r sqlite.Repositories) error { escaped = r.Idempotency(); return nil }))
-	if err := escaped.Insert(ctx, receipt("escaped")); err == nil {
+	var escaped persistence.Tx
+	testkit.RequireNoError(t, f.DB.Store().Write(ctx, func(ctx context.Context, tx persistence.Tx) error { escaped = tx; return nil }))
+	if err := escaped.Put(ctx, "business.todos", "owner/escaped", record("escaped")); err == nil {
 		t.Fatal("repository escaped transaction lifetime")
 	}
 	_, err := stored(t, f.DB, ctx, "escaped")
 	testkit.RequireCode(t, err, core.NotFound)
-}
-
-func TestTDDSQLiteIdempotencyIsScopedAndPayloadBound(t *testing.T) {
-	f, ctx := initialized(t)
-	original := receipt("key")
-	testkit.RequireNoError(t, f.DB.Within(ctx, func(r sqlite.Repositories) error { return r.Idempotency().Insert(ctx, original) }))
-	testkit.RequireNoError(t, f.DB.Within(ctx, func(r sqlite.Repositories) error {
-		got, err := r.Idempotency().Get(ctx, "owner", "test.write", "key")
-		if err != nil {
-			return err
-		}
-		if got.InputDigest != original.InputDigest {
-			t.Fatal("payload digest lost")
-		}
-		for _, parts := range [][2]string{{"other", "test.write"}, {"owner", "other.action"}} {
-			_, err := r.Idempotency().Get(ctx, core.ID(parts[0]), parts[1], "key")
-			testkit.RequireCode(t, err, core.NotFound)
-		}
-		return nil
-	}))
-	changed := original
-	changed.InputDigest = "different"
-	err := f.DB.Within(ctx, func(r sqlite.Repositories) error { return r.Idempotency().Insert(ctx, changed) })
-	testkit.RequireCode(t, err, core.Conflict)
-	got, err := stored(t, f.DB, ctx, "key")
-	testkit.RequireNoError(t, err)
-	if got.InputDigest != original.InputDigest {
-		t.Fatal("conflict overwrote original receipt")
-	}
-}
-
-func TestTDDSQLiteConcurrentIdempotencyKeyHasOneWinner(t *testing.T) {
-	f, ctx := initialized(t)
-	start := make(chan struct{})
-	results := make(chan error, 2)
-	for _, digest := range []string{"first", "second"} {
-		go func(d string) {
-			<-start
-			r := receipt("concurrent")
-			r.InputDigest = d
-			results <- f.DB.Within(ctx, func(tx sqlite.Repositories) error { return tx.Idempotency().Insert(ctx, r) })
-		}(digest)
-	}
-	close(start)
-	success, conflict := 0, 0
-	for range 2 {
-		var err error
-		select {
-		case err = <-results:
-		case <-ctx.Done():
-			t.Fatal("concurrent transactions did not finish before watchdog")
-		}
-		if err == nil {
-			success++
-		} else if core.CodeOf(err) == core.Conflict {
-			conflict++
-		} else {
-			t.Fatal(err)
-		}
-	}
-	if success != 1 || conflict != 1 {
-		t.Fatalf("success=%d conflict=%d", success, conflict)
-	}
 }
 
 func TestTDDSQLiteMessageOutboxAndVisibleEventCommitTogether(t *testing.T) {
@@ -286,22 +190,22 @@ func TestTDDSQLiteMessageOutboxAndVisibleEventCommitTogether(t *testing.T) {
 		t.Run(map[bool]string{false: "rollback", true: "commit"}[commit], func(t *testing.T) {
 			f, ctx := initialized(t)
 			now := time.Now()
-			testkit.RequireNoError(t, f.DB.Within(ctx, func(tx sqlite.Repositories) error {
-				return tx.Conversations().Insert(ctx, conversation.Conversation{ID: "chat", OwnerID: "owner", PeerID: "assistant", Version: 1})
+			testkit.RequireNoError(t, f.DB.Store().Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+				return conversation.NewRepository(tx.Store()).Insert(ctx, conversation.Conversation{ID: "chat", OwnerID: "owner", PeerID: "assistant", Version: 1})
 			}))
 			abort := errors.New("abort")
-			err := f.DB.Within(ctx, func(tx sqlite.Repositories) error {
-				msg, err := tx.Conversations().Append(ctx, "owner", conversation.Message{ID: "message", ConversationID: "chat", Sender: conversation.User, SenderID: "owner", Content: conversation.Content{Kind: conversation.Text, Text: "hello"}, CreatedAt: now})
+			err := f.DB.Store().Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+				msg, err := conversation.NewRepository(tx.Store()).Append(ctx, "owner", conversation.Message{ID: "message", ConversationID: "chat", Sender: conversation.User, SenderID: "owner", Content: conversation.Content{Kind: conversation.Text, Text: "hello"}, CreatedAt: now})
 				if err != nil {
 					return err
 				}
-				if err := tx.IMOutbox().Append(ctx, conversation.MessageCreated{ID: "im-event", OwnerID: "owner", ConversationID: "chat", MessageID: msg.ID, Sender: conversation.User, SenderID: "owner", At: now}); err != nil {
+				if err := conversation.NewOutbox(tx.Store()).Append(ctx, conversation.MessageCreated{ID: "im-event", OwnerID: "owner", ConversationID: "chat", MessageID: msg.ID, Sender: conversation.User, SenderID: "owner", At: now}); err != nil {
 					return err
 				}
-				if err := tx.Realtime().Append(ctx, realtime.Visible{ID: "visible", OwnerID: "owner", Topic: "message.created", Object: core.Object{Kind: "message", ID: msg.ID}, CreatedAt: now}); err != nil {
+				if err := realtime.NewStore(tx.Store()).Append(ctx, realtime.Visible{ID: "visible", OwnerID: "owner", Topic: "message.created", Object: core.Object{Kind: "message", ID: msg.ID}, CreatedAt: now}); err != nil {
 					return err
 				}
-				if err := tx.Idempotency().Insert(ctx, receipt("message-send")); err != nil {
+				if err := todo.NewRepository(tx.Store()).Insert(ctx, record("message-send")); err != nil {
 					return err
 				}
 				if !commit {
@@ -314,16 +218,16 @@ func TestTDDSQLiteMessageOutboxAndVisibleEventCommitTogether(t *testing.T) {
 			} else if !errors.Is(err, abort) {
 				t.Fatal(err)
 			}
-			testkit.RequireNoError(t, f.DB.Within(ctx, func(tx sqlite.Repositories) error {
-				messages, err := tx.Conversations().Messages(ctx, "owner", conversation.MessageQuery{ConversationID: "chat"})
+			testkit.RequireNoError(t, f.DB.Store().Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+				messages, err := conversation.NewRepository(tx.Store()).Messages(ctx, "owner", conversation.MessageQuery{ConversationID: "chat"})
 				if err != nil {
 					return err
 				}
-				outbox, err := tx.IMOutbox().Pending(ctx, 10)
+				outbox, err := conversation.NewOutbox(tx.Store()).Pending(ctx, 10)
 				if err != nil {
 					return err
 				}
-				visible, err := tx.Realtime().Replay(ctx, "owner", realtime.Query{})
+				visible, err := realtime.NewStore(tx.Store()).Replay(ctx, "owner", realtime.Query{})
 				if err != nil {
 					return err
 				}
@@ -343,14 +247,14 @@ func TestTDDSQLiteMessageOutboxAndVisibleEventCommitTogether(t *testing.T) {
 func TestTDDSQLiteBackupRestoresDataOfflineAndRevokesAuthentication(t *testing.T) {
 	f, ctx := initialized(t)
 	now := time.Now()
-	testkit.RequireNoError(t, f.DB.Within(ctx, func(tx sqlite.Repositories) error {
-		if err := tx.Idempotency().Insert(ctx, receipt("before-backup")); err != nil {
+	testkit.RequireNoError(t, f.DB.Store().Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		if err := todo.NewRepository(tx.Store()).Insert(ctx, record("before-backup")); err != nil {
 			return err
 		}
-		if err := tx.Auth().SaveSession(ctx, auth.StoredSession{Session: auth.Session{ID: "session", AccountID: "owner", CreatedAt: now, LastSeenAt: now, ExpiresAt: now.Add(time.Hour)}, TokenDigest: "session-digest", CSRFDigest: "csrf-digest"}); err != nil {
+		if err := auth.NewRepository(tx.Store()).SaveSession(ctx, auth.StoredSession{Session: auth.Session{ID: "session", AccountID: "owner", CreatedAt: now, LastSeenAt: now, ExpiresAt: now.Add(time.Hour)}, TokenDigest: "session-digest", CSRFDigest: "csrf-digest"}); err != nil {
 			return err
 		}
-		return tx.Auth().SaveToken(ctx, auth.StoredToken{Token: auth.Token{ID: "token", Name: "cli", CreatedAt: now, ExpiresAt: now.Add(time.Hour)}, AccountID: "owner", Digest: "token-digest"})
+		return auth.NewRepository(tx.Store()).SaveToken(ctx, auth.StoredToken{Token: auth.Token{ID: "token", Name: "cli", CreatedAt: now, ExpiresAt: now.Add(time.Hour)}, AccountID: "owner", Digest: "token-digest"})
 	}))
 	backup, err := f.DB.Backup(ctx)
 	testkit.RequireNoError(t, err)
@@ -360,7 +264,9 @@ func TestTDDSQLiteBackupRestoresDataOfflineAndRevokesAuthentication(t *testing.T
 		t.Fatal("invalid snapshot metadata", backup)
 	}
 	testkit.RequireCode(t, f.Restorer.Restore(ctx, backup), core.FailedPrecondition)
-	testkit.RequireNoError(t, f.DB.Within(ctx, func(tx sqlite.Repositories) error { return tx.Idempotency().Insert(ctx, receipt("after-backup")) }))
+	testkit.RequireNoError(t, f.DB.Store().Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		return todo.NewRepository(tx.Store()).Insert(ctx, record("after-backup"))
+	}))
 	testkit.RequireNoError(t, f.DB.Close())
 	testkit.RequireNoError(t, f.Restorer.Restore(ctx, backup))
 	db := f.Reopen()
@@ -369,15 +275,15 @@ func TestTDDSQLiteBackupRestoresDataOfflineAndRevokesAuthentication(t *testing.T
 	testkit.RequireNoError(t, err)
 	_, err = stored(t, db, ctx, "after-backup")
 	testkit.RequireCode(t, err, core.NotFound)
-	testkit.RequireNoError(t, db.Within(ctx, func(tx sqlite.Repositories) error {
-		session, err := tx.Auth().FindSession(ctx, "session-digest")
+	testkit.RequireNoError(t, db.Store().Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		session, err := auth.NewRepository(tx.Store()).FindSession(ctx, "session-digest")
 		if err == nil && session.RevokedAt == nil {
 			t.Fatal("backup resurrected active session")
 		}
 		if err != nil && core.CodeOf(err) != core.NotFound {
 			return err
 		}
-		token, err := tx.Auth().FindToken(ctx, "token-digest")
+		token, err := auth.NewRepository(tx.Store()).FindToken(ctx, "token-digest")
 		if err == nil && token.RevokedAt == nil {
 			t.Fatal("backup resurrected active access token")
 		}

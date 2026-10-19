@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"molr.ai/runtime/internal/catalog"
 	"sync"
 	"testing"
 
@@ -144,12 +145,12 @@ func TestInstallationCapacityIncludesDisabledAndChecksRestore(t *testing.T) {
 	}
 }
 
-func TestInstallationCapacityConcurrentLastSlotAndOwnerIsolation(t *testing.T) {
+func TestInstallationCapacityConcurrentLastSlotAndPrivateNamespaceIsolation(t *testing.T) {
 	s, p, pkg := fixture(t)
 	must(t, s.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
-		for _, owner := range []core.ID{p.OwnerID, "other"} {
+		for _, owner := range []core.ID{catalog.Scope, "other"} {
 			n := 32
-			if owner == p.OwnerID {
+			if owner == catalog.Scope {
 				n = 31
 			}
 			for i := 0; i < n; i++ {

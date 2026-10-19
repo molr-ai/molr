@@ -58,7 +58,7 @@ func fetchAnthropicModels(ctx context.Context, client *http.Client, endpoint str
 				return nil, core.NewError(core.Unavailable, "invalid model identifier")
 			}
 			seen[item.ID] = true
-			m := resource.ModelConfig{Name: item.ID, ContextVersion: 1, SupportsTools: true, SupportsImages: true, Discovered: true}
+			m := resource.ModelConfig{Name: item.ID, SupportsTools: true, SupportsImages: true, Discovered: true}
 			if item.MaxInput >= 256 && item.MaxInput <= 2_000_000 {
 				m.ProviderContextLimit = item.MaxInput
 			}

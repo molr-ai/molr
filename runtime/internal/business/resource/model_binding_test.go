@@ -43,8 +43,8 @@ func TestModelBindingIndexTracksLifecycleAndRollback(t *testing.T) {
 		}
 	}
 	check(t.Context(), "manual", "https://one.example.invalid/v1", false)
-	if _, err = repo.BindingForModel(t.Context(), otherOwner().OwnerID, ModelID(r.ID, "manual")); core.CodeOf(err) != core.NotFound {
-		t.Fatal("binding crossed owner", err)
+	if shared, err := repo.BindingForModel(t.Context(), otherOwner().OwnerID, ModelID(r.ID, "manual")); err != nil || shared.ResourceID != r.ID {
+		t.Fatal("shared model binding missing", shared, err)
 	}
 	r, err = service.ConfigureModel(t.Context(), owner(), ConfigureModelRequest{ID: r.ID, Mutation: mutation("add-model", r.Version), Model: ModelConfig{Name: "added", ContextLimit: 8192}})
 	if err != nil {
@@ -102,15 +102,6 @@ func TestModelBindingIndexSurvivesReopenAndSharedCatalog(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { db.Close() }()
-	err = db.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
-		if err := tx.Put(ctx, "system.catalog", "enabled", true); err != nil {
-			return err
-		}
-		return tx.Put(ctx, "auth.bootstrap", "owner", struct{ AccountID core.ID }{"catalog"})
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
 	r := Resource{ID: "provider", OwnerID: "member", Kind: Model, Provider: "openai-compatible", State: Available, Version: 1}
 	b := Binding{ResourceID: r.ID, Endpoint: "https://example.invalid", Models: []ModelConfig{{Name: "fixture"}}}
 	if err := NewRepository(db).Insert(t.Context(), r, b); err != nil {

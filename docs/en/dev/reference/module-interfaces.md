@@ -79,7 +79,7 @@ Each business package provides `Service` and required `Repository`; task additio
 | `policy` | `Authorizer`, `Grants`, `Budget`, `Repository`: Object authorization, assistant permissions, atomic budget reservation, and accounting |
 | `search` | `Service`, `Maintenance`, `Indexer`: Cross-source retrieval with permission filtering and versioned index updates |
 | `quota` | Model budget, network ledger, call statistics, periodic calculation; permissions and kernel limits are enforced by original modules |
-| `storage/sqlite` | `Database`, `Transactions`, `Repositories`, `Idempotency`, `Restorer`: Transactions, repository composition, idempotency, and offline recovery |
+| `storage/sqlite` | `Database`, `Restorer`: database lifecycle, snapshots and offline recovery; `Database.Store()` exposes the transaction store |
 | `storage/files` | `Service`, `Objects`, `Repository`: Authorized file access, private object storage, and metadata |
 | `platform` | `Runner`, `Process`, `Locker`, `NetworkGuard`: Local controlled execution, instance locks, and outbound boundaries |
 | `platform/sandbox` | Fixed Linux Runner: Bubblewrap, seccomp, cgroup, direct authorized mounts, execution-specific egress; extends `platform.Command` with trusted mount/network/limit fields, fail-closed on other platforms |
@@ -89,7 +89,7 @@ HTTP composition only holds necessary capabilities such as `conversation.Client`
 
 ## 6. Atomicity and Recovery
 
-`Transactions.Within` passes repositories within the same transaction to a callback. Callback failure, cancellation, or commit failure all return errors; repositories must not escape to asynchronous tasks, and cannot wait for models and external tools within the transaction.
+`persistence.Store.Read/Write` supplies a transaction context and `Tx`. Domain repositories receive that store and join the same transaction. Callback errors, cancellation and commit failures roll back changes. Transactions must not escape the callback or wait for external effects.
 
 Combinations that must be atomically committed include:
 

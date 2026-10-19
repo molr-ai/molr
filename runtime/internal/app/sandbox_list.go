@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"molr.ai/runtime/internal/catalog"
 	"sync"
 	"time"
 
@@ -13,13 +14,13 @@ import (
 const sandboxListConcurrency = 4
 
 func (s *sandboxRouter) listSandboxes(ctx context.Context, p core.Principal) ([]sandboxView, error) {
-	rows, err := persistence.SelectCatalog[sandboxConnection](ctx, s.adapters.store, "sandbox.connections", p.OwnerID, persistence.Query{})
+	rows, err := catalog.Select[sandboxConnection](ctx, s.adapters.store, "sandbox.connections", persistence.Query{})
 	if err != nil {
 		return nil, err
 	}
 	connections := []sandboxConnection{}
 	for _, c := range rows {
-		if catalogOwned(ctx, s.adapters.store, c.OwnerID, p.OwnerID) {
+		if c.OwnerID == catalog.Scope {
 			connections = append(connections, c)
 		}
 	}

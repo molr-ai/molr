@@ -9,11 +9,10 @@ import (
 	"molr.ai/runtime/internal/business/resource"
 	"molr.ai/runtime/internal/business/task"
 	"molr.ai/runtime/internal/core"
-	"molr.ai/runtime/internal/im/conversation"
+	"molr.ai/runtime/internal/modelcatalog"
+	"molr.ai/runtime/internal/objectaccess"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/policy"
-	"molr.ai/runtime/internal/storage/files"
-	"strings"
 )
 
 type access struct{ store persistence.Store }
@@ -43,8 +42,8 @@ func (a access) grantScope(ctx context.Context, p core.Principal, id core.ID, sc
 	if err != nil {
 		return err
 	}
-	for _, entry := range modelEntries(r, b) {
-		if entry.id == scope.ModelID {
+	for _, entry := range modelcatalog.Entries(r, b) {
+		if entry.ID == scope.ModelID {
 			return nil
 		}
 	}
@@ -122,146 +121,7 @@ func (a access) execution(ctx context.Context, e core.Execution) error {
 	return nil
 }
 func (a access) owns(ctx context.Context, p core.Principal, o core.Object) error {
-	if o.Kind == "resource" && o.ID != "" {
-		_, err := resource.NewRepository(a.store).Get(ctx, p.OwnerID, o.ID)
-		return err
-	}
-	owner := p.Kind == core.ActorOwner
-	// Collection authorization is followed by each service's query binding and
-	// per-object checks. Collections without assistant filtering remain owner-only.
-	if o.ID == "" {
-		switch o.Kind {
-		case "assistant", "settings":
-			if owner {
-				return nil
-			}
-		case "task", "memory", "search", "resource", "todo", "schedule":
-			return nil
-		}
-		if o.Kind == "file" {
-			return nil
-		}
-		return denied()
-	}
-	if o.Kind == "tool" {
-		if (strings.HasPrefix(string(o.ID), "plg_") || strings.HasPrefix(string(o.ID), "mcp_")) && len(o.ID) == 52 {
-			return nil
-		}
-		switch o.ID {
-		case "browser_session", "browser_action", "profile_update", "permission_list", "permission_request", "shell_execute", "shell_task", "catalog", "conversation_read", "conversation_publish", "file_search", "file_read", "file_list", "file_write", "file_edit", "file_move", "file_delete", "file_transfer", "conversation_attachment", "plan_list", "plan_read", "plan_manage":
-			return nil
-		}
-		return denied()
-	}
-	if o.Kind == "model" && o.ID == "catalog" {
-		return nil
-	}
-	if o.ID == p.OwnerID {
-		switch o.Kind {
-		case "settings", "realtime", "scheduler", "conversation", "operation":
-			if owner {
-				return nil
-			}
-		case "model":
-			return nil
-		}
-	}
-	if o.Kind == "message" {
-		m, err := persistence.Load[conversation.Message](ctx, a.store, "im.messages", persistence.Key(p.OwnerID, o.ID))
-		if err != nil {
-			return err
-		}
-		return a.owns(ctx, p, core.Object{Kind: "conversation", ID: m.ConversationID})
-	}
-	buckets := map[string]string{"permission_request": "security.permission_requests", "assistant": "business.assistants", "conversation": "im.conversations", "task": "business.tasks", "todo": "business.todos", "schedule": "business.schedules", "resource": "business.resources", "file": files.Bucket, "operation": "agent.operations", "settings": "business.exports", "search": "search.jobs"}
-	bucket, ok := buckets[o.Kind]
-	if !ok {
-		return denied()
-	}
-	type record struct {
-		OwnerID, AssistantID, PeerID, TaskID core.ID
-		Scope                                string
-		State                                assistant.State
-	}
-	row, err := persistence.Load[record](ctx, a.store, bucket, persistence.Key(p.OwnerID, o.ID))
-	if persistence.Missing(err) && owner && o.Kind == "assistant" {
-		row, err = persistence.Load[record](ctx, a.store, "business.groups", persistence.Key(p.OwnerID, o.ID))
-	}
-	if err != nil {
-		return err
-	}
-	// Export/rebuild records are owner-keyed and do not duplicate OwnerID.
-	if row.OwnerID != p.OwnerID && !(owner && (o.Kind == "settings" || o.Kind == "search")) {
-		return denied()
-	}
-	if o.Kind == "assistant" && row.State == assistant.Cloning {
-		return denied()
-	}
-	if o.Kind == "conversation" {
-		peer, err := persistence.Load[struct{ State assistant.State }](ctx, a.store, "business.assistants", persistence.Key(p.OwnerID, row.PeerID))
-		if err != nil && !persistence.Missing(err) {
-			return err
-		}
-		if peer.State == assistant.Cloning {
-			return denied()
-		}
-	}
-	if owner {
-		return nil
-	}
-	switch o.Kind {
-	case "assistant":
-		if o.ID == p.SubjectID {
-			return nil
-		}
-	case "conversation":
-		if row.PeerID == p.SubjectID {
-			return nil
-		}
-	case "task", "todo", "schedule", "operation", "permission_request":
-		if row.AssistantID == p.SubjectID {
-			return nil
-		}
-	case "resource":
-		return nil // policy additionally requires a live resource grant.
-	case "file":
-		if row.AssistantID == p.SubjectID {
-			return nil
-		}
-		if row.TaskID != "" {
-			return a.owns(ctx, p, core.Object{Kind: "task", ID: row.TaskID})
-		}
-		// A file is visible to an assistant only through an attachment in its own
-		// conversation; mere owner equality is insufficient.
-		return a.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
-			messages, err := persistence.Select[conversation.Message](ctx, a.store, "im.messages", persistence.Query{
-				Where:  []persistence.Filter{persistence.Eq("OwnerKey", p.OwnerID), {Field: "Content.AttachmentIDs", Op: "has", Value: string(o.ID)}},
-				Fields: []string{"ConversationID", "Content.AttachmentIDs"},
-			})
-			if err != nil {
-				return err
-			}
-			// Repeated attachment references share one peer check in this snapshot.
-			// The next access always checks current conversation ownership again.
-			checked := map[core.ID]bool{}
-			for _, m := range messages {
-				if checked[m.ConversationID] {
-					continue
-				}
-				for _, id := range m.Content.AttachmentIDs {
-					if id == o.ID {
-						checked[m.ConversationID] = true
-						if a.owns(ctx, p, core.Object{Kind: "conversation", ID: m.ConversationID}) == nil {
-							return nil
-						}
-						break
-					}
-				}
-			}
-			return denied()
-		})
-	}
-	return denied()
+	return (objectaccess.Service{Store: a.store}).Require(ctx, p, o)
 }
 func (a access) verifyReceipt(ctx context.Context, e core.Execution, id core.ID, amount core.Money) error {
 	r, err := model.NewReceipts(a.store).Get(ctx, e.Principal.OwnerID, id)

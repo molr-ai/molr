@@ -42,7 +42,7 @@ test('login defers business code and a slow page keeps the workspace navigation 
   page.on('request', request => { if (request.resourceType() === 'script') scripts.push(new URL(request.url()).pathname); });
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
-  expect(scripts.some(path => /\/(OfficialPage|AdminSettings|Plugins|TestChatPage|PluginFrame|FramePage)-/.test(path))).toBe(false);
+  expect(scripts.some(path => /\/(OfficialPage|AdminSettings|Plugins|TestChatPage|PluginFrame)-/.test(path))).toBe(false);
   let release!: () => void;
   const ready = new Promise<void>(resolve => { release = resolve; });
   await page.route('**/assets/OfficialPage-*.js', async route => { await ready; await route.continue(); });

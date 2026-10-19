@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"molr.ai/runtime/internal/catalog"
+	"molr.ai/runtime/internal/modelcatalog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -256,7 +258,7 @@ func TestResourceCatalogFiltersModelsExpiryAndOfflineResources(t *testing.T) {
 	binding := resource.Binding{Endpoint: "https://models.example/chat/completions", AllowedOrigins: []string{"https://models.example"}, Models: []resource.ModelConfig{{Name: "allowed-model", ContextLimit: 8192}, {Name: "ungranted-model", ContextLimit: 8192}}}
 	r, err := f.b.Services.Resources.Connect(t.Context(), f.owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "models"}, Kind: resource.Model, Provider: "openai-compatible", Name: "provider", Binding: binding})
 	need(t, err)
-	id := modelEntries(r, binding)[0].id
+	id := modelcatalog.Entries(r, binding)[0].ID
 	f.grant(t, r.ID, "model", []policy.Action{policy.Read, policy.Execute}, policy.Scope{ModelID: id}, nil)
 	read := f.grant(t, f.storage.ID, "read", []policy.Action{policy.Read}, policy.Scope{}, nil)
 	out := f.list(t)
@@ -285,7 +287,7 @@ func TestResourceCatalogFiltersModelsExpiryAndOfflineResources(t *testing.T) {
 	}
 	r.State = resource.Offline
 	need(t, f.b.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
-		return tx.Put(ctx, "business.resources", persistence.Key(f.owner.OwnerID, r.ID), r)
+		return tx.Put(ctx, "business.resources", persistence.Key(catalog.Scope, r.ID), r)
 	}))
 	out = f.list(t)
 	op := lookupOperation(t, out, r.ID, "", policy.Execute, "model")

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"molr.ai/runtime/internal/modelcatalog"
 	"testing"
 	"time"
 
@@ -22,18 +23,18 @@ func TestModelGrantDoesNotAuthorizeSiblingModels(t *testing.T) {
 	binding := resource.Binding{Endpoint: "https://provider.example.test/v1/chat/completions", AllowedOrigins: []string{"https://provider.example.test"}, Models: []resource.ModelConfig{{Name: "selected", ContextLimit: 8192, SupportsTools: true}, {Name: "sibling", ContextLimit: 8192, SupportsTools: true}}}
 	r, err := b.Services.Resources.Connect(ctx, p, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "provider"}, Kind: resource.Model, Name: "Provider", Provider: "openai-compatible", Binding: binding})
 	need(t, err)
-	entries := modelEntries(r, binding)
-	a, err := b.Services.Assistants.Hire(ctx, p, assistant.HireRequest{Budget: core.AssistantBudget{Limit: core.Money{Currency: "USD"}, Period: "daily"}, Mutation: core.Mutation{IdempotencyKey: "hire"}, Name: "Assistant", ModelID: entries[0].id})
+	entries := modelcatalog.Entries(r, binding)
+	a, err := b.Services.Assistants.Hire(ctx, p, assistant.HireRequest{Budget: core.AssistantBudget{Limit: core.Money{Currency: "USD"}, Period: "daily"}, Mutation: core.Mutation{IdempotencyKey: "hire"}, Name: "Assistant", ModelID: entries[0].ID})
 	need(t, err)
 	need(t, event.NewWriter(b.store).AppendAssistant(ctx, event.AssistantEvent{ID: "wake", OwnerID: p.OwnerID, AssistantID: a.ID, Kind: event.ResumeRequested, CreatedAt: time.Now()}))
 	claim, err := scheduler.NewQueue(b.store).Claim(ctx, time.Now())
 	need(t, err)
 	visible, err := b.Services.Models.List(ctx, claim.Principal)
 	need(t, err)
-	if len(visible) != 1 || visible[0].ID != entries[0].id {
+	if len(visible) != 1 || visible[0].ID != entries[0].ID {
 		t.Fatalf("hiring leaked access to other models: %+v", visible)
 	}
-	_, err = b.Services.Models.(model.Client).Generate(ctx, model.Request{Execution: core.Execution{Principal: claim.Principal, AssistantID: a.ID, OperationID: "forbidden-call"}, ModelID: entries[1].id, ReservationID: "reservation", Inputs: []model.Input{{Role: model.User, Text: "hello"}}, MaxOutputTokens: 16})
+	_, err = b.Services.Models.(model.Client).Generate(ctx, model.Request{Execution: core.Execution{Principal: claim.Principal, AssistantID: a.ID, OperationID: "forbidden-call"}, ModelID: entries[1].ID, ReservationID: "reservation", Inputs: []model.Input{{Role: model.User, Text: "hello"}}, MaxOutputTokens: 16})
 	if core.CodeOf(err) != core.Forbidden {
 		t.Fatalf("unselected model reached execution checks: %v", err)
 	}
@@ -46,23 +47,23 @@ func TestModelGrantDoesNotAuthorizeSiblingModels(t *testing.T) {
 		resourceID, modelID core.ID
 	}{
 		{"provider-without-model", r.ID, ""},
-		{"foreign-model", r.ID, modelEntries(other, binding)[0].id},
+		{"foreign-model", r.ID, modelcatalog.Entries(other, binding)[0].ID},
 		{"unknown-model", r.ID, "missing-model"},
-		{"storage-with-model", directory.ID, entries[0].id},
+		{"storage-with-model", directory.ID, entries[0].ID},
 	} {
 		_, err := b.Services.Grants.Grant(ctx, p, policy.GrantRequest{Mutation: core.Mutation{IdempotencyKey: tc.key}, AssistantID: a.ID, ResourceID: tc.resourceID, Actions: []policy.Action{policy.Read}, Scope: policy.Scope{ModelID: tc.modelID}})
 		if core.CodeOf(err) != core.InvalidArgument {
 			t.Fatalf("invalid scope %s accepted: %v", tc.key, err)
 		}
 	}
-	g, err := b.Services.Grants.Grant(ctx, p, policy.GrantRequest{Mutation: core.Mutation{IdempotencyKey: "view-sibling"}, AssistantID: a.ID, ResourceID: r.ID, Actions: []policy.Action{policy.Read}, Scope: policy.Scope{ModelID: entries[1].id}})
+	g, err := b.Services.Grants.Grant(ctx, p, policy.GrantRequest{Mutation: core.Mutation{IdempotencyKey: "view-sibling"}, AssistantID: a.ID, ResourceID: r.ID, Actions: []policy.Action{policy.Read}, Scope: policy.Scope{ModelID: entries[1].ID}})
 	need(t, err)
 	visible, err = b.Services.Models.List(ctx, claim.Principal)
 	need(t, err)
 	if len(visible) != 2 {
 		t.Fatal("selected sibling model not visible")
 	}
-	check := policy.CheckRequest{Target: core.Object{Kind: "resource", ID: r.ID}, ResourceID: r.ID, ModelID: entries[1].id, Action: policy.Execute}
+	check := policy.CheckRequest{Target: core.Object{Kind: "resource", ID: r.ID}, ResourceID: r.ID, ModelID: entries[1].ID, Action: policy.Execute}
 	if err := b.Services.Grants.(policy.Authorizer).Require(ctx, claim.Principal, check); core.CodeOf(err) != core.Forbidden {
 		t.Fatalf("another model's execute grant authorized a read-only model: %v", err)
 	}
@@ -70,13 +71,13 @@ func TestModelGrantDoesNotAuthorizeSiblingModels(t *testing.T) {
 	need(t, err)
 	copies, err := b.Services.Grants.List(ctx, p, policy.Query{AssistantID: clone.ID})
 	need(t, err)
-	if len(copies.Items) != 1 || copies.Items[0].Scope.ModelID != entries[1].id {
+	if len(copies.Items) != 1 || copies.Items[0].Scope.ModelID != entries[1].ID {
 		t.Fatal("clone did not preserve selected model scope")
 	}
 	need(t, b.Services.Grants.Revoke(ctx, p, policy.RevokeRequest{Mutation: core.Mutation{IdempotencyKey: "revoke-sibling", ExpectedVersion: g.Version}, GrantID: g.ID}))
 	visible, err = b.Services.Models.List(ctx, claim.Principal)
 	need(t, err)
-	if len(visible) != 1 || visible[0].ID != entries[0].id {
+	if len(visible) != 1 || visible[0].ID != entries[0].ID {
 		t.Fatal("revocation failed or removed other model access")
 	}
 }

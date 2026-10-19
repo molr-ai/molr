@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	resourcecatalog "molr.ai/runtime/internal/catalog"
 	"slices"
 	"strings"
 	"time"
@@ -66,7 +67,7 @@ func inspectCapabilities(ctx context.Context, store persistence.Store, catalog t
 					}
 					// These fixed tools operate on storage paths; a model grant does not
 					// authorize file access. Path restrictions remain enforced at execution.
-					if !catalogOwned(ctx, store, r.OwnerID, p.OwnerID) || r.Kind != kind || g.Scope.ModelID != "" || ((definition.Name == "shell_execute" || definition.Name == "browser_session") && r.Provider != "local-sandbox" && r.Provider != "remote-compute") {
+					if r.OwnerID != resourcecatalog.Scope || r.Kind != kind || g.Scope.ModelID != "" || ((definition.Name == "shell_execute" || definition.Name == "browser_session") && r.Provider != "local-sandbox" && r.Provider != "remote-compute") {
 						continue
 					}
 					if r.State != resource.Available || !slices.Contains(r.Actions, string(action)) {

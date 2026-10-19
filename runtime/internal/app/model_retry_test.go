@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"molr.ai/runtime/internal/modelcatalog"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -42,7 +43,7 @@ func retryFixture(t *testing.T, handler http.HandlerFunc) (*Bundle, core.Princip
 	binding := resource.Binding{Endpoint: server.URL, AllowedOrigins: []string{server.URL}, Models: []resource.ModelConfig{{Name: "retry-model", ContextLimit: 32768, SupportsTools: true, Pricing: &resource.ModelPricing{Currency: "USD", InputMicrosPerMillion: 1000000, OutputMicrosPerMillion: 1000000}}}}
 	r, err := b.Services.Resources.Connect(t.Context(), p, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "provider"}, Name: "provider", Kind: resource.Model, Provider: "openai-compatible", Binding: binding})
 	need(t, err)
-	a, err := b.Services.Assistants.Hire(t.Context(), p, assistant.HireRequest{Mutation: core.Mutation{IdempotencyKey: "hire"}, Name: "retry assistant", ModelID: modelEntries(r, binding)[0].id, Budget: core.AssistantBudget{Limit: core.Money{Currency: "USD", Micros: 1000000000}, Period: "daily"}})
+	a, err := b.Services.Assistants.Hire(t.Context(), p, assistant.HireRequest{Mutation: core.Mutation{IdempotencyKey: "hire"}, Name: "retry assistant", ModelID: modelcatalog.Entries(r, binding)[0].ID, Budget: core.AssistantBudget{Limit: core.Money{Currency: "USD", Micros: 1000000000}, Period: "daily"}})
 	need(t, err)
 	return b, p, a, cfg
 }

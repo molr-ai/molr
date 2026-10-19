@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,7 +16,7 @@ import (
 	"molr.ai/runtime/internal/business/todo"
 	"molr.ai/runtime/internal/config"
 	"molr.ai/runtime/internal/core"
-	"molr.ai/runtime/internal/storage/sqlite"
+	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/tests/testkit"
 )
 
@@ -78,8 +79,8 @@ func TestCLIInitRecoverLifecycleWithoutListener(t *testing.T) {
 	testkit.RequireNoError(t, err)
 	issued, err := b.Services.Auth.CreateToken(ctx, p, auth.CreateTokenRequest{Name: "before-backup", Scopes: []string{"read"}, ExpiresAt: time.Now().Add(time.Hour), Verification: proof})
 	testkit.RequireNoError(t, err)
-	testkit.RequireNoError(t, b.Database.Within(ctx, func(r sqlite.Repositories) error {
-		return r.Todos().Insert(ctx, todo.Todo{ID: "before-backup", OwnerID: p.OwnerID, Title: "Keep this", Version: 1})
+	testkit.RequireNoError(t, b.Database.Store().Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		return todo.NewRepository(tx.Store()).Insert(ctx, todo.Todo{ID: "before-backup", OwnerID: p.OwnerID, Title: "Keep this", Version: 1})
 	}))
 	testkit.RequireNoError(t, b.Close())
 	_, err = invokeCLI(t, ctx, []string{"recover", "-config", path, "-password-stdin", "-reset-mfa"}, newPassword)
@@ -114,11 +115,10 @@ func TestCLIRejectsUnsafeInputsAndCanceledCommands(t *testing.T) {
 }
 
 func TestCLIHostToolsDoesNotRequireSeparateAccountService(t *testing.T) {
-	for _, legacy := range []string{"", "current", "molr-sandbox"} {
-		t.Run("identity_"+legacy, func(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		t.Run(fmt.Sprint("host_tools_", enabled), func(t *testing.T) {
 			cfg, path := cliConfig(t)
-			cfg.Sandbox.HostTools = legacy == ""
-			cfg.Sandbox.HostToolsUser = legacy
+			cfg.Sandbox.HostTools = enabled
 			data, err := json.Marshal(cfg)
 			testkit.RequireNoError(t, err)
 			testkit.RequireNoError(t, os.WriteFile(path, data, 0600))

@@ -23,7 +23,6 @@ Account settings save only one theme identity and do not save user-defined page 
 
 ```json
 {
-  "schema": 2,
   "selected": { "id": "molr.test", "version": "1.0.0" }
 }
 ```
@@ -34,16 +33,15 @@ The theme itself declares page implementations:
 const testTheme = {
   runtime: 'builtin',
   manifest: {
-    id: 'molr.test', name: 'Molr 测试主题', version: '1.0.0', apiVersion: 1,
+    id: 'molr.test', name: 'Molr 测试主题', version: '1.0.0',
     pages: { assistants: 'test-chat' },
-    permissions: ['chat.read', 'chat.write', 'files.read', 'files.write'],
   },
 };
 ```
 
 During resolution, the system first checks the `pages[page]` of the selected theme; if undeclared, it uses the corresponding page from `molr.official@1.0.0`. Built-in themes and authorized plugin themes follow the same rule; some themes do not need to implement a full set of pages.
 
-The directory retains two built-in themes and adds enabled, authorized plugin themes returned by Runtime. Legacy fields in the browser such as `installed` and `routes` do not participate in resolution; unknown theme identities fall back to the Default Theme. Data from the previous per-page configuration prototype will not be re-enabled.
+The theme directory contains two built-in themes and enabled, authorized plugin themes returned by Runtime. Unknown theme identities fall back to the default theme.
 
 Theme selection, theme color scheme, and display preferences are uniformly saved in Runtime's account settings and synchronized across devices. `Settings.PluginsVisible` defaults to `false`; when disabled, plugin manifests are not read, the theme directory contains only built-in themes, and saved plugin theme identities are retained but temporarily fall back to the Default Theme. Plugin routes redirect to General Settings; navigation, plugin tool directories, plugin targets in login links, user group plugin/connection options, and usage connection details are synchronously hidden; editing user groups still retains references to unshown resources. This setting does not change server-side plugin enablement, authorization, or execution. On new device login, saved selections are read; already open devices refresh using the settings snapshot, updating when the page becomes visible again or during periodic refreshes. Theme selection does not rely on localStorage; if saving fails, the original selection is retained, and if a theme is unavailable, the Default Theme is used. Writes use settings version validation, merging only theme fields; if old clients omit `UITheme`, saved values are retained. Chat drafts after theme switching continue to be preserved.
 

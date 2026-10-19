@@ -5,6 +5,7 @@ import (
 	"molr.ai/runtime/internal/business/resource"
 	"molr.ai/runtime/internal/business/settings"
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/modelcatalog"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/policy"
 	"time"
@@ -38,8 +39,8 @@ func (a adapters) deleteProviderReferences(ctx context.Context, p core.Principal
 	if err != nil {
 		return err
 	}
-	for _, entry := range modelEntries(r, binding) {
-		if current.DefaultModelID == entry.id {
+	for _, entry := range modelcatalog.Entries(r, binding) {
+		if current.DefaultModelID == entry.ID {
 			expected := current.Version
 			current.DefaultModelID = ""
 			current.Version++

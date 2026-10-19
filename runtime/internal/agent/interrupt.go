@@ -75,26 +75,14 @@ func (e *Engine) Stop(ctx context.Context, p core.Principal, id core.ID) error {
 			return err
 		}
 		control := event.AssistantEvent{ID: core.ID(hex.EncodeToString(random)), OwnerID: p.OwnerID, AssistantID: id, Kind: event.UserStopped, DeliveryMode: event.Interrupt, CreatedAt: e.options.Now().UTC()}
-		var activeEvent core.ID
 		if status.State == Working {
 			stoppedExecution = status.ExecutionID
 			control.ExecutionID = stoppedExecution
 			control.TaskID = status.ActiveTaskID
-			e.mu.Lock()
-			active := e.active[key]
-			e.mu.Unlock()
-			if active.id == stoppedExecution {
-				activeEvent = active.eventID
-			}
 		}
 		jobs, err := persistence.Select[scheduler.Job](ctx, e.store, "agent.jobs", persistence.Query{Where: []persistence.Filter{persistence.Eq("Event.OwnerID", p.OwnerID), persistence.Eq("Event.AssistantID", id), {Field: "State", Op: "in", Value: []scheduler.State{scheduler.Queued, scheduler.Running, scheduler.Retry, scheduler.NeedsReview}}}})
 		if err != nil {
 			return err
-		}
-		for _, job := range jobs {
-			if job.Event.OwnerID == p.OwnerID && job.Event.AssistantID == id && (job.State == scheduler.Running || job.State == scheduler.Retry) && job.ExecutionID == stoppedExecution && stoppedExecution != "" {
-				activeEvent = job.Event.ID
-			}
 		}
 		// Stop and message/event creation serialize on the same store. Everything
 		// already queued belongs before this boundary, even if not yet claimed.
@@ -130,7 +118,7 @@ func (e *Engine) Stop(ctx context.Context, p core.Principal, id core.ID) error {
 		if err := event.NewWriter(e.store).AppendAssistant(ctx, control); err != nil {
 			return err
 		}
-		if err := e.interruptCheckpoint(ctx, p, id, activeEvent, control); err != nil {
+		if err := e.interruptCheckpoint(ctx, p, id, control); err != nil {
 			return err
 		}
 		if err := tx.Delete(ctx, expediteBucket, key); err != nil && !persistence.Missing(err) {
@@ -164,7 +152,7 @@ func (e *Engine) Stop(ctx context.Context, p core.Principal, id core.ID) error {
 	return nil
 }
 
-func (e *Engine) interruptCheckpoint(ctx context.Context, p core.Principal, id, activeEvent core.ID, control event.AssistantEvent) error {
+func (e *Engine) interruptCheckpoint(ctx context.Context, p core.Principal, id core.ID, control event.AssistantEvent) error {
 	checkpoint, err := e.checkpoints.Load(ctx, p.OwnerID, id)
 	if err != nil && !persistence.Missing(err) {
 		return err
@@ -173,22 +161,6 @@ func (e *Engine) interruptCheckpoint(ctx context.Context, p core.Principal, id, 
 	if len(checkpoint.Context) > 0 {
 		if err := json.Unmarshal(checkpoint.Context, &saved); err != nil {
 			return err
-		}
-	}
-	if saved.Current == nil && activeEvent != "" {
-		// Compatibility with a pre-upgrade in-flight event snapshot.
-		legacy, loadErr := persistence.Load[turnProgress](ctx, e.store, progressBucket, persistence.Key(p.OwnerID, activeEvent))
-		if loadErr != nil && !persistence.Missing(loadErr) {
-			return loadErr
-		}
-		if len(legacy.Inputs) > 0 {
-			source, err := persistence.Load[event.AssistantEvent](ctx, e.store, "agent.events", persistence.Key(p.OwnerID, activeEvent))
-			if err != nil {
-				return err
-			}
-			if source.Kind != event.DreamDue {
-				saved = privateContext{Inputs: legacy.Inputs, Automatic: legacy.Automatic, Usage: legacy.Usage, Publish: legacy.Publish, Current: cursor(Turn{Event: source, Principal: core.Principal{OwnerID: p.OwnerID, SubjectID: id, Kind: core.ActorAssistant, ExecutionID: control.ExecutionID}}, legacy)}
-			}
 		}
 	}
 	if saved.Current != nil {

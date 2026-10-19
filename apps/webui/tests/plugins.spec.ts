@@ -79,6 +79,10 @@ test('plugin HTML blob URLs are released after repeated navigation', async ({ pa
 
 test('plugin document URLs follow reference changes, theme updates and retries', async ({ page }, info) => {
  await trackHTMLURLs(page); await login(page);
+ // Other projects may have saved a fixed display mode on this shared test account.
+ const settings = await (await page.request.get('/api/settings')).json();
+ const fixed = await post(page, '/api/settings', { Settings: { ...settings, Theme: 'dark' }, Mutation: { IdempotencyKey: crypto.randomUUID(), ExpectedVersion: settings.Version } });
+ await post(page, '/api/settings', { Settings: { ...fixed, Theme: 'system' }, Mutation: { IdempotencyKey: crypto.randomUUID(), ExpectedVersion: fixed.Version } });
  const value = await pkg('fixture.page');
  value.manifest.id = `fixture.lifecycle-${info.project.name}`;
  value.manifest.name = `Lifecycle ${info.project.name}`;

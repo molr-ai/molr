@@ -80,9 +80,6 @@ func setupHTTP(t *testing.T) (*Service, core.Principal, Installation, Connection
 	t.Helper()
 	s, p, _ := fixture(t)
 	must(t, s.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
-		if err := tx.Put(ctx, "system.catalog", "enabled", true); err != nil {
-			return err
-		}
 		return tx.Put(ctx, "auth.bootstrap", "owner", struct{ AccountID core.ID }{p.OwnerID})
 	}))
 	s.options.IsAdministrator = func(_ context.Context, p core.Principal) (bool, error) { return p.OwnerID == "owner", nil }

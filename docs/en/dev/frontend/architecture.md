@@ -7,7 +7,7 @@ The desktop entry point is [`apps/desktop`](../../../../apps/desktop/README.md).
 ## Implementation Boundaries
 
 - `packages/sdk` / `@molr/sdk`: Runtime client, DTOs, pagination, idempotent writes, uploads and downloads, errors, SSE, and UI/Host protocols; no dependency on React or `@molr/ui`.
-- `packages/ui-host` / `@molr/ui-host`: manifest validation, version-pinned theme identity, theme-owned page mappings, permission policies for the prototype isolation adapter, and plugin theme types.
+- `packages/ui-host` / `@molr/ui-host`: version-pinned theme identity, theme-owned page mappings, plugin theme types.
 - `apps/webui/src/App.tsx`: login, navigation, theme resolution and page loading, and failure recovery.
 - `apps/webui/src/ui-host/ThemeSelector.tsx`: the theme selector in theme settings.
 - `apps/webui/src/interfaces/official`: the default theme and existing product components.
@@ -29,11 +29,11 @@ WebUI renders the weekly calendar with `PlanWeekCalendar`. The plans page defaul
 
 ## Extension Foundations
 
-The SDK's `connectUI()`, standalone page manifests, and isolated iframe adapter remain foundations for further development. External product pages use the separate, narrower contract in the [Plugin System](../extensions/plugins.md); the early general-purpose iframe HTTP proxy is not a plugin entry point.
+External pages and themes use `connectPlugin()` and the capability-scoped contract in the [Plugin System](../extensions/plugins.md). The host supports built-in pages and installed plugin contributions.
 
 Plugin themes may choose whether to use `@molr/ui`, provided they follow the SDK/Host contract. Remote pages require origin and permission approval; changing browser configuration alone cannot grant execution permission. Themes always define page mappings, while users select only the theme.
 
-The existing isolation adapter uses an iframe without same-origin permission and a private MessageChannel. It validates the method, canonical path, and authorization scope for every request, and does not pass host Cookies, CSRF proofs, or Bearer tokens to the page. The permission table is in `packages/ui-host/src/permissions.ts`. Publishers must maintain immutable versioned assets; pinning the entry URL alone does not pin the contents of remote assets.
+Plugin frames use an isolated iframe and a private MessageChannel. `PluginFrame` validates each named operation and its contribution capabilities; host cookies, CSRF proofs and bearer tokens stay outside the frame. Runtime validates installed content and permissions.
 
 ## Desktop App mode
 

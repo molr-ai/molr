@@ -9,6 +9,7 @@ import (
 	"molr.ai/runtime/internal/business/settings"
 	"molr.ai/runtime/internal/debugtrace"
 	"molr.ai/runtime/internal/im/conversation"
+	"molr.ai/runtime/internal/modelcatalog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -211,7 +212,7 @@ func TestLoopLoadsAndUpdatesWorkspaceContextThroughRealTools(t *testing.T) {
 	binding := resource.Binding{Endpoint: provider.URL, AllowedOrigins: []string{provider.URL}, Models: []resource.ModelConfig{{Name: "test", SupportsTools: true, ContextLimit: 65536, Pricing: &resource.ModelPricing{Currency: "USD"}}}}
 	r, err := b.Services.Resources.Connect(t.Context(), p, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "provider"}, Name: "provider", Kind: resource.Model, Provider: "openai-compatible", Binding: binding})
 	need(t, err)
-	a, err := b.Services.Assistants.Hire(t.Context(), p, assistant.HireRequest{Mutation: core.Mutation{IdempotencyKey: "hire"}, Name: "context test", ModelID: modelEntries(r, binding)[0].id, Budget: core.AssistantBudget{Limit: core.Money{Currency: "USD"}, Period: "daily"}})
+	a, err := b.Services.Assistants.Hire(t.Context(), p, assistant.HireRequest{Mutation: core.Mutation{IdempotencyKey: "hire"}, Name: "context test", ModelID: modelcatalog.Entries(r, binding)[0].ID, Budget: core.AssistantBudget{Limit: core.Money{Currency: "USD"}, Period: "daily"}})
 	need(t, err)
 	cancelPendingBirth(t, b, a)
 	root := platform.AssistantWorkspace(cfg.DataDir, "", p.OwnerID, a.ID)

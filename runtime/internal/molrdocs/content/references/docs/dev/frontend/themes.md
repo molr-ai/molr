@@ -23,7 +23,6 @@
 
 ```json
 {
-  "schema": 2,
   "selected": { "id": "molr.test", "version": "1.0.0" }
 }
 ```
@@ -34,16 +33,15 @@
 const testTheme = {
   runtime: 'builtin',
   manifest: {
-    id: 'molr.test', name: 'Molr 测试主题', version: '1.0.0', apiVersion: 1,
+    id: 'molr.test', name: 'Molr 测试主题', version: '1.0.0',
     pages: { assistants: 'test-chat' },
-    permissions: ['chat.read', 'chat.write', 'files.read', 'files.write'],
   },
 };
 ```
 
 解析时先查选中主题的 `pages[page]`，未声明时使用 `molr.official@1.0.0` 的对应页面。内置主题和已授权的插件主题遵循同一条规则；部分主题无需实现全套页面。
 
-目录保留两个内置主题，并加入 Runtime 返回的已启用、已授权插件主题。浏览器中的 `installed`、`routes` 等旧字段不参与解析，未知主题身份回退默认主题。上一版逐页配置原型的数据不会重新启用。
+主题目录包含两个内置主题，以及 Runtime 返回的已启用、已授权插件主题。未知主题身份回退默认主题。
 
 主题选择、主题配色与显示偏好统一保存在 Runtime 的账号设置中，在设备间同步。`Settings.PluginsVisible` 默认 `false`；关闭时不读取插件清单，主题目录只包含内置主题，已保存的插件主题身份保留并暂时回退默认主题。插件路由转到常规设置，导航、插件工具目录、登录链接的插件目标、用户组插件／连接选项及用量连接明细同步隐藏；编辑用户组仍保留未展示的资源引用。此设置不改变服务端插件启停、授权或执行。新设备登录时读取已保存的选择；已打开设备沿用设置快照刷新，在页面重新可见或周期刷新时更新。主题选择不依赖 localStorage；保存失败保留原选择，主题不可用时使用默认主题。写入采用设置版本校验，只合并主题字段；旧客户端省略 `UITheme` 时保留已保存值。主题切换后的聊天草稿继续保留。
 

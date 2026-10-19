@@ -104,7 +104,7 @@ func (b *contextBuilder) Build(ctx context.Context, t Turn) ([]model.Input, erro
 			return nil, core.Invalid("checkpoint", "invalid private context")
 		}
 		if len(saved.Inputs) > 0 {
-			inputs = runtimeNotificationRoles(saved.Inputs)
+			inputs = append([]model.Input(nil), saved.Inputs...)
 		}
 	}
 	var conversationID core.ID

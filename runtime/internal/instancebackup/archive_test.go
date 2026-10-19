@@ -4,8 +4,10 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"io"
+	"molr.ai/runtime/internal/storage/sqlite"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -20,7 +22,7 @@ import (
 	"molr.ai/runtime/internal/im/conversation"
 	"molr.ai/runtime/internal/installrecord"
 	backup "molr.ai/runtime/internal/instancebackup"
-	"molr.ai/runtime/internal/storage/sqlite"
+	"molr.ai/runtime/internal/persistence"
 	"time"
 )
 
@@ -69,14 +71,14 @@ func TestRuntimeArchiveRoundTrip(t *testing.T) {
 	login, err := bundle.Services.Auth.Login(ctx, auth.LoginRequest{Username: "owner", Password: core.NewSecret(password)})
 	must(t, err)
 	token := login.Session.Token
-	must(t, bundle.Database.Within(ctx, func(r sqlite.Repositories) error {
-		if err := r.Assistants().Insert(ctx, assistant.Assistant{ID: "assistant-backup", OwnerID: account.ID, Name: "Backup assistant", State: assistant.Active, ConversationID: "chat-backup", Version: 1}); err != nil {
+	must(t, bundle.Database.Store().Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		if err := assistant.NewRepository(tx.Store()).Insert(ctx, assistant.Assistant{ID: "assistant-backup", OwnerID: account.ID, Name: "Backup assistant", State: assistant.Active, ConversationID: "chat-backup", Version: 1}); err != nil {
 			return err
 		}
-		if err := r.Conversations().Insert(ctx, conversation.Conversation{ID: "chat-backup", OwnerID: account.ID, PeerID: "assistant-backup", Version: 1}); err != nil {
+		if err := conversation.NewRepository(tx.Store()).Insert(ctx, conversation.Conversation{ID: "chat-backup", OwnerID: account.ID, PeerID: "assistant-backup", Version: 1}); err != nil {
 			return err
 		}
-		_, err := r.Conversations().Append(ctx, account.ID, conversation.Message{ID: "message-backup", ConversationID: "chat-backup", Sender: conversation.User, SenderID: account.ID, Content: conversation.Content{Kind: conversation.Text, Text: "Preserve this conversation"}, CreatedAt: time.Now()})
+		_, err := conversation.NewRepository(tx.Store()).Append(ctx, account.ID, conversation.Message{ID: "message-backup", ConversationID: "chat-backup", Sender: conversation.User, SenderID: account.ID, Content: conversation.Content{Kind: conversation.Text, Text: "Preserve this conversation"}, CreatedAt: time.Now()})
 		return err
 	}))
 	must(t, bundle.Close())

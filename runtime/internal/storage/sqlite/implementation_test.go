@@ -6,7 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"molr.ai/runtime/internal/business/todo"
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/storage/sqlite"
 	"molr.ai/runtime/tests/testkit"
 )
@@ -32,8 +34,10 @@ func TestTDDSQLiteCorruptBackupLeavesOriginalUntouched(t *testing.T) {
 	testkit.RequireNoError(t, err)
 	t.Cleanup(func() { _ = db.Close() })
 	testkit.RequireNoError(t, db.Migrate(ctx))
-	original := receipt("original-data")
-	testkit.RequireNoError(t, db.Within(ctx, func(r sqlite.Repositories) error { return r.Idempotency().Insert(ctx, original) }))
+	original := record("original-data")
+	testkit.RequireNoError(t, db.Store().Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		return todo.NewRepository(tx.Store()).Insert(ctx, original)
+	}))
 	backup, err := db.Backup(ctx)
 	testkit.RequireNoError(t, err)
 	testkit.RequireNoError(t, db.Close())
@@ -45,9 +49,9 @@ func TestTDDSQLiteCorruptBackupLeavesOriginalUntouched(t *testing.T) {
 	reopened, err := sqlite.Open(path)
 	testkit.RequireNoError(t, err)
 	t.Cleanup(func() { _ = reopened.Close() })
-	got, err := stored(t, reopened, ctx, original.Key)
+	got, err := stored(t, reopened, ctx, string(original.ID))
 	testkit.RequireNoError(t, err)
-	if got.InputDigest != original.InputDigest {
+	if got.Title != original.Title {
 		t.Fatal("failed restore changed original data")
 	}
 }
@@ -81,4 +85,29 @@ func TestTDDSQLiteCanceledRestoreDoesNotAcquireOrChangeDatabase(t *testing.T) {
 	reopened := f.Reopen()
 	t.Cleanup(func() { _ = reopened.Close() })
 	testkit.RequireNoError(t, reopened.Check(ctx))
+}
+
+func TestPreviousSchemaIsRejectedWithoutConversion(t *testing.T) {
+	db, err := sqlite.Open(filepath.Join(t.TempDir(), "db"))
+	testkit.RequireNoError(t, err)
+	defer db.Close()
+	ctx := t.Context()
+	previous := sqlite.Schema{Version: 1, CheckpointVersion: 1}
+	testkit.RequireNoError(t, db.Store().Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		if err := tx.Put(ctx, "system", "schema", previous); err != nil {
+			return err
+		}
+		return tx.Put(ctx, "business.resources", "previous-owner/resource", map[string]string{"ID": "resource", "OwnerID": "previous-owner"})
+	}))
+	testkit.RequireCode(t, db.Migrate(ctx), core.FailedPrecondition)
+	got, err := db.Schema(ctx)
+	testkit.RequireNoError(t, err)
+	if got != previous {
+		t.Fatal("unsupported schema was changed", got)
+	}
+	rows, err := persistence.Scan[map[string]string](ctx, db.Store(), "business.resources")
+	testkit.RequireNoError(t, err)
+	if len(rows) != 1 || rows[0]["OwnerID"] != "previous-owner" {
+		t.Fatal("unsupported records were changed", rows)
+	}
 }

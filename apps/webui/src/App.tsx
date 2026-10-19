@@ -4,12 +4,12 @@ import { ErrorToastProvider, useErrorToast } from './error-toasts';
 import { SetupGate } from './setup';
 import { pluginCopy } from './plugins/copy';
 import { NotificationProvider } from './notifications/provider';
-import { Component, lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { Component, lazy, Suspense, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Avatar, Button, ConnectionLogo, ConnectionNotice, ModalScope, Tooltip, UIProvider, useBreakpoint, useTheme } from '@molr/ui';
 import { Puzzle, CalendarClock, FlaskConical, Folder, MessagesSquare, Search as SearchIcon } from 'lucide-react';
 import { resolveUI, packageKey } from '@molr/ui-host';
-import type { UIContext, UIPage } from '@molr/sdk/ui';
+import type { UIPage } from '@molr/sdk/ui';
 import type { Settings, RuntimeInfo, Conversation } from '@molr/sdk';
 import { DataProvider, LocaleProvider, SessionProvider, useAppearance, useCopy, useData, useQuery, useSession } from './state';
 import { useNavigation } from './navigation';
@@ -26,7 +26,6 @@ const TestChatPage = lazy(() => import('./interfaces/test/TestChatPage').then(mo
 const AdminSettings = lazy(() => import('./administration/AdminSettings').then(module => ({ default: module.AdminSettings })));
 const ExtensionPages = lazy(() => import('./plugins/Plugins').then(module => ({ default: module.ExtensionPages })));
 const PluginFrame = lazy(() => import('./plugins/PluginFrame').then(module => ({ default: module.PluginFrame })));
-const FramePage = lazy(() => import('./ui-host/FramePage').then(module => ({ default: module.FramePage })));
 
 export function App() { return <LocaleProvider><AppFrame><SessionProvider><ErrorToastScope /></SessionProvider></AppFrame></LocaleProvider>; }
 function ErrorToastScope() {
@@ -72,7 +71,6 @@ function WorkspaceHost() {
   }, [settings.data?.Version, changePreference, changePalette, setLocale]);
   const uiPage: UIPage = page === 'extensions' || page === 'account' ? 'settings' : page === 'todos' || page === 'schedules' ? 'plans' : page;
   const selected = resolveUI(host.configuration, host.packages, uiPage);
-  const context = useMemo<UIContext>(() => ({ apiVersion: 1, route: { page: uiPage, id }, locale, theme, palette: settings.data?.Palette || 'forest', reducedMotion: !!settings.data?.ReducedMotion, permissions: selected.manifest.permissions }), [uiPage, id, locale, theme, settings.data?.Palette, settings.data?.ReducedMotion, selected]);
   async function recover() {
     setRecoveryAttempt(value => value + 1);
     // A failed module download is also cached by the browser. Persist the
@@ -96,7 +94,7 @@ function WorkspaceHost() {
       {hasConnectionNotice && <ConnectionNotice connection={connection} onRetry={retryConnection} />}
     <main className="workspace-main" data-page={page}>
       <PageBoundary key={`${packageKey(selected.manifest)}:${recoveryAttempt}`} routeKey={`${uiPage}:${id}`} fallback={<div className="ui-frame-notice" role="alert"><h2>{copy.failed}</h2><p>{copy.failedHelp}</p><Button onClick={() => location.reload()}>{copy.retry}</Button><Button onClick={recover}>{copy.recover}</Button><Button variant="secondary" onClick={() => navigate('account', 'theme')}>{copy.manage}</Button></div>}>
-        <Suspense fallback={<Loading />}>{page === 'settings' ? <AdminSettings initialTab={id} onSelectSection={value => navigate('settings', value)} /> : page === 'resources' && !administrator ? <div className="ui-frame-notice" role="alert">{locale === 'zh' ? '此页面仅管理员可访问' : 'Administrator access required'}</div> : page === 'account' ? <OfficialPage /> : page === 'extensions' ? (pluginsVisible ? <ExtensionPages id={id} /> : null) : selected.plugin ? <PluginFrame reference={{ ...selected.plugin, Page: uiPage }} title={selected.manifest.name} /> : selected.runtime === 'builtin' ? <NativePage /> : <FramePage manifest={selected.manifest} context={context} navigate={navigate} recover={recover} />}</Suspense>
+        <Suspense fallback={<Loading />}>{page === 'settings' ? <AdminSettings initialTab={id} onSelectSection={value => navigate('settings', value)} /> : page === 'resources' && !administrator ? <div className="ui-frame-notice" role="alert">{locale === 'zh' ? '此页面仅管理员可访问' : 'Administrator access required'}</div> : page === 'account' ? <OfficialPage /> : page === 'extensions' ? (pluginsVisible ? <ExtensionPages id={id} /> : null) : selected.plugin ? <PluginFrame reference={{ ...selected.plugin, Page: uiPage }} title={selected.manifest.name} /> : <NativePage />}</Suspense>
       </PageBoundary>
     </main>
     </div>

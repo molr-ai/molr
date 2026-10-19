@@ -27,6 +27,9 @@ func (fixtureAuthorizer) Require(ctx context.Context, p core.Principal, q policy
 	if p.OwnerID != "owner" && p.OwnerID != "other" {
 		return core.NewError(core.Unauthenticated, "unknown test identity")
 	}
+	if p.OwnerID != "owner" {
+		return core.NewError(core.Forbidden, "resource unavailable for user group")
+	}
 	if p.Kind == core.ActorAssistant && q.Target.Kind == "shared_memory" && q.Action == policy.Write {
 		return core.NewError(core.Forbidden, "shared write requires grant")
 	}

@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"molr.ai/runtime/internal/catalog"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -140,10 +141,10 @@ func (c Connection) Origin() string {
 	return u.Scheme + "://" + u.Host
 }
 func (s *Service) connection(ctx context.Context, owner, id core.ID) (Connection, error) {
-	return persistence.LoadCatalog[Connection](ctx, s.store, "mcp.connections", owner, id)
+	return catalog.Load[Connection](ctx, s.store, "mcp.connections", id)
 }
 func (s *Service) rows(ctx context.Context, owner core.ID) ([]Connection, error) {
-	return persistence.SelectCatalog[Connection](ctx, s.store, "mcp.connections", owner, persistence.Query{Where: []persistence.Filter{persistence.Eq("Deleted", false)}})
+	return catalog.Select[Connection](ctx, s.store, "mcp.connections", persistence.Query{Where: []persistence.Filter{persistence.Eq("Deleted", false)}})
 }
 func (s *Service) ConnectionAccess(ctx context.Context, p core.Principal, id core.ID) (Connection, error) {
 	c, err := s.connection(ctx, p.OwnerID, id)
@@ -323,12 +324,10 @@ func (s *Service) Save(ctx context.Context, p core.Principal, q SaveRequest) (Vi
 		} else if !persistence.Missing(err) {
 			return err
 		}
-		owner, err := persistence.CatalogOwner(ctx, s.store, p.OwnerID)
-		if err != nil {
-			return err
-		}
+		owner := catalog.Scope
 		c = Connection{ID: core.ID("mcpconn_" + string(newID())), OwnerID: owner, Tools: []Tool{}, Status: "unchecked"}
 		if q.ID != "" {
+			var err error
 			c, err = s.connection(ctx, p.OwnerID, q.ID)
 			if err != nil {
 				return err

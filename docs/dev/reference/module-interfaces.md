@@ -79,7 +79,7 @@ IM 保存 `MessageCreated` outbox，Agent 调度消费并通过业务绑定找�
 | `policy` | `Authorizer`、`Grants`、`Budget`、`Repository`：对象授权、助理权限、原子预算预留与核算 |
 | `search` | `Service`、`Maintenance`、`Indexer`：权限过滤后的跨来源检索与版本化索引更新 |
 | `quota` | 模型预算、网络账本、调用统计、周期计算；权限与内核限制由原模块执行 |
-| `storage/sqlite` | `Database`、`Transactions`、`Repositories`、`Idempotency`、`Restorer`：事务、仓储组合、幂等与离线恢复 |
+| `storage/sqlite` | `Database`、`Restorer`：数据库生命周期、快照和离线恢复；通过 `Database.Store()` 取得事务存储 |
 | `storage/files` | `Service`、`Objects`、`Repository`：授权文件访问、私有对象存储与元数据 |
 | `platform` | `Runner`、`Process`、`Locker`、`NetworkGuard`：本机受控执行、实例锁和出站边界 |
 | `platform/sandbox` | 固定 Linux Runner：Bubblewrap、seccomp、cgroup、直接授权挂载、执行专属出口；扩展 `platform.Command` 的可信挂载/网络/限额字段，其他平台失败关闭 |
@@ -89,7 +89,7 @@ HTTP 组合只持有 `conversation.Client`、`agent.Observer`、`model.Catalog`�
 
 ## 6. 原子性与恢复
 
-`Transactions.Within` 将同一事务内的仓储交给回调。回调失败、取消或提交失败均返回错误，仓储不得逃逸到异步任务，不能在事务内等待模型和外部工具。
+`persistence.Store.Read/Write` 向回调提供事务上下文与 `Tx`。领域仓储使用同一 Store 加入事务；回调错误、取消或提交失败均回滚。事务不能逃逸回调，也不能等待外部副作用。
 
 必须原子提交的组合包括：
 

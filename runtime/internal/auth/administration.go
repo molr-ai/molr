@@ -81,8 +81,7 @@ func ensureGroups(ctx context.Context, tx persistence.Tx) error {
 	return nil
 }
 
-// Account storage is validated, never upgraded, by the running service.
-// Conversion from an older layout is an explicit offline maintenance step.
+// Validate account identities and their group references before serving requests.
 func (m *Manager) checkAccountStorage(ctx context.Context) error {
 	return m.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		rows, err := tx.Scan(ctx, "auth.accounts")
@@ -93,7 +92,7 @@ func (m *Manager) checkAccountStorage(ctx context.Context) error {
 			return nil
 		}
 		incompatible := func() error {
-			return core.NewError(core.FailedPrecondition, "account storage format unsupported; run the offline multi-user migration before starting this version")
+			return core.NewError(core.FailedPrecondition, "account storage format unsupported")
 		}
 		var bootstrap struct{ AccountID core.ID }
 		if err := tx.Get(ctx, "auth.bootstrap", "owner", &bootstrap); persistence.Missing(err) {
