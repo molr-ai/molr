@@ -67,6 +67,10 @@ jobs:
           go-version-file: runtime/.go-version
           cache-dependency-path: runtime/go.sum
       - run: npm ci
+      - if: runner.arch == 'X64'
+        run: npx playwright install chromium
+      - if: runner.arch == 'X64'
+        run: npm run test:website
       - name: Native Runtime and Full Access tests
         working-directory: runtime
         env:
