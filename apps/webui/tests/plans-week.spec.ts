@@ -15,6 +15,65 @@ async function login(page: Page, username = 'owner', password = 'webui-e2e-passw
 }
 const key = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 
+test('calendar loading replaces the grid until data arrives and preserves it during refresh', async ({ page }) => {
+  await login(page);
+  let release = () => {};
+  let requested = () => {};
+  let responseGate = Promise.resolve();
+  function holdPlans() {
+    responseGate = new Promise<void>(resolve => { release = resolve; });
+    return new Promise<void>(resolve => { requested = resolve; });
+  }
+  await page.route('**/api/plans?*', async route => {
+    const gate = responseGate;
+    requested();
+    await gate;
+    await route.continue();
+  });
+  const workspace = page.locator('.plans-workspace');
+  const loading = workspace.locator('.loading');
+  const grids = workspace.locator('.plans-week-calendar, .plans-month-calendar');
+  async function expectLoading() {
+    await expect(loading).toHaveCount(1);
+    await expect(workspace.locator('.plans-calendar-toolbar')).toBeVisible();
+    await expect(grids).toHaveCount(0);
+    await expect(workspace.locator('.plans-empty')).toHaveCount(0);
+  }
+  try {
+    let pending = holdPlans();
+    await page.goto('/#/plans');
+    await pending;
+    await expectLoading();
+    release();
+    await expect(workspace.locator('.plans-week-calendar')).toBeVisible();
+    await expect(loading).toHaveCount(0);
+
+    pending = holdPlans();
+    await page.getByRole('button', { name: 'Month', exact: true }).click();
+    await pending;
+    await expectLoading();
+    release();
+    await expect(workspace.locator('.plans-month-calendar')).toBeVisible();
+
+    pending = holdPlans();
+    await page.getByRole('button', { name: 'Next month', exact: true }).click();
+    await pending;
+    await expectLoading();
+    release();
+    await expect(workspace.locator('.plans-month-calendar')).toBeVisible();
+    await expect(loading).toHaveCount(0);
+
+    pending = holdPlans();
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await pending;
+    await expect(workspace.locator('.plans-month-calendar')).toBeVisible();
+    await expect(loading).toHaveCount(0);
+  } finally {
+    release();
+    await page.unrouteAll({ behavior: 'wait' });
+  }
+});
+
 test('week is default; events retain their duration, overlaps, midnight boundaries and details', async ({ page }, info) => {
   await login(page);
   // A private calendar keeps geometry assertions independent of other tests

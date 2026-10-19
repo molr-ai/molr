@@ -196,12 +196,12 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
     </div>}
     <div className="plans-content">
       <div className="plans-master" ref={listRef} inert={!!embedded && !!selected} aria-hidden={embedded && selected ? true : undefined}>
-        {plans.loading && !plans.data && <Loading />}
         {!embedded && view === 'calendar' ? <section className="plans-calendar-section" data-mode={calendarMode}>
           <PlanCalendarToolbar date={month} mode={calendarMode} locale={locale} onDate={selectCalendarDate} onMode={mode=>{setCalendarMode(mode);setExpanded('');setSelectedAt(undefined);setDayAgenda('');}}/>
-          {calendarMode === 'week' ? <PlanWeekCalendar date={month} selectedDate={date} locale={locale} events={scheduledEvents} selectedKey={selected ? eventKey(selected,selectedAt) : undefined} onDay={selectDate} onEvent={selectEvent}/> : <PlanMonthCalendar month={month} date={date} locale={locale} events={scheduledEvents} onDay={selectDate} onEvent={selectEvent} moreLabel={(count,day)=>t.moreEvents(count,day)}/>}
+          {plans.loading && !plans.data ? <Loading /> : calendarMode === 'week' ? <PlanWeekCalendar date={month} selectedDate={date} locale={locale} events={scheduledEvents} selectedKey={selected ? eventKey(selected,selectedAt) : undefined} onDay={selectDate} onEvent={selectEvent}/> : <PlanMonthCalendar month={month} date={date} locale={locale} events={scheduledEvents} onDay={selectDate} onEvent={selectEvent} moreLabel={(count,day)=>t.moreEvents(count,day)}/>}
 
         </section> : <>
+          {plans.loading && !plans.data && <Loading />}
           <div className="plan-list plans-list" aria-label={t.eventList}>{listRows.map(event=>row(event.Plan,event.At||undefined))}</div>
           {upcoming.loading&&listScope==='upcoming'&&<Loading/>}
           {!embedded&&listScope==='upcoming'&&upcoming.more&&<Button className="plans-load-more" variant="secondary" disabled={upcoming.loading} onClick={upcoming.loadMore}>{t.loadMoreEvents}</Button>}
