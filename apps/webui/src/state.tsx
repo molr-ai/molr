@@ -153,6 +153,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }));
     function changed(topics: string[]) {
       const expanded = new Set(topics);
+      if (topics.includes('settings')) { expanded.add('dreams'); expanded.add('plans'); }
       for (const topic of topics) if (topic.startsWith('status:')) expanded.add('activity');
       if (topics.some(topic => ['assistants', 'status', 'messages'].includes(topic) || topic.startsWith('messages:'))) expanded.add('activity');
       if (topics.some(topic => ['admin', 'account', 'grants'].includes(topic))) expanded.add('usage');

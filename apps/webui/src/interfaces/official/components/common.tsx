@@ -28,13 +28,13 @@ export function useAction() {
   }
   return { busy, error, run, reset: () => setError(null) };
 }
-type EditFormProps = { children: ReactNode; onClose: () => void; onSubmit: () => Promise<unknown>; submitLabel?: string; submitDisabled?: boolean; notifyOnSave?: boolean; action: ReturnType<typeof useAction> };
-export function EditForm({ children, onClose, onSubmit, submitLabel, submitDisabled, notifyOnSave = true, action }: EditFormProps) {
+type EditFormProps = { id?: string; externalActions?: boolean; children: ReactNode; onClose: () => void; onSubmit: () => Promise<unknown>; submitLabel?: string; submitDisabled?: boolean; notifyOnSave?: boolean; action: ReturnType<typeof useAction> };
+export function EditForm({ id, externalActions = false, children, onClose, onSubmit, submitLabel, submitDisabled, notifyOnSave = true, action }: EditFormProps) {
   const { t } = useCopy();
   useErrorToast(action.error);
-  return <form className="editor" onSubmit={(event: FormEvent) => { event.preventDefault(); if (!submitDisabled) void action.run(onSubmit, onClose, notifyOnSave); }}>
+  return <form id={id} className="editor" onSubmit={(event: FormEvent) => { event.preventDefault(); if (!submitDisabled) void action.run(onSubmit, onClose, notifyOnSave); }}>
     {children}
-    <div className="form-actions"><Button variant="secondary" onClick={onClose} disabled={action.busy}>{t.cancel}</Button><Button type="submit" disabled={submitDisabled} loading={action.busy}>{submitLabel ?? t.save}</Button></div>
+    {!externalActions && <div className="form-actions"><Button variant="secondary" onClick={onClose} disabled={action.busy}>{t.cancel}</Button><Button type="submit" disabled={submitDisabled} loading={action.busy}>{submitLabel ?? t.save}</Button></div>}
   </form>;
 }
 export function EditDialog({ title, description, children, onClose, onSubmit, submitLabel, submitDisabled, notifyOnSave }: { title: string; description?: string; children: ReactNode; onClose: () => void; onSubmit: () => Promise<unknown>; submitLabel?: string; submitDisabled?: boolean; notifyOnSave?: boolean }) {

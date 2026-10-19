@@ -38,9 +38,12 @@ func newTimer(c Config, anchor time.Time, prior timerState) (timerState, error) 
 	}
 	return timerState{OwnerID: c.OwnerID, AssistantID: c.AssistantID, Revision: prior.Revision + 1, Rule: rule, Cursor: trigger.Cursor{NextAt: next}, Through: prior.Through}, nil
 }
-func (s *Coordinator) timer(ctx context.Context, c Config) (timerState, error) {
+func (s *Coordinator) timer(ctx context.Context, c Config, now time.Time) (timerState, error) {
 	state, err := persistence.Load[timerState](ctx, s.store, timers, persistence.Key(c.OwnerID, c.AssistantID))
 	if err == nil {
+		if state.Rule.Timezone != c.Timezone {
+			return newTimer(c, now, state)
+		}
 		return state, nil
 	}
 	if !persistence.Missing(err) {
@@ -81,7 +84,7 @@ func (s *Coordinator) tickAssistant(ctx context.Context, owner, assistant core.I
 		if !c.Enabled {
 			return nil
 		}
-		timer, err := s.timer(ctx, c)
+		timer, err := s.timer(ctx, c, now)
 		if err != nil {
 			return err
 		}

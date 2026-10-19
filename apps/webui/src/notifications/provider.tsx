@@ -165,7 +165,7 @@ export function NotificationProvider({ children, createAdapter = createBrowserNo
         if(canceled())return;
         const content=current.current.noticeText.text(n), route=current.current.noticeText.action(n)?.route ?? '';
         const prefs=current.current.value;
-        const title=prefs.preview?content.title:'Molr',body=prefs.preview?content.description:current.current.noticeText.copy.unknown;
+        const title=prefs.preview?content.title:'Molr',body=prefs.preview?[content.description,content.help].filter(Boolean).join(' '):current.current.noticeText.copy.unknown;
         if(!focused()&&prefs.system&&device.capability()==='granted'){
           try{
             await device.show({tag,title,body,route,silent:true});

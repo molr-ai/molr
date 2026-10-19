@@ -37,7 +37,7 @@ func TestDreamConflictsChecksUpcomingDatesWhenEditingOldSeries(t *testing.T) {
 		t.Fatal("old series lost upcoming conflicts")
 	}
 	for _, window := range windows {
-		if window.Start.Before(now.Add(-10 * time.Minute)) {
+		if window.Start.Before(now.Add(-time.Hour)) {
 			t.Fatal("returned first 90 days instead of upcoming dates", window)
 		}
 	}

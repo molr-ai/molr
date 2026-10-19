@@ -236,10 +236,17 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 .money-input { display: grid; grid-template-columns: minmax(0, 1fr) minmax(112px, 0.4fr); align-items: end; gap: 12px; }
 
 .assistant-info.ui-drawer:not([data-contained]):not([data-docked]) { width: min(var(--assistant-info-width), 100vw); }
-.assistant-profile-status { margin-bottom: 20px; }
-.assistant-info-status .badge { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
-.assistant-info-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
 .assistant-info-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.assistant-info-debug { display: flex; justify-content: flex-end; margin-bottom: 20px; }
+.assistant-settings-section { display: grid; gap: 16px; min-width: 0; }
+.assistant-settings-section h3 { display: flex; align-items: center; gap: 12px; margin: 0; font-size: var(--text-sm); }
+.assistant-settings-section h3::before, .assistant-settings-section h3::after { content: ""; flex: 1; border-top: 1px solid var(--color-border); }
+.dream-timing-fields { display: grid; grid-template-columns: minmax(0, 112px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.dream-timing-fields .ui-date-time-picker > legend { font-weight: 600; }
+.dream-timing-fields .ui-date-time-picker__buttons { width: 100%; padding: 0; }
+.dream-timing-fields .ui-date-time-picker__date { width: 100%; margin-left: 0; }
+.dream-timing-fields .ui-date-time-picker__date > button { width: 100%; min-height: 44px; }
+
 .assistant-capabilities { display: grid; gap: var(--space-5); min-width: 0; }
 .assistant-capability { min-width: 0; overflow-wrap: anywhere; display: grid; gap: 10px; padding-block: 8px 20px; }
 .assistant-capability + .assistant-capability { border-top: 1px solid var(--color-border); padding-top: 20px; }

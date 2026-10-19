@@ -35,5 +35,14 @@ export function useNavigation() {
     location.hash = `/${page}${id ? `/${(page === 'extensions' ? id.split('/').map(encodeURIComponent).join('/') : encodeURIComponent(id))}` : ''}${query.size ? `?${query}` : ''}`;
     setRoute({ page, id, turnID, eventID: '', messageID, panel: undefined, taskID: '' });
   }), []);
-  return { ...route, navigate };
+  const closePanel = useCallback(() => {
+    if (!readRoute().panel) return;
+    const url = new URL(location.href), [path, search = ''] = url.hash.split('?');
+    const query = new URLSearchParams(search);
+    query.delete('panel'); query.delete('task');
+    url.hash = path + (query.size ? `?${query}` : '');
+    history.replaceState(history.state, '', url);
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+  }, []);
+  return { ...route, navigate, closePanel };
 }

@@ -17,6 +17,39 @@ import (
 	"time"
 )
 
+func TestDefaultDurationAppliesToConfigWindowsAndSessions(t *testing.T) {
+	for _, stored := range []bool{false, true} {
+		t.Run(fmt.Sprintf("stored=%v", stored), func(t *testing.T) {
+			f := setup(t)
+			if stored {
+				put(t, f.db, configs, "owner/assistant", Config{OwnerID: "owner", AssistantID: "assistant", Enabled: true, Hour: 3, Timezone: "UTC", Version: 1})
+			}
+			c, err := f.s.Get(t.Context(), f.p, "assistant")
+			if err != nil || c.MaxDurationSeconds != 3600 {
+				t.Fatal("default duration", c, err)
+			}
+			from := f.now.AddDate(0, 0, 1).Truncate(24 * time.Hour)
+			windows, err := f.s.Windows(t.Context(), f.p, "assistant", from, from.Add(24*time.Hour))
+			if err != nil || len(windows) != 1 || windows[0].End.Sub(windows[0].Start) != time.Hour {
+				t.Fatal("default window", windows, err)
+			}
+			f.message(t, 1)
+			r := f.request(t, "default-duration")
+			if !r.Deadline.Equal(f.now.Add(time.Hour)) {
+				t.Fatal("default session deadline", r.Deadline)
+			}
+			f.now = f.now.Add(30 * time.Minute)
+			if err := f.s.ensureOpen(t.Context(), r); err != nil {
+				t.Fatal("dream ended before one hour", err)
+			}
+			f.now = r.Deadline
+			if err := f.s.ensureOpen(t.Context(), r); core.CodeOf(err) != core.DeadlineExceeded {
+				t.Fatal("dream did not end at one hour", err)
+			}
+		})
+	}
+}
+
 func TestSessionDeadlinePreservesCommittedMemoryAndBoundsBackfill(t *testing.T) {
 	f := setup(t)
 	for i := 0; i < 83; i++ {
@@ -92,7 +125,7 @@ func TestSessionFrozenDeadlineAndCancel(t *testing.T) {
 	f.message(t, 1)
 	r := f.request(t, "first")
 	c, _ := f.s.Get(t.Context(), f.p, "assistant")
-	_, err := f.s.Configure(t.Context(), f.p, ConfigureRequest{Mutation: core.Mutation{IdempotencyKey: "duration", ExpectedVersion: c.Version}, AssistantID: "assistant", Enabled: true, Hour: 3, Timezone: "UTC", MaxDurationSeconds: 3600})
+	_, err := f.s.Configure(t.Context(), f.p, ConfigureRequest{Mutation: core.Mutation{IdempotencyKey: "duration", ExpectedVersion: c.Version}, AssistantID: "assistant", Enabled: true, Hour: 3, MaxDurationSeconds: 600})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +151,7 @@ func TestSessionFrozenDeadlineAndCancel(t *testing.T) {
 func TestWindowsAndRecurringConflictsUseSharedRules(t *testing.T) {
 	f := setup(t)
 	c, _ := f.s.Get(t.Context(), f.p, "assistant")
-	_, err := f.s.Configure(t.Context(), f.p, ConfigureRequest{Mutation: core.Mutation{IdempotencyKey: "window", ExpectedVersion: c.Version}, AssistantID: "assistant", Enabled: true, Hour: 3, Timezone: "UTC", MaxDurationSeconds: 600})
+	_, err := f.s.Configure(t.Context(), f.p, ConfigureRequest{Mutation: core.Mutation{IdempotencyKey: "window", ExpectedVersion: c.Version}, AssistantID: "assistant", Enabled: true, Hour: 3, MaxDurationSeconds: 600})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +190,7 @@ func TestMissedAutomaticWindowDoesNotPreventManualDream(t *testing.T) {
 		t.Fatal(missed, err)
 	}
 	manual := f.request(t, "manual-after-missed")
-	if manual.State != "queued" || manual.SessionID == missed.SessionID || !manual.Deadline.Equal(f.now.Add(10*time.Minute)) {
+	if manual.State != "queued" || manual.SessionID == missed.SessionID || !manual.Deadline.Equal(f.now.Add(time.Hour)) {
 		t.Fatal(manual)
 	}
 	again := f.request(t, "repeat-manual")
@@ -175,11 +208,12 @@ func TestSessionProcessesDatesInOrderAcrossBatchesAndRestart(t *testing.T) {
 				t.Fatal(err)
 			}
 			f.now = time.Date(2026, 9, 30, 3, 0, 0, 0, loc)
+			f.timezone(t, loc.String())
 			c, err := f.s.Get(t.Context(), f.p, "assistant")
 			if err != nil {
 				t.Fatal(err)
 			}
-			c, err = f.s.Configure(t.Context(), f.p, ConfigureRequest{AssistantID: "assistant", Enabled: true, Hour: 3, Timezone: loc.String(), Mutation: core.Mutation{IdempotencyKey: "configure", ExpectedVersion: c.Version}})
+			c, err = f.s.Configure(t.Context(), f.p, ConfigureRequest{AssistantID: "assistant", Enabled: true, Hour: 3, Mutation: core.Mutation{IdempotencyKey: "configure", ExpectedVersion: c.Version}})
 			if err != nil {
 				t.Fatal(err)
 			}

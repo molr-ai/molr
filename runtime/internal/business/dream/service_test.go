@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"molr.ai/runtime/internal/business/assistant"
 	"molr.ai/runtime/internal/business/memory"
+	"molr.ai/runtime/internal/business/settings"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/event"
 	"molr.ai/runtime/internal/im/conversation"
@@ -139,12 +140,13 @@ func TestSourceChangedAndAssistantIsolation(t *testing.T) {
 
 func TestNightlyScheduleUsesConfiguredTimezone(t *testing.T) {
 	f := setup(t)
+	f.timezone(t, "Asia/Shanghai")
 	f.message(t, 1)
 	c, err := f.s.Get(t.Context(), f.p, "assistant")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = f.s.Configure(t.Context(), f.p, ConfigureRequest{Mutation: core.Mutation{IdempotencyKey: "configure", ExpectedVersion: c.Version}, AssistantID: "assistant", Enabled: true, Hour: 13, Timezone: "Asia/Shanghai"})
+	_, err = f.s.Configure(t.Context(), f.p, ConfigureRequest{Mutation: core.Mutation{IdempotencyKey: "configure", ExpectedVersion: c.Version}, AssistantID: "assistant", Enabled: true, Hour: 13})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,4 +219,9 @@ func TestSavedSummaryRecoveryAndIsolation(t *testing.T) {
 	if _, err := recovered.SavedOutput(t.Context(), other, ev(r)); core.CodeOf(err) != core.Forbidden {
 		t.Fatal(err)
 	}
+}
+
+func (f *fixture) timezone(t *testing.T, zone string) {
+	t.Helper()
+	put(t, f.db, "business.settings", "owner", settings.Settings{OwnerID: "owner", Timezone: zone, Version: 1})
 }

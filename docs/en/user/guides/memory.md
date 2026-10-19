@@ -1,6 +1,6 @@
 # Memory and Automatic Organization
 
-In "User Settings → Memory", select a sharing scope or an assistant to manage long-term facts and preferences.
+In "User Settings → Memory", select a sharing scope or an assistant to view and edit memory files. Dream settings are available in assistant info.
 
 ## Storage Location and Editing
 
@@ -14,13 +14,13 @@ The local MEMORY.md core cognition is automatically included in the context with
 
 You can view, edit, confirm, delete, or forget memory. Normal deletion only removes files, which may be re-organized from original materials later. Forgetting also records content summaries and known sources, and cleans up related undo copies; for external Markdown without source information, it cannot be guaranteed that all rewrites will be identified. Original chats are not deleted as a result.
 
-Undoing a completed batch of organization restores its file operations in reverse order, including creation, editing, moving, and deletion, provided they were not modified later. Content that was edited, confirmed, or forgotten later is protected; specific retained files are displayed in the batch record.
-
 ## Dreaming (Automatic Organization)
 
 Dreaming provides the model with new experiences from the previous complete natural day and file tools. The model searches and reads existing memory on its own, updates, merges, moves, or deletes topic files, and maintains core cognition in `MEMORY.md`; finally, it saves a review of this batch of organization. Organization can still proceed if there are no new experiences but private memory files exist. The model is responsible for judging the scope and reliability of information, should retain uncertainty, and avoid treating assistant claims or temporary requests as long-term facts.
 
-In "User Settings → Memory", select an active assistant to set the daily dreaming time, duration limit, or trigger immediate organization. Global sharing scopes do not display dreaming operations. Dreaming uses the model currently selected by the assistant that supports tool calling; each batch can involve multiple rounds of calls, and usage counts against that assistant's budget. Historical materials are provided as data and are not replayed as new instructions.
+Each assistant has separate dream settings, editable in assistant info. The "Assistant info" overview groups profile, model and context, spending, and dream settings with section titles centered in the separators. Save/Cancel remain visible in the fixed footer while the form scrolls. Turning on "Enable dreaming" shows the start time and duration limit side by side; disabling it retains the saved time and duration. Dreaming uses the time zone from "User Settings → General" instead of a separate setting. Changing the general time zone updates future automatic dreams; sessions already started keep their frozen evidence range and deadline. The default duration limit is one hour, shared by all batches in the same dreaming session. Dreaming uses the model currently selected by the assistant that supports tool calling; each batch can involve multiple rounds of calls, and usage counts against that assistant's budget. Historical materials are provided as data and are not replayed as new instructions.
+
+When a dream times out, its notice explains that consolidation stopped and successfully saved memory changes remain, with a "View dream settings" action. Other dream failures show the specific reason; background execution notices also retain the reason when the outcome needs review.
 
 The development workbench displays actual file writes, edits, moves, deletions, and tool results for each round. When file operations encounter errors, the model can re-read and correct based on the error. Files saved or confirmed by you in the memory interface are marked as read-only, and shared memory is also read-only; directly editing normal Markdown does not automatically lock the file.
 

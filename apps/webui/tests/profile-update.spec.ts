@@ -96,7 +96,7 @@ test('assistant status is self-authored, live, persistent and cleared back to id
   await page.reload();
   await expect(label).toHaveText(status);
   await page.locator('.chat-assistant-info').click();
-  await expect(page.locator('.assistant-profile-status')).toContainText(status);
+  await expect(page.locator('.assistant-profile-status')).toHaveCount(0);
   await expect(page.locator('.assistant-profile-status input, .assistant-profile-status textarea')).toHaveCount(0);
   const csrf = (await page.context().cookies()).find(c => c.name === `molr_dev_csrf_p${port}`)!.value;
   const current = await (await page.request.get(`/api/assistants/${a.ID}`)).json();

@@ -55,7 +55,7 @@ func (s *Coordinator) ensureOpen(ctx context.Context, r Run) error {
 	}
 	deadline := r.Deadline
 	if deadline.IsZero() {
-		deadline = r.CreatedAt.Add(10 * time.Minute)
+		deadline = r.CreatedAt.Add(time.Duration(defaultDurationSeconds) * time.Second)
 	}
 	if !s.options.Now().Before(deadline) {
 		return core.NewError(core.DeadlineExceeded, "dream deadline reached")

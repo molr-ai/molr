@@ -12,7 +12,7 @@ export const useCurrency = () => useQuery<CurrencyContext>('/api/settings/curren
 
 // Fetch once on opening. Preserve the entered denomination throughout editing,
 // including when another client changes the display preference or rate snapshot.
-export function CurrencyDialog({ title, onClose, children, drawer = false, dismissible = true, className, description, docked }: { title: string; onClose: () => void; children: (context: CurrencyContext) => ReactNode; drawer?: boolean; dismissible?: boolean; className?: string; description?: string; docked?: boolean }) {
+export function CurrencyDialog({ title, onClose, children, drawer = false, dismissible = true, className, description, docked, footer }: { title: string; onClose: () => void; children: (context: CurrencyContext) => ReactNode; drawer?: boolean; dismissible?: boolean; className?: string; description?: string; docked?: boolean; footer?: ReactNode }) {
   const [context, setContext] = useState<CurrencyContext>(), [error, setError] = useState<unknown>(), [attempt, setAttempt] = useState(0);
   useEffect(() => {
     const abort = new AbortController(); setError(undefined);
@@ -23,7 +23,7 @@ export function CurrencyDialog({ title, onClose, children, drawer = false, dismi
   const displayed = useModalSnapshot(context);
   const pending = <>{!error && <Loading />}</>;
   const close = (open: boolean) => { if (!open && dismissible) onClose(); };
-  if (drawer) return <Drawer docked={docked} open side="right" className={className} description={description} title={title} onOpenChange={close} dismissible={dismissible}>{displayed ? children(displayed) : pending}</Drawer>;
+  if (drawer) return <Drawer docked={docked} open side="right" className={className} description={description} title={title} onOpenChange={close} dismissible={dismissible} footer={displayed ? footer : undefined}>{displayed ? children(displayed) : pending}</Drawer>;
   return displayed ? children(displayed) : <Dialog open title={title} onOpenChange={close} dismissible={dismissible}>{pending}</Dialog>;
 }
 export function CurrencySelect({ value, onChange }: { value: CurrencyCode; onChange: (value: CurrencyCode) => void }) {

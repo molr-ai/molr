@@ -78,7 +78,8 @@ func TestTimerSettingChangePreservesReplayProgressAndVersionedDedup(t *testing.T
 	}
 	before, _ := f.s.Get(t.Context(), f.p, "assistant")
 	timer, _ := persistence.Load[timerState](t.Context(), f.db, timers, "owner/assistant")
-	req := ConfigureRequest{Mutation: core.Mutation{IdempotencyKey: "edit-clock", ExpectedVersion: before.Version}, AssistantID: "assistant", Enabled: true, Hour: 13, Timezone: "Asia/Shanghai"}
+	f.timezone(t, "Asia/Shanghai")
+	req := ConfigureRequest{Mutation: core.Mutation{IdempotencyKey: "edit-clock", ExpectedVersion: before.Version}, AssistantID: "assistant", Enabled: true, Hour: 13}
 	after, err := f.s.Configure(t.Context(), f.p, req)
 	if err != nil {
 		t.Fatal(err)
@@ -139,11 +140,7 @@ func TestTimezoneEditKeepsAnAdmittedBatchWindow(t *testing.T) {
 	if err := f.s.Commit(t.Context(), f.ap, ev(first), "batch one"); err != nil {
 		t.Fatal(err)
 	}
-	c, _ := f.s.Get(t.Context(), f.p, "assistant")
-	_, err := f.s.Configure(t.Context(), f.p, ConfigureRequest{Mutation: core.Mutation{IdempotencyKey: "timezone-edit", ExpectedVersion: c.Version}, AssistantID: "assistant", Enabled: true, Hour: 3, Timezone: "America/New_York"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	f.timezone(t, "America/New_York")
 	if err := f.s.Tick(t.Context(), f.now.Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
@@ -166,5 +163,36 @@ func TestTimezoneEditKeepsAnAdmittedBatchWindow(t *testing.T) {
 	after, _ := f.s.Get(t.Context(), f.p, "assistant")
 	if !after.NextDay.Equal(first.End) {
 		t.Fatal("replay cursor overlapped or skipped evidence", after)
+	}
+}
+
+func TestGeneralTimezoneChangeUpdatesExistingDreamTimerAndWindows(t *testing.T) {
+	f := setup(t)
+	f.now = time.Date(2026, 9, 29, 2, 0, 0, 0, time.UTC)
+	f.timezone(t, "UTC")
+	if err := f.s.Tick(t.Context(), f.now); err != nil {
+		t.Fatal(err)
+	}
+	before, err := persistence.Load[timerState](t.Context(), f.db, timers, "owner/assistant")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.timezone(t, "Asia/Shanghai")
+	c, err := f.s.Get(t.Context(), f.p, "assistant")
+	if err != nil || c.Timezone != "Asia/Shanghai" || c.Hour != 3 {
+		t.Fatal(c, err)
+	}
+	from := time.Date(2026, 9, 29, 16, 0, 0, 0, time.UTC)
+	windows, err := f.s.Windows(t.Context(), f.p, "assistant", from, from.Add(24*time.Hour))
+	if err != nil || len(windows) != 1 || !windows[0].Start.Equal(from.Add(3*time.Hour)) || windows[0].Timezone != "Asia/Shanghai" {
+		t.Fatal(windows, err)
+	}
+	f.now = f.now.Add(time.Minute)
+	if err := f.s.Tick(t.Context(), f.now); err != nil {
+		t.Fatal(err)
+	}
+	after, err := persistence.Load[timerState](t.Context(), f.db, timers, "owner/assistant")
+	if err != nil || after.Revision != before.Revision+1 || after.Rule.Timezone != "Asia/Shanghai" || !after.Cursor.NextAt.Equal(windows[0].Start) {
+		t.Fatal(after, err)
 	}
 }

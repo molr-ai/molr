@@ -31,7 +31,7 @@ export function DreamInspection({ id }: { id: string }) {
           {run.FailureCode && <p className="workbench-prose">{c.endReason}: {run.FailureCode}</p>}
         </div>
       </details>
-      <a href="#/account/memory">{c.view}</a>
+      <a href={`#/account/memory?assistant_id=${run.AssistantID}`}>{c.view}</a>
     </div>}
   </section>;
 }

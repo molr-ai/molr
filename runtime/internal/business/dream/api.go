@@ -25,7 +25,6 @@ type ConfigureRequest struct {
 	AssistantID        core.ID
 	Enabled            bool
 	Hour, Minute       int
-	Timezone           string
 }
 type Request struct {
 	Mutation    core.Mutation

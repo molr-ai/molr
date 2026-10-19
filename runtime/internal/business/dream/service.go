@@ -20,6 +20,8 @@ import (
 	"time"
 )
 
+const defaultDurationSeconds = 3600
+
 const configs = "business.dream_configs"
 const runs = "business.dream_runs"
 
@@ -63,13 +65,8 @@ func (s *Coordinator) config(ctx context.Context, owner, a core.ID) (Config, err
 }
 func (s *Coordinator) configAt(ctx context.Context, owner, a core.ID, at time.Time) (Config, error) {
 	c, err := persistence.Load[Config](ctx, s.store, configs, persistence.Key(owner, a))
-	if err == nil {
-		if c.MaxDurationSeconds == 0 {
-			c.MaxDurationSeconds = 600
-		}
-		return c, nil
-	}
-	if !persistence.Missing(err) {
+	found := err == nil
+	if err != nil && !persistence.Missing(err) {
 		return c, err
 	}
 	prefs, err := settings.NewRepository(s.store).Get(ctx, owner)
@@ -84,9 +81,16 @@ func (s *Coordinator) configAt(ctx context.Context, owner, a core.ID, at time.Ti
 	if err != nil {
 		return c, err
 	}
+	if found {
+		c.Timezone = tz
+		if c.MaxDurationSeconds == 0 {
+			c.MaxDurationSeconds = defaultDurationSeconds
+		}
+		return c, nil
+	}
 	now := at.In(loc)
 	day := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc).AddDate(0, 0, -1)
-	return Config{MaxDurationSeconds: 600, OwnerID: owner, AssistantID: a, Enabled: true, Hour: 3, Timezone: tz, NextDay: day.UTC(), Version: 1}, nil
+	return Config{MaxDurationSeconds: defaultDurationSeconds, OwnerID: owner, AssistantID: a, Enabled: true, Hour: 3, Timezone: tz, NextDay: day.UTC(), Version: 1}, nil
 }
 func (s *Coordinator) Get(ctx context.Context, p core.Principal, a core.ID) (Config, error) {
 	if err := s.authorize(ctx, p, a, false); err != nil {
@@ -100,9 +104,6 @@ func (s *Coordinator) Configure(ctx context.Context, p core.Principal, r Configu
 	}
 	if err = r.Mutation.Validate(true); err != nil {
 		return
-	}
-	if _, err = time.LoadLocation(r.Timezone); err != nil {
-		return out, core.Invalid("timezone", "unknown timezone")
 	}
 	if r.MaxDurationSeconds < 0 || r.MaxDurationSeconds > 3600 {
 		return out, core.Invalid("max_duration_seconds", "must be 1 to 3600 seconds")
@@ -135,14 +136,13 @@ func (s *Coordinator) Configure(ctx context.Context, p core.Principal, r Configu
 		if c.Version != r.Mutation.ExpectedVersion {
 			return core.NewError(core.Conflict, "dream configuration changed")
 		}
-		timingChanged := c.Hour != r.Hour || c.Minute != r.Minute || c.Timezone != r.Timezone
+		timingChanged := c.Hour != r.Hour || c.Minute != r.Minute
 		if r.MaxDurationSeconds > 0 {
 			c.MaxDurationSeconds = r.MaxDurationSeconds
 		}
 		c.Enabled = r.Enabled
 		c.Hour = r.Hour
 		c.Minute = r.Minute
-		c.Timezone = r.Timezone
 		c.Version++
 		out = c
 		if err := tx.Put(ctx, configs, persistence.Key(p.OwnerID, r.AssistantID), c); err != nil {

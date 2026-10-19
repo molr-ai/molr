@@ -106,7 +106,7 @@ func (s *Coordinator) startSession(ctx context.Context, c Config, manual bool, n
 	}
 	duration := c.MaxDurationSeconds
 	if duration == 0 {
-		duration = 600
+		duration = defaultDurationSeconds
 	}
 	v := Session{ID: id(string(c.AssistantID), end.UTC().String(), "session"), OwnerID: c.OwnerID, AssistantID: c.AssistantID, State: "active", Timezone: c.Timezone, WindowStart: at.UTC(), Deadline: at.Add(time.Duration(duration) * time.Second).UTC(), Start: start.UTC(), End: end.UTC(), Manual: manual, MemoryFiles: []memory.Ref{}}
 	if manual {
@@ -296,7 +296,7 @@ func (s *Coordinator) Deadline(ctx context.Context, p core.Principal, e event.As
 		return time.Time{}, nil
 	}
 	if r.Deadline.IsZero() {
-		r.Deadline = r.CreatedAt.Add(10 * time.Minute)
+		r.Deadline = r.CreatedAt.Add(time.Duration(defaultDurationSeconds) * time.Second)
 	}
 	return r.Deadline, nil
 }

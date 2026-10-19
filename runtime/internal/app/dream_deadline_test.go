@@ -14,6 +14,7 @@ import (
 	"molr.ai/runtime/internal/business/schedule"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/im/conversation"
+	"molr.ai/runtime/internal/notification"
 	"molr.ai/runtime/internal/persistence"
 	"net/http"
 	"net/http/httptest"
@@ -110,7 +111,7 @@ func testDreamQueueRelease(t *testing.T, stop bool) {
 	chatID = string(a.ConversationID)
 	c, err := b.Services.Dreams.Get(ctx, p, a.ID)
 	need(t, err)
-	_, err = b.Services.Dreams.Configure(ctx, p, dream.ConfigureRequest{Mutation: core.Mutation{IdempotencyKey: "duration", ExpectedVersion: c.Version}, AssistantID: a.ID, Enabled: true, Hour: 3, Timezone: c.Timezone, MaxDurationSeconds: int(dreamDuration / time.Second)})
+	_, err = b.Services.Dreams.Configure(ctx, p, dream.ConfigureRequest{Mutation: core.Mutation{IdempotencyKey: "duration", ExpectedVersion: c.Version}, AssistantID: a.ID, Enabled: true, Hour: 3, MaxDurationSeconds: int(dreamDuration / time.Second)})
 	need(t, err)
 	for i := 0; i < 83; i++ {
 		_, err = conversation.NewRepository(b.store).Append(ctx, p.OwnerID, conversation.Message{ID: core.ID(fmt.Sprintf("yesterday-%03d", i)), ConversationID: a.ConversationID, Sender: conversation.User, SenderID: p.OwnerID, Content: conversation.Content{Kind: conversation.Text, Text: "My weekly reports should lead with conclusions."}, CreatedAt: time.Now().Add(-24 * time.Hour)})
@@ -180,6 +181,22 @@ func testDreamQueueRelease(t *testing.T, stop bool) {
 	}
 	if stored.SessionState != expected || stored.State != "completed" {
 		t.Fatal("timeout not recorded", stored)
+	}
+	if !stop {
+		notices, err := persistence.Scan[notification.Notice](ctx, b.store, "notifications.records")
+		need(t, err)
+		found := false
+		for _, n := range notices {
+			if n.AssistantID == a.ID && n.Kind == "dream.failed" && strings.HasSuffix(n.Code, ":deadline_exceeded") {
+				found = true
+			}
+			if n.AssistantID == a.ID && n.Kind == "execution.failed" && strings.HasSuffix(n.Code, ":deadline_exceeded") {
+				t.Fatal("dream timeout used generic notice", n)
+			}
+		}
+		if !found {
+			t.Fatal("dream timeout notice missing", notices)
+		}
 	}
 	mem, err := b.Services.Memories.List(ctx, p, memory.Query{AssistantID: a.ID})
 	need(t, err)

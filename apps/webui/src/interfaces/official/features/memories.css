@@ -1,10 +1,6 @@
 .memory-workspace { gap: 20px; }
 .memory-filters { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; }
 .memory-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.dream-panel { display: grid; gap: 12px; border-top: 1px solid var(--color-border); padding-top: 20px; }
-.dream-panel h3 { margin: 0; }
-.dream-run { padding: 10px 0; border-top: 1px solid var(--color-border); }
-.dream-run summary { cursor: pointer; }
 .memory-source { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block: 12px; }
 .memory-source code { overflow-wrap: anywhere; }
 .memory-source-text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 45vh; overflow: auto; }
@@ -12,5 +8,12 @@
 
 .memory-path { overflow-wrap: anywhere; }
 
-.memory-breadcrumbs { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.memory-address { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 4px 8px; border: 1px solid var(--color-control-border); border-radius: var(--radius-control); background: var(--color-background); }
+.memory-address-icon { flex: none; color: var(--color-text-muted); }
+.memory-address-path { display: flex; align-items: center; flex: 1; min-width: 0; margin: 0; padding: 2px; list-style: none; overflow-x: auto; }
+.memory-address-path li { display: flex; flex: none; align-items: center; gap: 2px; }
+.memory-address-path li > svg { flex: none; color: var(--color-text-muted); }
+.memory-address-path .button { display: block; flex: none; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.memory-address-path [aria-current="location"] { font-weight: 600; }
+.memory-address > .button { flex: none; }
 .memory-workspace .settings-row-item-head > .button { min-width: 0; overflow-wrap: anywhere; text-align: start; }

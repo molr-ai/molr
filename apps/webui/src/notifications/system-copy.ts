@@ -17,7 +17,7 @@ export function useNoticeText() {
  const workbenchVisible = !!runtime.data?.workbench_available && !!settings.data?.WorkbenchVisible;
  return { copy, workbenchVisible, action: (n: SystemNotice) => {
   const route = noticeRoute(n, workbenchVisible);
-  return route ? { route, label: n.Kind === 'execution.failed' ? t.turnMetrics.viewWorkbench : copy.open } : undefined;
+  return route ? { route, label: n.Kind === 'dream.failed' ? (locale === 'zh' ? '查看做梦设置' : 'View dream settings') : n.Kind === 'execution.failed' ? t.turnMetrics.viewWorkbench : copy.open } : undefined;
  }, text: (n:SystemNotice) => {
   if(n.Kind==='telegram.delivery') { const [state,error]=n.Code.split(':'); return { title:telegram.delivery, description: state==='failed'&&error==='rate_limited' ? telegram.retryExhausted : telegram.errors[error as keyof typeof telegram.errors] ?? telegram.deliveries[state as keyof typeof telegram.deliveries] ?? state, help:state==='unknown'?telegram.unknownHelp:'' }; }
   if(n.Kind==='telegram.connection') return { title:telegram.connection, description:telegram.states[n.Code as keyof typeof telegram.states] ?? n.Code };
@@ -30,11 +30,24 @@ export function useNoticeText() {
   if(n.Kind==='weixin.delivery') { const [state,error]=n.Code.split(':');return { title:weixin.delivery, description:state==='failed'&&error==='rate_limited'?weixin.retryExhausted:weixin.deliveryErrors[error as keyof typeof weixin.deliveryErrors]??weixin.deliveries[state as keyof typeof weixin.deliveries]??state, help:state==='unknown'?weixin.deliveryHelp:'' }; }
   if(n.Kind==='weixin.connection')return n.Code==='reconnecting' ? {title:copy.reconnecting,description:copy.reconnectingHelp} : {title:copy.connection,description:weixin.states.login_required};
   if(n.Kind==='assistant.waiting')return {title:t.waiting.title,description:(t.waiting.reasons as Record<string,string>)[n.Code]??t.waiting.unknown};
-  if(n.Kind==='execution.failed')return {title:copy.failed,description:n.Code.startsWith('needs_review')?(locale==='zh'?'结果需要核对，请先检查执行情况，避免重复操作。':'The outcome needs review. Check the execution before repeating it.'):(t.waiting.reasons as Record<string,string>)[n.Code.split(':')[1]]??t.waiting.unknown};
+  if(n.Kind==='dream.failed') {
+   const reason=n.Code.split(':')[1], timeout=reason==='deadline_exceeded', zh=locale==='zh';
+   return {
+    title:timeout?(zh?'做梦整理超时':'Dream consolidation timed out'):(zh?'做梦整理未完成':'Dream consolidation incomplete'),
+    description:timeout?(zh?'做梦整理因超时停止，本次整理尚未完成。':'Dream consolidation stopped because it timed out and remains incomplete.'):(t.waiting.reasons as Record<string,string>)[reason]??t.errors[reason as keyof typeof t.errors]??(zh?'整理过程中发生异常。':'An error interrupted consolidation.'),
+    help:zh?'已成功写入的记忆会保留。可在助理信息中调整做梦时长上限。':'Successfully saved memory changes are retained. You can adjust the dream duration limit in assistant info.',
+   };
+  }
+  if(n.Kind==='execution.failed') {
+   const [state,reason]=n.Code.split(':'), review=state==='needs_review';
+   const description=(t.waiting.reasons as Record<string,string>)[reason]??t.errors[reason as keyof typeof t.errors]??t.waiting.unknown;
+   return {title:reason==='deadline_exceeded'?(locale==='zh'?'后台执行超时':'Background execution timed out'):copy.failed,description:reason==='deadline_exceeded'?(locale==='zh'?'本次后台执行因超时停止。':'This background execution stopped because it timed out.'):description,help:review?(locale==='zh'?'结果需要核对，请先检查执行情况，避免重复操作。':'The outcome needs review. Check the execution before repeating it.'):undefined};
+  }
   return {title:({'permission.request':copy.permission,'plan.ready':copy.ready,'task.failed':copy.failed,'execution.failed':copy.failed} as Record<string,string>)[n.Kind]??copy.unknown,description:n.Label||''};
  } };
 }
 export function noticeRoute(n:SystemNotice, workbenchVisible = false) {
+ if(n.Kind==='dream.failed')return n.AssistantID ? `#/assistants/${n.AssistantID}?panel=info` : '#/assistants';
  if(n.Kind==='plan.ready')return `#/plans/${n.Source.ID}`;
  // Source.ID is the triggering event ID, not an ExecutionID. The workbench
  // resolves it against retained runs before loading the corresponding steps.

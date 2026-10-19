@@ -16,5 +16,9 @@ func saveJob(ctx context.Context, tx persistence.Tx, job Job) error {
 	if job.Event.Recovery != nil || job.Event.Kind == event.UserMessage || job.Event.Kind == event.Born || job.State == Running || job.State == Retry || job.State == Queued {
 		return nil
 	}
-	return notification.Sync(ctx, tx.Store(), job.Event.OwnerID, notification.Input{Kind: "execution.failed", Code: string(job.State) + ":" + string(job.FailureCode), Source: core.Object{Kind: "execution", ID: job.Event.ID}, AssistantID: job.Event.AssistantID, Severity: "danger"}, job.State == Failed || job.State == NeedsReview)
+	kind := "execution.failed"
+	if job.Event.Kind == event.DreamDue {
+		kind = "dream.failed"
+	}
+	return notification.Sync(ctx, tx.Store(), job.Event.OwnerID, notification.Input{Kind: kind, Code: string(job.State) + ":" + string(job.FailureCode), Source: core.Object{Kind: "execution", ID: job.Event.ID}, AssistantID: job.Event.AssistantID, Severity: "danger"}, job.State == Failed || job.State == NeedsReview)
 }

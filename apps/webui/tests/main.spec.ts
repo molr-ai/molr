@@ -1647,7 +1647,7 @@ test('assistant budgets are set at hire and edited independently', async ({ page
   await expect(settingsPane(page).getByRole('spinbutton')).toHaveCount(0);
 });
 
-test('currency preferences preserve native budgets and prices and show the configured timezone', async ({ page }, info) => {
+test('currency preferences preserve native budgets and prices without assistant budget summaries', async ({ page }, info) => {
   await login(page);
   const previous = await (await page.request.get('/api/settings')).json();
   const name = `Currency ${info.project.name}-${Date.now()}`;
@@ -1667,10 +1667,10 @@ test('currency preferences preserve native budgets and prices and show the confi
     await page.getByRole('button', { name: 'Hire new assistant', exact: true }).first().click();
     const hire = page.getByRole('dialog', { name: 'Hire new assistant', exact: true });
     await expect(hire.getByRole('combobox', { name: 'Currency', exact: true })).toContainText('Chinese yuan CNY');
-    await expect(hire).toContainText('UTC+08:00 Beijing, Shanghai (Asia/Shanghai)');
-    await expect(hire).toContainText('at midnight every day');
+    await expect(hire).not.toContainText('UTC+08:00 Beijing, Shanghai (Asia/Shanghai)');
+    await expect(hire).not.toContainText('at midnight every day');
     await choose(page, 'Reset period', 'Weekly');
-    await expect(hire).toContainText('at midnight every Monday');
+    await expect(hire).not.toContainText('at midnight every Monday');
     await expect(hire).not.toContainText('at midnight every day');
     await hire.getByRole('textbox', { name: 'Assistant name', exact: true }).fill(name);
     await hire.getByRole('spinbutton', { name: 'Spending limit (CNY)', exact: true }).fill('7');
@@ -1708,7 +1708,7 @@ test('currency preferences preserve native budgets and prices and show the confi
     const edit = page.getByRole('dialog', { name: 'Assistant information', exact: true });
     await expect(edit.getByRole('combobox', { name: 'Currency', exact: true })).toContainText('Chinese yuan CNY');
     await expect(edit.getByRole('spinbutton', { name: 'Spending limit (CNY)', exact: true })).toHaveValue('7');
-    await expect(edit.locator('.connection-details > div').filter({ has: page.getByText('Saved spending limit', { exact: true }) }).locator('dd')).toHaveText(/≈ [\d,.]+ USD/);
+    await expect(edit.getByText('Saved spending limit', { exact: true })).toHaveCount(0);
     await edit.getByRole('button', { name: 'Save', exact: true }).click(); await expect(edit).not.toBeVisible();
     expect((await (await page.request.get(`/api/assistants/${assistant.ID}`)).json()).Budget).toEqual(assistant.Budget);
     await assistantMenu(page, 'Assistant information');
