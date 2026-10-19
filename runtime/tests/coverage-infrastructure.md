@@ -338,3 +338,7 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/platform` | `ServiceContext`, `ServiceRunning`, `StopService` | `TestWindowsServiceLifecycle` |
 | `internal/installationwindows` | `Run` | `TestWindowsUpgradeRejectsUnownedTaskWithoutRollback` |
 | `internal/persistence/sqlitestore` | `FileURL` | `TestWindowsFileURL` |
+| `internal/instancebackup` | `Add`, `Seal`, `Pack`, `Unpack` | `TestRuntimeArchiveRoundTrip`, `TestArchivePreservesLinksAndRejectsTampering`, `TestSandboxArchiveKeepsStateWithoutUserFiles` |
+| `internal/instancebackup` | `Capture`, `CheckDatabase` | `TestRuntimeArchiveRoundTrip`, `TestSandboxArchiveKeepsStateWithoutUserFiles` |
+| `internal/instancebackup` | `Configuration` | `TestRuntimeArchiveRoundTrip`, `TestCrossPlatformConfiguration` |
+| `internal/instancebackup` | `RelocateLinks` | `TestManagedLinksRelocatedWithoutChangingExternalReferences` |

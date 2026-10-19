@@ -27,6 +27,8 @@ import (
 )
 
 type Options struct {
+	Archive, Output                                                                                                                 string
+	Overwrite, KeepStopped                                                                                                          bool
 	Mode, Preset                                                                                                                    string
 	Component, TaskID, TaskAction                                                                                                   string
 	JSON                                                                                                                            bool
@@ -72,7 +74,7 @@ func parseOptions(args []string, diagnostics io.Writer) (Options, error) {
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 		o.Command = args[0]
 		args = args[1:]
-		if o.Command != "update" && o.Command != "uninstall" && o.Command != "status" && o.Command != "components" && o.Command != "tasks" && o.Command != "desktop" && o.Command != "configure" {
+		if o.Command != "update" && o.Command != "uninstall" && o.Command != "status" && o.Command != "components" && o.Command != "tasks" && o.Command != "desktop" && o.Command != "configure" && o.Command != "backup" && o.Command != "restore" {
 			return o, fmt.Errorf("unknown command %q; omit a subcommand to install the current package", o.Command)
 		}
 	}
@@ -92,6 +94,10 @@ func parseOptions(args []string, diagnostics io.Writer) (Options, error) {
 		}
 	}
 	f := flag.NewFlagSet("molr-setup", flag.ContinueOnError)
+	f.StringVar(&o.Archive, "archive", "", "instance backup archive to restore")
+	f.StringVar(&o.Output, "output", "", "new backup archive path")
+	f.BoolVar(&o.Overwrite, "overwrite", false, "replace the explicitly selected instance from backup")
+	f.BoolVar(&o.KeepStopped, "keep-stopped", false, "leave the source stopped after backup")
 	f.SetOutput(diagnostics)
 	f.BoolVar(&o.JSON, "json", false, "machine-readable task output")
 	f.StringVar(&o.TaskID, "task-id", o.TaskID, "maintenance task identity")
@@ -132,6 +138,15 @@ func parseOptions(args []string, diagnostics io.Writer) (Options, error) {
 			o.NameSet = true
 		}
 	})
+	if (o.Command == "backup" && o.Output == "") || (o.Command == "restore" && o.Archive == "") {
+		return o, fmt.Errorf("backup requires --output; restore requires --archive")
+	}
+	if (o.Output != "" || o.KeepStopped) && o.Command != "backup" {
+		return o, fmt.Errorf("--output/--keep-stopped require backup")
+	}
+	if (o.Archive != "" || o.Overwrite) && o.Command != "restore" {
+		return o, fmt.Errorf("--archive/--overwrite require restore")
+	}
 	if o.Mode != "" && o.Mode != "server" && o.Mode != "sandbox" {
 		return o, fmt.Errorf("--mode must be server or sandbox")
 	}
@@ -273,6 +288,9 @@ func readRecord(path string, owner bool) (*installrecord.Record, error) {
 	return r, nil
 }
 func (e *Engine) execute() error {
+	if e.Options.Command == "backup" || e.Options.Command == "restore" {
+		return e.backupCommand()
+	}
 	if e.Options.Command == "desktop" {
 		return e.desktopCommand()
 	}

@@ -11,7 +11,9 @@ import (
 	"fmt"
 	"golang.org/x/sys/windows"
 	"io"
+	"molr.ai/runtime/internal/buildinfo"
 	"molr.ai/runtime/internal/config"
+	"molr.ai/runtime/internal/installrecord"
 	"molr.ai/runtime/internal/platform"
 	"net"
 	"net/http"
@@ -153,6 +155,17 @@ func copyFile(from, to string) error {
 }
 
 func Run(ctx context.Context, args []string, out, diagnostics io.Writer) (resultErr error) {
+	if len(args) > 0 && args[0] == "version" {
+		if len(args) > 1 && args[1] == "--json" {
+			return json.NewEncoder(out).Encode(buildinfo.Current())
+		}
+		fmt.Fprintln(out, "molr-setup", buildinfo.Version)
+		return nil
+	}
+	if len(args) > 0 && (args[0] == "backup" || args[0] == "restore") {
+		return runBackup(ctx, args, out, diagnostics)
+	}
+
 	if len(args) < 2 || args[0] != "desktop" {
 		return fmt.Errorf("Windows installer supports desktop <status|plan|install|start|stop|restart|upgrade|uninstall>")
 	}
@@ -174,7 +187,8 @@ func Run(ctx context.Context, args []string, out, diagnostics io.Writer) (result
 	if e := flags.Parse(args[2:]); e != nil {
 		return e
 	}
-	if flags.NArg() != 0 || !regexp.MustCompile(`^molr-desktop-[a-f0-9]{16}$`).MatchString(*name) || !filepath.IsAbs(*rootArg) {
+	_, nameErr := installrecord.Instance(*name)
+	if flags.NArg() != 0 || nameErr != nil || !filepath.IsAbs(*rootArg) {
 		return fmt.Errorf("valid desktop name and absolute program root required")
 	}
 	if action != "status" && action != "plan" && !*yes {
@@ -332,7 +346,20 @@ func Run(ctx context.Context, args []string, out, diagnostics io.Writer) (result
 		if e = os.MkdirAll(versionDir, 0700); e != nil {
 			return e
 		}
-		binary := filepath.Join(versionDir, "molr.exe")
+		if e = os.MkdirAll(filepath.Join(versionDir, "bin"), 0700); e != nil {
+			return e
+		}
+		for _, name := range []string{"bin/molr-setup.exe", "release.json", "LICENSE", "THIRD_PARTY_NOTICES.md"} {
+			destination := filepath.Join(versionDir, filepath.FromSlash(name))
+			if _, err := os.Stat(destination); errors.Is(err, os.ErrNotExist) {
+				if e = copyFile(filepath.Join(packageRoot, filepath.FromSlash(name)), destination); e != nil {
+					return e
+				}
+			} else if err != nil {
+				return err
+			}
+		}
+		binary := filepath.Join(versionDir, "bin", "molr.exe")
 		if _, e = os.Stat(binary); errors.Is(e, os.ErrNotExist) {
 			if e = copyFile(filepath.Join(packageRoot, "bin", "molr.exe"), binary); e != nil {
 				return e

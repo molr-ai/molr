@@ -135,3 +135,7 @@ func (e *Engine) serviceInstructions(r *installrecord.Record) {
 		e.UI.print("Start after initialization: %s enable --now %s", shellJoin(control(r)), shellJoin([]string{r.Paths.Unit}))
 	}
 }
+
+func (e *Engine) resumeService(r *installrecord.Record) error {
+	return e.service(r, "start", r.Name+".service")
+}

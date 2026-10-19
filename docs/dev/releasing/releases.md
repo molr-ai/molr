@@ -147,3 +147,11 @@ MOLR_TEST_ARCHIVE=dist/releases/molr_0.1.0-local_linux_amd64.tar.gz npm run test
 完整依赖准备在一次性 Ubuntu 主机设置 `MOLR_TEST_PREPARE=1` 复现；不要移除开发主机依赖。安装故障先增加回归用例，修复随新包发布。日期、环境、日志和验收凭据保存在本地内部资料中。
 
 macOS 发行包在对应架构的 Mac runner 构建，使用 `codesign --sign -` 后验证签名，再生成归档与摘要。`scripts/package-release.py` 在各系统生成相同规则的归档，保留 LICENSE 和 THIRD_PARTY_NOTICES。原生验收覆盖安装、内嵌页面、修复、下载更新、保留数据重装和清除。此流程不需要 Apple Developer ID 或公证凭据。
+
+## 实例备份格式
+
+`molr-setup backup / restore` 的归档和数据逻辑位于 `runtime/internal/instancebackup`，服务及安装事务由 `installation` 和 `installationwindows` 管理。格式版本 1 使用 tar.gz，首项为 `backup.json`；清单保存模式、构建身份、数据库 schema、受管路径及每项的类型、权限、大小和 SHA-256。内容分为 `program/`、`config/`、`data/` 和可选 `work/`。配置引用使用固定字段清单，不递归收集任意配置值指向的宿主路径。
+
+读取时校验归档路径、重复项、父目录类型、文件大小、摘要和 gzip 完整性；符号链接最后创建且只允许出现在受管用户文件中。解包和数据库检查发生在目标停服前。Runtime 备份保留加密密钥，恢复撤销旧会话／令牌；Sandbox 数据库保持操作回执和额度状态。跨平台选择目标发行程序并转换沙盒配置，不执行归档中的异平台二进制。
+
+验证入口为 `go test ./internal/instancebackup ./internal/installation ./cmd/molr`。Windows 服务控制需原生运行 `installationwindows` 测试；交叉编译只证明可构建，不代替原生迁移验收。操作范围与命令见[备份恢复](../../admin/deployment/maintenance.md#备份恢复与升级)。

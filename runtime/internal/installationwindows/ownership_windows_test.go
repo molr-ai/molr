@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -71,6 +72,9 @@ func TestWindowsUpgradeRejectsUnownedTaskWithoutRollback(t *testing.T) {
 	}
 	if _, err = command(ctx, setup, "desktop", "upgrade", "--name", r.Name, "--program-root", root, "--json", "--non-interactive", "--no-browser", "--yes"); err == nil || !strings.Contains(err.Error(), "Exec.Command mismatch") {
 		t.Fatalf("expected command ownership refusal, got %v", err)
+	}
+	if err = Run(ctx, []string{"backup", "--name", r.Name, "--program-root", root, "--output", filepath.Join(t.TempDir(), "backup.tar.gz")}, io.Discard, io.Discard); err == nil || !strings.Contains(err.Error(), "Exec.Command mismatch") {
+		t.Fatalf("backup must reject unowned task: %v", err)
 	}
 	afterTask, err := scheduler(ctx, "/Query", "/TN", r.Name, "/XML")
 	if err != nil {

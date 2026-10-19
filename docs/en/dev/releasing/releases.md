@@ -147,3 +147,11 @@ MOLR_TEST_ARCHIVE=dist/releases/molr_0.1.0-local_linux_amd64.tar.gz npm run test
 Reproduce dependency preparation on a disposable Ubuntu host with `MOLR_TEST_PREPARE=1`; do not remove dependencies from a development machine. Add regression cases for installation failures and ship fixes in new packages. Dates, environments, logs and acceptance credentials remain in local internal records.
 
 macOS packages build on native Mac runners for each architecture. The build applies and verifies `codesign --sign -` before archiving and hashing. `scripts/package-release.py` uses consistent archive rules across hosts and retains LICENSE and THIRD_PARTY_NOTICES. Native acceptance covers installation, embedded WebUI, repair, downloaded updates, retained-data reinstall, and purge. This workflow does not require Developer ID or notarization credentials.
+
+## Instance backup format
+
+`molr-setup backup / restore` uses `runtime/internal/instancebackup` for archives and data, with service and installation transactions in `installation` and `installationwindows`. Format 1 is tar.gz with `backup.json` first. The manifest records mode, build identity, database schema, managed paths, and each entry's type, permissions, size, and SHA-256. Sections are `program/`, `config/`, `data/`, and optional `work/`. Configuration references use a fixed field allowlist, not recursive discovery of arbitrary host paths.
+
+Reading validates paths, duplicate entries, directory ancestry, sizes, digests, and gzip integrity. Symlinks are created last and allowed only within managed user files. Extraction and database checks happen before stopping the target. Runtime archives preserve encryption keys; recovery revokes old sessions and tokens. Sandbox operation receipts and quota state remain intact. Cross-platform recovery selects destination binaries and converts sandbox configuration without executing foreign binaries.
+
+Run `go test ./internal/instancebackup ./internal/installation ./cmd/molr`. Windows service control requires native `installationwindows` tests; cross-compilation is not native migration acceptance. Commands and boundaries are described in [backup and restore](../../admin/deployment/maintenance.md#backup-recovery-and-upgrades).

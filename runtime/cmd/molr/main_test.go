@@ -53,7 +53,7 @@ func cliLogin(t *testing.T, b *app.Bundle, password string) (core.Principal, cor
 	testkit.RequireNoError(t, err)
 	return p, login.Session.Token
 }
-func TestCLIInitRecoverBackupRestoreLifecycleWithoutListener(t *testing.T) {
+func TestCLIInitRecoverLifecycleWithoutListener(t *testing.T) {
 	cfg, path := cliConfig(t)
 	// This is a multi-command lifecycle, not a ten-second latency assertion.
 	// Use the test runner's timeout across hashing, database opens and restores.
@@ -82,21 +82,6 @@ func TestCLIInitRecoverBackupRestoreLifecycleWithoutListener(t *testing.T) {
 		return r.Todos().Insert(ctx, todo.Todo{ID: "before-backup", OwnerID: p.OwnerID, Title: "Keep this", Version: 1})
 	}))
 	testkit.RequireNoError(t, b.Close())
-	output, err = invokeCLI(t, ctx, []string{"backup", "-config", path}, "")
-	testkit.RequireNoError(t, err)
-	var backup sqlite.Backup
-	testkit.RequireNoError(t, json.Unmarshal([]byte(output), &backup))
-	if backup.ID == "" {
-		t.Fatal("backup emitted no descriptor")
-	}
-	manifest := filepath.Join(filepath.Dir(path), "backup.json")
-	testkit.RequireNoError(t, os.WriteFile(manifest, []byte(output), 0600))
-	b, err = app.Build(ctx, cfg)
-	testkit.RequireNoError(t, err)
-	testkit.RequireNoError(t, b.Database.Within(ctx, func(r sqlite.Repositories) error {
-		return r.Todos().Insert(ctx, todo.Todo{ID: "after-backup", OwnerID: p.OwnerID, Title: "Remove on restore", Version: 1})
-	}))
-	testkit.RequireNoError(t, b.Close())
 	_, err = invokeCLI(t, ctx, []string{"recover", "-config", path, "-password-stdin", "-reset-mfa"}, newPassword)
 	testkit.RequireNoError(t, err)
 	b, err = app.Build(ctx, cfg)
@@ -109,31 +94,7 @@ func TestCLIInitRecoverBackupRestoreLifecycleWithoutListener(t *testing.T) {
 	_, err = b.Services.Auth.Authenticate(ctx, auth.Authentication{Bearer: issued.Value})
 	testkit.RequireCode(t, err, core.Unauthenticated)
 	testkit.RequireNoError(t, b.Close())
-	_, err = invokeCLI(t, ctx, []string{"restore", "-config", path, "-backup-manifest", manifest}, "")
-	testkit.RequireNoError(t, err)
-	b, err = app.Build(ctx, cfg)
-	testkit.RequireNoError(t, err)
-	t.Cleanup(func() { _ = b.Close() })
-	_, err = b.Services.Auth.Authenticate(ctx, auth.Authentication{Session: oldSession})
-	testkit.RequireCode(t, err, core.Unauthenticated)
-	_, err = b.Services.Auth.Authenticate(ctx, auth.Authentication{Bearer: issued.Value})
-	testkit.RequireCode(t, err, core.Unauthenticated)
-	restored, _ := cliLogin(t, b, oldPassword)
-	if restored.OwnerID != p.OwnerID {
-		t.Fatal("restore changed owner identity")
-	}
-	testkit.RequireNoError(t, b.Database.Within(ctx, func(r sqlite.Repositories) error {
-		before, err := r.Todos().Get(ctx, p.OwnerID, "before-backup")
-		if err != nil {
-			return err
-		}
-		if before.Title != "Keep this" {
-			t.Fatal("restored data changed")
-		}
-		_, err = r.Todos().Get(ctx, p.OwnerID, "after-backup")
-		testkit.RequireCode(t, err, core.NotFound)
-		return nil
-	}))
+
 }
 func TestCLIRejectsUnsafeInputsAndCanceledCommands(t *testing.T) {
 	cfg, path := cliConfig(t)
@@ -142,15 +103,9 @@ func TestCLIRejectsUnsafeInputsAndCanceledCommands(t *testing.T) {
 	testkit.RequireCode(t, err, core.InvalidArgument)
 	_, err = invokeCLI(t, ctx, []string{"init", "-config", path, "-password-stdin"}, strings.Repeat("x", 4097))
 	testkit.RequireCode(t, err, core.InvalidArgument)
-	_, err = invokeCLI(t, ctx, []string{"restore", "-config", path}, "")
-	testkit.RequireCode(t, err, core.InvalidArgument)
-	malformed := filepath.Join(filepath.Dir(path), "bad-manifest.json")
-	testkit.RequireNoError(t, os.WriteFile(malformed, []byte(`{} {}`), 0600))
-	_, err = invokeCLI(t, ctx, []string{"restore", "-config", path, "-backup-manifest", malformed}, "")
-	testkit.RequireCode(t, err, core.InvalidArgument)
 	canceled, cancel := context.WithCancel(ctx)
 	cancel()
-	_, err = invokeCLI(t, canceled, []string{"backup", "-config", path}, "")
+	_, err = invokeCLI(t, canceled, []string{"init", "-config", path, "-password-stdin"}, "canceled-test-password-123!")
 	testkit.RequireCode(t, err, core.Canceled)
 	// The canceled setup must release its process/database locks.
 	b, err := app.Build(ctx, cfg)
@@ -205,7 +160,7 @@ func TestBootstrapGeneratesPrivateCredentialsOnce(t *testing.T) {
 
 func TestCLIModeRejectsAccountCommandsAndInvalidCombinations(t *testing.T) {
 	cfg, path := cliConfig(t)
-	for _, command := range []string{"bootstrap", "init", "access", "doctor", "recover", "backup", "restore"} {
+	for _, command := range []string{"bootstrap", "init", "access", "doctor", "recover"} {
 		_, err := invokeCLI(t, t.Context(), []string{command, "--mode", "sandbox", "--config", path}, "")
 		if err == nil || !strings.Contains(err.Error(), "sandbox mode only supports serve") {
 			t.Fatalf("%s: %v", command, err)
@@ -218,5 +173,13 @@ func TestCLIModeRejectsAccountCommandsAndInvalidCombinations(t *testing.T) {
 	}
 	if _, err := os.Stat(cfg.DataDir); !os.IsNotExist(err) {
 		t.Fatal("invalid mode created Runtime state")
+	}
+}
+
+func TestCLIBackupRestoreRemoved(t *testing.T) {
+	for _, cmd := range []string{"backup", "restore"} {
+		if _, err := invokeCLI(t, t.Context(), []string{cmd}, ""); err == nil || !strings.Contains(err.Error(), "unknown command") {
+			t.Fatalf("obsolete command accepted: %s: %v", cmd, err)
+		}
 	}
 }

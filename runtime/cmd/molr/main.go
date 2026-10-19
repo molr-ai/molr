@@ -24,7 +24,6 @@ import (
 	"molr.ai/runtime/internal/logging"
 	"molr.ai/runtime/internal/platform"
 	"molr.ai/runtime/internal/platform/sandbox"
-	"molr.ai/runtime/internal/storage/sqlite"
 )
 
 func main() {
@@ -65,12 +64,12 @@ func run(ctx context.Context, args []string, input io.Reader, output, diagnostic
 		return nil
 	}
 	if len(args) == 0 {
-		fmt.Fprintln(output, "Usage: molr <bootstrap|init|serve|access|doctor|recover|backup|restore|version> --config /path/server.json\n       molr serve --mode server|sandbox --config /path/server.json")
+		fmt.Fprintln(output, "Usage: molr <bootstrap|init|serve|access|doctor|recover|version> --config /path/server.json\n       molr serve --mode server|sandbox --config /path/server.json")
 		return nil
 	}
 	command := args[0]
 	switch command {
-	case "bootstrap", "access", "doctor", "init", "serve", "recover", "backup", "restore":
+	case "bootstrap", "access", "doctor", "init", "serve", "recover":
 	default:
 		return fmt.Errorf("unknown command %q", command)
 	}
@@ -84,7 +83,6 @@ func run(ctx context.Context, args []string, input io.Reader, output, diagnostic
 	passwordStdin := flags.Bool("password-stdin", false, "read password from standard input (init/recover only)")
 	mfaCode := flags.String("mfa-code", "", "MFA code for online access/doctor")
 	resetMFA := flags.Bool("reset-mfa", false, "disable MFA during local recovery")
-	manifest := flags.String("backup-manifest", "", "backup descriptor JSON to restore, while server is stopped")
 	if err := flags.Parse(args[1:]); err != nil {
 		return err
 	}
@@ -144,35 +142,6 @@ func run(ctx context.Context, args []string, input io.Reader, output, diagnostic
 	if *mode == "sandbox" {
 		return serveSandbox(ctx, cfg, *tokenPath, diagnostics)
 	}
-	if command == "restore" {
-		if *manifest == "" {
-			return core.Invalid("backup_manifest", "backup descriptor required")
-		}
-		f, err := os.Open(*manifest)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		var backup sqlite.Backup
-		decoder := json.NewDecoder(io.LimitReader(f, 65536))
-		decoder.DisallowUnknownFields()
-		if err = decoder.Decode(&backup); err != nil {
-			return err
-		}
-		var extra any
-		if decoder.Decode(&extra) != io.EOF {
-			return core.Invalid("backup_manifest", "trailing data")
-		}
-		restorer, err := sqlite.NewRestorer(filepath.Join(cfg.DataDir, "runtime.db"))
-		if err != nil {
-			return err
-		}
-		if err = restorer.Restore(ctx, backup); err != nil {
-			return err
-		}
-		fmt.Fprintln(output, "Database restored; previous sessions and API tokens are invalidated.")
-		return nil
-	}
 	var secret core.Secret
 	if command == "init" || command == "recover" {
 		if !*passwordStdin {
@@ -219,12 +188,6 @@ func run(ctx context.Context, args []string, input io.Reader, output, diagnostic
 		}
 		fmt.Fprintln(output, "Owner recovered; previous sessions and API tokens are invalidated.")
 		return nil
-	case "backup":
-		backup, err := bundle.Database.Backup(ctx)
-		if err != nil {
-			return err
-		}
-		return json.NewEncoder(output).Encode(backup)
 	case "serve":
 		fmt.Fprintf(diagnostics, "Starting Molr on %s (%s)\n", cfg.HTTP.Listen, cfg.HTTP.PublicURL)
 		return bundle.Application.Run(ctx)

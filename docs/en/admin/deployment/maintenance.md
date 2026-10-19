@@ -28,35 +28,62 @@ Before upgrading, preserve data according to the backup process on this page. Th
 
 ## Backup Recovery and Upgrades
 
-The data directory permissions are `0700`, and the master key `keys/master.key` is `0600`. If an existing database lacks a master key, the service refuses to start, and a new key cannot replace the old key.
+Use `molr-setup backup / restore` to migrate installer-managed instances. The database-only CLI commands have been removed from `molr`. Linux/macOS identify instances by their installation record; Windows uses the current user's desktop Runtime root and instance name. These commands do not automatically stop Docker or manually launched processes.
 
-Stop the corresponding instance before executing maintenance commands:
+### Create a backup
 
 ```bash
-/path/molr backup -config /private/server.json > /private/backup.json
-/path/molr restore -config /private/server.json -backup-manifest /private/backup.json
+/path/molr-setup backup --output /private/molr-backup.tar.gz
+# Select another instance with --record /path/installation.json or --name molr-example.
+# Keep the source stopped when switching machines:
+/path/molr-setup backup --output /private/molr-migration.tar.gz --keep-stopped
 ```
 
-`backup.json` is the backup description; the command only generates a database snapshot and does not package the complete instance. Complete disaster recovery should retain a complete copy of the configuration and data directory after stopping the service; if restoring from a database snapshot, the snapshot file and its description must also be retained, and the following data must be restored simultaneously:
+The command acquires the maintenance lock, stops the service gracefully, confirms shutdown, copies files into private staging, creates `backup.json`, and packs the archive. By default it restores the original service state after copying, before compression. Previously stopped instances remain stopped. Failures attempt to restore the original service state and never publish a partial archive. The destination must not exist and must be outside the source directories. `TMPDIR` can select staging storage with sufficient free space; staging must also be outside the sources.
 
-| Content | Backup Location and Requirements |
-| --- | --- |
-| Attachments and delivery files | `files/` in the data directory |
-| Encrypted master key | `keys/` in the data directory, protected as secret material |
-| Assistant workspace | Default `sandbox/work/`; if `sandbox.work_root` is configured, back up the actual external path |
-| Deployment configuration and external files | Configuration files, certificates, external price/exchange rate files, etc., retaining actual paths and permissions |
+| Content | Runtime | Standalone Sandbox |
+| --- | --- | --- |
+| Programs | `molr`, `molr-setup`, release metadata, and licenses | Same |
+| Database and identity | Complete database and encryption master key | Complete `sandbox.db`, service token, and keys, including operation receipts and network quota ledgers |
+| Files | Data directory, including attachments, memories, and default workspaces; custom `sandbox.work_root` is collected separately | No user files, command-output caches, or external directory contents |
+| Configuration | Deployment configuration directory and referenced TLS certificate/key and pricing/exchange-rate files | Same |
+| External resources | Directory references, grants, and remote Sandbox connection information only | Directory configuration only |
 
-Network quota usage and unsettled reservations are included in the actual execution-side database: local machine is `runtime.db`, independent Sandbox is `sandbox.db`.
+Old backups, process locks, and regenerable `sandbox/runtime` execution-environment caches are excluded. Backup does not contact remote Sandboxes or include host dependencies, model services, or separately installed browser components. Prepare those dependencies on the destination. Archives contain master keys and credentials and must be treated as private data. Losing `keys/master.key` prevents recovery of encrypted Runtime credentials.
 
-Snapshots and the above files must come from the same stop-service backup window. Data in external authorization directories and remote Sandboxes is not included in the Runtime database snapshot and must be backed up independently on the corresponding machines; when restoring workspace project quotas, the file system project ID and quota configuration must also be verified. Copying only the main database file currently in use by WAL is not a complete backup.
+### Restore on another machine
 
-Recovery requires the service to be stopped. Upon success, old sessions, access tokens, and challenges in the recovery copy are revoked. After recovery, first confirm that accounts, resources, and credentials are available, then verify incomplete operations to avoid repeating external actions with unknown results.
+On the same platform, extract the bundled programs and run setup. On another OS or CPU architecture, use a complete destination-platform package with the exact backup version and commit:
 
-If the password is forgotten, an operator with host management privileges executes `recover -password-stdin` after stopping the service; to reset two-factor authentication, additionally add `-reset-mfa`. Local recovery revokes all sessions and tokens.
+```bash
+tar -xzf /private/molr-backup.tar.gz program
+./program/bin/molr-setup restore --archive /private/molr-backup.tar.gz --name molr-restored --dry-run
+./program/bin/molr-setup restore --archive /private/molr-backup.tar.gz --name molr-restored --yes
+```
 
-Before upgrading, retain the old binary, configuration, and complete backup. Use a clean build of the target commit, verify static linking, permissions, and checksums, then atomically replace the binary using a temporary file, and restart the corresponding instance. Code rollback does not automatically undo data migrations or external side effects. After the upgrade is complete, re-perform page, authentication, model, and sandbox capability checks.
+For cross-platform recovery, replace the source executable above with the destination package's `bin/molr-setup`. The archive is still fully verified, but foreign binaries are not installed. Databases, attachments, and workspaces are restored; platform-specific sandbox settings use native defaults and are reported. Service accounts and registrations are generated for the destination. External references and remote connections are retained; missing or unparseable directories are unavailable. Filename collisions or unsupported symlinks prevent application instead of silently dropping files. Platform-specific executables inside workspaces may not run.
 
-For deployment and connection of independent Linux execution machines, see [Remote Sandbox Service](../sandbox/remote.md). Local sandboxes are still embedded in the Runtime and do not require additional services.
+Restore supports:
+
+- A new instance: select `--name`; `--program-root` sets the program base, with a separate instance subdirectory. Configuration and data follow Linux XDG/system or macOS user layouts.
+- Replacement: explicitly select `--record` or the installed tool and pass `--overwrite --yes`. Modes must match; programs and data are restored together to the backup version. After stopping, a complete `before-restore-*.tar.gz` is saved in the target cache before replacement. Application failures before service startup restore original files. Database rollback is not automatic after startup because external actions may already have occurred.
+- Preview and delayed startup: `--dry-run` extracts and validates the archive and shows the plan without modifying the target. `--no-start` restores and registers without starting, allowing address, certificate, and host configuration changes. Local/LAN HTTP addresses can use `--port` and `--public-host`; for direct TLS/proxy deployment, use `--no-start` and edit the restored configuration.
+
+On Windows, run the destination-platform `molr-setup.exe`:
+
+```powershell
+.\bin\molr-setup.exe backup --name molr-desktop-0123456789abcdef --program-root C:\Molr\existing --output C:\Backups\molr.tar.gz
+.\bin\molr-setup.exe restore --name molr-restored --program-root C:\Molr\restored --archive C:\Backups\molr.tar.gz --yes --no-start
+```
+
+Windows setup currently manages desktop Runtime instances, not standalone Sandbox service registration. Desktop recovery uses loopback HTTP and reports that authenticated sandbox verification is still required.
+
+Source UID/GID and service registration files are not copied. Restore revokes Runtime sessions, API tokens, and login challenges while preserving accounts and MFA configuration. Remote Sandbox connections try their saved addresses, tokens, and certificate trust; network reachability is not guaranteed. Missing external directories are not replaced with empty folders and do not remove internal data.
+
+Data restoration and service verification are reported separately. Check accounts, assistants, conversations, attachments, workspaces, model connections, and sandbox capabilities before switching; keep the source stopped to avoid duplicate channel and task processing. Running processes cannot be restored. Reconcile incomplete operations from their saved state without blindly replaying unknown external outcomes. Recheck filesystem project IDs and workspace quotas on the destination.
+
+For password recovery, a host administrator stops the service and runs `molr recover -password-stdin`; add `-reset-mfa` to reset MFA. Local recovery revokes all sessions and tokens. Keep a complete backup before upgrading; recovery and upgrading are separate steps.
+
 
 ## File logs and rotation
 
@@ -114,13 +141,13 @@ The Runtime saves data in a private data directory by default; custom workspaces
 ├── files/           # 聊天附件与助理产出的文件
 ├── media/           # 图片、音频等处理缓存（可自动重建）
 ├── sandbox/         # 默认助理工作目录
-└── backups/         # 执行备份命令生成的数据库快照
+└── backups/         # 数据库快照的临时维护目录（不进入实例备份）
 ```
 
 Key points to understand:
 
 - Chat content and task records are stored in raw form in your own database and are not sent to Molr official servers.
-- Sensitive credentials such as model access keys are stored encrypted; encryption keys are stored separately in the `keys/` directory and **do not appear in backup files**. Please keep backups and the `keys/` directory separate—if keys are lost, saved model keys cannot be recovered.
+- Sensitive credentials such as model access keys are stored encrypted; encryption keys are stored in `keys/` and included in complete instance archives. Protect the archive as secret material; losing the keys makes saved model credentials unrecoverable.
 - When conversing with cloud models, conversation content is sent to the model provider you select; this is independent of whether you self-host.
 
 For specific backup and recovery operations, see the [Deployment Guide](../README.md).

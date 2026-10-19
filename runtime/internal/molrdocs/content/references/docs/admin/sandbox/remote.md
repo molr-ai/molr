@@ -146,7 +146,7 @@ Runtime 和服务使用 `/v2/sandbox/*` HTTPS 协议，证书指纹固定信任�
 - Shell 支持前台、后台和 TTY，声明 `ShellSessions` 能力；输出归档与控制沿用 `shell_read` / `shell_control`。端口转发要求 `PortForwarding=true`，通过 Runtime 统一提供 TCP 地址；远端仅需原有 TLS 服务端口，详见 [Shell 端口转发](https://molr.ai/zh/docs/user/guides/files-and-commands/#shell-端口转发)。
 - 文件操作有版本检查和原子替换，但任意 Shell/外部进程写入不是同一个事务，不能把它们当成分布式文件 CAS。
 
-连接令牌在 Runtime 的私有数据库中加密保存，页面和模型只能读取连接元数据。连接管理、资源添加和连接变更记录审计。备份远端时也需要保存它自己的数据库、授权目录和私有配置，Runtime 的备份不包含远端授权目录与操作记录。
+连接令牌在 Runtime 的私有数据库中加密保存，页面和模型只能读取连接元数据。连接管理、资源添加和连接变更记录审计。`molr-setup backup` 在 Sandbox 模式保存节点数据库、服务令牌、证书和部署配置，不打包授权目录内容或命令输出缓存。授权目录文件由部署者单独迁移；Runtime 的备份只保留远程连接及授权信息。操作见[备份恢复](https://molr.ai/zh/docs/admin/deployment/maintenance/#备份恢复与升级)。
 
 启动、升级或重启后，必须认证检查 Runtime `/api/sandbox` 以及 `/api/sandboxes` 中远程实例的能力。Linux 计算就绪要求 `Reason=available`，且 Shell、进程、文件、网络隔离和资源限制均为 true；HTTP 连通不能代替隔离验证。
 

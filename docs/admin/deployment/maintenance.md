@@ -28,35 +28,62 @@ Runtime 配置支持：
 
 ## 备份恢复与升级
 
-数据目录权限为 `0700`，主密钥 `keys/master.key` 为 `0600`。已有数据库缺少主密钥时服务拒绝启动，不能用新密钥替代旧密钥。
+使用 `molr-setup backup / restore` 迁移安装器管理的实例。`molr` 不再提供数据库快照 CLI。Linux/macOS 通过安装记录识别实例；Windows 使用当前用户的桌面 Runtime 安装目录和实例名。Docker 和自行启动的进程不由此命令自动停止。
 
-停止对应实例后执行维护命令：
+### 创建备份
 
 ```bash
-/path/molr backup -config /private/server.json > /private/backup.json
-/path/molr restore -config /private/server.json -backup-manifest /private/backup.json
+/path/molr-setup backup --output /private/molr-backup.tar.gz
+# Select another instance with --record /path/installation.json or --name molr-example.
+# Keep the source stopped when switching machines:
+/path/molr-setup backup --output /private/molr-migration.tar.gz --keep-stopped
 ```
 
-`backup.json` 是备份描述，命令只生成数据库快照，不打包完整实例。完整灾备应在停服后保留配置及数据目录的完整副本；若使用数据库快照恢复，还须保留快照文件及其描述，并同时恢复以下数据：
+命令取得维护锁，正常停服并确认进程退出，在私有临时目录复制数据及配置、生成 `backup.json`，随后打包。默认在文件复制结束后恢复原运行状态，再压缩归档；原来停止的实例保持停止。失败时尝试恢复原运行状态并报告错误，不发布不完整归档。目标文件必须不存在且位于备份源目录之外。可通过 `TMPDIR` 选择有足够空间的暂存位置；暂存位置也必须位于备份源目录之外。
 
-| 内容 | 备份位置与要求 |
-| --- | --- |
-| 附件与交付文件 | 数据目录的 `files/` |
-| 加密主密钥 | 数据目录的 `keys/`，按秘密材料保护 |
-| 助理工作区 | 默认 `sandbox/work/`；配置了 `sandbox.work_root` 时备份实际外置路径 |
-| 部署配置及外置文件 | 配置文件、证书、外置价格／汇率文件等，保留实际路径和权限 |
+| 内容 | Runtime | 独立 Sandbox |
+| --- | --- | --- |
+| 程序 | `molr`、`molr-setup`、发行信息及许可证 | 相同 |
+| 数据库与身份 | 完整数据库、加密主密钥 | 完整 `sandbox.db`、服务令牌及密钥；保留操作回执与网络额度账本 |
+| 文件 | 数据目录，包括附件、记忆和默认工作区；自定义 `sandbox.work_root` 单独收集 | 不备份用户文件、命令输出缓存或外部目录内容 |
+| 配置 | 部署配置目录及引用的 TLS 证书、私钥、价格／汇率文件 | 相同 |
+| 外部资源 | 只保留目录引用、授权及远程 Sandbox 连接信息 | 只保留目录配置 |
 
-网络额度用量和未结算预留已包含在实际执行端数据库中：本机为 `runtime.db`，独立 Sandbox 为 `sandbox.db`。
+历史备份、进程锁和可重建的 `sandbox/runtime` 运行环境缓存不进入归档。备份不连接远程 Sandbox 收集文件，也不打包宿主系统依赖、模型服务或额外安装的浏览器组件。恢复后按目标机器重新准备这些依赖。归档含主密钥与凭证，按私有数据保护；丢失 `keys/master.key` 无法解密 Runtime 已保存的凭证。
 
-快照与上述文件须来自同一停服备份窗口。外部授权目录和远程 Sandbox 的数据不包含在 Runtime 数据库快照中，需在对应机器独立备份；恢复工作区项目配额时还需核对文件系统的 project ID 与配额配置。仅复制 WAL 使用中的主数据库文件不是完整备份。
+### 恢复到另一台机器
 
-恢复要求服务停止，成功后撤销恢复副本中的旧会话、访问令牌和挑战。恢复后先确认账号、资源与凭证可用，再核对未完成操作，避免重复执行结果未知的外部动作。
+同平台可从归档取出程序后运行；不同操作系统或 CPU 架构使用目标平台、与备份版本及 commit 相同的完整发行包：
 
-忘记密码时，由有主机管理权的操作者停服后执行 `recover -password-stdin`；需要重置二次验证时另加 `-reset-mfa`。本机恢复会撤销全部会话与令牌。
+```bash
+tar -xzf /private/molr-backup.tar.gz program
+./program/bin/molr-setup restore --archive /private/molr-backup.tar.gz --name molr-restored --dry-run
+./program/bin/molr-setup restore --archive /private/molr-backup.tar.gz --name molr-restored --yes
+```
 
-升级前保留旧二进制、配置和完整备份。使用目标提交的干净构建，核对静态链接、权限和摘要后，用临时文件原子替换二进制，再重启对应实例。代码回退不自动撤销数据迁移或外部副作用。升级完成后重新做页面、认证、模型及沙盒能力检查。
+跨平台时不要执行上例中的源平台程序，改用目标发行包的 `bin/molr-setup`。归档仍完整校验，源平台二进制不安装；数据库、附件和工作区正常恢复。平台专用沙盒配置改为目标平台默认值并报告，服务账户及服务注册重新生成。外部目录引用和远程连接保留；不存在或不能在目标平台解析的目录不可用。文件名冲突、无法恢复的符号链接等错误会阻止应用，不静默丢弃文件。工作区中的平台专用程序不保证可以执行。
 
-独立 Linux 执行机器的部署与连接见 [远程 Sandbox 服务](../sandbox/remote.md)。本机沙盒仍内嵌于 Runtime，无需额外服务。
+恢复支持：
+
+- 新建实例：通过 `--name` 选择实例；`--program-root` 指定程序基目录，实例使用独立子目录。Linux 配置和数据沿用 XDG／系统布局，macOS 沿用用户布局。
+- 覆盖实例：明确选择 `--record` 或该实例的安装工具，并增加 `--overwrite --yes`。目标模式须一致；程序和数据一起恢复到备份版本。停服后先在目标缓存目录保存 `before-restore-*.tar.gz`，再替换。应用失败且新服务尚未启动时恢复原文件；服务启动后不自动回退数据库，避免重复外部动作。
+- 预览与延后启动：`--dry-run` 解包校验并显示计划，不修改目标；`--no-start` 恢复并注册服务但不启动，便于调整地址、证书和机器相关配置。局域网／本地 HTTP 可用 `--port`、`--public-host` 调整地址；直接 TLS 和代理模式先使用 `--no-start`，再编辑配置。
+
+Windows 使用目标平台发行包中的 `molr-setup.exe`：
+
+```powershell
+.\bin\molr-setup.exe backup --name molr-desktop-0123456789abcdef --program-root C:\Molr\existing --output C:\Backups\molr.tar.gz
+.\bin\molr-setup.exe restore --name molr-restored --program-root C:\Molr\restored --archive C:\Backups\molr.tar.gz --yes --no-start
+```
+
+Windows 当前管理 Runtime 桌面实例，独立 Sandbox 的服务注册不在该安装器范围内。桌面恢复使用回环 HTTP；恢复后会报告需要完成已认证的沙盒能力验证。
+
+恢复不会复制源机器的系统 UID/GID 或服务注册文件。Runtime 旧会话、访问令牌及登录挑战会被撤销；账号及 MFA 配置保留。远程 Sandbox 按原地址、令牌和证书信任正常尝试连接，不承诺新机器网络可达。缺失外部目录不创建为空目录替代，不导致其他内置数据丢失。
+
+数据恢复完成与服务验证成功分别报告。核对账号、助理、聊天、附件、工作区、模型连接以及沙盒能力后再完成切换；源机器保持停止，避免两边同时处理渠道消息和任务。运行进程不能恢复，未完成操作按已保存状态核对，不自动重放结果未知的外部动作。文件系统 project ID 和工作区配额需在目标文件系统重新验证。
+
+忘记密码时，由有主机管理权的操作者停服后执行 `molr recover -password-stdin`；需要重置二次验证时另加 `-reset-mfa`。本机恢复会撤销全部会话与令牌。升级前保留完整备份；恢复和升级是两个独立步骤。
+
 
 ## 文件日志与轮转
 
@@ -114,13 +141,13 @@ Runtime 默认把数据保存在私有数据目录中；自定义工作区、外
 ├── files/           # 聊天附件与助理产出的文件
 ├── media/           # 图片、音频等处理缓存（可自动重建）
 ├── sandbox/         # 默认助理工作目录
-└── backups/         # 执行备份命令生成的数据库快照
+└── backups/         # 数据库快照的临时维护目录（不进入实例备份）
 ```
 
 需要了解的几点：
 
 - 聊天内容和任务记录以原始形式保存在您自己的数据库里，不会发送给 Molr 官方。
-- 模型的访问密钥等敏感凭证是加密保存的；加密密钥单独放在 `keys/` 目录，**不会出现在备份文件里**。请把备份和 `keys/` 目录分开保管——丢失密钥时，已保存的模型密钥将无法恢复。
+- 模型的访问密钥等敏感凭证是加密保存的；加密密钥单独放在 `keys/` 目录，会随完整实例备份保存。请按秘密材料保护备份包；丢失密钥时，已保存的模型密钥将无法恢复。
 - 与云端模型对话时，对话内容会发送给您选择的模型服务商；这一点与是否自己部署无关。
 
 备份与恢复的具体操作见[部署指南](../README.md)。

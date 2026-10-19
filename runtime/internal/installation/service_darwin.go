@@ -119,3 +119,8 @@ func (e *Engine) serviceInstructions(r *installrecord.Record) {
 		e.UI.print("Start: launchctl bootstrap %s %s", e.launchDomain(r), strconv.Quote(r.Paths.Unit))
 	}
 }
+
+func (e *Engine) resumeService(r *installrecord.Record) error {
+	_, err := e.run([]string{"/bin/launchctl", "bootstrap", e.launchDomain(r), r.Paths.Unit}, false)
+	return err
+}
