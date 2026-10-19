@@ -57,7 +57,9 @@ jobs:
       - run: python3 scripts/test-install-download.py
       - run: npm run test --workspace @molr/ui
       - if: matrix.arch == 'amd64'
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps --no-shell chromium
+        env:
+          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: '120000'
       - if: matrix.arch == 'amd64'
         run: npm run test:website
       - run: npm run typecheck

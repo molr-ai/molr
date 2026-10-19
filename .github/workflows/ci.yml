@@ -31,7 +31,9 @@ jobs:
         env:
           VITE_SITE_MODE: live
       - if: runner.arch == 'X64'
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps --no-shell chromium
+        env:
+          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: '120000'
       - if: runner.arch == 'X64'
         run: npm run test:website
       - run: go test ./...
@@ -68,7 +70,9 @@ jobs:
           cache-dependency-path: runtime/go.sum
       - run: npm ci
       - if: runner.arch == 'X64'
-        run: npx playwright install chromium
+        run: npx playwright install --no-shell chromium
+        env:
+          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: '120000'
       - if: runner.arch == 'X64'
         run: npm run test:website
       - name: Native Runtime and Full Access tests
