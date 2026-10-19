@@ -191,8 +191,22 @@ func TestManualPairingDedupAndRevoke(t *testing.T) {
 	if f.s.CheckWebInput(ctx, "owner", "chat") == nil {
 		t.Fatal("WebUI was not locked")
 	}
+	connected, err := f.s.Connected(ctx, "owner", "chat")
+	must(t, err)
+	if !connected {
+		t.Fatal("paired channel is not connected")
+	}
+	must(t, f.s.AuthorizeChannel(ctx, "owner", "chat", b.ID))
+	if err := f.s.AuthorizeChannel(ctx, "owner", "chat", "other-binding"); err == nil {
+		t.Fatal("authorized another binding")
+	}
 	publish(t, f, "reply")
 	must(t, f.s.Disconnect(ctx, f.owner, "assistant"))
+	connected, err = f.s.Connected(ctx, "owner", "chat")
+	must(t, err)
+	if connected {
+		t.Fatal("disconnected channel remains connected")
+	}
 	if deliveries(t, f)[0].State != "canceled" {
 		t.Fatal("unsent delivery not canceled")
 	}

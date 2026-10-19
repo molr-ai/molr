@@ -4,6 +4,10 @@
 
 | 包 | 公开入口 | 测试 |
 | --- | --- | --- |
+| `internal/logging` | `DefaultOptions` | `internal/config.TestLoggingPolicyDefaultsAndJSONOverrides` |
+| `internal/logging` | `Options.Validate` | `TestInvalidPolicyHasNoFilesystemEffects`, `internal/config.TestLoggingPolicyDefaultsAndJSONOverrides` |
+| `internal/logging` | `NewFile`, `File.Write` | `TestFileRotationRetainsWholeRecordsAndDeletesOldest`, `TestConcurrentWritesStayIntactAcrossRotation`, `TestOversizedRecordAndInvalidDestinationDoNotDestroyLogs` |
+| `internal/logging` | `OpenFile` | `TestRestartAppliesReducedRetentionAndPreservesOtherFiles`, `TestFileRejectsSymlinks`, `TestInvalidPolicyHasNoFilesystemEffects` |
 | `internal/core` | `CompressionTokens` | `TestCompressionTokens` |
 | `internal/core` | `ID.Validate` | `TestTDDCoreIDBoundary` |
 | `internal/core` | `Principal.Validate` | `TestTDDCorePrincipalAndExecutionBoundaries` |

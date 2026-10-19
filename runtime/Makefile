@@ -9,7 +9,7 @@ export GOTOOLCHAIN := go$(GO_VERSION)
 .PHONY: test test-tdd test-existing test-compile test-inventory vet build fmt check-fmt check check-contracts
 
 # Full suite includes behavior contracts and production composition tests.
-test:
+test: test-inventory
 	$(GO) test $(PACKAGES) -run '$(RUN)' $(TEST_FLAGS)
 
 # Real kernel isolation; ordinary go test does not substitute for this target.
@@ -17,18 +17,18 @@ test:
 test-sandbox:
 	bash scripts/test-sandbox-linux.sh -count=1 -v
 
-test-tdd:
+test-tdd: test-inventory
 	$(GO) test $(PACKAGES) -run '^TestTDD' $(TEST_FLAGS)
 
 # Explicit baseline selection only; this is not a replacement for the full suite.
-test-existing:
+test-existing: test-inventory
 	$(GO) test $(PACKAGES) -skip '^TestTDD' $(TEST_FLAGS)
 
-test-compile:
+test-compile: test-inventory
 	$(GO) test $(PACKAGES) -run '^$$'
 
 test-inventory:
-	$(GO) test ./tests/contractcoverage -run '^TestPublicContractCoverageInventory$$'
+	GO='$(GO)' node ../scripts/check-contracts.mjs
 
 vet:
 	$(GO) vet ./...

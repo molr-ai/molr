@@ -6,6 +6,10 @@
 
 | 包 | 公开方法 | 具体测试 |
 | --- | --- | --- |
+| `internal/oauthbroker` | `New`, `Broker.Start`, `Provider.AuthorizationURL` | `TestExchangeAndReplay`, `TestStartBoundaries` |
+| `internal/oauthbroker` | `Broker.Complete`, `Provider.Complete` | `TestExchangeAndReplay`, `TestStateIdentityAndRevocation`, `TestConcurrentCompletion`, `TestCancelledDeniedExpiredAndFailure` |
+| `internal/oauthbroker` | `Broker.Status` | `TestStateIdentityAndRevocation` |
+| `internal/oauthbroker` | `Broker.Cancel` | `TestCancelledDeniedExpiredAndFailure`, `TestConcurrentCompletion` |
 | internal/auth | Service.Login | TestTDDAuthenticationSessionLifecycle |
 | internal/auth | Service.Authenticate | TestTDDAuthenticationSessionLifecycle |
 | internal/auth | Service.SecurityStatus | TestTDDMFALifecycleAndChallengeReplay, TestSecurityStatusRequiresLiveOwnerSession |

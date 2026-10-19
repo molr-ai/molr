@@ -4,9 +4,12 @@
 
 ## 运行方式
 
-工具链仍固定为 Go 1.27.1。仓库根目录可执行：
+工具链由 `runtime/.go-version` 固定。仓库根目录可执行：
 
 ```bash
+# 提交前的仓库检查；契约清单也可单独用 npm run check:contracts 检查
+npm run check
+
 # 全部测试
 make -C runtime test
 
@@ -52,6 +55,8 @@ make -C runtime test-existing
 - [基础设施与公共类型](coverage-infrastructure.md)
 
 `tests/contractcoverage` 使用 Go AST 枚举公开接口方法（包括嵌入展开）及公开函数／具体方法，检查每个入口有测试映射、引用的测试真实存在。这个检查证明 **测试规划未遗漏公开入口**，不证明行为断言已经执行、分支已覆盖或实现正确；多个方法共享一个完整流程测试时，清单会引用同一个用例。
+
+新增、删除或改名公开入口时，同步更新对应表格并运行 `npm run check:contracts`。该命令不需要安装 npm 依赖或启动 Runtime，使用固定 Go 工具链和当前 worktree 的缓存，并通过 `-count=1` 每次重新扫描源码与清单。`make test`、`test-tdd`、`test-existing` 和 `test-compile` 会先运行此检查，即使只选择部分包或用例也不会漏掉其他模块的新增入口。CI 在安装 npm 依赖和完整构建前执行同一检查；提交前与 rebase 后执行 `npm run check`。直接调用 `go test` 的局部测试不会自动包含全仓库清单检查。
 
 ## 集成验证与边界
 

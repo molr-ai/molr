@@ -22,6 +22,8 @@ jobs:
         with:
           go-version-file: runtime/.go-version
           cache-dependency-path: runtime/go.sum
+      - name: Public contract inventory
+        run: npm run check:contracts
       - run: npm ci
       - run: npm run docs:check && npm run test:docs && npm run check:platforms && npm run check:release && npm run check:licenses
       - run: npm run test:release && npm run test:release-flow
@@ -68,6 +70,8 @@ jobs:
         with:
           go-version-file: runtime/.go-version
           cache-dependency-path: runtime/go.sum
+      - name: Public contract inventory
+        run: npm run check:contracts
       - run: npm ci
       - if: runner.arch == 'X64'
         run: npx playwright install --no-shell chromium

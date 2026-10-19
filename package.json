@@ -9,6 +9,8 @@
     "packages/*"
   ],
   "scripts": {
+    "check": "npm run check:contracts && npm run docs:check && npm run check:platforms && npm run check:release && npm run check:licenses",
+    "check:contracts": "node scripts/check-contracts.mjs",
     "dev:desktop": "npm run dev --workspace @molr/desktop --",
     "build:desktop": "npm run build --workspace @molr/desktop",
     "test:desktop": "npm run test --workspace @molr/desktop",

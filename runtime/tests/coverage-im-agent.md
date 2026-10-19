@@ -53,8 +53,24 @@
 | `internal/im/realtime` | `Store.Append` | `TestTDDRealtimeReplayIsOwnerScopedAndDoesNotConsume`、`TestTDDRealtimeEverySubscriberReceivesLiveEventAndRevocationStopsDelivery` |
 | `internal/im/realtime` | `Store.Replay` | `TestTDDRealtimeReplayIsOwnerScopedAndDoesNotConsume` |
 | `internal/im/realtime` | `Store.Watch` | `TestIdempotentAppendDoesNotNotify`、`TestIdleAuthorizationDoesNotReplay` |
+| `internal/im/realtime` | `Store.Head`, `Subscription.StartCursor` | `TestNewSubscriptionStartsAtHeadAndReconnectReplaysGap`, `TestCommitDuringInitialSubscriptionIsDelivered` |
 
 重点：逐客户端重放、游标不可跨用户使用、主题过滤、多个客户端都收到实时事件、凭证撤销即停止、取消和关闭不挂起。
+
+## `internal/im/qq`
+
+| 包 | 接口 / 方法 | 测试 |
+| --- | --- | --- |
+| `internal/im/qq` | `Client.Begin`, `HTTPClient.Begin`, `Client.Poll`, `HTTPClient.Poll` | `TestQRProtocolDecryptsAndKeepsKeyPrivate` |
+| `internal/im/qq` | `Client.Check`, `HTTPClient.Check` | `TestCheckCredentials` |
+| `internal/im/qq` | `Client.Listen`, `HTTPClient.Listen` | `TestListenStopsOnInvalidCredentialsAndCancellation` |
+| `internal/im/qq` | `Client.Send`, `HTTPClient.Send` | `TestSendProtocolAndErrors` |
+| `internal/im/qq` | `New`, `Service.StartLogin`, `Service.PollLogin`, `Service.CancelLogin`, `Service.Status`, `Service.Disconnect` | `TestQRConnectIdentityAndCancellation` |
+| `internal/im/qq` | `Service.Connect`, `Service.CheckAvailable`, `Service.CheckWebInput`, `Service.Connected`, `Service.AuthorizeChannel`, `Service.SetReceiver`, `Receiver.ReceiveChannel` | `TestManualPairingDedupAndRevoke` |
+| `internal/im/qq` | `Service.Published` | `TestManualPairingDedupAndRevoke`, `TestUnknownDeliveryNeverRetriesAndRateLimitPersists`, `TestPacingDoesNotAllocateDuplicateReplySequences` |
+| `internal/im/qq` | `Service.Run` | `TestRunStartsAndJoinsListener` |
+
+重点：扫码身份隔离与取消、协议凭证保密、配对去重、撤权、渠道互斥、限流与未知投递结果，以及监听退出。HTTP 和网关以受控外部响应验证，不访问真实 QQ 服务。
 
 ## `internal/agent`
 
