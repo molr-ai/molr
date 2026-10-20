@@ -63,14 +63,14 @@ Linux installation acceptance removes Bubblewrap, static BusyBox and AppArmor pr
 
 ## Network and validation
 
-Action mirrors do not include Node/Go distributions, npm/Go modules, Playwright browsers, Electron or packaging tools. Runners need access to those download sources; configure proxies, package mirrors or preinstalled tool caches in private runner configuration as needed. Setup actions disable automatic dependency caching, so initial setup needs no additional cache service.
+Action mirrors do not include Node/Go distributions, npm/Go modules, Playwright browsers, Electron or packaging tools. Runners need access to those download sources; configure proxies, package mirrors or preinstalled tool caches in private runner configuration as needed. Setup actions disable automatic dependency caching, so initial setup needs no additional cache service. `GOCACHE` and `GOMODCACHE` explicitly use `.cache/go-build` and `.cache/go-mod` in the current workspace, sharing caches across tool setup, tests and packaging while keeping workspaces isolated.
 
 Both workflows use ordinary jobs rather than reusable workflows. Installation acceptance downloads build artifacts from the same run. Server features are independent of the new runner: upgrading it does not establish support for `permissions`, `concurrency` or GitHub PR merge previews on Gitea 1.23. See the [1.23 comparison](https://docs.gitea.com/1.23/usage/actions/comparison/) and [PR trigger semantics](https://docs.gitea.com/1.23/usage/actions/faq/).
 
 Validate setup in this order:
 
 1. Manually dispatch `Gitea CI`. All four builds must run on the correct native system/architecture; four separate installation jobs must download their same-run packages and pass both server and sandbox modes.
-2. Manually dispatch `Gitea desktop acceptance`. All five targets must pass Electron tests, native Runtime lifecycle and packaging, with downloadable artifacts. Signing certificates and release credentials are not required.
+2. Manually dispatch `Gitea desktop acceptance`. All five targets must pass Electron tests, native Runtime lifecycle and packaging, with downloadable artifacts. The workflow builds `0.1.0-local`: macOS uses ad-hoc signing and Windows has no publisher signing. Both complete packaging directly without Apple notarization; signing certificates and release credentials are not required.
 3. Use an ordinary PR to verify CI triggering and a desktop-related PR to verify desktop path filters. Missing runners mean incomplete coverage, even when other jobs pass.
 
 Syntax checks and local tests are not an actual Gitea acceptance run. During the first run, record server, runner and action mirror versions and verify artifact transfers. Keep logs and actual deployment configuration in private internal material.

@@ -63,14 +63,14 @@ Linux 独立安装验收会卸载 Bubblewrap、静态 BusyBox、AppArmor profile
 
 ## 网络与验证
 
-本地 action 镜像不包含 Node/Go 发行包、npm/Go 模块、Playwright 浏览器、Electron 及打包工具。runner 需能访问这些下载源，也可通过本地 runner 环境配置代理、包源或预装工具缓存。工作流关闭 setup actions 的自动依赖缓存，首次接入无需配置额外缓存服务。
+本地 action 镜像不包含 Node/Go 发行包、npm/Go 模块、Playwright 浏览器、Electron 及打包工具。runner 需能访问这些下载源，也可通过本地 runner 环境配置代理、包源或预装工具缓存。工作流关闭 setup actions 的自动依赖缓存，首次接入无需配置额外缓存服务。`GOCACHE` 和 `GOMODCACHE` 显式指向当前工作区的 `.cache/go-build` 和 `.cache/go-mod`，使工具准备、测试与打包复用同一组缓存，同时保持不同工作区隔离。
 
 两个工作流使用普通 jobs，不依赖可复用 workflow；完整安装验收在同一次运行中下载构建产物。Gitea 1.23 的服务器功能与新 runner 独立，不能通过升级 runner 假定 `permissions`、`concurrency` 或 GitHub 的 PR 合并预览语义生效。参见 [1.23 兼容差异](https://docs.gitea.com/1.23/usage/actions/comparison/)和 [PR 触发说明](https://docs.gitea.com/1.23/usage/actions/faq/)。
 
 接入验收依次检查：
 
 1. 手动触发 `Gitea CI`，确认四个构建任务均匹配正确系统／架构并通过，四个独立安装任务下载同次运行的包并完成 server、sandbox 两种模式验收。
-2. 手动触发 `Gitea desktop acceptance`，确认五个平台的 Electron、原生 Runtime 生命周期和安装包构建通过，artifact 可下载；此流程不需要签名证书或发布凭据。
+2. 手动触发 `Gitea desktop acceptance`，确认五个平台的 Electron、原生 Runtime 生命周期和安装包构建通过，artifact 可下载。该流程固定构建 `0.1.0-local`：macOS 使用 ad-hoc 签名，Windows 不使用发布者签名，均直接完成打包，不执行 Apple 公证；无需签名证书或发布凭据。
 3. 用普通 PR 验证 CI 自动触发，再用桌面相关路径的 PR 验证桌面 workflow 的路径过滤。缺少任一 runner 时矩阵不完整，不能把其余任务成功视为全平台通过。
 
 语法检查与本地测试不等于 Gitea 实跑通过。首次运行需核对服务器、runner、action 镜像具体版本和产物传输结果，日志及实际部署配置保存在私有内部资料中。
