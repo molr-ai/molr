@@ -189,6 +189,15 @@ jobs:
         env:
           PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: '120000'
       - run: npm run test:website
+      - name: Upload website failure diagnostics
+        if: failure()
+        uses: actions/gitea-upload-artifact@v7
+        with:
+          overwrite: true
+          name: website-failure-${{ matrix.runner }}
+          path: apps/website/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
   installer:
     needs: [source, native]
     name: ${{ matrix.environment }}

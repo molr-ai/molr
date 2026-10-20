@@ -69,6 +69,8 @@ Linux 独立安装验收会卸载 Bubblewrap、静态 BusyBox、AppArmor profile
 
 工作流使用普通 jobs，不依赖可复用 workflow；原生构建、浏览器和安装任务均检出源码任务记录的同一提交，安装验收下载同次运行的构建产物。共享工具准备位于 `.gitea/actions/setup-build/action.yml`，仍使用本地镜像的 v7 actions。Gitea 1.23 的服务器功能与新 runner 独立，不能通过升级 runner 假定 `permissions`、`concurrency` 或 GitHub 的 PR 合并预览语义生效。参见 [1.23 兼容差异](https://docs.gitea.com/1.23/usage/actions/comparison/)和 [PR 触发说明](https://docs.gitea.com/1.23/usage/actions/faq/)。
 
+浏览器任务失败时，将 `apps/website/test-results/` 上传为 `website-failure-<runner 标签>`，保留七天；没有诊断文件时跳过上传。文档导航和桌面下载测试会保存错误、页面地址、网络／页面异常、截图及 `trace.zip`。下载后可运行 `npx playwright show-trace <trace.zip>` 排查；这些测试只使用人工资料。断言失败仍会使任务及最终门禁失败，上传诊断不改变验证结果。
+
 接入验收依次检查：
 
 1. 手动触发 `Gitea CI`，确认源码检查、共享前端构建、五个原生任务、两个浏览器任务及四个独立安装任务全部通过；独立安装任务须完成 server、sandbox 两种模式验收。任一组失败、取消或跳过，最终门禁必须失败。

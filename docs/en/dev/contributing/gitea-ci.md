@@ -69,6 +69,8 @@ Action mirrors do not include Node/Go distributions, npm/Go modules, Playwright 
 
 The workflow uses ordinary jobs rather than reusable workflows. Native builds, browser tests and installation jobs check out the exact commit recorded by the source job; installation acceptance downloads artifacts from that same run. Shared tool setup lives in `.gitea/actions/setup-build/action.yml` and continues to use the mirrored v7 actions. Server features are independent of the new runner: upgrading it does not establish support for `permissions`, `concurrency` or GitHub PR merge previews on Gitea 1.23. See the [1.23 comparison](https://docs.gitea.com/1.23/usage/actions/comparison/) and [PR trigger semantics](https://docs.gitea.com/1.23/usage/actions/faq/).
 
+When a browser job fails, it uploads `apps/website/test-results/` as `website-failure-<runner label>` for seven days; missing diagnostics skip the upload. Documentation navigation and desktop download tests save errors, page URLs, network/page failures, screenshots and `trace.zip`. Download the artifact and run `npx playwright show-trace <trace.zip>` to investigate. These tests use artificial data only. A failed assertion still fails the job and final gate; uploading diagnostics does not change the validation result.
+
 Validate setup in this order:
 
 1. Manually dispatch `Gitea CI`. Source checks, shared asset compilation, five native jobs, two browser jobs and four separate installation jobs must pass. Installation jobs cover both server and sandbox modes. A failed, cancelled or skipped group must fail the final gate.
