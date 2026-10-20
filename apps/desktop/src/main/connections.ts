@@ -73,16 +73,16 @@ export class ConnectionStore {
     // A new endpoint must never inherit another endpoint's storage or login state.
     if (old && old.url !== c.url) c.id = randomUUID();
     const connections = old ? this.data.connections.map(x => x.id === old.id ? c : x) : [...this.data.connections, c];
-    this.write({ connections, lastConnection: this.data.lastConnection === old?.id ? c.id : this.data.lastConnection });
+    this.write({ connections, lastConnection: old && this.data.lastConnection === old.id ? c.id : this.data.lastConnection });
     return { connection: c, retired: old && old.id !== c.id ? old.id : undefined };
   }
   managed(url: string) {
     const old = this.data.connections.find(c => c.kind === 'managed-local');
     const c: Connection = { id: old?.id ?? randomUUID(), name: '本机 Runtime', kind: 'managed-local', url: normalizeURL(url, true), allowHTTP: true };
     if (old && old.url !== c.url) c.id = randomUUID();
-    this.write({ connections: [...this.data.connections.filter(x => x.kind !== 'managed-local'), c], lastConnection: this.data.lastConnection === old?.id ? c.id : this.data.lastConnection });
+    this.write({ connections: [...this.data.connections.filter(x => x.kind !== 'managed-local'), c], lastConnection: old && this.data.lastConnection === old.id ? c.id : this.data.lastConnection });
     return c;
   }
   remove(id: string) { this.get(id); this.write({ connections: this.data.connections.filter(c => c.id !== id), lastConnection: this.data.lastConnection === id ? undefined : this.data.lastConnection }); }
-  select(id: string) { this.get(id); this.write({ ...this.data, lastConnection: id }); }
+  select(id?: string) { if (id !== undefined) this.get(id); this.write({ ...this.data, lastConnection: id }); }
 }

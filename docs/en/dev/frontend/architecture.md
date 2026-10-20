@@ -47,6 +47,8 @@ The bundled connection manager uses the shared full wordmark's day/night animati
 
 The desktop main process validates the current WebContents, main frame, configured connection origin and arguments. Runtime pages can read the current connection, control the current window, disconnect and initiate the OAuth flow below. Connection editing and local-service management remain behind the bundled UI’s separate API. Plugin and custom-theme iframes receive no desktop bridge. The Runtime view fills the frameless window; failed navigation, crashes or handshake timeout return to bundled recovery. Disconnect preserves partition storage and authentication and leaves Runtime running.
 
+After creating a window, main reads `lastConnection` from the connection store and reconnects with its persistent partition, including process restarts and reopened macOS windows. Connecting saves the selection; explicitly returning to management clears it, while closing the window or a load failure preserves it. Adding a connection does not select it; removing the selected connection clears it. Restoration uses the normal connection and recovery flow and does not start a stopped local service.
+
 ## Desktop notifications
 
 In App mode, WebUI selects a native `NotificationAdapter` and calls Electron Notification through `molrApp.notifications`; browsers retain Web Notifications. The existing switch initializes the system channel. There is no extra Runtime permission dialog or dependency on browser notification permission. On macOS initialization can prompt for OS authorization, so `Notification.isSupported()` is not called on page load. Its result indicates support, not OS permission.

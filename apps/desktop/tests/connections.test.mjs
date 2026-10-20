@@ -17,6 +17,7 @@ test('sessions are isolated, endpoint changes rotate identity, WSL remains remot
   const file = join(root, 'connections.json'), store = new ConnectionStore(file);
   const first = store.save({ name: 'WSL', url: 'http://localhost:8787', allowHTTP: true }).connection;
   const second = store.save({ name: 'Other account', url: first.url, allowHTTP: true }).connection;
+  assert.equal(new ConnectionStore(file).data.lastConnection, undefined, 'Saving alone must not opt into startup reconnection');
   assert.equal(first.kind, 'remote'); assert.notEqual(partition(first.id), partition(second.id));
   store.select(first.id);
   const renamed = store.save({ id: first.id, name: 'Renamed', url: first.url, allowHTTP: true });
@@ -32,9 +33,28 @@ test('managed connection cannot be edited as a remote endpoint', t => {
   const root = mkdtempSync(join(tmpdir(), 'molr-connections-')); t.after(() => rmSync(root, { recursive: true, force: true }));
   const store = new ConnectionStore(join(root, 'connections.json'));
   const local = store.managed('http://127.0.0.1:8787');
+  assert.equal(store.data.lastConnection, undefined);
   assert.throws(() => store.save({ id: local.id, name: 'Hijack', url: 'https://example.com', allowHTTP: false }));
   assert.equal(store.managed(local.url).id, local.id);
   assert.notEqual(store.managed('http://127.0.0.1:8788').id, local.id);
+});
+test('startup selection persists until explicitly disconnected, including managed endpoints', t => {
+  const root = mkdtempSync(join(tmpdir(), 'molr-connections-')); t.after(() => rmSync(root, { recursive: true, force: true }));
+  const file = join(root, 'connections.json'), store = new ConnectionStore(file);
+  const local = store.managed('http://127.0.0.1:8787');
+  store.select(local.id);
+  assert.equal(new ConnectionStore(file).data.lastConnection, local.id);
+  const moved = store.managed('http://127.0.0.1:8788');
+  assert.equal(new ConnectionStore(file).data.lastConnection, moved.id);
+  store.select(undefined);
+  const reopened = new ConnectionStore(file);
+  assert.equal(reopened.data.lastConnection, undefined);
+  assert.equal(reopened.get(moved.id).url, moved.url);
+  reopened.managed(moved.url);
+  reopened.save({ name: 'Another server', url: 'https://example.com', allowHTTP: false });
+  assert.equal(new ConnectionStore(file).data.lastConnection, undefined);
+  writeFileSync(file, JSON.stringify({ ...reopened.data, lastConnection: local.id }));
+  assert.equal(new ConnectionStore(file).data.lastConnection, undefined, 'Removed selections cannot be restored');
 });
 test('invalid persisted data fails closed without overwriting it', t => {
   const root = mkdtempSync(join(tmpdir(), 'molr-connections-')); t.after(() => rmSync(root, { recursive: true, force: true }));

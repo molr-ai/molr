@@ -33,6 +33,8 @@ Both titlebars stay 48 CSS px high in windowed and fullscreen modes. On macOS, t
 
 `@molr/ui-host/app` defines the shared type-only contract. The sandboxed Runtime preload exposes `getInfo`, window controls, `disconnect`, a disposable window-state subscription, native notification controls, and the OAuth bridge described below. Main-process handlers validate the active WebContents, main frame, connection origin, and argument count. Plugin and custom-theme iframes do not receive the bridge. `molrDesktop`, service management, arbitrary IPC, filesystem and command access stay unavailable to Runtime pages.
 
+Opening the desktop or reopening its window automatically reconnects the saved selection using its existing persistent session. Explicitly returning to connection management clears that selection; merely saving a connection does not select it. Failed restoration keeps retry and connection management available, without starting a stopped local service.
+
 Disconnect returns to the connection list without clearing authentication or stopping Runtime tasks; unfinished downloads from the closing view are cancelled. Failed navigation, renderer crashes and handshake timeout return to the bundled recovery screen. Ctrl/Cmd+Shift+M returns to connection management and Ctrl/Cmd+R reconnects. Windows/Linux have no application menu bar; Ctrl+plus/minus/0 controls zoom and F11 toggles full screen. macOS retains its system application menu. Native Windows Snap Layout hover and platform-specific window-manager behavior require native acceptance.
 
 ## Language

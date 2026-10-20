@@ -165,6 +165,11 @@ try {
   await page.evaluate(id => window.molrDesktop.connect(id), two.id); await waitRuntime(page);
   checkpoint('second session cookie check');
   assert.equal(await remote("fetch('/who').then(r => r.text())"), '');
+  checkpoint('restore most recent connection');
+  await app.close();
+  page = await launch(); await waitRuntime(page);
+  assert.equal((await page.evaluate(() => window.molrDesktop.state())).active, two.id);
+  assert.equal(await remote("fetch('/who').then(r => r.text())"), '');
   checkpoint('return to manager');
   await page.evaluate(() => window.molrDesktop.manager());
   checkpoint('restart');
@@ -174,6 +179,30 @@ try {
   await page.evaluate(id => window.molrDesktop.connect(id), one.id); await waitRuntime(page);
   assert.equal(await remote("fetch('/who').then(r => r.text())"), 'fixture_session=first', 'Persistent login survives desktop restart');
   await remote("localStorage.setItem('fixture', 'persisted')");
+  checkpoint('restore connection and login automatically');
+  await app.close();
+  page = await launch(); await waitRuntime(page);
+  assert.equal((await page.evaluate(() => window.molrDesktop.state())).active, one.id);
+  assert.equal(await remote("fetch('/who').then(r => r.text())"), 'fixture_session=first');
+  assert.equal(await remote("localStorage.getItem('fixture')"), 'persisted');
+  if (process.platform === 'darwin') {
+    checkpoint('restore after reopening macOS window');
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close());
+    await app.evaluate(({ app }) => app.emit('activate'));
+    page = await app.firstWindow(); await waitRuntime(page);
+    assert.equal((await page.evaluate(() => window.molrDesktop.state())).active, one.id);
+  }
+  checkpoint('explicit disconnect persists across restart');
+  const restoredPage = app.context().pages().find(p => p.url().startsWith(url));
+  await Promise.all([
+    restoredPage.waitForEvent('close'),
+    restoredPage.getByRole('button', { name: 'Disconnect', exact: true }).click(),
+  ]);
+  await page.getByRole('heading', { name: '连接你的 Runtime' }).waitFor();
+  await app.close();
+  page = await launch();
+  await page.getByRole('heading', { name: '连接你的 Runtime' }).waitFor();
+  assert.equal((await page.evaluate(() => window.molrDesktop.state())).lastConnection, undefined);
   await page.evaluate(() => window.molrDesktop.manager());
   await page.evaluate(id => window.molrDesktop.connect(id), one.id); await waitRuntime(page);
   assert.equal(await remote("localStorage.getItem('fixture')"), 'persisted');
@@ -182,6 +211,12 @@ try {
   const offline = (await page.evaluate(() => window.molrDesktop.state())).connections.find(c => c.name === 'Offline');
   await page.evaluate(id => window.molrDesktop.connect(id), offline.id);
   await page.getByRole('heading', { name: '暂时无法连接' }).waitFor();
+  checkpoint('offline startup recovers without losing selection');
+  await app.close();
+  page = await launch();
+  await page.getByRole('heading', { name: '暂时无法连接' }).waitFor();
+  assert.equal((await page.evaluate(() => window.molrDesktop.state())).active, offline.id);
+  await expect(page.getByRole('button', { name: '重新连接', exact: true })).toBeVisible();
   await page.getByRole('button', { name: '返回连接列表' }).click();
   checkpoint('theme screenshots');
   for (const theme of ['light', 'dark']) for (const palette of ['forest', 'ocean', 'iris', 'sand', 'rose', 'monochrome']) {

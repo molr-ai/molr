@@ -98,7 +98,7 @@ function discard() {
   managedDownloads.delete(old.webContents.id);
   old.webContents.close({ waitForBeforeUnload: false });
 }
-function manager() { discard(); active = undefined; view = 'manager'; error = undefined; changed(); win?.webContents.focus(); }
+function manager() { store.select(undefined); discard(); active = undefined; view = 'manager'; error = undefined; changed(); win?.webContents.focus(); }
 function failed(message: string) { discard(); view = 'failed'; error = message; changed(); }
 async function clearSession(id: string) {
   const ses = session.fromPartition(partition(id));
@@ -245,6 +245,7 @@ async function createWindow() {
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.session.setPermissionRequestHandler((_c, _p, callback) => callback(false));
   win.once('ready-to-show', () => win?.show());
+  const window = win;
   await win.loadURL(trustedURL);
   if (process.platform === 'darwin') {
     // Read only the bundled, trusted renderer; Runtime pages cannot supply
@@ -263,6 +264,13 @@ async function createWindow() {
       macButtonHeight = measured;
       syncMacWindowButtons();
     }
+  }
+  // Restore on process launch and when macOS reopens a closed window.
+  // Explicitly returning to the manager clears the saved selection.
+  if (win === window && !window.isDestroyed() && !active && view === 'manager' && store.data.lastConnection) {
+    const id = store.data.lastConnection;
+    try { await connect(id); }
+    catch (e) { active = id; failed((e as Error).message); }
   }
 }
 function installShortcuts(contents: WebContents) {
