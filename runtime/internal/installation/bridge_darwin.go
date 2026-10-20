@@ -1,28 +1,38 @@
 package installation
 
 import (
-	"molr.ai/runtime/internal/maintenance"
+	"context"
+	"molr.ai/runtime/internal/installrecord"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"syscall"
 )
 
-// macOS maintenance is CLI-only; Runtime still protects its installed files.
-type Maintenance struct {
-	maintenance.Unavailable
-	roots []string
-}
-
-func NewMaintenance(configPath string, external bool) *Maintenance {
-	m := &Maintenance{Unavailable: maintenance.Unavailable{ExternalBrowser: external}}
-	exe, err := os.Executable()
+// Component workers need no launchd registration or system settings. The worker
+// inherits the already-owned installation lock and survives Runtime restarts.
+// Runtime upgrades retain the existing macOS CLI/Desktop update path.
+func runnerAvailable(_ context.Context, update bool) bool { return !update }
+func startMaintenanceWorker(_ context.Context, r *installrecord.Record, key string, args []string, lock *os.File) error {
+	cmd := exec.Command(filepath.Join(r.Paths.Program, "bin/molr-setup"), append(args, "--lock-fd", "3")...)
+	cmd.ExtraFiles = []*os.File{lock}
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	cmd.Env = []string{"PATH=/usr/bin:/bin:/usr/sbin:/sbin", "HOME=" + os.Getenv("HOME")}
+	for _, name := range []string{"HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "no_proxy", "all_proxy", "SSL_CERT_FILE", "SSL_CERT_DIR"} {
+		if value := os.Getenv(name); value != "" {
+			cmd.Env = append(cmd.Env, name+"="+value)
+		}
+	}
+	// Use real files, not exec's copy pipes, so parent exit cannot SIGPIPE workers.
+	null, err := os.OpenFile(os.DevNull, os.O_RDWR, 0)
 	if err != nil {
-		return m
+		return err
 	}
-	root := filepath.Dir(filepath.Dir(exe))
-	r, err := readRecord(filepath.Join(root, "installation.json"), false)
-	if err == nil && r.State == "installed" && r.Paths.Program == root && filepath.Join(r.Paths.Config, "server.json") == configPath {
-		m.roots = []string{r.Paths.Program, r.Paths.Config, r.Paths.Cache}
+	defer null.Close()
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = null, null, null
+	if err = cmd.Start(); err != nil {
+		return err
 	}
-	return m
+	go func() { _ = cmd.Wait() }()
+	return nil
 }
-func (m *Maintenance) ProtectedRoots() []string { return m.roots }

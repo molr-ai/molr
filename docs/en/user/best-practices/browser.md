@@ -7,12 +7,12 @@ Assistants can open websites, read pages, fill forms, click controls and capture
 
 ## Start and watch
 
-Grant the assistant local compute and the required network access. On first use, an administrator can choose **Install and start** in the browser panel to download and verify the compatible programs. Installation continues after the panel closes; grants are checked again before starting the browser. Administrators can also configure [browser programs](../../admin/sandbox/linux.md#managed-browser-tasks) in advance. For example:
+Grant the assistant local compute and the required network access. On first use, an administrator can choose **Install and start** in the browser panel to download and verify the compatible programs. Installation continues after the panel closes; grants are checked again before starting the browser. Supported platforms are Linux amd64 and macOS (Apple Silicon/Intel). Administrators can also configure [browser components](../../admin/administration/components.md) in advance. See [macOS browser tasks](../../admin/sandbox/macos.md#managed-browser-tasks) for permission and isolation boundaries. For example:
 
 > [!PROMPT]
 > Open this website, compare the specifications of two products, and summarize the result. Wait for me to take control if login is needed.
 
-You can also select an authorized local compute resource in the browser panel and choose **Start browser**. Each assistant has at most one active browser task; another start reuses it. The browser supports multiple tabs and runs as a sandbox task. Its compute resource determines CPU, memory, process and runtime limits under existing grants. The panel selects the first available resource by default; you can choose another. The browser counts toward existing execution and compute limits.
+You can also select an authorized local compute resource in the browser panel and choose **Start browser**. Each assistant has at most one active browser task; another start reuses it. The browser supports multiple tabs and runs as a sandbox task. Its compute resource determines runtime limits and the CPU, memory and process limits supported by the platform under existing grants. The panel selects the first available resource by default; you can choose another. The browser counts toward existing execution and compute limits.
 
 Closing the panel only stops viewing. The live view also pauses while the page is hidden or offline, then reconnects when the page is visible and online again. The browser task and control ownership remain active. Close the browser through the browser panel or running tasks. Normal closure retains website login state and local data for the next launch; websites determine whether a login remains valid. Different assistants do not share browser data.
 

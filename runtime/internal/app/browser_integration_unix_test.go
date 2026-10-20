@@ -1,4 +1,4 @@
-//go:build linux && (amd64 || arm64)
+//go:build (linux && (amd64 || arm64)) || darwin
 
 package app
 
@@ -20,6 +20,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -37,7 +38,7 @@ func TestBrowserRealTaskStreamTakeoverAndPersistence(t *testing.T) {
 	}))
 	defer fixture.Close()
 	cfg := testConfig(t)
-	cfg.Sandbox.HostTools = true
+	cfg.Sandbox.HostTools = runtime.GOOS == "linux"
 	cfg.Sandbox.CgroupRoot = os.Getenv("MOLR_SANDBOX_CGROUP")
 	cfg.Browser.AgentDirectory = os.Getenv("MOLR_TEST_AGENT_BROWSER")
 	cfg.Browser.ChromiumDirectory = os.Getenv("MOLR_TEST_CHROMIUM")
@@ -52,10 +53,19 @@ func TestBrowserRealTaskStreamTakeoverAndPersistence(t *testing.T) {
 		}
 		return tx.Put(ctx, "agent.jobs", persistence.Key(owner.OwnerID, "browser-job"), scheduler.Job{State: scheduler.Running, ExecutionID: e.Principal.ExecutionID, Event: event.AssistantEvent{ID: "browser-job", OwnerID: owner.OwnerID, AssistantID: e.AssistantID}})
 	}))
-	compute := forwardCompute(t, b, owner, false)
-	computeGrant, err := b.Services.Grants.Grant(t.Context(), owner, policy.GrantRequest{Mutation: core.Mutation{IdempotencyKey: "browser-compute"}, AssistantID: e.AssistantID, ResourceID: compute, Actions: []policy.Action{policy.Execute}, Constraints: &policy.Constraints{Compute: &policy.ComputeConstraints{CPUPercent: 200, MemoryBytes: 2 << 30, Processes: 512, TempBytes: 512 << 20, MaxDurationSeconds: 300}}})
+	need(t, b.sandbox.runner.Prepare(t.Context()))
+	computeResource, err := b.Services.Resources.Connect(t.Context(), owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "browser-compute-resource"}, Kind: resource.Compute, Provider: "local-sandbox", Name: "Browser compute"})
 	need(t, err)
-	network, err := b.Services.Resources.Connect(t.Context(), owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "browser-network"}, Kind: resource.Network, Provider: "sandbox-network", Name: "Fixture network", Binding: resource.Binding{SandboxTarget: "preset:host"}})
+	compute := computeResource.ID
+	computeLimits := &policy.ComputeConstraints{CPUPercent: 200, MemoryBytes: 2 << 30, Processes: 512, TempBytes: 512 << 20, MaxDurationSeconds: 300}
+	networkTarget := "preset:host"
+	if runtime.GOOS == "darwin" {
+		computeLimits = &policy.ComputeConstraints{MaxDurationSeconds: 300}
+		networkTarget = "preset:network"
+	}
+	computeGrant, err := b.Services.Grants.Grant(t.Context(), owner, policy.GrantRequest{Mutation: core.Mutation{IdempotencyKey: "browser-compute"}, AssistantID: e.AssistantID, ResourceID: compute, Actions: []policy.Action{policy.Execute}, Constraints: &policy.Constraints{Compute: computeLimits}})
+	need(t, err)
+	network, err := b.Services.Resources.Connect(t.Context(), owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "browser-network"}, Kind: resource.Network, Provider: "sandbox-network", Name: "Fixture network", Binding: resource.Binding{SandboxTarget: networkTarget}})
 	need(t, err)
 	_, err = b.Services.Grants.Grant(t.Context(), owner, policy.GrantRequest{Mutation: core.Mutation{IdempotencyKey: "browser-network-grant"}, AssistantID: e.AssistantID, ResourceID: network.ID, Actions: []policy.Action{policy.Execute}, Constraints: testResourceConstraints(resource.Network)})
 	need(t, err)
@@ -71,7 +81,12 @@ func TestBrowserRealTaskStreamTakeoverAndPersistence(t *testing.T) {
 		call, cancel := context.WithTimeout(t.Context(), time.Second)
 		var ready json.RawMessage
 		ready, err = s.browserCall(call, r, "GET", "/ready", nil)
-		if err == nil {
+		if err == nil && runtime.GOOS == "darwin" {
+			if !strings.Contains(string(ready), `"isolation":"outer-only"`) {
+				t.Fatalf("Seatbelt status missing: %s", ready)
+			}
+		}
+		if err == nil && runtime.GOOS == "linux" {
 			if !strings.Contains(string(ready), `Layer 1 Sandbox\tNamespace`) {
 				t.Fatalf("native namespace sandbox missing: %s", ready)
 			}
@@ -98,7 +113,9 @@ func TestBrowserRealTaskStreamTakeoverAndPersistence(t *testing.T) {
 		return string(raw)
 	}
 	u, _ := url.Parse(fixture.URL)
-	u.Host = strings.Replace(u.Host, "127.0.0.1", "host.molr.internal", 1)
+	if runtime.GOOS == "linux" {
+		u.Host = strings.Replace(u.Host, "127.0.0.1", "host.molr.internal", 1)
+	}
 	action(browser.Action{Action: "navigate", URL: u.String()})
 	if snap := action(browser.Action{Action: "snapshot"}); !strings.Contains(snap, "Name") {
 		t.Fatal(snap)

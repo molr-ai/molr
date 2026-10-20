@@ -1,15 +1,12 @@
-//go:build linux
+//go:build linux || darwin
 
 package installation
 
 import (
 	"context"
 	"errors"
-	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -55,24 +52,6 @@ func (m *Maintenance) Enabled() bool {
 	_, err := os.Stat(filepath.Join(componentRoot(m.record), "browser.enabled"))
 	return err == nil
 }
-func unitName(r *installrecord.Record, id string) string {
-	return "molr-maintenance-" + r.Name + "-" + id + ".service"
-}
-func unitActive(ctx context.Context, r *installrecord.Record, id string) bool {
-	cmd := exec.CommandContext(ctx, "systemctl", "--user", "show", unitName(r, id), "--property=ActiveState", "--value")
-	b, err := cmd.Output()
-	if err != nil {
-		return false
-	}
-	s := strings.TrimSpace(string(b))
-	return s == "active" || s == "activating" || s == "deactivating"
-}
-func runnerAvailable(ctx context.Context) bool {
-	cmd := exec.CommandContext(ctx, "systemctl", "--user", "show-environment")
-	cmd.Stdout = io.Discard
-	cmd.Stderr = io.Discard
-	return cmd.Run() == nil
-}
 func (m *Maintenance) available(ctx context.Context, update bool) error {
 	if m == nil || m.record == nil {
 		return componentError("maintenance_not_installed", "installed molr-setup required")
@@ -92,11 +71,11 @@ func (m *Maintenance) available(ctx context.Context, update bool) error {
 	if err := checkManaged(setup, r.OwnerUID, nil); err != nil {
 		return componentError("maintenance_not_installed", err.Error())
 	}
-	if err := staticELF(setup, r.Build.Arch); err != nil {
+	if err := checkExecutable(setup, r.Build.Arch); err != nil {
 		return componentError("maintenance_not_installed", err.Error())
 	}
-	if !runnerAvailable(ctx) {
-		return componentError("maintenance_runner_unavailable", "user systemd manager unavailable; use molr-setup CLI")
+	if !runnerAvailable(ctx, update) {
+		return componentError("maintenance_runner_unavailable", "maintenance runner unavailable; use molr-setup CLI")
 	}
 	return nil
 }
@@ -216,28 +195,16 @@ func (m *Maintenance) Start(ctx context.Context, operation, component, key, targ
 		lock.Close()
 		return t, err
 	}
-	args := []string{"--user", "--quiet", "--collect", "--unit=" + unitName(r, key), "--property=Type=exec", "--property=UMask=0077", "--property=RuntimeMaxSec=1800", "--expand-environment=no", filepath.Join(r.Paths.Program, "bin/molr-setup")}
+	args := []string{}
 	if update {
 		args = append(args, "update", "--version", target, "--skip-dependencies")
 	} else {
 		args = append(args, "components", operation, component)
 	}
-	// Forward only administrator-provided networking settings. Values are inherited
-	// by systemd-run, never put into the command line or HTTP task receipts.
-	var environment []string
-	for _, name := range []string{"HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "no_proxy", "all_proxy", "SSL_CERT_FILE", "SSL_CERT_DIR"} {
-		if os.Getenv(name) != "" {
-			environment = append(environment, "--setenv="+name)
-		}
-	}
-	args = append(environment, args...)
 	args = append(args, "--record", r.File(), "--non-interactive", "--json", "--task-id", key)
 	startCtx, stop := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
 	defer stop()
-	cmd := exec.CommandContext(startCtx, "systemd-run", args...)
-	cmd.Stdout = io.Discard
-	cmd.Stderr = io.Discard
-	err = cmd.Run()
+	err = startMaintenanceWorker(startCtx, r, key, args, lock)
 	lock.Close()
 	if err != nil {
 		t.State = "failed"

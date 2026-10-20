@@ -21,6 +21,11 @@ Linux 使用 Bubblewrap、seccomp、cgroup v2 和受控网络出口。macOS 使�
 
 `direct_unix.go` 共享原生命令的授权、输出、截止时间和进程组生命周期；macOS 受控启动在执行前包装为 `/usr/bin/sandbox-exec -p <策略> /bin/sh`，Full Access 直接执行。`backend_darwin.go` 负责启动探针、路径规范化、工具目录及安全环境变量；`seatbelt.go` 生成默认拒绝策略。文件与网络授权固定到启动计划，网络撤权通过同一授权重查停止受管进程组；不承诺脱离进程组的后代清理。PTY 只允许本任务实际分配的设备，策略拒绝其它进程的信息读取。
 
+macOS 本机浏览器由 `browser_darwin.go` 启动固定 Chromium 和前台 agent-browser daemon，使用专用 Seatbelt 服务规则与 `--no-sandbox`；内部 Chromium 沙盒不启用，外层文件和网络策略必须存在。启动参数不接受客户端程序、CDP 地址或路径。控制 API 使用 Runtime 内存连接，daemon socket 保存在私有目录；短临时符号链接仅解决 macOS socket 路径长度限制，Seatbelt 仍检查规范目标路径。全体受控任务拒绝访问和绑定保留控制端口，浏览器仅放行自己的端口对；通用端口转发也拒绝此保留范围。启动完成前核验端口监听 PID，每次 Unix socket 连接在发送命令和代理认证信息前核验 daemon 的内核对端 PID。临时短路径禁止受控任务改写；路径被替换或进程不匹配时立即失败，不连接其他实例。
+
+两个可信看护进程各拥有一个进程组，受控子进程不继承 Runtime 的存活管道。Runtime 退出使写端关闭，看护进程立即清理自身组；正常关闭通过 CDP 请求 Chromium 刷新并退出，再关闭看护管道。任一子进程退出、授权变化和截止时间均触发回收。此机制针对固定组件进程树，不增加 macOS 的通用进程隔离或资源额度保证。代理认证仅通过私有 daemon 协议传递，不进入启动参数和日志。原生验证方式与平台边界见 [macOS 浏览器](../../admin/sandbox/macos.md#受管浏览器)。
+
+
 原生运行与当前限制见[macOS 源码部署](../../admin/deployment/source-build.md#macos-原生运行)。
 
 ## Full Access 权限与双路径执行

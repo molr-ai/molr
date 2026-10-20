@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"molr.ai/runtime/internal/browser"
 	"molr.ai/runtime/internal/maintenance"
 	"net/http"
 	"net/url"
@@ -35,6 +36,7 @@ func componentError(code, detail string) error { return &ComponentError{Code: co
 type componentAsset struct {
 	URL, SHA256, Format, Prefix, Directory, Executable string
 	Size, Expanded                                     int64
+	BundleLinks                                        bool
 }
 type componentRelease struct {
 	Version string
@@ -44,6 +46,9 @@ type componentRelease struct {
 // Release identities are compiled into the installer. Neither HTTP nor agent
 // requests can choose a URL, digest, archive layout, or installation destination.
 func browserRelease() (componentRelease, error) {
+	if runtime.GOOS == "darwin" {
+		return darwinBrowserRelease(runtime.GOARCH)
+	}
 	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
 		return componentRelease{}, componentError("component_platform_unsupported", "no tested browser package for this platform")
 	}
@@ -97,7 +102,7 @@ func componentPrograms(r *installrecord.Record) (string, string, error) {
 	}
 	root := filepath.Join(componentRoot(r), "browser", receipt.Directory)
 	a, c := filepath.Join(root, "agent"), filepath.Join(root, "chromium")
-	for _, p := range []string{filepath.Join(a, "agent-browser"), filepath.Join(c, "chrome")} {
+	for _, p := range []string{filepath.Join(a, "agent-browser"), browser.ChromiumExecutable(c)} {
 		if err = checkManaged(p, r.UID, nil); err != nil {
 			return "", "", err
 		}
@@ -137,7 +142,7 @@ func componentSnapshot(r *installrecord.Record) ComponentStatus {
 	s.TargetVersion = release.Version
 	for _, a := range release.Assets {
 		s.DownloadBytes += a.Size
-		s.DiskBytes += a.Expanded + a.Size
+		s.DiskBytes += a.Expanded + 2*a.Size
 	}
 	if receipt, err := componentReceipt(r); err == nil {
 		s.Version = receipt.Version
@@ -269,7 +274,7 @@ func (e *Engine) installComponent(r *installrecord.Record, release componentRele
 	}
 	var required int64
 	for _, a := range release.Assets {
-		required += a.Size + a.Expanded
+		required += 2*a.Size + a.Expanded
 	}
 	if uint64(disk.Bavail)*uint64(disk.Bsize) < uint64(required) {
 		return componentError("component_disk_full", "insufficient free disk space")
@@ -287,7 +292,7 @@ func (e *Engine) installComponent(r *installrecord.Record, release componentRele
 			return err
 		}
 		archive := filepath.Join(staging, "download")
-		if err = e.fetchComponent(a, archive); err != nil {
+		if err = e.cachedComponent(r, a, archive); err != nil {
 			return err
 		}
 		if err = e.progress("verifying", e.downloadBase+a.Size, e.downloadTotal); err != nil {
@@ -317,11 +322,8 @@ func (e *Engine) installComponent(r *installrecord.Record, release componentRele
 		if err != nil {
 			return err
 		}
-		if d.Type()&os.ModeSymlink != 0 {
-			return fmt.Errorf("component symlink rejected")
-		}
 		if os.Geteuid() == 0 {
-			return os.Chown(p, r.UID, r.GID)
+			return os.Lchown(p, r.UID, r.GID)
 		}
 		return nil
 	}); err != nil {
@@ -441,6 +443,7 @@ func extractComponent(archive, destination string, a componentAsset) error {
 	if len(z.File) > 10000 {
 		return fmt.Errorf("archive file count exceeded")
 	}
+	links := map[string]string{}
 	seen := map[string]bool{}
 	var total uint64
 	for _, entry := range z.File {
@@ -458,7 +461,7 @@ func extractComponent(archive, destination string, a componentAsset) error {
 		}
 		seen[clean] = true
 		mode := entry.Mode()
-		if !mode.IsRegular() && !mode.IsDir() {
+		if !mode.IsRegular() && !mode.IsDir() && !(a.BundleLinks && mode.Type() == os.ModeSymlink) {
 			return fmt.Errorf("archive links and special files forbidden")
 		}
 		target := filepath.Join(destination, filepath.FromSlash(clean))
@@ -479,6 +482,27 @@ func extractComponent(archive, destination string, a componentAsset) error {
 			return err
 		}
 		d.Close()
+		if mode.Type() == os.ModeSymlink {
+			if entry.UncompressedSize64 > 4096 {
+				return fmt.Errorf("archive link too long")
+			}
+			src, err := entry.Open()
+			if err != nil {
+				return err
+			}
+			raw, err := io.ReadAll(io.LimitReader(src, 4097))
+			src.Close()
+			if err != nil {
+				return err
+			}
+			link := string(raw)
+			resolved := path.Join(path.Dir(clean), link)
+			if link == "" || strings.ContainsAny(link, "\\\x00") || path.IsAbs(link) || resolved == ".." || strings.HasPrefix(resolved, "../") {
+				return fmt.Errorf("archive link escapes bundle")
+			}
+			links[target] = link
+			continue
+		}
 		perm := os.FileMode(0644)
 		if mode&0111 != 0 {
 			perm = 0755
@@ -514,8 +538,26 @@ func extractComponent(archive, destination string, a componentAsset) error {
 			return closeErr
 		}
 	}
+	// Extract ordinary files before creating links; no archive entry can write
+	// through a link. All symlinks must resolve to an existing internal member.
+	for target, link := range links {
+		parent, err := openDir(filepath.Dir(target), false)
+		if err != nil {
+			return err
+		}
+		parent.Close()
+		if err = os.Symlink(link, target); err != nil {
+			return err
+		}
+	}
+	for target := range links {
+		real, err := filepath.EvalSymlinks(target)
+		if err != nil || !strings.HasPrefix(real, destination+string(filepath.Separator)) {
+			return fmt.Errorf("invalid bundle link")
+		}
+	}
 	p := filepath.Join(destination, a.Executable)
-	info, err := os.Stat(p)
+	info, err := os.Lstat(p)
 	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0111 == 0 {
 		return fmt.Errorf("archive executable missing")
 	}

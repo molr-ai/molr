@@ -1,4 +1,4 @@
-//go:build linux && (amd64 || arm64)
+//go:build (linux && (amd64 || arm64)) || darwin
 
 package app
 
@@ -25,6 +25,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -136,7 +137,7 @@ func TestBrowserProxyRealSandbox(t *testing.T) {
 		}
 	}()
 	cfg := testConfig(t)
-	cfg.Sandbox.HostTools = true
+	cfg.Sandbox.HostTools = runtime.GOOS == "linux"
 	cfg.Sandbox.CgroupRoot = os.Getenv("MOLR_SANDBOX_CGROUP")
 	cfg.Browser.AgentDirectory = os.Getenv("MOLR_TEST_AGENT_BROWSER")
 	cfg.Browser.ChromiumDirectory = os.Getenv("MOLR_TEST_CHROMIUM")
@@ -145,7 +146,14 @@ func TestBrowserProxyRealSandbox(t *testing.T) {
 		_, port, _ := net.SplitHostPort(addr)
 		ports = append(ports, port)
 	}
-	cfg.Sandbox.Networks = []config.SandboxNetwork{{Name: "proxy-fixture", Protocols: []string{"tcp"}, Addresses: []string{"127.0.0.1"}, Ports: ports}}
+	networkTarget, host := "proxy-fixture", "host.molr.internal"
+	computeLimits := &policy.ComputeConstraints{CPUPercent: 200, MemoryBytes: 2 << 30, Processes: 512, TempBytes: 512 << 20, MaxDurationSeconds: 300}
+	if runtime.GOOS == "linux" {
+		cfg.Sandbox.Networks = []config.SandboxNetwork{{Name: "proxy-fixture", Protocols: []string{"tcp"}, Addresses: []string{"127.0.0.1"}, Ports: ports}}
+	} else {
+		networkTarget, host = "preset:network", "127.0.0.1"
+		computeLimits = &policy.ComputeConstraints{MaxDurationSeconds: 300}
+	}
 	b, err := Build(t.Context(), cfg)
 	need(t, err)
 	defer b.Close()
@@ -157,16 +165,19 @@ func TestBrowserProxyRealSandbox(t *testing.T) {
 		}
 		return tx.Put(ctx, "agent.jobs", persistence.Key(owner.OwnerID, "proxy-job"), scheduler.Job{State: scheduler.Running, ExecutionID: e.Principal.ExecutionID, Event: event.AssistantEvent{ID: "proxy-job", OwnerID: owner.OwnerID, AssistantID: e.AssistantID}})
 	}))
-	compute := forwardCompute(t, b, owner, false)
-	_, err = b.Services.Grants.Grant(t.Context(), owner, policy.GrantRequest{Mutation: core.Mutation{IdempotencyKey: "proxy-compute"}, AssistantID: e.AssistantID, ResourceID: compute, Actions: []policy.Action{policy.Execute}, Constraints: &policy.Constraints{Compute: &policy.ComputeConstraints{CPUPercent: 200, MemoryBytes: 2 << 30, Processes: 512, TempBytes: 512 << 20, MaxDurationSeconds: 300}}})
+	need(t, b.sandbox.runner.Prepare(t.Context()))
+	computeResource, err := b.Services.Resources.Connect(t.Context(), owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "proxy-compute-resource"}, Kind: resource.Compute, Provider: "local-sandbox", Name: "Proxy compute"})
 	need(t, err)
-	network, err := b.Services.Resources.Connect(t.Context(), owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "proxy-network"}, Kind: resource.Network, Provider: "sandbox-network", Name: "Proxy fixture", Binding: resource.Binding{SandboxTarget: "proxy-fixture"}})
+	compute := computeResource.ID
+	_, err = b.Services.Grants.Grant(t.Context(), owner, policy.GrantRequest{Mutation: core.Mutation{IdempotencyKey: "proxy-compute"}, AssistantID: e.AssistantID, ResourceID: compute, Actions: []policy.Action{policy.Execute}, Constraints: &policy.Constraints{Compute: computeLimits}})
+	need(t, err)
+	network, err := b.Services.Resources.Connect(t.Context(), owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "proxy-network"}, Kind: resource.Network, Provider: "sandbox-network", Name: "Proxy fixture", Binding: resource.Binding{SandboxTarget: networkTarget}})
 	need(t, err)
 	networkGrant, err := b.Services.Grants.Grant(t.Context(), owner, policy.GrantRequest{Mutation: core.Mutation{IdempotencyKey: "proxy-network-grant"}, AssistantID: e.AssistantID, ResourceID: network.ID, Actions: []policy.Action{policy.Execute}, Constraints: testResourceConstraints(resource.Network)})
 	need(t, err)
 	hostURL := func(raw string) string {
 		u, _ := url.Parse(raw)
-		u.Host = strings.Replace(u.Host, "127.0.0.1", "host.molr.internal", 1)
+		u.Host = strings.Replace(u.Host, "127.0.0.1", host, 1)
 		return u.String()
 	}
 	save := func(server string, bypass []string, auth bool) {
@@ -214,7 +225,7 @@ func TestBrowserProxyRealSandbox(t *testing.T) {
 	work := platform.AssistantWorkspace(cfg.DataDir, cfg.Sandbox.WorkRoot, owner.OwnerID, e.AssistantID)
 	need(t, os.MkdirAll(work, 0700))
 	need(t, os.WriteFile(filepath.Join(work, "agent-browser.json"), []byte(`{"proxy":"http://untrusted.invalid:1"}`), 0600))
-	save(hostURL(proxy.URL), []string{"host.molr.internal"}, false)
+	save(hostURL(proxy.URL), []string{host}, false)
 	r := start(false)
 	_, err = act("navigate", "http://destination.invalid/")
 	need(t, err)
@@ -243,7 +254,7 @@ func TestBrowserProxyRealSandbox(t *testing.T) {
 		t.Fatal("authentication missing")
 	}
 	stop(r)
-	save("socks5://host.molr.internal:"+ports[3], nil, false)
+	save("socks5://"+host+":"+ports[3], nil, false)
 	r = start(false)
 	_, err = act("navigate", "http://destination.invalid/")
 	need(t, err)
@@ -252,13 +263,13 @@ func TestBrowserProxyRealSandbox(t *testing.T) {
 	}
 	stop(r)
 	// Undeclared endpoint and explicit offline mode cannot acquire network access.
-	save("http://host.molr.internal:1", nil, false)
+	save("http://"+host+":1", nil, false)
 	r = start(false)
 	_, err = act("navigate", "http://destination.invalid/")
 	if err == nil {
 		t.Fatal("unauthorized proxy allowed")
 	}
-	if !strings.Contains(err.Error(), "network_destination_denied") {
+	if runtime.GOOS == "linux" && !strings.Contains(err.Error(), "network_destination_denied") {
 		t.Fatal("sandbox denial not surfaced", err)
 	}
 	stop(r)
@@ -279,7 +290,7 @@ func TestBrowserProxyRealSandbox(t *testing.T) {
 	if err == nil || proxyHits.Load() != before {
 		t.Fatal("revoked network still reached proxy", err)
 	}
-	if !strings.Contains(err.Error(), "network_authorization_changed") {
+	if runtime.GOOS == "linux" && !strings.Contains(err.Error(), "network_authorization_changed") {
 		t.Fatal("revocation diagnostic missing", err)
 	}
 	stop(r)

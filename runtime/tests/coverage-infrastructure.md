@@ -320,3 +320,11 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/catalog` | `Load`, `Select` | `TestCatalogScopeIndependentOfAccounts` |
 | `internal/modelcatalog` | `Entries`, `Service.Describe`, `Service.Resolve`, `Service.List` | `TestModelCatalogResolutionAndRevocation` |
 | `internal/objectaccess` | `Service.Require` | `TestOwnershipUsesDomainRecordsAndAttachmentReferences` |
+
+## macOS 受管浏览器
+
+| 模块 | 导出接口 | 行为测试 |
+| --- | --- | --- |
+| `internal/browser` | `ChromiumExecutable`, `NewHandler`, `Command`, `NativeCommand` | `TestDaemonPeerIdentityBeforeSendingCommand`, `internal/platform/sandbox.TestSeatbeltNativeBrowser`, `internal/app.TestBrowserRealTaskStreamTakeoverAndPersistence`, `internal/app.TestBrowserProxyRealSandbox` |
+| `internal/platform/sandbox` | `HelperMain`, `Runner.Start`, `Runner.DialForward`, `Runner.StopAssistant`, `Runner.Close` | `TestSeatbeltNativeBrowser`, `TestSeatbeltBrowserParentCrash`, `TestSeatbeltBrowserControlPorts` |
+| `internal/installation` | `Maintenance.Start`, `Maintenance.Task`, `Maintenance.Programs`, `Maintenance.Snapshot` | `TestMacBrowserBundleLinks`, `TestMacBrowserRealArchive`, `TestMacComponentWorkerLockHandoff`, `TestMaintenanceLockSerializesCLIAndRuntime` |

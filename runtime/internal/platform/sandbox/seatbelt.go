@@ -2,10 +2,12 @@ package sandbox
 
 import (
 	"fmt"
+	"molr.ai/runtime/internal/browser"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/platform"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -24,8 +26,29 @@ func validateSeatbelt(c platform.Command) error {
 	if c.Script == "" || len(c.Script) > 65536 || strings.ContainsRune(c.Script, 0) || strings.ContainsRune(c.Directory, 0) || c.Timeout < 0 || (!c.Managed && (c.Timeout == 0 || c.Timeout > time.Hour)) || c.MaxOutputBytes < 1 || c.MaxOutputBytes > 128<<10 {
 		return core.Invalid("sandbox", "invalid native execution plan")
 	}
-	if c.BrowserAssets || c.BrowserProxy != nil || c.Executable != "" || len(c.Args) > 0 || len(c.Environment) > 0 || len(c.ReadRoots) > 0 || len(c.WriteRoots) > 0 || len(c.AllowedOrigins) > 0 || len(c.GPUDeviceIDs) > 0 || len(c.NetworkTargets) > 0 || c.ComputeQuota || c.WorkspaceConstraints != nil || !reflect.DeepEqual(c.Limits, platform.Limits{}) {
+	if c.Executable != "" || len(c.Args) > 0 || len(c.Environment) > 0 || len(c.ReadRoots) > 0 || len(c.WriteRoots) > 0 || len(c.AllowedOrigins) > 0 || len(c.GPUDeviceIDs) > 0 || len(c.NetworkTargets) > 0 || c.ComputeQuota || c.WorkspaceConstraints != nil || !reflect.DeepEqual(c.Limits, platform.Limits{}) {
 		return core.Invalid("sandbox", "unsupported native execution option")
+	}
+	if c.BrowserAssets || c.BrowserProxy != nil {
+		if !c.BrowserAssets || c.BrowserProxy == nil || !c.Managed || c.FullAccess || c.TTY || c.Script != "exec /molr/helper sandbox-helper browser" || c.Directory != "/work" || !slices.Equal(c.ForwardPorts, []int{browser.CommandPort, browser.StreamPort}) {
+			return core.Invalid("browser", "trusted browser launch required")
+		}
+		proxy := *c.BrowserProxy
+		if err := proxy.Validate(); err != nil {
+			return core.Invalid("proxy", err.Error())
+		}
+		assets := map[string]bool{}
+		for _, m := range c.Mounts {
+			if m.Destination == "/resources/browser-agent" || m.Destination == "/resources/browser-chromium" {
+				if !m.ReadOnly || assets[m.Destination] {
+					return core.Invalid("browser", "read-only browser assets required")
+				}
+				assets[m.Destination] = true
+			}
+		}
+		if len(assets) != 2 {
+			return core.Invalid("browser", "browser assets required")
+		}
 	}
 	for _, n := range c.NetworkAuthorizations {
 		if n.Constraints != nil || n.GroupConstraints != nil {
@@ -43,8 +66,15 @@ func validateSeatbelt(c platform.Command) error {
 	if err := platform.ValidateForwardPorts(c.ForwardPorts); err != nil {
 		return err
 	}
-	if len(c.ForwardPorts) > 0 && !c.NetworkAccess {
+	if len(c.ForwardPorts) > 0 && !c.NetworkAccess && !c.BrowserAssets {
 		return core.Invalid("forward_ports", "network permission required")
+	}
+	if !c.BrowserAssets {
+		for _, port := range c.ForwardPorts {
+			if port >= browserControlFirst && port < browserControlLast {
+				return core.Invalid("forward_ports", "browser control ports are reserved")
+			}
+		}
 	}
 	if len(c.Mounts) > 32 {
 		return core.Invalid("files", "too many file scopes")
@@ -59,6 +89,7 @@ func validateSeatbelt(c platform.Command) error {
 
 const seatbeltBase = `(version 1)
 (deny default)
+(deny file-write* (regex #"^/private/tmp/molr-ipc-[^/]+(/|$)"))
 (allow process-exec)
 (allow process-fork)
 (allow signal (target same-sandbox))
@@ -80,6 +111,10 @@ const seatbeltNetwork = `(allow network-outbound (remote tcp) (remote udp))
 `
 
 func seatbeltProfile(read, write []string, tty string, network bool) (string, error) {
+	return seatbeltProfilePorts(read, write, tty, network, nil)
+}
+
+func seatbeltProfilePorts(read, write []string, tty string, network bool, ports []int) (string, error) {
 	var b strings.Builder
 	b.WriteString(seatbeltBase)
 	for _, set := range []struct {
@@ -104,5 +139,19 @@ func seatbeltProfile(read, write []string, tty string, network bool) (string, er
 	if network {
 		b.WriteString(seatbeltNetwork)
 	}
+	// These host ports carry privileged browser control. Deny every destination
+	// address (including 0.0.0.0 and IPv6 aliases), and prevent other tasks binding
+	// them. Only a browser's own pair is reachable within its Seatbelt boundary.
+	for port := browserControlFirst; port < browserControlLast; port++ {
+		if slices.Contains(ports, port) {
+			fmt.Fprintf(&b, "(allow network-bind network-inbound (local tcp \"localhost:%d\"))\n(allow network-outbound (remote tcp \"localhost:%d\"))\n", port, port)
+		} else {
+			fmt.Fprintf(&b, "(deny network-outbound (remote tcp \"*:%d\"))\n(deny network-bind network-inbound (local tcp \"*:%d\"))\n", port, port)
+		}
+	}
 	return b.String(), nil
 }
+
+// A bounded shared range also isolates browsers belonging to other Runtime instances.
+const browserControlFirst = 39200
+const browserControlLast = 39264

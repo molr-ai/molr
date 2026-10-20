@@ -13,10 +13,12 @@ import (
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/platform"
+	"molr.ai/runtime/internal/platform/sandbox"
 	"molr.ai/runtime/internal/policy"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -283,4 +285,11 @@ func TestNativeNetworkPermissionScopeTracksGrantAndDeployment(t *testing.T) {
 	check(true, false)
 	need(t, f.b.Services.Grants.Revoke(t.Context(), f.owner, policy.RevokeRequest{GrantID: grant.ID, Mutation: core.Mutation{IdempotencyKey: "revoke", ExpectedVersion: grant.Version}}))
 	check(false, false)
+}
+
+func TestMain(m *testing.M) {
+	if len(os.Args) > 1 && os.Args[1] == "sandbox-helper" {
+		os.Exit(sandbox.HelperMain(os.Args[2:]))
+	}
+	os.Exit(m.Run())
 }

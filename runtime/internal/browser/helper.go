@@ -90,9 +90,6 @@ func HelperMain() int {
 	}
 	run(ctx, "open", "about:blank")
 	cancel()
-	var mu sync.Mutex
-	var pointerX, pointerY float64
-	held := map[string]bool{}
 	dispatch := func(ctx context.Context, command map[string]any) Result {
 		result, err := daemonCommand(ctx, command)
 		// A transport failure leaves the outcome unknown. Terminate the execution;
@@ -104,6 +101,23 @@ func HelperMain() int {
 		result.Error = redact(result.Error)
 		return result
 	}
+	mux := NewHandler(sandboxStatus, func(ctx context.Context, a Action) Result {
+		args, _ := a.Args()
+		return run(ctx, args...)
+	}, dispatch)
+	server := http.Server{Addr: "127.0.0.1:9224", Handler: mux, ReadHeaderTimeout: 5 * time.Second, MaxHeaderBytes: 8 << 10}
+	if err := server.ListenAndServe(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 125
+	}
+	return 0
+}
+
+// NewHandler serves the bounded browser API over a task-private transport.
+func NewHandler(sandboxStatus Result, run func(context.Context, Action) Result, dispatch func(context.Context, map[string]any) Result) http.Handler {
+	var mu sync.Mutex
+	var pointerX, pointerY float64
+	held := map[string]bool{}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /ready", func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{"ready": true, "sandbox": sandboxStatus})
@@ -111,8 +125,8 @@ func HelperMain() int {
 	mux.HandleFunc("GET /tabs", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
 		defer cancel()
-		result, err := daemonCommand(ctx, map[string]any{"action": "tab_list"})
-		if err != nil {
+		result := dispatch(ctx, map[string]any{"action": "tab_list"})
+		if !result.OK {
 			http.Error(w, "tabs unavailable", 503)
 			return
 		}
@@ -126,7 +140,7 @@ func HelperMain() int {
 			http.Error(w, "invalid action", 400)
 			return
 		}
-		args, err := a.Args()
+		_, err := a.Args()
 		if err != nil {
 			http.Error(w, err.Error(), 400)
 			return
@@ -165,7 +179,7 @@ func HelperMain() int {
 		case "wheel":
 			result = dispatch(ctx, map[string]any{"action": "input_mouse", "type": "mouseWheel", "x": a.X, "y": a.Y, "deltaX": a.DeltaX, "deltaY": a.DeltaY, "modifiers": a.Modifiers})
 		default:
-			result = run(ctx, args...)
+			result = run(ctx, a)
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(result)
@@ -186,13 +200,9 @@ func HelperMain() int {
 		}
 		json.NewEncoder(w).Encode(result)
 	})
-	server := http.Server{Addr: "127.0.0.1:9224", Handler: mux, ReadHeaderTimeout: 5 * time.Second, MaxHeaderBytes: 8 << 10}
-	if err := server.ListenAndServe(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 125
-	}
-	return 0
+	return mux
 }
+
 func mustJSON(v any) json.RawMessage { b, _ := json.Marshal(v); return b }
 
 type boundedOutput struct {
@@ -213,13 +223,21 @@ func (b *boundedOutput) Write(p []byte) (int, error) {
 // The pinned native daemon uses newline-delimited JSON on its private socket.
 // Typed input bypasses CLI flag parsing and preserves coordinates and Unicode.
 func daemonCommand(ctx context.Context, command map[string]any) (Result, error) {
-	conn, err := (&net.Dialer{}).DialContext(ctx, "unix", "/tmp/molr-browser/default.sock")
+	return Command(ctx, "/tmp/molr-browser/default.sock", 0, command)
+}
+
+// Command calls the pinned foreground daemon without allowing the CLI to restart it.
+func Command(ctx context.Context, socket string, expectedPID int, command map[string]any) (Result, error) {
+	conn, err := (&net.Dialer{}).DialContext(ctx, "unix", socket)
 	if err != nil {
 		return Result{}, err
 	}
 	defer conn.Close()
 	deadline, _ := ctx.Deadline()
 	conn.SetDeadline(deadline)
+	if err = verifyPeer(conn, expectedPID); err != nil {
+		return Result{}, err
+	}
 	command["id"] = "molr"
 	if err = json.NewEncoder(conn).Encode(command); err != nil {
 		return Result{}, err

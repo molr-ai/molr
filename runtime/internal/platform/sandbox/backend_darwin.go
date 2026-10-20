@@ -24,8 +24,13 @@ func (r *Runner) check() error {
 	return nil
 }
 func (r *Runner) recover() error { return nil }
-func HelperMain([]string) int    { return 125 }
-func SupervisorMain() int        { return 125 }
+func HelperMain(args []string) int {
+	if len(args) == 1 && args[0] == "browser-child" {
+		return browserChildMain()
+	}
+	return 125
+}
+func SupervisorMain() int { return 125 }
 
 // Native paths are canonicalized before becoming policy data. A tool directory or
 // external resource must never grant a parent of Runtime private data or workspaces.
@@ -131,6 +136,9 @@ func (r *Runner) prepare(ctx context.Context) error {
 	return nil
 }
 func (r *Runner) start(ctx context.Context, e core.Execution, c platform.Command) (*process, error) {
+	if c.BrowserAssets {
+		return r.startBrowser(ctx, e, c)
+	}
 	return r.startHost(ctx, e, c, func(cmd *exec.Cmd, work, tty string) (func(), error) {
 		if !r.options.NoWorkspace {
 			if err := platform.EnsureWorkspace(work); err != nil {

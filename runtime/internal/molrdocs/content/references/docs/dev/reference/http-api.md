@@ -567,7 +567,7 @@ API 合同测试使用真实 HTTP server、Auth、CSRF、持久限流、Realtime
 
 浏览器 HTTP 操作新增管理员专用 `install_start`，同时携带 `compute_id`。浏览器状态中的 `ComponentsEnabled` 表示管理员已允许自动准备组件；`Preparation` 包含 `task_id/state/error_code`，准备状态为 `installing/ready/failed`；它不占用已有 `Task` 字段，也不是助理可调用的系统维护能力。组件安装共享，浏览器启动仍按每个助理重新校验授权；Runtime 重启不重放待启动请求。
 
-`GET/PUT /api/components/browser/settings` 独立于安装维护服务，仅管理员可用，PUT 遵守 CSRF 与已设置的敏感操作验证。GET 返回 Mode/Server/Bypass/Authentication/Version/Username/PasswordConfigured，不返回密码。PUT 接受 Mode（direct/proxy）、Server（http/socks5 主机与端口）、Bypass 数组、Username、Password、PasswordAction（keep/replace/clear）、Version 和 Verification。Version 必须匹配当前记录，否则返回 conflict；未知字段拒绝。认证信息使用 Runtime 主密钥加密，keep 不允许更换代理地址或用户名。直连请求清空代理字段并使用 clear。配置为实例级，仅下次浏览器启动生效；代理通过受控内存文件传入沙盒，不开放通用环境变量，也不读取工作区的 agent-browser 配置。
+`GET/PUT /api/components/browser/settings` 独立于安装维护服务，仅管理员可用，PUT 遵守 CSRF 与已设置的敏感操作验证。GET 返回 Mode/Server/Bypass/Authentication/Version/Username/PasswordConfigured，不返回密码。PUT 接受 Mode（direct/proxy）、Server（http/socks5 主机与端口）、Bypass 数组、Username、Password、PasswordAction（keep/replace/clear）、Version 和 Verification。Version 必须匹配当前记录，否则返回 conflict；未知字段拒绝。认证信息使用 Runtime 主密钥加密，keep 不允许更换代理地址或用户名。直连请求清空代理字段并使用 clear。配置为实例级，仅下次浏览器启动生效；Linux 代理配置通过受控内存文件传入沙盒；macOS 的认证信息通过核验进程身份的私有 daemon socket 传递，不开放通用环境变量，也不读取工作区的 agent-browser 配置。
 
 ## 工作区文件接口
 

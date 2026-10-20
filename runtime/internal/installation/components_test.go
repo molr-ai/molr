@@ -272,3 +272,48 @@ func TestMaintenanceDoesNotOverwriteCorruptReceipt(t *testing.T) {
 		t.Fatal("overwrote receipt")
 	}
 }
+
+func TestComponentCacheRechecksDigestBeforeReuse(t *testing.T) {
+	e, r := fixture(t)
+	if err := os.Chmod(r.Home, 0700); err != nil {
+		t.Fatal(err)
+	}
+	data := []byte("verified component")
+	hash := sha256.Sum256(data)
+	a := componentAsset{URL: "https://github.com/fixture", SHA256: hex.EncodeToString(hash[:]), Size: int64(len(data))}
+	calls := 0
+	e.componentTransport = componentTransportFunc(func(req *http.Request) (*http.Response, error) {
+		calls++
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader(data)), ContentLength: int64(len(data)), Request: req}, nil
+	})
+	for i := 0; i < 2; i++ {
+		if err := e.cachedComponent(r, a, filepath.Join(t.TempDir(), "archive")); err != nil {
+			t.Fatal(err)
+		}
+		cached := filepath.Join(componentRoot(r), "downloads", a.SHA256)
+		if err := checkManaged(cached, r.UID, nil); err != nil {
+			t.Fatal("cache permissions", err)
+		}
+		if _, err := os.Stat(cached); err != nil {
+			t.Fatal("cache absent", err)
+		}
+		if err := copyVerifiedComponent(cached, filepath.Join(t.TempDir(), "probe"), a); err != nil {
+			t.Fatal("cache verification", err)
+		}
+	}
+	if calls != 1 {
+		t.Fatal("verified archive downloaded twice")
+	}
+	cache := filepath.Join(componentRoot(r), "downloads", a.SHA256)
+	if err := os.WriteFile(cache, bytes.Repeat([]byte("x"), len(data)), 0600); err != nil {
+		t.Fatal(err)
+	}
+	output := filepath.Join(t.TempDir(), "archive")
+	if err := e.cachedComponent(r, a, output); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := os.ReadFile(output)
+	if calls != 2 || !bytes.Equal(got, data) {
+		t.Fatal("corrupt cache became an installation")
+	}
+}

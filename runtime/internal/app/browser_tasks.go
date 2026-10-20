@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"molr.ai/runtime/internal/agent/tools"
@@ -60,7 +61,7 @@ func (s *shellTasks) browserPrograms() (*tools.BrowserLaunch, error) {
 	if c == "" {
 		c = filepath.Join(base, "chromium")
 	}
-	for _, p := range []string{filepath.Join(a, "agent-browser"), filepath.Join(c, "chrome")} {
+	for _, p := range []string{filepath.Join(a, "agent-browser"), browser.ChromiumExecutable(c)} {
 		if !filepath.IsAbs(p) || filepath.Clean(p) != p {
 			return nil, core.Invalid("browser", "program directories must be absolute")
 		}
@@ -87,7 +88,7 @@ func (s *shellTasks) activeBrowser(p core.Principal, id, task core.ID) *runningS
 }
 func (s *shellTasks) browserStatus(ctx context.Context, p core.Principal, id core.ID) (json.RawMessage, error) {
 	_, err := s.browserPrograms()
-	if err == nil && (s.router == nil || s.router.shell == nil || !s.router.shell.config.UsesHostTools()) {
+	if err == nil && (s.router == nil || s.router.shell == nil || (!s.router.shell.config.UsesHostTools() && runtime.GOOS != "darwin")) {
 		err = core.NewError(core.FailedPrecondition, "browser requires the local host-tools sandbox")
 	}
 	proxy, loadErr := s.loadBrowserProxy(ctx)
@@ -228,7 +229,7 @@ func (s *shellTasks) startBrowser(ctx context.Context, e core.Execution, q tools
 		}
 		return nil, err
 	}
-	if s.router.shell == nil || !s.router.shell.config.UsesHostTools() {
+	if s.router.shell == nil || (!s.router.shell.config.UsesHostTools() && runtime.GOOS != "darwin") {
 		return nil, core.NewError(core.FailedPrecondition, "browser requires the local host-tools sandbox")
 	}
 	programs.Proxy, err = s.loadBrowserProxy(ctx)

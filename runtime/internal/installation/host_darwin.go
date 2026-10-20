@@ -13,7 +13,7 @@ func missingDependencies() []string                         { return nil }
 func (e *Engine) prepareDependencies(bool) error            { return nil }
 func (e *Engine) preparePolicy(*installrecord.Record) error { return nil }
 func (e *Engine) prepareBrowserDependencies(*installrecord.Record) error {
-	return componentError("component_platform_unsupported", "managed browser is unavailable on macOS")
+	return nil
 }
 func (e *Engine) checkServiceHost(r *installrecord.Record, sandbox bool) (bool, error) {
 	if r.System || r.UID != os.Geteuid() {
@@ -23,5 +23,6 @@ func (e *Engine) checkServiceHost(r *installrecord.Record, sandbox bool) (bool, 
 	return false, err
 }
 
-// CLI maintenance owns its process and lock; macOS has no web maintenance worker yet.
+// Detached workers inherit the instance lock. Task reconciliation tests that
+// lock before consulting this hook; there is no launchd unit to inspect.
 func unitActive(context.Context, *installrecord.Record, string) bool { return false }

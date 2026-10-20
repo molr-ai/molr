@@ -36,4 +36,9 @@ func (c *forwardConn) Close() error {
 	c.release()
 	return err
 }
-func (c *forwardConn) CloseWrite() error { return c.Conn.(*net.TCPConn).CloseWrite() }
+func (c *forwardConn) CloseWrite() error {
+	if conn, ok := c.Conn.(interface{ CloseWrite() error }); ok {
+		return conn.CloseWrite()
+	}
+	return c.Close()
+}
