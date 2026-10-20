@@ -6,7 +6,8 @@ import { join, resolve, relative, sep, basename } from 'node:path';
 import { existsSync, realpathSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ConnectionStore, partition, sameOrigin, externalURL, allowedFrameURL } from './connections.js';
-import type { Connection, ConnectionInput, DesktopState, LocalAction, ResourcePreset, LocalStatus } from '../shared.js';
+import { AppearanceStore } from './appearance.js';
+import type { AdministratorInput, Connection, ConnectionInput, DesktopState, LocalAction, ResourcePreset, LocalStatus } from '../shared.js';
 import type { AppInfo, AppWindowState } from '@molr/ui-host/app';
 import type { LocalRuntime } from '../runtime/local.js';
 import { DesktopNotifications } from './notifications.js';
@@ -25,7 +26,11 @@ const oauth = new OAuthFlow();
 let runtimeView: WebContentsView | undefined;
 let notifications: DesktopNotifications | undefined;
 let local: LocalRuntime | undefined;
+let initialLogin: { id: string; url: string; expires: number } | undefined;
+let initialLoginView: WebContentsView | undefined;
+let initialLoginTimer: ReturnType<typeof setTimeout> | undefined;
 let store: ConnectionStore;
+let appearance: AppearanceStore;
 let view: DesktopState['view'] = 'manager', error: string | undefined, active: string | undefined, busy: string | undefined;
 let progress: string | undefined;
 let localUpdateError: string | undefined;
@@ -47,7 +52,7 @@ const devURL = !app.isPackaged ? process.env.MOLR_DESKTOP_DEV_URL : undefined;
 if (devURL && (!/^http:\/\/(127\.0\.0\.1|localhost):\d+\/$/.test(devURL))) throw new Error('Development UI must use a loopback HTTP origin.');
 const trustedURL = devURL ?? managerURL;
 
-function snapshot(): DesktopState { return { ...store.data, active, view, error, updates: desktopUpdates.snapshot(), local: { ...localStatus, error: localUpdateError || localStatus.error }, busy, progress, version: appVersion, platform: process.platform, window: windowState() }; }
+function snapshot(): DesktopState { return { ...store.data, appearance: { ...appearance.value }, active, view, error, updates: desktopUpdates.snapshot(), local: { ...localStatus, error: localUpdateError || localStatus.error }, busy, progress, version: appVersion, platform: process.platform, window: windowState() }; }
 const titlebarHeight = 48;
 const initialMacButtonMargin = 16;
 let macButtonHeight: number | undefined;
@@ -99,6 +104,7 @@ function revealRuntime() {
   clearTimeout(loadingTimer); runtimeView.setVisible(true); runtimeView.webContents.focus(); view = 'runtime'; error = undefined; changed();
 }
 function discard() {
+  initialLoginView = undefined;
   notifications?.dispose(); notifications = undefined;
   oauth.cancel();
   clearTimeout(loadingTimer); runtimeLoaded = false; runtimeReady = false;
@@ -148,25 +154,30 @@ function guardRuntime(contents: WebContents, connection: Connection) {
   installShortcuts(contents);
   contents.setWindowOpenHandler(({ url }) => { void askExternal(url); return { action: 'deny' }; });
   contents.on('will-navigate', (event, url) => { if (!sameOrigin(url, connection.url)) { event.preventDefault(); void askExternal(url); } });
-  contents.on('will-redirect', (event, url) => { if (!allowedFrameURL(url, connection.url, event.isMainFrame)) { event.preventDefault(); if (event.isMainFrame && runtimeView?.webContents === contents) failed('Runtime 重定向到了其他地址，请检查连接配置。'); } });
+  contents.on('will-redirect', (event, url) => { if (!allowedFrameURL(url, connection.url, event.isMainFrame)) { event.preventDefault(); if (event.isMainFrame && runtimeView?.webContents === contents) failed('服务重定向到了其他地址，请检查连接配置。'); } });
   contents.on('will-attach-webview', event => event.preventDefault());
   contents.on('will-frame-navigate', event => {
     // Runtime plugin pages are sandboxed same-origin Blob documents. Preserve
     // that contract without permitting local files or desktop custom protocols.
     if (!event.isMainFrame && !allowedFrameURL(event.url, connection.url, false)) event.preventDefault();
   });
-  contents.on('render-process-gone', () => { if (runtimeView?.webContents === contents) failed('Runtime 页面已退出，可以重新连接。'); });
+  contents.on('render-process-gone', () => { if (runtimeView?.webContents === contents) failed('服务页面已退出，可以重新连接。'); });
   contents.on('did-fail-load', (_event, code, _description, _url, mainFrame) => {
-    if (mainFrame && code !== -3 && runtimeView?.webContents === contents) failed(code <= -200 && code >= -299 ? '无法验证服务器证书，请修复证书后重试。' : `无法连接 Runtime（${code}）。请检查地址和服务状态。`);
+    if (mainFrame && code !== -3 && runtimeView?.webContents === contents) failed(code <= -200 && code >= -299 ? '无法验证服务器证书，请修复证书后重试。' : `无法连接服务（${code}）。请检查地址和服务状态。`);
   });
 }
 async function connect(id: string, loginURL?: string) {
   const connection = store.get(id);
-  if (connection.kind === 'managed-local' && !local) throw new Error('当前安装包不能管理本机 Runtime。');
-  if (loginURL && !sameOrigin(loginURL, connection.url)) throw new Error('登录地址与本机 Runtime 不匹配。');
+  if (!loginURL && initialLogin?.id === id) {
+    if (Date.now() < initialLogin.expires) loginURL = initialLogin.url;
+    initialLogin = undefined;
+  }
+  if (connection.kind === 'managed-local' && !local) throw new Error('当前安装包不能管理本机服务。');
+  if (loginURL && !sameOrigin(loginURL, connection.url)) throw new Error('登录地址与本机服务不匹配。');
   discard(); active = id; view = 'loading'; error = undefined; store.select(id); changed();
   const contentsView = new WebContentsView({ webPreferences: { preload: join(here, '../preload/runtime.cjs'), session: configureSession(connection), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, allowRunningInsecureContent: false, webviewTag: false, navigateOnDragDrop: false } });
   runtimeView = contentsView;
+  if (loginURL) initialLoginView = contentsView;
   notifications = new DesktopNotifications(
     value => new Notification({ title: value.title, body: value.body, silent: true }),
     (scope, route) => {
@@ -181,6 +192,7 @@ async function connect(id: string, loginURL?: string) {
   guardRuntime(contentsView.webContents, connection);
   contentsView.webContents.on('did-start-navigation', details => {
     if (!details.isMainFrame || details.isSameDocument || runtimeView !== contentsView) return;
+    if (details.url !== loginURL) initialLoginView = undefined;
     notifications?.dispose();
     oauth.cancel();
     runtimeLoaded = false; runtimeReady = false; contentsView.setVisible(false); view = 'loading'; error = undefined; changed();
@@ -197,11 +209,25 @@ async function connect(id: string, loginURL?: string) {
 }
 async function refreshLocal() {
   if (!local) return;
-  try { localStatus = await local.status(); } catch (e) { localStatus = { ...localStatus, error: String((e as Error).message), state: 'failed' }; }
+  try {
+    localStatus = await local.status();
+    const previous = store.data.connections.find(c => c.kind === 'managed-local');
+    if (localStatus.installed && localStatus.url) {
+      const current = store.managed(localStatus.url);
+      if (previous && previous.id !== current.id) {
+        if (active === previous.id) manager();
+        initialLogin = undefined; await clearSession(previous.id);
+      }
+    } else if (localStatus.state === 'uninstalled' && previous) {
+      if (active === previous.id) manager();
+      store.remove(previous.id);
+      initialLogin = undefined; await clearSession(previous.id);
+    }
+  } catch (e) { localStatus = { ...localStatus, error: String((e as Error).message), state: 'failed' }; }
   changed();
 }
-async function localAction(action: LocalAction, preset?: ResourcePreset) {
-  if (!local) throw new Error('当前安装包不包含本机 Runtime。');
+async function localAction(action: LocalAction, preset?: ResourcePreset, administrator?: AdministratorInput) {
+  if (!local) throw new Error('当前安装包不包含本机服务。');
   if (busy) throw new Error('请等待当前维护操作完成。');
   if (!['install', 'start', 'stop', 'restart', 'upgrade', 'uninstall'].includes(action)) throw new Error('无效的操作。');
   // Set the lock before opening a dialog: repeated IPC must not create parallel actions.
@@ -221,21 +247,28 @@ async function localAction(action: LocalAction, preset?: ResourcePreset) {
           }
         } catch { /* Service control remains available when the Runtime is offline. */ }
       }
-      const detail = `${tasks}\n\n此操作也会影响其他账号、计划和渠道中的执行。${action === 'uninstall' ? '服务将被移除，账号、配置和数据保留。' : '远程 Runtime 不受影响。'}`;
-      const result = await dialog.showMessageBox(win!, { type: 'warning', message: '此操作会中断本机 Runtime 中正在执行的任务。', detail, buttons: ['取消', '继续'], defaultId: 0, cancelId: 0 });
+      const detail = `${tasks}\n\n此操作也会影响其他账号、计划和渠道中的执行。${action === 'uninstall' ? '服务将被移除，账号、配置和数据保留。' : '远程服务不受影响。'}`;
+      const result = await dialog.showMessageBox(win!, { type: 'warning', message: '此操作会中断本机服务中正在执行的任务。', detail, buttons: ['取消', '继续'], defaultId: 0, cancelId: 0 });
       if (result.response !== 1) return;
     }
     const previous = store.data.connections.find(c => c.kind === 'managed-local');
     const reconnect = previous?.id === active;
     if (reconnect) manager();
-    const result = await local.action(action, preset);
+    const result = await local.action(action, preset, administrator);
     await refreshLocal();
     if (result.installed && result.url) {
       const c = store.managed(result.url);
       if (previous && c.id !== previous.id) await clearSession(previous.id);
-      if (action === 'install' || action === 'start' || (action === 'upgrade' && reconnect)) await connect(c.id, result.loginURL);
+      if (action === 'install' && result.loginURL) {
+        clearTimeout(initialLoginTimer);
+        initialLogin = { id: c.id, url: result.loginURL, expires: Date.now() + 14 * 60_000 };
+        initialLoginTimer = setTimeout(() => { initialLogin = undefined; }, 14 * 60_000).unref();
+      }
+      if (action === 'start' || (action === 'upgrade' && reconnect)) await connect(c.id);
+      if (action === 'install') manager();
     } else if (action === 'uninstall' && previous) {
-      store.remove(previous.id); await clearSession(previous.id);
+      if (store.data.connections.some(c => c.id === previous.id)) store.remove(previous.id);
+      initialLogin = undefined; await clearSession(previous.id);
     }
   } catch (e) { if (action === 'upgrade') localUpdateError = (e as Error).message; throw e; }
   finally { busy = undefined; progress = undefined; await refreshLocal(); changed(); }
@@ -253,7 +286,7 @@ async function createWindow() {
   win.on('maximize', windowChanged); win.on('unmaximize', windowChanged);
   win.on('enter-full-screen', windowChanged); win.on('leave-full-screen', windowChanged);
   installShortcuts(win.webContents);
-  win.on('close', event => { if (busy) { event.preventDefault(); void dialog.showMessageBox(win!, { message: '本机 Runtime 正在维护，请等待操作结束后退出。' }); } });
+  win.on('close', event => { if (busy) { event.preventDefault(); void dialog.showMessageBox(win!, { message: '本机服务正在维护，请等待操作结束后退出。' }); } });
   win.on('closed', () => { discard(); win = undefined; active = undefined; view = 'manager'; error = undefined; });
   win.webContents.on('will-navigate', event => event.preventDefault());
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -303,6 +336,7 @@ async function main() {
   await app.whenReady();
   mkdirSync(app.getPath('userData'), { recursive: true, mode: 0o700 });
   store = new ConnectionStore(join(app.getPath('userData'), 'connections.json'));
+  appearance = new AppearanceStore(join(app.getPath('userData'), 'appearance.json'));
   protocol.handle('molr-desktop', async request => {
     const u = new URL(request.url);
     if (u.host !== 'app' || request.method !== 'GET') return new Response(null, { status: 403 });
@@ -320,7 +354,6 @@ async function main() {
       local = new LocalRuntime(packageRoot, join(app.getPath('userData'), 'runtime'), stage => { progress = stage; changed(); });
       localStatus.available = true;
       await refreshLocal();
-      if (localStatus.installed && localStatus.url) store.managed(localStatus.url);
     } catch (e) { localStatus = { available: false, installed: false, state: 'failed', error: (e as Error).message }; }
   }
   handle('state', snapshot);
@@ -338,6 +371,8 @@ async function main() {
       void localAction('upgrade').catch(() => { changed(); });
     }, 0);
   });
+  appHandle('consume-initial-login', () => { const allowed = initialLoginView === runtimeView && !!runtimeView; initialLoginView = undefined; return allowed; });
+  appHandle('appearance', value => { if (appearance.set(value)) changed(); }, 1);
   appHandle('minimize', () => win?.minimize()); appHandle('toggle-maximize', toggleMaximize); appHandle('close', closeLater); appHandle('disconnect', disconnectLater);
   appHandle('notification-begin', scope => notifications!.begin(scope), 1);
   // On macOS initialization asks the OS for permission. Do not call during
@@ -353,7 +388,7 @@ async function main() {
       url: connection.url, allowHTTP: connection.allowHTTP, session: current.webContents.session,
       current: () => runtimeView === current && active === connection.id && !current.webContents.isDestroyed(),
       confirm: async (origin, signal) => {
-        const result = await dialog.showMessageBox(window, { type: 'question', message: '在浏览器中授权服务？', detail: `授权网站：${origin}\n接收连接：${connection.name}\nRuntime：${connection.url}`, buttons: ['取消', '继续'], defaultId: 0, cancelId: 0, signal });
+        const result = await dialog.showMessageBox(window, { type: 'question', message: '在浏览器中授权服务？', detail: `授权网站：${origin}\n接收连接：${connection.name}\n服务：${connection.url}`, buttons: ['取消', '继续'], defaultId: 0, cancelId: 0, signal });
         return result.response === 1;
       },
       openExternal: url => shell.openExternal(url),
@@ -376,8 +411,6 @@ async function main() {
     handle('local-status', refreshLocal); handle('local-action', localAction);
     handle('logs', async () => { if (local && existsSync(local.logFile)) shell.showItemInFolder(local.logFile); });
   }
-  handle('updates-check', () => desktopUpdates.check());
-  handle('downloads', () => shell.openExternal('https://molr.ai/'));
   Menu.setApplicationMenu(process.platform === 'darwin' ? Menu.buildFromTemplate(applicationMenu(
     app.getLocale().toLowerCase().startsWith('zh') ? 'zh' : 'en',
     { manager, reconnect: () => { if (active) void connect(active); } },

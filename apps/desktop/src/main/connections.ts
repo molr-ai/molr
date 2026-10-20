@@ -14,7 +14,7 @@ export function privateHost(host: string) {
   return isIP(host) === 6 && /^(fc|fd)/i.test(host);
 }
 export function normalizeURL(value: unknown, allowHTTP: boolean) {
-  if (typeof value !== 'string' || value.length > 2048 || /[\x00-\x20\\]/.test(value.trim())) throw new Error('请输入完整的 Runtime 地址。');
+  if (typeof value !== 'string' || value.length > 2048 || /[\x00-\x20\\]/.test(value.trim())) throw new Error('请输入完整的服务地址。');
   const url = new URL(value.trim());
   if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.search || url.hash || url.pathname !== '/') throw new Error('地址只能包含协议、主机和端口，不应包含账号、路径或令牌。');
   if (url.protocol === 'http:' && (!allowHTTP || !privateHost(url.hostname))) throw new Error('HTTP 只允许明确启用的回环或私网地址；其他连接请使用 HTTPS。');
@@ -65,11 +65,12 @@ export class ConnectionStore {
   }
   get(id: string) { const c = this.data.connections.find(c => c.id === id); if (!c) throw new Error('连接不存在。'); return c; }
   save(input: ConnectionInput) {
-    if (!input || typeof input.name !== 'string' || !input.name.trim() || input.name.trim().length > 80 || typeof input.allowHTTP !== 'boolean') throw new Error('请填写连接名称和有效地址。');
+    if (!input || typeof input.name !== 'string' || input.name.trim().length > 80 || typeof input.allowHTTP !== 'boolean') throw new Error('请填写有效的服务地址。');
     const old = input.id ? this.get(input.id) : undefined;
     if (old?.kind === 'managed-local') throw new Error('本机连接由安装器管理。');
     if (!old && this.data.connections.length >= 100) throw new Error('最多保存 100 个连接。');
-    const c: Connection = { id: old?.id ?? randomUUID(), name: input.name.trim(), url: normalizeURL(input.url, input.allowHTTP), kind: 'remote', allowHTTP: input.allowHTTP };
+    const url = normalizeURL(input.url, input.allowHTTP);
+    const c: Connection = { id: old?.id ?? randomUUID(), name: input.name.trim() || new URL(url).hostname.slice(0, 80), url, kind: 'remote', allowHTTP: input.allowHTTP };
     // A new endpoint must never inherit another endpoint's storage or login state.
     if (old && old.url !== c.url) c.id = randomUUID();
     const connections = old ? this.data.connections.map(x => x.id === old.id ? c : x) : [...this.data.connections, c];
@@ -78,7 +79,8 @@ export class ConnectionStore {
   }
   managed(url: string) {
     const old = this.data.connections.find(c => c.kind === 'managed-local');
-    const c: Connection = { id: old?.id ?? randomUUID(), name: '本机 Runtime', kind: 'managed-local', url: normalizeURL(url, true), allowHTTP: true };
+    const c: Connection = { id: old?.id ?? randomUUID(), name: '这台电脑', kind: 'managed-local', url: normalizeURL(url, true), allowHTTP: true };
+    if (old && old.url === c.url && old.name === c.name && old.allowHTTP === c.allowHTTP) return old;
     if (old && old.url !== c.url) c.id = randomUUID();
     this.write({ connections: [...this.data.connections.filter(x => x.kind !== 'managed-local'), c], lastConnection: old && this.data.lastConnection === old.id ? c.id : this.data.lastConnection });
     return c;

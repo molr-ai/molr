@@ -28,7 +28,7 @@ async function remote(code){return app.evaluate(async({webContents},{url,code})=
 async function ready(manager){await expect.poll(()=>manager.evaluate(()=>window.molrDesktop.state().then(s=>s.view))).toBe('runtime');}
 try {
  let manager=await launch();
- await expect(manager.getByRole('button',{name:'更新并重启本地服务',exact:true})).toBeVisible();
+ await expect(manager.getByRole('article',{name:'这台电脑'}).locator('.desktop-version-notice')).toHaveText('可更新');
  let state=await manager.evaluate(()=>window.molrDesktop.state());
  const id=state.connections.find(c=>c.kind==='managed-local').id;
  await manager.evaluate(id=>window.molrDesktop.connect(id),id); await ready(manager);
@@ -48,7 +48,9 @@ try {
  await app.evaluate(({dialog})=>{dialog.showMessageBox=async()=>({response:1,checkboxChecked:false});});
  await remote('window.molrApp.updates.upgradeLocal()');
  await expect.poll(()=>manager.evaluate(()=>window.molrDesktop.state().then(s=>s.local.error))).toContain('Fixture upgrade failed');
- await expect(manager.getByRole('button',{name:'更新并重启本地服务',exact:true})).toBeEnabled();
+ await manager.getByRole('button',{name:'这台电脑的操作',exact:true}).click();
+ await manager.getByRole('menuitem',{name:'管理本机服务'}).click();
+ await expect(manager.getByRole('button',{name:'更新本机服务',exact:true})).toBeEnabled();
  state=await manager.evaluate(()=>window.molrDesktop.state()); assert.equal(state.local.updatePending,true); assert.equal(state.local.version,'0.1.0');
  write({version:'0.1.0',upgrades:1,fail:false});
  await manager.evaluate(id=>window.molrDesktop.connect(id),id); await ready(manager);

@@ -36,13 +36,13 @@ Upon completion, the installation outputs a LAN access address and a one-time lo
 2. After connecting, confirm the selected model and the default daily budget of USD 1, which can be modified. Unknown prices must be supplemented; entering 0 explicitly confirms that it is free.
 3. Click "Get Started" to automatically create the **Molr** assistant and enter the chat. The initial greeting calls the selected model and counts towards the budget.
 
-Language and timezone are determined by browser settings. During installation, the `owner` account is automatically created, and the random initial password is saved in the `initial-password` file (0600) in the data directory; the specific path is displayed in the terminal. You can change the password later and delete the initial password file yourself. To regenerate the login link, use the program in the installation directory:
+Language and timezone follow browser settings. Interactive CLI installation asks for an administrator username and password by default, without saving a plaintext password. Unattended installation can explicitly use `--auto-init-admin` to create `owner` with a random password saved in the data directory’s `initial-password` file (0600). Alternatively, supply `--init-owner NAME` and the password on stdin. To generate another login link, use the installed program:
 
 ```bash
-/path/molr access -config /path/server.json
+/path/molr access -config /path/server.json -username YOUR_ADMIN -password-stdin
 ```
 
-If the initial password was not retained or has been changed, enter the current password via `-password-stdin`; if MFA is enabled, `-mfa-code` is also required. Re-running the installation preserves the original configuration, accounts, and data, without resetting passwords or recreating the assistant.
+Replace `YOUR_ADMIN` with your administrator username and provide the current password on stdin. Omit `-password-stdin` only for automatic initialization with a still-valid initial-password file. With MFA enabled, also provide `-mfa-code`. Re-running the installation preserves the original configuration, accounts, and data, without resetting passwords or recreating the assistant.
 
 LAN can use HTTP without certificates. HTTP does not encrypt passwords, sessions, or messages, and is only suitable for trusted networks. For HTTPS configuration, see [Deployment and Maintenance](README.md). Browser capabilities such as system notifications may require HTTPS, but in-page reminders remain usable.
 

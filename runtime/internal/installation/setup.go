@@ -27,6 +27,7 @@ import (
 )
 
 type Options struct {
+	AutoInitAdmin                                                                                                                   bool
 	Archive, Output                                                                                                                 string
 	Overwrite, KeepStopped                                                                                                          bool
 	Mode, Preset                                                                                                                    string
@@ -39,6 +40,7 @@ type Options struct {
 	NonInteractive, Interactive, DryRun, Yes, InstallDeps, SkipDependencies, NoStart, NoBrowser, Repair, Purge, AllowDowngrade      bool
 }
 type Engine struct {
+	initPassword                []byte
 	desktopLogin                string
 	downloadBase, downloadTotal int64
 	componentTransport          http.RoundTripper
@@ -119,7 +121,8 @@ func parseOptions(args []string, diagnostics io.Writer) (Options, error) {
 	f.StringVar(&o.Version, "version", "", "update to an explicit version (update command only)")
 	f.IntVar(&o.Port, "port", 0, "initial port; default first free port from 8787")
 	f.StringVar(&o.PublicHost, "public-host", "", "initial private IPv4 address")
-	f.StringVar(&o.InitOwner, "init-owner", "", "initialize owner for a custom configuration; password from stdin")
+	f.StringVar(&o.InitOwner, "init-owner", "", "initial administrator username; password from stdin")
+	f.BoolVar(&o.AutoInitAdmin, "auto-init-admin", false, "generate owner credentials and save initial-password for unattended installation")
 	f.BoolVar(&o.InstallDeps, "install-deps", false, "authorize system dependency and policy preparation")
 	f.BoolVar(&o.SkipDependencies, "skip-dependencies", false, "prepare host dependencies and policy manually")
 	f.BoolVar(&o.NoStart, "no-start", false, "prepare files without enabling or starting service")
@@ -156,7 +159,10 @@ func parseOptions(args []string, diagnostics io.Writer) (Options, error) {
 	if o.Config != "" && o.Preset != "" {
 		return o, fmt.Errorf("choose --config or --resource-preset")
 	}
-	if o.Mode == "sandbox" && (o.InitOwner != "" || o.Command == "desktop") {
+	if o.AutoInitAdmin && o.InitOwner != "" {
+		return o, fmt.Errorf("choose --auto-init-admin or --init-owner")
+	}
+	if o.Mode == "sandbox" && (o.InitOwner != "" || o.AutoInitAdmin || o.Command == "desktop") {
 		return o, fmt.Errorf("standalone sandbox does not initialize Runtime accounts")
 	}
 	if o.Interactive && o.NonInteractive {
@@ -169,7 +175,7 @@ func parseOptions(args []string, diagnostics io.Writer) (Options, error) {
 		o.InteractionMode = "non-interactive"
 	}
 	if o.Command == "desktop" {
-		if !o.JSON || !o.NonInteractive || !o.NameSet || !strings.HasPrefix(o.Name, "molr-desktop-") || o.User != "" || o.Record != "" || o.Config != "" || o.InitOwner != "" || o.Purge || o.AllowDowngrade || o.NoStart {
+		if !o.JSON || !o.NonInteractive || !o.NameSet || !strings.HasPrefix(o.Name, "molr-desktop-") || o.User != "" || o.Record != "" || o.Config != "" || o.AutoInitAdmin || (o.InitOwner != "" && o.TaskAction != "install") || o.Purge || o.AllowDowngrade || o.NoStart {
 			return o, fmt.Errorf("desktop requires --json --non-interactive --name molr-desktop-<id> and a current-user managed instance")
 		}
 	}
@@ -639,9 +645,6 @@ func (e *Engine) plan(pkg *Package, previous *installrecord.Record) (*Plan, erro
 		h["cert_file"] = filepath.Join(r.DataDir, "sandbox.crt")
 		h["key_file"] = filepath.Join(r.DataDir, "sandbox.key")
 	}
-	if r.Mode != "sandbox" && o.Config != "" && previous == nil && !o.NoStart && o.InitOwner == "" {
-		return nil, fmt.Errorf("custom configuration needs --init-owner NAME (password on stdin), or --no-start")
-	}
 	if _, err := config.Load(strings.NewReader(string(jsonBytes(cfg)))); err != nil {
 		return nil, err
 	}
@@ -782,5 +785,9 @@ func (e *Engine) install(pkg *Package, existing *installrecord.Record) error {
 	if !ok {
 		return fmt.Errorf("installation cancelled; no changes made")
 	}
+	if err = e.prepareAdministrator(p); err != nil {
+		return err
+	}
+	defer func() { clear(e.initPassword); e.initPassword = nil }()
 	return e.apply(p)
 }

@@ -46,8 +46,10 @@ async function waitRuntime(page) { await expect.poll(() => page.evaluate(async (
 try {
   checkpoint('first launch');
   let page = await launch();
-  await page.getByRole('heading', { name: '连接你的 Runtime' }).waitFor();
+  await page.getByRole('heading', { name: '连接远程服务' }).waitFor();
   await expect(page.locator('.desktop-app')).toHaveAttribute('data-app-platform', process.platform);
+  await expect(page.locator('.desktop-identity > span')).toHaveCount(0);
+  assert.deepEqual((await page.evaluate(() => window.molrDesktop.state())).appearance, { theme: 'system', palette: 'forest' });
   await expect(page.locator('.desktop-window-controls')).toHaveCount(process.platform === 'darwin' ? 0 : 1);
   if (process.platform === 'darwin') {
     for (const zoom of [0.8, 1.25, 1.5, 1]) {
@@ -67,21 +69,26 @@ try {
   await expect(logo).toHaveAttribute('src', /molr-wordmark-(alive|playful)\.svg/);
   await expect(page.locator('.desktop-identity picture source')).toHaveAttribute('media', '(prefers-reduced-motion: reduce)');
   checkpoint('connection form');
-  await page.getByRole('button', { name: '添加连接', exact: true }).click();
-  await page.getByLabel('连接名称', { exact: true }).fill('Fixture one');
-  await page.getByLabel('Runtime 地址', { exact: true }).fill('http://example.com');
+  await page.getByLabel('连接名称（选填）', { exact: true }).fill('Fixture one');
+  await page.getByLabel('服务地址', { exact: true }).fill('http://example.com');
   await page.getByRole('switch').check();
-  const beforeError = await page.locator('.desktop-intro').boundingBox();
+  // Clicking a below-the-fold submit button can scroll a small native window.
+  // Compare document coordinates to distinguish scrolling from a layout shift.
+  const introBox = () => page.locator('.desktop-intro').evaluate(element => {
+    const { left, top, width, height } = element.getBoundingClientRect();
+    return { x: left + window.scrollX, y: top + window.scrollY, width, height };
+  });
+  const beforeError = await introBox();
   await page.getByRole('button', { name: '保存连接' }).click();
   await expect(page.locator('.ui-toast--danger [role="alert"]')).toBeVisible();
   assert.equal(await page.locator('.desktop-error').count(), 0);
-  assert.deepEqual(await page.locator('.desktop-intro').boundingBox(), beforeError, 'Error Toast does not shift page layout');
+  assert.deepEqual(await introBox(), beforeError, 'Error Toast does not shift page layout');
   await page.getByRole('button', { name: '保存连接' }).click();
   await expect(page.locator('.ui-toast--danger')).toHaveCount(1);
   await page.screenshot({path:join(screenshots,'error-toast.png'),animations:'disabled'});
   await page.locator('.ui-toast--danger').getByRole('button', {name:'关闭',exact:true}).click();
   await expect(page.locator('.ui-toast--danger')).toHaveCount(0);
-  await page.getByLabel('Runtime 地址', { exact: true }).fill(url);
+  await page.getByLabel('服务地址', { exact: true }).fill(url);
   await page.getByRole('button', { name: '保存连接' }).click();
   await page.getByRole('heading', { name: 'Fixture one' }).waitFor();
   await page.evaluate(async url => window.molrDesktop.save({ name: 'Fixture two', url, allowHTTP: true }), url);
@@ -92,8 +99,13 @@ try {
   assert.equal(appInfo.apiVersion, 1); assert.equal(appInfo.connection.kind, 'remote'); assert.equal(appInfo.build.version, 'development');
   assert.equal((await remote('window.molrApp.updates.status()')).comparison, 'uncomparable');
   assert.match(await remote("window.molrApp.updates.upgradeLocal().then(() => 'unexpected', e => e.message)"), /不是桌面管理/);
-  assert.deepEqual(await remote('Object.keys(window.molrApp).sort()'), ['disconnect', 'getInfo', 'notifications', 'oauth', 'onWindowStateChanged', 'updates', 'window']);
+  assert.equal(await remote('window.molrApp.consumeInitialLogin()'), false, 'Remote links cannot opt into installation login');
+  assert.deepEqual(await remote('Object.keys(window.molrApp).sort()'), ['consumeInitialLogin', 'disconnect', 'getInfo', 'notifications', 'oauth', 'onWindowStateChanged', 'setAppearance', 'updates', 'window']);
   assert.equal(await page.locator('.desktop-toolbar').count(), 0);
+  await remote('window.molrApp.setAppearance({ theme: "dark", palette: "ocean" })');
+  assert.deepEqual((await page.evaluate(() => window.molrDesktop.state())).appearance, { theme: 'dark', palette: 'ocean' });
+  assert.equal(await remote('window.molrApp.setAppearance({ theme: "dark", palette: "url(https://example.com)" }).then(() => false, () => true)'), true);
+
   if (process.platform === 'darwin') {
     const margin = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getWindowButtonPosition());
     assert(margin.x > 0 && margin.x === margin.y, 'Native margins remain equal with the Runtime view attached');
@@ -163,9 +175,12 @@ try {
     runtimePage.waitForEvent('close'),
     runtimePage.getByRole('button', { name: 'Disconnect', exact: true }).click(),
   ]);
-  await page.getByRole('heading', { name: '连接你的 Runtime' }).waitFor();
+  await page.getByRole('heading', { name: '选择连接' }).waitFor();
+  await expect(page.locator('html')).toHaveAttribute('data-palette','ocean');
+  await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
   checkpoint('connect isolated session');
   await page.evaluate(id => window.molrDesktop.connect(id), two.id); await waitRuntime(page);
+  await remote('window.molrApp.setAppearance({ theme: "light", palette: "rose" })');
   checkpoint('second session cookie check');
   assert.equal(await remote("fetch('/who').then(r => r.text())"), '');
   checkpoint('restore most recent connection');
@@ -175,10 +190,16 @@ try {
   assert.equal(await remote("fetch('/who').then(r => r.text())"), '');
   checkpoint('return to manager');
   await page.evaluate(() => window.molrDesktop.manager());
+  await expect(page.locator('html')).toHaveAttribute('data-palette','rose');
+  await expect(page.locator('html')).toHaveAttribute('data-theme','light');
+  // The main-process preference survives clearing the manager's rendering cache.
+  await page.evaluate(() => localStorage.clear());
   checkpoint('restart');
   await app.close();
   page = await launch();
-  await page.getByRole('heading', { name: '连接你的 Runtime' }).waitFor();
+  await page.getByRole('heading', { name: '选择连接' }).waitFor();
+  await expect(page.locator('html')).toHaveAttribute('data-palette','rose');
+  await expect(page.locator('html')).toHaveAttribute('data-theme','light');
   await page.evaluate(id => window.molrDesktop.connect(id), one.id); await waitRuntime(page);
   assert.equal(await remote("fetch('/who').then(r => r.text())"), 'fixture_session=first', 'Persistent login survives desktop restart');
   await remote("localStorage.setItem('fixture', 'persisted')");
@@ -201,10 +222,10 @@ try {
     restoredPage.waitForEvent('close'),
     restoredPage.getByRole('button', { name: 'Disconnect', exact: true }).click(),
   ]);
-  await page.getByRole('heading', { name: '连接你的 Runtime' }).waitFor();
+  await page.getByRole('heading', { name: '选择连接' }).waitFor();
   await app.close();
   page = await launch();
-  await page.getByRole('heading', { name: '连接你的 Runtime' }).waitFor();
+  await page.getByRole('heading', { name: '选择连接' }).waitFor();
   assert.equal((await page.evaluate(() => window.molrDesktop.state())).lastConnection, undefined);
   await page.evaluate(() => window.molrDesktop.manager());
   await page.evaluate(id => window.molrDesktop.connect(id), one.id); await waitRuntime(page);
@@ -223,11 +244,23 @@ try {
   await page.getByRole('button', { name: '返回连接列表' }).click();
   checkpoint('theme screenshots');
   for (const theme of ['light', 'dark']) for (const palette of ['forest', 'ocean', 'iris', 'sand', 'rose', 'monochrome']) {
-    await page.evaluate(({ theme, palette }) => { localStorage.setItem('molr-theme', theme); localStorage.setItem('molr-desktop-palette', palette); }, { theme, palette });
-    await page.reload(); await page.getByRole('heading', { name: '连接你的 Runtime' }).waitFor();
+    await page.evaluate(id => window.molrDesktop.connect(id), one.id); await waitRuntime(page);
+    await remote(`window.molrApp.setAppearance(${JSON.stringify({theme,palette})})`);
+    await page.evaluate(() => window.molrDesktop.manager());
+    await page.reload(); await page.getByRole('heading', { name: '选择连接' }).waitFor();
+    await expect(page.locator('html')).toHaveAttribute('data-palette',palette);
+    await expect(page.locator('html')).toHaveAttribute('data-theme',theme);
     await page.screenshot({ path: join(screenshots, `${palette}-${theme}.png`) });
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   }
+  await page.evaluate(id => window.molrDesktop.connect(id), one.id); await waitRuntime(page);
+  await remote('window.molrApp.setAppearance({ theme: "system", palette: "forest" })');
+  await page.evaluate(() => window.molrDesktop.manager());
+  await page.emulateMedia({colorScheme:'dark'});
+  await expect(page.locator('html')).toHaveAttribute('data-theme','dark');
+  await page.emulateMedia({colorScheme:'light'});
+  await expect(page.locator('html')).toHaveAttribute('data-theme','light');
+  assert.equal((await page.evaluate(() => window.molrDesktop.state())).appearance.theme,'system');
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(640, 720));
   await page.screenshot({ path: join(screenshots, 'narrow.png') });
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));

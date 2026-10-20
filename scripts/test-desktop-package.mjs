@@ -95,7 +95,7 @@ async function main() {
     assert.equal(await app.evaluate(() => process.argv.includes('--no-sandbox')), false);
     if (os === 'linux') assert((await app.evaluate(({ app }) => app.getPath('userData'))).startsWith(temporary + '/'));
     const page = await app.firstWindow();
-    await expect(page.getByRole('heading', { name: '连接你的 Runtime' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: '你想在哪里使用 Molr？' })).toBeVisible({ timeout: 30_000 });
     await app.close(); app = undefined;
     run(process.execPath, [join(root, 'apps/desktop/tests/local-runtime.mjs')], { ...process.env, MOLR_DESKTOP_RUNTIME_PACKAGE: payload });
     console.log(`Packaged app and bundled Runtime passed: ${manifest.os}-${arch} ${version}`);

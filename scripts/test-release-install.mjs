@@ -8,6 +8,7 @@ import { createServer } from 'node:net';
 import { createHash } from 'node:crypto';
 import { request as httpsRequest } from 'node:https';
 const mode = process.env.MOLR_TEST_MODE || 'server';
+const manualAdmin = process.env.MOLR_TEST_MANUAL_ADMIN === '1';
 assert(['server', 'sandbox'].includes(mode));
 const archive = resolve(process.env.MOLR_TEST_ARCHIVE || process.argv[2] || '');
 const version = JSON.parse(execFileSync('tar', ['-xOf', archive, 'molr/release.json'], { encoding: 'utf8' })).version;
@@ -15,15 +16,20 @@ const directory = realpathSync(mkdtempSync(`${tmpdir()}/molr release test-`)), n
 const probe = createServer(); await new Promise(r => probe.listen(0, '127.0.0.1', r));
 const port = probe.address().port; await new Promise(r => probe.close(r));
 const env = { ...process.env, XDG_CONFIG_HOME: `${directory}/config`, XDG_DATA_HOME: `${directory}/data`, XDG_CACHE_HOME: `${directory}/cache` };
-const run = (cmd, args) => execFileSync(cmd, args, { env, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+const run = (cmd, args, input) => {
+  try { return execFileSync(cmd, args, { env, input, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }); }
+  catch (error) { if (manualAdmin && error.status === 3) return String(error.stdout); throw error; }
+};
 try {
   chmodSync(directory, 0o775);
-  const args = ['scripts/install.sh', '--archive', archive, '--mode', mode, '--name', name, '--program-root', `${directory}/program`, '--port', String(port), '--public-host', '127.0.0.1', '--no-browser', ...(process.env.MOLR_TEST_PREPARE === '1' ? [] : ['--skip-dependencies'])];
+  const args = ['scripts/install.sh', '--archive', archive, '--mode', mode, ...(mode === 'server' && !manualAdmin ? ['--auto-init-admin'] : []), '--name', name, '--program-root', `${directory}/program`, '--port', String(port), '--public-host', '127.0.0.1', '--no-browser', ...(process.env.MOLR_TEST_PREPARE === '1' ? [] : ['--skip-dependencies'])];
   const preview = run('sh', [...args, '--non-interactive', '--dry-run']);
   assert(preview.includes('Dry run complete'));
   assert(!existsSync(`${directory}/program`));
   assert.equal(statSync(directory).mode & 0o777, 0o775);
-  const first = run('python3', ['scripts/test-install-interactive.py', 'sh', ...args, '--interactive']);
+  const first = process.env.MOLR_TEST_UNATTENDED === '1'
+    ? run('sh', [...args, '--non-interactive', '--directory-permissions', 'fix', '--resource-preset', 'permissive'])
+    : run('python3', ['scripts/test-install-interactive.py', 'sh', ...args, '--interactive']);
   assert(first.includes(`Result: verified`), 'Interactive installation must verify Runtime and sandbox');
   assert.equal(statSync(directory).mode & 0o777, 0o755);
   // Locate by the actual receipt, rather than assuming the installer's instance layout.
@@ -33,7 +39,7 @@ try {
   const binary = binaries[0], config = configs[0];
   const doctor = () => {
     try {
-      return JSON.parse(run(binary, ['doctor', '-config', config]));
+      return JSON.parse(run(binary, ['doctor', '-config', config, ...(manualAdmin ? ['-password-stdin'] : [])], manualAdmin ? 'interactive-fixture-password-2026' : undefined));
     } catch (error) {
       // Doctor reports capabilities on stdout even when isolation is unavailable.
       // Print only its reason code, never installer output or authentication data.
@@ -48,6 +54,7 @@ try {
   };
   const receipt = JSON.parse(readFileSync(find(`${directory}/program`, 'installation.json')[0]));
   assert.equal(receipt.mode, mode);
+  if (mode === 'server') assert.equal(existsSync(`${receipt.data_dir}/initial-password`), !manualAdmin, 'Only automatic initialization persists a password file');
   assert(!existsSync(resolve(binary, '../molr-sandbox')));
   const sandboxRequest = async path => {
     const cfg = JSON.parse(readFileSync(config));
@@ -82,7 +89,8 @@ try {
   const before = readFileSync(config);
   const second = run('sh', [...args, '--non-interactive', '--repair', '--directory-permissions', 'fix']);
   assert.deepEqual(readFileSync(config), before);
-  assert(second.includes(`Result: verified`), 'Non-interactive reinstallation must verify Runtime and sandbox');
+  assert(second.includes(`Result: ${manualAdmin ? 'verification_pending' : 'verified'}`));
+  if (manualAdmin) assert.equal(doctor().Sandbox.Capabilities.Reason, 'available');
   const setup = resolve(binary, '../molr-setup');
   assert(run(setup, ['--non-interactive']).includes('State: installed'));
   assert(run(setup, ['status', '--non-interactive']).includes('Service:'));
@@ -105,7 +113,8 @@ try {
     const mirrorPort = await new Promise((resolve, reject) => { mirror.once('message', resolve); mirror.once('error', reject); mirror.once('exit', code => reject(new Error('mirror exited '+code))); });
     const updated = run(setup, ['update', '--repair', '--source', `http://127.0.0.1:${mirrorPort}`, '--channel', 'preview', '--non-interactive', '--directory-permissions', 'fix', '--skip-dependencies', '--no-browser']);
     assert(updated.includes('Starting verified package installer'));
-    assert(updated.includes('Result: verified'));
+    assert(updated.includes(`Result: ${manualAdmin ? 'verification_pending' : 'verified'}`));
+    if (manualAdmin) assert.equal(doctor().Sandbox.Capabilities.Reason, 'available');
     assert.deepEqual(readFileSync(config), before);
     assert.equal(JSON.parse(readFileSync(receipt.paths.program + '/installation.json')).mode, mode);
   } finally { mirror.kill('SIGTERM'); }

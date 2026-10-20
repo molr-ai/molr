@@ -27,7 +27,10 @@ try:
                 break
             sys.stdout.buffer.write(chunk); sys.stdout.buffer.flush()
             pending += chunk
-            for prompt, answer in ((b'Runtime mode: [r] server / [s] sandbox node [r]: ', b'r\n'),
+            for prompt, answer in ((b'Administrator username [owner]: ', b'owner\n'),
+                                   (b'Administrator password (at least 12 bytes): ', b'interactive-fixture-password-2026\n'),
+                                   (b'Confirm password: ', b'interactive-fixture-password-2026\n'),
+                                   (b'Runtime mode: [r] server / [s] sandbox node [r]: ', b'r\n'),
                                    (b'Resource preset: [p] permissive / [l] least privilege [l]: ', b'p\n'),
                                    (b'Fix permissions [f, recommended], ignore and continue [i], or quit [q]? ', b'f\n'),
                                    (b'Apply this installation plan? [y/N] ', b'y\n'),

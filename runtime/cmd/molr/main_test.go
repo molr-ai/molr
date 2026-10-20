@@ -183,3 +183,42 @@ func TestCLIBackupRestoreRemoved(t *testing.T) {
 		}
 	}
 }
+
+func TestCLIBootstrapSuppliedAdministratorWithoutPasswordFile(t *testing.T) {
+	cfg, path := cliConfig(t)
+	password := "chosen-fixture-password-2026"
+	args := []string{"bootstrap", "-config", path, "-username", "my-admin", "-password-stdin"}
+	_, err := invokeCLI(t, t.Context(), args, password)
+	testkit.RequireNoError(t, err)
+	if _, err = os.Stat(filepath.Join(cfg.DataDir, "initial-password")); !os.IsNotExist(err) {
+		t.Fatal("manual initialization must not save a password file")
+	}
+	// Retrying installation must not overwrite an initialized account.
+	_, err = invokeCLI(t, t.Context(), args, "different-fixture-password")
+	testkit.RequireNoError(t, err)
+	b, err := app.Build(t.Context(), cfg)
+	testkit.RequireNoError(t, err)
+	defer b.Close()
+	login, err := b.Services.Auth.Login(t.Context(), auth.LoginRequest{Username: "my-admin", Password: core.NewSecret(password)})
+	testkit.RequireNoError(t, err)
+	p, err := b.Services.Auth.Authenticate(t.Context(), auth.Authentication{Session: login.Session.Token})
+	testkit.RequireNoError(t, err)
+	proof, err := b.Services.Auth.Reauthenticate(t.Context(), p, auth.ReauthenticateRequest{Password: core.NewSecret(password), Purpose: "login_link.create"})
+	testkit.RequireNoError(t, err)
+	link, err := b.Services.Auth.CreateLoginLink(t.Context(), p, auth.CreateLoginLinkRequest{Name: "Installer", TargetPath: "/assistants", ExpiresIn: 15 * time.Minute, Verification: proof})
+	testkit.RequireNoError(t, err)
+	result, err := b.Services.Auth.RedeemLoginLink(t.Context(), auth.RedeemLoginLinkRequest{Token: link.Value})
+	testkit.RequireNoError(t, err)
+	if result.Session == nil {
+		t.Fatal("first login link did not authenticate")
+	}
+	_, err = b.Services.Auth.RedeemLoginLink(t.Context(), auth.RedeemLoginLinkRequest{Token: link.Value})
+	testkit.RequireCode(t, err, core.Unauthenticated)
+	var setup app.SetupState
+	testkit.RequireNoError(t, b.Database.Store().Read(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
+		return tx.Get(ctx, "system.setup", string(p.OwnerID), &setup)
+	}))
+	if !setup.Required {
+		t.Fatal("manual initialization skipped model/assistant setup")
+	}
+}

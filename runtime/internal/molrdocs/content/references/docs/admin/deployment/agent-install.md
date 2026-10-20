@@ -42,7 +42,7 @@ sh install.sh --channel stable --mode server --non-interactive --dry-run
 环境和权限满足要求时，使用同一脚本、渠道和已检查的参数执行：
 
 ```sh
-sh install.sh --channel stable --mode server --non-interactive --no-browser
+sh install.sh --channel stable --mode server --non-interactive --auto-init-admin --no-browser
 ```
 
 按检查结果添加参数：

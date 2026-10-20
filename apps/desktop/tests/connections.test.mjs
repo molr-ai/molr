@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, readFileSync, statSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ConnectionStore, normalizeURL, partition, sameOrigin, externalURL, allowedFrameURL } from '../dist/main/main/connections.js';
@@ -38,6 +38,17 @@ test('managed connection cannot be edited as a remote endpoint', t => {
   assert.equal(store.managed(local.url).id, local.id);
   assert.notEqual(store.managed('http://127.0.0.1:8788').id, local.id);
 });
+test('unchanged managed status checks do not rewrite the saved connections', t => {
+  const root = mkdtempSync(join(tmpdir(), 'molr-connection-refresh-')); t.after(() => rmSync(root, { recursive: true, force: true }));
+  const file = join(root, 'connections.json'), store = new ConnectionStore(file);
+  const local = store.managed('http://127.0.0.1:8787');
+  store.select(local.id);
+  utimesSync(file, 1000, 1000);
+  const before = statSync(file).mtimeMs;
+  for (let i = 0; i < 3; i++) assert.equal(store.managed(`${local.url}/`).id, local.id);
+  assert.equal(statSync(file).mtimeMs, before);
+  assert.equal(new ConnectionStore(file).data.lastConnection, local.id);
+});
 test('startup selection persists until explicitly disconnected, including managed endpoints', t => {
   const root = mkdtempSync(join(tmpdir(), 'molr-connections-')); t.after(() => rmSync(root, { recursive: true, force: true }));
   const file = join(root, 'connections.json'), store = new ConnectionStore(file);
@@ -73,4 +84,11 @@ test('navigation compares origins, never string prefixes', () => {
   assert(!allowedFrameURL('blob:https://molr.example.com/fixture', 'https://molr.example.com', true));
   assert(!allowedFrameURL('molr-desktop://app/', 'https://molr.example.com', false));
   assert(!allowedFrameURL('file:///tmp/private', 'https://molr.example.com', false));
+});
+
+test('remote name defaults to the normalized hostname', t => {
+  const root = mkdtempSync(join(tmpdir(), 'molr-connection-name-')); t.after(() => rmSync(root, { recursive: true, force: true }));
+  const store = new ConnectionStore(join(root, 'connections.json'));
+  assert.equal(store.save({ name: '', url: 'https://EXAMPLE.com', allowHTTP: false }).connection.name, 'example.com');
+  assert.equal(store.managed('http://127.0.0.1:8787').name, '这台电脑');
 });

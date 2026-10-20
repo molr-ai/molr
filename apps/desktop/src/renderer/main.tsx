@@ -1,19 +1,38 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Minus, Square, Copy, X, ArrowLeft, ArrowRight, Check, CircleHelp, ExternalLink, Monitor, Plus, RefreshCw, Server, Settings2, Trash2 } from 'lucide-react';
-import { Select, Alert, Badge, Button, IconButton, Logo, TextField, Switch, ThemeSelect, PaletteSelect, UIProvider, ToastProvider, useToast, useTheme, usePalettePreference, paletteAssetBase } from '@molr/ui';
+import { Minus, Square, Copy, X, ArrowLeft, ArrowRight, CircleHelp, Monitor, MoreHorizontal, Plus, RefreshCw, Server } from 'lucide-react';
+import { Select, Badge, Button, Card, DropdownMenu, IconButton, Logo, TextField, Switch, UIProvider, ToastProvider, useToast, useTheme, usePalettePreference, paletteAssetBase } from '@molr/ui';
 import type { Connection, ConnectionInput, DesktopAPI, DesktopState, LocalAction, ResourcePreset } from '../shared';
+import { localVersionState } from '../runtime-version';
 import '@molr/ui/styles.css';
 import './style.css';
 
 declare global { interface Window { molrDesktop?: DesktopAPI } }
 const bridge = window.molrDesktop;
-const initial: DesktopState = { connections: [], view: 'manager', updates: { comparison: 'unknown', checking: false }, local: { available: false, installed: false, state: 'unavailable' }, version: '', platform: '', window: { maximized: false, fullscreen: false } };
-const actionNames: Record<LocalAction, string> = { install: '安装并启动', start: '启动', stop: '停止', restart: '重启', upgrade: '更新本机 Runtime', uninstall: '卸载 Runtime' };
-const stateNames: Record<string, string> = { active: '运行中', running: '运行中', inactive: '已停止', failed: '需要处理', installed: '已安装', installing: '安装未完成', uninstalled: '已卸载，数据已保留', missing: '尚未安装', unavailable: '仅远程连接', activating: '启动中', deactivating: '停止中' };
+let initial: DesktopState = { appearance: { theme: 'system', palette: 'forest' }, connections: [], view: 'manager', updates: { comparison: 'unknown', checking: false }, local: { available: false, installed: false, state: 'unavailable' }, version: '', platform: '', window: { maximized: false, fullscreen: false } };
+let initialLoaded = !bridge;
+// Restore host-owned appearance and native safe-area attributes before mounting.
+// Old manager-local preferences are only a rendering cache, never authoritative.
+if (bridge) {
+  try { initial = await bridge.state(); initialLoaded = true; } catch { /* The mounted loading view retries and reports failures. */ }
+}
+try {
+  localStorage.setItem('molr-theme', initial.appearance.theme);
+  localStorage.setItem('molr-desktop-palette', initial.appearance.palette);
+} catch { /* Appearance still works without browser storage. */ }
+document.documentElement.dataset.theme = initial.appearance.theme === 'system' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : initial.appearance.theme;
+document.documentElement.dataset.palette = initial.appearance.palette;
+const stateNames: Record<string, string> = { active: '运行中', running: '运行中', inactive: '已停止', failed: '需要处理', installed: '已安装', installing: '安装未完成', uninstalled: '已卸载', missing: '尚未安装', unavailable: '暂不可用', activating: '启动中', deactivating: '停止中' };
+const actionNames: Record<LocalAction, string> = { install: '安装', start: '启动', stop: '停止', restart: '重启', upgrade: '更新', uninstall: '卸载' };
+type Page = 'list' | 'add' | 'remote' | 'install' | 'local';
+const emptyForm = (): ConnectionInput => ({ name: '', url: '', allowHTTP: false });
 function App() {
-  const [state, setState] = useState(initial);
-  const [form, setForm] = useState<ConnectionInput>();
+  const [state, setState] = useState(initial), [loaded, setLoaded] = useState(initialLoaded);
+  const [page, setPage] = useState<Page>('list'), [form, setForm] = useState<ConnectionInput>(emptyForm);
+  const [pending, setPending] = useState(false), [resourcePreset, setResourcePreset] = useState<ResourcePreset>('permissive');
+  const localRefreshPending = useRef(false), localRefreshError = useRef<string | undefined>(undefined);
+  const [installError, setInstallError] = useState<string>();
+  const [username, setUsername] = useState('owner'), [password, setPassword] = useState(''), [confirmation, setConfirmation] = useState('');
   const { toast, dismiss } = useToast();
   const lastError = useRef<number | undefined>(undefined);
   const clearError = useCallback(() => { if (lastError.current !== undefined) dismiss(lastError.current); lastError.current = undefined; }, [dismiss]);
@@ -22,19 +41,18 @@ function App() {
     const message = (error instanceof Error ? error.message : String(error)).replace(/^Error invoking remote method '[^']+': Error: /, '');
     lastError.current = toast({ tone: 'danger', title: '操作失败', description: message });
   }, [clearError, toast]);
-  const [pending, setPending] = useState(false);
-  const [now, setNow] = useState(Date.now());
-  const nextCheck = Date.parse(state.updates.nextAllowedAt || '');
-  useEffect(() => { setNow(Date.now()); if (!Number.isFinite(nextCheck)) return; const timer = setTimeout(() => setNow(Date.now()), Math.max(0, nextCheck - Date.now()) + 20); return () => clearTimeout(timer); }, [nextCheck]);
-  const [settings, setSettings] = useState(false);
-  const [resourcePreset, setResourcePreset] = useState<ResourcePreset>('permissive');
-  const { theme, preference, changePreference } = useTheme();
+  const { theme, changePreference } = useTheme();
   const { palette, changePalette } = usePalettePreference('molr-desktop-palette', theme);
+  useLayoutEffect(() => {
+    changePreference(state.appearance.theme);
+    changePalette(state.appearance.palette);
+  }, [state.appearance.theme, state.appearance.palette, changePreference, changePalette]);
   useEffect(() => {
     if (!bridge) return;
     let mounted = true;
-    const dispose = bridge.subscribe(s => { if (mounted) setState(s); });
-    void bridge.state().then(s => { if (mounted) setState(s); }).catch(e => { if (mounted) reportError(e); });
+    const receive = (next: DesktopState) => { if (mounted) { setState(next); setLoaded(true); } };
+    const dispose = bridge.subscribe(receive);
+    void bridge.state().then(receive).catch(e => { if (mounted) reportError(e); });
     return () => { mounted = false; dispose(); };
   }, [reportError]);
   useEffect(() => { if (state.local.error) reportError(state.local.error); }, [state.local.error, reportError]);
@@ -44,18 +62,47 @@ function App() {
     finally { setPending(false); }
   }
   const disabled = pending || !!state.busy || !bridge;
+  const local = state.local, ready = local.state === 'active' || local.state === 'running';
+  const versionState = localVersionState(local.version, local.bundledVersion);
+  const versionNotice = versionState === 'update' ? '可更新' : versionState === 'service-newer' || versionState === 'different' ? '版本不一致' : undefined;
   const current = state.connections.find(c => c.id === state.active);
-  const showManager = state.view === 'manager';
-  const local = state.local;
-  const runtimeReady = local.state === 'active' || local.state === 'running';
+  const connections = [...state.connections].sort((a, b) => Number(b.kind === 'managed-local') - Number(a.kind === 'managed-local'));
+  const canChoose = local.available && !local.installed;
+  const screen = page === 'list' && !connections.length ? (canChoose ? 'add' : 'remote') : page === 'add' && !canChoose ? 'remote' : page === 'local' && !local.installed ? (connections.length ? 'list' : canChoose ? 'add' : 'remote') : page;
+  const pollLocal = !!bridge && state.view === 'manager' && screen === 'local' && !state.busy && !pending;
+  useEffect(() => {
+    if (!pollLocal) return;
+    let active = true;
+    async function refresh() {
+      if (!active || localRefreshPending.current) return;
+      localRefreshPending.current = true;
+      try {
+        await bridge!.refreshLocal();
+        localRefreshError.current = undefined;
+      } catch (error) {
+        const message = String(error);
+        if (active && localRefreshError.current !== message) {
+          localRefreshError.current = message;
+          reportError(error);
+        }
+      } finally { localRefreshPending.current = false; }
+    }
+    void refresh();
+    const timer = window.setInterval(() => { void refresh(); }, 5000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [pollLocal, reportError]);
   const connect = (c: Connection) => void run(() => bridge!.connect(c.id));
-  function localAction(action: LocalAction) { void run(() => bridge!.localAction(action, action === 'install' && local.state !== 'uninstalled' ? resourcePreset : undefined)); }
+  function navigate(next: Page) { clearError(); setPage(next); setPassword(''); setConfirmation(''); setInstallError(undefined); }
+  function add() { setForm(emptyForm()); navigate('add'); }
+  function localAction(action: LocalAction) { void run(() => bridge!.localAction(action)); }
+  function open(c: Connection) { if (c.kind === 'managed-local' && !ready) localAction('start'); else connect(c); }
+  const progress = state.busy ? <p className="desktop-hint" role="status">{({ checking: '正在检查安装环境', installing: '正在安装', restarting: '正在启动服务' } as Record<string, string>)[state.progress ?? ''] ?? `正在${actionNames[state.busy as LocalAction] ?? '处理'}`}，请保持应用打开。</p> : null;
+  const titles: Record<Page, string> = { list: '选择连接', add: '你想在哪里使用 Molr？', remote: form.id ? '编辑连接' : '连接远程服务', install: '在这台电脑上使用 Molr', local: '管理本机服务' };
+  const canBack = screen !== 'list' && (connections.length > 0 || (screen === 'remote' || screen === 'install') && canChoose);
   return <div className="desktop-app" data-app-platform={state.platform} data-app-fullscreen={state.window.fullscreen}>
     {state.view !== 'runtime' && <header className="desktop-toolbar">
-      <div className="desktop-identity"><Logo animation="daily" assetBaseUrl={paletteAssetBase(palette)} variant={theme === 'dark' ? 'light' : 'dark'} /><span>{current?.name ?? '桌面工作台'}</span></div>
+      <div className="desktop-identity"><Logo animation="daily" assetBaseUrl={paletteAssetBase(palette)} variant={theme === 'dark' ? 'light' : 'dark'} /></div>
       <div className="desktop-toolbar-actions">
-        {!showManager && <Button variant="ghost" size="sm" onClick={() => void run(() => bridge!.manager())}><ArrowLeft size={16} /> 管理连接</Button>}
-        {showManager && <IconButton label="桌面设置" onClick={() => setSettings(!settings)}><Settings2 size={18} /></IconButton>}
         {bridge && state.platform !== 'darwin' && <div className="desktop-window-controls">
           <IconButton label="最小化" onClick={() => void run(() => bridge.minimize())}><Minus size={16} /></IconButton>
           <IconButton label={state.window.maximized || state.window.fullscreen ? '还原窗口' : '最大化'} onClick={() => void run(() => bridge.toggleMaximize())}>{state.window.maximized || state.window.fullscreen ? <Copy size={14} /> : <Square size={14} />}</IconButton>
@@ -63,67 +110,83 @@ function App() {
         </div>}
       </div>
     </header>}
-    {state.view === 'runtime' ? <div className="desktop-runtime-placeholder" aria-label="Runtime 页面" /> :
-      <main className="desktop-main">
-        {!bridge && <div className="desktop-notice" role="status"><CircleHelp size={18} /><span>这是桌面管理界面的浏览器预览。连接和本机服务管理请在 Molr 桌面应用中使用。</span></div>}
-        {!showManager ? <section className="desktop-recovery">
-          <Logo animation={state.view === 'loading' ? 'loading' : 'idle'} assetBaseUrl={paletteAssetBase(palette)} variant={theme === 'dark' ? 'light' : 'dark'} />
-          <h1>{state.view === 'loading' ? '正在连接' : '暂时无法连接'}</h1>
-          <p>{state.error ?? current?.url}</p>
-          <div className="desktop-actions">
-            {state.view === 'failed' && current && <Button disabled={disabled} onClick={() => connect(current)}><RefreshCw size={16} />重新连接</Button>}
-            <Button variant="secondary" onClick={() => void run(() => bridge!.manager())}>返回连接列表</Button>
-          </div>
-        </section> : <>
-          <div className="desktop-intro"><div><p className="desktop-eyebrow">你的助理，从这里开始</p><h1>连接你的 Runtime</h1><p>选择助理运行的位置，接着完成你的工作。</p></div><Button disabled={disabled} onClick={() => { setForm({ name: '', url: '', allowHTTP: false }); clearError(); }}><Plus size={17} />添加连接</Button></div>
-          <section className="desktop-settings" aria-label="桌面更新">
-            <div className="desktop-section-heading"><h2>桌面更新</h2><Button variant="secondary" size="sm" disabled={disabled || state.updates.checking || nextCheck > now || state.updates.comparison === 'uncomparable'} loading={state.updates.checking} onClick={() => void run(() => bridge!.checkUpdates())}>检查更新</Button></div>
-            <p>桌面版本 {state.version || '—'}</p>
-            <p role="status">{({ unknown: '尚未检查桌面更新', current: '桌面应用已是最新正式版', available: `桌面应用有新版本 v${state.updates.latestVersion}`, ahead: '桌面应用高于当前正式版', uncomparable: '开发版本，无法自动比较', unavailable: '暂无适用于此设备的正式版' })[state.updates.comparison]}</p>
-            {state.updates.error && <p className="desktop-hint">暂时无法检查更新，请稍后重试。已显示的发布信息来自上次成功检查。</p>}
-            {state.updates.comparison === 'available' && <Button variant="secondary" disabled={!bridge} onClick={() => void run(() => bridge!.openDownloads())}>下载桌面新版</Button>}
-          </section>
-          {settings && <section className="desktop-settings" aria-label="桌面设置">
-            <h2>桌面设置</h2><div className="desktop-settings-fields"><ThemeSelect value={preference} onValueChange={changePreference} /><PaletteSelect locale="zh" palette={palette} onChange={changePalette} /></div>
-            <p>关闭窗口或退出桌面应用后，本机 Runtime 继续运行。</p>
-            <Button variant="secondary" disabled={!bridge} onClick={() => void run(() => bridge!.openDownloads())}><ExternalLink size={16} />查看官网发行版本</Button>
-          </section>}
-          {form && <form className="desktop-connection-form" onSubmit={event => { event.preventDefault(); void run(async () => { await bridge!.save(form); setForm(undefined); }); }}>
-            <h2>{form.id ? '编辑连接' : '添加远程连接'}</h2>
-            <div className="desktop-form-fields"><TextField label="连接名称" value={form.name} maxLength={80} required autoFocus placeholder="例如：工作服务器" onChange={e => setForm({ ...form, name: e.target.value })} /><TextField label="Runtime 地址" value={form.url} type="url" required placeholder="https://molr.example.com" onChange={e => setForm({ ...form, url: e.target.value })} /></div>
-            <Switch label="允许可信局域网或回环地址使用 HTTP" checked={form.allowHTTP} onChange={e => setForm({ ...form, allowHTTP: e.target.checked })} />
-            <p className="desktop-hint">WSL 也作为远程连接添加。HTTP 连接没有传输加密，请只在可信网络中使用。</p>
-            <div className="desktop-actions"><Button type="submit" disabled={disabled} loading={pending}>保存连接</Button><Button variant="ghost" onClick={() => setForm(undefined)}>取消</Button></div>
-          </form>}
-          {local.available && <section className="desktop-local" aria-label="本机 Runtime">
-            <div className="desktop-section-heading"><div className="desktop-section-icon"><Monitor size={24} /></div><div><h2>本机 Runtime</h2><p>{local.installed ? '助理和数据保存在这台电脑上' : '在这台电脑上运行你的助理'}</p></div><Badge tone={runtimeReady ? 'positive' : local.error ? 'danger' : 'neutral'}>{state.busy ? '正在维护' : stateNames[local.state] ?? local.state}</Badge></div>
-            {!local.installed && local.state !== 'uninstalled' && <div className="desktop-settings-fields"><Select label="资源权限预设" value={resourcePreset} onValueChange={setResourcePreset} disabled={disabled} options={[{value:'permissive',label:'宽松预设（个人部署推荐）'},{value:'least-privilege',label:'最小权限预设'}]} /><p className="desktop-hint">{resourcePreset === 'permissive' ? '在运行账户的系统权限范围内，允许接入任意本机目录、网络及计算资源，通过 Molr 配置和分配权限。助理仍需单独授权。' : '默认不开放本机目录、网络访问或命令执行资源。随后可按需调整部署配置，再为助理授权。'}</p></div>}
-            {local.state === 'uninstalled' && <p className="desktop-hint">重新安装会沿用保留的账号、数据和资源权限配置。</p>}
-            {local.installed && <p className="desktop-hint">{local.version !== state.version && <>版本 {local.version} · </>}{local.health === 'verified' ? '安装器能力验证已通过' : local.health === 'verification_pending' ? '请登录 Runtime 检查能力状态' : runtimeReady ? '请登录 Runtime 检查能力状态' : '启动后可继续使用'}</p>}
-            {local.updatePending && <Alert tone="warning" title="本地服务更新待完成"><p>桌面应用：{state.version} · 本地服务：{local.version}。更新至 {local.bundledVersion} 会重启服务并中断运行中的任务；也可以稍后更新。</p><Button variant="secondary" disabled={disabled} onClick={() => localAction('upgrade')}>更新并重启本地服务</Button></Alert>}
-            <div className="desktop-actions">
-              {!local.installed ? <Button disabled={disabled} loading={state.busy === 'install'} onClick={() => localAction('install')}>安装并启动<ArrowRight size={16} /></Button> : <>
-                <Button disabled={disabled} onClick={() => { const c = state.connections.find(c => c.kind === 'managed-local'); if (runtimeReady && c) connect(c); else localAction('start'); }}>{runtimeReady ? '打开本机 Runtime' : '启动 Runtime'}<ArrowRight size={16} /></Button>
-                {runtimeReady && <><Button variant="secondary" disabled={disabled} onClick={() => localAction('stop')}>停止</Button><Button variant="ghost" disabled={disabled} onClick={() => localAction('restart')}>重启</Button></>}
-
-                <Button variant="ghost" disabled={disabled} onClick={() => localAction('uninstall')}>卸载 Runtime</Button>
-              </>}
-              <IconButton label="刷新本机状态" disabled={disabled} onClick={() => void run(() => bridge!.refreshLocal())}><RefreshCw size={16} /></IconButton>
-              <Button variant="ghost" disabled={!bridge || !!state.busy} onClick={() => void run(() => bridge!.openLogs())}>维护日志</Button>
+    {state.view === 'runtime' ? <div aria-label="Molr 服务页面" /> : <main className="desktop-main">
+      {!bridge && <div className="desktop-notice" role="status"><CircleHelp size={18} /><span>这是桌面界面的浏览器预览。安装和连接服务请使用 Molr 桌面应用。</span></div>}
+      {!loaded ? <div className="desktop-recovery"><p role="status">正在读取连接…</p><Button variant="secondary" onClick={() => void run(async () => { setState(await bridge!.state()); setLoaded(true); })}>重新读取</Button></div> : state.view !== 'manager' ? <section className="desktop-recovery">
+        <Logo animation={state.view === 'loading' ? 'loading' : 'idle'} assetBaseUrl={paletteAssetBase(palette)} variant={theme === 'dark' ? 'light' : 'dark'} />
+        <h1>{state.view === 'loading' ? '正在连接' : '暂时无法连接'}</h1><p>{state.error ?? current?.url}</p>
+        <div className="desktop-actions">{state.view === 'failed' && current && <Button disabled={disabled} onClick={() => open(current)}><RefreshCw size={16} />重新连接</Button>}<Button variant="secondary" onClick={() => { navigate('list'); void run(() => bridge!.manager()); }}>返回连接列表</Button></div>
+      </section> : <div className={`desktop-content ${screen === 'local' ? 'desktop-content-management' : screen === 'list' || screen === 'add' ? '' : 'desktop-content-narrow'}`}>
+        {canBack && <Button className="desktop-back" variant="ghost" size="sm" disabled={pending || !!state.busy} onClick={() => navigate(connections.length ? 'list' : 'add')}><ArrowLeft size={16} />{connections.length ? '返回连接列表' : '返回'}</Button>}
+        <div className="desktop-intro"><h1>{titles[screen]}</h1>{screen === 'list' && <p>选择助理运行的位置。</p>}</div>
+        {screen === 'list' && <div className="desktop-grid" aria-label="已保存的连接">
+          {connections.map(c => <Card role="article" className="desktop-card" key={c.id} aria-label={c.name}>
+            <div className="desktop-card-top"><span className="desktop-section-icon">{c.kind === 'managed-local' ? <Monitor size={24} /> : <Server size={24} />}</span>
+              <DropdownMenu label={`${c.name}的操作`} align="end" trigger={<IconButton label={`${c.name}的操作`} disabled={disabled}><MoreHorizontal size={20} /></IconButton>} items={c.kind === 'managed-local' ? [{ id: 'manage', label: '管理本机服务', onSelect: () => navigate('local') }] : [{ id: 'edit', label: '编辑连接', onSelect: () => { setForm({ ...c }); navigate('remote'); } }, { id: 'remove', label: '移除连接', danger: true, separatorBefore: true, onSelect: () => void run(() => bridge!.remove(c.id)) }]} />
             </div>
-            {state.busy && <p role="status" className="desktop-hint">{({ checking: '检查安装环境', installing: '安装程序与配置', restarting: '启动服务并验证能力' } as Record<string, string>)[state.progress ?? ''] ?? `正在${actionNames[state.busy as LocalAction] ?? '处理'}`}，完成前请保持桌面应用打开。</p>}
+            <h2>{c.name}</h2><div className="desktop-card-description">{c.kind === 'managed-local' ? <><span>本机</span><Badge tone={ready ? 'positive' : local.error ? 'danger' : 'neutral'}>{state.busy ? '正在维护' : stateNames[local.state] ?? '需要处理'}</Badge>{versionNotice && <Badge className="desktop-version-notice" tone={versionState === 'update' ? 'neutral' : 'warning'}>{versionNotice}</Badge>}</> : <span title={c.url}>{new URL(c.url).host}</span>}</div>
+            <Button className="desktop-card-open" variant="secondary" disabled={disabled} onClick={() => open(c)}>{c.kind === 'managed-local' && !ready ? '启动并连接' : '连接'}<ArrowRight size={16} /></Button>
+          </Card>)}
+          <Button variant="ghost" className="card desktop-add-card" disabled={pending || !!state.busy} onClick={add}><Plus aria-hidden="true" /><span>添加连接</span></Button>
+        </div>}
+        {screen === 'add' && <div className="desktop-grid desktop-choices">
+          <section className="card desktop-card"><span className="desktop-section-icon"><Monitor size={28} /></span><h2>在这台电脑上使用</h2><p>在本机安装 Molr 服务，运行助理并保存对话和文件。</p><Button disabled={disabled} onClick={() => navigate('install')}>安装到这台电脑<ArrowRight size={16} /></Button></section>
+          <section className="card desktop-card"><span className="desktop-section-icon"><Server size={28} /></span><h2>连接远程服务</h2><p>使用其他电脑或服务器上已安装的 Molr。</p><Button variant="secondary" onClick={() => { setForm(emptyForm()); navigate('remote'); }}>输入服务地址<ArrowRight size={16} /></Button></section>
+        </div>}
+        {screen === 'remote' && <form className="desktop-form" onSubmit={event => { event.preventDefault(); void run(async () => { await bridge!.save(form); navigate('list'); toast({ tone: 'positive', title: '连接已保存' }); }); }}>
+          <TextField label="服务地址" value={form.url} type="url" required autoFocus placeholder="https://molr.example.com" disabled={disabled} onChange={e => setForm({ ...form, url: e.target.value, allowHTTP: /^http:/i.test(e.target.value) && form.allowHTTP })} />
+          <TextField label="连接名称（选填）" value={form.name} maxLength={80} placeholder="默认使用主机名" disabled={disabled} onChange={e => setForm({ ...form, name: e.target.value })} />
+          {/^http:/i.test(form.url) && <div><Switch label="允许使用未加密的 HTTP 连接" checked={form.allowHTTP} disabled={disabled} onChange={e => setForm({ ...form, allowHTTP: e.target.checked })} /><p className="desktop-hint">仅支持可信的局域网或本机地址。HTTP 不提供传输加密。</p></div>}
+          <details className="desktop-help"><summary>在哪里找到服务地址？</summary><p>向服务管理员获取地址，或查看 Molr 安装结果。WSL 中的服务也通过地址添加。</p></details>
+          <div className="desktop-actions"><Button type="submit" disabled={disabled} loading={pending}>保存连接</Button></div>
+        </form>}
+        {screen === 'install' && <form className="desktop-form" onSubmit={event => {
+          event.preventDefault();
+          if (local.state !== 'uninstalled' && password !== confirmation) { reportError(new Error('两次输入的密码不一致。')); return; }
+          const administrator = local.state === 'uninstalled' ? undefined : { username: username.trim(), password };
+          setPassword(''); setConfirmation('');
+          setInstallError(undefined);
+          void run(async () => {
+            try { await bridge!.localAction('install', local.state === 'uninstalled' ? undefined : resourcePreset, administrator); }
+            catch (error) { setInstallError((error instanceof Error ? error.message : String(error)).replace(/^Error invoking remote method '[^']+': Error: /, '')); throw error; }
+            navigate('list'); toast({ tone: 'positive', title: '已安装，可以开始使用' });
+          });
+        }}>
+          {local.state === 'uninstalled' ? <p>重新安装会沿用保留的账号、数据和权限设置。连接后请使用原账号登录。</p> : <>
+            <p>设置管理员账号，以后可用此账号和密码登录。</p>
+            <TextField label="管理员用户名" name="username" autoComplete="username" value={username} maxLength={128} required disabled={disabled} onChange={e => setUsername(e.target.value)} />
+            <TextField label="密码" name="new-password" autoComplete="new-password" type="password" value={password} minLength={12} maxLength={1024} required disabled={disabled} placeholder="至少 12 个字符" onChange={e => setPassword(e.target.value)} />
+            <TextField label="确认密码" name="confirm-password" autoComplete="new-password" type="password" value={confirmation} required disabled={disabled} onChange={e => setConfirmation(e.target.value)} />
+            <details className="desktop-help"><summary>权限设置</summary><Select label="资源权限" value={resourcePreset} onValueChange={setResourcePreset} disabled={disabled} options={[{ value: 'permissive', label: '个人使用' }, { value: 'least-privilege', label: '最小权限' }]} /><p className="desktop-hint">{resourcePreset === 'permissive' ? '允许接入本机目录、网络及计算资源；助理使用这些资源仍需单独授权。' : '默认不开放本机目录、网络访问或命令执行资源，之后可按需配置。'}</p></details>
+            <p className="desktop-hint">默认采用个人使用权限，助理使用资源仍需授权。可展开权限设置调整。</p>
+          </>}
+          <div className="desktop-actions"><Button type="submit" disabled={disabled} loading={pending}>{installError ? '重试安装' : '安装并启动'}<ArrowRight size={16} /></Button></div>{progress}
+          <details className="desktop-help"><summary>安装帮助与日志</summary><p>{installError ?? local.error ?? '安装失败时，可在维护日志中查看原因。重试会保留已创建的账号和数据，请使用原来的账号密码。'}</p><Button variant="secondary" disabled={disabled} onClick={() => void run(() => bridge!.openLogs())}>打开日志所在位置</Button></details>
+        </form>}
+        {screen === 'local' && <Card className="desktop-management" role="region" aria-label="本机服务管理">
+          <div className="desktop-management-summary">
+            <div className="desktop-management-heading"><span className="desktop-section-icon"><Monitor size={24} /></span><div><h2>这台电脑</h2><p>版本 {local.version ?? '未知'}</p></div><Badge tone={ready ? 'positive' : local.error ? 'danger' : 'neutral'}>{state.busy ? '正在维护' : stateNames[local.state] ?? '需要处理'}</Badge></div>
+            <p>关闭窗口或退出桌面应用后，服务继续运行。</p>
+            <div className="desktop-actions"><Button disabled={disabled} onClick={() => { const c = connections.find(c => c.kind === 'managed-local'); if (c) open(c); }}>{ready ? '连接' : '启动并连接'}<ArrowRight size={16} /></Button>{ready && <><Button variant="secondary" disabled={disabled} onClick={() => localAction('restart')}>重启服务</Button><Button variant="ghost" disabled={disabled} onClick={() => localAction('stop')}>停止服务</Button></>}</div>
+          </div>
+          {versionNotice && <section className="desktop-management-group" aria-labelledby="local-version-heading">
+            <h3 id="local-version-heading">{versionState === 'update' ? '更新本机服务' : '版本不一致'}</h3>
+            <dl className="desktop-version-details"><div><dt>本机服务</dt><dd>{local.version}</dd></div><div><dt>桌面应用附带</dt><dd>{local.bundledVersion}</dd></div></dl>
+            {versionState === 'update' ? <><p>可从 {local.version} 更新至 {local.bundledVersion}。更新会重启服务，保留账号、配置和数据。</p><div className="desktop-actions"><Button variant="secondary" disabled={disabled} onClick={() => localAction('upgrade')}>更新本机服务</Button></div></> : <p>{versionState === 'service-newer' ? '本机服务版本较新，建议更新桌面应用以保持版本一致。' : '两个版本的标记不同，无法确认可升级。请核对发行版本，使用配套的桌面应用。'}</p>}
           </section>}
-          <section className="desktop-connections" aria-label="远程连接"><div className="desktop-list-heading"><h2>远程连接</h2><span>{state.connections.filter(c => c.kind === 'remote').length} 个连接</span></div>
-            {state.connections.filter(c => c.kind === 'remote').length === 0 ? <div className="desktop-empty"><Server size={32} /><h3>连接已有的 Runtime</h3><p>添加服务器、其他电脑或 WSL 中的 Runtime 地址。</p><Button variant="secondary" disabled={disabled} onClick={() => setForm({ name: '', url: '', allowHTTP: false })}><Plus size={16} />添加远程连接</Button></div> : <ul className="desktop-connection-list">
-              {state.connections.filter(c => c.kind === 'remote').map(c => <li key={c.id}>
-                <span className="desktop-server-icon"><Server size={20} /></span><div className="desktop-connection-info"><h3>{c.name}{c.id === state.lastConnection && <span className="desktop-recent"><Check size={12} />最近使用</span>}</h3><p>{c.url}</p></div>
-                <div className="desktop-row-actions"><IconButton label={`编辑 ${c.name}`} disabled={disabled} onClick={() => setForm({ id: c.id, name: c.name, url: c.url, allowHTTP: c.allowHTTP })}><Settings2 size={16} /></IconButton><IconButton label={`移除 ${c.name}`} disabled={disabled} onClick={() => void run(() => bridge!.remove(c.id))}><Trash2 size={16} /></IconButton><Button variant="secondary" size="sm" disabled={disabled} onClick={() => connect(c)}>连接<ArrowRight size={15} /></Button></div>
-              </li>)}
-            </ul>}
+          <section className="desktop-management-group" aria-labelledby="local-logs-heading">
+            <div className="desktop-management-row"><div className="desktop-management-copy"><h3 id="local-logs-heading">维护日志</h3><p>安装、更新或启停服务遇到问题时，可打开日志排查。</p></div>
+            <div className="desktop-actions"><Button variant="secondary" disabled={disabled} onClick={() => void run(() => bridge!.openLogs())}>打开日志所在位置</Button></div></div>
+            {local.error && <p className="desktop-management-error">{local.error}</p>}
           </section>
-          <footer className="desktop-footer"><span>每个连接独立保存登录状态，助理与数据由对应 Runtime 管理。</span>{state.platform === 'win32' && <span>Windows 原生 Runtime · PowerShell / AppContainer</span>}</footer>
-        </>}
-      </main>}
+          <section className="desktop-management-group desktop-management-row" aria-labelledby="local-uninstall-heading">
+            <div className="desktop-management-copy"><h3 id="local-uninstall-heading">卸载本机服务</h3><p>停止服务并从连接列表移除，账号、配置和数据保留。</p></div>
+            <Button variant="danger" disabled={disabled} onClick={() => localAction('uninstall')}>卸载本机服务</Button>
+          </section>{progress}
+        </Card>}
+        {screen === 'list' && progress}
+      </div>}
+    </main>}
   </div>;
 }
 createRoot(document.getElementById('root')!).render(<React.StrictMode><UIProvider locale="zh"><ToastProvider><App /></ToastProvider></UIProvider></React.StrictMode>);

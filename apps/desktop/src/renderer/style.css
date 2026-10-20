@@ -2,64 +2,82 @@ html, body, #root { margin: 0; min-height: 100%; }
 body { background: var(--color-background); color: var(--color-text); font-family: var(--font-sans); }
 * { box-sizing: border-box; }
 button, input { font: inherit; }
-.desktop-app { --app-titlebar-height: 48px; min-height: 100vh; }
-.desktop-toolbar { height: var(--app-titlebar-height); padding: 0 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; line-height: 1; }
+.desktop-app { --app-titlebar-height: 48px; min-height: 100vh; display: flow-root; background: var(--background-entry); }
+.desktop-toolbar { height: var(--app-titlebar-height); padding: 0 8px 0 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; line-height: 1; app-region: drag; -webkit-app-region: drag; user-select: none; }
 .desktop-identity, .desktop-toolbar-actions { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .desktop-identity .logo { --logo-width: 88px; flex-shrink: 0; }
-.desktop-identity > span:last-child { font-size: 13px; color: var(--color-text-muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.desktop-main { max-width: 1080px; margin: 0 auto; padding: 8px 24px 40px; }
-.desktop-intro { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 36px 0 28px; }
-.desktop-eyebrow { color: var(--color-text-muted); font-size: 12px; letter-spacing: .08em; }
-.desktop-intro h1 { font-size: clamp(26px, 3vw, 34px); letter-spacing: -.04em; margin: 8px 0 12px; font-weight: 600; }
-.desktop-intro p:last-child { color: var(--color-text-muted); font-size: 14px; margin: 0; }
-.desktop-local, .desktop-connections, .desktop-connection-form { background: var(--color-surface); border-radius: 16px; padding: 24px; margin-bottom: 8px; }
-.desktop-section-heading { display: flex; align-items: center; gap: 16px; }
-.desktop-section-heading > div:nth-child(2) { flex: 1; }
-.desktop-section-icon, .desktop-server-icon { display: grid; place-items: center; width: 48px; height: 48px; flex-shrink: 0; background: var(--color-background); border-radius: 12px; color: var(--color-text); }
-.desktop-section-heading h2, .desktop-list-heading h2, .desktop-connection-form h2, .desktop-settings h2 { font-size: 16px; font-weight: 600; margin: 0 0 6px; }
-.desktop-section-heading p, .desktop-connection-info p { color: var(--color-text-muted); margin: 0; font-size: 13px; }
-.desktop-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; align-items: center; }
-.desktop-actions .button, .desktop-row-actions .button, .desktop-intro > .button { display: inline-flex; align-items: center; gap: 8px; }
-.desktop-list-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.desktop-list-heading span, .desktop-hint { font-size: 12px; color: var(--color-text-muted); line-height: 1.7; }
-.desktop-empty { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 42px 16px; }
-.desktop-empty > svg { color: var(--color-text-muted); }
-.desktop-empty h3 { font-size: 16px; margin: 16px 0 8px; font-weight: 500; }
-.desktop-empty p { color: var(--color-text-muted); font-size: 13px; margin: 0 0 24px; }
-.desktop-connection-list { list-style: none; margin: 0; padding: 0; }
-.desktop-connection-list > li { display: flex; align-items: center; gap: 16px; padding: 18px 0; }
-.desktop-connection-list > li + li { border-top: 1px solid var(--color-border); }
-.desktop-connection-info { min-width: 0; flex: 1; }
-.desktop-connection-info h3 { font-size: 14px; margin: 0 0 6px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.desktop-connection-info p { overflow-wrap: anywhere; }
-.desktop-row-actions { display: flex; align-items: center; gap: 4px; }
-.desktop-recent { display: inline-flex; align-items: center; gap: 3px; color: var(--color-text-muted); font-size: 11px; font-weight: 400; }
-.desktop-form-fields { display: grid; grid-template-columns: 1fr 2fr; gap: 16px; margin: 20px 0; }
-.desktop-settings { padding: 24px 0; margin-bottom: 16px; border-bottom: 1px solid var(--color-border); }
-.desktop-settings p { font-size: 13px; color: var(--color-text-muted); }
-.desktop-settings-fields { display: flex; gap: 16px; margin: 16px 0; }
-.desktop-notice { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: var(--color-surface); border-radius: 12px; font-size: 13px; color: var(--color-text-muted); }
-.desktop-recovery { background: var(--color-surface); border-radius: 16px; min-height: 60vh; padding: 56px 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-.desktop-recovery .logo { --logo-width: 144px; }
-.desktop-recovery h1 { font-size: 24px; margin: 24px 0 8px; }
-.desktop-recovery p { max-width: 500px; color: var(--color-text-muted); font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
-.desktop-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 16px 4px; font-size: 12px; color: var(--color-text-muted); line-height: 1.7; }
-@media (max-width: 640px) {
-  .desktop-toolbar { padding: 0 16px; }
-  .desktop-main { padding: 8px 8px 24px; }
-  .desktop-intro { flex-direction: column; align-items: flex-start; padding: 24px 12px; }
-  .desktop-local, .desktop-connections, .desktop-connection-form { padding: 20px 16px; }
-  .desktop-form-fields { grid-template-columns: 1fr; }
-  .desktop-connection-list > li { flex-wrap: wrap; }
-  .desktop-row-actions { width: 100%; justify-content: flex-end; }
-  .desktop-section-heading { gap: 10px; flex-wrap: wrap; }
-  .desktop-settings { padding: 20px 12px; }
-}
-
-.desktop-toolbar { app-region: drag; -webkit-app-region: drag; user-select: none; padding-right: 8px; }
 .desktop-toolbar-actions { app-region: no-drag; -webkit-app-region: no-drag; }
 .desktop-window-controls { display: flex; align-items: center; gap: 2px; }
 .desktop-toolbar-actions :is(.button, .ui-icon-button) { height: 36px; min-height: 36px; margin: 0; line-height: 1; }
 .desktop-window-controls .desktop-close:hover { background: var(--color-danger-bg); color: var(--color-danger); }
-/* Only windowed macOS needs an inset for the native buttons. */
 .desktop-app[data-app-platform="darwin"]:not([data-app-fullscreen="true"]) .desktop-toolbar { padding-left: env(titlebar-area-x, 88px); }
+.desktop-app[data-app-platform="darwin"][data-app-fullscreen="true"] .desktop-toolbar { padding-left: 16px; }
+.desktop-main { margin: 0 8px 8px; min-height: calc(100vh - var(--app-titlebar-height) - 8px); padding: 32px; }
+.desktop-content { max-width: 1000px; margin: 0 auto; }
+.desktop-content-narrow { max-width: 560px; }
+.desktop-content-management { max-width: 680px; }
+.desktop-back { margin-bottom: var(--space-4); }
+.desktop-intro { padding: 16px 0 32px; }
+.desktop-intro h1 { font-size: clamp(24px, 3vw, 32px); letter-spacing: -.03em; margin: 0; font-weight: 600; }
+.desktop-intro p { color: var(--color-text-muted); font-size: 14px; margin: 12px 0 0; }
+.desktop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+.desktop-card { min-width: 0; display: flex; flex-direction: column; gap: var(--space-4); }
+.desktop-card-top { display: flex; align-items: center; justify-content: space-between; }
+.desktop-section-icon { display: grid; place-items: center; width: 44px; height: 44px; color: var(--color-text); }
+.desktop-card h2 { margin: 0; font-size: 17px; font-weight: 600; overflow-wrap: anywhere; }
+.desktop-card-description { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 24px; font-size: 13px; color: var(--color-text-muted); }
+.desktop-card-description > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.desktop-card-open { margin-top: auto; align-self: flex-end; }
+/* Large action surfaces need a lighter overlay than compact ghost buttons. */
+.desktop-add-card { --color-ghost-hover: color-mix(in srgb, var(--color-text) 3%, transparent); min-height: 228px; flex-direction: column; gap: var(--space-4); color: var(--color-text-muted); }
+.desktop-add-card:not(:disabled):hover { color: var(--color-text); }
+.desktop-add-card > svg { width: 24px; height: 24px; }
+.desktop-choices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.desktop-choices .desktop-card { padding: 32px; }
+.desktop-choices p { font-size: 14px; line-height: 1.7; color: var(--color-text-muted); margin: 0 0 12px; flex: 1; }
+.desktop-choices .button { align-self: flex-start; }
+.desktop-form { background: var(--color-surface); border-radius: var(--radius-card); padding: var(--space-5); }
+.desktop-form { display: flex; flex-direction: column; gap: 20px; }
+.desktop-form > p { margin: 0; color: var(--color-text-muted); font-size: 14px; line-height: 1.7; }
+.desktop-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.desktop-help { border-top: 1px solid var(--color-border); padding-top: 16px; font-size: 13px; color: var(--color-text-muted); line-height: 1.7; }
+.desktop-help summary { cursor: pointer; color: var(--color-text); }
+.desktop-help[open] summary { margin-bottom: 16px; }
+.desktop-hint { font-size: 12px; color: var(--color-text-muted); line-height: 1.7; }
+/* Keep flat groups and right-aligned actions at the desktop management scale. */
+.desktop-management { padding: 32px; }
+.desktop-management-summary, .desktop-management-group { display: flex; flex-direction: column; gap: var(--space-4); }
+.desktop-management-heading { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); }
+.desktop-management-heading > div { flex: 1; min-width: 0; }
+.desktop-management-heading > .badge { margin-left: auto; flex-shrink: 0; }
+.desktop-management h2 { font-size: 18px; margin: 0; }
+.desktop-management h3 { font-size: 15px; margin: 0; }
+.desktop-management p { margin: 0; font-size: 13px; color: var(--color-text-muted); line-height: 1.7; overflow-wrap: anywhere; }
+.desktop-management-heading p { margin-top: var(--space-1); font-size: 12px; }
+.desktop-management-copy { display: grid; gap: var(--space-2); }
+.desktop-management-group { padding-top: var(--space-5); margin-top: var(--space-5); border-top: 1px solid var(--color-border); }
+.desktop-version-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); margin: 0; }
+.desktop-version-details dt { color: var(--color-text-muted); font-size: var(--text-xs); }
+.desktop-version-details dd { margin: 6px 0 0; font-size: var(--text-sm); overflow-wrap: anywhere; }
+.desktop-management .desktop-management-error { color: var(--color-danger); }
+.desktop-management-row { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: var(--space-4); }
+.desktop-management-row > .desktop-management-copy { flex: 1 1 240px; min-width: 0; }
+.desktop-management-row > :is(.button, .desktop-actions) { margin-inline-start: auto; }
+.desktop-management > .desktop-hint { margin-top: 20px; }
+.desktop-notice { display: flex; align-items: center; gap: 10px; padding-bottom: 20px; font-size: 13px; color: var(--color-text-muted); }
+.desktop-notice svg { flex-shrink: 0; }
+.desktop-recovery { background: var(--color-surface); border-radius: 16px; min-height: 65vh; padding: 32px 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.desktop-recovery .logo { --logo-width: 144px; }
+.desktop-recovery h1 { font-size: 24px; margin: 24px 0 8px; }
+.desktop-recovery p { max-width: 500px; color: var(--color-text-muted); font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .desktop-main { padding: 24px 16px; }
+  .desktop-choices { grid-template-columns: 1fr; }
+  .desktop-choices .desktop-card { padding: 24px; }
+  .desktop-intro { padding-top: 8px; }
+  .desktop-management { padding: 24px; }
+}
+@media (max-width: 480px) {
+  .desktop-management { padding: 20px; }
+  .desktop-version-details { grid-template-columns: 1fr; }
+}

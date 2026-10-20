@@ -1,5 +1,9 @@
 /** Narrow native capabilities available only to the active Runtime main frame. */
 export type AppWindowState = { maximized: boolean; fullscreen: boolean };
+export type AppAppearance = {
+  theme: 'system' | 'light' | 'dark';
+  palette: 'forest' | 'ocean' | 'iris' | 'sand' | 'rose' | 'monochrome';
+};
 export type AppOAuthResult = {
   status: 'connected' | 'cancelled' | 'failed' | 'unknown';
   attemptId?: string;
@@ -45,6 +49,10 @@ export type MolrAppAPI = {
     cancel(): Promise<void>;
   };
   getInfo(): Promise<AppInfo>;
+  /** Sync the signed-in account's appearance to the desktop connection manager. */
+  setAppearance?(appearance: AppAppearance): Promise<void>;
+  /** One-use permission for the desktop-owned installation login handoff. */
+  consumeInitialLogin?(): Promise<boolean>;
   window: {
     minimize(): Promise<void>;
     toggleMaximize(): Promise<void>;

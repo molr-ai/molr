@@ -1,4 +1,4 @@
-import type { AppUpdateStatus, AppWindowState } from '@molr/ui-host/app';
+import type { AppAppearance, AppUpdateStatus, AppWindowState } from '@molr/ui-host/app';
 export type Connection = { id: string; name: string; url: string; kind: 'remote' | 'managed-local'; allowHTTP: boolean };
 export type ConnectionInput = { id?: string; name: string; url: string; allowHTTP: boolean };
 export type LocalStatus = {
@@ -6,8 +6,10 @@ export type LocalStatus = {
   url?: string; record?: string; error?: string; bundledVersion?: string; updatePending?: boolean;
 };
 export type ResourcePreset = 'permissive' | 'least-privilege';
+export type AdministratorInput = { username: string; password: string };
 export type LocalAction = 'install' | 'start' | 'stop' | 'restart' | 'upgrade' | 'uninstall';
 export type DesktopState = {
+  appearance: AppAppearance;
   connections: Connection[]; lastConnection?: string; active?: string;
   view: 'manager' | 'loading' | 'runtime' | 'failed'; error?: string;
   updates: AppUpdateStatus; local: LocalStatus; busy?: string; progress?: string; version: string; platform: string; window: AppWindowState;
@@ -22,9 +24,7 @@ export type DesktopAPI = {
   connect(id: string): Promise<void>;
   manager(): Promise<void>;
   refreshLocal(): Promise<void>;
-  localAction(action: LocalAction, preset?: ResourcePreset): Promise<void>;
+  localAction(action: LocalAction, preset?: ResourcePreset, administrator?: AdministratorInput): Promise<void>;
   openLogs(): Promise<void>;
-  openDownloads(): Promise<void>;
-  checkUpdates(): Promise<AppUpdateStatus>;
   subscribe(callback: (state: DesktopState) => void): () => void;
 };

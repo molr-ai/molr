@@ -18,7 +18,7 @@ export function applicationMenu(locale: 'zh' | 'en', actions: { manager: () => v
       { label: t('管理连接', 'Manage connections'), accelerator: 'CmdOrCtrl+Shift+M', click: actions.manager },
       { label: t('重新连接', 'Reconnect'), accelerator: 'CmdOrCtrl+R', click: actions.reconnect },
       { type: 'separator' },
-      { role: 'quit', label: t('退出桌面应用（Runtime 继续运行）', 'Quit desktop (Runtime keeps running)') },
+      { role: 'quit', label: t('退出桌面应用（本机服务继续运行）', 'Quit desktop (local service keeps running)') },
     ] },
     { label: t('编辑', 'Edit'), submenu: [
       { role: 'undo', label: t('撤销', 'Undo') },

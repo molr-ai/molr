@@ -32,6 +32,8 @@ if (process.isMainFrame) {
       cancel: () => ipcRenderer.invoke('app:oauth-cancel'),
     },
     getInfo: () => ipcRenderer.invoke('app:info'),
+    setAppearance: appearance => ipcRenderer.invoke('app:appearance', appearance),
+    consumeInitialLogin: () => ipcRenderer.invoke('app:consume-initial-login'),
     window: {
       minimize: () => ipcRenderer.invoke('app:minimize'),
       toggleMaximize: () => ipcRenderer.invoke('app:toggle-maximize'),

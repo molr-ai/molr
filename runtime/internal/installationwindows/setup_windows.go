@@ -180,6 +180,7 @@ func Run(ctx context.Context, args []string, out, diagnostics io.Writer) (result
 	name := flags.String("name", "", "instance name")
 	rootArg := flags.String("program-root", "", "private program root")
 	preset := flags.String("resource-preset", "least-privilege", "initial resource preset")
+	initOwner := flags.String("init-owner", "", "initial administrator username; password from stdin")
 	yes := flags.Bool("yes", false, "confirm changes")
 	flags.Bool("json", false, "")
 	flags.Bool("non-interactive", false, "")
@@ -196,6 +197,22 @@ func Run(ctx context.Context, args []string, out, diagnostics io.Writer) (result
 	}
 	if *preset != "least-privilege" && *preset != "permissive" {
 		return fmt.Errorf("invalid resource preset")
+	}
+	if *initOwner != "" && (action != "install" || strings.TrimSpace(*initOwner) != *initOwner || len(*initOwner) > 128 || strings.ContainsAny(*initOwner, "\r\n")) {
+		return fmt.Errorf("valid initial administrator requires install")
+	}
+	var password []byte
+	if *initOwner != "" {
+		var err error
+		password, err = io.ReadAll(io.LimitReader(os.Stdin, 1026))
+		password = bytes.TrimSuffix(bytes.TrimSuffix(password, []byte("\n")), []byte("\r"))
+		defer clear(password)
+		if err != nil {
+			return err
+		}
+		if len(password) < 12 || len(password) > 1024 || bytes.ContainsAny(password, "\r\n") {
+			return fmt.Errorf("administrator password must be 12 to 1024 bytes on one line")
+		}
 	}
 	root := filepath.Clean(*rootArg)
 	recordPath := filepath.Join(root, "installation.json")
@@ -216,6 +233,9 @@ func Run(ctx context.Context, args []string, out, diagnostics io.Writer) (result
 	}
 	snapshot := func() result {
 		v := result{Type: "desktop", Installed: r.Installed, State: "missing", Version: r.Version, URL: r.URL, Record: recordPath}
+		if !r.Installed && len(initialRecord) > 0 {
+			v.State = "uninstalled"
+		}
 		if r.Installed {
 			v.State = "inactive"
 			if platform.ServiceRunning(r.DataDir) {
@@ -281,6 +301,11 @@ func Run(ctx context.Context, args []string, out, diagnostics io.Writer) (result
 		}
 	}
 	first := false
+	if action == "install" && len(password) == 0 {
+		if _, err := os.Stat(filepath.Join(r.DataDir, "runtime.db")); err != nil || len(initialRecord) == 0 {
+			return fmt.Errorf("first installation requires --init-owner NAME and password on stdin")
+		}
+	}
 	if action == "upgrade" {
 		previous := r
 		previousTask, err := os.ReadFile(r.Paths.Unit)
@@ -418,12 +443,18 @@ func Run(ctx context.Context, args []string, out, diagnostics io.Writer) (result
 			return fmt.Errorf("desktop Runtime requires owned data and loopback HTTP")
 		}
 		r.URL = cfg.HTTP.PublicURL
-		bootstrap, e := command(ctx, r.Binary, "bootstrap", "--config", configPath)
-		if e != nil {
-			return e
+		if len(password) > 0 {
+			cmd := exec.CommandContext(ctx, r.Binary, "bootstrap", "--config", configPath, "--username", *initOwner, "--password-stdin")
+			cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+			cmd.Stdin = bytes.NewReader(password)
+			cmd.Stderr = diagnostics
+			bootstrap, err := cmd.Output()
+			if err != nil {
+				return err
+			}
+			first = needsInitialLogin(action, initialRecord, bootstrap)
+			fmt.Fprint(diagnostics, string(bootstrap))
 		}
-		first = needsInitialLogin(action, initialRecord, bootstrap)
-		fmt.Fprint(diagnostics, string(bootstrap))
 		sid, e := currentSID()
 		if e != nil {
 			return e
@@ -451,13 +482,8 @@ func Run(ctx context.Context, args []string, out, diagnostics io.Writer) (result
 	}
 	result := snapshot()
 	if first {
-		password, e := os.ReadFile(filepath.Join(r.DataDir, "initial-password"))
-		if e != nil {
-			return e
-		}
-		defer clear(password)
 		call := func(action string) ([]byte, error) {
-			cmd := exec.CommandContext(ctx, r.Binary, action, "--config", configPath, "--password-stdin")
+			cmd := exec.CommandContext(ctx, r.Binary, action, "--config", configPath, "--username", *initOwner, "--password-stdin")
 			cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 			cmd.Stdin = bytes.NewReader(password)
 			var stderr bytes.Buffer

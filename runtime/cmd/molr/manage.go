@@ -24,13 +24,20 @@ import (
 	"time"
 )
 
-func bootstrap(ctx context.Context, b *app.Bundle, cfg config.Config, username string, out io.Writer) error {
+func bootstrap(ctx context.Context, b *app.Bundle, cfg config.Config, username string, supplied core.Secret, out io.Writer) error {
 	initialized, err := b.Bootstrap.Initialized(ctx)
 	if err != nil {
 		return err
 	}
 	if initialized {
 		fmt.Fprintln(out, "Already initialized; account and setup state preserved.")
+		return nil
+	}
+	if !supplied.Empty() {
+		if _, err := b.InitializeSetup(ctx, auth.InitializeRequest{Username: username, Password: supplied}); err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "Owner: %s\n", username)
 		return nil
 	}
 	name := filepath.Join(cfg.DataDir, "initial-password")

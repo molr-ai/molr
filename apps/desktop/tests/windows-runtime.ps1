@@ -8,11 +8,15 @@ $owned = Join-Path ([IO.Path]::GetTempPath()) ('molr-acceptance-' + [Guid]::NewG
 $name = 'molr-desktop-' + [Guid]::NewGuid().ToString('N').Substring(0, 16)
 $program = Join-Path $owned 'program'
 $installed = $false
+$fixturePassword = 'windows-fixture-password-2026'
 function Setup([string]$Action) {
   $arguments = @('desktop', $Action, '--name', $name, '--program-root', $program, '--json', '--non-interactive', '--no-browser')
   if ($Action -notin @('status', 'plan')) { $arguments += '--yes' }
   if ($Action -eq 'install') { $arguments += @('--resource-preset', 'permissive') }
-  $lines = & $setup @arguments
+  if ($Action -eq 'install' -and -not (Test-Path (Join-Path $program 'data/runtime.db'))) {
+    $arguments += @('--init-owner', 'owner')
+    $lines = $fixturePassword | & $setup @arguments
+  } else { $lines = & $setup @arguments }
   if ($LASTEXITCODE -ne 0) { throw "Installer $Action failed ($LASTEXITCODE)." }
   return (($lines | ForEach-Object { $_ | ConvertFrom-Json }) | Where-Object { $_.type -eq 'desktop' } | Select-Object -Last 1)
 }
@@ -34,7 +38,8 @@ try {
   $headers = @{ Origin = $origin }
   $csrf = Invoke-RestMethod -Uri "$origin/api/auth/csrf" -WebSession $session -Headers $headers
   $headers['X-CSRF-Token'] = $csrf.csrf_token
-  $password = (Get-Content -Raw (Join-Path $record.data_dir 'initial-password')).Trim()
+  Check (-not (Test-Path (Join-Path $record.data_dir 'initial-password'))) 'Manual installation saved a plaintext password.'
+  $password = $fixturePassword
   $body = @{ username = 'owner'; password = $password; device_name = 'Windows acceptance'; client_type = 'cli' } | ConvertTo-Json
   $auth = Invoke-RestMethod -Method Post -Uri "$origin/api/auth/login" -WebSession $session -Headers $headers -ContentType 'application/json' -Body $body
   $password = $null; $body = $null
@@ -53,7 +58,6 @@ try {
   $installed = $false
   Check (Test-Path (Join-Path $record.data_dir 'runtime.db')) 'Uninstall removed retained data.'
   Check (-not (Test-Path $record.paths.unit)) 'Uninstall retained its task definition.'
-  Remove-Item (Join-Path $record.data_dir 'initial-password')
   $again = Setup 'install'; $installed = $again.installed
   Check (-not $again.loginURL) 'Reinstallation must not reuse bootstrap credentials.'
   Check ($again.health -eq 'verification_pending') 'Reinstallation health was overstated.'

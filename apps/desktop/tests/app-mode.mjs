@@ -19,7 +19,7 @@ try {
   app = await electron.launch({ args: [join(root, 'apps/desktop'), ...(process.env.MOLR_DESKTOP_TEST_HEADLESS === '1' ? ['--ozone-platform=headless', '--ozone-override-screen-size=1920,1080'] : [])], env, chromiumSandbox: true });
   app.context().setDefaultTimeout(15000);
   const manager = await app.firstWindow();
-  await manager.getByRole('heading', { name: '连接你的 Runtime' }).waitFor();
+  await manager.getByRole('heading', { name: '连接远程服务' }).waitFor();
   await expect.poll(() => app.evaluate(({BrowserWindow}) => BrowserWindow.getAllWindows()[0].isVisible())).toBe(true);
   await expect(manager.locator('.desktop-identity .logo__wordmark')).toBeVisible();
   assert.equal(await manager.locator('.desktop-identity strong').count(), 0);
@@ -32,7 +32,7 @@ try {
   await runtime.getByRole('banner', { name: /Desktop window|桌面窗口/ }).waitFor();
   assert.equal(await runtime.evaluate(() => typeof window.molrDesktop), 'undefined');
   await runtime.evaluate(() => { document.cookie = `molr_locale_p${location.port || (location.protocol === 'https:' ? '443' : '80')}=zh; Path=/; SameSite=Lax`; }); await runtime.reload();
-  await runtime.getByRole('button', { name: '断开连接', exact: true }).waitFor();
+  await runtime.getByRole('button', { name: '切换连接', exact: true }).waitFor();
   assert.equal(await manager.locator('.desktop-toolbar').count(), 0);
   await expect(runtime.locator('.app-titlebar .logo__wordmark')).toBeVisible();
   await expect(runtime.locator('.app-frame')).toHaveAttribute('data-app-platform', process.platform);
@@ -132,8 +132,8 @@ try {
       await runtime.locator('dialog[open]').waitFor({state:'hidden'});
     }
   }
-  await runtime.getByRole('button', {name:/^(断开连接|Disconnect)$/,exact:true}).click({ noWaitAfter: true }).catch(error => { if (!runtime.isClosed()) throw error; });
-  await manager.getByRole('heading',{name:'连接你的 Runtime'}).waitFor();
+  await runtime.getByRole('button', {name:/^(切换连接|Switch connection)$/,exact:true}).click({ noWaitAfter: true }).catch(error => { if (!runtime.isClosed()) throw error; });
+  await manager.getByRole('heading',{name:'选择连接'}).waitFor();
   await manager.evaluate(async()=>window.molrDesktop.connect((await window.molrDesktop.state()).connections[0].id));
   await expect.poll(()=>manager.evaluate(async()=>(await window.molrDesktop.state()).view)).toBe('runtime');
   const reconnected=app.context().pages().find(page=>page.url().startsWith(url));
@@ -141,7 +141,7 @@ try {
   assert.equal(await reconnected.evaluate(async()=>(await fetch('/api/auth/me')).status),200,'Disconnect preserves authenticated session');
   // A transport failure during authentication must not remove App controls.
   await reconnected.route('**/api/auth/me',route=>route.abort('failed')); await reconnected.reload();
-  await reconnected.getByRole('button',{name:/^(断开连接|Disconnect)$/,exact:true}).waitFor();
+  await reconnected.getByRole('button',{name:/^(切换连接|Switch connection)$/,exact:true}).waitFor();
   await reconnected.locator('.session-page').waitFor();
   await reconnected.screenshot({path:join(screenshots,'session-error.png')});
   await app.evaluate(({webContents},url)=>webContents.getAllWebContents().find(c=>c.getURL().startsWith(url)).forcefullyCrashRenderer(),url);

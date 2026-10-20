@@ -77,19 +77,26 @@ func (e *Engine) verify(r *installrecord.Record, cfg map[string]any) (string, er
 		return "", fmt.Errorf("HTTP readiness deadline exceeded; inspect service logs")
 	}
 	client.Timeout = 20 * time.Second
-	passwordPath := filepath.Join(r.DataDir, "initial-password")
-	if err := checkPath(passwordPath); err != nil {
-		return "", err
-	}
-	secret, err := os.ReadFile(passwordPath)
-	if os.IsNotExist(err) {
-		r.Health = "verification_pending"
-		return "", nil
-	}
-	if err != nil {
-		return "", err
+	secret := bytes.Clone(e.initPassword)
+	username := e.Options.InitOwner
+	if len(secret) == 0 {
+		username = "owner"
+		passwordPath := filepath.Join(r.DataDir, "initial-password")
+		if err := checkPath(passwordPath); err != nil {
+			return "", err
+		}
+		var err error
+		secret, err = os.ReadFile(passwordPath)
+		if os.IsNotExist(err) {
+			r.Health = "verification_pending"
+			return "", nil
+		}
+		if err != nil {
+			return "", err
+		}
 	}
 	defer clear(secret)
+	var err error
 	csrf := ""
 	call := func(method, path string, input, output any) error {
 		var reader io.Reader
@@ -125,7 +132,7 @@ func (e *Engine) verify(r *installrecord.Record, cfg map[string]any) (string, er
 		return "", err
 	}
 	csrf = login.CSRF
-	if err = call("POST", "/api/auth/login", map[string]string{"username": "owner", "password": strings.TrimSpace(string(secret)), "device_name": "Molr setup", "client_type": "cli"}, &login); err != nil {
+	if err = call("POST", "/api/auth/login", map[string]string{"username": username, "password": string(secret), "device_name": "Molr setup", "client_type": "cli"}, &login); err != nil {
 		if strings.Contains(err.Error(), "HTTP 401") || strings.Contains(err.Error(), "HTTP 403") || strings.Contains(err.Error(), "HTTP 429") {
 			r.Health = "verification_pending"
 			return "", nil
@@ -176,7 +183,7 @@ func (e *Engine) verify(r *installrecord.Record, cfg map[string]any) (string, er
 	var proof struct {
 		Value string `json:"verification"`
 	}
-	if err = call("POST", "/api/auth/reauthenticate", map[string]string{"password": strings.TrimSpace(string(secret)), "purpose": "login_link.create"}, &proof); err != nil {
+	if err = call("POST", "/api/auth/reauthenticate", map[string]string{"password": string(secret), "purpose": "login_link.create"}, &proof); err != nil {
 		e.UI.print("Automatic login link unavailable; use molr access with your credentials.")
 		return "", nil
 	}

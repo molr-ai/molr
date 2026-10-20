@@ -14,7 +14,14 @@ export function LoginLinkLogin({ attempt }: { attempt: LoginLinkAttempt }) {
   useEffect(() => {
     if (attempt.invalid) return;
     let active = true;
-    void attempt.preview().then(result => { if (active) setExpires(result.expires_at); }).catch(error => { if (active) setError(error); });
+    void attempt.automatic().then(async automatic => {
+      if (automatic) {
+        if (active) { setBusy(true); setConfirmed(true); }
+      } else {
+        const result = await attempt.preview();
+        if (active) setExpires(result.expires_at);
+      }
+    }).catch(error => { if (active) setError(error); });
     return () => { active = false; };
   }, [attempt]);
   useEffect(() => {

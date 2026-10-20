@@ -215,12 +215,12 @@ func (e *Engine) apply(p *Plan) (resultErr error) {
 		if err = e.prepareSandboxSecrets(r, p.Config); err != nil {
 			return err
 		}
-	} else if e.Options.InitOwner != "" {
-		if _, err = e.Command(e.Ctx, asUser(r, runtime, "init", "-config", configPath, "-username", e.Options.InitOwner, "-password-stdin"), e.Input, nil, e.UI.Out, e.UI.Err); err != nil {
+	} else if len(e.initPassword) > 0 {
+		if _, err = e.Command(e.Ctx, asUser(r, runtime, "bootstrap", "-config", configPath, "-username", e.Options.InitOwner, "-password-stdin"), bytes.NewReader(e.initPassword), nil, e.UI.Out, e.UI.Err); err != nil {
 			return err
 		}
 	} else if os.IsNotExist(databaseErr) || p.Previous == nil || p.Previous.State == "installing" {
-		if e.Options.Config == "" {
+		if e.Options.AutoInitAdmin {
 			if _, err = e.run(asUser(r, runtime, "bootstrap", "-config", configPath), false); err != nil {
 				return err
 			}

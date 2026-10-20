@@ -80,7 +80,7 @@ func run(ctx context.Context, args []string, input io.Reader, output, diagnostic
 	logPath := flags.String("log-file", "", "write service diagnostics to a rotating private file (serve only)")
 	configPath := flags.String("config", "configs/server.example.json", "strict server configuration JSON")
 	username := flags.String("username", "owner", "initial owner username")
-	passwordStdin := flags.Bool("password-stdin", false, "read password from standard input (init/recover only)")
+	passwordStdin := flags.Bool("password-stdin", false, "read password from standard input")
 	mfaCode := flags.String("mfa-code", "", "MFA code for online access/doctor")
 	resetMFA := flags.Bool("reset-mfa", false, "disable MFA during local recovery")
 	if err := flags.Parse(args[1:]); err != nil {
@@ -143,7 +143,7 @@ func run(ctx context.Context, args []string, input io.Reader, output, diagnostic
 		return serveSandbox(ctx, cfg, *tokenPath, diagnostics)
 	}
 	var secret core.Secret
-	if command == "init" || command == "recover" {
+	if command == "init" || command == "recover" || command == "bootstrap" && *passwordStdin {
 		if !*passwordStdin {
 			return core.Invalid("password_stdin", "use -password-stdin; passwords are never command-line arguments")
 		}
@@ -175,7 +175,7 @@ func run(ctx context.Context, args []string, input io.Reader, output, diagnostic
 	defer bundle.Close()
 	switch command {
 	case "bootstrap":
-		return bootstrap(ctx, bundle, cfg, *username, output)
+		return bootstrap(ctx, bundle, cfg, *username, secret, output)
 	case "init":
 		account, err := bundle.Bootstrap.Initialize(ctx, auth.InitializeRequest{Username: *username, Password: secret})
 		if err != nil {

@@ -10,7 +10,7 @@ Full Access 可作为计算权限按需开启，同一节点保留普通隔离�
 
 ## 完整本地发行包
 
-在仓库根目录执行 `npm run build:release`，静态构建内嵌 WebUI 的 Runtime，并生成架构对应的安装包、校验文件和本地下载清单。使用 `scripts/install.sh --archive …` 安装；程序、配置、数据和缓存按实例分目录，程序目录的 `uninstall.sh` 默认保留配置和数据，`--purge` 显式清除受管理数据。支持可信局域网 HTTP、自动 bootstrap、Provider 自动发现和默认 Molr 助理。`molr version` 查看版本，`doctor -config …` 检查已认证沙盒能力，`access -config …` 生成一次性登录链接。详细参数、凭证恢复和本地官网分发见[部署指南](../docs/admin/README.md)。发行包不附带 BusyBox；安装器通过系统依赖检查和可选 apt 安装提供静态 BusyBox。MIT 与第三方声明随包发布并安装到前缀根目录。本次未接入 GitHub 发布流程。
+在仓库根目录执行 `npm run build:release`，静态构建内嵌 WebUI 的 Runtime，并生成架构对应的安装包、校验文件和本地下载清单。使用 `scripts/install.sh --archive …` 安装；程序、配置、数据和缓存按实例分目录，程序目录的 `uninstall.sh` 默认保留配置和数据，`--purge` 显式清除受管理数据。支持可信局域网 HTTP、交互设置管理员或通过 `--auto-init-admin` 自动初始化、Provider 自动发现和默认 Molr 助理。`molr version` 查看版本，`doctor -config …` 检查已认证沙盒能力，`access -config …` 生成一次性登录链接。详细参数、凭证恢复和本地官网分发见[部署指南](../docs/admin/README.md)。发行包不附带 BusyBox；安装器通过系统依赖检查和可选 apt 安装提供静态 BusyBox。MIT 与第三方声明随包发布并安装到前缀根目录。本次未接入 GitHub 发布流程。
 
 ## 构建与维护入口
 

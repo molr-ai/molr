@@ -36,13 +36,13 @@ curl -fsSL https://molr.ai/install.sh | sh -s -- --mode server
 2. 连接后确认所选模型及默认每日 USD 1 预算，可以修改。未知价格需要补充；填 0 表示明确确认免费。
 3. 点击「开始使用」，自动创建 **Molr** 助理并进入聊天。首次问候会调用所选模型并计入预算。
 
-语言和时区根据浏览器设置。安装过程中自动创建 `owner` 账号，随机初始密码保存在数据目录的 `initial-password` 文件（0600）；具体路径显示在终端。后续可以修改密码并自行删除初始密码文件。需要重新生成登录链接时，使用安装目录的程序：
+语言和时区根据浏览器设置。命令行交互安装默认要求设置管理员用户名和密码，不保存明文密码。无人值守安装可显式添加 `--auto-init-admin`，沿用自动创建 `owner` 和随机密码的方式，密码保存在数据目录的 `initial-password` 文件（0600）。也可用 `--init-owner NAME` 指定用户名并通过标准输入提供密码。需要重新生成登录链接时，使用安装目录的程序：
 
 ```bash
-/path/molr access -config /path/server.json
+/path/molr access -config /path/server.json -username YOUR_ADMIN -password-stdin
 ```
 
-未保留初始密码或已经改密时，通过 `-password-stdin` 输入当前密码；启用 MFA 后还需 `-mfa-code`。重跑安装会保留原配置、账号和数据，不重置密码或重复创建助理。
+将 `YOUR_ADMIN` 替换为安装时设置的用户名，通过标准输入提供当前密码。只有自动初始化且初始密码仍有效时可省略 `-password-stdin`，从文件读取；启用 MFA 后还需 `-mfa-code`。重跑安装会保留原配置、账号和数据，不重置密码或重复创建助理。
 
 局域网可以使用 HTTP，无需证书。HTTP 不加密密码、会话及消息，仅适用于可信网络。HTTPS 配置见[部署与维护](README.md)。系统通知等浏览器能力可能要求 HTTPS，页面内提醒仍可使用。
 

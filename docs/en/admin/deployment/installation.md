@@ -54,13 +54,17 @@ WebUI needs no separate installer. Phones currently use that same WebUI, with no
 
 The website's Desktop app option lists only stable installers. It shows “Coming soon” when no stable version has been published. Source builds and native verification commands are in the [desktop README](../../../../apps/desktop/README.md).
 
-Linux, macOS and Windows full editions include a native Runtime and can connect to remote instances. A Runtime inside WSL is added as a remote connection. Add a connection with a name and Runtime root URL, then sign in on that instance. HTTPS is the default; loopback or trusted private-network HTTP requires explicit opt-in and has no transport encryption. Connections have independent login state; changing the server origin creates a new session.
+The connection manager shows saved local and remote services as cards, followed by Add connection. An empty list opens the add flow directly. Without an installed local service, choose this computer or a remote service; otherwise, adding opens the remote form. The connection name is optional and defaults to the hostname. HTTPS is the default; loopback or private-network HTTP requires explicit opt-in. Connections keep separate login state, and changing the server origin creates a new session. Add WSL and existing CLI installations by their service address.
 
-The full edition's Install and start action creates a dedicated user service listening on loopback. Existing CLI installations remain independent and can be added as external connections. Linux retains the sandbox prerequisites below. Resolve missing dependencies, host-policy errors or directory permissions before retrying. macOS command execution follows the selected resource preset and its platform-specific sandbox boundaries.
+The connection manager defaults to the Forest palette and system display mode. After sign-in it inherits the account’s saved palette and display mode, retaining the last signed-in service’s appearance when returning to the list or restarting the app. System mode continues following OS changes; no separate desktop appearance settings are needed.
+
+Choose this computer, set an administrator username and password, review resource permissions, then install and start. The installer uses the password in memory for initialization and capability checks without creating `initial-password`. The dedicated service listens on loopback. Installation returns to the list with a This computer card; clicking Connect automatically signs in and continues model/assistant setup. If the link expired or the app restarted, sign in with the chosen credentials. Existing CLI installations remain independent and can be added as external connections. Linux retains the sandbox prerequisites below. Resolve missing dependencies, host-policy errors or directory permissions before retrying. macOS command execution follows the selected resource preset and its platform-specific sandbox boundaries.
 
 Closing windows or quitting the app leaves the Runtime running. Sleep, shutdown or termination of the user service affects tasks. Explicitly stop, restart or uninstall the Runtime in the management interface; uninstall retains configuration and data. Removing the desktop application itself does not uninstall its background Runtime, so remove the service from inside the app first when needed.
 
 Desktop upgrades currently use a manually downloaded installer, followed by an explicit upgrade of its managed Runtime. CLI/web update entry points do not update desktop-managed instances. Operators maintain remote and WSL Runtimes independently. Desktop releases require native acceptance. While certificates are pending, Windows temporarily provides unsigned test builds and macOS provides ad-hoc signed, unnotarized test builds. Developer ID-signed macOS installers may also be published as “Signed, not notarized” when the notarization wait expires. Download pages and Release notes show the status; the operating system may warn about an unknown publisher or block the first launch. If you trust the source, follow [Apple’s instructions](https://support.apple.com/en-us/102445) to allow opening in System Settings → Privacy & Security. Device management policies may restrict this action. Local builds are evaluation artifacts, not published releases.
+
+The This computer card shows an update notice when the bundled service has higher SemVer precedence. Version notices use the same non-interactive badge style as running status. Open service management from the card menu to see the current and target versions and update. A newer installed service shows a version mismatch and advises updating the desktop app, without a download shortcut or a downgrade action. Identical versions show no extra notice. Different build metadata or unrecognized version strings show a mismatch, not an available update. Comparison uses the service version actually bundled with the desktop app.
 
 ### Are Runtime and Sandbox optional?
 
@@ -259,16 +263,27 @@ Incomplete installation or damaged records produce explicit errors. Do not delet
 
 Component installation, updates and repairs are covered in [Component management](../administration/components.md).
 
+## Administrator initialization
+
+Interactive CLI installation asks for an administrator username (suggested default `owner`) and a confirmed password of at least 12 bytes. Password entry does not echo and is not saved in configuration or logs. Unattended installation can explicitly choose:
+
+- `--auto-init-admin`: create `owner` with a random password saved as `initial-password` (0600), retaining the automatic workflow.
+- `--init-owner NAME`: read a chosen password from stdin without creating a password file. Only the username goes in arguments. Download the installer script to a file before executing it, leaving stdin available for credentials.
+
+These options are mutually exclusive. A first installation without a terminal or explicit initialization option reports the missing input. Updates, retries and reinstallations with retained accounts never overwrite credentials. Standalone sandbox mode does not create administrators.
+
+The local card’s management menu contains stop, restart, update, logs and uninstall. Stopping or failure leaves the card in place; successful uninstall removes it while retaining account/configuration/data. Remote cards can be edited or removed; removal clears only the desktop connection and its local login state.
+
 ## Post-startup checks
 
 After installation, update or restart, verify the actual page and authenticated sandbox capabilities:
 
 ```bash
-~/.local/lib/molr/default/bin/molr doctor -config /path/server.json
-~/.local/lib/molr/default/bin/molr access -config /path/server.json
+~/.local/lib/molr/default/bin/molr doctor -config /path/server.json -username YOUR_ADMIN -password-stdin
+~/.local/lib/molr/default/bin/molr access -config /path/server.json -username YOUR_ADMIN -password-stdin
 ```
 
-The default credential is the data directory's initial password. After changing it, add `-password-stdin`; with MFA, add `-mfa-code`. These commands use normal authentication APIs. `access` creates a one-time login link valid for 15 minutes.
+Use the username and password chosen during installation. With automatic initialization and a still-valid initial password file, omit `-password-stdin` to read it. With MFA, also supply `-mfa-code`. These commands use normal authentication APIs. `access` creates a one-time login link valid for 15 minutes.
 
 Unless the sandbox was disabled, `/api/sandbox` must report `Enabled=true`, `Capabilities.Reason=available` and all of `Shell`, `ProcessIsolation`, `FileIsolation`, `NetworkIsolation`, `ResourceLimits` as `true`. A listening port or active service does not replace this check. See [sandbox checks](../sandbox/linux.md#checks-and-verification).
 

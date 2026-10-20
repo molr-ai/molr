@@ -42,7 +42,7 @@ Briefly explain the actual changes. Continue routine installation within existin
 Once the environment and permissions meet the requirements, execute the same script with the selected channel and inspected options:
 
 ```sh
-sh install.sh --channel stable --mode server --non-interactive --no-browser
+sh install.sh --channel stable --mode server --non-interactive --auto-init-admin --no-browser
 ```
 
 Add options according to the inspection:

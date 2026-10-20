@@ -38,7 +38,7 @@ test('created login links require confirmation, sign in once, scrub tokens, surv
   try {
     const next = await other.newPage(); const urls: string[] = []; let exchanges = 0;
     next.on('request', request => { urls.push(request.url()); if (request.url().endsWith('/api/auth/login-links/redeem')) exchanges++; });
-    await next.goto(url);
+    await next.goto(url + '&auto=1');
     await expect(next.getByRole('button', { name: 'Confirm sign-in', exact: true })).toBeVisible();
     await expect(next).toHaveURL(/#\/login$/);
     await expect(next.getByText(/This link can only be used once and is valid until/)).toBeVisible();

@@ -3,7 +3,7 @@
 :where(.ui-dialog, .ui-floating, .ui-toast, .ui-table, .ui-icon-button, .radio-group, .check-field, .ui-resource-card, .ui-task-card) { box-sizing: border-box; }
 .ui-icon-button { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 36px; min-height: 36px; padding: 0; border-radius: var(--radius-control); font: inherit; cursor: pointer; }
 :where(.ui-icon-button) { border: 0; background: transparent; color: inherit; }
-.ui-icon-button:hover { background: var(--color-neutral-bg); }
+.ui-icon-button:where(:not(.button):not(:disabled)):hover { background: var(--color-ghost-hover); }
 .ui-icon-button:disabled { opacity: 0.4; cursor: not-allowed; }
 .ui-icon-button svg { width: 18px; height: 18px; }
 .ui-icon-button[aria-pressed='true'] > svg { fill: var(--icon-selected-color, currentColor); stroke: none; }

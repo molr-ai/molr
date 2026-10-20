@@ -16,23 +16,24 @@ process.env.XDG_CONFIG_HOME = join(directory, 'config');
 process.env.XDG_DATA_HOME = join(directory, 'data');
 process.env.XDG_CACHE_HOME = join(directory, 'cache');
 const runtime = new LocalRuntime(packageRoot, join(directory, 'manager'));
+const administrator = { username: 'desktop-owner', password: 'native-fixture-password-2026' };
 let record, session;
 try {
   assert.equal((await runtime.status()).installed, false);
-  let interruptedPassword;
+
   if (process.platform === 'win32') {
     // Reproduce a failure after bootstrap and before task registration: the
     // XML destination is temporarily a directory. Retry must preserve the
     // existing owner/password and still return the initial authenticated link.
     const blockedXML = join(directory, 'manager', 'program', 'task.xml');
     mkdirSync(blockedXML, { recursive: true });
-    await assert.rejects(runtime.action('install', 'permissive'));
+    await assert.rejects(runtime.action('install', 'permissive', administrator));
     assert.equal((await runtime.status()).installed, false);
-    interruptedPassword = readFileSync(join(directory, 'manager', 'program', 'data', 'initial-password'));
+    assert(!existsSync(join(directory, 'manager', 'program', 'data', 'initial-password')));
     rmSync(blockedXML, { recursive: true });
   }
-  const installed = await runtime.action('install', 'permissive');
-  if (interruptedPassword) assert.deepEqual(readFileSync(join(directory, 'manager', 'program', 'data', 'initial-password')), interruptedPassword);
+  const installed = await runtime.action('install', 'permissive', administrator);
+
   assert.equal(installed.installed, true); assert.equal(installed.health, 'verified');
   record = JSON.parse(readFileSync(installed.record));
   assert.equal(record.manager, 'desktop'); assert.equal(record.system, false);
@@ -42,8 +43,10 @@ try {
   const { request } = await import('@playwright/test');
   session = await request.newContext({ baseURL: installed.url, extraHTTPHeaders: { Origin: installed.url } });
   const csrf = (await (await session.get('/api/auth/csrf')).json()).csrf_token;
-  const password = readFileSync(join(record.data_dir, 'initial-password'), 'utf8').trim();
-  const loginResponse = await session.post('/api/auth/login', { headers: { 'X-CSRF-Token': csrf }, data: { username: 'owner', password, device_name: 'Desktop acceptance', client_type: 'cli' } });
+  assert(!existsSync(join(record.data_dir, 'initial-password')));
+  assert(!log.includes(administrator.password));
+  const password = administrator.password;
+  const loginResponse = await session.post('/api/auth/login', { headers: { 'X-CSRF-Token': csrf }, data: { username: administrator.username, password, device_name: 'Desktop acceptance', client_type: 'cli' } });
   assert.equal(loginResponse.status(), 200);
   const auth = await loginResponse.json();
   const health = await (await session.get('/api/sandbox')).json();
@@ -77,8 +80,7 @@ try {
   assert.equal((await runtime.status()).installed, false);
   assert(existsSync(join(record.data_dir, 'runtime.db')), 'Uninstall must preserve data');
   assert(!existsSync(record.paths.unit), 'Uninstall must unregister the service');
-  if (process.platform === 'win32') {
-    rmSync(join(record.data_dir, 'initial-password'));
+  {
     const reinstalled = await runtime.action('install', 'least-privilege');
     assert.equal(reinstalled.installed, true); assert.equal(reinstalled.loginURL, undefined);
     assert.equal(reinstalled.health, 'verification_pending');

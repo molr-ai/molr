@@ -29,6 +29,7 @@
   --color-on-accent: var(--color-forest);
   --color-focus: #426d4d;
   --color-neutral-bg: #edf0e7;
+  --color-ghost-hover: color-mix(in srgb, var(--color-text) 6%, transparent);
   --color-skeleton-base: rgb(96 96 96 / 11%);
   --color-skeleton-highlight: rgb(96 96 96 / 18%);
   --color-badge-neutral: #4b5563;
@@ -72,6 +73,7 @@
   --color-contrast-dark: #17201c;
 
   /* Shared overlays and elevation. */
+  --background-entry: radial-gradient(ellipse at 15% 10%, var(--color-selected-bg), transparent 65%) var(--color-page-background);
   --color-overlay: #0a1610a3;
   --color-shadow: #263b31;
   --shadow-workspace: 0 2px 8px color-mix(in srgb, var(--color-shadow) 6%, transparent);
@@ -146,6 +148,7 @@
   --color-on-primary: var(--color-forest);
   --color-focus: var(--color-lime);
   --color-neutral-bg: #28392e;
+  --color-ghost-hover: color-mix(in srgb, var(--color-text) 10%, transparent);
   --color-skeleton-base: rgb(160 160 160 / 20%);
   --color-skeleton-highlight: rgb(160 160 160 / 28%);
   --color-badge-neutral: #d1d5db;
@@ -162,6 +165,7 @@
   --color-switch-thumb: var(--color-forest);
   --color-text-accent: var(--color-lime);
   --color-selected-bg: #304128;
+  --background-entry: radial-gradient(ellipse at 100% 100%, var(--color-surface), transparent 65%) var(--color-page-background);
   --shadow-workspace: 0 2px 8px #0000001f;
   --shadow-popover: 0 16px 40px #00000040, 0 2px 8px #00000026;
 }
