@@ -40,7 +40,12 @@ func TestSeatbeltNativeBrowser(t *testing.T) {
 		return nil
 	})
 	r.options.Helper = helper
+	slowStarted := make(chan struct{})
 	page := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Path == "/slow" {
+			close(slowStarted)
+			time.Sleep(3 * time.Second)
+		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		fmt.Fprint(w, `<!doctype html><title>Molr browser</title><input id="name"><button onclick="document.querySelector('#out').textContent=document.querySelector('#name').value;localStorage.setItem('value',document.querySelector('#name').value);document.cookie='saved=yes; path=/'">Save</button><div id="out"></div>`)
 	}))
@@ -79,6 +84,34 @@ func TestSeatbeltNativeBrowser(t *testing.T) {
 	t.Cleanup(cl.CloseIdleConnections)
 	if initial := call(cl, browser.Action{Action: "get_url"}); !bytes.Contains(initial.Data, []byte("about:blank")) {
 		t.Fatalf("unexpected startup page: %s", initial.Data)
+	}
+	navigation := make(chan error, 1)
+	go func() {
+		payload, _ := json.Marshal(browser.Action{Action: "navigate", URL: page.URL + "/slow"})
+		res, err := cl.Post("http://browser.internal/action", "application/json", bytes.NewReader(payload))
+		if err == nil {
+			defer res.Body.Close()
+			var result browser.Result
+			err = json.NewDecoder(res.Body).Decode(&result)
+			if err == nil && !result.OK {
+				err = fmt.Errorf("slow navigation: %s", result.Error)
+			}
+		}
+		navigation <- err
+	}()
+	select {
+	case <-slowStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("slow page not requested")
+	}
+	// Polling is allowed to return 503, but must not close the browser while
+	// its accepted navigation is still running in the daemon.
+	if res, err := cl.Get("http://browser.internal/tabs"); err == nil {
+		io.Copy(io.Discard, res.Body)
+		res.Body.Close()
+	}
+	if err := <-navigation; err != nil {
+		t.Fatal(err)
 	}
 	call(cl, browser.Action{Action: "navigate", URL: page.URL})
 	call(cl, browser.Action{Action: "fill", Selector: "#name", Text: "中文输入与持久化"})

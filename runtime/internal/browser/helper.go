@@ -95,6 +95,11 @@ func HelperMain() int {
 		// A transport failure leaves the outcome unknown. Terminate the execution;
 		// never acknowledge handoff while a daemon operation might still be running.
 		if err != nil {
+			// Tab polling can time out behind a navigation. It has no effects
+			// to settle and must not terminate an otherwise healthy browser.
+			if command["action"] == "tab_list" {
+				return Result{Error: "tabs unavailable"}
+			}
 			fmt.Fprintln(os.Stderr, redact(err.Error()))
 			os.Exit(125)
 		}

@@ -417,7 +417,10 @@ func (r *Runner) startBrowser(parent context.Context, e core.Execution, c platfo
 		}
 		result, err := browser.Command(call, socket, daemon.pid, command)
 		if err != nil {
-			cancel()
+			// A best-effort tab poll may wait behind an accepted navigation.
+			if command["action"] != "tab_list" {
+				cancel()
+			}
 			return browser.Result{Error: "browser transport failed"}
 		}
 		if proxy.Authentication {
