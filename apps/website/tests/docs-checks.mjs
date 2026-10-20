@@ -3,14 +3,15 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect } from '@playwright/test';
 import { allDocRoutes } from '../src/docs-routes.ts';
+import { documentReadyTimeout, withBrowserDiagnostics } from './browser-support.mjs';
 
-export async function checkDocs({ browser, url, outDir, screenshots }) {
+export async function checkDocs({ browser, url, outDir, screenshots, signal }) {
   const pages = await Promise.all(allDocRoutes.map(async route => {
     const source = await readFile(new URL(`../../../${route.root}/${route.file}`, import.meta.url), 'utf8');
     return [route.path, /^# (.+)$/m.exec(source)[1], route.locale];
   }));
   const context = await browser.newContext({ locale: 'zh-CN', colorScheme: 'light', viewport: { width: 1440, height: 1000 } });
-  try {
+  await withBrowserDiagnostics(context, 'documentation', async () => {
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
@@ -103,7 +104,7 @@ export async function checkDocs({ browser, url, outDir, screenshots }) {
     await page.getByRole('button', { name: '切换浅色模式', exact: true }).click();
     await page.screenshot({ path: join(screenshots, 'docs-overview-desktop.png'), fullPage: true });
     assert.deepEqual(errors, []);
-  } finally { await context.close(); }
+  }, signal);
 }
 
 async function checkClientNavigation(page, url) {
@@ -183,12 +184,18 @@ async function checkClientNavigation(page, url) {
     assert.equal(documentRequests, 0, 'Internal navigation must not request another HTML document');
 
     // Modified clicks retain native new-tab behavior.
-    const popupPromise = page.context().waitForEvent('page');
-    await page.getByRole('navigation', { name: '文档目录' }).getByRole('link', { name: '用户文档概览', exact: true }).click({ modifiers: ['ControlOrMeta'] });
-    const popup = await popupPromise;
-    await popup.waitForLoadState();
-    await expect(popup.getByRole('heading', { level: 1 })).toHaveText('Molr 使用指南');
+    const [popup] = await Promise.all([
+      // Native modifier-click tabs may have no opener and no page-level popup event.
+      page.context().waitForEvent('page', { timeout: documentReadyTimeout }),
+      page.getByRole('navigation', { name: '文档目录' }).getByRole('link', { name: '用户文档概览', exact: true }).click({ modifiers: ['ControlOrMeta'], timeout: documentReadyTimeout }),
+    ]);
+    // Reading happens after switching to the native tab. A load event alone
+    // does not wait for React's lazy document bundle to render.
+    await popup.bringToFront();
+    await expect(popup).toHaveURL(`${url}/zh/docs/user/`, { timeout: documentReadyTimeout });
+    await expect(popup.getByRole('heading', { level: 1 })).toHaveText('Molr 使用指南', { timeout: documentReadyTimeout });
     await popup.close();
+    await page.bringToFront();
     await expect(page).toHaveURL(`${url}/zh/docs/user/getting-started/`);
   } finally { page.off('request', countDocumentRequests); }
 }

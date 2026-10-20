@@ -102,8 +102,8 @@ for (const [mode, copy] of Object.entries(headings)) {
         }
 
         if (mode === 'live') {
-          await t.test('documentation routes, source links, search, anchors and responsive reading', { timeout: 300_000 }, async () => {
-            await checkDocs({ browser, url, outDir, screenshots });
+          await t.test('documentation routes, source links, search, anchors and responsive reading', { timeout: 300_000 }, async t => {
+            await checkDocs({ browser, url, outDir, screenshots, signal: t.signal });
           });
           await t.test('documentation search details and prompt copying', { timeout: 60_000 }, async () => {
             await checkDocsFeatures({ browser, url });

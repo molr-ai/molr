@@ -89,6 +89,10 @@ Vite 的 `publicDir` 指向共享 UI 包的 `public/`。`/theme-init.js` 在首�
 
 测试分别构建三种模式，在监听 `0.0.0.0` 的临时预览服务上检查中英文、桌面与手机、深浅色、元信息和无 JavaScript 兜底，并验证状态页的十种语言轮播、后台暂停与减少动态效果，以及主页场景切换、语言／主题刷新持久化、存储不可用、占位入口、安装锚点、设备检测、两种安装方式切换及复制结果。构建产物使用临时目录，测试结束后清理；截图保存在忽略提交的 `apps/website/test-results/site-modes/`。
 
+测试文件串行执行，避免多个 Vite 实例争抢 CI 资源。普通 DOM 断言保持 Playwright 的 5 秒上限；首次客户端文档跳转及原生新标签页使用 `tests/browser-support.mjs` 中的 30 秒文档就绪预算，等待实际标题而非仅等待 URL 或 `load` 事件。桌面下载场景包含冷启动和七次页面加载，总预算为 120 秒。出现超时时先确认失败层级和等待条件，再调整对应预算。
+
+文档导航和桌面下载测试失败或触及总期限时，在 `test-results/documentation/` 或 `test-results/desktop-releases/` 保存错误、页面地址、网络／页面异常、截图及 `trace.zip`；成功时丢弃 trace。GitHub CI 将失败资料保留七天，可下载后运行 `npx playwright show-trace <trace.zip>` 排查。诊断上下文只使用人工测试资料，不连接真实账号。
+
 ## 产品文档
 
 `live` 模式提供 `/zh/docs/` 与 `/en/docs/` 总入口，以及各语言下的 `user/`、`admin/`、`dev/` 三类指南。构建只读取 `../../docs-routes.json` 登记的 `docs/` Markdown，无需复制正文。清单通过 `section` 区分指南，并维护阅读顺序、分组、URL 及中英文标题。中文正文位于 `docs/{user,admin,dev}/`，英文在 `docs/en/` 下镜像相同结构；两种语言都必须有正文。URL 中的语言优先于保存偏好和浏览器语言，切换语言使用 History API 跳转到同篇文档，并按对应章节保留定位，支持刷新和前进／后退。没有语言前缀的入口按偏好补全路径。顶部菜单可切换指南；侧栏、搜索和前后篇限定于当前指南及语言，正文可显式链接其他指南。明暗偏好与官网共享。

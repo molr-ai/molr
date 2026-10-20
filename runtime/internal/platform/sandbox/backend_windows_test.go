@@ -16,6 +16,11 @@ import (
 	"time"
 )
 
+// Functional checks include cold PowerShell/AppContainer startup on CI.
+// These assertions verify file access and authorization, not startup latency.
+const windowsCommandTestTimeout = 30 * time.Second
+const windowsBackendTestTimeout = 2 * time.Minute
+
 func windowsTestDirectory(t *testing.T) string {
 	t.Helper()
 	// Windows TEMP may use an 8.3 alias; fixtures need the canonical path
@@ -45,7 +50,7 @@ func TestWindowsNativeBackend(t *testing.T) {
 		return nil
 	}})
 	defer r.Close()
-	ctx, cancel := context.WithTimeout(t.Context(), 45*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), windowsBackendTestTimeout)
 	defer cancel()
 	lease, err := acquireContainerLease()
 	if err != nil {
@@ -70,7 +75,7 @@ func TestWindowsNativeBackend(t *testing.T) {
 	if err = os.WriteFile(filepath.Join(existingWork, "existing.txt"), []byte("existing"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	command := platform.Command{Script: `$ErrorActionPreference='Stop'; Set-Content -LiteralPath 'relative.txt' -Value 'relative-ok' -NoNewline; if($env:MOLR_TEST_HOST_SECRET){exit 20}; [IO.File]::Move((Join-Path $env:MOLR_WORKSPACE 'existing.txt'),(Join-Path $env:MOLR_WORKSPACE 'renamed.txt')); [IO.File]::Delete((Join-Path $env:MOLR_WORKSPACE 'renamed.txt')); [IO.File]::WriteAllText((Join-Path $env:MOLR_WORKSPACE 'output.txt'),'中文'); Write-Output '中文'; exit 0`, Directory: "/work", MaxOutputBytes: 4096, Timeout: 10 * time.Second, RequireIsolation: true}
+	command := platform.Command{Script: `$ErrorActionPreference='Stop'; Set-Content -LiteralPath 'relative.txt' -Value 'relative-ok' -NoNewline; if($env:MOLR_TEST_HOST_SECRET){exit 20}; [IO.File]::Move((Join-Path $env:MOLR_WORKSPACE 'existing.txt'),(Join-Path $env:MOLR_WORKSPACE 'renamed.txt')); [IO.File]::Delete((Join-Path $env:MOLR_WORKSPACE 'renamed.txt')); [IO.File]::WriteAllText((Join-Path $env:MOLR_WORKSPACE 'output.txt'),'中文'); Write-Output '中文'; exit 0`, Directory: "/work", MaxOutputBytes: 4096, Timeout: windowsCommandTestTimeout, RequireIsolation: true}
 	proc, err := r.Start(ctx, e, command)
 	if err != nil {
 		t.Fatal(err)
@@ -94,13 +99,16 @@ func TestWindowsNativeBackend(t *testing.T) {
 	e.OperationID = "revoke"
 	work := platform.AssistantWorkspace(private, "", e.Principal.OwnerID, e.AssistantID)
 	marker := filepath.Join(work, "child.pid")
+	// Leave time to observe startup and revoke authorization before the command
+	// deadline; a timeout must not substitute for killing the revoked process.
+	command.Timeout = 2 * windowsCommandTestTimeout
 	command.Script = `$ErrorActionPreference='Stop'; $child=Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe') -ArgumentList '-NoLogo -NoProfile -NonInteractive -Command Start-Sleep -Seconds 120' -PassThru -NoNewWindow; [IO.File]::WriteAllText((Join-Path $env:MOLR_WORKSPACE 'child.pid.tmp'),[string]$child.Id); [IO.File]::Move((Join-Path $env:MOLR_WORKSPACE 'child.pid.tmp'),(Join-Path $env:MOLR_WORKSPACE 'child.pid')); Start-Sleep -Seconds 120`
 	proc, err = r.Start(ctx, e, command)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var child windows.Handle
-	deadline := time.Now().Add(10 * time.Second)
+	deadline := time.Now().Add(windowsCommandTestTimeout)
 	for time.Now().Before(deadline) {
 		if raw, err := os.ReadFile(marker); err == nil {
 			pid, err := strconv.Atoi(strings.TrimSpace(string(raw)))
@@ -136,7 +144,7 @@ func TestWindowsNativeBackend(t *testing.T) {
 	}
 	revoked.Store(false)
 	e.OperationID = "direct"
-	command = platform.Command{FullAccess: true, Script: `Write-Output 'full-access'`, MaxOutputBytes: 4096, Timeout: 10 * time.Second}
+	command = platform.Command{FullAccess: true, Script: `Write-Output 'full-access'`, MaxOutputBytes: 4096, Timeout: windowsCommandTestTimeout}
 	proc, err = r.Start(ctx, e, command)
 	if err != nil {
 		t.Fatal(err)
@@ -237,7 +245,7 @@ func TestWindowsRemoteDirectoryAliases(t *testing.T) {
 	}
 	r := New(Options{NoWorkspace: true, PrivateRoot: private, Helper: helper, Authorize: func(context.Context, core.Execution, platform.Command) error { return nil }})
 	defer r.Close()
-	ctx, cancel := context.WithTimeout(t.Context(), 45*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), windowsBackendTestTimeout)
 	defer cancel()
 	if err := r.Prepare(ctx); err != nil {
 		t.Fatal(err)
@@ -245,7 +253,7 @@ func TestWindowsRemoteDirectoryAliases(t *testing.T) {
 	for index, directory := range []string{"/tmp", "/resources/input"} {
 		e := testExecution()
 		e.OperationID = core.ID("remote-" + strconv.Itoa(index))
-		c := platform.Command{Script: `$ErrorActionPreference='Stop'; if($env:MOLR_WORKSPACE){exit 10}; [IO.File]::WriteAllText((Join-Path (Get-Location).ProviderPath 'result.txt'),'ok'); exit 0`, Directory: directory, Timeout: 10 * time.Second, MaxOutputBytes: 4096, RequireIsolation: true, Mounts: []platform.Mount{{Source: resource, Destination: "/resources/input"}}}
+		c := platform.Command{Script: `$ErrorActionPreference='Stop'; if($env:MOLR_WORKSPACE){exit 10}; [IO.File]::WriteAllText((Join-Path (Get-Location).ProviderPath 'result.txt'),'ok'); exit 0`, Directory: directory, Timeout: windowsCommandTestTimeout, MaxOutputBytes: 4096, RequireIsolation: true, Mounts: []platform.Mount{{Source: resource, Destination: "/resources/input"}}}
 		proc, err := r.Start(ctx, e, c)
 		if err != nil {
 			t.Fatal(err)

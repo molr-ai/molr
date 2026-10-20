@@ -4,6 +4,7 @@ import { chromium, expect } from '@playwright/test';
 import { createServer } from 'vite';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { documentReadyTimeout } from './browser-support.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const repository = resolve(root, '../..');
@@ -72,7 +73,7 @@ test('agent installation instructions work across modes, locales, catalog failur
     // The first docs visit loads and transforms the lazy module in the dev server.
     // React keeps the homepage visible during that transition; URL changes alone
     // do not mean the document is ready, especially on slower CI runners.
-    await expect(page.getByRole('heading', { level: 1, name: '让 Agent 为我安装', exact: true })).toBeVisible({ timeout: 30000 });
+    await expect(page.getByRole('heading', { level: 1, name: '让 Agent 为我安装', exact: true })).toBeVisible({ timeout: documentReadyTimeout });
     await page.goto(url);
     failure = true;
     await page.reload();

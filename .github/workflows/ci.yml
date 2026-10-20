@@ -92,6 +92,14 @@ jobs:
         env:
           PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: '120000'
       - run: npm run test:website
+      - name: Upload website failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: website-failure-${{ matrix.runner }}
+          path: apps/website/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
   installer:
     needs: [prepare, native]
     uses: ./.github/workflows/installer-acceptance.yml
