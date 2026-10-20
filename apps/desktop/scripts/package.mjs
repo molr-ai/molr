@@ -61,7 +61,7 @@ const config = {
   artifactName: `molr-desktop_${version}_${os}-${goArch}_${variant}.\${ext}`,
   linux: { target: ['deb'], executableName: 'molr-desktop', category: 'Utility', maintainer: 'Molr contributors', syncDesktopName: true, icon: join(root, 'packages/ui/public/brand/molr-icon-512.png') },
   deb: { packageName: 'molr-desktop', depends: ['libgtk-3-0', 'libnotify4', 'libnss3', 'libxss1', 'libxtst6', 'xdg-utils', 'libatspi2.0-0', 'libuuid1', 'libsecret-1-0', 'libgbm1', 'libasound2t64 | libasound2', 'libcups2t64 | libcups2', 'bubblewrap', 'busybox-static', 'util-linux', 'ca-certificates', 'systemd (>= 254)'] },
-  mac: { target: ['dmg'], category: 'public.app-category.productivity', minimumSystemVersion: '13.0', hardenedRuntime: signed, notarize: false, binaries: ['Contents/Resources/runtime/bin/molr', 'Contents/Resources/runtime/bin/molr-setup'], identity: signed ? undefined : '-', icon: join(root, 'packages/ui/public/brand/molr-icon-1024.png') },
+  mac: { extendInfo: { CFBundleLocalizations: ['en', 'zh_CN', 'zh_TW'] }, target: ['dmg'], category: 'public.app-category.productivity', minimumSystemVersion: '13.0', hardenedRuntime: signed, notarize: false, binaries: ['Contents/Resources/runtime/bin/molr', 'Contents/Resources/runtime/bin/molr-setup'], identity: signed ? undefined : '-', icon: join(root, 'packages/ui/public/brand/molr-icon-1024.png') },
   dmg: { sign: signed },
   win: { target: ['nsis'], executableName: 'Molr', signExecutable: signed, icon: join(root, 'packages/ui/public/brand/molr-icon-256.png') },
   nsis: { oneClick: false, perMachine: false, allowToChangeInstallationDirectory: true, deleteAppDataOnUninstall: false },

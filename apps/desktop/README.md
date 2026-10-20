@@ -35,6 +35,12 @@ Both titlebars stay 48 CSS px high in windowed and fullscreen modes. On macOS, t
 
 Disconnect returns to the connection list without clearing authentication or stopping Runtime tasks; unfinished downloads from the closing view are cancelled. Failed navigation, renderer crashes and handshake timeout return to the bundled recovery screen. Ctrl/Cmd+Shift+M returns to connection management and Ctrl/Cmd+R reconnects. Windows/Linux have no application menu bar; Ctrl+plus/minus/0 controls zoom and F11 toggles full screen. macOS retains its system application menu. Native Windows Snap Layout hover and platform-specific window-manager behavior require native acceptance.
 
+## Language
+
+macOS packages declare English and Chinese localizations so Electron and its WebUI receive the selected system language. Native menu labels use that language, with English as the fallback; the application name is Molr. First-time WebUI setup saves the detected language and device timezone to the account. Later changes use the existing account settings (Chinese or English and an explicit timezone).
+
+To verify a packaged macOS app with a fresh profile and a new managed Runtime, run `MOLR_LANGUAGE_APP=/absolute/path/to/Molr.app/Contents/MacOS/Molr node apps/desktop/tests/language.mjs`. The test uses a synthetic model, submits the actual setup screen, checks saved preferences and removes its own service afterward. `MOLR_LANGUAGE_SYSTEM=en-US` or `fr-FR` tests a process-only system-language override; global macOS preferences are unchanged.
+
 ## Notifications
 
 The existing WebUI desktop-notification switch initializes the native OS channel through `molrApp.notifications`. There is no extra per-Runtime permission dialog. Browser notification permission is not used in App mode. On macOS, initialization can trigger system authorization; it runs on user activation, not page load. Channel support is not reported as OS permission. The operating system remembers its authorization decision, while WebUI keeps preferences in the connection partition per account.

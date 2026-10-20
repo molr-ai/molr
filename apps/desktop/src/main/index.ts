@@ -1,3 +1,4 @@
+import { applicationMenu } from './menu.js';
 import { app, BrowserWindow, WebContentsView, ipcMain, session, protocol, net, dialog, shell, Menu, powerMonitor, Notification } from 'electron';
 import type { IpcMainInvokeEvent, Session, WebContents } from 'electron';
 import { join, resolve, relative, sep, basename } from 'node:path';
@@ -343,11 +344,10 @@ async function main() {
     handle('logs', async () => { if (local && existsSync(local.logFile)) shell.showItemInFolder(local.logFile); });
   }
   handle('downloads', () => shell.openExternal('https://molr.ai/'));
-  Menu.setApplicationMenu(process.platform === 'darwin' ? Menu.buildFromTemplate([
-    ...(process.platform === 'darwin' ? [{ role: 'appMenu' as const }] : []),
-    { label: '连接', submenu: [{ label: '管理连接', accelerator: 'CmdOrCtrl+Shift+M', click: manager }, { label: '重新连接', accelerator: 'CmdOrCtrl+R', click: () => { if (active) void connect(active); } }, { type: 'separator' }, { role: 'quit', label: '退出桌面应用（Runtime 继续运行）' }] },
-    { role: 'editMenu' }, { role: 'viewMenu', submenu: [{ role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { role: 'togglefullscreen' }] },
-  ]) : null);
+  Menu.setApplicationMenu(process.platform === 'darwin' ? Menu.buildFromTemplate(applicationMenu(
+    app.getLocale().toLowerCase().startsWith('zh') ? 'zh' : 'en',
+    { manager, reconnect: () => { if (active) void connect(active); } },
+  )) : null);
   await createWindow();
   powerMonitor.on('resume', () => { void refreshLocal(); });
 }
