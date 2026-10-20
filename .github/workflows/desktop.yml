@@ -62,17 +62,9 @@ jobs:
           go -C runtime test ./internal/platform/sandbox ./internal/textfiles ./internal/installationwindows ./internal/config ./internal/platform ./internal/persistence/sqlitestore -run "TestWindows|TestControlledReady|TestNativeSandbox" -count=1
       - name: Native desktop Runtime lifecycle
         run: node apps/desktop/tests/local-runtime.mjs
-      - if: runner.os != 'macOS'
-        run: npm run package:desktop
+      - run: npm run package:desktop
         env:
           # Match the empty values produced by missing release-environment secrets.
-          CSC_LINK: ''
-          CSC_KEY_PASSWORD: ''
-      - if: runner.os == 'macOS'
-        run: |
-          npm run package:desktop -- --defer-notarization
-          node apps/desktop/scripts/notarization.mjs dist/desktop/darwin-${{ runner.arch == 'ARM64' && 'arm64' || 'amd64' }}
-        env:
           CSC_LINK: ''
           CSC_KEY_PASSWORD: ''
       - uses: actions/upload-artifact@v4

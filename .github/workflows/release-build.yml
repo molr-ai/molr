@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.release.outputs.version }}
+      channel: ${{ steps.release.outputs.channel }}
       commit: ${{ steps.release.outputs.commit }}
       matrix: ${{ steps.release.outputs.matrix }}
       existing: ${{ steps.release.outputs.existing }}
@@ -104,6 +105,7 @@ jobs:
     with:
       ref: ${{ needs.prepare.outputs.commit }}
       version: ${{ needs.prepare.outputs.version }}
+      channel: ${{ needs.prepare.outputs.channel }}
     secrets: inherit
   publish:
     needs: [prepare, build, installer-acceptance, desktop]

@@ -1,10 +1,10 @@
 import { build, Platform } from 'electron-builder';
 import { execFileSync } from 'node:child_process';
-import { readFileSync, existsSync, mkdirSync, readdirSync, writeFileSync, lstatSync } from 'node:fs';
+import { readFileSync, existsSync, mkdirSync, readdirSync, lstatSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { desktopSigning } from './signing.mjs';
-import { prepareNotarization, finishNotarization } from './notarization.mjs';
+import { prepareNotarization, finishNotarization, writeManifest } from './notarization.mjs';
 
 const root = resolve(import.meta.dirname, '../../..');
 const project = join(root, 'apps/desktop');
@@ -33,7 +33,7 @@ const packageRoot = resolve(root, process.env.MOLR_DESKTOP_RUNTIME_PACKAGE || `.
     if (!stat.isFile() || (os !== 'win32' && name.startsWith('bin/') && (stat.mode & 0o777) !== 0o755)) throw new Error(`Unsafe Runtime resource: ${name}`);
   }
 }
-const signed = desktopSigning(os, local);
+const signed = desktopSigning(os, version);
 if (!signed && os !== 'linux') console.log(os === 'darwin' ? 'Packaging without Developer ID or notarization (ad-hoc signing).' : 'Packaging without Windows code signing.');
 const output = join(root, 'dist/desktop', `${os}-${goArch}`);
 mkdirSync(output, { recursive: true });
@@ -62,7 +62,7 @@ const config = {
   deb: { packageName: 'molr-desktop', depends: ['libgtk-3-0', 'libnotify4', 'libnss3', 'libxss1', 'libxtst6', 'xdg-utils', 'libatspi2.0-0', 'libuuid1', 'libsecret-1-0', 'libgbm1', 'libasound2t64 | libasound2', 'libcups2t64 | libcups2', 'bubblewrap', 'busybox-static', 'util-linux', 'ca-certificates', 'systemd (>= 254)'] },
   mac: { target: ['dmg'], category: 'public.app-category.productivity', minimumSystemVersion: '13.0', hardenedRuntime: signed, notarize: false, binaries: ['Contents/Resources/runtime/bin/molr', 'Contents/Resources/runtime/bin/molr-setup'], identity: signed ? undefined : '-', icon: join(root, 'packages/ui/public/brand/molr-icon-1024.png') },
   dmg: { sign: signed },
-  win: { target: ['nsis'], executableName: 'Molr', icon: join(root, 'packages/ui/public/brand/molr-icon-256.png') },
+  win: { target: ['nsis'], executableName: 'Molr', signExecutable: signed, icon: join(root, 'packages/ui/public/brand/molr-icon-256.png') },
   nsis: { oneClick: false, perMachine: false, allowToChangeInstallationDirectory: true, deleteAppDataOnUninstall: false },
 };
 const nativePlatform = ({ linux: Platform.LINUX, darwin: Platform.MAC, win32: Platform.WINDOWS })[os];
@@ -71,13 +71,12 @@ const artifacts = [];
 for (const file of files.filter(file => /\.(deb|dmg|exe)$/.test(file))) {
   const name = file.split(/[\\/]/).pop();
   const sha256 = createHash('sha256').update(readFileSync(file)).digest('hex');
-  if (os !== 'darwin') writeFileSync(`${file}.sha256`, `${sha256}  ${name}\n`);
   artifacts.push({ file: name, sha256 });
 }
 const manifest = { schema: 1, version, commit, os, arch: goArch, variant, signed, notarized: false, artifacts };
-if (os === 'darwin' && !process.argv.includes('--dir')) {
+if (os === 'darwin' && signed && !process.argv.includes('--dir')) {
   prepareNotarization(output, manifest);
   if (!deferNotarization) await finishNotarization(output, manifest);
 }
-else writeFileSync(join(output, 'desktop-manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
+else writeManifest(output, manifest);
 console.log(`Desktop artifacts: ${output} (${readdirSync(output).length} entries)`);

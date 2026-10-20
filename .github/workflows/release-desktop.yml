@@ -8,6 +8,9 @@ on:
       version:
         required: true
         type: string
+      channel:
+        required: true
+        type: string
 permissions:
   contents: read
 # setup-go, tests and packaging must use the same worktree-local caches.
@@ -62,13 +65,16 @@ jobs:
           go -C runtime test ./internal/platform/sandbox ./internal/textfiles ./internal/installationwindows ./internal/config ./internal/platform ./internal/persistence/sqlitestore -run "TestWindows|TestControlledReady|TestNativeSandbox" -count=1
       - name: Native desktop Runtime lifecycle
         run: node apps/desktop/tests/local-runtime.mjs
-      - if: runner.os != 'macOS'
-        name: Package desktop (sign when credentials are configured)
+      - if: runner.os == 'Linux' || (runner.os == 'macOS' && inputs.channel == 'nightly')
+        name: Package desktop without publisher signing or notarization
+        run: npm run package:desktop
+      - if: runner.os == 'Windows'
+        name: Package and sign Windows desktop
         run: npm run package:desktop
         env:
-          CSC_LINK: ${{ runner.os == 'Windows' && secrets.WIN_CSC_LINK || '' }}
-          CSC_KEY_PASSWORD: ${{ runner.os == 'Windows' && secrets.WIN_CSC_KEY_PASSWORD || '' }}
-      - if: runner.os == 'macOS'
+          CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+      - if: runner.os == 'macOS' && inputs.channel != 'nightly'
         name: Sign DMG and submit notarization without waiting
         run: node apps/desktop/scripts/package.mjs --defer-notarization
         env:
@@ -77,7 +83,7 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      - if: runner.os == 'macOS'
+      - if: runner.os == 'macOS' && inputs.channel != 'nightly'
         uses: actions/upload-artifact@v4
         with:
           name: desktop-notarization-${{ runner.arch }}
@@ -86,7 +92,7 @@ jobs:
             dist/desktop/darwin-${{ runner.arch == 'ARM64' && 'arm64' || 'amd64' }}/notarization.json
           if-no-files-found: error
           retention-days: 14
-      - if: runner.os != 'macOS'
+      - if: runner.os != 'macOS' || inputs.channel == 'nightly'
         uses: actions/upload-artifact@v4
         with:
           name: desktop-release-${{ runner.os }}-${{ runner.arch }}
@@ -100,6 +106,7 @@ jobs:
           retention-days: 14
   notarize:
     needs: desktop
+    if: inputs.channel != 'nightly'
     environment: release
     strategy:
       fail-fast: false
@@ -124,10 +131,10 @@ jobs:
         with:
           name: desktop-notarization-${{ runner.arch }}
           path: dist/notarization
-      - name: Complete notarization or release the pending DMG after timeout
+      - name: Complete notarization (prereleases allow pending timeout)
         run: node apps/desktop/scripts/notarization.mjs dist/notarization
         env:
-          MOLR_NOTARIZATION_POLICY: ${{ vars.MAC_NOTARIZATION_POLICY || 'optional' }}
+          MOLR_NOTARIZATION_POLICY: ${{ inputs.channel == 'preview' && 'optional' || 'required' }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}

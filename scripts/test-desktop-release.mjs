@@ -10,21 +10,39 @@ import { publishedDesktopCatalog, writeCatalog } from './release-catalog.mjs';
 import { readCatalog } from './check-release-catalog.mjs';
 import { desktopSigning } from '../apps/desktop/scripts/signing.mjs';
 
-test('desktop signing allows absent credentials but rejects partial configuration', () => {
-  for (const os of ['darwin', 'win32']) assert.equal(desktopSigning(os, false, {}), false);
-  for (const local of [true, false]) {
-    const empty = { CSC_LINK: '', CSC_KEY_PASSWORD: '', APPLE_ID: '', APPLE_APP_SPECIFIC_PASSWORD: '', APPLE_TEAM_ID: '' };
-    assert.equal(desktopSigning('darwin', local, empty), false);
-    assert.equal(empty.CSC_LINK, undefined, 'electron-builder must not receive an empty certificate path');
-    assert.equal(empty.CSC_KEY_PASSWORD, undefined);
-  }
+test('stable, beta and rc desktop builds and Windows nightlies require publisher signing credentials', () => {
   const mac = { CSC_LINK: 'fixture', APPLE_ID: 'fixture', APPLE_APP_SPECIFIC_PASSWORD: 'fixture', APPLE_TEAM_ID: 'fixture' };
-  assert.equal(desktopSigning('darwin', false, mac), true);
-  for (const key of Object.keys(mac)) { const partial = { ...mac }; delete partial[key]; assert.throws(() => desktopSigning('darwin', false, partial), /Incomplete/); }
-  assert.equal(desktopSigning('win32', false, { CSC_LINK: 'fixture' }), true);
-  assert.throws(() => desktopSigning('win32', false, { CSC_KEY_PASSWORD: 'fixture' }), /Incomplete/);
-  assert.equal(desktopSigning('darwin', true, mac), false);
-  assert.equal(desktopSigning('linux', false, mac), false);
+  for (const version of ['0.2.0', '0.2.0-beta.1', '0.2.0-rc.1']) {
+    for (const os of ['darwin', 'win32']) {
+      assert.throws(() => desktopSigning(os, version, {}), /Incomplete/);
+      const empty = { CSC_LINK: '', CSC_KEY_PASSWORD: '' };
+      assert.throws(() => desktopSigning(os, version, empty), /Incomplete/);
+      assert.equal(empty.CSC_LINK, undefined);
+      assert.equal(empty.CSC_KEY_PASSWORD, undefined);
+    }
+    assert.equal(desktopSigning('darwin', version, { ...mac }), true);
+    for (const key of Object.keys(mac)) { const partial = { ...mac }; delete partial[key]; assert.throws(() => desktopSigning('darwin', version, partial), /Incomplete/); }
+    assert.equal(desktopSigning('win32', version, { CSC_LINK: 'fixture' }), true);
+    assert.throws(() => desktopSigning('win32', version, { CSC_KEY_PASSWORD: 'fixture' }), /Incomplete/);
+  }
+  const nightly = '0.2.0-0.nightly.20261020.0.gaaaaaaa';
+  assert.equal(desktopSigning('win32', nightly, { CSC_LINK: 'fixture' }), true);
+  assert.throws(() => desktopSigning('win32', nightly, {}), /Incomplete/);
+  assert.throws(() => desktopSigning('win32', nightly, { CSC_KEY_PASSWORD: 'fixture' }), /Incomplete/);
+});
+
+test('macOS nightlies, local and Linux packaging disable certificate inputs even when credentials are present', () => {
+  const certificates = { CSC_LINK: 'fixture', CSC_KEY_PASSWORD: 'fixture', WIN_CSC_LINK: 'fixture', WIN_CSC_KEY_PASSWORD: 'fixture' };
+  for (const os of ['darwin', 'win32', 'linux']) {
+    for (const version of ['0.2.0-local', ...(os !== 'win32' ? ['0.2.0-0.nightly.20261020.0.gaaaaaaa'] : []), ...(os === 'linux' ? ['0.2.0', '0.2.0-beta.1', '0.2.0-rc.1'] : [])]) {
+      for (const credentials of [{}, certificates, { CSC_KEY_PASSWORD: 'fixture' }]) {
+        const env = { ...credentials };
+        assert.equal(desktopSigning(os, version, env), false);
+        for (const key of Object.keys(certificates)) assert.equal(env[key], undefined);
+      }
+    }
+  }
+  assert.throws(() => desktopSigning('darwin', '0.2.0-unknown', {}), /Unsupported release version/);
 });
 
 test('collect native packages requires the entire matching and checksummed matrix and preserves signing status', t => {

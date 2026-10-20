@@ -11,13 +11,25 @@ Runtime 发行包仅包含 `bin/molr` 与安装维护工具 `bin/molr-setup`。�
 
 Release 与 Nightly 的共用流程调用 `release-desktop.yml`，在五个原生目标上构建 Linux AMD64／ARM64 DEB、macOS AMD64／ARM64 DMG 和 Windows AMD64 NSIS EXE。三个平台均附带同版本原生 Runtime；Windows payload 由 `apps/desktop/scripts/build-windows-runtime.mjs` 构建，通过桌面安装包分发，不改变 Unix `install.sh` 平台清单。桌面测试、Runtime 生命周期验收、打包及已配置的签名流程全部成功后，发布任务核对平台完整性、commit、版本和 SHA-256，再将安装包、校验文件及汇总 `desktop-manifest.json` 与 Runtime 附件一起上传同一个 GitHub Release 草稿。缺包或校验失败会阻止发布。PR 的 `desktop.yml` 仅上传本地评估包到 Actions artifacts。
 
-`release` environment 配置 `MAC_CSC_LINK`、`MAC_CSC_KEY_PASSWORD`、`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID`、`WIN_CSC_LINK` 和 `WIN_CSC_KEY_PASSWORD`。证书使用 electron-builder 支持的输入格式；macOS 对应用与内置 Go 二进制签名并进行应用公证，Windows 对安装包签名。证书申请期间暂时允许不配置凭据：Windows 发布未签名安装包，macOS 使用 ad-hoc 签名并跳过公证。配置了部分凭据时构建失败；完整配置后执行签名并提交公证。清单的 `signed` 字段表示发布者签名，macOS ad-hoc 为 `false`；独立的 `notarized` 字段表示公证票据已附加且通过验证，非 macOS 平台为 `false`。官网和 Release 说明分别展示签名与公证状态，不从签名推断公证结果。本地 `-local` 构建仍不进入公开渠道。证书就绪后，在 `apps/desktop/scripts/signing.mjs` 恢复无凭据失败，并在产物汇总和发布前恢复签名必需校验；官网仍保留历史版本的实际签名状态。
+`release` environment 配置 `MAC_CSC_LINK`、`MAC_CSC_KEY_PASSWORD`、`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID`、`WIN_CSC_LINK` 和 `WIN_CSC_KEY_PASSWORD`。证书使用 electron-builder 支持的输入格式。桌面发行按平台与渠道执行以下策略：
+
+| 平台 | Nightly | Beta／RC 预发布 | 正式 Release |
+| --- | --- | --- | --- |
+| macOS | ad-hoc 签名，不提交公证 | Developer ID 签名，公证 `optional` | Developer ID 签名，公证 `required` |
+| Windows | 代码签名 | 代码签名 | 代码签名 |
+| Linux | 不要求签名或公证 | 不要求签名或公证 | 不要求签名或公证 |
+
+macOS 对应用、内置 Go 二进制和 DMG 签名；Windows 对应用与安装包签名，不涉及 Apple 公证。需要发布者签名的构建缺少或仅配置部分凭据时失败，不回退到未签名安装包。macOS Nightly 不注入签名或 Apple 凭据，打包后直接生成 SHA-256 和桌面清单，不创建公证中间 artifact，也不运行公证任务。Linux 打包流程不变。PR 和本地 `-local` 评估包不要求发布者签名或公证，不进入公开渠道。
+
+清单的 `signed` 字段表示发布者签名，macOS ad-hoc 为 `false`；独立的 `notarized` 字段表示公证票据已附加且通过验证，非 macOS 平台为 `false`。官网和 Release 说明分别展示签名与公证状态，不从签名推断公证结果，并保留历史版本的实际状态。
 
 官网构建和 `release:catalog` 从下文选择的最新正式 GitHub Release 读取桌面 manifest，核对同版本 Runtime 的 commit、五个平台及附件链接，生成 `/releases/desktop/catalog.json`。早于桌面支持的 Release 不产生桌面下载入口；选中 Release 的桌面清单损坏时构建失败，不回退旧版。生产构建不需要手工提供桌面 catalog。发布后的官网同步同时验证 Runtime 和桌面目录已更新，安装包仍由 GitHub 提供。
 
-macOS 发布分为构建与公证完成两个任务。构建任务先签名应用、内置二进制和 DMG，将 DMG 提交给 Apple 后立即保存安装包、原始摘要、版本、commit 和申请 ID 到 `desktop-notarization-*` Actions artifact，保留 14 天，不保存凭据。Apple 为 DMG 及其嵌套应用生成公证票据。后续任务下载同一份产物，核对身份、摘要、DMG 签名和镜像完整性后查询申请；每次最长等待 30 分钟，短暂网络错误自动重试。审核通过后附加并验证票据，检查 Gatekeeper，再生成最终 SHA-256 和桌面清单。没有配置签名凭据时继续沿用上面的 ad-hoc 路径。
+macOS 预发布和正式发布分为构建与公证完成两个任务。构建任务先签名应用、内置二进制和 DMG，将 DMG 提交给 Apple 后立即保存安装包、原始摘要、版本、commit 和申请 ID 到 `desktop-notarization-*` Actions artifact，保留 14 天，不保存凭据。Apple 为 DMG 及其嵌套应用生成公证票据。后续任务下载同一份产物，核对身份、摘要、DMG 签名和镜像完整性后查询申请；每次最长等待 30 分钟，短暂网络错误自动重试。审核通过后附加并验证票据，检查 Gatekeeper，再生成最终 SHA-256 和桌面清单。
 
-Release 和 Nightly 默认使用 `optional` 公证策略：等待满 30 分钟后，若到期时的查询仍返回 `In Progress`，保留已签名 DMG 的原始字节，生成 `signed: true, notarized: false` 清单并继续发布。发布者可在 GitHub 的 `release` environment 设置变量 `MAC_NOTARIZATION_POLICY=required`，恢复必须公证通过才发布；仅接受 `optional` 和 `required`。本地打包和手工恢复默认使用 `required`，可显式设置 `MOLR_NOTARIZATION_POLICY=optional`。查询失败或状态无法确认、Apple 拒绝、身份／摘要／签名校验失败，以及通过后的票据／Gatekeeper 校验失败，都阻止发布，不按等待超时处理。
+Beta／RC 预发布固定使用 `optional` 公证策略：等待满 30 分钟后，若到期时的查询仍返回 `In Progress`，保留已签名 DMG 的原始字节，生成 `signed: true, notarized: false` 清单并继续发布。正式 Release 固定使用 `required`，必须公证通过、附加票据并验证后才能发布。策略由准备阶段解析出的 `preview`／`stable` 渠道传给桌面工作流，GitHub environment 中的 `MAC_NOTARIZATION_POLICY` 变量不再生效。Nightly 跳过公证。
+
+本地签名打包和手工恢复默认使用 `required`，预发布恢复可显式设置 `MOLR_NOTARIZATION_POLICY=optional`；恢复正式 Release 时保持 `required`。仅接受 `optional` 和 `required`。查询失败或状态无法确认、Apple 拒绝、身份／摘要／签名校验失败，以及通过后的票据／Gatekeeper 校验失败，都阻止发布，不按等待超时处理。
 
 严格模式下公证仍在处理，或任一模式查询失败时，重跑原 workflow 的失败任务即可继续同一申请，无需重新构建或提交。不要为等待公证完整重跑 workflow；完整重跑会创建新产物和新申请。审核拒绝会输出 Apple 诊断并阻止发布，需要修复后使用新版本。artifact 超过保留期后不能继续原产物，需要重新构建。手工恢复可在同 commit 的原生 macOS 检出中下载该 artifact，设置原版本的 `MOLR_VERSION` 和 Apple 凭据，执行 `node apps/desktop/scripts/notarization.mjs <产物目录>`；目录包含 DMG 和 `notarization.json`。可选模式发布后仍保留原申请和中间产物，但后续公证通过不会自动覆盖已发布文件或改变目录中的状态；附加票据会改变 DMG 摘要，发布器拒绝同版本不同字节，需要使用新版本发布。
 
