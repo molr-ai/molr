@@ -24,7 +24,7 @@
     "deploy/docker/vendor/LICENSE.moby": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
     "deploy/docker/seccomp-isolated.json": "7f176503fddf85b01daf167d2970beb395710eee32e7d5add40fc15b0dc6d34a",
     "apps/desktop/package.json": "d85dacf248a71b10fc52e08449157787fcf6808764fb8d4be45f6eb6f197ec58",
-    "apps/desktop/scripts/package.mjs": "38296d938c3d234d2ff80a290020bcc575d2a36ed03f495f5a3e41c2f0c13a58",
+    "apps/desktop/scripts/package.mjs": "283c13cd38b4ed681f5895d6dd1db91870e86377fb1935f9ce3e3ee6cebf5fd0",
     "apps/desktop/scripts/build-windows-runtime.mjs": "437a4a45ad2fa2ab3caf2ad9c2d7b41dcb91dad6ee2ed62a48d815b2899de62d",
     "apps/desktop/scripts/notarization.mjs": "2c2add1c07985be03791b386d9f601760364d8c93ab88934a6fef3855df4ab86",
     "apps/webui/src/interfaces/official/features/ChannelAppIcon.tsx": "11ed9b89190dfb3f3c2b8954804d0d01a29df016a02a0cbd5f747fadbb7a2475"
@@ -11812,6 +11812,13 @@
         "apps/webui/src/interfaces/official/features/ChannelAppIcon.tsx"
       ],
       "scope": "Replaced six colored chat-service SVG marks with actual brand outline icons: five from Tabler Icons v3.49.0 (MIT) and Feishu new-lark from IconPark, commit 7e34637492ea9f6ae971d1a81e399bff44d1bfa6 (Apache-2.0). Reviewed original geometry and licenses; complete copyright and license texts and adaptation notes are included in the distribution notices. IconPark has no root NOTICE at the pinned revision. Icons use currentColor, common sizing and equivalent stroke widths; brand rights remain with their owners. No npm dependency changes."
+    },
+    {
+      "reviewedAt": "2026-10-21",
+      "files": [
+        "apps/desktop/scripts/package.mjs"
+      ],
+      "scope": "Reviewed the desktop package file-list addition for Molr-authored runtime-version.js. This includes the local service version helper without adding third-party code or assets. Existing Electron/Chromium license files, Molr LICENSE and THIRD_PARTY_NOTICES.md remain explicitly distributed; dependency versions and notice text are unchanged."
     }
   ]
 }
