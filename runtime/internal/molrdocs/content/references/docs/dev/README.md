@@ -10,6 +10,8 @@
 
 本地启动和测试命令由各应用维护：[Runtime](https://github.com/molr-ai/molr/blob/main/runtime/README.md)、[WebUI](https://github.com/molr-ai/molr/blob/main/apps/webui/README.md)、[官网](https://github.com/molr-ai/molr/blob/main/apps/website/README.md)、[UI Design](https://github.com/molr-ai/molr/blob/main/apps/ui-design/README.md)。
 
+[Gitea CI](https://github.com/molr-ai/molr/blob/main/docs/dev/contributing/gitea-ci.md) 说明本地 action 镜像、Linux/macOS/Windows runner 标签及独立安装验收配置。
+
 ## 理解架构与执行
 
 从[架构总览](https://molr.ai/zh/docs/dev/architecture/overview/)了解系统组成、模块职责与执行链路，再按改动范围阅读[技术底座](https://molr.ai/zh/docs/dev/architecture/tech-stack/)、[上下文更新](https://molr.ai/zh/docs/dev/runtime/agent-context/)、[上下文存储](https://molr.ai/zh/docs/dev/runtime/context-storage/)、[记忆与自动整理](https://molr.ai/zh/docs/dev/runtime/dream-memory/)、[模型适配](https://molr.ai/zh/docs/dev/runtime/model-adapters/)或[多模态文件](https://molr.ai/zh/docs/dev/runtime/multimodal-files/)。排查执行过程见[开发工作台](https://molr.ai/zh/docs/dev/runtime/workbench/)。

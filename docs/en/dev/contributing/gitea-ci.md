@@ -1,0 +1,76 @@
+# Gitea CI
+
+`.gitea/workflows/ci.yml` runs Linux/macOS checks, builds and separate installation acceptance on pull requests, pushes to `main`, and manual dispatch. `desktop.yml` tests and packages five native desktop targets for relevant pull requests or manual dispatch. Artifacts are retained for seven days. Both workflows reuse repository scripts; publication remains in `.github/workflows/`.
+
+## Local action mirrors
+
+Create these pull mirrors in the Gitea `actions` organization, preserving upstream branches, tags and built `dist/` files. Workflows follow the current major references; validate mirror updates with a manual CI run.
+
+| Local repository | Upstream | Workflow reference |
+| --- | --- | --- |
+| `actions/checkout` | <https://github.com/actions/checkout> | `v7` |
+| `actions/setup-node` | <https://github.com/actions/setup-node> | `v7` |
+| `actions/setup-go` | <https://github.com/actions/setup-go> | `v7` |
+| `actions/gitea-upload-artifact` | <https://github.com/ChristopherHX/gitea-upload-artifact> | `v7` branch |
+| `actions/gitea-download-artifact` | <https://github.com/ChristopherHX/gitea-download-artifact> | `v8` branch |
+
+The first three use stable major tags. The artifact actions use the maintainer's Gitea-compatible branches, not the official GitHub artifact repositories. Downloads stay within the current run, without `github-token` or cross-run query inputs. No additional Docker, Python or cache actions are needed.
+
+Set the following in the **Gitea server's** active `app.ini`, then restart Gitea:
+
+```ini
+[actions]
+ENABLED = true
+DEFAULT_ACTIONS_URL = self
+```
+
+Docker deployments normally use `/data/gitea/conf/app.ini` inside the container. Alternatively set `GITEA__actions__DEFAULT_ACTIONS_URL: self` on the Gitea service in Compose and recreate that container. This is not a runner setting or repository variable. It affects the entire instance: `actions/checkout@v7` resolves to the instance's `actions/checkout` repository. Other repositories must mirror any missing actions or use complete upstream URLs. See the [Gitea configuration reference](https://docs.gitea.com/1.23/administration/config-cheat-sheet/#actions-actions).
+
+Enable Actions in repository settings. Both the server and runners must reach the actual instance `ROOT_URL`, including artifact download URLs. Public workflows contain no private deployment addresses or registration tokens.
+
+## Native runners
+
+Install a current stable Gitea Runner that supports `runs.using: node24` and provide Node 24 for actions. Project builds use Node `22.21.0` installed by setup-node and the Go version in `runtime/.go-version`; action runtimes and project toolchains are separate requirements. Verify checkout, setup-node, setup-go and subsequent artifact actions, not just runner connectivity.
+
+Register each environment with its matching native architecture label in **host mode**. These are five build environments and four separate installation environments, not necessarily nine physical machines; independent virtual machines can provide them.
+
+| System | Build / desktop label | Separate installation label |
+| --- | --- | --- |
+| Ubuntu 24.04 AMD64 | `molr-linux-amd64:host` | `molr-install-linux-amd64:host` |
+| Ubuntu 24.04 ARM64 | `molr-linux-arm64:host` | `molr-install-linux-arm64:host` |
+| macOS 15 Intel | `molr-macos-amd64:host` | `molr-install-macos-amd64:host` |
+| macOS 15 Apple Silicon | `molr-macos-arm64:host` | `molr-install-macos-arm64:host` |
+| Windows Server 2025 AMD64 | `molr-windows-amd64:host` | Native Runtime lifecycle covered by desktop workflow |
+
+Generate configuration with the installed runner's `generate-config`, then edit it. For example, an AMD64 Linux build runner uses:
+
+```yaml
+runner:
+  capacity: 1
+  timeout: 90m
+  labels:
+    - molr-linux-amd64:host
+```
+
+Give every runner its own registration file, workspace, writable tool cache and test account. Do not run two runner processes concurrently under the same test account: sandbox preparation uses a fixed systemd probe unit name and installation tests modify user services. Installation environments must not register build labels; destroy them or restore a clean snapshot after a job. Gitea 1.23 does not guarantee workflow `timeout-minutes` enforcement, so configure the runner timeout; installation runners can use `40m`. See [runner configuration](https://docs.gitea.com/runner/configuration/) and [labels](https://docs.gitea.com/runner/labels/).
+
+- Preinstall Git, Python 3 and the Node 24 runtime needed by actions. Windows must have a working `python3` command. The runner account needs writable tool installation directories.
+- Linux uses a dedicated non-root account with noninteractive sudo, systemd user services, cgroup v2 delegation, AppArmor, Bash, tar, gzip, file and basic build tools. The existing prepare-sandbox action installs sandbox dependencies and probes startup. Desktop jobs install Xvfb and Electron libraries; website tests install Chromium and its dependencies. Ordinary Docker jobs do not replace these native environments.
+- macOS needs Xcode Command Line Tools, `codesign`, `hdiutil`, `file`, tar, Bash and Python 3. Run the runner in the dedicated user's login session for user launchd and Electron graphical tests.
+- Windows needs PowerShell 7 (`pwsh`), Git and Python 3. Run Electron tests in a dedicated user's interactive desktop session, not a headless service session. The workflow explicitly selects `pwsh`.
+
+Linux installation acceptance removes Bubblewrap, static BusyBox and AppArmor profiles before the installer restores dependencies. Assign `molr-install-*` labels only to dedicated disposable environments, never a development machine or another project's shared runner.
+
+## Network and validation
+
+Action mirrors do not include Node/Go distributions, npm/Go modules, Playwright browsers, Electron or packaging tools. Runners need access to those download sources; configure proxies, package mirrors or preinstalled tool caches in private runner configuration as needed. Setup actions disable automatic dependency caching, so initial setup needs no additional cache service.
+
+Both workflows use ordinary jobs rather than reusable workflows. Installation acceptance downloads build artifacts from the same run. Server features are independent of the new runner: upgrading it does not establish support for `permissions`, `concurrency` or GitHub PR merge previews on Gitea 1.23. See the [1.23 comparison](https://docs.gitea.com/1.23/usage/actions/comparison/) and [PR trigger semantics](https://docs.gitea.com/1.23/usage/actions/faq/).
+
+Validate setup in this order:
+
+1. Manually dispatch `Gitea CI`. All four builds must run on the correct native system/architecture; four separate installation jobs must download their same-run packages and pass both server and sandbox modes.
+2. Manually dispatch `Gitea desktop acceptance`. All five targets must pass Electron tests, native Runtime lifecycle and packaging, with downloadable artifacts. Signing certificates and release credentials are not required.
+3. Use an ordinary PR to verify CI triggering and a desktop-related PR to verify desktop path filters. Missing runners mean incomplete coverage, even when other jobs pass.
+
+Syntax checks and local tests are not an actual Gitea acceptance run. During the first run, record server, runner and action mirror versions and verify artifact transfers. Keep logs and actual deployment configuration in private internal material.

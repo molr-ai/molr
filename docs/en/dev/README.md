@@ -10,6 +10,8 @@ First, read [Development Collaboration and Acceptance](../../dev/contributing/de
 
 Local startup and testing commands are maintained by each application: [Runtime](../../../runtime/README.md), [WebUI](../../../apps/webui/README.md), [Official Website](../../../apps/website/README.md), [UI Design](../../../apps/ui-design/README.md).
 
+[Gitea CI](contributing/gitea-ci.md) covers local action mirrors, Linux/macOS/Windows runner labels and separate installation acceptance environments.
+
 ## Understanding Architecture and Execution
 
 Start with the [Architecture Overview](architecture/overview.md) to understand system composition, module responsibilities, and execution chains, then read [Technical Foundation](architecture/tech-stack.md), [Context Updates](runtime/agent-context.md), [Context Storage](runtime/context-storage.md), [Memory and Automatic Organization](runtime/dream-memory.md), [Model Adaptation](runtime/model-adapters.md), or [Multimodal Files](runtime/multimodal-files.md) based on the scope of changes. For troubleshooting execution processes, see [Development Workbench](runtime/workbench.md).

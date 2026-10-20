@@ -7,7 +7,13 @@ import { docRoutes, adminDocRoutes, devDocRoutes, allDocRoutes } from '../src/do
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const routes = allDocRoutes;
-const repositoryOnly = ['docs/dev/contributing/development.md', 'docs/dev/roadmap.md', 'docs/en/dev/roadmap.md'];
+const repositoryOnly = [
+  'docs/dev/contributing/development.md',
+  'docs/dev/contributing/gitea-ci.md',
+  'docs/en/dev/contributing/gitea-ci.md',
+  'docs/dev/roadmap.md',
+  'docs/en/dev/roadmap.md',
+];
 
 async function markdownFiles(directory) {
   const entries = await readdir(resolve(root, directory), { withFileTypes: true });

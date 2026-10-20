@@ -10,6 +10,8 @@
 
 本地启动和测试命令由各应用维护：[Runtime](../../runtime/README.md)、[WebUI](../../apps/webui/README.md)、[官网](../../apps/website/README.md)、[UI Design](../../apps/ui-design/README.md)。
 
+[Gitea CI](contributing/gitea-ci.md) 说明本地 action 镜像、Linux/macOS/Windows runner 标签及独立安装验收配置。
+
 ## 理解架构与执行
 
 从[架构总览](architecture/overview.md)了解系统组成、模块职责与执行链路，再按改动范围阅读[技术底座](architecture/tech-stack.md)、[上下文更新](runtime/agent-context.md)、[上下文存储](runtime/context-storage.md)、[记忆与自动整理](runtime/dream-memory.md)、[模型适配](runtime/model-adapters.md)或[多模态文件](runtime/multimodal-files.md)。排查执行过程见[开发工作台](runtime/workbench.md)。

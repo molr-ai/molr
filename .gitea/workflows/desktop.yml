@@ -1,0 +1,118 @@
+# Local action mirrors and native runner setup: docs/dev/contributing/gitea-ci.md
+name: Gitea desktop acceptance
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'apps/desktop/**'
+      - 'packages/ui/**'
+      - 'runtime/**'
+      - 'packages/ui-host/**'
+      - 'packages/sdk/**'
+      - 'apps/webui/**'
+      - 'package.json'
+      - 'release/**'
+      - 'package-lock.json'
+      - '.gitea/workflows/desktop.yml'
+      - '.github/actions/prepare-sandbox/**'
+      - 'scripts/**'
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: molr-linux-amd64
+            shell: bash
+          - runner: molr-linux-arm64
+            shell: bash
+          - runner: molr-macos-arm64
+            shell: bash
+          - runner: molr-macos-amd64
+            shell: bash
+          - runner: molr-windows-amd64
+            shell: pwsh
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    env:
+      CGO_ENABLED: '0'
+      MOLR_VERSION: 0.1.0-local
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22.21.0'
+          package-manager-cache: false
+      - name: Verify native runner platform
+        env:
+          MOLR_CI_RUNNER: ${{ matrix.runner }}
+        run: >-
+          node -e "const label = process.env.MOLR_CI_RUNNER;
+          const os = label.includes('-linux-') ? 'linux' : label.includes('-macos-') ? 'darwin' : 'win32';
+          const arch = label.endsWith('-amd64') ? 'x64' : 'arm64';
+          if (process.platform !== os || process.arch !== arch) throw new Error('Runner label does not match native platform: ' + label);
+          console.log(process.platform, process.arch, process.version);"
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: runtime/.go-version
+          cache: false
+      - if: runner.os == 'Linux'
+        uses: ./.github/actions/prepare-sandbox
+      - run: npm ci
+      - if: runner.os == 'Linux'
+        name: Install desktop test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth libgtk-3-0t64 libnss3 libasound2t64 libgbm1 libxss1 libxtst6 libnotify4 libsecret-1-0 libatspi2.0-0t64 libuuid1 libdrm2 libxkbcommon0 libcups2t64 xdg-utils
+      - run: node node_modules/electron/install.js
+      - run: npm run test:desktop && npm run build:desktop
+      - if: runner.os != 'Linux'
+        run: npm run test:desktop:electron
+      - if: runner.os == 'Linux'
+        run: |
+          if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ] && [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" = 1 ]; then
+            aa-exec -p chrome -- xvfb-run -a npm run test:desktop:electron
+          else
+            xvfb-run -a npm run test:desktop:electron
+          fi
+      - if: runner.os != 'Windows'
+        run: npm run build:release
+      - if: runner.os == 'Windows'
+        run: node apps/desktop/scripts/build-windows-runtime.mjs
+      - if: runner.os == 'Windows'
+        name: Native Windows backend
+        shell: pwsh
+        run: |
+          $env:CGO_ENABLED = '0'
+          $env:MOLR_TEST_BINARY = (Resolve-Path '.cache/release/win32-amd64/molr/bin/molr.exe').Path
+          go -C runtime test ./internal/platform/sandbox ./internal/textfiles ./internal/installationwindows ./internal/config ./internal/platform ./internal/persistence/sqlitestore -run "TestWindows|TestControlledReady|TestNativeSandbox" -count=1
+      - name: Native desktop Runtime lifecycle
+        run: node apps/desktop/tests/local-runtime.mjs
+      - if: runner.os != 'macOS'
+        run: npm run package:desktop
+        env:
+          # Match the empty values produced by missing release-environment secrets.
+          CSC_LINK: ''
+          CSC_KEY_PASSWORD: ''
+      - if: runner.os == 'macOS'
+        run: |
+          npm run package:desktop -- --defer-notarization
+          node apps/desktop/scripts/notarization.mjs dist/desktop/darwin-${{ runner.arch == 'ARM64' && 'arm64' || 'amd64' }}
+        env:
+          CSC_LINK: ''
+          CSC_KEY_PASSWORD: ''
+      - uses: actions/gitea-upload-artifact@v7
+        with:
+          name: desktop-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            dist/desktop/**/*.deb
+            dist/desktop/**/*.dmg
+            dist/desktop/**/*.exe
+            dist/desktop/**/*.sha256
+            dist/desktop/**/desktop-manifest.json
+          if-no-files-found: error
+          retention-days: 7

@@ -1,0 +1,192 @@
+# Local action mirrors and native runner setup: docs/dev/contributing/gitea-ci.md
+name: Gitea CI
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+defaults:
+  run:
+    shell: bash
+env:
+  CGO_ENABLED: '0'
+jobs:
+  checks:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [molr-linux-amd64, molr-linux-arm64]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/prepare-sandbox
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22.21.0'
+          package-manager-cache: false
+      - name: Verify native runner platform
+        env:
+          MOLR_CI_RUNNER: ${{ matrix.runner }}
+        run: >-
+          node -e "const label = process.env.MOLR_CI_RUNNER;
+          const os = label.includes('-linux-') ? 'linux' : label.includes('-macos-') ? 'darwin' : 'win32';
+          const arch = label.endsWith('-amd64') ? 'x64' : 'arm64';
+          if (process.platform !== os || process.arch !== arch) throw new Error('Runner label does not match native platform: ' + label);
+          console.log(process.platform, process.arch, process.version);"
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: runtime/.go-version
+          cache: false
+      - name: Public contract inventory
+        run: npm run check:contracts
+      - run: npm ci
+      - run: npm run docs:check && npm run test:docs && npm run check:platforms && npm run check:release && npm run check:licenses
+      - run: npm run test:release && npm run test:release-flow
+      - run: python3 scripts/test-install-download.py
+      - run: npm run test --workspace @molr/ui
+      - run: npm run typecheck && npm run build
+        env:
+          VITE_SITE_MODE: live
+      - if: runner.arch == 'X64'
+        run: npx playwright install --with-deps --no-shell chromium
+        env:
+          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: '120000'
+      - if: runner.arch == 'X64'
+        run: npm run test:website
+      - run: go test ./...
+        working-directory: runtime
+        env:
+          CGO_ENABLED: '0'
+      - run: npm run build:release
+      - name: Native installation and sandbox acceptance
+        run: |
+          arch=$(node -p '({x64: "amd64", arm64: "arm64"})[process.arch]')
+          for mode in server sandbox; do
+            MOLR_TEST_MODE="$mode" MOLR_TEST_ARCHIVE="dist/releases/molr_0.1.0-local_linux_${arch}.tar.gz" npm run test:release-install
+          done
+      - uses: actions/gitea-upload-artifact@v7
+        with:
+          name: ci-install-linux-${{ runner.arch == 'X64' && 'amd64' || 'arm64' }}
+          path: dist/releases/*
+          if-no-files-found: error
+          retention-days: 7
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [molr-macos-arm64, molr-macos-amd64]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22.21.0'
+          package-manager-cache: false
+      - name: Verify native runner platform
+        env:
+          MOLR_CI_RUNNER: ${{ matrix.runner }}
+        run: >-
+          node -e "const label = process.env.MOLR_CI_RUNNER;
+          const os = label.includes('-linux-') ? 'linux' : label.includes('-macos-') ? 'darwin' : 'win32';
+          const arch = label.endsWith('-amd64') ? 'x64' : 'arm64';
+          if (process.platform !== os || process.arch !== arch) throw new Error('Runner label does not match native platform: ' + label);
+          console.log(process.platform, process.arch, process.version);"
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: runtime/.go-version
+          cache: false
+      - name: Public contract inventory
+        run: npm run check:contracts
+      - run: npm ci
+      - if: runner.arch == 'X64'
+        run: npx playwright install --no-shell chromium
+        env:
+          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: '120000'
+      - if: runner.arch == 'X64'
+        run: npm run test:website
+      - name: Native Runtime and Full Access tests
+        working-directory: runtime
+        env:
+          CGO_ENABLED: '0'
+        run: |
+          go test -p 4 ./...
+          go vet ./...
+          go build ./...
+      - run: npm run build:release
+      - uses: actions/gitea-upload-artifact@v7
+        with:
+          name: ci-install-darwin-${{ runner.arch == 'X64' && 'amd64' || 'arm64' }}
+          path: dist/releases/*
+          if-no-files-found: error
+          retention-days: 7
+  installer-acceptance:
+    needs: [checks, macos]
+    name: ${{ matrix.environment }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - environment: ubuntu-24.04-amd64
+            runner: molr-install-linux-amd64
+            arch: amd64
+            os: linux
+          - environment: ubuntu-24.04-arm64
+            runner: molr-install-linux-arm64
+            arch: arm64
+            os: linux
+          - environment: macos-arm64
+            runner: molr-install-macos-arm64
+            arch: arm64
+            os: darwin
+          - environment: macos-amd64
+            runner: molr-install-macos-amd64
+            arch: amd64
+            os: darwin
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22.21.0'
+          package-manager-cache: false
+      - name: Verify native runner platform
+        env:
+          MOLR_CI_RUNNER: ${{ matrix.runner }}
+        run: >-
+          node -e "const label = process.env.MOLR_CI_RUNNER;
+          const os = label.includes('-linux-') ? 'linux' : label.includes('-macos-') ? 'darwin' : 'win32';
+          const arch = label.endsWith('-amd64') ? 'x64' : 'arm64';
+          if (process.platform !== os || process.arch !== arch) throw new Error('Runner label does not match native platform: ' + label);
+          console.log(process.platform, process.arch, process.version);"
+      - uses: actions/gitea-download-artifact@v8
+        with:
+          name: ci-install-${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/releases
+      - name: Prepare login session, leaving dependency preparation to Molr
+        if: matrix.os == 'linux'
+        run: |
+          # This job is disposable. Do not use this preparation on a developer host.
+          if [ -f /etc/apparmor.d/bwrap-userns-restrict ]; then
+            sudo apparmor_parser -R /etc/apparmor.d/bwrap-userns-restrict || true
+          fi
+          sudo apt-get purge -y bubblewrap busybox-static apparmor-profiles
+          sudo loginctl enable-linger "$(id -un)"
+          sudo systemctl start "user@$(id -u).service"
+          echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
+          echo "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus" >> "$GITHUB_ENV"
+      - name: Preview, interactive install, silent reinstall, sandbox verification and uninstall
+        env:
+          MOLR_TEST_PREPARE: '1'
+        run: |
+          archives=(dist/releases/*.tar.gz)
+          test "${#archives[@]}" -eq 1
+          for mode in server sandbox; do
+            MOLR_TEST_MODE="$mode" MOLR_TEST_ARCHIVE="${archives[0]}" node scripts/test-release-install.mjs
+          done
