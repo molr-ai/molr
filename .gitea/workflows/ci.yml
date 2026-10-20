@@ -10,80 +10,166 @@ defaults:
     shell: bash
 env:
   CGO_ENABLED: '0'
-  # setup-go, tests and packaging must use the same worktree-local caches.
   GOCACHE: ${{ github.workspace }}/.cache/go-build
   GOMODCACHE: ${{ github.workspace }}/.cache/go-mod
+  MOLR_VERSION: 0.1.0-local
 jobs:
-  checks:
-    strategy:
-      fail-fast: false
-      matrix:
-        runner: [molr-linux-amd64, molr-linux-arm64]
-    runs-on: ${{ matrix.runner }}
+  source:
+    runs-on: molr-linux-amd64
+    outputs:
+      commit: ${{ steps.identity.outputs.commit }}
+      matrix: ${{ steps.identity.outputs.matrix }}
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: ./.github/actions/prepare-sandbox
-      - uses: actions/setup-node@v7
-        with:
-          node-version: '22.21.0'
-          package-manager-cache: false
-      - name: Verify native runner platform
-        env:
-          MOLR_CI_RUNNER: ${{ matrix.runner }}
-        run: >-
-          node -e "const label = process.env.MOLR_CI_RUNNER;
-          const os = label.includes('-linux-') ? 'linux' : label.includes('-macos-') ? 'darwin' : 'win32';
-          const arch = label.endsWith('-amd64') ? 'x64' : 'arm64';
-          if (process.platform !== os || process.arch !== arch) throw new Error('Runner label does not match native platform: ' + label);
-          console.log(process.platform, process.arch, process.version);"
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: runtime/.go-version
-          cache: false
-      - name: Public contract inventory
-        run: npm run check:contracts
-      - run: npm ci
-      - run: npm run docs:check && npm run test:docs && npm run check:platforms && npm run check:release && npm run check:licenses
-      - run: npm run test:release && npm run test:release-flow
+      - uses: ./.gitea/actions/setup-build
+      - id: identity
+        run: |
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          node --input-type=module -e 'import {nativeBuildMatrix} from "./scripts/release-lib.mjs"; const matrix=nativeBuildMatrix(); for(const p of matrix.include) { p.runner=`molr-${({linux:"linux",darwin:"macos",win32:"windows"})[p.os]}-${p.arch}`; p.shell=p.os==="win32"?"pwsh":"bash"; } console.log("matrix="+JSON.stringify(matrix));' >> "$GITHUB_OUTPUT"
+      - run: npm run check && npm run test:docs && npm run test:release && npm run test:release-flow
       - run: python3 scripts/test-install-download.py
       - run: npm run test --workspace @molr/ui
-      - run: npm run typecheck && npm run build
-        env:
-          VITE_SITE_MODE: live
-      - if: runner.arch == 'X64'
-        run: npx playwright install --with-deps --no-shell chromium
-        env:
-          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: '120000'
-      - if: runner.arch == 'X64'
-        run: npm run test:website
-      - run: go test ./...
-        working-directory: runtime
-        env:
-          CGO_ENABLED: '0'
-      - run: npm run build:release
-      - name: Native installation and sandbox acceptance
-        run: |
-          arch=$(node -p '({x64: "amd64", arm64: "arm64"})[process.arch]')
-          for mode in server sandbox; do
-            MOLR_TEST_MODE="$mode" MOLR_TEST_ARCHIVE="dist/releases/molr_0.1.0-local_linux_${arch}.tar.gz" npm run test:release-install
-          done
+      - run: npm run typecheck --workspace @molr/ui --workspace @molr/ui-host --workspace @molr/sdk --workspace @molr/website
+      - run: npm run build --workspace @molr/ui-design
+  assets:
+    needs: source
+    runs-on: molr-linux-amd64
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.source.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22.21.0'
+          package-manager-cache: false
+      - run: npm ci
+      - run: node scripts/build-assets.mjs
+      - name: Archive verified frontend assets
+        run: tar -czf application-assets.tar.gz .cache/build-assets/manifest.json apps/webui/dist apps/desktop/dist
       - uses: actions/gitea-upload-artifact@v7
         with:
-          name: ci-install-linux-${{ runner.arch == 'X64' && 'amd64' || 'arm64' }}
-          path: dist/releases/*
+          overwrite: true
+          name: ci-application-assets
+          path: application-assets.tar.gz
           if-no-files-found: error
           retention-days: 7
-  macos:
+  native:
+    needs: [source, assets]
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    env:
+      MOLR_BUILD_ASSETS: '1'
     strategy:
       fail-fast: false
-      matrix:
-        runner: [molr-macos-arm64, molr-macos-amd64]
+      matrix: ${{ fromJSON(needs.source.outputs.matrix) }}
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ needs.source.outputs.commit }}
+          persist-credentials: false
+      - uses: ./.gitea/actions/setup-build
+        with:
+          shell: ${{ matrix.shell }}
+      - name: Verify native runner platform
+        env:
+          MOLR_CI_RUNNER: ${{ matrix.runner }}
+        run: >-
+          node -e "const label = process.env.MOLR_CI_RUNNER;
+          const os = label.includes('-linux-') ? 'linux' : label.includes('-macos-') ? 'darwin' : 'win32';
+          const arch = label.endsWith('-amd64') ? 'x64' : 'arm64';
+          if (process.platform !== os || process.arch !== arch) throw new Error('Runner label does not match native platform: ' + label);
+          console.log(process.platform, process.arch, process.version);"
+      - uses: actions/gitea-download-artifact@v8
+        with:
+          name: ci-application-assets
+          path: .cache/assets-download
+      - name: Restore and verify shared application assets
+        run: tar -xzf .cache/assets-download/application-assets.tar.gz && node scripts/build-assets.mjs --verify
+      - if: runner.os == 'Linux'
+        name: Install desktop test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth libgtk-3-0t64 libnss3 libasound2t64 libgbm1 libxss1 libxtst6 libnotify4 libsecret-1-0 libatspi2.0-0t64 libuuid1 libdrm2 libxkbcommon0 libcups2t64 xdg-utils
+      - if: runner.os == 'Linux'
+        uses: ./.github/actions/prepare-sandbox
+      - if: runner.os != 'Windows'
+        run: npm run build:release
+      - if: runner.os == 'Windows'
+        run: node apps/desktop/scripts/build-windows-runtime.mjs
+      - if: runner.os != 'Windows'
+        name: Native Runtime tests
+        working-directory: runtime
+        env:
+          CGO_ENABLED: '0'
+        run: go test -p 4 ./... && go vet ./...
+      - if: runner.os == 'Windows'
+        name: Native Windows backend
+        shell: pwsh
+        run: |
+          $env:CGO_ENABLED = '0'
+          $env:MOLR_TEST_BINARY = (Resolve-Path '.cache/release/win32-amd64/molr/bin/molr.exe').Path
+          go -C runtime test ./internal/platform/sandbox ./internal/textfiles ./internal/installationwindows ./internal/config ./internal/platform ./internal/persistence/sqlitestore -run "TestWindows|TestControlledReady|TestNativeSandbox" -count=1
+      - run: node node_modules/electron/install.js
+      - name: Desktop unit tests using the shared compiled application
+        run: node --test apps/desktop/tests/*.test.mjs
+      - if: runner.os != 'Linux'
+        run: npm run test:desktop:electron
+      - if: runner.os == 'Linux'
+        run: |
+          if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ] && [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" = 1 ]; then
+            aa-exec -p chrome -- xvfb-run -a npm run test:desktop:electron
+          else
+            xvfb-run -a npm run test:desktop:electron
+          fi
+      - name: Package local evaluation installer
+        run: npm run package:desktop
+      - if: runner.os != 'Linux'
+        name: Evaluate the packaged desktop and bundled Runtime
+        run: node scripts/test-desktop-package.mjs
+      - if: runner.os == 'Linux'
+        name: Evaluate the packaged desktop and bundled Runtime
+        run: |
+          if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ] && [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" = 1 ]; then
+            aa-exec -p chrome -- xvfb-run -a node scripts/test-desktop-package.mjs
+          else
+            xvfb-run -a node scripts/test-desktop-package.mjs
+          fi
+      - if: runner.os != 'Windows'
+        uses: actions/gitea-upload-artifact@v7
+        with:
+          overwrite: true
+          name: ci-runtime-${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/releases/*
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/gitea-upload-artifact@v7
+        with:
+          overwrite: true
+          name: ci-desktop-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            dist/desktop/**/*.deb
+            dist/desktop/**/*.dmg
+            dist/desktop/**/*.exe
+            dist/desktop/**/*.sha256
+            dist/desktop/**/desktop-manifest.json
+          if-no-files-found: error
+          retention-days: 7
+  browser:
+    needs: source
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [molr-linux-amd64, molr-macos-arm64]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.source.outputs.commit }}
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
@@ -98,36 +184,13 @@ jobs:
           const arch = label.endsWith('-amd64') ? 'x64' : 'arm64';
           if (process.platform !== os || process.arch !== arch) throw new Error('Runner label does not match native platform: ' + label);
           console.log(process.platform, process.arch, process.version);"
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: runtime/.go-version
-          cache: false
-      - name: Public contract inventory
-        run: npm run check:contracts
       - run: npm ci
-      - if: runner.arch == 'X64'
-        run: npx playwright install --no-shell chromium
+      - run: npx playwright install --with-deps --no-shell chromium
         env:
           PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: '120000'
-      - if: runner.arch == 'X64'
-        run: npm run test:website
-      - name: Native Runtime and Full Access tests
-        working-directory: runtime
-        env:
-          CGO_ENABLED: '0'
-        run: |
-          go test -p 4 ./...
-          go vet ./...
-          go build ./...
-      - run: npm run build:release
-      - uses: actions/gitea-upload-artifact@v7
-        with:
-          name: ci-install-darwin-${{ runner.arch == 'X64' && 'amd64' || 'arm64' }}
-          path: dist/releases/*
-          if-no-files-found: error
-          retention-days: 7
-  installer-acceptance:
-    needs: [checks, macos]
+      - run: npm run test:website
+  installer:
+    needs: [source, native]
     name: ${{ matrix.environment }}
     strategy:
       fail-fast: false
@@ -155,6 +218,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          ref: ${{ needs.source.outputs.commit }}
       - uses: actions/setup-node@v7
         with:
           node-version: '22.21.0'
@@ -170,7 +234,7 @@ jobs:
           console.log(process.platform, process.arch, process.version);"
       - uses: actions/gitea-download-artifact@v8
         with:
-          name: ci-install-${{ matrix.os }}-${{ matrix.arch }}
+          name: ci-runtime-${{ matrix.os }}-${{ matrix.arch }}
           path: dist/releases
       - name: Prepare login session, leaving dependency preparation to Molr
         if: matrix.os == 'linux'
@@ -193,3 +257,14 @@ jobs:
           for mode in server sandbox; do
             MOLR_TEST_MODE="$mode" MOLR_TEST_ARCHIVE="${archives[0]}" node scripts/test-release-install.mjs
           done
+  passed:
+    name: Gitea CI passed
+    needs: [source, assets, native, browser, installer]
+    if: ${{ always() }}
+    runs-on: molr-linux-amd64
+    steps:
+      - name: Require every validation group to succeed
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: >-
+          node -e 'for (const [name, job] of Object.entries(JSON.parse(process.env.RESULTS))) if (job.result !== "success") throw Error(name + ": " + job.result);'

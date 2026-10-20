@@ -30,8 +30,8 @@ export function validatePackageManifest(directory, expected) {
 
 async function main() {
   const root = resolve(import.meta.dirname, '..'), os = process.platform;
-  if (os !== 'linux' && process.env.GITHUB_ACTIONS !== 'true') {
-    throw new Error('Run macOS/Windows installer acceptance on a disposable GitHub runner');
+  if (os !== 'linux' && process.env.GITHUB_ACTIONS !== 'true' && process.env.GITEA_ACTIONS !== 'true') {
+    throw new Error('Run macOS/Windows installer acceptance on a disposable CI runner');
   }
   const arch = process.arch === 'arm64' ? 'arm64' : 'amd64';
   const directory = resolve(process.argv[2] || `dist/desktop/${os}-${arch}`);

@@ -4,6 +4,8 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, symlinkSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import yaml from 'js-yaml';
 import { ciJob, ciStep, ciTitle, ensureCI, matchingCIRuns } from './ensure-ci.mjs';
 import { recordBuildAssets, verifyBuildAssets } from './build-assets.mjs';
@@ -139,4 +141,52 @@ test('CI includes every native target, both browser platforms, and a non-skippab
   assert(release.jobs.publish.needs.includes('ci'));
   assert(read('release').jobs.website.if.includes("'stable'"));
   assert.equal(read('nightly').jobs.website, undefined);
+});
+
+test('Gitea validates all native packages from shared assets and rejects failed or skipped groups', () => {
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  const ci = yaml.load(readFileSync(new URL('../.gitea/workflows/ci.yml', import.meta.url), 'utf8'));
+  assert(ci.on.pull_request !== undefined);
+  assert.equal(ci.on.pull_request?.paths, undefined);
+  assert(ci.on.workflow_dispatch !== undefined);
+  assert.deepEqual(ci.on.push.branches, ['main']);
+  const identity = ci.jobs.source.steps.find(step => step.id === 'identity').run;
+  const source = identity.match(/node --input-type=module -e '([^']+)'/)[1];
+  const matrix = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e', source], { cwd: root, encoding: 'utf8' }).trim().slice('matrix='.length));
+  assert.deepEqual(matrix.include.map(p => `${p.os}-${p.arch}`).sort(), nativeBuildMatrix().include.map(p => `${p.os}-${p.arch}`).sort());
+  for (const target of matrix.include) {
+    assert.equal(target.runner, `molr-${({ linux: 'linux', darwin: 'macos', win32: 'windows' })[target.os]}-${target.arch}`);
+    assert.equal(target.shell, target.os === 'win32' ? 'pwsh' : 'bash');
+  }
+  assert.equal(ci.jobs.native.strategy.matrix, '${{ fromJSON(needs.source.outputs.matrix) }}');
+  assert.equal(ci.jobs.native.env.MOLR_BUILD_ASSETS, '1');
+  assert.deepEqual(ci.jobs.native.needs, ['source', 'assets']);
+  const nativeSteps = ci.jobs.native.steps;
+  const unpack = nativeSteps.findIndex(step => step.run?.includes('build-assets.mjs --verify'));
+  const build = nativeSteps.findIndex(step => step.run === 'npm run build:release');
+  const packageIndex = nativeSteps.findIndex(step => step.run === 'npm run package:desktop');
+  assert(unpack >= 0 && unpack < build && build < packageIndex);
+  const evaluations = nativeSteps.filter(step => step.run?.includes('scripts/test-desktop-package.mjs'));
+  assert.equal(evaluations.length, 2);
+  for (const step of evaluations) assert(nativeSteps.indexOf(step) > packageIndex);
+  assert.deepEqual(ci.jobs.browser.strategy.matrix.runner, ['molr-linux-amd64', 'molr-macos-arm64']);
+  assert.deepEqual(ci.jobs.installer.needs, ['source', 'native']);
+  assert.deepEqual(ci.jobs.installer.strategy.matrix.include.map(p => `${p.os}-${p.arch}`).sort(), platforms.map(p => p.id).sort());
+  const upload = nativeSteps.find(step => step.uses?.includes('upload-artifact') && step.with.name.startsWith('ci-runtime-'));
+  const download = ci.jobs.installer.steps.find(step => step.uses?.includes('download-artifact'));
+  assert.equal(upload.with.name, download.with.name);
+  const groups = ['source', 'assets', 'native', 'browser', 'installer'];
+  assert.deepEqual(ci.jobs.passed.needs, groups);
+  assert.equal(ci.jobs.passed.if, '${{ always() }}');
+  const gate = ci.jobs.passed.steps[0].run.match(/^node -e '([^']+)'$/)[1];
+  const execute = results => spawnSync(process.execPath, ['-e', gate], {
+    encoding: 'utf8', env: { ...process.env, RESULTS: JSON.stringify(results) },
+  });
+  const results = Object.fromEntries(groups.map(name => [name, { result: 'success' }]));
+  assert.equal(execute(results).status, 0);
+  for (const name of groups) for (const result of ['failure', 'cancelled', 'skipped']) {
+    const failed = execute({ ...results, [name]: { result } });
+    assert.equal(failed.status, 1);
+    assert(failed.stderr.includes(`${name}: ${result}`));
+  }
 });

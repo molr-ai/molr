@@ -1,6 +1,8 @@
 # Gitea CI
 
-`.gitea/workflows/ci.yml` runs Linux/macOS checks, builds and separate installation acceptance on pull requests, pushes to `main`, and manual dispatch. `desktop.yml` tests and packages five native desktop targets for relevant pull requests or manual dispatch. Artifacts are retained for seven days. Both workflows reuse repository scripts; publication remains in `.github/workflows/`.
+`.gitea/workflows/ci.yml` runs complete CI on every pull request, pushes to `main`, and manual dispatch. Source checks run once and WebUI/desktop application assets build once. Five native jobs download those assets, verify their version, commit, lockfile and content hashes, then build Runtime, test the desktop, package it and evaluate the final installer. Linux AMD64 and macOS ARM64 run browser tests; four separate jobs validate Unix Runtime installation. `Gitea CI passed` succeeds only when every group succeeds. Shared application assets, Runtime archives and desktop installers are retained for seven days.
+
+Desktop acceptance is part of this workflow, with no PR path filters or separate `desktop.yml` entry point. The native matrix reuses `nativeBuildMatrix()`, translating only the runner names into the local labels below. Publication remains in `.github/workflows/`; its release gate still checks GitHub CI records.
 
 ## Local action mirrors
 
@@ -52,12 +54,12 @@ runner:
     - molr-linux-amd64:host
 ```
 
-Give every runner its own registration file, workspace, writable tool cache and test account. Do not run two runner processes concurrently under the same test account: sandbox preparation uses a fixed systemd probe unit name and installation tests modify user services. Installation environments must not register build labels; destroy them or restore a clean snapshot after a job. Gitea 1.23 does not guarantee workflow `timeout-minutes` enforcement, so configure the runner timeout; installation runners can use `40m`. See [runner configuration](https://docs.gitea.com/runner/configuration/) and [labels](https://docs.gitea.com/runner/labels/).
+Give every runner its own registration file, workspace, writable tool cache and test account. Do not run two runner processes concurrently under the same test account: sandbox preparation uses a fixed systemd probe unit name and installation tests modify user services. Installation environments must not register build labels; destroy them or restore a clean snapshot after a job. macOS/Windows native jobs also install and launch the final desktop package using the user profile, so their build runners need disposable dedicated user environments restored to a clean state after every job. Gitea 1.23 does not guarantee workflow `timeout-minutes` enforcement, so configure the runner timeout; installation runners can use `40m`. See [runner configuration](https://docs.gitea.com/runner/configuration/) and [labels](https://docs.gitea.com/runner/labels/).
 
 - Preinstall Git, Python 3 and the Node 24 runtime needed by actions. Windows must have a working `python3` command. The runner account needs writable tool installation directories.
 - Linux uses a dedicated non-root account with noninteractive sudo, systemd user services, cgroup v2 delegation, AppArmor, Bash, tar, gzip, file and basic build tools. The existing prepare-sandbox action installs sandbox dependencies and probes startup. Desktop jobs install Xvfb and Electron libraries; website tests install Chromium and its dependencies. Ordinary Docker jobs do not replace these native environments.
 - macOS needs Xcode Command Line Tools, `codesign`, `hdiutil`, `file`, tar, Bash and Python 3. Run the runner in the dedicated user's login session for user launchd and Electron graphical tests.
-- Windows needs PowerShell 7 (`pwsh`), Git and Python 3. Run Electron tests in a dedicated user's interactive desktop session, not a headless service session. The workflow explicitly selects `pwsh`.
+- Windows needs PowerShell 7 (`pwsh`), Git, tar and Python 3. Run Electron tests in a dedicated user's interactive desktop session, not a headless service session. The workflow explicitly selects `pwsh`.
 
 Linux installation acceptance removes Bubblewrap, static BusyBox and AppArmor profiles before the installer restores dependencies. Assign `molr-install-*` labels only to dedicated disposable environments, never a development machine or another project's shared runner.
 
@@ -65,12 +67,12 @@ Linux installation acceptance removes Bubblewrap, static BusyBox and AppArmor pr
 
 Action mirrors do not include Node/Go distributions, npm/Go modules, Playwright browsers, Electron or packaging tools. Runners need access to those download sources; configure proxies, package mirrors or preinstalled tool caches in private runner configuration as needed. Setup actions disable automatic dependency caching, so initial setup needs no additional cache service. `GOCACHE` and `GOMODCACHE` explicitly use `.cache/go-build` and `.cache/go-mod` in the current workspace, sharing caches across tool setup, tests and packaging while keeping workspaces isolated.
 
-Both workflows use ordinary jobs rather than reusable workflows. Installation acceptance downloads build artifacts from the same run. Server features are independent of the new runner: upgrading it does not establish support for `permissions`, `concurrency` or GitHub PR merge previews on Gitea 1.23. See the [1.23 comparison](https://docs.gitea.com/1.23/usage/actions/comparison/) and [PR trigger semantics](https://docs.gitea.com/1.23/usage/actions/faq/).
+The workflow uses ordinary jobs rather than reusable workflows. Native builds, browser tests and installation jobs check out the exact commit recorded by the source job; installation acceptance downloads artifacts from that same run. Shared tool setup lives in `.gitea/actions/setup-build/action.yml` and continues to use the mirrored v7 actions. Server features are independent of the new runner: upgrading it does not establish support for `permissions`, `concurrency` or GitHub PR merge previews on Gitea 1.23. See the [1.23 comparison](https://docs.gitea.com/1.23/usage/actions/comparison/) and [PR trigger semantics](https://docs.gitea.com/1.23/usage/actions/faq/).
 
 Validate setup in this order:
 
-1. Manually dispatch `Gitea CI`. All four builds must run on the correct native system/architecture; four separate installation jobs must download their same-run packages and pass both server and sandbox modes.
-2. Manually dispatch `Gitea desktop acceptance`. All five targets must pass Electron tests, native Runtime lifecycle and packaging, with downloadable artifacts. The workflow builds `0.1.0-local`: macOS uses ad-hoc signing and Windows has no publisher signing. Both complete packaging directly without Apple notarization; signing certificates and release credentials are not required.
-3. Use an ordinary PR to verify CI triggering and a desktop-related PR to verify desktop path filters. Missing runners mean incomplete coverage, even when other jobs pass.
+1. Manually dispatch `Gitea CI`. Source checks, shared asset compilation, five native jobs, two browser jobs and four separate installation jobs must pass. Installation jobs cover both server and sandbox modes. A failed, cancelled or skipped group must fail the final gate.
+2. Verify that all five final desktop installers pass extraction/installation, application startup and bundled Runtime lifecycle acceptance, and that `ci-desktop-*` artifacts and four `ci-runtime-*` archives can be downloaded. The workflow builds `0.1.0-local`: macOS uses ad-hoc signing and Windows has no publisher signing. Both complete packaging directly without Apple notarization; signing certificates and release credentials are not required.
+3. Use an ordinary PR to verify complete CI triggering without desktop path filters. Missing runners mean incomplete coverage, even when other jobs pass.
 
 Syntax checks and local tests are not an actual Gitea acceptance run. During the first run, record server, runner and action mirror versions and verify artifact transfers. Keep logs and actual deployment configuration in private internal material.

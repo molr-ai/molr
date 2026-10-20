@@ -1,0 +1,19 @@
+name: Set up native build tools
+description: Install pinned project tools using local action mirrors and workspace-local caches.
+inputs:
+  shell:
+    description: Shell for npm installation on the native runner.
+    default: bash
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v7
+      with:
+        node-version: '22.21.0'
+        package-manager-cache: false
+    - uses: actions/setup-go@v7
+      with:
+        go-version-file: runtime/.go-version
+        cache: false
+    - shell: ${{ inputs.shell }}
+      run: npm ci

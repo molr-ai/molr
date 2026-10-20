@@ -1,6 +1,8 @@
 # Gitea CI
 
-`.gitea/workflows/ci.yml` 在 PR、`main` 推送及手动触发时执行 Linux/macOS 检查、构建和独立安装验收；`desktop.yml` 在相关 PR 或手动触发时执行五个平台的桌面测试和打包。产物保留七天。检查和构建复用仓库现有脚本，发布继续由 `.github/workflows/` 管理。
+`.gitea/workflows/ci.yml` 在所有 PR、`main` 推送及手动触发时运行完整 CI。源码检查执行一次，WebUI 与桌面前端产物构建一次，随后由五个平台的原生任务下载并校验版本、提交、依赖锁文件和内容摘要，再构建 Runtime、测试桌面、打包并验证最终安装包。Linux AMD64 和 macOS ARM64 分别执行浏览器测试，四个独立安装任务验证 Unix Runtime 包；所有任务成功后 `Gitea CI passed` 才通过。共享前端、Runtime 安装包和桌面安装包保留七天。
+
+桌面验收已并入同一个工作流，不按 PR 路径跳过，也没有单独的 `desktop.yml` 入口。原生矩阵复用 `nativeBuildMatrix()`，只将 runner 名称转换为下表的本地标签。发布继续由 `.github/workflows/` 管理，其发布门禁仍检查 GitHub 自己的 CI 记录。
 
 ## 本地 action 镜像
 
@@ -52,12 +54,12 @@ runner:
     - molr-linux-amd64:host
 ```
 
-每个 runner 使用自己的注册文件、工作目录、可写工具缓存及测试账号。不要让两个 runner 进程共享同一测试账号并发运行：准备 action 使用固定 systemd 探针单元名，安装测试也会操作用户服务。安装验收环境不注册构建标签，任务完成后销毁或恢复干净快照。Gitea 1.23 不保证 workflow `timeout-minutes` 生效，因此在 runner 设置超时；安装验收 runner 可设为 `40m`。参见 [runner 配置](https://docs.gitea.com/runner/configuration/)与[标签说明](https://docs.gitea.com/runner/labels/)。
+每个 runner 使用自己的注册文件、工作目录、可写工具缓存及测试账号。不要让两个 runner 进程共享同一测试账号并发运行：准备 action 使用固定 systemd 探针单元名，安装测试也会操作用户服务。安装验收环境不注册构建标签，任务完成后销毁或恢复干净快照。macOS/Windows 的原生构建任务会安装、启动最终桌面包并使用用户资料目录，因此这些构建 runner 也必须使用可重建的专用用户环境，每次任务后恢复干净状态。Gitea 1.23 不保证 workflow `timeout-minutes` 生效，因此在 runner 设置超时；安装验收 runner 可设为 `40m`。参见 [runner 配置](https://docs.gitea.com/runner/configuration/)与[标签说明](https://docs.gitea.com/runner/labels/)。
 
 - 所有环境预装 Git、Python 3，以及 action 需要的 Node 24 运行时；Windows 的 `python3` 命令必须实际可用。runner 账号应有工具安装目录的写权限。
 - Linux 使用非 root 专用账号和免交互 sudo，提供 systemd 用户服务、cgroup v2 委派、AppArmor、Bash、tar、gzip、file 和基础编译工具。现有 `prepare-sandbox` action 安装沙盒依赖并运行启动探针；桌面 job 安装 Xvfb 和 Electron 图形库，网站测试安装 Chromium 及其依赖。普通 Docker job 不能替代这里的原生环境。
 - macOS 安装 Xcode Command Line Tools，提供 `codesign`、`hdiutil`、`file`、tar、Bash 和 Python 3。runner 在专用用户的登录会话中运行，使用户级 launchd 和 Electron 图形测试可用。
-- Windows 提供 PowerShell 7（`pwsh`）、Git 和 Python 3，在专用用户的交互桌面会话中执行 Electron 测试；不要用无桌面的服务会话替代图形验收。工作流显式使用 `pwsh`。
+- Windows 提供 PowerShell 7（`pwsh`）、Git、tar 和 Python 3，在专用用户的交互桌面会话中执行 Electron 测试；不要用无桌面的服务会话替代图形验收。工作流显式使用 `pwsh`。
 
 Linux 独立安装验收会卸载 Bubblewrap、静态 BusyBox、AppArmor profiles，再由安装器恢复依赖。只能将 `molr-install-*` 标签分配给专用可重建环境，不能分配给日常开发机或其他项目的共享 runner。
 
@@ -65,12 +67,12 @@ Linux 独立安装验收会卸载 Bubblewrap、静态 BusyBox、AppArmor profile
 
 本地 action 镜像不包含 Node/Go 发行包、npm/Go 模块、Playwright 浏览器、Electron 及打包工具。runner 需能访问这些下载源，也可通过本地 runner 环境配置代理、包源或预装工具缓存。工作流关闭 setup actions 的自动依赖缓存，首次接入无需配置额外缓存服务。`GOCACHE` 和 `GOMODCACHE` 显式指向当前工作区的 `.cache/go-build` 和 `.cache/go-mod`，使工具准备、测试与打包复用同一组缓存，同时保持不同工作区隔离。
 
-两个工作流使用普通 jobs，不依赖可复用 workflow；完整安装验收在同一次运行中下载构建产物。Gitea 1.23 的服务器功能与新 runner 独立，不能通过升级 runner 假定 `permissions`、`concurrency` 或 GitHub 的 PR 合并预览语义生效。参见 [1.23 兼容差异](https://docs.gitea.com/1.23/usage/actions/comparison/)和 [PR 触发说明](https://docs.gitea.com/1.23/usage/actions/faq/)。
+工作流使用普通 jobs，不依赖可复用 workflow；原生构建、浏览器和安装任务均检出源码任务记录的同一提交，安装验收下载同次运行的构建产物。共享工具准备位于 `.gitea/actions/setup-build/action.yml`，仍使用本地镜像的 v7 actions。Gitea 1.23 的服务器功能与新 runner 独立，不能通过升级 runner 假定 `permissions`、`concurrency` 或 GitHub 的 PR 合并预览语义生效。参见 [1.23 兼容差异](https://docs.gitea.com/1.23/usage/actions/comparison/)和 [PR 触发说明](https://docs.gitea.com/1.23/usage/actions/faq/)。
 
 接入验收依次检查：
 
-1. 手动触发 `Gitea CI`，确认四个构建任务均匹配正确系统／架构并通过，四个独立安装任务下载同次运行的包并完成 server、sandbox 两种模式验收。
-2. 手动触发 `Gitea desktop acceptance`，确认五个平台的 Electron、原生 Runtime 生命周期和安装包构建通过，artifact 可下载。该流程固定构建 `0.1.0-local`：macOS 使用 ad-hoc 签名，Windows 不使用发布者签名，均直接完成打包，不执行 Apple 公证；无需签名证书或发布凭据。
-3. 用普通 PR 验证 CI 自动触发，再用桌面相关路径的 PR 验证桌面 workflow 的路径过滤。缺少任一 runner 时矩阵不完整，不能把其余任务成功视为全平台通过。
+1. 手动触发 `Gitea CI`，确认源码检查、共享前端构建、五个原生任务、两个浏览器任务及四个独立安装任务全部通过；独立安装任务须完成 server、sandbox 两种模式验收。任一组失败、取消或跳过，最终门禁必须失败。
+2. 检查五个平台的桌面安装包均实际完成解包／安装、应用启动和包内 Runtime 生命周期验收，并能下载 `ci-desktop-*` 和四份 `ci-runtime-*` 产物。该流程固定构建 `0.1.0-local`：macOS 使用 ad-hoc 签名，Windows 不使用发布者签名，均直接完成打包，不执行 Apple 公证；无需签名证书或发布凭据。
+3. 用普通 PR 验证完整 CI 自动触发，不应出现按路径跳过桌面验收的情况。缺少任一 runner 时矩阵不完整，不能把其余任务成功视为全平台通过。
 
 语法检查与本地测试不等于 Gitea 实跑通过。首次运行需核对服务器、runner、action 镜像具体版本和产物传输结果，日志及实际部署配置保存在私有内部资料中。
