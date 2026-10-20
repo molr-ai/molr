@@ -58,8 +58,8 @@ export function Sandboxes({ resources, resourceID = '' }: { resources: Resource[
     { id: 'credentials', label: copy.credentials, icon: <ShieldCheck size={15} />, onSelect: () => setEditing(sandbox) },
     ...(sandbox.State !== 'disconnected' ? [{ id: 'disconnect', label: copy.disconnect, icon: <Unplug size={15} />, danger: true, separatorBefore: true, onSelect: () => setDisconnecting(sandbox) }] : []),
   ] : [];
+  if (query.loading && !query.data) return <div className="sandbox-workspace"><Loading /></div>;
   return <div className="sandbox-workspace">
-    {query.loading && !query.data && <Loading />}
     <div className="sandbox-mobile-switch"><Select hideLabel label={copy.select} value={selected} onValueChange={setSelected} options={(query.data ?? []).map(item => ({ value: item.ID, label: name(item), description: statusLabel(item, copy) }))} /><IconButton label={copy.connect} onClick={() => setConnecting(true)}><Plus size={18} /></IconButton></div>
     <div className="sandbox-layout">
       <aside className="sandbox-sidebar"><div className="sandbox-sidebar-heading"><span>{copy.title}</span><SettingsHelp label={copy.helpLabel} content={copy.help} /></div>

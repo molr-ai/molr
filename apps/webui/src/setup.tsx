@@ -37,8 +37,8 @@ function Setup({ onComplete }: { onComplete: (id: string) => void }) {
   onComplete(result.AssistantID);
  }
  return <main className="setup-page"><div className="setup-card"><h1>{zh ? '让 Molr 开始工作' : 'Get started with Molr'}</h1><p className="muted">{zh ? '连接一个模型，其余已经为你准备好。' : 'Connect a model. Everything else is ready for you.'}</p>
+  {models.loading && !models.data ? <Loading /> : <>
   {(!selected || changingProvider) && <ProviderConnectionDialog inline onClose={() => {}} onConnected={resource => { setProvider(resource); setChangingProvider(false); setModelID(''); setInputPrice(''); setOutputPrice(''); models.reload(); }} />}
-  {models.loading && <Loading />}
   {provider && !models.loading && !candidates.length && <p role="status">{zh ? '此服务没有可用的聊天模型。请检查服务模型配置，或连接其他提供商。' : 'No chat models are available. Check the service or connect another provider.'}</p>}
   {selected && <form className="setup-finish" onSubmit={event => { event.preventDefault(); void action.run(finish); }}>
    <div className="setup-actions"><h2>{zh ? '你的助理 Molr' : 'Your assistant Molr'}</h2><Button variant="ghost" onClick={() => setChangingProvider(true)}>{zh ? '更换提供商' : 'Change provider'}</Button></div>
@@ -51,5 +51,6 @@ function Setup({ onComplete }: { onComplete: (id: string) => void }) {
    <p className="muted">{zh ? '开始后 Molr 会使用所选模型向你问候，消耗计入预算。模型的实际工具调用能力以执行结果为准。文件、命令和网络权限可在需要时授予。' : 'Molr will greet you using this model; usage counts toward the budget. Tool support is confirmed during execution. Grant file, command and network permissions when needed.'}</p>
    <Button type="submit" loading={action.busy}>{zh ? '开始使用' : 'Start using Molr'}</Button>
   </form>}
+  </>}
  </div></main>;
 }

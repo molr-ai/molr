@@ -201,10 +201,8 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
           {plans.loading && !plans.data ? <Loading /> : calendarMode === 'week' ? <PlanWeekCalendar date={month} selectedDate={date} locale={locale} events={scheduledEvents} selectedKey={selected ? eventKey(selected,selectedAt) : undefined} onDay={selectDate} onEvent={selectEvent}/> : <PlanMonthCalendar month={month} date={date} locale={locale} events={scheduledEvents} onDay={selectDate} onEvent={selectEvent} moreLabel={(count,day)=>t.moreEvents(count,day)}/>}
 
         </section> : <>
-          {plans.loading && !plans.data && <Loading />}
-          <div className="plan-list plans-list" aria-label={t.eventList}>{listRows.map(event=>row(event.Plan,event.At||undefined))}</div>
-          {upcoming.loading&&listScope==='upcoming'&&<Loading/>}
-          {!embedded&&listScope==='upcoming'&&upcoming.more&&<Button className="plans-load-more" variant="secondary" disabled={upcoming.loading} onClick={upcoming.loadMore}>{t.loadMoreEvents}</Button>}
+          {!listRows.length && (plans.loading && !plans.data || listScope === 'upcoming' && upcoming.loading) ? <Loading /> : <div className="plan-list plans-list" aria-label={t.eventList}>{listRows.map(event=>row(event.Plan,event.At||undefined))}</div>}
+          {!embedded&&listScope==='upcoming'&&upcoming.more&&<Button className="plans-load-more" variant="secondary" loading={upcoming.loading} onClick={upcoming.loadMore}>{t.loadMoreEvents}</Button>}
           {!listRows.length&&!plans.loading&&!(listScope==='upcoming'&&upcoming.loading)&&<div className="plans-empty"><span className="plans-empty-icon"><CalendarDays size={32}/></span><h2>{hasFilters ? t.empty : listScope === 'upcoming' ? t.noUpcoming : listScope === 'overdue' ? t.noOverdue : t.noUndated}</h2>{!hasFilters && listScope === 'upcoming' && <p>{t.noUpcomingHelp}</p>}{embedded ? null : hasFilters ? <><p>{t.filteredEmpty}</p><Button size="sm" variant="secondary" onClick={clearFilters}>{t.clearFilters}</Button></> : listScope === 'overdue' ? <Button size="sm" variant="secondary" onClick={() => selectListScope('upcoming')}>{t.viewUpcoming}</Button> : <Button size="sm" onClick={() => setEditing('new')}><Plus size={14}/>{t.new}</Button>}</div>}
         </>}
       </div>

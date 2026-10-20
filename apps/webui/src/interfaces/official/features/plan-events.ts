@@ -36,7 +36,7 @@ export function usePlanEvents(path: string | null) {
   const refresh = useRef(() => {});
   useEffect(()=>{
     if(!path)return;
-    setState(old=>({path,items:old.path===path?old.items:[],more:false,loading:true}));
+    setState(old=>({path,items:old.path===path?old.items:[],more:old.path===path&&old.more,loading:true}));
     const loop = poll(async signal => {
      try {
       const items:PlanEvent[]=[];let cursor='';
