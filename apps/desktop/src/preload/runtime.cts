@@ -34,4 +34,7 @@ if (process.isMainFrame) {
     },
   };
   contextBridge.exposeInMainWorld('molrApp', api);
+  if (process.platform === 'darwin') {
+    window.addEventListener('resize', () => { void ipcRenderer.invoke('app:sync-titlebar').catch(() => {}); });
+  }
 }

@@ -6,6 +6,7 @@ import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { _electron as electron, expect } from '@playwright/test';
+import { expectMacTitlebar, expectFullscreenTitlebar } from './window-controls.mjs';
 const root = resolve(import.meta.dirname, '../../..');
 const data = mkdtempSync(join(tmpdir(), 'molr-desktop-test-'));
 const screenshots = join(root, '.cache/acceptance/desktop'); mkdirSync(screenshots, { recursive: true });
@@ -46,6 +47,22 @@ try {
   checkpoint('first launch');
   let page = await launch();
   await page.getByRole('heading', { name: '连接你的 Runtime' }).waitFor();
+  await expect(page.locator('.desktop-app')).toHaveAttribute('data-app-platform', process.platform);
+  await expect(page.locator('.desktop-window-controls')).toHaveCount(process.platform === 'darwin' ? 0 : 1);
+  if (process.platform === 'darwin') {
+    for (const zoom of [0.8, 1.25, 1.5, 1]) {
+      await app.evaluate(({ BrowserWindow }, zoom) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(zoom), zoom);
+      await expectMacTitlebar(page, '.desktop-toolbar', '.desktop-identity .logo');
+    }
+    const margin = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getWindowButtonPosition());
+    assert(margin.x > 0 && margin.x === margin.y, 'Native top and left margins match');
+    // Exercise the renderer's fullscreen state independently of macOS Spaces.
+    const state = await page.evaluate(() => window.molrDesktop.state());
+    await app.evaluate(({ BrowserWindow }, state) => BrowserWindow.getAllWindows()[0].webContents.send('desktop:changed', { ...state, window: { ...state.window, fullscreen: true } }), state);
+    await expectFullscreenTitlebar(page, '.desktop-toolbar', '.desktop-identity .logo');
+    await app.evaluate(({ BrowserWindow }, state) => BrowserWindow.getAllWindows()[0].webContents.send('desktop:changed', state), state);
+    await expectMacTitlebar(page, '.desktop-toolbar', '.desktop-identity .logo');
+  }
   const logo = page.locator('.desktop-identity .logo img');
   await expect(logo).toHaveAttribute('src', /molr-wordmark-(alive|playful)\.svg/);
   await expect(page.locator('.desktop-identity picture source')).toHaveAttribute('media', '(prefers-reduced-motion: reduce)');
@@ -74,6 +91,10 @@ try {
   assert.equal((await remote('window.molrApp.getInfo()')).apiVersion, 1);
   assert.deepEqual(await remote('Object.keys(window.molrApp).sort()'), ['disconnect', 'getInfo', 'notifications', 'oauth', 'onWindowStateChanged', 'window']);
   assert.equal(await page.locator('.desktop-toolbar').count(), 0);
+  if (process.platform === 'darwin') {
+    const margin = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getWindowButtonPosition());
+    assert(margin.x > 0 && margin.x === margin.y, 'Native margins remain equal with the Runtime view attached');
+  }
   assert.equal(await app.evaluate(({ BrowserWindow }) => {
     const w = BrowserWindow.getAllWindows()[0], [width, height] = w.getContentSize();
     return { actual: w.contentView.children.find(view => view.webContents !== w.webContents).getBounds(), expected: { x: 0, y: 0, width, height } };

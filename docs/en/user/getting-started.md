@@ -2,6 +2,8 @@
 
 Start with a service address and account provided by your administrator. If you need to install Molr yourself, first follow [Set up a Molr instance](../admin/getting-started.md).
 
+On macOS, the desktop connection manager and connected WebUI use native traffic lights at the upper left to close, minimize, and enter fullscreen, with the logo to their right. Closing the window leaves an already running Runtime active.
+
 ## Login
 
 The first administrator logs in using the account created during initialization; regular members use accounts created by the administrator. There are no default username/password combinations or public registration entry points. If two-factor authentication is enabled, enter the verification code or recovery code as prompted on the page.

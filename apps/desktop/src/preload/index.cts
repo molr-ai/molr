@@ -21,3 +21,7 @@ const api: DesktopAPI = {
   },
 };
 contextBridge.exposeInMainWorld('molrDesktop', api);
+if (process.isMainFrame && process.platform === 'darwin') {
+  // Page zoom changes the viewport. Main reads the real zoom itself.
+  window.addEventListener('resize', () => { void ipcRenderer.invoke('desktop:sync-titlebar').catch(() => {}); });
+}

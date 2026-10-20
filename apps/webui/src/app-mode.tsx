@@ -47,17 +47,17 @@ export function AppFrame({ children }: { children: ReactNode }) {
     try { await action(); } catch (error) { reportError(error); setDisconnecting(false); }
   }
   const restore = info?.window.maximized || info?.window.fullscreen;
-  return <TitlebarBrandContext.Provider value={brand}><div ref={setFrame} className="app-frame" data-app-platform={info?.platform}>
+  return <TitlebarBrandContext.Provider value={brand}><div ref={setFrame} className="app-frame" data-app-platform={info?.platform} data-app-fullscreen={info?.window.fullscreen}>
     <ModalScope container={frame} presentation={mobile ? 'sheet' : 'dialog'}>
     <header className="app-titlebar" aria-label={zh ? '桌面窗口' : 'Desktop window'}>
       <div className="app-titlebar-identity"><div ref={setBrand} className="app-titlebar-brand"><Logo variant={theme === 'dark' ? 'light' : 'dark'} /></div><span title={info?.connection.url}>{info?.connection.name}</span></div>
       <div className="app-titlebar-actions">
         <Button variant="ghost" size="sm" disabled={disconnecting} onClick={() => { setDisconnecting(true); void run(() => bridge!.disconnect()); }}><Unplug size={16} /><span className="app-disconnect-label">{zh ? '断开连接' : 'Disconnect'}</span></Button>
-        <div className="app-window-controls">
+        {info?.platform !== 'darwin' && <div className="app-window-controls">
           <IconButton label={zh ? '最小化' : 'Minimize'} onClick={() => void run(() => bridge!.window.minimize())}><Minus size={16} /></IconButton>
           <IconButton label={restore ? (zh ? '还原窗口' : 'Restore window') : (zh ? '最大化' : 'Maximize')} onClick={() => void run(() => bridge!.window.toggleMaximize())}>{restore ? <Copy size={14} /> : <Square size={14} />}</IconButton>
           <IconButton className="app-window-close" label={zh ? '关闭窗口' : 'Close window'} onClick={() => void run(() => bridge!.window.close())}><X size={18} /></IconButton>
-        </div>
+        </div>}
       </div>
     </header>
     <div className="app-frame-content">{children}</div>

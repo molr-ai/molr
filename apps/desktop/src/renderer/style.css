@@ -2,8 +2,8 @@ html, body, #root { margin: 0; min-height: 100%; }
 body { background: var(--color-background); color: var(--color-text); font-family: var(--font-sans); }
 * { box-sizing: border-box; }
 button, input { font: inherit; }
-.desktop-app { min-height: 100vh; }
-.desktop-toolbar { height: 48px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; line-height: 1; }
+.desktop-app { --app-titlebar-height: 48px; min-height: 100vh; }
+.desktop-toolbar { height: var(--app-titlebar-height); padding: 0 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; line-height: 1; }
 .desktop-identity, .desktop-toolbar-actions { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .desktop-identity .logo { --logo-width: 88px; flex-shrink: 0; }
 .desktop-identity > span:last-child { font-size: 13px; color: var(--color-text-muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
@@ -61,3 +61,5 @@ button, input { font: inherit; }
 .desktop-window-controls { display: flex; align-items: center; gap: 2px; }
 .desktop-toolbar-actions :is(.button, .ui-icon-button) { height: 36px; min-height: 36px; margin: 0; line-height: 1; }
 .desktop-window-controls .desktop-close:hover { background: var(--color-danger-bg); color: var(--color-danger); }
+/* Only windowed macOS needs an inset for the native buttons. */
+.desktop-app[data-app-platform="darwin"]:not([data-app-fullscreen="true"]) .desktop-toolbar { padding-left: env(titlebar-area-x, 88px); }

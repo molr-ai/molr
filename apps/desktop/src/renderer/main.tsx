@@ -47,13 +47,13 @@ function App() {
   const runtimeReady = local.state === 'active' || local.state === 'running';
   const connect = (c: Connection) => void run(() => bridge!.connect(c.id));
   function localAction(action: LocalAction) { void run(() => bridge!.localAction(action, action === 'install' && local.state !== 'uninstalled' ? resourcePreset : undefined)); }
-  return <div className="desktop-app">
+  return <div className="desktop-app" data-app-platform={state.platform} data-app-fullscreen={state.window.fullscreen}>
     {state.view !== 'runtime' && <header className="desktop-toolbar">
       <div className="desktop-identity"><Logo animation="daily" assetBaseUrl={paletteAssetBase(palette)} variant={theme === 'dark' ? 'light' : 'dark'} /><span>{current?.name ?? '桌面工作台'}</span></div>
       <div className="desktop-toolbar-actions">
         {!showManager && <Button variant="ghost" size="sm" onClick={() => void run(() => bridge!.manager())}><ArrowLeft size={16} /> 管理连接</Button>}
         {showManager && <IconButton label="桌面设置" onClick={() => setSettings(!settings)}><Settings2 size={18} /></IconButton>}
-        {bridge && <div className="desktop-window-controls">
+        {bridge && state.platform !== 'darwin' && <div className="desktop-window-controls">
           <IconButton label="最小化" onClick={() => void run(() => bridge.minimize())}><Minus size={16} /></IconButton>
           <IconButton label={state.window.maximized || state.window.fullscreen ? '还原窗口' : '最大化'} onClick={() => void run(() => bridge.toggleMaximize())}>{state.window.maximized || state.window.fullscreen ? <Copy size={14} /> : <Square size={14} />}</IconButton>
           <IconButton label="关闭窗口" className="desktop-close" onClick={() => void run(() => bridge.close())}><X size={18} /></IconButton>

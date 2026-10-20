@@ -5,6 +5,7 @@ import { mkdtempSync, mkdirSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { _electron as electron, chromium, expect } from '@playwright/test';
+import { expectMacTitlebar, expectFullscreenTitlebar } from './window-controls.mjs';
 const root = resolve(import.meta.dirname, '../../..');
 const url = process.env.MOLR_DESKTOP_WEBUI_URL;
 const linkFile = process.env.MOLR_DESKTOP_TEST_LINK;
@@ -15,10 +16,11 @@ const screenshots = join(root, '.cache/acceptance/app-mode'); mkdirSync(screensh
 const env = { ...process.env, MOLR_DESKTOP_DATA: data }; delete env.ELECTRON_RUN_AS_NODE; delete env.MOLR_DESKTOP_RUNTIME; delete env.MOLR_DESKTOP_DEV_URL;
 let app, browser;
 try {
-  app = await electron.launch({ args: [join(root, 'apps/desktop')], env, chromiumSandbox: true });
+  app = await electron.launch({ args: [join(root, 'apps/desktop'), ...(process.env.MOLR_DESKTOP_TEST_HEADLESS === '1' ? ['--ozone-platform=headless', '--ozone-override-screen-size=1920,1080'] : [])], env, chromiumSandbox: true });
   app.context().setDefaultTimeout(15000);
   const manager = await app.firstWindow();
   await manager.getByRole('heading', { name: '连接你的 Runtime' }).waitFor();
+  await expect.poll(() => app.evaluate(({BrowserWindow}) => BrowserWindow.getAllWindows()[0].isVisible())).toBe(true);
   await expect(manager.locator('.desktop-identity .logo__wordmark')).toBeVisible();
   assert.equal(await manager.locator('.desktop-identity strong').count(), 0);
   assert.equal(await manager.locator('.desktop-divider').count(), 0);
@@ -29,10 +31,27 @@ try {
   assert(runtime, 'Runtime WebContentsView is attached as a Playwright page');
   await runtime.getByRole('banner', { name: /Desktop window|桌面窗口/ }).waitFor();
   assert.equal(await runtime.evaluate(() => typeof window.molrDesktop), 'undefined');
-  await runtime.evaluate(() => { localStorage.setItem('molr-webui-locale','zh'); }); await runtime.reload();
+  await runtime.evaluate(() => { document.cookie = `molr_locale_p${location.port || (location.protocol === 'https:' ? '443' : '80')}=zh; Path=/; SameSite=Lax`; }); await runtime.reload();
   await runtime.getByRole('button', { name: '断开连接', exact: true }).waitFor();
   assert.equal(await manager.locator('.desktop-toolbar').count(), 0);
   await expect(runtime.locator('.app-titlebar .logo__wordmark')).toBeVisible();
+  await expect(runtime.locator('.app-frame')).toHaveAttribute('data-app-platform', process.platform);
+  await expect(runtime.locator('.app-window-controls')).toHaveCount(process.platform === 'darwin' ? 0 : 1);
+  if (process.platform === 'darwin') {
+    for (const zoom of [0.8, 1.25, 1.5, 1]) {
+      await app.evaluate(({webContents}, {url, zoom}) => webContents.getAllWebContents().find(c => c.getURL().startsWith(url)).setZoomFactor(zoom), {url, zoom});
+      await expectMacTitlebar(runtime, '.app-titlebar', '.app-titlebar-brand');
+    }
+    const margin = await app.evaluate(({BrowserWindow}) => BrowserWindow.getAllWindows()[0].getWindowButtonPosition());
+    assert(margin.x > 0 && margin.x === margin.y, 'Native top and left margins match');
+    // Verify the host-state rendering path; native Spaces transitions are a
+    // separate acceptance check and may be unavailable over remote login.
+    const state = await runtime.evaluate(async () => (await window.molrApp.getInfo()).window);
+    await app.evaluate(({webContents}, {url, state}) => webContents.getAllWebContents().find(c => c.getURL().startsWith(url)).send('app:window-state', { ...state, fullscreen: true }), {url, state});
+    await expectFullscreenTitlebar(runtime, '.app-titlebar', '.app-titlebar-brand');
+    await app.evaluate(({webContents}, {url, state}) => webContents.getAllWebContents().find(c => c.getURL().startsWith(url)).send('app:window-state', state), {url, state});
+    await expectMacTitlebar(runtime, '.app-titlebar', '.app-titlebar-brand');
+  }
   assert.equal(await runtime.locator('.app-titlebar strong').count(), 0);
   assert(await runtime.locator('.app-frame').evaluate(el => getComputedStyle(el).backgroundImage.includes('radial-gradient')));
   await expect(runtime.locator('.login-page')).toHaveCSS('background-image', 'none');
@@ -62,13 +81,21 @@ try {
   await runtime.mouse.click(400, 24);
   await runtime.locator('dialog[open]').waitFor({ state:'hidden' });
   assert.equal(await runtime.locator('.app-titlebar').evaluate(el => !!el.closest('[inert]')), false);
-  await runtime.getByRole('button', { name:/^(最大化|Maximize)$/, exact:true }).click();
+  // Native macOS buttons are outside the DOM; exercise the bridge here.
+  // Traffic-light hit targets and OS fullscreen behavior need native acceptance.
+  if (process.platform === 'darwin') await runtime.evaluate(() => window.molrApp.window.toggleMaximize());
+  else await runtime.getByRole('button', { name:/^(最大化|Maximize)$/, exact:true }).click();
   await expect.poll(() => app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].isMaximized())).toBe(true);
-  await runtime.getByRole('button', { name:/^(还原窗口|Restore window)$/,exact:true }).click();
+  if (process.platform === 'darwin') await runtime.evaluate(() => window.molrApp.window.toggleMaximize());
+  else await runtime.getByRole('button', { name:/^(还原窗口|Restore window)$/,exact:true }).click();
   await expect.poll(() => app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].isMaximized())).toBe(false);
-  await runtime.getByRole('button', { name:/^(最小化|Minimize)$/,exact:true }).click();
+  if (process.platform === 'darwin') await runtime.evaluate(() => window.molrApp.window.minimize());
+  else await runtime.getByRole('button', { name:/^(最小化|Minimize)$/,exact:true }).click();
   await expect.poll(() => app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].isMinimized())).toBe(true);
   await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.restore();w.show();});
+  await expect.poll(() => app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].isMinimized())).toBe(false);
+  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].unmaximize());
+  await expect.poll(() => app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].isMaximized())).toBe(false);
   for(const theme of ['light','dark']) for(const palette of ['forest','ocean','iris','sand','rose','monochrome']) {
     // Exercise shared appearance preferences with the authenticated workspace.
     await runtime.evaluate(({theme,palette})=>{
@@ -79,6 +106,7 @@ try {
     for(const [size,width,height] of [['wide',1180,820],['narrow',640,720]]) {
       await app.evaluate(({BrowserWindow},{width,height})=>BrowserWindow.getAllWindows()[0].setSize(width,height),{width,height});
       await expect.poll(()=>runtime.evaluate(()=>innerWidth)).toBe(width);
+      if (process.platform === 'darwin') await expectMacTitlebar(runtime, '.app-titlebar', '.app-titlebar-brand');
       await expect.poll(()=>runtime.locator('.workspace').evaluate(el=>el.classList.contains('workspace--mobile'))).toBe(size==='narrow');
       await expect.poll(()=>runtime.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
       assert(await runtime.locator('.app-titlebar').evaluate(el => {
@@ -125,8 +153,17 @@ try {
   assert.equal(await web.locator('.app-titlebar').count(),0);
   assert.equal(await web.evaluate(()=>typeof window.molrApp),'undefined');
   await web.screenshot({path:join(screenshots,'browser.png')});
-  const closed = app.waitForEvent('close');
-  await manager.getByRole('button', {name:'关闭窗口',exact:true}).click({noWaitAfter:true}).catch(error=>{ if(!manager.isClosed()) throw error; });
-  await closed; app = undefined;
+  if (process.platform === 'darwin') {
+    // macOS keeps the application alive after its last window closes.
+    const closed = manager.waitForEvent('close');
+    await manager.evaluate(() => window.molrDesktop.close());
+    await closed;
+    await app.close();
+  } else {
+    const closed = app.waitForEvent('close');
+    await manager.getByRole('button', {name:'关闭窗口',exact:true}).click({noWaitAfter:true}).catch(error=>{ if(!manager.isClosed()) throw error; });
+    await closed;
+  }
+  app = undefined;
   console.log('App mode passed: full wordmarks, continuous login background, aligned titlebar, whole-window dialog/drawer overlays, native controls, disconnect/session retention, crash recovery, browser mode and 48 appearance/size screenshots.');
 } finally { await browser?.close(); await app?.close(); rmSync(data,{recursive:true,force:true}); }

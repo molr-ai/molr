@@ -38,7 +38,22 @@ if (devURL && (!/^http:\/\/(127\.0\.0\.1|localhost):\d+\/$/.test(devURL))) throw
 const trustedURL = devURL ?? managerURL;
 
 function snapshot(): DesktopState { return { ...store.data, active, view, error, local: localStatus, busy, progress, version: appVersion, platform: process.platform, window: windowState() }; }
-function changed() { if (win && !win.isDestroyed()) win.webContents.send('desktop:changed', snapshot()); }
+const titlebarHeight = 48;
+const initialMacButtonMargin = 16;
+let macButtonHeight: number | undefined;
+function syncMacWindowButtons() {
+  if (process.platform !== 'darwin' || !win || win.isDestroyed() || win.isFullScreen() || macButtonHeight === undefined) return;
+  const contents = view === 'runtime' ? runtimeView?.webContents : win.webContents;
+  if (!contents || contents.isDestroyed()) return;
+  // CSS pixels scale with the active renderer's zoom; native points do not.
+  const margin = Math.max(0, Math.round((titlebarHeight * contents.getZoomFactor() - macButtonHeight) / 2));
+  const previous = win.getWindowButtonPosition();
+  if (previous?.x !== margin || previous.y !== margin) win.setWindowButtonPosition({ x: margin, y: margin });
+}
+function changed() {
+  syncMacWindowButtons();
+  if (win && !win.isDestroyed()) win.webContents.send('desktop:changed', snapshot());
+}
 function authorized(event: IpcMainInvokeEvent) {
   if (!win || event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame || event.senderFrame.url.split('#')[0] !== trustedURL) throw new Error('Desktop management is unavailable to this page.');
 }
@@ -211,7 +226,14 @@ async function localAction(action: LocalAction, preset?: ResourcePreset) {
   } finally { busy = undefined; progress = undefined; await refreshLocal(); changed(); }
 }
 async function createWindow() {
-  win = new BrowserWindow({ width: 1180, height: 820, minWidth: 620, minHeight: 540, title: 'Molr', frame: false, show: false, webPreferences: { preload: join(here, '../preload/index.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, webviewTag: false } });
+  macButtonHeight = undefined;
+  win = new BrowserWindow({
+    width: 1180, height: 820, minWidth: 620, minHeight: 540, title: 'Molr', show: false,
+    // WCO initially measures the native button height; equal margins are then
+    // calibrated to the fixed 48px web titlebar without assuming a button size.
+    ...(process.platform === 'darwin' ? { titleBarStyle: 'hidden' as const, titleBarOverlay: true, trafficLightPosition: { x: initialMacButtonMargin, y: initialMacButtonMargin } } : { frame: false }),
+    webPreferences: { preload: join(here, '../preload/index.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, webviewTag: false },
+  });
   win.on('resize', layout);
   win.on('maximize', windowChanged); win.on('unmaximize', windowChanged);
   win.on('enter-full-screen', windowChanged); win.on('leave-full-screen', windowChanged);
@@ -223,6 +245,24 @@ async function createWindow() {
   win.webContents.session.setPermissionRequestHandler((_c, _p, callback) => callback(false));
   win.once('ready-to-show', () => win?.show());
   await win.loadURL(trustedURL);
+  if (process.platform === 'darwin') {
+    // Read only the bundled, trusted renderer; Runtime pages cannot supply
+    // native dimensions or arbitrary button positions.
+    const height: number = await win.webContents.executeJavaScript(`new Promise(resolve => {
+      const overlay = navigator.windowControlsOverlay;
+      const read = () => {
+        const height = overlay.getTitlebarAreaRect().height;
+        if (height > 0) { overlay.removeEventListener('geometrychange', read); resolve(height); }
+      };
+      overlay.addEventListener('geometrychange', read);
+      read();
+    })`);
+    const measured = Math.round(height * win.webContents.getZoomFactor()) - 2 * initialMacButtonMargin;
+    if (measured > 0 && measured < titlebarHeight) {
+      macButtonHeight = measured;
+      syncMacWindowButtons();
+    }
+  }
 }
 function installShortcuts(contents: WebContents) {
   contents.on('before-input-event', (event, input) => {
@@ -261,6 +301,7 @@ async function main() {
     } catch (e) { localStatus = { available: false, installed: false, state: 'failed', error: (e as Error).message }; }
   }
   handle('state', snapshot);
+  handle('sync-titlebar', syncMacWindowButtons);
   handle('minimize', () => win?.minimize()); handle('toggle-maximize', toggleMaximize); handle('close', closeLater);
   appHandle('info', (): AppInfo => { runtimeReady = true; revealRuntime(); return { apiVersion: 1, platform: process.platform, connection: { name: store.get(active!).name, url: store.get(active!).url }, window: windowState() }; });
   appHandle('minimize', () => win?.minimize()); appHandle('toggle-maximize', toggleMaximize); appHandle('close', closeLater); appHandle('disconnect', disconnectLater);
@@ -270,6 +311,7 @@ async function main() {
   appHandle('notification-permission', () => Notification.isSupported());
   appHandle('notification-show', (scope, value) => notifications!.show(scope, value), 2);
   appHandle('notification-close', (scope, tag) => notifications!.close(scope, tag), 2);
+  appHandle('sync-titlebar', syncMacWindowButtons);
   appHandle('oauth-cancel', () => oauth.cancel());
   appHandle('oauth-authorize', provider => {
     const current = runtimeView!, connection = store.get(active!), window = win!;
