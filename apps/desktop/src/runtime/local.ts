@@ -1,3 +1,4 @@
+import { compareVersions } from '../version.js';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, appendFileSync, lstatSync } from 'node:fs';
@@ -63,7 +64,7 @@ export class LocalRuntime {
   }
   async status(): Promise<LocalStatus> {
     const r = await this.invoke('status');
-    return { available: true, installed: r.installed, state: r.state, health: r.health, version: r.version, url: r.url, record: r.record, bundledVersion: this.bundledVersion };
+    return { available: true, installed: r.installed, state: r.state, health: r.health, version: r.version, url: r.url, record: r.record, bundledVersion: this.bundledVersion, updatePending: r.installed && compareVersions(r.version ?? '', this.bundledVersion) === -1 };
   }
   async action(action: LocalAction, preset?: ResourcePreset) {
     if (!['install', 'start', 'stop', 'restart', 'upgrade', 'uninstall'].includes(action)) throw new Error('不支持的本机操作。');

@@ -8,7 +8,8 @@ async function desktop(page: import('@playwright/test').Page) {
     // Desktop must not depend on the browser's denied permission.
     Object.defineProperty(Notification, 'permission', { get: () => 'denied' });
     window.molrApp = {
-      getInfo: async () => ({ apiVersion: 1, platform: 'darwin', connection: { name: 'Fixture', url: location.origin }, window: { maximized: false, fullscreen: false } }),
+      updates: { status: async () => ({ comparison: 'current', checking: false }), check: async () => ({ comparison: 'current', checking: false }), openDownloads: async () => {}, upgradeLocal: async () => {}, onChanged: () => () => {} },
+      getInfo: async () => ({ apiVersion: 1, platform: 'darwin', build: { version: '0.1.0', commit: '' }, connection: { kind: 'remote', name: 'Fixture', url: location.origin }, window: { maximized: false, fullscreen: false } }),
       window: { minimize: async () => {}, toggleMaximize: async () => {}, close: async () => {} },
       disconnect: async () => {}, onWindowStateChanged: () => () => {},
       oauth: { authorize: async () => ({ status: 'cancelled' }), cancel: async () => {} },

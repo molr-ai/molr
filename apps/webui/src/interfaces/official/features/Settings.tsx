@@ -1,7 +1,6 @@
 import { useErrorToast } from '../../../error-toasts';
-import { AboutUpdates } from '../../../updates/AboutUpdates';
-import { UpdateBadge, useUpdates } from '../../../updates/provider';
-import { buildInfo } from '../../../build-info';
+import { AboutService, VersionEntry } from '../../../updates/AboutUpdates';
+import { UpdateBadge } from '../../../updates/provider';
 import { ProfileSettings } from '../../../administration/UserSettings';
 import { NotificationSettings } from '../../../notifications/Settings';
 import { notificationCopy } from '../../../notifications/copy';
@@ -70,13 +69,12 @@ export function Settings({ assistants, openAssistant, initialTab = '', onSelectS
 function About() {
   const { t, locale } = useCopy(), { theme } = useTheme(), { reducedMotion } = useUILocale();
   const repository = 'https://github.com/molr-ai/molr';
-  const updates = useUpdates(), currentBuild = updates.data?.current ?? buildInfo;
   return <div className="settings-section settings-about">
     <div className="settings-about-brand">
       <Logo animation={reducedMotion ? 'static' : 'daily'} interactive variant={theme === 'dark' ? 'light' : 'dark'} />
-      <div className="settings-about-version"><span>{locale === 'zh' ? '当前版本' : 'Current version'}</span><strong>{currentBuild.version}</strong></div>
+      <VersionEntry />
     </div>
-    <AboutUpdates />
+    <AboutService />
     <footer className="settings-about-footer">
       <div><h3>{locale === 'zh' ? '一起让 Molr 更好' : 'Help Molr grow'}</h3><p>{locale === 'zh' ? '如果喜欢 Molr，欢迎在 GitHub 上点亮一颗 Star。' : 'Enjoying Molr? Give the project a Star on GitHub.'}</p></div>
       <a className="settings-about-github" href={repository} target="_blank" rel="noopener noreferrer" aria-label={t.account.starLink}><Star size={15} aria-hidden="true" />GitHub<ArrowUpRight size={14} aria-hidden="true" /></a>

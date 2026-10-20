@@ -5,14 +5,32 @@ export type AppOAuthResult = {
   attemptId?: string;
   connectionId?: string;
 };
+export type AppUpdateStatus = {
+  comparison: 'unknown' | 'current' | 'available' | 'ahead' | 'uncomparable' | 'unavailable';
+  checking: boolean;
+  latestVersion?: string;
+  lastSuccessAt?: string;
+  nextAllowedAt?: string;
+  error?: string;
+  local?: { version?: string; targetVersion?: string; pending: boolean; busy: boolean; error?: string };
+};
 export type AppInfo = {
   apiVersion: 1;
   platform: string;
-  connection: { name: string; url: string };
+  build: { version: string; commit: string };
+  connection: { name: string; url: string; kind: 'remote' | 'managed-local' };
   window: AppWindowState;
 };
 export type AppNotification = { tag: string; title: string; body: string; route: string };
 export type MolrAppAPI = {
+  updates: {
+    status(): Promise<AppUpdateStatus>;
+    check(): Promise<AppUpdateStatus>;
+    openDownloads(): Promise<void>;
+    /** Opens native confirmation; only available for the active managed local service. */
+    upgradeLocal(): Promise<void>;
+    onChanged(callback: (status: AppUpdateStatus) => void): () => void;
+  };
   notifications: {
     begin(scope: string): Promise<void>;
     /** Initializes the OS channel on user activation; support is not permission. */

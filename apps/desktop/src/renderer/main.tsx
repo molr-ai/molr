@@ -1,14 +1,14 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Minus, Square, Copy, X, ArrowLeft, ArrowRight, Check, CircleHelp, ExternalLink, Monitor, Plus, RefreshCw, Server, Settings2, Trash2 } from 'lucide-react';
-import { Select, Badge, Button, IconButton, Logo, TextField, Switch, ThemeSelect, PaletteSelect, UIProvider, ToastProvider, useToast, useTheme, usePalettePreference, paletteAssetBase } from '@molr/ui';
+import { Select, Alert, Badge, Button, IconButton, Logo, TextField, Switch, ThemeSelect, PaletteSelect, UIProvider, ToastProvider, useToast, useTheme, usePalettePreference, paletteAssetBase } from '@molr/ui';
 import type { Connection, ConnectionInput, DesktopAPI, DesktopState, LocalAction, ResourcePreset } from '../shared';
 import '@molr/ui/styles.css';
 import './style.css';
 
 declare global { interface Window { molrDesktop?: DesktopAPI } }
 const bridge = window.molrDesktop;
-const initial: DesktopState = { connections: [], view: 'manager', local: { available: false, installed: false, state: 'unavailable' }, version: '', platform: '', window: { maximized: false, fullscreen: false } };
+const initial: DesktopState = { connections: [], view: 'manager', updates: { comparison: 'unknown', checking: false }, local: { available: false, installed: false, state: 'unavailable' }, version: '', platform: '', window: { maximized: false, fullscreen: false } };
 const actionNames: Record<LocalAction, string> = { install: '安装并启动', start: '启动', stop: '停止', restart: '重启', upgrade: '更新本机 Runtime', uninstall: '卸载 Runtime' };
 const stateNames: Record<string, string> = { active: '运行中', running: '运行中', inactive: '已停止', failed: '需要处理', installed: '已安装', installing: '安装未完成', uninstalled: '已卸载，数据已保留', missing: '尚未安装', unavailable: '仅远程连接', activating: '启动中', deactivating: '停止中' };
 function App() {
@@ -23,6 +23,9 @@ function App() {
     lastError.current = toast({ tone: 'danger', title: '操作失败', description: message });
   }, [clearError, toast]);
   const [pending, setPending] = useState(false);
+  const [now, setNow] = useState(Date.now());
+  const nextCheck = Date.parse(state.updates.nextAllowedAt || '');
+  useEffect(() => { setNow(Date.now()); if (!Number.isFinite(nextCheck)) return; const timer = setTimeout(() => setNow(Date.now()), Math.max(0, nextCheck - Date.now()) + 20); return () => clearTimeout(timer); }, [nextCheck]);
   const [settings, setSettings] = useState(false);
   const [resourcePreset, setResourcePreset] = useState<ResourcePreset>('permissive');
   const { theme, preference, changePreference } = useTheme();
@@ -73,10 +76,16 @@ function App() {
           </div>
         </section> : <>
           <div className="desktop-intro"><div><p className="desktop-eyebrow">你的助理，从这里开始</p><h1>连接你的 Runtime</h1><p>选择助理运行的位置，接着完成你的工作。</p></div><Button disabled={disabled} onClick={() => { setForm({ name: '', url: '', allowHTTP: false }); clearError(); }}><Plus size={17} />添加连接</Button></div>
+          <section className="desktop-settings" aria-label="桌面更新">
+            <div className="desktop-section-heading"><h2>桌面更新</h2><Button variant="secondary" size="sm" disabled={disabled || state.updates.checking || nextCheck > now || state.updates.comparison === 'uncomparable'} loading={state.updates.checking} onClick={() => void run(() => bridge!.checkUpdates())}>检查更新</Button></div>
+            <p>桌面版本 {state.version || '—'}</p>
+            <p role="status">{({ unknown: '尚未检查桌面更新', current: '桌面应用已是最新正式版', available: `桌面应用有新版本 v${state.updates.latestVersion}`, ahead: '桌面应用高于当前正式版', uncomparable: '开发版本，无法自动比较', unavailable: '暂无适用于此设备的正式版' })[state.updates.comparison]}</p>
+            {state.updates.error && <p className="desktop-hint">暂时无法检查更新，请稍后重试。已显示的发布信息来自上次成功检查。</p>}
+            {state.updates.comparison === 'available' && <Button variant="secondary" disabled={!bridge} onClick={() => void run(() => bridge!.openDownloads())}>下载桌面新版</Button>}
+          </section>
           {settings && <section className="desktop-settings" aria-label="桌面设置">
             <h2>桌面设置</h2><div className="desktop-settings-fields"><ThemeSelect value={preference} onValueChange={changePreference} /><PaletteSelect locale="zh" palette={palette} onChange={changePalette} /></div>
             <p>关闭窗口或退出桌面应用后，本机 Runtime 继续运行。</p>
-            <p>桌面版本 {state.version || '开发预览'} · {state.platform || '浏览器'}</p>
             <Button variant="secondary" disabled={!bridge} onClick={() => void run(() => bridge!.openDownloads())}><ExternalLink size={16} />查看官网发行版本</Button>
           </section>}
           {form && <form className="desktop-connection-form" onSubmit={event => { event.preventDefault(); void run(async () => { await bridge!.save(form); setForm(undefined); }); }}>
@@ -90,12 +99,13 @@ function App() {
             <div className="desktop-section-heading"><div className="desktop-section-icon"><Monitor size={24} /></div><div><h2>本机 Runtime</h2><p>{local.installed ? '助理和数据保存在这台电脑上' : '在这台电脑上运行你的助理'}</p></div><Badge tone={runtimeReady ? 'positive' : local.error ? 'danger' : 'neutral'}>{state.busy ? '正在维护' : stateNames[local.state] ?? local.state}</Badge></div>
             {!local.installed && local.state !== 'uninstalled' && <div className="desktop-settings-fields"><Select label="资源权限预设" value={resourcePreset} onValueChange={setResourcePreset} disabled={disabled} options={[{value:'permissive',label:'宽松预设（个人部署推荐）'},{value:'least-privilege',label:'最小权限预设'}]} /><p className="desktop-hint">{resourcePreset === 'permissive' ? '在运行账户的系统权限范围内，允许接入任意本机目录、网络及计算资源，通过 Molr 配置和分配权限。助理仍需单独授权。' : '默认不开放本机目录、网络访问或命令执行资源。随后可按需调整部署配置，再为助理授权。'}</p></div>}
             {local.state === 'uninstalled' && <p className="desktop-hint">重新安装会沿用保留的账号、数据和资源权限配置。</p>}
-            {local.installed && <p className="desktop-hint">版本 {local.version} · {local.health === 'verified' ? '安装器能力验证已通过' : local.health === 'verification_pending' ? '请登录 Runtime 检查能力状态' : runtimeReady ? '请登录 Runtime 检查能力状态' : '启动后可继续使用'}</p>}
+            {local.installed && <p className="desktop-hint">{local.version !== state.version && <>版本 {local.version} · </>}{local.health === 'verified' ? '安装器能力验证已通过' : local.health === 'verification_pending' ? '请登录 Runtime 检查能力状态' : runtimeReady ? '请登录 Runtime 检查能力状态' : '启动后可继续使用'}</p>}
+            {local.updatePending && <Alert tone="warning" title="本地服务更新待完成"><p>桌面应用：{state.version} · 本地服务：{local.version}。更新至 {local.bundledVersion} 会重启服务并中断运行中的任务；也可以稍后更新。</p><Button variant="secondary" disabled={disabled} onClick={() => localAction('upgrade')}>更新并重启本地服务</Button></Alert>}
             <div className="desktop-actions">
               {!local.installed ? <Button disabled={disabled} loading={state.busy === 'install'} onClick={() => localAction('install')}>安装并启动<ArrowRight size={16} /></Button> : <>
                 <Button disabled={disabled} onClick={() => { const c = state.connections.find(c => c.kind === 'managed-local'); if (runtimeReady && c) connect(c); else localAction('start'); }}>{runtimeReady ? '打开本机 Runtime' : '启动 Runtime'}<ArrowRight size={16} /></Button>
                 {runtimeReady && <><Button variant="secondary" disabled={disabled} onClick={() => localAction('stop')}>停止</Button><Button variant="ghost" disabled={disabled} onClick={() => localAction('restart')}>重启</Button></>}
-                {local.bundledVersion && local.bundledVersion !== local.version && <Button variant="secondary" disabled={disabled} onClick={() => localAction('upgrade')}>安装随桌面附带的版本 {local.bundledVersion}</Button>}
+
                 <Button variant="ghost" disabled={disabled} onClick={() => localAction('uninstall')}>卸载 Runtime</Button>
               </>}
               <IconButton label="刷新本机状态" disabled={disabled} onClick={() => void run(() => bridge!.refreshLocal())}><RefreshCw size={16} /></IconButton>

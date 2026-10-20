@@ -9,6 +9,9 @@ import './app-mode.css';
 
 declare global { interface Window { molrApp?: MolrAppAPI } }
 
+const AppInfoContext = createContext<AppInfo | undefined>(undefined);
+export function useAppInfo() { return useContext(AppInfoContext); }
+
 const TitlebarBrandContext = createContext<HTMLDivElement | null>(null);
 export function AppTitlebarBrand({ children }: { children: ReactNode }) {
   const target = useContext(TitlebarBrandContext);
@@ -47,7 +50,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
     try { await action(); } catch (error) { reportError(error); setDisconnecting(false); }
   }
   const restore = info?.window.maximized || info?.window.fullscreen;
-  return <TitlebarBrandContext.Provider value={brand}><div ref={setFrame} className="app-frame" data-app-platform={info?.platform} data-app-fullscreen={info?.window.fullscreen}>
+  return <AppInfoContext.Provider value={info}><TitlebarBrandContext.Provider value={brand}><div ref={setFrame} className="app-frame" data-app-platform={info?.platform} data-app-fullscreen={info?.window.fullscreen}>
     <ModalScope container={frame} presentation={mobile ? 'sheet' : 'dialog'}>
     <header className="app-titlebar" aria-label={zh ? '桌面窗口' : 'Desktop window'}>
       <div className="app-titlebar-identity"><div ref={setBrand} className="app-titlebar-brand"><Logo variant={theme === 'dark' ? 'light' : 'dark'} /></div><span title={info?.connection.url}>{info?.connection.name}</span></div>
@@ -62,5 +65,5 @@ export function AppFrame({ children }: { children: ReactNode }) {
     </header>
     <div className="app-frame-content">{children}</div>
     </ModalScope>
-  </div></TitlebarBrandContext.Provider>;
+  </div></TitlebarBrandContext.Provider></AppInfoContext.Provider>;
 }

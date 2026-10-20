@@ -47,8 +47,8 @@ const config = {
   appId: 'ai.molr.desktop', productName: 'Molr', electronVersion: '44.8.0',
   electronDist: electronRoot,
   directories: { app: project, output, buildResources: join(root, 'packages/ui/public/brand') },
-  extraMetadata: { version, homepage: 'https://molr.ai/', desktopName: 'molr.desktop' },
-  files: ['dist/main/main/**', 'dist/main/preload/**', 'dist/main/shared.js', 'dist/renderer/**', 'dist/main/runtime/**', 'package.json'],
+  extraMetadata: { version, molrCommit: commit, homepage: 'https://molr.ai/', desktopName: 'molr.desktop' },
+  files: ['dist/main/main/**', 'dist/main/preload/**', 'dist/main/shared.js', 'dist/main/version.js', 'dist/renderer/**', 'dist/main/runtime/**', 'package.json'],
   extraResources: [
     { from: join(root, 'LICENSE'), to: 'LICENSE' },
     { from: join(root, 'THIRD_PARTY_NOTICES.md'), to: 'THIRD_PARTY_NOTICES.md' },

@@ -88,8 +88,11 @@ try {
   const [one, two] = (await page.evaluate(() => window.molrDesktop.state())).connections;
   await page.evaluate(id => window.molrDesktop.connect(id), one.id); await waitRuntime(page);
   assert.deepEqual(await remote('({ bridge: typeof window.molrDesktop, require: typeof require, process: typeof process })'), { bridge: 'undefined', require: 'undefined', process: 'undefined' });
-  assert.equal((await remote('window.molrApp.getInfo()')).apiVersion, 1);
-  assert.deepEqual(await remote('Object.keys(window.molrApp).sort()'), ['disconnect', 'getInfo', 'notifications', 'oauth', 'onWindowStateChanged', 'window']);
+  const appInfo = await remote('window.molrApp.getInfo()');
+  assert.equal(appInfo.apiVersion, 1); assert.equal(appInfo.connection.kind, 'remote'); assert.equal(appInfo.build.version, 'development');
+  assert.equal((await remote('window.molrApp.updates.status()')).comparison, 'uncomparable');
+  assert.match(await remote("window.molrApp.updates.upgradeLocal().then(() => 'unexpected', e => e.message)"), /不是桌面管理/);
+  assert.deepEqual(await remote('Object.keys(window.molrApp).sort()'), ['disconnect', 'getInfo', 'notifications', 'oauth', 'onWindowStateChanged', 'updates', 'window']);
   assert.equal(await page.locator('.desktop-toolbar').count(), 0);
   if (process.platform === 'darwin') {
     const margin = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getWindowButtonPosition());
@@ -240,3 +243,5 @@ try {
   rmSync(data, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   clearTimeout(watchdog);
 }
+
+if (process.platform !== 'win32') await import('./updates-electron.mjs');

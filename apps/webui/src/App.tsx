@@ -1,5 +1,5 @@
 import { AppFrame, AppTitlebarBrand } from './app-mode';
-import { UpdateProvider, UpdateBadge } from './updates/provider';
+import { UpdateProvider, UpdateBadge, useUpdateNotice } from './updates/provider';
 import { ErrorToastProvider, useErrorToast } from './error-toasts';
 import { SetupGate } from './setup';
 import { pluginCopy } from './plugins/copy';
@@ -49,6 +49,7 @@ function WorkspaceModals({ container, mobile, children }: { container: HTMLEleme
   return window.molrApp ? children : <ModalScope container={container} enabled={mobile}>{children}</ModalScope>;
 }
 function WorkspaceHost() {
+  const updateNotice = useUpdateNotice();
   const { t, locale, setLocale } = useCopy(), copy = hostCopy[locale], { theme, changePreference } = useTheme(), { changePalette } = useAppearance();
   const session = useSession(), administrator = session.principal?.User?.Administrator === true;
   const mobile = useBreakpoint('mobile'), { page, id, navigate } = useNavigation(), host = useUIHost();
@@ -87,7 +88,7 @@ function WorkspaceHost() {
       {!mobile && selected.runtime === 'builtin' && <Tooltip content={t.search} side="right" width="auto"><button type="button" className="nav-button nav-search" aria-label={t.search} aria-haspopup="dialog" onClick={() => window.dispatchEvent(new Event('molr:search'))}><span className="nav-icon"><SearchIcon size={22} /></span></button></Tooltip>}
       {(Object.keys(icons) as (keyof typeof icons)[]).filter(key => (key !== 'resources' || administrator) && (key !== 'workbench' || workbenchVisible) && (key !== 'extensions' || pluginsVisible)).map(key => { const Icon = icons[key], label = key === 'extensions' ? pluginCopy[locale].extensions : t.nav[key]; return <Tooltip key={key} content={label} side={mobile ? 'top' : 'right'} width="auto"><button className="nav-button" type="button" aria-label={label} aria-current={page === key ? 'page' : undefined} aria-describedby={key === 'assistants' && unread > 0 ? 'nav-unread-count' : undefined} onClick={() => navigate(key)}><span className="nav-icon"><Icon size={22} />{key === 'assistants' && unread > 0 && <span className="nav-unread" id="nav-unread-count" role="status" aria-label={t.assistants.unread(unread)}>{unread > 99 ? '99+' : unread}</span>}</span><span>{key === 'extensions' ? pluginCopy[locale].nav : t.nav[key]}</span></button></Tooltip>; })}
       {!mobile && <div className="nav-account-actions">
-        <Tooltip content={t.account.title} side="right" width="auto"><button type="button" className="nav-button" aria-label={t.account.title} aria-current={page === 'account' || page === 'settings' ? 'page' : undefined} onClick={() => navigate('account')}><Avatar name={session.principal?.User?.DisplayName || session.principal?.User?.Username || 'U'} avatar={session.principal?.User?.Avatar} selected={page === 'account' || page === 'settings'} notice={<UpdateBadge compact />} /><span>{locale === 'zh' ? '我的' : 'Account'}</span></button></Tooltip>
+        <Tooltip content={t.account.title} side="right" width="auto"><button type="button" className="nav-button" aria-label={t.account.title} aria-current={page === 'account' || page === 'settings' ? 'page' : undefined} onClick={() => navigate('account', updateNotice ? 'about' : undefined)}><Avatar name={session.principal?.User?.DisplayName || session.principal?.User?.Username || 'U'} avatar={session.principal?.User?.Avatar} selected={page === 'account' || page === 'settings'} notice={<UpdateBadge compact />} /><span>{locale === 'zh' ? '我的' : 'Account'}</span></button></Tooltip>
       </div>}
     </nav>
     <div className="workspace-content">

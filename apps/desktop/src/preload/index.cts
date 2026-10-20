@@ -13,6 +13,7 @@ const api: DesktopAPI = {
   refreshLocal: () => ipcRenderer.invoke('desktop:local-status'),
   localAction: (action, preset) => ipcRenderer.invoke('desktop:local-action', action, preset),
   openLogs: () => ipcRenderer.invoke('desktop:logs'),
+  checkUpdates: () => ipcRenderer.invoke('desktop:updates-check'),
   openDownloads: () => ipcRenderer.invoke('desktop:downloads'),
   subscribe: callback => {
     const listener = (_event: Electron.IpcRendererEvent, value: Parameters<Parameters<DesktopAPI['subscribe']>[0]>[0]) => callback(value);

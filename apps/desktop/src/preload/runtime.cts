@@ -5,6 +5,17 @@ const { contextBridge, ipcRenderer } = electron;
 // receive this bridge, including Runtime plugin and custom UI frames.
 if (process.isMainFrame) {
   const api: MolrAppAPI = {
+    updates: {
+      status: () => ipcRenderer.invoke('app:updates-status'),
+      check: () => ipcRenderer.invoke('app:updates-check'),
+      openDownloads: () => ipcRenderer.invoke('app:updates-downloads'),
+      upgradeLocal: () => ipcRenderer.invoke('app:updates-upgrade-local'),
+      onChanged: callback => {
+        const listener = (_event: Electron.IpcRendererEvent, status: Parameters<typeof callback>[0]) => callback(status);
+        ipcRenderer.on('app:updates-changed', listener);
+        return () => ipcRenderer.removeListener('app:updates-changed', listener);
+      },
+    },
     notifications: {
       begin: scope => ipcRenderer.invoke('app:notification-begin', scope),
       requestPermission: () => ipcRenderer.invoke('app:notification-permission'),

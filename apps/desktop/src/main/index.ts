@@ -1,8 +1,9 @@
+import { DesktopUpdates } from './updates.js';
 import { applicationMenu } from './menu.js';
 import { app, BrowserWindow, WebContentsView, ipcMain, session, protocol, net, dialog, shell, Menu, powerMonitor, Notification } from 'electron';
 import type { IpcMainInvokeEvent, Session, WebContents } from 'electron';
 import { join, resolve, relative, sep, basename } from 'node:path';
-import { existsSync, realpathSync, mkdirSync, statSync } from 'node:fs';
+import { existsSync, realpathSync, mkdirSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ConnectionStore, partition, sameOrigin, externalURL, allowedFrameURL } from './connections.js';
 import type { Connection, ConnectionInput, DesktopState, LocalAction, ResourcePreset, LocalStatus } from '../shared.js';
@@ -27,18 +28,26 @@ let local: LocalRuntime | undefined;
 let store: ConnectionStore;
 let view: DesktopState['view'] = 'manager', error: string | undefined, active: string | undefined, busy: string | undefined;
 let progress: string | undefined;
+let localUpdateError: string | undefined;
 let localStatus: LocalStatus = { available: false, installed: false, state: 'unavailable' };
 let loadingTimer: ReturnType<typeof setTimeout> | undefined;
 let quitting = false;
 let runtimeLoaded = false, runtimeReady = false;
 const sessions = new Map<string, Session>();
 const managedDownloads = new Map<number, Set<Electron.DownloadItem>>();
-const appVersion = app.getVersion();
+const appVersion = app.isPackaged ? app.getVersion() : 'development';
+const appCommit = app.isPackaged ? JSON.parse(readFileSync(join(app.getAppPath(), 'package.json'), 'utf8')).molrCommit ?? '' : '';
+const desktopUpdates = new DesktopUpdates(appVersion, process.platform, process.arch === 'x64' ? 'amd64' : process.arch, changed, (input, init) => net.fetch(input.toString(), init));
+function appUpdates() {
+  const status = desktopUpdates.snapshot();
+  if (active && store.get(active).kind === 'managed-local') status.local = { version: localStatus.version, targetVersion: localStatus.bundledVersion, pending: !!localStatus.updatePending, busy: !!busy, error: localUpdateError || localStatus.error };
+  return status;
+}
 const devURL = !app.isPackaged ? process.env.MOLR_DESKTOP_DEV_URL : undefined;
 if (devURL && (!/^http:\/\/(127\.0\.0\.1|localhost):\d+\/$/.test(devURL))) throw new Error('Development UI must use a loopback HTTP origin.');
 const trustedURL = devURL ?? managerURL;
 
-function snapshot(): DesktopState { return { ...store.data, active, view, error, local: localStatus, busy, progress, version: appVersion, platform: process.platform, window: windowState() }; }
+function snapshot(): DesktopState { return { ...store.data, active, view, error, updates: desktopUpdates.snapshot(), local: { ...localStatus, error: localUpdateError || localStatus.error }, busy, progress, version: appVersion, platform: process.platform, window: windowState() }; }
 const titlebarHeight = 48;
 const initialMacButtonMargin = 16;
 let macButtonHeight: number | undefined;
@@ -54,6 +63,8 @@ function syncMacWindowButtons() {
 function changed() {
   syncMacWindowButtons();
   if (win && !win.isDestroyed()) win.webContents.send('desktop:changed', snapshot());
+  const contents = runtimeView?.webContents;
+  if (contents && !contents.isDestroyed() && active && sameOrigin(contents.getURL(), store.get(active).url)) contents.send('app:updates-changed', appUpdates());
 }
 function authorized(event: IpcMainInvokeEvent) {
   if (!win || event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame || event.senderFrame.url.split('#')[0] !== trustedURL) throw new Error('Desktop management is unavailable to this page.');
@@ -194,8 +205,9 @@ async function localAction(action: LocalAction, preset?: ResourcePreset) {
   if (busy) throw new Error('请等待当前维护操作完成。');
   if (!['install', 'start', 'stop', 'restart', 'upgrade', 'uninstall'].includes(action)) throw new Error('无效的操作。');
   // Set the lock before opening a dialog: repeated IPC must not create parallel actions.
-  busy = action; changed();
+  busy = action; if (action === 'upgrade') localUpdateError = undefined; changed();
   try {
+    if (action === 'upgrade') { await refreshLocal(); if (!localStatus.updatePending || localStatus.error) throw new Error('没有可安装的本机服务更新，请刷新状态后重试。'); }
     if (['stop', 'restart', 'upgrade', 'uninstall'].includes(action)) {
       let tasks = '尚未取得当前账号的任务状态。';
       const connection = store.data.connections.find(c => c.kind === 'managed-local');
@@ -214,17 +226,19 @@ async function localAction(action: LocalAction, preset?: ResourcePreset) {
       if (result.response !== 1) return;
     }
     const previous = store.data.connections.find(c => c.kind === 'managed-local');
-    if (previous?.id === active) manager();
+    const reconnect = previous?.id === active;
+    if (reconnect) manager();
     const result = await local.action(action, preset);
     await refreshLocal();
     if (result.installed && result.url) {
       const c = store.managed(result.url);
       if (previous && c.id !== previous.id) await clearSession(previous.id);
-      if (action === 'install' || action === 'start') await connect(c.id, result.loginURL);
+      if (action === 'install' || action === 'start' || (action === 'upgrade' && reconnect)) await connect(c.id, result.loginURL);
     } else if (action === 'uninstall' && previous) {
       store.remove(previous.id); await clearSession(previous.id);
     }
-  } finally { busy = undefined; progress = undefined; await refreshLocal(); changed(); }
+  } catch (e) { if (action === 'upgrade') localUpdateError = (e as Error).message; throw e; }
+  finally { busy = undefined; progress = undefined; await refreshLocal(); changed(); }
 }
 async function createWindow() {
   macButtonHeight = undefined;
@@ -312,7 +326,18 @@ async function main() {
   handle('state', snapshot);
   handle('sync-titlebar', syncMacWindowButtons);
   handle('minimize', () => win?.minimize()); handle('toggle-maximize', toggleMaximize); handle('close', closeLater);
-  appHandle('info', (): AppInfo => { runtimeReady = true; revealRuntime(); return { apiVersion: 1, platform: process.platform, connection: { name: store.get(active!).name, url: store.get(active!).url }, window: windowState() }; });
+  appHandle('info', (): AppInfo => { runtimeReady = true; revealRuntime(); return { apiVersion: 1, platform: process.platform, build: { version: appVersion, commit: appCommit }, connection: { name: store.get(active!).name, url: store.get(active!).url, kind: store.get(active!).kind }, window: windowState() }; });
+  appHandle('updates-status', async () => { if (store.get(active!).kind === 'managed-local') await refreshLocal(); return appUpdates(); });
+  appHandle('updates-check', async () => { await desktopUpdates.check(); return appUpdates(); });
+  appHandle('updates-downloads', () => shell.openExternal('https://molr.ai/'));
+  appHandle('updates-upgrade-local', () => {
+    if (store.get(active!).kind !== 'managed-local') throw new Error('此连接不是桌面管理的本机服务。');
+    const current = runtimeView;
+    setTimeout(() => {
+      if (runtimeView !== current) return;
+      void localAction('upgrade').catch(() => { changed(); });
+    }, 0);
+  });
   appHandle('minimize', () => win?.minimize()); appHandle('toggle-maximize', toggleMaximize); appHandle('close', closeLater); appHandle('disconnect', disconnectLater);
   appHandle('notification-begin', scope => notifications!.begin(scope), 1);
   // On macOS initialization asks the OS for permission. Do not call during
@@ -351,13 +376,16 @@ async function main() {
     handle('local-status', refreshLocal); handle('local-action', localAction);
     handle('logs', async () => { if (local && existsSync(local.logFile)) shell.showItemInFolder(local.logFile); });
   }
+  handle('updates-check', () => desktopUpdates.check());
   handle('downloads', () => shell.openExternal('https://molr.ai/'));
   Menu.setApplicationMenu(process.platform === 'darwin' ? Menu.buildFromTemplate(applicationMenu(
     app.getLocale().toLowerCase().startsWith('zh') ? 'zh' : 'en',
     { manager, reconnect: () => { if (active) void connect(active); } },
   )) : null);
   await createWindow();
-  powerMonitor.on('resume', () => { void refreshLocal(); });
+  void desktopUpdates.check(true);
+  setInterval(() => { void desktopUpdates.check(true); }, 86400000).unref();
+  powerMonitor.on('resume', () => { void refreshLocal(); void desktopUpdates.check(true); });
 }
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
