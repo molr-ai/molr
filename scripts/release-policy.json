@@ -1,11 +1,5 @@
 {
   "publicFiles": [
-    "packages/ui/public/brand/chat-channels/dingtalk.svg",
-    "packages/ui/public/brand/chat-channels/feishu.svg",
-    "packages/ui/public/brand/chat-channels/qq.svg",
-    "packages/ui/public/brand/chat-channels/slack.svg",
-    "packages/ui/public/brand/chat-channels/telegram.svg",
-    "packages/ui/public/brand/chat-channels/weixin.svg",
     "packages/ui/public/brand/molr-icon-1024.png",
     "packages/ui/public/brand/molr-icon-128.png",
     "packages/ui/public/brand/molr-icon-16.png",
