@@ -13,7 +13,7 @@ const fixture = createServer((req, res) => {
   if (req.url === '/cookie') { res.setHeader('Set-Cookie', 'fixture_session=first; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400'); return res.end('ok'); }
   if (req.url === '/who') return res.end(req.headers.cookie ?? '');
   if (req.url === '/stream') { res.writeHead(200, { 'Content-Type': 'text/event-stream' }); res.write('data: fixture-ready\n\n'); req.on('close', () => res.end()); return; }
-  res.setHeader('Content-Type', 'text/html'); res.end('<!doctype html><script>window.molrApp.getInfo()</script><h1>Runtime fixture</h1><a href="file:///tmp/private">unsafe</a>');
+  res.setHeader('Content-Type', 'text/html'); res.end('<!doctype html><script>window.molrApp.getInfo()</script><h1>Runtime fixture</h1><button onclick="void window.molrApp.disconnect()">Disconnect</button><a href="file:///tmp/private">unsafe</a>');
 });
 await new Promise(resolve => fixture.listen(0, '127.0.0.1', resolve));
 const url = `http://127.0.0.1:${fixture.address().port}`;
@@ -126,11 +126,19 @@ try {
   })`), 'plugin-ready');
   const preferences = await app.evaluate(({ webContents }, url) => webContents.getAllWebContents().find(c => c.getURL().startsWith(url)).getLastWebPreferences(), url);
   assert.equal(preferences.sandbox, true); assert.equal(preferences.contextIsolation, true); assert.equal(preferences.nodeIntegration, false); assert.equal(preferences.webSecurity, true);
-  checkpoint('disconnect and isolated session');
-  await remote('window.molrApp.disconnect()');
+  checkpoint('disconnect through Runtime UI');
+  // Disconnect destroys the caller. Waiting for executeJavaScript's IPC result
+  // can hang after the view has already closed; assert the visible outcome.
+  await Promise.all([
+    runtimePage.waitForEvent('close'),
+    runtimePage.getByRole('button', { name: 'Disconnect', exact: true }).click(),
+  ]);
   await page.getByRole('heading', { name: '连接你的 Runtime' }).waitFor();
+  checkpoint('connect isolated session');
   await page.evaluate(id => window.molrDesktop.connect(id), two.id); await waitRuntime(page);
+  checkpoint('second session cookie check');
   assert.equal(await remote("fetch('/who').then(r => r.text())"), '');
+  checkpoint('return to manager');
   await page.evaluate(() => window.molrDesktop.manager());
   checkpoint('restart');
   await app.close();
@@ -160,7 +168,9 @@ try {
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   console.log('Electron acceptance passed: isolated sessions, restart, SSE, remote privilege boundary, recovery, six palettes/light-dark and narrow layout.');
 } catch (error) {
-  if (app) await (await app.firstWindow()).screenshot({path:join(screenshots,'failure.png')}).catch(()=>{});
+  console.error('Electron acceptance failed during:', phase, error);
+  const page = app?.context().pages().find(page => !page.isClosed());
+  if (page) await page.screenshot({path:join(screenshots,'failure.png'),timeout:5000}).catch(()=>{});
   throw error;
 } finally {
   checkpoint('cleanup');

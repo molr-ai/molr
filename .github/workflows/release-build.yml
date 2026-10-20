@@ -10,6 +10,10 @@ on:
         type: string
 permissions:
   contents: read
+# setup-go, tests and packaging must use the same worktree-local caches.
+env:
+  GOCACHE: ${{ github.workspace }}/.cache/go-build
+  GOMODCACHE: ${{ github.workspace }}/.cache/go-mod
 jobs:
   prepare:
     runs-on: ubuntu-24.04
