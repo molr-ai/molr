@@ -12,7 +12,7 @@ export function desktopFixture(runtime = fixture()) {
     const [os, arch] = id.split('-'), variant = 'full';
     const file = `molr-desktop_${runtime.version}_${id}_${variant}.${{ linux: 'deb', darwin: 'dmg', win32: 'exe' }[os]}`;
     const url = `https://github.com/example/molr/releases/download/v${runtime.version}/${file}`;
-    return { os, arch, variant, file, url, checksum_url: url + '.sha256', sha256: 'b'.repeat(64), signed: os !== 'linux' };
+    return { os, arch, variant, file, url, checksum_url: url + '.sha256', sha256: 'b'.repeat(64), signed: os !== 'linux', notarized: os === 'darwin' };
   });
   return { schema: 1, version: runtime.version, commit: runtime.commit, platforms };
 }

@@ -120,9 +120,10 @@ jobs:
         with:
           name: desktop-notarization-${{ runner.arch }}
           path: dist/notarization
-      - name: Resume notarization, staple and verify the saved DMG
+      - name: Complete notarization or release the pending DMG after timeout
         run: node apps/desktop/scripts/notarization.mjs dist/notarization
         env:
+          MOLR_NOTARIZATION_POLICY: ${{ vars.MAC_NOTARIZATION_POLICY || 'optional' }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}

@@ -56,7 +56,7 @@ export function collectDesktopRelease(source, destination, repository) {
     if (m.schema !== 1 || m.version !== runtime.version || m.commit !== runtime.commit || m.artifacts?.length !== 1) throw new Error('Native desktop build identity mismatch');
     const a = m.artifacts[0];
     const url = `https://github.com/${repository}/releases/download/v${m.version}/${a.file}`;
-    return { os: m.os, arch: m.arch, variant: m.variant, signed: m.signed, file: a.file, sha256: a.sha256, url, checksum_url: url + '.sha256' };
+    return { os: m.os, arch: m.arch, variant: m.variant, signed: m.signed, notarized: m.notarized, file: a.file, sha256: a.sha256, url, checksum_url: url + '.sha256' };
   }).sort((a, b) => `${a.os}-${a.arch}`.localeCompare(`${b.os}-${b.arch}`));
   const m = validateDesktopRelease({ schema: 1, version: runtime.version, commit: runtime.commit, platforms }, repository, runtime);
   for (let i = 0; i < manifests.length; i++) {

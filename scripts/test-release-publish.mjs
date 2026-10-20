@@ -9,7 +9,8 @@ import { fixture, desktopFixture } from './release-test-fixtures.mjs';
 function writeDesktop(directory, runtime) {
   const m = desktopFixture(runtime), bytes = Buffer.from('artificial desktop installer');
   for (const p of m.platforms) {
-    p.signed = false;
+    p.signed = p.os === 'darwin' && p.arch === 'arm64';
+    p.notarized = false;
     p.sha256 = createHash('sha256').update(bytes).digest('hex');
     writeFileSync(join(directory, p.file), bytes);
     writeFileSync(join(directory, p.file + '.sha256'), `${p.sha256}  ${p.file}\n`);
@@ -78,6 +79,7 @@ test('publication resumes an interrupted draft, refuses overwrites, and never pu
     s = JSON.parse(readFileSync(state)); assert.equal(s.release.draft, false); assert.equal(s.release.assets.length, 1 + desktopFiles.length + m.platforms.length * 2);
     assert.match(s.release.body, /Windows desktop installers are unsigned/);
     assert.match(s.release.body, /without Apple notarization/);
+    assert.match(s.release.body, /Developer ID signed but not notarized by Apple/);
     assert(s.bodies.filter(b => b.draft === false).every(b => b.make_latest === 'false'));
     result = run(); assert.equal(result.status, 0, result.stderr);
     const before = JSON.parse(readFileSync(state)).release;

@@ -9,7 +9,7 @@ import { desktopTarget, browserDesktopTarget, preferredDesktopPlatform } from '.
 const artifact = (os, arch, version = '0.1.0') => {
   const variant = 'full';
   const file = `molr-desktop_${version}_${os}-${arch}_${variant}.${({ darwin: 'dmg', win32: 'exe', linux: 'deb' })[os]}`;
-  return { os, arch, variant, signed: true, file, sha256: 'a'.repeat(64), url: `https://downloads.example.com/${file}` };
+  return { os, arch, variant, signed: true, notarized: os === 'darwin', file, sha256: 'a'.repeat(64), url: `https://downloads.example.com/${file}` };
 };
 const platforms = [artifact('darwin', 'arm64'), artifact('darwin', 'amd64'), artifact('win32', 'amd64'), artifact('linux', 'amd64'), artifact('linux', 'arm64')];
 const sample = () => ({ schema: 1, channels: { stable: { version: '0.1.0', platforms }, preview: { version: '0.2.0-rc.1', platforms: [artifact('win32', 'amd64', '0.2.0-rc.1')] }, nightly: null } });

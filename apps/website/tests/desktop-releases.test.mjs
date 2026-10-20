@@ -5,11 +5,11 @@ import { createServer } from 'vite';
 import { chromium, expect } from '@playwright/test';
 import { resolve } from 'node:path';
 const file = 'molr-desktop_0.1.0_win32-amd64_full.exe';
-const platform = { os: 'win32', arch: 'amd64', variant: 'full', signed: false, file, sha256: 'a'.repeat(64), url: `https://downloads.example.com/${file}` };
+const platform = { os: 'win32', arch: 'amd64', variant: 'full', signed: false, notarized: false, file, sha256: 'a'.repeat(64), url: `https://downloads.example.com/${file}` };
 const sample = () => ({ schema: 1, channels: { stable: { version: '0.1.0', platforms: [{ ...platform }] }, preview: null, nightly: null } });
 test('desktop catalog enforces bundled Runtime edition and HTTPS artifact identity', () => {
   assert.deepEqual(readDesktopCatalog(sample()), sample());
-  for (const change of [{ signed: undefined }, { signed: 'false' }, { variant: 'client' }, { url: 'javascript:alert(1)' }, { url: `http://downloads.example.com/${file}` }, { file: '../private' }, { sha256: 'bad' }]) {
+  for (const change of [{ notarized: undefined }, { notarized: 'false' }, { notarized: true }, { signed: undefined }, { signed: 'false' }, { variant: 'client' }, { url: 'javascript:alert(1)' }, { url: `http://downloads.example.com/${file}` }, { file: '../private' }, { sha256: 'bad' }]) {
     const c = sample(); Object.assign(c.channels.stable.platforms[0], change); assert.throws(() => readDesktopCatalog(c));
   }
   const duplicate = sample(); duplicate.channels.stable.platforms.push(platform); assert.throws(() => readDesktopCatalog(duplicate));
@@ -44,8 +44,14 @@ test('desktop download UI shows edition and does not invent missing releases', {
     catalog.channels.stable.platforms[0].signed = true;
     await page.reload();
     await section.getByRole('button', { name: 'Desktop app', exact: true }).click();
+    await expect(section.getByText(/Signed, not notarized/)).toBeVisible();
+    await expect(page.locator('.home-download-signing')).toContainText('Not notarized by Apple');
+    catalog.channels.stable.platforms[0].notarized = true;
+    await page.reload();
+    await section.getByRole('button', { name: 'Desktop app', exact: true }).click();
     await expect(section.getByRole('link', { name: 'Download installer' })).toBeVisible();
-    await expect(section.getByText(/Unnotarized test build/)).toHaveCount(0);
+    await expect(section.getByText(/Unnotarized test build|Signed, not notarized/)).toHaveCount(0);
+    await expect(page.locator('.home-download-signing')).toHaveCount(0);
     for (const [channel, version] of [['preview', '0.2.0-rc.6'], ['nightly', '0.2.0-0.nightly.20261011.0.gaaaaaaa']]) {
       const prereleaseFile = `molr-desktop_${version}_win32-amd64_full.exe`;
       catalog = { schema: 1, channels: { stable: null, preview: null, nightly: null,

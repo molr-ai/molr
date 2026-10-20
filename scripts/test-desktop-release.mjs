@@ -31,20 +31,26 @@ test('collect native packages requires the entire matching and checksummed matri
   const dir = mkdtempSync(join(tmpdir(), 'molr-desktop-release-')); t.after(() => rmSync(dir, { recursive: true, force: true }));
   const source = join(dir, 'native'), destination = join(dir, 'release'); mkdirSync(source); mkdirSync(destination);
   const runtime = fixture(), m = desktopFixture(runtime);
-  for (const p of m.platforms) p.signed = false;
+  for (const p of m.platforms) { p.signed = p.os === 'darwin'; p.notarized = p.os === 'darwin' && p.arch === 'arm64'; }
   writeFileSync(join(destination, 'manifest.json'), JSON.stringify(runtime));
   for (const p of m.platforms) {
     const native = join(source, `${p.os}-${p.arch}`); mkdirSync(native);
     const bytes = Buffer.from('artificial installer ' + p.os + p.arch);
     p.sha256 = createHash('sha256').update(bytes).digest('hex');
     writeFileSync(join(native, p.file), bytes); writeFileSync(join(native, p.file + '.sha256'), `${p.sha256}  ${p.file}\n`);
-    writeFileSync(join(native, 'desktop-manifest.json'), JSON.stringify({ schema: 1, version: m.version, commit: m.commit, os: p.os, arch: p.arch, variant: p.variant, signed: p.signed, artifacts: [{ file: p.file, sha256: p.sha256 }] }));
+    writeFileSync(join(native, 'desktop-manifest.json'), JSON.stringify({ schema: 1, version: m.version, commit: m.commit, os: p.os, arch: p.arch, variant: p.variant, signed: p.signed, notarized: p.notarized, artifacts: [{ file: p.file, sha256: p.sha256 }] }));
   }
   const collected = collectDesktopRelease(source, destination, 'example/molr');
   assert.equal(collected.platforms.length, 5);
   assert.equal(collected.platforms.find(p => p.os === 'win32').variant, 'full');
-  assert(collected.platforms.every(p => p.signed === false));
-  assert(desktopCatalog([collected]).channels.stable.platforms.every(p => p.signed === false));
+  for (const release of [collected, desktopCatalog([collected]).channels.stable]) {
+    for (const p of release.platforms) {
+      const expected = m.platforms.find(x => x.os === p.os && x.arch === p.arch);
+      assert.equal(p.signed, expected.signed); assert.equal(p.notarized, expected.notarized);
+    }
+  }
+  const unknownNotarization = structuredClone(m); delete unknownNotarization.platforms[0].notarized;
+  assert.throws(() => validateDesktopRelease(unknownNotarization, 'example/molr', runtime));
   for (const p of m.platforms) assert.equal(createHash('sha256').update(readFileSync(join(destination, p.file))).digest('hex'), p.sha256);
   const check = changed => assert.throws(() => validateDesktopRelease(changed, 'example/molr', runtime));
   check({ ...m, platforms: m.platforms.slice(1) }); check({ ...m, commit: 'f'.repeat(40) });

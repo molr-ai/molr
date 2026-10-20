@@ -1,6 +1,6 @@
 import { spawnSync, execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync, renameSync, lstatSync } from 'node:fs';
+import { readFileSync, writeFileSync, renameSync, lstatSync, rmSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -74,18 +74,27 @@ export function prepareNotarization(directory, manifest, { env = process.env, ru
 export async function finishNotarization(directory, expected, {
   env = process.env, run = command, pause = sleep, now = Date.now, log = console.log,
   maxWaitMs = 30 * 60_000, intervalMs = 60_000,
+  policy = env.MOLR_NOTARIZATION_POLICY || 'required',
 } = {}) {
+  if (!['required', 'optional'].includes(policy)) throw new Error('MOLR_NOTARIZATION_POLICY must be required or optional');
   const state = JSON.parse(readFileSync(join(directory, stateName), 'utf8'));
   if (state.schema !== 1) throw new Error('Unknown notarization state');
   const filename = validateManifest(state.manifest, expected);
+  // A failed retry must not leave metadata from an earlier optional timeout.
+  rmSync(join(directory, 'desktop-manifest.json'), { force: true });
+  rmSync(join(directory, `${filename}.sha256`), { force: true });
   const file = join(directory, filename);
   if (!lstatSync(file).isFile() || digest(file) !== state.manifest.artifacts[0].sha256) throw new Error('Notarization artifact checksum mismatch');
   const { submissionId, manifest } = state;
+  manifest.notarized = false;
   if (manifest.signed) {
     if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(submissionId || '')) throw new Error('Missing notarization submission ID');
+    run('codesign', ['--verify', '--strict', file], { env });
+    run('hdiutil', ['verify', file], { env });
     const auth = credentials(env);
     const deadline = now() + maxWaitMs;
     let failures = 0;
+    let accepted = false;
     while (true) {
       let response;
       try {
@@ -98,7 +107,7 @@ export async function finishNotarization(directory, expected, {
       if (response) {
         if (response.id !== submissionId) throw new Error('Apple returned a different notarization submission');
         log(`Notarization ${submissionId}: ${response.status}`);
-        if (response.status === 'Accepted') break;
+        if (response.status === 'Accepted') { accepted = true; break; }
         if (response.status !== 'In Progress') {
           try {
             log(redact(run('xcrun', ['notarytool', 'log', submissionId, ...auth], { env, timeout: 60_000 }), env));
@@ -106,18 +115,27 @@ export async function finishNotarization(directory, expected, {
           throw new Error(`Notarization ${submissionId} was not accepted: ${response.status}`);
         }
       }
-      if (now() >= deadline) throw new Error(`Notarization ${submissionId} is still pending; rerun only the failed job to resume the saved DMG and submission.`);
+      if (now() >= deadline) {
+        if (policy === 'optional' && response?.status === 'In Progress') {
+          log(`Notarization ${submissionId} is still pending after the wait limit; releasing the signed DMG without notarization (notarized: false).`);
+          break;
+        }
+        throw new Error(`Notarization ${submissionId} is still pending or unavailable; rerun only the failed job to resume the saved DMG and submission.`);
+      }
       await pause(Math.min(intervalMs, deadline - now()));
     }
-    for (let attempt = 1; ; attempt++) {
-      try { run('xcrun', ['stapler', 'staple', file], { env }); break; }
-      catch (error) {
-        if (attempt === 3) throw error;
-        await pause(15_000);
+    if (accepted) {
+      for (let attempt = 1; ; attempt++) {
+        try { run('xcrun', ['stapler', 'staple', file], { env }); break; }
+        catch (error) {
+          if (attempt === 3) throw error;
+          await pause(15_000);
+        }
       }
+      run('xcrun', ['stapler', 'validate', file], { env });
+      run('spctl', ['--assess', '--type', 'open', '--context', 'context:primary-signature', '--verbose', file], { env });
+      manifest.notarized = true;
     }
-    run('xcrun', ['stapler', 'validate', file], { env });
-    run('spctl', ['--assess', '--type', 'open', '--context', 'context:primary-signature', '--verbose', file], { env });
   } else if (submissionId !== null) throw new Error('Unsigned artifact has a notarization submission');
   // Stapling changes the DMG, so calculate all public checksums only afterwards.
   writeManifest(directory, manifest);

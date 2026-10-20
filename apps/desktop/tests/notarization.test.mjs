@@ -15,7 +15,7 @@ function fixture(t, signed = true) {
   const file = 'molr-desktop_0.1.0-rc.1_darwin-arm64_full.dmg';
   const bytes = 'artificial signed disk image';
   writeFileSync(join(directory, file), bytes);
-  const manifest = { schema: 1, version: '0.1.0-rc.1', commit: 'a'.repeat(40), os: 'darwin', arch: 'arm64', variant: 'full', signed, artifacts: [{ file, sha256: hash(bytes) }] };
+  const manifest = { schema: 1, version: '0.1.0-rc.1', commit: 'a'.repeat(40), os: 'darwin', arch: 'arm64', variant: 'full', signed, notarized: false, artifacts: [{ file, sha256: hash(bytes) }] };
   const calls = [];
   prepareNotarization(directory, manifest, { env, run: (command, args) => { calls.push([command, ...args]); return JSON.stringify({ id }); } });
   return { directory, file, manifest, calls, output: join(directory, 'desktop-manifest.json') };
@@ -49,13 +49,14 @@ test('a pending job resumes the same submission and hashes the stapled DMG only 
   assert(calls.some(call => call.includes('validate')));
   assert(calls.some(call => call[0] === 'spctl'));
   const result = JSON.parse(readFileSync(f.output));
+  assert.equal(result.notarized, true);
   assert.equal(result.artifacts[0].sha256, hash('artificial disk image with ticket'));
   assert.equal(readFileSync(join(f.directory, `${f.file}.sha256`), 'utf8'), `${result.artifacts[0].sha256}  ${f.file}\n`);
 });
 
 test('rejected notarization never produces release metadata or staples the installer', async t => {
   const f = fixture(t), calls = [];
-  await assert.rejects(finishNotarization(f.directory, f.manifest, { env, run: (_command, args) => {
+  await assert.rejects(finishNotarization(f.directory, f.manifest, { env, policy: 'optional', maxWaitMs: 0, run: (_command, args) => {
     calls.push(args); return JSON.stringify({ id, status: 'Invalid' });
   } }), /not accepted: Invalid/);
   assert(calls.some(args => args.includes('log')));
@@ -77,7 +78,7 @@ test('transient status query failures retry the saved ID and redact credentials'
 test('persistent connection errors leave a resumable artifact without release metadata', async t => {
   const f = fixture(t);
   let queries = 0;
-  await assert.rejects(finishNotarization(f.directory, f.manifest, { env, pause: async () => {}, run: () => { queries++; throw new Error('offline'); } }), /resume the same submission/);
+  await assert.rejects(finishNotarization(f.directory, f.manifest, { env, policy: 'optional', pause: async () => {}, run: (_command, args) => { if (args.includes('info')) { queries++; throw new Error('offline'); } } }), /resume the same submission/);
   assert.equal(queries, 3); assert(!existsSync(f.output));
   assert(existsSync(join(f.directory, 'notarization.json')));
 });
@@ -97,7 +98,7 @@ test('artifact corruption, another revision or a mismatched submission fails bef
 test('ticket validation or Gatekeeper failure prevents publication after Apple acceptance', async t => {
   for (const failingCommand of ['validate', 'spctl']) {
     const f = fixture(t);
-    await assert.rejects(finishNotarization(f.directory, f.manifest, { env, run: (command, args) => {
+    await assert.rejects(finishNotarization(f.directory, f.manifest, { env, policy: 'optional', run: (command, args) => {
       if (command === failingCommand || args.includes(failingCommand)) throw new Error('ticket verification failed');
       return JSON.stringify({ id, status: 'Accepted' });
     } }), /ticket verification failed/);
@@ -110,4 +111,73 @@ test('unconfigured signing retains the existing unsigned path without contacting
   assert.equal(f.calls.length, 0);
   await finishNotarization(f.directory, f.manifest, { env: {}, run: () => { throw new Error('Unexpected Apple request'); } });
   assert.equal(JSON.parse(readFileSync(f.output)).signed, false);
+  assert.equal(JSON.parse(readFileSync(f.output)).notarized, false);
+});
+
+test('optional timeout publishes the original signed bytes with explicit unnotarized status and preserves recovery', async t => {
+  const f = fixture(t), calls = [], logs = [];
+  const originalState = readFileSync(join(f.directory, 'notarization.json'), 'utf8');
+  let elapsed = 0, queries = 0;
+  await finishNotarization(f.directory, f.manifest, {
+    env: { ...env, MOLR_NOTARIZATION_POLICY: 'optional' }, maxWaitMs: 120, intervalMs: 60,
+    now: () => elapsed, pause: async ms => { elapsed += ms; }, log: text => logs.push(text),
+    run: (command, args) => {
+      calls.push([command, ...args]);
+      if (args.includes('info')) { queries++; return JSON.stringify({ id, status: 'In Progress' }); }
+      return '';
+    },
+  });
+  assert.equal(queries, 3); assert.equal(elapsed, 120);
+  const output = JSON.parse(readFileSync(f.output));
+  assert.equal(output.signed, true); assert.equal(output.notarized, false);
+  assert.deepEqual(output.artifacts, f.manifest.artifacts);
+  assert.equal(readFileSync(join(f.directory, `${f.file}.sha256`), 'utf8'), `${output.artifacts[0].sha256}  ${f.file}\n`);
+  assert.equal(readFileSync(join(f.directory, 'notarization.json'), 'utf8'), originalState);
+  assert(calls.some(call => call[0] === 'codesign'));
+  assert(!calls.some(call => call.includes('staple') || call[0] === 'spctl' || call.includes('submit')));
+  assert(logs.some(text => text.includes('notarized: false')));
+  // The saved intermediate remains usable; publication separately refuses changed bytes under the same version.
+  await finishNotarization(f.directory, f.manifest, { env, run: (_command, args) => {
+    assert(!args.includes('submit'));
+    if (args.includes('staple')) writeFileSync(join(f.directory, f.file), 'artificial stapled DMG');
+    return JSON.stringify({ id, status: 'Accepted' });
+  } });
+  assert.equal(JSON.parse(readFileSync(f.output)).notarized, true);
+});
+
+test('optional policy still staples when Apple accepts, including at the wait deadline', async t => {
+  const f = fixture(t), calls = [];
+  await finishNotarization(f.directory, f.manifest, { env, policy: 'optional', maxWaitMs: 0, run: (command, args) => {
+    calls.push([command, ...args]); return JSON.stringify({ id, status: 'Accepted' });
+  } });
+  assert(calls.some(call => call.includes('staple')));
+  assert(calls.some(call => call.includes('validate')));
+  assert(calls.some(call => call[0] === 'spctl'));
+  assert.equal(JSON.parse(readFileSync(f.output)).notarized, true);
+});
+
+test('optional policy cannot bypass signing failure, unavailable status, unknown status or invalid policy', async t => {
+  for (const kind of ['signature', 'unavailable', 'unknown', 'policy', 'mismatched']) {
+    const f = fixture(t);
+    await assert.rejects(finishNotarization(f.directory, f.manifest, {
+      env, policy: kind === 'policy' ? 'typo' : 'optional', maxWaitMs: 0,
+      run: (command, args) => {
+        if (kind === 'signature' && command === 'codesign') throw new Error('invalid signature');
+        if (args.includes('info')) {
+          if (kind === 'unavailable') throw new Error('offline');
+          return JSON.stringify({ id: kind === 'mismatched' ? 'wrong' : id, status: kind === 'unknown' ? 'Unexpected' : 'In Progress' });
+        }
+        return '';
+      },
+    }));
+    assert(!existsSync(f.output));
+  }
+});
+
+test('a rejected retry removes metadata from an earlier optional timeout', async t => {
+  const f = fixture(t);
+  await finishNotarization(f.directory, f.manifest, { env, policy: 'optional', maxWaitMs: 0, run: () => JSON.stringify({ id, status: 'In Progress' }) });
+  assert(existsSync(f.output));
+  await assert.rejects(finishNotarization(f.directory, f.manifest, { env, policy: 'optional', maxWaitMs: 0, run: () => JSON.stringify({ id, status: 'Rejected' }) }), /not accepted: Rejected/);
+  assert(!existsSync(f.output)); assert(!existsSync(join(f.directory, `${f.file}.sha256`)));
 });

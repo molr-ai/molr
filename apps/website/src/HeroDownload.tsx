@@ -64,8 +64,8 @@ export function HeroDownload({ locale }: { locale: Locale }) {
         : <p className="home-download-status" role="status">{status}{error && <Button variant="ghost" size="sm" onClick={retry}>{zh ? '重试' : 'Retry'}</Button>}</p>}
       <a className="button button--secondary button--lg home-download-docs" href={localizedDocPath(siteLinks.userDocs!, locale)}><Icon name="book" />{zh ? '查看文档' : 'View docs'}</a>
     </div>
-    {available && !platform.signed && platform.os !== 'linux' && <p className="home-download-signing">{platform.os === 'darwin'
-      ? (zh ? '未公证测试包，macOS 可能阻止首次打开。' : 'Unnotarized test build; macOS may block the first launch.')
+    {available && ((platform.os === 'darwin' && !platform.notarized) || (platform.os === 'win32' && !platform.signed)) && <p className="home-download-signing">{platform.os === 'darwin'
+      ? (zh ? '尚未经过 Apple 公证，macOS 可能阻止首次打开。' : 'Not notarized by Apple; macOS may block the first launch.')
       : (zh ? '未签名测试包，Windows 可能提示未知发布者。' : 'Unsigned test build; Windows may show an unknown publisher warning.')}</p>}
     <a className="home-download-alternatives" href="#install">{zh ? '更多版本和安装方式' : 'More versions and installation methods'}<Icon name="down" /></a>
   </div>;

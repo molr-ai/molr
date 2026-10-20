@@ -13,6 +13,7 @@ const desktopFiles = desktopReleaseFiles(desktop, directory);
 const signingNotes = [
   desktop.platforms.some(p => p.os === 'win32' && !p.signed) ? 'Windows 桌面包未签名，系统可能提示未知发布者或阻止运行。 / Windows desktop installers are unsigned; device security policies may warn or block execution.' : '',
   desktop.platforms.some(p => p.os === 'darwin' && !p.signed) ? 'macOS 桌面包仅使用 ad-hoc 签名，未经过 Apple 公证，系统可能阻止首次打开。 / macOS desktop apps are ad-hoc signed without Apple notarization; the first launch may be blocked.' : '',
+  desktop.platforms.some(p => p.os === 'darwin' && p.signed && !p.notarized) ? '部分 macOS 桌面包已使用 Developer ID 签名，但尚未经过 Apple 公证，系统可能阻止首次打开。 / Some macOS desktop installers are Developer ID signed but not notarized by Apple; the first launch may be blocked.' : '',
 ].filter(Boolean).join('\n\n');
 const gh = (...args) => execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
 const mutateRelease = (method, path, body) => JSON.parse(execFileSync('gh', ['api', path, '--method', method, '--input', '-'], { encoding: 'utf8', input: JSON.stringify(body) }));

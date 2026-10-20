@@ -19,7 +19,7 @@ for (const m of manifests) {
   const id = `${m.os}-${m.arch}`; if (seen.has(id)) throw new Error('Duplicate platform'); seen.add(id);
   const a = m.artifacts[0], ext = { linux: 'deb', darwin: 'dmg', win32: 'exe' }[m.os];
   if (a.file !== `molr-desktop_${version}_${id}_${m.variant}.${ext}` || !/^[a-f0-9]{64}$/.test(a.sha256)) throw new Error('Invalid desktop artifact');
-  platforms.push({ os: m.os, arch: m.arch, variant: m.variant, signed: m.signed, ...a, url: new URL(a.file, base).href });
+  platforms.push({ os: m.os, arch: m.arch, variant: m.variant, signed: m.signed, notarized: m.notarized, file: a.file, sha256: a.sha256, url: new URL(a.file, base).href });
 }
 const catalog = values.existing ? JSON.parse(readFileSync(values.existing)) : { schema: 1, channels: { stable: null, preview: null, nightly: null } };
 if (catalog.schema !== 1 || !catalog.channels) throw new Error('Invalid existing desktop catalog');
