@@ -1,8 +1,45 @@
-import { Bell, BriefcaseBusiness, Hash, MessageCircle, MessagesSquare, Radio } from 'lucide-react';
-
-// Generic communication symbols; channel names provide service identification.
-const icons = { weixin: MessageCircle, qq: MessagesSquare, feishu: BriefcaseBusiness, dingtalk: Bell, telegram: Radio, slack: Hash };
+// Brand outlines adapted from Tabler Icons v3.49.0 (MIT), copyright Paweł Kuna,
+// and IconPark new-lark (Apache-2.0), copyright ByteDance.
+// Source revisions, modifications and full licenses: THIRD_PARTY_NOTICES.md.
+const icons = {
+ weixin: <>
+  <path d="M16.5 10c3.038 0 5.5 2.015 5.5 4.5c0 1.397 -.778 2.645 -2 3.47l0 2.03l-1.964 -1.178a6.649 6.649 0 0 1 -1.536 .178c-3.038 0 -5.5 -2.015 -5.5 -4.5s2.462 -4.5 5.5 -4.5" />
+  <path d="M11.197 15.698c-.69 .196 -1.43 .302 -2.197 .302a8.008 8.008 0 0 1 -2.612 -.432l-2.388 1.432v-2.801c-1.237 -1.082 -2 -2.564 -2 -4.199c0 -3.314 3.134 -6 7 -6c3.782 0 6.863 2.57 7 5.785l0 .233" />
+  <path d="M10 8h.01" />
+  <path d="M7 8h.01" />
+  <path d="M15 14h.01" />
+  <path d="M18 14h.01" />
+ </>,
+ qq: <>
+  <path d="M6 9.748a14.716 14.716 0 0 0 11.995 -.052c.275 -9.236 -11.104 -11.256 -11.995 .052" />
+  <path d="M18 10c.984 2.762 1.949 4.765 2 7.153c.014 .688 -.664 1.346 -1.184 .303c-.346 -.696 -.952 -1.181 -1.816 -1.456" />
+  <path d="M17 16c.031 1.831 .147 3.102 -1 4" />
+  <path d="M8 20c-1.099 -.87 -.914 -2.24 -1 -4" />
+  <path d="M6 10c-.783 2.338 -1.742 4.12 -1.968 6.43c-.217 2.227 .716 1.644 1.16 .917c.296 -.487 .898 -.934 1.808 -1.347" />
+  <path d="M15.898 13l-.476 -2" />
+  <path d="M8 20l-1.5 1c-.5 .5 -.5 1 .5 1h10c1 0 1 -.5 .5 -1l-1.5 -1" />
+  <path d="M12.75 7a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+  <path d="M9.25 7a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+ </>,
+ feishu: <g transform="scale(.5)" strokeWidth={4}>
+  <path d="M17 29C21 29 25 26.9339 28 23.4065C36 14 41.4242 16.8166 44 17.9998C38.5 20.9998 40.5 29.6233 33 35.9998C28.382 39.9259 23.4945 41.014 19 41C12.5231 40.9799 6.86226 37.7637 4 35.4063V16.9998" />
+  <path d="M5.64808 15.8669C5.02231 14.9567 3.77715 14.7261 2.86694 15.3519C1.95673 15.9777 1.72615 17.2228 2.35192 18.1331L5.64808 15.8669ZM36.0021 35.7309C36.958 35.1774 37.2843 33.9539 36.7309 32.9979C36.1774 32.042 34.9539 31.7157 33.9979 32.2691L36.0021 35.7309ZM2.35192 18.1331C5.2435 22.339 10.7992 28.144 16.8865 32.2239C19.9345 34.2667 23.217 35.946 26.449 36.7324C29.6946 37.522 33.0451 37.4428 36.0021 35.7309L33.9979 32.2691C32.2049 33.3072 29.9929 33.478 27.3947 32.8458C24.783 32.2103 21.9405 30.7958 19.1135 28.9011C13.4508 25.106 8.2565 19.661 5.64808 15.8669L2.35192 18.1331Z" fill="currentColor" stroke="none" />
+  <path d="M33.5947 17C32.84 14.7027 30.8551 9.94054 27.5947 7H11.5947C15.2174 10.6757 23.0002 16 27.0002 24" />
+ </g>,
+ dingtalk: <>
+  <path d="M21 12a9 9 0 1 1 -18 0a9 9 0 0 1 18 0" />
+  <path d="M8 7.5l7.02 2.632a1 1 0 0 1 .567 1.33l-1.087 2.538h1.5l-5 4l1 -4c-3.1 .03 -3.114 -3.139 -4 -6.5" />
+ </>,
+ telegram: <>
+  <path d="M15 10l-4 4l6 6l4 -16l-18 7l4 2l2 6l3 -4" />
+ </>,
+ slack: <>
+  <path d="M12 12v-6a2 2 0 0 1 4 0v6m0 -2a2 2 0 1 1 2 2h-6" />
+  <path d="M12 12h6a2 2 0 0 1 0 4h-6m2 0a2 2 0 1 1 -2 2v-6" />
+  <path d="M12 12v6a2 2 0 0 1 -4 0v-6m0 2a2 2 0 1 1 -2 -2h6" />
+  <path d="M12 12h-6a2 2 0 0 1 0 -4h6m-2 0a2 2 0 1 1 2 -2v6" />
+ </>,
+};
 export function ChannelAppIcon({ channel }: { channel: keyof typeof icons }) {
- const Icon = icons[channel];
- return <Icon className="channel-app-icon" size={32} strokeWidth={1.7} aria-hidden="true" />;
+ return <svg className="channel-app-icon" width={32} height={32} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{icons[channel]}</svg>;
 }

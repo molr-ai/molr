@@ -14,7 +14,7 @@
     "scripts/build-release.mjs": "17a7253510ed07b71f8dd163b183d8418b95b750da7403e0064cebe73df3cc07",
     "apps/website/src/GithubMark.tsx": "7d0d38bb13335793c5ed91d5f27ffc8e5fc2811d7eff9ce6e59a6f6d33d5a37a",
     "apps/website/src/site-links.ts": "f360bbe44df89647e5d43207230ab65ee7b2c899aa2f680f1863bba125d2c1cd",
-    "THIRD_PARTY_NOTICES.md": "e86a094b584377071de73673bb29a22ad79bf0b0ece436dd5e0e84d889bd186c",
+    "THIRD_PARTY_NOTICES.md": "80f52b93a7e1ef215e0e3d5234c61a7a332732facfadd6dc3875a937c8f651a2",
     "scripts/license-assets.ts": "2f17e19230ad1b6fa1b44bfd974abec0d2c36522dd009ebed61151040eb715db",
     "scripts/update-third-party-notices.py": "468adbcab07505c888e08017ac41534c4eecc29285721274e3544026e0ef4be8",
     "scripts/promote-release.mjs": "3875373d2fe869b79eda684b6deef53173f8f0af7cf1e41f25f9ea977f972e27",
@@ -26,7 +26,8 @@
     "apps/desktop/package.json": "17f227b5bb8021020d7b01a96da1fdd50b202c540a1a767d229f99b5a8e9564d",
     "apps/desktop/scripts/package.mjs": "00ac4c43efadf78430b3f9c36762eea5088607c0643a8dccbbfd2877b2396435",
     "apps/desktop/scripts/build-windows-runtime.mjs": "d4a0bbc4f59f0e5a9c923568ce054c099f6b0fb69f042c084d6945911ab07a26",
-    "apps/desktop/scripts/notarization.mjs": "2c2add1c07985be03791b386d9f601760364d8c93ab88934a6fef3855df4ab86"
+    "apps/desktop/scripts/notarization.mjs": "2c2add1c07985be03791b386d9f601760364d8c93ab88934a6fef3855df4ab86",
+    "apps/webui/src/interfaces/official/features/ChannelAppIcon.tsx": "11ed9b89190dfb3f3c2b8954804d0d01a29df016a02a0cbd5f747fadbb7a2475"
   },
   "npm": [
     {
@@ -11810,7 +11811,7 @@
         "THIRD_PARTY_NOTICES.md",
         "apps/webui/src/interfaces/official/features/ChannelAppIcon.tsx"
       ],
-      "scope": "Removed all six chat-service SVG marks and their dedicated source/license supplement. Channel selection uses generic communication icons from the existing lucide-react dependency; its ISC and Feather MIT notices remain in the generated distribution notices. No dependency or version changes."
+      "scope": "Replaced six colored chat-service SVG marks with actual brand outline icons: five from Tabler Icons v3.49.0 (MIT) and Feishu new-lark from IconPark, commit 7e34637492ea9f6ae971d1a81e399bff44d1bfa6 (Apache-2.0). Reviewed original geometry and licenses; complete copyright and license texts and adaptation notes are included in the distribution notices. IconPark has no root NOTICE at the pinned revision. Icons use currentColor, common sizing and equivalent stroke widths; brand rights remain with their owners. No npm dependency changes."
     }
   ]
 }

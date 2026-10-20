@@ -26,4 +26,4 @@
 [data-reduced-motion='true'] .channel-pages, [data-reduced-motion='true'] .channel-page[inert] { transition: none; }
 @media (prefers-reduced-motion: reduce) { .channel-pages, .channel-page[inert] { transition: none; } }
 
-.channel-app-icon { width: 32px; height: 32px; flex: 0 0 32px; box-sizing: border-box; padding: 6px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-neutral-bg); }
+.channel-app-icon { width: 32px; height: 32px; flex: 0 0 32px; box-sizing: border-box; padding: 5px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-neutral-bg); }
