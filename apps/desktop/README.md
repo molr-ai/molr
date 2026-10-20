@@ -29,9 +29,15 @@ For local management, run `npm run build:release` on Linux/macOS or `node apps/d
 
 Before connecting, while loading, and after disconnect or failure, the bundled interface owns the window controls and connection manager. After the Runtime WebUI completes its App-mode handshake, its `WebContentsView` fills the frameless window. The bundled toolbar is hidden. WebUI owns the draggable title area, current connection name, minimize/maximize/restore/close buttons, and Disconnect action, including on login and error screens. Ordinary browser visits retain web mode.
 
-`@molr/ui-host/app` defines the shared type-only contract. The sandboxed Runtime preload exposes `getInfo`, window controls, `disconnect`, a disposable window-state subscription, and the OAuth bridge described below. Main-process handlers validate the active WebContents, main frame, connection origin, and argument count. Plugin and custom-theme iframes do not receive the bridge. `molrDesktop`, service management, arbitrary IPC, filesystem and command access stay unavailable to Runtime pages.
+`@molr/ui-host/app` defines the shared type-only contract. The sandboxed Runtime preload exposes `getInfo`, window controls, `disconnect`, a disposable window-state subscription, native notification controls, and the OAuth bridge described below. Main-process handlers validate the active WebContents, main frame, connection origin, and argument count. Plugin and custom-theme iframes do not receive the bridge. `molrDesktop`, service management, arbitrary IPC, filesystem and command access stay unavailable to Runtime pages.
 
 Disconnect returns to the connection list without clearing authentication or stopping Runtime tasks; unfinished downloads from the closing view are cancelled. Failed navigation, renderer crashes and handshake timeout return to the bundled recovery screen. Ctrl/Cmd+Shift+M returns to connection management and Ctrl/Cmd+R reconnects. Windows/Linux have no application menu bar; Ctrl+plus/minus/0 controls zoom and F11 toggles full screen. macOS retains its system application menu. Native Windows Snap Layout hover and platform-specific window-manager behavior require native acceptance.
+
+## Notifications
+
+The existing WebUI desktop-notification switch initializes the native OS channel through `molrApp.notifications`. There is no extra per-Runtime permission dialog. Browser notification permission is not used in App mode. On macOS, initialization can trigger system authorization; it runs on user activation, not page load. Channel support is not reported as OS permission. The operating system remembers its authorization decision, while WebUI keeps preferences in the connection partition per account.
+
+Native delivery accepts bounded text and internal routes only. Notifications are scoped to each login lifetime and cleared on logout, navigation, disconnect, or disabling notifications. Old clicks cannot route into a later scope. Main retains native handles and waits for show/failed events with a deadline; failure falls back to in-app alerts. Focus and system settings can still suppress display. Use a signed macOS app to verify OS permission, display, sound, and click behavior.
 
 ## Local OAuth callback and Runtime handoff
 

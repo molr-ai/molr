@@ -72,7 +72,7 @@ try {
   await page.evaluate(id => window.molrDesktop.connect(id), one.id); await waitRuntime(page);
   assert.deepEqual(await remote('({ bridge: typeof window.molrDesktop, require: typeof require, process: typeof process })'), { bridge: 'undefined', require: 'undefined', process: 'undefined' });
   assert.equal((await remote('window.molrApp.getInfo()')).apiVersion, 1);
-  assert.deepEqual(await remote('Object.keys(window.molrApp).sort()'), ['disconnect', 'getInfo', 'oauth', 'onWindowStateChanged', 'window']);
+  assert.deepEqual(await remote('Object.keys(window.molrApp).sort()'), ['disconnect', 'getInfo', 'notifications', 'oauth', 'onWindowStateChanged', 'window']);
   assert.equal(await page.locator('.desktop-toolbar').count(), 0);
   assert.equal(await app.evaluate(({ BrowserWindow }) => {
     const w = BrowserWindow.getAllWindows()[0], [width, height] = w.getContentSize();
@@ -88,6 +88,12 @@ try {
     try { await w.loadURL(url + '/untrusted'); return await w.webContents.executeJavaScript('window.molrApp.getInfo().then(() => "unexpected", error => error.message)'); }
     finally { w.destroy(); }
   }, { url, preload: join(root, 'apps/desktop/dist/main/preload/runtime.cjs') }), /unavailable to this page/);
+  checkpoint('notification bridge');
+  // No native notification permission or display is requested by these checks.
+  await remote("window.molrApp.notifications.begin('fixture-login')");
+  assert.match(await remote("window.molrApp.notifications.show('stale-login', {tag:'test',title:'Fixture',body:'Message',route:''}).then(() => 'unexpected', e => e.message)"), /expired/);
+  assert.match(await remote("window.molrApp.notifications.show('fixture-login', {tag:'test',title:'Fixture',body:'Message',route:'https://example.invalid'}).then(() => 'unexpected', e => e.message)"), /Invalid/);
+  await remote("window.molrApp.notifications.close('fixture-login')");
   checkpoint('clipboard');
   await app.evaluate(({ app, BrowserWindow, webContents }, url) => {
     // CI can launch Electron behind another macOS app. Clipboard writes wait

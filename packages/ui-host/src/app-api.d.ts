@@ -11,7 +11,16 @@ export type AppInfo = {
   connection: { name: string; url: string };
   window: AppWindowState;
 };
+export type AppNotification = { tag: string; title: string; body: string; route: string };
 export type MolrAppAPI = {
+  notifications: {
+    begin(scope: string): Promise<void>;
+    /** Initializes the OS channel on user activation; support is not permission. */
+    requestPermission(): Promise<boolean>;
+    show(scope: string, notification: AppNotification): Promise<void>;
+    close(scope: string, tag?: string): Promise<void>;
+    onClick(callback: (scope: string, route: string) => void): () => void;
+  };
   oauth: {
     /** Provider IDs are registered by Runtime. Credentials never enter the page. */
     authorize(provider: string): Promise<AppOAuthResult>;

@@ -1,0 +1,11 @@
+.notification-setting > .settings-row { min-height: 40px; padding: 0; }
+.notification-setting-label { display: flex; align-items: center; min-height: 40px; font-size: var(--text-sm); }
+.notification-setting-detail { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 4px; }
+.notification-setting-copy { min-width: 0; color: var(--color-text-muted); font-size: var(--text-xs); line-height: 1.7; overflow-wrap: anywhere; }
+.notification-setting-copy p { margin: 0; }
+.notification-setting-copy p + p { margin-top: 4px; }
+.notification-setting-detail > .button { flex-shrink: 0; }
+.notification-settings-local { margin-top: 16px; }
+@media (--molr-mobile) {
+  .notification-setting-detail { align-items: flex-start; flex-direction: column; gap: 10px; padding-top: 6px; }
+}

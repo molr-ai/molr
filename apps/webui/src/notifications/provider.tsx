@@ -7,6 +7,7 @@ import { api } from '../api/client';
 import { poll } from '../polling';
 import { isChatObscured } from '../chat-visibility';
 import { useCopy, useData, useQuery, useSession } from '../state';
+import { createDesktopNotifications } from './desktop';
 import { createBrowserNotifications } from './browser';
 import { NotificationClaims } from './coordinator';
 import { NoticeQueue } from './notice-queue';
@@ -20,14 +21,20 @@ function preferences(key: string): NotificationPreferences {
   // Migrate the old DND preference to system notifications off, preserving sound.
   try { const value = JSON.parse(localStorage.getItem(key) ?? '{}'); return { enabled: value?.enabled === true, preview: value?.preview === true, sound: value?.sound === true, system: value?.system !== false && value?.quiet !== true }; } catch { return { ...defaults }; }
 }
-type Controls = { preferences: NotificationPreferences; change: (value: Partial<NotificationPreferences>) => void; capability: NotificationCapability; soundState: SoundState; testSound: () => Promise<boolean>; requestPermission: () => Promise<void>; test: () => Promise<boolean> };
+type TestResult = 'sent' | 'fallback' | 'failed';
+type Controls = { preferences: NotificationPreferences; change: (value: Partial<NotificationPreferences>) => void; capability: NotificationCapability; soundState: SoundState; testSound: () => Promise<boolean>; requestPermission: () => Promise<void>; deliveryFailed: boolean; test: () => Promise<TestResult> };
 const NotificationContext = createContext<Controls | null>(null);
 export const useNotifications = () => useContext(NotificationContext)!;
 const openRoute = (route: string) => { if (/^#\/(?:assistants(?:\/[A-Za-z0-9_-]{1,128}(?:\?panel=(?:info|permissions|channel|tasks)(?:&task=[A-Za-z0-9_-]{1,128})?)?)|plans\/[A-Za-z0-9_-]{1,128}|workbench\/[A-Za-z0-9_-]{1,128}\?event=[A-Za-z0-9_-]{1,128})$/.test(route)) location.hash = route; };
 const focused = () => document.visibilityState === 'visible' && document.hasFocus();
 const reading = (id: string) => focused() && location.hash === `#/assistants/${id}` && !isChatObscured();
 
-export function NotificationProvider({ children, createAdapter = createBrowserNotifications }: { children: ReactNode; createAdapter?: typeof createBrowserNotifications }) {
+const createNotifications: typeof createBrowserNotifications = (account, open) => window.molrApp
+  ? createDesktopNotifications(window.molrApp.notifications, open)
+  : createBrowserNotifications(account, open);
+const canSend = (device: NotificationAdapter) => ['granted', 'available'].includes(device.capability());
+
+export function NotificationProvider({ children, createAdapter = createNotifications }: { children: ReactNode; createAdapter?: typeof createBrowserNotifications }) {
   const noticeText = useNoticeText();
   const account = useSession().principal!.OwnerID, key = `molr-notifications:${account}`;
   const conversations = useQuery<Conversation[]>('/api/conversations', true);
@@ -40,6 +47,7 @@ export function NotificationProvider({ children, createAdapter = createBrowserNo
   }, [conversations.data, conversations.error, conversations.reload]);
   const { subscribeEvents } = useData(), { locale } = useCopy(), toast = useToast();
   const [value, setValue] = useState(() => preferences(key)), [capability, setCapability] = useState<NotificationCapability>('unsupported');
+  const [deliveryFailed, setDeliveryFailed] = useState(false);
   const [soundState, setSoundState] = useState<SoundState>('blocked');
   const current = useRef({ noticeText, value, copy: notificationCopy[locale], toast });
   current.current = { noticeText, value, copy: notificationCopy[locale], toast };
@@ -52,6 +60,8 @@ export function NotificationProvider({ children, createAdapter = createBrowserNo
     current.current.value = next; setValue(next);
     try { localStorage.setItem(key, JSON.stringify(next)); } catch { /* In-memory preference remains usable. */ }
     applyPreferences.current(previous, next);
+    if (patch.system !== undefined) setDeliveryFailed(false);
+    if (patch.system === true) void requestPermission();
     if (patch.sound === true) void audio.current?.unlock();
   }
   useEffect(() => {
@@ -137,8 +147,8 @@ export function NotificationProvider({ children, createAdapter = createBrowserNo
         const title = preview ? assistant.Name : 'Molr';
         const body = preview ? (message.Content.Text || message.Content.Card?.Title || copy.newMessage).slice(0, 180) : copy.newMessage;
         // Foreground pages use in-app alerts; background pages prefer the OS.
-        if (!focused() && current.current.value.system && device.capability() === 'granted') {
-          try { await device.show({ tag: conversation, title, body, route, silent: true }); if (current.current.value.system) return; } catch { /* Use the same in-app fallback as unavailable environments. */ }
+        if (!focused() && current.current.value.system && canSend(device)) {
+          try { await device.show({ tag: conversation, title, body, route, silent: true }); if (active) setDeliveryFailed(false); if (current.current.value.system) return; } catch { if (active && !canceled() && current.current.value.system) setDeliveryFailed(true); }
         }
         if (canceled()) return;
         const options = { title, description: body, duration: 8000, action: { label: copy.open, onClick: () => openRoute(route) } };
@@ -171,13 +181,14 @@ export function NotificationProvider({ children, createAdapter = createBrowserNo
         const content=current.current.noticeText.text(n), route=current.current.noticeText.action(n)?.route ?? '';
         const prefs=current.current.value;
         const title=prefs.preview?content.title:'Molr',body=prefs.preview?[content.description,content.help].filter(Boolean).join(' '):current.current.noticeText.copy.unknown;
-        if(!focused()&&prefs.system&&device.capability()==='granted'){
+        if(!focused()&&prefs.system&&canSend(device)){
           try{
             await device.show({tag,title,body,route,silent:true});
             if(canceled()){await device.close(tag);return;}
+            setDeliveryFailed(false);
             if(current.current.value.system)return;
             await device.close(tag);
-          }catch{/* Fall back to an in-app reminder. */}
+          }catch{if(active&&!canceled()&&current.current.value.system)setDeliveryFailed(true);}
         }
         if(canceled())return;
         const toastID = current.current.toast.toast({ title, description: body, duration: 8000, action: noticeToastAction(n) });
@@ -220,22 +231,34 @@ export function NotificationProvider({ children, createAdapter = createBrowserNo
   }, [account, key, subscribeEvents, createAdapter]);
   async function requestPermission() {
     const device = adapter.current; if (!device) return;
-    try { const next = await device.requestPermission(); if (adapter.current === device) setCapability(next); } catch { if (adapter.current === device) setCapability(device.capability()); }
+    try { const next = await device.requestPermission(); if (adapter.current === device) setCapability(next); } catch { if (adapter.current === device) { setCapability(device.capability()); setDeliveryFailed(true); } }
   }
-  async function test() {
+  async function test(): Promise<TestResult> {
     const device = adapter.current, copy = current.current.copy;
-    if (!device) return false;
+    if (!device) return 'fallback';
+    setDeliveryFailed(false);
     const notification = { tag: 'test', title: copy.testTitle, body: copy.testBody, route: '' };
-    if (current.current.value.system && device.capability() === 'granted') {
-      try { await device.show(notification); return true; } catch { /* A test still works when the system channel fails. */ }
+    let failed = false;
+    if (current.current.value.system) {
+      // Testing also offers browser authorization when the saved switch was
+      // already on before the browser had permission.
+      if (device.capability() === 'default') await requestPermission();
+      if (adapter.current !== device || !current.current.value.system) return 'fallback';
+      if (canSend(device)) {
+        try { await device.show(notification); return adapter.current === device && current.current.value.system ? 'sent' : 'fallback'; } catch { failed = true; }
+      }
     }
-    if (adapter.current === device) current.current.toast.toast({ title: notification.title, description: notification.body });
-    return false;
+    if (adapter.current === device) {
+      if (!current.current.value.system) failed = false;
+      setDeliveryFailed(failed);
+      current.current.toast.toast({ title: notification.title, description: notification.body });
+    }
+    return failed ? 'failed' : 'fallback';
   }
   async function testSound() {
     const sound = audio.current;
     if (!sound) return false;
     return await sound.unlock() && audio.current === sound && sound.play();
   }
-  return <NotificationContext.Provider value={{ preferences: value, change, capability, soundState, testSound, requestPermission, test }}>{children}</NotificationContext.Provider>;
+  return <NotificationContext.Provider value={{ preferences: value, change, capability, soundState, testSound, requestPermission, deliveryFailed, test }}>{children}</NotificationContext.Provider>;
 }

@@ -45,6 +45,12 @@ App 模式的完整字标位于标题栏，工作区的连接状态和重试功�
 
 桌面主进程校验当前 WebContents、主 frame、已配置连接来源和参数。远程页面能读取当前连接、控制当前窗口、断开及发起下述 OAuth 流程；连接增删和本机服务管理仍由内置 UI 的独立接口负责。插件及自定义主题 iframe 不获得桌面接口。远程视图填满无边框窗口，加载失败、崩溃或握手超时回到内置恢复界面。断开保留连接分区与登录状态，不停止 Runtime。
 
+## 桌面通知
+
+WebUI 的 `NotificationAdapter` 在 App 中选择原生适配器，通过 `molrApp.notifications` 调用主进程的 Electron Notification；浏览器继续使用 Web Notifications。现有桌面通知开关触发系统通道初始化，主进程不再为 Runtime 弹出自定义通知授权框，也不依赖网页的通知权限。macOS 的通道初始化可能触发系统授权，因此不在页面加载时调用 `Notification.isSupported()`；该返回值仅表示通道支持，不能显示为系统已授权。
+
+每次登录生命周期使用独立通知 scope。主进程校验当前页面、主 frame、连接来源、scope、文本长度和内部路由；退出、导航、断开及关闭开关清理通知。保留原生对象以支持已读撤回和过期点击隔离。发送等待原生 show／failed 事件并限制等待时长，失败回退应用内提醒；系统专注模式可能抑制展示。状态与测试结果放在对应设置行中。macOS 原生授权、展示和点击需使用签名 App 验收。
+
 ## 桌面 OAuth 回调
 
 主页面通过 `window.molrApp.oauth.authorize(providerID)` 发起已注册服务的授权，通过 `oauth.cancel()` 取消等待。`authorize` 返回 `{ status, attemptId?, connectionId? }`；`status` 为 `connected`、`cancelled`、`failed` 或 `unknown`。调用不会返回授权码或 token。普通浏览器与 iframe 不拥有这一接口。

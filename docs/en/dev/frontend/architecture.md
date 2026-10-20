@@ -45,6 +45,12 @@ The bundled connection manager uses the shared full wordmark's day/night animati
 
 The desktop main process validates the current WebContents, main frame, configured connection origin and arguments. Runtime pages can read the current connection, control the current window, disconnect and initiate the OAuth flow below. Connection editing and local-service management remain behind the bundled UI’s separate API. Plugin and custom-theme iframes receive no desktop bridge. The Runtime view fills the frameless window; failed navigation, crashes or handshake timeout return to bundled recovery. Disconnect preserves partition storage and authentication and leaves Runtime running.
 
+## Desktop notifications
+
+In App mode, WebUI selects a native `NotificationAdapter` and calls Electron Notification through `molrApp.notifications`; browsers retain Web Notifications. The existing switch initializes the system channel. There is no extra Runtime permission dialog or dependency on browser notification permission. On macOS initialization can prompt for OS authorization, so `Notification.isSupported()` is not called on page load. Its result indicates support, not OS permission.
+
+Each login lifetime gets a fresh notification scope. Main validates the current page, main frame, connection origin, scope, text lengths, and internal routes. Logout, navigation, disconnect, and disabling the switch clear notifications. Native objects are retained for read cleanup and stale-click isolation. Sending waits for native show/failed events with a deadline; failure falls back to in-app alerts. Focus can still suppress display. Status and test feedback belong to their settings row. Native macOS permission, display, and click acceptance requires a signed app.
+
 ## Desktop OAuth Callback
 
 The main page calls `window.molrApp.oauth.authorize(providerID)` for a registered service, or `oauth.cancel()` to cancel waiting. `authorize` returns `{ status, attemptId?, connectionId? }`, where `status` is `connected`, `cancelled`, `failed` or `unknown`. Neither authorization codes nor tokens are returned. Ordinary browsers and iframes have no such bridge.

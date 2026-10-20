@@ -1,4 +1,4 @@
-import { app, BrowserWindow, WebContentsView, ipcMain, session, protocol, net, dialog, shell, Menu, powerMonitor } from 'electron';
+import { app, BrowserWindow, WebContentsView, ipcMain, session, protocol, net, dialog, shell, Menu, powerMonitor, Notification } from 'electron';
 import type { IpcMainInvokeEvent, Session, WebContents } from 'electron';
 import { join, resolve, relative, sep, basename } from 'node:path';
 import { existsSync, realpathSync, mkdirSync, statSync } from 'node:fs';
@@ -7,6 +7,7 @@ import { ConnectionStore, partition, sameOrigin, externalURL, allowedFrameURL } 
 import type { Connection, ConnectionInput, DesktopState, LocalAction, ResourcePreset, LocalStatus } from '../shared.js';
 import type { AppInfo, AppWindowState } from '@molr/ui-host/app';
 import type { LocalRuntime } from '../runtime/local.js';
+import { DesktopNotifications } from './notifications.js';
 import { OAuthFlow } from './oauth.js';
 import { runtimeOAuthTransport } from './oauth-transport.js';
 
@@ -20,6 +21,7 @@ if (!app.isPackaged && process.env.MOLR_DESKTOP_DATA) app.setPath('userData', re
 let win: BrowserWindow | undefined;
 const oauth = new OAuthFlow();
 let runtimeView: WebContentsView | undefined;
+let notifications: DesktopNotifications | undefined;
 let local: LocalRuntime | undefined;
 let store: ConnectionStore;
 let view: DesktopState['view'] = 'manager', error: string | undefined, active: string | undefined, busy: string | undefined;
@@ -70,6 +72,7 @@ function revealRuntime() {
   clearTimeout(loadingTimer); runtimeView.setVisible(true); runtimeView.webContents.focus(); view = 'runtime'; error = undefined; changed();
 }
 function discard() {
+  notifications?.dispose(); notifications = undefined;
   oauth.cancel();
   clearTimeout(loadingTimer); runtimeLoaded = false; runtimeReady = false;
   if (!runtimeView) return;
@@ -97,14 +100,10 @@ function configureSession(connection: Connection) {
   const id = connection.id;
   const existing = sessions.get(id); if (existing) return existing;
   const ses = session.fromPartition(partition(id)); sessions.set(id, ses);
-  let notificationsAllowed = false;
-  ses.setPermissionCheckHandler((contents, permission, requestingOrigin) => (permission === 'clipboard-sanitized-write' || permission === 'notifications' && notificationsAllowed) && contents === runtimeView?.webContents && active === id && sameOrigin(requestingOrigin, connection.url));
+  ses.setPermissionCheckHandler((contents, permission, requestingOrigin) => permission === 'clipboard-sanitized-write' && contents === runtimeView?.webContents && active === id && sameOrigin(requestingOrigin, connection.url));
   ses.setDevicePermissionHandler(() => false);
   ses.setPermissionRequestHandler((contents, permission, callback, details) => {
-    if (!win || !runtimeView || contents !== runtimeView.webContents || !details.isMainFrame || !sameOrigin(details.requestingUrl, connection.url)) return callback(false);
-    if (permission === 'clipboard-sanitized-write') return callback(true);
-    if (permission !== 'notifications') return callback(false);
-    void dialog.showMessageBox(win, { type: 'question', message: `允许“${connection.name}”发送通知？`, detail: connection.url, buttons: ['不允许', '允许'], defaultId: 0, cancelId: 0 }).then(result => { notificationsAllowed = !contents.isDestroyed() && active === id && result.response === 1; callback(notificationsAllowed); }, () => callback(false));
+    callback(!!win && contents === runtimeView?.webContents && active === id && details.isMainFrame && sameOrigin(details.requestingUrl, connection.url) && permission === 'clipboard-sanitized-write');
   });
   ses.on('will-download', (event, item, contents) => {
     if (!runtimeView || contents !== runtimeView.webContents || active !== id) { event.preventDefault(); return; }
@@ -141,11 +140,21 @@ async function connect(id: string, loginURL?: string) {
   discard(); active = id; view = 'loading'; error = undefined; store.select(id); changed();
   const contentsView = new WebContentsView({ webPreferences: { preload: join(here, '../preload/runtime.cjs'), session: configureSession(connection), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, allowRunningInsecureContent: false, webviewTag: false, navigateOnDragDrop: false } });
   runtimeView = contentsView;
+  notifications = new DesktopNotifications(
+    value => new Notification({ title: value.title, body: value.body, silent: true }),
+    (scope, route) => {
+      if (runtimeView !== contentsView || contentsView.webContents.isDestroyed() || !sameOrigin(contentsView.webContents.getURL(), connection.url)) return;
+      if (win?.isMinimized()) win.restore();
+      win?.show(); win?.focus(); contentsView.webContents.focus();
+      contentsView.webContents.send('app:notification-click', scope, route);
+    },
+  );
   contentsView.setVisible(false);
   win!.contentView.addChildView(contentsView); layout();
   guardRuntime(contentsView.webContents, connection);
   contentsView.webContents.on('did-start-navigation', details => {
     if (!details.isMainFrame || details.isSameDocument || runtimeView !== contentsView) return;
+    notifications?.dispose();
     oauth.cancel();
     runtimeLoaded = false; runtimeReady = false; contentsView.setVisible(false); view = 'loading'; error = undefined; changed();
     clearTimeout(loadingTimer);
@@ -255,6 +264,12 @@ async function main() {
   handle('minimize', () => win?.minimize()); handle('toggle-maximize', toggleMaximize); handle('close', closeLater);
   appHandle('info', (): AppInfo => { runtimeReady = true; revealRuntime(); return { apiVersion: 1, platform: process.platform, connection: { name: store.get(active!).name, url: store.get(active!).url }, window: windowState() }; });
   appHandle('minimize', () => win?.minimize()); appHandle('toggle-maximize', toggleMaximize); appHandle('close', closeLater); appHandle('disconnect', disconnectLater);
+  appHandle('notification-begin', scope => notifications!.begin(scope), 1);
+  // On macOS initialization asks the OS for permission. Do not call during
+  // page load: isSupported is a capability check, not an authorization status.
+  appHandle('notification-permission', () => Notification.isSupported());
+  appHandle('notification-show', (scope, value) => notifications!.show(scope, value), 2);
+  appHandle('notification-close', (scope, tag) => notifications!.close(scope, tag), 2);
   appHandle('oauth-cancel', () => oauth.cancel());
   appHandle('oauth-authorize', provider => {
     const current = runtimeView!, connection = store.get(active!), window = win!;
