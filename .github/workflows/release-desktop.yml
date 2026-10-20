@@ -36,11 +36,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: node node_modules/electron/install.js
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: release-application-assets
           path: .cache/assets-download
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: release-payload-${{ matrix.os }}-${{ matrix.arch }}
           path: .cache/payload-download
@@ -84,7 +84,7 @@ jobs:
         name: Evaluate the packaged desktop and bundled Runtime
         run: node scripts/test-desktop-package.mjs
       - if: runner.os == 'macOS' && inputs.channel != 'nightly'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           overwrite: true
           name: desktop-notarization-${{ matrix.arch }}
@@ -94,7 +94,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
       - if: runner.os != 'macOS' || inputs.channel == 'nightly'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           overwrite: true
           name: desktop-release-${{ matrix.os }}-${{ matrix.arch }}
@@ -127,12 +127,12 @@ jobs:
           node-version: '22.21.0'
           cache: npm
       - run: npm ci
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: release-application-assets
           path: .cache/assets-download
       - run: tar -xzf .cache/assets-download/application-assets.tar.gz && node scripts/build-assets.mjs --verify
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: desktop-notarization-${{ matrix.arch }}
           path: dist/notarization
@@ -145,7 +145,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       - name: Evaluate final DMG and bundled Runtime
         run: node scripts/test-desktop-package.mjs dist/notarization
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           overwrite: true
           name: desktop-release-darwin-${{ matrix.arch }}

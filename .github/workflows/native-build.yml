@@ -35,7 +35,7 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
       - uses: ./.github/actions/setup-build
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: ${{ inputs.prefix }}application-assets
           path: .cache/assets-download
@@ -89,7 +89,7 @@ jobs:
             xvfb-run -a node scripts/test-desktop-package.mjs
           fi
       - if: runner.os != 'Windows'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           overwrite: true
           name: ${{ inputs.prefix }}runtime-${{ matrix.os }}-${{ matrix.arch }}
@@ -101,7 +101,7 @@ jobs:
         run: |
           tar -czf runtime-payload.tar.gz -C .cache/release/${{ matrix.os }}-${{ matrix.arch }} molr
           node -e 'const fs=require("node:fs"),crypto=require("node:crypto"); fs.writeFileSync("runtime-payload.sha256",crypto.createHash("sha256").update(fs.readFileSync("runtime-payload.tar.gz")).digest("hex"));'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           overwrite: true
           name: ${{ inputs.prefix }}payload-${{ matrix.os }}-${{ matrix.arch }}
@@ -111,7 +111,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
       - if: inputs.validate
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           overwrite: true
           name: ci-desktop-${{ matrix.os }}-${{ matrix.arch }}

@@ -110,7 +110,7 @@ jobs:
           COMMIT: ${{ needs.prepare.outputs.commit }}
         run: |
           node -e 'const n=JSON.parse(process.env.RESULTS); for(const [name,job] of Object.entries(n)) if(job.result!=="success") throw Error(name+": "+job.result); require("node:fs").writeFileSync("ci-validation.json",JSON.stringify({schema:2,commit:process.env.COMMIT,run_id:process.env.GITHUB_RUN_ID,run_attempt:process.env.GITHUB_RUN_ATTEMPT,groups:Object.keys(n)},null,2));'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           overwrite: true
           name: ci-validation
