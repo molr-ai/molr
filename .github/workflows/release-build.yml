@@ -8,9 +8,12 @@ on:
       ref:
         required: true
         type: string
+    outputs:
+      channel:
+        value: ${{ jobs.prepare.outputs.channel }}
 permissions:
   contents: read
-# setup-go, tests and packaging must use the same worktree-local caches.
+  actions: write
 env:
   GOCACHE: ${{ github.workspace }}/.cache/go-build
   GOMODCACHE: ${{ github.workspace }}/.cache/go-mod
@@ -21,7 +24,7 @@ jobs:
       version: ${{ steps.release.outputs.version }}
       channel: ${{ steps.release.outputs.channel }}
       commit: ${{ steps.release.outputs.commit }}
-      matrix: ${{ steps.release.outputs.matrix }}
+      matrix: ${{ steps.release.outputs.native_matrix }}
       existing: ${{ steps.release.outputs.existing }}
       published_at: ${{ steps.release.outputs.published_at }}
     steps:
@@ -39,79 +42,63 @@ jobs:
           RELEASE_TAG: ${{ inputs.ref }}
           GH_TOKEN: ${{ github.token }}
           MOLR_RELEASE_SCAN_LIMIT: ${{ vars.MOLR_RELEASE_SCAN_LIMIT || '100' }}
-  build:
+  ci:
     needs: prepare
     if: needs.prepare.outputs.existing != 'true'
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 130
+    concurrency:
+      group: ci-gate-${{ needs.prepare.outputs.commit }}
+      cancel-in-progress: false
+      queue: max
     steps:
       - uses: actions/checkout@v5
-        with:
-          ref: ${{ needs.prepare.outputs.commit }}
       - uses: actions/setup-node@v5
         with:
           node-version: '22.21.0'
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: runtime/.go-version
-          cache-dependency-path: runtime/go.sum
-      - run: npm ci
-      - run: npm run check:platforms && npm run test:release && npm run test:release-flow
-      - run: python3 scripts/test-install-download.py
-      - run: npm run test --workspace @molr/ui
-      - if: matrix.arch == 'amd64'
-        run: npx playwright install --with-deps --no-shell chromium
+      - name: Reuse or request complete CI for the fixed source commit
+        run: node scripts/ensure-ci.mjs
         env:
-          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: '120000'
-      - if: matrix.arch == 'amd64'
-        run: npm run test:website
-      - run: npm run typecheck
-      - run: go test ./...
-        working-directory: runtime
-        env:
-          CGO_ENABLED: '0'
-      - run: npm run build:release
-        env:
-          MOLR_VERSION: ${{ needs.prepare.outputs.version }}
-          MOLR_ARCH: ${{ matrix.arch }}
-          MOLR_OS: ${{ matrix.os }}
-      - if: matrix.os == 'linux'
-        uses: ./.github/actions/prepare-sandbox
-      - name: Native installation and sandbox acceptance
-        run: |
-          MOLR_TEST_MODE=server npm run test:release-install
-          MOLR_TEST_MODE=sandbox npm run test:release-install
-        env:
-          MOLR_TEST_ARCHIVE: dist/releases/molr_${{ needs.prepare.outputs.version }}_${{ matrix.os }}_${{ matrix.arch }}.tar.gz
-      - uses: actions/upload-artifact@v4
-        with:
-          name: release-${{ matrix.id }}
-          path: dist/releases/*
-          if-no-files-found: error
-          retention-days: 14
-  installer-acceptance:
-    needs: [prepare, build]
-    if: needs.prepare.outputs.existing != 'true'
+          MOLR_COMMIT: ${{ needs.prepare.outputs.commit }}
+          GH_TOKEN: ${{ github.token }}
+  assets:
+    needs: [prepare, ci]
+    uses: ./.github/workflows/build-assets.yml
+    with:
+      ref: ${{ needs.prepare.outputs.commit }}
+      version: ${{ needs.prepare.outputs.version }}
+      prefix: release-
+  native:
+    needs: [prepare, assets]
+    uses: ./.github/workflows/native-build.yml
+    with:
+      ref: ${{ needs.prepare.outputs.commit }}
+      version: ${{ needs.prepare.outputs.version }}
+      prefix: release-
+      matrix: ${{ needs.prepare.outputs.matrix }}
+  installer:
+    needs: [prepare, native]
     uses: ./.github/workflows/installer-acceptance.yml
     with:
-      artifact-prefix: release-
+      artifact-prefix: release-runtime-
       ref: ${{ needs.prepare.outputs.commit }}
   desktop:
-    needs: prepare
-    if: needs.prepare.outputs.existing != 'true'
+    needs: [prepare, native]
     uses: ./.github/workflows/release-desktop.yml
     with:
       ref: ${{ needs.prepare.outputs.commit }}
       version: ${{ needs.prepare.outputs.version }}
       channel: ${{ needs.prepare.outputs.channel }}
+      matrix: ${{ needs.prepare.outputs.matrix }}
     secrets: inherit
   publish:
-    needs: [prepare, build, installer-acceptance, desktop]
-    if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.build.result == 'success' && needs.installer-acceptance.result == 'success' && needs.desktop.result == 'success' }}
+    needs: [prepare, ci, native, installer, desktop]
     runs-on: ubuntu-24.04
     environment: release
+    concurrency:
+      group: release-publication
+      cancel-in-progress: false
+      queue: max
     permissions:
       contents: write
     steps:
@@ -123,7 +110,7 @@ jobs:
           node-version: '22.21.0'
       - uses: actions/download-artifact@v4
         with:
-          pattern: release-*
+          pattern: release-runtime-*
           path: dist/releases
           merge-multiple: true
       - uses: actions/download-artifact@v4

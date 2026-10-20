@@ -5,17 +5,15 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+  actions: write
 concurrency:
-  group: release-publication
+  group: nightly-publication
   cancel-in-progress: false
+  queue: max
 jobs:
   release:
     uses: ./.github/workflows/release-build.yml
     with:
       kind: nightly
       ref: main
-    secrets: inherit
-  website:
-    needs: release
-    uses: ./.github/workflows/website.yml
     secrets: inherit

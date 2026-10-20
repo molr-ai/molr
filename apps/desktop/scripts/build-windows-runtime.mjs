@@ -3,6 +3,7 @@
 import { execFileSync } from 'node:child_process';
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
+import { useBuildAssets } from '../../../scripts/build-assets.mjs';
 const root = resolve(import.meta.dirname, '../../..');
 const version = process.env.MOLR_VERSION || '0.1.0-local';
 const arch = process.env.MOLR_ARCH || ({ x64: 'amd64', arm64: 'arm64' }[process.arch]);
@@ -13,7 +14,7 @@ const npmRun = (args, env) => run(npm, args, { shell: process.platform === 'win3
 const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
 if (!version.endsWith('-local') && execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' }).trim()) throw new Error('Release builds require a clean checkout');
 npmRun(['run', 'check:release']); npmRun(['run', 'check:licenses']); npmRun(['run', 'docs:check']);
-npmRun(['run', 'build:webui'], { ...process.env, MOLR_VERSION: version, MOLR_COMMIT: commit });
+if (!useBuildAssets(root, version, commit)) npmRun(['run', 'build:webui'], { ...process.env, MOLR_VERSION: version, MOLR_COMMIT: commit });
 const embedded = join(root, 'runtime/internal/webassets/dist');
 rmSync(embedded, { recursive: true, force: true }); cpSync(join(root, 'apps/webui/dist'), embedded, { recursive: true });
 const stage = join(root, `.cache/release/win32-${arch}/molr`);

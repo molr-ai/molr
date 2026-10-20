@@ -10,9 +10,11 @@ on:
         type: string
 permissions:
   contents: write
+  actions: write
 concurrency:
-  group: release-publication
+  group: release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
+  queue: max
 jobs:
   release:
     uses: ./.github/workflows/release-build.yml
@@ -22,5 +24,6 @@ jobs:
     secrets: inherit
   website:
     needs: release
+    if: needs.release.outputs.channel == 'stable'
     uses: ./.github/workflows/website.yml
     secrets: inherit

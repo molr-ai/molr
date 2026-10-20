@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, readFileSync } from 'node:fs';
 import { publishedRelease, publishedReleases } from './release-catalog.mjs';
-import { nightlyVersion, releaseChannel, platforms } from './release-lib.mjs';
+import { nightlyVersion, releaseChannel, platforms, nativeBuildMatrix } from './release-lib.mjs';
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
 const commit = git('rev-parse', 'HEAD');
 git('merge-base', '--is-ancestor', commit, 'origin/main');
@@ -24,6 +24,6 @@ if (!existing && channel === 'nightly') {
   existing = published.find(m => m.channel === 'nightly' && m.commit === commit);
 }
 if (existing && existing.commit !== commit) throw new Error('Published tag identifies another commit');
-const output = { version: existing?.version || version, channel, commit, matrix: JSON.stringify(matrix), existing: String(Boolean(existing)), published_at: existing?.published_at || publishedAt };
+const output = { version: existing?.version || version, channel, commit, matrix: JSON.stringify(matrix), native_matrix: JSON.stringify(nativeBuildMatrix(channel)), existing: String(Boolean(existing)), published_at: existing?.published_at || publishedAt };
 if (process.env.GITHUB_OUTPUT) for (const [key, value] of Object.entries(output)) appendFileSync(process.env.GITHUB_OUTPUT, `${key}=${value}\n`);
 console.log(JSON.stringify(output));

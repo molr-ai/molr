@@ -1,0 +1,125 @@
+name: Build native Runtime payloads
+on:
+  workflow_call:
+    inputs:
+      ref:
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
+      prefix:
+        required: true
+        type: string
+      validate:
+        type: boolean
+        default: false
+      matrix:
+        required: true
+        type: string
+permissions:
+  contents: read
+env:
+  GOCACHE: ${{ github.workspace }}/.cache/go-build
+  GOMODCACHE: ${{ github.workspace }}/.cache/go-mod
+  MOLR_VERSION: ${{ inputs.version }}
+  MOLR_BUILD_ASSETS: '1'
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(inputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: ./.github/actions/setup-build
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.prefix }}application-assets
+          path: .cache/assets-download
+      - shell: bash
+        run: tar -xzf .cache/assets-download/application-assets.tar.gz && node scripts/build-assets.mjs --verify
+      - if: inputs.validate && runner.os == 'Linux'
+        uses: ./.github/actions/prepare-sandbox
+      - if: runner.os != 'Windows'
+        run: npm run build:release
+      - if: runner.os == 'Windows'
+        run: node apps/desktop/scripts/build-windows-runtime.mjs
+      - if: inputs.validate && runner.os != 'Windows'
+        name: Native Runtime tests
+        working-directory: runtime
+        env:
+          CGO_ENABLED: '0'
+        run: go test -p 4 ./... && go vet ./...
+      - if: inputs.validate && runner.os == 'Windows'
+        name: Native Windows backend
+        shell: pwsh
+        run: |
+          $env:CGO_ENABLED = '0'
+          $env:MOLR_TEST_BINARY = (Resolve-Path '.cache/release/win32-amd64/molr/bin/molr.exe').Path
+          go -C runtime test ./internal/platform/sandbox ./internal/textfiles ./internal/installationwindows ./internal/config ./internal/platform ./internal/persistence/sqlitestore -run "TestWindows|TestControlledReady|TestNativeSandbox" -count=1
+      - if: inputs.validate
+        run: node node_modules/electron/install.js
+      - if: inputs.validate
+        name: Desktop unit tests using the shared compiled application
+        run: node --test apps/desktop/tests/*.test.mjs
+      - if: inputs.validate && runner.os != 'Linux'
+        run: npm run test:desktop:electron
+      - if: inputs.validate && runner.os == 'Linux'
+        run: |
+          if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ] && [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" = 1 ]; then
+            aa-exec -p chrome -- xvfb-run -a npm run test:desktop:electron
+          else
+            xvfb-run -a npm run test:desktop:electron
+          fi
+      - if: inputs.validate
+        name: Package local evaluation installer
+        run: npm run package:desktop
+      - if: inputs.validate && runner.os != 'Linux'
+        name: Evaluate the packaged desktop and bundled Runtime
+        run: node scripts/test-desktop-package.mjs
+      - if: inputs.validate && runner.os == 'Linux'
+        name: Evaluate the packaged desktop and bundled Runtime
+        run: |
+          if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ] && [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" = 1 ]; then
+            aa-exec -p chrome -- xvfb-run -a node scripts/test-desktop-package.mjs
+          else
+            xvfb-run -a node scripts/test-desktop-package.mjs
+          fi
+      - if: runner.os != 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          overwrite: true
+          name: ${{ inputs.prefix }}runtime-${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/releases/*
+          if-no-files-found: error
+          retention-days: 14
+      - name: Archive native payload with permissions intact
+        shell: bash
+        run: |
+          tar -czf runtime-payload.tar.gz -C .cache/release/${{ matrix.os }}-${{ matrix.arch }} molr
+          node -e 'const fs=require("node:fs"),crypto=require("node:crypto"); fs.writeFileSync("runtime-payload.sha256",crypto.createHash("sha256").update(fs.readFileSync("runtime-payload.tar.gz")).digest("hex"));'
+      - uses: actions/upload-artifact@v4
+        with:
+          overwrite: true
+          name: ${{ inputs.prefix }}payload-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            runtime-payload.tar.gz
+            runtime-payload.sha256
+          if-no-files-found: error
+          retention-days: 14
+      - if: inputs.validate
+        uses: actions/upload-artifact@v4
+        with:
+          overwrite: true
+          name: ci-desktop-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            dist/desktop/**/*.deb
+            dist/desktop/**/*.dmg
+            dist/desktop/**/*.exe
+            dist/desktop/**/*.sha256
+            dist/desktop/**/desktop-manifest.json
+          if-no-files-found: error
+          retention-days: 7

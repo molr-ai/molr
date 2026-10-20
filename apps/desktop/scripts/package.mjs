@@ -5,6 +5,7 @@ import { resolve, join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { desktopSigning } from './signing.mjs';
 import { prepareNotarization, finishNotarization, writeManifest } from './notarization.mjs';
+import { useBuildAssets } from '../../../scripts/build-assets.mjs';
 
 const root = resolve(import.meta.dirname, '../../..');
 const project = join(root, 'apps/desktop');
@@ -22,7 +23,7 @@ const runtimeFiles = os === 'win32' ? ['bin/molr.exe', 'bin/molr-setup.exe'] : [
 const goArch = arch === 'x64' ? 'amd64' : 'arm64';
 const run = (command, args) => execFileSync(command, args, { cwd: root, stdio: 'inherit', shell: process.platform === 'win32' });
 run('npm', ['run', 'check:release']); run('npm', ['run', 'check:licenses']);
-run('npm', ['run', 'build', '--workspace', '@molr/desktop']);
+if (!useBuildAssets(root, version, commit)) run('npm', ['run', 'build', '--workspace', '@molr/desktop']);
 const packageRoot = resolve(root, process.env.MOLR_DESKTOP_RUNTIME_PACKAGE || `.cache/release/${os}-${goArch}/molr`);
 {
   if (!existsSync(join(packageRoot, 'release.json'))) throw new Error('Build the matching native Runtime payload first (build:release on Unix, build-windows-runtime.mjs on Windows)');

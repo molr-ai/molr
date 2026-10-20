@@ -1,106 +1,118 @@
 name: CI
+run-name: CI v2 ${{ inputs.commit || github.sha }}
 on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: Exact main-history commit to validate (defaults to selected ref)
+        type: string
 permissions:
   contents: read
-# setup-go, tests and packaging must use the same worktree-local caches.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || inputs.commit || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 env:
   GOCACHE: ${{ github.workspace }}/.cache/go-build
   GOMODCACHE: ${{ github.workspace }}/.cache/go-mod
 jobs:
-  checks:
-    strategy:
-      fail-fast: false
-      matrix:
-        runner: [ubuntu-24.04, ubuntu-24.04-arm]
-    runs-on: ${{ matrix.runner }}
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      commit: ${{ steps.identity.outputs.commit }}
+      matrix: ${{ steps.identity.outputs.matrix }}
     steps:
       - uses: actions/checkout@v5
-      - uses: ./.github/actions/prepare-sandbox
-      - uses: actions/setup-node@v5
         with:
-          node-version: '22.21.0'
-      - uses: actions/setup-go@v6
+          ref: ${{ inputs.commit || github.sha }}
+          fetch-depth: 0
+      - id: identity
+        env:
+          DISPATCH: ${{ github.event_name == 'workflow_dispatch' }}
+          REQUESTED_COMMIT: ${{ inputs.commit }}
+        run: |
+          commit=$(git rev-parse HEAD)
+          if [ "$DISPATCH" = true ]; then
+            if [ -n "$REQUESTED_COMMIT" ]; then
+              [[ "$REQUESTED_COMMIT" =~ ^[a-f0-9]{40}$ ]]
+              test "$REQUESTED_COMMIT" = "$commit"
+            fi
+            git merge-base --is-ancestor "$commit" origin/main
+          fi
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          node --input-type=module -e 'import {nativeBuildMatrix} from "./scripts/release-lib.mjs"; console.log("matrix="+JSON.stringify(nativeBuildMatrix()));' >> "$GITHUB_OUTPUT"
+  source:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
         with:
-          go-version-file: runtime/.go-version
-          cache-dependency-path: runtime/go.sum
-      - name: Public contract inventory
-        run: npm run check:contracts
-      - run: npm ci
-      - run: npm run docs:check && npm run test:docs && npm run check:platforms && npm run check:release && npm run check:licenses
-      - run: npm run test:release && npm run test:release-flow
+          ref: ${{ needs.prepare.outputs.commit }}
+      - uses: ./.github/actions/setup-build
+      - run: npm run check && npm run test:docs && npm run test:release && npm run test:release-flow
       - run: python3 scripts/test-install-download.py
       - run: npm run test --workspace @molr/ui
-      - run: npm run typecheck && npm run build
-        env:
-          VITE_SITE_MODE: live
-      - if: runner.arch == 'X64'
-        run: npx playwright install --with-deps --no-shell chromium
-        env:
-          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: '120000'
-      - if: runner.arch == 'X64'
-        run: npm run test:website
-      - run: go test ./...
-        working-directory: runtime
-        env:
-          CGO_ENABLED: '0'
-      - run: npm run build:release
-      - name: Native installation and sandbox acceptance
-        run: |
-          arch=$(node -p '({x64: "amd64", arm64: "arm64"})[process.arch]')
-          for mode in server sandbox; do
-            MOLR_TEST_MODE="$mode" MOLR_TEST_ARCHIVE="dist/releases/molr_0.1.0-local_linux_${arch}.tar.gz" npm run test:release-install
-          done
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ci-install-linux-${{ runner.arch == 'X64' && 'amd64' || 'arm64' }}
-          path: dist/releases/*
-          if-no-files-found: error
-          retention-days: 7
-  macos:
+      - run: npm run typecheck --workspace @molr/ui --workspace @molr/ui-host --workspace @molr/sdk --workspace @molr/website
+      - run: npm run build --workspace @molr/ui-design
+  assets:
+    needs: [prepare, source]
+    uses: ./.github/workflows/build-assets.yml
+    with:
+      ref: ${{ needs.prepare.outputs.commit }}
+      version: 0.1.0-local
+      prefix: ci-
+  native:
+    needs: [prepare, assets]
+    uses: ./.github/workflows/native-build.yml
+    with:
+      ref: ${{ needs.prepare.outputs.commit }}
+      version: 0.1.0-local
+      prefix: ci-
+      validate: true
+      matrix: ${{ needs.prepare.outputs.matrix }}
+  browser:
+    needs: [prepare, source]
     strategy:
       fail-fast: false
       matrix:
-        runner: [macos-15, macos-15-intel]
+        runner: [ubuntu-24.04, macos-15]
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
       - uses: actions/setup-node@v5
         with:
           node-version: '22.21.0'
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: runtime/.go-version
-          cache-dependency-path: runtime/go.sum
-      - name: Public contract inventory
-        run: npm run check:contracts
+          cache: npm
       - run: npm ci
-      - if: runner.arch == 'X64'
-        run: npx playwright install --no-shell chromium
+      - run: npx playwright install --with-deps --no-shell chromium
         env:
           PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: '120000'
-      - if: runner.arch == 'X64'
-        run: npm run test:website
-      - name: Native Runtime and Full Access tests
-        working-directory: runtime
-        env:
-          CGO_ENABLED: '0'
-        run: |
-          go test -p 4 ./...
-          go vet ./...
-          go build ./...
-      - run: npm run build:release
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ci-install-darwin-${{ runner.arch == 'X64' && 'amd64' || 'arm64' }}
-          path: dist/releases/*
-          if-no-files-found: error
-          retention-days: 7
-  installer-acceptance:
-    needs: [checks, macos]
+      - run: npm run test:website
+  installer:
+    needs: [prepare, native]
     uses: ./.github/workflows/installer-acceptance.yml
     with:
-      artifact-prefix: ci-install-
-      ref: ${{ github.sha }}
+      artifact-prefix: ci-runtime-
+      ref: ${{ needs.prepare.outputs.commit }}
+  passed:
+    name: CI passed v2
+    needs: [prepare, source, assets, native, browser, installer]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Validated ${{ needs.prepare.outputs.commit }}
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+          COMMIT: ${{ needs.prepare.outputs.commit }}
+        run: |
+          node -e 'const n=JSON.parse(process.env.RESULTS); for(const [name,job] of Object.entries(n)) if(job.result!=="success") throw Error(name+": "+job.result); require("node:fs").writeFileSync("ci-validation.json",JSON.stringify({schema:2,commit:process.env.COMMIT,run_id:process.env.GITHUB_RUN_ID,run_attempt:process.env.GITHUB_RUN_ATTEMPT,groups:Object.keys(n)},null,2));'
+      - uses: actions/upload-artifact@v4
+        with:
+          overwrite: true
+          name: ci-validation
+          path: ci-validation.json
+          retention-days: 30

@@ -2,6 +2,13 @@ import { readFileSync } from 'node:fs';
 
 export const platforms = JSON.parse(readFileSync(new URL('../release/platforms.json', import.meta.url))).platforms;
 export const channels = ['stable', 'preview', 'nightly'];
+export function nativeBuildMatrix(channel = 'stable') {
+  if (!channels.includes(channel)) throw new Error('Unsupported build channel');
+  return { include: [
+    ...platforms.filter(p => p.channels.includes(channel)).map(({ runner, os, arch }) => ({ runner, os, arch })),
+    { runner: 'windows-2025', os: 'win32', arch: 'amd64' },
+  ] };
+}
 const base = '(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)';
 const pattern = new RegExp(`^${base}(?:-((?:beta|rc)\\.(?:0|[1-9][0-9]*)|0\\.nightly\\.[1-9][0-9]{7}\\.(?:0|[1-9][0-9]*)\\.g[0-9a-f]{7,40}))?$`);
 export const releaseVersionPattern = pattern.source;

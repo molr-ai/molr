@@ -1,0 +1,15 @@
+name: Set up native build tools
+description: Install pinned tools and restore independent dependency and compilation caches.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v5
+      with:
+        node-version: '22.21.0'
+        cache: npm
+    - uses: actions/setup-go@v6
+      with:
+        go-version-file: runtime/.go-version
+        cache-dependency-path: runtime/go.sum
+    - shell: bash
+      run: npm ci

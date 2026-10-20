@@ -1,0 +1,39 @@
+name: Build shared application assets
+on:
+  workflow_call:
+    inputs:
+      ref:
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
+      prefix:
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  assets:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.21.0'
+          cache: npm
+      - run: npm ci
+      - run: node scripts/build-assets.mjs
+        env:
+          MOLR_VERSION: ${{ inputs.version }}
+      - name: Archive verified frontend assets
+        run: tar -czf application-assets.tar.gz .cache/build-assets/manifest.json apps/webui/dist apps/desktop/dist
+      - uses: actions/upload-artifact@v4
+        with:
+          overwrite: true
+          name: ${{ inputs.prefix }}application-assets
+          path: application-assets.tar.gz
+          if-no-files-found: error
+          retention-days: 14

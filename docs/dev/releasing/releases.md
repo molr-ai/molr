@@ -9,17 +9,17 @@ Runtime 发行包仅包含 `bin/molr` 与安装维护工具 `bin/molr-setup`。�
 
 ## 桌面安装包
 
-Release 与 Nightly 的共用流程调用 `release-desktop.yml`，在五个原生目标上构建 Linux AMD64／ARM64 DEB、macOS AMD64／ARM64 DMG 和 Windows AMD64 NSIS EXE。三个平台均附带同版本原生 Runtime；Windows payload 由 `apps/desktop/scripts/build-windows-runtime.mjs` 构建，通过桌面安装包分发，不改变 Unix `install.sh` 平台清单。桌面测试、Runtime 生命周期验收、打包及已配置的签名流程全部成功后，发布任务核对平台完整性、commit、版本和 SHA-256，再将安装包、校验文件及汇总 `desktop-manifest.json` 与 Runtime 附件一起上传同一个 GitHub Release 草稿。缺包或校验失败会阻止发布。PR 的 `desktop.yml` 仅上传本地评估包到 Actions artifacts。
+Release 与 Nightly 共用 `build-assets.yml`、`native-build.yml` 和 `release-desktop.yml`，依次构建共享前端资源、原生 Runtime 和桌面安装包，在五个原生目标上产出 Linux AMD64／ARM64 DEB、macOS AMD64／ARM64 DMG 和 Windows AMD64 NSIS EXE。三个平台均附带同版本原生 Runtime；Windows payload 由 `apps/desktop/scripts/build-windows-runtime.mjs` 构建，通过桌面安装包分发，不改变 Unix `install.sh` 平台清单。桌面测试、Runtime 生命周期验收、打包及已配置的签名流程全部成功后，发布任务核对平台完整性、commit、版本和 SHA-256，再将安装包、校验文件及汇总 `desktop-manifest.json` 与 Runtime 附件一起上传同一个 GitHub Release 草稿。缺包或校验失败会阻止发布。PR 的桌面测试已纳入统一 `ci.yml`；原独立 `desktop.yml` 已移除，CI 评估包只上传 Actions artifacts。
 
 `release` environment 配置 `MAC_CSC_LINK`、`MAC_CSC_KEY_PASSWORD`、`APPLE_ID`、`APPLE_APP_SPECIFIC_PASSWORD`、`APPLE_TEAM_ID`、`WIN_CSC_LINK` 和 `WIN_CSC_KEY_PASSWORD`。证书使用 electron-builder 支持的输入格式。桌面发行按平台与渠道执行以下策略：
 
 | 平台 | Nightly | Beta／RC 预发布 | 正式 Release |
 | --- | --- | --- | --- |
 | macOS | ad-hoc 签名，不提交公证 | Developer ID 签名，公证 `optional` | Developer ID 签名，公证 `required` |
-| Windows | 代码签名 | 代码签名 | 代码签名 |
+| Windows | 有凭据则签名，否则未签名 | 有凭据则签名，否则未签名 | 有凭据则签名，否则未签名 |
 | Linux | 不要求签名或公证 | 不要求签名或公证 | 不要求签名或公证 |
 
-macOS 对应用、内置 Go 二进制和 DMG 签名；Windows 对应用与安装包签名，不涉及 Apple 公证。需要发布者签名的构建缺少或仅配置部分凭据时失败，不回退到未签名安装包。macOS Nightly 不注入签名或 Apple 凭据，打包后直接生成 SHA-256 和桌面清单，不创建公证中间 artifact，也不运行公证任务。Linux 打包流程不变。PR 和本地 `-local` 评估包不要求发布者签名或公证，不进入公开渠道。
+macOS 对应用、内置 Go 二进制和 DMG 签名；Windows 对应用与安装包签名，不涉及 Apple 公证。Windows Nightly、Beta／RC 和正式版的签名均为 optional：完全未配置签名凭据时允许未签名；配置不完整或实际签名失败仍阻止发布。macOS Beta／RC 和正式版需要发布者签名，缺少或仅配置部分凭据时失败，不回退到未签名安装包。macOS Nightly 不注入签名或 Apple 凭据，打包后直接生成 SHA-256 和桌面清单，不创建公证中间 artifact，也不运行公证任务。Linux 打包流程不变。PR 和本地 `-local` 评估包不要求发布者签名或公证，不进入公开渠道。
 
 清单的 `signed` 字段表示发布者签名，macOS ad-hoc 为 `false`；独立的 `notarized` 字段表示公证票据已附加且通过验证，非 macOS 平台为 `false`。官网和 Release 说明分别展示签名与公证状态，不从签名推断公证结果，并保留历史版本的实际状态。
 
@@ -51,17 +51,33 @@ Cloudflare Worker 的 Settings → Builds 使用以下设置：
 
 默认发布源是 `https://molr.ai/releases`，使用其他域名时，在 Cloudflare 构建变量与 GitHub 仓库变量中同步设置 `MOLR_RELEASE_URL`，指向同一 Worker 的 `/releases` 路径。按现有 [`wrangler.jsonc`](../../../wrangler.jsonc) 将 `molr` Worker 绑定官网域名。
 
-发布 GitHub Release 不会修改 main。为让 release／nightly 完成后也刷新官网，在 Cloudflare Worker → Settings → Builds → Deploy Hooks 创建绑定 `main` 的 hook，将 URL 保存为 GitHub 仓库 secret `CLOUDFLARE_DEPLOY_HOOK`。该 URL 自身具有触发构建的权限，不写入仓库或日志；无需额外 Authorization header。配置入口和原理见 [Cloudflare Deploy Hooks](https://developers.cloudflare.com/workers/ci-cd/builds/deploy-hooks/) 与 [Workers Builds 配置](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)。
+发布 GitHub Release 不会修改 main。为让正式 Release 完成后也刷新官网，在 Cloudflare Worker → Settings → Builds → Deploy Hooks 创建绑定 `main` 的 hook，将 URL 保存为 GitHub 仓库 secret `CLOUDFLARE_DEPLOY_HOOK`。该 URL 自身具有触发构建的权限，不写入仓库或日志；无需额外 Authorization header。配置入口和原理见 [Cloudflare Deploy Hooks](https://developers.cloudflare.com/workers/ci-cd/builds/deploy-hooks/) 与 [Workers Builds 配置](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)。
 
-`.github/workflows/website.yml` 只负责在发布后触发 hook，并等待官网清单和安装脚本实际更新，最长等待 20 分钟；接受构建请求不等于部署完成。main 的常规 push 由 Cloudflare 原生集成处理，Actions 不重复部署。可以单独手动运行 website workflow 重试同步，不需要重新发布二进制。未配置 hook 时，构建和 GitHub Release 仍可成功，但官网同步步骤会明确失败；main 的原生自动部署不受影响。
+`.github/workflows/website.yml` 只负责在正式版发布后或手动运行时触发 hook，并等待官网清单和安装脚本实际更新，最长等待 20 分钟；接受构建请求不等于部署完成。官网只展示正式版，因此 Nightly 和 Beta／RC 不再触发官网重建。main 的常规 push 由 Cloudflare 原生集成处理，Actions 不重复部署。可以单独手动运行 website workflow 重试同步，不需要重新发布二进制。未配置 hook 时，构建和 GitHub Release 仍可成功，但官网同步步骤会明确失败；main 的原生自动部署不受影响。
 
 GitHub Releases 必须公开可下载。建议启用 immutable releases，并对正式版本 tag 设置创建权限与更新／删除保护。workflow 只在发布任务授予 `contents: write`，PR 检查不接触部署 secret。环境审批是否开启由仓库维护者决定。
 
-PR 和 main 的 CI 在 `ubuntu-24.04`、`ubuntu-24.04-arm`、`macos-15`、`macos-15-intel` 上执行检查、构建和原生安装验收，官网浏览器测试在 AMD64 上执行。首次执行实际发布与 Cloudflare 部署后，以 Cloudflare 构建历史和 workflow 的公开下载、站点验证结果确认远端接通。本地测试不代表已经配置远端账户或执行过线上发布。
+PR、main push 和手动触发统一使用 `ci.yml`：通用检查运行一次；`native-build.yml` 覆盖 Linux AMD64／ARM64、macOS AMD64／ARM64 和 Windows AMD64。浏览器验证固定为 Linux AMD64（`ubuntu-24.04`）与 macOS ARM64（`macos-15`）。所有必需任务通过后，最终检查 `CI passed v2` 才成功，可将其配置为分支保护的必需检查。PR 的新提交可取消旧验证；main 不按分支取消旧 commit 的 CI。
+
+首次执行真实流水线后，以 Actions 原生 runner、Cloudflare 构建历史及公开下载验证确认远端接通。本地测试不代表已完成 macOS／Windows 原生验收、签名、公证或线上发布。
 
 官网测试按文件串行运行，使共用同一项目缓存的 Vite 服务和构建依次执行，避免并发依赖优化及浏览器负载导致原生 runner 超时。
 
 CI 与发布使用同一个 `prepare-sandbox` action 准备 runner。Ubuntu 启用 AppArmor 非特权 user namespace 限制时，从 `apparmor-profiles` 包安装并加载 `bwrap-userns-restrict`，随后在 `NoNewPrivileges=yes` 的临时服务中运行 Bubblewrap 探针；失败时输出对应内核拒绝日志。该配置只作用于临时 runner，系统的 user namespace 限制保持启用。
+
+## CI 与构建复用
+
+发布准备阶段固定 commit 和版本。`ensure-ci.mjs` 查询当前仓库 `ci.yml` 的 main push 或 main 手动验证，要求 `CI v2 <SHA>` 标题、最新 run 的最新 attempt 成功，以及 `CI passed v2` 中 `Validated <SHA>` 步骤成功。手动 CI 可通过 `commit` 输入验证 main 历史内的完整 SHA；其 workflow `head_sha` 可能不同，发布门禁以实际检出并汇总的 SHA 为准。旧版 CI、PR merge commit、其他仓库和不完整验证不能复用。
+
+已有成功结果直接进入发行构建；进行中的 CI 最多等待 120 分钟；没有记录时通过 `workflow_dispatch` 补跑统一 CI。失败、取消、超时或 API 查询失败均停止发行，不退回任意历史成功记录。发布入口需要 `actions: write` 用于补跑 CI，成功记录的链接和 attempt 写入运行摘要。手动补验可运行 `gh workflow run ci.yml --ref main -f commit=<完整SHA>`；随后重试发布门禁即可。
+
+`build-assets.yml` 每个版本只构建一次 WebUI 和桌面 JS／TS，记录 commit、版本、lockfile 摘要和完整输出文件摘要，归档供各平台下载。`MOLR_BUILD_ASSETS=1` 表示消费共享资源；身份、文件清单或摘要不一致立即失败，不能仅凭目录存在跳过构建。本地不设置该变量时，原有构建／打包命令仍自行构建所需前端资源。
+
+`native-build.yml` 每个平台构建一次 Runtime。Unix 归档直接交给 `installer-acceptance.yml`；原生 payload 单独以 tar 和 SHA-256 保存，桌面打包恢复同一份 payload，不再重新编译 Runtime。签名作用于桌面包副本，不改动独立 Runtime 归档。Node/npm 与 Go 的依赖和编译缓存仅用于加速，不能代替 CI 成功记录或产物校验。
+
+完整安装、修复、下载更新、保留数据重装及卸载集中到独立安装验收任务。`test-desktop-package.mjs` 校验最终安装包摘要，提取 DEB、挂载并复制 DMG 应用或静默安装 NSIS，启动实际打包的 Electron 应用，再对内嵌 Runtime 执行独立生命周期与沙盒验收；Windows 已签名包还验证安装器、应用和内嵌程序的 Authenticode。DEB 提取验证不等价于验证所有 dpkg 安装钩子。macOS 预发布／正式版在公证完成或 optional 等待结束后验收最终 DMG。
+
+不同版本可并行构建；同 tag 和 Nightly 入口各自串行。相同 SHA 的 CI 门禁串行，避免同时补跑；实际发布 GitHub 附件的短任务使用全局发布锁。需要保留等待任务的锁设置 `queue: max`、`cancel-in-progress: false`。签名失败重跑桌面任务即可复用前端和 Runtime；公证失败重跑公证任务；上传失败重跑发布任务。中间 artifacts 保留 14 天，超过保留期需要重新构建；同版本已发布附件仍不可覆盖。
 
 ## 版本与渠道
 
@@ -74,11 +90,11 @@ CI 与发布使用同一个 `prepare-sandbox` action 准备 runner。Ubuntu 启�
 
 根 `package.json` 的 version 表示 main 当前开发周期的基础版本；进入下一周期时更新它及 lockfile 对应根版本。发布版本取自 tag，不要求修改内部 workspace 包版本。nightly 的日期、无前导零的 UTC 时分秒数字和 commit 由脚本生成，满足 SemVer；同基础版本顺序为 nightly、beta、rc、正式版。主分支不能使用 `-dev` 等版本作为基础版本。
 
-正式版、beta 和 rc 的 tag 必须指向 main 历史内的 commit。推送 tag 触发 Release workflow；手动入口接受已有 tag，适合重试。Nightly 每日 UTC 19:17（北京时间次日 03:17）执行，也可手动运行。GitHub 调度可能延迟；相同版本已发布，或近期最高 nightly 版本对应同一 commit 时跳过重复构建，但仍可修复官网部署。
+正式版、beta 和 rc 的 tag 必须指向 main 历史内的 commit。推送 tag 触发 Release workflow；手动入口接受已有 tag，适合重试。Nightly 每日 UTC 19:17（北京时间次日 03:17）执行，也可手动运行。GitHub 调度可能延迟；相同版本已发布，或近期最高 nightly 版本对应同一 commit 时跳过重复构建，正式版已发布时仍可重试官网同步；Nightly 不触发官网部署。
 
 ## 发布步骤与失败恢复
 
-两种入口共用 `release-build.yml`：固定 commit → 基础检查和测试 → 平台矩阵构建 → 原生安装、重装、认证和沙盒验收 → 汇总产物 → 创建草稿 → 上传并核对附件 → 发布 → 验证公开附件 → 部署官网。
+两种入口共用 `release-build.yml`：固定 commit → 复用或补跑完整 CI → 共享前端构建 → 原生 Runtime 构建 → 安装验收与桌面打包／签名／公证／产物验收 → 汇总产物 → 创建草稿 → 上传并核对附件 → 发布 → 验证公开附件 → 正式版刷新官网。
 
 构建要求干净检出、仓库指定 Go 版本与 `CGO_ENABLED=0`，检查 Linux 静态 ELF 或 macOS Mach-O/有效代码签名、架构、VCS commit 和 `vcs.modified=false`。构建时间取 commit 时间，tar 的时间、用户和组信息固定，便于同 commit 重试。四个平台必须全部成功；Linux 要求隔离沙盒，macOS 按无隔离能力验收，不能以编译成功替代安装验收。`0.1.0-local` 等本地构建允许未提交修改，不进入正式发布清单。
 
@@ -146,7 +162,7 @@ Linux 用户服务在成功启动后通过 `loginctl --no-ask-password` 检查�
 
 扩展发行版时，在主机适配模块增加包管理或服务实现，并向独立验收矩阵增加系统／版本／架构组合。已经手动满足能力要求的未知发行版不会被拒绝。增加矩阵项前须有能运行真实服务、cgroup 与沙盒探针的环境；容器内文件测试不能代替这部分验收。
 
-`.github/workflows/installer-acceptance.yml` 复用实际构建归档，在独立 runner 移除 Bubblewrap、静态 BusyBox 和 AppArmor profiles，由安装器恢复依赖。它与已准备依赖的原生验收共同阻挡发布。矩阵还包含 macOS ARM64／AMD64，直接验证用户级 launchd，无需安装 Linux 沙盒依赖；其他 Linux 发行版尚未声明通过。
+`.github/workflows/installer-acceptance.yml` 复用实际构建归档，在独立 runner 移除 Bubblewrap、静态 BusyBox 和 AppArmor profiles，由安装器恢复依赖。同一任务覆盖首次准备依赖和后续已有依赖的安装／更新场景，构建任务不再重复整套安装验收。矩阵还包含 macOS ARM64／AMD64，直接验证用户级 launchd，无需安装 Linux 沙盒依赖；其他 Linux 发行版尚未声明通过。
 
 回归覆盖权限选择、无变更预览、重复运行、安装记录校验、并发锁、路径与归档攻击、下载失败、数据保留及清除。原生包测试覆盖 PTY 交互安装、静默修复、配置保留、认证沙盒检查和卸载。Python 仅作为开发测试中的 PTY 驱动及发布检查工具，不进入安装包或目标机安装依赖。
 

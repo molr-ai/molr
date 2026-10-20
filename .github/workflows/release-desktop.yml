@@ -1,4 +1,4 @@
-name: Build release desktop installers
+name: Package release desktop installers
 on:
   workflow_call:
     inputs:
@@ -11,22 +11,21 @@ on:
       channel:
         required: true
         type: string
+      matrix:
+        required: true
+        type: string
 permissions:
   contents: read
-# setup-go, tests and packaging must use the same worktree-local caches.
 env:
-  GOCACHE: ${{ github.workspace }}/.cache/go-build
-  GOMODCACHE: ${{ github.workspace }}/.cache/go-mod
+  MOLR_VERSION: ${{ inputs.version }}
+  MOLR_BUILD_ASSETS: '1'
 jobs:
   desktop:
     environment: release
     strategy:
       fail-fast: false
-      matrix:
-        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, macos-15-intel, windows-2025]
+      matrix: ${{ fromJSON(inputs.matrix) }}
     runs-on: ${{ matrix.runner }}
-    env:
-      MOLR_VERSION: ${{ inputs.version }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -34,42 +33,32 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22.21.0'
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: runtime/.go-version
-          cache-dependency-path: runtime/go.sum
-      - if: runner.os == 'Linux'
-        uses: ./.github/actions/prepare-sandbox
+          cache: npm
       - run: npm ci
       - run: node node_modules/electron/install.js
-      - run: npm run test:desktop && npm run build:desktop
-      - if: runner.os != 'Linux'
-        run: npm run test:desktop:electron
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-application-assets
+          path: .cache/assets-download
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-payload-${{ matrix.os }}-${{ matrix.arch }}
+          path: .cache/payload-download
+      - name: Restore previously built assets and native Runtime
+        shell: bash
+        run: |
+          tar -xzf .cache/assets-download/application-assets.tar.gz
+          node scripts/build-assets.mjs --verify
+          node -e 'const fs=require("node:fs"),crypto=require("node:crypto"),p=".cache/payload-download/"; if(crypto.createHash("sha256").update(fs.readFileSync(p+"runtime-payload.tar.gz")).digest("hex")!==fs.readFileSync(p+"runtime-payload.sha256","utf8")) throw Error("Runtime payload checksum mismatch");'
+          mkdir -p .cache/release/${{ matrix.os }}-${{ matrix.arch }}
+          tar -xzf .cache/payload-download/runtime-payload.tar.gz -C .cache/release/${{ matrix.os }}-${{ matrix.arch }}
       - if: runner.os == 'Linux'
-        run: |
-          if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ] && [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" = 1 ]; then
-            aa-exec -p chrome -- xvfb-run -a npm run test:desktop:electron
-          else
-            xvfb-run -a npm run test:desktop:electron
-          fi
-      - if: runner.os != 'Windows'
-        run: npm run build:release
-      - if: runner.os == 'Windows'
-        run: node apps/desktop/scripts/build-windows-runtime.mjs
-      - if: runner.os == 'Windows'
-        name: Native Windows backend
-        shell: pwsh
-        run: |
-          $env:CGO_ENABLED = '0'
-          $env:MOLR_TEST_BINARY = (Resolve-Path '.cache/release/win32-amd64/molr/bin/molr.exe').Path
-          go -C runtime test ./internal/platform/sandbox ./internal/textfiles ./internal/installationwindows ./internal/config ./internal/platform ./internal/persistence/sqlitestore -run "TestWindows|TestControlledReady|TestNativeSandbox" -count=1
-      - name: Native desktop Runtime lifecycle
-        run: node apps/desktop/tests/local-runtime.mjs
+        uses: ./.github/actions/prepare-sandbox
       - if: runner.os == 'Linux' || (runner.os == 'macOS' && inputs.channel == 'nightly')
-        name: Package desktop without publisher signing or notarization
+        name: Package without publisher signing or notarization
         run: npm run package:desktop
       - if: runner.os == 'Windows'
-        name: Package and sign Windows desktop
+        name: Package Windows desktop (signing is optional)
         run: npm run package:desktop
         env:
           CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
@@ -83,19 +72,32 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      - if: runner.os == 'Linux'
+        name: Evaluate the packaged desktop and bundled Runtime
+        run: |
+          if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ] && [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" = 1 ]; then
+            aa-exec -p chrome -- xvfb-run -a node scripts/test-desktop-package.mjs
+          else
+            xvfb-run -a node scripts/test-desktop-package.mjs
+          fi
+      - if: runner.os == 'Windows' || (runner.os == 'macOS' && inputs.channel == 'nightly')
+        name: Evaluate the packaged desktop and bundled Runtime
+        run: node scripts/test-desktop-package.mjs
       - if: runner.os == 'macOS' && inputs.channel != 'nightly'
         uses: actions/upload-artifact@v4
         with:
-          name: desktop-notarization-${{ runner.arch }}
+          overwrite: true
+          name: desktop-notarization-${{ matrix.arch }}
           path: |
-            dist/desktop/darwin-${{ runner.arch == 'ARM64' && 'arm64' || 'amd64' }}/*.dmg
-            dist/desktop/darwin-${{ runner.arch == 'ARM64' && 'arm64' || 'amd64' }}/notarization.json
+            dist/desktop/darwin-${{ matrix.arch }}/*.dmg
+            dist/desktop/darwin-${{ matrix.arch }}/notarization.json
           if-no-files-found: error
           retention-days: 14
       - if: runner.os != 'macOS' || inputs.channel == 'nightly'
         uses: actions/upload-artifact@v4
         with:
-          name: desktop-release-${{ runner.os }}-${{ runner.arch }}
+          overwrite: true
+          name: desktop-release-${{ matrix.os }}-${{ matrix.arch }}
           path: |
             dist/desktop/**/*.deb
             dist/desktop/**/*.dmg
@@ -112,14 +114,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-15
-            arch: arm64
-          - runner: macos-15-intel
-            arch: amd64
+          - {runner: macos-15, arch: arm64}
+          - {runner: macos-15-intel, arch: amd64}
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 40
-    env:
-      MOLR_VERSION: ${{ inputs.version }}
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v5
         with:
@@ -127,9 +125,16 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22.21.0'
+          cache: npm
+      - run: npm ci
       - uses: actions/download-artifact@v4
         with:
-          name: desktop-notarization-${{ runner.arch }}
+          name: release-application-assets
+          path: .cache/assets-download
+      - run: tar -xzf .cache/assets-download/application-assets.tar.gz && node scripts/build-assets.mjs --verify
+      - uses: actions/download-artifact@v4
+        with:
+          name: desktop-notarization-${{ matrix.arch }}
           path: dist/notarization
       - name: Complete notarization (prereleases allow pending timeout)
         run: node apps/desktop/scripts/notarization.mjs dist/notarization
@@ -138,12 +143,15 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      - name: Evaluate final DMG and bundled Runtime
+        run: node scripts/test-desktop-package.mjs dist/notarization
       - uses: actions/upload-artifact@v4
         with:
-          name: desktop-release-${{ runner.os }}-${{ runner.arch }}
+          overwrite: true
+          name: desktop-release-darwin-${{ matrix.arch }}
           path: |
-            dist/notarization/**/*.dmg
-            dist/notarization/**/*.sha256
-            dist/notarization/**/desktop-manifest.json
+            dist/notarization/*.dmg
+            dist/notarization/*.sha256
+            dist/notarization/desktop-manifest.json
           if-no-files-found: error
           retention-days: 14
