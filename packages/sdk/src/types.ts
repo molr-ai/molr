@@ -54,9 +54,11 @@ export type AssistantCapabilities = { AssistantID: ID; Tools: ToolCapability[]; 
 
 export type PlanRef = { Kind: 'todo' | 'schedule'; ID: string };
 export type PlanExecution = { ID: string; State: string; Title: string; Instructions: string; PlanVersion: number; OccurrenceAt: string | null; StartedAt: string; CompletedAt: string | null; Result: string; Task: Task | null };
+export type PlanExecutionSummary = Pick<PlanExecution, 'ID' | 'State' | 'OccurrenceAt' | 'StartedAt' | 'CompletedAt'>;
+export type PlanEventPage = { Items: { Key: string; At: string; PlanKey: string }[]; Plans: Record<string, Plan>; NextCursor: string };
 export type PlanEvent = { Key: string; At: string; Plan: Plan };
 export type PlanLinks = { Ref: PlanRef; Dependencies: PlanRef[] | null; Handoff: 'notify' | 'automatic'; Paused: boolean; Version: number; Dispatched: boolean; Runs: PlanExecution[] | null };
-export type Plan = { Ref: PlanRef; Title: string; AssistantID: string; Todo: Todo | null; Schedule: Schedule | null; Links: PlanLinks; Executions: PlanExecution[]; Occurrences: string[]; BlockedBy: PlanRef[]; Ready: boolean };
+export type Plan = { Ref: PlanRef; Title: string; AssistantID: string; Todo: Todo | null; Schedule: Schedule | null; Links: PlanLinks; Executions: PlanExecutionSummary[]; ExecutionCount: number; HasSuccessors: boolean; Occurrences: string[]; BlockedBy: PlanRef[]; Ready: boolean };
 export type TrajectoryEntry = { RunID: ID; Step: DebugStep };
 export type TrajectoryPage = { Items: TrajectoryEntry[]; Runs: DebugRun[]; NextCursor: string; HeadCursor: string; ContextResetAt: string | null; Cleanup: DebugCleanupEvent | null };
 

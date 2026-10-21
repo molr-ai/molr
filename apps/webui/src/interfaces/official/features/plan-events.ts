@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Plan, PlanEvent } from '../../../api/types';
+import type { Plan, PlanEvent, PlanEventPage, PlanExecutionSummary } from '../../../api/types';
 import { poll } from '../../../polling';
 import { api } from '../../../api/client';
 import { useTopicVersion } from '../../../state';
@@ -27,11 +27,15 @@ export function eventsOnDay(events: PlanEvent[], day: string) {
 
 // Reload all displayed pages on a plan change so removed/revised occurrences
 // cannot survive in an appended page. Every cursor is scoped by the Runtime.
-export function usePlanEvents(path: string | null) {
+const eventPage = (page: PlanEventPage) => ({Items: page.Items.map(item => ({Key:item.Key, At:item.At, Plan:page.Plans[item.PlanKey]})), NextCursor:page.NextCursor});
+const historyPage = (page: {Items:PlanExecutionSummary[];NextCursor:string}) => page;
+export function usePlanEvents(path: string | null) { return usePlanPages(path,eventPage); }
+export function usePlanHistory(path: string | null) { return usePlanPages(path,historyPage); }
+function usePlanPages<T, P>(path: string | null, decode: (page:P)=>{Items:T[];NextCursor:string}) {
   const revision = useTopicVersion('plans');
   const [pages,setPages] = useState({path, count:1});
   const count=pages.path===path?pages.count:1;
-  const [state,setState]=useState<{path:string|null;items:PlanEvent[];more:boolean;loading:boolean;error?:unknown}>({path:null,items:[],more:false,loading:false});
+  const [state,setState]=useState<{path:string|null;items:T[];more:boolean;loading:boolean;error?:unknown}>({path:null,items:[],more:false,loading:false});
   const [retry,setRetry]=useState(0);
   const refresh = useRef(() => {});
   useEffect(()=>{
@@ -39,9 +43,9 @@ export function usePlanEvents(path: string | null) {
     setState(old=>({path,items:old.path===path?old.items:[],more:old.path===path&&old.more,loading:true}));
     const loop = poll(async signal => {
      try {
-      const items:PlanEvent[]=[];let cursor='';
+      const items:T[]=[];let cursor='';
       for(let i=0;i<count;i++){
-        const page=await api.get<{Items:PlanEvent[];NextCursor:string}>(path+(cursor?`&cursor=${encodeURIComponent(cursor)}`:''),signal);
+        const page=decode(await api.get<P>(path+(cursor?`&cursor=${encodeURIComponent(cursor)}`:''),signal));
         items.push(...page.Items);cursor=page.NextCursor;if(!cursor)break;
       }
       if(!signal.aborted)setState({path,items,more:!!cursor,loading:false});
@@ -50,7 +54,7 @@ export function usePlanEvents(path: string | null) {
     }, false);
     refresh.current = () => loop.request(true);
     return ()=>{loop.stop(); refresh.current=()=>{};};
-  },[path,count]);
+  },[path,count,decode]);
   useEffect(()=>refresh.current(),[path,count,revision,retry]);
   return {items:state.path===path?state.items:[],more:state.path===path&&state.more,loading:!!path&&(state.path!==path||state.loading),error:state.path===path?state.error:undefined,loadMore:()=>setPages({path,count:count+1}),reload:()=>setRetry(n=>n+1)};
 }

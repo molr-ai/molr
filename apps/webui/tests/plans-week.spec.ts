@@ -112,7 +112,9 @@ test('week is default; events retain their duration, overlaps, midnight boundari
   await page.getByRole('dialog',{name:'Complete this execution',exact:true}).getByRole('button',{name:'Complete this execution',exact:true}).click();
   await expect(event('repeat').nth(1)).toHaveAttribute('data-completed','true');
   await expect(event('repeat').nth(0)).toHaveAttribute('data-completed','false');
-  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog',{name:'Complete this execution',exact:true})).toBeHidden();
+  await drawer.getByRole('button',{name:'Close details',exact:true}).click();
+  await expect(drawer).toBeHidden();
   await page.locator('.plans-week-date').first().click();
   await expect(page.getByRole('dialog',{name:`${key(monday)} · Day agenda`,exact:true})).toContainText(`${prefix} midnight`);
   await page.keyboard.press('Escape');

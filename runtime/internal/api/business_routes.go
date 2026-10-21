@@ -43,8 +43,28 @@ func (s *HTTPServer) businessRoutes() {
 				return nil, core.Invalid("limit", "must be 1 to 200")
 			}
 		}
-		return s.services.Plans.Events(r.Context(), principal(r), plan.EventQuery{From: from, Scope: q.Get("scope"), Kind: q.Get("kind"), State: q.Get("state"), Page: core.PageRequest{Limit: limit, Cursor: q.Get("cursor")}})
+		page, err := s.services.Plans.Events(r.Context(), principal(r), plan.EventQuery{From: from, Scope: q.Get("scope"), Kind: q.Get("kind"), State: q.Get("state"), Page: core.PageRequest{Limit: limit, Cursor: q.Get("cursor")}})
+		if err != nil {
+			return nil, err
+		}
+		type occurrence struct {
+			Key     string
+			At      time.Time
+			PlanKey string
+		}
+		out := struct {
+			Items      []occurrence
+			Plans      map[string]*plan.Summary
+			NextCursor string
+		}{Items: []occurrence{}, Plans: map[string]*plan.Summary{}, NextCursor: page.NextCursor}
+		for _, item := range page.Items {
+			key := item.Plan.Ref.Kind + "/" + string(item.Plan.Ref.ID)
+			out.Plans[key] = item.Plan
+			out.Items = append(out.Items, occurrence{item.Key, item.At, key})
+		}
+		return out, nil
 	})
+	s.planDetailRoutes()
 	s.handle("GET /api/plans", func(r *http.Request) (any, error) {
 		var from, to time.Time
 		if r.URL.Query().Get("from") != "" || r.URL.Query().Get("to") != "" {
@@ -58,7 +78,25 @@ func (s *HTTPServer) businessRoutes() {
 				return nil, core.Invalid("to", "invalid date")
 			}
 		}
-		return s.services.Plans.List(r.Context(), principal(r), from, to)
+		items, err := s.services.Plans.Overview(r.Context(), principal(r), from, to)
+		if err != nil {
+			return nil, err
+		}
+		scope, mode := r.URL.Query().Get("scope"), r.URL.Query().Get("mode")
+		if mode != "" && mode != "undated" {
+			return nil, core.Invalid("mode", "invalid plan mode")
+		}
+		out := []plan.Summary{}
+		for _, item := range items {
+			if scope == "me" && item.AssistantID != "" || scope != "" && scope != "all" && scope != "me" && string(item.AssistantID) != scope {
+				continue
+			}
+			if mode == "undated" && (item.Todo == nil || item.Todo.StartAt != nil || item.Todo.DueAt != nil) {
+				continue
+			}
+			out = append(out, item)
+		}
+		return out, nil
 	})
 	route(s, "POST /api/plans/configure", func(ctx context.Context, p core.Principal, r plan.ConfigureRequest) (any, error) {
 		return s.services.Plans.Configure(ctx, p, r)

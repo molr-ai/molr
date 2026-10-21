@@ -60,6 +60,10 @@ type ExecuteRequest struct {
 	Result       string
 }
 type Service interface {
+	Overview(context.Context, core.Principal, time.Time, time.Time) ([]Summary, error)
+	Detail(context.Context, core.Principal, core.Object, *time.Time) (Summary, error)
+	History(context.Context, core.Principal, core.Object, core.PageRequest) (core.Page[ExecutionSummary], error)
+	Execution(context.Context, core.Principal, core.Object, core.ID) (Execution, error)
 	Events(context.Context, core.Principal, EventQuery) (core.Page[Event], error)
 	List(context.Context, core.Principal, time.Time, time.Time) ([]Plan, error)
 	Configure(context.Context, core.Principal, ConfigureRequest) (Links, error)

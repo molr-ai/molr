@@ -38,6 +38,9 @@ test('personal preparation hands off exactly once; plan and immutable execution 
 test('ordinary tasks receive a one-time plan without changing normal chat behavior',async({page},info)=>{
  await login(page);const a=await assistant(page,`One time ${info.project.name}-${Date.now()}`),goal=`One-time report ${Date.now()}`;const task=await post(page,'/api/tasks',{AssistantID:a.ID,Goal:goal});expect(task.Plan.Kind).toBe('todo');
  await page.goto(`/#/assistants/${a.ID}`);await page.locator('.chat-header').getByRole('button',{name:'Plans',exact:true}).click();const panel=page.locator('.assistant-plans');await expect(panel).toContainText(goal);await panel.getByRole('button',{name:/Execution history/}).click();await expect(panel.locator('.plan-execution')).toHaveCount(1);await page.screenshot({path:info.outputPath('assistant-plans.png')});
+ await page.goto(`/#/assistants/${a.ID}?panel=tasks&task=${task.ID}`);
+ await expect(page.locator('.assistant-plans .plan-execution[open]')).toHaveCount(1);
+ await expect(page.locator('.assistant-plans .plans-snapshot-source')).toContainText(goal);
 });
 
 
@@ -160,4 +163,32 @@ test('plan details open in a drawer without resizing the list and restore focus 
  await page.keyboard.press('Escape'); await expect(drawer).toBeHidden(); await expect(trigger).toBeFocused();
  await row(page, title).click({ position: { x: 5, y: 5 } }); await expect(drawer).toBeVisible();
  await closePlanDrawer(page); await expect(trigger).toBeFocused();
+});
+
+test('plan lists omit execution bodies and load history pages and snapshots only on demand',async({page},info)=>{
+ await login(page);await isolatedCalendarAccount(page);
+ const at=new Date();at.setDate(at.getDate()+1);at.setHours(9,0,0,0);
+ const title=`Lazy history ${info.project.name}-${Date.now()}`,notes='Editable source text',result='Execution body only '.repeat(100);
+ const schedule=await post(page,'/api/schedules',{Title:title,Kind:'personal',Instructions:notes,Trigger:{StartAt:at.toISOString(),Timezone:'Asia/Shanghai',Recurrence:'FREQ=DAILY;COUNT=30',MissedPolicy:'skip'}});
+ for(let i=0;i<25;i++){
+  const occurrence=new Date(at);occurrence.setDate(occurrence.getDate()+i);
+  await post(page,'/api/plans/execute',{Ref:{Kind:'schedule',ID:schedule.ID},Action:'complete',OccurrenceAt:occurrence.toISOString(),Result:result,Mutation:{IdempotencyKey:crypto.randomUUID(),ExpectedVersion:i}});
+ }
+ const url=`/api/plans/events?from=${encodeURIComponent(at.toISOString())}&limit=50`;
+ const response=await page.request.get(url),raw=await response.text(),data=JSON.parse(raw);
+ expect(Object.keys(data.Plans)).toHaveLength(1);expect(data.Items).toHaveLength(30);
+ expect(raw.length).toBeLessThan(20000);expect(raw).not.toContain(result);expect(raw).not.toContain(notes);
+ expect(Object.values(data.Plans).map((p:any)=>p.ExecutionCount)).toEqual([25]);
+ const bodies:string[]=[],history:string[]=[],catalog:string[]=[];
+ page.on('request',request=>{const u=new URL(request.url());if(u.pathname.includes('/executions/'))bodies.push(u.pathname);if(u.pathname.endsWith('/history'))history.push(u.pathname);if(u.pathname==='/api/plans')catalog.push(u.href);});
+ await page.goto('/#/plans');await page.getByRole('button',{name:'List',exact:true}).click();await expect(row(page,title)).toHaveCount(30);
+ expect(bodies).toHaveLength(0);expect(history).toHaveLength(0);
+ const catalogCount=catalog.length;
+ await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
+ await expect(row(page,title)).toHaveCount(30);expect(catalog).toHaveLength(catalogCount);
+ await row(page,title).first().getByRole('button',{name:/Execution history/}).click();
+ const detail=details(page,title);await expect(detail.locator('.plan-execution')).toHaveCount(20);expect(bodies).toHaveLength(0);
+ await detail.getByRole('button',{name:'Load more history'}).click();await expect(detail.locator('.plan-execution')).toHaveCount(25);
+ await detail.locator('.plan-execution summary').first().click();await expect(detail.locator('.plans-result')).toContainText(result.trim());expect(bodies).toHaveLength(1);
+ await planAction(page,title,'Edit');await expect(page.getByRole('dialog',{name:'Edit',exact:true}).getByLabel('Notes',{exact:true})).toHaveValue(notes);
 });

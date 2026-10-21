@@ -113,7 +113,7 @@ HTTP 组合只持有 `conversation.Client`、`agent.Observer`、`model.Catalog`�
 
 ### 计划与执行关联
 
-`GET /api/plans` 按当前所有者聚合现有 todo/schedule 身份、交接设置与执行历史，支持最多 125 天的发生点投影。`POST /api/plans/configure` 更新带版本的依赖和暂停设置；`POST /api/plans/execute` 开始助理执行或记录个人开始／完成，均校验所有者、前置条件与幂等键。助理执行完成仍需原有执行证据链。
+`plan.Service.Overview` 为日历和计划目录提供轻量摘要，支持最多 125 天的发生点投影；`Events` 为近期清单生成分页事件，共享计划摘要。`Detail` 按需读取可编辑配置，`History` 分页返回执行状态，`Execution` 读取单次完整快照。HTTP 返回结构见 [近期计划事件](https://molr.ai/zh/docs/dev/reference/http-api/#近期计划事件)。`POST /api/plans/configure` 更新带版本的依赖和暂停设置；`POST /api/plans/execute` 开始助理执行或记录个人开始／完成，均校验所有者、前置条件与幂等键。助理执行完成仍需原有执行证据链。
 
 `Task.Plan`、`PlanTitle`、`PlanInstructions`、`PlanVersion`、`OccurrenceAt` 保留来源快照。运行时启动会为旧独立任务创建一次性安排，不改变旧任务 ID。计划元数据存于 `business.plan-links` 并纳入所有者数据导出；自动交接、发生点登记、任务与事件写入处于同一存储事务。
 

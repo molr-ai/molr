@@ -1,13 +1,13 @@
 import { useErrorToast } from '../../../error-toasts';
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { ModalPresence, Button, Checkbox, DateTimePicker, Dialog, Drawer, DropdownMenu, IconButton, Select, Textarea, TextField, planDate, useBreakpoint, useChoiceScroll } from '@molr/ui';
-import { ArrowRight, Bot, CalendarDays, Check, ChevronDown, ChevronLeft, Clock3, Ellipsis, GitBranch, History, List, Pause, Pencil, Play, Plus, Repeat2, SlidersHorizontal, Trash2, UserRound, X } from 'lucide-react';
+import { ArrowRight, Bot, CalendarDays, Check, ChevronDown, ChevronLeft, Ellipsis, GitBranch, History, List, Pause, Pencil, Play, Plus, Repeat2, SlidersHorizontal, Trash2, UserRound, X } from 'lucide-react';
 import { api, APIError } from '../../../api/client';
 import type { Assistant, Schedule, Todo, Plan, PlanRef, PlanEvent } from '../../../api/types';
 import { useCopy, useQuery } from '../../../state';
 import { Confirm, EditDialog, Loading, PageHeader, localDateTime, zonedInput, zonedInstant, useAction } from '../components/common';
 import { planMessages } from '../../../plan-messages';
-import { ExecutionDetails } from './ExecutionDetails';
+import { PlanHistory } from './PlanHistory';
 import { DreamConflictNotice } from './DreamConflictNotice';
 import { PlanCalendarToolbar } from './PlanCalendarToolbar';
 import { PlanWeekCalendar, weekDays } from './PlanWeekCalendar';
@@ -34,17 +34,19 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
   const [listFrom] = useState(() => new Date().toISOString());
   const backRef = useRef<HTMLButtonElement>(null), detailRef = useRef<HTMLDivElement>(null);
   const listScroll = useRef(0);
-  const retainedDetail = useRef<ReactNode>(null);
   const listOwner = embedded ? assistantID || '' : owner;
   const [expanded, setExpanded] = useState(''), [editing, setEditing] = useState<Entry | 'new' | null>(null), [deleting, setDeleting] = useState<Plan | null>(null), [configuring, setConfiguring] = useState<Plan | null>(null), [completing, setCompleting] = useState<{ plan: Plan; at?: string } | null>(null);
   const visibleDays=view === 'calendar' && calendarMode === 'week' ? weekDays(month) : monthDays(month);
   const from = new Date(visibleDays[0]);from.setHours(0,0,0,0);
   const until = new Date(visibleDays[visibleDays.length-1]);until.setDate(until.getDate()+1);until.setHours(0,0,0,0);
   const upcoming=usePlanEvents((embedded || view==='list' && listScope==='upcoming') && (!embedded || assistantID) ? `/api/plans/events?from=${encodeURIComponent(listFrom)}&limit=${embedded ? 10 : 50}&scope=${encodeURIComponent(listOwner)}&kind=${embedded ? 'all' : kind}&state=${embedded ? 'all' : status}` : null);
-  const plans = useQuery<Plan[]>(`/api/plans?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(until.toISOString())}`);
+  const plans = useQuery<Plan[]>(!embedded && view === 'calendar' ? `/api/plans?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(until.toISOString())}` : embedded || listScope === 'undated' ? `/api/plans?mode=undated&scope=${encodeURIComponent(listOwner)}` : listScope === 'overdue' ? '/api/plans' : null);
+  const selectedQuery = useQuery<Plan>(expanded ? `/api/plans/${expanded.replace('-', '/')}${selectedAt ? `?at=${encodeURIComponent(selectedAt)}` : ''}` : null);
+  const related = useQuery<Plan[]>(expanded || configuring ? '/api/plans' : null);
+  const selection = useQuery<{Plan:Plan;At:string|null}>(selectedID || selectedTaskID ? `/api/plans/selection?plan_id=${encodeURIComponent(selectedID || '')}&task_id=${encodeURIComponent(selectedTaskID || '')}` : null);
   const currentAssistant = useQuery<Assistant>(assistantID ? `/api/assistants/${assistantID}` : null);
   const assistants = currentAssistant.data && !availableAssistants.some(a => a.ID === assistantID) ? [...availableAssistants, currentAssistant.data] : availableAssistants;
-  const all = plans.data ?? [], latest = (p: Plan) => p.Executions[0];
+  const all = [...new Map([...(plans.data ?? []), ...upcoming.items.map(event=>event.Plan)].map(plan=>[refKey(plan.Ref),plan])).values()], latest = (p: Plan) => p.Executions[0];
   const completed = (p: Plan) => latest(p)?.State === 'completed' || !p.Executions.length && !!p.Todo?.Completed;
   const filtered = all.filter(p => (listOwner === 'all' || (p.AssistantID || 'me') === listOwner) && (embedded || kind === 'all' || entry(p).kind === kind) );
   const when = (p: Plan) => p.Todo?.StartAt || p.Todo?.DueAt || p.Schedule?.NextAt || p.Occurrences.find(at => instantDay(at) >= planDate()) || p.Schedule?.Trigger.StartAt || '';
@@ -57,7 +59,7 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
   const tone = (p: Plan) => p.Links.Paused ? 'paused' : p.BlockedBy.length ? 'blocked' : completed(p) ? 'done' : p.Links.Dependencies?.length && !p.Executions.length && p.Ready ? 'ready' : 'open';
   const executionState = (p: Plan) => latest(p) && ['pending', 'running', 'waiting', 'paused'].includes(latest(p).State) ? (copy.tasks[latest(p).State as 'pending'] ?? latest(p).State) : state(p);
   const ownerName = (p: Plan) => assistants.find(a => a.ID === p.AssistantID)?.Name ?? (p.AssistantID ? t.assistant : t.me);
-  const selected = filtered.find(p => refKey(p.Ref) === expanded);
+  const selected = selectedQuery.data ?? all.find(p => refKey(p.Ref) === expanded) ?? (selection.data && refKey(selection.data.Plan.Ref) === expanded ? selection.data.Plan : undefined);
   useLayoutEffect(() => {
     if (!embedded) return;
     if (!selected) { listRef.current?.scrollTo({ top: listScroll.current, behavior: 'instant' }); return; }
@@ -69,14 +71,14 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
     const request = `${selectedID || ''}/${selectedTaskID || ''}`;
     if (!selectedID && !selectedTaskID) { appliedSelection.current = ''; return; }
     if (appliedSelection.current === request) return;
-    const match = all.find(p => p.Ref.ID === selectedID || p.Executions.some(run => run.ID === selectedTaskID));
+    const match = selection.data?.Plan;
     if (match) {
       appliedSelection.current = request;
-      const at=match.Executions.find(run=>run.ID===selectedTaskID)?.OccurrenceAt || when(match);
+      const at=selection.data?.At || when(match);
       setExpanded(refKey(match.Ref));setSelectedAt(at||undefined);
       if(embedded){setView('list');}else if(at){setView('calendar');setMonth(instantDay(at));setDate(instantDay(at));}else{setListScope('undated');setView('list');}
     }
-  }, [plans.data, selectedID, selectedTaskID]);
+  }, [selection.data, selectedID, selectedTaskID]);
   useEffect(() => {
     if (selectedID || selectedTaskID) listRef.current?.querySelector('[data-selected="true"]')?.scrollIntoView({ block: 'nearest' });
   }, [expanded, selectedID, selectedTaskID]);
@@ -95,7 +97,7 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
     if (embedded) listScroll.current = listRef.current?.scrollTop ?? 0;
     setExpanded(refKey(p.Ref)); setSelectedAt(at); setDayAgenda('');
   }
-  useErrorToast(plans.error || upcoming.error || action.error || currentAssistant.error, ()=>{plans.reload();upcoming.reload();});
+  useErrorToast(plans.error || upcoming.error || selectedQuery.error || related.error || selection.error || action.error || currentAssistant.error, ()=>{plans.reload();upcoming.reload();selectedQuery.reload();related.reload();selection.reload();});
   function selectView(value: string) {
     if (value === view) return;
     setView(value); setExpanded(''); setSelectedAt(undefined); setDayAgenda('');
@@ -115,15 +117,15 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
     });
   }
   function openRelated(ref: PlanRef) {
-    const linked=all.find(p=>refKey(p.Ref)===refKey(ref)),at=linked?when(linked):'';
+    const linked=(related.data ?? all).find(p=>refKey(p.Ref)===refKey(ref)),at=linked?when(linked):'';
     if (embedded && linked?.AssistantID !== assistantID) { window.location.hash = `/plans/${ref.ID}`; return; }
     setOwner('all');setKind('all');setStatus('all');setExpanded(refKey(ref));setSelectedAt(at||undefined);
     if(embedded){setView('list');}else if(at){setView('calendar');setMonth(instantDay(at));setDate(instantDay(at));}else{setListScope('undated');setView('list');}
   }
   function menu(p: Plan) {
-    const canDelete = !p.Executions.length && !all.some(next => next.Links.Dependencies?.some(ref => refKey(ref) === refKey(p.Ref)));
+    const canDelete = !p.ExecutionCount && !p.HasSuccessors;
     return <DropdownMenu label={t.actions} align="end" trigger={<IconButton className="plans-more" label={t.actions}><Ellipsis size={18} /></IconButton>} items={[
-      { id: 'edit', label: t.edit, icon: <Pencil size={15} />, onSelect: () => setEditing(entry(p)) },
+      { id: 'edit', label: t.edit, icon: <Pencil size={15} />, onSelect: () => { void action.run(async()=>{const full=await api.get<Plan>(`/api/plans/${p.Ref.Kind}/${p.Ref.ID}`);setEditing(entry(full));}); } },
       { id: 'handoff', label: t.handoff, icon: <GitBranch size={15} />, onSelect: () => setConfiguring(p) },
       { id: 'pause', label: p.Links.Paused ? t.resumePlan : t.pausePlan, icon: p.Links.Paused ? <Play size={15} /> : <Pause size={15} />, disabled: action.busy, onSelect: () => pause(p) },
       { id: 'delete', label: t.remove, icon: <Trash2 size={15} />, danger: true, separatorBefore: true, disabled: !canDelete, onSelect: () => setDeleting(p) },
@@ -132,7 +134,7 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
   function detail(p: Plan) {
     const key = refKey(p.Ref), runs = p.Executions, at = occurrence(p), run = at ? runs.find(r => !!r.OccurrenceAt && Date.parse(r.OccurrenceAt) === Date.parse(at)) : latest(p);
     const active = run && ['pending', 'running', 'waiting', 'paused'].includes(run.State), done = run?.State === 'completed' || !runs.length && !!p.Todo?.Completed;
-    const successors = all.filter(next => next.Links.Dependencies?.some(ref => refKey(ref) === key));
+    const successors = (related.data ?? []).filter(next => next.Links.Dependencies?.some(ref => refKey(ref) === key));
     const startAt = at || p.Todo?.StartAt || p.Schedule?.Trigger.StartAt;
     const endAt = p.Todo?.EndAt || (startAt ? occurrenceEnd(p, startAt) : null);
     return <section id={`${scopeID}-detail-${key}`} className="plan-expanded plans-detail" role="region" aria-label={`${p.Title} · ${t.planDetails}`}>
@@ -146,13 +148,11 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
         </dl>
         {(p.Todo?.Notes || p.Schedule?.Instructions) && <p className="plans-description">{p.Todo?.Notes || p.Schedule?.Instructions}</p>}
         <div className="plans-primary-actions"><Button size="sm" disabled={action.busy || !p.Ready || !!active || (!p.AssistantID && !!done) || !!p.Schedule?.Trigger.Recurrence && !at} onClick={() => start(p)}><Play size={14} />{t.startExecution}</Button>{!p.AssistantID && <Button size="sm" variant="secondary" disabled={action.busy || (!p.Ready && !active) || !!done || !!p.Schedule?.Trigger.Recurrence && !at} onClick={() => setCompleting({ plan: p, at })}><Check size={14} />{t.completeExecution}</Button>}</div>
-        {!!p.Links.Dependencies?.length && <section className="plans-related"><h3><GitBranch size={14} />{t.dependencies}</h3>{p.Links.Dependencies.map(ref => { const linked = all.find(d => refKey(d.Ref) === refKey(ref)); return <button key={refKey(ref)} onClick={() => openRelated(ref)}><span className="plans-related-dot" data-done={linked && completed(linked)} /><span>{linked?.Title ?? ref.ID}</span><ArrowRight size={14} /></button>; })}</section>}
+        {!!p.Links.Dependencies?.length && <section className="plans-related"><h3><GitBranch size={14} />{t.dependencies}</h3>{p.Links.Dependencies.map(ref => { const linked = (related.data ?? []).find(d => refKey(d.Ref) === refKey(ref)); return <button key={refKey(ref)} onClick={() => openRelated(ref)}><span className="plans-related-dot" data-done={linked && completed(linked)} /><span>{linked?.Title ?? ref.ID}</span><ArrowRight size={14} /></button>; })}</section>}
         {successors.length > 0 && <section className="plans-related"><h3><ArrowRight size={14} />{t.successors}</h3>{successors.map(next => <button key={refKey(next.Ref)} onClick={() => openRelated(next.Ref)}><span>{next.Title}</span><small>{state(next)}</small><ArrowRight size={14} /></button>)}</section>}
-        <section className="plans-history"><h3><History size={15} />{t.executions}<span>{runs.length}</span></h3>{runs.length ? runs.map(run => <details className="plan-execution" key={run.ID} open={run.ID === selectedTaskID}>
-          <summary><span className="plans-run-dot" data-state={run.State} /><span><strong>{shortDate(run.OccurrenceAt || run.StartedAt)}<small>{time(run.OccurrenceAt || run.StartedAt)}</small></strong><small>{copy.tasks[run.State as 'pending'] ?? run.State}</small></span><ChevronDown size={14} /></summary>
-          <div className="plans-run-content"><p className="plans-snapshot-source">{t.source}: {run.Title} · v{run.PlanVersion}</p><h4>{t.snapshot}</h4><p className="plan-instructions">{run.Instructions}</p>{run.Result && <div className="plans-result"><h4>{t.result}</h4><p>{run.Result}</p></div>}{!run.Task && run.State === 'running' && <Button size="sm" onClick={() => setCompleting({ plan: p, at: run.OccurrenceAt || undefined })}>{t.completeExecution}</Button>}{run.Task && <ExecutionDetails task={run.Task} />}</div>
-        </details>) : <div className="plans-history-empty"><Clock3 size={18} /><p>{t.noExecutions}</p></div>}</section>
-        {(runs.length > 0 || successors.length > 0) && <p className="plans-history-note">{t.preserveHistory}</p>}
+        <PlanHistory plan={p} selectedTaskID={selection.data?.Plan.Ref.ID === p.Ref.ID ? selectedTaskID : undefined} onComplete={run=>setCompleting({plan:p,at:run.OccurrenceAt || undefined})}/>
+
+        {(p.ExecutionCount > 0 || successors.length > 0) && <p className="plans-history-note">{t.preserveHistory}</p>}
       </div>
     </section>;
   }
@@ -163,7 +163,7 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
         <span className="plans-type-dot" data-kind={type} role="img" aria-label={t[type]} title={t[type]} />
         <div className="plans-row-copy"><h2><button className="row-open" id={`${scopeID}-title-${key}`} type="button" aria-expanded={isSelected} aria-controls={isSelected ? `${scopeID}-detail-${refKey(p.Ref)}` : undefined} onClick={() => selectPlan(p,eventAt)}>{p.Title}</button></h2><div className="plans-row-meta"><span className="plans-owner" title={ownerName(p)}><span className="plans-avatar" data-person={!p.AssistantID}>{p.AssistantID ? <Bot size={11} /> : <UserRound size={11} />}</span>{ownerName(p)}</span>{at && <span className="plans-row-date" data-overdue={Date.parse(at)<Date.parse(listFrom)&&!eventDone(p,eventAt)}>{p.Todo?.DueAt && !p.Todo.StartAt ? t.deadline : ''}{p.Todo?.DueAt && !p.Todo.StartAt ? ' · ' : ''}{instantDay(at) === planDate() ? t.today : shortDate(at)}{` · ${time(at)}`}</span>}{p.Schedule?.Trigger.Recurrence && <Repeat2 size={12} aria-label={repeat(p.Schedule.Trigger.Recurrence)} />}<span className="plans-row-kind">{t[type]}</span><span className="plans-row-mobile-status">{eventDone(p,eventAt)?t.done:p.Schedule?.Trigger.Recurrence?t.planned:executionState(p)}</span></div></div>
         <span className="plans-status plans-row-status" data-tone={eventDone(p,eventAt)?'done':tone(p)}><i />{eventDone(p,eventAt)?t.done:p.Schedule?.Trigger.Recurrence?t.planned:executionState(p)}</span>
-        <Button size="sm" variant="ghost" className="plans-row-history" aria-label={`${t.executions} (${p.Executions.length})`} aria-expanded={isSelected} onClick={() => selectPlan(p,eventAt)}><History size={14} /><span>{p.Executions.length}</span></Button>
+        <Button size="sm" variant="ghost" className="plans-row-history" aria-label={`${t.executions} (${p.ExecutionCount})`} aria-expanded={isSelected} onClick={() => selectPlan(p,eventAt)}><History size={14} /><span>{p.ExecutionCount}</span></Button>
         {menu(p)}
       </div>
     </article>;
@@ -175,8 +175,7 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
     listRows.splice(10);
   }
   const filters = <div className="plans-filters"><SlidersHorizontal size={14} className="plans-filter-icon" aria-hidden="true" /><Select hideLabel size="sm" label={t.owner} value={owner} onValueChange={setOwner} options={[{ value: 'all', label: t.allOwners }, { value: 'me', label: t.me }, ...assistants.map(a => ({ value: a.ID, label: a.Name }))]} /><Select hideLabel size="sm" label={t.type} value={kind} onValueChange={setKind} options={[{ value: 'all', label: t.allTypes }, ...(['item', 'event', 'automatic'] as const).map(value => ({ value, label: t[value] }))]} /><Select hideLabel size="sm" label={t.status} value={status} onValueChange={setStatus} options={[{ value: 'all', label: t.allStatuses }, { value: 'open', label: t.open }, { value: 'done', label: t.done }]} />{hasFilters && <IconButton label={t.clearFilters} onClick={clearFilters}><X size={14} /></IconButton>}</div>;
-  const selectedDetail = selected ? detail(selected) : null;
-  useLayoutEffect(() => { if (embedded && selectedDetail) retainedDetail.current = selectedDetail; });
+  const selectedDetail = selected ? selectedQuery.data ? detail(selectedQuery.data) : <Loading /> : null;
   const workspace = <section className={`plans-workspace${embedded ? ' plans-workspace--embedded' : ''}`} data-view={view} data-detail={embedded && !!selected}>
     {!embedded && <PageHeader className="plans-header" title={t.title} icon={<CalendarDays />} actions={<Button size="sm" onClick={() => setEditing('new')}><Plus size={15} />{t.new}</Button>}><span className="plans-total">{filtered.length}</span></PageHeader>}
     {!embedded && <div className="plans-commandbar">
@@ -206,12 +205,12 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
           {!listRows.length&&!plans.loading&&!(listScope==='upcoming'&&upcoming.loading)&&<div className="plans-empty"><span className="plans-empty-icon"><CalendarDays size={32}/></span><h2>{hasFilters ? t.empty : listScope === 'upcoming' ? t.noUpcoming : listScope === 'overdue' ? t.noOverdue : t.noUndated}</h2>{!hasFilters && listScope === 'upcoming' && <p>{t.noUpcomingHelp}</p>}{embedded ? null : hasFilters ? <><p>{t.filteredEmpty}</p><Button size="sm" variant="secondary" onClick={clearFilters}>{t.clearFilters}</Button></> : listScope === 'overdue' ? <Button size="sm" variant="secondary" onClick={() => selectListScope('upcoming')}>{t.viewUpcoming}</Button> : <Button size="sm" onClick={() => setEditing('new')}><Plus size={14}/>{t.new}</Button>}</div>}
         </>}
       </div>
-      {embedded && <div className="plans-panel-detail" ref={detailRef} inert={!selected} aria-hidden={!selected}>{selectedDetail || retainedDetail.current}</div>}
+      {embedded && <div className="plans-panel-detail" ref={detailRef} inert={!selected} aria-hidden={!selected}>{selectedDetail}</div>}
     </div>
     <ModalPresence>{dayAgenda&&<Dialog open onOpenChange={open=>{if(!open)setDayAgenda('');}} title={`${dayAgenda} · ${t.selectedDay}`} size="lg" className="plans-day-agenda"><div className="plan-list plans-list">{selectedDayEvents.map(event=>row(event.Plan,event.At))}{!selectedDayEvents.length&&<p className="plans-day-empty">{t.dayEmpty}</p>}</div><Button size="sm" onClick={()=>setEditing('new')}><Plus size={14}/>{t.new}</Button></Dialog>}</ModalPresence>
     <ModalPresence>{!embedded&&selected&&<Drawer open onOpenChange={open=>{if(!open)closeDetails();}} title={t.planDetails} closeLabel={t.closeDetails} className="plans-details-drawer">{selectedDetail}</Drawer>}</ModalPresence>
     <ModalPresence>{editing && <PlanEditor entry={editing === 'new' ? undefined : editing} assistantID={assistantID} assistants={assistants} date={date} onClose={() => setEditing(null)} />}</ModalPresence>
-    <ModalPresence>{configuring && <HandoffEditor plan={configuring} all={all} onClose={() => setConfiguring(null)} />}</ModalPresence>
+    <ModalPresence>{configuring && related.data && <HandoffEditor plan={configuring} all={related.data ?? []} onClose={() => setConfiguring(null)} />}</ModalPresence>
     <ModalPresence>{completing && <CompletionEditor plan={completing.plan} occurrence={completing.at} onClose={() => setCompleting(null)} />}</ModalPresence>
     <ModalPresence>{deleting && <Confirm title={t.remove} description={t.deleteHelp} danger onClose={() => setDeleting(null)} onConfirm={() => api.mutate(deleting.Todo ? '/api/todos/delete' : '/api/schedules/delete', { ID: deleting.Ref.ID }, (deleting.Todo || deleting.Schedule)!.Version)} />}</ModalPresence>
   </section>;

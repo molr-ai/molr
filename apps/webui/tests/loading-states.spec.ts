@@ -51,7 +51,7 @@ test('plan list has one initial skeleton and keeps rows while other queries and 
   const event = (id: string): PlanEvent => {
     const ref = { Kind: 'todo', ID: id } as const;
     const plan: Plan = {
-      Ref: ref, Title: id, AssistantID: '', Schedule: null, Ready: true, Executions: [], Occurrences: [], BlockedBy: [],
+      Ref: ref, Title: id, AssistantID: '', Schedule: null, Ready: true, ExecutionCount: 0, HasSuccessors: false, Executions: [], Occurrences: [], BlockedBy: [],
       Todo: { ID: id, Title: id, Notes: '', AssistantID: '', DueAt: at, Completed: false, Version: 1 },
       Links: { Ref: ref, Dependencies: [], Handoff: 'notify', Paused: false, Version: 1, Dispatched: false, Runs: [] },
     };
@@ -67,7 +67,8 @@ test('plan list has one initial skeleton and keeps rows while other queries and 
     const next = new URL(route.request().url()).searchParams.has('cursor');
     if (next) nextRequested.release();
     await (next ? nextPage : initial).promise;
-    await route.fulfill({ json: { Items: [next ? second : first], NextCursor: next ? '' : 'next-page' } });
+    const item=next ? second : first;
+    await route.fulfill({ json: { Items: [{Key:item.Key,At:item.At,PlanKey:item.Plan.Ref.ID}], Plans:{[item.Plan.Ref.ID]:item.Plan}, NextCursor: next ? '' : 'next-page' } });
   });
   const workspace = page.locator('.plans-workspace');
   try {

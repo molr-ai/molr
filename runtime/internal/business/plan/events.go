@@ -13,7 +13,7 @@ import (
 type Event struct {
 	Key  string
 	At   time.Time
-	Plan Plan
+	Plan *Summary
 }
 type EventQuery struct {
 	From               time.Time
@@ -58,7 +58,7 @@ func (s *Coordinator) Events(ctx context.Context, p core.Principal, q EventQuery
 		}
 		cursor = c
 	}
-	plans, err := s.List(ctx, p, time.Time{}, time.Time{})
+	plans, err := s.list(ctx, p, time.Time{}, time.Time{}, true)
 	if err != nil {
 		return out, err
 	}
@@ -135,9 +135,25 @@ func (s *Coordinator) Events(ctx context.Context, p core.Principal, q EventQuery
 		}
 	}
 	sort.Slice(candidates, func(i, j int) bool { return candidates[i].before(candidates[j]) })
+	summaries := map[string]*Summary{}
+	successors := successorRefs(plans)
+	for _, candidate := range candidates {
+		if summaries[candidate.ref] != nil {
+			continue
+		}
+		dates := map[time.Time]bool{}
+		for _, other := range candidates {
+			if other.ref == candidate.ref {
+				dates[other.at.UTC()] = true
+			}
+		}
+		summary := summarize(*candidate.plan, func(run Execution) bool { return run.OccurrenceAt != nil && dates[run.OccurrenceAt.UTC()] })
+		summary.HasSuccessors = successors[summary.Ref]
+		summaries[candidate.ref] = &summary
+	}
 	out.Items = make([]Event, 0, len(candidates))
 	for _, candidate := range candidates {
-		out.Items = append(out.Items, Event{Key: candidate.ref + "@" + candidate.at.Format(time.RFC3339Nano), At: candidate.at, Plan: *candidate.plan})
+		out.Items = append(out.Items, Event{Key: candidate.ref + "@" + candidate.at.Format(time.RFC3339Nano), At: candidate.at, Plan: summaries[candidate.ref]})
 	}
 	if len(out.Items) > page.Limit {
 		out.Items = out.Items[:page.Limit]

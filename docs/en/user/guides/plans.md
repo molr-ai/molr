@@ -18,6 +18,8 @@ The solid dots before list items indicate type: green for items, blue for schedu
 
 When adding a new item, you can first fill in the title, then specify the owner, date, or time. Assigning to an assistant only indicates responsibility and does not mean immediate initiation. One-time executions and each occurrence of recurring plans have independent records; viewing records allows you to understand the instructions, status, costs, and artifacts at that time.
 
+Opening plan details loads execution history from newest to oldest, 20 records per page. Select “Load more history” for earlier runs. Expanding a record loads its original instructions, result, and task details. The history count shows the plan’s total executions.
+
 Completing a recurring arrangement completes a specific execution, not the entire series with a single check. Records with existing execution history or those depended upon by subsequent plans must be retained; subsequent arrangements can be paused. Plan revisions do not overwrite the instruction snapshots of old executions.
 
 ## Handoffs and Scheduled Executions

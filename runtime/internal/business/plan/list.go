@@ -14,6 +14,10 @@ import (
 )
 
 func (s *Coordinator) List(ctx context.Context, p core.Principal, from, to time.Time) ([]Plan, error) {
+	return s.list(ctx, p, from, to, false)
+}
+
+func (s *Coordinator) list(ctx context.Context, p core.Principal, from, to time.Time, light bool) ([]Plan, error) {
 	out := []Plan{}
 	err := s.store.Read(ctx, func(ctx context.Context, _ persistence.Tx) error {
 		if err := s.authorize(ctx, p, core.Object{}, policy.Read); err != nil {
@@ -22,11 +26,18 @@ func (s *Coordinator) List(ctx context.Context, p core.Principal, from, to time.
 		if !from.IsZero() && (!to.After(from) || to.Sub(from) > 125*24*time.Hour) {
 			return core.Invalid("range", "maximum calendar range is 125 days")
 		}
-		todos, err := persistence.Select[todo.Todo](ctx, s.store, "business.todos", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID)}})
+		sourceQuery := persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID)}}
+		if light {
+			sourceQuery.Fields = []string{"ID", "OwnerID", "AssistantID", "Title", "DueAt", "StartAt", "EndAt", "Completed", "Version"}
+		}
+		todos, err := persistence.Select[todo.Todo](ctx, s.store, "business.todos", sourceQuery)
 		if err != nil {
 			return err
 		}
-		schedules, err := persistence.Select[schedule.Schedule](ctx, s.store, "business.schedules", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID)}})
+		if light {
+			sourceQuery.Fields = []string{"ID", "OwnerID", "AssistantID", "Title", "Kind", "Trigger", "EndAt", "Enabled", "NextAt", "Version"}
+		}
+		schedules, err := persistence.Select[schedule.Schedule](ctx, s.store, "business.schedules", sourceQuery)
 		if err != nil {
 			return err
 		}
@@ -50,7 +61,7 @@ func (s *Coordinator) List(ctx context.Context, p core.Principal, from, to time.
 				add(&Plan{Ref: core.Object{Kind: "schedule", ID: v.ID}, Title: v.Title, AssistantID: v.AssistantID, Schedule: v, Occurrences: []time.Time{}, BlockedBy: []core.Object{}})
 			}
 		}
-		if err := s.loadListDetails(ctx, p.OwnerID, visible); err != nil {
+		if err := s.loadListDetails(ctx, p.OwnerID, visible, light); err != nil {
 			return err
 		}
 		// Readiness uses direct dependencies even when assigned to another assistant.
@@ -71,7 +82,7 @@ func (s *Coordinator) List(ctx context.Context, p core.Principal, from, to time.
 				}
 			}
 		}
-		if err := s.loadListDetails(ctx, p.OwnerID, dependencies); err != nil {
+		if err := s.loadListDetails(ctx, p.OwnerID, dependencies, light); err != nil {
 			return err
 		}
 		for _, row := range visible {
@@ -108,7 +119,7 @@ func (s *Coordinator) List(ctx context.Context, p core.Principal, from, to time.
 
 // Keep SQL parameter counts bounded and avoid hydrating tasks for deleted or
 // unrelated plans. All batches remain in List's original read transaction.
-func (s *Coordinator) loadListDetails(ctx context.Context, owner core.ID, plans []*Plan) error {
+func (s *Coordinator) loadListDetails(ctx context.Context, owner core.ID, plans []*Plan, light bool) error {
 	const batchSize = 256
 	for start := 0; start < len(plans); start += batchSize {
 		batch := plans[start:min(start+batchSize, len(plans))]
@@ -140,6 +151,9 @@ func (s *Coordinator) loadListDetails(ctx context.Context, owner core.ID, plans 
 			if len(ids[kind]) > 0 {
 				query.Any = append(query.Any, []persistence.Filter{persistence.Eq("Plan.Kind", kind), {Field: "Plan.ID", Op: "in", Value: ids[kind]}})
 			}
+		}
+		if light {
+			query.Fields = []string{"ID", "OwnerID", "Plan", "State", "OccurrenceAt", "CreatedAt", "UpdatedAt"}
 		}
 		tasks, err := persistence.Select[task.Task](ctx, s.store, "business.tasks", query)
 		if err != nil {

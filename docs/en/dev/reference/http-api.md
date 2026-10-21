@@ -120,6 +120,10 @@ Verified on 2026-10-03 against the registrations in `runtime/internal/api/*_rout
 | GET | `/api/permission-requests/{id}` |
 | GET | `/api/plans` |
 | GET | `/api/plans/events` |
+| GET | `/api/plans/selection` |
+| GET | `/api/plans/{kind}/{id}` |
+| GET | `/api/plans/{kind}/{id}/history` |
+| GET | `/api/plans/{kind}/{id}/executions/{execution}` |
 | GET | `/api/plugins` |
 | GET | `/api/resource-usage` |
 | GET | `/api/resources` |
@@ -418,11 +422,22 @@ Assistant budget: Hiring and updating assistants require passing `Budget: {"Limi
 
 ### Upcoming Scheduled Events
 
-`GET /api/plans` loads todos and schedules within the account in the same read transaction, batch reading visible schedules and their directly dependent associated records and execution history. Batches are limited to the account and schedule references, not reading executions of deleted or unrelated schedules; invisible dependencies are only used for readiness judgment and are not added to the return list.
+`GET /api/plans?from=…&to=…` returns calendar summaries for a window of at most 125 days. Without dates it returns the plan summary catalog; `scope=all|me|<assistant ID>` filters ownership and `mode=undated` returns only undated todos. Reads are scoped to the account, visible plans and their direct dependencies. Hidden dependencies contribute only to readiness.
 
-`GET /api/plans/events?from=<RFC3339>&limit=50&scope=all&kind=all&state=all&cursor=…` returns `{Items: [{Key, At, Plan}], NextCursor}`. `limit` is 1–200, default 50; `scope` is `all`, `me`, or assistant ID; `kind` is `all|item|event|automatic`; `state` is `all|open|done`. `from` is required and includes timezone offset.
+`GET /api/plans/events?from=<RFC3339>&limit=50&scope=all&kind=all&state=all&cursor=…` returns `{Items: [{Key, At, PlanKey}], Plans: {"schedule/<id>": summary}, NextCursor}`. Each plan is transmitted once per page; `PlanKey` references `Plans`. `limit` is 1–200, default 50; `scope` is `all`, `me`, or an assistant ID; `kind` is `all|item|event|automatic`; `state` is `all|open|done`. `from` is required and includes an offset.
 
-Each item represents an occurrence, stably sorted by occurrence time and schedule reference. Event projection retains only the earliest `limit + 1` candidates, then generates the current page and subsequent cursors; schedule source reading still grows with the number of account schedules. Cursors are bound to the owner, start point, and filter conditions, and cannot be used across queries. Different schedules at the same time are not missed due to pagination; each occurrence of a recurring schedule is not collapsed into a series. Projection reuses generic recurrence rules, including sparse arrangements like cross-year, not limited by calendar month date ranges, and does not advance scheduling cursors, create tasks, or trigger execution. Completed filters only check execution records for the corresponding occurrence and cannot mark the entire series as completed. The original `GET /api/plans?from=…&to=…` continues to be used for calendars and schedule details.
+Summaries contain identity, title, date rules, handoff settings, readiness, `ExecutionCount`, and `HasSuccessors`. `Executions` contains only the latest execution plus the latest state for each occurrence in the requested window/page (ID, state, occurrence, start and completion times), not full history. `Todo.Notes` and `Schedule.Instructions` are empty; `Links.Runs` carries no history. Task reads project only state fields at the storage boundary. Plan and history-state reads still grow with account plan/execution counts; personal runs remain embedded in link records.
+
+Events are ordered by occurrence time and plan reference. Projection retains the earliest `limit + 1` candidates; cursors bind owner, start and filters. Equal-time events are not lost across pages, and recurring occurrences remain separate. Shared recurrence rules support sparse future dates without advancing scheduling cursors, creating tasks or starting executions. Completion filters inspect only the latest execution of the matching occurrence.
+
+Details are loaded on demand:
+
+- `GET /api/plans/{kind}/{id}?at=<RFC3339>` returns editable configuration, execution count and state summaries. Optional `at` selects the occurrence state used by recurring-plan actions; `kind` is `todo|schedule`.
+- `GET /api/plans/{kind}/{id}/history?limit=20&cursor=…` returns execution summaries ordered by start time and ID descending. Cursors bind owner and plan. Personal runs and assistant tasks share pagination; instructions, results and task bodies are excluded.
+- `GET /api/plans/{kind}/{id}/executions/{execution}` returns the full snapshot, result and associated task when expanded, verifying that the execution belongs to the plan.
+- `GET /api/plans/selection?plan_id=…&task_id=…` resolves plan/task deep links to `{Plan, At}` independently of the loaded event/history page. Supply at least one ID; both must match when supplied together.
+
+WebUI calendars and upcoming/undated/overdue lists consume summaries. The upcoming list does not also request the plan catalog. Opening details loads configuration and the first history page; expanding a run loads its body. Closing details ends those subscriptions. Editing fetches complete configuration first so empty summary descriptions cannot overwrite saved text.
 
 ### Assistant Context Compression Threshold
 

@@ -113,7 +113,7 @@ The model adapter has read the vendor SSE and collected generation timing; chat 
 
 ### Plan and Execution Association
 
-`GET /api/plans` aggregates existing todo/schedule identities, handover settings, and execution history by current owner, supporting occurrence point projections for up to 125 days. `POST /api/plans/configure` updates versioned dependencies and pause settings; `POST /api/plans/execute` starts assistant execution or records personal start/completion, validating owner, prerequisites, and idempotency keys in both cases. Completion of assistant execution still requires the original execution evidence chain.
+`plan.Service.Overview` provides lightweight calendar/catalog summaries with occurrence windows of at most 125 days; `Events` builds paginated upcoming occurrences sharing plan summaries. `Detail` loads editable configuration, `History` pages execution states, and `Execution` reads one full snapshot. See [Upcoming Scheduled Events](http-api.md#upcoming-scheduled-events) for HTTP shapes. `POST /api/plans/configure` updates versioned dependencies and pause settings; `POST /api/plans/execute` starts assistant execution or records personal start/completion, validating owner, prerequisites, and idempotency keys in both cases. Completion of assistant execution still requires the original execution evidence chain.
 
 `Task.Plan`, `PlanTitle`, `PlanInstructions`, `PlanVersion`, and `OccurrenceAt` retain source snapshots. Runtime startup creates one-time schedules for old standalone tasks without changing old task IDs. Plan metadata is stored in `business.plan-links` and included in owner data exports; automatic handover, occurrence point registration, and task and event writes are within the same storage transaction.
 

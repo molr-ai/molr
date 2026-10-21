@@ -120,6 +120,10 @@ Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugi
 | GET | `/api/permission-requests/{id}` |
 | GET | `/api/plans` |
 | GET | `/api/plans/events` |
+| GET | `/api/plans/selection` |
+| GET | `/api/plans/{kind}/{id}` |
+| GET | `/api/plans/{kind}/{id}/history` |
+| GET | `/api/plans/{kind}/{id}/executions/{execution}` |
 | GET | `/api/plugins` |
 | GET | `/api/resource-usage` |
 | GET | `/api/resources` |
@@ -418,11 +422,22 @@ WebUI 按原因显示对应说明及操作入口：模型权限、选择模型�
 
 ### 近期计划事件
 
-`GET /api/plans` 在同一读事务中加载账号内的待办与日程，按批次读取可见计划及其直接依赖的关联记录、执行历史。批次限定账号和计划引用，不读取已删除计划或无关计划的执行；不可见依赖只用于就绪判断，不加入返回列表。
+`GET /api/plans?from=…&to=…` 返回日历摘要，日期窗口最多 125 天；省略日期返回计划摘要目录，可用 `scope=all|me|<助理 ID>` 筛选所有者，`mode=undated` 只返回无日期待办。读取限定当前账号、可见计划及其直接依赖；不可见依赖只参与就绪判断，不加入返回列表。
 
-`GET /api/plans/events?from=<RFC3339>&limit=50&scope=all&kind=all&state=all&cursor=…` 返回 `{Items: [{Key, At, Plan}], NextCursor}`。`limit` 为 1–200，默认 50；`scope` 为 `all`、`me` 或助理 ID；`kind` 为 `all|item|event|automatic`；`state` 为 `all|open|done`。`from` 必填且包含时区偏移。
+`GET /api/plans/events?from=<RFC3339>&limit=50&scope=all&kind=all&state=all&cursor=…` 返回 `{Items: [{Key, At, PlanKey}], Plans: {"schedule/<id>": 摘要}, NextCursor}`。每页同一计划只传输一次；`PlanKey` 引用 `Plans`。`limit` 为 1–200，默认 50；`scope` 为 `all`、`me` 或助理 ID；`kind` 为 `all|item|event|automatic`；`state` 为 `all|open|done`。`from` 必填且包含时区偏移。
 
-每项代表一次发生，按发生时间、计划引用稳定排序。事件投影只保留最早的 `limit + 1` 个候选，再生成当前页及后续游标；计划来源读取仍随账号计划数量增长。游标绑定所有者、起点和筛选条件，不允许跨查询使用。同一时刻不同计划不会因分页遗漏；重复计划的每次发生不会折叠成系列。投影复用通用重复规则，包含跨年等稀疏安排，不受月历日期范围限制，也不会推进调度游标、创建任务或触发执行。已完成筛选仅检查对应发生的执行记录，不能把整个系列标为完成。原 `GET /api/plans?from=…&to=…` 继续用于月历和计划详情。
+摘要包含计划身份、标题、日期规则、交接设置、就绪状态、`ExecutionCount` 和 `HasSuccessors`。`Executions` 仅包含最新执行及当前日期窗口／事件页内每次发生的最新状态（ID、状态、发生时间、开始和完成时间），不是完整历史；`Todo.Notes`、`Schedule.Instructions` 为空，`Links.Runs` 不携带历史。任务查询在存储层只投影状态字段，不加载任务正文。计划来源及历史状态读取量仍随账号内计划和执行数量增长，个人执行保存在关联记录内。
+
+每个事件代表一次发生，按发生时间、计划引用稳定排序。事件投影只保留最早的 `limit + 1` 个候选，游标绑定所有者、起点和筛选条件。同一时刻不同计划不会因分页遗漏；重复计划的每次发生不会折叠成系列。投影复用通用重复规则，包含跨年等稀疏安排，不受月历日期范围限制，不推进调度游标、创建任务或触发执行。已完成筛选只检查对应发生的最新执行。
+
+详情按需读取：
+
+- `GET /api/plans/{kind}/{id}?at=<RFC3339>` 返回单个计划的可编辑配置、执行总数和状态摘要；`at` 可选，用于重复计划本次发生的操作状态。`kind` 为 `todo|schedule`。
+- `GET /api/plans/{kind}/{id}/history?limit=20&cursor=…` 分页返回执行状态摘要，按开始时间和 ID 倒序，游标绑定账号及计划。个人执行与助理任务合并分页，不返回指令、结果或任务正文。
+- `GET /api/plans/{kind}/{id}/executions/{execution}` 在展开记录时返回完整执行快照、结果和关联任务，验证执行确实属于该计划。
+- `GET /api/plans/selection?plan_id=…&task_id=…` 解析计划／任务深层链接，返回 `{Plan, At}`，不要求目标位于当前事件页或历史页。至少提供一个 ID，同时提供时必须匹配。
+
+WebUI 日历、近期清单和无日期／逾期清单使用摘要；近期清单不附带请求完整计划目录。打开详情时读取配置及历史首页，展开执行时加载正文；关闭详情停止相关订阅。编辑操作先读取完整配置，避免用摘要中的空说明覆盖原值。
 
 ### 助理上下文压缩阈值
 
