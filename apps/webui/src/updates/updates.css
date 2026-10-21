@@ -50,7 +50,7 @@
 .version-details p { margin: 0; }
 .version-releases { display: grid; gap: 20px; }
 .release-summary { display: grid; gap: 10px; min-width: 0; }
-.release-summary + .release-summary { padding-top: 20px; border-top: 1px solid var(--color-border); }
+.release-summary + .release-summary { padding-top: 20px; border-top: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent); }
 .release-heading { display: flex; align-items: flex-start; gap: 10px; }
 .release-heading svg { flex-shrink: 0; margin-top: 2px; color: var(--color-text-muted); }
 .release-heading[data-tone='current'] svg { color: var(--color-positive); }
