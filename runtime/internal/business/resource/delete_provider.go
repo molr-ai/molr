@@ -33,6 +33,9 @@ func (s *service) DeleteProvider(ctx context.Context, p core.Principal, req Dele
 		if s.options.CheckVerification == nil || s.options.OnDeleteProvider == nil {
 			return result, core.NewError(core.Unavailable, "provider deletion unavailable")
 		}
+		if binding.ChatGPT != nil && binding.CredentialID != "" {
+			return result, core.Invalid("chatgpt", "disconnect ChatGPT before deleting")
+		}
 		removeKey := binding.CredentialID != ""
 		if removeKey {
 			bindings, err := persistence.Select[Binding](ctx, s.store, bindingBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("CredentialID", binding.CredentialID), {Field: "ResourceID", Op: "!=", Value: r.ID}}, Limit: 1})

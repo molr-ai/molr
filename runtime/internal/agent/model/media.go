@@ -107,7 +107,7 @@ func sanitizedRequest(body []byte) json.RawMessage {
 		switch x := v.(type) {
 		case map[string]any:
 			for k, v := range x {
-				if s, ok := v.(string); ok && ((k == "url" && strings.HasPrefix(s, "data:")) || k == "data") {
+				if s, ok := v.(string); ok && (((k == "url" || k == "image_url") && strings.HasPrefix(s, "data:")) || k == "data") {
 					x[k] = "[media omitted]"
 				} else {
 					clean(v)

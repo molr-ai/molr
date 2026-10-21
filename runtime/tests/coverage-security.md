@@ -129,7 +129,7 @@
 | internal/credential | Vault.Get | TestTDDCredentialMetadataLifecycle |
 | internal/credential | Vault.List | TestTDDCredentialMetadataLifecycle |
 | internal/credential | Vault.Delete | TestTDDCredentialMetadataLifecycle |
-| internal/credential | Vault.WithSecret | TestTDDBrokerDestinationAndLiveRevocation |
+| internal/credential | Vault.WithSecret | TestTDDBrokerDestinationAndLiveRevocation, TestOAuthResolutionSerializesRefreshAndPersistsBeforeUse |
 | internal/credential | Vault.Refresh | TestTDDBrokerRefreshRechecksBinding |
 | internal/policy | Manager.Require | TestTDDGrantsAndLiveAuthorization |
 | internal/policy | Manager.Grant | TestTDDGrantsAndLiveAuthorization |
@@ -229,3 +229,5 @@
 | `internal/auth` | `AccountStateSignal` | `TestAccountStateSignalOnlyCommittedLifecycleChanges` |
 
 | `internal/policy` | `LoadPermissionRequest` | `internal/objectaccess.TestOwnershipUsesDomainRecordsAndAttachmentReferences` |
+
+| internal/chatgpt | New, Client.Exchange, Client.Resolve, Client.Revoke | TestChatGPTIdentityExchangeRefreshAndRevocation, TestChatGPTRejectsUntrustedDiscoveryAndRefreshErrors |

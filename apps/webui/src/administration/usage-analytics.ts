@@ -1,6 +1,6 @@
 import type { CurrencyContext, Money } from '@molr/sdk';
 import { convertMoney, currencyText } from '../currency';
-export type UsageTotals = { InputTokens: number; OutputTokens: number; CachedTokens: number; TotalTokens: number; ModelCalls: number; MissingTokenCalls: number; UnknownCostCalls: number; ActiveCalls: number; Spent: Money[] };
+export type UsageTotals = { ReferenceCalls?: number; InputTokens: number; OutputTokens: number; CachedTokens: number; TotalTokens: number; ModelCalls: number; MissingTokenCalls: number; UnknownCostCalls: number; ActiveCalls: number; Spent: Money[] };
 export type UsageOption = { ID: string; Name: string; Secondary: string; State: string };
 export type UsageDay = UsageTotals & { Date: string };
 export type UsageRow = UsageTotals & UsageOption;

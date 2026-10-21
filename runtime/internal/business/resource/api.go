@@ -30,12 +30,13 @@ const (
 
 // Resource is safe for authorized UI/Agent views; it has no secret or raw binding.
 type Resource struct {
-	SandboxID core.ID `json:",omitempty"`
-	ID        core.ID
-	OwnerID   core.ID
-	Kind      Kind
-	Name      string
-	Provider  string
+	Authentication string  `json:",omitempty"`
+	SandboxID      core.ID `json:",omitempty"`
+	ID             core.ID
+	OwnerID        core.ID
+	Kind           Kind
+	Name           string
+	Provider       string
 	// Actions declares this provider's supported assistant permissions.
 	Actions []string
 	State   State
@@ -44,7 +45,15 @@ type Resource struct {
 
 // Binding is trusted-internal; endpoint, credential refs and filesystem roots
 // must never be copied into Agent-visible descriptors or arbitrary request URLs.
+// ChatGPTConnection contains registration metadata only; tokens live in the vault.
+type ChatGPTConnection struct {
+	ClientID string
+	Subject  string
+	Email    string
+}
+
 type Binding struct {
+	ChatGPT         *ChatGPTConnection `json:",omitempty"`
 	SandboxID       core.ID
 	SandboxResource string
 	// SandboxTarget names a deployment-configured network target. It is not a URL.
@@ -107,6 +116,7 @@ type TestConnectionRequest struct {
 }
 type ConnectionTest struct{ ModelCount int }
 type ProviderConnection struct {
+	ChatGPT         *ChatGPTConnection `json:",omitempty"`
 	PricingProvider string
 
 	Resource     Resource
@@ -175,4 +185,5 @@ type Repository interface {
 	Save(context.Context, Resource, core.Version) error
 	Binding(context.Context, core.ID, core.ID) (Binding, error)
 	BindingForModel(context.Context, core.ID, core.ID) (Binding, error)
+	SaveBinding(context.Context, Binding) error
 }

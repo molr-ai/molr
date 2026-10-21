@@ -40,7 +40,7 @@ export function runtimeOAuthTransport(options: {
   return {
     async request(path, body, signal) {
       if (!['/api/oauth/start', '/api/oauth/complete', '/api/oauth/cancel'].includes(path) && !/^\/api\/oauth\/attempts\/[A-Za-z0-9_-]{1,128}$/.test(path)) throw new Error('OAuth endpoint unavailable');
-      const deadline = AbortSignal.any([AbortSignal.timeout(30_000), ...(signal ? [signal] : [])]);
+      const deadline = AbortSignal.any([AbortSignal.timeout(path === '/api/oauth/complete' ? 90_000 : 30_000), ...(signal ? [signal] : [])]);
       await check(deadline);
       const response = await options.session.fetch(origin + path, { method: body === undefined ? 'GET' : 'POST', redirect: 'error', signal: deadline, headers: { Origin: origin, 'Content-Type': 'application/json', 'X-CSRF-Token': csrf! }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
       const result = await json(response);

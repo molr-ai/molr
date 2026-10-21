@@ -163,3 +163,22 @@ func TestUsageAnalyticsHTTPAuthorization(t *testing.T) {
 		}
 	}
 }
+
+func TestSubscriptionValuationReusesLedgerAndLabelsTotals(t *testing.T) {
+	f := newMultiUserFixture(t)
+	ctx := t.Context()
+	putAnalyticsCall(t, f, f.alice.OwnerID, "reference", "assistant", "settled", "2026-10-02T03:00:00Z", "USD", 42, 10, 2, 0)
+	need(t, f.b.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		receipt, err := persistence.Load[model.Receipt](ctx, tx.Store(), "agent.model_receipts", persistence.Key(f.alice.OwnerID, "receipt-reference"))
+		if err != nil {
+			return err
+		}
+		receipt.PricingInfo = &model.PricingInfo{Basis: "subscription-reference"}
+		return tx.Put(ctx, "agent.model_receipts", persistence.Key(f.alice.OwnerID, receipt.ID), receipt)
+	}))
+	result, err := usageAnalytics(ctx, f.b.store, f.b.Services.Auth.(*auth.Manager), f.alice, api.UsageQuery{From: "2026-10-01", Until: "2026-10-03", Timezone: "UTC", GroupBy: "model", Page: 1}, false, "USD", f.b.Exchange.Snapshot())
+	need(t, err)
+	if result.Summary.ReferenceCalls != 1 || result.Rows[0].ReferenceCalls != 1 || result.Daily[1].ReferenceCalls != 1 || result.Summary.Spent[0].Micros != 42 || result.Summary.TotalTokens != 12 {
+		t.Fatalf("reference valuation was lost: %+v", result.Summary)
+	}
+}

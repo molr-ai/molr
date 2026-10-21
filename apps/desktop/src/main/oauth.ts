@@ -77,14 +77,25 @@ function receipt(value: unknown, id: string): AppOAuthResult {
   const r = value as Receipt;
   if (!r || r.ID !== id) return { status: 'unknown', attemptId: id };
   if (r.Status === 'connected' && typeof r.ConnectionID === 'string' && identifier.test(r.ConnectionID)) return { status: 'connected', attemptId: id, connectionId: r.ConnectionID };
-  if (r.Status === 'cancelled' || r.Status === 'failed') return { status: r.Status, attemptId: id };
+  if (r.Status === 'cancelled' || r.Status === 'failed') return { status: r.Status, attemptId: id, ...(typeof r.ConnectionID === 'string' && identifier.test(r.ConnectionID) ? { connectionId: r.ConnectionID } : {}) };
   return { status: 'unknown', attemptId: id };
 }
 
 export class OAuthFlow {
   private active?: AbortController;
   cancel() { this.active?.abort(); }
-  async authorize(provider: unknown, transport: OAuthTransport): Promise<AppOAuthResult> {
+  async authorize(input: unknown, transport: OAuthTransport): Promise<AppOAuthResult> {
+    let provider: unknown = input;
+    let options: { connectionId?: string; expectedVersion?: number; name?: string; verification?: string } = {};
+    if (input && typeof input === 'object' && !Array.isArray(input)) {
+      const q = input as Record<string, unknown>;
+      if (Object.keys(q).some(key => !['provider', 'connectionId', 'expectedVersion', 'name', 'verification'].includes(key))) throw new Error('Invalid OAuth options');
+      if (q.connectionId !== undefined && (typeof q.connectionId !== 'string' || !identifier.test(q.connectionId))) throw new Error('Invalid OAuth connection');
+      if (q.expectedVersion !== undefined && (!Number.isSafeInteger(q.expectedVersion) || Number(q.expectedVersion) < 1)) throw new Error('Invalid OAuth version');
+      if (q.name !== undefined && (typeof q.name !== 'string' || q.name.length > 256)) throw new Error('Invalid OAuth name');
+      if (q.verification !== undefined && (typeof q.verification !== 'string' || q.verification.length > 4096)) throw new Error('Invalid OAuth verification');
+      provider = q.provider; options = q as typeof options;
+    }
     if (typeof provider !== 'string' || !identifier.test(provider)) throw new Error('Invalid OAuth provider');
     if (this.active) throw new Error('OAuth authorization already active');
     const controller = new AbortController(); this.active = controller;
@@ -92,7 +103,7 @@ export class OAuthFlow {
     let listener: Awaited<ReturnType<typeof listenCallback>> | undefined, id: string | undefined, completing = false;
     try {
       listener = await listenCallback(controller.signal);
-      const start = prepared(await transport.request('/api/oauth/start', { Provider: provider, RedirectURI: listener.redirectURI }, controller.signal), listener.redirectURI);
+      const start = prepared(await transport.request('/api/oauth/start', { Provider: provider, RedirectURI: listener.redirectURI, ...(options.connectionId ? { ConnectionID: options.connectionId, ExpectedVersion: options.expectedVersion } : {}), ...(options.name ? { Name: options.name } : {}), ...(options.verification ? { verification: options.verification } : {}) }, controller.signal), listener.redirectURI);
       id = start.ID;
       listener.arm(start.State);
       // Native confirmation identifies both the external authority and Runtime

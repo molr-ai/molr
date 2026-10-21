@@ -11,6 +11,9 @@ import (
 )
 
 func readProviderStream(protocol Protocol, r io.Reader, started time.Time, now func() time.Time) ([]byte, []byte, *Timing, error) {
+	if protocol == OpenAIResponses {
+		return readResponsesStream(r, started, now)
+	}
 	if protocol == AnthropicMessages {
 		return readAnthropicStream(r, started, now)
 	}

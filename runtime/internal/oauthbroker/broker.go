@@ -18,11 +18,16 @@ import (
 
 const Lifetime = 5 * time.Minute
 
-// Authorization contains no secrets. Providers must use these exact values.
-type Authorization struct{ RedirectURI, State, Nonce, Challenge string }
+// Authorization is trusted-adapter-only: Request may contain a verification proof.
+// Never serialize it into a page or log; providers must use these exact values.
+type Authorization struct {
+	RedirectURI, State, Nonce, Challenge string
+	Request                              StartRequest
+}
 
 // Grant stays inside the Runtime; never serialize it into a page or log.
 type Grant struct {
+	Request                 StartRequest
 	RedirectURI             string
 	Code, Verifier          core.Secret
 	Nonce, ClientID, Issuer string
@@ -34,7 +39,13 @@ type Provider interface {
 	// Return only a non-secret connection ID. Refresh ownership belongs to Runtime.
 	Complete(context.Context, core.Principal, Grant) (core.ID, error)
 }
-type StartRequest struct{ Provider, RedirectURI string }
+type StartRequest struct {
+	Provider, RedirectURI string
+	ConnectionID          core.ID
+	Name                  string
+	ExpectedVersion       core.Version
+	Verification          string `json:"verification"`
+}
 type Started struct {
 	ID, AuthorizationURL, State string
 	ExpiresAt                   time.Time
@@ -104,7 +115,7 @@ func (b *Broker) Start(ctx context.Context, p core.Principal, input StartRequest
 	}
 	id, verifier := secret(), secret()
 	hash := sha256.Sum256([]byte(verifier))
-	a := &attempt{p: p, provider: provider, auth: Authorization{input.RedirectURI, secret(), secret(), base64.RawURLEncoding.EncodeToString(hash[:])}, verifier: verifier, expires: b.now().Add(Lifetime), result: Result{ID: id, Status: "preparing"}}
+	a := &attempt{p: p, provider: provider, auth: Authorization{RedirectURI: input.RedirectURI, State: secret(), Nonce: secret(), Challenge: base64.RawURLEncoding.EncodeToString(hash[:]), Request: input}, verifier: verifier, expires: b.now().Add(Lifetime), result: Result{ID: id, Status: "preparing"}}
 	b.mu.Lock()
 	for key, old := range b.attempts {
 		if !b.now().Before(old.expires) && old.result.Status != "completing" {
@@ -137,6 +148,10 @@ func (b *Broker) Start(ctx context.Context, p core.Principal, input StartRequest
 	defer b.mu.Unlock()
 	if !valid || ctx.Err() != nil || !b.now().Before(a.expires) {
 		delete(b.attempts, id)
+		switch core.CodeOf(err) {
+		case core.Forbidden, core.Unauthenticated, core.Conflict, core.InvalidArgument:
+			return Started{}, core.NewError(core.CodeOf(err), "OAuth preparation rejected")
+		}
 		return Started{}, core.NewError(core.Unavailable, "OAuth preparation failed")
 	}
 	a.result.Status = "pending"
@@ -208,12 +223,15 @@ func (b *Broker) Complete(ctx context.Context, p core.Principal, input CompleteR
 		return result, nil
 	}
 	a.result.Status = "completing"
-	grant := Grant{a.auth.RedirectURI, core.NewSecret(input.Code), core.NewSecret(a.verifier), a.auth.Nonce, input.ClientID, input.Issuer}
+	grant := Grant{Request: a.auth.Request, RedirectURI: a.auth.RedirectURI, Code: core.NewSecret(input.Code), Verifier: core.NewSecret(a.verifier), Nonce: a.auth.Nonce, ClientID: input.ClientID, Issuer: input.Issuer}
 	a.verifier = ""
 	b.mu.Unlock()
 	connection, completeErr := a.provider.Complete(ctx, p, grant)
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if connection.Validate() == nil {
+		a.result.ConnectionID = connection
+	}
 	if completeErr != nil || connection.Validate() != nil {
 		a.result.Status = "failed"
 	} else {

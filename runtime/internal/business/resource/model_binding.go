@@ -30,6 +30,11 @@ func putBinding(ctx context.Context, tx persistence.Tx, owner core.ID, binding B
 	return tx.Put(ctx, bindingBucket, persistence.Key(owner, binding.ResourceID), row)
 }
 
+// SaveBinding preserves model membership indexes for trusted adapter updates.
+func (r *repository) SaveBinding(ctx context.Context, b Binding) error {
+	return r.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error { return putBinding(ctx, tx, catalog.Scope, b) })
+}
+
 func (r *repository) BindingForModel(ctx context.Context, owner, id core.ID) (Binding, error) {
 	owner = catalog.Scope
 	rows, err := persistence.Select[Binding](ctx, r.store, bindingBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerKey", owner), {Field: "ModelIDs", Op: "has", Value: string(id)}}, Limit: 1, Unordered: true})

@@ -16,6 +16,7 @@ import (
 )
 
 type analyticsTotals struct {
+	ReferenceCalls                                               int64
 	InputTokens, OutputTokens, CachedTokens, TotalTokens         int64
 	ModelCalls, MissingTokenCalls, UnknownCostCalls, ActiveCalls int64
 	Spent                                                        []core.Money
@@ -52,7 +53,7 @@ func (a *analyticsTotals) add(b analyticsTotals) error {
 	for _, pair := range []struct {
 		to    *int64
 		value int64
-	}{{&a.InputTokens, b.InputTokens}, {&a.OutputTokens, b.OutputTokens}, {&a.CachedTokens, b.CachedTokens}, {&a.TotalTokens, b.TotalTokens}, {&a.ModelCalls, b.ModelCalls}, {&a.MissingTokenCalls, b.MissingTokenCalls}, {&a.UnknownCostCalls, b.UnknownCostCalls}, {&a.ActiveCalls, b.ActiveCalls}} {
+	}{{&a.ReferenceCalls, b.ReferenceCalls}, {&a.InputTokens, b.InputTokens}, {&a.OutputTokens, b.OutputTokens}, {&a.CachedTokens, b.CachedTokens}, {&a.TotalTokens, b.TotalTokens}, {&a.ModelCalls, b.ModelCalls}, {&a.MissingTokenCalls, b.MissingTokenCalls}, {&a.UnknownCostCalls, b.UnknownCostCalls}, {&a.ActiveCalls, b.ActiveCalls}} {
 		if pair.value < 0 || *pair.to > math.MaxInt64-pair.value {
 			return core.NewError(core.Internal, "usage overflow")
 		}
@@ -239,6 +240,9 @@ func usageAnalytics(ctx context.Context, store persistence.Store, identity *auth
 				}
 				value := emptyAnalytics()
 				value.ModelCalls = 1
+				if receipt.PricingInfo != nil && receipt.PricingInfo.Basis == "subscription-reference" {
+					value.ReferenceCalls = 1
+				}
 				if receipt.ID != "" && receipt.OutcomeKnown {
 					if receipt.Usage.InputTokens < 0 || receipt.Usage.OutputTokens < 0 || receipt.Usage.CachedTokens < 0 || receipt.Usage.CachedTokens > receipt.Usage.InputTokens || receipt.Usage.InputTokens > math.MaxInt64-receipt.Usage.OutputTokens {
 						return core.NewError(core.Internal, "invalid recorded usage")

@@ -29,6 +29,8 @@ type Model struct {
 	PricingInfo           *PricingInfo
 }
 type PricingInfo struct {
+	// Basis distinguishes internal subscription valuation from API price estimates.
+	Basis                              string `json:",omitempty"`
 	Source                             string
 	Automatic                          *Pricing
 	RuleID, Version, Period, SourceURL string
@@ -52,6 +54,7 @@ const (
 	GeminiChat        Protocol = "gemini-chat-completions"
 	MiniMaxChat       Protocol = "minimax-chat-completions"
 	ReasoningChat     Protocol = "reasoning-chat-completions"
+	OpenAIResponses   Protocol = "openai-responses"
 	OpenAIChat        Protocol = "openai-chat-completions"
 	OpenRouterChat    Protocol = "openrouter-chat-completions"
 	DeepSeekChat      Protocol = "deepseek-chat-completions"

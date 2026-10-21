@@ -59,7 +59,7 @@ func providerFailure(status int, body []byte, header string, now time.Time) *Fai
 	// Only recognized codes are retained in public diagnostics. Never store an
 	// arbitrary provider message as a reason (it may contain private prompt data).
 	switch code {
-	case "context_length_exceeded", "context_window_exceeded", "prompt_too_long", "insufficient_quota", "quota_exceeded", "billing_hard_limit_reached", "invalid_api_key", "rate_limit_exceeded", "rate_limit_error", "overloaded_error", "server_overloaded":
+	case "subscription_sharing_usage_limit_exceeded", "subscription_sharing_usage_unavailable", "subscription_sharing_user_unavailable", "subscription_sharing_user_not_eligible", "subscription_sharing_route_not_supported", "subscription_sharing_invalid_user", "subscription_sharing_unsupported_capability", "chatpass_v2_scope_not_authorized", "chatpass_v2_invalid_authorization_context", "context_length_exceeded", "context_window_exceeded", "prompt_too_long", "insufficient_quota", "quota_exceeded", "billing_hard_limit_reached", "invalid_api_key", "rate_limit_exceeded", "rate_limit_error", "overloaded_error", "server_overloaded":
 		f.ProviderCode = code
 	}
 	switch status {
@@ -69,12 +69,12 @@ func providerFailure(status int, body []byte, header string, now time.Time) *Fai
 		f.Code, f.Reason, f.OutcomeKnown, f.NoCharge = core.Unauthenticated, core.ModelAuthenticationFailed, true, true
 	case 429:
 		f.Code, f.Reason, f.OutcomeKnown, f.NoCharge, f.Retryable = core.RateLimited, core.ModelRateLimited, true, true, true
-		if code == "insufficient_quota" || code == "quota_exceeded" || code == "billing_hard_limit_reached" {
+		if code == "subscription_sharing_usage_limit_exceeded" || code == "insufficient_quota" || code == "quota_exceeded" || code == "billing_hard_limit_reached" {
 			f.Reason, f.Retryable = core.ModelQuotaExceeded, false
 		}
 	case 503, 529:
 		// A generic gateway failure does not prove that generation was rejected.
-		if code == "overloaded_error" || code == "server_overloaded" {
+		if code == "subscription_sharing_usage_unavailable" || code == "subscription_sharing_user_unavailable" || code == "overloaded_error" || code == "server_overloaded" {
 			f.OutcomeKnown, f.NoCharge, f.Retryable = true, true, true
 		}
 	}

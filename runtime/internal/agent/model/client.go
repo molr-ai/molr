@@ -428,6 +428,9 @@ func (c *client) Generate(ctx context.Context, req Request) (Stream, error) {
 			return providerFailure(response.StatusCode, data, response.Header.Get("Retry-After"), c.options.Now())
 		}
 		if readErr != nil {
+			if FailureOf(readErr) != nil {
+				return readErr
+			}
 			return core.NewError(core.Unavailable, "provider response incomplete")
 		}
 		parsed, err = adapter.Decode(decoded, provider)

@@ -88,6 +88,13 @@ func (s Service) Describe(r resource.Resource, b resource.Binding, entry Entry) 
 			protocol = model.DeepSeekChat
 		}
 	}
+	if b.ChatGPT != nil {
+		protocol = model.OpenAIResponses
+		if info == nil {
+			info = &model.PricingInfo{Source: "unknown"}
+		}
+		info.Basis = "subscription-reference"
+	}
 	manual, declared := m.ContextLimit, m.ProviderContextLimit
 	effective, source := model.DefaultContextLimit, "fallback"
 	if declared > 0 {
@@ -103,7 +110,7 @@ func (s Service) Describe(r resource.Resource, b resource.Binding, entry Entry) 
 	if m.OutputLimit > 0 {
 		output, outputSource = m.OutputLimit, "manual"
 	}
-	return model.Provider{Protocol: protocol, Model: model.Model{ID: entry.ID, ResourceID: r.ID, Name: m.Name, SupportsTools: m.SupportsTools, SupportsImages: m.SupportsImages, SupportsAudio: m.SupportsAudio && protocol != model.DeepSeekChat && protocol != model.AnthropicMessages, ContextLimit: manual, ProviderContextLimit: declared, EffectiveContextLimit: effective, ContextLimitSource: source, OutputLimit: m.OutputLimit, ProviderOutputLimit: m.ProviderOutputLimit, EffectiveOutputLimit: output, OutputLimitSource: outputSource, Pricing: price, PricingInfo: info}, Endpoint: b.Endpoint, CredentialID: b.CredentialID, Pricing: price, ReservePricing: reserve}
+	return model.Provider{Protocol: protocol, Model: model.Model{ID: entry.ID, ResourceID: r.ID, Name: m.Name, SupportsTools: m.SupportsTools, SupportsImages: m.SupportsImages, SupportsAudio: m.SupportsAudio && protocol != model.OpenAIResponses && protocol != model.DeepSeekChat && protocol != model.AnthropicMessages, ContextLimit: manual, ProviderContextLimit: declared, EffectiveContextLimit: effective, ContextLimitSource: source, OutputLimit: m.OutputLimit, ProviderOutputLimit: m.ProviderOutputLimit, EffectiveOutputLimit: output, OutputLimitSource: outputSource, Pricing: price, PricingInfo: info}, Endpoint: b.Endpoint, CredentialID: b.CredentialID, Pricing: price, ReservePricing: reserve}
 }
 func (s Service) Resolve(ctx context.Context, p core.Principal, id core.ID) (out model.Provider, err error) {
 	err = s.Store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {

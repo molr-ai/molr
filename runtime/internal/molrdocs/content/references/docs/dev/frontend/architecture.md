@@ -65,4 +65,4 @@ WebUI 的 `NotificationAdapter` 在 App 中选择原生适配器，通过 `molrA
 
 客户端先监听临时 `127.0.0.1` 端口，再用当前连接分区的会话和 CSRF proof 请求 Runtime 准备授权。Runtime 管理 state、nonce 和 PKCE，客户端原生对话框展示授权网站及目标连接，随后打开系统浏览器。监听器只接受匹配 Host、路径、state 的单次 GET 回调，将白名单字段直接提交到固定 Runtime 接口。主进程逐次检查当前视图和登录身份；切换连接、主页面导航、关闭窗口、取消或超时都会关闭监听器。请求体、回调地址与凭据不写日志，也不传给插件。
 
-本机与远程 Runtime 使用同一流程，包括用户已明确启用的局域网 HTTP。授权码在客户端与 Runtime 之间传输，token 由 Runtime 服务适配器换取并保管；这不为 HTTP 增加传输加密。回调失败或状态未知不自动重试换取 token。服务适配器尚未接入，当前可通过独立模拟流程验收底座；契约及适配器职责见 [HTTP API](https://molr.ai/zh/docs/dev/reference/http-api/#桌面-oauth-授权)，运行方式见 [Desktop README](https://github.com/molr-ai/molr/blob/main/apps/desktop/README.md#local-oauth-callback-and-runtime-handoff)。
+本机与远程 Runtime 使用同一流程，包括用户已明确启用的局域网 HTTP。授权码在客户端与 Runtime 之间传输，token 由 Runtime 服务适配器换取并保管；这不为 HTTP 增加传输加密。回调失败或状态未知不自动重试换取 token。已注册管理员使用的 ChatGPT 适配器；授权方法可传入连接 ID、版本、名称和敏感操作验证凭据。契约及适配器职责见 [HTTP API](https://molr.ai/zh/docs/dev/reference/http-api/#桌面-oauth-授权)，运行方式见 [Desktop README](https://github.com/molr-ai/molr/blob/main/apps/desktop/README.md#local-oauth-callback-and-runtime-handoff)。

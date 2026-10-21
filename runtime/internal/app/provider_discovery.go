@@ -155,7 +155,11 @@ func (a adapters) discoverModels(ctx context.Context, p core.Principal, b resour
 	var rows []resource.ModelConfig
 	request := func(secret core.Secret) error {
 		var err error
-		rows, err = fetchProviderModels(ctx, client, b.Endpoint, secret, b.PricingProvider)
+		if b.ChatGPT != nil {
+			rows, err = fetchChatGPTModels(ctx, client, secret)
+		} else {
+			rows, err = fetchProviderModels(ctx, client, b.Endpoint, secret, b.PricingProvider)
+		}
 		return err
 	}
 	if b.CredentialID != "" {

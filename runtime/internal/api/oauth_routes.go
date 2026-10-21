@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"molr.ai/runtime/internal/auth"
+	"molr.ai/runtime/internal/business/resource"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/oauthbroker"
 	"net/http"
@@ -10,6 +12,15 @@ import (
 func (s *HTTPServer) oauthRoutes() {
 	// Registered providers are an internal composition choice, never arbitrary
 	// authorization/token endpoints supplied by a webpage or model.
+	route(s, "POST /api/chatgpt/disconnect", func(ctx context.Context, p core.Principal, q struct {
+		ID           core.ID
+		Mutation     core.Mutation
+		Verification string `json:"verification"`
+	}) (any, error) { if s.options.ChatGPTDisconnect == nil {
+		return nil, core.NewError(core.Unavailable, "ChatGPT unavailable")
+	}; if err := q.Mutation.Validate(true); err != nil {
+		return nil, err
+	}; revoked, err := s.options.ChatGPTDisconnect(ctx, p, resource.DeleteProviderRequest{ID: q.ID, Mutation: q.Mutation, Verification: auth.Verification{Token: core.NewSecret(q.Verification)}}); return struct{ Revoked bool }{revoked}, err })
 	b := s.options.OAuth
 	if b == nil {
 		b = oauthbroker.New(nil, nil)

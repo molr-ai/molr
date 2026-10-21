@@ -85,6 +85,30 @@ func ReplayedReasoning(in Input, source StateSource) (*string, error) {
 	if in.ProviderState == nil || in.ProviderState.Source != source {
 		return nil, nil
 	}
+	if source.Protocol == OpenAIResponses {
+		var items []json.RawMessage
+		if json.Unmarshal(in.ProviderState.Payload, &items) != nil {
+			return nil, core.Invalid("provider_state", "invalid Responses state")
+		}
+		reasoning := []json.RawMessage{}
+		for _, raw := range items {
+			var item struct {
+				Type string `json:"type"`
+			}
+			if json.Unmarshal(raw, &item) != nil {
+				return nil, core.Invalid("provider_state", "invalid Responses item")
+			}
+			if item.Type == "reasoning" {
+				reasoning = append(reasoning, raw)
+			}
+		}
+		if len(reasoning) == 0 {
+			return nil, nil
+		}
+		data, _ := json.Marshal(reasoning)
+		value := string(data)
+		return &value, nil
+	}
 	if source.Protocol == OpenRouterChat {
 		state, err := readOpenRouterState(in.ProviderState.Payload)
 		if err != nil {

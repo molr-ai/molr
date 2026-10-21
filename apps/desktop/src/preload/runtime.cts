@@ -28,7 +28,7 @@ if (process.isMainFrame) {
       },
     },
     oauth: {
-      authorize: provider => ipcRenderer.invoke('app:oauth-authorize', provider),
+      authorize: (provider, options) => ipcRenderer.invoke('app:oauth-authorize', options ? { provider, ...options } : provider),
       cancel: () => ipcRenderer.invoke('app:oauth-cancel'),
     },
     getInfo: () => ipcRenderer.invoke('app:info'),

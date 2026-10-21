@@ -97,3 +97,9 @@ DeepSeek 协议依据：[Chat Completions](https://api-docs.deepseek.com/api/cre
 部署配置 `diagnostics.model_responses` 默认 `false`，与 `debug.enabled` 独立。开启后，原始响应写入 `<data_dir>/logs/model-responses/responses.jsonl`，每条记录带调用身份、时间、HTTP 状态、Content-Type、响应体和不完整标记。最多保留当前文件与两份轮转文件，每份不超过 64 MiB；日志目录权限为 0700，文件为 0600，不保存请求头或认证信息。响应正文可能包含输入、输出及供应商返回的敏感内容，应仅在排障时开启。读取失败时记录已收到的内容，超过接收上限时截断并标记；日志失败只写通用服务日志，不阻止执行。关闭开关后停止新增文件记录，已有日志不自动删除。
 
 `go test ./internal/agent/model` 覆盖大量片段、Unicode、交错工具调用、扩展字段替换、异常流、计时与计费证据。`go test ./internal/agent/model -run '^$' -bench BenchmarkChatStreamAssembly -benchmem` 按正文、推理和工具参数分别比较 256、1,024、4,096 个片段的时间与分配量；性能数值依赖机器，不作为固定响应时间承诺。
+
+## ChatGPT Responses
+
+`openai-responses` 用于管理员添加的 ChatGPT 套餐连接。请求固定为公开 `/v1/responses`，函数工具按 `molr` namespace 编码，system 消息转换为 developer，原样保留同源输出顺序、assistant phase 和 encrypted reasoning，使用显式历史和工具结果回放。SSE 必须收到 `response.completed` 才成功；额度错误保留结构化原因，禁止自动重试。
+
+凭据由 Runtime 的 OAuth 适配器和现有 Vault 管理；刷新串行化并在使用新 access token 前原子保存轮换凭据。`PricingInfo.Basis=subscription-reference` 标识内部预算参考计价，预留、结算、组次数及并发限制继续走现有链路。

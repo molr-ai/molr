@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"molr.ai/runtime/internal/auth"
+	"molr.ai/runtime/internal/business/resource"
 	"molr.ai/runtime/internal/config"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/im/dingtalk"
@@ -52,6 +53,7 @@ type permissionRequestService interface {
 
 type Options struct {
 	OAuth              *oauthbroker.Broker
+	ChatGPTDisconnect  func(context.Context, core.Principal, resource.DeleteProviderRequest) (bool, error)
 	RequestLogger      *slog.Logger
 	Workspace          WorkspaceService
 	UsageAnalytics     func(context.Context, core.Principal, UsageQuery, bool) (any, error)

@@ -52,6 +52,9 @@ func (a adapters) providers() map[string]resource.Provider {
 			if b.SandboxTarget != "" {
 				return nil, core.Invalid("binding", "sandbox target not supported by model provider")
 			}
+			if b.ChatGPT != nil && (b.PricingProvider != "openai" || b.Endpoint != "https://api.openai.com/v1/responses" || b.ChatGPT.ClientID == "" || b.ChatGPT.ClientID == "dynamic_agent_client") {
+				return nil, core.Invalid("chatgpt", "invalid ChatGPT binding")
+			}
 			switch b.PricingProvider {
 			case "", "openai", "openrouter", "deepseek", "bailian", "zhipu", "moonshot", "ollama", "llamacpp", "vllm", "sglang", "anthropic", "gemini", "minimax", "volcengine", "siliconflow", "lmstudio", "zai", "custom":
 			default:
@@ -247,7 +250,11 @@ func (a adapters) credentialAccess(ctx context.Context, q credential.Access) err
 	if err != nil {
 		return err
 	}
-	if value.Metadata.Provider != r.Provider {
+	expected := r.Provider
+	if b.ChatGPT != nil {
+		expected = "chatgpt"
+	}
+	if value.Metadata.Provider != expected {
 		return denied()
 	}
 	return a.policy.Require(ctx, p, policy.CheckRequest{Target: core.Object{Kind: "resource", ID: r.ID}, ResourceID: r.ID, Action: policy.Execute, Destination: b.Endpoint})

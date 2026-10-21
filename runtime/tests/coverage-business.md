@@ -205,3 +205,5 @@ Clone/返聘授权契约细化：新授权具有新 ID，并绑定目标助理�
 
 | `internal/business/assistant` | `GetGroup` | `internal/objectaccess.TestOwnershipUsesDomainRecordsAndAttachmentReferences` |
 | `internal/search` | `LoadStatus` | `internal/objectaccess.TestOwnershipUsesDomainRecordsAndAttachmentReferences` |
+
+| internal/business/resource | Repository.SaveBinding | TestOAuthBindingKeepsModelMembershipAndRegistration |

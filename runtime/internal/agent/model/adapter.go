@@ -23,6 +23,8 @@ type completion struct {
 
 func adapterFor(protocol Protocol) (protocolAdapter, error) {
 	switch protocol {
+	case OpenAIResponses:
+		return responsesAdapter{}, nil
 	case "", OpenAIChat:
 		return openAIChatAdapter{}, nil
 	case OpenRouterChat:

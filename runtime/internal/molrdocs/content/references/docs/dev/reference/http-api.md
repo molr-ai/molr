@@ -275,14 +275,16 @@ HTTP 限流在事务内读取并更新持久计数，通过的请求占用当前
 
 ## 桌面 OAuth 授权
 
-统一底座支持 OAuth 2.0 授权码、S256 PKCE 和本机 GET 回调。正式 Runtime 暂未注册具体服务适配器，未知 `Provider` 返回错误；测试中的模拟服务不属于产品接入能力。以下接口要求仍有效的用户浏览器会话，禁止 Bearer／助理身份，写入沿用 Origin 和 CSRF 检查。
+统一底座支持 OAuth 2.0 授权码、S256 PKCE 和本机 GET 回调。正式 Runtime 注册 `chatgpt` 适配器，仅管理员可连接；未知 `Provider` 返回错误。以下接口要求仍有效的用户浏览器会话，禁止 Bearer／助理身份，写入沿用 Origin 和 CSRF 检查。
 
 | 接口 | 请求与结果 |
 | --- | --- |
-| `POST /api/oauth/start` | `{ Provider, RedirectURI }`；返回 `{ ID, AuthorizationURL, State, ExpiresAt }`。回调固定为 `http://127.0.0.1:<port>/auth/callback`，端口由客户端先监听后提供 |
+| `POST /api/oauth/start` | `{ Provider, RedirectURI, ConnectionID?, ExpectedVersion?, Name?, verification? }`；返回 `{ ID, AuthorizationURL, State, ExpiresAt }`。回调固定为 `http://127.0.0.1:<port>/auth/callback`，端口由客户端先监听后提供 |
 | `POST /api/oauth/complete` | `{ ID, State, Code, ClientID?, Issuer?, Error? }`；`Code` 与 `Error` 必须恰有一项非空；返回 `{ ID, Status, ConnectionID? }` |
 | `POST /api/oauth/cancel` | `{ ID }`；返回当前结果，只取消尚未开始换取凭据的尝试 |
 | `GET /api/oauth/attempts/{id}` | 查询当前会话自己的尝试结果，不返回授权码、PKCE verifier 或 token |
+
+ChatGPT 的 `verification` 沿用 `credential.put` 敏感操作验证；重新授权提供连接 ID 和资源版本。`POST /api/chatgpt/disconnect` 接受 `{ ID, Mutation, verification }`，验证 `credential.delete` 并返回 `{ Revoked }`，表示是否确认远端撤销；无论远端确认与否均清除本地 token。
 
 尝试绑定创建时的用户和会话，有效期五分钟，进程重启后失效；每个会话只允许一个进行中的尝试，全实例最多保留 128 项。状态为 `preparing`、`pending`、`completing`、`connected`、`cancelled` 或 `failed`。校验 state 后原子认领授权码，同一尝试的重复完成请求只读取状态，不再次换取凭据。交换已开始时取消返回 `completing`，不能承诺撤销已经保存的授权。完成请求响应丢失时查询状态；过期或重启后的记录不能用于推断外部副作用，应先核对服务连接。
 

@@ -6,14 +6,14 @@ import { useReauthentication } from '../components/ReauthenticationDialog';
 import { api, APIError } from '../../../api/client';
 import type { Resource } from '../../../api/types';
 import { useCopy, useQuery } from '../../../state';
+import { ChatGPTConnection, type ChatGPTConnectionInfo } from './ChatGPTConnection';
 import { LocalProviderDiscovery } from './LocalProviderDiscovery';
 import { Loading, useAction } from '../components/common';
 
-// Only implemented authentication methods appear in the UI. OAuth remains a
-// future provider capability, not a generic authentication option.
+// Authentication methods are explicit provider capabilities.
 type AuthenticationMethod = 'api-key' | 'none' | 'oauth';
 const providers = [
-  { id: 'openai', name: 'OpenAI', category: 'cloud', aliases: '', endpoint: 'https://api.openai.com/v1', icon: Cloud, methods: ['api-key'] },
+  { id: 'openai', name: 'OpenAI', category: 'cloud', aliases: '', endpoint: 'https://api.openai.com/v1', icon: Cloud, methods: ['api-key', 'oauth'] },
   { id: 'anthropic', name: 'Anthropic', category: 'cloud', aliases: 'Claude', endpoint: 'https://api.anthropic.com/v1', icon: Cloud, methods: ['api-key'] },
   { id: 'gemini', name: 'Google Gemini', category: 'cloud', aliases: 'Google AI Studio 谷歌', endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai', icon: Cloud, methods: ['api-key'] },
   { id: 'minimax', name: 'MiniMax', category: 'cloud', aliases: '稀宇', endpoint: 'https://api.minimax.cn/v1', icon: Cloud, methods: ['api-key'] },
@@ -34,7 +34,7 @@ const providers = [
 ] as const;
 type ProviderFilter = 'all' | 'cloud' | 'local';
 type ProviderID = typeof providers[number]['id'];
-type Connection = { Resource: Resource; Endpoint: string; CredentialID: string; PricingProvider?: ProviderID };
+type Connection = { ChatGPT?: ChatGPTConnectionInfo; Resource: Resource; Endpoint: string; CredentialID: string; PricingProvider?: ProviderID };
 type Props = { inline?: boolean; resourceID?: string; onConnected: (resource: Resource) => void; onClose: () => void };
 type Draft = { name: string; endpoint: string; authentication: AuthenticationMethod; apiKey: string; replaceKey: boolean };
 const baseURL = (value: string) => value.replace(/\/(?:chat\/completions|messages)\/?$/, '').replace(/\/$/, '');
@@ -63,7 +63,7 @@ function ProviderForm({ inline, initial, onConnected, onClose }: Omit<Props, 're
   const [providerFilter, setProviderFilter] = useState<ProviderFilter>('all');
   const [provider, setProvider] = useState<ProviderID>(initialProvider);
   const [drafts, setDrafts] = useState<Partial<Record<ProviderID, Draft>>>(() => initial ? { [initialProvider]: {
-    name: initial.Resource.Name, endpoint: baseURL(initial.Endpoint), authentication: initial.CredentialID ? 'api-key' : 'none', apiKey: '', replaceKey: !initial.CredentialID,
+    name: initial.Resource.Name, endpoint: baseURL(initial.Endpoint), authentication: initial.ChatGPT ? 'oauth' : initial.CredentialID ? 'api-key' : 'none', apiKey: '', replaceKey: !initial.CredentialID,
   } } : {});
   const draft = drafts[provider] ?? newDraft(provider);
   const formID = useId();
@@ -119,7 +119,7 @@ function ProviderForm({ inline, initial, onConnected, onClose }: Omit<Props, 're
     onConnected(resource);
   }
   const endpointField = <TextField label={t.resources.endpoint} type="url" value={draft.endpoint} onChange={event => update({ endpoint: event.target.value })} required={provider === 'custom' || !!initial} placeholder="https://api.example.com/v1" />;
-  const footer = <><Button variant="secondary" type="submit" form={formID} value="test" loading={testAction.busy} disabled={action.busy}>{t.resources.testConnection}</Button><Button type="submit" form={formID} loading={action.busy} disabled={testAction.busy}>{initial ? t.save : t.resources.connectActions.model}</Button></>;
+  const footer = draft.authentication === 'oauth' ? null : <><Button variant="secondary" type="submit" form={formID} value="test" loading={testAction.busy} disabled={action.busy}>{t.resources.testConnection}</Button><Button type="submit" form={formID} loading={action.busy} disabled={testAction.busy}>{initial ? t.save : t.resources.connectActions.model}</Button></>;
   const content = <>
     {!initial && <LocalProviderDiscovery disabled={busy} onSelect={item => {
       if (item.ResourceID) { void api.get<Resource>(`/api/resources/${item.ResourceID}`).then(onConnected).catch(() => {}); return; }
@@ -142,26 +142,27 @@ function ProviderForm({ inline, initial, onConnected, onClose }: Omit<Props, 're
         })}</div>
         {visibleProviders.length === 0 && <p className="provider-connect-empty muted" role="status">{t.resources.noMatchingProviders}</p>}
       </div>}
-      <form id={formID} className="provider-connect-form" aria-label={t.resources.providerConfiguration} onSubmit={event => { event.preventDefault();
+      <form id={formID} className="provider-connect-form" aria-label={t.resources.providerConfiguration} onSubmit={event => { event.preventDefault(); if (draft.authentication === 'oauth') return;
         if (((event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null)?.value === 'test') void testAction.run(testConnection, undefined, false);
         else void action.run(submit, onClose, false); }}>
         <header><h3>{initial ? initial.Resource.Name : providerName}</h3><p className="muted">{selected.category === 'local' ? t.resources.localProviderHelp.replace('{provider}', providerName) : t.resources.modelProviderHelp}</p>
           {selected.category !== 'local' && <Alert tone="warning" title={t.resources.privacyTitle}>{t.resources.providerPrivacy}</Alert>}
         </header>
         <fieldset disabled={busy} className="provider-connect-fields">
-          {initial && <TextField label={t.name} value={draft.name} onChange={event => update({ name: event.target.value })} required maxLength={256} />}
-          {(initial || provider === 'custom') && endpointField}
-          {selected.methods.length > 1 && <Select label={t.resources.authentication} value={draft.authentication} disabled={busy} onValueChange={authentication => update({ authentication })}
-            options={selected.methods.map(value => ({ value, label: t.resources.authMethods[value] }))} />}
+          {initial && draft.authentication !== 'oauth' && <TextField label={t.name} value={draft.name} onChange={event => update({ name: event.target.value })} required maxLength={256} />}
+          {draft.authentication !== 'oauth' && (initial || provider === 'custom') && endpointField}
+          {!initial && selected.methods.length > 1 && <Select label={t.resources.authentication} value={draft.authentication} disabled={busy} onValueChange={authentication => update({ authentication })}
+            options={selected.methods.map(value => ({ value, label: value === 'oauth' ? 'Continue with ChatGPT' : t.resources.authMethods[value] }))} />}
           {draft.authentication === 'api-key' && (storedKey ? <div className="provider-key-status"><span>{t.resources.keyConfigured}</span><Button variant="secondary" size="sm" onClick={() => update({ replaceKey: true })}>{t.resources.replaceKey}</Button></div> : <>
             <SecretField key={provider} name={`provider-${provider}-${initial?.Resource.ID ?? 'new'}-api-key`} label={t.settings.apiKey} value={draft.apiKey} onChange={event => update({ apiKey: event.target.value })} required />
             {initial?.CredentialID && <Button variant="ghost" size="sm" onClick={() => update({ replaceKey: false, apiKey: '' })}>{t.resources.keepKey}</Button>}
           </>)}
-          {!initial && <details key={provider} className="provider-connect-more"><summary>{t.resources.moreConfiguration}</summary><div className="provider-connect-fields">
+          {draft.authentication !== 'oauth' && !initial && <details key={provider} className="provider-connect-more"><summary>{t.resources.moreConfiguration}</summary><div className="provider-connect-fields">
             <TextField label={t.name} value={draft.name} onChange={event => update({ name: event.target.value })} placeholder={providerName} maxLength={256} />
             {provider !== 'custom' && endpointField}
           </div></details>}
         </fieldset>
+        {draft.authentication === 'oauth' && <ChatGPTConnection initial={initial} name={draft.name} onConnected={onConnected} onClose={onClose} />}
         {tested && <Alert tone="positive" title={t.resources.connectionTestSucceeded.replace('{count}', String(tested.ModelCount))} onDismiss={() => setTested(null)} />}
       </form>
     </div>

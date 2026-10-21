@@ -99,3 +99,21 @@ test('transport allows opted-in LAN HTTP, preserves CSRF and rejects session swi
   assert.throws(() => runtimeOAuthTransport({ url: 'http://public.example', allowHTTP: true }), /HTTPS/);
   assert.throws(() => runtimeOAuthTransport({ url: 'http://192.168.1.2:8787', allowHTTP: false }), /HTTPS/);
 });
+
+test('ChatGPT options stay bound to one attempt and failed registration is recoverable without secrets', async () => {
+  const flow = new OAuthFlow(); let start;
+  const result = await flow.authorize({ provider: 'chatgpt', connectionId: 'saved', expectedVersion: 2, name: 'ChatGPT', verification: 'fixture-proof' }, {
+    async request(path, body) {
+      if (path.endsWith('/start')) {
+        assert.equal(body.ConnectionID, 'saved'); assert.equal(body.ExpectedVersion, 2); assert.equal(body.verification, 'fixture-proof');
+        return start = prepare(body);
+      }
+      assert.equal(body.ClientID, 'issued-client');
+      return { ID: start.ID, Status: 'failed', ConnectionID: 'saved', RefreshToken: 'must-not-leak' };
+    },
+    async confirm() { return true; },
+    async openExternal(raw) { const q = new URL(raw).searchParams; await fetch(q.get('redirect_uri') + '?' + new URLSearchParams({ state: q.get('state'), code: 'fixture', client_id: 'issued-client' })); },
+  });
+  assert.deepEqual(result, { status: 'failed', attemptId: start.ID, connectionId: 'saved' });
+  await assert.rejects(flow.authorize({ provider: 'chatgpt', tokenURL: 'https://evil.example' }, {}), /Invalid OAuth options/);
+});

@@ -48,6 +48,7 @@ function TurnDetails({ data, receivedAt, ticking }: { data: TurnMetrics; receive
   const state = (value: string) => (copy as Record<string, string>)[value] ?? copy.unknown;
   if (data.State === 'unavailable') return <p className="message-info-note">{copy.unavailable}</p>;
   return <>
+    {(data.ReferenceCalls ?? 0) > 0 && <p className="muted">{locale === 'zh' ? '含 ChatGPT 套餐参考计价，用于内部预算。' : 'Includes ChatGPT plan reference valuation for internal budgets.'}</p>}
     <div className="turn-information-status"><Badge tone={data.State === 'done' ? 'positive' : 'neutral'}>{state(data.State)}</Badge>{!data.CostComplete && <small>{copy.pending}</small>}</div>
     <dl className="message-info-details">
       <dt>{copy.input}</dt><dd>{number(data.Usage?.InputTokens)}</dd>

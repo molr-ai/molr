@@ -13,10 +13,14 @@ import (
 	"molr.ai/runtime/internal/catalog"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
+	"sync"
 	"time"
 )
 
 type Options struct {
+	// ResolveProvider renews registered OAuth material and returns a bearer token.
+	// Empty updated material means no write; ordinary credentials pass through.
+	ResolveProvider      func(context.Context, Access, Credential, core.Secret) (updated, bearer core.Secret, err error)
 	RequireAdministrator func(context.Context, core.Principal) error
 	Now                  func() time.Time
 	MasterKey            []byte
@@ -33,10 +37,11 @@ type Options struct {
 	RefreshProvider func(context.Context, Access, core.Secret) (core.Secret, error)
 }
 type Vault struct {
-	store   persistence.Store
-	repo    Repository
-	options Options
-	keyID   string
+	sessionLocks [64]sync.Mutex
+	store        persistence.Store
+	repo         Repository
+	options      Options
+	keyID        string
 }
 
 func NewService(store persistence.Store, o Options) (*Vault, error) {
@@ -48,7 +53,7 @@ func NewService(store persistence.Store, o Options) (*Vault, error) {
 	}
 	o.MasterKey = append([]byte(nil), o.MasterKey...)
 	sum := sha256.Sum256(o.MasterKey)
-	return &Vault{store, NewRepository(store), o, hex.EncodeToString(sum[:8])}, nil
+	return &Vault{store: store, repo: NewRepository(store), options: o, keyID: hex.EncodeToString(sum[:8])}, nil
 }
 func (v *Vault) owner(ctx context.Context, p core.Principal, scope string) error {
 	if v.options.RequireAdministrator != nil {
@@ -293,6 +298,11 @@ func (v *Vault) WithOwnerSecret(ctx context.Context, p core.Principal, id core.I
 	if p.SessionID == "" || p.TokenID != "" || use == nil {
 		return core.NewError(core.Forbidden, "owner session required")
 	}
+	sum := sha256.Sum256([]byte(id))
+	lock := &v.sessionLocks[int(sum[0])%len(v.sessionLocks)]
+	lock.Lock()
+	defer lock.Unlock()
+
 	var value EncryptedValue
 	err := v.store.Read(ctx, func(ctx context.Context, _ persistence.Tx) error {
 		if err := v.owner(ctx, p, "credential.use"); err != nil {
@@ -325,11 +335,7 @@ func (v *Vault) WithSecret(ctx context.Context, a Access, use func(core.Secret) 
 	if use == nil {
 		return core.Invalid("callback", "secret consumer required")
 	}
-	value, e := v.access(ctx, a, false)
-	if e != nil {
-		return e
-	}
-	secret, e := v.decrypt(value)
+	secret, e := v.resolvedSecret(ctx, a)
 	if e != nil {
 		return e
 	}
@@ -338,6 +344,45 @@ func (v *Vault) WithSecret(ctx context.Context, a Access, use func(core.Secret) 
 	}
 	return use(secret)
 }
+func (v *Vault) resolvedSecret(ctx context.Context, a Access) (core.Secret, error) {
+	// A bounded stripe lock covers read, rotation and atomic save, never inference.
+	sum := sha256.Sum256([]byte(a.CredentialID))
+	lock := &v.sessionLocks[int(sum[0])%len(v.sessionLocks)]
+	lock.Lock()
+	defer lock.Unlock()
+	value, err := v.access(ctx, a, false)
+	if err != nil {
+		return core.Secret{}, err
+	}
+	secret, err := v.decrypt(value)
+	if err != nil {
+		return core.Secret{}, err
+	}
+	if v.options.ResolveProvider == nil {
+		return secret, nil
+	}
+	updated, bearer, err := v.options.ResolveProvider(ctx, a, value.Metadata, secret)
+	if err != nil {
+		return core.Secret{}, err
+	}
+	if !updated.Empty() {
+		err = v.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+			if _, err := v.access(ctx, a, true); err != nil {
+				return err
+			}
+			encrypted, err := v.encrypt(value.Metadata, updated)
+			if err != nil {
+				return err
+			}
+			return v.repo.Save(ctx, encrypted, value.Metadata.Version)
+		})
+		if err != nil {
+			return core.Secret{}, err
+		}
+	}
+	return bearer, nil
+}
+
 func (v *Vault) Refresh(ctx context.Context, a Access) error {
 	value, e := v.access(ctx, a, true)
 	if e != nil {

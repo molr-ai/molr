@@ -233,7 +233,7 @@ func (s *service) TestConnection(ctx context.Context, p core.Principal, req Test
 		return result, err
 	}
 	provider, ok := s.options.Providers[req.Provider]
-	if !ok || provider.Test == nil || provider.Validate == nil || req.Binding.ResourceID != "" || len(req.Binding.Models) != 0 || (!req.APIKey.Empty() && req.Binding.CredentialID != "") {
+	if req.Binding.ChatGPT != nil || !ok || provider.Test == nil || provider.Validate == nil || req.Binding.ResourceID != "" || len(req.Binding.Models) != 0 || (!req.APIKey.Empty() && req.Binding.CredentialID != "") {
 		return result, invalid("connection")
 	}
 	if p.SessionID == "" {
@@ -282,7 +282,7 @@ func (r *repository) Binding(ctx context.Context, owner, id core.ID) (Binding, e
 }
 func (s *service) Connect(ctx context.Context, p core.Principal, req ConnectRequest) (Resource, error) {
 	return mutate(ctx, s, p, "connect", "", req.Mutation, req, false, true, func(ctx context.Context) (Resource, error) {
-		if !validText(req.Name, 4096) || req.Binding.ResourceID != "" {
+		if !validText(req.Name, 4096) || req.Binding.ResourceID != "" || req.Binding.ChatGPT != nil {
 			return Resource{}, invalid("request")
 		}
 		provider, ok := s.options.Providers[req.Provider]
@@ -495,6 +495,14 @@ func (s *service) Disconnect(ctx context.Context, p core.Principal, req Disconne
 		if v.Kind == Connection || v.Provider == "mcp" {
 			return struct{}{}, core.NewError(core.Forbidden, "use the service connection settings")
 		}
+		binding, err := s.repo.Binding(ctx, p.OwnerID, v.ID)
+		if err != nil {
+			return struct{}{}, err
+		}
+		if binding.ChatGPT != nil {
+			return struct{}{}, core.Invalid("chatgpt", "disconnect from ChatGPT connection settings")
+		}
+
 		v.State = Disconnected
 		v.Version++
 		return struct{}{}, s.repo.Save(ctx, v, req.Mutation.ExpectedVersion)

@@ -57,6 +57,7 @@ type ModelCallMetrics struct {
 	Timing      *model.Timing
 }
 type TurnMetrics struct {
+	ReferenceCalls  int
 	TurnID          core.ID
 	State           string
 	Finalized       bool
@@ -203,6 +204,9 @@ func (e *Engine) MessageMetrics(ctx context.Context, p core.Principal, conversat
 				usage.CachedTokens += receipt.Usage.CachedTokens
 				usage.OutputTokens += receipt.Usage.OutputTokens
 				call.Charged = receipt.Charged
+				if receipt.PricingInfo != nil && receipt.PricingInfo.Basis == "subscription-reference" {
+					out.ReferenceCalls++
+				}
 				if receipt.Charged != nil {
 					charges[receipt.Charged.Currency] += receipt.Charged.Micros
 				} else {

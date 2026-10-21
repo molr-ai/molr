@@ -45,7 +45,7 @@ export type MolrAppAPI = {
   };
   oauth: {
     /** Provider IDs are registered by Runtime. Credentials never enter the page. */
-    authorize(provider: string): Promise<AppOAuthResult>;
+    authorize(provider: string, options?: { connectionId?: string; expectedVersion?: number; name?: string; verification?: string }): Promise<AppOAuthResult>;
     cancel(): Promise<void>;
   };
   getInfo(): Promise<AppInfo>;

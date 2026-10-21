@@ -26,7 +26,7 @@ func (s *service) ProviderConnection(ctx context.Context, p core.Principal, id c
 		if err != nil {
 			return err
 		}
-		result = ProviderConnection{PricingProvider: b.PricingProvider, Resource: r, Endpoint: b.Endpoint, CredentialID: b.CredentialID}
+		result = ProviderConnection{ChatGPT: b.ChatGPT, PricingProvider: b.PricingProvider, Resource: r, Endpoint: b.Endpoint, CredentialID: b.CredentialID}
 		return nil
 	})
 	return result, err
@@ -63,6 +63,9 @@ func (s *service) SaveProvider(ctx context.Context, p core.Principal, req SavePr
 				return r, conflict()
 			}
 			binding, err = s.repo.Binding(ctx, p.OwnerID, req.ID)
+			if binding.ChatGPT != nil {
+				return r, core.Invalid("authentication", "use ChatGPT connection management")
+			}
 			if err != nil {
 				return r, err
 			}

@@ -62,6 +62,7 @@ export function UsageAnalytics({ admin = false, onRefresh, onUserChange }: { adm
  ];
  return <div className="usage-analytics" aria-busy={query.loading}>
   <div className="usage-toolbar"><p className="settings-description">{admin ? zh ? '了解成员、用户组与模型的消耗分布。' : 'Explore usage across members, groups and models.' : zh ? '查看每一天、每位助理的 Token 与模型费用。' : 'Explore daily tokens and model spend for each assistant.'}</p><Button size="sm" variant="secondary" disabled={query.loading} onClick={refresh}><RefreshCw size={14} />{t.refresh}</Button></div>
+  {(data?.Summary.ReferenceCalls ?? 0) > 0 && <p className="muted">{zh ? '含 ChatGPT 套餐调用，金额包含内部预算参考计价，不代表 OpenAI 实际扣费。' : 'Includes ChatGPT plan calls valued at internal reference prices, not OpenAI charges.'}</p>}
   <div className="usage-analytics-filters">
    <Select size="sm" label={zh ? '日期范围' : 'Date range'} value={period} onValueChange={v => { setPeriod(v); reset(); }} options={[{ value: 'year', label: zh ? '本年' : 'This year' }, { value: 'month', label: zh ? '本月' : 'This month' }, { value: '30', label: zh ? '近 30 天' : 'Last 30 days' }, { value: '90', label: zh ? '近 90 天' : 'Last 90 days' }, ...[1, 2, 3].map(n => ({ value: `year:${Number(year) - n}`, label: String(Number(year) - n) })), { value: 'custom', label: zh ? '自定义' : 'Custom' }]} />
    {!admin && <Select size="sm" label={zh ? '助理' : 'Assistant'} value={assistant} onValueChange={v => { setAssistant(v); reset(); }} options={opts(options.Assistants, zh ? '全部助理' : 'All assistants')} />}

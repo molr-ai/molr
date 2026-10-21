@@ -275,14 +275,16 @@ Verifier binding first passes identity confirmation with the purpose `mfa.enroll
 
 ## Desktop OAuth Authorization
 
-The shared mechanism supports OAuth 2.0 authorization codes, S256 PKCE and a local GET callback. Production Runtime currently registers no service adapters; unknown `Provider` values fail. Artificial test providers are not product integrations. These endpoints require a live interactive user session, reject bearer/assistant identities, and retain Origin and CSRF checks for mutations.
+The shared mechanism supports OAuth 2.0 authorization codes, S256 PKCE and a local GET callback. Production Runtime registers the administrator-only `chatgpt` adapter; unknown `Provider` values fail. These endpoints require a live interactive user session, reject bearer/assistant identities, and retain Origin and CSRF checks for mutations.
 
 | Endpoint | Request and response |
 | --- | --- |
-| `POST /api/oauth/start` | `{ Provider, RedirectURI }`; returns `{ ID, AuthorizationURL, State, ExpiresAt }`. The callback is `http://127.0.0.1:<port>/auth/callback`, with the port allocated by the client's already listening socket |
+| `POST /api/oauth/start` | `{ Provider, RedirectURI, ConnectionID?, ExpectedVersion?, Name?, verification? }`; returns `{ ID, AuthorizationURL, State, ExpiresAt }`. The callback is `http://127.0.0.1:<port>/auth/callback`, with the port allocated by the client's already listening socket |
 | `POST /api/oauth/complete` | `{ ID, State, Code, ClientID?, Issuer?, Error? }`; exactly one of `Code` and `Error` must be nonempty; returns `{ ID, Status, ConnectionID? }` |
 | `POST /api/oauth/cancel` | `{ ID }`; returns the current result and cancels only attempts whose exchange has not begun |
 | `GET /api/oauth/attempts/{id}` | Reads the current session's attempt result, never its code, PKCE verifier or tokens |
+
+For ChatGPT, `verification` uses the `credential.put` sensitive-action proof; reauthorization supplies the connection ID and resource version. `POST /api/chatgpt/disconnect` accepts `{ ID, Mutation, verification }`, checks `credential.delete`, clears local tokens, and returns `{ Revoked }` to report whether remote revocation was confirmed.
 
 Attempts bind the creating user and session, expire after five minutes and do not survive process restart. Each session has at most one active attempt; the instance retains at most 128 entries. States are `preparing`, `pending`, `completing`, `connected`, `cancelled` and `failed`. After validating state, the broker atomically claims the code. Repeated completion requests read the state without another token exchange. Cancellation during exchange returns `completing` and cannot promise to undo credentials already saved. Query status after a lost completion response. Expired or restarted attempts cannot establish external outcomes; check the service connection first.
 

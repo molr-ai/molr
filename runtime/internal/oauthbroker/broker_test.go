@@ -44,7 +44,7 @@ func setup(t *testing.T) (*Broker, *mockProvider, Started) {
 	t.Helper()
 	m := &mockProvider{}
 	b := New(map[string]Provider{"fixture": m}, func(context.Context, core.Principal) error { return nil })
-	a, err := b.Start(t.Context(), owner(), StartRequest{"fixture", "http://127.0.0.1:1455/auth/callback"})
+	a, err := b.Start(t.Context(), owner(), StartRequest{Provider: "fixture", RedirectURI: "http://127.0.0.1:1455/auth/callback"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +153,7 @@ func TestConcurrentCompletion(t *testing.T) {
 }
 func TestStartBoundaries(t *testing.T) {
 	b, _, _ := setup(t)
-	if _, err := b.Start(t.Context(), owner(), StartRequest{"fixture", "http://127.0.0.1:1234/auth/callback"}); err == nil {
+	if _, err := b.Start(t.Context(), owner(), StartRequest{Provider: "fixture", RedirectURI: "http://127.0.0.1:1234/auth/callback"}); err == nil {
 		t.Fatal("concurrent authorization accepted")
 	}
 	for _, uri := range []string{"http://localhost:1234/auth/callback", "http://192.168.1.2:1234/auth/callback", "https://127.0.0.1:1234/auth/callback", "http://127.0.0.1:1234/auth/callback?x=1", "http://127.0.0.1:0/auth/callback"} {
@@ -164,10 +164,10 @@ func TestStartBoundaries(t *testing.T) {
 	p := owner()
 	p.SessionID = ""
 	p.TokenID = "token"
-	if _, err := b.Start(t.Context(), p, StartRequest{"fixture", "http://127.0.0.1:1234/auth/callback"}); err == nil {
+	if _, err := b.Start(t.Context(), p, StartRequest{Provider: "fixture", RedirectURI: "http://127.0.0.1:1234/auth/callback"}); err == nil {
 		t.Fatal("bearer token accepted")
 	}
-	if _, err := b.Start(t.Context(), owner(), StartRequest{"unknown", "http://127.0.0.1:1234/auth/callback"}); err == nil {
+	if _, err := b.Start(t.Context(), owner(), StartRequest{Provider: "unknown", RedirectURI: "http://127.0.0.1:1234/auth/callback"}); err == nil {
 		t.Fatal("unregistered provider accepted")
 	}
 }
