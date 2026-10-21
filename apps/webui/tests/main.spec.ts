@@ -1287,8 +1287,9 @@ test('search matches the shared design, filters real results and opens tasks', a
   await input.fill(name);
   await panel.getByRole('region', { name: 'Tasks', exact: true }).getByRole('button').click();
   await expect(panel).not.toBeVisible();
-  const tasks = page.getByRole('dialog', { name: 'Plans', exact: true });
+  const tasks = page.getByRole('dialog', { name: 'Plan details', exact: true });
   await expect(tasks.getByRole('heading', { name: task.Goal, exact: true })).toBeVisible();
+  await expect(tasks.locator('.plan-execution[open]')).toContainText(task.Goal);
   await page.keyboard.press('Escape'); await expect(tasks).not.toBeVisible();
   if (info.project.name === 'mobile') await page.getByRole('button', { name: 'Back to assistants', exact: true }).click();
   else await page.getByRole('navigation').getByRole('button', { name: 'Assistants', exact: true }).click();
@@ -1950,12 +1951,14 @@ test('chat panels dock by workspace width and preserve state across layouts', as
   await panel.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(panel).not.toBeVisible();
 
+  const plan = await post(page, '/api/todos', { Title: 'Plan to edit across layouts', AssistantID: assistant.ID });
   await page.locator('.chat-header').getByRole('button', { name: 'Plans', exact: true }).click();
   const tasksPanel = page.getByRole('complementary', { name: 'Plans', exact: true });
   await expect(tasksPanel).toBeVisible();
   await composer.fill('Tasks do not block chat');
-  await tasksPanel.getByRole('button', { name: 'New plan', exact: true }).click();
-  const editor = page.getByRole('dialog', { name: 'New plan', exact: true });
+  await tasksPanel.locator(`[data-plan-id="${plan.ID}"]`).getByRole('button', { name: 'Plan actions', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Edit', exact: true }).click();
+  const editor = page.getByRole('dialog', { name: 'Edit', exact: true });
   await expect(editor).toBeVisible();
   await editor.getByRole('textbox', { name: 'What needs doing?', exact: true }).fill('Nested draft');
   await page.setViewportSize({ width: 1200, height: 1000 });
@@ -1965,6 +1968,7 @@ test('chat panels dock by workspace width and preserve state across layouts', as
   await editor.getByRole('textbox', { name: 'What needs doing?', exact: true }).click();
   await expect(editor.getByRole('textbox', { name: 'What needs doing?', exact: true })).toHaveValue('Nested draft');
   await page.setViewportSize({ width: 1800, height: 1100 });
+  await expect.poll(() => editor.evaluate(element => element.matches(':modal'))).toBe(true);
   await editor.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(tasksPanel).toBeVisible();
   await tasksPanel.locator(':scope > .ui-dialog__header').getByRole('button', { name: 'Close', exact: true }).click();

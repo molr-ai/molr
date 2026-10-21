@@ -72,6 +72,8 @@ for (const version of ['Web', 'Desktop', 'Mobile']) {
 test('search quick navigation and result navigation open the existing preview pages', async ({ page }, info) => {
   if (info.project.name === 'mobile') await page.locator('#interfaces').getByRole('tab', { name: 'Mobile', exact: true }).click();
   const shell = page.locator('.interface-preview.ip-shell:visible');
+  // Keep the embedded app in view when filtering shrinks its bottom sheet.
+  await shell.scrollIntoViewIfNeeded();
   const dialog = page.getByRole('dialog', { name: 'Search', exact: true });
   await shell.getByRole('button', { name: 'Search', exact: true }).click();
   await dialog.getByRole('searchbox').press('ArrowDown');

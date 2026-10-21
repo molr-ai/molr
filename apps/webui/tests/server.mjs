@@ -130,10 +130,11 @@ const secondRuntimeURL = `http://127.0.0.1:${secondRuntimePort}`;
 const secondDirectory = join(directory, 'second');
 await mkdir(join(secondDirectory, 'data'), { recursive: true });
 const secondConfig = join(secondDirectory, 'server.json');
-await writeFile(secondConfig, JSON.stringify({ ...config, data_dir: join(secondDirectory, 'data'), sandbox: { networks: [
+// CIDR/port network fixtures belong to the Linux backend; native macOS uses its network toggle.
+await writeFile(secondConfig, JSON.stringify({ ...config, data_dir: join(secondDirectory, 'data'), sandbox: process.platform === 'linux' ? { networks: [
   { name: 'LAN ranges', protocols: ['tcp', 'udp'], addresses: ['192.168.1.0/24', '10.20.0.0/16', 'fd12::/32'], ports: ['80', '443', '8000-8099', '9000-9099'], exclude_addresses: ['192.168.1.10', 'fd12::dead/128'], exclude_ports: ['8080-8089', '9005'] },
   { name: 'Internet', protocols: ['tcp'], addresses: ['0.0.0.0/0', '::/0'], ports: ['80', '443'], exclude_addresses: ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', 'fc00::/7', '127.0.0.0/8', '::1/128', '100.64.0.0/10'] },
-] }, http: { ...config.http, listen: `127.0.0.1:${secondRuntimePort}`, public_url: secondRuntimeURL, allowed_origins: [`http://127.0.0.1:${secondUIPort}`] } }), { mode: 0o600 });
+] } : undefined, http: { ...config.http, listen: `127.0.0.1:${secondRuntimePort}`, public_url: secondRuntimeURL, allowed_origins: [`http://127.0.0.1:${secondUIPort}`] } }), { mode: 0o600 });
 await command(binary, ['init', '-config', secondConfig, '-username', 'second-owner', '-password-stdin'], secondDirectory, 'second-webui-e2e-password-2026!\n');
 children.push(startRuntime(binary, secondConfig, 'secondary'));
 children.push(spawn(process.execPath, [resolve(root, 'node_modules/vite/bin/vite.js'), ...(process.env.MOLR_E2E_PREVIEW === '1' ? ['preview'] : []), '--host', '0.0.0.0', '--port', String(secondUIPort)], { cwd: resolve(root, 'apps/webui'), env: { ...env, MOLR_RUNTIME_URL: secondRuntimeURL }, stdio: 'inherit' }));

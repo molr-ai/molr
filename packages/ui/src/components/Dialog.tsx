@@ -62,7 +62,17 @@ function ModalView({ open, onOpenChange, onAfterClose, title, description, child
     if (!host) return;
     host.style.display = 'contents';
     const target = contained ? scope?.container : anchorRef.current?.parentElement;
-    if (target && host.parentElement !== target) target.appendChild(host);
+    if (target && host.parentElement !== target) {
+      const modals = [...host.querySelectorAll<HTMLDialogElement>('dialog:modal')];
+      const focused = host.contains(document.activeElement) ? document.activeElement as HTMLElement : null;
+      target.appendChild(host);
+      // Moving a portal host removes its native dialogs from the top layer,
+      // even though their open attribute and mounted forms remain intact.
+      for (const dialog of modals) {
+        if (dialog.open && !dialog.matches(':modal')) { closeDialog(dialog); dialog.showModal(); }
+      }
+      focused?.focus({ preventScroll: true });
+    }
   }, [host, contained, scope?.container]);
   useLayoutEffect(() => () => { host?.remove(); }, [host]);
   const layerRef = useRef<HTMLDivElement>(null);
