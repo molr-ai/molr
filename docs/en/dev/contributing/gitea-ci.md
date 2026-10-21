@@ -1,8 +1,30 @@
 # Gitea CI
 
-`.gitea/workflows/ci.yml` runs complete CI on every pull request, pushes to `main`, and manual dispatch. Source checks run once and WebUI/desktop application assets build once. Five native jobs download those assets, verify their version, commit, lockfile and content hashes, then build Runtime, test the desktop, package it and evaluate the final installer. Linux AMD64 and macOS ARM64 run browser tests; four separate jobs validate Unix Runtime installation. `Gitea CI passed` succeeds only when every group succeeds. Shared application assets, Runtime archives and desktop installers are retained for seven days.
+`.gitea/workflows/ci.yml` runs CI on every pull request, pushes to `main`, and manual dispatch. It covers all platforms by default, with optional scope selection below. Source checks run once and WebUI/desktop application assets build once. Five native jobs download those assets, verify their version, commit, lockfile and content hashes, then build Runtime, test the desktop, package it and evaluate the final installer. Linux AMD64 and macOS ARM64 run browser tests; four separate jobs validate Unix Runtime installation. `Gitea CI passed` succeeds only when every selected group succeeds. Shared application assets, Runtime archives and desktop installers are retained for seven days.
 
-Desktop acceptance is part of this workflow, with no PR path filters or separate `desktop.yml` entry point. The native matrix reuses `nativeBuildMatrix()`, translating only the runner names into the local labels below. Publication remains in `.github/workflows/`; its release gate still checks GitHub CI records.
+Desktop acceptance is part of this workflow, with no PR path filters or separate `desktop.yml` entry point. The native matrix reuses `nativeBuildMatrix()`, filtering the selected platforms and translating runner names into the local labels below. Publication remains in `.github/workflows/`; its release gate still checks GitHub CI records.
+
+## Select CI scope
+
+Configure defaults under repository **Settings → Actions → Variables**. Pull requests and pushes to `main` use these variables. Manual `Gitea CI` runs can override them with the inputs below; blank inputs inherit repository variables. Without configuration, CI validates all platforms.
+
+| Repository variable | Manual input | Values | Default |
+| --- | --- | --- | --- |
+| `MOLR_CI_PLATFORMS` | `platforms` | `all`, or a comma-separated list of `linux-amd64`, `linux-arm64`, `macos-amd64`, `macos-arm64`, `windows-amd64` | `all` |
+| `MOLR_CI_INSTALLERS` | `installers` | `enabled` / `disabled`, controlling separate Runtime installation acceptance | `enabled` |
+
+For a single Linux AMD64 build runner, set:
+
+```text
+MOLR_CI_PLATFORMS=linux-amd64
+MOLR_CI_INSTALLERS=disabled
+```
+
+This runs source checks, shared frontend compilation, Linux AMD64 Runtime and desktop builds/tests/package acceptance, and Linux browser tests. It does not schedule ARM64, macOS, Windows or separate installation runners. Desktop package acceptance still runs: `installers=disabled` only disables the separate Runtime installation jobs that need disposable environments.
+
+Select `all` to restore all five platforms. For example, `linux-amd64,linux-arm64` selects both Linux architectures and needs both native runners. Browser tests follow selected Linux AMD64 and macOS ARM64 targets. When enabled, separate installation acceptance follows selected Unix targets. Windows-only selection has no separate installation job; desktop acceptance covers the Runtime lifecycle. Source checks, shared assets and the final gate always require `molr-linux-amd64`, even when native targets select only other platforms.
+
+Unknown platforms, duplicates and invalid installation switches fail the source job. Selection never shrinks automatically based on online runners: selected runners that are not configured leave jobs waiting. Unselected platforms are excluded from matrices. When the entire browser or installation group is disabled, the gate accepts only its `skipped` status; failures, cancellations and unexpected skips of selected jobs fail the gate. Source and gate logs list the actual validated scope. Partial coverage does not establish full-platform validation or change the GitHub release gate.
 
 ## Local action mirrors
 
@@ -44,7 +66,7 @@ Register each environment with its matching native architecture label in **host 
 | macOS 15 Apple Silicon | `molr-macos-arm64:host` | `molr-install-macos-arm64:host` |
 | Windows Server 2025 AMD64 | `molr-windows-amd64:host` | Native Runtime lifecycle covered by desktop workflow |
 
-Generate configuration with the installed runner's `generate-config`, then edit it. For example, an AMD64 Linux build runner uses:
+Create configuration with the installed runner's `config init`, then edit it (`config generate` shows all options). For example, an AMD64 Linux build runner uses:
 
 ```yaml
 runner:
@@ -73,8 +95,8 @@ When a browser job fails, it uploads `apps/website/test-results/` as `website-fa
 
 Validate setup in this order:
 
-1. Manually dispatch `Gitea CI`. Source checks, shared asset compilation, five native jobs, two browser jobs and four separate installation jobs must pass. Installation jobs cover both server and sandbox modes. A failed, cancelled or skipped group must fail the final gate.
-2. Verify that all five final desktop installers pass extraction/installation, application startup and bundled Runtime lifecycle acceptance, and that `ci-desktop-*` artifacts and four `ci-runtime-*` archives can be downloaded. The workflow builds `0.1.0-local`: macOS uses ad-hoc signing and Windows has no publisher signing. Both complete packaging directly without Apple notarization; signing certificates and release credentials are not required.
-3. Use an ordinary PR to verify complete CI triggering without desktop path filters. Missing runners mean incomplete coverage, even when other jobs pass.
+1. Manually dispatch `Gitea CI`, check the logged scope, and require source checks, shared asset compilation and all selected jobs to pass. For complete validation, explicitly enter `platforms=all` and `installers=enabled`: five native jobs, two browser jobs and four separate installation jobs must pass. Installation jobs cover both server and sandbox modes. A failed, cancelled or unexpectedly skipped selected job must fail the final gate.
+2. Verify that the selected final desktop installers pass extraction/installation, application startup and bundled Runtime lifecycle acceptance, and that corresponding `ci-desktop-*` artifacts and Unix `ci-runtime-*` archives can be downloaded. The workflow builds `0.1.0-local`: macOS uses ad-hoc signing and Windows has no publisher signing. Both complete packaging directly without Apple notarization; signing certificates and release credentials are not required.
+3. Use an ordinary PR to verify automatic scope selection from repository variables without desktop path filters. For a single runner, verify that unselected platforms do not queue and separate installation is skipped as configured. Expand the variables and validate again when adding runners.
 
 Syntax checks and local tests are not an actual Gitea acceptance run. During the first run, record server, runner and action mirror versions and verify artifact transfers. Keep logs and actual deployment configuration in private internal material.

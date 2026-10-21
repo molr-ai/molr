@@ -4,13 +4,14 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, symlinkSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import yaml from 'js-yaml';
 import { ciJob, ciStep, ciTitle, ensureCI, matchingCIRuns } from './ensure-ci.mjs';
 import { recordBuildAssets, verifyBuildAssets } from './build-assets.mjs';
 import { validatePackageManifest } from './test-desktop-package.mjs';
 import { platforms, nativeBuildMatrix } from './release-lib.mjs';
+import { giteaCIPlan } from './gitea-ci-plan.mjs';
 
 const repository = 'example/molr', commit = 'a'.repeat(40);
 const run = (extra = {}) => ({
@@ -143,16 +144,19 @@ test('CI includes every native target, both browser platforms, and a non-skippab
   assert.equal(read('nightly').jobs.website, undefined);
 });
 
-test('Gitea validates all native packages from shared assets and rejects failed or skipped groups', () => {
-  const root = fileURLToPath(new URL('../', import.meta.url));
+test('Gitea validates selected native packages from shared assets and enforces the planned gate', () => {
   const ci = yaml.load(readFileSync(new URL('../.gitea/workflows/ci.yml', import.meta.url), 'utf8'));
   assert(ci.on.pull_request !== undefined);
   assert.equal(ci.on.pull_request?.paths, undefined);
   assert(ci.on.workflow_dispatch !== undefined);
   assert.deepEqual(ci.on.push.branches, ['main']);
-  const identity = ci.jobs.source.steps.find(step => step.id === 'identity').run;
-  const source = identity.match(/node --input-type=module -e '([^']+)'/)[1];
-  const matrix = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e', source], { cwd: root, encoding: 'utf8' }).trim().slice('matrix='.length));
+  const identity = ci.jobs.source.steps.find(step => step.id === 'identity');
+  assert(identity.run.includes('node scripts/gitea-ci-plan.mjs'));
+  assert.equal(identity.env.MOLR_CI_PLATFORMS, "${{ github.event.inputs.platforms || vars.MOLR_CI_PLATFORMS || 'all' }}");
+  assert.equal(identity.env.MOLR_CI_INSTALLERS, "${{ github.event.inputs.installers || vars.MOLR_CI_INSTALLERS || 'enabled' }}");
+  for (const key of ['platforms', 'installers']) assert.equal(ci.on.workflow_dispatch.inputs[key].default, '');
+  const plan = giteaCIPlan();
+  const { matrix } = plan;
   assert.deepEqual(matrix.include.map(p => `${p.os}-${p.arch}`).sort(), nativeBuildMatrix().include.map(p => `${p.os}-${p.arch}`).sort());
   for (const target of matrix.include) {
     assert.equal(target.runner, `molr-${({ linux: 'linux', darwin: 'macos', win32: 'windows' })[target.os]}-${target.arch}`);
@@ -169,24 +173,109 @@ test('Gitea validates all native packages from shared assets and rejects failed 
   const evaluations = nativeSteps.filter(step => step.run?.includes('scripts/test-desktop-package.mjs'));
   assert.equal(evaluations.length, 2);
   for (const step of evaluations) assert(nativeSteps.indexOf(step) > packageIndex);
-  assert.deepEqual(ci.jobs.browser.strategy.matrix.runner, ['molr-linux-amd64', 'molr-macos-arm64']);
+  assert.equal(ci.jobs.browser.strategy.matrix, '${{ fromJSON(needs.source.outputs.browser_matrix) }}');
+  assert.deepEqual(plan.browser_matrix.include.map(p => p.runner), ['molr-linux-amd64', 'molr-macos-arm64']);
   assert.deepEqual(ci.jobs.installer.needs, ['source', 'native']);
-  assert.deepEqual(ci.jobs.installer.strategy.matrix.include.map(p => `${p.os}-${p.arch}`).sort(), platforms.map(p => p.id).sort());
+  assert.equal(ci.jobs.installer.strategy.matrix, '${{ fromJSON(needs.source.outputs.installer_matrix) }}');
+  assert.deepEqual(plan.installer_matrix.include.map(p => `${p.os}-${p.arch}`).sort(), platforms.map(p => p.id).sort());
+  for (const group of ['browser', 'installer']) {
+    assert.equal(ci.jobs[group].if, `\u0024{{ needs.source.outputs.${group}_enabled == 'true' }}`);
+  }
+  for (const key of Object.keys(plan)) assert.equal(ci.jobs.source.outputs[key], `\u0024{{ steps.identity.outputs.${key} }}`);
   const upload = nativeSteps.find(step => step.uses?.includes('upload-artifact') && step.with.name.startsWith('ci-runtime-'));
   const download = ci.jobs.installer.steps.find(step => step.uses?.includes('download-artifact'));
   assert.equal(upload.with.name, download.with.name);
   const groups = ['source', 'assets', 'native', 'browser', 'installer'];
   assert.deepEqual(ci.jobs.passed.needs, groups);
   assert.equal(ci.jobs.passed.if, '${{ always() }}');
-  const gate = ci.jobs.passed.steps[0].run.match(/^node -e '([^']+)'$/)[1];
-  const execute = results => spawnSync(process.execPath, ['-e', gate], {
-    encoding: 'utf8', env: { ...process.env, RESULTS: JSON.stringify(results) },
-  });
+  const gate = ci.jobs.passed.steps[0].run.trim().match(/^node -e '([^']+)'$/)[1];
+  const execute = results => {
+    const result = spawnSync(process.execPath, ['-e', gate], {
+      encoding: 'utf8', env: { ...process.env, RESULTS: JSON.stringify(results) },
+    });
+    assert.ifError(result.error);
+    return result;
+  };
   const results = Object.fromEntries(groups.map(name => [name, { result: 'success' }]));
+  results.source.outputs = plan;
   assert.equal(execute(results).status, 0);
   for (const name of groups) for (const result of ['failure', 'cancelled', 'skipped']) {
     const failed = execute({ ...results, [name]: { result } });
     assert.equal(failed.status, 1);
     assert(failed.stderr.includes(`${name}: ${result}`));
   }
+  for (const selection of [
+    { platforms: 'linux-amd64', installers: 'disabled' },
+    { platforms: 'windows-amd64' },
+    { platforms: 'linux-arm64' },
+  ]) {
+    const selectedPlan = giteaCIPlan(selection);
+    const selectedResults = structuredClone(results);
+    selectedResults.source.outputs = selectedPlan;
+    for (const name of ['browser', 'installer']) {
+      if (selectedPlan[name + '_enabled'] === 'false') selectedResults[name].result = 'skipped';
+    }
+    assert.equal(execute(selectedResults).status, 0);
+    for (const name of groups) for (const result of ['success', 'failure', 'cancelled', 'skipped']) {
+      if (result === selectedResults[name].result) continue;
+      assert.equal(execute({ ...selectedResults, [name]: { ...selectedResults[name], result } }).status, 1);
+    }
+    for (const name of groups) {
+      const missing = structuredClone(selectedResults);
+      delete missing[name];
+      assert.equal(execute(missing).status, 1);
+    }
+  }
+  for (const value of [undefined, '', 'unexpected']) {
+    const incomplete = structuredClone(results);
+    incomplete.source.outputs.installer_enabled = value;
+    assert.equal(execute(incomplete).status, 1);
+  }
+});
+
+test('Gitea selection filters every platform combination and never creates extra selected jobs', () => {
+  const ids = ['linux-amd64', 'linux-arm64', 'macos-amd64', 'macos-arm64', 'windows-amd64'];
+  for (let mask = 1; mask < 1 << ids.length; mask++) {
+    const selected = ids.filter((_, i) => mask & (1 << i));
+    for (const installers of ['enabled', 'disabled']) {
+      const plan = giteaCIPlan({ platforms: selected.join(', '), installers });
+      assert.deepEqual(plan.matrix.include.map(p => p.runner).sort(), selected.map(id => 'molr-' + id).sort());
+      const browser = selected.filter(id => ['linux-amd64', 'macos-arm64'].includes(id));
+      const install = installers === 'enabled' ? selected.filter(id => id !== 'windows-amd64') : [];
+      assert.equal(plan.browser_enabled, String(browser.length > 0));
+      assert.equal(plan.installer_enabled, String(install.length > 0));
+      if (browser.length) assert.deepEqual(plan.browser_matrix.include.map(p => p.runner).sort(), browser.map(id => 'molr-' + id).sort());
+      if (install.length) assert.deepEqual(plan.installer_matrix.include.map(p => p.runner).sort(), install.map(id => 'molr-install-' + id).sort());
+      assert(plan.browser_matrix.include.length > 0);
+      assert(plan.installer_matrix.include.length > 0);
+    }
+  }
+  const linux = giteaCIPlan({ platforms: 'linux-amd64', installers: 'disabled' });
+  assert.equal(linux.scope, 'native=molr-linux-amd64; browser=molr-linux-amd64; installer=none');
+  for (const platforms of ['linux', 'all,linux-amd64', 'linux-amd64,', 'linux-amd64,linux-amd64', 'linux-amd64\nwindows-amd64', 'unknown']) {
+    assert.throws(() => giteaCIPlan({ platforms }), /Invalid Gitea CI platforms/);
+  }
+  assert.throws(() => giteaCIPlan({ installers: 'false' }), /enabled or disabled/);
+});
+
+test('Gitea planner writes outputs for a single Linux runner and rejects invalid input before writing', t => {
+  const dir = mkdtempSync(join(tmpdir(), 'molr-gitea-plan-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const output = join(dir, 'output');
+  const env = { ...process.env, GITHUB_OUTPUT: output, MOLR_CI_INSTALLERS: 'disabled' };
+  delete env.NODE_TEST_CONTEXT;
+  const execute = platforms => spawnSync(process.execPath, ['scripts/gitea-ci-plan.mjs'], {
+    cwd: fileURLToPath(new URL('../', import.meta.url)), encoding: 'utf8',
+    env: { ...env, MOLR_CI_PLATFORMS: platforms },
+  });
+  const result = execute('linux-amd64');
+  assert.ifError(result.error);
+  assert.equal(result.status, 0, result.stderr);
+  const contents = readFileSync(output, 'utf8');
+  const outputs = Object.fromEntries(contents.trim().split('\n').map(line => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]));
+  assert.deepEqual(JSON.parse(outputs.matrix).include.map(p => p.runner), ['molr-linux-amd64']);
+  assert.equal(outputs.installer_enabled, 'false');
+  assert(result.stdout.includes('installer=none'));
+  assert.notEqual(execute('linux-typo').status, 0);
+  assert.equal(readFileSync(output, 'utf8'), contents);
 });

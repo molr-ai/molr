@@ -1,8 +1,30 @@
 # Gitea CI
 
-`.gitea/workflows/ci.yml` 在所有 PR、`main` 推送及手动触发时运行完整 CI。源码检查执行一次，WebUI 与桌面前端产物构建一次，随后由五个平台的原生任务下载并校验版本、提交、依赖锁文件和内容摘要，再构建 Runtime、测试桌面、打包并验证最终安装包。Linux AMD64 和 macOS ARM64 分别执行浏览器测试，四个独立安装任务验证 Unix Runtime 包；所有任务成功后 `Gitea CI passed` 才通过。共享前端、Runtime 安装包和桌面安装包保留七天。
+`.gitea/workflows/ci.yml` 在所有 PR、`main` 推送及手动触发时运行 CI，默认覆盖全部平台，也可按下文选择范围。源码检查执行一次，WebUI 与桌面前端产物构建一次，随后由五个平台的原生任务下载并校验版本、提交、依赖锁文件和内容摘要，再构建 Runtime、测试桌面、打包并验证最终安装包。Linux AMD64 和 macOS ARM64 分别执行浏览器测试，四个独立安装任务验证 Unix Runtime 包；本次选择的所有任务成功后 `Gitea CI passed` 才通过。共享前端、Runtime 安装包和桌面安装包保留七天。
 
-桌面验收已并入同一个工作流，不按 PR 路径跳过，也没有单独的 `desktop.yml` 入口。原生矩阵复用 `nativeBuildMatrix()`，只将 runner 名称转换为下表的本地标签。发布继续由 `.github/workflows/` 管理，其发布门禁仍检查 GitHub 自己的 CI 记录。
+桌面验收已并入同一个工作流，不按 PR 路径跳过，也没有单独的 `desktop.yml` 入口。原生矩阵复用 `nativeBuildMatrix()`，按选择的平台过滤，并将 runner 名称转换为下表的本地标签。发布继续由 `.github/workflows/` 管理，其发布门禁仍检查 GitHub 自己的 CI 记录。
+
+## 选择 CI 范围
+
+在仓库 **设置 → Actions → Variables** 配置默认范围；PR 和 `main` 推送自动采用这些变量。手动运行 `Gitea CI` 时可填写同名含义的输入覆盖本次运行，输入留空则沿用仓库变量。未配置时保持全平台验收。
+
+| 仓库变量 | 手动输入 | 可选值 | 默认 |
+| --- | --- | --- | --- |
+| `MOLR_CI_PLATFORMS` | `platforms` | `all`，或逗号分隔的 `linux-amd64`、`linux-arm64`、`macos-amd64`、`macos-arm64`、`windows-amd64` | `all` |
+| `MOLR_CI_INSTALLERS` | `installers` | `enabled` / `disabled`，控制独立 Runtime 安装验收 | `enabled` |
+
+只有一台 Linux AMD64 构建 runner 时，设置：
+
+```text
+MOLR_CI_PLATFORMS=linux-amd64
+MOLR_CI_INSTALLERS=disabled
+```
+
+这会运行源码检查、共享前端构建、Linux AMD64 Runtime 与桌面构建／测试／打包验收，以及 Linux 浏览器测试；不调度 ARM64、macOS、Windows 或独立安装 runner。桌面安装包验收仍执行，`installers=disabled` 只关闭需要可重建环境的独立 Runtime 安装任务。
+
+选择 `all` 恢复五个平台；例如 `linux-amd64,linux-arm64` 选择两种 Linux 架构，需要两种原生 runner。浏览器测试跟随选中的 Linux AMD64 和 macOS ARM64；独立安装验收开启时跟随选中的 Unix 平台。只选 Windows 时没有独立安装任务，Runtime 生命周期由桌面验收覆盖。源码检查、共享前端构建和最终门禁始终需要 `molr-linux-amd64`，即使原生目标只选其他平台。
+
+平台拼写错误、重复项或无效安装开关会让源码任务失败。选择范围不会根据在线 runner 自动缩减；选中但未配置的 runner 会等待执行。未选中的平台不进入矩阵；整组浏览器或安装任务未启用时，最终门禁只接受该组的 `skipped` 状态，已选任务失败、取消或意外跳过均不能通过。源码任务和最终门禁日志会列出实际验证范围；部分平台通过不代表全平台通过，也不改变 GitHub 发布门禁。
 
 ## 本地 action 镜像
 
@@ -44,7 +66,7 @@ Docker 部署通常使用容器内 `/data/gitea/conf/app.ini`；也可在 Compos
 | macOS 15 Apple Silicon | `molr-macos-arm64:host` | `molr-install-macos-arm64:host` |
 | Windows Server 2025 AMD64 | `molr-windows-amd64:host` | 桌面流程覆盖原生 Runtime 生命周期 |
 
-用当前 runner 的 `generate-config` 生成配置后修改，例如 Linux AMD64 构建 runner：
+用当前 runner 的 `config init` 创建配置后修改（`config generate` 可查看完整选项），例如 Linux AMD64 构建 runner：
 
 ```yaml
 runner:
@@ -73,8 +95,8 @@ Linux 独立安装验收会卸载 Bubblewrap、静态 BusyBox、AppArmor profile
 
 接入验收依次检查：
 
-1. 手动触发 `Gitea CI`，确认源码检查、共享前端构建、五个原生任务、两个浏览器任务及四个独立安装任务全部通过；独立安装任务须完成 server、sandbox 两种模式验收。任一组失败、取消或跳过，最终门禁必须失败。
-2. 检查五个平台的桌面安装包均实际完成解包／安装、应用启动和包内 Runtime 生命周期验收，并能下载 `ci-desktop-*` 和四份 `ci-runtime-*` 产物。该流程固定构建 `0.1.0-local`：macOS 使用 ad-hoc 签名，Windows 不使用发布者签名，均直接完成打包，不执行 Apple 公证；无需签名证书或发布凭据。
-3. 用普通 PR 验证完整 CI 自动触发，不应出现按路径跳过桌面验收的情况。缺少任一 runner 时矩阵不完整，不能把其余任务成功视为全平台通过。
+1. 手动触发 `Gitea CI`，核对日志中的选择范围，确认源码检查、共享前端构建和所有选中的任务通过。全平台验收显式填写 `platforms=all`、`installers=enabled`，应包含五个原生任务、两个浏览器任务及四个独立安装任务；独立安装任务须完成 server、sandbox 两种模式验收。已选任务失败、取消或意外跳过时，最终门禁必须失败。
+2. 检查所选平台的桌面安装包均实际完成解包／安装、应用启动和包内 Runtime 生命周期验收，并能下载对应的 `ci-desktop-*` 和 Unix `ci-runtime-*` 产物。该流程固定构建 `0.1.0-local`：macOS 使用 ad-hoc 签名，Windows 不使用发布者签名，均直接完成打包，不执行 Apple 公证；无需签名证书或发布凭据。
+3. 用普通 PR 验证按仓库变量自动选择 CI 范围，不应出现按路径跳过桌面验收的情况。单机接入时验证未选平台不进入等待队列，独立安装组按配置跳过；增加其他 runner 后再扩大变量中的范围并验证。
 
 语法检查与本地测试不等于 Gitea 实跑通过。首次运行需核对服务器、runner、action 镜像具体版本和产物传输结果，日志及实际部署配置保存在私有内部资料中。

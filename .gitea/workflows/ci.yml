@@ -2,6 +2,17 @@
 name: Gitea CI
 on:
   workflow_dispatch:
+    inputs:
+      platforms:
+        description: 'Native platforms: all or comma-separated linux-amd64,linux-arm64,macos-amd64,macos-arm64,windows-amd64. Blank uses repository configuration.'
+        type: string
+        required: false
+        default: ''
+      installers:
+        description: 'Separate installation acceptance: enabled or disabled. Blank uses repository configuration.'
+        type: string
+        required: false
+        default: ''
   pull_request:
   push:
     branches: [main]
@@ -19,15 +30,23 @@ jobs:
     outputs:
       commit: ${{ steps.identity.outputs.commit }}
       matrix: ${{ steps.identity.outputs.matrix }}
+      browser_matrix: ${{ steps.identity.outputs.browser_matrix }}
+      installer_matrix: ${{ steps.identity.outputs.installer_matrix }}
+      browser_enabled: ${{ steps.identity.outputs.browser_enabled }}
+      installer_enabled: ${{ steps.identity.outputs.installer_enabled }}
+      scope: ${{ steps.identity.outputs.scope }}
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: ./.gitea/actions/setup-build
       - id: identity
+        env:
+          MOLR_CI_PLATFORMS: ${{ github.event.inputs.platforms || vars.MOLR_CI_PLATFORMS || 'all' }}
+          MOLR_CI_INSTALLERS: ${{ github.event.inputs.installers || vars.MOLR_CI_INSTALLERS || 'enabled' }}
         run: |
           echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          node --input-type=module -e 'import {nativeBuildMatrix} from "./scripts/release-lib.mjs"; const matrix=nativeBuildMatrix(); for(const p of matrix.include) { p.runner=`molr-${({linux:"linux",darwin:"macos",win32:"windows"})[p.os]}-${p.arch}`; p.shell=p.os==="win32"?"pwsh":"bash"; } console.log("matrix="+JSON.stringify(matrix));' >> "$GITHUB_OUTPUT"
+          node scripts/gitea-ci-plan.mjs
       - run: npm run check && npm run test:docs && npm run test:release && npm run test:release-flow
       - run: python3 scripts/test-install-download.py
       - run: npm run test --workspace @molr/ui
@@ -161,10 +180,10 @@ jobs:
           retention-days: 7
   browser:
     needs: source
+    if: ${{ needs.source.outputs.browser_enabled == 'true' }}
     strategy:
       fail-fast: false
-      matrix:
-        runner: [molr-linux-amd64, molr-macos-arm64]
+      matrix: ${{ fromJSON(needs.source.outputs.browser_matrix) }}
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
@@ -200,27 +219,11 @@ jobs:
           retention-days: 7
   installer:
     needs: [source, native]
+    if: ${{ needs.source.outputs.installer_enabled == 'true' }}
     name: ${{ matrix.environment }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - environment: ubuntu-24.04-amd64
-            runner: molr-install-linux-amd64
-            arch: amd64
-            os: linux
-          - environment: ubuntu-24.04-arm64
-            runner: molr-install-linux-arm64
-            arch: arm64
-            os: linux
-          - environment: macos-arm64
-            runner: molr-install-macos-arm64
-            arch: arm64
-            os: darwin
-          - environment: macos-amd64
-            runner: molr-install-macos-amd64
-            arch: amd64
-            os: darwin
+      matrix: ${{ fromJSON(needs.source.outputs.installer_matrix) }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
     steps:
@@ -272,8 +275,19 @@ jobs:
     if: ${{ always() }}
     runs-on: molr-linux-amd64
     steps:
-      - name: Require every validation group to succeed
+      - name: Require every selected validation group to succeed
         env:
           RESULTS: ${{ toJSON(needs) }}
-        run: >-
-          node -e 'for (const [name, job] of Object.entries(JSON.parse(process.env.RESULTS))) if (job.result !== "success") throw Error(name + ": " + job.result);'
+        run: |
+          node -e '
+          const results = JSON.parse(process.env.RESULTS);
+          for (const name of ["source", "assets", "native"]) {
+            if (results[name]?.result !== "success") throw Error(name + ": " + results[name]?.result);
+          }
+          for (const name of ["browser", "installer"]) {
+            const enabled = results.source.outputs[name + "_enabled"];
+            if (!["true", "false"].includes(enabled)) throw Error("Missing selection for " + name);
+            const expected = enabled === "true" ? "success" : "skipped";
+            if (results[name]?.result !== expected) throw Error(name + ": " + results[name]?.result + " (expected " + expected + ")");
+          }
+          console.log("Validated selected scope: " + results.source.outputs.scope);'
