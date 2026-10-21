@@ -3,11 +3,11 @@ import { poll } from './polling';
 import type { PollDelay } from './polling';
 
 type Snapshot<T = unknown> = { data?: T; error?: unknown; loading: boolean; started: boolean };
-type Loader = (signal: AbortSignal) => Promise<unknown>;
+type Loader = (signal: AbortSignal, refresh?: boolean) => Promise<unknown>;
 export type QueryInterval<T = unknown> = number | ((data: T | undefined) => PollDelay);
 type Entry = {
   snapshot: Snapshot; listeners: Map<() => void, QueryInterval>; loader?: Loader;
-  revision?: number; requested?: number; fetching: boolean; loop?: ReturnType<typeof poll>;
+  revision?: number; requested?: number; refreshOnce?: boolean; fetching: boolean; loop?: ReturnType<typeof poll>;
 };
 const empty: Snapshot = { loading: false, started: false };
 
@@ -52,12 +52,13 @@ export class QueryStore {
     const entry = this.entry(key); entry.loader = loader;
     if (!force && (entry.fetching ? entry.requested : entry.revision) === revision) return;
     entry.requested = revision;
+    if (force) entry.refreshOnce = true;
     if (!entry.listeners.size) return;
     entry.loop ??= poll(async signal => {
-      const requested = entry.requested; entry.fetching = true;
+      const requested = entry.requested, refresh = entry.refreshOnce ?? false; entry.refreshOnce = false; entry.fetching = true;
       this.emit(entry, { ...entry.snapshot, loading: true, started: true });
       try {
-        const data = await entry.loader!(signal);
+        const data = await entry.loader!(signal, refresh);
         if (!signal.aborted) this.emit(entry, { data, loading: false, started: true });
       } catch (error) {
         if (!signal.aborted) {

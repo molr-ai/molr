@@ -328,3 +328,10 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/browser` | `ChromiumExecutable`, `NewHandler`, `Command`, `NativeCommand` | `TestDaemonPeerIdentityBeforeSendingCommand`, `internal/platform/sandbox.TestSeatbeltNativeBrowser`, `internal/app.TestBrowserRealTaskStreamTakeoverAndPersistence`, `internal/app.TestBrowserProxyRealSandbox` |
 | `internal/platform/sandbox` | `HelperMain`, `Runner.Start`, `Runner.DialForward`, `Runner.StopAssistant`, `Runner.Close` | `TestSeatbeltNativeBrowser`, `TestSeatbeltBrowserParentCrash`, `TestSeatbeltBrowserControlPorts` |
 | `internal/installation` | `Maintenance.Start`, `Maintenance.Task`, `Maintenance.Programs`, `Maintenance.Snapshot` | `TestMacBrowserBundleLinks`, `TestMacBrowserRealArchive`, `TestMacComponentWorkerLockHandoff`, `TestMaintenanceLockSerializesCLIAndRuntime` |
+
+## 内存结果缓存
+
+| 模块 | 导出接口 | 行为测试 |
+| --- | --- | --- |
+| `internal/resultcache` | `New`, `Cache.GetOrCompute` | `TestCacheFixedTTLRefreshAndFailure`, `TestCacheLRUCostAndOversizedResults`, `TestCacheSharesWorkAndIndependentCancellation`, `TestCacheAbandonedWorkCannotOverwriteReplacement`, `TestCacheConcurrentAccess` |
+| `internal/resultcache` | `Cache.Close` | `TestCacheLimitsTimeoutPanicAndClose` |

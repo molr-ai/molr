@@ -12,7 +12,7 @@ async function login(page: Page, username = 'owner', password = 'webui-e2e-passw
 async function request(page: Page, path: string, data?: unknown): Promise<any> {
   return page.evaluate(async ({ path, data }) => {
     const module = '/src/api/client.ts', { api } = await import(module);
-    return data === undefined ? api.get(path) : api.post(path, data);
+    return data === undefined ? api.get(path + (path.includes('?') ? '&' : '?') + 'refresh=true') : api.post(path, data);
   }, { path, data });
 }
 async function mutate(page: Page, path: string, data: object) {
@@ -158,4 +158,29 @@ test('usage omits empty model choices and labels unassigned history', async ({ p
   await expect(page.locator('.usage-table').getByRole('button', { name: 'Unknown model', exact: true })).toBeDisabled();
   await page.getByRole('combobox', { name: 'Model', exact: true }).click();
   await expect(page.getByRole('option')).toHaveText(['All models', 'Fixture model']);
+});
+
+test('usage and sandbox GET responses cache snapshots and explicit refresh replaces them', async ({ page }) => {
+  await login(page);
+  const year = new Date().getUTCFullYear();
+  const dates = `?from=${year}-01-01&until=${year + 1}-01-01`;
+  const paths = ['/api/account/usage' + dates, '/api/account/quotas', '/api/admin/usage/analytics' + dates, '/api/admin/usage', '/api/sandbox', '/api/sandboxes', '/api/sandboxes/local/resources'];
+  for (const path of paths) {
+    const fresh = await page.request.get(path + (path.includes('?') ? '&' : '?') + 'refresh=true');
+    expect(fresh.status()).toBe(200);
+    expect(fresh.headers()['x-cache']).toBe('REFRESH');
+    expect(Date.parse(fresh.headers()['x-cache-written-at'])).toBeGreaterThan(0);
+    const hit = await page.request.get(path);
+    expect(hit.headers()['x-cache']).toBe('HIT');
+    expect(hit.headers()['x-cache-written-at']).toBe(fresh.headers()['x-cache-written-at']);
+    expect(await hit.json()).toEqual(await fresh.json());
+  }
+  for (const path of ['/api/models', '/api/resources', '/api/grants', '/api/assistants']) {
+    expect((await page.request.get(path)).headers()['x-cache']).toBeUndefined();
+  }
+  await page.goto('/#/account/usage');
+  await expect(page.locator('.usage-analytics-overview')).toBeVisible();
+  const refreshed = page.waitForResponse(response => new URL(response.url()).pathname === '/api/account/quotas' && new URL(response.url()).searchParams.get('refresh') === 'true');
+  await page.locator('.usage-toolbar').getByRole('button', { name: 'Refresh', exact: true }).click();
+  expect((await refreshed).headers()['x-cache']).toBe('REFRESH');
 });

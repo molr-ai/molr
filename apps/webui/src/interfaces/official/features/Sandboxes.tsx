@@ -12,7 +12,7 @@ import { Cpu, Ellipsis, Globe, HardDrive, Pencil, Plus, RefreshCw, Server, Shiel
 import type { Assistant, Grant, Resource } from '../../../api/types';
 import type { SandboxInfo, SandboxKind, SandboxResourceDetail, SandboxView } from '../../../sandbox-types';
 export type { SandboxView } from '../../../sandbox-types';
-import { api } from '../../../api/client';
+import { api, onMutation } from '../../../api/client';
 import { useCopy, useQuery } from '../../../state';
 import { sandboxResourceName, useSandboxCopy } from '../../../sandbox-copy';
 import { useSandboxPreference } from '../../../sandbox-navigation';
@@ -37,6 +37,9 @@ export function Sandboxes({ resources, resourceID = '' }: { resources: Resource[
   const [kind, setKind] = useSandboxPreference<SandboxPermission>('kind', 'storage', value => kinds.includes(value as SandboxPermission));
   const details = useQuery<SandboxResourceDetail[]>(query.data?.some(item => item.ID === selected) ? `/api/sandboxes/${selected}/resources` : null);
   const grants = useQuery<Grant[]>('/api/grants', true), assistants = useQuery<Assistant[]>('/api/assistants', true);
+  useEffect(() => onMutation(path => {
+    if (path.startsWith('/api/sandboxes/') || path.startsWith('/api/resources/')) { query.reload(); details.reload(); }
+  }), [query.reload, details.reload]);
   const [connecting, setConnecting] = useState(false), [editing, setEditing] = useState<SandboxView | null>(null), [disconnecting, setDisconnecting] = useState<SandboxView | null>(null), [renamingSandbox, setRenamingSandbox] = useState<SandboxView | null>(null), [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<Resource | null>(null), [renaming, setRenaming] = useState<Resource | null>(null), [access, setAccess] = useState<Resource | null>(null);
   const target = resources.find(resource => resource.ID === resourceID);

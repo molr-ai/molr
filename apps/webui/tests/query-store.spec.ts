@@ -101,3 +101,19 @@ test('snapshot reads without subscriptions do not evict retained query data', as
     expect(requests).toHaveLength(1);
   } finally { queries.clear(); }
 });
+
+test('manual server refresh applies once and does not turn later requests into bypasses', async () => {
+  const queries = new QueryStore();
+  const flags: boolean[] = [];
+  const release = queries.subscribe('cached', () => {});
+  const load = async (_signal: AbortSignal, refresh = false) => { flags.push(refresh); return flags.length; };
+  try {
+    queries.refresh('cached', 0, load);
+    await expect.poll(() => queries.snapshot('cached').data).toBe(1);
+    queries.refresh('cached', 0, load, true);
+    await expect.poll(() => queries.snapshot('cached').data).toBe(2);
+    queries.refresh('cached', 1, load);
+    await expect.poll(() => queries.snapshot('cached').data).toBe(3);
+    expect(flags).toEqual([false, true, false]);
+  } finally { release(); queries.clear(); }
+});

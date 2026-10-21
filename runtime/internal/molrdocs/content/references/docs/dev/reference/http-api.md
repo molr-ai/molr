@@ -35,6 +35,18 @@ Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugi
 - 本机开发可显式配置 `tls_mode: "local"`：仅数字回环监听，HTTP 回环 URL，不接受代理转发头。开发会话/预登录 Cookie 为 `molr_dev_session` / `molr_dev_login`，保留 HttpOnly/SameSite=Strict，省略 Secure；独立 proof Cookie 为可读的 `molr_dev_csrf`；认证与 CSRF 流程相同。
 - HTTPS 直接终止或显式可信代理。Host 必须匹配 PublicURL；代理模式只信任配置网段，验证代理 HTTPS 头并从右向左剥离可信代理地址。跨域来源必须显式配置，不使用通配符。
 
+## GET 响应缓存
+
+默认对以下 GET 接口启用 Runtime 内存缓存，有效期为写入成功后的 5 分钟：`/api/account/usage`、`/api/account/quotas`、`/api/admin/usage/analytics`、`/api/admin/usage`、`/api/sandbox`、`/api/sandboxes` 和 `/api/sandboxes/{id}/resources`。助理、授权、资源、模型等共享列表保持实时读取。浏览器响应仍使用 `Cache-Control: no-store`，缓存仅存在当前 Runtime 进程中，重启后清空。
+
+接口策略由 `internal/api/response_cache.go` 集中声明，`api.Options.ResponseCache` 可按路由覆盖 TTL，`0` 表示关闭；只允许 GET 开启。开启新接口还需提供实时权限检查和可见范围指纹。缓存键区分账号、身份、路由、路径和查询参数，权限与用户组可见性每次检查；用户组、统计币种或时区变化会改变相应缓存键。
+
+正常命中直接返回原始 JSON 结果。请求添加 `refresh=true` 会绕过已有结果，重新计算并更新原缓存键；`refresh` 本身不进入缓存键。相同键正在计算时，请求共享该次计算，包括强制刷新请求。响应头 `X-Cache` 为 `HIT`、`MISS` 或 `REFRESH`，`X-Cache-Written-At` 是实际写入时间的 RFC 3339 时间戳。过大结果正常返回但不保留，标为 `BYPASS`，不带写入时间。错误不会缓存，读取不延长有效期；并发上限或运行时关闭导致的暂时不可用按正常错误协议返回。
+
+通用 `internal/resultcache` 通过 `GetOrCompute` 包装任意只读计算，返回值、写入时间和命中信息，不依赖 HTTP 或数据库。缓存值约定为不可变结果；HTTP 层保存序列化 JSON，避免共享可变业务对象。实现采用互斥锁、按最近访问淘汰、固定 TTL 和按键合并计算；取消单个等待者不影响其他等待者，全部离开后取消计算，旧计算不能覆盖新的结果。请求缓存最多保留 256 项、64 MiB 响应数据，计算数也受条目上限约束。过期项在访问和写入时移除，容量上限约束空闲时保留的过期项；Runtime 关闭时清理结果并取消计算。调用方仍须遵守计算上下文的超时和取消。
+
+页面“刷新”和沙盒“重新检查”仅对本次读取发送 `refresh=true`，后续轮询恢复正常缓存读取。沙盒连接和资源编辑成功后，当前沙盒页面重新检查状态与详情。用量展示允许最多 5 分钟延迟，实际预算、额度准入、授权和执行判断不使用响应缓存。
+
 ## 路由清单
 
 2026-10-03 按 `runtime/internal/api/*_routes.go` 的注册项核对，含沙盒动作路由。新增或调整路由时同步本表；路径存在不表示当前身份有权访问，部署能力开关仍然生效。认证和通用字段见本文，专项行为见[插件](https://molr.ai/zh/docs/dev/extensions/plugins/#生命周期与-http-路由)、[做梦](https://molr.ai/zh/docs/dev/runtime/dream-memory/#界面与验证)、[工作台](https://molr.ai/zh/docs/dev/runtime/workbench/#runtime-实现)、[成员配额](https://molr.ai/zh/docs/dev/security/users-and-groups/)及[资源额度](https://molr.ai/zh/docs/dev/security/resource-quotas/)。

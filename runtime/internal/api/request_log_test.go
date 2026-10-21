@@ -53,7 +53,7 @@ func TestRequestDiagnostics(t *testing.T) {
 			if !strings.HasPrefix(response.Header.Get("Server-Timing"), "runtime;dur=") {
 				t.Fatal("missing response timing")
 			}
-			if response.Header.Get("Access-Control-Expose-Headers") != "Server-Timing, X-Request-ID" && tc.status != 400 {
+			if response.Header.Get("Access-Control-Expose-Headers") != "Server-Timing, X-Request-ID, X-Cache, X-Cache-Written-At" && tc.status != 400 {
 				t.Fatal("diagnostic headers not exposed")
 			}
 			var entry struct {

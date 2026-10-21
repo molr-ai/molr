@@ -44,7 +44,7 @@ test('sandbox capacity uses hardware bounds, quotas and separate GPU lines', asy
   await expect(summary).toContainText(/Available storage capacity|可使用的存储空间上限/);
   await expect(summary).toContainText('8 GiB');
   await expect(summary).toContainText(/Local workspace|本地工作区/);
-  await expect(page.locator('.sandbox-resource-heading').first()).toContainText(/Local workspace|本地工作区/);
+  await expect(page.locator('.sandbox-resource-heading').filter({ hasText: /Local workspace|本地工作区/ })).toContainText(/Local workspace|本地工作区/);
   await expect(page.locator('.sandbox-section')).not.toContainText('Assistant workspace');
   await expect(summary.getByRole('progressbar', { name: /Disk usage|磁盘占用/ }).first()).toHaveAttribute('aria-valuenow', '50');
   await page.getByRole('tab', { name: /^(Compute|计算)$/ }).click();

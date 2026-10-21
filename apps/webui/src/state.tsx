@@ -206,7 +206,11 @@ export function useQuery<T>(path: string | null, list = false, interval?: QueryI
   const subscribe = useCallback((listener: () => void) => key ? queries.subscribe(key, listener, cadence as QueryInterval) : () => {}, [queries, key, cadence]);
   const snapshot = useCallback(() => queries.snapshot<T>(key), [queries, key]);
   const state = useSyncExternalStore(subscribe, snapshot);
-  const load = useCallback((signal: AbortSignal) => list ? api.all(path!, signal) as Promise<T> : api.get<T>(path!, signal), [path, list]);
+  const load = useCallback((signal: AbortSignal, refresh = false) => {
+    let target = path!;
+    if (refresh) { const [base, query] = target.split('?'); const params = new URLSearchParams(query); params.set('refresh', 'true'); target = `${base}?${params}`; }
+    return list ? api.all(target, signal) as Promise<T> : api.get<T>(target, signal);
+  }, [path, list]);
   useEffect(() => { if (key) queries.refresh(key, revision, load); }, [queries, key, revision, load]);
   const reload = useCallback(() => { if (key) queries.refresh(key, revision, load, true); }, [queries, key, revision, load]);
   return { data: state.data, error: state.error, loading: !!path && (state.loading || !state.started), reload };

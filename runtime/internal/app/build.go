@@ -1217,7 +1217,9 @@ func Build(ctx context.Context, cfg config.Config, options ...BuildOptions) (bun
 		}
 	}
 	updateService := updates.New(updateSource, cfg.Updates.AutoCheck, build, platform.ConfiguredHTTPClient(updateSource, updateAddresses))
-	b.HTTP, err = api.NewServer(cfg, b.Services, api.Options{OAuth: oauthbroker.New(map[string]oauthbroker.Provider{"chatgpt": chatgptOAuth}, identity.ValidatePrincipal), ChatGPTDisconnect: chatgptOAuth.disconnect, RequestLogger: requestLogger, Workspace: &workspaceExplorer{ad: adapters, maxUpload: cfg.Execution.MaxUploadBytes}, Maintenance: maintenance, Browser: func(ctx context.Context, p core.Principal, id core.ID, raw json.RawMessage) (json.RawMessage, error) {
+	b.HTTP, err = api.NewServer(cfg, b.Services, api.Options{ResponseCacheScope: func(ctx context.Context, p core.Principal, pattern string) (string, error) {
+		return responseCacheScope(ctx, store, identity, permissions, preferences, b.Exchange, p, pattern)
+	}, OAuth: oauthbroker.New(map[string]oauthbroker.Provider{"chatgpt": chatgptOAuth}, identity.ValidatePrincipal), ChatGPTDisconnect: chatgptOAuth.disconnect, RequestLogger: requestLogger, Workspace: &workspaceExplorer{ad: adapters, maxUpload: cfg.Execution.MaxUploadBytes}, Maintenance: maintenance, Browser: func(ctx context.Context, p core.Principal, id core.ID, raw json.RawMessage) (json.RawMessage, error) {
 		q, err := tools.ParseBrowser(raw)
 		if err != nil {
 			return nil, err

@@ -14,6 +14,7 @@ import (
 	"molr.ai/runtime/internal/maintenance"
 	"molr.ai/runtime/internal/notification"
 	"molr.ai/runtime/internal/oauthbroker"
+	"molr.ai/runtime/internal/resultcache"
 	"molr.ai/runtime/internal/updates"
 	"net"
 	"net/http"
@@ -52,6 +53,10 @@ type permissionRequestService interface {
 }
 
 type Options struct {
+	// ResponseCache overrides per-route TTLs; zero disables caching. Only GET is allowed.
+	ResponseCache map[string]time.Duration
+	// ResponseCacheScope rechecks endpoint authorization and fingerprints current visibility.
+	ResponseCacheScope func(context.Context, core.Principal, string) (string, error)
 	OAuth              *oauthbroker.Broker
 	ChatGPTDisconnect  func(context.Context, core.Principal, resource.DeleteProviderRequest) (bool, error)
 	RequestLogger      *slog.Logger
@@ -90,6 +95,7 @@ type Options struct {
 	OnListen           func(net.Addr)
 }
 type HTTPServer struct {
+	responses        *resultcache.Cache[string, []byte]
 	config           config.Config
 	services         Services
 	options          Options
@@ -122,6 +128,13 @@ func NewServer(cfg config.Config, services Services, o Options) (*HTTPServer, er
 	origin, _ := url.Parse(cfg.HTTP.PublicURL)
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &HTTPServer{config: cfg, services: services, options: o, origin: origin, mux: http.NewServeMux(), streamContext: ctx, cancelStreams: cancel}
+	for pattern, ttl := range o.ResponseCache {
+		if ttl < 0 || (ttl > 0 && !strings.HasPrefix(pattern, "GET ")) {
+			cancel()
+			return nil, core.Invalid("response_cache", "nonnegative TTL and GET routes required")
+		}
+	}
+	s.responses = resultcache.New[string, []byte](resultcache.Options[[]byte]{MaxEntries: 256, MaxCost: 64 << 20, LoadTimeout: cfg.HTTP.RequestTimeout.Value(), Cost: func(value []byte) int64 { return int64(len(value)) }})
 	s.routes()
 	s.http = &http.Server{Handler: s.Handler(), ReadHeaderTimeout: cfg.HTTP.ReadHeaderTimeout.Value(), IdleTimeout: 90 * time.Second, MaxHeaderBytes: 32 << 10, TLSConfig: &tls.Config{MinVersion: tls.VersionTLS12}}
 	return s, nil
@@ -180,6 +193,7 @@ func (s *HTTPServer) Shutdown(ctx context.Context) error {
 	s.mu.Lock()
 	s.closing = true
 	s.cancelStreams()
+	s.responses.Close()
 	s.mu.Unlock()
 	return s.http.Shutdown(ctx)
 }
@@ -332,7 +346,7 @@ func (s *HTTPServer) dispatch(w http.ResponseWriter, r *http.Request, id core.ID
 	if origin != "" {
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
-		w.Header().Set("Access-Control-Expose-Headers", "Server-Timing, X-Request-ID")
+		w.Header().Set("Access-Control-Expose-Headers", "Server-Timing, X-Request-ID, X-Cache, X-Cache-Written-At")
 		w.Header().Add("Vary", "Origin")
 	}
 	if r.Method == http.MethodOptions {
@@ -464,7 +478,12 @@ func pathID(r *http.Request) (core.ID, error) {
 }
 func queryID(r *http.Request, key string) core.ID { return core.ID(r.URL.Query().Get(key)) }
 func (s *HTTPServer) handle(pattern string, call func(*http.Request) (any, error)) {
+	ttl := responseCacheTTL(pattern, s.options.ResponseCache)
 	s.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
+		if ttl > 0 && r.Method == http.MethodGet {
+			s.cachedResponse(w, r, pattern, ttl, call)
+			return
+		}
 		out, err := call(r)
 		if err != nil {
 			fail(w, err, info(r).ID)
