@@ -8,6 +8,7 @@ import (
 	"molr.ai/runtime/internal/auth"
 	"molr.ai/runtime/internal/contextstore"
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/im/conversation"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/policy"
 	"molr.ai/runtime/internal/pricing"
@@ -73,6 +74,7 @@ type userUsageSummary struct {
 	Username, DisplayName                                   string
 	GroupID                                                 core.ID
 	ModelCalls, ToolCalls, ConnectionCalls, AttachmentBytes int64
+	UserMessages                                            int64
 	Active, Unknown                                         int
 	Spent, Reserved                                         []core.Money
 }
@@ -96,6 +98,15 @@ func userUsage(ctx context.Context, store persistence.Store, u auth.UserInfo) (u
 	out.Active, out.Unknown = models.Active+tools.Active, models.Unknown+tools.Unknown
 	out.Spent, out.Reserved = models.Spent, models.Reserved
 	out.AttachmentBytes, err = quota.AttachmentBytes(ctx, store, u.ID)
+	if err != nil {
+		return out, err
+	}
+	err = store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		var err error
+		// Send receipts survive chat cleanup and exclude copied history and retried sends.
+		out.UserMessages, err = tx.Count(ctx, "im.receipts", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerKey", u.ID), persistence.Eq("Message.Sender", conversation.User)}})
+		return err
+	})
 	return out, err
 }
 

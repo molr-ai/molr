@@ -298,6 +298,10 @@ func (s *Store) createIndexes() error {
 		{"mcp.calls", []string{"OwnerID", "State", "Connection.ID", "CreatedAtKey", "ID"}},
 		{"mcp.calls", []string{"Connection.ID", "CreatedAtKey", "State", "OwnerID", "ID"}},
 	}...)
+	indexes = append(indexes, struct {
+		bucket string
+		fields []string
+	}{"im.receipts", []string{"OwnerKey", "Message.Sender"}})
 	for i, index := range indexes {
 		parts := []string{"bucket"}
 		for _, field := range index.fields {

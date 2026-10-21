@@ -47,6 +47,9 @@ test('member usage and admin statistics share actual call totals', async ({ page
     expect(personal.ContextStorage.Messages).toBeGreaterThan(0);
     expect(stats.ContextStorage.Bytes).toBeGreaterThanOrEqual(personal.ContextStorage.Bytes);
     await expect(member.getByRole('region', { name: 'Account context storage', exact: true })).toContainText('Unique message nodes');
+    expect(personal.Summary.UserMessages).toBe(1);
+    expect(row.UserMessages).toBe(1);
+    await expect(member.locator('.usage-metric').filter({ has: member.getByText('Lifetime user messages', { exact: true }) }).locator('dd')).toHaveText('1');
     expect(row.ModelCalls).toBe(personal.Summary.ModelCalls);
     expect(row.ToolCalls).toBe(personal.Summary.ToolCalls);
     expect(row.Spent).toEqual(personal.Summary.Spent);
@@ -74,6 +77,13 @@ test('member usage and admin statistics share actual call totals', async ({ page
     const storage = page.getByRole('region', { name: 'Global context storage', exact: true });
     await expect(storage).toContainText('Unique message nodes');
     const globalText = await storage.textContent();
+    const totalMessages = stats.Users.reduce((sum: number, user: any) => sum + user.UserMessages, 0);
+    await expect(page.locator('.usage-metric').filter({ has: page.getByText('Lifetime user messages', { exact: true }) }).locator('dd')).toHaveText(totalMessages.toLocaleString('en'));
+    await page.getByRole('searchbox', { name: 'Search members' }).fill(username);
+    await page.locator('.usage-table').getByRole('button', { name: user.DisplayName, exact: true }).click();
+    await expect(page.locator('.usage-summary .usage-metric').filter({ has: page.getByText('Lifetime user messages', { exact: true }) }).locator('dd')).toHaveText('1');
+    await page.getByRole('button', { name: 'Clear filters', exact: true }).click();
+    await page.getByRole('radio', { name: 'By member', exact: true }).click();
     await page.getByRole('searchbox', { name: 'Search members' }).fill(username);
     await expect(page.locator('.usage-table tbody tr')).toHaveCount(1);
     await expect(page.locator('.usage-table')).toContainText(username);

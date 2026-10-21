@@ -31,6 +31,7 @@ function Overview({ value }: { value: UsageSummary }) {
   const pluginsVisible = usePluginsVisible();
   const { locale } = useCopy(), zh = locale === 'zh';
   return <dl className="usage-overview">
+    <Metric label={zh ? '累计用户消息' : 'Lifetime user messages'}>{value.UserMessages.toLocaleString(locale)}</Metric>
     <Metric label={zh ? '累计模型费用' : 'Lifetime model spend'}><Amounts values={value.Spent} /></Metric>
     <Metric label={zh ? '预留费用' : 'Reserved spend'}><Amounts values={value.Reserved} /></Metric>
     <Metric label={zh ? '模型调用' : 'Model calls'}>{value.ModelCalls.toLocaleString(locale)}</Metric>
@@ -88,7 +89,7 @@ export function AccountUsage() {
   return <div className="usage-page" aria-busy={query.loading}>
     <UsageAnalytics onRefresh={query.reload} />
     <details className="usage-current" open><summary>{zh ? '累计用量与额度' : 'Lifetime usage and allowances'}<ChevronDown size={16} aria-hidden="true" /></summary><div className="usage-current-body">
-    <p className="usage-note">{zh ? '费用与调用次数为累计值，不受上方日期、助理或模型筛选影响；存储与额度为当前状态。' : 'Spend and calls are lifetime totals, independent of the date, assistant and model filters above. Storage and allowances reflect the current state.'}</p>
+    <p className="usage-note">{zh ? '用户消息数、费用与调用次数为累计值，不受上方日期、助理或模型筛选影响；存储与额度为当前状态。' : 'User messages, spend and calls are lifetime totals, independent of the date, assistant and model filters above. Storage and allowances reflect the current state.'}</p>
     {!data ? query.loading && <Loading /> : <>
       <section className="usage-summary">
         <Overview value={data.Summary} />
@@ -105,9 +106,9 @@ export function AccountUsage() {
   </div>;
 }
 function aggregate(rows: UsageSummary[]): UsageSummary {
-  const result: UsageSummary = { UserID: '', Username: '', DisplayName: '', GroupID: '', ModelCalls: 0, ToolCalls: 0, ConnectionCalls: 0, AttachmentBytes: 0, Active: 0, Unknown: 0, Spent: [], Reserved: [] };
+  const result: UsageSummary = { UserID: '', Username: '', DisplayName: '', GroupID: '', UserMessages: 0, ModelCalls: 0, ToolCalls: 0, ConnectionCalls: 0, AttachmentBytes: 0, Active: 0, Unknown: 0, Spent: [], Reserved: [] };
   for (const row of rows) {
-    for (const key of ['ModelCalls', 'ToolCalls', 'ConnectionCalls', 'AttachmentBytes', 'Active', 'Unknown'] as const) result[key] += row[key];
+    for (const key of ['UserMessages', 'ModelCalls', 'ToolCalls', 'ConnectionCalls', 'AttachmentBytes', 'Active', 'Unknown'] as const) result[key] += row[key];
     for (const key of ['Spent', 'Reserved'] as const) for (const amount of row[key]) { const item = result[key].find(v => v.Currency === amount.Currency); if (item) item.Micros += amount.Micros; else result[key].push({ ...amount }); }
   }
   return result;
