@@ -6,11 +6,11 @@ export function retryDelay(error: unknown, failures: number): PollDelay {
   return Math.max(Math.min(60_000, 2000 * 2 ** Math.min(failures - 1, 5)), error instanceof APIError ? error.retryAt - Date.now() : 0);
 }
 
-/** A serial, foreground-only request loop. Events cannot bypass error cooldowns. */
-export function poll(task: (signal: AbortSignal) => Promise<PollDelay>, immediate = true) {
+/** A serial request loop (foreground-only unless explicitly enabled). Events cannot bypass error cooldowns. */
+export function poll(task: (signal: AbortSignal) => Promise<PollDelay>, immediate = true, background = false) {
   let timer: ReturnType<typeof setTimeout> | undefined, controller: AbortController | undefined;
   let stopped = false, pending = false, failures = 0, blockedUntil = 0;
-  const available = () => typeof document === 'undefined' || document.visibilityState === 'visible' && navigator.onLine !== false;
+  const available = () => typeof document === 'undefined' || (background || document.visibilityState === 'visible') && navigator.onLine !== false;
   function schedule(delay: PollDelay) {
     clearTimeout(timer); timer = undefined;
     if (!stopped && delay !== false && available()) timer = setTimeout(request, Math.max(0, delay));

@@ -139,6 +139,11 @@ try {
   assert.match(await remote("window.molrApp.notifications.show('stale-login', {tag:'test',title:'Fixture',body:'Message',route:''}).then(() => 'unexpected', e => e.message)"), /expired/);
   assert.match(await remote("window.molrApp.notifications.show('fixture-login', {tag:'test',title:'Fixture',body:'Message',route:'https://example.invalid'}).then(() => 'unexpected', e => e.message)"), /Invalid/);
   await remote("window.molrApp.notifications.close('fixture-login')");
+  assert.match(await remote("window.molrApp.notifications.setBadge('stale-login', 2).then(() => 'unexpected', e => e.message)"), /expired/);
+  assert.match(await remote("window.molrApp.notifications.setBadge('fixture-login', -1).then(() => 'unexpected', e => e.message)"), /Invalid/);
+  assert.equal(typeof await remote("window.molrApp.notifications.setBadge('fixture-login', 0)"), 'boolean');
+  await remote("window.molrApp.notifications.end('fixture-login')");
+  assert.match(await remote("window.molrApp.notifications.setBadge('fixture-login', 2).then(() => 'unexpected', e => e.message)"), /expired/);
   checkpoint('clipboard');
   await app.evaluate(({ app, BrowserWindow, webContents }, url) => {
     // CI can launch Electron behind another macOS app. Clipboard writes wait

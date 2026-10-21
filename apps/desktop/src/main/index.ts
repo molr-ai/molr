@@ -1,6 +1,6 @@
 import { DesktopUpdates } from './updates.js';
 import { applicationMenu } from './menu.js';
-import { app, BrowserWindow, WebContentsView, ipcMain, session, protocol, net, dialog, shell, Menu, powerMonitor, Notification } from 'electron';
+import { app, BrowserWindow, WebContentsView, ipcMain, session, protocol, net, dialog, shell, Menu, powerMonitor, Notification, nativeImage } from 'electron';
 import type { IpcMainInvokeEvent, Session, WebContents } from 'electron';
 import { join, resolve, relative, sep, basename } from 'node:path';
 import { existsSync, realpathSync, mkdirSync, readFileSync, statSync } from 'node:fs';
@@ -10,6 +10,7 @@ import { AppearanceStore } from './appearance.js';
 import type { AdministratorInput, Connection, ConnectionInput, DesktopState, LocalAction, ResourcePreset, LocalStatus } from '../shared.js';
 import type { AppInfo, AppWindowState } from '@molr/ui-host/app';
 import type { LocalRuntime } from '../runtime/local.js';
+import { badgeBitmap } from './badge.js';
 import { DesktopNotifications } from './notifications.js';
 import { OAuthFlow } from './oauth.js';
 import { runtimeOAuthTransport } from './oauth-transport.js';
@@ -185,6 +186,16 @@ async function connect(id: string, loginURL?: string) {
       if (win?.isMinimized()) win.restore();
       win?.show(); win?.focus(); contentsView.webContents.focus();
       contentsView.webContents.send('app:notification-click', scope, route);
+    },
+    undefined,
+    count => {
+      if (process.platform === 'win32') {
+        if (!win || win.isDestroyed()) return false;
+        const icon = count ? nativeImage.createFromBitmap(badgeBitmap(count), { width: 32, height: 32, scaleFactor: 2 }) : null;
+        win.setOverlayIcon(icon, count ? `${count} unread messages` : '');
+        return true;
+      }
+      return app.setBadgeCount(Math.min(count, 2147483647));
     },
   );
   contentsView.setVisible(false);
@@ -375,6 +386,8 @@ async function main() {
   appHandle('appearance', value => { if (appearance.set(value)) changed(); }, 1);
   appHandle('minimize', () => win?.minimize()); appHandle('toggle-maximize', toggleMaximize); appHandle('close', closeLater); appHandle('disconnect', disconnectLater);
   appHandle('notification-begin', scope => notifications!.begin(scope), 1);
+  appHandle('notification-end', scope => notifications!.end(scope), 1);
+  appHandle('notification-badge', (scope, count) => notifications!.setBadge(scope, count), 2);
   // On macOS initialization asks the OS for permission. Do not call during
   // page load: isSupported is a capability check, not an authorization status.
   appHandle('notification-permission', () => Notification.isSupported());

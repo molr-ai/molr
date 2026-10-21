@@ -138,7 +138,7 @@ async function desktopFixture(page: Page, kind: 'remote' | 'managed-local', pend
    window: { minimize: async () => {}, toggleMaximize: async () => {}, close: async () => {} },
    disconnect: async () => {}, onWindowStateChanged: () => () => {},
    oauth: { authorize: async () => ({ status: 'cancelled' }), cancel: async () => {} },
-   notifications: { begin: async () => {}, requestPermission: async () => false, show: async () => {}, close: async () => {}, onClick: () => () => {} },
+   notifications: { begin: async () => {}, end: async () => {}, setBadge: async () => true, requestPermission: async () => false, show: async () => {}, close: async () => {}, onClick: () => () => {} },
    updates: { status: async () => fixture.status as any, check: async () => { fixture.checks++; return fixture.status as any; }, openDownloads: async () => { fixture.downloads++; }, upgradeLocal: async () => { fixture.upgrades++; }, onChanged: callback => { listener = callback; return () => { listener = undefined; }; } },
   };
  }, {kind, pending});

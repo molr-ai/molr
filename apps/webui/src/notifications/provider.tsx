@@ -16,13 +16,13 @@ import type { SoundState } from './sound';
 import { notificationCopy } from './copy';
 import type { NotificationAdapter, NotificationCapability, NotificationPreferences, RuntimeEvent } from './types';
 
-const defaults: NotificationPreferences = { enabled: false, preview: false, sound: false, system: true };
+const defaults: NotificationPreferences = { enabled: false, preview: false, sound: false, system: true, badge: false };
 function preferences(key: string): NotificationPreferences {
   // Migrate the old DND preference to system notifications off, preserving sound.
-  try { const value = JSON.parse(localStorage.getItem(key) ?? '{}'); return { enabled: value?.enabled === true, preview: value?.preview === true, sound: value?.sound === true, system: value?.system !== false && value?.quiet !== true }; } catch { return { ...defaults }; }
+  try { const value = JSON.parse(localStorage.getItem(key) ?? '{}'); return { enabled: value?.enabled === true, preview: value?.preview === true, sound: value?.sound === true, badge: value?.badge === true, system: value?.system !== false && value?.quiet !== true }; } catch { return { ...defaults }; }
 }
 type TestResult = 'sent' | 'fallback' | 'failed';
-type Controls = { preferences: NotificationPreferences; change: (value: Partial<NotificationPreferences>) => void; capability: NotificationCapability; soundState: SoundState; testSound: () => Promise<boolean>; requestPermission: () => Promise<void>; deliveryFailed: boolean; test: () => Promise<TestResult> };
+type Controls = { preferences: NotificationPreferences; change: (value: Partial<NotificationPreferences>) => void; capability: NotificationCapability; soundState: SoundState; testSound: () => Promise<boolean>; requestPermission: () => Promise<void>; deliveryFailed: boolean; badgeFailed: boolean; test: () => Promise<TestResult> };
 const NotificationContext = createContext<Controls | null>(null);
 export const useNotifications = () => useContext(NotificationContext)!;
 const openRoute = (route: string) => { if (/^#\/(?:assistants(?:\/[A-Za-z0-9_-]{1,128}(?:\?panel=(?:info|permissions|channel|tasks)(?:&task=[A-Za-z0-9_-]{1,128})?)?)|plans\/[A-Za-z0-9_-]{1,128}|workbench\/[A-Za-z0-9_-]{1,128}\?event=[A-Za-z0-9_-]{1,128})$/.test(route)) location.hash = route; };
@@ -47,6 +47,7 @@ export function NotificationProvider({ children, createAdapter = createNotificat
   }, [conversations.data, conversations.error, conversations.reload]);
   const { subscribeEvents } = useData(), { locale } = useCopy(), toast = useToast();
   const [value, setValue] = useState(() => preferences(key)), [capability, setCapability] = useState<NotificationCapability>('unsupported');
+  const [badgeFailed, setBadgeFailed] = useState(false);
   const [deliveryFailed, setDeliveryFailed] = useState(false);
   const [soundState, setSoundState] = useState<SoundState>('blocked');
   const current = useRef({ noticeText, value, copy: notificationCopy[locale], toast });
@@ -61,7 +62,7 @@ export function NotificationProvider({ children, createAdapter = createNotificat
     try { localStorage.setItem(key, JSON.stringify(next)); } catch { /* In-memory preference remains usable. */ }
     applyPreferences.current(previous, next);
     if (patch.system !== undefined) setDeliveryFailed(false);
-    if (patch.system === true) void requestPermission();
+    if (patch.system === true || patch.badge === true) void requestPermission();
     if (patch.sound === true) void audio.current?.unlock();
   }
   useEffect(() => {
@@ -229,6 +230,30 @@ export function NotificationProvider({ children, createAdapter = createNotificat
       window.removeEventListener('focus', sync); document.removeEventListener('visibilitychange', sync); window.removeEventListener('storage', storage);
     };
   }, [account, key, subscribeEvents, createAdapter]);
+  useEffect(() => {
+    const device = adapter.current;
+    if (!device?.setBadge) return;
+    let active = true;
+    setBadgeFailed(false);
+    const update = async (count: number) => {
+      try {
+        const ok = await device.setBadge!(count);
+        if (active) setBadgeFailed(value.badge && !ok);
+      } catch { if (active) setBadgeFailed(value.badge); }
+    };
+    if (!value.badge) { void update(0); return () => { active = false; }; }
+    // UI queries pause while minimized. The OS badge must keep tracking reads
+    // and incoming messages, including events missed during a reconnect.
+    const loop = poll(async signal => {
+      const items = await api.all<Conversation>('/api/conversations', signal);
+      if (active && !signal.aborted) await update(items.filter(item => !item.Archived).reduce((total, item) => total + Math.max(0, item.UnreadCount), 0));
+      return 30_000;
+    }, true, true);
+    const unsubscribe = subscribeEvents(event => {
+      if (/^(message|conversation|assistant)\./.test(event.Topic)) loop.request();
+    });
+    return () => { active = false; unsubscribe(); loop.stop(); };
+  }, [account, createAdapter, subscribeEvents, value.badge]);
   async function requestPermission() {
     const device = adapter.current; if (!device) return;
     try { const next = await device.requestPermission(); if (adapter.current === device) setCapability(next); } catch { if (adapter.current === device) { setCapability(device.capability()); setDeliveryFailed(true); } }
@@ -260,5 +285,5 @@ export function NotificationProvider({ children, createAdapter = createNotificat
     if (!sound) return false;
     return await sound.unlock() && audio.current === sound && sound.play();
   }
-  return <NotificationContext.Provider value={{ preferences: value, change, capability, soundState, testSound, requestPermission, deliveryFailed, test }}>{children}</NotificationContext.Provider>;
+  return <NotificationContext.Provider value={{ preferences: value, change, capability, soundState, testSound, requestPermission, deliveryFailed, badgeFailed, test }}>{children}</NotificationContext.Provider>;
 }

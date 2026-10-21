@@ -37,6 +37,8 @@ export type MolrAppAPI = {
   };
   notifications: {
     begin(scope: string): Promise<void>;
+    end(scope: string): Promise<void>;
+    setBadge(scope: string, count: number): Promise<boolean>;
     /** Initializes the OS channel on user activation; support is not permission. */
     requestPermission(): Promise<boolean>;
     show(scope: string, notification: AppNotification): Promise<void>;

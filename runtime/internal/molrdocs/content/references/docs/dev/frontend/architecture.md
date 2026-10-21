@@ -55,6 +55,8 @@ App 模式的完整字标位于标题栏，工作区的连接状态和重试功�
 
 ## 桌面通知
 
+应用图标未读数通过同一 scope 的 `setBadge(scope, count)` 更新，`end(scope)` 在退出时清除并结束该 scope，旧 scope 的清理不能影响后续登录。主进程仅接受非负安全整数，不接受页面提供的图片或路径。Windows 在主进程生成固定红白数字叠加图标；macOS/Linux 调用 `app.setBadgeCount`，Linux 包的 `desktopName` 与实际 desktop 文件一致。WebUI 独立的角标开关默认关闭；启用时通过支持后台运行的串行轮询读取未归档会话未读总数，消息、会话和助理事件触发刷新，每 30 秒补偿遗漏事件，保留请求退避。普通 UI 查询仍只在前台轮询。
+
 WebUI 的 `NotificationAdapter` 在 App 中选择原生适配器，通过 `molrApp.notifications` 调用主进程的 Electron Notification；浏览器继续使用 Web Notifications。现有桌面通知开关触发系统通道初始化，主进程不再为 Runtime 弹出自定义通知授权框，也不依赖网页的通知权限。macOS 的通道初始化可能触发系统授权，因此不在页面加载时调用 `Notification.isSupported()`；该返回值仅表示通道支持，不能显示为系统已授权。
 
 每次登录生命周期使用独立通知 scope。主进程校验当前页面、主 frame、连接来源、scope、文本长度和内部路由；退出、导航、断开及关闭开关清理通知。保留原生对象以支持已读撤回和过期点击隔离。发送等待原生 show／failed 事件并限制等待时长，失败回退应用内提醒；系统专注模式可能抑制展示。状态与测试结果放在对应设置行中。macOS 原生授权、展示和点击需使用签名 App 验收。

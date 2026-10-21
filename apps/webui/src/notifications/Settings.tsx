@@ -24,6 +24,10 @@ export function NotificationSettings() {
     <div className="settings-list">
       <SettingsSwitch label={copy.enabled} help={copy.enabledHelp} checked={notifications.preferences.enabled} onChange={event => notifications.change({ enabled: event.target.checked })} />
       <SettingsSwitch label={copy.preview} help={copy.previewHelp} checked={notifications.preferences.preview} onChange={event => notifications.change({ preview: event.target.checked })} />
+      {desktop && <section className="settings-row notification-setting" aria-label={copy.badge}>
+        <SettingsSwitch label={copy.badge} help={copy.badgeHelp} checked={notifications.preferences.badge} onChange={event => notifications.change({ badge: event.target.checked })} />
+        {notifications.preferences.badge && notifications.badgeFailed && <div className="notification-setting-detail"><p className="settings-description" role="status">{copy.badgeFailed}</p></div>}
+      </section>}
       <section className="settings-row notification-setting" aria-label={copy.system}>
         {systemAvailable ? <SettingsSwitch label={copy.system} help={copy.systemHelp} checked={notifications.preferences.system} onChange={event => { testRevision.current++; setTestResult(undefined); notifications.change({ system: event.target.checked }); }} /> : <div className="notification-setting-label">{copy.test}</div>}
         <div className="notification-setting-detail">

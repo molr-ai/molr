@@ -32,6 +32,8 @@ Chat displays one notification at a time, along with the remaining count. The cu
 
 Turning on Desktop notifications requests authorization when needed; there is no separate authorization button. The desktop app uses native system notifications and stores preferences locally for each connection and account. Turning the switch off preserves in-app alerts and sound. macOS manages system authorization: allow Molr in system notification settings and check Focus if notifications do not appear. Keep the app open and connected.
 
+The desktop app’s **App icon unread count** switch is off by default. Enable it to show unread messages from non-archived conversations for the current connection and account on the taskbar or Dock. It is independent of alerts, desktop notifications and sound. Reading messages updates the count; disabling the switch, signing out or switching connections clears it. Windows displays `99+` above 99 messages. macOS requires notification and badge permission; Linux requires a compatible desktop environment. Keep the app running and connected; counts also update while minimized.
+
 Desktop notifications and message sound each show their status, test action, and result in the corresponding settings row. Send test notification can request browser permission when it has not yet been requested; when desktop notifications are off or unavailable, it displays an in-app alert. Preview sound does not change the sound switch. An accepted delivery request does not guarantee that the system displays the notification.
 
 ## About Molr

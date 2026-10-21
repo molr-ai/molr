@@ -12,7 +12,7 @@ test('desktop inherits saved account appearance only after login and preserves t
       oauth: { authorize: async () => ({ status: 'cancelled' }), cancel: async () => {} },
       updates: { status: async () => ({ comparison: 'uncomparable', checking: false }), check: async () => ({ comparison: 'uncomparable', checking: false }), openDownloads: async () => {}, upgradeLocal: async () => {}, onChanged: () => () => {} },
       notifications: {
-        begin: async () => {}, requestPermission: async () => true, show: async () => {},
+        begin: async () => {}, end: async () => {}, setBadge: async () => true, requestPermission: async () => true, show: async () => {},
         close: async () => {}, onClick: () => () => {},
       },
       setAppearance: async appearance => { appearances.push(appearance); },

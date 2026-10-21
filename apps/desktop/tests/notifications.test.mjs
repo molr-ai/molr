@@ -61,3 +61,24 @@ test('disconnect cancels pending notifications and does not activate late OS eve
   notices[0].emit('show'); notices[0].emit('click'); assert.deepEqual(clicks, []);
   assert.equal(notices[0].closed, 2);
 });
+
+test('badges validate counts, isolate login scopes and clear on teardown', () => {
+  const counts = [];
+  const controller = new DesktopNotifications(() => { throw new Error('No popup needed'); }, () => {}, undefined, count => { counts.push(count); return true; });
+  controller.begin('one');
+  assert.equal(controller.setBadge('one', 12), true);
+  for (const count of [-1, 1.5, NaN, Infinity, '2', Number.MAX_SAFE_INTEGER + 1]) assert.throws(() => controller.setBadge('one', count), /Invalid/);
+  controller.close('one'); // Dismissing popups leaves unread counts intact.
+  assert.equal(counts.at(-1), 12);
+  controller.begin('two');
+  assert.equal(counts.at(-1), 0);
+  controller.setBadge('two', 4);
+  controller.end('one');
+  assert.equal(counts.at(-1), 4);
+  assert.throws(() => controller.setBadge('one', 99), /expired/);
+  controller.end('two');
+  assert.equal(counts.at(-1), 0);
+  assert.throws(() => controller.setBadge('two', 1), /expired/);
+  controller.begin('three'); controller.setBadge('three', 3); controller.dispose();
+  assert.equal(counts.at(-1), 0);
+});

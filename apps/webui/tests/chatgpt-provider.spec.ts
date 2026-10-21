@@ -30,7 +30,7 @@ test('OpenAI offers API key and desktop ChatGPT authorization without exposing c
       disconnect: async () => {}, onWindowStateChanged: () => () => {},
       oauth: { authorize: async (provider, options) => { (window as unknown as { oauthCalls: unknown[] }).oauthCalls.push({ provider, options }); return { status: 'cancelled' }; }, cancel: async () => {} },
       updates: { status: async () => ({ comparison: 'uncomparable', checking: false }), check: async () => ({ comparison: 'uncomparable', checking: false }), openDownloads: async () => {}, upgradeLocal: async () => {}, onChanged: () => () => {} },
-      notifications: { begin: async () => {}, requestPermission: async () => true, show: async () => {}, close: async () => {}, onClick: () => () => {} },
+      notifications: { begin: async () => {}, end: async () => {}, setBadge: async () => true, requestPermission: async () => true, show: async () => {}, close: async () => {}, onClick: () => () => {} },
     } satisfies MolrAppAPI;
   });
   await page.reload(); dialog = await open();

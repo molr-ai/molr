@@ -22,10 +22,20 @@ type Entry = { notice: NativeNotice; cancel: () => void };
 export class DesktopNotifications {
   private scope?: string;
   private entries = new Map<string, Entry>();
-  constructor(private create: (value: AppNotification) => NativeNotice, private open: (scope: string, route: string) => void, private timeout = 10_000) {}
+  constructor(private create: (value: AppNotification) => NativeNotice, private open: (scope: string, route: string) => void, private timeout = 10_000, private badge: (count: number) => boolean = () => false) {}
   begin(scope: unknown) {
     token(scope);
     this.dispose(); this.scope = scope;
+  }
+  setBadge(scope: unknown, count: unknown) {
+    token(scope);
+    if (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0) throw new Error('Invalid badge count.');
+    if (scope !== this.scope) throw new Error('Notification session expired.');
+    return this.badge(count);
+  }
+  end(scope: unknown) {
+    token(scope);
+    if (scope === this.scope) this.dispose();
   }
   async show(scope: unknown, value: unknown) {
     token(scope); message(value);
@@ -60,5 +70,6 @@ export class DesktopNotifications {
   dispose() {
     if (this.scope) this.close(this.scope);
     this.scope = undefined;
+    this.badge(0);
   }
 }

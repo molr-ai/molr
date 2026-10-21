@@ -3,7 +3,7 @@ import type { MolrAppAPI } from '@molr/ui-host/app';
 
 async function desktop(page: import('@playwright/test').Page) {
   await page.addInitScript(() => {
-    const calls = { permission: 0, shown: 0, closed: 0, fail: false };
+    const calls = { permission: 0, shown: 0, closed: 0, fail: false, badge: 0, badgeOK: true, ended: 0 };
     Object.assign(window, { notificationFixture: calls });
     // Desktop must not depend on the browser's denied permission.
     Object.defineProperty(Notification, 'permission', { get: () => 'denied' });
@@ -14,7 +14,7 @@ async function desktop(page: import('@playwright/test').Page) {
       disconnect: async () => {}, onWindowStateChanged: () => () => {},
       oauth: { authorize: async () => ({ status: 'cancelled' }), cancel: async () => {} },
       notifications: {
-        begin: async () => {}, requestPermission: async () => { calls.permission++; return true; },
+        begin: async () => {}, end: async () => { calls.ended++; calls.badge = 0; }, setBadge: async (_scope, count) => { calls.badge = count; return calls.badgeOK; }, requestPermission: async () => { calls.permission++; return true; },
         show: async () => { calls.shown++; if (calls.fail) throw new Error('OS rejected notification'); },
         close: async () => { calls.closed++; }, onClick: () => () => {},
       },
@@ -66,7 +66,7 @@ test('desktop adapter closes its scope and ignores previous login clicks', async
     const path = '/src/notifications/desktop.ts';
     const { createDesktopNotifications } = await import(path);
     const scopes: string[] = [], closed: string[] = [], routes: string[] = [], callbacks: ((scope: string, route: string) => void)[] = [];
-    const bridge = { begin: async (scope: string) => { scopes.push(scope); }, requestPermission: async () => true, show: async () => {}, close: async (scope: string) => { closed.push(scope); }, onClick: (callback: (scope: string, route: string) => void) => { callbacks.push(callback); return () => {}; } };
+    const bridge = { end: async (scope: string) => { closed.push(scope); }, setBadge: async () => true, begin: async (scope: string) => { scopes.push(scope); }, requestPermission: async () => true, show: async () => {}, close: async (scope: string) => { closed.push(scope); }, onClick: (callback: (scope: string, route: string) => void) => { callbacks.push(callback); return () => {}; } };
     const one = createDesktopNotifications(bridge, (route: string) => routes.push(route));
     one.dispose();
     const two = createDesktopNotifications(bridge, (route: string) => routes.push(route));
@@ -93,4 +93,58 @@ test('browser notification switch directly requests permission', async ({ page }
   await toggle.uncheck(); await toggle.check();
   await expect(page.getByText('Desktop notifications allowed.', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Allow desktop notifications' })).toHaveCount(0);
+  await expect(page.getByRole('switch', { name: 'App icon unread count' })).toHaveCount(0);
+});
+
+
+test('badge tracks real unread messages while hidden, persists and clears independently of alerts', async ({ page }) => {
+  await desktop(page);
+  const badge = page.getByRole('switch', { name: 'App icon unread count', exact: true });
+  const count = () => page.evaluate(() => (window as any).notificationFixture.badge);
+  await expect(badge).not.toBeChecked();
+  expect(await count()).toBe(0);
+  const port = process.env.MOLR_TEST_PORT ?? '5193';
+  async function post(path: string, data: object, mutation = true) {
+    const csrf = (await page.context().cookies()).find(cookie => cookie.name === `molr_dev_csrf_p${port}`)!.value;
+    const response = await page.request.post(path, { headers: { Origin: `http://127.0.0.1:${port}`, 'X-CSRF-Token': csrf }, data: mutation ? { ...data, Mutation: { IdempotencyKey: crypto.randomUUID(), ExpectedVersion: 0 } } : data });
+    expect(response.ok(), await response.text()).toBe(true); return response.json();
+  }
+  const chats = await (await page.request.get('/api/conversations')).json();
+  for (const chat of chats.Items) await post('/api/conversations/read', { ConversationID: chat.ID, ThroughSequence: chat.LastSequence }, false);
+  await page.getByRole('switch', { name: 'Desktop notifications', exact: true }).uncheck();
+  await badge.check();
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  const origin = `http://127.0.0.1:${process.env.MOLR_E2E_MODEL_PORT ?? '18882'}`;
+  const resource = await post('/api/resources', { Name: `Badge ${Date.now()}`, Kind: 'model', Provider: 'openai-compatible', Binding: { Endpoint: origin, AllowedOrigins: [origin], Models: [{ Name: 'badge-fixture', ContextLimit: 32768, SupportsTools: true, Pricing: { Currency: 'USD', InputMicrosPerMillion: 0, OutputMicrosPerMillion: 0, CachedInputMicrosPerMillion: 0 } }] } });
+  const models = await (await page.request.get('/api/models')).json();
+  const assistant = await post('/api/assistants', { Name: 'Badge assistant', ModelID: models.find((m: any) => m.ResourceID === resource.ID).ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } });
+  await expect.poll(count).toBe(1);
+  const chat = await (await page.request.get(`/api/conversations/${assistant.ConversationID}`)).json();
+  await post('/api/conversations/read', { ConversationID: chat.ID, ThroughSequence: chat.LastSequence }, false);
+  await expect.poll(count).toBe(0);
+  await post('/api/conversations/messages', { ConversationID: chat.ID, Content: { Kind: 'text', Text: 'Reply for badge verification' } });
+  await expect.poll(count).toBe(1);
+  await page.evaluate(() => {
+    delete (document as any).visibilityState;
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await badge.uncheck(); await expect.poll(count).toBe(0);
+  await badge.check(); await expect.poll(count).toBe(1);
+  await page.reload(); await expect(badge).toBeChecked(); await expect.poll(count).toBe(1);
+  await expect(page.getByRole('switch', { name: 'Notification alerts', exact: true })).not.toBeChecked();
+  await expect(page.getByRole('switch', { name: 'Desktop notifications', exact: true })).not.toBeChecked();
+  await page.evaluate(() => { (window as any).notificationFixture.badgeOK = false; });
+  await badge.uncheck(); await badge.check();
+  await expect(page.getByRole('region', { name: 'App icon unread count', exact: true }).getByText(/Could not update/)).toBeVisible();
+  await page.evaluate(() => { (window as any).notificationFixture.badgeOK = true; });
+  await badge.uncheck(); await badge.check();
+  await expect(page.getByText(/Could not update/)).toHaveCount(0);
+  await page.evaluate(() => { location.hash = '#/account/security'; });
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
+  await expect.poll(count).toBe(0);
+  expect(await page.evaluate(() => (window as any).notificationFixture.ended)).toBeGreaterThan(0);
 });

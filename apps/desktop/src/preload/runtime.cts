@@ -18,6 +18,8 @@ if (process.isMainFrame) {
     },
     notifications: {
       begin: scope => ipcRenderer.invoke('app:notification-begin', scope),
+      end: scope => ipcRenderer.invoke('app:notification-end', scope),
+      setBadge: (scope, count) => ipcRenderer.invoke('app:notification-badge', scope, count),
       requestPermission: () => ipcRenderer.invoke('app:notification-permission'),
       show: (scope, value) => ipcRenderer.invoke('app:notification-show', scope, value),
       close: (scope, tag) => ipcRenderer.invoke('app:notification-close', scope, tag),

@@ -25,6 +25,14 @@ export function createDesktopNotifications(bridge: MolrAppAPI['notifications'], 
       await bridge.show(scope, value);
     },
     close,
-    dispose() { disposed = true; unsubscribe(); void close(); },
+    async setBadge(count) {
+      await ready;
+      if (disposed) return false;
+      return bridge.setBadge(scope, count);
+    },
+    dispose() {
+      disposed = true; unsubscribe();
+      void ready.then(() => bridge.end(scope)).catch(() => {});
+    },
   };
 }
