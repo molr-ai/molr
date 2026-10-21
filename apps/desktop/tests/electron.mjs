@@ -17,7 +17,7 @@ const fixture = createServer((req, res) => {
   res.setHeader('Content-Type', 'text/html'); res.end('<!doctype html><script>window.molrApp.getInfo()</script><h1>Runtime fixture</h1><button onclick="void window.molrApp.disconnect()">Disconnect</button><a href="file:///tmp/private">unsafe</a>');
 });
 await new Promise(resolve => fixture.listen(0, '127.0.0.1', resolve));
-const url = `http://127.0.0.1:${fixture.address().port}`;
+const url = `http://127.0.0.1:${fixture.address().port}/`;
 let app;
 let phase = 'launch';
 const checkpoint = value => { phase = value; console.log('Electron acceptance:', value); };
@@ -37,7 +37,7 @@ async function launch() {
 }
 async function remote(code) {
   return app.evaluate(async ({ webContents }, { url, code }) => {
-    const wc = webContents.getAllWebContents().find(c => c.getURL().startsWith(url));
+    const wc = webContents.getAllWebContents().find(c => c.getURL() === url);
     if (!wc) throw new Error('Runtime view not found: ' + JSON.stringify(webContents.getAllWebContents().map(c => ({ url: c.getURL(), type: c.getType() }))));
     return wc.executeJavaScript(code);
   }, { url, code });
@@ -119,11 +119,20 @@ try {
   }
   checkpoint('untrusted WebContents');
   // A different WebContents using the same preload still cannot invoke controls.
-  assert.match(await app.evaluate(async ({ BrowserWindow }, { url, preload }) => {
+  const untrusted = await app.evaluate(async ({ BrowserWindow }, { url, preload }) => {
     const w = new BrowserWindow({ show: false, webPreferences: { preload, sandbox: true, nodeIntegration: false, contextIsolation: true } });
-    try { await w.loadURL(url + '/untrusted'); return await w.webContents.executeJavaScript('window.molrApp.getInfo().then(() => "unexpected", error => error.message)'); }
-    finally { w.destroy(); }
-  }, { url, preload: join(root, 'apps/desktop/dist/main/preload/runtime.cjs') }), /unavailable to this page/);
+    try {
+      await w.loadURL(new URL('untrusted', url).href);
+      return { id: w.id, error: await w.webContents.executeJavaScript('window.molrApp.getInfo().then(() => "unexpected", error => error.message)') };
+    } catch (error) { w.destroy(); throw error; }
+  }, { url, preload: join(root, 'apps/desktop/dist/main/preload/runtime.cjs') });
+  try {
+    assert.match(untrusted.error, /unavailable to this page/);
+    // Keep the same-prefix page alive so selection cannot depend on its cleanup timing.
+    assert.equal((await remote('window.molrApp.getInfo()')).apiVersion, 1, 'Runtime selection excludes the untrusted page');
+  } finally {
+    await app.evaluate(({ BrowserWindow }, id) => BrowserWindow.fromId(id)?.destroy(), untrusted.id);
+  }
   checkpoint('notification bridge');
   // No native notification permission or display is requested by these checks.
   await remote("window.molrApp.notifications.begin('fixture-login')");
@@ -136,19 +145,19 @@ try {
     // for an active document, so activate the window before focusing its view.
     app.focus({ steal: true });
     const window = BrowserWindow.getAllWindows()[0]; window.show(); window.focus();
-    const wc = webContents.getAllWebContents().find(c => c.getURL().startsWith(url)); wc.focus();
+    const wc = webContents.getAllWebContents().find(c => c.getURL() === url); wc.focus();
   }, url);
   // CDP focus emulation gives the renderer an active document even when the
   // CI window server cannot foreground the app. Clipboard permission checks
   // and the actual operating-system clipboard still run normally.
-  const runtimePage = app.context().pages().find(p => p.url().startsWith(url));
+  const runtimePage = app.context().pages().find(p => p.url() === url);
   assert(runtimePage, 'Runtime page is available for focus emulation');
   const focus = await app.context().newCDPSession(runtimePage);
   try {
     await focus.send('Emulation.setFocusEmulationEnabled', { enabled: true });
     await expect.poll(() => remote('document.hasFocus()')).toBe(true);
     await app.evaluate(async ({ webContents }, url) => {
-      const wc = webContents.getAllWebContents().find(c => c.getURL().startsWith(url));
+      const wc = webContents.getAllWebContents().find(c => c.getURL() === url);
       await wc.executeJavaScript("navigator.clipboard.writeText('molr-desktop-copy-fixture')", true);
     }, url);
     assert.equal(await app.evaluate(({ clipboard }) => clipboard.readText()), 'molr-desktop-copy-fixture');
@@ -166,7 +175,7 @@ try {
     window.addEventListener('message', function listener(event) { if (event.source === frame.contentWindow && event.data === 'plugin-ready') { clearTimeout(timer); window.removeEventListener('message', listener); frame.remove(); URL.revokeObjectURL(url); resolve(event.data); } });
     frame.src = url; document.body.append(frame);
   })`), 'plugin-ready');
-  const preferences = await app.evaluate(({ webContents }, url) => webContents.getAllWebContents().find(c => c.getURL().startsWith(url)).getLastWebPreferences(), url);
+  const preferences = await app.evaluate(({ webContents }, url) => webContents.getAllWebContents().find(c => c.getURL() === url).getLastWebPreferences(), url);
   assert.equal(preferences.sandbox, true); assert.equal(preferences.contextIsolation, true); assert.equal(preferences.nodeIntegration, false); assert.equal(preferences.webSecurity, true);
   checkpoint('disconnect through Runtime UI');
   // Disconnect destroys the caller. Waiting for executeJavaScript's IPC result
@@ -224,7 +233,7 @@ try {
     assert.equal((await page.evaluate(() => window.molrDesktop.state())).active, one.id);
   }
   checkpoint('explicit disconnect persists across restart');
-  const restoredPage = app.context().pages().find(p => p.url().startsWith(url));
+  const restoredPage = app.context().pages().find(p => p.url() === url);
   await Promise.all([
     restoredPage.waitForEvent('close'),
     restoredPage.getByRole('button', { name: 'Disconnect', exact: true }).click(),

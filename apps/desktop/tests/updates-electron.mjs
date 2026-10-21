@@ -11,7 +11,7 @@ const root=resolve(import.meta.dirname,'../../..'), directory=mkdtempSync(join(t
 const payload=join(directory,'payload'), stateFile=join(payload,'state.json'); mkdirSync(join(payload,'bin'),{recursive:true});
 const server=createServer((_req,res)=>{res.setHeader('Content-Type','text/html');res.end('<!doctype html><script>window.molrApp.getInfo()</script><h1>Local fixture</h1>');});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
-const url=`http://127.0.0.1:${server.address().port}`;
+const url=`http://127.0.0.1:${server.address().port}/`;
 const write=value=>writeFileSync(stateFile,JSON.stringify(value));
 write({version:'0.1.0',upgrades:0,fail:false});
 writeFileSync(join(payload,'release.json'),JSON.stringify({version:'0.2.0',commit:'a'.repeat(40),os:process.platform,arch:process.arch==='arm64'?'arm64':'amd64'}));
@@ -24,7 +24,7 @@ console.log(JSON.stringify({type:'desktop',installed:true,state:'running',versio
 let app;
 const env={...process.env,MOLR_DESKTOP_DATA:join(directory,'data'),MOLR_DESKTOP_RUNTIME:payload}; delete env.ELECTRON_RUN_AS_NODE; delete env.MOLR_DESKTOP_DEV_URL;
 async function launch(){app=await electron.launch({args:[join(root,'apps/desktop'),...(process.env.MOLR_DESKTOP_TEST_HEADLESS==='1'?['--ozone-platform=headless']:[])],env,chromiumSandbox:true});app.context().setDefaultTimeout(10000);return app.firstWindow();}
-async function remote(code){return app.evaluate(async({webContents},{url,code})=>webContents.getAllWebContents().find(c=>c.getURL().startsWith(url)).executeJavaScript(code),{url,code});}
+async function remote(code){return app.evaluate(async({webContents},{url,code})=>webContents.getAllWebContents().find(c=>c.getURL() === url).executeJavaScript(code),{url,code});}
 async function ready(manager){await expect.poll(()=>manager.evaluate(()=>window.molrDesktop.state().then(s=>s.view))).toBe('runtime');}
 try {
  let manager=await launch();
