@@ -19,6 +19,7 @@ const fixture = createServer((req, res) => {
 await new Promise(resolve => fixture.listen(0, '127.0.0.1', resolve));
 const url = `http://127.0.0.1:${fixture.address().port}`;
 let app;
+const trace = process.env.MOLR_DESKTOP_TEST_TRACE === '1';
 let phase = 'launch';
 const checkpoint = value => { phase = value; console.log('Electron acceptance:', value); };
 const watchdog = setTimeout(() => {
@@ -31,16 +32,38 @@ async function launch() {
   const env = { ...process.env, MOLR_DESKTOP_DATA: data };
   delete env.MOLR_DESKTOP_RUNTIME; delete env.MOLR_DESKTOP_DEV_URL; delete env.ELECTRON_RUN_AS_NODE;
   app = await electron.launch({ args: [join(root, 'apps/desktop'), ...(process.env.MOLR_DESKTOP_TEST_HEADLESS === '1' ? ['--ozone-platform=headless'] : [])], env, chromiumSandbox: true, timeout: 30000 });
+  if (trace) {
+    app.on('console', message => console.log('Electron main:', message.text()));
+    const observe = page => page.on('console', message => console.log('Electron renderer:', page.url(), message.text()));
+    app.context().on('page', observe);
+    app.context().pages().forEach(observe);
+    // Trace the real controller without requesting native notification permission.
+    await app.evaluate((_, modulePath) => {
+      const require = process.getBuiltinModule('module').createRequire(modulePath);
+      const { DesktopNotifications } = require(modulePath);
+      const begin = DesktopNotifications.prototype.begin;
+      DesktopNotifications.prototype.begin = function (...args) {
+        console.log('notification-begin: entered');
+        try { return begin.apply(this, args); }
+        finally { console.log('notification-begin: exited'); }
+      };
+    }, join(root, 'apps/desktop/dist/main/main/notifications.js'));
+  }
   app.context().setDefaultTimeout(15000);
   assert.equal(await app.evaluate(() => process.argv.includes('--no-sandbox')), false);
   return app.firstWindow();
 }
 async function remote(code) {
-  return app.evaluate(async ({ webContents }, { url, code }) => {
+  if (trace) console.log('Remote evaluation:', code);
+  return app.evaluate(async ({ webContents }, { url, code, trace }) => {
     const wc = webContents.getAllWebContents().find(c => c.getURL().startsWith(url));
     if (!wc) throw new Error('Runtime view not found: ' + JSON.stringify(webContents.getAllWebContents().map(c => ({ url: c.getURL(), type: c.getType() }))));
+    if (trace) {
+      console.log('Remote target:', JSON.stringify({ id: wc.id, url: wc.getURL(), loading: wc.isLoading(), focused: wc.isFocused() }));
+      code = `(async () => { console.log('Remote script: entered'); try { const result = await (${code}); console.log('Remote script: resolved'); return result; } catch (error) { console.log('Remote script: rejected', String(error)); throw error; } })()`;
+    }
     return wc.executeJavaScript(code);
-  }, { url, code });
+  }, { url, code, trace });
 }
 async function waitRuntime(page) { await expect.poll(() => page.evaluate(async () => (await window.molrDesktop.state()).view), { timeout: 35000 }).toBe('runtime'); }
 try {

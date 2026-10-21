@@ -67,6 +67,8 @@ jobs:
         run: node --test apps/desktop/tests/*.test.mjs
       - if: inputs.validate && runner.os != 'Linux'
         run: npm run test:desktop:electron
+        env:
+          MOLR_DESKTOP_TEST_TRACE: ${{ runner.os == 'macOS' && '1' || '0' }}
       - if: inputs.validate && runner.os == 'Linux'
         run: |
           if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ] && [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" = 1 ]; then
