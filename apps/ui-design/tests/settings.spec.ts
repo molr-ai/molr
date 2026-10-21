@@ -1,3 +1,4 @@
+import { readLayout } from '../../../scripts/test-support/layout.ts';
 import { test, expect } from '@playwright/test';
 test.beforeEach(async ({ page }) => { await page.goto('/#interfaces'); await page.evaluate(() => { localStorage.removeItem('molr-assistant-prototype-v1'); localStorage.setItem('molr-ui-design-locale', 'en'); }); await page.reload(); });
 
@@ -61,7 +62,7 @@ test('settings tabs support keyboard selection and keep the selected tab in view
   await expect(data).toHaveAttribute('aria-selected', 'true');
   await expect(panel.getByRole('tabpanel', { name: 'Data', exact: true })).toBeVisible();
   await expect.poll(async () => {
-    const listBox = (await tabs.boundingBox())!, dataBox = (await data.boundingBox())!;
+    const [listBox, dataBox] = await readLayout(tabs, data);
     return dataBox.x >= listBox.x && dataBox.x + dataBox.width <= listBox.x + listBox.width + 1;
   }).toBe(true);
   await data.press('Home');

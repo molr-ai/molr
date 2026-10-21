@@ -1,3 +1,4 @@
+import { readLayout } from '../../../scripts/test-support/layout.ts';
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
@@ -39,8 +40,7 @@ test('date time picker supports calendar shortcuts, forever and custom input', a
   await picker.getByRole('button', { name: 'Custom', exact: true }).click();
   const calendar = page.getByRole('dialog', { name: 'Date and time', exact: true });
   await expect(calendar.getByRole('grid', { name: 'Calendar', exact: true })).toBeVisible();
-  const dateColumn = (await calendar.locator('.ui-date-calendar__date').boundingBox())!;
-  const timeColumn = (await calendar.locator('.ui-date-calendar__time').boundingBox())!;
+  const [dateColumn, timeColumn] = await readLayout(calendar.locator('.ui-date-calendar__date'), calendar.locator('.ui-date-calendar__time'));
   expect(timeColumn.x).toBeGreaterThanOrEqual(dateColumn.x + dateColumn.width);
   expect(Math.abs(timeColumn.y - dateColumn.y)).toBeLessThan(2);
   expect(await calendar.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
@@ -397,8 +397,7 @@ test('range slider supports track taps and pointer dragging without crossing end
   const lower = control.getByRole('slider', { name: 'Range start', exact: true });
   const upper = control.getByRole('slider', { name: 'Range end', exact: true });
   await control.scrollIntoViewIfNeeded();
-  const rail = (await control.locator('.ui-range-slider__rail').boundingBox())!;
-  const handle = (await lower.boundingBox())!;
+  const [rail, handle] = await readLayout(control.locator('.ui-range-slider__rail'), lower);
   await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2); await page.mouse.down();
   await page.mouse.move(rail.x + rail.width, rail.y + rail.height / 2, { steps: 8 }); await page.mouse.up();
   await expect(lower).toHaveAttribute('aria-valuenow', '80'); await expect(upper).toHaveAttribute('aria-valuenow', '80');

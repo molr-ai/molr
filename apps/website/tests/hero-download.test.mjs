@@ -1,3 +1,4 @@
+import { readLayout } from '../../../scripts/test-support/layout.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { chromium, expect } from '@playwright/test';
@@ -54,8 +55,7 @@ test('hero downloads detected platform directly, supports manual selection and h
     await expect(hero.locator('.home-download-label > small')).toHaveCSS('opacity', '0.7');
     const originalWidth = (await hero.locator('.home-download-primary').boundingBox()).width;
     await expect(hero.locator('.home-download-split')).toHaveCSS('width', '280px');
-    const titleBox = await hero.locator('.home-download-label > span').boundingBox();
-    const detailBox = await hero.locator('.home-download-label > small').boundingBox();
+    const [titleBox, detailBox] = await readLayout(hero.locator('.home-download-label > span'), hero.locator('.home-download-label > small'));
     assert(detailBox.y >= titleBox.y + titleBox.height);
     assert(await hero.locator('.home-download-label').evaluate(el => parseFloat(getComputedStyle(el.querySelector('small')).fontSize) < parseFloat(getComputedStyle(el.querySelector('span')).fontSize)));
     await expect(hero.locator('pre')).toHaveCount(0);
@@ -85,15 +85,12 @@ test('hero downloads detected platform directly, supports manual selection and h
       if (await toggle.count()) await toggle.click();
       await page.locator('html').evaluate((el, value) => { el.dataset.palette = value; }, palette);
       await hero.scrollIntoViewIfNeeded();
-      const downloadBox = await hero.locator('.home-download-split').boundingBox();
-      const docsBox = await hero.locator('.home-download-docs').boundingBox();
-      assert.equal(downloadBox.height, docsBox.height);
-      assert(docsBox.width < downloadBox.width);
-      // Resizing can adjust the viewport scroll between separate boundingBox calls.
-      // Compare both buttons in one layout snapshot, after responsive reflow settles.
-      if (width === 1440) await expect.poll(() => hero.evaluate(el =>
-        el.querySelector('.home-download-split').getBoundingClientRect().top === el.querySelector('.home-download-docs').getBoundingClientRect().top,
-      )).toBe(true);
+      await expect(async () => {
+        const [downloadBox, docsBox] = await readLayout(hero.locator('.home-download-split'), hero.locator('.home-download-docs'));
+        assert.equal(downloadBox.height, docsBox.height);
+        assert(docsBox.width < downloadBox.width);
+        if (width === 1440) assert.equal(downloadBox.y, docsBox.y);
+      }).toPass({ timeout: 5000 });
       await more.click();
       await expect.poll(async () => { const b = await panel.boundingBox(); return b && b.x >= 0 && b.x + b.width <= width; }).toBeTruthy();
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
@@ -137,12 +134,11 @@ test('hero downloads detected platform directly, supports manual selection and h
     await expect(hero.getByRole('link', { name: '更多版本和安装方式', exact: true })).toHaveAttribute('href', '#install');
     for (const width of [320, 1440]) {
       await page.setViewportSize({ width, height: 1000 });
-      const pendingBox = await hero.locator('.home-download-pending').boundingBox();
-      const docsBox = await hero.locator('.home-download-docs').boundingBox();
-      assert.equal(pendingBox.height, docsBox.height);
-      if (width === 1440) await expect.poll(() => hero.evaluate(el =>
-        el.querySelector('.home-download-pending').getBoundingClientRect().top === el.querySelector('.home-download-docs').getBoundingClientRect().top,
-      )).toBe(true);
+      await expect(async () => {
+        const [pendingBox, docsBox] = await readLayout(hero.locator('.home-download-pending'), hero.locator('.home-download-docs'));
+        assert.equal(pendingBox.height, docsBox.height);
+        if (width === 1440) assert.equal(pendingBox.y, docsBox.y);
+      }).toPass({ timeout: 5000 });
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     }
     failure = true; await page.reload();

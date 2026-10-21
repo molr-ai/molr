@@ -1,3 +1,4 @@
+import { readLayout } from '../../../scripts/test-support/layout.ts';
 import { test, expect } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
@@ -32,7 +33,7 @@ for (const version of ['Web', 'Desktop', 'Mobile']) {
     await dialog.screenshot({ path: `/tmp/molr-search-home-${version}-${info.project.name}.png` });
     const before = await page.evaluate(() => localStorage.getItem('molr-assistant-prototype-v1'));
     await search.fill('travel');
-    const inputBox = (await search.boundingBox())!, clearBox = (await clear.boundingBox())!, filterBox = (await filter.boundingBox())!;
+    const [inputBox, clearBox, filterBox] = await readLayout(search, clear, filter);
     expect(clearBox.x).toBeGreaterThan(inputBox.x);
     expect(clearBox.x + clearBox.width).toBeLessThanOrEqual(filterBox.x);
     expect(filterBox.x + filterBox.width).toBeLessThanOrEqual(inputBox.x + inputBox.width);

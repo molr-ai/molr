@@ -1,3 +1,4 @@
+import { readLayout } from '../../../scripts/test-support/layout.ts';
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
@@ -44,7 +45,7 @@ test('real terminal shares workspace, fences old controllers and reconnects', as
   const initialTab=page.locator(`[role="tab"][id$="-${initial.ID}"]`),otherTab=page.locator(`[role="tab"][id$="-${other.ID}"]`);
   await expect(otherTab).toHaveAttribute('aria-selected','true');
   await expect.poll(async()=>{
-    const tab=await otherTab.locator('..').boundingBox(),list=await page.getByRole('tablist',{name:'Active sessions'}).boundingBox();
+    const [tab, list] = await readLayout(otherTab.locator('..'), page.getByRole('tablist',{name:'Active sessions'}));
     return !!tab && !!list && tab.x>=list.x-1 && tab.x+tab.width<=list.x+list.width+1;
   },{message:'selected session, including its close button, stays fully visible'}).toBe(true);
   await initialTab.click();await expect(page.locator('.xterm-screen')).toContainText('中文-terminal-ok');

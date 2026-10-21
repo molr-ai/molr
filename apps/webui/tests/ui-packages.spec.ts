@@ -1,3 +1,4 @@
+import { readLayout } from '../../../scripts/test-support/layout.ts';
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { defaultConfiguration, resolveUI } from '@molr/ui-host';
@@ -251,7 +252,7 @@ test('official hire waits for the model catalog instead of navigating to resourc
       await expect(hire).toHaveClass(/button--ghost/);
       await expect(hire).toHaveText('');
       const search = page.getByRole('button', { name: 'Search', exact: true });
-      const searchBox = (await search.boundingBox())!, hireBox = (await hire.boundingBox())!;
+      const [searchBox, hireBox] = await readLayout(search, hire);
       expect(hireBox.x).toBeGreaterThanOrEqual(searchBox.x + searchBox.width);
       expect(hireBox.y).toBe(searchBox.y);
       await expect(page.locator('.sidebar-footer')).toHaveCount(0);

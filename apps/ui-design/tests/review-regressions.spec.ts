@@ -1,3 +1,4 @@
+import { readLayout } from '../../../scripts/test-support/layout.ts';
 import { test, expect } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
@@ -61,7 +62,7 @@ test('scoped toast stays within the preview and remains interactive inside its d
   await page.getByRole('button', { name: 'Notify in preview', exact: true }).click();
   const notice = page.locator('.ui-toast').filter({ hasText: 'Scoped notice' });
   const fits = async () => {
-    const inner = await notice.boundingBox(); const outer = await preview.boundingBox();
+    const [inner, outer] = await readLayout(notice, preview);
     expect(inner!.x).toBeGreaterThanOrEqual(outer!.x); expect(inner!.y).toBeGreaterThanOrEqual(outer!.y);
     expect(inner!.x + inner!.width).toBeLessThanOrEqual(outer!.x + outer!.width + 1);
     expect(inner!.y + inner!.height).toBeLessThanOrEqual(outer!.y + outer!.height + 1);

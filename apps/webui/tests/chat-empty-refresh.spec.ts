@@ -1,3 +1,4 @@
+import { readLayout } from '../../../scripts/test-support/layout.ts';
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import type { Assistant, Model } from '../src/api/types';
@@ -136,7 +137,7 @@ test('return to latest tracks scroll distance and overrides pending history rest
   await expect(latest).toBeVisible();
   await log.evaluate(element => { element.scrollTop = 0; });
   await expect(latest).toBeVisible();
-  const bounds = await latest.boundingBox(), area = await log.boundingBox(), composer = await page.locator('.chat-input').boundingBox();
+  const [bounds, area, composer] = await readLayout(latest, log, page.locator('.chat-input'));
   expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(area!.y + area!.height);
   expect(bounds!.y + bounds!.height).toBeLessThan(composer!.y);
   await latest.focus(); await page.keyboard.press('Enter');

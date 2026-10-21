@@ -1,3 +1,4 @@
+import { readLayout } from '../../../scripts/test-support/layout.ts';
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
@@ -293,7 +294,7 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   const inactive = page.locator('.browser-tab:not([data-active])').first();
   expect(await inactive.evaluate(el => getComputedStyle(el).borderTopStyle)).toBe('solid');
   expect(await inactive.evaluate(el => parseFloat(getComputedStyle(el).borderTopWidth))).toBeGreaterThan(0);
-  const tabBox = (await inactive.boundingBox())!, closeBox = (await inactive.locator('.ui-icon-button').boundingBox())!;
+  const [tabBox, closeBox] = await readLayout(inactive, inactive.locator('.ui-icon-button'));
   expect(closeBox.height).toBeLessThan(tabBox.height - 8);
   expect(closeBox.y).toBeGreaterThan(tabBox.y);
   // A rejected stale input refreshes ownership and reports a dismissible toast.

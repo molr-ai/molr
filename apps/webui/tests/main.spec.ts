@@ -1,3 +1,4 @@
+import { readLayout } from '../../../scripts/test-support/layout.ts';
 import { selectPlanRange } from './plan-controls';
 import { expectFitsWebView } from './viewport';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
@@ -798,7 +799,7 @@ test('provider connection discovers models without manual configuration and keep
   const name = `Provider ${info.project.name}-${Date.now()}`;
   await form.getByRole('textbox', { name: 'Name', exact: true }).fill(name);
   await expect(form.getByRole('switch')).toHaveCount(0);
-  const providersBox = (await providers.boundingBox())!, formBox = (await form.boundingBox())!;
+  const [providersBox, formBox] = await readLayout(providers, form);
   if (info.project.name === 'desktop') {
     expect(providersBox.x + providersBox.width).toBeLessThan(formBox.x);
     const viewport = page.viewportSize()!;
@@ -1269,7 +1270,7 @@ test('search matches the shared design, filters real results and opens tasks', a
   for (const source of ['Assistants', 'Resources', 'Tasks']) await expect(panel.getByRole('region', { name: source, exact: true })).toBeVisible();
   await expect(panel.locator('mark').first()).toHaveText(name);
   const clear = panel.getByRole('button', { name: 'Clear search', exact: true });
-  const clearBox = (await clear.boundingBox())!, filterBox = (await filter.boundingBox())!;
+  const [clearBox, filterBox] = await readLayout(clear, filter);
   expect(clearBox.x + clearBox.width).toBeLessThanOrEqual(filterBox.x);
   await filter.click();
   await panel.getByRole('option', { name: 'Resources', exact: true }).click();
@@ -1384,7 +1385,7 @@ test('connection notices stay above page cards across routes and short viewports
       await page.evaluate(route => { location.hash = `#/${route}`; }, route);
       await expect(page.locator(`.workspace-main[data-page='${route}'] ${ready}`)).toBeVisible();
       await expectFitsWebView(page);
-      const bannerBox = (await notice.boundingBox())!, cardBox = (await page.locator('.workspace-main').boundingBox())!;
+      const [bannerBox, cardBox] = await readLayout(notice, page.locator('.workspace-main'));
       expect(cardBox.y - (bannerBox.y + bannerBox.height)).toBeCloseTo(8, 0);
       await expect(notice).toHaveCSS('border-radius', '16px');
       const button = notice.getByRole('button', { name: 'Retry connection' });
@@ -1915,7 +1916,7 @@ test('chat panels dock by workspace width and preserve state across layouts', as
   await expect(panel).toBeVisible();
   await expect(page.locator('dialog:modal')).toHaveCount(0);
   await expect(page.locator('.chat-side-panel')).toHaveCSS('flex-basis', '600px');
-  const chatBounds = await page.locator('.chat-panel').boundingBox(), panelBounds = await panel.boundingBox();
+  const [chatBounds, panelBounds] = await readLayout(page.locator('.chat-panel'), panel);
   expect(chatBounds!.width).toBeGreaterThanOrEqual(480);
   expect(chatBounds!.x + chatBounds!.width).toBeLessThanOrEqual(panelBounds!.x + 1);
   await panel.getByRole('textbox', { name: 'Assistant name', exact: true }).fill('Unsaved across resize');
@@ -2085,18 +2086,19 @@ test('trajectory spans runs, pages older history and preserves inspection while 
     await scroll.evaluate(el => { el.scrollTop = 0; });
     const inspector = page.getByRole('region', { name: 'Step details', exact: true });
     const axis = page.getByRole('region', { name: 'Time overview', exact: true });
-    const axisBounds = await axis.boundingBox();
-    const trackBounds = await axis.locator('.trajectory-time-track').boundingBox();
+    const [axisBounds, trackBounds] = await readLayout(axis, axis.locator('.trajectory-time-track'));
     const expectStableAxis = async () => {
       await expect(axis).toBeVisible();
-      expect(await axis.boundingBox()).toEqual(axisBounds);
-      expect(await axis.locator('.trajectory-time-track').boundingBox()).toEqual(trackBounds);
+      const [currentAxis, currentTrack] = await readLayout(axis, axis.locator('.trajectory-time-track'));
+      expect(currentAxis).toEqual(axisBounds);
+      expect(currentTrack).toEqual(trackBounds);
     };
     await timeline.locator('.trajectory-run-bar').getByRole('button', { name: 'Inspect full details', exact: true }).click();
     await expect(inspector).toContainText('Trajectory message 5');
     await expect(inspector).toContainText('Execution snapshot');
     await expectStableAxis();
-    expect((await inspector.boundingBox())!.y).toBeGreaterThanOrEqual(axisBounds!.y + axisBounds!.height);
+    const [currentAxis, inspectorBounds] = await readLayout(axis, inspector);
+    expect(inspectorBounds.y).toBeGreaterThanOrEqual(currentAxis.y + currentAxis.height);
     await axis.getByRole('button', { name: 'Event axis', exact: true }).click();
     await expect(axis).toHaveAttribute('data-axis-mode', 'event');
     await axis.getByRole('button', { name: 'Duration axis', exact: true }).click();

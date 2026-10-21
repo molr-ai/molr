@@ -1,3 +1,4 @@
+import { readLayout } from '../../../scripts/test-support/layout.ts';
 import { test, expect } from '@playwright/test';
 
 test('global scrollbars overlay both axes without moving content and remain draggable in a modal', async ({ page }) => {
@@ -70,7 +71,7 @@ test('popup scrollbars follow clipping and clean up when the popup closes', asyn
   });
   const popup = page.locator('#scrollbar-popup'), thumb = popup.locator('.webui-scrollbar-thumb[data-axis="y"]');
   await expect(thumb).toBeVisible();
-  const bounds = (await popup.boundingBox())!, bar = (await thumb.boundingBox())!;
+  const [bounds, bar] = await readLayout(popup, thumb);
   expect(bar.y + bar.height).toBeLessThanOrEqual(bounds.y + bounds.height);
   await page.evaluate(() => document.getElementById('scrollbar-popup')!.hidePopover());
   await expect(page.locator('.webui-scrollbars')).toHaveCount(0);

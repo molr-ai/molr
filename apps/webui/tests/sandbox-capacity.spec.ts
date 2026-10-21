@@ -1,3 +1,4 @@
+import { readLayout } from '../../../scripts/test-support/layout.ts';
 import { test, expect } from '@playwright/test';
 
 // Deterministic capacity fixtures exercise presentation independently of CI hardware.
@@ -33,11 +34,10 @@ test('sandbox capacity uses hardware bounds, quotas and separate GPU lines', asy
   });
   await page.goto('/#/resources');
   const username = page.getByRole('textbox', { name: 'Username', exact: true });
-  if (await username.isVisible()) {
-    await username.fill('owner');
-    await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!');
-    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  }
+  // Each test starts with a fresh browser context; wait for login to render.
+  await username.fill('owner');
+  await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.getByRole('tab', { name: /^(Sandboxes|沙盒)$/ }).click();
   await page.getByRole('tab', { name: /^(Storage|存储)$/ }).click();
   const summary = page.locator('.sandbox-compute-summary');
@@ -60,7 +60,7 @@ test('sandbox capacity uses hardware bounds, quotas and separate GPU lines', asy
   await expect(gpus.nth(0).getByRole('progressbar', { name: /^(GPU usage|GPU 占用)$/ })).toHaveAttribute('aria-valuenow', '30');
   await expect(gpus.nth(0).getByRole('progressbar', { name: /^(GPU memory usage|显存占用)$/ })).toHaveAttribute('aria-valuenow', '25');
   await expect(gpus.nth(1).getByRole('progressbar')).toHaveCount(0);
-  const first = await gpus.nth(0).boundingBox(), second = await gpus.nth(1).boundingBox();
+  const [first, second] = await readLayout(gpus.nth(0), gpus.nth(1));
   expect(first && second && second.y >= first.y + first.height).toBeTruthy();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   limited = false;

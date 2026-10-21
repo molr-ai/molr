@@ -1,3 +1,4 @@
+import { readLayout } from '../../../scripts/test-support/layout.ts';
 import { test, expect } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 import { selectAssistant } from './interface-helpers';
@@ -14,15 +15,14 @@ async function expectContained(shell: Locator, sheet: Locator) {
   await expect(sheet).toHaveAttribute('data-contained', 'true');
   await expect(sheet).toHaveAttribute('data-side', 'bottom');
   await expect(sheet).toHaveCSS('transform', 'none');
-  const frame = (await shell.boundingBox())!, panel = (await sheet.boundingBox())!;
+  const layer = sheet.locator('..');
+  await expect(layer).toHaveCSS('overflow', 'hidden');
+  const [frame, panel, mask] = await readLayout(shell, sheet, layer.locator(':scope > .ui-modal-backdrop'));
   expect(panel.x).toBeGreaterThanOrEqual(frame.x);
   expect(panel.x + panel.width).toBeLessThanOrEqual(frame.x + frame.width + 1);
   expect(panel.y).toBeGreaterThanOrEqual(frame.y);
   expect(panel.y + panel.height).toBeCloseTo(frame.y + frame.height - 1, 0);
   expect(await sheet.evaluate(el => el.matches(':modal'))).toBe(false);
-  const layer = sheet.locator('..');
-  await expect(layer).toHaveCSS('overflow', 'hidden');
-  const mask = (await layer.locator(':scope > .ui-modal-backdrop').boundingBox())!;
   expect(mask.x).toBeCloseTo(frame.x + 1, 0);
   expect(mask.y).toBeCloseTo(frame.y + 1, 0);
   expect(mask.width).toBeCloseTo(frame.width - 2, 0);
@@ -66,7 +66,7 @@ test('mobile search stays inside the preview with a local backdrop and multi-sel
   await menu.getByRole('option', { name: 'Assistants', exact: true }).hover();
   const selectedBackground = await resources.evaluate(el => getComputedStyle(el).backgroundColor);
   await expect(menu.getByRole('option', { name: 'Assistants', exact: true })).toHaveCSS('background-color', selectedBackground);
-  const frame = (await shell.boundingBox())!, box = (await menu.boundingBox())!;
+  const [frame, box] = await readLayout(shell, menu);
   expect(box.x).toBeGreaterThanOrEqual(frame.x);
   expect(box.x + box.width).toBeLessThanOrEqual(frame.x + frame.width);
   expect(box.y).toBeGreaterThanOrEqual(frame.y);

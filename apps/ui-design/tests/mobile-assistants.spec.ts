@@ -1,3 +1,4 @@
+import { readLayout } from '../../../scripts/test-support/layout.ts';
 import { test, expect } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 
@@ -38,7 +39,7 @@ test('Mobile opens the list, keeps unselected messages unread and pushes a chat 
   await expect(ui.getByRole('navigation', { name: 'Workspace navigation' })).toHaveCount(0);
   await expect(ui.locator('.conversation-header').getByRole('heading', { name: '旅行助理', exact: true })).toBeVisible();
   const back = ui.getByRole('button', { name: 'Back to assistants', exact: true });
-  const backBox = (await back.boundingBox())!, nameBox = (await ui.locator('.conversation-header').getByRole('heading', { name: '旅行助理', exact: true }).boundingBox())!;
+  const [backBox, nameBox] = await readLayout(back, ui.locator('.conversation-header').getByRole('heading', { name: '旅行助理', exact: true }));
   expect(backBox.x + backBox.width).toBeLessThanOrEqual(nameBox.x);
   await ui.getByRole('textbox', { name: 'Message your assistant' }).fill('Keep this unsent draft');
   await back.click();

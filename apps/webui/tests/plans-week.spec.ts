@@ -1,3 +1,4 @@
+import { readLayout } from '../../../scripts/test-support/layout.ts';
 import { test, expect, type Page } from '@playwright/test';
 import { expectFitsWebView } from './viewport';
 const port = process.env.MOLR_TEST_PORT ?? process.env.MOLR_E2E_PORT ?? '5193';
@@ -98,7 +99,7 @@ test('week is default; events retain their duration, overlaps, midnight boundari
   await expect(week.locator('.plans-week-now')).toHaveCount(1);
   const event = (name: string) => week.locator('.plans-week-event').filter({hasText:`${prefix} ${name}`});
   await expect(event('repeat')).toHaveCount(3);
-  const long = await event('long').boundingBox(), overlap = await event('overlap').boundingBox();
+  const [long, overlap] = await readLayout(event('long'), event('overlap'));
   expect(long!.height).toBeCloseTo(126,0); expect(overlap!.height).toBeCloseTo(62,0);
   expect(long!.x+long!.width).toBeLessThanOrEqual(overlap!.x);
   expect(await event('midnight').evaluate(el => (el as HTMLElement).style.top)).toBe('0%');
@@ -187,7 +188,7 @@ test('centered period opens the shared picker and follows week and month navigat
   await expect(period).toHaveText('February 2027');await expect(page.locator('.plans-month-calendar')).toHaveAttribute('data-month','2027-02');
   await toolbar.getByRole('button',{name:'Next month',exact:true}).click();await expect(period).toHaveText('March 2027');
   await expect(toolbar.locator('.plans-date-jump')).toHaveCount(0);
-  const bounds=await toolbar.boundingBox(),nav=await page.locator('.plans-calendar-navigation').boundingBox(),modes=await page.getByRole('group',{name:'Calendar mode',exact:true}).boundingBox();
+  const [bounds, nav, modes] = await readLayout(toolbar, page.locator('.plans-calendar-navigation'), page.getByRole('group',{name:'Calendar mode',exact:true}));
   expect(Math.abs(nav!.x+nav!.width/2-bounds!.x-bounds!.width/2)).toBeLessThan(2);
   expect(Math.abs(modes!.x+modes!.width-bounds!.x-bounds!.width)).toBeLessThan(2);
   expect(modes!.height).toBeLessThanOrEqual(34);

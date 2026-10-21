@@ -1,3 +1,4 @@
+import { readLayout } from '../../../scripts/test-support/layout.ts';
 import { test, expect } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => { await page.goto('/tests/fixtures/platform-review.html'); });
@@ -99,6 +100,6 @@ test('Logo honors provider paths, local overrides and exported package assets', 
 test('public overlay helpers allow a consumer-defined contained popup', async ({ page }) => {
   await page.getByRole('button', { name: 'Custom overlay', exact: true }).click();
   const panel = page.getByTestId('custom-panel'); await expect(panel).toBeVisible(); await expect(panel).toHaveText('Contained');
-  const outer = await page.locator('#custom-scope').boundingBox(); const inner = await panel.boundingBox();
+  const [outer, inner] = await readLayout(page.locator('#custom-scope'), panel);
   expect(inner!.x).toBeGreaterThanOrEqual(outer!.x); expect(inner!.x + inner!.width).toBeLessThanOrEqual(outer!.x + outer!.width);
 });
