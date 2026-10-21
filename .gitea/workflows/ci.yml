@@ -68,9 +68,8 @@ jobs:
       - run: node scripts/build-assets.mjs
       - name: Archive verified frontend assets
         run: tar -czf application-assets.tar.gz .cache/build-assets/manifest.json apps/webui/dist apps/desktop/dist
-      - uses: actions/gitea-upload-artifact@v7
+      - uses: actions/gitea-upload-artifact@v4
         with:
-          overwrite: true
           name: ci-application-assets
           path: application-assets.tar.gz
           if-no-files-found: error
@@ -103,7 +102,7 @@ jobs:
           const arch = label.endsWith('-amd64') ? 'x64' : 'arm64';
           if (process.platform !== os || process.arch !== arch) throw new Error('Runner label does not match native platform: ' + label);
           console.log(process.platform, process.arch, process.version);"
-      - uses: actions/gitea-download-artifact@v8
+      - uses: actions/gitea-download-artifact@v4
         with:
           name: ci-application-assets
           path: .cache/assets-download
@@ -159,16 +158,14 @@ jobs:
             xvfb-run -a node scripts/test-desktop-package.mjs
           fi
       - if: runner.os != 'Windows'
-        uses: actions/gitea-upload-artifact@v7
+        uses: actions/gitea-upload-artifact@v4
         with:
-          overwrite: true
           name: ci-runtime-${{ matrix.os }}-${{ matrix.arch }}
           path: dist/releases/*
           if-no-files-found: error
           retention-days: 7
-      - uses: actions/gitea-upload-artifact@v7
+      - uses: actions/gitea-upload-artifact@v4
         with:
-          overwrite: true
           name: ci-desktop-${{ matrix.os }}-${{ matrix.arch }}
           path: |
             dist/desktop/**/*.deb
@@ -210,9 +207,8 @@ jobs:
       - run: npm run test:website
       - name: Upload website failure diagnostics
         if: failure()
-        uses: actions/gitea-upload-artifact@v7
+        uses: actions/gitea-upload-artifact@v4
         with:
-          overwrite: true
           name: website-failure-${{ matrix.runner }}
           path: apps/website/test-results/
           if-no-files-found: ignore
@@ -244,7 +240,7 @@ jobs:
           const arch = label.endsWith('-amd64') ? 'x64' : 'arm64';
           if (process.platform !== os || process.arch !== arch) throw new Error('Runner label does not match native platform: ' + label);
           console.log(process.platform, process.arch, process.version);"
-      - uses: actions/gitea-download-artifact@v8
+      - uses: actions/gitea-download-artifact@v4
         with:
           name: ci-runtime-${{ matrix.os }}-${{ matrix.arch }}
           path: dist/releases

@@ -28,17 +28,19 @@ Unknown platforms, duplicates and invalid installation switches fail the source 
 
 ## Local action mirrors
 
-Create these pull mirrors in the Gitea `actions` organization, preserving upstream branches, tags and built `dist/` files. Workflows follow the current major references; validate mirror updates with a manual CI run.
+Create these pull mirrors in the Gitea `actions` organization, preserving upstream branches, tags and built `dist/` files. Checkout and setup actions follow the major references below; artifact actions use the v4 branches matching Gitea 1.23. Validate mirror updates with a manual CI run.
 
 | Local repository | Upstream | Workflow reference |
 | --- | --- | --- |
 | `actions/checkout` | <https://github.com/actions/checkout> | `v7` |
 | `actions/setup-node` | <https://github.com/actions/setup-node> | `v7` |
 | `actions/setup-go` | <https://github.com/actions/setup-go> | `v7` |
-| `actions/gitea-upload-artifact` | <https://github.com/ChristopherHX/gitea-upload-artifact> | `v7` branch |
-| `actions/gitea-download-artifact` | <https://github.com/ChristopherHX/gitea-download-artifact> | `v8` branch |
+| `actions/gitea-upload-artifact` | <https://github.com/ChristopherHX/gitea-upload-artifact> | `v4` branch |
+| `actions/gitea-download-artifact` | <https://github.com/ChristopherHX/gitea-download-artifact> | `v4` branch |
 
 The first three use stable major tags. The artifact actions use the maintainer's Gitea-compatible branches, not the official GitHub artifact repositories. Downloads stay within the current run, without `github-token` or cross-run query inputs. No additional Docker, Python or cache actions are needed.
+
+Artifact versions depend on the server protocol. Upload v7 sends a `mime_type` field that older Gitea servers reject with `Error decode request body`, which the action reports as a JSON parse failure. Removing the GHES check or upgrading only the runner does not resolve this. See the [upstream Gitea issue](https://github.com/go-gitea/gitea/issues/36829). Upload steps omit `overwrite: true`: querying an empty artifact list before the first upload makes Gitea 1.23 return `Not Found` and triggers retries. Each artifact has one uploading job per run, matrix artifact names include the platform, and uploads and downloads use matching names.
 
 Set the following in the **Gitea server's** active `app.ini`, then restart Gitea:
 
@@ -54,7 +56,7 @@ Enable Actions in repository settings. Both the server and runners must reach th
 
 ## Native runners
 
-Install a current stable Gitea Runner that supports `runs.using: node24` and provide Node 24 for actions. Project builds use Node `22.21.0` installed by setup-node and the Go version in `runtime/.go-version`; action runtimes and project toolchains are separate requirements. Verify checkout, setup-node, setup-go and subsequent artifact actions, not just runner connectivity.
+Install a current stable Gitea Runner that supports `runs.using: node24` and provide Node 24 for checkout/setup actions. Artifact v4 actions declare `node20`; verify that the runner can execute them too. Project builds use Node `22.21.0` installed by setup-node and the Go version in `runtime/.go-version`; action runtimes and project toolchains are separate requirements. Verify checkout, setup-node, setup-go and subsequent artifact actions, not just runner connectivity.
 
 Register each environment with its matching native architecture label in **host mode**. These are five build environments and four separate installation environments, not necessarily nine physical machines; independent virtual machines can provide them.
 
