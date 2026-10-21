@@ -13,5 +13,6 @@
 - [合并后的服务生效](docs/dev/contributing/development.md#合并后的服务生效)
 - [开发与预览服务](docs/dev/contributing/development.md#开发与预览服务)
 - [前端颜色开发规范及同屏辨识检查](docs/dev/frontend/design-system.md#前端颜色开发规范)
+- [错误与信息提示规范](docs/dev/frontend/interaction.md#系统提醒与展示边界)
 - [开发文档索引](docs/dev/README.md)
 - [文档维护约定](docs/dev/contributing/documentation.md)
