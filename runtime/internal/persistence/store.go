@@ -14,6 +14,8 @@ import (
 type Record struct {
 	Key  string
 	Data json.RawMessage
+	// EncodedBytes is the original value size when Query.IncludeEncodedBytes is set.
+	EncodedBytes int64
 }
 
 // Tx is valid only during its callback. Keys and buckets are parameters, never

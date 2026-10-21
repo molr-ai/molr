@@ -182,3 +182,73 @@ func TestSubscriptionValuationReusesLedgerAndLabelsTotals(t *testing.T) {
 		t.Fatalf("reference valuation was lost: %+v", result.Summary)
 	}
 }
+
+func TestUsageAnalyticsOmitsEmptyModelOptionButPreservesTotals(t *testing.T) {
+	f := newMultiUserFixture(t)
+	putAnalyticsCall(t, f, f.alice.OwnerID, "known", "assistant", "settled", "2026-10-01T00:00:00Z", "USD", 10, 20, 5, 0)
+	putAnalyticsCall(t, f, f.alice.OwnerID, "missing", "assistant", "settled", "2026-10-01T00:00:00Z", "USD", 15, 30, 5, 0)
+	need(t, f.b.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
+		key := persistence.Key(f.alice.OwnerID, "missing")
+		var r quota.ModelRecord
+		if err := tx.Get(ctx, "security.reservations", key, &r); err != nil {
+			return err
+		}
+		r.ModelID = ""
+		if err := tx.Put(ctx, "security.reservations", key, r); err != nil {
+			return err
+		}
+		var receipt model.Receipt
+		key = persistence.Key(f.alice.OwnerID, r.ReceiptID)
+		if err := tx.Get(ctx, "agent.model_receipts", key, &receipt); err != nil {
+			return err
+		}
+		receipt.ModelID = ""
+		receipt.ModelName = ""
+		return tx.Put(ctx, "agent.model_receipts", key, receipt)
+	}))
+	q := api.UsageQuery{From: "2026-10-01", Until: "2026-10-02", GroupBy: "model"}
+	got, err := usageAnalytics(t.Context(), f.b.store, f.b.Services.Auth.(*auth.Manager), f.alice, q, false, "USD", f.b.Exchange.Snapshot())
+	need(t, err)
+	if len(got.Options.Models) != 1 || got.Options.Models[0].ID != "analytics-model" || got.Summary.ModelCalls != 2 || got.Summary.TotalTokens != 60 || got.Summary.Spent[0].Micros != 25 || len(got.Rows) != 2 {
+		t.Fatalf("unknown model changed totals/options: %+v", got)
+	}
+	q.ModelID = "analytics-model"
+	got, err = usageAnalytics(t.Context(), f.b.store, f.b.Services.Auth.(*auth.Manager), f.alice, q, false, "USD", f.b.Exchange.Snapshot())
+	need(t, err)
+	if got.Summary.ModelCalls != 1 || got.Summary.TotalTokens != 25 {
+		t.Fatal(got.Summary)
+	}
+}
+
+func TestAnalyticsReceiptsBatchesIndexesAndPreservesMissingEvidence(t *testing.T) {
+	f := newMultiUserFixture(t)
+	records := make([]quota.ModelRecord, 515)
+	need(t, f.b.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
+		for i := range records {
+			id := core.ID(fmt.Sprintf("batch-%d", i))
+			records[i] = quota.ModelRecord{Reservation: quota.Reservation{OperationID: id}}
+			if i == 514 {
+				continue
+			}
+			if i%2 == 0 {
+				records[i].ReceiptID = id
+			} else if err := tx.Put(ctx, "agent.model_receipt_index", persistence.Key(f.alice.OwnerID, id), map[string]any{"ID": id}); err != nil {
+				return err
+			}
+			if err := tx.Put(ctx, "agent.model_receipts", persistence.Key(f.alice.OwnerID, id), map[string]any{"ID": id, "ModelName": "Fixture model", "Usage": model.Usage{InputTokens: int64(i)}, "OutcomeKnown": true, "Unused": strings.Repeat("x", 4096)}); err != nil {
+				return err
+			}
+		}
+		return tx.Put(ctx, "agent.model_receipts", persistence.Key(f.bob.OwnerID, "batch-514"), model.Receipt{ID: "batch-514", ModelName: "Foreign model"})
+	}))
+	need(t, f.b.store.Read(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
+		got, err := analyticsReceipts(ctx, tx, f.alice.OwnerID, records)
+		if err != nil {
+			return err
+		}
+		if len(got) != 514 || records[513].ReceiptID != "batch-513" || got["batch-513"].Usage.InputTokens != 513 || records[514].ReceiptID != "" {
+			t.Fatalf("bad evidence batch: %d %+v", len(got), records[513:])
+		}
+		return nil
+	}))
+}

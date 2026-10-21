@@ -46,7 +46,7 @@ SHA256("molr.context-node:v1\0" + parent_id_bytes + canonical_message_json)
 
 ## 用量统计
 
-个人用量页显示本账号所有业务引用可达的对象集合：遍历文档、消息父节点和共享内容块，在账号内按对象 ID 去重。管理员用量页显示全部已存对象的全局统计，跨账号共享对象只计一次，包括等待后台回收的对象；不随成员筛选变化。每次统计使用同一读取事务。个人统计分页读取引用并遍历可达对象；全局统计在数据库内聚合原始 JSON 字节数与消息节点数，不向 Runtime 读取对象正文。
+个人用量页显示本账号所有业务引用可达的对象集合：遍历文档、消息父节点和共享内容块，在账号内按对象 ID 去重。管理员用量页显示全部已存对象的全局统计，跨账号共享对象只计一次，包括等待后台回收的对象；不随成员筛选变化。每次统计使用同一读取事务。个人统计读取引用的文档 ID，并分批读取可达对象的类型、边和原始字节数，由覆盖索引提供元数据，不读取消息正文；全局统计在数据库内聚合原始 JSON 字节数与消息节点数，不向 Runtime 读取对象正文。
 
 两处都显示对象 JSON 正文总字节数和唯一消息节点数；不包含索引、引用元数据或 SQLite 空闲空间，不等同于数据库文件磁盘大小。账号范围只含仍被引用的数据，全局范围包含尚未回收的数据，且账号之间可共享，因此不能把账号用量相加作为全局用量。
 
@@ -57,3 +57,5 @@ SHA256("molr.context-node:v1\0" + parent_id_bytes + canonical_message_json)
 读取性能可用 `go test ./internal/contextstore -run '^$' -bench BenchmarkContextRead -benchtime=10x -count=3` 复测。基准对比逐条读取与递归读取，包含消息 JSON 解码与内容哈希校验；分别测同连接重复读取及重新打开连接后的首次读取，连接初始化不计时。不会主动清空操作系统文件缓存，因此后者不代表冷磁盘性能，也不是完整 Agent 回合或用量统计接口的耗时。
 
 全局用量聚合可用 `go test ./internal/contextstore -run '^$' -bench BenchmarkGlobalContextUsage -benchtime=1x -count=3` 复测。基准包含 1000 个各带 16 KiB 正文的对象，只计统计读取阶段。
+
+个人用量可用 `go test ./internal/contextstore -run '^$' -bench BenchmarkAccountContextUsage -benchtime=3x -count=3` 复测。基准包含 6000 个文档引用及共享消息链，每条消息正文为 4 KiB，校验去重字节数和消息数。

@@ -322,6 +322,16 @@ func (s *Store) createIndexes() error {
 	if _, err := tx.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS auth_device_session ON records (json_extract(value, '$.Session.AccountID'), json_extract(value, '$.DeviceDigest')) WHERE bucket='auth.sessions' AND json_extract(value, '$.DeviceDigest') != ''`); err != nil {
 		return err
 	}
+	// Context usage reads graph edges and byte counts, never message payloads.
+	// Cover the exact projection expressions so SQLite can answer from metadata.
+	for _, statement := range []string{
+		`CREATE INDEX IF NOT EXISTS context_object_usage ON records(bucket,key,length(CAST(value AS BLOB)),value -> '$.Kind',value -> '$.Parent',value -> '$.Trees',value -> '$.Values') WHERE bucket='context.objects'`,
+		`CREATE INDEX IF NOT EXISTS context_global_usage ON records(bucket,json_extract(value, '$.Kind'),length(CAST(value AS BLOB))) WHERE bucket='context.objects'`,
+	} {
+		if _, err := tx.Exec(statement); err != nil {
+			return err
+		}
+	}
 	return tx.Commit()
 }
 func querySQL(bucket string, q persistence.Query) (string, []any, error) {
@@ -497,6 +507,9 @@ func querySQL(bucket string, q persistence.Query) (string, []any, error) {
 		}
 		selection = "json_set(" + strings.Join(parts, ",") + ")"
 	}
+	if q.IncludeEncodedBytes {
+		selection += ",length(CAST(value AS BLOB))"
+	}
 	query := "SELECT key," + selection + " FROM records WHERE " + strings.Join(clauses, " AND ")
 	if !q.Unordered {
 		query += " ORDER BY " + order
@@ -524,7 +537,11 @@ func (tx *transaction) Query(ctx context.Context, bucket string, q persistence.Q
 	for rows.Next() {
 		var row persistence.Record
 		var raw []byte
-		if err := rows.Scan(&row.Key, &raw); err != nil {
+		columns := []any{&row.Key, &raw}
+		if q.IncludeEncodedBytes {
+			columns = append(columns, &row.EncodedBytes)
+		}
+		if err := rows.Scan(columns...); err != nil {
 			return nil, err
 		}
 		row.Data = raw

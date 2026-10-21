@@ -203,35 +203,31 @@ func usageAnalytics(ctx context.Context, store persistence.Store, identity *auth
 			if (q.UserID != "" && q.UserID != u.ID) || (q.GroupID != "" && q.GroupID != u.GroupID) || !strings.Contains(strings.ToLower(name+" "+u.Username), strings.ToLower(strings.TrimSpace(q.Search))) {
 				continue
 			}
-			records, e := persistence.Select[quota.ModelRecord](ctx, tx.Store(), "security.reservations", persistence.Query{Unordered: true, Fields: []string{"OwnerID", "AssistantID", "ModelID", "Reservation", "ReceiptID", "CreatedAt"}, Where: []persistence.Filter{persistence.Eq("OwnerID", u.ID), {Field: "CreatedAt", Op: ">=", Value: from.Add(-time.Millisecond).UTC().Format(time.RFC3339Nano)}, {Field: "CreatedAt", Op: "<", Value: until.Add(time.Millisecond).UTC().Format(time.RFC3339Nano)}}})
+			records, e := persistence.Select[quota.ModelRecord](ctx, tx.Store(), "security.reservations", persistence.Query{Unordered: true, Fields: []string{"OwnerID", "AssistantID", "ModelID", "Reservation.State", "Reservation.OperationID", "Reservation.Settled", "ReceiptID", "CreatedAt"}, Where: []persistence.Filter{persistence.Eq("OwnerID", u.ID), {Field: "CreatedAt", Op: ">=", Value: from.Add(-time.Millisecond).UTC().Format(time.RFC3339Nano)}, {Field: "CreatedAt", Op: "<", Value: until.Add(time.Millisecond).UTC().Format(time.RFC3339Nano)}}})
 			if e != nil {
 				return e
 			}
-			// The reservation is the unique accounting unit. Reused model receipts do
-			// not add calls; late evidence remains attributed to the original start.
+			eligible := records[:0]
 			for _, r := range records {
-				if !quota.InPeriod(r.CreatedAt, from, until) || r.Reservation.State == "released" {
-					continue
+				if quota.InPeriod(r.CreatedAt, from, until) && r.Reservation.State != "released" {
+					eligible = append(eligible, r)
 				}
-				var receipt model.Receipt
-				if r.ReceiptID == "" {
-					index, lookupErr := persistence.Load[struct{ ID core.ID }](ctx, tx.Store(), "agent.model_receipt_index", persistence.Key(u.ID, r.Reservation.OperationID))
-					if lookupErr != nil && !persistence.Missing(lookupErr) {
-						return lookupErr
-					}
-					r.ReceiptID = index.ID
-				}
-				if r.ReceiptID != "" {
-					receipt, e = persistence.Load[model.Receipt](ctx, tx.Store(), "agent.model_receipts", persistence.Key(u.ID, r.ReceiptID))
-					if e != nil && !persistence.Missing(e) {
-						return e
-					}
-				}
+			}
+			records = eligible
+			receipts, e := analyticsReceipts(ctx, tx, u.ID, records)
+			if e != nil {
+				return e
+			}
+			// Reservations remain the unique accounting unit even when a receipt is reused.
+			for _, r := range records {
+				receipt := receipts[r.ReceiptID]
 				label := receipt.ModelName
 				if label == "" {
 					label = string(r.ModelID)
 				}
-				models[r.ModelID] = analyticsOption{ID: r.ModelID, Name: label}
+				if r.ModelID != "" {
+					models[r.ModelID] = analyticsOption{ID: r.ModelID, Name: label}
+				}
 				if !admin {
 					seenAssistants[r.AssistantID] = true
 				}
@@ -358,5 +354,58 @@ func usageAnalytics(ctx context.Context, store persistence.Store, identity *auth
 	out.TotalRows = len(out.Rows)
 	start := min((out.Page-1)*out.PageSize, len(out.Rows))
 	out.Rows = out.Rows[start:min(start+out.PageSize, len(out.Rows))]
+	return out, nil
+}
+
+// Batch receipt lookups and omit pricing/debug bodies that analytics never uses.
+func analyticsReceipts(ctx context.Context, tx persistence.Tx, owner core.ID, records []quota.ModelRecord) (map[core.ID]model.Receipt, error) {
+	out := map[core.ID]model.Receipt{}
+	for start := 0; start < len(records); start += 512 {
+		batch := records[start:min(start+512, len(records))]
+		keys := []string{}
+		for _, r := range batch {
+			if r.ReceiptID == "" {
+				keys = append(keys, persistence.Key(owner, r.Reservation.OperationID))
+			}
+		}
+		indexes := map[string]core.ID{}
+		if len(keys) > 0 {
+			rows, err := tx.Query(ctx, "agent.model_receipt_index", persistence.Query{Unordered: true, Fields: []string{"ID"}, Where: []persistence.Filter{{Field: "key", Op: "in", Value: keys}}})
+			if err != nil {
+				return nil, err
+			}
+			for _, row := range rows {
+				v, err := persistence.Decode[struct{ ID core.ID }](row)
+				if err != nil {
+					return nil, err
+				}
+				indexes[row.Key] = v.ID
+			}
+		}
+		keys = nil
+		for i := range batch {
+			r := &batch[i]
+			if r.ReceiptID == "" {
+				r.ReceiptID = indexes[persistence.Key(owner, r.Reservation.OperationID)]
+			}
+			if r.ReceiptID != "" {
+				keys = append(keys, persistence.Key(owner, r.ReceiptID))
+			}
+		}
+		if len(keys) == 0 {
+			continue
+		}
+		rows, err := tx.Query(ctx, "agent.model_receipts", persistence.Query{Unordered: true, Fields: []string{"ID", "ModelName", "Usage", "OutcomeKnown", "PricingInfo.Basis"}, Where: []persistence.Filter{{Field: "key", Op: "in", Value: keys}}})
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			v, err := persistence.Decode[model.Receipt](row)
+			if err != nil {
+				return nil, err
+			}
+			out[v.ID] = v
+		}
+	}
 	return out, nil
 }

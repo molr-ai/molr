@@ -6,6 +6,7 @@ import (
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -102,5 +103,95 @@ func TestEncodedBytesObservesTransactionAndRollback(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestProjectedRecordIncludesOriginalEncodedBytes(t *testing.T) {
+	s, err := Open(filepath.Join(t.TempDir(), "sizes.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	err = s.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
+		return tx.Put(ctx, "sizes", "one", map[string]any{"Text": "中文🙂<>&", "Rank": 3})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = s.Read(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
+		full, err := tx.Query(ctx, "sizes", persistence.Query{})
+		if err != nil {
+			return err
+		}
+		projected, err := tx.Query(ctx, "sizes", persistence.Query{Fields: []string{"Rank"}, IncludeEncodedBytes: true})
+		if err != nil {
+			return err
+		}
+		if len(projected) != 1 || projected[0].EncodedBytes != int64(len(full[0].Data)) || string(projected[0].Data) != `{"Rank":3}` {
+			t.Fatalf("bad projected size: %+v", projected)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestContextUsageQueriesUseMetadataIndexes(t *testing.T) {
+	s, err := Open(filepath.Join(t.TempDir(), "indexes.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	queries := []struct {
+		q     persistence.Query
+		index string
+	}{
+		{persistence.Query{Unordered: true, IncludeEncodedBytes: true, Fields: []string{"Kind", "Parent", "Trees", "Values"}, Where: []persistence.Filter{{Field: "key", Op: "in", Value: []string{"one", "two"}}}}, "context_object_usage"},
+	}
+	for _, tc := range queries {
+		query, args, err := querySQL("context.objects", tc.q)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rows, err := s.db.Query("EXPLAIN QUERY PLAN "+query, args...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var plan string
+		for rows.Next() {
+			var a, b, c int
+			var detail string
+			if err := rows.Scan(&a, &b, &c, &detail); err != nil {
+				t.Fatal(err)
+			}
+			plan += detail
+		}
+		rows.Close()
+		if !strings.Contains(plan, tc.index) {
+			t.Fatalf("metadata index not used: %s", plan)
+		}
+	}
+	for _, query := range []string{
+		"SELECT SUM(length(CAST(value AS BLOB))) FROM records WHERE bucket=?",
+		"SELECT COUNT(*) FROM records WHERE bucket=? AND json_extract(value, '$.Kind')='message'",
+	} {
+		rows, err := s.db.Query("EXPLAIN QUERY PLAN "+query, "context.objects")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var plan string
+		for rows.Next() {
+			var a, b, c int
+			var detail string
+			if err := rows.Scan(&a, &b, &c, &detail); err != nil {
+				t.Fatal(err)
+			}
+			plan += detail
+		}
+		rows.Close()
+		if !strings.Contains(plan, "context_global_usage") {
+			t.Fatalf("global index not used: %s", plan)
+		}
 	}
 }

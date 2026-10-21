@@ -9,17 +9,18 @@ import (
 // Where is conjunctive; Any adds a disjunction of conjunctive alternatives.
 // Field names are validated by the adapter. Limit zero means all matching rows.
 type Query struct {
-	Unordered      bool     // Aggregations do not require a key sort.
-	Fields         []string // Optional projection; omitted fields are never loaded into the caller.
-	Prefix         string
-	Where          []Filter
-	Any            [][]Filter
-	OrderBy        string
-	ThenBy         string
-	ThenDescending bool
-	After          []any
-	Descending     bool
-	Limit          int
+	IncludeEncodedBytes bool     // Include original UTF-8 JSON size alongside projected fields.
+	Unordered           bool     // Aggregations do not require a key sort.
+	Fields              []string // Optional projection; omitted fields are never loaded into the caller.
+	Prefix              string
+	Where               []Filter
+	Any                 [][]Filter
+	OrderBy             string
+	ThenBy              string
+	ThenDescending      bool
+	After               []any
+	Descending          bool
+	Limit               int
 }
 type Filter struct {
 	Field, Op string

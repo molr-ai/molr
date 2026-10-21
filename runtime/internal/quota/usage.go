@@ -52,6 +52,9 @@ func InPeriod(at, from, until time.Time) bool {
 	return (from.IsZero() || !at.Before(from)) && (until.IsZero() || at.Before(until))
 }
 func ModelRecords(ctx context.Context, store persistence.Store, owner, assistant, model core.ID, from, until time.Time) ([]ModelRecord, error) {
+	return modelRecords(ctx, store, owner, assistant, model, from, until, nil)
+}
+func modelRecords(ctx context.Context, store persistence.Store, owner, assistant, model core.ID, from, until time.Time, fields []string) ([]ModelRecord, error) {
 	filters := []persistence.Filter{persistence.Eq("OwnerID", owner)}
 	if assistant != "" {
 		filters = append(filters, persistence.Eq("AssistantID", assistant))
@@ -59,7 +62,9 @@ func ModelRecords(ctx context.Context, store persistence.Store, owner, assistant
 	if model != "" {
 		filters = append(filters, persistence.Eq("ModelID", model))
 	}
-	rows, err := persistence.Select[ModelRecord](ctx, store, "security.reservations", periodQuery(filters, from, until, "Reservation.State", []string{"reserved"}))
+	query := periodQuery(filters, from, until, "Reservation.State", []string{"reserved"})
+	query.Fields = fields
+	rows, err := persistence.Select[ModelRecord](ctx, store, "security.reservations", query)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +88,7 @@ func ModelByOperation(ctx context.Context, store persistence.Store, owner, opera
 }
 func ModelTotals(ctx context.Context, store persistence.Store, owner, model core.ID, from, until time.Time) (Totals, error) {
 	out := emptyTotals()
-	rows, err := ModelRecords(ctx, store, owner, "", model, from, until)
+	rows, err := modelRecords(ctx, store, owner, "", model, from, until, []string{"CreatedAt", "Reservation.State", "Reservation.Reserved", "Reservation.Settled"})
 	if err != nil {
 		return out, err
 	}

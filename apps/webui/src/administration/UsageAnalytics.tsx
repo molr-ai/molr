@@ -42,14 +42,14 @@ export function UsageAnalytics({ admin = false, onRefresh, onUserChange }: { adm
  const chooseUser = (id: string) => { setUser(id); onUserChange?.(id === 'all' ? '' : id); reset(); };
  const refresh = () => { query.reload(); currency.reload(); onRefresh?.(); };
  useErrorToast(query.error || currency.error, refresh);
- const label = (v: UsageOption, kind?: string) => `${kind === 'group' ? groupName(v, zh) : v.Name}${v.State === 'dismissed' ? zh ? ' · 已解雇' : ' · Dismissed' : v.State === 'deleted' ? zh ? ' · 已删除' : ' · Deleted' : ''}`;
- const opts = (items: UsageOption[], all: string, kind?: string) => [{ value: 'all', label: all }, ...items.map(v => ({ value: v.ID, label: label(v, kind) }))];
+ const label = (v: UsageOption, kind?: string) => `${kind === 'group' ? groupName(v, zh) : kind === 'model' && !v.ID ? (zh ? '未知模型' : 'Unknown model') : v.Name || v.ID}${v.State === 'dismissed' ? zh ? ' · 已解雇' : ' · Dismissed' : v.State === 'deleted' ? zh ? ' · 已删除' : ' · Deleted' : ''}`;
+ const opts = (items: UsageOption[], all: string, kind?: string) => [{ value: 'all', label: all }, ...items.filter(v => v.ID).map(v => ({ value: v.ID, label: label(v, kind) }))];
  const selectedDay = data?.Daily.find(d => d.Date === day);
  const tableTotals = selectedDay ?? data?.Summary;
  const spend = (values: UsageAnalyticsView['Summary']['Spent']) => data ? amountLabel(values, data, locale) : '—';
  const shareValue = (row: UsageAnalyticsView['Summary']) => { if (sort === 'calls') return row.ModelCalls; if (sort === 'spend' && data) { try { return amountMicros(row.Spent, data); } catch { return 0; } } return row.TotalTokens; };
  const columns: TableColumn<UsageRow>[] = [
-  { key: 'name', header: ({ assistant: zh ? '助理' : 'Assistant', model: zh ? '模型' : 'Model', user: zh ? '成员' : 'Member', group: zh ? '用户组' : 'User group' } as Record<string, string>)[groupBy], cell: row => <div className="usage-row-name"><Button variant="ghost" size="sm" onClick={() => { if (groupBy === 'assistant') { setAssistant(row.ID); setGroupBy('model'); } else if (groupBy === 'user') { chooseUser(row.ID); setGroupBy('model'); } else if (groupBy === 'group') { setGroup(row.ID); chooseUser('all'); setGroupBy('user'); } else setModel(row.ID); reset(); }}>{label(row, groupBy)}</Button>{row.Secondary && <small>@{row.Secondary}</small>}{row.MissingTokenCalls + row.UnknownCostCalls > 0 && <Tooltip content={zh ? `${row.MissingTokenCalls} 次 Token 未知，${row.UnknownCostCalls} 次费用未知` : `${row.MissingTokenCalls} calls without token usage; ${row.UnknownCostCalls} with unknown cost`}><span tabIndex={0}><Badge size="sm" dot={false}>{zh ? '含未知用量' : 'Incomplete'}</Badge></span></Tooltip>}</div> },
+  { key: 'name', header: ({ assistant: zh ? '助理' : 'Assistant', model: zh ? '模型' : 'Model', user: zh ? '成员' : 'Member', group: zh ? '用户组' : 'User group' } as Record<string, string>)[groupBy], cell: row => <div className="usage-row-name"><Button variant="ghost" size="sm" disabled={groupBy === 'model' && !row.ID} onClick={() => { if (groupBy === 'assistant') { setAssistant(row.ID); setGroupBy('model'); } else if (groupBy === 'user') { chooseUser(row.ID); setGroupBy('model'); } else if (groupBy === 'group') { setGroup(row.ID); chooseUser('all'); setGroupBy('user'); } else if (row.ID) setModel(row.ID); reset(); }}>{label(row, groupBy)}</Button>{row.Secondary && <small>@{row.Secondary}</small>}{row.MissingTokenCalls + row.UnknownCostCalls > 0 && <Tooltip content={zh ? `${row.MissingTokenCalls} 次 Token 未知，${row.UnknownCostCalls} 次费用未知` : `${row.MissingTokenCalls} calls without token usage; ${row.UnknownCostCalls} with unknown cost`}><span tabIndex={0}><Badge size="sm" dot={false}>{zh ? '含未知用量' : 'Incomplete'}</Badge></span></Tooltip>}</div> },
   { key: 'input', header: zh ? '输入' : 'Input', align: 'end', cell: row => <><span title={row.InputTokens.toLocaleString(locale)}>{compactTokens(row.InputTokens, locale)}</span><small>{zh ? '缓存' : 'Cached'} {compactTokens(row.CachedTokens, locale)}</small></> },
   { key: 'output', header: zh ? '输出' : 'Output', align: 'end', cell: row => <span title={row.OutputTokens.toLocaleString(locale)}>{compactTokens(row.OutputTokens, locale)}</span> },
   { key: 'tokens', header: zh ? '总 Token' : 'Total tokens', align: 'end', cell: row => <span title={row.TotalTokens.toLocaleString(locale)}>{compactTokens(row.TotalTokens, locale)}</span> },
@@ -57,7 +57,7 @@ export function UsageAnalytics({ admin = false, onRefresh, onUserChange }: { adm
   { key: 'calls', header: zh ? '调用' : 'Calls', align: 'end', cell: row => row.ModelCalls.toLocaleString(locale) },
   { key: 'share', header: zh ? '占比' : 'Share', align: 'end', cell: row => {
    const total = tableTotals ? shareValue(tableTotals) : 0, share = total > 0 ? shareValue(row) / total * 100 : 0;
-   return <div className="usage-share"><Progress label={`${row.Name} ${zh ? '占比' : 'share'}`} value={share} showValue={false} /><span>{share.toFixed(1)}%</span></div>;
+   return <div className="usage-share"><Progress label={`${label(row, groupBy)} ${zh ? '占比' : 'share'}`} value={share} showValue={false} /><span>{share.toFixed(1)}%</span></div>;
   } },
  ];
  return <div className="usage-analytics" aria-busy={query.loading}>

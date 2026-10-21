@@ -141,3 +141,21 @@ test('unknown model costs end holds automatically and remain visible as history'
   expect((await request(page, '/api/account/quotas')).Summary.ModelCalls).toBe(after.ModelCalls);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+
+test('usage omits empty model choices and labels unassigned history', async ({ page }) => {
+  await login(page);
+  await page.route('**/api/account/usage?*', async route => {
+    const response = await route.fetch();
+    const data = await response.json();
+    data.Options.Models = [{ ID: '', Name: '' }, { ID: 'fixture-model', Name: 'Fixture model' }];
+    data.Rows = [{ ...data.Summary, ID: '', Name: '', Secondary: '', State: '', ModelCalls: 1, TotalTokens: 20 }];
+    data.TotalRows = 1;
+    await route.fulfill({ response, json: data });
+  });
+  await page.goto('/#/account/usage');
+  await page.getByRole('radio', { name: 'By model', exact: true }).click();
+  await expect(page.locator('.usage-table')).toContainText('Unknown model');
+  await expect(page.locator('.usage-table').getByRole('button', { name: 'Unknown model', exact: true })).toBeDisabled();
+  await page.getByRole('combobox', { name: 'Model', exact: true }).click();
+  await expect(page.getByRole('option')).toHaveText(['All models', 'Fixture model']);
+});

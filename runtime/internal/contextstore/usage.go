@@ -2,7 +2,6 @@ package contextstore
 
 import (
 	"context"
-	"encoding/json"
 
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
@@ -15,72 +14,62 @@ type Usage struct {
 	Messages int64
 }
 
-func (u *Usage) add(raw json.RawMessage) (object, error) {
-	var o object
-	if err := json.Unmarshal(raw, &o); err != nil {
-		return o, err
-	}
-	u.Bytes += int64(len(raw))
-	if o.Kind == "message" {
-		u.Messages++
-	}
-	return o, nil
-}
-
-// AccountUsage counts the union reachable from this owner's references. Shared
-// prefixes and documents count once within an account, regardless of ref count.
+// AccountUsage traverses only graph metadata in bounded batches. Payload bytes
+// are measured by storage without decoding message bodies into the Runtime.
 func AccountUsage(ctx context.Context, tx persistence.Tx, owner core.ID) (Usage, error) {
 	var out Usage
 	if err := owner.Validate(); err != nil {
 		return out, err
 	}
-	seen := map[string]bool{Root: true}
-	q := persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner)}, OrderBy: "key", Limit: 200}
-	for {
-		rows, err := tx.Query(ctx, references, q)
+	seen := map[string]bool{Root: true, "": true}
+	pending := []string{}
+	enqueue := func(id string) {
+		if !seen[id] {
+			seen[id] = true
+			pending = append(pending, id)
+		}
+	}
+	refs, err := tx.Query(ctx, references, persistence.Query{Unordered: true, Fields: []string{"DocumentID"}, Where: []persistence.Filter{persistence.Eq("OwnerID", owner)}})
+	if err != nil {
+		return out, err
+	}
+	for _, row := range refs {
+		r, err := persistence.Decode[reference](row)
 		if err != nil {
 			return Usage{}, err
 		}
+		enqueue(r.DocumentID)
+	}
+	for len(pending) > 0 {
+		n := min(len(pending), 512)
+		batch := pending[:n]
+		pending = pending[n:]
+		rows, err := tx.Query(ctx, objects, persistence.Query{Unordered: true, IncludeEncodedBytes: true, Fields: []string{"Kind", "Parent", "Trees", "Values"}, Where: []persistence.Filter{{Field: "key", Op: "in", Value: batch}}})
+		if err != nil {
+			return Usage{}, err
+		}
+		if len(rows) != len(batch) {
+			return Usage{}, core.NewError(core.NotFound, "context object missing")
+		}
 		for _, row := range rows {
-			r, err := persistence.Decode[reference](row)
+			o, err := persistence.Decode[object](row)
 			if err != nil {
 				return Usage{}, err
 			}
-			pending := []string{r.DocumentID}
-			for len(pending) > 0 {
-				if err := persistence.CheckContext(ctx); err != nil {
-					return Usage{}, err
-				}
-				id := pending[len(pending)-1]
-				pending = pending[:len(pending)-1]
-				if seen[id] {
-					continue
-				}
-				seen[id] = true
-				var raw json.RawMessage
-				if err := tx.Get(ctx, objects, id, &raw); err != nil {
-					return Usage{}, err
-				}
-				o, err := out.add(raw)
-				if err != nil {
-					return Usage{}, err
-				}
-				if o.Parent != "" {
-					pending = append(pending, o.Parent)
-				}
-				for _, s := range o.Trees {
-					pending = append(pending, s.NodeID)
-				}
-				for _, v := range o.Values {
-					pending = append(pending, v.ID)
-				}
+			out.Bytes += row.EncodedBytes
+			if o.Kind == "message" {
+				out.Messages++
+			}
+			enqueue(o.Parent)
+			for _, s := range o.Trees {
+				enqueue(s.NodeID)
+			}
+			for _, v := range o.Values {
+				enqueue(v.ID)
 			}
 		}
-		if len(rows) < q.Limit {
-			return out, nil
-		}
-		q.After = []any{rows[len(rows)-1].Key}
 	}
+	return out, nil
 }
 
 // GlobalUsage counts each stored object once, including objects awaiting GC.
