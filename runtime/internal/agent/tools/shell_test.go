@@ -92,7 +92,7 @@ func TestPermissionListToolUsesCurrentIdentityAndRejectsSuppliedScopes(t *testin
 func TestShellSessionArgumentsAndBoundedControl(t *testing.T) {
 	for _, raw := range []string{`{"compute_id":"compute","tty":true}`, `{"compute_id":"compute","script":"sleep 90","background":true}`, `{"compute_id":"compute","script":"sleep 90","timeout_seconds":0}`} {
 		r, err := parseShell(json.RawMessage(raw))
-		if err != nil || r.Script == "" {
+		if err != nil || (!r.TTY && r.Script == "") {
 			t.Fatalf("%s: %+v %v", raw, r, err)
 		}
 	}

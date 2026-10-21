@@ -3,22 +3,20 @@ package sandbox
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"golang.org/x/sys/windows"
-	"io/fs"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/platform"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
-	"unsafe"
+	"time"
 )
 
 var containerACL sync.Mutex
@@ -213,11 +211,6 @@ func (r *Runner) cleanupContainer(record containerRecord) error {
 	return os.Remove(filepath.Join(r.containerDirectory(), record.Name+".json"))
 }
 func (r *Runner) recover() error {
-	release, err := acquireContainerLease()
-	if err != nil {
-		return err
-	}
-	defer release()
 	entries, e := os.ReadDir(r.containerDirectory())
 	if errors.Is(e, os.ErrNotExist) {
 		return nil
@@ -226,6 +219,12 @@ func (r *Runner) recover() error {
 		return e
 	}
 	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasPrefix(entry.Name(), "scope-molr-") && strings.HasSuffix(entry.Name(), ".json") {
+			if err := r.recoverScope(filepath.Join(r.containerDirectory(), entry.Name())); err != nil {
+				return err
+			}
+			continue
+		}
 		if entry.IsDir() || !strings.HasPrefix(entry.Name(), "molr-") || !strings.HasSuffix(entry.Name(), ".json") {
 			return unavailable("sandbox_appcontainer_journal_invalid")
 		}
@@ -244,62 +243,40 @@ func (r *Runner) recover() error {
 	return nil
 }
 func (r *Runner) configureContainer(ctx context.Context, cmd *exec.Cmd, work string, c platform.Command) (func() error, error) {
-	// Windows ACL inheritance updates existing descendants. A per-user kernel
-	// mutex serializes controlled tasks across Runtime instances while temporary
-	// grants exist; a dedicated thread owns it until all processes are gone.
-	releaseLease, err := acquireContainerLease()
-	if err != nil {
-		return nil, err
-	}
-	leaseOwned := true
-	defer func() {
-		if leaseOwned {
-			releaseLease()
-		}
-	}()
-
-	if c.TTY {
-		return nil, unavailable("terminal_platform_unsupported")
-	}
 	if len(c.ForwardPorts) > 0 {
 		return nil, unavailable("forwarding_platform_unsupported")
 	}
-	work, e := windowsScope(work)
-	if e != nil {
-		return nil, e
+	work, err := windowsScope(work)
+	if err != nil {
+		return nil, err
 	}
 	if !r.options.NoWorkspace {
-		if e = platform.EnsureWorkspace(work); e != nil {
-			return nil, e
+		if err = platform.EnsureWorkspace(work); err != nil {
+			return nil, err
 		}
 	}
-	temp, e := os.MkdirTemp(r.options.PrivateRoot, "appcontainer-tmp-")
-	if e != nil {
-		return nil, e
+	temp, err := os.MkdirTemp(r.options.PrivateRoot, "appcontainer-tmp-")
+	if err != nil {
+		return nil, err
 	}
-	scopes := []containerScope{{Path: work, Write: true}, {Path: temp, Write: true}}
+	scopes := []containerScope{{Path: work, Write: true}}
 	global := platform.UserGlobal(r.options.PrivateRoot, "")
-	// startHost passes the current owner's global path through this fixed variable.
-	for _, env := range cmd.Env {
-		if strings.HasPrefix(env, "MOLR_GLOBAL=") {
-			global = strings.TrimPrefix(env, "MOLR_GLOBAL=")
+	for _, value := range cmd.Env {
+		if strings.HasPrefix(value, "MOLR_GLOBAL=") {
+			global = strings.TrimPrefix(value, "MOLR_GLOBAL=")
 		}
 	}
 	if !r.options.NoWorkspace {
-		if _, e = os.Stat(global); e == nil {
-			p, e := windowsScope(global)
-			if e != nil {
-				return nil, e
-			}
-			scopes = append(scopes, containerScope{Path: p})
+		if _, err = os.Stat(global); err == nil {
+			scopes = append(scopes, containerScope{Path: global})
 		}
 	}
 	resourceEnv := []string{}
+	fail := func(err error) (func() error, error) { os.RemoveAll(temp); return nil, err }
 	for _, mount := range c.Mounts {
-		source, e := r.externalScope(mount.Source)
-		if e != nil {
-			os.RemoveAll(temp)
-			return nil, e
+		source, err := r.externalScope(mount.Source)
+		if err != nil {
+			return fail(err)
 		}
 		scopes = append(scopes, containerScope{Path: source, Write: !mount.ReadOnly})
 		if mount.Destination != "" {
@@ -310,150 +287,97 @@ func (r *Runner) configureContainer(ctx context.Context, cmd *exec.Cmd, work str
 		}
 	}
 	for _, tool := range r.options.ToolDirectories {
-		p, e := r.externalScope(tool)
-		if e != nil {
-			os.RemoveAll(temp)
-			return nil, e
+		source, err := r.externalScope(tool)
+		if err != nil {
+			return fail(err)
 		}
-		scopes = append(scopes, containerScope{Path: p})
+		scopes = append(scopes, containerScope{Path: source})
 	}
 	if c.Directory == "/tmp" || strings.HasPrefix(c.Directory, "/tmp/") {
 		cmd.Dir = filepath.Join(temp, strings.TrimPrefix(c.Directory, "/tmp"))
 	}
-	token := make([]byte, 16)
-	if _, e = rand.Read(token); e != nil {
-		return nil, e
-	}
-	record := containerRecord{Name: "molr-" + hex.EncodeToString(token), Scopes: scopes}
-	var pinned [][]windows.Handle
-	var descendants []windows.Handle
-	releasePinned := func() {
-		for _, handle := range descendants {
-			windows.CloseHandle(handle)
-		}
-		releaseScopes(pinned)
-	}
-	for i := range record.Scopes {
-		handles, id, err := pinScope(record.Scopes[i].Path)
-		if err != nil {
-			releasePinned()
-			os.RemoveAll(temp)
-			return nil, err
-		}
-		pinned = append(pinned, handles)
-		record.Scopes[i].FileID = id
-		err = filepath.WalkDir(record.Scopes[i].Path, func(path string, entry fs.DirEntry, walkErr error) error {
-			if walkErr != nil {
-				return walkErr
-			}
-			if err := ctx.Err(); err != nil {
-				return err
-			}
-			if len(descendants) >= 100000 {
-				return core.Invalid("path", "AppContainer scope exceeds 100000 entries")
-			}
-			if path == record.Scopes[i].Path {
-				return nil
-			}
-			name, _ := windows.UTF16PtrFromString(path)
-			h, err := windows.CreateFile(name, windows.FILE_READ_ATTRIBUTES|windows.FILE_READ_DATA, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE, nil, windows.OPEN_EXISTING, windows.FILE_FLAG_BACKUP_SEMANTICS|windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
-			if err != nil {
-				return err
-			}
-			descendants = append(descendants, h)
-			var info windows.ByHandleFileInformation
-			if err = windows.GetFileInformationByHandle(h, &info); err != nil {
-				return err
-			}
-			if info.FileAttributes&windows.FILE_ATTRIBUTE_REPARSE_POINT != 0 || info.FileAttributes&windows.FILE_ATTRIBUTE_DIRECTORY == 0 && info.NumberOfLinks != 1 {
-				return core.Invalid("path", "AppContainer scopes cannot contain reparse points or hard links")
-			}
-			return nil
-		})
-		if err != nil {
-			releasePinned()
-			os.RemoveAll(temp)
-			return nil, err
-		}
-	}
-	sid, e := createProfile(record.Name)
-	if e != nil {
-		releasePinned()
-		os.RemoveAll(temp)
-		return nil, e
-	}
-	journal := filepath.Join(r.containerDirectory(), record.Name+".json")
-	raw, _ := json.Marshal(record)
-	if e = os.WriteFile(journal, raw, 0600); e != nil {
-		deleteProfile(record.Name)
-		releasePinned()
-		os.RemoveAll(temp)
-		return nil, e
-	}
-	leaseOwned = false
-	cleanup := func() error {
-		defer releaseLease()
+	var leases []*windowsScopeLease
+	release := func() error {
 		var failure error
-		for _, handles := range pinned {
-			if err := updateContainerACL(handles[len(handles)-1], sid, false, true); err != nil {
-				failure = errors.Join(failure, err)
-			}
+		for i := len(leases) - 1; i >= 0; i-- {
+			failure = errors.Join(failure, r.releaseScope(leases[i]))
 		}
-		releasePinned()
-		if failure != nil {
-			return failure
-		}
-		if err := deleteProfile(record.Name); err != nil {
-			return err
-		}
-		if err := os.Remove(journal); err != nil {
-			return err
-		}
-		return os.RemoveAll(temp)
+		leases = nil
+		return failure
 	}
-	for i, scope := range record.Scopes {
-		if e = updateContainerACL(pinned[i][len(pinned[i])-1], sid, scope.Write, false); e != nil {
-			if cleanErr := cleanup(); cleanErr != nil {
-				r.closed = true
-				e = errors.Join(e, cleanErr)
-			}
-			return nil, e
+	fileCaps := []string{}
+	for _, scope := range scopes {
+		lease, err := r.acquireScope(ctx, scope.Path)
+		if err != nil {
+			return fail(errors.Join(err, release()))
+		}
+		leases = append(leases, lease)
+		value := lease.read.String()
+		if scope.Write {
+			value = lease.write.String()
+		}
+		if !slices.Contains(fileCaps, value) {
+			fileCaps = append(fileCaps, value)
 		}
 	}
-	// Existing entries are held only during inheritance updates. Release them
-	// before user code so ordinary child-file rename/delete remains possible.
-	for _, handle := range descendants {
-		windows.CloseHandle(handle)
+	pins, id, err := pinScope(temp)
+	if err != nil {
+		return fail(errors.Join(err, release()))
 	}
-	descendants = nil
-	// CreateProcess requires LOCALAPPDATA for AppContainer startup. Keep it in
-	// the granted temporary scope rather than inheriting the host profile.
-	environment := []string{"SystemRoot=" + os.Getenv("SystemRoot"), "WINDIR=" + os.Getenv("SystemRoot"), "PATH=" + filepath.Join(os.Getenv("SystemRoot"), "System32"), "USERPROFILE=" + work, "LOCALAPPDATA=" + temp, "TEMP=" + temp, "TMP=" + temp}
-	// Module discovery must use Windows PowerShell's own modules, independently
-	// of the host's PowerShell edition and user/module search path configuration.
-	environment = append(environment, "PSModulePath="+filepath.Join(filepath.Dir(windowsShell()), "Modules"))
+	name, err := randomContainerName()
+	if err != nil {
+		closeScopeLocks(pins)
+		return fail(errors.Join(err, release()))
+	}
+	sid, err := createProfile(name)
+	if err != nil {
+		closeScopeLocks(pins)
+		return fail(errors.Join(err, release()))
+	}
+	record := containerRecord{Name: name, Scopes: []containerScope{{Path: temp, FileID: id, Write: true}}}
+	journal := filepath.Join(r.containerDirectory(), name+".json")
+	raw, _ := json.Marshal(record)
+	cleanup := func() error {
+		failure := updateContainerACL(pins[len(pins)-1], sid, false, true)
+		closeScopeLocks(pins)
+		if failure == nil {
+			failure = deleteProfile(name)
+		}
+		if failure == nil {
+			failure = os.Remove(journal)
+		}
+		failure = errors.Join(failure, release())
+		if failure == nil {
+			failure = os.RemoveAll(temp)
+		}
+		return failure
+	}
+	if err = os.WriteFile(journal, raw, 0600); err != nil {
+		deleteProfile(name)
+		closeScopeLocks(pins)
+		return fail(errors.Join(err, release()))
+	}
+	if err = updateContainerACL(pins[len(pins)-1], sid, true, false); err != nil {
+		return nil, errors.Join(err, cleanup())
+	}
+	environment := []string{"SystemRoot=" + os.Getenv("SystemRoot"), "WINDIR=" + os.Getenv("SystemRoot"), "PATH=" + filepath.Join(os.Getenv("SystemRoot"), "System32"), "USERPROFILE=" + work, "LOCALAPPDATA=" + temp, "TEMP=" + temp, "TMP=" + temp, "PSModulePath=" + filepath.Join(filepath.Dir(windowsShell()), "Modules")}
 	if !r.options.NoWorkspace {
 		environment = append(environment, "MOLR_WORKSPACE="+work, "MOLR_GLOBAL="+global)
 	}
 	environment = append(environment, resourceEnv...)
-	spec := containerLaunch{SID: sid.String(), Script: c.Script, Directory: cmd.Dir, Environment: environment, Network: c.NetworkAccess}
+	spec := containerLaunch{SID: sid.String(), FileCapabilities: fileCaps, Script: c.Script, Directory: cmd.Dir, Environment: environment, Network: c.NetworkAccess, TTY: c.TTY}
 	data, _ := json.Marshal(spec)
 	helper := r.options.Helper
 	if helper == "" {
-		helper, e = os.Executable()
-		if e != nil {
-			if cleanErr := cleanup(); cleanErr != nil {
-				r.closed = true
-				e = errors.Join(e, cleanErr)
-			}
-			return nil, e
+		helper, err = os.Executable()
+		if err != nil {
+			return nil, errors.Join(err, cleanup())
 		}
 	}
 	cmd.Path = helper
 	cmd.Args = []string{helper, "sandbox-helper", "windows-appcontainer"}
 	cmd.Stdin = bytes.NewReader(data)
 	cmd.Env = environment
-	leaseOwned = false
 	return cleanup, nil
 }
 func psLiteral(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + "'" }
@@ -545,55 +469,78 @@ func (r *Runner) prepare(ctx context.Context) error {
 			return fmt.Errorf("%w: network=%t, process=%v, output=%q, cleanup=%v", unavailable("sandbox_appcontainer_probe_failed"), network, e, probeOutput.String(), cleanErr)
 		}
 	}
+	r.terminalReason = "terminal_platform_unsupported"
+	if terminalAPIAvailable() {
+		if err := probeRunner.probeWindowsTerminal(ctx, work, readonly); err == nil {
+			r.terminalReason = ""
+		} else {
+			r.terminalReason = "terminal_start_failed"
+			r.terminalProbeErr = err
+			if probeRunner.closed {
+				return unavailable("sandbox_appcontainer_cleanup_failed")
+			}
+		}
+	}
 	return nil
 }
 
-func acquireContainerLease() (func(), error) {
-	type acquired struct {
-		release func()
-		err     error
+func (r *Runner) probeWindowsTerminal(parent context.Context, work, global string) (result error) {
+	ctx, cancel := context.WithTimeout(parent, 30*time.Second)
+	defer cancel()
+	cmd := exec.Command(windowsShell())
+	cmd.Dir = work
+	cmd.Env = []string{"MOLR_GLOBAL=" + global}
+	var output bytes.Buffer
+	cmd.Stdout = &output
+	cmd.Stderr = &output
+	cleanup, err := r.configureContainer(ctx, cmd, work, platform.Command{TTY: true, Script: "Write-Output 'molr-terminal-ready'; exit 0"})
+	if err != nil {
+		return err
 	}
-	ready := make(chan acquired, 1)
-	go func() {
-		runtime.LockOSThread()
-		defer runtime.UnlockOSThread()
-		token, err := windows.OpenCurrentProcessToken()
-		if err != nil {
-			ready <- acquired{err: err}
+	safeCleanup := true
+	defer func() {
+		if !safeCleanup {
+			r.closed = true
 			return
 		}
-		user, err := token.GetTokenUser()
-		token.Close()
-		if err != nil {
-			ready <- acquired{err: err}
-			return
+		if err := cleanup(); err != nil {
+			r.closed = true
+			result = errors.Join(result, err)
 		}
-		name, _ := windows.UTF16PtrFromString(`Global\Molr-AppContainer-` + user.User.Sid.String())
-		descriptor, err := windows.SecurityDescriptorFromString("D:P(A;;GA;;;" + user.User.Sid.String() + ")(A;;GA;;;SY)")
-		if err != nil {
-			ready <- acquired{err: err}
-			return
-		}
-		attributes := windows.SecurityAttributes{Length: uint32(unsafe.Sizeof(windows.SecurityAttributes{})), SecurityDescriptor: descriptor}
-		mutex, err := windows.CreateMutex(&attributes, false, name)
-		if err != nil && err != windows.ERROR_ALREADY_EXISTS {
-			ready <- acquired{err: err}
-			return
-		}
-		defer windows.CloseHandle(mutex)
-		status, err := windows.WaitForSingleObject(mutex, 0)
-		if err != nil || status != windows.WAIT_OBJECT_0 && status != windows.WAIT_ABANDONED {
-			ready <- acquired{err: unavailable("sandbox_file_scope_busy")}
-			return
-		}
-		done := make(chan struct{})
-		released := make(chan struct{})
-		var once sync.Once
-		ready <- acquired{release: func() { once.Do(func() { close(done) }); <-released }}
-		<-done
-		windows.ReleaseMutex(mutex)
-		close(released)
 	}()
-	result := <-ready
-	return result.release, result.err
+	initialize, closePipe, err := terminalPipe(cmd, &process{done: make(chan struct{})})
+	if err != nil {
+		return err
+	}
+	defer closePipe()
+	job, err := startWindowsJob(cmd)
+	if err != nil {
+		return err
+	}
+	defer closeWindowsJob(job)
+	safeCleanup = false
+	if err = initialize(); err != nil {
+		safeCleanup = terminateWindowsJob(job) == nil
+		cmd.Wait()
+		return err
+	}
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+	select {
+	case err = <-done:
+	case <-ctx.Done():
+		terminateWindowsJob(job)
+		<-done
+		err = ctx.Err()
+	}
+	stopErr := terminateWindowsJob(job)
+	safeCleanup = stopErr == nil
+	err = errors.Join(err, stopErr)
+	if err != nil {
+		return fmt.Errorf("terminal probe: %w; output=%q", err, output.String())
+	}
+	if !strings.Contains(output.String(), "molr-terminal-ready") {
+		return fmt.Errorf("terminal probe missing output")
+	}
+	return nil
 }

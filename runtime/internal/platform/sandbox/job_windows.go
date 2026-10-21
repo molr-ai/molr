@@ -17,7 +17,7 @@ func windowsShell() string {
 
 // Start suspended: no user code can create a child before Job membership is set.
 // Closing the non-inheritable Job handle also kills descendants on Runtime exit.
-func startWindowsJob(cmd *exec.Cmd) (windows.Handle, error) {
+func newWindowsJob() (windows.Handle, error) {
 	job, err := windows.CreateJobObject(nil, nil)
 	if err != nil {
 		return 0, err
@@ -33,7 +33,25 @@ func startWindowsJob(cmd *exec.Cmd) (windows.Handle, error) {
 	if _, err = windows.SetInformationJobObject(job, windows.JobObjectExtendedLimitInformation, uintptr(unsafe.Pointer(&limits)), uint32(unsafe.Sizeof(limits))); err != nil {
 		return 0, err
 	}
-	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.CREATE_SUSPENDED | windows.CREATE_NO_WINDOW, HideWindow: true}
+	ok = true
+	return job, nil
+}
+func startWindowsJob(cmd *exec.Cmd) (windows.Handle, error) {
+	job, err := newWindowsJob()
+	if err != nil {
+		return 0, err
+	}
+	ok := false
+	defer func() {
+		if !ok {
+			windows.CloseHandle(job)
+		}
+	}()
+	flags := uint32(windows.CREATE_NO_WINDOW)
+	if cmd.SysProcAttr != nil {
+		flags = cmd.SysProcAttr.CreationFlags
+	}
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.CREATE_SUSPENDED | flags, HideWindow: true}
 	if err = cmd.Start(); err != nil {
 		return 0, err
 	}

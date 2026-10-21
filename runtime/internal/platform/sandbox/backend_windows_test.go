@@ -52,17 +52,9 @@ func TestWindowsNativeBackend(t *testing.T) {
 	defer r.Close()
 	ctx, cancel := context.WithTimeout(t.Context(), windowsBackendTestTimeout)
 	defer cancel()
-	lease, err := acquireContainerLease()
-	if err != nil {
+	if err := r.Prepare(ctx); err != nil {
 		t.Fatal(err)
 	}
-	probeErr := r.Prepare(ctx)
-	lease()
-	if core.ReasonOf(probeErr) != "sandbox_file_scope_busy" {
-		t.Fatal("busy startup should remain retryable", probeErr)
-	}
-	// Capabilities retries a transient busy preparation after the owner releases it.
-
 	caps, err := r.Capabilities(ctx)
 	if err != nil || !caps.ControlledReady() || caps.NetworkBackend != "appcontainer-toggle" || !caps.FullAccess || caps.ProcessIsolation || caps.ResourceLimits {
 		t.Fatal(caps, err, "prepare:", r.prepareErr)
@@ -153,7 +145,7 @@ func TestWindowsNativeBackend(t *testing.T) {
 	if err != nil || exit.Code != 0 {
 		t.Fatal(exit, err)
 	}
-	for _, c := range []platform.Command{{FullAccess: true, Script: "1", TTY: true, MaxOutputBytes: 4096}, {Script: "1", Directory: "/work", Timeout: time.Second, MaxOutputBytes: 4096, Limits: platform.Limits{MemoryBytes: 1 << 30}}} {
+	for _, c := range []platform.Command{{Script: "1", Directory: "/work", Timeout: time.Second, MaxOutputBytes: 4096, Limits: platform.Limits{MemoryBytes: 1 << 30}}} {
 		if _, err = r.Start(ctx, e, c); err == nil {
 			t.Fatal("unsupported execution request accepted")
 		}

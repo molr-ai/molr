@@ -171,7 +171,7 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/config` | `Sandbox.NetworkTargets` | `TestSandboxNetworkRequiresExplicitProtocolsAndPresets` |
 | `internal/platform` | `NetworkRule.AllowsAddress`, `NetworkRule.AllowsTransport`, `NetworkRule.MayResolve` | `TestNetworkTransportAndDNSAuthorization` |
 
-| `internal/platform/sandbox` | `Runner.Terminal` | `TestLinuxInteractiveShellProfileAndInterrupt` |
+| `internal/platform/sandbox` | `Runner.Terminal` | `TestLinuxInteractiveShellProfileAndInterrupt`, `TestWindowsInteractiveTerminalIsolationAndConcurrentSessions`, `TestWindowsTerminalLifecycle` |
 | `internal/config` | `Sandbox.UsesHostTools` | `TestHostToolsInheritsDeploymentAccount` |
 
 

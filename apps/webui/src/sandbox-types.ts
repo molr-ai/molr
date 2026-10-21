@@ -6,7 +6,7 @@ export type SandboxInfo = {
  StorageCeilingBytes?: number;
  GPUs?: GPUDevice[];
   AllowDirectoryPaths?: boolean; Enabled: boolean; Storage: boolean; ShellSessions?: boolean;
-  Capabilities: { FullAccess?: boolean; OS: string; NetworkBackend?: string; NetworkProtocols?: string[]; Shell: boolean; ShellType?: string; Reason: string; ProcessIsolation: boolean; FileIsolation: boolean; NetworkIsolation: boolean; ResourceLimits: boolean };
+  Capabilities: { Terminal?: boolean; TerminalReason?: string; FullAccess?: boolean; OS: string; NetworkBackend?: string; NetworkProtocols?: string[]; Shell: boolean; ShellType?: string; Reason: string; ProcessIsolation: boolean; FileIsolation: boolean; NetworkIsolation: boolean; ResourceLimits: boolean };
   Directories: { ID: string; Name: string; ReadOnly: boolean }[];
   Networks: { ID: string; Name: string; Target: SandboxNetworkTarget }[];
   ResourceQuotas?: boolean; WorkspaceProjectQuotas?: boolean;

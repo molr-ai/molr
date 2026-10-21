@@ -150,7 +150,7 @@ Runtime 和服务使用 `/v2/sandbox/*` HTTPS 协议，证书指纹固定信任�
 
 启动、升级或重启后，必须认证检查 Runtime `/api/sandbox` 以及 `/api/sandboxes` 中远程实例的能力。Linux 计算就绪要求 `Reason=available`，且 Shell、进程、文件、网络隔离和资源限制均为 true；HTTP 连通不能代替隔离验证。
 
-Windows 节点通过源码构建的 `molr.exe serve --mode sandbox` 和手动配置启动；桌面安装器目前只管理完整 Runtime。Windows 使用 PowerShell 和网络开关，不支持 TTY、受控端口转发或硬配额。受控目录应为原生盘符路径，脚本使用 `$env:<ShellEnvironment>`；`/tmp` 和 `/resources/...` 只作为工作目录参数别名解析。平台差异见[沙盒设计](https://molr.ai/zh/docs/dev/security/sandbox/)。
+Windows 节点通过源码构建的 `molr.exe serve --mode sandbox` 和手动配置启动；桌面安装器目前只管理完整 Runtime。Windows 使用 PowerShell 和网络开关，`Capabilities.Terminal=true` 时支持 ConPTY 终端，不支持受控端口转发或硬配额。受控目录应为原生盘符路径，脚本使用 `$env:<ShellEnvironment>`；`/tmp` 和 `/resources/...` 只作为工作目录参数别名解析。平台差异见[沙盒设计](https://molr.ai/zh/docs/dev/security/sandbox/)。
 
 ## 文件与执行生命周期
 

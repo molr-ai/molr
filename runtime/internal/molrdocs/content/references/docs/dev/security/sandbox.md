@@ -194,11 +194,13 @@ Shell 有副作用。操作 ID、计划摘要与授权版本应在启动前持�
 | --- | --- | --- |
 | Linux，一期 | Bubblewrap + seccomp + cgroup v2 + 受控出口 | user namespace、AppArmor、cgroup 委派、内核与 CPU 架构兼容 |
 | macOS | 本机与远程 Seatbelt 受控执行、安全文件操作及独立 Full Access | 原生验证路径、文件锁、PTY、网络开关与撤权；不提供进程命名空间和资源硬配额 |
-| Windows | AppContainer SID、文件 ACL、网络能力开关及 Job Object 进程树回收 | PowerShell；文件/网络隔离为 true，进程命名空间/硬配额为 false；无 TTY、受控端口转发或细粒度网络目标 |
+| Windows | AppContainer SID、文件 ACL、网络能力开关及 Job Object 进程树回收 | PowerShell；文件/网络隔离为 true，进程命名空间/硬配额为 false；ConPTY 终端；无受控端口转发或细粒度网络目标 |
 
-macOS 与 Windows 均提供受控 Shell 和独立授权的 Full Access。Windows 每次执行创建独立 AppContainer SID，授权目录的祖先句柄在执行期间禁止删除/重命名；ACL 只添加该 SID 的必要权限，任务进程树归零后撤销。恢复日志记录 scope 文件身份；目录丢失、身份改变或撤权失败时关闭受控执行，不丢弃恢复记录。启动探针实测允许的工作区写入、私有文件读写拒绝、只读 scope 写入拒绝，并核验实际子进程 AppContainer token。网络探针使用 TEST-NET 目标：禁网要求 AccessDenied，开网要求不因权限拒绝；这不表示公网可达。接口复用不代表各平台安全能力天然等价。[Microsoft AppContainer](https://learn.microsoft.com/en-us/windows/win32/secauthz/appcontainer-isolation) · [Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects) · [Apple App Sandbox 继承](https://developer.apple.com/library/archive/documentation/Miscellaneous/Reference/EntitlementKeyReference/Chapters/EnablingAppSandbox.html)
+macOS 与 Windows 均提供受控 Shell 和独立授权的 Full Access。Windows 每次执行创建独立 AppContainer SID，授权目录的祖先句柄在执行期间禁止删除/重命名；每个目录租约分别派生随机只读、读写能力 SID，只向子进程 token 传入其获准能力；临时目录仍仅授权该执行的 AppContainer SID。同一 Runtime 可引用相同目录租约，引用归零且所有相关进程退出后撤销 ACL。跨 Runtime 相同目录与嵌套活动目录由祖先共享锁、根目录独占锁拒绝，避免在运行中的非可信代码下重复修改继承 ACL。恢复日志记录 scope 文件身份；目录丢失、身份改变或撤权失败时关闭受控执行，不丢弃恢复记录。启动探针实测允许的工作区写入、私有文件读写拒绝、只读 scope 写入拒绝，并核验实际子进程 AppContainer token。网络探针使用 TEST-NET 目标：禁网要求 AccessDenied，开网要求不因权限拒绝；这不表示公网可达。接口复用不代表各平台安全能力天然等价。[Microsoft AppContainer](https://learn.microsoft.com/en-us/windows/win32/secauthz/appcontainer-isolation) · [Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects) · [Apple App Sandbox 继承](https://developer.apple.com/library/archive/documentation/Miscellaneous/Reference/EntitlementKeyReference/Chapters/EnablingAppSandbox.html)
 
 Windows 受控 PowerShell 为当前授权目录创建进程内的 `Molr:\` 工作驱动器，使目录解析无需读取未授权祖先的属性。`LOCALAPPDATA` 指向本次已授权临时目录；宿主环境变量不整体传入子进程。网络探针使用 Windows PowerShell 5.1 支持的 `BeginConnect` / `EndConnect`，实际拒绝访问仍由 AppContainer 网络能力核验。
+
+Windows 终端通过可信 helper 驱动 ConPTY，独立探针报告 `Capabilities.Terminal` 与 `TerminalReason`。AppContainer 使用私有桌面；提升权限的服务另建私有窗口站，不修改系统桌面 ACL。控制管道仅当前用户与 SYSTEM 可访问，输入写入有超时；取消、撤权、正常退出均关闭 Job Object 内的子进程树。ConPTY 输出持续排空后关闭。普通用户计划任务和提升权限入口均须原生验收。
 
 ## 6. 部署与本机评估
 

@@ -72,7 +72,7 @@ func (s *shellTasks) startTerminal(ctx context.Context, p core.Principal, id cor
 	if d.Decode(&extra) != io.EOF {
 		return nil, core.Invalid("terminal", "trailing arguments")
 	}
-	if runtime.GOOS != "linux" && runtime.GOOS != "darwin" {
+	if runtime.GOOS != "linux" && runtime.GOOS != "darwin" && runtime.GOOS != "windows" {
 		return nil, core.WithReason(core.NewError(core.FailedPrecondition, "interactive terminals unavailable"), "terminal_platform_unsupported")
 	}
 	// A request ID is retained by the UI until startup is known. Never replay a
@@ -92,7 +92,11 @@ func (s *shellTasks) startTerminal(ctx context.Context, p core.Principal, id cor
 	if err := s.terminalAudit(ctx, p, q.RequestID, "terminal.start"); err != nil {
 		return nil, err
 	}
-	return s.execute(context.WithValue(ctx, managedShellKey{}, cap), e, tools.ShellRequest{ComputeID: q.ComputeID, TTY: true, Script: "exec /bin/sh -i", NetworkMode: "auto"})
+	script := terminalScript("")
+	if runtime.GOOS == "windows" {
+		script = terminalScript("powershell")
+	}
+	return s.execute(context.WithValue(ctx, managedShellKey{}, cap), e, tools.ShellRequest{ComputeID: q.ComputeID, TTY: true, Script: script, NetworkMode: "auto"})
 }
 func (s *shellTasks) terminalAudit(ctx context.Context, p core.Principal, task core.ID, action string) error {
 	return s.router.shell.audit.Record(ctx, audit.Record{ID: randomOperation(), OwnerID: p.OwnerID, SubjectID: p.SubjectID, ActorKind: p.Kind, Action: action, Target: core.Object{Kind: "operation", ID: task}, Outcome: audit.Succeeded, At: time.Now().UTC()})
@@ -239,4 +243,12 @@ func (s *shellTasks) terminalManage(ctx context.Context, p core.Principal, id co
 		s.mu.Unlock()
 	}
 	return raw, err
+}
+
+// Resolve omitted scripts against the execution node, not the client platform.
+func terminalScript(shell string) string {
+	if shell == "powershell" {
+		return " "
+	}
+	return "exec /bin/sh -i"
 }

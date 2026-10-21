@@ -66,6 +66,7 @@ type process struct {
 	fullAccess        bool
 	networkDiagnostic func() platform.NetworkDiagnostic
 	forward           func(context.Context, int) (net.Conn, error)
+	terminalControl   func(context.Context, string, uint16, uint16) error
 	terminal          *os.File
 	stdout, stderr    *stream
 	done              chan struct{}

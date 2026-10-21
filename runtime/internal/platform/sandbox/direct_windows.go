@@ -3,7 +3,9 @@
 package sandbox
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/platform"
@@ -85,7 +87,10 @@ func (r *Runner) startHost(parent context.Context, e core.Execution, c platform.
 	if len(c.Script) > 12000 {
 		return nil, core.Invalid("script", "Windows command scripts are limited to 12000 UTF-8 bytes")
 	}
-	if c.TTY {
+	if c.TTY && !c.FullAccess && r.terminalReason != "" {
+		return nil, unavailable(r.terminalReason)
+	}
+	if c.TTY && !terminalAPIAvailable() {
 		return nil, unavailable("terminal_platform_unsupported")
 	}
 	cmd := exec.Command(windowsShell(), "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new(); "+c.Script)
@@ -109,6 +114,35 @@ func (r *Runner) startHost(parent context.Context, e core.Execution, c platform.
 			}
 		}()
 	}
+	if c.TTY && c.FullAccess {
+		spec := containerLaunch{TTY: true, FullAccess: true, Script: c.Script, Directory: cmd.Dir, Environment: cmd.Env}
+		data, _ := json.Marshal(spec)
+		helper := r.options.Helper
+		var err error
+		if helper == "" {
+			helper, err = os.Executable()
+			if err != nil {
+				return nil, err
+			}
+		}
+		cmd.Path = helper
+		cmd.Args = []string{helper, "sandbox-helper", "windows-appcontainer"}
+		cmd.Stdin = bytes.NewReader(data)
+	}
+	initialize := func() error { return nil }
+	closePipe := func() {}
+	if c.TTY {
+		var err error
+		initialize, closePipe, err = terminalPipe(cmd, p)
+		if err != nil {
+			return nil, err
+		}
+		defer func() {
+			if !ok {
+				closePipe()
+			}
+		}()
+	}
 	cmd.Stdout, cmd.Stderr = p.stdout, p.stderr
 	if c.StdoutSink != nil {
 		cmd.Stdout = io.MultiWriter(c.StdoutSink, p.stdout)
@@ -122,6 +156,12 @@ func (r *Runner) startHost(parent context.Context, e core.Execution, c platform.
 	}
 	job, err := startWindowsJob(cmd)
 	if err != nil {
+		return nil, err
+	}
+	if err = initialize(); err != nil {
+		terminateWindowsJob(job)
+		cmd.Wait()
+		closeWindowsJob(job)
 		return nil, err
 	}
 	ok = true
@@ -145,6 +185,7 @@ func (r *Runner) startHost(parent context.Context, e core.Execution, c platform.
 		return tracked, nil
 	}
 	go func() {
+		defer closePipe()
 		done := make(chan error, 1)
 		go func() { done <- cmd.Wait() }()
 		tick := time.NewTicker(200 * time.Millisecond)

@@ -47,9 +47,6 @@ func parseShell(raw json.RawMessage) (ShellRequest, error) {
 	if d.Decode(&extra) != io.EOF {
 		return r, core.Invalid("shell", "trailing arguments")
 	}
-	if r.TTY && r.Script == "" {
-		r.Script = "exec /bin/sh -i"
-	}
 	if r.NetworkMode != "" && r.NetworkMode != "auto" && r.NetworkMode != "none" {
 		return r, core.Invalid("network_mode", "auto or none required")
 	}
@@ -62,7 +59,7 @@ func parseShell(raw json.RawMessage) (ShellRequest, error) {
 	if r.SandboxID != "" && r.SandboxID.Validate() != nil {
 		return r, core.Invalid("sandbox_id", "invalid sandbox ID")
 	}
-	if r.ComputeID.Validate() != nil || r.Script == "" || len(r.Script) > 65536 || strings.ContainsRune(r.Script, 0) || len(r.Files) > 32 || len(r.NetworkIDs) > 32 {
+	if r.ComputeID.Validate() != nil || (!r.TTY && r.Script == "") || len(r.Script) > 65536 || strings.ContainsRune(r.Script, 0) || len(r.Files) > 32 || len(r.NetworkIDs) > 32 {
 		return r, core.Invalid("shell", "bounded script and compute resource required")
 	}
 	if r.ForwardProtocol != "" && r.ForwardProtocol != "http" {

@@ -18,7 +18,7 @@ export function Terminals({ assistantID, assistantName, docked, floating, onFloa
   const query = useQuery<{ Items: ShellTask[] }>(`/api/assistants/${assistantID}/shell-tasks`, false, 2000);
   const resources = useQuery<Resource[]>('/api/resources?kind=compute', true), grants = useQuery<Grant[]>(`/api/grants?assistant_id=${assistantID}`, true);
   const sandbox = useQuery<SandboxInfo>('/api/sandbox');
-  const supported = sandbox.data && ['linux', 'darwin'].includes(sandbox.data.Capabilities.OS);
+  const supported = sandbox.data?.Capabilities.Terminal;
   const ready = supported && sandbox.data?.Enabled && sandbox.data.Capabilities.Shell;
   const usable = (resources.data ?? []).filter(r => r.State === 'available' && (r.SandboxID ?? 'local') === 'local' && grants.data?.some(g => g.ResourceID === r.ID && !g.Scope.FullAccess && !g.RevokedAt && (!g.ExpiresAt || Date.parse(g.ExpiresAt) > Date.now()) && g.Actions.includes('execute')));
   const tasks = (query.data?.Items ?? []).filter(t => t.Mode === 'tty' && t.State === 'running').sort((a, b) => a.StartedAt.localeCompare(b.StartedAt) || a.ID.localeCompare(b.ID));
@@ -33,8 +33,8 @@ export function Terminals({ assistantID, assistantName, docked, floating, onFloa
   const canCreate = !!ready && !sandbox.error && !resources.error && !grants.error && usable.length > 0;
   const unavailable = !sandbox.data || sandbox.error
     ? (zh ? '暂时无法确认终端能力。' : 'Terminal capabilities could not be confirmed.')
-    : !supported ? t.errorReasons.terminal_platform_unsupported
-    : !ready ? (zh ? '本机沙盒命令执行不可用，请检查沙盒状态。' : 'Local sandbox command execution is unavailable. Check sandbox status.')
+    : !sandbox.data.Enabled || !sandbox.data.Capabilities.Shell ? (zh ? '本机沙盒命令执行不可用，请检查沙盒状态。' : 'Local sandbox command execution is unavailable. Check sandbox status.')
+    : !supported ? (sandbox.data.Capabilities.TerminalReason === 'terminal_start_failed' ? t.errorReasons.terminal_start_failed : t.errorReasons.terminal_platform_unsupported)
     : resources.error || grants.error ? (zh ? '暂时无法确认计算权限。' : 'Compute permissions could not be confirmed.')
     : (zh ? '请先为助理授予本机计算权限。' : 'Grant the assistant local compute permission first.');
   const request = useRef<string | undefined>(undefined), mounted = useRef(true);

@@ -422,6 +422,9 @@ func (s *sandboxRouter) shellExecute(ctx context.Context, e core.Execution, req 
 	if err != nil {
 		return nil, err
 	}
+	if req.TTY && req.Script == "" {
+		req.Script = terminalScript(info.Capabilities.ShellType)
+	}
 	direct := req.FullAccess
 	if direct && (!info.Enabled || !info.Capabilities.FullAccess) {
 		return nil, core.WithReason(core.NewError(core.Forbidden, "Full Access unavailable"), "full_access_unavailable")

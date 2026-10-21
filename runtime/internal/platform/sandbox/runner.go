@@ -38,6 +38,8 @@ type Options struct {
 type Runner struct {
 	// Selected once by startup probes; business commands never retry another profile.
 	bwrapProfile        string
+	terminalReason      string
+	terminalProbeErr    error
 	gpuDevices          []platform.GPUDevice
 	gpuNodes            map[string]gpuNode
 	quotas              *quota.Ledger
@@ -140,6 +142,8 @@ func (r *Runner) Capabilities(ctx context.Context) (platform.Capabilities, error
 	}
 	c.Shell, c.FileIsolation, c.ProcessIsolation, c.NetworkIsolation, c.ResourceLimits = true, true, true, true, true
 	c.Reason = "available"
+	c.Terminal = r.terminalReason == ""
+	c.TerminalReason = r.terminalReason
 	c.NetworkBackend = "transparent"
 	c.NetworkProtocols = []string{"tcp", "udp"}
 	c.DiskProtection = "file_limit_and_free_space_guard"

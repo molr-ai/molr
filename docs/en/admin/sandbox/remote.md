@@ -150,7 +150,7 @@ Connection tokens are encrypted and stored in the Runtime's private database; pa
 
 After startup, upgrade, or restart, you must authenticate and check the Runtime `/api/sandbox` and the capabilities of remote instances in `/api/sandboxes`. Linux compute readiness requires `Reason=available`, and Shell, process, file, network isolation, and resource limits must all be true; HTTP connectivity cannot replace isolation verification.
 
-Windows nodes use a source-built `molr.exe serve --mode sandbox` and manual configuration; the desktop installer manages complete Runtime instances only. Windows uses PowerShell and a network toggle, with no TTY, controlled port forwarding or hard quotas. Configure native drive-letter directory paths and use `$env:<ShellEnvironment>` in scripts; `/tmp` and `/resources/...` are working-directory aliases only. For platform differences, see [Sandbox Design](../../dev/security/sandbox.md).
+Windows nodes use a source-built `molr.exe serve --mode sandbox` and manual configuration; the desktop installer manages complete Runtime instances only. Windows uses PowerShell and a network toggle. ConPTY terminals are supported when `Capabilities.Terminal=true`; controlled port forwarding and hard quotas remain unavailable. Configure native drive-letter directory paths and use `$env:<ShellEnvironment>` in scripts; `/tmp` and `/resources/...` are working-directory aliases only. For platform differences, see [Sandbox Design](../../dev/security/sandbox.md).
 
 ## File and Execution Lifecycle
 

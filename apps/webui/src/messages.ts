@@ -170,7 +170,9 @@ const zh = {
     keyboardHint: '↑ ↓ 选择　↵ 打开　Esc 关闭',
   },
   errorReasons: {
-    terminal_platform_unsupported: '当前 Runtime 所在系统不支持交互终端。请连接 Linux 或 macOS Runtime；Windows 暂不支持。',
+    terminal_platform_unsupported: '当前沙盒不支持交互终端，请检查运行环境。',
+    terminal_start_failed: '交互终端启动检查未通过，请检查 Windows 桌面会话与沙盒状态。',
+    sandbox_file_scope_busy: '此目录正在被另一沙盒实例或重叠的目录授权使用，请结束相关任务后重试。',
     telegram_token_invalid: 'Bot Token 无效或已撤销，请从 @BotFather 获取有效 Token。',
     telegram_webhook_configured: '该机器人已配置其他服务的 Webhook。请使用专属机器人，或先移除原 Webhook。',
     telegram_bot_bound: '该机器人已绑定其他助理，请先解绑。',
@@ -360,7 +362,9 @@ const en: typeof zh = {
     keyboardHint: '↑ ↓ to choose　↵ to open　Esc to close',
   },
   errorReasons: {
-    terminal_platform_unsupported: 'This Runtime’s operating system does not support interactive terminals. Connect to a Linux or macOS Runtime; Windows is not supported yet.',
+    terminal_platform_unsupported: 'This sandbox does not support interactive terminals. Check its execution environment.',
+    terminal_start_failed: 'The interactive terminal startup check failed. Check the Windows desktop session and sandbox status.',
+    sandbox_file_scope_busy: 'This directory is in use by another sandbox instance or an overlapping directory grant. End the related tasks and retry.',
     telegram_token_invalid: 'Bot Token is invalid or revoked. Get a valid token from @BotFather.',
     telegram_webhook_configured: 'This bot has a webhook configured. Use a dedicated bot or remove the existing webhook first.',
     telegram_bot_bound: 'This bot is bound to another assistant. Disconnect it first.',

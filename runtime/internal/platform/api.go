@@ -26,6 +26,8 @@ type GPUDevice struct {
 	Reason             string
 }
 type Capabilities struct {
+	Terminal         bool
+	TerminalReason   string `json:",omitempty"`
 	FullAccess       bool
 	OS               string
 	ProcessIsolation bool
