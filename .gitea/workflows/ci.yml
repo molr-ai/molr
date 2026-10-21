@@ -220,7 +220,7 @@ jobs:
   installer:
     needs: [source, native]
     if: ${{ needs.source.outputs.installer_enabled == 'true' }}
-    name: ${{ matrix.environment }}
+    name: Runtime installation acceptance
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.source.outputs.installer_matrix) }}
