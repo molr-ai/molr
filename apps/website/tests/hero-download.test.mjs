@@ -89,7 +89,11 @@ test('hero downloads detected platform directly, supports manual selection and h
       const docsBox = await hero.locator('.home-download-docs').boundingBox();
       assert.equal(downloadBox.height, docsBox.height);
       assert(docsBox.width < downloadBox.width);
-      if (width === 1440) assert.equal(downloadBox.y, docsBox.y);
+      // Resizing can adjust the viewport scroll between separate boundingBox calls.
+      // Compare both buttons in one layout snapshot, after responsive reflow settles.
+      if (width === 1440) await expect.poll(() => hero.evaluate(el =>
+        el.querySelector('.home-download-split').getBoundingClientRect().top === el.querySelector('.home-download-docs').getBoundingClientRect().top,
+      )).toBe(true);
       await more.click();
       await expect.poll(async () => { const b = await panel.boundingBox(); return b && b.x >= 0 && b.x + b.width <= width; }).toBeTruthy();
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
