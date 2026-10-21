@@ -79,7 +79,7 @@ KillMode=control-group
 Restart=on-failure
 ```
 
-Service names use the `molr-` prefix, and each instance uses a different unit, port, and data directory. Startup logs output the certificate fingerprint but do not output the service token. Currently, the credentials for each standalone service trust one Runtime; do not give the same service credentials to Runtimes that do not trust each other. Run isolated instances when different trust domains are required.
+Service names use the `molr-` prefix, and each instance uses a different unit, port, and data directory. Startup logs output the certificate fingerprint but do not output the service token. Use each sandbox instance with only one Runtime. Do not share an instance or its service token across multiple Runtimes, even when they have the same administrator. The service currently does not enforce exclusive access or isolate permissions and operation state by Runtime. Deploy a separate instance with its own service token for each Runtime.
 
 ## macOS nodes
 

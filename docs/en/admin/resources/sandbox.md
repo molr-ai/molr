@@ -14,6 +14,8 @@ For deployment dependencies, GPU, and network candidate scopes, see [Linux Sandb
 
 ## Connect in the WebUI
 
+Use each remote sandbox instance with only one Runtime. Do not share an instance or its connection credentials across multiple Runtimes. The service currently does not prevent multiple Runtimes from connecting and does not isolate permissions or operation state by Runtime. Deploy a separate [sandbox instance](../sandbox/remote.md) for each Runtime.
+
 1. Go to "Resources → Sandbox → Connect Sandbox", fill in the name, HTTPS service address, certificate fingerprint, and token, click "Test Connection" first, and save after it passes. Re-testing is required after modifying the address, fingerprint, or token.
 2. Go to the "Storage / Compute / Network" partitions of that sandbox and add resources that have been opened on the server side. Compute limits are displayed as read-only; directory and network scopes are managed by deployment configuration and cannot be expanded on the page.
 3. Use the "Authorize to Assistant" option on resource cards to grant external storage read/write, compute execution, or network usage permissions. You can also view, modify, and revoke existing authorizations; management can also continue on the assistant permissions page. Connecting to a remote computer does not automatically grant any resource permissions, nor does it create an assistant workspace.
