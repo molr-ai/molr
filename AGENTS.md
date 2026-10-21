@@ -5,6 +5,7 @@
 开始任务前必须阅读并遵守以下开发者文档；这些引用是本文件的组成部分。
 
 - [公开内容与内部资料](docs/dev/contributing/development.md#公开内容与内部资料)
+- [开发机器目录与共享下载缓存](docs/dev/contributing/development.md#开发机器目录与共享下载缓存)：每台机器推荐使用 `~/workspace/molr` 作为项目目录，统一使用 `~/workspace/molr/.cache` 保存可复用下载；下载前先检查缓存。
 - [Worktree 开发规范](docs/dev/contributing/development.md#worktree-开发规范)
 - [Worktree 独立验收服务](docs/dev/contributing/development.md#worktree-独立验收服务)
 - [真实模型测试](docs/dev/contributing/development.md#真实模型测试)
