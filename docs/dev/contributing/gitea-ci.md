@@ -28,19 +28,17 @@ MOLR_CI_INSTALLERS=disabled
 
 ## 本地 action 镜像
 
-在 Gitea 的 `actions` 组织创建以下拉取镜像，保留上游分支和标签以及已构建的 `dist/`。checkout 和 setup actions 使用下表的大版本引用；artifact actions 固定使用与 Gitea 1.23 匹配的 v4 分支。更新镜像后先运行手动 CI 验证。
+在 Gitea 的 `actions` 组织创建以下拉取镜像，保留上游分支和标签以及已构建的 `dist/`。工作流使用当前大版本引用；更新镜像后先运行手动 CI 验证。
 
 | 本地仓库 | 上游 | 工作流引用 |
 | --- | --- | --- |
 | `actions/checkout` | <https://github.com/actions/checkout> | `v7` |
 | `actions/setup-node` | <https://github.com/actions/setup-node> | `v7` |
 | `actions/setup-go` | <https://github.com/actions/setup-go> | `v7` |
-| `actions/gitea-upload-artifact` | <https://github.com/ChristopherHX/gitea-upload-artifact> | `v4` 分支 |
-| `actions/gitea-download-artifact` | <https://github.com/ChristopherHX/gitea-download-artifact> | `v4` 分支 |
+| `actions/gitea-upload-artifact` | <https://github.com/ChristopherHX/gitea-upload-artifact> | `v7` 分支 |
+| `actions/gitea-download-artifact` | <https://github.com/ChristopherHX/gitea-download-artifact> | `v8` 分支 |
 
 前三个 action 使用正式版本大标签；后两个使用维护者提供的 Gitea 兼容分支，不能替换为 GitHub 官方 artifact 仓库。下载只访问当前运行的产物，不传 `github-token` 或跨运行查询参数。无需额外同步 Docker、Python 或 cache actions。
-
-Artifact 版本受服务端协议约束。上传 v7 会发送旧版 Gitea 不识别的 `mime_type` 字段，导致 `Error decode request body`，随后被 action 显示为 JSON 解析失败；仅移除 GHES 检查或升级 runner 不能解决。参见 [Gitea 上游问题](https://github.com/go-gitea/gitea/issues/36829)。上传步骤不设置 `overwrite: true`，避免首次上传前查询空产物列表时，Gitea 1.23 返回 `Not Found` 并触发重试。每种产物在同次运行中由一个 job 上传，矩阵产物名包含平台；上传与下载使用相同名称。
 
 在 **Gitea 服务端**实际使用的 `app.ini` 中设置，然后重启 Gitea：
 
@@ -56,7 +54,7 @@ Docker 部署通常使用容器内 `/data/gitea/conf/app.ini`；也可在 Compos
 
 ## 原生 runner
 
-安装支持 `runs.using: node24` 的当前稳定版 Gitea Runner，并为 checkout/setup actions 提供 Node 24 运行时；artifact v4 actions 声明 `node20`，也须确认 runner 能执行。项目构建由 `setup-node` 安装 Node `22.21.0`，Go 版本读取 `runtime/.go-version`；action 运行时与项目工具链是两个要求。先验证 checkout、setup-node、setup-go 及其后续 artifact action 均可执行，不能仅凭 runner 在线判断兼容。
+安装支持 `runs.using: node24` 的当前稳定版 Gitea Runner，并为 action 提供 Node 24 运行时。项目构建由 `setup-node` 安装 Node `22.21.0`，Go 版本读取 `runtime/.go-version`；action 运行时与项目工具链是两个要求。先验证 checkout、setup-node、setup-go 及其后续 artifact action 均可执行，不能仅凭 runner 在线判断兼容。
 
 每个执行环境只注册对应架构的标签，使用 **host 模式**。以下是五种构建环境及四种独立安装验收环境；标签不代表必须配置九台物理机器，可以由独立虚拟机提供。
 
