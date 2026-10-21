@@ -8,7 +8,7 @@ import { ProviderConnectionDialog } from './interfaces/official/features/Provide
 import { Loading, useAction } from './interfaces/official/components/common';
 import './setup.css';
 
-export function SetupGate({ children }: { children: ReactNode }) {
+export function SetupGate({ children, onComplete }: { children: ReactNode; onComplete: () => void }) {
  const { principal } = useSession();
  const status = useQuery<SetupState>(principal?.User?.Administrator ? '/api/setup' : null);
  useErrorToast(status.error, status.reload);
@@ -16,7 +16,7 @@ export function SetupGate({ children }: { children: ReactNode }) {
  if (status.error && !status.data) return <main className="session-page" />;
  if (!status.data) return <main className="session-page"><Loading /></main>;
  if (!status.data.Required) return children;
- return <Setup onComplete={id => { location.hash = `#/assistants/${id}`; status.reload(); }} />;
+ return <Setup onComplete={id => { location.hash = `#/assistants/${id}`; onComplete(); }} />;
 }
 function Setup({ onComplete }: { onComplete: (id: string) => void }) {
  const { locale } = useCopy(), zh = locale === 'zh';

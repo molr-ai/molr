@@ -103,7 +103,9 @@ try {
   step('submit first-time configuration');
   await Promise.all([runtimePage.waitForResponse(r=>new URL(r.url()).pathname==='/api/setup'&&r.request().method()==='POST'&&r.status()===200),runtimePage.getByRole('button',{name:/^(开始使用|Start using Molr)$/}).click()]);
   await expect(runtimePage.locator('.workspace')).toBeVisible();
-  await snapshot('workspace-after-setup',runtimePage);
+  const workspace = await snapshot('workspace-after-setup',runtimePage);
+  assert.equal(workspace.htmlLang.split('-')[0], language);
+  assert(!workspace.startup.langChanges.some(change => change.lang.split('-')[0] !== language), 'Setup must not apply cached default language');
   const saved=await runtimePage.evaluate(async()=>{const r=await fetch('/api/settings');if(!r.ok)throw new Error('Settings read HTTP '+r.status);return r.json();});record('diagnostic-saved-settings',{Language:saved.Language,Timezone:saved.Timezone,Version:saved.Version});
   assert.equal(saved.Language, language);
   assert.equal(saved.Timezone, initial.timezone);

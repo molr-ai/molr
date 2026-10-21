@@ -10,6 +10,8 @@
 
 发行构建将 WebUI 内嵌到 Runtime，同源提供网页和 API。新安装的管理员登录后进入 `SetupGate`，共享 ProviderConnectionDialog 的连接与自动发现能力，完成模型、价格和预算确认后由 `/api/setup` 原子创建默认 Molr 助理。已初始化账号和普通成员不强制显示引导。
 
+首次引导保存当前界面语言和设备时区。成功后重新建立账号数据查询作用域，丢弃初始化前的设置与业务快照；桌面外观同步提前读取的默认英文设置不会覆盖刚保存的语言。`desktop-appearance.spec.ts` 覆盖中文、英文及设置读取延迟时的切换，检查进入主界面和重新加载后的语言。
+
 局域网 HTTP 使用 Runtime 按端口隔离的 Cookie；开发代理转换为当前 WebUI 端口并在上游恢复。界面使用 getRandomValues 生成幂等键，不依赖安全上下文中的 randomUUID。完整发行包浏览器验收入口为 `node scripts/test-quick-start.mjs`（仓库根目录执行，需 Linux systemd 用户管理器、已构建发行包、空闲 11434/18878 端口和 Playwright Chromium）。
 
 ## 启动

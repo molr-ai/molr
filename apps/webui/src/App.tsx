@@ -35,12 +35,14 @@ function ErrorToastScope() {
 }
 function SessionGate() {
   const session = useSession(), loginLink = useLoginLink();
+  const [setupRevision, setSetupRevision] = useState(0);
   useErrorToast(!loginLink && !session.loading ? session.error : null, () => void session.reload());
   if (loginLink) return <LoginLinkLogin key={loginLink.id} attempt={loginLink} />;
   if (session.loading) return <main className="session-page"><Loading /></main>;
   if (session.error) return <main className="session-page" />;
   if (!session.principal) return <Login />;
-  return <DataProvider key={session.principal.SessionID}>{window.molrApp?.setAppearance && <AppAppearanceSync />}<SetupGate><UpdateProvider><NotificationProvider><UIHostProvider><WorkspaceHost /></UIHostProvider></NotificationProvider></UpdateProvider></SetupGate></DataProvider>;
+  // Setup creates account preferences and an assistant; discard all pre-setup snapshots.
+  return <DataProvider key={`${session.principal.SessionID}:${setupRevision}`}>{window.molrApp?.setAppearance && <AppAppearanceSync />}<SetupGate onComplete={() => setSetupRevision(value => value + 1)}><UpdateProvider><NotificationProvider><UIHostProvider><WorkspaceHost /></UIHostProvider></NotificationProvider></UpdateProvider></SetupGate></DataProvider>;
 }
 const icons = { assistants: MessagesSquare, plans: CalendarClock, resources: Folder, extensions: Puzzle, workbench: FlaskConical };
 // Trusted in-process adapter. Selection/resolution is identical for partial official and external packages.

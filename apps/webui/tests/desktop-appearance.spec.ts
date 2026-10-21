@@ -1,7 +1,7 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import type { AppAppearance, MolrAppAPI } from '@molr/ui-host/app';
 
-test('desktop inherits saved account appearance only after login and preserves the system preference', async ({ page }) => {
+async function desktopBridge(page: Page) {
   await page.addInitScript(() => {
     const appearances: AppAppearance[] = [];
     Object.assign(window, { appearanceFixture: appearances });
@@ -18,6 +18,10 @@ test('desktop inherits saved account appearance only after login and preserves t
       setAppearance: async appearance => { appearances.push(appearance); },
     } satisfies MolrAppAPI;
   });
+}
+
+test('desktop inherits saved account appearance only after login and preserves the system preference', async ({ page }) => {
+  await desktopBridge(page);
   const calls = () => page.evaluate(() => (window as unknown as { appearanceFixture: AppAppearance[] }).appearanceFixture);
   const latest = async () => (await calls()).at(-1);
   await page.goto('/#/account/theme');
@@ -59,4 +63,55 @@ test('desktop inherits saved account appearance only after login and preserves t
   }
   await page.reload();
   await expect.poll(latest).toEqual({ theme: 'system', palette: 'ocean' });
+});
+
+for (const locale of ['zh-CN', 'en-US']) test.describe(`desktop first-time setup in ${locale}`, () => {
+  test.use({ locale });
+  test('uses initialized settings without applying cached defaults, including during a slow refresh', async ({ page }) => {
+    await desktopBridge(page);
+    const zh = locale === 'zh-CN';
+    let initialized = false, setupPosts = 0, refreshed = false;
+    let releaseSettings!: () => void;
+    const settingsReady = new Promise<void>(resolve => { releaseSettings = resolve; });
+    await page.route(url => url.pathname === '/api/setup', async route => {
+      if (route.request().method() === 'POST') {
+        const body = route.request().postDataJSON();
+        expect(body.Language).toBe(zh ? 'zh' : 'en');
+        expect(body.Timezone).toBe('Asia/Shanghai');
+        setupPosts++; initialized = true;
+      }
+      await route.fulfill({ json: { Required: !initialized, AssistantID: '' } });
+    });
+    await page.route(url => url.pathname === '/api/settings', async route => {
+      const response = await route.fetch(), settings = await response.json();
+      if (initialized) { refreshed = true; await settingsReady; }
+      await route.fulfill({ json: { ...settings, Language: initialized ? (zh ? 'zh' : 'en') : 'en', Timezone: initialized ? 'Asia/Shanghai' : 'UTC', Version: initialized ? 1 : 0 } });
+    });
+    await page.route(url => url.pathname === '/api/models', route => route.fulfill({ json: [{ ID: 'setup-model', ResourceID: 'setup-provider', Name: 'Setup fixture', SupportsTools: true, ContextLimit: 32768, Pricing: { Currency: 'USD', InputMicrosPerMillion: 0, OutputMicrosPerMillion: 0, CachedInputMicrosPerMillion: 0 } }] }));
+    try {
+      await page.goto('/');
+      await page.getByLabel(zh ? '用户名' : 'Username', { exact: true }).fill('owner');
+      await page.getByLabel(zh ? '密码' : 'Password', { exact: true }).fill('webui-e2e-password-2026!');
+      await page.getByRole('button', { name: zh ? '登录' : 'Sign in', exact: true }).click();
+      await expect(page.locator('.setup-page')).toBeVisible();
+      await expect.poll(() => page.evaluate(() => (window as unknown as { appearanceFixture: AppAppearance[] }).appearanceFixture.length)).toBeGreaterThan(0);
+      await page.evaluate(() => {
+        const languages: string[] = [];
+        Object.assign(window, { setupLanguages: languages });
+        new MutationObserver(() => languages.push(document.documentElement.lang)).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
+      });
+      await page.getByRole('button', { name: zh ? '开始使用' : 'Start using Molr', exact: true }).click();
+      await expect.poll(() => refreshed).toBe(true);
+      await expect(page.locator('html')).toHaveAttribute('lang', zh ? 'zh-CN' : 'en');
+      releaseSettings();
+      await expect(page.locator('.workspace')).toBeVisible();
+      await expect(page.locator('html')).toHaveAttribute('lang', zh ? 'zh-CN' : 'en');
+      expect(await page.evaluate(() => (window as unknown as { setupLanguages: string[] }).setupLanguages)).not.toContain(zh ? 'en' : 'zh-CN');
+      expect((await page.context().cookies()).filter(cookie => cookie.name.startsWith('molr_locale_')).map(cookie => cookie.value)).toEqual([zh ? 'zh' : 'en']);
+      await page.reload();
+      await expect(page.locator('.workspace')).toBeVisible();
+      await expect(page.locator('html')).toHaveAttribute('lang', zh ? 'zh-CN' : 'en');
+      expect(setupPosts).toBe(1);
+    } finally { releaseSettings(); await page.unrouteAll({ behavior: 'wait' }); }
+  });
 });
