@@ -150,7 +150,7 @@ MOLR_TEST_ARCHIVE=dist/releases/molr_0.1.0-local_linux_amd64.tar.gz npm run test
 
 ## 安装器维护与验收
 
-发行归档包含两个静态 Go 程序：`runtime/cmd/molr` 启动 Runtime，`runtime/cmd/molr-setup` 管理安装、更新与卸载。安装流程位于 `runtime/internal/installation`；`host_linux.go` 集中依赖、systemd、AppArmor 与主机能力检测，`files_unix.go` 负责路径、权限、原子写入和锁，系统专用文件负责可执行文件与删除保护；macOS 使用 `service_darwin.go` 管理 launchd。公共流程不根据 Ubuntu 名称或版本判断支持；当前自动包管理适配仅实现 APT，CI 覆盖 Ubuntu 24.04 和 macOS 的 AMD64／ARM64。
+发行归档包含两个静态 Go 程序：`runtime/cmd/molr` 启动 Runtime，`runtime/cmd/molr-setup` 管理安装、更新与卸载。安装流程位于 `runtime/internal/installation`；`host_linux.go` 集中依赖、systemd、AppArmor 与主机能力检测，`files_unix.go` 负责路径、权限、原子写入和锁，系统专用文件负责可执行文件与删除保护；macOS 使用 `service_darwin.go` 管理 launchd：注册后通过不带 `-k` 的 `kickstart` 显式启动，避免仅按需启动的登录域挂起 `RunAtLoad`；已登记实例沿用原域，不重复注册，恢复服务也走同一启动流程。公共流程不根据 Ubuntu 名称或版本判断支持；当前自动包管理适配仅实现 APT，CI 覆盖 Ubuntu 24.04 和 macOS 的 AMD64／ARM64。
 
 安装包用 `release.json` 描述构建；程序目录的 `installation.json` 是实例状态、目录、账户、服务、构建与更新订阅的唯一记录。默认行为按可执行文件所在目录判断，不使用工作目录。安装记录损坏时停止，不退回包模式。`.setup.lock` 使用内核 advisory lock，文件存在不表示操作运行；保留 inode，不在释放时删除锁文件。
 

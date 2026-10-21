@@ -37,6 +37,10 @@ func (e *Engine) unitState(r *installrecord.Record) (map[string]string, error) {
 		state["LoadState"] = "loaded"
 		state["Domain"] = domain
 		for _, line := range strings.Split(string(data), "\n") {
+			// Service fields have one tab; nested coalitions have their own state.
+			if !strings.HasPrefix(line, "\t") || strings.HasPrefix(line, "\t\t") {
+				continue
+			}
 			k, v, ok := strings.Cut(strings.TrimSpace(line), " = ")
 			if !ok {
 				continue
@@ -45,6 +49,9 @@ func (e *Engine) unitState(r *installrecord.Record) (map[string]string, error) {
 			case "path":
 				state["FragmentPath"] = v
 			case "state":
+				if v == "not running" {
+					v = "inactive"
+				}
 				state["ActiveState"] = v
 			case "pid":
 				state["MainPID"] = v
@@ -106,21 +113,39 @@ func (e *Engine) startService(r *installrecord.Record, _ bool, start bool) error
 	if !start {
 		return nil
 	}
-	domain := e.launchDomain(r)
+	return e.activateLaunchAgent(r)
+}
+
+func (e *Engine) activateLaunchAgent(r *installrecord.Record) error {
+	state, err := e.unitState(r)
+	if err != nil {
+		return err
+	}
+	domain := state["Domain"]
+	if domain == "" {
+		domain = e.launchDomain(r)
+	}
 	if _, err := e.run([]string{"/bin/launchctl", "enable", domain + "/" + launchLabel(r)}, true); err != nil {
 		return err
 	}
-	_, err := e.run([]string{"/bin/launchctl", "bootstrap", domain, r.Paths.Unit}, true)
+	if state["LoadState"] == "not-found" {
+		if _, err := e.run([]string{"/bin/launchctl", "bootstrap", domain, r.Paths.Unit}, true); err != nil {
+			return err
+		}
+	}
+	// RunAtLoad may stay pending in an on-demand-only domain. Explicitly request
+	// activation, without -k so an already-running process keeps its jobs.
+	_, err = e.run([]string{"/bin/launchctl", "kickstart", domain + "/" + launchLabel(r)}, true)
 	return err
 }
 func (e *Engine) serviceInstructions(r *installrecord.Record) {
 	e.UI.print("Service: launchctl print %s/%s\nLogs: %s\nDesktop login startup: %s", e.launchDomain(r), launchLabel(r), filepath.Join(r.Paths.Cache, "stderr.log"), r.Paths.Unit)
 	if e.Options.NoStart {
-		e.UI.print("Start: launchctl bootstrap %s %s", e.launchDomain(r), strconv.Quote(r.Paths.Unit))
+		domain := e.launchDomain(r)
+		e.UI.print("Start: launchctl bootstrap %s %s\nlaunchctl kickstart %s/%s", domain, strconv.Quote(r.Paths.Unit), domain, launchLabel(r))
 	}
 }
 
 func (e *Engine) resumeService(r *installrecord.Record) error {
-	_, err := e.run([]string{"/bin/launchctl", "bootstrap", e.launchDomain(r), r.Paths.Unit}, false)
-	return err
+	return e.activateLaunchAgent(r)
 }

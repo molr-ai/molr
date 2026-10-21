@@ -69,7 +69,7 @@ function App() {
   const connections = [...state.connections].sort((a, b) => Number(b.kind === 'managed-local') - Number(a.kind === 'managed-local'));
   const canChoose = local.available && !local.installed;
   const screen = page === 'list' && !connections.length ? (canChoose ? 'add' : 'remote') : page === 'add' && !canChoose ? 'remote' : page === 'local' && !local.installed ? (connections.length ? 'list' : canChoose ? 'add' : 'remote') : page;
-  const pollLocal = !!bridge && state.view === 'manager' && screen === 'local' && !state.busy && !pending;
+  const pollLocal = !!bridge && state.view !== 'runtime' && !state.busy && !pending;
   useEffect(() => {
     if (!pollLocal) return;
     let active = true;

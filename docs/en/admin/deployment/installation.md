@@ -132,7 +132,7 @@ macOS 13 and later has Apple Silicon (ARM64) and Intel (AMD64) packages containi
 curl -fsSL https://molr.ai/install.sh | sh
 ```
 
-Run as the current user without `sudo` or `--user`. Setup registers a launchd user service, initializes the account, waits for HTTP and authenticated capability checks, and prints a one-time login link. It opens the default browser in a desktop session and only prints the link over SSH. The service uses `~/Library/LaunchAgents/<instance-name>.plist` and starts at desktop login; SSH-only environments use the current user's background launchd domain. This is not a system daemon that starts before login.
+Run as the current user without `sudo` or `--user`. Setup registers a launchd user service, initializes the account, and explicitly requests startup. It then waits for HTTP and authenticated capability checks and prints a one-time login link. It opens the default browser in a desktop session and only prints the link over SSH. The service uses `~/Library/LaunchAgents/<instance-name>.plist` and starts at desktop login; SSH-only environments use the current user's background launchd domain. This is not a system daemon that starts before login.
 
 The default program directory is `~/Library/Application Support/Molr/program/default`. Configuration and data use `config/default` and `data/default` under the same Molr directory. Logs and caches use `~/Library/Caches/Molr/default`. Use `--name molr-<name>` for separate instances. Setup prints the actual paths and service commands; quote paths containing spaces.
 

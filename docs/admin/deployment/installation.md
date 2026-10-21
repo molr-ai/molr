@@ -132,7 +132,7 @@ macOS 13 及以上提供 Apple Silicon（ARM64）和 Intel（AMD64）发行包�
 curl -fsSL https://molr.ai/install.sh | sh
 ```
 
-使用当前用户运行，不加 `sudo` 或 `--user`。安装器创建 launchd 用户服务、初始化账号、等待 HTTP 与已认证能力检查，再显示一次性登录链接；图形会话中自动打开默认浏览器，SSH 中只显示链接。服务使用 `~/Library/LaunchAgents/<实例名>.plist`，图形登录后启动；SSH-only 环境使用当前用户的后台 launchd 域。它不是登录前启动的系统 daemon。
+使用当前用户运行，不加 `sudo` 或 `--user`。安装器创建 launchd 用户服务、初始化账号，并显式请求启动；随后等待 HTTP 与已认证能力检查，再显示一次性登录链接；图形会话中自动打开默认浏览器，SSH 中只显示链接。服务使用 `~/Library/LaunchAgents/<实例名>.plist`，图形登录后启动；SSH-only 环境使用当前用户的后台 launchd 域。它不是登录前启动的系统 daemon。
 
 默认程序位于 `~/Library/Application Support/Molr/program/default`，配置和数据分别位于同一 Molr 目录下的 `config/default`、`data/default`；日志和缓存位于 `~/Library/Caches/Molr/default`。`--name molr-<名称>` 可创建独立实例。安装器输出实际路径与服务命令，含空格的路径需要引号。
 
