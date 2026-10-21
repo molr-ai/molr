@@ -211,9 +211,16 @@ try {
   assert.equal(await remote("localStorage.getItem('fixture')"), 'persisted');
   if (process.platform === 'darwin') {
     checkpoint('restore after reopening macOS window');
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close());
-    await app.evaluate(({ app }) => app.emit('activate'));
-    page = await app.firstWindow(); await waitRuntime(page);
+    // firstWindow() can still return the old page until its close event arrives.
+    await Promise.all([
+      page.waitForEvent('close'),
+      app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close()),
+    ]);
+    [page] = await Promise.all([
+      app.waitForEvent('window'),
+      app.evaluate(({ app }) => app.emit('activate')),
+    ]);
+    await waitRuntime(page);
     assert.equal((await page.evaluate(() => window.molrDesktop.state())).active, one.id);
   }
   checkpoint('explicit disconnect persists across restart');
