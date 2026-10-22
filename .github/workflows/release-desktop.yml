@@ -136,6 +136,13 @@ jobs:
         with:
           name: desktop-notarization-${{ matrix.arch }}
           path: dist/notarization
+      - name: Use TCP for Apple ticket delivery on Intel runners
+        if: matrix.runner == 'macos-15-intel'
+        shell: bash
+        # Temporary hosted-runner workaround: https://github.com/actions/runner-images/issues/14924
+        run: |
+          echo "block return out quick proto udp from any to any port 443" | sudo pfctl -f -
+          sudo pfctl -E
       - name: Complete notarization (prereleases allow pending timeout)
         run: node apps/desktop/scripts/notarization.mjs dist/notarization
         env:

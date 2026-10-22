@@ -27,6 +27,8 @@ macOS 对应用、内置 Go 二进制和 DMG 签名；Windows 对应用与安装
 
 macOS 预发布和正式发布分为构建与公证完成两个任务。构建任务先签名应用、内置二进制和 DMG，将 DMG 提交给 Apple 后立即保存安装包、原始摘要、版本、commit 和申请 ID 到 `desktop-notarization-*` Actions artifact，保留 14 天，不保存凭据。Apple 为 DMG 及其嵌套应用生成公证票据。后续任务下载同一份产物，核对身份、摘要、DMG 签名和镜像完整性后查询申请；每次最长等待 30 分钟，短暂网络错误自动重试。审核通过后附加并验证票据，检查 Gatekeeper，再生成最终 SHA-256 和桌面清单。
 
+Intel 公证任务在调用 Apple 工具前，按 [GitHub runner 网络故障 #14924](https://github.com/actions/runner-images/issues/14924) 的临时规避方案阻断出站 UDP 443，使票据附加与验证回退到 HTTPS/TCP。规则仅作用于该任务的 `macos-15-intel` 临时 runner；签名、公证票据和 Gatekeeper 校验仍须通过。该调整不应用于本地机器或 ARM64 runner。修复 workflow 后需运行包含修复的新提交；重跑旧版本任务仍使用原 workflow。
+
 Beta／RC 预发布固定使用 `optional` 公证策略：等待满 30 分钟后，若到期时的查询仍返回 `In Progress`，保留已签名 DMG 的原始字节，生成 `signed: true, notarized: false` 清单并继续发布。正式 Release 固定使用 `required`，必须公证通过、附加票据并验证后才能发布。策略由准备阶段解析出的 `preview`／`stable` 渠道传给桌面工作流，GitHub environment 中的 `MAC_NOTARIZATION_POLICY` 变量不再生效。Nightly 跳过公证。
 
 本地签名打包和手工恢复默认使用 `required`，预发布恢复可显式设置 `MOLR_NOTARIZATION_POLICY=optional`；恢复正式 Release 时保持 `required`。仅接受 `optional` 和 `required`。查询失败或状态无法确认、Apple 拒绝、身份／摘要／签名校验失败，以及通过后的票据／Gatekeeper 校验失败，都阻止发布，不按等待超时处理。
