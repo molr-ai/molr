@@ -99,7 +99,7 @@ function App() {
   const progress = state.busy ? <p className="desktop-hint" role="status">{({ checking: '正在检查安装环境', installing: '正在安装', restarting: '正在启动服务' } as Record<string, string>)[state.progress ?? ''] ?? `正在${actionNames[state.busy as LocalAction] ?? '处理'}`}，请保持应用打开。</p> : null;
   const titles: Record<Page, string> = { list: '选择连接', add: '你想在哪里使用 Molr？', remote: form.id ? '编辑连接' : '连接远程服务', install: '在这台电脑上使用 Molr', local: '管理本机服务' };
   const canBack = screen !== 'list' && (connections.length > 0 || (screen === 'remote' || screen === 'install') && canChoose);
-  return <div className="desktop-app" data-app-platform={state.platform} data-app-fullscreen={state.window.fullscreen}>
+  return <div className="desktop-app" data-app-platform={state.platform} data-app-fullscreen={state.window.fullscreen} style={{ '--app-titlebar-inset': state.window.titlebarInset === undefined ? undefined : `${state.window.titlebarInset}px` } as React.CSSProperties}>
     {state.view !== 'runtime' && <header className="desktop-toolbar">
       <div className="desktop-identity"><Logo animation="daily" assetBaseUrl={paletteAssetBase(palette)} variant={theme === 'dark' ? 'light' : 'dark'} /></div>
       <div className="desktop-toolbar-actions">

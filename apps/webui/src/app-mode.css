@@ -16,7 +16,7 @@
 .app-window-controls > .ui-icon-button { height: 36px; min-height: 36px; margin: 0; }
 .app-window-controls .app-window-close:hover { background: var(--color-danger-bg); color: var(--color-danger); }
 /* Keep the 48px toolbar; only windowed macOS reserves native-button space. */
-.app-frame[data-app-platform="darwin"]:not([data-app-fullscreen="true"]) .app-titlebar { padding-left: env(titlebar-area-x, 88px); }
+.app-frame[data-app-platform="darwin"]:not([data-app-fullscreen="true"]) .app-titlebar { padding-left: var(--app-titlebar-inset, 88px); }
 .app-frame[data-app-platform="darwin"][data-app-fullscreen="true"] .app-titlebar { padding-left: 16px; }
 .app-frame-content { position: relative; isolation: isolate; flex: 1; min-height: 0; overflow: auto; }
 .app-frame .workspace { position: relative; }

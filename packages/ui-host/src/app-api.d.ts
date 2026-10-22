@@ -1,5 +1,9 @@
 /** Narrow native capabilities available only to the active Runtime main frame. */
-export type AppWindowState = { maximized: boolean; fullscreen: boolean };
+export type AppWindowState = {
+  maximized: boolean; fullscreen: boolean;
+  /** Stable macOS native-button inset in CSS pixels, calculated by main. */
+  titlebarInset?: number;
+};
 export type AppAppearance = {
   theme: 'system' | 'light' | 'dark';
   palette: 'forest' | 'ocean' | 'iris' | 'sand' | 'rose' | 'monochrome';

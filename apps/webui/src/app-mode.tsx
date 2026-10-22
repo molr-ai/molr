@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { Copy, Minus, Square, Unplug, X } from 'lucide-react';
 import { Button, IconButton, Logo, ModalScope, useBreakpoint, useTheme, useToast } from '@molr/ui';
 import type { AppInfo, MolrAppAPI } from '@molr/ui-host/app';
@@ -50,7 +50,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
     try { await action(); } catch (error) { reportError(error); setDisconnecting(false); }
   }
   const restore = info?.window.maximized || info?.window.fullscreen;
-  return <AppInfoContext.Provider value={info}><TitlebarBrandContext.Provider value={brand}><div ref={setFrame} className="app-frame" data-app-platform={info?.platform} data-app-fullscreen={info?.window.fullscreen}>
+  return <AppInfoContext.Provider value={info}><TitlebarBrandContext.Provider value={brand}><div ref={setFrame} className="app-frame" data-app-platform={info?.platform} data-app-fullscreen={info?.window.fullscreen} style={{ '--app-titlebar-inset': info?.window.titlebarInset === undefined ? undefined : `${info.window.titlebarInset}px` } as CSSProperties}>
     <ModalScope container={frame} presentation={mobile ? 'sheet' : 'dialog'}>
     <header className="app-titlebar" aria-label={zh ? '桌面窗口' : 'Desktop window'}>
       <div className="app-titlebar-identity"><div ref={setBrand} className="app-titlebar-brand"><Logo variant={theme === 'dark' ? 'light' : 'dark'} /></div><span title={info?.connection.url}>{info?.connection.name}</span></div>

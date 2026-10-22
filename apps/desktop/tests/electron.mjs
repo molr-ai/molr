@@ -6,7 +6,7 @@ import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { _electron as electron, expect } from '@playwright/test';
-import { expectMacTitlebar, expectFullscreenTitlebar } from './window-controls.mjs';
+import { expectMacTitlebar, expectFullscreenTitlebar, expectStableMacTitlebar } from './window-controls.mjs';
 const root = resolve(import.meta.dirname, '../../..');
 const data = mkdtempSync(join(tmpdir(), 'molr-desktop-test-'));
 const screenshots = join(root, '.cache/acceptance/desktop'); mkdirSync(screenshots, { recursive: true });
@@ -55,6 +55,7 @@ try {
     for (const zoom of [0.8, 1.25, 1.5, 1]) {
       await app.evaluate(({ BrowserWindow }, zoom) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(zoom), zoom);
       await expectMacTitlebar(page, '.desktop-toolbar', '.desktop-identity .logo');
+      await expectStableMacTitlebar(app, page, '.desktop-toolbar', '.desktop-identity .logo');
     }
     const margin = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getWindowButtonPosition());
     assert(margin.x > 0 && margin.x === margin.y, 'Native top and left margins match');
@@ -64,6 +65,18 @@ try {
     await expectFullscreenTitlebar(page, '.desktop-toolbar', '.desktop-identity .logo');
     await app.evaluate(({ BrowserWindow }, state) => BrowserWindow.getAllWindows()[0].webContents.send('desktop:changed', state), state);
     await expectMacTitlebar(page, '.desktop-toolbar', '.desktop-identity .logo');
+    const originalInset = (await page.locator('.desktop-identity .logo').boundingBox()).x;
+    for (const zoom of [0.8, 1.5]) {
+      await app.evaluate(({ BrowserWindow }, zoom) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(zoom), zoom);
+      await expectMacTitlebar(page, '.desktop-toolbar', '.desktop-identity .logo');
+      await Promise.all([page.waitForEvent('close'), app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close())]);
+      [page] = await Promise.all([app.waitForEvent('window'), app.evaluate(({ app }) => app.emit('activate'))]);
+      await expect.poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible())).toBe(true);
+      assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.getZoomFactor()), zoom);
+      await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(1));
+      await expectMacTitlebar(page, '.desktop-toolbar', '.desktop-identity .logo');
+      assert.equal((await page.locator('.desktop-identity .logo').boundingBox()).x, originalInset, 'Reopening at fractional zoom preserves native measurements');
+    }
   }
   const logo = page.locator('.desktop-identity .logo img');
   await expect(logo).toHaveAttribute('src', /molr-wordmark-(alive|playful)\.svg/);

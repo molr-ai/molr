@@ -10,7 +10,7 @@ button, input { font: inherit; }
 .desktop-window-controls { display: flex; align-items: center; gap: 2px; }
 .desktop-toolbar-actions :is(.button, .ui-icon-button) { height: 36px; min-height: 36px; margin: 0; line-height: 1; }
 .desktop-window-controls .desktop-close:hover { background: var(--color-danger-bg); color: var(--color-danger); }
-.desktop-app[data-app-platform="darwin"]:not([data-app-fullscreen="true"]) .desktop-toolbar { padding-left: env(titlebar-area-x, 88px); }
+.desktop-app[data-app-platform="darwin"]:not([data-app-fullscreen="true"]) .desktop-toolbar { padding-left: var(--app-titlebar-inset, 88px); }
 .desktop-app[data-app-platform="darwin"][data-app-fullscreen="true"] .desktop-toolbar { padding-left: 16px; }
 .desktop-main { margin: 0 8px 8px; min-height: calc(100vh - var(--app-titlebar-height) - 8px); padding: 32px; }
 .desktop-content { max-width: 1000px; margin: 0 auto; }
