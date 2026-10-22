@@ -99,7 +99,7 @@
 | internal/api | Server.Shutdown | TestTDDServerServeAndShutdown |
 | internal/api | RateLimiter.Allow | TestTDDRateLimiterBoundedIndependentAndFailureClosed |
 | internal/api | Services.Validate | TestTDDServicesValidationAllFields |
-| internal/api | PublicError | TestTDDPublicErrorStatusMapping |
+| internal/api | PublicError | TestTDDPublicErrorStatusMapping, TestPublicErrorReasonsAreReviewedAndKeepDiagnosticsPrivate |
 | internal/app | Application.Run | TestTDDApplicationStartupAndShutdownOrder |
 | internal/app | Application.Shutdown | TestTDDApplicationStartupAndShutdownOrder |
 | internal/app | Dependencies.Validate | TestTDDDependenciesValidateEveryRequiredPort |

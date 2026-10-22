@@ -28,6 +28,8 @@ The card retains the original application text, final approved content, and proc
 
 The assistant permissions page retains the most recent up to 200 applications, with pending ones prioritized. Approval records indicate past approvals, but actual access still depends on whether the authorization is valid and whether the resource is online; if the sandbox is offline, restore the resource connection.
 
+When an active grant fully covers the requested actions, scope, quotas and expiration, the tool tells the assistant to use that grant without publishing a card. Broader scopes, higher quotas or longer validity still require approval; quota changes must reference the existing grant. If approval reports an existing active grant, edit it in the assistant permissions instead of approving a duplicate.
+
 ## Modification and Revocation
 
 Authorizations can limit actions, data scope, and validity period. Disconnecting resources, revoking, or expiration will restrict subsequent execution, and related runs may be stopped; completed writes or already sent data cannot be withdrawn via revocation.

@@ -170,6 +170,11 @@ const zh = {
     keyboardHint: '↑ ↓ 选择　↵ 打开　Esc 关闭',
   },
   errorReasons: {
+    grant_exists: '助理已有此资源的有效授权，请在助理权限中修改已有授权。',
+    grant_changed: '已有授权已发生变化，请在助理权限中查看并修改最新授权。',
+    permission_request_changed: '此权限申请已处理或发生变化，请关闭窗口后查看最新状态。',
+    permission_already_granted: '已有有效授权已覆盖本次申请，无需重复授权。',
+
     terminal_platform_unsupported: '当前沙盒不支持交互终端，请检查运行环境。',
     terminal_start_failed: '交互终端启动检查未通过，请检查 Windows 桌面会话与沙盒状态。',
     sandbox_file_scope_busy: '此目录正在被另一沙盒实例或重叠的目录授权使用，请结束相关任务后重试。',
@@ -362,6 +367,11 @@ const en: typeof zh = {
     keyboardHint: '↑ ↓ to choose　↵ to open　Esc to close',
   },
   errorReasons: {
+    grant_exists: 'The assistant already has an active grant for this resource. Edit it in the assistant’s permissions.',
+    grant_changed: 'The existing grant has changed. Review and edit the latest grant in the assistant’s permissions.',
+    permission_request_changed: 'This permission request has been resolved or changed. Close the dialog to check its latest state.',
+    permission_already_granted: 'An active grant already covers this request. No additional permission is needed.',
+
     terminal_platform_unsupported: 'This sandbox does not support interactive terminals. Check its execution environment.',
     terminal_start_failed: 'The interactive terminal startup check failed. Check the Windows desktop session and sandbox status.',
     sandbox_file_scope_busy: 'This directory is in use by another sandbox instance or an overlapping directory grant. End the related tasks and retry.',

@@ -70,6 +70,11 @@ func (s *permissionRequests) create(ctx context.Context, e core.Execution, input
 		} else if !persistence.Missing(err) {
 			return err
 		}
+		for i, item := range append([]policy.PermissionRequestInput{input}, input.Additional...) {
+			if err := s.checkExistingPermission(ctx, e, item); err != nil {
+				return policy.PermissionRequestItemError(i, err)
+			}
+		}
 		rows, err := s.requestRows(ctx, e.Principal.OwnerID, e.AssistantID, true, 0)
 		if err != nil {
 			return err
@@ -229,7 +234,7 @@ func (s *permissionRequests) Resolve(ctx context.Context, p core.Principal, q po
 			return err
 		}
 		if out.State != "pending" || out.Version != q.Mutation.ExpectedVersion {
-			return persistence.Conflict("permission request changed")
+			return core.WithReason(persistence.Conflict("permission request changed"), "permission_request_changed")
 		}
 		a, err := assistant.NewRepository(s.store).Get(ctx, p.OwnerID, out.AssistantID)
 		if err != nil {
@@ -420,7 +425,7 @@ func (s *permissionRequests) validateProposal(ctx context.Context, e core.Execut
 			return core.Invalid("grant_id", "grant must be active and belong to this assistant and selected resource")
 		}
 		if g.Version != input.GrantVersion {
-			return &core.Error{Code: core.Conflict, Field: "grant_version", Message: "grant changed; refresh permission_list"}
+			return &core.Error{Code: core.Conflict, Field: "grant_version", Message: "grant changed; refresh permission_list", Reason: "grant_changed"}
 		}
 	}
 	return nil

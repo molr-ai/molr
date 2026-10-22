@@ -52,6 +52,13 @@ export function permissionModel(input, response) {
       return finish();
     }
   }
+  if (input.model.startsWith('Permission duplicate ')) {
+    if (published) return finish();
+    if (results.some(result => result.error?.reason === 'permission_already_granted')) {
+      call('conversation_publish', { conversation_id: event.conversation_id, text: 'Existing permission covers this request. No authorization card is needed.' });
+      return finish();
+    }
+  }
   const decision = requests.find(r => r.State !== 'pending');
   if (!requests.length) {
     const listing = results.find(r => r.Requestable);
@@ -70,7 +77,7 @@ export function permissionModel(input, response) {
         ...(quota || gpu || cpu ? { constraints: { compute } } : {}),
         ...(quota ? { additional_requests: [{ resource_kind:'network', resource_id:network.ResourceID, resource_description:network.Name, actions:['execute'], reason:'Download the quota verification file.', constraints:{network:{bytes:1073741824,connections:32,period:'day',timezone:'Asia/Shanghai'}} }] } : {}),
       });
-      message.tool_calls.push({ id: randomUUID(), type: 'function', function: { name: 'conversation_publish', arguments: JSON.stringify({ conversation_id: event.conversation_id, text: 'Must not run before approval' }) } });
+      if (!input.model.startsWith('Permission duplicate ')) message.tool_calls.push({ id: randomUUID(), type: 'function', function: { name: 'conversation_publish', arguments: JSON.stringify({ conversation_id: event.conversation_id, text: 'Must not run before approval' }) } });
     }
   } else if (decision?.State === 'rejected' && !published) {
     call('conversation_publish', { conversation_id: event.conversation_id, text: 'Permission was declined. No command was executed.' });

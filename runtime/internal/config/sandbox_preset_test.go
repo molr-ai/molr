@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"molr.ai/runtime/internal/platform"
+	"slices"
 	"testing"
 )
 
@@ -35,6 +36,13 @@ func TestResourcePresetsExpandAndRoundTrip(t *testing.T) {
 			} else {
 				if !s.Enabled || !s.AllowFullAccess || s.RestrictDirectories || len(s.NetworkTargets(8787)) == 0 {
 					t.Fatal("permissive preset remains restricted")
+				}
+				expected := []string{"internet", "lan", "host"}
+				if platform.NativeSandbox() {
+					expected = []string{"network"}
+				}
+				if !slices.Equal(s.NetworkPresets, expected) {
+					t.Fatalf("network presets = %v, want %v", s.NetworkPresets, expected)
 				}
 				if !platform.NativeSandbox() && (!s.GPU.AllDevices || !s.ComputeCeilings().AllGPUDevices || s.AuthorizationCeilings.CPUPercent != 0) {
 					t.Fatal("permissive preset has deployment ceilings")

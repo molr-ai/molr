@@ -140,6 +140,7 @@ func PublicError(err error, requestID core.ID) (int, ErrorResponse) {
 	var reason core.Reason
 	switch value := core.ReasonOf(err); value {
 	case core.NetworkPrivateAddressDenied, core.NetworkHTTPNotAllowed, core.NetworkDestinationProhibited,
+		"grant_exists", "grant_changed", "permission_request_changed", "permission_already_granted",
 		"maintenance_busy", "maintenance_not_cancellable", "maintenance_not_installed", "maintenance_runner_unavailable", "maintenance_permission_denied", "maintenance_admin_cli_required", "maintenance_start_timeout", "maintenance_invalid_request", "component_externally_managed", "component_platform_unsupported":
 		reason = value
 	}

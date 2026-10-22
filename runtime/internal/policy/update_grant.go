@@ -49,7 +49,7 @@ func (m *Manager) UpdateGrant(ctx context.Context, p core.Principal, r UpdateGra
 			return err
 		}
 		if out.Version != r.Mutation.ExpectedVersion {
-			return persistence.Conflict("grant version mismatch")
+			return core.WithReason(persistence.Conflict("grant version mismatch"), "grant_changed")
 		}
 		if out.RevokedAt != nil {
 			return core.NewError(core.FailedPrecondition, "grant revoked")
@@ -96,7 +96,7 @@ func (m *Manager) UpdateGrant(ctx context.Context, p core.Principal, r UpdateGra
 			}
 			for _, other := range rows {
 				if other.ID != out.ID && other.OwnerID == out.OwnerID && other.AssistantID == out.AssistantID && other.ResourceID == out.ResourceID && !other.Scope.FullAccess && other.RevokedAt == nil && (other.ExpiresAt == nil || other.ExpiresAt.After(m.options.Now())) {
-					return core.NewError(core.Conflict, "update the existing isolated grant instead of stacking quotas")
+					return core.WithReason(core.NewError(core.Conflict, "update the existing isolated grant instead of stacking quotas"), "grant_exists")
 				}
 			}
 		}

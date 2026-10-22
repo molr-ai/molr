@@ -310,7 +310,7 @@ func (m *Manager) Grant(ctx context.Context, p core.Principal, r GrantRequest) (
 			}
 			for _, g := range rows {
 				if g.OwnerID == p.OwnerID && g.AssistantID == r.AssistantID && g.ResourceID == r.ResourceID && g.Scope.FullAccess == r.Scope.FullAccess && g.RevokedAt == nil && (g.ExpiresAt == nil || g.ExpiresAt.After(m.options.Now())) {
-					return core.NewError(core.Conflict, "update the existing resource grant instead of stacking quotas")
+					return core.WithReason(core.NewError(core.Conflict, "update the existing resource grant instead of stacking quotas"), "grant_exists")
 				}
 			}
 		}

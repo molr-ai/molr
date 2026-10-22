@@ -481,12 +481,15 @@ func (s *shellService) ensureCompute(ctx context.Context) error {
 		if err := ensureWorkspaceResource(ctx, s.store, account.Account.ID, "local"); err != nil {
 			return err
 		}
-		resources, err := persistence.Select[resource.Resource](ctx, s.store, "business.resources", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", account.Account.ID), persistence.Eq("Provider", "local-sandbox")}, Limit: 1})
+		if err := s.ensureNetworks(ctx); err != nil {
+			return err
+		}
+		resources, err := catalog.Select[resource.Resource](ctx, s.store, "business.resources", persistence.Query{Where: []persistence.Filter{persistence.Eq("Provider", "local-sandbox")}, Limit: 1})
 		if err != nil {
 			return err
 		}
 		for _, r := range resources {
-			if r.OwnerID == account.Account.ID && r.Provider == "local-sandbox" {
+			if r.OwnerID == catalog.Scope && r.Provider == "local-sandbox" {
 				return nil
 			}
 		}

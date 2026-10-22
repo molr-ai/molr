@@ -55,7 +55,7 @@ func TestHTTPCompositionExcludesPrivilegedExecutionPorts(t *testing.T) {
 }
 
 func TestPublicErrorReasonsAreReviewedAndKeepDiagnosticsPrivate(t *testing.T) {
-	for _, reason := range []core.Reason{core.NetworkPrivateAddressDenied, core.NetworkHTTPNotAllowed, core.NetworkDestinationProhibited, "private-secret"} {
+	for _, reason := range []core.Reason{core.NetworkPrivateAddressDenied, core.NetworkHTTPNotAllowed, core.NetworkDestinationProhibited, "grant_exists", "grant_changed", "permission_request_changed", "permission_already_granted", "private-secret"} {
 		err := core.WithReason(core.Invalid("private-secret", "private-secret"), reason)
 		status, response := PublicError(err, "request")
 		if status != http.StatusBadRequest || response.Code != core.InvalidArgument {
