@@ -9,7 +9,7 @@ import { MobileAccountButton } from './components/MobileAccountButton';
 import { ChatChannelDrawer } from './features/WeixinChannel';
 import { useUIHost } from '../../ui-host/store';
 import { lazy, Suspense, useEffect, useId, useRef, useState } from 'react';
-import { ModalPresence, AssistantList, Button, EmptyState, IconButton, Logo, SearchField, Select, useBreakpoint, useTheme } from '@molr/ui';
+import { ModalPresence, AssistantList, Button, EmptyState, IconButton, Logo, SearchField, useBreakpoint, useTheme } from '@molr/ui';
 import { MessagesSquare, Pin, Plus, Search as SearchIcon } from 'lucide-react';
 import type { Assistant, AssistantActivity, Conversation, Model, RuntimeInfo, Settings as SettingsDTO } from '../../api/types';
 import { api } from '../../api/client';
@@ -37,18 +37,18 @@ const Terminals = lazy(() => import('./features/Terminals').then(module => ({ de
 const ShellTasks = lazy(() => import('./features/ShellTasks').then(module => ({ default: module.ShellTasks })));
 const Tasks = lazy(() => import('./features/Tasks').then(module => ({ default: module.Tasks })));
 
-export function OfficialPage({ chatLayout = 'default' }: { chatLayout?: 'default' | 'focus' } = {}) {
+export function OfficialPage() {
   const { t } = useCopy(), { theme } = useTheme(), mobile = useBreakpoint('mobile');
   const { page, id, turnID, eventID, messageID, panel, taskID, navigate, closePanel } = useNavigation(), action = useAction();
   const assistants = useQuery<Assistant[]>('/api/assistants', true), conversations = useQuery<Conversation[]>('/api/conversations', true), models = useQuery<Model[]>('/api/models'), settings = useQuery<SettingsDTO>('/api/settings');
-  const activity = useQuery<AssistantActivity[]>(page === 'assistants' && (chatLayout === 'focus' || !mobile || !id) ? '/api/assistants/activity' : null, true);
+  const activity = useQuery<AssistantActivity[]>(page === 'assistants' && (!mobile || !id) ? '/api/assistants/activity' : null, true);
   const activityByID = new Map(activity.data?.map(item => [item.AssistantID, item]));
   const runtime = useQuery<RuntimeInfo>('/api/status');
   const workbenchVisible = !!runtime.data?.workbench_available && !!settings.data?.WorkbenchVisible;
   const [search, setSearch] = useState(false), [hire, setHire] = useState(false), [dialog, setDialog] = useState<{ kind: AssistantAction; assistant: Assistant } | null>(null), [taskCard, setTaskCard] = useState('');
   const [assistantQuery, setAssistantQuery] = useState('');
   const [chatWorkspace, setChatWorkspace] = useState<HTMLDivElement | null>(null);
-  const panelDocked = usePanelDocking(chatWorkspace) && !mobile && chatLayout === 'default';
+  const panelDocked = usePanelDocking(chatWorkspace) && !mobile;
   const [browserFloating, setBrowserFloating] = useState(true);
   const [terminalFloating, setTerminalFloating] = useState(true);
   const terminalBounds = useRef<FloatingBounds | null>(null);
@@ -61,7 +61,7 @@ export function OfficialPage({ chatLayout = 'default' }: { chatLayout?: 'default
   const paneKind = isChatPanel(dialog) ? dialog.kind : undefined;
   const paneFloating = paneKind === 'browser' ? floating : paneKind === 'files' ? filesFloating && !mobile : paneKind === 'terminal' ? terminalFloating && !mobile : false;
   const panes = useAssistantPaneSizes(chatWorkspace, paneKind, panelDocked && !!paneKind && !paneFloating);
-  const resizable = !mobile && chatLayout === 'default';
+  const resizable = !mobile;
   const assistantSearchId = useId();
   const [pendingTask, setPendingTask] = useState<{ assistantID: string; taskID?: string } | null>(null);
   const { drafts, setDrafts } = useUIHost();
@@ -109,18 +109,15 @@ export function OfficialPage({ chatLayout = 'default' }: { chatLayout?: 'default
     action={searchEmpty ? <Button variant="secondary" size="sm" onClick={clearAssistantSearch}>{t.assistants.clearSearch}</Button>
       : <Button variant="secondary" size="sm" onClick={startHiring}>{canHire ? t.assistants.hire : t.assistants.configure}</Button>} />;
   return <>
-        {page === 'assistants' ? <div className={`assistant-workspace${chatLayout === 'focus' ? ' assistant-workspace--focus' : ''}`} ref={setChatWorkspace} style={resizable ? { '--workspace-sidebar-width': `${panes.list}px` } as CSSProperties : undefined}>
-          {(chatLayout === 'focus' || !mobile || !selected) && <aside className="workspace-sidebar" aria-label={t.assistants.list}>
-            {mobile && chatLayout === 'focus' && <header className="assistant-toolbar"><MobileAccountButton />{mobileActions}</header>}
-            {chatLayout === 'focus' ? (assistants.loading && !assistants.data ? <Loading /> : !allAssistants.length ? emptyList : <Select label={t.assistants.list} value={selected?.ID ?? ''} onValueChange={value => go('assistants', value)} options={orderedAssistants.filter(assistant => assistant.State === 'active' || assistant.ID === selected?.ID).map(assistant => ({ value: assistant.ID, label: assistant.Name }))} />) : <>
+        {page === 'assistants' ? <div className="assistant-workspace" ref={setChatWorkspace} style={resizable ? { '--workspace-sidebar-width': `${panes.list}px` } as CSSProperties : undefined}>
+          {(!mobile || !selected) && <aside className="workspace-sidebar" aria-label={t.assistants.list}>
             <header className="assistant-toolbar">{mobile && <MobileAccountButton />}<SearchField id={assistantSearchId} className="assistant-search" label={t.assistants.search} hideLabel placeholder={t.assistants.search} value={assistantQuery} onValueChange={setAssistantQuery} />{mobile && mobileActions}</header>
             {assistants.loading && !assistants.data ? <Loading /> : assistants.data ? <AssistantList label={t.assistants.list} entries={entries(visibleAssistants)} selectedID={selected?.ID} onSelect={value => go('assistants', value)} mobile={mobile} pinnedLabel={t.assistants.pinned} unreadLabel={t.assistants.unread} emptyLabel={emptyTitle} emptyState={emptyList} pinIcon={<Pin size={12} />} /> : null}
-            </>}
             {!mobile && active.length > 0 && <footer className="sidebar-footer"><Button variant="secondary" disabled={!models.data} onClick={startHiring}><Plus size={18} />{t.assistants.hire}</Button></footer>}
           </aside>}
           {resizable && <PaneSeparator className="pane-separator" label={t.assistants.list} value={panes.list} min={LIST_MIN} max={panes.listMax} style={{ left: panes.list }} onResize={value => panes.resize('list', value)} onCommit={panes.save} />}
           {resizable && panelDocked && paneKind && !paneFloating && <PaneSeparator className="pane-separator" key={paneKind} label={t.chat.panelResize} reverse value={panes.panel} min={panes.panelMin} max={panes.panelMax} style={{ right: panes.panel }} onResize={value => panes.resize(paneKind, value)} onCommit={panes.save} />}
-          <MobileChatPresence enabled={mobile}>{selected && (chatLayout === 'focus' || !mobile || id) ? <Chat targetMessageID={messageID} onClearTarget={() => go('assistants', selected.ID)} timeZone={settings.data?.Timezone} onDebug={workbenchVisible ? turnID => go('workbench', selected.ID, turnID) : undefined} key={selected.ID} assistant={selected} conversation={conversations.data?.find(conversation => conversation.ID === selected.ConversationID)} draft={drafts[selected.ID] ?? { text: '', files: [] }} updateDraft={update => setDrafts(previous => ({ ...previous, [selected.ID]: typeof update === 'function' ? update(previous[selected.ID] ?? { text: '', files: [] }) : update }))} onBack={mobile ? () => go('assistants') : undefined} onAction={assistantAction} onCard={(kind, target) => { if (kind === 'task') { setTaskCard(target); setDialog({ kind: 'tasks', assistant: selected }); } else go(kind === 'resource' ? 'resources' : kind === 'settings' ? 'settings' : 'schedules', target); }} /> : null}</MobileChatPresence>
+          <MobileChatPresence enabled={mobile}>{selected && (!mobile || id) ? <Chat targetMessageID={messageID} onClearTarget={() => go('assistants', selected.ID)} timeZone={settings.data?.Timezone} onDebug={workbenchVisible ? turnID => go('workbench', selected.ID, turnID) : undefined} key={selected.ID} assistant={selected} conversation={conversations.data?.find(conversation => conversation.ID === selected.ConversationID)} draft={drafts[selected.ID] ?? { text: '', files: [] }} updateDraft={update => setDrafts(previous => ({ ...previous, [selected.ID]: typeof update === 'function' ? update(previous[selected.ID] ?? { text: '', files: [] }) : update }))} onBack={mobile ? () => go('assistants') : undefined} onAction={assistantAction} onCard={(kind, target) => { if (kind === 'task') { setTaskCard(target); setDialog({ kind: 'tasks', assistant: selected }); } else go(kind === 'resource' ? 'resources' : kind === 'settings' ? 'settings' : 'schedules', target); }} /> : null}</MobileChatPresence>
           {!selected && !mobile && <div className="workspace-empty"><EmptyState title={t.chat.workspaceTitle} illustration={<Logo markOnly animation="static" variant={theme === 'dark' ? 'light' : 'dark'} className="workspace-empty__logo" />} /></div>}
           <ChatSidePanel width={resizable ? panes.panel : undefined} panel={isChatPanel(dialog) ? dialog : null} docked={panelDocked} floating={{ terminal: terminalFloating && !mobile, browser: floating, files: filesFloating && !mobile }}>{panel => <Suspense fallback={<Loading />}>
             {(panel.kind === 'info' || panel.kind === 'permissions') && <AssistantInfo docked={panelDocked} assistant={assistants.data?.find(item => item.ID === panel.assistant.ID) ?? panel.assistant} models={models.data ?? []} initialTab={panel.kind === 'permissions' ? 'permissions' : 'overview'} onClose={closeDialog} onDebug={workbenchVisible ? () => { setDialog(null); go('workbench', panel.assistant.ID); } : undefined} />}

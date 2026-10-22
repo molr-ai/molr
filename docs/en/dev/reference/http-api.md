@@ -348,7 +348,7 @@ One read transaction groups ledger records by their start date in the requested 
 
 ### UI Theme
 
-UI Theme: `Settings.UITheme` saves `id@version` (e.g., `molr.test@1.0.0`), separate from `Settings.Theme` which controls light/dark mode. Default is `molr.official@1.0.0`, saved per Owner and using settings version checks; old clients omitting or passing empty fields retain the existing theme. Runtime only validates identifier formats and does not load UI code; available themes are determined by the client's built-in catalog and plugin themes enabled and authorized by Runtime; see [Plugin Mechanism](../extensions/plugins.md#lifecycle-and-http-routing) for the plugin interface.
+UI Theme: `Settings.UITheme` saves `id@version` (e.g., `molr.official@1.0.0`), separate from `Settings.Theme` which controls light/dark mode. Default is `molr.official@1.0.0`, saved per Owner and using settings version checks; old clients omitting or passing empty fields retain the existing theme. Runtime only validates identifier formats and does not load UI code; available themes are determined by the client's built-in catalog and plugin themes enabled and authorized by Runtime; see [Plugin Mechanism](../extensions/plugins.md#lifecycle-and-http-routing) for the plugin interface.
 
 ### Currency and Exchange Rates
 

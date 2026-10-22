@@ -71,21 +71,6 @@ test('open profile forms sync clean values and retain dirty drafts with their or
   expect((await (await page.request.get(`/api/assistants/${a.ID}`)).json()).Name).toBe('模型再次改名');
 });
 
-test('profile updates also refresh the test theme', async ({ page }, info) => {
-  const a = await setup(page, `theme-${info.project.name}`);
-  const before = await (await page.request.get('/api/settings')).json();
-  try {
-    await post(page, '/api/settings', { Settings: { ...before, UITheme: 'molr.test@1.0.0' } }, before.Version);
-    await page.reload();
-    await send(page, { name: '测试主题的小满', avatar: { type: 'preset', id: 'star' } }, 'Profile saved: 测试主题的小满 / preset:star');
-    await expect(page.locator('.chat-header h1')).toHaveText('测试主题的小满');
-    expect((await (await page.request.get(`/api/assistants/${a.ID}`)).json()).Avatar).toBe('preset:star');
-  } finally {
-    const current = await (await page.request.get('/api/settings')).json();
-    await post(page, '/api/settings', { Settings: before }, current.Version);
-  }
-});
-
 test('assistant status is self-authored, live, persistent and cleared back to idle', async ({ page }, info) => {
   const a = await setup(page, `status-${info.project.name}`);
   const label = page.locator('.chat-header .ui-chat-status__label');

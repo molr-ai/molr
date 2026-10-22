@@ -35,7 +35,7 @@ async function failure(page: Page, suffix: string) {
   return { assistant, notice: notice! };
 }
 
-test('background execution notices locate real recorded events across pages in both themes', async ({ page }, info) => {
+test('background execution notices locate real recorded events across pages', async ({ page }, info) => {
   await login(page);
   const original = await (await page.request.get('/api/settings')).json();
   await settings(page, { WorkbenchVisible: true });
@@ -55,19 +55,17 @@ test('background execution notices locate real recorded events across pages in b
       if (url.searchParams.has('cursor')) olderRequests++;
       await route.fulfill({ response: await route.fetch({ url: url.toString() }) });
     });
-    for (const theme of ['molr.official@1.0.0', 'molr.test@1.0.0']) {
-      await settings(page, { UITheme: theme });
-      await page.goto(`/#/assistants/${assistant.ID}`); await page.reload();
-      const banner = page.locator('.assistant-notice');
-      await expect(banner).toContainText('Background execution failed');
-      await expect(banner).toContainText('The outcome needs review.');
-      await banner.getByRole('button', { name: actionLabel, exact: true }).click();
-      await expect(page).toHaveURL(`${base}/#/workbench/${assistant.ID}?event=${notice.Source.ID}`);
-      const inspector = page.getByRole('region', { name: 'Step details', exact: true });
-      await expect(inspector).toContainText(notice.Source.ID);
-      await expect(page.getByRole('switch', { name: 'Follow live execution', exact: true })).not.toBeChecked();
-      await page.reload(); await expect(inspector).toContainText(notice.Source.ID);
-    }
+    await settings(page, { UITheme: 'molr.official@1.0.0' });
+    await page.goto(`/#/assistants/${assistant.ID}`); await page.reload();
+    const banner = page.locator('.assistant-notice');
+    await expect(banner).toContainText('Background execution failed');
+    await expect(banner).toContainText('The outcome needs review.');
+    await banner.getByRole('button', { name: actionLabel, exact: true }).click();
+    await expect(page).toHaveURL(`${base}/#/workbench/${assistant.ID}?event=${notice.Source.ID}`);
+    const inspector = page.getByRole('region', { name: 'Step details', exact: true });
+    await expect(inspector).toContainText(notice.Source.ID);
+    await expect(page.getByRole('switch', { name: 'Follow live execution', exact: true })).not.toBeChecked();
+    await page.reload(); await expect(inspector).toContainText(notice.Source.ID);
     expect(olderRequests).toBeGreaterThan(0);
     const stored = await (await page.request.get(`/api/notifications/${notice.ID}`)).json();
     expect(stored.ReadAt).toBeTruthy(); expect(stored.DismissedAt).toBeNull();

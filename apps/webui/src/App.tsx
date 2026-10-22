@@ -23,7 +23,6 @@ import { hostCopy } from './ui-host/copy';
 import './ui-host/host.css';
 
 const OfficialPage = lazy(() => import('./interfaces/official/OfficialPage').then(module => ({ default: module.OfficialPage })));
-const TestChatPage = lazy(() => import('./interfaces/test/TestChatPage').then(module => ({ default: module.TestChatPage })));
 const AdminSettings = lazy(() => import('./administration/AdminSettings').then(module => ({ default: module.AdminSettings })));
 const ExtensionPages = lazy(() => import('./plugins/Plugins').then(module => ({ default: module.ExtensionPages })));
 const PluginFrame = lazy(() => import('./plugins/PluginFrame').then(module => ({ default: module.PluginFrame })));
@@ -46,7 +45,7 @@ function SessionGate() {
 }
 const icons = { assistants: MessagesSquare, plans: CalendarClock, resources: Folder, extensions: Puzzle, workbench: FlaskConical };
 // Trusted in-process adapter. Selection/resolution is identical for partial official and external packages.
-const builtinEntries: Record<string, typeof OfficialPage> = { official: OfficialPage, 'test-chat': TestChatPage };
+const builtinEntries: Record<string, typeof OfficialPage> = { official: OfficialPage };
 function WorkspaceModals({ container, mobile, children }: { container: HTMLElement | null; mobile: boolean; children: ReactNode }) {
   // App mode owns one modal scope around the whole window, including its titlebar.
   return window.molrApp ? children : <ModalScope container={container} enabled={mobile}>{children}</ModalScope>;

@@ -95,7 +95,6 @@ test('search locates old messages across pages, preserves links and handles miss
   await expect(page.locator(`[data-message-id="${middle.ID}"]`)).toBeInViewport();
   await page.goBack();
   await expect(targetRow).toBeInViewport();
-  await settings(page, { UITheme: 'molr.test@1.0.0' });
   await page.reload();
   await expect(targetRow).toBeInViewport();
   await expect(targetRow).toHaveClass('chat-message-target');
@@ -121,9 +120,8 @@ test('search locates old messages across pages, preserves links and handles miss
 
 test('theme error recovery opens the current theme settings route', async ({ page }) => {
   await login(page);
-  await settings(page, { UITheme: 'molr.test@1.0.0' });
-  await page.route('**/src/interfaces/test/TestChatPage.tsx*', route => route.fulfill({ contentType: 'application/javascript', body: 'export function TestChatPage() { throw new Error("Test theme render failure"); }' }));
-  await page.goto('/#/assistants');
+  await page.route('**/src/interfaces/official/features/Plans.tsx*', route => route.fulfill({ contentType: 'application/javascript', body: 'export function Plans() { throw new Error("Synthetic page render failure"); }' }));
+  await page.goto('/#/plans');
   await page.reload();
   await expect(page.getByText('This theme could not load', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Theme settings', exact: true }).click();

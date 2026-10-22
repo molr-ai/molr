@@ -1,3 +1,4 @@
+import { fixtureTheme, installThemeFixture } from './theme-fixture';
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
@@ -42,7 +43,7 @@ test('login defers business code and a slow page keeps the workspace navigation 
   page.on('request', request => { if (request.resourceType() === 'script') scripts.push(new URL(request.url()).pathname); });
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
-  expect(scripts.some(path => /\/(OfficialPage|AdminSettings|Plugins|TestChatPage|PluginFrame)-/.test(path))).toBe(false);
+  expect(scripts.some(path => /\/(OfficialPage|AdminSettings|Plugins|PluginFrame)-/.test(path))).toBe(false);
   let release!: () => void;
   const ready = new Promise<void>(resolve => { release = resolve; });
   await page.route('**/assets/OfficialPage-*.js', async route => { await ready; await route.continue(); });
@@ -81,18 +82,19 @@ for (const saveFails of [false, true]) {
   test(`default recovery ${saveFails ? 'stays in-session if saving fails' : 'persists before reloading a different theme'}`, async ({ page }) => {
     await page.goto('/'); await signIn(page);
     await expect(page.locator('.assistant-workspace')).toBeVisible();
-    await setTheme(page, 'molr.test@1.0.0');
+    await installThemeFixture(page);
+    await setTheme(page, fixtureTheme);
     try {
-      await page.route('**/assets/TestChatPage-*.js', route => route.fulfill({ contentType: 'application/javascript', body: 'export function TestChatPage() { throw new Error("Synthetic theme render failure"); }' }));
-      await page.reload();
+      await page.route('**/assets/PluginFrame-*.js', route => route.fulfill({ contentType: 'application/javascript', body: 'export function PluginFrame() { throw new Error("Synthetic theme render failure"); }' }));
+      await page.goto('/#/plans'); await page.reload();
       await expect(page.getByRole('heading', { name: 'This theme could not load', exact: true })).toBeVisible();
       await page.evaluate(() => { (window as any).recoveryMarker = true; });
       if (saveFails) await page.route('**/api/settings', route => route.request().method() === 'POST' ? route.fulfill({ status: 503, json: { code: 'unavailable' } }) : route.continue());
       await page.getByRole('button', { name: 'Restore default theme', exact: true }).click();
-      await expect(page.locator('.assistant-workspace')).toBeVisible();
+      await expect(page.locator('.plans-workspace')).toBeVisible();
       expect(await page.evaluate(() => (window as any).recoveryMarker)).toBe(saveFails ? true : undefined);
       const saved = await (await page.request.get('/api/settings')).json();
-      expect(saved.UITheme).toBe(saveFails ? 'molr.test@1.0.0' : 'molr.official@1.0.0');
+      expect(saved.UITheme).toBe(saveFails ? fixtureTheme : 'molr.official@1.0.0');
     } finally { await page.unroute('**/api/settings'); await setTheme(page, 'molr.official@1.0.0'); }
   });
 }

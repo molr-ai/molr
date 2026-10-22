@@ -10,9 +10,8 @@ import { isChatDraft } from '@molr/sdk/ui';
 import type { ChatDraft } from '@molr/sdk/ui';
 import { useQuery, useSession } from '../state';
 import { officialPackage } from '../interfaces/official/manifest';
-import { testPackage } from '../interfaces/test/manifest';
 
-export const builtins: InstalledUI[] = [officialPackage, testPackage];
+export const builtins: InstalledUI[] = [officialPackage];
 type Store = {
   pluginError: unknown; plugins: PluginInstallation[]; packages: InstalledUI[]; reloadPlugins: () => void;
   configuration: UIConfiguration; error: unknown; busy: boolean; loading: boolean;

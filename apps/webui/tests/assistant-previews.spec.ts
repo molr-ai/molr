@@ -71,11 +71,5 @@ test('assistant previews and ordering follow historical and live messages with p
   await expect.poll(order).toEqual([pinned.ID, history.ID, replying.ID, empty.ID]);
   await send(history, 'Newest pinned conversation');
   await expect.poll(order).toEqual([history.ID, pinned.ID, replying.ID, empty.ID]);
-  const settings = await (await page.request.get('/api/settings')).json();
-  await post(page, '/api/settings', { Settings: { ...settings, UITheme: 'molr.test@1.0.0' }, Mutation: { ExpectedVersion: settings.Version } });
-  await page.reload();
-  await page.getByRole('combobox', { name: 'Assistant list', exact: true }).click();
-  await expect(page.getByRole('option').filter({ hasText: name })).toHaveText([history.Name, pinned.Name, replying.Name, empty.Name]);
-  const changed = await (await page.request.get('/api/settings')).json();
-  await post(page, '/api/settings', { Settings: { ...changed, UITheme: settings.UITheme }, Mutation: { ExpectedVersion: changed.Version } });
+
 });

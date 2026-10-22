@@ -8,7 +8,7 @@
 
 ## 语言、主题与偏好
 
-常规设置管理语言、时区、币种等偏好。“显示插件”默认关闭，开启后显示插件导航、插件主题及相关管理选项，设置随账号同步；具体范围见[插件](https://molr.ai/zh/docs/user/guides/plugins-and-skills/)。主题页区分界面主题、配色和明暗模式，保存到账号后可在其他设备读取；提供默认、测试两套内置主题，也可选择管理员已安装、授权并启用的[插件主题](https://molr.ai/zh/docs/user/guides/plugins-and-skills/)。主题配色可选森林、海盐蓝、鸢尾紫、暖砂、玫瑰和素墨，均支持浅色与深色显示。素墨使用中性灰阶界面，成功、警告、错误等提示保留语义色。
+常规设置管理语言、时区、币种等偏好。“显示插件”默认关闭，开启后显示插件导航、插件主题及相关管理选项，设置随账号同步；具体范围见[插件](https://molr.ai/zh/docs/user/guides/plugins-and-skills/)。主题页区分界面主题、配色和明暗模式，保存到账号后可在其他设备读取；提供内置默认主题，也可选择管理员已安装、授权并启用的[插件主题](https://molr.ai/zh/docs/user/guides/plugins-and-skills/)。主题配色可选森林、海盐蓝、鸢尾紫、暖砂、玫瑰和素墨，均支持浅色与深色显示。素墨使用中性灰阶界面，成功、警告、错误等提示保留语义色。
 
 记忆的查看、编辑和做梦时间见[记忆指南](https://molr.ai/zh/docs/user/guides/memory/)。默认模型与助理模型的选择见[权限与预算](https://molr.ai/zh/docs/user/guides/permissions-and-budget/#选择模型)。
 

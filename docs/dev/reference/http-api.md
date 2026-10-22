@@ -348,7 +348,7 @@ ChatGPT 的 `verification` 沿用 `credential.put` 敏感操作验证；重新�
 
 ### 界面主题
 
-界面主题：`Settings.UITheme` 保存 `id@version`（例如 `molr.test@1.0.0`），与控制深浅模式的 `Settings.Theme` 分离。默认 `molr.official@1.0.0`，按 Owner 保存并使用设置版本检查；旧客户端省略或传空字段时保留已有主题。Runtime 仅校验标识格式，不加载 UI 代码；可用主题由客户端内置目录和 Runtime 已启用、已授权的插件主题共同决定；插件接口见 [插件机制](../extensions/plugins.md#生命周期与-http-路由)。
+界面主题：`Settings.UITheme` 保存 `id@version`（例如 `molr.official@1.0.0`），与控制深浅模式的 `Settings.Theme` 分离。默认 `molr.official@1.0.0`，按 Owner 保存并使用设置版本检查；旧客户端省略或传空字段时保留已有主题。Runtime 仅校验标识格式，不加载 UI 代码；可用主题由客户端内置目录和 Runtime 已启用、已授权的插件主题共同决定；插件接口见 [插件机制](../extensions/plugins.md#生命周期与-http-路由)。
 
 ### 币种与汇率
 
