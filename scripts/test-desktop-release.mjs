@@ -51,6 +51,28 @@ test('macOS nightlies, local and Linux packaging disable certificate inputs even
   assert.throws(() => desktopSigning('darwin', '0.2.0-unknown', {}), /Unsupported release version/);
 });
 
+test('macOS PR evaluation packages retain ad-hoc signing without publisher credentials', () => {
+  for (const version of ['0.2.0-local', '0.2.0-0.nightly.20261020.0.gaaaaaaa']) {
+    const env = {
+      GITHUB_BASE_REF: 'main', CSC_FOR_PULL_REQUEST: 'false', CSC_IDENTITY_AUTO_DISCOVERY: 'true',
+      CSC_LINK: 'fixture', CSC_KEY_PASSWORD: 'fixture', WIN_CSC_LINK: 'fixture', WIN_CSC_KEY_PASSWORD: 'fixture',
+    };
+    assert.equal(desktopSigning('darwin', version, env), false, 'Manifest still reports no publisher signature');
+    assert.equal(env.CSC_FOR_PULL_REQUEST, 'true');
+    assert.equal(env.CSC_IDENTITY_AUTO_DISCOVERY, 'false');
+    for (const key of ['CSC_LINK', 'CSC_KEY_PASSWORD', 'WIN_CSC_LINK', 'WIN_CSC_KEY_PASSWORD']) assert.equal(env[key], undefined);
+  }
+  for (const os of ['linux', 'win32']) {
+    const env = { GITHUB_BASE_REF: 'main' };
+    assert.equal(desktopSigning(os, '0.2.0-local', env), false);
+    assert.equal(env.CSC_FOR_PULL_REQUEST, undefined);
+  }
+  const release = { GITHUB_BASE_REF: 'main', CSC_LINK: 'fixture', APPLE_ID: 'fixture', APPLE_APP_SPECIFIC_PASSWORD: 'fixture', APPLE_TEAM_ID: 'fixture' };
+  assert.equal(desktopSigning('darwin', '0.2.0', release), true);
+  assert.equal(release.CSC_FOR_PULL_REQUEST, undefined, 'Publisher signing keeps the PR guard');
+  assert.equal(release.CSC_IDENTITY_AUTO_DISCOVERY, undefined);
+});
+
 test('collect native packages requires the entire matching and checksummed matrix and preserves signing status', t => {
   const dir = mkdtempSync(join(tmpdir(), 'molr-desktop-release-')); t.after(() => rmSync(dir, { recursive: true, force: true }));
   const source = join(dir, 'native'), destination = join(dir, 'release'); mkdirSync(source); mkdirSync(destination);

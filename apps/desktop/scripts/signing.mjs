@@ -6,6 +6,12 @@ export function desktopSigning(os, version, env = process.env) {
   if (unsigned) {
     // Disable certificate inputs even when a local shell has signing credentials.
     for (const key of ['CSC_LINK', 'CSC_KEY_PASSWORD', 'WIN_CSC_LINK', 'WIN_CSC_KEY_PASSWORD']) delete env[key];
+    if (os === 'darwin') {
+      // electron-builder's PR guard also skips identity "-". These builds
+      // use only ad-hoc signing: no imported or discovered publisher identity.
+      env.CSC_IDENTITY_AUTO_DISCOVERY = 'false';
+      env.CSC_FOR_PULL_REQUEST = 'true';
+    }
     return false;
   }
   // Actions exposes missing secrets as empty strings. electron-builder treats an
