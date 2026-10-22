@@ -40,7 +40,7 @@ There is no generic OAuth login, OpenAI Responses, or native Gemini connection; 
 
 Click a provider to view its models in a drawer. Clicking a model row slides left to the configuration page, with a back button in the header. Saving or cancelling returns to the list. "Add model" is available in the drawer and provider menu.
 
-One connection can contain multiple models. If discovery fails, check the catalog path and authentication requirements. You can add models manually to a saved connection, but this does not resolve protocol or authorization mismatches. Initial setup and the connection dialog probe Ollama, llama.cpp, vLLM, SGLang, and LM Studio on the Runtime device without starting services or downloading models.
+One connection can contain multiple models. If discovery fails, check the catalog path and authentication requirements. You can add models manually to a saved connection, but this does not resolve protocol or authorization mismatches. Initial setup and the connection dialog probe Ollama, llama.cpp, vLLM, SGLang, and LM Studio on the Runtime device without starting services or downloading models. The "Model services on the Molr device" section appears only when at least one available model is detected; it stays hidden if discovery fails, finds no services, or finds no available models.
 
 ## How to connect subscription plans
 

@@ -60,6 +60,8 @@ The Resource Tools page uses a compact grouped list. Search and categories joint
 
 The page header of the Model tab on the Resource page retains only the "More" menu, centrally providing entries for "Connect Provider" and "Default Model." The default model for the current account is managed in the modal via shared `ModelSelect`, following the immediate settings save flow: read latest settings, replace only `DefaultModelID`, validate version, disable controls during saving, and restore original values on failure. User Settings no longer provide a separate preferences sub-page. Models explicitly selected by assistants take precedence over the account's default model.
 
+The provider connection dialog and initial setup share local model discovery. The section appears only after a successful scan finds at least one service with `State=ready` and a nonempty `Models` list. During the initial scan, after a failed scan, or when no models are available, its heading, placeholder text, and scan button stay hidden.
+
 Click a provider to open its model list in a drawer. Clicking anywhere in a model row slides left to the configuration page in the same drawer and adds a back button to the header. Saving, cancelling, or going back restores the list and its scroll position; closing the drawer restores focus to the provider entry. "Add model" uses the same configuration page and is available in the drawer and provider menu. Hidden pages are inert, and reduced motion disables the sliding transition.
 
 ## Personal Data Export
