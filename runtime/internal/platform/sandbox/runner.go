@@ -111,6 +111,7 @@ func (r *Runner) Capabilities(ctx context.Context) (platform.Capabilities, error
 	c := platform.Capabilities{OS: runtime.GOOS, Reason: "sandbox_not_configured", ShellType: "posix-sh"}
 	if runtime.GOOS == "windows" {
 		c.ShellType = "powershell"
+		c.GPUAccessMode = "shared"
 	}
 	if platform.NativeSandbox() {
 		c.NetworkBackend = platform.NativeNetworkBackend()

@@ -81,6 +81,10 @@ func (s *sandboxRouter) list(ctx context.Context, p core.Principal) (json.RawMes
 			}
 			if item.Kind == resource.Compute {
 				item.GPUs = info.GPUs
+				item.GPUAccessMode = info.Capabilities.GPUAccessMode
+				if item.GPUAccessMode == "shared" {
+					item.SharedGPUs = info.HostCapacity.GPUs
+				}
 			}
 			item.WorkspaceQuotaSupported = false
 			if item.Workspace {

@@ -56,7 +56,7 @@ func TestWindowsNativeBackend(t *testing.T) {
 		t.Fatal(err)
 	}
 	caps, err := r.Capabilities(ctx)
-	if err != nil || !caps.ControlledReady() || caps.NetworkBackend != "appcontainer-toggle" || !caps.FullAccess || caps.ProcessIsolation || caps.ResourceLimits {
+	if err != nil || !caps.ControlledReady() || caps.NetworkBackend != "appcontainer-toggle" || !caps.FullAccess || caps.GPUAccessMode != "shared" || caps.ProcessIsolation || caps.ResourceLimits {
 		t.Fatal(caps, err, "prepare:", r.prepareErr)
 	}
 	e := testExecution()

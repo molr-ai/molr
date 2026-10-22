@@ -15,6 +15,11 @@ Linux 使用 Bubblewrap、seccomp、cgroup v2 和受控网络出口。macOS 使�
 
 沙盒信息的 `HostCapacity` 报告机器 CPU、物理内存和系统进程上限，供计算页与 `AuthorizationCeilings` 取较小值展示，不改变授权或执行约束。资源详情的 `Capacity` 从目录所在文件系统探测容量和普通用户可用空间；远程目录通过节点的 Directory 接口探测，不使用 Runtime 本机磁盘。尚未创建的本地工作区使用最近已存在的父目录所在文件系统，并扣除 `min_free_disk_bytes`。`StorageCeilingBytes` 发布当前用户组的工作区存储上限，仅用于工作区；普通目录按所在文件系统展示。探测失败保留零值，页面显示未知，不回退为无限容量。 `HostCapacity.CPUUsagePercent` 与 `MemoryUsedBytes` 为可空的占用快照，空值不渲染为零占用。Linux CPU 读取 `/proc/stat` 两次、间隔 100 ms，以计数差计算利用率；内存以总内存减 `/proc/meminfo` 的 `MemAvailable` 计算。macOS 使用固定参数调用系统 `/usr/bin/top` 采集两次日志样本，并设两秒超时，参见 [top(1)](https://github.com/apple-oss-distributions/top/blob/main/top.1)。文件系统返回 `StorageTotalBytes` 与 `StorageUsedBytes`，保留空间不计入已使用量。页面复用共享 Progress 组件，只在查询刷新时更新；进度条分母为整机／整盘容量，与授权上限分开。
 
+Windows 使用 `GlobalMemoryStatusEx` 读取物理内存及可用量，`GetSystemTimes` 两次间隔 100 ms 的差值计算 CPU 占用；超过 64 个逻辑处理器时该接口只覆盖一个处理器组，CPU 占用保留未知。目录容量使用 `GetDiskFreeSpaceExW`，总容量与剩余空间遵守运行账号的 Windows 磁盘配额；已用量为两者之差，部署保留空间只从可使用上限和剩余量扣除。进程上限仍未探测。
+
+Windows 的 `HostCapacity.GPUs` 是独立的硬件快照，不进入 `GPUs`、`AuthorizationCeilings.GPUDeviceIDs` 或 GPU 授权选项。只从系统目录或 Program Files 下 NVIDIA 的 NVSMI 目录调用 `nvidia-smi.exe`，固定查询 UUID、型号、总显存、计算利用率和已用显存；总超时两秒、输出上限 64 KiB，不搜索当前目录或 PATH。驱动缺失或查询失败不返回设备；不支持的指标保留未知。Windows 节点报告 `Capabilities.GPUAccessMode=shared`：普通计算权限包含系统与驱动允许访问的全部 GPU，不需要单独 GPU 授权或 Full Access。授权界面显示共享使用范围，不提供选卡或 GPU 禁用开关；计算授权、运行时限、撤权终止和独立文件／网络权限继续生效。`permission_list` 的计算资源同时返回 `GPUAccessMode` 和只读 `SharedGPUs` 硬件信息，模型省略 `constraints.compute.gpu`。指定设备的请求仍被拒绝，不实施逐卡隔离或显存配额。Linux 继续使用显式设备授权。
+
+
 ## 平台边界
 
 基础文件能力与命令执行分开报告。`textfiles/files_unix.go` 维护公共文件版本、授权重查和原子提交；Linux 使用 `openat2`，macOS 使用 `O_NOFOLLOW_ANY` 在内核路径解析时拒绝所有组件的符号链接，并使用排他 rename。仅识别 macOS 固定系统目录别名，不放行工作区或外部资源中的用户符号链接。硬链接和特殊文件检查继续保留。受保护目录的重叠检查同时比较文件身份，防止大小写或系统别名暴露 Runtime 私有目录。

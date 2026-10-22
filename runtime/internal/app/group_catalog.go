@@ -16,6 +16,7 @@ import (
 )
 
 type groupCatalogItem struct {
+	GPUAccessMode           string               `json:",omitempty"`
 	GPUs                    []platform.GPUDevice `json:",omitempty"`
 	FullAccessAvailable     bool
 	Kind                    string
@@ -62,7 +63,7 @@ func groupCatalog(ctx context.Context, p core.Principal, a adapters, s *sandboxR
 	info := s.localInfo(ctx)
 	if info.Enabled {
 		limit := info.AuthorizationCeilings
-		out = append(out, groupCatalogItem{Kind: "sandbox", ID: "local", Name: "Local sandbox", GPUs: info.GPUs, Limits: &limit, FullAccessAvailable: info.Capabilities.FullAccess, WorkspaceQuotaSupported: info.WorkspaceProjectQuotas})
+		out = append(out, groupCatalogItem{Kind: "sandbox", ID: "local", Name: "Local sandbox", GPUs: info.GPUs, GPUAccessMode: info.Capabilities.GPUAccessMode, Limits: &limit, FullAccessAvailable: info.Capabilities.FullAccess, WorkspaceQuotaSupported: info.WorkspaceProjectQuotas})
 	}
 	connections, err := catalog.Select[sandboxConnection](ctx, a.store, "sandbox.connections", persistence.Query{})
 	if err != nil {
@@ -71,7 +72,7 @@ func groupCatalog(ctx context.Context, p core.Principal, a adapters, s *sandboxR
 	for _, c := range connections {
 		if c.OwnerID == catalog.Scope && c.View.State != "disconnected" {
 			limit := c.View.Info.AuthorizationCeilings
-			out = append(out, groupCatalogItem{Kind: "sandbox", ID: c.View.ID, Name: c.View.Name, GPUs: c.View.Info.GPUs, Limits: &limit, FullAccessAvailable: c.View.Info.Capabilities.FullAccess, WorkspaceQuotaSupported: c.View.Info.WorkspaceProjectQuotas})
+			out = append(out, groupCatalogItem{Kind: "sandbox", ID: c.View.ID, Name: c.View.Name, GPUs: c.View.Info.GPUs, GPUAccessMode: c.View.Info.Capabilities.GPUAccessMode, Limits: &limit, FullAccessAvailable: c.View.Info.Capabilities.FullAccess, WorkspaceQuotaSupported: c.View.Info.WorkspaceProjectQuotas})
 		}
 	}
 	return out, nil

@@ -1,17 +1,18 @@
-//go:build linux || darwin
+//go:build linux || darwin || windows
 
 package platform
 
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
 func TestMachineCapacity(t *testing.T) {
 	root := t.TempDir()
 	host := MachineCapacity()
-	if host.CPUPercent <= 0 || host.MemoryBytes <= 0 || host.Processes <= 0 {
+	if host.CPUPercent <= 0 || host.MemoryBytes <= 0 || (runtime.GOOS != "windows" && host.Processes <= 0) {
 		t.Fatalf("invalid host capacity: %+v", host)
 	}
 	c := FilesystemCapacity(root, 0)

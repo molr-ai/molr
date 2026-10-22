@@ -26,6 +26,7 @@ type GPUDevice struct {
 	Reason             string
 }
 type Capabilities struct {
+	GPUAccessMode      string `json:",omitempty"`
 	FullAccessTerminal bool
 	Terminal           bool
 	TerminalReason     string `json:",omitempty"`

@@ -18,6 +18,8 @@ import (
 // Network scope is populated from the sandbox deployment by the catalog.
 type requestablePermission struct {
 	ConstraintMode          string               `json:",omitempty"`
+	GPUAccessMode           string               `json:",omitempty"`
+	SharedGPUs              []platform.GPUDevice `json:",omitempty"`
 	GPUs                    []platform.GPUDevice `json:",omitempty"`
 	FullAccessAvailable     bool                 `json:",omitempty"`
 	Workspace               bool                 `json:",omitempty"`

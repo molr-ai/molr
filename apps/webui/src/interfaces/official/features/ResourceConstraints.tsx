@@ -18,7 +18,7 @@ export function constraintsForNode(kind:string, value:ResourceConstraints|undefi
  const c=value?.compute??suggestedConstraints('compute',true)!.compute!;
  return {compute:{...c,cpu_percent:0,memory_bytes:0,processes:0,temp_bytes:0,gpu:undefined}};
 }
-export function ConstraintsEditor({kind,value,onChange,lockNetworkPeriod=false,compact=false,gpus=[]}: {gpus?:GPUDevice[]|null;kind:string;value?:ResourceConstraints;onChange:(v:ResourceConstraints|undefined)=>void;lockNetworkPeriod?:boolean;compact?:boolean}){
+export function ConstraintsEditor({kind,value,onChange,lockNetworkPeriod=false,compact=false,gpus=[],gpuAccessMode}: {gpuAccessMode?:string;gpus?:GPUDevice[]|null;kind:string;value?:ResourceConstraints;onChange:(v:ResourceConstraints|undefined)=>void;lockNetworkPeriod?:boolean;compact?:boolean}){
  const {locale}=useCopy(),zh=locale==='zh';
  if(!['compute','network','storage'].includes(kind))return null;
  if(!value)return null;
@@ -28,8 +28,9 @@ export function ConstraintsEditor({kind,value,onChange,lockNetworkPeriod=false,c
  return <div className={`resource-constraints-editor${compact ? " resource-constraints-editor--compact" : ""}`}>
   {!compact&&c?.cpu_percent!==0&&<p className="muted">{zh?'额度由该助理在此资源上的所有任务共享。示例值可按需修改。':'All tasks of this assistant share these resource limits. Adjust the suggested values as needed.'}</p>}
   {c&&<>
+   {gpuAccessMode==='shared'&&<GPUAccessSummary gpuAccessMode={gpuAccessMode}/>}
    {!compact&&<p className="muted">{zh?'修改计算授权会停止受影响的运行任务；新任务使用批准后的额度。':'Changing a compute grant stops affected running tasks. New tasks use the approved limits.'}</p>}
-   {!!gpus.length && <>
+   {gpuAccessMode!=='shared'&&!!gpus.length && <>
     <Select multiple label={zh?'GPU 设备':'GPU devices'} value={c.gpu?.device_ids??[]} options={[...gpus.map(g=>({value:g.ID,description:g.ID,label:`${gpuName(g.ID,gpus,locale)}${g.Available?'':zh?' · 不可用':' · unavailable'}`})),...(c.gpu?.device_ids??[]).filter(id=>!gpus.some(g=>g.ID===id)).map(id=>({value:id,description:id,label:`${gpuName(id,gpus,locale)} · ${zh?'超出当前范围':'outside current scope'}`}))]} onValueChange={device_ids=>onChange({compute:{...c,gpu:device_ids.length?{device_ids}:undefined}})} />
     <p className="muted">{zh?'留空表示不允许使用 GPU。所选设备会自动提供给该计算权限下的所有命令；共享访问，不预留显存或保证算力。':'An empty selection grants no GPU access. Selected devices are available to every command using this compute grant. Access is shared; memory and compute capacity are not reserved.'}</p>
    </>}
@@ -56,7 +57,7 @@ export function ConstraintsEditor({kind,value,onChange,lockNetworkPeriod=false,c
   </>}
  </div>;
 }
-export function ConstraintsSummary({value,temporary,gpus}:{value?:ResourceConstraints;temporary?:TemporaryConstraints;gpus?:GPUDevice[]|null}){
+export function ConstraintsSummary({value,temporary,gpus,gpuAccessMode}:{value?:ResourceConstraints;temporary?:TemporaryConstraints;gpus?:GPUDevice[]|null;gpuAccessMode?:string}){
  const {locale}=useCopy(),zh=locale==='zh';
  if(!value)return null;
  const c=value.compute,n=value.network,s=value.storage;
@@ -64,10 +65,10 @@ export function ConstraintsSummary({value,temporary,gpus}:{value?:ResourceConstr
  return <div className="resource-constraints-summary">
   {c&&c.cpu_percent>0&&<p>{zh?'共享计算额度':'Shared compute quota'} · {c.cpu_percent/100} {zh?'核':'cores'} · {c.memory_bytes/1048576} MiB · {c.processes} {zh?'进程／线程':'processes / threads'}<br/>{zh?'单次最长运行':'Maximum duration'} · {c.unlimited_duration?(zh?'不限时长':'Unlimited'):`${c.max_duration_seconds/60} ${zh?'分钟':'minutes'}`} · {zh?'内存临时盘':'RAM disk'} /tmp {c.temp_bytes/1048576} MiB</p>}
   {c&&c.cpu_percent===0&&<p>{zh?'单次最长运行':'Maximum duration'} · {c.unlimited_duration?(zh?'不限时长':'Unlimited'):`${c.max_duration_seconds/60} ${zh?'分钟':'minutes'}`}</p>}
-  {c&&<GPUAccessSummary ids={c.gpu?.device_ids} devices={gpus}/> }
+  {c&&<GPUAccessSummary gpuAccessMode={gpuAccessMode} ids={c.gpu?.device_ids} devices={gpus}/> }
   {n&&<p>{n.bytes/1073741824} GiB / {period[n.period]} · {n.connections} {zh?'并发连接':'concurrent connections'}<br/>{n.timezone}</p>}
   {s&&<p>{zh?'工作区容量':'Workspace capacity'} · {s.capacity_bytes/1073741824} GiB · {zh?'单文件':'Per file'} {s.max_file_bytes/1073741824} GiB · {s.max_files} {zh?'个文件':'files'}</p>}
-  {temporary&&<><p>{zh?'临时额度有效至':'Temporary quota until'} {new Date(temporary.until).toLocaleString(locale)}</p><ConstraintsSummary gpus={gpus} value={temporary.limits}/></>}
+  {temporary&&<><p>{zh?'临时额度有效至':'Temporary quota until'} {new Date(temporary.until).toLocaleString(locale)}</p><ConstraintsSummary gpuAccessMode={gpuAccessMode} gpus={gpus} value={temporary.limits}/></>}
  </div>;
 }
 
@@ -84,9 +85,9 @@ export function ResourceQuotaUsage({assistantID,resourceID}:{assistantID:string;
  </div>;
 }
 
-export function TemporaryConstraintsEditor({kind,base,value,onChange,compact=false,gpus=[]}:{gpus?:GPUDevice[]|null;compact?:boolean;kind:string;base?:ResourceConstraints;value?:TemporaryConstraints;onChange:(v:TemporaryConstraints|undefined)=>void}){
+export function TemporaryConstraintsEditor({kind,base,value,onChange,compact=false,gpus=[],gpuAccessMode}:{gpuAccessMode?:string;gpus?:GPUDevice[]|null;compact?:boolean;kind:string;base?:ResourceConstraints;value?:TemporaryConstraints;onChange:(v:TemporaryConstraints|undefined)=>void}){
  const {locale}=useCopy(),zh=locale==='zh';if(!base)return null;
  return <div className="resource-quota-group"><Checkbox label={zh?'设置临时额度，到期恢复基础额度':'Use temporary quotas, then restore base limits'} checked={!!value} onChange={e=>onChange(e.target.checked?{limits:structuredClone(base),until:new Date(Date.now()+86400000).toISOString()}:undefined)}/>
- {value&&<><ConstraintsEditor gpus={gpus} compact={compact} kind={kind} value={value.limits} lockNetworkPeriod={!!base.network} onChange={limits=>{if(limits)onChange({...value,limits});}}/><DateTimePicker label={zh?'临时额度到期时间':'Temporary quota expiry'} value={value.until} onValueChange={until=>{if(until)onChange({...value,until});}} min={new Date().toISOString()}/></>}
+ {value&&<><ConstraintsEditor gpuAccessMode={gpuAccessMode} gpus={gpus} compact={compact} kind={kind} value={value.limits} lockNetworkPeriod={!!base.network} onChange={limits=>{if(limits)onChange({...value,limits});}}/><DateTimePicker label={zh?'临时额度到期时间':'Temporary quota expiry'} value={value.until} onValueChange={until=>{if(until)onChange({...value,until});}} min={new Date().toISOString()}/></>}
  </div>;
 }

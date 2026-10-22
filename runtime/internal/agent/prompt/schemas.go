@@ -11,7 +11,7 @@ var failure = object("code reason field message execution_state side_effects_pos
 var file = object("ID Name MediaType Size State Path Version")
 var message = object("ID ConversationID Sequence Sender CreatedAt", nested("Content", object("Kind", required("Text", scalar), nested("Card", object("Kind TargetID Title Summary")), nested("AttachmentIDs", array(scalar)))))
 var operation = object("Action Via Available Reason")
-var capabilities = object("OS NetworkBackend FullAccess Shell ProcessIsolation FileIsolation NetworkIsolation ResourceLimits Reason")
+var capabilities = object("GPUAccessMode OS NetworkBackend FullAccess Shell ProcessIsolation FileIsolation NetworkIsolation ResourceLimits Reason")
 var terminalControl = object("Control Generation Rows Cols NeedsRead")
 var shell = object("ID TaskID Kind CreatedBy SandboxID OutputSandboxID FullAccess Mode State Script Failure StartedAt FinishedAt Stdout Stderr StdoutPath StderrPath Output NextCursor Path Stopping Bytes Truncated OutputComplete CaptureReason StdoutBytes StderrBytes", nested("GPUDeviceIDs", array(scalar)), nested("Forwards", array(object("Protocol Port Address URL State"))), nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")))
 var browserProxy = object("Mode Server Authentication Version", nested("Bypass", array(scalar)))
@@ -28,7 +28,7 @@ var permissions = object("CurrentTime Truncated RequestableTruncated",
 	nested("Sandboxes", array(object("ID Name Local Description Storage", nested("FullAccessComputeIDs", array(scalar)), nested("Capabilities", object("Shell FullAccess Reason"))))),
 	required("Resources", array(object("FullAccess SandboxID ResourceID Name Kind Source Path PathMeaning FilePath ShellPath ShellEnvironment ModelID ModelName", nested("Usage", quotaUsage), nested("Network", networkScope), required("Grants", array(grant)), nested("Operations", array(operation))))),
 	required("BuiltInStorage", array(object("SandboxID Kind Source Path Lifetime Available Reason", nested("Actions", array(scalar)), nested("Operations", array(operation)), nested("ShellComputeIDs", array(scalar))))),
-	required("Requestable", array(object("ResourceID ResourceKind Kind Name SandboxID State ModelID ModelName Description ConstraintMode Workspace WorkspaceQuotaSupported FullAccessAvailable", nested("AuthorizationCeilings", quotaCeilings), nested("GPUs", array(object("ID Name Vendor MemoryBytes Available Reason"))), nested("Network", networkScope), nested("Actions", array(scalar)), nested("PathPrefixes", array(scalar)), nested("Scope", scope)))),
+	required("Requestable", array(object("ResourceID ResourceKind Kind Name SandboxID State ModelID ModelName Description ConstraintMode GPUAccessMode Workspace WorkspaceQuotaSupported FullAccessAvailable", nested("AuthorizationCeilings", quotaCeilings), nested("GPUs", array(object("ID Name Vendor MemoryBytes Available Reason"))), nested("SharedGPUs", array(object("ID Name Vendor MemoryBytes"))), nested("Network", networkScope), nested("Actions", array(scalar)), nested("PathPrefixes", array(scalar)), nested("Scope", scope)))),
 	nested("Sandboxes", array(object("ID Name Default Storage Description", nested("FullAccessComputeIDs", array(scalar)), nested("Capabilities", capabilities)))))
 
 var schemas = map[string]*shape{

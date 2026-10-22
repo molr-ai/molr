@@ -67,11 +67,12 @@ export function PermissionRequests({ assistant }: { assistant: Assistant }) {
   function requestCard(row: PermissionRequest) {
     const resource = resources.data?.find(item => item.ID === row.Input.resource_id);
     const gpus = resource ? sandboxes.data?.find(node => node.ID === (resource.SandboxID || 'local'))?.Info.GPUs : undefined;
+    const gpuAccessMode = resource ? sandboxes.data?.find(node => node.ID === (resource.SandboxID || 'local'))?.Info.Capabilities.GPUAccessMode : undefined;
     return <Card key={row.ID}><div className="record-heading"><h3>{row.Input.resource_description}</h3><Badge tone={row.State === 'pending' ? 'warning' : 'neutral'}>{states[row.State]}</Badge></div>
       <p>{row.Input.reason}</p><p>{zh ? '申请权限' : 'Requested'}: {row.Input.full_access ? fullAccessLabel(zh) : t.resources.categories[row.Input.resource_kind]} · {row.Input.actions.map(action => (t.resourcePermissions.generic as Record<string, string>)[action] ?? action).join(' / ')}</p>
       {row.Input.resource_kind === 'storage' && <p>{t.resources.pathPrefixes}: {row.Input.path_prefixes?.join(', ') || '/'}</p>}
       <p className="muted">{row.Input.expires_at ? `${t.resources.expires}: ${new Date(row.Input.expires_at).toLocaleString(locale)}` : t.resourcePermissions.noExpiry}</p>
-      <ConstraintsSummary gpus={gpus} value={row.Input.constraints} temporary={row.Input.temporary}/>{row.Granted && <GrantedPermission grant={row.Granted} />}
+      <ConstraintsSummary gpuAccessMode={gpuAccessMode} gpus={gpus} value={row.Input.constraints} temporary={row.Input.temporary}/>{row.Granted && <GrantedPermission grant={row.Granted} />}
       {row.State === 'pending' && <div className="form-actions"><Button size="sm" disabled={assistant.State !== 'active'} onClick={() => setReview(row)}>{zh ? '审核授权' : 'Review permission'}</Button><Button size="sm" variant="secondary" disabled={assistant.State !== 'active'} onClick={() => setReject(row)}>{zh ? '拒绝' : 'Reject'}</Button></div>}
     </Card>;
   }
@@ -88,12 +89,13 @@ function GrantedPermission({ grant, timeZone }: { grant: Grant; timeZone?: strin
   const resource = useQuery<Resource>(`/api/resources/${grant.ResourceID}`);
   const sandboxes = useQuery<SandboxView[]>('/api/sandboxes');
   const gpus = resource.data ? sandboxes.data?.find(node => node.ID === (resource.data?.SandboxID || 'local'))?.Info.GPUs : undefined;
+  const gpuAccessMode = resource.data ? sandboxes.data?.find(node => node.ID === (resource.data?.SandboxID || 'local'))?.Info.Capabilities.GPUAccessMode : undefined;
   const models = useQuery<Model[]>(grant.Scope.ModelID ? '/api/models' : null);
   const target = grant.Scope.ModelID ? models.data?.find(model => model.ID === grant.Scope.ModelID)?.Name ?? t.resources.modelUnavailable : resource.data?.Name ?? t.loading;
   useErrorToast(resource.error || models.error, () => {resource.reload();models.reload();});
   return <div className="permission-granted"><p>{zh ? '实际批准' : 'Approved scope'}: {target} · {grant.Scope.FullAccess ? fullAccessLabel(zh) : grantSummary(t, grant, resource.data)}</p>
     {resource.data?.Kind === 'storage' && <p>{t.resources.pathPrefixes}: {grant.Scope.PathPrefixes?.join(', ') || '/'}</p>}
-    <ConstraintsSummary gpus={gpus} value={grant.Constraints} temporary={grant.Temporary}/><p>{t.resources.expires}: {grant.ExpiresAt ? new Intl.DateTimeFormat(locale,{timeZone:timeZone||undefined,dateStyle:'medium',timeStyle:'short'}).format(new Date(grant.ExpiresAt)) : t.resourcePermissions.noExpiry}</p>
+    <ConstraintsSummary gpuAccessMode={gpuAccessMode} gpus={gpus} value={grant.Constraints} temporary={grant.Temporary}/><p>{t.resources.expires}: {grant.ExpiresAt ? new Intl.DateTimeFormat(locale,{timeZone:timeZone||undefined,dateStyle:'medium',timeStyle:'short'}).format(new Date(grant.ExpiresAt)) : t.resourcePermissions.noExpiry}</p>
   </div>;
 }
 
@@ -180,7 +182,7 @@ function PermissionItemEditor({ item, onChange, grouped, primary, resources, mod
       <span className="permission-review-item__name">{selected?.Name ?? item.resource_description} · {item.actions.map(value => permissionLabel(t, item.resource_kind, value)).join(' / ')}</span>
       {item.resource_kind === 'storage' && <span className="permission-review-item__name">{t.resources.pathPrefixes} · {item.path_prefixes?.join(', ') || '/'}</span>}
       {item.model_id && <span className="permission-review-item__name">{t.resources.categories.model} · {models.find(model => model.ID === item.model_id)?.Name ?? t.resources.modelUnavailable}</span>}
-      {!item.full_access && <ConstraintsSummary gpus={sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info.GPUs} value={item.constraints} temporary={item.temporary} />}
+      {!item.full_access && <ConstraintsSummary gpuAccessMode={sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info.Capabilities.GPUAccessMode} gpus={sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info.GPUs} value={item.constraints} temporary={item.temporary} />}
     </summary>
     <div className="permission-review-item__editor">
       <p className="permission-review__note">{item.reason}</p>
@@ -188,8 +190,8 @@ function PermissionItemEditor({ item, onChange, grouped, primary, resources, mod
       {!loading && !available.length && <p>{zh ? '请先连接所需资源。' : 'Connect the required resource first.'} <a href="#/resources">{t.nav.resources}</a></p>}
       {!item.full_access && <Select multiple label={t.resources.actions} value={item.actions} onValueChange={value => onChange({ actions: value })} options={permissionOptions(t, selected)} />}
       {item.resource_kind === 'storage' && <Textarea label={t.resources.pathPrefixes} value={item.path_prefixes?.join('\n') ?? ''} onChange={event => onChange({ path_prefixes: lines(event.target.value) })} description={zh ? '相对于资源根目录；留空表示整个资源。' : 'Relative to the resource root; empty means the entire resource.'} />}
-      {!item.full_access && <><ConstraintsEditor gpus={sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info.GPUs} compact kind={item.resource_kind} value={item.constraints} onChange={value => onChange({ constraints: value })} lockNetworkPeriod={!!item.grant_id && !!item.constraints?.network} />
-      <TemporaryConstraintsEditor gpus={sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info.GPUs} compact kind={item.resource_kind} base={item.constraints} value={item.temporary} onChange={value => onChange({ temporary: value })} /></>}
+      {!item.full_access && <><ConstraintsEditor gpuAccessMode={sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info.Capabilities.GPUAccessMode} gpus={sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info.GPUs} compact kind={item.resource_kind} value={item.constraints} onChange={value => onChange({ constraints: value })} lockNetworkPeriod={!!item.grant_id && !!item.constraints?.network} />
+      <TemporaryConstraintsEditor gpuAccessMode={sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info.Capabilities.GPUAccessMode} gpus={sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info.GPUs} compact kind={item.resource_kind} base={item.constraints} value={item.temporary} onChange={value => onChange({ temporary: value })} /></>}
     </div>
   </details>;
 }

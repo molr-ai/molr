@@ -3,6 +3,8 @@ package platform
 // HostCapacity reports machine capacity, not a reservation or an authorization.
 // Zero capacity or nil usage means the platform could not determine that value.
 type HostCapacity struct {
+	// GPUs is hardware telemetry only; it never grants sandbox GPU access.
+	GPUs            []GPUDevice `json:",omitempty"`
 	CPUUsagePercent *float64
 	MemoryUsedBytes *int64
 	CPUPercent      int

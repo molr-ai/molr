@@ -59,10 +59,14 @@ func TestGPUComputeGrantAutomaticallyBuildsPlanAndRestoresTemporaryScope(t *test
 }
 func TestGPUGroupCatalogDoesNotExpandOrLeakDevices(t *testing.T) {
 	info := sm.Info{AuthorizationCeilings: platform.Limits{GPUDeviceIDs: []string{gpuA, gpuB}}, GPUs: []platform.GPUDevice{{ID: gpuA}, {ID: gpuB}}}
+	info.HostCapacity.GPUs = []platform.GPUDevice{{ID: gpuB, Name: "Telemetry only", Reason: "gpu_platform_unsupported"}}
 	for _, ref := range []*auth.ResourceReference{{}, {Quota: auth.ResourceQuota{Compute: &core.ComputeConstraints{}}}} {
 		out := groupGPUInfo(info, ref)
 		if len(out.GPUs) != 0 || len(out.AuthorizationCeilings.GPUDeviceIDs) != 0 {
 			t.Fatal("default group gained GPU")
+		}
+		if len(out.HostCapacity.GPUs) != 1 || out.HostCapacity.GPUs[0].Available {
+			t.Fatal("hardware telemetry was lost or became executable")
 		}
 	}
 	ref := &auth.ResourceReference{Quota: auth.ResourceQuota{Compute: &core.ComputeConstraints{GPU: &core.GPUAccess{DeviceIDs: []string{gpuA}}}}}
@@ -118,5 +122,21 @@ func TestGPUAssistantRequestRequiresApprovalAndOwnerCanNarrow(t *testing.T) {
 	need(t, err)
 	if len(c.GPUDeviceIDs) != 1 || c.GPUDeviceIDs[0] != gpuA {
 		t.Fatal("requested scope used instead of final approval")
+	}
+}
+
+func TestSharedGPUComputeContextDoesNotAdvertiseDeviceGrants(t *testing.T) {
+	descriptor := requestablePermission{ResourceID: "compute", GPUAccessMode: "shared", SharedGPUs: []platform.GPUDevice{{ID: gpuA, Name: "Shared GPU", MemoryBytes: 16 << 30}}}
+	data, err := json.Marshal(map[string]any{"Resources": []any{}, "BuiltInStorage": []any{}, "Requestable": []requestablePermission{descriptor}})
+	need(t, err)
+	text, err := prompt.Structured("permission_list", string(data))
+	need(t, err)
+	for _, want := range []string{`"GPUAccessMode":"shared"`, `"SharedGPUs"`, `"Shared GPU"`} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("shared GPU semantics stripped: %s", text)
+		}
+	}
+	if strings.Contains(text, `"device_ids"`) || strings.Contains(text, `"GPUDeviceIDs"`) {
+		t.Fatalf("shared inventory became a device grant: %s", text)
 	}
 }

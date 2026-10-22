@@ -54,8 +54,8 @@ export function GrantEditor({ assistant, assistants, resources, grant, initialRe
       <Select multiple label={t.resources.actions} value={actions} onValueChange={setActions} options={permissionOptions(t, resource)} />
       {target.kind === 'storage' && <Textarea label={t.resources.pathPrefixes} description={copy.pathsHelp} value={paths} onChange={e => setPaths(e.target.value)} placeholder="/" rows={3} />}
       {target.kind==='network'&&usesNetworkToggle(node?.Capabilities.NetworkBackend)&&<p className="muted">{node?.Capabilities.NetworkBackend === 'appcontainer-toggle' ? copy.windowsNetworkHelp : copy.nativeNetworkHelp}</p>}
-      <ConstraintsEditor gpus={sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info.GPUs} kind={target.kind} value={constraints} onChange={setConstraints} lockNetworkPeriod={!!grant?.Constraints?.network} />
-      <TemporaryConstraintsEditor gpus={sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info.GPUs} kind={target.kind} base={constraints} value={temporary} onChange={setTemporary} />
+      <ConstraintsEditor gpuAccessMode={sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info.Capabilities.GPUAccessMode} gpus={sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info.GPUs} kind={target.kind} value={constraints} onChange={setConstraints} lockNetworkPeriod={!!grant?.Constraints?.network} />
+      <TemporaryConstraintsEditor gpuAccessMode={sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info.Capabilities.GPUAccessMode} gpus={sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info.GPUs} kind={target.kind} base={constraints} value={temporary} onChange={setTemporary} />
     </>}
     <DateTimePicker size="sm" label={t.resources.expires} value={expires} onValueChange={setExpires} min={new Date().toISOString()} />
   </EditDialog>;
