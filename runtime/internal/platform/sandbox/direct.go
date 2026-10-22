@@ -2,9 +2,11 @@ package sandbox
 
 import (
 	"context"
+	"molr.ai/runtime/internal/browser"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/platform"
 	"runtime"
+	"slices"
 	"strings"
 )
 
@@ -28,6 +30,28 @@ func (r *Runner) validateMode(c platform.Command) error {
 	}
 	if !r.options.AllowFullAccess {
 		return core.NewError(core.Forbidden, "Full Access is disabled by deployment")
+	}
+	if c.BrowserAssets || c.BrowserProxy != nil {
+		if runtime.GOOS != "linux" && runtime.GOOS != "darwin" {
+			return core.Invalid("browser", "unsupported browser platform")
+		}
+		if !c.BrowserAssets || c.BrowserProxy == nil || !c.Managed || c.TTY || !slices.Equal(c.ForwardPorts, []int{browser.CommandPort, browser.StreamPort}) || r.options.NoWorkspace || c.Script != "exec /molr/helper sandbox-helper browser" {
+			return core.Invalid("browser", "trusted browser launch required")
+		}
+		if len(c.Mounts) != 2 {
+			return core.Invalid("browser", "read-only browser assets required")
+		}
+		assets := map[string]bool{}
+		for _, mount := range c.Mounts {
+			if !mount.ReadOnly || assets[mount.Destination] || (mount.Destination != "/resources/browser-agent" && mount.Destination != "/resources/browser-chromium") {
+				return core.Invalid("browser", "read-only browser assets required")
+			}
+			assets[mount.Destination] = true
+		}
+		proxy := *c.BrowserProxy
+		if err := proxy.Validate(); err != nil {
+			return err
+		}
 	}
 	if c.RequireIsolation {
 		return core.Invalid("mode", "direct execution cannot provide isolation")

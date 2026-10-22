@@ -319,3 +319,5 @@ func (w *terminalWriter) write(ctx context.Context, data []byte, timeout time.Du
 	}
 	return nil
 }
+
+func directTerminalAvailable() bool { return terminalAPIAvailable() }

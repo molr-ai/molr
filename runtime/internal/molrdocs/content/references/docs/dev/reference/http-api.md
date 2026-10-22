@@ -467,6 +467,8 @@ WebUI 日历、近期清单和无日期／逾期清单使用摘要；近期清�
 
 ### Full Access 权限字段
 
+浏览器 `start/install_start` 与手动终端启动均接受 `full_access`（默认 false）；助理的 `browser_session` 使用同一字段。任务返回 `ComputeID` 与 `FullAccess`。浏览器状态分别返回 `SandboxAvailable`、`FullAccessAvailable`，仍需结合资源授权及节点能力；`Available` 表示组件是否准备好。节点 `Capabilities.FullAccessTerminal` 独立于普通 `Terminal`。浏览器仅在计算资源和执行模式一致时复用，否则返回 `browser_mode_conflict`；安装完成后的启动保留模式并重新鉴权。Full Access 不支持 `network_mode:none`。
+
 WebUI 采用「资源类型：沙盒 → 选择沙盒 → 权限类型：存储／计算／网络／完全访问」的展示层级，完全访问不嵌在计算额度表单中。API 仍以节点计算资源 ID 与 `Scope.FullAccess` 表达独立授权；前端切换目标时重置无关的路径、操作和额度，服务端继续校验最终请求。
 
 - 沙盒配置：`sandbox.allow_full_access`（默认 false），无节点模式字段。`GET /api/sandbox`、沙盒列表的 Info 提供 `Capabilities.FullAccess`，其余五项能力仍只描述普通隔离路径。普通成员列表按组委派隐藏不可授予的 Full Access 能力。

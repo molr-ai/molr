@@ -167,7 +167,7 @@ func TestTerminalManualStartUsesAssistantCapabilityAndSuppressesReminders(t *tes
 			t.Fatal("manual terminal woke assistant")
 		}
 	}
-	_, err = s.startTerminal(t.Context(), owner, e.AssistantID, json.RawMessage(`{"request_id":"escape","client_id":"window","compute_id":"compute","full_access":true}`))
+	_, err = s.startTerminal(t.Context(), owner, e.AssistantID, json.RawMessage(`{"request_id":"escape","client_id":"window","compute_id":"compute","unexpected":true}`))
 	if err == nil {
 		t.Fatal("extra launch scope accepted")
 	}
@@ -202,5 +202,27 @@ func TestTerminalOutputPreservesBytesAcrossChunks(t *testing.T) {
 	}
 	if string(got) != string(payload) {
 		t.Fatal("terminal bytes changed")
+	}
+}
+
+func TestTerminalManualStartPreservesFullAccessMode(t *testing.T) {
+	b, owner, e := taskFixture(t)
+	s := b.shellTasks
+	seen := make(chan tools.ShellRequest, 1)
+	s.executeCommand = func(ctx context.Context, execution core.Execution, q tools.ShellRequest) (json.RawMessage, error) {
+		seen <- q
+		if err := managedShellFor(ctx, execution).started("", "", nil, nil); err != nil {
+			return nil, err
+		}
+		<-ctx.Done()
+		return json.RawMessage(`{"Exit":{"Code":0}}`), nil
+	}
+	raw, err := s.startTerminal(t.Context(), owner, e.AssistantID, json.RawMessage(`{"request_id":"full-terminal","client_id":"window","compute_id":"compute","full_access":true}`))
+	need(t, err)
+	var result struct{ Task shellTask }
+	need(t, json.Unmarshal(raw, &result))
+	q := <-seen
+	if !q.FullAccess || !q.TTY || !result.Task.FullAccess || result.Task.ComputeID != "compute" {
+		t.Fatalf("lost execution selection: %+v %s", q, raw)
 	}
 }

@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
-import { Button, Drawer, IconButton, Select, Tooltip, useBreakpoint } from '@molr/ui';
+import { Button, Drawer, IconButton, Tooltip, useBreakpoint } from '@molr/ui';
 import { Bot, ChevronLeft, ChevronRight, GripHorizontal, PanelRight, PictureInPicture2, Plus, Terminal, UserRound, X } from 'lucide-react';
 import { api, APIError, mutationKey } from '../../../api/client';
 import type { Grant, Resource, ShellTask } from '../../../api/types';
@@ -12,6 +12,8 @@ import { TerminalThemePicker, useTerminalTheme } from './terminalTheme';
 import { useFloatingPanel } from './useFloatingPanel';
 import type { FloatingBounds } from './useFloatingPanel';
 
+import { ExecutionOptions, useExecutionOptions } from './ExecutionOptions';
+
 const selections = new Map<string,string>();
 export function Terminals({ assistantID, assistantName, docked, floating, onFloatingChange, bounds, onClose }: { assistantID: string; assistantName: string; docked: boolean; floating: boolean; onFloatingChange: (value: boolean) => void; bounds: RefObject<FloatingBounds | null>; onClose: () => void }) {
   const { locale, t } = useCopy(), zh = locale === 'zh', mobile = useBreakpoint('mobile');
@@ -19,10 +21,10 @@ export function Terminals({ assistantID, assistantName, docked, floating, onFloa
   const resources = useQuery<Resource[]>('/api/resources?kind=compute', true), grants = useQuery<Grant[]>(`/api/grants?assistant_id=${assistantID}`, true);
   const sandbox = useQuery<SandboxInfo>('/api/sandbox');
   const supported = sandbox.data?.Capabilities.Terminal;
-  const ready = supported && sandbox.data?.Enabled && sandbox.data.Capabilities.Shell;
-  const usable = (resources.data ?? []).filter(r => r.State === 'available' && (r.SandboxID ?? 'local') === 'local' && grants.data?.some(g => g.ResourceID === r.ID && !g.Scope.FullAccess && !g.RevokedAt && (!g.ExpiresAt || Date.parse(g.ExpiresAt) > Date.now()) && g.Actions.includes('execute')));
+  const ready = sandbox.data?.Enabled && (supported && sandbox.data.Capabilities.Shell || sandbox.data.Capabilities.FullAccessTerminal);
+  const execution = useExecutionOptions(resources.data, grants.data, !!(sandbox.data?.Enabled && supported && sandbox.data.Capabilities.Shell), !!(sandbox.data?.Enabled && sandbox.data.Capabilities.FullAccessTerminal));
   const tasks = (query.data?.Items ?? []).filter(t => t.Mode === 'tty' && t.State === 'running').sort((a, b) => a.StartedAt.localeCompare(b.StartedAt) || a.ID.localeCompare(b.ID));
-  const [selected, setSelected] = useState(selections.get(assistantID) ?? ''), [compute, setCompute] = useState(''), [busy, setBusy] = useState(false);
+  const [selected, setSelected] = useState(selections.get(assistantID) ?? ''), [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>();
   const errors = useErrorToasts();
   useErrorToast(error);
@@ -30,11 +32,11 @@ export function Terminals({ assistantID, assistantName, docked, floating, onFloa
   useErrorToast(resources.error, resources.reload);
   useErrorToast(grants.error, grants.reload);
   useErrorToast(sandbox.error, sandbox.reload);
-  const canCreate = !!ready && !sandbox.error && !resources.error && !grants.error && usable.length > 0;
+  const canCreate = !!ready && !sandbox.error && !resources.error && !grants.error && execution.valid;
   const unavailable = !sandbox.data || sandbox.error
     ? (zh ? '暂时无法确认终端能力。' : 'Terminal capabilities could not be confirmed.')
-    : !sandbox.data.Enabled || !sandbox.data.Capabilities.Shell ? (zh ? '本机沙盒命令执行不可用，请检查沙盒状态。' : 'Local sandbox command execution is unavailable. Check sandbox status.')
-    : !supported ? (sandbox.data.Capabilities.TerminalReason === 'terminal_start_failed' ? t.errorReasons.terminal_start_failed : t.errorReasons.terminal_platform_unsupported)
+    : !sandbox.data.Enabled || !(sandbox.data.Capabilities.Shell || sandbox.data.Capabilities.FullAccessTerminal) ? (zh ? '本机沙盒命令执行不可用，请检查沙盒状态。' : 'Local sandbox command execution is unavailable. Check sandbox status.')
+    : !(supported || sandbox.data.Capabilities.FullAccessTerminal) ? (sandbox.data.Capabilities.TerminalReason === 'terminal_start_failed' ? t.errorReasons.terminal_start_failed : t.errorReasons.terminal_platform_unsupported)
     : resources.error || grants.error ? (zh ? '暂时无法确认计算权限。' : 'Compute permissions could not be confirmed.')
     : (zh ? '请先为助理授予本机计算权限。' : 'Grant the assistant local compute permission first.');
   const request = useRef<string | undefined>(undefined), mounted = useRef(true);
@@ -67,7 +69,7 @@ export function Terminals({ assistantID, assistantName, docked, floating, onFloa
     if (busy || !canCreate) return;
     setBusy(true); setError(undefined); errors?.rearm(); request.current ??= mutationKey();
     try {
-      const result = await api.post<{ Task: ShellTask }>(`/api/assistants/${assistantID}/terminals`, { request_id: request.current, client_id: terminalClient.id, compute_id: compute || usable[0]?.ID });
+      const result = await api.post<{ Task: ShellTask }>(`/api/assistants/${assistantID}/terminals`, { request_id: request.current, client_id: terminalClient.id, compute_id: execution.compute, full_access: execution.fullAccess });
       request.current = undefined;
       if (mounted.current) { await query.reload(); if (mounted.current) choose(result.Task.ID); }
     } catch (err) {
@@ -97,8 +99,9 @@ export function Terminals({ assistantID, assistantName, docked, floating, onFloa
     <div className="terminal-heading-actions">{!tasks.length && <TerminalThemePicker zh={zh}/>} {!mobile && <IconButton label={floating ? (zh ? '停靠侧栏' : 'Dock to sidebar') : (zh ? '浮窗模式' : 'Floating window')} onClick={() => onFloatingChange(!floating)}>{floating ? <PanelRight size={18}/> : <PictureInPicture2 size={18}/>}</IconButton>}<IconButton label={zh ? '关闭终端窗口' : 'Close terminal window'} onClick={onClose}><X size={18}/></IconButton></div>
   </div>}>
     <div ref={view.ref} className="terminal-panel">
-      {canCreate && usable.length > 1 && <div className="terminal-compute-picker"><Select size="sm" hideLabel label={zh ? '计算资源' : 'Compute resource'} value={compute || usable[0]?.ID || ''} onValueChange={setCompute} options={usable.map(r => ({ value:r.ID,label:r.Name }))}/><span>{zh ? '用于新会话' : 'For new sessions'}</span></div>}
-      {task ? <div id={panelID} className="terminal-tab-content" role="tabpanel" aria-labelledby={`${panelID}-${task.ID}`}><TerminalSession key={task.ID} assistantID={assistantID} task={task} refresh={query.reload}/></div> : <div className="terminal-empty"><span className="terminal-empty-icon"><Terminal size={28}/></span><h3>{zh ? '在助理工作区中开启交互式 Shell' : 'Open an interactive shell in the assistant workspace'}</h3><p>{sandbox.loading || resources.loading || grants.loading ? t.loading : canCreate ? (zh ? '使用助理已获授的计算、文件和网络权限。' : 'Uses the assistant’s granted compute, file and network permissions.') : unavailable}</p>{canCreate && <Button size="sm" disabled={busy} onClick={() => void create()}><Plus size={15}/>{zh ? '开启终端' : 'Open terminal'}</Button>}</div>}
+      <ExecutionOptions value={execution} zh={zh} disabled={busy}/>
+
+      {task ? <div id={panelID} className="terminal-tab-content" role="tabpanel" aria-labelledby={`${panelID}-${task.ID}`}><TerminalSession key={task.ID} assistantID={assistantID} task={task} refresh={query.reload}/></div> : <div className="terminal-empty"><span className="terminal-empty-icon"><Terminal size={28}/></span><h3>{zh ? '在助理工作区中开启交互式 Shell' : 'Open an interactive shell in the assistant workspace'}</h3><p>{sandbox.loading || resources.loading || grants.loading ? t.loading : canCreate ? (execution.fullAccess ? (zh ? '新会话将使用已授权的 Full Access 模式。' : 'New sessions use the authorized Full Access mode.') : (zh ? '使用助理已获授的计算、文件和网络权限。' : 'Uses the assistant’s granted compute, file and network permissions.')) : unavailable}</p>{canCreate && <Button size="sm" disabled={busy} onClick={() => void create()}><Plus size={15}/>{zh ? '开启终端' : 'Open terminal'}</Button>}</div>}
       {floating && <button className="terminal-resize" aria-label={zh ? '调整终端大小' : 'Resize terminal'} {...view.resize}/>}
     </div>
   </Drawer>;

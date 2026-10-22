@@ -21,12 +21,14 @@ Linux 使用 Bubblewrap、seccomp、cgroup v2 和受控网络出口。macOS 使�
 
 `direct_unix.go` 共享原生命令的授权、输出、截止时间和进程组生命周期；macOS 受控启动在执行前包装为 `/usr/bin/sandbox-exec -p <策略> /bin/sh`，Full Access 直接执行。`backend_darwin.go` 负责启动探针、路径规范化、工具目录及安全环境变量；`seatbelt.go` 生成默认拒绝策略。文件与网络授权固定到启动计划，网络撤权通过同一授权重查停止受管进程组；不承诺脱离进程组的后代清理。PTY 只允许本任务实际分配的设备，策略拒绝其它进程的信息读取。
 
-macOS 本机浏览器由 `browser_darwin.go` 启动固定 Chromium 和前台 agent-browser daemon，使用专用 Seatbelt 服务规则与 `--no-sandbox`；内部 Chromium 沙盒不启用，外层文件和网络策略必须存在。启动参数不接受客户端程序、CDP 地址或路径。控制 API 使用 Runtime 内存连接，daemon socket 保存在私有目录；短临时符号链接仅解决 macOS socket 路径长度限制，Seatbelt 仍检查规范目标路径。全体受控任务拒绝访问和绑定保留控制端口，浏览器仅放行自己的端口对；通用端口转发也拒绝此保留范围。启动完成前核验端口监听 PID，每次 Unix socket 连接在发送命令和代理认证信息前核验 daemon 的内核对端 PID。临时短路径禁止受控任务改写；路径被替换或进程不匹配时立即失败，不连接其他实例。
+macOS 本机浏览器由 `browser_native_unix.go` 启动固定 Chromium 和前台 agent-browser daemon，使用专用 Seatbelt 服务规则与 `--no-sandbox`；内部 Chromium 沙盒不启用，外层文件和网络策略必须存在。启动参数不接受客户端程序、CDP 地址或路径。控制 API 使用 Runtime 内存连接，daemon socket 保存在私有目录；短临时符号链接仅解决 macOS socket 路径长度限制，Seatbelt 仍检查规范目标路径。全体受控任务拒绝访问和绑定保留控制端口，浏览器仅放行自己的端口对；通用端口转发也拒绝此保留范围。启动完成前核验端口监听 PID，每次 Unix socket 连接在发送命令和代理认证信息前核验 daemon 的内核对端 PID。临时短路径禁止受控任务改写；路径被替换或进程不匹配时立即失败，不连接其他实例。
 
 两个可信看护进程各拥有一个进程组，受控子进程不继承 Runtime 的存活管道。Runtime 退出使写端关闭，看护进程立即清理自身组；正常关闭通过 CDP 请求 Chromium 刷新并退出，再关闭看护管道。任一子进程退出、授权变化和截止时间均触发回收。此机制针对固定组件进程树，不增加 macOS 的通用进程隔离或资源额度保证。代理认证仅通过私有 daemon 协议传递，不进入启动参数和日志。原生验证方式与平台边界见 [macOS 浏览器](../../admin/sandbox/macos.md#受管浏览器)。
 
 
 原生运行与当前限制见[macOS 源码部署](../../admin/deployment/source-build.md#macos-原生运行)。
+
+浏览器与终端统一使用计算资源和显式 `full_access` 选择执行路径。Full Access 浏览器由受信任原生启动器管理，Linux 与 macOS 共用任务私有控制 API、独立端口对、daemon 对端身份校验及进程看护；不向客户端开放程序、启动参数或 CDP。Linux 验证实际渲染进程的 PID namespace、NoNewPrivs 和 seccomp；macOS 验证实际渲染进程的 Seatbelt。Full Access 不依赖普通隔离就绪，也不声明对同一服务账户的其它宿主进程进行隔离。
 
 ## Full Access 权限与双路径执行
 
@@ -245,6 +247,6 @@ bash scripts/test-sandbox-linux.sh -count=1 -v
 
 ### 终端控制权
 
-用户与助理共用同一 PTY 和任务记录。手动启动只接收计算资源与请求／窗口标识，由服务端构造绑定 owner/assistant 的私有 managedShell capability，沿用助理授权，不接收宿主挂载或 Full Access 开关。每个会话以同一互斥锁串行化输入和交接，锁内重查 generation、控制者登录会话、窗口和递增输入序号。接管不停止前台程序，已接受的字节不会回滚。
+用户与助理共用同一 PTY 和任务记录。手动启动只接收计算资源与请求／窗口标识，由服务端构造绑定 owner/assistant 的私有 managedShell capability，沿用助理授权，不接收宿主挂载；Full Access 必须显式指定并通过独立授权。每个会话以同一互斥锁串行化输入和交接，锁内重查 generation、控制者登录会话、窗口和递增输入序号。接管不停止前台程序，已接受的字节不会回滚。
 
 交还以事务保存控制权、审计记录和 terminal_control_returned 事件。助理须在交接后的 generation 下读到最新输出，读屏许可绑定执行轮次。浏览器窗口关闭或认证失效只断开连接，不自动交还控制权；重新登录后可显式接管。输出流持续校验认证与助理归属，保留并发连接上限和写入超时。沙盒撤权及到期仍通过原执行计划终止进程，不受控制者影响。

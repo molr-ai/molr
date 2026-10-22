@@ -50,7 +50,7 @@ Shell 脚本使用 `$MOLR_WORKSPACE`、`$MOLR_GLOBAL`、`$TMPDIR` 和权限列�
 
 本机浏览器支持 Apple Silicon 和 Intel macOS，在浏览器面板选择「安装并启动」即可准备组件，详见[组件管理](https://molr.ai/zh/docs/admin/administration/components/)。无需关闭 SIP、修改系统配置或手动授予屏幕录制权限。管理员自行配置程序目录时，agent 目录包含 `agent-browser`，Chromium 目录包含完整的 `Google Chrome for Testing.app`，不能只复制主可执行文件。
 
-浏览器使用 Molr 外层 Seatbelt；Chromium 通过 `--no-sandbox` 启动，不启用内部渲染进程沙盒。macOS 不允许在有效外层 Seatbelt 中重新初始化 Chromium 的 Seatbelt，因此隔离边界是整个浏览器任务。工作区、临时目录、获批文件和网络开关仍受外层策略约束，不提供 Linux 的进程命名空间或资源硬配额。
+沙盒模式下，浏览器使用 Molr 外层 Seatbelt；Chromium 通过 `--no-sandbox` 启动，不启用内部渲染进程沙盒。macOS 不允许在有效外层 Seatbelt 中重新初始化 Chromium 的 Seatbelt，因此隔离边界是整个浏览器任务。工作区、临时目录、获批文件和网络开关仍受外层策略约束，不提供 Linux 的进程命名空间或资源硬配额。
 
 每个任务使用独立控制端口和私有 daemon socket。普通受控命令与其他浏览器任务不能访问这些控制端口；WebUI 的命令与画面连接经过 Runtime 认证。无网络授权时内部控制仍可用，网页不能联网。Full Access 和宿主其他进程不属于此控制隔离边界。
 
@@ -79,3 +79,5 @@ MOLR_SANDBOX_INTEGRATION=1 MOLR_TEST_AGENT_BROWSER=/absolute/agent-directory \
 MOLR_TEST_CHROMIUM=/absolute/chromium-directory \
 CGO_ENABLED=0 go test ./internal/app -run 'TestBrowserRealTask|TestBrowserProxyReal' -v
 ```
+
+受管浏览器的 Full Access 模式不加载外层 Seatbelt，并移除 `--no-sandbox`。Runtime 通过私有 CDP 连接取得渲染进程身份，再通过系统 `sandbox_check` 检查其 Seatbelt 状态；检查失败则结束启动，不回退为无沙盒。检查通过系统自带的 JXA C 桥接运行，Runtime 仍以 `CGO_ENABLED=0` 构建。画面、接管、独立 Profile、代理及撤权清理继续使用受管任务。

@@ -25,6 +25,9 @@ func (r *Runner) checkDirect() error {
 	return nil
 }
 func (r *Runner) startDirect(parent context.Context, e core.Execution, c platform.Command) (*process, error) {
+	if c.BrowserAssets {
+		return r.startBrowser(parent, e, c)
+	}
 	return r.startHost(parent, e, c, nil)
 }
 
@@ -238,3 +241,14 @@ func (r *Runner) startHost(parent context.Context, e core.Execution, c platform.
 	}()
 	return p, nil
 }
+
+const seatbeltCloseDescriptors = `seen=0
+for entry in /dev/fd/*; do
+ fd=${entry##*/}
+ case "$fd" in ''|*[!0-9]*) continue;; esac
+ seen=1
+ case "$fd" in 0|1|2) continue;; esac
+ eval "exec $fd>&-" || exit 125
+done
+[ "$seen" = 1 ] || exit 125
+exec "$@"`

@@ -1,3 +1,5 @@
+//go:build (linux && (amd64 || arm64)) || darwin
+
 package sandbox
 
 import (
@@ -14,9 +16,11 @@ import (
 // of stdin; EOF (including Runtime SIGKILL) kills the entire group. The child
 // receives /dev/null, never the liveness pipe or Runtime descriptors.
 type browserChildConfig struct {
-	Program       string
-	Args, Env     []string
-	Profile, Work string
+	Program        string
+	Args, Env      []string
+	Profile, Work  string
+	FullAccess     bool
+	AppArmorChrome bool
 }
 
 func browserChildMain() int {
@@ -30,11 +34,19 @@ func browserChildMain() int {
 		return 125
 	}
 	var cfg browserChildConfig
-	if json.Unmarshal(line, &cfg) != nil || cfg.Program == "" || cfg.Profile == "" {
+	if json.Unmarshal(line, &cfg) != nil || cfg.Program == "" || (!cfg.FullAccess && cfg.Profile == "") || (cfg.FullAccess && cfg.Profile != "") {
 		return 125
 	}
 	clear(line)
-	cmd := exec.Command("/bin/sh", append([]string{"-c", seatbeltCloseDescriptors, "molr-browser", "/usr/bin/sandbox-exec", "-p", cfg.Profile, cfg.Program}, cfg.Args...)...)
+	args := append([]string{cfg.Program}, cfg.Args...)
+	if cfg.FullAccess && cfg.AppArmorChrome {
+		args = append([]string{"/usr/bin/aa-exec", "-p", "chrome", "--"}, args...)
+	}
+	if !cfg.FullAccess {
+		args = append([]string{"/usr/bin/sandbox-exec", "-p", cfg.Profile}, args...)
+	}
+	cmd := exec.Command("/bin/sh", append([]string{"-c", seatbeltCloseDescriptors, "molr-browser"}, args...)...)
+
 	cmd.Dir, cmd.Env = cfg.Work, cfg.Env
 	cmd.Stdout, cmd.Stderr = os.Stderr, os.Stderr
 	// Share the guardian's session/group; a detached Chrome launch is prohibited.

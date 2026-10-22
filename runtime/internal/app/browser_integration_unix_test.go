@@ -14,11 +14,13 @@ import (
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/event"
 	"molr.ai/runtime/internal/persistence"
+	"molr.ai/runtime/internal/platform"
 	"molr.ai/runtime/internal/policy"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
@@ -26,8 +28,16 @@ import (
 	"time"
 )
 
-func TestBrowserRealTaskStreamTakeoverAndPersistence(t *testing.T) {
-	if os.Getenv("MOLR_SANDBOX_INTEGRATION") != "1" || os.Getenv("MOLR_TEST_AGENT_BROWSER") == "" || os.Getenv("MOLR_TEST_CHROMIUM") == "" {
+func TestBrowserRealTaskStreamTakeoverAndPersistence(t *testing.T) { testBrowserRealTask(t, false) }
+func TestBrowserFullAccessRealTaskStreamTakeoverAndPersistence(t *testing.T) {
+	testBrowserRealTask(t, true)
+}
+func testBrowserRealTask(t *testing.T, full bool) {
+	enabled := os.Getenv("MOLR_SANDBOX_INTEGRATION") == "1"
+	if full {
+		enabled = os.Getenv("MOLR_FULL_ACCESS_BROWSER_INTEGRATION") == "1"
+	}
+	if !enabled || os.Getenv("MOLR_TEST_AGENT_BROWSER") == "" || os.Getenv("MOLR_TEST_CHROMIUM") == "" {
 		t.Skip("requires real sandbox and installed browser programs")
 	}
 	exe, err := os.Executable()
@@ -38,13 +48,27 @@ func TestBrowserRealTaskStreamTakeoverAndPersistence(t *testing.T) {
 	}))
 	defer fixture.Close()
 	cfg := testConfig(t)
-	cfg.Sandbox.HostTools = runtime.GOOS == "linux"
+	if full {
+		directConfig(&cfg)
+	}
+	cfg.Sandbox.HostTools = runtime.GOOS == "linux" && !full
 	cfg.Sandbox.CgroupRoot = os.Getenv("MOLR_SANDBOX_CGROUP")
 	cfg.Browser.AgentDirectory = os.Getenv("MOLR_TEST_AGENT_BROWSER")
 	cfg.Browser.ChromiumDirectory = os.Getenv("MOLR_TEST_CHROMIUM")
 	b, err := Build(t.Context(), cfg)
 	need(t, err)
 	defer b.Close()
+	defer func() {
+		if t.Failed() {
+			rows, _ := persistence.Scan[shellTask](t.Context(), b.store, shellTasksBucket)
+			for _, row := range rows {
+				t.Logf("task failure: %s %s", row.Failure, row.Result)
+				data, _ := os.ReadFile(filepath.Join(platform.AssistantWorkspace(cfg.DataDir, cfg.Sandbox.WorkRoot, row.OwnerID, row.AssistantID), strings.TrimPrefix(row.StderrPath, "/work/")))
+				t.Logf("launch stderr: %s", data)
+			}
+		}
+	}()
+
 	owner, _ := ownerSession(t, b)
 	e := core.Execution{Principal: core.Principal{OwnerID: owner.OwnerID, SubjectID: "browser-assistant", Kind: core.ActorAssistant, ExecutionID: "browser-run"}, AssistantID: "browser-assistant", OperationID: "browser-task"}
 	need(t, b.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
@@ -53,7 +77,9 @@ func TestBrowserRealTaskStreamTakeoverAndPersistence(t *testing.T) {
 		}
 		return tx.Put(ctx, "agent.jobs", persistence.Key(owner.OwnerID, "browser-job"), scheduler.Job{State: scheduler.Running, ExecutionID: e.Principal.ExecutionID, Event: event.AssistantEvent{ID: "browser-job", OwnerID: owner.OwnerID, AssistantID: e.AssistantID}})
 	}))
-	need(t, b.sandbox.runner.Prepare(t.Context()))
+	if !full {
+		need(t, b.sandbox.runner.Prepare(t.Context()))
+	}
 	computeResource, err := b.Services.Resources.Connect(t.Context(), owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "browser-compute-resource"}, Kind: resource.Compute, Provider: "local-sandbox", Name: "Browser compute"})
 	need(t, err)
 	compute := computeResource.ID
@@ -63,30 +89,39 @@ func TestBrowserRealTaskStreamTakeoverAndPersistence(t *testing.T) {
 		computeLimits = &policy.ComputeConstraints{MaxDurationSeconds: 300}
 		networkTarget = "preset:network"
 	}
-	computeGrant, err := b.Services.Grants.Grant(t.Context(), owner, policy.GrantRequest{Mutation: core.Mutation{IdempotencyKey: "browser-compute"}, AssistantID: e.AssistantID, ResourceID: compute, Actions: []policy.Action{policy.Execute}, Constraints: &policy.Constraints{Compute: computeLimits}})
+	var constraints *policy.Constraints
+	if !full {
+		constraints = &policy.Constraints{Compute: computeLimits}
+	}
+	computeGrant, err := b.Services.Grants.Grant(t.Context(), owner, policy.GrantRequest{Mutation: core.Mutation{IdempotencyKey: "browser-compute"}, AssistantID: e.AssistantID, ResourceID: compute, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: full}, Constraints: constraints})
 	need(t, err)
 	network, err := b.Services.Resources.Connect(t.Context(), owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "browser-network"}, Kind: resource.Network, Provider: "sandbox-network", Name: "Fixture network", Binding: resource.Binding{SandboxTarget: networkTarget}})
 	need(t, err)
 	_, err = b.Services.Grants.Grant(t.Context(), owner, policy.GrantRequest{Mutation: core.Mutation{IdempotencyKey: "browser-network-grant"}, AssistantID: e.AssistantID, ResourceID: network.ID, Actions: []policy.Action{policy.Execute}, Constraints: testResourceConstraints(resource.Network)})
 	need(t, err)
 	s := b.shellTasks
-	_, err = s.browserTool(t.Context(), e, "browser_session", tools.BrowserRequest{Action: browser.Action{Action: "start"}, ComputeID: compute})
+	_, err = s.browserTool(t.Context(), e, "browser_session", tools.BrowserRequest{Action: browser.Action{Action: "start"}, ComputeID: compute, FullAccess: full})
 	need(t, err)
 	r := s.activeBrowser(owner, e.AssistantID, "")
 	if r == nil {
-		t.Fatal("browser not registered as a task")
+		rows, _ := persistence.Scan[shellTask](t.Context(), b.store, shellTasksBucket)
+		for _, row := range rows {
+			data, _ := os.ReadFile(filepath.Join(platform.AssistantWorkspace(cfg.DataDir, cfg.Sandbox.WorkRoot, owner.OwnerID, e.AssistantID), strings.TrimPrefix(row.StderrPath, "/work/")))
+			t.Logf("browser launch stderr: %s", data)
+		}
+		t.Fatalf("browser not registered as a task: %+v", rows)
 	}
 	deadline := time.Now().Add(45 * time.Second)
 	for {
 		call, cancel := context.WithTimeout(t.Context(), time.Second)
 		var ready json.RawMessage
 		ready, err = s.browserCall(call, r, "GET", "/ready", nil)
-		if err == nil && runtime.GOOS == "darwin" {
+		if err == nil && !full && runtime.GOOS == "darwin" {
 			if !strings.Contains(string(ready), `"isolation":"outer-only"`) {
 				t.Fatalf("Seatbelt status missing: %s", ready)
 			}
 		}
-		if err == nil && runtime.GOOS == "linux" {
+		if err == nil && !full && runtime.GOOS == "linux" {
 			if !strings.Contains(string(ready), `Layer 1 Sandbox\tNamespace`) {
 				t.Fatalf("native namespace sandbox missing: %s", ready)
 			}
@@ -98,6 +133,9 @@ func TestBrowserRealTaskStreamTakeoverAndPersistence(t *testing.T) {
 		}
 		cancel()
 		if err == nil {
+			if full && !strings.Contains(string(ready), `"chromium_sandbox":true`) {
+				t.Fatal(string(ready))
+			}
 			break
 		}
 		if time.Now().After(deadline) {
@@ -113,7 +151,7 @@ func TestBrowserRealTaskStreamTakeoverAndPersistence(t *testing.T) {
 		return string(raw)
 	}
 	u, _ := url.Parse(fixture.URL)
-	if runtime.GOOS == "linux" {
+	if !full && runtime.GOOS == "linux" {
 		u.Host = strings.Replace(u.Host, "127.0.0.1", "host.molr.internal", 1)
 	}
 	action(browser.Action{Action: "navigate", URL: u.String()})
@@ -216,7 +254,7 @@ func TestBrowserRealTaskStreamTakeoverAndPersistence(t *testing.T) {
 		t.Fatal("browser did not stop")
 	}
 	e.OperationID = "browser-task-reopen"
-	_, err = s.browserTool(t.Context(), e, "browser_session", tools.BrowserRequest{Action: browser.Action{Action: "start"}, ComputeID: compute})
+	_, err = s.browserManage(t.Context(), owner, e.AssistantID, tools.BrowserRequest{Action: browser.Action{Action: "start"}, ComputeID: compute, FullAccess: full})
 	need(t, err)
 	r = s.activeBrowser(owner, e.AssistantID, "")
 	deadline = time.Now().Add(30 * time.Second)

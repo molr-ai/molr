@@ -68,9 +68,10 @@ test('browser panel preserves control, commits IME once, closes the selected tab
     window.EventSource = new Proxy(Native, { construct(target, args) { return String(args[0]).includes('/browser/stream') ? new BrowserStream() : Reflect.construct(target, args); } });
   });
   await page.goto('about:blank'); // Install the transport in a fresh document before routing requests.
-  await page.route('**/api/resources?kind=compute&limit=200', route => route.fulfill({ json: { Items: [{ ID: 'local-one', Name: 'Local one' }, { ID: 'local-two', Name: 'Local two' }] } }));
-  await page.route(`**/api/grants?assistant_id=${assistant.ID}&limit=200`, route => { grantReads++; return route.fulfill({ json: { Items: ['local-one', 'local-two'].map(ResourceID => ({ ResourceID, Scope: {}, Actions: ['execute'] })) } }); });
-  await page.route(`**/api/assistants/${assistant.ID}/browser`, async route => {
+  await page.route('**/api/sandbox', route => route.fulfill({ json: { Enabled:true, Capabilities:{Shell:true} } }));
+  await page.route('**/api/resources?kind=compute*', route => route.fulfill({ json: { Items: [{ ID: 'local-one', State: 'available', Name: 'Local one' }, { ID: 'local-two', State: 'available', Name: 'Local two' }] } }));
+  await page.route(`**/api/grants?assistant_id=${assistant.ID}*`, route => { grantReads++; return route.fulfill({ json: { Items: ['local-one', 'local-two'].map(ResourceID => ({ ResourceID, Scope: {}, Actions: ['execute'] })) } }); });
+  await page.route(new RegExp(`/api/assistants/${assistant.ID}/browser(?:\\?.*)?$`), async route => {
     if (route.request().method() === 'POST') {
       const q = route.request().postDataJSON();
       if (q.action === 'viewport') {
@@ -98,7 +99,7 @@ test('browser panel preserves control, commits IME once, closes the selected tab
         }
       }
     }
-    await route.fulfill({ json: { Available: true, Proxy: { Mode: proxyMode }, ProxyAppliesTo: running ? 'current_session' : 'next_start', RestartRequired: running, LastFailure: lastFailure, TabCount: tabs.length, ControllerIsCurrentSession: !!client, ControllerClientID: client, Task: running ? { ID: 'browser-test', Kind: 'browser', State: 'running', Browser: { Control: client ? 'user' : 'assistant', Generation: generation } } : null } });
+    await route.fulfill({ json: { Available: true, SandboxAvailable: true, FullAccessAvailable: true, Proxy: { Mode: proxyMode }, ProxyAppliesTo: running ? 'current_session' : 'next_start', RestartRequired: running, LastFailure: lastFailure, TabCount: tabs.length, ControllerIsCurrentSession: !!client, ControllerClientID: client, Task: running ? { ID: 'browser-test', Kind: 'browser', State: 'running', Browser: { Control: client ? 'user' : 'assistant', Generation: generation } } : null } });
     await page.evaluate(tabs => window.dispatchEvent(new CustomEvent('browser-test-tabs', { detail: tabs })), tabs);
   });
   await page.goto(`/#/assistants/${assistant.ID}`);
@@ -341,7 +342,7 @@ test('browser installation failure uses one toast across task polling, panel reo
   let taskReads = 0, browserReads = 0;
   await page.route('**/api/components', route => route.fulfill({ json: [{ id: 'browser', state: 'missing', can_install: true, download_bytes: 100, disk_bytes: 200, task }] }));
   await page.route('**/api/maintenance/tasks/*', route => { taskReads++; return route.fulfill({ json: task }); });
-  await page.route(`**/api/assistants/${assistant.ID}/browser`, route => { browserReads++; return route.fulfill({ json: { Available: false, Preparation: preparation } }); });
+  await page.route(new RegExp(`/api/assistants/${assistant.ID}/browser(?:\\?.*)?$`), route => { browserReads++; return route.fulfill({ json: { Available: false, Preparation: preparation } }); });
   await page.goto(`/#/assistants/${assistant.ID}`);
   const open = () => page.getByRole('button', { name: 'Browser', exact: true }).click();
   await open();

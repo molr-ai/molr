@@ -93,7 +93,7 @@ func (s *shellService) plan(ctx context.Context, e core.Execution, req tools.She
 	if req.Browser != nil {
 		c.BrowserAssets = true
 		c.BrowserProxy = &req.Browser.Proxy
-		if req.FullAccess || req.Script != "exec /molr/helper sandbox-helper browser" {
+		if req.Script != "exec /molr/helper sandbox-helper browser" {
 			return c, denied()
 		}
 		c.Mounts = append(c.Mounts, platform.Mount{Source: req.Browser.AgentDirectory, Destination: "/resources/browser-agent", ReadOnly: true}, platform.Mount{Source: req.Browser.ChromiumDirectory, Destination: "/resources/browser-chromium", ReadOnly: true})

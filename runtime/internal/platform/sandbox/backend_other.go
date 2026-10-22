@@ -16,3 +16,5 @@ func (r *Runner) start(context.Context, core.Execution, platform.Command) (*proc
 }
 func HelperMain([]string) int { return 125 }
 func SupervisorMain() int     { return 125 }
+
+func directTerminalAvailable() bool { return false }

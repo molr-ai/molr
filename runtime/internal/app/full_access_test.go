@@ -501,3 +501,77 @@ func TestFullAccessRequiresGroupDelegation(t *testing.T) {
 		}
 	}
 }
+
+func TestFullAccessManualTerminalRequiresGrantAndStopsOnRevocation(t *testing.T) {
+	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { directConfig(c) })
+	s := f.b.shellTasks
+	start := func(id string) (json.RawMessage, error) {
+		return s.startTerminal(t.Context(), f.owner, f.execution.AssistantID, json.RawMessage(fmt.Sprintf(`{"request_id":%q,"client_id":"full-window","compute_id":%q,"full_access":true}`, id, f.compute.ID)))
+	}
+	if _, err := start("full-denied"); err == nil {
+		t.Fatal("ungranted Full Access terminal started")
+	}
+	grant, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: f.execution.AssistantID, ResourceID: f.compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true}, Mutation: core.Mutation{IdempotencyKey: "terminal-full"}})
+	need(t, err)
+	raw, err := start("full-allowed")
+	need(t, err)
+	var receipt struct{ Task shellTask }
+	need(t, json.Unmarshal(raw, &receipt))
+	if !receipt.Task.FullAccess || receipt.Task.ComputeID != f.compute.ID {
+		t.Fatal(string(raw))
+	}
+	caps, err := f.b.sandbox.runner.Capabilities(t.Context())
+	need(t, err)
+	if !caps.FullAccessTerminal {
+		t.Fatal("full terminal depends on ordinary sandbox", caps)
+	}
+	need(t, f.b.Services.Grants.Revoke(t.Context(), f.owner, policy.RevokeRequest{GrantID: grant.ID, Mutation: core.Mutation{IdempotencyKey: "terminal-revoke", ExpectedVersion: grant.Version}}))
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		task, err := persistence.Load[shellTask](t.Context(), f.b.store, shellTasksBucket, persistence.Key(f.owner.OwnerID, receipt.Task.ID))
+		need(t, err)
+		if task.State != "running" {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("terminal survived revocation")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+func TestFullAccessBrowserToolUsesItsSeparateGrant(t *testing.T) {
+	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { directConfig(c) })
+	grants, err := persistence.Scan[policy.Grant](t.Context(), f.b.store, "security.grants")
+	need(t, err)
+	for _, g := range grants {
+		need(t, f.b.Services.Grants.Revoke(t.Context(), f.owner, policy.RevokeRequest{GrantID: g.ID, Mutation: core.Mutation{IdempotencyKey: "clear-" + string(g.ID), ExpectedVersion: g.Version}}))
+	}
+	grant, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: f.execution.AssistantID, ResourceID: f.compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true}, Mutation: core.Mutation{IdempotencyKey: "browser-full"}})
+	need(t, err)
+	calls := 0
+	executor := tools.NewExecutor(f.b.store, tools.Options{Authorizer: f.ad.policy, Operations: operation.NewService(f.b.store, operation.Options{Authorizer: f.ad.policy}), Browser: func(_ context.Context, _ core.Execution, _ string, q tools.BrowserRequest) (json.RawMessage, error) {
+		calls++
+		if !q.FullAccess {
+			t.Fatal("lost browser mode")
+		}
+		return json.RawMessage(`{"Started":true}`), nil
+	}})
+	call := tools.Call{Execution: f.execution, Name: "browser_session", Arguments: json.RawMessage(fmt.Sprintf(`{"action":"start","compute_id":%q,"full_access":true}`, f.compute.ID))}
+	_, err = executor.Execute(t.Context(), call)
+	need(t, err)
+	call.Execution.OperationID = "ordinary-browser"
+	call.Arguments = json.RawMessage(fmt.Sprintf(`{"action":"start","compute_id":%q}`, f.compute.ID))
+	if _, err = executor.Execute(t.Context(), call); core.CodeOf(err) != core.Forbidden {
+		t.Fatal("full grant authorized ordinary browser", err)
+	}
+	need(t, f.b.Services.Grants.Revoke(t.Context(), f.owner, policy.RevokeRequest{GrantID: grant.ID, Mutation: core.Mutation{IdempotencyKey: "browser-revoke", ExpectedVersion: grant.Version}}))
+	call.Execution.OperationID = "revoked-browser"
+	call.Arguments = json.RawMessage(fmt.Sprintf(`{"action":"start","compute_id":%q,"full_access":true}`, f.compute.ID))
+	if _, err = executor.Execute(t.Context(), call); core.CodeOf(err) != core.Forbidden {
+		t.Fatal("revoked browser authorized", err)
+	}
+	if calls != 1 {
+		t.Fatal("unauthorized browser reached launcher", calls)
+	}
+}

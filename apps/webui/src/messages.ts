@@ -176,6 +176,9 @@ const zh = {
     permission_already_granted: '已有有效授权已覆盖本次申请，无需重复授权。',
 
     terminal_platform_unsupported: '当前沙盒不支持交互终端，请检查运行环境。',
+    browser_mode_conflict: '请先结束当前浏览器，再切换计算资源或执行模式。',
+    browser_native_sandbox_unavailable: 'Chromium 自身沙盒未通过检查，请检查系统运行环境。',
+    browser_requires_nonroot: 'Full Access 浏览器需要使用非 root 服务账户运行。',
     terminal_start_failed: '交互终端启动检查未通过，请检查 Windows 桌面会话与沙盒状态。',
     sandbox_file_scope_busy: '此目录正在被另一沙盒实例或重叠的目录授权使用，请结束相关任务后重试。',
     telegram_token_invalid: 'Bot Token 无效或已撤销，请从 @BotFather 获取有效 Token。',
@@ -373,6 +376,9 @@ const en: typeof zh = {
     permission_already_granted: 'An active grant already covers this request. No additional permission is needed.',
 
     terminal_platform_unsupported: 'This sandbox does not support interactive terminals. Check its execution environment.',
+    browser_mode_conflict: 'Close the current browser before changing compute resource or execution mode.',
+    browser_native_sandbox_unavailable: 'Chromium sandbox verification failed. Check the host environment.',
+    browser_requires_nonroot: 'Full Access browsers require a non-root service account.',
     terminal_start_failed: 'The interactive terminal startup check failed. Check the Windows desktop session and sandbox status.',
     sandbox_file_scope_busy: 'This directory is in use by another sandbox instance or an overlapping directory grant. End the related tasks and retry.',
     telegram_token_invalid: 'Bot Token is invalid or revoked. Get a valid token from @BotFather.',

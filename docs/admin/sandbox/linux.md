@@ -316,4 +316,4 @@ mkdir -p "$AGENT_BROWSER_SOCKET_DIR"
 
 浏览器复用现有本机宿主工具沙盒及计算、网络授权。每个助理最多一个活动浏览器任务，可打开多个标签页。Profile 保存在 `/work/.local/state/molr/browser/profile`，不同助理隔离。内部指令和画面端口仅通过 Runtime 受管执行能力访问，不创建公开转发。受管启动器不向 API 客户端开放程序路径、启动参数、CDP 或 daemon socket，不添加 `--no-sandbox`。
 
-在聊天的浏览器面板启动、查看或接管。正常关闭用于刷新持久数据；强制清理任务可能丢失尚未落盘的浏览器状态。撤权、时限和资源额度仍结束整个执行。不支持远程浏览器任务或 Full Access。使用说明见[浏览器](../../user/best-practices/browser.md)。
+在聊天的浏览器面板启动、查看或接管。正常关闭用于刷新持久数据；强制清理任务可能丢失尚未落盘的浏览器状态。撤权、时限和资源额度仍结束整个执行。不支持远程浏览器任务。Full Access 浏览器使用宿主真实路径和任务独立控制连接，保留 Chromium 自身沙盒，不依赖 Bubblewrap 或 cgroup 就绪；启动时可复用系统已加载且可用的 `chrome` AppArmor profile，不安装或修改系统策略；要求非 root 服务账户及可用的 Chromium 原生沙盒，启动失败不自动添加 `--no-sandbox`。使用说明见[浏览器](../../user/best-practices/browser.md)。

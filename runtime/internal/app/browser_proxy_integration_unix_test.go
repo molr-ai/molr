@@ -33,8 +33,14 @@ import (
 	"time"
 )
 
-func TestBrowserProxyRealSandbox(t *testing.T) {
-	if os.Getenv("MOLR_SANDBOX_INTEGRATION") != "1" || os.Getenv("MOLR_TEST_AGENT_BROWSER") == "" {
+func TestBrowserProxyRealSandbox(t *testing.T)    { testBrowserProxy(t, false) }
+func TestBrowserFullAccessRealProxy(t *testing.T) { testBrowserProxy(t, true) }
+func testBrowserProxy(t *testing.T, full bool) {
+	enabled := os.Getenv("MOLR_SANDBOX_INTEGRATION") == "1"
+	if full {
+		enabled = os.Getenv("MOLR_FULL_ACCESS_BROWSER_INTEGRATION") == "1"
+	}
+	if !enabled || os.Getenv("MOLR_TEST_AGENT_BROWSER") == "" {
 		t.Skip("requires sandbox and pinned browser assets")
 	}
 	exe, err := os.Executable()
@@ -137,7 +143,10 @@ func TestBrowserProxyRealSandbox(t *testing.T) {
 		}
 	}()
 	cfg := testConfig(t)
-	cfg.Sandbox.HostTools = runtime.GOOS == "linux"
+	if full {
+		directConfig(&cfg)
+	}
+	cfg.Sandbox.HostTools = runtime.GOOS == "linux" && !full
 	cfg.Sandbox.CgroupRoot = os.Getenv("MOLR_SANDBOX_CGROUP")
 	cfg.Browser.AgentDirectory = os.Getenv("MOLR_TEST_AGENT_BROWSER")
 	cfg.Browser.ChromiumDirectory = os.Getenv("MOLR_TEST_CHROMIUM")
@@ -154,6 +163,9 @@ func TestBrowserProxyRealSandbox(t *testing.T) {
 		networkTarget, host = "preset:network", "127.0.0.1"
 		computeLimits = &policy.ComputeConstraints{MaxDurationSeconds: 300}
 	}
+	if full {
+		host = "127.0.0.1"
+	}
 	b, err := Build(t.Context(), cfg)
 	need(t, err)
 	defer b.Close()
@@ -165,11 +177,17 @@ func TestBrowserProxyRealSandbox(t *testing.T) {
 		}
 		return tx.Put(ctx, "agent.jobs", persistence.Key(owner.OwnerID, "proxy-job"), scheduler.Job{State: scheduler.Running, ExecutionID: e.Principal.ExecutionID, Event: event.AssistantEvent{ID: "proxy-job", OwnerID: owner.OwnerID, AssistantID: e.AssistantID}})
 	}))
-	need(t, b.sandbox.runner.Prepare(t.Context()))
+	if !full {
+		need(t, b.sandbox.runner.Prepare(t.Context()))
+	}
 	computeResource, err := b.Services.Resources.Connect(t.Context(), owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "proxy-compute-resource"}, Kind: resource.Compute, Provider: "local-sandbox", Name: "Proxy compute"})
 	need(t, err)
 	compute := computeResource.ID
-	_, err = b.Services.Grants.Grant(t.Context(), owner, policy.GrantRequest{Mutation: core.Mutation{IdempotencyKey: "proxy-compute"}, AssistantID: e.AssistantID, ResourceID: compute, Actions: []policy.Action{policy.Execute}, Constraints: &policy.Constraints{Compute: computeLimits}})
+	var constraints *policy.Constraints
+	if !full {
+		constraints = &policy.Constraints{Compute: computeLimits}
+	}
+	_, err = b.Services.Grants.Grant(t.Context(), owner, policy.GrantRequest{Scope: policy.Scope{FullAccess: full}, Mutation: core.Mutation{IdempotencyKey: "proxy-compute"}, AssistantID: e.AssistantID, ResourceID: compute, Actions: []policy.Action{policy.Execute}, Constraints: constraints})
 	need(t, err)
 	network, err := b.Services.Resources.Connect(t.Context(), owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "proxy-network"}, Kind: resource.Network, Provider: "sandbox-network", Name: "Proxy fixture", Binding: resource.Binding{SandboxTarget: networkTarget}})
 	need(t, err)
@@ -195,7 +213,7 @@ func TestBrowserProxyRealSandbox(t *testing.T) {
 	}
 	start := func(offline bool) *runningShell {
 		e.OperationID = core.ID("proxy-task-" + strconv.FormatInt(time.Now().UnixNano(), 10))
-		q := tools.BrowserRequest{Action: browser.Action{Action: "start"}, ComputeID: compute}
+		q := tools.BrowserRequest{Action: browser.Action{Action: "start"}, ComputeID: compute, FullAccess: full}
 		if offline {
 			q.NetworkMode = "none"
 		}
@@ -262,6 +280,9 @@ func TestBrowserProxyRealSandbox(t *testing.T) {
 		t.Fatal("SOCKS unused")
 	}
 	stop(r)
+	if full {
+		return
+	}
 	// Undeclared endpoint and explicit offline mode cannot acquire network access.
 	save("http://"+host+":1", nil, false)
 	r = start(false)

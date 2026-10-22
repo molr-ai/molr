@@ -29,6 +29,9 @@ type helperConfig struct {
 // never installs a sandbox or grants authority; only Runner constructs one.
 func HelperMain(args []string) int {
 	runtime.GOMAXPROCS(2)
+	if len(args) == 1 && args[0] == "browser-child" {
+		return browserChildMain()
+	}
 	if len(args) == 2 && args[0] == "forward-dial" {
 		return forwardDialHelper(args[1])
 	}

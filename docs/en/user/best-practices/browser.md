@@ -5,9 +5,11 @@ Assistants can open websites, read pages, fill forms, click controls and capture
 > [!INFO]
 > Websites may block browser actions performed by an assistant through anti-scraping or anti-bot measures. For services that offer an official command-line interface (CLI), prefer the official CLI or other supported integrations.
 
+When starting a browser or terminal, a single available compute resource is selected automatically and the resource selector is hidden. Multiple resources show a selector. An ordinary grant selects sandbox mode; a Full Access-only grant selects Full Access and displays its mode badge. When both are available, sandbox mode is the default and a mode selector is shown. Full Access uses the service account permissions without Molr file/network isolation or resource quotas; Chromium retains its own sandbox. Selections apply to new sessions. Close the current browser before changing resource or mode; website login state is preserved. An invalidated selection must be selected again, and revoking a running task's authorization ends that task.
+
 ## Start and watch
 
-Grant the assistant local compute and the required network access. On first use, an administrator can choose **Install and start** in the browser panel to download and verify the compatible programs. Installation continues after the panel closes; grants are checked again before starting the browser. Supported platforms are Linux amd64 and macOS (Apple Silicon/Intel). Administrators can also configure [browser components](../../admin/administration/components.md) in advance. See [macOS browser tasks](../../admin/sandbox/macos.md#managed-browser-tasks) for permission and isolation boundaries. For example:
+For sandbox mode, grant the assistant local compute and the required network access. For Full Access mode, grant Full Access on the local compute resource. On first use, an administrator can choose **Install and start** in the browser panel to download and verify the compatible programs. Installation continues after the panel closes; grants are checked again before starting the browser. Supported platforms are Linux amd64 and macOS (Apple Silicon/Intel). Administrators can also configure [browser components](../../admin/administration/components.md) in advance. See [macOS browser tasks](../../admin/sandbox/macos.md#managed-browser-tasks) for permission and isolation boundaries. For example:
 
 > [!PROMPT]
 > Open this website, compare the specifications of two products, and summarize the result. Wait for me to take control if login is needed.
@@ -43,7 +45,7 @@ Takeover input is sent in ordered batches. Consecutive pointer moves keep the la
 
 ## Scope and failures
 
-The current implementation supports Chromium in the local Linux sandbox. Programs use a shared read-only installation; website data persists per assistant. Live viewing does not automatically record video, and human keystrokes are not written to the operation log. Screenshots are saved only when explicitly requested.
+The current implementation supports managed Chromium on local Linux and macOS, in sandbox or Full Access mode. Programs use a shared read-only installation; website data persists per assistant. Live viewing does not automatically record video, and human keystrokes are not written to the operation log. Screenshots are saved only when explicitly requested.
 
 Missing components show an installation action and storage requirements. Missing system libraries or an unavailable maintenance runner show administrator guidance. The browser panel and Admin Settings → Components show progress and allow retrying failed installation. Runtime restart does not replay pending browser starts. Missing libraries, insufficient resources and expired grants appear as unavailable or ended tasks. Normal closure lets Chromium save its data before reclaiming the execution. Forced termination, crashes and revocation may lose changes that have not reached disk. Runtime restart marks tasks interrupted and never replays their operations.
 

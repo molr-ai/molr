@@ -26,20 +26,21 @@ type GPUDevice struct {
 	Reason             string
 }
 type Capabilities struct {
-	Terminal         bool
-	TerminalReason   string `json:",omitempty"`
-	FullAccess       bool
-	OS               string
-	ProcessIsolation bool
-	FileIsolation    bool
-	NetworkIsolation bool
-	Shell            bool
-	ShellType        string
-	ResourceLimits   bool
-	NetworkBackend   string
-	NetworkProtocols []string
-	DiskProtection   string
-	Reason           string
+	FullAccessTerminal bool
+	Terminal           bool
+	TerminalReason     string `json:",omitempty"`
+	FullAccess         bool
+	OS                 string
+	ProcessIsolation   bool
+	FileIsolation      bool
+	NetworkIsolation   bool
+	Shell              bool
+	ShellType          string
+	ResourceLimits     bool
+	NetworkBackend     string
+	NetworkProtocols   []string
+	DiskProtection     string
+	Reason             string
 }
 
 // Mount and NetworkTarget are trusted, deployment-resolved bindings. They must

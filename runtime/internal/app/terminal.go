@@ -59,9 +59,10 @@ func (s *shellTasks) startTerminal(ctx context.Context, p core.Principal, id cor
 		return nil, err
 	}
 	var q struct {
-		RequestID core.ID `json:"request_id"`
-		ClientID  string  `json:"client_id"`
-		ComputeID core.ID `json:"compute_id"`
+		RequestID  core.ID `json:"request_id"`
+		ClientID   string  `json:"client_id"`
+		ComputeID  core.ID `json:"compute_id"`
+		FullAccess bool    `json:"full_access"`
 	}
 	d := json.NewDecoder(bytes.NewReader(raw))
 	d.DisallowUnknownFields()
@@ -81,6 +82,9 @@ func (s *shellTasks) startTerminal(ctx context.Context, p core.Principal, id cor
 		if previous.AssistantID != id || previous.CreatedBy != "user" || previous.Terminal == nil {
 			return nil, denied()
 		}
+		if previous.ComputeID != q.ComputeID || previous.FullAccess != q.FullAccess {
+			return nil, core.NewError(core.Conflict, "terminal request already used with a different resource or execution mode")
+		}
 		return json.Marshal(map[string]any{"Task": previous})
 	} else if !persistence.Missing(err) {
 		return nil, err
@@ -96,7 +100,7 @@ func (s *shellTasks) startTerminal(ctx context.Context, p core.Principal, id cor
 	if runtime.GOOS == "windows" {
 		script = terminalScript("powershell")
 	}
-	return s.execute(context.WithValue(ctx, managedShellKey{}, cap), e, tools.ShellRequest{ComputeID: q.ComputeID, TTY: true, Script: script, NetworkMode: "auto"})
+	return s.execute(context.WithValue(ctx, managedShellKey{}, cap), e, tools.ShellRequest{FullAccess: q.FullAccess, ComputeID: q.ComputeID, TTY: true, Script: script, NetworkMode: "auto"})
 }
 func (s *shellTasks) terminalAudit(ctx context.Context, p core.Principal, task core.ID, action string) error {
 	return s.router.shell.audit.Record(ctx, audit.Record{ID: randomOperation(), OwnerID: p.OwnerID, SubjectID: p.SubjectID, ActorKind: p.Kind, Action: action, Target: core.Object{Kind: "operation", ID: task}, Outcome: audit.Succeeded, At: time.Now().UTC()})

@@ -386,3 +386,5 @@
 | `internal/mcpclient` | `Service.CancelOperation`, `Service.RevalidateRunning` | `TestRunningCallCancellationAndRevalidation` |
 
 | `internal/im/conversation` | `LoadMessage`, `AttachmentConversations` | `internal/objectaccess.TestOwnershipUsesDomainRecordsAndAttachmentReferences` |
+
+| `internal/agent/tools` | `Executor.Execute` | `internal/app.TestFullAccessBrowserToolUsesItsSeparateGrant` |

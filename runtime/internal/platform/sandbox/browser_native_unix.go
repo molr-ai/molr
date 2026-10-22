@@ -1,3 +1,5 @@
+//go:build (linux && (amd64 || arm64)) || darwin
+
 package sandbox
 
 import (
@@ -97,27 +99,6 @@ func startBrowserChild(ctx context.Context, helper string, cfg browserChildConfi
 }
 func (c *browserChild) stop() { c.pipe.Close(); <-c.done }
 
-// Never trust a successfully connected port alone: another Runtime or local
-// program might have won the bind race. Both listeners must belong to our child.
-func browserOwnsPort(ctx context.Context, pid, port int) bool {
-	cmd := exec.CommandContext(ctx, "/usr/sbin/lsof", "-nP", "-iTCP:"+strconv.Itoa(port), "-sTCP:LISTEN", "-Fp")
-	cmd.Env = []string{"PATH=/usr/bin:/bin:/usr/sbin:/sbin"}
-	out, err := cmd.Output()
-	if err != nil {
-		return false
-	}
-	found := false
-	for _, line := range strings.Split(string(out), "\n") {
-		if strings.HasPrefix(line, "p") {
-			if line != "p"+strconv.Itoa(pid) {
-				return false
-			}
-			found = true
-		}
-	}
-	return found
-}
-
 func browserEndpoint(ctx context.Context, port int) (string, error) {
 	tr := &http.Transport{Proxy: nil}
 	defer tr.CloseIdleConnections()
@@ -174,6 +155,16 @@ func closeBrowser(endpoint string, chrome *browserChild) {
 }
 
 func (r *Runner) startBrowser(parent context.Context, e core.Execution, c platform.Command) (_ *process, err error) {
+	if c.FullAccess && os.Geteuid() == 0 {
+		return nil, unavailable("browser_requires_nonroot")
+	}
+	helper := r.options.Helper
+	if helper == "" {
+		helper, err = os.Executable()
+		if err != nil {
+			return nil, err
+		}
+	}
 	if r.options.NoWorkspace {
 		return nil, core.Invalid("browser", "local assistant workspace required")
 	}
@@ -214,7 +205,7 @@ func (r *Runner) startBrowser(parent context.Context, e core.Execution, c platfo
 	// A short alias avoids Darwin's 104-byte Unix socket path limit for installs
 	// in Application Support. The actual socket remains inside Runtime private data;
 	// Seatbelt evaluates the resolved target, never grants /private/tmp as a scope.
-	alias, err := os.MkdirTemp("/private/tmp", "molr-ipc-")
+	alias, err := os.MkdirTemp("/tmp", "molr-ipc-")
 	if err != nil {
 		os.RemoveAll(temp)
 		return nil, err
@@ -229,22 +220,13 @@ func (r *Runner) startBrowser(parent context.Context, e core.Execution, c platfo
 	if err = os.Mkdir(ipc, 0700); err != nil {
 		return nil, err
 	}
+	tempAlias := filepath.Join(alias, "t")
+	if err = os.Symlink(temp, tempAlias); err != nil {
+		return nil, err
+	}
 	socketDir := filepath.Join(alias, "s")
 	if err = os.Symlink(ipc, socketDir); err != nil {
 		return nil, err
-	}
-	read, err := r.nativeTools()
-	if err != nil {
-		return nil, err
-	}
-	write := []string{work, temp}
-	global := platform.UserGlobal(r.options.PrivateRoot, e.Principal.OwnerID)
-	if _, statErr := os.Stat(global); statErr == nil {
-		real, resolveErr := filepath.EvalSymlinks(global)
-		if resolveErr != nil {
-			return nil, resolveErr
-		}
-		read = append(read, real)
 	}
 	var agent, chromium string
 	for _, mount := range c.Mounts {
@@ -266,18 +248,14 @@ func (r *Runner) startBrowser(parent context.Context, e core.Execution, c platfo
 				chromium = browser.ChromiumExecutable(real)
 			}
 		} else {
-			real, err = r.nativeExternal(mount.Source)
+			continue
 		}
 		if err != nil {
 			return nil, err
 		}
-		if mount.ReadOnly {
-			read = append(read, real)
-		} else {
-			write = append(write, real)
-		}
+
 	}
-	for _, executable := range []string{agent, chromium, r.options.Helper} {
+	for _, executable := range []string{agent, chromium, helper} {
 		info, statErr := os.Lstat(executable)
 		if statErr != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0111 == 0 || info.Mode().Perm()&0022 != 0 {
 			return nil, unavailable("browser_programs_unavailable")
@@ -292,7 +270,7 @@ func (r *Runner) startBrowser(parent context.Context, e core.Execution, c platfo
 			release()
 		}
 	}()
-	profile, err := seatbeltBrowserProfile(read, write, temp, c.NetworkAccess, []int{port, port + 1})
+	profile, err := r.browserProfile(e, c, work, temp, port)
 	if err != nil {
 		return nil, err
 	}
@@ -303,9 +281,12 @@ func (r *Runner) startBrowser(parent context.Context, e core.Execution, c platfo
 	if err = os.MkdirAll(filepath.Join(work, "outputs"), 0700); err != nil {
 		return nil, err
 	}
-	env := []string{"PATH=/usr/bin:/bin:/usr/sbin:/sbin", "HOME=" + work, "CFFIXED_USER_HOME=" + work, "TMPDIR=" + temp, "MAC_CHROMIUM_TMPDIR=" + temp, "LANG=en_US.UTF-8"}
+	env := []string{"PATH=/usr/bin:/bin:/usr/sbin:/sbin", "HOME=" + work, "CFFIXED_USER_HOME=" + work, "TMPDIR=" + tempAlias, "MAC_CHROMIUM_TMPDIR=" + tempAlias, "LANG=en_US.UTF-8"}
 	agentEnv := append(slices.Clone(env), "AGENT_BROWSER_DAEMON=1", "AGENT_BROWSER_SESSION=default", "AGENT_BROWSER_SOCKET_DIR="+socketDir, "AGENT_BROWSER_STREAM_PORT="+strconv.Itoa(port), "AGENT_BROWSER_STREAM_QUALITY=60", "AGENT_BROWSER_STREAM_MAX_WIDTH=1280", fmt.Sprintf("AGENT_BROWSER_STREAM_MAX_HEIGHT=%d", browser.MaxViewportHeight), "TOKIO_WORKER_THREADS=2", "RAYON_NUM_THREADS=2")
-	flags := []string{"--headless=new", "--no-sandbox", "--no-first-run", "--no-default-browser-check", "--disable-background-networking", "--disable-component-update", "--disable-default-apps", "--disable-sync", "--metrics-recording-only", "--password-store=basic", "--use-mock-keychain", "--window-size=1280,800", "--hide-scrollbars", "--user-data-dir=" + profileDir, "--remote-debugging-port=" + strconv.Itoa(port+1)}
+	flags := []string{"--headless=new", "--no-first-run", "--no-default-browser-check", "--disable-background-networking", "--disable-component-update", "--disable-default-apps", "--disable-sync", "--metrics-recording-only", "--password-store=basic", "--use-mock-keychain", "--window-size=1280,800", "--hide-scrollbars", "--user-data-dir=" + profileDir, "--remote-debugging-port=" + strconv.Itoa(port+1)}
+	if !c.FullAccess {
+		flags = append(flags, "--no-sandbox")
+	}
 	proxy := *c.BrowserProxy
 	if proxy.Mode == "direct" {
 		flags = append(flags, "--no-proxy-server")
@@ -347,7 +328,7 @@ func (r *Runner) startBrowser(parent context.Context, e core.Execution, c platfo
 	// the private daemon socket, never arguments, environment or task logs.
 	startup, stopStartup := context.WithTimeout(ctx, 30*time.Second)
 	defer stopStartup()
-	daemon, err := startBrowserChild(startup, r.options.Helper, browserChildConfig{Program: agent, Env: agentEnv, Profile: profile, Work: work}, output)
+	daemon, err := startBrowserChild(startup, helper, browserChildConfig{Program: agent, Env: agentEnv, Profile: profile, FullAccess: c.FullAccess, Work: work}, output)
 	if err != nil {
 		return nil, err
 	}
@@ -361,7 +342,7 @@ func (r *Runner) startBrowser(parent context.Context, e core.Execution, c platfo
 			daemon.stop()
 		}
 	}()
-	chrome, err = startBrowserChild(startup, r.options.Helper, browserChildConfig{Program: chromium, Args: flags, Env: env, Profile: profile, Work: work}, output)
+	chrome, err = startBrowserChild(startup, helper, browserChildConfig{Program: chromium, AppArmorChrome: c.FullAccess && browserAppArmorAvailable(startup), Args: flags, Env: env, Profile: profile, FullAccess: c.FullAccess, Work: work}, output)
 	if err != nil {
 		return nil, err
 	}
@@ -377,6 +358,9 @@ func (r *Runner) startBrowser(parent context.Context, e core.Execution, c platfo
 	}()
 	endpoint, err = browserEndpoint(startup, port+1)
 	if err != nil {
+		if ctx.Err() == nil {
+			return nil, unavailable("browser_start_failed")
+		}
 		return nil, fmt.Errorf("browser readiness: %w", err)
 	}
 	socket := filepath.Join(socketDir, "default.sock")
@@ -409,7 +393,14 @@ func (r *Runner) startBrowser(parent context.Context, e core.Execution, c platfo
 	if err != nil || !result.OK {
 		return nil, errors.New("browser viewport failed")
 	}
-	sandboxData, _ := json.Marshal(map[string]any{"backend": "seatbelt", "isolation": "outer-only", "chromium_sandbox": false})
+	sandboxInfo := map[string]any{"backend": "seatbelt", "isolation": "outer-only", "chromium_sandbox": false}
+	if c.FullAccess {
+		if err = verifyBrowserSandbox(startup, endpoint); err != nil {
+			return nil, err
+		}
+		sandboxInfo = map[string]any{"backend": "full-access", "isolation": "chromium", "chromium_sandbox": true}
+	}
+	sandboxData, _ := json.Marshal(sandboxInfo)
 	dispatch := func(call context.Context, command map[string]any) browser.Result {
 		if err := r.options.Authorize(ctx, e, c); err != nil {
 			cancel()

@@ -88,14 +88,13 @@ func (s *shellTasks) activeBrowser(p core.Principal, id, task core.ID) *runningS
 }
 func (s *shellTasks) browserStatus(ctx context.Context, p core.Principal, id core.ID) (json.RawMessage, error) {
 	_, err := s.browserPrograms()
-	if err == nil && (s.router == nil || s.router.shell == nil || (!s.router.shell.config.UsesHostTools() && runtime.GOOS != "darwin")) {
-		err = core.NewError(core.FailedPrecondition, "browser requires the local host-tools sandbox")
-	}
+	sandboxAvailable := s.router != nil && s.router.shell != nil && (s.router.shell.config.UsesHostTools() || runtime.GOOS == "darwin")
+	fullAvailable := (runtime.GOOS == "linux" || runtime.GOOS == "darwin") && os.Geteuid() != 0
 	proxy, loadErr := s.loadBrowserProxy(ctx)
 	if loadErr != nil {
 		return nil, loadErr
 	}
-	result := map[string]any{"Proxy": proxy.ProxySummary, "ProxyAppliesTo": "next_start", "RestartRequired": false, "Available": err == nil, "ComponentsEnabled": s.maintenance != nil && s.maintenance.Enabled()}
+	result := map[string]any{"Proxy": proxy.ProxySummary, "ProxyAppliesTo": "next_start", "RestartRequired": false, "Available": err == nil, "SandboxAvailable": sandboxAvailable, "FullAccessAvailable": fullAvailable, "ComponentsEnabled": s.maintenance != nil && s.maintenance.Enabled()}
 	s.mu.Lock()
 	if pending := s.preparing[string(p.OwnerID)+"/"+string(id)]; pending != nil {
 		copy := *pending
@@ -176,6 +175,8 @@ func (s *shellTasks) browserTool(ctx context.Context, e core.Execution, name str
 				summary, _ := json.Marshal(proxy)
 				return nil, &core.Error{Code: core.CodeOf(err), Reason: "browser_start_failed", Message: "Browser startup did not complete. Inspect browser_session status and task output. Launch proxy settings: " + string(summary)}
 			}
+		} else {
+			return nil, core.WithReason(core.NewError(core.FailedPrecondition, "browser startup failed; inspect task output"), "browser_start_failed")
 		}
 		return raw, nil
 	}
@@ -213,6 +214,19 @@ func (s *shellTasks) browserManage(ctx context.Context, p core.Principal, id cor
 }
 func (s *shellTasks) startBrowser(ctx context.Context, e core.Execution, q tools.BrowserRequest) (json.RawMessage, error) {
 	if r := s.activeBrowser(e.Principal, e.AssistantID, ""); r != nil {
+		s.mu.Lock()
+		matches := r.task.ComputeID == q.ComputeID && r.task.FullAccess == q.FullAccess
+		s.mu.Unlock()
+		if !matches {
+			return nil, core.WithReason(core.NewError(core.Conflict, "close the current browser before changing compute resource or execution mode"), "browser_mode_conflict")
+		}
+		lease, ok := s.router.shell.leases.Load(shellKey(r.scope.e))
+		if !ok {
+			return nil, denied()
+		}
+		if err := s.router.shell.authorize(context.WithValue(ctx, managedShellKey{}, r.scope), r.scope.e, lease.(shellLease).plan); err != nil {
+			return nil, err
+		}
 		return s.browserStatus(ctx, e.Principal, e.AssistantID)
 	}
 	if q.ComputeID.Validate() != nil {
@@ -229,14 +243,14 @@ func (s *shellTasks) startBrowser(ctx context.Context, e core.Execution, q tools
 		}
 		return nil, err
 	}
-	if s.router.shell == nil || (!s.router.shell.config.UsesHostTools() && runtime.GOOS != "darwin") {
+	if s.router.shell == nil || (!q.FullAccess && !s.router.shell.config.UsesHostTools() && runtime.GOOS != "darwin") || (runtime.GOOS != "linux" && runtime.GOOS != "darwin") {
 		return nil, core.NewError(core.FailedPrecondition, "browser requires the local host-tools sandbox")
 	}
 	programs.Proxy, err = s.loadBrowserProxy(ctx)
 	if err != nil {
 		return nil, err
 	}
-	req := tools.ShellRequest{Browser: programs, ComputeID: q.ComputeID, Script: "exec /molr/helper sandbox-helper browser", Background: true, NetworkMode: q.NetworkMode, NetworkIDs: q.NetworkIDs, ForwardPorts: []int{browser.CommandPort, browser.StreamPort}}
+	req := tools.ShellRequest{FullAccess: q.FullAccess, Browser: programs, ComputeID: q.ComputeID, Script: "exec /molr/helper sandbox-helper browser", Background: true, NetworkMode: q.NetworkMode, NetworkIDs: q.NetworkIDs, ForwardPorts: []int{browser.CommandPort, browser.StreamPort}}
 	if _, err = s.execute(ctx, e, req); err != nil {
 		return nil, err
 	}

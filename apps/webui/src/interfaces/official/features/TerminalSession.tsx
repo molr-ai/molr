@@ -159,7 +159,7 @@ export function TerminalSession({ assistantID, task, refresh }: { assistantID: s
   }
   return <section className="terminal-session" aria-label={zh ? '交互式终端' : 'Interactive terminal'}>
     <div className="terminal-controlbar">
-      <div className="terminal-control-state"><Badge tone={running && owns ? 'positive' : 'neutral'}>{controlLabel}</Badge>{task.FullAccess && <Badge tone="warning">Full Access</Badge>}</div>
+      <div className="terminal-control-state"><Badge tone={running && owns ? 'positive' : 'neutral'}>{controlLabel}</Badge><Badge tone={task.FullAccess ? 'warning' : 'neutral'}>{task.FullAccess ? 'Full Access' : zh ? '沙盒' : 'Sandbox'}</Badge></div>
       {running && <Button size="sm" variant={owns ? 'secondary' : 'primary'} disabled={busy} onClick={() => void command(owns ? 'release' : 'takeover')}>{owns ? (zh ? '交还助理' : 'Return to assistant') : (zh ? '接管' : 'Take control')}</Button>}
     </div>
     {error && <Alert tone="warning" title={zh ? '终端提示' : 'Terminal notice'}>{error}{owns && <Button size="sm" onClick={() => { blocked.current = false; setError(''); terminal.current?.focus(); }}>{zh ? '继续输入' : 'Resume input'}</Button>}</Alert>}

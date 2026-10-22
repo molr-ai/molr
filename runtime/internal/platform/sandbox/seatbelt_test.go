@@ -2,7 +2,9 @@ package sandbox
 
 import (
 	"fmt"
+	"molr.ai/runtime/internal/browser"
 	"molr.ai/runtime/internal/platform"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -65,6 +67,30 @@ func TestSeatbeltBrowserControlPorts(t *testing.T) {
 		}
 		if strings.Contains(browser, `(allow default)`) || strings.Contains(browser, `(subpath "/private/tmp")`) {
 			t.Fatal("broad browser policy")
+		}
+	}
+}
+
+func TestFullAccessBrowserPlanRequiresTrustedAssets(t *testing.T) {
+	r := New(Options{AllowFullAccess: true})
+	base := platform.Command{FullAccess: true, Managed: true, BrowserAssets: true, BrowserProxy: &browser.Proxy{ProxySummary: browser.ProxySummary{Mode: "direct"}}, Script: "exec /molr/helper sandbox-helper browser", Directory: "/work", MaxOutputBytes: 4096, ForwardPorts: []int{browser.CommandPort, browser.StreamPort}, Mounts: []platform.Mount{{Source: "/programs/agent", Destination: "/resources/browser-agent", ReadOnly: true}, {Source: "/programs/chrome", Destination: "/resources/browser-chromium", ReadOnly: true}}}
+	if runtime.GOOS != "linux" && runtime.GOOS != "darwin" {
+		if r.validateMode(base) == nil {
+			t.Fatal("unsupported browser accepted")
+		}
+		return
+	}
+	if err := r.validateMode(base); err != nil {
+		t.Fatal(err)
+	}
+	for _, change := range []func(*platform.Command){
+		func(c *platform.Command) { c.BrowserAssets = false }, func(c *platform.Command) { c.BrowserProxy = nil }, func(c *platform.Command) { c.Managed = false }, func(c *platform.Command) { c.TTY = true }, func(c *platform.Command) { c.Script = "exec arbitrary" }, func(c *platform.Command) { c.Mounts = nil }, func(c *platform.Command) { c.Mounts[0].ReadOnly = false }, func(c *platform.Command) { c.Mounts[1].Destination = c.Mounts[0].Destination }, func(c *platform.Command) { c.ForwardPorts = []int{1234} },
+	} {
+		c := base
+		c.Mounts = append([]platform.Mount(nil), base.Mounts...)
+		change(&c)
+		if r.validateMode(c) == nil {
+			t.Fatalf("unsafe browser plan accepted: %+v", c)
 		}
 	}
 }

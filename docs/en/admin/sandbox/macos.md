@@ -79,3 +79,5 @@ MOLR_SANDBOX_INTEGRATION=1 MOLR_TEST_AGENT_BROWSER=/absolute/agent-directory \
 MOLR_TEST_CHROMIUM=/absolute/chromium-directory \
 CGO_ENABLED=0 go test ./internal/app -run 'TestBrowserRealTask|TestBrowserProxyReal' -v
 ```
+
+Full Access managed browsers omit the outer Seatbelt profile and remove `--no-sandbox`. Runtime obtains renderer identities through the private CDP connection and checks their Seatbelt status with system `sandbox_check`; failed verification aborts startup without an unsandboxed fallback. The check uses the system JXA C bridge, preserving `CGO_ENABLED=0` Runtime builds. Streaming, takeover, dedicated profiles, proxy configuration and revocation cleanup remain managed.

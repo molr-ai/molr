@@ -214,14 +214,3 @@ func (r *Runner) start(ctx context.Context, e core.Execution, c platform.Command
 		return cleanup, nil
 	})
 }
-
-const seatbeltCloseDescriptors = `seen=0
-for entry in /dev/fd/*; do
- fd=${entry##*/}
- case "$fd" in ''|*[!0-9]*) continue;; esac
- seen=1
- case "$fd" in 0|1|2) continue;; esac
- eval "exec $fd>&-" || exit 125
-done
-[ "$seen" = 1 ] || exit 125
-exec "$@"`

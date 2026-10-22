@@ -35,6 +35,7 @@ type shellTask struct {
 	Kind                     string
 	Browser                  *browserState `json:",omitempty"`
 	GPUDeviceIDs             []string      `json:",omitempty"`
+	ComputeID                core.ID
 	FullAccess               bool
 	Forwards                 []shellForward `json:",omitempty"`
 	ID, OwnerID, AssistantID core.ID
@@ -186,7 +187,11 @@ func (s *shellTasks) execute(ctx context.Context, e core.Execution, req tools.Sh
 	count := 0
 	for _, r := range s.active {
 		if req.Browser != nil && r.task.Kind == "browser" && r.task.OwnerID == e.Principal.OwnerID && r.task.AssistantID == e.AssistantID && r.task.State == "running" {
+			matches := r.task.ComputeID == req.ComputeID && r.task.FullAccess == req.FullAccess
 			s.mu.Unlock()
+			if !matches {
+				return nil, core.WithReason(core.NewError(core.Conflict, "close the current browser before changing compute resource or execution mode"), "browser_mode_conflict")
+			}
 			return s.receipt(r)
 		}
 		if r.task.OwnerID == e.Principal.OwnerID && r.task.AssistantID == e.AssistantID && !r.task.FullAccess {
@@ -219,7 +224,7 @@ func (s *shellTasks) execute(ctx context.Context, e core.Execution, req tools.Sh
 	cap := &managedShell{e: e}
 	cap.alive.Store(true)
 	run, cancel := context.WithCancel(context.WithValue(context.WithoutCancel(ctx), managedShellKey{}, cap))
-	r := &runningShell{task: shellTask{FullAccess: req.FullAccess, SandboxID: sandboxID, ID: e.OperationID, OwnerID: e.Principal.OwnerID, AssistantID: e.AssistantID, Mode: mode, State: "running", Script: req.Script, StartedAt: time.Now().UTC()}, cancel: cancel, done: make(chan struct{}), ready: make(chan struct{}), scope: cap}
+	r := &runningShell{task: shellTask{ComputeID: req.ComputeID, FullAccess: req.FullAccess, SandboxID: sandboxID, ID: e.OperationID, OwnerID: e.Principal.OwnerID, AssistantID: e.AssistantID, Mode: mode, State: "running", Script: req.Script, StartedAt: time.Now().UTC()}, cancel: cancel, done: make(chan struct{}), ready: make(chan struct{}), scope: cap}
 	r.browserCtx = run
 	r.task.Kind = "shell"
 	if req.TTY {

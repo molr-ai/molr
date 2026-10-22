@@ -1,3 +1,5 @@
+//go:build darwin || linux
+
 package browser
 
 import (
@@ -12,7 +14,7 @@ import (
 )
 
 func TestDaemonPeerIdentityBeforeSendingCommand(t *testing.T) {
-	root, err := os.MkdirTemp("/private/tmp", "molr-peer-")
+	root, err := os.MkdirTemp("/tmp", "molr-peer-")
 	if err != nil {
 		t.Fatal(err)
 	}

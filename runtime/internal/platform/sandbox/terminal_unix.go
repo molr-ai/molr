@@ -37,3 +37,13 @@ func (r *Runner) Terminal(ctx context.Context, e core.Execution, data string, ro
 	_, err := p.terminal.WriteString(data)
 	return err
 }
+
+func directTerminalAvailable() bool {
+	master, slave, err := openPTY()
+	if err != nil {
+		return false
+	}
+	master.Close()
+	slave.Close()
+	return true
+}

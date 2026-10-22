@@ -126,6 +126,7 @@ func (r *Runner) Capabilities(ctx context.Context) (platform.Capabilities, error
 		return c, ctx.Err()
 	}
 	c.FullAccess = r.options.AllowFullAccess && r.checkDirect() == nil
+	c.FullAccessTerminal = c.FullAccess && directTerminalAvailable()
 	if r.prepareErr != nil {
 		c.Reason = string(core.ReasonOf(r.prepareErr))
 		if c.Reason == "" {

@@ -311,7 +311,7 @@ func (e *executor) execute(ctx context.Context, call Call) (_ Result, runErr err
 		if call.Name == "shell_execute" || call.Name == "browser_session" {
 			action = policy.Execute
 		}
-		fullAccess := args.shell != nil && args.shell.FullAccess
+		fullAccess := args.shell != nil && args.shell.FullAccess || args.browser != nil && args.browser.FullAccess
 		if err = e.options.Authorizer.Require(ctx, call.Execution.Principal, policy.CheckRequest{Target: core.Object{Kind: "resource", ID: args.ResourceID}, ResourceID: args.ResourceID, Action: action, FullAccess: fullAccess, Destination: "/" + strings.TrimPrefix(args.Path, "/")}); err != nil {
 			return Result{}, err
 		}

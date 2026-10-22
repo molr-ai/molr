@@ -198,3 +198,19 @@ func TestBrowserStatusRetainsLatestFailureWithoutExposingOutput(t *testing.T) {
 		t.Fatal("restart interruption lost")
 	}
 }
+
+func TestBrowserStartRejectsDifferentResourceOrMode(t *testing.T) {
+	s, _, e, r := browserTaskFixture(t)
+	r.task.ComputeID = "compute"
+	for _, q := range []tools.BrowserRequest{
+		{ComputeID: "other"}, {ComputeID: "compute", FullAccess: true},
+	} {
+		_, err := s.startBrowser(t.Context(), e, q)
+		if core.ReasonOf(err) != "browser_mode_conflict" {
+			t.Fatalf("different selection reused browser: %v", err)
+		}
+	}
+	if r.task.FullAccess {
+		t.Fatal("existing browser mode changed")
+	}
+}

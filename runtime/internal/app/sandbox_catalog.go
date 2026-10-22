@@ -51,6 +51,7 @@ func (s *sandboxRouter) list(ctx context.Context, p core.Principal) (json.RawMes
 		}
 		if groupFullAccess(ctx, s.adapters.store, p.OwnerID, id) != nil {
 			v.Capabilities.FullAccess = false
+			v.Capabilities.FullAccessTerminal = false
 		}
 		ref, groupErr := groupReference(ctx, s.adapters.store, p.OwnerID, "sandbox", id)
 		if groupErr != nil {

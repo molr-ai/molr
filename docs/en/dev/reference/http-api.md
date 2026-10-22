@@ -467,6 +467,8 @@ Permission editing: `POST /api/grants/update` accepts `GrantID`, `Actions`, `Sco
 
 ### Full Access Permission Fields
 
+Browser `start/install_start` and manual terminal startup accept `full_access` (default false); the assistant `browser_session` tool uses the same field. Tasks return `ComputeID` and `FullAccess`. Browser status reports `SandboxAvailable` and `FullAccessAvailable` separately; resource grants and node capabilities still apply, while `Available` describes component readiness. Node `Capabilities.FullAccessTerminal` is independent of ordinary `Terminal`. Browser reuse requires matching compute resource and execution mode; otherwise `browser_mode_conflict` is returned. Post-install startup preserves the selected mode and rechecks authorization. Full Access rejects `network_mode:none`.
+
 The WebUI uses a display hierarchy of "Resource Type: Sandbox → Select Sandbox → Permission Type: Storage / Compute / Network / Full Access"; Full Access is not embedded in the compute quota form. The API still expresses independent authorizations using the node compute resource ID and `Scope.FullAccess`; the frontend resets unrelated paths, actions, and quotas when switching targets, and the server continues to validate the final request.
 
 - Sandbox configuration: `sandbox.allow_full_access` (default false), no node mode field. `GET /api/sandbox` and the Info in the sandbox list provide `Capabilities.FullAccess`; the remaining five capabilities still only describe standard isolation paths. The standard member list hides Full Access capabilities that cannot be granted when delegating by group.

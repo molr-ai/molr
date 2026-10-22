@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ChangeEvent, KeyboardEvent, PointerEvent, RefObject, WheelEvent } from 'react';
-import { Alert, Button, Drawer, IconButton, Select, useBreakpoint, useToast, useUILocale } from '@molr/ui';
+import { Alert, Badge, Button, Drawer, IconButton, useBreakpoint, useToast, useUILocale } from '@molr/ui';
 import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, CornerDownLeft, Globe, Hand, Keyboard, GripHorizontal, PanelRight, PictureInPicture2, Plus, Power, RefreshCw, X } from 'lucide-react';
 import { api, APIError, mutationKey } from '../../../api/client';
 import type { BrowserStatus, Grant, Resource } from '../../../api/types';
@@ -9,6 +9,8 @@ import { useErrorToast } from '../../../error-toasts';
 import { ComponentDetails, MaintenanceProgress, maintenanceReason, useMaintenanceFailureToast } from '../../../maintenance/Components';
 import type { ComponentStatus } from '@molr/sdk';
 import './browser.css';
+import type { SandboxInfo } from '../../../sandbox-types';
+import { ExecutionOptions, useExecutionOptions } from './ExecutionOptions';
 import { useBrowserView } from './useBrowserView';
 import type { BrowserBounds } from './useBrowserView';
 
@@ -33,7 +35,11 @@ export function Browser({ assistantID, docked, floating, onFloatingChange, bound
   const resources = useQuery<Resource[]>('/api/resources?kind=compute', true);
   const grants = useQuery<Grant[]>(`/api/grants?assistant_id=${assistantID}`, true);
   const client = windowClient(assistantID);
-  const [compute, setCompute] = useState(''), [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const sandbox = useQuery<SandboxInfo>('/api/sandbox');
+  useErrorToast(sandbox.error, sandbox.reload);
+  useErrorToast(resources.error, resources.reload);
+  useErrorToast(grants.error, grants.reload);
   const { toast, dismiss } = useToast();
   const noticeID = useRef<number | null>(null);
   useErrorToast(query.error, query.reload);
@@ -54,8 +60,9 @@ export function Browser({ assistantID, docked, floating, onFloatingChange, bound
   const closed = useRef(false), epoch = useRef(0), pumping = useRef(false), composing = useRef(false), seenURL = useRef('');
   const inputs = useRef(new BrowserInputBuffer());
   const nextInputAt = useRef(0);
-  const usable = (resources.data ?? []).filter(r => (r.SandboxID ?? 'local') === 'local' && (grants.data ?? []).some(g => g.ResourceID === r.ID && !g.Scope.FullAccess && !g.RevokedAt && (!g.ExpiresAt || Date.parse(g.ExpiresAt) > Date.now()) && g.Actions.includes('execute')));
-  useEffect(() => { if (!compute && usable[0]) setCompute(usable[0].ID); }, [compute, usable]);
+  const execution = useExecutionOptions(resources.data, grants.data,
+    !!(sandbox.data?.Enabled && sandbox.data.Capabilities.Shell && query.data?.SandboxAvailable),
+    !!(sandbox.data?.Enabled && sandbox.data.Capabilities.FullAccess && query.data?.FullAccessAvailable));
   useEffect(() => { closed.current = false; return () => { closed.current = true; epoch.current++; inputs.current.clear(); }; }, []);
   useEffect(() => { epoch.current++; inputs.current.clear(); composing.current = false; if (directInput.current) directInput.current.value = ''; if (auxiliaryInput.current) auxiliaryInput.current.value = ''; }, [task?.ID, state?.Generation, ownsControl]);
   const activeTabID = tabs.find(tab => tab.active)?.id;
@@ -324,8 +331,9 @@ export function Browser({ assistantID, docked, floating, onFloatingChange, bound
       {!task ? <div className="browser-start"><div className="browser-start-icon"><Globe size={34}/></div><h3>{zh ? '一起浏览，同步可见' : 'Browse together'}</h3><p>{zh ? '观看助理浏览网页，需要时接管。登录状态会为这个助理保留。' : 'Watch your assistant browse, and take control when needed. Login state stays with this assistant.'}</p>
         {query.data?.Available === false && component && <ComponentDetails value={component}/>}
         {query.data?.Preparation?.task_id && admin && <MaintenanceProgress taskID={query.data.Preparation.task_id}/>}
-        <Select label={zh ? '计算资源' : 'Compute resource'} value={compute} onValueChange={setCompute} disabled={busy || query.data?.Preparation?.state === 'installing'} placeholder={zh ? '选择已授权的本机资源' : 'Select an authorized local resource'} options={usable.map(r => ({ value: r.ID, label: r.Name }))}/>
-        {query.data?.Available === false && !component?.can_install && !query.data.ComponentsEnabled ? <Alert title={zh ? '浏览器组件不可用' : 'Browser components unavailable'}>{component ? maintenanceReason(component.reason, zh) : zh ? '请联系管理员安装浏览器组件。' : 'Ask an administrator to install browser components.'}</Alert> : <Button disabled={busy || !compute || query.loading && !query.data || query.data?.Preparation?.state === 'installing'} onClick={() => void command({ action: query.data?.Available === false && !query.data.ComponentsEnabled ? 'install_start' : 'start', compute_id: compute })}>{busy || query.data?.Preparation?.state === 'installing' ? (zh ? '正在准备…' : 'Preparing…') : query.data?.Available === false ? (zh ? '安装并启动' : 'Install and start') : (zh ? '启动浏览器' : 'Start browser')}</Button>}
+        <ExecutionOptions value={execution} zh={zh} disabled={busy || query.data?.Preparation?.state === 'installing'}/>
+
+        {query.data?.Available === false && !component?.can_install && !query.data.ComponentsEnabled ? <Alert title={zh ? '浏览器组件不可用' : 'Browser components unavailable'}>{component ? maintenanceReason(component.reason, zh) : zh ? '请联系管理员安装浏览器组件。' : 'Ask an administrator to install browser components.'}</Alert> : <Button disabled={busy || !execution.valid || !!resources.error || !!grants.error || !!sandbox.error || query.loading && !query.data || query.data?.Preparation?.state === 'installing'} onClick={() => void command({ action: query.data?.Available === false && !query.data.ComponentsEnabled ? 'install_start' : 'start', compute_id: execution.compute, full_access: execution.fullAccess })}>{busy || query.data?.Preparation?.state === 'installing' ? (zh ? '正在准备…' : 'Preparing…') : query.data?.Available === false ? (zh ? '安装并启动' : 'Install and start') : (zh ? '启动浏览器' : 'Start browser')}</Button>}
       </div> : <>
         <form className="browser-navigation" onSubmit={e => { e.preventDefault(); input({ action: 'navigate', url: /^https?:\/\//i.test(address) || address === 'about:blank' ? address : `https://${address}` }); (keyboardOpen ? auxiliaryInput.current : directInput.current)?.focus({ preventScroll: true }); }}>
           <IconButton type="button" disabled={!canOperate} label={zh ? '后退' : 'Back'} onClick={() => input({ action: 'back' })}><ArrowLeft size={17}/></IconButton><IconButton type="button" disabled={!canOperate} label={zh ? '前进' : 'Forward'} onClick={() => input({ action: 'forward' })}><ArrowRight size={17}/></IconButton><IconButton type="button" disabled={!canOperate} label={zh ? '刷新' : 'Reload'} onClick={() => input({ action: 'reload' })}><RefreshCw size={16}/></IconButton>
@@ -338,7 +346,7 @@ export function Browser({ assistantID, docked, floating, onFloatingChange, bound
           {(!connected || !hasFrame) && <div className="browser-overlay"><Globe size={24}/><span>{zh ? '正在连接浏览器…' : 'Connecting to browser…'}</span></div>}
         </div>
         {keyboardOpen && <div className="browser-input-tray"><textarea ref={auxiliaryInput} {...keyboardProps} className="browser-keyboard" aria-label={zh ? '辅助输入' : 'Keyboard input'} placeholder={zh ? '先点击网页中的输入框，再在这里输入或粘贴' : 'Click a field in the page, then type or paste here'}/></div>}
-        <div className="browser-statusbar"><span role="status" className="browser-connection" data-connected={connected || undefined}><i/><span>{connected ? (zh ? '已连接' : 'Connected') : (zh ? '连接中…' : 'Connecting…')}{query.data?.Proxy?.Mode === 'proxy' && (zh ? ' · 代理已启用' : ' · Proxy enabled')}</span></span><div className="browser-status-actions"><IconButton label={keyboardOpen ? (zh ? '收起辅助输入' : 'Hide keyboard input') : (zh ? '辅助输入' : 'Keyboard input')} aria-pressed={keyboardOpen} disabled={!ownsControl} onClick={() => { composing.current = false; setKeyboardOpen(!keyboardOpen); }}><Keyboard size={17}/></IconButton><IconButton label={zh ? '结束浏览器会话' : 'End browser session'} disabled={busy} onClick={() => void command({ action: 'close' })}><Power size={16}/></IconButton></div></div>
+        <div className="browser-statusbar"><span role="status" className="browser-connection" data-connected={connected || undefined}><i/><span>{connected ? (zh ? '已连接' : 'Connected') : (zh ? '连接中…' : 'Connecting…')}{query.data?.Proxy?.Mode === 'proxy' && (zh ? ' · 代理已启用' : ' · Proxy enabled')}</span></span><div className="browser-status-actions"><Badge tone={task.FullAccess ? 'warning' : 'neutral'}>{task.FullAccess ? 'Full Access' : zh ? '沙盒' : 'Sandbox'}</Badge><IconButton label={keyboardOpen ? (zh ? '收起辅助输入' : 'Hide keyboard input') : (zh ? '辅助输入' : 'Keyboard input')} aria-pressed={keyboardOpen} disabled={!ownsControl} onClick={() => { composing.current = false; setKeyboardOpen(!keyboardOpen); }}><Keyboard size={17}/></IconButton><IconButton label={zh ? '结束浏览器会话' : 'End browser session'} disabled={busy} onClick={() => void command({ action: 'close' })}><Power size={16}/></IconButton></div></div>
       </>}
     </div>
     {floating && <button type="button" className="browser-resize" aria-label={zh ? '调整浮窗大小（方向键微调）' : 'Resize window (arrow keys to adjust)'} {...resizeProps}/>}
