@@ -102,6 +102,12 @@ func (s *HTTPServer) routes() {
 	s.mcpRoutes()
 }
 func (s *HTTPServer) otherRoutes() {
+	s.handle("GET /api/skills", func(r *http.Request) (any, error) {
+		if s.options.Skills == nil {
+			return nil, core.NewError(core.Unavailable, "skills unavailable")
+		}
+		return s.options.Skills(r.Context(), principal(r), queryID(r, "assistant_id"), r.URL.Query().Get("path"))
+	})
 	s.handle("GET /api/setup", func(r *http.Request) (any, error) {
 		if s.options.Setup == nil {
 			return map[string]any{"Required": false}, nil

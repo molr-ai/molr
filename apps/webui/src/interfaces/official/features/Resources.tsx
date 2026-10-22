@@ -6,13 +6,14 @@ import { PermissionScope, PermissionExpiry } from './PermissionScope';
 import { PermissionRequests } from './PermissionRequests';
 import { useEffect, useState } from 'react';
 import { ModalPresence, Badge, Button, Card, Dialog, DropdownMenu, IconButton, Tabs } from '@molr/ui';
-import { Bot, Ellipsis, Folder, Globe, Info, Pencil, Plus, RefreshCw, Server, Trash2, Unplug, Wifi, Wrench } from 'lucide-react';
+import { BookOpen, Bot, Ellipsis, Folder, Globe, Info, Pencil, Plus, RefreshCw, Server, Trash2, Unplug, Wifi, Wrench } from 'lucide-react';
 import { SettingsHelp } from '../components/SettingsHelp';
 import { DefaultModelSettings } from './DefaultModelSettings';
 import { ProviderModelsDrawer } from './ProviderModelsDrawer';
 import { ProviderConnectionDialog } from './ProviderConnectionDialog';
 import { Sandboxes } from './Sandboxes';
 import { ToolsCatalog } from './ToolsCatalog';
+import { SkillsCatalog } from './SkillsCatalog';
 import type { SandboxView } from './Sandboxes';
 import { useSandboxPreference } from '../../../sandbox-navigation';
 import { useSandboxCopy } from '../../../sandbox-copy';
@@ -23,11 +24,11 @@ import { useCopy, useQuery } from '../../../state';
 import { grantSummary, grantTarget } from '../../../resource-permissions';
 import { Confirm, Empty, Loading, PageHeader, useAction } from '../components/common';
 import './resources.css';
-type Tab = 'model' | 'tool' | 'sandbox';
+type Tab = 'model' | 'tool' | 'skill' | 'sandbox';
 export function Resources({ resourceID = '' }: { resourceID?: string }) {
   const { t } = useCopy(), copy = useSandboxCopy(), query = useQuery<Resource[]>('/api/resources', true), models = useQuery<Model[]>('/api/models'), action = useAction();
   const [status, setStatus] = useState<Record<string, string>>({});
-  const [tab, setTab] = useSandboxPreference<Tab>('resource-tab', 'model', value => ['model', 'tool', 'sandbox'].includes(value));
+  const [tab, setTab] = useSandboxPreference<Tab>('resource-tab', 'model', value => ['model', 'tool', 'skill', 'sandbox'].includes(value));
   const [selectedProvider, setSelectedProvider] = useState<{ id: string; addModel?: boolean } | null>(null), [connect, setConnect] = useState(false), [defaultModel, setDefaultModel] = useState(false);
   const [editingProvider, setEditingProvider] = useState<Resource | null>(null), [deletingProvider, setDeletingProvider] = useState<Resource | null>(null), [disconnect, setDisconnect] = useState<Resource | null>(null);
   const target = query.data?.find(resource => resource.ID === resourceID);
@@ -50,6 +51,7 @@ export function Resources({ resourceID = '' }: { resourceID?: string }) {
     <Tabs className="resources-categories" label={t.resources.categoriesLabel} value={tab} onValueChange={setTab} items={[
       { value: 'model', label: t.resources.categories.model, icon: <Bot size={15} />, content: tab === 'model' ? <div className="resources-master">{modelContent}</div> : null },
       { value: 'tool', label: t.resources.categories.tool, icon: <Wrench size={15} />, content: tab === 'tool' ? <ToolsCatalog /> : null },
+      { value: 'skill', label: 'Skills', icon: <BookOpen size={15} />, content: tab === 'skill' ? <SkillsCatalog /> : null },
       { value: 'sandbox', label: copy.title, icon: <Server size={15} />, content: tab === 'sandbox' ? <Sandboxes resources={query.data ?? []} resourceID={resourceID} /> : null },
     ]} />
     <ModalPresence>{tab === 'model' && selectedProvider && provider && <ProviderModelsDrawer key={provider.ID} resource={provider} models={(models.data ?? []).filter(model => model.ResourceID === selectedProvider.id)} loading={models.loading && !models.data} addModel={selectedProvider.addModel} onClose={() => setSelectedProvider(null)} />}</ModalPresence>

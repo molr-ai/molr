@@ -77,6 +77,7 @@ Verified on 2026-10-03 against the registrations in `runtime/internal/api/*_rout
 | GET | `/api/assistants/activity` |
 | GET | `/api/assistants/groups` |
 | GET | `/api/assistants/{id}` |
+| GET | `/api/skills` |
 | GET | `/api/assistants/{id}/capabilities` |
 | GET | `/api/assistants/{id}/shell-tasks` |
 | GET | `/api/assistants/{id}/terminals/{task}/stream` |
@@ -413,6 +414,8 @@ This interface follows the account ownership checks of the assistant and session
 ### Assistant Capability Information
 
 Assistant capability information: `GET /api/assistants/{id}/capabilities` allows access only to owners with corresponding assistant read permissions, does not depend on the development workbench toggle, and does not create an assistant execution identity. It returns `Tools` installed by the Runtime (definitions, parameters, required operations, current `Available` / `Reason`, matching storage `ResourceIDs`) and `Skills`. Conditions for storage tools are calculated based on resource type, status, valid authorization, read-only scope, and expiration time; specific resources and paths are re-authorized at execution time, and capability display cannot be treated as invocation permission. Currently supports discovery and on-demand context loading for assistant workspace `.agents/skills/*/SKILL.md`, `Skills.Supported=true`; `Items` returns Skills discoverable within the workspace. Skills are workflow guidelines, not additional executors, and do not grant permissions.
+
+Skills catalog: `GET /api/skills` returns the current account’s `Items` and active `Assistants`. Items contain `Path`, `Name`, `Description`, `Source` (`builtin/shared/assistant`), `AssistantID` and content `Version`; built-in and shared entries are not bound to an assistant. `GET /api/skills?path=…&assistant_id=…` returns `Text` and `Version`; pass `assistant_id` only for private skills. Owner identity and account/assistant ownership are checked; workspace sources follow local sandbox group visibility. Content reads accept only canonical skill paths and use bounded, confined reads. The catalog rejects more than 4096 entries. Invalid presentation YAML falls back to the directory name without changing model discovery or loading. Inspection neither activates skills nor grants execution permission.
 
 ### Assistant Budget
 

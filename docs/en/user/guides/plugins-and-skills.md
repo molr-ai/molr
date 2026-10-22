@@ -21,3 +21,11 @@ CLI is installed within the assistant's `/work`. Skills are placed in `/work/.ag
 These installations do not generate records in the plugin list. Plugin enable/disable, version switching, and uninstallation do not manage these working files.
 
 The Skills page in Assistant Information allows you to view discovered entries; currently, there are no entries for installation, editing, or enable/disable actions. Skills provide process guidance and do not grant additional file, network, or tool permissions.
+
+## Browse the Skills catalog
+
+Open **Resources → Skills** to browse the current account's skills, grouped into built-in, account-shared and assistant-specific sources. Search names, descriptions, paths or assistants and combine source and assistant filters. Selecting an assistant also includes built-in and shared skills; same-named private skills remain separate by assistant. The catalog includes active assistants only.
+
+Open a skill to inspect its source, assistant scope, content revision and original `SKILL.md` in a detail drawer. Built-in skills are read-only; shared skills come from `/global/.agents/skills/`, and private skills from each assistant's `/work/.agents/skills/`. Refresh the catalog after changing files. This entry is independent of Show Plugins.
+
+The Skills tab in Assistant Information continues to show that assistant's capability catalog. The overview shows ownership; it does not indicate that a running assistant has loaded a skill or has permission to execute its workflow.

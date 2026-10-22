@@ -61,6 +61,7 @@ type Options struct {
 	ChatGPTDisconnect  func(context.Context, core.Principal, resource.DeleteProviderRequest) (bool, error)
 	RequestLogger      *slog.Logger
 	Workspace          WorkspaceService
+	Skills             func(context.Context, core.Principal, core.ID, string) (any, error)
 	UsageAnalytics     func(context.Context, core.Principal, UsageQuery, bool) (any, error)
 	Maintenance        maintenance.Service
 	Browser            func(context.Context, core.Principal, core.ID, json.RawMessage) (json.RawMessage, error)

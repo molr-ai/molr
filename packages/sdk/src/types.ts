@@ -159,3 +159,7 @@ export type MCPCall = { ID: ID; OwnerID: ID; ToolName: string; State: 'prepared'
 
 export type QQStatus = { Channel: 'webui' | 'qq'; State: 'disconnected' | 'connecting' | 'pairing' | 'connected' | 'reconnecting' | 'credentials_required' | 'paused' | 'expired'; AppID: string; ConnectedAt: string | null; LastInboundAt: string | null; LastError: string };
 export type QQLogin = { ID: string; Status: 'waiting' | 'confirmed' | 'pairing' | 'expired' | 'denied'; QRCode: string; Code: string; ExpiresAt: string };
+
+export type CatalogSkill = { Path: string; Name: string; Description: string; Source: 'builtin' | 'shared' | 'assistant'; AssistantID: ID; Version: string };
+export type SkillsCatalog = { Items: CatalogSkill[]; Assistants: Array<{ ID: ID; Name: string }> };
+export type SkillContent = { Text: string; Version: string };

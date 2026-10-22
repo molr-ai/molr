@@ -77,6 +77,7 @@ Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugi
 | GET | `/api/assistants/activity` |
 | GET | `/api/assistants/groups` |
 | GET | `/api/assistants/{id}` |
+| GET | `/api/skills` |
 | GET | `/api/assistants/{id}/capabilities` |
 | GET | `/api/assistants/{id}/shell-tasks` |
 | GET | `/api/assistants/{id}/terminals/{task}/stream` |
@@ -413,6 +414,8 @@ WebUI 按原因显示对应说明及操作入口：模型权限、选择模型�
 ### 助理能力信息
 
 助理能力信息：`GET /api/assistants/{id}/capabilities` 只允许具有对应助理读取权限的所有者访问，不依赖开发工作台开关，也不创建助理执行身份。返回 Runtime 已安装的 `Tools`（定义、参数、所需操作、当前 `Available` / `Reason`、匹配的存储 `ResourceIDs`）及 `Skills`。存储工具的条件结合资源类型、状态、有效授权、只读范围和过期时间计算；具体资源与路径仍在执行时重新授权，不能把能力展示当作调用许可。当前支持助理工作区 `.agents/skills/*/SKILL.md` 的发现与按需上下文加载，`Skills.Supported=true`；`Items` 返回工作区内可发现的 Skills。Skill 是工作流程指引，不是额外执行器，也不授予权限。
+
+技能总览：`GET /api/skills` 返回当前账号的 `Items` 与在职 `Assistants`。条目包含 `Path`、`Name`、`Description`、`Source`（`builtin/shared/assistant`）、`AssistantID` 和内容 `Version`；共享与内置条目不绑定助理。`GET /api/skills?path=…&assistant_id=…` 返回 `Text` 与 `Version`，仅专属技能传 `assistant_id`。接口只允许所有者身份，按账号与助理归属读取，工作区来源沿用本机沙盒用户组可见性；原文仅允许固定技能路径并采用有界、安全文件读取。列表最多 4096 项，超限明确报错。展示用 YAML 元数据解析失败时回退目录名，不影响模型原有的发现与加载逻辑；查看不激活 Skill，不授予执行权限。
 
 ### 助理预算
 
