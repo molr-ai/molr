@@ -6,6 +6,7 @@
 @import './components/chat-feedback.css';
 
 @import './components/sliding-highlight.css';
+@import './components/pane-separator.css';
 @import './components/workspace.css';
 @import './components/avatar.css';
 @import './components/search-panel.css';

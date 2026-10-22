@@ -1,0 +1,5 @@
+.ui-pane-separator { position: relative; flex: 0 0 8px; align-self: stretch; width: 8px; cursor: col-resize; touch-action: none; user-select: none; }
+.ui-pane-separator::after { content: ''; position: absolute; top: 8px; bottom: 8px; left: 50%; width: 1px; transform: translateX(-50%); border-radius: var(--radius-pill); background: transparent; }
+.ui-pane-separator:hover::after { background: color-mix(in srgb, var(--color-text-muted) 28%, transparent); }
+.ui-pane-separator[data-dragging]::after { background: color-mix(in srgb, var(--color-text-muted) 45%, transparent); }
+.ui-pane-separator:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }

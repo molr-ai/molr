@@ -78,10 +78,10 @@ export function Terminals({ assistantID, assistantName, docked, floating, onFloa
     } finally { if (mounted.current) setBusy(false); }
   }
   const task = tasks.find(t => t.ID === activeID), title = `${zh ? '终端' : 'Terminal'} · ${assistantName}`;
-  return <Drawer open title={title} side={mobile ? 'bottom' : 'right'} docked={floating || docked} onOpenChange={open => { if (!open) onClose(); }} showCloseButton={false} className={`terminal-drawer${tasks.length ? ' terminal-drawer--running' : ''}${floating ? ' terminal-drawer--floating' : ''}`} size="lg" headerContent={<div className="terminal-heading terminal-tabstrip" {...view.drag}>
+  return <Drawer open title={title} side={mobile ? 'bottom' : 'right'} docked={floating || docked} onOpenChange={open => { if (!open) onClose(); }} showCloseButton={false} className={`terminal-drawer${tasks.length ? ' terminal-drawer--running' : ''}${floating ? ' terminal-drawer--floating' : ''}`} size="lg" headerContent={<div className={`terminal-heading${tasks.length ? ' terminal-tabstrip' : ' terminal-window-heading'}`} {...view.drag}>
     {floating && <IconButton className="files-move" label={zh ? '移动终端（方向键微调）' : 'Move terminal (arrow keys)'} onKeyDown={view.moveKey}><GripHorizontal size={18}/></IconButton>}
-    {!tasks.length && <><Terminal size={17} aria-hidden="true"/><div className="terminal-heading-title"><strong>{zh ? '终端' : 'Terminal'}</strong><span title={assistantName}>{assistantName}</span></div></>}
-    <div className="terminal-tabs-window">
+    {!tasks.length && <span className="terminal-heading-title" title={title}>{title}</span>}
+    {tasks.length > 0 && <div className="terminal-tabs-window">
         {(scroll.left || scroll.right) && <IconButton className="terminal-tab-scroll" label={zh ? '向左滚动会话' : 'Scroll sessions left'} disabled={!scroll.left} onClick={() => tabList.current?.scrollBy({ left: -Math.max(120, tabList.current.clientWidth * 0.75) })}><ChevronLeft size={16}/></IconButton>}
         <div ref={tabList} className="terminal-tabs" role="tablist" aria-label={zh ? '活跃会话' : 'Active sessions'}>
           {tasks.map((item, index) => <div className="terminal-tab" data-active={item.ID === activeID || undefined} key={item.ID}>
@@ -94,7 +94,7 @@ export function Terminals({ assistantID, assistantName, docked, floating, onFloa
           </div>)}
         </div>
         {(scroll.left || scroll.right) && <IconButton className="terminal-tab-scroll" label={zh ? '向右滚动会话' : 'Scroll sessions right'} disabled={!scroll.right} onClick={() => tabList.current?.scrollBy({ left: Math.max(120, tabList.current.clientWidth * 0.75) })}><ChevronRight size={16}/></IconButton>}
-    </div>
+    </div>}
         <Tooltip content={canCreate ? (zh ? '新建会话' : 'New session') : unavailable}><IconButton className="terminal-new-session" disabled={busy || !canCreate} label={busy ? (zh ? '开启中…' : 'Opening…') : (zh ? '新建会话' : 'New session')} onClick={() => void create()}><Plus size={17}/></IconButton></Tooltip>
     <div className="terminal-heading-actions">{!tasks.length && <TerminalThemePicker zh={zh}/>} {!mobile && <IconButton label={floating ? (zh ? '停靠侧栏' : 'Dock to sidebar') : (zh ? '浮窗模式' : 'Floating window')} onClick={() => onFloatingChange(!floating)}>{floating ? <PanelRight size={18}/> : <PictureInPicture2 size={18}/>}</IconButton>}<IconButton label={zh ? '关闭终端窗口' : 'Close terminal window'} onClick={onClose}><X size={18}/></IconButton></div>
   </div>}>

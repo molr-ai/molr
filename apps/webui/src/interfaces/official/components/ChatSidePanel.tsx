@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { ModalPresence, useUILocale } from '@molr/ui';
 import type { Assistant } from '../../../api/types';
 
@@ -9,15 +9,24 @@ export function isChatPanel(value: { kind: string; assistant: Assistant } | null
 }
 
 /** Keep the panel mounted until its layout space has finished collapsing. */
-export function ChatSidePanel({ panel, docked: requestedDocked, floating = {}, children }: { panel: ChatPanelSelection | null; docked: boolean; floating?: Partial<Record<ChatPanelSelection['kind'], boolean>>; children: (panel: ChatPanelSelection) => ReactNode }) {
+export function ChatSidePanel({ panel, docked: requestedDocked, floating = {}, width, children }: { panel: ChatPanelSelection | null; docked: boolean; width?: number; floating?: Partial<Record<ChatPanelSelection['kind'], boolean>>; children: (panel: ChatPanelSelection) => ReactNode }) {
   const { reducedMotion } = useUILocale();
   const [retained, setRetained] = useState(panel);
   if (panel && panel !== retained) setRetained(panel);
   const shown = panel ?? retained, open = !!panel;
+  const retainedWidth = useRef(width);
+  if (panel) retainedWidth.current = width;
+  const displayedWidth = panel ? width : retainedWidth.current;
   const docked = requestedDocked && !(shown && floating[shown.kind]);
   const ref = useRef<HTMLDivElement>(null);
   const previous = useRef<{ width: number; transform: string } | null>(null);
+  const previousLayout = useRef<{ key: string; open: boolean; docked: boolean } | null>(null);
   useLayoutEffect(() => {
+    const key = `${shown?.kind}:${shown?.assistant.ID}`;
+    const last = previousLayout.current;
+    previousLayout.current = { key, open, docked };
+    const resizing = last?.docked && last.open && open && last.key === key;
+    const switching = last?.docked && last.open && open && last.key !== key;
     const element = ref.current;
     if (!element || !shown) { previous.current = null; return; }
     if (!docked) { previous.current = null; if (!open) setRetained(null); return; }
@@ -35,21 +44,25 @@ export function ChatSidePanel({ panel, docked: requestedDocked, floating = {}, c
       if (open) animations.forEach(animation => animation.cancel());
       else setRetained(null); // Leave the zero-width final frame until unmount.
     }
-    if (reducedMotion || media.matches) { finish(); return; }
+    // Width-only updates come from dragging or viewport constraints, and must stay immediate.
+    if (resizing || reducedMotion || media.matches) { finish(); return; }
     const timing: KeyframeAnimationOptions = { duration: open ? 280 : 220, easing: open ? 'cubic-bezier(0.22, 1, 0.36, 1)' : 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' };
     animations.push(element.animate([{ flexBasis: `${from.width}px` }, { flexBasis: `${target}px` }], { ...timing, id: 'molr-chat-panel-size' }));
-    if (content) animations.push(content.animate([{ transform: from.transform }, { transform: open ? 'translateX(0)' : 'translateX(100%)' }], { ...timing, id: 'molr-chat-panel-slide' }));
+    if (content) animations.push(content.animate([{ transform: switching ? 'translateX(100%)' : from.transform }, { transform: open ? 'translateX(0)' : 'translateX(100%)' }], { ...timing, id: 'molr-chat-panel-slide' }));
+    // The stable slot also animates when lazy content has not mounted its drawer yet.
+    if (switching) animations.push(element.animate([{ opacity: 0 }, { opacity: 1 }], { ...timing, id: 'molr-chat-panel-content' }));
     void Promise.all(animations.map(animation => animation.finished)).then(finish, finish);
     const motionChanged = () => { if (media.matches) finish(); };
     media.addEventListener('change', motionChanged);
     return () => {
       active = false;
+      // Settled dimensions belong to the previous panel; the DOM already has the next width here.
       if (!settled) previous.current = { width: element.getBoundingClientRect().width, transform: content ? getComputedStyle(content).transform : 'none' };
       animations.forEach(animation => animation.cancel());
       media.removeEventListener('change', motionChanged);
     };
-  }, [docked, open, shown?.kind, shown?.assistant.ID, reducedMotion]);
-  return <ModalPresence>{shown && <div ref={ref} className="chat-side-panel" data-kind={shown.kind} data-docked={docked || undefined} data-state={open ? 'open' : 'closing'} inert={!open}>
+  }, [docked, open, shown?.kind, shown?.assistant.ID, reducedMotion, displayedWidth]);
+  return <ModalPresence>{shown && <div ref={ref} className="chat-side-panel" style={displayedWidth === undefined ? undefined : { '--chat-panel-width': `${displayedWidth}px` } as CSSProperties} data-kind={shown.kind} data-docked={docked || undefined} data-state={open ? 'open' : 'closing'} inert={!open}>
     {children(shown)}
   </div>}</ModalPresence>;
 }

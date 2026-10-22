@@ -2,6 +2,8 @@
 
 Select an assistant from the assistant list to assign tasks, send attachments, and view replies. For first-time use, see [Quick Start](../getting-started.md).
 
+In the default desktop interface, drag the gaps between the assistant list, chat, and docked side panel to resize them. Focus a separator and use Left/Right to adjust it, Shift for larger steps, or Home/End for the current minimum/maximum width. Widths are saved for the current browser and account and restored after a reload. Assistant information, permissions, tasks, running tasks, browser, files, and terminal panels each keep their own width. Smaller windows constrain the displayed widths and use a drawer when docking cannot fit; enlarging the window restores the saved widths.
+
 ## Persistent Chat and Assistant Management
 
 Each assistant has its own persistent chat, execution state, and resource permissions. You can search by name, pin, rename, and edit models and budgets. The list prioritizes pinned assistants; pinned and unpinned assistants are each sorted in descending order by the time of their last message, with assistants that have no messages placed at the end of their respective groups; the order updates automatically when new messages arrive. The current real WebUI does not provide session grouping operations.

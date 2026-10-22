@@ -1,15 +1,14 @@
-.terminal-drawer.ui-dialog.ui-drawer .ui-dialog__header { padding: 0 8px; }
+.terminal-drawer--running.ui-dialog.ui-drawer .ui-dialog__header { padding: 0 8px; }
 .terminal-drawer.ui-dialog.ui-drawer .ui-dialog__header > div { width: 100%; min-width: 0; }
-.terminal-drawer.ui-dialog.ui-drawer .ui-dialog__header .ui-icon-button { margin: 0; }
+.terminal-drawer--running.ui-dialog.ui-drawer .ui-dialog__header .ui-icon-button { margin: 0; }
 .terminal-drawer.ui-dialog.ui-drawer .ui-dialog__body { display: flex; min-height: 0; overflow: hidden; padding: 0; }
 .terminal-drawer--floating.ui-dialog.ui-drawer[data-docked] { position: fixed; inset: auto; margin: 0; min-width: 0; max-width: none; z-index: 20; border: 1px solid var(--color-border); max-height: calc(100dvh - 32px); border-radius: var(--radius-card); box-shadow: var(--shadow-popover); }
 .terminal-heading { display: flex; align-items: center; gap: 4px; width: 100%; min-width: 0; }
 .terminal-heading > svg { flex-shrink: 0; color: var(--color-text-muted); }
-.terminal-heading-title { display: flex; align-items: baseline; gap: 10px; min-width: 0; flex: 1; }
-.terminal-heading-title strong { flex-shrink: 0; font-size: 14px; font-weight: 550; }
-.terminal-heading-title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--color-text-muted); }
+.terminal-window-heading { gap: 8px; min-height: 32px; }
+.terminal-heading-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .terminal-heading-actions { display: flex; gap: 2px; flex-shrink: 0; margin-left: auto; }
-.terminal-heading .ui-icon-button { width: 28px; height: 30px; padding: 0; }
+.terminal-tabstrip .ui-icon-button { width: 28px; height: 30px; padding: 0; }
 .terminal-drawer--floating .terminal-heading { cursor: grab; touch-action: none; }
 .terminal-panel { display: flex; flex-direction: column; flex: 1; width: 100%; min-width: 0; min-height: 0; container-type: inline-size; }
 .terminal-tabstrip { display: flex; align-items: center; gap: 4px; height: 46px; min-width: 0; background: var(--color-surface); }
@@ -60,7 +59,6 @@
 @container (max-width: 480px) { .terminal-dimensions { display: none; } }
 @media (max-width: 767px) {
   .terminal-drawer.ui-dialog.ui-drawer[data-side='bottom'] { height: 90dvh; max-height: 90dvh; }
-  .terminal-heading-title { gap: 8px; }
   .terminal-controlbar { padding-inline: 10px; }
   .terminal-screen { padding: 8px 10px; }
   .terminal-statusbar { padding: 4px 6px 4px 10px; padding-bottom: max(4px, env(safe-area-inset-bottom)); }

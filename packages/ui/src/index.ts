@@ -91,3 +91,6 @@ export { Avatar, AvatarNotice } from './components/Avatar';
 export type { AvatarProps, AvatarNoticeProps } from './components/Avatar';
 
 export { ChatCopyButton, copyTextToClipboard } from './components/ChatCopyButton';
+
+export { PaneSeparator } from './components/PaneSeparator';
+export type { PaneSeparatorProps } from './components/PaneSeparator';
