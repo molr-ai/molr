@@ -1,6 +1,19 @@
 import { expect } from '@playwright/test';
 import assert from 'node:assert/strict';
 
+// firstWindow() also returns initially hidden windows. Pointer actionability
+// needs animation frames, so wait for the application's own show() first.
+export async function waitForVisibleWindow(app, page) {
+  const window = await app.browserWindow(page);
+  try {
+    await expect.poll(() => window.evaluate(win => !win.isDestroyed() && win.isVisible()), {
+      message: 'Electron window must be shown before interacting with its page', timeout: 30000,
+    }).toBe(true);
+    await page.bringToFront();
+    return page;
+  } finally { await window.dispose(); }
+}
+
 // Sample during resizing: a settled screenshot misses macOS WCO's transient x.
 export async function expectStableMacTitlebar(app, page, toolbar, brand) {
   await expectMacTitlebar(page, toolbar, brand);

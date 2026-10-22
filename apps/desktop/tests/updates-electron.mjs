@@ -6,6 +6,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { _electron as electron, expect } from '@playwright/test';
+import { waitForVisibleWindow } from './window-controls.mjs';
 if (process.platform === 'win32') throw new Error('The subprocess fixture requires a Unix runner.');
 const root=resolve(import.meta.dirname,'../../..'), directory=mkdtempSync(join(tmpdir(),'molr-update-flow-'));
 const payload=join(directory,'payload'), stateFile=join(payload,'state.json'); mkdirSync(join(payload,'bin'),{recursive:true});
@@ -23,7 +24,7 @@ console.log(JSON.stringify({type:'desktop',installed:true,state:'running',versio
 `,{mode:0o755});
 let app;
 const env={...process.env,MOLR_DESKTOP_DATA:join(directory,'data'),MOLR_DESKTOP_RUNTIME:payload}; delete env.ELECTRON_RUN_AS_NODE; delete env.MOLR_DESKTOP_DEV_URL;
-async function launch(){app=await electron.launch({args:[join(root,'apps/desktop'),...(process.env.MOLR_DESKTOP_TEST_HEADLESS==='1'?['--ozone-platform=headless']:[])],env,chromiumSandbox:true});app.context().setDefaultTimeout(10000);return app.firstWindow();}
+async function launch(){app=await electron.launch({args:[join(root,'apps/desktop'),...(process.env.MOLR_DESKTOP_TEST_HEADLESS==='1'?['--ozone-platform=headless']:[])],env,chromiumSandbox:true});app.context().setDefaultTimeout(10000);return waitForVisibleWindow(app,await app.firstWindow());}
 async function remote(code){return app.evaluate(async({webContents},{url,code})=>webContents.getAllWebContents().find(c=>c.getURL() === url).executeJavaScript(code),{url,code});}
 async function ready(manager){await expect.poll(()=>manager.evaluate(()=>window.molrDesktop.state().then(s=>s.view))).toBe('runtime');}
 try {

@@ -74,6 +74,15 @@ jobs:
           else
             xvfb-run -a npm run test:desktop:electron
           fi
+      - name: Upload desktop failure diagnostics
+        if: failure() && inputs.validate
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-desktop-diagnostics-${{ matrix.os }}-${{ matrix.arch }}
+          path: .cache/acceptance/desktop/
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: 7
       - if: inputs.validate
         name: Package local evaluation installer
         run: npm run package:desktop

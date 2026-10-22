@@ -2,11 +2,12 @@
 // isolation. Native Runtime acceptance is a separate test, never inferred here.
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { setTimeout as delay } from 'node:timers/promises';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { _electron as electron, expect } from '@playwright/test';
-import { expectMacTitlebar, expectFullscreenTitlebar, expectStableMacTitlebar } from './window-controls.mjs';
+import { expectMacTitlebar, expectFullscreenTitlebar, expectStableMacTitlebar, waitForVisibleWindow } from './window-controls.mjs';
 const root = resolve(import.meta.dirname, '../../..');
 const data = mkdtempSync(join(tmpdir(), 'molr-desktop-test-'));
 const screenshots = join(root, '.cache/acceptance/desktop'); mkdirSync(screenshots, { recursive: true });
@@ -33,7 +34,7 @@ async function launch() {
   app = await electron.launch({ args: [join(root, 'apps/desktop'), ...(process.env.MOLR_DESKTOP_TEST_HEADLESS === '1' ? ['--ozone-platform=headless'] : [])], env, chromiumSandbox: true, timeout: 30000 });
   app.context().setDefaultTimeout(15000);
   assert.equal(await app.evaluate(() => process.argv.includes('--no-sandbox')), false);
-  return app.firstWindow();
+  return waitForVisibleWindow(app, await app.firstWindow());
 }
 async function remote(code) {
   return app.evaluate(async ({ webContents }, { url, code }) => {
@@ -60,6 +61,12 @@ try {
   checkpoint('first launch');
   let page = await launch();
   await page.getByRole('heading', { name: '连接远程服务' }).waitFor();
+  checkpoint('hidden window readiness');
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].hide());
+  const visible = waitForVisibleWindow(app, page);
+  assert.equal(await Promise.race([visible.then(() => true), delay(100, false)]), false, 'A hidden native window is not ready for interaction');
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].show());
+  await visible;
   await expect(page.locator('.desktop-app')).toHaveAttribute('data-app-platform', process.platform);
   await expect(page.locator('.desktop-identity > span')).toHaveCount(0);
   assert.deepEqual((await page.evaluate(() => window.molrDesktop.state())).appearance, { theme: 'system', palette: 'forest' });
@@ -85,7 +92,7 @@ try {
       await expectMacTitlebar(page, '.desktop-toolbar', '.desktop-identity .logo');
       await closeWindow(page);
       [page] = await Promise.all([app.waitForEvent('window'), app.evaluate(({ app }) => app.emit('activate'))]);
-      await expect.poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible())).toBe(true);
+      await waitForVisibleWindow(app, page);
       assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.getZoomFactor()), zoom);
       await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(1));
       await expectMacTitlebar(page, '.desktop-toolbar', '.desktop-identity .logo');
@@ -98,7 +105,9 @@ try {
   checkpoint('connection form');
   await page.getByLabel('连接名称（选填）', { exact: true }).fill('Fixture one');
   await page.getByLabel('服务地址', { exact: true }).fill('http://example.com');
-  await page.getByRole('switch').check();
+  const allowHTTP = page.getByRole('switch', { name: '允许使用未加密的 HTTP 连接' });
+  await allowHTTP.check();
+  await expect(allowHTTP).toBeChecked();
   // Clicking a below-the-fold submit button can scroll a small native window.
   // Compare document coordinates to distinguish scrolling from a layout shift.
   const introBox = () => page.locator('.desktop-intro').evaluate(element => {
@@ -257,6 +266,7 @@ try {
       app.waitForEvent('window'),
       app.evaluate(({ app }) => app.emit('activate')),
     ]);
+    await waitForVisibleWindow(app, page);
     await waitRuntime(page);
     assert.equal((await page.evaluate(() => window.molrDesktop.state())).active, one.id);
   }
@@ -311,6 +321,10 @@ try {
   console.log('Electron acceptance passed: isolated sessions, restart, SSE, remote privilege boundary, recovery, six palettes/light-dark and narrow layout.');
 } catch (error) {
   console.error('Electron acceptance failed during:', phase, error);
+  const windows = await app?.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map(win => ({
+    visible: win.isVisible(), minimized: win.isMinimized(), focused: win.isFocused(), loading: win.webContents.isLoading(),
+  }))).catch(() => undefined);
+  writeFileSync(join(screenshots, 'failure.json'), JSON.stringify({ phase, error: String(error), windows }, null, 2));
   const page = app?.context().pages().find(page => !page.isClosed());
   if (page) await page.screenshot({path:join(screenshots,'failure.png'),timeout:5000}).catch(()=>{});
   throw error;
