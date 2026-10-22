@@ -127,7 +127,9 @@ func TestWindowsNativeBackend(t *testing.T) {
 	if err != nil || exit.Reason != "authorization_changed" {
 		t.Fatal(exit, err)
 	}
-	if state, err := windows.WaitForSingleObject(child, 0); err != nil || state != windows.WAIT_OBJECT_0 {
+	// Wait for asynchronous Job termination on the retained child handle.
+	// Its 120s sleep cannot satisfy this deadline without being terminated.
+	if state, err := windows.WaitForSingleObject(child, 5000); err != nil || state != windows.WAIT_OBJECT_0 {
 		t.Fatal("descendant survived revocation", state, err)
 	}
 	entries, err = os.ReadDir(r.containerDirectory())

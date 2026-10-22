@@ -43,6 +43,19 @@ async function remote(code) {
   }, { url, code });
 }
 async function waitRuntime(page) { await expect.poll(() => page.evaluate(async () => (await window.molrDesktop.state()).view), { timeout: 35000 }).toBe('runtime'); }
+async function closeWindow(page) {
+  // The page can close before BrowserWindow emits 'closed' and the main
+  // process clears its window reference. Wait for both before activating.
+  await Promise.all([
+    page.waitForEvent('close'),
+    app.evaluate(({ BrowserWindow }) => new Promise((resolve, reject) => {
+      const window = BrowserWindow.getAllWindows()[0];
+      const timer = setTimeout(() => reject(new Error('Native window did not close')), 15000);
+      window.once('closed', () => { clearTimeout(timer); resolve(); });
+      window.close();
+    })),
+  ]);
+}
 try {
   checkpoint('first launch');
   let page = await launch();
@@ -67,9 +80,10 @@ try {
     await expectMacTitlebar(page, '.desktop-toolbar', '.desktop-identity .logo');
     const originalInset = (await page.locator('.desktop-identity .logo').boundingBox()).x;
     for (const zoom of [0.8, 1.5]) {
+      checkpoint(`reopen macOS window at zoom ${zoom}`);
       await app.evaluate(({ BrowserWindow }, zoom) => BrowserWindow.getAllWindows()[0].webContents.setZoomFactor(zoom), zoom);
       await expectMacTitlebar(page, '.desktop-toolbar', '.desktop-identity .logo');
-      await Promise.all([page.waitForEvent('close'), app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close())]);
+      await closeWindow(page);
       [page] = await Promise.all([app.waitForEvent('window'), app.evaluate(({ app }) => app.emit('activate'))]);
       await expect.poll(() => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible())).toBe(true);
       assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.getZoomFactor()), zoom);
@@ -238,11 +252,7 @@ try {
   assert.equal(await remote("localStorage.getItem('fixture')"), 'persisted');
   if (process.platform === 'darwin') {
     checkpoint('restore after reopening macOS window');
-    // firstWindow() can still return the old page until its close event arrives.
-    await Promise.all([
-      page.waitForEvent('close'),
-      app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close()),
-    ]);
+    await closeWindow(page);
     [page] = await Promise.all([
       app.waitForEvent('window'),
       app.evaluate(({ app }) => app.emit('activate')),

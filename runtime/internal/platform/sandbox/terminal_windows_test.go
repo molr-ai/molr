@@ -267,6 +267,9 @@ func TestWindowsTerminalLifecycle(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer windows.CloseHandle(child)
+			if state, err := windows.WaitForSingleObject(child, 0); err != nil || state != uint32(windows.WAIT_TIMEOUT) {
+				t.Fatal("terminal child exited before lifecycle action", state, err)
+			}
 			switch mode {
 			case "revoke":
 				revoked.Store(true)
@@ -286,7 +289,10 @@ func TestWindowsTerminalLifecycle(t *testing.T) {
 			if mode == "revoke" && exit.Reason != "authorization_changed" || mode == "timeout" && !exit.TimedOut || (mode == "exit" || mode == "full-access") && exit.Code != 0 {
 				t.Fatal(exit, output.snapshot())
 			}
-			if state, err := windows.WaitForSingleObject(child, 0); err != nil || state != windows.WAIT_OBJECT_0 {
+			// Job termination is asynchronous; zero active members does not mean
+			// every process handle is already signaled. The child sleeps for 120s,
+			// so this bounded wait still detects a descendant that was not killed.
+			if state, err := windows.WaitForSingleObject(child, 5000); err != nil || state != windows.WAIT_OBJECT_0 {
 				t.Fatal("terminal left child alive", state, err)
 			}
 			if err := r.Terminal(t.Context(), e, "x", 0, 0); err == nil {
