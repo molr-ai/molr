@@ -36,9 +36,9 @@
   <a href="https://github.com/molr-ai/molr/issues">问题反馈</a>
 </p>
 
-Molr 是可自托管的个人 AI 助理，在你自己的设备上运行，连接你选择的模型。你可以通过桌面或手机浏览器，用持续对话交代任务，以计划推进执行，并在同一处查看进展与交付结果。每位助理的记忆、资料访问权限和预算都由你管理。
+Molr 是可自托管的个人 AI 助理，在你自己的设备上运行，连接你选择的模型。你可以通过桌面应用或电脑、手机浏览器，用持续对话交代任务，以计划推进执行，并在同一处查看进展与交付结果。每位助理的记忆、资料访问权限和预算都由你管理。
 
-![浏览器使用界面演示](docs/assets/molr-browser.webp)
+![Molr 产品宣传图](docs/assets/molr-promotion-zh-cn.webp)
 
 > [!WARNING]
 > **项目状态：** Molr 仍处于开发阶段，尚未发布稳定版，可能存在不稳定行为，后续版本也可能包含破坏性变更。
@@ -48,26 +48,48 @@ Molr 是可自托管的个人 AI 助理，在你自己的设备上运行，连�
 > [!WARNING]
 > **使用环境：** 目前不建议将 Molr 服务直接暴露到公网，请在可信局域网等安全网络环境中使用。
 
-当前提供真实可用的 WebUI 与 Go Runtime；UI Design 使用模拟数据展示交互，独立原生客户端尚未发布。
+当前提供 Linux、macOS 和 Windows 桌面应用、WebUI 与 Go Runtime。桌面应用可连接已有服务，也可按需安装和管理本机服务；手机通过浏览器使用 WebUI。
 
 ## 功能亮点
 
 - **持续对话与记忆** — 每位助理拥有独立的上下文和记忆；支持查看、编辑和管理长期记忆。
 - **计划与后台执行** — 支持定时、重复安排、前置交接与执行记录；服务运行期间，无需保持网页打开。
 - **模型与预算自选** — 接入云端或本地模型，按助理分配模型和预算，查看执行用量与费用。
-- **明确的资源权限** — 按助理授权文件目录与工具；Linux 命令在配置好的隔离沙盒中执行。
-- **多设备与独立账号** — 桌面、手机浏览器接续同一服务；家庭和小团队可通过用户组分配资源与额度。
-- **插件与主题** — 通过管理员导入和授权，扩展 HTTP 工具、主题及独立页面。
+- **明确的资源权限** — 按助理授权文件目录、工具与计算资源；Linux、macOS 和 Windows 使用各自的执行后端，按实际能力报告隔离与资源限制。
+- **多设备与独立账号** — 桌面应用和浏览器接续同一服务，通过远程沙盒使用其他设备的文件与执行资源；家庭和小团队可通过用户组分配资源与额度。
+- **插件与主题** — 通过管理员导入和授权，扩展工具、Skills、主题及独立页面。
 
 ## 快速开始
 
-在配有 systemd 254+ 的 Linux AMD64／ARM64 设备上，运行与[官网](https://molr.ai/#install)一致的推荐安装命令：
+按使用方式选择桌面应用、完整服务或额外沙盒节点。测试安装包从 [GitHub Releases](https://github.com/molr-ai/molr/releases) 下载；[官网安装入口](https://molr.ai/#install)和默认 `install.sh` 发布源只提供正式版，尚无正式版时不会自动回退到预发布版。
+
+### 桌面应用
+
+下载适合系统和架构的桌面包：Linux AMD64／ARM64 使用 `.deb`，macOS Apple Silicon／Intel 使用 `.dmg`，Windows AMD64 使用 `.exe`。
+
+打开应用后，选择“在这台电脑上使用”创建本机服务，或“连接远程服务”填写已有 Runtime 的地址。桌面完整版已包含 Runtime、WebUI 和本机沙盒，无需另装服务包；创建本机服务仍需在应用内确认。关闭桌面窗口不会停止已运行的后台服务。具体操作见[桌面应用安装](docs/admin/deployment/installation.md#桌面应用)。
+
+### 完整服务（Runtime）
+
+在 Linux 或 macOS 上通过终端部署时，从 Releases 下载对应系统、架构的 Runtime `.tar.gz` 及同名 `.sha256` 文件，校验并解压后，在包目录运行：
 
 ```bash
-curl -fsSL https://molr.ai/install.sh | sh
+./bin/molr-setup --mode server
 ```
 
-安装器会自动识别架构、检查依赖并配置服务。打开输出的访问地址或一次性登录链接，登录后连接模型、设置预算，即可开始与助理对话。
+完整服务提供账号、助理、计划、WebUI 和本机沙盒。安装后用桌面应用或浏览器连接输出的服务地址，数据保存在运行服务的设备。Linux 使用 systemd，启用受控命令还需 systemd 254+ 等[沙盒依赖](docs/admin/sandbox/linux.md)；macOS 使用 launchd，要求 macOS 13 或更新版本。在线安装、校验和维护步骤见[安装指南](docs/admin/deployment/installation.md)。
+
+### 额外沙盒节点（Sandbox）
+
+已有完整服务，需要使用另一台设备的文件或执行资源时，在那台 Linux/macOS 设备上解压同一 Runtime 包并运行：
+
+```bash
+./bin/molr-setup --mode sandbox --name molr-node
+```
+
+再从完整服务的资源页面连接节点并授权。节点不提供账号、助理或 WebUI；单机使用已经内置沙盒，不必额外部署节点。连接与权限设置见[独立 Sandbox 服务](docs/admin/sandbox/remote.md)。
+
+安装包不包含模型权重或推理服务。完整服务就绪后，连接本地或云端模型、聘请助理并设置预算，即可开始对话。
 
 - [快速开始](docs/user/getting-started.md)：登录并开始第一次对话。
 - [安装与服务管理](docs/admin/deployment/installation.md)：指定版本、选择发布渠道或离线安装。
@@ -77,8 +99,6 @@ curl -fsSL https://molr.ai/install.sh | sh
 
 ## 近期路线图
 
-- [ ] **桌面 App** — 提供独立安装的桌面客户端，连接 Molr 服务，处理聊天、计划和交付物。
-- [ ] **Windows 沙盒支持** — 在原生 Windows 环境中受控执行命令，接入文件、网络授权与任务停止机制。
 - [ ] **多助理群聊** — 在同一会话中加入多位助理，通过 @ 指定参与者，共享群内消息和交付物。
 
 范围与完成标准，以及远期计划和待定项，见[完整路线图](docs/dev/roadmap.md)。
@@ -91,7 +111,7 @@ curl -fsSL https://molr.ai/install.sh | sh
 | [管理员文档](docs/admin/README.md) | 安装、资源接入、成员管理与运维 |
 | [助理、聊天与计划](docs/user/guides/assistants-and-chat.md) | 持续对话、定时安排、结果与修订 |
 | [资源、权限与预算](docs/user/guides/permissions-and-budget.md) | 模型连接、资料范围、授权与费用 |
-| [插件](docs/user/guides/plugins-and-skills.md) | HTTP 工具、主题与页面扩展 |
+| [插件](docs/user/guides/plugins-and-skills.md) | 工具、Skills、主题与页面扩展 |
 | [架构总览](docs/user/concepts.md) | 组件构成、执行链路与数据存放 |
 | [Linux 命令环境](docs/admin/sandbox/linux.md) | 沙盒依赖、运行限制与能力检查 |
 | [开发文档](docs/dev/README.md) | 实现说明、接口、品牌与协作规范 |
@@ -100,11 +120,12 @@ curl -fsSL https://molr.ai/install.sh | sh
 
 欢迎通过 [Issues](https://github.com/molr-ai/molr/issues) 反馈问题，或提交 Pull Request 改进代码和文档。开始前请阅读[项目协作约定](AGENTS.md)，在独立 worktree 中完成开发、测试与文档修改。
 
-仓库由 Go Runtime、三个前端应用和共享包组成：
+仓库由 Go Runtime、Electron 桌面应用、三个前端应用和共享包组成：
 
 | 目录 | 用途 |
 | --- | --- |
 | [`runtime/`](runtime/README.md) | Go 服务、Agent 执行与沙盒 |
+| [`apps/desktop/`](apps/desktop/README.md) | Electron 桌面应用、连接管理与本机服务管理 |
 | [`apps/webui/`](apps/webui/README.md) | 连接真实 Runtime 的产品界面 |
 | [`apps/website/`](apps/website/README.md) | 产品官网与公开文档 |
 | [`apps/ui-design/`](apps/ui-design/README.md) | 品牌、组件和模拟交互展示 |
@@ -116,6 +137,7 @@ curl -fsSL https://molr.ai/install.sh | sh
 
 ```bash
 npm ci
+npm run dev:desktop     # 桌面应用开发；本机服务和打包前提见 apps/desktop/README.md
 npm run dev             # WebUI：5191，需要独立 Runtime
 VITE_SITE_MODE=live npm run dev:website # 官网：5189
 npm run dev:design      # UI Design：5188，模拟数据

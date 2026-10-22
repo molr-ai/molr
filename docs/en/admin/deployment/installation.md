@@ -12,14 +12,14 @@ Clients display the interface, handle sign-in and connect to instances. Runtime 
 | Desktop app | Manages connections, separate sign-in sessions and the WebUI container. Linux, macOS and Windows full editions can install and manage a native local Runtime. WSL instances remain ordinary remote connections. |
 | WebUI | Provides chat, assistant, resource and administration pages in a browser or desktop app. Release Runtime binaries embed WebUI and serve pages and APIs at the same address; no separate frontend server is required. The desktop app loads WebUI from the connected Runtime. |
 | Runtime | One service program with `server` and `sandbox` modes. `server` provides accounts, Agent execution, scheduling, model calls and persistence. Databases, conversations, memory, attachments and assistant workspaces live on the Runtime device. Model services are configured separately; packages include neither model weights nor inference servers. |
-| Built-in Sandbox | Compiled into Runtime to manage controlled local file access and commands. Linux uses Bubblewrap and other system capabilities; macOS uses Seatbelt. Local execution needs no additional sandbox node. |
-| Independent Sandbox | Runs `molr serve --mode sandbox` on another Linux/macOS device, connected to Runtime over HTTPS. Provides authorized directories and execution, without hosting accounts, Agents, chat sessions or WebUI. |
+| Built-in Sandbox | Compiled into Runtime to manage controlled local file access and commands. Linux uses Bubblewrap and other system capabilities; macOS uses Seatbelt; Windows uses AppContainer. Local execution needs no additional sandbox node. |
+| Independent Sandbox | Runs `molr serve --mode sandbox` on another Linux, macOS, or Windows device, connected to Runtime over HTTPS. Provides authorized directories and execution, without hosting accounts, Agents, chat sessions or WebUI. |
 
 ```mermaid
 flowchart TB
     Browser[Desktop or mobile browser] -->|Access WebUI| Runtime
     Desktop[Desktop app] -->|Load WebUI / connect to API| Runtime
-    Desktop -.->|Optionally create a local service on Linux/macOS| Runtime
+    Desktop -.->|Optionally create a local service on Linux/macOS/Windows| Runtime
     subgraph Host[Runtime device: local or remote]
         Runtime[Runtime: embedded WebUI / Agent / API]
         Data[Database / conversations / memory / assistant workspaces]
@@ -27,7 +27,7 @@ flowchart TB
         Runtime --> Data
         Runtime --> Local
     end
-    Runtime -->|HTTPS / authorized calls| Remote[Independent Sandbox: Linux or macOS]
+    Runtime -->|HTTPS / authorized calls| Remote[Independent Sandbox: Linux, macOS or Windows]
     Runtime -->|Model calls| Model[Separately configured local or cloud models]
 ```
 

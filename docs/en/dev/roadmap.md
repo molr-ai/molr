@@ -4,22 +4,6 @@ This page tracks future features as near-term work, longer-term plans, or featur
 
 ## Near-term work
 
-### Desktop app
-
-Users currently access the WebUI through desktop browsers; a standalone desktop client has not been released.
-
-- **Scope**: Provide an installable desktop client that connects to Molr services and supports sign-in, ongoing chats, plan management, and viewing deliverables.
-- **Completion criteria**: Validate installation, launch, service connections, sign-in, and core operations on supported desktop systems. Chats, plans, and deliverables stay consistent with the WebUI when using the same account and service.
-- **Boundaries**: Supported systems and package formats will be defined during client implementation. Command execution is provided by the connected Runtime and sandbox; Windows sandbox support requires separate acceptance.
-
-### Windows sandbox support
-
-Linux and macOS execution backends exist today; a native Windows backend has not been implemented. See [sandbox implementation](security/sandbox.md).
-
-- **Scope**: Provide controlled native Windows command execution for PowerShell and command-line programs, integrated with existing compute, file, and network permissions and task management. Report the isolation and resource limits actually supported by the platform.
-- **Completion criteria**: Validate command execution, authorized directory access, network restrictions, task cancellation, and permission revocation on Windows hardware. The interface displays actual capabilities and identifies unsupported limits.
-- **Boundaries**: This item covers the sandbox execution backend. WSL2 is a Linux execution environment; native Windows capabilities require separate acceptance. The isolation mechanism will be selected during implementation design.
-
 ### Multi-assistant group chats
 
 Each conversation currently has one assistant; other assistants cannot read or publish to it. Group chats will extend this participant model. See the [conversation model](../../../runtime/internal/im/conversation/api.go) and [participant checks](../../../runtime/internal/im/conversation/service.go).
@@ -48,7 +32,7 @@ Users can currently access the WebUI through mobile browsers; a standalone mobil
 
 ### Push notifications after closing the page
 
-In-app alerts and desktop notifications already exist, but [notifications are not pushed after the page is closed](../user/guides/settings.md).
+Browsers already support in-page alerts and desktop notifications, but do not receive pushes after the page closes. Native desktop App notifications require the app to remain running and connected; see [notification settings](../user/guides/settings.md).
 
 - **Scope**: After subscribing a device, users can receive task completion, failure, or permission request notifications with the WebUI page closed. Clicking a notification opens the relevant task or approval view.
 - **Completion criteria**: Validate delivery with the page closed, click navigation, deduplication, unsubscription, and disabling delivery after sign-out on supported browsers and devices. Users can control notification types and content previews.

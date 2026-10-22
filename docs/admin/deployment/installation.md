@@ -12,14 +12,14 @@
 | 桌面 app | 提供连接管理、独立登录会话和 WebUI 容器。Linux、macOS 和 Windows 完整版均可安装和管理本机 Runtime；WSL 也按远程实例处理。 |
 | WebUI | 聊天、助理、资源和管理页面，在浏览器或桌面 app 中运行。正式 Runtime 内嵌 WebUI，由同一服务地址提供网页和 API，无需单独安装前端服务器。桌面 app 从所连接的 Runtime 加载 WebUI。 |
 | Runtime | 同一个服务程序支持 `server` 和 `sandbox` 两种模式。`server` 模式提供账号、Agent 执行、任务调度、模型调用及持久化。数据库、会话、记忆、附件和助理工作区保存在 Runtime 所在设备。模型服务独立配置，安装包不包含模型权重或推理服务。 |
-| 内置 Sandbox | 编译在 Runtime 中，管理本机受控文件访问和命令执行。Linux 使用 Bubblewrap 等系统能力，macOS 使用 Seatbelt；本机运行无需单独部署沙盒节点。 |
-| 独立 Sandbox | 在另一台 Linux/macOS 设备运行 `molr serve --mode sandbox`，由 Runtime 通过 HTTPS 连接。只提供授权目录与执行能力，不承载账号、Agent、聊天会话或 WebUI。 |
+| 内置 Sandbox | 编译在 Runtime 中，管理本机受控文件访问和命令执行。Linux 使用 Bubblewrap 等系统能力，macOS 使用 Seatbelt，Windows 使用 AppContainer；本机运行无需单独部署沙盒节点。 |
+| 独立 Sandbox | 在另一台 Linux、macOS 或 Windows 设备运行 `molr serve --mode sandbox`，由 Runtime 通过 HTTPS 连接。只提供授权目录与执行能力，不承载账号、Agent、聊天会话或 WebUI。 |
 
 ```mermaid
 flowchart TB
     Browser[电脑或手机浏览器] -->|访问 WebUI| Runtime
     Desktop[桌面 app] -->|加载 WebUI / 连接 API| Runtime
-    Desktop -.->|Linux/macOS 可选创建本机服务| Runtime
+    Desktop -.->|Linux/macOS/Windows 可选创建本机服务| Runtime
     subgraph Host[Runtime 所在设备：本机或远程]
         Runtime[Runtime：内嵌 WebUI / Agent / API]
         Data[数据库 / 会话 / 记忆 / 助理工作区]
@@ -27,7 +27,7 @@ flowchart TB
         Runtime --> Data
         Runtime --> Local
     end
-    Runtime -->|HTTPS / 授权调用| Remote[独立 Sandbox：Linux 或 macOS]
+    Runtime -->|HTTPS / 授权调用| Remote[独立 Sandbox：Linux、macOS 或 Windows]
     Runtime -->|模型调用| Model[独立配置的本地或云端模型]
 ```
 

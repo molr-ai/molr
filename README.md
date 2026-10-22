@@ -36,9 +36,9 @@
   <a href="https://github.com/molr-ai/molr/issues">Report an issue</a>
 </p>
 
-Molr is a self-hosted personal AI assistant that runs on your own device and connects to the models you choose. From a desktop or mobile browser, delegate tasks through ongoing conversations, use plans to guide execution, and review progress and deliverables in one place. You control each assistant's memory, file access permissions, and budget.
+Molr is a self-hosted personal AI assistant that runs on your own device and connects to the models you choose. Use the desktop app or a browser on your computer or phone to delegate tasks through ongoing conversations, plan work, and review progress and deliverables in one place. You control each assistant's memory, file access permissions, and budget.
 
-![Browser interface demo](docs/assets/molr-browser.webp)
+![Molr product overview](docs/assets/molr-promotion-en.webp)
 
 > [!WARNING]
 > **Project status:** Molr is under active development and has no stable release yet. You may encounter instability, and future versions may introduce breaking changes.
@@ -48,26 +48,48 @@ Molr is a self-hosted personal AI assistant that runs on your own device and con
 > [!WARNING]
 > **Network access:** Exposing the Molr service directly to the public internet is not currently recommended. Use it in a secure network environment, such as a trusted local network.
 
-The WebUI and Go Runtime are functional; UI Design uses mock data to demonstrate interactions. Standalone native clients have not been released.
+Molr provides desktop apps for Linux, macOS, and Windows, alongside the WebUI and Go Runtime. The desktop app can connect to an existing server or install and manage a local service on demand. Mobile users access the WebUI through a browser.
 
 ## Features
 
 - **Ongoing conversations and memory** — Each assistant has its own context and memory, with tools to review, edit, and manage long-term memories.
 - **Plans and background execution** — Schedule tasks, recurring work, and dependent handoffs with execution records. The browser can be closed while the service keeps running.
 - **Your models and budgets** — Connect cloud or local models, assign models and budgets per assistant, and track usage and costs.
-- **Explicit resource permissions** — Grant each assistant access to file directories and tools. Linux commands run in a configured, isolated sandbox.
-- **Multiple devices and separate accounts** — Continue on desktop or mobile browsers connected to the same service. Families and small teams can allocate resources and quotas through user groups.
+- **Explicit resource permissions** — Grant each assistant access to directories, tools, and compute resources. Linux, macOS, and Windows use their own execution backends and report the isolation and resource limits they support.
+- **Multiple devices and separate accounts** — Continue in the desktop app or a browser connected to the same service, and use remote sandboxes to access other devices' files and execution resources. Families and small teams can allocate resources and quotas through user groups.
 - **Plugins and themes** — Extend tools, Skills, themes, and standalone pages through plugins imported and authorized by an administrator.
 
 ## Getting started
 
-On a Linux AMD64 or ARM64 device with systemd 254+, run the recommended command from the [website](https://molr.ai/#install):
+Choose the desktop app, a complete server, or an additional sandbox node. Download test releases from [GitHub Releases](https://github.com/molr-ai/molr/releases). The [website installer](https://molr.ai/#install) and the default `install.sh` release source offer stable releases only; they do not fall back to prereleases when no stable version is available.
+
+### Desktop app
+
+Download the desktop package for your system and architecture: `.deb` for Linux AMD64/ARM64, `.dmg` for macOS Apple Silicon/Intel, or `.exe` for Windows AMD64.
+
+Open the app and choose to use this computer to create a local service, or connect to a remote server by entering an existing Runtime address. Full desktop packages include Runtime, WebUI, and the local sandbox, so no separate server package is needed; creating the local service still requires confirmation in the app. Closing the desktop window does not stop the running service. See [desktop installation](docs/en/admin/deployment/installation.md#desktop-app) for the steps.
+
+### Complete server (Runtime)
+
+For terminal-based deployment on Linux or macOS, download the Runtime `.tar.gz` for your system and architecture and its matching `.sha256` file from Releases. Verify and extract the archive, then run from the package directory:
 
 ```bash
-curl -fsSL https://molr.ai/install.sh | sh
+./bin/molr-setup --mode server
 ```
 
-The installer detects the architecture, checks dependencies, and configures the service. Open the access address or one-time login link it prints, then connect a model, set a budget, and start a conversation.
+The complete server provides accounts, assistants, plans, WebUI, and a local sandbox. Connect to the reported service address with the desktop app or a browser; data stays on the server device. Linux uses systemd, with systemd 254+ and other [sandbox dependencies](docs/en/admin/sandbox/linux.md) required for controlled commands. macOS uses launchd and requires macOS 13 or later. See the [installation guide](docs/en/admin/deployment/installation.md) for online installation, checksum verification, and maintenance.
+
+### Additional sandbox node (Sandbox)
+
+To add another device's files or execution resources to an existing complete server, extract the same Runtime package on that Linux/macOS device and run:
+
+```bash
+./bin/molr-setup --mode sandbox --name molr-node
+```
+
+Connect and authorize the node from the complete server's Resources page. A node provides no accounts, assistants, or WebUI. A single-device setup already includes a local sandbox and needs no additional node. See [independent Sandbox services](docs/en/admin/sandbox/remote.md) for connections and permissions.
+
+Packages include neither model weights nor an inference server. Once the complete service is ready, connect a local or cloud model, hire an assistant, and set its budget to start chatting.
 
 - [Getting started](docs/en/user/getting-started.md): sign in and start your first conversation.
 - [Installation and service management](docs/en/admin/deployment/installation.md): install a specific version, choose a release channel, or install offline.
@@ -77,8 +99,6 @@ The installer detects the architecture, checks dependencies, and configures the 
 
 ## Near-term roadmap
 
-- [ ] **Desktop app** — Provide an installable desktop client for connecting to Molr services and working with chats, plans, and deliverables.
-- [ ] **Windows sandbox support** — Run commands in a controlled native Windows environment with file and network permissions and task cancellation.
 - [ ] **Multi-assistant group chats** — Bring multiple assistants into one conversation, address participants with @mentions, and share group messages and deliverables.
 
 See the [full roadmap](docs/en/dev/roadmap.md) for scope, completion criteria, longer-term plans, and features under consideration.
@@ -102,11 +122,12 @@ Choose the user, administrator, or developer guide for your task.
 
 Report problems through [Issues](https://github.com/molr-ai/molr/issues), or submit a pull request to improve the code and documentation. Read the [contribution guidelines](AGENTS.md) first, and use a separate worktree for development, tests, and documentation changes.
 
-The repository contains a Go Runtime, three frontend applications, and shared packages:
+The repository contains a Go Runtime, an Electron desktop app, three frontend applications, and shared packages:
 
 | Directory | Purpose |
 | --- | --- |
 | [`runtime/`](runtime/README.md) | Go service, agent execution, and sandbox |
+| [`apps/desktop/`](apps/desktop/README.md) | Electron desktop app, connections, and local service management |
 | [`apps/webui/`](apps/webui/README.md) | Product interface connected to the real Runtime |
 | [`apps/website/`](apps/website/README.md) | Product website and public documentation |
 | [`apps/ui-design/`](apps/ui-design/README.md) | Branding, components, and mock interactions |
@@ -118,6 +139,7 @@ Install dependencies in your task worktree, then start the application you need:
 
 ```bash
 npm ci
+npm run dev:desktop     # Desktop development; local service and packaging prerequisites: apps/desktop/README.md
 npm run dev             # WebUI: 5191; requires a separate Runtime
 VITE_SITE_MODE=live npm run dev:website # Website: 5189
 npm run dev:design      # UI Design: 5188; mock data
