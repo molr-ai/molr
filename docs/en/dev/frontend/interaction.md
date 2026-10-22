@@ -22,6 +22,8 @@ Chat history loads earlier messages through centered text between light divider 
 
 Desktop main sidebar buttons are uniformly 44px. Menu buttons have a transparent background by default, showing a rounded rectangle background on hover and selection. Search buttons and account avatars remain circular, with avatars and buttons being the same size. The Logo remains unchanged, and mobile continues to use the bottom navigation layout.
 
+In the desktop App's wide layout, empty areas of the main navigation sidebar are native window drag regions. Buttons explicitly use `no-drag` to retain clicks and tooltips. These styles apply only to the non-mobile layout inside `.app-frame`; browser and narrow bottom navigation interactions stay unchanged. The existing full-window `no-drag` modal layer handles overlay interactions.
+
 After saving an avatar or display name, account profile information is synchronized in the background to the current page and same-origin tabs, preserving workspace and connection. Login, logout, and identity switching still reinitialize the session.
 
 Shared Tooltips in locations such as the sidebar close and clear delay timers when the window loses focus or the page is hidden. Restoring focus by switching back to the page does not trigger the tooltip; subsequent keyboard navigation or mouse hover displays it normally. This behavior is handled by shared components, so the host does not need to clear button focus. Tooltips share a set of window activity listeners. Keyboard and pointer presses only advance the input version; instances in the process of closing do not execute input callbacks individually. Shared listeners are removed when the last instance unmounts.

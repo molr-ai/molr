@@ -2,6 +2,8 @@
 
 Start with a service address and account provided by your administrator. If you need to install Molr yourself, first follow [Set up a Molr instance](../admin/getting-started.md).
 
+Drag the titlebar to move the desktop window. After signing in, the empty areas of the leftmost main navigation sidebar also move the window in the wide layout. Navigation, search, and avatar buttons remain clickable.
+
 On macOS, the desktop connection manager and connected WebUI use native traffic lights at the upper left to close, minimize, and enter fullscreen, with the logo to their right. Closing the window leaves an already running Runtime active.
 
 ## Login

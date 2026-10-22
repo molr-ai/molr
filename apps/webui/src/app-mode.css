@@ -4,7 +4,8 @@
 /* The App titlebar already provides top spacing; do not add another strip
    above the workspace cards and navigation. */
 .app-frame .workspace > .workspace-content { margin-top: 0; }
-.app-frame .workspace:not(.workspace--mobile) > .workspace-nav { padding-top: 0; }
+.app-frame .workspace:not(.workspace--mobile) > .workspace-nav { padding-top: 0; app-region: drag; -webkit-app-region: drag; user-select: none; }
+.app-frame .workspace:not(.workspace--mobile) > .workspace-nav button { app-region: no-drag; -webkit-app-region: no-drag; }
 .app-frame .workspace--mobile { flex-direction: column; }
 .app-titlebar { height: var(--app-titlebar-height); flex: 0 0 var(--app-titlebar-height); display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 8px 0 16px; background: transparent; color: var(--color-text); line-height: 1; user-select: none; app-region: drag; -webkit-app-region: drag; }
 .app-titlebar-identity { min-width: 0; display: flex; align-items: center; gap: 12px; font-size: var(--text-sm); line-height: 1; }
