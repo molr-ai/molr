@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { _electron as electron, chromium, expect } from '@playwright/test';
-import { expectMacTitlebar, expectFullscreenTitlebar, expectStableMacTitlebar } from './window-controls.mjs';
+import { expectMacTitlebar, expectFullscreenTitlebar, expectStableMacTitlebar, waitForWindowZoom } from './window-controls.mjs';
 const root = resolve(import.meta.dirname, '../../..');
 const url = process.env.MOLR_DESKTOP_WEBUI_URL;
 const linkFile = process.env.MOLR_DESKTOP_TEST_LINK;
@@ -40,6 +40,7 @@ try {
   if (process.platform === 'darwin') {
     for (const zoom of [0.8, 1.25, 1.5, 1]) {
       await app.evaluate(({webContents}, {url, zoom}) => webContents.getAllWebContents().find(c => c.getURL().startsWith(url)).setZoomFactor(zoom), {url, zoom});
+      await waitForWindowZoom(app, runtime, zoom);
       await expectMacTitlebar(runtime, '.app-titlebar', '.app-titlebar-brand');
       await expectStableMacTitlebar(app, runtime, '.app-titlebar', '.app-titlebar-brand');
     }

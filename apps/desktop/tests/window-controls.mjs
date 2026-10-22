@@ -14,13 +14,26 @@ export async function waitForVisibleWindow(app, page) {
   } finally { await window.dispose(); }
 }
 
+// setZoomFactor() returns before the renderer applies the new scale. Geometry
+// at the old zoom can still satisfy the titlebar alignment assertions.
+export async function waitForWindowZoom(app, page, zoom) {
+  const expected = await app.evaluate(({ BrowserWindow, screen }, zoom) => {
+    const win = BrowserWindow.getAllWindows()[0];
+    return { zoom, width: win.getContentSize()[0], ratio: screen.getDisplayMatching(win.getBounds()).scaleFactor * zoom };
+  }, zoom);
+  await expect.poll(() => page.evaluate(({ zoom, width, ratio }) =>
+    Math.abs(devicePixelRatio - ratio) < 0.01 && Math.abs(innerWidth * zoom - width) <= zoom, expected), {
+    message: `Renderer must apply zoom ${zoom} before measuring titlebar stability`, timeout: 15000,
+  }).toBe(true);
+}
+
 // Sample during resizing: a settled screenshot misses macOS WCO's transient x.
 export async function expectStableMacTitlebar(app, page, toolbar, brand) {
   await expectMacTitlebar(page, toolbar, brand);
   await page.evaluate(brand => {
     const logo = document.querySelector(brand);
     const start = logo.getBoundingClientRect();
-    const probe = { samples: 0, maxX: 0, maxY: 0, frame: 0 };
+    const probe = { samples: 0, maxX: 0, maxY: 0, frame: 0, pixelRatio: devicePixelRatio };
     const sample = () => {
       const rect = logo.getBoundingClientRect();
       probe.samples++;
