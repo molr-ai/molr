@@ -61,7 +61,7 @@ Molr 是可自托管的个人 AI 助理，在你自己的设备上运行，连�
 
 ## 快速开始
 
-按使用方式选择桌面应用、完整服务或额外沙盒节点。测试安装包从 [GitHub Releases](https://github.com/molr-ai/molr/releases) 下载；[官网安装入口](https://molr.ai/#install)和默认 `install.sh` 发布源只提供正式版，尚无正式版时不会自动回退到预发布版。
+按使用方式选择桌面应用、后台服务或独立沙盒节点。测试安装包从 [GitHub Releases](https://github.com/molr-ai/molr/releases) 下载；[官网安装入口](https://molr.ai/#install)和默认 `install.sh` 发布源只提供正式版，尚无正式版时不会自动回退到预发布版。
 
 ### 桌面应用
 
@@ -69,7 +69,7 @@ Molr 是可自托管的个人 AI 助理，在你自己的设备上运行，连�
 
 打开应用后，选择“在这台电脑上使用”创建本机服务，或“连接远程服务”填写已有 Runtime 的地址。桌面完整版已包含 Runtime、WebUI 和本机沙盒，无需另装服务包；创建本机服务仍需在应用内确认。关闭桌面窗口不会停止已运行的后台服务。具体操作见[桌面应用安装](docs/admin/deployment/installation.md#桌面应用)。
 
-### 完整服务（Runtime）
+### 后台服务（Runtime）
 
 在 Linux 或 macOS 上通过终端部署时，从 Releases 下载对应系统、架构的 Runtime `.tar.gz` 及同名 `.sha256` 文件，校验并解压后，在包目录运行：
 
@@ -77,19 +77,19 @@ Molr 是可自托管的个人 AI 助理，在你自己的设备上运行，连�
 ./bin/molr-setup --mode server
 ```
 
-完整服务提供账号、助理、计划、WebUI 和本机沙盒。安装后用桌面应用或浏览器连接输出的服务地址，数据保存在运行服务的设备。Linux 使用 systemd，启用受控命令还需 systemd 254+ 等[沙盒依赖](docs/admin/sandbox/linux.md)；macOS 使用 launchd，要求 macOS 13 或更新版本。在线安装、校验和维护步骤见[安装指南](docs/admin/deployment/installation.md)。
+后台服务提供账号、助理、计划、WebUI 和本机沙盒。安装后用桌面应用或浏览器连接输出的服务地址，数据保存在运行服务的设备。Linux 使用 systemd，启用受控命令还需 systemd 254+ 等[沙盒依赖](docs/admin/sandbox/linux.md)；macOS 使用 launchd，要求 macOS 13 或更新版本。在线安装、校验和维护步骤见[安装指南](docs/admin/deployment/installation.md)。
 
-### 额外沙盒节点（Sandbox）
+### 独立沙盒节点（Sandbox）
 
-已有完整服务，需要使用另一台设备的文件或执行资源时，在那台 Linux/macOS 设备上解压同一 Runtime 包并运行：
+已有后台服务，需要使用另一台设备的文件或执行资源时，在那台 Linux/macOS 设备上解压同一 Runtime 包并运行：
 
 ```bash
 ./bin/molr-setup --mode sandbox --name molr-node
 ```
 
-再从完整服务的资源页面连接节点并授权。节点不提供账号、助理或 WebUI；单机使用已经内置沙盒，不必额外部署节点。连接与权限设置见[独立 Sandbox 服务](docs/admin/sandbox/remote.md)。
+再从后台服务的资源页面连接节点并授权。节点不提供账号、助理或 WebUI；单机使用已经内置沙盒，不必额外部署节点。连接与权限设置见[独立 Sandbox 服务](docs/admin/sandbox/remote.md)。
 
-安装包不包含模型权重或推理服务。完整服务就绪后，连接本地或云端模型、聘请助理并设置预算，即可开始对话。
+安装包不包含模型权重或推理服务。后台服务就绪后，连接本地或云端模型、聘请助理并设置预算，即可开始对话。
 
 - [快速开始](docs/user/getting-started.md)：登录并开始第一次对话。
 - [安装与服务管理](docs/admin/deployment/installation.md)：指定版本、选择发布渠道或离线安装。
@@ -148,3 +148,7 @@ npm run dev:design      # UI Design：5188，模拟数据
 ## 许可证
 
 Molr 自有代码与文档采用 [MIT 许可证](LICENSE)。第三方组件保留各自许可证，详见[第三方声明](THIRD_PARTY_NOTICES.md)与[许可证及分发说明](docs/dev/releasing/licensing.md)。
+
+## 社区
+
+- [Linux Do](https://linux.do/)

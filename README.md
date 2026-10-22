@@ -61,7 +61,7 @@ Molr provides desktop apps for Linux, macOS, and Windows, alongside the WebUI an
 
 ## Getting started
 
-Choose the desktop app, a complete server, or an additional sandbox node. Download test releases from [GitHub Releases](https://github.com/molr-ai/molr/releases). The [website installer](https://molr.ai/#install) and the default `install.sh` release source offer stable releases only; they do not fall back to prereleases when no stable version is available.
+Choose the desktop app, a background service, or an independent sandbox node. Download test releases from [GitHub Releases](https://github.com/molr-ai/molr/releases). The [website installer](https://molr.ai/#install) and the default `install.sh` release source offer stable releases only; they do not fall back to prereleases when no stable version is available.
 
 ### Desktop app
 
@@ -69,7 +69,7 @@ Download the desktop package for your system and architecture: `.deb` for Linux 
 
 Open the app and choose to use this computer to create a local service, or connect to a remote server by entering an existing Runtime address. Full desktop packages include Runtime, WebUI, and the local sandbox, so no separate server package is needed; creating the local service still requires confirmation in the app. Closing the desktop window does not stop the running service. See [desktop installation](docs/en/admin/deployment/installation.md#desktop-app) for the steps.
 
-### Complete server (Runtime)
+### Background service (Runtime)
 
 For terminal-based deployment on Linux or macOS, download the Runtime `.tar.gz` for your system and architecture and its matching `.sha256` file from Releases. Verify and extract the archive, then run from the package directory:
 
@@ -77,19 +77,19 @@ For terminal-based deployment on Linux or macOS, download the Runtime `.tar.gz` 
 ./bin/molr-setup --mode server
 ```
 
-The complete server provides accounts, assistants, plans, WebUI, and a local sandbox. Connect to the reported service address with the desktop app or a browser; data stays on the server device. Linux uses systemd, with systemd 254+ and other [sandbox dependencies](docs/en/admin/sandbox/linux.md) required for controlled commands. macOS uses launchd and requires macOS 13 or later. See the [installation guide](docs/en/admin/deployment/installation.md) for online installation, checksum verification, and maintenance.
+The background service provides accounts, assistants, plans, WebUI, and a local sandbox. Connect to the reported service address with the desktop app or a browser; data stays on the server device. Linux uses systemd, with systemd 254+ and other [sandbox dependencies](docs/en/admin/sandbox/linux.md) required for controlled commands. macOS uses launchd and requires macOS 13 or later. See the [installation guide](docs/en/admin/deployment/installation.md) for online installation, checksum verification, and maintenance.
 
-### Additional sandbox node (Sandbox)
+### Independent sandbox node (Sandbox)
 
-To add another device's files or execution resources to an existing complete server, extract the same Runtime package on that Linux/macOS device and run:
+To add another device's files or execution resources to an existing background service, extract the same Runtime package on that Linux/macOS device and run:
 
 ```bash
 ./bin/molr-setup --mode sandbox --name molr-node
 ```
 
-Connect and authorize the node from the complete server's Resources page. A node provides no accounts, assistants, or WebUI. A single-device setup already includes a local sandbox and needs no additional node. See [independent Sandbox services](docs/en/admin/sandbox/remote.md) for connections and permissions.
+Connect and authorize the node from the background service's Resources page. A node provides no accounts, assistants, or WebUI. A single-device setup already includes a local sandbox and needs no additional node. See [independent Sandbox services](docs/en/admin/sandbox/remote.md) for connections and permissions.
 
-Packages include neither model weights nor an inference server. Once the complete service is ready, connect a local or cloud model, hire an assistant, and set its budget to start chatting.
+Packages include neither model weights nor an inference server. Once the background service is ready, connect a local or cloud model, hire an assistant, and set its budget to start chatting.
 
 - [Getting started](docs/en/user/getting-started.md): sign in and start your first conversation.
 - [Installation and service management](docs/en/admin/deployment/installation.md): install a specific version, choose a release channel, or install offline.
@@ -150,3 +150,7 @@ Frontends listen on `0.0.0.0` by default. Each worktree needs its own dependenci
 ## License
 
 Molr's own code and documentation are licensed under [MIT](LICENSE). Third-party components retain their respective licenses. See [Third-party notices](THIRD_PARTY_NOTICES.md) and the [licensing and distribution guide](docs/en/dev/releasing/licensing.md).
+
+## Community
+
+- [Linux Do](https://linux.do/)
