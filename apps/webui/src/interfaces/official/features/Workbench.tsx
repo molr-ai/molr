@@ -35,7 +35,7 @@ function WorkbenchSession({ assistants, assistantID, onSelectAssistant, onSettin
   const [query, setQuery] = useState(''), [filter, setFilter] = useState('all'), [raw, setRaw] = useState(false), [range, setRange] = useState<AxisRange | null>(null), [axisMode, setAxisMode] = useState<AxisMode>('time');
   const [streaming, setStreaming] = useState(false), [revoked, setRevoked] = useState(false), [confirmStop, setConfirmStop] = useState(false);
   const status = useQuery<AgentStatus>(`/api/assistants/${assistantID}/status`);
-  const jobs = useQuery<Array<{ State: string; Event: { Kind: string } }>>(`/api/jobs?assistant_id=${assistantID}`, true);
+  const jobs = useQuery<Array<{ State: string; Event: { Kind: string } }>>(`/api/jobs?assistant_id=${assistantID}&state=queued&state=retry`, true);
   const records = useMemo(() => projectTrajectory(trajectory.runs, trajectory.entries), [trajectory.runs, trajectory.entries]);
   const visible = useMemo(() => raw ? projectTrajectory(trajectory.runs, trajectory.entries, true) : records, [trajectory.runs, trajectory.entries, raw, records]);
   const axisItems = useMemo(() => trajectoryAxisItems(trajectory.runs, trajectory.entries, records), [trajectory.runs, trajectory.entries, records]);

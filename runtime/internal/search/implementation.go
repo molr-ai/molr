@@ -26,8 +26,6 @@ func newID() core.ID {
 	return core.ID(hex.EncodeToString(b[:]))
 }
 func invalid(field string) error { return core.Invalid(field, "invalid value") }
-func conflict() error            { return core.NewError(core.Conflict, "version or idempotency conflict") }
-func missing() error             { return core.NewError(core.NotFound, "object not found") }
 func forbidden() error           { return core.NewError(core.Forbidden, "access denied") }
 func (s *service) now() time.Time {
 	if s.options.Now != nil {
@@ -64,87 +62,6 @@ func (s *service) read(ctx context.Context, p core.Principal, id core.ID, action
 	})
 }
 
-type receipt struct {
-	Digest string
-	Result json.RawMessage
-}
-
-func mutate[T any](ctx context.Context, s *service, p core.Principal, action string, id core.ID, m core.Mutation, payload any, update, ownerOnly bool, fn func(context.Context) (T, error)) (T, error) {
-	var result T
-	if err := m.Validate(update); err != nil {
-		return result, err
-	}
-	data, err := json.Marshal(payload)
-	if err != nil {
-		return result, err
-	}
-	sum := sha256.Sum256(data)
-	digest := hex.EncodeToString(sum[:])
-	err = s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		if err := s.authorize(ctx, p, core.Object{Kind: objectKind, ID: id}, policy.Write, ownerOnly); err != nil {
-			return err
-		}
-		key := persistence.Key(p.OwnerID, core.ID(action+"/"+string(id)+"/"+m.IdempotencyKey))
-		var old receipt
-		err := tx.Get(ctx, receiptBucket, key, &old)
-		if err == nil {
-			if old.Digest != digest {
-				return conflict()
-			}
-			return json.Unmarshal(old.Result, &result)
-		}
-		if !persistence.Missing(err) {
-			return err
-		}
-		result, err = fn(ctx)
-		if err != nil {
-			return err
-		}
-		encoded, err := json.Marshal(result)
-		if err != nil {
-			return err
-		}
-		return tx.Put(ctx, receiptBucket, key, receipt{Digest: digest, Result: encoded})
-	})
-	return result, err
-}
-func insert[T any](ctx context.Context, store persistence.Store, bucket, key string, value T) error {
-	return store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		var old json.RawMessage
-		err := tx.Get(ctx, bucket, key, &old)
-		if err == nil {
-			return conflict()
-		}
-		if !persistence.Missing(err) {
-			return err
-		}
-		return tx.Put(ctx, bucket, key, value)
-	})
-}
-func save[T any](ctx context.Context, store persistence.Store, bucket, key string, value T, expected core.Version, version func(T) core.Version) error {
-	return store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		var old T
-		if err := tx.Get(ctx, bucket, key, &old); err != nil {
-			return err
-		}
-		if expected == 0 || version(old) != expected || version(value) != expected+1 {
-			return conflict()
-		}
-		return tx.Put(ctx, bucket, key, value)
-	})
-}
-func remove[T any](ctx context.Context, store persistence.Store, bucket, key string, expected core.Version, version func(T) core.Version) error {
-	return store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		var old T
-		if err := tx.Get(ctx, bucket, key, &old); err != nil {
-			return err
-		}
-		if expected == 0 || version(old) != expected {
-			return conflict()
-		}
-		return tx.Delete(ctx, bucket, key)
-	})
-}
 func paginate[T any](items []T, owner core.ID, query any, request core.PageRequest) (core.Page[T], error) {
 	var result core.Page[T]
 	p, err := request.Normalize()
@@ -175,12 +92,8 @@ func paginate[T any](items []T, owner core.ID, query any, request core.PageReque
 	}
 	return result, nil
 }
-func validText(text string, limit int) bool {
-	return strings.TrimSpace(text) != "" && len(text) <= limit
-}
 
 const objectKind = "search"
-const receiptBucket = "search.receipts"
 const indexBucket = "search.documents"
 const statusBucket = "search.jobs"
 

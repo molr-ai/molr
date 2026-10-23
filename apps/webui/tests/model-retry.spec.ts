@@ -95,6 +95,9 @@ test('workbench retains each real retry request, response, timing and final outc
  const messages=await(await page.request.get(`/api/conversations/${assistant.ConversationID}/messages`)).json();
  expect(messages.Items.filter((m:any)=>m.Sender==='assistant')).toHaveLength(assistant.birthReplies + 1);
  await page.reload();
+ // Reload follows the latest records; the birth row can be outside the mobile virtual window.
+ await expect(timeline.locator('.trajectory-run').first()).toBeVisible();
+ await page.locator('.trajectory-scroll').evaluate(element => { element.scrollTop = 0; });
  await page.locator(`[data-record-id="run:${assistant.birthRoot}"] .trajectory-fold`).click();
  await expect(timeline.locator('.trajectory-record--model').nth(2)).toContainText('Retry 2/3');
  if(process.env.MOLR_RETRY_CAPTURE) await page.screenshot({path:`${process.env.MOLR_RETRY_CAPTURE}/retry-${info.project.name}.png`,fullPage:true});
