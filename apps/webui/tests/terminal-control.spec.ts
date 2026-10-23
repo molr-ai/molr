@@ -28,7 +28,7 @@ test('real terminal shares workspace, fences old controllers and reconnects', as
   expect(denied.ok()).toBe(false);
   await post('/api/grants',{AssistantID:assistant.ID,ResourceID:compute.ID,Actions:['execute'],Scope:{},Constraints:{compute:{cpu_percent:100,memory_bytes:536870912,processes:64,max_duration_seconds:180,unlimited_duration:false,temp_bytes:67108864}}});
   async function open(target:Page){await target.goto(`/#/assistants/${assistant.ID}`);await target.getByRole('button',{name:/^Terminal(?: \(\d+\))?$/}).click();}
-  await open(page);await page.getByRole('button',{name:'New session',exact:true}).click();
+  await open(page);await page.getByRole('button',{name:'Open terminal',exact:true}).click();
   await expect(page.getByText('You control',{exact:true})).toBeVisible();
   await expect(page.getByRole('button', { name: 'Terminal (1)', exact: true })).toBeVisible();
   await expect(page.getByRole('button',{name:'Ctrl-C',exact:true})).toBeEnabled();

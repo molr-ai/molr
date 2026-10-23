@@ -14,9 +14,10 @@ for (const os of ['windows', 'freebsd']) test(`${os} Runtime explains unsupporte
   let creates = 0;
   page.on('request', request => { if (request.method() === 'POST' && request.url().endsWith('/terminals')) creates++; });
   await page.goto('/tests/fixtures/terminal-feedback.html');
-  await expect(page.locator('.terminal-empty')).toContainText('This sandbox does not support interactive terminals.');
-  await expect(page.getByRole('button', { name: 'New session', exact: true })).toBeDisabled();
-  await expect(page.getByRole('button', { name: 'Open terminal', exact: true })).toHaveCount(0);
+  await expect(page.locator('.session-start')).toContainText('This sandbox does not support interactive terminals.');
+  await expect(page.getByRole('button', { name: 'New session', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Open terminal', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Open terminal', exact: true })).toBeVisible();
   expect(creates).toBe(0);
 });
 
@@ -30,8 +31,9 @@ for (const os of ['linux', 'darwin', 'windows']) test(`${os} Runtime permits cre
 test('disabled sandbox explains the capability state instead of missing grants', async ({ page }) => {
   await fixture(page, 'linux', false);
   await page.goto('/tests/fixtures/terminal-feedback.html');
-  await expect(page.locator('.terminal-empty')).toContainText('Local sandbox command execution is unavailable.');
-  await expect(page.getByRole('button', { name: 'New session', exact: true })).toBeDisabled();
+  await expect(page.locator('.session-start')).toContainText('Local sandbox command execution is unavailable.');
+  await expect(page.getByRole('button', { name: 'New session', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Open terminal', exact: true })).toBeDisabled();
 });
 
 test('creation errors use Toasts, retain unknown request IDs and display platform reasons', async ({ page }) => {
@@ -64,7 +66,8 @@ test('capability lookup failure has a retry Toast and keeps creation disabled un
   await page.goto('/tests/fixtures/terminal-feedback.html');
   const toast = page.locator('.ui-toast--danger');
   await expect(toast).toBeVisible();
-  await expect(page.getByRole('button', { name: 'New session', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'New session', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Open terminal', exact: true })).toBeDisabled();
   fail = false;
   await toast.getByRole('button', { name: 'Retry', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Open terminal', exact: true })).toBeEnabled();

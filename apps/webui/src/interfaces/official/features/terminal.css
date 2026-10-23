@@ -47,10 +47,6 @@
 .terminal-session-actions .ui-icon-button { width: 30px; height: 30px; }
 .terminal-interrupt { font-family: var(--font-mono, monospace); font-size: 11px; padding-inline: 8px; }
 .terminal-end-session:not(:disabled):hover { color: var(--color-danger); background: var(--color-danger-bg); }
-.terminal-empty { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 12px; min-height: 0; padding: 24px; text-align: center; }
-.terminal-empty-icon { display: grid; place-items: center; width: 56px; height: 56px; border-radius: var(--radius-card); background: var(--color-background); color: var(--color-text-muted); }
-.terminal-empty h3 { font-size: 14px; font-weight: 550; margin: 0; }
-.terminal-empty p { max-width: 320px; margin: 0; color: var(--color-text-muted); font-size: 12px; }
 .terminal-resize { position: absolute; right: 1px; bottom: 1px; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 4px 0 10px; background: transparent; cursor: nwse-resize; touch-action: none; }
 .terminal-resize:focus-visible { outline-offset: -3px; }
 .terminal-theme-picker { flex-shrink: 0; }

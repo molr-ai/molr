@@ -12,6 +12,7 @@ import { TerminalThemePicker, useTerminalTheme } from './terminalTheme';
 import { useFloatingPanel } from './useFloatingPanel';
 import type { FloatingBounds } from './useFloatingPanel';
 
+import { SessionStart } from './SessionStart';
 import { ExecutionOptions, useExecutionOptions } from './ExecutionOptions';
 
 const selections = new Map<string,string>();
@@ -32,8 +33,10 @@ export function Terminals({ assistantID, assistantName, docked, floating, onFloa
   useErrorToast(resources.error, resources.reload);
   useErrorToast(grants.error, grants.reload);
   useErrorToast(sandbox.error, sandbox.reload);
-  const canCreate = !!ready && !sandbox.error && !resources.error && !grants.error && execution.valid;
-  const unavailable = !sandbox.data || sandbox.error
+  const loading = !query.data && query.loading || !sandbox.data && sandbox.loading || !resources.data && resources.loading || !grants.data && grants.loading;
+  const canCreate = !loading && !query.error && !!ready && !sandbox.error && !resources.error && !grants.error && execution.valid;
+  const unavailable = query.error ? (zh ? '暂时无法读取终端会话。' : 'Terminal sessions could not be loaded.')
+    : !sandbox.data || sandbox.error
     ? (zh ? '暂时无法确认终端能力。' : 'Terminal capabilities could not be confirmed.')
     : !sandbox.data.Enabled || !(sandbox.data.Capabilities.Shell || sandbox.data.Capabilities.FullAccessTerminal) ? (zh ? '本机沙盒命令执行不可用，请检查沙盒状态。' : 'Local sandbox command execution is unavailable. Check sandbox status.')
     : !(supported || sandbox.data.Capabilities.FullAccessTerminal) ? (sandbox.data.Capabilities.TerminalReason === 'terminal_start_failed' ? t.errorReasons.terminal_start_failed : t.errorReasons.terminal_platform_unsupported)
@@ -95,13 +98,18 @@ export function Terminals({ assistantID, assistantName, docked, floating, onFloa
         </div>
         {(scroll.left || scroll.right) && <IconButton className="terminal-tab-scroll" label={zh ? '向右滚动会话' : 'Scroll sessions right'} disabled={!scroll.right} onClick={() => tabList.current?.scrollBy({ left: Math.max(120, tabList.current.clientWidth * 0.75) })}><ChevronRight size={16}/></IconButton>}
     </div>}
-        <Tooltip content={canCreate ? (zh ? '新建会话' : 'New session') : unavailable}><IconButton className="terminal-new-session" disabled={busy || !canCreate} label={busy ? (zh ? '开启中…' : 'Opening…') : (zh ? '新建会话' : 'New session')} onClick={() => void create()}><Plus size={17}/></IconButton></Tooltip>
+        {tasks.length > 0 && <Tooltip content={canCreate ? (zh ? '新建会话' : 'New session') : unavailable}><IconButton className="terminal-new-session" disabled={busy || !canCreate} label={busy ? (zh ? '开启中…' : 'Opening…') : (zh ? '新建会话' : 'New session')} onClick={() => void create()}><Plus size={17}/></IconButton></Tooltip>}
     <div className="terminal-heading-actions">{!tasks.length && <TerminalThemePicker zh={zh}/>} {!mobile && <IconButton label={floating ? (zh ? '停靠侧栏' : 'Dock to sidebar') : (zh ? '浮窗模式' : 'Floating window')} onClick={() => onFloatingChange(!floating)}>{floating ? <PanelRight size={18}/> : <PictureInPicture2 size={18}/>}</IconButton>}<IconButton label={zh ? '关闭终端窗口' : 'Close terminal window'} onClick={onClose}><X size={18}/></IconButton></div>
   </div>}>
     <div ref={view.ref} className="terminal-panel">
-      <ExecutionOptions value={execution} zh={zh} disabled={busy}/>
+      {task && <ExecutionOptions value={execution} zh={zh} disabled={busy}/>}
 
-      {task ? <div id={panelID} className="terminal-tab-content" role="tabpanel" aria-labelledby={`${panelID}-${task.ID}`}><TerminalSession key={task.ID} assistantID={assistantID} task={task} refresh={query.reload}/></div> : <div className="terminal-empty"><span className="terminal-empty-icon"><Terminal size={28}/></span><h3>{zh ? '在助理工作区中开启交互式 Shell' : 'Open an interactive shell in the assistant workspace'}</h3><p>{sandbox.loading || resources.loading || grants.loading ? t.loading : canCreate ? (execution.fullAccess ? (zh ? '新会话将使用已授权的 Full Access 模式。' : 'New sessions use the authorized Full Access mode.') : (zh ? '使用助理已获授的计算、文件和网络权限。' : 'Uses the assistant’s granted compute, file and network permissions.')) : unavailable}</p>{canCreate && <Button size="sm" disabled={busy} onClick={() => void create()}><Plus size={15}/>{zh ? '开启终端' : 'Open terminal'}</Button>}</div>}
+      {task ? <div id={panelID} className="terminal-tab-content" role="tabpanel" aria-labelledby={`${panelID}-${task.ID}`}><TerminalSession key={task.ID} assistantID={assistantID} task={task} refresh={query.reload}/></div> : <SessionStart icon={<Terminal/>} title={zh ? '在工作区中运行命令' : 'Run commands in the workspace'} description={zh ? '开启交互式终端，使用助理已获授的计算、文件和网络权限。' : 'Open an interactive terminal using the assistant’s granted compute, file and network permissions.'}
+        status={loading ? t.loading : !ready || query.error || sandbox.error || resources.error || grants.error ? unavailable : undefined}
+        action={<Button disabled={busy || !canCreate} loading={busy} onClick={() => void create()}>{busy ? (zh ? '开启中…' : 'Opening…') : (zh ? '开启终端' : 'Open terminal')}</Button>}>
+        {!loading && ready && !query.error && !sandbox.error && !resources.error && !grants.error && <ExecutionOptions value={execution} zh={zh} disabled={busy}/>}
+      </SessionStart>}
+
       {floating && <button className="terminal-resize" aria-label={zh ? '调整终端大小' : 'Resize terminal'} {...view.resize}/>}
     </div>
   </Drawer>;

@@ -1,6 +1,6 @@
 import './execution-options.css';
 import { useEffect, useState } from 'react';
-import { Badge, Button, Select } from '@molr/ui';
+import { Alert, Button, Select } from '@molr/ui';
 import type { Grant, Resource } from '../../../api/types';
 
 export function useExecutionOptions(resources: Resource[] | undefined, grants: Grant[] | undefined, sandbox: boolean, fullAccess: boolean) {
@@ -30,7 +30,7 @@ export function ExecutionOptions({ value, zh, disabled }: { value: ReturnType<ty
     {options.length > 1 && <Select label={zh ? '计算资源' : 'Compute resource'} value={selected ? compute : ''} disabled={disabled} onValueChange={value.chooseResource} options={options.map(o => ({ value: o.resource.ID, label: o.resource.Name }))} />}
     {options.length === 1 && compute && !selected && <Button disabled={disabled} onClick={() => value.chooseResource(options[0].resource.ID)}>{options[0].resource.Name}</Button>}
     {selected && ((selected.sandbox && selected.fullAccess) || !valid) && <Select label={zh ? '执行模式' : 'Execution mode'} value={valid ? fullAccess ? 'full' : 'sandbox' : ''} disabled={disabled} onValueChange={value.chooseMode} options={[...(selected.sandbox ? [{ value: 'sandbox', label: zh ? '沙盒' : 'Sandbox' }] : []), ...(selected.fullAccess ? [{ value: 'full', label: 'Full Access' }] : [])]} />}
-    {fullAccess && <><Badge tone="warning">Full Access</Badge><p className="muted">{zh ? '使用服务账户权限，不受 Molr 文件、网络隔离和资源配额限制。' : 'Uses the service account permissions without Molr file/network isolation or resource quotas.'}</p></>}
+    {fullAccess && <Alert tone="warning" title="Full Access">{zh ? '使用服务账户权限，不受 Molr 文件、网络隔离和资源配额限制。' : 'Uses the service account permissions without Molr file/network isolation or resource quotas.'}</Alert>}
     {compute && !valid && <p className="muted">{zh ? '当前资源或执行模式已不可用，请重新选择。' : 'The selected resource or execution mode is unavailable. Select again.'}</p>}
   </div>;
 }

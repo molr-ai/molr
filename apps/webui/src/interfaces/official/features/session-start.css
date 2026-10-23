@@ -1,0 +1,9 @@
+.session-start { display:flex; flex:1; min-height:0; width:100%; overflow:auto; padding:32px 24px; }
+.session-start-content { display:flex; flex-direction:column; align-items:center; gap:16px; width:100%; max-width:360px; margin:auto; color:var(--color-text); text-align:center; }
+.session-start-icon { display:grid; place-items:center; width:64px; height:64px; flex-shrink:0; color:var(--color-text-muted); }
+.session-start-icon > svg { width:32px; height:32px; }
+.session-start h3 { margin:0; font-size:var(--text-lg); font-weight:550; line-height:1.5; }
+.session-start-description, .session-start-status { margin:0; color:var(--color-text-muted); font-size:var(--text-sm); line-height:1.6; overflow-wrap:anywhere; }
+.session-start .execution-options { text-align:left; }
+.session-start-content > .button { min-width:140px; max-width:100%; }
+@media (max-width:767px) { .session-start { padding:24px 20px; } }

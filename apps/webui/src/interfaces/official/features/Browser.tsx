@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ChangeEvent, KeyboardEvent, PointerEvent, RefObject, WheelEvent } from 'react';
-import { Alert, Badge, Button, Drawer, IconButton, useBreakpoint, useToast, useUILocale } from '@molr/ui';
+import { Badge, Button, Drawer, IconButton, useBreakpoint, useToast, useUILocale } from '@molr/ui';
 import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, CornerDownLeft, Globe, Hand, Keyboard, GripHorizontal, PanelRight, PictureInPicture2, Plus, Power, RefreshCw, X } from 'lucide-react';
 import { api, APIError, mutationKey } from '../../../api/client';
 import type { BrowserStatus, Grant, Resource } from '../../../api/types';
@@ -10,6 +10,7 @@ import { ComponentDetails, MaintenanceProgress, maintenanceReason, useMaintenanc
 import type { ComponentStatus } from '@molr/sdk';
 import './browser.css';
 import type { SandboxInfo } from '../../../sandbox-types';
+import { SessionStart } from './SessionStart';
 import { ExecutionOptions, useExecutionOptions } from './ExecutionOptions';
 import { useBrowserView } from './useBrowserView';
 import type { BrowserBounds } from './useBrowserView';
@@ -309,6 +310,9 @@ export function Browser({ assistantID, docked, floating, onFloatingChange, bound
     onCompositionEnd: (e: React.CompositionEvent<HTMLTextAreaElement>) => { composing.current = false; commitText(e.currentTarget, e.data || e.currentTarget.value); },
   };
   function tabTitle(tab: Tab) { if (tab.url === 'about:blank') return zh ? '新标签页' : 'New tab'; return tab.title || tab.url || (zh ? '标签页' : 'Tab'); }
+  const loading = !query.data && query.loading || !sandbox.data && sandbox.loading || !resources.data && resources.loading || !grants.data && grants.loading;
+  const installing = query.data?.Preparation?.state === 'installing';
+  const componentsUnavailable = query.data?.Available === false && !component?.can_install && !query.data.ComponentsEnabled;
   const controlLabel = state?.Control === 'switching' ? (zh ? '正在交接' : 'Handing over') : ownsControl ? (zh ? '你正在控制' : 'You are in control') : state?.Control === 'user' ? (zh ? '其他窗口正在控制' : 'Controlled in another window') : (zh ? '助理控制中' : 'Assistant in control');
   const viewActions = <div className="browser-view-actions">{!mobile && <IconButton label={floating ? (zh ? '停靠侧栏' : 'Dock to sidebar') : (zh ? '浮窗模式' : 'Floating window')} onClick={() => onFloatingChange(!floating)}>{floating ? <PanelRight size={18}/> : <PictureInPicture2 size={18}/>}</IconButton>}
     <IconButton label={zh ? '关闭浏览器面板' : 'Close browser panel'} onClick={onClose}><X size={18}/></IconButton></div>;
@@ -328,13 +332,13 @@ export function Browser({ assistantID, docked, floating, onFloatingChange, bound
       {viewActions}
     </div> : <div className="browser-window-heading" {...dragProps}>{moveHandle}<span>{zh ? '浏览器' : 'Browser'}</span>{viewActions}</div>}>
     <div className="browser-panel" ref={panelRef}>
-      {!task ? <div className="browser-start"><div className="browser-start-icon"><Globe size={34}/></div><h3>{zh ? '一起浏览，同步可见' : 'Browse together'}</h3><p>{zh ? '观看助理浏览网页，需要时接管。登录状态会为这个助理保留。' : 'Watch your assistant browse, and take control when needed. Login state stays with this assistant.'}</p>
-        {query.data?.Available === false && component && <ComponentDetails value={component}/>}
+      {!task ? <SessionStart icon={<Globe/>} title={zh ? '一起浏览，同步可见' : 'Browse together'} description={zh ? '观看助理浏览网页，需要时接管。登录状态会为这个助理保留。' : 'Watch your assistant browse, and take control when needed. Login state stays with this assistant.'}
+        status={loading ? (zh ? '加载中…' : 'Loading…') : query.error || sandbox.error ? (zh ? '暂时无法确认浏览器能力。' : 'Browser capabilities could not be confirmed.') : resources.error || grants.error ? (zh ? '暂时无法确认计算权限。' : 'Compute permissions could not be confirmed.') : componentsUnavailable ? (component ? maintenanceReason(component.reason, zh) : zh ? '请联系管理员安装浏览器组件。' : 'Ask an administrator to install browser components.') : undefined}
+        action={<Button disabled={busy || loading || !execution.valid || !!query.error || !!resources.error || !!grants.error || !!sandbox.error || installing || componentsUnavailable} loading={busy || installing} onClick={() => void command({ action: query.data?.Available === false && !query.data.ComponentsEnabled ? 'install_start' : 'start', compute_id: execution.compute, full_access: execution.fullAccess })}>{busy || installing ? (zh ? '正在准备…' : 'Preparing…') : query.data?.Available === false && !componentsUnavailable ? (zh ? '安装并启动' : 'Install and start') : (zh ? '启动浏览器' : 'Start browser')}</Button>}>
+        {query.data?.Available === false && !componentsUnavailable && component && <ComponentDetails value={component}/>}
         {query.data?.Preparation?.task_id && admin && <MaintenanceProgress taskID={query.data.Preparation.task_id}/>}
-        <ExecutionOptions value={execution} zh={zh} disabled={busy || query.data?.Preparation?.state === 'installing'}/>
-
-        {query.data?.Available === false && !component?.can_install && !query.data.ComponentsEnabled ? <Alert title={zh ? '浏览器组件不可用' : 'Browser components unavailable'}>{component ? maintenanceReason(component.reason, zh) : zh ? '请联系管理员安装浏览器组件。' : 'Ask an administrator to install browser components.'}</Alert> : <Button disabled={busy || !execution.valid || !!resources.error || !!grants.error || !!sandbox.error || query.loading && !query.data || query.data?.Preparation?.state === 'installing'} onClick={() => void command({ action: query.data?.Available === false && !query.data.ComponentsEnabled ? 'install_start' : 'start', compute_id: execution.compute, full_access: execution.fullAccess })}>{busy || query.data?.Preparation?.state === 'installing' ? (zh ? '正在准备…' : 'Preparing…') : query.data?.Available === false ? (zh ? '安装并启动' : 'Install and start') : (zh ? '启动浏览器' : 'Start browser')}</Button>}
-      </div> : <>
+        {!loading && !componentsUnavailable && !query.error && !sandbox.error && !resources.error && !grants.error && <ExecutionOptions value={execution} zh={zh} disabled={busy || installing}/>}
+      </SessionStart> : <>
         <form className="browser-navigation" onSubmit={e => { e.preventDefault(); input({ action: 'navigate', url: /^https?:\/\//i.test(address) || address === 'about:blank' ? address : `https://${address}` }); (keyboardOpen ? auxiliaryInput.current : directInput.current)?.focus({ preventScroll: true }); }}>
           <IconButton type="button" disabled={!canOperate} label={zh ? '后退' : 'Back'} onClick={() => input({ action: 'back' })}><ArrowLeft size={17}/></IconButton><IconButton type="button" disabled={!canOperate} label={zh ? '前进' : 'Forward'} onClick={() => input({ action: 'forward' })}><ArrowRight size={17}/></IconButton><IconButton type="button" disabled={!canOperate} label={zh ? '刷新' : 'Reload'} onClick={() => input({ action: 'reload' })}><RefreshCw size={16}/></IconButton>
           <div className="browser-address"><Globe size={14}/><input ref={urlInput} aria-label={zh ? '网址' : 'Address'} disabled={!canOperate} value={address === 'about:blank' ? '' : address} onFocus={e => e.target.select()} onChange={e => setAddress(e.target.value)} placeholder={zh ? '输入网址' : 'Enter a URL'}/><IconButton type="submit" label={zh ? '打开' : 'Go'} disabled={!canOperate}><CornerDownLeft size={15}/></IconButton></div>

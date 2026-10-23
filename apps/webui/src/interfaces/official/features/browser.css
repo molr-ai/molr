@@ -9,10 +9,6 @@
 .browser-drawer .ui-dialog__body { display:flex; }
 .browser-drawer--running.ui-dialog.ui-drawer .ui-dialog__body, .chat-side-panel[data-docked] .browser-drawer--running .ui-dialog__body { padding:0; overflow:hidden; }
 .browser-panel { display:flex; flex-direction:column; width:100%; min-width:0; min-height:0; }
-.browser-start { margin:auto; display:flex; flex-direction:column; align-items:center; gap:16px; padding:40px 28px; max-width:400px; color:var(--color-text); }
-.browser-start-icon { display:grid; place-items:center; width:76px; height:76px; color:var(--color-text-muted); }
-.browser-start h3 { margin:0; font-size:20px; }.browser-start p { margin:0; color:var(--color-text-muted); text-align:center; }
-.browser-start > .select { width:100%; }
 .browser-keyboard { background:var(--color-page-background); color:var(--color-text); border:1px solid var(--color-border); border-radius:8px; padding:10px; min-width:0; }
 .browser-tabstrip { display:flex; gap:4px; align-items:center; height:46px; min-width:0; background:var(--color-surface); }
 .browser-tabs-window { display:flex; flex:0 1 auto; align-items:center; gap:4px; min-width:0; overflow:hidden; }
@@ -48,7 +44,7 @@
 .browser-connection { display:flex; align-items:center; gap:6px; min-width:0; }.browser-connection > span { overflow-wrap:anywhere; }.browser-connection i { flex-shrink:0; }.browser-connection i { width:6px; height:6px; border-radius:50%; background:var(--color-text-muted); }.browser-connection[data-connected] i { background:var(--color-positive); }
 .browser-status-actions { display:flex; gap:4px; flex-shrink:0; }.browser-status-actions .ui-icon-button { width:28px; height:28px; }
 @media (max-width:767px) {
- .browser-drawer[data-side='bottom'] { height:90dvh; max-height:90dvh; }
+ .browser-drawer.ui-dialog.ui-drawer[data-side='bottom'] { height:90dvh; max-height:90dvh; }
  .browser-navigation { gap:1px; padding:7px; }.browser-address { margin-left:2px; padding-left:8px; }
  .browser-tab { min-width:56px; }
  .browser-tab > button[role="tab"] > svg { display:none; }
@@ -70,3 +66,7 @@
 .browser-drawer--moving .browser-tabstrip, .browser-drawer--moving .browser-window-heading, .browser-drawer--moving .browser-move.ui-icon-button { cursor:grabbing; user-select:none; }
 .browser-resize { position:absolute; right:1px; bottom:1px; width:24px; height:24px; padding:0; border:0; border-radius:4px 0 10px; background:transparent; cursor:nwse-resize; touch-action:none; }
 .browser-resize:focus-visible { outline-offset:-3px; }
+
+.browser-drawer:not(.browser-drawer--running).ui-dialog.ui-drawer .ui-dialog__body { padding:0; min-height:0; overflow:hidden; }
+.browser-drawer:not(.browser-drawer--running) .browser-panel { flex:1; }
+.browser-drawer--floating:not(.browser-drawer--running) .session-start { min-height:min(360px, 60dvh); }
