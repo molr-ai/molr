@@ -126,3 +126,44 @@ jobs:
       - run: node scripts/publish-release.mjs
         env:
           GH_TOKEN: ${{ github.token }}
+  mirror:
+    needs: [prepare, publish]
+    if: >-
+      ${{ !cancelled() && needs.prepare.result == 'success' &&
+          needs.prepare.outputs.channel == 'stable' &&
+          (needs.prepare.outputs.existing == 'true' || needs.publish.result == 'success') }}
+    runs-on: ubuntu-24.04
+    environment: release
+    concurrency:
+      group: release-mirror
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.21.0'
+      - name: Install verified ossutil
+        shell: bash
+        run: |
+          curl --fail --location --proto '=https' --proto-redir '=https' --connect-timeout 8 --max-time 180 --retry 2 \
+            -o "$RUNNER_TEMP/ossutil.zip" https://gosspublic.alicdn.com/ossutil/v2/2.4.1/ossutil-2.4.1-linux-amd64.zip
+          printf '%s  %s\n' '57ee4c56796a40144acd6b0b96b53b4ba75e5cec09c01d8d0313c09a5524022f' "$RUNNER_TEMP/ossutil.zip" | sha256sum --check
+          unzip -q "$RUNNER_TEMP/ossutil.zip" -d "$RUNNER_TEMP/ossutil"
+          chmod 755 "$RUNNER_TEMP/ossutil/ossutil-2.4.1-linux-amd64/ossutil"
+          echo "$RUNNER_TEMP/ossutil/ossutil-2.4.1-linux-amd64" >> "$GITHUB_PATH"
+      - name: Download the published release (also on publication retries)
+        run: gh release download "v$MOLR_VERSION" --repo "$GITHUB_REPOSITORY" --dir dist/releases
+        env:
+          MOLR_VERSION: ${{ needs.prepare.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+      - name: Publish official stable mirror
+        run: node scripts/publish-release-mirror.mjs
+        env:
+          MOLR_VERSION: ${{ needs.prepare.outputs.version }}
+          MOLR_OSS_BUCKET: ${{ vars.MOLR_OSS_BUCKET }}
+          OSS_REGION: ${{ vars.MOLR_OSS_REGION }}
+          OSS_ACCESS_KEY_ID: ${{ secrets.MOLR_OSS_ACCESS_KEY_ID }}
+          OSS_ACCESS_KEY_SECRET: ${{ secrets.MOLR_OSS_ACCESS_KEY_SECRET }}

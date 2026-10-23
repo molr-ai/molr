@@ -5,6 +5,7 @@ package installation
 import (
 	"archive/tar"
 	"compress/gzip"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -23,6 +24,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -59,7 +61,11 @@ func validateSubscription(s installrecord.Updates) error {
 	return validateURL(s.Source)
 }
 func downloadClient() *http.Client {
-	return &http.Client{Timeout: 30 * time.Minute, CheckRedirect: func(req *http.Request, via []*http.Request) error {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = (&net.Dialer{Timeout: 8 * time.Second, KeepAlive: 30 * time.Second}).DialContext
+	transport.TLSHandshakeTimeout = 8 * time.Second
+	transport.ResponseHeaderTimeout = 8 * time.Second
+	return &http.Client{Transport: transport, Timeout: 30 * time.Minute, CheckRedirect: func(req *http.Request, via []*http.Request) error {
 		if len(via) >= 10 {
 			return fmt.Errorf("too many redirects")
 		}
@@ -75,11 +81,15 @@ func (e *Engine) fetch(raw string, destination io.Writer, limit int64, progress 
 	}
 	ctx, cancel := e.downloadContext()
 	defer cancel()
+	ctx, stop := context.WithCancelCause(ctx)
+	defer stop(nil)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, raw, nil)
 	if err != nil {
 		return err
 	}
-	res, err := downloadClient().Do(req)
+	client := downloadClient()
+	defer client.CloseIdleConnections()
+	res, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -90,12 +100,18 @@ func (e *Engine) fetch(raw string, destination io.Writer, limit int64, progress 
 	if res.ContentLength > limit {
 		return fmt.Errorf("download exceeds size limit")
 	}
-	reader := io.Reader(io.LimitReader(res.Body, limit+1))
+	var received atomic.Int64
+	go watchDownload(ctx, func() { stop(fmt.Errorf("download remained below 32 KiB/s for 15 seconds")) }, &received, 15*time.Second, 32*1024*15)
+	reader := &progressReader{Reader: io.LimitReader(res.Body, limit+1), received: &received}
 	if progress {
-		reader = &progressReader{Reader: reader, ui: e.UI, total: res.ContentLength, update: func(n, total int64) error { return e.progress("downloading", n, max(total, 0)) }}
+		reader.ui, reader.total = e.UI, res.ContentLength
+		reader.update = func(n, total int64) error { return e.progress("downloading", n, max(total, 0)) }
 	}
 	n, err := io.Copy(destination, reader)
 	if err != nil {
+		if cause := context.Cause(ctx); cause != nil {
+			return cause
+		}
 		return err
 	}
 	if n > limit {
@@ -107,8 +123,65 @@ func (e *Engine) fetch(raw string, destination io.Writer, limit int64, progress 
 	return nil
 }
 
+// Cancel even when a body Read is blocked, rather than checking only after it returns.
+func watchDownload(ctx context.Context, stop func(), received *atomic.Int64, interval time.Duration, minimum int64) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	var previous int64
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			current := received.Load()
+			if current-previous < minimum {
+				stop()
+				return
+			}
+			previous = current
+		}
+	}
+}
+
+var officialPackage = regexp.MustCompile(`^https://github\.com/molr-ai/molr/releases/download/v([0-9]+\.[0-9]+\.[0-9]+)/(molr_[0-9]+\.[0-9]+\.[0-9]+_(?:linux|darwin)_(?:amd64|arm64)\.tar\.gz)$`)
+var officialMetadata = regexp.MustCompile(`^https://molr\.ai/releases/(?:stable/manifest\.json|versions/[0-9]+\.[0-9]+\.[0-9]+\.json)$`)
+
+func officialMirror(raw string) string {
+	if match := officialPackage.FindStringSubmatch(raw); match != nil && strings.HasPrefix(match[2], "molr_"+match[1]+"_") {
+		return "https://cdn.molr.ai/releases/download/v" + match[1] + "/" + match[2]
+	}
+	if officialMetadata.MatchString(raw) {
+		return strings.Replace(raw, "https://molr.ai/", "https://cdn.molr.ai/", 1)
+	}
+	return ""
+}
+
+func (e *Engine) fetchPackage(raw string, archive *os.File, expected string) error {
+	hash := sha256.New()
+	err := e.fetch(raw, io.MultiWriter(archive, hash), 512<<20, true)
+	if err != nil && officialMirror(raw) != "" && e.Ctx.Err() == nil && !errors.Is(err, context.Canceled) {
+		e.UI.print("Switching to official mirror: %s", officialMirror(raw))
+		if resetErr := archive.Truncate(0); resetErr != nil {
+			return resetErr
+		}
+		if _, resetErr := archive.Seek(0, io.SeekStart); resetErr != nil {
+			return resetErr
+		}
+		hash.Reset()
+		err = e.fetch(officialMirror(raw), io.MultiWriter(archive, hash), 512<<20, true)
+	}
+	if err != nil {
+		return err
+	}
+	if hex.EncodeToString(hash.Sum(nil)) != expected {
+		return fmt.Errorf("package checksum mismatch")
+	}
+	return nil
+}
+
 type progressReader struct {
-	update func(int64, int64) error
+	received *atomic.Int64
+	update   func(int64, int64) error
 	io.Reader
 	ui          *UI
 	total, read int64
@@ -118,7 +191,10 @@ type progressReader struct {
 func (p *progressReader) Read(b []byte) (int, error) {
 	n, err := p.Reader.Read(b)
 	p.read += int64(n)
-	if time.Since(p.last) >= time.Second {
+	if p.received != nil {
+		p.received.Add(int64(n))
+	}
+	if p.ui != nil && time.Since(p.last) >= time.Second {
 		if p.total > 0 {
 			p.ui.print("Download: %.1f%% (%d / %d bytes)", 100*float64(p.read)/float64(p.total), p.read, p.total)
 		} else {
@@ -173,7 +249,15 @@ func (e *Engine) update(r *installrecord.Record) error {
 	}
 	var data strings.Builder
 	if err := e.fetch(endpoint, &data, 2<<20, false); err != nil {
-		return err
+		mirror := officialMirror(endpoint)
+		if mirror == "" || e.Ctx.Err() != nil || errors.Is(err, context.Canceled) {
+			return err
+		}
+		e.UI.print("Switching to official mirror: %s", mirror)
+		data.Reset()
+		if err = e.fetch(mirror, &data, 2<<20, false); err != nil {
+			return err
+		}
 	}
 	var manifest releaseManifest
 	if err := json.Unmarshal([]byte(data.String()), &manifest); err != nil {
@@ -285,21 +369,17 @@ func (e *Engine) update(r *installrecord.Record) error {
 	if err != nil {
 		return err
 	}
-	hash := sha256.New()
 	e.UI.step(2, "Download and verify package")
 	if err = e.progress("downloading", 0, 0); err != nil {
 		return err
 	}
-	err = e.fetch(asset.URL, io.MultiWriter(archive, hash), 512<<20, true)
+	err = e.fetchPackage(asset.URL, archive, asset.SHA256)
 	closeErr := archive.Close()
 	if err != nil {
 		return err
 	}
 	if closeErr != nil {
 		return closeErr
-	}
-	if hex.EncodeToString(hash.Sum(nil)) != asset.SHA256 {
-		return fmt.Errorf("package checksum mismatch")
 	}
 	root, err := extractPackage(archive.Name(), temp)
 	if err != nil {

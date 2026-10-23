@@ -36,7 +36,7 @@ case "$(uname -s)/$(uname -m)" in
 esac
 # END GENERATED PLATFORMS
 [ -z "$requested_arch" ] || [ "$requested_arch" = "$arch" ] || fail "Selected architecture $requested_arch does not match this device ($arch)"
-for tool in tar gzip mktemp chmod mkdir rm wc; do command -v "$tool" >/dev/null 2>&1 || fail "Missing bootstrap tool: $tool"; done
+for tool in tar gzip mktemp chmod mkdir rm wc sleep; do command -v "$tool" >/dev/null 2>&1 || fail "Missing bootstrap tool: $tool"; done
 if command -v sha256sum >/dev/null 2>&1; then hash_tool=sha256sum
 elif command -v shasum >/dev/null 2>&1; then hash_tool=shasum
 else fail 'SHA-256 verification requires sha256sum or shasum'; fi
@@ -48,13 +48,44 @@ trap 'exit 143' TERM
 # Package contents are public; the eventual service account must traverse them.
 chmod 755 "$temporary"
 source=${source%/}
+# wget has no low-speed threshold; supervise it using the same 15-second window.
+fetch_wget() (
+ : > "$2"
+ wget --https-only --dns-timeout=8 --connect-timeout=8 --read-timeout=15 --tries=1 --progress=bar:force -O "$2" "$1" &
+ downloader=$!
+ watcher=
+ trap 'kill "$downloader" ${watcher:+"$watcher"} 2>/dev/null || : ' EXIT
+ trap 'exit 130' INT
+ trap 'exit 143' TERM
+ (
+  previous=0
+  pause=
+  trap 'kill ${pause:+"$pause"} 2>/dev/null || :' EXIT
+  trap 'exit 0' TERM
+  while kill -0 "$downloader" 2>/dev/null; do
+   sleep 15 &
+   pause=$!
+   wait "$pause"
+   kill -0 "$downloader" 2>/dev/null || exit 0
+   current=$(wc -c < "$2")
+   if [ "$((current - previous))" -lt 491520 ]; then
+    printf '%s\n' 'Download remained below 32 KiB/s for 15 seconds' >&2
+    kill "$downloader" 2>/dev/null || :
+    exit 0
+   fi
+   previous=$current
+  done
+ ) &
+ watcher=$!
+ wait "$downloader"
+)
 fetch() {
  case "$1" in https://*) ;; *) fail 'Bootstrap downloads require HTTPS; use a local archive for offline installation';; esac
  if command -v curl >/dev/null 2>&1; then
-  if [ -t 2 ]; then curl --fail --location --proto '=https' --proto-redir '=https' --connect-timeout 30 --max-time 1800 --progress-bar --output "$2" "$1"
-  else curl --fail --location --proto '=https' --proto-redir '=https' --connect-timeout 30 --max-time 1800 --silent --show-error --output "$2" "$1"; fi
+  if [ -t 2 ]; then curl --fail --location --proto '=https' --proto-redir '=https' --connect-timeout 8 --max-time 1800 --speed-limit 32768 --speed-time 15 --progress-bar --output "$2" "$1"
+  else curl --fail --location --proto '=https' --proto-redir '=https' --connect-timeout 8 --max-time 1800 --speed-limit 32768 --speed-time 15 --silent --show-error --output "$2" "$1"; fi
  elif command -v wget >/dev/null 2>&1; then
-  wget --https-only --timeout=30 --tries=2 --progress=bar:force -O "$2" "$1"
+  fetch_wget "$1" "$2"
  else fail 'Download needs an existing curl or wget; alternatively download and extract the package manually'; fi
 }
 if [ -n "$archive" ]; then
@@ -66,7 +97,17 @@ else
  step "Resolve release: ${version:-$channel}"
  descriptor="$source/$channel/download-$os-$arch.txt"
  [ -z "$version" ] || descriptor="$source/versions/$version/download-$os-$arch.txt"
- fetch "$descriptor" "$temporary/descriptor" || fail 'Cannot resolve release; check source, channel, version and connectivity'
+ if ! fetch "$descriptor" "$temporary/descriptor"; then
+  [ "$source" = "https://molr.ai/releases" ] || fail 'Cannot resolve release; check source, channel, version and connectivity'
+  case "$channel/$version" in
+   stable/|*/[0-9]*.[0-9]*.[0-9]*)
+    case "$version" in *[!0-9.]*) fail 'Cannot resolve release';; esac
+    mirror_descriptor="https://cdn.molr.ai/releases/${descriptor#https://molr.ai/releases/}"
+    printf 'Switching to official mirror: %s\n' "$mirror_descriptor"
+    fetch "$mirror_descriptor" "$temporary/descriptor" || fail 'Cannot resolve release from official mirror';;
+   *) fail 'Cannot resolve release; check source, channel, version and connectivity';;
+  esac
+ fi
  [ "$(wc -c < "$temporary/descriptor")" -le 8192 ] || fail 'Oversized download descriptor'
  # Fixed line protocol generated from the release manifest; never evaluated as shell code.
  { IFS= read -r schema; IFS= read -r selected; IFS= read -r commit; IFS= read -r platform; IFS= read -r filename; IFS= read -r url; IFS= read -r expected; ! IFS= read -r extra; } < "$temporary/descriptor" || fail 'Invalid download descriptor'
@@ -77,7 +118,13 @@ else
  printf 'Version: %s\nCommit: %s\nPlatform: %s/%s\nPackage: %s\nURL: %s\nSHA-256: %s\n' "$selected" "$commit" "$os" "$arch" "$filename" "$url" "$expected"
  archive="$temporary/package.tar.gz"
  step 'Download package'
- fetch "$url" "$archive" || fail 'Download failed; check connection, proxy and CA certificates'
+ if ! fetch "$url" "$archive"; then
+  case "$selected" in ''|*[!0-9.]*) fail 'Download failed; no official mirror for prereleases';; esac
+  [ "$url" = "https://github.com/molr-ai/molr/releases/download/v$selected/$filename" ] || fail 'Download failed; no official mirror for this source'
+  mirror_url="https://cdn.molr.ai/releases/download/v$selected/$filename"
+  printf 'Switching to official mirror: %s\n' "$mirror_url"
+  fetch "$mirror_url" "$archive" || fail 'Download failed from both GitHub and the official mirror'
+ fi
  set -- "$@" --source "$source" --channel "$channel"
 fi
 step 'Verify checksum and extract package'

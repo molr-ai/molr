@@ -67,6 +67,29 @@ Website tests run serially by file so Vite servers and builds sharing the projec
 
 CI and releases use the same `prepare-sandbox` action to prepare runners. When Ubuntu enables AppArmor restrictions on unprivileged user namespaces, the action installs and loads `bwrap-userns-restrict` from the `apparmor-profiles` package, then runs a Bubblewrap probe in a temporary service with `NoNewPrivileges=yes`. On failure, it prints the corresponding kernel denial logs. This configuration applies only to temporary runners; the system user namespace restrictions remain enabled.
 
+### Official OSS mirror
+
+After a stable release is published, the `mirror` job in `release-build.yml` downloads its published GitHub assets, verifies SHA-256 for Runtime, desktop and source packages, and uploads them with a pinned, checksum-verified ossutil. Beta/RC and Nightly skip this job. Mirror failure fails the release workflow. Rerunning it also mirrors an already published GitHub release without rebuilding.
+
+Configure these values in the GitHub `release` environment or repository:
+
+| Type | Name | Purpose |
+| --- | --- | --- |
+| Variable | `MOLR_OSS_BUCKET` | Destination bucket name, without `oss://` or a directory |
+| Variable | `MOLR_OSS_REGION` | Bucket region, such as `cn-hangzhou` |
+| Secret | `MOLR_OSS_ACCESS_KEY_ID` | Upload credential ID |
+| Secret | `MOLR_OSS_ACCESS_KEY_SECRET` | Upload credential secret |
+
+Credentials need object read/write permissions (`oss:GetObject`, `oss:PutObject`) for `releases/*` and `install.sh` in that bucket, with no deletion or bucket administration permissions. `cdn.molr.ai` must serve these objects over HTTPS with URL paths equal to OSS keys, without an extra prefix or redirects to GitHub. CDN origin authentication can provide access to a private bucket; the job does not change public ACLs.
+
+- Packages, matching `.sha256` files and release manifests: `releases/download/v<version>/<filename>`.
+- Historical metadata: `releases/versions/<version>.json` and `releases/versions/<version>/download-<platform>.txt`.
+- Stable metadata: `releases/stable/`; installer: `install.sh`.
+
+Only allowlisted release files are uploaded. Channel metadata is published after CDN availability and size checks for packages. Versioned objects use a one-year immutable cache; channel metadata and the installer use `Cache-Control: no-cache`. Configure the CDN to respect these headers and avoid caching missing-object 404 responses. Mirror jobs run serially and read the current OSS stable manifest so retrying an older version fills versioned paths without regressing the latest channel or installer.
+
+The bootstrap script and Go updater try GitHub first for official stable packages, then OSS on transfer failure. Connections time out after 8 seconds; transfers below 32 KiB/s for 15 seconds are aborted. Go also limits TLS handshakes and response headers to 8 seconds. Switching sources restarts the download and retains the original manifest digest; checksum failure stops installation. Failed official stable or fixed stable-version metadata requests can also fall back to OSS. Nonofficial URLs and prereleases are not rewritten. Third-party browser components are outside this mirror's scope. For the manual mirror entrypoint, see the [installation guide](../../admin/deployment/installation.md).
+
 ## CI and build reuse
 
 Release preparation pins the commit and version. `ensure-ci.mjs` looks up main push or main manual runs of this repository's `ci.yml`. It requires the `CI v2 <SHA>` title, the latest run's latest attempt to succeed, and a successful `Validated <SHA>` step in `CI passed v2`. Manual CI accepts a full `commit` SHA in main history. Its workflow `head_sha` may differ, so the release gate checks the revision actually checked out and reported. Older CI definitions, PR merge commits, other repositories and incomplete validation are not reusable.

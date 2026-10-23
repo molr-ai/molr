@@ -67,6 +67,29 @@ PR、main push 和手动触发统一使用 `ci.yml`：通用检查运行一次�
 
 CI 与发布使用同一个 `prepare-sandbox` action 准备 runner。Ubuntu 启用 AppArmor 非特权 user namespace 限制时，从 `apparmor-profiles` 包安装并加载 `bwrap-userns-restrict`，随后在 `NoNewPrivileges=yes` 的临时服务中运行 Bubblewrap 探针；失败时输出对应内核拒绝日志。该配置只作用于临时 runner，系统的 user namespace 限制保持启用。
 
+### 官方 OSS 镜像
+
+正式版发布完成后，`release-build.yml` 的 `mirror` 任务下载该 GitHub Release 已发布的文件，验证 Runtime、桌面包和源码包的 SHA-256，再使用固定版本且校验摘要的 ossutil 上传。Beta／RC 和 Nightly 不执行此任务。镜像失败会使 release workflow 失败；重新运行时，即使 GitHub Release 已存在，也会补传镜像，无需重新构建。
+
+在 GitHub 的 `release` environment 或仓库中配置：
+
+| 类型 | 名称 | 用途 |
+| --- | --- | --- |
+| Variable | `MOLR_OSS_BUCKET` | 目标 OSS bucket 名，不含 `oss://` 或目录 |
+| Variable | `MOLR_OSS_REGION` | bucket 地域，例如 `cn-hangzhou` |
+| Secret | `MOLR_OSS_ACCESS_KEY_ID` | 上传凭据 ID |
+| Secret | `MOLR_OSS_ACCESS_KEY_SECRET` | 上传凭据密钥 |
+
+凭据需要目标 bucket 的 `releases/*` 和 `install.sh` 对象读写权限（`oss:GetObject`、`oss:PutObject`）；不需要删除对象或管理 bucket 的权限。`cdn.molr.ai` 必须通过 HTTPS 提供这些对象，URL 路径与 OSS 对象 key 相同，不增加前缀、不重定向到 GitHub。Bucket 可通过 CDN 的回源授权提供读取，无需为上传任务修改公共 ACL。
+
+- 包、同名 `.sha256` 和发布清单：`releases/download/v<版本>/<文件名>`。
+- 历史版本清单：`releases/versions/<版本>.json` 与 `releases/versions/<版本>/download-<平台>.txt`。
+- 正式渠道清单：`releases/stable/`；安装脚本：`install.sh`。
+
+任务只上传明确列出的发布文件。确认包在 CDN 上可访问且大小一致后，才发布渠道清单；版本路径设置一年不可变缓存，渠道清单和脚本设置 `Cache-Control: no-cache`，CDN 应遵循这些响应头，不缓存缺失对象的 404。镜像任务串行执行，并读取 OSS 当前正式版清单，旧版本重跑只补齐版本路径，不回退最新渠道或脚本。
+
+安装脚本和 Go 更新器对官方正式版包采用 GitHub 优先、OSS 回退，连接超时为 8 秒，下载持续 15 秒低于 32 KiB/s 时中止当前来源。Go 还对 TLS 握手和响应头设置 8 秒超时。换源重新下载并保持原清单摘要；校验失败直接停止。官网正式版清单或固定正式版清单请求失败时也可回退 OSS。非官方 URL 和预发布版本不自动改写；第三方浏览器组件下载不属于此镜像范围。手动使用镜像入口见[安装指南](https://molr.ai/zh/docs/admin/deployment/installation/)。
+
 ## CI 与构建复用
 
 发布准备阶段固定 commit 和版本。`ensure-ci.mjs` 查询当前仓库 `ci.yml` 的 main push 或 main 手动验证，要求 `CI v2 <SHA>` 标题、最新 run 的最新 attempt 成功，以及 `CI passed v2` 中 `Validated <SHA>` 步骤成功。手动 CI 可通过 `commit` 输入验证 main 历史内的完整 SHA；其 workflow `head_sha` 可能不同，发布门禁以实际检出并汇总的 SHA 为准。旧版 CI、PR merge commit、其他仓库和不完整验证不能复用。

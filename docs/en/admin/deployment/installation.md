@@ -183,6 +183,17 @@ Website desktop, backend and sandbox entries display only stable releases. Downl
 
 Stable tracks final releases, preview tracks beta/RC and subsequent final releases, and nightly tracks daily builds. Empty channels do not fall back to other channels. The downloader displays version, architecture, filename, source, checksum and progress, verifies the package, then runs its installer. It uses existing curl or wget, tar, gzip and a SHA-256 tool without installing download tools. The maintenance program itself needs no Python, curl or iproute2.
 
+For official stable packages, the bootstrap downloader and `molr-setup update` automatically try `https://cdn.molr.ai` after a transfer failure, an 8-second connection timeout, or 15 seconds below 32 KiB/s. They display the new URL and verify against the original manifest SHA-256. Prereleases and nonofficial download URLs are not switched automatically. Failed website metadata requests for stable or an explicit stable version can also use the mirror.
+
+If the website installer itself is unavailable, use the official mirror directly:
+
+```bash
+curl -fSL --connect-timeout 8 --max-time 60 https://cdn.molr.ai/install.sh -o /tmp/molr-install.sh &&
+  sh /tmp/molr-install.sh --source https://cdn.molr.ai/releases
+```
+
+The mirror contains only stable versions published after mirror publication was enabled. Select one of those historical versions with `--source https://cdn.molr.ai/releases --version <version>`.
+
 The default source is `https://molr.ai/releases`; use `--source URL` for another HTTPS source. The downloader also verifies and installs local archives:
 
 ```bash

@@ -182,6 +182,17 @@ wget -qO- https://molr.ai/install.sh | sh -s -- --mode server
 
 stable 为正式版，preview 为 beta／rc 和后续正式版，nightly 为每日构建。未发布版本的渠道不会自动回退到其他渠道。下载器显示版本、架构、包名、来源、摘要及下载进度，校验后调用包内安装器。它使用已有的 curl 或 wget、tar、gzip 和 SHA-256 工具，不自动安装下载工具；安装维护程序本身无需 Python、curl 或 iproute2。
 
+官方正式版安装包下载失败、连接超过 8 秒或连续 15 秒低于 32 KiB/s 时，下载器与 `molr-setup update` 会自动尝试 `https://cdn.molr.ai`，显示切换后的地址，并使用原清单的 SHA-256 校验。预发布版与非官方下载地址不自动切换。官网清单请求失败时，正式渠道及指定正式版可尝试镜像清单。
+
+如果官网安装脚本本身无法获取，可直接使用官方镜像：
+
+```bash
+curl -fSL --connect-timeout 8 --max-time 60 https://cdn.molr.ai/install.sh -o /tmp/molr-install.sh &&
+  sh /tmp/molr-install.sh --source https://cdn.molr.ai/releases
+```
+
+镜像只提供启用镜像发布后的正式版本；`--source https://cdn.molr.ai/releases --version <版本>` 可选择其中的历史正式版。
+
 下载器默认源为 `https://molr.ai/releases`，`--source URL` 可指定其他 HTTPS 发布源。本地归档可由同一下载器校验并安装：
 
 ```bash
