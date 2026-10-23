@@ -89,6 +89,8 @@ HTTP composition only holds necessary capabilities such as `conversation.Client`
 
 ## 6. Atomicity and Recovery
 
+`persistence` provides shared insert conflict checks, versioned updates/deletes, payload digests, and receipt replay. The six business modules still own mutation validation, account/action-scoped receipt keys, authorization, business writes, and auditing; every replay rechecks authorization inside the original transaction. Result serialization, auditing, and receipt writes retain their order, and receipts commit or roll back with business state. Shared writes retain the storage layer’s nested transaction/savepoint contract. Memory file journals and phased assistant clone recovery keep their own workflows.
+
 `persistence.Store.Read/Write` supplies a transaction context and `Tx`. Domain repositories receive that store and join the same transaction. Callback errors, cancellation and commit failures roll back changes. Transactions must not escape the callback or wait for external effects.
 
 Combinations that must be atomically committed include:

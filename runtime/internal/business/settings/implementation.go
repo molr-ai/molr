@@ -66,36 +66,22 @@ func (s *service) read(ctx context.Context, p core.Principal, id core.ID, action
 	})
 }
 
-type receipt struct {
-	Digest string
-	Result json.RawMessage
-}
-
 func mutate[T any](ctx context.Context, s *service, p core.Principal, action string, id core.ID, m core.Mutation, payload any, update, ownerOnly bool, fn func(context.Context) (T, error)) (T, error) {
 	var result T
 	if err := m.Validate(update); err != nil {
 		return result, err
 	}
-	data, err := json.Marshal(payload)
+	digest, err := persistence.PayloadDigest(payload)
 	if err != nil {
 		return result, err
 	}
-	sum := sha256.Sum256(data)
-	digest := hex.EncodeToString(sum[:])
 	err = s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		if err := s.authorize(ctx, p, core.Object{Kind: objectKind, ID: id}, policy.Write, ownerOnly); err != nil {
 			return err
 		}
 		key := persistence.Key(p.OwnerID, core.ID(action+"/"+string(id)+"/"+m.IdempotencyKey))
-		var old receipt
-		err := tx.Get(ctx, receiptBucket, key, &old)
-		if err == nil {
-			if old.Digest != digest {
-				return conflict()
-			}
-			return json.Unmarshal(old.Result, &result)
-		}
-		if !persistence.Missing(err) {
+		replayed, err := persistence.ReplayReceipt(ctx, tx, receiptBucket, key, digest, &result)
+		if replayed || err != nil {
 			return err
 		}
 		result, err = fn(ctx)
@@ -117,34 +103,9 @@ func mutate[T any](ctx context.Context, s *service, p core.Principal, action str
 				return err
 			}
 		}
-		return tx.Put(ctx, receiptBucket, key, receipt{Digest: digest, Result: encoded})
+		return tx.Put(ctx, receiptBucket, key, persistence.Receipt{Digest: digest, Result: encoded})
 	})
 	return result, err
-}
-func insert[T any](ctx context.Context, store persistence.Store, bucket, key string, value T) error {
-	return store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		var old json.RawMessage
-		err := tx.Get(ctx, bucket, key, &old)
-		if err == nil {
-			return conflict()
-		}
-		if !persistence.Missing(err) {
-			return err
-		}
-		return tx.Put(ctx, bucket, key, value)
-	})
-}
-func save[T any](ctx context.Context, store persistence.Store, bucket, key string, value T, expected core.Version, version func(T) core.Version) error {
-	return store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		var old T
-		if err := tx.Get(ctx, bucket, key, &old); err != nil {
-			return err
-		}
-		if expected == 0 || version(old) != expected || version(value) != expected+1 {
-			return conflict()
-		}
-		return tx.Put(ctx, bucket, key, value)
-	})
 }
 func validText(text string, limit int) bool {
 	return strings.TrimSpace(text) != "" && len(text) <= limit
@@ -191,9 +152,9 @@ func (r *repository) Get(ctx context.Context, owner core.ID) (Settings, error) {
 }
 func (r *repository) Save(ctx context.Context, v Settings, expected core.Version) error {
 	if expected == 0 && v.Version == 1 {
-		return insert(ctx, r.store, bucket, string(v.OwnerID), v)
+		return persistence.Insert(ctx, r.store, bucket, string(v.OwnerID), v)
 	}
-	return save(ctx, r.store, bucket, string(v.OwnerID), v, expected, func(v Settings) core.Version { return v.Version })
+	return persistence.SaveVersion(ctx, r.store, bucket, string(v.OwnerID), v, expected, func(v Settings) core.Version { return v.Version })
 }
 func (r *repository) PutExport(ctx context.Context, owner core.ID, v Export) error {
 	return r.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {

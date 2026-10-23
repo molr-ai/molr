@@ -3,7 +3,6 @@ package resource
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"molr.ai/runtime/internal/catalog"
@@ -64,11 +63,6 @@ func (s *service) read(ctx context.Context, p core.Principal, id core.ID, action
 	})
 }
 
-type receipt struct {
-	Digest string
-	Result json.RawMessage
-}
-
 func mutate[T any](ctx context.Context, s *service, p core.Principal, action string, id core.ID, m core.Mutation, payload any, update, ownerOnly bool, fn func(context.Context) (T, error)) (T, error) {
 	return mutateForTarget(ctx, s, p, action, id, m, payload, update, ownerOnly, core.Object{Kind: objectKind, ID: id}, fn)
 }
@@ -77,26 +71,17 @@ func mutateForTarget[T any](ctx context.Context, s *service, p core.Principal, a
 	if err := m.Validate(update); err != nil {
 		return result, err
 	}
-	data, err := json.Marshal(payload)
+	digest, err := persistence.PayloadDigest(payload)
 	if err != nil {
 		return result, err
 	}
-	sum := sha256.Sum256(data)
-	digest := hex.EncodeToString(sum[:])
 	err = s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		if err := s.authorize(ctx, p, target, policy.Write, ownerOnly); err != nil {
 			return err
 		}
 		key := persistence.Key(p.OwnerID, core.ID(action+"/"+string(id)+"/"+m.IdempotencyKey))
-		var old receipt
-		err := tx.Get(ctx, receiptBucket, key, &old)
-		if err == nil {
-			if old.Digest != digest {
-				return conflict()
-			}
-			return json.Unmarshal(old.Result, &result)
-		}
-		if !persistence.Missing(err) {
+		replayed, err := persistence.ReplayReceipt(ctx, tx, receiptBucket, key, digest, &result)
+		if replayed || err != nil {
 			return err
 		}
 		result, err = fn(ctx)
@@ -114,34 +99,9 @@ func mutateForTarget[T any](ctx context.Context, s *service, p core.Principal, a
 		if err := audit.NewRepository(tx.Store()).Append(ctx, audit.Record{ID: s.id(), OwnerID: p.OwnerID, SubjectID: p.SubjectID, ActorKind: p.Kind, Action: "resource." + action, Target: target, Outcome: audit.Succeeded, At: s.now()}); err != nil {
 			return err
 		}
-		return tx.Put(ctx, receiptBucket, key, receipt{Digest: digest, Result: encoded})
+		return tx.Put(ctx, receiptBucket, key, persistence.Receipt{Digest: digest, Result: encoded})
 	})
 	return result, err
-}
-func insert[T any](ctx context.Context, store persistence.Store, bucket, key string, value T) error {
-	return store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		var old json.RawMessage
-		err := tx.Get(ctx, bucket, key, &old)
-		if err == nil {
-			return conflict()
-		}
-		if !persistence.Missing(err) {
-			return err
-		}
-		return tx.Put(ctx, bucket, key, value)
-	})
-}
-func save[T any](ctx context.Context, store persistence.Store, bucket, key string, value T, expected core.Version, version func(T) core.Version) error {
-	return store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		var old T
-		if err := tx.Get(ctx, bucket, key, &old); err != nil {
-			return err
-		}
-		if expected == 0 || version(old) != expected || version(value) != expected+1 {
-			return conflict()
-		}
-		return tx.Put(ctx, bucket, key, value)
-	})
 }
 func validText(text string, limit int) bool {
 	return strings.TrimSpace(text) != "" && len(text) <= limit
@@ -223,7 +183,7 @@ func (r *repository) Insert(ctx context.Context, v Resource, b Binding) error {
 		if b.ResourceID != v.ID {
 			return invalid("resource_id")
 		}
-		if err := insert(ctx, r.store, bucket, persistence.Key(v.OwnerID, v.ID), v); err != nil {
+		if err := persistence.Insert(ctx, r.store, bucket, persistence.Key(v.OwnerID, v.ID), v); err != nil {
 			return err
 		}
 		return putBinding(ctx, tx, v.OwnerID, b)
@@ -231,7 +191,7 @@ func (r *repository) Insert(ctx context.Context, v Resource, b Binding) error {
 }
 func (r *repository) Save(ctx context.Context, v Resource, expected core.Version) error {
 	v.OwnerID = catalog.Scope
-	return save(ctx, r.store, bucket, persistence.Key(v.OwnerID, v.ID), v, expected, func(v Resource) core.Version { return v.Version })
+	return persistence.SaveVersion(ctx, r.store, bucket, persistence.Key(v.OwnerID, v.ID), v, expected, func(v Resource) core.Version { return v.Version })
 }
 func (r *repository) Binding(ctx context.Context, owner, id core.ID) (Binding, error) {
 	return catalog.Load[Binding](ctx, r.store, bindingBucket, id)

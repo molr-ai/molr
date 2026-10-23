@@ -126,7 +126,7 @@ func (s *service) finishClone(ctx context.Context, p core.Principal, req CloneRe
 			}
 		}
 		key := persistence.Key(p.OwnerID, core.ID("clone/"+string(req.SourceID)+"/"+req.Mutation.IdempotencyKey))
-		var saved receipt
+		var saved persistence.Receipt
 		if err := tx.Get(ctx, receiptBucket, key, &saved); err != nil {
 			return err
 		}

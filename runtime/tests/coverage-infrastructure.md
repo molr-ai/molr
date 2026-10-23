@@ -95,6 +95,8 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | 包 | 公开入口 | 测试 |
 | --- | --- | --- |
 | `internal/persistence` | `CheckContext`, `Conflict`, `Decode`, `Key`, `Load`, `Missing`, `Scan`, `Store.Read`, `Store.Write`, `Tx.Delete`, `Tx.Get`, `Tx.Put`, `Tx.Scan`, `Tx.Store` | `TestPersistenceHelpersOnRealTransactions` |
+| `internal/persistence` | `Insert`, `SaveVersion`, `DeleteVersion` | `TestVersionedWritesPreserveConflictsAndRollback`, `TestVersionedWritesSerializeConcurrentUpdates` |
+| `internal/persistence` | `PayloadDigest`, `ReplayReceipt` | `TestReceiptReplayPreservesScopeDigestAndErrors`, `TestReceiptAndBusinessWritesRollbackTogether` |
 | `internal/persistence/sqlitestore` | `Open`, `Store.Close`, `Store.Path`, `Store.Read`, `Store.Write` | `TestStoreCommitRollbackAndReopen` |
 | `internal/persistence/sqlitestore` | `Store.FailNextCommit` | `TestStoreReadOnlyCanceledAndCommitFailure` |
 | `internal/persistence/sqlitestore` | `Store.Snapshot` | `TestStoreScanDeleteAndSnapshot` |

@@ -15,6 +15,7 @@ import { queryInterval } from './query-policy';
 import { poll } from './polling';
 import { batchTopics } from './batch-topics';
 import { TopicStore } from './topic-store';
+import { eventInvalidation, expandTopics, mutationTopics, queryTopic } from './query-invalidation';
 
 const PaletteContext = createContext({ palette: 'forest' as Palette, changePalette: (_: Palette) => {} });
 export function useAppearance() { return useContext(PaletteContext); }
@@ -93,25 +94,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 }
 export function useSession() { return useContext(SessionContext)!; }
 
-function queryTopic(path: string) {
-  if (path === '/api/status') return 'runtime';
-  const shell = path.match(/^\/api\/assistants\/([^/]+)\/shell-tasks/);
-  if (shell) return `shell-tasks:${shell[1]}`;
-  if (/\/assistants\/[^/]+\/qq/.test(path)) return 'qq';
-  if (/\/assistants\/[^/]+\/feishu/.test(path)) return 'feishu';
-  if (/\/assistants\/[^/]+\/weixin/.test(path)) return 'weixin';
-  if (/\/assistants\/[^/]+\/dingtalk/.test(path)) return 'dingtalk';
-  if (/\/assistants\/[^/]+\/slack/.test(path)) return 'slack';
-  if (/\/assistants\/[^/]+\/telegram/.test(path)) return 'telegram';
-  if (path === '/api/account/quotas' || path === '/api/admin/usage' || path.startsWith('/api/account/usage?') || path.startsWith('/api/admin/usage/analytics?')) return 'usage';
-  if (/\/debug\/runs\/[^/]+\/steps\//.test(path)) return 'debug-payload';
-  const assistant = path.match(/^\/api\/assistants\/([^/]+)\/(capabilities|status)$/);
-  if (assistant) return `${assistant[2]}:${assistant[1]}`;
-  const conversation = path.match(/^\/api\/conversations\/([^/]+)\/messages/);
-  if (conversation) return `messages:${conversation[1]}`;
-  if (path.startsWith('/api/assistants/activity')) return 'activity';
-  return path.split('/')[2]?.split('?')[0] ?? '';
-}
 const DataContext = createContext({ subscribeEvents: (_listener: (event: RuntimeEvent) => void): (() => void) => () => {}, topics: new TopicStore(), invalidate: () => {}, invalidateTopics: (_topics: string[]) => {}, cache: new QueryCache(), queries: new QueryStore(), turnMetrics: new TurnMetricsCache(), messageChanges: new Map<string, number>(), invalidateMessage: (_id: string, _conversationID?: string): number => 0 });
 const ConnectionContext = createContext({ connection: 'reconnecting' as ConnectionState, hasConnectionNotice: false, retryConnection: () => {} });
 export const useConnection = () => useContext(ConnectionContext);
@@ -130,62 +112,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     try {
       const visible = JSON.parse(event.data) as RuntimeEvent;
       for (const listener of eventListeners) listener(visible);
-      if (visible.Topic === 'shell.tasks' && visible.Object?.ID) publish.current([`shell-tasks:${visible.Object.ID}`]);
-      else if (visible.Topic === 'notification.changed') publish.current(['notifications']);
-      else if (visible.Topic === 'qq.changed') publish.current(['qq']);
-      else if (visible.Topic === 'feishu.changed') publish.current(['feishu']);
-      else if (visible.Topic === 'weixin.changed') publish.current(['weixin']);
-      else if (visible.Topic === 'dingtalk.changed') publish.current(['dingtalk']);
-      else if (visible.Topic === 'slack.changed') publish.current(['slack']);
-      else if (visible.Topic === 'telegram.changed') publish.current(['telegram']);
-      else if (visible.Topic === 'assistant.profile') publish.current(['assistants', 'conversations']);
-      else if (visible.Topic.startsWith('assistant.') && visible.Object?.ID) publish.current([`status:${visible.Object.ID}`, 'activity', 'tasks', 'dreams', 'memories', 'usage']);
-      else if (visible.Topic === 'permission.request') publish.current(['permission-requests', 'grants', 'status']);
-      else if (visible.Topic === 'conversation.read') publish.current(['conversations']);
-      else if (['message.feedback', 'message.accepted', 'message.read'].includes(visible.Topic) && visible.Object?.ID) {
-        invalidateMessage(visible.Object.ID, visible.ConversationID);
-        if (visible.Topic === 'message.accepted' || visible.Topic === 'message.read') publish.current(['status', 'conversations', 'tasks', 'memories', 'usage']);
-      }
-      else publish.current([visible.ConversationID ? `messages:${visible.ConversationID}` : 'messages', 'activity', 'conversations', 'status', 'tasks', 'memories', 'usage']);
+      const change = eventInvalidation(visible);
+      if (change.messageID) invalidateMessage(change.messageID, visible.ConversationID);
+      if (change.topics.length) publish.current(change.topics);
     } catch { invalidate(); }
   }, invalidate);
   useEffect(() => {
     turnMetrics.activate();
     const batch = batchTopics(changed => topics.invalidate(changed));
-    function changed(topics: string[]) {
-      const expanded = new Set(topics);
-      if (topics.includes('settings')) { expanded.add('dreams'); expanded.add('plans'); }
-      for (const topic of topics) if (topic.startsWith('status:')) expanded.add('activity');
-      if (topics.some(topic => ['assistants', 'status', 'messages'].includes(topic) || topic.startsWith('messages:'))) expanded.add('activity');
-      if (topics.some(topic => ['admin', 'account', 'grants'].includes(topic))) expanded.add('usage');
-      if (topics.some(topic => ['todos', 'schedules', 'tasks', 'plans'].includes(topic))) expanded.add('plans');
-      if (topics.some(topic => ['grants', 'resources', 'assistants', 'sandboxes'].includes(topic))) expanded.add('capabilities');
-      batch.add([...expanded]);
-    }
+    function changed(topics: string[]) { batch.add(expandTopics(topics)); }
     publish.current = changed;
     const unsubscribe = onMutation(path => {
-      if (path === '/api/updates/check') return; // UpdateProvider refreshes its snapshot after a check.
-      if (['/api/weixin/poll', '/api/weixin/cancel', '/api/telegram/poll', '/api/telegram/cancel'].includes(path)) return;
-      if (path.startsWith('/api/weixin/')) changed(['weixin']);
-      else if (path.startsWith('/api/dingtalk/')) changed(['dingtalk']);
-      else if (path.startsWith('/api/slack/')) changed(['slack']);
-      else if (path.startsWith('/api/telegram/')) changed(['telegram']);
-      else if (path.includes('/conversations/read')) changed(['conversations']);
-      else if (path.includes('/conversations/feedback')) return; // Message feedback reconciles its exact conversation.
-      else if (path.includes('/conversations/messages')) changed(['conversations', 'status']); // The caller and SSE invalidate the affected conversation.
-      // Terminal keystrokes must not trigger a list reload for every chunk.
-      // Controls refresh their panel; lifecycle changes arrive via shell.tasks.
-      else if (/\/assistants\/[^/]+\/shell-tasks$/.test(path)) return;
-      // Browser controls reconcile their own status; pointer/keyboard input must
-      // not invalidate unrelated assistant, conversation, schedule or grant data.
-      else if (/\/assistants\/[^/]+\/browser$/.test(path)) return;
-      else if (path.includes('/assistants/')) changed(['assistants', 'conversations', 'status', 'schedules', 'grants']);
-      else if (path === '/api/assistants') changed(['assistants', 'conversations']);
-      else if (path.startsWith('/api/sandboxes')) changed(['sandboxes', 'resources', 'grants', 'capabilities', 'assistants']);
-      else if (path.startsWith('/api/permission-requests')) changed(['permission-requests', 'grants', 'status']);
-      else if (path.startsWith('/api/mcp/')) changed(['mcp', 'tools', 'resources', 'grants', 'capabilities', 'admin', 'usage']);
-      else if (path.startsWith('/api/resources')) changed(['resources', 'models', 'grants']);
-      else changed([queryTopic(path)]);
+      const topics = mutationTopics(path);
+      if (topics.length) changed(topics);
     });
 
     return () => { unsubscribe(); publish.current = () => {}; cache.clear(); queries.clear(); turnMetrics.clear(); messageChanges.clear(); batch.cancel(); };

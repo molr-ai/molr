@@ -18,6 +18,8 @@ The official plans, resources, settings and workbench pages, and chat side panel
 
 ## Shared State and Recovery
 
+`query-invalidation.ts` centralizes mappings from query paths, SSE events, and mutations to refresh topics, plus one-step topic dependency expansion. These pure functions neither fetch nor modify caches; `DataProvider` still marks message revisions, notifies event subscribers, and batches refreshes. Message feedback remains scoped to its message/conversation, terminal and browser input avoid unrelated list reads, and unknown events retain the existing fallback. `query-invalidation.spec.ts` fixes these boundaries; chat synchronization and topic subscription regressions check actual requests and rendering.
+
 Query revisions live in an account-scoped `TopicStore`. `useTopicVersion` subscribes to one topic: scoped changes notify that scope, domain changes also notify its scoped subscribers, and global refreshes notify all subscribers. Each batch coalesces notifications; revisions remain available while a topic has no subscribers. `DataContext` keeps a stable value, and connection state has a separate `useConnection` subscription, so message changes do not rerender unrelated pages through Context. Account changes recreate the data scope; SSE handshakes and reconnects still refresh all queries. `topic-subscriptions.spec.ts` checks render counts, query requests, unsubscribe behavior, and account isolation.
 
 Switching themes does not affect assistants, messages, or tasks in Runtime. Chat drafts use the `{ text, files }` format and are stored by account and assistant ID in the application shell's memory and the current tab's `sessionStorage`. Each page manages its other temporary state.
