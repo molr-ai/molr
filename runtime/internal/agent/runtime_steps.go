@@ -15,7 +15,7 @@ import (
 
 // runModelStep returns true when an interrupt requires another preparation
 // pass. Only an accepted model response can advance to the tool stage.
-func (e *Engine) runModelStep(runCtx context.Context, t Turn, key string, modelID core.ID, progress *turnProgress, pendingRetry *core.ID, execution core.Execution) (bool, error) {
+func (e *Engine) runModelStep(runCtx context.Context, t Turn, key string, modelID core.ID, progress *turnProgress, pendingRetry *core.ID, execution core.Execution, estimate *contextEstimate) (bool, error) {
 	var err error
 	e.setPhase(key, "preparing")
 	_, receiptErr := model.NewReceipts(e.store).ByOperation(runCtx, t.Principal.OwnerID, execution.OperationID)
@@ -78,6 +78,7 @@ func (e *Engine) runModelStep(runCtx context.Context, t Turn, key string, modelI
 			return false, err
 		}
 		tokens, source := contextTokens(*progress, modelID, progress.Usage.Source)
+		*estimate = contextEstimate{tokens: tokens, source: source, modelSource: progress.Usage.Source}
 		if err = e.recordContextStatus(runCtx, t, ContextStatus{ModelID: modelID, Limit: limit, Tokens: tokens, Source: source, CompressionThresholdTokens: threshold}); err != nil {
 			return false, err
 		}

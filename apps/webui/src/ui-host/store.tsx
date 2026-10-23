@@ -1,14 +1,12 @@
 import { useMemo, createContext, useContext, useRef, useState } from 'react';
-import type { ReactNode, SetStateAction } from 'react';
+import type { ReactNode } from 'react';
 import { api, APIError } from '@molr/sdk';
 import type { Settings } from '@molr/sdk';
 import { defaultConfiguration, packageKey } from '@molr/ui-host';
 import type { UIConfiguration, InstalledUI, UISelection } from '@molr/ui-host';
 import { pluginAllowed } from '@molr/sdk/plugins';
 import type { PluginInstallation } from '@molr/sdk/plugins';
-import { isChatDraft } from '@molr/sdk/ui';
-import type { ChatDraft } from '@molr/sdk/ui';
-import { useQuery, useSession } from '../state';
+import { useQuery } from '../state';
 import { officialPackage } from '../interfaces/official/manifest';
 
 export const builtins: InstalledUI[] = [officialPackage];
@@ -16,11 +14,10 @@ type Store = {
   pluginError: unknown; plugins: PluginInstallation[]; packages: InstalledUI[]; reloadPlugins: () => void;
   configuration: UIConfiguration; error: unknown; busy: boolean; loading: boolean;
   select: (selection: UISelection) => Promise<void>; reset: () => Promise<boolean>;
-  drafts: Record<string, ChatDraft>; setDrafts: (value: SetStateAction<Record<string, ChatDraft>>) => void;
 };
 const Context = createContext<Store | null>(null);
 export function UIHostProvider({ children }: { children: ReactNode }) {
-  const { principal } = useSession(), query = useQuery<Settings>('/api/settings');
+  const query = useQuery<Settings>('/api/settings');
   const pluginsVisible = query.data?.PluginsVisible === true;
   const pluginQuery = useQuery<PluginInstallation[]>(pluginsVisible ? '/api/plugins' : null);
   const plugins = pluginQuery.data ?? [];
@@ -29,11 +26,7 @@ export function UIHostProvider({ children }: { children: ReactNode }) {
   const [recovering, setRecovering] = useState(false), writing = useRef(false);
   const current = saved && (!query.data || saved.Version > query.data.Version) ? saved : query.data;
   const selected = packages.find(item => packageKey(item.manifest) === current?.UITheme);
-  const configuration: UIConfiguration = !recovering && selected ? { selected: { id: selected.manifest.id, version: selected.manifest.version } } : defaultConfiguration();
-  const draftKey = `molr-ui-packages:v1:${principal!.OwnerID}:drafts`;
-  const [drafts, updateDrafts] = useState<Record<string, ChatDraft>>(() => {
-    try { const value = JSON.parse(sessionStorage.getItem(draftKey) || '{}'); return value && typeof value === 'object' && !Array.isArray(value) ? Object.fromEntries(Object.entries(value).filter((entry): entry is [string, ChatDraft] => /^[A-Za-z0-9_-]{1,128}$/.test(entry[0]) && isChatDraft(entry[1]))) : {}; } catch { return {}; }
-  });
+  const configuration = useMemo<UIConfiguration>(() => !recovering && selected ? { selected: { id: selected.manifest.id, version: selected.manifest.version } } : defaultConfiguration(), [recovering, selected]);
   async function select(selection: UISelection) {
     if (writing.current) return;
     if (!packages.some(item => packageKey(item.manifest) === packageKey(selection))) throw new APIError('invalid_argument');
@@ -48,12 +41,7 @@ export function UIHostProvider({ children }: { children: ReactNode }) {
   const store: Store = {
     pluginError: pluginQuery.error, plugins, packages, reloadPlugins: pluginQuery.reload,
     configuration, error: error || query.error, busy, loading: (!current && query.loading) || (!pluginQuery.data && pluginQuery.loading),
-    setDrafts: value => updateDrafts(previous => {
-      const next = typeof value === 'function' ? value(previous) : value;
-      try { sessionStorage.setItem(draftKey, JSON.stringify(next)); } catch { /* Keep drafts in memory during page switches. */ }
-      return next;
-    }),
-    drafts, select,
+    select,
     reset: async () => {
       setRecovering(true);
       if (writing.current) return false;

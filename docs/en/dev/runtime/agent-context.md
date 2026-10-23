@@ -50,6 +50,8 @@ The Checkpoint JSON retains `Inputs` and `Automatic` (valid snapshot, applied ve
 
 Currently, idle assistants are not actively woken up due to file changes. When idle, the latest version is loaded before the next normal event execution; consecutive multiple file modifications are naturally merged into the latest content seen at that boundary.
 
+Execution preparation reuses decoded checkpoint inputs while retaining authorization and context-size checks. Token estimates are reused across model-result persistence only while inputs and model source remain unchanged; status writes, checkpoint persistence and compression detection keep their order. Ordinary turns encode the final saved context only; dreams still encode their result before committing files. `BenchmarkContextBuildDecoded` compares allocation costs for the encoding roundtrip and decoded construction.
+
 ## Execution stages and failure cleanup
 
 `Engine.Handle` owns validation, per-assistant serialization, and the active execution lifetime. Execution prepares context, obtains a model response, saves tool results, and commits the final checkpoint. A model interruption returns to preparation; a boundary event discovered during commit resumes the execution loop. The model response is persisted before tools start, and each tool result is persisted before its cursor advances. The final checkpoint, status, handled receipt, and event acknowledgement share a transaction. Dream files commit before that transaction using their own durable recovery plan.

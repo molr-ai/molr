@@ -20,6 +20,15 @@ type ContextStatus struct {
 	CompressionThresholdTokens int
 	Compressions               int
 }
+
+// A local result shared only between accepting a response and detecting compression.
+// Inputs, definitions and usage do not change across that checkpoint boundary.
+type contextEstimate struct {
+	tokens      int64
+	source      string
+	modelSource model.StateSource
+}
+
 type contextUsage struct {
 	ModelID core.ID
 	Source  model.StateSource
@@ -84,7 +93,14 @@ func usageInputs(inputs []model.Input, source model.StateSource) map[string]int6
 	return result
 }
 func contextTokens(p turnProgress, id core.ID, source model.StateSource) (int64, string) {
-	current := usageInputs(p.Inputs, source)
+	tools := ""
+	if p.Usage != nil && p.Usage.ModelID == id && p.Usage.Source == source {
+		tools = contextHash(p.Definitions)
+	}
+	return contextTokensFromInputs(p, id, source, usageInputs(p.Inputs, source), tools)
+}
+
+func contextTokensFromInputs(p turnProgress, id core.ID, source model.StateSource, current map[string]int64, tools string) (int64, string) {
 	if p.Usage != nil && p.Usage.ModelID == id && p.Usage.Source == source {
 		tokens := p.Usage.Tokens
 		changed := false
@@ -94,7 +110,7 @@ func contextTokens(p turnProgress, id core.ID, source model.StateSource) (int64,
 				changed = true
 			}
 		}
-		if p.Usage.Tools != contextHash(p.Definitions) {
+		if p.Usage.Tools != tools {
 			tokens += definitionsEstimate(p.Definitions)
 			changed = true
 		}
@@ -270,8 +286,9 @@ func (e *Engine) compactContext(ctx context.Context, t Turn, id core.ID, p *turn
 	}
 	candidate := *p
 	candidate.Inputs, candidate.Usage = next, nil
-	after, _ := contextTokens(candidate, id, modelSource)
-	candidate.Usage = &contextUsage{ModelID: id, Source: modelSource, Tokens: after, Inputs: usageInputs(next, modelSource), Tools: contextHash(p.Definitions), AwaitingMeasurement: true}
+	current, toolHash := usageInputs(next, modelSource), contextHash(p.Definitions)
+	after, _ := contextTokensFromInputs(candidate, id, modelSource, current, toolHash)
+	candidate.Usage = &contextUsage{ModelID: id, Source: modelSource, Tokens: after, Inputs: current, Tools: toolHash, AwaitingMeasurement: true}
 	// Checkpoint, progress reference, status and save trace commit together.
 	status.Tokens, status.Source, status.Compressions = after, "estimated", 1
 	if err = e.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {

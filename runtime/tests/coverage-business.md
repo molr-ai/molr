@@ -211,3 +211,5 @@ Clone/返聘授权契约细化：新授权具有新 ID，并绑定目标助理�
 | `internal/business/plan` | `Service.Overview`, `Coordinator.Overview` | `TestPlanSummariesStaySmallWithLongExecutionHistory`, `TestCalendarAndEventSummaryKeepOccurrenceStateAndDependencies` |
 | `internal/business/plan` | `Service.Detail`, `Coordinator.Detail` | `TestPlanSummariesStaySmallWithLongExecutionHistory`, `TestPlanHistoryPagesAndAccessBoundaries` |
 | `internal/business/plan` | `Service.History`, `Coordinator.History`, `Service.Execution`, `Coordinator.Execution` | `TestPlanHistoryPagesAndAccessBoundaries`, `TestPlanSummariesStaySmallWithLongExecutionHistory` |
+
+| `internal/business/plan` | `Service.Resolve`, `Coordinator.Resolve` | `TestResolveUsesBoundedReadsAndVisibleTodoFirst` |

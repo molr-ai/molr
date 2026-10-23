@@ -43,8 +43,8 @@ async function delaySend(page: Page) {
 }
 async function draftText(page: Page, id: string) {
   return page.evaluate(id => {
-    const key = Object.keys(sessionStorage).find(key => key.startsWith('molr-ui-packages:v1:') && key.endsWith(':drafts'));
-    return key ? JSON.parse(sessionStorage.getItem(key) ?? '{}')[id]?.text : null;
+    const key = Object.keys(sessionStorage).find(key => key.startsWith('molr-chat-draft:') && key.endsWith(':' + id));
+    return key ? JSON.parse(sessionStorage.getItem(key) ?? '{}').text : null;
   }, id);
 }
 

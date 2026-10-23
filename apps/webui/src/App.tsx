@@ -1,3 +1,4 @@
+import { DraftProvider } from './drafts';
 import { AppFrame, AppTitlebarBrand } from './app-mode';
 import { AppAppearanceSync } from './app-appearance';
 import { UpdateProvider, UpdateBadge, useUpdateNotice } from './updates/provider';
@@ -41,7 +42,7 @@ function SessionGate() {
   if (session.error) return <main className="session-page" />;
   if (!session.principal) return <Login />;
   // Setup creates account preferences and an assistant; discard all pre-setup snapshots.
-  return <DataProvider key={`${session.principal.SessionID}:${setupRevision}`}>{window.molrApp?.setAppearance && <AppAppearanceSync />}<SetupGate onComplete={() => setSetupRevision(value => value + 1)}><UpdateProvider><NotificationProvider><UIHostProvider><WorkspaceHost /></UIHostProvider></NotificationProvider></UpdateProvider></SetupGate></DataProvider>;
+  return <DataProvider key={`${session.principal.SessionID}:${setupRevision}`}>{window.molrApp?.setAppearance && <AppAppearanceSync />}<SetupGate onComplete={() => setSetupRevision(value => value + 1)}><UpdateProvider><NotificationProvider><DraftProvider key={session.principal.OwnerID} owner={session.principal.OwnerID}><UIHostProvider><WorkspaceHost /></UIHostProvider></DraftProvider></NotificationProvider></UpdateProvider></SetupGate></DataProvider>;
 }
 const icons = { assistants: MessagesSquare, plans: CalendarClock, resources: Folder, extensions: Puzzle, workbench: FlaskConical };
 // Trusted in-process adapter. Selection/resolution is identical for partial official and external packages.

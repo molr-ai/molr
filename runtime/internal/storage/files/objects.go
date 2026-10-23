@@ -110,7 +110,7 @@ func (o *ObjectStore) Put(ctx context.Context, id core.ID, reader io.Reader, lim
 	}
 	return StagedObject{ID: id, Size: n, SHA256: hex.EncodeToString(hash.Sum(nil))}, nil
 }
-func (o *ObjectStore) verify(name string, object StagedObject) error {
+func (o *ObjectStore) verify(ctx context.Context, name string, object StagedObject) error {
 	info, err := o.root.Lstat(name)
 	if err != nil {
 		return err
@@ -124,7 +124,7 @@ func (o *ObjectStore) verify(name string, object StagedObject) error {
 	}
 	defer file.Close()
 	hash := sha256.New()
-	n, err := io.Copy(hash, file)
+	n, err := io.Copy(hash, contextReader{ctx, file})
 	if err != nil {
 		return err
 	}
@@ -133,32 +133,55 @@ func (o *ObjectStore) verify(name string, object StagedObject) error {
 	}
 	return nil
 }
-func (o *ObjectStore) Commit(ctx context.Context, object StagedObject) error {
+
+// Publish retains the object lock across verification and the metadata callback.
+// Verification errors are returned by commit, preserving authorization, receipt
+// and quota error precedence inside the callback without hashing inside SQL.
+func (o *ObjectStore) Publish(ctx context.Context, object StagedObject, publish func(commit func() error) error) error {
 	if err := persistence.CheckContext(ctx); err != nil {
 		return err
 	}
 	if err := object.ID.Validate(); err != nil {
 		return err
 	}
+	if publish == nil {
+		return core.Invalid("publish", "callback required")
+	}
 	release, err := o.lock(ctx, object.ID)
 	if err != nil {
 		return err
 	}
 	defer release()
-	if err := o.takeCommitFailure(); err != nil {
-		return err
-	}
 	target := "objects/" + string(object.ID)
-	if _, err := o.root.Lstat(target); err == nil {
-		return o.verify(target, object)
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
 	staged := "staging/" + string(object.ID)
-	if err := o.verify(staged, object); err != nil {
-		return err
+	_, verifyErr := o.root.Lstat(target)
+	exists := verifyErr == nil
+	if exists {
+		verifyErr = o.verify(ctx, target, object)
+	} else if errors.Is(verifyErr, os.ErrNotExist) {
+		verifyErr = o.verify(ctx, staged, object)
 	}
-	return o.root.Rename(staged, target)
+	active := true
+	defer func() { active = false }()
+	return publish(func() error {
+		if !active {
+			return core.NewError(core.FailedPrecondition, "publication callback ended")
+		}
+		if err := persistence.CheckContext(ctx); err != nil {
+			return err
+		}
+		if err := o.takeCommitFailure(); err != nil {
+			return err
+		}
+		if verifyErr != nil || exists {
+			return verifyErr
+		}
+		if err := o.root.Rename(staged, target); err != nil {
+			return err
+		}
+		exists = true
+		return nil
+	})
 }
 func (o *ObjectStore) Open(ctx context.Context, id core.ID) (io.ReadCloser, error) {
 	if err := persistence.CheckContext(ctx); err != nil {

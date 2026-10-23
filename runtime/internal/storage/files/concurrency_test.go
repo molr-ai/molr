@@ -54,9 +54,11 @@ func TestSlowUploadDoesNotBlockUnrelatedCommitOrDatabase(t *testing.T) {
 	<-slow.started
 	entered, committed := make(chan struct{}), make(chan error, 1)
 	go func() {
-		committed <- db.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
-			close(entered)
-			return objects.Commit(ctx, staged)
+		committed <- objects.Publish(t.Context(), staged, func(commit func() error) error {
+			return db.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
+				close(entered)
+				return commit()
+			})
 		})
 	}()
 	<-entered
@@ -111,7 +113,7 @@ func TestObjectWaitersCancelWithoutChangingActiveUpload(t *testing.T) {
 	defer cancel()
 	results := make(chan error, 3)
 	go func() { _, err := objects.Put(ctx, "shared", strings.NewReader("bad"), 3); results <- err }()
-	go func() { results <- objects.Commit(ctx, staged) }()
+	go func() { results <- objects.Publish(ctx, staged, func(commit func() error) error { return commit() }) }()
 	go func() { results <- objects.Remove(ctx, "shared") }()
 	var waiting []error
 	timeout := time.NewTimer(time.Second)
@@ -141,7 +143,7 @@ collect:
 			t.Fatal("waiter changed active object", err)
 		}
 	}
-	if err := objects.Commit(t.Context(), staged); err != nil {
+	if err := objects.Publish(t.Context(), staged, func(commit func() error) error { return commit() }); err != nil {
 		t.Fatal(err)
 	}
 	reader, err := objects.Open(t.Context(), "shared")
@@ -182,7 +184,7 @@ func TestSameObjectOperationsWaitForStreamingToFinish(t *testing.T) {
 					_, err := objects.Put(t.Context(), "shared", strings.NewReader("replacement"), 11)
 					done <- err
 				case "commit":
-					done <- objects.Commit(t.Context(), staged)
+					done <- objects.Publish(t.Context(), staged, func(commit func() error) error { return commit() })
 				case "remove":
 					done <- objects.Remove(t.Context(), "shared")
 				}
@@ -208,7 +210,7 @@ func TestSameObjectOperationsWaitForStreamingToFinish(t *testing.T) {
 				if core.CodeOf(result) != core.Conflict {
 					t.Fatal(result)
 				}
-				if err := objects.Commit(t.Context(), staged); err != nil {
+				if err := objects.Publish(t.Context(), staged, func(commit func() error) error { return commit() }); err != nil {
 					t.Fatal(err)
 				}
 			} else if result != nil {

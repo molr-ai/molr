@@ -241,8 +241,8 @@ func TestTDDFilesObjectsStageCommitOpenRemove(t *testing.T) {
 		_ = body.Close()
 		t.Fatal("uncommitted object became visible")
 	}
-	testkit.RequireNoError(t, f.Objects.Commit(ctx, staged))
-	testkit.RequireNoError(t, f.Objects.Commit(ctx, staged))
+	testkit.RequireNoError(t, f.Objects.Publish(ctx, staged, func(commit func() error) error { return commit() }))
+	testkit.RequireNoError(t, f.Objects.Publish(ctx, staged, func(commit func() error) error { return commit() }))
 	reader, err := f.Objects.Open(ctx, staged.ID)
 	testkit.RequireNoError(t, err)
 	got, err := io.ReadAll(reader)

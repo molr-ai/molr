@@ -77,18 +77,10 @@ func (s *HTTPServer) planDetailRoutes() {
 			if err := id.Validate(); err != nil {
 				return nil, err
 			}
-			plans, err := s.services.Plans.Overview(r.Context(), p, time.Time{}, time.Time{})
+			var err error
+			ref, err = s.services.Plans.Resolve(r.Context(), p, id)
 			if err != nil {
 				return nil, err
-			}
-			for _, plan := range plans {
-				if plan.Ref.ID == id {
-					ref = plan.Ref
-					break
-				}
-			}
-			if ref.ID == "" {
-				return nil, core.NewError(core.NotFound, "plan not found")
 			}
 		}
 		plan, err := s.services.Plans.Detail(r.Context(), p, ref, at)

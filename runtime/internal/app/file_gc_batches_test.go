@@ -137,7 +137,7 @@ func gcDiskFixture(t *testing.T, count int) (string, *sqlitestore.Store, *files.
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := objects.Commit(t.Context(), staged); err != nil {
+		if err := objects.Publish(t.Context(), staged, func(commit func() error) error { return commit() }); err != nil {
 			t.Fatal(err)
 		}
 	}

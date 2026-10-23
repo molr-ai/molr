@@ -164,8 +164,9 @@ func (e *Engine) runTurnSteps(runCtx context.Context, t Turn, key string, modelI
 			return err
 		}
 		execution := core.Execution{Principal: t.Principal, AssistantID: t.Event.AssistantID, TaskID: t.Event.TaskID, OperationID: modelOperationID(t, progress.Step)}
+		var estimate contextEstimate
 		if progress.Response == nil {
-			interrupted, err := e.runModelStep(runCtx, t, key, modelID, progress, pendingRetry, execution)
+			interrupted, err := e.runModelStep(runCtx, t, key, modelID, progress, pendingRetry, execution, &estimate)
 			if err != nil {
 				return err
 			}
@@ -173,7 +174,7 @@ func (e *Engine) runTurnSteps(runCtx context.Context, t Turn, key string, modelI
 				continue
 			}
 		}
-		if err := e.detectCompression(runCtx, t, modelID, progress); err != nil {
+		if err := e.detectCompressionWithEstimate(runCtx, t, modelID, progress, estimate); err != nil {
 			return err
 		}
 		if err := e.runToolSteps(runCtx, t, key, modelID, progress, execution); err != nil {

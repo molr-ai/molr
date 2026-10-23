@@ -1,3 +1,4 @@
+import { useDraft } from '../../../drafts';
 import { qqCopy } from '../../../qq-copy';
 import type { QQStatus } from '@molr/sdk';
 import { FolderOpen } from 'lucide-react';
@@ -25,13 +26,13 @@ import { useChatHistory } from '../../../use-chat-history';
 import { isChatObscured, onChatRevealed } from '../../../chat-visibility';
 import { Empty, Loading, useAction } from '../components/common';
 
-export type Draft = { text: string; files: FileInfo[] };
 export type AssistantAction = 'channel' | 'info' | 'clone' | 'dismiss' | 'permissions' | 'tasks' | 'shell_tasks' | 'browser' | 'files' | 'terminal' | 'pin';
-export function Chat({ assistant, conversation, timeZone, draft, updateDraft, onAction, onBack, onCard, onDebug, targetMessageID = '', onClearTarget }: {
+export function Chat({ assistant, conversation, timeZone, onAction, onBack, onCard, onDebug, targetMessageID = '', onClearTarget }: {
   targetMessageID?: string; onClearTarget: () => void;
-  assistant: Assistant; conversation?: Conversation; timeZone?: string; draft: Draft; updateDraft: (draft: Draft | ((previous: Draft) => Draft)) => void;
+  assistant: Assistant; conversation?: Conversation; timeZone?: string;
   onDebug?: (turnID?: string) => void; onAction: (action: AssistantAction) => void; onBack?: () => void; onCard: (kind: string, id: string) => void;
 }) {
+  const [draft, updateDraft] = useDraft(assistant.ID);
   const { t, locale } = useCopy(), { invalidate, invalidateTopics } = useData(); const action = useAction();
   const { principal } = useSession(), user = principal?.User;
   const userName = user?.DisplayName || user?.Username || 'U';
@@ -112,7 +113,7 @@ export function Chat({ assistant, conversation, timeZone, draft, updateDraft, on
     if (savedScroll.current) { element.scrollTop = savedScroll.current.top + element.scrollHeight - savedScroll.current.height; savedScroll.current = null; }
     else if (bottom.current) element.scrollTop = element.scrollHeight;
     updateScrollPosition();
-  }, [history, targetMessageID]);
+  }, [history.messages, history.metadataVersions, history.loaded, history.loadingOlder, history.targetStatus, targetMessageID]);
   useEffect(() => {
     markRead();
     const visible = () => markRead(), stopObserving = onChatRevealed(visible);

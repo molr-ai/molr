@@ -130,45 +130,47 @@ func (s *fileService) upload(ctx context.Context, p core.Principal, request Uplo
 	}
 	key := persistence.Key(p.OwnerID, core.ID(receiptScope))
 	var result File
-	err = s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		if err := authorize(ctx); err != nil {
-			return err
-		}
-		var previous uploadReceipt
-		err := tx.Get(ctx, "files.idempotency", key, &previous)
-		if err == nil {
-			if previous.Digest != digest {
-				return persistence.Conflict("idempotency key payload mismatch")
-			}
-			return tx.Get(ctx, Bucket, persistence.Key(p.OwnerID, previous.FileID), &result)
-		}
-		if !persistence.Missing(err) {
-			return err
-		}
-		used, err := tx.Sum(ctx, Bucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("State", Ready)}}, "Size")
-		if err != nil {
-			return err
-		}
-		quota := s.options.DiskQuota()
-		if quota < 0 || staged.Size > quota || used > quota-staged.Size {
-			return core.NewError(core.FailedPrecondition, "file storage quota exceeded")
-		}
-		result = File{ID: id, OwnerID: p.OwnerID, TaskID: request.TaskID, Name: name, MediaType: request.MediaType, Size: staged.Size, SHA256: staged.SHA256, State: Ready, CreatedAt: s.options.Now()}
-		if p.Kind == core.ActorAssistant {
-			result.AssistantID = p.SubjectID
-		}
-		if err := s.objects.Commit(ctx, staged); err != nil {
-			return err
-		}
-		if err := tx.Put(ctx, Bucket, persistence.Key(p.OwnerID, id), result); err != nil {
-			return err
-		}
-		if channelScope != "" {
-			if err := tx.Put(ctx, "files.channel", persistence.Key(p.OwnerID, id), channelScope); err != nil {
+	err = s.objects.Publish(ctx, staged, func(commit func() error) error {
+		return s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+			if err := authorize(ctx); err != nil {
 				return err
 			}
-		}
-		return tx.Put(ctx, "files.idempotency", key, uploadReceipt{Digest: digest, FileID: id})
+			var previous uploadReceipt
+			err := tx.Get(ctx, "files.idempotency", key, &previous)
+			if err == nil {
+				if previous.Digest != digest {
+					return persistence.Conflict("idempotency key payload mismatch")
+				}
+				return tx.Get(ctx, Bucket, persistence.Key(p.OwnerID, previous.FileID), &result)
+			}
+			if !persistence.Missing(err) {
+				return err
+			}
+			used, err := tx.Sum(ctx, Bucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("State", Ready)}}, "Size")
+			if err != nil {
+				return err
+			}
+			quota := s.options.DiskQuota()
+			if quota < 0 || staged.Size > quota || used > quota-staged.Size {
+				return core.NewError(core.FailedPrecondition, "file storage quota exceeded")
+			}
+			result = File{ID: id, OwnerID: p.OwnerID, TaskID: request.TaskID, Name: name, MediaType: request.MediaType, Size: staged.Size, SHA256: staged.SHA256, State: Ready, CreatedAt: s.options.Now()}
+			if p.Kind == core.ActorAssistant {
+				result.AssistantID = p.SubjectID
+			}
+			if err := commit(); err != nil {
+				return err
+			}
+			if err := tx.Put(ctx, Bucket, persistence.Key(p.OwnerID, id), result); err != nil {
+				return err
+			}
+			if channelScope != "" {
+				if err := tx.Put(ctx, "files.channel", persistence.Key(p.OwnerID, id), channelScope); err != nil {
+					return err
+				}
+			}
+			return tx.Put(ctx, "files.idempotency", key, uploadReceipt{Digest: digest, FileID: id})
+		})
 	})
 	if err != nil {
 		return File{}, err

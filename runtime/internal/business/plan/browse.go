@@ -116,17 +116,14 @@ func (s *Coordinator) Detail(ctx context.Context, p core.Principal, ref core.Obj
 		}
 		source.Ready = len(source.BlockedBy) == 0 && !source.Links.Paused
 		out = summarize(source, func(run Execution) bool { return at != nil && run.OccurrenceAt != nil && run.OccurrenceAt.Equal(*at) })
-		links, err := persistence.Select[Links](ctx, s.store, bucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID)}, Fields: []string{"Dependencies"}})
+		links, err := persistence.Select[struct{}](ctx, s.store, bucket, persistence.Query{
+			Where:  []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), {Field: "Dependencies", Op: "has", Value: ref.Kind + "/" + string(ref.ID)}},
+			Fields: []string{"OwnerID"}, Limit: 1, Unordered: true,
+		})
 		if err != nil {
 			return err
 		}
-		for _, link := range links {
-			for _, dependency := range link.Dependencies {
-				if dependency == ref {
-					out.HasSuccessors = true
-				}
-			}
-		}
+		out.HasSuccessors = len(links) != 0
 		return nil
 	})
 	return out, err

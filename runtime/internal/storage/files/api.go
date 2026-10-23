@@ -53,11 +53,13 @@ type Service interface {
 
 // Objects is a trusted filesystem port, not an Agent-accessible capability.
 // Put stages data under generated IDs, validates byte limits and hashes it.
-// Commit is idempotent; metadata publication occurs only after object commit.
+// Publish verifies bytes before entering the caller's metadata transaction.
+// Its callback must invoke commit before writing Ready metadata; commit only renames.
+// The object lock is held through the callback. Call Publish outside SQL transactions.
 // Recovery resolves orphan/staged records because SQL and files are not atomic.
 type Objects interface {
 	Put(context.Context, core.ID, io.Reader, int64) (StagedObject, error)
-	Commit(context.Context, StagedObject) error
+	Publish(context.Context, StagedObject, func(commit func() error) error) error
 	Open(context.Context, core.ID) (io.ReadCloser, error)
 	Remove(context.Context, core.ID) error
 	Recover(context.Context) error

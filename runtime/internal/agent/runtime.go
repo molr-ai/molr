@@ -65,7 +65,7 @@ type Engine struct {
 	store       persistence.Store
 	options     Options
 	checkpoints Checkpoints
-	builder     ContextBuilder
+	builder     *contextBuilder
 	mu          sync.Mutex
 	gates       map[string]chan struct{}
 	active      map[string]activeExecution
@@ -81,13 +81,17 @@ func NewRuntime(store persistence.Store, options Options) *Engine {
 	if options.MaxSteps > 999 {
 		options.MaxSteps = 999
 	}
-	return &Engine{store: store, options: options, checkpoints: &checkpoints{store: store, trace: options.Trace}, builder: NewContextBuilder(options), gates: map[string]chan struct{}{}, active: map[string]activeExecution{}}
+	return &Engine{store: store, options: options, checkpoints: &checkpoints{store: store, trace: options.Trace}, builder: &contextBuilder{options}, gates: map[string]chan struct{}{}, active: map[string]activeExecution{}}
 }
 
 type contextBuilder struct{ options Options }
 
 func NewContextBuilder(options Options) ContextBuilder { return &contextBuilder{options} }
 func (b *contextBuilder) Build(ctx context.Context, t Turn) ([]model.Input, error) {
+	return b.build(ctx, t, nil)
+}
+
+func (b *contextBuilder) build(ctx context.Context, t Turn, saved *privateContext) ([]model.Input, error) {
 	if err := t.Validate(); err != nil {
 		return nil, err
 	}
@@ -98,14 +102,14 @@ func (b *contextBuilder) Build(ctx context.Context, t Turn) ([]model.Input, erro
 		return nil, err
 	}
 	inputs := []model.Input{{Role: model.System, Text: loopInstructions}}
-	if t.Checkpoint != nil {
-		var saved privateContext
-		if len(t.Checkpoint.Context) > 256<<20 || json.Unmarshal(t.Checkpoint.Context, &saved) != nil {
+	if saved == nil && t.Checkpoint != nil {
+		saved = &privateContext{}
+		if len(t.Checkpoint.Context) > 256<<20 || json.Unmarshal(t.Checkpoint.Context, saved) != nil {
 			return nil, core.Invalid("checkpoint", "invalid private context")
 		}
-		if len(saved.Inputs) > 0 {
-			inputs = append([]model.Input(nil), saved.Inputs...)
-		}
+	}
+	if saved != nil && len(saved.Inputs) > 0 {
+		inputs = append([]model.Input(nil), saved.Inputs...)
 	}
 	var conversationID core.ID
 	if b.options.ConversationID != nil {

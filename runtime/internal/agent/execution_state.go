@@ -339,17 +339,12 @@ func (e *Engine) prepareExecution(ctx context.Context, t Turn) (Checkpoint, turn
 		return cp, turnProgress{}, err
 	}
 	// Build the new event on the reconciled state, not on an event-local snapshot.
-	raw, err := json.Marshal(s)
-	if err != nil {
-		return cp, turnProgress{}, err
-	}
 	base := cp
 	base.OwnerID = t.Principal.OwnerID
 	base.AssistantID = t.Event.AssistantID
 	base.FormatVersion = 1
-	base.Context = raw
 	t.Checkpoint = &base
-	inputs, err := e.builder.Build(ctx, t)
+	inputs, err := e.builder.build(ctx, t, &s)
 	if err != nil {
 		return cp, turnProgress{}, err
 	}

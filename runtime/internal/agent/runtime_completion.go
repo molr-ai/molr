@@ -26,14 +26,15 @@ func (e *Engine) commitTurn(runCtx context.Context, t Turn, key string, checkpoi
 	inputs, automatic := progress.Inputs, progress.Automatic
 
 	e.options.Trace.Record(runCtx, "context.final", "succeeded", "", map[string]any{"Inputs": inputs})
-	private, err := json.Marshal(privateContext{Inputs: contextHistory(inputs), Automatic: automatic, Usage: progress.Usage, Publish: progress.Publish})
-	if err != nil {
-		return Outcome{}, err
-	}
-	out := Outcome{Status: Status{AssistantID: t.Event.AssistantID, State: state, ActiveTaskID: t.Event.TaskID, ExecutionID: t.Principal.ExecutionID, WaitingReason: waiting, UpdatedAt: e.options.Now().UTC()}, Checkpoint: Checkpoint{OwnerID: t.Principal.OwnerID, AssistantID: t.Event.AssistantID, ExecutionID: t.Principal.ExecutionID, FormatVersion: 1, Sequence: checkpoint.Sequence + 1, Context: private, LastEventID: t.Event.ID, SavedAt: e.options.Now().UTC()}}
+	var err error
+	out := Outcome{Status: Status{AssistantID: t.Event.AssistantID, State: state, ActiveTaskID: t.Event.TaskID, ExecutionID: t.Principal.ExecutionID, WaitingReason: waiting, UpdatedAt: e.options.Now().UTC()}, Checkpoint: Checkpoint{OwnerID: t.Principal.OwnerID, AssistantID: t.Event.AssistantID, ExecutionID: t.Principal.ExecutionID, FormatVersion: 1, Sequence: checkpoint.Sequence + 1, LastEventID: t.Event.ID, SavedAt: e.options.Now().UTC()}}
 	// Dream files have their own durable commit plan. Never place filesystem
 	// effects inside the status/checkpoint transaction: its rollback cannot undo files.
 	if t.Event.Kind == event.DreamDue {
+		out.Checkpoint.Context, err = json.Marshal(privateContext{Inputs: contextHistory(inputs), Automatic: automatic, Usage: progress.Usage, Publish: progress.Publish})
+		if err != nil {
+			return Outcome{}, err
+		}
 		if !progress.Finished {
 			return Outcome{}, core.NewError(core.FailedPrecondition, "dream incomplete")
 		}
