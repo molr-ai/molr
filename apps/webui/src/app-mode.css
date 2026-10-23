@@ -1,6 +1,10 @@
 .app-frame { --app-titlebar-height: 48px; position: relative; isolation: isolate; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; background: var(--color-background); }
 .app-frame > .ui-modal-scope-content { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .app-frame > .ui-modal-layer { app-region: no-drag; -webkit-app-region: no-drag; }
+/* Popovers inherit app-region from their DOM ancestors, including the sidebar.
+   Keep the panel interactive and its full-window backdrop out of the drag map. */
+.app-frame .ui-floating { app-region: no-drag; -webkit-app-region: no-drag; }
+.app-frame .ui-floating::backdrop { app-region: initial; -webkit-app-region: initial; }
 /* The App titlebar already provides top spacing; do not add another strip
    above the workspace cards and navigation. */
 .app-frame .workspace > .workspace-content { margin-top: 0; }
