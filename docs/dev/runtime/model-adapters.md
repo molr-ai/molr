@@ -103,3 +103,17 @@ DeepSeek 协议依据：[Chat Completions](https://api-docs.deepseek.com/api/cre
 `openai-responses` 用于管理员添加的 ChatGPT 套餐连接。请求固定为公开 `/v1/responses`，函数工具按 `molr` namespace 编码，system 消息转换为 developer，原样保留同源输出顺序、assistant phase 和 encrypted reasoning，使用显式历史和工具结果回放。SSE 必须收到 `response.completed` 才成功；额度错误保留结构化原因，禁止自动重试。
 
 凭据由 Runtime 的 OAuth 适配器和现有 Vault 管理；刷新串行化并在使用新 access token 前原子保存轮换凭据。`PricingInfo.Basis=subscription-reference` 标识内部预算参考计价，预留、结算、组次数及并发限制继续走现有链路。
+
+## 自动价格规则
+
+`internal/pricing/providers.json` 保存带版本的官方价表，外部 `pricing.rules_file` 或 `pricing.rules_url` 完整替换内置规则，两项默认留空且互斥。每个地域条目保存 provider ID、HTTPS origins、标准 API paths、币种和来源；相同 provider 的国内／国际区使用不同条目。模型按完整 ID 与显式别名匹配。固定 `rates` 与分时 `off_peak` / `peak` 互斥。
+
+固定费率可附带 `tiers`：`input_tokens_above` 与 `output_tokens_above` 的非零边界均使用严格大于，0 表示不限制该维度。按输入边界、输出边界递增排列，结算取最后一个满足条件的档位，替换整次调用三项单价。`valid_until` 为排他的 RFC3339 截止时间，到期停止匹配。目录返回基础价与全部档位，预算使用各维度最高费率，模型调用使用开始时固定的规则快照，账单保存实际档位。手动价格覆盖自动档位及预留费率。原币种保留为 USD / CNY。
+
+来源与支持范围见[自动计价](../../admin/resources/models.md#自动计价)。`TestProviderPricesMatchExactProductAndCurrency`、`TestTierSnapshotReserveAndPromotionExpiry`、`TestAutomaticPriceTiersCurrencyAndManualOverride` 与 `TestTieredPricingUsesActualUsageAndRetainsReceipt` 覆盖地域、订阅路径排除、过期、快照、分档边界和实际账单。
+
+`pricing.Updater` 在启动时恢复同源缓存并刷新，Runtime 生命周期中每 24 小时检查一次；关闭 Runtime 时取消轮询与进行中的自动请求。`POST /api/models/refresh-pricing` 经管理员与 CSRF 校验后调用同一刷新入口，合并重叠请求，不接收用户指定的源地址。没有外部来源时返回 `Source=builtin`、`Updated=false`，不读取旧来源缓存或发起网络请求。
+
+文件按内容比对，可识别原子替换和相同修改时间的变更。远程仅接受 HTTPS，使用部署网络守卫固定来源，禁止重定向；超时 10 秒，解码后体积最多 1 MiB。仅在内容完整校验并原子保存成功后切换价表及条件请求标识；失败保留此前价表、缓存和 ETag / Last-Modified。缓存存于数据目录 `pricing-cache/<source-hash>.json`，文件权限 0600，来源类型与完整路径／URL 共同决定缓存身份。重启先恢复有效缓存；无缓存或缓存无效时回退内置规则，再尝试配置来源。手动覆盖和已有调用／账单快照不变。
+
+`updater_test.go` 覆盖文件／HTTPS 更新、条件请求、缓存失败、重启恢复、来源隔离、轮询关闭与并发刷新；`TestPricingRefreshHTTPAuthorizationAndRestartCache` 覆盖真实认证下的管理员、CSRF、手动刷新和重启。此机制不实现供应商价格采集或官网发布流程。

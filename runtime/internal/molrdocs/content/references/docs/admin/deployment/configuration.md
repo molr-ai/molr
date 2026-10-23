@@ -58,7 +58,17 @@ location /api/ {
 
 Shell 网络策略单独配置地址集合（域名、IP 或多个 CIDR）和端口集合（单端口或多个范围），不继承模型连接的本机许可。示例与私网规则见 [沙箱网络配置](https://molr.ai/zh/docs/admin/sandbox/linux/#网络与高级部署)。用户授权不能扩大部署网络限制。
 
-手动模型价格优先于内置计价，未知价格阻止调用。内置价格与参考汇率是带日期的配置，不是实时报价。可以分别通过 `pricing.rules_file` 与 `pricing.exchange_rates_file` 指定文件；格式与规则实现见 [Runtime README](https://github.com/molr-ai/molr/blob/main/runtime/README.md)。变更后按配置要求重启并核对用量，不能将参考计费当作供应商最终账单。
+手动模型价格优先于自动计价，未知价格阻止调用。默认不配置外部价表：
+
+```json
+"pricing": { "rules_file": "", "rules_url": "", "exchange_rates_file": "" }
+```
+
+`rules_file` 接受本地绝对路径，`rules_url` 接受 HTTPS URL，例如 `https://prices.example.com/models.json`；最多配置其中一项。外部 JSON 格式见 [Runtime README](https://github.com/molr-ai/molr/blob/main/runtime/README.md)。服务启动时及之后每 24 小时检查价表内容；管理员可以在「资源 → 模型 → 更多 → 刷新模型价格配置」立即刷新。检查成功后无需重启，已保存模型使用新规则；手动价格和历史账单不变。按钮在没有外部来源时提示正在使用内置规则，不执行网络下载。
+
+有效配置按来源保存在数据目录的 `pricing-cache/`。来源不可用、JSON 无效或缓存写入失败时，继续使用最近有效配置；首次没有缓存时使用内置规则。远程请求遵守部署网络地址限制，仅接受 HTTPS，禁止重定向。改变价表内容无需重启；改变来源路径／URL 要重新加载服务配置并重启。
+
+参考汇率通过 `pricing.exchange_rates_file` 独立配置，仍在启动时读取。价表与汇率都是带日期的参考配置，不能将参考计费当作供应商最终账单。
 
 配置完成后，继续[安装与服务管理](https://molr.ai/zh/docs/admin/deployment/installation/#linux-服务与命令环境)。
 

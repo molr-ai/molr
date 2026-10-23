@@ -36,8 +36,8 @@ func Entries(r resource.Resource, b resource.Binding) []Entry {
 	return entries
 }
 
-func tariff(r pricing.Rates) *model.Pricing {
-	return &model.Pricing{Currency: "USD", InputMicrosPerMillion: r.Input, OutputMicrosPerMillion: r.Output, CachedInputMicrosPerMillion: r.Cached}
+func tariff(r pricing.Rates, currency string) *model.Pricing {
+	return &model.Pricing{Currency: currency, InputMicrosPerMillion: r.Input, OutputMicrosPerMillion: r.Output, CachedInputMicrosPerMillion: r.Cached}
 }
 func (s Service) Describe(r resource.Resource, b resource.Binding, entry Entry) model.Provider {
 	m := entry.Config
@@ -48,7 +48,10 @@ func (s Service) Describe(r resource.Resource, b resource.Binding, entry Entry) 
 		now = s.Now()
 	}
 	if q, ok := s.Pricing.Lookup(b.PricingProvider, b.Endpoint, m.Name, now); ok {
-		price, reserve = tariff(q.Current), tariff(q.Reserve)
+		price, reserve = tariff(q.Current, q.Currency), tariff(q.Reserve, q.Currency)
+		for _, tier := range q.Tiers {
+			price.Tiers = append(price.Tiers, model.PricingTier{InputTokensAbove: tier.InputTokensAbove, OutputTokensAbove: tier.OutputTokensAbove, InputMicrosPerMillion: tier.Rates.Input, OutputMicrosPerMillion: tier.Rates.Output, CachedInputMicrosPerMillion: tier.Rates.Cached})
+		}
 		info = &model.PricingInfo{Source: "builtin", Automatic: price, RuleID: q.RuleID, Version: q.Version, Period: q.Period, SourceURL: q.SourceURL, CalendarKnown: q.CalendarKnown}
 	}
 	if b.PricingProvider == "openrouter" && m.ProviderPricing != nil {

@@ -37,7 +37,7 @@ func TestBuiltInPricingAppliesToSavedModelsAndReloads(t *testing.T) {
 	if estimate.Micros != 11031 {
 		t.Fatalf("reservation should use peak rates: %+v", estimate)
 	}
-	data, err := os.ReadFile("../pricing/deepseek.json")
+	data, err := os.ReadFile("../pricing/providers.json")
 	need(t, err)
 	data = bytes.Replace(data, []byte(`"input_micros_per_million": 150000`), []byte(`"input_micros_per_million": 200000`), 1)
 	need(t, b.Pricing.Reload(bytes.NewReader(data)))
@@ -58,15 +58,17 @@ func TestBuiltInPricingAppliesToSavedModelsAndReloads(t *testing.T) {
 	}
 }
 
-func TestPricingRulesFileStartupValidation(t *testing.T) {
+func TestPricingRulesFileStartupFallback(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Pricing.RulesFile = filepath.Join(t.TempDir(), "rules.json")
 	need(t, os.WriteFile(cfg.Pricing.RulesFile, []byte(`{}`), 0600))
-	if b, err := Build(t.Context(), cfg); err == nil {
-		b.Close()
-		t.Fatal("invalid pricing did not block startup")
+	first, err := Build(t.Context(), cfg)
+	need(t, err)
+	if _, ok := first.Pricing.Lookup("deepseek", "https://api.deepseek.com", "deepseek-flash", time.Now()); !ok {
+		t.Fatal("invalid source lost built-in fallback")
 	}
-	data, err := os.ReadFile("../pricing/deepseek.json")
+	need(t, first.Close())
+	data, err := os.ReadFile("../pricing/providers.json")
 	need(t, err)
 	need(t, os.WriteFile(cfg.Pricing.RulesFile, data, 0600))
 	b, err := Build(t.Context(), cfg)

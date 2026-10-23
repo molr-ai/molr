@@ -114,6 +114,7 @@ Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugi
 | GET | `/api/jobs` |
 | GET | `/api/memories` |
 | GET | `/api/memories/{id}` |
+| POST | `/api/models/refresh-pricing` |
 | GET | `/api/models` |
 | GET | `/api/operations` |
 | GET | `/api/operations/{id}` |
@@ -377,7 +378,7 @@ ChatGPT 的 `verification` 沿用 `credential.put` 敏感操作验证；重新�
 
 ### 模型计价
 
-模型计价补充：`GET /api/models` 返回有效 `Pricing`，并通过 `PricingInfo` 标明 `Source`（`builtin` / `provider` / `manual`）、可用的自动价格 `Automatic`、`RuleID`、`Version`、`Period`（`peak` / `off_peak`）、`SourceURL` 和 `CalendarKnown`。`configure-model` 的 `Model.Pricing=null` 表示使用可用的提供商目录价格或匹配的内置规则；都不存在时仍为未知价格。保存 Provider 可传 `PricingProvider`（`deepseek` / `openrouter` / `openai` / `bailian` / `zhipu` / `moonshot` / `ollama` / `llamacpp` / `vllm` / `sglang` / `custom`），连接详情返回该字段；为空时根据官方地址识别，`custom` 禁用自动规则。目前仅内置 DeepSeek，且仅匹配配置明确列出的官方地址与模型标识。
+模型计价补充：`GET /api/models` 返回有效 `Pricing`，并通过 `PricingInfo` 标明 `Source`（`builtin` / `provider` / `manual`）、可用的自动价格 `Automatic`、`RuleID`、`Version`、`Period`（`peak` / `off_peak`，固定价格为空）、`SourceURL` 和 `CalendarKnown`。`configure-model` 的 `Model.Pricing=null` 表示使用可用的提供商目录价格或匹配的内置规则；都不存在时仍为未知价格。保存 Provider 可传 `PricingProvider`（`deepseek` / `openrouter` / `openai` / `bailian` / `zhipu` / `moonshot` / `ollama` / `llamacpp` / `vllm` / `sglang` / `custom`），连接详情返回该字段；为空时根据官方地址识别，`custom` 禁用自动规则。内置覆盖范围见[自动计价](../../admin/resources/models.md#自动计价)，仅匹配明确列出的官方地址、标准 API 路径与模型标识。有效价格与 `Automatic` 可含 `Tiers`，各项包含 `InputTokensAbove`、`OutputTokensAbove` 与三项费率，0 边界表示该维度不限；最后一个满足非零严格大于条件的档位适用于整次请求。
 
 ## 助理与计划
 
@@ -643,3 +644,5 @@ API 合同测试使用真实 HTTP server、Auth、CSRF、持久限流、Realtime
 - 任务的 `Terminal` 返回 `Control`（assistant/user）、`Generation`、`Rows`、`Cols`、`NeedsRead`。列表及读取按当前认证会话投影 `ControllerIsCurrentSession` 和 `ControllerClientID`；`CreatedBy` 表示 user/assistant。TTY 写入、中断、缩放、停止及交接必须携带当前 generation；用户还需匹配 client_id 与登录会话，写入类操作带递增 sequence，拒绝重复或迟到输入。takeover/release 仅所有者可用。助理 stop_all 跳过用户控制或尚未完成交接读屏的 TTY；用户 stop_all 保留停止全部的管理能力。
 - release 生成 `terminal_control_returned` 事件。助理在该 generation 下读取到最新一页后才可操作；其他执行轮次须重新读取。用户控制期间不发送 TTY 运行提醒。
 - `GET /api/assistants/{id}/terminals/{task}/stream?cursor=0`：认证 SSE 输出，每帧包含 base64 `Output`、字节游标 `NextCursor`，活跃会话携带 `Terminal`，结束后携带 `Finished`。从最后已消费游标重连，不重新启动进程。`shell-tasks` read 也支持 `encoding:base64`，原文本读取保留。接收端按原始字节连续解码；到达输出归档限额时沿用现有任务终止和不完整标记。
+
+`POST /api/models/refresh-pricing` 仅限已登录管理员并要求 CSRF，不接受来源参数。返回 `{ Source: "builtin" | "file" | "url", Version: string, Updated: boolean }`；无外部源时返回内置版本和 `Updated=false`。来源读取或缓存写入失败返回 503，规则校验失败返回 409；均保留最近有效价格。手动刷新不更新 OpenRouter 的模型目录报价。

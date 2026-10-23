@@ -16,7 +16,7 @@ import (
 	"molr.ai/runtime/internal/core"
 )
 
-//go:embed deepseek.json
+//go:embed providers.json
 var builtin []byte
 
 type Rates struct {
@@ -44,6 +44,15 @@ type Quote struct {
 	Current, Reserve                                              Rates
 	Currency, Provider, Model, RuleID, Version, Period, SourceURL string
 	CalendarKnown                                                 bool
+	Tiers                                                         []Tier
+}
+
+// Tier replaces whole-request rates when both nonzero boundaries are exceeded.
+// Tiers are ordered by input then output boundary; the last matching tier wins.
+type Tier struct {
+	InputTokensAbove  int64  `json:"input_tokens_above"`
+	OutputTokensAbove int64  `json:"output_tokens_above,omitempty"`
+	Rates             *Rates `json:"rates"`
 }
 type window struct{ Start, End string }
 type schedule struct {
@@ -55,16 +64,21 @@ type schedule struct {
 	Holidays         []string `json:"holidays"`
 }
 type modelRule struct {
-	ID      string   `json:"id"`
-	Aliases []string `json:"aliases"`
-	OffPeak *Rates   `json:"off_peak"`
-	Peak    *Rates   `json:"peak"`
+	Rates      *Rates   `json:"rates"`
+	Tiers      []Tier   `json:"tiers"`
+	ValidUntil string   `json:"valid_until"`
+	ID         string   `json:"id"`
+	Aliases    []string `json:"aliases"`
+	OffPeak    *Rates   `json:"off_peak"`
+	Peak       *Rates   `json:"peak"`
 }
 type providerRule struct {
+	Currency  string      `json:"currency"`
+	Paths     []string    `json:"paths"`
 	ID        string      `json:"id"`
 	Origins   []string    `json:"origins"`
 	SourceURL string      `json:"source_url"`
-	Schedule  schedule    `json:"schedule"`
+	Schedule  *schedule   `json:"schedule"`
 	Models    []modelRule `json:"models"`
 }
 type document struct {
@@ -83,8 +97,8 @@ type provider struct {
 	windows      [][2]int
 }
 type snapshot struct {
-	version, currency string
-	providers         []provider
+	version   string
+	providers []provider
 }
 type Catalog struct{ current atomic.Pointer[snapshot] }
 
@@ -102,7 +116,7 @@ func New(r io.Reader) (*Catalog, error) {
 
 // Reload validates the complete replacement before atomically publishing it.
 // Errors leave the last snapshot intact. Existing Quotes never change.
-// A future server-side updater can call this without restarting agent workers.
+// Updates do not require restarting agent workers.
 func (c *Catalog) Reload(r io.Reader) error {
 	if r == nil {
 		return core.Invalid("pricing", "rules reader required")
@@ -126,67 +140,110 @@ func (c *Catalog) Reload(r io.Reader) error {
 	if doc.SchemaVersion != 1 || strings.TrimSpace(doc.Version) == "" || len(doc.Version) > 128 || doc.Currency != "USD" || len(doc.Providers) == 0 || len(doc.Providers) > 100 {
 		return core.Invalid("pricing", "invalid rules metadata")
 	}
-	next := &snapshot{version: doc.Version, currency: doc.Currency}
+	next := &snapshot{version: doc.Version}
 	seen := map[string]bool{}
 	for _, rule := range doc.Providers {
-		if rule.ID == "" || seen[rule.ID] || len(rule.Models) == 0 || len(rule.Origins) == 0 {
+		if rule.ID == "" || len(rule.Models) == 0 || len(rule.Origins) == 0 {
 			return core.Invalid("pricing", "invalid provider")
 		}
-		seen[rule.ID] = true
+		if rule.Currency == "" {
+			rule.Currency = doc.Currency
+		}
+		if rule.Currency != "USD" && rule.Currency != "CNY" {
+			return core.Invalid("pricing", "unsupported currency")
+		}
+		for _, path := range rule.Paths {
+			if path != "" && (!strings.HasPrefix(path, "/") || strings.HasSuffix(path, "/") || strings.ContainsAny(path, "?#%") || strings.Contains(path, "..")) {
+				return core.Invalid("pricing", "invalid API path")
+			}
+		}
 		for _, origin := range rule.Origins {
 			u, err := url.Parse(origin)
 			if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
 				return core.Invalid("pricing", "exact HTTPS origin required")
 			}
+			key := strings.ToLower(origin)
+			if seen[key] {
+				return core.Invalid("pricing", "duplicate provider origin")
+			}
+			seen[key] = true
 		}
 		p := provider{rule: rule, models: map[string]modelRule{}, holidays: map[string]bool{}, holidayYears: map[int]bool{}, weekdays: map[time.Weekday]bool{}}
-		p.location, err = time.LoadLocation(rule.Schedule.HolidayTimezone)
-		if err != nil || rule.Schedule.HolidayTimezone == "" {
-			return core.Invalid("pricing", "holiday timezone required")
-		}
-		for _, year := range rule.Schedule.HolidayYears {
-			if year < 2000 || year > 2200 {
-				return core.Invalid("pricing", "invalid holiday year")
+		if rule.Schedule != nil {
+			p.location, err = time.LoadLocation(rule.Schedule.HolidayTimezone)
+			if err != nil || rule.Schedule.HolidayTimezone == "" {
+				return core.Invalid("pricing", "holiday timezone required")
 			}
-			p.holidayYears[year] = true
-		}
-		for _, day := range rule.Schedule.Holidays {
-			date, err := time.Parse("2006-01-02", day)
-			if err != nil || !p.holidayYears[date.Year()] {
-				return core.Invalid("pricing", "invalid holiday date")
-			}
-			p.holidays[day] = true
-		}
-		for _, day := range rule.Schedule.Weekdays {
-			if day < 0 || day > 6 {
-				return core.Invalid("pricing", "invalid weekday")
-			}
-			p.weekdays[time.Weekday(day)] = true
-		}
-		for _, w := range rule.Schedule.Windows {
-			start, e1 := time.Parse("15:04", w.Start)
-			end, e2 := time.Parse("15:04", w.End)
-			a, b := start.Hour()*60+start.Minute(), end.Hour()*60+end.Minute()
-			if e1 != nil || e2 != nil || a >= b {
-				return core.Invalid("pricing", "invalid peak window")
-			}
-			for _, old := range p.windows {
-				if a < old[1] && b > old[0] {
-					return core.Invalid("pricing", "overlapping peak windows")
+			for _, year := range rule.Schedule.HolidayYears {
+				if year < 2000 || year > 2200 {
+					return core.Invalid("pricing", "invalid holiday year")
 				}
+				p.holidayYears[year] = true
 			}
-			p.windows = append(p.windows, [2]int{a, b})
+			for _, day := range rule.Schedule.Holidays {
+				date, err := time.Parse("2006-01-02", day)
+				if err != nil || !p.holidayYears[date.Year()] {
+					return core.Invalid("pricing", "invalid holiday date")
+				}
+				p.holidays[day] = true
+			}
+			for _, day := range rule.Schedule.Weekdays {
+				if day < 0 || day > 6 {
+					return core.Invalid("pricing", "invalid weekday")
+				}
+				p.weekdays[time.Weekday(day)] = true
+			}
+			for _, w := range rule.Schedule.Windows {
+				start, e1 := time.Parse("15:04", w.Start)
+				end, e2 := time.Parse("15:04", w.End)
+				a, b := start.Hour()*60+start.Minute(), end.Hour()*60+end.Minute()
+				if e1 != nil || e2 != nil || a >= b {
+					return core.Invalid("pricing", "invalid peak window")
+				}
+				for _, old := range p.windows {
+					if a < old[1] && b > old[0] {
+						return core.Invalid("pricing", "overlapping peak windows")
+					}
+				}
+				p.windows = append(p.windows, [2]int{a, b})
+			}
 		}
 		for _, m := range rule.Models {
-			if m.OffPeak == nil || m.Peak == nil {
-				return core.Invalid("pricing", "peak and off-peak rates required")
+			if m.ValidUntil != "" {
+				if _, err := time.Parse(time.RFC3339, m.ValidUntil); err != nil {
+					return core.Invalid("pricing", "invalid expiry")
+				}
 			}
-			for _, rates := range []*Rates{m.OffPeak, m.Peak} {
+			var all []*Rates
+			if m.Rates != nil {
+				if m.OffPeak != nil || m.Peak != nil || rule.Schedule != nil {
+					return core.Invalid("pricing", "fixed and scheduled rates cannot mix")
+				}
+				all = append(all, m.Rates)
+				previous := Tier{InputTokensAbove: -1}
+				for i := range m.Tiers {
+					tier := m.Tiers[i]
+					if tier.InputTokensAbove < 0 || tier.OutputTokensAbove < 0 || tier.InputTokensAbove == 0 && tier.OutputTokensAbove == 0 || tier.InputTokensAbove < previous.InputTokensAbove || tier.InputTokensAbove == previous.InputTokensAbove && tier.OutputTokensAbove <= previous.OutputTokensAbove {
+						return core.Invalid("pricing", "tiers must have ordered nonnegative boundaries")
+					}
+					previous = tier
+					if tier.Rates == nil {
+						return core.Invalid("pricing", "tier rates required")
+					}
+					all = append(all, m.Tiers[i].Rates)
+				}
+			} else {
+				if m.OffPeak == nil || m.Peak == nil || rule.Schedule == nil || len(m.Tiers) != 0 {
+					return core.Invalid("pricing", "scheduled rates require peak, off-peak and schedule")
+				}
+				all = []*Rates{m.OffPeak, m.Peak}
+			}
+			for _, rates := range all {
 				if rates.Input < 0 || rates.Output < 0 || rates.Cached < 0 || rates.Cached > rates.Input {
 					return core.Invalid("pricing", "invalid rates")
 				}
 			}
-			if m.Peak.Input < m.OffPeak.Input || m.Peak.Output < m.OffPeak.Output || m.Peak.Cached < m.OffPeak.Cached {
+			if m.Peak != nil && (m.Peak.Input < m.OffPeak.Input || m.Peak.Output < m.OffPeak.Output || m.Peak.Cached < m.OffPeak.Cached) {
 				return core.Invalid("pricing", "peak rates must bound estimates")
 			}
 			for _, name := range append([]string{m.ID}, m.Aliases...) {
@@ -216,10 +273,13 @@ func (c *Catalog) Lookup(hint, endpoint, model string, at time.Time) (Quote, boo
 		return Quote{}, false
 	}
 	u, err := url.Parse(endpoint)
-	if err != nil || u.Scheme != "https" || u.User != nil || u.Host == "" {
+	if err != nil || u.Scheme != "https" || u.User != nil || u.Host == "" || u.RawQuery != "" || u.Fragment != "" || u.RawPath != "" {
 		return Quote{}, false
 	}
 	origin := u.Scheme + "://" + strings.ToLower(u.Host)
+	if u.Port() == "443" {
+		origin = "https://" + strings.ToLower(u.Hostname())
+	}
 	for _, p := range s.providers {
 		if hint != "" && hint != p.rule.ID {
 			continue
@@ -234,9 +294,40 @@ func (c *Catalog) Lookup(hint, endpoint, model string, at time.Time) (Quote, boo
 		if !matched {
 			continue
 		}
+		if len(p.rule.Paths) > 0 {
+			path := strings.TrimSuffix(u.Path, "/")
+			path = strings.TrimSuffix(strings.TrimSuffix(path, "/chat/completions"), "/messages")
+			matched = false
+			for _, allowed := range p.rule.Paths {
+				matched = matched || path == allowed
+			}
+			if !matched {
+				continue
+			}
+		}
 		m, ok := p.models[model]
 		if !ok {
 			return Quote{}, false
+		}
+		if m.ValidUntil != "" {
+			until, _ := time.Parse(time.RFC3339, m.ValidUntil)
+			if !at.Before(until) {
+				return Quote{}, false
+			}
+		}
+		if m.Rates != nil {
+			reserve := *m.Rates
+			for _, tier := range m.Tiers {
+				reserve.Input = max(reserve.Input, tier.Rates.Input)
+				reserve.Output = max(reserve.Output, tier.Rates.Output)
+				reserve.Cached = max(reserve.Cached, tier.Rates.Cached)
+			}
+			tiers := append([]Tier(nil), m.Tiers...)
+			for i := range tiers {
+				rates := *tiers[i].Rates
+				tiers[i].Rates = &rates
+			}
+			return Quote{Current: *m.Rates, Reserve: reserve, Currency: p.rule.Currency, Provider: p.rule.ID, Model: m.ID, RuleID: fmt.Sprintf("%s_%s_%s", p.rule.ID, p.rule.Currency, m.ID), Version: s.version, SourceURL: p.rule.SourceURL, CalendarKnown: true, Tiers: tiers}, true
 		}
 		utc, local := at.UTC(), at.In(p.location)
 		peak := false
@@ -252,7 +343,7 @@ func (c *Catalog) Lookup(hint, endpoint, model string, at time.Time) (Quote, boo
 		if peak {
 			rates, period = m.Peak, "peak"
 		}
-		return Quote{Current: *rates, Reserve: *m.Peak, Currency: s.currency, Provider: p.rule.ID, Model: m.ID, RuleID: fmt.Sprintf("%s_%s", p.rule.ID, m.ID), Version: s.version, Period: period, SourceURL: p.rule.SourceURL, CalendarKnown: p.holidayYears[local.Year()]}, true
+		return Quote{Current: *rates, Reserve: *m.Peak, Currency: p.rule.Currency, Provider: p.rule.ID, Model: m.ID, RuleID: fmt.Sprintf("%s_%s", p.rule.ID, m.ID), Version: s.version, Period: period, SourceURL: p.rule.SourceURL, CalendarKnown: p.holidayYears[local.Year()]}, true
 	}
 	return Quote{}, false
 }

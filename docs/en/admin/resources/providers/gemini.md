@@ -1,5 +1,7 @@
 # Connect Google Gemini
 
+Known models on official standard APIs support automatic pricing. See [Automatic pricing](../models.md#automatic-pricing) for model coverage, regional currencies and billing limitations.
+
 Return to the [model connection overview](../models.md). Molr provides a Google Gemini preset.
 
 ## Connection settings

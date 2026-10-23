@@ -1,0 +1,1342 @@
+{
+  "schema_version": 1,
+  "version": "2026-10-23",
+  "currency": "USD",
+  "providers": [
+    {
+      "id": "deepseek",
+      "origins": [
+        "https://api.deepseek.com"
+      ],
+      "source_url": "https://api-docs.deepseek.com/quick_start/pricing/",
+      "schedule": {
+        "peak_weekdays_utc": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "peak_windows_utc": [
+          {
+            "start": "01:00",
+            "end": "04:00"
+          },
+          {
+            "start": "06:00",
+            "end": "10:00"
+          }
+        ],
+        "holiday_timezone": "Asia/Shanghai",
+        "holiday_source_url": "https://www.gov.cn/zhengce/zhengceku/202511/content_7047091.htm",
+        "holiday_years": [
+          2026
+        ],
+        "holidays": [
+          "2026-01-01",
+          "2026-01-02",
+          "2026-01-03",
+          "2026-02-15",
+          "2026-02-16",
+          "2026-02-17",
+          "2026-02-18",
+          "2026-02-19",
+          "2026-02-20",
+          "2026-02-21",
+          "2026-02-22",
+          "2026-02-23",
+          "2026-04-04",
+          "2026-04-05",
+          "2026-04-06",
+          "2026-05-01",
+          "2026-05-02",
+          "2026-05-03",
+          "2026-05-04",
+          "2026-05-05",
+          "2026-06-19",
+          "2026-06-20",
+          "2026-06-21",
+          "2026-09-25",
+          "2026-09-26",
+          "2026-09-27",
+          "2026-10-01",
+          "2026-10-02",
+          "2026-10-03",
+          "2026-10-04",
+          "2026-10-05",
+          "2026-10-06",
+          "2026-10-07"
+        ]
+      },
+      "models": [
+        {
+          "id": "deepseek-flash",
+          "aliases": [
+            "deepseek-v4-flash",
+            "deepseek-v4-flash-vision-exp"
+          ],
+          "off_peak": {
+            "input_micros_per_million": 150000,
+            "output_micros_per_million": 600000,
+            "cached_input_micros_per_million": 3000
+          },
+          "peak": {
+            "input_micros_per_million": 300000,
+            "output_micros_per_million": 1200000,
+            "cached_input_micros_per_million": 6000
+          }
+        },
+        {
+          "id": "deepseek-v4-pro",
+          "aliases": [],
+          "off_peak": {
+            "input_micros_per_million": 660000,
+            "output_micros_per_million": 1980000,
+            "cached_input_micros_per_million": 22000
+          },
+          "peak": {
+            "input_micros_per_million": 1320000,
+            "output_micros_per_million": 3960000,
+            "cached_input_micros_per_million": 44000
+          }
+        }
+      ],
+      "paths": [
+        "",
+        "/v1"
+      ]
+    },
+    {
+      "id": "zhipu",
+      "origins": [
+        "https://open.bigmodel.cn"
+      ],
+      "paths": [
+        "/api/paas/v4"
+      ],
+      "currency": "CNY",
+      "source_url": "https://docs.bigmodel.cn/cn/guide/start/pricing",
+      "models": [
+        {
+          "id": "glm-5.3",
+          "rates": {
+            "input_micros_per_million": 8000000,
+            "output_micros_per_million": 28000000,
+            "cached_input_micros_per_million": 2000000
+          }
+        },
+        {
+          "id": "glm-5.3-flash",
+          "rates": {
+            "input_micros_per_million": 800000,
+            "output_micros_per_million": 2800000,
+            "cached_input_micros_per_million": 230000
+          }
+        },
+        {
+          "id": "glm-5.3-flashx",
+          "rates": {
+            "input_micros_per_million": 2000000,
+            "output_micros_per_million": 7000000,
+            "cached_input_micros_per_million": 570000
+          }
+        },
+        {
+          "id": "glm-5.3-flashx-legal",
+          "rates": {
+            "input_micros_per_million": 2000000,
+            "output_micros_per_million": 7000000,
+            "cached_input_micros_per_million": 570000
+          }
+        },
+        {
+          "id": "glm-5.2",
+          "rates": {
+            "input_micros_per_million": 8000000,
+            "output_micros_per_million": 28000000,
+            "cached_input_micros_per_million": 2000000
+          }
+        },
+        {
+          "id": "glm-5.1",
+          "rates": {
+            "input_micros_per_million": 6000000,
+            "output_micros_per_million": 24000000,
+            "cached_input_micros_per_million": 1300000
+          },
+          "tiers": [
+            {
+              "input_tokens_above": 31999,
+              "rates": {
+                "input_micros_per_million": 8000000,
+                "output_micros_per_million": 28000000,
+                "cached_input_micros_per_million": 2000000
+              }
+            }
+          ]
+        },
+        {
+          "id": "glm-5-turbo",
+          "rates": {
+            "input_micros_per_million": 5000000,
+            "output_micros_per_million": 22000000,
+            "cached_input_micros_per_million": 1200000
+          },
+          "tiers": [
+            {
+              "input_tokens_above": 31999,
+              "rates": {
+                "input_micros_per_million": 7000000,
+                "output_micros_per_million": 26000000,
+                "cached_input_micros_per_million": 1800000
+              }
+            }
+          ]
+        },
+        {
+          "id": "glm-5",
+          "rates": {
+            "input_micros_per_million": 4000000,
+            "output_micros_per_million": 18000000,
+            "cached_input_micros_per_million": 1000000
+          },
+          "tiers": [
+            {
+              "input_tokens_above": 31999,
+              "rates": {
+                "input_micros_per_million": 6000000,
+                "output_micros_per_million": 22000000,
+                "cached_input_micros_per_million": 1500000
+              }
+            }
+          ]
+        },
+        {
+          "id": "glm-5v-turbo",
+          "rates": {
+            "input_micros_per_million": 5000000,
+            "output_micros_per_million": 22000000,
+            "cached_input_micros_per_million": 1200000
+          },
+          "tiers": [
+            {
+              "input_tokens_above": 31999,
+              "rates": {
+                "input_micros_per_million": 7000000,
+                "output_micros_per_million": 26000000,
+                "cached_input_micros_per_million": 1800000
+              }
+            }
+          ]
+        },
+        {
+          "id": "glm-4.6v",
+          "rates": {
+            "input_micros_per_million": 1000000,
+            "output_micros_per_million": 3000000,
+            "cached_input_micros_per_million": 200000
+          },
+          "tiers": [
+            {
+              "input_tokens_above": 31999,
+              "rates": {
+                "input_micros_per_million": 2000000,
+                "output_micros_per_million": 6000000,
+                "cached_input_micros_per_million": 400000
+              }
+            }
+          ]
+        },
+        {
+          "id": "glm-4.6v-flashx",
+          "rates": {
+            "input_micros_per_million": 150000,
+            "output_micros_per_million": 1500000,
+            "cached_input_micros_per_million": 30000
+          },
+          "tiers": [
+            {
+              "input_tokens_above": 31999,
+              "rates": {
+                "input_micros_per_million": 300000,
+                "output_micros_per_million": 3000000,
+                "cached_input_micros_per_million": 30000
+              }
+            }
+          ]
+        },
+        {
+          "id": "glm-4.5v",
+          "rates": {
+            "input_micros_per_million": 2000000,
+            "output_micros_per_million": 6000000,
+            "cached_input_micros_per_million": 400000
+          },
+          "tiers": [
+            {
+              "input_tokens_above": 31999,
+              "rates": {
+                "input_micros_per_million": 4000000,
+                "output_micros_per_million": 12000000,
+                "cached_input_micros_per_million": 800000
+              }
+            }
+          ]
+        },
+        {
+          "id": "glm-4.7",
+          "rates": {
+            "input_micros_per_million": 2000000,
+            "output_micros_per_million": 8000000,
+            "cached_input_micros_per_million": 400000
+          },
+          "tiers": [
+            {
+              "input_tokens_above": 0,
+              "output_tokens_above": 199,
+              "rates": {
+                "input_micros_per_million": 3000000,
+                "output_micros_per_million": 14000000,
+                "cached_input_micros_per_million": 600000
+              }
+            },
+            {
+              "input_tokens_above": 31999,
+              "rates": {
+                "input_micros_per_million": 4000000,
+                "output_micros_per_million": 16000000,
+                "cached_input_micros_per_million": 800000
+              }
+            }
+          ]
+        },
+        {
+          "id": "glm-4.5-air",
+          "rates": {
+            "input_micros_per_million": 800000,
+            "output_micros_per_million": 2000000,
+            "cached_input_micros_per_million": 160000
+          },
+          "tiers": [
+            {
+              "input_tokens_above": 0,
+              "output_tokens_above": 199,
+              "rates": {
+                "input_micros_per_million": 800000,
+                "output_micros_per_million": 6000000,
+                "cached_input_micros_per_million": 160000
+              }
+            },
+            {
+              "input_tokens_above": 31999,
+              "rates": {
+                "input_micros_per_million": 1200000,
+                "output_micros_per_million": 8000000,
+                "cached_input_micros_per_million": 240000
+              }
+            }
+          ]
+        },
+        {
+          "id": "glm-4.7-flashx",
+          "rates": {
+            "input_micros_per_million": 500000,
+            "output_micros_per_million": 3000000,
+            "cached_input_micros_per_million": 100000
+          }
+        },
+        {
+          "id": "glm-4.7-flash",
+          "rates": {
+            "input_micros_per_million": 0,
+            "output_micros_per_million": 0,
+            "cached_input_micros_per_million": 0
+          }
+        },
+        {
+          "id": "glm-4.6v-flash",
+          "rates": {
+            "input_micros_per_million": 0,
+            "output_micros_per_million": 0,
+            "cached_input_micros_per_million": 0
+          }
+        },
+        {
+          "id": "glm-4-plus",
+          "rates": {
+            "input_micros_per_million": 5000000,
+            "output_micros_per_million": 5000000,
+            "cached_input_micros_per_million": 2500000
+          }
+        },
+        {
+          "id": "glm-4-air-250414",
+          "rates": {
+            "input_micros_per_million": 500000,
+            "output_micros_per_million": 500000,
+            "cached_input_micros_per_million": 250000
+          }
+        },
+        {
+          "id": "glm-4-airx",
+          "rates": {
+            "input_micros_per_million": 10000000,
+            "output_micros_per_million": 10000000,
+            "cached_input_micros_per_million": 10000000
+          }
+        },
+        {
+          "id": "glm-4-long",
+          "rates": {
+            "input_micros_per_million": 1000000,
+            "output_micros_per_million": 1000000,
+            "cached_input_micros_per_million": 500000
+          }
+        },
+        {
+          "id": "glm-z1-air",
+          "rates": {
+            "input_micros_per_million": 500000,
+            "output_micros_per_million": 500000,
+            "cached_input_micros_per_million": 500000
+          }
+        },
+        {
+          "id": "glm-z1-airx",
+          "rates": {
+            "input_micros_per_million": 5000000,
+            "output_micros_per_million": 5000000,
+            "cached_input_micros_per_million": 5000000
+          }
+        },
+        {
+          "id": "glm-z1-flashx",
+          "rates": {
+            "input_micros_per_million": 100000,
+            "output_micros_per_million": 100000,
+            "cached_input_micros_per_million": 100000
+          }
+        },
+        {
+          "id": "glm-4-flashx-250414",
+          "rates": {
+            "input_micros_per_million": 100000,
+            "output_micros_per_million": 100000,
+            "cached_input_micros_per_million": 50000
+          }
+        },
+        {
+          "id": "glm-4-flash-250414",
+          "rates": {
+            "input_micros_per_million": 0,
+            "output_micros_per_million": 0,
+            "cached_input_micros_per_million": 0
+          }
+        },
+        {
+          "id": "glm-z1-flash",
+          "rates": {
+            "input_micros_per_million": 0,
+            "output_micros_per_million": 0,
+            "cached_input_micros_per_million": 0
+          }
+        },
+        {
+          "id": "glm-4v-plus-0111",
+          "rates": {
+            "input_micros_per_million": 4000000,
+            "output_micros_per_million": 4000000,
+            "cached_input_micros_per_million": 2000000
+          }
+        },
+        {
+          "id": "glm-4v-flash",
+          "rates": {
+            "input_micros_per_million": 0,
+            "output_micros_per_million": 0,
+            "cached_input_micros_per_million": 0
+          }
+        },
+        {
+          "id": "glm-4.1v-thinking-flashx",
+          "rates": {
+            "input_micros_per_million": 2000000,
+            "output_micros_per_million": 2000000,
+            "cached_input_micros_per_million": 2000000
+          }
+        },
+        {
+          "id": "glm-4.1v-thinking-flash",
+          "rates": {
+            "input_micros_per_million": 0,
+            "output_micros_per_million": 0,
+            "cached_input_micros_per_million": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "zai",
+      "origins": [
+        "https://api.z.ai"
+      ],
+      "paths": [
+        "/api/paas/v4"
+      ],
+      "currency": "USD",
+      "source_url": "https://docs.z.ai/guides/overview/pricing",
+      "models": [
+        {
+          "id": "glm-5.3",
+          "rates": {
+            "input_micros_per_million": 1400000,
+            "output_micros_per_million": 4400000,
+            "cached_input_micros_per_million": 260000
+          }
+        },
+        {
+          "id": "glm-5.3-flash",
+          "rates": {
+            "input_micros_per_million": 150000,
+            "output_micros_per_million": 500000,
+            "cached_input_micros_per_million": 30000
+          }
+        },
+        {
+          "id": "glm-5.3-flashx",
+          "rates": {
+            "input_micros_per_million": 370000,
+            "output_micros_per_million": 1250000,
+            "cached_input_micros_per_million": 75000
+          }
+        },
+        {
+          "id": "glm-5.3-flashx-legal",
+          "rates": {
+            "input_micros_per_million": 370000,
+            "output_micros_per_million": 1250000,
+            "cached_input_micros_per_million": 75000
+          }
+        },
+        {
+          "id": "glm-5.2",
+          "rates": {
+            "input_micros_per_million": 1400000,
+            "output_micros_per_million": 4400000,
+            "cached_input_micros_per_million": 260000
+          }
+        },
+        {
+          "id": "glm-5.1",
+          "rates": {
+            "input_micros_per_million": 1400000,
+            "output_micros_per_million": 4400000,
+            "cached_input_micros_per_million": 260000
+          }
+        },
+        {
+          "id": "glm-5",
+          "rates": {
+            "input_micros_per_million": 1000000,
+            "output_micros_per_million": 3200000,
+            "cached_input_micros_per_million": 200000
+          }
+        },
+        {
+          "id": "glm-4.7",
+          "rates": {
+            "input_micros_per_million": 600000,
+            "output_micros_per_million": 2200000,
+            "cached_input_micros_per_million": 110000
+          }
+        },
+        {
+          "id": "glm-4.6",
+          "rates": {
+            "input_micros_per_million": 600000,
+            "output_micros_per_million": 2200000,
+            "cached_input_micros_per_million": 110000
+          }
+        },
+        {
+          "id": "glm-4.7-flashx",
+          "rates": {
+            "input_micros_per_million": 70000,
+            "output_micros_per_million": 400000,
+            "cached_input_micros_per_million": 10000
+          }
+        },
+        {
+          "id": "glm-4.5",
+          "rates": {
+            "input_micros_per_million": 600000,
+            "output_micros_per_million": 2200000,
+            "cached_input_micros_per_million": 110000
+          }
+        },
+        {
+          "id": "glm-4.5-x",
+          "rates": {
+            "input_micros_per_million": 2200000,
+            "output_micros_per_million": 8900000,
+            "cached_input_micros_per_million": 450000
+          }
+        },
+        {
+          "id": "glm-4.5-air",
+          "rates": {
+            "input_micros_per_million": 200000,
+            "output_micros_per_million": 1100000,
+            "cached_input_micros_per_million": 30000
+          }
+        },
+        {
+          "id": "glm-4.5-airx",
+          "rates": {
+            "input_micros_per_million": 1100000,
+            "output_micros_per_million": 4500000,
+            "cached_input_micros_per_million": 220000
+          }
+        },
+        {
+          "id": "glm-4-32b-0414-128k",
+          "rates": {
+            "input_micros_per_million": 100000,
+            "output_micros_per_million": 100000,
+            "cached_input_micros_per_million": 100000
+          }
+        },
+        {
+          "id": "glm-4.7-flash",
+          "rates": {
+            "input_micros_per_million": 0,
+            "output_micros_per_million": 0,
+            "cached_input_micros_per_million": 0
+          }
+        },
+        {
+          "id": "glm-4.5-flash",
+          "rates": {
+            "input_micros_per_million": 0,
+            "output_micros_per_million": 0,
+            "cached_input_micros_per_million": 0
+          }
+        },
+        {
+          "id": "glm-4.6v",
+          "rates": {
+            "input_micros_per_million": 300000,
+            "output_micros_per_million": 900000,
+            "cached_input_micros_per_million": 50000
+          }
+        },
+        {
+          "id": "glm-4.6v-flashx",
+          "rates": {
+            "input_micros_per_million": 40000,
+            "output_micros_per_million": 400000,
+            "cached_input_micros_per_million": 4000
+          }
+        },
+        {
+          "id": "glm-4.5v",
+          "rates": {
+            "input_micros_per_million": 600000,
+            "output_micros_per_million": 1800000,
+            "cached_input_micros_per_million": 110000
+          }
+        },
+        {
+          "id": "glm-4.6v-flash",
+          "rates": {
+            "input_micros_per_million": 0,
+            "output_micros_per_million": 0,
+            "cached_input_micros_per_million": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "openai",
+      "origins": [
+        "https://api.openai.com"
+      ],
+      "paths": [
+        "/v1"
+      ],
+      "currency": "USD",
+      "source_url": "https://developers.openai.com/api/docs/pricing",
+      "models": [
+        {
+          "id": "gpt-5.5",
+          "rates": {
+            "input_micros_per_million": 5000000,
+            "output_micros_per_million": 30000000,
+            "cached_input_micros_per_million": 500000
+          },
+          "tiers": [
+            {
+              "input_tokens_above": 272000,
+              "rates": {
+                "input_micros_per_million": 10000000,
+                "output_micros_per_million": 45000000,
+                "cached_input_micros_per_million": 1000000
+              }
+            }
+          ]
+        },
+        {
+          "id": "gpt-5.5-pro",
+          "rates": {
+            "input_micros_per_million": 30000000,
+            "output_micros_per_million": 180000000,
+            "cached_input_micros_per_million": 30000000
+          },
+          "tiers": [
+            {
+              "input_tokens_above": 272000,
+              "rates": {
+                "input_micros_per_million": 60000000,
+                "output_micros_per_million": 270000000,
+                "cached_input_micros_per_million": 60000000
+              }
+            }
+          ]
+        },
+        {
+          "id": "gpt-5.4",
+          "rates": {
+            "input_micros_per_million": 2500000,
+            "output_micros_per_million": 15000000,
+            "cached_input_micros_per_million": 250000
+          },
+          "tiers": [
+            {
+              "input_tokens_above": 272000,
+              "rates": {
+                "input_micros_per_million": 5000000,
+                "output_micros_per_million": 22500000,
+                "cached_input_micros_per_million": 500000
+              }
+            }
+          ]
+        },
+        {
+          "id": "gpt-5.4-pro",
+          "rates": {
+            "input_micros_per_million": 30000000,
+            "output_micros_per_million": 180000000,
+            "cached_input_micros_per_million": 30000000
+          },
+          "tiers": [
+            {
+              "input_tokens_above": 272000,
+              "rates": {
+                "input_micros_per_million": 60000000,
+                "output_micros_per_million": 270000000,
+                "cached_input_micros_per_million": 60000000
+              }
+            }
+          ]
+        },
+        {
+          "id": "gpt-5.4-mini",
+          "rates": {
+            "input_micros_per_million": 750000,
+            "output_micros_per_million": 4500000,
+            "cached_input_micros_per_million": 75000
+          }
+        },
+        {
+          "id": "gpt-5.4-nano",
+          "rates": {
+            "input_micros_per_million": 200000,
+            "output_micros_per_million": 1250000,
+            "cached_input_micros_per_million": 20000
+          }
+        },
+        {
+          "id": "gpt-5.2",
+          "rates": {
+            "input_micros_per_million": 1750000,
+            "output_micros_per_million": 14000000,
+            "cached_input_micros_per_million": 175000
+          }
+        },
+        {
+          "id": "gpt-5.2-pro",
+          "rates": {
+            "input_micros_per_million": 21000000,
+            "output_micros_per_million": 168000000,
+            "cached_input_micros_per_million": 21000000
+          }
+        },
+        {
+          "id": "gpt-5.1",
+          "rates": {
+            "input_micros_per_million": 1250000,
+            "output_micros_per_million": 10000000,
+            "cached_input_micros_per_million": 125000
+          }
+        },
+        {
+          "id": "gpt-5",
+          "rates": {
+            "input_micros_per_million": 1250000,
+            "output_micros_per_million": 10000000,
+            "cached_input_micros_per_million": 125000
+          }
+        },
+        {
+          "id": "gpt-5-mini",
+          "rates": {
+            "input_micros_per_million": 250000,
+            "output_micros_per_million": 2000000,
+            "cached_input_micros_per_million": 25000
+          }
+        },
+        {
+          "id": "gpt-5-nano",
+          "rates": {
+            "input_micros_per_million": 50000,
+            "output_micros_per_million": 400000,
+            "cached_input_micros_per_million": 5000
+          }
+        },
+        {
+          "id": "gpt-5-pro",
+          "rates": {
+            "input_micros_per_million": 15000000,
+            "output_micros_per_million": 120000000,
+            "cached_input_micros_per_million": 15000000
+          }
+        },
+        {
+          "id": "gpt-4.1",
+          "rates": {
+            "input_micros_per_million": 2000000,
+            "output_micros_per_million": 8000000,
+            "cached_input_micros_per_million": 500000
+          }
+        },
+        {
+          "id": "gpt-4.1-mini",
+          "rates": {
+            "input_micros_per_million": 400000,
+            "output_micros_per_million": 1600000,
+            "cached_input_micros_per_million": 100000
+          }
+        },
+        {
+          "id": "gpt-4.1-nano",
+          "rates": {
+            "input_micros_per_million": 100000,
+            "output_micros_per_million": 400000,
+            "cached_input_micros_per_million": 25000
+          }
+        },
+        {
+          "id": "gpt-4o",
+          "rates": {
+            "input_micros_per_million": 2500000,
+            "output_micros_per_million": 10000000,
+            "cached_input_micros_per_million": 1250000
+          }
+        },
+        {
+          "id": "gpt-4o-2024-05-13",
+          "rates": {
+            "input_micros_per_million": 5000000,
+            "output_micros_per_million": 15000000,
+            "cached_input_micros_per_million": 5000000
+          }
+        },
+        {
+          "id": "gpt-4o-mini",
+          "rates": {
+            "input_micros_per_million": 150000,
+            "output_micros_per_million": 600000,
+            "cached_input_micros_per_million": 75000
+          }
+        },
+        {
+          "id": "o1",
+          "rates": {
+            "input_micros_per_million": 15000000,
+            "output_micros_per_million": 60000000,
+            "cached_input_micros_per_million": 7500000
+          }
+        },
+        {
+          "id": "o1-pro",
+          "rates": {
+            "input_micros_per_million": 150000000,
+            "output_micros_per_million": 600000000,
+            "cached_input_micros_per_million": 150000000
+          }
+        },
+        {
+          "id": "o3-pro",
+          "rates": {
+            "input_micros_per_million": 20000000,
+            "output_micros_per_million": 80000000,
+            "cached_input_micros_per_million": 20000000
+          }
+        },
+        {
+          "id": "o3",
+          "rates": {
+            "input_micros_per_million": 2000000,
+            "output_micros_per_million": 8000000,
+            "cached_input_micros_per_million": 500000
+          }
+        },
+        {
+          "id": "o4-mini",
+          "rates": {
+            "input_micros_per_million": 1100000,
+            "output_micros_per_million": 4400000,
+            "cached_input_micros_per_million": 275000
+          }
+        },
+        {
+          "id": "o3-mini",
+          "rates": {
+            "input_micros_per_million": 1100000,
+            "output_micros_per_million": 4400000,
+            "cached_input_micros_per_million": 550000
+          }
+        },
+        {
+          "id": "gpt-4-turbo-2024-04-09",
+          "rates": {
+            "input_micros_per_million": 10000000,
+            "output_micros_per_million": 30000000,
+            "cached_input_micros_per_million": 10000000
+          }
+        },
+        {
+          "id": "gpt-4-0613",
+          "rates": {
+            "input_micros_per_million": 30000000,
+            "output_micros_per_million": 60000000,
+            "cached_input_micros_per_million": 30000000
+          }
+        },
+        {
+          "id": "gpt-3.5-turbo",
+          "rates": {
+            "input_micros_per_million": 500000,
+            "output_micros_per_million": 1500000,
+            "cached_input_micros_per_million": 500000
+          }
+        },
+        {
+          "id": "gpt-3.5-turbo-0125",
+          "rates": {
+            "input_micros_per_million": 500000,
+            "output_micros_per_million": 1500000,
+            "cached_input_micros_per_million": 500000
+          }
+        },
+        {
+          "id": "gpt-5.3-codex",
+          "rates": {
+            "input_micros_per_million": 1750000,
+            "output_micros_per_million": 14000000,
+            "cached_input_micros_per_million": 175000
+          }
+        }
+      ]
+    },
+    {
+      "id": "minimax",
+      "origins": [
+        "https://api.minimax.cn"
+      ],
+      "paths": [
+        "/v1"
+      ],
+      "currency": "CNY",
+      "source_url": "https://platform.minimax.cn/docs/pricing/overview",
+      "models": [
+        {
+          "id": "MiniMax-M3.1-Flash",
+          "rates": {
+            "input_micros_per_million": 1000000,
+            "output_micros_per_million": 4000000,
+            "cached_input_micros_per_million": 100000
+          }
+        },
+        {
+          "id": "MiniMax-M3",
+          "rates": {
+            "input_micros_per_million": 2100000,
+            "output_micros_per_million": 8400000,
+            "cached_input_micros_per_million": 420000
+          },
+          "tiers": [
+            {
+              "input_tokens_above": 512000,
+              "rates": {
+                "input_micros_per_million": 4200000,
+                "output_micros_per_million": 16800000,
+                "cached_input_micros_per_million": 840000
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "minimax",
+      "origins": [
+        "https://api.minimax.io"
+      ],
+      "paths": [
+        "/v1"
+      ],
+      "currency": "USD",
+      "source_url": "https://platform.minimax.io/docs/pricing/overview",
+      "models": [
+        {
+          "id": "MiniMax-M3.1-Flash",
+          "rates": {
+            "input_micros_per_million": 150000,
+            "output_micros_per_million": 600000,
+            "cached_input_micros_per_million": 15000
+          }
+        },
+        {
+          "id": "MiniMax-M3",
+          "rates": {
+            "input_micros_per_million": 300000,
+            "output_micros_per_million": 1200000,
+            "cached_input_micros_per_million": 60000
+          },
+          "tiers": [
+            {
+              "input_tokens_above": 512000,
+              "rates": {
+                "input_micros_per_million": 600000,
+                "output_micros_per_million": 2400000,
+                "cached_input_micros_per_million": 120000
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gemini",
+      "origins": [
+        "https://generativelanguage.googleapis.com"
+      ],
+      "paths": [
+        "/v1beta/openai"
+      ],
+      "currency": "USD",
+      "source_url": "https://ai.google.dev/gemini-api/docs/pricing",
+      "models": [
+        {
+          "id": "gemini-4-argon",
+          "rates": {
+            "input_micros_per_million": 2000000,
+            "output_micros_per_million": 10000000,
+            "cached_input_micros_per_million": 100000
+          },
+          "valid_until": "2026-12-01T00:00:00Z"
+        },
+        {
+          "id": "gemini-3.8-flash",
+          "rates": {
+            "input_micros_per_million": 750000,
+            "output_micros_per_million": 3750000,
+            "cached_input_micros_per_million": 75000
+          },
+          "valid_until": "2027-01-01T00:00:00Z"
+        },
+        {
+          "id": "gemini-3.6-flash",
+          "rates": {
+            "input_micros_per_million": 750000,
+            "output_micros_per_million": 3750000,
+            "cached_input_micros_per_million": 75000
+          },
+          "valid_until": "2027-01-01T00:00:00Z"
+        },
+        {
+          "id": "gemini-3.5-flash-lite",
+          "rates": {
+            "input_micros_per_million": 300000,
+            "output_micros_per_million": 2500000,
+            "cached_input_micros_per_million": 30000
+          }
+        },
+        {
+          "id": "gemini-3.1-flash-lite",
+          "rates": {
+            "input_micros_per_million": 250000,
+            "output_micros_per_million": 1500000,
+            "cached_input_micros_per_million": 25000
+          }
+        },
+        {
+          "id": "gemini-3.1-pro-preview",
+          "rates": {
+            "input_micros_per_million": 2000000,
+            "output_micros_per_million": 12000000,
+            "cached_input_micros_per_million": 200000
+          },
+          "tiers": [
+            {
+              "input_tokens_above": 200000,
+              "rates": {
+                "input_micros_per_million": 4000000,
+                "output_micros_per_million": 18000000,
+                "cached_input_micros_per_million": 400000
+              }
+            }
+          ],
+          "aliases": [
+            "gemini-3.1-pro-preview-customtools"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "anthropic",
+      "origins": [
+        "https://api.anthropic.com"
+      ],
+      "paths": [
+        "/v1"
+      ],
+      "currency": "USD",
+      "source_url": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "models": [
+        {
+          "id": "claude-fable-5-1",
+          "rates": {
+            "input_micros_per_million": 10000000,
+            "output_micros_per_million": 50000000,
+            "cached_input_micros_per_million": 250000
+          }
+        },
+        {
+          "id": "claude-opus-5-5",
+          "rates": {
+            "input_micros_per_million": 4000000,
+            "output_micros_per_million": 20000000,
+            "cached_input_micros_per_million": 200000
+          }
+        },
+        {
+          "id": "claude-sonnet-5-5",
+          "rates": {
+            "input_micros_per_million": 2000000,
+            "output_micros_per_million": 10000000,
+            "cached_input_micros_per_million": 100000
+          }
+        },
+        {
+          "id": "claude-mythos-5-1",
+          "rates": {
+            "input_micros_per_million": 10000000,
+            "output_micros_per_million": 50000000,
+            "cached_input_micros_per_million": 250000
+          }
+        },
+        {
+          "id": "claude-fable-5",
+          "rates": {
+            "input_micros_per_million": 10000000,
+            "output_micros_per_million": 50000000,
+            "cached_input_micros_per_million": 1000000
+          }
+        },
+        {
+          "id": "claude-mythos-5",
+          "rates": {
+            "input_micros_per_million": 10000000,
+            "output_micros_per_million": 50000000,
+            "cached_input_micros_per_million": 1000000
+          }
+        },
+        {
+          "id": "claude-opus-5",
+          "rates": {
+            "input_micros_per_million": 5000000,
+            "output_micros_per_million": 25000000,
+            "cached_input_micros_per_million": 500000
+          }
+        },
+        {
+          "id": "claude-opus-4-8",
+          "rates": {
+            "input_micros_per_million": 5000000,
+            "output_micros_per_million": 25000000,
+            "cached_input_micros_per_million": 500000
+          }
+        },
+        {
+          "id": "claude-opus-4-7",
+          "rates": {
+            "input_micros_per_million": 5000000,
+            "output_micros_per_million": 25000000,
+            "cached_input_micros_per_million": 500000
+          }
+        },
+        {
+          "id": "claude-opus-4-6",
+          "rates": {
+            "input_micros_per_million": 5000000,
+            "output_micros_per_million": 25000000,
+            "cached_input_micros_per_million": 500000
+          }
+        },
+        {
+          "id": "claude-opus-4-5",
+          "rates": {
+            "input_micros_per_million": 5000000,
+            "output_micros_per_million": 25000000,
+            "cached_input_micros_per_million": 500000
+          },
+          "aliases": [
+            "claude-opus-4-5-20251101"
+          ]
+        },
+        {
+          "id": "claude-sonnet-5",
+          "rates": {
+            "input_micros_per_million": 2000000,
+            "output_micros_per_million": 10000000,
+            "cached_input_micros_per_million": 200000
+          }
+        },
+        {
+          "id": "claude-sonnet-4-6",
+          "rates": {
+            "input_micros_per_million": 3000000,
+            "output_micros_per_million": 15000000,
+            "cached_input_micros_per_million": 300000
+          }
+        },
+        {
+          "id": "claude-sonnet-4-5",
+          "rates": {
+            "input_micros_per_million": 3000000,
+            "output_micros_per_million": 15000000,
+            "cached_input_micros_per_million": 300000
+          },
+          "aliases": [
+            "claude-sonnet-4-5-20250929"
+          ]
+        },
+        {
+          "id": "claude-haiku-4-5",
+          "rates": {
+            "input_micros_per_million": 1000000,
+            "output_micros_per_million": 5000000,
+            "cached_input_micros_per_million": 100000
+          },
+          "aliases": [
+            "claude-haiku-4-5-20251001"
+          ]
+        },
+        {
+          "id": "claude-haiku-5-5",
+          "rates": {
+            "input_micros_per_million": 100000,
+            "output_micros_per_million": 500000,
+            "cached_input_micros_per_million": 10000
+          },
+          "tiers": [
+            {
+              "input_tokens_above": 100000,
+              "rates": {
+                "input_micros_per_million": 500000,
+                "output_micros_per_million": 2500000,
+                "cached_input_micros_per_million": 50000
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "moonshot",
+      "origins": [
+        "https://api.moonshot.cn"
+      ],
+      "paths": [
+        "/v1"
+      ],
+      "currency": "CNY",
+      "source_url": "https://platform.kimi.com/docs/pricing/chat",
+      "models": [
+        {
+          "id": "kimi-k2.6",
+          "rates": {
+            "input_micros_per_million": 6500000,
+            "output_micros_per_million": 27000000,
+            "cached_input_micros_per_million": 1100000
+          }
+        },
+        {
+          "id": "kimi-k2.7-code",
+          "rates": {
+            "input_micros_per_million": 6500000,
+            "output_micros_per_million": 27000000,
+            "cached_input_micros_per_million": 1300000
+          }
+        },
+        {
+          "id": "kimi-k2.7-code-highspeed",
+          "rates": {
+            "input_micros_per_million": 13000000,
+            "output_micros_per_million": 54000000,
+            "cached_input_micros_per_million": 2600000
+          }
+        }
+      ]
+    },
+    {
+      "id": "moonshot",
+      "origins": [
+        "https://api.moonshot.ai"
+      ],
+      "paths": [
+        "/v1"
+      ],
+      "currency": "USD",
+      "source_url": "https://platform.kimi.ai/docs/pricing/chat",
+      "models": [
+        {
+          "id": "kimi-k2.6",
+          "rates": {
+            "input_micros_per_million": 950000,
+            "output_micros_per_million": 4000000,
+            "cached_input_micros_per_million": 160000
+          }
+        },
+        {
+          "id": "kimi-k2.7-code",
+          "rates": {
+            "input_micros_per_million": 950000,
+            "output_micros_per_million": 4000000,
+            "cached_input_micros_per_million": 190000
+          }
+        },
+        {
+          "id": "kimi-k2.7-code-highspeed",
+          "rates": {
+            "input_micros_per_million": 1900000,
+            "output_micros_per_million": 8000000,
+            "cached_input_micros_per_million": 380000
+          }
+        }
+      ]
+    }
+  ]
+}

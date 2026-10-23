@@ -114,6 +114,7 @@ Verified on 2026-10-03 against the registrations in `runtime/internal/api/*_rout
 | GET | `/api/jobs` |
 | GET | `/api/memories` |
 | GET | `/api/memories/{id}` |
+| POST | `/api/models/refresh-pricing` |
 | GET | `/api/models` |
 | GET | `/api/operations` |
 | GET | `/api/operations/{id}` |
@@ -377,7 +378,7 @@ Static resources for the embedded WebUI do not require login, but business APIs 
 
 ### Model Pricing
 
-Model Pricing Supplement: `GET /api/models` returns effective `Pricing`, and indicates `Source` (`builtin` / `provider` / `manual`), available automatic prices `Automatic`, `RuleID`, `Version`, `Period` (`peak` / `off_peak`), `SourceURL`, and `CalendarKnown` via `PricingInfo`. The `Model.Pricing=null` of `configure-model` uses available provider catalog pricing or matching built-in rules; without either, pricing remains unknown. Saving a Provider can pass `PricingProvider` (`deepseek` / `openrouter` / `openai` / `bailian` / `zhipu` / `moonshot` / `ollama` / `llamacpp` / `vllm` / `sglang` / `custom`), and connection details return this field; if empty, it is identified based on the official address, and `custom` disables automatic rules. Currently, only DeepSeek is built-in, and it only matches official addresses and model identifiers explicitly listed in the configuration.
+Model Pricing Supplement: `GET /api/models` returns effective `Pricing`, and indicates `Source` (`builtin` / `provider` / `manual`), available automatic prices `Automatic`, `RuleID`, `Version`, `Period` (`peak` / `off_peak`), `SourceURL`, and `CalendarKnown` via `PricingInfo`. The `Model.Pricing=null` of `configure-model` uses available provider catalog pricing or matching built-in rules; without either, pricing remains unknown. Saving a Provider can pass `PricingProvider` (`deepseek` / `openrouter` / `openai` / `bailian` / `zhipu` / `moonshot` / `ollama` / `llamacpp` / `vllm` / `sglang` / `custom`), and connection details return this field; if empty, it is identified based on the official address, and `custom` disables automatic rules. Built-in coverage is listed under [Automatic pricing](../../admin/resources/models.md#automatic-pricing). Rules match explicitly listed official origins, standard API paths and exact model IDs.
 
 ## Assistants and Plans
 
@@ -644,3 +645,7 @@ See [DingTalk channel API](../extensions/dingtalk.md#api) for status, pairing an
 - `Terminal` includes `Control` (assistant/user), `Generation`, `Rows`, `Cols`, `NeedsRead`. List/read project `ControllerIsCurrentSession` and `ControllerClientID` for the authenticated session; `CreatedBy` identifies user/assistant. TTY mutations and handoffs require the current generation. Owner mutations also match client_id and login session, with increasing sequence numbers rejecting duplicate or stale input. takeover/release are owner-only. Assistant stop_all skips user-controlled TTY sessions and sessions still requiring a fresh handoff read; owner stop_all retains its administrative ability to stop all tasks.
 - release emits `terminal_control_returned`. The assistant must read through the latest output page with that generation before operating; another execution must read again. User-controlled TTY sessions do not produce running reminders.
 - `GET /api/assistants/{id}/terminals/{task}/stream?cursor=0`: authenticated SSE frames carry base64 `Output`, byte `NextCursor`, live `Terminal` state, and `Finished` after completion. Reconnect from the last consumed cursor without restarting a process. shell-tasks read also accepts `encoding:base64`; text reads remain available. Decode bytes continuously across frames. Archive limits retain existing task termination and incomplete-output semantics.
+
+Automatic model pricing: `Pricing` and `PricingInfo.Automatic` may include `Tiers`, each with `InputTokensAbove`, `OutputTokensAbove` and the three token rates. Zero leaves a dimension unrestricted; nonzero thresholds are exclusive. The last matching tier applies to the whole request. Fixed tariffs have an empty `PricingInfo.Period`. See [Automatic pricing](../../admin/resources/models.md#automatic-pricing) for supported models, regional currencies and official API paths.
+
+`POST /api/models/refresh-pricing` requires an authenticated administrator and CSRF, and accepts no source parameters. Returns `{ Source: "builtin" | "file" | "url", Version: string, Updated: boolean }`. Without an external source it returns the built-in version and `Updated=false`. Source/cache I/O failures return 503; invalid rules return 409. Both retain the last valid prices. This operation does not refresh OpenRouter catalog quotes.

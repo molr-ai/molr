@@ -3,6 +3,7 @@ package pricing
 import (
 	"bytes"
 	"encoding/json"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -73,11 +74,11 @@ func TestReloadValidatesAndPreservesSnapshots(t *testing.T) {
 			t.Fatal("accepted invalid rules")
 		}
 		current, _ := c.Lookup("", "https://api.deepseek.com", "deepseek-flash", at)
-		if current != old {
+		if !reflect.DeepEqual(current, old) {
 			t.Fatal("failed reload changed snapshot")
 		}
 	}
-	updated := bytes.Replace(builtin, []byte(`"version": "2026-09-25"`), []byte(`"version": "next"`), 1)
+	updated := bytes.Replace(builtin, []byte(`"version": "2026-10-23"`), []byte(`"version": "next"`), 1)
 	updated = bytes.Replace(updated, []byte(`"input_micros_per_million": 300000`), []byte(`"input_micros_per_million": 400000`), 1)
 	if err := c.Reload(bytes.NewReader(updated)); err != nil {
 		t.Fatal(err)
@@ -91,7 +92,7 @@ func TestReloadValidatesAndPreservesSnapshots(t *testing.T) {
 		wg.Go(func() {
 			for j := 0; j < 40; j++ {
 				q, ok := c.Lookup("", "https://api.deepseek.com", "deepseek-flash", at)
-				if !ok || (q.Version == "next" && q.Current.Input != 400000) || (q.Version == "2026-09-25" && q.Current.Input != 300000) {
+				if !ok || (q.Version == "next" && q.Current.Input != 400000) || (q.Version == "2026-10-23" && q.Current.Input != 300000) {
 					t.Error("torn snapshot")
 				}
 			}
@@ -119,5 +120,112 @@ func TestRatesRequireExplicitIntegers(t *testing.T) {
 	var rates Rates
 	if err := json.Unmarshal([]byte(`{"input_micros_per_million":0,"output_micros_per_million":0,"cached_input_micros_per_million":0}`), &rates); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestProviderPricesMatchExactProductAndCurrency(t *testing.T) {
+	c, err := New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := time.Date(2026, 10, 23, 0, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		provider, endpoint, model, currency string
+		rates                               Rates
+	}{
+		{"zhipu", "https://open.bigmodel.cn/api/paas/v4/chat/completions", "glm-5.3", "CNY", Rates{8000000, 28000000, 2000000}},
+		{"zai", "https://api.z.ai/api/paas/v4/chat/completions", "glm-5.3", "USD", Rates{1400000, 4400000, 260000}},
+		{"openai", "https://api.openai.com:443/v1/chat/completions", "gpt-4.1", "USD", Rates{2000000, 8000000, 500000}},
+		{"minimax", "https://api.minimax.cn/v1/chat/completions", "MiniMax-M3.1-Flash", "CNY", Rates{1000000, 4000000, 100000}},
+		{"minimax", "https://api.minimax.io/v1/chat/completions", "MiniMax-M3.1-Flash", "USD", Rates{150000, 600000, 15000}},
+		{"gemini", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", "gemini-3.1-pro-preview-customtools", "USD", Rates{2000000, 12000000, 200000}},
+		{"anthropic", "https://api.anthropic.com/v1/messages", "claude-sonnet-5-5", "USD", Rates{2000000, 10000000, 100000}},
+		{"anthropic", "https://api.anthropic.com/v1/messages", "claude-haiku-4-5-20251001", "USD", Rates{1000000, 5000000, 100000}},
+		{"moonshot", "https://api.moonshot.cn/v1/chat/completions", "kimi-k2.6", "CNY", Rates{6500000, 27000000, 1100000}},
+		{"moonshot", "https://api.moonshot.ai/v1/chat/completions", "kimi-k2.6", "USD", Rates{950000, 4000000, 160000}},
+		{"zhipu", "https://open.bigmodel.cn/api/paas/v4", "glm-4.7-flash", "CNY", Rates{}},
+	} {
+		for _, hint := range []string{tc.provider, ""} {
+			q, ok := c.Lookup(hint, tc.endpoint, tc.model, at)
+			if !ok || q.Currency != tc.currency || q.Current != tc.rates || q.Period != "" || q.SourceURL == "" {
+				t.Fatalf("%+v: %+v", tc, q)
+			}
+		}
+		for _, hint := range []string{"custom", "unrelated"} {
+			if _, ok := c.Lookup(hint, tc.endpoint, tc.model, at); ok {
+				t.Fatalf("incorrect preset match: %+v", tc)
+			}
+		}
+		for _, endpoint := range []string{strings.Replace(tc.endpoint, "https://", "http://", 1), "https://proxy.example/v1", tc.endpoint + "?product=coding", tc.endpoint + "#fragment"} {
+			if _, ok := c.Lookup(tc.provider, endpoint, tc.model, at); ok {
+				t.Fatal("incorrect origin", endpoint)
+			}
+		}
+		if _, ok := c.Lookup(tc.provider, tc.endpoint, tc.model+"-unknown", at); ok {
+			t.Fatal("guessed model price")
+		}
+	}
+	for _, tc := range []struct{ provider, endpoint, model string }{
+		{"zai", "https://api.z.ai/api/coding/paas/v4/chat/completions", "glm-5.3"},
+		{"zhipu", "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions", "glm-5.3"},
+		{"openai", "https://api.openai.com/v1", "gpt-6-astra"}, // Separate cache writes are not yet represented.
+		{"moonshot", "https://api.moonshot.cn/v1", "kimi-k3"},
+		{"moonshot", "https://api.kimi.com/coding/v1", "kimi-k2.6"},
+		{"openai", "https://api.openai.com/v1/responses", "gpt-5.4"}, // ChatGPT subscription endpoint.
+	} {
+		if _, ok := c.Lookup(tc.provider, tc.endpoint, tc.model, at); ok {
+			t.Fatal("unsupported tariff", tc)
+		}
+	}
+}
+
+func TestTierSnapshotReserveAndPromotionExpiry(t *testing.T) {
+	c, err := New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := time.Date(2026, 10, 23, 0, 0, 0, 0, time.UTC)
+	q, ok := c.Lookup("zhipu", "https://open.bigmodel.cn/api/paas/v4", "glm-4.7", at)
+	if !ok || len(q.Tiers) != 2 || q.Tiers[0].OutputTokensAbove != 199 || q.Tiers[1].InputTokensAbove != 31999 || q.Reserve != (Rates{4000000, 16000000, 800000}) {
+		t.Fatal(q)
+	}
+	q.Tiers[0].Rates.Input = 999
+	next, _ := c.Lookup("zhipu", "https://open.bigmodel.cn/api/paas/v4", "glm-4.7", at)
+	if next.Tiers[0].Rates.Input != 3000000 {
+		t.Fatal("mutable catalog escaped")
+	}
+	for _, tc := range []struct {
+		at        string
+		available bool
+	}{{"2026-11-30T23:59:59Z", true}, {"2026-12-01T00:00:00Z", false}} {
+		at, _ := time.Parse(time.RFC3339, tc.at)
+		_, ok := c.Lookup("gemini", "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-4-argon", at)
+		if ok != tc.available {
+			t.Fatal("expired promotional price", tc)
+		}
+	}
+	for _, replacement := range []struct{ from, to string }{
+		{`"currency": "CNY"`, `"currency": "EUR"`},
+		{`"input_tokens_above": 31999`, `"input_tokens_above": -1`},
+		{`"output_tokens_above": 199`, `"output_tokens_above": -1`},
+		{`"2026-12-01T00:00:00Z"`, `"invalid"`},
+		{`"/api/paas/v4"`, `"/api/../coding"`},
+	} {
+		data := strings.Replace(string(builtin), replacement.from, replacement.to, 1)
+		if c.Reload(strings.NewReader(data)) == nil {
+			t.Fatal("accepted invalid rules", replacement)
+		}
+	}
+	var doc document
+	if err := json.Unmarshal(builtin, &doc); err != nil {
+		t.Fatal(err)
+	}
+	doc.Providers[1].Models[5].Tiers[0].Rates = nil
+	data, err := json.Marshal(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Reload(bytes.NewReader(data)) == nil {
+		t.Fatal("missing tier price treated as free")
 	}
 }

@@ -1,5 +1,7 @@
 # OpenAI
 
+已支持官方标准 API 的已知型号自动计价；具体型号、地域币种与收费边界见[自动计价](../models.md#自动计价)。
+
 管理员可以在 OpenAI Provider 中选择 API Key 或 Continue with ChatGPT。连接仍属于实例共享资源目录，模型按用户组授权分配。
 
 ## API Key

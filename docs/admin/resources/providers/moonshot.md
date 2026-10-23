@@ -1,5 +1,7 @@
 # 接入 Moonshot / Kimi
 
+已支持官方标准 API 的已知型号自动计价；具体型号、地域币种与收费边界见[自动计价](../models.md#自动计价)。
+
 返回[模型接入概览](../models.md)。Moonshot 开放平台 API 与 Kimi Code 订阅是不同接入产品。
 
 ## Moonshot 标准 API

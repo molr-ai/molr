@@ -1,5 +1,7 @@
 # OpenAI
 
+Known models on official standard APIs support automatic pricing. See [Automatic pricing](../models.md#automatic-pricing) for model coverage, regional currencies and billing limitations.
+
 Administrators can choose an API key or Continue with ChatGPT for an OpenAI provider. Connections remain in the shared instance catalog; user groups control model access.
 
 ## API key

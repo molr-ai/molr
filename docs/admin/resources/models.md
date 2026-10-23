@@ -64,3 +64,27 @@ Molr 当前提供标准模型 API 接入，没有内置订阅套餐专用的登�
 Runtime 直接发送模型请求，受 `network.allowed_private_ips` 限制；沙盒 Shell 使用独立的 `sandbox.networks`，配置沙盒网络不会放行模型地址。私网／回环 IP 未获允许时，部署者需将其加入 `network.allowed_private_ips` 并重启 Runtime。公网 HTTP 地址需改用 HTTPS；云元数据、链路本地等禁止地址不能通过白名单放行。
 
 本机地址指 Runtime 所在机器，不是浏览器设备；容器内回环地址指容器自身。部署步骤见[源码构建](../deployment/source-build.md)与[安装指南](../deployment/installation.md)。
+
+## 自动计价
+
+官方标准 API 的已知模型可自动计价；连接或刷新模型后，在模型配置页查看「自动计价」。关闭「自定义价格」恢复自动价格，手动价格始终优先。无需重新保存已有模型。
+
+| 提供商 | 内置覆盖范围 | 原币种与官方价表 |
+| --- | --- | --- |
+| DeepSeek | Flash、V4 Pro 及规则中列出的别名，保留高峰／非高峰价格 | [USD](https://api-docs.deepseek.com/quick_start/pricing/) |
+| 智谱 | GLM-5.3 / 5.2 / 5.1 / 5 / 5-Turbo、部分 GLM-4 与视觉型号，包括明确免费的型号 | [CNY](https://docs.bigmodel.cn/cn/guide/start/pricing) |
+| Z.AI | GLM-5 与 GLM-4 系列中已列出的文本及视觉型号 | [USD](https://docs.z.ai/guides/overview/pricing) |
+| OpenAI | GPT-5.5、5.4、5.2、5.1、5、4.1、4o、o 系列及规则中明确列出的其他型号 | [USD](https://developers.openai.com/api/docs/pricing) |
+| MiniMax | MiniMax-M3.1-Flash、MiniMax-M3 | [中国区 CNY](https://platform.minimax.cn/docs/pricing/overview)／[国际区 USD](https://platform.minimax.io/docs/pricing/overview) |
+| Gemini | Gemini 4 Argon、3.8 / 3.6 Flash、3.5 / 3.1 Flash-Lite、3.1 Pro Preview 及 customtools 别名 | [USD](https://ai.google.dev/gemini-api/docs/pricing) |
+| Anthropic | Fable、Mythos、Opus、Sonnet、Haiku 中规则明确列出的型号，包括 5.5、4.6 与 4.5 系列 | [USD](https://platform.claude.com/docs/en/about-claude/pricing) |
+| Moonshot / Kimi | kimi-k2.6、kimi-k2.7-code、kimi-k2.7-code-highspeed | [中国区 CNY](https://platform.kimi.com/docs/pricing/chat)／[国际区 USD](https://platform.kimi.ai/docs/pricing/chat) |
+| OpenRouter | 模型目录提供有效、可计量报价的型号 | [目录 USD 报价](providers/openrouter.md) |
+
+内置规则核对版本为 2026-10-23，按完整模型 ID、官方 HTTPS 地址和标准 API 路径匹配，不按名称前缀推测。完整 ID 列表见 [providers.json](../../../runtime/internal/pricing/providers.json)。第三方代理、自定义服务、Coding Plan 路径和 ChatGPT 套餐不套用标准 API 价格。价格覆盖不代表该型号的全部能力均已适配。
+
+分档价格按服务商返回的实际用量选择最后一个符合条件的档位，整次请求使用该档单价；输入数量包含缓存命中。预算按所有档位及分时价格的上界预留，结算保存实际档位与规则版本。原币种参与计费，显示与跨币种预算换算沿用参考汇率。
+
+内置价格随程序发布更新。部署者可选用 `pricing.rules_file` 或 `pricing.rules_url`，启动时及每 24 小时检查来源；管理员也可通过「资源 → 模型 → 更多 → 刷新模型价格配置」手动触发，无需重启。两项默认留空，留空时按钮提示继续使用内置价格。有效配置保存在本地，失败保留最近有效价格；配置方法见[模型网络与价格配置](../deployment/configuration.md#模型网络与价格配置)。OpenRouter 目录报价仍通过各提供商的「刷新模型列表」更新。Gemini 的已知促销价设有截止时间，到期后停止自动匹配，需更新规则或手动配置。未给出明确截止日期的优惠按核对时的官方标准表记录，后续调价需要维护规则。
+
+当前自动规则只覆盖输入、输出和缓存读取。GPT-5.6 / GPT-6 与 Kimi K3 的独立缓存写入费用尚未纳入，因此这些型号仍需另行配置与适配；音频独立费率、生成图片／视频、服务端工具、缓存存储、Batch／Priority 等收费不在本规则范围。Gemini 采用付费标准档，不把账号免费额度自动当作免费模型。Anthropic 未主动请求缓存写入，出现非零写入用量时保留待核对费用。

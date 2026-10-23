@@ -35,7 +35,21 @@ export function ModelConfigurationForm({ resource, model, onClose, currencyConte
     <p className="muted">{t.resources.mediaCapabilityHelp}</p>
     {automatic && <><p className="muted">{t.resources.automaticPricing}{model?.PricingInfo?.Period && <> · {model.PricingInfo.Period === 'peak' ? t.resources.peakPricing : t.resources.offPeakPricing}</>}</p>
       <Switch label={t.resources.customPricing} checked={customPricing} onChange={event => setCustomPricing(event.target.checked)} />
-      {!customPricing && <dl className="connection-details"><div><dt>{t.resources.inputPrice.replace('{currency}', currencyContext.Currency)}</dt><dd><MoneyText value={{ Currency: automatic.Currency, Micros: automatic.InputMicrosPerMillion }} context={currencyContext} /></dd></div><div><dt>{t.resources.outputPrice.replace('{currency}', currencyContext.Currency)}</dt><dd><MoneyText value={{ Currency: automatic.Currency, Micros: automatic.OutputMicrosPerMillion }} context={currencyContext} /></dd></div><div><dt>{t.resources.cachedPrice.replace('{currency}', currencyContext.Currency)}</dt><dd><MoneyText value={{ Currency: automatic.Currency, Micros: automatic.CachedInputMicrosPerMillion }} context={currencyContext} /></dd></div></dl>}</>}
+      {!customPricing && <>
+        {(automatic.Tiers?.length ? [{ ...automatic, InputTokensAbove: 0, OutputTokensAbove: 0 }, ...automatic.Tiers] : [automatic]).map((price, index) => <div key={index}>
+          {!!automatic.Tiers?.length && <p className="muted">{index === 0 ? (locale === 'zh' ? '基础档位' : 'Base tier') : [
+            'InputTokensAbove' in price && price.InputTokensAbove > 0 ? `${locale === 'zh' ? '输入' : 'Input'} > ${price.InputTokensAbove.toLocaleString(locale)} tokens` : '',
+            'OutputTokensAbove' in price && price.OutputTokensAbove > 0 ? `${locale === 'zh' ? '输出' : 'Output'} > ${price.OutputTokensAbove.toLocaleString(locale)} tokens` : '',
+          ].filter(Boolean).join(' · ')}</p>}
+          <dl className="connection-details">{[
+            [t.resources.inputPrice, price.InputMicrosPerMillion],
+            [t.resources.outputPrice, price.OutputMicrosPerMillion],
+            [t.resources.cachedPrice, price.CachedInputMicrosPerMillion],
+          ].map(([label, amount]) => <div key={String(label)}><dt>{String(label).replace('{currency}', currencyContext.Currency)}</dt><dd><MoneyText value={{ Currency: automatic.Currency, Micros: Number(amount) }} context={currencyContext} /></dd></div>)}</dl>
+        </div>)}
+        {!!automatic.Tiers?.length && <p className="muted">{locale === 'zh' ? '按实际输入与输出用量选择最后一个符合条件的档位，整次请求使用该档单价。' : 'The last tier matching actual input and output usage applies to the entire request.'}</p>}
+      </>}</>}
+
     {customPricing && <><p className="muted">{t.resources.optionalPricing}</p><CurrencySelect value={currency} onChange={setCurrency} />
     <TextField label={t.resources.inputPrice.replace('{currency}', currency)} type="number" min="0" step="0.000001" value={input} onChange={event => setInput(event.target.value)} />
     <TextField label={t.resources.outputPrice.replace('{currency}', currency)} type="number" min="0" step="0.000001" value={output} onChange={event => setOutput(event.target.value)} />

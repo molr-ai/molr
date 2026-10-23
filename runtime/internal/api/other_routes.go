@@ -149,6 +149,18 @@ func (s *HTTPServer) otherRoutes() {
 		return map[string]any{"build": info, "workbench_available": s.config.Debug.Enabled, "name": "Molr Runtime", "status": "running", "public_url": s.config.HTTP.PublicURL}, nil
 	})
 	s.handle("GET /api/models", func(r *http.Request) (any, error) { return s.services.Models.List(r.Context(), principal(r)) })
+	s.handle("POST /api/models/refresh-pricing", func(r *http.Request) (any, error) {
+		if s.options.Accounts == nil || s.options.Pricing == nil {
+			return nil, core.NewError(core.Unavailable, "pricing refresh unavailable")
+		}
+		if err := s.options.Accounts.RequireAdministrator(r.Context(), principal(r)); err != nil {
+			return nil, err
+		}
+		if _, err := decode[struct{}](r); err != nil {
+			return nil, err
+		}
+		return s.options.Pricing.Refresh(r.Context())
+	})
 	s.handle("GET /api/assistants/{id}/capabilities", func(r *http.Request) (any, error) {
 		id, err := pathID(r)
 		if err != nil {

@@ -58,7 +58,17 @@ Model addresses are accessed from the device where the Runtime resides. By defau
 
 Shell network policies separately configure address sets (domains, IPs, or multiple CIDRs) and port sets (single ports or multiple ranges), and do not inherit local permissions from model connections. See [Sandbox Network Configuration](../sandbox/linux.md#network-and-advanced-deployment) for examples and private network rules. User authorization cannot expand deployment network restrictions.
 
-Manual model pricing takes precedence over built-in pricing; unknown prices block calls. Built-in prices and reference exchange rates are dated configurations, not real-time quotes. Files can be specified separately via `pricing.rules_file` and `pricing.exchange_rates_file`; for format and rule implementation details, see the [Runtime README](../../../../runtime/README.md). After changes, restart as required by the configuration and verify usage; do not treat reference billing as the final vendor bill.
+Manual prices take precedence over automatic pricing; unknown prices block calls. External pricing sources are disabled by default:
+
+```json
+"pricing": { "rules_file": "", "rules_url": "", "exchange_rates_file": "" }
+```
+
+`rules_file` accepts an absolute local path; `rules_url` accepts an HTTPS URL such as `https://prices.example.com/models.json`. Configure at most one. See the [Runtime README](../../../../runtime/README.md) for the external JSON format. The service checks the source at startup and every 24 hours. Administrators can immediately check through Resources → Models → More → Refresh model pricing. Valid updates apply without restarting, including to saved models; manual prices and historical receipts remain unchanged. With no external source, the button reports built-in pricing without a download.
+
+Valid configurations are cached per source under the data directory’s `pricing-cache/`. An unavailable source, invalid JSON or cache-write failure retains the last valid rules. Without a valid cache, startup uses built-in rules. Remote requests follow deployment network restrictions, require HTTPS and reject redirects. Editing price content needs no restart; changing the configured source path/URL requires reloading the service configuration and restarting.
+
+Reference exchange rates remain separately configured through `pricing.exchange_rates_file` and are read at startup. Both prices and exchange rates are dated reference configurations, not the vendor’s final invoice.
 
 After configuration is complete, proceed to [Installation and Service Management](installation.md#linux-services-and-command-environment).
 

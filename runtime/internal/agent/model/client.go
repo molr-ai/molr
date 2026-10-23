@@ -27,10 +27,32 @@ import (
 // Pricing uses integer millionths of currency per million tokens. A nil Pricing
 // prohibits dispatch; a fully specified zero tariff explicitly denotes free use.
 type Pricing struct {
-	AudioInputMicrosPerMillion                                                 *int64 `json:",omitempty"`
+	Tiers                                                                      []PricingTier `json:",omitempty"`
+	AudioInputMicrosPerMillion                                                 *int64        `json:",omitempty"`
 	Currency                                                                   string
 	InputMicrosPerMillion, OutputMicrosPerMillion, CachedInputMicrosPerMillion int64
 }
+type PricingTier struct {
+	InputTokensAbove, OutputTokensAbove                                        int64
+	InputMicrosPerMillion, OutputMicrosPerMillion, CachedInputMicrosPerMillion int64
+}
+
+func pricingForUsage(price *Pricing, usage Usage) *Pricing {
+	if price == nil {
+		return nil
+	}
+	selected := *price
+	selected.Tiers = nil
+	for _, tier := range price.Tiers {
+		if (tier.InputTokensAbove == 0 || usage.InputTokens > tier.InputTokensAbove) && (tier.OutputTokensAbove == 0 || usage.OutputTokens > tier.OutputTokensAbove) {
+			selected.InputMicrosPerMillion = tier.InputMicrosPerMillion
+			selected.OutputMicrosPerMillion = tier.OutputMicrosPerMillion
+			selected.CachedInputMicrosPerMillion = tier.CachedInputMicrosPerMillion
+		}
+	}
+	return &selected
+}
+
 type Provider struct {
 	Protocol       Protocol
 	Model          Model
@@ -183,6 +205,7 @@ type attemptRecord struct {
 }
 
 func charge(pricing *Pricing, usage Usage) (*core.Money, error) {
+	pricing = pricingForUsage(pricing, usage)
 	if pricing == nil {
 		return nil, core.WithReason(core.NewError(core.FailedPrecondition, "explicit model pricing required"), core.ModelPricingMissing)
 	}
@@ -484,7 +507,8 @@ func (c *client) Generate(ctx context.Context, req Request) (Stream, error) {
 			}
 		}
 	}
-	receipt.Charged, err = charge(provider.Pricing, receipt.Usage)
+	receipt.Pricing = pricingForUsage(provider.Pricing, receipt.Usage)
+	receipt.Charged, err = charge(receipt.Pricing, receipt.Usage)
 	if err != nil {
 		return nil, err
 	}

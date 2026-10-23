@@ -72,6 +72,7 @@ type Network struct {
 
 type Pricing struct {
 	RulesFile         string `json:"rules_file"`
+	RulesURL          string `json:"rules_url"`
 	ExchangeRatesFile string `json:"exchange_rates_file"`
 }
 
@@ -230,6 +231,15 @@ func (c Config) Validate() error {
 	}
 	if c.Pricing.RulesFile != "" && !filepath.IsAbs(c.Pricing.RulesFile) {
 		return core.Invalid("pricing.rules_file", "absolute rules file path required")
+	}
+	if c.Pricing.RulesURL != "" {
+		u, err := url.Parse(c.Pricing.RulesURL)
+		if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.Fragment != "" {
+			return core.Invalid("pricing.rules_url", "HTTPS URL without credentials or fragment required")
+		}
+		if c.Pricing.RulesFile != "" {
+			return core.Invalid("pricing", "rules_file and rules_url are mutually exclusive")
+		}
 	}
 	if !filepath.IsAbs(c.DataDir) || filepath.Dir(filepath.Clean(c.DataDir)) == filepath.Clean(c.DataDir) {
 		return core.Invalid("data_dir", "dedicated absolute directory required")

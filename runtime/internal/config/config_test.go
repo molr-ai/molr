@@ -61,6 +61,30 @@ func TestLoadStrictConfiguration(t *testing.T) {
 	}
 }
 
+func TestPricingSourcesAreOptionalAndMutuallyExclusive(t *testing.T) {
+	c := validConfig()
+	if c.Pricing.RulesFile != "" || c.Pricing.RulesURL != "" {
+		t.Fatal("pricing source enabled by default")
+	}
+	for _, source := range []Pricing{{}, {RulesFile: "/etc/molr/pricing.json"}, {RulesURL: "https://prices.example/models.json"}} {
+		c.Pricing = source
+		data, err := json.Marshal(c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		loaded, err := Load(strings.NewReader(string(data)))
+		if err != nil || loaded.Pricing != source {
+			t.Fatal("pricing source did not round trip", err)
+		}
+	}
+	for _, source := range []Pricing{{RulesFile: "relative.json"}, {RulesURL: "http://prices.example/models.json"}, {RulesURL: "https://user:secret@prices.example/models.json"}, {RulesURL: "https://prices.example/models.json#fragment"}, {RulesURL: "https:///models.json"}, {RulesFile: "/etc/molr/pricing.json", RulesURL: "https://prices.example/models.json"}} {
+		c.Pricing = source
+		if c.Validate() == nil {
+			t.Fatal("invalid pricing source accepted")
+		}
+	}
+}
+
 func TestNetworkAllowlistIsExplicitDeploymentConfiguration(t *testing.T) {
 	c := validConfig()
 	if len(c.Network.AllowedPrivateIPs) != 1 || c.Network.AllowedPrivateIPs[0] != "127.0.0.1" {

@@ -14,6 +14,7 @@ import (
 	"molr.ai/runtime/internal/maintenance"
 	"molr.ai/runtime/internal/notification"
 	"molr.ai/runtime/internal/oauthbroker"
+	"molr.ai/runtime/internal/pricing"
 	"molr.ai/runtime/internal/resultcache"
 	"molr.ai/runtime/internal/updates"
 	"net"
@@ -68,6 +69,7 @@ type Options struct {
 	BrowserSettings    func(context.Context, core.Principal, json.RawMessage) (any, error)
 	BrowserStream      func(context.Context, core.Principal, core.ID, core.ID, func(json.RawMessage) error) error
 	Updates            *updates.Service
+	Pricing            *pricing.Updater
 	UpgradeInfo        *updates.Installation
 	Notifications      *notification.Service
 	Dingtalk           *dingtalk.Service

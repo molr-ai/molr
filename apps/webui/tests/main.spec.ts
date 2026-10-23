@@ -1610,6 +1610,51 @@ test('DeepSeek built-in pricing stays automatic when model settings are saved', 
   expect((await catalog()).PricingInfo.Source).toBe('builtin');
 });
 
+test('model menu refreshes pricing and reports the default built-in source', async ({ page }) => {
+  await login(page);
+  await page.getByRole('navigation').getByRole('button', { name: 'Resources', exact: true }).click();
+  await page.locator('.resources-header').getByRole('button', { name: 'More', exact: true }).click();
+  const response = page.waitForResponse(response => response.url().endsWith('/api/models/refresh-pricing') && response.request().method() === 'POST');
+  await page.getByRole('menuitem', { name: 'Refresh model pricing', exact: true }).click();
+  expect((await response).status()).toBe(200);
+  await expect(page.locator('.ui-toasts').getByText('No external pricing source configured; using built-in prices', { exact: true })).toBeVisible();
+});
+
+test('official provider prices preserve currencies and usage tiers', async ({ page }, info) => {
+  await login(page);
+  const suffix = `${info.project.name}-${Date.now()}`;
+  const cases = [
+    ['zhipu', 'https://open.bigmodel.cn/api/paas/v4/chat/completions', 'glm-4.7', 'CNY'],
+    ['zai', 'https://api.z.ai/api/paas/v4/chat/completions', 'glm-5.3', 'USD'],
+    ['openai', 'https://api.openai.com/v1/chat/completions', 'gpt-5.4', 'USD'],
+    ['minimax', 'https://api.minimax.cn/v1/chat/completions', 'MiniMax-M3', 'CNY'],
+    ['gemini', 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', 'gemini-3.1-pro-preview', 'USD'],
+    ['anthropic', 'https://api.anthropic.com/v1/messages', 'claude-haiku-5-5', 'USD'],
+    ['moonshot', 'https://api.moonshot.cn/v1/chat/completions', 'kimi-k2.6', 'CNY'],
+  ];
+  let zhipuID = '';
+  for (const [preset, endpoint, model, currency] of cases) {
+    const resource = await post(page, '/api/resources', { Name: `Auto ${preset} ${suffix}`, Kind: 'model', Provider: 'openai-compatible', Binding: { PricingProvider: preset, Endpoint: endpoint, AllowedOrigins: [new URL(endpoint).origin], Models: [{ Name: model, ContextLimit: 32768, SupportsTools: true }] } });
+    const models = await (await page.request.get('/api/models')).json();
+    const item = models.find((value: { ResourceID: string }) => value.ResourceID === resource.ID);
+    expect(item.PricingInfo.Source).toBe('builtin'); expect(item.Pricing.Currency).toBe(currency); expect(item.PricingInfo.Period).toBe('');
+    if (preset === 'zhipu') zhipuID = resource.ID;
+  }
+  await page.goto('/#/resources'); await page.reload();
+  await openProviderModels(resourceRow(page, `Auto zhipu ${suffix}`));
+  await page.locator('.provider-models-page').first().locator('.resource-model-open').click();
+  const dialog = page.getByRole('dialog', { name: 'Configure model', exact: true });
+  await expect(dialog.getByRole('switch', { name: 'Custom pricing', exact: true })).not.toBeChecked();
+  await expect(dialog.getByText('Base tier', { exact: true })).toBeVisible();
+  await expect(dialog.getByText('Output > 199 tokens', { exact: true })).toBeVisible();
+  await expect(dialog.getByText('Input > 31,999 tokens', { exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  const models = await (await page.request.get('/api/models')).json();
+  const item = models.find((value: { ResourceID: string }) => value.ResourceID === zhipuID);
+  expect(item.PricingInfo.Source).toBe('builtin'); expect(item.Pricing.Tiers).toHaveLength(2);
+});
+
 test('assistant budgets are set at hire and edited independently', async ({ page }, info) => {
   await login(page);
   const seed = await seedAssistant(page, `Budget model ${info.project.name}-${Date.now()}`);

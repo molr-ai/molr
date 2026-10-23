@@ -1,5 +1,7 @@
 # 接入 Anthropic / Claude
 
+已支持官方标准 API 的已知型号自动计价；具体型号、地域币种与收费边界见[自动计价](https://molr.ai/zh/docs/admin/resources/models/#自动计价)。
+
 返回[模型接入概览](https://molr.ai/zh/docs/admin/resources/models/)。Molr 提供 Anthropic / Claude 连接预设。
 
 ## 连接配置

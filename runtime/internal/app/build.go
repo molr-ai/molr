@@ -66,25 +66,26 @@ import (
 // Bundle is the complete single-server composition. Bootstrap and Database are
 // local CLI capabilities and never registered as HTTP routes or Agent tools.
 type Bundle struct {
-	dingtalk    *dingtalk.Service
-	feishu      *feishu.Service
-	qq          *qq.Service
-	weixin      *weixin.Service
-	telegram    *telegram.Service
-	slack       *slack.Service
-	remote      *sandboxRouter
-	shellTasks  *shellTasks
-	sandbox     *shellService
-	Application Application
-	Services    api.Services
-	Bootstrap   auth.Bootstrap
-	Database    sqlite.Database
-	HTTP        api.Server
-	Pricing     *pricing.Catalog
-	Exchange    *pricing.Exchange
-	Trace       *debugtrace.Service
-	store       persistence.Store
-	objects     *files.ObjectStore
+	dingtalk     *dingtalk.Service
+	feishu       *feishu.Service
+	qq           *qq.Service
+	weixin       *weixin.Service
+	telegram     *telegram.Service
+	slack        *slack.Service
+	remote       *sandboxRouter
+	shellTasks   *shellTasks
+	sandbox      *shellService
+	Application  Application
+	Services     api.Services
+	Bootstrap    auth.Bootstrap
+	Database     sqlite.Database
+	HTTP         api.Server
+	Pricing      *pricing.Catalog
+	priceUpdater *pricing.Updater
+	Exchange     *pricing.Exchange
+	Trace        *debugtrace.Service
+	store        persistence.Store
+	objects      *files.ObjectStore
 }
 
 func (b *Bundle) Close() error {
@@ -243,16 +244,11 @@ func Build(ctx context.Context, cfg config.Config, options ...BuildOptions) (bun
 	if err != nil {
 		return nil, err
 	}
-	var rules io.Reader
-	if cfg.Pricing.RulesFile != "" {
-		file, err := os.Open(cfg.Pricing.RulesFile)
-		if err != nil {
-			return nil, core.Wrap(core.InvalidArgument, "cannot open pricing rules", err)
-		}
-		defer file.Close()
-		rules = file
+	b.Pricing, err = pricing.New(nil)
+	if err != nil {
+		return nil, err
 	}
-	b.Pricing, err = pricing.New(rules)
+	b.priceUpdater, err = pricing.NewUpdater(ctx, b.Pricing, pricing.UpdateOptions{File: cfg.Pricing.RulesFile, URL: cfg.Pricing.RulesURL, CacheDir: filepath.Join(cfg.DataDir, "pricing-cache"), Client: platform.ConfiguredHTTPClient(cfg.Pricing.RulesURL, adapters{networkConfig: cfg.Network}.privateAddresses())})
 	if err != nil {
 		return nil, err
 	}
@@ -1217,7 +1213,7 @@ func Build(ctx context.Context, cfg config.Config, options ...BuildOptions) (bun
 		}
 	}
 	updateService := updates.New(updateSource, cfg.Updates.AutoCheck, build, platform.ConfiguredHTTPClient(updateSource, updateAddresses))
-	b.HTTP, err = api.NewServer(cfg, b.Services, api.Options{ResponseCacheScope: func(ctx context.Context, p core.Principal, pattern string) (string, error) {
+	b.HTTP, err = api.NewServer(cfg, b.Services, api.Options{Pricing: b.priceUpdater, ResponseCacheScope: func(ctx context.Context, p core.Principal, pattern string) (string, error) {
 		return responseCacheScope(ctx, store, identity, permissions, preferences, b.Exchange, p, pattern)
 	}, OAuth: oauthbroker.New(map[string]oauthbroker.Provider{"chatgpt": chatgptOAuth}, identity.ValidatePrincipal), ChatGPTDisconnect: chatgptOAuth.disconnect, RequestLogger: requestLogger, Workspace: &workspaceExplorer{ad: adapters, maxUpload: cfg.Execution.MaxUploadBytes}, Skills: func(ctx context.Context, p core.Principal, id core.ID, path string) (any, error) {
 		return inspectSkills(ctx, adapters, p, id, path)
@@ -1312,6 +1308,7 @@ func Build(ctx context.Context, cfg config.Config, options ...BuildOptions) (bun
 	b.Application.(*Runtime).collectContexts = func(ctx context.Context) { contextstore.RunGC(ctx, store) }
 	b.Application.(*Runtime).runChannels = channelRouter.Run
 	b.Application.(*Runtime).checkUpdates = updateService.Run
+	b.Application.(*Runtime).refreshPrices = b.priceUpdater.Run
 	b.Application.(*Runtime).startShellTasks = b.shellTasks.start
 	b.Application.(*Runtime).stopShellTasks = b.shellTasks.close
 	return b, nil

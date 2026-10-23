@@ -64,3 +64,27 @@ Connecting does not grant access to every model. See [permissions and budgets](.
 Runtime sends model requests directly, subject to `network.allowed_private_ips`. Sandbox Shell uses separate `sandbox.networks` settings; allowing sandbox traffic does not allow a model endpoint. Administrators must add required private / loopback IPs to `network.allowed_private_ips` and restart Runtime. Public HTTP endpoints require HTTPS; prohibited destinations such as cloud metadata and link-local addresses cannot be allowed.
 
 Local addresses refer to the Runtime machine, not the browser device; container loopback addresses refer to the container itself. See [building from source](../deployment/source-build.md) and the [installation guide](../deployment/installation.md).
+
+## Automatic pricing
+
+Known models on official standard APIs receive automatic prices. After connecting or refreshing models, open a model configuration to view Automatic pricing. Turn off Custom pricing to restore automatic prices; manual prices always take precedence. Existing models do not need to be saved again.
+
+| Provider | Built-in coverage | Original currency and official source |
+| --- | --- | --- |
+| DeepSeek | Flash, V4 Pro and explicitly listed aliases, with peak/off-peak rates | [USD](https://api-docs.deepseek.com/quick_start/pricing/) |
+| Zhipu | GLM-5.3 / 5.2 / 5.1 / 5 / 5-Turbo, selected GLM-4 and vision models, including explicitly free models | [CNY](https://docs.bigmodel.cn/cn/guide/start/pricing) |
+| Z.AI | Listed text and vision models in the GLM-5 and GLM-4 families | [USD](https://docs.z.ai/guides/overview/pricing) |
+| OpenAI | GPT-5.5, 5.4, 5.2, 5.1, 5, 4.1, 4o, o-series and other explicitly listed IDs | [USD](https://developers.openai.com/api/docs/pricing) |
+| MiniMax | MiniMax-M3.1-Flash and MiniMax-M3 | [China CNY](https://platform.minimax.cn/docs/pricing/overview) / [international USD](https://platform.minimax.io/docs/pricing/overview) |
+| Gemini | Gemini 4 Argon, 3.8 / 3.6 Flash, 3.5 / 3.1 Flash-Lite, 3.1 Pro Preview and its customtools alias | [USD](https://ai.google.dev/gemini-api/docs/pricing) |
+| Anthropic | Explicitly listed Fable, Mythos, Opus, Sonnet and Haiku models, including the 5.5, 4.6 and 4.5 families | [USD](https://platform.claude.com/docs/en/about-claude/pricing) |
+| Moonshot / Kimi | kimi-k2.6, kimi-k2.7-code, kimi-k2.7-code-highspeed | [China CNY](https://platform.kimi.com/docs/pricing/chat) / [international USD](https://platform.kimi.ai/docs/pricing/chat) |
+| OpenRouter | Models with valid, representable catalog prices | [Catalog USD pricing](providers/openrouter.md) |
+
+Built-in rules were verified on 2026-10-23 and match complete model IDs, official HTTPS origins and standard API paths. They never infer prices from name prefixes. See [providers.json](../../../../runtime/internal/pricing/providers.json) for exact IDs. Third-party proxies, custom services, Coding Plan paths and ChatGPT subscriptions do not receive standard API prices. Pricing coverage does not imply support for every model capability.
+
+For tiered models, the last tier matching actual provider-reported usage applies to the entire request. Input counts include cache hits. Budget reservations use the maximum rates across tiers and time periods; receipts retain the applied tier and rule version. Billing keeps the original currency; display and cross-currency budgets use the existing reference exchange rates.
+
+Built-in prices ship with the application. Deployments may select `pricing.rules_file` or `pricing.rules_url`; the source is checked at startup and every 24 hours. Administrators can also use Resources → Models → More → Refresh model pricing without restarting. Both settings default to empty; the button then reports that built-in prices remain active. Valid rules are cached locally and failures retain the last valid prices. See [Model network and pricing configuration](../deployment/configuration.md#model-network-and-pricing-configuration). OpenRouter quotes still update through each provider’s Refresh models action. Known Gemini promotional prices expire at their published cutoff; update the rules or set manual prices afterward. Offers without a published end date use the standard table verified on the date above and require maintenance when prices change.
+
+Automatic rules currently cover input, output and cache reads. GPT-5.6 / GPT-6 and Kimi K3 have separate cache-write charges and remain outside this catalog pending configuration and adapter support. Separate audio rates, image/video generation, server tools, cache storage, Batch and Priority pricing are excluded. Gemini uses paid standard rates, not account-specific free allowances. Anthropic does not request cache writes; nonzero cache-write usage remains an unknown cost requiring reconciliation.

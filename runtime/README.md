@@ -91,11 +91,15 @@ make -C runtime test TEST_FLAGS='-race -p 4'
 
 ### 内置模型计价
 
-DeepSeek 规则在 [`internal/pricing/deepseek.json`](internal/pricing/deepseek.json) 中维护，启动时默认加载编译进服务的配置。也可以在服务配置中指定 `"pricing": {"rules_file": "/etc/molr/pricing.json"}`，使用外部文件完整替换内置规则。外部配置缺失或无效会阻止启动，避免错误计费。
+提供商计价规则在 [`internal/pricing/providers.json`](internal/pricing/providers.json) 中维护。`pricing.rules_file` 与 `pricing.rules_url` 默认均为空，此时使用随程序发布的内置规则且不自动访问远程价表。可选择一个来源：本地绝对路径或 HTTPS URL；两项不能同时配置。外部文档完整替换内置规则。
 
-当前仅覆盖 DeepSeek 官方 API 的 `deepseek-flash`（含配置中列出的两个别名）和 `deepseek-v4-pro`，按官方 USD 价格区分高峰、非高峰及缓存命中。来源和核对版本保存在配置中：[DeepSeek 官方价格](https://api-docs.deepseek.com/quick_start/pricing/)。规则使用整数微美元／百万 tokens，`150000` 表示 $0.15／百万 tokens。历史、未知型号不会按名称前缀猜价；自定义 Provider 和非官方代理地址也不会套用官方价格。
+配置来源后，启动时先恢复该来源最近一次有效缓存并检查源内容，之后每 24 小时检查一次。管理员可在「资源 → 模型 → 更多 → 刷新模型价格配置」手动检查；手动和定时刷新共用流程，重叠请求合并。有效内容先原子保存至数据目录的 `pricing-cache/`，再切换内存快照，无需重启；网络、读取、校验或缓存写入失败均保留旧价表。无有效缓存时使用内置规则。缓存按来源路径／URL 隔离，避免切换来源后沿用其他价表。
 
-已保存模型无需重新配置即可匹配规则。模型手动价格优先；将 `Model.Pricing` 设为 `null` 可恢复自动计价。未知价格仍会阻止调用，显式填写三项 `0` 才表示免费。预算预留采用高峰价格上界，调用开始时确定本次价格，结算按实际 tokens 向上取整到微美元；账单凭据保留价格及规则版本。DeepSeek 的 `prompt_cache_hit_tokens` 用于缓存命中计费。
+远程请求使用 HTTPS、10 秒超时、1 MiB 内容上限、ETag / Last-Modified 条件请求，禁止重定向，并沿用部署网络地址限制。修改价表内容无需重启；修改 `server.json` 中的来源选择需要重启。参考汇率的 `exchange_rates_file` 仍按启动时加载，不参与此刷新机制。
+
+内置规则覆盖 DeepSeek、智谱、Z.AI、OpenAI、MiniMax、Gemini、Anthropic 和 Moonshot 的明确型号；OpenRouter 继续使用目录报价。型号范围、官方来源、原币种和未覆盖的收费项见[自动计价](../docs/admin/resources/models.md#自动计价)。规则使用整数微币种／百万 tokens，精确匹配官方地址、标准 API 路径及模型 ID，不将代理或订阅路径按标准 API 定价。
+
+已保存模型无需重新配置即可匹配规则。模型手动价格优先；将 `Model.Pricing` 设为 `null` 可恢复自动计价。未知价格仍会阻止调用，显式填写三项 `0` 才表示免费。预算预留采用分时及用量档位的价格上界，调用开始时确定本次价格，结算按实际输入／输出量选择档位，并向上取整到原币种微单位；账单凭据保留价格及规则版本。DeepSeek 的 `prompt_cache_hit_tokens` 用于缓存命中计费。
 
 规则中的高峰时间以 UTC 计算，中国节假日按 Asia/Shanghai 日期排除。目前日历覆盖 2026 年，来源见配置；其他年份按普通工作日规则保守计算，并通过 `PricingInfo.CalendarKnown=false` 标记，需要更新日历后才能准确应用节假日折扣。
 

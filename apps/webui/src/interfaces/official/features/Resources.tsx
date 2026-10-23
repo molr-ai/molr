@@ -5,7 +5,7 @@ import { ResourceQuotaUsage } from './ResourceConstraints';
 import { PermissionScope, PermissionExpiry } from './PermissionScope';
 import { PermissionRequests } from './PermissionRequests';
 import { useEffect, useState } from 'react';
-import { ModalPresence, Badge, Button, Card, Dialog, DropdownMenu, IconButton, Tabs } from '@molr/ui';
+import { ModalPresence, Badge, Button, Card, Dialog, DropdownMenu, IconButton, Tabs, useToast } from '@molr/ui';
 import { BookOpen, Bot, Ellipsis, Folder, Globe, Info, Pencil, Plus, RefreshCw, Server, Trash2, Unplug, Wifi, Wrench } from 'lucide-react';
 import { SettingsHelp } from '../components/SettingsHelp';
 import { DefaultModelSettings } from './DefaultModelSettings';
@@ -19,14 +19,21 @@ import { useSandboxPreference } from '../../../sandbox-navigation';
 import { useSandboxCopy } from '../../../sandbox-copy';
 import { useReauthentication } from '../components/ReauthenticationDialog';
 import { api, mutationKey } from '../../../api/client';
-import type { Assistant, Grant, Model, Resource } from '../../../api/types';
-import { useCopy, useQuery } from '../../../state';
+import type { Assistant, Grant, Model, Resource, PricingRefreshResult } from '../../../api/types';
+import { useCopy, useQuery, useSession } from '../../../state';
 import { grantSummary, grantTarget } from '../../../resource-permissions';
 import { Confirm, Empty, Loading, PageHeader, useAction } from '../components/common';
 import './resources.css';
 type Tab = 'model' | 'tool' | 'skill' | 'sandbox';
 export function Resources({ resourceID = '' }: { resourceID?: string }) {
   const { t } = useCopy(), copy = useSandboxCopy(), query = useQuery<Resource[]>('/api/resources', true), models = useQuery<Model[]>('/api/models'), action = useAction();
+  const { principal } = useSession(), { toast } = useToast(), pricingAction = useAction();
+  const refreshPrices = () => void pricingAction.run(async () => {
+    const result = await api.post<PricingRefreshResult>('/api/models/refresh-pricing');
+    models.reload();
+    toast({ title: result.Source === 'builtin' ? t.resources.pricingBuiltin : result.Updated ? t.resources.pricingUpdated : t.resources.pricingUnchanged });
+  }, undefined, false);
+  useErrorToast(pricingAction.error, refreshPrices);
   const [status, setStatus] = useState<Record<string, string>>({});
   const [tab, setTab] = useSandboxPreference<Tab>('resource-tab', 'model', value => ['model', 'tool', 'skill', 'sandbox'].includes(value));
   const [selectedProvider, setSelectedProvider] = useState<{ id: string; addModel?: boolean } | null>(null), [connect, setConnect] = useState(false), [defaultModel, setDefaultModel] = useState(false);
@@ -47,7 +54,7 @@ export function Resources({ resourceID = '' }: { resourceID?: string }) {
       { id: 'delete', label: t.resources.deleteProvider, icon: <Trash2 size={15} />, danger: true, onSelect: () => resource.Authentication === 'chatgpt' && resource.State !== 'disconnected' ? setEditingProvider(resource) : setDeletingProvider(resource) },
     ]} /></div></article>;
   })}</div>}</>;
-  return <section className="resources-workspace"><PageHeader className="resources-header" title={t.nav.resources} icon={<Folder />} actions={tab === 'model' && <DropdownMenu label={t.more} align="end" trigger={<IconButton label={t.more}><Ellipsis size={18} /></IconButton>} items={[{ id: 'connect-provider', label: t.resources.connectActions.model, onSelect: () => setConnect(true) }, { id: 'default-model', label: t.resources.defaultModel, onSelect: () => setDefaultModel(true) }]} />} />
+  return <section className="resources-workspace"><PageHeader className="resources-header" title={t.nav.resources} icon={<Folder />} actions={tab === 'model' && <DropdownMenu label={t.more} align="end" trigger={<IconButton label={t.more}><Ellipsis size={18} /></IconButton>} items={[{ id: 'connect-provider', label: t.resources.connectActions.model, onSelect: () => setConnect(true) }, { id: 'default-model', label: t.resources.defaultModel, onSelect: () => setDefaultModel(true) }, ...(principal?.User?.Administrator ? [{ id: 'refresh-pricing', label: t.resources.refreshPricing, icon: <RefreshCw size={15} />, disabled: pricingAction.busy, onSelect: refreshPrices }] : [])]} />} />
     <Tabs className="resources-categories" label={t.resources.categoriesLabel} value={tab} onValueChange={setTab} items={[
       { value: 'model', label: t.resources.categories.model, icon: <Bot size={15} />, content: tab === 'model' ? <div className="resources-master">{modelContent}</div> : null },
       { value: 'tool', label: t.resources.categories.tool, icon: <Wrench size={15} />, content: tab === 'tool' ? <ToolsCatalog /> : null },

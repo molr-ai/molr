@@ -8,8 +8,10 @@ import (
 	"molr.ai/runtime/internal/modelcatalog"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/persistence/sqlitestore"
+	"molr.ai/runtime/internal/pricing"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestModelCatalogResolutionAndRevocation(t *testing.T) {
@@ -57,5 +59,34 @@ func TestModelCatalogResolutionAndRevocation(t *testing.T) {
 	rows, err = s.List(t.Context(), p)
 	if err != nil || len(rows) != 0 {
 		t.Fatal(rows, err)
+	}
+}
+
+func TestAutomaticPriceTiersCurrencyAndManualOverride(t *testing.T) {
+	catalog, err := pricing.New(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := modelcatalog.Service{Pricing: catalog, Now: func() time.Time { return time.Date(2026, 10, 23, 0, 0, 0, 0, time.UTC) }}
+	r := resource.Resource{ID: "provider"}
+	b := resource.Binding{PricingProvider: "zhipu", Endpoint: "https://open.bigmodel.cn/api/paas/v4/chat/completions"}
+	entry := modelcatalog.Entry{ID: "model", Config: resource.ModelConfig{Name: "glm-4.7"}}
+	p := s.Describe(r, b, entry)
+	if p.Pricing.Currency != "CNY" || len(p.Pricing.Tiers) != 2 || p.ReservePricing.InputMicrosPerMillion != 4000000 || p.Model.PricingInfo.Source != "builtin" {
+		t.Fatal(p)
+	}
+	entry.Config.Pricing = &resource.ModelPricing{Currency: "USD", InputMicrosPerMillion: 3}
+	p = s.Describe(r, b, entry)
+	if p.Pricing.Currency != "USD" || len(p.Pricing.Tiers) != 0 || p.ReservePricing.InputMicrosPerMillion != 3 || p.Model.PricingInfo.Automatic.Currency != "CNY" || p.Model.PricingInfo.Source != "manual" {
+		t.Fatal(p)
+	}
+	entry.Config.Pricing = nil
+	p = s.Describe(r, b, entry)
+	if p.Pricing.Currency != "CNY" || len(p.Pricing.Tiers) != 2 {
+		t.Fatal("automatic pricing not restored", p)
+	}
+	b.PricingProvider = "custom"
+	if p = s.Describe(r, b, entry); p.Pricing != nil {
+		t.Fatal("custom price inferred", p)
 	}
 }
