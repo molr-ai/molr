@@ -12,7 +12,7 @@ import { Puzzle, CalendarClock, FlaskConical, Folder, MessagesSquare, Search as 
 import { resolveUI, packageKey } from '@molr/ui-host';
 import type { UIPage } from '@molr/sdk/ui';
 import type { Settings, RuntimeInfo, Conversation } from '@molr/sdk';
-import { DataProvider, LocaleProvider, SessionProvider, useAppearance, useCopy, useData, useQuery, useSession } from './state';
+import { DataProvider, LocaleProvider, SessionProvider, useAppearance, useCopy, useConnection, useQuery, useSession } from './state';
 import { useNavigation } from './navigation';
 import { Loading } from './interfaces/official/components/common';
 import { Login } from './interfaces/official/features/Login';
@@ -55,7 +55,7 @@ function WorkspaceHost() {
   const { t, locale, setLocale } = useCopy(), copy = hostCopy[locale], { theme, changePreference } = useTheme(), { changePalette } = useAppearance();
   const session = useSession(), administrator = session.principal?.User?.Administrator === true;
   const mobile = useBreakpoint('mobile'), { page, id, navigate } = useNavigation(), host = useUIHost();
-  const { connection, hasConnectionNotice, retryConnection } = useData();
+  const { connection, hasConnectionNotice, retryConnection } = useConnection();
   const settings = useQuery<Settings>('/api/settings'), runtime = useQuery<RuntimeInfo>('/api/status');
   const [scope, setScope] = useState<HTMLDivElement | null>(null), [recoveryAttempt, setRecoveryAttempt] = useState(0);
   const conversations = useQuery<Conversation[]>('/api/conversations', true);

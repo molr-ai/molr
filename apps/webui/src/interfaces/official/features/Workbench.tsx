@@ -5,7 +5,7 @@ import { ModalPresence, Alert, Badge, Button, CodeBlock, EmptyState, Progress, S
 import { FlaskConical, RefreshCw, RotateCcw, Square, X, ArrowDownToLine, Braces, Layers, ChevronRight } from 'lucide-react';
 import { api, APIError } from '../../../api/client';
 import type { Assistant, AgentStatus, DebugPayload, DebugRun } from '../../../api/types';
-import { useCopy, useData, useQuery } from '../../../state';
+import { useCopy, useData, useConnection, useQuery } from '../../../state';
 import { Confirm, Loading, PageHeader } from '../components/common';
 import { MoneyText } from '../components/Money';
 import { useTrajectory } from './use-trajectory';
@@ -106,7 +106,7 @@ function WorkbenchSession({ assistants, assistantID, onSelectAssistant, onSettin
   </section>;
 }
 function WorkbenchInspector({ selection, assistant, onClose }: { selection: Exclude<Selection, null>; assistant?: Assistant; onClose: () => void }) {
-  const { t } = useCopy(), { invalidateTopics, connection } = useData();
+  const { t } = useCopy(), { invalidateTopics } = useData(), { connection } = useConnection();
   const checkpoint = selection === 'checkpoint', runID = checkpoint ? '' : selection.runID;
   const sequence = checkpoint ? 0 : selection.sequence;
   const [tab, setTab] = useState(checkpoint ? 'context' : 'overview');

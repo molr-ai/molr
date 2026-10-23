@@ -14,6 +14,7 @@ import type { QueryInterval } from './query-store';
 import { queryInterval } from './query-policy';
 import { poll } from './polling';
 import { batchTopics } from './batch-topics';
+import { TopicStore } from './topic-store';
 
 const PaletteContext = createContext({ palette: 'forest' as Palette, changePalette: (_: Palette) => {} });
 export function useAppearance() { return useContext(PaletteContext); }
@@ -111,17 +112,19 @@ function queryTopic(path: string) {
   if (path.startsWith('/api/assistants/activity')) return 'activity';
   return path.split('/')[2]?.split('?')[0] ?? '';
 }
-const DataContext = createContext({ subscribeEvents: (_listener: (event: RuntimeEvent) => void): (() => void) => () => {}, version: (_topic: string): number => 0, invalidate: () => {}, invalidateTopics: (_topics: string[]) => {}, connection: 'reconnecting' as ConnectionState, hasConnectionNotice: false, retryConnection: () => {}, cache: new QueryCache(), queries: new QueryStore(), turnMetrics: new TurnMetricsCache(), messageChanges: new Map<string, number>(), invalidateMessage: (_id: string, _conversationID?: string): number => 0 });
+const DataContext = createContext({ subscribeEvents: (_listener: (event: RuntimeEvent) => void): (() => void) => () => {}, topics: new TopicStore(), invalidate: () => {}, invalidateTopics: (_topics: string[]) => {}, cache: new QueryCache(), queries: new QueryStore(), turnMetrics: new TurnMetricsCache(), messageChanges: new Map<string, number>(), invalidateMessage: (_id: string, _conversationID?: string): number => 0 });
+const ConnectionContext = createContext({ connection: 'reconnecting' as ConnectionState, hasConnectionNotice: false, retryConnection: () => {} });
+export const useConnection = () => useContext(ConnectionContext);
 export function DataProvider({ children }: { children: ReactNode }) {
   const [eventListeners] = useState(() => new Set<(event: RuntimeEvent) => void>());
   const subscribeEvents = useCallback((listener: (event: RuntimeEvent) => void) => { eventListeners.add(listener); return () => { eventListeners.delete(listener); }; }, [eventListeners]);
-  const [versions, setVersions] = useState<Record<string, number>>({});
+  const [topics] = useState(() => new TopicStore());
   const [cache] = useState(() => new QueryCache());
   const [queries] = useState(() => new QueryStore());
   const [turnMetrics] = useState(() => new TurnMetricsCache());
   const [messageChanges] = useState(() => new Map<string, number>());
   const publish = useRef<(topics: string[]) => void>(() => {});
-  const invalidate = useCallback(() => setVersions(previous => ({ ...previous, all: (previous.all ?? 0) + 1 })), []);
+  const invalidate = useCallback(() => topics.invalidate(['all']), [topics]);
   const invalidateMessage = useCallback((id: string, conversationID?: string) => { const revision = cache.next(); messageChanges.set(id, revision); publish.current([conversationID ? `messages:${conversationID}` : 'messages']); return revision; }, [cache, messageChanges]);
   const { connection, retryConnection } = useRuntimeConnection(event => {
     try {
@@ -148,11 +151,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, invalidate);
   useEffect(() => {
     turnMetrics.activate();
-    const batch = batchTopics(topics => setVersions(previous => {
-      const next = { ...previous };
-      topics.forEach(topic => { next[topic] = (next[topic] ?? 0) + 1; });
-      return next;
-    }));
+    const batch = batchTopics(changed => topics.invalidate(changed));
     function changed(topics: string[]) {
       const expanded = new Set(topics);
       if (topics.includes('settings')) { expanded.add('dreams'); expanded.add('plans'); }
@@ -190,17 +189,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
     });
 
     return () => { unsubscribe(); publish.current = () => {}; cache.clear(); queries.clear(); turnMetrics.clear(); messageChanges.clear(); batch.cancel(); };
-  }, [invalidate, cache, queries, messageChanges]);
+  }, [invalidate, cache, queries, messageChanges, topics]);
   const invalidateTopics = useCallback((topics: string[]) => publish.current(topics), []);
-  const version = (topic: string) => (versions.all ?? 0) + (versions[topic] ?? 0) + (topic.includes(':') ? versions[topic.split(':')[0]] ?? 0 : 0);
   const hasConnectionNotice = connection !== 'connected' && connection !== 'recovered';
-  return <DataContext.Provider value={{ subscribeEvents, version, invalidate, invalidateTopics, connection, hasConnectionNotice, retryConnection, cache, queries, turnMetrics, messageChanges, invalidateMessage }}>{children}</DataContext.Provider>;
+  const data = useMemo(() => ({ subscribeEvents, topics, invalidate, invalidateTopics, cache, queries, turnMetrics, messageChanges, invalidateMessage }), [subscribeEvents, topics, invalidate, invalidateTopics, cache, queries, turnMetrics, messageChanges, invalidateMessage]);
+  const connectionState = useMemo(() => ({ connection, hasConnectionNotice, retryConnection }), [connection, hasConnectionNotice, retryConnection]);
+  return <DataContext.Provider value={data}><ConnectionContext.Provider value={connectionState}>{children}</ConnectionContext.Provider></DataContext.Provider>;
 }
 export const useData = () => useContext(DataContext);
-export const useTopicVersion = (topic: string) => useData().version(topic);
+export function useTopicVersion(topic: string) {
+  const { topics } = useData();
+  const subscribe = useCallback((listener: () => void) => topics.subscribe(topic, listener), [topics, topic]);
+  const snapshot = useCallback(() => topics.version(topic), [topics, topic]);
+  return useSyncExternalStore(subscribe, snapshot);
+}
 export function useQuery<T>(path: string | null, list = false, interval?: QueryInterval<T>) {
-  const { version, queries } = useData();
-  const revision = version(queryTopic(path ?? ''));
+  const { queries } = useData();
+  const revision = useTopicVersion(queryTopic(path ?? ''));
   const key = path ? `${list ? 'list' : 'item'}:${path}` : null;
   const cadence = useMemo(() => interval ?? queryInterval(path ?? ''), [interval, path]);
   const subscribe = useCallback((listener: () => void) => key ? queries.subscribe(key, listener, cadence as QueryInterval) : () => {}, [queries, key, cadence]);

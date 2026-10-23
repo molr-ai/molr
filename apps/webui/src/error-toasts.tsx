@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, u
 import type { ReactNode } from 'react';
 import { useModalScope, useToast } from '@molr/ui';
 import { APIError } from './api/client';
-import { useCopy, useData } from './state';
+import { useCopy, useConnection } from './state';
 
 type Source = { toast: ReturnType<typeof useToast>['toast']; boundary: HTMLElement | null; title: string; waitTitle?: (seconds: number) => string; retryLabel: string; retryAt: number; retry?: () => void };
 type Group = { sources: Map<string, Source>; toastID?: number; boundary?: HTMLElement | null; dismissed: boolean; timer?: ReturnType<typeof setTimeout> };
@@ -68,7 +68,7 @@ export function ErrorToastProvider({ children }: { children: ReactNode }) {
 }
 export function useErrorToasts() { return useContext(Context); }
 export function useErrorToast(error: unknown, retry?: () => void) {
- const errors = useErrorToasts(), { t } = useCopy(), { hasConnectionNotice } = useData(), id = useId();
+ const errors = useErrorToasts(), { t } = useCopy(), { hasConnectionNotice } = useConnection(), id = useId();
  const { toast } = useToast(), boundary = useModalScope()?.container ?? null;
  const retryRef = useRef(retry);
  useLayoutEffect(() => { retryRef.current = retry; });

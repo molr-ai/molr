@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { updates as updateClient, type UpdateStatus } from '@molr/sdk';
 import { AvatarNotice, Badge } from '@molr/ui';
-import { useCopy, useData, useQuery, useSession } from '../state';
+import { useCopy, useConnection, useQuery, useSession } from '../state';
 import { api } from '../api/client';
 import { buildInfo } from '../build-info';
 import type { AppUpdateStatus } from '@molr/ui-host/app';
@@ -32,7 +32,7 @@ function useUpdateState() {
   catch { setDesktopError(true); }
  }, []);
  const query = useQuery<UpdateStatus>('/api/updates', false, 300_000);
- const { connection } = useData();
+ const { connection } = useConnection();
  const reloadRef = useRef(query.reload); reloadRef.current = query.reload;
  const reload = useCallback(() => { refreshDesktop(); return reloadRef.current(); }, [refreshDesktop]);
  const [checking, setChecking] = useState(false), [checkError, setCheckError] = useState(false);

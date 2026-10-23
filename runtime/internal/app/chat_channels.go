@@ -17,7 +17,25 @@ type chatChannel interface {
 	Published(context.Context, core.ID, conversation.Message) error
 	Run(context.Context) error
 }
-type chatChannels struct{ items []chatChannel }
+type chatChannels struct {
+	items         []chatChannel
+	bindingChecks map[string]func(context.Context, core.ID, core.ID) error
+}
+
+func (c *chatChannels) bindingCheck(order ...string) func(context.Context, core.ID, core.ID) error {
+	return func(ctx context.Context, owner, chat core.ID) error {
+		for _, name := range order {
+			check := c.bindingChecks[name]
+			if check == nil {
+				return core.NewError(core.Unavailable, "channel binding checks unavailable")
+			}
+			if err := check(ctx, owner, chat); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+}
 
 func (c *chatChannels) selected(ctx context.Context, owner, chat core.ID) (chatChannel, error) {
 	var selected chatChannel

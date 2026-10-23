@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { poll } from '../../../polling';
 import { api, APIError } from '../../../api/client';
 import type { DebugCleanupEvent, DebugRun, TrajectoryEntry, TrajectoryPage } from '../../../api/types';
-import { useData } from '../../../state';
+import { useTopicVersion } from '../../../state';
 import { mergeEntries } from './trajectory';
 
 type Snapshot = { entries: TrajectoryEntry[]; runs: DebugRun[]; older: string; head: string; resetAt: string | null; cleanup: DebugCleanupEvent | null; loading: boolean; loadingOlder: boolean; error: unknown };
@@ -10,7 +10,7 @@ const initial = (): Snapshot => ({ entries: [], runs: [], older: '', head: '', r
 // One request queue owns the loaded window. Live backfill cannot race an older
 // page, and a reconnect drains every new page rather than replacing the tail.
 export function useTrajectory(assistantID: string) {
-  const { version } = useData(); const revision = version('debug');
+  const revision = useTopicVersion('debug');
   const [snapshot, setSnapshot] = useState<Snapshot>(initial);
   const refresh = useRef<() => void>(() => {}), older = useRef<() => void>(() => {});
   useEffect(() => {

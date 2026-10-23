@@ -44,14 +44,11 @@ test('chat shares queries, batches sidebar activity and scopes live messages to 
   await page.goto('about:blank');
   await page.addInitScript(() => {
     const Original = window.EventSource;
-    (window as any).__replayedReads = [];
+    (window as any).__streamReady = false;
     window.EventSource = class extends Original {
       constructor(url: string | URL, options?: EventSourceInit) {
         super(url, options);
-        this.addEventListener('update', event => {
-          const value = JSON.parse((event as MessageEvent).data);
-          if (value.Topic === 'conversation.read') (window as any).__replayedReads.push(value.ConversationID);
-        });
+        this.addEventListener('ready', () => { (window as any).__streamReady = true; });
       }
     };
   });
@@ -78,8 +75,8 @@ test('chat shares queries, batches sidebar activity and scopes live messages to 
     expect(counts.get(`/api/conversations/${a.ConversationID}/messages`) ?? 0).toBe(0);
   }
   releaseEvents();
-  await expect.poll(() => page.evaluate(id => (window as any).__replayedReads.includes(id), assistants.at(-1)!.ConversationID)).toBe(true);
-  await page.waitForTimeout(750); // Flush the final replay batch before measuring a new event.
+  await expect.poll(() => page.evaluate(() => (window as any).__streamReady)).toBe(true);
+  await page.waitForTimeout(750); // Fresh streams start at the current position; settle the handshake refresh.
   const currentMessages = `/api/conversations/${assistants[0].ConversationID}/messages`;
   const before = counts.get(currentMessages);
   const beforeActivity = counts.get('/api/assistants/activity') ?? 0;

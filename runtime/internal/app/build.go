@@ -327,12 +327,6 @@ func Build(ctx context.Context, cfg config.Config, options ...BuildOptions) (bun
 	if err = b.objects.Recover(ctx); err != nil {
 		return nil, err
 	}
-	var channels *weixin.Service
-	var telegramChannel *telegram.Service
-	var slackChannel *slack.Service
-	var ding *dingtalk.Service
-	var feishuChannel *feishu.Service
-	var qqChannel *qq.Service
 	channelRouter := &chatChannels{}
 	fileService := files.NewService(store, b.objects, files.Options{Authorizer: permissions, AuthorizeChannel: func(ctx context.Context, owner, chat, binding core.ID) error {
 		if len(channelRouter.items) == 0 {
@@ -341,373 +335,17 @@ func Build(ctx context.Context, cfg config.Config, options ...BuildOptions) (bun
 		return channelRouter.AuthorizeChannel(ctx, owner, chat, binding)
 	}, MaxUploadBytes: cfg.Execution.MaxUploadBytes, DiskQuota: func() int64 { return cfg.Execution.MaxDiskBytes }})
 	visible := realtime.NewStore(store)
-	channels, err = weixin.New(store, weixin.Options{LiveSignals: func(owner, id core.ID) []persistence.SignalKey {
-		return []persistence.SignalKey{auth.AccountStateSignal(owner), assistant.StateSignal(owner, id)}
-	}, CheckBinding: func(ctx context.Context, owner, chat core.ID) error {
-		if qqChannel != nil {
-			if err := qqChannel.CheckAvailable(ctx, owner, chat); err != nil {
-				return err
-			}
-		}
-		if feishuChannel != nil {
-			if err := feishuChannel.CheckWebInput(ctx, owner, chat); err != nil {
-				return err
-			}
-		}
-		if ding != nil {
-			if err := ding.CheckAvailable(ctx, owner, chat); err != nil {
-				return err
-			}
-		}
-		if telegramChannel != nil {
-			if err := telegramChannel.CheckWebInput(ctx, owner, chat); err != nil {
-				return err
-			}
-		}
-		if slackChannel != nil {
-			return slackChannel.CheckAvailable(ctx, owner, chat)
-		}
-		return nil
-	}, MasterKey: key, PublicURL: cfg.HTTP.PublicURL, Files: fileService.(files.ChannelStore), MaxMediaBytes: cfg.Execution.MaxUploadBytes,
-		Authorize: func(ctx context.Context, p core.Principal, id core.ID, write bool) (weixin.Target, error) {
-			if err := p.RequireOwner(); err != nil {
-				return weixin.Target{}, err
-			}
-			action := policy.Read
-			if write {
-				action = policy.Write
-			}
-			if err := permissions.Require(ctx, p, policy.CheckRequest{Target: core.Object{Kind: "assistant", ID: id}, Action: action}); err != nil {
-				return weixin.Target{}, err
-			}
-			a, err := assistant.NewRepository(store).Get(ctx, p.OwnerID, id)
-			return weixin.Target{ConversationID: a.ConversationID, Active: a.State == assistant.Active}, err
-		},
-		Live: func(ctx context.Context, owner, id core.ID) error {
-			account, err := auth.NewRepository(store).AccountByID(ctx, owner)
-			if err != nil {
-				return err
-			}
-			if account.Account.Disabled {
-				return core.NewError(core.Forbidden, "account disabled")
-			}
-			a, err := assistant.NewRepository(store).Get(ctx, owner, id)
-			if err != nil {
-				return err
-			}
-			if a.State != assistant.Active {
-				return core.NewError(core.Forbidden, "assistant inactive")
-			}
-			return nil
-		},
-	})
-	if err != nil {
+	if err = b.buildChannels(cfg, key, permissions, fileService.(files.ChannelStore), channelRouter); err != nil {
 		return nil, err
 	}
-	b.weixin = channels
-
-	telegramClient, err := telegram.NewHTTPClient(cfg.Telegram.ProxyURL)
-	if err != nil {
-		return nil, err
-	}
-	telegramChannel, err = telegram.New(store, telegram.Options{LiveSignals: func(owner, id core.ID) []persistence.SignalKey {
-		return []persistence.SignalKey{auth.AccountStateSignal(owner), assistant.StateSignal(owner, id)}
-	}, MasterKey: key, Client: telegramClient, PublicURL: cfg.HTTP.PublicURL, Files: fileService.(files.ChannelStore), MaxMediaBytes: cfg.Execution.MaxUploadBytes, CheckBinding: func(ctx context.Context, owner, chat core.ID) error {
-		if qqChannel != nil {
-			if err := qqChannel.CheckAvailable(ctx, owner, chat); err != nil {
-				return err
-			}
-		}
-		if feishuChannel != nil {
-			if err := feishuChannel.CheckWebInput(ctx, owner, chat); err != nil {
-				return err
-			}
-		}
-		if ding != nil {
-			if err := ding.CheckAvailable(ctx, owner, chat); err != nil {
-				return err
-			}
-		}
-		if err := channels.CheckWebInput(ctx, owner, chat); err != nil {
-			return err
-		}
-		if slackChannel != nil {
-			return slackChannel.CheckAvailable(ctx, owner, chat)
-		}
-		return nil
-	},
-		Authorize: func(ctx context.Context, p core.Principal, id core.ID, write bool) (telegram.Target, error) {
-			if err := p.RequireOwner(); err != nil {
-				return telegram.Target{}, err
-			}
-			action := policy.Read
-			if write {
-				action = policy.Write
-			}
-			if err := permissions.Require(ctx, p, policy.CheckRequest{Target: core.Object{Kind: "assistant", ID: id}, Action: action}); err != nil {
-				return telegram.Target{}, err
-			}
-			a, err := assistant.NewRepository(store).Get(ctx, p.OwnerID, id)
-			return telegram.Target{ConversationID: a.ConversationID, Active: a.State == assistant.Active}, err
-		},
-		Live: func(ctx context.Context, owner, id core.ID) error {
-			account, err := auth.NewRepository(store).AccountByID(ctx, owner)
-			if err != nil {
-				return err
-			}
-			if account.Account.Disabled {
-				return core.NewError(core.Forbidden, "account disabled")
-			}
-			a, err := assistant.NewRepository(store).Get(ctx, owner, id)
-			if err != nil {
-				return err
-			}
-			if a.State != assistant.Active {
-				return core.NewError(core.Forbidden, "assistant inactive")
-			}
-			return nil
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	b.telegram = telegramChannel
-	slackChannel, err = slack.New(store, slack.Options{LiveSignals: func(owner, id core.ID) []persistence.SignalKey {
-		return []persistence.SignalKey{auth.AccountStateSignal(owner), assistant.StateSignal(owner, id)}
-	}, MasterKey: key, PublicURL: cfg.HTTP.PublicURL, Files: fileService.(files.ChannelStore), MaxMediaBytes: cfg.Execution.MaxUploadBytes,
-		Authorize: func(ctx context.Context, p core.Principal, id core.ID, write bool) (slack.Target, error) {
-			if err := p.RequireOwner(); err != nil {
-				return slack.Target{}, err
-			}
-			action := policy.Read
-			if write {
-				action = policy.Write
-			}
-			if err := permissions.Require(ctx, p, policy.CheckRequest{Target: core.Object{Kind: "assistant", ID: id}, Action: action}); err != nil {
-				return slack.Target{}, err
-			}
-			a, err := assistant.NewRepository(store).Get(ctx, p.OwnerID, id)
-			return slack.Target{ConversationID: a.ConversationID, Active: a.State == assistant.Active}, err
-		}, Live: func(ctx context.Context, owner, id core.ID) error {
-			account, err := auth.NewRepository(store).AccountByID(ctx, owner)
-			if err != nil {
-				return err
-			}
-			if account.Account.Disabled {
-				return core.NewError(core.Forbidden, "account disabled")
-			}
-			a, err := assistant.NewRepository(store).Get(ctx, owner, id)
-			if err != nil {
-				return err
-			}
-			if a.State != assistant.Active {
-				return core.NewError(core.Forbidden, "assistant inactive")
-			}
-			return nil
-		},
-		CheckConnect: func(ctx context.Context, owner, chat core.ID) error {
-			if qqChannel != nil {
-				if err := qqChannel.CheckAvailable(ctx, owner, chat); err != nil {
-					return err
-				}
-			}
-			if feishuChannel != nil {
-				if err := feishuChannel.CheckWebInput(ctx, owner, chat); err != nil {
-					return err
-				}
-			}
-			if ding != nil {
-				if err := ding.CheckAvailable(ctx, owner, chat); err != nil {
-					return err
-				}
-			}
-			if err := channels.CheckWebInput(ctx, owner, chat); err != nil {
-				return err
-			}
-			return telegramChannel.CheckWebInput(ctx, owner, chat)
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	b.slack = slackChannel
-
-	ding, err = dingtalk.New(store, dingtalk.Options{LiveSignals: func(owner, id core.ID) []persistence.SignalKey {
-		return []persistence.SignalKey{auth.AccountStateSignal(owner), assistant.StateSignal(owner, id)}
-	}, MasterKey: key, PublicURL: cfg.HTTP.PublicURL, Files: fileService.(files.ChannelStore), MaxMediaBytes: cfg.Execution.MaxUploadBytes,
-		CheckAvailable: func(ctx context.Context, owner, chat core.ID) error {
-			if qqChannel != nil {
-				if err := qqChannel.CheckAvailable(ctx, owner, chat); err != nil {
-					return err
-				}
-			}
-			if feishuChannel != nil {
-				if err := feishuChannel.CheckWebInput(ctx, owner, chat); err != nil {
-					return err
-				}
-			}
-			if err := channels.CheckWebInput(ctx, owner, chat); err != nil {
-				return err
-			}
-			if err := telegramChannel.CheckWebInput(ctx, owner, chat); err != nil {
-				return err
-			}
-			return slackChannel.CheckAvailable(ctx, owner, chat)
-		},
-		Authorize: func(ctx context.Context, p core.Principal, id core.ID, write bool) (dingtalk.Target, error) {
-			if err := p.RequireOwner(); err != nil {
-				return dingtalk.Target{}, err
-			}
-			action := policy.Read
-			if write {
-				action = policy.Write
-			}
-			if err := permissions.Require(ctx, p, policy.CheckRequest{Target: core.Object{Kind: "assistant", ID: id}, Action: action}); err != nil {
-				return dingtalk.Target{}, err
-			}
-			a, err := assistant.NewRepository(store).Get(ctx, p.OwnerID, id)
-			return dingtalk.Target{ConversationID: a.ConversationID, Active: a.State == assistant.Active}, err
-		}, Live: func(ctx context.Context, owner, id core.ID) error {
-			account, err := auth.NewRepository(store).AccountByID(ctx, owner)
-			if err != nil {
-				return err
-			}
-			if account.Account.Disabled {
-				return core.NewError(core.Forbidden, "account disabled")
-			}
-			a, err := assistant.NewRepository(store).Get(ctx, owner, id)
-			if err != nil {
-				return err
-			}
-			if a.State != assistant.Active {
-				return core.NewError(core.Forbidden, "assistant inactive")
-			}
-			return nil
-		}})
-	if err != nil {
-		return nil, err
-	}
-	b.dingtalk = ding
-
-	feishuChannel, err = feishu.New(store, feishu.Options{LiveSignals: func(owner, id core.ID) []persistence.SignalKey {
-		return []persistence.SignalKey{auth.AccountStateSignal(owner), assistant.StateSignal(owner, id)}
-	}, MasterKey: key, PublicURL: cfg.HTTP.PublicURL, CheckBinding: func(ctx context.Context, owner, chat core.ID) error {
-		if qqChannel != nil {
-			if err := qqChannel.CheckAvailable(ctx, owner, chat); err != nil {
-				return err
-			}
-		}
-		if err := channels.CheckWebInput(ctx, owner, chat); err != nil {
-			return err
-		}
-		if err := telegramChannel.CheckWebInput(ctx, owner, chat); err != nil {
-			return err
-		}
-		if err := slackChannel.CheckAvailable(ctx, owner, chat); err != nil {
-			return err
-		}
-		return ding.CheckAvailable(ctx, owner, chat)
-	},
-		Authorize: func(ctx context.Context, p core.Principal, id core.ID, write bool) (feishu.Target, error) {
-			if err := p.RequireOwner(); err != nil {
-				return feishu.Target{}, err
-			}
-			action := policy.Read
-			if write {
-				action = policy.Write
-			}
-			if err := permissions.Require(ctx, p, policy.CheckRequest{Target: core.Object{Kind: "assistant", ID: id}, Action: action}); err != nil {
-				return feishu.Target{}, err
-			}
-			a, err := assistant.NewRepository(store).Get(ctx, p.OwnerID, id)
-			return feishu.Target{ConversationID: a.ConversationID, Active: a.State == assistant.Active}, err
-		},
-		Live: func(ctx context.Context, owner, id core.ID) error {
-			account, err := auth.NewRepository(store).AccountByID(ctx, owner)
-			if err != nil {
-				return err
-			}
-			if account.Account.Disabled {
-				return core.NewError(core.Forbidden, "account disabled")
-			}
-			a, err := assistant.NewRepository(store).Get(ctx, owner, id)
-			if err != nil {
-				return err
-			}
-			if a.State != assistant.Active {
-				return core.NewError(core.Forbidden, "assistant inactive")
-			}
-			return nil
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	b.feishu = feishuChannel
-
-	qqChannel, err = qq.New(store, qq.Options{LiveSignals: func(owner, id core.ID) []persistence.SignalKey {
-		return []persistence.SignalKey{auth.AccountStateSignal(owner), assistant.StateSignal(owner, id)}
-	}, MasterKey: key, PublicURL: cfg.HTTP.PublicURL, CheckBinding: func(ctx context.Context, owner, chat core.ID) error {
-		if err := channels.CheckWebInput(ctx, owner, chat); err != nil {
-			return err
-		}
-		if err := telegramChannel.CheckWebInput(ctx, owner, chat); err != nil {
-			return err
-		}
-		if err := slackChannel.CheckAvailable(ctx, owner, chat); err != nil {
-			return err
-		}
-		if err := feishuChannel.CheckWebInput(ctx, owner, chat); err != nil {
-			return err
-		}
-		return ding.CheckAvailable(ctx, owner, chat)
-	},
-		Authorize: func(ctx context.Context, p core.Principal, id core.ID, write bool) (qq.Target, error) {
-			if err := p.RequireOwner(); err != nil {
-				return qq.Target{}, err
-			}
-			action := policy.Read
-			if write {
-				action = policy.Write
-			}
-			if err := permissions.Require(ctx, p, policy.CheckRequest{Target: core.Object{Kind: "assistant", ID: id}, Action: action}); err != nil {
-				return qq.Target{}, err
-			}
-			a, err := assistant.NewRepository(store).Get(ctx, p.OwnerID, id)
-			return qq.Target{ConversationID: a.ConversationID, Active: a.State == assistant.Active}, err
-		},
-		Live: func(ctx context.Context, owner, id core.ID) error {
-			account, err := auth.NewRepository(store).AccountByID(ctx, owner)
-			if err != nil {
-				return err
-			}
-			if account.Account.Disabled {
-				return core.NewError(core.Forbidden, "account disabled")
-			}
-			a, err := assistant.NewRepository(store).Get(ctx, owner, id)
-			if err != nil {
-				return err
-			}
-			if a.State != assistant.Active {
-				return core.NewError(core.Forbidden, "assistant inactive")
-			}
-			return nil
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	b.qq = qqChannel
-
-	channelRouter.items = []chatChannel{channels, telegramChannel, slackChannel, ding, feishuChannel, qqChannel}
 
 	chat := conversation.NewService(store, conversation.Options{Authorizer: permissions, Visible: visible, CheckWebInput: channelRouter.CheckWebInput, AuthorizeChannel: channelRouter.AuthorizeChannel, ValidateChannelFile: fileService.(files.ChannelStore).ValidateChannelFile, Published: channelRouter.Published})
-	channels.SetReceiver(chat.(weixin.Receiver))
-	telegramChannel.SetReceiver(chat.(telegram.Receiver))
-	slackChannel.SetReceiver(chat.(slack.Receiver))
-	ding.SetReceiver(chat.(dingtalk.Receiver))
-	feishuChannel.SetReceiver(chat.(feishu.Receiver))
-	qqChannel.SetReceiver(chat.(qq.Receiver))
+	b.weixin.SetReceiver(chat.(weixin.Receiver))
+	b.telegram.SetReceiver(chat.(telegram.Receiver))
+	b.slack.SetReceiver(chat.(slack.Receiver))
+	b.dingtalk.SetReceiver(chat.(dingtalk.Receiver))
+	b.feishu.SetReceiver(chat.(feishu.Receiver))
+	b.qq.SetReceiver(chat.(qq.Receiver))
 	providers := adapters.providers()
 	for name, provider := range sandboxProviders(cfg) {
 		providers[name] = provider
@@ -1022,18 +660,18 @@ func Build(ctx context.Context, cfg config.Config, options ...BuildOptions) (bun
 		if err != nil {
 			return nil, err
 		}
-		channelDoc, err := weixinContext(ctx, store, channels, r.Execution)
+		channelDoc, err := weixinContext(ctx, store, b.weixin, r.Execution)
 		if err == nil && channelDoc == nil {
-			channelDoc, err = qqContext(ctx, store, qqChannel, r.Execution)
+			channelDoc, err = qqContext(ctx, store, b.qq, r.Execution)
 		}
 		if err == nil && channelDoc == nil {
-			channelDoc, err = feishuContext(ctx, store, feishuChannel, r.Execution)
+			channelDoc, err = feishuContext(ctx, store, b.feishu, r.Execution)
 		}
 		if err == nil && channelDoc == nil {
-			channelDoc, err = telegramContext(ctx, store, telegramChannel, r.Execution)
+			channelDoc, err = telegramContext(ctx, store, b.telegram, r.Execution)
 		}
 		if err == nil && channelDoc == nil {
-			channelDoc, err = dingtalkContext(ctx, store, ding, r.Execution)
+			channelDoc, err = dingtalkContext(ctx, store, b.dingtalk, r.Execution)
 		}
 		if err != nil {
 			return nil, err
@@ -1041,7 +679,7 @@ func Build(ctx context.Context, cfg config.Config, options ...BuildOptions) (bun
 		if channelDoc != nil {
 			docs = append(docs, *channelDoc)
 		}
-		slackDoc, err := slackContext(ctx, store, slackChannel, r.Execution)
+		slackDoc, err := slackContext(ctx, store, b.slack, r.Execution)
 		if err != nil {
 			return nil, err
 		}
@@ -1228,7 +866,7 @@ func Build(ctx context.Context, cfg config.Config, options ...BuildOptions) (bun
 			}
 		}
 		return b.shellTasks.browserManage(ctx, p, id, q)
-	}, BrowserSettings: b.shellTasks.browserSettings, BrowserStream: b.shellTasks.browserFrames, Updates: updateService, UpgradeInfo: installation, Notifications: notification.New(store, permissions), Weixin: channels, Telegram: telegramChannel, Slack: slackChannel, Dingtalk: ding, Feishu: feishuChannel, QQ: qqChannel, Accounts: identity, Setup: b.setup, DiscoverProviders: func(ctx context.Context, p core.Principal) (any, error) {
+	}, BrowserSettings: b.shellTasks.browserSettings, BrowserStream: b.shellTasks.browserFrames, Updates: updateService, UpgradeInfo: installation, Notifications: notification.New(store, permissions), Weixin: b.weixin, Telegram: b.telegram, Slack: b.slack, Dingtalk: b.dingtalk, Feishu: b.feishu, QQ: b.qq, Accounts: identity, Setup: b.setup, DiscoverProviders: func(ctx context.Context, p core.Principal) (any, error) {
 		if err := identity.RequireAdministrator(ctx, p); err != nil {
 			return nil, err
 		}
