@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"slices"
 	"sort"
 	"time"
 
@@ -247,13 +248,20 @@ func (q *queue) List(ctx context.Context, owner core.ID, r Query) (page core.Pag
 	if r.AssistantID != "" {
 		filters = append(filters, persistence.Eq("Event.AssistantID", r.AssistantID))
 	}
+	query := persistence.Query{Where: filters}
+	// Only cancellation changes a stored state when applying a stop boundary.
+	// Queries that include canceled jobs must also inspect other stored states.
+	if len(r.States) > 0 && !slices.Contains(r.States, Canceled) {
+		// Select candidate keys first so key ordering cannot favor a history scan.
+		query.Any = [][]persistence.Filter{{{Field: "State", Op: "in", Value: r.States}}}
+	}
 	request := r.Page
 	r.Page = core.PageRequest{}
 	err = q.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		var readErr error
 		normalized := map[core.ID]Job{}
 		boundaries := map[string]event.InterruptBoundary{}
-		page, readErr = persistence.Page[Job](ctx, q.store, jobsBucket, persistence.Query{Where: filters}, request, r, func(raw Job) bool {
+		page, readErr = persistence.Page[Job](ctx, q.store, jobsBucket, query, request, r, func(raw Job) bool {
 			job, e := visibleJob(ctx, q.store, raw, boundaries)
 			if e != nil {
 				err = e

@@ -95,7 +95,7 @@
 | `internal/business/todo` | `Repository.Insert` | `TestTDDRepositoryVersionAndIsolation` |
 | `internal/business/todo` | `Repository.Save` | `TestTDDRepositoryVersionAndIsolation` |
 | `internal/business/todo` | `Repository.Delete` | `TestTDDRepositoryVersionAndIsolation` |
-| `internal/search` | `Service.Search` | `TestTDDSearchCombinesAuthorizedSourcesAndCounts`, `TestTDDSearchRechecksRevokedAccessAndCursorScope`, `TestTDDIndexApplyHonorsTombstonesAndSourceVersion` |
+| `internal/search` | `Service.Search` | `TestSearchPagesRetainOnlySelectedHits`, `TestTDDSearchCombinesAuthorizedSourcesAndCounts`, `TestTDDSearchRechecksRevokedAccessAndCursorScope`, `TestTDDIndexApplyHonorsTombstonesAndSourceVersion` |
 | `internal/search` | `Maintenance.Rebuild` | `TestTDDRebuildOwnerOnlyAndStatusIsolation` |
 | `internal/search` | `Maintenance.Status` | `TestTDDRebuildOwnerOnlyAndStatusIsolation` |
 | `internal/search` | `Indexer.Rebuild` | `TestTDDRebuildOwnerOnlyAndStatusIsolation` |

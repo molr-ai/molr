@@ -156,7 +156,7 @@
 | `internal/agent/scheduler` | `Queue.Claim` | `TestTDDQueueClaimSerializesAssistantAndChecksAckIdentity`、`TestTDDQueueRetryHonorsDelayAndCancelPreventsClaim` |
 | `internal/agent/scheduler` | `Queue.Ack` | `TestTDDQueueClaimSerializesAssistantAndChecksAckIdentity` |
 | `internal/agent/scheduler` | `Queue.Retry` | `TestTDDQueueRetryHonorsDelayAndCancelPreventsClaim` |
-| `internal/agent/scheduler` | `Queue.List` | `TestTDDQueueClaimSerializesAssistantAndChecksAckIdentity`、`TestTDDQueueRetryHonorsDelayAndCancelPreventsClaim` |
+| `internal/agent/scheduler` | `Queue.List` | `TestTDDQueueClaimSerializesAssistantAndChecksAckIdentity`、`TestTDDQueueRetryHonorsDelayAndCancelPreventsClaim`、`TestJobListPendingExcludesHistory`、`TestJobListStateFiltersPreserveVisiblePages` |
 | `internal/agent/scheduler` | `Queue.Cancel` | `TestTDDQueueRetryHonorsDelayAndCancelPreventsClaim` |
 | `internal/agent/scheduler` | `MessageConsumer.AcceptMessage` | `TestTDDMessageConsumerWakesOnlyRealUserAndDeduplicates`、`TestTDDMessageConsumerFailureRollsBackInputAndAcknowledgement` |
 

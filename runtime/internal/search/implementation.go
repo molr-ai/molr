@@ -86,7 +86,9 @@ func paginate[T any](items []T, owner core.ID, query any, request core.PageReque
 	if end > len(items) {
 		end = len(items)
 	}
-	result.Items = items[offset:end]
+	// Detach the page so callers do not retain every matched document.
+	result.Items = make([]T, end-offset)
+	copy(result.Items, items[offset:end])
 	if end < len(items) {
 		result.NextCursor = base64.RawURLEncoding.EncodeToString([]byte(scope + strconv.Itoa(end)))
 	}
