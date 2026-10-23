@@ -1,6 +1,7 @@
 // Real Electron processes and storage partitions; the HTTP fixture tests transport
 // isolation. Native Runtime acceptance is a separate test, never inferred here.
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -201,11 +202,17 @@ try {
   try {
     await focus.send('Emulation.setFocusEmulationEnabled', { enabled: true });
     await expect.poll(() => remote('document.hasFocus()')).toBe(true);
-    await app.evaluate(async ({ webContents }, url) => {
+    const copiedText = `molr-desktop-copy-fixture-${randomUUID()}`;
+    await app.evaluate(async ({ webContents }, { url, copiedText }) => {
       const wc = webContents.getAllWebContents().find(c => c.getURL() === url);
-      await wc.executeJavaScript("navigator.clipboard.writeText('molr-desktop-copy-fixture')", true);
-    }, url);
-    assert.equal(await app.evaluate(({ clipboard }) => clipboard.readText()), 'molr-desktop-copy-fixture');
+      await wc.executeJavaScript(`navigator.clipboard.writeText(${JSON.stringify(copiedText)})`, true);
+    }, { url, copiedText });
+    // Wait for the renderer write to become visible to the native reader.
+    // A unique value prevents a previous run's clipboard content from passing.
+    await expect.poll(() => app.evaluate(({ clipboard }) => clipboard.readText()), {
+      timeout: 15000,
+      message: 'The native clipboard should contain the text copied by this renderer',
+    }).toBe(copiedText);
   } finally {
     await focus.send('Emulation.setFocusEmulationEnabled', { enabled: false });
     await focus.detach();
