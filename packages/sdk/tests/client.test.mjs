@@ -136,3 +136,46 @@ test('missing or invalid cookie discovery never sends the pending mutation', asy
     assert.deepEqual(calls, ['/api/auth/me']);
   }
 }));
+
+
+test('only successful non-auth requests notify recovery subscribers, including reads and writes', () => withBrowser(async () => {
+  const client = createClient(); let successes = 0;
+  const unsubscribe = client.onRequestSuccess(() => successes++);
+  globalThis.fetch = async () => Response.json({}, { headers: { 'X-Molr-CSRF-Cookie': 'molr_dev_csrf' } });
+  await client.api.get('/api/auth/me');
+  await client.verifySession();
+  assert.equal(successes, 0);
+  await client.api.get('/api/assistants');
+  await client.api.post('/api/conversations/messages');
+  await client.api.read('/api/plugins/query', {});
+  await client.api.download('/api/files/example');
+  assert.equal(successes, 4);
+  for (const response of [Response.json({}, { status: 503 }), new Response('invalid JSON')]) {
+    globalThis.fetch = async () => response;
+    await assert.rejects(client.api.get('/api/assistants'));
+  }
+  assert.equal(successes, 4);
+  unsubscribe();
+  globalThis.fetch = async () => Response.json({});
+  await client.api.get('/api/assistants');
+  assert.equal(successes, 4);
+}));
+
+for (const cause of ['abort', 'identity-change', 'clear']) {
+  test(`${cause} prevents a stale successful request from waking the current subscription`, () => withBrowser(async () => {
+    const client = createClient();
+    document.cookie = 'molr_dev_csrf=synthetic-first';
+    globalThis.fetch = async () => Response.json({}, { headers: { 'X-Molr-CSRF-Cookie': 'molr_dev_csrf' } });
+    await client.api.get('/api/auth/me');
+    let respond, successes = 0;
+    client.onRequestSuccess(() => successes++);
+    globalThis.fetch = () => new Promise(resolve => { respond = resolve; });
+    const controller = new AbortController();
+    const pending = client.api.get('/api/assistants', controller.signal);
+    if (cause === 'abort') controller.abort();
+    if (cause === 'identity-change') document.cookie = 'molr_dev_csrf=synthetic-second';
+    if (cause === 'clear') client.clearClientState();
+    respond(Response.json({})); await pending;
+    assert.equal(successes, 0);
+  }));
+}

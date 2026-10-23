@@ -9,6 +9,7 @@ export function createClient() {
   const sessionEvents = new EventTarget();
   function onMutation(callback: (path: string) => void) { const changed = (event: Event) => callback((event as CustomEvent<string>).detail); sessionEvents.addEventListener('mutation', changed); return () => sessionEvents.removeEventListener('mutation', changed); }
   function onSessionExpired(callback: () => void) { sessionEvents.addEventListener('expired', callback); return () => sessionEvents.removeEventListener('expired', callback); }
+  function onRequestSuccess(callback: () => void) { sessionEvents.addEventListener('success', callback); return () => sessionEvents.removeEventListener('success', callback); }
   let csrfCookieName = '';
   function csrfToken() {
     if (!csrfCookieName) return '';
@@ -18,7 +19,8 @@ export function createClient() {
 
   const attempts = new Map<string, string>();
   let cooldown: { identity: string; until: number; error: APIError } | undefined;
-  function clearClientState() { attempts.clear(); cooldown = undefined; }
+  let generation = 0;
+  function clearClientState() { attempts.clear(); cooldown = undefined; generation++; }
 
   async function request<T>(path: string, init: RequestInit = {}, csrf?: string, binary = false, readOnly = false, expireOnUnauthorized = false): Promise<T> {
     if (!/^\/api\/[A-Za-z0-9/_-]+(?:\?[^#]*)?$/.test(path) || path.split('?')[0].includes('..') || path.includes('\\')) throw new APIError('invalid_argument');
@@ -32,6 +34,7 @@ export function createClient() {
     if (init.body && typeof init.body === 'string') headers.set('Content-Type', 'application/json');
     if (init.method && init.method !== 'GET') headers.set('X-CSRF-Token', csrf ?? csrfToken());
     const requestIdentity = csrfToken();
+    const requestGeneration = generation;
     if ((readOnly || !init.method || init.method === 'GET') && !path.startsWith('/api/auth/') && cooldown?.identity === requestIdentity && cooldown.until > Date.now()) throw cooldown.error;
     let response: Response;
     try { response = await fetch(path, { ...init, headers, credentials: 'same-origin', cache: 'no-store' }); }
@@ -53,6 +56,9 @@ export function createClient() {
       if (response.status === 429 && !path.startsWith('/api/auth/')) cooldown = { identity: requestIdentity, until: retryAt || Date.now() + 60000, error };
       throw error;
     }
+    // Only current, completed Runtime requests can wake a live subscription.
+    // Authentication checks must not turn a failing SSE into a retry loop.
+    if (!path.startsWith('/api/auth/') && !init.signal?.aborted && requestGeneration === generation && requestIdentity === csrfToken()) sessionEvents.dispatchEvent(new Event('success'));
     if (!readOnly && init.method && init.method !== 'GET') sessionEvents.dispatchEvent(new CustomEvent('mutation', { detail: path }));
     return data as T;
   }
@@ -105,7 +111,7 @@ export function createClient() {
   // Session restoration handles its own 401. A failed live connection instead
   // needs to notify subscribers, while retaining request identity and abort guards.
   const verifySession = (signal?: AbortSignal) => request<unknown>('/api/auth/me', { signal }, undefined, false, false, true);
-  return { api, csrfToken, clearClientState, onMutation, onSessionExpired, verifySession };
+  return { api, csrfToken, clearClientState, onMutation, onSessionExpired, onRequestSuccess, verifySession };
 }
-export const { api, csrfToken, clearClientState, onMutation, onSessionExpired, verifySession } = createClient();
+export const { api, csrfToken, clearClientState, onMutation, onSessionExpired, onRequestSuccess, verifySession } = createClient();
 export type RuntimeClient = ReturnType<typeof createClient>['api'];

@@ -6,7 +6,7 @@ import { createHmac } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test, expect } from '@playwright/test';
-import type { Locator, Page } from '@playwright/test';
+import type { Locator, Page, Request, Route } from '@playwright/test';
 const base = `http://127.0.0.1:${process.env.MOLR_TEST_PORT ?? process.env.MOLR_E2E_PORT ?? 5193}`;
 const csrfCookie = `molr_dev_csrf_p${new URL(base).port}`, sessionCookie = `molr_dev_session_p${new URL(base).port}`;
 const modelOrigin = `http://127.0.0.1:${process.env.MOLR_E2E_MODEL_PORT ?? 18882}`;
@@ -1300,6 +1300,19 @@ test('search matches the shared design, filters real results and opens tasks', a
   await expect(panel).not.toBeVisible(); await expect(page.getByRole('heading', { name: 'Resources', exact: true })).toBeVisible();
 });
 
+// Wait for page queries before advancing connection timers. Successful responses
+// now wake recovery, so late initial loads must not race a simulated timeout.
+function trackPageQueries(page: Page) {
+  const pending = new Set<Request>();
+  page.on('request', request => {
+    const path = new URL(request.url()).pathname;
+    if (path.startsWith('/api/') && path !== '/api/events/stream') pending.add(request);
+  });
+  page.on('requestfinished', request => pending.delete(request));
+  page.on('requestfailed', request => pending.delete(request));
+  return () => expect.poll(() => pending.size).toBe(0);
+}
+
 test('connection logo tracks real offline recovery and keeps its cached artwork', async ({ page, context }, info) => {
   const mobile = info.project.name === 'mobile';
   await login(page);
@@ -1329,6 +1342,7 @@ test('connection logo tracks real offline recovery and keeps its cached artwork'
 test('a stalled connection times out and clicking the logo retries the real stream', async ({ page }, info) => {
   const mobile = info.project.name === 'mobile';
   await page.clock.install();
+  const settleQueries = trackPageQueries(page);
   await page.route('**/api/events/stream*', () => {});
   const failedQueries = new Set<string>();
   const unavailableQueries = /\/api\/(assistants|plans)(\?|$)/;
@@ -1337,13 +1351,15 @@ test('a stalled connection times out and clicking the logo retries the real stre
     return route.fulfill({ status: 503, body: '' });
   });
   await login(page);
+  await expect(page.locator('.assistant-workspace')).toBeVisible();
+  await settleQueries();
   const logo = page.locator('.connection-logo:visible');
   const indicator = mobile ? page.locator('.connection-banner') : logo;
   await expect(indicator).toHaveAttribute('data-connection', 'reconnecting');
   if (!mobile) await expect(logo.locator('.connection-logo__motion img')).toHaveAttribute('src', /-loading\.svg/);
   await page.clock.fastForward(21_000);
   await expect(indicator).toHaveAttribute('data-connection', 'failed');
-  await expect(page.locator('.connection-banner')).toContainText('Reconnection failed');
+  await expect(page.locator('.connection-banner')).toContainText('Live updates unavailable. Retrying automatically.');
   const dangerColors = await page.evaluate(() => {
     const reference = document.createElement('div'); reference.className = 'ui-alert ui-alert--danger'; document.body.append(reference);
     const { backgroundColor, color } = getComputedStyle(reference); reference.remove();
@@ -1356,26 +1372,68 @@ test('a stalled connection times out and clicking the logo retries the real stre
   // sufficient. The banner uses Alert's danger colors in either theme.
   await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click();
   await expect.poll(() => failedQueries.size).toBe(2);
+  await settleQueries();
+  if (await indicator.getAttribute('data-connection') === 'reconnecting') await page.clock.fastForward(21_000);
   await expect(page.getByText('The service is unavailable. Try again shortly.', { exact: true })).toHaveCount(0);
   await page.unroute(unavailableQueries);
-  await page.getByRole('navigation').getByRole('button', { name: 'Assistants', exact: true }).click();
   await page.unroute('**/api/events/stream*');
-  await indicator.getByRole('button', { name: /Retry connection/ }).click();
+  await indicator.getByRole('button', { name: /Retry now/ }).click();
   if (!mobile) await expect(logo).toHaveAttribute('data-connection', 'recovered');
   await page.clock.fastForward(2500);
   if (!mobile) await expect(logo).toHaveAttribute('data-connection', 'connected');
   await expect(page.locator('.connection-banner')).toHaveCount(0);
   // A specific service error while the connection is healthy still needs
   // its own feedback; suppression must not silence normal operation errors.
+  await page.getByRole('navigation').getByRole('button', { name: 'Assistants', exact: true }).click();
   await page.route('**/api/plans?*', route => route.fulfill({ status: 503, body: '' }));
   await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click();
   await expect(page.getByText('The service is unavailable. Try again shortly.', { exact: true })).toBeVisible();
 });
 
+for (const trigger of ['timer', 'get', 'post'] as const) {
+  test(`failed live updates recover through ${trigger} without an online event or manual retry`, async ({ page }) => {
+    await page.clock.install();
+    const settleQueries = trackPageQueries(page);
+    let attempts = 0, pendingStream: Route | undefined;
+    await page.route('**/api/events/stream*', route => { attempts++; pendingStream = route; });
+    await login(page);
+    await expect(page.locator('.assistant-workspace')).toBeVisible();
+    await settleQueries();
+    const settings = await (await page.request.get('/api/settings')).json();
+    const notice = page.locator('.connection-banner');
+    await expect(notice).toHaveAttribute('data-connection', 'reconnecting');
+    await page.clock.fastForward(21_000);
+    await expect(notice).toHaveAttribute('data-connection', 'failed');
+    const before = attempts;
+    expect(before).toBeGreaterThan(0);
+    expect(await page.evaluate(() => navigator.onLine)).toBe(true);
+    if (trigger !== 'timer') {
+      const clientPath = `/@fs${new URL('../../../packages/sdk/src/client.ts', import.meta.url).pathname}`;
+      // The same SDK instance used by the page, with real authenticated API responses.
+      await page.evaluate(async ({ path, trigger, settings }) => {
+        const { api } = await import(/* @vite-ignore */ path);
+        if (trigger === 'get') await api.get('/api/assistants');
+        else await api.mutate('/api/settings', { Settings: settings }, settings.Version);
+      }, { path: clientPath, trigger, settings });
+      await expect.poll(() => attempts).toBe(before + 1);
+      // API success starts an attempt; it cannot hide the notice before SSE ready.
+      await expect(notice).toHaveAttribute('data-connection', 'reconnecting');
+      await pendingStream!.continue();
+    } else {
+      await page.unroute('**/api/events/stream*');
+      await page.clock.fastForward(5500);
+    }
+    await expect(notice).toHaveCount(0);
+  });
+}
+
 test('connection notices stay above page cards across routes and short viewports', async ({ page }) => {
   await page.clock.install();
+  const settleQueries = trackPageQueries(page);
   await page.route('**/api/events/stream*', () => {});
   await login(page);
+  await expect(page.locator('.assistant-workspace')).toBeVisible();
+  await settleQueries();
   await page.clock.fastForward(21_000);
   const notice = page.locator('.connection-banner');
   await expect(notice).toHaveAttribute('data-connection', 'failed');
@@ -1385,17 +1443,22 @@ test('connection notices stay above page cards across routes and short viewports
     for (const [route, ready] of Object.entries({ assistants: '.assistant-workspace', plans: '.plans-workspace', resources: '.resources-workspace', account: '.settings-workspace', settings: '.settings-workspace' })) {
       await page.evaluate(route => { location.hash = `#/${route}`; }, route);
       await expect(page.locator(`.workspace-main[data-page='${route}'] ${ready}`)).toBeVisible();
+      await settleQueries();
+      // Successful navigation queries may switch the notice to reconnecting.
+      await expect(notice).toBeVisible();
       await expectFitsWebView(page);
       const [bannerBox, cardBox] = await readLayout(notice, page.locator('.workspace-main'));
       expect(cardBox.y - (bannerBox.y + bannerBox.height)).toBeCloseTo(8, 0);
       await expect(notice).toHaveCSS('border-radius', '16px');
-      const button = notice.getByRole('button', { name: 'Retry connection' });
+      const button = notice.getByRole('button', { name: 'Retry now' });
       const color = await notice.evaluate(element => getComputedStyle(element).color);
-      await expect(button).toHaveCSS('color', color);
+      if (await button.count()) await expect(button).toHaveCSS('color', color);
     }
   }
   await page.unroute('**/api/events/stream*');
-  await notice.getByRole('button', { name: 'Retry connection' }).click();
+  // Finish the current attempt and allow automatic recovery after removing the outage.
+  await page.clock.fastForward(21_000);
+  await page.clock.fastForward(5500);
   await expect(notice).toHaveCount(0);
   await expectFitsWebView(page);
 });

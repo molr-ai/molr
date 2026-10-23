@@ -1,13 +1,15 @@
-import { verifySession as checkSession } from './client';
+import { onRequestSuccess, onSessionExpired, verifySession as checkSession } from './client';
 export type RuntimeConnection = 'reconnecting' | 'connected' | 'recovered' | 'disconnected' | 'failed';
 const connectionTimeout = 20_000;
 const recoveryDuration = 2400;
+const wakeInterval = 5000;
 /** Browser SSE transport with resumable reconnect and session-expiry checks. */
 export function subscribeRuntime(options: { onUpdate: (event: MessageEvent) => void; onRestore: () => void; onConnection: (state: RuntimeConnection) => void }) {
   let active = true, interrupted = false, cursor = '';
   let stream: EventSource | null = null, authCheck: AbortController | null = null;
-  let deadline: ReturnType<typeof setTimeout> | undefined, recovery: ReturnType<typeof setTimeout> | undefined;
-  function clearTimers() { clearTimeout(deadline); deadline = undefined; clearTimeout(recovery); recovery = undefined; }
+  let deadline: ReturnType<typeof setTimeout> | undefined, recovery: ReturnType<typeof setTimeout> | undefined, reconnect: ReturnType<typeof setTimeout> | undefined;
+  let retryDelay = 5000, retryAt = 0, lastAttempt = -Infinity;
+  function clearTimers() { clearTimeout(deadline); deadline = undefined; clearTimeout(recovery); recovery = undefined; clearTimeout(reconnect); reconnect = undefined; retryAt = 0; }
   function closeStream() { if (stream) { stream.onopen = null; stream.onerror = null; stream.close(); stream = null; } }
   function cancelAuthCheck() { authCheck?.abort(); authCheck = null; }
   function disconnected() {
@@ -16,8 +18,18 @@ export function subscribeRuntime(options: { onUpdate: (event: MessageEvent) => v
     if (active) options.onConnection('disconnected');
   }
   function failed() {
+    if (!active) return;
+    if (!navigator.onLine) { disconnected(); return; }
     interrupted = true; clearTimers(); closeStream();
-    if (active) options.onConnection(navigator.onLine ? 'failed' : 'disconnected');
+    options.onConnection('failed');
+    schedule(Math.min(30_000, retryDelay * (0.9 + Math.random() * 0.2)));
+    retryDelay = Math.min(30_000, retryDelay * 2);
+  }
+  function schedule(delay: number) {
+    const at = Date.now() + delay;
+    if (reconnect !== undefined && retryAt <= at) return;
+    clearTimeout(reconnect); retryAt = at;
+    reconnect = setTimeout(connect, delay);
   }
   function armDeadline() { if (deadline === undefined) deadline = setTimeout(failed, connectionTimeout); }
   function verifySession() {
@@ -30,6 +42,7 @@ export function subscribeRuntime(options: { onUpdate: (event: MessageEvent) => v
     if (!active) return;
     clearTimers(); closeStream(); cancelAuthCheck();
     if (!navigator.onLine) { disconnected(); return; }
+    lastAttempt = Date.now();
     options.onConnection('reconnecting'); armDeadline();
     const current = new EventSource(`/api/events/stream${cursor ? `?after=${encodeURIComponent(cursor)}` : ''}`);
     stream = current;
@@ -37,6 +50,10 @@ export function subscribeRuntime(options: { onUpdate: (event: MessageEvent) => v
       if (!active || stream !== current) return;
       const message = event as MessageEvent;
       if (message.lastEventId) cursor = message.lastEventId;
+      clearTimers(); cancelAuthCheck(); retryDelay = 5000;
+      options.onConnection(interrupted ? 'recovered' : 'connected');
+      if (interrupted) recovery = setTimeout(() => { if (active && stream === current) options.onConnection('connected'); }, recoveryDuration);
+      interrupted = false;
       // Snapshots may have loaded before the server fixed this subscription's
       // position. Refresh once after the handshake to cover that race.
       options.onRestore();
@@ -47,13 +64,6 @@ export function subscribeRuntime(options: { onUpdate: (event: MessageEvent) => v
       if (message.lastEventId) cursor = message.lastEventId;
       options.onUpdate(message);
     });
-    current.onopen = () => {
-      if (!active || stream !== current) return;
-      clearTimers(); cancelAuthCheck();
-      options.onConnection(interrupted ? 'recovered' : 'connected');
-      if (interrupted) recovery = setTimeout(() => { if (active && stream === current) options.onConnection('connected'); }, recoveryDuration);
-      interrupted = false;
-    };
     current.onerror = () => {
       if (!active || stream !== current) return;
       interrupted = true; clearTimeout(recovery); recovery = undefined;
@@ -61,17 +71,27 @@ export function subscribeRuntime(options: { onUpdate: (event: MessageEvent) => v
       options.onConnection('reconnecting'); armDeadline();
       verifySession();
       // Native EventSource retries transient errors with Last-Event-ID. A
-      // terminal HTTP error or an attempt exceeding 20 s needs manual retry.
+      // terminal HTTP error or an attempt exceeding 20 s starts backoff.
       if (current.readyState === EventSource.CLOSED) failed();
     };
   }
-  const online = () => { if (stream?.readyState !== EventSource.OPEN) connect(); };
+  function wake() {
+    if (!active || stream || !navigator.onLine) return;
+    const delay = Math.max(0, lastAttempt + wakeInterval - Date.now());
+    if (delay) schedule(delay);
+    else connect();
+  }
+  const visible = () => { if (document.visibilityState === 'visible') wake(); };
   const retry = () => { interrupted = true; connect(); };
-  window.addEventListener('offline', disconnected); window.addEventListener('online', online);
-  connect();
-  const dispose = () => {
+  function dispose() {
     active = false; clearTimers(); closeStream(); cancelAuthCheck();
-    window.removeEventListener('offline', disconnected); window.removeEventListener('online', online);
-  };
+    window.removeEventListener('offline', disconnected); window.removeEventListener('online', wake); window.removeEventListener('focus', wake);
+    document.removeEventListener('visibilitychange', visible);
+    unsubscribeSuccess(); unsubscribeExpired();
+  }
+  const unsubscribeSuccess = onRequestSuccess(wake), unsubscribeExpired = onSessionExpired(dispose);
+  window.addEventListener('offline', disconnected); window.addEventListener('online', wake); window.addEventListener('focus', wake);
+  document.addEventListener('visibilitychange', visible);
+  connect();
   return { retry, dispose };
 }

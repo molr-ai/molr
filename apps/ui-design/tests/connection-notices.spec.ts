@@ -11,9 +11,9 @@ test('connection notices support preview states, retry and recovery without a se
   await expect(page.getByRole('tab', { name: 'Feedback', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(notice).toHaveAttribute('data-connection', 'reconnecting');
   await expect(notice.getByRole('button')).toHaveCount(0);
-  await example.getByRole('radio', { name: 'Disconnected', exact: true }).check();
+  await example.getByRole('radio', { name: 'Network offline', exact: true }).check();
   await expect(notice).toHaveAttribute('data-connection', 'disconnected');
-  const retry = notice.getByRole('button', { name: 'Retry connection' });
+  const retry = notice.getByRole('button', { name: 'Retry now' });
   await expect(retry).toHaveCSS('font-size', '12px');
   await expect(retry).toHaveCSS('color', await notice.evaluate(element => getComputedStyle(element).color));
   await retry.click();
@@ -23,7 +23,7 @@ test('connection notices support preview states, retry and recovery without a se
   await example.getByRole('button', { name: 'Preview failed reconnection' }).click();
   await expect(notice).toHaveAttribute('data-connection', 'failed');
   await example.getByRole('button', { name: 'Preview successful reconnection' }).click();
-  await example.getByRole('radio', { name: 'Disconnected', exact: true }).check();
+  await example.getByRole('radio', { name: 'Network offline', exact: true }).check();
   await page.waitForTimeout(2000);
   await expect(notice).toHaveAttribute('data-connection', 'disconnected');
   expect(await example.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
@@ -40,7 +40,7 @@ test('connection notices respect reduced motion and translate their labels', asy
   await page.evaluate(() => localStorage.setItem('molr-ui-design-locale', 'zh'));
   await page.reload();
   await expect(example.getByRole('heading', { name: '连接提示', exact: true })).toBeVisible();
-  await example.getByRole('radio', { name: '重连失败', exact: true }).check();
-  await expect(example.locator('.connection-banner')).toContainText('重连失败');
-  await expect(example.locator('.connection-banner').getByRole('button', { name: '重试连接' })).toBeVisible();
+  await example.getByRole('radio', { name: '实时更新暂不可用，正在自动重试', exact: true }).check();
+  await expect(example.locator('.connection-banner')).toContainText('实时更新暂不可用，正在自动重试');
+  await expect(example.locator('.connection-banner').getByRole('button', { name: '立即重试' })).toBeVisible();
 });

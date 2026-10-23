@@ -9,6 +9,8 @@ The direct client authenticates with same-origin cookies/CSRF. Runtime responses
 
 A fresh SSE subscription starts at the current committed position. The SDK retains the cursor from the server’s `ready` handshake and invokes `onRestore()` to refresh snapshots after subscription setup; reconnects resume from the last received cursor.
 
+Connection status becomes healthy only after the `ready` handshake, not the transport's `open` event. Native EventSource handles transient retries within a 20-second attempt; a terminal error or timeout closes that attempt and schedules another with approximately 5, 10, 20, then at most 30 seconds of backoff and jitter. Offline pauses retries. Online, focus, visible-page and successful non-auth API signals can advance the next attempt, with a five-second minimum between automatically awakened attempts; they never replace an active stream. `onRequestSuccess()` excludes failed, cancelled and obsolete-session responses. Only `ready` clears the notice, resets backoff and refreshes snapshots. Disposal and confirmed session expiry remove listeners and stop retries.
+
 SSE failures verify the current browser session through `verifySession()`. A current, uncancelled 401 emits the session-expired notification; ordinary `/api/auth/me` restoration remains caller-managed. Reconnect, recovery and disposal cancel obsolete checks, and responses from a previous cookie identity cannot expire the new session. Run `npm run test --workspace @molr/sdk` for the transport regressions.
 
 Read and download requests preserve `AbortError` when cancelled, including while the response body is being read. Malformed successful JSON remains an `invalid_response` error. Run `npm run test --workspace @molr/sdk` for client transport regressions.
