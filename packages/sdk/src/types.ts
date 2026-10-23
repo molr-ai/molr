@@ -61,7 +61,7 @@ export type PlanEvent = { Key: string; At: string; Plan: Plan };
 export type PlanLinks = { Ref: PlanRef; Dependencies: PlanRef[] | null; Handoff: 'notify' | 'automatic'; Paused: boolean; Version: number; Dispatched: boolean; Runs: PlanExecution[] | null };
 export type Plan = { Ref: PlanRef; Title: string; AssistantID: string; Todo: Todo | null; Schedule: Schedule | null; Links: PlanLinks; Executions: PlanExecutionSummary[]; ExecutionCount: number; HasSuccessors: boolean; Occurrences: string[]; BlockedBy: PlanRef[]; Ready: boolean };
 export type TrajectoryEntry = { RunID: ID; Step: DebugStep };
-export type TrajectoryPage = { Items: TrajectoryEntry[]; Runs: DebugRun[]; NextCursor: string; HeadCursor: string; ContextResetAt: string | null; Cleanup: DebugCleanupEvent | null };
+export type TrajectoryPage = { Items: TrajectoryEntry[]; Runs: DebugRun[]; RunsCursor: string; RunsReset: boolean; NextCursor: string; HeadCursor: string; ContextResetAt: string | null; Cleanup: DebugCleanupEvent | null };
 
 export type DebugSource = { Kind: string; Title: string; Text: string; Status: string; Origin: string; ID: ID; Version: number; AttachmentIDs: ID[] | null; Truncated: boolean };
 

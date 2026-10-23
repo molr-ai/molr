@@ -7,6 +7,12 @@ export type TrajectoryRecord = {
   start: number; end?: number; duration?: number; state: string; partial: boolean;
 };
 export const entryID = (entry: TrajectoryEntry) => `${entry.RunID}:${entry.Step.Sequence}`;
+export function mergeRuns(before: DebugRun[], incoming: DebugRun[], reset: boolean) {
+  if (!reset && !incoming.length) return before;
+  const runs = new Map((reset ? [] : before).map(run => [run.ID, run]));
+  incoming.forEach(run => runs.set(run.ID, run));
+  return [...runs.values()].sort((a, b) => (a.FirstRevision ?? 0) - (b.FirstRevision ?? 0) || a.StartedAt.localeCompare(b.StartedAt) || a.ID.localeCompare(b.ID));
+}
 export function mergeEntries(before: TrajectoryEntry[], incoming: TrajectoryEntry[], runs: DebugRun[]) {
   const retained = new Set(runs.map(run => run.ID));
   const entries = new Map(before.filter(entry => retained.has(entry.RunID)).map(entry => [entryID(entry), entry]));

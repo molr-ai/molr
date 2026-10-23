@@ -472,7 +472,11 @@ func saveRun(ctx context.Context, tx persistence.Tx, run Run) error {
 		return err
 	}
 	run.Steps = nil
-	return tx.Put(ctx, "debug.summaries", persistence.Key(run.OwnerID, run.ID), run)
+	var revision uint64
+	if err := tx.Get(ctx, "debug.revisions", string(run.OwnerID), &revision); err != nil && !persistence.Missing(err) {
+		return err
+	}
+	return tx.Put(ctx, "debug.summaries", persistence.Key(run.OwnerID, run.ID), storedSummary{Run: run, UpdatedRevision: revision + 1})
 }
 
 // ResetContext is gated independently of the normal assistant/chat API.

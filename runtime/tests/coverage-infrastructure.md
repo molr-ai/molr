@@ -126,7 +126,7 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/pricing` | `NewExchange`, `Exchange.Reload`, `Exchange.Snapshot`, `ExchangeReader.Snapshot`, `ExchangeSnapshot.Convert` | `TestExchangePreservesSnapshotsAndIntegerAmounts` |
 
 | `internal/debugtrace` | `New`, `Service.Begin`, `Service.Record`, `Service.Finish`, `Service.Runs`, `Service.Get`, `Service.Detail`, `Service.Revision`, `Reader.Runs`, `Reader.Get`, `Reader.Detail`, `Reader.Revision` | `TestCaptureIsolationRedactionAndSnapshots` |
-| `internal/debugtrace` | `Service.Trajectory`, `Reader.Trajectory`, `Control.Trajectory` | `TestTrajectoryPagingLiveBackfillAndScopedCursors`, `TestTrajectoryRetentionLegacyPreviewAndIncompletePayload`, `TestTrajectoryOwnerIsolationAndPreviewBounds` |
+| `internal/debugtrace` | `Service.Trajectory`, `Reader.Trajectory`, `Control.Trajectory` | `TestTrajectoryPagingLiveBackfillAndScopedCursors`, `TestTrajectoryRetentionLegacyPreviewAndIncompletePayload`, `TestTrajectoryOwnerIsolationAndPreviewBounds`, `TestTrajectorySummarySyncStateCleanupAndRollback`, `TestTrajectorySummaryCursorIndependentOfStepPaging`, `TestTrajectorySummarySyncScopeResetAndAuthorization`, `TestTrajectoryIdleSyncDoesNotReadRetainedHistory` |
 | `internal/debugtrace` | `Service.Recover` | `TestLimitsRecoveryAndDistinctAttempts` |
 | `internal/debugtrace` | `Service.Checkpoint`, `Reader.Checkpoint` | `TestCheckpointOwnerOnlyAndObservationFailureDoesNotFailExecution` |
 

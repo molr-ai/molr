@@ -27,6 +27,7 @@ func (s *Service) prune(ctx context.Context, tx persistence.Tx, owner, keep core
 	q.ThenBy = "FirstRevision"
 	q.Limit = 200
 	q.Fields = []string{"ID", "AssistantID", "StartedAt", "FirstRevision"}
+	resetMarked := false
 	for count > int64(policy.MaxRuns) {
 		rows, err := tx.Query(ctx, "debug.summaries", q)
 		if err != nil {
@@ -63,6 +64,17 @@ func (s *Service) prune(ctx context.Context, tx persistence.Tx, owner, keep core
 			}
 			if err = tx.Put(ctx, "debug.cleanup", persistence.Key(owner, run.AssistantID), CleanupEvent{At: s.options.Now().UTC(), Policy: policy}); err != nil {
 				return err
+			}
+			// A deletion invalidates summary snapshots without retaining tombstones.
+			if !resetMarked {
+				var revision uint64
+				if err := tx.Get(ctx, "debug.revisions", string(owner), &revision); err != nil && !persistence.Missing(err) {
+					return err
+				}
+				if err := tx.Put(ctx, "debug.summary_resets", string(owner), revision+1); err != nil {
+					return err
+				}
+				resetMarked = true
 			}
 			count--
 			if count <= int64(policy.MaxRuns) {

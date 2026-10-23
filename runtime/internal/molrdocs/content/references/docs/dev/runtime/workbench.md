@@ -60,14 +60,14 @@
 
 凭证字段识别复用只读的字段名替换器，统一移除下划线与连字符并转为小写；替换器可供多个采集任务并发使用。每次采集仍独立解析和脱敏负载，不缓存业务内容。字符串中的嵌套 JSON 对象和数组允许前导空格、制表符、回车及换行，内部敏感字段仍递归脱敏；无需脱敏且无多余尾部内容的 JSON 字符串逐字保留。文本凭证模式、深度及大小限制继续生效。
 
-`internal/debugtrace` 是单体 Runtime 中的固定模块，使用现有事务存储：`debug.runs` 保存运行和步骤元数据，`debug.summaries` 提供轻量列表与保留策略索引，`debug.payloads` 保存采集状态与共享内容引用标记，完整详情由 `contextstore` 按需还原，`debug.revisions` 提供实时通知游标。`debug.cleanup` 按所有者和被清理助理保存最新清理事件，与实际删除处于同一事务，不保存被删除的私有内容。Agent Loop、模型适配器和预算模块通过可选观察入口记录数据。调试读取接口与业务执行接口分开，工作台不能伪造运行身份、工具调用或结算凭据。
+`internal/debugtrace` 是单体 Runtime 中的固定模块，使用现有事务存储：`debug.runs` 保存运行和步骤元数据，`debug.summaries` 提供轻量列表与保留策略索引，`debug.payloads` 保存采集状态与共享内容引用标记，完整详情由 `contextstore` 按需还原，`debug.revisions` 提供实时通知游标。摘要写入持久化 `UpdatedRevision`，`debug.summary_resets` 保存账号最近一次实际清理的修订号；这些标记与对应写入或删除在同一事务提交，不保留逐项删除日志。`debug.cleanup` 按所有者和被清理助理保存最新清理事件，与实际删除处于同一事务，不保存被删除的私有内容。Agent Loop、模型适配器和预算模块通过可选观察入口记录数据。调试读取接口与业务执行接口分开，工作台不能伪造运行身份、工具调用或结算凭据。
 
 | 方法 | 路径 | 用途 |
 | --- | --- | --- |
 | GET | `/api/status` | `workbench_available` 标明部署能力 |
 | GET | `/api/debug/retention` | 生效策略及当前账号用量，不受个人显示开关影响 |
 | GET / POST | `/api/admin/debug/retention` | 管理员读取／保存安装级保留策略 |
-| GET | `/api/debug/trajectory?assistant_id=&limit=&cursor=&after=` | 跨 Run 的轻量轨迹分页及增量补齐 |
+| GET | `/api/debug/trajectory?assistant_id=&limit=&cursor=&after=&runs_cursor=` | 跨 Run 的轻量轨迹分页及增量补齐 |
 | GET | `/api/debug/runs?assistant_id=&limit=&cursor=` | 分页执行列表 |
 | GET | `/api/debug/runs/{id}` | 时间线元数据 |
 | GET | `/api/debug/runs/{id}/steps/{step}` | 选中步骤负载 |
@@ -75,7 +75,9 @@
 | POST | `/api/debug/assistants/{id}/context/reset` | 重置指定助理的私有运行上下文 |
 | GET | `/api/debug/stream` | 独立实时通知流 |
 
-轨迹接口返回 `Items`（RunID 与步骤元数据）、当前保留范围内的 `Runs` 摘要、`NextCursor`、`HeadCursor` 和指定助理的 `ContextResetAt`、`Cleanup`（最近一次真实清理的时间 `At` 与策略快照 `Policy`，未发生时为 `null`）。完整上下文和请求体仍由步骤详情接口按需读取。`limit` 默认 50、最大 200：不带游标读取最新一页；`cursor` 向前读取更早页；`after` 按采集顺序补入更新，二者不能同时使用。每页 Items 从旧到新排列；实时补齐时继续使用 NextCursor，直到为空，再保留 HeadCursor 等待下次通知。
+轨迹接口返回 `Items`（RunID 与步骤元数据）、`Runs` 摘要及其同步状态 `RunsReset`、`RunsCursor`、`NextCursor`、`HeadCursor` 和指定助理的 `ContextResetAt`、`Cleanup`（最近一次真实清理的时间 `At` 与策略快照 `Policy`，未发生时为 `null`）。完整上下文和请求体仍由步骤详情接口按需读取。`limit` 默认 50、最大 200：不带游标读取最新一页；`cursor` 向前读取更早页；`after` 按采集顺序补入更新，二者不能同时使用。每页 Items 从旧到新排列；实时补齐时继续使用 NextCursor，直到为空，再保留 HeadCursor 等待下次通知。
+
+摘要使用独立的 `runs_cursor` 同步。首次请求不传该参数，返回完整保留列表并设置 `RunsReset=true`；之后每次请求（包括历史补载和实时补齐的后续页）传回上次的 `RunsCursor`，只按 Run ID 合并变化的 `Runs`。状态结束、重启恢复等没有新增步骤的变更也会更新摘要修订号。发生实际清理后，服务端返回 `RunsReset=true` 和完整保留列表；客户端替换摘要并移除已过期 Run 的已加载步骤。摘要游标绑定账号和助理，不能代替鉴权，也不能代替步骤的 `HeadCursor`／`NextCursor`。摘要、步骤、清理标记和两个游标来自同一读取事务；空闲增量响应不重新读取或发送未变的摘要，客户端复用已有数组，避免重新计算整段轨迹。首次快照及清理后的核对仍需读取完整保留列表，历史步骤页仍按现有范围选择候选。
 
 游标绑定所有者和助理筛选，记录被保留策略移除后仍能继续分页。新采集的步骤持有同一事务生成的递增修订号，避免相同时间戳或系统时间回拨造成漏读；旧记录按时间、Run ID 与步骤序号排序。工具语义摘要 `Summary` 在截断前从已保存的完整脱敏负载提取，返回文本或实际结果条数，不为列表额外加载详情。步骤摘要仅从已脱敏内容生成，工具名最多 80 字符、摘要最多 240 字符（截断另附省略号），超限／不可用负载不生成摘要。旧记录按当前请求页从已保存负载提取摘要，不重放外部请求。运行摘要维护首尾修订号，实时读取可跳过没有新增步骤的运行。
 

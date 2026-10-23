@@ -45,7 +45,7 @@ test('timeline scrolling reuses formatters and account timezone changes update t
       { RunID: run.ID, Step: { Sequence: 2, Revision: index * 2 + 2, Kind: 'model.complete', OperationID: 'model-' + index, At: run.FinishedAt!, State: 'succeeded', DataStatus: 'captured' } },
     ]);
     runs[0].State = 'failed'; entries[1].Step.State = 'failed'; entries[1].Step.NextRetryAt = '2026-01-01T01:03:03Z';
-    await page.route('**/api/debug/trajectory?*', route => route.fulfill({ json: { Items: new URL(route.request().url()).searchParams.has('after') ? [] : entries, Runs: runs, NextCursor: '', HeadCursor: 'synthetic-head', ContextResetAt: '2026-01-01T01:01:00Z', Cleanup: null } }));
+    await page.route('**/api/debug/trajectory?*', route => route.fulfill({ json: { Items: new URL(route.request().url()).searchParams.has('after') ? [] : entries, Runs: runs, RunsReset: true, RunsCursor: 'synthetic-runs', NextCursor: '', HeadCursor: 'synthetic-head', ContextResetAt: '2026-01-01T01:01:00Z', Cleanup: null } }));
     await page.goto('/#/workbench/' + assistant.ID); await page.reload();
     const scroll = page.locator('.trajectory-scroll'); await expect(scroll).toBeVisible();
     await scroll.evaluate(element => { element.scrollTop = 0; element.dispatchEvent(new Event('scroll', { bubbles: true })); });

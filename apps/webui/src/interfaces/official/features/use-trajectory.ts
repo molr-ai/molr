@@ -3,10 +3,10 @@ import { poll } from '../../../polling';
 import { api, APIError } from '../../../api/client';
 import type { DebugCleanupEvent, DebugRun, TrajectoryEntry, TrajectoryPage } from '../../../api/types';
 import { useTopicVersion } from '../../../state';
-import { mergeEntries } from './trajectory';
+import { mergeEntries, mergeRuns } from './trajectory';
 
-type Snapshot = { entries: TrajectoryEntry[]; runs: DebugRun[]; older: string; head: string; resetAt: string | null; cleanup: DebugCleanupEvent | null; loading: boolean; loadingOlder: boolean; error: unknown };
-const initial = (): Snapshot => ({ entries: [], runs: [], older: '', head: '', resetAt: null, cleanup: null, loading: true, loadingOlder: false, error: null });
+type Snapshot = { entries: TrajectoryEntry[]; runs: DebugRun[]; older: string; head: string; runsCursor: string; resetAt: string | null; cleanup: DebugCleanupEvent | null; loading: boolean; loadingOlder: boolean; error: unknown };
+const initial = (): Snapshot => ({ entries: [], runs: [], older: '', head: '', runsCursor: '', resetAt: null, cleanup: null, loading: true, loadingOlder: false, error: null });
 // One request queue owns the loaded window. Live backfill cannot race an older
 // page, and a reconnect drains every new page rather than replacing the tail.
 export function useTrajectory(assistantID: string) {
@@ -19,10 +19,15 @@ export function useTrajectory(assistantID: string) {
     const commit = (patch: Partial<Snapshot>) => { if (controller.signal.aborted) return; current = { ...current, ...patch }; setSnapshot(current); };
     const request = (cursor = '', after = '') => {
       const query = new URLSearchParams({ assistant_id: assistantID, limit: '100' });
+      if (current.runsCursor) query.set('runs_cursor', current.runsCursor);
       if (cursor) query.set('cursor', cursor); if (after) query.set('after', after);
       return api.get<TrajectoryPage>(`/api/debug/trajectory?${query}`, controller.signal);
     };
-    const receive = (page: TrajectoryPage) => commit({ entries: mergeEntries(current.entries, page.Items, page.Runs), runs: page.Runs, resetAt: page.ContextResetAt, cleanup: page.Cleanup, error: null });
+    const receive = (page: TrajectoryPage) => {
+      const runs = mergeRuns(current.runs, page.Runs, page.RunsReset);
+      const entries = !page.RunsReset && !page.Items.length ? current.entries : mergeEntries(current.entries, page.Items, runs);
+      commit({ entries, runs, runsCursor: page.RunsCursor, resetAt: page.ContextResetAt, cleanup: page.Cleanup, error: null });
+    };
     const enqueue = (job: () => Promise<void>) => {
       const result = queue.then(async () => { if (controller.signal.aborted) return; try { await job(); } catch (error) {
         if (controller.signal.aborted) return;

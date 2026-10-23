@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import type { DebugRun, DebugStep, TrajectoryEntry } from '../src/api/types';
 import { trajectoryAxisItems, axisPositions, axisRangeIndices, trajectoryAxisFilter } from '../src/interfaces/official/features/trajectory-axis';
-import { mergeEntries, projectTrajectory, trajectoryTurns, recordPreview } from '../src/interfaces/official/features/trajectory';
+import { mergeRuns, mergeEntries, projectTrajectory, trajectoryTurns, recordPreview } from '../src/interfaces/official/features/trajectory';
 
 const run = (ID: string, Attempt = 1): DebugRun => ({ ID, AssistantID: 'assistant', EventID: 'event', ExecutionID: 'execution', Trigger: 'user_message', Attempt, State: 'succeeded', Reason: '', StartedAt: '2026-09-27T00:00:00Z', FinishedAt: '2026-09-27T00:00:05Z', Incomplete: false, Steps: null });
 const step = (Sequence: number, Kind: string, OperationID: string, At: string, extra: Partial<DebugStep> = {}): DebugStep => ({ Sequence, Kind, OperationID, At, State: Kind.endsWith('start') ? 'started' : 'succeeded', DataStatus: 'captured', ...extra });
@@ -172,4 +172,18 @@ test('tool summaries prefer readable content and keep unknown tools inspectable'
   expect(recordPreview(project({ Name: 'conversation_publish', Summary: { Kind: 'attachments', Count: 2 } }), summaryCopy)).toBe('2 个附件');
   expect(recordPreview(project({ Name: 'plugin_tool', Preview: '{"custom":true}' }), summaryCopy)).toBe('{"custom":true}');
   expect(recordPreview(project({ Name: 'file_read', DataStatus: 'too_large' }), summaryCopy)).toBe('');
+});
+
+
+test('summary deltas preserve retained attempts, order and idle identity; resets remove expired runs', () => {
+  const first = { ...run('first'), FirstRevision: 1 }, second = { ...run('second'), FirstRevision: 5 };
+  const before = [first, second];
+  expect(mergeRuns(before, [], false)).toBe(before);
+  const changed = { ...first, State: 'interrupted' };
+  const third = { ...run('third'), FirstRevision: 10 };
+  const merged = mergeRuns(before, [third, changed], false);
+  expect(merged).toEqual([changed, second, third]); expect(merged[1]).toBe(second);
+  expect(mergeRuns(merged, [third], true)).toEqual([third]);
+  expect(mergeRuns(merged, [], true)).toEqual([]);
+  expect(before).toEqual([first, second]);
 });

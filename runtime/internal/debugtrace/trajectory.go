@@ -16,7 +16,8 @@ import (
 // bound to the owner and assistant filter, never used as authorization.
 type TrajectoryQuery struct {
 	Query
-	After string
+	After      string
+	RunsCursor string
 }
 type TrajectoryEntry struct {
 	RunID core.ID
@@ -25,6 +26,8 @@ type TrajectoryEntry struct {
 type TrajectoryPage struct {
 	Items          []TrajectoryEntry
 	Runs           []Run
+	RunsCursor     string
+	RunsReset      bool
 	NextCursor     string
 	HeadCursor     string
 	ContextResetAt *time.Time
@@ -78,6 +81,9 @@ func (s *Service) Trajectory(ctx context.Context, p core.Principal, q Trajectory
 			return out, err
 		}
 	}
+	if len(q.RunsCursor) > 2048 {
+		return out, core.Invalid("runs_cursor", "summary cursor too long")
+	}
 	if len(q.After) > 2048 || (q.After != "" && page.Cursor != "") {
 		return out, core.Invalid("cursor", "use either cursor or after")
 	}
@@ -102,9 +108,25 @@ func (s *Service) Trajectory(ctx context.Context, p core.Principal, q Trajectory
 		if q.AssistantID != "" {
 			query.Where = append(query.Where, persistence.Eq("AssistantID", q.AssistantID))
 		}
-		summaries, err := persistence.Select[Run](ctx, tx.Store(), "debug.summaries", query)
+		out.Runs, out.RunsReset, out.RunsCursor, err = s.syncRuns(ctx, tx, p.OwnerID, q.AssistantID, q.RunsCursor, query)
 		if err != nil {
 			return err
+		}
+		summaries := out.Runs
+		if !out.RunsReset {
+			// Step and summary cursors advance independently while draining pages.
+			// Include zero-revision records for the existing legacy ordering path.
+			if q.After != "" {
+				query.Any = [][]persistence.Filter{
+					{{Field: "LastRevision", Op: ">", Value: boundary.Revision}},
+					{persistence.Eq("LastRevision", 0)},
+				}
+			}
+			query.Unordered = true
+			summaries, err = persistence.Select[Run](ctx, tx.Store(), "debug.summaries", query)
+			if err != nil {
+				return err
+			}
 		}
 		entries := []TrajectoryEntry{}
 		// Inspect newest candidates first; older runs cannot contribute to a filled page.
@@ -113,11 +135,6 @@ func (s *Service) Trajectory(ctx context.Context, p core.Principal, q Trajectory
 			if summary.OwnerID != p.OwnerID || (q.AssistantID != "" && summary.AssistantID != q.AssistantID) {
 				continue
 			}
-			summary.Steps = nil
-			if summary.Source == nil {
-				summary.Source = sourceSummary(s.sourceForRun(ctx, tx, summary))
-			}
-			out.Runs = append(out.Runs, summary)
 			// A live refresh reads only runs with new steps. Legacy summaries have
 			// zero revisions and deliberately take the compatibility path below.
 			if q.After != "" && summary.LastRevision > 0 && summary.LastRevision <= boundary.Revision {

@@ -199,6 +199,10 @@ Chat Completions 的文本与工具字段使用增量缓冲组装，避免长输
 
 `go test ./internal/notification ./internal/persistence/...` 覆盖筛选、账号隔离、纳秒及跨时区排序、分页完整性、全局计数和事务回滚；读取量及查询计划断言检查已解决历史不会被全量加载。`go test ./internal/notification -run '^$' -bench '^BenchmarkActiveNotificationsHistory$' -benchmem` 在固定 5 条活动通知下比较 100、1 千和 1 万条已解决历史的列表查询开销，测量不包含浏览器与网络。
 
+### 工作台摘要同步回归
+
+`go test ./internal/debugtrace ./internal/persistence/sqlitestore` 覆盖摘要与步骤独立分页、无新增步骤的状态更新、回滚、清理、权限和索引范围。`go test ./internal/debugtrace -run '^$' -bench BenchmarkTrajectoryIdleSummarySync -benchmem` 比较 100、1 千和 1 万条保留记录下的空闲增量读取量与响应大小；首次快照仍返回全部保留摘要。协议见[工作台](../docs/dev/runtime/workbench.md)。
+
 ### 搜索读取范围回归
 
 `go test ./internal/search ./internal/persistence/sqlitestore` 检查来源与助理过滤在读取阶段生效、归档与账号隔离、分页排序、授权撤销和查询计划；阻塞真实记忆文件扫描时验证其他账号仍可写入消息，并检查消息批次释放事务、追加高水位、扫描期间撤权／删除／身份失效。搜索采用分批实时读取语义，见[搜索的读取范围](../docs/dev/architecture/overview.md#搜索的读取范围)。`go test ./internal/search -run '^$' -bench BenchmarkSearchAssistantHistory -benchmem` 比较 1 千与 1 万条无关消息历史下的助理名称搜索；无关消息不会被加载，具体耗时取决于运行环境。

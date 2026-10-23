@@ -25,7 +25,7 @@ func (s *HTTPServer) debugRoutes() {
 		if err != nil {
 			return nil, err
 		}
-		return s.services.Debug.Trajectory(r.Context(), principal(r), debugtrace.TrajectoryQuery{Query: debugtrace.Query{AssistantID: queryID(r, "assistant_id"), Page: page}, After: r.URL.Query().Get("after")})
+		return s.services.Debug.Trajectory(r.Context(), principal(r), debugtrace.TrajectoryQuery{Query: debugtrace.Query{AssistantID: queryID(r, "assistant_id"), Page: page}, After: r.URL.Query().Get("after"), RunsCursor: r.URL.Query().Get("runs_cursor")})
 	})
 	s.handle("GET /api/debug/runs", func(r *http.Request) (any, error) {
 		page, err := queryPage(r)

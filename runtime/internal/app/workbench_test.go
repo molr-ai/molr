@@ -182,6 +182,21 @@ func TestWorkbenchCapturesActualLoopAndKeepsPrivateDataOutOfChat(t *testing.T) {
 	if len(trajectory.Items) != 2 || len(trajectory.Runs) != 1 || trajectory.NextCursor == "" || trajectory.HeadCursor == "" {
 		t.Fatalf("invalid trajectory response: %+v", trajectory)
 	}
+	if !trajectory.RunsReset || trajectory.RunsCursor == "" {
+		t.Fatal("missing summary snapshot cursor")
+	}
+	idleResponse := debugRequest(b, token, "/api/debug/trajectory?assistant_id="+string(a.ID)+"&after="+trajectory.HeadCursor+"&runs_cursor="+trajectory.RunsCursor)
+	if idleResponse.Code != 200 {
+		t.Fatal("summary sync denied", idleResponse.Code)
+	}
+	var idle debugtrace.TrajectoryPage
+	need(t, json.Unmarshal(idleResponse.Body.Bytes(), &idle))
+	if idle.RunsReset || len(idle.Runs) != 0 || len(idle.Items) != 0 {
+		t.Fatal("idle sync resent history")
+	}
+	if debugRequest(b, token, "/api/debug/trajectory?runs_cursor=invalid").Code != 400 {
+		t.Fatal("invalid summary cursor accepted")
+	}
 	if debugRequest(b, token, "/api/debug/trajectory?limit=201").Code != 400 {
 		t.Fatal("unbounded trajectory page accepted")
 	}
