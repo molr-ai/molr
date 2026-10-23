@@ -14,8 +14,8 @@
   <a href="https://github.com/molr-ai/molr/actions/workflows/ci.yml?query=branch%3Amain">
     <img src="https://github.com/molr-ai/molr/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" />
   </a>
-  <a href="https://github.com/molr-ai/molr/releases">
-    <img src="https://img.shields.io/github/v/release/molr-ai/molr?include_prereleases&amp;sort=date&amp;label=latest" alt="Latest release, including prereleases and nightly builds" />
+  <a href="https://github.com/molr-ai/molr/releases/latest">
+    <img src="https://img.shields.io/github/v/release/molr-ai/molr?label=stable" alt="Latest stable release" />
   </a>
   <a href="LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT" />
@@ -41,7 +41,7 @@ Molr is a self-hosted personal AI assistant that runs on your own device and con
 ![Molr product overview](docs/assets/molr-promotion-en.webp)
 
 > [!WARNING]
-> **Project status:** Molr is under active development and has no stable release yet. You may encounter instability, and future versions may introduce breaking changes.
+> **Project status:** Molr is under active development. You may encounter instability, and future versions may introduce breaking changes.
 
 <!-- -->
 
@@ -61,30 +61,40 @@ Molr provides desktop apps for Linux, macOS, and Windows, alongside the WebUI an
 
 ## Getting started
 
-Choose the desktop app, a background service, or an independent sandbox node. Download test releases from [GitHub Releases](https://github.com/molr-ai/molr/releases). The [website installer](https://molr.ai/#install) and the default `install.sh` release source offer stable releases only; they do not fall back to prereleases when no stable version is available.
+Start by downloading the desktop app from the [website](https://molr.ai/#install), or use the command below to install a background service. Both options provide the latest stable release by default.
+
+| Your use case | Recommended option |
+| --- | --- |
+| Start on your own computer with a graphical interface for installation and management | **Desktop app**: download it and create a local service in the app, or connect to an existing service |
+| Run assistants on an always-on device or server for computers, phones, or multiple accounts | **Background service (Runtime)**: run the installation command on the target Linux/macOS device, then connect with a browser or desktop app |
+| Add another device's files or execution resources to an existing background service | **Independent sandbox node (Sandbox)**: install it on the device providing the resources, then connect and authorize it from the existing service |
+
+On a phone, open the running background service in a browser; no client installation is needed. Assistant tasks and data stay on the device running the background service. Keep that device awake, connected to the network, and running the service for tasks to continue.
 
 ### Desktop app
 
-Download the desktop package for your system and architecture: `.deb` for Linux AMD64/ARM64, `.dmg` for macOS Apple Silicon/Intel, or `.exe` for Windows AMD64.
+Visit the [website downloads](https://molr.ai/#install) and choose the desktop package for your system and architecture: `.deb` for Linux AMD64/ARM64, `.dmg` for macOS Apple Silicon/Intel, or `.exe` for Windows AMD64.
 
 Open the app and choose to use this computer to create a local service, or connect to a remote server by entering an existing Runtime address. Full desktop packages include Runtime, WebUI, and the local sandbox, so no separate server package is needed; creating the local service still requires confirmation in the app. Closing the desktop window does not stop the running service. See [desktop installation](docs/en/admin/deployment/installation.md#desktop-app) for the steps.
 
 ### Background service (Runtime)
 
-For terminal-based deployment on Linux or macOS, download the Runtime `.tar.gz` for your system and architecture and its matching `.sha256` file from Releases. Verify and extract the archive, then run from the package directory:
+Run this command in a terminal on the Linux or macOS device that will run your assistants:
 
 ```bash
-./bin/molr-setup --mode server
+curl -fsSL https://molr.ai/install.sh | sh -s -- --mode server
 ```
+
+The installer detects the system and architecture, downloads and verifies the latest stable release, then guides you through service installation and administrator account setup. Windows users can create a local service through the desktop app.
 
 The background service provides accounts, assistants, plans, WebUI, and a local sandbox. Connect to the reported service address with the desktop app or a browser; data stays on the server device. Linux uses systemd, with systemd 254+ and other [sandbox dependencies](docs/en/admin/sandbox/linux.md) required for controlled commands. macOS uses launchd and requires macOS 13 or later. See the [installation guide](docs/en/admin/deployment/installation.md) for online installation, checksum verification, and maintenance.
 
 ### Independent sandbox node (Sandbox)
 
-To add another device's files or execution resources to an existing background service, extract the same Runtime package on that Linux/macOS device and run:
+To add another device's files or execution resources to an existing background service, run this command in a terminal on that Linux/macOS device:
 
 ```bash
-./bin/molr-setup --mode sandbox --name molr-node
+curl -fsSL https://molr.ai/install.sh | sh -s -- --mode sandbox --name molr-node
 ```
 
 Connect and authorize the node from the background service's Resources page. A node provides no accounts, assistants, or WebUI. A single-device setup already includes a local sandbox and needs no additional node. See [independent Sandbox services](docs/en/admin/sandbox/remote.md) for connections and permissions.
@@ -92,7 +102,7 @@ Connect and authorize the node from the background service's Resources page. A n
 Packages include neither model weights nor an inference server. Once the background service is ready, connect a local or cloud model, hire an assistant, and set its budget to start chatting.
 
 - [Getting started](docs/en/user/getting-started.md): sign in and start your first conversation.
-- [Installation and service management](docs/en/admin/deployment/installation.md): install a specific version, choose a release channel, or install offline.
+- [Installation and service management](docs/en/admin/deployment/installation.md): install a specific version, choose a release source, or install offline. Historical releases and prerelease packages are available from [GitHub Releases](https://github.com/molr-ai/molr/releases).
 - [Docker deployment](docs/en/admin/deployment/docker.md): build the complete container image with WebUI.
 - [Building from source](docs/en/admin/deployment/source-build.md): build and deploy Molr yourself.
 - [Deployment and maintenance](docs/en/admin/README.md): HTTPS, sandbox dependencies, and backup and recovery.

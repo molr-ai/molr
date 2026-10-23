@@ -14,8 +14,8 @@
   <a href="https://github.com/molr-ai/molr/actions/workflows/ci.yml?query=branch%3Amain">
     <img src="https://github.com/molr-ai/molr/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" />
   </a>
-  <a href="https://github.com/molr-ai/molr/releases">
-    <img src="https://img.shields.io/github/v/release/molr-ai/molr?include_prereleases&amp;sort=date&amp;label=latest" alt="最新发布版本，包含正式版、预发布和 Nightly" />
+  <a href="https://github.com/molr-ai/molr/releases/latest">
+    <img src="https://img.shields.io/github/v/release/molr-ai/molr?label=stable" alt="最新正式版" />
   </a>
   <a href="LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-blue" alt="许可证：MIT" />
@@ -41,7 +41,7 @@ Molr 是可自托管的个人 AI 助理，在你自己的设备上运行，连�
 ![Molr 产品宣传图](docs/assets/molr-promotion-zh-cn.webp)
 
 > [!WARNING]
-> **项目状态：** Molr 仍处于开发阶段，尚未发布稳定版，可能存在不稳定行为，后续版本也可能包含破坏性变更。
+> **项目状态：** Molr 仍在持续开发，可能存在不稳定行为，后续版本也可能包含破坏性变更。
 
 <!-- -->
 
@@ -61,30 +61,40 @@ Molr 是可自托管的个人 AI 助理，在你自己的设备上运行，连�
 
 ## 快速开始
 
-按使用方式选择桌面应用、后台服务或独立沙盒节点。测试安装包从 [GitHub Releases](https://github.com/molr-ai/molr/releases) 下载；[官网安装入口](https://molr.ai/#install)和默认 `install.sh` 发布源只提供正式版，尚无正式版时不会自动回退到预发布版。
+推荐从[官网](https://molr.ai/#install)下载桌面应用，或使用下方命令安装后台服务；两种方式默认提供最新正式版。
+
+| 你的使用场景 | 推荐方式 |
+| --- | --- |
+| 在自己的电脑上开始使用，希望通过图形界面完成安装和管理 | **桌面应用**：下载安装后，在应用中创建本机服务；已有服务时也可直接连接 |
+| 在常开设备或服务器上运行助理，供电脑、手机或多个账号访问 | **后台服务（Runtime）**：在目标 Linux/macOS 设备执行安装命令，再用浏览器或桌面应用连接 |
+| 已有后台服务，只想增加另一台设备的文件访问或执行资源 | **独立沙盒节点（Sandbox）**：在资源所在设备安装，再由已有服务连接并授权 |
+
+手机通过浏览器访问已运行的后台服务，无需安装客户端。助理任务和数据保存在运行后台服务的设备上；需要持续执行任务时，应让该设备保持开机、联网且服务运行。
 
 ### 桌面应用
 
-下载适合系统和架构的桌面包：Linux AMD64／ARM64 使用 `.deb`，macOS Apple Silicon／Intel 使用 `.dmg`，Windows AMD64 使用 `.exe`。
+前往[官网下载安装](https://molr.ai/#install)，选择适合系统和架构的桌面包：Linux AMD64／ARM64 使用 `.deb`，macOS Apple Silicon／Intel 使用 `.dmg`，Windows AMD64 使用 `.exe`。
 
 打开应用后，选择“在这台电脑上使用”创建本机服务，或“连接远程服务”填写已有 Runtime 的地址。桌面完整版已包含 Runtime、WebUI 和本机沙盒，无需另装服务包；创建本机服务仍需在应用内确认。关闭桌面窗口不会停止已运行的后台服务。具体操作见[桌面应用安装](docs/admin/deployment/installation.md#桌面应用)。
 
 ### 后台服务（Runtime）
 
-在 Linux 或 macOS 上通过终端部署时，从 Releases 下载对应系统、架构的 Runtime `.tar.gz` 及同名 `.sha256` 文件，校验并解压后，在包目录运行：
+在要运行助理的 Linux 或 macOS 设备终端执行：
 
 ```bash
-./bin/molr-setup --mode server
+curl -fsSL https://molr.ai/install.sh | sh -s -- --mode server
 ```
+
+安装脚本自动检测系统与架构，下载并校验最新正式版，再引导完成服务安装与管理员账号设置。Windows 用户可通过桌面应用创建本机服务。
 
 后台服务提供账号、助理、计划、WebUI 和本机沙盒。安装后用桌面应用或浏览器连接输出的服务地址，数据保存在运行服务的设备。Linux 使用 systemd，启用受控命令还需 systemd 254+ 等[沙盒依赖](docs/admin/sandbox/linux.md)；macOS 使用 launchd，要求 macOS 13 或更新版本。在线安装、校验和维护步骤见[安装指南](docs/admin/deployment/installation.md)。
 
 ### 独立沙盒节点（Sandbox）
 
-已有后台服务，需要使用另一台设备的文件或执行资源时，在那台 Linux/macOS 设备上解压同一 Runtime 包并运行：
+已有后台服务，需要使用另一台设备的文件或执行资源时，在那台 Linux/macOS 设备的终端执行：
 
 ```bash
-./bin/molr-setup --mode sandbox --name molr-node
+curl -fsSL https://molr.ai/install.sh | sh -s -- --mode sandbox --name molr-node
 ```
 
 再从后台服务的资源页面连接节点并授权。节点不提供账号、助理或 WebUI；单机使用已经内置沙盒，不必额外部署节点。连接与权限设置见[独立 Sandbox 服务](docs/admin/sandbox/remote.md)。
@@ -92,7 +102,7 @@ Molr 是可自托管的个人 AI 助理，在你自己的设备上运行，连�
 安装包不包含模型权重或推理服务。后台服务就绪后，连接本地或云端模型、聘请助理并设置预算，即可开始对话。
 
 - [快速开始](docs/user/getting-started.md)：登录并开始第一次对话。
-- [安装与服务管理](docs/admin/deployment/installation.md)：指定版本、选择发布渠道或离线安装。
+- [安装与服务管理](docs/admin/deployment/installation.md)：指定版本、选择发布源或离线安装；历史版本与预发布包可从 [GitHub Releases](https://github.com/molr-ai/molr/releases) 获取。
 - [Docker 部署](docs/admin/deployment/docker.md)：构建包含 WebUI 的完整容器镜像。
 - [从源码构建](docs/admin/deployment/source-build.md)：自行构建与部署。
 - [部署与维护](docs/admin/README.md)：HTTPS、沙盒依赖和备份恢复。
