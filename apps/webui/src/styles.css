@@ -48,6 +48,8 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 .workspace > .ui-modal-scope-content { display: flex; min-width: 0; flex: 1; height: 100%; }
 .workspace-content { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; gap: var(--workspace-inset); margin: var(--workspace-inset); }
 .workspace-nav { width: 72px; padding: 16px 10px; flex-shrink: 0; background: var(--color-surface); border-right: 1px solid var(--color-border); display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.workspace-nav, .workspace-sidebar { -webkit-user-select: none; user-select: none; }
+.workspace-sidebar :is(input, textarea, [contenteditable='true']) { -webkit-user-select: text; user-select: text; }
 .workspace-logo { width: 44px; height: 44px; justify-content: center; --logo-symbol-size: 35px; margin-bottom: 12px; }
 .nav-button { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: var(--radius-control); color: var(--color-text-muted); background: transparent; }
 .workspace:where(:not(.workspace--mobile)) .nav-button { flex-shrink: 0; padding: 0; }

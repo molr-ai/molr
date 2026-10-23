@@ -30,6 +30,8 @@ This tool only modifies the current assistant's profile; it does not change the 
 
 ## Messages, Drafts, and Stop
 
+Main navigation and assistant list text is excluded from select-all and drag selections. Chat messages remain selectable and copyable. Press Ctrl+A (Cmd+A on macOS) in a search field or message composer to select all text in that field.
+
 Messages support Markdown, attachments, and result references. The copy button copies the original message text; attachment reading and downloading are protected by permissions.
 
 Below assistant messages, you can like or dislike; clicking again cancels, or you can switch to the other feedback; it is retained after refresh if saved. When selected, the sleeve is solid color and the palm is light-filled; like is red, dislike is gray. There is a brief animation when activated; if the system or user settings enable reduced motion, it switches statically.

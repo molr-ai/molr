@@ -25,6 +25,8 @@ The default theme displays the user avatar and username in the original Logo pos
 
 ## Shared Components and Profile Synchronization
 
+WebUI main navigation and assistant list regions use `user-select: none` with the WebKit prefix, excluding navigation labels, assistant names, and message previews from page-wide and drag selections in desktop and mobile layouts. Inputs and editable content inside these regions explicitly restore `user-select: text`, preserving text selection and Ctrl/Cmd+A in search fields. Chat messages and detail content remain selectable.
+
 Chat history loads earlier messages through centered text between light divider lines, using the same color as list separators. When the distance from the scroll bottom exceeds one message-area viewport height (at least 600px), a floating “Back to bottom” button appears at the bottom of the message area without taking composer space or changing scroll height. The label changes to “New messages” when the conversation has unread messages. Returning clears search-message navigation and any pending pagination scroll restoration, immediately scrolls to the bottom, and resumes following the latest messages. Scrolling, message updates, and message-area resizing refresh the button visibility.
 
 Desktop main sidebar buttons are uniformly 44px. Menu buttons have a transparent background by default, showing a rounded rectangle background on hover and selection. Search buttons and account avatars remain circular, with avatars and buttons being the same size. The Logo remains unchanged, and mobile continues to use the bottom navigation layout.
