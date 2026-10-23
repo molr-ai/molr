@@ -75,7 +75,7 @@ make -C runtime test TEST_FLAGS='-race -p 4'
 
 测试使用临时 SQLite、文件和本地 HTTP/TLS 模型模拟服务；需要允许创建本机 socket，不需要真实模型 API Key。包括原模块 TDD、真实认证与业务组合、完整消息→工具→回复→重启流程、取消后的费用、文件/网络边界和备份恢复。接口映射检查只证明公开入口都有对应测试，不代表分支覆盖率或独立安全审计。参见[测试说明](tests/README.md)和[安全设计](../docs/dev/security/security-model.md)。
 
-需要验证真实模型行为或归纳质量时，按[真实模型测试约定](../docs/dev/contributing/development.md#真实模型测试)，优先使用主环境中已经配置好的本地模型，并从任务 worktree 的独立 Runtime 执行测试。
+需要验证真实模型行为或归纳质量时，按[真实模型测试约定](../docs/dev/contributing/acceptance.md#真实模型测试)，优先使用主环境中已经配置好的本地模型，并从任务 worktree 的独立 Runtime 执行测试。
 
 真实 WebUI 的启动与生产反向代理配置见 [WebUI README](../apps/webui/README.md)。HTTP 通用限流使用 `http.requests_per_minute`（默认 600），登录限流仍独立使用 `auth.login_attempts_per_minute`。
 

@@ -143,7 +143,7 @@ VITE_SITE_MODE=live npm run dev:website # 官网：5189
 npm run dev:design      # UI Design：5188，模拟数据
 ```
 
-前端默认监听 `0.0.0.0`。各 worktree 使用独立的依赖、数据和空闲端口；WebUI 通过 `MOLR_RUNTIME_URL` 连接同一 worktree 自己的 Runtime。启动配置与验证命令见各目录的 README，Runtime 构建和验收要求见[开发规范](docs/dev/contributing/development.md)。
+前端默认监听 `0.0.0.0`。各 worktree 使用独立的依赖、数据和空闲端口；WebUI 通过 `MOLR_RUNTIME_URL` 连接同一 worktree 自己的 Runtime。启动配置与验证命令见各目录的 README，Runtime 构建和验收要求见[开发规范](docs/dev/contributing/acceptance.md)。
 
 ## 许可证
 

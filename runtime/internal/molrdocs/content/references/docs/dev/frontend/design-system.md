@@ -1,6 +1,6 @@
 # 设计系统与颜色规范
 
-品牌素材见[品牌规范](https://molr.ai/zh/docs/dev/frontend/brand/)，组件 API 见[共享组件文档](https://github.com/molr-ai/molr/blob/main/packages/ui/COMPONENTS.md)。
+页面文案与操作反馈见[交互约定](https://molr.ai/zh/docs/dev/frontend/interaction/)。品牌素材见[品牌规范](https://molr.ai/zh/docs/dev/frontend/brand/)，组件 API 见[共享组件文档](https://github.com/molr-ai/molr/blob/main/packages/ui/COMPONENTS.md)。
 
 ## 前端颜色开发规范
 

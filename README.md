@@ -145,7 +145,7 @@ VITE_SITE_MODE=live npm run dev:website # Website: 5189
 npm run dev:design      # UI Design: 5188; mock data
 ```
 
-Frontends listen on `0.0.0.0` by default. Each worktree needs its own dependencies, data, and available ports. Set `MOLR_RUNTIME_URL` to connect the WebUI to that worktree's own Runtime. See each directory's README for configuration and validation commands, and the [development guide](docs/dev/contributing/development.md) for Runtime build and acceptance requirements.
+Frontends listen on `0.0.0.0` by default. Each worktree needs its own dependencies, data, and available ports. Set `MOLR_RUNTIME_URL` to connect the WebUI to that worktree's own Runtime. See each directory's README for configuration and validation commands, and the [development guide](docs/en/dev/contributing/acceptance.md) for Runtime build and acceptance requirements.
 
 ## License
 

@@ -2,6 +2,13 @@
 
 Maintain shared navigation, form, notification, and feedback behaviors across themes. For component properties and examples, see [Component API](../../../../packages/ui/COMPONENTS.md).
 
+## UI/UX Standards
+
+- Keep page copy only when it helps users understand the current state, make a decision, or complete an action. Remove unhelpful copy and avoid excessive or lengthy descriptive text.
+- Follow the [design system](design-system.md) and these interaction conventions. Prefer shared components and established page patterns, keeping action entries, interaction feedback, layout, spacing, and visual treatment consistent across similar pages.
+
+## Overlays and Panels
+
 Conditionally rendered dialogs and drawers use shared `ModalPresence` to remain mounted until exit finishes, including settings forms, confirmations, resource permissions, plans, memories, plugins, and identity verification. Closing must not clear the body early. Permanently mounted Dialog / Drawer components retain their title and contents during exit. Nested modals close independently; closing a parent waits for its children. Docked chat panels retain their width animation, while modal panels use the shared exit lifecycle. Forms, subscriptions, and modal restrictions are released and focus is restored after exit; reduced motion completes immediately. Page navigation cleans up directly.
 
 The chat plan panel switches horizontally between its list and details within the same drawer, reusing the standalone plan page’s detail rendering and styles. The header back button restores the list and the original item’s focus while preserving list scroll position. The inactive view is inert and hidden from the accessibility tree. Details remain mounted during the return transition; system or account reduced-motion preferences switch views immediately.

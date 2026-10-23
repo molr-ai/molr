@@ -1,9 +1,35 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, readdirSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, readdirSync, symlinkSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { generateDocumentation } from './generate-molr-docs.mjs';
+
+function markdownFiles(directory, excludeEnglish = false) {
+ return readdirSync(directory,{withFileTypes:true}).flatMap(entry=>{
+  if(excludeEnglish && entry.name==='en') return [];
+  if(entry.isDirectory()) return markdownFiles(join(directory,entry.name)).map(name=>`${entry.name}/${name}`);
+  return entry.name.endsWith('.md') ? [entry.name] : [];
+ }).sort();
+}
+
+test('every public Chinese document is registered, indexed, bundled, and current', () => {
+ const root=dirname(import.meta.dirname);
+ const sourceFiles=markdownFiles(join(root,'docs'),true);
+ const routes=JSON.parse(readFileSync(join(root,'docs-routes.json'),'utf8'));
+ const output=join(root,'runtime/internal/molrdocs/content');
+ const index=JSON.parse(readFileSync(join(output,'references/index.json'),'utf8'));
+ assert.deepEqual(routes.map(route=>route.file).sort(),sourceFiles,'Public documents and docs-routes.json differ; register new documents and remove deleted entries');
+ assert.deepEqual(markdownFiles(join(output,'references/docs')),sourceFiles,'Bundled documents are missing or obsolete; run npm run docs:generate');
+ const prefix='/molr/.agents/skills/molr-docs/references/docs/';
+ const indexedFiles=index.map(entry=>{
+  assert(entry.path.startsWith(prefix),`Unexpected bundled path: ${entry.path}`);
+  assert.equal(entry.contentLanguage,'zh');
+  return entry.path.slice(prefix.length);
+ }).sort();
+ assert.deepEqual(indexedFiles,sourceFiles,'Bundle index is missing or duplicates documents, or includes obsolete entries');
+ assert.equal(generateDocumentation(root,{check:true}).documents,sourceFiles.length);
+});
 
 function fixture(t) {
  const root = mkdtempSync(join(tmpdir(), 'molr-docs-'));
@@ -48,6 +74,25 @@ test('English metadata changes refresh the bundle without adding English content
  assert.equal(f.read('references/docs/README.md'),body);
  assert.equal(JSON.parse(f.read('references/index.json'))[0].titles.en,'Updated English guide');
  assert.deepEqual(readdirSync(join(f.root,'runtime/internal/molrdocs/content/references/docs')),['README.md']);
+});
+test('manifest additions enter the bundle and removed documents leave no stale files', t => {
+ const f=fixture(t);
+ generateDocumentation(f.root);
+ const routes=JSON.parse(readFileSync(join(f.root,'docs-routes.json'),'utf8'));
+ const added={...routes[0],file:'dev/contributing/acceptance.md',path:'/docs/dev/contributing/acceptance/',label:'验收规范',englishLabel:'Acceptance'};
+ f.write('docs/dev/contributing/acceptance.md','# 验收规范\n交付要求。\n');
+ f.write('docs-routes.json',JSON.stringify([...routes,added]));
+ assert.throws(()=>generateDocumentation(f.root,{check:true}),/Stale/);
+ assert.equal(generateDocumentation(f.root).documents,2);
+ assert.match(f.read('references/docs/dev/contributing/acceptance.md'),/交付要求/);
+ f.write('docs-routes.json',JSON.stringify([added]));
+ rmSync(join(f.root,'docs/README.md'));
+ assert.throws(()=>generateDocumentation(f.root,{check:true}),/Stale/);
+ const result=generateDocumentation(f.root);
+ assert.equal(result.documents,1);
+ assert.equal(existsSync(join(f.root,'runtime/internal/molrdocs/content/references/docs/README.md')),false);
+ assert.deepEqual(JSON.parse(f.read('references/index.json')).map(entry=>entry.path),['/molr/.agents/skills/molr-docs/references/docs/dev/contributing/acceptance.md']);
+ assert.deepEqual(generateDocumentation(f.root,{check:true}),result);
 });
 test('linked public files stay references and private or symlink input fails', t=>{
  const f=fixture(t);

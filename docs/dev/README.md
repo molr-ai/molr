@@ -6,11 +6,11 @@
 
 ## 开始贡献
 
-先阅读[开发协作与验收](contributing/development.md)，按 worktree 规范开展任务；文档内容归属、链接更新和官网发布检查见[文档维护约定](contributing/documentation.md)。[AGENTS.md](../../AGENTS.md) 列出编码任务必读规范。
+从[开发协作指南](contributing/README.md)按顺序阅读[开发环境](contributing/environment.md)、[协作流程](contributing/workflow.md)和[验收规范](contributing/acceptance.md)。[AGENTS.md](../../AGENTS.md) 列出任务开始前的必读规范。
 
-本地启动和测试命令由各应用维护：[Runtime](../../runtime/README.md)、[WebUI](../../apps/webui/README.md)、[官网](../../apps/website/README.md)、[UI Design](../../apps/ui-design/README.md)。
+文档归属、写作、中英文同步和官网发布见[文档维护约定](contributing/documentation.md)；CI 镜像、runner 与独立安装验收见[Gitea CI](contributing/gitea-ci.md)。
 
-[Gitea CI](contributing/gitea-ci.md) 说明本地 action 镜像、Linux/macOS/Windows runner 标签及独立安装验收配置。
+本地启动和测试命令由各应用维护：[Runtime](../../runtime/README.md)、[WebUI](../../apps/webui/README.md)、[桌面 App](../../apps/desktop/README.md)、[官网](../../apps/website/README.md)、[UI Design](../../apps/ui-design/README.md)。
 
 ## 理解架构与执行
 
@@ -24,15 +24,17 @@
 
 客户端请求查[HTTP API](reference/http-api.md)，内部模块调用查[Go 模块接口](reference/module-interfaces.md)，模型文件与资源操作查[工具契约](reference/file-tools.md)。TypeScript 客户端入口见[SDK](../../packages/sdk/README.md)。
 
-## 开发前端与扩展
+## 开发前端
 
 - [前端架构](frontend/architecture.md)、[主题与页面解析](frontend/themes.md)：SDK、Host、页面装载与状态恢复。
-- [品牌](frontend/brand.md)、[设计系统](frontend/design-system.md)、[交互约定](frontend/interaction.md)：视觉资源、语义颜色、无障碍与共用交互；组件属性查[组件 API](../../packages/ui/COMPONENTS.md)。
-- [MCP 接入](extensions/mcp.md)：远程工具发现、执行与授权。
-- [插件机制](extensions/plugins.md)、[微信渠道](extensions/weixin.md)、[飞书渠道](extensions/feishu.md)、[Telegram 渠道](extensions/telegram.md)、[Slack 渠道](extensions/slack.md)、[钉钉渠道](extensions/dingtalk.md)：扩展协议、授权、生命周期与消息投递。
+- [设计系统](frontend/design-system.md)、[交互约定](frontend/interaction.md)：视觉、文案、操作与反馈标准。
+- [品牌](frontend/brand.md)、[组件 API](../../packages/ui/COMPONENTS.md)：品牌资源与共享组件使用方式。
+
+## 开发扩展与渠道
+
+- [MCP 接入](extensions/mcp.md)、[插件机制](extensions/plugins.md)：工具发现、扩展协议、授权与生命周期。
+- [微信](extensions/weixin.md)、[飞书](extensions/feishu.md)、[Telegram](extensions/telegram.md)、[Slack](extensions/slack.md)、[钉钉](extensions/dingtalk.md)、[QQ](extensions/qq.md)：渠道连接、身份绑定与消息投递。
 
 ## 维护发行
 
 [发行维护](releasing/releases.md)管理版本、渠道和构建发布；提交与分发前核对[公开内容与文件隔离](releasing/public-content.md)及[许可证](releasing/licensing.md)。
-
-[QQ 渠道](extensions/qq.md)介绍扫码、配对和消息投递。

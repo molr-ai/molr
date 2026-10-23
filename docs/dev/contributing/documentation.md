@@ -13,6 +13,7 @@
 | `docs/user/best-practices/` | 按场景组织的工具接入、委托示例与验证方法 |
 | `docs/admin/administration/` | 管理员配置成员、用户组、插件与共享组件 |
 | `docs/admin/deployment/` | 主机安装、配置、依赖、服务与灾备 |
+| `docs/dev/contributing/` | 开发环境、协作流程、验收、文档维护与 CI |
 | `docs/dev/architecture/` | 系统组成、模块职责与技术选择 |
 | `docs/dev/runtime/` | 执行、上下文、记忆与模型机制 |
 | `docs/dev/security/` | 认证、授权、额度与隔离机制 |
@@ -29,13 +30,13 @@
 
 ## 索引与官网发布
 
-根 README 负责按任务引导阅读。`docs-routes.json` 是官网已审查文档的显式清单，维护 URL、分组和阅读顺序。新增文件不会自动发布；仓库专用的开发协作规范可不登记官网。
+根 README 负责按任务引导阅读。`docs-routes.json` 是官网已审查文档的显式清单，维护 URL、分组和阅读顺序。全部公开文档均须登记，包括用户、管理员、开发协作、CI 与路线图；新增文件不会自动发布，加入清单前先审查内容。
 
 中文正文分别位于 `docs/user/`、`docs/admin/`、`docs/dev/`，英文在 `docs/en/` 下镜像相同结构。`docs/README.md` 与 `docs/en/README.md` 作为三个指南的总入口。官网每个登记条目同时发布 `/zh/docs/…` 和 `/en/docs/…`；缺少任一语言文件时构建失败。修改正文时同步维护中英文、章节对应关系和相对链接，代码与命令保持一致。URL 决定语言；切换语言保留当前文章和对应章节，目录、搜索与前后篇限定于当前指南及语言。
 
 移动、拆分或合并时，同步修改正文相对链接、章节锚点、应用与包 README、代码中的引用，以及 `AGENTS.md` 必读入口。官网目录与物理分类保持一致；内部资料不得登记路由、导入页面或成为公开阅读依赖。
 
-完成后运行 `npm run test:website`、`npm run build:website`、`npm run check:release` 和 `npm run check:licenses`，检查导航、搜索、前后篇、深层链接和公开构建范围。发布审查要求见[开发协作规范](development.md#公开内容与内部资料)。
+完成后运行 `npm run test:website`、`npm run build:website`、`npm run check:release` 和 `npm run check:licenses`，检查导航、搜索、前后篇、深层链接和公开构建范围。发布审查要求见[公开内容规范](../releasing/public-content.md#公开内容与内部资料)。
 
 ## 文档表述规范
 
@@ -49,4 +50,4 @@
 
 当前用户操作以产品指南为入口，实现约束以对应代码及测试核实；发现不一致应修正文档，而不是默认为某份旧方案优先。内部需求和研究不构成已实现声明，也不是外部贡献者必须取得的依赖。不要复制接口列表、配置默认值和完整功能清单到多个总览中。
 
-内置 `molr-docs` 复用同一清单，只打包中文正文。修改清单、中文文档或 Skill 后运行 `npm run docs:generate` 并提交生成资料；`npm run docs:check` 验证一致性。官网中英文同步维护的要求不变。
+内置 `molr-docs` 复用同一清单，打包全部公开文档的中文正文，包括用户、管理员与开发文档。新增、移动、拆分或删除文档时同步更新清单与引用，移除失效条目；运行 `npm run docs:generate` 重新生成完整资料包并清理旧文件，提交生成资料。修改清单、中文正文或 Skill 后均须重新生成；`npm run docs:check` 验证内容一致性；`npm run test:docs` 对照实际公开中文文档目录检查清单、包内文件和索引，防止新增遗漏与删除残留，该测试由 GitHub 和 Gitea CI 执行。官网中英文同步维护的要求不变。

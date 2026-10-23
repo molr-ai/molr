@@ -7,13 +7,6 @@ import { docRoutes, adminDocRoutes, devDocRoutes, allDocRoutes } from '../src/do
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const routes = allDocRoutes;
-const repositoryOnly = [
-  'docs/dev/contributing/development.md',
-  'docs/dev/contributing/gitea-ci.md',
-  'docs/en/dev/contributing/gitea-ci.md',
-  'docs/dev/roadmap.md',
-  'docs/en/dev/roadmap.md',
-];
 
 async function markdownFiles(directory) {
   const entries = await readdir(resolve(root, directory), { withFileTypes: true });
@@ -45,7 +38,7 @@ test('current documents have explicit unique routes and the overview comes first
   const registered = routes.map(route => `${route.root}/${route.file}`);
   assert.equal(new Set(registered).size, registered.length);
   const files = [...await markdownFiles('docs')];
-  assert.deepEqual(files.sort(), [...registered, ...repositoryOnly].sort());
+  assert.deepEqual(files.sort(), registered.sort());
   for (const route of routes) {
     assert(!route.file.includes('..'));
     assert(route.path.startsWith(`/${route.locale}/${route.root}/`));

@@ -2,15 +2,15 @@
 
 本目录面向贡献者与维护者。日常使用见[用户指南](https://molr.ai/zh/docs/user/)，安装、资源接入和运维见[管理员指南](https://molr.ai/zh/docs/admin/)。
 
-[路线图](https://github.com/molr-ai/molr/blob/main/docs/dev/roadmap.md)列出近期要做、远期计划和尚未决定的功能，以及各项的范围和完成标准。
+[路线图](https://molr.ai/zh/docs/dev/roadmap/)列出近期要做、远期计划和尚未决定的功能，以及各项的范围和完成标准。
 
 ## 开始贡献
 
-先阅读[开发协作与验收](https://github.com/molr-ai/molr/blob/main/docs/dev/contributing/development.md)，按 worktree 规范开展任务；文档内容归属、链接更新和官网发布检查见[文档维护约定](https://molr.ai/zh/docs/dev/contributing/documentation/)。[AGENTS.md](https://github.com/molr-ai/molr/blob/main/AGENTS.md) 列出编码任务必读规范。
+从[开发协作指南](https://molr.ai/zh/docs/dev/contributing/)按顺序阅读[开发环境](https://molr.ai/zh/docs/dev/contributing/environment/)、[协作流程](https://molr.ai/zh/docs/dev/contributing/workflow/)和[验收规范](https://molr.ai/zh/docs/dev/contributing/acceptance/)。[AGENTS.md](https://github.com/molr-ai/molr/blob/main/AGENTS.md) 列出任务开始前的必读规范。
 
-本地启动和测试命令由各应用维护：[Runtime](https://github.com/molr-ai/molr/blob/main/runtime/README.md)、[WebUI](https://github.com/molr-ai/molr/blob/main/apps/webui/README.md)、[官网](https://github.com/molr-ai/molr/blob/main/apps/website/README.md)、[UI Design](https://github.com/molr-ai/molr/blob/main/apps/ui-design/README.md)。
+文档归属、写作、中英文同步和官网发布见[文档维护约定](https://molr.ai/zh/docs/dev/contributing/documentation/)；CI 镜像、runner 与独立安装验收见[Gitea CI](https://molr.ai/zh/docs/dev/contributing/gitea-ci/)。
 
-[Gitea CI](https://github.com/molr-ai/molr/blob/main/docs/dev/contributing/gitea-ci.md) 说明本地 action 镜像、Linux/macOS/Windows runner 标签及独立安装验收配置。
+本地启动和测试命令由各应用维护：[Runtime](https://github.com/molr-ai/molr/blob/main/runtime/README.md)、[WebUI](https://github.com/molr-ai/molr/blob/main/apps/webui/README.md)、[桌面 App](https://github.com/molr-ai/molr/blob/main/apps/desktop/README.md)、[官网](https://github.com/molr-ai/molr/blob/main/apps/website/README.md)、[UI Design](https://github.com/molr-ai/molr/blob/main/apps/ui-design/README.md)。
 
 ## 理解架构与执行
 
@@ -24,15 +24,17 @@
 
 客户端请求查[HTTP API](https://molr.ai/zh/docs/dev/reference/http-api/)，内部模块调用查[Go 模块接口](https://molr.ai/zh/docs/dev/reference/module-interfaces/)，模型文件与资源操作查[工具契约](https://molr.ai/zh/docs/dev/reference/file-tools/)。TypeScript 客户端入口见[SDK](https://github.com/molr-ai/molr/blob/main/packages/sdk/README.md)。
 
-## 开发前端与扩展
+## 开发前端
 
 - [前端架构](https://molr.ai/zh/docs/dev/frontend/architecture/)、[主题与页面解析](https://molr.ai/zh/docs/dev/frontend/themes/)：SDK、Host、页面装载与状态恢复。
-- [品牌](https://molr.ai/zh/docs/dev/frontend/brand/)、[设计系统](https://molr.ai/zh/docs/dev/frontend/design-system/)、[交互约定](https://molr.ai/zh/docs/dev/frontend/interaction/)：视觉资源、语义颜色、无障碍与共用交互；组件属性查[组件 API](https://github.com/molr-ai/molr/blob/main/packages/ui/COMPONENTS.md)。
-- [MCP 接入](https://molr.ai/zh/docs/dev/extensions/mcp/)：远程工具发现、执行与授权。
-- [插件机制](https://molr.ai/zh/docs/dev/extensions/plugins/)、[微信渠道](https://molr.ai/zh/docs/dev/extensions/weixin/)、[飞书渠道](https://molr.ai/zh/docs/dev/extensions/feishu/)、[Telegram 渠道](https://molr.ai/zh/docs/dev/extensions/telegram/)、[Slack 渠道](https://molr.ai/zh/docs/dev/extensions/slack/)、[钉钉渠道](https://molr.ai/zh/docs/dev/extensions/dingtalk/)：扩展协议、授权、生命周期与消息投递。
+- [设计系统](https://molr.ai/zh/docs/dev/frontend/design-system/)、[交互约定](https://molr.ai/zh/docs/dev/frontend/interaction/)：视觉、文案、操作与反馈标准。
+- [品牌](https://molr.ai/zh/docs/dev/frontend/brand/)、[组件 API](https://github.com/molr-ai/molr/blob/main/packages/ui/COMPONENTS.md)：品牌资源与共享组件使用方式。
+
+## 开发扩展与渠道
+
+- [MCP 接入](https://molr.ai/zh/docs/dev/extensions/mcp/)、[插件机制](https://molr.ai/zh/docs/dev/extensions/plugins/)：工具发现、扩展协议、授权与生命周期。
+- [微信](https://molr.ai/zh/docs/dev/extensions/weixin/)、[飞书](https://molr.ai/zh/docs/dev/extensions/feishu/)、[Telegram](https://molr.ai/zh/docs/dev/extensions/telegram/)、[Slack](https://molr.ai/zh/docs/dev/extensions/slack/)、[钉钉](https://molr.ai/zh/docs/dev/extensions/dingtalk/)、[QQ](https://molr.ai/zh/docs/dev/extensions/qq/)：渠道连接、身份绑定与消息投递。
 
 ## 维护发行
 
 [发行维护](https://molr.ai/zh/docs/dev/releasing/releases/)管理版本、渠道和构建发布；提交与分发前核对[公开内容与文件隔离](https://molr.ai/zh/docs/dev/releasing/public-content/)及[许可证](https://molr.ai/zh/docs/dev/releasing/licensing/)。
-
-[QQ 渠道](https://molr.ai/zh/docs/dev/extensions/qq/)介绍扫码、配对和消息投递。

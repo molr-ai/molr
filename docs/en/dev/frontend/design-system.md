@@ -1,6 +1,6 @@
 # Design System and Color Specifications
 
-Brand assets are available in the [Brand Guidelines](brand.md), and component APIs are documented in the [Shared Components Documentation](../../../../packages/ui/COMPONENTS.md).
+For page copy and action feedback, see [interaction conventions](interaction.md). Brand assets are available in the [Brand Guidelines](brand.md), and component APIs are documented in the [Shared Components Documentation](../../../../packages/ui/COMPONENTS.md).
 
 ## Frontend Color Development Standards
 

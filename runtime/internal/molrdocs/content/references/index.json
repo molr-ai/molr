@@ -1104,6 +1104,70 @@
     }
   },
   {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/contributing/README.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "开发协作指南",
+      "en": "Development collaboration"
+    },
+    "topics": {
+      "zh": "开始贡献",
+      "en": "Contributing"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/dev/contributing/",
+      "en": "https://molr.ai/en/docs/dev/contributing/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/contributing/environment.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "开发环境",
+      "en": "Development environment"
+    },
+    "topics": {
+      "zh": "开始贡献",
+      "en": "Contributing"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/dev/contributing/environment/",
+      "en": "https://molr.ai/en/docs/dev/contributing/environment/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/contributing/workflow.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "开发协作流程",
+      "en": "Collaboration workflow"
+    },
+    "topics": {
+      "zh": "开始贡献",
+      "en": "Contributing"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/dev/contributing/workflow/",
+      "en": "https://molr.ai/en/docs/dev/contributing/workflow/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/contributing/acceptance.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "验收与服务生效",
+      "en": "Acceptance and service activation"
+    },
+    "topics": {
+      "zh": "开始贡献",
+      "en": "Contributing"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/dev/contributing/acceptance/",
+      "en": "https://molr.ai/en/docs/dev/contributing/acceptance/"
+    }
+  },
+  {
     "path": "/molr/.agents/skills/molr-docs/references/docs/dev/contributing/documentation.md",
     "contentLanguage": "zh",
     "titles": {
@@ -1117,6 +1181,38 @@
     "urls": {
       "zh": "https://molr.ai/zh/docs/dev/contributing/documentation/",
       "en": "https://molr.ai/en/docs/dev/contributing/documentation/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/contributing/gitea-ci.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "Gitea CI",
+      "en": "Gitea CI"
+    },
+    "topics": {
+      "zh": "开始贡献",
+      "en": "Contributing"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/dev/contributing/gitea-ci/",
+      "en": "https://molr.ai/en/docs/dev/contributing/gitea-ci/"
+    }
+  },
+  {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/roadmap.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "路线图",
+      "en": "Roadmap"
+    },
+    "topics": {
+      "zh": "开始贡献",
+      "en": "Contributing"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/dev/roadmap/",
+      "en": "https://molr.ai/en/docs/dev/roadmap/"
     }
   },
   {

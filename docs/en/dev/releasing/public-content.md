@@ -1,6 +1,20 @@
 # Open-Source Release and Private File Isolation
 
-This specification applies to source code archives, Linux distribution packages, and the three frontend applications. For license scope and maintenance of the complete third-party notices, see [Licenses and Distribution](licensing.md). For maintenance rules regarding public content and internal materials, see [Development Standards](../../../dev/contributing/development.md#公开内容与内部资料).
+This specification applies to source code archives, Linux distribution packages, and the three frontend applications. For license scope and maintenance of the complete third-party notices, see [Licenses and Distribution](licensing.md). This document owns everyday public-content and internal-material rules, distribution checks, and history review.
+
+## Public Content and Internal Materials
+
+Maintain this repository for public distribution. Review actual content and the staging area before committing; these rules cover code, comments, test fixtures, images, attachments, documentation, and generated files:
+
+- Never commit real credentials, passwords, private keys, tokens, one-time login links, databases, logs, backups, customer or personal materials, or actual deployment configuration. Examples must use synthetic data, relative paths, and explicit address placeholders. Renaming a file or changing its extension does not bypass these rules.
+- Do not commit code, fonts, or assets of unknown origin, without distribution rights, or without license review. Preserve original third-party copyrights, licenses, and required NOTICE text according to [licenses and distribution](licensing.md); these are not personal information to remove.
+- `docs/user/` serves ordinary users, `docs/admin/` administrators and operators, and `docs/dev/` public contributors. They describe current implementation, limitations, and reproducible verification. Internal product goals, commercial or competitive assessments, undecided roadmaps, discussion transcripts, and acceptance records containing local environment details belong in repository-root `internal-docs/`. Create it when needed. The whole directory is Git-ignored and is not a dependency of public documentation.
+- When deriving public explanations from internal materials, verify implementation again and remove personal data, deployment details, and internal decision history. Public documents must not link to or depend on internal files. The website loads only reviewed routed documents; do not bypass scope through directory globs, raw imports, symlinks, or copies into `public/`.
+- Before committing, inspect `git status --short`, `git diff --cached --stat`, and `git diff --cached`, and run `npm run check` for public contract manifests, bundled documentation, platform manifests, public content, and licensing. Document route or release workflow changes also require relevant builds and tests. Never force-add internal directories with `git add -f` or remove blocking rules to pass checks.
+- Ignore rules do not remove tracked files or historical objects. After moving committed internal materials, verify the original files are deleted in the staging area and review historical public scope separately. Revoke or rotate leaked credentials before addressing history; moving them into an ignored directory does not resolve a leak.
+- Before cleaning up a worktree, preserve valuable untracked materials such as `internal-docs/`. During merging, transfer them to the main workspace's corresponding ignored directory or private storage designated by the maintainer, verify digests, and retain both copies when names match but content differs. Git does not merge these files; do not lose them during worktree cleanup.
+
+Release checks prevent common accidental commits; they do not replace content and provenance review. Deliver temporary acceptance URLs in the handoff message, and keep accounts, links, and detailed records only in local ignored directories. Maintainers control Git commit identity; do not rewrite history or change global identity configuration without authorization.
 
 ## Local Files and Git
 
@@ -25,7 +39,7 @@ The `internal-docs/` directory in the repository root stores non-public requirem
 
 Official website documentation reads only from public Markdown files registered in `docs-routes.json`; unregistered files do not automatically enter client packages. Adding a route means publishing the full text; content must be reviewed before addition. Pointing to internal directories or reading them via symbolic links is prohibited.
 
-Moving committed materials into ignored directories only changes the current file tree; it does not delete old history. Before making an old repository public, its reachable history must still be audited. Before cleaning up worktrees, retain local internal materials according to development standards.
+Moving committed materials into ignored directories only changes the current file tree; it does not delete old history. Before making an old repository public, its reachable history must still be audited. Before cleaning up worktrees, preserve local internal materials according to [public content and internal materials](#public-content-and-internal-materials).
 
 ## Public Static Assets
 

@@ -690,11 +690,71 @@
     "section": "dev"
   },
   {
+    "file": "dev/contributing/README.md",
+    "path": "/docs/dev/contributing/",
+    "label": "开发协作指南",
+    "group": "开始贡献",
+    "englishLabel": "Development collaboration",
+    "englishGroup": "Contributing",
+    "root": "docs",
+    "section": "dev"
+  },
+  {
+    "file": "dev/contributing/environment.md",
+    "path": "/docs/dev/contributing/environment/",
+    "label": "开发环境",
+    "group": "开始贡献",
+    "englishLabel": "Development environment",
+    "englishGroup": "Contributing",
+    "root": "docs",
+    "section": "dev"
+  },
+  {
+    "file": "dev/contributing/workflow.md",
+    "path": "/docs/dev/contributing/workflow/",
+    "label": "开发协作流程",
+    "group": "开始贡献",
+    "englishLabel": "Collaboration workflow",
+    "englishGroup": "Contributing",
+    "root": "docs",
+    "section": "dev"
+  },
+  {
+    "file": "dev/contributing/acceptance.md",
+    "path": "/docs/dev/contributing/acceptance/",
+    "label": "验收与服务生效",
+    "group": "开始贡献",
+    "englishLabel": "Acceptance and service activation",
+    "englishGroup": "Contributing",
+    "root": "docs",
+    "section": "dev"
+  },
+  {
     "file": "dev/contributing/documentation.md",
     "path": "/docs/dev/contributing/documentation/",
     "label": "文档维护约定",
     "group": "开始贡献",
     "englishLabel": "Documentation maintenance",
+    "englishGroup": "Contributing",
+    "root": "docs",
+    "section": "dev"
+  },
+  {
+    "file": "dev/contributing/gitea-ci.md",
+    "path": "/docs/dev/contributing/gitea-ci/",
+    "label": "Gitea CI",
+    "group": "开始贡献",
+    "englishLabel": "Gitea CI",
+    "englishGroup": "Contributing",
+    "root": "docs",
+    "section": "dev"
+  },
+  {
+    "file": "dev/roadmap.md",
+    "path": "/docs/dev/roadmap/",
+    "label": "路线图",
+    "group": "开始贡献",
+    "englishLabel": "Roadmap",
     "englishGroup": "Contributing",
     "root": "docs",
     "section": "dev"
