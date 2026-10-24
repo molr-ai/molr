@@ -17,7 +17,7 @@ Examples default to `latest`; replace it with `nightly` before the first stable 
 
 ## Deploy the backend
 
-Local command execution is disabled by default. Connect a standalone sandbox node when command execution resources are needed.
+First installation defaults to the personal preset, exposing directories, networks and compute within the service account’s access and allowing separately granted Full Access. Ordinary images do not provide controlled compute inside the container; connect a capable sandbox node for isolated execution.
 
 ### Docker commands
 
@@ -75,7 +75,7 @@ docker compose exec molr /usr/local/bin/molr access -config /data/server.json
 
 The container must reach its configured `public_url`; otherwise use password login. After changing the password, use `-password-stdin`; supply `-mfa-code` for MFA. Do not loop login diagnostics: successful logins also count toward rate limits.
 
-Once ready, run `docker exec molr /usr/local/bin/molr doctor -config /data/server.json`, or the corresponding Compose command. Defaults require `Sandbox.Enabled=false` and `Storage=true`. Follow the web onboarding flow to connect a model after signing in.
+Once ready, run `docker exec molr /usr/local/bin/molr doctor -config /data/server.json`, or the corresponding Compose command. With the personal preset, check `Enabled=true`, `Storage=true` and `Capabilities.FullAccess=true`. Ordinary images report `Capabilities.Shell=false`, meaning controlled compute is unavailable. Follow the web onboarding flow to connect a model after signing in.
 
 ## Deploy a sandbox node
 
@@ -135,12 +135,13 @@ Generated self-signed certificates last one year and enable `http.auto_renew_cer
 
 Ordinary container nodes provide file access and explicitly authorized Full Access commands, without in-container process, file or network isolation or per-command resource limits. Docker separates the container from the host. Full Access commands can access files readable or writable by the service user, including private credentials and other authorized directories. `restrict_directories` limits file-tool directory registration, not Full Access commands.
 
-Verify authenticated node information reports `Enabled=true`, `Storage=true` and `Capabilities.FullAccess=true`, then grant the assistant Full Access compute and required file permissions. For per-assistant command isolation, use a native sandbox or the source isolation target at the end of this page.
+Verify authenticated node information reports `Enabled=true`, `Storage=true` and `Capabilities.FullAccess=true`, then grant Full Access separately as needed. Full Access covers files, commands and networks accessible to the service account; ordinary calls still use separate storage, compute and network grants. For per-assistant command isolation, use a native sandbox or the source isolation target at the end of this page.
 
 ## Addresses and custom configuration
 
 | Environment variable | Purpose |
 | --- | --- |
+| `MOLR_RESOURCE_PRESET` | First configuration only: `permissive` (default, personal) or `least-privilege`; existing settings are preserved |
 | `MOLR_MODE` | `server` (default) or `sandbox` |
 | `MOLR_PUBLIC_URL` | Explicit access address; updates the saved public URL and listener port at startup, and replaces the previous allowed origin for backends |
 
@@ -150,7 +151,11 @@ When `MOLR_PUBLIC_URL` is unset, existing configuration is retained. An explicit
 
 Configuration lives in the volume. Stop the container before copying it out, editing it and writing it back, retaining mode 0600 and ownership `65532:65532`. Restart to load the changes. Invalid configuration is not replaced with defaults. For fully managed configuration, existing `serve -config`, `bootstrap` commands and read-only configuration mounts remain available.
 
-Backend local commands are disabled by default. Explicitly set `sandbox.enabled: true` and `sandbox.allow_full_access: true` in `server.json` and separately authorize the assistant when needed. Standalone nodes allow Full Access by default, but calls still need authorization. Install additional tools while building a derived image, then restore `USER 65532:65532`.
+Backend and standalone node first installs share the same resource preset. Personal enables command execution and Full Access, allows registering any container directory, and registers Internet, LAN and host-service networks. Network grants govern controlled commands, not Runtime’s own network access. Presets do not grant assistants access or add in-container isolation to ordinary images. “Local” means the container environment; mounts, the service account and external network policies still apply.
+
+For least privilege, add `-e MOLR_RESOURCE_PRESET=least-privilege` to Docker, or run `MOLR_RESOURCE_PRESET=least-privilege docker compose -f compose.prebuilt.yaml up -d` with the prebuilt template. This only affects initial configuration on a new volume. For existing instances, edit `server.json` or `sandbox.json` in the volume and restart; reinstalling or changing this variable does not overwrite existing permission settings.
+
+Install additional tools while building a derived image, then restore `USER 65532:65532`.
 
 When using a host bind mount instead of a named volume, make the directory writable by UID/GID `65532:65532`. The container does not recursively change host ownership as root. Mount only explicitly authorized host directories, never the host root or Docker socket. Mount reference data read-only.
 

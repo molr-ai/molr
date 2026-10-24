@@ -12,6 +12,8 @@ Assign sandboxes and tools via [User Groups](../administration/users-and-groups.
 
 For deployment dependencies, GPU, and network candidate scopes, see [Linux Sandbox Deployment](../sandbox/linux.md). For user authorization and usage, see [Permissions and Budgets](../../user/guides/permissions-and-budget.md).
 
+The Compute section describes controlled command execution. It distinguishes disabled execution, unavailable controlled compute, offline nodes and disconnected nodes, showing capacity only when available. Failures show their cause and recovery steps, without asking users to expose directories or networks. Compute cards and new grants follow current controlled execution capability; existing grants remain viewable and revocable. Full Access has its own section and covers storage, compute and networks accessible to the service account. It may remain available when controlled compute is unavailable, requires its own grant and explicit invocation, and never becomes an automatic fallback for ordinary calls.
+
 ## Connect in the WebUI
 
 Use each remote sandbox instance with only one Runtime. Do not share an instance or its connection credentials across multiple Runtimes. The service currently does not prevent multiple Runtimes from connecting and does not isolate permissions or operation state by Runtime. Deploy a separate [sandbox instance](../sandbox/remote.md) for each Runtime.

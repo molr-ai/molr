@@ -45,7 +45,7 @@ func runContainer(ctx context.Context, args []string, output, diagnostics io.Wri
 	if mode == "" {
 		mode = "server"
 	}
-	path, err := prepareContainer(*root, mode, os.Getenv("MOLR_PUBLIC_URL"))
+	path, err := prepareContainer(*root, mode, os.Getenv("MOLR_PUBLIC_URL"), os.Getenv("MOLR_RESOURCE_PRESET"))
 	if err != nil {
 		return err
 	}
@@ -102,7 +102,7 @@ func writeContainerFile(path string, data []byte) error {
 	return os.Rename(file.Name(), path)
 }
 
-func prepareContainer(root, mode, publicURL string) (string, error) {
+func prepareContainer(root, mode, publicURL, preset string) (string, error) {
 	if mode != "server" && mode != "sandbox" {
 		return "", fmt.Errorf("MOLR_MODE must be server or sandbox")
 	}
@@ -122,10 +122,15 @@ func prepareContainer(root, mode, publicURL string) (string, error) {
 	var document map[string]any
 	if fresh {
 		address, tlsMode, dataDir := "http://127.0.0.1:8787", "lan", root
-		sandbox := map[string]any{"enabled": false, "allow_full_access": false}
+		if preset == "" {
+			preset = "permissive"
+		}
+		sandbox, err := config.SandboxPreset(preset)
+		if err != nil {
+			return "", err
+		}
 		if mode == "sandbox" {
 			address, tlsMode, dataDir = "https://127.0.0.1:8443", "direct", filepath.Join(root, "private")
-			sandbox = map[string]any{"enabled": true, "allow_full_access": true, "restrict_directories": true, "directories": []map[string]any{{"path": filepath.Join(root, "projects"), "read_only": false}}}
 		}
 		document = map[string]any{"data_dir": dataDir, "http": map[string]any{"public_url": address, "tls_mode": tlsMode}, "sandbox": sandbox}
 		if mode == "sandbox" {

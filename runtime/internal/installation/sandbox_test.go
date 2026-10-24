@@ -3,6 +3,7 @@
 package installation
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
@@ -157,5 +158,49 @@ func TestMaintenancePreservesModeAndRejectsSwitch(t *testing.T) {
 				t.Fatal("maintenance changed mode")
 			}
 		})
+	}
+}
+
+func TestFirstInstallResourcePresetDefaultsAndChoices(t *testing.T) {
+	for _, mode := range []string{"server", "sandbox"} {
+		for _, tc := range []struct {
+			name, preset, answer string
+			interactive, enabled bool
+		}{
+			{name: "unattended default", enabled: true},
+			{name: "explicit personal", preset: "permissive", enabled: true},
+			{name: "explicit least privilege", preset: "least-privilege"},
+			{name: "interactive default", answer: "\n", interactive: true, enabled: true},
+			{name: "interactive personal", answer: "p\n", interactive: true, enabled: true},
+			{name: "interactive least privilege", answer: "l\n", interactive: true},
+		} {
+			t.Run(mode+"/"+tc.name, func(t *testing.T) {
+				e, r := fixture(t)
+				e.Options.Name = "molr-preset-new"
+				e.Options.Mode, e.Options.Preset = mode, tc.preset
+				e.Options.ProgramRoot = r.ProgramRoot
+				e.Options.Port, e.Options.PublicHost = 18789, "127.0.0.1"
+				if tc.interactive {
+					terminal, err := os.CreateTemp(t.TempDir(), "terminal")
+					if err != nil {
+						t.Fatal(err)
+					}
+					defer terminal.Close()
+					e.UI.Terminal, e.UI.reader = terminal, bufio.NewReader(strings.NewReader(tc.answer))
+				}
+				plan, err := e.plan(&Package{Build: r.Build}, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				sandbox := plan.Config["sandbox"].(map[string]any)
+				if sandbox["enabled"] != tc.enabled || sandbox["allow_full_access"] != tc.enabled || sandbox["restrict_directories"] != !tc.enabled {
+					t.Fatal("wrong preset", sandbox)
+				}
+				networks := sandbox["network_presets"].([]any)
+				if (len(networks) > 0) != tc.enabled {
+					t.Fatal("wrong network presets", networks)
+				}
+			})
+		}
 	}
 }

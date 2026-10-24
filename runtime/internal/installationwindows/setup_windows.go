@@ -179,7 +179,7 @@ func Run(ctx context.Context, args []string, out, diagnostics io.Writer) (result
 	flags.SetOutput(diagnostics)
 	name := flags.String("name", "", "instance name")
 	rootArg := flags.String("program-root", "", "private program root")
-	preset := flags.String("resource-preset", "least-privilege", "initial resource preset")
+	preset := flags.String("resource-preset", "permissive", "initial resource preset: permissive (default) or least-privilege")
 	initOwner := flags.String("init-owner", "", "initial administrator username; password from stdin")
 	yes := flags.Bool("yes", false, "confirm changes")
 	flags.Bool("json", false, "")

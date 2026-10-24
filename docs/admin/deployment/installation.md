@@ -46,7 +46,7 @@ flowchart TB
 | Windows 桌面完整版 `.exe`，AMD64 | Electron、连接管理界面、内嵌 WebUI 的 `molr.exe` 和 `molr-setup.exe` | 按需创建当前用户的计划任务，登录 Windows 后自动启动；无需 WSL。受控 PowerShell 使用 AppContainer 文件权限与网络开关，Full Access 独立授权。 |
 | Linux/macOS Runtime `.tar.gz`，AMD64／ARM64 | `bin/molr`（内嵌 WebUI 和本机 Sandbox）、`bin/molr-setup`、发行元数据和许可证 | 同一 `molr` 程序支持 `server` 和 `sandbox` 模式，不含 Electron 桌面程序。通过 CLI 选择服务模式，再用浏览器或客户端连接。官网 `install.sh` 下载的就是这类 Runtime 包。 |
 | 源码归档 | 经发布检查的项目源码 | 用于自行构建，不是编译好的应用安装包；构建依赖见[源码部署](source-build.md)。 |
-| Docker | 普通版预构建镜像，包含 `molr` 与内嵌 WebUI，支持后端／独立沙盒模式 | 不含桌面应用或 `molr-setup`。后端默认关闭命令；容器节点只提供文件访问与显式授权的 Full Access，不提供容器内隔离。支持 Docker／Compose，见 [Docker 部署](docker.md)。 |
+| Docker | 普通版预构建镜像，包含 `molr` 与内嵌 WebUI，支持后端／独立沙盒模式 | 不含桌面应用或 `molr-setup`。默认个人预设；普通容器提供文件访问与显式授权的 Full Access，不提供容器内隔离。支持 Docker／Compose，见 [Docker 部署](docker.md)。 |
 
 WebUI 无需另外下载安装包；手机当前使用同一 WebUI，没有可下载的原生手机 App。桌面包和 Runtime 包均随附许可证与第三方声明，桌面包另保留 Electron/Chromium 的许可资料。
 
@@ -77,7 +77,7 @@ Windows 本机 Runtime 使用当前用户的计划任务，在登录后自动启
 | 从 Linux/macOS 完整版中排除 Runtime 文件 | 不可选。完整包固定携带 Runtime，没有组件勾选页，也没有单独的 Linux/macOS 纯客户端安装包。 |
 | 创建并启动本机 Runtime 服务 | 可选。首次打开桌面 app 不会自动创建服务；点击“安装并启动”才执行。只连远程实例时可跳过这一步。 |
 | 单独安装或不安装内置 Sandbox | 没有独立安装步骤或勾选项，它是 Runtime 的一部分。不会自动创建额外的沙盒节点。 |
-| 开启本机命令执行 | 创建服务前选择资源权限预设；宽松预设开启，最小权限预设关闭。随后可修改 `sandbox.enabled` 并重启。助理仍需计算授权。 |
+| 开启本机命令执行 | 创建服务前选择资源权限预设；个人预设开启，最小权限预设关闭。随后可修改 `sandbox.enabled` 并重启。助理仍需计算授权。 |
 | 跳过 Linux DEB 的沙盒系统依赖 | 当前不可选。即使只连接远程 Runtime，安装 DEB 时仍需满足它声明的沙盒依赖；跳过创建本机服务不会去掉这些包依赖。 |
 
 因此，当前已有“按需创建本机 Runtime 服务”，尚未实现“安装时分别勾选 Runtime／Sandbox 组件”。macOS 的执行配置见[macOS 原生命令权限](../sandbox/macos.md)，Linux 的执行环境与授权见[Linux 沙盒部署](../sandbox/linux.md)。
@@ -108,9 +108,9 @@ Linux 使用 systemd；macOS 使用下文的用户级 launchd 安装。源码开
 ./bin/molr-setup --mode sandbox --name molr-node --resource-preset least-privilege
 ```
 
-安装器记录运行模式，并为后台服务生成 `molr serve --mode server|sandbox` 命令；升级、修复和重启沿用记录。交互安装在未指定 `--mode` 时询问模式，资源权限预设单独选择。非交互安装未指定时选择 `server` 和最小权限预设。桌面端创建本机 Runtime 时展示预设选择，预选宽松预设。
+安装器记录运行模式，并为后台服务生成 `molr serve --mode server|sandbox` 命令；升级、修复和重启沿用记录。交互安装在未指定 `--mode` 时询问模式，资源权限预设单独选择。未指定时运行模式为 `server`；命令行交互回车、非交互安装、桌面端和 Docker 首次安装统一默认“个人”预设（`permissive`），均保留可选“最小权限”（`least-privilege`）。Docker 通过 `MOLR_RESOURCE_PRESET` 选择，见 [Docker 部署](docker.md#地址与自定义配置)。
 
-- **宽松预设（个人部署推荐）**：在运行账户的系统权限范围内，允许接入任意本机目录、网络及计算资源，通过 Molr 配置和分配权限。Runtime 启动时自动把已配置的本机网络登记为可申请资源：Linux 包括互联网、局域网和宿主服务三类，macOS 与 Windows 各提供一个网络开关资源。已登记或已断开的资源不会重复创建或重新连接。助理仍需单独授权。Linux 自动发现支持的 GPU；CPU、内存等授权额度不额外设置部署上限，执行后端和协议容量边界仍适用。Full Access 能力开放，但仍需单独授权且显式调用。
+- **个人预设（默认，`permissive`）**：在运行账户的系统权限范围内，允许接入任意本机目录、网络及计算资源，通过 Molr 配置和分配权限。Runtime 启动时自动把已配置的本机网络登记为可申请资源：Linux 包括互联网、局域网和宿主服务三类，macOS 与 Windows 各提供一个网络开关资源。已登记或已断开的资源不会重复创建或重新连接。助理仍需单独授权。Linux 自动发现支持的 GPU；CPU、内存等授权额度不额外设置部署上限，执行后端和协议容量边界仍适用。Full Access 能力开放，但仍需单独授权且显式调用。
 - **最小权限预设**：默认不开放本机目录、网络访问或命令执行资源。随后可调整部署配置开放资源，再为助理授权。Runtime 自身的数据存储和助理内置工作区仍可使用；独立沙盒的 `enabled: false` 则关闭整个节点的资源服务。
 
 资源权限预设只生成普通配置字段，与安装记录中的运行模式独立。`--config` 与 `--resource-preset` 互斥；升级、修复和重新连接保留现有配置。已有实例可先预览，再显式应用预设：
@@ -144,7 +144,7 @@ curl -fsSL https://molr.ai/install.sh | sh
 
 普通卸载保留配置和数据；明确清除使用 `uninstall --purge --yes`。更新保留账号、配置和工作区，应用内一键更新暂不支持 macOS，请使用上述 CLI。安装器检查发行包与 Mach-O 代码签名；当前采用 ad-hoc 签名，不提供 Developer ID 身份签名或 Apple 公证，支持范围为终端安装流程。
 
-首次安装按所选资源权限预设生成 `sandbox.enabled`；未指定预设的非交互安装为 false，聊天、文件和记忆可用。设置 `sandbox.enabled: true` 并重启后可使用 Seatbelt 受控命令，按需授予计算、文件和网络权限。Full Access 需要另外启用 `sandbox.allow_full_access` 并独立授权。配置与能力边界见 [macOS 原生命令权限](../sandbox/macos.md)。
+首次安装默认个人预设，开启 `sandbox.enabled` 和 `sandbox.allow_full_access`；最小权限预设关闭二者。Seatbelt 受控命令仍需计算、文件和网络授权；Full Access 需要独立授权并显式调用。配置与能力边界见 [macOS 原生命令权限](../sandbox/macos.md)。
 
 离线下载归档及相邻 `.sha256` 后，使用 `shasum -a 256 -c <归档>.sha256` 校验，再解压并运行 `./bin/molr-setup`。不要用 Finder 双击裸命令行程序代替终端安装。
 

@@ -33,12 +33,12 @@ func loadContainerConfig(t *testing.T, path string) config.Config {
 }
 func TestContainerServerFirstRunPreservesConfigurationAndAccount(t *testing.T) {
 	root := t.TempDir()
-	path, err := prepareContainer(root, "server", "")
+	path, err := prepareContainer(root, "server", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	cfg := loadContainerConfig(t, path)
-	if cfg.HTTP.PublicURL != "http://127.0.0.1:8787" || cfg.HTTP.Listen != "0.0.0.0:8787" || cfg.Sandbox.Enabled || cfg.Sandbox.AllowFullAccess {
+	if cfg.HTTP.PublicURL != "http://127.0.0.1:8787" || cfg.HTTP.Listen != "0.0.0.0:8787" || !cfg.Sandbox.Enabled || !cfg.Sandbox.AllowFullAccess || cfg.Sandbox.RestrictDirectories || len(cfg.Sandbox.NetworkPresets) != 3 {
 		t.Fatal(cfg)
 	}
 	if _, err = invokeCLI(t, t.Context(), []string{"bootstrap", "-config", path}, ""); err != nil {
@@ -51,20 +51,21 @@ func TestContainerServerFirstRunPreservesConfigurationAndAccount(t *testing.T) {
 	data, _ := os.ReadFile(path)
 	var doc map[string]any
 	json.Unmarshal(data, &doc)
+	doc["sandbox"] = map[string]any{"enabled": false, "allow_full_access": false}
 	doc["updates"] = map[string]any{"auto_check": false}
 	doc["http"].(map[string]any)["allowed_origins"] = []string{cfg.HTTP.PublicURL, "http://127.0.0.2:8787"}
 	data, _ = json.Marshal(doc)
 	os.WriteFile(path, data, 0600)
-	_, err = prepareContainer(root, "server", "http://192.168.1.20:9898")
+	_, err = prepareContainer(root, "server", "http://192.168.1.20:9898", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	cfg = loadContainerConfig(t, path)
-	if cfg.HTTP.Listen != "0.0.0.0:9898" || cfg.HTTP.PublicURL != "http://192.168.1.20:9898" || cfg.Updates.AutoCheck || len(cfg.HTTP.AllowedOrigins) != 2 {
+	if cfg.HTTP.Listen != "0.0.0.0:9898" || cfg.HTTP.PublicURL != "http://192.168.1.20:9898" || cfg.Sandbox.Enabled || cfg.Sandbox.AllowFullAccess || cfg.Updates.AutoCheck || len(cfg.HTTP.AllowedOrigins) != 2 {
 		t.Fatal(cfg)
 	}
 	before, _ := os.ReadFile(path)
-	_, err = prepareContainer(root, "server", "")
+	_, err = prepareContainer(root, "server", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,12 +83,12 @@ func TestContainerServerFirstRunPreservesConfigurationAndAccount(t *testing.T) {
 }
 func TestContainerSandboxGeneratesPrivateStableCredentials(t *testing.T) {
 	root := t.TempDir()
-	path, err := prepareContainer(root, "sandbox", "https://127.0.0.1:9443")
+	path, err := prepareContainer(root, "sandbox", "https://127.0.0.1:9443", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	cfg := loadContainerConfig(t, path)
-	if cfg.DataDir != filepath.Join(root, "private") || !cfg.Sandbox.Enabled || !cfg.Sandbox.AllowFullAccess || !cfg.Sandbox.RestrictDirectories || cfg.Sandbox.Directories[0].Path != filepath.Join(root, "projects") {
+	if cfg.DataDir != filepath.Join(root, "private") || !cfg.Sandbox.Enabled || !cfg.Sandbox.AllowFullAccess || cfg.Sandbox.RestrictDirectories || len(cfg.Sandbox.NetworkPresets) != 3 {
 		t.Fatal(cfg)
 	}
 	key, err := tls.LoadX509KeyPair(cfg.HTTP.CertFile, cfg.HTTP.KeyFile)
@@ -105,7 +106,7 @@ func TestContainerSandboxGeneratesPrivateStableCredentials(t *testing.T) {
 	if len(strings.TrimSpace(string(saved[filepath.Join(cfg.DataDir, "sandbox-token")]))) != 64 {
 		t.Fatal("unexpected token entropy")
 	}
-	_, err = prepareContainer(root, "sandbox", "")
+	_, err = prepareContainer(root, "sandbox", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +118,7 @@ func TestContainerSandboxGeneratesPrivateStableCredentials(t *testing.T) {
 	}
 	// Resume an interrupted first start using the key already written.
 	os.Remove(cfg.HTTP.CertFile)
-	_, err = prepareContainer(root, "sandbox", "")
+	_, err = prepareContainer(root, "sandbox", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,23 +127,23 @@ func TestContainerSandboxGeneratesPrivateStableCredentials(t *testing.T) {
 		t.Fatal("replaced key")
 	}
 	os.Remove(cfg.HTTP.KeyFile)
-	if _, err = prepareContainer(root, "sandbox", ""); err == nil {
+	if _, err = prepareContainer(root, "sandbox", "", ""); err == nil {
 		t.Fatal("replaced incomplete existing identity")
 	}
 }
 func TestContainerRejectsInvalidConfigAndLinkedSecrets(t *testing.T) {
 	for _, value := range []string{"http://example.com:8787", "http://192.168.1.2:8787/path", "http://user:password@127.0.0.1:8787", "https://127.0.0.1:8787"} {
-		if _, err := prepareContainer(t.TempDir(), "server", value); err == nil {
+		if _, err := prepareContainer(t.TempDir(), "server", value, ""); err == nil {
 			t.Fatal("invalid address accepted", value)
 		}
 	}
-	if _, err := prepareContainer(t.TempDir(), "other", ""); err == nil {
+	if _, err := prepareContainer(t.TempDir(), "other", "", ""); err == nil {
 		t.Fatal("invalid mode accepted")
 	}
 	root := t.TempDir()
 	path := filepath.Join(root, "server.json")
 	os.WriteFile(path, []byte("invalid configuration"), 0600)
-	if _, err := prepareContainer(root, "server", ""); err == nil {
+	if _, err := prepareContainer(root, "server", "", ""); err == nil {
 		t.Fatal("invalid configuration replaced")
 	}
 	value, _ := os.ReadFile(path)
@@ -150,7 +151,7 @@ func TestContainerRejectsInvalidConfigAndLinkedSecrets(t *testing.T) {
 		t.Fatal("configuration overwritten")
 	}
 	root = t.TempDir()
-	path, err := prepareContainer(root, "sandbox", "")
+	path, err := prepareContainer(root, "sandbox", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,14 +163,14 @@ func TestContainerRejectsInvalidConfigAndLinkedSecrets(t *testing.T) {
 	if err = os.Symlink(outside, tokenPath); err != nil {
 		t.Skip("symlinks unavailable")
 	}
-	if _, err = prepareContainer(root, "sandbox", ""); err == nil {
+	if _, err = prepareContainer(root, "sandbox", "", ""); err == nil {
 		t.Fatal("linked token accepted")
 	}
 }
 
 func TestContainerConnectionCodeExportPreservesIdentity(t *testing.T) {
 	root := t.TempDir()
-	path, err := prepareContainer(root, "sandbox", "")
+	path, err := prepareContainer(root, "sandbox", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,5 +204,32 @@ func TestContainerConnectionCodeExportPreservesIdentity(t *testing.T) {
 	output.Reset()
 	if err := exportSandboxConnectionCode(cfg, "", &output); err == nil || output.Len() != 0 {
 		t.Fatal("nonprivate token was exported")
+	}
+}
+
+func TestContainerResourcePreset(t *testing.T) {
+	for _, mode := range []string{"server", "sandbox"} {
+		t.Run(mode, func(t *testing.T) {
+			root := t.TempDir()
+			path, err := prepareContainer(root, mode, "", "least-privilege")
+			if err != nil {
+				t.Fatal(err)
+			}
+			cfg := loadContainerConfig(t, path)
+			if cfg.Sandbox.Enabled || cfg.Sandbox.AllowFullAccess || !cfg.Sandbox.RestrictDirectories || len(cfg.Sandbox.NetworkPresets) != 0 {
+				t.Fatal("least privilege expanded incorrectly")
+			}
+			before, _ := os.ReadFile(path)
+			if _, err := prepareContainer(root, mode, "", "permissive"); err != nil {
+				t.Fatal(err)
+			}
+			after, _ := os.ReadFile(path)
+			if !bytes.Equal(before, after) {
+				t.Fatal("initial preset changed existing settings")
+			}
+		})
+	}
+	if _, err := prepareContainer(t.TempDir(), "server", "", "invalid"); err == nil {
+		t.Fatal("invalid initial preset accepted")
 	}
 }

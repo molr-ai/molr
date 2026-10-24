@@ -77,3 +77,20 @@ else process.stdout.write(JSON.stringify({type:'desktop',installed:true,state:'r
     assert.equal((await runtime.status()).version, '0.3.0');
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
+
+// Both omitted and explicit presets must survive the desktop-to-installer bridge.
+test('first install defaults to personal and preserves the least privilege choice', { skip: process.platform === 'win32' }, async () => {
+  const root = mkdtempSync(join(tmpdir(), 'molr-installer-preset-'));
+  try {
+    mkdirSync(join(root, 'bin'));
+    writeFileSync(join(root, 'release.json'), JSON.stringify({ os: process.platform, arch: process.arch === 'arm64' ? 'arm64' : 'amd64', version: '0.1.0-local' }));
+    writeFileSync(join(root, 'bin/molr-setup'), `#!/usr/bin/env node
+const action = process.argv[3];
+const index = process.argv.indexOf('--resource-preset');
+process.stdout.write(JSON.stringify({ type:'desktop', installed:action==='install', state:'running', version:index < 0 ? '' : process.argv[index+1] }));
+`, { mode: 0o755 });
+    const runtime = new LocalRuntime(root, join(root, 'manager'));
+    assert.equal((await runtime.action('install')).version, 'permissive');
+    assert.equal((await runtime.action('install', 'least-privilege')).version, 'least-privilege');
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});

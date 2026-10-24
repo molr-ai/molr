@@ -28,7 +28,7 @@ curl -fsSL https://molr.ai/install.sh | sh -s -- --mode server
 
 首次安装默认使用当前普通用户，从 8787 开始选择空闲端口并生成独立配置。Linux 安装 systemd 用户服务；root 执行时须通过 `--user molr` 指定非 root 运行账户。依赖缺失时，apt 系系统会询问是否安装；其他系统按输出补齐依赖。systemd 用户管理器必须可用；安装器自动检测并尝试开启 linger，以便退出登录后继续运行；若权限不足或未能验证开启，按提示执行管理员命令并确认 `Linger=yes`。macOS 13 及以上使用当前普通用户的 launchd 服务，不使用 sudo。
 
-资源权限预设与运行模式独立。交互安装可选择宽松或最小权限；非交互安装未指定时使用最小权限，关闭命令执行，完整服务仍提供内置工作区存储。需要开放本机目录、网络和计算资源时选择 `--resource-preset permissive`，助理仍需授权。具体范围见[资源权限预设](deployment/installation.md#runtime-模式与资源权限预设)。
+资源权限预设与运行模式独立。各安装渠道首次安装默认使用个人预设（`permissive`），开放服务账号可访问的目录、网络和计算资源，助理仍需授权。命令行可用 `--resource-preset least-privilege` 选择最小权限，关闭命令执行；完整服务仍提供内置工作区存储。具体范围见[资源权限预设](deployment/installation.md#runtime-模式与资源权限预设)。
 
 安装完成会输出局域网访问地址和有效期 15 分钟的一次性登录链接。点击链接并确认登录后进入首次引导：
 

@@ -1,6 +1,8 @@
 services:
   molr:
     image: ${MOLR_IMAGE:-ghcr.io/molr-ai/molr:latest}
+    environment:
+      MOLR_RESOURCE_PRESET: ${MOLR_RESOURCE_PRESET:-permissive}
     init: true
     restart: unless-stopped
     ports:

@@ -112,7 +112,7 @@ func parseOptions(args []string, diagnostics io.Writer) (Options, error) {
 	f.StringVar(&o.User, "user", "", "system service account; requires root")
 	f.StringVar(&o.ProgramRoot, "program-root", "", "program base directory; instance gets its own child")
 	f.StringVar(&o.Mode, "mode", "", "Runtime mode: server (default) or sandbox; saved for maintenance")
-	f.StringVar(&o.Preset, "resource-preset", "", "initial resource permissions: permissive or least-privilege")
+	f.StringVar(&o.Preset, "resource-preset", "", "initial resource permissions: permissive (default) or least-privilege")
 	f.StringVar(&o.Config, "config", "", "initial JSON configuration; existing configuration is preserved")
 	f.StringVar(&o.Record, "record", "", "explicit installation.json to manage")
 	f.StringVar(&o.Permissions, "directory-permissions", "ask", "ask, fix, or ignore writable directories")
@@ -579,19 +579,19 @@ func (e *Engine) plan(pkg *Package, previous *installrecord.Record) (*Plan, erro
 		}
 		preset := o.Preset
 		if preset == "" && e.UI.interactive() {
-			e.UI.print("Permissive (recommended for personal deployments): allow connecting local directories, networks and compute within the service account's OS permissions. Assistants still require grants.\nLeast privilege: expose no external directories, networks or command execution; enable resources later in deployment configuration.")
-			answer, err := e.UI.answer("Resource preset: [p] permissive / [l] least privilege [l]: ")
+			e.UI.print("Personal (permissive, default): allow connecting local directories, networks and compute within the service account's OS permissions. Assistants still require grants.\nLeast privilege: expose no external directories, networks or command execution; enable resources later in deployment configuration.")
+			answer, err := e.UI.answer("Resource preset: [p] personal / [l] least privilege [p]: ")
 			if err != nil {
 				return nil, err
 			}
-			if answer == "p" {
-				preset = "permissive"
-			} else if answer != "" && answer != "l" {
+			if answer == "l" {
+				preset = "least-privilege"
+			} else if answer != "" && answer != "p" {
 				return nil, fmt.Errorf("invalid resource preset")
 			}
 		}
 		if preset == "" {
-			preset = "least-privilege"
+			preset = "permissive"
 		}
 		initial, err := config.SandboxPreset(preset)
 		if err != nil {

@@ -7,7 +7,12 @@
     "allowed_origins": ["http://127.0.0.1:8787"]
   },
   "sandbox": {
-    "enabled": false,
-    "allow_full_access": false
+    "enabled": true,
+    "allow_full_access": true,
+    "host_tools": true,
+    "restrict_directories": false,
+    "network_presets": ["internet", "lan", "host"],
+    "authorization_ceilings": {"TempBytes": 0, "MaxFileBytes": 0, "NetworkBytes": 0, "NetworkConnections": 0},
+    "gpu": {"enabled": true, "all_devices": true}
   }
 }

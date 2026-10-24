@@ -4,6 +4,7 @@ services:
     init: true
     restart: unless-stopped
     environment:
+      MOLR_RESOURCE_PRESET: ${MOLR_RESOURCE_PRESET:-permissive}
       MOLR_MODE: sandbox
     ports:
       - "8443:8443"

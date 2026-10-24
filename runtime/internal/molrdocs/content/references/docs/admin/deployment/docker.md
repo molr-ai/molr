@@ -17,7 +17,7 @@
 
 ## 部署后端
 
-后端默认关闭本机命令执行，需要命令执行资源时可连接独立沙盒节点。
+首次安装默认使用“个人”预设，允许接入服务账号可访问的目录、网络和计算资源，并开放可单独授权的完全访问。普通镜像不提供容器内受控计算；需要隔离执行时可连接支持该能力的沙盒节点。
 
 ### Docker 命令
 
@@ -75,7 +75,7 @@ docker compose exec molr /usr/local/bin/molr access -config /data/server.json
 
 容器需要能访问配置的 `public_url`；不能回连时使用前述密码登录。改密后 CLI 使用 `-password-stdin`，启用 MFA 时使用 `-mfa-code`。不要循环执行登录诊断，成功登录也计入限流。
 
-服务就绪后执行 `docker exec molr /usr/local/bin/molr doctor -config /data/server.json`，或对应 Compose `exec` 命令。默认要求 `Sandbox.Enabled=false`、`Storage=true`。初次登录后按网页引导连接模型。
+服务就绪后执行 `docker exec molr /usr/local/bin/molr doctor -config /data/server.json`，或对应 Compose `exec` 命令。个人预设下检查 `Enabled=true`、`Storage=true`、`Capabilities.FullAccess=true`；普通镜像的 `Capabilities.Shell=false` 表示受控计算不可用。初次登录后按网页引导连接模型。
 
 ## 部署沙盒节点
 
@@ -135,12 +135,13 @@ docker compose exec molr-sandbox molr connection-code --config /data/sandbox.jso
 
 普通版容器节点提供文件访问和显式授权的 Full Access 命令，不提供容器内进程、文件、网络隔离或命令级资源限额。Docker 隔离容器与宿主机；Full Access 命令可访问服务用户能读写的容器文件，包括私有凭据和其他授权目录。`restrict_directories` 限制文件工具登记范围，不限制 Full Access 命令。
 
-连接后验证已认证节点信息的 `Enabled=true`、`Storage=true`、`Capabilities.FullAccess=true`，再为助理授予 Full Access 计算权限和所需文件权限。需要按助理隔离命令时使用原生沙盒，或本文最后的源码隔离目标。
+连接后验证已认证节点信息的 `Enabled=true`、`Storage=true`、`Capabilities.FullAccess=true`，再按需为助理单独授予完全访问。完全访问包括服务账号可访问的文件、命令与网络；普通调用仍使用分别授予的存储、计算和网络权限。需要按助理隔离命令时使用原生沙盒，或本文最后的源码隔离目标。
 
 ## 地址与自定义配置
 
 | 环境变量 | 用途 |
 | --- | --- |
+| `MOLR_RESOURCE_PRESET` | 首次生成配置时使用 `permissive`（默认，个人）或 `least-privilege`（最小权限）；已有配置不重新应用预设 |
 | `MOLR_MODE` | `server`（默认）或 `sandbox` |
 | `MOLR_PUBLIC_URL` | 显式设置访问地址；启动时更新配置中的公开地址、监听端口，后端同时替换原允许来源 |
 
@@ -150,7 +151,11 @@ docker compose exec molr-sandbox molr connection-code --config /data/sandbox.jso
 
 配置文件位于数据卷内，可在停止容器后复制出来修改，再写回同一路径，保持 0600 和 `65532:65532` 所有权。重新启动后读取修改内容。错误配置不会被默认值覆盖。需要完全自行管理配置时，仍可使用原有 `serve -config`、`bootstrap` 等命令和只读配置挂载。
 
-后端默认关闭本机命令；需要时在 `server.json` 显式设置 `sandbox.enabled: true`、`sandbox.allow_full_access: true` 并另行为助理授权。独立节点默认允许 Full Access，但每次调用仍需授权。容器内不自动安装工具，额外软件在派生镜像构建阶段安装，最后恢复 `USER 65532:65532`。
+后端和独立节点首次安装复用同一资源预设。个人预设启用命令执行和 Full Access，允许登记任意容器内目录，并预登记互联网、局域网、宿主服务网络资源；这些网络权限用于受控命令，不决定 Runtime 自身联网能力。预设不会自动授予助理权限，也不会让普通镜像获得容器内隔离能力。“本机”指容器环境，文件和网络仍受容器挂载、运行账号及外部网络策略约束。
+
+选择最小权限时，Docker 增加 `-e MOLR_RESOURCE_PRESET=least-privilege`；预构建 Compose 模板可执行 `MOLR_RESOURCE_PRESET=least-privilege docker compose -f compose.prebuilt.yaml up -d`。这只影响新数据卷首次生成的配置。已有实例修改卷内 `server.json` 或 `sandbox.json` 后重启，重装和修改该环境变量不会覆盖已有权限设置。
+
+容器内不自动安装工具，额外软件在派生镜像构建阶段安装，最后恢复 `USER 65532:65532`。
 
 绑定宿主目录替代命名卷时，目录必须可由 UID/GID `65532:65532` 读写；容器不会以 root 递归修改宿主文件所有权。需要宿主资料时只挂载明确授权的目录，不挂载宿主根目录或 Docker socket。只读资料使用只读挂载。
 

@@ -73,7 +73,7 @@ export class LocalRuntime {
     if (!['install', 'start', 'stop', 'restart', 'upgrade', 'uninstall'].includes(action)) throw new Error('不支持的本机操作。');
     if (preset && (!['permissive', 'least-privilege'].includes(preset) || action !== 'install')) throw new Error('权限预设仅用于首次安装。');
     if (administrator && (action !== 'install' || typeof administrator.username !== 'string' || !administrator.username.trim() || administrator.username !== administrator.username.trim() || Buffer.byteLength(administrator.username) > 128 || /[\r\n]/.test(administrator.username) || typeof administrator.password !== 'string' || Buffer.byteLength(administrator.password) < 12 || Buffer.byteLength(administrator.password) > 1024 || /[\r\n]/.test(administrator.password))) throw new Error('请填写管理员用户名和至少 12 字节的密码。');
-    if (action === 'install' && !preset) preset = 'least-privilege';
+    if (action === 'install' && !preset) preset = 'permissive';
     if (this.active) throw new Error('另一项维护操作正在进行。');
     this.active = true;
     try {
