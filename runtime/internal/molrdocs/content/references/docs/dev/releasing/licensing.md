@@ -67,11 +67,16 @@ npm run check:licenses
 - BusyBox 不被复制到 Molr 的安装目录；Runtime 继续从系统标准位置准备隔离环境。没有所需依赖时，不自动关闭沙盒或开放 Full Access。
 - 具体部署命令和安装后文件位置见 [部署指南](https://molr.ai/zh/docs/admin/)。
 
+## Docker 普通版
+
+发布的普通镜像以 Debian 13 slim 为基础，保留 Debian 软件包的 `/usr/share/doc/` 版权与许可资料，以及 Molr 的 LICENSE、THIRD_PARTY_NOTICES.md。Node／Go 构建工具链不进入最终镜像，Go 去除调试信息不改变依赖组成。未新增 Go/npm 依赖。
+
 ## Docker 隔离目标
 
-`isolated` 构建目标从 Debian 仓库安装 systemd、Bubblewrap、静态 BusyBox、util-linux 与 CA 证书，保留镜像中的 `/usr/share/doc/` 许可材料。它们不加入原生发行归档，容器镜像当前由部署者本地构建，尚未接入镜像发布。
+`isolated` 构建目标从 Debian 仓库安装 systemd、Bubblewrap、静态 BusyBox、util-linux 与 CA 证书，保留镜像中的 `/usr/share/doc/` 许可材料。它们不加入原生发行归档，隔离镜像由部署者从源码本地构建，不进入普通版镜像自动发布流程。
 
 Docker 外层 seccomp 来自固定提交的 Moby 默认配置，原文件和 Apache-2.0 全文位于 `deploy/docker/vendor/`。派生配置仅增加 Bubblewrap 与受信任 socket broker 所需的三个受限规则；出处、修改说明和完整许可已加入 `THIRD_PARTY_NOTICES.md`，源文件与派生文件摘要纳入许可检查。助理命令的内层 seccomp 保持原有限制。
+
 
 ## 条款与源码依据
 

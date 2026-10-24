@@ -106,9 +106,9 @@ func TestFullAccessLocalAndRemote(t *testing.T) {
 				need(t, err)
 				server := httptest.NewTLSServer(handler)
 				t.Cleanup(server.Close)
-				sum := sha256.Sum256(server.Certificate().Raw)
+				sum := sha256.Sum256(server.Certificate().RawSubjectPublicKeyInfo)
 				router.adapters.networkConfig.AllowedPrivateIPs = []string{"127.0.0.1"}
-				input, _ := json.Marshal(map[string]any{"Name": "Full Access remote", "Endpoint": server.URL, "Fingerprint": hex.EncodeToString(sum[:]), "Token": token, "Mutation": core.Mutation{IdempotencyKey: "remote-connect"}})
+				input, _ := json.Marshal(map[string]any{"Name": "Full Access remote", "Endpoint": server.URL, "ConnectionCode": sandboxConnectionCode(hex.EncodeToString(sum[:]), token), "Mutation": core.Mutation{IdempotencyKey: "remote-connect"}})
 				out, err := router.admin(t.Context(), f.owner, "connect", input)
 				need(t, err)
 				id = out.(sandboxView).ID

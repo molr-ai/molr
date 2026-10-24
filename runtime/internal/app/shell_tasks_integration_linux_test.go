@@ -111,9 +111,9 @@ func TestShellTasksRemoteTTYAndArchivedOutput(t *testing.T) {
 	need(t, err)
 	server := httptest.NewTLSServer(handler)
 	defer server.Close()
-	fingerprint := sha256.Sum256(server.Certificate().Raw)
+	fingerprint := sha256.Sum256(server.Certificate().RawSubjectPublicKeyInfo)
 	router := b.shellTasks.router
-	raw, _ := json.Marshal(map[string]any{"Name": "Remote", "Endpoint": server.URL, "Fingerprint": hex.EncodeToString(fingerprint[:]), "Token": token, "Mutation": core.Mutation{IdempotencyKey: "connect"}})
+	raw, _ := json.Marshal(map[string]any{"Name": "Remote", "Endpoint": server.URL, "ConnectionCode": sandboxConnectionCode(hex.EncodeToString(fingerprint[:]), token), "Mutation": core.Mutation{IdempotencyKey: "connect"}})
 	view, err := router.admin(t.Context(), owner, "connect", raw)
 	need(t, err)
 	id := view.(sandboxView).ID

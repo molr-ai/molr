@@ -1,80 +1,196 @@
 # Docker 部署
 
-仓库根目录的 Dockerfile 构建完整 Molr：先构建 WebUI，再将页面内嵌进静态 Go 程序。一个容器通过同一个端口提供网页和 API，无需另启前端服务。Node、Go 与 Debian 基础镜像均固定版本和多架构 SHA-256 摘要；Go 版本与 `runtime/.go-version` 一致。
+后端和独立沙盒节点使用同一个普通版镜像 `ghcr.io/molr-ai/molr`，支持 Linux AMD64、ARM64。宿主机只需 Docker；选择 Compose 方式时还需 Docker Compose。镜像首次启动自动生成配置、账号或节点凭据，无需预先下载配置、运行 bootstrap 或安装 OpenSSL。
 
-当前通过源码本地构建镜像，尚未提供可直接拉取的官方 Molr 镜像。需要 Git、Docker Engine 或使用 Linux 容器的 Docker Desktop，以及 Docker Compose。宿主机无需安装 Go 或 Node.js。Linux 容器支持 AMD64、ARM64；构建器默认选择本机架构。
+镜像基于 Debian 13 slim，包含静态 Molr 程序与内嵌 WebUI，以普通用户 `65532:65532` 运行。以下使用命名卷，Docker 自动创建并保留数据，不需要处理宿主目录所有权。Docker 与 Compose 两种方式任选一种。
 
-## 构建与配置
+## 镜像版本
+
+| 标签 | 含义 |
+| --- | --- |
+| `latest` | 最新正式版；首个正式版镜像发布前不可用 |
+| `0.1.0` | 固定正式版示例 |
+| `0.2.0-beta.1` / `0.2.0-rc.1` | 固定预发布版示例 |
+| `nightly` | 最新验证通过的每日构建，无固定每日版标签 |
+
+以下默认使用 `latest`；首个正式版发布前，将它替换为 `nightly`。生产部署可固定正式版本或镜像 digest。镜像内部保留完整版本与 commit；Nightly 历史不承诺长期保留或可回退。公开镜像可匿名拉取。
+
+## 部署后端
+
+后端默认关闭本机命令执行，需要命令执行资源时可连接独立沙盒节点。
+
+### Docker 命令
+
+```bash
+docker run -d \
+  --name molr \
+  --init --restart unless-stopped \
+  -v molr-data:/data \
+  -p 8787:8787 \
+  ghcr.io/molr-ai/molr:latest
+```
+
+启动后访问 `http://127.0.0.1:8787`。首次启动创建 `owner` 账号并把随机初始密码保存到 `/data/initial-password`（0600），不打印密码到日志。配置保存在 `/data/server.json`，重启和替换容器不会重置账号、配置或数据。
+
+### Docker Compose
+
+将以下内容保存为 `compose.yaml`：
+
+```yaml
+services:
+  molr:
+    image: ghcr.io/molr-ai/molr:latest
+    init: true
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    volumes:
+      - molr-data:/data
+
+volumes:
+  molr-data:
+```
+
+运行 `docker compose up -d` 即可。仓库中的 `compose.prebuilt.yaml` 是对应模板，可通过 `MOLR_IMAGE` 环境变量选择镜像。Compose 的数据卷带项目名前缀；升级时保留同一项目名。
+
+### 登录与检查
+
+在私有终端读取初始密码，以 `owner` 登录网页：
+
+```bash
+# Docker
+docker exec molr cat /data/initial-password
+# Compose
+docker compose exec molr cat /data/initial-password
+```
+
+也可生成一次性登录链接，默认有效 15 分钟：
+
+```bash
+# Docker
+docker exec molr /usr/local/bin/molr access -config /data/server.json
+# Compose
+docker compose exec molr /usr/local/bin/molr access -config /data/server.json
+```
+
+容器需要能访问配置的 `public_url`；不能回连时使用前述密码登录。改密后 CLI 使用 `-password-stdin`，启用 MFA 时使用 `-mfa-code`。不要循环执行登录诊断，成功登录也计入限流。
+
+服务就绪后执行 `docker exec molr /usr/local/bin/molr doctor -config /data/server.json`，或对应 Compose `exec` 命令。默认要求 `Sandbox.Enabled=false`、`Storage=true`。初次登录后按网页引导连接模型。
+
+## 部署沙盒节点
+
+### Docker 命令
+
+```bash
+docker run -d \
+  --name molr-sandbox \
+  --init --restart unless-stopped \
+  -v molr-sandbox-data:/data \
+  -p 8443:8443 \
+  -e MOLR_MODE=sandbox \
+  ghcr.io/molr-ai/molr:latest
+```
+
+`MOLR_MODE=sandbox` 选择独立节点模式，不创建账号或网页服务。首次启动自动生成 `/data/sandbox.json`、`/data/private/server.crt`、`/data/private/server.key` 和 `/data/private/sandbox-token`，并准备可写项目目录 `/data/projects`。证书、私钥和令牌在重启时保留；缺失已有证书的私钥时拒绝启动，不悄悄更换节点身份。
+
+### Docker Compose
+
+将以下内容保存为单独目录中的 `compose.yaml`：
+
+```yaml
+services:
+  molr-sandbox:
+    image: ghcr.io/molr-ai/molr:latest
+    init: true
+    restart: unless-stopped
+    environment:
+      MOLR_MODE: sandbox
+    ports:
+      - "8443:8443"
+    volumes:
+      - molr-sandbox-data:/data
+
+volumes:
+  molr-sandbox-data:
+```
+
+运行 `docker compose up -d` 即可。仓库中的对应模板是 `compose.sandbox.yaml`。每个后端使用自己的节点和数据卷；多个实例还需不同的容器名或 Compose 项目名、端口。
+
+### 连接与权限
+
+在私有终端导出连接码：
+
+```bash
+# Docker
+docker exec molr-sandbox molr connection-code --config /data/sandbox.json
+# Compose
+docker compose exec molr-sandbox molr connection-code --config /data/sandbox.json
+```
+
+在后端按[连接沙盒](https://molr.ai/zh/docs/admin/resources/sandbox/#在-webui-连接)填写 `https://<节点宿主机IP>:8443`，粘贴连接码，测试连接通过后保存。地址由用户填写，不包含在连接码中；后端自动校验连接码格式版本和节点实际协议版本，不要求发行版本号完全一致。
+
+连接码包含公钥指纹和服务令牌，只在主动执行导出命令时输出，不写入启动日志。它是连接凭据，不能公开分享。重启、升级和证书续期不改变连接码；更换私钥或令牌后需重新导出并更新后端连接凭据。
+
+自动生成的自签名证书有效期为一年，默认启用 `http.auto_renew_certificate`。启动时和运行期间每小时检查，剩余有效期不足 30 天时沿用原私钥续期，原子替换证书；新 TLS 连接使用新证书，已有连接不中断。过期后启动也会先续期。自定义证书默认由管理员维护；只有自签名证书可显式开启自动续期，CA 证书不由此机制签发。后端固定验证公钥指纹及证书有效期。
+
+普通版容器节点提供文件访问和显式授权的 Full Access 命令，不提供容器内进程、文件、网络隔离或命令级资源限额。Docker 隔离容器与宿主机；Full Access 命令可访问服务用户能读写的容器文件，包括私有凭据和其他授权目录。`restrict_directories` 限制文件工具登记范围，不限制 Full Access 命令。
+
+连接后验证已认证节点信息的 `Enabled=true`、`Storage=true`、`Capabilities.FullAccess=true`，再为助理授予 Full Access 计算权限和所需文件权限。需要按助理隔离命令时使用原生沙盒，或本文最后的源码隔离目标。
+
+## 地址与自定义配置
+
+| 环境变量 | 用途 |
+| --- | --- |
+| `MOLR_MODE` | `server`（默认）或 `sandbox` |
+| `MOLR_PUBLIC_URL` | 显式设置访问地址；启动时更新配置中的公开地址、监听端口，后端同时替换原允许来源 |
+
+后端默认只接受本机地址。局域网访问时，在 `docker run` 中增加 `-e MOLR_PUBLIC_URL=http://<宿主机局域网IP>:8787`；Compose 在服务的 `environment` 中配置同名变量。使用数字局域网 IP。修改端口时，公开 URL、容器监听和端口映射保持一致，例如 `MOLR_PUBLIC_URL=http://192.168.1.20:9898` 搭配 `9898:9898`。
+
+没有设置 `MOLR_PUBLIC_URL` 时保留已有配置；显式设置时保留其他自定义字段与额外允许来源。HTTP 快速启动限本机与可信局域网，不自动信任任意 Host／Origin。公网 HTTPS、反向代理和信任范围按[配置与访问](https://molr.ai/zh/docs/admin/deployment/configuration/)设置。
+
+配置文件位于数据卷内，可在停止容器后复制出来修改，再写回同一路径，保持 0600 和 `65532:65532` 所有权。重新启动后读取修改内容。错误配置不会被默认值覆盖。需要完全自行管理配置时，仍可使用原有 `serve -config`、`bootstrap` 等命令和只读配置挂载。
+
+后端默认关闭本机命令；需要时在 `server.json` 显式设置 `sandbox.enabled: true`、`sandbox.allow_full_access: true` 并另行为助理授权。独立节点默认允许 Full Access，但每次调用仍需授权。容器内不自动安装工具，额外软件在派生镜像构建阶段安装，最后恢复 `USER 65532:65532`。
+
+绑定宿主目录替代命名卷时，目录必须可由 UID/GID `65532:65532` 读写；容器不会以 root 递归修改宿主文件所有权。需要宿主资料时只挂载明确授权的目录，不挂载宿主根目录或 Docker socket。只读资料使用只读挂载。
+
+可按部署要求增加 `read_only: true`、`cap_drop: [ALL]`、`security_opt: [no-new-privileges:true]`，同时为 `/tmp` 配置可写 tmpfs；启动配置、凭据及持久数据仍写入 `/data`。Docker 的 CPU／内存限制作用于整个容器，不是按助理分配的额度。
+
+## 更新、备份与卸载
+
+Runtime 与 WebUI 随镜像一起更新。预构建后端检查 GHCR 中实际发布的镜像：正式版跟随 `latest`，预发布选择最高正式／Beta／RC，Nightly 跟随 `nightly`。版本详情提供目标镜像与宿主操作指引，不在容器内替换程序。独立节点由管理员随后端版本更新。
+
+修改 Compose 中的目标镜像版本后：
+
+```bash
+docker compose pull
+docker compose stop
+# Back up the original data volume while stopped.
+docker compose up -d
+```
+
+Docker 命令方式先拉取目标镜像，再停止原容器、备份命名卷，删除原容器后使用前文相同参数和原卷重建。只执行 `restart` 不会采用新镜像。自动入口会保留账号、数据库和节点身份，无需再次初始化。
+
+后端备份整个数据卷；节点也备份整个卷，其中包含配置、私有凭据及项目文件。更新后重新验证登录、版本与启用的能力。固定版本或记录的 digest 可用于选择旧镜像；需要恢复数据时使用对应备份，不把换镜像等同于恢复数据。
+
+`docker compose down` 保留数据卷，`down -v` 会删除项目管理的卷。Docker `rm` 不删除本文的命名卷；只有明确要清空实例时才删除卷。
+
+## 从源码构建
 
 ```bash
 git clone https://github.com/molr-ai/molr.git
 cd molr
 cp deploy/docker/server.example.json deploy/docker/server.json
 MOLR_COMMIT="$(git rev-parse HEAD)" docker compose build
-```
-
-构建固定源码版本时，先检出所需 tag 或 commit，再构建。基础镜像的固定摘要不会随上游标签更新；更新基础镜像时同步核验并修改版本与摘要。可通过 Docker 构建参数 `NODE_IMAGE`、`GO_IMAGE`、`RUNTIME_IMAGE` 使用维护者信任的镜像代理，保留相同摘要。
-
-编辑 `deploy/docker/server.json`。默认只登记 `http://127.0.0.1:8787`；局域网使用时，将 `http.public_url` 和 `http.allowed_origins` 中的地址改为 `http://<LAN_IP>:8787`，其中 `<LAN_IP>` 是 Docker 宿主机的数字局域网 IP。需要同时允许本机与局域网访问时，在 `allowed_origins` 中显式列出两个地址。
-
-`http.listen` 保持 `0.0.0.0:8787`。LAN 模式要求公开地址、容器监听和 Compose 映射使用相同端口；改端口时同时修改三处。配置以只读文件挂载，修改后重启容器。HTTPS 与反向代理见[配置与访问](https://molr.ai/zh/docs/admin/deployment/configuration/)。
-
-## 初始化与启动
-
-首次运行先初始化账号，再启动服务：
-
-```bash
 docker compose run --rm molr bootstrap -config /etc/molr/server.json
 docker compose up -d
-docker compose logs --tail=50 molr
 ```
 
-初始化自动创建 `owner`，将随机初始密码保存到数据卷中的 `/data/initial-password`（0600），不会打印密码。重复 bootstrap 保留已有账号；应在服务停止时执行，不能同时打开正在使用的数据库。
+本地 `compose.yaml` 保留显式配置与手工初始化；预构建模板使用自动入口 `molr container`。普通 Dockerfile 默认目标自动启动，显式传入其他 CLI 命令时保持原命令行为。默认本地版本为 `0.1.0-local`，不自动比较发布版本。Node、Go、Debian slim 固定多架构摘要；代理必须保留同一摘要。静态 Go 程序去除调试信息，最终镜像不含 Node／Go 工具链，保留许可证与第三方声明。
 
-确认日志中的监听已启动后，生成一次性登录链接：
+## 从源码构建容器内隔离目标
 
-```bash
-docker compose exec molr /usr/local/bin/molr access -config /etc/molr/server.json
-```
-
-链接默认有效 15 分钟。容器必须能访问配置的 `public_url`；Docker Desktop 或宿主机防火墙阻止容器回连宿主端口时，可通过浏览器访问配置的地址，并使用 `owner` 和初始密码登录：
-
-```bash
-docker compose exec molr cat /data/initial-password
-```
-
-此命令会显示密码，请在私有终端使用。改密后使用 `access -password-stdin` 输入当前密码；启用 MFA 时还需 `-mfa-code`。不要循环执行登录诊断，成功登录同样计入限流。首次引导、模型和成员配置见[搭建实例](https://molr.ai/zh/docs/admin/getting-started/)。
-
-## 命令执行方式
-
-默认示例显式设置 `sandbox.enabled: false`。网页、聊天、工作区、文件工具和记忆照常可用，命令执行按以下方式选择。
-
-### 独立 Linux 沙盒
-
-在另一台 Linux 设备或宿主机上按[独立沙盒服务](https://molr.ai/zh/docs/admin/sandbox/remote/)部署 `molr serve --mode sandbox`，在 WebUI 中连接资源，再为助理授予计算、目录和网络权限。主容器保持默认配置；远程节点需通过自己的隔离能力检查。
-
-连接局域网模型或沙盒时，在主容器配置的 `network.allowed_private_ips` 中显式加入目标数字 IP。容器的 `127.0.0.1` 指向容器自身，不能用于访问宿主机上的模型或沙盒。远程节点不会自动获得主容器的 `/work` 文件；需要访问的远端目录按资源授权登记。
-
-### 容器内 Full Access
-
-镜像包含 `/bin/sh`，可在配置中显式启用：
-
-```json
-{
-  "sandbox": {
-    "enabled": true,
-    "allow_full_access": true
-  }
-}
-```
-
-将这两个字段合并到现有配置后执行 `docker compose restart molr`，再在 WebUI 中为指定助理授予本机沙盒的 Full Access 计算权限。只修改部署开关不会自动授权所有助理。
-
-命令以容器内的普通用户 `65532:65532` 运行。Compose 保留只读根文件系统、移除 Linux capabilities，并禁止提权；可写内容主要是数据卷和临时目录。Full Access 不提供助理之间的命令级文件／进程／网络隔离，命令可以访问该服务用户可读写的数据，包括 Runtime 私有数据和其他工作区。Docker 的边界保护容器与宿主机，不能替代容器内不同助理的隔离。不要挂载 Docker socket、宿主根目录或不准备授权的资料。
-
-工具需求超出基础系统时，可基于本镜像制作派生镜像，在构建阶段以 root 安装依赖，最后恢复 `USER 65532:65532`；容器运行时不安装系统软件。
-
-### 容器内隔离执行
+此目标仅保留源码本地构建，不发布官方隔离版镜像，也不属于官网普通版 Docker／Compose 安装入口。先按本页“从源码构建”检出仓库，再执行以下步骤。
 
 `isolated` 镜像目标预装 systemd、Bubblewrap、静态 BusyBox、util-linux 和 CA 证书。容器内 systemd 以普通用户运行 Molr，并通过 `Delegate=yes` 与 `DelegateSubgroup=supervisor` 分配专属 cgroup；进程、文件、网络隔离及资源限额使用原有沙盒实现，`allow_full_access` 保持 false。
 
@@ -121,25 +237,3 @@ docker compose -p molr-isolation-tests -f compose.yaml -f compose.isolated.yaml 
 ```
 
 测试覆盖隔离文件与 PID、只读挂载、cgroup 限额、网络允许与拒绝、取消及撤权。需要外网、GPU 或额外浏览器组件的测试按其环境开关执行，未启用项明确跳过。
-
-
-## 验证与维护
-
-在服务就绪后执行一次已认证检查：
-
-```bash
-docker compose exec molr /usr/local/bin/molr doctor -config /etc/molr/server.json
-```
-
-默认模式应为 `Sandbox.Enabled=false`、`Storage=true`；显式开启 Full Access 时要求 `Capabilities.FullAccess=true`，不能把它解释为隔离能力可用。完整隔离部署还需 `Reason=available`，以及 `Shell`、`ProcessIsolation`、`FileIsolation`、`NetworkIsolation`、`ResourceLimits` 全部为 true。登录失败或限流属于验证未完成，不代表容器需要重启。
-
-`molr-data` 命名卷保存数据库、密钥、账号、工作区及初始密码；Compose 会加项目名前缀。重建或替换容器保留数据卷。更新时先停止本实例并备份数据卷与配置，再检出目标源码版本、重新构建并启动；固定源码和镜像 tag 可用于回退，数据库备份仍需单独保留。容器更新通过重建镜像完成，不在 WebUI 内替换只读程序。
-
-```bash
-docker compose stop
-# Back up the data volume and deploy/docker/server.json while stopped.
-MOLR_COMMIT="$(git rev-parse HEAD)" docker compose build
-docker compose up -d
-```
-
-卸载容器使用 `docker compose down`，保留持久卷；`docker compose down -v` 会删除实例数据，仅在明确需要清空时使用。镜像保留 Molr 的 MIT 与第三方声明，Debian 软件的许可材料保留在 `/usr/share/doc/`。

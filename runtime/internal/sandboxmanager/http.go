@@ -172,14 +172,14 @@ func NewClient(endpoint, fingerprint string, token core.Secret, httpClient *http
 		return nil, core.Invalid("transport", "guarded transport required")
 	}
 	transport := base.Clone()
-	// An explicit certificate pin is the trust anchor, including for privately
+	// An explicit public key pin is the trust anchor, including for privately
 	// issued certificates. Never use unauthenticated TLS or trust-on-first-use.
 	transport.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS13, InsecureSkipVerify: true, VerifyConnection: func(state tls.ConnectionState) error {
 		if len(state.PeerCertificates) == 0 {
 			return core.WithReason(core.NewError(core.Forbidden, "certificate missing"), "sandbox_certificate_mismatch")
 		}
 		cert := state.PeerCertificates[0]
-		sum := sha256.Sum256(cert.Raw)
+		sum := sha256.Sum256(cert.RawSubjectPublicKeyInfo)
 		if subtle.ConstantTimeCompare(sum[:], pin) != 1 || time.Now().Before(cert.NotBefore) || time.Now().After(cert.NotAfter) {
 			return core.WithReason(core.NewError(core.Forbidden, "sandbox certificate mismatch"), "sandbox_certificate_mismatch")
 		}

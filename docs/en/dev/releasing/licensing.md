@@ -67,11 +67,16 @@ When upgrading dependencies, license changes, additional components, and corresp
 - BusyBox is not copied to Molr's installation directory; the Runtime continues to prepare the isolated environment from standard system locations. If required dependencies are missing, the sandbox is not automatically disabled or Full Access opened.
 - Specific deployment commands and post-installation file locations are described in the [Deployment Guide](../../admin/README.md).
 
+## Ordinary Docker image
+
+The published ordinary image uses Debian 13 slim and retains Debian package copyright and license materials under `/usr/share/doc/`, plus Molr LICENSE and THIRD_PARTY_NOTICES.md. Node/Go build toolchains are excluded from the final image. Stripping Go debug information does not change dependencies; no Go/npm dependencies were added.
+
 ## Docker isolation target
 
-The `isolated` build target installs systemd, Bubblewrap, static BusyBox, util-linux, and CA certificates from Debian repositories and retains `/usr/share/doc/` license materials. These packages are not added to native release archives. Container images are currently built locally by operators and are not part of the image publication pipeline.
+The `isolated` build target installs systemd, Bubblewrap, static BusyBox, util-linux, and CA certificates from Debian repositories and retains `/usr/share/doc/` license materials. These packages are not added to native release archives. Isolation images are built locally from source and are not included in ordinary-image automatic publication.
 
 The outer Docker seccomp policy comes from a fixed Moby commit. The original policy and complete Apache-2.0 license are in `deploy/docker/vendor/`. The derivative adds only the three constrained rules required by Bubblewrap and the trusted socket broker. Provenance, modification notes, and the complete license are included in `THIRD_PARTY_NOTICES.md`; license checks cover both original and derived policy hashes. The inner guest seccomp restrictions remain unchanged.
+
 
 ## Terms and Source Basis
 

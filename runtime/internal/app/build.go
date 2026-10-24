@@ -844,6 +844,9 @@ func Build(ctx context.Context, cfg config.Config, options ...BuildOptions) (bun
 	if installation != nil {
 		updateSource = installation.Source
 	}
+	if build.Distribution == "container" {
+		updateSource = "https://ghcr.io"
+	}
 	updateAddresses := adapters.privateAddresses()
 	if u, err := url.Parse(updateSource); err == nil {
 		if ip, err := netip.ParseAddr(u.Hostname()); err == nil && (ip.IsPrivate() || ip.IsLoopback()) {

@@ -1,7 +1,7 @@
 # Build from the repository root. All defaults pin multi-platform image indexes.
 ARG NODE_IMAGE=node:22.21.0-bookworm@sha256:23c24e85395992be118734a39903e08c8f7d1abc73978c46b6bda90060091a49
 ARG GO_IMAGE=golang:1.27.2@sha256:820153096fda4de6ac1b7194d12e416b7dd8f4e9a33d17e0345b111b945162d8
-ARG RUNTIME_IMAGE=debian:13@sha256:913f6706df59a68922d1dd08f78c2476560a8d367897200a6005b00e5f67c2d5
+ARG RUNTIME_IMAGE=debian:13-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f
 
 FROM ${NODE_IMAGE} AS webui
 WORKDIR /src
@@ -33,11 +33,20 @@ COPY runtime ./
 COPY --from=webui /src/apps/webui/dist ./internal/webassets/dist
 ARG MOLR_VERSION=0.1.0-local
 ARG MOLR_COMMIT=0000000000000000000000000000000000000000
+ARG MOLR_CONTAINER_IMAGE=
+ARG MOLR_BUILT_AT=
 RUN CGO_ENABLED=0 go build -trimpath -tags webui \
-    -ldflags "-X molr.ai/runtime/internal/buildinfo.Version=${MOLR_VERSION} -X molr.ai/runtime/internal/buildinfo.Commit=${MOLR_COMMIT}" \
+    -ldflags "-s -w -X molr.ai/runtime/internal/buildinfo.Version=${MOLR_VERSION} -X molr.ai/runtime/internal/buildinfo.Commit=${MOLR_COMMIT} -X molr.ai/runtime/internal/buildinfo.BuiltAt=${MOLR_BUILT_AT} -X molr.ai/runtime/internal/buildinfo.ContainerImage=${MOLR_CONTAINER_IMAGE} -X molr.ai/runtime/internal/buildinfo.Distribution=container" \
     -o /out/molr ./cmd/molr && chmod 0755 /out/molr
 
 FROM ${RUNTIME_IMAGE} AS runtime
+ARG MOLR_VERSION=0.1.0-local
+ARG MOLR_COMMIT=0000000000000000000000000000000000000000
+ARG MOLR_SOURCE=https://github.com/molr-ai/molr
+LABEL org.opencontainers.image.version=${MOLR_VERSION} \
+      org.opencontainers.image.revision=${MOLR_COMMIT} \
+      org.opencontainers.image.source=${MOLR_SOURCE} \
+      org.opencontainers.image.licenses=MIT
 RUN groupadd --gid 65532 molr && useradd --uid 65532 --gid molr --no-create-home --home-dir /data --shell /bin/sh molr \
     && mkdir -p /data && chown molr:molr /data && chmod 0700 /data
 COPY --from=build --chmod=0755 /out/molr /usr/local/bin/molr
@@ -75,3 +84,4 @@ COPY deploy/docker/molr-isolation-test.service /etc/systemd/system/
 COPY deploy/docker/molr-isolation-test.target /etc/systemd/system/molr-container.target
 
 FROM runtime AS default
+CMD ["container"]

@@ -32,6 +32,7 @@ test('agent installation instructions work across modes, locales, catalog failur
     await page.route('**/releases/catalog.json', route => failure ? route.abort() : route.fulfill({ json: response }));
     await page.goto(url);
     const section = page.locator('#install');
+    await section.getByRole('button', { name: 'Deploy backend', exact: true }).click();
     await section.getByRole('tab', { name: 'Let an Agent install for me', exact: true }).click();
     await expect(section.getByRole('group', { name: 'Release channel', exact: true })).toHaveCount(0);
     for (const name of ['Operating system', 'Architecture', 'Download tool']) await expect(section.getByRole('group', { name, exact: true })).toHaveCount(0);
@@ -77,6 +78,7 @@ test('agent installation instructions work across modes, locales, catalog failur
     await page.goto(url);
     failure = true;
     await page.reload();
+    await page.locator('#install').getByRole('button', { name: '部署后端', exact: true }).click();
     await page.locator('#install').getByRole('tab', { name: '让 Agent 为我安装', exact: true }).click();
     await expect(section.locator('.home-install-status')).toContainText('可先复制指令');
     await section.getByRole('button', { name: '复制安装指令', exact: true }).click();

@@ -47,7 +47,7 @@ func TestRemoteSandboxStorageRoutingAuthorizationAndContext(t *testing.T) {
 	need(t, err)
 	server := httptest.NewTLSServer(handler)
 	t.Cleanup(server.Close)
-	sum := sha256.Sum256(server.Certificate().Raw)
+	sum := sha256.Sum256(server.Certificate().RawSubjectPublicKeyInfo)
 	f.ad.networkConfig.AllowedPrivateIPs = []string{"127.0.0.1"}
 	router, err := newSandboxRouter(f.ad, nil, make([]byte, 32))
 	need(t, err)
@@ -57,7 +57,7 @@ func TestRemoteSandboxStorageRoutingAuthorizationAndContext(t *testing.T) {
 		raw, _ := json.Marshal(input)
 		return router.admin(t.Context(), f.owner, action, raw)
 	}
-	result, err := admin("connect", map[string]any{"Name": "Remote Linux", "Endpoint": server.URL, "Fingerprint": hex.EncodeToString(sum[:]), "Token": token, "Mutation": core.Mutation{IdempotencyKey: "connect"}})
+	result, err := admin("connect", map[string]any{"Name": "Remote Linux", "Endpoint": server.URL, "ConnectionCode": sandboxConnectionCode(hex.EncodeToString(sum[:]), token), "Mutation": core.Mutation{IdempotencyKey: "connect"}})
 	need(t, err)
 	connection := result.(sandboxView)
 	persisted, err := persistence.Load[sandboxConnection](t.Context(), f.b.store, "sandbox.connections", persistence.Key(catalog.Scope, connection.ID))

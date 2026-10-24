@@ -24,6 +24,8 @@ type Release struct {
 	NotesURL    string    `json:"notes_url"`
 	File        string    `json:"file"`
 	SHA256      string    `json:"sha256"`
+	Image       string    `json:"image,omitempty"`
+	Digest      string    `json:"digest,omitempty"`
 }
 type CheckState struct {
 	Checking    bool       `json:"checking"`
@@ -51,6 +53,12 @@ type Service struct {
 }
 
 func New(source string, auto bool, current buildinfo.Info, client *http.Client) *Service {
+	if current.Distribution == "container" {
+		source = ""
+		if containerRepository.MatchString(current.ContainerImage) {
+			source = "https://ghcr.io"
+		}
+	}
 	return &Service{source: strings.TrimRight(source, "/"), client: client, now: time.Now, state: Snapshot{
 		Current: current, Comparison: "unknown", AutoCheck: auto && !Development(current.Version), SourceConfigured: source != "",
 		Supported: releaseplatform.Supported(current.OS, current.Arch),
@@ -127,6 +135,9 @@ var hash = regexp.MustCompile(`^[0-9a-f]{64}$`)
 var commit = regexp.MustCompile(`^(?:[0-9a-f]{40}|[0-9a-f]{64})$`)
 
 func (s *Service) fetch(ctx context.Context) (*Release, string) {
+	if s.state.Current.Distribution == "container" {
+		return s.fetchContainer(ctx)
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.source+"/latest-"+s.state.Current.OS+"-"+s.state.Current.Arch+".json", nil)
 	if err != nil {
 		return nil, "invalid_source"

@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"net/http"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 	"molr.ai/runtime/internal/config"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/platform"
+	"molr.ai/runtime/internal/sandboxidentity"
 	sm "molr.ai/runtime/internal/sandboxmanager"
 	"molr.ai/runtime/internal/storage/sqlite"
 )
@@ -52,7 +52,13 @@ func ServeSandbox(ctx context.Context, cfg config.Config, token core.Secret) (er
 	if err != nil {
 		return err
 	}
-	server := &http.Server{Addr: cfg.HTTP.Listen, Handler: handler, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 60 * time.Second, WriteTimeout: 60 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10, TLSConfig: &tls.Config{MinVersion: tls.VersionTLS13}}
+	tlsContext, cancelTLS := context.WithCancel(ctx)
+	defer cancelTLS()
+	tlsConfig, err := sandboxidentity.ServerTLS(tlsContext, cfg.HTTP.CertFile, cfg.HTTP.KeyFile, cfg.HTTP.AutoRenewCertificate)
+	if err != nil {
+		return err
+	}
+	server := &http.Server{Addr: cfg.HTTP.Listen, Handler: handler, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 60 * time.Second, WriteTimeout: 60 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10, TLSConfig: tlsConfig}
 	done := make(chan struct{})
 	defer close(done)
 	go func() {
@@ -64,7 +70,7 @@ func ServeSandbox(ctx context.Context, cfg config.Config, token core.Secret) (er
 		case <-done:
 		}
 	}()
-	err = server.ListenAndServeTLS(cfg.HTTP.CertFile, cfg.HTTP.KeyFile)
+	err = server.ListenAndServeTLS("", "")
 	if errors.Is(err, http.ErrServerClosed) {
 		return nil
 	}

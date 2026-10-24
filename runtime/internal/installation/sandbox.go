@@ -7,7 +7,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -25,6 +24,7 @@ import (
 
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/installrecord"
+	"molr.ai/runtime/internal/sandboxidentity"
 	sm "molr.ai/runtime/internal/sandboxmanager"
 )
 
@@ -120,16 +120,15 @@ func sandboxFingerprint(cfg map[string]any) (string, error) {
 	if block == nil || block.Type != "CERTIFICATE" {
 		return "", fmt.Errorf("invalid sandbox certificate")
 	}
-	sum := sha256.Sum256(block.Bytes)
-	return hex.EncodeToString(sum[:]), nil
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return "", err
+	}
+	return sandboxidentity.PublicKeySHA256(cert), nil
 }
 func (e *Engine) sandboxInstructions(r *installrecord.Record, cfg map[string]any) error {
-	fingerprint, err := sandboxFingerprint(cfg)
-	if err != nil {
-		return err
-	}
 	h := cfg["http"].(map[string]any)
-	e.UI.print("Connect this Sandbox in a Runtime:\nHTTPS address: %s\nCertificate SHA-256: %s\nService token file: %s\nRead the token locally and paste it into the Sandbox connection form.", h["public_url"], fingerprint, filepath.Join(r.DataDir, "sandbox-token"))
+	e.UI.print("Connect this Sandbox in a Runtime:\nHTTPS address: %s\nRead the connection code locally as the service user or administrator:\n%q connection-code --config %q\nEnter the address and connection code in the Sandbox connection form.", h["public_url"], filepath.Join(r.Paths.Program, "bin", r.Binary()), filepath.Join(r.Paths.Config, "server.json"))
 	return nil
 }
 func (e *Engine) verifySandbox(r *installrecord.Record, cfg map[string]any) error {

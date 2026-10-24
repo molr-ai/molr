@@ -4,6 +4,8 @@
 
 | 包 | 公开入口 | 测试 |
 | --- | --- | --- |
+| `internal/sandboxidentity` | `Encode`, `Decode` | `TestConnectionCodeVersionValidationAndRedaction`, `TestRenewalPreservesIdentityAndRecoversExpiredStartup` |
+| `internal/sandboxidentity` | `PublicKeySHA256`, `ServerTLS` | `TestRenewalPreservesIdentityAndRecoversExpiredStartup`, `TestCertificateHotReloadAndCustomIdentityBoundaries` |
 | `internal/logging` | `DefaultOptions` | `internal/config.TestLoggingPolicyDefaultsAndJSONOverrides` |
 | `internal/logging` | `Options.Validate` | `TestInvalidPolicyHasNoFilesystemEffects`, `internal/config.TestLoggingPolicyDefaultsAndJSONOverrides` |
 | `internal/logging` | `NewFile`, `File.Write` | `TestFileRotationRetainsWholeRecordsAndDeletesOldest`, `TestConcurrentWritesStayIntactAcrossRotation`, `TestOversizedRecordAndInvalidDestinationDoNotDestroyLogs` |
@@ -271,7 +273,7 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/buildinfo` | `Current` | `TestInjectedReleaseIdentityWinsOverVCSFallback` |
 | `internal/releaseplatform` | `Supported` | `TestSupportMatchesInstallableTargets` |
 | `internal/updates` | `Compare`, `Development` | `TestVersionPrecedence` |
-| `internal/updates` | `New`, `Service.Check`, `Service.Snapshot` | `TestCheckCoalescesAndRetainsSuccessfulResult`, `TestReleaseChannelIsolation` |
+| `internal/updates` | `New`, `Service.Check`, `Service.Snapshot` | `TestCheckCoalescesAndRetainsSuccessfulResult`, `TestReleaseChannelIsolation`, `TestContainerChannelsOnlyReportPullableImages`, `TestContainerRejectsInvalidOrUnavailableImagesAndRetainsLastSuccess` |
 | `internal/updates` | `Service.Run` | `TestCanceledLifecycleDoesNotCheck` |
 | `internal/updates` | `ReadInstallation` | `TestInstallationReceiptRequiresMatchingExecutableAndCompletedInstall` |
 | `internal/config` | `Sandbox.ComputeCeilings` | `internal/app.TestSandboxPlansRequireIndependentComputeStorageAndNetworkGrants` |

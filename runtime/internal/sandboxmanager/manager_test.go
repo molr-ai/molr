@@ -171,7 +171,7 @@ func TestTLSCredentialAndPinnedIdentity(t *testing.T) {
 	}
 	server := httptest.NewTLSServer(handler)
 	defer server.Close()
-	sum := sha256.Sum256(server.Certificate().Raw)
+	sum := sha256.Sum256(server.Certificate().RawSubjectPublicKeyInfo)
 	client, err := NewClient(server.URL, hex.EncodeToString(sum[:]), token, server.Client())
 	if err != nil {
 		t.Fatal(err)
@@ -250,7 +250,7 @@ func TestOldSandboxProtocolRejectedBeforeExecution(t *testing.T) {
 		json.NewEncoder(w).Encode(response{Data: data})
 	}))
 	defer server.Close()
-	sum := sha256.Sum256(server.Certificate().Raw)
+	sum := sha256.Sum256(server.Certificate().RawSubjectPublicKeyInfo)
 	client, err := NewClient(server.URL, hex.EncodeToString(sum[:]), core.NewSecret(strings.Repeat("a", 48)), server.Client())
 	if err != nil {
 		t.Fatal(err)
@@ -270,7 +270,7 @@ func TestQuotaControlsBindExecutionIdentityAndServiceCredential(t *testing.T) {
 	}
 	server := httptest.NewTLSServer(handler)
 	defer server.Close()
-	sum := sha256.Sum256(server.Certificate().Raw)
+	sum := sha256.Sum256(server.Certificate().RawSubjectPublicKeyInfo)
 	client, err := NewClient(server.URL, hex.EncodeToString(sum[:]), token, server.Client())
 	if err != nil {
 		t.Fatal(err)

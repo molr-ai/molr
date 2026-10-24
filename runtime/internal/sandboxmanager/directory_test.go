@@ -46,7 +46,7 @@ func directoryTestServer(t *testing.T, backend Backend) (*httptest.Server, strin
 	}
 	server := httptest.NewTLSServer(handler)
 	t.Cleanup(server.Close)
-	sum := sha256.Sum256(server.Certificate().Raw)
+	sum := sha256.Sum256(server.Certificate().RawSubjectPublicKeyInfo)
 	return server, hex.EncodeToString(sum[:]), token
 }
 

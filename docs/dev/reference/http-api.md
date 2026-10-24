@@ -582,11 +582,13 @@ Runtime 启动时自动准备并探测命令环境，自动登记本机计算资
 
 `GET /api/status` 的 `build` 返回 Runtime 的 `version`、`commit`、`built_at`、`os`、`arch`、`embedded_webui`。
 
+容器构建另有 `distribution: "container"` 和可选的 `container_image`（如 `ghcr.io/molr-ai/molr`）。容器检查读取 GHCR 镜像，`latest.image` 为可拉取的标签引用，`latest.digest` 为 OCI index SHA-256；此时原生包字段 `file`、`sha256` 为空。原生构建字段保持原义。容器清单单次响应上限 1 MiB，预发布最多扫描 100 页标签；失败不回退到未验证版本。
+
 - `GET /api/updates`：登录后读取实例共享快照，不访问发布源。包含 `current`、`latest`、`comparison`、`check`、`auto_check`、`source_configured`、`supported`。`comparison` 为 `unknown/current/available/ahead/uncomparable`；`check` 分别记录检查中、最近尝试、最近成功、下次允许手动检查时间及固定错误码。
 - `POST /api/updates/check`：请求 `{ "automatic": false }` 手动检查，`true` 用于关于页自动检查。遵守 CSRF；自动检查间隔至少五分钟、手动至少一分钟，并合并进行中的请求。发布源网络或清单失败保存在快照中，不清除成功缓存。
 - `GET /api/updates/installation`：仅管理员读取升级命令所需的安装记录和发布源；缺少匹配记录返回 `null`。不执行安装。
 
-检查服务在 Runtime 生命周期内运行，内存缓存重启后重新建立；请求限定十秒、清单最多 64 KiB。公网 HTTPS、显式私网地址及拨号时 DNS 校验复用平台网络边界，禁止重定向，不携带用户凭证。版本与发布元信息见部署指南；接口不接受任意 URL。
+检查服务在 Runtime 生命周期内运行，内存缓存重启后重新建立；整次检查限定十秒，原生安装包清单最多 64 KiB。公网 HTTPS、显式私网地址及拨号时 DNS 校验复用平台网络边界，禁止重定向，不携带用户凭证。版本与发布元信息见部署指南；接口不接受任意 URL。
 
 ## 验证
 
@@ -646,3 +648,11 @@ API 合同测试使用真实 HTTP server、Auth、CSRF、持久限流、Realtime
 - `GET /api/assistants/{id}/terminals/{task}/stream?cursor=0`：认证 SSE 输出，每帧包含 base64 `Output`、字节游标 `NextCursor`，活跃会话携带 `Terminal`，结束后携带 `Finished`。从最后已消费游标重连，不重新启动进程。`shell-tasks` read 也支持 `encoding:base64`，原文本读取保留。接收端按原始字节连续解码；到达输出归档限额时沿用现有任务终止和不完整标记。
 
 `POST /api/models/refresh-pricing` 仅限已登录管理员并要求 CSRF，不接受来源参数。返回 `{ Source: "builtin" | "file" | "url", Version: string, Updated: boolean }`；无外部源时返回内置版本和 `Updated=false`。来源读取或缓存写入失败返回 503，规则校验失败返回 409；均保留最近有效价格。手动刷新不更新 OpenRouter 的模型目录报价。
+
+## 沙盒连接码
+
+`POST /api/sandboxes/test` 接收 `Endpoint` 和 `ConnectionCode`，返回 `Connected`、`Reason`、`Field`、`Info`、`CheckedAt`。`Endpoint` 是用户填写的 HTTPS origin。连接码由节点的 `molr connection-code --config …` 命令导出，不包含地址；后端解析格式版本、SHA-256 公钥指纹和令牌，再验证 TLS 节点身份与已认证的协议版本。
+
+`POST /api/sandboxes/connect` 接收同样的连接信息及 `Name`、`Mutation`、`Verification`，保存前重新连接校验；更新凭据另传 `ID` 和预期版本，不能替换已保存节点的地址。响应的 `PublicKeySHA256` 是公开身份，连接码与令牌不会回显，令牌加密存储。只读复查可向 `test` 传已保存的 `ID`，不能借用保存凭据探测其他地址。
+
+连接码错误对应 `Field=ConnectionCode`，格式错误为 `sandbox_connection_code_invalid`，格式版本不受支持为 `sandbox_connection_code_unsupported`；节点协议不兼容为 `sandbox_protocol_unsupported`。证书固定的是公钥而非整张证书，证书续期不会改变身份，但证书有效期仍须通过验证。

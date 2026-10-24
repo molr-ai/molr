@@ -51,8 +51,8 @@ func TestSandboxListBoundsConcurrencyPreservesOrderAndCancels(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(map[string]any{"Data": info})
 		}))
 		t.Cleanup(server.Close)
-		sum := sha256.Sum256(server.Certificate().Raw)
-		raw, _ := json.Marshal(map[string]any{"Name": fmt.Sprintf("node-%d", i), "Endpoint": server.URL, "Fingerprint": hex.EncodeToString(sum[:]), "Token": strings.Repeat("synthetic-token-", 4), "Mutation": core.Mutation{IdempotencyKey: fmt.Sprintf("connect-%d", i)}})
+		sum := sha256.Sum256(server.Certificate().RawSubjectPublicKeyInfo)
+		raw, _ := json.Marshal(map[string]any{"Name": fmt.Sprintf("node-%d", i), "Endpoint": server.URL, "ConnectionCode": sandboxConnectionCode(hex.EncodeToString(sum[:]), strings.Repeat("synthetic-token-", 4)), "Mutation": core.Mutation{IdempotencyKey: fmt.Sprintf("connect-%d", i)}})
 		_, err := router.admin(t.Context(), f.owner, "connect", raw)
 		need(t, err)
 	}

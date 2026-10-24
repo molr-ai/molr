@@ -14,6 +14,7 @@ on:
 permissions:
   contents: read
   actions: write
+  packages: write
 env:
   GOCACHE: ${{ github.workspace }}/.cache/go-build
   GOMODCACHE: ${{ github.workspace }}/.cache/go-mod
@@ -167,3 +168,15 @@ jobs:
           OSS_REGION: ${{ vars.MOLR_OSS_REGION }}
           OSS_ACCESS_KEY_ID: ${{ secrets.MOLR_OSS_ACCESS_KEY_ID }}
           OSS_ACCESS_KEY_SECRET: ${{ secrets.MOLR_OSS_ACCESS_KEY_SECRET }}
+
+  container:
+    needs: [prepare, publish]
+    if: >-
+      ${{ !cancelled() && needs.prepare.result == 'success' &&
+          (needs.prepare.outputs.existing == 'true' || needs.publish.result == 'success') }}
+    uses: ./.github/workflows/release-container.yml
+    with:
+      ref: ${{ needs.prepare.outputs.commit }}
+      version: ${{ needs.prepare.outputs.version }}
+      published-at: ${{ needs.prepare.outputs.published_at }}
+    secrets: inherit

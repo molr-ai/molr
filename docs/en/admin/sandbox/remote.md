@@ -22,6 +22,12 @@ Choose `least-privilege` to initially disable resources and adjust them later. S
 
 The installed `molr-setup status` shows connection information; `update` upgrades and `uninstall` removes the service while retaining configuration and data. See [installation presets](../deployment/installation.md#runtime-modes-and-resource-permission-presets).
 
+## Docker nodes
+
+Set `MOLR_MODE=sandbox` on the ordinary `ghcr.io/molr-ai/molr` image and start it with Docker or Docker Compose. Configuration, certificates and tokens are created automatically and persisted. See [Docker deployment](../deployment/docker.md) for connection, permissions and updates. No account initialization is needed.
+
+Container nodes offer file access and explicitly authorized Full Access commands without in-container isolation. Verify authenticated information reports `Enabled=true`, `Storage=true` and `Capabilities.FullAccess=true`. Native Linux isolation requirements below do not apply to these container nodes. Use a separate node/token for each backend and keep protocol versions compatible.
+
 ## Build and Startup
 
 Use the Go version specified by `runtime/.go-version` in the deployment checkout directory:
@@ -37,7 +43,7 @@ go version -m ../.cache/build/molr
 
 Verify a static Linux ELF or macOS Mach-O, `CGO_ENABLED=0`, and `0755` permissions. On macOS, run `codesign --force --sign - <binary>` and verify with `codesign --verify --strict <binary>`. On Linux, like the Runtime, this requires Bubblewrap, static BusyBox, user namespaces, and cgroup v2 delegation. For complete requirements, see [Linux Sandbox Deployment](linux.md).
 
-Prepare a separate private data directory, for example `/srv/molr-sandbox/private`. The TLS private key and service token must be placed within this directory, must not contain symbolic links, and the token file permissions must be `0600`. Use a randomly generated token of at least 32 characters; do not write the token into startup parameters or commit it to Git. You can use a trusted CA or self-signed TLS certificates; explicitly verify the certificate SHA-256 fingerprint upon connection, and do not skip verification.
+Prepare a separate private data directory, for example `/srv/molr-sandbox/private`. The TLS private key and service token must be placed within this directory, must not contain symbolic links, and the token file permissions must be `0600`. Use a randomly generated token of at least 32 characters; do not write the token into startup parameters or commit it to Git. You can use a trusted CA or self-signed TLS certificates; the connection code contains the SHA-256 public key fingerprint and token. The backend pins that key and checks certificate validity.
 
 The service uses the Runtime's strict configuration format. For example:
 
@@ -79,7 +85,17 @@ KillMode=control-group
 Restart=on-failure
 ```
 
-Service names use the `molr-` prefix, and each instance uses a different unit, port, and data directory. Startup logs output the certificate fingerprint but do not output the service token. Use each sandbox instance with only one Runtime. Do not share an instance or its service token across multiple Runtimes, even when they have the same administrator. The service currently does not enforce exclusive access or isolate permissions and operation state by Runtime. Deploy a separate instance with its own service token for each Runtime.
+Service names use the `molr-` prefix, and each instance uses a different unit, port, and data directory. Startup logs show only the public key fingerprint, never the connection code or service token. Use each sandbox instance with only one Runtime. Do not share an instance or its service token across multiple Runtimes, even when they have the same administrator. The service currently does not enforce exclusive access or isolate permissions and operation state by Runtime. Deploy a separate instance with its own service token for each Runtime.
+
+Export the connection code as the service user or administrator, then enter the address separately and paste the code in the backend:
+
+```bash
+/path/molr connection-code --config /private/sandbox.json --token-file /srv/molr-sandbox/private/service.token
+```
+
+The code uses a `molr-sandbox-v1.` prefix and a Base64URL payload containing only `public_key_sha256` and `token`, without an address. Encoding is not encryption: protect the code as a token. The backend validates the code format version and checks the actual protocol version from the authenticated `info` response. Incompatible versions are rejected; release version numbers need not match exactly.
+
+Docker and the default installer enable automatic self-signed certificate renewal. Manual deployments can explicitly set `http.auto_renew_certificate: true`. At startup and hourly, certificates with fewer than 30 days remaining are renewed for one year with the same private key and hot-loaded for new connections. Startup also renews expired certificates. The public key stays unchanged, so connection codes and saved connections remain valid. CA certificates and custom certificates without this option remain operator-managed. A missing private key does not silently replace the node identity; after intentionally replacing a key, restart the node and import its new code.
 
 ## macOS nodes
 
@@ -135,7 +151,7 @@ After startup inspect this node through the Runtime's `/api/sandboxes`: `Storage
 
 ## Protocol, Recovery, and Limitations
 
-The Runtime and service use the `/v2/sandbox/*` HTTPS protocol, with certificate fingerprint pinning for trust targets and service tokens for caller verification. JSON endpoints are `info`, `submit`, `get`, `renew`, `cancel`, `revoke`, and `read`. TCP forwarding additionally uses an authenticated Upgrade endpoint `forward`; browser Origin requests are rejected, and these interfaces are not mounted to the Runtime's user API.
+The Runtime and service use the `/v2/sandbox/*` HTTPS protocol, with public key fingerprint pinning for trust targets and service tokens for caller verification. JSON endpoints are `info`, `submit`, `get`, `renew`, `cancel`, `revoke`, and `read`. TCP forwarding additionally uses an authenticated Upgrade endpoint `forward`; browser Origin requests are rejected, and these interfaces are not mounted to the Runtime's user API.
 
 - File editing, Shell, and attachment imports record a stable operation ID, identity, and parameter summary before execution; duplicate requests return existing state, and parameter conflicts are rejected.
 - The Runtime saves the target sandbox and original execution identity; upon network anomalies, it first queries the result and does not automatically generate new operations for retry. The two ends have independent databases and do not share the Runtime SQLite.

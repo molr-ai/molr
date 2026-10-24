@@ -1,0 +1,12 @@
+services:
+  molr:
+    image: ${MOLR_IMAGE:-ghcr.io/molr-ai/molr:latest}
+    init: true
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    volumes:
+      - molr-data:/data
+
+volumes:
+  molr-data:

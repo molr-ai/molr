@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+ "encoding/base64"
 	"encoding/json"
 	"molr.ai/runtime/internal/auth"
 	"molr.ai/runtime/internal/catalog"
@@ -43,7 +44,7 @@ func TestSandboxPresentationPreservesCredentialsAndOwnerBoundary(t *testing.T) {
 	need(t, err)
 	server := httptest.NewTLSServer(handler)
 	t.Cleanup(server.Close)
-	sum := sha256.Sum256(server.Certificate().Raw)
+	sum := sha256.Sum256(server.Certificate().RawSubjectPublicKeyInfo)
 	pin := hex.EncodeToString(sum[:])
 	f.ad.networkConfig.AllowedPrivateIPs = []string{"127.0.0.1"}
 	router, err := newSandboxRouter(f.ad, nil, make([]byte, 32))
@@ -54,7 +55,7 @@ func TestSandboxPresentationPreservesCredentialsAndOwnerBoundary(t *testing.T) {
 	}
 	probe := func(endpoint, fingerprint, credential string) sandboxDiagnostic {
 		t.Helper()
-		out, err := call(f.owner, "test", map[string]any{"Endpoint": endpoint, "Fingerprint": fingerprint, "Token": credential})
+		out, err := call(f.owner, "test", map[string]any{"Endpoint": endpoint, "ConnectionCode": sandboxConnectionCode(fingerprint, credential)})
 		need(t, err)
 		d := out.(sandboxDiagnostic)
 		raw, _ := json.Marshal(d)
@@ -68,10 +69,10 @@ func TestSandboxPresentationPreservesCredentialsAndOwnerBoundary(t *testing.T) {
 	}
 	for _, tc := range []struct{ endpoint, pin, token, reason, field string }{
 		{"http://bad.invalid", pin, token, "sandbox_endpoint_invalid", "Endpoint"},
-		{server.URL, "bad-pin", token, "sandbox_fingerprint_invalid", "Fingerprint"},
-		{server.URL, strings.Repeat("0", 64), token, "sandbox_certificate_mismatch", "Fingerprint"},
-		{server.URL, pin, strings.Repeat("wrong-token", 4), "sandbox_auth_failed", "Token"},
-		{server.URL, pin, "short", "sandbox_token_invalid", "Token"},
+		{server.URL, "bad-pin", token, "sandbox_connection_code_invalid", "ConnectionCode"},
+		{server.URL, strings.Repeat("0", 64), token, "sandbox_certificate_mismatch", "ConnectionCode"},
+		{server.URL, pin, strings.Repeat("wrong-token", 4), "sandbox_auth_failed", "ConnectionCode"},
+		{server.URL, pin, "short", "sandbox_connection_code_invalid", "ConnectionCode"},
 	} {
 		d := probe(tc.endpoint, tc.pin, tc.token)
 		if d.Connected || string(d.Reason) != tc.reason || d.Field != tc.field {
@@ -83,7 +84,7 @@ func TestSandboxPresentationPreservesCredentialsAndOwnerBoundary(t *testing.T) {
 	if len(connections) != 0 {
 		t.Fatal("testing persisted a connection")
 	}
-	out, err := call(f.owner, "connect", map[string]any{"Name": "Original", "Endpoint": server.URL, "Fingerprint": pin, "Token": token, "Mutation": core.Mutation{IdempotencyKey: "connect"}})
+	out, err := call(f.owner, "connect", map[string]any{"Name": "Original", "Endpoint": server.URL, "ConnectionCode": sandboxConnectionCode(pin, token), "Mutation": core.Mutation{IdempotencyKey: "connect"}})
 	need(t, err)
 	view := out.(sandboxView)
 	load := func() sandboxConnection {
@@ -114,7 +115,7 @@ func TestSandboxPresentationPreservesCredentialsAndOwnerBoundary(t *testing.T) {
 	after := load()
 	nowEpoch, err := router.epoch(t.Context(), f.owner.OwnerID)
 	need(t, err)
-	if !bytes.Equal(before.Secret, after.Secret) || before.Digest != after.Digest || before.View.Endpoint != after.View.Endpoint || before.View.Fingerprint != after.View.Fingerprint || epoch != nowEpoch {
+	if !bytes.Equal(before.Secret, after.Secret) || before.Digest != after.Digest || before.View.Endpoint != after.View.Endpoint || before.View.PublicKeySHA256 != after.View.PublicKeySHA256 || epoch != nowEpoch {
 		t.Fatal("rename changed connection authority")
 	}
 	rename["Name"] = "Stale overwrite"
@@ -168,4 +169,10 @@ func TestSandboxPresentationPreservesCredentialsAndOwnerBoundary(t *testing.T) {
 			t.Fatal("cross-owner access", action)
 		}
 	}
+}
+
+// Deliberately permits malformed fields so diagnostics can test hostile input.
+func sandboxConnectionCode(publicKey, token string) string {
+ data, _ := json.Marshal(map[string]string{"public_key_sha256":publicKey,"token":token})
+ return "molr-sandbox-v1." + base64.RawURLEncoding.EncodeToString(data)
 }

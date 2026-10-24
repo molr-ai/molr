@@ -88,9 +88,9 @@ func forwardCompute(t *testing.T, b *Bundle, owner core.Principal, remote bool) 
 	need(t, err)
 	server := httptest.NewTLSServer(handler)
 	t.Cleanup(func() { manager.Close(); server.Close(); store.Close() })
-	fingerprint := sha256.Sum256(server.Certificate().Raw)
+	fingerprint := sha256.Sum256(server.Certificate().RawSubjectPublicKeyInfo)
 	router := b.shellTasks.router
-	raw, _ := json.Marshal(map[string]any{"Name": "Forward remote", "Endpoint": server.URL, "Fingerprint": hex.EncodeToString(fingerprint[:]), "Token": token, "Mutation": core.Mutation{IdempotencyKey: "forward-remote"}})
+	raw, _ := json.Marshal(map[string]any{"Name": "Forward remote", "Endpoint": server.URL, "ConnectionCode": sandboxConnectionCode(hex.EncodeToString(fingerprint[:]), token), "Mutation": core.Mutation{IdempotencyKey: "forward-remote"}})
 	view, err := router.admin(t.Context(), owner, "connect", raw)
 	need(t, err)
 	id := view.(sandboxView).ID

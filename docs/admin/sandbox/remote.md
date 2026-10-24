@@ -22,6 +22,12 @@ Linux/macOS 服务包同时包含 `molr` 和 `molr-setup`。在目标机器执�
 
 通过安装后的 `molr-setup status` 查看连接信息，`update` 升级，`uninstall` 卸载并保留配置和数据。完整预设说明见[安装指南](../deployment/installation.md#runtime-模式与资源权限预设)。
 
+## Docker 节点
+
+使用普通版镜像 `ghcr.io/molr-ai/molr`，设置 `MOLR_MODE=sandbox` 后通过 Docker 或 Docker Compose 启动；配置、证书和令牌自动创建并持久保存。连接、权限与更新步骤见 [Docker 部署](../deployment/docker.md)。不需要初始化账号。
+
+容器节点只提供文件访问与显式授权的 Full Access 命令，不提供容器内隔离。该模式的验收要求为已认证信息中的 `Enabled=true`、`Storage=true`、`Capabilities.FullAccess=true`；下文原生 Linux 的隔离能力要求不适用于容器节点。每个后端使用独立节点与令牌，后端和节点保持协议兼容版本。
+
 ## 构建与启动
 
 在部署检出目录使用 `runtime/.go-version` 指定的 Go 版本：
@@ -37,7 +43,7 @@ go version -m ../.cache/build/molr
 
 确认 Linux 静态 ELF 或 macOS Mach-O、`CGO_ENABLED=0` 和 `0755` 权限。macOS 产物执行 `codesign --force --sign - <binary>` 并用 `codesign --verify --strict <binary>` 验证。Linux 与 Runtime 相同，需要 Bubblewrap、静态 BusyBox、user namespace 和 cgroup v2 委派。完整要求见 [Linux 沙盒部署](linux.md)。
 
-准备一个独立的私有数据目录，例如 `/srv/molr-sandbox/private`。TLS 私钥和服务令牌必须放在该目录内，不能包含符号链接，令牌文件权限为 `0600`。使用随机生成的至少 32 字符令牌；不要把令牌写入启动参数或提交到 Git。可使用可信 CA 或自行签发的 TLS 证书；连接时显式核对证书 SHA-256 指纹，不能跳过验证。
+准备一个独立的私有数据目录，例如 `/srv/molr-sandbox/private`。TLS 私钥和服务令牌必须放在该目录内，不能包含符号链接，令牌文件权限为 `0600`。使用随机生成的至少 32 字符令牌；不要把令牌写入启动参数或提交到 Git。可使用可信 CA 或自行签发的 TLS 证书；连接码包含 SHA-256 公钥指纹和令牌，后端固定信任该公钥并验证证书有效期。
 
 服务使用 Runtime 的严格配置格式。例如：
 
@@ -79,7 +85,17 @@ KillMode=control-group
 Restart=on-failure
 ```
 
-服务名使用 `molr-` 前缀，每个实例使用不同的 unit、端口和数据目录。启动日志输出证书指纹，但不会输出服务令牌。每个沙盒实例只供一个 Runtime 使用，请勿在多个 Runtime 之间复用同一实例或服务令牌，即使这些 Runtime 由同一管理员维护。当前服务不会强制独占，也没有按 Runtime 隔离权限和操作状态；多个 Runtime 需要分别部署独立实例，各自使用独立的服务令牌。
+服务名使用 `molr-` 前缀，每个实例使用不同的 unit、端口和数据目录。启动日志只输出公钥指纹，不输出连接码或服务令牌。每个沙盒实例只供一个 Runtime 使用，请勿在多个 Runtime 之间复用同一实例或服务令牌，即使这些 Runtime 由同一管理员维护。当前服务不会强制独占，也没有按 Runtime 隔离权限和操作状态；多个 Runtime 需要分别部署独立实例，各自使用独立的服务令牌。
+
+使用服务账号或管理员身份导出连接码，再在后端填写地址并粘贴连接码：
+
+```bash
+/path/molr connection-code --config /private/sandbox.json --token-file /srv/molr-sandbox/private/service.token
+```
+
+连接码采用 `molr-sandbox-v1.` 前缀加 Base64URL 编码，内容只含 `public_key_sha256` 和 `token`，不含地址。编码不是加密，连接码按令牌保密。后端自动验证格式版本，并通过已认证的 `info` 响应核对实际协议版本；不兼容时拒绝连接，不要求发行版本号完全一致。
+
+Docker 与默认安装器启用自签名证书自动续期；手工部署可显式设置 `http.auto_renew_certificate: true`。服务启动时及每小时检查一次，剩余不足 30 天时沿用原私钥签发一年期证书，并为新连接热加载；过期后重新启动也会先续期。公钥不变，因此连接码与已保存连接保持有效。CA 证书和未启用此选项的自定义证书由管理员维护。私钥丢失不自动更换节点身份；主动更换私钥后重启节点并重新导入连接码。
 
 ## macOS 节点
 
@@ -135,7 +151,7 @@ macOS 使用相同的 `molr serve --mode sandbox -config … -token-file …` �
 
 ## 协议、恢复与限制
 
-Runtime 和服务使用 `/v2/sandbox/*` HTTPS 协议，证书指纹固定信任目标，服务令牌验证调用方。JSON 端点为 `info`、`submit`、`get`、`renew`、`cancel`、`revoke`、`read`，TCP 转发另使用认证 Upgrade 端点 `forward`；浏览器 Origin 请求被拒绝，这些接口不挂载到 Runtime 的用户 API。
+Runtime 和服务使用 `/v2/sandbox/*` HTTPS 协议，公钥指纹固定信任目标，服务令牌验证调用方。JSON 端点为 `info`、`submit`、`get`、`renew`、`cancel`、`revoke`、`read`，TCP 转发另使用认证 Upgrade 端点 `forward`；浏览器 Origin 请求被拒绝，这些接口不挂载到 Runtime 的用户 API。
 
 - 文件编辑、Shell、附件导入在执行前记录稳定操作 ID、身份与参数摘要；重复请求返回已有状态，参数冲突拒绝执行。
 - Runtime 保存目标沙盒与原执行身份；网络异常先查询结果，不自动生成新操作重试。两端独立数据库，不共享 Runtime SQLite。

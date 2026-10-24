@@ -583,11 +583,13 @@ Context Reset: `POST /api/debug/assistants/{id}/context/reset`, request is `{ "M
 
 `GET /api/status`'s `build` returns the Runtime's `version`, `commit`, `built_at`, `os`, `arch`, `embedded_webui`.
 
+Container builds also report `distribution: "container"` and optional `container_image` (for example `ghcr.io/molr-ai/molr`). Container checks read GHCR images: `latest.image` is a pullable tag reference and `latest.digest` is the OCI index SHA-256; native package fields `file` and `sha256` are empty. Native builds keep their existing meanings. Container responses are limited to 1 MiB each and prerelease scans to 100 tag pages; failures do not fall back to unverified versions.
+
 - `GET /api/updates`: Reads the instance shared snapshot after login, without accessing the release source. Includes `current`, `latest`, `comparison`, `check`, `auto_check`, `source_configured`, `supported`. `comparison` is `unknown/current/available/ahead/uncomparable`; `check` records checking, last attempt, last success, next allowed manual check time, and fixed error codes respectively.
 - `POST /api/updates/check`: Requests `{ "automatic": false }` for manual check; `true` is used for automatic check on the About page. Follows CSRF; automatic check interval is at least five minutes, manual at least one minute, and merges in-progress requests. Release source network or manifest failures are saved in the snapshot and do not clear the success cache.
 - `GET /api/updates/installation`: Only administrators read installation records and release sources required for the upgrade command; missing matching records return `null`. Does not perform installation.
 
-The check service runs within the Runtime lifecycle; the memory cache is re-established after restart. Requests are limited to ten seconds, and manifests to a maximum of 64 KiB. Public HTTPS, explicit private network addresses, and DNS validation during dialing reuse platform network boundaries, prohibit redirects, and do not carry user credentials. See the deployment guide for version and release metadata; interfaces do not accept arbitrary URLs.
+The check service runs within the Runtime lifecycle; the memory cache is re-established after restart. Each complete check is limited to ten seconds; native package manifests are limited to 64 KiB. Public HTTPS, explicit private network addresses, and DNS validation during dialing reuse platform network boundaries, prohibit redirects, and do not carry user credentials. See the deployment guide for version and release metadata; interfaces do not accept arbitrary URLs.
 
 ## Validation
 
@@ -649,3 +651,11 @@ See [DingTalk channel API](../extensions/dingtalk.md#api) for status, pairing an
 Automatic model pricing: `Pricing` and `PricingInfo.Automatic` may include `Tiers`, each with `InputTokensAbove`, `OutputTokensAbove` and the three token rates. Zero leaves a dimension unrestricted; nonzero thresholds are exclusive. The last matching tier applies to the whole request. Fixed tariffs have an empty `PricingInfo.Period`. See [Automatic pricing](../../admin/resources/models.md#automatic-pricing) for supported models, regional currencies and official API paths.
 
 `POST /api/models/refresh-pricing` requires an authenticated administrator and CSRF, and accepts no source parameters. Returns `{ Source: "builtin" | "file" | "url", Version: string, Updated: boolean }`. Without an external source it returns the built-in version and `Updated=false`. Source/cache I/O failures return 503; invalid rules return 409. Both retain the last valid prices. This operation does not refresh OpenRouter catalog quotes.
+
+## Sandbox connection codes
+
+`POST /api/sandboxes/test` accepts `Endpoint` and `ConnectionCode`, returning `Connected`, `Reason`, `Field`, `Info` and `CheckedAt`. `Endpoint` is a user-entered HTTPS origin. The node exports the address-free code with `molr connection-code --config …`. The backend parses its format version, SHA-256 public key fingerprint and token, then verifies the TLS identity and authenticated protocol version.
+
+`POST /api/sandboxes/connect` accepts the same connection input plus `Name`, `Mutation` and `Verification`, and checks the connection again before saving. Credential updates also supply `ID` and the expected version; the saved address cannot be replaced. Responses expose the public `PublicKeySHA256`, never the connection code or token; tokens are encrypted at rest. Read-only checks can send a saved `ID` to `test`, but cannot use saved credentials to probe another address.
+
+Code errors use `Field=ConnectionCode`: malformed codes report `sandbox_connection_code_invalid`, unsupported code formats report `sandbox_connection_code_unsupported`, and incompatible node protocols report `sandbox_protocol_unsupported`. Trust pins the public key rather than the whole certificate, so renewal preserves identity while certificate validity is still enforced.

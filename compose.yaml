@@ -1,6 +1,7 @@
 services:
   molr:
     image: molr:local
+    command: ["serve", "-config", "/etc/molr/server.json"]
     build:
       context: .
       args:

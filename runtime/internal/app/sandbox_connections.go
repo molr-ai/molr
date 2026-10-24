@@ -24,17 +24,18 @@ import (
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/platform"
 	"molr.ai/runtime/internal/policy"
+	"molr.ai/runtime/internal/sandboxidentity"
 	sm "molr.ai/runtime/internal/sandboxmanager"
 )
 
 type sandboxView struct {
-	ConnectionReason                   string `json:",omitempty"`
-	CheckedAt                          time.Time
-	ID                                 core.ID
-	Name, Endpoint, Fingerprint, State string
-	Local                              bool
-	Version                            core.Version
-	Info                               sm.Info
+	ConnectionReason                       string `json:",omitempty"`
+	CheckedAt                              time.Time
+	ID                                     core.ID
+	Name, Endpoint, PublicKeySHA256, State string
+	Local                                  bool
+	Version                                core.Version
+	Info                                   sm.Info
 }
 type sandboxConnection struct {
 	OwnerID core.ID
@@ -86,7 +87,7 @@ func (s *sandboxRouter) client(ctx context.Context, p core.Principal, c sandboxC
 		return nil, denied()
 	}
 	defer clear(data)
-	return s.newClient(p, c.View.Endpoint, c.View.Fingerprint, core.NewSecret(string(data)))
+	return s.newClient(p, c.View.Endpoint, c.View.PublicKeySHA256, core.NewSecret(string(data)))
 }
 func (s *sandboxRouter) newClient(p core.Principal, endpoint, fingerprint string, token core.Secret) (*sm.Client, error) {
 	addresses := []netip.Addr{}
@@ -180,7 +181,7 @@ func (s *sandboxRouter) admin(ctx context.Context, p core.Principal, action stri
 				v.Info = groupGPUInfo(v.Info, ref)
 				v.Info.Capabilities.FullAccess = v.Info.Capabilities.FullAccess && ref.AllowFullAccess
 				v.Endpoint = ""
-				v.Fingerprint = ""
+				v.PublicKeySHA256 = ""
 				if storage := ref.Quota.Storage; storage != nil {
 					v.Info.StorageCeilingBytes = storage.CapacityBytes
 				}
@@ -200,10 +201,10 @@ func (s *sandboxRouter) admin(ctx context.Context, p core.Principal, action stri
 		return visible, nil
 	case "connect":
 		var q struct {
-			ID                                 core.ID
-			Name, Endpoint, Fingerprint, Token string
-			Mutation                           core.Mutation
-			Verification                       string
+			ID                             core.ID
+			Name, Endpoint, ConnectionCode string
+			Mutation                       core.Mutation
+			Verification                   string
 		}
 		if err := decodeSandboxArgs(raw, &q); err != nil {
 			return nil, err
@@ -223,8 +224,11 @@ func (s *sandboxRouter) admin(ctx context.Context, p core.Principal, action stri
 			}
 		}
 		q.Endpoint = strings.TrimSuffix(q.Endpoint, "/")
-		q.Fingerprint = strings.ToLower(q.Fingerprint)
-		client, err := s.newClient(p, q.Endpoint, q.Fingerprint, core.NewSecret(q.Token))
+		publicKey, token, err := sandboxidentity.Decode(q.ConnectionCode)
+		if err != nil {
+			return nil, err
+		}
+		client, err := s.newClient(p, q.Endpoint, publicKey, token)
 		if err != nil {
 			return nil, err
 		}
@@ -247,13 +251,13 @@ func (s *sandboxRouter) admin(ctx context.Context, p core.Principal, action stri
 		if id == "local" || id.Validate() != nil {
 			return nil, core.Invalid("id", "invalid sandbox ID")
 		}
-		digest := digestBytes([]byte(q.Name + "\x00" + q.Endpoint + "\x00" + q.Fingerprint + "\x00" + q.Token))
+		digest := digestBytes([]byte(q.Name + "\x00" + q.Endpoint + "\x00" + publicKey + "\x00" + token.Reveal()))
 		nonce := make([]byte, s.cipher.NonceSize())
 		if _, err = rand.Read(nonce); err != nil {
 			return nil, err
 		}
-		secret := s.cipher.Seal(nonce, nonce, []byte(q.Token), []byte(persistence.Key(catalogOwner, id)))
-		v := sandboxView{ID: id, Name: q.Name, Endpoint: q.Endpoint, Fingerprint: q.Fingerprint, State: "available", Version: 1, Info: info}
+		secret := s.cipher.Seal(nonce, nonce, []byte(token.Reveal()), []byte(persistence.Key(catalogOwner, id)))
+		v := sandboxView{ID: id, Name: q.Name, Endpoint: q.Endpoint, PublicKeySHA256: publicKey, State: "available", Version: 1, Info: info}
 		err = s.adapters.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 			rows, err := persistence.Select[sandboxConnection](ctx, s.adapters.store, "sandbox.connections", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("View.Endpoint", q.Endpoint)}})
 			if err != nil {

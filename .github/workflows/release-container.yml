@@ -1,0 +1,138 @@
+name: Build and publish container
+on:
+  workflow_call:
+    inputs:
+      ref:
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
+      published-at:
+        required: true
+        type: string
+permissions:
+  contents: read
+  packages: write
+concurrency:
+  group: container-publication
+  cancel-in-progress: false
+  queue: max
+env:
+  MOLR_VERSION: ${{ inputs.version }}
+  MOLR_COMMIT: ${{ inputs.ref }}
+  MOLR_PUBLISHED_AT: ${{ inputs.published-at }}
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      build: ${{ steps.plan.outputs.build }}
+      image: ${{ steps.plan.outputs.image }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.21.0'
+      - id: plan
+        run: node scripts/container-release.mjs --plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+  build:
+    needs: prepare
+    if: needs.prepare.outputs.build == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: default
+          platforms: linux/${{ matrix.arch }}
+          load: true
+          tags: molr:container-test
+          provenance: false
+          sbom: false
+          build-args: |
+            MOLR_VERSION=${{ inputs.version }}
+            MOLR_COMMIT=${{ inputs.ref }}
+            MOLR_BUILT_AT=${{ inputs.published-at }}
+            MOLR_CONTAINER_IMAGE=${{ needs.prepare.outputs.image }}
+            MOLR_SOURCE=https://github.com/${{ github.repository }}
+          cache-from: type=gha,scope=container-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=container-${{ matrix.arch }}
+      - name: Verify the actual image and persistent data
+        run: |
+          python3 scripts/test-container.py molr:container-test
+          python3 scripts/test-container-sandbox.py molr:container-test
+      - id: push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: default
+          platforms: linux/${{ matrix.arch }}
+          outputs: type=image,name=${{ needs.prepare.outputs.image }},push-by-digest=true,name-canonical=true,push=true
+          provenance: false
+          sbom: false
+          build-args: |
+            MOLR_VERSION=${{ inputs.version }}
+            MOLR_COMMIT=${{ inputs.ref }}
+            MOLR_BUILT_AT=${{ inputs.published-at }}
+            MOLR_CONTAINER_IMAGE=${{ needs.prepare.outputs.image }}
+            MOLR_SOURCE=https://github.com/${{ github.repository }}
+      - name: Record the verified platform digest
+        env:
+          IMAGE_DIGEST: ${{ steps.push.outputs.digest }}
+          IMAGE_ARCH: ${{ matrix.arch }}
+        run: |
+          mkdir -p .cache/container-digests
+          export VERIFIED_CONFIG_DIGEST="$(docker image inspect molr:container-test --format '{{.Id}}')"
+          python3 -c 'import json,os,pathlib; pathlib.Path(".cache/container-digests/"+os.environ["IMAGE_ARCH"]+".json").write_text(json.dumps({"digest":os.environ["IMAGE_DIGEST"],"config_digest":os.environ["VERIFIED_CONFIG_DIGEST"]}))'
+      - uses: actions/upload-artifact@v7
+        with:
+          name: container-digest-${{ matrix.arch }}
+          path: .cache/container-digests/*.json
+          retention-days: 14
+  publish:
+    needs: [prepare, build]
+    if: >-
+      ${{ !cancelled() && needs.prepare.result == 'success' &&
+          (needs.prepare.outputs.build == 'false' || needs.build.result == 'success') }}
+    runs-on: ubuntu-24.04
+    environment: release
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.21.0'
+      - uses: actions/download-artifact@v8
+        if: needs.prepare.outputs.build == 'true'
+        with:
+          pattern: container-digest-*
+          path: .cache/container-digests
+          merge-multiple: true
+      - name: Publish complete image and advance eligible tags
+        run: node scripts/container-release.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MOLR_CONTAINER_BUILD: ${{ needs.prepare.outputs.build }}

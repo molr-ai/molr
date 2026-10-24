@@ -61,7 +61,7 @@ test('about reactivation checks releases and keeps build mismatch separate from 
  const frontend = await page.evaluate(async () => { const path = '/src/build-info.ts'; return (await import(path)).buildInfo; });
  const state: UpdateStatus = { ...runtime, auto_check: true, source_configured: true, supported: true, current: { ...runtime.current, version: frontend.version, commit: frontend.commit }, comparison: 'current', latest: { version: frontend.version, commit: frontend.commit, published_at: '2026-10-11T00:00:00Z', notes_url: 'https://example.com/releases', file: 'fixture.tar.gz', sha256: 'a'.repeat(64) } };
  let checks = 0;
- await page.route('**/api/updates', route => route.fulfill({ json: state }));
+ await page.route(/\/api\/updates(?:\?.*)?$/, route => route.fulfill({ json: state }));
  await page.route('**/api/updates/check', route => { checks++; return route.fulfill({ json: state }); });
  await page.goto('/#/account/about');
  await expect(page.getByText('All component versions match', { exact: true })).toBeHidden();
@@ -95,7 +95,7 @@ test('about reactivation checks releases and keeps build mismatch separate from 
  await expect(page.getByText('Service update available', { exact: true })).toBeVisible();
  if (await page.locator('.nav-account-actions').isVisible()) await expect(page.locator('.nav-account-actions .update-badge')).toBeVisible();
  await expect(page.getByText('Unable to check for updates', { exact: true })).toBeVisible();
- await page.route('**/api/updates', route => route.abort('failed'));
+ await page.route(/\/api\/updates(?:\?.*)?$/, route => route.abort('failed'));
  await reopenVersionDetails(page);
  await expect(page.getByText('Cannot check consistency while Runtime is unreachable', { exact: true })).toBeVisible();
  await expect(page.getByText('Service update available', { exact: true })).toBeVisible();
@@ -105,7 +105,7 @@ test('component maintenance shows progress, survives panel navigation and expose
  await login(page);
  const task = { id: 'a'.repeat(32), operation: 'component_install', component: 'browser', target: 'fixture', state: 'running', stage: 'downloading', downloaded: 50, total: 100, error_code: '' };
  let started = false, cancelled = false;
- await page.route('**/api/components', route => route.fulfill({ json: [{ id: 'browser', state: 'missing', can_install: true, auto_install: started, download_bytes: 100, disk_bytes: 200, task: started ? task : undefined }] }));
+ await page.route(/\/api\/components(?:\?.*)?$/, route => route.fulfill({ json: [{ id: 'browser', state: 'missing', can_install: true, auto_install: started, download_bytes: 100, disk_bytes: 200, task: started ? task : undefined }] }));
  await page.route('**/api/components/browser/install', route => { const q=route.request().postDataJSON(); expect(q.idempotency_key).toMatch(/^[a-f0-9]{32}$/); started=true; return route.fulfill({status:202,json:task}); });
  await page.route(`**/api/maintenance/tasks/${task.id}`, route => route.fulfill({ json: task }));
  await page.route(`**/api/maintenance/tasks/${task.id}/cancel`, route => { cancelled=true;task.state='cancelled';task.error_code='maintenance_cancelled';return route.fulfill({json:task}); });
@@ -146,7 +146,7 @@ async function desktopFixture(page: Page, kind: 'remote' | 'managed-local', pend
  const runtime: UpdateStatus = await (await page.request.get('/api/updates')).json();
  const frontend = await page.evaluate(async () => { const path = '/src/build-info.ts'; return (await import(path)).buildInfo; });
  const state: UpdateStatus = { ...runtime, current: { ...runtime.current, version: pending ? '0.1.0' : '0.2.0', commit: frontend.commit }, comparison: 'current' };
- await page.route('**/api/updates', route => route.fulfill({ json: state }));
+ await page.route(/\/api\/updates(?:\?.*)?$/, route => route.fulfill({ json: state }));
  await page.goto('/#/account/about');
  return state;
 }
@@ -183,7 +183,7 @@ for (const kind of ['remote', 'managed-local'] as const) test(`${kind} consisten
  state.current.commit = 'a'.repeat(40);
  await reopenVersionDetails(page);
  await expect(summary).toHaveText('All component versions match');
- await page.route('**/api/updates', route => route.abort('failed'));
+ await page.route(/\/api\/updates(?:\?.*)?$/, route => route.abort('failed'));
  await reopenVersionDetails(page);
  await expect(summary).toHaveText('Cannot check consistency while Runtime is unreachable');
  await expect(summary.locator('[data-consistent]')).toHaveCount(0);
@@ -265,10 +265,10 @@ test('service upgrade progress returns after closing and reopening version detai
  const state:UpdateStatus=await (await page.request.get('/api/updates')).json();
  state.source_configured=true;state.supported=true;state.comparison='available';state.latest={version:'0.3.0',commit:'a'.repeat(40),published_at:'2026-10-20T00:00:00Z',notes_url:'https://example.com/releases',file:'fixture.tar.gz',sha256:'a'.repeat(64)};
  let installationRequests=0;
- await page.route('**/api/updates/installation',route=>{installationRequests++;return route.fulfill({json:null});});
+ await page.route(/\/api\/updates\/installation(?:\?.*)?$/,route=>{installationRequests++;return route.fulfill({json:null});});
  const task={id:'b'.repeat(32),operation:'update',target:'0.3.0',state:'running',stage:'downloading',downloaded:50,total:100,error_code:''};let started=false;
- await page.route('**/api/updates',route=>route.fulfill({json:state}));
- await page.route('**/api/maintenance',route=>route.fulfill({json:{can_update:true,...(started?{task}:{})}}));
+ await page.route(/\/api\/updates(?:\?.*)?$/,route=>route.fulfill({json:state}));
+ await page.route(/\/api\/maintenance(?:\?.*)?$/,route=>route.fulfill({json:{can_update:true,...(started?{task}:{})}}));
  await page.route('**/api/updates/apply',route=>{expect(route.request().postDataJSON().version).toBe('0.3.0');expect(route.request().postDataJSON().idempotency_key).toMatch(/^[a-f0-9]{32}$/);started=true;return route.fulfill({status:202,json:task});});
  await page.route(`**/api/maintenance/tasks/${task.id}`,route=>route.fulfill({json:task}));
  await page.goto('/#/account/about');await page.getByRole('button',{name:'View version details',exact:true}).click();
@@ -286,9 +286,9 @@ test('manual upgrade is exclusive and loads instructions only when opened', asyn
  const state:UpdateStatus=await (await page.request.get('/api/updates')).json();
  state.source_configured=true;state.supported=true;state.comparison='available';state.latest={version:'0.3.0',commit:'a'.repeat(40),published_at:'2026-10-20T00:00:00Z',notes_url:'https://example.com/releases',file:'fixture.tar.gz',sha256:'a'.repeat(64)};
  let installationRequests=0, hasRecord=false;
- await page.route('**/api/updates',route=>route.fulfill({json:state}));
- await page.route('**/api/maintenance',route=>route.fulfill({json:{can_update:false}}));
- await page.route('**/api/updates/installation',route=>{installationRequests++;return route.fulfill({json:hasRecord?{name:'fixture',system:false,setup_path:'/example/bin/molr-setup',source:'https://example.com/releases/stable'}:null});});
+ await page.route(/\/api\/updates(?:\?.*)?$/,route=>route.fulfill({json:state}));
+ await page.route(/\/api\/maintenance(?:\?.*)?$/,route=>route.fulfill({json:{can_update:false}}));
+ await page.route(/\/api\/updates\/installation(?:\?.*)?$/,route=>{installationRequests++;return route.fulfill({json:hasRecord?{name:'fixture',system:false,setup_path:'/example/bin/molr-setup',source:'https://example.com/releases/stable'}:null});});
  await page.goto('/#/account/about');await page.getByRole('button',{name:'View version details',exact:true}).click();
  await expect(page.getByRole('button',{name:'Manual upgrade instructions',exact:true})).toBeVisible();
  await expect(page.getByRole('button',{name:'Update and restart service',exact:true})).toHaveCount(0);
@@ -312,8 +312,8 @@ test('unavailable upgrade capability can be retried without offering manual upgr
  const state:UpdateStatus=await (await page.request.get('/api/updates')).json();
  state.source_configured=true;state.supported=true;state.comparison='available';state.latest={version:'0.3.0',commit:'a'.repeat(40),published_at:'2026-10-20T00:00:00Z',notes_url:'https://example.com/releases',file:'fixture.tar.gz',sha256:'a'.repeat(64)};
  let unavailable=true;
- await page.route('**/api/updates',route=>route.fulfill({json:state}));
- await page.route('**/api/maintenance',route=>unavailable?route.abort('failed'):route.fulfill({json:{can_update:true}}));
+ await page.route(/\/api\/updates(?:\?.*)?$/,route=>route.fulfill({json:state}));
+ await page.route(/\/api\/maintenance(?:\?.*)?$/,route=>unavailable?route.abort('failed'):route.fulfill({json:{can_update:true}}));
  await page.goto('/#/account/about');await page.getByRole('button',{name:'View version details',exact:true}).click();
  await expect(page.getByText('Unable to determine upgrade options',{exact:true})).toBeVisible();
  await expect(page.getByRole('button',{name:'Manual upgrade instructions',exact:true})).toHaveCount(0);
@@ -329,7 +329,7 @@ test('members see update availability without administrator upgrade controls', a
  state.source_configured=true;state.supported=true;state.comparison='available';state.latest={version:'0.3.0',commit:'a'.repeat(40),published_at:'2026-10-20T00:00:00Z',notes_url:'https://example.com/releases',file:'fixture.tar.gz',sha256:'a'.repeat(64)};
  let administrativeRequests=0;
  await page.route('**/api/auth/me',async route=>route.fulfill({response:await route.fetch(),json:principal}));
- await page.route('**/api/updates',route=>route.fulfill({json:state}));
+ await page.route(/\/api\/updates(?:\?.*)?$/,route=>route.fulfill({json:state}));
  await page.route(/\/api\/(maintenance|updates\/installation)$/,route=>{administrativeRequests++;return route.fulfill({json:{can_update:true}});});
  await page.goto('/#/account/about'); await page.reload();
  await page.locator('.version-trigger .version-tags').getByText('Update available', {exact:true}).click();
@@ -337,4 +337,25 @@ test('members see update availability without administrator upgrade controls', a
  await expect(page.getByRole('button',{name:'Update and restart service',exact:true})).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Manual upgrade instructions',exact:true})).toHaveCount(0);
  expect(administrativeRequests).toBe(0);
+});
+
+
+test('container updates show the published image and Docker guide without native installer actions', async ({ page }) => {
+ await login(page);
+ const state: UpdateStatus = await (await page.request.get('/api/updates')).json();
+ state.current = { ...state.current, distribution: 'container', container_image: 'ghcr.io/example/molr' };
+ state.source_configured = true; state.supported = true; state.comparison = 'available';
+ state.latest = { version: '0.3.0', commit: 'a'.repeat(40), published_at: '2026-10-24T00:00:00Z', notes_url: 'https://github.com/example/molr/releases/tag/v0.3.0', file: '', sha256: '', image: 'ghcr.io/example/molr:latest', digest: 'sha256:' + 'b'.repeat(64) };
+ let nativeReads = 0;
+ await page.route(/\/api\/updates(?:\?.*)?$/, route => route.fulfill({ json: state }));
+ await page.route('**/api/updates/check', route => route.fulfill({ json: state }));
+ await page.route(/\/api\/maintenance(?:\?.*)?$/, route => route.fulfill({ json: { can_update: false } }));
+ await page.route(/\/api\/updates\/installation(?:\?.*)?$/, route => { nativeReads++; return route.fulfill({ json: null }); });
+ await page.goto('/#/account/about');
+ await page.getByRole('button', { name: 'View version details', exact: true }).click();
+ await page.getByRole('button', { name: 'Manual upgrade instructions', exact: true }).click();
+ await expect(page.locator('.update-guide pre')).toHaveText('ghcr.io/example/molr:latest');
+ await expect(page.getByRole('link', { name: 'View manual upgrade steps', exact: true })).toHaveAttribute('href', 'https://molr.ai/en/docs/admin/deployment/docker/');
+ await expect(page.getByRole('button', { name: 'Update and restart service', exact: true })).toHaveCount(0);
+ expect(nativeReads).toBe(0);
 });

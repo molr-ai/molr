@@ -6,7 +6,7 @@
 
 `molr-setup` 默认安装当前用户服务；root 可通过 `--user USER` 安装指定账户的系统服务。整个 Runtime 和沙盒使用同一普通账户，系统依赖可由 `--install-deps` 授权准备。参数与更新流程见[安装指南](../deployment/installation.md#安装时选择运行账户)。
 
-当前自动安装路径面向具备 systemd 254+ 的 Linux；普通命令启动需要可访问的 systemd 用户管理器，安装服务则自带执行资源委派。在不支持这些条件的系统或受限容器中，聊天等功能仍运行，命令执行显示当前系统不可用，不降级为无隔离执行。现有 distroless Docker 镜像尚不包含这套自动命令环境，不应宣称容器部署默认支持 Shell。
+当前自动安装路径面向具备 systemd 254+ 的 Linux；普通命令启动需要可访问的 systemd 用户管理器，安装服务则自带执行资源委派。在不支持这些条件的系统或受限容器中，聊天等功能仍运行，命令执行显示当前系统不可用，不降级为无隔离执行。普通 Docker 镜像不提供容器内隔离；命令执行需显式启用并授权 Full Access，见 [Docker 部署](../deployment/docker.md)。
 
 构建使用 [runtime/.go-version](../../../runtime/.go-version) 指定版本的 Go；在 `runtime/` 目录生成静态二进制，以便同一个 server 可在精简环境内运行内部 helper：
 

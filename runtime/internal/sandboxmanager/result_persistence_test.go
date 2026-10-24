@@ -245,7 +245,7 @@ func TestTLSClientObservesResultAfterCommitRetry(t *testing.T) {
 	}
 	server := httptest.NewTLSServer(handler)
 	defer server.Close()
-	fingerprint := sha256.Sum256(server.Certificate().Raw)
+	fingerprint := sha256.Sum256(server.Certificate().RawSubjectPublicKeyInfo)
 	client, err := NewClient(server.URL, hex.EncodeToString(fingerprint[:]), token, server.Client())
 	if err != nil {
 		t.Fatal(err)

@@ -130,8 +130,8 @@ export type NotificationPage = { Items: SystemNotice[]; NextCursor: string; Unre
 /** Bounded assistant-list projection; it contains no execution internals. */
 export type AssistantActivity = { AssistantID: ID; ConversationID: ID; Dreaming: boolean; Preview: { Kind: 'text' | 'card'; Text: string; CreatedAt: string } | null };
 
-export type BuildInfo = { version: string; commit: string; built_at: string; os: string; arch: string; embedded_webui: boolean };
-export type ReleaseInfo = { version: string; commit: string; published_at: string; notes_url: string; file: string; sha256: string };
+export type BuildInfo = { distribution?: string; container_image?: string; version: string; commit: string; built_at: string; os: string; arch: string; embedded_webui: boolean };
+export type ReleaseInfo = { image?: string; digest?: string; version: string; commit: string; published_at: string; notes_url: string; file: string; sha256: string };
 export type UpdateStatus = {
  current: BuildInfo; latest: ReleaseInfo | null;
  comparison: 'unknown' | 'current' | 'available' | 'ahead' | 'uncomparable';

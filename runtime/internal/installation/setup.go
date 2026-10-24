@@ -642,6 +642,7 @@ func (e *Engine) plan(pkg *Package, previous *installrecord.Record) (*Plan, erro
 		h["tls_mode"] = "direct"
 		delete(h, "allowed_origins")
 		h["public_url"] = strings.Replace(h["public_url"].(string), "http://", "https://", 1)
+		h["auto_renew_certificate"] = true
 		h["cert_file"] = filepath.Join(r.DataDir, "sandbox.crt")
 		h["key_file"] = filepath.Join(r.DataDir, "sandbox.key")
 	}

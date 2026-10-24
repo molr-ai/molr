@@ -10,18 +10,22 @@ import (
 var Version = "development"
 var Commit = ""
 var BuiltAt = ""
+var Distribution = ""
+var ContainerImage = ""
 
 type Info struct {
-	Version       string `json:"version"`
-	Commit        string `json:"commit"`
-	BuiltAt       string `json:"built_at"`
-	OS            string `json:"os"`
-	Arch          string `json:"arch"`
-	EmbeddedWebUI bool   `json:"embedded_webui"`
+	Distribution   string `json:"distribution,omitempty"`
+	ContainerImage string `json:"container_image,omitempty"`
+	Version        string `json:"version"`
+	Commit         string `json:"commit"`
+	BuiltAt        string `json:"built_at"`
+	OS             string `json:"os"`
+	Arch           string `json:"arch"`
+	EmbeddedWebUI  bool   `json:"embedded_webui"`
 }
 
 func Current() Info {
-	info := Info{Version: Version, Commit: Commit, BuiltAt: BuiltAt, OS: runtime.GOOS, Arch: runtime.GOARCH}
+	info := Info{Distribution: Distribution, ContainerImage: ContainerImage, Version: Version, Commit: Commit, BuiltAt: BuiltAt, OS: runtime.GOOS, Arch: runtime.GOARCH}
 	if build, ok := debug.ReadBuildInfo(); ok {
 		for _, setting := range build.Settings {
 			if setting.Key == "vcs.revision" && info.Commit == "" {

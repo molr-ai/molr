@@ -5,7 +5,26 @@ Runtime 发行包仅包含 `bin/molr` 与安装维护工具 `bin/molr-setup`。�
 发行包存放在 GitHub Releases，官网与发布清单通过 Cloudflare Workers 静态资源一起部署。当前产物是内嵌 WebUI 的 Linux/macOS Runtime；平台与环境要求统一定义在 [`release/platforms.json`](../../../release/platforms.json)。
 
 
-仓库根目录的 Dockerfile 提供本地完整镜像构建：Node 构建 WebUI，Go 使用 `webui` tag 静态内嵌页面，最终 Debian 镜像以普通用户运行。基础镜像均固定多架构摘要；升级 Go 时同步 `.go-version`、`go.mod` 与 Dockerfile。镜像保留 LICENSE、第三方声明和 Debian 原有许可材料；当前发行流水线不发布容器镜像。官网 Docker 入口独立于原生发行清单，链接到 [Docker 部署](../../admin/deployment/docker.md)。 隔离目标另外预装 systemd、Bubblewrap 和静态 BusyBox，通过容器内专属 cgroup 和安全策略运行普通权限命令；部署及真实回归命令见同一 Docker 指南。
+普通版容器镜像通过 Release／Nightly 流水线发布到 `ghcr.io/molr-ai/molr`，同时支持后端和独立沙盒模式，不提供容器内隔离。Dockerfile 以 Debian 13 slim 为基础，静态 Go 程序内嵌 WebUI 并去除调试信息；基础镜像固定多架构摘要。安装、权限与更新见 [Docker 部署](../../admin/deployment/docker.md)。
+
+
+源码仍保留 `isolated`、`sandbox-tests`、`isolation-test` 目标及配套策略，用于部署者本地构建与验证，不进入镜像自动发布矩阵。操作见 [Docker 源码隔离目标](../../admin/deployment/docker.md#从源码构建容器内隔离目标)。
+
+普通版默认命令为 `molr container`，由镜像在命名卷内准备配置和账号；`MOLR_MODE=sandbox` 自动准备独立节点证书、令牌及项目目录，所有服务过程保持 UID/GID 65532。`MOLR_PUBLIC_URL` 的显式值更新访问地址与端口，其余配置、账号和节点身份在重启时保留。原有显式 `serve -config` 和源码隔离目标沿用手工配置流程。
+
+## 容器镜像发布
+
+`release-container.yml` 在同版本 GitHub Release 发布成功后运行，或为已存在的 Release 补发。复用准备阶段确定的版本、commit 和发布日期；使用原生 AMD64、ARM64 runner 构建普通版，运行实际镜像的初始化、HTTP、认证能力、静态 ELF 和替换容器后数据／会话保留测试，再按 digest 推送各架构。两种架构全部通过后发布 OCI index，记录平台摘要和构建身份。
+
+- 正式版发布固定版本标签，并仅在版本更高时推进 `latest`。首个正式版前没有 `latest`。
+- Beta／RC 只发布固定版本标签，不发布 `preview` 或更改 `latest`。
+- Nightly 只发布 `nightly`，不创建固定每日版标签；完整版本与 commit 保留在镜像与 OCI index 中。
+- 发布工作流全局串行，旧版本重试不会回退移动标签。同固定版本重试复用已有镜像；身份不符时失败，不覆盖。单架构失败不更新公开标签，短暂认证／网络错误不视为镜像不存在。
+- 发布摘要保存 image、version、commit、digest 和实际标签。无标签平台镜像不作为用户安装入口；Nightly 历史不承诺保留，不自动删除用户仍可能引用的 digest。
+
+调用链授予 `packages: write`，使用仓库 `GITHUB_TOKEN`，无需额外 PAT。首次发布后在 GitHub Package 设置中将镜像改为 Public，并验证匿名拉取；源码仓库公开不等于 Package 自动公开。组织需允许仓库发布 package。正式启用前分别验证两种架构的真实 Actions 结果。
+
+镜像更新检查使用 GHCR 匿名 pull token：正式渠道读取 `latest`，Nightly 读取 `nightly`，预发布从完整分页标签列表按 SemVer 选择最高正式／Beta／RC。校验 OCI 身份、架构完整性与当前架构 manifest 摘要后才报告更新；失败保留上次成功结果。应用不安装镜像，管理员在宿主替换容器。GHCR 检查独立于官网原生发行目录。
 
 ## 桌面安装包
 

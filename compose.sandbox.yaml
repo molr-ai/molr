@@ -1,0 +1,14 @@
+services:
+  molr-sandbox:
+    image: ${MOLR_IMAGE:-ghcr.io/molr-ai/molr:latest}
+    init: true
+    restart: unless-stopped
+    environment:
+      MOLR_MODE: sandbox
+    ports:
+      - "8443:8443"
+    volumes:
+      - molr-sandbox-data:/data
+
+volumes:
+  molr-sandbox-data:

@@ -4,7 +4,7 @@ import type { Locale } from './site-content';
 import { Icon } from './HomeIcon';
 import { installMessages } from './install-content';
 
-export function InstallCommand({ command, locale }: { command: string; locale: Locale }) {
+export function InstallCommand({ command, locale, label = "Terminal", copyLabel }: { command: string; locale: Locale; label?: string; copyLabel?: string }) {
   const t = installMessages[locale];
   const [copyFeedback, setCopyFeedback] = useState(0);
   const copied = copyFeedback > 0;
@@ -18,10 +18,10 @@ export function InstallCommand({ command, locale }: { command: string; locale: L
     try { await copyTextToClipboard(command); setCopyFeedback(value => value + 1); setFailed(false); }
     catch { setCopyFeedback(0); setFailed(true); }
   };
-  const action = copied ? t.copied : t.copyCommand;
+  const action = copied ? t.copied : (copyLabel ?? t.copyCommand);
   return <>
     <div className="home-install-terminal">
-      <div><span><Icon name="terminal" />Terminal</span><Button variant="ghost" size="sm" onClick={copy} aria-live="polite"><Icon name={copied ? 'check' : 'copy'} />{action}</Button></div>
+      <div><span><Icon name="terminal" />{label}</span><Button variant="ghost" size="sm" onClick={copy} aria-live="polite"><Icon name={copied ? 'check' : 'copy'} />{action}</Button></div>
       <pre><code>{command}</code></pre>
     </div>
     {failed && <p role="status">{t.copyError}</p>}

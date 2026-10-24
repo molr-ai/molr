@@ -30,7 +30,7 @@ import (
 // Runs natively on macOS, or from Linux against a dedicated native test node.
 // External node credentials are supplied through a private JSON file, never fixtures.
 func TestRemoteNativeSandboxIntegration(t *testing.T) {
-	var target struct{ Endpoint, Fingerprint, Token, NetworkURL string }
+	var target struct{ Endpoint, PublicKeySHA256, Token, NetworkURL string }
 	if path := os.Getenv("MOLR_TEST_NATIVE_NODE"); path != "" {
 		raw, err := os.ReadFile(path)
 		need(t, err)
@@ -52,8 +52,8 @@ func TestRemoteNativeSandboxIntegration(t *testing.T) {
 		need(t, err)
 		server := httptest.NewTLSServer(handler)
 		t.Cleanup(server.Close)
-		fingerprint := sha256.Sum256(server.Certificate().Raw)
-		target.Endpoint, target.Fingerprint = server.URL, hex.EncodeToString(fingerprint[:])
+		fingerprint := sha256.Sum256(server.Certificate().RawSubjectPublicKeyInfo)
+		target.Endpoint, target.PublicKeySHA256 = server.URL, hex.EncodeToString(fingerprint[:])
 		network := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { fmt.Fprint(w, "NETWORK_OK") }))
 		t.Cleanup(network.Close)
 		target.NetworkURL = network.URL
@@ -71,7 +71,7 @@ func TestRemoteNativeSandboxIntegration(t *testing.T) {
 		need(t, err)
 		return v
 	}
-	view := admin("connect", map[string]any{"Name": "Native remote", "Endpoint": target.Endpoint, "Fingerprint": target.Fingerprint, "Token": target.Token, "Mutation": core.Mutation{IdempotencyKey: "native-connect"}}).(sandboxView)
+	view := admin("connect", map[string]any{"Name": "Native remote", "Endpoint": target.Endpoint, "ConnectionCode": sandboxConnectionCode(target.PublicKeySHA256, target.Token), "Mutation": core.Mutation{IdempotencyKey: "native-connect"}}).(sandboxView)
 	caps := view.Info.Capabilities
 	if caps.OS != "darwin" || caps.Reason != "available" || !caps.Shell || !caps.FileIsolation || !caps.NetworkIsolation || caps.ProcessIsolation || caps.ResourceLimits || !view.Info.Storage {
 		t.Fatalf("unexpected capabilities: %+v", view.Info)

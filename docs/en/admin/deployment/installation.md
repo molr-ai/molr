@@ -46,7 +46,7 @@ The website lists only stable installers published in GitHub Releases, excluding
 | Windows full desktop `.exe`, AMD64 | Electron, connection manager, `molr.exe` with embedded WebUI, and `molr-setup.exe` | Creates an interactive-user scheduled task on demand, with Windows logon startup; WSL is unnecessary. Controlled PowerShell uses AppContainer file scopes and a network toggle; Full Access requires separate authorization. |
 | Linux/macOS Runtime `.tar.gz`, AMD64/ARM64 | `bin/molr` with embedded WebUI and built-in Sandbox, `bin/molr-setup`, release metadata and licenses | The same `molr` binary supports `server` and `sandbox` modes, without Electron. Choose the service mode using the CLI, then connect through a browser or client. The website's `install.sh` downloads this type of Runtime package. |
 | Source archive | Project source reviewed for distribution | For building your own artifacts, not a compiled application installer. See [source deployment](source-build.md) for build dependencies. |
-| Docker | Locally built image with `molr`, embedded WebUI and the built-in Sandbox implementation | Includes neither the desktop app nor `molr-setup`. The base image defaults to commands disabled; the `isolated` target adds Linux isolation dependencies. No official prebuilt image is currently provided. See [Docker deployment](docker.md). |
+| Docker | Ordinary prebuilt image with `molr` and embedded WebUI, supporting backend/standalone sandbox modes | No desktop app or `molr-setup`. Backend commands are disabled by default; container nodes provide file access and explicitly authorized Full Access, without in-container isolation. Supports Docker/Compose; see [Docker deployment](docker.md). |
 
 WebUI needs no separate installer. Phones currently use that same WebUI, with no native mobile App download. Desktop and Runtime packages carry licenses and third-party notices; desktop packages additionally preserve Electron/Chromium license materials.
 
@@ -122,7 +122,7 @@ Resource presets generate ordinary settings independently of the mode saved in t
 
 Maintenance shows changed fields and preserves service paths, credentials and assistant grants. Running instances restart; stopped instances remain stopped. Existing directory rules, network rules and GPU selections are replaced by the selected preset. Settings can also be edited individually.
 
-Standalone installation generates an HTTPS certificate and private service token. Results show the address, certificate fingerprint and token file location for Runtime's Resources → Sandboxes → Connect sandbox form. The same `molr-setup` manages installation, status, updates and uninstall. Normal uninstall preserves configuration, certificates, tokens and data. See [standalone deployment](../sandbox/remote.md).
+Standalone installation generates an HTTPS certificate and private service token. Results show the address and the command to export a connection code. Enter the address and paste the code in Runtime's Resources → Sandboxes → Connect sandbox form. The same `molr-setup` manages installation, status, updates and uninstall. Normal uninstall preserves configuration, certificates, tokens and data. See [standalone deployment](../sandbox/remote.md).
 
 ## macOS command-line installation
 

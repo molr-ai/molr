@@ -63,3 +63,4 @@
 **/owner-password
 runtime/data
 runtime/configs
+**/__pycache__

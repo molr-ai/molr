@@ -44,7 +44,7 @@
     "check:platforms": "node scripts/generate-platforms.mjs --check",
     "release:manifest": "node scripts/release-manifest.mjs",
     "release:catalog": "node scripts/release-catalog.mjs",
-    "test:release-flow": "node --test scripts/test-release-flow.mjs scripts/test-release-publish.mjs scripts/test-release-mirror.mjs scripts/test-website-deployment.mjs scripts/test-desktop-release.mjs scripts/test-pipeline.mjs",
+    "test:release-flow": "node --test scripts/test-container-release.mjs scripts/test-release-flow.mjs scripts/test-release-publish.mjs scripts/test-release-mirror.mjs scripts/test-website-deployment.mjs scripts/test-desktop-release.mjs scripts/test-pipeline.mjs",
     "test:release-install": "node scripts/test-release-install.mjs",
     "build:website:release": "node scripts/build-release-website.mjs",
     "docs:generate": "node scripts/generate-molr-docs.mjs",

@@ -11,15 +11,16 @@ import { AgentInstall, agentInstallPath } from './AgentInstall';
 import { InstallCommand } from './InstallCommand';
 import { InstallStatus } from './InstallStatus';
 import { Icon } from './HomeIcon';
+import { DockerInstall } from './DockerInstall';
 import { DesktopDownloads } from './DesktopDownloads';
 import { useDesktopRelease } from './use-desktop-release';
 
-const installMethods = ['command', 'agent'] as const;
+const installMethods = ['command', 'agent', 'docker'] as const;
 type InstallMethod = typeof installMethods[number];
 
 export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Locale }) {
   const t = installMessages[locale];
-  const [entry, setEntry] = useState<'desktop' | RuntimeMode>('server');
+  const [entry, setEntry] = useState<'desktop' | RuntimeMode>('desktop');
   const entryList = useChoiceScroll(entry);
   const mode: RuntimeMode = entry === 'sandbox' ? 'sandbox' : 'server';
   const [method, setMethod] = useState<InstallMethod>('command');
@@ -43,7 +44,7 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
     : !error ? release?.version : undefined;
   const osLabel = (value: string) => ({ linux: 'Linux', darwin: 'macOS', windows: 'Windows' })[value] || value;
   const methodPanel = <>
-    {method === 'agent' ? <>
+    {method === 'docker' ? <DockerInstall locale={locale} mode={mode} /> : method === 'agent' ? <>
     <AgentInstall key={`${locale}-${mode}`} locale={locale} mode={mode} />
     {error ? <p className="home-install-status" role="status">{t.agentUnavailable} <button type="button" onClick={() => setAttempt(v => v + 1)}>{t.retry}</button></p>
       : !catalog ? <p className="home-install-status" role="status">{t.loading}</p>
@@ -84,7 +85,7 @@ export function InstallSection({ copy, locale }: { copy: HomeCopy; locale: Local
       <div id="install-details" className="home-install-result">
         {entry === 'desktop' ? <DesktopDownloads locale={locale} releaseState={desktop} /> : servicePanel}
       </div>
-      <div className="home-install-footer"><span>{entry === 'desktop' ? (locale === 'zh' ? '选择与你的操作系统和处理器匹配的安装包。' : 'Choose an installer for your operating system and processor.') : method === 'agent' ? t.agentHint : (locale === 'zh' ? '运行模式与资源权限分别配置。' : 'Runtime mode and resource permissions are configured separately.')}</span><a href={localizedDocPath(entry === 'desktop' ? '/docs/admin/deployment/installation/' : method === 'agent' ? agentInstallPath : mode === 'sandbox' ? '/docs/admin/sandbox/remote/' : '/docs/admin/deployment/installation/', locale)}>{entry !== 'desktop' && method === 'agent' ? t.agentGuide : t.guide}<span aria-hidden="true"> ↗</span></a></div>
+      <div className="home-install-footer"><span>{entry === 'desktop' ? (locale === 'zh' ? '选择与你的操作系统和处理器匹配的安装包。' : 'Choose an installer for your operating system and processor.') : method === 'agent' ? t.agentHint : method === 'docker' ? '' : (locale === 'zh' ? '运行模式与资源权限分别配置。' : 'Runtime mode and resource permissions are configured separately.')}</span><a href={localizedDocPath(entry === 'desktop' ? '/docs/admin/deployment/installation/' : method === 'agent' ? agentInstallPath : method === 'docker' ? '/docs/admin/deployment/docker/' : mode === 'sandbox' ? '/docs/admin/sandbox/remote/' : '/docs/admin/deployment/installation/', locale)}>{entry !== 'desktop' && method === 'agent' ? t.agentGuide : t.guide}<span aria-hidden="true"> ↗</span></a></div>
     </div>
   </section>;
 }

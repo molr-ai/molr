@@ -6,6 +6,7 @@ on:
 permissions:
   contents: write
   actions: write
+  packages: write
 concurrency:
   group: nightly-publication
   cancel-in-progress: false

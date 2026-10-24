@@ -34,7 +34,7 @@ test('desktop download UI shows edition and does not invent missing releases', {
       await page.route('**/releases/desktop/catalog.json', route => route.fulfill({ json: catalog }));
       await page.goto(`http://127.0.0.1:${server.httpServer.address().port}/en/`);
       const section = page.locator('#install');
-      await section.getByRole('button', { name: 'Desktop app', exact: true }).click();
+      await expect(section.getByRole('button', { name: 'Desktop app', exact: true })).toHaveAttribute('aria-pressed', 'true');
       await expect(section.getByText('Full · includes Runtime')).toBeVisible();
       await expect(section.getByRole('heading', { level: 3 })).toHaveCount(0);
       await expect(section.getByRole('link', { name: 'Installation guide' })).toHaveAttribute('href', '/en/docs/admin/deployment/installation/');
@@ -43,16 +43,16 @@ test('desktop download UI shows edition and does not invent missing releases', {
       const macFile = 'molr-desktop_0.1.0_darwin-arm64_full.dmg';
       catalog.channels.stable.platforms = [{ ...platform, os: 'darwin', arch: 'arm64', variant: 'full', file: macFile, url: `https://downloads.example.com/${macFile}` }];
       await page.reload();
-      await section.getByRole('button', { name: 'Desktop app', exact: true }).click();
+      await expect(section.getByRole('button', { name: 'Desktop app', exact: true })).toHaveAttribute('aria-pressed', 'true');
       await expect(section.getByText(/Unnotarized test build/)).toBeVisible();
       catalog.channels.stable.platforms[0].signed = true;
       await page.reload();
-      await section.getByRole('button', { name: 'Desktop app', exact: true }).click();
+      await expect(section.getByRole('button', { name: 'Desktop app', exact: true })).toHaveAttribute('aria-pressed', 'true');
       await expect(section.getByText(/Signed, not notarized/)).toBeVisible();
       await expect(page.locator('.home-download-signing')).toContainText('Not notarized by Apple');
       catalog.channels.stable.platforms[0].notarized = true;
       await page.reload();
-      await section.getByRole('button', { name: 'Desktop app', exact: true }).click();
+      await expect(section.getByRole('button', { name: 'Desktop app', exact: true })).toHaveAttribute('aria-pressed', 'true');
       await expect(section.getByRole('link', { name: 'Download installer' })).toBeVisible();
       await expect(section.getByText(/Unnotarized test build|Signed, not notarized/)).toHaveCount(0);
       await expect(page.locator('.home-download-signing')).toHaveCount(0);
@@ -61,14 +61,14 @@ test('desktop download UI shows edition and does not invent missing releases', {
         catalog = { schema: 1, channels: { stable: null, preview: null, nightly: null,
           [channel]: { version, platforms: [{ ...platform, file: prereleaseFile, url: `https://downloads.example.com/${prereleaseFile}` }] } } };
         await page.reload();
-        await section.getByRole('button', { name: 'Desktop app', exact: true }).click();
+        await expect(section.getByRole('button', { name: 'Desktop app', exact: true })).toHaveAttribute('aria-pressed', 'true');
         await expect(section.getByText('Coming soon')).toBeVisible();
         await expect(section.getByRole('link', { name: 'Download installer' })).toHaveCount(0);
         await expect(page.locator('.home-hero-download .home-download-primary')).toHaveCount(0);
       }
       catalog = { schema: 1, channels: { stable: null, preview: null, nightly: null } };
       await page.reload();
-      await section.getByRole('button', { name: 'Desktop app', exact: true }).click();
+      await expect(section.getByRole('button', { name: 'Desktop app', exact: true })).toHaveAttribute('aria-pressed', 'true');
       await expect(section.getByText('Coming soon')).toBeVisible();
       await expect(section.getByRole('link', { name: 'Download installer' })).toHaveCount(0);
     }, t.signal);

@@ -45,19 +45,20 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 }
 
 type HTTP struct {
-	Listen             string   `json:"listen"`
-	PublicURL          string   `json:"public_url"`
-	TLSMode            TLSMode  `json:"tls_mode"`
-	CertFile           string   `json:"cert_file"`
-	KeyFile            string   `json:"key_file"`
-	TrustedProxies     []string `json:"trusted_proxies"`
-	AllowedOrigins     []string `json:"allowed_origins"`
-	ReadHeaderTimeout  Duration `json:"read_header_timeout"`
-	RequestTimeout     Duration `json:"request_timeout"`
-	StreamWriteTimeout Duration `json:"stream_write_timeout"`
-	MaxBodyBytes       int64    `json:"max_body_bytes"`
-	MaxSSEConnections  int      `json:"max_sse_connections"`
-	RequestsPerMinute  int      `json:"requests_per_minute"`
+	AutoRenewCertificate bool     `json:"auto_renew_certificate"`
+	Listen               string   `json:"listen"`
+	PublicURL            string   `json:"public_url"`
+	TLSMode              TLSMode  `json:"tls_mode"`
+	CertFile             string   `json:"cert_file"`
+	KeyFile              string   `json:"key_file"`
+	TrustedProxies       []string `json:"trusted_proxies"`
+	AllowedOrigins       []string `json:"allowed_origins"`
+	ReadHeaderTimeout    Duration `json:"read_header_timeout"`
+	RequestTimeout       Duration `json:"request_timeout"`
+	StreamWriteTimeout   Duration `json:"stream_write_timeout"`
+	MaxBodyBytes         int64    `json:"max_body_bytes"`
+	MaxSSEConnections    int      `json:"max_sse_connections"`
+	RequestsPerMinute    int      `json:"requests_per_minute"`
 }
 type Auth struct {
 	SessionIdle            Duration `json:"session_idle"`
@@ -258,6 +259,9 @@ func (c Config) Validate() error {
 		if err != nil || !validHTTPScheme(o, c.HTTP.TLSMode) || o.Hostname() == "" || o.User != nil || o.RawQuery != "" || o.Fragment != "" || o.Path != "" || strings.Contains(o.Host, "*") {
 			return core.Invalid("allowed_origins", "explicit HTTPS origins required")
 		}
+	}
+	if c.HTTP.AutoRenewCertificate && c.HTTP.TLSMode != DirectTLS {
+		return core.Invalid("auto_renew_certificate", "direct TLS required")
 	}
 	switch c.HTTP.TLSMode {
 	case LocalHTTP:

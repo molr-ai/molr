@@ -46,7 +46,7 @@ flowchart TB
 | Windows 桌面完整版 `.exe`，AMD64 | Electron、连接管理界面、内嵌 WebUI 的 `molr.exe` 和 `molr-setup.exe` | 按需创建当前用户的计划任务，登录 Windows 后自动启动；无需 WSL。受控 PowerShell 使用 AppContainer 文件权限与网络开关，Full Access 独立授权。 |
 | Linux/macOS Runtime `.tar.gz`，AMD64／ARM64 | `bin/molr`（内嵌 WebUI 和本机 Sandbox）、`bin/molr-setup`、发行元数据和许可证 | 同一 `molr` 程序支持 `server` 和 `sandbox` 模式，不含 Electron 桌面程序。通过 CLI 选择服务模式，再用浏览器或客户端连接。官网 `install.sh` 下载的就是这类 Runtime 包。 |
 | 源码归档 | 经发布检查的项目源码 | 用于自行构建，不是编译好的应用安装包；构建依赖见[源码部署](https://molr.ai/zh/docs/admin/deployment/source-build/)。 |
-| Docker | 本地构建的镜像包含 `molr`、内嵌 WebUI 和本机 Sandbox 实现 | 不含桌面 app 或 `molr-setup`。基础镜像默认关闭命令执行；`isolated` 构建目标另带 Linux 隔离依赖。当前没有官方预构建镜像，见[Docker 部署](https://molr.ai/zh/docs/admin/deployment/docker/)。 |
+| Docker | 普通版预构建镜像，包含 `molr` 与内嵌 WebUI，支持后端／独立沙盒模式 | 不含桌面应用或 `molr-setup`。后端默认关闭命令；容器节点只提供文件访问与显式授权的 Full Access，不提供容器内隔离。支持 Docker／Compose，见 [Docker 部署](https://molr.ai/zh/docs/admin/deployment/docker/)。 |
 
 WebUI 无需另外下载安装包；手机当前使用同一 WebUI，没有可下载的原生手机 App。桌面包和 Runtime 包均随附许可证与第三方声明，桌面包另保留 Electron/Chromium 的许可资料。
 
@@ -122,7 +122,7 @@ Linux 使用 systemd；macOS 使用下文的用户级 launchd 安装。源码开
 
 维护命令展示变更字段，保留服务路径、凭据及助理授权；运行中的实例会重启，停止的实例保持停止。此前的目录、网络规则和 GPU 选择会被所选预设替换。仍可直接编辑配置逐项调整。
 
-独立沙盒安装自动生成 HTTPS 证书与私有服务令牌，结果显示服务地址、证书指纹和令牌文件位置；在 Runtime 的「资源 → 沙盒 → 连接沙盒」使用它们。安装、状态查询、升级及卸载使用同一 `molr-setup`；普通卸载保留配置、证书、令牌和数据。部署细节见[独立沙盒](https://molr.ai/zh/docs/admin/sandbox/remote/)。
+独立沙盒安装自动生成 HTTPS 证书与私有服务令牌，结果显示服务地址和导出连接码的命令；在 Runtime 的「资源 → 沙盒 → 连接沙盒」填写地址并粘贴连接码。安装、状态查询、升级及卸载使用同一 `molr-setup`；普通卸载保留配置、证书、令牌和数据。部署细节见[独立沙盒](https://molr.ai/zh/docs/admin/sandbox/remote/)。
 
 ## macOS 命令行安装
 

@@ -122,7 +122,7 @@ func TestPermissionListUsesLiveRemoteNetworkRulesAndMarksOfflineUnknown(t *testi
 	need(t, err)
 	server := httptest.NewTLSServer(handler)
 	t.Cleanup(server.Close)
-	digest := sha256.Sum256(server.Certificate().Raw)
+	digest := sha256.Sum256(server.Certificate().RawSubjectPublicKeyInfo)
 	f.ad.networkConfig.AllowedPrivateIPs = []string{"127.0.0.1"}
 	router, err := newSandboxRouter(f.ad, f.b.sandbox, make([]byte, 32))
 	need(t, err)
@@ -133,7 +133,7 @@ func TestPermissionListUsesLiveRemoteNetworkRulesAndMarksOfflineUnknown(t *testi
 		need(t, err)
 		return out
 	}
-	connection := admin("connect", map[string]any{"Name": "Remote", "Endpoint": server.URL, "Fingerprint": hex.EncodeToString(digest[:]), "Token": token, "Mutation": core.Mutation{IdempotencyKey: "remote"}}).(sandboxView)
+	connection := admin("connect", map[string]any{"Name": "Remote", "Endpoint": server.URL, "ConnectionCode": sandboxConnectionCode(hex.EncodeToString(digest[:]), token), "Mutation": core.Mutation{IdempotencyKey: "remote"}}).(sandboxView)
 	network := admin("resource", map[string]any{"SandboxID": connection.ID, "Kind": "network", "SourceID": target.Name, "Name": "LAN", "Mutation": core.Mutation{IdempotencyKey: "remote-network"}}).(resource.Resource)
 	raw, err := router.list(t.Context(), f.execution.Principal)
 	need(t, err)

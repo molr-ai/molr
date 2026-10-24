@@ -12,6 +12,7 @@ import (
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/platform"
+	"molr.ai/runtime/internal/sandboxidentity"
 	sm "molr.ai/runtime/internal/sandboxmanager"
 )
 
@@ -28,10 +29,8 @@ type sandboxDiagnostic struct {
 func sandboxDiagnosis(err error) sandboxDiagnostic {
 	out := sandboxDiagnostic{Reason: core.ReasonOf(err), CheckedAt: time.Now()}
 	switch out.Reason {
-	case "sandbox_certificate_mismatch":
-		out.Field = "Fingerprint"
-	case "sandbox_auth_failed":
-		out.Field = "Token"
+	case "sandbox_certificate_mismatch", "sandbox_auth_failed", "sandbox_connection_code_invalid", "sandbox_connection_code_unsupported":
+		out.Field = "ConnectionCode"
 	case "sandbox_destination_denied", "sandbox_unreachable", "sandbox_connection_timeout", "sandbox_protocol_unsupported":
 		out.Field = "Endpoint"
 	default:
@@ -39,11 +38,11 @@ func sandboxDiagnosis(err error) sandboxDiagnostic {
 		if errors.As(err, &detail) && detail.Code == core.InvalidArgument {
 			switch detail.Field {
 			case "fingerprint":
-				out.Reason = "sandbox_fingerprint_invalid"
-				out.Field = "Fingerprint"
+				out.Reason = "sandbox_connection_code_invalid"
+				out.Field = "ConnectionCode"
 			case "token":
-				out.Reason = "sandbox_token_invalid"
-				out.Field = "Token"
+				out.Reason = "sandbox_connection_code_invalid"
+				out.Field = "ConnectionCode"
 			default:
 				out.Reason = "sandbox_endpoint_invalid"
 				out.Field = "Endpoint"
@@ -60,25 +59,30 @@ func (s *sandboxRouter) testConnection(ctx context.Context, p core.Principal, ra
 		return nil, denied()
 	}
 	var q struct {
-		ID                           core.ID
-		Endpoint, Fingerprint, Token string
+		ID                       core.ID
+		Endpoint, ConnectionCode string
 	}
 	if err := decodeSandboxArgs(raw, &q); err != nil {
 		return nil, err
 	}
 	var client *sm.Client
 	var err error
-	if q.ID != "" && q.Token == "" {
+	if q.ID != "" && q.ConnectionCode == "" {
 		c, e := s.connection(ctx, p, q.ID)
 		if e != nil {
 			return nil, e
 		}
-		if (q.Endpoint != "" && strings.TrimSuffix(q.Endpoint, "/") != c.View.Endpoint) || (q.Fingerprint != "" && strings.ToLower(q.Fingerprint) != c.View.Fingerprint) {
+		if q.Endpoint != "" && strings.TrimSuffix(q.Endpoint, "/") != c.View.Endpoint {
 			return nil, core.Invalid("connection", "saved credential cannot be used with another endpoint or certificate")
 		}
 		client, err = s.client(ctx, p, c)
 	} else {
-		client, err = s.newClient(p, strings.TrimSuffix(q.Endpoint, "/"), strings.ToLower(q.Fingerprint), core.NewSecret(q.Token))
+		var publicKey string
+		var token core.Secret
+		publicKey, token, err = sandboxidentity.Decode(q.ConnectionCode)
+		if err == nil {
+			client, err = s.newClient(p, strings.TrimSuffix(q.Endpoint, "/"), publicKey, token)
+		}
 	}
 	if err != nil {
 		return sandboxDiagnosis(err), nil

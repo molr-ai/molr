@@ -1052,7 +1052,7 @@ test('resource APIs cannot change deployment network policy', async ({ page }) =
 test('resource tabs expose tools and sandbox-scoped resources', async ({ page }) => {
   await login(page);
   await page.getByRole('navigation').getByRole('button', { name: 'Resources', exact: true }).click();
-  await expect(page.locator('.resources-categories > .ui-tabs__list').getByRole('tab')).toHaveText(['Models', 'Tools', 'Sandboxes']);
+  await expect(page.locator('.resources-categories > .ui-tabs__list').getByRole('tab')).toHaveText(['Models', 'Tools', 'Skills', 'Sandboxes']);
   await resourceCategory(page, 'Tools').click();
   await expect(page.locator('.tools-catalog-row').filter({ has: page.getByText('Read file', { exact: true }) })).toBeVisible();
   await resourceCategory(page, 'Sandboxes').click();
@@ -1060,7 +1060,7 @@ test('resource tabs expose tools and sandbox-scoped resources', async ({ page })
   await expect(page.getByRole('heading', { name: 'Local workspace /work', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Connect sandbox', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Connect sandbox', exact: true });
-  for (const label of ['Service URL', 'Certificate SHA-256 fingerprint', 'Connection token']) await expect(dialog.getByLabel(label, { exact: true })).toBeVisible();
+  for (const label of ['Service URL', 'Connection code']) await expect(dialog.getByLabel(label, { exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
@@ -2600,18 +2600,17 @@ test('sandbox selection persists and connection changes invalidate a successful 
   await expect(save).toBeDisabled();
   await dialog.getByLabel('Name', { exact: true }).fill('Test sandbox');
   await dialog.getByLabel('Service URL', { exact: true }).fill('https://sandbox.invalid');
-  await dialog.getByLabel('Certificate SHA-256 fingerprint', { exact: true }).fill('bad-pin');
-  await dialog.getByLabel('Connection token', { exact: true }).fill('x'.repeat(40));
+  await dialog.getByLabel('Connection code', { exact: true }).fill('bad-pin');
   await dialog.getByRole('button', { name: 'Test connection', exact: true }).click();
-  await expect(dialog.getByLabel('Certificate SHA-256 fingerprint', { exact: true })).toHaveAttribute('aria-invalid', 'true');
+  await expect(dialog.getByLabel('Connection code', { exact: true })).toHaveAttribute('aria-invalid', 'true');
   await expect(save).toBeDisabled();
   const info = (await (await page.request.get('/api/sandboxes')).json())[0].Info;
   let release!: () => void;
   const gate = new Promise<void>(resolve => { release = resolve; });
   await page.route('**/api/sandboxes/test', async route => { await gate; await route.fulfill({ json: { Connected: true, Info: info, CheckedAt: new Date().toISOString() } }); });
-  await dialog.getByLabel('Certificate SHA-256 fingerprint', { exact: true }).fill('a'.repeat(64));
+  await dialog.getByLabel('Connection code', { exact: true }).fill('a'.repeat(64));
   await dialog.getByRole('button', { name: 'Test connection', exact: true }).click();
-  await dialog.getByLabel('Connection token', { exact: true }).fill('y'.repeat(40));
+  await dialog.getByLabel('Connection code', { exact: true }).fill('y'.repeat(40));
   release();
   await expect(dialog.getByRole('button', { name: 'Test connection', exact: true })).toBeEnabled();
   await expect(save).toBeDisabled(); // The in-flight response checked the old token.
@@ -2622,7 +2621,7 @@ test('sandbox selection persists and connection changes invalidate a successful 
   await expect(save).toBeEnabled(); // Dismissing feedback does not invalidate the tested credentials.
   await dialog.getByRole('button', { name: 'Test connection', exact: true }).click();
   await expect(dialog.locator('.ui-alert--positive')).toBeVisible();
-  await dialog.getByLabel('Connection token', { exact: true }).fill('z'.repeat(40));
+  await dialog.getByLabel('Connection code', { exact: true }).fill('z'.repeat(40));
   await expect(save).toBeDisabled();
 });
 

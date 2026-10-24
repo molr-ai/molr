@@ -5,7 +5,26 @@ Runtime packages contain `bin/molr` and the `bin/molr-setup` maintenance tool. T
 Release packages are stored in GitHub Releases. The official website and release manifests are deployed together as static resources via Cloudflare Workers. The current artifacts are Linux/macOS Runtime packages with an embedded WebUI; platform and environment requirements are uniformly defined in [`release/platforms.json`](../../../../release/platforms.json).
 
 
-The repository-root Dockerfile builds a complete local image: Node builds WebUI, Go embeds the assets statically with the `webui` tag, and the final Debian image runs as an ordinary user. Base images pin multi-platform digests; update `.go-version`, `go.mod`, and Dockerfile together when upgrading Go. The image retains LICENSE, third-party notices, and Debian license materials. The release pipeline does not currently publish container images. The website Docker option is independent of native release catalogs and links to [Docker deployment](../../admin/deployment/docker.md). The isolated target additionally installs systemd, Bubblewrap, and static BusyBox and uses dedicated container cgroups and security policies for ordinary isolated commands; deployment and real regression commands are in the same Docker guide.
+Release and Nightly publish the ordinary container image to `ghcr.io/molr-ai/molr`, supporting backend and standalone sandbox modes without in-container isolation. Dockerfile uses Debian 13 slim and a static Go executable with embedded WebUI and debug information stripped; base images pin multi-platform digests. See [Docker deployment](../../admin/deployment/docker.md) for installation, permissions and updates.
+
+
+Source builds retain the `isolated`, `sandbox-tests` and `isolation-test` targets and their policies for local builds and validation. They are excluded from automatic image publication. See [Docker source isolation target](../../admin/deployment/docker.md#build-the-in-container-isolation-target-from-source).
+
+The ordinary image defaults to `molr container`, preparing configuration and the owner account inside its named volume. `MOLR_MODE=sandbox` prepares node certificates, a token and project directory automatically; services retain UID/GID 65532. An explicit `MOLR_PUBLIC_URL` updates the access address and port, while other configuration, accounts and node identity survive restarts. Explicit `serve -config` and source isolation targets retain manual configuration.
+
+## Container publication
+
+`release-container.yml` runs after the matching GitHub Release is published, or fills in images for an existing Release. It reuses the prepared version, commit and publication date. Native AMD64 and ARM64 runners build the ordinary image, verify initialization, HTTP, authenticated capabilities, static ELF and data/session persistence across container replacement, then push each architecture by digest. Only after both platforms pass does it publish the OCI index with platform digests and build identity.
+
+- Stable releases publish a fixed version tag and advance `latest` only to a higher version. No `latest` exists before the first stable image.
+- Beta/RC publish only fixed version tags, without `preview` or changing `latest`.
+- Nightly publishes only `nightly`, without fixed daily tags. The full version and commit remain in the image and OCI index.
+- Container workflows are globally serialized. Older retries cannot regress moving tags. Fixed-version retries reuse the existing image; conflicting identities fail instead of overwriting. A failed architecture cannot update public tags, and authentication/network errors are not treated as missing images.
+- The publication summary records image, version, commit, digest and tags. Untagged platform images are not installation entry points. Historical nightly retention is not guaranteed; the workflow does not delete digests users may still reference.
+
+Grant `packages: write` through the call chain and use the repository `GITHUB_TOKEN`; no additional PAT is needed. After the first push, set the GitHub Package visibility to Public and verify anonymous pulls. A public source repository does not automatically make its Package public. The organization must allow package publication. Verify real Actions results on both architectures before declaring the remote pipeline operational.
+
+Container update checks use anonymous GHCR pull tokens: stable reads `latest`, nightly reads `nightly`, and prereleases select the highest stable/Beta/RC from the complete paginated tag list using SemVer. OCI identity, complete platforms and the current architecture manifest digest are checked before reporting updates. Failures retain the last successful result. Administrators replace containers on the host; the app does not install images. GHCR checks are independent of website native-release catalogs.
 
 ## Desktop installers
 

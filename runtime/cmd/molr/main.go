@@ -64,12 +64,15 @@ func run(ctx context.Context, args []string, input io.Reader, output, diagnostic
 		return nil
 	}
 	if len(args) == 0 {
-		fmt.Fprintln(output, "Usage: molr <bootstrap|init|serve|access|doctor|recover|version> --config /path/server.json\n       molr serve --mode server|sandbox --config /path/server.json")
+		fmt.Fprintln(output, "Usage: molr <bootstrap|init|serve|container|connection-code|access|doctor|recover|version> --config /path/server.json\n       molr serve --mode server|sandbox --config /path/server.json")
 		return nil
 	}
 	command := args[0]
+	if command == "container" {
+		return runContainer(ctx, args[1:], output, diagnostics)
+	}
 	switch command {
-	case "bootstrap", "access", "doctor", "init", "serve", "recover":
+	case "bootstrap", "access", "doctor", "init", "serve", "recover", "connection-code":
 	default:
 		return fmt.Errorf("unknown command %q", command)
 	}
@@ -100,7 +103,7 @@ func run(ctx context.Context, args []string, input io.Reader, output, diagnostic
 	if *mode == "sandbox" && command != "serve" {
 		return core.Invalid("mode", "sandbox mode only supports serve")
 	}
-	if *tokenPath != "" && (*mode != "sandbox" || command != "serve") {
+	if *tokenPath != "" && command != "connection-code" && (*mode != "sandbox" || command != "serve") {
 		return core.Invalid("token_file", "token-file requires serve --mode sandbox")
 	}
 	file, err := os.Open(*configPath)
@@ -112,6 +115,9 @@ func run(ctx context.Context, args []string, input io.Reader, output, diagnostic
 	_ = file.Close()
 	if err != nil {
 		return err
+	}
+	if command == "connection-code" {
+		return exportSandboxConnectionCode(cfg, *tokenPath, output)
 	}
 	if *logPath != "" {
 		file, err := logging.OpenFile(*logPath, cfg.Logging)
