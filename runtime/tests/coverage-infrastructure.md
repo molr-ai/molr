@@ -273,7 +273,7 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/buildinfo` | `Current` | `TestInjectedReleaseIdentityWinsOverVCSFallback` |
 | `internal/releaseplatform` | `Supported` | `TestSupportMatchesInstallableTargets` |
 | `internal/updates` | `Compare`, `Development` | `TestVersionPrecedence` |
-| `internal/updates` | `New`, `Service.Check`, `Service.Snapshot` | `TestCheckCoalescesAndRetainsSuccessfulResult`, `TestReleaseChannelIsolation`, `TestContainerChannelsOnlyReportPullableImages`, `TestContainerRejectsInvalidOrUnavailableImagesAndRetainsLastSuccess` |
+| `internal/updates` | `New`, `Service.Check`, `Service.Snapshot` | `TestCheckCoalescesAndRetainsSuccessfulResult`, `TestReleaseChecksStableRegardlessOfConfiguredChannel`, `TestNativePrereleasesCompareAgainstStableWithoutDowngrading`, `TestMissingStableClearsRecommendationAndCanRecover`, `TestContainerChecksStableForEveryCurrentChannel`, `TestContainerMissingStableDoesNotFallBackOrHideRegistryErrors`, `TestContainerRejectsInvalidOrUnavailableImagesAndRetainsLastSuccess` |
 | `internal/updates` | `Service.Run` | `TestCanceledLifecycleDoesNotCheck` |
 | `internal/updates` | `ReadInstallation` | `TestInstallationReceiptRequiresMatchingExecutableAndCompletedInstall` |
 | `internal/config` | `Sandbox.ComputeCeilings` | `internal/app.TestSandboxPlansRequireIndependentComputeStorageAndNetworkGrants` |

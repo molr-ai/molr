@@ -582,10 +582,10 @@ Runtime 启动时自动准备并探测命令环境，自动登记本机计算资
 
 `GET /api/status` 的 `build` 返回 Runtime 的 `version`、`commit`、`built_at`、`os`、`arch`、`embedded_webui`。
 
-容器构建另有 `distribution: "container"` 和可选的 `container_image`（如 `ghcr.io/molr-ai/molr`）。容器检查读取 GHCR 镜像，`latest.image` 为可拉取的标签引用，`latest.digest` 为 OCI index SHA-256；此时原生包字段 `file`、`sha256` 为空。原生构建字段保持原义。容器清单单次响应上限 1 MiB，预发布最多扫描 100 页标签；失败不回退到未验证版本。
+容器构建另有 `distribution: "container"` 和可选的 `container_image`（如 `ghcr.io/molr-ai/molr`）。容器检查读取 GHCR 镜像，`latest.image` 为可拉取的标签引用，`latest.digest` 为 OCI index SHA-256；此时原生包字段 `file`、`sha256` 为空。原生构建字段保持原义。容器清单单次响应上限 1 MiB，统一查询 `latest` 且只接受正式版；失败不回退到其他标签。
 
-- `GET /api/updates`：登录后读取实例共享快照，不访问发布源。包含 `current`、`latest`、`comparison`、`check`、`auto_check`、`source_configured`、`supported`。`comparison` 为 `unknown/current/available/ahead/uncomparable`；`check` 分别记录检查中、最近尝试、最近成功、下次允许手动检查时间及固定错误码。
-- `POST /api/updates/check`：请求 `{ "automatic": false }` 手动检查，`true` 用于关于页自动检查。遵守 CSRF；自动检查间隔至少五分钟、手动至少一分钟，并合并进行中的请求。发布源网络或清单失败保存在快照中，不清除成功缓存。
+- `GET /api/updates`：登录后读取实例共享快照，不访问发布源。包含 `current`、`latest`、`comparison`、`check`、`auto_check`、`source_configured`、`supported`。`comparison` 为 `unknown/current/available/ahead/uncomparable/unavailable`；`check` 分别记录检查中、最近尝试、最近成功、下次允许手动检查时间及固定错误码。
+- `POST /api/updates/check`：请求 `{ "automatic": false }` 手动检查，`true` 用于关于页自动检查。遵守 CSRF；自动检查间隔至少五分钟、手动至少一分钟，并合并进行中的请求。发布源网络或清单失败保存在快照中，不清除成功缓存。正式版清单返回 404 时，`comparison` 为 `unavailable`、`latest` 为 `null`、错误码为空，更新最近成功时间；不会将不存在的旧推荐继续作为可升级目标。
 - `GET /api/updates/installation`：仅管理员读取升级命令所需的安装记录和发布源；缺少匹配记录返回 `null`。不执行安装。
 
 检查服务在 Runtime 生命周期内运行，内存缓存重启后重新建立；整次检查限定十秒，原生安装包清单最多 64 KiB。公网 HTTPS、显式私网地址及拨号时 DNS 校验复用平台网络边界，禁止重定向，不携带用户凭证。版本与发布元信息见部署指南；接口不接受任意 URL。

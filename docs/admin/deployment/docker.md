@@ -158,7 +158,7 @@ docker compose exec molr-sandbox molr connection-code --config /data/sandbox.jso
 
 ## 更新、备份与卸载
 
-Runtime 与 WebUI 随镜像一起更新。预构建后端检查 GHCR 中实际发布的镜像：正式版跟随 `latest`，预发布选择最高正式／Beta／RC，Nightly 跟随 `nightly`。版本详情提供目标镜像与宿主操作指引，不在容器内替换程序。独立节点由管理员随后端版本更新。
+Runtime 与 WebUI 随镜像一起更新。预构建后端统一检查 GHCR 的 `latest` 正式版镜像，不随当前安装版本切换到 Nightly 或预发布。正式版高于当前版本时提示更新；当前版本更高时不推荐降级。没有正式版时明确显示暂无适用正式版，不回退其他渠道。需要继续使用 Nightly 时，管理员可手动拉取 `nightly` 并重建容器。版本详情提供目标镜像与宿主操作指引，不在容器内替换程序。独立节点由管理员随后端版本更新。
 
 修改 Compose 中的目标镜像版本后：
 

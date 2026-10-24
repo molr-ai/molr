@@ -82,7 +82,7 @@ test('about reactivation checks releases and keeps build mismatch separate from 
  state.current = { ...state.current, commit: 'b'.repeat(40) };
  await reopenVersionDetails(page);
  await expect(page.getByRole('dialog', { name: 'Version details' })).toContainText('WebUI and Runtime commits differ');
- await expect(page.getByText('Service is up to date', { exact: true })).toBeVisible();
+ await expect(page.getByText('Service is up to date with the stable release', { exact: true })).toBeVisible();
  await expect(page.getByText(/Recommended version|Last successful check|Next check available/)).toHaveCount(0);
  await page.getByRole('button',{name:'Close version details',exact:true}).click();
  await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -358,4 +358,35 @@ test('container updates show the published image and Docker guide without native
  await expect(page.getByRole('link', { name: 'View manual upgrade steps', exact: true })).toHaveAttribute('href', 'https://molr.ai/en/docs/admin/deployment/docker/');
  await expect(page.getByRole('button', { name: 'Update and restart service', exact: true })).toHaveCount(0);
  expect(nativeReads).toBe(0);
+});
+
+test('service recommendations identify stable releases and never offer a downgrade or prerelease fallback', async ({ page }) => {
+ await login(page);
+ const state: UpdateStatus = await (await page.request.get('/api/updates')).json();
+ state.source_configured = true; state.supported = true; state.auto_check = false;
+ state.current = { ...state.current, distribution: 'container', container_image: 'ghcr.io/example/molr' };
+ const stable = { version: '0.1.0', commit: 'a'.repeat(40), published_at: '2026-10-24T00:00:00Z', notes_url: 'https://example.com/releases/v0.1.0', file: '', sha256: '', image: 'ghcr.io/example/molr:latest', digest: 'sha256:' + 'b'.repeat(64) };
+ await page.route(/\/api\/updates(?:\?.*)?$/, route => route.fulfill({ json: state }));
+ await page.route('**/api/updates/check', route => route.fulfill({ json: state }));
+ await page.route(/\/api\/maintenance(?:\?.*)?$/, route => route.fulfill({ json: { can_update: false } }));
+ const cases: Array<{ version: string; comparison: UpdateStatus['comparison']; title: string }> = [
+  { version: '0.1.0-0.nightly.20261024.145333.g8ef1ffd4ea76', comparison: 'available', title: 'Service update available' },
+  { version: '0.1.0-rc.1', comparison: 'available', title: 'Service update available' },
+  { version: '0.1.0', comparison: 'current', title: 'Service is up to date with the stable release' },
+  { version: '0.1.1-0.nightly.20261025.0.gaaaaaaa', comparison: 'ahead', title: 'This build is newer than the latest stable release' },
+  { version: '0.1.1-0.nightly.20261025.0.gaaaaaaa', comparison: 'unavailable', title: 'No stable service release for this platform' },
+ ];
+ for (const value of cases) {
+  state.current.version = value.version; state.comparison = value.comparison;
+  state.latest = value.comparison === 'unavailable' ? null : stable;
+  await page.goto('/#/account/general');
+  await page.goto('/#/account/about');
+  await page.getByRole('button', { name: 'View version details', exact: true }).click();
+  await expect(page.getByText(value.title, { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Manual upgrade instructions', exact: true })).toHaveCount(value.comparison === 'available' ? 1 : 0);
+  if (value.comparison === 'available') await expect(page.locator('.release-version strong')).toHaveText('v0.1.0');
+  else await expect(page.locator('.release-version')).toHaveCount(0);
+  await expect(page.getByText('Unable to check for updates', { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Close version details', exact: true }).click();
+ }
 });

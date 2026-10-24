@@ -18,6 +18,9 @@ func TestUpdateAPIUsesSharedConfiguredSourceAndRequiresCSRF(t *testing.T) {
 	var calls atomic.Int32
 	source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls.Add(1)
+		if r.URL.Path != "/stable/latest-"+runtime.GOOS+"-"+runtime.GOARCH+".json" {
+			t.Errorf("unexpected update channel: %s", r.URL.Path)
+		}
 		json.NewEncoder(w).Encode(updates.Release{Version: "0.2.0", Commit: strings.Repeat("a", 40), PublishedAt: time.Now(), NotesURL: "https://example.com/releases/0.2.0", File: "molr_0.2.0_" + runtime.GOOS + "_" + runtime.GOARCH + ".tar.gz", SHA256: strings.Repeat("b", 64)})
 	}))
 	defer source.Close()
@@ -25,7 +28,7 @@ func TestUpdateAPIUsesSharedConfiguredSourceAndRequiresCSRF(t *testing.T) {
 	cfg.HTTP.TLSMode = config.LocalHTTP
 	cfg.HTTP.Listen = "127.0.0.1:8787"
 	cfg.HTTP.PublicURL = "http://127.0.0.1:8787"
-	cfg.Updates.Source = source.URL
+	cfg.Updates.Source = source.URL + "/nightly"
 	b, err := Build(t.Context(), cfg)
 	need(t, err)
 	defer b.Close()

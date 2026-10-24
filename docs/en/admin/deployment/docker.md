@@ -158,7 +158,7 @@ Optional deployment hardening includes `read_only: true`, `cap_drop: [ALL]` and 
 
 ## Updates, backups and removal
 
-Runtime and WebUI update together. Prebuilt backends check images actually published to GHCR: stable follows `latest`, prereleases select the highest stable/Beta/RC, and nightly follows `nightly`. Version details show the target image and host instructions; the app does not replace its executable. Administrators update nodes alongside the backend.
+Runtime and WebUI update together. Prebuilt backends always check the stable `latest` image on GHCR, regardless of whether the current build is Nightly or a prerelease. A newer stable version offers an update; a higher current version never prompts a downgrade. An absent stable release is reported explicitly without falling back to another channel. Administrators who want to remain on Nightly can manually pull `nightly` and recreate the container. Version details show the target image and host instructions; the app does not replace its executable. Administrators update nodes alongside the backend.
 
 After editing the target image version in Compose:
 

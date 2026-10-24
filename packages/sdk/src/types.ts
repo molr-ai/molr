@@ -134,7 +134,7 @@ export type BuildInfo = { distribution?: string; container_image?: string; versi
 export type ReleaseInfo = { image?: string; digest?: string; version: string; commit: string; published_at: string; notes_url: string; file: string; sha256: string };
 export type UpdateStatus = {
  current: BuildInfo; latest: ReleaseInfo | null;
- comparison: 'unknown' | 'current' | 'available' | 'ahead' | 'uncomparable';
+ comparison: 'unknown' | 'current' | 'available' | 'ahead' | 'uncomparable' | 'unavailable';
  check: { checking: boolean; last_attempt_at: string | null; last_success_at: string | null; next_allowed_at: string | null; error_code?: string };
  auto_check: boolean; source_configured: boolean; supported: boolean;
 };

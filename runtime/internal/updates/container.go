@@ -14,7 +14,6 @@ import (
 )
 
 var containerRepository = regexp.MustCompile(`^ghcr\.io/[a-z0-9][a-z0-9_.-]*/[a-z0-9][a-z0-9_.-]*$`)
-var containerVersion = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(beta|rc)\.(0|[1-9][0-9]*))?$`)
 
 const imageIndexType = "application/vnd.oci.image.index.v1+json"
 const imageManifestType = "application/vnd.oci.image.manifest.v1+json"
@@ -80,6 +79,9 @@ func (s *Service) fetchContainer(ctx context.Context) (*Release, string) {
 	repository := strings.TrimPrefix(image, "ghcr.io/")
 	data, _, code := s.containerRequest(ctx, "/token?service=ghcr.io&scope="+url.QueryEscape("repository:"+repository+":pull"), "")
 	if code != "" {
+		if code == "release_not_found" {
+			code = "source_unavailable"
+		}
 		return nil, code
 	}
 	var auth struct {
@@ -89,50 +91,7 @@ func (s *Service) fetchContainer(ctx context.Context) (*Release, string) {
 		return nil, "invalid_manifest"
 	}
 	prefix := "/v2/" + repository
-	tag := "latest"
-	channel := "stable"
-	if strings.Contains(s.state.Current.Version, "-0.nightly.") {
-		tag, channel = "nightly", "nightly"
-	} else if strings.Contains(s.state.Current.Version, "-beta.") || strings.Contains(s.state.Current.Version, "-rc.") {
-		channel = "preview"
-		tag = ""
-		last := ""
-		// Registry tags are lexically paginated; select with SemVer only after all pages.
-		for page := 0; ; page++ {
-			if page >= 100 {
-				return nil, "invalid_manifest"
-			}
-			data, headers, errCode := s.containerRequest(ctx, prefix+"/tags/list?n=100&last="+url.QueryEscape(last), auth.Token)
-			if errCode != "" {
-				return nil, errCode
-			}
-			var list struct {
-				Tags []string `json:"tags"`
-			}
-			if json.Unmarshal(data, &list) != nil {
-				return nil, "invalid_manifest"
-			}
-			for _, candidate := range list.Tags {
-				if !containerVersion.MatchString(candidate) {
-					continue
-				}
-				n, ok := Compare(candidate, tag)
-				if tag == "" || ok && n > 0 {
-					tag = candidate
-				}
-			}
-			if headers.Get("Link") == "" {
-				break
-			}
-			if len(list.Tags) == 0 || list.Tags[len(list.Tags)-1] <= last {
-				return nil, "invalid_manifest"
-			}
-			last = list.Tags[len(list.Tags)-1]
-		}
-		if tag == "" {
-			return nil, "release_not_found"
-		}
-	}
+	const tag = "latest"
 	data, headers, code := s.containerRequest(ctx, prefix+"/manifests/"+tag, auth.Token)
 	if code != "" {
 		return nil, code
@@ -148,11 +107,7 @@ func (s *Service) fetchContainer(ctx context.Context) (*Release, string) {
 	a := index.Annotations
 	version, revision := a["org.opencontainers.image.version"], a["org.opencontainers.image.revision"]
 	timestamp, err := time.Parse(time.RFC3339, a["org.opencontainers.image.created"])
-	parts := parseVersion(version)
-	if err != nil || timestamp.IsZero() || parts == nil || Development(version) || !commit.MatchString(revision) || a["org.opencontainers.image.source"] != "https://github.com/"+repository {
-		return nil, "invalid_manifest"
-	}
-	if channel == "stable" && (!containerVersion.MatchString(version) || parts[4] != "") || channel == "nightly" && !strings.HasPrefix(parts[4], "0.nightly.") || channel == "preview" && (!containerVersion.MatchString(version) || tag != version) {
+	if err != nil || timestamp.IsZero() || !stableVersion.MatchString(version) || !commit.MatchString(revision) || a["org.opencontainers.image.source"] != "https://github.com/"+repository {
 		return nil, "invalid_manifest"
 	}
 	seen := map[string]bool{}
@@ -165,6 +120,9 @@ func (s *Service) fetchContainer(ctx context.Context) (*Release, string) {
 		if arch == s.state.Current.Arch {
 			body, _, code := s.containerRequest(ctx, prefix+"/manifests/"+descriptor.Digest, auth.Token)
 			if code != "" {
+				if code == "release_not_found" {
+					code = "invalid_manifest"
+				}
 				return nil, code
 			}
 			if len(body) != descriptor.Size || fmt.Sprintf("sha256:%x", sha256.Sum256(body)) != descriptor.Digest {

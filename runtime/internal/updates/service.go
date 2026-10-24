@@ -53,6 +53,18 @@ type Service struct {
 }
 
 func New(source string, auto bool, current buildinfo.Info, client *http.Client) *Service {
+	source = strings.TrimRight(source, "/")
+	// Installed and custom channel URLs use the same stable recommendation policy.
+	if u, err := url.Parse(source); err == nil {
+		for _, channel := range []string{"preview", "nightly"} {
+			if strings.HasSuffix(u.Path, "/"+channel) {
+				u.Path = strings.TrimSuffix(u.Path, channel) + "stable"
+				u.RawPath = ""
+				source = u.String()
+				break
+			}
+		}
+	}
 	if current.Distribution == "container" {
 		source = ""
 		if containerRepository.MatchString(current.ContainerImage) {
@@ -110,7 +122,13 @@ func (s *Service) Check(ctx context.Context, automatic bool) Snapshot {
 	defer s.mu.Unlock()
 	s.state.Check.Checking = false
 	s.state.Check.Error = code
-	if code == "" {
+	if code == "release_not_found" {
+		success := s.now()
+		s.state.Check.LastSuccess = &success
+		s.state.Check.Error = ""
+		s.state.Latest = nil
+		s.state.Comparison = "unavailable"
+	} else if code == "" {
 		success := s.now()
 		s.state.Check.LastSuccess = &success
 		s.state.Latest = release
@@ -167,16 +185,7 @@ func (s *Service) fetch(ctx context.Context) (*Release, string) {
 		return nil, "invalid_manifest"
 	}
 	var release Release
-	if json.Unmarshal(data, &release) != nil || parseVersion(release.Version) == nil || Development(release.Version) || !hash.MatchString(release.SHA256) || !commit.MatchString(release.Commit) || release.PublishedAt.IsZero() || release.File != "molr_"+release.Version+"_"+s.state.Current.OS+"_"+s.state.Current.Arch+".tar.gz" {
-		return nil, "invalid_manifest"
-	}
-	sourceURL, _ := url.Parse(s.source)
-	channel := ""
-	if sourceURL != nil {
-		channel = sourceURL.Path[strings.LastIndex(sourceURL.Path, "/")+1:]
-	}
-	pre := parseVersion(release.Version)[4]
-	if (channel == "stable" && pre != "") || (channel == "preview" && strings.HasPrefix(pre, "0.nightly.")) || (channel == "nightly" && !strings.HasPrefix(pre, "0.nightly.")) {
+	if json.Unmarshal(data, &release) != nil || !stableVersion.MatchString(release.Version) || !hash.MatchString(release.SHA256) || !commit.MatchString(release.Commit) || release.PublishedAt.IsZero() || release.File != "molr_"+release.Version+"_"+s.state.Current.OS+"_"+s.state.Current.Arch+".tar.gz" {
 		return nil, "invalid_manifest"
 	}
 	notes, err := url.Parse(release.NotesURL)

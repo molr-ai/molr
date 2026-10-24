@@ -24,7 +24,7 @@ The ordinary image defaults to `molr container`, preparing configuration and the
 
 Grant `packages: write` through the call chain and use the repository `GITHUB_TOKEN`; no additional PAT is needed. After the first push, set the GitHub Package visibility to Public and verify anonymous pulls. A public source repository does not automatically make its Package public. The organization must allow package publication. Verify real Actions results on both architectures before declaring the remote pipeline operational.
 
-Container update checks use anonymous GHCR pull tokens: stable reads `latest`, nightly reads `nightly`, and prereleases select the highest stable/Beta/RC from the complete paginated tag list using SemVer. OCI identity, complete platforms and the current architecture manifest digest are checked before reporting updates. Failures retain the last successful result. Administrators replace containers on the host; the app does not install images. GHCR checks are independent of website native-release catalogs.
+Container update checks always use anonymous GHCR pull tokens to read `latest`, accepting only plain `X.Y.Z` stable versions regardless of whether the current build is Nightly, Beta, or RC. After validating OCI identity, complete platforms, and the current architecture manifest digest, SemVer comparison reports only newer versions and never recommends a downgrade. An absent `latest` reports no suitable stable release and clears the old recommendation without falling back to other tags; network or manifest errors retain the last successful result. Administrators replace containers on the host; the app does not install images. GHCR checks are independent of website native-release catalogs.
 
 ## Desktop installers
 

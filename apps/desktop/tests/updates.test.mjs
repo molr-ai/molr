@@ -34,7 +34,7 @@ test('empty catalog, missing platform, development, malformed and oversized meta
   }
 });
 test('desktop compares its own version even when the service could already be current', async () => {
-  for(const [version, expected] of [['0.1.0','available'],['0.2.0','current'],['0.3.0','ahead']]) {
+  for(const [version, expected] of [['0.1.0','available'],['0.2.0-beta.1','available'],['0.2.0-rc.1','available'],['0.2.0-0.nightly.20261024.145333.g8ef1ffd4ea76','available'],['0.2.0','current'],['0.2.1-0.nightly.20261025.0.gaaaaaaa','ahead'],['0.3.0','ahead']]) {
     const s=new DesktopUpdates(version,'win32','amd64',()=>{},async()=>Response.json(catalog()));
     assert.equal((await s.check()).comparison,expected);
   }

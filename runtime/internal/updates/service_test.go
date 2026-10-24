@@ -168,26 +168,79 @@ func TestCanceledLifecycleDoesNotCheck(t *testing.T) {
 	}
 }
 
-func TestReleaseChannelIsolation(t *testing.T) {
-	for _, tc := range []struct {
-		channel, version string
-		accepted         bool
-	}{
-		{"stable", "0.2.0", true}, {"stable", "0.2.0-rc.1", false},
-		{"preview", "0.2.0-rc.1", true}, {"preview", "0.2.0", true},
-		{"preview", "0.2.0-0.nightly.20261011.0.gaaaaaaa", false},
-		{"nightly", "0.2.0-0.nightly.20261011.0.gaaaaaaa", true}, {"nightly", "0.2.0", false},
+func TestReleaseChecksStableRegardlessOfConfiguredChannel(t *testing.T) {
+	for _, channel := range []string{"", "stable", "preview", "nightly"} {
+		for _, version := range []string{"0.2.0", "0.2.0-rc.1", "0.2.0-beta.1", "0.2.0-0.nightly.20261011.0.gaaaaaaa", "0.2.0+build"} {
+			t.Run(channel+"/"+version, func(t *testing.T) {
+				release := fixtureRelease()
+				release.Version = version
+				release.File = "molr_" + version + "_linux_amd64.tar.gz"
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					want := "/latest-linux-amd64.json"
+					if channel != "" {
+						want = "/stable" + want
+					}
+					if r.URL.Path != want {
+						t.Errorf("checked %s, want %s", r.URL.Path, want)
+					}
+					json.NewEncoder(w).Encode(release)
+				}))
+				defer server.Close()
+				state := New(server.URL+"/"+channel+"/", true, identity(), server.Client()).Check(context.Background(), false)
+				if (state.Latest != nil) != (version == "0.2.0") {
+					t.Fatal(state)
+				}
+				if version != "0.2.0" && state.Check.Error != "invalid_manifest" {
+					t.Fatal(state)
+				}
+			})
+		}
+	}
+}
+
+func TestNativePrereleasesCompareAgainstStableWithoutDowngrading(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { json.NewEncoder(w).Encode(fixtureRelease()) }))
+	defer server.Close()
+	for version, want := range map[string]string{
+		"0.2.0-0.nightly.20261024.0.gaaaaaaa": "available", "0.2.0-beta.1": "available", "0.2.0-rc.1": "available",
+		"0.2.0": "current", "0.2.1-0.nightly.20261025.0.gaaaaaaa": "ahead",
 	} {
-		t.Run(tc.channel+"/"+tc.version, func(t *testing.T) {
-			release := fixtureRelease()
-			release.Version = tc.version
-			release.File = "molr_" + tc.version + "_linux_amd64.tar.gz"
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { json.NewEncoder(w).Encode(release) }))
-			defer server.Close()
-			state := New(server.URL+"/"+tc.channel, true, identity(), server.Client()).Check(context.Background(), false)
-			if (state.Latest != nil) != tc.accepted {
-				t.Fatal(state)
-			}
-		})
+		build := identity()
+		build.Version = version
+		state := New(server.URL, true, build, server.Client()).Check(context.Background(), false)
+		if state.Comparison != want || state.Latest == nil || state.Latest.Version != "0.2.0" {
+			t.Fatal(version, state)
+		}
+	}
+}
+
+func TestMissingStableClearsRecommendationAndCanRecover(t *testing.T) {
+	status := http.StatusOK
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if status != http.StatusOK {
+			w.WriteHeader(status)
+			return
+		}
+		json.NewEncoder(w).Encode(fixtureRelease())
+	}))
+	defer server.Close()
+	service := New(server.URL, true, identity(), server.Client())
+	now := time.Now()
+	service.now = func() time.Time { return now }
+	check := func() Snapshot { now = now.Add(2 * time.Minute); return service.Check(context.Background(), false) }
+	if state := check(); state.Comparison != "available" {
+		t.Fatal(state)
+	}
+	status = http.StatusNotFound
+	if state := check(); state.Comparison != "unavailable" || state.Latest != nil || state.Check.Error != "" || state.Check.LastSuccess == nil || !state.Check.LastSuccess.Equal(now) {
+		t.Fatal(state)
+	}
+	status = http.StatusServiceUnavailable
+	if state := check(); state.Comparison != "unavailable" || state.Check.Error != "source_unavailable" {
+		t.Fatal(state)
+	}
+	status = http.StatusOK
+	if state := check(); state.Comparison != "available" || state.Latest == nil || state.Check.Error != "" {
+		t.Fatal(state)
 	}
 }

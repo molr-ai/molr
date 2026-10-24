@@ -24,7 +24,7 @@ Runtime 发行包仅包含 `bin/molr` 与安装维护工具 `bin/molr-setup`。�
 
 调用链授予 `packages: write`，使用仓库 `GITHUB_TOKEN`，无需额外 PAT。首次发布后在 GitHub Package 设置中将镜像改为 Public，并验证匿名拉取；源码仓库公开不等于 Package 自动公开。组织需允许仓库发布 package。正式启用前分别验证两种架构的真实 Actions 结果。
 
-镜像更新检查使用 GHCR 匿名 pull token：正式渠道读取 `latest`，Nightly 读取 `nightly`，预发布从完整分页标签列表按 SemVer 选择最高正式／Beta／RC。校验 OCI 身份、架构完整性与当前架构 manifest 摘要后才报告更新；失败保留上次成功结果。应用不安装镜像，管理员在宿主替换容器。GHCR 检查独立于官网原生发行目录。
+镜像更新检查统一使用 GHCR 匿名 pull token 读取 `latest`，仅接受纯 `X.Y.Z` 正式版，不因当前构建是 Nightly、Beta 或 RC 而切换渠道。校验 OCI 身份、架构完整性与当前架构 manifest 摘要后按 SemVer 比较；高于当前版本才报告更新，不推荐降级。`latest` 不存在时报告暂无适用正式版并清除旧推荐，不回退其他标签；网络或清单错误保留上次成功结果。应用不安装镜像，管理员在宿主替换容器。GHCR 检查独立于官网原生发行目录。
 
 ## 桌面安装包
 

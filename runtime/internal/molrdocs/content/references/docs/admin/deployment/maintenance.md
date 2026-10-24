@@ -10,13 +10,13 @@ Runtime 配置支持：
 {"updates": {"source": "https://downloads.example.com/releases/stable", "auto_check": true}}
 ```
 
-通过安装包部署时，以程序目录 `installation.json` 中保存的发布源和渠道为准；上述配置供未使用安装器的源码部署使用。无发布源时不会联网。`auto_check: false` 关闭后台及关于页自动发布检查，仍可手动检查。开发／本地构建默认不自动检查。公网源要求 HTTPS；HTTP 源必须是明确配置的私网或回环数字地址。
+通过安装包部署时，关于页使用程序目录 `installation.json` 中保存的发布源，并查询其 `stable` 渠道；上述配置供未使用安装器的源码部署使用。无发布源时不会联网。`auto_check: false` 关闭后台及关于页自动发布检查，仍可手动检查。开发／本地构建默认不自动检查。公网源要求 HTTPS；HTTP 源必须是明确配置的私网或回环数字地址。
 
 后台启动后延迟 30～60 秒检查，随后每 24 小时加少量随机延迟检查，失败一小时后重试。进入关于页或页面恢复可见时，超过五分钟未检查则刷新发布信息。手动检查最短间隔一分钟；全实例合并并发请求。检查失败保留上次成功结果及时间，检查本身不下载或安装程序。
 
-构建生成版本包和校验文件；发布流水线在所有目标架构通过后发布 GitHub Release，再部署官网与渠道清单。安装保存的发布源包含渠道，例如 `https://molr.ai/releases/preview`。Runtime 从该渠道读取推荐版本，stable 拒绝预发布版，preview 可推荐正式版，nightly 只跟踪 nightly。检查只提示更新，不自动下载或安装。
+构建生成版本包和校验文件；发布流水线在所有目标架构通过后发布 GitHub Release，再部署官网与渠道清单。桌面 App、Docker 和 Runtime 的关于页统一只推荐正式版，当前运行 Nightly、Beta 或 RC 时也一样。Runtime 将发布源末尾的 `/preview` 或 `/nightly` 替换为 `/stable`；自定义无渠道路径的发布源仍使用原路径，但返回的版本必须为正式版。正式版高于当前版本时提示升级，相同时显示已是最新正式版，低于当前版本时显示当前版本高于最新正式版且不推荐降级。没有适用正式版时显示暂无适用正式版，不回退预发布或 Nightly；检查只提示更新，不自动下载或安装。
 
-维护者的版本命名、平台管理、首次远端配置与失败重试见[发行维护](https://molr.ai/zh/docs/dev/releasing/releases/)。源码部署者可手动配置所需渠道的 `updates.source`。安装实例通过 `molr-setup update --channel` 切换渠道；较低版本不会作为自动降级执行。
+维护者的版本命名、平台管理、首次远端配置与失败重试见[发行维护](https://molr.ai/zh/docs/dev/releasing/releases/)。源码部署者可通过 `updates.source` 指定正式版发布源。手动安装／更新仍可使用 `molr-setup update --channel preview|nightly` 显式选择其他渠道，关于页的正式版推荐不改变保存的 CLI 订阅；较低版本不会作为自动降级执行。
 
 管理员在发现更新后可查看固定目标版本的升级命令。运行账户、实例名和程序路径取自安装记录；源码部署或缺少记录时按本指南操作。示例：
 

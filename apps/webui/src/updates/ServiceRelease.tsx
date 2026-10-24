@@ -23,11 +23,12 @@ export function ServiceRelease() {
  const installation = useQuery<UpdateInstallation | null>(manual && showGuide && !container ? '/api/updates/installation' : null, false, 0);
  const guideID = useId();
  const command = installation.data?.source && status?.latest ? upgradeCommand(installation.data, status.latest.version) : undefined;
- const releaseText = !status ? zh ? '正在读取版本信息…' : 'Reading version information…' : !status.source_configured ? zh ? '未配置更新源' : 'No update source configured' : !status.supported ? zh ? '暂无适用发行包' : 'No release package for this platform' : ({
+ const releaseText = !status ? zh ? '正在读取版本信息…' : 'Reading version information…' : !status.source_configured ? zh ? '未配置更新源' : 'No update source configured' : !status.supported ? zh ? '暂无适用于此平台的正式版' : 'No stable service release for this platform' : ({
   unknown: zh ? '尚未成功检查发布版本' : 'No successful release check yet',
-  current: zh ? '服务已是最新版本' : 'Service is up to date',
+  current: zh ? '服务已是最新正式版' : 'Service is up to date with the stable release',
   available: zh ? '服务有新版本' : 'Service update available',
-  ahead: zh ? '当前版本高于推荐发布版本' : 'This build is newer than the recommended release',
+  ahead: zh ? '当前版本高于最新正式版' : 'This build is newer than the latest stable release',
+  unavailable: zh ? '暂无适用于此平台的正式版' : 'No stable service release for this platform',
   uncomparable: zh ? '开发或自定义构建，无法自动比较' : 'Development or custom build; automatic comparison is unavailable',
  }[status.comparison]);
  const errorText: Record<string, string> = zh ? {

@@ -85,7 +85,7 @@ function VersionDetails({ onClose }: { onClose: () => void }) {
   : !disabled ? (zh ? '立即检查新版本' : 'Check for new versions now')
   : Number.isFinite(retryAt) ? (zh ? `${seconds}秒后可再次检查` : `Check again in ${seconds}s`)
   : !updates.managed && status && !status.source_configured ? (zh ? '未配置更新源' : 'No update source configured')
-  : !updates.managed && status && !status.supported ? (zh ? '暂无适用发行包' : 'No release for this platform')
+  : !updates.managed && status && !status.supported ? (zh ? '暂无适用正式版' : 'No stable release for this platform')
   : updates.desktop?.comparison === 'uncomparable' ? (zh ? '开发版本，无法检查更新' : 'Development build; updates unavailable')
   : updates.error || updates.desktopError ? (zh ? '无法读取版本信息' : 'Unable to read version information')
   : (zh ? '正在读取版本信息…' : 'Reading version information…');
