@@ -1,7 +1,7 @@
 {
   "name": "molr",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "MIT",
   "type": "module",
   "workspaces": [
@@ -11,6 +11,7 @@
   "scripts": {
     "check": "npm run check:contracts && npm run docs:check && npm run check:platforms && npm run check:release && npm run check:licenses",
     "check:contracts": "node scripts/check-contracts.mjs",
+    "check:base-version": "node scripts/check-base-version.mjs",
     "dev:desktop": "npm run dev --workspace @molr/desktop --",
     "build:desktop": "npm run build --workspace @molr/desktop",
     "test:desktop": "npm run test --workspace @molr/desktop",
@@ -44,7 +45,7 @@
     "check:platforms": "node scripts/generate-platforms.mjs --check",
     "release:manifest": "node scripts/release-manifest.mjs",
     "release:catalog": "node scripts/release-catalog.mjs",
-    "test:release-flow": "node --test scripts/test-container-release.mjs scripts/test-release-flow.mjs scripts/test-release-publish.mjs scripts/test-release-mirror.mjs scripts/test-website-deployment.mjs scripts/test-desktop-release.mjs scripts/test-pipeline.mjs",
+    "test:release-flow": "node --test scripts/test-base-version.mjs scripts/test-container-release.mjs scripts/test-release-flow.mjs scripts/test-release-publish.mjs scripts/test-release-mirror.mjs scripts/test-website-deployment.mjs scripts/test-desktop-release.mjs scripts/test-pipeline.mjs",
     "test:release-install": "node scripts/test-release-install.mjs",
     "build:website:release": "node scripts/build-release-website.mjs",
     "docs:generate": "node scripts/generate-molr-docs.mjs",

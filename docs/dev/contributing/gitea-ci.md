@@ -87,6 +87,8 @@ Linux 独立安装验收会卸载 Bubblewrap、静态 BusyBox、AppArmor profile
 
 ## 网络与验证
 
+源码任务的基础版本检查读取 GitHub Releases，默认发布仓库为 `molr-ai/molr`；fork 可设置仓库变量 `MOLR_RELEASE_REPOSITORY=owner/repo`。公开仓库默认匿名查询，需要访问私有仓库或提高 API 限额时配置 secret `MOLR_RELEASE_READ_TOKEN`，使用对该 GitHub 仓库具有 Contents 只读权限的令牌。Gitea 自带的任务令牌不会发送给 GitHub。检查失败会阻止源码任务及后续构建；版本规则见[版本与渠道](../releasing/releases.md#版本与渠道)。
+
 本地 action 镜像不包含 Node/Go 发行包、npm/Go 模块、Playwright 浏览器、Electron 及打包工具。runner 需能访问这些下载源，也可通过本地 runner 环境配置代理、包源或预装工具缓存。工作流关闭 setup actions 的自动依赖缓存，首次接入无需配置额外缓存服务。`GOCACHE` 和 `GOMODCACHE` 显式指向当前工作区的 `.cache/go-build` 和 `.cache/go-mod`，使工具准备、测试与打包复用同一组缓存，同时保持不同工作区隔离。
 
 工作流使用普通 jobs，不依赖可复用 workflow；原生构建、浏览器和安装任务均检出源码任务记录的同一提交，安装验收下载同次运行的构建产物。共享工具准备位于 `.gitea/actions/setup-build/action.yml`，仍使用本地镜像的 v7 actions。Gitea 1.23 的服务器功能与新 runner 独立，不能通过升级 runner 假定 `permissions`、`concurrency` 或 GitHub 的 PR 合并预览语义生效。参见 [1.23 兼容差异](https://docs.gitea.com/1.23/usage/actions/comparison/)和 [PR 触发说明](https://docs.gitea.com/1.23/usage/actions/faq/)。

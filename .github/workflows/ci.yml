@@ -51,6 +51,11 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.commit }}
       - uses: ./.github/actions/setup-build
+      - name: Require a development base newer than published stable releases
+        run: npm run check:base-version
+        env:
+          MOLR_RELEASE_REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
       - run: npm run check && npm run test:docs && npm run test:release && npm run test:release-flow
       - run: python3 scripts/test-install-download.py
       - run: npm run test --workspace @molr/ui

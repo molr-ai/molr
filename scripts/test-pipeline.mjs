@@ -144,6 +144,22 @@ test('CI includes every native target, both browser platforms, and a non-skippab
   assert.equal(read('nightly').jobs.website, undefined);
 });
 
+test('both CI providers require the live base version check in their source gate', () => {
+  for (const provider of ['github', 'gitea']) {
+    const ci = yaml.load(readFileSync(new URL(`../.${provider}/workflows/ci.yml`, import.meta.url), 'utf8'));
+    const checks = ci.jobs.source.steps.filter(step => step.run === 'npm run check:base-version');
+    assert.equal(checks.length, 1);
+    assert.equal(checks[0].if, undefined);
+    assert.equal(checks[0]['continue-on-error'], undefined);
+    assert(ci.jobs.passed.needs.includes('source'));
+    assert(ci.jobs.assets.needs === 'source' || ci.jobs.assets.needs.includes('source'));
+    assert.equal(checks[0].env.MOLR_RELEASE_REPOSITORY, provider === 'github'
+      ? '${{ github.repository }}' : "${{ vars.MOLR_RELEASE_REPOSITORY || 'molr-ai/molr' }}");
+    assert.equal(checks[0].env.GH_TOKEN, provider === 'github'
+      ? '${{ github.token }}' : '${{ secrets.MOLR_RELEASE_READ_TOKEN }}');
+  }
+});
+
 test('Gitea validates selected native packages from shared assets and enforces the planned gate', () => {
   const ci = yaml.load(readFileSync(new URL('../.gitea/workflows/ci.yml', import.meta.url), 'utf8'));
   assert(ci.on.pull_request !== undefined);

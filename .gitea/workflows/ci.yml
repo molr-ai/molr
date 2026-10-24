@@ -40,6 +40,11 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.gitea/actions/setup-build
+      - name: Require a development base newer than published stable releases
+        run: npm run check:base-version
+        env:
+          MOLR_RELEASE_REPOSITORY: ${{ vars.MOLR_RELEASE_REPOSITORY || 'molr-ai/molr' }}
+          GH_TOKEN: ${{ secrets.MOLR_RELEASE_READ_TOKEN }}
       - id: identity
         env:
           MOLR_CI_PLATFORMS: ${{ github.event.inputs.platforms || vars.MOLR_CI_PLATFORMS || 'all' }}

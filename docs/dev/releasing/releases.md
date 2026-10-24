@@ -134,6 +134,12 @@ CI 与发布使用同一个 `prepare-sandbox` action 准备 runner。Ubuntu 启�
 
 根 `package.json` 的 version 表示 main 当前开发周期的基础版本；进入下一周期时更新它及 lockfile 对应根版本。发布版本取自 tag，不要求修改内部 workspace 包版本。nightly 的日期、无前导零的 UTC 时分秒数字和 commit 由脚本生成，满足 SemVer；同基础版本顺序为 nightly、beta、rc、正式版。主分支不能使用 `-dev` 等版本作为基础版本。
 
+正式版发布后，维护者将 main 基础版本提升到下一开发版本，例如 `0.1.0` 发布后改为 `0.1.1`；准备新功能周期时也可选择更高的 minor／major 版本。同步修改 `package-lock.json` 顶层及 `packages[""].version`，确认依赖未变化后更新许可证清单中的锁文件摘要。
+
+GitHub 与 Gitea CI 的源码任务运行 `npm run check:base-version`：基础版本必须为纯 `X.Y.Z`、三个根版本字段一致，并严格高于 GitHub Releases 中按 SemVer 排序的最高正式版。检查遍历全部发布记录，仅读取元数据，忽略草稿、预发布和非正式版标签；没有正式版时允许首个开发周期。网络、权限、限流或响应格式错误均使检查失败，不作为“没有正式版”放行。本地可运行同一命令，使用 `MOLR_RELEASE_REPOSITORY=owner/repo` 指定 GitHub 仓库，默认 `molr-ai/molr`；`GH_TOKEN` 可提供只读访问凭据。该联网检查独立于 `npm run check`。
+
+检查不修改文件或创建 PR；正式版发布后，在下一次 CI 执行时检查新的发布状态，已有成功结果不会自动失效。若基础版本未提升，错误会列出已发布版本、建议的下一补丁版本及需同步的文件。GitHub CI 查询当前仓库，Gitea 的发布源和可选访问凭据见 [Gitea CI](../contributing/gitea-ci.md#网络与验证)。
+
 正式版、beta 和 rc 的 tag 必须指向 main 历史内的 commit。推送 tag 触发 Release workflow；手动入口接受已有 tag，适合重试。Nightly 每日 UTC 19:17（北京时间次日 03:17）执行，也可手动运行。GitHub 调度可能延迟；相同版本已发布，或近期最高 nightly 版本对应同一 commit 时跳过重复构建，正式版已发布时仍可重试官网同步；Nightly 不触发官网部署。
 
 ## 发布步骤与失败恢复
