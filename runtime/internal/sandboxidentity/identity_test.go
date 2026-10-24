@@ -62,6 +62,11 @@ func TestConnectionCodeVersionValidationAndRedaction(t *testing.T) {
 
 func writeTestIdentity(t *testing.T, dir string, expiry time.Time) (string, string, *x509.Certificate) {
 	t.Helper()
+	// macOS temporary directories can have symlinked ancestors such as /var.
+	dir, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		t.Fatal(err)
