@@ -21,7 +21,7 @@ test('expedite injects unread messages into the running turn, updates both tabs 
   await page.goto(`/#/assistants/${assistant.ID}`);
   await expect(page.locator('.ui-chat-message--assistant').filter({ hasText: 'Ready for expedite test.' })).toHaveCount(1);
   await expect.poll(async () => (await (await page.request.get(`/api/assistants/${assistant.ID}/status`)).json()).State).toBe('idle');
-  await expect(page.locator('.chat-header [data-status="idle"]')).toBeVisible();
+  await expect(page.locator('.chat-header .ui-chat-status')).toHaveAttribute('data-status', 'idle');
   const send = async (text: string) => {
     await page.getByRole('textbox', { name: 'Message your assistant', exact: true }).fill(text);
     await page.getByRole('button', { name: 'Send', exact: true }).click();
@@ -52,7 +52,7 @@ test('expedite injects unread messages into the running turn, updates both tabs 
   await expect(page.locator('.ui-chat-message--assistant').filter({ hasText: reply })).toHaveCount(1);
   await expect(observer.locator('.ui-chat-message--user').filter({ hasText: 'Second correction' }).locator('[data-read-status="read"]')).toBeVisible();
   await expect.poll(async () => (await (await page.request.get(`/api/assistants/${assistant.ID}/status`)).json()).State).toBe('idle');
-  await expect(page.locator('.chat-header [data-status="idle"]')).toBeVisible();
+  await expect(page.locator('.chat-header .ui-chat-status')).toHaveAttribute('data-status', 'idle');
   await page.reload();
   await expect(page.locator('.ui-chat-message--assistant')).toHaveCount(2);
   await expect(page.getByRole('button', { name: 'Expedite', exact: true })).toHaveCount(0);
@@ -84,13 +84,13 @@ test('expedite injects unread messages into the running turn, updates both tabs 
   }
   await processing.click();
   await expect.poll(async () => (await (await page.request.get(`/api/assistants/${assistant.ID}/status`)).json()).State).toBe('idle');
-  await expect(page.locator('.chat-header [data-status="idle"]')).toBeVisible();
+  await expect(page.locator('.chat-header .ui-chat-status')).toHaveAttribute('data-status', 'idle');
   await expect.poll(async () => {
     const jobs = await (await page.request.get(`/api/jobs?assistant_id=${assistant.ID}`)).json();
     return jobs.Items.filter((job: any) => ['running', 'queued', 'retry'].includes(job.State)).length;
   }).toBe(0);
   await page.reload();
-  await expect(page.locator('.chat-header [data-status="idle"]')).toBeVisible();
+  await expect(page.locator('.chat-header .ui-chat-status')).toHaveAttribute('data-status', 'idle');
   await expect(page.getByRole('button', { name: 'Expedite', exact: true })).toHaveCount(0);
   await send('New task after stopping');
   await expect(page.getByRole('button', { name: 'Pause current execution', exact: true })).toBeVisible();
@@ -99,7 +99,7 @@ test('expedite injects unread messages into the running turn, updates both tabs 
   await page.getByRole('button', { name: 'Expedite', exact: true }).click();
   await expect(page.locator('.ui-chat-message--assistant').filter({ hasText: 'Expedited messages received: Urgent after restart' })).toHaveCount(1);
   await expect.poll(async () => (await (await page.request.get(`/api/assistants/${assistant.ID}/status`)).json()).State).toBe('idle');
-  await expect(page.locator('.chat-header [data-status="idle"]')).toBeVisible();
+  await expect(page.locator('.chat-header .ui-chat-status')).toHaveAttribute('data-status', 'idle');
   await observer.close();
 });
 
@@ -116,7 +116,7 @@ test('rapid messages can be expedited while their unread trigger stays on its or
   await page.goto(`/#/assistants/${assistant.ID}`);
   await expect(page.locator('.ui-chat-message--assistant').filter({ hasText: 'Ready for expedite test.' })).toHaveCount(1);
   await expect.poll(async () => (await (await page.request.get(`/api/assistants/${assistant.ID}/status`)).json()).State).toBe('idle');
-  await expect(page.locator('.chat-header [data-status="idle"]')).toBeVisible();
+  await expect(page.locator('.chat-header .ui-chat-status')).toHaveAttribute('data-status', 'idle');
   const trigger = await post(page, '/api/conversations/messages', { ConversationID: assistant.ConversationID, Content: { Kind: 'text', Text: 'Burst trigger' } });
   await expect.poll(async () => (await (await page.request.get(`/api/assistants/${assistant.ID}/status`)).json()).TriggerMessageID).toBe(trigger.ID);
   const first = page.locator('.ui-chat-message--user').filter({ hasText: 'Burst trigger' });
@@ -132,6 +132,6 @@ test('rapid messages can be expedited while their unread trigger stays on its or
   await latest.getByRole('button', { name: 'Expedite', exact: true }).click();
   await expect(page.locator('.ui-chat-message--assistant').filter({ hasText: 'Expedited messages received: Burst B / Burst C' })).toHaveCount(1);
   await expect.poll(async () => (await (await page.request.get(`/api/assistants/${assistant.ID}/status`)).json()).State).toBe('idle');
-  await expect(page.locator('.chat-header [data-status="idle"]')).toBeVisible();
+  await expect(page.locator('.chat-header .ui-chat-status')).toHaveAttribute('data-status', 'idle');
   await expect(page.locator('.message-expedite-button')).toHaveCount(0);
 });
