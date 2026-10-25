@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
- "encoding/base64"
 	"encoding/json"
 	"molr.ai/runtime/internal/auth"
 	"molr.ai/runtime/internal/catalog"
@@ -173,6 +173,6 @@ func TestSandboxPresentationPreservesCredentialsAndOwnerBoundary(t *testing.T) {
 
 // Deliberately permits malformed fields so diagnostics can test hostile input.
 func sandboxConnectionCode(publicKey, token string) string {
- data, _ := json.Marshal(map[string]string{"public_key_sha256":publicKey,"token":token})
- return "molr-sandbox-v1." + base64.RawURLEncoding.EncodeToString(data)
+	data, _ := json.Marshal(map[string]string{"public_key_sha256": publicKey, "token": token})
+	return "molr-sandbox-v1." + base64.RawURLEncoding.EncodeToString(data)
 }

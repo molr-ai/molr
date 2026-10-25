@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { updates as updateClient, type UpdateStatus } from '@molr/sdk';
 import { AvatarNotice, Badge } from '@molr/ui';
 import { useCopy, useConnection, useQuery, useSession } from '../state';
-import { api } from '../api/client';
+import { api } from '@molr/sdk';
 import { buildInfo } from '../build-info';
 import type { AppUpdateStatus } from '@molr/ui-host/app';
 import { useAppInfo } from '../app-mode';

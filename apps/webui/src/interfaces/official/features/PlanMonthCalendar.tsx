@@ -1,7 +1,7 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { planDate } from '@molr/ui';
-import type { PlanEvent } from '../../../api/types';
+import type { PlanEvent } from '@molr/sdk';
 import { eventDone, eventsOnDay } from './plan-events';
 
 export function monthDays(month: string) {

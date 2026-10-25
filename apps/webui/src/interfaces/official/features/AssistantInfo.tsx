@@ -3,7 +3,7 @@ import { usePluginsVisible, pluginResourceVisible } from '../../../plugins/visib
 import { Activity, useEffect, useId, useState } from 'react';
 import { Badge, Button, EmptyState, Tabs } from '@molr/ui';
 import { BookOpen, ChevronDown, FlaskConical, Info, Shield, Wrench } from 'lucide-react';
-import type { Assistant, AssistantCapabilities, CurrencyContext, Model } from '../../../api/types';
+import type { Assistant, AssistantCapabilities, CurrencyContext, Model } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
 import { CurrencyDialog } from '../components/Money';
 import { Loading, useAction } from '../components/common';

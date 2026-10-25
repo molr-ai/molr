@@ -21,7 +21,7 @@ import (
 
 func TestProfileToolPersistenceConflictFileAccessAndContext(t *testing.T) {
 	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { c.Sandbox.Enabled = false })
-	p := &profileTools{assistants: f.b.Services.Assistants, workspace: &resourceFileTools{adapters: f.ad}}
+	p := &profileTools{assistants: f.b.Services.Assistants, workspace: newResourceFileTools(resourceFileOptions{adapters: f.ad})}
 	ex := tools.NewExecutor(f.b.store, tools.Options{Authorizer: f.ad.policy, Operations: f.b.Services.Operations.(operation.Service), ProfileUpdate: p.update})
 	call := func(id string, args string) (tools.Result, error) {
 		e := f.execution
@@ -130,7 +130,7 @@ func TestProfileToolPersistenceConflictFileAccessAndContext(t *testing.T) {
 
 func TestProfileStatusSetClearAndValidation(t *testing.T) {
 	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { c.Sandbox.Enabled = false })
-	p := &profileTools{assistants: f.b.Services.Assistants, workspace: &resourceFileTools{adapters: f.ad}}
+	p := &profileTools{assistants: f.b.Services.Assistants, workspace: newResourceFileTools(resourceFileOptions{adapters: f.ad})}
 	ex := tools.NewExecutor(f.b.store, tools.Options{Authorizer: f.ad.policy, Operations: f.b.Services.Operations.(operation.Service), ProfileUpdate: p.update})
 	call := func(id, status string, version core.Version) (tools.Result, error) {
 		e := f.execution

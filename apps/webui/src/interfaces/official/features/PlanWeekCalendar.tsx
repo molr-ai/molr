@@ -1,7 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { Check, Clock3, ListTodo, Pause, Repeat2 } from 'lucide-react';
 import { planDate } from '@molr/ui';
-import type { PlanEvent } from '../../../api/types';
+import type { PlanEvent } from '@molr/sdk';
 import { planMessages } from '../../../plan-messages';
 import { eventDone, eventEnd, eventsOnDay } from './plan-events';
 

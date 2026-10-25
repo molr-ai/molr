@@ -1,4 +1,4 @@
-import type { AssistantActivity } from '../../../api/types';
+import type { AssistantActivity } from '@molr/sdk';
 import { useCopy } from '../../../state';
 
 export function AssistantMessagePreview({ activity }: { activity?: AssistantActivity }) {

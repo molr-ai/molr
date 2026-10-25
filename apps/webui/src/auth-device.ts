@@ -1,4 +1,4 @@
-import { api, APIError, mutationKey } from './api/client';
+import { api, APIError, mutationKey } from '@molr/sdk';
 
 // IndexedDB is origin-scoped, works on LAN HTTP, and serializes first-use and
 // login-lock updates across tabs. Only the random device ID and a lease live here.

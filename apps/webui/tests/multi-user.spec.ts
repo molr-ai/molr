@@ -14,7 +14,7 @@ async function login(page: Page, name = username, secret = password) {
 }
 async function request(page: Page, path: string, data?: unknown) {
   return page.evaluate(async ({ path, data }) => {
-    const clientPath = '/src/api/client.ts', { api } = await import(clientPath);
+    const clientPath = '/@id/@molr/sdk', { api } = await import(clientPath);
     return data === undefined ? api.get(path) : api.post(path, data);
   }, { path, data });
 }
@@ -79,7 +79,7 @@ test('ordinary user creates and edits own assistant but cannot configure shared 
     await mutate(member, '/api/conversations/messages', { ConversationID: a.ConversationID, Content: { Kind: 'text', Text: 'Private multi-user acceptance message' } });
     await expect.poll(async () => (await request(member, `/api/conversations/${a.ConversationID}/messages`)).Items.some((m: any) => m.Sender === 'assistant'), { timeout: 25000 }).toBe(true);
     for (const path of ['/api/admin/users', '/api/admin/groups', '/api/admin/catalog', '/api/admin/usage']) expect((await member.request.get(path)).status()).toBe(403);
-    const denied = await member.evaluate(async () => { const path = '/src/api/client.ts', { api } = await import(path); try { await api.post('/api/plugins/install', {}); return 200; } catch (e: any) { return e.status; } });
+    const denied = await member.evaluate(async () => { const path = '/@id/@molr/sdk', { api } = await import(path); try { await api.post('/api/plugins/install', {}); return 200; } catch (e: any) { return e.status; } });
     expect(denied).toBe(403);
     expect([403, 404]).toContain((await page.request.get(`/api/assistants/${a.ID}`)).status());
     expect([403, 404]).toContain((await page.request.get(`/api/conversations/${a.ConversationID}/messages`)).status());

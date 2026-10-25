@@ -21,7 +21,8 @@ test('DingTalk pairing preserves WebUI input until bound and restores it on disc
  const assistant = await post(page, '/api/assistants', { Name: name, ModelID: models.find((m: any) => m.ResourceID === resource.ID).ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } });
  let state = 'disconnected', bound = false;
  const expires = new Date(Date.now() + 600000).toISOString();
- await page.route(`**/api/assistants/${assistant.ID}/dingtalk`, route => route.fulfill({ json: { Channel: bound ? 'dingtalk' : 'webui', State: state, ClientID: 'ding-fixture', LastError: '', ConnectedAt: null, LastInboundAt: null, ExpiresAt: expires } }));
+ await page.route(`**/api/assistants/${assistant.ID}/chat-channel*`, route => route.fulfill({ json: { Channel: bound ? 'dingtalk' : 'webui' } }));
+ await page.route(`**/api/assistants/${assistant.ID}/dingtalk*`, route => route.fulfill({ json: { Channel: bound ? 'dingtalk' : 'webui', State: state, ClientID: 'ding-fixture', LastError: '', ConnectedAt: null, LastInboundAt: null, ExpiresAt: expires } }));
  await page.route('**/api/dingtalk/connect', async route => { const body = route.request().postDataJSON(); expect(body.ClientID).toBe('ding-fixture'); expect(body.ClientSecret).toBe('fixture-app-secret'); state = 'pairing'; await route.fulfill({ json: { Code: 'molr-fixture-pairing-code', ExpiresAt: expires } }); });
  await page.route('**/api/dingtalk/disconnect', route => { bound = false; state = 'disconnected'; return route.fulfill({ json: null }); });
  await page.goto(`/#/assistants/${assistant.ID}`);

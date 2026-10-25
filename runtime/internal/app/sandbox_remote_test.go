@@ -8,6 +8,7 @@ import (
 	"image/color"
 	"molr.ai/runtime/internal/agent/model"
 	"molr.ai/runtime/internal/catalog"
+	"molr.ai/runtime/internal/filetools"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -51,7 +52,7 @@ func TestRemoteSandboxStorageRoutingAuthorizationAndContext(t *testing.T) {
 	f.ad.networkConfig.AllowedPrivateIPs = []string{"127.0.0.1"}
 	router, err := newSandboxRouter(f.ad, nil, make([]byte, 32))
 	need(t, err)
-	files := &resourceFileTools{adapters: f.ad, router: router}
+	files := newResourceFileTools(resourceFileOptions{adapters: f.ad, router: router})
 	router.files = files
 	admin := func(action string, input any) (any, error) {
 		raw, _ := json.Marshal(input)
@@ -68,7 +69,7 @@ func TestRemoteSandboxStorageRoutingAuthorizationAndContext(t *testing.T) {
 	}
 	e := f.execution
 	// Omitting a node never selects a connected remote computer.
-	_, err = files.write(t.Context(), e, tools.FileWriteRequest{FileTarget: tools.FileTarget{Path: "note.txt"}, Text: "local"})
+	_, err = files.Write(t.Context(), e, tools.FileWriteRequest{FileTarget: tools.FileTarget{Path: "note.txt"}, Text: "local"})
 	need(t, err)
 	localFile := filepath.Join(platform.AssistantWorkspace(f.ad.dataDir, f.ad.storageConfig.WorkRoot, e.Principal.OwnerID, e.AssistantID), "note.txt")
 	content, err := os.ReadFile(localFile)
@@ -76,7 +77,7 @@ func TestRemoteSandboxStorageRoutingAuthorizationAndContext(t *testing.T) {
 	if string(content) != "local" {
 		t.Fatal("default file operation did not use local workspace")
 	}
-	_, err = files.write(t.Context(), e, tools.FileWriteRequest{FileTarget: tools.FileTarget{SandboxID: connection.ID, Path: "/work/note.txt"}, Text: "remote"})
+	_, err = files.Write(t.Context(), e, tools.FileWriteRequest{FileTarget: tools.FileTarget{SandboxID: connection.ID, Path: "/work/note.txt"}, Text: "remote"})
 	if core.CodeOf(err) != core.InvalidArgument {
 		t.Fatal("remote workspace was accepted", err)
 	}
@@ -93,14 +94,14 @@ func TestRemoteSandboxStorageRoutingAuthorizationAndContext(t *testing.T) {
 	need(t, os.WriteFile(filepath.Join(remoteRoot, "secret", "file"), []byte("secret"), 0600))
 	target := tools.FileTarget{SandboxID: connection.ID, ResourceID: storage.ID, Path: "/allowed/file"}
 	e.OperationID = "denied"
-	_, err = files.read(t.Context(), e, tools.FileReadRequest{FileTarget: target})
+	_, err = files.Read(t.Context(), e, tools.FileReadRequest{FileTarget: target})
 	if core.CodeOf(err) != core.Forbidden {
 		t.Fatal("ungranted resource read", err)
 	}
 	grant := f.grant(t, storage.ID, "remote-read-grant", []policy.Action{policy.Read}, policy.Scope{PathPrefixes: []string{"/allowed"}}, nil)
 	e.OperationID = "allowed"
 	e.OperationID = "remote-search"
-	searchRaw, err := files.search(t.Context(), e, tools.FileSearchRequest{FileTarget: tools.FileTarget{SandboxID: connection.ID, ResourceID: storage.ID, Path: "/allowed"}, Pattern: "allowed", Glob: []string{"**/fi?e"}})
+	searchRaw, err := files.Search(t.Context(), e, tools.FileSearchRequest{FileTarget: tools.FileTarget{SandboxID: connection.ID, ResourceID: storage.ID, Path: "/allowed"}, Pattern: "allowed", Glob: []string{"**/fi?e"}})
 	need(t, err)
 	var searched struct {
 		Matches  []struct{ Path, Text string }
@@ -111,14 +112,14 @@ func TestRemoteSandboxStorageRoutingAuthorizationAndContext(t *testing.T) {
 		t.Fatal("remote file search", string(searchRaw))
 	}
 	e.OperationID = "remote-read"
-	out, err := files.read(t.Context(), e, tools.FileReadRequest{FileTarget: target})
+	out, err := files.Read(t.Context(), e, tools.FileReadRequest{FileTarget: target})
 	need(t, err)
 	if !strings.Contains(string(out), "allowed") {
 		t.Fatal(string(out))
 	}
 
 	// A remote resource never changes the target implicitly.
-	_, err = files.read(t.Context(), e, tools.FileReadRequest{FileTarget: tools.FileTarget{ResourceID: storage.ID, Path: "/allowed/file"}})
+	_, err = files.Read(t.Context(), e, tools.FileReadRequest{FileTarget: tools.FileTarget{ResourceID: storage.ID, Path: "/allowed/file"}})
 	if core.CodeOf(err) != core.InvalidArgument {
 		t.Fatal("implicit remote routing accepted", err)
 	}
@@ -127,23 +128,23 @@ func TestRemoteSandboxStorageRoutingAuthorizationAndContext(t *testing.T) {
 	source := tools.FileTarget{SandboxID: connection.ID, ResourceID: storage.ID, Path: "/allowed/moving"}
 	need(t, os.WriteFile(filepath.Join(remoteRoot, "allowed/moving"), []byte("move me"), 0600))
 	e.OperationID = "remote-moving-read"
-	raw, err := files.read(t.Context(), e, tools.FileReadRequest{FileTarget: source})
+	raw, err := files.Read(t.Context(), e, tools.FileReadRequest{FileTarget: source})
 	need(t, err)
 	var original struct{ Version string }
 	need(t, json.Unmarshal(raw, &original))
 	e.OperationID = "remote-move-denied"
-	_, err = files.move(t.Context(), e, tools.FileMoveRequest{FileTarget: source, ToPath: "/secret/moving", ExpectedVersion: original.Version})
+	_, err = files.Move(t.Context(), e, tools.FileMoveRequest{FileTarget: source, ToPath: "/secret/moving", ExpectedVersion: original.Version})
 	if core.CodeOf(err) != core.Forbidden {
 		t.Fatal("remote destination grant missing", err)
 	}
 	e.OperationID = "remote-move"
-	raw, err = files.move(t.Context(), e, tools.FileMoveRequest{FileTarget: source, ToPath: "/allowed/nested/moved", ExpectedVersion: original.Version, CreateParents: true})
+	raw, err = files.Move(t.Context(), e, tools.FileMoveRequest{FileTarget: source, ToPath: "/allowed/nested/moved", ExpectedVersion: original.Version, CreateParents: true})
 	need(t, err)
 	var moved struct{ Version string }
 	need(t, json.Unmarshal(raw, &moved))
 	e.OperationID = "remote-delete"
 	source.Path = "/allowed/nested/moved"
-	_, err = files.delete(t.Context(), e, tools.FileDeleteRequest{FileTarget: source, ExpectedVersion: moved.Version})
+	_, err = files.Delete(t.Context(), e, tools.FileDeleteRequest{FileTarget: source, ExpectedVersion: moved.Version})
 	need(t, err)
 	if _, err = os.Stat(filepath.Join(remoteRoot, "allowed/nested/moved")); !os.IsNotExist(err) {
 		t.Fatal("remote deletion failed", err)
@@ -156,14 +157,14 @@ func TestRemoteSandboxStorageRoutingAuthorizationAndContext(t *testing.T) {
 	png := testPNG(t, color.White)
 	need(t, os.WriteFile(filepath.Join(remoteRoot, "allowed", "image.png"), png, 0600))
 	e.OperationID = "remote-media"
-	mediaRaw, err := files.read(t.Context(), e, tools.FileReadRequest{ModelID: provider.Model.ID, FileTarget: tools.FileTarget{SandboxID: connection.ID, ResourceID: storage.ID, Path: "/allowed/image.png"}})
+	mediaRaw, err := files.Read(t.Context(), e, tools.FileReadRequest{ModelID: provider.Model.ID, FileTarget: tools.FileTarget{SandboxID: connection.ID, ResourceID: storage.ID, Path: "/allowed/image.png"}})
 	need(t, err)
-	var mediaRead mediaReadResult
+	var mediaRead filetools.MediaReadResult
 	need(t, json.Unmarshal(mediaRaw, &mediaRead))
 	if len(mediaRead.Media) != 1 || mediaRead.Media[0].SandboxID != connection.ID {
 		t.Fatal("media provenance lost")
 	}
-	prepared, err := files.prepareMedia(t.Context(), model.Request{Execution: e, Inputs: []model.Input{{Role: model.Tool, Media: mediaRead.Media}}}, provider)
+	prepared, err := files.PrepareMedia(t.Context(), model.Request{Execution: e, Inputs: []model.Input{{Role: model.Tool, Media: mediaRead.Media}}}, provider)
 	need(t, err)
 	if !bytes.Equal(prepared[0].Media[0].Data, png) {
 		t.Fatal("remote binary snapshot changed")
@@ -198,30 +199,30 @@ func TestRemoteSandboxStorageRoutingAuthorizationAndContext(t *testing.T) {
 	files.adapters.storageConfig.Enabled = false
 	router.adapters.storageConfig.Enabled = false
 	e.OperationID = "outside-scope"
-	_, err = files.read(t.Context(), e, tools.FileReadRequest{FileTarget: tools.FileTarget{SandboxID: connection.ID, ResourceID: storage.ID, Path: "/secret/file"}})
+	_, err = files.Read(t.Context(), e, tools.FileReadRequest{FileTarget: tools.FileTarget{SandboxID: connection.ID, ResourceID: storage.ID, Path: "/secret/file"}})
 	if core.CodeOf(err) != core.Forbidden {
 		t.Fatal("scope escaped", err)
 	}
 	need(t, os.Symlink(filepath.Join(remoteRoot, "secret", "file"), filepath.Join(remoteRoot, "allowed", "link")))
 	e.OperationID = "symlink"
-	_, err = files.read(t.Context(), e, tools.FileReadRequest{FileTarget: tools.FileTarget{SandboxID: connection.ID, ResourceID: storage.ID, Path: "/allowed/link"}})
+	_, err = files.Read(t.Context(), e, tools.FileReadRequest{FileTarget: tools.FileTarget{SandboxID: connection.ID, ResourceID: storage.ID, Path: "/allowed/link"}})
 	if core.CodeOf(err) != core.Forbidden {
 		t.Fatal("symlink escaped", err)
 	}
 	e.OperationID = "write-denied"
-	_, err = files.write(t.Context(), e, tools.FileWriteRequest{FileTarget: target, Text: "bad", Overwrite: true})
+	_, err = files.Write(t.Context(), e, tools.FileWriteRequest{FileTarget: target, Text: "bad", Overwrite: true})
 	if core.CodeOf(err) != core.Forbidden {
 		t.Fatal("read grant permitted write", err)
 	}
 	need(t, f.b.Services.Grants.Revoke(t.Context(), f.owner, policy.RevokeRequest{Mutation: core.Mutation{IdempotencyKey: "revoke", ExpectedVersion: grant.Version}, GrantID: grant.ID}))
 	e.OperationID = "after-revoke"
-	_, err = files.read(t.Context(), e, tools.FileReadRequest{FileTarget: target})
+	_, err = files.Read(t.Context(), e, tools.FileReadRequest{FileTarget: target})
 	if core.CodeOf(err) != core.Forbidden {
 		t.Fatal("revoked grant remained usable", err)
 	}
 	// Disabling local commands does not disable local or remote storage.
 	e.OperationID = "local-disabled"
-	_, err = files.read(t.Context(), e, tools.FileReadRequest{FileTarget: tools.FileTarget{SandboxID: "local", Path: "note.txt"}})
+	_, err = files.Read(t.Context(), e, tools.FileReadRequest{FileTarget: tools.FileTarget{SandboxID: "local", Path: "note.txt"}})
 	need(t, err)
 	_, err = admin("resource", map[string]any{"SandboxID": connection.ID, "Kind": "storage", "SourceID": "host-root", "Name": "Escape", "Mutation": core.Mutation{IdempotencyKey: "escape"}})
 	if core.CodeOf(err) != core.Forbidden {

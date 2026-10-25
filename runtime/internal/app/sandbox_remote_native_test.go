@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"molr.ai/runtime/internal/shellsession"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -151,11 +152,11 @@ func TestRemoteNativeSandboxIntegration(t *testing.T) {
 	}
 	// A TTY stays alive through renewals, then a network revoke must stop it.
 	e.OperationID = "native-tty"
-	_, err = b.shellTasks.execute(t.Context(), e, tools.ShellRequest{SandboxID: view.ID, ComputeID: compute, TTY: true, Script: "echo READY; read line; echo RECEIVED:$line; sleep 60"})
+	_, err = b.shellTasks.Execute(t.Context(), e, tools.ShellRequest{SandboxID: view.ID, ComputeID: compute, TTY: true, Script: "echo READY; read line; echo RECEIVED:$line; sleep 60"})
 	need(t, err)
 	deadline := time.Now().Add(10 * time.Second)
 	for {
-		_, err = b.shellTasks.manage(t.Context(), owner, e.AssistantID, tools.ShellTaskRequest{Action: "takeover", TaskID: e.OperationID, ClientID: "remote-native-terminal", Generation: 1})
+		_, err = b.shellTasks.Manage(t.Context(), owner, e.AssistantID, tools.ShellTaskRequest{Action: "takeover", TaskID: e.OperationID, ClientID: "remote-native-terminal", Generation: 1})
 		if err == nil {
 			break
 		}
@@ -164,14 +165,14 @@ func TestRemoteNativeSandboxIntegration(t *testing.T) {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	_, err = b.shellTasks.manage(t.Context(), owner, e.AssistantID, tools.ShellTaskRequest{Action: "write", TaskID: e.OperationID, ClientID: "remote-native-terminal", Generation: 2, Sequence: 1, Data: "hello\n"})
+	_, err = b.shellTasks.Manage(t.Context(), owner, e.AssistantID, tools.ShellTaskRequest{Action: "write", TaskID: e.OperationID, ClientID: "remote-native-terminal", Generation: 2, Sequence: 1, Data: "hello\n"})
 	need(t, err)
 	// Exercise at least one authorization renewal before revocation.
 	time.Sleep(3500 * time.Millisecond)
 	need(t, b.Services.Grants.Revoke(t.Context(), owner, policy.RevokeRequest{GrantID: ng.ID, Mutation: core.Mutation{IdempotencyKey: "revoke-network", ExpectedVersion: ng.Version}}))
 	deadline = time.Now().Add(10 * time.Second)
 	for {
-		task, err := persistence.Load[shellTask](t.Context(), b.store, shellTasksBucket, persistence.Key(owner.OwnerID, e.OperationID))
+		task, err := persistence.Load[shellsession.Task](t.Context(), b.store, shellTasksBucket, persistence.Key(owner.OwnerID, e.OperationID))
 		need(t, err)
 		if task.State != "running" && task.State != "starting" {
 			break

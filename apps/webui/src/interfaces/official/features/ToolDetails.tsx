@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Badge, Tabs } from '@molr/ui';
 import { Eye, PenLine } from 'lucide-react';
-import type { ToolCapability } from '../../../api/types';
+import type { ToolCapability } from '@molr/sdk';
 import { useCopy } from '../../../state';
 import { toolGroup } from './tool-groups';
 

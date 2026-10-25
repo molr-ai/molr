@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import type { Assistant, FileInfo, Model } from '../src/api/types';
+import type { Assistant, FileInfo, Model } from '@molr/sdk';
 
 const port = process.env.MOLR_TEST_PORT ?? '5193', base = `http://127.0.0.1:${port}`;
 async function post<T>(page: Page, path: string, data: object): Promise<T> {

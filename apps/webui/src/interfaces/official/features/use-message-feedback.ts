@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useToast } from '@molr/ui';
-import { api } from '../../../api/client';
-import type { Message } from '../../../api/types';
+import { api } from '@molr/sdk';
+import type { Message } from '@molr/sdk';
 import { useCopy, useData } from '../../../state';
 
 type Feedback = 'up' | 'down' | undefined;

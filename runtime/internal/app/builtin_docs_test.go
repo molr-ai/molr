@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"molr.ai/runtime/internal/filetools"
 	"strings"
 	"testing"
 
@@ -17,11 +18,11 @@ import (
 
 func TestBuiltinDocsWithoutSandbox(t *testing.T) {
 	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { c.Sandbox.Enabled = false })
-	files := &resourceFileTools{adapters: f.ad, router: &sandboxRouter{adapters: f.ad}}
+	files := newResourceFileTools(resourceFileOptions{adapters: f.ad, router: &sandboxRouter{adapters: f.ad}})
 	target := tools.FileTarget{Path: molrdocs.SkillPath}
-	raw, err := files.read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: target})
+	raw, err := files.Read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: target})
 	need(t, err)
-	var read fileReadResult
+	var read filetools.ReadResult
 	need(t, json.Unmarshal(raw, &read))
 	if !strings.Contains(read.Text, "name: molr-docs") || read.Path != target.Path || read.Version != molrdocs.Revision {
 		t.Fatal("wrong built-in document", read)
@@ -41,12 +42,12 @@ func TestBuiltinDocsWithoutSandbox(t *testing.T) {
 			t.Fatal("built-in read tool unavailable", tool)
 		}
 	}
-	raw, err = files.list(t.Context(), f.execution, tools.FileListRequest{FileTarget: tools.FileTarget{Path: "/molr"}})
+	raw, err = files.List(t.Context(), f.execution, tools.FileListRequest{FileTarget: tools.FileTarget{Path: "/molr"}})
 	need(t, err)
 	if !strings.Contains(string(raw), "/molr/.agents") {
 		t.Fatal(string(raw))
 	}
-	raw, err = files.search(t.Context(), f.execution, tools.FileSearchRequest{FileTarget: tools.FileTarget{Path: "/molr/.agents/skills/molr-docs/references/docs"}, Pattern: "助理", MaxResults: 3})
+	raw, err = files.Search(t.Context(), f.execution, tools.FileSearchRequest{FileTarget: tools.FileTarget{Path: "/molr/.agents/skills/molr-docs/references/docs"}, Pattern: "助理", MaxResults: 3})
 	need(t, err)
 	var result struct{ textfiles.SearchResult }
 	need(t, json.Unmarshal(raw, &result))
@@ -58,14 +59,14 @@ func TestBuiltinDocsWithoutSandbox(t *testing.T) {
 			t.Fatal(m)
 		}
 	}
-	_, err = files.read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: tools.FileTarget{Path: "/work/MEMORY.md"}})
+	_, err = files.Read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: tools.FileTarget{Path: "/work/MEMORY.md"}})
 	if core.CodeOf(err) != core.NotFound {
 		t.Fatal("missing workspace file should be reported with commands disabled", err)
 	}
 	// Built-in documentation remains inline independently of command execution.
-	raw, err = files.read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: tools.FileTarget{Path: "/molr/.agents/skills/molr-docs/references/docs/dev/reference/http-api.md"}, Limit: 2000})
+	raw, err = files.Read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: tools.FileTarget{Path: "/molr/.agents/skills/molr-docs/references/docs/dev/reference/http-api.md"}, Limit: 2000})
 	need(t, err)
-	if len(raw) > toolInlineLimit {
+	if len(raw) > filetools.InlineLimit {
 		t.Fatalf("document output requires workspace: %d", len(raw))
 	}
 	need(t, json.Unmarshal(raw, &read))
@@ -76,23 +77,23 @@ func TestBuiltinDocsWithoutSandbox(t *testing.T) {
 
 func TestBuiltinDocsRejectMutationsAndForeignPaths(t *testing.T) {
 	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { c.Sandbox.Enabled = false })
-	files := &resourceFileTools{adapters: f.ad, router: &sandboxRouter{adapters: f.ad}}
+	files := newResourceFileTools(resourceFileOptions{adapters: f.ad, router: &sandboxRouter{adapters: f.ad}})
 	target := tools.FileTarget{Path: molrdocs.SkillPath}
 	mutations := []func() error{
 		func() error {
-			_, e := files.write(t.Context(), f.execution, tools.FileWriteRequest{FileTarget: target, Text: "changed", Overwrite: true})
+			_, e := files.Write(t.Context(), f.execution, tools.FileWriteRequest{FileTarget: target, Text: "changed", Overwrite: true})
 			return e
 		},
 		func() error {
-			_, e := files.edit(t.Context(), f.execution, tools.FileEditRequest{FileTarget: target, OldText: "Molr", NewText: "changed", ExpectedVersion: molrdocs.Revision})
+			_, e := files.Edit(t.Context(), f.execution, tools.FileEditRequest{FileTarget: target, OldText: "Molr", NewText: "changed", ExpectedVersion: molrdocs.Revision})
 			return e
 		},
 		func() error {
-			_, e := files.delete(t.Context(), f.execution, tools.FileDeleteRequest{FileTarget: target, ExpectedVersion: molrdocs.Revision})
+			_, e := files.Delete(t.Context(), f.execution, tools.FileDeleteRequest{FileTarget: target, ExpectedVersion: molrdocs.Revision})
 			return e
 		},
 		func() error {
-			_, e := files.move(t.Context(), f.execution, tools.FileMoveRequest{FileTarget: target, ToPath: "/molr/other", ExpectedVersion: molrdocs.Revision})
+			_, e := files.Move(t.Context(), f.execution, tools.FileMoveRequest{FileTarget: target, ToPath: "/molr/other", ExpectedVersion: molrdocs.Revision})
 			return e
 		},
 	}
@@ -106,18 +107,18 @@ func TestBuiltinDocsRejectMutationsAndForeignPaths(t *testing.T) {
 		{Path: "/molr/.agents/skills/molr-docs/references/internal-docs/secret.md"}, {Path: "/molr/.agents/skills/molr-docs/references/docs/en/user/README.md"},
 		{Path: molrdocs.SkillPath, ResourceID: f.storage.ID},
 	} {
-		if _, err := files.read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: bad}); err == nil {
+		if _, err := files.Read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: bad}); err == nil {
 			t.Fatal("accepted invalid target", bad)
 		}
 	}
 	other := f.execution
 	other.Principal.OwnerID = "another-owner"
-	if _, err := files.read(t.Context(), other, tools.FileReadRequest{FileTarget: target}); err == nil {
+	if _, err := files.Read(t.Context(), other, tools.FileReadRequest{FileTarget: target}); err == nil {
 		t.Fatal("accepted invalid execution identity")
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if _, err := files.search(ctx, f.execution, tools.FileSearchRequest{FileTarget: tools.FileTarget{Path: "/molr"}, Pattern: "Molr"}); err == nil {
+	if _, err := files.Search(ctx, f.execution, tools.FileSearchRequest{FileTarget: tools.FileTarget{Path: "/molr"}, Pattern: "Molr"}); err == nil {
 		t.Fatal("ignored cancellation")
 	}
 }

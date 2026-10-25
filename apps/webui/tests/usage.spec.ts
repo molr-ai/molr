@@ -11,7 +11,7 @@ async function login(page: Page, username = 'owner', password = 'webui-e2e-passw
 }
 async function request(page: Page, path: string, data?: unknown): Promise<any> {
   return page.evaluate(async ({ path, data }) => {
-    const module = '/src/api/client.ts', { api } = await import(module);
+    const module = '/@id/@molr/sdk', { api } = await import(module);
     return data === undefined ? api.get(path + (path.includes('?') ? '&' : '?') + 'refresh=true') : api.post(path, data);
   }, { path, data });
 }

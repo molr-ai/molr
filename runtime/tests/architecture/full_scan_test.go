@@ -18,7 +18,7 @@ func TestFullBucketScansHaveExplicitWholeScopePurpose(t *testing.T) {
 		"auth/administration.go:checkAccountStorage": "startup validates every persisted account and group binding",
 		"auth/administration.go:Groups":              "administrator explicitly requests the complete group catalog",
 		"debugtrace/retention.go:SetRetention":       "installation-wide settings invalidate every registered workbench",
-		"app/remote_waits.go:pollRemoteWaits":        "collection contains only pending waits; all require probing",
+		"sandboxruntime/waits.go:Tick":               "collection contains only pending waits; all require probing",
 		"app/data.go:collectFiles":                   "collection contains only pending file deletions; every entry requires an attempt",
 		"persistence/store.go:Scan":                  "the storage primitive itself",
 	}

@@ -34,15 +34,15 @@ func TestWindowsTerminalDefaultShellRouting(t *testing.T) {
 	_, err = b.Services.Grants.Grant(t.Context(), owner, policy.GrantRequest{Mutation: core.Mutation{IdempotencyKey: "terminal-grant"}, AssistantID: e.AssistantID, ResourceID: compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{}, Constraints: &policy.Constraints{Compute: &policy.ComputeConstraints{MaxDurationSeconds: 60}}})
 	need(t, err)
 	// An omitted model-tool script must resolve to PowerShell on this node.
-	_, err = b.shellTasks.execute(t.Context(), e, tools.ShellRequest{ComputeID: compute.ID, TTY: true})
+	_, err = b.shellTasks.Execute(t.Context(), e, tools.ShellRequest{ComputeID: compute.ID, TTY: true})
 	need(t, err)
-	_, err = b.shellTasks.manage(t.Context(), e.Principal, e.AssistantID, tools.ShellTaskRequest{Action: "write", TaskID: e.OperationID, Generation: 1, Data: "Write-Output ('native-' + $PSVersionTable.PSEdition + '-ok')\r"})
+	_, err = b.shellTasks.Manage(t.Context(), e.Principal, e.AssistantID, tools.ShellTaskRequest{Action: "write", TaskID: e.OperationID, Generation: 1, Data: "Write-Output ('native-' + $PSVersionTable.PSEdition + '-ok')\r"})
 	need(t, err)
 	deadline := time.Now().Add(15 * time.Second)
 	cursor := int64(0)
 	var output strings.Builder
 	for {
-		raw, err := b.shellTasks.manage(t.Context(), e.Principal, e.AssistantID, tools.ShellTaskRequest{Action: "read", TaskID: e.OperationID, Generation: 1, Cursor: cursor})
+		raw, err := b.shellTasks.Manage(t.Context(), e.Principal, e.AssistantID, tools.ShellTaskRequest{Action: "read", TaskID: e.OperationID, Generation: 1, Cursor: cursor})
 		need(t, err)
 		var result struct {
 			Output     string
@@ -59,6 +59,6 @@ func TestWindowsTerminalDefaultShellRouting(t *testing.T) {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	_, err = b.shellTasks.manage(t.Context(), e.Principal, e.AssistantID, tools.ShellTaskRequest{Action: "stop", TaskID: e.OperationID, Generation: 1})
+	_, err = b.shellTasks.Manage(t.Context(), e.Principal, e.AssistantID, tools.ShellTaskRequest{Action: "stop", TaskID: e.OperationID, Generation: 1})
 	need(t, err)
 }

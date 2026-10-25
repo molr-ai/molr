@@ -10,6 +10,7 @@ import (
 	"molr.ai/runtime/internal/agent/tools"
 	"molr.ai/runtime/internal/business/resource"
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/filetools"
 	"molr.ai/runtime/internal/modelcatalog"
 	"molr.ai/runtime/internal/policy"
 	"os"
@@ -41,17 +42,17 @@ func TestFileMediaMetadataSnapshotsModelSwitchAndRevocation(t *testing.T) {
 	filename := filepath.Join(f.root, "write/data")
 	need(t, os.WriteFile(filename, original, 0600))
 	for _, metadata := range []bool{true, false} {
-		raw, err := fs.read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: target, MetadataOnly: metadata})
+		raw, err := fs.Read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: target, MetadataOnly: metadata})
 		need(t, err)
-		var out mediaReadResult
+		var out filetools.MediaReadResult
 		need(t, json.Unmarshal(raw, &out))
 		if out.ContentLoaded || out.Width != 12 || out.Height != 8 || len(out.Media) != 0 {
 			t.Fatalf("text model got content: %s", raw)
 		}
 	}
-	raw, err := fs.read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: target, ModelID: p.Model.ID})
+	raw, err := fs.Read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: target, ModelID: p.Model.ID})
 	need(t, err)
-	var out mediaReadResult
+	var out filetools.MediaReadResult
 	need(t, json.Unmarshal(raw, &out))
 	if !out.ContentLoaded || len(out.Media) != 1 {
 		t.Fatalf("missing image: %s", raw)
@@ -62,13 +63,13 @@ func TestFileMediaMetadataSnapshotsModelSwitchAndRevocation(t *testing.T) {
 	// Replacing the source must not silently change an already read image.
 	need(t, os.WriteFile(filename, testPNG(t, color.Black), 0600))
 	req := model.Request{Execution: f.execution, Inputs: []model.Input{{Role: model.Tool, ReplyTo: "read", Media: out.Media}}}
-	inputs, err := fs.prepareMedia(t.Context(), req, p)
+	inputs, err := fs.PrepareMedia(t.Context(), req, p)
 	need(t, err)
 	if !bytes.Equal(inputs[0].Media[0].Data, original) {
 		t.Fatal("snapshot did not survive file overwrite")
 	}
 	p.Model.SupportsImages = false
-	inputs, err = fs.prepareMedia(t.Context(), req, p)
+	inputs, err = fs.PrepareMedia(t.Context(), req, p)
 	need(t, err)
 	if len(inputs[0].Media[0].Data) != 0 {
 		t.Fatal("model switch leaked media")
@@ -82,7 +83,7 @@ func TestFileMediaMetadataSnapshotsModelSwitchAndRevocation(t *testing.T) {
 			need(t, err)
 		}
 	}
-	inputs, err = fs.prepareMedia(t.Context(), req, p)
+	inputs, err = fs.PrepareMedia(t.Context(), req, p)
 	need(t, err)
 	if len(inputs[0].Media[0].Data) != 0 {
 		t.Fatal("revocation leaked cached media")
@@ -92,18 +93,18 @@ func TestFileMediaOptionsAndMalformedImages(t *testing.T) {
 	f, fs, target := fileFixture(t)
 	p := mediaTestModel(t, f)
 	need(t, os.WriteFile(filepath.Join(f.root, "write/data"), testPNG(t, color.White)[:24], 0600))
-	raw, err := fs.read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: target, ModelID: p.Model.ID})
+	raw, err := fs.Read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: target, ModelID: p.Model.ID})
 	need(t, err)
-	var out mediaReadResult
+	var out filetools.MediaReadResult
 	need(t, json.Unmarshal(raw, &out))
 	if out.ContentLoaded {
 		t.Fatal("malformed image loaded")
 	}
 	need(t, os.WriteFile(filepath.Join(f.root, "write/data"), []byte("plain text"), 0600))
-	if _, err = fs.read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: target, Detail: "high"}); core.CodeOf(err) != core.InvalidArgument {
+	if _, err = fs.Read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: target, Detail: "high"}); core.CodeOf(err) != core.InvalidArgument {
 		t.Fatal("media options accepted for text")
 	}
-	raw, err = fs.read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: target, MetadataOnly: true})
+	raw, err = fs.Read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: target, MetadataOnly: true})
 	need(t, err)
 	if bytes.Contains(raw, []byte("plain text")) {
 		t.Fatal("metadata-only read text")
@@ -113,9 +114,9 @@ func TestFileMediaOptionsAndMalformedImages(t *testing.T) {
 func TestFileReadUnknownBinaryReturnsMetadata(t *testing.T) {
 	f, fs, target := fileFixture(t)
 	need(t, os.WriteFile(filepath.Join(f.root, "write/data"), []byte{0, 1, 2}, 0600))
-	raw, err := fs.read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: target})
+	raw, err := fs.Read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: target})
 	need(t, err)
-	var out mediaReadResult
+	var out filetools.MediaReadResult
 	need(t, json.Unmarshal(raw, &out))
 	if out.ContentLoaded || out.SizeBytes != 3 || out.Reason != "unsupported_file_type" {
 		t.Fatalf("unexpected binary result: %s", raw)
@@ -126,22 +127,22 @@ func TestMediaWindowKeepsRecentReadsAndSurvivesCacheEviction(t *testing.T) {
 	f, fs, target := fileFixture(t)
 	p := mediaTestModel(t, f)
 	need(t, os.WriteFile(filepath.Join(f.root, "write/data"), testPNG(t, color.White), 0600))
-	raw, err := fs.read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: target, ModelID: p.Model.ID})
+	raw, err := fs.Read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: target, ModelID: p.Model.ID})
 	need(t, err)
-	var out mediaReadResult
+	var out filetools.MediaReadResult
 	need(t, json.Unmarshal(raw, &out))
 	inputs := make([]model.Input, 33)
 	for i := range inputs {
 		inputs[i] = model.Input{Role: model.Tool, ReplyTo: "read", Media: out.Media}
 	}
 	req := model.Request{Execution: f.execution, Inputs: inputs}
-	loaded, err := fs.prepareMedia(t.Context(), req, p)
+	loaded, err := fs.PrepareMedia(t.Context(), req, p)
 	need(t, err)
 	if len(loaded[0].Media[0].Data) != 0 || len(loaded[32].Media[0].Data) == 0 {
 		t.Fatal("media window did not retain recent reads")
 	}
-	need(t, os.Remove(filepath.Join(fs.mediaRoot(f.execution), out.Media[0].Snapshot)))
-	loaded, err = fs.prepareMedia(t.Context(), req, p)
+	need(t, os.Remove(filepath.Join(fs.MediaRoot(f.execution), out.Media[0].Snapshot)))
+	loaded, err = fs.PrepareMedia(t.Context(), req, p)
 	need(t, err)
 	for _, input := range loaded {
 		if len(input.Media[0].Data) != 0 {

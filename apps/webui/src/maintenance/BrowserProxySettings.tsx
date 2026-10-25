@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button, Dialog, Select, TextField, useModalSnapshot } from '@molr/ui';
 import type { BrowserProxySettings as Settings } from '@molr/sdk';
-import { api } from '../api/client';
+import { api } from '@molr/sdk';
 import { useCopy, useQuery } from '../state';
 import { useErrorToast } from '../error-toasts';
 import { useReauthentication } from '../interfaces/official/components/ReauthenticationDialog';

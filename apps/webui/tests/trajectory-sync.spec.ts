@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import type { DebugRun, TrajectoryEntry } from '../src/api/types';
+import type { DebugRun, TrajectoryEntry } from '@molr/sdk';
 
 const run = (id: string, revision: number, state = 'running'): DebugRun => ({ ID: id, AssistantID: 'assistant', EventID: id, ExecutionID: id, Trigger: 'user_message', Attempt: 1, State: state, Reason: '', StartedAt: '2026-01-01T00:00:00Z', FinishedAt: null, Incomplete: false, Steps: null, FirstRevision: revision });
 const entry = (id: string, sequence: number, revision: number): TrajectoryEntry => ({ RunID: id, Step: { Sequence: sequence, Revision: revision, Kind: 'run.start', OperationID: '', At: '2026-01-01T00:00:00Z', State: 'started', DataStatus: 'captured' } });

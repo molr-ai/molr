@@ -2,7 +2,7 @@ import { useErrorToast } from '../error-toasts';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Button } from '@molr/ui';
 import type { AgentStatus, Assistant, Model, SystemNotice } from '@molr/sdk';
-import { api } from '../api/client';
+import { api } from '@molr/sdk';
 import { useCopy, useData, useQuery } from '../state';
 import { useAction } from '../interfaces/official/components/common';
 import { AssistantWaitingNotice } from '../interfaces/official/features/AssistantWaitingNotice';

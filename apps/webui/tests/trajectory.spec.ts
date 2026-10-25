@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import type { DebugRun, DebugStep, TrajectoryEntry } from '../src/api/types';
+import type { DebugRun, DebugStep, TrajectoryEntry } from '@molr/sdk';
 import { trajectoryAxisItems, axisPositions, axisRangeIndices, trajectoryAxisFilter } from '../src/interfaces/official/features/trajectory-axis';
 import { mergeRuns, mergeEntries, projectTrajectory, trajectoryTurns, recordPreview } from '../src/interfaces/official/features/trajectory';
 

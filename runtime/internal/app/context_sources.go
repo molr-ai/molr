@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"molr.ai/runtime/internal/filetools"
 	"os"
 	"path"
 	"sort"
@@ -110,7 +111,7 @@ func (s *sourceScan) read(ctx context.Context, name string) (string, bool, error
 		return "", false, core.NewError(core.Unavailable, "context source read failed")
 	}
 	s.bytes += len(data)
-	if len(data) > 64<<10 || s.bytes > 512<<10 || !textFile(data) {
+	if len(data) > 64<<10 || s.bytes > 512<<10 || !filetools.IsText(data) {
 		return "", false, core.Invalid("context_source", "bounded UTF-8 context source required")
 	}
 	after, err := resourceFileVersion(file)

@@ -5,6 +5,7 @@ import (
 	"molr.ai/runtime/internal/agent/tools"
 	"molr.ai/runtime/internal/business/resource"
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/filetools"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,7 +16,7 @@ func TestMediaCodecIsolationAndAudioVideoRead(t *testing.T) {
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		t.Skip("ffmpeg unavailable")
 	}
-	if _, err := mediaCommand(t.Context(), t.TempDir(), "ffprobe", "-version"); err != nil {
+	if _, err := filetools.CodecCommand(t.Context(), t.TempDir(), "ffprobe", "-version"); err != nil {
 		if os.Getenv("MOLR_REQUIRE_MEDIA_SANDBOX") == "1" {
 			t.Fatalf("media isolation unavailable: %v", err)
 		}
@@ -48,9 +49,9 @@ func TestMediaCodecIsolationAndAudioVideoRead(t *testing.T) {
 			if kind == "video" {
 				request.MaxFrames = 2
 			}
-			raw, err := fs.read(t.Context(), f.execution, request)
+			raw, err := fs.Read(t.Context(), f.execution, request)
 			need(t, err)
-			var out mediaReadResult
+			var out filetools.MediaReadResult
 			need(t, json.Unmarshal(raw, &out))
 			if !out.ContentLoaded {
 				t.Fatalf("media not loaded: %s", raw)

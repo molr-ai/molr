@@ -13,6 +13,7 @@ import (
 	"molr.ai/runtime/internal/objectaccess"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/policy"
+	"molr.ai/runtime/internal/shellsession"
 )
 
 type access struct{ store persistence.Store }
@@ -85,7 +86,7 @@ func (a access) liveAssistant(ctx context.Context, p core.Principal) error {
 	if err := a.assistant(ctx, p, p.SubjectID); err != nil {
 		return err
 	}
-	if managedPrincipal(ctx, p) {
+	if shellsession.ManagedPrincipal(ctx, p) {
 		return nil
 	}
 	jobs, err := persistence.Select[scheduler.Job](ctx, a.store, "agent.jobs", persistence.Query{Where: []persistence.Filter{persistence.Eq("Event.OwnerID", p.OwnerID), persistence.Eq("Event.AssistantID", p.SubjectID), persistence.Eq("ExecutionID", p.ExecutionID), persistence.Eq("State", scheduler.Running)}, Limit: 1, Unordered: true})
@@ -106,7 +107,7 @@ func (a access) execution(ctx context.Context, e core.Execution) error {
 	if err := a.liveAssistant(ctx, e.Principal); err != nil {
 		return err
 	}
-	if managedShellFor(ctx, e) != nil {
+	if shellsession.ManagedFor(ctx, e) != nil {
 		return nil
 	}
 	if e.TaskID != "" {

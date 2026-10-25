@@ -9,15 +9,13 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
-	"molr.ai/runtime/internal/im/channelworker"
+	"molr.ai/runtime/internal/im/channelstate"
 	"strings"
 	"sync"
 	"time"
 
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/im/conversation"
-	"molr.ai/runtime/internal/im/realtime"
-	"molr.ai/runtime/internal/notification"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/storage/files"
 )
@@ -119,18 +117,10 @@ func (s *Service) lock(ctx context.Context, owner, assistant core.ID) (func(), e
 	}
 }
 func (s *Service) seal(b Binding, secret string) ([]byte, error) {
-	n := make([]byte, s.cipher.NonceSize())
-	if _, err := rand.Read(n); err != nil {
-		return nil, err
-	}
-	return s.cipher.Seal(n, n, []byte(secret), []byte(persistence.Key(b.OwnerID, b.ID))), nil
+	return channelstate.Seal(s.cipher, []byte(secret), persistence.Key(b.OwnerID, b.ID))
 }
 func (s *Service) open(b Binding) (string, error) {
-	n := s.cipher.NonceSize()
-	if len(b.Secret) < n {
-		return "", core.NewError(core.Internal, "invalid channel credential")
-	}
-	raw, err := s.cipher.Open(nil, b.Secret[:n], b.Secret[n:], []byte(persistence.Key(b.OwnerID, b.ID)))
+	raw, err := channelstate.Open(s.cipher, b.Secret, persistence.Key(b.OwnerID, b.ID), "invalid channel credential")
 	defer clear(raw)
 	return string(raw), err
 }
@@ -307,16 +297,11 @@ func (s *Service) saveBinding(ctx context.Context, tx persistence.Tx, b Binding)
 	}
 	return s.notify(ctx, b)
 }
+func (s *Service) connectionNotice(b Binding) channelstate.Connection {
+	return channelstate.Connection{Channel: "dingtalk", Bucket: bindingsBucket, State: b.State, OwnerID: b.OwnerID, AssistantID: b.AssistantID, ConversationID: b.ConversationID, Attention: b.State == "reconnecting" || b.State == "credential_required"}
+}
 func (s *Service) notify(ctx context.Context, b Binding) error {
-	if err := s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		return channelworker.Changed(ctx, tx, bindingsBucket, b.OwnerID, b.ConversationID)
-	}); err != nil {
-		return err
-	}
-	if err := notification.Sync(ctx, s.store, b.OwnerID, notification.Input{Kind: "dingtalk.connection", Code: b.State, Source: core.Object{Kind: "assistant", ID: b.AssistantID}, AssistantID: b.AssistantID}, b.State == "reconnecting" || b.State == "credential_required"); err != nil {
-		return err
-	}
-	return realtime.NewStore(s.store).Append(ctx, realtime.Visible{ID: newID(), OwnerID: b.OwnerID, Topic: "dingtalk.changed", Object: core.Object{Kind: "assistant", ID: b.AssistantID}, ConversationID: b.ConversationID, Version: 1, CreatedAt: time.Now().UTC()})
+	return channelstate.Notify(ctx, s.store, s.connectionNotice(b))
 }
 func (s *Service) connectionState(ctx context.Context, initial Binding, state, reason string) error {
 	return s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {

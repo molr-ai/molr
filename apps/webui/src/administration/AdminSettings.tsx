@@ -6,7 +6,7 @@ import { Components } from '../maintenance/Components';
 import { useState } from 'react';
 import { SlidingHighlight, ModalPresence, AssistantAvatar, Badge, Button, Checkbox, IconButton, Select, Tabs, TextField, useBreakpoint } from '@molr/ui';
 import { ChartNoAxesCombined, ChevronLeft, ChevronRight, Package, Plus, Settings, Shield, Users } from 'lucide-react';
-import { api } from '../api/client';
+import { api } from '@molr/sdk';
 import { useCopy, useQuery, useSession } from '../state';
 import { useNavigation } from '../navigation';
 import { Confirm, EditDialog, Empty, Loading, PageHeader, micros } from '../interfaces/official/components/common';

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, Button, TextField, useToast } from '@molr/ui';
-import { api, APIError } from '../../../api/client';
-import type { Resource } from '../../../api/types';
+import { api, APIError } from '@molr/sdk';
+import type { Resource } from '@molr/sdk';
 import { useCopy } from '../../../state';
 import { useErrorToast } from '../../../error-toasts';
 import { useReauthentication } from '../components/ReauthenticationDialog';

@@ -119,7 +119,7 @@ func (a *conversationAttachments) Import(ctx context.Context, e core.Execution, 
 	if err != nil {
 		return nil, err
 	}
-	unlock, err := a.workspace.lock(ctx, root+"/"+name)
+	unlock, err := a.workspace.Lock(ctx, root+"/"+name)
 	if err != nil {
 		return nil, err
 	}

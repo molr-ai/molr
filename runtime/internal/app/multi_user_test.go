@@ -225,7 +225,7 @@ func TestUserWithoutSandboxCanBuildChatContext(t *testing.T) {
 	a := f.assistant(t, f.alice, "no-sandbox")
 	e := f.execution(t, f.alice, a, "context")
 	adapters := adapters{store: f.b.store, storageConfig: config.Sandbox{Enabled: true}}
-	files := resourceFileTools{adapters: adapters, router: &sandboxRouter{adapters: adapters}}
+	files := newResourceFileTools(resourceFileOptions{adapters: adapters, router: &sandboxRouter{adapters: adapters}})
 	docs, err := files.contextSources(t.Context(), agent.ContextRequest{Execution: e})
 	need(t, err)
 	requests := permissionRequests{store: f.b.store, authorizer: f.b.Services.Grants.(policy.Authorizer)}
@@ -250,7 +250,7 @@ func TestUserWithoutSandboxCanBuildChatContext(t *testing.T) {
 		if !found {
 			t.Fatal("member without sandbox cannot discover documentation")
 		}
-		raw, err := files.read(t.Context(), e, tools.FileReadRequest{FileTarget: tools.FileTarget{Path: "/molr/.agents/skills/molr-docs/SKILL.md"}})
+		raw, err := files.Read(t.Context(), e, tools.FileReadRequest{FileTarget: tools.FileTarget{Path: "/molr/.agents/skills/molr-docs/SKILL.md"}})
 		need(t, err)
 		if !strings.Contains(string(raw), "name: molr-docs") {
 			t.Fatal("member cannot read shared product documentation")

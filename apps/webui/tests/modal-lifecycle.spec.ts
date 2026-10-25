@@ -40,7 +40,7 @@ test('business dialogs retain content across settings, resources, plans, memory 
  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
  await expect(page.locator('.workspace')).toBeVisible();
  // The shared test account may have enabled reduced motion in another test.
- await page.evaluate(async () => { const path = '/src/api/client.ts'; const { api } = await import(path); const settings = await api.get('/api/settings'); await api.mutate('/api/settings', { Settings: { ...settings, ReducedMotion: false } }, settings.Version); });
+ await page.evaluate(async () => { const path = '/@id/@molr/sdk'; const { api } = await import(path); const settings = await api.get('/api/settings'); await api.mutate('/api/settings', { Settings: { ...settings, ReducedMotion: false } }, settings.Version); });
  await page.reload();
  const dialog = (name: string) => page.getByRole('dialog', { name, exact: true, includeHidden: true });
  for (const [route, name, field] of [
@@ -75,7 +75,7 @@ test('business dialogs retain content across settings, resources, plans, memory 
  await expect(dialog('Change password').getByLabel('New password', { exact: true })).toHaveValue('unused-new-password-fixture');
  await closeAndCheck(dialog('Change password'));
  const assistant = await page.evaluate(async name => {
-  const path = '/src/api/client.ts'; const { api } = await import(path);
+  const path = '/@id/@molr/sdk'; const { api } = await import(path);
   const origin = 'https://models.example.test';
   const resource = await api.mutate('/api/resources', { Name: name, Kind: 'model', Provider: 'openai-compatible', Binding: { Endpoint: origin, AllowedOrigins: [origin], Models: [{ Name: name, ContextLimit: 32768, SupportsTools: true, Pricing: { Currency: 'USD', InputMicrosPerMillion: 0, OutputMicrosPerMillion: 0, CachedInputMicrosPerMillion: 0 } }] } });
   const models = await api.get('/api/models');
@@ -115,5 +115,5 @@ test('business dialogs retain content across settings, resources, plans, memory 
   await expect(slot).toHaveCount(0); await expect(composer).toBeFocused();
  }
  expect(errors).toEqual([]);
- await page.evaluate(async () => { const path = '/src/api/client.ts'; const { api } = await import(path); await api.post('/api/auth/logout'); });
+ await page.evaluate(async () => { const path = '/@id/@molr/sdk'; const { api } = await import(path); await api.post('/api/auth/logout'); });
 });

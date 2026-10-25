@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import type { Assistant } from '../src/api/types';
+import type { Assistant } from '@molr/sdk';
 const base = `http://127.0.0.1:${process.env.MOLR_TEST_PORT ?? process.env.MOLR_E2E_PORT ?? 5193}`;
 const modelOrigin = `http://127.0.0.1:${process.env.MOLR_E2E_MODEL_PORT ?? 18882}`;
 async function post(page: Page, path: string, data: object) {
@@ -12,6 +12,7 @@ async function post(page: Page, path: string, data: object) {
 
 test('chat shares queries, batches sidebar activity and scopes live messages to their conversation', async ({ page }, info) => {
   test.setTimeout(150_000);
+  expect((await page.request.get('/api/assistants/missing/chat-channel')).status()).toBe(401);
   // Authenticate once, seed through real services before mounting the workspace.
   await page.goto('/');
   await page.getByRole('textbox', { name: 'Username', exact: true }).fill('owner');
@@ -63,6 +64,10 @@ test('chat shares queries, batches sidebar activity and scopes live messages to 
   });
   await page.goto(`/#/assistants/${assistants[0].ID}`);
   await expect(page.getByRole('log')).toBeVisible();
+  await expect.poll(() => counts.get(`/api/assistants/${assistants[0].ID}/chat-channel`) ?? 0).toBe(1);
+  for (const channel of ['weixin', 'telegram', 'slack', 'dingtalk', 'feishu', 'qq']) {
+    expect(counts.get(`/api/assistants/${assistants[0].ID}/${channel}`) ?? 0).toBe(0);
+  }
   await expect.poll(() => counts.get('/api/settings')).toBe(1);
   await expect.poll(() => counts.get('/api/conversations')).toBe(1);
   await expect.poll(() => counts.get('/api/models')).toBe(1);

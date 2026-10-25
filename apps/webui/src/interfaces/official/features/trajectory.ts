@@ -1,4 +1,4 @@
-import type { DebugRun, DebugStep, TrajectoryEntry } from '../../../api/types';
+import type { DebugRun, DebugStep, TrajectoryEntry } from '@molr/sdk';
 
 export type TrajectoryRecord = {
   id: string; run: DebugRun; step: DebugStep; kind: 'model' | 'tool' | 'event';

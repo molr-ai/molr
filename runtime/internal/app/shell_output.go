@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"molr.ai/runtime/internal/shellsession"
 	"os"
 	"path/filepath"
 	"sync"
@@ -66,7 +67,7 @@ func (s *shellOutput) close() {
 	}
 }
 func (s *shellService) outputFiles(ctx context.Context, e core.Execution, full bool) (*shellOutput, *shellOutput, string, string, error) {
-	f := resourceFileTools{adapters: adapters{store: s.store, policy: s.policy, dataDir: s.dataDir, storageConfig: s.config, ownPort: s.ownPort}}
+	f := newResourceFileTools(resourceFileOptions{adapters: adapters{store: s.store, policy: s.policy, dataDir: s.dataDir, storageConfig: s.config, ownPort: s.ownPort}})
 	root, _, err := f.resolve(ctx, e, tools.FileTarget{Path: ".", FullAccess: full}, policy.Write)
 	if err != nil {
 		return nil, nil, "", "", err
@@ -79,11 +80,8 @@ func archiveLimit(c config.Sandbox, full bool) int64 {
 	}
 	return c.MaxFileBytes
 }
-func shellOutputPrefix(e core.Execution) string {
-	return platform.WorkspaceStateDirectory + "/tool-shell-" + digestBytes([]byte(string(e.Principal.OwnerID) + "/" + string(e.OperationID)))[:32]
-}
 func createShellTaskOutputs(root string, maxBytes int64, e core.Execution) (*shellOutput, *shellOutput, string, string, error) {
-	return createShellOutputsNamed(root, maxBytes, shellOutputPrefix(e))
+	return createShellOutputsNamed(root, maxBytes, shellsession.OutputPrefix(e))
 }
 func createShellOutputsNamed(root string, maxBytes int64, prefix string) (*shellOutput, *shellOutput, string, string, error) {
 	if err := textfiles.MkdirAll(root, platform.WorkspaceStateDirectory); err != nil {

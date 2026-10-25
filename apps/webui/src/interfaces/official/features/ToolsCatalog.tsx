@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button, Drawer, EmptyState, SearchField, Tabs } from '@molr/ui';
 import { Layers, Search, Wrench } from 'lucide-react';
-import type { ToolCapability } from '../../../api/types';
+import type { ToolCapability } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
 import { pluginResourceVisible, usePluginsVisible } from '../../../plugins/visibility';
 import { Loading } from '../components/common';

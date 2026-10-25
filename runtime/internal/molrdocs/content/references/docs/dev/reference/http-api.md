@@ -82,6 +82,7 @@ Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugi
 | GET | `/api/assistants/{id}/shell-tasks` |
 | GET | `/api/assistants/{id}/terminals/{task}/stream` |
 | GET | `/api/assistants/{id}/status` |
+| GET | `/api/assistants/{id}/chat-channel` |
 | GET | `/api/audit` |
 | GET | `/api/auth/csrf` |
 | GET | `/api/auth/login-links` |
@@ -401,6 +402,8 @@ WebUI 支持上传 10 MB / 4000 万像素以内的 PNG、JPEG、WebP，浏览器
 所有者更新接口仍保持 owner-only；聘请、克隆及更新的名称统一去首尾空白，最多 256 个 Unicode 字符，拒绝空名和控制字符。用户手动更改名称或头像也发布 `assistant.profile`。WebUI 收到事件刷新资料；未编辑表单同步新值，有草稿的表单保留原版本，提交冲突后重新打开核对。`Status` 随助理对象持久化并返回，只能由助理工具设置；创建与用户更新请求不接受此字段。状态去首尾空白，最多 256 个 Unicode 字符，不含控制字符；空字符串清空，省略保持原值。
 
 ### 助理等待原因
+
+`GET /api/assistants/{id}/chat-channel` 在同一读取事务中授权助理并汇总六个渠道的已确认绑定，返回 `{ "Channel": "webui" }` 或 `weixin`、`telegram`、`slack`、`dingtalk`、`feishu`、`qq`。未确认配对保持 `webui`；已绑定渠道暂时重连或暂停仍锁定网页输入。结果不包含凭据、连接详情或投递历史；这些内容继续由各渠道接口按需读取。错误沿用账号与助理归属校验，不返回部分摘要。
 
 `GET /api/assistants/{id}/status` 的 `WaitingReason` 返回稳定的原因码：`model_not_configured`、`model_unavailable`、`model_not_authorized`、`model_pricing_missing`、`budget_exceeded`、`model_authentication_failed`、`model_rate_limited`、`model_service_unavailable`、`network_access_denied`、`context_limit`、`unsupported_attachment`、`step_limit` 等。未细分的错误保留原有错误 code，不返回异常文本、供应商响应或凭证。原有 HTTP 状态和调度错误分类仍由 code 决定。
 

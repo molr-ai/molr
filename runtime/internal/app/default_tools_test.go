@@ -27,7 +27,7 @@ import (
 func defaultToolFixture(t *testing.T) (resourceAccessFixture, func(string, any) (json.RawMessage, error)) {
 	t.Helper()
 	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { c.Sandbox.Enabled = false })
-	fs := &resourceFileTools{adapters: f.ad}
+	fs := newResourceFileTools(resourceFileOptions{adapters: f.ad})
 	ex := tools.NewExecutor(f.b.store, tools.Options{Authorizer: f.ad.policy, Operations: f.b.Services.Operations.(operation.Service), Conversations: f.b.Services.Conversations.(conversation.Service), ConversationAttachments: &conversationAttachments{files: f.b.Services.Files, workspace: fs, conversations: f.b.Services.Conversations.(conversation.Service)}, Plan: planTools{store: f.b.store, plans: f.b.Services.Plans.(*plan.Coordinator), todos: f.b.Services.Todos, schedules: f.b.Services.Schedules}.execute})
 	sequence := 0
 	return f, func(name string, args any) (json.RawMessage, error) {

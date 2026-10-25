@@ -5,7 +5,7 @@ import { Alert, Badge, Button, SecretField, TextField } from '@molr/ui';
 import type { SandboxDiagnostic, SandboxView } from '../../../sandbox-types';
 import { useCopy } from '../../../state';
 import { useSandboxCopy } from '../../../sandbox-copy';
-import { api, mutationKey } from '../../../api/client';
+import { api, mutationKey } from '@molr/sdk';
 import { useReauthentication } from '../components/ReauthenticationDialog';
 import { EditDialog, useAction } from '../components/common';
 

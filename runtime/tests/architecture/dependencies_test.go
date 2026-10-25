@@ -43,6 +43,12 @@ func TestPackageDependencyBoundaries(t *testing.T) {
 			if strings.HasPrefix(rel, "internal/trigger/") && (strings.Contains(imported, "/internal/business") || strings.Contains(imported, "/internal/agent") || strings.Contains(imported, "/internal/im") || strings.Contains(imported, "/internal/api") || strings.Contains(imported, "/internal/storage")) {
 				t.Errorf("shared trigger imports business or execution: %s -> %s", rel, imported)
 			}
+			if strings.HasPrefix(rel, "internal/shellsession/") && (strings.Contains(imported, "/internal/api") || strings.Contains(imported, "/internal/platform/sandbox") || strings.Contains(imported, "/internal/sandboxmanager")) {
+				t.Errorf("session manager imports concrete host adapter: %s -> %s", rel, imported)
+			}
+			if (strings.HasPrefix(rel, "internal/filetools/") || strings.HasPrefix(rel, "internal/workspace/") || strings.HasPrefix(rel, "internal/sandboxruntime/")) && strings.Contains(imported, "/internal/api") {
+				t.Errorf("runtime implementation imports HTTP adapter: %s -> %s", rel, imported)
+			}
 			if !strings.HasPrefix(rel, "internal/app/") && strings.Contains(imported, "/internal/app") {
 				t.Errorf("reverse composition dependency: %s", rel)
 			}

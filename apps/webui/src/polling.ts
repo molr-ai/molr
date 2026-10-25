@@ -1,4 +1,4 @@
-import { APIError } from './api/client';
+import { APIError } from '@molr/sdk';
 
 export type PollDelay = number | false;
 export function retryDelay(error: unknown, failures: number): PollDelay {

@@ -1,5 +1,5 @@
 import { Dialog } from '@molr/ui';
-import type { Model, Settings } from '../../../api/types';
+import type { Model, Settings } from '@molr/sdk';
 import { useErrorToast } from '../../../error-toasts';
 import { useCopy, useQuery } from '../../../state';
 import { ModelSelect } from '../components/ModelSelect';

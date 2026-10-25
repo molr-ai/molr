@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { poll } from './polling';
-import { api, APIError } from './api/client';
-import type { Message, Page } from './api/types';
+import { api, APIError } from '@molr/sdk';
+import type { Message, Page } from '@molr/sdk';
 import { useData } from './state';
 
 type Snapshot = { messages: Message[]; olderCursor: string; metadataVersions: Record<string, number> };

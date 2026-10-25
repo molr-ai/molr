@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Button, ModalPresence, TextField } from '@molr/ui';
 import type { Assistant, FeishuStatus, FeishuLogin } from '@molr/sdk';
-import { api } from '../../../api/client';
+import { api } from '@molr/sdk';
 import { useCopy, useData } from '../../../state';
 import { useErrorToast } from '../../../error-toasts';
 import { poll } from '../../../polling';

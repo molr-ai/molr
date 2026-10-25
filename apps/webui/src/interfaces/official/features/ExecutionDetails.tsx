@@ -1,8 +1,8 @@
 import { useErrorToast } from '../../../error-toasts';
 import { useState } from 'react';
 import { ModalPresence, Badge, Button, Card, Textarea } from '@molr/ui';
-import type { Task, Revision, Usage } from '../../../api/types';
-import { api } from '../../../api/client';
+import type { Task, Revision, Usage } from '@molr/sdk';
+import { api } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
 import { Confirm, EditDialog, lines, useAction } from '../components/common';
 import { MoneyText } from '../components/Money';

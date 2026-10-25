@@ -3,7 +3,7 @@ import { SettingsSwitch } from '../components/SettingsHelp';
 import { ThemeSelector } from '../../../ui-host/ThemeSelector';
 import { hostCopy } from '../../../ui-host/copy';
 import { PalettePicker, ThemeSelect, useTheme } from '@molr/ui';
-import type { Settings } from '../../../api/types';
+import type { Settings } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
 import { Loading } from '../components/common';
 import { useSettingsChange } from './use-settings-change';

@@ -2,7 +2,7 @@ import { useErrorToast } from '../../../error-toasts';
 import { useEffect, useState } from 'react';
 import { Button, SearchPanel, useBreakpoint } from '@molr/ui';
 import { Bot, Brain, CalendarDays, Folder, ListTodo, MessageSquare, Settings } from 'lucide-react';
-import type { SearchHit, SearchResults } from '../../../api/types';
+import type { SearchHit, SearchResults } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
 import { Loading } from '../components/common';
 import type { RoutePage } from '../../../navigation';

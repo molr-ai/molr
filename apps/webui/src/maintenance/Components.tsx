@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ModalPresence, Button, Progress, useToast } from '@molr/ui';
 import { Globe, Settings2 } from 'lucide-react';
 import type { ComponentStatus, MaintenanceTask } from '@molr/sdk';
-import { api } from '../api/client';
+import { api } from '@molr/sdk';
 import { useCopy, useQuery } from '../state';
 import { useErrorToast } from '../error-toasts';
 import './components.css';

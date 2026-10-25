@@ -42,3 +42,23 @@ func ReplayReceipt(ctx context.Context, tx Tx, bucket, key, digest string, resul
 	}
 	return true, json.Unmarshal(old.Result, result)
 }
+
+// MutateReceipt executes an already authorized mutation at most once and stores
+// its result in the caller's transaction. Authorization, validation and receipt
+// scope belong to the caller. The caller must propagate errors to roll back both
+// the business changes and their receipt.
+func MutateReceipt[T any](ctx context.Context, tx Tx, bucket, key, digest string, fn func(context.Context) (T, error)) (T, error) {
+	var result T
+	if replayed, err := ReplayReceipt(ctx, tx, bucket, key, digest, &result); replayed || err != nil {
+		return result, err
+	}
+	result, err := fn(ctx)
+	if err != nil {
+		return result, err
+	}
+	encoded, err := json.Marshal(result)
+	if err != nil {
+		return result, err
+	}
+	return result, tx.Put(ctx, bucket, key, Receipt{Digest: digest, Result: encoded})
+}

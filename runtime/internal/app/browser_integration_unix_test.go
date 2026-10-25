@@ -16,6 +16,7 @@ import (
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/platform"
 	"molr.ai/runtime/internal/policy"
+	"molr.ai/runtime/internal/shellsession"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -60,7 +61,7 @@ func testBrowserRealTask(t *testing.T, full bool) {
 	defer b.Close()
 	defer func() {
 		if t.Failed() {
-			rows, _ := persistence.Scan[shellTask](t.Context(), b.store, shellTasksBucket)
+			rows, _ := persistence.Scan[shellsession.Task](t.Context(), b.store, shellTasksBucket)
 			for _, row := range rows {
 				t.Logf("task failure: %s %s", row.Failure, row.Result)
 				data, _ := os.ReadFile(filepath.Join(platform.AssistantWorkspace(cfg.DataDir, cfg.Sandbox.WorkRoot, row.OwnerID, row.AssistantID), strings.TrimPrefix(row.StderrPath, "/work/")))
@@ -100,11 +101,18 @@ func testBrowserRealTask(t *testing.T, full bool) {
 	_, err = b.Services.Grants.Grant(t.Context(), owner, policy.GrantRequest{Mutation: core.Mutation{IdempotencyKey: "browser-network-grant"}, AssistantID: e.AssistantID, ResourceID: network.ID, Actions: []policy.Action{policy.Execute}, Constraints: testResourceConstraints(resource.Network)})
 	need(t, err)
 	s := b.shellTasks
-	_, err = s.browserTool(t.Context(), e, "browser_session", tools.BrowserRequest{Action: browser.Action{Action: "start"}, ComputeID: compute, FullAccess: full})
+	_, err = s.BrowserTool(t.Context(), e, "browser_session", tools.BrowserRequest{Action: browser.Action{Action: "start"}, ComputeID: compute, FullAccess: full})
 	need(t, err)
-	r := s.activeBrowser(owner, e.AssistantID, "")
+	r := browserTask(t, s, owner, e.AssistantID)
+	if r != nil {
+		_, err = s.BrowserTool(t.Context(), e, "browser_session", tools.BrowserRequest{Action: browser.Action{Action: "start"}, ComputeID: compute, FullAccess: full})
+		need(t, err)
+		if same := browserTask(t, s, owner, e.AssistantID); same == nil || same.ID != r.ID {
+			t.Fatal("same selection launched another browser")
+		}
+	}
 	if r == nil {
-		rows, _ := persistence.Scan[shellTask](t.Context(), b.store, shellTasksBucket)
+		rows, _ := persistence.Scan[shellsession.Task](t.Context(), b.store, shellTasksBucket)
 		for _, row := range rows {
 			data, _ := os.ReadFile(filepath.Join(platform.AssistantWorkspace(cfg.DataDir, cfg.Sandbox.WorkRoot, owner.OwnerID, e.AssistantID), strings.TrimPrefix(row.StderrPath, "/work/")))
 			t.Logf("browser launch stderr: %s", data)
@@ -115,7 +123,7 @@ func testBrowserRealTask(t *testing.T, full bool) {
 	for {
 		call, cancel := context.WithTimeout(t.Context(), time.Second)
 		var ready json.RawMessage
-		ready, err = s.browserCall(call, r, "GET", "/ready", nil)
+		ready, err = s.BrowserReady(call, owner, e.AssistantID, r.ID)
 		if err == nil && !full && runtime.GOOS == "darwin" {
 			if !strings.Contains(string(ready), `"isolation":"outer-only"`) {
 				t.Fatalf("Seatbelt status missing: %s", ready)
@@ -139,14 +147,18 @@ func testBrowserRealTask(t *testing.T, full bool) {
 			break
 		}
 		if time.Now().After(deadline) {
-			raw, _ := s.manage(t.Context(), owner, e.AssistantID, tools.ShellTaskRequest{Action: "read", TaskID: r.task.ID, Stream: "stderr"})
+			raw, _ := s.Manage(t.Context(), owner, e.AssistantID, tools.ShellTaskRequest{Action: "read", TaskID: r.ID, Stream: "stderr"})
 			t.Fatalf("browser not ready: %v stderr=%s", err, raw)
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
 	action := func(a browser.Action) string {
 		t.Helper()
-		raw, err := s.browserRequest(t.Context(), e.Principal, e.AssistantID, tools.BrowserRequest{Action: a, TaskID: r.task.ID})
+		actor := e.Principal
+		if a.Action == "screenshot" {
+			actor = owner
+		}
+		raw, err := browserAction(t.Context(), s, actor, e.AssistantID, tools.BrowserRequest{Action: a, TaskID: r.ID})
 		need(t, err)
 		return string(raw)
 	}
@@ -168,7 +180,7 @@ func testBrowserRealTask(t *testing.T, full bool) {
 	frames := make(chan struct{}, 1)
 	done := make(chan error, 1)
 	go func() {
-		done <- s.browserFrames(streamCtx, owner, e.AssistantID, r.task.ID, func(raw json.RawMessage) error {
+		done <- s.BrowserFrames(streamCtx, owner, e.AssistantID, r.ID, func(raw json.RawMessage) error {
 			if strings.Contains(string(raw), `"type":"frame"`) {
 				select {
 				case frames <- struct{}{}:
@@ -187,22 +199,20 @@ func testBrowserRealTask(t *testing.T, full bool) {
 	}
 	stopStream()
 	<-done
-	_, err = s.browserRequest(t.Context(), owner, e.AssistantID, tools.BrowserRequest{Action: browser.Action{Action: "takeover"}, TaskID: r.task.ID, ClientID: "test-window", Generation: 1})
+	_, err = browserAction(t.Context(), s, owner, e.AssistantID, tools.BrowserRequest{Action: browser.Action{Action: "takeover"}, TaskID: r.ID, ClientID: "test-window", Generation: 1})
 	need(t, err)
 	action(browser.Action{Action: "snapshot"})
-	_, err = s.browserRequest(t.Context(), e.Principal, e.AssistantID, tools.BrowserRequest{Action: browser.Action{Action: "click", Selector: "#submit"}})
+	_, err = browserAction(t.Context(), s, e.Principal, e.AssistantID, tools.BrowserRequest{Action: browser.Action{Action: "click", Selector: "#submit"}})
 	if core.ReasonOf(err) != "browser_user_controlled" {
 		t.Fatal(err)
 	}
-	s.mu.Lock()
-	generation := r.task.Browser.Generation
-	s.mu.Unlock()
-	_, err = s.browserRequest(t.Context(), owner, e.AssistantID, tools.BrowserRequest{Action: browser.Action{Action: "fill", Selector: "#name", Text: "用户输入"}, ClientID: "test-window", Generation: generation, Sequence: 1})
+	generation := browserTask(t, s, owner, e.AssistantID).Browser.Generation
+	_, err = browserAction(t.Context(), s, owner, e.AssistantID, tools.BrowserRequest{Action: browser.Action{Action: "fill", Selector: "#name", Text: "用户输入"}, ClientID: "test-window", Generation: generation, Sequence: 1})
 	need(t, err)
 	batch := []browser.Action{{Action: "press", Key: "End"}, {Action: "insert_text", Text: "-batch"}, {Action: "press", Key: "Backspace"}, {Action: "wheel", X: 600, Y: 500, DeltaY: 20}}
 	sequence := uint64(2)
 	for len(batch) > 0 {
-		raw, err := s.browserRequest(t.Context(), owner, e.AssistantID, tools.BrowserRequest{Action: browser.Action{Action: "input_batch"}, ClientID: "test-window", Generation: generation, Sequence: sequence, Actions: batch})
+		raw, err := browserAction(t.Context(), s, owner, e.AssistantID, tools.BrowserRequest{Action: browser.Action{Action: "input_batch"}, ClientID: "test-window", Generation: generation, Sequence: sequence, Actions: batch})
 		need(t, err)
 		var out struct {
 			Completed int
@@ -218,7 +228,7 @@ func testBrowserRealTask(t *testing.T, full bool) {
 	if snap := action(browser.Action{Action: "snapshot"}); !strings.Contains(snap, "用户输入-batc") {
 		t.Fatal("ordered native keyboard batch failed", snap)
 	}
-	_, err = s.browserRequest(t.Context(), owner, e.AssistantID, tools.BrowserRequest{Action: browser.Action{Action: "release"}, ClientID: "test-window", Generation: generation})
+	_, err = browserAction(t.Context(), s, owner, e.AssistantID, tools.BrowserRequest{Action: browser.Action{Action: "release"}, ClientID: "test-window", Generation: generation})
 	need(t, err)
 	action(browser.Action{Action: "snapshot"})
 	action(browser.Action{Action: "click", Selector: "#submit"})
@@ -235,32 +245,31 @@ func testBrowserRealTask(t *testing.T, full bool) {
 	if snap := action(browser.Action{Action: "snapshot"}); !strings.Contains(snap, "用户输入") {
 		t.Fatal("closed the active tab instead", snap)
 	}
-	s.mu.Lock()
-	r.browserTabsAt = time.Time{}
-	s.mu.Unlock()
-	status, err := s.browserStatus(t.Context(), owner, e.AssistantID)
-	need(t, err)
-	var metadata struct{ TabCount int }
-	need(t, json.Unmarshal(status, &metadata))
-	if metadata.TabCount != 1 {
-		t.Fatalf("bad tab count: %s", status)
+	for deadline := time.Now().Add(10 * time.Second); ; {
+		status, err := s.BrowserManage(t.Context(), owner, e.AssistantID, tools.BrowserRequest{Action: browser.Action{Action: "status"}})
+		need(t, err)
+		var metadata struct{ TabCount int }
+		need(t, json.Unmarshal(status, &metadata))
+		if metadata.TabCount == 1 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("bad tab count: %s", status)
+		}
+		time.Sleep(50 * time.Millisecond)
 	}
 	action(browser.Action{Action: "screenshot"})
-	_, err = s.browserRequest(t.Context(), owner, e.AssistantID, tools.BrowserRequest{Action: browser.Action{Action: "close"}})
+	_, err = browserAction(t.Context(), s, owner, e.AssistantID, tools.BrowserRequest{Action: browser.Action{Action: "close"}})
 	need(t, err)
-	select {
-	case <-r.done:
-	case <-time.After(10 * time.Second):
-		t.Fatal("browser did not stop")
-	}
+	awaitSessionEnd(t, s, owner, e.AssistantID, r.ID, 10*time.Second)
 	e.OperationID = "browser-task-reopen"
-	_, err = s.browserManage(t.Context(), owner, e.AssistantID, tools.BrowserRequest{Action: browser.Action{Action: "start"}, ComputeID: compute, FullAccess: full})
+	_, err = s.BrowserManage(t.Context(), owner, e.AssistantID, tools.BrowserRequest{Action: browser.Action{Action: "start"}, ComputeID: compute, FullAccess: full})
 	need(t, err)
-	r = s.activeBrowser(owner, e.AssistantID, "")
+	r = browserTask(t, s, owner, e.AssistantID)
 	deadline = time.Now().Add(30 * time.Second)
 	for {
 		call, cancel := context.WithTimeout(t.Context(), time.Second)
-		_, err = s.browserCall(call, r, "GET", "/ready", nil)
+		_, err = s.BrowserReady(call, owner, e.AssistantID, r.ID)
 		cancel()
 		if err == nil {
 			break
@@ -277,10 +286,6 @@ func testBrowserRealTask(t *testing.T, full bool) {
 	// Even with an idle reusable command connection, revocation terminates the
 	// execution and releases its namespace, cgroup and pooled connections.
 	need(t, b.Services.Grants.Revoke(t.Context(), owner, policy.RevokeRequest{GrantID: computeGrant.ID, Mutation: core.Mutation{IdempotencyKey: "browser-revoke", ExpectedVersion: computeGrant.Version}}))
-	select {
-	case <-r.done:
-	case <-time.After(5 * time.Second):
-		t.Fatal("browser retained resources after revocation")
-	}
+	awaitSessionEnd(t, s, owner, e.AssistantID, r.ID, 5*time.Second)
 	t.Log("Real browser: navigate, snapshot, fill, click, frame stream, takeover, read-only model, user input, release and close passed")
 }

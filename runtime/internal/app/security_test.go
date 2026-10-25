@@ -107,15 +107,15 @@ func TestBuildResourceCannotReadRuntimeOrEscapeDirectory(t *testing.T) {
 	permission, err := policy.NewService(b.store, policy.Options{ValidatePrincipal: identity.ValidatePrincipal, CheckScope: identity.CheckScope, Owns: ac.owns, ResourceActions: ac.resourceActions})
 	need(t, err)
 	ad := adapters{store: b.store, policy: permission, dataDir: cfg.DataDir}
-	data, err := (&resourceFileTools{adapters: ad}).read(ctx, e, tools.FileReadRequest{FileTarget: tools.FileTarget{ResourceID: r.ID, Path: "ok"}})
+	data, err := (newResourceFileTools(resourceFileOptions{adapters: ad})).Read(ctx, e, tools.FileReadRequest{FileTarget: tools.FileTarget{ResourceID: r.ID, Path: "ok"}})
 	need(t, err)
 	if !strings.Contains(string(data), "permitted") {
 		t.Fatal(string(data))
 	}
-	if _, err = (&resourceFileTools{adapters: ad}).read(ctx, e, tools.FileReadRequest{FileTarget: tools.FileTarget{ResourceID: r.ID, Path: "escape"}}); err == nil {
+	if _, err = (newResourceFileTools(resourceFileOptions{adapters: ad})).Read(ctx, e, tools.FileReadRequest{FileTarget: tools.FileTarget{ResourceID: r.ID, Path: "escape"}}); err == nil {
 		t.Fatal("symlink escaped approved root")
 	}
-	if _, err = (&resourceFileTools{adapters: ad}).read(ctx, e, tools.FileReadRequest{FileTarget: tools.FileTarget{ResourceID: r.ID, Path: "../secret"}}); err == nil {
+	if _, err = (newResourceFileTools(resourceFileOptions{adapters: ad})).Read(ctx, e, tools.FileReadRequest{FileTarget: tools.FileTarget{ResourceID: r.ID, Path: "../secret"}}); err == nil {
 		t.Fatal("traversal escaped root")
 	}
 }

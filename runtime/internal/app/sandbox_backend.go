@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"molr.ai/runtime/internal/filetools"
 	"net"
 	"os"
 	"path/filepath"
@@ -48,7 +49,7 @@ func newSandboxBackend(ctx context.Context, cfg config.Config, store persistence
 		return nil, err
 	}
 	b := &remoteSandboxBackend{cfg: cfg}
-	b.files = &resourceFileTools{adapters: adapters{dataDir: cfg.DataDir, storageConfig: cfg.Sandbox}, resolveOverride: b.resolve, providerOverride: func(ctx context.Context) model.Provider {
+	b.files = newResourceFileTools(resourceFileOptions{adapters: adapters{dataDir: cfg.DataDir, storageConfig: cfg.Sandbox}, resolveOverride: b.resolve, providerOverride: func(ctx context.Context) model.Provider {
 		q := ctx.Value(sandboxRequestKey{}).(sm.Request)
 		p := model.Provider{Protocol: model.Protocol(q.Protocol)}
 		p.Model.SupportsImages = q.Images
@@ -58,7 +59,7 @@ func newSandboxBackend(ctx context.Context, cfg config.Config, store persistence
 			p.Pricing = &model.Pricing{AudioInputMicrosPerMillion: &x}
 		}
 		return p
-	}}
+	}})
 	exe, err := os.Executable()
 	if err != nil {
 		return nil, err
@@ -247,49 +248,49 @@ func (b *remoteSandboxBackend) Call(ctx context.Context, q sm.Request) (json.Raw
 			return nil, core.Invalid("frames", "invalid frame count")
 		}
 		r.TextRange = q.TextRange
-		return f.read(ctx, e, r)
+		return f.Read(ctx, e, r)
 	case "file_search":
 		var r tools.FileSearchRequest
 		if err := decodeSandboxArgs(q.Arguments, &r); err != nil {
 			return nil, err
 		}
-		return f.search(ctx, e, r)
+		return f.Search(ctx, e, r)
 	case "file_list":
 		var r tools.FileListRequest
 		if err := decodeSandboxArgs(q.Arguments, &r); err != nil {
 			return nil, err
 		}
-		return f.list(ctx, e, r)
+		return f.List(ctx, e, r)
 	case "file_write":
 		var r tools.FileWriteRequest
 		if err := decodeSandboxArgs(q.Arguments, &r); err != nil {
 			return nil, err
 		}
-		return f.write(ctx, e, r)
+		return f.Write(ctx, e, r)
 	case "file_edit":
 		var r tools.FileEditRequest
 		if err := decodeSandboxArgs(q.Arguments, &r); err != nil {
 			return nil, err
 		}
-		return f.edit(ctx, e, r)
+		return f.Edit(ctx, e, r)
 	case "file_move":
 		var r tools.FileMoveRequest
 		if err := decodeSandboxArgs(q.Arguments, &r); err != nil {
 			return nil, err
 		}
-		return f.move(ctx, e, r)
+		return f.Move(ctx, e, r)
 	case "file_delete":
 		var r tools.FileDeleteRequest
 		if err := decodeSandboxArgs(q.Arguments, &r); err != nil {
 			return nil, err
 		}
-		return f.delete(ctx, e, r)
+		return f.Delete(ctx, e, r)
 	case "download":
 		var r sandboxDownload
 		if err := decodeSandboxArgs(q.Arguments, &r); err != nil {
 			return nil, err
 		}
-		if r.MaxBytes < 1 || r.MaxBytes > mediaFileLimit {
+		if r.MaxBytes < 1 || r.MaxBytes > filetools.MediaFileLimit {
 			return nil, core.Invalid("limit", "invalid file limit")
 		}
 		root, name, err := f.resolve(ctx, e, r.Target, policy.Read)
@@ -332,7 +333,7 @@ func (b *remoteSandboxBackend) Call(ctx context.Context, q sm.Request) (json.Raw
 		if err != nil {
 			return nil, err
 		}
-		unlock, err := f.lock(ctx, filepath.Join(root, name))
+		unlock, err := f.Lock(ctx, filepath.Join(root, name))
 		if err != nil {
 			return nil, err
 		}
@@ -362,16 +363,16 @@ func (b *remoteSandboxBackend) Call(ctx context.Context, q sm.Request) (json.Raw
 			return nil, err
 		}
 		source.Close()
-		file, err := openResourceFile(f.mediaRoot(e), r.Snapshot)
+		file, err := openResourceFile(f.MediaRoot(e), r.Snapshot)
 		if err != nil {
 			return nil, err
 		}
 		defer file.Close()
-		data, err := io.ReadAll(io.LimitReader(file, mediaPartLimit+1))
+		data, err := io.ReadAll(io.LimitReader(file, filetools.MediaPartLimit+1))
 		if err != nil {
 			return nil, err
 		}
-		if len(data) > mediaPartLimit || digestBytes(data) != r.Snapshot {
+		if len(data) > filetools.MediaPartLimit || digestBytes(data) != r.Snapshot {
 			return nil, denied()
 		}
 		return json.Marshal(sandboxBlob{Data: data})

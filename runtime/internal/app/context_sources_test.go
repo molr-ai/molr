@@ -112,7 +112,7 @@ func TestWorkspaceContextAuthorizesIdentityAndSkillReads(t *testing.T) {
 	need(t, os.MkdirAll(filepath.Join(root, ".agents/skills/check"), 0700))
 	need(t, os.WriteFile(filepath.Join(root, "AGENTS.md"), []byte("private rules"), 0600))
 	need(t, os.WriteFile(filepath.Join(root, ".agents/skills/check/SKILL.md"), []byte("secret workflow"), 0600))
-	fs := &resourceFileTools{adapters: f.ad}
+	fs := newResourceFileTools(resourceFileOptions{adapters: f.ad})
 	sources, err := fs.contextSources(t.Context(), agent.ContextRequest{Execution: f.execution})
 	need(t, err)
 	if len(sources) != 5 {

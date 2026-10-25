@@ -11,7 +11,7 @@ async function post(page: Page, path: string, data: object) {
 }
 async function observe(page: Page) {
   await page.evaluate(async () => {
-    const path = '/src/api/client.ts'; const { api, onMutation } = await import(path);
+    const path = '/@id/@molr/sdk'; const { api, onMutation } = await import(path);
     const state = window as any; state.pluginMutations = []; state.pluginReads = [];
     onMutation((path: string) => state.pluginMutations.push(path));
     const client = api as any;

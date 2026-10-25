@@ -23,6 +23,15 @@ import (
 // Routes are registered explicitly against the restricted Services ports. No
 // reflection or arbitrary method name can invoke internal execution methods.
 func (s *HTTPServer) businessRoutes() {
+	if s.options.ChatChannel != nil {
+		s.handle("GET /api/assistants/{id}/chat-channel", func(r *http.Request) (any, error) {
+			id, err := pathID(r)
+			if err != nil {
+				return nil, err
+			}
+			return s.options.ChatChannel(r.Context(), principal(r), id)
+		})
+	}
 	s.weixinRoutes()
 	s.feishuRoutes()
 	s.qqRoutes()

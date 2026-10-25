@@ -112,7 +112,7 @@ test('administrator saves browser proxy settings, keeps and clears credentials',
   await expect(trigger).toBeFocused();
   await page.emulateMedia({reducedMotion:'no-preference'});
   await page.evaluate(async()=>{
-   const path='/src/api/client.ts';const {api}=await import(path);
+   const path='/@id/@molr/sdk';const {api}=await import(path);
    const settings=await api.get('/api/settings');
    await api.mutate('/api/settings',{Settings:{...settings,ReducedMotion:true}},settings.Version);
   });
@@ -124,5 +124,5 @@ test('administrator saves browser proxy settings, keeps and clears credentials',
   await expect(form).toHaveCount(0);
   await expect(trigger).toBeFocused();
  }
- await page.evaluate(async()=>{const path='/src/api/client.ts';const {api}=await import(path);await api.post('/api/auth/logout');});
+ await page.evaluate(async()=>{const path='/@id/@molr/sdk';const {api}=await import(path);await api.post('/api/auth/logout');});
 });

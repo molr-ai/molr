@@ -4,8 +4,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode } from 'react';
 import { UIProvider, ToastProvider, useTheme, usePalettePreference, paletteAssetBase } from '@molr/ui';
 import type { ConnectionState, UILocale, Palette } from '@molr/ui';
-import { api, APIError, clearClientState, csrfToken, onSessionExpired, onMutation } from './api/client';
-import type { Principal } from './api/types';
+import { api, APIError, clearClientState, csrfToken, onSessionExpired, onMutation } from '@molr/sdk';
+import type { Principal } from '@molr/sdk';
 import { messages } from './messages';
 import { useRuntimeConnection } from './use-runtime-connection';
 import { QueryCache } from './query-cache';
@@ -142,20 +142,34 @@ export function useTopicVersion(topic: string) {
   const snapshot = useCallback(() => topics.version(topic), [topics, topic]);
   return useSyncExternalStore(subscribe, snapshot);
 }
-export function useQuery<T>(path: string | null, list = false, interval?: QueryInterval<T>) {
+function useQuerySubscription<T>(path: string | null, list: boolean, interval?: QueryInterval<T>) {
   const { queries } = useData();
   const revision = useTopicVersion(queryTopic(path ?? ''));
   const key = path ? `${list ? 'list' : 'item'}:${path}` : null;
   const cadence = useMemo(() => interval ?? queryInterval(path ?? ''), [interval, path]);
   const subscribe = useCallback((listener: () => void) => key ? queries.subscribe(key, listener, cadence as QueryInterval) : () => {}, [queries, key, cadence]);
-  const snapshot = useCallback(() => queries.snapshot<T>(key), [queries, key]);
-  const state = useSyncExternalStore(subscribe, snapshot);
   const load = useCallback((signal: AbortSignal, refresh = false) => {
     let target = path!;
     if (refresh) { const [base, query] = target.split('?'); const params = new URLSearchParams(query); params.set('refresh', 'true'); target = `${base}?${params}`; }
     return list ? api.all(target, signal) as Promise<T> : api.get<T>(target, signal);
   }, [path, list]);
-  useEffect(() => { if (key) queries.refresh(key, revision, load); }, [queries, key, revision, load]);
+  const sync = useCallback(() => { if (key) queries.refresh(key, revision, load); }, [queries, key, revision, load]);
   const reload = useCallback(() => { if (key) queries.refresh(key, revision, load, true); }, [queries, key, revision, load]);
+  return { queries, key, subscribe, reload, sync };
+}
+export function useQuery<T>(path: string | null, list = false, interval?: QueryInterval<T>) {
+  const { queries, key, subscribe, reload, sync } = useQuerySubscription(path, list, interval);
+  const snapshot = useCallback(() => queries.snapshot<T>(key), [queries, key]);
+  const state = useSyncExternalStore(subscribe, snapshot);
+  // Start after useSyncExternalStore has registered the first subscriber.
+  useEffect(sync, [sync]);
   return { data: state.data, error: state.error, loading: !!path && (state.loading || !state.started), reload };
+}
+/** For data-only views. Select a primitive or an existing subtree, not a new object. */
+export function useQueryValue<T, S>(path: string | null, select: (data: T | undefined) => S, list = false, interval?: QueryInterval<T>) {
+  const { queries, key, subscribe, sync } = useQuerySubscription(path, list, interval);
+  const snapshot = useCallback(() => select(queries.snapshot<T>(key).data), [queries, key, select]);
+  const value = useSyncExternalStore(subscribe, snapshot);
+  useEffect(sync, [sync]);
+  return value;
 }

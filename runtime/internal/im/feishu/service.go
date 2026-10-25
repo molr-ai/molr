@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"molr.ai/runtime/internal/im/channelstate"
 	"molr.ai/runtime/internal/im/channelworker"
 	"strconv"
 	"strings"
@@ -15,7 +16,6 @@ import (
 
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/im/conversation"
-	"molr.ai/runtime/internal/im/realtime"
 	"molr.ai/runtime/internal/notification"
 	"molr.ai/runtime/internal/persistence"
 )
@@ -136,34 +136,21 @@ func (s *Service) Connected(ctx context.Context, owner, chat core.ID) (bool, err
 	return err == nil, err
 }
 func (s *Service) seal(b Binding, secret string) ([]byte, error) {
-	nonce := make([]byte, s.cipher.NonceSize())
-	if _, err := rand.Read(nonce); err != nil {
-		return nil, err
-	}
-	return s.cipher.Seal(nonce, nonce, []byte(secret), []byte(persistence.Key(b.OwnerID, b.ID)+"/"+b.AppID)), nil
+	return channelstate.Seal(s.cipher, []byte(secret), persistence.Key(b.OwnerID, b.ID)+"/"+b.AppID)
 }
 func (s *Service) credentials(b Binding) (Credentials, error) {
-	n := s.cipher.NonceSize()
-	if len(b.Secrets) < n {
-		return Credentials{}, core.NewError(core.Internal, "invalid credential")
-	}
-	raw, err := s.cipher.Open(nil, b.Secrets[:n], b.Secrets[n:], []byte(persistence.Key(b.OwnerID, b.ID)+"/"+b.AppID))
+	raw, err := channelstate.Open(s.cipher, b.Secrets, persistence.Key(b.OwnerID, b.ID)+"/"+b.AppID, "invalid credential")
 	if err != nil {
 		return Credentials{}, err
 	}
 	defer clear(raw)
 	return Credentials{b.AppID, string(raw), b.OpenID}, nil
 }
+func (s *Service) connectionNotice(b Binding) channelstate.Connection {
+	return channelstate.Connection{Channel: "feishu", Bucket: bindingsBucket, State: b.State, OwnerID: b.OwnerID, AssistantID: b.AssistantID, ConversationID: b.ConversationID, Attention: b.State == "reconnecting" || b.State == "credentials_required"}
+}
 func (s *Service) notify(ctx context.Context, b Binding) error {
-	if err := s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		return channelworker.Changed(ctx, tx, bindingsBucket, b.OwnerID, b.ConversationID)
-	}); err != nil {
-		return err
-	}
-	if err := notification.Sync(ctx, s.store, b.OwnerID, notification.Input{Kind: "feishu.connection", Code: b.State, Source: core.Object{Kind: "assistant", ID: b.AssistantID}, AssistantID: b.AssistantID}, b.State == "reconnecting" || b.State == "credentials_required"); err != nil {
-		return err
-	}
-	return realtime.NewStore(s.store).Append(ctx, realtime.Visible{ID: newID(), OwnerID: b.OwnerID, Topic: "feishu.changed", Object: core.Object{Kind: "assistant", ID: b.AssistantID}, ConversationID: b.ConversationID, Version: 1, CreatedAt: time.Now().UTC()})
+	return channelstate.Notify(ctx, s.store, s.connectionNotice(b))
 }
 func (s *Service) Status(ctx context.Context, p core.Principal, id core.ID) (result Status, err error) {
 	result = Status{Channel: "webui", State: "disconnected"}

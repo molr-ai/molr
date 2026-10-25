@@ -1,5 +1,5 @@
 import { Button, Slider } from '@molr/ui';
-import type { Model } from '../../../api/types';
+import type { Model } from '@molr/sdk';
 import { useCopy } from '../../../state';
 import { SettingsHelp } from '../components/SettingsHelp';
 

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import type { Assistant, Model, DebugRun, TrajectoryEntry } from '../src/api/types';
+import type { Assistant, Model, DebugRun, TrajectoryEntry } from '@molr/sdk';
 
 const port = process.env.MOLR_TEST_PORT ?? '5193', base = `http://127.0.0.1:${port}`;
 async function post<T>(page: Page, path: string, data: object, version?: number): Promise<T> {
@@ -65,7 +65,7 @@ test('timeline scrolling reuses formatters and account timezone changes update t
     expect.soft(constructions).toBe(0);
     await expect(first).toHaveText('01:02:03');
     await page.evaluate(async () => {
-      const path = '/src/api/client.ts', { api } = await import(path);
+      const path = '/@id/@molr/sdk', { api } = await import(path);
       const settings = await api.get('/api/settings');
       await api.mutate('/api/settings', { Settings: { ...settings, Timezone: 'Asia/Shanghai' } }, settings.Version);
     });
@@ -73,7 +73,7 @@ test('timeline scrolling reuses formatters and account timezone changes update t
     await expect(page.locator('.trajectory-reset time')).toHaveText('09:01:00');
     await expect(page.locator('[data-record-id="time-run-0:model:model-0"] .trajectory-preview')).toContainText('09:03:03');
     await page.evaluate(async () => {
-      const path = '/src/api/client.ts', { api } = await import(path);
+      const path = '/@id/@molr/sdk', { api } = await import(path);
       const settings = await api.get('/api/settings');
       await api.mutate('/api/settings', { Settings: { ...settings, Language: 'zh' } }, settings.Version);
     });
@@ -82,7 +82,7 @@ test('timeline scrolling reuses formatters and account timezone changes update t
     await expect(first).toHaveText('09:02:03');
   } finally {
     await page.evaluate(async original => {
-      const path = '/src/api/client.ts', { api } = await import(path);
+      const path = '/@id/@molr/sdk', { api } = await import(path);
       const current = await api.get('/api/settings');
       await api.mutate('/api/settings', { Settings: { ...current, Language: original.Language, Timezone: original.Timezone } }, current.Version);
     }, settings);

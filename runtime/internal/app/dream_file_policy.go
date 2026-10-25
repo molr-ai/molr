@@ -8,6 +8,7 @@ import (
 	"molr.ai/runtime/internal/business/memory"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/event"
+	"molr.ai/runtime/internal/filetools"
 	"molr.ai/runtime/internal/platform"
 	"molr.ai/runtime/internal/policy"
 	"path"
@@ -15,7 +16,7 @@ import (
 )
 
 func dreamFileContext(ctx context.Context, d *dream.Coordinator, p core.Principal, event event.AssistantEvent) context.Context {
-	guard := &filePolicy{}
+	guard := &filetools.Policy{}
 	guard.Check = func(ctx context.Context, e core.Execution, t tools.FileTarget, actions ...policy.Action) error {
 		if e.Principal != p || e.AssistantID != event.AssistantID {
 			return core.NewError(core.Forbidden, "dream execution mismatch")
@@ -72,5 +73,5 @@ func dreamFileContext(ctx context.Context, d *dream.Coordinator, p core.Principa
 		}
 		return d.BeforeFileChange(ctx, p, event, e.OperationID, kind, ref, to, version, after)
 	}
-	return context.WithValue(ctx, filePolicyKey{}, guard)
+	return filetools.WithPolicy(ctx, guard)
 }

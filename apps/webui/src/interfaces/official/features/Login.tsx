@@ -2,7 +2,7 @@ import { useErrorToast, useErrorToasts } from '../../../error-toasts';
 import { useEffect, useState } from 'react';
 import { Button, Checkbox, Logo, TextField, useTheme } from '@molr/ui';
 import { BrowserLogin } from '../../../auth-device';
-import { APIError } from '../../../api/client';
+import { APIError } from '@molr/sdk';
 import { useCopy, useSession } from '../../../state';
 
 export function Login() {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Switch, DateTimePicker, TextField } from '@molr/ui';
-import type { DreamConfig } from '../../../api/types';
-import { api } from '../../../api/client';
+import type { DreamConfig } from '@molr/sdk';
+import { api } from '@molr/sdk';
 import { useCopy } from '../../../state';
 
 type Draft = { enabled: boolean; time: string; duration: string };

@@ -1,4 +1,4 @@
-import type { DebugRun, TrajectoryEntry } from '../../../api/types';
+import type { DebugRun, TrajectoryEntry } from '@molr/sdk';
 import { trajectoryTurns, type TrajectoryRecord } from './trajectory';
 
 export type AxisMode = 'time' | 'event';

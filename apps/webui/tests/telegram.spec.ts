@@ -18,7 +18,8 @@ test('Telegram requires confirmation, preserves drafts, survives refresh and dis
  let bound = false, ready = false, canceled = 0, generation = 0, state = 'connected';
  const status = () => ({ Channel: bound ? 'telegram' : 'webui', State: bound ? state : 'disconnected', BotUsername: 'fixture_bot', LastError: '', Deliveries: [] });
  const login = () => ({ ID: `connect-${generation}`, Status: ready ? 'ready' : 'waiting', URL: 'https://t.me/fixture_bot?start=fixture-code', BotUsername: 'fixture_bot', UserID: 12345, UserName: 'Fixture User', ExpiresAt: new Date(Date.now() + 300000).toISOString() });
- await page.route(`**/api/assistants/${assistant.ID}/telegram`, r => r.fulfill({ json: status() }));
+ await page.route(`**/api/assistants/${assistant.ID}/chat-channel*`, route => route.fulfill({ json: { Channel: status().Channel } }));
+ await page.route(`**/api/assistants/${assistant.ID}/telegram*`, r => r.fulfill({ json: status() }));
  await page.route('**/api/telegram/login', async r => { expect(r.request().postDataJSON().Token).toBe('123456:synthetic-token-for-ui-tests'); generation++; await r.fulfill({ json: login() }); });
  await page.route('**/api/telegram/poll', r => r.fulfill({ json: login() }));
  await page.route('**/api/telegram/confirm', r => { expect(ready).toBe(true); bound = true; return r.fulfill({ json: null }); });

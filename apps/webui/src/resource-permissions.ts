@@ -1,4 +1,4 @@
-import type { Grant, Model, Resource } from './api/types';
+import type { Grant, Model, Resource } from '@molr/sdk';
 import type { Copy } from './messages';
 
 /** Resource capabilities come from Runtime; these labels only describe them. */

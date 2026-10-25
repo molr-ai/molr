@@ -13,7 +13,7 @@ import (
 
 func TestCommonFileMoveDeleteReceiptsAndVisibility(t *testing.T) {
 	f, files, target := fileFixture(t)
-	executor := tools.NewExecutor(f.b.store, tools.Options{Authorizer: f.ad.policy, Operations: f.b.Services.Operations.(operation.Service), FileRead: files.read, FileWrite: files.write, FileMove: files.move, FileDelete: files.delete})
+	executor := tools.NewExecutor(f.b.store, tools.Options{Authorizer: f.ad.policy, Operations: f.b.Services.Operations.(operation.Service), FileRead: files.Read, FileWrite: files.Write, FileMove: files.Move, FileDelete: files.Delete})
 	defs, err := executor.Definitions(t.Context(), f.execution.Principal)
 	need(t, err)
 	names := map[string]bool{}
@@ -76,38 +76,38 @@ func TestFileMoveDeleteVersionsDestinationsAndLinks(t *testing.T) {
 	f, files, target := fileFixture(t)
 	before := readFileResult(t, files, f.execution, target)
 	need(t, os.WriteFile(filepath.Join(f.root, "write/existing"), []byte("keep"), 0600))
-	if _, err := files.move(t.Context(), f.execution, tools.FileMoveRequest{FileTarget: target, ToPath: "/write/existing", ExpectedVersion: before.Version}); core.CodeOf(err) != core.Conflict {
+	if _, err := files.Move(t.Context(), f.execution, tools.FileMoveRequest{FileTarget: target, ToPath: "/write/existing", ExpectedVersion: before.Version}); core.CodeOf(err) != core.Conflict {
 		t.Fatal("destination replaced", err)
 	}
 	need(t, os.WriteFile(filepath.Join(f.root, "write/data"), []byte("later edit"), 0600))
-	if _, err := files.delete(t.Context(), f.execution, tools.FileDeleteRequest{FileTarget: target, ExpectedVersion: before.Version}); core.CodeOf(err) != core.Conflict {
+	if _, err := files.Delete(t.Context(), f.execution, tools.FileDeleteRequest{FileTarget: target, ExpectedVersion: before.Version}); core.CodeOf(err) != core.Conflict {
 		t.Fatal("stale delete", err)
 	}
-	if _, err := files.move(t.Context(), f.execution, tools.FileMoveRequest{FileTarget: target, ToPath: "/write/new", ExpectedVersion: before.Version}); core.CodeOf(err) != core.Conflict {
+	if _, err := files.Move(t.Context(), f.execution, tools.FileMoveRequest{FileTarget: target, ToPath: "/write/new", ExpectedVersion: before.Version}); core.CodeOf(err) != core.Conflict {
 		t.Fatal("stale move", err)
 	}
 	need(t, os.Symlink(filepath.Join(f.root, "read/data"), filepath.Join(f.root, "write/link")))
 	link := target
 	link.Path = "/write/link"
-	if _, err := files.delete(t.Context(), f.execution, tools.FileDeleteRequest{FileTarget: link, ExpectedVersion: before.Version}); err == nil {
+	if _, err := files.Delete(t.Context(), f.execution, tools.FileDeleteRequest{FileTarget: link, ExpectedVersion: before.Version}); err == nil {
 		t.Fatal("deleted symlink")
 	}
-	if _, err := files.move(t.Context(), f.execution, tools.FileMoveRequest{FileTarget: link, ToPath: "/write/moved-link", ExpectedVersion: before.Version}); err == nil {
+	if _, err := files.Move(t.Context(), f.execution, tools.FileMoveRequest{FileTarget: link, ToPath: "/write/moved-link", ExpectedVersion: before.Version}); err == nil {
 		t.Fatal("moved symlink")
 	}
 	dir := target
 	dir.Path = "/write"
-	if _, err := files.delete(t.Context(), f.execution, tools.FileDeleteRequest{FileTarget: dir, ExpectedVersion: before.Version}); err == nil {
+	if _, err := files.Delete(t.Context(), f.execution, tools.FileDeleteRequest{FileTarget: dir, ExpectedVersion: before.Version}); err == nil {
 		t.Fatal("deleted directory")
 	}
 }
 func TestFileMoveRequiresDestinationWritePermission(t *testing.T) {
 	f := newResourceAccessFixture(t, nil)
 	f.grant(t, f.storage.ID, "write-scope", []policy.Action{policy.Read, policy.Write}, policy.Scope{PathPrefixes: []string{"/write"}}, nil)
-	files := &resourceFileTools{adapters: f.ad}
+	files := newResourceFileTools(resourceFileOptions{adapters: f.ad})
 	target := tools.FileTarget{ResourceID: f.storage.ID, Path: "/write/data"}
 	before := readFileResult(t, files, f.execution, target)
-	if _, err := files.move(t.Context(), f.execution, tools.FileMoveRequest{FileTarget: target, ToPath: "/read/stolen", ExpectedVersion: before.Version}); core.CodeOf(err) != core.Forbidden {
+	if _, err := files.Move(t.Context(), f.execution, tools.FileMoveRequest{FileTarget: target, ToPath: "/read/stolen", ExpectedVersion: before.Version}); core.CodeOf(err) != core.Forbidden {
 		t.Fatal("destination scope was not checked", err)
 	}
 	if _, err := os.Stat(filepath.Join(f.root, "write/data")); err != nil {

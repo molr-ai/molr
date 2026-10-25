@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Alert, Badge, Button, Drawer, IconButton, ModalPresence, TextField, useBreakpoint } from '@molr/ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Assistant, WeixinLogin, WeixinStatus, TelegramStatus, SlackStatus, DingtalkStatus, FeishuStatus, QQStatus } from '@molr/sdk';
-import { api } from '../../../api/client';
+import { api } from '@molr/sdk';
 import { useCopy, useData, useQuery } from '../../../state';
 import { useErrorToast } from '../../../error-toasts';
 import { poll } from '../../../polling';
@@ -21,7 +21,7 @@ type Channel = 'weixin' | 'qq' | 'telegram' | 'slack' | 'dingtalk' | 'feishu';
 const channels: Channel[] = ['weixin', 'qq', 'feishu', 'dingtalk', 'telegram', 'slack'];
 const names = { zh: { weixin: '微信', qq: 'QQ', telegram: 'Telegram', slack: 'Slack', dingtalk: '钉钉', feishu: '飞书' }, en: { weixin: 'Weixin', qq: 'QQ', telegram: 'Telegram', slack: 'Slack', dingtalk: 'DingTalk', feishu: 'Feishu' } };
 export function ChatChannelDrawer({ assistant, onClose }: { assistant: Assistant; onClose: () => void }) {
- const { locale } = useCopy(), t = weixinCopy[locale], mobile = useBreakpoint('mobile');
+ const { locale } = useCopy(), t = weixinCopy[locale], mobile = useBreakpoint('mobile'), { invalidateTopics } = useData();
  const weixin = useQuery<WeixinStatus>(`/api/assistants/${assistant.ID}/weixin`);
  const qq = useQuery<QQStatus>(`/api/assistants/${assistant.ID}/qq`);
  const telegram = useQuery<TelegramStatus>(`/api/assistants/${assistant.ID}/telegram`);
@@ -31,6 +31,8 @@ export function ChatChannelDrawer({ assistant, onClose }: { assistant: Assistant
  const queries = { weixin, qq, telegram, slack, dingtalk, feishu };
  const ready = channels.every(key => !!queries[key].data);
  const bound = channels.find(key => queries[key].data?.Channel === key);
+ // Detail polling can observe a completed pairing before the next SSE event.
+ useEffect(() => { if (ready) invalidateTopics(['chat-channel']); }, [ready, bound, invalidateTopics]);
  const reserved = channels.find(key => ['qq', 'slack', 'dingtalk'].includes(key) && !!queries[key].data && !['disconnected', 'expired'].includes(queries[key].data!.State));
  const [selected, setSelected] = useState<Channel | null>(null);
  const lastBound = useRef<Channel | undefined>(undefined), lastSelected = useRef<Channel | null>(null);

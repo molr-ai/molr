@@ -22,7 +22,8 @@ test('Slack pairs without losing drafts, locks chat only after confirmation, and
  const models = await (await page.request.get('/api/models')).json();
  const a = await post(page, '/api/assistants', { Name: name, ModelID: models.find((m: any) => m.ResourceID === r.ID).ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } });
  let state = 'disconnected';
- await page.route(`**/api/assistants/${a.ID}/slack`, route => route.fulfill({ json: { Channel: state === 'connected' ? 'slack' : 'webui', State: state, ConnectedAt: null, LastInboundAt: null, LastError: '', Deliveries: [] } }));
+ await page.route(`**/api/assistants/${a.ID}/chat-channel*`, route => route.fulfill({ json: { Channel: state === 'connected' ? 'slack' : 'webui' } }));
+ await page.route(`**/api/assistants/${a.ID}/slack*`, route => route.fulfill({ json: { Channel: state === 'connected' ? 'slack' : 'webui', State: state, ConnectedAt: null, LastInboundAt: null, LastError: '', Deliveries: [] } }));
  await page.route('**/api/slack/connect', route => { const input = route.request().postDataJSON(); expect(input.AppToken).toBe('xapp-test'); expect(input.BotToken).toBe('xoxb-test'); expect(input.UserID).toBe('UUSER'); state = 'pairing'; return route.fulfill({ json: { ID: 'pair', Code: 'molr-test-pairing-code', ExpiresAt: new Date(Date.now() + 300000).toISOString() } }); });
  await page.route('**/api/slack/disconnect', route => { state = 'disconnected'; return route.fulfill({ json: null }); });
  await page.goto(`/#/assistants/${a.ID}`);

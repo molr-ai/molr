@@ -1,7 +1,7 @@
 import './execution-options.css';
 import { useEffect, useState } from 'react';
 import { Alert, Button, Select } from '@molr/ui';
-import type { Grant, Resource } from '../../../api/types';
+import type { Grant, Resource } from '@molr/sdk';
 
 export function useExecutionOptions(resources: Resource[] | undefined, grants: Grant[] | undefined, sandbox: boolean, fullAccess: boolean) {
   const [now, setNow] = useState(Date.now);

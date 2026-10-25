@@ -1,8 +1,8 @@
 import { useId, useState } from 'react';
 import { Badge, Button, Checkbox, Dialog, Drawer, ModalPresence, EmptyState, SearchField, Select, Tabs, TextField } from '@molr/ui';
 import { Layers, Plus, RefreshCw, Search, Server, Wrench } from 'lucide-react';
-import type { Assistant, MCPCall, MCPConnection, MCPTool, Resource, ToolCapability } from '../../../api/types';
-import { api, mutationKey } from '../../../api/client';
+import type { Assistant, MCPCall, MCPConnection, MCPTool, Resource, ToolCapability } from '@molr/sdk';
+import { api, mutationKey } from '@molr/sdk';
 import { useCopy, useQuery, useSession } from '../../../state';
 import { useErrorToast } from '../../../error-toasts';
 import { useReauthentication } from '../components/ReauthenticationDialog';

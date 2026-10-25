@@ -1,6 +1,6 @@
 import { useErrorToast } from '../../../error-toasts';
 import { DismissibleAlert } from '../components/DismissibleAlert';
-import type { DreamWindow } from '../../../api/types';
+import type { DreamWindow } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
 
 export function DreamConflictNotice({ assistantID, startAt, timezone = 'UTC', recurrence = '', disabled = false }: { assistantID?: string; startAt?: string; timezone?: string; recurrence?: string; disabled?: boolean }) {

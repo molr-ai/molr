@@ -20,6 +20,7 @@ import (
 	"molr.ai/runtime/internal/platform"
 	"molr.ai/runtime/internal/platform/sandbox"
 	"molr.ai/runtime/internal/policy"
+	"molr.ai/runtime/internal/shellsession"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -85,7 +86,7 @@ func (s *shellService) authorize(ctx context.Context, e core.Execution, c platfo
 }
 func (s *shellService) plan(ctx context.Context, e core.Execution, req tools.ShellRequest) (platform.Command, error) {
 	c := platform.Command{FullAccess: req.FullAccess, ForwardPorts: req.ForwardPorts, Script: req.Script, Directory: req.Directory, RequireIsolation: true, Timeout: s.config.Timeout.Value(), MaxOutputBytes: s.config.MaxOutputBytes, Limits: platform.Limits{MemoryBytes: s.config.MemoryBytes, Processes: s.config.Processes, CPUPercent: s.config.CPUPercent, TempBytes: s.config.TempBytes, MaxFileBytes: s.config.MaxFileBytes}}
-	if managedShellFor(ctx, e) != nil {
+	if shellsession.ManagedFor(ctx, e) != nil {
 		c.Managed = true
 		c.TTY = req.TTY
 		c.Timeout = time.Duration(req.TimeoutSeconds) * time.Second
@@ -105,7 +106,7 @@ func (s *shellService) plan(ctx context.Context, e core.Execution, req tools.She
 		if err := (access{s.store}).execution(ctx, e); err != nil {
 			return err
 		}
-		if managedShellFor(ctx, e) == nil {
+		if shellsession.ManagedFor(ctx, e) == nil {
 			if op, err := persistence.Load[operation.Operation](ctx, s.store, "agent.operations", persistence.Key(e.Principal.OwnerID, e.OperationID)); err == nil && op.State != operation.Running {
 				return denied()
 			} else if err != nil && !persistence.Missing(err) {
@@ -302,16 +303,16 @@ func (s *shellService) execute(ctx context.Context, e core.Execution, req tools.
 		_ = s.record(ctx, e, "sandbox.finish", audit.Failed, string(core.ReasonOf(err)))
 		return nil, err
 	}
-	if scope := managedShellFor(ctx, e); scope != nil {
+	if scope := shellsession.ManagedFor(ctx, e); scope != nil {
 		if observer, ok := p.(interface {
 			NetworkDiagnostic() platform.NetworkDiagnostic
-		}); ok && scope.observe != nil {
-			scope.observe(observer.NetworkDiagnostic)
+		}); ok && scope.Observe != nil {
+			scope.Observe(observer.NetworkDiagnostic)
 		}
 		root := platform.AssistantWorkspace(s.dataDir, s.config.WorkRoot, e.Principal.OwnerID, e.AssistantID)
-		err = scope.started(stdoutPath, stderrPath, c.GPUDeviceIDs, func(ctx context.Context, q tools.ShellTaskRequest) (json.RawMessage, error) {
+		err = scope.Started(stdoutPath, stderrPath, c.GPUDeviceIDs, func(ctx context.Context, q tools.ShellTaskRequest) (json.RawMessage, error) {
 			if q.Action == "read" {
-				return readShellOutput(root, stdoutPath, stderrPath, q)
+				return shellsession.ReadOutput(root, stdoutPath, stderrPath, q)
 			}
 			data := q.Data
 			if q.Action == "interrupt" {

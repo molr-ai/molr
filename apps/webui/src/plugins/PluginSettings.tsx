@@ -1,5 +1,5 @@
 import { useErrorToast } from '../error-toasts';
-import { mutationKey } from '../api/client';
+import { mutationKey } from '@molr/sdk';
 import { useCallback, useEffect, useId, useState } from 'react';
 import { ModalPresence, Badge, Button, Checkbox, Dialog, Select, TextField } from '@molr/ui';
 import { api } from '@molr/sdk';

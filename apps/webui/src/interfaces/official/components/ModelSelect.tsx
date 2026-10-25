@@ -2,7 +2,7 @@ import { useErrorToast } from '../../../error-toasts';
 import { useMemo } from 'react';
 import { Select } from '@molr/ui';
 import type { SelectOption } from '@molr/ui';
-import type { Model, Resource } from '../../../api/types';
+import type { Model, Resource } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
 
 const MODEL_SEARCH_THRESHOLD = 8;

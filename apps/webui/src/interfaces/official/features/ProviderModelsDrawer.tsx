@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Badge, Button, Drawer, IconButton, useBreakpoint } from '@molr/ui';
 import { ChevronLeft, Plus } from 'lucide-react';
-import { api, APIError } from '../../../api/client';
-import type { CurrencyContext, Model, Resource } from '../../../api/types';
+import { api, APIError } from '@molr/sdk';
+import type { CurrencyContext, Model, Resource } from '@molr/sdk';
 import { useErrorToast } from '../../../error-toasts';
 import { useCopy } from '../../../state';
 import { Loading, useAction } from '../components/common';

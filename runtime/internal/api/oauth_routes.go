@@ -16,11 +16,16 @@ func (s *HTTPServer) oauthRoutes() {
 		ID           core.ID
 		Mutation     core.Mutation
 		Verification string `json:"verification"`
-	}) (any, error) { if s.options.ChatGPTDisconnect == nil {
-		return nil, core.NewError(core.Unavailable, "ChatGPT unavailable")
-	}; if err := q.Mutation.Validate(true); err != nil {
-		return nil, err
-	}; revoked, err := s.options.ChatGPTDisconnect(ctx, p, resource.DeleteProviderRequest{ID: q.ID, Mutation: q.Mutation, Verification: auth.Verification{Token: core.NewSecret(q.Verification)}}); return struct{ Revoked bool }{revoked}, err })
+	}) (any, error) {
+		if s.options.ChatGPTDisconnect == nil {
+			return nil, core.NewError(core.Unavailable, "ChatGPT unavailable")
+		}
+		if err := q.Mutation.Validate(true); err != nil {
+			return nil, err
+		}
+		revoked, err := s.options.ChatGPTDisconnect(ctx, p, resource.DeleteProviderRequest{ID: q.ID, Mutation: q.Mutation, Verification: auth.Verification{Token: core.NewSecret(q.Verification)}})
+		return struct{ Revoked bool }{revoked}, err
+	})
 	b := s.options.OAuth
 	if b == nil {
 		b = oauthbroker.New(nil, nil)

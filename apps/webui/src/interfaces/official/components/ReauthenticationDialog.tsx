@@ -1,8 +1,8 @@
 import { useErrorToast } from '../../../error-toasts';
 import { useEffect, useId, useRef, useState } from 'react';
 import { ModalPresence, Button, Dialog, TextField } from '@molr/ui';
-import type { SecurityStatus } from '../../../api/types';
-import { api, APIError } from '../../../api/client';
+import type { SecurityStatus } from '@molr/sdk';
+import { api, APIError } from '@molr/sdk';
 import { useCopy } from '../../../state';
 import { ActionCancelled, Loading, useAction } from './common';
 

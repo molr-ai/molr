@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { TurnMetricsCache } from '../src/turn-metrics-cache';
-import type { TurnMetrics } from '../src/api/types';
-import { clearClientState } from '../src/api/client';
+import type { TurnMetrics } from '@molr/sdk';
+import { clearClientState } from '@molr/sdk';
 
 const globals = ['window', 'document'].map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)] as const);
 test.beforeEach(() => {

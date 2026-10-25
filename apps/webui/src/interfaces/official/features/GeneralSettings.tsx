@@ -2,7 +2,7 @@ import { useErrorToast } from '../../../error-toasts';
 import { timezoneLabel } from '../../../currency';
 import { useMemo } from 'react';
 import { Select } from '@molr/ui';
-import type { RuntimeInfo, Settings } from '../../../api/types';
+import type { RuntimeInfo, Settings } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
 import { Loading } from '../components/common';
 import { SettingsSwitch } from '../components/SettingsHelp';

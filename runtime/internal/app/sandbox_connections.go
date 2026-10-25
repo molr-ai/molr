@@ -7,13 +7,13 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"molr.ai/runtime/internal/catalog"
+	"molr.ai/runtime/internal/sandboxruntime"
 	"molr.ai/runtime/internal/textfiles"
 	"net/http"
 	"net/netip"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"time"
 
 	"molr.ai/runtime/internal/agent/tools"
@@ -44,16 +44,13 @@ type sandboxConnection struct {
 	Digest  string
 }
 type sandboxRouter struct {
-	waitMu                  sync.Mutex
-	waitWG                  sync.WaitGroup
-	waitClosed, waitPolling bool
-	nextWaitPoll            time.Time
-	adapters                adapters
-	shell                   *shellService
-	files                   *resourceFileTools
-	catalog                 tools.Catalog
-	cipher                  cipher.AEAD
-	verify                  func(context.Context, core.Principal, auth.Verification, string) error
+	remoteRuntime *sandboxruntime.Remote
+	adapters      adapters
+	shell         *shellService
+	files         *resourceFileTools
+	catalog       tools.Catalog
+	cipher        cipher.AEAD
+	verify        func(context.Context, core.Principal, auth.Verification, string) error
 }
 
 func newSandboxRouter(a adapters, shell *shellService, key []byte) (*sandboxRouter, error) {
@@ -65,7 +62,9 @@ func newSandboxRouter(a adapters, shell *shellService, key []byte) (*sandboxRout
 	if err != nil {
 		return nil, err
 	}
-	return &sandboxRouter{adapters: a, shell: shell, cipher: box}, nil
+	s := &sandboxRouter{adapters: a, shell: shell, cipher: box}
+	s.remoteRuntime = sandboxruntime.New(a.store, remoteSandboxHost{s})
+	return s, nil
 }
 func (s *sandboxRouter) connection(ctx context.Context, p core.Principal, id core.ID) (sandboxConnection, error) {
 	c, err := catalog.Load[sandboxConnection](ctx, s.adapters.store, "sandbox.connections", id)

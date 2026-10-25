@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import type { PermissionRequest } from '../src/api/types';
+import type { PermissionRequest } from '@molr/sdk';
 
 const port = process.env.MOLR_TEST_PORT ?? '5193', base = `http://127.0.0.1:${port}`;
 async function post(page: Page, path: string, data: object) {
@@ -30,7 +30,10 @@ async function fixture(page: Page) {
   // concurrent arrivals and partial failures without timing-dependent scheduling.
   let rows: PermissionRequest[] = [], calls: any[] = [], failAt = 0, arrive = false;
   const proposals = () => ['newest', 'middle', 'oldest'].map((id, index) => ({ ...proposal, ID: id, Version: index + 1, CreatedAt: new Date(Date.now() - index * 1000).toISOString() }));
-  await page.route(`**${path}`, route => route.fulfill({ json: rows }));
+  // Manual refresh adds a query parameter; keep every list read in this fixture
+  // on the same controlled dataset as the mocked resolve responses.
+  await page.route(url => url.pathname === '/api/permission-requests' && url.searchParams.get('assistant_id') === assistant.ID,
+    route => route.fulfill({ json: rows }));
   await page.route('**/api/permission-requests/resolve', async route => {
     const body = route.request().postDataJSON(); calls.push(body);
     if (calls.length === failAt) { await route.fulfill({ status: 409, json: { code: 'conflict', message: 'Request changed.' } }); return; }

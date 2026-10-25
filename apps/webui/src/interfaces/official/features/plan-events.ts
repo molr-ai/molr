@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Plan, PlanEvent, PlanEventPage, PlanExecutionSummary } from '../../../api/types';
+import type { Plan, PlanEvent, PlanEventPage, PlanExecutionSummary } from '@molr/sdk';
 import { poll } from '../../../polling';
-import { api } from '../../../api/client';
+import { api } from '@molr/sdk';
 import { useTopicVersion } from '../../../state';
 
 export const planKey = (plan: Plan) => `${plan.Ref.Kind}-${plan.Ref.ID}`;

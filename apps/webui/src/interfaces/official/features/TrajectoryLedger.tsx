@@ -2,7 +2,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Badge, Button, Tooltip, useBreakpoint } from '@molr/ui';
 import { Bot, ChevronDown, ChevronRight, Wrench, Activity, RotateCcw, Check, AlertTriangle, LoaderCircle, MessageSquare, ArrowDownToLine, ArrowUp, Info } from 'lucide-react';
 import type { AxisFilter } from './trajectory-axis';
-import type { DebugCleanupEvent, DebugRun, TrajectoryEntry } from '../../../api/types';
+import type { DebugCleanupEvent, DebugRun, TrajectoryEntry } from '@molr/sdk';
 import { useCopy } from '../../../state';
 import { durationLabel, recordPreview, trajectoryTurns, type TrajectoryRecord } from './trajectory';
 

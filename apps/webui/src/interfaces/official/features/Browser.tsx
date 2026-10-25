@@ -2,8 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import type { ChangeEvent, KeyboardEvent, PointerEvent, RefObject, WheelEvent } from 'react';
 import { Badge, Button, Drawer, IconButton, useBreakpoint, useToast, useUILocale } from '@molr/ui';
 import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, CornerDownLeft, Globe, Hand, Keyboard, GripHorizontal, PanelRight, PictureInPicture2, Plus, Power, RefreshCw, X } from 'lucide-react';
-import { api, APIError, mutationKey } from '../../../api/client';
-import type { BrowserStatus, Grant, Resource } from '../../../api/types';
+import { api, APIError, mutationKey } from '@molr/sdk';
+import type { BrowserStatus, Grant, Resource } from '@molr/sdk';
 import { useCopy, useQuery, useSession } from '../../../state';
 import { useErrorToast } from '../../../error-toasts';
 import { ComponentDetails, MaintenanceProgress, maintenanceReason, useMaintenanceFailureToast } from '../../../maintenance/Components';

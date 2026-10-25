@@ -1,3 +1,4 @@
+import { RuntimeSession } from './runtime-session.js';
 import { DesktopUpdates } from './updates.js';
 import { applicationMenu } from './menu.js';
 import { app, BrowserWindow, WebContentsView, ipcMain, session, protocol, net, dialog, shell, Menu, powerMonitor, Notification, nativeImage } from 'electron';
@@ -24,11 +25,14 @@ app.enableSandbox();
 if (!app.isPackaged && process.env.MOLR_DESKTOP_DATA) app.setPath('userData', resolve(process.env.MOLR_DESKTOP_DATA));
 let win: BrowserWindow | undefined;
 const oauth = new OAuthFlow();
-let runtimeView: WebContentsView | undefined;
-let notifications: DesktopNotifications | undefined;
+const runtimeSession = new RuntimeSession<WebContentsView, DesktopNotifications>(() => oauth.cancel(), old => {
+  if (win && !win.isDestroyed()) win.contentView.removeChildView(old);
+  for (const item of managedDownloads.get(old.webContents.id) ?? []) item.cancel();
+  managedDownloads.delete(old.webContents.id);
+  old.webContents.close({ waitForBeforeUnload: false });
+});
 let local: LocalRuntime | undefined;
 let initialLogin: { id: string; url: string; expires: number } | undefined;
-let initialLoginView: WebContentsView | undefined;
 let initialLoginTimer: ReturnType<typeof setTimeout> | undefined;
 let store: ConnectionStore;
 let appearance: AppearanceStore;
@@ -36,9 +40,7 @@ let view: DesktopState['view'] = 'manager', error: string | undefined, active: s
 let progress: string | undefined;
 let localUpdateError: string | undefined;
 let localStatus: LocalStatus = { available: false, installed: false, state: 'unavailable' };
-let loadingTimer: ReturnType<typeof setTimeout> | undefined;
 let quitting = false;
-let runtimeLoaded = false, runtimeReady = false;
 const sessions = new Map<string, Session>();
 const managedDownloads = new Map<number, Set<Electron.DownloadItem>>();
 const appVersion = app.isPackaged ? app.getVersion() : 'development';
@@ -60,7 +62,7 @@ let macButtons: { width: number; height: number } | undefined;
 let macTitlebarInset: number | undefined;
 function syncMacWindowButtons() {
   if (process.platform !== 'darwin' || !win || win.isDestroyed() || win.isFullScreen() || !macButtons) return false;
-  const contents = view === 'runtime' ? runtimeView?.webContents : win.webContents;
+  const contents = view === 'runtime' ? runtimeSession.view?.webContents : win.webContents;
   if (!contents || contents.isDestroyed()) return false;
   // CSS pixels scale with the active renderer's zoom; native points do not.
   const zoom = contents.getZoomFactor();
@@ -78,7 +80,7 @@ function syncTitlebar() { if (syncMacWindowButtons()) windowChanged(); }
 function changed() {
   const titlebarChanged = syncMacWindowButtons();
   if (win && !win.isDestroyed()) win.webContents.send('desktop:changed', snapshot());
-  const contents = runtimeView?.webContents;
+  const contents = runtimeSession.view?.webContents;
   if (contents && !contents.isDestroyed() && active && sameOrigin(contents.getURL(), store.get(active).url)) {
     if (titlebarChanged) contents.send('app:window-state', windowState());
     contents.send('app:updates-changed', appUpdates());
@@ -91,12 +93,12 @@ function handle(name: string, fn: (...args: any[]) => unknown) { ipcMain.handle(
 function windowState(): AppWindowState { return { maximized: win?.isMaximized() ?? false, fullscreen: win?.isFullScreen() ?? false, titlebarInset: macTitlebarInset }; }
 function windowChanged() {
   changed();
-  const contents = runtimeView?.webContents;
+  const contents = runtimeSession.view?.webContents;
   if (contents && !contents.isDestroyed() && active && sameOrigin(contents.getURL(), store.get(active).url)) contents.send('app:window-state', windowState());
 }
 function appHandle(name: string, fn: (...args: unknown[]) => unknown, argumentCount = 0) {
   ipcMain.handle(`app:${name}`, (event, ...args: unknown[]) => {
-    const contents = runtimeView?.webContents;
+    const contents = runtimeSession.view?.webContents;
     if (!win || !contents || !active || event.sender !== contents || event.senderFrame !== contents.mainFrame || !sameOrigin(event.senderFrame.url, store.get(active).url)) throw new Error('App controls are unavailable to this page.');
     if (args.length !== argumentCount) throw new Error('Invalid argument count.');
     return fn(...args);
@@ -105,29 +107,18 @@ function appHandle(name: string, fn: (...args: unknown[]) => unknown, argumentCo
 function toggleMaximize() { if (win?.isFullScreen()) win.setFullScreen(false); else if (win?.isMaximized()) win.unmaximize(); else win?.maximize(); }
 // Return IPC replies before tearing down the calling renderer. Also guard
 // against a newly connected view/window being affected by a stale request.
-function disconnectLater() { const current = runtimeView; setTimeout(() => { if (runtimeView === current) manager(); }, 0); }
+function disconnectLater() { const current = runtimeSession.view; setTimeout(() => { if (runtimeSession.view === current) manager(); }, 0); }
 function closeLater() { const current = win; setTimeout(() => { if (win === current) current?.close(); }, 0); }
 function layout() {
-  if (!win || !runtimeView) return;
+  if (!win || !runtimeSession.view) return;
   const [width, height] = win.getContentSize();
-  runtimeView.setBounds({ x: 0, y: 0, width, height });
+  runtimeSession.view.setBounds({ x: 0, y: 0, width, height });
 }
 function revealRuntime() {
-  if (!runtimeLoaded || !runtimeReady || !runtimeView || view === 'runtime') return;
-  clearTimeout(loadingTimer); runtimeView.setVisible(true); runtimeView.webContents.focus(); view = 'runtime'; error = undefined; windowChanged();
+  if (!runtimeSession.complete || !runtimeSession.view || view === 'runtime') return;
+  runtimeSession.reveal(); runtimeSession.view.setVisible(true); runtimeSession.view.webContents.focus(); view = 'runtime'; error = undefined; windowChanged();
 }
-function discard() {
-  initialLoginView = undefined;
-  notifications?.dispose(); notifications = undefined;
-  oauth.cancel();
-  clearTimeout(loadingTimer); runtimeLoaded = false; runtimeReady = false;
-  if (!runtimeView) return;
-  const old = runtimeView; runtimeView = undefined;
-  if (win && !win.isDestroyed()) win.contentView.removeChildView(old);
-  for (const item of managedDownloads.get(old.webContents.id) ?? []) item.cancel();
-  managedDownloads.delete(old.webContents.id);
-  old.webContents.close({ waitForBeforeUnload: false });
-}
+function discard() { runtimeSession.dispose(); }
 function manager() { store.select(undefined); discard(); active = undefined; view = 'manager'; error = undefined; changed(); win?.webContents.focus(); }
 function failed(message: string) { discard(); view = 'failed'; error = message; changed(); }
 async function clearSession(id: string) {
@@ -146,13 +137,13 @@ function configureSession(connection: Connection) {
   const id = connection.id;
   const existing = sessions.get(id); if (existing) return existing;
   const ses = session.fromPartition(partition(id)); sessions.set(id, ses);
-  ses.setPermissionCheckHandler((contents, permission, requestingOrigin) => permission === 'clipboard-sanitized-write' && contents === runtimeView?.webContents && active === id && sameOrigin(requestingOrigin, connection.url));
+  ses.setPermissionCheckHandler((contents, permission, requestingOrigin) => permission === 'clipboard-sanitized-write' && contents === runtimeSession.view?.webContents && active === id && sameOrigin(requestingOrigin, connection.url));
   ses.setDevicePermissionHandler(() => false);
   ses.setPermissionRequestHandler((contents, permission, callback, details) => {
-    callback(!!win && contents === runtimeView?.webContents && active === id && details.isMainFrame && sameOrigin(details.requestingUrl, connection.url) && permission === 'clipboard-sanitized-write');
+    callback(!!win && contents === runtimeSession.view?.webContents && active === id && details.isMainFrame && sameOrigin(details.requestingUrl, connection.url) && permission === 'clipboard-sanitized-write');
   });
   ses.on('will-download', (event, item, contents) => {
-    if (!runtimeView || contents !== runtimeView.webContents || active !== id) { event.preventDefault(); return; }
+    if (!runtimeSession.view || contents !== runtimeSession.view.webContents || active !== id) { event.preventDefault(); return; }
     const items = managedDownloads.get(contents.id) ?? new Set<Electron.DownloadItem>();
     items.add(item); managedDownloads.set(contents.id, items);
     item.setSaveDialogOptions({ title: `保存来自 ${connection.name} 的文件`, defaultPath: join(app.getPath('downloads'), basename(item.getFilename()).replace(/[\\/:*?"<>|\x00-\x1f]/g, '_')) });
@@ -167,16 +158,16 @@ function guardRuntime(contents: WebContents, connection: Connection) {
   installShortcuts(contents);
   contents.setWindowOpenHandler(({ url }) => { void askExternal(url); return { action: 'deny' }; });
   contents.on('will-navigate', (event, url) => { if (!sameOrigin(url, connection.url)) { event.preventDefault(); void askExternal(url); } });
-  contents.on('will-redirect', (event, url) => { if (!allowedFrameURL(url, connection.url, event.isMainFrame)) { event.preventDefault(); if (event.isMainFrame && runtimeView?.webContents === contents) failed('服务重定向到了其他地址，请检查连接配置。'); } });
+  contents.on('will-redirect', (event, url) => { if (!allowedFrameURL(url, connection.url, event.isMainFrame)) { event.preventDefault(); if (event.isMainFrame && runtimeSession.view?.webContents === contents) failed('服务重定向到了其他地址，请检查连接配置。'); } });
   contents.on('will-attach-webview', event => event.preventDefault());
   contents.on('will-frame-navigate', event => {
     // Runtime plugin pages are sandboxed same-origin Blob documents. Preserve
     // that contract without permitting local files or desktop custom protocols.
     if (!event.isMainFrame && !allowedFrameURL(event.url, connection.url, false)) event.preventDefault();
   });
-  contents.on('render-process-gone', () => { if (runtimeView?.webContents === contents) failed('服务页面已退出，可以重新连接。'); });
+  contents.on('render-process-gone', () => { if (runtimeSession.view?.webContents === contents) failed('服务页面已退出，可以重新连接。'); });
   contents.on('did-fail-load', (_event, code, _description, _url, mainFrame) => {
-    if (mainFrame && code !== -3 && runtimeView?.webContents === contents) failed(code <= -200 && code >= -299 ? '无法验证服务器证书，请修复证书后重试。' : `无法连接服务（${code}）。请检查地址和服务状态。`);
+    if (mainFrame && code !== -3 && runtimeSession.view?.webContents === contents) failed(code <= -200 && code >= -299 ? '无法验证服务器证书，请修复证书后重试。' : `无法连接服务（${code}）。请检查地址和服务状态。`);
   });
 }
 async function connect(id: string, loginURL?: string) {
@@ -189,12 +180,10 @@ async function connect(id: string, loginURL?: string) {
   if (loginURL && !sameOrigin(loginURL, connection.url)) throw new Error('登录地址与本机服务不匹配。');
   discard(); active = id; view = 'loading'; error = undefined; store.select(id); changed();
   const contentsView = new WebContentsView({ webPreferences: { preload: join(here, '../preload/runtime.cjs'), session: configureSession(connection), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, allowRunningInsecureContent: false, webviewTag: false, navigateOnDragDrop: false } });
-  runtimeView = contentsView;
-  if (loginURL) initialLoginView = contentsView;
-  notifications = new DesktopNotifications(
+  const notifications = new DesktopNotifications(
     value => new Notification({ title: value.title, body: value.body, silent: true }),
     (scope, route) => {
-      if (runtimeView !== contentsView || contentsView.webContents.isDestroyed() || !sameOrigin(contentsView.webContents.getURL(), connection.url)) return;
+      if (runtimeSession.view !== contentsView || contentsView.webContents.isDestroyed() || !sameOrigin(contentsView.webContents.getURL(), connection.url)) return;
       if (win?.isMinimized()) win.restore();
       win?.show(); win?.focus(); contentsView.webContents.focus();
       contentsView.webContents.send('app:notification-click', scope, route);
@@ -210,22 +199,19 @@ async function connect(id: string, loginURL?: string) {
       return app.setBadgeCount(Math.min(count, 2147483647));
     },
   );
+  runtimeSession.attach(contentsView, notifications, !!loginURL);
   contentsView.setVisible(false);
   win!.contentView.addChildView(contentsView); layout();
   guardRuntime(contentsView.webContents, connection);
   contentsView.webContents.on('did-start-navigation', details => {
-    if (!details.isMainFrame || details.isSameDocument || runtimeView !== contentsView) return;
-    if (details.url !== loginURL) initialLoginView = undefined;
-    notifications?.dispose();
-    oauth.cancel();
-    runtimeLoaded = false; runtimeReady = false; contentsView.setVisible(false); view = 'loading'; error = undefined; changed();
-    clearTimeout(loadingTimer);
-    loadingTimer = setTimeout(() => { if (runtimeView === contentsView && view === 'loading') failed('连接超时，或 WebUI 未能启动 App 模式。请重试连接。'); }, 30000);
+    if (!details.isMainFrame || details.isSameDocument || runtimeSession.view !== contentsView) return;
+    runtimeSession.navigate(contentsView, details.url === loginURL, () => failed('连接超时，或 WebUI 未能启动 App 模式。请重试连接。'));
+    contentsView.setVisible(false); view = 'loading'; error = undefined; changed();
   });
-  contentsView.webContents.on('preload-error', () => { if (runtimeView === contentsView) failed('桌面接口加载失败，请重启桌面应用。'); });
+  contentsView.webContents.on('preload-error', () => { if (runtimeSession.view === contentsView) failed('桌面接口加载失败，请重启桌面应用。'); });
   contentsView.webContents.on('did-finish-load', () => {
-    if (runtimeView !== contentsView || !sameOrigin(contentsView.webContents.getURL(), connection.url)) return;
-    runtimeLoaded = true; revealRuntime();
+    if (runtimeSession.view !== contentsView || !sameOrigin(contentsView.webContents.getURL(), connection.url)) return;
+    runtimeSession.didLoad(contentsView); revealRuntime();
   });
   // The renderer is untrusted. Successful navigation is not authenticated health.
   void contentsView.webContents.loadURL(loginURL ?? connection.url).catch(() => {});
@@ -395,36 +381,36 @@ async function main() {
   handle('state', snapshot);
   handle('sync-titlebar', syncTitlebar);
   handle('minimize', () => win?.minimize()); handle('toggle-maximize', toggleMaximize); handle('close', closeLater);
-  appHandle('info', (): AppInfo => { runtimeReady = true; revealRuntime(); return { apiVersion: 1, platform: process.platform, build: { version: appVersion, commit: appCommit }, connection: { name: store.get(active!).name, url: store.get(active!).url, kind: store.get(active!).kind }, window: windowState() }; });
+  appHandle('info', (): AppInfo => { runtimeSession.didHandshake(); revealRuntime(); return { apiVersion: 1, platform: process.platform, build: { version: appVersion, commit: appCommit }, connection: { name: store.get(active!).name, url: store.get(active!).url, kind: store.get(active!).kind }, window: windowState() }; });
   appHandle('updates-status', async () => { if (store.get(active!).kind === 'managed-local') await refreshLocal(); return appUpdates(); });
   appHandle('updates-check', async () => { await desktopUpdates.check(); return appUpdates(); });
   appHandle('updates-downloads', () => shell.openExternal('https://molr.ai/'));
   appHandle('updates-upgrade-local', () => {
     if (store.get(active!).kind !== 'managed-local') throw new Error('此连接不是桌面管理的本机服务。');
-    const current = runtimeView;
+    const current = runtimeSession.view;
     setTimeout(() => {
-      if (runtimeView !== current) return;
+      if (runtimeSession.view !== current) return;
       void localAction('upgrade').catch(() => { changed(); });
     }, 0);
   });
-  appHandle('consume-initial-login', () => { const allowed = initialLoginView === runtimeView && !!runtimeView; initialLoginView = undefined; return allowed; });
+  appHandle('consume-initial-login', () => runtimeSession.consumeInitialLogin());
   appHandle('appearance', value => { if (appearance.set(value)) changed(); }, 1);
   appHandle('minimize', () => win?.minimize()); appHandle('toggle-maximize', toggleMaximize); appHandle('close', closeLater); appHandle('disconnect', disconnectLater);
-  appHandle('notification-begin', scope => notifications!.begin(scope), 1);
-  appHandle('notification-end', scope => notifications!.end(scope), 1);
-  appHandle('notification-badge', (scope, count) => notifications!.setBadge(scope, count), 2);
+  appHandle('notification-begin', scope => runtimeSession.notifications!.begin(scope), 1);
+  appHandle('notification-end', scope => runtimeSession.notifications!.end(scope), 1);
+  appHandle('notification-badge', (scope, count) => runtimeSession.notifications!.setBadge(scope, count), 2);
   // On macOS initialization asks the OS for permission. Do not call during
   // page load: isSupported is a capability check, not an authorization status.
   appHandle('notification-permission', () => Notification.isSupported());
-  appHandle('notification-show', (scope, value) => notifications!.show(scope, value), 2);
-  appHandle('notification-close', (scope, tag) => notifications!.close(scope, tag), 2);
+  appHandle('notification-show', (scope, value) => runtimeSession.notifications!.show(scope, value), 2);
+  appHandle('notification-close', (scope, tag) => runtimeSession.notifications!.close(scope, tag), 2);
   appHandle('sync-titlebar', syncTitlebar);
   appHandle('oauth-cancel', () => oauth.cancel());
   appHandle('oauth-authorize', provider => {
-    const current = runtimeView!, connection = store.get(active!), window = win!;
+    const current = runtimeSession.view!, connection = store.get(active!), window = win!;
     return oauth.authorize(provider, runtimeOAuthTransport({
       url: connection.url, allowHTTP: connection.allowHTTP, session: current.webContents.session,
-      current: () => runtimeView === current && active === connection.id && !current.webContents.isDestroyed(),
+      current: () => runtimeSession.view === current && active === connection.id && !current.webContents.isDestroyed(),
       confirm: async (origin, signal) => {
         const result = await dialog.showMessageBox(window, { type: 'question', message: '在浏览器中授权服务？', detail: `授权网站：${origin}\n接收连接：${connection.name}\n服务：${connection.url}`, buttons: ['取消', '继续'], defaultId: 0, cancelId: 0, signal });
         return result.response === 1;

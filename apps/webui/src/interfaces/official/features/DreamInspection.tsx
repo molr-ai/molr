@@ -1,6 +1,6 @@
 import { useErrorToast } from '../../../error-toasts';
 import { ChevronRight } from 'lucide-react';
-import type { DreamRun } from '../../../api/types';
+import type { DreamRun } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
 import { Loading } from '../components/common';
 

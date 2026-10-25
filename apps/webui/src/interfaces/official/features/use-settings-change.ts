@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useTheme } from '@molr/ui';
-import type { Settings } from '../../../api/types';
-import { api } from '../../../api/client';
+import type { Settings } from '@molr/sdk';
+import { api } from '@molr/sdk';
 import { useAppearance, useCopy } from '../../../state';
 import { useAction } from '../components/common';
 

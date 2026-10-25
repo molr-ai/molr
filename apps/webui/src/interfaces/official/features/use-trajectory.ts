@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { poll } from '../../../polling';
-import { api, APIError } from '../../../api/client';
-import type { DebugCleanupEvent, DebugRun, TrajectoryEntry, TrajectoryPage } from '../../../api/types';
+import { api, APIError } from '@molr/sdk';
+import type { DebugCleanupEvent, DebugRun, TrajectoryEntry, TrajectoryPage } from '@molr/sdk';
 import { useTopicVersion } from '../../../state';
 import { mergeEntries, mergeRuns } from './trajectory';
 

@@ -70,6 +70,11 @@ Each business package provides `Service` and required `Repository`; task additio
 | Package | Main Exported Interfaces/Types |
 | --- | --- |
 | `app` | `Application`, `Dependencies.Validate`: Lifecycle and composition checks |
+| `shellsession` | `Manager` owns command, terminal, browser, and forwarding lifecycles; `Host` injects authorization and execution routing, with process-local capabilities bound to the original execution identity |
+| `filetools` | `Tools` and capability callbacks: confined file operations, media preparation, and result archives |
+| `workspace` | `Explorer`, `Service`, and request/response types: user workspace operations with an injected authorized root |
+| `sandboxruntime` | `Remote`, `Host`, `Client`: frozen remote execution identity, recovery, and unavailable-node wakeups |
+| `im/channelstate` | `Seal`, `Open`, `Notify`, `SyncNotice`: channel credential envelopes and connection notices |
 | `config` | `Config`, `Defaults`, `Load`, `Validate`: Strict JSON configuration and public network security configuration validation |
 | `logging` | `Options`, `DefaultOptions`, `NewFile`, `OpenFile`: shared size/count policy, private permissions, concurrent writes, rotation, and archive cleanup; `NewFile` is lazy, while `OpenFile` immediately checks the destination and applies retention; share one writer per path within an instance |
 | `api` | `Server`, `Services`, `RateLimiter`, `PublicError`: Transport capability composition, rate limiting, and secure error mapping |

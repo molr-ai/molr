@@ -3,7 +3,7 @@ import { usePluginsVisible } from '../../../plugins/visibility';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ModalPresence, Badge, Button, Dialog, Select, TextField } from '@molr/ui';
 import { Copy, Plus } from 'lucide-react';
-import { api } from '../../../api/client';
+import { api } from '@molr/sdk';
 import { useCopy, useQuery, useSession } from '../../../state';
 import { useReauthentication } from '../components/ReauthenticationDialog';
 import { Confirm, EditDialog, Loading } from '../components/common';

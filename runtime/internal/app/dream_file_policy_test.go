@@ -7,13 +7,14 @@ import (
 	"molr.ai/runtime/internal/business/dream"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/event"
+	"molr.ai/runtime/internal/filetools"
 	"testing"
 )
 
 func TestDreamUsesCommonFileExecutorWithScopedAccess(t *testing.T) {
 	f, files, _ := fileFixture(t)
 	target := tools.FileTarget{Path: "/work/.agents/memory/note.md"}
-	_, err := files.write(t.Context(), f.execution, tools.FileWriteRequest{FileTarget: target, Text: "prior observation"})
+	_, err := files.Write(t.Context(), f.execution, tools.FileWriteRequest{FileTarget: target, Text: "prior observation"})
 	need(t, err)
 	d := f.b.Services.Dreams.(*dream.Coordinator)
 	run, err := d.Request(t.Context(), f.owner, dream.Request{AssistantID: f.execution.AssistantID, Mutation: core.Mutation{IdempotencyKey: "dream"}})
@@ -22,7 +23,7 @@ func TestDreamUsesCommonFileExecutorWithScopedAccess(t *testing.T) {
 	_, err = d.Prepare(t.Context(), f.execution.Principal, ev)
 	need(t, err)
 	ctx := dreamFileContext(t.Context(), d, f.execution.Principal, ev)
-	executor := tools.NewExecutor(f.b.store, tools.Options{Authorizer: f.ad.policy, Operations: f.b.Services.Operations.(operation.Service), FileRead: files.read, FileWrite: files.write, FileMove: files.move, FileDelete: files.delete})
+	executor := tools.NewExecutor(f.b.store, tools.Options{Authorizer: f.ad.policy, Operations: f.b.Services.Operations.(operation.Service), FileRead: files.Read, FileWrite: files.Write, FileMove: files.Move, FileDelete: files.Delete})
 	call := func(name string, args any, id string) (tools.Result, error) {
 		raw, _ := json.Marshal(args)
 		e := f.execution
@@ -37,7 +38,7 @@ func TestDreamUsesCommonFileExecutorWithScopedAccess(t *testing.T) {
 	}
 	response, err := call("file_read", tools.FileReadRequest{FileTarget: target}, "read")
 	need(t, err)
-	var read fileReadResult
+	var read filetools.ReadResult
 	need(t, json.Unmarshal(response.Content, &read))
 	_, err = call("file_write", tools.FileWriteRequest{FileTarget: target, Text: "updated observation", Overwrite: true, ExpectedVersion: read.Version}, "update")
 	need(t, err)
@@ -69,7 +70,7 @@ func TestDreamReadsDiagnosticsRepairsMalformedMemoryAndPreservesUndo(t *testing.
 	f, files, _ := fileFixture(t)
 	target := tools.FileTarget{Path: "/work/.agents/memory/note.md"}
 	original := "---\nstate: invalid-state\ncreated_at: yesterday\ncustom: keep-me\n---\nKeep useful knowledge.\n"
-	_, err := files.write(t.Context(), f.execution, tools.FileWriteRequest{FileTarget: target, Text: original})
+	_, err := files.Write(t.Context(), f.execution, tools.FileWriteRequest{FileTarget: target, Text: original})
 	need(t, err)
 	d := f.b.Services.Dreams.(*dream.Coordinator)
 	run, err := d.Request(t.Context(), f.owner, dream.Request{AssistantID: f.execution.AssistantID, Mutation: core.Mutation{IdempotencyKey: "repair"}})
@@ -78,15 +79,15 @@ func TestDreamReadsDiagnosticsRepairsMalformedMemoryAndPreservesUndo(t *testing.
 	_, err = d.Prepare(t.Context(), f.execution.Principal, ev)
 	need(t, err)
 	ctx := dreamFileContext(t.Context(), d, f.execution.Principal, ev)
-	raw, err := files.read(ctx, f.execution, tools.FileReadRequest{FileTarget: target})
+	raw, err := files.Read(ctx, f.execution, tools.FileReadRequest{FileTarget: target})
 	need(t, err)
-	var read fileReadResult
+	var read filetools.ReadResult
 	need(t, json.Unmarshal(raw, &read))
 	if read.Text != original || len(read.Diagnostics) == 0 {
 		t.Fatal("model did not receive raw text with diagnostics", string(raw))
 	}
 	zero := int64(0)
-	raw, err = files.read(ctx, f.execution, tools.FileReadRequest{FileTarget: target, ByteOffset: &zero, MaxBytes: 1000})
+	raw, err = files.Read(ctx, f.execution, tools.FileReadRequest{FileTarget: target, ByteOffset: &zero, MaxBytes: 1000})
 	need(t, err)
 	var byteRead struct{ Diagnostics json.RawMessage }
 	need(t, json.Unmarshal(raw, &byteRead))
@@ -96,11 +97,11 @@ func TestDreamReadsDiagnosticsRepairsMalformedMemoryAndPreservesUndo(t *testing.
 	e := f.execution
 	e.OperationID = "repair-note"
 	repaired := "---\nstate: active\ncustom: keep-me\n---\nKeep useful knowledge.\n"
-	_, err = files.write(ctx, e, tools.FileWriteRequest{FileTarget: target, Text: repaired, Overwrite: true, ExpectedVersion: read.Version})
+	_, err = files.Write(ctx, e, tools.FileWriteRequest{FileTarget: target, Text: repaired, Overwrite: true, ExpectedVersion: read.Version})
 	need(t, err)
-	raw, err = files.read(ctx, e, tools.FileReadRequest{FileTarget: target})
+	raw, err = files.Read(ctx, e, tools.FileReadRequest{FileTarget: target})
 	need(t, err)
-	var current fileReadResult
+	var current filetools.ReadResult
 	need(t, json.Unmarshal(raw, &current))
 	if current.Text != repaired || len(current.Diagnostics) > 0 {
 		t.Fatal("repair did not clear diagnostics", string(raw))

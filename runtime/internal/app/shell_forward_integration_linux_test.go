@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"io"
+	"molr.ai/runtime/internal/shellsession"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -89,7 +90,7 @@ func forwardCompute(t *testing.T, b *Bundle, owner core.Principal, remote bool) 
 	server := httptest.NewTLSServer(handler)
 	t.Cleanup(func() { manager.Close(); server.Close(); store.Close() })
 	fingerprint := sha256.Sum256(server.Certificate().RawSubjectPublicKeyInfo)
-	router := b.shellTasks.router
+	router := b.remote
 	raw, _ := json.Marshal(map[string]any{"Name": "Forward remote", "Endpoint": server.URL, "ConnectionCode": sandboxConnectionCode(hex.EncodeToString(fingerprint[:]), token), "Mutation": core.Mutation{IdempotencyKey: "forward-remote"}})
 	view, err := router.admin(t.Context(), owner, "connect", raw)
 	need(t, err)
@@ -120,13 +121,13 @@ func TestShellForwardRealLocalAndRemote(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			b, owner, e := taskFixture(t)
 			s := b.shellTasks
-			s.forwardHTTP.TLSMode = config.LocalHTTP
+			httpConfig := config.HTTP{TLSMode: config.LocalHTTP}
 			login, err := b.Services.Auth.Login(t.Context(), auth.LoginRequest{Username: "owner", Password: core.NewSecret("correct-horse-battery-staple-2026!"), Client: auth.Client{Address: "127.0.0.1", DeviceName: "forward-client"}})
 			need(t, err)
 			cookie := &http.Cookie{Name: "molr_dev_session_p8080", Value: login.Session.Token.Reveal()}
 			forwardUser, err := b.Services.Auth.Authenticate(t.Context(), auth.Authentication{Session: login.Session.Token})
 			need(t, err)
-			s.forwardConfig = config.PortForward{Enabled: true, ListenHost: "127.0.0.1", PublicHost: "127.0.0.1"}
+			forwardConfig := config.PortForward{Enabled: true, ListenHost: "127.0.0.1", PublicHost: "127.0.0.1"}
 			var tlsConfig *tls.Config
 			if mode == "local_https" {
 				issuer := httptest.NewTLSServer(nil)
@@ -134,18 +135,19 @@ func TestShellForwardRealLocalAndRemote(t *testing.T) {
 				cert := issuer.TLS.Certificates[0]
 				key, err := x509.MarshalPKCS8PrivateKey(cert.PrivateKey)
 				need(t, err)
-				s.forwardConfig.CertFile = filepath.Join(t.TempDir(), "cert.pem")
-				s.forwardConfig.KeyFile = filepath.Join(t.TempDir(), "key.pem")
-				need(t, os.WriteFile(s.forwardConfig.CertFile, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Certificate[0]}), 0600))
-				need(t, os.WriteFile(s.forwardConfig.KeyFile, pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: key}), 0600))
+				forwardConfig.CertFile = filepath.Join(t.TempDir(), "cert.pem")
+				forwardConfig.KeyFile = filepath.Join(t.TempDir(), "key.pem")
+				need(t, os.WriteFile(forwardConfig.CertFile, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Certificate[0]}), 0600))
+				need(t, os.WriteFile(forwardConfig.KeyFile, pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: key}), 0600))
 				roots := x509.NewCertPool()
 				roots.AddCert(issuer.Certificate())
 				tlsConfig = &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}
 			}
+			s = testForwardManager(b, httpConfig, forwardConfig)
 			compute := forwardCompute(t, b, owner, remote)
 			grant, err := b.Services.Grants.Grant(t.Context(), owner, policy.GrantRequest{Mutation: core.Mutation{IdempotencyKey: "forward-grant"}, AssistantID: e.AssistantID, ResourceID: compute, Actions: []policy.Action{policy.Execute}, Constraints: testResourceConstraints(resource.Compute)})
 			need(t, err)
-			var records []shellTask
+			var records []shellsession.Task
 			for i, mode := range []string{"background", "tty"} {
 				operation := e
 				e.OperationID = core.ID("forward-" + mode)
@@ -153,9 +155,9 @@ func TestShellForwardRealLocalAndRemote(t *testing.T) {
 				nodeResource, err := resource.NewRepository(b.store).Get(t.Context(), owner.OwnerID, compute)
 				need(t, err)
 				req := tools.ShellRequest{SandboxID: sandboxOf(nodeResource), ComputeID: compute, Script: "exec /molr/helper shell-forward-test-server " + mode, ForwardPorts: []int{5173, 5174}, Background: i == 0, TTY: i == 1}
-				raw, err := s.execute(t.Context(), operation, req)
+				raw, err := s.Execute(t.Context(), operation, req)
 				need(t, err)
-				var receipt struct{ Task shellTask }
+				var receipt struct{ Task shellsession.Task }
 				need(t, json.Unmarshal(raw, &receipt))
 				if len(receipt.Task.Forwards) != 2 {
 					t.Fatalf("missing forward receipt: %s", raw)
@@ -177,7 +179,7 @@ func TestShellForwardRealLocalAndRemote(t *testing.T) {
 						break
 					}
 					if time.Now().After(deadline) {
-						row, _ := persistence.Load[shellTask](t.Context(), b.store, shellTasksBucket, persistence.Key(owner.OwnerID, task.ID))
+						row, _ := persistence.Load[shellsession.Task](t.Context(), b.store, shellTasksBucket, persistence.Key(owner.OwnerID, task.ID))
 						t.Fatalf("HTTP unavailable: %v task=%+v", err, row)
 					}
 					time.Sleep(100 * time.Millisecond)
@@ -223,7 +225,7 @@ func TestShellForwardRealLocalAndRemote(t *testing.T) {
 				if echo != "hmr-frame" {
 					t.Fatal(echo)
 				}
-				conn, err := asForwardConn(s.router.dialForward(t.Context(), operation, sandboxOf(nodeResource), 5174))
+				conn, err := shellsession.NetConn(b.remote.dialForward(t.Context(), operation, sandboxOf(nodeResource), 5174))
 				need(t, err)
 				conn.SetDeadline(time.Now().Add(4 * time.Second))
 				payload := strings.Repeat("payload-", 12000)
@@ -236,16 +238,18 @@ func TestShellForwardRealLocalAndRemote(t *testing.T) {
 				if string(result) != mode+":"+payload {
 					t.Fatalf("half-close lost bytes: %d", len(result))
 				}
-				s.mu.Lock()
-				id := s.active[shellKey(operation)].task.SandboxID
-				s.mu.Unlock()
-				if c, err := s.router.dialForward(t.Context(), operation, id, 5175); err == nil {
+				active := runningSession(t, s, owner, operation.AssistantID, operation.OperationID)
+				if active == nil {
+					t.Fatal("forward session missing")
+				}
+				id := active.SandboxID
+				if c, err := b.remote.dialForward(t.Context(), operation, id, 5175); err == nil {
 					c.Close()
 					t.Fatal("undeclared port accessible")
 				}
 				forged := operation
 				forged.Principal.ExecutionID = "another-execution"
-				if c, err := s.router.dialForward(t.Context(), forged, id, 5173); err == nil {
+				if c, err := b.remote.dialForward(t.Context(), forged, id, 5173); err == nil {
 					c.Close()
 					t.Fatal("wrong execution accessible")
 				}
@@ -287,7 +291,7 @@ func TestShellForwardRealLocalAndRemote(t *testing.T) {
 			deadline := time.Now().Add(6 * time.Second)
 			for _, record := range records {
 				for {
-					row, err := persistence.Load[shellTask](t.Context(), b.store, shellTasksBucket, persistence.Key(owner.OwnerID, record.ID))
+					row, err := persistence.Load[shellsession.Task](t.Context(), b.store, shellTasksBucket, persistence.Key(owner.OwnerID, record.ID))
 					need(t, err)
 					if row.State != "running" {
 						for _, f := range row.Forwards {

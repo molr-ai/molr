@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Badge, Button, Drawer, EmptyState, IconButton, SearchField, Select } from '@molr/ui';
 import { BookOpen, Bot, Layers, RefreshCw, Search, Users } from 'lucide-react';
-import type { CatalogSkill, SkillContent, SkillsCatalog as Catalog } from '../../../api/types';
+import type { CatalogSkill, SkillContent, SkillsCatalog as Catalog } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
 import { useErrorToast } from '../../../error-toasts';
 import { Loading } from '../components/common';

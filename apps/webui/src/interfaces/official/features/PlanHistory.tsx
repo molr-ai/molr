@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@molr/ui';
 import { Check, ChevronDown, Clock3, History } from 'lucide-react';
-import type { Plan, PlanExecution, PlanExecutionSummary } from '../../../api/types';
+import type { Plan, PlanExecution, PlanExecutionSummary } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
 import { useErrorToast } from '../../../error-toasts';
 import { planMessages } from '../../../plan-messages';

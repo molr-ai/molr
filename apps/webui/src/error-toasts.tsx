@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useModalScope, useToast } from '@molr/ui';
-import { APIError } from './api/client';
+import { APIError } from '@molr/sdk';
 import { useCopy, useConnection } from './state';
 
 type Source = { toast: ReturnType<typeof useToast>['toast']; boundary: HTMLElement | null; title: string; waitTitle?: (seconds: number) => string; retryLabel: string; retryAt: number; retry?: () => void };

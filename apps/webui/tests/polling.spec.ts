@@ -54,7 +54,7 @@ test('shared query polling serializes slow requests, shares the fastest cadence,
 
 test('errors back off, events cannot bypass Retry-After, and recovered queries resume their cadence', async ({ page }) => {
   await page.evaluate(async () => {
-    const path = '/src/query-store.ts', client = '/src/api/client.ts';
+    const path = '/src/query-store.ts', client = '/@id/@molr/sdk';
     const { QueryStore } = await import(path), { APIError } = await import(client);
     const s = window as any; s.calls = 0; s.store = new QueryStore();
     s.load = async () => { s.calls++; if (s.calls < 3) throw new APIError('unavailable', '', 503); if (s.calls === 3) throw new APIError('rate_limited', '', 429, Date.now() + 20000); return 'recovered'; };

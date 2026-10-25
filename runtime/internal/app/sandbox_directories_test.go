@@ -72,7 +72,7 @@ func TestRemoteDirectoryReferenceChecksScopeAfterDeploymentChanges(t *testing.T)
 	private, err := filepath.EvalSymlinks(t.TempDir())
 	need(t, err)
 	ad := adapters{dataDir: private, storageConfig: config.Sandbox{Enabled: true}}
-	b := &remoteSandboxBackend{cfg: config.Config{DataDir: private, Sandbox: ad.storageConfig}, files: &resourceFileTools{adapters: ad}}
+	b := &remoteSandboxBackend{cfg: config.Config{DataDir: private, Sandbox: ad.storageConfig}, files: newResourceFileTools(resourceFileOptions{adapters: ad})}
 	d, err := b.Directory(t.Context(), sm.DirectoryRequest{Path: root})
 	need(t, err)
 	identity := sm.Identity{OwnerID: "owner", AssistantID: "assistant", ExecutionID: "execution", OperationID: "operation"}

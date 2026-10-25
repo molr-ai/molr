@@ -1,4 +1,4 @@
-import type { ExchangeRates, Money } from './api/types';
+import type { ExchangeRates, Money } from '@molr/sdk';
 
 export function convertMoney(value: Money, currency: string, rates: ExchangeRates): Money {
   if (value.Currency === currency) return value;

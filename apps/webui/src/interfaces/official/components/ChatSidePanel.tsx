@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { ModalPresence, useUILocale } from '@molr/ui';
-import type { Assistant } from '../../../api/types';
+import type { Assistant } from '@molr/sdk';
 
 export type ChatPanelSelection = { kind: 'info' | 'permissions' | 'tasks' | 'shell_tasks' | 'browser' | 'files' | 'terminal'; assistant: Assistant };
 export function isChatPanel(value: { kind: string; assistant: Assistant } | null): value is ChatPanelSelection {

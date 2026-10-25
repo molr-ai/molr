@@ -6,6 +6,7 @@ import (
 	"molr.ai/runtime/internal/agent/tools"
 	"molr.ai/runtime/internal/core"
 	sm "molr.ai/runtime/internal/sandboxmanager"
+	"molr.ai/runtime/internal/shellsession"
 	"path/filepath"
 	"time"
 )
@@ -50,7 +51,7 @@ func (b *remoteSandboxBackend) shellControl(ctx context.Context, q sm.Request) (
 			r.StdoutPath, r.StderrPath = o.StdoutPath, o.StderrPath
 		}
 		root := b.operationRoot(r.Target)
-		out, err := readShellOutput(root, r.StdoutPath, r.StderrPath, request)
+		out, err := shellsession.ReadOutput(root, r.StdoutPath, r.StderrPath, request)
 		if err != nil {
 			return nil, err
 		}
@@ -89,7 +90,7 @@ func (s *sandboxRouter) remoteShellControl(ctx context.Context, e core.Execution
 	if err != nil {
 		return nil, err
 	}
-	raw, _ := json.Marshal(shellRemoteControl{Target: identity(e), Request: q, StdoutPath: "/work/" + shellOutputPrefix(e) + "-stdout.txt", StderrPath: "/work/" + shellOutputPrefix(e) + "-stderr.txt"})
+	raw, _ := json.Marshal(shellRemoteControl{Target: identity(e), Request: q, StdoutPath: "/work/" + shellsession.OutputPrefix(e) + "-stdout.txt", StderrPath: "/work/" + shellsession.OutputPrefix(e) + "-stderr.txt"})
 	i := identity(e)
 	i.OperationID = randomOperation()
 	method := "shell_control"

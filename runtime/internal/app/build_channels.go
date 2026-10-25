@@ -104,6 +104,12 @@ func (b *Bundle) buildChannels(cfg config.Config, key []byte, permissions policy
 	}
 
 	router.items = []chatChannel{b.weixin, b.telegram, b.slack, b.dingtalk, b.feishu, b.qq}
+	// Keep the chat's established display priority, including disconnected but
+	// still bound channels and pending pairings that do not lock web input.
+	b.channelStatus = (channelSummary{access: access, channels: []namedChannel{
+		{"qq", b.qq}, {"feishu", b.feishu}, {"dingtalk", b.dingtalk},
+		{"slack", b.slack}, {"telegram", b.telegram}, {"weixin", b.weixin},
+	}}).read
 	// Reservations in Slack, DingTalk and QQ block binding even before confirmation.
 	// Keep each caller's existing check order so the first error remains unchanged.
 	router.bindingChecks = map[string]func(context.Context, core.ID, core.ID) error{

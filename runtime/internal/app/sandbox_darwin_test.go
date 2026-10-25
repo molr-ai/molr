@@ -15,6 +15,7 @@ import (
 	"molr.ai/runtime/internal/platform"
 	"molr.ai/runtime/internal/platform/sandbox"
 	"molr.ai/runtime/internal/policy"
+	"molr.ai/runtime/internal/shellsession"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -103,16 +104,14 @@ func TestNativeSandboxGrantRoutingAndRevocation(t *testing.T) {
 	run("after-revoke", false, false)
 	// Managed task cancellation and terminal ownership still use existing services.
 	e.OperationID = "native-terminal"
-	raw, err := b.shellTasks.execute(ctx, e, tools.ShellRequest{ComputeID: compute.ID, Script: "exec /bin/sh -i", TTY: true})
+	raw, err := b.shellTasks.Execute(ctx, e, tools.ShellRequest{ComputeID: compute.ID, Script: "exec /bin/sh -i", TTY: true})
 	need(t, err)
 	if !strings.Contains(string(raw), "TTY") {
 		t.Fatal(string(raw))
 	}
 	for deadline := time.Now().Add(3 * time.Second); ; {
-		b.shellTasks.mu.Lock()
-		task := b.shellTasks.active[shellKey(e)]
-		ready := task != nil && task.scope.control != nil
-		b.shellTasks.mu.Unlock()
+		_, readyErr := b.shellTasks.Manage(ctx, owner, e.AssistantID, tools.ShellTaskRequest{Action: "read", TaskID: e.OperationID})
+		ready := readyErr == nil
 		if ready {
 			break
 		}
@@ -121,12 +120,12 @@ func TestNativeSandboxGrantRoutingAndRevocation(t *testing.T) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	_, err = b.shellTasks.manage(ctx, owner, e.AssistantID, tools.ShellTaskRequest{Action: "takeover", TaskID: e.OperationID, ClientID: "native-terminal", Generation: 1})
+	_, err = b.shellTasks.Manage(ctx, owner, e.AssistantID, tools.ShellTaskRequest{Action: "takeover", TaskID: e.OperationID, ClientID: "native-terminal", Generation: 1})
 	need(t, err)
-	_, err = b.shellTasks.manage(ctx, owner, e.AssistantID, tools.ShellTaskRequest{Action: "write", TaskID: e.OperationID, ClientID: "native-terminal", Generation: 2, Sequence: 1, Data: "printf 'TERMINAL_%s\\n' OK\n"})
+	_, err = b.shellTasks.Manage(ctx, owner, e.AssistantID, tools.ShellTaskRequest{Action: "write", TaskID: e.OperationID, ClientID: "native-terminal", Generation: 2, Sequence: 1, Data: "printf 'TERMINAL_%s\\n' OK\n"})
 	need(t, err)
 	for deadline := time.Now().Add(3 * time.Second); ; {
-		raw, err = b.shellTasks.manage(ctx, owner, e.AssistantID, tools.ShellTaskRequest{Action: "read", TaskID: e.OperationID})
+		raw, err = b.shellTasks.Manage(ctx, owner, e.AssistantID, tools.ShellTaskRequest{Action: "read", TaskID: e.OperationID})
 		need(t, err)
 		if strings.Contains(string(raw), "TERMINAL_OK") {
 			break
@@ -136,7 +135,7 @@ func TestNativeSandboxGrantRoutingAndRevocation(t *testing.T) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	_, err = b.shellTasks.manage(ctx, owner, e.AssistantID, tools.ShellTaskRequest{Action: "stop", TaskID: e.OperationID, ClientID: "native-terminal", Generation: 2, Sequence: 2})
+	_, err = b.shellTasks.Manage(ctx, owner, e.AssistantID, tools.ShellTaskRequest{Action: "stop", TaskID: e.OperationID, ClientID: "native-terminal", Generation: 2, Sequence: 2})
 	need(t, err)
 	rows, err := persistence.Select[policy.Grant](ctx, b.store, "security.grants", persistence.Query{})
 	need(t, err)
@@ -149,9 +148,7 @@ func TestNativeSandboxAuthenticatedHTTPAndWebSocketForward(t *testing.T) {
 	b, owner, e := taskFixture(t)
 	ctx := t.Context()
 	need(t, b.sandbox.runner.Prepare(ctx))
-	s := b.shellTasks
-	s.forwardHTTP.TLSMode = config.LocalHTTP
-	s.forwardConfig = config.PortForward{Enabled: true, ListenHost: "127.0.0.1", PublicHost: "127.0.0.1"}
+	s := testForwardManager(b, config.HTTP{TLSMode: config.LocalHTTP}, config.PortForward{Enabled: true, ListenHost: "127.0.0.1", PublicHost: "127.0.0.1"})
 	login, err := b.Services.Auth.Login(ctx, auth.LoginRequest{Username: "owner", Password: core.NewSecret("correct-horse-battery-staple-2026!"), Client: auth.Client{Address: "127.0.0.1", DeviceName: "forward"}})
 	need(t, err)
 	cookie := (&http.Cookie{Name: "molr_dev_session_p8080", Value: login.Session.Token.Reveal()}).String()
@@ -175,9 +172,9 @@ func TestNativeSandboxAuthenticatedHTTPAndWebSocketForward(t *testing.T) {
 	defer target.Close()
 	_, p, _ := net.SplitHostPort(strings.TrimPrefix(target.URL, "http://"))
 	port, _ := strconv.Atoi(p)
-	raw, err := s.execute(ctx, e, tools.ShellRequest{ComputeID: compute.ID, Script: "sleep 30", Background: true, ForwardPorts: []int{port}})
+	raw, err := s.Execute(ctx, e, tools.ShellRequest{ComputeID: compute.ID, Script: "sleep 30", Background: true, ForwardPorts: []int{port}})
 	need(t, err)
-	var receipt struct{ Task shellTask }
+	var receipt struct{ Task shellsession.Task }
 	need(t, json.Unmarshal(raw, &receipt))
 	if len(receipt.Task.Forwards) != 1 {
 		t.Fatal(string(raw))

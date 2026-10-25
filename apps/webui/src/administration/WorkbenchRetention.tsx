@@ -1,8 +1,8 @@
 import { useErrorToast } from '../error-toasts';
 import { useState } from 'react';
-import type { DebugRetentionSettings as RetentionSettings } from '../api/types';
+import type { DebugRetentionSettings as RetentionSettings } from '@molr/sdk';
 import { Button, TextField } from '@molr/ui';
-import { api } from '../api/client';
+import { api } from '@molr/sdk';
 import { useCopy, useData, useQuery } from '../state';
 import { SettingsHelp } from '../interfaces/official/components/SettingsHelp';
 import { Loading, useAction } from '../interfaces/official/components/common';

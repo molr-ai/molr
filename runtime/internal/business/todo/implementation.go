@@ -72,19 +72,8 @@ func mutate[T any](ctx context.Context, s *service, p core.Principal, action str
 			return err
 		}
 		key := persistence.Key(p.OwnerID, core.ID(action+"/"+string(id)+"/"+m.IdempotencyKey))
-		replayed, err := persistence.ReplayReceipt(ctx, tx, receiptBucket, key, digest, &result)
-		if replayed || err != nil {
-			return err
-		}
-		result, err = fn(ctx)
-		if err != nil {
-			return err
-		}
-		encoded, err := json.Marshal(result)
-		if err != nil {
-			return err
-		}
-		return tx.Put(ctx, receiptBucket, key, persistence.Receipt{Digest: digest, Result: encoded})
+		result, err = persistence.MutateReceipt(ctx, tx, receiptBucket, key, digest, fn)
+		return err
 	})
 	return result, err
 }

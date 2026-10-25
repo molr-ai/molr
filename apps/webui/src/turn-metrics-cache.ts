@@ -1,5 +1,5 @@
-import { api, APIError } from './api/client';
-import type { TurnMetrics } from './api/types';
+import { api, APIError } from '@molr/sdk';
+import type { TurnMetrics } from '@molr/sdk';
 
 type Snapshot = { data?: TurnMetrics; error?: unknown; loading: boolean; receivedAt?: number };
 type Entry = { snapshot: Snapshot; listeners: Set<() => void>; controller?: AbortController; timer?: ReturnType<typeof setTimeout>; path: string };

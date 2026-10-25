@@ -2,7 +2,7 @@ import { useErrorToast, useErrorToasts } from '../../../error-toasts';
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { Button, Dialog, EmptyState, Skeleton, useToast } from '@molr/ui';
-import { APIError } from '../../../api/client';
+import { APIError } from '@molr/sdk';
 import { useCopy } from '../../../state';
 
 export function Loading({ delay = 300 }: { delay?: number }) {

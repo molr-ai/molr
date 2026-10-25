@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"molr.ai/runtime/internal/shellsession"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -55,7 +56,7 @@ func TestFullAccessThroughToolExecutor(t *testing.T) {
 	}
 	full, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: f.execution.AssistantID, ResourceID: f.compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true}, Mutation: core.Mutation{IdempotencyKey: "tool-full"}})
 	need(t, err)
-	executor := tools.NewExecutor(f.b.store, tools.Options{Authorizer: f.ad.policy, Operations: operation.NewService(f.b.store, operation.Options{Authorizer: f.ad.policy}), ShellExecute: f.b.shellTasks.execute})
+	executor := tools.NewExecutor(f.b.store, tools.Options{Authorizer: f.ad.policy, Operations: operation.NewService(f.b.store, operation.Options{Authorizer: f.ad.policy}), ShellExecute: f.b.shellTasks.Execute})
 	call := tools.Call{Execution: f.execution, Name: "shell_execute", Arguments: json.RawMessage(fmt.Sprintf(`{"compute_id":%q,"script":"printf native-tool-ok","full_access":true}`, f.compute.ID))}
 	result, err := executor.Execute(t.Context(), call)
 	need(t, err)
@@ -85,8 +86,8 @@ func TestFullAccessLocalAndRemote(t *testing.T) {
 				t.Skip("requires an in-process Linux remote server; covered by Linux CI")
 			}
 			f := newResourceAccessFixture(t, func(c *config.Config, _ string) { directConfig(c) })
-			router := f.b.shellTasks.router
-			files := &resourceFileTools{adapters: f.ad, router: router}
+			router := f.b.remote
+			files := newResourceFileTools(resourceFileOptions{adapters: f.ad, router: router})
 			router.files = files
 			id := core.ID("local")
 			compute := f.compute
@@ -125,7 +126,7 @@ func TestFullAccessLocalAndRemote(t *testing.T) {
 			}
 			external := filepath.Join(t.TempDir(), "outside.txt")
 			target := tools.FileTarget{FullAccess: true, SandboxID: id, Path: external}
-			if _, err := files.write(t.Context(), f.execution, tools.FileWriteRequest{FileTarget: target, Text: "outside"}); err == nil {
+			if _, err := files.Write(t.Context(), f.execution, tools.FileWriteRequest{FileTarget: target, Text: "outside"}); err == nil {
 				t.Fatal("file access without node grant")
 			}
 			grant, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: f.execution.AssistantID, ResourceID: compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true}, Mutation: core.Mutation{IdempotencyKey: "full-access"}})
@@ -133,7 +134,7 @@ func TestFullAccessLocalAndRemote(t *testing.T) {
 			if grant.Constraints != nil {
 				t.Fatal("full access requires no quota")
 			}
-			_, err = files.write(t.Context(), f.execution, tools.FileWriteRequest{FileTarget: target, Text: "outside"})
+			_, err = files.Write(t.Context(), f.execution, tools.FileWriteRequest{FileTarget: target, Text: "outside"})
 			need(t, err)
 			data, err := os.ReadFile(external)
 			need(t, err)
@@ -144,7 +145,7 @@ func TestFullAccessLocalAndRemote(t *testing.T) {
 			need(t, os.Link(external, hard))
 			hardRead := f.execution
 			hardRead.OperationID = "read-hard"
-			if _, err := files.read(t.Context(), hardRead, tools.FileReadRequest{FileTarget: tools.FileTarget{FullAccess: true, SandboxID: id, Path: hard}}); err != nil {
+			if _, err := files.Read(t.Context(), hardRead, tools.FileReadRequest{FileTarget: tools.FileTarget{FullAccess: true, SandboxID: id, Path: hard}}); err != nil {
 				t.Fatal(err)
 			}
 			// Symbolic and hard links follow the operating system's full-access semantics.
@@ -152,7 +153,7 @@ func TestFullAccessLocalAndRemote(t *testing.T) {
 			need(t, os.Symlink(external, linked))
 			read := f.execution
 			read.OperationID = "read-link"
-			raw, err := files.read(t.Context(), read, tools.FileReadRequest{FileTarget: tools.FileTarget{FullAccess: true, SandboxID: id, Path: linked}})
+			raw, err := files.Read(t.Context(), read, tools.FileReadRequest{FileTarget: tools.FileTarget{FullAccess: true, SandboxID: id, Path: linked}})
 			need(t, err)
 			if !strings.Contains(string(raw), "outside") {
 				t.Fatal(string(raw))
@@ -219,12 +220,15 @@ func TestFullAccessBackgroundTasksHaveNoTenTaskQuota(t *testing.T) {
 	for i := 0; i < 11; i++ {
 		e := f.execution
 		e.OperationID = core.ID(fmt.Sprintf("direct-background-%d", i))
-		_, err := f.b.shellTasks.execute(t.Context(), e, tools.ShellRequest{FullAccess: true, ComputeID: f.compute.ID, Script: "sleep 60", Background: true})
+		_, err := f.b.shellTasks.Execute(t.Context(), e, tools.ShellRequest{FullAccess: true, ComputeID: f.compute.ID, Script: "sleep 60", Background: true})
 		need(t, err)
 	}
-	f.b.shellTasks.mu.Lock()
-	count := len(f.b.shellTasks.active)
-	f.b.shellTasks.mu.Unlock()
+	count := 0
+	for _, row := range sessionRows(t, f.b.shellTasks, f.owner, f.execution.AssistantID) {
+		if row.State == "running" {
+			count++
+		}
+	}
 	if count != 11 {
 		t.Fatalf("expected 11 running direct tasks, got %d", count)
 	}
@@ -232,8 +236,8 @@ func TestFullAccessBackgroundTasksHaveNoTenTaskQuota(t *testing.T) {
 
 func TestFullAccessPermissionIsExplicit(t *testing.T) {
 	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { directConfig(c) })
-	router := f.b.shellTasks.router
-	files := &resourceFileTools{adapters: f.ad, router: router}
+	router := f.b.remote
+	files := newResourceFileTools(resourceFileOptions{adapters: f.ad, router: router})
 	e := f.execution
 	outside := filepath.Join(t.TempDir(), "private")
 	need(t, os.WriteFile(outside, []byte("private"), 0600))
@@ -241,15 +245,15 @@ func TestFullAccessPermissionIsExplicit(t *testing.T) {
 	if _, err := router.shellExecute(t.Context(), e, request); core.CodeOf(err) != core.Forbidden {
 		t.Fatal("ordinary grant elevated", err)
 	}
-	if _, err := files.read(t.Context(), e, tools.FileReadRequest{FileTarget: tools.FileTarget{FullAccess: true, Path: outside}}); core.CodeOf(err) != core.Forbidden {
+	if _, err := files.Read(t.Context(), e, tools.FileReadRequest{FileTarget: tools.FileTarget{FullAccess: true, Path: outside}}); core.CodeOf(err) != core.Forbidden {
 		t.Fatal("ordinary grant elevated files", err)
 	}
 	full, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: e.AssistantID, ResourceID: f.compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true}, Mutation: core.Mutation{IdempotencyKey: "full"}})
 	need(t, err)
-	if _, err := files.read(t.Context(), e, tools.FileReadRequest{FileTarget: tools.FileTarget{Path: outside}}); err == nil {
+	if _, err := files.Read(t.Context(), e, tools.FileReadRequest{FileTarget: tools.FileTarget{Path: outside}}); err == nil {
 		t.Fatal("file call upgraded without explicit flag")
 	}
-	if _, err := files.read(t.Context(), e, tools.FileReadRequest{FileTarget: tools.FileTarget{FullAccess: true, Path: outside}}); err != nil {
+	if _, err := files.Read(t.Context(), e, tools.FileReadRequest{FileTarget: tools.FileTarget{FullAccess: true, Path: outside}}); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := router.list(t.Context(), e.Principal)
@@ -336,16 +340,14 @@ func TestFullAccessAndIsolationCoexist(t *testing.T) {
 	for _, isFull := range []bool{false, true} {
 		e := f.execution
 		e.OperationID = core.ID(fmt.Sprintf("background-%t", isFull))
-		_, err := f.b.shellTasks.execute(t.Context(), e, tools.ShellRequest{FullAccess: isFull, ComputeID: f.compute.ID, Script: "sleep 30", Background: true})
+		_, err := f.b.shellTasks.Execute(t.Context(), e, tools.ShellRequest{FullAccess: isFull, ComputeID: f.compute.ID, Script: "sleep 30", Background: true})
 		need(t, err)
 	}
 	need(t, f.b.Services.Grants.Revoke(t.Context(), f.owner, policy.RevokeRequest{GrantID: full.ID, Mutation: core.Mutation{IdempotencyKey: "revoke-coexist", ExpectedVersion: full.Version}}))
 	deadline := time.Now().Add(3 * time.Second)
 	for {
-		f.b.shellTasks.mu.Lock()
-		normal := f.b.shellTasks.active[string(f.owner.OwnerID)+"/background-false"]
-		fullTask := f.b.shellTasks.active[string(f.owner.OwnerID)+"/background-true"]
-		f.b.shellTasks.mu.Unlock()
+		normal := runningSession(t, f.b.shellTasks, f.owner, f.execution.AssistantID, "background-false")
+		fullTask := runningSession(t, f.b.shellTasks, f.owner, f.execution.AssistantID, "background-true")
 		if normal == nil {
 			t.Fatal("isolated task stopped when full access revoked")
 		}
@@ -443,7 +445,7 @@ func TestFullAccessDeploymentGateAndGrantExpiry(t *testing.T) {
 func TestFullAccessRequiresGroupDelegation(t *testing.T) {
 	f := newMultiUserFixture(t, directConfig)
 	ctx := t.Context()
-	router := f.b.shellTasks.router
+	router := f.b.remote
 	r, err := f.b.Services.Resources.Connect(ctx, f.admin, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "compute"}, Kind: resource.Compute, Provider: "local-sandbox", Name: "Compute"})
 	need(t, err)
 	f.group.Resources = append(f.group.Resources, auth.ResourceReference{Kind: "tool", ID: "permission_list"}, auth.ResourceReference{Kind: "tool", ID: "shell_execute"}, auth.ResourceReference{Kind: "sandbox", ID: "local", Quota: auth.ResourceQuota{Concurrent: 1}})
@@ -469,12 +471,12 @@ func TestFullAccessRequiresGroupDelegation(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		run := e
 		run.OperationID = core.ID(fmt.Sprintf("full-member-%d", i))
-		_, err = f.b.shellTasks.execute(ctx, run, tools.ShellRequest{FullAccess: true, ComputeID: r.ID, Script: "sleep 30", Background: true})
+		_, err = f.b.shellTasks.Execute(ctx, run, tools.ShellRequest{FullAccess: true, ComputeID: r.ID, Script: "sleep 30", Background: true})
 		need(t, err)
 	}
 	ordinary := e
 	ordinary.OperationID = "ordinary-member"
-	_, err = f.b.shellTasks.execute(ctx, ordinary, tools.ShellRequest{ComputeID: r.ID, Script: "true"})
+	_, err = f.b.shellTasks.Execute(ctx, ordinary, tools.ShellRequest{ComputeID: r.ID, Script: "true"})
 	if core.ReasonOf(err) == "group_quota_exceeded" {
 		t.Fatal("Full Access consumed ordinary group slots", err)
 	}
@@ -506,7 +508,7 @@ func TestFullAccessManualTerminalRequiresGrantAndStopsOnRevocation(t *testing.T)
 	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { directConfig(c) })
 	s := f.b.shellTasks
 	start := func(id string) (json.RawMessage, error) {
-		return s.startTerminal(t.Context(), f.owner, f.execution.AssistantID, json.RawMessage(fmt.Sprintf(`{"request_id":%q,"client_id":"full-window","compute_id":%q,"full_access":true}`, id, f.compute.ID)))
+		return s.StartTerminal(t.Context(), f.owner, f.execution.AssistantID, json.RawMessage(fmt.Sprintf(`{"request_id":%q,"client_id":"full-window","compute_id":%q,"full_access":true}`, id, f.compute.ID)))
 	}
 	if _, err := start("full-denied"); err == nil {
 		t.Fatal("ungranted Full Access terminal started")
@@ -515,7 +517,7 @@ func TestFullAccessManualTerminalRequiresGrantAndStopsOnRevocation(t *testing.T)
 	need(t, err)
 	raw, err := start("full-allowed")
 	need(t, err)
-	var receipt struct{ Task shellTask }
+	var receipt struct{ Task shellsession.Task }
 	need(t, json.Unmarshal(raw, &receipt))
 	if !receipt.Task.FullAccess || receipt.Task.ComputeID != f.compute.ID {
 		t.Fatal(string(raw))
@@ -528,7 +530,7 @@ func TestFullAccessManualTerminalRequiresGrantAndStopsOnRevocation(t *testing.T)
 	need(t, f.b.Services.Grants.Revoke(t.Context(), f.owner, policy.RevokeRequest{GrantID: grant.ID, Mutation: core.Mutation{IdempotencyKey: "terminal-revoke", ExpectedVersion: grant.Version}}))
 	deadline := time.Now().Add(3 * time.Second)
 	for {
-		task, err := persistence.Load[shellTask](t.Context(), f.b.store, shellTasksBucket, persistence.Key(f.owner.OwnerID, receipt.Task.ID))
+		task, err := persistence.Load[shellsession.Task](t.Context(), f.b.store, shellTasksBucket, persistence.Key(f.owner.OwnerID, receipt.Task.ID))
 		need(t, err)
 		if task.State != "running" {
 			break

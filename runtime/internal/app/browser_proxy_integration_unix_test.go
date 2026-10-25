@@ -19,6 +19,7 @@ import (
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/platform"
 	"molr.ai/runtime/internal/policy"
+	"molr.ai/runtime/internal/shellsession"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -199,8 +200,12 @@ func testBrowserProxy(t *testing.T, full bool) {
 		return u.String()
 	}
 	save := func(server string, bypass []string, auth bool) {
-		old, err := b.shellTasks.loadBrowserProxy(t.Context())
+		view, err := b.shellTasks.BrowserSettings(t.Context(), owner, nil)
 		need(t, err)
+		encoded, err := json.Marshal(view)
+		need(t, err)
+		var old struct{ Version uint64 }
+		need(t, json.Unmarshal(encoded, &old))
 		q := browserSettingsRequest{Mode: "proxy", Server: server, Bypass: bypass, PasswordAction: "clear", Version: old.Version}
 		if auth {
 			q.Username = "fixture-user"
@@ -208,35 +213,32 @@ func testBrowserProxy(t *testing.T, full bool) {
 			q.PasswordAction = "replace"
 		}
 		raw, _ := json.Marshal(q)
-		_, err = b.shellTasks.browserSettings(t.Context(), owner, raw)
+		_, err = b.shellTasks.BrowserSettings(t.Context(), owner, raw)
 		need(t, err)
 	}
-	start := func(offline bool) *runningShell {
+	start := func(offline bool) *shellsession.Task {
 		e.OperationID = core.ID("proxy-task-" + strconv.FormatInt(time.Now().UnixNano(), 10))
 		q := tools.BrowserRequest{Action: browser.Action{Action: "start"}, ComputeID: compute, FullAccess: full}
 		if offline {
 			q.NetworkMode = "none"
 		}
-		_, err := b.shellTasks.browserTool(t.Context(), e, "browser_session", q)
+		_, err := b.shellTasks.BrowserTool(t.Context(), e, "browser_session", q)
 		if err != nil {
 			t.Fatal("start", err)
 		}
-		r := b.shellTasks.activeBrowser(owner, e.AssistantID, "")
+		r := browserTask(t, b.shellTasks, owner, e.AssistantID)
 		if r == nil {
 			t.Fatal("missing browser")
 		}
 		return r
 	}
-	stop := func(r *runningShell) {
-		r.cancel()
-		select {
-		case <-r.done:
-		case <-time.After(15 * time.Second):
-			t.Fatal("browser did not stop")
-		}
+	stop := func(r *shellsession.Task) {
+		_, err := b.shellTasks.BrowserManage(t.Context(), owner, e.AssistantID, tools.BrowserRequest{TaskID: r.ID, Action: browser.Action{Action: "close"}})
+		need(t, err)
+		awaitSessionEnd(t, b.shellTasks, owner, e.AssistantID, r.ID, 15*time.Second)
 	}
 	act := func(action, target string) (string, error) {
-		raw, err := b.shellTasks.browserRequest(t.Context(), e.Principal, e.AssistantID, tools.BrowserRequest{Action: browser.Action{Action: action, URL: target}})
+		raw, err := browserAction(t.Context(), b.shellTasks, e.Principal, e.AssistantID, tools.BrowserRequest{Action: browser.Action{Action: action, URL: target}})
 		return string(raw), err
 	}
 	// A workspace config must not replace the administrator's proxy.

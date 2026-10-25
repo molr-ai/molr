@@ -2,49 +2,14 @@ package app
 
 import (
 	"context"
-	"encoding/json"
-	"io"
-	"log"
 	"log/slog"
-	"molr.ai/runtime/internal/buildinfo"
-	"molr.ai/runtime/internal/chatgpt"
-	"molr.ai/runtime/internal/notification"
-	"molr.ai/runtime/internal/oauthbroker"
-	"molr.ai/runtime/internal/updates"
-	"molr.ai/runtime/internal/webassets"
-	"net/http"
-	"net/netip"
-	"net/url"
-	"os"
-	"path"
-	"path/filepath"
-	"strings"
-	"time"
-
-	"molr.ai/runtime/internal/agent"
-	"molr.ai/runtime/internal/agent/model"
-	"molr.ai/runtime/internal/agent/operation"
-	"molr.ai/runtime/internal/agent/scheduler"
-	"molr.ai/runtime/internal/agent/tools"
 	"molr.ai/runtime/internal/api"
 	"molr.ai/runtime/internal/audit"
 	"molr.ai/runtime/internal/auth"
-	"molr.ai/runtime/internal/business/assistant"
-	"molr.ai/runtime/internal/business/dream"
-	"molr.ai/runtime/internal/business/memory"
-	"molr.ai/runtime/internal/business/plan"
-	"molr.ai/runtime/internal/business/resource"
-	"molr.ai/runtime/internal/business/schedule"
-	"molr.ai/runtime/internal/business/settings"
-	"molr.ai/runtime/internal/business/task"
 	"molr.ai/runtime/internal/business/todo"
 	"molr.ai/runtime/internal/config"
-	"molr.ai/runtime/internal/contextstore"
 	"molr.ai/runtime/internal/core"
-	"molr.ai/runtime/internal/credential"
 	"molr.ai/runtime/internal/debugtrace"
-	"molr.ai/runtime/internal/event"
-	"molr.ai/runtime/internal/im/conversation"
 	"molr.ai/runtime/internal/im/dingtalk"
 	"molr.ai/runtime/internal/im/feishu"
 	"molr.ai/runtime/internal/im/qq"
@@ -52,40 +17,40 @@ import (
 	"molr.ai/runtime/internal/im/slack"
 	"molr.ai/runtime/internal/im/telegram"
 	"molr.ai/runtime/internal/im/weixin"
-	"molr.ai/runtime/internal/mcpclient"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/platform"
-	"molr.ai/runtime/internal/plugins"
-	"molr.ai/runtime/internal/policy"
 	"molr.ai/runtime/internal/pricing"
-	"molr.ai/runtime/internal/search"
+	"molr.ai/runtime/internal/shellsession"
 	"molr.ai/runtime/internal/storage/files"
 	"molr.ai/runtime/internal/storage/sqlite"
+	"path/filepath"
+	"time"
 )
 
 // Bundle is the complete single-server composition. Bootstrap and Database are
 // local CLI capabilities and never registered as HTTP routes or Agent tools.
 type Bundle struct {
-	dingtalk     *dingtalk.Service
-	feishu       *feishu.Service
-	qq           *qq.Service
-	weixin       *weixin.Service
-	telegram     *telegram.Service
-	slack        *slack.Service
-	remote       *sandboxRouter
-	shellTasks   *shellTasks
-	sandbox      *shellService
-	Application  Application
-	Services     api.Services
-	Bootstrap    auth.Bootstrap
-	Database     sqlite.Database
-	HTTP         api.Server
-	Pricing      *pricing.Catalog
-	priceUpdater *pricing.Updater
-	Exchange     *pricing.Exchange
-	Trace        *debugtrace.Service
-	store        persistence.Store
-	objects      *files.ObjectStore
+	channelStatus func(context.Context, core.Principal, core.ID) (any, error)
+	dingtalk      *dingtalk.Service
+	feishu        *feishu.Service
+	qq            *qq.Service
+	weixin        *weixin.Service
+	telegram      *telegram.Service
+	slack         *slack.Service
+	remote        *sandboxRouter
+	shellTasks    *shellsession.Manager
+	sandbox       *shellService
+	Application   Application
+	Services      api.Services
+	Bootstrap     auth.Bootstrap
+	Database      sqlite.Database
+	HTTP          api.Server
+	Pricing       *pricing.Catalog
+	priceUpdater  *pricing.Updater
+	Exchange      *pricing.Exchange
+	Trace         *debugtrace.Service
+	store         persistence.Store
+	objects       *files.ObjectStore
 }
 
 func (b *Bundle) Close() error {
@@ -96,7 +61,7 @@ func (b *Bundle) Close() error {
 		first = b.Application.Shutdown(ctx)
 	}
 	if b.shellTasks != nil {
-		b.shellTasks.close()
+		b.shellTasks.Close()
 	}
 	if b.sandbox != nil {
 		if err := b.sandbox.runner.Close(); first == nil {
@@ -109,7 +74,7 @@ func (b *Bundle) Close() error {
 		}
 	}
 	if b.remote != nil {
-		b.remote.closeWaits()
+		b.remote.remoteRuntime.Close()
 	}
 	if b.Database != nil {
 		if err := b.Database.Close(); first == nil {
@@ -123,8 +88,7 @@ type BuildOptions struct {
 	RequestLogger *slog.Logger
 }
 
-// Build wires only fixed in-process adapters. Network access is constrained at
-// the actual dial; credentials never enter model/tool-visible configuration.
+// Build orders construction and owns cleanup until the complete bundle is returned.
 func Build(ctx context.Context, cfg config.Config, options ...BuildOptions) (bundle *Bundle, err error) {
 	var requestLogger *slog.Logger
 	if len(options) > 0 {
@@ -156,801 +120,74 @@ func Build(ctx context.Context, cfg config.Config, options ...BuildOptions) (bun
 	if err = db.Migrate(ctx); err != nil {
 		return nil, err
 	}
-	store := db.Store()
+	store := b.store
 	access := access{store}
-	var validateReferences func(context.Context, core.Principal, []auth.ResourceReference) error
-	var pluginService *plugins.Service
-	var mcpService *mcpclient.Service
-	identity, err := auth.NewService(store, auth.Options{AfterAccessChange: func(ctx context.Context) {
-		if pluginService != nil {
-			pluginService.RevalidateRunning(ctx)
-		}
-		if mcpService != nil {
-			mcpService.RevalidateRunning(ctx)
-		}
-	}, ValidateResources: func(ctx context.Context, p core.Principal, r []auth.ResourceReference) error {
-		if validateReferences == nil {
-			return core.NewError(core.Unavailable, "resource catalog unavailable")
-		}
-		return validateReferences(ctx, p, r)
-	}, MasterKey: key, LocalHTTP: cfg.HTTP.TLSMode == config.LocalHTTP, LANHTTP: cfg.HTTP.TLSMode == config.LANHTTP, Origin: strings.TrimSuffix(cfg.HTTP.PublicURL, "/"), AllowedOrigins: cfg.HTTP.AllowedOrigins, SessionLifetime: cfg.Auth.SessionLifetime.Value(), SessionIdle: cfg.Auth.SessionIdle.Value(), VerificationLifetime: cfg.Auth.VerificationLifetime.Value(), LoginAttemptsPerMinute: cfg.Auth.LoginAttemptsPerMinute, ValidateAssistant: access.liveAssistant})
+	wiring := &buildWiring{}
+	identity, err := buildIdentity(store, cfg, key, wiring)
 	if err != nil {
 		return nil, err
 	}
 	b.Bootstrap = identity
-	var exchangeRules io.Reader
-	if cfg.Pricing.ExchangeRatesFile != "" {
-		file, openErr := os.Open(cfg.Pricing.ExchangeRatesFile)
-		if openErr != nil {
-			return nil, core.Wrap(core.InvalidArgument, "cannot open exchange rates", openErr)
-		}
-		defer file.Close()
-		exchangeRules = file
-	}
-	b.Exchange, err = pricing.NewExchange(exchangeRules)
-	if err != nil {
+	if err = b.buildPricing(ctx, cfg); err != nil {
 		return nil, err
 	}
-	var resetContext func(context.Context, core.Principal, core.ID, core.Mutation, uint64) error
-	b.Trace = debugtrace.New(store, debugtrace.Options{ResetContext: func(ctx context.Context, p core.Principal, id core.ID, m core.Mutation, sequence uint64) error {
-		if err := identity.CheckScope(ctx, p, "debug.write"); err != nil {
-			return err
-		}
-		if resetContext == nil {
-			return core.NewError(core.FailedPrecondition, "context reset unavailable")
-		}
-		return resetContext(ctx, p, id, m, sequence)
-	}, Administrator: identity.RequireAdministrator, Enabled: cfg.Debug.Enabled, MaxRuns: cfg.Debug.MaxRuns, MaxPayloadBytes: cfg.Debug.MaxPayloadBytes, Authorize: func(ctx context.Context, p core.Principal) error { return identity.CheckScope(ctx, p, "debug.read") }})
-	if traceErr := b.Trace.Recover(ctx); traceErr != nil {
-		log.Printf("debug trace recovery unavailable: %s", core.CodeOf(traceErr))
-	}
-	var grantRouter *sandboxRouter
-	permissions, err := policy.NewService(store, policy.Options{CheckGroupBudget: func(ctx context.Context, r policy.ReserveRequest) error {
-		return checkGroupModelBudget(ctx, store, r, b.Exchange.Snapshot())
-	}, CheckAccess: func(ctx context.Context, p core.Principal, q policy.CheckRequest) error {
-		return groupAccess(ctx, store, p, q)
-	}, ObserveBudget: func(ctx context.Context, id core.ID, data any, err error) {
-		state := "succeeded"
-		if err != nil {
-			state = "failed"
-		}
-		b.Trace.Record(ctx, "budget.decision", state, id, map[string]any{"Decision": data, "Code": core.CodeOf(err), "Reason": core.ReasonOf(err)})
-	}, Exchange: b.Exchange.Snapshot, ValidatePrincipal: identity.ValidatePrincipal, CheckScope: identity.CheckScope, Owns: access.owns, ResourceActions: access.resourceActions, ValidateGrantScope: func(ctx context.Context, p core.Principal, id core.ID, scope policy.Scope) error {
-		if err := access.grantScope(ctx, p, id, scope); err != nil {
-			return err
-		}
-		if scope.FullAccess {
-			r, err := resource.NewRepository(store).Get(ctx, p.OwnerID, id)
-			if err != nil {
-				return err
-			}
-			if grantRouter == nil {
-				return core.NewError(core.Unavailable, "sandbox authorization not ready")
-			}
-			if err := grantRouter.checkFullAccessCapability(ctx, p, r); err != nil {
-				return err
-			}
-		}
-		return nil
-	}, ValidateConstraints: func(ctx context.Context, p core.Principal, id, assistantID core.ID, scope policy.Scope, c *policy.Constraints) error {
-		if scope.FullAccess {
-			return nil
-		}
-		if err := validateGroupConstraints(ctx, store, p, id, assistantID, c); err != nil {
-			return err
-		}
-		return validateResourceConstraints(ctx, store, p, id, c, cfg.Sandbox.ComputeCeilings(), cfg.Sandbox.WorkspaceProjectQuotas)
-	}, ValidateExecution: access.execution, ValidateSettlement: access.historicalExecution, VerifyReceipt: access.verifyReceipt, NoCharge: access.noCharge})
-	if err != nil {
-		return nil, err
-	}
-	b.Pricing, err = pricing.New(nil)
-	if err != nil {
-		return nil, err
-	}
-	b.priceUpdater, err = pricing.NewUpdater(ctx, b.Pricing, pricing.UpdateOptions{File: cfg.Pricing.RulesFile, URL: cfg.Pricing.RulesURL, CacheDir: filepath.Join(cfg.DataDir, "pricing-cache"), Client: platform.ConfiguredHTTPClient(cfg.Pricing.RulesURL, adapters{networkConfig: cfg.Network}.privateAddresses())})
+	permissions, err := b.buildPolicy(ctx, cfg, identity, wiring)
 	if err != nil {
 		return nil, err
 	}
 	adapters := adapters{store: store, policy: permissions, dataDir: cfg.DataDir, networkConfig: cfg.Network, storageConfig: cfg.Sandbox, ownPort: cfg.OwnListenPort(), pricing: b.Pricing}
-
-	chatgptClient := chatgpt.New()
-	vault, err := credential.NewService(store, credential.Options{ResolveProvider: func(ctx context.Context, a credential.Access, meta credential.Credential, secret core.Secret) (core.Secret, core.Secret, error) {
-		if meta.Provider != "chatgpt" {
-			return core.Secret{}, secret, nil
-		}
-		return chatgptClient.Resolve(ctx, secret)
-	}, RequireAdministrator: identity.RequireAdministrator, MasterKey: key, ValidatePrincipal: identity.ValidatePrincipal, CheckScope: identity.CheckScope, CheckVerification: identity.CheckVerification, AuthorizeAccess: func(ctx context.Context, q credential.Access) error {
-		p, err := q.EffectivePrincipal()
-		if err != nil {
-			return err
-		}
-		resourceValue, err := resource.NewRepository(store).Get(ctx, p.OwnerID, q.ResourceID)
-		if err != nil {
-			return err
-		}
-		if resourceValue.Kind != resource.Connection {
-			return adapters.credentialAccess(ctx, q)
-		}
-		if resourceValue.Provider == "mcp" {
-			if mcpService == nil {
-				return denied()
-			}
-			c, err := mcpService.ConnectionAccess(ctx, p, q.ResourceID)
-			if err != nil {
-				return err
-			}
-			if c.CredentialID != q.CredentialID || c.Origin() != q.Origin {
-				return denied()
-			}
-			value, err := credential.NewRepository(store).Get(ctx, p.OwnerID, q.CredentialID)
-			if err != nil {
-				return err
-			}
-			if value.Metadata.Provider != "mcp:"+string(c.ID) {
-				return denied()
-			}
-			return nil
-		}
-		if pluginService == nil {
-			return core.NewError(core.Unavailable, "plugin connections unavailable")
-		}
-		c, provider, err := pluginService.ConnectionAccess(ctx, p, q.ResourceID)
-		if err != nil {
-			return err
-		}
-		if c.CredentialID != q.CredentialID || provider.Origin != q.Origin {
-			return denied()
-		}
-		value, err := credential.NewRepository(store).Get(ctx, p.OwnerID, q.CredentialID)
-		if err != nil {
-			return err
-		}
-		if value.Metadata.Provider != "plugin-http:"+string(c.ID) {
-			return denied()
-		}
-		return nil
-	}})
+	vault, oauth, err := buildCredentials(adapters, identity, key, wiring)
 	if err != nil {
 		return nil, err
 	}
 	adapters.broker = vault
-	chatgptOAuth := &chatgptProvider{store: store, identity: identity, vault: vault, client: chatgptClient}
 	auditService, err := audit.NewService(store, audit.Options{ValidatePrincipal: identity.ValidatePrincipal, CheckScope: identity.CheckScope})
 	if err != nil {
 		return nil, err
 	}
-	b.objects, err = files.NewObjects(filepath.Join(cfg.DataDir, "files"), store)
+	chats, err := b.buildConversations(ctx, cfg, key, permissions)
 	if err != nil {
 		return nil, err
 	}
-	if err = b.objects.Recover(ctx); err != nil {
-		return nil, err
-	}
-	channelRouter := &chatChannels{}
-	fileService := files.NewService(store, b.objects, files.Options{Authorizer: permissions, AuthorizeChannel: func(ctx context.Context, owner, chat, binding core.ID) error {
-		if len(channelRouter.items) == 0 {
-			return core.NewError(core.Forbidden, "channel unavailable")
-		}
-		return channelRouter.AuthorizeChannel(ctx, owner, chat, binding)
-	}, MaxUploadBytes: cfg.Execution.MaxUploadBytes, DiskQuota: func() int64 { return cfg.Execution.MaxDiskBytes }})
-	visible := realtime.NewStore(store)
-	if err = b.buildChannels(cfg, key, permissions, fileService.(files.ChannelStore), channelRouter); err != nil {
-		return nil, err
-	}
-
-	chat := conversation.NewService(store, conversation.Options{Authorizer: permissions, Visible: visible, CheckWebInput: channelRouter.CheckWebInput, AuthorizeChannel: channelRouter.AuthorizeChannel, ValidateChannelFile: fileService.(files.ChannelStore).ValidateChannelFile, Published: channelRouter.Published})
-	b.weixin.SetReceiver(chat.(weixin.Receiver))
-	b.telegram.SetReceiver(chat.(telegram.Receiver))
-	b.slack.SetReceiver(chat.(slack.Receiver))
-	b.dingtalk.SetReceiver(chat.(dingtalk.Receiver))
-	b.feishu.SetReceiver(chat.(feishu.Receiver))
-	b.qq.SetReceiver(chat.(qq.Receiver))
-	providers := adapters.providers()
-	for name, provider := range sandboxProviders(cfg) {
-		providers[name] = provider
-	}
-	var resources resource.Service = resource.NewService(store, resource.Options{Authorizer: permissions, Providers: providers, Credentials: vault, CheckVerification: identity.CheckVerification, OnDeleteProvider: adapters.deleteProviderReferences})
-	var grants policy.Service = permissions
-	var shellExecute func(context.Context, core.Execution, tools.ShellRequest) (json.RawMessage, error)
-	var shellAvailable func(context.Context, core.Principal) (bool, error)
-	var cancelTool func(context.Context, core.Execution, core.ID) error
-	if cfg.Sandbox.Enabled {
-		b.sandbox, err = newShellService(store, permissions, cfg)
-		if err != nil {
-			return nil, err
-		}
-		b.sandbox.audit = auditService
-		provider := providers["local-sandbox"]
-		provider.Check = func(ctx context.Context, _ resource.Binding) (resource.Status, error) {
-			caps, err := b.sandbox.runner.Capabilities(ctx)
-			status := resource.Status{State: resource.Available, ReasonCode: caps.Reason, CheckedAt: time.Now()}
-			if !caps.Shell && !caps.FullAccess {
-				status.State = resource.Offline
-			}
-			return status, err
-		}
-		providers["local-sandbox"] = provider
-		shellExecute = b.sandbox.execute
-		shellAvailable = b.sandbox.available
-		cancelTool = b.sandbox.cancel
-		grants = sandboxGrants{Service: permissions, shell: b.sandbox}
-		resources = sandboxResources{Service: resources, shell: b.sandbox}
-	}
-	sandboxRouter, err := newSandboxRouter(adapters, b.sandbox, key)
+	sandbox, err := b.buildSandbox(cfg, key, adapters, permissions, identity, vault, auditService, maintenance)
 	if err != nil {
 		return nil, err
 	}
-	grantRouter = sandboxRouter
-	sandboxRouter.verify = identity.CheckVerification
-	b.shellTasks = newShellTasks(store, sandboxRouter)
-	b.shellTasks.forwardConfig = cfg.PortForward
-	b.shellTasks.forwardHTTP = cfg.HTTP
-	b.shellTasks.identity = identity
-	b.shellTasks.browserConfig = cfg.Browser
-	b.shellTasks.maintenance = maintenance
-	shellExecute = b.shellTasks.execute
-	shellAvailable = sandboxRouter.available
-	cancelTool = sandboxRouter.cancel
-	grants = remoteSandboxGrants{Service: grants, router: sandboxRouter}
-	resources = remoteSandboxResources{Service: resources, router: sandboxRouter}
-	memoryFiles := memory.NewFiles(memory.FileOptions{JournalRoot: filepath.Join(cfg.DataDir, "memory-operations"), Roots: func(ctx context.Context, owner core.ID, query memory.RootQuery) ([]memory.Root, error) {
-		return runtimeMemoryRoots(ctx, store, cfg.DataDir, adapters.storageConfig.WorkRoot, owner, query)
-	}})
-	memories := memory.NewService(store, memory.Options{Files: memoryFiles, Authorizer: permissions, CheckAssistant: access.assistant})
-	dreams := dream.New(store, dream.Options{Authorizer: permissions, Memories: memories, Files: memoryFiles, Conversations: chat})
-	memoryContext := memoryAccess{memories: memories}
-	searching := search.NewService(store, search.Options{Authorizer: permissions, Memories: memories})
-	indexer := search.NewIndexer(store, search.Options{Authorizer: permissions, Memories: memories})
-	var plans *plan.Coordinator
-	taskOptions := task.Options{BindPlan: func(ctx context.Context, p core.Principal, t *task.Task, r task.CreateRequest) error {
-		return plans.BindTask(ctx, p, t, r)
-	}, Authorizer: permissions, CheckAssistant: access.assistant, ValidateExecution: access.execution, Emit: func(ctx context.Context, p core.Principal, t task.Task, action string) error {
-		if action != "created" && action != "revised" && action != "running" && action != "pending" {
-			return nil
-		}
-		return event.NewWriter(store).AppendAssistant(ctx, event.AssistantEvent{ID: stableEventID(t.ID, t.Version), OwnerID: p.OwnerID, AssistantID: t.AssistantID, TaskID: t.ID, Kind: event.ResumeRequested, DeliveryMode: event.WhenIdle, CreatedAt: time.Now().UTC()})
-	}, VerifyEvidence: func(ctx context.Context, e core.Execution, d task.Delivery) error {
-		return verifyDelivery(ctx, store, e, d)
-	}}
-	tasks := task.NewService(store, taskOptions)
-	plans = plan.New(store, permissions, tasks)
-	operations := operation.NewService(store, operation.Options{Authorizer: permissions, Reconcile: func(ctx context.Context, op operation.Operation) (operation.Completion, error) {
-		if strings.HasPrefix(op.Action, "file_") || op.Action == "shell_execute" {
-			if result, err := sandboxRouter.reconcile(ctx, op); !persistence.Missing(err) {
-				return result, err
-			}
-		}
-		return reconcileOperation(ctx, store, op)
-	}})
-	var observeModel func(context.Context, string, core.ID, any)
-	if cfg.Debug.Enabled {
-		observeModel = func(ctx context.Context, kind string, id core.ID, data any) {
-			state := "succeeded"
-			if fields, ok := data.(map[string]any); ok {
-				if code, ok := fields["Code"].(core.Code); ok && code != "" {
-					state = "failed"
-				}
-				if status, ok := fields["Status"].(int); ok && status >= 400 {
-					state = "failed"
-				}
-			}
-			b.Trace.Record(ctx, kind, state, id, data)
-		}
-	}
-	fileTools := &resourceFileTools{adapters: adapters, router: sandboxRouter}
-	b.shellTasks.browserReadShot = fileTools.read
-	sandboxRouter.files = fileTools
-	var responseLog func(model.Request, model.RawResponse) error
-	if cfg.Diagnostics.ModelResponses {
-		logger, err := model.NewResponseLogger(filepath.Join(cfg.DataDir, "logs", "model-responses"), cfg.Logging)
-		if err != nil {
-			return nil, err
-		}
-		responseLog = logger.Record
-	}
-	modelClient := model.NewClient(store, model.Options{ResponseLog: responseLog, Dispatched: func(ctx context.Context, request model.Request) error {
-		var ids []core.ID
-		for _, input := range request.Inputs {
-			ids = append(ids, input.ReadMessageIDs...)
-		}
-		if len(ids) == 0 {
-			return nil
-		}
-		return chat.ReadUserMessages(ctx, request.Execution, ids)
-	}, PrepareInputs: fileTools.prepareMedia, Observe: observeModel, Authorizer: permissions, Operations: operations, ListModels: adapters.models, Resolve: adapters.provider, CheckReservation: func(ctx context.Context, r model.Request, provider model.Provider) error {
-		return checkReservation(ctx, store, access, r, provider)
-	}, Settle: func(ctx context.Context, e core.Execution, r model.Receipt) error {
-		if r.Charged == nil {
-			return core.NewError(core.FailedPrecondition, "provider cost unknown")
-		}
-		return settleReceipt(ctx, store, permissions, e, r)
-	}, Broker: vault, ClientFor: adapters.client, CheckDestination: adapters.destination})
-	permissionRequests := &permissionRequests{router: sandboxRouter, store: store, authorizer: permissions, grants: grants, chat: chat, afterApproval: func(ctx context.Context, p core.Principal, rows []policy.Grant) error {
-		for _, g := range rows {
-			if g.Scope.FullAccess {
-				if b.sandbox != nil {
-					if err := b.sandbox.runner.StopAccess(ctx, p.OwnerID, g.AssistantID, true); err != nil {
-						return err
-					}
-				}
-				continue
-			}
-			r, err := resource.NewRepository(store).Get(ctx, p.OwnerID, g.ResourceID)
-			if err != nil {
-				return err
-			}
-			if r.Kind == resource.Compute || r.Kind == resource.Storage {
-				if b.sandbox != nil {
-					if err := (sandboxGrants{shell: b.sandbox}).stop(p.OwnerID); err != nil {
-						return err
-					}
-				}
-				return sandboxRouter.invalidate(ctx, p)
-			}
-		}
-		return nil
-	}}
-	pluginService = plugins.New(store, plugins.Options{
-		CheckPlugin: func(ctx context.Context, p core.Principal, id string) error {
-			if err := identity.ValidatePrincipal(ctx, p); err != nil {
-				return err
-			}
-			_, err := groupReference(ctx, store, p.OwnerID, "plugin", plugins.Key(id))
-			return err
-		},
-		CheckTool: func(ctx context.Context, p core.Principal, name string) error {
-			return permissions.Require(ctx, p, policy.CheckRequest{Target: core.Object{Kind: "tool", ID: core.ID(name)}, Action: policy.Execute})
-		},
-		Credentials: vault, Broker: vault,
-		AuthorizeSettings: func(ctx context.Context, p core.Principal) error {
-			return permissions.Require(ctx, p, policy.CheckRequest{Target: core.Object{Kind: "settings", ID: p.OwnerID}, Action: policy.Write})
-		},
-		CheckConnection: func(ctx context.Context, p core.Principal, id core.ID) error {
-			if err := identity.ValidatePrincipal(ctx, p); err != nil {
-				return err
-			}
-			_, err := groupReference(ctx, store, p.OwnerID, "connection", id)
-			return err
-		},
-		CheckConnectionQuota: func(ctx context.Context, p core.Principal, id core.ID) error {
-			return checkPluginConnectionQuota(ctx, store, p, id)
-		},
-		HTTPClient: func(ctx context.Context, p core.Principal, e core.Execution, id core.ID, origin string) (*http.Client, error) {
-			binding := func(ctx context.Context, p core.Principal, id core.ID) (platform.NetworkBinding, error) {
-				_, provider, err := pluginService.ConnectionAccess(ctx, p, id)
-				return platform.NetworkBinding{Origin: provider.Origin}, err
-			}
-			guard := platform.NewNetworkGuard(platform.NetworkOptions{AllowedPrivateAddresses: adapters.privateAddresses(), OwnerBinding: binding, Binding: func(ctx context.Context, e core.Execution, id core.ID) (platform.NetworkBinding, error) {
-				if err := access.execution(ctx, e); err != nil {
-					return platform.NetworkBinding{}, err
-				}
-				return binding(ctx, e.Principal, id)
-			}})
-			if p.Kind == core.ActorOwner {
-				return guard.OwnerHTTPClient(p, id, origin), nil
-			}
-			return guard.HTTPClient(e, id, origin), nil
-		},
-		IsAdministrator: func(ctx context.Context, p core.Principal) (bool, error) {
-			g, err := groupPolicy(ctx, store, p.OwnerID)
-			return g.Administrator, err
-		},
-		UserBinding: func(ctx context.Context, p core.Principal, id core.ID, v plugins.Installation) (plugins.Binding, bool, error) {
-			return groupPluginBinding(ctx, store, p, id, v)
-		},
-		Authorize: func(ctx context.Context, p core.Principal, write bool) error {
-			if write {
-				if err := identity.RequireAdministrator(ctx, p); err != nil {
-					return err
-				}
-			}
-			action := policy.Read
-			if write {
-				action = policy.Write
-			}
-			return permissions.Require(ctx, p, policy.CheckRequest{Target: core.Object{Kind: "settings", ID: p.OwnerID}, Action: action})
-		},
-		CheckAssistant: access.assistant,
-		ReadPlans: func(ctx context.Context, p core.Principal) (any, error) {
-			return plans.List(ctx, p, time.Time{}, time.Time{})
-		},
-	})
-	mcpService = newMCPService(store, identity, permissions, vault, adapters)
-	grants = mcpGrants{Service: grants, mcp: mcpService}
-	extensions := externalTools{plugin: pluginService, mcp: mcpService}
-	profile := &profileTools{workspace: fileTools}
-	executor := tools.NewExecutor(store, tools.Options{ProfileUpdate: profile.update, CheckGroupQuota: func(ctx context.Context, c tools.Call) error { return checkGroupToolQuota(ctx, store, c) }, ExtensionDefinitions: extensions.Definitions, ExtensionValidate: extensions.ValidateCall, ExtensionPrepare: extensions.PrepareCall, ExtensionExecute: extensions.Execute, PermissionList: sandboxRouter.list, PermissionRequest: permissionRequests.create, Cancel: func(ctx context.Context, e core.Execution, id core.ID) error {
-		if mcpService.CancelOperation(e.Principal.OwnerID, id) || pluginService.CancelOperation(e.Principal.OwnerID, id) {
-			return nil
-		}
-		return cancelTool(ctx, e, id)
-	}, ShellAvailable: shellAvailable, ShellExecute: shellExecute, ShellTask: b.shellTasks.tool, Browser: b.shellTasks.browserTool, Authorizer: permissions, Operations: operations, Conversations: chat,
-		FileSearch: fileTools.search, FileTransfer: fileTools.transfer, FileRead: fileTools.read, FileList: fileTools.list, FileWrite: fileTools.write, FileEdit: fileTools.edit, FileMove: fileTools.move, FileDelete: fileTools.delete,
-		Plan:                    planTools{store: store, plans: plans, todos: todo.NewService(store, todo.Options{Authorizer: permissions, CheckAssistant: access.assistant}), schedules: schedule.NewService(store, schedule.Options{Authorizer: permissions, CheckAssistant: access.assistant})}.execute,
-		ConversationAttachments: &conversationAttachments{files: fileService, workspace: fileTools, conversations: chat, maxBytes: cfg.Execution.MaxUploadBytes},
-	})
-	sandboxRouter.catalog = executor
-	validateReferences = func(ctx context.Context, p core.Principal, refs []auth.ResourceReference) error {
-		catalog, err := groupCatalog(ctx, p, adapters, sandboxRouter, executor)
-		if err != nil {
-			return err
-		}
-		available := map[string]groupCatalogItem{}
-		for _, item := range catalog {
-			available[item.Kind+":"+string(item.ID)] = item
-		}
-		for _, ref := range refs {
-			item, ok := available[ref.Kind+":"+string(ref.ID)]
-			if !ok {
-				return core.Invalid("resource", "resource reference is not in the catalog")
-			}
-			if ref.Quota.Storage != nil && !item.WorkspaceQuotaSupported {
-				return core.NewError(core.FailedPrecondition, "sandbox does not support storage hard quotas")
-			}
-			if ref.Quota.Network != nil && item.Limits != nil && (item.Limits.NetworkBytes == 0 || ref.Quota.Network.Bytes > item.Limits.NetworkBytes || ref.Quota.Network.Connections > item.Limits.NetworkConnections) {
-				return core.Invalid("quota.network", "network quota unsupported or exceeds node ceiling")
-			}
-			if ref.Quota.Compute != nil && item.Limits != nil {
-				if err := applyComputeConstraints(&platform.Command{}, ref.Quota.Compute, *item.Limits); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	}
-	{
-		root := filepath.Dir(platform.AssistantWorkspace(cfg.DataDir, cfg.Sandbox.WorkRoot, "owner", "assistant"))
-		if err := prepareDirectory(root); err != nil {
-			return nil, err
-		}
-	}
-	environment := localEnvironment(cfg)
-	b.remote = sandboxRouter
-	queue := scheduler.NewQueue(store)
-	engine := agent.NewRuntime(store, agent.Options{RecoveryAllowed: func(ctx context.Context, t agent.Turn) (bool, error) {
-		if t.Event.TaskID == "" {
-			return true, nil
-		}
-		v, err := persistence.Load[task.Task](ctx, store, "business.tasks", persistence.Key(t.Principal.OwnerID, t.Event.TaskID))
-		if persistence.Missing(err) {
-			return false, nil
-		}
-		if err != nil {
-			return false, err
-		}
-		return v.AssistantID == t.Event.AssistantID && v.State != task.Paused && v.State != task.Canceled && v.State != task.Completed && v.State != task.Failed, nil
-	}, ModelSource: func(ctx context.Context, p core.Principal, id core.ID) (model.StateSource, error) {
-		provider, err := adapters.provider(ctx, p, id)
-		return provider.StateSource(), err
-	}, CheckEnvironment: environment, CompressionTokens: func(ctx context.Context, p core.Principal, id core.ID) (int, error) {
-		a, err := assistant.NewRepository(store).Get(ctx, p.OwnerID, id)
-		return a.ContextCompressionTokens, err
-	}, ContextWindow: func(ctx context.Context, p core.Principal, id core.ID) (int, error) {
-		provider, err := adapters.provider(ctx, p, id)
-		if core.CodeOf(err) == core.NotFound {
-			err = core.WithReason(core.NewError(core.FailedPrecondition, "model unavailable"), core.ModelUnavailable)
-		}
-		return provider.Model.ContextWindow(), err
-	}, OutputLimit: func(ctx context.Context, p core.Principal, id core.ID) (int, error) {
-		provider, err := adapters.provider(ctx, p, id)
-		return provider.Model.OutputWindow(), err
-	}, PrepareToolResult: fileTools.boundResult, Conversations: chat, DreamDeadline: dreams.Deadline, DreamActive: dreams.Active, DreamStop: dreams.Cancel, DreamPrepare: dreams.Prepare, DreamOutput: dreams.SavedOutput, DreamTools: []string{"file_list", "file_search", "file_read", "file_write", "file_edit", "file_move", "file_delete"}, DreamContext: func(ctx context.Context, p core.Principal, e event.AssistantEvent) context.Context {
-		return dreamFileContext(ctx, dreams, p, e)
-	}, DreamCommit: func(ctx context.Context, p core.Principal, e event.AssistantEvent, output string) error {
-		if err := dreams.Commit(ctx, p, e, output); err != nil {
-			return err
-		}
-		r, err := persistence.Load[dream.Run](ctx, store, "business.dream_runs", persistence.Key(p.OwnerID, e.OperationID))
-		if err != nil {
-			return err
-		}
-		b.Trace.Record(ctx, "dream.memory_changes", "succeeded", "", map[string]any{"SessionID": r.SessionID, "Batch": r.Batch, "MemoryFiles": r.MemoryFiles, "FileChanges": r.FileChanges})
-		return nil
-	}, ContextSources: func(ctx context.Context, r agent.ContextRequest) ([]agent.ContextDocument, error) {
-		docs, err := fileTools.contextSources(ctx, r)
-		if err != nil {
-			return nil, err
-		}
-		permissionDocs, err := permissionRequests.context(ctx, r.Execution)
-		if err != nil {
-			return nil, err
-		}
-		profileDoc, err := profile.context(ctx, r.Execution)
-		if err != nil {
-			return nil, err
-		}
-		channelDoc, err := weixinContext(ctx, store, b.weixin, r.Execution)
-		if err == nil && channelDoc == nil {
-			channelDoc, err = qqContext(ctx, store, b.qq, r.Execution)
-		}
-		if err == nil && channelDoc == nil {
-			channelDoc, err = feishuContext(ctx, store, b.feishu, r.Execution)
-		}
-		if err == nil && channelDoc == nil {
-			channelDoc, err = telegramContext(ctx, store, b.telegram, r.Execution)
-		}
-		if err == nil && channelDoc == nil {
-			channelDoc, err = dingtalkContext(ctx, store, b.dingtalk, r.Execution)
-		}
-		if err != nil {
-			return nil, err
-		}
-		if channelDoc != nil {
-			docs = append(docs, *channelDoc)
-		}
-		slackDoc, err := slackContext(ctx, store, b.slack, r.Execution)
-		if err != nil {
-			return nil, err
-		}
-		if slackDoc != nil {
-			docs = append(docs, *slackDoc)
-		}
-		docs = append(docs, profileDoc)
-		docs = append(docs, permissionDocs...)
-		mem, err := memoryContext.context(ctx, r)
-		return append(docs, mem...), err
-	}, InspectCapabilities: func(ctx context.Context, p core.Principal, id core.ID) (agent.Capabilities, error) {
-		result, err := inspectCapabilities(ctx, store, executor, p, id, time.Now())
-		if err == nil {
-			root := platform.AssistantWorkspace(cfg.DataDir, adapters.storageConfig.WorkRoot, p.OwnerID, id)
-			result.Skills.Items, err = workspaceSkills(ctx, root)
-			if err == nil {
-				global, e := scanRootContext(ctx, platform.UserGlobal(cfg.DataDir, p.OwnerID), agent.ContextRequest{}, ".agents/skills", "/global")
-				err = e
-				for _, d := range global {
-					if d.Kind == "skill" {
-						result.Skills.Items = append(result.Skills.Items, agent.SkillInfo{ID: d.Source, Name: path.Base(path.Dir(d.Source)), Description: "Shared workflow: " + d.Source, Version: d.Revision, Enabled: true, RequiredTools: []string{"file_read"}, RequiredActions: []string{"read"}})
-					}
-				}
-			}
-			result.Skills.Supported = true
-		}
-		if err == nil {
-			err = sandboxRouter.inspect(ctx, p, id, &result)
-			if err == nil {
-				result.Skills.Supported = true
-				result.Skills.Items = append([]agent.SkillInfo{builtinSkillInfo()}, result.Skills.Items...)
-			}
-		}
-		if err == nil {
-			err = pluginService.Inspect(ctx, p, id, &result)
-		}
-		return result, err
-	}, ModelRetry: agent.RetryPolicy{MaxAttempts: cfg.Execution.ModelRetry.MaxAttempts, BaseDelay: cfg.Execution.ModelRetry.BaseDelay.Value(), MaxDelay: cfg.Execution.ModelRetry.MaxDelay.Value(), MaxWait: cfg.Execution.ModelRetry.MaxWait.Value(), Deadline: cfg.Execution.ModelRetry.Deadline.Value()}, Trace: b.Trace, Dependencies: agent.Dependencies{Models: modelLimit{modelClient, make(chan struct{}, cfg.Execution.MaxModelCalls)}, Tools: toolLimit{executor, make(chan struct{}, cfg.Execution.MaxToolCalls)}, Policy: permissions, Budget: permissions}, ResolveModel: func(ctx context.Context, p core.Principal, id core.ID) (core.ID, error) {
-		a, err := assistant.NewRepository(store).Get(ctx, p.OwnerID, id)
-		if err != nil {
-			return "", err
-		}
-		if a.ModelID != "" {
-			return a.ModelID, nil
-		}
-		defaults, err := settings.NewRepository(store).Get(ctx, p.OwnerID)
-		if err != nil && !persistence.Missing(err) {
-			return "", err
-		}
-		if defaults.DefaultModelID == "" {
-			return "", core.WithReason(core.NewError(core.FailedPrecondition, "configure an assistant model"), core.ModelNotConfigured)
-		}
-		return defaults.DefaultModelID, nil
-	}, ConversationID: func(ctx context.Context, p core.Principal, id core.ID) (core.ID, error) {
-		a, err := assistant.NewRepository(store).Get(ctx, p.OwnerID, id)
-		return a.ConversationID, err
-	}, Estimate: adapters.estimate, Acknowledge: func(ctx context.Context, t agent.Turn) error {
-		job, err := persistence.Load[scheduler.Job](ctx, store, "agent.jobs", persistence.Key(t.Principal.OwnerID, t.Event.ID))
-		if err != nil {
-			return err
-		}
-		return queue.Ack(ctx, t.Principal, t.Event.ID, job.Version)
-	}})
-	cloneFiles := memory.NewFiles(memory.FileOptions{JournalRoot: filepath.Join(cfg.DataDir, "memory-operations"), Roots: func(ctx context.Context, owner core.ID, query memory.RootQuery) ([]memory.Root, error) {
-		return memoryRoots(ctx, store, cfg.DataDir, adapters.storageConfig.WorkRoot, owner, query, true)
-	}})
-	assistants := assistant.NewService(store, assistant.Options{ContextWindow: func(ctx context.Context, p core.Principal, id core.ID) (int, error) {
-		provider, err := adapters.provider(ctx, p, id)
-		return provider.Model.ContextWindow(), err
-	}, CopyMemory: cloneFiles.CloneStaged, Authorizer: permissions, Conversations: conversation.NewRepository(store), Grants: policy.NewRepository(store), Loop: engine.Lifecycle, CheckModel: func(ctx context.Context, p core.Principal, id core.ID) error {
-		if id == "" {
-			return nil
-		}
-		provider, err := adapters.provider(ctx, p, id)
-		if err != nil {
-			return err
-		}
-		return permissions.Require(ctx, p, policy.CheckRequest{Target: core.Object{Kind: "resource", ID: provider.Model.ResourceID}, Action: policy.Read, ResourceID: provider.Model.ResourceID})
-	}, GrantModel: func(ctx context.Context, p core.Principal, a assistant.Assistant) error {
-		provider, err := adapters.provider(ctx, p, a.ModelID)
-		if err != nil {
-			return err
-		}
-		_, err = permissions.Grant(ctx, p, policy.GrantRequest{
-			Mutation:    core.Mutation{IdempotencyKey: "hire-model/" + string(a.ID)},
-			AssistantID: a.ID, ResourceID: provider.Model.ResourceID,
-			Actions: []policy.Action{policy.Read, policy.Execute},
-			Scope:   policy.Scope{ModelID: a.ModelID},
-		})
-		return err
-	}})
-	profile.assistants = assistants
-	consumer := scheduler.NewMessageConsumer(store, scheduler.Options{Conversations: conversation.NewRepository(store)})
-	schedules := schedule.NewService(store, schedule.Options{Authorizer: permissions, CheckAssistant: access.assistant})
-	dispatcher := schedule.NewDispatcher(store)
-	dispatcher.Ready = plans.ScheduleReady
-	dispatcher.Start = plans.StartScheduled
-	worker := scheduler.NewService(store, scheduler.Options{Ready: func(ctx context.Context) bool { return environment(ctx) == nil }, Authorizer: permissions, Concurrency: cfg.Execution.MaxAssistants, RecoverInterrupted: engine.RecoverInterrupted, Handle: func(ctx context.Context, c scheduler.Claim) error {
-		if c.Job.Event.Kind == event.UserMessage {
-			if err := chat.AcceptUserMessage(ctx, core.Execution{Principal: c.Principal, AssistantID: c.Job.Event.AssistantID, OperationID: c.Job.Event.ID}, c.Job.Event.MessageID); err != nil {
-				return err
-			}
-		}
-		_, err := engine.Handle(ctx, agent.Turn{Principal: c.Principal, Event: c.Job.Event, Attempt: c.Job.Attempts})
-		if err != nil && ctx.Err() == nil && !scheduler.IsDeferred(err) && c.Job.Event.Kind == event.DreamDue {
-			finishCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-			defer cancel()
-			if saveErr := dreams.Failed(finishCtx, c.Job.Event, err); saveErr != nil {
-				return saveErr
-			}
-		}
-		return err
-	}, DrainMessages: func(ctx context.Context) error {
-		for {
-			pending, err := conversation.NewOutbox(store).Pending(ctx, 100)
-			if err != nil {
-				return err
-			}
-			for _, m := range pending {
-				if err := consumer.AcceptMessage(ctx, m); err != nil {
-					return err
-				}
-			}
-			if len(pending) < 100 {
-				return nil
-			}
-		}
-	}, Tick: func(ctx context.Context, now time.Time) error {
-		sandboxRouter.pollRemoteWaits(ctx, now)
-		if err := plans.Tick(ctx, now); err != nil {
-			return err
-		}
-		if err := dispatcher.Tick(ctx, now); err != nil {
-			return err
-		}
-		if err := dreams.Tick(ctx, now); err != nil {
-			return err
-		}
-		return collectFiles(ctx, store, b.objects)
-	}})
-	preferences := settings.NewService(store, settings.Options{WorkbenchAvailable: cfg.Debug.Enabled, Authorizer: permissions, CheckVerification: identity.CheckVerification, SaveExport: func(ctx context.Context, p core.Principal, bundle settings.ExportBundle) (core.ID, error) {
-		return saveExport(ctx, fileService, p, bundle, memoryFiles)
-	}, PrepareMemoryCleanup: func(ctx context.Context, p core.Principal, ref memory.Ref) (string, error) {
-		m, err := memories.Get(ctx, p, ref)
-		return m.Version, err
-	},
-		CleanupMemory: func(ctx context.Context, p core.Principal, ref memory.Ref, version, key string) error {
-			return memories.Delete(ctx, p, memory.DeleteRequest{Ref: ref, Forget: true, Mutation: memory.Mutation{IdempotencyKey: key, ExpectedVersion: version}})
-		}, CleanupObject: func(ctx context.Context, p core.Principal, o core.Object, apply bool) error {
-			return cleanupObject(ctx, store, access, p, o, apply)
-		}})
-	resetContext = engine.ResetContext
-	b.Services = api.Services{Dreams: dreams, Plans: plans, Debug: b.Trace, Exchange: b.Exchange, Auth: identity, Browser: identity, Audit: auditService, Assistants: assistants, Conversations: chat, Tasks: tasks, Todos: todo.NewService(store, todo.Options{Authorizer: permissions, CheckAssistant: access.assistant}), Schedules: schedules, Resources: resources, Memories: memories, Settings: preferences, Models: modelClient, Credentials: vault, Grants: grants, Budget: permissions, Agent: engine, Jobs: worker, Operations: operations, Search: searching, Index: indexer, Files: fileService, Realtime: realtime.NewFeed(visible, realtime.Options{Authorizer: permissions, WatchAuthorization: func(p core.Principal) (realtime.AuthorizationWatch, error) { return identity.WatchPrincipal(p) }})}
-	limiter, err := api.NewRateLimiter(store, api.RateLimitOptions{Limit: cfg.HTTP.RequestsPerMinute, CategoryLimits: map[string]int{"login": cfg.Auth.LoginAttemptsPerMinute}})
+	wiring.router = sandbox.router
+	planning := buildPlanning(cfg, adapters, chats.chat)
+	buildExtensions(adapters, permissions, identity, vault, planning.plans, wiring)
+	sandbox.grants = mcpGrants{Service: sandbox.grants, mcp: wiring.mcp}
+	toolset, err := b.buildTools(cfg, adapters, permissions, vault, chats, planning, sandbox, wiring)
 	if err != nil {
 		return nil, err
 	}
-	build := buildinfo.Current()
-	build.EmbeddedWebUI = webassets.Embedded
-	installation := updates.ReadInstallation(cfg.ConfigPath, cfg.Updates.Source)
-	updateSource := cfg.Updates.Source
-	if installation != nil {
-		updateSource = installation.Source
+	wiring.validateReferences = func(ctx context.Context, p core.Principal, refs []auth.ResourceReference) error {
+		return validateCatalogReferences(ctx, adapters, sandbox.router, toolset.executor, p, refs)
 	}
-	if build.Distribution == "container" {
-		updateSource = "https://ghcr.io"
+	root := filepath.Dir(platform.AssistantWorkspace(cfg.DataDir, cfg.Sandbox.WorkRoot, "owner", "assistant"))
+	if err = prepareDirectory(root); err != nil {
+		return nil, err
 	}
-	updateAddresses := adapters.privateAddresses()
-	if u, err := url.Parse(updateSource); err == nil {
-		if ip, err := netip.ParseAddr(u.Hostname()); err == nil && (ip.IsPrivate() || ip.IsLoopback()) {
-			updateAddresses = append(updateAddresses, ip)
-		}
+	execution := b.buildAgent(cfg, adapters, permissions, chats.chat, planning, sandbox, toolset, wiring)
+	engine, assistants := execution.engine, execution.assistants
+	wiring.resetContext = engine.ResetContext
+	worker, schedules := b.buildScheduler(cfg, permissions, chats.chat, planning, sandbox.router, engine)
+	preferences := buildSettings(cfg, store, identity, permissions, chats.files, planning)
+	b.Services = api.Services{
+		Dreams: planning.dreams, Plans: planning.plans, Debug: b.Trace, Exchange: b.Exchange,
+		Auth: identity, Browser: identity, Audit: auditService, Assistants: assistants, Conversations: chats.chat,
+		Tasks: planning.tasks, Todos: todo.NewService(store, todo.Options{Authorizer: permissions, CheckAssistant: access.assistant}),
+		Schedules: schedules, Resources: sandbox.resources, Memories: planning.memories, Settings: preferences,
+		Models: toolset.model, Credentials: vault, Grants: sandbox.grants, Budget: permissions, Agent: engine,
+		Jobs: worker, Operations: toolset.operations, Search: planning.searching, Index: planning.indexer, Files: chats.files,
+		Realtime: realtime.NewFeed(realtime.NewStore(store), realtime.Options{Authorizer: permissions, WatchAuthorization: func(p core.Principal) (realtime.AuthorizationWatch, error) { return identity.WatchPrincipal(p) }}),
 	}
-	updateService := updates.New(updateSource, cfg.Updates.AutoCheck, build, platform.ConfiguredHTTPClient(updateSource, updateAddresses))
-	b.HTTP, err = api.NewServer(cfg, b.Services, api.Options{Pricing: b.priceUpdater, ResponseCacheScope: func(ctx context.Context, p core.Principal, pattern string) (string, error) {
-		return responseCacheScope(ctx, store, identity, permissions, preferences, b.Exchange, p, pattern)
-	}, OAuth: oauthbroker.New(map[string]oauthbroker.Provider{"chatgpt": chatgptOAuth}, identity.ValidatePrincipal), ChatGPTDisconnect: chatgptOAuth.disconnect, RequestLogger: requestLogger, Workspace: &workspaceExplorer{ad: adapters, maxUpload: cfg.Execution.MaxUploadBytes}, Skills: func(ctx context.Context, p core.Principal, id core.ID, path string) (any, error) {
-		return inspectSkills(ctx, adapters, p, id, path)
-	}, Maintenance: maintenance, Browser: func(ctx context.Context, p core.Principal, id core.ID, raw json.RawMessage) (json.RawMessage, error) {
-		q, err := tools.ParseBrowser(raw)
-		if err != nil {
-			return nil, err
-		}
-		if q.Action.Action == "install_start" {
-			if err := identity.RequireAdministrator(ctx, p); err != nil {
-				return nil, err
-			}
-		}
-		return b.shellTasks.browserManage(ctx, p, id, q)
-	}, BrowserSettings: b.shellTasks.browserSettings, BrowserStream: b.shellTasks.browserFrames, Updates: updateService, UpgradeInfo: installation, Notifications: notification.New(store, permissions), Weixin: b.weixin, Telegram: b.telegram, Slack: b.slack, Dingtalk: b.dingtalk, Feishu: b.feishu, QQ: b.qq, Accounts: identity, Setup: b.setup, DiscoverProviders: func(ctx context.Context, p core.Principal) (any, error) {
-		if err := identity.RequireAdministrator(ctx, p); err != nil {
-			return nil, err
-		}
-		return adapters.discoverLocalProviders(ctx, p)
-	},
-		AdminCatalog: func(ctx context.Context, p core.Principal) (any, error) {
-			return groupCatalog(ctx, p, adapters, sandboxRouter, executor)
-		},
-		UsageAnalytics: func(ctx context.Context, p core.Principal, q api.UsageQuery, admin bool) (any, error) {
-			prefs, err := preferences.Get(ctx, p)
-			if err != nil {
-				return nil, err
-			}
-			if q.Timezone == "" {
-				q.Timezone = prefs.Timezone
-			}
-			return usageAnalytics(ctx, store, identity, p, q, admin, prefs.Currency, b.Exchange.Snapshot())
-		},
-		AdminUsage: func(ctx context.Context, p core.Principal) (any, error) { return adminUsage(ctx, store, identity, p) },
-		AccountQuotas: func(ctx context.Context, p core.Principal) (any, error) {
-			return accountQuotas(ctx, store, identity, p)
-		}, Plugins: pluginService, MCP: mcpService, TerminalStart: b.shellTasks.startTerminal, TerminalStream: b.shellTasks.terminalFrames, ShellTasks: func(ctx context.Context, p core.Principal, id core.ID, raw json.RawMessage) (json.RawMessage, error) {
-			if err := p.RequireOwner(); err != nil {
-				return nil, err
-			}
-			q, err := tools.ParseShellTask(raw)
-			if err != nil {
-				return nil, err
-			}
-			return b.shellTasks.manage(ctx, p, id, q)
-		}, PermissionRequests: permissionRequests, SandboxAdmin: sandboxRouter.admin, SandboxInfo: func(ctx context.Context, p core.Principal) (any, error) {
-			if err := p.RequireOwner(); err != nil {
-				return nil, err
-			}
-			if err := permissions.Require(ctx, p, policy.CheckRequest{Target: core.Object{Kind: "resource"}, Action: policy.Read}); err != nil {
-				return nil, err
-			}
-			caps := platform.Capabilities{Reason: "sandbox_disabled"}
-			networks := []config.SandboxNetwork{}
-			directories := []config.SandboxDirectory{}
-			if b.sandbox != nil {
-				caps, _ = b.sandbox.runner.Capabilities(ctx)
-				if g, err := groupPolicy(ctx, store, p.OwnerID); err == nil && g.Administrator {
-					networks = append(networks, cfg.Sandbox.Networks...)
-					directories = append(directories, cfg.Sandbox.Directories...)
-				}
-			}
-			return map[string]any{"Enabled": cfg.Sandbox.Enabled, "Storage": sandboxRouter.localInfo(ctx).Storage, "Capabilities": caps, "Networks": networks, "Directories": directories}, nil
-		}, Limiter: limiter, PreLoginCSRF: identity.PreLoginCSRF})
+	updateService, err := b.buildHTTP(cfg, adapters, identity, permissions, oauth, maintenance, toolset, wiring, requestLogger)
 	if err != nil {
 		return nil, err
 	}
-	restore, err := sqlite.NewRestorer(filepath.Join(cfg.DataDir, "runtime.db"))
-	if err != nil {
+	if err = b.buildApplication(cfg, identity, auditService, chats.router, updateService, wiring, execution.recoverClones, worker); err != nil {
 		return nil, err
 	}
-	b.Application, err = NewApplication(Dependencies{Config: cfg, HTTP: b.HTTP, Auth: identity, Bootstrap: identity, Audit: auditService, Database: db, Restore: restore, Scheduler: worker, Locker: platform.NewLocker()})
-	if err != nil {
-		return nil, err
-	}
-	if b.sandbox != nil {
-		b.Application.(*Runtime).prepareSandbox = b.sandbox.startup
-	}
-	b.Application.(*Runtime).recoverCalls = func(ctx context.Context) error {
-		if err := assistants.RecoverClones(ctx); err != nil {
-			log.Printf("assistant clone recovery incomplete: %v", err)
-		}
-		if err := recoverCallUsage(ctx, store); err != nil {
-			return err
-		}
-		if err := mcpService.Recover(ctx); err != nil {
-			return err
-		}
-		return pluginService.RecoverHTTP(ctx)
-	}
-	b.Application.(*Runtime).collectAuth = identity.RunGC
-	b.Application.(*Runtime).collectContexts = func(ctx context.Context) { contextstore.RunGC(ctx, store) }
-	b.Application.(*Runtime).runChannels = channelRouter.Run
-	b.Application.(*Runtime).checkUpdates = updateService.Run
-	b.Application.(*Runtime).refreshPrices = b.priceUpdater.Run
-	b.Application.(*Runtime).startShellTasks = b.shellTasks.start
-	b.Application.(*Runtime).stopShellTasks = b.shellTasks.close
 	return b, nil
 }

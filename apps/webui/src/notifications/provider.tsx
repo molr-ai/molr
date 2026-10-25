@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useToast } from '@molr/ui';
 import type { Assistant, Conversation, Message, Page, SystemNotice } from '@molr/sdk';
-import { api } from '../api/client';
+import { api } from '@molr/sdk';
 import { poll } from '../polling';
 import { isChatObscured } from '../chat-visibility';
 import { useCopy, useData, useQuery, useSession } from '../state';

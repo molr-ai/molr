@@ -1,4 +1,4 @@
-import type { Resource } from './api/types';
+import type { Resource } from '@molr/sdk';
 import type { SandboxView } from './sandbox-types';
 
 export function fullAccessAvailable(resource: Resource | undefined, sandboxes: SandboxView[] | undefined) {

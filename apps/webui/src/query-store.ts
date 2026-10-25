@@ -1,6 +1,7 @@
-import { APIError } from './api/client';
+import { APIError } from '@molr/sdk';
 import { poll } from './polling';
 import type { PollDelay } from './polling';
+import { shareJSON } from './share-json';
 
 type Snapshot<T = unknown> = { data?: T; error?: unknown; loading: boolean; started: boolean };
 type Loader = (signal: AbortSignal, refresh?: boolean) => Promise<unknown>;
@@ -59,7 +60,7 @@ export class QueryStore {
       this.emit(entry, { ...entry.snapshot, loading: true, started: true });
       try {
         const data = await entry.loader!(signal, refresh);
-        if (!signal.aborted) this.emit(entry, { data, loading: false, started: true });
+        if (!signal.aborted) this.emit(entry, { data: shareJSON(entry.snapshot.data, data), loading: false, started: true });
       } catch (error) {
         if (!signal.aborted) {
           const inaccessible = error instanceof APIError && [401, 403, 404].includes(error.status);

@@ -16,6 +16,12 @@ The desktop entry point is [`apps/desktop`](../../../../apps/desktop/README.md).
 
 The official plans, resources, settings and workbench pages, and chat side panels load on demand. Toolbar buttons keep lightweight subscriptions separate from panel code. Notification detail requests skip undisplayed notices when alerts are disabled or the notice belongs to the initial snapshot; concurrent changes to the same notice are serialized and coalesced by version, retaining a follow-up read for newer state. Displayed notices still reconcile read, dismissal and recovery.
 
+Shared queries retain references to unchanged JSON subtrees; domain versions alone do not describe live status fields. `useQuery` still publishes loading and error states. Data-only toolbar counters use `useQueryValue` to select primitives or existing subtrees, avoiding renders for background loading and unrelated changes. Access denial still clears data. `query-store.spec.ts` and `query-selection.spec.ts` cover reference reuse, loading feedback, counter updates, and revoked access.
+
+Chat reads the binding summary from `/api/assistants/{id}/chat-channel` through `useChatChannel`: one request replaces six detail queries without loading delivery history. The server checks confirmed bindings and preserves display priority in one authorized snapshot. Input remains protected until the summary is available; pending pairing is distinct from confirmed binding. Channel events and mutations invalidate the summary. Connection dialogs continue to load individual channel details on demand.
+
+The desktop main process uses `RuntimeSession` to own view loading and handshake, timeout, initial-login permission, and notification/OAuth cleanup. Replacing or closing a connection releases its old view; stale view callbacks cannot complete the new connection. IPC identity and origin checks remain in the main entry point.
+
 ## Shared State and Recovery
 
 `query-invalidation.ts` centralizes mappings from query paths, SSE events, and mutations to refresh topics, plus one-step topic dependency expansion. These pure functions neither fetch nor modify caches; `DataProvider` still marks message revisions, notifies event subscribers, and batches refreshes. Message feedback remains scoped to its message/conversation, terminal and browser input avoid unrelated list reads, and unknown events retain the existing fallback. `query-invalidation.spec.ts` fixes these boundaries; chat synchronization and topic subscription regressions check actual requests and rendering.

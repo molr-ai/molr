@@ -14,6 +14,7 @@ import (
 	"molr.ai/runtime/internal/persistence/sqlitestore"
 	"molr.ai/runtime/internal/policy"
 	sm "molr.ai/runtime/internal/sandboxmanager"
+	"molr.ai/runtime/internal/shellsession"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -37,53 +38,49 @@ func TestShellTasksRealDetachedAuthorizationAndTTY(t *testing.T) {
 	grant, err := b.Services.Grants.Grant(t.Context(), owner, policy.GrantRequest{Mutation: core.Mutation{IdempotencyKey: "grant"}, AssistantID: e.AssistantID, ResourceID: compute.ID, Actions: []policy.Action{policy.Execute}, Constraints: testResourceConstraints(resource.Compute)})
 	need(t, err)
 	e.OperationID = "terminal"
-	raw, err := s.execute(t.Context(), e, tools.ShellRequest{ComputeID: compute.ID, TTY: true, Script: "exec /bin/sh -i"})
+	raw, err := s.Execute(t.Context(), e, tools.ShellRequest{ComputeID: compute.ID, TTY: true, Script: "exec /bin/sh -i"})
 	need(t, err)
 	if !strings.Contains(string(raw), "TTY") {
 		t.Fatal(string(raw))
 	}
-	var terminal *runningShell
-	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
-		s.mu.Lock()
-		terminal = s.active[shellKey(e)]
-		ready := terminal != nil && terminal.scope.control != nil
-		s.mu.Unlock()
-		if ready {
+	for deadline := time.Now().Add(5 * time.Second); ; {
+		_, err = s.Manage(t.Context(), owner, e.AssistantID, tools.ShellTaskRequest{Action: "read", TaskID: e.OperationID})
+		if err == nil {
 			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal(err)
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
 	e.OperationID = "background"
-	_, err = s.execute(t.Context(), e, tools.ShellRequest{ComputeID: compute.ID, Background: true, Script: "echo begin; sleep 2; echo detached_ok"})
+	_, err = s.Execute(t.Context(), e, tools.ShellRequest{ComputeID: compute.ID, Background: true, Script: "echo begin; sleep 2; echo detached_ok"})
 	need(t, err)
 	// A task keeps only its process-local capability after the original job ends.
 	need(t, b.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
 		return tx.Delete(ctx, "agent.jobs", persistence.Key(owner.OwnerID, "shell-job"))
 	}))
-	_, err = s.manage(t.Context(), owner, e.AssistantID, tools.ShellTaskRequest{Action: "takeover", TaskID: "terminal", ClientID: "integration", Generation: 1})
+	_, err = s.Manage(t.Context(), owner, e.AssistantID, tools.ShellTaskRequest{Action: "takeover", TaskID: "terminal", ClientID: "integration", Generation: 1})
 	need(t, err)
-	_, err = s.manage(t.Context(), owner, e.AssistantID, tools.ShellTaskRequest{Action: "write", TaskID: "terminal", ClientID: "integration", Generation: 2, Sequence: 1, Data: "echo terminal_survived\n"})
+	_, err = s.Manage(t.Context(), owner, e.AssistantID, tools.ShellTaskRequest{Action: "write", TaskID: "terminal", ClientID: "integration", Generation: 2, Sequence: 1, Data: "echo terminal_survived\n"})
 	need(t, err)
-	time.Sleep(2300 * time.Millisecond)
-	bg, err := persistence.Load[shellTask](t.Context(), b.store, shellTasksBucket, persistence.Key(owner.OwnerID, "background"))
+	awaitSessionEnd(t, s, owner, e.AssistantID, "background", 10*time.Second)
+	// List intentionally omits inline stdout; verify the durable full result.
+	bg, err := persistence.Load[shellsession.Task](t.Context(), b.store, shellTasksBucket, persistence.Key(owner.OwnerID, "background"))
 	need(t, err)
 	if bg.State != "completed" || !strings.Contains(string(bg.Result), "detached_ok") {
 		t.Fatalf("detached failed: %+v", bg)
 	}
-	raw, err = s.manage(t.Context(), owner, e.AssistantID, tools.ShellTaskRequest{Action: "read", TaskID: "terminal"})
+	raw, err = s.Manage(t.Context(), owner, e.AssistantID, tools.ShellTaskRequest{Action: "read", TaskID: "terminal"})
 	need(t, err)
 	if !strings.Contains(string(raw), "terminal_survived") {
 		t.Fatal(string(raw))
 	}
 	// Revocation still kills a detached terminal after the loop is gone.
 	need(t, b.Services.Grants.Revoke(t.Context(), owner, policy.RevokeRequest{Mutation: core.Mutation{IdempotencyKey: "revoke", ExpectedVersion: grant.Version}, GrantID: grant.ID}))
-	select {
-	case <-terminal.done:
-	case <-time.After(5 * time.Second):
-		t.Fatal("terminal survived grant revocation")
-	}
+	terminal := awaitSessionEnd(t, s, owner, e.AssistantID, "terminal", 5*time.Second)
 	var result struct{ Exit struct{ Code int } }
-	need(t, json.Unmarshal(terminal.result, &result))
+	need(t, json.Unmarshal(terminal.Result, &result))
 	if result.Exit.Code == 0 {
 		t.Fatal("revoked terminal exited successfully")
 	}
@@ -112,7 +109,7 @@ func TestShellTasksRemoteTTYAndArchivedOutput(t *testing.T) {
 	server := httptest.NewTLSServer(handler)
 	defer server.Close()
 	fingerprint := sha256.Sum256(server.Certificate().RawSubjectPublicKeyInfo)
-	router := b.shellTasks.router
+	router := b.remote
 	raw, _ := json.Marshal(map[string]any{"Name": "Remote", "Endpoint": server.URL, "ConnectionCode": sandboxConnectionCode(hex.EncodeToString(fingerprint[:]), token), "Mutation": core.Mutation{IdempotencyKey: "connect"}})
 	view, err := router.admin(t.Context(), owner, "connect", raw)
 	need(t, err)
@@ -133,11 +130,11 @@ func TestShellTasksRemoteTTYAndArchivedOutput(t *testing.T) {
 	}
 	_, err = b.Services.Grants.Grant(t.Context(), owner, policy.GrantRequest{Mutation: core.Mutation{IdempotencyKey: "grant"}, AssistantID: e.AssistantID, ResourceID: compute, Actions: []policy.Action{policy.Execute}, Constraints: testResourceConstraints(resource.Compute)})
 	need(t, err)
-	_, err = b.shellTasks.execute(t.Context(), e, tools.ShellRequest{SandboxID: id, ComputeID: compute, TTY: true, Script: "exec /bin/sh -i"})
+	_, err = b.shellTasks.Execute(t.Context(), e, tools.ShellRequest{SandboxID: id, ComputeID: compute, TTY: true, Script: "exec /bin/sh -i"})
 	need(t, err)
 	deadline := time.Now().Add(8 * time.Second)
 	for {
-		_, err = b.shellTasks.manage(t.Context(), e.Principal, e.AssistantID, tools.ShellTaskRequest{Action: "write", TaskID: e.OperationID, Generation: 1, Data: "echo remote_tty_ok; exit\n"})
+		_, err = b.shellTasks.Manage(t.Context(), e.Principal, e.AssistantID, tools.ShellTaskRequest{Action: "write", TaskID: e.OperationID, Generation: 1, Data: "echo remote_tty_ok; exit\n"})
 		if err == nil {
 			break
 		}
@@ -147,7 +144,7 @@ func TestShellTasksRemoteTTYAndArchivedOutput(t *testing.T) {
 		time.Sleep(30 * time.Millisecond)
 	}
 	for {
-		row, err := persistence.Load[shellTask](t.Context(), b.store, shellTasksBucket, persistence.Key(owner.OwnerID, e.OperationID))
+		row, err := persistence.Load[shellsession.Task](t.Context(), b.store, shellTasksBucket, persistence.Key(owner.OwnerID, e.OperationID))
 		need(t, err)
 		if row.State != "running" {
 			if row.State != "completed" {
@@ -162,7 +159,7 @@ func TestShellTasksRemoteTTYAndArchivedOutput(t *testing.T) {
 	}
 	// Completed logs must remain readable from the local workspace while the remote node is offline.
 	server.Close()
-	raw, err = b.shellTasks.manage(t.Context(), owner, e.AssistantID, tools.ShellTaskRequest{Action: "read", TaskID: e.OperationID})
+	raw, err = b.shellTasks.Manage(t.Context(), owner, e.AssistantID, tools.ShellTaskRequest{Action: "read", TaskID: e.OperationID})
 	need(t, err)
 	if !strings.Contains(string(raw), "remote_tty_ok") {
 		t.Fatal(string(raw))

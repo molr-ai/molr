@@ -1,8 +1,8 @@
 import { useErrorToast } from './error-toasts';
 import { useState, type ReactNode } from 'react';
 import { Button, Select, TextField } from '@molr/ui';
-import type { Model, Resource, SetupState, SetupRequest } from './api/types';
-import { api } from './api/client';
+import type { Model, Resource, SetupState, SetupRequest } from '@molr/sdk';
+import { api } from '@molr/sdk';
 import { useCopy, useQuery, useSession } from './state';
 import { ProviderConnectionDialog } from './interfaces/official/features/ProviderConnectionDialog';
 import { Loading, useAction } from './interfaces/official/components/common';

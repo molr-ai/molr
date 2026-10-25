@@ -17,6 +17,7 @@ import (
 	"molr.ai/runtime/internal/pricing"
 	"molr.ai/runtime/internal/resultcache"
 	"molr.ai/runtime/internal/updates"
+	"molr.ai/runtime/internal/workspace"
 	"net"
 	"net/http"
 	"net/netip"
@@ -61,7 +62,7 @@ type Options struct {
 	OAuth              *oauthbroker.Broker
 	ChatGPTDisconnect  func(context.Context, core.Principal, resource.DeleteProviderRequest) (bool, error)
 	RequestLogger      *slog.Logger
-	Workspace          WorkspaceService
+	Workspace          workspace.Service
 	Skills             func(context.Context, core.Principal, core.ID, string) (any, error)
 	UsageAnalytics     func(context.Context, core.Principal, UsageQuery, bool) (any, error)
 	Maintenance        maintenance.Service
@@ -78,6 +79,7 @@ type Options struct {
 	Weixin             *weixin.Service
 	Telegram           *telegram.Service
 	Slack              *slack.Service
+	ChatChannel        func(context.Context, core.Principal, core.ID) (any, error)
 	Setup              func(context.Context, core.Principal, json.RawMessage) (any, error)
 	DiscoverProviders  func(context.Context, core.Principal) (any, error)
 	Accounts           *auth.Manager

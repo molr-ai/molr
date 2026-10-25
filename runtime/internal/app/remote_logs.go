@@ -8,6 +8,7 @@ import (
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/platform"
 	sm "molr.ai/runtime/internal/sandboxmanager"
+	"molr.ai/runtime/internal/shellsession"
 	"path/filepath"
 	"time"
 )
@@ -26,7 +27,7 @@ func (b *remoteSandboxBackend) shellLog(ctx context.Context, q sm.Request) (json
 	if r.Target.OwnerID != q.Identity.OwnerID || r.Target.AssistantID != q.Identity.AssistantID || r.Target.Execution().Validate() != nil || r.Request.Cursor < 0 || (r.Request.Stream != "stdout" && r.Request.Stream != "stderr") {
 		return nil, denied()
 	}
-	name := shellOutputPrefix(r.Target.Execution()) + "-" + r.Request.Stream + ".txt"
+	name := shellsession.OutputPrefix(r.Target.Execution()) + "-" + r.Request.Stream + ".txt"
 	f, err := openResourceFile(b.operationRoot(r.Target), name)
 	if err != nil {
 		return nil, err
@@ -68,8 +69,8 @@ func (s *sandboxRouter) mirrorShellLogs(ctx context.Context, e core.Execution, i
 		return err
 	}
 	for _, stream := range []string{"stdout", "stderr"} {
-		name := shellOutputPrefix(e) + "-" + stream + ".txt"
-		unlock, err := s.files.lock(ctx, filepath.Join(root, name))
+		name := shellsession.OutputPrefix(e) + "-" + stream + ".txt"
+		unlock, err := s.files.Lock(ctx, filepath.Join(root, name))
 		if err != nil {
 			return err
 		}
@@ -128,8 +129,8 @@ func (s *sandboxRouter) archiveRemoteShellResult(ctx context.Context, e core.Exe
 	}
 	result["SandboxID"], _ = json.Marshal(id)
 	result["OutputSandboxID"] = json.RawMessage(`"local"`)
-	result["StdoutPath"], _ = json.Marshal("/work/" + shellOutputPrefix(e) + "-stdout.txt")
-	result["StderrPath"], _ = json.Marshal("/work/" + shellOutputPrefix(e) + "-stderr.txt")
+	result["StdoutPath"], _ = json.Marshal("/work/" + shellsession.OutputPrefix(e) + "-stdout.txt")
+	result["StderrPath"], _ = json.Marshal("/work/" + shellsession.OutputPrefix(e) + "-stderr.txt")
 	out, _ := json.Marshal(result)
 	return out
 }

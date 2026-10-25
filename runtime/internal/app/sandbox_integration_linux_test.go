@@ -14,6 +14,7 @@ import (
 	"molr.ai/runtime/internal/business/resource"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/event"
+	"molr.ai/runtime/internal/filetools"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/platform"
 	"molr.ai/runtime/internal/platform/sandbox"
@@ -72,8 +73,8 @@ func TestSandboxIntegrationRealToolAndAudit(t *testing.T) {
 	}))
 	compute, err := b.Services.Resources.Connect(t.Context(), p, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "compute"}, Kind: resource.Compute, Provider: "local-sandbox", Name: "Local sandbox"})
 	need(t, err)
-	fileTools := &resourceFileTools{adapters: adapters{store: b.store, policy: b.sandbox.policy, dataDir: cfg.DataDir, storageConfig: cfg.Sandbox}}
-	_, err = fileTools.write(t.Context(), e, tools.FileWriteRequest{FileTarget: tools.FileTarget{Path: "/work/from-file"}, Text: "before-shell"})
+	fileTools := newResourceFileTools(resourceFileOptions{adapters: adapters{store: b.store, policy: b.sandbox.policy, dataDir: cfg.DataDir, storageConfig: cfg.Sandbox}})
+	_, err = fileTools.Write(t.Context(), e, tools.FileWriteRequest{FileTarget: tools.FileTarget{Path: "/work/from-file"}, Text: "before-shell"})
 	need(t, err)
 	global := platform.UserGlobal(cfg.DataDir, p.OwnerID)
 	need(t, os.MkdirAll(global, 0700))
@@ -112,7 +113,7 @@ func TestSandboxIntegrationRealToolAndAudit(t *testing.T) {
 	if output.Exit.Code != 0 || output.Stdout != "shell-ok\n" {
 		t.Fatalf("tool result: %s", result.Content)
 	}
-	content, err := (&resourceFileTools{adapters: catalog.adapters}).read(t.Context(), e, tools.FileReadRequest{FileTarget: tools.FileTarget{ResourceID: storage.ID, Path: "/approved/result"}})
+	content, err := (newResourceFileTools(resourceFileOptions{adapters: catalog.adapters})).Read(t.Context(), e, tools.FileReadRequest{FileTarget: tools.FileTarget{ResourceID: storage.ID, Path: "/approved/result"}})
 	need(t, err)
 	var file struct{ Text string }
 	need(t, json.Unmarshal(content, &file))
@@ -133,9 +134,9 @@ func TestSandboxIntegrationRealToolAndAudit(t *testing.T) {
 		t.Fatalf("audit: %+v", records)
 	}
 	need(t, b.Services.Grants.Revoke(t.Context(), p, policy.RevokeRequest{Mutation: core.Mutation{IdempotencyKey: "revoke-shell", ExpectedVersion: g.Version}, GrantID: g.ID}))
-	workFile, err := fileTools.read(t.Context(), e, tools.FileReadRequest{FileTarget: tools.FileTarget{Path: "/work/result"}})
+	workFile, err := fileTools.Read(t.Context(), e, tools.FileReadRequest{FileTarget: tools.FileTarget{Path: "/work/result"}})
 	need(t, err)
-	var workspaceRead fileReadResult
+	var workspaceRead filetools.ReadResult
 	need(t, json.Unmarshal(workFile, &workspaceRead))
 	if workspaceRead.Text != "changed\n" {
 		t.Fatal("file tools and Shell use different assistant workspaces")

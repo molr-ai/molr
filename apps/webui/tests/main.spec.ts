@@ -1834,7 +1834,7 @@ test('developer workbench records hidden executions and only gates entry visibil
   await login(page);
   const before = await (await page.request.get('/api/settings')).json();
   const setVisible = async (visible: boolean) => page.evaluate(async visible => {
-    const modulePath = '/src/api/client.ts'; const { api } = await import(modulePath);
+    const modulePath = '/@id/@molr/sdk'; const { api } = await import(modulePath);
     const current = await api.get('/api/settings');
     await api.mutate('/api/settings', { Settings: { ...current, WorkbenchVisible: visible } }, current.Version);
   }, visible);

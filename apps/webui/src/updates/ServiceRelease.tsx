@@ -2,7 +2,7 @@ import { useId, useState } from 'react';
 import { Alert, Button, CodeBlock } from '@molr/ui';
 import { ArrowUpRight, ChevronDown } from 'lucide-react';
 import type { MaintenanceTask, UpdateInstallation } from '@molr/sdk';
-import { api, mutationKey } from '../api/client';
+import { api, mutationKey } from '@molr/sdk';
 import { useCopy, useQuery, useSession } from '../state';
 import { useErrorToast } from '../error-toasts';
 import { MaintenanceProgress } from '../maintenance/Components';

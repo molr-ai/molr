@@ -54,7 +54,7 @@ func TestIndexedQueriesPaginationProjectionAndPlan(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Log(detail)
-		if strings.Contains(detail, "records_query_11") && strings.Contains(detail, "SEARCH") {
+		if strings.Contains(detail, "records_query_im_messages_ownerkey_conversationid_sequence") && strings.Contains(detail, "SEARCH") {
 			found = true
 		}
 		if strings.Contains(detail, "TEMP B-TREE") {
@@ -117,10 +117,10 @@ func TestRealtimeQueryPlansUseBoundedSequenceIndexes(t *testing.T) {
 	defer s.Close()
 	for _, topic := range []string{"", "message.created"} {
 		filters := []persistence.Filter{persistence.Eq("OwnerID", "owner"), {Field: "Sequence", Op: ">", Value: 100}}
-		want := "records_query_12"
+		want := "records_query_im_visible_ownerid_sequence"
 		if topic != "" {
 			filters = append(filters, persistence.Eq("Topic", topic))
-			want = "records_query_13"
+			want = "records_query_im_visible_ownerid_topic_sequence"
 		}
 		query, args, err := querySQL("im.visible", persistence.Query{Where: filters, OrderBy: "Sequence", Limit: 101})
 		if err != nil {
@@ -179,7 +179,7 @@ func TestDispatchCandidatesUseOrderedStateIndex(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Log(detail)
-		if strings.Contains(detail, "records_query_14") && strings.Contains(detail, "SEARCH") {
+		if strings.Contains(detail, "records_query_agent_jobs_state_queuekey") && strings.Contains(detail, "SEARCH") {
 			found = true
 		}
 		if strings.Contains(detail, "TEMP B-TREE") {
@@ -204,14 +204,14 @@ func TestBackgroundQueriesUseSelectiveIndexes(t *testing.T) {
 		bucket, index string
 		q             persistence.Query
 	}{
-		{"business.schedules", "records_query_17", persistence.Query{Where: []persistence.Filter{persistence.Eq("Enabled", true), {Field: "NextAtKey", Op: ">", Value: ""}, {Field: "NextAtKey", Op: "<=", Value: "2026-10-09T00:00:00.000000000Z"}}, OrderBy: "NextAtKey", Limit: 200}},
-		{"business.dream_sessions_index", "records_query_18", persistence.Query{Where: []persistence.Filter{persistence.Eq("State", "active"), {Field: "DeadlineKey", Op: "<=", Value: "2026-10-09T00:00:00.000000000Z"}}, OrderBy: "DeadlineKey", Limit: 100}},
-		{"business.plan-links", "records_query_19", persistence.Query{Where: []persistence.Filter{persistence.Eq("HandoffPending", true)}, Unordered: true}},
-		{"business.tasks", "records_query_20", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), persistence.Eq("Plan.Kind", "todo"), persistence.Eq("Plan.ID", "plan")}, Unordered: true}},
-		{"notifications.records", "records_query_21", persistence.Query{Where: []persistence.Filter{persistence.Eq("Kind", "plan.ready"), persistence.Eq("ResolvedAt", nil)}, Unordered: true}},
-		{"agent.operations", "records_query_22", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), persistence.Eq("IdempotencyKey", "key")}, Unordered: true, Limit: 1}},
-		{"agent.jobs", "records_query_23", persistence.Query{Where: []persistence.Filter{persistence.Eq("Event.OwnerID", "owner"), persistence.Eq("Event.AssistantID", "assistant"), persistence.Eq("ExecutionID", "turn")}, Unordered: true, Limit: 1}},
-		{"agent.operations", "records_query_24", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), persistence.Eq("AssistantID", "assistant"), persistence.Eq("ExecutionID", "turn")}, Unordered: true}},
+		{"business.schedules", "records_query_business_schedules_enabled_nextatkey", persistence.Query{Where: []persistence.Filter{persistence.Eq("Enabled", true), {Field: "NextAtKey", Op: ">", Value: ""}, {Field: "NextAtKey", Op: "<=", Value: "2026-10-09T00:00:00.000000000Z"}}, OrderBy: "NextAtKey", Limit: 200}},
+		{"business.dream_sessions_index", "records_query_business_dream_sessions_index_state_deadlinekey", persistence.Query{Where: []persistence.Filter{persistence.Eq("State", "active"), {Field: "DeadlineKey", Op: "<=", Value: "2026-10-09T00:00:00.000000000Z"}}, OrderBy: "DeadlineKey", Limit: 100}},
+		{"business.plan-links", "records_query_business_plan_links_handoffpending_key", persistence.Query{Where: []persistence.Filter{persistence.Eq("HandoffPending", true)}, Unordered: true}},
+		{"business.tasks", "records_query_business_tasks_ownerid_plan_kind_plan_id", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), persistence.Eq("Plan.Kind", "todo"), persistence.Eq("Plan.ID", "plan")}, Unordered: true}},
+		{"notifications.records", "records_query_notifications_records_kind_resolvedat", persistence.Query{Where: []persistence.Filter{persistence.Eq("Kind", "plan.ready"), persistence.Eq("ResolvedAt", nil)}, Unordered: true}},
+		{"agent.operations", "records_query_agent_operations_ownerid_idempotencykey", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), persistence.Eq("IdempotencyKey", "key")}, Unordered: true, Limit: 1}},
+		{"agent.jobs", "records_query_agent_jobs_event_ownerid_event_assistantid_executionid", persistence.Query{Where: []persistence.Filter{persistence.Eq("Event.OwnerID", "owner"), persistence.Eq("Event.AssistantID", "assistant"), persistence.Eq("ExecutionID", "turn")}, Unordered: true, Limit: 1}},
+		{"agent.operations", "records_query_agent_operations_ownerid_assistantid_executionid", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), persistence.Eq("AssistantID", "assistant"), persistence.Eq("ExecutionID", "turn")}, Unordered: true}},
 	} {
 		t.Run(tc.bucket, func(t *testing.T) {
 			statement, args, err := querySQL(tc.bucket, tc.q)

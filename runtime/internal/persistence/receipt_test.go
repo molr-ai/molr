@@ -79,14 +79,10 @@ func TestReceiptAndBusinessWritesRollbackTogether(t *testing.T) {
 	}
 	write := func() error {
 		return store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-			var result int
-			if found, err := persistence.ReplayReceipt(ctx, tx, "receipts", "request", digest, &result); found || err != nil {
-				return errors.New("rolled-back receipt was retained")
-			}
-			if err := persistence.Insert(ctx, tx.Store(), "business", "object", 7); err != nil {
-				return err
-			}
-			return tx.Put(ctx, "receipts", "request", persistence.Receipt{Digest: digest, Result: json.RawMessage(`7`)})
+			_, err := persistence.MutateReceipt(ctx, tx, "receipts", "request", digest, func(ctx context.Context) (int, error) {
+				return 7, persistence.Insert(ctx, tx.Store(), "business", "object", 7)
+			})
+			return err
 		})
 	}
 	store.FailNextCommit(errors.New("commit failed"))
@@ -109,5 +105,57 @@ func TestReceiptAndBusinessWritesRollbackTogether(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestMutateReceiptReplaysAndPropagatesFailures(t *testing.T) {
+	store := writeStore(t)
+	calls := 0
+	write := func(key, digest string) error {
+		return store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
+			value, err := persistence.MutateReceipt(ctx, tx, "receipts", key, digest, func(context.Context) (int, error) {
+				calls++
+				return 7, nil
+			})
+			if err == nil && value != 7 {
+				t.Fatalf("lost mutation result: %d", value)
+			}
+			return err
+		})
+	}
+	for range 2 {
+		if err := write("owner/create", "original"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := write("owner/create", "changed"); core.CodeOf(err) != core.Conflict || calls != 1 {
+		t.Fatal("replay/conflict executed mutation", calls, err)
+	}
+	if err := write("other/create", "original"); err != nil || calls != 2 {
+		t.Fatal("scope was not independent", calls, err)
+	}
+	failure := errors.New("mutation failed")
+	for _, encodeFailure := range []bool{false, true} {
+		err := store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
+			_, err := persistence.MutateReceipt(ctx, tx, "receipts", "failed", "digest", func(ctx context.Context) (any, error) {
+				if err := tx.Put(ctx, "business", "failed", 1); err != nil {
+					return nil, err
+				}
+				if encodeFailure {
+					return func() {}, nil
+				}
+				return nil, failure
+			})
+			return err
+		})
+		if err == nil || !encodeFailure && !errors.Is(err, failure) {
+			t.Fatal("mutation/encoding error lost", err)
+		}
+		if _, err := persistence.Load[int](t.Context(), store, "business", "failed"); !persistence.Missing(err) {
+			t.Fatal("failed mutation persisted business data", err)
+		}
+	}
+	if err := write("failed", "digest"); err != nil || calls != 3 {
+		t.Fatal("failed mutation persisted receipt", calls, err)
 	}
 }

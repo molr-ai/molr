@@ -2,7 +2,7 @@ import { usesNetworkToggle } from '../../../sandbox-types';
 import { GPUAccessSummary } from './GPUAccess';
 import { gpuName } from '../../../gpu';
 import { Checkbox, DateTimePicker, Select, TextField } from '@molr/ui';
-import type { ResourceConstraints, TemporaryConstraints } from '../../../api/types';
+import type { ResourceConstraints, TemporaryConstraints } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
 import type { GPUDevice, SandboxInfo } from '../../../sandbox-types';
 export function suggestedConstraints(kind: string, native = false): ResourceConstraints | undefined {

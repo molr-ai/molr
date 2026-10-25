@@ -41,7 +41,7 @@ test('same browser keeps independent Runtime sessions through login, writes, rel
     // Exercise the actual browser client and its choice of CSRF proof with
     // both instances' cookies and stale legacy cookies in the same cookie jar.
     const status = await tab.evaluate(async firstPort => {
-      const clientPath = '/src/api/client.ts';
+      const clientPath = '/@id/@molr/sdk';
       const { api } = await import(clientPath);
       return api.post('/api/auth/reauthenticate', {
         password: location.port === String(firstPort) ? 'webui-e2e-password-2026!' : 'second-webui-e2e-password-2026!',

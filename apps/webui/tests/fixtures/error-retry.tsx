@@ -4,7 +4,7 @@ import { Button } from '@molr/ui';
 import '@molr/ui/styles.css';
 import { LocaleProvider } from '../../src/state';
 import { ErrorToastProvider, useErrorToast, useErrorToasts } from '../../src/error-toasts';
-import { APIError } from '../../src/api/client';
+import { APIError } from '@molr/sdk';
 
 declare global { interface Window { retryNoticeCommits: number; retryNoticeWakeups: number } }
 window.retryNoticeCommits = 0;

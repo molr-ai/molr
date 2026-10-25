@@ -1,7 +1,7 @@
 import { useErrorToast, useErrorToasts } from '../../../error-toasts';
 import { useEffect, useState } from 'react';
 import { Alert, Button, Logo, TextField, useTheme } from '@molr/ui';
-import { APIError } from '../../../api/client';
+import { APIError } from '@molr/sdk';
 import { useCopy, useSession } from '../../../state';
 import { finishLoginLink } from '../../../login-link';
 import type { LoginLinkAttempt } from '../../../login-link';

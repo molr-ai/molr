@@ -166,3 +166,5 @@ export type SkillsCatalog = { Items: CatalogSkill[]; Assistants: Array<{ ID: ID;
 export type SkillContent = { Text: string; Version: string };
 
 export type PricingRefreshResult = { Source: 'builtin' | 'file' | 'url'; Version: string; Updated: boolean };
+
+export type ChatChannelStatus = { Channel: 'webui' | 'weixin' | 'telegram' | 'slack' | 'dingtalk' | 'feishu' | 'qq' };

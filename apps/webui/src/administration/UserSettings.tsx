@@ -2,7 +2,7 @@ import { useErrorToast } from '../error-toasts';
 import { useState } from 'react';
 import { Badge, Button, TextField } from '@molr/ui';
 import { AssistantAvatarField } from '../interfaces/official/features/AssistantAvatarField';
-import { api } from '../api/client';
+import { api } from '@molr/sdk';
 import { useCopy, useQuery, useSession } from '../state';
 import { Loading, useAction } from '../interfaces/official/components/common';
 import type { UserInfo } from './types';

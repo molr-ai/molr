@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { QueryStore } from '../src/query-store';
-import { APIError } from '../src/api/client';
+import { APIError } from '@molr/sdk';
+import { shareJSON } from '../src/share-json';
 
 function harness() {
   const queries = new QueryStore();
@@ -8,6 +9,45 @@ function harness() {
   const load = (signal: AbortSignal) => new Promise((resolve, reject) => requests.push({ signal, resolve, reject }));
   return { queries, requests, load };
 }
+
+test('unchanged query data retains identity while loading and errors remain observable', async () => {
+  const { queries, requests, load } = harness();
+  const release = queries.subscribe('resources', () => {});
+  const original = [{ ID: 'one', Version: 1, State: 'ready' }, { ID: 'two', Version: 1, State: 'ready' }];
+  try {
+    queries.refresh('resources', 0, load);
+    requests[0].resolve(original);
+    await expect.poll(() => queries.snapshot('resources').loading).toBe(false);
+    const before = queries.snapshot('resources').data;
+    queries.refresh('resources', 1, load);
+    expect(queries.snapshot('resources').loading).toBe(true);
+    await expect.poll(() => requests.length).toBe(2);
+    requests[1].resolve(structuredClone(original));
+    await expect.poll(() => queries.snapshot('resources').loading).toBe(false);
+    expect(queries.snapshot('resources').data).toBe(before);
+    queries.refresh('resources', 2, load);
+    await expect.poll(() => requests.length).toBe(3);
+    requests[2].resolve([{ ...original[0], State: 'offline' }, original[1]]);
+    await expect.poll(() => queries.snapshot('resources').loading).toBe(false);
+    const changed = queries.snapshot<typeof original>('resources').data!;
+    expect(changed).not.toBe(before);
+    expect(changed[0].State).toBe('offline'); // Version alone does not describe live state.
+    expect(changed[1]).toBe(original[1]);
+  } finally { release(); queries.clear(); }
+});
+
+test('JSON sharing preserves removal, null, arrays and own property names', () => {
+  const previous = { value: { stable: 1 }, removed: true };
+  const next = shareJSON(previous, { value: { stable: 1 } }) as typeof previous;
+  expect(next).not.toBe(previous);
+  expect(next.value).toBe(previous.value);
+  expect(Object.hasOwn(next, 'removed')).toBe(false);
+  expect(shareJSON([1, 2], [1])).toEqual([1]);
+  expect(shareJSON({ value: 1 }, null)).toBeNull();
+  const special = JSON.parse('{"__proto__":{"safe":true},"constructor":2}');
+  expect(shareJSON({}, special)).toEqual(special);
+  expect(Object.getPrototypeOf(shareJSON({}, special))).toBe(Object.prototype);
+});
 
 test('queries share in-flight and completed revisions across subscribers', async () => {
   const { queries, requests, load } = harness();

@@ -1,5 +1,5 @@
 import { Select } from '@molr/ui';
-import type { CurrencyCode } from '../../../api/types';
+import type { CurrencyCode } from '@molr/sdk';
 import { useCopy } from '../../../state';
 import { MoneyInput } from '../components/Money';
 

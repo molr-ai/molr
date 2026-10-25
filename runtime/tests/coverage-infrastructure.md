@@ -99,6 +99,7 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/persistence` | `CheckContext`, `Conflict`, `Decode`, `Key`, `Load`, `Missing`, `Scan`, `Store.Read`, `Store.Write`, `Tx.Delete`, `Tx.Get`, `Tx.Put`, `Tx.Scan`, `Tx.Store` | `TestPersistenceHelpersOnRealTransactions` |
 | `internal/persistence` | `Insert`, `SaveVersion`, `DeleteVersion` | `TestVersionedWritesPreserveConflictsAndRollback`, `TestVersionedWritesSerializeConcurrentUpdates` |
 | `internal/persistence` | `PayloadDigest`, `ReplayReceipt` | `TestReceiptReplayPreservesScopeDigestAndErrors`, `TestReceiptAndBusinessWritesRollbackTogether` |
+| `internal/persistence` | `MutateReceipt` | `TestMutateReceiptReplaysAndPropagatesFailures`, `TestReceiptAndBusinessWritesRollbackTogether` |
 | `internal/persistence/sqlitestore` | `Open`, `Store.Close`, `Store.Path`, `Store.Read`, `Store.Write` | `TestStoreCommitRollbackAndReopen` |
 | `internal/persistence/sqlitestore` | `Store.FailNextCommit` | `TestStoreReadOnlyCanceledAndCommitFailure` |
 | `internal/persistence/sqlitestore` | `Store.Snapshot` | `TestStoreScanDeleteAndSnapshot` |
@@ -297,9 +298,9 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 
 | `internal/browser` | `Proxy.Validate`, `Proxy.LaunchConfig` | `TestProxyValidationAndPrivateLaunchConfig` |
 | `internal/browser` | `RedactProxyError` | `TestProxyErrorRedactsAllCredentialForms` |
-| `internal/browser` | `ProxyErrorReason` | `internal/app.TestBrowserProxyStatusUsesLaunchSnapshotAndUpdatesDiagnostics` |
+| `internal/browser` | `ProxyErrorReason` | `internal/shellsession.TestBrowserProxyStatusUsesLaunchSnapshotAndUpdatesDiagnostics` |
 
-| `internal/api` | `WorkspaceService.Query`, `WorkspaceService.Upload`, `WorkspaceService.Download` | `internal/app.TestWorkspaceExplorerLifecycleAndConflict`, `internal/app.TestWorkspaceExplorerConfinementAndLimits`, `internal/app.TestWorkspaceExplorerPaginationAndExternalEdits` |
+| `internal/workspace` | `New`, `Service.Query`, `Service.Upload`, `Service.Download`, `Explorer.Query`, `Explorer.Upload`, `Explorer.Download` | `internal/app.TestWorkspaceExplorerLifecycleAndConflict`, `internal/app.TestWorkspaceExplorerConfinementAndLimits`, `internal/app.TestWorkspaceExplorerPaginationAndExternalEdits` |
 | `internal/textfiles` | `MakeDirectory` | `internal/app.TestWorkspaceExplorerLifecycleAndConflict` |
 
 | `internal/maintenance` | `Service.CanUpdate`, `Service.Cancel`, `Service.Enabled`, `Service.Latest`, `Service.Programs`, `Service.ProtectedRoots`, `Service.Snapshot`, `Service.Start`, `Service.Task`, `Unavailable.CanUpdate`, `Unavailable.Cancel`, `Unavailable.Enabled`, `Unavailable.Latest`, `Unavailable.Programs`, `Unavailable.ProtectedRoots`, `Unavailable.Snapshot`, `Unavailable.Start`, `Unavailable.Task` | `TestUnavailableMaintenanceDoesNotOfferOrStartHostOperations`, `internal/app.TestMaintenanceAPIRequiresAuthenticationCSRFAndKnownRequests` |
@@ -341,3 +342,42 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | --- | --- | --- |
 | `internal/resultcache` | `New`, `Cache.GetOrCompute` | `TestCacheFixedTTLRefreshAndFailure`, `TestCacheLRUCostAndOversizedResults`, `TestCacheSharesWorkAndIndependentCancellation`, `TestCacheAbandonedWorkCannotOverwriteReplacement`, `TestCacheConcurrentAccess` |
 | `internal/resultcache` | `Cache.Close` | `TestCacheLimitsTimeoutPanicAndClose` |
+
+## 沙盒会话模块
+
+| 包 | 公开入口 | 行为测试 |
+| --- | --- | --- |
+| `internal/shellsession` | `New`, `Manager.Execute`, `Manager.Close` | `TestShellTasksDetachLimitOwnershipAndEvents`, `TestShellForegroundPromotionAndCancellation` |
+| `internal/shellsession` | `ManagedFor`, `ManagedPrincipal` | `internal/app.TestSessionHostPreservesExecutionCapability` |
+| `internal/shellsession` | `Manager.Start` | `TestShellRestartInterruptsWithoutReplay` |
+| `internal/shellsession` | `Manager.Manage` | `TestTerminalHandoffPermissionsVersionsAndReadBarrier`, `TestShellTaskListBoundsHistoryKeepsRunningAndScopesAssistant` |
+| `internal/shellsession` | `Manager.Tool`, `Manager.TerminalFrames` | `TestTerminalEntryPointsPreserveStreamBackpressureAndIdentity` |
+| `internal/shellsession` | `Manager.StartTerminal`, `TerminalScript` | `TestTerminalManualStartUsesAssistantCapabilityAndSuppressesReminders`, `TestTerminalManualStartPreservesFullAccessMode`, `internal/app.TestWindowsTerminalDefaultShellRouting` |
+| `internal/shellsession` | `Manager.BrowserTool`, `Manager.BrowserManage`, `Manager.BrowserReady` | `TestBrowserEntryPointsKeepOwnershipAndFixedDiagnostics`, `internal/app.TestBrowserRealTaskStreamTakeoverAndPersistence` |
+| `internal/shellsession` | `Manager.BrowserSettings`, `Host.ProxyCipher`, `Host.VerifyProxy` | `TestBrowserProxySettingsEncryptedVersionedAndAdministratorOnly`, `internal/app.TestBrowserProxyRealSandbox`, `internal/app.TestBrowserProxySettingsRejectRegularMembers` |
+| `internal/shellsession` | `Manager.BrowserFrames`, `Host.DialForward` | `internal/app.TestBrowserRealTaskStreamTakeoverAndPersistence`, `internal/app.TestShellForwardRealLocalAndRemote` |
+| `internal/shellsession` | `Host.CheckAssistant`, `Host.CheckExecution` | `internal/app.TestSessionHostPreservesExecutionCapability`, `internal/app.TestShellTasksRealDetachedAuthorizationAndTTY` |
+| `internal/shellsession` | `Host.Execute`, `Host.ResolveCompute`, `Host.ConcurrencyLimit` | `internal/app.TestFullAccessRequiresGroupDelegation`, `internal/app.TestFullAccessAndIsolationCoexist` |
+| `internal/shellsession` | `Host.AuthorizeForward` | `internal/app.TestShellForwardRealLocalAndRemote` |
+| `internal/shellsession` | `Host.BrowserSandboxAvailable`, `Host.BrowserSupported`, `Host.AuthorizeSession` | `internal/app.TestBrowserRealTaskStreamTakeoverAndPersistence`, `internal/app.TestBrowserFullAccessRealTaskStreamTakeoverAndPersistence` |
+| `internal/shellsession` | `Host.RecordAudit` | `internal/app.TestFullAccessManualTerminalRequiresGrantAndStopsOnRevocation` |
+| `internal/shellsession` | `Host.CaptureLogs`, `Host.Workspace` | `internal/app.TestShellTasksRemoteTTYAndArchivedOutput` |
+| `internal/shellsession` | `ReadOutput`, `OutputPrefix` | `internal/app.TestTerminalOutputPreservesBytesAcrossChunks`, `internal/app.TestShellArchiveCanBeReadFromStateDirectory` |
+| `internal/shellsession` | `NetConn` | `TestForwardStreamDeadlineAndClose`, `internal/app.TestShellForwardRealLocalAndRemote` |
+
+| `internal/filetools` | `New`, `Tools.Read`, `IsText`, `VirtualPath` | `internal/app.TestFileReadRangesLargeFilesAndExplicitTruncation`, `internal/app.TestFileReadRejectsLongLinesAndReportsEmpty` |
+| `internal/filetools` | `Tools.List` | `internal/app.TestFileListPaginationScopeAndVersion` |
+| `internal/filetools` | `Tools.Search` | `internal/app.TestFileSearchWorkspaceGlobalAndExternalScope` |
+| `internal/filetools` | `Tools.Write`, `Tools.Edit` | `internal/app.TestFileWriteExplicitCreateReplaceAndVersions`, `internal/app.TestFileEditExactMatchConflictAndConcurrentUpdates` |
+| `internal/filetools` | `Tools.Move`, `Tools.Delete` | `internal/app.TestFileMoveDeleteVersionsDestinationsAndLinks`, `internal/app.TestCommonFileMoveDeleteReceiptsAndVisibility` |
+| `internal/filetools` | `Tools.BoundResult` | `internal/app.TestLargeToolResultIsSavedAndReadableInChunks`, `internal/app.TestToolResultRefusesLinkedOutput` |
+| `internal/filetools` | `Tools.Lock` | `TestResourceFileLockRejectsCanceledContext`, `TestResourceFileLockSerializesConcurrentWriters` |
+| `internal/filetools` | `Tools.MediaRoot`, `Tools.Snapshot` | `TestCanceledMediaSnapshotDoesNotTouchOrEvictCache` |
+| `internal/filetools` | `Tools.PrepareMedia` | `internal/app.TestFileMediaMetadataSnapshotsModelSwitchAndRevocation`, `internal/app.TestMediaWindowKeepsRecentReadsAndSurvivesCacheEviction` |
+| `internal/filetools` | `CodecCommand` | `internal/app.TestMediaCodecIsolationAndAudioVideoRead` |
+| `internal/filetools` | `IsBuiltin` | `internal/app.TestBuiltinDocsWithoutSandbox`, `internal/app.TestBuiltinDocsRejectMutationsAndForeignPaths` |
+| `internal/filetools` | `WithPolicy`, `CheckPolicy`, `ObserveRead`, `PrepareMutation` | `internal/app.TestDreamUsesCommonFileExecutorWithScopedAccess`, `internal/app.TestDreamReadsDiagnosticsRepairsMalformedMemoryAndPreservesUndo` |
+| `internal/im/channelstate` | `Seal`, `Open` | `TestEnvelopeBindsIdentityAndRejectsDamage` |
+| `internal/im/channelstate` | `Notify`, `SyncNotice` | `TestConnectionNotifyPreservesScopeRecoveryAndCommitOrder` |
+| `internal/sandboxruntime` | `New`, `Remote.Execute`, `Client.Execute`, `Client.Await`, `Host.Connect`, `Host.Epoch`, `Host.CheckExecution`, `Host.CheckConnection` | `TestRemoteExecutionReusesFrozenIdentityAndRechecksEpoch`, `internal/app.TestShellTasksRemoteTTYAndArchivedOutput` |
+| `internal/sandboxruntime` | `Remote.Remember`, `Remote.Tick`, `Remote.Close`, `Host.Info`, `Host.CheckMembership` | `TestRemoteWaitRecoversOnceAndRespectsRevocation`, `internal/app.TestRemoteFailureDoesNotRestoreStoppedWork` |

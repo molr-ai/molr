@@ -70,6 +70,11 @@ IM 保存 `MessageCreated` outbox，Agent 调度消费并通过业务绑定找�
 | 包 | 主要导出接口／类型 |
 | --- | --- |
 | `app` | `Application`、`Dependencies.Validate`：生命周期与组合检查 |
+| `shellsession` | `Manager` 管理命令、终端、浏览器与转发的生命周期；`Host` 注入授权和执行路由，进程内能力绑定原执行身份 |
+| `filetools` | `Tools` 与能力回调：受控文件操作、媒体准备及结果归档 |
+| `workspace` | `Explorer`、`Service` 与请求／响应类型：用户工作区文件操作，注入授权根目录 |
+| `sandboxruntime` | `Remote`、`Host`、`Client`：远程执行身份冻结、恢复与离线等待唤醒 |
+| `im/channelstate` | `Seal`、`Open`、`Notify`、`SyncNotice`：渠道凭据封装与连接通知 |
 | `config` | `Config`、`Defaults`、`Load`、`Validate`：严格 JSON 配置与公网安全配置校验 |
 | `logging` | `Options`、`DefaultOptions`、`NewFile`、`OpenFile`：统一文件日志大小／数量策略、私有权限、并发写入、轮转及旧文件清理；`NewFile` 首次写入才访问磁盘，`OpenFile` 立即验证目标并应用策略，同一路径在实例内共用一个 writer |
 | `api` | `Server`、`Services`、`RateLimiter`、`PublicError`：传输能力组合、限流与安全错误映射 |

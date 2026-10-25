@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import type { Assistant, Message, Model } from '../src/api/types';
+import type { Assistant, Message, Model } from '@molr/sdk';
 
 const port = process.env.MOLR_TEST_PORT ?? '5193', base = `http://127.0.0.1:${port}`;
 async function post<T>(page: Page, path: string, data: object): Promise<T> {
@@ -30,7 +30,7 @@ async function delaySend(page: Page) {
   const gate = new Promise<void>(resolve => { release = resolve; }), ready = new Promise<void>(resolve => { committed = resolve; });
   await page.evaluate(async () => {
     window.completedSends = 0;
-    const path = '/src/api/client.ts', { onMutation } = await import(path);
+    const path = '/@id/@molr/sdk', { onMutation } = await import(path);
     onMutation((path: string) => { if (path === '/api/conversations/messages') window.completedSends++; });
   });
   await page.route('**/api/conversations/messages', async route => {

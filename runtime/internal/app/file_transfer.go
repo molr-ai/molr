@@ -90,7 +90,7 @@ func (f *resourceFileTools) transfer(ctx context.Context, e core.Execution, r to
 		if err != nil {
 			return nil, err
 		}
-		unlock, err := f.lock(ctx, filepath.Join(root, name))
+		unlock, err := f.Lock(ctx, filepath.Join(root, name))
 		if err != nil {
 			return nil, err
 		}

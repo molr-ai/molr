@@ -1,8 +1,8 @@
 import { CurrencySelect, MoneyText } from '../components/Money';
 import { useState } from 'react';
 import { Switch, TextField } from '@molr/ui';
-import { api, APIError } from '../../../api/client';
-import type { CurrencyCode, CurrencyContext, Model, Resource } from '../../../api/types';
+import { api, APIError } from '@molr/sdk';
+import type { CurrencyCode, CurrencyContext, Model, Resource } from '@molr/sdk';
 import { useCopy } from '../../../state';
 import { EditForm, micros, useAction } from '../components/common';
 

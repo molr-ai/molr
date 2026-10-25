@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import type { Model, Settings } from '../src/api/types';
+import type { Model, Settings } from '@molr/sdk';
 
 const getSettings = (page: Page): Promise<Settings> => page.request.get('/api/settings').then(response => response.json());
 async function post(page: Page, path: string, body: object, version?: number) {

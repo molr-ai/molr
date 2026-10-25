@@ -145,10 +145,10 @@ func TestResourceCatalogSeparatesScopeAndRuntimeStorage(t *testing.T) {
 			t.Fatal("unstable shell mapping")
 		}
 	}
-	if _, err := (&resourceFileTools{adapters: f.ad}).write(t.Context(), f.execution, tools.FileWriteRequest{FileTarget: tools.FileTarget{ResourceID: f.storage.ID, Path: "/read/data"}, Text: "changed", Overwrite: true}); err == nil {
+	if _, err := (newResourceFileTools(resourceFileOptions{adapters: f.ad})).Write(t.Context(), f.execution, tools.FileWriteRequest{FileTarget: tools.FileTarget{ResourceID: f.storage.ID, Path: "/read/data"}, Text: "changed", Overwrite: true}); err == nil {
 		t.Fatal("file tool expanded write scope")
 	}
-	_, err := (&resourceFileTools{adapters: f.ad}).write(t.Context(), f.execution, tools.FileWriteRequest{FileTarget: tools.FileTarget{ResourceID: f.storage.ID, Path: "/write/data"}, Text: "changed", Overwrite: true})
+	_, err := (newResourceFileTools(resourceFileOptions{adapters: f.ad})).Write(t.Context(), f.execution, tools.FileWriteRequest{FileTarget: tools.FileTarget{ResourceID: f.storage.ID, Path: "/write/data"}, Text: "changed", Overwrite: true})
 	need(t, err)
 	plan, err := f.b.sandbox.plan(t.Context(), f.execution, tools.ShellRequest{ComputeID: f.compute.ID, Script: "true", Files: []tools.ShellFile{{ResourceID: f.storage.ID, Path: "/write", Write: true}, {ResourceID: f.storage.ID, Path: "/read"}}})
 	need(t, err)
@@ -189,7 +189,7 @@ func TestStorageDeploymentRestrictionsApplyToDiscoveryFilesAndShell(t *testing.T
 					t.Fatal("ambiguous root namespace")
 				}
 			}
-			_, err := (&resourceFileTools{adapters: f.ad}).write(t.Context(), f.execution, tools.FileWriteRequest{FileTarget: tools.FileTarget{ResourceID: f.storage.ID, Path: "/write/data"}, Text: "bad", Overwrite: true})
+			_, err := (newResourceFileTools(resourceFileOptions{adapters: f.ad})).Write(t.Context(), f.execution, tools.FileWriteRequest{FileTarget: tools.FileTarget{ResourceID: f.storage.ID, Path: "/write/data"}, Text: "bad", Overwrite: true})
 			if string(core.ReasonOf(err)) != want {
 				t.Fatalf("file bypass: %v", err)
 			}

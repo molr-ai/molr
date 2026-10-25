@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"molr.ai/runtime/internal/filetools"
 	"os"
 	"path/filepath"
 	"testing"
@@ -30,8 +31,8 @@ func TestWorkspaceFileToolsNeedNoStorageOrComputeGrant(t *testing.T) {
 					cfg.Sandbox.WorkRoot = t.TempDir()
 				}
 			})
-			fs := &resourceFileTools{adapters: f.ad, router: f.b.remote}
-			ex := tools.NewExecutor(f.b.store, tools.Options{Authorizer: f.ad.policy, Operations: f.b.Services.Operations.(operation.Service), FileRead: fs.read, FileList: fs.list, FileWrite: fs.write, FileEdit: fs.edit})
+			fs := newResourceFileTools(resourceFileOptions{adapters: f.ad, router: f.b.remote})
+			ex := tools.NewExecutor(f.b.store, tools.Options{Authorizer: f.ad.policy, Operations: f.b.Services.Operations.(operation.Service), FileRead: fs.Read, FileList: fs.List, FileWrite: fs.Write, FileEdit: fs.Edit})
 			call := func(name string, input any, id core.ID) (json.RawMessage, error) {
 				raw, _ := json.Marshal(input)
 				e := f.execution
@@ -45,7 +46,7 @@ func TestWorkspaceFileToolsNeedNoStorageOrComputeGrant(t *testing.T) {
 			need(t, err)
 			raw, err := call("file_read", map[string]any{"path": "/work/outputs/note.txt"}, "read-workspace")
 			need(t, err)
-			var read fileReadResult
+			var read filetools.ReadResult
 			need(t, json.Unmarshal(raw, &read))
 			if read.Text != "hello" || read.ResourceID != "" {
 				t.Fatal("workspace read failed")
@@ -83,7 +84,7 @@ func TestWorkspaceFileToolsNeedNoStorageOrComputeGrant(t *testing.T) {
 
 func TestWorkspaceIdentityAndSymlinkIsolation(t *testing.T) {
 	f := newResourceAccessFixture(t, func(cfg *config.Config, _ string) { cfg.Sandbox.Enabled = false })
-	fs := &resourceFileTools{adapters: f.ad}
+	fs := newResourceFileTools(resourceFileOptions{adapters: f.ad})
 	other := f.execution
 	other.AssistantID = "other"
 	other.Principal.SubjectID = "other"
@@ -94,43 +95,43 @@ func TestWorkspaceIdentityAndSymlinkIsolation(t *testing.T) {
 		}
 		return tx.Put(ctx, "agent.jobs", persistence.Key(f.owner.OwnerID, "other-job"), scheduler.Job{State: scheduler.Running, ExecutionID: other.Principal.ExecutionID, Event: event.AssistantEvent{ID: "other-job", OwnerID: f.owner.OwnerID, AssistantID: other.AssistantID}})
 	}))
-	_, err := fs.write(t.Context(), f.execution, tools.FileWriteRequest{FileTarget: tools.FileTarget{Path: "/work/private.txt"}, Text: "private"})
+	_, err := fs.Write(t.Context(), f.execution, tools.FileWriteRequest{FileTarget: tools.FileTarget{Path: "/work/private.txt"}, Text: "private"})
 	need(t, err)
-	_, err = fs.read(t.Context(), other, tools.FileReadRequest{FileTarget: tools.FileTarget{Path: "/work/private.txt"}})
+	_, err = fs.Read(t.Context(), other, tools.FileReadRequest{FileTarget: tools.FileTarget{Path: "/work/private.txt"}})
 	if core.CodeOf(err) != core.NotFound {
 		t.Fatal("another assistant read workspace data")
 	}
 	otherRoot := platform.AssistantWorkspace(f.ad.dataDir, "", f.owner.OwnerID, other.AssistantID)
 	root := platform.AssistantWorkspace(f.ad.dataDir, "", f.owner.OwnerID, f.execution.AssistantID)
 	need(t, os.Symlink(root, filepath.Join(otherRoot, "link")))
-	if _, err = fs.read(t.Context(), other, tools.FileReadRequest{FileTarget: tools.FileTarget{Path: "/work/link/private.txt"}}); core.CodeOf(err) != core.Forbidden {
+	if _, err = fs.Read(t.Context(), other, tools.FileReadRequest{FileTarget: tools.FileTarget{Path: "/work/link/private.txt"}}); core.CodeOf(err) != core.Forbidden {
 		t.Fatal("workspace symlink escaped identity")
 	}
 	forged := other
 	forged.AssistantID = f.execution.AssistantID
-	if _, err = fs.list(t.Context(), forged, tools.FileListRequest{FileTarget: tools.FileTarget{Path: "/work"}}); err == nil {
+	if _, err = fs.List(t.Context(), forged, tools.FileListRequest{FileTarget: tools.FileTarget{Path: "/work"}}); err == nil {
 		t.Fatal("forged assistant identity accepted")
 	}
 }
 
 func TestGlobalFilesReadSameOwnerMemoryAndRejectWrites(t *testing.T) {
 	f := newResourceAccessFixture(t, func(cfg *config.Config, _ string) { cfg.Sandbox.Enabled = false })
-	fs := &resourceFileTools{adapters: f.ad}
+	fs := newResourceFileTools(resourceFileOptions{adapters: f.ad})
 	root := platform.UserGlobal(f.ad.dataDir, f.owner.OwnerID)
 	need(t, os.MkdirAll(root, 0700))
 	need(t, os.WriteFile(filepath.Join(root, "MEMORY.md"), []byte("Shared owner preference"), 0600))
-	raw, err := fs.read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: tools.FileTarget{Path: "/global/MEMORY.md"}, Offset: 1, Limit: 20})
+	raw, err := fs.Read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: tools.FileTarget{Path: "/global/MEMORY.md"}, Offset: 1, Limit: 20})
 	need(t, err)
-	var read fileReadResult
+	var read filetools.ReadResult
 	need(t, json.Unmarshal(raw, &read))
 	if read.Text != "Shared owner preference" {
 		t.Fatal(read)
 	}
-	_, err = fs.write(t.Context(), f.execution, tools.FileWriteRequest{FileTarget: tools.FileTarget{Path: "/global/MEMORY.md"}, Text: "overwrite", Overwrite: true, ExpectedVersion: read.Version})
+	_, err = fs.Write(t.Context(), f.execution, tools.FileWriteRequest{FileTarget: tools.FileTarget{Path: "/global/MEMORY.md"}, Text: "overwrite", Overwrite: true, ExpectedVersion: read.Version})
 	if core.CodeOf(err) != core.Forbidden {
 		t.Fatal("global write allowed", err)
 	}
-	_, err = fs.list(t.Context(), f.execution, tools.FileListRequest{FileTarget: tools.FileTarget{Path: "/global/../work"}})
+	_, err = fs.List(t.Context(), f.execution, tools.FileListRequest{FileTarget: tools.FileTarget{Path: "/global/../work"}})
 	if core.CodeOf(err) != core.InvalidArgument {
 		t.Fatal("noncanonical global path allowed", err)
 	}
@@ -143,7 +144,7 @@ func TestGlobalFilesReadSameOwnerMemoryAndRejectWrites(t *testing.T) {
 
 func TestWorkspaceContextAvailabilityAndStableContract(t *testing.T) {
 	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { c.Sandbox.Enabled = true })
-	fs := &resourceFileTools{adapters: f.ad, router: &sandboxRouter{adapters: f.ad}}
+	fs := newResourceFileTools(resourceFileOptions{adapters: f.ad, router: &sandboxRouter{adapters: f.ad}})
 	request := agent.ContextRequest{Execution: f.execution}
 	read := func() agent.ContextDocument {
 		t.Helper()

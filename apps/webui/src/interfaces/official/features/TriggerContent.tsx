@@ -1,4 +1,4 @@
-import type { DebugSource } from '../../../api/types';
+import type { DebugSource } from '@molr/sdk';
 import { useCopy } from '../../../state';
 
 export function TriggerContent({ source }: { source?: DebugSource }) {

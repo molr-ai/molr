@@ -3,8 +3,42 @@ package sqlitestore
 import (
 	"database/sql"
 	"path/filepath"
+	"slices"
 	"testing"
 )
+
+func TestNamedIndexesSurviveReorderingAndRetireOnlyManagedIndexes(t *testing.T) {
+	s, err := Open(filepath.Join(t.TempDir(), "named.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if _, err := s.db.Exec(`INSERT INTO records VALUES ('fixture','one','{"Value":1}');
+		CREATE INDEX records_query_obsolete ON records(bucket);
+		CREATE INDEX application_custom ON records(key);`); err != nil {
+		t.Fatal(err)
+	}
+	original := recordIndexes
+	recordIndexes = slices.Clone(recordIndexes)
+	slices.Reverse(recordIndexes)
+	defer func() { recordIndexes = original }()
+	if err := s.createIndexes(); err != nil {
+		t.Fatal(err)
+	}
+	var count int
+	if err := s.db.QueryRow("SELECT count(*) FROM sqlite_schema WHERE type='index' AND name GLOB 'records_query_*'").Scan(&count); err != nil || count != len(recordIndexes) {
+		t.Fatal("index order changed schema", count, err)
+	}
+	for _, name := range []string{"application_custom", "auth_device_session", "records_query_im_messages_ownerkey_conversationid_sequence"} {
+		if err := s.db.QueryRow("SELECT count(*) FROM sqlite_schema WHERE type='index' AND name=?", name).Scan(&count); err != nil || count != 1 {
+			t.Fatal("required index lost", name, count, err)
+		}
+	}
+	var value string
+	if err := s.db.QueryRow("SELECT value FROM records WHERE bucket='fixture' AND key='one'").Scan(&value); err != nil || value != `{"Value":1}` {
+		t.Fatal("index reconciliation changed data", value, err)
+	}
+}
 
 func TestQueryIndexCreationFailureRollsBackAndCanRetry(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "indexes.db")

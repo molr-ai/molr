@@ -112,7 +112,7 @@ test('execution toast actions follow workbench settings and navigate to their ev
     await toast.hover();
     // Browser API mutations alone do not invalidate the in-app settings cache.
     const setInApp = async (enabled: boolean) => page.evaluate(async enabled => {
-      const modulePath = '/src/api/client.ts'; const { api } = await import(modulePath);
+      const modulePath = '/@id/@molr/sdk'; const { api } = await import(modulePath);
       const current = await api.get('/api/settings');
       await api.mutate('/api/settings', { Settings: { ...current, WorkbenchVisible: enabled } }, current.Version);
     }, enabled);
@@ -231,7 +231,7 @@ test('dream timeout explains retained changes and opens the right assistant sett
     const other = await post(page, '/api/assistants', { Name: 'Independent dream settings', ModelID: assistant.ModelID, Budget: assistant.Budget });
     expect((await (await page.request.get(`/api/dreams/config?assistant_id=${other.ID}`)).json()).MaxDurationSeconds).toBe(3600);
     await page.evaluate(async () => {
-      const path = '/src/api/client.ts', { api } = await import(path);
+      const path = '/@id/@molr/sdk', { api } = await import(path);
       const current = await api.get('/api/settings');
       await api.mutate('/api/settings', { Settings: { ...current, Timezone: 'America/New_York' } }, current.Version);
     });

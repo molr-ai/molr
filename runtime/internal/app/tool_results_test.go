@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"molr.ai/runtime/internal/filetools"
+	"molr.ai/runtime/internal/shellsession"
 	"os"
 	"strings"
 	"testing"
@@ -17,11 +19,11 @@ import (
 
 func TestLargeToolResultIsSavedAndReadableInChunks(t *testing.T) {
 	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { c.Sandbox.Enabled = false })
-	fs := &resourceFileTools{adapters: f.ad}
+	fs := newResourceFileTools(resourceFileOptions{adapters: f.ad})
 	content, _ := json.Marshal(map[string]any{"Text": strings.Repeat("原始长结果 test\n", 20000), "Exit": map[string]int{"Code": 1}})
-	result, err := fs.boundResult(t.Context(), f.execution, tools.Result{OperationID: f.execution.OperationID, Content: content})
+	result, err := fs.BoundResult(t.Context(), f.execution, tools.Result{OperationID: f.execution.OperationID, Content: content})
 	need(t, err)
-	if len(result.Content) > toolInlineLimit {
+	if len(result.Content) > filetools.InlineLimit {
 		t.Fatal("inline result too large")
 	}
 	visible, err := prompt.Structured("archive", string(result.Content))
@@ -43,9 +45,9 @@ func TestLargeToolResultIsSavedAndReadableInChunks(t *testing.T) {
 	var collected bytes.Buffer
 	offset := int64(0)
 	for {
-		data, err := fs.read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: tools.FileTarget{Path: envelope.FullResultPath}, ByteOffset: &offset, MaxBytes: 4096})
+		data, err := fs.Read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: tools.FileTarget{Path: envelope.FullResultPath}, ByteOffset: &offset, MaxBytes: 4096})
 		need(t, err)
-		bounded, err := fs.boundResult(t.Context(), f.execution, tools.Result{Content: data})
+		bounded, err := fs.BoundResult(t.Context(), f.execution, tools.Result{Content: data})
 		need(t, err)
 		if !bytes.Equal(bounded.Content, data) {
 			t.Fatal("bounded read archived its output again")
@@ -70,7 +72,7 @@ func TestLargeToolResultIsSavedAndReadableInChunks(t *testing.T) {
 	if !bytes.Equal(collected.Bytes(), content) {
 		t.Fatal("saved result differs from original")
 	}
-	replay, err := fs.boundResult(t.Context(), f.execution, tools.Result{Content: content})
+	replay, err := fs.BoundResult(t.Context(), f.execution, tools.Result{Content: content})
 	need(t, err)
 	if !bytes.Equal(replay.Content, result.Content) {
 		t.Fatal("replay created a different envelope")
@@ -78,9 +80,9 @@ func TestLargeToolResultIsSavedAndReadableInChunks(t *testing.T) {
 }
 func TestToolResultRefusesLinkedOutput(t *testing.T) {
 	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { c.Sandbox.Enabled = false })
-	fs := &resourceFileTools{adapters: f.ad}
+	fs := newResourceFileTools(resourceFileOptions{adapters: f.ad})
 	content, _ := json.Marshal(strings.Repeat("test", 10000))
-	result, err := fs.boundResult(t.Context(), f.execution, tools.Result{Content: content})
+	result, err := fs.BoundResult(t.Context(), f.execution, tools.Result{Content: content})
 	need(t, err)
 	var saved struct {
 		Path string `json:"full_result_path"`
@@ -92,7 +94,7 @@ func TestToolResultRefusesLinkedOutput(t *testing.T) {
 	target := t.TempDir() + "/private"
 	need(t, os.WriteFile(target, []byte("keep"), 0600))
 	need(t, os.Symlink(target, name))
-	_, err = fs.boundResult(t.Context(), f.execution, tools.Result{Content: content})
+	_, err = fs.BoundResult(t.Context(), f.execution, tools.Result{Content: content})
 	if core.CodeOf(err) != core.Forbidden {
 		t.Fatal("linked output accepted", err)
 	}
@@ -124,11 +126,11 @@ func TestShellArchiveQuotaReportsPartialOutput(t *testing.T) {
 
 func TestToolEnvelopeBoundsEscapedJSON(t *testing.T) {
 	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { c.Sandbox.Enabled = false })
-	fs := &resourceFileTools{adapters: f.ad}
+	fs := newResourceFileTools(resourceFileOptions{adapters: f.ad})
 	content := json.RawMessage(`{"Path":"` + strings.Repeat("<", 500) + `","Text":"` + strings.Repeat("<", 30000) + `"}`)
-	result, err := fs.boundResult(t.Context(), f.execution, tools.Result{Content: content})
+	result, err := fs.BoundResult(t.Context(), f.execution, tools.Result{Content: content})
 	need(t, err)
-	if len(result.Content) > toolInlineLimit || !json.Valid(result.Content) {
+	if len(result.Content) > filetools.InlineLimit || !json.Valid(result.Content) {
 		t.Fatal("escaped envelope exceeded limit")
 	}
 }
@@ -145,7 +147,7 @@ func TestShellArchiveCanBeReadFromStateDirectory(t *testing.T) {
 	stdout.close()
 	stderr.close()
 	for _, stream := range []string{"stdout", "stderr"} {
-		raw, err := readShellOutput(root, outPath, errPath, tools.ShellTaskRequest{Stream: stream})
+		raw, err := shellsession.ReadOutput(root, outPath, errPath, tools.ShellTaskRequest{Stream: stream})
 		need(t, err)
 		var result struct{ Output, Path string }
 		need(t, json.Unmarshal(raw, &result))

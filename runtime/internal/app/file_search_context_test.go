@@ -18,7 +18,7 @@ import (
 
 func TestFileSearchSingleFileRefreshesParentInstructions(t *testing.T) {
 	f := newResourceAccessFixture(t, func(cfg *config.Config, _ string) { cfg.Sandbox.Enabled = false })
-	files := &resourceFileTools{adapters: f.ad}
+	files := newResourceFileTools(resourceFileOptions{adapters: f.ad})
 	for _, prefix := range []string{"/work", "/global"} {
 		root := platform.AssistantWorkspace(f.ad.dataDir, f.ad.storageConfig.WorkRoot, f.owner.OwnerID, f.execution.AssistantID)
 		if prefix == "/global" {
@@ -48,7 +48,7 @@ func TestFileSearchSingleFileRefreshesParentInstructions(t *testing.T) {
 		} {
 			t.Run(prefix+"/"+tc.name, func(t *testing.T) {
 				request := tools.FileSearchRequest{FileTarget: tools.FileTarget{Path: prefix + tc.target}, Pattern: tc.pattern, Mode: tc.mode, Glob: tc.glob}
-				result, err := files.search(t.Context(), f.execution, request)
+				result, err := files.Search(t.Context(), f.execution, request)
 				need(t, err)
 				var search textfiles.SearchResult
 				need(t, json.Unmarshal(result, &search))
@@ -56,7 +56,7 @@ func TestFileSearchSingleFileRefreshesParentInstructions(t *testing.T) {
 					t.Fatalf("target kind = %q, want %q", search.TargetKind, tc.kind)
 				}
 				if tc.archive {
-					bounded, err := files.boundResult(t.Context(), f.execution, tools.Result{Content: result})
+					bounded, err := files.BoundResult(t.Context(), f.execution, tools.Result{Content: result})
 					need(t, err)
 					result = bounded.Content
 					if !strings.Contains(string(result), "full_result_path") {

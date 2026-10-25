@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ArrowRight, FlaskConical } from 'lucide-react';
 import { Badge, Button, ChatMessageMeta } from '@molr/ui';
 import { useMessageFeedback } from './use-message-feedback';
-import type { Message, TurnMetrics } from '../../../api/types';
+import type { Message, TurnMetrics } from '@molr/sdk';
 import { useCopy, useData } from '../../../state';
 import { MoneyText } from '../components/Money';
 

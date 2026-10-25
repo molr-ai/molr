@@ -1,7 +1,7 @@
 import { Button } from '@molr/ui';
 import { useCopy, useQuery } from '../../../state';
 
-import type { DiscoveredProvider as LocalProvider } from '../../../api/types';
+import type { DiscoveredProvider as LocalProvider } from '@molr/sdk';
 export function LocalProviderDiscovery({ disabled, onSelect }: { disabled: boolean; onSelect: (item: LocalProvider) => void }) {
  const { locale } = useCopy(), zh = locale === 'zh';
  const query = useQuery<LocalProvider[]>('/api/resources/discover-local');

@@ -1,5 +1,5 @@
 import { DismissibleAlert } from '../components/DismissibleAlert';
-import type { AgentStatus, Assistant } from '../../../api/types';
+import type { AgentStatus, Assistant } from '@molr/sdk';
 import { useCopy } from '../../../state';
 
 export function AssistantWaitingNotice({ assistant, status }: { assistant: Assistant; status: AgentStatus }) {

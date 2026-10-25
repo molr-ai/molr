@@ -2,7 +2,7 @@ import { useErrorToast } from '../../../error-toasts';
 import { CalendarDays, Folder, ListTodo } from 'lucide-react';
 import { Button, ChatCard } from '@molr/ui';
 import type { ChatCardDetail, ChatCardProps } from '@molr/ui';
-import type { Message, Resource, Schedule, Task } from '../../../api/types';
+import type { Message, Resource, Schedule, Task } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
 
 type Card = NonNullable<Message['Content']['Card']>;

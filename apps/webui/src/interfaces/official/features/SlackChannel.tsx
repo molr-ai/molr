@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Alert, Button, ModalPresence, TextField } from '@molr/ui';
-import type { Assistant, SlackLogin, SlackStatus } from '../../../api/types';
-import { api } from '../../../api/client';
+import type { Assistant, SlackLogin, SlackStatus } from '@molr/sdk';
+import { api } from '@molr/sdk';
 import { useCopy, useData, useQuery } from '../../../state';
 import { useErrorToast } from '../../../error-toasts';
 import { slackCopy } from '../../../slack-copy';

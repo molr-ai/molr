@@ -1,8 +1,8 @@
 import { useErrorToast } from '../../../error-toasts';
 import { useState } from 'react';
 import { ModalPresence, Alert, Badge, Button, Dialog, Textarea, TextField } from '@molr/ui';
-import { api, APIError } from '../../../api/client';
-import type { SecurityStatus } from '../../../api/types';
+import { api, APIError } from '@molr/sdk';
+import type { SecurityStatus } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
 import { useReauthentication } from '../components/ReauthenticationDialog';
 import { EditDialog, Loading, useAction } from '../components/common';

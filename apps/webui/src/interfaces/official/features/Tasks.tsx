@@ -1,4 +1,4 @@
-import type { Assistant } from '../../../api/types';
+import type { Assistant } from '@molr/sdk';
 import { useQuery } from '../../../state';
 import { Plans } from './Plans';
 
