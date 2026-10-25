@@ -143,8 +143,8 @@ export function useTopicVersion(topic: string) {
   return useSyncExternalStore(subscribe, snapshot);
 }
 function useQuerySubscription<T>(path: string | null, list: boolean, interval?: QueryInterval<T>) {
-  const { queries } = useData();
-  const revision = useTopicVersion(queryTopic(path ?? ''));
+  const { queries, topics } = useData();
+  const topic = queryTopic(path ?? '');
   const key = path ? `${list ? 'list' : 'item'}:${path}` : null;
   const cadence = useMemo(() => interval ?? queryInterval(path ?? ''), [interval, path]);
   const subscribe = useCallback((listener: () => void) => key ? queries.subscribe(key, listener, cadence as QueryInterval) : () => {}, [queries, key, cadence]);
@@ -153,8 +153,15 @@ function useQuerySubscription<T>(path: string | null, list: boolean, interval?: 
     if (refresh) { const [base, query] = target.split('?'); const params = new URLSearchParams(query); params.set('refresh', 'true'); target = `${base}?${params}`; }
     return list ? api.all(target, signal) as Promise<T> : api.get<T>(target, signal);
   }, [path, list]);
-  const sync = useCallback(() => { if (key) queries.refresh(key, revision, load); }, [queries, key, revision, load]);
-  const reload = useCallback(() => { if (key) queries.refresh(key, revision, load, true); }, [queries, key, revision, load]);
+  const sync = useCallback(() => {
+    if (!key) return;
+    const refresh = () => queries.refresh(key, topics.version(topic), load);
+    const unsubscribe = topics.subscribe(topic, refresh);
+    // Read after subscribing so changes before the effect are also reconciled.
+    refresh();
+    return unsubscribe;
+  }, [queries, topics, topic, key, load]);
+  const reload = useCallback(() => { if (key) queries.refresh(key, topics.version(topic), load, true); }, [queries, topics, topic, key, load]);
   return { queries, key, subscribe, reload, sync };
 }
 export function useQuery<T>(path: string | null, list = false, interval?: QueryInterval<T>) {

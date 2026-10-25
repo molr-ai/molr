@@ -1,4 +1,5 @@
 import { DraftProvider } from './drafts';
+import { AssistantNavigationItem } from './AssistantNavigationItem';
 import { AppFrame, AppTitlebarBrand } from './app-mode';
 import { AppAppearanceSync } from './app-appearance';
 import { UpdateProvider, UpdateBadge, useUpdateNotice } from './updates/provider';
@@ -12,7 +13,7 @@ import { Avatar, Button, ConnectionLogo, ConnectionNotice, ModalScope, Tooltip, 
 import { Puzzle, CalendarClock, FlaskConical, Folder, MessagesSquare, Search as SearchIcon } from 'lucide-react';
 import { resolveUI, packageKey } from '@molr/ui-host';
 import type { UIPage } from '@molr/sdk/ui';
-import type { Settings, RuntimeInfo, Conversation } from '@molr/sdk';
+import type { Settings, RuntimeInfo } from '@molr/sdk';
 import { DataProvider, LocaleProvider, SessionProvider, useAppearance, useCopy, useConnection, useQuery, useSession } from './state';
 import { useNavigation } from './navigation';
 import { Loading } from './interfaces/official/components/common';
@@ -59,8 +60,6 @@ function WorkspaceHost() {
   const { connection, hasConnectionNotice, retryConnection } = useConnection();
   const settings = useQuery<Settings>('/api/settings'), runtime = useQuery<RuntimeInfo>('/api/status');
   const [scope, setScope] = useState<HTMLDivElement | null>(null), [recoveryAttempt, setRecoveryAttempt] = useState(0);
-  const conversations = useQuery<Conversation[]>('/api/conversations', true);
-  const unread = (conversations.data ?? []).filter(item => !item.Archived).reduce((total, item) => total + Math.max(0, item.UnreadCount), 0);
   const pluginsVisible = settings.data?.PluginsVisible === true;
   useEffect(() => {
     if (settings.data && !pluginsVisible && page === 'extensions') navigate('account', 'general');
@@ -89,7 +88,7 @@ function WorkspaceHost() {
     <nav className="workspace-nav" aria-label={t.app} aria-hidden={mobile && !mobileNavigation || undefined} inert={mobile && !mobileNavigation}>
       {!mobile && !window.molrApp && <ConnectionLogo markOnly className="workspace-logo" state={connection} onRetry={retryConnection} tooltipSide="right" variant={theme === 'dark' ? 'light' : 'dark'} />}
       {!mobile && selected.runtime === 'builtin' && <Tooltip content={t.search} side="right" width="auto"><button type="button" className="nav-button nav-search" aria-label={t.search} aria-haspopup="dialog" onClick={() => window.dispatchEvent(new Event('molr:search'))}><span className="nav-icon"><SearchIcon size={22} /></span></button></Tooltip>}
-      {(Object.keys(icons) as (keyof typeof icons)[]).filter(key => (key !== 'resources' || administrator) && (key !== 'workbench' || workbenchVisible) && (key !== 'extensions' || pluginsVisible)).map(key => { const Icon = icons[key], label = key === 'extensions' ? pluginCopy[locale].extensions : t.nav[key]; return <Tooltip key={key} content={label} side={mobile ? 'top' : 'right'} width="auto"><button className="nav-button" type="button" aria-label={label} aria-current={page === key ? 'page' : undefined} aria-describedby={key === 'assistants' && unread > 0 ? 'nav-unread-count' : undefined} onClick={() => navigate(key)}><span className="nav-icon"><Icon size={22} />{key === 'assistants' && unread > 0 && <span className="nav-unread" id="nav-unread-count" role="status" aria-label={t.assistants.unread(unread)}>{unread > 99 ? '99+' : unread}</span>}</span><span>{key === 'extensions' ? pluginCopy[locale].nav : t.nav[key]}</span></button></Tooltip>; })}
+      {(Object.keys(icons) as (keyof typeof icons)[]).filter(key => (key !== 'resources' || administrator) && (key !== 'workbench' || workbenchVisible) && (key !== 'extensions' || pluginsVisible)).map(key => { if (key === 'assistants') return <AssistantNavigationItem key={key} active={page === key} mobile={mobile} onNavigate={() => navigate(key)} />; const Icon = icons[key], label = key === 'extensions' ? pluginCopy[locale].extensions : t.nav[key]; return <Tooltip key={key} content={label} side={mobile ? 'top' : 'right'} width="auto"><button className="nav-button" type="button" aria-label={label} aria-current={page === key ? 'page' : undefined} onClick={() => navigate(key)}><span className="nav-icon"><Icon size={22} /></span><span>{key === 'extensions' ? pluginCopy[locale].nav : t.nav[key]}</span></button></Tooltip>; })}
       {!mobile && <div className="nav-account-actions">
         <Tooltip content={t.account.title} side="right" width="auto"><button type="button" className="nav-button" aria-label={t.account.title} aria-current={page === 'account' || page === 'settings' ? 'page' : undefined} onClick={() => navigate('account', updateNotice ? 'about' : undefined)}><Avatar name={session.principal?.User?.DisplayName || session.principal?.User?.Username || 'U'} avatar={session.principal?.User?.Avatar} selected={page === 'account' || page === 'settings'} notice={<UpdateBadge compact />} /><span>{locale === 'zh' ? '我的' : 'Account'}</span></button></Tooltip>
       </div>}
