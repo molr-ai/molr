@@ -21,6 +21,7 @@
     "types": []
   },
   "include": [
-    "src"
+    "src",
+    "tests/*.ts"
   ]
 }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { test } from 'node:test';
+import { describe, test } from 'node:test';
 import ts from 'typescript';
 
 async function moduleURL(file, replacements = []) {
@@ -10,10 +10,16 @@ async function moduleURL(file, replacements = []) {
   return `data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`;
 }
 const clientURL = await moduleURL('../src/client.ts');
-const { api, onSessionExpired, clearClientState } = await import(clientURL);
+const defaultClient = await import(clientURL);
+const { createClient } = defaultClient;
 const { subscribeRuntime } = await import(await moduleURL('../src/events.ts', [["'./client'", JSON.stringify(clientURL)]]));
 const flush = () => new Promise(resolve => setImmediate(resolve));
 const unauthorized = () => Response.json({ code: 'unauthenticated' }, { status: 401 });
+
+for (const scope of ['default client', 'custom client']) describe(scope, () => {
+const client = scope === 'default client' ? defaultClient : createClient();
+const other = scope === 'default client' ? createClient() : defaultClient;
+const { api, onSessionExpired, clearClientState } = client;
 
 async function fixture(fetch, check) {
   const names = ['window', 'document', 'navigator', 'fetch', 'EventSource'];
@@ -34,10 +40,11 @@ async function fixture(fetch, check) {
   const realFetch = globalThis.fetch;
   globalThis.fetch = async () => Response.json({}, { headers: { 'X-Molr-CSRF-Cookie': 'molr_dev_csrf_p80' } });
   await api.get('/api/auth/me');
+  await other.api.get('/api/auth/me');
   globalThis.fetch = realFetch;
   const unsubscribe = onSessionExpired(() => expired++);
   try {
-    subscription = subscribeRuntime({ onUpdate() {}, onRestore() { restores.push(true); }, onConnection(state) { states.push(state); } });
+    subscription = subscribeRuntime({ ...(scope === 'custom client' ? { session: client } : {}), onUpdate() {}, onRestore() { restores.push(true); }, onConnection(state) { states.push(state); } });
     current.onopen?.();
     await check({
       subscription, calls, states, sources, restores, ready(cursor) { current.dispatchEvent(new MessageEvent('ready', { data: '{}', lastEventId: cursor })); }, expired: () => expired,
@@ -262,4 +269,30 @@ test('native transient retries retain one stream and ready cancels the attempt d
     assert.equal(f.sources.length, 1);
     assert.equal(f.restores.length, 2);
   });
+});
+
+
+test('only the owning client can wake or expire its subscription', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+  await fixture(async () => Response.json({}), async f => {
+    f.ready('owned-cursor');
+    t.mock.timers.tick(6000);
+    f.fail(); await flush();
+    await other.api.get('/api/assistants');
+    assert.equal(f.sources.length, 1, 'Other clients cannot wake this subscription');
+    await api.get('/api/assistants');
+    assert.equal(f.sources.length, 2);
+    assert.equal(f.sources[1].url, '/api/events/stream?after=owned-cursor');
+    f.ready('owned-cursor');
+    globalThis.fetch = async () => unauthorized();
+    await assert.rejects(other.api.get('/api/assistants'), error => error.status === 401);
+    assert.equal(f.sources[1].readyState, EventSource.OPEN, 'Other clients cannot dispose this subscription');
+    assert.equal(f.expired(), 0);
+    await assert.rejects(api.get('/api/assistants'), error => error.status === 401);
+    assert.equal(f.sources[1].readyState, EventSource.CLOSED);
+    assert.equal(f.expired(), 1);
+    t.mock.timers.tick(60_000);
+    assert.equal(f.sources.length, 2);
+  });
+});
 });

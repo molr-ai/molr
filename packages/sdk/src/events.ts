@@ -1,10 +1,17 @@
-import { onRequestSuccess, onSessionExpired, verifySession as checkSession } from './client';
+import { onRequestSuccess, onSessionExpired, verifySession } from './client';
+export type RuntimeSession = {
+  verifySession: (signal?: AbortSignal) => Promise<unknown>;
+  onRequestSuccess: (callback: () => void) => () => void;
+  onSessionExpired: (callback: () => void) => () => void;
+};
+const defaultSession: RuntimeSession = { verifySession, onRequestSuccess, onSessionExpired };
 export type RuntimeConnection = 'reconnecting' | 'connected' | 'recovered' | 'disconnected' | 'failed';
 const connectionTimeout = 20_000;
 const recoveryDuration = 2400;
 const wakeInterval = 5000;
 /** Browser SSE transport with resumable reconnect and session-expiry checks. */
-export function subscribeRuntime(options: { onUpdate: (event: MessageEvent) => void; onRestore: () => void; onConnection: (state: RuntimeConnection) => void }) {
+export function subscribeRuntime(options: { session?: RuntimeSession; onUpdate: (event: MessageEvent) => void; onRestore: () => void; onConnection: (state: RuntimeConnection) => void }) {
+  const session = options.session ?? defaultSession;
   let active = true, interrupted = false, cursor = '';
   let stream: EventSource | null = null, authCheck: AbortController | null = null;
   let deadline: ReturnType<typeof setTimeout> | undefined, recovery: ReturnType<typeof setTimeout> | undefined, reconnect: ReturnType<typeof setTimeout> | undefined;
@@ -36,7 +43,7 @@ export function subscribeRuntime(options: { onUpdate: (event: MessageEvent) => v
     if (authCheck) return;
     const controller = new AbortController(); authCheck = controller;
     // The client handles a real 401 through the existing session-expired flow.
-    void checkSession(controller.signal).catch(() => {}).finally(() => { if (authCheck === controller) authCheck = null; });
+    void session.verifySession(controller.signal).catch(() => {}).finally(() => { if (authCheck === controller) authCheck = null; });
   }
   function connect() {
     if (!active) return;
@@ -89,7 +96,7 @@ export function subscribeRuntime(options: { onUpdate: (event: MessageEvent) => v
     document.removeEventListener('visibilitychange', visible);
     unsubscribeSuccess(); unsubscribeExpired();
   }
-  const unsubscribeSuccess = onRequestSuccess(wake), unsubscribeExpired = onSessionExpired(dispose);
+  const unsubscribeSuccess = session.onRequestSuccess(wake), unsubscribeExpired = session.onSessionExpired(dispose);
   window.addEventListener('offline', disconnected); window.addEventListener('online', wake); window.addEventListener('focus', wake);
   document.addEventListener('visibilitychange', visible);
   connect();

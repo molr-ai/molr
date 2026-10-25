@@ -1,6 +1,7 @@
 /** Plugin API 3. Packages are immutable; unknown fields fail closed. */
 export type PluginPage = { id: string; title: string; entry: string; capabilities: string[] };
-export type PluginTheme = { id: string; name: string; pages: Record<string, string>; capabilities: string[] };
+export type PluginThemePage = 'assistants' | 'plans' | 'resources' | 'workbench';
+export type PluginTheme = { id: string; name: string; pages: Partial<Record<PluginThemePage, string>>; capabilities: string[] };
 export type PluginSchema = { type: 'object'; properties: Record<string, { type: 'string' | 'number' | 'integer' | 'boolean'; description?: string; enum?: string[] }>; required: string[]; additionalProperties: false };
 export type PluginTool = { id: string; description: string; execution: { type: 'http'; settingsScope?: 'admin'; connectionSetting?: string; operation?: string }; capabilities: string[]; inputSchema: PluginSchema };
 export type PluginSetting = { type: 'string' | 'boolean' | 'number' | 'integer' | 'connection'; title: string; description?: string; default?: string | number | boolean; enum?: string[]; minimum?: number; maximum?: number; providers?: string[]; requiredOperations?: string[] };
