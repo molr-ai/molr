@@ -115,40 +115,62 @@ func (s Service) Describe(r resource.Resource, b resource.Binding, entry Entry) 
 	}
 	return model.Provider{Protocol: protocol, Model: model.Model{ID: entry.ID, ResourceID: r.ID, Name: m.Name, SupportsTools: m.SupportsTools, SupportsImages: m.SupportsImages, SupportsAudio: m.SupportsAudio && protocol != model.OpenAIResponses && protocol != model.DeepSeekChat && protocol != model.AnthropicMessages, ContextLimit: manual, ProviderContextLimit: declared, EffectiveContextLimit: effective, ContextLimitSource: source, OutputLimit: m.OutputLimit, ProviderOutputLimit: m.ProviderOutputLimit, EffectiveOutputLimit: output, OutputLimitSource: outputSource, Pricing: price, PricingInfo: info}, Endpoint: b.Endpoint, CredentialID: b.CredentialID, Pricing: price, ReservePricing: reserve}
 }
+
+// lookup resolves persisted model membership within the caller's read snapshot.
+// It does not authorize a user or a model invocation.
+func lookup(ctx context.Context, store persistence.Store, id core.ID) (resource.Resource, resource.Binding, Entry, error) {
+	repo := resource.NewRepository(store)
+	binding, err := repo.BindingForModel(ctx, catalog.Scope, id)
+	if err != nil {
+		return resource.Resource{}, resource.Binding{}, Entry{}, err
+	}
+	r, err := repo.Get(ctx, catalog.Scope, binding.ResourceID)
+	if err != nil {
+		return resource.Resource{}, resource.Binding{}, Entry{}, err
+	}
+	if r.OwnerID == catalog.Scope && r.Kind == resource.Model && r.Provider == "openai-compatible" && r.State == resource.Available {
+		for _, entry := range Entries(r, binding) {
+			if entry.ID == id {
+				return r, binding, entry, nil
+			}
+		}
+	}
+	return resource.Resource{}, resource.Binding{}, Entry{}, core.NewError(core.NotFound, "model unavailable")
+}
+
+// ForEstimate reads current catalog data for internal budget estimation only.
+// The result grants no access; dispatch must resolve and authorize the model again.
+func (s Service) ForEstimate(ctx context.Context, id core.ID) (out model.Provider, err error) {
+	err = s.Store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		r, binding, entry, err := lookup(ctx, tx.Store(), id)
+		if err != nil {
+			return err
+		}
+		out = s.Describe(r, binding, entry)
+		return nil
+	})
+	return out, err
+}
+
 func (s Service) Resolve(ctx context.Context, p core.Principal, id core.ID) (out model.Provider, err error) {
 	err = s.Store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		catalogOwner := catalog.Scope
-		repo := resource.NewRepository(tx.Store())
-		binding, err := repo.BindingForModel(ctx, p.OwnerID, id)
+		r, binding, entry, err := lookup(ctx, tx.Store(), id)
 		if err != nil {
 			return err
 		}
-		r, err := repo.Get(ctx, p.OwnerID, binding.ResourceID)
+		group, err := s.Group(ctx, tx.Store(), p.OwnerID)
 		if err != nil {
 			return err
 		}
-		if r.OwnerID != catalogOwner || r.Kind != resource.Model || r.Provider != "openai-compatible" || r.State != resource.Available {
-			return core.NewError(core.NotFound, "model unavailable")
+		allowed := group.Administrator
+		for _, ref := range group.Resources {
+			allowed = allowed || ref.Kind == "model" && ref.ID == id
 		}
-		for _, entry := range Entries(r, binding) {
-			if entry.ID != id {
-				continue
-			}
-			group, err := s.Group(ctx, tx.Store(), p.OwnerID)
-			if err != nil {
-				return err
-			}
-			allowed := group.Administrator
-			for _, ref := range group.Resources {
-				allowed = allowed || ref.Kind == "model" && ref.ID == id
-			}
-			if !allowed {
-				return core.WithReason(core.NewError(core.Forbidden, "model unavailable for user group"), "group_resource_denied")
-			}
-			out = s.Describe(r, binding, entry)
-			return nil
+		if !allowed {
+			return core.WithReason(core.NewError(core.Forbidden, "model unavailable for user group"), "group_resource_denied")
 		}
-		return core.NewError(core.NotFound, "model unavailable")
+		out = s.Describe(r, binding, entry)
+		return nil
 	})
 	return out, err
 }

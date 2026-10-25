@@ -39,6 +39,14 @@ func TestModelCatalogResolutionAndRevocation(t *testing.T) {
 	s := modelcatalog.Service{Store: store, Group: func(ctx context.Context, store persistence.Store, owner core.ID) (auth.UserGroup, error) {
 		return persistence.Load[auth.UserGroup](ctx, store, "auth.groups", "members")
 	}}
+	// Internal estimation resolves current catalog membership without a user grant.
+	estimated, err := s.ForEstimate(t.Context(), entries[1].ID)
+	if err != nil || estimated.Model.ID != entries[1].ID {
+		t.Fatal(estimated, err)
+	}
+	if _, err := s.ForEstimate(t.Context(), "missing"); core.CodeOf(err) != core.NotFound {
+		t.Fatal(err)
+	}
 	p := core.Principal{OwnerID: "member", SubjectID: "member", Kind: core.ActorOwner, SessionID: "session"}
 	got, err := s.Resolve(t.Context(), p, entries[0].ID)
 	if err != nil || got.Model.ContextWindow() != 64000 || got.Model.ContextLimitSource != "manual" {

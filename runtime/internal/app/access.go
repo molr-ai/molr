@@ -64,62 +64,76 @@ func (a access) resourceActions(ctx context.Context, p core.Principal, id core.I
 
 func denied() error { return core.NewError(core.Forbidden, "object access denied") }
 func (a access) assistant(ctx context.Context, p core.Principal, id core.ID) error {
+	_, err := a.resolveAssistant(ctx, p, id)
+	return err
+}
+func (a access) resolveAssistant(ctx context.Context, p core.Principal, id core.ID) (assistant.Assistant, error) {
 	if id.Validate() != nil {
-		return core.Invalid("assistant_id", "required")
+		return assistant.Assistant{}, core.Invalid("assistant_id", "required")
 	}
 	if p.Kind == core.ActorAssistant && p.SubjectID != id {
-		return denied()
+		return assistant.Assistant{}, denied()
 	}
 	v, err := persistence.Load[assistant.Assistant](ctx, a.store, "business.assistants", persistence.Key(p.OwnerID, id))
 	if err != nil {
-		return err
+		return assistant.Assistant{}, err
 	}
 	if v.OwnerID != p.OwnerID || v.State != assistant.Active {
-		return denied()
+		return assistant.Assistant{}, denied()
 	}
-	return nil
+	return v, nil
 }
 func (a access) liveAssistant(ctx context.Context, p core.Principal) error {
+	_, err := a.resolveLiveAssistant(ctx, p)
+	return err
+}
+func (a access) resolveLiveAssistant(ctx context.Context, p core.Principal) (assistant.Assistant, error) {
 	if p.Kind != core.ActorAssistant {
-		return denied()
+		return assistant.Assistant{}, denied()
 	}
-	if err := a.assistant(ctx, p, p.SubjectID); err != nil {
-		return err
+	value, err := a.resolveAssistant(ctx, p, p.SubjectID)
+	if err != nil {
+		return assistant.Assistant{}, err
 	}
 	if shellsession.ManagedPrincipal(ctx, p) {
-		return nil
+		return value, nil
 	}
 	jobs, err := persistence.Select[scheduler.Job](ctx, a.store, "agent.jobs", persistence.Query{Where: []persistence.Filter{persistence.Eq("Event.OwnerID", p.OwnerID), persistence.Eq("Event.AssistantID", p.SubjectID), persistence.Eq("ExecutionID", p.ExecutionID), persistence.Eq("State", scheduler.Running)}, Limit: 1, Unordered: true})
 	if err != nil {
-		return err
+		return assistant.Assistant{}, err
 	}
 	for _, job := range jobs {
 		if job.State == scheduler.Running && job.Event.OwnerID == p.OwnerID && job.Event.AssistantID == p.SubjectID && job.ExecutionID == p.ExecutionID {
-			return nil
+			return value, nil
 		}
 	}
-	return denied()
+	return assistant.Assistant{}, denied()
 }
 func (a access) execution(ctx context.Context, e core.Execution) error {
+	_, err := a.executionAssistant(ctx, e)
+	return err
+}
+func (a access) executionAssistant(ctx context.Context, e core.Execution) (assistant.Assistant, error) {
 	if err := e.Validate(); err != nil {
-		return err
+		return assistant.Assistant{}, err
 	}
-	if err := a.liveAssistant(ctx, e.Principal); err != nil {
-		return err
+	value, err := a.resolveLiveAssistant(ctx, e.Principal)
+	if err != nil {
+		return assistant.Assistant{}, err
 	}
 	if shellsession.ManagedFor(ctx, e) != nil {
-		return nil
+		return value, nil
 	}
 	if e.TaskID != "" {
 		v, err := persistence.Load[task.Task](ctx, a.store, "business.tasks", persistence.Key(e.Principal.OwnerID, e.TaskID))
 		if err != nil {
-			return err
+			return assistant.Assistant{}, err
 		}
 		if v.AssistantID != e.AssistantID || v.State == task.Paused || v.State == task.Canceled || v.State == task.Completed || v.State == task.Failed {
-			return denied()
+			return assistant.Assistant{}, denied()
 		}
 	}
-	return nil
+	return value, nil
 }
 func (a access) owns(ctx context.Context, p core.Principal, o core.Object) error {
 	return (objectaccess.Service{Store: a.store}).Require(ctx, p, o)

@@ -325,7 +325,7 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 
 | `internal/storage/sqlite` | `Database.Store` | `TestTDDSQLiteMessageOutboxAndVisibleEventCommitTogether` |
 | `internal/catalog` | `Load`, `Select` | `TestCatalogScopeIndependentOfAccounts` |
-| `internal/modelcatalog` | `Entries`, `Service.Describe`, `Service.Resolve`, `Service.List` | `TestModelCatalogResolutionAndRevocation`, `TestAutomaticPriceTiersCurrencyAndManualOverride` |
+| `internal/modelcatalog` | `Entries`, `Service.Describe`, `Service.Resolve`, `Service.ForEstimate`, `Service.List` | `TestModelCatalogResolutionAndRevocation`, `TestAutomaticPriceTiersCurrencyAndManualOverride` |
 | `internal/objectaccess` | `Service.Require` | `TestOwnershipUsesDomainRecordsAndAttachmentReferences` |
 
 ## macOS 受管浏览器

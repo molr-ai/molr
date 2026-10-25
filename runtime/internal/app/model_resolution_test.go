@@ -68,7 +68,7 @@ func TestModelResolutionReadsOnlySelectedProvider(t *testing.T) {
 		for i := range 200 {
 			id := core.ID(fmt.Sprintf("provider-%04d", i))
 			r := resource.Resource{ID: id, OwnerID: "owner", Kind: resource.Model, Provider: "openai-compatible", State: resource.Available, Version: 1}
-			b := resource.Binding{ResourceID: id, Endpoint: "https://example.invalid", Models: []resource.ModelConfig{{Name: "model", ContextLimit: 32768}}}
+			b := resource.Binding{ResourceID: id, Endpoint: "https://example.invalid", Models: []resource.ModelConfig{{Name: "model", ContextLimit: 32768, Pricing: &resource.ModelPricing{Currency: "USD", InputMicrosPerMillion: 1000000, OutputMicrosPerMillion: 2000000}}}}
 			if err := repo.Insert(ctx, r, b); err != nil {
 				return err
 			}
@@ -85,6 +85,15 @@ func TestModelResolutionReadsOnlySelectedProvider(t *testing.T) {
 	got, err := a.provider(t.Context(), p, target)
 	if err != nil || got.Model.ID != target || reads.bindings != 1 || reads.resources != 1 {
 		t.Fatal(got, err, *reads)
+	}
+	*reads = modelReads{}
+	estimate, err := a.estimate(t.Context(), target, nil, 10)
+	if err != nil || estimate != (core.Money{Currency: "USD", Micros: 32788}) || reads.bindings != 1 || reads.resources != 1 {
+		t.Fatal(estimate, err, *reads)
+	}
+	*reads = modelReads{}
+	if _, err := a.estimate(t.Context(), "missing-model", nil, 10); core.CodeOf(err) != core.FailedPrecondition || core.ReasonOf(err) != core.ModelUnavailable || reads.bindings != 0 || reads.resources != 0 {
+		t.Fatal(err, *reads)
 	}
 	*reads = modelReads{}
 	if _, err := a.provider(t.Context(), p, "missing-model"); core.CodeOf(err) != core.NotFound || reads.bindings != 0 || reads.resources != 0 {
@@ -104,6 +113,24 @@ func TestModelResolutionReadsOnlySelectedProvider(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err = a.provider(t.Context(), p, target); err != nil {
+		t.Fatal(err)
+	}
+	*reads = modelReads{}
+	if _, err = a.estimate(t.Context(), target, nil, 10); err != nil || reads.bindings != 1 || reads.resources != 1 {
+		t.Fatal(err, *reads)
+	}
+	// Binding changes take effect on the next estimate without a cache.
+	binding, err := repo.Binding(t.Context(), catalog.Scope, "provider-0199")
+	need(t, err)
+	binding.Models[0].Pricing.InputMicrosPerMillion = 2000000
+	need(t, repo.SaveBinding(t.Context(), binding))
+	estimate, err = a.estimate(t.Context(), target, nil, 10)
+	if err != nil || estimate.Micros != 65556 {
+		t.Fatal(estimate, err)
+	}
+	binding.Models = nil
+	need(t, repo.SaveBinding(t.Context(), binding))
+	if _, err = a.estimate(t.Context(), target, nil, 10); core.ReasonOf(err) != core.ModelUnavailable {
 		t.Fatal(err)
 	}
 }
@@ -126,6 +153,13 @@ func TestModelResolutionKeepsLiveGroupAndProviderChecks(t *testing.T) {
 	if _, err = a.provider(t.Context(), f.alice, f.model); core.CodeOf(err) != core.Forbidden {
 		t.Fatal("revoked model remained usable", err)
 	}
+	// Estimation is not a user authorization and must not restore revoked access.
+	if _, err = a.estimate(t.Context(), f.model, nil, 10); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = a.provider(t.Context(), f.alice, f.model); core.CodeOf(err) != core.Forbidden {
+		t.Fatal(err)
+	}
 	_, err = a.provider(t.Context(), f.admin, f.model)
 	need(t, err)
 	repo := resource.NewRepository(f.b.store)
@@ -137,5 +171,8 @@ func TestModelResolutionKeepsLiveGroupAndProviderChecks(t *testing.T) {
 	need(t, repo.Save(t.Context(), r, version))
 	if _, err = a.provider(t.Context(), f.admin, f.model); core.CodeOf(err) != core.NotFound {
 		t.Fatal("offline model resolved", err)
+	}
+	if _, err = a.estimate(t.Context(), f.model, nil, 10); core.ReasonOf(err) != core.ModelUnavailable {
+		t.Fatal("offline model estimated", err)
 	}
 }

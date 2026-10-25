@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"math/big"
-	"molr.ai/runtime/internal/modelcatalog"
 	"molr.ai/runtime/internal/textfiles"
 	"net/http"
 	"net/netip"
@@ -260,35 +259,14 @@ func (a adapters) credentialAccess(ctx context.Context, q credential.Access) err
 	return a.policy.Require(ctx, p, policy.CheckRequest{Target: core.Object{Kind: "resource", ID: r.ID}, ResourceID: r.ID, Action: policy.Execute, Destination: b.Endpoint})
 }
 func (a adapters) estimate(ctx context.Context, id core.ID, inputs []model.Input, max int) (core.Money, error) {
-	// Resolve the owner from persisted resources; model IDs never grant access.
-	rows, err := persistence.Select[resource.Resource](ctx, a.store, "business.resources", persistence.Query{Where: []persistence.Filter{persistence.Eq("Kind", resource.Model), persistence.Eq("State", resource.Available)}})
+	provider, err := a.modelCatalog().ForEstimate(ctx, id)
+	if core.CodeOf(err) == core.NotFound {
+		return core.Money{}, core.WithReason(core.NewError(core.FailedPrecondition, "model unavailable"), core.ModelUnavailable)
+	}
 	if err != nil {
 		return core.Money{}, err
 	}
-	var selected *model.Provider
-	for _, r := range rows {
-		if r.Kind != resource.Model || r.State != resource.Available {
-			continue
-		}
-		b, err := resource.NewRepository(a.store).Binding(ctx, r.OwnerID, r.ID)
-		if err != nil {
-			return core.Money{}, err
-		}
-		for _, entry := range modelcatalog.Entries(r, b) {
-			if entry.ID == id {
-				copy := a.modelCatalog().Describe(r, b, entry)
-				selected = &copy
-				break
-			}
-		}
-		if selected != nil {
-			break
-		}
-	}
-	if selected == nil {
-		return core.Money{}, core.WithReason(core.NewError(core.FailedPrecondition, "model unavailable"), core.ModelUnavailable)
-	}
-	return estimateProvider(*selected, max)
+	return estimateProvider(provider, max)
 }
 func estimateProvider(provider model.Provider, max int) (core.Money, error) {
 	price := provider.ReservePricing

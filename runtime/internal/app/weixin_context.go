@@ -4,20 +4,11 @@ import (
 	"context"
 	"molr.ai/runtime/internal/agent"
 	"molr.ai/runtime/internal/business/assistant"
-	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/im/weixin"
-	"molr.ai/runtime/internal/persistence"
 )
 
-func weixinContext(ctx context.Context, store persistence.Store, channel *weixin.Service, execution core.Execution) (*agent.ContextDocument, error) {
-	if err := (access{store}).execution(ctx, execution); err != nil {
-		return nil, err
-	}
-	a, err := assistant.NewRepository(store).Get(ctx, execution.Principal.OwnerID, execution.AssistantID)
-	if err != nil {
-		return nil, err
-	}
-	active, err := channel.Connected(ctx, execution.Principal.OwnerID, a.ConversationID)
+func weixinContext(ctx context.Context, channel *weixin.Service, a assistant.Assistant) (*agent.ContextDocument, error) {
+	active, err := channel.Connected(ctx, a.OwnerID, a.ConversationID)
 	if err != nil || !active {
 		return nil, err
 	}

@@ -30,6 +30,8 @@ The model ID is stably calculated from the provider resource ID and model name. 
 
 Each model resolution reads the target binding, resource status, and current user group reference within the same transaction snapshot, then resolves the current pricing and protocol. The model client continues to perform model-scope authorization, budget, and network checks. Query read volume only includes the target provider and does not increase with the number of unrelated providers.
 
+Dispatch and budget estimation share targeted `BindingForModel → Resource.Get → Entries` resolution, checking catalog ownership, resource kind, provider, availability, and model membership. Estimation uses an internal catalog read and does not authorize a user; normal resolution still checks current group references in the same read transaction. Each path reads current data without caching resolved results, and actual dispatch continues to reauthorize and validate the budget.
+
 ## Cloud-Compatible Service Presets
 
 Bailian (`bailian`), Zhipu (`zhipu`), and Moonshot (`moonshot`) are consistent with WebUI presets. Saving, editing, and model discovery preserve their respective provider identities, using the `openai-chat-completions` protocol and API Key authentication. These presets do not represent integration with vendor-native protocols; unknown prices still require configuration and are not automatically considered free.

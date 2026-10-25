@@ -24,23 +24,23 @@ func TestDingtalkMediaAndContextUseLiveBinding(t *testing.T) {
 		return tx.Put(ctx, "business.assistants", persistence.Key(f.owner.OwnerID, a.ID), a)
 	}))
 	need(t, conversation.NewRepository(f.b.store).Insert(ctx, conversation.Conversation{ID: a.ConversationID, OwnerID: f.owner.OwnerID, PeerID: a.ID, Version: 1}))
-	doc, err := dingtalkContext(ctx, f.b.store, f.b.dingtalk, f.execution)
+	doc, err := f.b.channelContext(ctx, f.b.store, f.execution)
 	need(t, err)
-	if doc != nil {
+	if len(doc) != 0 {
 		t.Fatal("WebUI has Dingtalk restrictions")
 	}
 	binding := dingtalk.Binding{ID: "media-binding", OwnerID: f.owner.OwnerID, AssistantID: a.ID, ConversationID: a.ConversationID, State: "connected", UserID: "staff"}
 	need(t, f.b.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		return tx.Put(ctx, "dingtalk.bindings", persistence.Key(f.owner.OwnerID, a.ConversationID), binding)
 	}))
-	doc, err = dingtalkContext(ctx, f.b.store, f.b.dingtalk, f.execution)
+	doc, err = f.b.channelContext(ctx, f.b.store, f.execution)
 	need(t, err)
-	if doc == nil || doc.Kind != "chat_channel" || !strings.Contains(doc.Content, "Interactive cards are unsupported") {
+	if len(doc) == 0 || doc[0].Kind != "chat_channel" || !strings.Contains(doc[0].Content, "Interactive cards are unsupported") {
 		t.Fatal("channel instructions missing")
 	}
 	forged := f.execution
 	forged.Principal.ExecutionID = "fake"
-	if _, err := dingtalkContext(ctx, f.b.store, f.b.dingtalk, forged); err == nil {
+	if _, err := f.b.channelContext(ctx, f.b.store, forged); err == nil {
 		t.Fatal("forged execution accessed channel")
 	}
 	port := f.b.Services.Files.(files.ChannelStore)
@@ -71,9 +71,9 @@ func TestDingtalkMediaAndContextUseLiveBinding(t *testing.T) {
 		t.Fatal("channel attached unrelated owner file")
 	}
 	need(t, f.b.dingtalk.Disconnect(ctx, f.owner, a.ID))
-	doc, err = dingtalkContext(ctx, f.b.store, f.b.dingtalk, f.execution)
+	doc, err = f.b.channelContext(ctx, f.b.store, f.execution)
 	need(t, err)
-	if doc != nil {
+	if len(doc) != 0 {
 		t.Fatal("disconnected channel restriction persisted")
 	}
 	if _, err := upload("after-disconnect", 11); err == nil {

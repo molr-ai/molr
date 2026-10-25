@@ -24,23 +24,23 @@ func TestWeixinMediaAndContextUseLiveBinding(t *testing.T) {
 		return tx.Put(ctx, "business.assistants", persistence.Key(f.owner.OwnerID, a.ID), a)
 	}))
 	need(t, conversation.NewRepository(f.b.store).Insert(ctx, conversation.Conversation{ID: a.ConversationID, OwnerID: f.owner.OwnerID, PeerID: a.ID, Version: 1}))
-	doc, err := weixinContext(ctx, f.b.store, f.b.weixin, f.execution)
+	doc, err := f.b.channelContext(ctx, f.b.store, f.execution)
 	need(t, err)
-	if doc != nil {
+	if len(doc) != 0 {
 		t.Fatal("WebUI has Weixin restrictions")
 	}
 	binding := weixin.Binding{ID: "media-binding", OwnerID: f.owner.OwnerID, AssistantID: a.ID, ConversationID: a.ConversationID, State: "connected"}
 	need(t, f.b.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		return tx.Put(ctx, "weixin.bindings", persistence.Key(f.owner.OwnerID, a.ConversationID), binding)
 	}))
-	doc, err = weixinContext(ctx, f.b.store, f.b.weixin, f.execution)
+	doc, err = f.b.channelContext(ctx, f.b.store, f.execution)
 	need(t, err)
-	if doc == nil || doc.Kind != "chat_channel" || !strings.Contains(doc.Content, "avoid cards") {
+	if len(doc) == 0 || doc[0].Kind != "chat_channel" || !strings.Contains(doc[0].Content, "avoid cards") {
 		t.Fatal("channel instructions missing")
 	}
 	forged := f.execution
 	forged.Principal.ExecutionID = "fake"
-	if _, err := weixinContext(ctx, f.b.store, f.b.weixin, forged); err == nil {
+	if _, err := f.b.channelContext(ctx, f.b.store, forged); err == nil {
 		t.Fatal("forged execution accessed channel")
 	}
 	port := f.b.Services.Files.(files.ChannelStore)
@@ -71,9 +71,9 @@ func TestWeixinMediaAndContextUseLiveBinding(t *testing.T) {
 		t.Fatal("channel attached unrelated owner file")
 	}
 	need(t, f.b.weixin.Disconnect(ctx, f.owner, a.ID))
-	doc, err = weixinContext(ctx, f.b.store, f.b.weixin, f.execution)
+	doc, err = f.b.channelContext(ctx, f.b.store, f.execution)
 	need(t, err)
-	if doc != nil {
+	if len(doc) != 0 {
 		t.Fatal("disconnected channel restriction persisted")
 	}
 	if _, err := upload("after-disconnect", 11); err == nil {

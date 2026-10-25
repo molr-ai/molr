@@ -87,32 +87,11 @@ func (b *Bundle) buildAgent(cfg config.Config, adapters adapters, permissions *p
 		if err != nil {
 			return nil, err
 		}
-		channelDoc, err := weixinContext(ctx, store, b.weixin, r.Execution)
-		if err == nil && channelDoc == nil {
-			channelDoc, err = qqContext(ctx, store, b.qq, r.Execution)
-		}
-		if err == nil && channelDoc == nil {
-			channelDoc, err = feishuContext(ctx, store, b.feishu, r.Execution)
-		}
-		if err == nil && channelDoc == nil {
-			channelDoc, err = telegramContext(ctx, store, b.telegram, r.Execution)
-		}
-		if err == nil && channelDoc == nil {
-			channelDoc, err = dingtalkContext(ctx, store, b.dingtalk, r.Execution)
-		}
+		channelDocs, err := b.channelContext(ctx, store, r.Execution)
 		if err != nil {
 			return nil, err
 		}
-		if channelDoc != nil {
-			docs = append(docs, *channelDoc)
-		}
-		slackDoc, err := slackContext(ctx, store, b.slack, r.Execution)
-		if err != nil {
-			return nil, err
-		}
-		if slackDoc != nil {
-			docs = append(docs, *slackDoc)
-		}
+		docs = append(docs, channelDocs...)
 		docs = append(docs, profileDoc)
 		docs = append(docs, permissionDocs...)
 		mem, err := memoryContext.context(ctx, r)

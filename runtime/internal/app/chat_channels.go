@@ -7,7 +7,6 @@ import (
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/im/conversation"
 	"molr.ai/runtime/internal/im/telegram"
-	"molr.ai/runtime/internal/persistence"
 )
 
 type chatChannel interface {
@@ -99,15 +98,8 @@ func (c *chatChannels) Run(ctx context.Context) error {
 	}
 	return result
 }
-func telegramContext(ctx context.Context, store persistence.Store, channel *telegram.Service, e core.Execution) (*agent.ContextDocument, error) {
-	if err := (access{store}).execution(ctx, e); err != nil {
-		return nil, err
-	}
-	a, err := assistant.NewRepository(store).Get(ctx, e.Principal.OwnerID, e.AssistantID)
-	if err != nil {
-		return nil, err
-	}
-	bound, err := channel.Connected(ctx, e.Principal.OwnerID, a.ConversationID)
+func telegramContext(ctx context.Context, channel *telegram.Service, a assistant.Assistant) (*agent.ContextDocument, error) {
+	bound, err := channel.Connected(ctx, a.OwnerID, a.ConversationID)
 	if err != nil || !bound {
 		return nil, err
 	}
