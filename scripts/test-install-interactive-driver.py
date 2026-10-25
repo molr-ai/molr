@@ -56,6 +56,49 @@ print('PERSONAL_DEFAULT_ACCEPTED', flush=True)
         self.assertEqual(result.returncode, 7)
         self.assertIn('fixture failure', result.stdout)
 
+    def test_exited_leader_preserves_status_and_cleans_remaining_child(self):
+        with tempfile.TemporaryDirectory() as directory:
+            pid_path = Path(directory) / 'child.pid'
+            source = f'''
+import os, signal
+from pathlib import Path
+reader, writer = os.pipe()
+if os.fork() == 0:
+    os.close(reader)
+    signal.signal(signal.SIGHUP, signal.SIG_IGN)
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    for fd in (0, 1, 2):
+        os.close(fd)
+    Path({str(pid_path)!r}).write_text(str(os.getpid()))
+    os.write(writer, b'ready')
+    os.close(writer)
+    while True:
+        signal.pause()
+os.close(writer)
+os.read(reader, 5)
+os.close(reader)
+os._exit(7)
+'''
+            try:
+                result = self.invoke(source)
+                self.assertEqual(result.returncode, 7, result.stderr)
+                self.assertTrue(pid_path.exists())
+                deadline = time.monotonic() + 2
+                while True:
+                    state = subprocess.run(['ps', '-p', pid_path.read_text(), '-o', 'stat='],
+                                           capture_output=True, text=True, check=False).stdout.strip()
+                    # An orphan may await reaping by init after SIGKILL.
+                    if not state or state.startswith('Z'):
+                        break
+                    self.assertLess(time.monotonic(), deadline, 'PTY child is still running')
+                    time.sleep(.05)
+            finally:
+                if pid_path.exists():
+                    try:
+                        os.kill(int(pid_path.read_text()), signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+
     def test_unknown_prompt_times_out_and_reaps_child_ignoring_sigterm(self):
         with tempfile.TemporaryDirectory() as directory:
             pid_path = Path(directory) / 'child.pid'

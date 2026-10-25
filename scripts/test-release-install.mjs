@@ -134,6 +134,8 @@ try {
   if (process.env.MOLR_TEST_DIAGNOSTICS) writeFileSync(process.env.MOLR_TEST_DIAGNOSTICS, String(error.stack || error) + '\n' + String(error.stdout || '') + '\n' + String(error.stderr || ''), {mode:0o600});
   if (process.env.MOLR_TEST_DIAGNOSTICS) for (const f of readdirSync(directory, {recursive:true}).filter(f => /(?:stderr|stdout)\.log$/.test(f))) appendFileSync(process.env.MOLR_TEST_DIAGNOSTICS, '\n'+f+'\n'+readFileSync(resolve(directory,f),'utf8'));
   console.error('Native release acceptance failed:', error.message.split('\n')[0]);
+  if (Number.isInteger(error.status)) console.error(`Subprocess exit status: ${error.status}`);
+  if (error.signal) console.error(`Subprocess signal: ${error.signal}`);
   throw new Error('Native release acceptance failed');
 } finally {
   if (process.platform === 'darwin') {

@@ -15,6 +15,32 @@ def run(command, timeout=600, terminate_timeout=2):
         os.execvp(command[0], command)
     pending = b''
     status = None
+
+    def signal_group(sig):
+        nonlocal status
+        if status is None:
+            waited, result = os.waitpid(pid, os.WNOHANG)
+            if waited:
+                status = result
+        try:
+            os.killpg(pid, sig)
+        except ProcessLookupError:
+            pass
+        except PermissionError:
+            # Darwin returns EPERM for a group containing only a zombie. The
+            # leader may have exited between waitpid and killpg; reap and retry
+            # so this race cannot replace its exit status with a cleanup error.
+            if sys.platform != 'darwin' or status is not None:
+                raise
+            waited, result = os.waitpid(pid, os.WNOHANG)
+            if not waited:
+                raise
+            status = result
+            try:
+                os.killpg(pid, sig)
+            except ProcessLookupError:
+                pass
+
     try:
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
@@ -55,10 +81,7 @@ def run(command, timeout=600, terminate_timeout=2):
     finally:
         # molr-setup handles SIGTERM via context cancellation, but a terminal read
         # can remain blocked. Never wait indefinitely for cooperative shutdown.
-        try:
-            os.killpg(pid, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
+        signal_group(signal.SIGTERM)
         if status is None:
             deadline = time.monotonic() + terminate_timeout
             while time.monotonic() < deadline:
@@ -68,10 +91,7 @@ def run(command, timeout=600, terminate_timeout=2):
                     break
                 time.sleep(.05)
         # Reclaim remaining children in the PTY group even if its leader exited.
-        try:
-            os.killpg(pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
+        signal_group(signal.SIGKILL)
         if status is None:
             _, status = os.waitpid(pid, 0)
         os.close(terminal)

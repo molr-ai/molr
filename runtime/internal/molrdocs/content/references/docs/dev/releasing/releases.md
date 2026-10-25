@@ -214,7 +214,7 @@ Linux 用户服务在成功启动后通过 `loginctl --no-ask-password` 检查�
 
 `.github/workflows/installer-acceptance.yml` 复用实际构建归档，在独立 runner 移除 Bubblewrap、静态 BusyBox 和 AppArmor profiles，由安装器恢复依赖。同一任务覆盖首次准备依赖和后续已有依赖的安装／更新场景，构建任务不再重复整套安装验收。矩阵还包含 macOS ARM64／AMD64，直接验证用户级 launchd，无需安装 Linux 沙盒依赖；其他 Linux 发行版尚未声明通过。
 
-PTY 驱动 `scripts/test-install-interactive.py` 只应答已知提示，资源预设提示按回车验收默认“个人”。修改安装提示时同步更新驱动；`python3 scripts/test-install-interactive-driver.py` 从安装器源码读取当前提示，覆盖分块输出、默认选择、失败退出码和未知提示超时，GitHub/Gitea 源码 CI 均执行。交互过程最多等待十分钟；清理先发送 SIGTERM，最多等待两秒，再以 SIGKILL 回收 PTY 进程组，防止终端读取阻塞拖至整个任务超时。
+PTY 驱动 `scripts/test-install-interactive.py` 只应答已知提示，资源预设提示按回车验收默认“个人”。修改安装提示时同步更新驱动；`python3 scripts/test-install-interactive-driver.py` 从安装器源码读取当前提示，覆盖分块输出、默认选择、失败退出码、退出后的残留子进程清理和未知提示超时，GitHub/Gitea 源码 CI 与各平台原生安装任务均执行。交互过程最多等待十分钟；清理先回收已退出的子进程并保留退出码，再发送 SIGTERM，最多等待两秒，最后以 SIGKILL 回收 PTY 进程组。macOS 对仅含僵尸进程的组可能返回 EPERM，此时仅在确认并回收刚退出的直接子进程后重试信号，其他权限错误继续报错。
 
 回归覆盖权限选择、无变更预览、重复运行、安装记录校验、并发锁、路径与归档攻击、下载失败、数据保留及清除。原生包测试覆盖 PTY 交互安装、静默修复、配置保留、认证沙盒检查和卸载。Python 仅作为开发测试中的 PTY 驱动及发布检查工具，不进入安装包或目标机安装依赖。
 

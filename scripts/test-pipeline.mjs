@@ -144,6 +144,18 @@ test('CI includes every native target, both browser platforms, and a non-skippab
   assert.equal(read('nightly').jobs.website, undefined);
 });
 
+test('both CI providers exercise the PTY lifecycle on every native installer platform', () => {
+  const github = yaml.load(readFileSync('.github/workflows/installer-acceptance.yml', 'utf8'));
+  const gitea = yaml.load(readFileSync('.gitea/workflows/ci.yml', 'utf8'));
+  for (const job of [github.jobs.install, gitea.jobs.installer]) {
+    const regression = job.steps.findIndex(step => step.run === 'python3 scripts/test-install-interactive-driver.py');
+    const installation = job.steps.findIndex(step => step.run?.includes('node scripts/test-release-install.mjs'));
+    assert(regression >= 0 && regression < installation);
+    assert.equal(job.steps[regression].if, undefined);
+    assert.equal(job.steps[regression]['continue-on-error'], undefined);
+  }
+});
+
 test('both CI providers require the live base version check in their source gate', () => {
   for (const provider of ['github', 'gitea']) {
     const ci = yaml.load(readFileSync(new URL(`../.${provider}/workflows/ci.yml`, import.meta.url), 'utf8'));
