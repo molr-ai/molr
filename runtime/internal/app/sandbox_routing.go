@@ -564,22 +564,7 @@ func (s *sandboxRouter) shellExecute(ctx context.Context, e core.Execution, req 
 		}
 		go func() {
 			defer close(observed)
-			ticker := time.NewTicker(time.Second)
-			defer ticker.Stop()
-			for {
-				if raw, err := control(observe, tools.ShellTaskRequest{Action: "read", TaskID: e.OperationID}); err == nil {
-					var status struct{ Started bool }
-					if json.Unmarshal(raw, &status) == nil && status.Started {
-						_ = scope.Started("", "", q.ComputeConstraints.GPUDevices(), control)
-						_ = s.mirrorShellLogs(observe, e, id)
-					}
-				}
-				select {
-				case <-observe.Done():
-					return
-				case <-ticker.C:
-				}
-			}
+			observeRemoteShell(observe, scope, e.OperationID, q.ComputeConstraints.GPUDevices(), control)
 		}()
 
 	}

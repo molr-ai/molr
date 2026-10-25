@@ -13,9 +13,48 @@ import (
 	"molr.ai/runtime/internal/platform"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 )
+
+type failedStartStore struct {
+	persistence.Store
+	failNext atomic.Bool
+}
+
+func (s *failedStartStore) Write(ctx context.Context, fn func(context.Context, persistence.Tx) error) error {
+	if s.failNext.Swap(false) {
+		return core.NewError(core.Unavailable, "start write failed")
+	}
+	return s.Store.Write(ctx, fn)
+}
+
+func TestShellStartedSaveFailureCancelsBeforeReady(t *testing.T) {
+	b, _, e := taskFixture(t)
+	s := b.shellTasks
+	store := &failedStartStore{Store: s.store}
+	s.store = store
+	s.executeCommand = func(ctx context.Context, e core.Execution, q tools.ShellRequest) (json.RawMessage, error) {
+		store.failNext.Store(true)
+		err := ManagedFor(ctx, e).Started("", "", nil, nil)
+		if core.CodeOf(err) != core.Unavailable || ctx.Err() != context.Canceled {
+			t.Errorf("failed start: err=%v, context=%v", err, ctx.Err())
+		}
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		select {
+		case <-s.active[shellKey(e)].ready:
+			t.Error("failed start marked the terminal ready")
+		default:
+		}
+		return nil, err
+	}
+	_, err := s.Execute(t.Context(), e, tools.ShellRequest{ComputeID: "compute", TTY: true, Script: "wait"})
+	if core.CodeOf(err) != core.Unavailable {
+		t.Fatalf("terminal start did not return the save failure: %v", err)
+	}
+}
 
 func TestShellTasksDetachLimitOwnershipAndEvents(t *testing.T) {
 	b, p, e := taskFixture(t)

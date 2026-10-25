@@ -19,6 +19,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -100,7 +101,8 @@ func TestShellTasksRemoteTTYAndArchivedOutput(t *testing.T) {
 	remoteStore, err := sqlitestore.Open(filepath.Join(t.TempDir(), "remote.db"))
 	need(t, err)
 	defer remoteStore.Close()
-	manager, err := sm.New(t.Context(), remoteStore, backend)
+	observedBackend := &shellObservationBackend{remoteSandboxBackend: backend, polls: make(chan int64, 16)}
+	manager, err := sm.New(t.Context(), remoteStore, observedBackend)
 	need(t, err)
 	defer manager.Close()
 	token := strings.Repeat("session-test-", 8)
@@ -132,6 +134,23 @@ func TestShellTasksRemoteTTYAndArchivedOutput(t *testing.T) {
 	need(t, err)
 	_, err = b.shellTasks.Execute(t.Context(), e, tools.ShellRequest{SandboxID: id, ComputeID: compute, TTY: true, Script: "exec /bin/sh -i"})
 	need(t, err)
+	// Once the session is ready, each observation fetches stdout and stderr
+	// exactly once, including after a transient read failure.
+	var previous int64
+	for i := 0; i < 3; i++ {
+		select {
+		case calls := <-observedBackend.polls:
+			if i > 0 && calls-previous != 2 {
+				t.Fatalf("poll mirrored logs %d times; want one stdout/stderr pair", calls-previous)
+			}
+			previous = calls
+		case <-time.After(8 * time.Second):
+			t.Fatal("remote observation stopped reading logs")
+		}
+	}
+	if observedBackend.reads.Load() < 3 {
+		t.Fatal("remote read did not recover")
+	}
 	deadline := time.Now().Add(8 * time.Second)
 	for {
 		_, err = b.shellTasks.Manage(t.Context(), e.Principal, e.AssistantID, tools.ShellTaskRequest{Action: "write", TaskID: e.OperationID, Generation: 1, Data: "echo remote_tty_ok; exit\n"})
@@ -164,4 +183,29 @@ func TestShellTasksRemoteTTYAndArchivedOutput(t *testing.T) {
 	if !strings.Contains(string(raw), "remote_tty_ok") {
 		t.Fatal(string(raw))
 	}
+}
+
+type shellObservationBackend struct {
+	*remoteSandboxBackend
+	outputs atomic.Int64
+	reads   atomic.Int64
+	polls   chan int64
+}
+
+func (b *shellObservationBackend) Call(ctx context.Context, q sm.Request) (json.RawMessage, error) {
+	if q.Method == "shell_output" {
+		b.outputs.Add(1)
+	}
+	if q.Method == "shell_read" {
+		read := b.reads.Add(1)
+		select {
+		case b.polls <- b.outputs.Load():
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+		if read == 2 {
+			return nil, core.NewError(core.Unavailable, "temporary read failure")
+		}
+	}
+	return b.remoteSandboxBackend.Call(ctx, q)
 }

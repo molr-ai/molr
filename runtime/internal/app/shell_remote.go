@@ -100,6 +100,26 @@ func (s *sandboxRouter) remoteShellControl(ctx context.Context, e core.Execution
 	return client.Execute(ctx, sm.Request{Identity: i, Method: method, Arguments: raw, Epoch: epoch, Deadline: time.Now().Add(15 * time.Second)}, func(context.Context) error { return nil })
 }
 
+// Reads keep mirroring logs after the task's start has been recorded.
+func observeRemoteShell(ctx context.Context, scope *shellsession.Control, taskID core.ID, gpuIDs []string, control func(context.Context, tools.ShellTaskRequest) (json.RawMessage, error)) {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	started := false
+	for {
+		if raw, err := control(ctx, tools.ShellTaskRequest{Action: "read", TaskID: taskID}); err == nil && !started {
+			var status struct{ Started bool }
+			if json.Unmarshal(raw, &status) == nil && status.Started {
+				started = scope.Started("", "", gpuIDs, control) == nil
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
 // Operation spools are internal recovery evidence, never assistant workspaces.
 func (b *remoteSandboxBackend) operationRoot(i sm.Identity) string {
 	return filepath.Join(b.cfg.DataDir, "operations", digestBytes([]byte(string(i.OwnerID)+"/"+string(i.AssistantID)+"/"+string(i.ExecutionID)+"/"+string(i.OperationID))))
