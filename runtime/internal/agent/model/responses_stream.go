@@ -1,34 +1,23 @@
 package model
 
 import (
-	"bufio"
-	"bytes"
 	"encoding/json"
 	"io"
 	"molr.ai/runtime/internal/core"
-	"strings"
 	"time"
 )
 
 func readResponsesStream(reader io.Reader, started time.Time, now func() time.Time) (raw, completion []byte, timing *Timing, resultErr error) {
-	var captured bytes.Buffer
-	scanner := bufio.NewScanner(io.TeeReader(io.LimitReader(reader, (8<<20)+1), &captured))
-	scanner.Buffer(make([]byte, 4096), (8<<20)+1)
+	frames := newSSEFrames(reader)
 	timing = &Timing{}
 	defer func() {
-		raw = append([]byte(nil), captured.Bytes()...)
+		raw = frames.captured.Bytes()
 		timing.RequestMs = max(0, float64(now().Sub(started))/float64(time.Millisecond))
 	}()
 	invalid := func() error { return core.NewError(core.Unavailable, "invalid or incomplete Responses stream") }
 	done := false
-	data := []string{}
 	var first, last time.Time
-	process := func() error {
-		if len(data) == 0 {
-			return nil
-		}
-		payload := strings.Join(data, "\n")
-		data = nil
+	process := func(payload string) error {
 		if done {
 			return invalid()
 		}
@@ -71,23 +60,19 @@ func readResponsesStream(reader io.Reader, started time.Time, now func() time.Ti
 		}
 		return nil
 	}
-	for scanner.Scan() {
-		line := scanner.Text()
-		if line == "" {
-			if err := process(); err != nil {
-				return nil, nil, timing, err
-			}
-		} else if strings.HasPrefix(line, "data:") {
-			data = append(data, strings.TrimPrefix(strings.TrimPrefix(line, "data:"), " "))
+	for {
+		payload, ok := frames.next()
+		if !ok {
+			break
+		}
+		if err := process(payload); err != nil {
+			return nil, nil, timing, err
 		}
 	}
-	if err := scanner.Err(); err != nil {
+	if frames.failed() {
 		return nil, nil, timing, invalid()
 	}
-	if err := process(); err != nil {
-		return nil, nil, timing, err
-	}
-	if !done || captured.Len() > 8<<20 {
+	if !done {
 		return nil, nil, timing, invalid()
 	}
 	if !first.IsZero() {

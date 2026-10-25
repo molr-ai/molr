@@ -1,5 +1,6 @@
 import { cloneElement, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, HTMLAttributes, ReactElement, Ref } from 'react';
+import { observeFloating, usePopover } from './floating-lifecycle';
 import { getOverlayViewport, useModalScope } from '../modal-scope';
 
 export type FloatingTrigger = ReactElement<HTMLAttributes<HTMLElement> & { disabled?: boolean; ref?: Ref<HTMLElement> }>;
@@ -37,12 +38,11 @@ export function useFloating(open: boolean, onOpenChange: (open: boolean) => void
   const panelRef = useRef<HTMLDivElement>(null);
   const [style, setStyle] = useState<CSSProperties>(baseStyle);
   const [side, setSide] = useState<FloatingSide>(preferredSide);
+  usePopover(open, panelRef);
   useLayoutEffect(() => {
     const anchor = anchorRef.current;
     const panel = panelRef.current;
-    if (!anchor || !panel) return;
-    if (!open) { if (panel.matches(':popover-open')) panel.hidePopover(); return; }
-    if (!panel.matches(':popover-open')) panel.showPopover();
+    if (!open || !anchor || !panel) return;
     function position() {
       if (!anchor || !panel) return;
       const rect = anchor.getBoundingClientRect();
@@ -72,15 +72,7 @@ export function useFloating(open: boolean, onOpenChange: (open: boolean) => void
     }
     function scroll(event: Event) { if (!(event.target instanceof Node && panel?.contains(event.target))) position(); }
     position();
-    const observer = new ResizeObserver(position);
-      observer.observe(anchor); observer.observe(panel);
-      if (boundary) observer.observe(boundary);
-    window.addEventListener('scroll', scroll, true); window.addEventListener('resize', position);
-    window.visualViewport?.addEventListener('resize', position); window.visualViewport?.addEventListener('scroll', position);
-    return () => {
-      observer.disconnect(); window.removeEventListener('scroll', scroll, true); window.removeEventListener('resize', position);
-      window.visualViewport?.removeEventListener('resize', position); window.visualViewport?.removeEventListener('scroll', position);
-    };
+    return observeFloating(anchor, panel, boundary, position, scroll);
   }, [open, align, width, preferredSide, boundary, heightLimit]);
   return { anchorRef, panelRef, style, side };
 }

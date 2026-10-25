@@ -1,8 +1,6 @@
 package model
 
 import (
-	"bufio"
-	"bytes"
 	"encoding/json"
 	"io"
 	"molr.ai/runtime/internal/core"
@@ -20,12 +18,10 @@ func readProviderStream(protocol Protocol, r io.Reader, started time.Time, now f
 	return readChatStream(protocol, r, started, now)
 }
 func readAnthropicStream(reader io.Reader, started time.Time, now func() time.Time) (raw, completion []byte, timing *Timing, resultErr error) {
-	var captured bytes.Buffer
-	scanner := bufio.NewScanner(io.TeeReader(io.LimitReader(reader, (8<<20)+1), &captured))
-	scanner.Buffer(make([]byte, 4096), (8<<20)+1)
+	frames := newSSEFrames(reader)
 	timing = &Timing{}
 	defer func() {
-		raw = append([]byte(nil), captured.Bytes()...)
+		raw = frames.captured.Bytes()
 		timing.RequestMs = max(0, float64(now().Sub(started))/float64(time.Millisecond))
 	}()
 	invalid := func() error { return core.NewError(core.Unavailable, "invalid or incomplete Anthropic stream") }
@@ -35,13 +31,7 @@ func readAnthropicStream(reader io.Reader, started time.Time, now func() time.Ti
 	begun, done, outputReported := false, false, false
 	var first, last time.Time
 	fragments := 0
-	data := []string{}
-	process := func() error {
-		if len(data) == 0 {
-			return nil
-		}
-		payload := strings.Join(data, "\n")
-		data = nil
+	process := func(payload string) error {
 		var event struct {
 			Type    string          `json:"type"`
 			Index   int             `json:"index"`
@@ -180,29 +170,20 @@ func readAnthropicStream(reader io.Reader, started time.Time, now func() time.Ti
 		}
 		return nil
 	}
-	for scanner.Scan() {
-		if captured.Len() > 8<<20 {
-			return nil, nil, timing, invalid()
+	for {
+		payload, ok := frames.next()
+		if !ok {
+			break
 		}
-		line := scanner.Text()
-		if line == "" {
-			if err := process(); err != nil {
-				return nil, nil, timing, err
-			}
-			if done {
-				break
-			}
-			continue
+		if err := process(payload); err != nil {
+			return nil, nil, timing, err
 		}
-		if strings.HasPrefix(line, "data:") {
-			data = append(data, strings.TrimPrefix(strings.TrimPrefix(line, "data:"), " "))
+		if done {
+			break
 		}
 	}
-	if scanner.Err() != nil || captured.Len() > 8<<20 {
+	if frames.failed() {
 		return nil, nil, timing, invalid()
-	}
-	if err := process(); err != nil {
-		return nil, nil, timing, err
 	}
 	if !done {
 		return nil, nil, timing, invalid()

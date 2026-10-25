@@ -1,3 +1,4 @@
+import { observeFloating, usePopover } from './floating-lifecycle';
 import { useLayoutEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 import { getOverlayViewport, useModalScope } from '../modal-scope';
@@ -13,10 +14,10 @@ export function ComposerCommandMenu({ id, anchor, commands, selected, onSelect, 
   const boundary = useModalScope()?.container;
   const popup = useRef<HTMLDivElement>(null), results = useRef<HTMLDivElement>(null);
   const dismiss = useRef(onDismiss); dismiss.current = onDismiss;
+  usePopover(true, popup);
   useLayoutEffect(() => {
     const menu = popup.current, input = anchor.current, composer = input?.closest('form');
     if (!menu || !input || !composer) return;
-    menu.showPopover();
     function position() {
       if (!menu || !composer || !input) return;
       const rect = composer.getBoundingClientRect(), view = getOverlayViewport(boundary);
@@ -30,15 +31,11 @@ export function ComposerCommandMenu({ id, anchor, commands, selected, onSelect, 
       menu.style.top = `${top ? rect.top - gap - menu.getBoundingClientRect().height : rect.bottom + gap}px`;
     }
     const outside = (event: PointerEvent) => { if (event.target instanceof Node && !menu.contains(event.target) && !composer.contains(event.target)) dismiss.current(); };
-    const observer = new ResizeObserver(position); observer.observe(composer); observer.observe(menu); if (boundary) observer.observe(boundary);
-    window.addEventListener('resize', position); window.addEventListener('scroll', position, true);
-    window.visualViewport?.addEventListener('resize', position); window.visualViewport?.addEventListener('scroll', position);
+    const stopObserving = observeFloating(composer, menu, boundary, position);
     document.addEventListener('pointerdown', outside); position();
     return () => {
-      observer.disconnect(); window.removeEventListener('resize', position); window.removeEventListener('scroll', position, true);
-      window.visualViewport?.removeEventListener('resize', position); window.visualViewport?.removeEventListener('scroll', position);
+      stopObserving();
       document.removeEventListener('pointerdown', outside);
-      if (menu.matches(':popover-open')) menu.hidePopover();
     };
   }, [anchor, boundary]);
   useLayoutEffect(() => {

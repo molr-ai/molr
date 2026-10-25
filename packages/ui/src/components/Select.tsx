@@ -1,3 +1,4 @@
+import { observeFloating, usePopover } from './floating-lifecycle';
 import { useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ButtonHTMLAttributes, KeyboardEvent, ReactNode } from 'react';
 import { useUILocale } from '../locale';
@@ -111,16 +112,15 @@ export function Select<Value extends string>(props: SelectProps<Value>) {
     }
   }, [open, activeIndex, navigableIndices, selectedIndex]);
 
+  usePopover(open && !unavailable, popupRef);
   useLayoutEffect(() => {
     const popup = popupRef.current;
     const trigger = triggerRef.current;
     if (!popup || !trigger) return;
     if (!open || unavailable) {
-      if (popup.matches(':popover-open')) popup.hidePopover();
       if (open) setOpen(false);
       return;
     }
-    if (!popup.matches(':popover-open')) popup.showPopover();
 
     function position() {
       if (!popup || !trigger) return;
@@ -154,21 +154,7 @@ export function Select<Value extends string>(props: SelectProps<Value>) {
     }
 
     position();
-    const observer = new ResizeObserver(position);
-    observer.observe(trigger);
-    observer.observe(popup);
-    if (boundary) observer.observe(boundary);
-    window.addEventListener('resize', position);
-    window.addEventListener('scroll', handleScroll, true);
-    window.visualViewport?.addEventListener('resize', position);
-    window.visualViewport?.addEventListener('scroll', position);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener('resize', position);
-      window.removeEventListener('scroll', handleScroll, true);
-      window.visualViewport?.removeEventListener('resize', position);
-      window.visualViewport?.removeEventListener('scroll', position);
-    };
+    return observeFloating(trigger, popup, boundary, position, handleScroll);
   }, [open, unavailable, align, options, boundary, searchable, size]);
 
   useLayoutEffect(() => {

@@ -1,8 +1,6 @@
 package model
 
 import (
-	"bufio"
-	"bytes"
 	"encoding/json"
 	"io"
 	"strings"
@@ -22,13 +20,10 @@ type streamCall struct {
 // while observing arrival times at the network reader. Raw SSE remains billing
 // evidence; neither replay nor UI delivery contributes to timing measurements.
 func readChatStream(protocol Protocol, reader io.Reader, started time.Time, now func() time.Time) (raw, completion []byte, timing *Timing, resultErr error) {
-	var captured bytes.Buffer
-	limited := &io.LimitedReader{R: reader, N: (8 << 20) + 1}
-	scanner := bufio.NewScanner(io.TeeReader(limited, &captured))
-	scanner.Buffer(make([]byte, 4096), (8<<20)+1)
+	frames := newSSEFrames(reader)
 	timing = &Timing{}
 	defer func() {
-		raw = append([]byte(nil), captured.Bytes()...)
+		raw = frames.captured.Bytes()
 		timing.RequestMs = max(0, float64(now().Sub(started))/float64(time.Millisecond))
 	}()
 	invalid := func() error { return core.NewError(core.Unavailable, "invalid or incomplete provider stream") }
@@ -41,13 +36,7 @@ func readChatStream(protocol Protocol, reader io.Reader, started time.Time, now 
 	var first, last time.Time
 	fragments := 0
 	done := false
-	data := []string{}
-	process := func() error {
-		if len(data) == 0 {
-			return nil
-		}
-		payload := strings.Join(data, "\n")
-		data = nil
+	process := func(payload string) error {
 		if done {
 			return invalid()
 		}
@@ -168,29 +157,20 @@ func readChatStream(protocol Protocol, reader io.Reader, started time.Time, now 
 		}
 		return nil
 	}
-	for scanner.Scan() {
-		if captured.Len() > 8<<20 {
-			return nil, nil, timing, invalid()
+	for {
+		payload, ok := frames.next()
+		if !ok {
+			break
 		}
-		line := scanner.Text()
-		if line == "" {
-			if err := process(); err != nil {
-				return nil, nil, timing, err
-			}
-			if done {
-				break
-			}
-			continue
+		if err := process(payload); err != nil {
+			return nil, nil, timing, err
 		}
-		if strings.HasPrefix(line, "data:") {
-			data = append(data, strings.TrimPrefix(strings.TrimPrefix(line, "data:"), " "))
+		if done {
+			break
 		}
 	}
-	if scanner.Err() != nil || captured.Len() > 8<<20 {
+	if frames.failed() {
 		return nil, nil, timing, invalid()
-	}
-	if err := process(); err != nil {
-		return nil, nil, timing, err
 	}
 	if !done || id == "" || finish == "" || len(usage) == 0 {
 		return nil, nil, timing, invalid()
