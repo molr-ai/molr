@@ -57,7 +57,7 @@ jobs:
           MOLR_RELEASE_REPOSITORY: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
       - run: npm run check && npm run test:docs && npm run test:release && npm run test:release-flow
-      - run: python3 scripts/test-install-download.py
+      - run: python3 scripts/test-install-download.py && python3 scripts/test-install-interactive-driver.py
       - run: npm run test --workspace @molr/ui
       - run: npm run typecheck --workspace @molr/ui --workspace @molr/ui-host --workspace @molr/sdk --workspace @molr/website
       - run: npm run build --workspace @molr/ui-design

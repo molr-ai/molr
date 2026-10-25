@@ -214,6 +214,8 @@ To extend distributions, add package-manager or service support in the host adap
 
 `.github/workflows/installer-acceptance.yml` uses the built archive on fresh runners, removes Bubblewrap, static BusyBox and AppArmor profiles, and lets setup restore dependencies. The same job covers initial dependency preparation and subsequent installs/updates with dependencies already present; build jobs no longer repeat the full installer suite. The matrix also covers macOS ARM64/AMD64 using user launchd services without Linux dependencies; other Linux distributions are not claimed as verified.
 
+The PTY driver `scripts/test-install-interactive.py` answers only known prompts and presses Enter at the resource-preset prompt to exercise the personal default. Update the driver when installer prompts change. `python3 scripts/test-install-interactive-driver.py` reads the current prompt from installer source and covers split output, the default choice, failure exit codes and unknown-prompt timeouts; both GitHub and Gitea source CI run it. Interaction has a ten-minute deadline. Cleanup sends SIGTERM, waits at most two seconds, then uses SIGKILL to reclaim the PTY process group so a blocked terminal read cannot stall the entire job.
+
 Regression tests cover permission decisions, mutation-free previews, repeated execution, record validation, concurrency locks, path/archive attacks, failed downloads, data retention and purge. Native package tests cover PTY installation, unattended repair, configuration retention, authenticated sandbox capabilities and removal. Python is only a development PTY driver and publication-check tool; it is neither packaged nor required by installation on the target machine.
 
 ```bash
