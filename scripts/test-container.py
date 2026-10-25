@@ -67,7 +67,13 @@ def main():
                 assert saved_config["http"]["public_url"] == origin
                 assert docker("exec", name, "stat", "-c", "%a", "/data/server.json") == "600"
                 sandbox = request("/api/sandbox")
-                assert sandbox["Enabled"] is False and sandbox["Storage"] is True
+                assert saved_config["sandbox"]["enabled"] is True
+                assert saved_config["sandbox"]["allow_full_access"] is True
+                assert sandbox["Enabled"] is True and sandbox["Storage"] is True, sandbox
+                capabilities = sandbox["Capabilities"]
+                assert capabilities["FullAccess"] is True, capabilities
+                for capability in ["Shell", "ProcessIsolation", "FileIsolation", "NetworkIsolation", "ResourceLimits"]:
+                    assert capabilities[capability] is False, (capability, capabilities)
                 assert request("/api/maintenance")["can_update"] is False
                 build = request("/api/updates")["current"]
                 assert build["distribution"] == "container" and build["embedded_webui"] is True
@@ -88,7 +94,7 @@ def main():
                     request("/api/auth/logout", {})
                 docker("stop", name)
                 docker("rm", name)
-            print("Container verified: embedded WebUI, static executable, ordinary-user permissions, automatic bootstrap and configuration persistence, disabled local sandbox, external updates and session persistence.")
+            print("Container verified: embedded WebUI, static executable, ordinary-user permissions, automatic bootstrap and configuration persistence, personal preset, explicit Full Access with controlled compute unavailable, external updates and session persistence.")
     finally:
         subprocess.run(["docker", "rm", "-f", name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         docker("volume", "rm", volume)
