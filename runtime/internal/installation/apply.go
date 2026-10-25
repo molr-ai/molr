@@ -250,6 +250,7 @@ func (e *Engine) apply(p *Plan) (resultErr error) {
 		return err
 	}
 	e.UI.step(5, "Result and next steps")
+	e.installCommands(r)
 	e.UI.print("Result: %s\nInstance: %s\nVersion: %s\nProgram: %s\nConfiguration: %s\nData: %s", r.Health, r.Name, r.Build.Version, r.Paths.Program, configPath, r.DataDir)
 	e.serviceInstructions(r)
 	if r.Mode == "sandbox" {

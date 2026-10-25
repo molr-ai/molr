@@ -36,10 +36,10 @@ curl -fsSL https://molr.ai/install.sh | sh -s -- --mode server
 2. 连接后确认所选模型及默认每日 USD 1 预算，可以修改。未知价格需要补充；填 0 表示明确确认免费。
 3. 点击「开始使用」，自动创建 **Molr** 助理并进入聊天。首次问候会调用所选模型并计入预算。
 
-语言和时区根据浏览器设置。命令行交互安装默认要求设置管理员用户名和密码，不保存明文密码。无人值守安装可显式添加 `--auto-init-admin`，沿用自动创建 `owner` 和随机密码的方式，密码保存在数据目录的 `initial-password` 文件（0600）。也可用 `--init-owner NAME` 指定用户名并通过标准输入提供密码。需要重新生成登录链接时，使用安装目录的程序：
+语言和时区根据浏览器设置。命令行交互安装默认要求设置管理员用户名和密码，不保存明文密码。无人值守安装可显式添加 `--auto-init-admin`，沿用自动创建 `owner` 和随机密码的方式，密码保存在数据目录的 `initial-password` 文件（0600）。也可用 `--init-owner NAME` 指定用户名并通过标准输入提供密码。需要重新生成登录链接时，新开终端后使用 `molr` 命令；找不到命令时按[命令与 PATH](https://molr.ai/zh/docs/admin/deployment/installation/#命令与-path)处理：
 
 ```bash
-/path/molr access -config /path/server.json -username YOUR_ADMIN -password-stdin
+molr access -config /path/server.json -username YOUR_ADMIN -password-stdin
 ```
 
 将 `YOUR_ADMIN` 替换为安装时设置的用户名，通过标准输入提供当前密码。只有自动初始化且初始密码仍有效时可省略 `-password-stdin`，从文件读取；启用 MFA 后还需 `-mfa-code`。重跑安装会保留原配置、账号和数据，不重置密码或重复创建助理。

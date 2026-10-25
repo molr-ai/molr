@@ -21,7 +21,7 @@ Runtime 配置支持：
 管理员在发现更新后可查看固定目标版本的升级命令。运行账户、实例名和程序路径取自安装记录；源码部署或缺少记录时按本指南操作。示例：
 
 ```bash
-~/.local/lib/molr/default/bin/molr-setup update --version 0.2.0
+molr-setup update --version 0.2.0
 ```
 
 升级前按本页备份流程保留数据。安装器核对下载包的版本和架构，保留已有账号、数据和配置，保存 `molr.previous`、`molr-setup.previous` 与 `server.previous.json` 后替换程序并重启。服务重启会中断运行中的任务。启动后先等待 HTTP 就绪，再执行一次认证检查，核对实际 Runtime 版本及沙盒能力；认证需要当前密码／MFA或被限流时，输出“验证待完成”和 `doctor` 命令，不循环登录。失败保留备份和错误信息，不自动回滚；上一份程序及配置不包含完整数据备份。
@@ -33,10 +33,10 @@ Runtime 配置支持：
 ### 创建备份
 
 ```bash
-/path/molr-setup backup --output /private/molr-backup.tar.gz
+molr-setup backup --output /private/molr-backup.tar.gz
 # Select another instance with --record /path/installation.json or --name molr-example.
 # Keep the source stopped when switching machines:
-/path/molr-setup backup --output /private/molr-migration.tar.gz --keep-stopped
+molr-setup backup --output /private/molr-migration.tar.gz --keep-stopped
 ```
 
 命令取得维护锁，正常停服并确认进程退出，在私有临时目录复制数据及配置、生成 `backup.json`，随后打包。默认在文件复制结束后恢复原运行状态，再压缩归档；原来停止的实例保持停止。失败时尝试恢复原运行状态并报告错误，不发布不完整归档。目标文件必须不存在且位于备份源目录之外。可通过 `TMPDIR` 选择有足够空间的暂存位置；暂存位置也必须位于备份源目录之外。
@@ -53,7 +53,7 @@ Runtime 配置支持：
 
 ### 恢复到另一台机器
 
-同平台可从归档取出程序后运行；不同操作系统或 CPU 架构使用目标平台、与备份版本及 commit 相同的完整发行包：
+目标机器尚未安装 Molr 时，同平台可在空目录中从备份归档取出程序，再执行解出的维护工具；此时尚无 PATH 入口。不同操作系统或 CPU 架构使用目标平台、与备份版本及 commit 相同的完整发行包：
 
 ```bash
 tar -xzf /private/molr-backup.tar.gz program

@@ -32,6 +32,3 @@ When bound, the message input box at the bottom of the chat page retains its out
 ## Unbinding
 
 Click "Unbind WeChat" in the "Chat Entry" popup and confirm to restore WebUI chat. History and assistant context are retained; pending WeChat replies are canceled; messages already accepted by the platform cannot be recalled. Local unbinding stops Molr from using the binding credentials but does not revoke all authorizations on the WeChat server side.
-
-
-Connection and link configuration is maintained by the administrator; see [WeChat connectivity](../../admin/deployment/configuration.md#wechat-connectivity).

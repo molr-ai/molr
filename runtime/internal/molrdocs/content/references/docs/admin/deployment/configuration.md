@@ -1,22 +1,24 @@
 # 配置与访问
 
-## 局域网 HTTP
-
-新增 `http.tls_mode: "lan"`，允许数字私网／回环地址和明确的来源列表，不要求证书；监听可为 `0.0.0.0`。默认安装端口从 8787 起，避免与 llama.cpp 的 8080 冲突。`public_url` 使用真实局域网 IP，`allowed_origins` 保存允许访问的完整地址。地址变化时更新配置并重启。
-
-此模式拒绝公网来源连接、未登记 Host／Origin 和转发头，保留登录、CSRF 及限流；会话 Cookie 为 HttpOnly、SameSite，按端口隔离。HTTP 没有传输加密，适用于可信局域网；公网仍使用以下 HTTPS 部署方式。仅回环 `local` 模式也继续可用。
-
 ## 配置与初始化
 
 配置采用严格 JSON，参考 [直接 TLS 示例](https://github.com/molr-ai/molr/blob/main/runtime/configs/server.example.json)。修改数据目录、访问地址和证书路径；数据目录需属于运行服务的用户，不能放在公开静态目录下。
 
-服务启动前，在部署主机上初始化所有者。以下 `/path` 和 `/private` 均为需替换的示例路径：
+服务启动前，在部署主机上初始化所有者。以下使用安装后的 `molr` 命令，`/private` 为需替换的示例路径；源码构建时使用实际程序路径：
 
 ```bash
-/path/molr init -config /private/server.json -username owner -password-stdin < /private/owner-password
+molr init -config /private/server.json -username owner -password-stdin < /private/owner-password
 ```
 
 密码从权限受限文件或密码管理器送入标准输入，不放入命令行参数。未初始化时服务不会监听；没有 HTTP 注册或初始化入口。
+
+## 开放局域网访问
+
+设置 `http.tls_mode: "lan"`，允许数字私网／回环地址和明确的来源列表，不要求证书；监听可为 `0.0.0.0`。默认安装端口从 8787 起，避免与 llama.cpp 的 8080 冲突。`public_url` 使用真实局域网 IP，`allowed_origins` 保存允许访问的完整地址。地址变化时更新配置并重启。
+
+此模式拒绝公网来源连接、未登记 Host／Origin 和转发头，保留登录、CSRF 及限流；会话 Cookie 为 HttpOnly、SameSite，按端口隔离。HTTP 没有传输加密，适用于可信局域网；公网仍使用以下 HTTPS 部署方式。仅回环 `local` 模式也继续可用。
+
+## 开放公网访问
 
 公网访问使用 HTTPS，可信局域网也可选择上文的 `lan` HTTP 模式。可选直接 TLS，或在受信任反向代理处终止 TLS。代理模式的 Runtime 示例：
 
@@ -52,11 +54,41 @@ location /api/ {
 
 `tls_mode: local` 仅用于数字回环地址；跨设备的可信局域网 HTTP 使用 `lan` 模式。开发联调与独立端口代理见 [WebUI README](https://github.com/molr-ai/molr/blob/main/apps/webui/README.md)。
 
-## 模型网络与价格配置
+## 连接模型服务
 
-模型地址从 Runtime 所在设备访问。默认 `network.allowed_private_ips` 允许 `127.0.0.1`；其他私网 IP 需由部署者在配置中显式增加，修改后重启。该配置接受具体 IP，不是 CIDR；允许一个 IP 会允许访问该 IP 的服务端口。元数据与链路本地地址仍禁止。
+模型请求由 Runtime 发出，服务地址必须能从 Runtime 所在设备访问。在「资源 → 模型 → 更多 → 连接提供商」中选择预设或自定义服务，填写基础地址与认证信息，测试并保存连接，再刷新模型列表。模型能力、价格与用户组授权按[模型接入概览](https://molr.ai/zh/docs/admin/resources/models/#连接提供商)配置；连接测试只读取模型目录，实际推理需通过对话验证。
 
-Shell 网络策略单独配置地址集合（域名、IP 或多个 CIDR）和端口集合（单端口或多个范围），不继承模型连接的本机许可。示例与私网规则见 [沙箱网络配置](https://molr.ai/zh/docs/admin/sandbox/linux/#网络与高级部署)。用户授权不能扩大部署网络限制。
+模型连接使用 `network.allowed_private_ips` 控制私网访问；Shell 使用独立的[沙盒网络配置](https://molr.ai/zh/docs/admin/sandbox/linux/#网络与高级部署)，不会放行模型地址。用户授权不能扩大部署网络限制。
+
+### 连接本地模型
+
+先在 Runtime 所在设备启动模型服务并准备模型，再使用本机发现结果或手动填写地址。例如，[Ollama](https://molr.ai/zh/docs/admin/resources/providers/ollama/) 的基础地址为 `http://127.0.0.1:11434/v1`。本机发现仅查询已有服务，不会启动服务或下载模型。
+
+默认 `network.allowed_private_ips` 包含 `127.0.0.1`；使用其他回环地址（例如 `::1`）时，需将该地址加入配置并重启 Runtime。这里的本机指 Runtime 所在设备；容器内的回环地址指容器自身，访问宿主机模型时应使用容器可达的宿主机地址，并按下一节放行。
+
+### 连接局域网模型
+
+让模型服务监听 Runtime 可达的局域网地址，并在模型主机的防火墙中允许 Runtime 访问服务端口。连接时将基础地址中的回环地址替换为模型主机的局域网 IP，保留服务要求的端口和 API 路径。
+
+在 Runtime 配置中将模型主机 IP 加入 `network.allowed_private_ips`，保留仍需访问的已有地址，然后重启 Runtime。以下 `192.168.1.20` 为示例模型主机 IP，需替换为实际地址：
+
+```json
+{
+  "network": {
+    "allowed_private_ips": ["127.0.0.1", "192.168.1.20"]
+  }
+}
+```
+
+该列表接受具体 IP，不接受域名或 CIDR；允许一个 IP 会允许访问该 IP 的服务端口。使用域名连接时，其解析地址也必须通过网络校验。元数据与链路本地地址始终禁止。放行后的私网模型可使用 HTTP，适用于可信局域网；服务要求认证时仍需填写对应密钥。
+
+### 连接云服务
+
+选择对应提供商预设，按其接入说明填写 HTTPS 基础地址和 API Key；支持方式和各提供商文档见[模型接入概览](https://molr.ai/zh/docs/admin/resources/models/#支持的接入方式)。Runtime 需要能够解析并访问该服务地址，公网 HTTP 地址会被拒绝，公网 IP 无需加入 `network.allowed_private_ips`。
+
+使用自建网关时，按[自定义服务](https://molr.ai/zh/docs/admin/resources/providers/custom/)配置地址与密钥，并确认网关提供兼容协议；局域网网关沿用上一节的私网访问配置。
+
+## 配置模型价格
 
 手动模型价格优先于自动计价，未知价格阻止调用。默认不配置外部价表：
 
@@ -71,15 +103,3 @@ Shell 网络策略单独配置地址集合（域名、IP 或多个 CIDR）和端
 参考汇率通过 `pricing.exchange_rates_file` 独立配置，仍在启动时读取。价表与汇率都是带日期的参考配置，不能将参考计费当作供应商最终账单。
 
 配置完成后，继续[安装与服务管理](https://molr.ai/zh/docs/admin/deployment/installation/#linux-服务与命令环境)。
-
-## 微信连接配置
-
-微信连接随 Runtime 运行，通过公网 HTTPS 长轮询接收消息，不需要公网回调。Runtime 必须能访问微信 API 和媒体 CDN；浏览器无需直接接触机器人令牌。机器人令牌、回复凭据和游标使用本机主密钥加密保存。
-
-微信中展示的 Molr 链接使用部署配置中的 `http.public_url`，接收者需要能访问该地址并正常登录。私有局域网地址不会因此自动变成公网入口。
-
-## Telegram 连接配置
-
-Telegram 使用出站 HTTPS 长轮询，不需要公网回调。Runtime 必须能访问 `api.telegram.org`。此渠道忽略环境代理；需要代理时设置 `telegram.proxy_url`（例如 `http://127.0.0.1:3128`）并重启 Runtime。仅接受不含凭据、路径、查询或片段的 HTTP(S) 代理地址。代理属于部署者信任的网络出口，Telegram TLS 验证保持启用。Bot Token 在已认证的助理渠道弹窗中填写，由 Runtime 主密钥加密保存。
-
-Telegram 中的 Molr 链接使用 `http.public_url`，用户需要能访问该地址并登录；长轮询不会让私有 Molr 地址自动变成公网入口。操作见[Telegram 聊天入口](https://molr.ai/zh/docs/user/chat-channels/telegram/)。

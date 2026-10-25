@@ -136,6 +136,9 @@ func (e *Engine) uninstall(r *installrecord.Record) error {
 		return err
 	}
 	e.UI.step(3, "Remove managed files")
+	if err = removeCommandLinks(r); err != nil {
+		e.UI.print("Command shortcuts could not be cleaned up: %v", err)
+	}
 	for _, p := range files {
 		if err = removeFile(p); err != nil {
 			return err

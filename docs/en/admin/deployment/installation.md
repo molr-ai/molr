@@ -101,7 +101,16 @@ For native macOS Runtime builds, Full Access, and service management, see [sourc
 
 ## Runtime modes and resource permission presets
 
-The same Runtime package supports `server` (default) and `sandbox` modes for a complete service or a resource node. Runtime provides accounts, assistants, WebUI and its built-in sandbox. A standalone Sandbox supplies resources to another Runtime without creating Runtime accounts or assistant workspaces.
+Choose the command entry point for the current stage:
+
+| Scenario | Command entry point |
+| --- | --- |
+| First online installation | Use the website's `install.sh` to download and run the installer |
+| Install from an extracted package or create another instance | Run `./bin/molr-setup` from the package directory |
+| Check status, update, configure or uninstall after installation | Open a new terminal and use `molr-setup`; see [Commands and PATH](#commands-and-path) |
+| Manage another instance or resolve a command-name conflict | Use that instance's full executable path reported by the installer |
+
+The same Runtime package supports `server` (default) and `sandbox` modes for a complete service or a resource node. Runtime provides accounts, assistants, WebUI and its built-in sandbox. A standalone Sandbox supplies resources to another Runtime without creating Runtime accounts or assistant workspaces. Choose one of the installation examples below and run it from the verified, extracted package directory:
 
 ```bash
 ./bin/molr-setup --mode server --resource-preset permissive
@@ -116,8 +125,8 @@ The installer records the mode and generates `molr serve --mode server|sandbox` 
 Resource presets generate ordinary settings independently of the mode saved in the installation record. `--config` and `--resource-preset` are mutually exclusive. Updates, repairs and reconnects preserve existing configuration. Preview and explicitly apply a preset to an installed instance:
 
 ```bash
-/path/to/molr-setup configure --resource-preset permissive --dry-run
-/path/to/molr-setup configure --resource-preset permissive
+molr-setup configure --resource-preset permissive --dry-run
+molr-setup configure --resource-preset permissive
 ```
 
 Maintenance shows changed fields and preserves service paths, credentials and assistant grants. Running instances restart; stopped instances remain stopped. Existing directory rules, network rules and GPU selections are replaced by the selected preset. Settings can also be edited individually.
@@ -136,10 +145,12 @@ Run as the current user without `sudo` or `--user`. Setup registers a launchd us
 
 The default program directory is `~/Library/Application Support/Molr/program/default`. Configuration and data use `config/default` and `data/default` under the same Molr directory. Logs and caches use `~/Library/Caches/Molr/default`. Use `--name molr-<name>` for separate instances. Setup prints the actual paths and service commands; quote paths containing spaces.
 
+Open a new terminal after [command setup](#commands-and-path) to run:
+
 ```bash
-"$HOME/Library/Application Support/Molr/program/default/bin/molr-setup" status
-"$HOME/Library/Application Support/Molr/program/default/bin/molr-setup" update
-"$HOME/Library/Application Support/Molr/program/default/bin/molr-setup" uninstall
+molr-setup status
+molr-setup update
+molr-setup uninstall
 ```
 
 Normal uninstall retains configuration and data; explicitly remove them with `uninstall --purge --yes`. Updates preserve accounts, configuration, and workspaces. In-app updates are not yet supported on macOS; use the CLI. Setup verifies the archive and Mach-O code signatures. Packages currently use ad-hoc signatures without Developer ID signing or Apple notarization; the supported distribution path is Terminal installation.
@@ -206,16 +217,16 @@ The website source contains manifests only for the latest stable version within 
 
 ## Interactive and unattended installation
 
-A controlling terminal enables interaction by default. The installer displays paths, account, dependencies and permissions before confirmation. Modes can be selected explicitly:
+A controlling terminal enables interaction by default. The installer displays paths, account, dependencies and permissions before confirmation. From the verified, extracted package directory, choose one of the following:
 
 ```bash
 ./bin/molr-setup --interactive
-./bin/molr-setup --non-interactive --install-deps \
+./bin/molr-setup --non-interactive --auto-init-admin --install-deps \
   --directory-permissions fix --no-browser
 ./bin/molr-setup --dry-run
 ```
 
-Unattended mode neither prompts nor opens a browser. `--install-deps` authorizes system preparation; arrange administrator privileges beforehand. Use `--skip-dependencies` for manually prepared hosts. `--dry-run` shows the plan without changing accounts, permissions, configuration or services; previewing through the downloader still downloads a temporary package.
+The unattended example initializes the administrator with `--auto-init-admin`; see [Administrator initialization](#administrator-initialization) for a custom password. Unattended mode neither prompts nor opens a browser. `--install-deps` authorizes system preparation; arrange administrator privileges beforehand. Use `--skip-dependencies` for manually prepared hosts. `--dry-run` shows the plan without changing accounts, permissions, configuration or services; previewing through the downloader still downloads a temporary package.
 
 For group/other-writable directories, choose fix, ignore or quit. Fix removes only those directory write bits, without recursion. Unattended mode requires `--directory-permissions fix|ignore` when a choice is needed. `--yes` skips general confirmation but does not choose a permission policy. Ownership mismatches, symlinked paths and writable managed files cause errors.
 
@@ -229,7 +240,7 @@ When AppArmor restricts unprivileged user namespaces, setup probes Bubblewrap as
 
 ### Selecting the runtime account during installation
 
-The default is the current regular user's `molr.service`. Root installation requires a non-root `--user USER` and creates a system service. Missing accounts are created as system accounts without login access. Existing HOME, shell and supplementary groups are preserved; existing data ownership is not changed recursively.
+The default is the current regular user's `molr.service`. Root installation requires a non-root `--user USER` and creates a system service. Missing accounts are created as system accounts without login access. Existing HOME, shell and supplementary groups are preserved; existing data ownership is not changed recursively. Choose an installation example below and run it from the extracted package directory. When reinstalling, an installed `molr-setup` is bound to its original instance; `--name` or `--mode` cannot turn it into another instance:
 
 ```bash
 ./bin/molr-setup --name molr-demo --port 8788 --public-host "<LAN_IP>"
@@ -256,23 +267,37 @@ Program, configuration, data and cache directories must not overlap. Custom `dat
 
 After starting a Linux user service, the installer checks linger. If it is disabled or its state cannot be confirmed, the installer attempts to enable it and verifies the result. This step never prompts for a password or invokes sudo. If authorization is required, the command is unavailable, or verification fails, installation continues with a warning that the service may stop after the last login session ends. Follow the instructions to run `sudo loginctl enable-linger USER`, then confirm `Linger=yes` with `loginctl show-user USER -p Linger`. Linger applies to the entire Linux user account and is retained on uninstall. `--dry-run` and `--no-start` leave linger unchanged; system services need no linger. See [Docker deployment](docker.md) to run the complete application with WebUI, persistent data, and optional command execution.
 
+## Commands and PATH
+
+User installations on Linux and macOS create `molr` and `molr-setup` symlinks in `~/.local/bin`, pointing to `bin/` in the installed instance's program directory. Linux system installations use `/usr/local/bin`. Installation output shows both the entry points and their targets. Updates replace the target programs while retaining the links; restoring an instance also attempts to create them.
+
+If `~/.local/bin` is absent from the current PATH, user installation uses `$SHELL` to add startup configuration for Bash, Zsh, Fish or a POSIX shell, preserving existing content and permissions. Bash uses its active login profile and `.bashrc`; Zsh uses `.zprofile` and `.zshrc`, respecting `ZDOTDIR`; Fish respects `XDG_CONFIG_HOME`. Open a new terminal to use the short commands. The installer cannot change its parent terminal's environment; in Bash/Zsh, apply it immediately with:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+Existing files, directories or links to other instances are preserved. The installer does not take over those command names and reports the current instance's full paths instead. With multiple instances, check the selected instance with `molr-setup status`; manage other instances using their reported paths, for example `~/.local/lib/molr/demo/bin/molr-setup status`. Symlinked managed directories or shell profiles, unsuitable permissions and unsupported shells require manual setup as reported by the installer; they do not change the service installation result.
+
+Uninstallation removes only command symlinks still pointing to that instance. Other entries and the shared `~/.local/bin` PATH configuration remain. `--dry-run` creates no links and changes no shell files. Initial installation from an archive still uses its `./bin/molr-setup`; the short commands below manage installed instances.
+
 ## Updates and repeated execution
 
 Running the installed maintenance program shows status and opens a maintenance menu; without a terminal it only shows status. It locates the instance using its executable location, independently of the working directory.
 
 ```bash
-~/.local/lib/molr/default/bin/molr-setup
-~/.local/lib/molr/default/bin/molr-setup status
-~/.local/lib/molr/default/bin/molr-setup update
-~/.local/lib/molr/default/bin/molr-setup update --version 0.2.0-rc.1
-~/.local/lib/molr/default/bin/molr-setup update --channel preview
+molr-setup
+molr-setup status
+molr-setup update
+molr-setup update --version 0.2.0-rc.1
+molr-setup update --channel preview
 ```
 
-Updates use the source and channel saved in the installation record, show the selected package, then download and verify it. `--source`/`--channel` select the subscription for this update and subsequent successful updates. System instances use `sudo /opt/molr/default/bin/molr-setup update`. The Go updater also accepts explicitly specified private or loopback numeric HTTP mirrors.
+Updates use the source and channel saved in the installation record, show the selected package, then download and verify it. `--source`/`--channel` select the subscription for this update and subsequent successful updates. System instances use `sudo molr-setup update`. The Go updater also accepts explicitly specified private or loopback numeric HTTP mirrors.
 
 Rerunning the website command or installing another extracted package also upgrades an existing instance, preserving configuration, data, credentials and accounts. Atomic program replacement retains `molr.previous`, `molr-setup.previous` and `server.previous.json`. The same version is not reapplied by default; use `--repair`. An intentional downgrade needs `--allow-downgrade` and a prior data backup.
 
-Incomplete installation or damaged records produce explicit errors. Do not delete records to bypass detection; use a complete package to repair the original instance. `--record /path/installation.json` selects a specific installation.
+Incomplete installation or damaged records produce explicit errors. Do not delete records to bypass detection; use a complete package to repair the original instance. For status, update, configure and uninstall operations, a tool run from a complete release package can select an instance with `--record /path/installation.json`; an installed tool only manages its own instance. See [backup and restore](maintenance.md#backup-recovery-and-upgrades) for instance selection in those commands.
 
 Component installation, updates and repairs are covered in [Component management](../administration/components.md).
 
@@ -292,8 +317,8 @@ The local card’s management menu contains stop, restart, update, logs and unin
 After installation, update or restart, verify the actual page and authenticated sandbox capabilities:
 
 ```bash
-~/.local/lib/molr/default/bin/molr doctor -config /path/server.json -username YOUR_ADMIN -password-stdin
-~/.local/lib/molr/default/bin/molr access -config /path/server.json -username YOUR_ADMIN -password-stdin
+molr doctor -config /path/server.json -username YOUR_ADMIN -password-stdin
+molr access -config /path/server.json -username YOUR_ADMIN -password-stdin
 ```
 
 Use the username and password chosen during installation. With automatic initialization and a still-valid initial password file, omit `-password-stdin` to read it. With MFA, also supply `-mfa-code`. These commands use normal authentication APIs. `access` creates a one-time login link valid for 15 minutes.
@@ -302,18 +327,24 @@ Unless the sandbox was disabled, `/api/sandbox` must report `Enabled=true`, `Cap
 
 ## Uninstallation
 
-Use the installed maintenance program for offline uninstallation:
+Use the installed tool to preview uninstallation:
 
 ```bash
-~/.local/lib/molr/default/bin/molr-setup uninstall --dry-run
-~/.local/lib/molr/default/bin/molr-setup uninstall
-~/.local/lib/molr/default/bin/molr-setup uninstall --purge --yes
-sudo /opt/molr/demo/bin/molr-setup uninstall --purge
+molr-setup uninstall --dry-run
+```
+
+Then choose either ordinary uninstall or full removal. Prefix the command with `sudo` for a Linux system installation:
+
+```bash
+# Keep configuration and data
+molr-setup uninstall
+# Or remove managed configuration and data as well
+molr-setup uninstall --purge --yes
 ```
 
 The default stops the instance and removes programs, service files and cache while retaining configuration, persistent data and the installation record. Reinstalling the same instance reuses them. `--purge` removes managed configuration and default data; interactive mode requires typing the instance name, and unattended mode requires `--yes`.
 
-Custom data, external workspaces, unknown files, system accounts, dependencies and linger settings are retained. Ambiguous service ownership, stop failures or mount points inside removal directories stop deletion. Default uninstallation removes the maintenance binary; to purge retained data later, use a complete package and the retained record:
+Custom data, external workspaces, unknown files, system accounts, dependencies and linger settings are retained. Ambiguous service ownership, stop failures or mount points inside removal directories stop deletion. Default uninstallation removes the maintenance binary; to purge retained data later, extract a complete release package and run its installer from the package directory with the retained record:
 
 ```bash
 ./bin/molr-setup uninstall --record /path/installation.json --purge --yes

@@ -599,6 +599,7 @@ func (e *Engine) applyRestore(p *Plan, stage string, m *instancebackup.Manifest,
 			return err
 		}
 	}
+	e.installCommands(r)
 	e.UI.print("Restore complete: %s\nData: %s\nHealth: %s", r.Name, r.DataDir, r.Health)
 	e.serviceInstructions(r)
 	if r.Health == "verification_pending" {

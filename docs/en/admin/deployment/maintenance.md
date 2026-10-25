@@ -21,7 +21,7 @@ For maintainer version naming, platform management, initial remote configuration
 After discovering an update, administrators can view the upgrade command for the fixed target version. The running account, instance name, and program path are taken from the installation record; for source code deployments or missing records, follow this guide. Example:
 
 ```bash
-~/.local/lib/molr/default/bin/molr-setup update --version 0.2.0
+molr-setup update --version 0.2.0
 ```
 
 Before upgrading, preserve data according to the backup process on this page. The installer verifies the version and architecture of the downloaded package, retains existing accounts, data, and configurations, saves `molr.previous`, `molr-setup.previous` and `server.previous.json`, then replaces the program and restarts. Service restarts interrupt running tasks. After startup, wait for HTTP readiness, then perform an authentication check, verifying the actual Runtime version and sandbox capabilities; if authentication requires the current password/MFA or is rate-limited, output "Verification pending" and the `doctor` command, without looping login. On failure, backups and error information are retained, and no automatic rollback occurs; the previous program and configuration do not include a complete data backup.
@@ -33,10 +33,10 @@ Use `molr-setup backup / restore` to migrate installer-managed instances. The da
 ### Create a backup
 
 ```bash
-/path/molr-setup backup --output /private/molr-backup.tar.gz
+molr-setup backup --output /private/molr-backup.tar.gz
 # Select another instance with --record /path/installation.json or --name molr-example.
 # Keep the source stopped when switching machines:
-/path/molr-setup backup --output /private/molr-migration.tar.gz --keep-stopped
+molr-setup backup --output /private/molr-migration.tar.gz --keep-stopped
 ```
 
 The command acquires the maintenance lock, stops the service gracefully, confirms shutdown, copies files into private staging, creates `backup.json`, and packs the archive. By default it restores the original service state after copying, before compression. Previously stopped instances remain stopped. Failures attempt to restore the original service state and never publish a partial archive. The destination must not exist and must be outside the source directories. `TMPDIR` can select staging storage with sufficient free space; staging must also be outside the sources.
@@ -53,7 +53,7 @@ Old backups, process locks, and regenerable `sandbox/runtime` execution-environm
 
 ### Restore on another machine
 
-On the same platform, extract the bundled programs and run setup. On another OS or CPU architecture, use a complete destination-platform package with the exact backup version and commit:
+If Molr is not installed on the destination, extract the backup programs into an empty directory and run the extracted tool on the same platform; no PATH entry exists yet. For a different OS or CPU architecture, use a complete destination-platform release package with the same version and commit as the backup:
 
 ```bash
 tar -xzf /private/molr-backup.tar.gz program

@@ -40,6 +40,7 @@ type Options struct {
 	NonInteractive, Interactive, DryRun, Yes, InstallDeps, SkipDependencies, NoStart, NoBrowser, Repair, Purge, AllowDowngrade      bool
 }
 type Engine struct {
+	account                     func() (*Account, error)
 	initPassword                []byte
 	desktopLogin                string
 	downloadBase, downloadTotal int64
@@ -429,7 +430,7 @@ func (e *Engine) maintenance(r *installrecord.Record) error {
 	}
 }
 func (e *Engine) locate() (*installrecord.Record, error) {
-	a, err := currentAccount()
+	a, err := e.currentAccount()
 	if err != nil {
 		return nil, err
 	}
@@ -474,7 +475,7 @@ func (e *Engine) plan(pkg *Package, previous *installrecord.Record) (*Plan, erro
 			return nil, fmt.Errorf("cannot change program root")
 		}
 	} else {
-		a, err := currentAccount()
+		a, err := e.currentAccount()
 		if err != nil {
 			return nil, err
 		}
@@ -717,6 +718,12 @@ func (e *Engine) showPlan(p *Plan) {
 	r := p.Record
 	e.UI.print("Runtime mode: %s", r.Mode)
 	e.UI.print("System: %s / %s\nInstance: %s\nAccount: %s\nPackage: %s\nProgram: %s\nConfiguration: %s\nData: %s\nUpdates: %s", hostLabel(), runtime.GOARCH, r.Name, r.User, r.Build.Version, r.Paths.Program, r.Paths.Config, r.DataDir, r.UpdateSource())
+	if directory, err := commandDirectory(r); err == nil {
+		e.UI.print("Command links: %s (existing commands are preserved)", directory)
+		if !r.System {
+			e.UI.print("If needed, add ~/.local/bin to the current shell's startup configuration.")
+		}
+	}
 	if p.Previous != nil {
 		e.UI.print("Installed version: %s (%s)", p.Previous.Build.Version, p.Previous.State)
 	}

@@ -12,7 +12,7 @@ The current Sandbox capability protocol is version 9, with the transport path `/
 
 ## Install with setup
 
-Linux/macOS service packages contain `molr` and `molr-setup`. Run on the target machine:
+Linux/macOS service packages contain `molr` and `molr-setup`. On the target machine, follow the [offline installation steps](../deployment/installation.md#local-packages-and-quick-installation) to verify and extract the release package, then run from its directory:
 
 ```bash
 ./bin/molr-setup --mode sandbox --name molr-node --resource-preset permissive
@@ -20,7 +20,7 @@ Linux/macOS service packages contain `molr` and `molr-setup`. Run on the target 
 
 Choose `least-privilege` to initially disable resources and adjust them later. Setup installs the same Runtime and maintenance executable in `sandbox` mode, prepares systemd/launchd, an HTTPS certificate and private token, verifies capabilities and reports connection information. The token lives in `sandbox-token` in the data directory and is never printed in setup logs. For custom configuration use `--config` with HTTPS settings and certificates; setup still generates the token. Do not use `--init-owner`.
 
-The installed `molr-setup status` shows connection information; `update` upgrades and `uninstall` removes the service while retaining configuration and data. See [installation presets](../deployment/installation.md#runtime-modes-and-resource-permission-presets).
+After installation, open a new terminal and run `molr-setup status` to confirm the instance is `molr-node` and view connection information. Use `update` to upgrade or `uninstall` to remove the service while retaining configuration and data. If the shared command points to another instance, use this node’s full executable path reported by the installer; see [Commands and PATH](../deployment/installation.md#commands-and-path). See [installation presets](../deployment/installation.md#runtime-modes-and-resource-permission-presets).
 
 ## Docker nodes
 
@@ -99,7 +99,7 @@ Docker and the default installer enable automatic self-signed certificate renewa
 
 ## macOS nodes
 
-macOS uses the same `molr serve --mode sandbox -config … -token-file …` command, TLS and token authentication. Standalone nodes support `molr-setup --mode sandbox` and source deployment. Build on the target Mac and validate ARM64 and AMD64 natively.
+macOS uses the same `molr serve --mode sandbox -config … -token-file …` command, TLS and token authentication. Deploy standalone nodes using the [installer instructions above](#install-with-setup) or build from source. Build on the target Mac and validate ARM64 and AMD64 natively.
 
 Use Mac absolute paths for `data_dir`, certificates, private keys, tokens and directories. Replace the example's `sandbox` section with:
 

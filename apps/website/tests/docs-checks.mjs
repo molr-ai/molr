@@ -63,10 +63,10 @@ export async function checkDocs({ browser, url, outDir, screenshots, signal }) {
     await expect(page.locator('.docs-prose')).not.toContainText('[!WARNING]');
     await expect(page.locator('.docs-prose')).not.toContainText('<!-- -->');
     await page.getByRole('link', { name: '配置与访问', exact: true }).last().click();
-    await page.locator('.docs-toc').getByRole('link', { name: '模型网络与价格配置', exact: true }).click();
-    await expect(page.locator('#模型网络与价格配置')).toBeInViewport();
+    await page.locator('.docs-toc').getByRole('link', { name: '连接模型服务', exact: true }).click();
+    await expect(page.locator('#连接模型服务')).toBeInViewport();
     await page.reload();
-    await expect(page.locator('#模型网络与价格配置')).toBeInViewport();
+    await expect(page.locator('#连接模型服务')).toBeInViewport();
     await page.goto(`${url}/zh/docs/admin/getting-started/`);
     await page.getByRole('button', { name: '搜索文档', exact: true }).click();
     await page.getByRole('searchbox', { name: '搜索文档' }).fill('Bubblewrap');

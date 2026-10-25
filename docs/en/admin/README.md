@@ -10,7 +10,7 @@ Follow [Set up a Molr instance](getting-started.md) for installation, initializa
 - [Agent installation](deployment/agent-install.md): delegate installation to an Agent with access to the target device.
 - [Docker deployment](deployment/docker.md): run Runtime and WebUI in one container with persistent data and optional command execution.
 - [Building from source](deployment/source-build.md): build programs and release packages yourself.
-- [Configuration and access](deployment/configuration.md): LAN access, HTTPS, model networking and WeChat connectivity.
+- [Configuration and access](deployment/configuration.md): LAN and public access, model service connections and pricing configuration.
 
 ## Connect resources
 

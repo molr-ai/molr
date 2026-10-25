@@ -13,7 +13,7 @@ Instance administrators check resource connections and group assignments first. 
 | Command environment unavailable | Verify dependencies and actual isolation capabilities with [Sandbox checks](sandbox/linux.md#checks-and-verification) |
 | Remote sandbox offline | Check the remote service, network, certificate fingerprint and token; see [Standalone sandbox service](sandbox/remote.md) |
 | Browser component fails | Inspect the component task status and error, then update or repair using [Component management](administration/components.md) |
-| WeChat connection or link fails | Check external networking and the public access URL; see [WeChat connectivity](deployment/configuration.md#wechat-connectivity) |
+| WeChat connection or link fails | Check external networking and the public access URL; see [WeChat chat entry](../user/chat-channels/weixin.md#connection-status-and-delivery) |
 
 ## Diagnostic information
 

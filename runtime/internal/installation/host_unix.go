@@ -43,6 +43,12 @@ func currentAccount() (*Account, error) {
 	}
 	return lookupAccount(u.Username)
 }
+func (e *Engine) currentAccount() (*Account, error) {
+	if e.account != nil {
+		return e.account()
+	}
+	return currentAccount()
+}
 func command(ctx context.Context, args []string, input io.Reader, env []string, out, diagnostics io.Writer) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	cmd.Stdin = input

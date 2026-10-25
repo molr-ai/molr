@@ -36,10 +36,10 @@ Upon completion, the installation outputs a LAN access address and a one-time lo
 2. After connecting, confirm the selected model and the default daily budget of USD 1, which can be modified. Unknown prices must be supplemented; entering 0 explicitly confirms that it is free.
 3. Click "Get Started" to automatically create the **Molr** assistant and enter the chat. The initial greeting calls the selected model and counts towards the budget.
 
-Language and timezone follow browser settings. Interactive CLI installation asks for an administrator username and password by default, without saving a plaintext password. Unattended installation can explicitly use `--auto-init-admin` to create `owner` with a random password saved in the data directory’s `initial-password` file (0600). Alternatively, supply `--init-owner NAME` and the password on stdin. To generate another login link, use the installed program:
+Language and timezone follow browser settings. Interactive CLI installation asks for an administrator username and password by default, without saving a plaintext password. Unattended installation can explicitly use `--auto-init-admin` to create `owner` with a random password saved in the data directory’s `initial-password` file (0600). Alternatively, supply `--init-owner NAME` and the password on stdin. To generate another login link, open a new terminal and use `molr`; if it is unavailable, follow [Commands and PATH](deployment/installation.md#commands-and-path):
 
 ```bash
-/path/molr access -config /path/server.json -username YOUR_ADMIN -password-stdin
+molr access -config /path/server.json -username YOUR_ADMIN -password-stdin
 ```
 
 Replace `YOUR_ADMIN` with your administrator username and provide the current password on stdin. Omit `-password-stdin` only for automatic initialization with a still-valid initial-password file. With MFA enabled, also provide `-mfa-code`. Re-running the installation preserves the original configuration, accounts, and data, without resetting passwords or recreating the assistant.

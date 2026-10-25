@@ -28,6 +28,12 @@ func fixture(t *testing.T) (*Engine, *installrecord.Record) {
 	t.Helper()
 	dir := t.TempDir()
 	dir, _ = filepath.EvalSymlinks(dir)
+	// The test runner may use a group-writable umask; model a protected home.
+	for _, path := range []string{dir, filepath.Dir(dir)} {
+		if err := os.Chmod(path, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
 	a, err := currentAccount()
 	if err != nil {
 		t.Fatal(err)
@@ -52,6 +58,11 @@ func fixture(t *testing.T) (*Engine, *installrecord.Record) {
 		t.Fatal("unexpected host command")
 		return nil, nil
 	}}
+	e.account = func() (*Account, error) {
+		return &Account{Name: a.Name, Home: dir, UID: a.UID, GID: a.GID}, nil
+	}
+	t.Setenv("SHELL", "/bin/bash")
+	t.Setenv("ZDOTDIR", "")
 	t.Cleanup(func() {
 		if e.lock != nil {
 			e.lock.Close()
@@ -197,8 +208,14 @@ func TestUninstallRetainsDataAndPurgesOnlyManagedFiles(t *testing.T) {
 			for _, p := range []string{filepath.Join(r.Paths.Config, "server.json"), filepath.Join(r.Paths.Data, "retained"), filepath.Join(r.Paths.Program, "unknown")} {
 				os.WriteFile(p, []byte("{}"), 0600)
 			}
+			e.installCommands(r)
 			if err := e.uninstall(r); err != nil {
 				t.Fatal(err)
+			}
+			for _, name := range commandNames {
+				if _, err := os.Lstat(filepath.Join(r.Home, ".local/bin", name)); !os.IsNotExist(err) {
+					t.Fatal("uninstall retained command link", err)
+				}
 			}
 			if _, err := os.Stat(filepath.Join(r.Paths.Program, "unknown")); err != nil {
 				t.Fatal("unknown file removed")

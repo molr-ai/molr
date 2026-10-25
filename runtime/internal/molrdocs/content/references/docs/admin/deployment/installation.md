@@ -101,7 +101,16 @@ Linux 使用 systemd；macOS 使用下文的用户级 launchd 安装。源码开
 
 ## Runtime 模式与资源权限预设
 
-同一 Runtime 安装包支持 `server`（默认）和 `sandbox` 两种模式，分别运行完整服务或沙盒节点。完整 Runtime 提供账号、助理、WebUI 和内置沙盒；独立沙盒只为另一台 Runtime 提供资源，不创建 Runtime 账号或助理工作区。
+命令按当前阶段选择：
+
+| 场景 | 命令入口 |
+| --- | --- |
+| 首次在线安装 | 使用官网的 `install.sh` 下载并调用安装器 |
+| 从已解压的发行包安装，或新建另一个实例 | 在包目录执行 `./bin/molr-setup` |
+| 安装后查看状态、更新、配置和卸载 | 新开终端后使用 `molr-setup`；PATH 设置见[命令与 PATH](#命令与-path) |
+| 管理其他实例或存在同名命令冲突 | 使用安装结果中该实例的完整程序路径 |
+
+同一 Runtime 安装包支持 `server`（默认）和 `sandbox` 两种模式，分别运行完整服务或沙盒节点。完整 Runtime 提供账号、助理、WebUI 和内置沙盒；独立沙盒只为另一台 Runtime 提供资源，不创建 Runtime 账号或助理工作区。以下两个安装示例任选其一，在已校验并解压的发行包目录执行：
 
 ```bash
 ./bin/molr-setup --mode server --resource-preset permissive
@@ -116,8 +125,8 @@ Linux 使用 systemd；macOS 使用下文的用户级 launchd 安装。源码开
 资源权限预设只生成普通配置字段，与安装记录中的运行模式独立。`--config` 与 `--resource-preset` 互斥；升级、修复和重新连接保留现有配置。已有实例可先预览，再显式应用预设：
 
 ```bash
-/path/to/molr-setup configure --resource-preset permissive --dry-run
-/path/to/molr-setup configure --resource-preset permissive
+molr-setup configure --resource-preset permissive --dry-run
+molr-setup configure --resource-preset permissive
 ```
 
 维护命令展示变更字段，保留服务路径、凭据及助理授权；运行中的实例会重启，停止的实例保持停止。此前的目录、网络规则和 GPU 选择会被所选预设替换。仍可直接编辑配置逐项调整。
@@ -134,12 +143,12 @@ curl -fsSL https://molr.ai/install.sh | sh
 
 使用当前用户运行，不加 `sudo` 或 `--user`。安装器创建 launchd 用户服务、初始化账号，并显式请求启动；随后等待 HTTP 与已认证能力检查，再显示一次性登录链接；图形会话中自动打开默认浏览器，SSH 中只显示链接。服务使用 `~/Library/LaunchAgents/<实例名>.plist`，图形登录后启动；SSH-only 环境使用当前用户的后台 launchd 域。它不是登录前启动的系统 daemon。
 
-默认程序位于 `~/Library/Application Support/Molr/program/default`，配置和数据分别位于同一 Molr 目录下的 `config/default`、`data/default`；日志和缓存位于 `~/Library/Caches/Molr/default`。`--name molr-<名称>` 可创建独立实例。安装器输出实际路径与服务命令，含空格的路径需要引号。
+默认程序位于 `~/Library/Application Support/Molr/program/default`，配置和数据分别位于同一 Molr 目录下的 `config/default`、`data/default`；日志和缓存位于 `~/Library/Caches/Molr/default`。`--name molr-<名称>` 可创建独立实例。安装器输出实际路径与服务命令，并创建[命令入口](#命令与-path)。新开终端后可直接执行：
 
 ```bash
-"$HOME/Library/Application Support/Molr/program/default/bin/molr-setup" status
-"$HOME/Library/Application Support/Molr/program/default/bin/molr-setup" update
-"$HOME/Library/Application Support/Molr/program/default/bin/molr-setup" uninstall
+molr-setup status
+molr-setup update
+molr-setup uninstall
 ```
 
 普通卸载保留配置和数据；明确清除使用 `uninstall --purge --yes`。更新保留账号、配置和工作区，应用内一键更新暂不支持 macOS，请使用上述 CLI。安装器检查发行包与 Mach-O 代码签名；当前采用 ad-hoc 签名，不提供 Developer ID 身份签名或 Apple 公证，支持范围为终端安装流程。
@@ -205,16 +214,16 @@ sh install.sh --archive /path/package.tar.gz
 
 ## 交互式与静默安装
 
-有控制终端时默认交互安装，先展示安装位置、账户、依赖及权限问题，再确认执行。也可显式选择模式：
+有控制终端时默认交互安装，先展示安装位置、账户、依赖及权限问题，再确认执行。在已校验并解压的发行包目录中，可选择以下一种方式：
 
 ```bash
 ./bin/molr-setup --interactive
-./bin/molr-setup --non-interactive --install-deps \
+./bin/molr-setup --non-interactive --auto-init-admin --install-deps \
   --directory-permissions fix --no-browser
 ./bin/molr-setup --dry-run
 ```
 
-静默模式不提问、不打开浏览器；`--install-deps` 授权系统依赖准备，所需管理员权限应预先配置。已手动准备依赖时使用 `--skip-dependencies`。`--dry-run` 展示计划，不修改账户、权限、配置或服务；通过下载器预览仍会下载临时包。
+静默示例使用 `--auto-init-admin` 初始化管理员；自定密码的方式见[管理员初始化](#管理员初始化)。静默模式不提问、不打开浏览器；`--install-deps` 授权系统依赖准备，所需管理员权限应预先配置。已手动准备依赖时使用 `--skip-dependencies`。`--dry-run` 展示计划，不修改账户、权限、配置或服务；通过下载器预览仍会下载临时包。
 
 目录可被组或其他用户写入时，可选择修复、忽略或退出。修复只移除该目录的组／其他用户写权限，不递归修改内容；静默模式以 `--directory-permissions fix|ignore` 明确选择。`--yes` 跳过一般确认，不代替权限选择。所有者不符、符号链接和受管理文件可被其他用户修改时会报错。
 
@@ -228,7 +237,7 @@ sh install.sh --archive /path/package.tar.gz
 
 ### 安装时选择运行账户
 
-默认安装当前普通用户的 `molr.service`。root 安装必须显式指定非 root 的 `--user USER`，创建系统服务；不存在的账户会创建为无登录权限的系统账户。已有账户的 HOME、shell、附加组保持原样，不递归改变已有数据目录的所有者。
+默认安装当前普通用户的 `molr.service`。root 安装必须显式指定非 root 的 `--user USER`，创建系统服务；不存在的账户会创建为无登录权限的系统账户。已有账户的 HOME、shell、附加组保持原样，不递归改变已有数据目录的所有者。以下为已解压发行包的安装示例，按需选择；重新安装时，已安装的 `molr-setup` 绑定原实例，不能用 `--name` 或 `--mode` 将其改为另一实例：
 
 ```bash
 ./bin/molr-setup --name molr-demo --port 8788 --public-host "<LAN_IP>"
@@ -255,23 +264,37 @@ sudo ./bin/molr-setup --user molr-sandbox --install-deps
 
 Linux 用户服务启动后，安装器检查 linger；尚未开启或状态无法确认时，自动尝试开启并再次验证。此步骤不请求密码，也不自动调用 sudo。若权限不足、命令不可用或验证失败，安装继续，并提示服务可能在最后一个登录会话退出后停止；按提示执行 `sudo loginctl enable-linger USER`，再用 `loginctl show-user USER -p Linger` 确认输出为 `Linger=yes`。linger 是整个 Linux 用户账号的设置，卸载时保留。`--dry-run` 和 `--no-start` 不修改 linger；系统服务无需 linger。使用容器运行完整程序见 [Docker 部署](https://molr.ai/zh/docs/admin/deployment/docker/)，其中包含 WebUI、持久数据和可选命令执行的配置。
 
+## 命令与 PATH
+
+Linux 和 macOS 用户安装会在 `~/.local/bin` 创建 `molr`、`molr-setup` 软链接，指向当前实例程序目录中的 `bin/`；Linux 系统安装使用 `/usr/local/bin`。安装结果显示入口和目标路径。升级替换目标程序，软链接保持有效；恢复实例也会尝试创建入口。
+
+用户安装时，若 `~/.local/bin` 尚未位于当前 PATH，安装器按 `$SHELL` 为 Bash、Zsh、Fish 或 POSIX Shell 补充启动配置，保留原有内容和权限。Bash 使用实际生效的登录配置及 `.bashrc`，Zsh 使用 `.zprofile`、`.zshrc` 并遵循 `ZDOTDIR`，Fish 遵循 `XDG_CONFIG_HOME`。新开终端即可使用短命令；当前终端不会被安装子进程修改，Bash/Zsh 可立即执行：
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+已有同名文件、目录或指向其他实例的链接时，安装器保留它们，不接管通用命令名，并提示使用本实例的完整路径。多个实例共存时，先通过 `molr-setup status` 核对命令指向；其他实例使用安装结果中的程序路径，例如 `~/.local/lib/molr/demo/bin/molr-setup status`。受管目录或 Shell 配置使用软链接、权限不满足要求、Shell 不支持自动配置时，安装结果会提示手动处理；服务安装结果不因此改变。
+
+卸载只删除仍指向本实例的命令软链接，不改动其他入口，也不移除共享的 `~/.local/bin` PATH 配置。`--dry-run` 不创建链接或修改 Shell 文件。首次从归档安装仍执行包内的 `./bin/molr-setup`；下文的短命令用于已安装实例。
+
 ## 更新与重复运行
 
 运行已安装实例的安装维护程序，会显示状态并进入维护菜单；无终端时只显示状态。它通过自身位置识别实例，因此无需切换到特定工作目录。
 
 ```bash
-~/.local/lib/molr/default/bin/molr-setup
-~/.local/lib/molr/default/bin/molr-setup status
-~/.local/lib/molr/default/bin/molr-setup update
-~/.local/lib/molr/default/bin/molr-setup update --version 0.2.0-rc.1
-~/.local/lib/molr/default/bin/molr-setup update --channel preview
+molr-setup
+molr-setup status
+molr-setup update
+molr-setup update --version 0.2.0-rc.1
+molr-setup update --channel preview
 ```
 
-更新使用安装记录中保存的发布源和渠道，显示目标包并下载校验。`--source`／`--channel` 指定此次更新及成功后继续使用的订阅。系统实例使用 `sudo /opt/molr/default/bin/molr-setup update`。Go 更新器也允许显式的私网或回环数字 HTTP 镜像地址。
+更新使用安装记录中保存的发布源和渠道，显示目标包并下载校验。`--source`／`--channel` 指定此次更新及成功后继续使用的订阅。系统实例使用 `sudo molr-setup update`。Go 更新器也允许显式的私网或回环数字 HTTP 镜像地址。
 
 重新运行官网下载命令、运行另一份安装包均可升级已有实例；保留配置、数据、凭证和账户。程序原子替换，保留 `molr.previous`、`molr-setup.previous` 与 `server.previous.json`。同版本默认不重装，`--repair` 重新应用当前包。降级必须显式使用 `--allow-downgrade`，并先自行备份数据。
 
-安装未完成或记录损坏时会明确报错。不要删除安装记录来绕过检测；使用完整安装包对原实例修复。`--record /path/installation.json` 可明确指定管理的实例。
+安装未完成或记录损坏时会明确报错。不要删除安装记录来绕过检测；使用完整安装包对原实例修复。执行状态查询、更新、配置和卸载时，从完整发行包运行工具可用 `--record /path/installation.json` 指定实例；已安装的工具只管理自身实例。备份和恢复的实例选择见[备份恢复](https://molr.ai/zh/docs/admin/deployment/maintenance/#备份恢复与升级)。
 
 浏览器等组件的安装、更新与修复见[组件管理](https://molr.ai/zh/docs/admin/administration/components/)。
 
@@ -289,8 +312,8 @@ Linux 用户服务启动后，安装器检查 linger；尚未开启或状态无�
 安装、更新、重启后核对实际页面与已认证沙盒能力：
 
 ```bash
-~/.local/lib/molr/default/bin/molr doctor -config /path/server.json -username YOUR_ADMIN -password-stdin
-~/.local/lib/molr/default/bin/molr access -config /path/server.json -username YOUR_ADMIN -password-stdin
+molr doctor -config /path/server.json -username YOUR_ADMIN -password-stdin
+molr access -config /path/server.json -username YOUR_ADMIN -password-stdin
 ```
 
 使用安装时设置的用户名与当前密码。自动初始化且初始密码文件仍有效时，可省略 `-password-stdin` 从文件读取；启用 MFA 时增加 `-mfa-code`。命令通过正常认证 API 工作。`access` 生成 15 分钟一次性登录链接。
@@ -299,18 +322,24 @@ Linux 用户服务启动后，安装器检查 linger；尚未开启或状态无�
 
 ## 卸载
 
-离线卸载使用已安装的维护程序：
+卸载使用已安装的维护程序，可先预览：
 
 ```bash
-~/.local/lib/molr/default/bin/molr-setup uninstall --dry-run
-~/.local/lib/molr/default/bin/molr-setup uninstall
-~/.local/lib/molr/default/bin/molr-setup uninstall --purge --yes
-sudo /opt/molr/demo/bin/molr-setup uninstall --purge
+molr-setup uninstall --dry-run
+```
+
+随后选择普通卸载或彻底清除中的一种；Linux 系统安装在命令前加 `sudo`：
+
+```bash
+# Keep configuration and data
+molr-setup uninstall
+# Or remove managed configuration and data as well
+molr-setup uninstall --purge --yes
 ```
 
 默认停止对应服务，移除程序、服务文件和实例缓存，保留配置、持久数据及安装记录。重新安装同一实例可复用数据。`--purge` 删除受管理配置与默认数据；交互模式需输入实例名确认，静默模式必须带 `--yes`。
 
-自定义数据、外置工作区、未知文件、系统账户、系统依赖和 linger 设置保留。无法确认服务归属、服务停止失败或删除目录包含挂载点时中止。默认卸载后维护程序已移除；需要继续清除数据时，使用完整包的维护程序指定保留的安装记录：
+自定义数据、外置工作区、未知文件、系统账户、系统依赖和 linger 设置保留。无法确认服务归属、服务停止失败或删除目录包含挂载点时中止。默认卸载后维护程序已移除；需要继续清除数据时，重新解压完整发行包，在包目录使用包内维护程序指定保留的安装记录：
 
 ```bash
 ./bin/molr-setup uninstall --record /path/installation.json --purge --yes

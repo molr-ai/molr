@@ -11,7 +11,7 @@ Choose **Connect Telegram** in the chat menu **… → Switch chat channel**. Ea
 
 WebUI chat remains available until confirmation. Connecting preserves history and assistant context while switching chat input to Telegram. Messages and attachments pass through Telegram; existing Molr history is not forwarded. Do not paste Bot Tokens into chat messages.
 
-A bot already bound to another assistant or configured with another service's webhook is rejected. Use a dedicated bot to avoid competing update consumers. See [Telegram configuration](../../admin/deployment/configuration.md#telegram-configuration).
+A bot already bound to another assistant or configured with another service's webhook is rejected. Use a dedicated bot to avoid competing update consumers.
 
 ## Use
 

@@ -10,7 +10,7 @@ Identify the target device from the user’s instructions. Ask if it is unclear;
 
 Inspect the OS, architecture, current account, service manager, available space, and existing Molr services and installation records. The release catalog defines supported native targets. macOS uses the current non-root user’s launchd service, without sudo. Linux defaults to the current non-root user’s systemd service. Root installation requires an explicit non-root `--user USER`.
 
-If an instance exists, run its `molr-setup status --non-interactive` and check the version, paths, and service. A working instance can be handed over directly; updates, repairs, or additional instances must match the user’s intent. Do not delete installation records or data to bypass problems. Use the actual program paths reported by the instance for maintenance commands.
+If an instance exists, run its `molr-setup status --non-interactive` and check the version, paths, and service. A working instance can be handed over directly; updates, repairs, or additional instances must match the user’s intent. Do not delete installation records or data to bypass problems. After installation, prefer the `molr` and `molr-setup` command entries and verify the instance with `status`. For command conflicts or other instances, use the actual paths reported by the installer.
 
 Choose `server` (default) for complete Molr or `sandbox` to add a resource node to an existing Molr server. Both use the same Runtime package. The installation record retains the mode for maintenance; updates and repairs cannot change it. Resource presets are independent of the mode.
 

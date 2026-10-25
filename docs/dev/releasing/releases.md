@@ -1,6 +1,6 @@
 # 发行维护
 
-Runtime 发行包仅包含 `bin/molr` 与安装维护工具 `bin/molr-setup`。同一个 `molr` 通过 `serve --mode server|sandbox` 选择完整服务或沙盒节点；安装时使用 `molr-setup --mode server|sandbox`。模式保存在安装记录中，升级和修复沿用原模式。
+Runtime 发行包仅包含 `bin/molr` 与安装维护工具 `bin/molr-setup`。同一个 `molr` 通过 `serve --mode server|sandbox` 选择完整服务或沙盒节点；从已解压的发行包安装时使用 `./bin/molr-setup --mode server|sandbox`。模式保存在安装记录中，升级和修复沿用原模式。
 
 发行包存放在 GitHub Releases，官网与发布清单通过 Cloudflare Workers 静态资源一起部署。当前产物是内嵌 WebUI 的 Linux/macOS Runtime；平台与环境要求统一定义在 [`release/platforms.json`](../../../release/platforms.json)。
 
@@ -207,6 +207,8 @@ MOLR_TEST_ARCHIVE=dist/releases/molr_0.1.0-local_linux_amd64.tar.gz npm run test
 计划阶段读取并检查环境；交互和静默模式共用计划与执行代码。确认和目录策略在写入前完成，`--dry-run` 不执行变更。终端输入来自 `/dev/tty`，因此管道启动仍可交互。静默模式使用 `sudo -n`，APT 禁用交互并保留原配置。程序以临时文件和原子重命名更新，保留上版二进制与配置；中断可能留下 `installing` 状态，需要完整包重新执行。验证失败不会被报告为健康安装。
 
 Linux 用户服务在成功启动后通过 `loginctl --no-ask-password` 检查并尝试开启 linger，成功提示以再次读取 `Linger=yes` 为准；命令共用十秒超时，不触发交互授权或 sudo。失败时保留服务安装并输出登出风险、管理员开启命令及验证命令。系统服务、`--dry-run`、`--no-start` 不改变 linger；卸载保留账号级设置。`service_linux_test.go` 覆盖已开启、自动开启、权限不足、命令不可用、超时、验证失败及跳过分支。
+
+Linux/macOS 安装及恢复完成后，`commands.go` 在用户的 `~/.local/bin` 或 Linux 系统的 `/usr/local/bin` 创建指向实例程序的软链接。两个通用命令一起检查冲突，不替换已有文件或其他实例链接；升级保留目标路径，卸载仅清理仍指向本实例的链接。目录操作使用固定文件描述符且不跟随父目录软链接。用户 PATH 缺失时按 Shell 补充启动配置，保留内容与权限，拒绝软链接、硬链接及不安全权限；共享 PATH 配置在卸载后保留。命令入口配置失败只报告完整路径，不回滚已完成的服务安装。`commands_test.go` 覆盖冲突、重复安装、目标替换、Shell 配置、卸载归属与通过软链接识别实例。
 
 `install.sh` 是 POSIX 下载器，使用已有 curl 或 wget。渠道目录额外生成 `download-<平台>.txt`，固定七行依次为协议标识、版本、commit、平台 ID、文件名、URL、SHA-256；同一 manifest 生成渠道与历史版本描述，避免 shell 解析 JSON 或执行远端文本。下载器逐个向固定路径提取五个白名单文件。Go 更新器读取 JSON manifest，通过标准库 HTTP、SHA-256 和 tar/gzip 验证下载，随后执行新包的 `molr-setup`。更新订阅由安装记录供 Runtime 和 WebUI 使用；WebUI 生成已安装维护程序的更新命令。
 

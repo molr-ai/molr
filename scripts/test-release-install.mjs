@@ -1,8 +1,8 @@
 // Native package acceptance. Requires systemd user delegation and sandbox dependencies.
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, chmodSync, statSync, existsSync, realpathSync, writeFileSync, readdirSync, appendFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { mkdtempSync, readFileSync, readlinkSync, lstatSync, rmSync, chmodSync, statSync, existsSync, realpathSync, writeFileSync, readdirSync, appendFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
 import { tmpdir, userInfo } from 'node:os';
 import { createServer } from 'node:net';
 import { createHash } from 'node:crypto';
@@ -15,7 +15,25 @@ const version = JSON.parse(execFileSync('tar', ['-xOf', archive, 'molr/release.j
 const directory = realpathSync(mkdtempSync(`${tmpdir()}/molr release test-`)), name = `molr-release-test-${process.pid}`;
 const probe = createServer(); await new Promise(r => probe.listen(0, '127.0.0.1', r));
 const port = probe.address().port; await new Promise(r => probe.close(r));
-const env = { ...process.env, XDG_CONFIG_HOME: `${directory}/config`, XDG_DATA_HOME: `${directory}/data`, XDG_CACHE_HOME: `${directory}/cache` };
+// Keep shell startup changes inside the fixture, including on Linux runners.
+const env = { ...process.env, SHELL: '/bin/zsh', ZDOTDIR: `${directory}/shell`, XDG_CONFIG_HOME: `${directory}/config`, XDG_DATA_HOME: `${directory}/data`, XDG_CACHE_HOME: `${directory}/cache` };
+const commandDirectory = resolve(userInfo().homedir, '.local/bin');
+const commandNames = ['molr', 'molr-setup'];
+const commandTargets = new Map(commandNames.map(binaryName => [resolve(commandDirectory, binaryName), resolve(directory, 'program', name.slice('molr-'.length), 'bin', binaryName)]));
+const commandEntries = commandNames.map(name => resolve(commandDirectory, name));
+const commandsAbsent = commandEntries.every(path => {
+  try { lstatSync(path); return false; } catch (error) { if (error.code === 'ENOENT') return true; throw error; }
+});
+// Shared developer machines can already have commands or unprotected bin directories.
+// Exercise creation on clean runners and preservation on those existing environments.
+let commandDirectorySafe = true;
+for (let path = commandDirectory; path !== dirname(path); path = dirname(path)) {
+  try {
+    const info = lstatSync(path);
+    if (info.isSymbolicLink() || (info.mode & 0o022) || ![0, process.getuid()].includes(info.uid)) commandDirectorySafe = false;
+  } catch (error) { if (error.code !== 'ENOENT') throw error; }
+}
+const commandsAvailable = commandsAbsent && commandDirectorySafe;
 const run = (cmd, args, input) => {
   try { return execFileSync(cmd, args, { env, input, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }); }
   catch (error) { if (manualAdmin && error.status === 3) return String(error.stdout); throw error; }
@@ -37,6 +55,14 @@ try {
   const configs = find(`${directory}/config`, 'server.json'); assert.equal(configs.length, 1);
   const binaries = find(`${directory}/program`, 'molr'); assert.equal(binaries.length, 1);
   const binary = binaries[0], config = configs[0];
+  for (const name of commandNames) commandTargets.set(resolve(commandDirectory, name), resolve(binary, '..', name));
+  if (commandsAvailable) {
+    for (const [link, target] of commandTargets) assert.equal(readlinkSync(link), target);
+    assert(run(resolve(commandDirectory, 'molr-setup'), ['status', '--non-interactive']).includes(`Instance: ${name}`));
+    assert(run(resolve(commandDirectory, 'molr'), ['version']).includes(version));
+  } else {
+    assert(first.includes('Command shortcuts unavailable'), 'Existing command environment must be preserved');
+  }
   const doctor = () => {
     try {
       return JSON.parse(run(binary, ['doctor', '-config', config, ...(manualAdmin ? ['-password-stdin'] : [])], manualAdmin ? 'interactive-fixture-password-2026' : undefined));
@@ -90,6 +116,7 @@ try {
   const second = run('sh', [...args, '--non-interactive', '--repair', '--directory-permissions', 'fix']);
   assert.deepEqual(readFileSync(config), before);
   assert(second.includes(`Result: ${manualAdmin ? 'verification_pending' : 'verified'}`));
+  if (commandsAvailable) for (const [link, target] of commandTargets) assert.equal(readlinkSync(link), target);
   if (manualAdmin) assert.equal(doctor().Sandbox.Capabilities.Reason, 'available');
   const setup = resolve(binary, '../molr-setup');
   assert(run(setup, ['--non-interactive']).includes('State: installed'));
@@ -121,6 +148,7 @@ try {
   // Four authentications total: initial install, doctor, repair and update.
   // Verify retained-data reinstallation without starting or authenticating again.
   run(setup, ['uninstall', '--non-interactive']);
+  if (commandsAvailable) for (const path of commandEntries) assert.throws(() => lstatSync(path), { code: 'ENOENT' });
   assert(existsSync(config)); assert(!existsSync(binary));
   const retained = run('sh', [...args, '--non-interactive', '--no-start', '--directory-permissions', 'fix']);
   assert(retained.includes('Result: not_started'));
@@ -138,6 +166,10 @@ try {
   if (error.signal) console.error(`Subprocess signal: ${error.signal}`);
   throw new Error('Native release acceptance failed');
 } finally {
+  // Only remove links still pointing to this test's isolated program tree.
+  for (const [link, target] of commandTargets) {
+    try { if (readlinkSync(link) === target) rmSync(link); } catch (error) { if (!['ENOENT', 'EINVAL'].includes(error.code)) throw error; }
+  }
   if (process.platform === 'darwin') {
     for (const domain of ['gui', 'user']) { try { run('/bin/launchctl', ['bootout', `${domain}/${process.getuid()}/ai.molr.${name}`]); } catch {} }
     const home = userInfo().homedir;

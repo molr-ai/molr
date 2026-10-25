@@ -13,7 +13,7 @@
 | 命令环境不可用 | 按[沙盒检查](https://molr.ai/zh/docs/admin/sandbox/linux/#检查与验证)检查系统依赖与实际隔离能力 |
 | 远程沙盒离线 | 核对远端服务、网络、证书指纹与令牌，见[独立沙盒服务](https://molr.ai/zh/docs/admin/sandbox/remote/) |
 | 浏览器组件失败 | 查看组件任务状态与错误，按[组件管理](https://molr.ai/zh/docs/admin/administration/components/)更新或修复 |
-| 微信连接或链接异常 | 核对外部网络和公开访问地址，见[微信连接配置](https://molr.ai/zh/docs/admin/deployment/configuration/#微信连接配置) |
+| 微信连接或链接异常 | 核对外部网络和公开访问地址，见[微信聊天入口](https://molr.ai/zh/docs/user/chat-channels/weixin/#连接状态与投递) |
 
 ## 诊断信息
 

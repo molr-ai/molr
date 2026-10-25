@@ -12,7 +12,7 @@ Runtime 内置本机 sandbox_manager，无需额外启动本机服务。主 Runt
 
 ## 使用安装器
 
-Linux/macOS 服务包同时包含 `molr` 和 `molr-setup`。在目标机器执行：
+Linux/macOS 服务包同时包含 `molr` 和 `molr-setup`。在目标机器按[离线安装步骤](https://molr.ai/zh/docs/admin/deployment/installation/#本地发行包与快速安装)校验并解压发行包，进入包目录后执行：
 
 ```bash
 ./bin/molr-setup --mode sandbox --name molr-node --resource-preset permissive
@@ -20,7 +20,7 @@ Linux/macOS 服务包同时包含 `molr` 和 `molr-setup`。在目标机器执�
 
 可选择 `least-privilege` 预设，默认关闭资源，随后按需调整。安装器安装同一 Runtime 与维护程序，并配置 `sandbox` 模式，准备 systemd／launchd 服务、HTTPS 证书及私有令牌，验证节点能力后输出连接信息。令牌保存在数据目录的 `sandbox-token`，不会打印在安装日志中。使用自定义配置时通过 `--config` 提供 HTTPS 配置与证书；令牌仍由安装器生成，不使用 `--init-owner`。
 
-通过安装后的 `molr-setup status` 查看连接信息，`update` 升级，`uninstall` 卸载并保留配置和数据。完整预设说明见[安装指南](https://molr.ai/zh/docs/admin/deployment/installation/#runtime-模式与资源权限预设)。
+安装后新开终端，运行 `molr-setup status` 核对实例为 `molr-node` 并查看连接信息，再用 `update` 升级或 `uninstall` 卸载并保留配置和数据。如果通用命令指向其他已有实例，使用安装结果中本节点的完整程序路径，见[命令与 PATH](https://molr.ai/zh/docs/admin/deployment/installation/#命令与-path)。完整预设说明见[安装指南](https://molr.ai/zh/docs/admin/deployment/installation/#runtime-模式与资源权限预设)。
 
 ## Docker 节点
 
@@ -99,7 +99,7 @@ Docker 与默认安装器启用自签名证书自动续期；手工部署可显�
 
 ## macOS 节点
 
-macOS 使用相同的 `molr serve --mode sandbox -config … -token-file …` 命令、TLS 与令牌认证。独立节点支持 `molr-setup --mode sandbox` 安装，也可从源码构建。构建应在目标 Mac 原生完成，ARM64 与 AMD64 分别验收。
+macOS 使用相同的 `molr serve --mode sandbox -config … -token-file …` 命令、TLS 与令牌认证。独立节点可按上文[使用安装器](#使用安装器)部署，也可从源码构建。构建应在目标 Mac 原生完成，ARM64 与 AMD64 分别验收。
 
 配置中的 `data_dir`、证书、私钥、令牌和目录全部使用 Mac 上的绝对路径。将上例的 `sandbox` 替换为：
 
