@@ -1,7 +1,8 @@
+import { useMutation } from '../../../use-mutation';
 import { CurrencySelect, MoneyText } from '../components/Money';
 import { useState } from 'react';
 import { Switch, TextField } from '@molr/ui';
-import { api, APIError } from '@molr/sdk';
+import { APIError } from '@molr/sdk';
 import type { CurrencyCode, CurrencyContext, Model, Resource } from '@molr/sdk';
 import { useCopy } from '../../../state';
 import { EditForm, micros, useAction } from '../components/common';
@@ -22,10 +23,11 @@ export function ModelConfigurationForm({ resource, model, onClose, currencyConte
   const [input, setInput] = useState(model?.Pricing ? String(model.Pricing.InputMicrosPerMillion / 1_000_000) : '');
   const [output, setOutput] = useState(model?.Pricing ? String(model.Pricing.OutputMicrosPerMillion / 1_000_000) : '');
   const [cached, setCached] = useState(model?.Pricing ? String(model.Pricing.CachedInputMicrosPerMillion / 1_000_000) : '');
+  const saveModel = useMutation([resource.ID, name, context, outputLimit, tools, images, audio, customPricing, audioPrice, currency, input, output, cached]);
   return <EditForm action={action} onClose={onClose} onSubmit={async () => {
     const prices = [input, output, cached], all = prices.every(value => value !== '');
     if (customPricing && prices.some(value => value !== '') && !all) throw new APIError('invalid_argument');
-    await api.mutate('/api/resources/configure-model', { ID: resource.ID, Model: { Name: name.trim(), ContextLimit: Number(context), OutputLimit: Number(outputLimit), SupportsTools: tools, SupportsImages: images, SupportsAudio: audio,
+    await saveModel('/api/resources/configure-model', { ID: resource.ID, Model: { Name: name.trim(), ContextLimit: Number(context), OutputLimit: Number(outputLimit), SupportsTools: tools, SupportsImages: images, SupportsAudio: audio,
       Pricing: customPricing && all ? { ...(audioPrice !== "" ? { AudioInputMicrosPerMillion: micros(audioPrice) } : {}), Currency: currency, InputMicrosPerMillion: micros(input), OutputMicrosPerMillion: micros(output), CachedInputMicrosPerMillion: micros(cached) } : null } }, resource.Version);
   }}><p className="muted">{resource.Name}</p>{subscription && <p className="muted">{locale === 'zh' ? 'ChatGPT 套餐：以下金额为内部预算参考计价，不代表 OpenAI 实际扣费。输出上限用于本地预算预留，套餐接口不接受生成 token 上限。' : 'ChatGPT plan: prices value internal budgets, not OpenAI charges. Output limits reserve local budgets; this route does not accept a generation token cap.'}</p>}<TextField label={t.resources.modelName} value={name} onChange={event => setName(event.target.value)} readOnly={!!model} required maxLength={256} /><TextField label={t.resources.context} type="number" min="256" max="2000000" step="1" value={context} placeholder={String(model?.ProviderContextLimit || 262144)} onChange={event => setContext(event.target.value)} />
     <p className="muted">{t.resources.contextHelp}</p><TextField label={t.resources.outputLimit} type="number" min="1" max="1000000" step="1" value={outputLimit} placeholder={String(model?.ProviderOutputLimit || 32768)} onChange={event => setOutputLimit(event.target.value)} /><p className="muted">{t.resources.outputLimitHelp}</p>

@@ -1,3 +1,4 @@
+import { useMutation } from '../../../use-mutation';
 import { useErrorToast } from '../../../error-toasts';
 import { AboutService, VersionEntry } from '../../../updates/AboutUpdates';
 import { UpdateBadge } from '../../../updates/provider';
@@ -83,10 +84,11 @@ function About() {
 }
 function FormerAssistants({ assistants, openAssistant }: { assistants: Assistant[]; openAssistant: (id: string) => void }) {
   const { t } = useCopy(), [rehire, setRehire] = useState<Assistant | null>(null); const former = assistants.filter(a => a.State === 'dismissed');
+  const rehireAssistant = useMutation([rehire]);
   return <>{!former.length ? <Empty /> : <div className="settings-rows">{former.map(row => <article className="settings-row-item" key={row.ID}>
     <div className="settings-row-item-head"><h3>{row.Name}</h3><Badge>{t.assistants.archived}</Badge><span className="settings-row-item-actions"><Button size="sm" variant="secondary" onClick={() => openAssistant(row.ID)}>{t.chat.message}</Button><Button size="sm" onClick={() => setRehire(row)}>{t.assistants.rehire}</Button></span></div>
   </article>)}</div>}
-    <ModalPresence>{rehire && <Confirm title={t.assistants.rehire} description={t.assistants.rehireHelp} onClose={() => setRehire(null)} onConfirm={() => api.mutate('/api/assistants/rehire', { ID: rehire.ID, RestoreGrantIDs: [], RestoreScheduleIDs: [] }, rehire.Version)} />}</ModalPresence>
+    <ModalPresence>{rehire && <Confirm title={t.assistants.rehire} description={t.assistants.rehireHelp} onClose={() => setRehire(null)} onConfirm={() => rehireAssistant('/api/assistants/rehire', { ID: rehire.ID, RestoreGrantIDs: [], RestoreScheduleIDs: [] }, rehire.Version)} />}</ModalPresence>
   </>;
 }
 function sessionDeviceName(session: Session) {
@@ -143,8 +145,9 @@ function DataExport() {
 function ExportDialog({ onClose, onExported }: { onClose: () => void; onExported: (id: string) => void }) {
   const { t } = useCopy(), [messages, setMessages] = useState(true), [artifacts, setArtifacts] = useState(false);
   const verification = useReauthentication();
+  const exportData = useMutation([messages, artifacts]);
   return <><EditDialog title={t.exportData} onClose={onClose} submitLabel={t.exportData} onSubmit={async () => {
     const proof = await verification.verify('export');
-    const result = await api.mutate<{ FileID: string }>('/api/settings/export', { verification: proof, include_messages: messages, include_artifacts: artifacts }); onExported(result.FileID);
+    const result = await exportData<{ FileID: string }>('/api/settings/export', { verification: proof, include_messages: messages, include_artifacts: artifacts }); onExported(result.FileID);
   }}><p>{t.exportHelp}</p><Checkbox label={t.includeMessages} checked={messages} onChange={event => setMessages(event.target.checked)} /><Checkbox label={t.includeArtifacts} checked={artifacts} onChange={event => setArtifacts(event.target.checked)} /></EditDialog>{verification.dialog}</>;
 }

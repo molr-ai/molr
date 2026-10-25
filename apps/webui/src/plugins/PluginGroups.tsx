@@ -1,3 +1,4 @@
+import { useMutation } from '../use-mutation';
 import { useErrorToast } from '../error-toasts';
 import { useState } from 'react';
 import { Button, Checkbox, Dialog } from '@molr/ui';
@@ -21,10 +22,12 @@ function GroupAccess({ group, plugin, onSaved }: { group: UserGroup; plugin: Plu
   const granted = group.Resources.some(r => r.Kind === 'plugin' && r.ID === plugin.CatalogID);
   const [enabled, setEnabled] = useState(granted);
   useErrorToast(action.error);
+  const saveAccess = useMutation([group.ID, group.Version, plugin.ID, plugin.Digest, enabled]);
   return <section className="plugin-group-access"><Checkbox label={groupName(group,zh)} checked={enabled} onChange={e => setEnabled(e.target.checked)} /><Button size="sm" variant="secondary" disabled={enabled === granted} loading={action.busy} onClick={() => { void action.run(async () => {
     const connections = await api.read<PluginConnection[]>('/api/plugins/connections/list', { PluginID: plugin.ID, Digest: plugin.Digest });
     const refs = [{ Kind: 'plugin' as const, ID: plugin.CatalogID }, ...(plugin.ToolIDs ?? []).map(ID => ({ Kind: 'tool' as const, ID })), ...connections.filter(c => c.Enabled && !c.NeedsReview).map(c => ({ Kind: 'connection' as const, ID: c.ID }))];
     const resources = enabled ? [...group.Resources, ...refs.filter(r => !group.Resources.some(old => old.Kind === r.Kind && old.ID === r.ID)).map(r => ({ ...r, Quota: emptyQuota() }))] : group.Resources.filter(r => r.Kind !== 'plugin' || r.ID !== plugin.CatalogID);
-    await api.mutate('/api/admin/groups', { Group: { ...group, Resources: resources } }, group.Version); onSaved();
+    const connectionsVersion = connections.map(connection => `${connection.ID}:${connection.Version}`).sort().join(',');
+    await saveAccess('/api/admin/groups', { Group: { ...group, Resources: resources } }, group.Version, connectionsVersion); onSaved();
   }); }}>{zh ? '保存授权' : 'Save access'}</Button></section>;
 }

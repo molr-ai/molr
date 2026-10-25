@@ -1,7 +1,7 @@
+import { useMutation } from '../../../use-mutation';
 import { useEffect, useState } from 'react';
 import { Switch, DateTimePicker, TextField } from '@molr/ui';
 import type { DreamConfig } from '@molr/sdk';
-import { api } from '@molr/sdk';
 import { useCopy } from '../../../state';
 
 type Draft = { enabled: boolean; time: string; duration: string };
@@ -15,9 +15,10 @@ export function useDreamSettings(config?: DreamConfig, busy = false) {
     if (!config || busy || baseline && (!pristine || config.Version <= baseline.Version)) return;
     setBaseline(config); setValue(draft(config));
   }, [config, baseline, pristine, busy]);
+  const saveConfig = useMutation([baseline?.AssistantID, value]);
   async function save() {
     if (!baseline || pristine) return;
-    const saved = await api.mutate<DreamConfig>('/api/dreams/config', {
+    const saved = await saveConfig<DreamConfig>('/api/dreams/config', {
       AssistantID: baseline.AssistantID, Enabled: value.enabled,
       Hour: value.enabled ? Number(value.time.split(':')[0]) : baseline.Hour,
       Minute: value.enabled ? Number(value.time.split(':')[1]) : baseline.Minute,

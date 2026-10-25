@@ -1,3 +1,4 @@
+import { useMutation } from '../../../use-mutation';
 import { usesNetworkToggle } from '../../../sandbox-types';
 import { useErrorToast } from '../../../error-toasts';
 import { PermissionTargetFields, fullAccessLabel, isSandboxResource, targetFor } from './PermissionTargetFields';
@@ -11,7 +12,7 @@ import { useEffect, useId, useState } from 'react';
 import { ModalPresence, Badge, Button, Card, ChatCard, ChatCopyButton, DateTimePicker, Dialog, Select, Textarea } from '@molr/ui';
 import { PermissionExpiry, PermissionScope } from './PermissionScope';
 import type { Assistant, Grant, Model, PermissionRequest, Resource } from '@molr/sdk';
-import { api, APIError } from '@molr/sdk';
+import { APIError } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
 import { grantSummary, permissionLabel, permissionOptions } from '../../../resource-permissions';
 import { Confirm, lines, useAction } from '../components/common';
@@ -40,6 +41,7 @@ export function PermissionRequestCard({ requestID, assistant, title, summary, ti
   const sharedExpiry = expiries.length > 0 && expiries.every(value => (value || null) === (expiries[0] || null));
   const cardTitle = count > 1 ? (zh ? `${count} 项资源权限` : `Access to ${count} resources`) : headline;
   useErrorToast(query.error || resource.error, () => { query.reload(); resource.reload(); });
+  const rejectPermission = useMutation([requestID, reject]);
   return <><ChatCard className="permission-request-card" eyebrow={zh ? '权限申请' : 'Permission request'} title={cardTitle} icon={count > 1 ? undefined : <Icon />} description={input?.reason ?? summary}
     status={state ? { label: state === 'pending' ? (zh ? '等待授权' : 'Awaiting permission') : state === 'approved' ? (zh ? '已批准' : 'Approved') : (zh ? '已拒绝' : 'Rejected'), tone: state === 'pending' ? 'warning' : state === 'approved' ? 'positive' : 'neutral' } : undefined}
     metadata={state === 'approved' ? (zh ? '已按确认的内容授权' : 'Granted with your confirmed settings') : state === 'rejected' ? (zh ? '申请已拒绝，未授予权限' : 'Request declined; no access granted') : undefined}
@@ -52,7 +54,7 @@ export function PermissionRequestCard({ requestID, assistant, title, summary, ti
     {sharedExpiry && <div className="permission-request-expiry"><span>{zh ? '授权至' : 'Expires'}</span><PermissionExpiry value={expiries[0]} timeZone={timeZone} /></div>}
   </ChatCard>
   <ModalPresence>{review && request && <PermissionReview request={request} assistant={assistant} onClose={() => setReview(false)} />}</ModalPresence>
-  <ModalPresence>{reject && request && <Confirm title={zh ? '拒绝授权请求' : 'Reject permission request'} description={request.Input.reason} onClose={() => setReject(false)} onConfirm={() => api.mutate('/api/permission-requests/resolve', {RequestID:request.ID,Decision:'reject'},request.Version)} />}</ModalPresence>
+  <ModalPresence>{reject && request && <Confirm title={zh ? '拒绝授权请求' : 'Reject permission request'} description={request.Input.reason} onClose={() => setReject(false)} onConfirm={() => rejectPermission('/api/permission-requests/resolve', {RequestID:request.ID,Decision:'reject'},request.Version)} />}</ModalPresence>
   </>;
 }
 
@@ -76,11 +78,12 @@ export function PermissionRequests({ assistant }: { assistant: Assistant }) {
       {row.State === 'pending' && <div className="form-actions"><Button size="sm" disabled={assistant.State !== 'active'} onClick={() => setReview(row)}>{zh ? '审核授权' : 'Review permission'}</Button><Button size="sm" variant="secondary" disabled={assistant.State !== 'active'} onClick={() => setReject(row)}>{zh ? '拒绝' : 'Reject'}</Button></div>}
     </Card>;
   }
+  const rejectPermission = useMutation([reject]);
   return <section className="permission-requests">
     {!!pending.length && <><h2>{zh ? '授权请求' : 'Permission requests'}</h2><div className="record-list">{pending.map(requestCard)}</div></>}
     {!!resolved.length && <details><summary>{zh ? '已处理的授权请求' : 'Resolved permission requests'} · {resolved.length}</summary><div className="record-list">{resolved.map(requestCard)}</div></details>}
     <ModalPresence>{review && <PermissionReview request={review} assistant={assistant} onClose={() => setReview(null)} />}</ModalPresence>
-    <ModalPresence>{reject && <Confirm title={zh ? '拒绝授权请求' : 'Reject permission request'} description={reject.Input.reason} onClose={() => setReject(null)} onConfirm={() => api.mutate('/api/permission-requests/resolve', { RequestID: reject.ID, Decision: 'reject' }, reject.Version)} />}</ModalPresence>
+    <ModalPresence>{reject && <Confirm title={zh ? '拒绝授权请求' : 'Reject permission request'} description={reject.Input.reason} onClose={() => setReject(null)} onConfirm={() => rejectPermission('/api/permission-requests/resolve', { RequestID: reject.ID, Decision: 'reject' }, reject.Version)} />}</ModalPresence>
   </section>;
 }
 
@@ -111,6 +114,7 @@ function PermissionReview({ request, assistant, onClose }: { request: Permission
   const action = useAction(), formID = useId();
   const temporaryOutlastsAccess = !!expires && items.some(item => item.temporary && Date.parse(item.temporary.until) > Date.parse(expires));
   const expiryError = temporaryOutlastsAccess ? (zh ? '授权时间不能早于临时额度的到期时间，请调整其中一个时间。' : 'Authorization must last at least as long as temporary limits. Adjust either deadline.') : undefined;
+  const approvePermission = useMutation([request.ID, items, expires]);
   async function approve() {
     const resolutions = items.map(item => {
       const resource = resources.data?.find(row => row.ID === item.resource_id && row.State === 'available' && row.Kind === item.resource_kind);
@@ -122,7 +126,7 @@ function PermissionReview({ request, assistant, onClose }: { request: Permission
         ExpiresAt: expires, Constraints: item.full_access ? undefined : item.constraints, Temporary: item.full_access ? undefined : item.temporary,
       };
     });
-    await api.mutate('/api/permission-requests/resolve', { RequestID: request.ID, Decision: 'approve', ...resolutions[0], Additional: resolutions.slice(1) }, request.Version);
+    await approvePermission('/api/permission-requests/resolve', { RequestID: request.ID, Decision: 'approve', ...resolutions[0], Additional: resolutions.slice(1) }, request.Version);
   }
   useErrorToast(resources.error || models.error, () => { resources.reload(); models.reload(); });
   useErrorToast(action.error);

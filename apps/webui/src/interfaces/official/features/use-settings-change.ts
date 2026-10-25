@@ -1,3 +1,4 @@
+import { mutationKey } from '@molr/sdk';
 import { useRef, useState } from 'react';
 import { useTheme } from '@molr/ui';
 import type { Settings } from '@molr/sdk';
@@ -17,7 +18,7 @@ export function useSettingsChange(settings: Settings) {
     writing.current = true; setPending(patch);
     void action.run(async () => {
       const latest = await api.get<Settings>('/api/settings');
-      const updated = await api.mutate<Settings>('/api/settings', { Settings: { ...latest, ...patch } }, latest.Version);
+      const updated = await api.mutate<Settings>('/api/settings', { Settings: { ...latest, ...patch } }, { idempotencyKey: mutationKey(), expectedVersion: latest.Version });
       setSaved(updated);
       if (patch.Language && (updated.Language === 'zh' || updated.Language === 'en')) setLocale(updated.Language);
       if (patch.Theme) changePreference(updated.Theme);

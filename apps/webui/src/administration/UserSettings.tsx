@@ -1,8 +1,8 @@
+import { useMutation } from '../use-mutation';
 import { useErrorToast } from '../error-toasts';
 import { useState } from 'react';
 import { Badge, Button, TextField } from '@molr/ui';
 import { AssistantAvatarField } from '../interfaces/official/features/AssistantAvatarField';
-import { api } from '@molr/sdk';
 import { useCopy, useQuery, useSession } from '../state';
 import { Loading, useAction } from '../interfaces/official/components/common';
 import type { UserInfo } from './types';
@@ -25,11 +25,12 @@ function ProfileForm({ user }: { user: UserInfo }) {
     if (avatar === (previous.Avatar ?? '')) setAvatar(user.Avatar ?? '');
   }
   useErrorToast(action.error);
+  const saveProfile = useMutation([user.ID, name, avatar]);
   return <form className="editor settings-form" onSubmit={e => {
     e.preventDefault();
     if (processingAvatar) return;
     void action.run(async () => {
-      const saved = await api.mutate<UserInfo>('/api/account/profile', { DisplayName: name, Avatar: avatar }, previous.Version);
+      const saved = await saveProfile<UserInfo>('/api/account/profile', { DisplayName: name, Avatar: avatar }, previous.Version);
       setPrevious(saved); setName(saved.DisplayName); setAvatar(saved.Avatar ?? '');
       await refreshProfile();
     });

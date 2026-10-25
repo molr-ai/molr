@@ -1413,7 +1413,7 @@ for (const trigger of ['timer', 'get', 'post'] as const) {
       await page.evaluate(async ({ path, trigger, settings }) => {
         const { api } = await import(/* @vite-ignore */ path);
         if (trigger === 'get') await api.get('/api/assistants');
-        else await api.mutate('/api/settings', { Settings: settings }, settings.Version);
+        else await api.mutate('/api/settings', { Settings: settings }, { idempotencyKey: crypto.randomUUID(), expectedVersion: settings.Version });
       }, { path: clientPath, trigger, settings });
       await expect.poll(() => attempts).toBe(before + 1);
       // API success starts an attempt; it cannot hide the notice before SSE ready.
@@ -1836,7 +1836,7 @@ test('developer workbench records hidden executions and only gates entry visibil
   const setVisible = async (visible: boolean) => page.evaluate(async visible => {
     const modulePath = '/@id/@molr/sdk'; const { api } = await import(modulePath);
     const current = await api.get('/api/settings');
-    await api.mutate('/api/settings', { Settings: { ...current, WorkbenchVisible: visible } }, current.Version);
+    await api.mutate('/api/settings', { Settings: { ...current, WorkbenchVisible: visible } }, { idempotencyKey: crypto.randomUUID(), expectedVersion: current.Version });
   }, visible);
   try {
     await setVisible(false);

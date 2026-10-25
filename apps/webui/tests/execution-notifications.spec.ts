@@ -114,7 +114,7 @@ test('execution toast actions follow workbench settings and navigate to their ev
     const setInApp = async (enabled: boolean) => page.evaluate(async enabled => {
       const modulePath = '/@id/@molr/sdk'; const { api } = await import(modulePath);
       const current = await api.get('/api/settings');
-      await api.mutate('/api/settings', { Settings: { ...current, WorkbenchVisible: enabled } }, current.Version);
+      await api.mutate('/api/settings', { Settings: { ...current, WorkbenchVisible: enabled } }, { idempotencyKey: crypto.randomUUID(), expectedVersion: current.Version });
     }, enabled);
     await setInApp(false);
     await expect(toast.getByRole('button', { name: actionLabel })).toHaveCount(0);
@@ -233,7 +233,7 @@ test('dream timeout explains retained changes and opens the right assistant sett
     await page.evaluate(async () => {
       const path = '/@id/@molr/sdk', { api } = await import(path);
       const current = await api.get('/api/settings');
-      await api.mutate('/api/settings', { Settings: { ...current, Timezone: 'America/New_York' } }, current.Version);
+      await api.mutate('/api/settings', { Settings: { ...current, Timezone: 'America/New_York' } }, { idempotencyKey: crypto.randomUUID(), expectedVersion: current.Version });
     });
     await expect(dreamSettings).not.toContainText('America/New_York');
     await expect(input).toHaveValue('1200');

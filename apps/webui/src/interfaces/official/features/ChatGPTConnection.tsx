@@ -1,3 +1,5 @@
+import { mutationKey } from '@molr/sdk';
+import { useMutation } from '../../../use-mutation';
 import { useEffect, useState } from 'react';
 import { Alert, Button, TextField, useToast } from '@molr/ui';
 import { api, APIError } from '@molr/sdk';
@@ -27,14 +29,15 @@ export function ChatGPTConnection({ initial, name, onConnected, onClose }: { ini
     }
     if (result.status === 'cancelled') return;
     if (result.status !== 'connected' || !current) throw new APIError(result.status === 'unknown' ? 'unavailable' : 'failed_precondition');
-    try { await api.mutate('/api/resources/refresh-models', { ID: current.Resource.ID }, current.Resource.Version); }
+    try { await api.mutate('/api/resources/refresh-models', { ID: current.Resource.ID }, { idempotencyKey: mutationKey(), expectedVersion: current.Resource.Version }); }
     catch { toast({ title: zh ? '已连接，请在资源列表中刷新模型' : 'Connected. Refresh models in Resources.', tone: 'neutral' }); }
     onClose();
   }
+  const disconnectChatGPT = useMutation([connection?.Resource.ID]);
   async function disconnect() {
     if (!connection) return;
     const proof = await verification.verify('credential.delete');
-    const result = await api.mutate<{ Revoked: boolean }>('/api/chatgpt/disconnect', { ID: connection.Resource.ID, verification: proof }, connection.Resource.Version);
+    const result = await disconnectChatGPT<{ Revoked: boolean }>('/api/chatgpt/disconnect', { ID: connection.Resource.ID, verification: proof }, connection.Resource.Version);
     setConnection(await api.get<Connection>(`/api/resources/${connection.Resource.ID}/connection`));
     toast({ title: zh ? '已断开 ChatGPT 连接' : 'ChatGPT disconnected', ...(!result.Revoked ? { description: zh ? '未能确认远端撤销，请在 ChatGPT 用量设置中检查并断开应用。' : 'Remote revocation was not confirmed. Disconnect this app in ChatGPT settings.', tone: 'neutral' as const } : {}) });
   }

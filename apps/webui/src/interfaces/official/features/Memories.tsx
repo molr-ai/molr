@@ -1,3 +1,4 @@
+import { useMutation } from '../../../use-mutation';
 import { useErrorToast } from '../../../error-toasts';
 import { useEffect, useRef, useState } from 'react';
 import { ModalPresence, Badge, Button, Dialog, Select, Textarea, TextField } from '@molr/ui';
@@ -83,6 +84,7 @@ export function Memories({ assistants }: { assistants: Assistant[] }) {
     const path = addressPath.current;
     if (path) path.scrollLeft = path.scrollWidth;
   }, [directory]);
+  const deleteMemory = useMutation([deleting]);
   return <div className="settings-section memory-workspace">
     <p className="settings-description">{c.zh ? '灵魂是记忆的浓缩。助理从与你的交流与共同经历中积累记忆，在回顾与整理中沉淀出理解、偏好与判断。MEMORY.md 承载这些沉淀，让助理的个性随记忆逐渐形成。' : 'The soul is memory distilled. Through conversations and shared experiences with you, an assistant gathers memories and reflects on them to develop understanding, preferences, and judgment. MEMORY.md holds this distilled memory, allowing a distinct personality to take shape over time.'}</p>
     <Select size="sm" label={c.zh ? '选择助理' : 'Select assistant'} value={assistant} onValueChange={value => { resetInteraction(); setAssistant(value); setDirectory(memoryRoot); }} options={[{ value: '', label: c.zh ? '全局 · 当前账号共享' : 'Global · shared within your account' }, ...activeAssistants.map(a => ({ value: a.ID, label: a.Name }))]} />
@@ -110,7 +112,7 @@ export function Memories({ assistants }: { assistants: Assistant[] }) {
     <ModalPresence>{editing && <MemoryEditor key={editing.key} refValue={editing.ref} memory={editing.memory} onClose={closeDialog} />}</ModalPresence>
     <ModalPresence>{mkdir && <DirectoryEditor refValue={ref} onClose={closeDialog} />}</ModalPresence>
     <ModalPresence>{moving && <MoveEditor entry={moving} onClose={closeDialog} />}</ModalPresence>
-    <ModalPresence>{deleting && <Confirm title={deleting.forget ? c.zh ? '遗忘这份记忆' : 'Forget this memory' : c.zh ? '删除文件或空目录' : 'Delete file or empty folder'} description={deleting.forget ? c.zh ? '删除文件并阻止相同内容或来源被再次提炼。关联回顾也会清除，原始聊天保留。' : 'Delete the file and suppress extraction of the same content or sources. Related reviews are cleared; original conversations remain.' : c.zh ? '只删除当前文件或空目录。普通删除不会阻止未来从原始资料重新整理记忆。' : 'Delete only the current file or empty folder. Ordinary deletion does not prevent future extraction from source material.'} danger onClose={closeDialog} onConfirm={async () => { const { entry, forget } = deleting; await api.mutate(entry.Kind === 'directory' ? '/api/memories/rmdir' : '/api/memories/delete', { ...fileRef(entry), ...(entry.Kind === 'file' ? { Forget: forget } : {}) }, entry.Version); query.reload(); }} />}</ModalPresence>
+    <ModalPresence>{deleting && <Confirm title={deleting.forget ? c.zh ? '遗忘这份记忆' : 'Forget this memory' : c.zh ? '删除文件或空目录' : 'Delete file or empty folder'} description={deleting.forget ? c.zh ? '删除文件并阻止相同内容或来源被再次提炼。关联回顾也会清除，原始聊天保留。' : 'Delete the file and suppress extraction of the same content or sources. Related reviews are cleared; original conversations remain.' : c.zh ? '只删除当前文件或空目录。普通删除不会阻止未来从原始资料重新整理记忆。' : 'Delete only the current file or empty folder. Ordinary deletion does not prevent future extraction from source material.'} danger onClose={closeDialog} onConfirm={async () => { const { entry, forget } = deleting; await deleteMemory(entry.Kind === 'directory' ? '/api/memories/rmdir' : '/api/memories/delete', { ...fileRef(entry), ...(entry.Kind === 'file' ? { Forget: forget } : {}) }, entry.Version); query.reload(); }} />}</ModalPresence>
     <ModalPresence>{sources && <Sources key={renderedInteraction} memory={sources} assistants={assistants} onClose={closeDialog} />}</ModalPresence>
   </div>;
 }
@@ -119,7 +121,8 @@ function MemoryEditor({ refValue, memory, onClose }: { refValue: MemoryRef; memo
   const [text, setText] = useState(memory?.Text ?? ''), [name, setName] = useState(''), [condition, setCondition] = useState(memory?.Context ?? ''), [state, setState] = useState<Memory['State']>(memory?.State ?? 'active');
   const previous = useQuery<Memory>(memory?.Replaces ? `/api/memories/file?${refQuery(memory.Replaces)}` : null);
   const path = memory || refValue.Path === 'MEMORY.md' ? refValue.Path : refValue.Path + name;
-  return <EditDialog title={memory ? t.edit : c.zh ? '新建记忆文件' : 'New memory file'} onClose={onClose} onSubmit={() => api.mutate(memory ? '/api/memories/update' : '/api/memories', { ...refValue, Path: path, Text: text, Context: condition, Sources: memory?.Sources ?? [], ...(memory ? { State: state, ...(previous.data ? { ReplacesVersion: previous.data.Version } : {}) } : {}) }, memory?.Version)}>
+  const saveMemory = useMutation([refValue.Scope, refValue.AssistantID, refValue.Path, path, text, condition, state, memory?.Version, previous.data?.Version]);
+  return <EditDialog title={memory ? t.edit : c.zh ? '新建记忆文件' : 'New memory file'} onClose={onClose} onSubmit={() => saveMemory(memory ? '/api/memories/update' : '/api/memories', { ...refValue, Path: path, Text: text, Context: condition, Sources: memory?.Sources ?? [], ...(memory ? { State: state, ...(previous.data ? { ReplacesVersion: previous.data.Version } : {}) } : {}) }, memory?.Version)}>
     {!memory && refValue.Path !== 'MEMORY.md' && <TextField label={c.zh ? '语义文件名（含 .md）' : 'Descriptive filename (including .md)'} value={name} onChange={e => setName(e.target.value)} placeholder={c.zh ? '沟通偏好.md' : 'communication-preferences.md'} required maxLength={240} />}
     <p className="muted memory-path"><code>{refValue.Scope === 'global' ? '/global/' : '/work/'}{path}</code></p>
     <p className="muted">{c.zh ? '手动保存后，这份文件将受保护，不再由做梦自动改写。编辑、确认和遗忘用于必要时纠正记忆。' : 'Saving manually protects this file from automatic dream revisions. Editing, confirmation and forgetting are fallback controls.'}</p>
@@ -131,11 +134,13 @@ function MemoryEditor({ refValue, memory, onClose }: { refValue: MemoryRef; memo
 }
 function DirectoryEditor({ refValue, onClose }: { refValue: MemoryRef; onClose: () => void }) {
   const c = useMemoryCopy(), [name, setName] = useState('');
-  return <EditDialog title={c.zh ? '新建目录' : 'New folder'} onClose={onClose} onSubmit={() => api.mutate('/api/memories/mkdir', { ...refValue, Path: refValue.Path + '/' + name })}><TextField label={c.zh ? '目录名' : 'Folder name'} value={name} onChange={e => setName(e.target.value)} placeholder={c.zh ? '用户偏好' : 'User preferences'} required maxLength={240} /></EditDialog>;
+  const createDirectory = useMutation([refValue.Scope, refValue.AssistantID, refValue.Path, name]);
+  return <EditDialog title={c.zh ? '新建目录' : 'New folder'} onClose={onClose} onSubmit={() => createDirectory('/api/memories/mkdir', { ...refValue, Path: refValue.Path + '/' + name })}><TextField label={c.zh ? '目录名' : 'Folder name'} value={name} onChange={e => setName(e.target.value)} placeholder={c.zh ? '用户偏好' : 'User preferences'} required maxLength={240} /></EditDialog>;
 }
 function MoveEditor({ entry, onClose }: { entry: MemoryEntry; onClose: () => void }) {
   const c = useMemoryCopy(), [path, setPath] = useState(entry.Path.slice(memoryRoot.length + 1));
-  return <EditDialog title={c.zh ? '重命名 / 移动' : 'Rename / move'} onClose={onClose} onSubmit={() => api.mutate('/api/memories/move', { ...fileRef(entry), Directory: entry.Kind === 'directory', ToPath: memoryRoot + '/' + path }, entry.Version)}><TextField label={c.zh ? '新路径（相对记忆目录）' : 'New path (relative to memory folder)'} value={path} onChange={e => setPath(e.target.value)} required maxLength={1024} /><p className="muted">{c.zh ? '目标父目录必须存在。同名文件不会被覆盖；旧路径的历史引用会失效。' : 'The destination folder must exist. Existing files are never replaced; historical references to the old path expire.'}</p></EditDialog>;
+  const moveMemory = useMutation([entry.Scope, entry.AssistantID, entry.Path, entry.Kind, path]);
+  return <EditDialog title={c.zh ? '重命名 / 移动' : 'Rename / move'} onClose={onClose} onSubmit={() => moveMemory('/api/memories/move', { ...fileRef(entry), Directory: entry.Kind === 'directory', ToPath: memoryRoot + '/' + path }, entry.Version)}><TextField label={c.zh ? '新路径（相对记忆目录）' : 'New path (relative to memory folder)'} value={path} onChange={e => setPath(e.target.value)} required maxLength={1024} /><p className="muted">{c.zh ? '目标父目录必须存在。同名文件不会被覆盖；旧路径的历史引用会失效。' : 'The destination folder must exist. Existing files are never replaced; historical references to the old path expire.'}</p></EditDialog>;
 }
 function Sources({ memory, assistants, onClose }: { memory: Memory; assistants: Assistant[]; onClose: () => void }) {
   const c = useMemoryCopy(), action = useAction(), [text, setText] = useState('');

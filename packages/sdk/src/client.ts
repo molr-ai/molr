@@ -17,10 +17,9 @@ export function createClient() {
     return value ? decodeURIComponent(value) : '';
   }
 
-  const attempts = new Map<string, string>();
   let cooldown: { identity: string; until: number; error: APIError } | undefined;
   let generation = 0;
-  function clearClientState() { attempts.clear(); cooldown = undefined; generation++; }
+  function clearClientState() { cooldown = undefined; generation++; }
 
   async function request<T>(path: string, init: RequestInit = {}, csrf?: string, binary = false, readOnly = false, expireOnUnauthorized = false): Promise<T> {
     if (!/^\/api\/[A-Za-z0-9/_-]+(?:\?[^#]*)?$/.test(path) || path.split('?')[0].includes('..') || path.includes('\\')) throw new APIError('invalid_argument');
@@ -80,19 +79,8 @@ export function createClient() {
     post: <T,>(path: string, body: unknown = {}, csrf?: string) => request<T>(path, { method: 'POST', body: JSON.stringify(body) }, csrf),
     read: <T,>(path: string, body: unknown, signal?: AbortSignal) => request<T>(path, { method: 'POST', body: JSON.stringify(body), signal }, undefined, false, true),
     remove: (path: string) => request<null>(path, { method: 'DELETE' }),
-    async mutate<T>(path: string, body: object, version: number | string = 0): Promise<T> {
-      const sensitive = path.startsWith('/api/credentials') || 'verification' in body;
-      const fingerprint = sensitive ? '' : JSON.stringify([path, body, version]);
-      const key = attempts.get(fingerprint) ?? mutationKey();
-      if (!sensitive) attempts.set(fingerprint, key);
-      try {
-        const value = await this.post<T>(path, { ...body, Mutation: { IdempotencyKey: key, ExpectedVersion: version || undefined } });
-        attempts.delete(fingerprint); return value;
-      } catch (error) {
-        // Retry an uncertain operation with its original key, never as a duplicate.
-        if (error instanceof APIError && error.status >= 400 && error.status < 500) attempts.delete(fingerprint);
-        throw error;
-      }
+    mutate<T>(path: string, body: object, options: { idempotencyKey: string; expectedVersion?: number | string }): Promise<T> {
+      return this.post<T>(path, { ...body, Mutation: { IdempotencyKey: options.idempotencyKey, ExpectedVersion: options.expectedVersion || undefined } });
     },
     async all<T>(path: string, signal?: AbortSignal): Promise<T[]> {
       const result: T[] = []; let cursor = ''; const seen = new Set<string>();

@@ -179,3 +179,47 @@ for (const cause of ['abort', 'identity-change', 'clear']) {
     assert.equal(successes, 0);
   }));
 }
+
+for (const failure of ['network', '503', 'invalid-json']) {
+  test(`explicit mutation key replays a committed write after ${failure}`, () => withBrowser(async () => {
+    const { api } = createClient();
+    globalThis.fetch = async () => Response.json({}, { headers: { 'X-Molr-CSRF-Cookie': 'molr_dev_csrf' } });
+    await api.get('/api/auth/me');
+    const receipts = new Map(), calls = [];
+    let fail = true;
+    globalThis.fetch = async (_path, init) => {
+      const input = JSON.parse(init.body), key = input.Mutation.IdempotencyKey;
+      calls.push(input);
+      if (!receipts.has(key)) receipts.set(key, { ID: `created-${receipts.size + 1}` });
+      if (fail) {
+        fail = false;
+        if (failure === 'network') throw new TypeError('response lost');
+        return failure === '503' ? Response.json({}, { status: 503 }) : new Response('incomplete');
+      }
+      return Response.json(receipts.get(key));
+    };
+    const body = { Username: 'synthetic-member', Password: 'synthetic-password-2026', Text: 'x'.repeat(65536) };
+    const options = { idempotencyKey: 'first-operation', expectedVersion: 7 };
+    await assert.rejects(api.mutate('/api/admin/users', body, options));
+    assert.deepEqual(await api.mutate('/api/admin/users', body, options), { ID: 'created-1' });
+    assert.equal(receipts.size, 1);
+    assert.deepEqual(calls[0], calls[1]);
+    assert.deepEqual(calls[0].Mutation, { IdempotencyKey: 'first-operation', ExpectedVersion: 7 });
+    assert.deepEqual(await api.mutate('/api/admin/users', body, { idempotencyKey: 'new-operation' }), { ID: 'created-2' });
+    assert.equal(receipts.size, 2, 'Equal input does not merge independent operations');
+  }));
+}
+
+test('concurrent identical writes preserve their caller-owned keys, including sensitive requests', () => withBrowser(async () => {
+  const { api } = createClient();
+  globalThis.fetch = async () => Response.json({}, { headers: { 'X-Molr-CSRF-Cookie': 'molr_dev_csrf' } });
+  await api.get('/api/auth/me');
+  const keys = [];
+  globalThis.fetch = async (_path, init) => {
+    const input = JSON.parse(init.body);
+    keys.push(input.Mutation.IdempotencyKey);
+    return Response.json({});
+  };
+  await Promise.all(['first', 'second'].map(idempotencyKey => api.mutate('/api/credentials', { verification: 'synthetic-proof' }, { idempotencyKey })));
+  assert.deepEqual(keys, ['first', 'second']);
+}));

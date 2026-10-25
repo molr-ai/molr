@@ -40,7 +40,7 @@ test('business dialogs retain content across settings, resources, plans, memory 
  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
  await expect(page.locator('.workspace')).toBeVisible();
  // The shared test account may have enabled reduced motion in another test.
- await page.evaluate(async () => { const path = '/@id/@molr/sdk'; const { api } = await import(path); const settings = await api.get('/api/settings'); await api.mutate('/api/settings', { Settings: { ...settings, ReducedMotion: false } }, settings.Version); });
+ await page.evaluate(async () => { const path = '/@id/@molr/sdk'; const { api } = await import(path); const settings = await api.get('/api/settings'); await api.mutate('/api/settings', { Settings: { ...settings, ReducedMotion: false } }, { idempotencyKey: crypto.randomUUID(), expectedVersion: settings.Version }); });
  await page.reload();
  const dialog = (name: string) => page.getByRole('dialog', { name, exact: true, includeHidden: true });
  for (const [route, name, field] of [
@@ -77,9 +77,9 @@ test('business dialogs retain content across settings, resources, plans, memory 
  const assistant = await page.evaluate(async name => {
   const path = '/@id/@molr/sdk'; const { api } = await import(path);
   const origin = 'https://models.example.test';
-  const resource = await api.mutate('/api/resources', { Name: name, Kind: 'model', Provider: 'openai-compatible', Binding: { Endpoint: origin, AllowedOrigins: [origin], Models: [{ Name: name, ContextLimit: 32768, SupportsTools: true, Pricing: { Currency: 'USD', InputMicrosPerMillion: 0, OutputMicrosPerMillion: 0, CachedInputMicrosPerMillion: 0 } }] } });
+  const resource = await api.mutate('/api/resources', { Name: name, Kind: 'model', Provider: 'openai-compatible', Binding: { Endpoint: origin, AllowedOrigins: [origin], Models: [{ Name: name, ContextLimit: 32768, SupportsTools: true, Pricing: { Currency: 'USD', InputMicrosPerMillion: 0, OutputMicrosPerMillion: 0, CachedInputMicrosPerMillion: 0 } }] } }, { idempotencyKey: crypto.randomUUID() });
   const models = await api.get('/api/models');
-  return api.mutate('/api/assistants', { Name: name, ModelID: models.find((model: { ResourceID: string }) => model.ResourceID === resource.ID).ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } });
+  return api.mutate('/api/assistants', { Name: name, ModelID: models.find((model: { ResourceID: string }) => model.ResourceID === resource.ID).ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } }, { idempotencyKey: crypto.randomUUID() });
  }, `Modal lifecycle ${info.project.name}`);
  // A narrow desktop also uses the modal side panel; docked layout has separate regression coverage.
  await page.setViewportSize({ width: info.project.name === 'mobile' ? 393 : 1100, height: 900 });

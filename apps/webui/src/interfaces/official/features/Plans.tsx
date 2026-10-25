@@ -1,3 +1,4 @@
+import { useMutation } from '../../../use-mutation';
 import { useErrorToast } from '../../../error-toasts';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { ModalPresence, Button, Checkbox, DateTimePicker, Dialog, Drawer, DropdownMenu, IconButton, Select, Textarea, TextField, planDate, useBreakpoint, useChoiceScroll } from '@molr/ui';
@@ -87,8 +88,10 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
   const time = (at: string) => new Date(at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
   const occurrence = (p: Plan) => p.Schedule?.Trigger.Recurrence ? selectedAt : undefined;
   const repeat = (rule: string) => !rule ? t.once : rule === 'FREQ=DAILY' ? t.daily : rule === 'FREQ=WEEKLY' ? t.weekly : t.customRepeat;
-  function pause(p: Plan) { void action.run(() => api.mutate('/api/plans/configure', { Ref: p.Ref, Dependencies: p.Links.Dependencies ?? [], Handoff: p.Links.Handoff, Paused: !p.Links.Paused }, p.Links.Version)); }
-  function start(p: Plan) { void action.run(() => api.mutate('/api/plans/execute', { Ref: p.Ref, Action: 'start', OccurrenceAt: occurrence(p) || null }, p.Links.Version), () => setExpanded(refKey(p.Ref))); }
+  const pausePlan = useMutation([]);
+  function pause(p: Plan) { void action.run(() => pausePlan('/api/plans/configure', { Ref: p.Ref, Dependencies: p.Links.Dependencies ?? [], Handoff: p.Links.Handoff, Paused: !p.Links.Paused }, p.Links.Version, refKey(p.Ref))); }
+  const startPlan = useMutation([]);
+  function start(p: Plan) { void action.run(() => startPlan('/api/plans/execute', { Ref: p.Ref, Action: 'start', OccurrenceAt: occurrence(p) || null }, p.Links.Version, refKey(p.Ref) + ":" + (occurrence(p) || "")), () => setExpanded(refKey(p.Ref))); }
   function selectCalendarDate(value: string) { setMonth(value); setDate(value); setExpanded(''); setSelectedAt(undefined); setDayAgenda(''); }
   function selectDate(value: string) { setDate(value); setExpanded(''); setSelectedAt(undefined); setDayAgenda(value); }
   function selectEvent(event: PlanEvent) { setExpanded(refKey(event.Plan.Ref)); setSelectedAt(event.At); setDayAgenda(''); }
@@ -176,6 +179,7 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
   }
   const filters = <div className="plans-filters"><SlidersHorizontal size={14} className="plans-filter-icon" aria-hidden="true" /><Select hideLabel size="sm" label={t.owner} value={owner} onValueChange={setOwner} options={[{ value: 'all', label: t.allOwners }, { value: 'me', label: t.me }, ...assistants.map(a => ({ value: a.ID, label: a.Name }))]} /><Select hideLabel size="sm" label={t.type} value={kind} onValueChange={setKind} options={[{ value: 'all', label: t.allTypes }, ...(['item', 'event', 'automatic'] as const).map(value => ({ value, label: t[value] }))]} /><Select hideLabel size="sm" label={t.status} value={status} onValueChange={setStatus} options={[{ value: 'all', label: t.allStatuses }, { value: 'open', label: t.open }, { value: 'done', label: t.done }]} />{hasFilters && <IconButton label={t.clearFilters} onClick={clearFilters}><X size={14} /></IconButton>}</div>;
   const selectedDetail = selected ? selectedQuery.data ? detail(selectedQuery.data) : <Loading /> : null;
+  const deletePlan = useMutation([deleting]);
   const workspace = <section className={`plans-workspace${embedded ? ' plans-workspace--embedded' : ''}`} data-view={view} data-detail={embedded && !!selected}>
     {!embedded && <PageHeader className="plans-header" title={t.title} icon={<CalendarDays />} actions={<Button size="sm" onClick={() => setEditing('new')}><Plus size={15} />{t.new}</Button>}><span className="plans-total">{filtered.length}</span></PageHeader>}
     {!embedded && <div className="plans-commandbar">
@@ -212,7 +216,7 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
     <ModalPresence>{editing && <PlanEditor entry={editing === 'new' ? undefined : editing} assistantID={assistantID} assistants={assistants} date={date} onClose={() => setEditing(null)} />}</ModalPresence>
     <ModalPresence>{configuring && related.data && <HandoffEditor plan={configuring} all={related.data ?? []} onClose={() => setConfiguring(null)} />}</ModalPresence>
     <ModalPresence>{completing && <CompletionEditor plan={completing.plan} occurrence={completing.at} onClose={() => setCompleting(null)} />}</ModalPresence>
-    <ModalPresence>{deleting && <Confirm title={t.remove} description={t.deleteHelp} danger onClose={() => setDeleting(null)} onConfirm={() => api.mutate(deleting.Todo ? '/api/todos/delete' : '/api/schedules/delete', { ID: deleting.Ref.ID }, (deleting.Todo || deleting.Schedule)!.Version)} />}</ModalPresence>
+    <ModalPresence>{deleting && <Confirm title={t.remove} description={t.deleteHelp} danger onClose={() => setDeleting(null)} onConfirm={() => deletePlan(deleting.Todo ? '/api/todos/delete' : '/api/schedules/delete', { ID: deleting.Ref.ID }, (deleting.Todo || deleting.Schedule)!.Version)} />}</ModalPresence>
   </section>;
   return embedded ? <Drawer className="assistant-plans" docked={embedded.docked} open onOpenChange={open => { if (!open) embedded.onClose(); }} side={mobile ? 'bottom' : 'right'} title={selected ? t.planDetails : t.title}
     headerContent={selected ? <div className="plans-panel-heading"><IconButton ref={backRef} label={t.backToList} onClick={closeDetails}><ChevronLeft size={18} /></IconButton><span>{t.planDetails}</span></div> : undefined}>
@@ -221,9 +225,11 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
 }
 function HandoffEditor({plan,all,onClose}:{plan:Plan;all:Plan[];onClose:()=>void}){
  const {locale}=useCopy(),t=planMessages[locale];const [dependencies,setDependencies]=useState((plan.Links.Dependencies??[]).map(refKey)),[handoff,setHandoff]=useState(plan.Links.Handoff);
- return <EditDialog title={t.handoff} onClose={onClose} onSubmit={()=>api.mutate('/api/plans/configure',{Ref:plan.Ref,Dependencies:dependencies.map(key=>all.find(p=>refKey(p.Ref)===key)!.Ref),Handoff:dependencies.length&&plan.AssistantID?handoff:'notify',Paused:plan.Links.Paused},plan.Links.Version)}><Select multiple label={t.dependencies} value={dependencies} onValueChange={setDependencies} options={all.filter(p=>refKey(p.Ref)!==refKey(plan.Ref)&&!p.Schedule?.Trigger.Recurrence).map(p=>({value:refKey(p.Ref),label:p.Title}))}/>{plan.AssistantID&&plan.Todo&&<Select label={t.handoff} value={handoff} onValueChange={setHandoff} options={[{value:'notify',label:t.notify},{value:'automatic',label:t.autoHandoff}]}/>}<p className="muted">{t.handoffHelp}</p></EditDialog>;
+ const saveHandoff = useMutation([plan.Ref.Kind, plan.Ref.ID, dependencies, handoff, plan.Links.Paused]);
+  return <EditDialog title={t.handoff} onClose={onClose} onSubmit={()=>saveHandoff('/api/plans/configure',{Ref:plan.Ref,Dependencies:dependencies.map(key=>all.find(p=>refKey(p.Ref)===key)!.Ref),Handoff:dependencies.length&&plan.AssistantID?handoff:'notify',Paused:plan.Links.Paused},plan.Links.Version)}><Select multiple label={t.dependencies} value={dependencies} onValueChange={setDependencies} options={all.filter(p=>refKey(p.Ref)!==refKey(plan.Ref)&&!p.Schedule?.Trigger.Recurrence).map(p=>({value:refKey(p.Ref),label:p.Title}))}/>{plan.AssistantID&&plan.Todo&&<Select label={t.handoff} value={handoff} onValueChange={setHandoff} options={[{value:'notify',label:t.notify},{value:'automatic',label:t.autoHandoff}]}/>}<p className="muted">{t.handoffHelp}</p></EditDialog>;
 }
-function CompletionEditor({plan,occurrence,onClose}:{plan:Plan;occurrence?:string;onClose:()=>void}){const {locale}=useCopy(),t=planMessages[locale],[result,setResult]=useState('');return <EditDialog title={t.completeExecution} submitLabel={t.completeExecution} onClose={onClose} onSubmit={()=>api.mutate('/api/plans/execute',{Ref:plan.Ref,Action:'complete',OccurrenceAt:occurrence||null,Result:result},plan.Links.Version)}><Textarea label={t.result} value={result} onChange={e=>setResult(e.target.value)} maxLength={8192}/></EditDialog>;}
+function CompletionEditor({plan,occurrence,onClose}:{plan:Plan;occurrence?:string;onClose:()=>void}){const {locale}=useCopy(),t=planMessages[locale],[result,setResult]=useState('');const completePlan = useMutation([plan.Ref.Kind, plan.Ref.ID, occurrence, result]);
+  return <EditDialog title={t.completeExecution} submitLabel={t.completeExecution} onClose={onClose} onSubmit={()=>completePlan('/api/plans/execute',{Ref:plan.Ref,Action:'complete',OccurrenceAt:occurrence||null,Result:result},plan.Links.Version)}><Textarea label={t.result} value={result} onChange={e=>setResult(e.target.value)} maxLength={8192}/></EditDialog>;}
 function PlanEditor({ entry, assistants, assistantID, date, onClose }: { entry?: Entry; assistants: Assistant[]; assistantID?: string; date: string; onClose: () => void }) {
   const { locale } = useCopy(), t = planMessages[locale];
   const todo = entry?.kind === 'item' ? entry.value : undefined, schedule = entry && entry.kind !== 'item' ? entry.value : undefined;
@@ -237,15 +243,16 @@ function PlanEditor({ entry, assistants, assistantID, date, onClose }: { entry?:
   let validZone=true;try{new Intl.DateTimeFormat('en',{timeZone:inputZone});}catch{validZone=false;}
   const instant=(value:string)=>{try{return value?zonedInstant(value,inputZone):null;}catch{return null;}};
   const startValue=instant(start),endValue=instant(end),dueValue=due?new Date(due).toISOString():null;
+  const savePlan = useMutation([todo?.ID, todo?.Completed, schedule?.ID, schedule?.Enabled, schedule?.Trigger.MissedPolicy, schedule?.Trigger.MaxCatchUp, kind, title, notes, owner, due, block, start, end, timezone, repeat]);
   return <EditDialog title={entry ? t.edit : t.new} onClose={onClose} onSubmit={async () => {
     if (kind === 'item') {
       if (block && (!start || !end || new Date(end) <= new Date(start))) throw new Error(t.invalidTime);
-      await api.mutate(todo ? '/api/todos/update' : '/api/todos', { ...(todo ? { ID: todo.ID, Completed: todo.Completed } : {}), Title: title.trim(), Notes: notes, AssistantID: owner, DueAt: due ? new Date(due).toISOString() : null, StartAt: block ? new Date(start).toISOString() : null, EndAt: block ? new Date(end).toISOString() : null }, todo?.Version);
+      await savePlan(todo ? '/api/todos/update' : '/api/todos', { ...(todo ? { ID: todo.ID, Completed: todo.Completed } : {}), Title: title.trim(), Notes: notes, AssistantID: owner, DueAt: due ? new Date(due).toISOString() : null, StartAt: block ? new Date(start).toISOString() : null, EndAt: block ? new Date(end).toISOString() : null }, todo?.Version);
     } else {
       if (kind === 'automatic' && !owner) throw new APIError('invalid_argument');
       const startAt = zonedInstant(start, timezone), endAt = kind === 'event' && end ? zonedInstant(end, timezone) : null;
       if (endAt && endAt <= startAt) throw new Error(t.invalidTime);
-      await api.mutate(schedule ? '/api/schedules/update' : '/api/schedules', { ...(schedule ? { ID: schedule.ID, Enabled: schedule.Enabled } : {}), Title: title.trim(), Kind: kind === 'event' ? 'personal' : 'assistant_plan', AssistantID: kind === 'event' ? '' : owner, Instructions: notes, EndAt: endAt, Trigger: { StartAt: startAt, Timezone: timezone, Recurrence: repeat, MissedPolicy: schedule?.Trigger.MissedPolicy ?? 'coalesce', MaxCatchUp: schedule?.Trigger.MaxCatchUp ?? 0 } }, schedule?.Version);
+      await savePlan(schedule ? '/api/schedules/update' : '/api/schedules', { ...(schedule ? { ID: schedule.ID, Enabled: schedule.Enabled } : {}), Title: title.trim(), Kind: kind === 'event' ? 'personal' : 'assistant_plan', AssistantID: kind === 'event' ? '' : owner, Instructions: notes, EndAt: endAt, Trigger: { StartAt: startAt, Timezone: timezone, Recurrence: repeat, MissedPolicy: schedule?.Trigger.MissedPolicy ?? 'coalesce', MaxCatchUp: schedule?.Trigger.MaxCatchUp ?? 0 } }, schedule?.Version);
     }
   }}>
     {kind==='automatic' && <DreamConflictNotice assistantID={owner} startAt={startValue || undefined} timezone={timezone} recurrence={repeat} />}

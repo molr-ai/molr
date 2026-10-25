@@ -1,3 +1,4 @@
+import { useMutation } from '../../../use-mutation';
 import { useChatChannel } from './use-chat-channel';
 import { ChatComposerContainer } from './ChatComposerContainer';
 import { useFilePreviews } from './use-file-previews';
@@ -247,13 +248,14 @@ export function Chat({
       : 0,
   );
   const covered = !!latestUnread && latestUnread.Sequence <= pendingThrough;
+  const requestExpedite = useMutation([assistant.ID, assistant.ConversationID, latestUnread?.Sequence]);
   async function expedite() {
     if (!latestUnread || !working || expediteBusy || covered) return;
     const through = latestUnread.Sequence;
     setExpediteBusy(true);
     setExpediteFailed(false);
     try {
-      const result = await api.mutate<ExpediteStatus>(
+      const result = await requestExpedite<ExpediteStatus>(
         `/api/assistants/${assistant.ID}/expedite`,
         { ConversationID: assistant.ConversationID, ThroughSequence: through },
       );

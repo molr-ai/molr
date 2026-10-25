@@ -1,3 +1,4 @@
+import { useMutation } from '../../use-mutation';
 import { PaneSeparator } from '@molr/ui';
 import { LIST_MIN, useAssistantPaneSizes } from './components/useAssistantPaneSizes';
 import type { CSSProperties } from 'react';
@@ -96,9 +97,11 @@ export function AssistantsPage({ assistants, settings, workbenchVisible, memory,
   const visibleAssistants = active.filter(assistant => assistant.Name.toLowerCase().includes(normalizedQuery));
   useErrorToast(activity.error || selection.error || conversations.error || models.error || action.error, assistants.reload);
   function closeDialog() { setDialog(null); closePanel(); }
+  const placeAssistant = useMutation([]);
+  const dismissAssistant = useMutation([dialog]);
   function assistantAction(kind: AssistantAction) {
     if (!selected) return;
-    if (kind === 'pin') void action.run(() => api.mutate('/api/assistants/place', { ID: selected.ID, GroupID: selected.GroupID, Pinned: !selected.Pinned }, selected.Version), undefined, false);
+    if (kind === 'pin') void action.run(() => placeAssistant('/api/assistants/place', { ID: selected.ID, GroupID: selected.GroupID, Pinned: !selected.Pinned }, selected.Version, selected.ID), undefined, false);
     else guardedNavigation(() => void action.run(async () => {
       const current = await api.get<Assistant>(`/api/assistants/${selected.ID}`);
       setDialog({ kind, assistant: current });
@@ -138,7 +141,7 @@ export function AssistantsPage({ assistants, settings, workbenchVisible, memory,
       <ModalPresence>{hire && <HireAssistant defaultModelID={settings?.DefaultModelID} models={models.data ?? []} onClose={() => setHire(false)} onCreated={value => go('assistants', value)} />}</ModalPresence>
       <ModalPresence>{dialog?.kind === 'channel' && <Suspense fallback={<Loading />}><ChatChannelDrawer key={dialog.assistant.ID} assistant={assistants.data?.find(item => item.ID === dialog.assistant.ID) ?? dialog.assistant} onClose={closeDialog} /></Suspense>}</ModalPresence>
       <ModalPresence>{dialog?.kind === 'clone' && <CloneAssistant assistant={dialog.assistant} onClose={closeDialog} onCreated={value => go('assistants', value)} />}</ModalPresence>
-      <ModalPresence>{dialog?.kind === 'dismiss' && <Confirm title={t.assistants.dismiss} description={t.assistants.dismissHelp} danger onClose={closeDialog} onConfirm={async () => { await api.mutate('/api/assistants/dismiss', { ID: dialog.assistant.ID }, dialog.assistant.Version); go('assistants'); }} />}</ModalPresence>
+      <ModalPresence>{dialog?.kind === 'dismiss' && <Confirm title={t.assistants.dismiss} description={t.assistants.dismissHelp} danger onClose={closeDialog} onConfirm={async () => { await dismissAssistant('/api/assistants/dismiss', { ID: dialog.assistant.ID }, dialog.assistant.Version); go('assistants'); }} />}</ModalPresence>
 
   </>;
 }

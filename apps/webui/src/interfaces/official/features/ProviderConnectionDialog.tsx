@@ -1,3 +1,5 @@
+import { mutationKey } from '@molr/sdk';
+import { useMutation } from '../../../use-mutation';
 import { useErrorToast } from '../../../error-toasts';
 import { useId, useState } from 'react';
 import { Alert, Button, Dialog, SearchField, SecretField, SegmentedControl, Select, TextField, useToast, useModalSnapshot } from '@molr/ui';
@@ -98,21 +100,20 @@ function ProviderForm({ inline, initial, onConnected, onClose }: Omit<Props, 're
     });
     setTested(result);
   }
+  const saveProvider = useMutation([initial?.Resource.ID, provider, providerName, draft.name, draft.endpoint, draft.authentication, draft.apiKey, storedKey]);
   async function submit() {
     const binding = endpoint();
     if (draft.authentication === 'oauth') throw new APIError('failed_precondition');
     const newKey = draft.authentication === 'api-key' && !storedKey;
     const proof = newKey ? await verification.verify('credential.put') : '';
-    let resource: Resource;
-    try {
-      resource = await api.mutate<Resource>('/api/resources/provider', {
-        ID: initial?.Resource.ID ?? '', Name: draft.name.trim() || providerName, PricingProvider: provider, Endpoint: binding.Endpoint,
-        UseAPIKey: draft.authentication === 'api-key', APIKey: newKey ? draft.apiKey.trim() : '', verification: proof,
-      }, initial?.Resource.Version ?? 0);
-    } finally { update({ apiKey: '' }); }
+    let resource = await saveProvider<Resource>('/api/resources/provider', {
+      ID: initial?.Resource.ID ?? '', Name: draft.name.trim() || providerName, PricingProvider: provider, Endpoint: binding.Endpoint,
+      UseAPIKey: draft.authentication === 'api-key', APIKey: newKey ? draft.apiKey.trim() : '', verification: proof,
+    }, initial?.Resource.Version ?? 0);
+    update({ apiKey: '' });
     if (!initial || binding.Endpoint !== initial.Endpoint || newKey || (draft.authentication === 'api-key') !== !!initial.CredentialID) {
       try {
-        resource = await api.mutate<Resource>('/api/resources/refresh-models', { ID: resource.ID }, resource.Version);
+        resource = await api.mutate<Resource>('/api/resources/refresh-models', { ID: resource.ID }, { idempotencyKey: mutationKey(), expectedVersion: resource.Version });
         toast({ title: initial ? t.saved : t.resources.providerConnected });
       } catch { toast({ title: t.resources.providerSaved, description: t.resources.discoveryFailed, tone: 'neutral' }); }
     } else toast({ title: t.saved });

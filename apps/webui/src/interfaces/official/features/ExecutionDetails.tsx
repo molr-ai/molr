@@ -1,8 +1,8 @@
+import { useMutation } from '../../../use-mutation';
 import { useErrorToast } from '../../../error-toasts';
 import { useState } from 'react';
 import { ModalPresence, Badge, Button, Card, Textarea } from '@molr/ui';
 import type { Task, Revision, Usage } from '@molr/sdk';
-import { api } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
 import { Confirm, EditDialog, lines, useAction } from '../components/common';
 import { MoneyText } from '../components/Money';
@@ -11,10 +11,12 @@ import { DreamConflictNotice } from './DreamConflictNotice';
 export function ExecutionDetails({ task }: { task: Task }) {
  const { t } = useCopy(), action = useAction(); const [revise,setRevise]=useState(false),[cancel,setCancel]=useState(false);
  useErrorToast(action.error);
+  const cancelTask = useMutation([task.ID, cancel]);
+  const changeTask = useMutation([task.ID, task.State]);
   return <section className="plan-execution-details">{task.Plan?.Kind==='schedule' && task.OccurrenceAt && !['completed','failed','canceled'].includes(task.State) && <DreamConflictNotice assistantID={task.AssistantID} startAt={task.OccurrenceAt} />}<Badge>{t.tasks[task.State as 'pending'] ?? task.State}</Badge><p>{task.WaitingReason}</p><TaskSpend task={task} />
- <div className="form-actions">{!['completed','failed','canceled'].includes(task.State) && <><Button size="sm" disabled={action.busy} onClick={() => void action.run(() => api.mutate(`/api/tasks/${task.State === 'paused' ? 'resume' : 'pause'}`, { ID: task.ID }, task.Version))}>{task.State === 'paused' ? t.tasks.resume : t.tasks.pause}</Button><Button size="sm" variant="ghost" onClick={() => setCancel(true)}>{t.tasks.cancel}</Button></>}<Button size="sm" variant="secondary" disabled={task.State === 'running'} onClick={() => setRevise(true)}>{t.tasks.revise}</Button></div>
+ <div className="form-actions">{!['completed','failed','canceled'].includes(task.State) && <><Button size="sm" disabled={action.busy} onClick={() => void action.run(() => changeTask(`/api/tasks/${task.State === 'paused' ? 'resume' : 'pause'}`, { ID: task.ID }, task.Version))}>{task.State === 'paused' ? t.tasks.resume : t.tasks.pause}</Button><Button size="sm" variant="ghost" onClick={() => setCancel(true)}>{t.tasks.cancel}</Button></>}<Button size="sm" variant="secondary" disabled={task.State === 'running'} onClick={() => setRevise(true)}>{t.tasks.revise}</Button></div>
  {task.ArtifactIDs?.map(id => <Attachment key={id} id={id} />)}<Revisions taskID={task.ID} />
- <ModalPresence>{revise && <RevisionEditor task={task} onClose={() => setRevise(false)} />}</ModalPresence><ModalPresence>{cancel && <Confirm title={t.tasks.cancel} description={t.tasks.cancelHelp} danger onClose={() => setCancel(false)} onConfirm={() => api.mutate('/api/tasks/cancel', { ID: task.ID }, task.Version)} />}</ModalPresence>
+ <ModalPresence>{revise && <RevisionEditor task={task} onClose={() => setRevise(false)} />}</ModalPresence><ModalPresence>{cancel && <Confirm title={t.tasks.cancel} description={t.tasks.cancelHelp} danger onClose={() => setCancel(false)} onConfirm={() => cancelTask('/api/tasks/cancel', { ID: task.ID }, task.Version)} />}</ModalPresence>
  </section>;
 }
 function Revisions({ taskID }: { taskID: string }) {
@@ -24,7 +26,8 @@ function Revisions({ taskID }: { taskID: string }) {
 }
 function RevisionEditor({ task, onClose }: { task: Task; onClose: () => void }) {
   const { t } = useCopy(), [instructions, setInstructions] = useState(''), [criteria, setCriteria] = useState('');
-  return <EditDialog title={t.tasks.revise} onClose={onClose} onSubmit={() => api.mutate('/api/tasks/revise', { ID: task.ID, Instructions: instructions.trim(), AcceptanceCriteria: lines(criteria) }, task.Version)}><Textarea label={t.tasks.instructions} value={instructions} onChange={event => setInstructions(event.target.value)} required /><Textarea label={t.tasks.criteria} value={criteria} onChange={event => setCriteria(event.target.value)} required /></EditDialog>;
+  const reviseTask = useMutation([task.ID, instructions, criteria]);
+  return <EditDialog title={t.tasks.revise} onClose={onClose} onSubmit={() => reviseTask('/api/tasks/revise', { ID: task.ID, Instructions: instructions.trim(), AcceptanceCriteria: lines(criteria) }, task.Version)}><Textarea label={t.tasks.instructions} value={instructions} onChange={event => setInstructions(event.target.value)} required /><Textarea label={t.tasks.criteria} value={criteria} onChange={event => setCriteria(event.target.value)} required /></EditDialog>;
 }
 
 function TaskSpend({ task }: { task: Task }) {

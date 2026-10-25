@@ -1,3 +1,4 @@
+import { useMutation } from '../../../use-mutation';
 import { useErrorToast } from '../../../error-toasts';
 import type { SandboxView } from '../../../sandbox-types';
 import { GrantEditor } from './GrantEditor';
@@ -6,7 +7,6 @@ import { ConstraintsSummary, ResourceQuotaUsage } from './ResourceConstraints';
 import { useState } from 'react';
 import { ModalPresence, Button, Dialog } from '@molr/ui';
 import type { Assistant, Grant, Resource } from '@molr/sdk';
-import { api } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
 import { sandboxResourceName, useSandboxCopy } from '../../../sandbox-copy';
 import { grantSummary } from '../../../resource-permissions';
@@ -26,6 +26,7 @@ export function SandboxAccess({ resource, resources, fullAccess = false, canGran
   const active = activeResourceGrants(grants.data ?? [], assistants.data ?? []).filter(g => !!g.Scope.FullAccess === fullAccess);
   const people = (assistants.data ?? []).filter(item => item.State === 'active');
   useErrorToast(assistants.error || grants.error, () => { assistants.reload(); grants.reload(); });
+  const revokeGrant = useMutation([revoking]);
   return <Dialog open title={`${copy.access} · ${fullAccess ? fullAccessLabel(locale === 'zh') : sandboxResourceName(resource, copy)}`} description={copy.manageHint} onOpenChange={open => { if (!open && !editing && !revoking) onClose(); }}>
     <div className="sandbox-access">
       {(assistants.loading && !assistants.data) || (grants.loading && !grants.data) ? <Loading /> : <>
@@ -40,6 +41,6 @@ export function SandboxAccess({ resource, resources, fullAccess = false, canGran
       </>}
     </div>
     <ModalPresence>{editing && <GrantEditor resources={resources} initialResource={resource} initialFullAccess={fullAccess} assistants={people} grant={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} />}</ModalPresence>
-    <ModalPresence>{revoking && <Confirm title={t.resources.revoke} description={t.resources.revokeHelp} danger onClose={() => setRevoking(null)} onConfirm={() => api.mutate('/api/grants/revoke', { GrantID: revoking.ID }, revoking.Version)} />}</ModalPresence>
+    <ModalPresence>{revoking && <Confirm title={t.resources.revoke} description={t.resources.revokeHelp} danger onClose={() => setRevoking(null)} onConfirm={() => revokeGrant('/api/grants/revoke', { GrantID: revoking.ID }, revoking.Version)} />}</ModalPresence>
   </Dialog>;
 }

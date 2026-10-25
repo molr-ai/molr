@@ -1,3 +1,4 @@
+import { useMutation } from '../../../use-mutation';
 import { useErrorToast } from '../../../error-toasts';
 import { GrantEditor } from './GrantEditor';
 import { fullAccessLabel, isSandboxResource } from './PermissionTargetFields';
@@ -43,17 +44,19 @@ export function Resources({ resourceID = '' }: { resourceID?: string }) {
   const providers = (query.data ?? []).filter(resource => resource.Kind === 'model');
   const provider = providers.find(resource => resource.ID === selectedProvider?.id);
   useErrorToast(query.error || models.error || action.error, () => { query.reload(); models.reload(); });
+  const refreshModels = useMutation([]);
   const modelContent = <>{query.loading && !query.data ? <Loading /> : !providers.length ? <div className="resources-model-empty"><span className="resources-model-empty-icon" aria-hidden="true"><Bot size={32} /></span><h2>{t.resources.emptyCategory.model}</h2><p>{t.resources.connectHelp.model}</p><Button size="sm" onClick={() => setConnect(true)}><Plus size={14} aria-hidden="true" />{t.resources.connectActions.model}</Button></div> : <div className="resource-list">{providers.map(resource => {
     const open = selectedProvider?.id === resource.ID, connectionState = status[resource.ID] || resource.State;
     return <article key={resource.ID} className="resource-row interactive-list-row" data-selected={open || undefined}><div className="resource-row-summary"><span className="resource-row-icon"><Bot size={17} /></span><div className="resource-row-copy"><h2><button className="row-open" type="button" aria-haspopup="dialog" onClick={() => setSelectedProvider({ id: resource.ID })}>{resource.Name}</button></h2><p className="resource-row-meta">{resource.Authentication === 'chatgpt' ? 'OpenAI · ChatGPT' : resource.Provider}</p></div><Badge role={status[resource.ID] ? 'status' : undefined} tone={connectionState === 'available' ? 'positive' : 'neutral'}>{t.resources[connectionState as 'available' | 'offline' | 'disconnected']}</Badge><DropdownMenu label={t.more} align="end" trigger={<IconButton label={t.more}><Ellipsis size={18} /></IconButton>} items={[
       { id: 'add-model', label: t.resources.addModel, icon: <Plus size={15} />, disabled: resource.State !== 'available', onSelect: () => setSelectedProvider({ id: resource.ID, addModel: true }) },
-      { id: 'refresh-models', label: t.resources.refreshModels, icon: <RefreshCw size={15} />, disabled: action.busy || resource.State === 'disconnected', onSelect: () => void action.run(() => api.mutate('/api/resources/refresh-models', { ID: resource.ID }, resource.Version), undefined, false) },
+      { id: 'refresh-models', label: t.resources.refreshModels, icon: <RefreshCw size={15} />, disabled: action.busy || resource.State === 'disconnected', onSelect: () => void action.run(() => refreshModels('/api/resources/refresh-models', { ID: resource.ID }, resource.Version, resource.ID), undefined, false) },
       { id: 'check', label: t.resources.check, icon: <Wifi size={15} />, disabled: action.busy || resource.State === 'disconnected', onSelect: () => void action.run(async () => { const result = await api.post<{ State: string }>(`/api/resources/${resource.ID}/check`); setStatus(previous => ({ ...previous, [resource.ID]: result.State })); }, undefined, false) },
       { id: 'edit', label: t.resources.editProvider, icon: <Pencil size={15} />, disabled: resource.State !== 'available' && resource.Authentication !== 'chatgpt', onSelect: () => setEditingProvider(resource) },
       ...(resource.State !== 'disconnected' ? [{ id: 'disconnect', label: t.resources.disconnect, icon: <Unplug size={15} />, onSelect: () => resource.Authentication === 'chatgpt' ? setEditingProvider(resource) : setDisconnect(resource) }] : []),
       { id: 'delete', label: t.resources.deleteProvider, icon: <Trash2 size={15} />, danger: true, onSelect: () => resource.Authentication === 'chatgpt' && resource.State !== 'disconnected' ? setEditingProvider(resource) : setDeletingProvider(resource) },
     ]} /></div></article>;
   })}</div>}</>;
+  const disconnectResource = useMutation([disconnect]);
   return <section className="resources-workspace"><PageHeader className="resources-header" title={t.nav.resources} icon={<Folder />} actions={tab === 'model' && <DropdownMenu label={t.more} align="end" trigger={<IconButton label={t.more}><Ellipsis size={18} /></IconButton>} items={[{ id: 'connect-provider', label: t.resources.connectActions.model, onSelect: () => setConnect(true) }, { id: 'default-model', label: t.resources.defaultModel, onSelect: () => setDefaultModel(true) }, ...(principal?.User?.Administrator ? [{ id: 'refresh-pricing', label: t.resources.refreshPricing, icon: <RefreshCw size={15} />, disabled: pricingAction.busy, onSelect: refreshPrices }] : [])]} />} />
     <Tabs className="resources-categories" label={t.resources.categoriesLabel} value={tab} onValueChange={setTab} items={[
       { value: 'model', label: t.resources.categories.model, icon: <Bot size={15} />, content: tab === 'model' ? <div className="resources-master">{modelContent}</div> : null },
@@ -63,7 +66,7 @@ export function Resources({ resourceID = '' }: { resourceID?: string }) {
     ]} />
     <ModalPresence>{tab === 'model' && selectedProvider && provider && <ProviderModelsDrawer key={provider.ID} resource={provider} models={(models.data ?? []).filter(model => model.ResourceID === selectedProvider.id)} loading={models.loading && !models.data} addModel={selectedProvider.addModel} onClose={() => setSelectedProvider(null)} />}</ModalPresence>
     <ModalPresence>{defaultModel && <DefaultModelSettings models={models.data ?? []} loading={models.loading} onClose={() => setDefaultModel(false)} />}</ModalPresence>
-    <ModalPresence>{connect && <ProviderConnectionDialog onConnected={() => setTab('model')} onClose={() => setConnect(false)} />}</ModalPresence><ModalPresence>{editingProvider && <ProviderConnectionDialog resourceID={editingProvider.ID} onConnected={() => {}} onClose={() => setEditingProvider(null)} />}</ModalPresence><ModalPresence>{deletingProvider && <DeleteProvider resource={deletingProvider} onClose={() => setDeletingProvider(null)} />}</ModalPresence><ModalPresence>{disconnect && <Confirm title={t.resources.disconnect} description={t.resources.disconnectHelp} danger onClose={() => setDisconnect(null)} onConfirm={() => api.mutate('/api/resources/disconnect', { ID: disconnect.ID }, disconnect.Version)} />}</ModalPresence>
+    <ModalPresence>{connect && <ProviderConnectionDialog onConnected={() => setTab('model')} onClose={() => setConnect(false)} />}</ModalPresence><ModalPresence>{editingProvider && <ProviderConnectionDialog resourceID={editingProvider.ID} onConnected={() => {}} onClose={() => setEditingProvider(null)} />}</ModalPresence><ModalPresence>{deletingProvider && <DeleteProvider resource={deletingProvider} onClose={() => setDeletingProvider(null)} />}</ModalPresence><ModalPresence>{disconnect && <Confirm title={t.resources.disconnect} description={t.resources.disconnectHelp} danger onClose={() => setDisconnect(null)} onConfirm={() => disconnectResource('/api/resources/disconnect', { ID: disconnect.ID }, disconnect.Version)} />}</ModalPresence>
   </section>;
 }
 function DeleteProvider({ resource, onClose }: { resource: Resource; onClose: () => void }) {
@@ -79,6 +82,7 @@ export function AssistantPermissions({ assistant }: { assistant: Assistant }) {
   const [creating, setCreating] = useState(false), [editing, setEditing] = useState<Grant | null>(null), [revoking, setRevoking] = useState<Grant | null>(null), [inspecting, setInspecting] = useState<Grant | null>(null);
   const active = (grants.data ?? []).filter(grant => !grant.RevokedAt && (!grant.ExpiresAt || Date.parse(grant.ExpiresAt) > Date.now()));
   useErrorToast(grants.error || resources.error || models.error, () => { grants.reload(); resources.reload(); models.reload(); });
+  const revokeGrant = useMutation([revoking]);
   return <>
     <div className="permissions-content">
       <section><div className="assistant-info-section-heading"><h3>{copy.workspace}<SettingsHelp label={copy.workspace} content={copy.workspaceHelp} /></h3></div><p className="muted">/work · {copy.local}</p></section>
@@ -112,6 +116,6 @@ export function AssistantPermissions({ assistant }: { assistant: Assistant }) {
     </Dialog>}</ModalPresence>
     <ModalPresence>{creating && <GrantEditor assistant={assistant} resources={resources.data ?? []} onClose={() => setCreating(false)} />}</ModalPresence>
     <ModalPresence>{editing && <GrantEditor assistant={assistant} resources={resources.data ?? []} grant={editing} onClose={() => setEditing(null)} />}</ModalPresence>
-    <ModalPresence>{revoking && <Confirm title={t.resources.revoke} description={t.resources.revokeHelp} danger onClose={() => setRevoking(null)} onConfirm={() => api.mutate('/api/grants/revoke', { GrantID: revoking.ID }, revoking.Version)} />}</ModalPresence>
+    <ModalPresence>{revoking && <Confirm title={t.resources.revoke} description={t.resources.revokeHelp} danger onClose={() => setRevoking(null)} onConfirm={() => revokeGrant('/api/grants/revoke', { GrantID: revoking.ID }, revoking.Version)} />}</ModalPresence>
   </>;
 }

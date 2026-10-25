@@ -67,7 +67,7 @@ test('timeline scrolling reuses formatters and account timezone changes update t
     await page.evaluate(async () => {
       const path = '/@id/@molr/sdk', { api } = await import(path);
       const settings = await api.get('/api/settings');
-      await api.mutate('/api/settings', { Settings: { ...settings, Timezone: 'Asia/Shanghai' } }, settings.Version);
+      await api.mutate('/api/settings', { Settings: { ...settings, Timezone: 'Asia/Shanghai' } }, { idempotencyKey: crypto.randomUUID(), expectedVersion: settings.Version });
     });
     await expect(first).toHaveText('09:02:03');
     await expect(page.locator('.trajectory-reset time')).toHaveText('09:01:00');
@@ -75,7 +75,7 @@ test('timeline scrolling reuses formatters and account timezone changes update t
     await page.evaluate(async () => {
       const path = '/@id/@molr/sdk', { api } = await import(path);
       const settings = await api.get('/api/settings');
-      await api.mutate('/api/settings', { Settings: { ...settings, Language: 'zh' } }, settings.Version);
+      await api.mutate('/api/settings', { Settings: { ...settings, Language: 'zh' } }, { idempotencyKey: crypto.randomUUID(), expectedVersion: settings.Version });
     });
     await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
     await expect.poll(() => page.evaluate(() => window.trajectoryTimeLocales.includes('zh'))).toBe(true);
@@ -84,7 +84,7 @@ test('timeline scrolling reuses formatters and account timezone changes update t
     await page.evaluate(async original => {
       const path = '/@id/@molr/sdk', { api } = await import(path);
       const current = await api.get('/api/settings');
-      await api.mutate('/api/settings', { Settings: { ...current, Language: original.Language, Timezone: original.Timezone } }, current.Version);
+      await api.mutate('/api/settings', { Settings: { ...current, Language: original.Language, Timezone: original.Timezone } }, { idempotencyKey: crypto.randomUUID(), expectedVersion: current.Version });
     }, settings);
   }
 });

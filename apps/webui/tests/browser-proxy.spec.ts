@@ -114,7 +114,7 @@ test('administrator saves browser proxy settings, keeps and clears credentials',
   await page.evaluate(async()=>{
    const path='/@id/@molr/sdk';const {api}=await import(path);
    const settings=await api.get('/api/settings');
-   await api.mutate('/api/settings',{Settings:{...settings,ReducedMotion:true}},settings.Version);
+   await api.mutate('/api/settings',{Settings:{...settings,ReducedMotion:true}},{ idempotencyKey: crypto.randomUUID(), expectedVersion: settings.Version });
   });
   await page.reload();
   await trigger.click();

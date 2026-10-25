@@ -1,3 +1,4 @@
+import { useMutation } from '../../../use-mutation';
 import { sandboxComputeState, usesNetworkToggle } from '../../../sandbox-types';
 import { useErrorToast } from '../../../error-toasts';
 import { gpuName } from '../../../gpu';
@@ -12,7 +13,7 @@ import { Cpu, Ellipsis, Globe, HardDrive, Pencil, Plus, RefreshCw, Server, Shiel
 import type { Assistant, Grant, Resource } from '@molr/sdk';
 import type { SandboxInfo, SandboxKind, SandboxResourceDetail, SandboxView } from '../../../sandbox-types';
 export type { SandboxView } from '../../../sandbox-types';
-import { api, onMutation } from '@molr/sdk';
+import { onMutation } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
 import { sandboxResourceName, useSandboxCopy } from '../../../sandbox-copy';
 import { useSandboxPreference } from '../../../sandbox-navigation';
@@ -63,6 +64,8 @@ export function Sandboxes({ resources, resourceID = '' }: { resources: Resource[
     { id: 'credentials', label: copy.credentials, icon: <ShieldCheck size={15} />, onSelect: () => setEditing(sandbox) },
     ...(sandbox.State !== 'disconnected' ? [{ id: 'disconnect', label: copy.disconnect, icon: <Unplug size={15} />, danger: true, separatorBefore: true, onSelect: () => setDisconnecting(sandbox) }] : []),
   ] : [];
+  const disconnectResource = useMutation([removing]);
+  const disconnectSandbox = useMutation([disconnecting]);
   if (query.loading && !query.data) return <div className="sandbox-workspace"><Loading /></div>;
   return <div className="sandbox-workspace">
     <div className="sandbox-mobile-switch"><Select hideLabel label={copy.select} value={selected} onValueChange={setSelected} options={(query.data ?? []).map(item => ({ value: item.ID, label: name(item), description: statusLabel(item, copy) }))} /><IconButton label={copy.connect} onClick={() => setConnecting(true)}><Plus size={18} /></IconButton></div>
@@ -105,8 +108,8 @@ export function Sandboxes({ resources, resourceID = '' }: { resources: Resource[
     <ModalPresence>{connecting && <SandboxConnection onClose={() => setConnecting(false)} onConnected={setSelected} />}</ModalPresence><ModalPresence>{editing && <SandboxConnection sandbox={editing} onClose={() => setEditing(null)} onConnected={setSelected} />}</ModalPresence>
     <ModalPresence>{adding && sandbox && kind !== 'full_access' && <AddSandboxResource sandbox={sandbox} kind={kind} onClose={() => setAdding(false)} onConnected={resource => { setAdding(false); setAccess(resource); }} />}</ModalPresence>
     <ModalPresence>{renamingSandbox && <RenameSandbox sandbox={renamingSandbox} onClose={() => setRenamingSandbox(null)} />}</ModalPresence>
-    <ModalPresence>{disconnecting && <Confirm danger title={copy.disconnect} description={copy.disconnectHelp} onClose={() => setDisconnecting(null)} onConfirm={() => api.mutate('/api/sandboxes/disconnect', { ID: disconnecting.ID }, disconnecting.Version)} />}</ModalPresence>
-    <ModalPresence>{removing && <Confirm danger title={t.resources.disconnect} description={t.resources.disconnectHelp} onClose={() => setRemoving(null)} onConfirm={() => api.mutate('/api/resources/disconnect', { ID: removing.ID }, removing.Version)} />}</ModalPresence>
+    <ModalPresence>{disconnecting && <Confirm danger title={copy.disconnect} description={copy.disconnectHelp} onClose={() => setDisconnecting(null)} onConfirm={() => disconnectSandbox('/api/sandboxes/disconnect', { ID: disconnecting.ID }, disconnecting.Version)} />}</ModalPresence>
+    <ModalPresence>{removing && <Confirm danger title={t.resources.disconnect} description={t.resources.disconnectHelp} onClose={() => setRemoving(null)} onConfirm={() => disconnectResource('/api/resources/disconnect', { ID: removing.ID }, removing.Version)} />}</ModalPresence>
     <ModalPresence>{renaming && <RenameSandboxResource resource={renaming} onClose={() => setRenaming(null)} />}</ModalPresence>
     <ModalPresence>{access && <SandboxAccess resources={resources} fullAccess={kind === 'full_access'} resource={resources.find(item => item.ID === access.ID) ?? access} canGrant={enabled && (kind === 'full_access' ? !!sandbox?.Info.Capabilities.FullAccess : kind !== 'compute' || computeReady) && (resources.find(item => item.ID === access.ID) ?? access).State === 'available'} onClose={() => setAccess(null)} />}</ModalPresence>
   </div>;
@@ -223,7 +226,8 @@ function AddSandboxResource({ sandbox, kind, onClose, onConnected }: { sandbox: 
   const [directoryPath, setDirectoryPath] = useState('');
   const network = sandbox.Info.Networks?.find(item => item.ID === source);
   const title = kind === 'storage' ? copy.addDirectory : kind === 'network' ? copy.addNetwork : copy.enableCompute;
-  return <EditDialog title={title} description={copy.notGranted} onClose={onClose} submitDisabled={!source || (kind === 'storage' && source === 'custom' && !directoryPath.trim())} onSubmit={async () => onConnected(await api.mutate<Resource>('/api/sandboxes/resource', { SandboxID: sandbox.ID, Kind: kind, SourceID: kind === 'storage' && source === 'custom' ? '' : source, ...(kind === 'storage' ? {Path: directoryPath.trim()} : {}), Name: name.trim() }))}>
+  const addResource = useMutation([sandbox.ID, kind, source, directoryPath, name]);
+  return <EditDialog title={title} description={copy.notGranted} onClose={onClose} submitDisabled={!source || (kind === 'storage' && source === 'custom' && !directoryPath.trim())} onSubmit={async () => onConnected(await addResource<Resource>('/api/sandboxes/resource', { SandboxID: sandbox.ID, Kind: kind, SourceID: kind === 'storage' && source === 'custom' ? '' : source, ...(kind === 'storage' ? {Path: directoryPath.trim()} : {}), Name: name.trim() }))}>
     <TextField label={t.name} value={name} onChange={event => setName(event.target.value)} required maxLength={256} />
     {kind !== 'compute' && <Select label={kind === 'network' ? t.sandbox.target : copy.source} value={source} onValueChange={value => { setSource(value); if (kind === 'storage') setDirectoryPath(''); if (kind === 'network' && (!name.trim() || name === options.find(item => item.value === source)?.label)) setName(options.find(item => item.value === value)?.label ?? ''); }} options={options} />}
     {kind === 'storage' && <TextField label={source === 'custom' ? copy.directoryPath : copy.subdirectory} description={source === 'custom' ? copy.directoryPathHelp : copy.subdirectoryHelp} value={directoryPath} onChange={event => setDirectoryPath(event.target.value)} required={source === 'custom'} maxLength={4096} />}
@@ -232,9 +236,11 @@ function AddSandboxResource({ sandbox, kind, onClose, onConnected }: { sandbox: 
 }
 function RenameSandbox({ sandbox, onClose }: { sandbox: SandboxView; onClose: () => void }) {
   const { t } = useCopy(), copy = useSandboxCopy(), [name, setName] = useState(sandbox.Name);
-  return <EditDialog title={copy.rename} onClose={onClose} onSubmit={() => api.mutate('/api/sandboxes/rename', { ID: sandbox.ID, Name: name.trim() }, sandbox.Version)}><TextField label={t.name} value={name} onChange={event => setName(event.target.value)} required maxLength={256} /></EditDialog>;
+  const renameSandbox = useMutation([sandbox.ID, name]);
+  return <EditDialog title={copy.rename} onClose={onClose} onSubmit={() => renameSandbox('/api/sandboxes/rename', { ID: sandbox.ID, Name: name.trim() }, sandbox.Version)}><TextField label={t.name} value={name} onChange={event => setName(event.target.value)} required maxLength={256} /></EditDialog>;
 }
 function RenameSandboxResource({ resource, onClose }: { resource: Resource; onClose: () => void }) {
   const { t } = useCopy(), copy = useSandboxCopy(), [name, setName] = useState(sandboxResourceName(resource, copy));
-  return <EditDialog title={copy.rename} onClose={onClose} onSubmit={() => api.mutate('/api/resources/update', { ID: resource.ID, Name: name.trim() === sandboxResourceName(resource, copy) ? resource.Name : name.trim() }, resource.Version)}><TextField label={t.name} value={name} onChange={event => setName(event.target.value)} required maxLength={256} /></EditDialog>;
+  const renameResource = useMutation([resource.ID, name, resource.Name, sandboxResourceName(resource, copy)]);
+  return <EditDialog title={copy.rename} onClose={onClose} onSubmit={() => renameResource('/api/resources/update', { ID: resource.ID, Name: name.trim() === sandboxResourceName(resource, copy) ? resource.Name : name.trim() }, resource.Version)}><TextField label={t.name} value={name} onChange={event => setName(event.target.value)} required maxLength={256} /></EditDialog>;
 }

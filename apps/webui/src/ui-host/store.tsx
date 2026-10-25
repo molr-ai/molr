@@ -1,3 +1,4 @@
+import { mutationKey } from '@molr/sdk';
 import { useMemo, createContext, useContext, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api, APIError } from '@molr/sdk';
@@ -33,7 +34,7 @@ export function UIHostProvider({ children }: { children: ReactNode }) {
     writing.current = true; setBusy(true); setError(null);
     try {
       const latest = await api.get<Settings>('/api/settings');
-      const updated = await api.mutate<Settings>('/api/settings', { Settings: { ...latest, UITheme: packageKey(selection) } }, latest.Version);
+      const updated = await api.mutate<Settings>('/api/settings', { Settings: { ...latest, UITheme: packageKey(selection) } }, { idempotencyKey: mutationKey(), expectedVersion: latest.Version });
       setSaved(updated); setRecovering(false);
     } catch (error) { setError(error); throw error; }
     finally { writing.current = false; setBusy(false); }

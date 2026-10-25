@@ -1,3 +1,4 @@
+import { useMutation } from '../../../use-mutation';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Button, ChatComposer } from '@molr/ui';
 import { api, mutationKey } from '@molr/sdk';
@@ -61,6 +62,9 @@ export function ChatComposerContainer({
       window.removeEventListener('hashchange', changed);
     };
   }, []);
+  const sendMessage = useMutation([assistant.ConversationID, draft]);
+  const resolvePermission = useMutation([assistant.ID, draft]);
+  const compress = useMutation([assistant.ID, draft]);
   async function send() {
     if (
       chatReadOnly ||
@@ -81,7 +85,7 @@ export function ChatComposerContainer({
       }
       await action.run(
         async () => {
-          await api.mutate(`/api/assistants/${assistant.ID}/compress`, {});
+          await compress(`/api/assistants/${assistant.ID}/compress`, {});
           updateDraft((current) =>
             current === sent ? { ...sent, text: '' } : current,
           );
@@ -200,7 +204,7 @@ export function ChatComposerContainer({
                 Constraints: item.full_access ? undefined : item.constraints,
                 Temporary: item.full_access ? undefined : item.temporary,
               }));
-              await api.mutate(
+              await resolvePermission(
                 '/api/permission-requests/resolve',
                 {
                   RequestID: request.ID,
@@ -209,7 +213,7 @@ export function ChatComposerContainer({
                     ? { ...resolutions[0], Additional: resolutions.slice(1) }
                     : {}),
                 },
-                request.Version,
+                request.Version, request.ID,
               );
               completed++;
             }
@@ -240,7 +244,7 @@ export function ChatComposerContainer({
     }
     await action.run(
       async () => {
-        await api.mutate('/api/conversations/messages', {
+        await sendMessage('/api/conversations/messages', {
           ConversationID: assistant.ConversationID,
           Content: {
             Kind: 'text',

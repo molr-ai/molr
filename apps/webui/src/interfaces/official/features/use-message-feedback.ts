@@ -1,3 +1,4 @@
+import { mutationKey } from '@molr/sdk';
 import { useEffect, useRef, useState } from 'react';
 import { useToast } from '@molr/ui';
 import { api } from '@molr/sdk';
@@ -27,7 +28,7 @@ export function useMessageFeedback(message: Message, revision: number) {
     const previous = local;
     setLocal({ value: next, revision, pending: direction });
     try {
-      await api.mutate('/api/conversations/feedback', { MessageID: message.ID, Value: next === 'up' ? 'like' : next === 'down' ? 'dislike' : 'none' });
+      await api.mutate('/api/conversations/feedback', { MessageID: message.ID, Value: next === 'up' ? 'like' : next === 'down' ? 'dislike' : 'none' }, { idempotencyKey: mutationKey() });
       const confirmedRevision = invalidateMessage(message.ID, message.ConversationID);
       if (mounted.current) setLocal({ value: next, revision: confirmedRevision });
     } catch {
