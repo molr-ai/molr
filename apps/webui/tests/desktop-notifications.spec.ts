@@ -3,7 +3,7 @@ import type { MolrAppAPI } from '@molr/ui-host/app';
 
 async function desktop(page: import('@playwright/test').Page) {
   await page.addInitScript(() => {
-    const calls = { permission: 0, shown: 0, closed: 0, fail: false, badge: 0, badgeOK: true, ended: 0 };
+    const calls = { permission: 0, shown: 0, closed: 0, fail: false, badge: 0, badges: [] as number[], badgeOK: true, ended: 0 };
     Object.assign(window, { notificationFixture: calls });
     // Desktop must not depend on the browser's denied permission.
     Object.defineProperty(Notification, 'permission', { get: () => 'denied' });
@@ -14,7 +14,7 @@ async function desktop(page: import('@playwright/test').Page) {
       disconnect: async () => {}, onWindowStateChanged: () => () => {},
       oauth: { authorize: async () => ({ status: 'cancelled' }), cancel: async () => {} },
       notifications: {
-        begin: async () => {}, end: async () => { calls.ended++; calls.badge = 0; }, setBadge: async (_scope, count) => { calls.badge = count; return calls.badgeOK; }, requestPermission: async () => { calls.permission++; return true; },
+        begin: async () => {}, end: async () => { calls.ended++; calls.badge = 0; }, setBadge: async (_scope, count) => { calls.badge = count; calls.badges.push(count); return calls.badgeOK; }, requestPermission: async () => { calls.permission++; return true; },
         show: async () => { calls.shown++; if (calls.fail) throw new Error('OS rejected notification'); },
         close: async () => { calls.closed++; }, onClick: () => () => {},
       },
@@ -147,4 +147,83 @@ test('badge tracks real unread messages while hidden, persists and clears indepe
   await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
   await expect.poll(count).toBe(0);
   expect(await page.evaluate(() => (window as any).notificationFixture.ended)).toBeGreaterThan(0);
+});
+
+
+test('badge shares foreground queries and hands off without stale counts or duplicate polling', async ({ page }) => {
+  const items = (unread: number) => ({ Items: [
+    { ID: 'unread', Archived: false, UnreadCount: unread, LastSequence: 10, LastReadSequence: 0 },
+    { ID: 'archived', Archived: true, UnreadCount: 99, LastSequence: 99, LastReadSequence: 0 },
+    { ID: 'negative', Archived: false, UnreadCount: -1, LastSequence: 0, LastReadSequence: 0 },
+  ], NextCursor: '' });
+  let requests = 0, hold = false;
+  const pending: import('@playwright/test').Route[] = [];
+  await page.route(url => url.pathname === '/api/conversations', async route => {
+    requests++;
+    if (hold) pending.push(route);
+    else await route.fulfill({ json: items(2) });
+  });
+  await desktop(page);
+  const badge = page.getByRole('switch', { name: 'App icon unread count', exact: true });
+  const count = () => page.evaluate(() => (window as any).notificationFixture.badge);
+  await expect(page.locator('#nav-unread-count')).toHaveText('2');
+  const beforeEnable = requests;
+  await badge.check();
+  await expect.poll(count).toBe(2);
+  expect(requests).toBe(beforeEnable);
+  await page.clock.install();
+  await page.clock.pauseAt(new Date());
+  hold = true;
+  async function visibility(value: 'visible' | 'hidden') {
+    await page.evaluate(value => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, value });
+      document.dispatchEvent(new Event('visibilitychange'));
+    }, value);
+  }
+  async function next() {
+    await expect.poll(() => pending.length).toBe(1);
+    return pending.shift()!;
+  }
+  await visibility('hidden');
+  await (await next()).fulfill({ json: items(7) });
+  await expect.poll(count).toBe(7);
+  await page.clock.runFor(30_000);
+  await (await next()).fulfill({ json: items(8) });
+  await expect.poll(count).toBe(8);
+
+  const beforeResume = requests;
+  await visibility('visible');
+  const resumed = await next();
+  expect(requests).toBe(beforeResume + 1);
+  expect(await count()).toBe(8); // The shared cache still contains 2.
+  await resumed.fulfill({ json: items(2) }); // Structurally unchanged shared data still reconciles.
+  await expect.poll(count).toBe(2);
+  await page.clock.runFor(30_000);
+  const foreground = await next();
+  expect(requests).toBe(beforeResume + 2);
+  await foreground.fulfill({ status: 503, json: { Error: 'unavailable' } });
+  expect(await count()).toBe(2);
+  await page.clock.runFor(2000);
+  await (await next()).fulfill({ json: items(4) });
+  await expect.poll(count).toBe(4);
+  await expect(page.locator('#nav-unread-count')).toHaveText('4');
+
+  await visibility('hidden');
+  const stale = await next();
+  await visibility('visible');
+  await (await next()).fulfill({ json: items(3) });
+  await expect.poll(count).toBe(3);
+  await stale.fulfill({ json: items(9) });
+  expect(await count()).toBe(3);
+  expect(await page.evaluate(() => (window as any).notificationFixture.badges)).not.toContain(9);
+
+  await visibility('hidden');
+  const disabled = await next();
+  await badge.uncheck();
+  await expect.poll(count).toBe(0);
+  await disabled.fulfill({ json: items(6) });
+  const beforeDisabled = requests;
+  await page.clock.runFor(60_000);
+  expect(requests).toBe(beforeDisabled);
+  expect(await count()).toBe(0);
 });

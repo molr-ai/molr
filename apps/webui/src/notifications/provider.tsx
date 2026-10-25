@@ -5,6 +5,7 @@ import { useToast } from '@molr/ui';
 import type { Assistant, Conversation, Message, Page, SystemNotice } from '@molr/sdk';
 import { api } from '@molr/sdk';
 import { poll } from '../polling';
+import { conversationUnread } from '../conversation-unread';
 import { isChatObscured } from '../chat-visibility';
 import { useCopy, useData, useQuery, useSession } from '../state';
 import { createDesktopNotifications } from './desktop';
@@ -38,6 +39,9 @@ export function NotificationProvider({ children, createAdapter = createNotificat
   const noticeText = useNoticeText();
   const account = useSession().principal!.OwnerID, key = `molr-notifications:${account}`;
   const conversations = useQuery<Conversation[]>('/api/conversations', true);
+  const conversationState = useRef(conversations);
+  conversationState.current = conversations;
+  const syncBadge = useRef<() => void>(() => {});
   const baseline = useRef<Map<string, number> | null>(null);
   useEffect(() => {
     // Capture only the first authorized snapshot. Updating this baseline on
@@ -242,18 +246,34 @@ export function NotificationProvider({ children, createAdapter = createNotificat
       } catch { if (active) setBadgeFailed(value.badge); }
     };
     if (!value.badge) { void update(0); return () => { active = false; }; }
-    // UI queries pause while minimized. The OS badge must keep tracking reads
-    // and incoming messages, including events missed during a reconnect.
-    const loop = poll(async signal => {
-      const items = await api.all<Conversation>('/api/conversations', signal);
-      if (active && !signal.aborted) await update(items.filter(item => !item.Archived).reduce((total, item) => total + Math.max(0, item.UnreadCount), 0));
-      return 30_000;
-    }, true, true);
+    syncBadge.current = () => {
+      const { data, loading, error } = conversationState.current;
+      if (document.visibilityState === 'visible' && data && !loading && !error) void update(conversationUnread(data));
+    };
+    let loop: ReturnType<typeof poll> | undefined;
+    const hidden = () => document.visibilityState !== 'visible';
+    function visibility() {
+      if (document.visibilityState === 'visible') {
+        loop?.stop(); loop = undefined;
+        // The shared query refreshes on visibilitychange. Keep the last badge
+        // until that request completes, including when its data is unchanged.
+      } else {
+        loop ??= poll(async signal => {
+          if (!hidden()) return false;
+          const items = await api.all<Conversation>('/api/conversations', signal);
+          if (active && !signal.aborted && hidden()) await update(conversationUnread(items));
+          return 30_000;
+        }, true, true);
+      }
+    }
     const unsubscribe = subscribeEvents(event => {
-      if (/^(message|conversation|assistant)\./.test(event.Topic)) loop.request();
+      if (document.visibilityState !== 'visible' && /^(message|conversation|assistant)\./.test(event.Topic)) loop?.request();
     });
-    return () => { active = false; unsubscribe(); loop.stop(); };
+    document.addEventListener('visibilitychange', visibility);
+    visibility(); syncBadge.current();
+    return () => { active = false; syncBadge.current = () => {}; unsubscribe(); loop?.stop(); document.removeEventListener('visibilitychange', visibility); };
   }, [account, createAdapter, subscribeEvents, value.badge]);
+  useEffect(() => { syncBadge.current(); }, [conversations.data, conversations.loading, conversations.error]);
   async function requestPermission() {
     const device = adapter.current; if (!device) return;
     try { const next = await device.requestPermission(); if (adapter.current === device) setCapability(next); } catch { if (adapter.current === device) { setCapability(device.capability()); setDeliveryFailed(true); } }
