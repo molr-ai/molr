@@ -36,6 +36,8 @@ SHA256("molr.context-node:v1\0" + parent_id_bytes + canonical_message_json)
 
 `agent.handled` 只保存幂等结果元数据，不再复制完整历史检查点。压缩前输入由当前检查点、摘要请求及已采集的工作台记录分别保留，不创建永久的完整上下文归档；这些引用全部释放后，旧分支可回收。压缩失败不会替换当前输入。
 
+执行进度在内存中携带待确认的工具证据。保存检查点时仅读取头部，验证账号／助理身份、存储标记与预期序号，再用内存中的输入、游标和证据构造新上下文；保存失败不更新调用方进度。准备新回合及恢复时仍完整加载上下文并校验消息树，新回合交接会刷新证据。无变化保存仍保留原序号、时间和工作台修订；新上下文的编码及内容哈希计算仍在写入路径中执行。
+
 ## 工作台与回收
 
 工作台先按既有规则脱敏，再把详情写入独立历史引用；运行态原文不会因为工作台脱敏而被修改。不含敏感信息的 JSON 字符串保留原有空白和键顺序，以复用相同消息节点；只有实际脱敏时才重编码字符串。读取最新检查点时先还原，再脱敏输出。`debug.payloads` 只保存采集状态及存储标记，详情正文在共享存储中按需还原。模型完成事件保存包含输出消息的上下文引用，读取详情时提取正文、工具调用和后端状态；列表摘要仍单独存储。原始 HTTP／SSE 响应不进入数据库。历史清理不能删除仍被当前检查点或待恢复操作引用的消息。
@@ -59,3 +61,5 @@ SHA256("molr.context-node:v1\0" + parent_id_bytes + canonical_message_json)
 全局用量聚合可用 `go test ./internal/contextstore -run '^$' -bench BenchmarkGlobalContextUsage -benchtime=1x -count=3` 复测。基准包含 1000 个各带 16 KiB 正文的对象，只计统计读取阶段。
 
 个人用量可用 `go test ./internal/contextstore -run '^$' -bench BenchmarkAccountContextUsage -benchtime=3x -count=3` 复测。基准包含 6000 个文档引用及共享消息链，每条消息正文为 4 KiB，校验去重字节数和消息数。
+
+检查点保存性能可用 `go test ./internal/agent -run '^$' -bench BenchmarkCheckpointProgress -benchtime=3x -count=3` 复测。基准使用 SQLite，覆盖不同消息数和正文大小的无变化保存、强制保存及连续 16 个工具步（32 次保存），包含完整 `saveProgress` 的读取、编码与事务。工具步每轮从相同长度的历史开始；模型及外部工具调用不计入耗时，调试采集关闭。

@@ -45,7 +45,7 @@ func (c executionCursor) turn() Turn {
 	return Turn{Event: c.Event, Principal: core.Principal{OwnerID: c.Event.OwnerID, SubjectID: c.Event.AssistantID, Kind: core.ActorAssistant, ExecutionID: c.ExecutionID}}
 }
 func stateProgress(c Checkpoint, s privateContext) (turnProgress, error) {
-	p := turnProgress{Revision: c.Sequence, Inputs: append([]model.Input(nil), s.Inputs...), Automatic: s.Automatic, Usage: s.Usage, Publish: s.Publish}
+	p := turnProgress{Revision: c.Sequence, Inputs: append([]model.Input(nil), s.Inputs...), Automatic: s.Automatic, Usage: s.Usage, Publish: s.Publish, PendingEvidence: append([]pendingEvidence(nil), s.PendingEvidence...)}
 	if s.Current == nil {
 		return p, nil
 	}
@@ -103,6 +103,7 @@ func (e *Engine) saveProgress(ctx context.Context, t Turn, p *turnProgress, mode
 		})
 	}
 	var revision uint64
+	var evidence []pendingEvidence
 	err := e.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		if err := e.rejectSuperseded(ctx, t); err != nil {
 			return err
@@ -117,7 +118,7 @@ func (e *Engine) saveProgress(ctx context.Context, t Turn, p *turnProgress, mode
 		if boundary.Blocks(t.Event) {
 			return core.NewError(core.Canceled, "execution predates stop")
 		}
-		cp, err := e.checkpoints.Load(ctx, t.Principal.OwnerID, t.Event.AssistantID)
+		cp, err := loadCheckpointHeader(ctx, tx, t.Principal.OwnerID, t.Event.AssistantID)
 		if err != nil && !persistence.Missing(err) {
 			return err
 		}
@@ -131,11 +132,9 @@ func (e *Engine) saveProgress(ctx context.Context, t Turn, p *turnProgress, mode
 		if cp.Sequence != p.Revision {
 			return core.NewError(core.Conflict, "assistant execution state advanced")
 		}
-		s, err := decodeState(cp)
-		if err != nil {
-			return err
-		}
-		s.Inputs, s.Automatic, s.Usage, s.Current, s.Publish = p.Inputs, p.Automatic, p.Usage, cursor(t, *p), p.Publish
+		// Copy evidence before appending: callers can save a candidate inside an
+		// enclosing transaction and discard it if that transaction rolls back.
+		s := privateContext{Inputs: p.Inputs, Automatic: p.Automatic, Usage: p.Usage, Current: cursor(t, *p), Publish: p.Publish, PendingEvidence: append([]pendingEvidence(nil), p.PendingEvidence...)}
 		// A returned tool failure can still represent uncertain external effects.
 		if p.Response != nil && p.NextTool > 0 {
 			call := p.Response.Calls[p.NextTool-1]
@@ -160,6 +159,7 @@ func (e *Engine) saveProgress(ctx context.Context, t Turn, p *turnProgress, mode
 				break
 			}
 		}
+		evidence = s.PendingEvidence
 		raw, err := json.Marshal(s)
 		if err != nil {
 			return err
@@ -183,6 +183,7 @@ func (e *Engine) saveProgress(ctx context.Context, t Turn, p *turnProgress, mode
 	})
 	if err == nil {
 		p.Revision = revision
+		p.PendingEvidence = evidence
 	}
 	return err
 }
@@ -348,13 +349,13 @@ func (e *Engine) prepareExecution(ctx context.Context, t Turn) (Checkpoint, turn
 	if err != nil {
 		return cp, turnProgress{}, err
 	}
-	p := turnProgress{Revision: cp.Sequence, Inputs: inputs, Automatic: s.Automatic, Usage: s.Usage, Publish: s.Publish}
+	p := turnProgress{Revision: cp.Sequence, Inputs: inputs, Automatic: s.Automatic, Usage: s.Usage, Publish: s.Publish, PendingEvidence: append([]pendingEvidence(nil), s.PendingEvidence...)}
 	p.Publish.accept(t.Event)
 	if t.Event.Recovery != nil {
 		p.Step = t.Event.Recovery.Step
 	}
 	err = e.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
-		current, err := e.checkpoints.Load(ctx, t.Principal.OwnerID, t.Event.AssistantID)
+		current, err := loadCheckpointHeader(ctx, tx, t.Principal.OwnerID, t.Event.AssistantID)
 		if err != nil && !persistence.Missing(err) {
 			return err
 		}

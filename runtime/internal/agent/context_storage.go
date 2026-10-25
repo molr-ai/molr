@@ -19,6 +19,19 @@ type storedCheckpoint struct {
 }
 
 func loadCheckpoint(ctx context.Context, tx persistence.Tx, owner, assistant core.ID) (Checkpoint, error) {
+	row, err := loadCheckpointHeader(ctx, tx, owner, assistant)
+	if err != nil {
+		return Checkpoint{}, err
+	}
+	if err := contextstore.Load(ctx, tx, storeReference(owner, assistant, "checkpoint", assistant), &row.Context); err != nil {
+		return Checkpoint{}, core.Wrap(core.Internal, "checkpoint context unavailable", err)
+	}
+	return row, nil
+}
+
+// Progress already owns the context at its expected revision. Read only the
+// scoped header when checking that revision inside the save transaction.
+func loadCheckpointHeader(ctx context.Context, tx persistence.Tx, owner, assistant core.ID) (Checkpoint, error) {
 	var row storedCheckpoint
 	if err := tx.Get(ctx, checkpointsBucket, persistence.Key(owner, assistant), &row); err != nil {
 		return Checkpoint{}, err
@@ -28,9 +41,6 @@ func loadCheckpoint(ctx context.Context, tx persistence.Tx, owner, assistant cor
 	}
 	if !row.ContextStored {
 		return Checkpoint{}, core.NewError(core.FailedPrecondition, "checkpoint storage upgrade required")
-	}
-	if err := contextstore.Load(ctx, tx, storeReference(owner, assistant, "checkpoint", assistant), &row.Context); err != nil {
-		return Checkpoint{}, core.Wrap(core.Internal, "checkpoint context unavailable", err)
 	}
 	return row.Checkpoint, nil
 }

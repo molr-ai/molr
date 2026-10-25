@@ -47,6 +47,7 @@ type expediteReceipt struct {
 }
 type turnProgress struct {
 	PermissionPending bool
+	PendingEvidence   []pendingEvidence `json:",omitempty"`
 	Publish           publishReminderState
 	Revision          uint64        `json:",omitempty"`
 	Usage             *contextUsage `json:",omitempty"`
