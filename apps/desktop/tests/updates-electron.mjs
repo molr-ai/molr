@@ -19,6 +19,7 @@ writeFileSync(join(payload,'release.json'),JSON.stringify({version:'0.2.0',commi
 writeFileSync(join(payload,'bin/molr-setup'),`#!${process.execPath}
 const fs=require('node:fs'),path=require('node:path');
 const file=path.join(__dirname,'../state.json'),state=JSON.parse(fs.readFileSync(file));
+fs.appendFileSync(path.join(__dirname,'../calls'),process.argv[3]+'\\n');
 if(process.argv[3]==='upgrade') {state.upgrades++;fs.writeFileSync(file,JSON.stringify(state));if(state.fail){process.stderr.write('Fixture upgrade failed');process.exit(1);}state.version='0.2.0';fs.writeFileSync(file,JSON.stringify(state));}
 console.log(JSON.stringify({type:'desktop',installed:true,state:'running',version:state.version,url:${JSON.stringify(url)},missing:[]}));
 `,{mode:0o755});
@@ -55,10 +56,23 @@ try {
  state=await manager.evaluate(()=>window.molrDesktop.state()); assert.equal(state.local.updatePending,true); assert.equal(state.local.version,'0.1.0');
  write({version:'0.1.0',upgrades:1,fail:false});
  await manager.evaluate(id=>window.molrDesktop.connect(id),id); await ready(manager);
+ writeFileSync(join(payload,'calls'),'');
  await remote('window.molrApp.updates.upgradeLocal()');
  await expect.poll(()=>manager.evaluate(()=>window.molrDesktop.state().then(s=>s.local.version))).toBe('0.2.0'); await ready(manager);
+ assert.deepEqual(readFileSync(join(payload,'calls'),'utf8').trim().split('\n'),['status','plan','upgrade','status'], 'Upgrade performs one preflight and one final status');
  assert.equal((await remote('window.molrApp.updates.status()')).local.pending,false);
  assert.equal(JSON.parse(readFileSync(stateFile)).upgrades,2);
+ // The service can change while the native confirmation is open.
+ write({version:'0.1.0',upgrades:2,fail:false});
+ await remote('window.molrApp.updates.status()');
+ await app.evaluate(({dialog})=>{dialog.showMessageBox=()=>new Promise(resolve=>{globalThis.confirmUpgrade=()=>resolve({response:1,checkboxChecked:false});});});
+ await remote('window.molrApp.updates.upgradeLocal()');
+ await expect.poll(()=>app.evaluate(()=>typeof globalThis.confirmUpgrade)).toBe('function');
+ write({version:'0.3.0',upgrades:2,fail:false});
+ await app.evaluate(()=>globalThis.confirmUpgrade());
+ await expect.poll(()=>manager.evaluate(()=>window.molrDesktop.state().then(s=>s.local.error))).toContain('本机服务版本较新');
+ assert.equal(JSON.parse(readFileSync(stateFile)).upgrades,2);
+ await manager.evaluate(id=>window.molrDesktop.connect(id),id); await ready(manager);
  // A newer local installation never offers a downgrade to the bundled payload.
  write({version:'0.3.0',upgrades:2,fail:false});
  assert.equal((await remote('window.molrApp.updates.status()')).local.pending,false);

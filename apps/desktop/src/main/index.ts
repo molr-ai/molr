@@ -1,3 +1,4 @@
+import { LocalService } from './local-service.js';
 import { RuntimeSession } from './runtime-session.js';
 import { DesktopUpdates } from './updates.js';
 import { applicationMenu } from './menu.js';
@@ -32,6 +33,10 @@ const runtimeSession = new RuntimeSession<WebContentsView, DesktopNotifications>
   old.webContents.close({ waitForBeforeUnload: false });
 });
 let local: LocalRuntime | undefined;
+let localService: LocalService | undefined;
+let localReady: Promise<void> = Promise.resolve();
+let coreReady: Promise<void>;
+let windowFlight: Promise<void> | undefined;
 let initialLogin: { id: string; url: string; expires: number } | undefined;
 let initialLoginTimer: ReturnType<typeof setTimeout> | undefined;
 let store: ConnectionStore;
@@ -41,6 +46,7 @@ let progress: string | undefined;
 let localUpdateError: string | undefined;
 let localStatus: LocalStatus = { available: false, installed: false, state: 'unavailable' };
 let quitting = false;
+let navigationVersion = 0;
 const sessions = new Map<string, Session>();
 const managedDownloads = new Map<number, Set<Electron.DownloadItem>>();
 const appVersion = app.isPackaged ? app.getVersion() : 'development';
@@ -119,7 +125,7 @@ function revealRuntime() {
   runtimeSession.reveal(); runtimeSession.view.setVisible(true); runtimeSession.view.webContents.focus(); view = 'runtime'; error = undefined; windowChanged();
 }
 function discard() { runtimeSession.dispose(); }
-function manager() { store.select(undefined); discard(); active = undefined; view = 'manager'; error = undefined; changed(); win?.webContents.focus(); }
+function manager() { navigationVersion++; store.select(undefined); discard(); active = undefined; view = 'manager'; error = undefined; changed(); win?.webContents.focus(); }
 function failed(message: string) { discard(); view = 'failed'; error = message; changed(); }
 async function clearSession(id: string) {
   const ses = session.fromPartition(partition(id));
@@ -171,7 +177,9 @@ function guardRuntime(contents: WebContents, connection: Connection) {
   });
 }
 async function connect(id: string, loginURL?: string) {
+  navigationVersion++;
   const connection = store.get(id);
+  if (connection.kind === 'managed-local' && localStatus.state === 'checking') throw new Error('正在检测本机服务，请稍候。');
   if (!loginURL && initialLogin?.id === id) {
     if (Date.now() < initialLogin.expires) loginURL = initialLogin.url;
     initialLogin = undefined;
@@ -216,24 +224,11 @@ async function connect(id: string, loginURL?: string) {
   // The renderer is untrusted. Successful navigation is not authenticated health.
   void contentsView.webContents.loadURL(loginURL ?? connection.url).catch(() => {});
 }
-async function refreshLocal() {
-  if (!local) return;
-  try {
-    localStatus = await local.status();
-    const previous = store.data.connections.find(c => c.kind === 'managed-local');
-    if (localStatus.installed && localStatus.url) {
-      const current = store.managed(localStatus.url);
-      if (previous && previous.id !== current.id) {
-        if (active === previous.id) manager();
-        initialLogin = undefined; await clearSession(previous.id);
-      }
-    } else if (localStatus.state === 'uninstalled' && previous) {
-      if (active === previous.id) manager();
-      store.remove(previous.id);
-      initialLogin = undefined; await clearSession(previous.id);
-    }
-  } catch (e) { localStatus = { ...localStatus, error: String((e as Error).message), state: 'failed' }; }
-  changed();
+function refreshLocal() { return localService?.refresh() ?? Promise.resolve(); }
+async function retireLocal(id: string) {
+  if (active === id) manager();
+  initialLogin = undefined; clearTimeout(initialLoginTimer);
+  await clearSession(id);
 }
 async function localAction(action: LocalAction, preset?: ResourcePreset, administrator?: AdministratorInput) {
   if (!local) throw new Error('当前安装包不包含本机服务。');
@@ -242,32 +237,32 @@ async function localAction(action: LocalAction, preset?: ResourcePreset, adminis
   // Set the lock before opening a dialog: repeated IPC must not create parallel actions.
   busy = action; if (action === 'upgrade') localUpdateError = undefined; changed();
   try {
-    if (action === 'upgrade') { await refreshLocal(); if (!localStatus.updatePending || localStatus.error) throw new Error('没有可安装的本机服务更新，请刷新状态后重试。'); }
-    if (['stop', 'restart', 'upgrade', 'uninstall'].includes(action)) {
-      let tasks = '尚未取得当前账号的任务状态。';
-      const connection = store.data.connections.find(c => c.kind === 'managed-local');
-      if (connection) {
-        try {
-          const response = await configureSession(connection).fetch(connection.url + '/api/tasks?state=running&limit=5', { redirect: 'error', signal: AbortSignal.timeout(5000) });
-          if (response.ok) {
-            const body = await response.json();
-            const items = body.Items;
-            if (Array.isArray(items)) tasks = items.length ? '当前账号正在运行的任务：\n' + items.map((t: { Goal?: string }) => `• ${String(t.Goal ?? '任务').slice(0, 120)}`).join('\n') + (body.NextCursor ? '\n还有更多任务。' : '') : '当前账号没有运行中的任务。';
-          }
-        } catch { /* Service control remains available when the Runtime is offline. */ }
+    let reconnect = false;
+    const result = await localService!.action(action, { preset, administrator, confirm: async () => {
+      if (['stop', 'restart', 'upgrade', 'uninstall'].includes(action)) {
+        let tasks = '尚未取得当前账号的任务状态。';
+        const connection = store.data.connections.find(c => c.kind === 'managed-local');
+        if (connection) {
+          try {
+            const response = await configureSession(connection).fetch(connection.url + '/api/tasks?state=running&limit=5', { redirect: 'error', signal: AbortSignal.timeout(5000) });
+            if (response.ok) {
+              const body = await response.json();
+              const items = body.Items;
+              if (Array.isArray(items)) tasks = items.length ? '当前账号正在运行的任务：\n' + items.map((t: { Goal?: string }) => `• ${String(t.Goal ?? '任务').slice(0, 120)}`).join('\n') + (body.NextCursor ? '\n还有更多任务。' : '') : '当前账号没有运行中的任务。';
+            }
+          } catch { /* Service control remains available when the Runtime is offline. */ }
+        }
+        const detail = `${tasks}\n\n此操作也会影响其他账号、计划和渠道中的执行。${action === 'uninstall' ? '服务将被移除，账号、配置和数据保留。' : '远程服务不受影响。'}`;
+        const result = await dialog.showMessageBox(win!, { type: 'warning', message: '此操作会中断本机服务中正在执行的任务。', detail, buttons: ['取消', '继续'], defaultId: 0, cancelId: 0 });
+        if (result.response !== 1) return false;
       }
-      const detail = `${tasks}\n\n此操作也会影响其他账号、计划和渠道中的执行。${action === 'uninstall' ? '服务将被移除，账号、配置和数据保留。' : '远程服务不受影响。'}`;
-      const result = await dialog.showMessageBox(win!, { type: 'warning', message: '此操作会中断本机服务中正在执行的任务。', detail, buttons: ['取消', '继续'], defaultId: 0, cancelId: 0 });
-      if (result.response !== 1) return;
-    }
-    const previous = store.data.connections.find(c => c.kind === 'managed-local');
-    const reconnect = previous?.id === active;
-    if (reconnect) manager();
-    const result = await local.action(action, preset, administrator);
-    await refreshLocal();
-    if (result.installed && result.url) {
-      const c = store.managed(result.url);
-      if (previous && c.id !== previous.id) await clearSession(previous.id);
+      return true;
+    }, before: () => {
+      reconnect = !!active && store.get(active).kind === 'managed-local';
+      if (reconnect) manager();
+    } });
+    if (result?.installed && localStatus.installed && localStatus.url && !localStatus.error) {
+      const c = store.data.connections.find(c => c.kind === 'managed-local')!;
       if (action === 'install' && result.loginURL) {
         clearTimeout(initialLoginTimer);
         initialLogin = { id: c.id, url: result.loginURL, expires: Date.now() + 14 * 60_000 };
@@ -275,72 +270,98 @@ async function localAction(action: LocalAction, preset?: ResourcePreset, adminis
       }
       if (action === 'start' || (action === 'upgrade' && reconnect)) await connect(c.id);
       if (action === 'install') manager();
-    } else if (action === 'uninstall' && previous) {
-      if (store.data.connections.some(c => c.id === previous.id)) store.remove(previous.id);
-      initialLogin = undefined; await clearSession(previous.id);
     }
   } catch (e) { if (action === 'upgrade') localUpdateError = (e as Error).message; throw e; }
-  finally { busy = undefined; progress = undefined; await refreshLocal(); changed(); }
+  finally { busy = undefined; progress = undefined; changed(); }
+}
+function ensureWindow(): Promise<void> {
+  if (windowFlight) return windowFlight;
+  windowFlight = (async () => {
+    await coreReady;
+    if (quitting) return;
+    if (win && !win.isDestroyed()) {
+      if (win.isMinimized()) win.restore();
+      win.show(); win.focus();
+      return;
+    }
+    await createWindow();
+  })().finally(() => { windowFlight = undefined; });
+  return windowFlight;
+}
+function openWindow() {
+  void ensureWindow().catch(e => { dialog.showErrorBox('Molr 无法打开窗口', String(e.message)); });
 }
 async function createWindow() {
   macButtons = undefined; macTitlebarInset = undefined;
-  win = new BrowserWindow({
+  const window = new BrowserWindow({
     width: 1180, height: 820, minWidth: 620, minHeight: 540, title: 'Molr', show: false,
     // WCO initially measures the native button dimensions; equal margins are then
     // calibrated to the fixed 48px web titlebar without assuming a button size.
     ...(process.platform === 'darwin' ? { titleBarStyle: 'hidden' as const, titleBarOverlay: true, trafficLightPosition: { x: initialMacButtonMargin, y: initialMacButtonMargin } } : { frame: false }),
     webPreferences: { preload: join(here, '../preload/index.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, webviewTag: false },
   });
-  win.on('resize', layout);
+  win = window;
+  window.on('resize', layout);
   win.on('maximize', windowChanged); win.on('unmaximize', windowChanged);
   win.on('enter-full-screen', windowChanged); win.on('leave-full-screen', windowChanged);
-  installShortcuts(win.webContents);
+  installShortcuts(window.webContents);
   win.on('close', event => { if (busy) { event.preventDefault(); void dialog.showMessageBox(win!, { message: '本机服务正在维护，请等待操作结束后退出。' }); } });
-  win.on('closed', () => { discard(); win = undefined; active = undefined; view = 'manager'; error = undefined; });
-  win.webContents.on('will-navigate', event => event.preventDefault());
-  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  win.webContents.session.setPermissionRequestHandler((_c, _p, callback) => callback(false));
-  const readyToShow = new Promise<void>(resolve => win!.once('ready-to-show', () => resolve()));
-  const window = win;
-  await win.loadURL(trustedURL);
-  if (process.platform === 'darwin') {
-    // Read only the bundled, trusted renderer; Runtime pages cannot supply
-    // native dimensions or arbitrary button positions. Measure at 100% while
-    // hidden: WCO rounds CSS coordinates at fractional zoom, losing native px.
-    const zoom = win.webContents.getZoomFactor();
-    win.webContents.setZoomFactor(1);
-    const nativeWidth = win.getContentSize()[0];
-    const area: { width: number; height: number } = await win.webContents.executeJavaScript(`new Promise(resolve => {
-      const overlay = navigator.windowControlsOverlay;
-      const read = () => {
-        const rect = overlay.getTitlebarAreaRect();
-        if (innerWidth === ${nativeWidth} && rect.height > 0) {
-          overlay.removeEventListener('geometrychange', read);
-          window.removeEventListener('resize', read);
-          resolve({ width: rect.width, height: rect.height });
-        }
-      };
-      overlay.addEventListener('geometrychange', read);
-      window.addEventListener('resize', read);
-      read();
-    })`);
-    const height = area.height - 2 * initialMacButtonMargin;
-    const width = nativeWidth - area.width - 2 * initialMacButtonMargin;
-    win.webContents.setZoomFactor(zoom);
-    if (height > 0 && height < titlebarHeight && width > 0) {
-      macButtons = { width, height };
-      windowChanged();
+  win.on('closed', () => { if (win !== window) return; discard(); win = undefined; active = undefined; view = 'manager'; error = undefined; });
+  window.webContents.on('will-navigate', event => event.preventDefault());
+  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  window.webContents.session.setPermissionRequestHandler((_c, _p, callback) => callback(false));
+  const readyToShow = new Promise<void>(resolve => { window.once('ready-to-show', resolve); window.once('closed', resolve); });
+  try {
+    await window.loadURL(trustedURL);
+    if (win !== window || window.isDestroyed()) return;
+    if (process.platform === 'darwin') {
+      // Read only the bundled, trusted renderer; Runtime pages cannot supply
+      // native dimensions or arbitrary button positions. Measure at 100% while
+      // hidden: WCO rounds CSS coordinates at fractional zoom, losing native px.
+      const zoom = window.webContents.getZoomFactor();
+      window.webContents.setZoomFactor(1);
+      const nativeWidth = window.getContentSize()[0];
+      const area: { width: number; height: number } = await window.webContents.executeJavaScript(`new Promise(resolve => {
+        const overlay = navigator.windowControlsOverlay;
+        const read = () => {
+          const rect = overlay.getTitlebarAreaRect();
+          if (innerWidth === ${nativeWidth} && rect.height > 0) {
+            overlay.removeEventListener('geometrychange', read);
+            window.removeEventListener('resize', read);
+            resolve({ width: rect.width, height: rect.height });
+          }
+        };
+        overlay.addEventListener('geometrychange', read);
+        window.addEventListener('resize', read);
+        read();
+      })`);
+      if (win !== window || window.isDestroyed()) return;
+      const height = area.height - 2 * initialMacButtonMargin;
+      const width = nativeWidth - area.width - 2 * initialMacButtonMargin;
+      window.webContents.setZoomFactor(zoom);
+      if (height > 0 && height < titlebarHeight && width > 0) {
+        macButtons = { width, height };
+        windowChanged();
+      }
     }
+    await readyToShow;
+    if (win === window && !window.isDestroyed()) window.show();
+    // Local discovery may be slow; restoration must not hold window creation open.
+    void restoreConnection(window);
+  } catch (e) {
+    if (window.isDestroyed()) return;
+    window.destroy();
+    throw e;
   }
-  await readyToShow;
-  if (win === window && !window.isDestroyed()) window.show();
-  // Restore on process launch and when macOS reopens a closed window.
-  // Explicitly returning to the manager clears the saved selection.
-  if (win === window && !window.isDestroyed() && !active && view === 'manager' && store.data.lastConnection) {
-    const id = store.data.lastConnection;
-    try { await connect(id); }
-    catch (e) { active = id; failed((e as Error).message); }
-  }
+}
+async function restoreConnection(window: BrowserWindow) {
+  const initial = store.data.lastConnection, version = navigationVersion;
+  if (!initial) return;
+  if (store.get(initial).kind === 'managed-local') await localReady;
+  const selected = store.data.lastConnection;
+  if (!selected || navigationVersion !== version || win !== window || window.isDestroyed() || active || view !== 'manager') return;
+  try { await connect(selected); }
+  catch (e) { if (win === window && !window.isDestroyed()) { active = selected; failed((e as Error).message); } }
 }
 function installShortcuts(contents: WebContents) {
   contents.on('before-input-event', (event, input) => {
@@ -354,7 +375,7 @@ function installShortcuts(contents: WebContents) {
     } else if (process.platform !== 'darwin' && input.key === 'F11') { event.preventDefault(); win?.setFullScreen(!win.isFullScreen()); }
   });
 }
-async function main() {
+async function initialize() {
   await app.whenReady();
   mkdirSync(app.getPath('userData'), { recursive: true, mode: 0o700 });
   store = new ConnectionStore(join(app.getPath('userData'), 'connections.json'));
@@ -374,8 +395,12 @@ async function main() {
     try {
       const { LocalRuntime } = await import('../runtime/local.js');
       local = new LocalRuntime(packageRoot, join(app.getPath('userData'), 'runtime'), stage => { progress = stage; changed(); });
-      localStatus.available = true;
-      await refreshLocal();
+      localService = new LocalService(local, store, {
+        changed: () => { localStatus = localService!.status; changed(); },
+        retire: retireLocal,
+      });
+      localStatus = localService.status;
+      localReady = refreshLocal();
     } catch (e) { localStatus = { available: false, installed: false, state: 'failed', error: (e as Error).message }; }
   }
   handle('state', snapshot);
@@ -431,24 +456,25 @@ async function main() {
   });
   handle('connect', connect); handle('manager', manager);
   // Local management is exposed only when a matching bundled Runtime is available.
+  handle('local-status', refreshLocal);
   if (local) {
-    handle('local-status', refreshLocal); handle('local-action', localAction);
+    handle('local-action', localAction);
     handle('logs', async () => { if (local && existsSync(local.logFile)) shell.showItemInFolder(local.logFile); });
   }
   Menu.setApplicationMenu(process.platform === 'darwin' ? Menu.buildFromTemplate(applicationMenu(
     app.getLocale().toLowerCase().startsWith('zh') ? 'zh' : 'en',
     { manager, reconnect: () => { if (active) void connect(active); } },
   )) : null);
-  await createWindow();
   void desktopUpdates.check(true);
   setInterval(() => { void desktopUpdates.check(true); }, 86400000).unref();
   powerMonitor.on('resume', () => { void refreshLocal(); void desktopUpdates.check(true); });
 }
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
-  app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); } else void createWindow(); });
-  app.on('activate', () => { if (!win) void createWindow(); });
+  app.on('second-instance', openWindow);
+  app.on('activate', openWindow);
   app.on('before-quit', event => { if (busy) { event.preventDefault(); return; } quitting = true; });
   app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
-  void main().catch(e => { dialog.showErrorBox('Molr 无法启动', String(e.message)); app.quit(); });
+  coreReady = initialize();
+  void ensureWindow().catch(e => { dialog.showErrorBox('Molr 无法启动', String(e.message)); app.quit(); });
 }

@@ -56,6 +56,8 @@ User Settings → Personal Data Export packages the current account's data into 
 
 After connecting to Runtime in the desktop client, the top bar shows the current connection, Disconnect and minimize/maximize/restore/close controls. Drag the empty title area to move the window. These controls remain available on login and error pages. Browser visits do not show desktop window controls.
 
+The desktop app checks its local service in the background on startup. You can add or connect to remote services during detection; local controls become available when detection finishes.
+
 Reopening the desktop app automatically reconnects to the Runtime selected before closing and reuses any still-valid login session. Explicitly disconnecting or returning to the connection list keeps the next launch on that list. If automatic reconnection fails, retry or choose another connection; a stopped local Runtime must be started manually.
 
 Disconnect returns to the desktop connection list and preserves authentication for the next connection. Closing the window or disconnecting leaves Runtime and background tasks running. Unfinished downloads from the current page are cancelled and must be restarted. Failed connections or renderer crashes return to the bundled recovery screen, where you can retry or select another connection.

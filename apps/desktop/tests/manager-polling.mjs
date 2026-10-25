@@ -68,7 +68,7 @@ try {
   await page.clock.runFor(5000); await expect.poll(calls).toBe(6);
   await page.getByRole('button', { name: '停止服务', exact: true }).click();
   await page.clock.runFor(15000); assert.equal(await calls(), 6, 'Pause throughout maintenance');
-  await page.clock.runFor(5000); await expect.poll(calls).toBe(7);
+  await page.clock.runFor(5000); assert.equal(await calls(), 6, 'Maintenance publishes its final status without an immediate poll');
   await expect(page.getByRole('button', { name: '启动并连接', exact: true })).toBeVisible();
   await page.evaluate(() => { window.pollingFixture.fail = true; });
   await page.clock.runFor(5000); await expect.poll(() => page.evaluate(() => window.pollingFixture.errors)).toBe(1);

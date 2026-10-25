@@ -22,7 +22,7 @@ try {
 } catch { /* Appearance still works without browser storage. */ }
 document.documentElement.dataset.theme = initial.appearance.theme === 'system' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : initial.appearance.theme;
 document.documentElement.dataset.palette = initial.appearance.palette;
-const stateNames: Record<string, string> = { active: '运行中', running: '运行中', inactive: '已停止', failed: '需要处理', installed: '已安装', installing: '安装未完成', uninstalled: '已卸载', missing: '尚未安装', unavailable: '暂不可用', activating: '启动中', deactivating: '停止中' };
+const stateNames: Record<string, string> = { checking: '检测中', active: '运行中', running: '运行中', inactive: '已停止', failed: '需要处理', installed: '已安装', installing: '安装未完成', uninstalled: '已卸载', missing: '尚未安装', unavailable: '暂不可用', activating: '启动中', deactivating: '停止中' };
 const actionNames: Record<LocalAction, string> = { install: '安装', start: '启动', stop: '停止', restart: '重启', upgrade: '更新', uninstall: '卸载' };
 type Page = 'list' | 'add' | 'remote' | 'install' | 'local';
 const emptyForm = (): ConnectionInput => ({ name: '', url: '', allowHTTP: false });
@@ -30,6 +30,7 @@ function App() {
   const [state, setState] = useState(initial), [loaded, setLoaded] = useState(initialLoaded);
   const [page, setPage] = useState<Page>('list'), [form, setForm] = useState<ConnectionInput>(emptyForm);
   const [pending, setPending] = useState(false), [resourcePreset, setResourcePreset] = useState<ResourcePreset>('permissive');
+  const localPollingPaused = useRef(false);
   const localRefreshPending = useRef(false), localRefreshError = useRef<string | undefined>(undefined);
   const [installError, setInstallError] = useState<string>();
   const [username, setUsername] = useState('owner'), [password, setPassword] = useState(''), [confirmation, setConfirmation] = useState('');
@@ -67,21 +68,23 @@ function App() {
   const versionNotice = versionState === 'update' ? '可更新' : versionState === 'service-newer' || versionState === 'different' ? '版本不一致' : undefined;
   const current = state.connections.find(c => c.id === state.active);
   const connections = [...state.connections].sort((a, b) => Number(b.kind === 'managed-local') - Number(a.kind === 'managed-local'));
-  const canChoose = local.available && !local.installed;
+  const checkingLocal = local.state === 'checking';
+  const canChoose = local.available && !local.installed && !checkingLocal;
   const screen = page === 'list' && !connections.length ? (canChoose ? 'add' : 'remote') : page === 'add' && !canChoose ? 'remote' : page === 'local' && !local.installed ? (connections.length ? 'list' : canChoose ? 'add' : 'remote') : page;
-  const pollLocal = !!bridge && state.view !== 'runtime' && !state.busy && !pending;
+  const pollLocal = !!bridge && state.view !== 'runtime';
+  localPollingPaused.current = !!state.busy || pending;
   useEffect(() => {
     if (!pollLocal) return;
     let active = true;
     async function refresh() {
-      if (!active || localRefreshPending.current) return;
+      if (!active || localPollingPaused.current || localRefreshPending.current) return;
       localRefreshPending.current = true;
       try {
         await bridge!.refreshLocal();
         localRefreshError.current = undefined;
       } catch (error) {
         const message = String(error);
-        if (active && localRefreshError.current !== message) {
+        if (active && !localPollingPaused.current && localRefreshError.current !== message) {
           localRefreshError.current = message;
           reportError(error);
         }
@@ -117,15 +120,16 @@ function App() {
         <h1>{state.view === 'loading' ? '正在连接' : '暂时无法连接'}</h1><p>{state.error ?? current?.url}</p>
         <div className="desktop-actions">{state.view === 'failed' && current && <Button disabled={disabled} onClick={() => open(current)}><RefreshCw size={16} />重新连接</Button>}<Button variant="secondary" onClick={() => { navigate('list'); void run(() => bridge!.manager()); }}>返回连接列表</Button></div>
       </section> : <div className={`desktop-content ${screen === 'local' ? 'desktop-content-management' : screen === 'list' || screen === 'add' ? '' : 'desktop-content-narrow'}`}>
+        {checkingLocal && <p className="desktop-hint" role="status">正在检测本机服务…</p>}
         {canBack && <Button className="desktop-back" variant="ghost" size="sm" disabled={pending || !!state.busy} onClick={() => navigate(connections.length ? 'list' : 'add')}><ArrowLeft size={16} />{connections.length ? '返回连接列表' : '返回'}</Button>}
         <div className="desktop-intro"><h1>{titles[screen]}</h1>{screen === 'list' && <p>选择助理运行的位置。</p>}</div>
         {screen === 'list' && <div className="desktop-grid" aria-label="已保存的连接">
           {connections.map(c => <Card role="article" className="desktop-card" key={c.id} aria-label={c.name}>
             <div className="desktop-card-top"><span className="desktop-section-icon">{c.kind === 'managed-local' ? <Monitor size={24} /> : <Server size={24} />}</span>
-              <DropdownMenu label={`${c.name}的操作`} align="end" trigger={<IconButton label={`${c.name}的操作`} disabled={disabled}><MoreHorizontal size={20} /></IconButton>} items={c.kind === 'managed-local' ? [{ id: 'manage', label: '管理本机服务', onSelect: () => navigate('local') }] : [{ id: 'edit', label: '编辑连接', onSelect: () => { setForm({ ...c }); navigate('remote'); } }, { id: 'remove', label: '移除连接', danger: true, separatorBefore: true, onSelect: () => void run(() => bridge!.remove(c.id)) }]} />
+              <DropdownMenu label={`${c.name}的操作`} align="end" trigger={<IconButton label={`${c.name}的操作`} disabled={disabled || c.kind === 'managed-local' && checkingLocal}><MoreHorizontal size={20} /></IconButton>} items={c.kind === 'managed-local' ? [{ id: 'manage', label: '管理本机服务', onSelect: () => navigate('local') }] : [{ id: 'edit', label: '编辑连接', onSelect: () => { setForm({ ...c }); navigate('remote'); } }, { id: 'remove', label: '移除连接', danger: true, separatorBefore: true, onSelect: () => void run(() => bridge!.remove(c.id)) }]} />
             </div>
             <h2>{c.name}</h2><div className="desktop-card-description">{c.kind === 'managed-local' ? <><span>本机</span><Badge tone={ready ? 'positive' : local.error ? 'danger' : 'neutral'}>{state.busy ? '正在维护' : stateNames[local.state] ?? '需要处理'}</Badge>{versionNotice && <Badge className="desktop-version-notice" tone={versionState === 'update' ? 'neutral' : 'warning'}>{versionNotice}</Badge>}</> : <span title={c.url}>{new URL(c.url).host}</span>}</div>
-            <Button className="desktop-card-open" variant="secondary" disabled={disabled} onClick={() => open(c)}>{c.kind === 'managed-local' && !ready ? '启动并连接' : '连接'}<ArrowRight size={16} /></Button>
+            <Button className="desktop-card-open" variant="secondary" disabled={disabled || c.kind === 'managed-local' && checkingLocal} onClick={() => open(c)}>{c.kind === 'managed-local' && checkingLocal ? '检测中' : c.kind === 'managed-local' && !ready ? '启动并连接' : '连接'}<ArrowRight size={16} /></Button>
           </Card>)}
           <Button variant="ghost" className="card desktop-add-card" disabled={pending || !!state.busy} onClick={add}><Plus aria-hidden="true" /><span>添加连接</span></Button>
         </div>}
@@ -133,7 +137,7 @@ function App() {
           <section className="card desktop-card"><span className="desktop-section-icon"><Monitor size={28} /></span><h2>在这台电脑上使用</h2><p>在本机安装 Molr 服务，运行助理并保存对话和文件。</p><Button disabled={disabled} onClick={() => navigate('install')}>安装到这台电脑<ArrowRight size={16} /></Button></section>
           <section className="card desktop-card"><span className="desktop-section-icon"><Server size={28} /></span><h2>连接远程服务</h2><p>使用其他电脑或服务器上已安装的 Molr。</p><Button variant="secondary" onClick={() => { setForm(emptyForm()); navigate('remote'); }}>输入服务地址<ArrowRight size={16} /></Button></section>
         </div>}
-        {screen === 'remote' && <form className="desktop-form" onSubmit={event => { event.preventDefault(); void run(async () => { await bridge!.save(form); navigate('list'); toast({ tone: 'positive', title: '连接已保存' }); }); }}>
+        {screen === 'remote' && <form className="desktop-form" onChange={() => { if (page !== 'remote') setPage('remote'); }} onSubmit={event => { event.preventDefault(); void run(async () => { await bridge!.save(form); navigate('list'); toast({ tone: 'positive', title: '连接已保存' }); }); }}>
           <TextField label="服务地址" value={form.url} type="url" required autoFocus placeholder="https://molr.example.com" disabled={disabled} onChange={e => setForm({ ...form, url: e.target.value, allowHTTP: /^http:/i.test(e.target.value) && form.allowHTTP })} />
           <TextField label="连接名称（选填）" value={form.name} maxLength={80} placeholder="默认使用主机名" disabled={disabled} onChange={e => setForm({ ...form, name: e.target.value })} />
           {/^http:/i.test(form.url) && <div><Switch label="允许使用未加密的 HTTP 连接" checked={form.allowHTTP} disabled={disabled} onChange={e => setForm({ ...form, allowHTTP: e.target.checked })} /><p className="desktop-hint">仅支持可信的局域网或本机地址。HTTP 不提供传输加密。</p></div>}

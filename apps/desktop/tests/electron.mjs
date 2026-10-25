@@ -346,4 +346,7 @@ try {
   clearTimeout(watchdog);
 }
 
-if (process.platform !== 'win32') await import('./updates-electron.mjs');
+if (process.platform !== 'win32') {
+  await import('./lifecycle-electron.mjs');
+  await import('./updates-electron.mjs');
+}

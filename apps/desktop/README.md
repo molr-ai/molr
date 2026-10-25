@@ -37,7 +37,7 @@ The manager defaults to the Forest palette and system display mode. After authen
 
 Opening the desktop or reopening its window automatically reconnects the saved selection using its existing persistent session. Explicitly returning to connection management clears that selection; merely saving a connection does not select it. Failed restoration keeps retry and connection management available, without starting a stopped local service.
 
-The connection manager refreshes local-service status on entry and every five seconds across its list, forms, local-service page and connection recovery screens. Polls never overlap and pause during operations. Polling stops once the Runtime view opens and resumes immediately on return to connection management. Repeated polling errors do not create repeated Toast notifications. The status/log section opens the log location; it has no manual refresh button.
+The connection manager refreshes local-service status on entry and every five seconds across its list, forms, local-service page and connection recovery screens. Main coalesces concurrent reads and reconciles connections and retired sessions once. Polls never overlap and skip operations; maintenance publishes one final refresh, including after failure, without restarting an immediate renderer poll. Initial discovery runs in the background, so core IPC and remote connections remain usable. Local restoration waits for discovery and respects later user selection. All window entry points share core initialization and a single creation promise. Polling stops once the Runtime view opens and resumes immediately on return to connection management. Repeated polling errors do not create repeated Toast notifications. The status/log section opens the log location; it has no manual refresh button.
 
 Disconnect returns to the connection list without clearing authentication or stopping Runtime tasks; unfinished downloads from the closing view are cancelled. Failed navigation, renderer crashes and handshake timeout return to the bundled recovery screen. Ctrl/Cmd+Shift+M returns to connection management and Ctrl/Cmd+R reconnects. Windows/Linux have no application menu bar; Ctrl+plus/minus/0 controls zoom and F11 toggles full screen. macOS retains its system application menu. Native Windows Snap Layout hover and platform-specific window-manager behavior require native acceptance.
 
@@ -98,6 +98,9 @@ Linux requires systemd 254+, cgroup v2 delegation, Bubblewrap, static BusyBox, u
 ```bash
 npm run test:desktop
 npm run test:desktop:electron
+# Unix installer fixtures: slow discovery, window races and upgrade status counts:
+node apps/desktop/tests/lifecycle-electron.mjs
+node apps/desktop/tests/updates-electron.mjs
 # Real WebUI/Runtime App-mode acceptance (isolated initialized server):
 MOLR_DESKTOP_WEBUI_URL=http://127.0.0.1:5193 MOLR_DESKTOP_TEST_LINK=/path/to/test-link.json node apps/desktop/tests/app-mode.mjs
 # Linux without a display: xvfb-run -a npm run test:desktop:electron
