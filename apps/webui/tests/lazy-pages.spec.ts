@@ -11,7 +11,7 @@ test('the assistant list defers secondary pages and panels until navigation', as
   page.on('request', request => { if (request.resourceType() === 'script') scripts.push(new URL(request.url()).pathname); });
   await page.goto('/#/assistants'); await signIn(page);
   await expect(page.locator('.assistant-workspace')).toBeVisible();
-  expect(scripts.filter(path => /\/(Plans|Resources|Settings|Workbench|Browser|Terminals|ShellTasks|WorkspaceFiles|AssistantInfo|TerminalSession)-/.test(path))).toEqual([]);
+  expect(scripts.filter(path => /\/(Plans|Resources|Settings|Workbench|Browser|Terminals|ShellTasks|WorkspaceFiles|AssistantInfo|TerminalSession|WeixinChannel)-/.test(path))).toEqual([]);
   await page.evaluate(() => { location.hash = '#/resources'; });
   await expect.poll(() => scripts.some(path => /\/Resources-/.test(path))).toBe(true);
   await expect(page.getByRole('navigation', { name: 'Molr', exact: true })).toBeVisible();
@@ -149,4 +149,64 @@ test('deferred official chat still loads Markdown, formulas and their styles', a
   await expect(page.getByRole('log').locator('.katex').first()).toHaveCSS('font-family', /KaTeX_Main/);
   await expect(page.getByRole('log').getByRole('table')).toBeVisible();
   await expect(page.getByRole('log').locator('pre')).toHaveCSS('overflow-x', 'auto');
+});
+
+for (const route of ['plans', 'account/general', 'workbench']) {
+  test(`${route} defers assistant code and queries until entering assistants`, async ({ page }) => {
+    const scripts: string[] = [], queries: string[] = [];
+    page.on('request', request => {
+      const path = new URL(request.url()).pathname;
+      if (request.resourceType() === 'script') scripts.push(path);
+      if (path.startsWith('/api/')) queries.push(path);
+    });
+    await page.goto(`/#/${route}`); await signIn(page);
+    const chunk = route === 'plans' ? 'Plans' : route === 'workbench' ? 'Workbench' : 'Settings';
+    await expect.poll(() => scripts.some(path => path.includes(`/${chunk}-`))).toBe(true);
+    await expect(page.locator(route === 'plans' ? '.plans-workspace' : route === 'workbench' ? '.workspace-main section.page' : '.settings-workspace')).toBeVisible();
+    expect(scripts.filter(path => /\/(AssistantsPage|WeixinChannel)-/.test(path))).toEqual([]);
+    expect(queries.filter(path => path === '/api/models' || path === '/api/assistants/activity')).toEqual([]);
+    await page.evaluate(() => { location.hash = '#/assistants'; });
+    await expect(page.locator('.assistant-workspace')).toBeVisible();
+    expect(scripts.some(path => /\/AssistantsPage-/.test(path))).toBe(true);
+    await expect.poll(() => queries.includes('/api/models')).toBe(true);
+    await expect.poll(() => queries.includes('/api/assistants/activity')).toBe(true);
+    expect(scripts.some(path => /\/WeixinChannel-/.test(path))).toBe(false);
+    const filter = page.getByRole('searchbox', { name: 'Search assistants', exact: true });
+    await filter.fill('Remember my filter');
+    await page.evaluate(() => { location.hash = '#/plans'; });
+    await expect(page.locator('.assistant-workspace')).toHaveCount(0);
+    await page.evaluate(() => { location.hash = '#/assistants'; });
+    await expect(filter).toHaveValue('Remember my filter');
+  });
+}
+
+test('search opens task details across a delayed assistant page and the link survives reload', async ({ page }, info) => {
+  await page.goto('/#/plans'); await signIn(page);
+  const origin = `http://127.0.0.1:${process.env.MOLR_E2E_MODEL_PORT ?? '18882'}`;
+  const name = `Search lazy ${info.project.name}`;
+  const provider = await post(page, '/api/resources', { Name: name, Kind: 'model', Provider: 'openai-compatible', Binding: { Endpoint: origin, AllowedOrigins: [origin], Models: [{ Name: name, ContextLimit: 32768, SupportsTools: true, Pricing: { Currency: 'USD', InputMicrosPerMillion: 0, OutputMicrosPerMillion: 0 } }] } });
+  const model = (await (await page.request.get('/api/models')).json()).find((item: { ResourceID: string }) => item.ResourceID === provider.ID);
+  const assistant = await post(page, '/api/assistants', { Name: name, ModelID: model.ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } });
+  const goal = `Search lazy task ${info.project.name}`;
+  const task = await post(page, '/api/tasks', { AssistantID: assistant.ID, Goal: goal });
+  await expect(page.locator('.plans-workspace')).toBeVisible();
+  await page.evaluate(() => window.dispatchEvent(new Event('molr:search')));
+  const search = page.getByRole('dialog', { name: 'Search', exact: true });
+  await search.getByRole('searchbox').fill(goal);
+  let release!: () => void;
+  const ready = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**/assets/AssistantsPage-*.js', async route => { await ready; await route.continue(); });
+  try {
+    await search.getByText(goal, { exact: true }).first().click();
+    await expect(page).toHaveURL(new RegExp(`/assistants/${assistant.ID}\\?panel=tasks&task=${task.ID}$`));
+    await expect(search).not.toBeVisible();
+    if (info.project.name === 'desktop') await expect(page.getByRole('navigation', { name: 'Molr', exact: true })).toBeVisible();
+    await expect(page.getByRole('status', { name: 'Loading…', exact: true })).toBeVisible();
+  } finally { release(); }
+  const detail = page.locator('.plans-panel-detail');
+  await expect(detail).toContainText(goal);
+  await page.reload();
+  await expect(detail).toContainText(goal);
+  await page.evaluate(id => { location.hash = `#/assistants/${id}?panel=channel`; }, assistant.ID);
+  await expect(page.locator('.chat-channel-drawer')).toBeVisible();
 });

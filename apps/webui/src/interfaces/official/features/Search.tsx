@@ -9,7 +9,7 @@ import type { RoutePage } from '../../../navigation';
 
 export function Search({ open, onClose, navigate, onOpenTasks }: {
   open: boolean; onClose: () => void; navigate: (page: RoutePage, id?: string, turnID?: string, messageID?: string) => void;
-  onOpenTasks: (assistantID: string, taskID?: string) => void; taskAssistantID?: string;
+  onOpenTasks: (assistantID: string, taskID?: string) => void;
 }) {
   const { t } = useCopy(), mobile = useBreakpoint('mobile');
   const [text, setText] = useState(''), [debounced, setDebounced] = useState(''), [scopes, setScopes] = useState<string[]>([]), [cursors, setCursors] = useState<string[]>(['']);
