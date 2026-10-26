@@ -53,7 +53,8 @@ const timer = setInterval(() => {
 }, 5);
 `);
 let app;
-const checkpoint = phase => console.log('Lifecycle acceptance:', phase);
+let phase;
+const checkpoint = value => { phase = value; console.log('Lifecycle acceptance:', value); };
 async function launch(selected, saved = connections) {
   checkpoint('launch Electron');
   writeFileSync(join(data, 'connections.json'), JSON.stringify({ connections: saved, lastConnection: selected }));
@@ -95,12 +96,21 @@ try {
   assert.equal((await snapshot(page)).active, remoteID, 'Delayed local restoration cannot replace the user-selected remote connection');
   // Reopen bursts share a single new window, after the previous window closes.
   checkpoint('window event bursts');
+  await expect.poll(async () => (await snapshot(page)).view).toBe('runtime');
   await app.evaluate(({ app }) => app.removeAllListeners('window-all-closed'));
   for (let index = 0; index < 2; index++) {
+    checkpoint(`close window ${index + 1}`);
+    await Promise.all([
+      page.waitForEvent('close'),
+      app.evaluate(({ BrowserWindow }) => new Promise(resolve => {
+        const window = BrowserWindow.getAllWindows()[0];
+        window.once('closed', resolve);
+        window.destroy();
+      })),
+    ]);
     checkpoint(`reopen window ${index + 1}`);
     const reopened = app.waitForEvent('window');
-    await app.evaluate(({ app, BrowserWindow }) => {
-      BrowserWindow.getAllWindows()[0].destroy();
+    await app.evaluate(({ app }) => {
       for (let i = 0; i < 8; i++) { app.emit('activate'); app.emit('second-instance'); }
     });
     page = await waitForVisibleWindow(app, await reopened);
@@ -118,6 +128,10 @@ try {
   await expect.poll(async () => (await snapshot(page)).local.state).toBe('running');
   await expect(address).toHaveValue('https://remote.example.com');
   console.log('Lifecycle passed: slow discovery, remote restoration, coalesced IPC, stale restoration, window event bursts and reopening.');
+} catch (error) {
+  // Print before teardown: an Electron shutdown failure must not hide the cause.
+  console.error('Lifecycle acceptance failed during:', phase, error);
+  throw error;
 } finally {
   checkpoint('cleanup: release installer fixture');
   writeFileSync(join(payload, 'release'), '');
