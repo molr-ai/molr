@@ -98,9 +98,6 @@ Linux requires systemd 254+, cgroup v2 delegation, Bubblewrap, static BusyBox, u
 ```bash
 npm run test:desktop
 npm run test:desktop:electron
-# Unix installer fixtures: slow discovery, window races and upgrade status counts:
-node apps/desktop/tests/lifecycle-electron.mjs
-node apps/desktop/tests/updates-electron.mjs
 # Real WebUI/Runtime App-mode acceptance (isolated initialized server):
 MOLR_DESKTOP_WEBUI_URL=http://127.0.0.1:5193 MOLR_DESKTOP_TEST_LINK=/path/to/test-link.json node apps/desktop/tests/app-mode.mjs
 # Linux without a display: xvfb-run -a npm run test:desktop:electron
@@ -110,6 +107,8 @@ node apps/desktop/tests/installation.mjs
 ```
 
 Electron tests use a local HTTP fixture for partition, privilege-boundary, SSE and recovery checks. The separate native lifecycle test installs a unique service, checks authenticated capabilities, verifies stop/start and session restoration, then uninstalls it while checking data retention. It cleans up only its own instance. Screenshots go to `.cache/acceptance/desktop`.
+
+`test:desktop:electron` runs the main acceptance suite, plus the installer lifecycle and update fixtures on Unix, in separate Node processes. Each suite has a two-minute deadline covering startup, assertions and cleanup. The parent terminates the suite's process tree on timeout and saves the last 32 KiB of output in `.cache/acceptance/desktop/<suite>-failure.log`; a timeout or nonzero exit fails the command and stops subsequent suites. Stage logs distinguish Electron shutdown, HTTP fixture shutdown and profile removal. The GitHub and Gitea Electron steps also have a ten-minute limit.
 
 Electron tests explicitly enable Chromium sandboxing. On Ubuntu systems restricting unprivileged user namespaces, an unpacked development Electron needs an appropriate loaded AppArmor profile; CI uses the existing `chrome` profile via `aa-exec -p chrome -- xvfb-run -a npm run test:desktop:electron`. Do not add `--no-sandbox` to bypass failure. Installed DEBs carry electron-builder's application-specific AppArmor profile and installation hooks.
 

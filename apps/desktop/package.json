@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit && tsc -p tsconfig.main.json --noEmit",
     "build": "npm run typecheck && tsc -p tsconfig.main.json && vite build",
     "test": "tsc -p tsconfig.main.json && node --test tests/*.test.mjs",
-    "test:electron": "node tests/electron.mjs",
+    "test:electron": "node tests/electron-runner.mjs",
     "package": "node scripts/package.mjs"
   },
   "dependencies": {},

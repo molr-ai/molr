@@ -66,8 +66,10 @@ jobs:
         name: Desktop unit tests using the shared compiled application
         run: node --test apps/desktop/tests/*.test.mjs
       - if: inputs.validate && runner.os != 'Linux'
+        timeout-minutes: 10
         run: npm run test:desktop:electron
       - if: inputs.validate && runner.os == 'Linux'
+        timeout-minutes: 10
         run: |
           if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ] && [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" = 1 ]; then
             aa-exec -p chrome -- xvfb-run -a npm run test:desktop:electron

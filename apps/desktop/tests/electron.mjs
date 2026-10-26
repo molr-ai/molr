@@ -23,12 +23,6 @@ const url = `http://127.0.0.1:${fixture.address().port}/`;
 let app;
 let phase = 'launch';
 const checkpoint = value => { phase = value; console.log('Electron acceptance:', value); };
-const watchdog = setTimeout(() => {
-  console.error('Electron acceptance timed out during:', phase);
-  process.exitCode = 1;
-  app?.process().kill('SIGKILL');
-  fixture.closeAllConnections();
-}, 120000).unref();
 async function launch() {
   const env = { ...process.env, MOLR_DESKTOP_DATA: data };
   delete env.MOLR_DESKTOP_RUNTIME; delete env.MOLR_DESKTOP_DEV_URL; delete env.ELECTRON_RUN_AS_NODE;
@@ -340,13 +334,11 @@ try {
   if (page) await page.screenshot({path:join(screenshots,'failure.png'),timeout:5000}).catch(()=>{});
   throw error;
 } finally {
-  checkpoint('cleanup');
-  await app?.close(); fixture.closeAllConnections(); await new Promise(resolve => fixture.close(resolve));
+  checkpoint('cleanup: close Electron');
+  await app?.close();
+  checkpoint('cleanup: close HTTP fixture');
+  fixture.closeAllConnections(); await new Promise(resolve => fixture.close(resolve));
+  checkpoint('cleanup: remove profile');
   rmSync(data, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-  clearTimeout(watchdog);
-}
-
-if (process.platform !== 'win32') {
-  await import('./lifecycle-electron.mjs');
-  await import('./updates-electron.mjs');
+  checkpoint('cleanup complete');
 }

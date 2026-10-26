@@ -24,11 +24,13 @@ if(process.argv[3]==='upgrade') {state.upgrades++;fs.writeFileSync(file,JSON.str
 console.log(JSON.stringify({type:'desktop',installed:true,state:'running',version:state.version,url:${JSON.stringify(url)},missing:[]}));
 `,{mode:0o755});
 let app;
+const checkpoint = phase => console.log('Update acceptance:', phase);
 const env={...process.env,MOLR_DESKTOP_DATA:join(directory,'data'),MOLR_DESKTOP_RUNTIME:payload}; delete env.ELECTRON_RUN_AS_NODE; delete env.MOLR_DESKTOP_DEV_URL;
-async function launch(){app=await electron.launch({args:[join(root,'apps/desktop'),...(process.env.MOLR_DESKTOP_TEST_HEADLESS==='1'?['--ozone-platform=headless']:[])],env,chromiumSandbox:true});app.context().setDefaultTimeout(10000);return waitForVisibleWindow(app,await app.firstWindow());}
+async function launch(){checkpoint('launch Electron');app=await electron.launch({args:[join(root,'apps/desktop'),...(process.env.MOLR_DESKTOP_TEST_HEADLESS==='1'?['--ozone-platform=headless']:[])],env,chromiumSandbox:true,timeout:30000});app.context().setDefaultTimeout(10000);return waitForVisibleWindow(app,await app.firstWindow());}
 async function remote(code){return app.evaluate(async({webContents},{url,code})=>webContents.getAllWebContents().find(c=>c.getURL() === url).executeJavaScript(code),{url,code});}
 async function ready(manager){await expect.poll(()=>manager.evaluate(()=>window.molrDesktop.state().then(s=>s.view))).toBe('runtime');}
 try {
+ checkpoint('pending update');
  let manager=await launch();
  await expect(manager.getByRole('article',{name:'这台电脑'}).locator('.desktop-version-notice')).toHaveText('可更新');
  let state=await manager.evaluate(()=>window.molrDesktop.state());
@@ -38,14 +40,17 @@ try {
  assert.equal((await remote('window.molrApp.updates.status()')).local.pending,true);
  assert.equal(JSON.parse(readFileSync(stateFile)).upgrades,0);
  // Deferring persists across process restarts without touching the service.
+ checkpoint('defer update and restart Electron');
  await app.close(); manager=await launch(); await ready(manager);
  assert.equal(JSON.parse(readFileSync(stateFile)).upgrades,0);
  await app.evaluate(({dialog})=>{dialog.showMessageBox=async()=>({response:0,checkboxChecked:false});});
+ checkpoint('cancel upgrade');
  await remote('window.molrApp.updates.upgradeLocal()');
  await expect.poll(()=>manager.evaluate(()=>window.molrDesktop.state().then(s=>s.busy))).toBeUndefined();
  assert.equal(JSON.parse(readFileSync(stateFile)).upgrades,0);
  assert.equal((await remote('window.molrApp.updates.status()')).local.pending,true);
  // Installer failure preserves the pending state and exposes a retry.
+ checkpoint('failed upgrade preserves retry');
  write({version:'0.1.0',upgrades:0,fail:true});
  await app.evaluate(({dialog})=>{dialog.showMessageBox=async()=>({response:1,checkboxChecked:false});});
  await remote('window.molrApp.updates.upgradeLocal()');
@@ -55,6 +60,7 @@ try {
  await expect(manager.getByRole('button',{name:'更新本机服务',exact:true})).toBeEnabled();
  state=await manager.evaluate(()=>window.molrDesktop.state()); assert.equal(state.local.updatePending,true); assert.equal(state.local.version,'0.1.0');
  write({version:'0.1.0',upgrades:1,fail:false});
+ checkpoint('retry upgrade and reconnect');
  await manager.evaluate(id=>window.molrDesktop.connect(id),id); await ready(manager);
  writeFileSync(join(payload,'calls'),'');
  await remote('window.molrApp.updates.upgradeLocal()');
@@ -63,6 +69,7 @@ try {
  assert.equal((await remote('window.molrApp.updates.status()')).local.pending,false);
  assert.equal(JSON.parse(readFileSync(stateFile)).upgrades,2);
  // The service can change while the native confirmation is open.
+ checkpoint('service changes during confirmation');
  write({version:'0.1.0',upgrades:2,fail:false});
  await remote('window.molrApp.updates.status()');
  await app.evaluate(({dialog})=>{dialog.showMessageBox=()=>new Promise(resolve=>{globalThis.confirmUpgrade=()=>resolve({response:1,checkboxChecked:false});});});
@@ -74,10 +81,19 @@ try {
  assert.equal(JSON.parse(readFileSync(stateFile)).upgrades,2);
  await manager.evaluate(id=>window.molrDesktop.connect(id),id); await ready(manager);
  // A newer local installation never offers a downgrade to the bundled payload.
+ checkpoint('reject downgrade');
  write({version:'0.3.0',upgrades:2,fail:false});
  assert.equal((await remote('window.molrApp.updates.status()')).local.pending,false);
  await remote('window.molrApp.updates.upgradeLocal()');
  await expect.poll(()=>manager.evaluate(()=>window.molrDesktop.state().then(s=>s.local.error))).toContain('没有可安装');
  assert.equal(JSON.parse(readFileSync(stateFile)).upgrades,2);
  console.log('Desktop update flow passed: defer, restart, cancel, failure, retry, reconnect, no downgrade.');
-} finally {if(app) await app.close();server.closeAllConnections();await new Promise(r=>server.close(r));rmSync(directory,{recursive:true,force:true});}
+} finally {
+ checkpoint('cleanup: close Electron');
+ if(app) await app.close();
+ checkpoint('cleanup: close HTTP fixture');
+ server.closeAllConnections();await new Promise(r=>server.close(r));
+ checkpoint('cleanup: remove profile');
+ rmSync(directory,{recursive:true,force:true});
+ checkpoint('cleanup complete');
+}

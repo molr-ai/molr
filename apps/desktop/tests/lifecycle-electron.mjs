@@ -53,23 +53,27 @@ const timer = setInterval(() => {
 }, 5);
 `);
 let app;
+const checkpoint = phase => console.log('Lifecycle acceptance:', phase);
 async function launch(selected, saved = connections) {
+  checkpoint('launch Electron');
   writeFileSync(join(data, 'connections.json'), JSON.stringify({ connections: saved, lastConnection: selected }));
   writeFileSync(join(payload, 'calls'), ''); rmSync(join(payload, 'release'), { force: true });
   const env = { ...process.env, MOLR_DESKTOP_DATA: data, MOLR_DESKTOP_RUNTIME: payload };
   delete env.ELECTRON_RUN_AS_NODE; delete env.MOLR_DESKTOP_DEV_URL;
-  app = await electron.launch({ args: [bootstrap, ...(process.env.MOLR_DESKTOP_TEST_HEADLESS === '1' ? ['--ozone-platform=headless'] : [])], env, chromiumSandbox: true });
+  app = await electron.launch({ args: [bootstrap, ...(process.env.MOLR_DESKTOP_TEST_HEADLESS === '1' ? ['--ozone-platform=headless'] : [])], env, chromiumSandbox: true, timeout: 30000 });
   app.context().setDefaultTimeout(15000);
   return waitForVisibleWindow(app, await app.firstWindow());
 }
 const snapshot = page => page.evaluate(() => window.molrDesktop.state());
 try {
+  checkpoint('remote restoration during slow discovery');
   let page = await launch(remoteID);
   await expect.poll(async () => (await snapshot(page)).view).toBe('runtime');
   assert.equal((await snapshot(page)).local.state, 'checking', 'Remote restoration does not await the installer');
   assert.equal(await app.evaluate(() => globalThis.createdWindows), 1);
   assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length), 1);
   // Many IPC readers share the still-blocked startup query.
+  checkpoint('coalesced installer reads');
   await page.evaluate(() => { window.pendingReads = Promise.all(Array.from({ length: 8 }, () => window.molrDesktop.refreshLocal())); });
   assert.equal(readFileSync(join(payload, 'calls'), 'utf8'), 'status\n');
   writeFileSync(join(payload, 'release'), '');
@@ -77,8 +81,10 @@ try {
   assert.equal((await snapshot(page)).local.state, 'running');
   assert.equal((await snapshot(page)).active, remoteID);
   assert.equal(readFileSync(join(payload, 'calls'), 'utf8'), 'status\n');
+  checkpoint('close Electron before local restoration');
   await app.close(); app = undefined;
 
+  checkpoint('local restoration and user selection');
   page = await launch(localID);
   await expect(page.getByText('正在检测本机服务…')).toBeVisible();
   await expect(page.getByRole('article', { name: '这台电脑' }).getByRole('button', { name: '检测中' })).toBeDisabled();
@@ -88,8 +94,10 @@ try {
   await expect.poll(async () => (await snapshot(page)).local.state).toBe('running');
   assert.equal((await snapshot(page)).active, remoteID, 'Delayed local restoration cannot replace the user-selected remote connection');
   // Reopen bursts share a single new window, after the previous window closes.
+  checkpoint('window event bursts');
   await app.evaluate(({ app }) => app.removeAllListeners('window-all-closed'));
   for (let index = 0; index < 2; index++) {
+    checkpoint(`reopen window ${index + 1}`);
     const reopened = app.waitForEvent('window');
     await app.evaluate(({ app, BrowserWindow }) => {
       BrowserWindow.getAllWindows()[0].destroy();
@@ -100,7 +108,9 @@ try {
     assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length), 1);
     assert.equal(await app.evaluate(() => globalThis.createdWindows), index + 2);
   }
+  checkpoint('close Electron before connection form');
   await app.close(); app = undefined;
+  checkpoint('connection form survives discovery');
   page = await launch(undefined, []);
   const address = page.getByRole('textbox', { name: '服务地址', exact: true });
   await address.fill('https://remote.example.com');
@@ -109,8 +119,13 @@ try {
   await expect(address).toHaveValue('https://remote.example.com');
   console.log('Lifecycle passed: slow discovery, remote restoration, coalesced IPC, stale restoration, window event bursts and reopening.');
 } finally {
+  checkpoint('cleanup: release installer fixture');
   writeFileSync(join(payload, 'release'), '');
+  checkpoint('cleanup: close Electron');
   if (app) await app.close();
+  checkpoint('cleanup: close HTTP fixture');
   server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
+  checkpoint('cleanup: remove profile');
   rmSync(directory, { recursive: true, force: true });
+  checkpoint('cleanup complete');
 }

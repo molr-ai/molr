@@ -3,6 +3,7 @@
 package sandbox
 
 import (
+	"bufio"
 	"context"
 	"io"
 	"strings"
@@ -80,5 +81,72 @@ func TestDirectRevocationStopsRunningCommand(t *testing.T) {
 	result, err := p.Wait(ctx)
 	if err != nil || result.Reason != "authorization_changed" {
 		t.Fatal(result, err)
+	}
+	revoked.Store(false)
+	testTerminalRevocation(t, r, platform.Command{FullAccess: true, MaxOutputBytes: 8192}, &revoked)
+}
+
+// Exercise the same readiness handshake on native Seatbelt and direct Unix PTYs.
+func testTerminalRevocation(t *testing.T, r *Runner, c platform.Command, revoked *atomic.Bool) {
+	t.Helper()
+	// Deliberately exceed the old fixed 100ms waits before readiness and reply.
+	c.Script = "sleep 0.3; echo READY; read line; sleep 0.3; echo RECEIVED:$line; sleep 30"
+	c.TTY = true
+	c.Managed = true
+	c.Timeout = 0
+	e := testExecution()
+	e.OperationID = "terminal-revocation"
+	p, err := r.Start(t.Context(), e, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	readCtx, stopReading := context.WithCancel(t.Context())
+	defer stopReading()
+	lines := make(chan string)
+	readErr := make(chan error, 1)
+	go func() {
+		scanner := bufio.NewScanner(p.Stdout())
+		defer close(lines)
+		defer close(readErr)
+		for scanner.Scan() {
+			select {
+			case lines <- scanner.Text():
+			case <-readCtx.Done():
+				return
+			}
+		}
+		readErr <- scanner.Err()
+	}()
+	var output strings.Builder
+	waitLine := func(want string) {
+		t.Helper()
+		ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+		defer cancel()
+		for {
+			select {
+			case line, ok := <-lines:
+				if !ok {
+					t.Fatalf("terminal closed before %q: %v; output: %q", want, <-readErr, output.String())
+				}
+				output.WriteString(line + "\n")
+				if line == want {
+					return
+				}
+			case <-ctx.Done():
+				t.Fatalf("waiting for terminal %q: %v; output: %q", want, ctx.Err(), output.String())
+			}
+		}
+	}
+	waitLine("READY")
+	if err := r.Terminal(t.Context(), e, "hello\n", 40, 120); err != nil {
+		t.Fatal(err)
+	}
+	waitLine("RECEIVED:hello")
+	revoked.Store(true)
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+	defer cancel()
+	exit, err := p.Wait(ctx)
+	if err != nil || exit.Reason != "authorization_changed" || exit.Code != 125 {
+		t.Fatalf("revocation: %+v %v; output: %q", exit, err, output.String())
 	}
 }

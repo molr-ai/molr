@@ -198,30 +198,7 @@ func TestSeatbeltNativeRevocationAndTerminal(t *testing.T) {
 		}
 		return nil
 	})
-	c := nativeCommand("echo READY; read line; echo RECEIVED:$line; sleep 30")
-	c.TTY = true
-	c.Managed = true
-	c.Timeout = 0
-	p, err := r.Start(t.Context(), testExecution(), c)
-	if err != nil {
-		t.Fatal(err)
-	}
-	time.Sleep(100 * time.Millisecond)
-	if err := r.Terminal(t.Context(), testExecution(), "hello\n", 40, 120); err != nil {
-		t.Fatal(err)
-	}
-	time.Sleep(100 * time.Millisecond)
-	revoked.Store(true)
-	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
-	defer cancel()
-	exit, err := p.Wait(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	out, _ := io.ReadAll(p.Stdout())
-	if exit.Reason != "authorization_changed" || !strings.Contains(string(out), "RECEIVED:hello") {
-		t.Fatalf("%+v %s", exit, out)
-	}
+	testTerminalRevocation(t, r, nativeCommand(""), &revoked)
 }
 
 func TestSeatbeltNativeForwardAndDeadline(t *testing.T) {
