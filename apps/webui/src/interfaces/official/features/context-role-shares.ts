@@ -1,4 +1,4 @@
-const roles = ['system', 'assistant', 'tool', 'user'] as const;
+const roles = ['system', 'tool', 'assistant', 'user'] as const;
 
 function textLength(value: unknown): number {
   if (typeof value !== 'string') return 0;

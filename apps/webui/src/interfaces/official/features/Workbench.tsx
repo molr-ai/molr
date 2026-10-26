@@ -2,7 +2,7 @@ import { useMutation } from '../../../use-mutation';
 import { useErrorToast } from '../../../error-toasts';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ModalPresence, Alert, Badge, Button, CodeBlock, EmptyState, Progress, SearchField, Select, Tabs, useBreakpoint } from '@molr/ui';
+import { ModalPresence, Alert, Badge, Button, CodeBlock, EmptyState, SearchField, Select, Tabs, useBreakpoint } from '@molr/ui';
 import { FlaskConical, RefreshCw, RotateCcw, Square, X, ArrowDownToLine, Braces, Layers, ChevronRight } from 'lucide-react';
 import { api, APIError } from '@molr/sdk';
 import type { Assistant, AgentStatus, DebugPayload, DebugRun } from '@molr/sdk';
@@ -232,7 +232,13 @@ function ContextRoleShares({ inputs }: { inputs: Array<Record<string, unknown>> 
   return <section className="workbench-role-shares" aria-label={t.workbench.roleShares}>
     <div className="workbench-section-heading"><h3>{t.workbench.roleShares}</h3></div>
     <p className="workbench-section-note">{t.workbench.roleSharesHelp}</p>
-    <div className="workbench-role-grid">{shares.map(({ role, characters, percentage }) => <Progress key={role} label={role} value={percentage} valueText={`${percentage.toFixed(1)}% · ${t.workbench.characters(characters)}`} />)}</div>
+    <div className="workbench-role-bar" aria-hidden="true">
+      {shares.filter(({ percentage }) => percentage > 0).map(({ role, percentage }) => <span key={role} data-role={role} style={{ flexGrow: percentage, background: `var(--color-context-${role})` }} />)}
+    </div>
+    <dl className="workbench-role-legend">{shares.map(({ role, characters, percentage }) => <div key={role}>
+      <dt><span className="workbench-role-dot" style={{ background: `var(--color-context-${role})` }} aria-hidden="true" />{role}</dt>
+      <dd>{percentage.toFixed(1)}% · {t.workbench.characters(characters)}</dd>
+    </div>)}</dl>
   </section>;
 }
 function ContextDiff({ current, previous, loading }: { current?: DebugPayload | null; previous?: DebugPayload | null; loading: boolean }) {

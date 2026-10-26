@@ -88,6 +88,10 @@
   --color-plan-automatic: #a374bb;
   --color-trace-model: #286fa8;
   --color-trace-tool: #956019;
+  --color-context-system: #b85cfa;
+  --color-context-tool: #71d1a3;
+  --color-context-assistant: #ff9d45;
+  --color-context-user: #3b82f7;
 
   /* Type */
   --font-sans: 'DM Sans Variable', 'PingFang SC', 'Microsoft YaHei', sans-serif;
@@ -124,6 +128,10 @@
   --color-plan-automatic: #ca9fe0;
   --color-trace-model: #70bbef;
   --color-trace-tool: #efbc65;
+  --color-context-system: #cb83ff;
+  --color-context-tool: #83ddb4;
+  --color-context-assistant: #ffb35e;
+  --color-context-user: #6aa3ff;
 
   /* Brand colors stay fixed; semantic roles adapt to their surfaces.
      Accent hover stays paired with forest text; danger/notification fills keep

@@ -1880,8 +1880,9 @@ test('developer workbench records hidden executions and only gates entry visibil
     await expect(page.getByRole('switch', { name: 'Follow live execution', exact: true })).not.toBeChecked();
     await inspector.getByRole('tab', { name: 'Context', exact: true }).click();
     await expect(inspector).toContainText('Debug context source check');
-    for (const role of ['system', 'assistant', 'tool', 'user']) await expect(inspector.getByRole('progressbar', { name: role, exact: true })).toBeVisible();
-    expect(Number(await inspector.getByRole('progressbar', { name: 'user', exact: true }).getAttribute('aria-valuenow'))).toBeGreaterThan(0);
+    await expect(inspector.locator('.workbench-role-bar')).toBeVisible();
+    await expect(inspector.locator('.workbench-role-legend dt')).toHaveText(['system', 'tool', 'assistant', 'user']);
+    expect(await inspector.locator('.workbench-role-bar > [data-role="user"]').evaluate(element => element.getBoundingClientRect().width)).toBeGreaterThan(0);
     const contextCodeMessage = inspector.locator('.workbench-message:has(.ui-code-block)').first();
     if (await contextCodeMessage.getAttribute('open') === null) await contextCodeMessage.locator('summary').first().click();
     for (const disclosure of await contextCodeMessage.locator('details:has(.ui-code-block)').all()) {
@@ -1927,7 +1928,7 @@ test('developer workbench records hidden executions and only gates entry visibil
     await page.getByRole('switch', { name: 'Show all events', exact: true }).click();
     await page.getByRole('button', { name: 'Latest checkpoint', exact: true }).click();
     await expect(inspector.getByRole('heading', { name: 'Latest checkpoint', exact: true })).toBeVisible();
-    await expect(inspector.getByRole('progressbar')).toHaveCount(4);
+    await expect(inspector.locator('.workbench-role-bar')).toHaveCount(1);
     await expect(inspector).toContainText('Runtime delivered this reply through conversation_publish.');
     await page.reload(); await expect(timeline.locator('.trajectory-record--model')).toHaveCount(6);
     await expect.poll(() => timeline.locator('.trajectory-scroll').evaluate(panel => panel.scrollHeight - panel.clientHeight - panel.scrollTop < 2)).toBe(true);

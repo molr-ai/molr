@@ -10,12 +10,12 @@ test('role shares count decoded content without serialization or metadata overhe
     { Role: 'user', Text: '\n' },
     { Role: 'unknown', Text: 'ignored' },
   ]);
-  expect(shares.map(({ characters }) => characters)).toEqual([2, 14, 2, 2]);
-  expect(shares.map(({ percentage }) => percentage)).toEqual([10, 70, 10, 10]);
+  expect(shares.map(({ characters }) => characters)).toEqual([2, 2, 14, 2]);
+  expect(shares.map(({ percentage }) => percentage)).toEqual([10, 10, 70, 10]);
 });
 
 test('missing roles and empty content have finite zero shares', () => {
   expect(contextRoleShares([]).map(item => item.percentage)).toEqual([0, 0, 0, 0]);
-  expect(contextRoleShares([{ Role: 'tool', Text: 'result' }]).map(item => item.percentage)).toEqual([0, 0, 100, 0]);
+  expect(contextRoleShares([{ Role: 'tool', Text: 'result' }]).map(item => item.percentage)).toEqual([0, 100, 0, 0]);
   expect(contextRoleShares([{ Role: 'assistant', Calls: null }]).every(item => item.characters === 0)).toBe(true);
 });
