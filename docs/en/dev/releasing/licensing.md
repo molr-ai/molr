@@ -37,11 +37,13 @@ Under the current usage patterns of standalone applications, library calls, and 
 
 Desktop packaging adds Electron 44.8.0 and electron-builder 26.15.3 with build-only npm dependencies; no Go modules are added. Go is updated to 1.27.2; its root LICENSE is identical to 1.27.1. Notice generation for all four targets adds or changes no dependency license text. macOS system libraries are supplied by the operating system and are not copied into Molr artifacts.
 
-The Feishu channel adds official Go SDK v3.12.2 (MIT), Gorilla WebSocket v1.5.0 (BSD-2-Clause), and GoGo protobuf v1.3.2 (BSD-3-Clause). Original license texts were reviewed and included in the notices. The inventory now contains 25 Go modules.
+The Feishu channel adds official Go SDK v3.12.2 (MIT), Gorilla WebSocket v1.5.0 (BSD-2-Clause), and GoGo protobuf v1.3.2 (BSD-3-Clause). Original license texts were reviewed and included in the notices.
 
 ## Inventory and Maintenance
 
-[license-inventory.json](../../../dev/releasing/license-inventory.json) records 603 npm third-party installation location records and 25 Go modules, covering direct, transitive, development, and platform-optional dependencies; the seven workspace links are not counted as third-party records. Linux x64 actually installs 567 locations; the other 36 platform-optional build tools are verified against the same version package family and lock file, without individually verifying their binaries. The current Linux amd64 Runtime references 23 of these Go modules; notice collection traverses the actual Linux/macOS dependency package directories for amd64/arm64, retaining more specific nested licenses.
+The terminal prototype adds Bubble Tea v1.3.10, Bubbles v0.21.0, Lip Gloss v1.1.1-0.20250404203927-76690c660834, Glamour v0.10.0, and their terminal and Markdown dependencies. Added components use MIT or BSD-3-Clause; original texts are distributed in the consolidated notices. `go-localereader` v0.0.1 declares MIT and its author only in its README; that declaration and the MIT terms are included in the supplement. The inventory also records the added dependencies and the `golang.org/x/sync` version change.
+
+[license-inventory.json](../../../dev/releasing/license-inventory.json) records 606 npm third-party installation locations and 62 Go modules, covering direct, transitive, development, and platform-optional dependencies; the seven workspace links are not counted as third-party records. Platform-optional build tools are checked against the same-version package family and lockfile, without individually verifying their binaries. The current Linux amd64 Runtime references 59 of these Go modules; notice collection traverses actual Linux/macOS dependency package directories for amd64/arm64, retaining more specific nested licenses.
 
 Update method:
 

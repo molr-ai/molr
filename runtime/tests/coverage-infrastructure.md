@@ -1,5 +1,7 @@
 # 基础设施与公共类型测试覆盖清单
 
+终端客户端覆盖登录会话、HTTP/SSE、聊天与审批；离线演示和非终端拒绝独立验证。
+
 这里记录测试设计到公开入口的映射，不是已通过的实现覆盖率。各模块已经通过真实实现工厂接入；缺失工厂仍会明确失败。
 
 | 包 | 公开入口 | 测试 |
@@ -27,6 +29,14 @@
 | `internal/core` | `Secret.MarshalJSON` | `TestTDDCoreSecretEveryRepresentationIsRedacted` |
 | `internal/core` | `Secret.MarshalText` | `TestTDDCoreSecretEveryRepresentationIsRedacted` |
 | `internal/core` | `Error.Error` | `TestTDDCoreErrorClassificationAndPrivateCause` |
+| `internal/cli` | `Run` | `TestRunConnectionOptionsAndTerminal` |
+| `internal/tui` | `Run` | `TestRunRejectsNonTerminal` |
+| `internal/tui` | `RunConnected` | `TestRunConnectedRejectsNonTerminalAndLiveErrors` |
+| `internal/tui` | `RunManaged` | `TestConnectionManagerNonTerminalAndNestedCommands` |
+| `internal/runtimeclient` | `OpenConnections`, `Connections.Add`, `Connections.Select`, `Connections.SessionPath` | `TestConnectionsRememberLastAndIsolateSessions`, `TestConnectionsRejectInvalidStoreAndPreserveOnWriteFailure` |
+| `internal/runtimeclient` | `New`, `NewKey` | `TestTransportValidationRedirectAndTLS` |
+| `internal/runtimeclient` | `Client.Login`, `Client.CompleteMFA`, `Client.Do`, `Client.Restore`, `Client.Save`, `Error.Error` | `TestSessionLoginMFAPersistenceAndOriginIsolation` |
+| `internal/runtimeclient` | `Client.Watch` | `TestWatchReadyResumeAndCancellation` |
 | `internal/core` | `Error.Unwrap` | `TestTDDCoreErrorClassificationAndPrivateCause` |
 | `internal/core` | `NewError` | `TestTDDCoreErrorClassificationAndPrivateCause` |
 | `internal/core` | `Wrap` | `TestTDDCoreErrorClassificationAndPrivateCause` |

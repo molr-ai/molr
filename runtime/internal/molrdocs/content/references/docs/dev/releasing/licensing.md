@@ -37,11 +37,13 @@ Electron 作为框架二进制分发。桌面包在 `resources/licenses` 中保�
 
 桌面构建新增 Electron 44.8.0、electron-builder 26.15.3 及其仅用于构建的 npm 依赖，未新增 Go 模块。Go 工具链更新至 1.27.2，与 1.27.1 的根 LICENSE 正文相同；四个平台目标的声明生成结果未增加或更改依赖许可证正文。macOS 系统运行库由操作系统提供，不复制进 Molr 产物。
 
-飞书渠道新增官方 Go SDK v3.12.2（MIT）、Gorilla WebSocket v1.5.0（BSD-2-Clause）和 GoGo protobuf v1.3.2（BSD-3-Clause）。已核对原始许可证，完整声明进入汇总文件；当前清单包含 25 个 Go 模块。
+飞书渠道新增官方 Go SDK v3.12.2（MIT）、Gorilla WebSocket v1.5.0（BSD-2-Clause）和 GoGo protobuf v1.3.2（BSD-3-Clause）。已核对原始许可证，完整声明进入汇总文件。
 
 ## 清单与维护
 
-[license-inventory.json](https://github.com/molr-ai/molr/blob/main/docs/dev/releasing/license-inventory.json) 记录 603 条 npm 第三方安装位置记录和 25 个 Go 模块，覆盖直接、传递、开发及平台可选依赖；七个工作区链接不计入第三方记录。Linux x64 实际安装 567 个位置；其他 36 个平台可选构建工具按同版本包族及锁文件核对，未逐个检验其二进制。当前 Linux amd64 Runtime 引用其中 23 个 Go 模块；通知收集遍历 Linux/macOS 的 amd64/arm64 实际依赖包目录，保留更具体的嵌套许可证。
+终端交互原型引入 Bubble Tea v1.3.10、Bubbles v0.21.0、Lip Gloss v1.1.1-0.20250404203927-76690c660834、Glamour v0.10.0 及其终端和 Markdown 处理依赖。新增组件采用 MIT 或 BSD-3-Clause，原始文本随汇总通知交付；`go-localereader` v0.0.1 仅在 README 中声明 MIT 与作者，声明及 MIT 条款收录在补充区。清单同时记录新增依赖和 `golang.org/x/sync` 的版本变化。
+
+[license-inventory.json](https://github.com/molr-ai/molr/blob/main/docs/dev/releasing/license-inventory.json) 记录 606 条 npm 第三方安装位置记录和 62 个 Go 模块，覆盖直接、传递、开发及平台可选依赖；七个工作区链接不计入第三方记录。平台可选构建工具按同版本包族及锁文件核对，未逐个检验其二进制。当前 Linux amd64 Runtime 引用其中 59 个 Go 模块；通知收集遍历 Linux/macOS 的 amd64/arm64 实际依赖包目录，保留更具体的嵌套许可证。
 
 更新方式：
 

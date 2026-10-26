@@ -19,6 +19,7 @@ import (
 	"molr.ai/runtime/internal/app"
 	"molr.ai/runtime/internal/auth"
 	"molr.ai/runtime/internal/buildinfo"
+	"molr.ai/runtime/internal/cli"
 	"molr.ai/runtime/internal/config"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/logging"
@@ -56,6 +57,9 @@ func password(r io.Reader) (core.Secret, error) {
 	return core.NewSecret(value), nil
 }
 func run(ctx context.Context, args []string, input io.Reader, output, diagnostics io.Writer) (resultErr error) {
+	if len(args) > 0 && args[0] == "tui" {
+		return cli.Run(ctx, args[1:], input, output, diagnostics)
+	}
 	if len(args) == 2 && args[0] == "version" && args[1] == "--json" {
 		return json.NewEncoder(output).Encode(buildinfo.Current())
 	}
@@ -64,7 +68,7 @@ func run(ctx context.Context, args []string, input io.Reader, output, diagnostic
 		return nil
 	}
 	if len(args) == 0 {
-		fmt.Fprintln(output, "Usage: molr <bootstrap|init|serve|container|connection-code|access|doctor|recover|version> --config /path/server.json\n       molr serve --mode server|sandbox --config /path/server.json")
+		fmt.Fprintln(output, "Usage: molr <bootstrap|init|serve|container|connection-code|access|doctor|recover|version> --config /path/server.json\n       molr serve --mode server|sandbox --config /path/server.json\n       molr tui [--server https://molr.example.com] [--login]\n       molr tui --demo")
 		return nil
 	}
 	command := args[0]

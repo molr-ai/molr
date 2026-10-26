@@ -4,6 +4,34 @@ Select an assistant from the assistant list to assign tasks, send attachments, a
 
 In the default desktop interface, drag the gaps between the assistant list, chat, and docked side panel to resize them. Focus a separator and use Left/Right to adjust it, Shift for larger steps, or Home/End for the current minimum/maximum width. Widths are saved for the current browser and account and restored after a reload. Assistant information, permissions, tasks, running tasks, browser, files, and terminal panels each keep their own width. Smaller windows constrain the displayed widths and use a drawer when docking cannot fit; enlarging the window restores the saved widths.
 
+## Terminal Chat
+
+Run in an interactive terminal:
+
+```bash
+molr tui
+```
+
+By default, the TUI restores the last successfully connected Runtime. With no previous selection, it opens connection management. Use arrows and Enter to open a saved connection; choose “Add connection” or press N to add an address. Name and CA certificate path are optional. Tab changes fields and Enter saves and connects. Failed connections keep the list and error visible for retry or another selection.
+
+Press Ctrl+O or send `/connections` from chat to open connection management; Esc returns to the current chat. Switching Runtimes cancels the previous connection's requests and realtime subscription. Connections, login sessions, and in-process chat drafts are isolated by Runtime and account. Returning to the same account restores its drafts.
+
+First-time connections open a separate login page for username and password, followed by an MFA code when enabled. Passwords and codes are masked and never saved to disk. Connections and the last selection live in `molr/connections.json` under the user configuration directory; each session has its own file under `molr/sessions/`, with mode `0600`. After session expiry, reopen connection management and select that connection to sign in again.
+
+`--server URL` or `MOLR_SERVER` overrides the startup selection and adds the address to the list; a successful connection becomes the next default. `--connections FILE` uses an isolated list and session directory. With `--server`, `--session FILE` selects a session file for that connection and `--ca FILE` trusts an additional PEM certificate. `--login` signs in again; `--logout` revokes the selected session and exits while retaining the connection.
+
+The terminal uses existing Runtime assistants, conversation history, and permission requests. Chat, assistant selection, approvals, and help use separate borderless full-screen pages. Ctrl+K or `/assistant` opens selection; type to search names, use arrows, and press Enter. Switching assistants preserves drafts, cursors, and scroll positions during the current run. If there are no assistants, create one in WebUI and press Ctrl+R to refresh.
+
+Enter sends; Alt+Enter or Ctrl+J inserts a newline. The composer grows from one to three visible rows and scrolls additional text. PgUp/PgDn and the wheel scroll history; scrolling upward at the top loads older records. Ctrl+End returns to the latest message. Lost realtime connections reconnect and fetch missed messages. Ctrl+R refreshes manually. Failed sends preserve the draft; retrying the same content with Enter reuses its idempotency key. Runtime retains sent messages after exit; unsent drafts are not saved to disk.
+
+Ctrl+P or `/approval` opens a pending request with its resource, actions, scope, expiry, and limits. Approve is selected initially; arrows switch to reject and Enter submits. Opening the page does not grant permission. PgUp/PgDn scrolls long requests. Decisions use the displayed request and version; reopen the page after a conflict. Grouped requests are resolved together with the proposed parameters unchanged; use WebUI to edit parameters. Reopen approvals to process the next request.
+
+User messages and the composer share a background; assistant replies use the terminal background. Messages and help support Markdown tables, quotes, code, bold, and italics; the composer keeps source text. Drag to select visible text, Ctrl+C to copy, and click anywhere or press Esc to clear. Highlighting preserves text styles. Composer and message selections stay within their own regions. Copy requires terminal support and permission for OSC52 clipboard writes. Scrolling or resizing clears the selection.
+
+F1 or `/help` shows shortcuts, Esc returns, and Ctrl+Q or `/quit` exits; Ctrl+C also exits without a selection. The minimum size is 42 columns by 18 rows. Attachments appear as notices; use WebUI for attachments, assistant creation, and resource configuration. Real tasks initiated through terminal chat run in Runtime under existing permissions and sandbox controls.
+
+`molr tui --demo` retains offline previews with preset assistants, replies, and simulated approvals. It does not connect to Runtime and discards demo data on exit.
+
 ## Persistent Chat and Assistant Management
 
 Each assistant has its own persistent chat, execution state, and resource permissions. You can search by name, pin, rename, and edit models and budgets. The list prioritizes pinned assistants; pinned and unpinned assistants are each sorted in descending order by the time of their last message, with assistants that have no messages placed at the end of their respective groups; the order updates automatically when new messages arrive. The current real WebUI does not provide session grouping operations.

@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "reviewedAt": "2026-10-18",
+  "reviewedAt": "2026-10-26",
   "baseCommit": "0e38689",
   "scope": "License compatibility and notice delivery review; see docs/dev/releasing/licensing.md.",
   "inputs": {
     "package-lock.json": "2945a75f4dff729dd074798189214d87b32df4ba18596eb6212e9374c487a266",
-    "runtime/go.mod": "2981cdb18ba6d23f767f200ce8bac921b410890f0fbe4ab0ab7c038366754177",
-    "runtime/go.sum": "62419963ae93fb75137f059806eaf5af2cd04c334a38f01e18468fd594ab4319",
+    "runtime/go.mod": "20695b66298a1aabe9327797372483900b07fe563d768cc5db5f76f7fb532e6b",
+    "runtime/go.sum": "f2da58d8690bb4fd0eb35f8262bfd09fec890940119577fe7db8b3935693c66d",
     "runtime/.go-version": "6c075150045fda9bac31bb93cf5a0a0bc91622a75c1f10fb2971e6f994c6d4d6",
     "runtime/internal/voicecodec/silk.wasm": "13de15803937f44593398fee46d1dd7ee4ea2f04c819f8f887525b4cd9b60bf7",
     "runtime/internal/voicecodec/README.md": "0b8a2c9634b6361a46c4ca75120a734a3f247d3779c46db62e4487578840caa5",
@@ -14,7 +14,7 @@
     "scripts/build-release.mjs": "07198f96ef06be6e684226a18bcb773e33c8e2b0c02215678e2281d3e7dd9df6",
     "apps/website/src/GithubMark.tsx": "7d0d38bb13335793c5ed91d5f27ffc8e5fc2811d7eff9ce6e59a6f6d33d5a37a",
     "apps/website/src/site-links.ts": "f360bbe44df89647e5d43207230ab65ee7b2c899aa2f680f1863bba125d2c1cd",
-    "THIRD_PARTY_NOTICES.md": "80f52b93a7e1ef215e0e3d5234c61a7a332732facfadd6dc3875a937c8f651a2",
+    "THIRD_PARTY_NOTICES.md": "071c08836287d2ee3e634da824f23eb64e302f007349cb7ec26b9b155b672499",
     "scripts/license-assets.ts": "2f17e19230ad1b6fa1b44bfd974abec0d2c36522dd009ebed61151040eb715db",
     "scripts/update-third-party-notices.py": "468adbcab07505c888e08017ac41534c4eecc29285721274e3544026e0ef4be8",
     "scripts/promote-release.mjs": "3875373d2fe869b79eda684b6deef53173f8f0af7cf1e41f25f9ea977f972e27",
@@ -11309,6 +11309,188 @@
   ],
   "go": [
     {
+      "name": "github.com/alecthomas/chroma/v2",
+      "version": "v2.14.0",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "COPYING",
+          "sha256": "e7bf754e7153012a3a8ff697d21acd6c12e590d6a55f2aef8ee83616aa9a795f"
+        }
+      ],
+      "moduleChecksum": "h1:R3+wzpnUArGcQz7fCETQBzO5n9IMNi13iIs46aU4V9E="
+    },
+    {
+      "name": "github.com/atotto/clipboard",
+      "version": "v0.1.4",
+      "license": "BSD-3-Clause",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "2c4bac8e2a97180d6e7758c37de85d1cda1859aaf85b56da15d935d2d9a5564f"
+        }
+      ],
+      "moduleChecksum": "h1:EH0zSVneZPSuFR11BlR9YppQTVDbh5+16AmcJi4g1z4="
+    },
+    {
+      "name": "github.com/aymanbagabas/go-osc52/v2",
+      "version": "v2.0.1",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "11319e34d9dac2f45392f14f4f62e28b24173cfa13d39b32e7b7b66c2f3bdccd"
+        }
+      ],
+      "moduleChecksum": "h1:HwpRHbFMcZLEVr42D4p7XBqjyuxQH5SMiErDT4WkJ2k="
+    },
+    {
+      "name": "github.com/aymerick/douceur",
+      "version": "v0.2.0",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "a91ec19456c4efb3d9fc22dc9c1ec60ec3701a9e8f4be511ebcf908c04288ffb"
+        }
+      ],
+      "moduleChecksum": "h1:Mv+mAeH1Q+n9Fr+oyamOlAkUNPWPlA8PPGR0QAaYuPk="
+    },
+    {
+      "name": "github.com/charmbracelet/bubbles",
+      "version": "v0.21.0",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "9ca49aaf6748976a8f0a9d7448f34a5f5edf1f363385f1a789e09e328c3d3f84"
+        }
+      ],
+      "moduleChecksum": "h1:9TdC97SdRVg/1aaXNVWfFH3nnLAwOXr8Fn6u6mfQdFs="
+    },
+    {
+      "name": "github.com/charmbracelet/bubbletea",
+      "version": "v1.3.10",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "69793670485e4ae8bf28fcbe5639141f604256d5bb6c1862571f3a32823fa221"
+        }
+      ],
+      "moduleChecksum": "h1:otUDHWMMzQSB0Pkc87rm691KZ3SWa4KUlvF9nRvCICw="
+    },
+    {
+      "name": "github.com/charmbracelet/colorprofile",
+      "version": "v0.2.3-0.20250311203215-f60798e515dc",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "57d6eeeb336030b89c0e0d12cf869f84b97a481cd00b350ef21fca995da5a39a"
+        }
+      ],
+      "moduleChecksum": "h1:4pZI35227imm7yK2bGPcfpFEmuY1gc2YSTShr4iJBfs="
+    },
+    {
+      "name": "github.com/charmbracelet/glamour",
+      "version": "v0.10.0",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "30bf812ed0c30e86192cb609b74cf5f2a7303553f7e10ddbfc926172af115b89"
+        }
+      ],
+      "moduleChecksum": "h1:MtZvfwsYCx8jEPFJm3rIBFIMZUfUJ765oX8V6kXldcY="
+    },
+    {
+      "name": "github.com/charmbracelet/lipgloss",
+      "version": "v1.1.1-0.20250404203927-76690c660834",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "699cffa88b62691ea09706d356e5ee0982e87ca2b1c58ca682f27d6ae87f9efc"
+        }
+      ],
+      "moduleChecksum": "h1:ZR7e0ro+SZZiIZD7msJyA+NjkCNNavuiPBLgerbOziE="
+    },
+    {
+      "name": "github.com/charmbracelet/x/ansi",
+      "version": "v0.10.1",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "0baa4a5942a801d93f4050d2bc0039d8c037105fcd335230d118eec99a11782b"
+        }
+      ],
+      "moduleChecksum": "h1:rL3Koar5XvX0pHGfovN03f5cxLbCF2YvLeyz7D2jVDQ="
+    },
+    {
+      "name": "github.com/charmbracelet/x/cellbuf",
+      "version": "v0.0.13",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "0baa4a5942a801d93f4050d2bc0039d8c037105fcd335230d118eec99a11782b"
+        }
+      ],
+      "moduleChecksum": "h1:/KBBKHuVRbq1lYx5BzEHBAFBP8VcQzJejZ/IA3iR28k="
+    },
+    {
+      "name": "github.com/charmbracelet/x/exp/slice",
+      "version": "v0.0.0-20250327172914-2fdc97757edf",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "0baa4a5942a801d93f4050d2bc0039d8c037105fcd335230d118eec99a11782b"
+        }
+      ],
+      "moduleChecksum": "h1:rLG0Yb6MQSDKdB52aGX55JT1oi0P0Kuaj7wi1bLUpnI="
+    },
+    {
+      "name": "github.com/charmbracelet/x/term",
+      "version": "v0.2.1",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "0baa4a5942a801d93f4050d2bc0039d8c037105fcd335230d118eec99a11782b"
+        }
+      ],
+      "moduleChecksum": "h1:AQeHeLZ1OqSXhrAWpYUtZyX1T3zVxfpZuEQMIQaGIAQ="
+    },
+    {
+      "name": "github.com/dlclark/regexp2",
+      "version": "v1.11.0",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "9be5d04bb4d706914d5bf943710da4afeb42048f7c529902fb57c82762a991a9"
+        }
+      ],
+      "moduleChecksum": "h1:G/nrcoOa7ZXlpoa/91N3X7mM3r8eIlMBBJZvsz/mxKI="
+    },
+    {
       "name": "github.com/dustin/go-humanize",
       "version": "v1.0.1",
       "license": "MIT",
@@ -11320,6 +11502,19 @@
         }
       ],
       "moduleChecksum": "h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY="
+    },
+    {
+      "name": "github.com/erikgeiser/coninput",
+      "version": "v0.0.0-20211004153227-1c3628e74d0f",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": false,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "0a00deeeb36bb7b8ccbb9003100b665e584d9384e66c8c26f29b5929ecaa745b"
+        }
+      ],
+      "moduleChecksum": "h1:Y/CXytFA4m6baUTXGLOoWe4PQhGxaX0KpnayAqC48p4="
     },
     {
       "name": "github.com/gogo/protobuf",
@@ -11374,6 +11569,19 @@
       "moduleChecksum": "h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0="
     },
     {
+      "name": "github.com/gorilla/css",
+      "version": "v1.0.1",
+      "license": "BSD-3-Clause",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "af11d643d903cb178a641d7512879285287844f7a6c0611e2d0c6b131e50188b"
+        }
+      ],
+      "moduleChecksum": "h1:ntNaBIghp6JmvWnxbZKANoLyuXTPZ4cAMlo6RyhlbO8="
+    },
+    {
       "name": "github.com/gorilla/websocket",
       "version": "v1.5.0",
       "license": "BSD-2-Clause",
@@ -11400,10 +11608,23 @@
       "moduleChecksum": "h1:YjIVkSXW3TZOL3HCdJdTKYYP3ZBIM9ql9+TVyb1XL2w="
     },
     {
+      "name": "github.com/lucasb-eyer/go-colorful",
+      "version": "v1.2.0",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "1e4cf2a117516ec1b54041d68ed4f5d331878b04de3386f4790e7b5b9c04e1ec"
+        }
+      ],
+      "moduleChecksum": "h1:1nnpGOrhyZZuNyfu1QjKiUICQ74+3FNCN69Aj6K7nkY="
+    },
+    {
       "name": "github.com/mattn/go-isatty",
       "version": "v0.0.24",
       "license": "MIT",
-      "linkedOnLinuxAMD64": false,
+      "linkedOnLinuxAMD64": true,
       "licenseFiles": [
         {
           "file": "LICENSE",
@@ -11411,6 +11632,45 @@
         }
       ],
       "moduleChecksum": "h1:tGZZoVgT/KiqK1c8ocVLeDS8BSWMRd47J3Lbz7vsReI="
+    },
+    {
+      "name": "github.com/mattn/go-localereader",
+      "version": "v0.0.1",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": false,
+      "licenseFiles": [
+        {
+          "file": "README.md",
+          "sha256": "0c5c52517f13becd7a1e1234f1e8a5ba370f5a5078cee9ac058c2d534e267fcb"
+        }
+      ],
+      "moduleChecksum": "h1:ygSAOl7ZXTx4RdPYinUpg6W99U8jWvWi9Ye2JC/oIi4="
+    },
+    {
+      "name": "github.com/mattn/go-runewidth",
+      "version": "v0.0.16",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "88a2379b3ca34bf5c57127aff9dcb802bbb60ece0805cdbda65b3bd115f971d9"
+        }
+      ],
+      "moduleChecksum": "h1:E5ScNMtiwvlvB5paMFdw9p4kSQzbXFikJ5SQO6TULQc="
+    },
+    {
+      "name": "github.com/microcosm-cc/bluemonday",
+      "version": "v1.0.27",
+      "license": "BSD-3-Clause",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.md",
+          "sha256": "a8e8489f1168b5f3e0ebb43d7fe1c78a2fd7db9939c1a6cb555940a4b631f8d2"
+        }
+      ],
+      "moduleChecksum": "h1:MpEUotklkwCSLeH+Qdx1VJgNqLlpY2KXwXFM08ygZfk="
     },
     {
       "name": "github.com/modelcontextprotocol/go-sdk",
@@ -11425,6 +11685,58 @@
       ],
       "moduleChecksum": "h1:yqjY2dsbKAC0LSuWZVBMrHgiG8ukXv6NRo0JiALay44=",
       "additionalLicenses": "Upstream licensing transition: retain Apache-2.0 and MIT code notices. SDK documentation is CC-BY-4.0 and is not bundled as product documentation."
+    },
+    {
+      "name": "github.com/muesli/ansi",
+      "version": "v0.0.0-20230316100256-276c6243b2f6",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "43f65e00e8919fa43c5f45bb2ae578b6d3ee823eb99aa14c85c9ecd06e0350b5"
+        }
+      ],
+      "moduleChecksum": "h1:ZK8zHtRHOkbHy6Mmr5D264iyp3TiX5OmNcI5cIARiQI="
+    },
+    {
+      "name": "github.com/muesli/cancelreader",
+      "version": "v0.2.2",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "8c139dbbc83b4fb055b4100b6b9402f7de3dd6bbca05015bdfcc4b392c8cfd5f"
+        }
+      ],
+      "moduleChecksum": "h1:3I4Kt4BQjOR54NavqnDogx/MIoWBFa0StPA8ELUXHmA="
+    },
+    {
+      "name": "github.com/muesli/reflow",
+      "version": "v0.3.0",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "233e8cf9a812999ccee4d3edb270b0f11ab3539658e680bcb873604915ca5038"
+        }
+      ],
+      "moduleChecksum": "h1:IFsN6K9NfGtjeggFP+68I4chLZV2yIKsXJFNZ+eWh6s="
+    },
+    {
+      "name": "github.com/muesli/termenv",
+      "version": "v0.16.0",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "233e8cf9a812999ccee4d3edb270b0f11ab3539658e680bcb873604915ca5038"
+        }
+      ],
+      "moduleChecksum": "h1:S5AlUN9dENB57rsbnkPyfdGuWIlkmzJjbFf0Tf5FWUc="
     },
     {
       "name": "github.com/ncruces/go-strftime",
@@ -11451,6 +11763,19 @@
         }
       ],
       "moduleChecksum": "h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE="
+    },
+    {
+      "name": "github.com/rivo/uniseg",
+      "version": "v0.4.7",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE.txt",
+          "sha256": "a59885f5f0f3b3c07cf9444db5fe399b6f0791eac82055f7b85cc65500551039"
+        }
+      ],
+      "moduleChecksum": "h1:WUdvkW8uEhrYfLC4ZzdpI2ztxP1I582+49Oc5Mq64VQ="
     },
     {
       "name": "github.com/segmentio/asm",
@@ -11535,6 +11860,19 @@
       "moduleChecksum": "h1:DfiHV+j8bA32MFM7bfEunvT8IAqQ/NzSJHtcmW5zdEY="
     },
     {
+      "name": "github.com/xo/terminfo",
+      "version": "v0.0.0-20220910002029-abceb7e1c41e",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "1f5f51151ba96f0492ce288bd007242f924fdad9f04002e175e951644340a891"
+        }
+      ],
+      "moduleChecksum": "h1:JVG44RsyaB9T2KIHavMF/ppJZNG9ZpyihvCd0w101no="
+    },
+    {
       "name": "github.com/yosida95/uritemplate/v3",
       "version": "v3.0.2",
       "license": "BSD-3-Clause",
@@ -11546,6 +11884,32 @@
         }
       ],
       "moduleChecksum": "h1:Ed3Oyj9yrmi9087+NczuL5BwkIc4wvTb5zIM+UJPGz4="
+    },
+    {
+      "name": "github.com/yuin/goldmark",
+      "version": "v1.7.8",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "c1d6f653c38c80294dc7994647ba0dcc508ce64a86996303c804efa2f7982bff"
+        }
+      ],
+      "moduleChecksum": "h1:iERMLn0/QJeHFhxSt3p6PeN9mGnvIKSpG9YYorDMnic="
+    },
+    {
+      "name": "github.com/yuin/goldmark-emoji",
+      "version": "v1.0.5",
+      "license": "MIT",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "64ce0d485c3558737f049b960abc5dde745f4122daaae1869ebc066566cc35f1"
+        }
+      ],
+      "moduleChecksum": "h1:EMVWyCGPlXJfUXBXpuMu+ii3TIaxbVBnEX9uaDC4cIk="
     },
     {
       "name": "golang.org/x/crypto",
@@ -11614,7 +11978,7 @@
     },
     {
       "name": "golang.org/x/sync",
-      "version": "v0.22.0",
+      "version": "v0.23.0",
       "license": "BSD-3-Clause",
       "linkedOnLinuxAMD64": true,
       "licenseFiles": [
@@ -11623,7 +11987,7 @@
           "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
         }
       ],
-      "moduleChecksum": "h1:SZjpbeLmrCk4xhRSZFNZW5gFUeCeFgjekvI/+gfScek="
+      "moduleChecksum": "h1:KameEIfc1IkluZyXWLn39Wd4tURc6GbCiISGiZm2bQk="
     },
     {
       "name": "golang.org/x/sys",
@@ -11637,6 +12001,32 @@
         }
       ],
       "moduleChecksum": "h1:bbX/i/6MgT9BVLM9RT1thmxL04yeTAhbEz4SyadbXoo="
+    },
+    {
+      "name": "golang.org/x/term",
+      "version": "v0.46.0",
+      "license": "BSD-3-Clause",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        }
+      ],
+      "moduleChecksum": "h1:3+OXuTbaKDgwk8jTi3aSLHRlmWqHEUDUtxnbFigO4YE="
+    },
+    {
+      "name": "golang.org/x/text",
+      "version": "v0.42.0",
+      "license": "BSD-3-Clause",
+      "linkedOnLinuxAMD64": true,
+      "licenseFiles": [
+        {
+          "file": "LICENSE",
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        }
+      ],
+      "moduleChecksum": "h1:JbOZXgfeCPU9gacVtYliJqOhD+zhrEqK4LfdpmlUZqI="
     },
     {
       "name": "golang.org/x/time",

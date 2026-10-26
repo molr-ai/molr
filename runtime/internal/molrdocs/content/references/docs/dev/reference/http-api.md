@@ -6,7 +6,7 @@ Go 单体 server 使用显式注册的 `/api` 路由。这里不开放本机初�
 
 ## 公共协议边界
 
-客户端当前通过 HTTP/JSON 与 SSE 连接 Runtime；路由实现在 [`runtime/internal/api`](https://github.com/molr-ai/molr/blob/main/runtime/internal/api)，TypeScript DTO、客户端和续传逻辑在 [`@molr/sdk`](https://github.com/molr-ai/molr/blob/main/packages/sdk/README.md)。仓库没有独立的 OpenAPI／JSON Schema 分发包。HTTP 路径使用 `/api`，目前没有独立的客户端协议版本协商；对象的 `Version` / `ExpectedVersion` 用于并发修改检查，不代表协议版本。当前产品客户端是 WebUI；桌面与手机浏览器可连接同一 Runtime，独立 Desktop／Mobile／CLI 客户端不作为已发布能力。
+客户端当前通过 HTTP/JSON 与 SSE 连接 Runtime；路由实现在 [`runtime/internal/api`](https://github.com/molr-ai/molr/blob/main/runtime/internal/api)，TypeScript DTO、客户端和续传逻辑在 [`@molr/sdk`](https://github.com/molr-ai/molr/blob/main/packages/sdk/README.md)。仓库没有独立的 OpenAPI／JSON Schema 分发包。HTTP 路径使用 `/api`，目前没有独立的客户端协议版本协商；对象的 `Version` / `ExpectedVersion` 用于并发修改检查，不代表协议版本。WebUI、桌面 App 与 `molr tui` 使用同一组 Runtime 接口；Go 终端传输实现在 `runtime/internal/runtimeclient`，原生手机客户端尚未实现。
 
 公共接口只开放显式注册的业务能力，不等于全部 Go 模块接口。任务使用当前 `Task` 等领域对象；早期 `Work` 和虚拟 OS 提案不属于当前公共接口，不能据此构造请求。客户端 DTO、内部持久化记录和 Agent 检查点是不同边界，修改其中一种格式时需分别核对客户端兼容性与数据迁移，不能把内部格式当作稳定的网络合同。
 

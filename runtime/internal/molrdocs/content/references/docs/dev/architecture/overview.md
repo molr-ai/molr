@@ -9,6 +9,7 @@ Molr 采用 Go 模块化单体，使用 SQLite 与本地文件保存数据。Web
 - Electron 桌面 app 管理连接；Linux、macOS 和 Windows 包均可按需创建随包附带的原生 Runtime 服务，也可连接远程实例。
 - 手机当前通过浏览器使用 WebUI，尚未实现原生 iOS／Android App。各包内容和安装选择见[安装与服务管理](https://molr.ai/zh/docs/admin/deployment/installation/)。
 - UI Design 使用模拟数据展示组件和交互；其 Desktop／Mobile／CLI 视图不代表独立原生客户端。
+- `molr tui` 是原生终端客户端，`--demo` 保留离线预览。`cmd/molr` 在服务配置加载前分流到 `internal/cli`；`internal/runtimeclient` 管理同源 HTTP、Cookie/CSRF、会话文件及带游标的 SSE 重连；`internal/tui` 用 Bubble Tea 管理独立页面与异步事件。Glamour 渲染 Markdown，Goldmark 识别表格。消息按 ID 合并、按序号补取，发送重试保留幂等键；审批绑定展示的申请 ID 和版本，保留完整授权范围。新事件合并刷新，不改变正在选择的文本或审核目标。外层连接页面管理持久连接列表、上次成功连接和登录/MFA，内层聊天命令携带连接代次，丢弃旧连接迟到的响应；切换取消旧请求和 SSE，按连接与账号缓存进程内草稿，会话文件按连接独立保存。
 - 官网提供产品介绍和公开文档，与用户的 Runtime 实例分别部署。
 
 ## 1. 运行结构
@@ -157,7 +158,7 @@ SQLite 保存结构化数据，本地文件模块管理附件与产物。备份�
 
 ## 7. 当前实现与维护入口
 
-Runtime 已有 SQLite、认证授权、业务模块、Agent Loop、持久队列、HTTP/SSE、沙盒与命令行维护入口。WebUI 是真实客户端；Desktop/Mobile/CLI 的展示原型不等于独立原生客户端已经发布。
+Runtime 已有 SQLite、认证授权、业务模块、Agent Loop、持久队列、HTTP/SSE、沙盒与命令行维护入口。WebUI、桌面 App 与终端 TUI 使用真实 Runtime；UI Design 中的展示原型不代表额外客户端已经发布。
 
 具体 Go 包对应关系与事务合同由 [模块接口](https://molr.ai/zh/docs/dev/reference/module-interfaces/) 维护；客户端路由由 [HTTP API](https://molr.ai/zh/docs/dev/reference/http-api/) 维护。内置能力及限制见 [Runtime README](https://github.com/molr-ai/molr/blob/main/runtime/README.md)，验证入口见 [测试说明](https://github.com/molr-ai/molr/blob/main/runtime/tests/README.md)。
 

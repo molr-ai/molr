@@ -9,6 +9,7 @@ Molr adopts a Go modular monolith, using SQLite and local files for data storage
 - The Electron desktop app manages connections; Linux, macOS and Windows packages can optionally create a bundled native Runtime service and can connect to remote instances.
 - Phones currently use WebUI in a browser; no native iOS/Android App is implemented. Package contents and installation choices are described in [Installation and service management](../../admin/deployment/installation.md).
 - UI Design uses mock data to display components and interactions; its Desktop/Mobile/CLI views do not represent independent native clients.
+- `molr tui` is a native terminal client; `--demo` retains offline previews. `cmd/molr` dispatches to `internal/cli` before server configuration loads. `internal/runtimeclient` owns same-origin HTTP, cookies/CSRF, session files and resumable SSE. `internal/tui` uses Bubble Tea for independent pages and asynchronous events, Glamour for Markdown, and Goldmark for tables. Messages merge by ID and catch up by sequence; send retries retain idempotency keys. Approvals bind the displayed request ID and version while preserving its complete scope. Event refreshes are coalesced without changing selected text or the request under review. An outer connection model manages saved endpoints, the last successful connection, and login/MFA. Inner chat commands carry a connection generation so late responses are ignored; switching cancels previous requests and SSE. In-memory drafts are scoped to connection and account, with separate session files per connection.
 - The official website provides product introductions and public documentation, deployed separately from user Runtime instances.
 
 ## 1. Runtime Structure
@@ -157,7 +158,7 @@ User messages are marked as read after the Loop reads and confirms takeover; int
 
 ## 7. Current Implementation and Maintenance Entry Points
 
-The Runtime already includes SQLite, authentication and authorization, business modules, Agent Loop, persistent queues, HTTP/SSE, sandbox, and command-line maintenance entry points. The WebUI is a real client; display prototypes for Desktop/Mobile/CLI do not mean that independent native clients have been released.
+The Runtime already includes SQLite, authentication and authorization, business modules, Agent Loop, persistent queues, HTTP/SSE, sandbox, and command-line maintenance entry points. WebUI, the desktop app, and the terminal TUI connect to the real Runtime; UI Design prototypes do not represent additional released clients.
 
 Specific Go package mappings and transaction contracts are maintained in [Module Interfaces](../reference/module-interfaces.md); client routing is maintained in [HTTP API](../reference/http-api.md). For built-in capabilities and limitations, see [Runtime README](../../../../runtime/README.md); for verification entry points, see [Test Instructions](../../../../runtime/tests/README.md).
 
