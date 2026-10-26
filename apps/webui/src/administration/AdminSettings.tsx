@@ -5,7 +5,7 @@ import { AdminUsage } from './Usage';
 import { WorkbenchRetentionSettings } from './WorkbenchRetention';
 import { Components } from '../maintenance/Components';
 import { useState } from 'react';
-import { SlidingHighlight, ModalPresence, AssistantAvatar, Badge, Button, Checkbox, IconButton, Select, Tabs, TextField, useBreakpoint } from '@molr/ui';
+import { SlidingHighlight, ModalPresence, AssistantAvatar, Badge, Button, Checkbox, IconButton, SegmentedControl, Select, Tabs, TextField, useBreakpoint } from '@molr/ui';
 import { ChartNoAxesCombined, ChevronLeft, ChevronRight, Package, Plus, Settings, Shield, Users } from 'lucide-react';
 import { useCopy, useQuery, useSession } from '../state';
 import { useNavigation } from '../navigation';
@@ -86,7 +86,7 @@ function QuotaEditor({ reference, item, onSave, onClose }: { reference: Resource
   const change = (next: Partial<ResourceQuota>) => setQ(old => ({ ...old, ...next }));
   return <EditDialog notifyOnSave={false} title={`${item.Name} · ${item.Kind === 'sandbox' ? (zh ? '权限与配额' : 'Permissions and quotas') : (zh ? '配额' : 'Quotas')}`} onClose={onClose} onSubmit={async () => onSave({ ...q, Budget: budget.trim() ? { Currency: currency, Micros: micros(budget) } : undefined }, allowFullAccess)}>
     <p className="muted">{zh ? '以下上限分别应用于每位成员，不是全组共享余额。' : 'These limits apply independently to each member, not to a shared group balance.'}</p>
-    {item.Kind === 'model' && <div className="admin-form-grid"><TextField type="number" min={0} step="any" label={zh ? '费用上限（留空不限）' : 'Spend limit (blank: unlimited)'} value={budget} onChange={e => setBudget(e.target.value)} /><Select label={zh ? '币种' : 'Currency'} value={currency} onValueChange={setCurrency} options={[{ value: 'USD', label: 'USD' }, { value: 'CNY', label: 'CNY' }]} /></div>}
+    {item.Kind === 'model' && <div className="admin-form-grid"><TextField type="number" min={0} step="any" label={zh ? '费用上限（留空不限）' : 'Spend limit (blank: unlimited)'} value={budget} onChange={e => setBudget(e.target.value)} /><SegmentedControl label={zh ? '币种' : 'Currency'} value={currency} onValueChange={setCurrency} options={[{ value: 'USD', label: 'USD' }, { value: 'CNY', label: 'CNY' }]} /></div>}
     {item.Kind !== 'sandbox' && <TextField type="number" min={0} step={1} label={zh ? '调用次数上限（0 不限）' : 'Call limit (0: unlimited)'} value={String(q.Calls)} onChange={e => change({ Calls: Number(e.target.value) })} required />}
     <TextField type="number" min={0} step={1} label={zh ? '并发上限（0 不限）' : 'Concurrent limit (0: unlimited)'} value={String(q.Concurrent)} onChange={e => change({ Concurrent: Number(e.target.value) })} required />
     {item.Kind !== 'sandbox' && <div className="admin-form-grid"><Select label={zh ? '统计周期' : 'Usage period'} value={q.Period || 'month'} onValueChange={Period => change({ Period })} options={[{ value: 'day', label: zh ? '每天' : 'Daily' }, { value: 'week', label: zh ? '每周' : 'Weekly' }, { value: 'month', label: zh ? '每月' : 'Monthly' }, { value: 'lifetime', label: zh ? '累计' : 'Lifetime' }]} /><TextField label={zh ? '周期时区' : 'Period timezone'} value={q.Timezone || 'UTC'} onChange={e => change({ Timezone: e.target.value })} required /></div>}

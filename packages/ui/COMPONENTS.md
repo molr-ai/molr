@@ -19,7 +19,7 @@ import '@molr/ui/styles.css';
 
 主题由根元素的 `data-theme="light"` / `"dark"` 控制。可结合 `useTheme` 和 `ThemeSelect` 保存主题选择。所有组件使用同一套语义颜色变量；`ThemeSelect` 默认继承 `UIProvider` 的语言，也可单独传入 `locale`。装饰动画遵循 `prefers-reduced-motion`；Logo 的 `loading` 表达进行中的状态，保留动画，组件与下载的 SVG 行为一致。
 
-`ThemeSelect` 默认使用工具栏的紧凑模式。设置表单可传入 `compact={false}`、`label` 和 `size="sm"`，显示完整标签与选项文字，移动端也不会收缩为图标。
+`ThemeSelect` 默认使用工具栏的紧凑模式。设置页可用 `variant="segmented"` 直接展示三个单选项；此模式的 `compact` 只控制标签显隐，选项始终显示文字。设置表单可传入 `compact={false}`、`label` 和 `size="sm"`，显示完整标签与选项文字，移动端也不会收缩为图标。
 
 ## 视觉层级与边框
 

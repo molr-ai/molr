@@ -1,7 +1,7 @@
 import { useErrorToast } from '../../../error-toasts';
 import { usePluginsVisible } from '../../../plugins/visibility';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ModalPresence, Badge, Button, Dialog, Select, TextField } from '@molr/ui';
+import { ModalPresence, Badge, Button, Dialog, SegmentedControl, Select, TextField } from '@molr/ui';
 import { Copy, Plus } from 'lucide-react';
 import { api } from '@molr/sdk';
 import { useCopy, useQuery, useSession } from '../../../state';
@@ -70,7 +70,7 @@ function CreateLoginLink({ onClose, onIssued }: { onClose: () => void; onIssued:
     const proof = await verification.verify('login_link.create');
     onIssued(await api.post<IssuedLink>('/api/auth/login-links', { name, expires_in: Number(expiry), target_path: destination, verification: proof }));
   }}><TextField label={t.name} value={name} required maxLength={128} autoFocus onChange={event => setName(event.target.value)} />
-    <Select label={t.loginLinks.validFor} value={expiry} onValueChange={setExpiry} options={[{ value: '900', label: t.loginLinks.minutes15 }, { value: '3600', label: t.loginLinks.hour1 }, { value: '86400', label: t.loginLinks.hours24 }]} />
+    <SegmentedControl className="settings-choice-options" label={t.loginLinks.validFor} value={expiry} onValueChange={setExpiry} options={[{ value: '900', label: t.loginLinks.minutes15 }, { value: '3600', label: t.loginLinks.hour1 }, { value: '86400', label: t.loginLinks.hours24 }]} />
     <Select label={t.loginLinks.destination} value={destination} onValueChange={setTarget} options={[{ value: '/assistants', label: t.nav.assistants }, { value: '/plans', label: t.nav.plans }, ...(principal?.User?.Administrator ? [{ value: '/resources', label: t.nav.resources }] : []), ...(pluginsVisible ? [{ value: '/extensions', label: locale === 'zh' ? '插件' : 'Plugins' }] : []), { value: '/account/theme', label: t.settings.theme }, { value: '/account/security', label: t.settings.security }]} />
     <p className="muted">{t.loginLinks.singleUse}</p>
   </EditDialog>{verification.dialog}</>;

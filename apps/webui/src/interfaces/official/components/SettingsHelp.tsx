@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, type ReactNode } from 'react';
 import { Switch, Tooltip } from '@molr/ui';
 import type { SwitchProps } from '@molr/ui';
 import { Info } from 'lucide-react';
@@ -16,5 +16,12 @@ export function SettingsSwitch({ label, help, id, ...props }: Omit<SwitchProps, 
   return <div className="settings-row settings-row--with-help">
     <div className="settings-label"><span>{label}</span>{help && <SettingsHelp label={label} content={help} />}</div>
     <Switch size="lg" {...props} id={fieldID} label="" aria-label={label} className="settings-switch-control" />
+  </div>;
+}
+
+export function SettingsChoice({ label, children }: { label: string; children: ReactNode }) {
+  return <div className="settings-row settings-row--choice">
+    <span className="settings-label">{label}</span>
+    {children}
   </div>;
 }

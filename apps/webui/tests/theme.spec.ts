@@ -18,8 +18,7 @@ async function login(page: Page) {
 }
 async function settings(page: Page) { return (await page.request.get('/api/settings')).json(); }
 async function chooseMode(page: Page, mode: string) {
-  await page.getByRole('combobox', { name: 'Display mode', exact: true }).click();
-  await page.getByRole('option', { name: new RegExp(`^${mode} `) }).click();
+  await page.getByRole('group', { name: 'Display mode', exact: true }).getByRole('radio', { name: mode, exact: true }).check();
   await expect.poll(async () => (await settings(page)).Theme).toBe(mode.toLowerCase());
 }
 
@@ -87,6 +86,6 @@ test('failed palette saves restore the current choice and successful saves prese
   for (const field of ['Language', 'Timezone', 'Currency', 'Theme', 'ReducedMotion', 'DefaultModelID']) expect(after[field]).toEqual(before[field]);
   await expect(page.locator('.ui-toast').getByRole('alert')).toHaveCount(0);
   await openSettingsSection(page, 'General');
-  await expect(page.getByRole('combobox', { name: 'Display mode', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('group', { name: 'Display mode', exact: true })).toHaveCount(0);
   await expect(page.getByRole('switch', { name: 'Reduce motion', exact: true })).toHaveCount(0);
 });

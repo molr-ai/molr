@@ -174,6 +174,16 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 .settings-row { min-height: 64px; padding: 12px 0; }
 .settings-list > .settings-row + .settings-row, .connection-details > div { border-top: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent); }
 .settings-row--select { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, min(65%, 300px)); align-items: center; gap: 12px; }
+.settings-row--choice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; font-size: var(--text-sm); }
+.settings-row--choice > .radio-group { max-width: 100%; margin-inline-start: auto; }
+.settings-choice-options .radio-group__options,
+.settings-row--choice .radio-group__options,
+.browser-proxy-form .radio-group__options,
+.usage-breakdown-controls .radio-group__options { --choice-wrap: wrap; }
+@media (--molr-mobile) {
+  .settings-row--choice { flex-direction: column; align-items: stretch; }
+  .settings-row--choice > .radio-group { margin-inline-start: 0; }
+}
 .settings-row .select__label { font-size: var(--text-sm); font-weight: 400; }
 .settings-row--switch { display: flex; width: 100%; font-size: var(--text-sm); }
 .settings-row--switch > span:last-child { order: -1; flex: 1; font-weight: 400; }

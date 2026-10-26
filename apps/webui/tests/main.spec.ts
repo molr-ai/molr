@@ -1471,8 +1471,8 @@ test('settings save independently, About shows Runtime details and Security sign
   await openSettingsSection(page, 'General');
   await expect(navItems.nth(0)).toHaveAttribute('aria-current', 'page');
   const general = settingsPane(page);
-  await expect(general.getByRole('combobox', { name: 'Language', exact: true })).toBeVisible();
-  await expect(general.getByRole('combobox', { name: 'Display mode', exact: true })).toHaveCount(0);
+  await expect(general.getByRole('group', { name: 'Language', exact: true })).toBeVisible();
+  await expect(general.getByRole('group', { name: 'Display mode', exact: true })).toHaveCount(0);
   await expect(settingsNavItem(page, 'Theme')).toHaveText('Theme');
   await expect(settingsNavItem(page, 'Preferences')).toHaveCount(0);
   await expect(general.getByRole('button', { name: 'Save', exact: true })).toHaveCount(0);
@@ -1489,7 +1489,7 @@ test('settings save independently, About shows Runtime details and Security sign
   await timezoneSearch.press('Enter');
   await expect.poll(async () => (await (await page.request.get('/api/settings')).json()).Timezone).toBe('Asia/Shanghai');
   await openSettingsSection(page, 'Theme');
-  await choose(page, 'Display mode', /^Light /);
+  await page.getByRole('group', { name: 'Display mode', exact: true }).getByRole('radio', { name: 'Light', exact: true }).check();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   await expect.poll(async () => (await (await page.request.get('/api/settings')).json()).Theme).toBe('light');
   const settings = await (await page.request.get('/api/settings')).json();
@@ -1497,12 +1497,12 @@ test('settings save independently, About shows Runtime details and Security sign
   await page.reload(); await openSettingsSection(page, 'General');
   await expect(general.getByRole('combobox', { name: 'Timezone', exact: true })).toContainText('Shanghai');
   await general.screenshot({ path: info.outputPath('general-settings.png') });
-  await choose(page, 'Language', '简体中文');
+  await page.getByRole('group', { name: 'Language', exact: true }).getByRole('radio', { name: '简体中文', exact: true }).check();
   await expect(settingsNavItem(page, '常规')).toHaveText('常规');
-  await choose(page, '语言', 'English');
+  await page.getByRole('group', { name: '语言', exact: true }).getByRole('radio', { name: 'English', exact: true }).check();
   await expect(settingsNavItem(page, 'General')).toHaveText('General');
   await openSettingsSection(page, 'Theme');
-  await choose(page, 'Display mode', /^System /);
+  await page.getByRole('group', { name: 'Display mode', exact: true }).getByRole('radio', { name: 'System', exact: true }).check();
   await expect.poll(async () => (await (await page.request.get('/api/settings')).json()).Theme).toBe('system');
   await expect(settingsNavItem(page, 'Connection')).toHaveCount(0);
   await openSettingsSection(page, 'About');
@@ -1769,7 +1769,7 @@ test('currency preferences preserve native budgets and prices without assistant 
   try {
     await openUserSettings(page);
     await openSettingsSection(page, 'General');
-    await choose(page, 'Currency', 'Chinese yuan CNY');
+    await page.getByRole('group', { name: 'Currency', exact: true }).getByRole('radio', { name: 'Chinese yuan CNY', exact: true }).check();
     await expect.poll(async () => (await (await page.request.get('/api/settings')).json()).Currency).toBe('CNY');
     const pref = await (await page.request.get('/api/settings')).json();
     await post(page, '/api/settings', { Settings: { ...pref, Timezone: 'Asia/Shanghai' }, Mutation: { IdempotencyKey: crypto.randomUUID(), ExpectedVersion: pref.Version } }, false);
@@ -1811,7 +1811,7 @@ test('currency preferences preserve native budgets and prices without assistant 
     expect(nativeModel.Pricing).toMatchObject({ Currency: 'CNY', InputMicrosPerMillion: 7_000_000, OutputMicrosPerMillion: 14_000_000 });
     await openUserSettings(page);
     await openSettingsSection(page, 'General');
-    await choose(page, 'Currency', 'US dollar USD');
+    await page.getByRole('group', { name: 'Currency', exact: true }).getByRole('radio', { name: 'US dollar USD', exact: true }).check();
     await expect.poll(async () => (await (await page.request.get('/api/settings')).json()).Currency).toBe('USD');
     await page.goto(`/#/assistants/${assistant.ID}`); await page.reload();
     await assistantMenu(page, 'Assistant information');

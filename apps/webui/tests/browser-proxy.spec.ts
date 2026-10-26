@@ -42,11 +42,10 @@ test('administrator saves browser proxy settings, keeps and clears credentials',
  const trigger=page.getByRole('button',{name:'Browser settings',exact:true});
  const form=page.getByRole('dialog',{name:'Browser settings',exact:true});
  await expect(page.getByRole('list',{name:'Components list',exact:true})).toBeVisible();
- await expect(page.getByRole('combobox',{name:'Connection mode'})).toHaveCount(0);
+ await expect(page.getByRole('group',{name:'Connection mode'})).toHaveCount(0);
  await trigger.click();
  // Cancel discards the draft and returns keyboard focus to the component row.
- await form.getByRole('combobox',{name:'Connection mode'}).click();
- await page.getByRole('option',{name:'Use proxy',exact:true}).click();
+ await form.getByRole('group',{name:'Connection mode'}).getByRole('radio',{name:'Use proxy',exact:true}).check();
  await form.getByLabel('Proxy server',{exact:true}).fill('http://discarded.example.test:8080');
  const viewport=page.viewportSize()!;
  await page.setViewportSize({width:viewport.width>600?393:1440,height:900});
@@ -58,14 +57,12 @@ test('administrator saves browser proxy settings, keeps and clears credentials',
  await expect(form).not.toBeVisible();
  await expect(trigger).toBeFocused();
  await trigger.click();
- await expect(form.getByRole('combobox',{name:'Connection mode'})).toContainText('Direct');
+ await expect(form.getByRole('radio',{name:'Direct',exact:true})).toBeChecked();
 
- await expect(form.getByRole('combobox',{name:'Connection mode'})).toBeVisible();
- await form.getByRole('combobox',{name:'Connection mode'}).click();
- await page.getByRole('option',{name:'Use proxy',exact:true}).click();
+ await expect(form.getByRole('group',{name:'Connection mode'})).toBeVisible();
+ await form.getByRole('group',{name:'Connection mode'}).getByRole('radio',{name:'Use proxy',exact:true}).check();
  await form.getByLabel('Proxy server',{exact:true}).fill('http://proxy.example.test:8080');
- await form.getByRole('combobox',{name:'Proxy authentication'}).click();
- await page.getByRole('option',{name:'Username and password',exact:true}).click();
+ await form.getByRole('group',{name:'Proxy authentication'}).getByRole('radio',{name:'Username and password',exact:true}).check();
  await form.getByLabel('Username',{exact:true}).fill('fixture-user');
  await form.getByLabel('Password',{exact:true}).fill('fixture-secret');
  await form.getByLabel('Proxy bypass addresses',{exact:true}).fill('*.example.test, 192.0.2.0/24');
@@ -85,27 +82,26 @@ test('administrator saves browser proxy settings, keeps and clears credentials',
  await expect(form).not.toBeVisible();
  await expect.poll(async()=> (await (await page.request.get('/api/components/browser/settings')).json()).Bypass).toEqual(['*.example.test']);
  await trigger.click();
- await form.getByRole('combobox',{name:'Connection mode'}).click();
- await page.getByRole('option',{name:'Direct',exact:true}).click();
+ await form.getByRole('group',{name:'Connection mode'}).getByRole('radio',{name:'Direct',exact:true}).check();
  await form.getByRole('button',{name:'Save',exact:true}).click();
  await expect.poll(async()=> (await (await page.request.get('/api/components/browser/settings')).json()).Mode).toBe('direct');
  expect((await (await page.request.get('/api/components/browser/settings')).json()).PasswordConfigured).toBe(false);
  await expect(form).not.toBeVisible();
  await trigger.click();
- await expect(form.getByRole('combobox',{name:'Connection mode'})).toBeVisible();
+ await expect(form.getByRole('group',{name:'Connection mode'})).toBeVisible();
  await page.keyboard.press('Escape');
  await expect(form).not.toBeVisible();
  await expect(trigger).toBeFocused();
  if (viewport.width < 600) {
   for (const method of ['Close','Escape','backdrop'] as const) {
    await trigger.click();
-   await expect(form.getByRole('combobox',{name:'Connection mode'})).toBeVisible();
+   await expect(form.getByRole('group',{name:'Connection mode'})).toBeVisible();
    await dismissWithMotion(form,method);
    await expect(trigger).toBeFocused();
   }
   await page.emulateMedia({reducedMotion:'reduce'});
   await trigger.click();
-  await expect(form.getByRole('combobox',{name:'Connection mode'})).toBeVisible();
+  await expect(form.getByRole('group',{name:'Connection mode'})).toBeVisible();
   expect(await form.evaluate(element=>element.getAnimations().length)).toBe(0);
   await form.getByRole('button',{name:'Cancel',exact:true}).click();
   await expect(form).toHaveCount(0);
@@ -118,7 +114,7 @@ test('administrator saves browser proxy settings, keeps and clears credentials',
   });
   await page.reload();
   await trigger.click();
-  await expect(form.getByRole('combobox',{name:'Connection mode'})).toBeVisible();
+  await expect(form.getByRole('group',{name:'Connection mode'})).toBeVisible();
   expect(await form.evaluate(element=>element.getAnimations().length)).toBe(0);
   await page.keyboard.press('Escape');
   await expect(form).toHaveCount(0);

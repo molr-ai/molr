@@ -7,6 +7,10 @@ Maintain shared navigation, form, notification, and feedback behaviors across th
 - Keep page copy only when it helps users understand the current state, make a decision, or complete an action. Remove unhelpful copy and avoid excessive or lengthy descriptive text.
 - Follow the [design system](design-system.md) and these interaction conventions. Prefer shared components and established page patterns, keeping action entries, interaction feedback, layout, spacing, and visual treatment consistent across similar pages.
 
+## Small option sets in settings
+
+Settings pages and their dialogs use the shared `SegmentedControl` for two or three fixed, short, mutually exclusive options, keeping all choices visible. Appearance uses `ThemeSelect variant="segmented"`. Preserve radio semantics, arrow-key navigation and disabled states while saving; wrap on narrow screens to expose every option. Extensible timezone, model, user-group and plugin-theme lists continue to use `Select`, and boolean toggles use `Switch`.
+
 ## Overlays and Panels
 
 Conditionally rendered dialogs and drawers use shared `ModalPresence` to remain mounted until exit finishes, including settings forms, confirmations, resource permissions, plans, memories, plugins, and identity verification. Closing must not clear the body early. Permanently mounted Dialog / Drawer components retain their title and contents during exit. Nested modals close independently; closing a parent waits for its children. Docked chat panels retain their width animation, while modal panels use the shared exit lifecycle. Forms, subscriptions, and modal restrictions are released and focus is restored after exit; reduced motion completes immediately. Page navigation cleans up directly.

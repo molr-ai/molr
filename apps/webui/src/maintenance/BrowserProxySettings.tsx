@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Dialog, Select, TextField, useModalSnapshot } from '@molr/ui';
+import { Button, Dialog, SegmentedControl, TextField, useModalSnapshot } from '@molr/ui';
 import type { BrowserProxySettings as Settings } from '@molr/sdk';
 import { api } from '@molr/sdk';
 import { useCopy, useQuery } from '../state';
@@ -36,11 +36,11 @@ function ProxyForm({ initial, title, description, action, onClose }: { initial: 
  }
  return <><Dialog open title={title} description={description} onOpenChange={open => { if (!open && !action.busy) onClose(); }} dismissible={!action.busy} closeLabel={zh ? '关闭' : 'Close'}><EditForm action={action} onClose={onClose} onSubmit={save}>
   <fieldset className="browser-proxy-form" disabled={action.busy}>
-   <Select label={zh ? '连接方式' : 'Connection mode'} value={mode} onValueChange={v => setMode(v as Settings['Mode'])} options={[{value:'direct',label:zh?'直连':'Direct'},{value:'proxy',label:zh?'使用代理':'Use proxy'}]}/>
+   <SegmentedControl label={zh ? '连接方式' : 'Connection mode'} value={mode} onValueChange={v => setMode(v as Settings['Mode'])} options={[{value:'direct',label:zh?'直连':'Direct'},{value:'proxy',label:zh?'使用代理':'Use proxy'}]}/>
    {mode === 'proxy' && <>
     <TextField label={zh ? '代理服务器' : 'Proxy server'} value={server} onChange={e => setServer(e.target.value)} placeholder="http://host.molr.internal:7890" required maxLength={2048}/>
     <p className="muted">{zh ? '支持 HTTP 和无认证 SOCKS5。访问宿主代理使用 host.molr.internal，仍需为助理授权对应网络地址和端口。' : 'Supports HTTP and unauthenticated SOCKS5. Use host.molr.internal for a host proxy and grant the assistant access to its address and port.'}</p>
-    {!socks && <Select label={zh ? '代理认证' : 'Proxy authentication'} value={authenticate?'password':'none'} onValueChange={v => setAuthenticate(v === 'password')} options={[{value:'none',label:zh?'无':'None'},{value:'password',label:zh?'用户名和密码':'Username and password'}]}/>}
+    {!socks && <SegmentedControl label={zh ? '代理认证' : 'Proxy authentication'} value={authenticate?'password':'none'} onValueChange={v => setAuthenticate(v === 'password')} options={[{value:'none',label:zh?'无':'None'},{value:'password',label:zh?'用户名和密码':'Username and password'}]}/>}
     {!socks && authenticate && <div className="browser-proxy-credentials">
      <TextField label={zh?'用户名':'Username'} value={username} onChange={e=>setUsername(e.target.value)} required maxLength={256} autoComplete="off"/>
      <TextField label={zh?'密码':'Password'} type="password" value={password} onChange={e=>setPassword(e.target.value)} required={!initial.PasswordConfigured || credentialsChanged} maxLength={1024} autoComplete="new-password" placeholder={initial.PasswordConfigured && !credentialsChanged ? (zh?'已配置，留空保留':'Configured; leave blank to keep') : undefined}/>
