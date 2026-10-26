@@ -23,7 +23,7 @@ export type { Theme, ThemePreference } from './use-theme';
 export { UIProvider, useUILocale, supportedLocales } from './locale';
 export type { UILocale } from './locale';
 export { Checkbox, RadioGroup, SegmentedControl, Textarea, SearchField } from './components/forms';
-export type { CheckboxProps, RadioGroupProps, RadioOption, TextareaProps, SearchFieldProps } from './components/forms';
+export type { CheckboxProps, RadioGroupProps, RadioOption, SegmentedControlProps, TextareaProps, SearchFieldProps } from './components/forms';
 export { Dialog, Drawer } from './components/Dialog';
 export { ModalScope, useModalScope, getOverlayViewport } from './modal-scope';
 export type { ModalScopeValue } from './modal-scope';

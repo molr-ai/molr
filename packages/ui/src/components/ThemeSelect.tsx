@@ -49,6 +49,6 @@ type ThemeSelectProps = {
 export function ThemeSelect({ value, onValueChange, className = '', locale, label, compact = true, variant = 'select', size, disabled, align, labelInteractive }: ThemeSelectProps) {
   const inherited = useUILocale();
   const copy = messages[locale ?? inherited.locale];
-  if (variant === 'segmented') return <SegmentedControl label={label ?? copy.label} hideLabel={compact} className={className} disabled={disabled} options={copy.options.map(({ value, label }) => ({ value, label }))} value={value} onValueChange={onValueChange} />;
+  if (variant === 'segmented') return <SegmentedControl size={size ?? (compact ? 'sm' : 'md')} label={label ?? copy.label} hideLabel={compact} className={className} disabled={disabled} options={copy.options.map(({ value, label, icon }) => ({ value, label, icon }))} value={value} onValueChange={onValueChange} />;
   return <Select label={label ?? copy.label} labelInteractive={labelInteractive} hideLabel={compact} size={size ?? (compact ? 'sm' : 'md')} align={align ?? (compact ? 'end' : 'start')} disabled={disabled} className={`${compact ? 'theme-select' : ''} ${className}`} options={copy.options} value={value} onValueChange={onValueChange} />;
 }

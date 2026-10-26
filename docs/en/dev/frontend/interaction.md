@@ -9,7 +9,7 @@ Maintain shared navigation, form, notification, and feedback behaviors across th
 
 ## Small option sets in settings
 
-Settings pages and their dialogs use the shared `SegmentedControl` for two or three fixed, short, mutually exclusive options, keeping all choices visible. Appearance uses `ThemeSelect variant="segmented"`. Preserve radio semantics, arrow-key navigation and disabled states while saving; wrap on narrow screens to expose every option. Extensible timezone, model, user-group and plugin-theme lists continue to use `Select`, and boolean toggles use `Switch`.
+Settings pages and their dialogs use the shared `SegmentedControl` for two or three fixed, short, mutually exclusive options, keeping all choices visible. Appearance uses `ThemeSelect variant="segmented"`. Match adjacent controls: general and theme settings rows, usage calendar metrics and grouping use `sm`; standard dialog forms use `md`. Each matches the text size and overall height of the corresponding Select size. Preserve radio semantics, arrow-key navigation and disabled states while saving; wrap when space is insufficient to expose every option. Extensible timezone, model, user-group and plugin-theme lists continue to use `Select`, and boolean toggles use `Switch`.
 
 Usage breakdown sorting lives in the Total tokens, Spend and Calls column headers, using the shared `Table` sort buttons and `aria-sort`. Selecting a column sorts that metric in descending order and returns to page one; selecting the current column leaves the order unchanged. Account and administrator usage pages share this behavior, with the server sorting before pagination.
 

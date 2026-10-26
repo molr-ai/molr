@@ -20,7 +20,7 @@ function ThemeControls({ settings }: { settings: Settings }) {
   return <div className="settings-theme" aria-busy={action.busy || undefined}>
     <div className="settings-list">
       <ThemeSelector />
-      <SettingsChoice label={t.settings.displayMode}><ThemeSelect variant="segmented" label={t.settings.displayMode} value={value.Theme} disabled={action.busy} onValueChange={Theme => change({ Theme })} /></SettingsChoice>
+      <SettingsChoice label={t.settings.displayMode}><ThemeSelect size="sm" variant="segmented" label={t.settings.displayMode} value={value.Theme} disabled={action.busy} onValueChange={Theme => change({ Theme })} /></SettingsChoice>
       <SettingsSwitch label={t.settings.reduced} checked={value.ReducedMotion} disabled={action.busy} onChange={event => change({ ReducedMotion: event.target.checked })} />
     </div>
     <div className="settings-theme__palettes"><h3>{t.settings.palette}</h3><PalettePicker locale={locale} palette={value.Palette || 'forest'} theme={theme} disabled={action.busy} onChange={Palette => change({ Palette })} /></div>

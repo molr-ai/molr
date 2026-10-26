@@ -19,7 +19,7 @@ import '@molr/ui/styles.css';
 
 主题由根元素的 `data-theme="light"` / `"dark"` 控制。可结合 `useTheme` 和 `ThemeSelect` 保存主题选择。所有组件使用同一套语义颜色变量；`ThemeSelect` 默认继承 `UIProvider` 的语言，也可单独传入 `locale`。装饰动画遵循 `prefers-reduced-motion`；Logo 的 `loading` 表达进行中的状态，保留动画，组件与下载的 SVG 行为一致。
 
-`ThemeSelect` 默认使用工具栏的紧凑模式。设置页可用 `variant="segmented"` 直接展示三个单选项；此模式的 `compact` 只控制标签显隐，选项始终显示文字。设置表单可传入 `compact={false}`、`label` 和 `size="sm"`，显示完整标签与选项文字，移动端也不会收缩为图标。
+`ThemeSelect` 默认使用工具栏的紧凑模式。设置页可用 `variant="segmented"` 直接展示三个单选项；此模式的 `compact` 只控制标签显隐，选项保留模式图标并始终显示文字；`size` 同样传递给分段控件。设置表单可传入 `compact={false}`、`label` 和 `size="sm"`，显示完整标签与选项文字，移动端也不会收缩为图标。
 
 ## 视觉层级与边框
 
@@ -68,7 +68,7 @@ import '@molr/ui/styles.css';
 
 `SearchField` 是受控的原生 `search` 输入；清除后保留输入焦点，禁用与只读状态不显示清除按钮。`trailingAction` 可在输入框最右侧放置筛选等图标操作，清除按钮位于该操作左边；左右留白为 12 px，组件自动为图标与两侧操作预留文字空间。它只处理关键词，筛选数据由调用方负责。
 
-`Checkbox` 的 `indeterminate` 是受控半选态；父组件接受点击时，应在 `onChange` 中同步更新它，或通过 `onIndeterminateChange` 接收清除半选的请求。只需要初始半选且点击后自动取消时，用 `defaultIndeterminate`。父组件持续传入 `indeterminate={true}` 时组件保持半选，不因 checked 改变而自行覆盖业务状态。图标由原生 `:indeterminate` 状态决定，与表单和辅助技术一致。另支持 `description`、`error` 和 `hideLabel`。`RadioGroup` 与 `SegmentedControl` 共用 `{ label, value, onValueChange, options, name?, disabled?, description?, error?, hideLabel? }` 接口；选项可带图标、说明和禁用标记。分段控件适合简短选项。两者使用原生 radio，方向键切换及表单序列化由浏览器处理。
+`Checkbox` 的 `indeterminate` 是受控半选态；父组件接受点击时，应在 `onChange` 中同步更新它，或通过 `onIndeterminateChange` 接收清除半选的请求。只需要初始半选且点击后自动取消时，用 `defaultIndeterminate`。父组件持续传入 `indeterminate={true}` 时组件保持半选，不因 checked 改变而自行覆盖业务状态。图标由原生 `:indeterminate` 状态决定，与表单和辅助技术一致。另支持 `description`、`error` 和 `hideLabel`。`RadioGroup` 与 `SegmentedControl` 共用 `{ label, value, onValueChange, options, name?, disabled?, description?, error?, hideLabel? }` 接口；选项可带图标、说明和禁用标记。分段控件适合简短选项，额外支持 `size="sm" | "md"`（默认 `md`）：单行控件最小总高度分别为 40／44 px，选项文字为 12／14 px，与同尺寸 `Select` 一致。按相邻表单控件选择尺寸；设置行、用量日历指标及分组使用 `sm`，标准输入表单使用 `md`。两者使用原生 radio，方向键切换及表单序列化由浏览器处理。
 
 `Switch` 支持 `size="sm" | "md" | "lg"`：轨道分别为 30×18、36×22、44×26 px；默认 `md` 保持原尺寸，设置页使用 `lg`。`Select` 的 `sm` 同时缩小触发器与菜单：选项字号 12 px、最小高度 36 px、内边距 8×10 px、选项间距 4 px，搜索框与图标同步缩小。既有接口保持兼容；详见 [UI 包说明](README.md#下拉选择)。
 

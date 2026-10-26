@@ -72,8 +72,9 @@ export function RadioGroup<Value extends string>({ label, value, onValueChange, 
   </fieldset>;
 }
 
-export function SegmentedControl<Value extends string>(props: RadioGroupProps<Value>) {
-  return <RadioGroup {...props} className={`segmented-control ${props.className ?? ''}`} />;
+export type SegmentedControlProps<Value extends string = string> = RadioGroupProps<Value> & { size?: 'sm' | 'md' };
+export function SegmentedControl<Value extends string>({ size = 'md', ...props }: SegmentedControlProps<Value>) {
+  return <RadioGroup {...props} className={`segmented-control segmented-control--${size} ${props.className ?? ''}`} />;
 }
 
 export type SearchFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'value' | 'defaultValue' | 'onChange' | 'size'> & {

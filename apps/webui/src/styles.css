@@ -180,10 +180,6 @@ a { color: inherit; } h1, h2, h3, h4, p { margin: 0; } h1 { font-size: 24px; fon
 .settings-row--choice .radio-group__options,
 .browser-proxy-form .radio-group__options,
 .usage-breakdown-controls .radio-group__options { --choice-wrap: wrap; }
-@media (--molr-mobile) {
-  .settings-row--choice { flex-direction: column; align-items: stretch; }
-  .settings-row--choice > .radio-group { margin-inline-start: 0; }
-}
 .settings-row .select__label { font-size: var(--text-sm); font-weight: 400; }
 .settings-row--switch { display: flex; width: 100%; font-size: var(--text-sm); }
 .settings-row--switch > span:last-child { order: -1; flex: 1; font-weight: 400; }
