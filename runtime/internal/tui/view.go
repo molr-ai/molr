@@ -64,7 +64,9 @@ func (m *model) refresh(follow bool) {
 		}
 		parts = append(parts, text)
 	}
-	m.viewport.SetContent(strings.Join(parts, "\n\n"))
+	content, restore := layoutKeycaps(strings.Join(parts, "\n\n"))
+	m.restoreHistory = restore
+	m.viewport.SetContent(content)
 	if follow {
 		m.viewport.GotoBottom()
 	}
@@ -118,7 +120,7 @@ func (m model) View() string {
 			badge = warning.Render("登录已过期")
 		}
 		if m.connectionName != "" {
-			badge = muted.Render(ansi.Truncate(m.connectionName, max(4, m.contentWidth()/4), "…")+" · ") + badge
+			badge = muted.Render(cellTruncate(m.connectionName, max(4, m.contentWidth()/4), "…")+" · ") + badge
 		}
 		if m.page == approvalPage {
 			left, right = "↑↓ 选择 · Enter 确认", "PgUp/PgDn 滚动 · Esc 返回"
@@ -128,18 +130,20 @@ func (m model) View() string {
 	if m.page != chatPage {
 		body = m.pagePadding(body)
 	}
-	body = lipgloss.NewStyle().Width(m.width).Height(m.bodyHeight()).Render(body)
+	masked, restore := layoutKeycaps(body)
+	body = restore(lipgloss.NewStyle().Width(m.width).Height(m.bodyHeight()).Render(masked))
 	footer := muted.Render(spread(left, right, m.contentWidth()))
 	return "\n" + m.pagePadding(header) + "\n\n" + body + "\n\n" + m.pagePadding(footer) + "\n"
 }
 
 func (m model) pagePadding(content string) string {
-	return lipgloss.NewStyle().Width(m.width).Padding(0, 2).Render(content)
+	masked, restore := layoutKeycaps(content)
+	return restore(lipgloss.NewStyle().Width(m.width).Padding(0, 2).Render(masked))
 }
 
 func spread(left, right string, width int) string {
-	left = ansi.Truncate(left, max(0, width-lipgloss.Width(right)-1), "…")
-	return left + strings.Repeat(" ", max(1, width-lipgloss.Width(left)-lipgloss.Width(right))) + right
+	left = cellTruncate(left, max(0, width-cellWidth(right)-1), "…")
+	return left + strings.Repeat(" ", max(1, width-cellWidth(left)-cellWidth(right))) + right
 }
 
 func (m model) chatView() string {
@@ -181,7 +185,11 @@ func (m model) chatView() string {
 		status = muted.Render("尚无助理，请在 WebUI 创建后按 Ctrl+R 刷新")
 	}
 	composer := m.userBlock(m.input.View())
-	return m.viewport.View() + "\n\n" + m.pagePadding(ansi.Truncate(status, m.contentWidth(), "…")) + "\n\n" + composer
+	history := m.viewport.View()
+	if m.restoreHistory != nil {
+		history = m.restoreHistory(history)
+	}
+	return history + "\n\n" + m.pagePadding(cellTruncate(status, m.contentWidth(), "…")) + "\n\n" + composer
 }
 
 func (m model) userBlock(content string) string {
@@ -189,5 +197,6 @@ func (m model) userBlock(content string) string {
 	// user text, blank lines and padding retain one continuous background.
 	restore := strings.TrimSuffix(userSurface.Render(""), "\x1b[0m")
 	content = strings.NewReplacer("\x1b[0m", "\x1b[0m"+restore, "\x1b[m", "\x1b[m"+restore).Replace(content)
-	return userSurface.Width(m.width).Padding(1, 2).Render(content)
+	masked, restoreKeycaps := layoutKeycaps(content)
+	return restoreKeycaps(userSurface.Width(m.width).Padding(1, 2).Render(masked))
 }

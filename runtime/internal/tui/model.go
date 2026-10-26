@@ -30,6 +30,7 @@ type replyMsg struct {
 }
 
 type model struct {
+	restoreHistory func(string) string
 	connectionName string
 	live           *liveSession
 	review         *policy.PermissionRequest

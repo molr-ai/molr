@@ -56,8 +56,8 @@ func (r markdownRenderer) extractTables(source string) (string, []compactTable) 
 				// inline when rendered outside the table's original AST context.
 				lines := strings.Split(strings.Replace(r.renderBlock("\u200b"+raw), "\u200b", "", 1), "\n")
 				for i, line := range lines {
-					length := lipgloss.Width(strings.TrimRight(ansi.Strip(line), " \t"))
-					lines[i] = ansi.Truncate(line, length, "")
+					length := cellWidth(strings.TrimRight(ansi.Strip(line), " \t"))
+					lines[i] = cellTruncate(line, length, "")
 				}
 				cells[col] = strings.Join(lines, "\n")
 				col++
@@ -152,7 +152,7 @@ func (t compactTable) renderColumns(start, end, width int) string {
 	widths := make([]int, end-start)
 	for _, row := range t.rows {
 		for col := start; col < end; col++ {
-			widths[col-start] = max(widths[col-start], lipgloss.Width(row[col]), 1)
+			widths[col-start] = max(widths[col-start], cellWidth(row[col]), 1)
 		}
 	}
 	available := max(len(widths), width-tableColumnGap*(len(widths)-1)-2*tableCellPadding*len(widths))
@@ -174,7 +174,8 @@ func (t compactTable) renderColumns(start, end, width int) string {
 		wrapped := make([][]string, len(widths))
 		height := 1
 		for col := start; col < end; col++ {
-			wrapped[col-start] = strings.Split(ansi.Wrap(row[col], widths[col-start], ""), "\n")
+			masked, restore := layoutKeycaps(row[col])
+			wrapped[col-start] = strings.Split(restore(ansi.Wrap(masked, widths[col-start], "")), "\n")
 			height = max(height, len(wrapped[col-start]))
 		}
 		for line := 0; line < height; line++ {
@@ -195,7 +196,8 @@ func (t compactTable) renderColumns(start, end, width int) string {
 				if rowIndex == 0 {
 					style = style.Inherit(tableHeader)
 				}
-				cells[i] = style.Render(value)
+				masked, restore := layoutKeycaps(value)
+				cells[i] = restore(style.Render(masked))
 			}
 			out = append(out, strings.Join(cells, strings.Repeat(" ", tableColumnGap)))
 		}

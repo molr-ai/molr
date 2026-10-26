@@ -96,6 +96,9 @@ func cellBoundary(line string, x int, end bool) int {
 	g := uniseg.NewGraphemes(ansi.Strip(line))
 	for g.Next() {
 		width := g.Width()
+		if keycapEmoji.MatchString(g.Str()) {
+			width = 2
+		}
 		if x < position+width {
 			if end {
 				return position + width
@@ -109,7 +112,7 @@ func cellBoundary(line string, x int, end bool) int {
 
 func (s *textSelection) rangeForLine(y int) (int, int) {
 	a, b := s.bounds()
-	start, end := s.left, min(s.right+1, lipgloss.Width(s.lines[y]))
+	start, end := s.left, min(s.right+1, cellWidth(s.lines[y]))
 	if y == a.y {
 		start = cellBoundary(s.lines[y], a.x, false)
 	}
@@ -127,7 +130,7 @@ func (s *textSelection) text() string {
 	var lines []string
 	for y := a.y; y <= b.y && y < len(s.lines); y++ {
 		start, end := s.rangeForLine(y)
-		lines = append(lines, strings.TrimRight(ansi.Cut(ansi.Strip(s.lines[y]), start, end), " "))
+		lines = append(lines, strings.TrimRight(cellCut(ansi.Strip(s.lines[y]), start, end), " "))
 	}
 	return strings.Join(lines, "\n")
 }
@@ -142,8 +145,8 @@ func (s *textSelection) render(width, height int) string {
 		for y := a.y; y <= b.y && y < len(lines); y++ {
 			start, end := s.rangeForLine(y)
 			line := lines[y]
-			selected := ansi.Cut(line, start, end)
-			lines[y] = ansi.Cut(line, 0, start) + highlightSelection(selected) + ansi.Cut(line, end, lipgloss.Width(line))
+			selected := cellCut(line, start, end)
+			lines[y] = cellCut(line, 0, start) + highlightSelection(selected) + cellCut(line, end, cellWidth(line))
 		}
 	}
 	if height >= 2 && height-2 < len(lines) {

@@ -86,6 +86,11 @@ func (r markdownRenderer) renderBlock(source string) string {
 }
 
 func wrapMarkdownLine(line string, width int) string {
+	masked, restore := layoutKeycaps(line)
+	return restore(wrapMarkdownCells(masked, width))
+}
+
+func wrapMarkdownCells(line string, width int) string {
 	plain := ansi.Strip(line)
 	rest := strings.TrimLeft(plain, " ▌")
 	prefixText := plain[:len(plain)-len(rest)]
