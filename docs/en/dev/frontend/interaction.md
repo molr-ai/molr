@@ -11,6 +11,8 @@ Maintain shared navigation, form, notification, and feedback behaviors across th
 
 Settings pages and their dialogs use the shared `SegmentedControl` for two or three fixed, short, mutually exclusive options, keeping all choices visible. Appearance uses `ThemeSelect variant="segmented"`. Preserve radio semantics, arrow-key navigation and disabled states while saving; wrap on narrow screens to expose every option. Extensible timezone, model, user-group and plugin-theme lists continue to use `Select`, and boolean toggles use `Switch`.
 
+Usage breakdown sorting lives in the Total tokens, Spend and Calls column headers, using the shared `Table` sort buttons and `aria-sort`. Selecting a column sorts that metric in descending order and returns to page one; selecting the current column leaves the order unchanged. Account and administrator usage pages share this behavior, with the server sorting before pagination.
+
 ## Overlays and Panels
 
 Conditionally rendered dialogs and drawers use shared `ModalPresence` to remain mounted until exit finishes, including settings forms, confirmations, resource permissions, plans, memories, plugins, and identity verification. Closing must not clear the body early. Permanently mounted Dialog / Drawer components retain their title and contents during exit. Nested modals close independently; closing a parent waits for its children. Docked chat panels retain their width animation, while modal panels use the shared exit lifecycle. Forms, subscriptions, and modal restrictions are released and focus is restored after exit; reduced motion completes immediately. Page navigation cleans up directly.

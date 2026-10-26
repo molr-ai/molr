@@ -37,7 +37,6 @@
 .usage-legend-range { margin-left: var(--space-2); }
 .usage-breakdown { display: grid; gap: var(--space-4); min-width: 0; }
 .usage-breakdown-controls { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-3); align-items: center; }
-.usage-breakdown-controls > .select { min-width: 150px; }
 .usage-table { font-variant-numeric: tabular-nums; }
 .usage-table .ui-table { min-width: 720px; }
 .usage-table td { white-space: nowrap; }
