@@ -172,6 +172,21 @@ test('both CI providers require the live base version check in their source gate
   }
 });
 
+test('both CI providers bound packaged acceptance and upload diagnostics after it fails', () => {
+  for (const filename of ['.github/workflows/native-build.yml', '.gitea/workflows/ci.yml']) {
+    const steps = yaml.load(readFileSync(filename, 'utf8')).jobs.native.steps;
+    const evaluations = steps.filter(step => step.run?.includes('scripts/test-desktop-package.mjs'));
+    assert.equal(evaluations.length, 2);
+    const upload = steps.findIndex(step => step.name === 'Upload desktop failure diagnostics');
+    assert(steps[upload].if.includes('failure()'));
+    for (const step of evaluations) {
+      assert.equal(step['timeout-minutes'], 10);
+      assert.equal(step['continue-on-error'], undefined);
+      assert(upload > steps.indexOf(step), 'Package failure diagnostics must run after acceptance');
+    }
+  }
+});
+
 test('Gitea validates selected native packages from shared assets and enforces the planned gate', () => {
   const ci = yaml.load(readFileSync(new URL('../.gitea/workflows/ci.yml', import.meta.url), 'utf8'));
   assert(ci.on.pull_request !== undefined);

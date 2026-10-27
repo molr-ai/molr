@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url';
 
 const root = resolve(import.meta.dirname, '../../..');
 
-export function runElectronSuite(file, { timeoutMs = 120_000, diagnostics = join(root, '.cache/acceptance/desktop') } = {}) {
+export function runElectronSuite(file, { args = [], timeoutMs = 120_000, diagnostics = join(root, '.cache/acceptance/desktop') } = {}) {
   const name = basename(file, '.mjs');
   mkdirSync(diagnostics, { recursive: true });
   const failureLog = join(diagnostics, `${name}-failure.log`);
@@ -16,7 +16,7 @@ export function runElectronSuite(file, { timeoutMs = 120_000, diagnostics = join
     const env = { ...process.env };
     // These are standalone scripts, even when this runner is under node --test.
     delete env.NODE_TEST_CONTEXT;
-    const child = spawn(process.execPath, [file], {
+    const child = spawn(process.execPath, [file, ...args], {
       env, detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'],
     });
     let tail = Buffer.alloc(0), finished = false;

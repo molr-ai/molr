@@ -152,6 +152,21 @@ jobs:
           else
             xvfb-run -a npm run test:desktop:electron
           fi
+      - name: Package local evaluation installer
+        run: npm run package:desktop
+      - if: runner.os != 'Linux'
+        name: Evaluate the packaged desktop and bundled Runtime
+        timeout-minutes: 10
+        run: node scripts/test-desktop-package.mjs
+      - if: runner.os == 'Linux'
+        name: Evaluate the packaged desktop and bundled Runtime
+        timeout-minutes: 10
+        run: |
+          if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ] && [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" = 1 ]; then
+            aa-exec -p chrome -- xvfb-run -a node scripts/test-desktop-package.mjs
+          else
+            xvfb-run -a node scripts/test-desktop-package.mjs
+          fi
       - name: Upload desktop failure diagnostics
         if: failure()
         uses: actions/gitea-upload-artifact@v7
@@ -161,19 +176,6 @@ jobs:
           if-no-files-found: ignore
           overwrite: true
           retention-days: 7
-      - name: Package local evaluation installer
-        run: npm run package:desktop
-      - if: runner.os != 'Linux'
-        name: Evaluate the packaged desktop and bundled Runtime
-        run: node scripts/test-desktop-package.mjs
-      - if: runner.os == 'Linux'
-        name: Evaluate the packaged desktop and bundled Runtime
-        run: |
-          if [ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ] && [ "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" = 1 ]; then
-            aa-exec -p chrome -- xvfb-run -a node scripts/test-desktop-package.mjs
-          else
-            xvfb-run -a node scripts/test-desktop-package.mjs
-          fi
       - if: runner.os != 'Windows'
         uses: actions/gitea-upload-artifact@v7
         with:

@@ -7,6 +7,8 @@ import { existsSync, lstatSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { runElectronSuite } from '../apps/desktop/tests/electron-runner.mjs';
+import { waitForVisibleWindow } from '../apps/desktop/tests/window-controls.mjs';
 
 export function validatePackageManifest(directory, expected) {
   const manifest = JSON.parse(readFileSync(join(directory, 'desktop-manifest.json')));
@@ -28,7 +30,10 @@ export function validatePackageManifest(directory, expected) {
   return { manifest, file };
 }
 
-async function main() {
+export async function testDesktopPackage() {
+  let phase;
+  const checkpoint = value => { phase = value; console.log('Packaged desktop acceptance:', value); };
+  checkpoint('validate installer manifest');
   const root = resolve(import.meta.dirname, '..'), os = process.platform;
   if (os !== 'linux' && process.env.GITHUB_ACTIONS !== 'true' && process.env.GITEA_ACTIONS !== 'true') {
     throw new Error('Run macOS/Windows installer acceptance on a disposable CI runner');
@@ -46,6 +51,7 @@ async function main() {
   let executable, resources, app, mounted = false, uninstaller;
   const mount = join(temporary, 'mount');
   try {
+    checkpoint('extract installer payload');
     if (os === 'linux') {
       const extracted = join(temporary, 'extracted');
       run('dpkg-deb', ['--extract', file, extracted]);
@@ -76,6 +82,7 @@ async function main() {
         for (const target of [executable, join(resources, 'runtime/bin/molr.exe'), join(resources, 'runtime/bin/molr-setup.exe')]) authenticode(target);
       }
     }
+    checkpoint('verify installed payload');
     assert(existsSync(executable), 'Packaged executable missing');
     for (const name of ['LICENSE', 'THIRD_PARTY_NOTICES.md', 'licenses/Electron-LICENSE', 'licenses/LICENSES.chromium.html']) {
       assert(lstatSync(join(resources, name)).isFile(), `Packaged notice missing: ${name}`);
@@ -91,23 +98,41 @@ async function main() {
       XDG_DATA_HOME: join(temporary, 'data'), XDG_CACHE_HOME: join(temporary, 'cache') };
     delete env.ELECTRON_RUN_AS_NODE; delete env.MOLR_DESKTOP_DEV_URL; delete env.MOLR_DESKTOP_RUNTIME;
     const args = process.env.MOLR_DESKTOP_TEST_HEADLESS === '1' ? ['--ozone-platform=headless'] : [];
+    checkpoint('launch Electron');
     app = await electron.launch({ executablePath: executable, args, env, chromiumSandbox: true, timeout: 60_000 });
+    app.context().setDefaultTimeout(30_000);
+    checkpoint('verify Electron sandbox');
     assert.equal(await app.evaluate(() => process.argv.includes('--no-sandbox')), false);
     if (os === 'linux') assert((await app.evaluate(({ app }) => app.getPath('userData'))).startsWith(temporary + '/'));
-    const page = await app.firstWindow();
+    checkpoint('wait for visible window');
+    const page = await waitForVisibleWindow(app, await app.firstWindow({ timeout: 30_000 }));
+    checkpoint('verify connection screen');
     await expect(page.getByRole('heading', { name: '你想在哪里使用 Molr？' })).toBeVisible({ timeout: 30_000 });
+    checkpoint('close Electron');
     await app.close(); app = undefined;
+    checkpoint('verify bundled Runtime lifecycle');
     run(process.execPath, [join(root, 'apps/desktop/tests/local-runtime.mjs')], { ...process.env, MOLR_DESKTOP_RUNTIME_PACKAGE: payload });
     console.log(`Packaged app and bundled Runtime passed: ${manifest.os}-${arch} ${version}`);
+  } catch (error) {
+    // Report the original failure before teardown, which may itself stall.
+    console.error(`Packaged desktop acceptance failed during ${phase}:`, error);
+    throw error;
   } finally {
+    checkpoint('cleanup: close Electron');
     await app?.close();
+    checkpoint('cleanup: remove installed package');
     if (mounted) run('hdiutil', ['detach', mount]);
     if (uninstaller && existsSync(uninstaller)) {
       // NSIS _?= avoids the uninstaller copying itself to another temp directory.
       run(uninstaller, ['/S', `_?=${dirname(uninstaller)}`]);
     }
     rmSync(temporary, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 });
+    checkpoint('cleanup complete');
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) await main();
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  await runElectronSuite(join(import.meta.dirname, 'test-desktop-package-worker.mjs'), {
+    args: process.argv.slice(2), timeoutMs: 5 * 60_000,
+  });
+}

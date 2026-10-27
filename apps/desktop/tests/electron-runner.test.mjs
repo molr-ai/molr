@@ -26,6 +26,14 @@ test('Electron runner accepts an exited suite and preserves a failing exit and o
   assert.match(readFileSync(join(directory, 'suite-failure.log'), 'utf8'), /synthetic assertion failed/);
 });
 
+test('Electron runner preserves package directory arguments, including spaces', async t => {
+  const { file, options } = fixture(t, `
+    import assert from 'node:assert/strict';
+    assert.deepEqual(process.argv.slice(2), ['installer output/中文 directory']);
+  `);
+  await runElectronSuite(file, { ...options, args: ['installer output/中文 directory'] });
+});
+
 test('Electron runner bounds even a blocked child event loop', async t => {
   const { directory, file, options } = fixture(t, 'console.log("cleanup: blocked event loop"); while (true) {}');
   await assert.rejects(runElectronSuite(file, options), /timed out/);
