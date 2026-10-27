@@ -52,7 +52,7 @@ func Run(ctx context.Context, args []string, input io.Reader, output, diagnostic
 		if err != nil {
 			return err
 		}
-		*connections = filepath.Join(dir, "molr", "connections.json")
+		*connections = filepath.Join(dir, "molr", "tui", "connections.json")
 	}
 	store, err := runtimeclient.OpenConnections(*connections)
 	if err != nil {

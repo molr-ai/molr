@@ -29,7 +29,7 @@
 | `internal/core` | `Secret.MarshalJSON` | `TestTDDCoreSecretEveryRepresentationIsRedacted` |
 | `internal/core` | `Secret.MarshalText` | `TestTDDCoreSecretEveryRepresentationIsRedacted` |
 | `internal/core` | `Error.Error` | `TestTDDCoreErrorClassificationAndPrivateCause` |
-| `internal/cli` | `Run` | `TestRunConnectionOptionsAndTerminal` |
+| `internal/cli` | `Run` | `TestRunConnectionOptionsAndTerminal`, `TestRunDefaultConnectionsPreserveDesktopProfile` |
 | `internal/tui` | `Run` | `TestRunRejectsNonTerminal` |
 | `internal/tui` | `RunConnected` | `TestRunConnectedRejectsNonTerminalAndLiveErrors` |
 | `internal/tui` | `RunManaged` | `TestConnectionManagerNonTerminalAndNestedCommands` |
