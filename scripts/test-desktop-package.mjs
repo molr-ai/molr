@@ -98,6 +98,9 @@ export async function testDesktopPackage() {
       XDG_DATA_HOME: join(temporary, 'data'), XDG_CACHE_HOME: join(temporary, 'cache') };
     delete env.ELECTRON_RUN_AS_NODE; delete env.MOLR_DESKTOP_DEV_URL; delete env.MOLR_DESKTOP_RUNTIME;
     const args = process.env.MOLR_DESKTOP_TEST_HEADLESS === '1' ? ['--ozone-platform=headless'] : [];
+    // executablePath bypasses Playwright's Electron loader and its test keychain.
+    // Ad-hoc macOS packages must not wait for an interactive Keychain prompt.
+    if (os === 'darwin') args.push('--use-mock-keychain');
     checkpoint('launch Electron');
     app = await electron.launch({ executablePath: executable, args, env, chromiumSandbox: true, timeout: 60_000 });
     app.context().setDefaultTimeout(30_000);
