@@ -50,6 +50,16 @@
     "section": "user"
   },
   {
+    "file": "user/guides/tui.md",
+    "path": "/docs/user/guides/tui/",
+    "label": "TUI 使用指南",
+    "group": "日常使用",
+    "englishLabel": "TUI user guide",
+    "englishGroup": "Everyday use",
+    "root": "docs",
+    "section": "user"
+  },
+  {
     "file": "user/guides/plans.md",
     "path": "/docs/user/guides/plans/",
     "label": "计划与执行",

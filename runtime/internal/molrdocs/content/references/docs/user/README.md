@@ -10,6 +10,7 @@
 ## 日常使用
 
 - [助理与聊天](https://molr.ai/zh/docs/user/guides/assistants-and-chat/)、[计划与执行](https://molr.ai/zh/docs/user/guides/plans/)：交代任务、安排时间、查看结果。
+- [TUI 使用指南](https://molr.ai/zh/docs/user/guides/tui/)：在终端连接服务、聊天、切换助理与处理授权申请。
 - [记忆与自动整理](https://molr.ai/zh/docs/user/guides/memory/)：查看、编辑、确认或遗忘记忆。
 - [权限与预算](https://molr.ai/zh/docs/user/guides/permissions-and-budget/)：为自己的助理授权资源、设置额度和撤销授权。
 - [文件与命令](https://molr.ai/zh/docs/user/guides/files-and-commands/)：工作区、后台任务、终端和临时服务。

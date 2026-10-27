@@ -10,6 +10,7 @@
 ## 日常使用
 
 - [助理与聊天](guides/assistants-and-chat.md)、[计划与执行](guides/plans.md)：交代任务、安排时间、查看结果。
+- [TUI 使用指南](guides/tui.md)：在终端连接服务、聊天、切换助理与处理授权申请。
 - [记忆与自动整理](guides/memory.md)：查看、编辑、确认或遗忘记忆。
 - [权限与预算](guides/permissions-and-budget.md)：为自己的助理授权资源、设置额度和撤销授权。
 - [文件与命令](guides/files-and-commands.md)：工作区、后台任务、终端和临时服务。

@@ -10,6 +10,7 @@ This guide is for members using an existing Molr service. Start with a service a
 ## Everyday use
 
 - [Assistants and chat](guides/assistants-and-chat.md), [Plans and execution](guides/plans.md): assign tasks, schedule work and inspect results.
+- [TUI user guide](guides/tui.md): connect, chat, switch assistants, and review permission requests in a terminal.
 - [Memory and automatic review](guides/memory.md): view, edit, confirm or forget memories.
 - [Permissions and budgets](guides/permissions-and-budget.md): authorize resources for your assistants, set limits and revoke access.
 - [Files and commands](guides/files-and-commands.md): workspaces, background tasks, terminals and temporary services.

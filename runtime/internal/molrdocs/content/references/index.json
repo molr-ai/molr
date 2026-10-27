@@ -80,6 +80,22 @@
     }
   },
   {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/user/guides/tui.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "TUI 使用指南",
+      "en": "TUI user guide"
+    },
+    "topics": {
+      "zh": "日常使用",
+      "en": "Everyday use"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/user/guides/tui/",
+      "en": "https://molr.ai/en/docs/user/guides/tui/"
+    }
+  },
+  {
     "path": "/molr/.agents/skills/molr-docs/references/docs/user/guides/plans.md",
     "contentLanguage": "zh",
     "titles": {

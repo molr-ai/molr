@@ -14,7 +14,7 @@ Full Access 可作为计算权限按需开启，同一节点保留普通隔离�
 
 ## 构建与维护入口
 
-`molr tui` 默认恢复上次成功连接，没有记录时打开连接管理；Ctrl+O 可切换已有连接或新增地址。客户端支持登录/MFA、独立会话、助理选择、聊天历史、实时更新和授权审批；`molr tui --demo` 保留离线预览。界面使用 Bubble Tea、Bubbles、Lip Gloss 与 Glamour，终端至少需要 42 列 × 18 行。连接参数与快捷键见[终端聊天](../docs/user/guides/assistants-and-chat.md#终端聊天)。
+`molr tui` 默认恢复上次成功连接，没有记录时打开连接管理；Ctrl+O 可切换已有连接或新增地址。客户端支持登录/MFA、独立会话、助理选择、聊天历史、实时更新和授权审批；`molr tui --demo` 保留离线预览。界面使用 Bubble Tea、Bubbles、Lip Gloss 与 Glamour，终端至少需要 42 列 × 18 行。连接参数与快捷键见[TUI 使用指南](../docs/user/guides/tui.md)。
 
 Go 版本以 [.go-version](.go-version) 为准，依赖由 `go.mod` / `go.sum` 锁定，SQLite 使用纯 Go 驱动。运行用二进制必须显式设置 `CGO_ENABLED=0`，检查 Linux 静态 ELF 或 macOS Mach-O 类型及 `0755` 权限；初始化、HTTPS、systemd/launchd 启动、备份恢复和升级统一见 [部署指南](../docs/admin/README.md)。
 
