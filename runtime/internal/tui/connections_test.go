@@ -62,6 +62,62 @@ func applyConnectionCommand(m connectionModel, cmd tea.Cmd) connectionModel {
 	return next.(connectionModel)
 }
 
+func TestConnectionManagerQuitDuringForms(t *testing.T) {
+	for _, key := range []tea.KeyType{tea.KeyCtrlC, tea.KeyCtrlQ} {
+		for _, page := range []string{"list", "add", "login", "mfa", "pending-login"} {
+			t.Run(tea.KeyMsg{Type: key}.String()+"/"+page, func(t *testing.T) {
+				store, err := runtimeclient.OpenConnections(filepath.Join(t.TempDir(), "connections.json"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				m := newConnectionModel(t.Context(), ConnectionOptions{Store: store}, nil)
+				defer func() { m.shutdown() }()
+				switch page {
+				case "add":
+					m = keyConnection(m, tea.KeyEnter)
+				case "login", "pending-login":
+					m.showLogin()
+				case "mfa":
+					m.challenge = "challenge"
+					m.showLogin()
+				}
+				m.busy = page == "pending-login"
+				m.attemptContext, m.cancelAttempt = context.WithCancel(t.Context())
+				attempt := m.attempt
+				for i := range m.fields {
+					m.fields[i].SetValue("private-input")
+				}
+				next, cmd := m.Update(tea.KeyMsg{Type: key})
+				m = next.(connectionModel)
+				if cmd == nil {
+					t.Fatal("exit did not return a command")
+				}
+				if _, ok := cmd().(tea.QuitMsg); !ok {
+					t.Fatal("exit did not request quit")
+				}
+				if m.attemptContext.Err() != context.Canceled || len(m.fields) != 0 || m.busy {
+					t.Fatal("exit retained pending login or form data")
+				}
+				// Bubble Tea renders after Update, before processing the quit command.
+				if view := m.View(); view != "" {
+					t.Fatalf("exit rendered a page: %q", view)
+				}
+				for _, event := range []tea.Msg{
+					connectionResult{attempt: attempt, needLogin: true},
+					tea.KeyMsg{Type: tea.KeyTab},
+					tea.KeyMsg{Type: tea.KeyCtrlO},
+				} {
+					next, cmd = m.Update(event)
+					m = next.(connectionModel)
+					if cmd != nil || m.View() != "" || len(m.fields) != 0 {
+						t.Fatal("queued event reopened a page during exit")
+					}
+				}
+			})
+		}
+	}
+}
+
 func TestConnectionManagerFirstRunLoginAndLastRestore(t *testing.T) {
 	s := connectionFixture(t, "account-a")
 	store, _ := runtimeclient.OpenConnections(filepath.Join(t.TempDir(), "connections.json"))

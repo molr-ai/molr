@@ -29,6 +29,7 @@ const (
 	connectionAdd
 	connectionLogin
 	connectionChat
+	connectionQuitting
 )
 
 type connectionResult struct {
@@ -334,6 +335,9 @@ func (m *connectionModel) activate(result connectionResult) tea.Cmd {
 }
 
 func (m connectionModel) Update(event tea.Msg) (tea.Model, tea.Cmd) {
+	if m.page == connectionQuitting {
+		return m, nil
+	}
 	switch msg := event.(type) {
 	case openConnection:
 		cmd := m.begin(msg.connection)
@@ -381,6 +385,7 @@ func (m connectionModel) Update(event tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+q" {
 			m.cancelLogin()
+			m.page = connectionQuitting
 			return m, tea.Quit
 		}
 		if msg.String() == "ctrl+o" {
@@ -400,6 +405,7 @@ func (m connectionModel) Update(event tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c":
 			m.cancelLogin()
+			m.page = connectionQuitting
 			return m, tea.Quit
 		case "esc":
 			if m.page != connectionList || m.busy {
@@ -500,6 +506,10 @@ func (m connectionModel) Update(event tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m connectionModel) View() string {
+	// Bubble Tea renders once more before it handles the quit command.
+	if m.page == connectionQuitting {
+		return ""
+	}
 	if m.page == connectionChat && m.chat != nil {
 		return m.chat.View()
 	}
