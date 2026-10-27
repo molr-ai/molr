@@ -49,6 +49,7 @@ export async function testDesktopPackage() {
     'if ((Get-AuthenticodeSignature -LiteralPath $env:MOLR_VERIFY_FILE).Status -ne "Valid") { throw "Invalid Authenticode signature" }'],
     { ...process.env, MOLR_VERIFY_FILE: target });
   let executable, resources, app, mounted = false, uninstaller;
+  let diagnosticTimer;
   const mount = join(temporary, 'mount');
   try {
     checkpoint('extract installer payload');
@@ -103,6 +104,15 @@ export async function testDesktopPackage() {
     if (os === 'darwin') args.push('--use-mock-keychain');
     checkpoint('launch Electron');
     app = await electron.launch({ executablePath: executable, args, env, chromiumSandbox: true, timeout: 60_000 });
+    if (os === 'darwin') {
+      diagnosticTimer = setTimeout(() => {
+        const sample = join(root, '.cache/acceptance/desktop/packaged-main-sample.txt');
+        console.error(`Packaged desktop still waiting during ${phase}; sampling the native main process`);
+        try {
+          execFileSync('/usr/bin/sample', [String(app.process().pid), '1', '1', '-file', sample], { timeout: 10_000, stdio: 'ignore' });
+        } catch (error) { console.error('Cannot sample packaged main process:', error.message); }
+      }, 45_000).unref();
+    }
     app.context().setDefaultTimeout(30_000);
     checkpoint('verify Electron sandbox');
     assert.equal(await app.evaluate(() => process.argv.includes('--no-sandbox')), false);
@@ -113,6 +123,7 @@ export async function testDesktopPackage() {
     await expect(page.getByRole('heading', { name: '你想在哪里使用 Molr？' })).toBeVisible({ timeout: 30_000 });
     checkpoint('close Electron');
     await app.close(); app = undefined;
+    clearTimeout(diagnosticTimer);
     checkpoint('verify bundled Runtime lifecycle');
     run(process.execPath, [join(root, 'apps/desktop/tests/local-runtime.mjs')], { ...process.env, MOLR_DESKTOP_RUNTIME_PACKAGE: payload });
     console.log(`Packaged app and bundled Runtime passed: ${manifest.os}-${arch} ${version}`);
@@ -121,6 +132,7 @@ export async function testDesktopPackage() {
     console.error(`Packaged desktop acceptance failed during ${phase}:`, error);
     throw error;
   } finally {
+    clearTimeout(diagnosticTimer);
     checkpoint('cleanup: close Electron');
     await app?.close();
     checkpoint('cleanup: remove installed package');

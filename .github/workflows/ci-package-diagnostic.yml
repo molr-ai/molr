@@ -1,0 +1,32 @@
+name: Diagnose packaged macOS startup
+on:
+  push:
+    branches: [fix/ci-macos-package]
+permissions:
+  contents: read
+env:
+  CGO_ENABLED: '0'
+  GOCACHE: ${{ github.workspace }}/.cache/go-build
+  GOMODCACHE: ${{ github.workspace }}/.cache/go-mod
+  MOLR_VERSION: 0.1.0-local
+jobs:
+  package:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-build
+      - run: npm run build:release
+      - run: node node_modules/electron/install.js
+      - run: npm run package:desktop
+      - name: Sample packaged application startup
+        run: >-
+          node --input-type=module -e 'import {runElectronSuite} from "./apps/desktop/tests/electron-runner.mjs";
+          await runElectronSuite("scripts/test-desktop-package-worker.mjs", {timeoutMs: 120000});'
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: macos-package-diagnostic
+          path: .cache/acceptance/desktop/
+          if-no-files-found: ignore
+          retention-days: 7
