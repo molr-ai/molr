@@ -21,6 +21,9 @@ func connectionFixture(t *testing.T, owner string) *httptest.Server {
 	t.Helper()
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case "/api/notifications":
+			fmt.Fprint(w, `{"Items":[]}`)
+			return
 		case "/api/auth/csrf":
 			fmt.Fprint(w, `{"csrf_token":"pre"}`)
 		case "/api/auth/login":
@@ -167,6 +170,12 @@ func TestConnectionManagerFirstRunLoginAndLastRestore(t *testing.T) {
 	next, cmd = restored.Update(restored.Init()())
 	restored = next.(connectionModel)
 	restored = applyConnectionCommand(restored, cmd)
+	if restored.page != connectionList || !strings.Contains(restored.notice, "另一个 TUI") {
+		t.Fatal("second process should not open the same account drafts")
+	}
+	m.shutdown()
+	cmd = restored.begin(loaded.Items[0])
+	restored = applyConnectionCommand(restored, cmd)
 	if restored.page != connectionChat || restored.active.Server != s.URL {
 		t.Fatal("last connection/session not restored")
 	}
@@ -252,6 +261,9 @@ func TestConnectionManagerNonTerminalAndNestedCommands(t *testing.T) {
 func TestConnectionFailureAndMFAStayInManagerFlow(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case "/api/notifications":
+			fmt.Fprint(w, `{"Items":[]}`)
+			return
 		case "/api/auth/csrf":
 			fmt.Fprint(w, `{"csrf_token":"pre"}`)
 		case "/api/auth/login":

@@ -26,6 +26,7 @@ const (
 	helpPage
 	filesPage
 	attachmentsPage
+	managePage
 )
 
 type replyMsg struct {
@@ -35,34 +36,38 @@ type replyMsg struct {
 }
 
 type model struct {
-	fileCache        map[core.ID]files.File
-	files            fileDialog
-	commandCursor    int
-	commandDismissed string
-	restoreHistory   func(string) string
-	connectionName   string
-	live             *liveSession
-	review           *policy.PermissionRequest
-	reviewKey        string
-	reviewDecision   int
-	resolving        bool
-	approvalScroll   int
-	width, height    int
-	assistants       []assistant
-	selected         int
-	page             page
-	back             []page
-	input            textarea.Model
-	search           textinput.Model
-	pickerCursor     int
-	approvalChoice   int // 0 approves, 1 rejects; opening the page defaults to approve.
-	viewport         viewport.Model
-	help             viewport.Model
-	markdown         markdownRenderer
-	notice           string
-	selection        *textSelection
-	selectionID      uint64
-	writeClipboard   func(string) error
+	preferredAssistant core.ID
+	drafts             *draftStore
+	draftError         string
+	manage             manageState
+	fileCache          map[core.ID]files.File
+	files              fileDialog
+	commandCursor      int
+	commandDismissed   string
+	restoreHistory     func(string) string
+	connectionName     string
+	live               *liveSession
+	review             *policy.PermissionRequest
+	reviewKey          string
+	reviewDecision     int
+	resolving          bool
+	approvalScroll     int
+	width, height      int
+	assistants         []assistant
+	selected           int
+	page               page
+	back               []page
+	input              textarea.Model
+	search             textinput.Model
+	pickerCursor       int
+	approvalChoice     int // 0 approves, 1 rejects; opening the page defaults to approve.
+	viewport           viewport.Model
+	help               viewport.Model
+	markdown           markdownRenderer
+	notice             string
+	selection          *textSelection
+	selectionID        uint64
+	writeClipboard     func(string) error
 }
 
 func newComposer() textarea.Model {
@@ -119,6 +124,9 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(event tea.Msg) (tea.Model, tea.Cmd) {
+	if cmd, handled := m.updateManaged(event); handled {
+		return m, cmd
+	}
 	if cmd, handled := m.updateAttachments(event); handled {
 		return m, cmd
 	}
@@ -286,7 +294,12 @@ func (m model) Update(event tea.Msg) (tea.Model, tea.Cmd) {
 				cmd := m.openPage(assistantsPage)
 				return m, cmd
 			case "ctrl+p":
-				cmd := m.openPage(approvalPage)
+				var cmd tea.Cmd
+				if m.live != nil {
+					cmd = m.openManagement("/approval", "")
+				} else {
+					cmd = m.openPage(approvalPage)
+				}
 				return m, cmd
 			case "pgup":
 				if m.live != nil && m.viewport.AtTop() && len(m.assistants) > 0 && m.assistants[m.selected].older != "" {
@@ -352,15 +365,23 @@ func (m model) send() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	switch text {
-	case "/help", "/assistant", "/approval":
+	case "/approval":
+		if m.live != nil {
+			m.resetComposer()
+			m.resizeComposer()
+			cmd := m.openManagement("/approval", "")
+			return m, cmd
+		}
+		m.resetComposer()
+		m.resizeComposer()
+		cmd := m.openPage(approvalPage)
+		return m, cmd
+	case "/help", "/assistant":
 		m.resetComposer()
 		m.resizeComposer()
 		target := helpPage
 		if text == "/assistant" {
 			target = assistantsPage
-		}
-		if text == "/approval" {
-			target = approvalPage
 		}
 		cmd := m.openPage(target)
 		return m, cmd

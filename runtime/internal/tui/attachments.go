@@ -24,6 +24,7 @@ const maxDraftAttachments = 5
 const maxMessageCharacters = 4000
 
 type draftAttachment struct {
+	digest    string
 	key, name string
 	data      []byte // Immutable snapshot: retries must upload the same bytes with the same key.
 	file      files.File
@@ -156,7 +157,7 @@ func (m *model) addAttachment(name string, data []byte, pasted bool) tea.Cmd {
 	if pasted {
 		name = fmt.Sprintf("粘贴文本-%s.txt", runtimeclient.NewKey()[:8])
 	}
-	draft := draftAttachment{key: runtimeclient.NewKey(), name: name, data: data, pasted: pasted}
+	draft := draftAttachment{key: runtimeclient.NewKey(), name: name, data: data, pasted: pasted, digest: blobDigest(data)}
 	a.attachments = append(a.attachments, draft)
 	m.resizeComposer()
 	if m.live == nil {
@@ -182,6 +183,13 @@ func (m *model) uploadAttachment(index int) tea.Cmd {
 	ctx, cancel := context.WithCancel(m.live.ctx)
 	d.cancel = cancel
 	client, id, key, name, data, progress := m.live.client, a.id, d.key, d.name, d.data, d.progress
+	if err := m.persistDrafts(); err != nil {
+		cancel()
+		d.busy = false
+		d.err = "草稿未保存，请重试"
+		m.draftError = err.Error()
+		return nil
+	}
 	m.notice = "正在上传附件…"
 	return tea.Batch(func() tea.Msg {
 		defer cancel()

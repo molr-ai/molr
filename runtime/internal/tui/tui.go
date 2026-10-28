@@ -61,7 +61,13 @@ func RunManaged(ctx context.Context, input io.Reader, output io.Writer, options 
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	return runProgram(ctx, input, terminal, newConnectionModel(ctx, options, clipboardWriter(terminal)))
+	m := newConnectionModel(ctx, options, clipboardWriter(terminal))
+	defer func() {
+		for _, s := range m.draftStores {
+			s.close()
+		}
+	}()
+	return runProgram(ctx, input, terminal, m)
 }
 
 func terminalOutput(input io.Reader, output io.Writer) (*terminalWriter, error) {

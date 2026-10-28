@@ -202,3 +202,58 @@ func (s *Connections) write(items []Connection, last string) error {
 	s.Items, s.Last = items, last
 	return nil
 }
+
+// StateDirectory is the private directory containing this connection store.
+func (s *Connections) StateDirectory() string { return filepath.Dir(s.path) }
+
+// Update edits local metadata. A changed origin creates a separate connection and never reuses credentials.
+func (s *Connections) Update(id, name, server, ca string) (Connection, error) {
+	normalized, err := normalizeServer(server)
+	if err != nil {
+		return Connection{}, err
+	}
+	for i, c := range s.Items {
+		if c.ID != id {
+			continue
+		}
+		if c.Server != normalized {
+			return s.Add(name, normalized, ca, "")
+		}
+		if invalidConnectionName(strings.TrimSpace(name)) {
+			return c, errors.New("连接名称应为 1–80 个字符")
+		}
+		if ca != "" {
+			ca, err = filepath.Abs(ca)
+			if err != nil {
+				return c, err
+			}
+		}
+		c.Name = strings.TrimSpace(name)
+		c.CAFile = ca
+		items := append([]Connection(nil), s.Items...)
+		items[i] = c
+		return c, s.write(items, s.Last)
+	}
+	return Connection{}, errors.New("连接不存在")
+}
+
+// Remove forgets a local connection; the caller handles session revocation and local draft retention explicitly.
+func (s *Connections) Remove(id string) error {
+	var next []Connection
+	found := false
+	for _, c := range s.Items {
+		if c.ID == id {
+			found = true
+		} else {
+			next = append(next, c)
+		}
+	}
+	if !found {
+		return errors.New("连接不存在")
+	}
+	last := s.Last
+	if last == id {
+		last = ""
+	}
+	return s.write(next, last)
+}

@@ -54,6 +54,9 @@ func TestLongPasteUploadsOriginalAndSendsOnlyAttachment(t *testing.T) {
 	var sends []conversation.SendUserRequest
 	m := workflowModel(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case "/api/notifications":
+			fmt.Fprint(w, `{"Items":[]}`)
+			return
 		case "/api/files":
 			uploaded, _ = io.ReadAll(r.Body)
 			sum := sha256.Sum256(uploaded)

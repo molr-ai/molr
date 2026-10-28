@@ -23,6 +23,9 @@ func TestConnectedHistorySendRetryAndSwitch(t *testing.T) {
 	keys := []string{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case "/api/notifications":
+			fmt.Fprint(w, `{"Items":[]}`)
+			return
 		case "/api/assistants":
 			fmt.Fprint(w, `{"Items":[{"ID":"a","ConversationID":"chat","Name":"真实助理","State":"active"},{"ID":"b","ConversationID":"other","Name":"另一个助理","State":"active"}]}`)
 		case "/api/conversations":

@@ -127,6 +127,12 @@ func (m model) View() string {
 			title = strong.Render("待发送附件")
 			left = "Enter 预览 · R 重试 · D 移除"
 		}
+	case managePage:
+		title, body = strong.Render(m.manage.screen.title), m.managedView()
+		left, right = "↑↓ 选择 · Enter 确认", "Tab 字段 · ←→ 选项 · Esc 返回"
+		if m.manage.busy && m.manage.screen.submit != nil && !m.manage.screen.cancellable {
+			left, right = "正在提交…", "Ctrl+Q 退出"
+		}
 	case helpPage:
 		title, body = strong.Render("快捷键与命令"), m.help.View()
 		left, right = "↑↓ / PgUp / PgDn 滚动", "Esc 返回"
@@ -209,7 +215,7 @@ func (m model) chatView() string {
 		}
 	}
 	if m.live != nil && len(m.assistants) == 0 && !m.live.loading && m.notice == "" {
-		status = muted.Render("尚无助理，请在 WebUI 创建后按 Ctrl+R 刷新")
+		status = muted.Render("尚无助理，输入 /new 创建")
 	}
 	var attachmentRows []string
 	for i, d := range a.attachments {
@@ -226,7 +232,7 @@ func (m model) chatView() string {
 			if a.channel == "" {
 				composerBody = muted.Render("正在确认聊天入口…\n草稿已保留\nCtrl+R 刷新 · Ctrl+O 连接")
 			} else {
-				composerBody = muted.Render("聊天输入暂不可用，草稿已保留\nWebUI → 切换聊天入口 → 解绑\n/help 查看管理指令 · Ctrl+R 刷新")
+				composerBody = muted.Render("聊天输入暂不可用，草稿已保留\n/channel 查看入口并解绑\n/help 查看管理指令 · Ctrl+R 刷新")
 			}
 		}
 	}
@@ -239,6 +245,17 @@ func (m model) chatView() string {
 	}
 	if a.status.Expedite != nil && (a.status.Expedite.State == "pending" || a.status.Expedite.State == "waiting_tool" || a.status.Expedite.State == "waiting") {
 		status = accent.Render("已加急，等待读取补充消息")
+	}
+	if len(a.notices) > 0 {
+		n := a.notices[0]
+		if m.notice == "" {
+			status = warning.Render(fmt.Sprintf("提醒 %d 条：%s · /status 查看", len(a.notices), noticeLabel(n)))
+		} else {
+			status = warning.Render(fmt.Sprintf("提醒 %d · /status · ", len(a.notices))) + status
+		}
+	}
+	if m.draftError != "" {
+		status = warning.Render("草稿未保存到本机：" + m.draftError)
 	}
 	if len(attachmentRows) > 0 {
 		composerBody = strings.Join(attachmentRows, "\n") + "\n" + composerBody

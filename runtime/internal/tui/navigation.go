@@ -7,6 +7,9 @@ import (
 )
 
 func (m *model) openPage(next page) tea.Cmd {
+	if next == helpPage && m.live != nil {
+		return m.managementMenu()
+	}
 	m.input.Blur()
 	m.search.Blur()
 	m.back = append(m.back, m.page)
@@ -78,6 +81,8 @@ func (m model) updatePicker(event tea.Msg) (tea.Model, tea.Cmd) {
 				m.pickerCursor = (m.pickerCursor + delta + len(matches)) % len(matches)
 			}
 			return m, nil
+		case "ctrl+n":
+			return m, m.assistantForm(true)
 		case "enter":
 			if len(matches) == 0 {
 				return m, nil

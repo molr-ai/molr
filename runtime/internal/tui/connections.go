@@ -30,6 +30,8 @@ const (
 	connectionLogin
 	connectionChat
 	connectionQuitting
+	connectionEdit
+	connectionConfirm
 )
 
 type connectionResult struct {
@@ -51,31 +53,34 @@ type cachedChat struct {
 }
 
 type connectionModel struct {
-	ctx            context.Context
-	options        ConnectionOptions
-	page           connectionPage
-	width, height  int
-	cursor, field  int
-	fields         []textinput.Model
-	notice         string
-	busy           bool
-	target         runtimeclient.Connection
-	client         *runtimeclient.Client
-	challenge      string
-	attempt        uint64
-	attemptContext context.Context
-	cancelAttempt  context.CancelFunc
-	generation     uint64
-	chat           *model
-	active         runtimeclient.Connection
-	owner          core.ID
-	cancelChat     context.CancelFunc
-	cache          map[string]cachedChat
-	clipboard      func(string) error
+	connectionActionName string
+	offlineLogout        bool
+	draftStores          map[string]*draftStore
+	ctx                  context.Context
+	options              ConnectionOptions
+	page                 connectionPage
+	width, height        int
+	cursor, field        int
+	fields               []textinput.Model
+	notice               string
+	busy                 bool
+	target               runtimeclient.Connection
+	client               *runtimeclient.Client
+	challenge            string
+	attempt              uint64
+	attemptContext       context.Context
+	cancelAttempt        context.CancelFunc
+	generation           uint64
+	chat                 *model
+	active               runtimeclient.Connection
+	owner                core.ID
+	cancelChat           context.CancelFunc
+	cache                map[string]cachedChat
+	clipboard            func(string) error
 }
 
 func newConnectionModel(ctx context.Context, options ConnectionOptions, clipboard func(string) error) connectionModel {
-	return connectionModel{ctx: ctx, options: options, width: 100, height: 30, cache: map[string]cachedChat{}, clipboard: clipboard}
+	return connectionModel{ctx: ctx, options: options, width: 100, height: 30, cache: map[string]cachedChat{}, draftStores: map[string]*draftStore{}, clipboard: clipboard}
 }
 func (m connectionModel) Init() tea.Cmd {
 	for _, c := range m.options.Store.Items {
@@ -113,6 +118,11 @@ func (m *connectionModel) chatUpdate(msg tea.Msg) tea.Cmd {
 	next, cmd := m.chat.Update(msg)
 	chat := next.(model)
 	m.chat = &chat
+	if err := m.chat.persistDrafts(); err != nil {
+		m.chat.draftError = err.Error()
+	} else {
+		m.chat.draftError = ""
+	}
 	return tagChat(cmd, m.generation)
 }
 func (m *connectionModel) manager() {
@@ -291,6 +301,18 @@ func (m *connectionModel) activate(result connectionResult) tea.Cmd {
 		m.page = connectionList
 		return nil
 	}
+	key := m.target.ID + "/" + string(result.owner)
+	if m.draftStores == nil {
+		m.draftStores = map[string]*draftStore{}
+	}
+	if m.draftStores[key] == nil || m.draftStores[key].err != nil && m.draftStores[key].lock == nil {
+		m.draftStores[key] = openDraftStore(m.options.Store.StateDirectory(), m.target.ID, result.owner)
+	}
+	if m.draftStores[key].err != nil {
+		m.notice = m.draftStores[key].err.Error()
+		m.page = connectionList
+		return nil
+	}
 	if m.chat != nil {
 		// Pending mutations retain their keys for safe retry when returning.
 		for i := range m.chat.assistants {
@@ -315,8 +337,15 @@ func (m *connectionModel) activate(result connectionResult) tea.Cmd {
 		m.chat.files = fileDialog{}
 		m.chat.resolving = false
 		m.chat.review = nil
-		m.chat.page = chatPage
-		m.chat.back = nil
+		if m.chat.page == filesPage || m.chat.page == attachmentsPage {
+			m.chat.page = chatPage
+			m.chat.back = nil
+		}
+		if m.chat.manage.busy {
+			m.chat.manage.screen.notice = "上次操作结果未确认，请刷新核对后再操作"
+		}
+		m.chat.manage.busy = false
+		m.chat.manage.serial++
 		m.cache[m.active.ID] = cachedChat{owner: m.owner, chat: *m.chat}
 	}
 	if m.cancelChat != nil {
@@ -327,11 +356,18 @@ func (m *connectionModel) activate(result connectionResult) tea.Cmd {
 	m.cancelChat = cancel
 	events := watchClient(ctx, result.client)
 	chat := newConnectedModel(ctx, result.client, events)
+	reused := false
 	if cached, ok := m.cache[m.target.ID]; ok && cached.owner == result.owner {
 		chat = cached.chat
+		reused = true
 		chat.live = &liveSession{ctx: ctx, client: result.client, events: events}
 		chat.notice = "正在连接…"
 		chat.selection = nil
+	}
+	chat.drafts = m.draftStores[key]
+	if !reused {
+		chat.drafts.restored = map[core.ID]bool{}
+		chat.preferredAssistant = chat.drafts.selected
 	}
 	chat.connectionName = cleanText(m.target.Name)
 	chat.resize(m.width, m.height)
@@ -353,6 +389,9 @@ func (m *connectionModel) activate(result connectionResult) tea.Cmd {
 func (m connectionModel) Update(event tea.Msg) (tea.Model, tea.Cmd) {
 	if m.page == connectionQuitting {
 		return m, nil
+	}
+	if cmd, handled := m.connectionAction(event); handled {
+		return m, cmd
 	}
 	switch msg := event.(type) {
 	case openConnection:
@@ -533,7 +572,7 @@ func (m connectionModel) View() string {
 		return ansi.Hardwrap("Molr\n终端至少需要 42 列 × 18 行。\nCtrl+Q 退出", max(1, m.width), true)
 	}
 	width, height := m.width-4, m.height-6
-	title, footer := "连接管理", "↑↓ 选择 · Enter 连接 · N 新增 · Esc 返回"
+	title, footer := "连接管理", "↑↓ 选择 · Enter 连接 · N 新增 · E 编辑 · L 退出 · A 换账号 · D 删除 · X 清理"
 	lines := []string{}
 	switch m.page {
 	case connectionList:
@@ -565,8 +604,15 @@ func (m connectionModel) View() string {
 			}
 			lines = append(lines, line, muted.Render(ansi.Truncate("  "+c.Server, width, "…")), "")
 		}
-	case connectionAdd:
+	case connectionConfirm:
+		title = "确认连接操作"
+		lines = append(lines, cleanText(m.target.Name), cleanText(m.target.Server))
+		footer = "Y 确认 · N/Esc 取消"
+	case connectionAdd, connectionEdit:
 		title = "新增连接"
+		if m.page == connectionEdit {
+			title = "编辑连接"
+		}
 		footer = "Tab 切换输入 · Enter 保存并连接 · Esc 返回"
 		for i, label := range []string{"Runtime 地址", "名称（可选）", "CA 证书路径（可选）"} {
 			lines = append(lines, muted.Render(label), m.fields[i].View(), "")
@@ -585,6 +631,9 @@ func (m connectionModel) View() string {
 	}
 	if m.busy {
 		footer = "Esc 取消 · Ctrl+Q 退出"
+		if m.page == connectionConfirm {
+			footer = "正在提交 · Ctrl+Q 退出"
+		}
 	}
 	body := strings.Join(lines, "\n")
 	bodyLines := strings.Split(body, "\n")
@@ -601,6 +650,9 @@ func (m connectionModel) View() string {
 }
 
 func (m connectionModel) shutdown() {
+	for _, s := range m.draftStores {
+		s.close()
+	}
 	if m.cancelAttempt != nil {
 		m.cancelAttempt()
 	}

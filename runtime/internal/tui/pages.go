@@ -10,7 +10,7 @@ func (m model) pickerView() string {
 	lines := []string{m.searchView(), "", muted.Render("助理"), ""}
 	matches := m.matches()
 	if len(matches) == 0 {
-		return strings.Join(append(lines, "没有匹配的助理", muted.Render("换个名称，或按 Esc 返回聊天")), "\n")
+		return strings.Join(append(lines, "没有匹配的助理", muted.Render("Ctrl+N 创建助理 · Esc 返回聊天")), "\n")
 	}
 	rowHeight := 2
 	if m.contentWidth() < 64 {
@@ -48,6 +48,9 @@ func (m model) pickerView() string {
 			lines = append(lines, "  "+muted.Render(a.role))
 		}
 		lines = append(lines, "")
+	}
+	if m.live != nil {
+		lines = append(lines, muted.Render("Ctrl+N 创建助理"))
 	}
 	return strings.TrimRight(strings.Join(lines, "\n"), "\n")
 }

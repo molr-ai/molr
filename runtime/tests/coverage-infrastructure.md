@@ -393,3 +393,6 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/sandboxruntime` | `Remote.Remember`, `Remote.Tick`, `Remote.Close`, `Host.Info`, `Host.CheckMembership` | `TestRemoteWaitRecoversOnceAndRespectsRevocation`, `internal/app.TestRemoteFailureDoesNotRestoreStoppedWork` |
 
 | `internal/runtimeclient` | `Client.Upload`, `Client.Download` | `TestFileTransferAuthenticationIntegrityAndRetry`, `TestFileTransferRejectsRedirectsAndCancelledRequests` |
+
+| `internal/runtimeclient` | `Client.WorkspaceUpload`, `Client.WorkspaceDownload` | `TestWorkspaceTransferUsesVersionsAndDetectsChangedDownload` |
+| `internal/runtimeclient` | `Connections.StateDirectory`, `Connections.Update`, `Connections.Remove` | `TestConnectionEditingPreservesOriginAndIsolation` |

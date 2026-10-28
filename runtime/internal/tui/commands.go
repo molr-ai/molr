@@ -18,7 +18,7 @@ type commandResult struct {
 	err           error
 }
 
-var chatCommands = []string{"/help", "/assistant", "/approval", "/connections", "/stop", "/停止", "/expedite", "/加急", "/compress", "/压缩", "/permission approve", "/permission reject", "/权限审批 同意", "/权限审批 拒绝", "/attach", "/attachments", "/drafts", "/channel", "/quit"}
+var chatCommands = []string{"/retry-send", "/settings", "/new", "/status", "/permissions", "/tasks", "/plans", "/processes", "/files", "/search", "/messages", "/help", "/assistant", "/approval", "/connections", "/stop", "/停止", "/expedite", "/加急", "/compress", "/压缩", "/permission approve", "/permission reject", "/权限审批 同意", "/权限审批 拒绝", "/attach", "/attachments", "/drafts", "/channel", "/quit"}
 
 func (m model) commandMatches() []string {
 	value := m.input.Value()
@@ -67,6 +67,23 @@ func (m model) runCommand(text string) (tea.Model, tea.Cmd, bool) {
 		return m, nil, false
 	}
 	name := parts[0]
+	if name == "/retry-send" {
+		if len(parts) != 1 {
+			m.notice = "此指令不接受参数"
+			return m, nil, true
+		}
+		m.resetComposer()
+		m.resizeComposer()
+		next, cmd := m.sendPending()
+		return next, cmd, true
+	}
+	switch name {
+	case "/channel", "/settings", "/new", "/status", "/permissions", "/tasks", "/plans", "/processes", "/files", "/search", "/messages":
+		m.resetComposer()
+		m.resizeComposer()
+		cmd := m.openManagement(name, strings.TrimSpace(strings.TrimPrefix(text, name)))
+		return m, cmd, true
+	}
 	switch name {
 	case "/attach":
 		path := strings.TrimSpace(strings.TrimPrefix(text, name))

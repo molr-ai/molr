@@ -3,6 +3,7 @@ package tui
 import (
 	"molr.ai/runtime/internal/agent"
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/notification"
 	"molr.ai/runtime/internal/policy"
 	"strings"
 
@@ -19,6 +20,7 @@ type message struct {
 }
 
 type assistant struct {
+	notices                      []notification.Notice
 	pastes                       []pasteBlock
 	clearVersion                 uint64
 	channel                      string

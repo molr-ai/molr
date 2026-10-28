@@ -15,6 +15,7 @@ import (
 	assistantapi "molr.ai/runtime/internal/business/assistant"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/im/conversation"
+	"molr.ai/runtime/internal/notification"
 	"molr.ai/runtime/internal/policy"
 	"molr.ai/runtime/internal/runtimeclient"
 	"molr.ai/runtime/internal/storage/files"
@@ -32,6 +33,8 @@ type liveSession struct {
 type liveEvent runtimeclient.Event
 type refreshLive struct{}
 type snapshotMsg struct {
+	notices          []notification.Notice
+	noticesOK        bool
 	files            map[core.ID]files.File
 	channel          struct{ Channel string }
 	chats            []conversation.Conversation
@@ -64,9 +67,10 @@ type readMsg struct {
 	err      error
 }
 type pendingSend struct {
-	attachments []core.ID
-	text, key   string
-	active      bool
+	clearVersion uint64
+	attachments  []core.ID
+	text, key    string
+	active       bool
 }
 
 func newConnectedModel(ctx context.Context, client *runtimeclient.Client, events <-chan runtimeclient.Event) model {
@@ -190,6 +194,10 @@ func (m *model) loadLive(history bool) tea.Cmd {
 			if out.err = client.Do(ctx, "GET", "/api/permission-requests?assistant_id="+string(out.target), nil, &out.requests); out.err != nil {
 				return out
 			}
+			if notices, err := getAll[notification.Notice](ctx, client, "/api/notifications?filter=active&assistant_id="+string(out.target)); err == nil {
+				out.notices = notices
+				out.noticesOK = true
+			}
 		}
 		query := "order=desc&limit=50"
 		if history {
@@ -306,6 +314,12 @@ func (m model) updateLive(event tea.Msg) (tea.Model, tea.Cmd, bool) {
 					a, exists := previous[remote.ID]
 					if !exists {
 						a.composer = newComposer()
+						a.id = remote.ID
+						if m.drafts != nil {
+							if err := m.drafts.restore(&a); err != nil {
+								m.draftError = err.Error()
+							}
+						}
 					}
 					a.id, a.chat, a.name, a.role = remote.ID, remote.ConversationID, cleanText(remote.Name), cleanText(remote.Status)
 					for _, c := range msg.chats {
@@ -319,6 +333,12 @@ func (m model) updateLive(event tea.Msg) (tea.Model, tea.Cmd, bool) {
 				for i, a := range m.assistants {
 					if a.id == current {
 						m.selected = i
+					}
+				}
+				if m.preferredAssistant != "" {
+					if i := m.assistantIndex(m.preferredAssistant); i >= 0 {
+						m.selected = i
+						m.preferredAssistant = ""
 					}
 				}
 				if len(m.assistants) > 0 && m.assistants[m.selected].id != current {
@@ -351,6 +371,10 @@ func (m model) updateLive(event tea.Msg) (tea.Model, tea.Cmd, bool) {
 					a.older = msg.older
 				}
 				if !msg.history {
+					if msg.noticesOK {
+						a.notices = msg.notices
+						slices.SortFunc(a.notices, func(a, b notification.Notice) int { return a.CreatedAt.Compare(b.CreatedAt) })
+					}
 					a.status = msg.status
 					a.channel = msg.channel.Channel
 					a.busy = msg.status.State == agent.Working
@@ -530,12 +554,32 @@ func (m model) sendLive(text string) (tea.Model, tea.Cmd) {
 		ids = append(ids, d.file.ID)
 	}
 	if a.pending.text != text || !slices.Equal(a.pending.attachments, ids) || a.pending.key == "" {
-		a.pending = pendingSend{text: text, key: runtimeclient.NewKey(), attachments: slices.Clone(ids)}
+		if a.pending.key != "" {
+			m.notice = "上次发送未确认，/retry-send 按原内容重试；Ctrl+C 可清除草稿后重新输入"
+			return m, nil
+		}
+		a.pending = pendingSend{text: text, key: runtimeclient.NewKey(), attachments: slices.Clone(ids), clearVersion: a.clearVersion}
+	}
+	return m.sendPending()
+}
+func (m model) sendPending() (tea.Model, tea.Cmd) {
+	if m.live == nil || m.live.expired || len(m.assistants) == 0 {
+		return m, nil
+	}
+	a := &m.assistants[m.selected]
+	if a.pending.key == "" || a.pending.active {
+		m.notice = "没有待确认的发送"
+		return m, nil
 	}
 	a.pending.active = true
 	id, chat, key, client, ctx := a.id, a.chat, a.pending.key, m.live.client, m.live.ctx
-	clearVersion := a.clearVersion
-	m.notice = "正在发送…"
+	text, ids, clearVersion := a.pending.text, slices.Clone(a.pending.attachments), a.pending.clearVersion
+	if err := m.persistDrafts(); err != nil {
+		a.pending.active = false
+		m.draftError = err.Error()
+		return m, nil
+	}
+	m.notice = "正在确认发送结果…"
 	return m, func() tea.Msg {
 		var message conversation.Message
 		err := client.Do(ctx, "POST", "/api/conversations/messages", conversation.SendUserRequest{Mutation: core.Mutation{IdempotencyKey: key}, ConversationID: chat, Content: conversation.Content{Kind: conversation.Text, Text: text, AttachmentIDs: ids}}, &message)

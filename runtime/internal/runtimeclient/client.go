@@ -24,13 +24,29 @@ import (
 
 // Error is a safe Runtime response; transport details and credentials are not displayed.
 type Error struct {
+	Reason     string
+	RequestID  string
 	Status     int
 	Code       string
 	RetryAfter time.Duration
 }
 
 func (e *Error) Error() string {
-	return fmt.Sprintf("Runtime 请求失败（HTTP %d，%s）", e.Status, e.Code)
+	label := map[string]string{"unauthenticated": "登录已过期，请重新登录", "forbidden": "当前账号或助理没有权限", "invalid_argument": "参数无效，请核对表单", "conflict": "内容或状态已变化，请刷新核对", "failed_precondition": "当前条件不允许此操作", "rate_limited": "请求过于频繁，请稍后重试", "unavailable": "服务暂不可用", "not_found": "对象不存在或不可访问"}[e.Code]
+	if label == "" {
+		label = "Runtime 请求失败"
+	}
+	result := fmt.Sprintf("%s（HTTP %d，%s）", label, e.Status, e.Code)
+	if e.Reason != "" {
+		result += " · " + e.Reason
+	}
+	if e.RetryAfter > 0 {
+		result += fmt.Sprintf(" · %d 秒后重试", int(e.RetryAfter.Seconds()))
+	}
+	if e.RequestID != "" {
+		result += " · 请求 " + e.RequestID
+	}
+	return result
 }
 
 // Client owns one Runtime origin and its session. It never follows redirects.
@@ -147,7 +163,10 @@ func (c *Client) Do(ctx context.Context, method, path string, body, out any) err
 }
 
 func responseError(resp *http.Response) error {
-	var body struct{ Code string }
+	var body struct {
+		Code, Reason string
+		RequestID    string `json:"request_id"`
+	}
 	_ = json.NewDecoder(io.LimitReader(resp.Body, 64<<10)).Decode(&body)
 	// Only known protocol codes reach the terminal.
 	switch body.Code {
@@ -159,7 +178,7 @@ func responseError(resp *http.Response) error {
 	if seconds, err := time.ParseDuration(resp.Header.Get("Retry-After") + "s"); err == nil {
 		delay = seconds
 	}
-	return &Error{Status: resp.StatusCode, Code: body.Code, RetryAfter: delay}
+	return &Error{Status: resp.StatusCode, Code: body.Code, RetryAfter: delay, Reason: safeProtocolLabel(body.Reason), RequestID: safeProtocolLabel(body.RequestID)}
 }
 
 // Login starts password login, returning an MFA challenge when required.
@@ -263,4 +282,16 @@ func (c *Client) Save(path string) error {
 		return closeErr
 	}
 	return os.Rename(f.Name(), path)
+}
+
+func safeProtocolLabel(value string) string {
+	if len(value) > 128 {
+		return ""
+	}
+	for _, r := range value {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_' || r == '-' || r == '.') {
+			return ""
+		}
+	}
+	return value
 }
