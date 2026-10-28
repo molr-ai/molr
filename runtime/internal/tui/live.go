@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"molr.ai/runtime/internal/im/conversation"
 	"molr.ai/runtime/internal/policy"
 	"molr.ai/runtime/internal/runtimeclient"
+	"molr.ai/runtime/internal/storage/files"
 )
 
 type liveSession struct {
@@ -30,6 +32,8 @@ type liveSession struct {
 type liveEvent runtimeclient.Event
 type refreshLive struct{}
 type snapshotMsg struct {
+	files            map[core.ID]files.File
+	channel          struct{ Channel string }
 	chats            []conversation.Conversation
 	status           agent.Status
 	assistants       []assistantapi.Assistant
@@ -42,10 +46,12 @@ type snapshotMsg struct {
 	err              error
 }
 type sentMsg struct {
-	id        core.ID
-	text, key string
-	message   conversation.Message
-	err       error
+	clearVersion uint64
+	attachments  []core.ID
+	id           core.ID
+	text, key    string
+	message      conversation.Message
+	err          error
 }
 type resolvedMsg struct {
 	id      core.ID
@@ -58,8 +64,9 @@ type readMsg struct {
 	err      error
 }
 type pendingSend struct {
-	text, key string
-	active    bool
+	attachments []core.ID
+	text, key   string
+	active      bool
 }
 
 func newConnectedModel(ctx context.Context, client *runtimeclient.Client, events <-chan runtimeclient.Event) model {
@@ -104,6 +111,10 @@ func (m *model) loadLive(history bool) tea.Cmd {
 	}
 	m.live.loading = true
 	client, ctx := m.live.client, m.live.ctx
+	known := map[core.ID]bool{}
+	for id := range m.fileCache {
+		known[id] = true
+	}
 	var id, chat core.ID
 	var last uint64
 	var before string
@@ -173,6 +184,9 @@ func (m *model) loadLive(history bool) tea.Cmd {
 			if out.err = client.Do(ctx, "GET", "/api/assistants/"+string(out.target)+"/status", nil, &out.status); out.err != nil {
 				return out
 			}
+			if out.err = client.Do(ctx, "GET", "/api/assistants/"+string(out.target)+"/chat-channel", nil, &out.channel); out.err != nil {
+				return out
+			}
 			if out.err = client.Do(ctx, "GET", "/api/permission-requests?assistant_id="+string(out.target), nil, &out.requests); out.err != nil {
 				return out
 			}
@@ -194,6 +208,21 @@ func (m *model) loadLive(history bool) tea.Cmd {
 				return out
 			}
 			out.messages = append(out.messages, page.Items...)
+			for _, message := range page.Items {
+				for _, id := range message.Content.AttachmentIDs {
+					if known[id] {
+						continue
+					}
+					known[id] = true
+					var f files.File
+					if err := client.Do(ctx, "GET", "/api/files/"+string(id), nil, &f); err == nil {
+						if out.files == nil {
+							out.files = map[core.ID]files.File{}
+						}
+						out.files[id] = f
+					}
+				}
+			}
 			out.older = page.NextCursor
 			if initial || history || page.NextCursor == "" {
 				break
@@ -213,6 +242,28 @@ func (m model) updateLive(event tea.Msg) (tea.Model, tea.Cmd, bool) {
 		return m, nil, false
 	}
 	switch msg := event.(type) {
+	case commandResult:
+		if i := m.assistantIndex(msg.id); i >= 0 {
+			m.assistants[i].commandBusy = false
+			if msg.err == nil {
+				m.assistants[i].commandSignature = ""
+				if i == m.selected && strings.TrimSpace(m.composerText()) == msg.input {
+					m.resetComposer()
+					m.resizeComposer()
+				} else if i != m.selected && strings.TrimSpace(expandPasteBlocks(m.assistants[i].composer.Value(), m.assistants[i].pastes)) == msg.input {
+					m.assistants[i].composer.Reset()
+					m.assistants[i].pastes = nil
+				}
+			}
+			if i == m.selected {
+				if msg.err != nil {
+					m.liveError(msg.err)
+				} else {
+					m.notice = msg.notice
+				}
+			}
+		}
+		return m, m.scheduleLive(), true
 	case liveEvent:
 		if msg.Connected && !m.live.connected && (strings.Contains(m.notice, "实时连接") || strings.HasPrefix(m.notice, "无法连接 Runtime")) {
 			m.notice = ""
@@ -231,6 +282,12 @@ func (m model) updateLive(event tea.Msg) (tea.Model, tea.Cmd, bool) {
 		return m, m.loadLive(false), true
 	case snapshotMsg:
 		m.live.loading = false
+		if m.fileCache == nil {
+			m.fileCache = map[core.ID]files.File{}
+		}
+		for id, f := range msg.files {
+			m.fileCache[id] = f
+		}
 		if msg.err != nil {
 			m.liveError(msg.err)
 		} else {
@@ -265,6 +322,14 @@ func (m model) updateLive(event tea.Msg) (tea.Model, tea.Cmd, bool) {
 					}
 				}
 				if len(m.assistants) > 0 && m.assistants[m.selected].id != current {
+					if m.page == filesPage || m.page == attachmentsPage {
+						if m.files.cancel != nil {
+							m.files.cancel()
+						}
+						m.page = chatPage
+						m.back = nil
+						m.files = fileDialog{}
+					}
 					m.input = m.assistants[m.selected].composer
 					m.input.SetWidth(m.contentWidth())
 					m.resizeComposer()
@@ -287,6 +352,7 @@ func (m model) updateLive(event tea.Msg) (tea.Model, tea.Cmd, bool) {
 				}
 				if !msg.history {
 					a.status = msg.status
+					a.channel = msg.channel.Channel
 					a.busy = msg.status.State == agent.Working
 					a.unread = msg.conversation.UnreadCount > 0
 					a.readSequence = max(a.readSequence, msg.conversation.LastReadSequence)
@@ -333,24 +399,29 @@ func (m model) updateLive(event tea.Msg) (tea.Model, tea.Cmd, bool) {
 		a := &m.assistants[i]
 		a.pending.active = false
 		if msg.err != nil {
+			if a.clearVersion != msg.clearVersion {
+				a.pending = pendingSend{}
+			}
 			m.liveError(msg.err)
-			if i == m.selected {
+			if i == m.selected && a.clearVersion == msg.clearVersion {
 				m.notice = "发送未确认，按 Enter 重试同一条消息；" + m.notice
 			}
 			return m, nil, true
 		}
 		a.pending = pendingSend{}
+		a.attachments = slices.DeleteFunc(a.attachments, func(d draftAttachment) bool { return slices.Contains(msg.attachments, d.file.ID) })
 		a.messages = mergeMessages(a.messages, []conversation.Message{msg.message})
 		// Do not advance the fetch cursor: earlier concurrent messages may still be missing.
 		if i == m.selected {
-			if strings.TrimSpace(cleanText(m.input.Value())) == msg.text {
-				m.input.Reset()
+			if a.clearVersion == msg.clearVersion && strings.TrimSpace(m.composerText()) == msg.text {
+				m.resetComposer()
 				m.resizeComposer()
 			}
 			m.refresh(m.selection == nil && m.viewport.AtBottom())
 			m.notice = "已发送"
-		} else if strings.TrimSpace(cleanText(a.composer.Value())) == msg.text {
+		} else if a.clearVersion == msg.clearVersion && strings.TrimSpace(expandPasteBlocks(a.composer.Value(), a.pastes)) == msg.text {
 			a.composer.Reset()
+			a.pastes = nil
 		}
 		return m, m.scheduleLive(), true
 	case resolvedMsg:
@@ -413,10 +484,8 @@ func mergeMessages(old []message, incoming []conversation.Message) []message {
 				text += "\n\nCtrl+P 查看授权申请"
 			}
 		}
-		if len(v.Content.AttachmentIDs) > 0 {
-			text += fmt.Sprintf("\n\n[附件 %d 个，请在 WebUI 查看]", len(v.Content.AttachmentIDs))
-		}
-		byID[v.ID] = message{id: v.ID, sequence: v.Sequence, role: string(v.Sender), text: cleanText(text)}
+
+		byID[v.ID] = message{attachments: slices.Clone(v.Content.AttachmentIDs), read: v.ReadAt != nil, id: v.ID, sequence: v.Sequence, role: string(v.Sender), text: cleanText(text)}
 	}
 	out := make([]message, 0, len(byID))
 	for _, m := range byID {
@@ -445,18 +514,31 @@ func (m model) sendLive(text string) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	a := &m.assistants[m.selected]
+	if notice := m.channelNotice(); notice != "" {
+		m.notice = notice
+		return m, nil
+	}
 	if !a.loaded || a.pending.active {
 		return m, nil
 	}
-	if a.pending.text != text || a.pending.key == "" {
-		a.pending = pendingSend{text: text, key: runtimeclient.NewKey()}
+	var ids []core.ID
+	for _, d := range a.attachments {
+		if d.busy || d.err != "" || d.file.ID == "" {
+			m.notice = "附件尚未就绪，请等待上传或在 /drafts 重试"
+			return m, nil
+		}
+		ids = append(ids, d.file.ID)
+	}
+	if a.pending.text != text || !slices.Equal(a.pending.attachments, ids) || a.pending.key == "" {
+		a.pending = pendingSend{text: text, key: runtimeclient.NewKey(), attachments: slices.Clone(ids)}
 	}
 	a.pending.active = true
 	id, chat, key, client, ctx := a.id, a.chat, a.pending.key, m.live.client, m.live.ctx
+	clearVersion := a.clearVersion
 	m.notice = "正在发送…"
 	return m, func() tea.Msg {
 		var message conversation.Message
-		err := client.Do(ctx, "POST", "/api/conversations/messages", conversation.SendUserRequest{Mutation: core.Mutation{IdempotencyKey: key}, ConversationID: chat, Content: conversation.Content{Kind: conversation.Text, Text: text}}, &message)
-		return sentMsg{id: id, text: text, key: key, message: message, err: err}
+		err := client.Do(ctx, "POST", "/api/conversations/messages", conversation.SendUserRequest{Mutation: core.Mutation{IdempotencyKey: key}, ConversationID: chat, Content: conversation.Content{Kind: conversation.Text, Text: text, AttachmentIDs: ids}}, &message)
+		return sentMsg{clearVersion: clearVersion, attachments: ids, id: id, text: text, key: key, message: message, err: err}
 	}
 }

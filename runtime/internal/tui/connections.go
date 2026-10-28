@@ -295,8 +295,24 @@ func (m *connectionModel) activate(result connectionResult) tea.Cmd {
 		// Pending mutations retain their keys for safe retry when returning.
 		for i := range m.chat.assistants {
 			m.chat.assistants[i].pending.active = false
+			m.chat.assistants[i].commandBusy = false
+			for j := range m.chat.assistants[i].attachments {
+				d := &m.chat.assistants[i].attachments[j]
+				if d.cancel != nil {
+					d.cancel()
+				}
+				if d.busy {
+					d.busy = false
+					d.err = "上传已中断，请重试"
+				}
+				d.cancel = nil
+			}
 			m.chat.assistants[i].reading = false
 		}
+		if m.chat.files.cancel != nil {
+			m.chat.files.cancel()
+		}
+		m.chat.files = fileDialog{}
 		m.chat.resolving = false
 		m.chat.review = nil
 		m.chat.page = chatPage
@@ -394,7 +410,7 @@ func (m connectionModel) Update(event tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.page == connectionChat {
 			if msg.String() == "enter" && m.chat.page == chatPage && strings.TrimSpace(m.chat.input.Value()) == "/connections" {
-				m.chat.input.Reset()
+				m.chat.resetComposer()
 				m.chat.resizeComposer()
 				m.manager()
 				return m, nil

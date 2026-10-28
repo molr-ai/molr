@@ -27,6 +27,8 @@ func TestConnectedHistorySendRetryAndSwitch(t *testing.T) {
 			fmt.Fprint(w, `{"Items":[{"ID":"a","ConversationID":"chat","Name":"真实助理","State":"active"},{"ID":"b","ConversationID":"other","Name":"另一个助理","State":"active"}]}`)
 		case "/api/conversations":
 			fmt.Fprint(w, `{"Items":[{"ID":"chat","LastSequence":2,"LastReadSequence":2}]}`)
+		case "/api/assistants/a/chat-channel":
+			fmt.Fprint(w, `{"Channel":"webui"}`)
 		case "/api/assistants/a/status":
 			fmt.Fprint(w, `{"State":"idle"}`)
 		case "/api/permission-requests":

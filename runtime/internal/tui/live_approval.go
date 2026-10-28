@@ -60,8 +60,8 @@ func (m model) liveApprovalDetails() []string {
 		if len(item.PathPrefixes) > 0 {
 			lines = append(lines, "范围："+strings.Join(item.PathPrefixes, ", "))
 		}
-		if q.Input.ExpiresAt != nil {
-			lines = append(lines, "有效期至："+q.Input.ExpiresAt.Local().Format("2006-01-02 15:04:05 MST"))
+		if item.ExpiresAt != nil {
+			lines = append(lines, "有效期至："+item.ExpiresAt.Local().Format("2006-01-02 15:04:05 MST"))
 		}
 		if item.GrantID != "" {
 			lines = append(lines, fmt.Sprintf("修改现有授权：%s · 版本 %d", item.GrantID, item.GrantVersion))

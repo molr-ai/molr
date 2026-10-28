@@ -27,7 +27,7 @@ export class DraftStore {
   }
   update(id: string, value: ChatDraft | ((previous: ChatDraft) => ChatDraft)) {
     const previous = this.snapshot(id), next = typeof value === 'function' ? value(previous) : value;
-    if (next === previous || next.text === previous.text && next.files === previous.files) return;
+    if (next === previous || next.text === previous.text && next.files === previous.files && next.pendingTexts === previous.pendingTexts) return;
     this.drafts.set(id, next);
     try { this.storage.setItem(this.key(id), JSON.stringify(next)); } catch { /* Navigation still retains the draft in memory. */ }
     this.listeners.get(id)?.forEach(listener => listener());

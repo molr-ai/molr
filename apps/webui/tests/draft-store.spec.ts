@@ -32,3 +32,15 @@ test('unavailable storage and invalid persisted drafts retain usable in-memory s
     expect(store.snapshot('first').text).toBe('retained');
   }
 });
+
+test('pending clipboard text survives draft reload and remains isolated', () => {
+ const values=new Map<string,string>();const storage={getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>values.set(key,value)};
+ const store=new DraftStore('owner',storage), initial=store.snapshot('a');
+ const pending={id:'retry-key',name:'paste.txt',text:'原文\r\n'.repeat(1000)};
+ store.update('a',{...initial,pendingTexts:[pending]});
+ expect(new DraftStore('owner',storage).snapshot('a').pendingTexts).toEqual([pending]);
+ expect(store.snapshot('b').pendingTexts).toBeUndefined();
+ expect(new DraftStore('other',storage).snapshot('a').pendingTexts).toBeUndefined();
+ store.update('a',current=>({...current,pendingTexts:[]}));
+ expect(store.snapshot('a').pendingTexts).toEqual([]);
+});

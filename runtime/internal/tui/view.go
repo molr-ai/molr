@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -39,6 +40,10 @@ func (m *model) resize(width, height int) {
 	m.input.SetWidth(m.contentWidth())
 	m.resizeComposer()
 	m.search.Width = max(1, m.contentWidth()-3)
+	m.files.path.Width = max(1, m.contentWidth()-8)
+	if m.files.preview != "" {
+		m.files.preview = wrapPreview(string(m.files.previewData), m.contentWidth())
+	}
 	m.help.Width, m.help.Height = m.contentWidth(), m.bodyHeight()
 	m.markdown = newMarkdownRenderer(m.contentWidth())
 	m.help.SetContent(m.markdown.render(helpMarkdown))
@@ -46,6 +51,7 @@ func (m *model) resize(width, height int) {
 }
 
 func (m *model) refresh(follow bool) {
+	m.resizeComposer()
 	var parts []string
 	var messages []message
 	if len(m.assistants) > 0 {
@@ -53,6 +59,13 @@ func (m *model) refresh(follow bool) {
 	}
 	for _, msg := range messages {
 		text := cleanText(msg.text)
+		for _, id := range msg.attachments {
+			label := "附件 " + string(id)
+			if info, ok := m.fileCache[id]; ok {
+				label = fmt.Sprintf("%s · %d 字节", cleanText(info.Name), info.Size)
+			}
+			text += "\n\n[" + label + " · /attachments 下载]"
+		}
 		switch msg.role {
 		case "user":
 			text = m.userBlock(m.markdown.render(text))
@@ -99,6 +112,16 @@ func (m model) View() string {
 		left, right = "↑↓ 选择 · Enter 确认", "Esc 返回"
 		if len(m.assistants) == 0 || m.assistants[m.selected].approval != "pending" {
 			left = ""
+		}
+	case filesPage:
+		title, body = strong.Render("添加附件"), m.filesView()
+		left, right = "↑↓ 选择 · 空格多选 · Enter 添加", "Ctrl+L 路径 · Tab 补全 · Esc 返回"
+	case attachmentsPage:
+		title, body = strong.Render("聊天附件"), m.filesView()
+		left, right = "↑↓ 选择 · Enter 下载", "Esc 返回"
+		if m.files.drafts {
+			title = strong.Render("待发送附件")
+			left = "Enter 预览 · R 重试 · D 移除"
 		}
 	case helpPage:
 		title, body = strong.Render("快捷键与命令"), m.help.View()
@@ -184,7 +207,39 @@ func (m model) chatView() string {
 	if m.live != nil && len(m.assistants) == 0 && !m.live.loading && m.notice == "" {
 		status = muted.Render("尚无助理，请在 WebUI 创建后按 Ctrl+R 刷新")
 	}
-	composer := m.userBlock(m.input.View())
+	var attachmentRows []string
+	for i, d := range a.attachments {
+		if i == m.attachmentRows()-1 && len(a.attachments) > m.attachmentRows() {
+			attachmentRows = append(attachmentRows, muted.Render(fmt.Sprintf("还有 %d 个附件 · Ctrl+E 查看", len(a.attachments)-i)))
+			break
+		}
+		attachmentRows = append(attachmentRows, muted.Render(cellTruncate(attachmentLabel(d), m.contentWidth(), "…")))
+	}
+	composerBody := m.composerView()
+	if notice := m.channelNotice(); notice != "" {
+		status = warning.Render(notice)
+		if !strings.HasPrefix(m.input.Value(), "/") {
+			if a.channel == "" {
+				composerBody = muted.Render("正在确认聊天入口…\n草稿已保留\nCtrl+R 刷新 · Ctrl+O 连接")
+			} else {
+				composerBody = muted.Render("聊天输入暂不可用，草稿已保留\nWebUI → 切换聊天入口 → 解绑\n/help 查看管理指令 · Ctrl+R 刷新")
+			}
+		}
+	}
+	if matches := m.commandMatches(); len(matches) > 0 {
+		index := min(m.commandCursor, len(matches)-1)
+		status = accent.Render(matches[index] + " · ↑↓ 选择 · Tab/Enter 补全")
+	}
+	if a.status.Compression != nil && a.status.Compression.State == "running" {
+		status = accent.Render("正在压缩上下文…")
+	}
+	if a.status.Expedite != nil && (a.status.Expedite.State == "pending" || a.status.Expedite.State == "waiting_tool" || a.status.Expedite.State == "waiting") {
+		status = accent.Render("已加急，等待读取补充消息")
+	}
+	if len(attachmentRows) > 0 {
+		composerBody = strings.Join(attachmentRows, "\n") + "\n" + composerBody
+	}
+	composer := m.userBlock(composerBody)
 	history := m.viewport.View()
 	if m.restoreHistory != nil {
 		history = m.restoreHistory(history)

@@ -1,7 +1,8 @@
 import { useMutation } from '../../../use-mutation';
-import { useLayoutEffect, useRef, useState } from 'react';
-import { Button, ChatComposer } from '@molr/ui';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Button, ChatAttachmentList, ChatComposer } from '@molr/ui';
 import { api, mutationKey } from '@molr/sdk';
+import type { DraftTextAttachment } from '@molr/sdk/ui';
 import type { AgentStatus, Assistant, FileInfo, PermissionRequest } from '@molr/sdk';
 import { useDraft } from '../../../drafts';
 import { useErrorToast } from '../../../error-toasts';
@@ -44,6 +45,37 @@ export function ChatComposerContainer({
   const [uploading, setUploading] = useState(false),
     [notice, setNotice] = useState('');
   const draftAttachments = useFilePreviews(draft.files);
+  const [failedTexts, setFailedTexts] = useState<string[]>([]);
+  const textUpload = useRef(false);
+  const pendingTexts = draft.pendingTexts ?? [];
+  const pendingAttachments = useMemo(() => (draft.pendingTexts ?? []).map(item => ({ id: item.id, name: item.name, size: new Blob([item.text]).size, type: 'text/plain' })), [draft.pendingTexts]);
+  // Keep original clipboard text and its retry identity in the account/assistant
+  // draft until Runtime confirms the upload. Navigation cannot lose the source.
+  useEffect(() => {
+    const pending = draft.pendingTexts?.find(item => !failedTexts.includes(item.id));
+    if (!pending || textUpload.current || uploading || chatReadOnly || archived || action.busy) return;
+    textUpload.current = true;
+    setUploading(true);
+    const file = new File([pending.text], pending.name, { type: 'text/plain;charset=utf-8' });
+    void api.upload(file, pending.id).then(info => {
+      updateDraft(current => current.pendingTexts?.some(item => item.id === pending.id) ? {
+        ...current, files: [...current.files, info], pendingTexts: current.pendingTexts.filter(item => item.id !== pending.id),
+      } : current);
+    }).catch(() => {
+      setFailedTexts(current => [...current, pending.id]);
+      setNotice(t.chat.uploadError);
+    }).finally(() => { textUpload.current = false; setUploading(false); });
+  }, [draft.pendingTexts, failedTexts, uploading, chatReadOnly, archived, action.busy, updateDraft, t.chat.uploadError]);
+  function attachText(text: string) {
+    if (chatReadOnly || archived) return;
+    if (draft.files.length + pendingTexts.length >= 5 || new Blob([text]).size > 20 * 1024 * 1024) {
+      setNotice(t.chat.uploadLimit); return;
+    }
+    const id = mutationKey();
+    const pending: DraftTextAttachment = { id, name: `${locale === 'zh' ? '粘贴文本' : 'pasted-text'}-${id.slice(0, 8)}.txt`, text };
+    updateDraft(current => ({ ...current, pendingTexts: [...(current.pendingTexts ?? []), pending] }));
+    setNotice('');
+  }
   const working = status?.State === 'working',
     dreaming = status?.State === 'dreaming',
     compressing = status?.Compression?.State === 'running';
@@ -70,6 +102,8 @@ export function ChatComposerContainer({
       chatReadOnly ||
       archived ||
       uploading ||
+      pendingTexts.length > 0 ||
+      draft.text.length > 4000 ||
       action.busy ||
       (!draft.text.trim() && !draft.files.length)
     )
@@ -271,7 +305,7 @@ export function ChatComposerContainer({
   async function attach(files: File[]) {
     if (chatReadOnly || uploading || action.busy) return;
     if (
-      draft.files.length + files.length > 5 ||
+      draft.files.length + pendingTexts.length + files.length > 5 ||
       files.some((file) => file.size > 20 * 1024 * 1024)
     ) {
       setNotice(t.chat.uploadLimit);
@@ -287,7 +321,7 @@ export function ChatComposerContainer({
       setNotice(t.chat.uploadError);
     } finally {
       if (added.length)
-        updateDraft({ ...draft, files: [...draft.files, ...added] });
+        updateDraft(current => ({ ...current, files: [...current.files, ...added] }));
       setUploading(false);
     }
   }
@@ -295,6 +329,14 @@ export function ChatComposerContainer({
     <Loading />
   ) : (
     <div className="chat-input">
+      {pendingTexts.length > 0 && <div role="group" aria-label={locale === 'zh' ? '待上传文本附件' : 'Pending text attachments'}>
+        <ChatAttachmentList files={pendingAttachments}
+          disabled={uploading}
+          onRemove={id => updateDraft(current => ({ ...current, pendingTexts: current.pendingTexts?.filter(item => item.id !== id) }))} />
+        {pendingTexts.some(item => failedTexts.includes(item.id)) && <Button size="sm" variant="ghost" disabled={uploading} onClick={() => { setFailedTexts([]); setNotice(''); }}>
+          {locale === 'zh' ? '重试文本附件上传' : 'Retry text uploads'}
+        </Button>}
+      </div>}
       <ChatComposer
         lock={
           externalChannel
@@ -343,17 +385,19 @@ export function ChatComposerContainer({
             : []),
         ]}
         value={draft.text}
-        onValueChange={(text) => updateDraft({ ...draft, text })}
+        onValueChange={(text) => updateDraft(current => ({ ...current, text }))}
         onSubmit={() => void send()}
         placeholder={t.chat.placeholder}
         disabled={chatReadOnly || archived || uploading || action.busy}
         attachments={draftAttachments}
         onAttachFiles={(files) => void attach(files)}
+        onPasteText={attachText}
+        sendDisabled={pendingTexts.length > 0 || draft.text.length > 4000}
         onRemoveAttachment={(id) =>
-          updateDraft({
-            ...draft,
-            files: draft.files.filter((file) => file.ID !== id),
-          })
+          updateDraft(current => ({
+            ...current,
+            files: current.files.filter((file) => file.ID !== id),
+          }))
         }
         notice={
           uploading

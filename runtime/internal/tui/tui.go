@@ -2,18 +2,21 @@
 package tui
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
-	"molr.ai/runtime/internal/runtimeclient"
 	"os"
 	"strings"
 	"sync"
 
 	osc52 "github.com/aymanbagabas/go-osc52/v2"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/term"
+
+	"molr.ai/runtime/internal/runtimeclient"
 )
 
 // Run displays demo data only. Exiting discards all messages and simulated decisions.
@@ -90,7 +93,7 @@ func runModel(ctx context.Context, input io.Reader, output io.Writer, m model) e
 	return runProgram(ctx, input, terminal, m)
 }
 func runProgram(ctx context.Context, input io.Reader, terminal *terminalWriter, m tea.Model) error {
-	_, err := tea.NewProgram(m, tea.WithContext(ctx), tea.WithInput(input), tea.WithOutput(terminal), tea.WithAltScreen(), tea.WithMouseCellMotion()).Run()
+	_, err := tea.NewProgram(m, tea.WithContext(ctx), tea.WithInput(input), tea.WithOutput(terminal), tea.WithAltScreen(), tea.WithMouseCellMotion(), tea.WithFilter(terminal.keyboardFilter)).Run()
 	if errors.Is(err, tea.ErrProgramKilled) && ctx.Err() != nil {
 		return nil
 	}
@@ -100,12 +103,27 @@ func runProgram(ctx context.Context, input io.Reader, terminal *terminalWriter, 
 // Keep clipboard control sequences and screen frames from interleaving.
 type terminalWriter struct {
 	*os.File
-	mu sync.Mutex
+	mu                                 sync.Mutex
+	keyboardRequested, keyboardEnabled bool
 }
 
 func (w *terminalWriter) Write(data []byte) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	// Kitty modes are per screen. Pop while still on the alternate screen,
+	// before Bubble Tea restores the shell (including signal/error exits).
+	const leaveAlt = "\x1b[?1049l"
+	if bytes.Contains(data, []byte(leaveAlt)) {
+		w.keyboardRequested = false
+		if w.keyboardEnabled {
+			w.keyboardEnabled = false
+			restored := bytes.Replace(data, []byte(leaveAlt), []byte(ansi.PopKittyKeyboard(1)+leaveAlt), 1)
+			if _, err := w.File.Write(restored); err != nil {
+				return 0, err
+			}
+			return len(data), nil
+		}
+	}
 	return w.File.Write(data)
 }
 

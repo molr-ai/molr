@@ -10,31 +10,39 @@ import (
 )
 
 type message struct {
-	id       core.ID
-	sequence uint64
-	role     string
-	text     string
+	attachments []core.ID
+	read        bool
+	id          core.ID
+	sequence    uint64
+	role        string
+	text        string
 }
 
 type assistant struct {
-	status                 agent.Status
-	id, chat               core.ID
-	sequence, readSequence uint64
-	reading, loaded        bool
-	older                  string
-	requests               []policy.PermissionRequest
-	pending                pendingSend
-	name                   string
-	role                   string
-	messages               []message
-	composer               textarea.Model
-	busy                   bool
-	generation             uint64
-	unread                 bool
-	approval               string
-	scroll                 int
-	follow                 bool
-	visited                bool
+	pastes                       []pasteBlock
+	clearVersion                 uint64
+	channel                      string
+	attachments                  []draftAttachment
+	commandBusy                  bool
+	commandSignature, commandKey string
+	status                       agent.Status
+	id, chat                     core.ID
+	sequence, readSequence       uint64
+	reading, loaded              bool
+	older                        string
+	requests                     []policy.PermissionRequest
+	pending                      pendingSend
+	name                         string
+	role                         string
+	messages                     []message
+	composer                     textarea.Model
+	busy                         bool
+	generation                   uint64
+	unread                       bool
+	approval                     string
+	scroll                       int
+	follow                       bool
+	visited                      bool
 }
 
 func demoAssistants() []assistant {

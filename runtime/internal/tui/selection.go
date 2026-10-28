@@ -49,7 +49,7 @@ func (m model) selectWithMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 			height = m.viewport.Height
 			// The composer follows the viewport, a blank row, status, another
 			// blank row and its top padding. Only its text rows are selectable.
-			inputTop := top + height + 4
+			inputTop := top + height + 4 + m.attachmentRows()
 			if msg.Y >= inputTop && msg.Y < inputTop+m.input.Height() && m.input.Value() != "" {
 				top, height = inputTop, m.input.Height()
 				left, right = 4, m.width-3 // Exclude outer padding and the prompt.
@@ -76,6 +76,10 @@ func (m model) selectWithMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		if m.selection.anchor == m.selection.end {
 			cmd := m.clearSelection()
 			return m, cmd
+		}
+		if strings.TrimSpace(m.selection.text()) != "" {
+			m.selection.status = "正在复制…"
+			return m, m.copySelection()
 		}
 	}
 	return m, nil
@@ -150,7 +154,7 @@ func (s *textSelection) render(width, height int) string {
 		}
 	}
 	if height >= 2 && height-2 < len(lines) {
-		left := "Ctrl+C 复制选中文字"
+		left := "松开鼠标自动复制 · Ctrl+C 再次复制"
 		if s.status != "" {
 			left = s.status
 		}

@@ -332,3 +332,5 @@ UI Design 的基础分类提供 `?components=foundations#avatars`，覆盖全部
 `PaneSeparator` 是用于并排区域左右调宽的受控分隔条。传入 `label`、当前宽度 `value`、允许范围 `min` / `max` 和 `onResize(value)`；调整右侧区域时设置 `reverse`。`onCommit` 在指针释放／取消或键盘调整后调用，宿主可在此保存偏好。`className` / `style` 用于放入现有布局；组件默认占宽 8px，可作为 flex 子项，也可由宿主绝对定位到区域间隙。
 
 组件负责指针捕获、宽度限值、左右方向键（10px）、Shift（40px）、Home / End 和 separator 无障碍语义。悬停使用淡色 1px 中性线，拖动略增强；键盘聚焦保留焦点轮廓。容器测量、相邻区域宽度分配、响应式布局及账号持久化由宿主处理，组件不读写存储或业务状态。
+
+`ChatComposer.onPasteText?: (text: string) => void` 接收自动转附件的完整粘贴原文。超过 `maxLength`、达到 20 行或使替换当前选区后的正文超限时，在原生截断前阻止正文插入；业务层负责上传与保留失败草稿。未传入此回调时继续使用原生文本粘贴与已有图片粘贴行为。

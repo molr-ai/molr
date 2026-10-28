@@ -1,10 +1,13 @@
 package tui
 
 import (
+	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/policy"
+	"molr.ai/runtime/internal/storage/files"
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textarea"
@@ -21,6 +24,8 @@ const (
 	assistantsPage
 	approvalPage
 	helpPage
+	filesPage
+	attachmentsPage
 )
 
 type replyMsg struct {
@@ -30,30 +35,34 @@ type replyMsg struct {
 }
 
 type model struct {
-	restoreHistory func(string) string
-	connectionName string
-	live           *liveSession
-	review         *policy.PermissionRequest
-	reviewKey      string
-	reviewDecision int
-	resolving      bool
-	approvalScroll int
-	width, height  int
-	assistants     []assistant
-	selected       int
-	page           page
-	back           []page
-	input          textarea.Model
-	search         textinput.Model
-	pickerCursor   int
-	approvalChoice int // 0 approves, 1 rejects; opening the page defaults to approve.
-	viewport       viewport.Model
-	help           viewport.Model
-	markdown       markdownRenderer
-	notice         string
-	selection      *textSelection
-	selectionID    uint64
-	writeClipboard func(string) error
+	fileCache        map[core.ID]files.File
+	files            fileDialog
+	commandCursor    int
+	commandDismissed string
+	restoreHistory   func(string) string
+	connectionName   string
+	live             *liveSession
+	review           *policy.PermissionRequest
+	reviewKey        string
+	reviewDecision   int
+	resolving        bool
+	approvalScroll   int
+	width, height    int
+	assistants       []assistant
+	selected         int
+	page             page
+	back             []page
+	input            textarea.Model
+	search           textinput.Model
+	pickerCursor     int
+	approvalChoice   int // 0 approves, 1 rejects; opening the page defaults to approve.
+	viewport         viewport.Model
+	help             viewport.Model
+	markdown         markdownRenderer
+	notice           string
+	selection        *textSelection
+	selectionID      uint64
+	writeClipboard   func(string) error
 }
 
 func newComposer() textarea.Model {
@@ -66,7 +75,10 @@ func newComposer() textarea.Model {
 		return "  "
 	})
 	input.ShowLineNumbers = false
-	input.CharLimit = 4000
+	// Bubbles counts terminal cells (Chinese characters count twice).
+	// Enforce the 4000-character limit on input events instead.
+	input.CharLimit = 0
+	input.MaxHeight = 0
 	input.SetHeight(1)
 	input.FocusedStyle.Base = lipgloss.NewStyle()
 	input.FocusedStyle.CursorLine = lipgloss.NewStyle()
@@ -74,7 +86,7 @@ func newComposer() textarea.Model {
 	input.FocusedStyle.Placeholder = muted
 	input.FocusedStyle.Prompt = accent
 	input.BlurredStyle = input.FocusedStyle
-	input.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("alt+enter", "ctrl+j"))
+	input.KeyMap.InsertNewline = key.NewBinding(key.WithKeys("alt+enter", "alt+ctrl+j", "ctrl+j"))
 	// Bracketed paste is handled by the terminal, without reading the OS clipboard.
 	input.KeyMap.Paste = key.NewBinding(key.WithDisabled())
 	return input
@@ -107,6 +119,9 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(event tea.Msg) (tea.Model, tea.Cmd) {
+	if cmd, handled := m.updateAttachments(event); handled {
+		return m, cmd
+	}
 	if next, cmd, handled := m.updateLive(event); handled {
 		return next, cmd
 	}
@@ -183,8 +198,39 @@ func (m model) Update(event tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case tea.KeyMsg:
+		if (m.page == filesPage || m.page == attachmentsPage) && msg.String() != "ctrl+c" && msg.String() != "ctrl+q" {
+			return m.updateFiles(msg)
+		}
+		if m.page == chatPage && !msg.Paste && m.commandKey(msg) {
+			return m, nil
+		}
+		if m.page == chatPage && msg.Type == tea.KeyRunes && msg.Paste {
+			raw := string(msg.Runes)
+			if utf8.RuneCountInString(raw)+utf8.RuneCountInString(m.composerText()) > maxMessageCharacters || pasteLineCount(raw) >= 20 {
+				if notice := m.channelNotice(); notice != "" {
+					m.notice = notice
+					return m, nil
+				}
+				cmd := m.addAttachment("", []byte(raw), true)
+				return m, cmd
+			}
+			if len(m.assistants) > 0 && (utf8.RuneCountInString(raw) > 100 || pasteLineCount(raw) > 2) {
+				if notice := m.channelNotice(); notice != "" {
+					m.notice = notice
+					return m, nil
+				}
+				m.insertPasteBlock(raw)
+				return m, nil
+			}
+		}
 		switch msg.String() {
-		case "ctrl+c", "ctrl+q":
+		case "ctrl+c":
+			if m.page == chatPage && (m.input.Value() != "" || m.attachmentRows() > 0) {
+				m.clearComposerDraft()
+				return m, nil
+			}
+			return m, tea.Quit
+		case "ctrl+q":
 			return m, tea.Quit
 		case "esc":
 			cmd := m.goBack()
@@ -208,6 +254,34 @@ func (m model) Update(event tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.page == chatPage {
 			switch msg.String() {
+			case "ctrl+t":
+				raw := m.composerText()
+				if raw == "" {
+					return m, nil
+				}
+				if notice := m.channelNotice(); notice != "" {
+					m.notice = notice
+					return m, nil
+				}
+				before := 0
+				if len(m.assistants) > 0 {
+					before = len(m.assistants[m.selected].attachments)
+				}
+				cmd := m.addAttachment("", []byte(raw), true)
+				if len(m.assistants) > 0 && len(m.assistants[m.selected].attachments) > before {
+					m.resetComposer()
+					m.resizeComposer()
+				}
+				return m, cmd
+			case "ctrl+s":
+				next, cmd, _ := m.runCommand("/stop")
+				return next, cmd
+			case "ctrl+f":
+				cmd := m.openFiles()
+				return m, cmd
+			case "ctrl+e":
+				cmd := m.openAttachments(true)
+				return m, cmd
 			case "ctrl+k":
 				cmd := m.openPage(assistantsPage)
 				return m, cmd
@@ -243,7 +317,19 @@ func (m model) Update(event tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch m.page {
 	case chatPage:
-		m.input, cmd = m.input.Update(event)
+		if pressed, ok := event.(tea.KeyMsg); ok {
+			if notice := m.channelNotice(); notice != "" && pressed.Type == tea.KeyRunes && !strings.HasPrefix(m.input.Value(), "/") && !strings.HasPrefix(string(pressed.Runes), "/") {
+				m.notice = notice
+				return m, nil
+			}
+			if (pressed.Type == tea.KeyRunes && utf8.RuneCountInString(m.composerText())+len(pressed.Runes) > maxMessageCharacters) || (key.Matches(pressed, m.input.KeyMap.InsertNewline) && utf8.RuneCountInString(m.composerText()) >= maxMessageCharacters) {
+				m.notice = "正文最多 4000 字符，Ctrl+T 可转为文本附件"
+				return m, nil
+			}
+			m.commandCursor = 0
+			m.commandDismissed = ""
+		}
+		cmd = m.updateComposer(event)
 		m.resizeComposer()
 	case assistantsPage:
 		return m.updatePicker(event)
@@ -254,13 +340,20 @@ func (m model) Update(event tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) send() (tea.Model, tea.Cmd) {
-	text := strings.TrimSpace(cleanText(m.input.Value()))
-	if text == "" {
+	text := strings.TrimSpace(m.composerText())
+	if text == "" && (len(m.assistants) == 0 || len(m.assistants[m.selected].attachments) == 0) {
+		return m, nil
+	}
+	if next, cmd, handled := m.runCommand(text); handled {
+		return next, cmd
+	}
+	if utf8.RuneCountInString(text) > maxMessageCharacters {
+		m.notice = "正文超过 4000 字符，按 Ctrl+T 将完整正文转为文本附件"
 		return m, nil
 	}
 	switch text {
 	case "/help", "/assistant", "/approval":
-		m.input.Reset()
+		m.resetComposer()
 		m.resizeComposer()
 		target := helpPage
 		if text == "/assistant" {
@@ -282,12 +375,13 @@ func (m model) send() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	a.messages = append(a.messages, message{role: "user", text: text})
+	a.attachments = nil
 	if len(a.messages) > 100 {
 		a.messages = a.messages[len(a.messages)-100:]
 	}
 	a.busy = true
 	a.generation++
-	m.input.Reset()
+	m.resetComposer()
 	m.resizeComposer()
 	m.notice = ""
 	m.refresh(true)

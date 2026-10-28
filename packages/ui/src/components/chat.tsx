@@ -112,12 +112,13 @@ export type ChatComposerProps = {
   lock?: { title: string; description?: ReactNode; action?: ReactNode };
   commands?: readonly ChatComposerCommand[];
   value: string; onValueChange: (value: string) => void; onSubmit: () => void; label?: string; placeholder?: string; maxLength?: number;
+  onPasteText?: (text: string) => void;
   attachments?: readonly ChatAttachment[]; onAttachFiles?: (files: File[]) => void; onRemoveAttachment?: (id: string) => void;
   models?: readonly { value: string; label: string }[]; model?: string; onModelChange?: (model: string) => void;
   onVoiceInput?: () => void; recording?: boolean; disabled?: boolean; sendDisabled?: boolean; sending?: boolean; allowSendWhileSending?: boolean; onStop?: () => void;
   hint?: string; notice?: string; processingLabel?: string; className?: string;
 };
-export function ChatComposer({ lock, commands = [], value, onValueChange, onSubmit, label, placeholder, maxLength = 4000, attachments = [], onAttachFiles, onRemoveAttachment, models, model, onModelChange, onVoiceInput, recording = false, disabled = false, sendDisabled = false, sending = false, allowSendWhileSending = false, onStop, hint, notice, processingLabel, className = '' }: ChatComposerProps) {
+export function ChatComposer({ lock, commands = [], value, onValueChange, onSubmit, label, placeholder, maxLength = 4000, attachments = [], onAttachFiles, onPasteText, onRemoveAttachment, models, model, onModelChange, onVoiceInput, recording = false, disabled = false, sendDisabled = false, sending = false, allowSendWhileSending = false, onStop, hint, notice, processingLabel, className = '' }: ChatComposerProps) {
   const { messages } = useUILocale();
   const locked = !!lock;
   const id = useId(); const textarea = useRef<HTMLTextAreaElement>(null); const fileInput = useRef<HTMLInputElement>(null);
@@ -164,7 +165,15 @@ export function ChatComposer({ lock, commands = [], value, onValueChange, onSubm
     {commandMenu && <ComposerCommandMenu id={id} anchor={textarea} commands={commandMatches} selected={selectedCommand} onActive={setActiveCommand} onSelect={completeCommand} onDismiss={() => setDismissed(value)} />}
     <textarea autoComplete="off" aria-autocomplete={commands.length ? 'list' : undefined} aria-controls={commandMenu ? `${id}-commands` : undefined} aria-activedescendant={commandMenu && selectedCommand >= 0 ? `${id}-command-${selectedCommand}` : undefined}
       onFocus={event => { setFocused(true); setDismissed(null); setCaret(event.currentTarget.selectionStart); }} onBlur={() => setFocused(false)} onSelect={event => setCaret(event.currentTarget.selectionStart)} ref={textarea} id={`${id}-message`} rows={1} aria-label={label ?? messages.chat.messageYourAssistant} aria-describedby={[hint && `${id}-hint`, notice && `${id}-notice`].filter(Boolean).join(' ') || undefined} disabled={disabled} value={value} maxLength={maxLength} onChange={event => { onValueChange(event.target.value); setDismissed(null); setActiveCommand(0); setCaret(event.target.selectionStart); }} onPaste={event => {
-      if (disabled || recording || !onAttachFiles) return;
+      if (disabled || recording) return;
+      const text = event.clipboardData.getData('text/plain');
+      const el = event.currentTarget;
+      const remaining = value.slice(0, el.selectionStart) + value.slice(el.selectionEnd);
+      // Intercept before the native maxlength filter can truncate clipboard text.
+      if (text && onPasteText && (text.length + remaining.length > maxLength || text.split(/\r\n|\r|\n/).length >= 20)) {
+        event.preventDefault(); onPasteText(text); return;
+      }
+      if (!onAttachFiles) return;
       const files = Array.from(event.clipboardData.items).filter(item => item.kind === 'file' && item.type.startsWith('image/')).map(item => item.getAsFile()).filter((file): file is File => !!file);
       if (!files.length) return;
       // Preserve normal text insertion when a clipboard also contains text.

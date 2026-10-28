@@ -1,6 +1,9 @@
 package tui
 
-import tea "github.com/charmbracelet/bubbletea"
+import (
+	tea "github.com/charmbracelet/bubbletea"
+	"strings"
+)
 
 func (m *model) resizeComposer() {
 	follow := m.viewport.AtBottom()
@@ -25,7 +28,13 @@ func (m *model) resizeComposer() {
 			m.input.Blur()
 		}
 	}
-	m.viewport.Height = max(1, m.bodyHeight()-rows-5)
+	// Refresh the widget's content before positioning the caret: its viewport
+	// may still contain the previous frame when a sixth line is inserted.
+	if m.input.Focused() {
+		_ = m.input.View()
+		m.input, _ = m.input.Update(nil)
+	}
+	m.viewport.Height = max(1, m.bodyHeight()-rows-5-m.attachmentRows())
 	if follow {
 		m.viewport.GotoBottom()
 	} else {
@@ -34,8 +43,11 @@ func (m *model) resizeComposer() {
 }
 
 func (m model) inputRows() int {
-	if m.input.LineCount() >= 3 {
+	if m.channelNotice() != "" && !strings.HasPrefix(m.input.Value(), "/") {
 		return 3
+	}
+	if m.input.LineCount() >= 5 {
+		return 5
 	}
 	// Ask the widget for its own wrapping metrics on a copy, rather than
 	// implementing a second word-wrapping algorithm or moving the real caret.
@@ -47,8 +59,8 @@ func (m model) inputRows() int {
 	rows := 0
 	for i := 0; i < probe.LineCount(); i++ {
 		rows += probe.LineInfo().Height
-		if rows >= 3 {
-			return 3
+		if rows >= 5 {
+			return 5
 		}
 		if i+1 < probe.LineCount() {
 			probe.CursorEnd()
@@ -56,4 +68,11 @@ func (m model) inputRows() int {
 		}
 	}
 	return max(1, rows)
+}
+
+func (m model) attachmentRows() int {
+	if len(m.assistants) == 0 {
+		return 0
+	}
+	return min(3, max(1, m.bodyHeight()-m.input.Height()-6), len(m.assistants[m.selected].attachments))
 }

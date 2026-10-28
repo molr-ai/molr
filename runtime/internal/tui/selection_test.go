@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"errors"
 	"reflect"
 	"strconv"
 	"strings"
@@ -10,6 +11,54 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 )
+
+func TestMouseReleaseCopiesOnceInMessagesAndComposer(t *testing.T) {
+	for _, composer := range []bool{false, true} {
+		m := newModel()
+		m = typeText(m, "复制中文👩‍💻内容")
+		top, x := 3, 2
+		if composer {
+			top, x = 3+m.viewport.Height+4, 4
+		}
+		calls, copied := 0, ""
+		m.writeClipboard = func(value string) error { calls++; copied = value; return errors.New("test failure") }
+		mouse := func(action tea.MouseAction, endX, endY int) tea.Cmd {
+			next, cmd := m.Update(tea.MouseMsg{Button: tea.MouseButtonLeft, Action: action, X: endX, Y: endY})
+			m = next.(model)
+			return cmd
+		}
+		mouse(tea.MouseActionPress, x, top)
+		if cmd := mouse(tea.MouseActionMotion, m.width-3, top+2); cmd != nil {
+			t.Fatal("copied during drag")
+		}
+		cmd := mouse(tea.MouseActionRelease, m.width-3, top+2)
+		if cmd == nil || calls != 0 {
+			t.Fatal("release did not schedule copy")
+		}
+		want := m.selection.text()
+		result := cmd()
+		next, _ := m.Update(result)
+		m = next.(model)
+		if calls != 1 || copied != want || strings.TrimSpace(copied) == "" || strings.Contains(copied, "\x1b") || m.selection.status != "复制失败，请重试" {
+			t.Fatal("wrong copied text or failure feedback", copied)
+		}
+		if mouse(tea.MouseActionRelease, m.width-3, top+2) != nil {
+			t.Fatal("duplicate release copied again")
+		}
+		m.writeClipboard = func(value string) error { calls++; return nil }
+		_, retry := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+		next, _ = m.Update(retry())
+		m = next.(model)
+		if calls != 2 || m.selection.status != "复制请求已发送" {
+			t.Fatal("retry failed")
+		}
+		mouse(tea.MouseActionPress, x, top)
+		mouse(tea.MouseActionRelease, x, top)
+		if m.selection != nil || calls != 2 {
+			t.Fatal("click copied or retained selection")
+		}
+	}
+}
 
 func TestSelectionPreservesTextAttributes(t *testing.T) {
 	profile := lipgloss.ColorProfile()

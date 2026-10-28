@@ -3,8 +3,10 @@ package tui
 import (
 	"bytes"
 	"context"
+	"io"
 	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -286,13 +288,17 @@ func TestComposerGrowsShrinksAndKeepsOverflow(t *testing.T) {
 	m = typeText(m, "第三行")
 	m = press(m, tea.KeyCtrlJ)
 	m = typeText(m, "第四行")
-	if m.input.Height() != 3 || m.input.LineCount() != 4 || m.input.Value() != "第一行\n第二行\n第三行\n第四行" || !strings.Contains(m.input.View(), "第四行") {
+	m = press(m, tea.KeyCtrlJ)
+	m = typeText(m, "第五行")
+	m = press(m, tea.KeyCtrlJ)
+	m = typeText(m, "第六行")
+	if m.input.Height() != 5 || m.input.LineCount() != 6 || m.input.Value() != "第一行\n第二行\n第三行\n第四行\n第五行\n第六行" || !strings.Contains(m.input.View(), "第六行") {
 		t.Fatalf("overflow was lost or hidden: %s", m.input.View())
 	}
 	if w, h := lipgloss.Size(m.View()); w > 42 || h > 18 {
 		t.Fatalf("expanded input overflowed terminal: %dx%d", w, h)
 	}
-	for _, want := range []int{3, 2, 1} {
+	for _, want := range []int{5, 4, 3, 2, 1} {
 		m = press(m, tea.KeyCtrlU)
 		m = press(m, tea.KeyBackspace)
 		if m.input.Height() != want {
@@ -321,7 +327,7 @@ func TestComposerWrapResizeAndDraftRestore(t *testing.T) {
 		t.Fatal("wrapped input did not expand to two rows")
 	}
 	m.resize(42, 18)
-	if m.input.Height() != 3 || m.input.Value() != draft {
+	if m.input.Height() != 4 || m.input.Value() != draft {
 		t.Fatal("narrow terminal truncated draft or failed to cap height")
 	}
 	m = press(m, tea.KeyCtrlK)
@@ -333,7 +339,7 @@ func TestComposerWrapResizeAndDraftRestore(t *testing.T) {
 	m = press(m, tea.KeyCtrlK)
 	m = typeText(m, "研究")
 	m = press(m, tea.KeyEnter)
-	if m.input.Height() != 3 || m.input.Value() != draft {
+	if m.input.Height() != 4 || m.input.Value() != draft {
 		t.Fatal("assistant switch lost long draft")
 	}
 	m.resize(200, 30)
@@ -447,9 +453,17 @@ func TestDragSelectionCopyAndAnyClickCancel(t *testing.T) {
 	if m.selection != nil || m.width != 70 {
 		t.Fatal("resize retained stale selection coordinates")
 	}
+	next, cmd = m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	m = next.(model)
+	if cmd != nil || m.input.Value() != "" {
+		t.Fatal("Ctrl+C should clear the draft before exiting")
+	}
 	_, cmd = m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	if cmd == nil {
+		t.Fatal("empty Ctrl+C should exit")
+	}
 	if _, ok := cmd().(tea.QuitMsg); !ok {
-		t.Fatal("Ctrl+C without selection should exit")
+		t.Fatal("empty Ctrl+C should exit")
 	}
 }
 
@@ -462,5 +476,44 @@ func TestSelectionKeepsGraphemesAndReversedMultilineRanges(t *testing.T) {
 	s.end = textPoint{x: 2, y: 0}
 	if s.text() != "é👩‍💻末尾\n下一" {
 		t.Fatalf("reversed multiline selection: %q", s.text())
+	}
+}
+
+func TestTerminalModifiedEnterSequences(t *testing.T) {
+	for _, tc := range []struct{ name, sequence string }{{"alt carriage return", "\x1b\r"}, {"alt line feed", "\x1b\n"}, {"control J", "\n"}} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+			defer cancel()
+			input := "first" + tc.sequence + "second\x11"
+			program := tea.NewProgram(newModel(), tea.WithContext(ctx), tea.WithInput(strings.NewReader(input)), tea.WithOutput(io.Discard), tea.WithoutRenderer(), tea.WithoutSignalHandler())
+			result, err := program.Run()
+			if err != nil {
+				t.Fatal(err)
+			}
+			m := result.(model)
+			if m.composerText() != "first\nsecond" || m.assistants[0].busy {
+				t.Fatalf("modified Enter must insert a newline without sending: %q", m.composerText())
+			}
+		})
+	}
+}
+
+func TestModifiedEnterAfterPasteBlockAndAtLimit(t *testing.T) {
+	for _, key := range []tea.KeyMsg{{Type: tea.KeyEnter, Alt: true}, {Type: tea.KeyCtrlJ, Alt: true}, {Type: tea.KeyCtrlJ}} {
+		m := newModel()
+		m = pasteText(m, strings.Repeat("x", 101))
+		next, _ := m.Update(key)
+		m = next.(model)
+		m = typeText(m, "tail")
+		if m.composerText() != strings.Repeat("x", 101)+"\ntail" || len(m.assistants[0].pastes) != 1 {
+			t.Fatalf("%s split a paste block or lost newline", key.String())
+		}
+		m.clearComposerDraft()
+		m = pasteText(m, strings.Repeat("x", 4000))
+		next, _ = m.Update(key)
+		m = next.(model)
+		if len([]rune(m.composerText())) != 4000 || !strings.Contains(m.notice, "4000") {
+			t.Fatalf("%s bypassed text limit", key.String())
+		}
 	}
 }

@@ -391,3 +391,5 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/im/channelstate` | `Notify`, `SyncNotice` | `TestConnectionNotifyPreservesScopeRecoveryAndCommitOrder` |
 | `internal/sandboxruntime` | `New`, `Remote.Execute`, `Client.Execute`, `Client.Await`, `Host.Connect`, `Host.Epoch`, `Host.CheckExecution`, `Host.CheckConnection` | `TestRemoteExecutionReusesFrozenIdentityAndRechecksEpoch`, `internal/app.TestShellTasksRemoteTTYAndArchivedOutput` |
 | `internal/sandboxruntime` | `Remote.Remember`, `Remote.Tick`, `Remote.Close`, `Host.Info`, `Host.CheckMembership` | `TestRemoteWaitRecoversOnceAndRespectsRevocation`, `internal/app.TestRemoteFailureDoesNotRestoreStoppedWork` |
+
+| `internal/runtimeclient` | `Client.Upload`, `Client.Download` | `TestFileTransferAuthenticationIntegrityAndRetry`, `TestFileTransferRejectsRedirectsAndCancelledRequests` |
