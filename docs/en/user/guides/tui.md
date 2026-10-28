@@ -26,6 +26,8 @@ First-time connections open a separate login page for username and password, fol
 
 ## Select assistants and chat
 
+A gray dot `●` appears to the left of the first line of each assistant message to distinguish consecutive messages. Paragraphs and wrapped lines within the same message do not repeat the marker.
+
 The terminal uses existing Runtime assistants, conversation history, and permission requests. Chat, assistant selection, approvals, and help use separate borderless full-screen pages. Ctrl+K or `/assistant` opens selection; type to search names, use arrows, and press Enter. Switching assistants preserves drafts, cursors, and scroll positions during the current run. If there are no assistants, create one in WebUI and press Ctrl+R to refresh.
 
 Enter sends; Alt+Enter or Ctrl+J inserts a newline. The composer grows from one to five visible rows and scrolls additional text. PgUp/PgDn and the wheel scroll history; scrolling upward at the top loads older records. Ctrl+End returns to the latest message. Lost realtime connections reconnect and fetch missed messages. Ctrl+R refreshes manually. Failed sends preserve the draft; retrying the same content with Enter reuses its idempotency key. Runtime retains sent messages after exit; unsent drafts are not saved to disk.

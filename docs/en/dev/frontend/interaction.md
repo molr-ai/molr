@@ -110,6 +110,10 @@ Above 640px panel width, the directory and preview appear side by side; narrower
 
 `workspace-explorer.spec.ts` uses a real Runtime to verify desktop/mobile file operations, upload and version conflicts, and window geometry. Palette checks and screenshots remain in local internal records.
 
+## TUI message boundaries
+
+TUI places a gray dot `●` in the left gutter of the first line of each assistant message, using the terminal muted text color. The marker appears once per message, does not repeat for paragraphs or wrapped lines, and preserves the Markdown content width.
+
 ## Long text pastes
 
 WebUI and the desktop app share `ChatComposer.onPasteText`, capturing the complete clipboard text before native `maxlength` truncation. A paste over 4000 characters, reaching 20 lines, or exceeding the limit after replacing the current selection is prevented from entering the message body and passed to the host as a text attachment. Original text and its idempotency key enter the account- and assistant-scoped `ChatDraft.pendingTexts` before uploading; success replaces the pending item with a file reference. Failures preserve the source for retry, and pending text uploads disable sending. Functional draft updates avoid overwriting newer input or another assistant's draft. Message sends include only `AttachmentIDs`; expediting uses the same attachment metadata.

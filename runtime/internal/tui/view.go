@@ -69,6 +69,10 @@ func (m *model) refresh(follow bool) {
 		switch msg.role {
 		case "user":
 			text = m.userBlock(m.markdown.render(text))
+		case "assistant":
+			text = m.pagePadding(m.markdown.render(text))
+			// Use the left gutter so the marker does not change Markdown wrapping.
+			text = muted.Render("●") + " " + strings.TrimPrefix(text, "  ")
 		case "system":
 			text = muted.Render(ansi.Hardwrap("· "+text, m.contentWidth(), true))
 			text = m.pagePadding(text)
