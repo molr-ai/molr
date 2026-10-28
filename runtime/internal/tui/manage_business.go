@@ -559,8 +559,9 @@ func (m *model) pendingScreen(id core.ID, p pendingSend) tea.Cmd {
 		m.manage.stack = nil
 		m.back = nil
 		m.page = chatPage
+		focus := m.input.Focus()
 		next, cmd := m.sendPending()
 		*m = next.(model)
-		return cmd
+		return tea.Batch(focus, cmd)
 	}}}})
 }

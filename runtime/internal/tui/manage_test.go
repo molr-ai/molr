@@ -345,3 +345,17 @@ func TestPendingSendKeepsOriginalPayloadAfterEditing(t *testing.T) {
 		t.Fatal("retry changed payload or cleared later input")
 	}
 }
+
+func TestPendingReviewRestoresComposerFocus(t *testing.T) {
+	m := newConnectedModel(t.Context(), nil, make(chan runtimeclient.Event))
+	m.assistants = []assistant{{id: "a", chat: "chat", composer: newComposer(), pending: pendingSend{text: "original", key: "key"}}}
+	m.input.SetValue("later draft")
+	m.pendingScreen("a", m.assistants[0].pending)
+	if m.input.Focused() {
+		t.Fatal("review did not blur composer")
+	}
+	cmd := m.manage.screen.rows[0].open(&m)
+	if cmd == nil || m.page != chatPage || !m.input.Focused() || m.input.Value() != "later draft" {
+		t.Fatal("return from send review lost focus or later draft")
+	}
+}
