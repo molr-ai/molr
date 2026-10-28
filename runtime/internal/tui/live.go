@@ -417,11 +417,8 @@ func (m model) updateLive(event tea.Msg) (tea.Model, tea.Cmd, bool) {
 			}
 		}
 		var next tea.Cmd
-		if m.live.dirty {
+		if m.live.dirty || len(m.assistants) > 0 && !m.assistants[m.selected].loaded && msg.err == nil {
 			m.live.dirty = false
-			next = m.scheduleLive()
-		}
-		if len(m.assistants) > 0 && !m.assistants[m.selected].loaded && msg.err == nil {
 			next = m.scheduleLive()
 		}
 		return m, tea.Batch(next, m.markLiveRead()), true

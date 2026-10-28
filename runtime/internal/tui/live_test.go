@@ -19,6 +19,64 @@ import (
 	"molr.ai/runtime/internal/runtimeclient"
 )
 
+func TestStartupRefreshLoadsRestoredAssistant(t *testing.T) {
+	for _, dirty := range []bool{false, true} {
+		t.Run(fmt.Sprintf("event_during_initial_load=%t", dirty), func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/api/assistants":
+					fmt.Fprint(w, `{"Items":[{"ID":"a","ConversationID":"first","Name":"First"},{"ID":"b","ConversationID":"restored","Name":"Restored"}]}`)
+				case "/api/conversations", "/api/notifications":
+					fmt.Fprint(w, `{"Items":[]}`)
+				case "/api/assistants/a/status", "/api/assistants/b/status":
+					fmt.Fprint(w, `{"State":"idle"}`)
+				case "/api/assistants/a/chat-channel", "/api/assistants/b/chat-channel":
+					fmt.Fprint(w, `{"Channel":"webui"}`)
+				case "/api/permission-requests":
+					fmt.Fprint(w, `[]`)
+				case "/api/conversations/first/messages", "/api/conversations/restored/messages":
+					fmt.Fprint(w, `{"Items":[{"ID":"message","Sequence":1,"Sender":"assistant","Content":{"Kind":"text","Text":"Loaded history"}}]}`)
+				default:
+					t.Errorf("unexpected route %s", r.URL.Path)
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}))
+			defer server.Close()
+			client, err := runtimeclient.New(server.URL, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			m := newConnectedModel(t.Context(), client, make(chan runtimeclient.Event))
+			m.preferredAssistant = "b"
+			m.live.hidden = true // Do not mark messages read during this loading check.
+			initial := m.loadLive(false)
+			if dirty {
+				next, _, _ := m.updateLive(liveEvent{Connected: true})
+				m = next.(model)
+			}
+			next, refresh, _ := m.updateLive(initial())
+			m = next.(model)
+			if m.assistants[m.selected].id != "b" || refresh == nil {
+				t.Fatal("restored assistant has no refresh command")
+			}
+			next, load, _ := m.updateLive(refresh())
+			m = next.(model)
+			if load == nil {
+				t.Fatal("refresh did not load the restored assistant")
+			}
+			next, _, _ = m.updateLive(load())
+			m = next.(model)
+			a := m.assistants[m.selected]
+			if !a.loaded || a.channel != "webui" || len(a.messages) != 1 || m.channelNotice() != "" {
+				t.Fatal("restored chat did not finish loading")
+			}
+			if m.live.loading || m.live.scheduled || m.live.dirty || m.scheduleLive() == nil {
+				t.Fatal("subsequent refresh is blocked")
+			}
+		})
+	}
+}
+
 func TestConnectedHistorySendRetryAndSwitch(t *testing.T) {
 	keys := []string{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

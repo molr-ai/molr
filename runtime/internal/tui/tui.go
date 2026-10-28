@@ -99,7 +99,13 @@ func runModel(ctx context.Context, input io.Reader, output io.Writer, m model) e
 	return runProgram(ctx, input, terminal, m)
 }
 func runProgram(ctx context.Context, input io.Reader, terminal *terminalWriter, m tea.Model) error {
-	_, err := tea.NewProgram(m, tea.WithContext(ctx), tea.WithInput(input), tea.WithOutput(terminal), tea.WithAltScreen(), tea.WithMouseCellMotion(), tea.WithFilter(terminal.keyboardFilter)).Run()
+	framed, closeInput, err := frameTerminalInput(ctx, input)
+	if err != nil {
+		return err
+	}
+	defer closeInput()
+	input = terminalInput{File: input.(term.File), framed: framed}
+	_, err = tea.NewProgram(m, tea.WithContext(ctx), tea.WithInput(input), tea.WithOutput(terminal), tea.WithAltScreen(), tea.WithMouseCellMotion(), tea.WithFilter(terminal.keyboardFilter)).Run()
 	if errors.Is(err, tea.ErrProgramKilled) && ctx.Err() != nil {
 		return nil
 	}
@@ -116,6 +122,14 @@ type terminalWriter struct {
 func (w *terminalWriter) Write(data []byte) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	if bytes.HasPrefix(data, []byte(ansi.CursorHomePosition)) && bytes.ContainsRune(data, '\n') {
+		// A frame uses absolute screen rows. Terminal-specific glyph widths
+		// must not make a line wrap and displace subsequent cached rows.
+		if _, err := w.File.Write(anchorTerminalFrame(data)); err != nil {
+			return 0, err
+		}
+		return len(data), nil
+	}
 	// Kitty modes are per screen. Pop while still on the alternate screen,
 	// before Bubble Tea restores the shell (including signal/error exits).
 	const leaveAlt = "\x1b[?1049l"
@@ -131,6 +145,19 @@ func (w *terminalWriter) Write(data []byte) (int, error) {
 		}
 	}
 	return w.File.Write(data)
+}
+
+func anchorTerminalFrame(data []byte) []byte {
+	var out bytes.Buffer
+	out.WriteString(ansi.ResetAutoWrapMode)
+	for row, line := range bytes.Split(data, []byte{'\n'}) {
+		if row > 0 {
+			out.WriteString(ansi.CursorPosition(1, row+1))
+		}
+		out.Write(line)
+	}
+	out.WriteString(ansi.SetAutoWrapMode)
+	return out.Bytes()
 }
 
 func (w *terminalWriter) WriteString(value string) (int, error) {

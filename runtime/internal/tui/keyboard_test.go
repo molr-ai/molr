@@ -30,7 +30,12 @@ func TestExtendedKeyboardThroughTerminalDecoder(t *testing.T) {
 		ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 		defer cancel()
 		input := "\x1b[?0u" + "first" + sequence + "second\x1b[13;3:3u\x1b[113;5u"
-		program := tea.NewProgram(newModel(), tea.WithContext(ctx), tea.WithInput(strings.NewReader(input)), tea.WithOutput(io.Discard), tea.WithFilter(w.keyboardFilter), tea.WithoutRenderer(), tea.WithoutSignalHandler())
+		framed, closeInput, err := frameTerminalInput(ctx, strings.NewReader(input))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer closeInput()
+		program := tea.NewProgram(newModel(), tea.WithContext(ctx), tea.WithInput(framed), tea.WithOutput(io.Discard), tea.WithFilter(w.keyboardFilter), tea.WithoutRenderer(), tea.WithoutSignalHandler())
 		result, err := program.Run()
 		if err != nil {
 			t.Fatal(err)
@@ -67,7 +72,12 @@ func TestExtendedKeyboardShortcutsAndPasteIsolation(t *testing.T) {
 		ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 		defer cancel()
 		w := keyboardTestWriter(t)
-		program := tea.NewProgram(newModel(), tea.WithContext(ctx), tea.WithInput(strings.NewReader(tc.input)), tea.WithOutput(io.Discard), tea.WithFilter(w.keyboardFilter), tea.WithoutRenderer(), tea.WithoutSignalHandler())
+		framed, closeInput, err := frameTerminalInput(ctx, strings.NewReader(tc.input))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer closeInput()
+		program := tea.NewProgram(newModel(), tea.WithContext(ctx), tea.WithInput(framed), tea.WithOutput(io.Discard), tea.WithFilter(w.keyboardFilter), tea.WithoutRenderer(), tea.WithoutSignalHandler())
 		result, err := program.Run()
 		if err != nil {
 			t.Fatal(err)
