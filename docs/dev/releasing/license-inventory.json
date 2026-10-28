@@ -4,7 +4,7 @@
   "baseCommit": "0e38689",
   "scope": "License compatibility and notice delivery review; see docs/dev/releasing/licensing.md.",
   "inputs": {
-    "package-lock.json": "2945a75f4dff729dd074798189214d87b32df4ba18596eb6212e9374c487a266",
+    "package-lock.json": "777815f9a5d59e0368f63e200b90ae48e2b2ca340d558b690ad563e61a85eead",
     "runtime/go.mod": "20695b66298a1aabe9327797372483900b07fe563d768cc5db5f76f7fb532e6b",
     "runtime/go.sum": "f2da58d8690bb4fd0eb35f8262bfd09fec890940119577fe7db8b3935693c66d",
     "runtime/.go-version": "6c075150045fda9bac31bb93cf5a0a0bc91622a75c1f10fb2971e6f994c6d4d6",
