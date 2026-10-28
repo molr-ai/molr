@@ -135,7 +135,7 @@ func (m model) View() string {
 		}
 	case helpPage:
 		title, body = strong.Render("快捷键与命令"), m.help.View()
-		left, right = "↑↓ / PgUp / PgDn 滚动", "Esc 返回"
+		left, right = "↑↓ / Alt+↑↓ 滚动", "Esc 返回"
 	}
 	badge := warning.Render("演示模式")
 	if m.live != nil {
@@ -156,7 +156,7 @@ func (m model) View() string {
 			badge = muted.Render(cellTruncate(m.connectionName, max(4, m.contentWidth()/4), "…")+" · ") + badge
 		}
 		if m.page == approvalPage {
-			left, right = "↑↓ 选择 · Enter 确认", "PgUp/PgDn 滚动 · Esc 返回"
+			left, right = "↑↓ 选择 · Enter 确认", "Alt+↑↓ 滚动 · Esc 返回"
 		}
 	}
 	header := spread(title, badge, m.contentWidth())
@@ -179,43 +179,86 @@ func spread(left, right string, width int) string {
 	return left + strings.Repeat(" ", max(1, width-cellWidth(left)-cellWidth(right))) + right
 }
 
-func (m model) chatView() string {
+// Keep the visible status and its action together so overrides cannot leave
+// a hidden approval or other stale action behind.
+func (m model) chatStatus() (string, string) {
 	var a assistant
 	if len(m.assistants) > 0 {
 		a = m.assistants[m.selected]
 	}
-	status := ""
+	status, action := "", ""
 	switch {
 	case m.notice != "":
-		status = muted.Render(m.notice)
+		status, action = muted.Render(m.notice), ""
 	case a.busy:
-		status = accent.Render("正在生成演示回复…")
+		status, action = accent.Render("正在生成演示回复…"), ""
 		if m.live != nil {
-			status = accent.Render("正在处理…")
+			status, action = accent.Render("正在处理…"), ""
 		}
 	case a.approval == "pending":
-		status = warning.Render("待审批 · 读取 weekly.md · Ctrl+P 查看")
+		status, action = warning.Render("待审批 · 读取 weekly.md · Ctrl+P 查看"), "/approval"
 		if m.live != nil {
-			status = warning.Render("待审批 · Ctrl+P 查看")
+			status, action = warning.Render("待审批 · Ctrl+P 查看"), "/approval"
 		}
-	case !m.viewport.AtBottom():
-		status = muted.Render("正在查看历史 · Ctrl+End 回到最新消息")
 	}
 	if m.live != nil && m.notice == "" && a.approval != "pending" {
 		switch a.status.State {
 		case "waiting":
-			status = muted.Render("等待中 · " + cleanText(a.status.WaitingReason))
+			status, action = muted.Render("等待中 · "+cleanText(a.status.WaitingReason)), ""
 		case "dreaming":
-			status = muted.Render("正在整理记忆…")
+			status, action = muted.Render("正在整理记忆…"), ""
 		case "paused", "stopped":
-			status = warning.Render("助理已暂停")
+			status, action = warning.Render("助理已暂停"), ""
 		}
 		if a.status.ModelRetry != nil {
-			status = muted.Render("模型请求重试中…")
+			status, action = muted.Render("模型请求重试中…"), ""
 		}
 	}
 	if m.live != nil && len(m.assistants) == 0 && !m.live.loading && m.notice == "" {
-		status = muted.Render("尚无助理，输入 /new 创建")
+		status, action = muted.Render("尚无助理，输入 /new 创建"), "/new"
+	}
+	if notice := m.channelNotice(); notice != "" && m.notice == "" {
+		status, action = warning.Render(notice), ""
+		if a.loaded && a.channel != "" {
+			action = "/channel"
+		}
+	}
+	if matches := m.commandMatches(); len(matches) > 0 {
+		index := min(m.commandCursor, len(matches)-1)
+		status, action = accent.Render(matches[index]+" · ↑↓ 选择 · Tab/Enter 补全"), ""
+	}
+	if a.status.Compression != nil && a.status.Compression.State == "running" {
+		status, action = accent.Render("正在压缩上下文…"), ""
+	}
+	if a.status.Expedite != nil && (a.status.Expedite.State == "pending" || a.status.Expedite.State == "waiting_tool" || a.status.Expedite.State == "waiting") {
+		status, action = accent.Render("已加急，等待读取补充消息"), ""
+	}
+	if len(a.notices) > 0 {
+		n := a.notices[0]
+		if m.notice == "" {
+			status, action = warning.Render(fmt.Sprintf("提醒 %d 条：%s · /status 查看", len(a.notices), noticeLabel(n))), ""
+		} else {
+			status, action = warning.Render(fmt.Sprintf("提醒 %d · /status · ", len(a.notices)))+status, ""
+		}
+	}
+	if len(a.notices) > 0 && m.live != nil {
+		action = "/status"
+	}
+	if m.draftError != "" {
+		status, action = warning.Render("草稿未保存到本机："+m.draftError), ""
+	}
+	label, _, _ := m.latestControl()
+	width := m.contentWidth()
+	if label != "" {
+		width = max(0, width-cellWidth(label)-1)
+	}
+	return cellTruncate(status, width, "…"), action
+}
+
+func (m model) chatView() string {
+	var a assistant
+	if len(m.assistants) > 0 {
+		a = m.assistants[m.selected]
 	}
 	var attachmentRows []string
 	for i, d := range a.attachments {
@@ -229,30 +272,6 @@ func (m model) chatView() string {
 		attachmentRows = append(attachmentRows, muted.Render(cellTruncate(attachmentLabel(d), m.contentWidth(), "…")))
 	}
 	composerBody := m.composerView()
-	if notice := m.channelNotice(); notice != "" && m.notice == "" {
-		status = warning.Render(notice)
-	}
-	if matches := m.commandMatches(); len(matches) > 0 {
-		index := min(m.commandCursor, len(matches)-1)
-		status = accent.Render(matches[index] + " · ↑↓ 选择 · Tab/Enter 补全")
-	}
-	if a.status.Compression != nil && a.status.Compression.State == "running" {
-		status = accent.Render("正在压缩上下文…")
-	}
-	if a.status.Expedite != nil && (a.status.Expedite.State == "pending" || a.status.Expedite.State == "waiting_tool" || a.status.Expedite.State == "waiting") {
-		status = accent.Render("已加急，等待读取补充消息")
-	}
-	if len(a.notices) > 0 {
-		n := a.notices[0]
-		if m.notice == "" {
-			status = warning.Render(fmt.Sprintf("提醒 %d 条：%s · /status 查看", len(a.notices), noticeLabel(n)))
-		} else {
-			status = warning.Render(fmt.Sprintf("提醒 %d · /status · ", len(a.notices))) + status
-		}
-	}
-	if m.draftError != "" {
-		status = warning.Render("草稿未保存到本机：" + m.draftError)
-	}
 	if len(attachmentRows) > 0 {
 		composerBody = strings.Join(attachmentRows, "\n") + "\n" + composerBody
 	}
@@ -261,7 +280,13 @@ func (m model) chatView() string {
 	if m.restoreHistory != nil {
 		history = m.restoreHistory(history)
 	}
-	return history + "\n\n" + m.pagePadding(cellTruncate(status, m.contentWidth(), "…")) + "\n\n" + composer
+	label, _, _ := m.latestControl()
+	status, _ := m.chatStatus()
+	statusRow := status
+	if label != "" {
+		statusRow = spread(status, accent.Render(label), m.contentWidth())
+	}
+	return history + "\n\n" + m.pagePadding(statusRow) + "\n\n" + composer
 }
 
 func (m model) userBlock(content string) string {
@@ -271,4 +296,17 @@ func (m model) userBlock(content string) string {
 	content = strings.NewReplacer("\x1b[0m", "\x1b[0m"+restore, "\x1b[m", "\x1b[m"+restore).Replace(content)
 	masked, restoreKeycaps := layoutKeycaps(content)
 	return restoreKeycaps(userSurface.Width(m.width).Padding(1, 2).Render(masked))
+}
+
+// The control shares the status row, keeping a blank row before the composer.
+// Rendering and mouse hit testing share terminal-cell coordinates.
+func (m model) latestControl() (label string, x, y int) {
+	if m.page != chatPage || m.width < 42 || m.height < 18 || m.viewport.AtBottom() {
+		return "", 0, 0
+	}
+	label = "↓ 返回底部 · Ctrl+G"
+	if len(m.assistants) > 0 && m.assistants[m.selected].unread {
+		label = "↓ 有新消息 · Ctrl+G"
+	}
+	return label, m.width - 2 - cellWidth(label), 3 + m.viewport.Height + 1
 }

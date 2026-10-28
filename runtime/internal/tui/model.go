@@ -124,6 +124,15 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(event tea.Msg) (tea.Model, tea.Cmd) {
+	// Route compact-keyboard shortcuts through every page's existing paging.
+	if msg, ok := event.(tea.KeyMsg); ok && msg.Alt && !msg.Paste {
+		switch msg.Type {
+		case tea.KeyUp:
+			event = tea.KeyMsg{Type: tea.KeyPgUp}
+		case tea.KeyDown:
+			event = tea.KeyMsg{Type: tea.KeyPgDown}
+		}
+	}
 	if cmd, handled := m.updateManaged(event); handled {
 		return m, cmd
 	}
@@ -163,6 +172,25 @@ func (m model) Update(event tea.Msg) (tea.Model, tea.Cmd) {
 		m.resize(msg.Width, msg.Height)
 		return m, cmd
 	case tea.MouseMsg:
+		if msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress && m.selection == nil {
+			label, x, y := m.latestControl()
+			if label != "" && msg.Y == y && msg.X >= x && msg.X < x+cellWidth(label) {
+				cmd := m.returnToLatest()
+				return m, cmd
+			}
+			if m.page == chatPage && m.width >= 42 && m.height >= 18 && msg.Y == 3+m.viewport.Height+1 {
+				status, action := m.chatStatus()
+				if action != "" && msg.X >= 2 && msg.X < 2+cellWidth(status) {
+					var cmd tea.Cmd
+					if action == "/approval" && m.live == nil {
+						cmd = m.openPage(approvalPage)
+					} else {
+						cmd = m.openManagement(action, "")
+					}
+					return m, cmd
+				}
+			}
+		}
 		if msg.Button != tea.MouseButtonWheelUp && msg.Button != tea.MouseButtonWheelDown {
 			return m.selectWithMouse(msg)
 		}
@@ -313,12 +341,9 @@ func (m model) Update(event tea.Msg) (tea.Model, tea.Cmd) {
 					m.assistants[m.selected].unread = false
 				}
 				return m, m.markLiveRead()
-			case "ctrl+end":
-				m.viewport.GotoBottom()
-				if len(m.assistants) > 0 {
-					m.assistants[m.selected].unread = false
-				}
-				return m, m.markLiveRead()
+			case "ctrl+g", "ctrl+end":
+				cmd := m.returnToLatest()
+				return m, cmd
 			case "enter":
 				return m.send()
 			}
@@ -450,4 +475,12 @@ func cleanText(s string) string {
 		}
 		return r
 	}, s)
+}
+
+func (m *model) returnToLatest() tea.Cmd {
+	m.viewport.GotoBottom()
+	if len(m.assistants) > 0 {
+		m.assistants[m.selected].unread = false
+	}
+	return m.markLiveRead()
 }

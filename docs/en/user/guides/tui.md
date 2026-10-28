@@ -30,7 +30,9 @@ A gray dot `●` appears to the left of the first line of each assistant message
 
 The terminal uses existing Runtime assistants, conversation history, and permission requests. Chat, assistant selection, approvals, and help use separate borderless full-screen pages. Ctrl+K or `/assistant` opens selection; type to search names, use arrows, and press Enter. Switching assistants preserves drafts, cursors, and scroll positions during the current run. Use `/new`, or Ctrl+N in assistant selection, to create an assistant. F1 opens the operation menu.
 
-Enter sends; Alt+Enter or Ctrl+J inserts a newline. The composer grows from one to five visible rows and scrolls additional text. PgUp/PgDn and the wheel scroll history; scrolling upward at the top loads older records. Ctrl+End returns to the latest message. Lost realtime connections reconnect and fetch missed messages. Ctrl+R refreshes manually. Failed sends preserve the draft; retrying the same content with Enter reuses its idempotency key. Runtime retains sent messages after exit; unsent drafts are saved locally. `/retry-send` retries an unconfirmed send with its original payload and idempotency key, excluding later edits.
+Enter sends; Alt+Enter or Ctrl+J inserts a newline. The composer grows from one to five visible rows and scrolls additional text. Alt+↑ / Alt+↓ and the wheel scroll history; scrolling upward at the top loads older records. Ctrl+G (or Ctrl+End) returns to the latest message. Lost realtime connections reconnect and fetch missed messages. Ctrl+R refreshes manually. Failed sends preserve the draft; retrying the same content with Enter reuses its idempotency key. Runtime retains sent messages after exit; unsent drafts are saved locally. `/retry-send` retries an unconfirmed send with its original payload and idempotency key, excluding later edits.
+
+When scrolled away from the bottom, a clickable “Back to bottom” control appears on the right above the composer. It changes to “New messages” when the conversation has unread messages. It shares the status row, leaving a blank row above the composer and keeping history in place. Incoming messages preserve your reading position. PgUp/PgDn remain available for paging.
 
 Message bodies support up to 4000 characters. At the limit, the TUI preserves the draft and prompts you to convert it into a text attachment with Ctrl+T. Tasks run in Runtime under the assistant’s [permissions and budgets](permissions-and-budget.md) and sandbox controls. Use `/settings` for the assistant model, budget, and compression threshold; administrators prepare resources, and the TUI manages assistant grants.
 
@@ -44,7 +46,7 @@ Ctrl+F or `/attach` opens file selection. Use arrows to browse, Enter to open di
 
 Files upload into the current assistant’s draft. Enter sends them with explanatory text, or on their own. Each message supports up to five attachments of at most 20 MiB each; server deployment limits and account quotas still apply. Upload progress is displayed. Ctrl+E or `/drafts` opens pending attachments: R retries, D or Delete removes. Retries reuse the original bytes and idempotency key. Failed sends retain text and attachments; success removes only the attachments included in that send. Switching services cancels transfers; retry when returning.
 
-With terminal bracketed paste support, a single paste exceeding 4000 Unicode characters, reaching 20 lines, or taking the existing body past 4000 characters becomes a UTF-8 text attachment instead of message body text. Attachments show their filename, size, and upload status. Short screens show only the first few attachments; Ctrl+E lists all, Enter previews pasted text, PgUp/PgDn scrolls, and Esc returns. Original line endings and tabs are preserved; previews sanitize terminal control characters. Ctrl+T converts the complete current composer text into an attachment so you can add a short instruction. Size or count limit failures explicitly report that the attachment was not added.
+With terminal bracketed paste support, a single paste exceeding 4000 Unicode characters, reaching 20 lines, or taking the existing body past 4000 characters becomes a UTF-8 text attachment instead of message body text. Attachments show their filename, size, and upload status. Short screens show only the first few attachments; Ctrl+E lists all, Enter previews pasted text, Alt+↑ / Alt+↓ scrolls, and Esc returns. Original line endings and tabs are preserved; previews sanitize terminal control characters. Ctrl+T converts the complete current composer text into an attachment so you can add a short instruction. Size or count limit failures explicitly report that the attachment was not added.
 
 Text attachments are not automatically inserted into model context as message body text. Normal and expedited delivery carry attachment references; the assistant uses attachment and file tools to read content as needed. Content it reads may still enter context.
 
@@ -64,7 +66,7 @@ Ctrl+S or `/stop` (`/停止`) interrupts the current turn without rolling back c
 
 ## Review permission requests
 
-Ctrl+P or `/approval` opens the current assistant's pending requests. Select one to inspect its resource, actions, scope, expiry, and limits, then approve as requested, adjust before approval, or reject. Tab changes form fields, arrows change options, and Enter reviews the final scope; Enter on the confirmation page submits. Grouped requests can be adjusted item by item and are submitted together.
+Ctrl+P, `/approval`, or clicking the pending-approval prompt above the composer opens the current assistant's pending requests. Select one to inspect its resource, actions, scope, expiry, and limits, then approve as requested, adjust before approval, or reject. Tab changes form fields, arrows change options, and Enter reviews the final scope; Enter on the confirmation page submits. Grouped requests can be adjusted item by item and are submitted together.
 
 Approval binds the displayed request ID and version. New requests cannot replace the reviewed target. Conflicts retain the current contents; return and reopen to compare. Compute, network, storage, and temporary limits use dedicated fields. Full Access displays its complete scope explicitly.
 
@@ -74,9 +76,11 @@ Approval binds the displayed request ID and version. New requests cannot replace
 
 User messages and the composer share a background; assistant replies use the terminal background. Messages and help support Markdown tables, quotes, code, bold, and italics; the composer keeps source text. Drag to select visible text in messages or the composer; releasing the mouse copies automatically. Ctrl+C copies again; click anywhere or press Esc to clear. Highlighting preserves text styles. Composer and message selections stay within their own regions. Copy requires terminal support and permission for OSC52 clipboard writes. The status confirms that the request was sent to the terminal, not that the system clipboard accepted it. Scrolling or resizing clears the selection.
 
+Clicking the active reminder or bound-channel prompt above the composer opens status details or channel management, preserving the draft and history position.
+
 ## Independent operation and management
 
-F1 opens the operation menu. Management pages use arrows to select, Enter to open or confirm, Tab to change fields, left/right to change options, PgUp/PgDn to read long content, and Esc to return. Dirty forms ask Y to discard or N to continue editing. Ctrl+R refreshes the current list or details.
+F1 opens the operation menu. Management pages use arrows to select, Enter to open or confirm, Tab to change fields, left/right to change options, Alt+↑ / Alt+↓ to read long content, and Esc to return. Dirty forms ask Y to discard or N to continue editing. Ctrl+R refreshes the current list or details.
 
 | Command | Purpose |
 | --- | --- |
@@ -121,8 +125,8 @@ Connection management supports E to edit, L to sign out, A to change accounts, D
 | Ctrl+K / `/assistant` | Select an assistant |
 | Enter | Send a message; confirm the current selection or approval action |
 | Alt+Enter / Ctrl+J | Insert a newline |
-| PgUp / PgDn | Scroll chat history or approval details |
-| Ctrl+End | Return to the latest message |
+| Alt+↑ / Alt+↓ (or PgUp / PgDn) | Scroll chat history or approval details |
+| Ctrl+G (or Ctrl+End) | Return to the latest message |
 | Ctrl+R | Refresh service data |
 | Ctrl+S / `/stop` | Stop the current execution |
 | `/expedite` / `/加急` | Expedite sent follow-up messages |

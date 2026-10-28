@@ -363,7 +363,7 @@ func (m model) filesView() string {
 		lines := strings.Split(f.preview, "\n")
 		start := min(f.previewOffset, max(0, len(lines)-1))
 		end := min(len(lines), start+max(1, m.bodyHeight()-3))
-		return strings.Join(lines[start:end], "\n") + "\n\n" + muted.Render("PgUp/PgDn 翻页 · Esc 返回附件列表")
+		return strings.Join(lines[start:end], "\n") + "\n\n" + muted.Render("Alt+↑↓ 翻页 · Esc 返回附件列表")
 	}
 	if f.saving {
 		status := f.notice

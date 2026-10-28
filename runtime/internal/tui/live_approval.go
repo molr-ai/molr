@@ -29,7 +29,7 @@ func (m model) liveApprovalView() string {
 	if m.resolving {
 		status = "正在提交…"
 	} else if status == "" && len(detail) > visible {
-		status = fmt.Sprintf("详情 %d–%d / %d · PgUp/PgDn 滚动", start+1, min(len(detail), start+visible), len(detail))
+		status = fmt.Sprintf("详情 %d–%d / %d · Alt+↑↓ 滚动", start+1, min(len(detail), start+visible), len(detail))
 	}
 	body = append(body, muted.Render(ansi.Truncate(status, m.contentWidth(), "…")), "")
 	for i, label := range []string{"批准", "拒绝"} {
