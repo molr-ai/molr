@@ -6,6 +6,7 @@ import (
 )
 
 func (m *model) resizeComposer() {
+	m.syncComposerMode()
 	follow := m.viewport.AtBottom()
 	rows := m.inputRows()
 	if rows != m.input.Height() {
@@ -43,9 +44,6 @@ func (m *model) resizeComposer() {
 }
 
 func (m model) inputRows() int {
-	if m.channelNotice() != "" && !strings.HasPrefix(m.input.Value(), "/") {
-		return 3
-	}
 	if m.input.LineCount() >= 5 {
 		return 5
 	}
@@ -71,8 +69,57 @@ func (m model) inputRows() int {
 }
 
 func (m model) attachmentRows() int {
-	if len(m.assistants) == 0 {
+	if len(m.assistants) == 0 || m.commandOnly() {
 		return 0
 	}
 	return min(3, max(1, m.bodyHeight()-m.input.Height()-6), len(m.assistants[m.selected].attachments))
+}
+
+// Keep the message draft intact while the channel only permits commands.
+func (m *model) syncComposerMode() {
+	if len(m.assistants) == 0 {
+		return
+	}
+	a := &m.assistants[m.selected]
+	commands := m.channelNotice() != ""
+	if commands == (a.messageDraft != nil) {
+		return
+	}
+	focused := m.input.Focused()
+	if commands {
+		draft := m.input
+		a.messageDraft, a.messagePastes = &draft, a.pastes
+		a.pastes = nil
+		m.input = newComposer()
+		m.input.Placeholder = "输入命令"
+		m.input.SetPromptFunc(2, func(line int) string {
+			if line == 0 {
+				return "/ "
+			}
+			return "  "
+		})
+		m.input.KeyMap.InsertNewline.SetEnabled(false)
+	} else {
+		m.input, a.pastes = *a.messageDraft, a.messagePastes
+		a.messageDraft, a.messagePastes = nil, nil
+	}
+	m.input.SetWidth(m.contentWidth())
+	if focused {
+		m.input.Focus()
+	} else {
+		m.input.Blur()
+	}
+	m.commandCursor, m.commandDismissed = 0, ""
+}
+
+func (m model) commandOnly() bool {
+	return len(m.assistants) > 0 && m.assistants[m.selected].messageDraft != nil
+}
+
+func commandText(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	return "/" + strings.TrimPrefix(value, "/")
 }

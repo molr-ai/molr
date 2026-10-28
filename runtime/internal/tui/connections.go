@@ -448,7 +448,7 @@ func (m connectionModel) Update(event tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		if m.page == connectionChat {
-			if msg.String() == "enter" && m.chat.page == chatPage && strings.TrimSpace(m.chat.input.Value()) == "/connections" {
+			if msg.String() == "enter" && m.chat.page == chatPage && strings.TrimSpace(m.chat.composerText()) == "/connections" {
 				m.chat.resetComposer()
 				m.chat.resizeComposer()
 				m.manager()

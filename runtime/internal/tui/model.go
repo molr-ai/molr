@@ -212,7 +212,7 @@ func (m model) Update(event tea.Msg) (tea.Model, tea.Cmd) {
 		if m.page == chatPage && !msg.Paste && m.commandKey(msg) {
 			return m, nil
 		}
-		if m.page == chatPage && msg.Type == tea.KeyRunes && msg.Paste {
+		if m.page == chatPage && !m.commandOnly() && msg.Type == tea.KeyRunes && msg.Paste {
 			raw := string(msg.Runes)
 			if utf8.RuneCountInString(raw)+utf8.RuneCountInString(m.composerText()) > maxMessageCharacters || pasteLineCount(raw) >= 20 {
 				if notice := m.channelNotice(); notice != "" {
@@ -331,8 +331,8 @@ func (m model) Update(event tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.page {
 	case chatPage:
 		if pressed, ok := event.(tea.KeyMsg); ok {
-			if notice := m.channelNotice(); notice != "" && pressed.Type == tea.KeyRunes && !strings.HasPrefix(m.input.Value(), "/") && !strings.HasPrefix(string(pressed.Runes), "/") {
-				m.notice = notice
+			if m.commandOnly() && pressed.Type == tea.KeyRunes && strings.ContainsAny(string(pressed.Runes), "\r\n") {
+				m.notice = "请一次输入一条命令"
 				return m, nil
 			}
 			if (pressed.Type == tea.KeyRunes && utf8.RuneCountInString(m.composerText())+len(pressed.Runes) > maxMessageCharacters) || (key.Matches(pressed, m.input.KeyMap.InsertNewline) && utf8.RuneCountInString(m.composerText()) >= maxMessageCharacters) {
@@ -354,7 +354,7 @@ func (m model) Update(event tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) send() (tea.Model, tea.Cmd) {
 	text := strings.TrimSpace(m.composerText())
-	if text == "" && (len(m.assistants) == 0 || len(m.assistants[m.selected].attachments) == 0) {
+	if text == "" && (m.commandOnly() || len(m.assistants) == 0 || len(m.assistants[m.selected].attachments) == 0) {
 		return m, nil
 	}
 	if next, cmd, handled := m.runCommand(text); handled {
@@ -387,6 +387,10 @@ func (m model) send() (tea.Model, tea.Cmd) {
 		return m, cmd
 	case "/quit":
 		return m, tea.Quit
+	}
+	if m.commandOnly() {
+		m.notice = "未知命令，输入 help 查看可用命令"
+		return m, nil
 	}
 	if m.live != nil {
 		return m.sendLive(text)

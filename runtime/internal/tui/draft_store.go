@@ -205,6 +205,10 @@ func (m *model) persistDrafts() error {
 		if !s.restored[a.id] {
 			continue
 		}
+		// Persist the message draft while the visible composer accepts commands.
+		if a.messageDraft != nil {
+			a.composer, a.pastes = *a.messageDraft, a.messagePastes
+		}
 		d := diskDraft{Text: a.composer.Value(), Caret: composerCaret(a.composer), ClearVersion: a.clearVersion, Pending: diskPending{Text: a.pending.text, Key: a.pending.key, Attachments: a.pending.attachments, ClearVersion: a.pending.clearVersion}}
 		for _, p := range a.pastes {
 			d.Pastes = append(d.Pastes, diskPaste{p.start, p.end, p.label, p.text})

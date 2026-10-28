@@ -219,6 +219,9 @@ func (m model) chatView() string {
 	}
 	var attachmentRows []string
 	for i, d := range a.attachments {
+		if m.commandOnly() {
+			break
+		}
 		if i == m.attachmentRows()-1 && len(a.attachments) > m.attachmentRows() {
 			attachmentRows = append(attachmentRows, muted.Render(fmt.Sprintf("还有 %d 个附件 · Ctrl+E 查看", len(a.attachments)-i)))
 			break
@@ -226,15 +229,8 @@ func (m model) chatView() string {
 		attachmentRows = append(attachmentRows, muted.Render(cellTruncate(attachmentLabel(d), m.contentWidth(), "…")))
 	}
 	composerBody := m.composerView()
-	if notice := m.channelNotice(); notice != "" {
+	if notice := m.channelNotice(); notice != "" && m.notice == "" {
 		status = warning.Render(notice)
-		if !strings.HasPrefix(m.input.Value(), "/") {
-			if a.channel == "" {
-				composerBody = muted.Render("正在确认聊天入口…\n草稿已保留\nCtrl+R 刷新 · Ctrl+O 连接")
-			} else {
-				composerBody = muted.Render("聊天输入暂不可用，草稿已保留\n/channel 查看入口并解绑\n/help 查看管理指令 · Ctrl+R 刷新")
-			}
-		}
 	}
 	if matches := m.commandMatches(); len(matches) > 0 {
 		index := min(m.commandCursor, len(matches)-1)

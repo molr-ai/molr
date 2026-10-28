@@ -21,6 +21,8 @@ type message struct {
 
 type assistant struct {
 	notices                      []notification.Notice
+	messageDraft                 *textarea.Model
+	messagePastes                []pasteBlock
 	pastes                       []pasteBlock
 	clearVersion                 uint64
 	channel                      string

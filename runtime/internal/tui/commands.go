@@ -13,6 +13,7 @@ import (
 )
 
 type commandResult struct {
+	commandOnly   bool
 	id            core.ID
 	input, notice string
 	err           error
@@ -22,7 +23,10 @@ var chatCommands = []string{"/retry-send", "/settings", "/new", "/status", "/per
 
 func (m model) commandMatches() []string {
 	value := m.input.Value()
-	if !strings.HasPrefix(value, "/") || strings.Contains(value, "\n") || m.commandDismissed == value {
+	if m.commandOnly() {
+		value = commandText(value)
+	}
+	if !strings.HasPrefix(value, "/") || strings.Contains(value, "\n") || m.commandDismissed == m.input.Value() {
 		return nil
 	}
 	var matches []string
@@ -48,10 +52,14 @@ func (m *model) commandKey(key tea.KeyMsg) bool {
 	case "esc":
 		m.commandDismissed = m.input.Value()
 	case "tab", "enter":
-		if key.String() == "enter" && slices.Contains(matches, m.input.Value()) {
+		if key.String() == "enter" && slices.Contains(matches, m.composerText()) {
 			return false
 		}
-		m.input.SetValue(matches[m.commandCursor])
+		value := matches[m.commandCursor]
+		if m.commandOnly() {
+			value = strings.TrimPrefix(value, "/")
+		}
+		m.input.SetValue(value)
 		m.input.CursorEnd()
 		m.commandDismissed = m.input.Value()
 		m.resizeComposer()
@@ -202,9 +210,10 @@ func (m model) runCommand(text string) (tea.Model, tea.Cmd, bool) {
 	}
 	a.commandBusy = true
 	id, chat, key, client, ctx := a.id, a.chat, a.commandKey, m.live.client, m.live.ctx
+	commandOnly := m.commandOnly()
 	m.notice = "正在处理指令…"
 	return m, func() tea.Msg {
-		out := commandResult{id: id, input: text}
+		out := commandResult{id: id, input: text, commandOnly: commandOnly}
 		switch name {
 		case "/stop":
 			out.err = client.Do(ctx, "POST", "/api/assistants/"+string(id)+"/stop", struct{}{}, nil)

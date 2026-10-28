@@ -34,6 +34,9 @@ func expandPasteBlocks(display string, blocks []pasteBlock) string {
 }
 
 func (m model) composerText() string {
+	if m.commandOnly() {
+		return commandText(m.input.Value())
+	}
 	if len(m.assistants) == 0 {
 		return m.input.Value()
 	}
@@ -104,6 +107,12 @@ func (m *model) resetComposer() {
 }
 
 func (m *model) clearComposerDraft() {
+	if m.commandOnly() {
+		m.resetComposer()
+		m.commandDismissed, m.commandCursor, m.notice = "", 0, ""
+		m.resizeComposer()
+		return
+	}
 	m.resetComposer()
 	if len(m.assistants) > 0 {
 		a := &m.assistants[m.selected]

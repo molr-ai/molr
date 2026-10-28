@@ -34,7 +34,7 @@ Enter 发送，Alt+Enter 或 Ctrl+J 换行；输入框从一行扩展到最多�
 
 正文最多 4000 字符；达到上限时提示用 Ctrl+T 转为文本附件，已有草稿保留。终端聊天触发的任务由 Runtime 执行，沿用助理的[权限与预算](https://molr.ai/zh/docs/user/guides/permissions-and-budget/)及沙盒限制。`/settings` 调整当前助理的模型、预算和压缩阈值；资源由管理员准备，TUI 管理已有资源的助理授权。
 
-助理绑定微信、Telegram 等外部入口时，TUI 显示当前渠道并暂停普通聊天输入及添加附件；已有草稿保留。请在该渠道发消息，或使用 `/channel` 查看并确认解绑，恢复 TUI 输入。查询入口期间也暂停发送，Ctrl+R 可重新检查。停止、审批、查看历史与下载附件仍可用；解绑会停止外部渠道收发并取消未完成投递，聊天记录和草稿保留。
+助理绑定微信、Telegram 等外部入口时，TUI 在输入框上方显示当前渠道，输入标识由 `›` 改为 `/`，只执行命令。直接输入 `help`、`compress` 等命令即可，也可保留开头的 `/`；Tab 补全，Enter 执行。普通消息草稿与附件单独保留，解绑后恢复；命令输入不添加附件，Ctrl+C 只清空当前命令。请在该渠道发消息，或使用 `/channel` 查看并确认解绑，恢复 TUI 输入。查询入口期间也暂停发送，Ctrl+R 可重新检查。停止、审批、查看历史与下载附件仍可用；解绑会停止外部渠道收发并取消未完成投递，聊天记录和草稿保留。
 
 macOS iTerm2 中使用 Option+Enter 换行。TUI 会向支持 Kitty 键盘协议的终端请求保留按键修饰信息，退出时恢复原模式。请允许当前 Profile 的 **Keys → General → Apps can change how keys are reported**。若 Option+Enter 仍直接发送，终端可能仍将它编码为普通 Enter；可在 **Keys → Key Mappings** 添加 Option+Enter，选择 **Send Hex Code** 并填写 `0x1b 0x0d`，或直接使用 Ctrl+J。应用无法从普通 Enter 中恢复已经丢失的 Option 信息。参见 [iTerm2 键盘设置](https://iterm2.com/documentation-preferences-profiles-keys.html)。
 

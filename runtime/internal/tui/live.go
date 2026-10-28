@@ -252,15 +252,25 @@ func (m model) updateLive(event tea.Msg) (tea.Model, tea.Cmd, bool) {
 	switch msg := event.(type) {
 	case commandResult:
 		if i := m.assistantIndex(msg.id); i >= 0 {
-			m.assistants[i].commandBusy = false
+			a := &m.assistants[i]
+			a.commandBusy = false
 			if msg.err == nil {
-				m.assistants[i].commandSignature = ""
-				if i == m.selected && strings.TrimSpace(m.composerText()) == msg.input {
-					m.resetComposer()
-					m.resizeComposer()
-				} else if i != m.selected && strings.TrimSpace(expandPasteBlocks(m.assistants[i].composer.Value(), m.assistants[i].pastes)) == msg.input {
-					m.assistants[i].composer.Reset()
-					m.assistants[i].pastes = nil
+				a.commandSignature = ""
+				value := strings.TrimSpace(expandPasteBlocks(a.composer.Value(), a.pastes))
+				if a.messageDraft != nil {
+					value = commandText(a.composer.Value())
+				}
+				if i == m.selected {
+					value = strings.TrimSpace(m.composerText())
+				}
+				if (a.messageDraft != nil) == msg.commandOnly && value == msg.input {
+					if i == m.selected {
+						m.resetComposer()
+						m.resizeComposer()
+					} else {
+						a.composer.Reset()
+						a.pastes = nil
+					}
 				}
 			}
 			if i == m.selected {
@@ -435,15 +445,19 @@ func (m model) updateLive(event tea.Msg) (tea.Model, tea.Cmd, bool) {
 		a.pending = pendingSend{}
 		a.attachments = slices.DeleteFunc(a.attachments, func(d draftAttachment) bool { return slices.Contains(msg.attachments, d.file.ID) })
 		a.messages = mergeMessages(a.messages, []conversation.Message{msg.message})
+		if a.messageDraft != nil && a.clearVersion == msg.clearVersion && strings.TrimSpace(expandPasteBlocks(a.messageDraft.Value(), a.messagePastes)) == msg.text {
+			a.messageDraft.Reset()
+			a.messagePastes = nil
+		}
 		// Do not advance the fetch cursor: earlier concurrent messages may still be missing.
 		if i == m.selected {
-			if a.clearVersion == msg.clearVersion && strings.TrimSpace(m.composerText()) == msg.text {
+			if !m.commandOnly() && a.clearVersion == msg.clearVersion && strings.TrimSpace(m.composerText()) == msg.text {
 				m.resetComposer()
 				m.resizeComposer()
 			}
 			m.refresh(m.selection == nil && m.viewport.AtBottom())
 			m.notice = "已发送"
-		} else if a.clearVersion == msg.clearVersion && strings.TrimSpace(expandPasteBlocks(a.composer.Value(), a.pastes)) == msg.text {
+		} else if a.messageDraft == nil && a.clearVersion == msg.clearVersion && strings.TrimSpace(expandPasteBlocks(a.composer.Value(), a.pastes)) == msg.text {
 			a.composer.Reset()
 			a.pastes = nil
 		}
