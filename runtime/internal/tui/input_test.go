@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -113,5 +114,40 @@ func TestFramedInputDelayedMouseAndSS3(t *testing.T) {
 		if err != nil || string(b[:n]) != want {
 			t.Fatalf("input boundary: got %q, error %v", b[:n], err)
 		}
+	}
+}
+
+func TestFramedKeyboardMessagesOwnBytesAndPreserveOrder(t *testing.T) {
+	input, closeInput, err := frameTerminalInput(t.Context(), strings.NewReader("a\x1b[?0ub\x1b[13;3uc\x1b[200~\x1b[13;3u\x1b[201~d"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closeInput()
+	var got []string
+	var messages []keyboardSequenceMsg
+	input.send = func(msg tea.Msg) {
+		sequence := msg.(keyboardSequenceMsg)
+		messages = append(messages, sequence)
+		got = append(got, "key:"+string(sequence))
+	}
+	buffer := make([]byte, 256)
+	for {
+		n, err := input.Read(buffer)
+		if n > 0 {
+			got = append(got, string(buffer[:n]))
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	want := []string{"a", "key:\x1b[?0u", "b", "key:\x1b[13;3u", "c", "\x1b[200~", "\x1b[13;3u", "\x1b[201~", "d"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("input order/paste: got %q, want %q", got, want)
+	}
+	if len(messages) != 2 || messages[0] != "\x1b[?0u" || messages[1] != "\x1b[13;3u" {
+		t.Fatalf("messages changed after buffer reuse: %q", messages)
 	}
 }

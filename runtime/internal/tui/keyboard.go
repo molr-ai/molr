@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"reflect"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -9,17 +8,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 )
-
-// Bubble Tea v1 exposes unrecognised CSI input as a private named byte slice.
-// Keep this compatibility adapter isolated and test it through the actual input
-// decoder. In particular, never interpret the contents of a KeyMsg/paste.
-func unknownKeyboardCSI(msg tea.Msg) string {
-	typ := reflect.TypeOf(msg)
-	if typ == nil || typ.PkgPath() != "github.com/charmbracelet/bubbletea" || typ.Name() != "unknownCSISequenceMsg" {
-		return ""
-	}
-	return string(reflect.ValueOf(msg).Bytes())
-}
 
 func (w *terminalWriter) keyboardFilter(_ tea.Model, msg tea.Msg) tea.Msg {
 	if _, ok := msg.(tea.WindowSizeMsg); ok {
@@ -30,10 +18,11 @@ func (w *terminalWriter) keyboardFilter(_ tea.Model, msg tea.Msg) tea.Msg {
 		}
 		w.mu.Unlock()
 	}
-	sequence := unknownKeyboardCSI(msg)
-	if sequence == "" {
+	owned, ok := msg.(keyboardSequenceMsg)
+	if !ok {
 		return msg
 	}
+	sequence := string(owned)
 	if strings.HasPrefix(sequence, "\x1b[?") && strings.HasSuffix(sequence, "u") {
 		if _, err := strconv.ParseUint(sequence[3:len(sequence)-1], 10, 8); err == nil {
 			w.mu.Lock()

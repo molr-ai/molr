@@ -3,9 +3,11 @@ package tui
 import (
 	"context"
 	"io"
+	"strings"
 	"time"
 	"unicode/utf8"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/term"
 	"github.com/muesli/cancelreader"
 )
@@ -19,9 +21,41 @@ type terminalInput struct {
 
 func (r terminalInput) Read(p []byte) (int, error) { return r.framed.Read(p) }
 
+// Bubble Tea v1's unknown CSI messages alias its reusable read buffer. Decode
+// keyboard sequences before that buffer is reused and send owned strings from
+// the same input reader, preserving ordering with ordinary keys and mouse input.
+type framedInput struct {
+	io.ReadCloser
+	send  func(tea.Msg)
+	paste bool
+}
+type keyboardSequenceMsg string
+
+func (r *framedInput) Read(p []byte) (int, error) {
+	for {
+		n, err := r.ReadCloser.Read(p)
+		if err != nil || r.send == nil {
+			return n, err
+		}
+		sequence := string(p[:n])
+		switch sequence {
+		case "\x1b[200~":
+			r.paste = true
+		case "\x1b[201~":
+			r.paste = false
+		default:
+			if !r.paste && strings.HasPrefix(sequence, "\x1b[") && (strings.HasSuffix(sequence, "u") || strings.HasPrefix(sequence, "\x1b[27;") && strings.HasSuffix(sequence, "~")) {
+				r.send(keyboardSequenceMsg(sequence))
+				continue
+			}
+		}
+		return n, err
+	}
+}
+
 // Bubble Tea v1 treats short reads as event boundaries and can decode a partial
 // mouse CSI as text. Pipe writes keep each CSI within its 256-byte input buffer.
-func frameTerminalInput(ctx context.Context, input io.Reader) (io.ReadCloser, func(), error) {
+func frameTerminalInput(ctx context.Context, input io.Reader) (*framedInput, func(), error) {
 	source, err := cancelreader.NewReader(input)
 	if err != nil {
 		return nil, nil, err
@@ -96,7 +130,7 @@ func frameTerminalInput(ctx context.Context, input io.Reader) (io.ReadCloser, fu
 			}
 		}
 	}()
-	return reader, func() { cancel(); source.Cancel(); reader.Close() }, nil
+	return &framedInput{ReadCloser: reader}, func() { cancel(); source.Cancel(); reader.Close() }, nil
 }
 
 func terminalInputBoundary(data []byte) int {

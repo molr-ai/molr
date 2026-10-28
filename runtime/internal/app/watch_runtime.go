@@ -62,7 +62,12 @@ func (wr *watchRuntime) tick(ctx context.Context, now time.Time) error {
 	if wr.closed {
 		return nil
 	}
-	rows, err := persistence.Select[watch.Watch](ctx, wr.store, watch.Bucket, persistence.Query{Fields: []string{"ID", "OwnerID", "AssistantID", "Version", "State", "Reason", "RunID", "Paused", "StartAt", "EndAt", "RetryAt", "AuthorizationFingerprint", "PendingCount", "HandlingTaskID"}, Unordered: true})
+	// Completed watches still need dispatch until their final signals and task settle.
+	rows, err := persistence.Select[watch.Watch](ctx, wr.store, watch.Bucket, persistence.Query{Fields: []string{"ID", "OwnerID", "AssistantID", "Version", "State", "Reason", "RunID", "Paused", "StartAt", "EndAt", "RetryAt", "AuthorizationFingerprint", "PendingCount", "HandlingTaskID"}, Unordered: true, Any: [][]persistence.Filter{
+		{{Field: "State", Op: "!=", Value: "completed"}},
+		{{Field: "PendingCount", Op: ">", Value: 0}},
+		{{Field: "HandlingTaskID", Op: "!=", Value: ""}},
+	}})
 	if err != nil {
 		return err
 	}

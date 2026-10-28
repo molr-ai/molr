@@ -36,6 +36,7 @@ func TestExtendedKeyboardThroughTerminalDecoder(t *testing.T) {
 		}
 		defer closeInput()
 		program := tea.NewProgram(newModel(), tea.WithContext(ctx), tea.WithInput(framed), tea.WithOutput(io.Discard), tea.WithFilter(w.keyboardFilter), tea.WithoutRenderer(), tea.WithoutSignalHandler())
+		framed.send = program.Send
 		result, err := program.Run()
 		if err != nil {
 			t.Fatal(err)
@@ -78,6 +79,7 @@ func TestExtendedKeyboardShortcutsAndPasteIsolation(t *testing.T) {
 		}
 		defer closeInput()
 		program := tea.NewProgram(newModel(), tea.WithContext(ctx), tea.WithInput(framed), tea.WithOutput(io.Discard), tea.WithFilter(w.keyboardFilter), tea.WithoutRenderer(), tea.WithoutSignalHandler())
+		framed.send = program.Send
 		result, err := program.Run()
 		if err != nil {
 			t.Fatal(err)

@@ -105,7 +105,9 @@ func runProgram(ctx context.Context, input io.Reader, terminal *terminalWriter, 
 	}
 	defer closeInput()
 	input = terminalInput{File: input.(term.File), framed: framed}
-	_, err = tea.NewProgram(m, tea.WithContext(ctx), tea.WithInput(input), tea.WithOutput(terminal), tea.WithAltScreen(), tea.WithMouseCellMotion(), tea.WithFilter(terminal.keyboardFilter)).Run()
+	program := tea.NewProgram(m, tea.WithContext(ctx), tea.WithInput(input), tea.WithOutput(terminal), tea.WithAltScreen(), tea.WithMouseCellMotion(), tea.WithFilter(terminal.keyboardFilter))
+	framed.send = program.Send
+	_, err = program.Run()
 	if errors.Is(err, tea.ErrProgramKilled) && ctx.Err() != nil {
 		return nil
 	}
