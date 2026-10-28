@@ -1,7 +1,11 @@
 package schedule
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
+	"log/slog"
+	"reflect"
 	"sort"
 	"testing"
 	"time"
@@ -12,6 +16,50 @@ import (
 	"molr.ai/runtime/internal/persistence/sqlitestore"
 	"molr.ai/runtime/tests/testkit"
 )
+
+func TestDispatcherUnsupportedKindLogsAndContinues(t *testing.T) {
+	for _, kind := range []Kind{"unknown", "assistant_plan", ""} {
+		t.Run(string(kind), func(t *testing.T) {
+			var logs bytes.Buffer
+			previous := slog.Default()
+			slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, nil)))
+			t.Cleanup(func() { slog.SetDefault(previous) })
+			start := time.Date(2026, 10, 29, 0, 0, 0, 0, time.UTC)
+			db, invalid := dispatchFixture(t, Trigger{StartAt: start, Timezone: "UTC", Recurrence: "FREQ=HOURLY", MissedPolicy: Coalesce}, kind)
+			ctx := testkit.Context(t)
+			repo := NewRepository(db)
+			valid := invalid
+			valid.ID, valid.Kind = "valid", AssistantSchedule
+			testkit.RequireNoError(t, repo.Insert(ctx, valid))
+			dispatcher := NewDispatcher(db)
+			for tick := range 2 {
+				testkit.RequireNoError(t, dispatcher.Tick(ctx, start.Add(time.Duration(tick)*time.Hour)))
+				current, err := repo.Get(ctx, invalid.OwnerID, invalid.ID)
+				testkit.RequireNoError(t, err)
+				if !reflect.DeepEqual(current, invalid) {
+					t.Fatalf("unsupported schedule changed: %+v", current)
+				}
+			}
+			events := dispatchEvents(t, db)
+			if len(events) != 2 || fixtureCount(t, db, "trigger.occurrences") != 2 || fixtureCount(t, db, "business.schedule-progress") != 1 {
+				t.Fatalf("supported schedule did not continue independently: %+v", events)
+			}
+			for _, e := range events {
+				if e.ScheduleID != valid.ID {
+					t.Fatalf("unsupported schedule emitted an event: %+v", e)
+				}
+			}
+			decoder := json.NewDecoder(&logs)
+			for range 2 {
+				var entry map[string]any
+				testkit.RequireNoError(t, decoder.Decode(&entry))
+				if entry["level"] != "ERROR" || entry["msg"] != "unsupported schedule kind" || entry["owner_id"] != string(invalid.OwnerID) || entry["schedule_id"] != string(invalid.ID) || entry["kind"] != string(kind) {
+					t.Fatalf("missing diagnostic fields: %+v", entry)
+				}
+			}
+		})
+	}
+}
 
 func dispatchFixture(t *testing.T, trigger Trigger, kind Kind) (*sqlitestore.Store, Schedule) {
 	t.Helper()

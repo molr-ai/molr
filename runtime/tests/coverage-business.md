@@ -131,7 +131,7 @@ Clone/返聘授权契约细化：新授权具有新 ID，并绑定目标助理�
 | `internal/business/task` | `NewExecution` | `TestTDDRevisionPreservesOutputsAndTotalSpend` |
 | `internal/search` | `NewService` | `TestTDDMissingAuthorizerFailsClosed` |
 | `internal/search` | `NewIndexer` | `TestTDDRebuildOwnerOnlyAndStatusIsolation` |
-| `internal/business/schedule` | `NewDispatcher`, `Dispatcher.Tick` | `TestTDDDispatcherMissedPoliciesAreBoundedAndAdvance`, `TestTDDDispatcherPersonalAndDismissedPlansNeverWakeAgent`, `TestTDDDispatcherOccurrenceEventAndProgressRollBackTogether`, `TestTDDDispatcherTimezoneAndCountSurviveRepeatedTicks`, `TestTDDDispatcherConcurrentTicksAndInvalidRule`, `TestTDDDispatcherResumesPersistedCursorWithoutReplayingLifetime` |
+| `internal/business/schedule` | `NewDispatcher`, `Dispatcher.Tick` | `TestTDDDispatcherMissedPoliciesAreBoundedAndAdvance`, `TestTDDDispatcherPersonalAndDismissedPlansNeverWakeAgent`, `TestTDDDispatcherOccurrenceEventAndProgressRollBackTogether`, `TestTDDDispatcherTimezoneAndCountSurviveRepeatedTicks`, `TestTDDDispatcherConcurrentTicksAndInvalidRule`, `TestTDDDispatcherResumesPersistedCursorWithoutReplayingLifetime`, `TestDispatcherUnsupportedKindLogsAndContinues` |
 
 日程执行采用 RFC 5545 RRULE，`StartAt`/IANA `Timezone` 是唯一 DTSTART 来源；`Trigger.Validate` 保留形状校验，Service 创建/启用与 Dispatcher 进一步校验实际规则。正常轮询容差为一分钟：Skip 仅投递容差内发生点，Coalesce 投递最近一个，CatchUp 投递最近至多 MaxCatchUp 个；三者均推进到当前时间之后，避免每次 Tick 无限追补。COUNT、DST 本地时间和已消费规则游标持久化；一次历史计算上限为 100,000 个发生点，超出则明确失败，不无限占用事务。发生记录、助理来源事件、日程版本及下一时间同事务提交；个人日程不产生 Agent 事件，离职助理计划禁用。
 

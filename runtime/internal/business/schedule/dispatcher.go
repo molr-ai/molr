@@ -3,6 +3,7 @@ package schedule
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 
 	"molr.ai/runtime/internal/core"
@@ -87,7 +88,8 @@ func (d *Dispatcher) Tick(ctx context.Context, now time.Time) error {
 					return d.repo.Save(ctx, current, candidate.Version)
 				}
 			} else if current.Kind != Personal {
-				return core.Invalid("kind", "unsupported schedule kind")
+				slog.ErrorContext(ctx, "unsupported schedule kind", "owner_id", current.OwnerID, "schedule_id", current.ID, "kind", current.Kind)
+				return nil
 			}
 			for _, at := range batch.Occurrences {
 				inserted, err := d.repo.RecordOccurrence(ctx, current.OwnerID, Occurrence{ScheduleID: current.ID, ScheduleVersion: current.Version, DueAt: at})
