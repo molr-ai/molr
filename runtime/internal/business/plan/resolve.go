@@ -19,9 +19,13 @@ func (s *Coordinator) Resolve(ctx context.Context, p core.Principal, id core.ID)
 		if err := s.authorize(ctx, p, core.Object{}, policy.Read); err != nil {
 			return err
 		}
-		for _, kind := range []string{"todo", "schedule"} {
+		for _, kind := range []string{"todo", "schedule", "watch"} {
 			var source struct{ ID, OwnerID, AssistantID core.ID }
-			err := tx.Get(ctx, "business."+kind+"s", persistence.Key(p.OwnerID, id), &source)
+			bucket := "business." + kind + "s"
+			if kind == "watch" {
+				bucket = "business.watches"
+			}
+			err := tx.Get(ctx, bucket, persistence.Key(p.OwnerID, id), &source)
 			if persistence.Missing(err) {
 				continue
 			}

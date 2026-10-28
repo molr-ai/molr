@@ -48,7 +48,7 @@ func terminalView(t *TerminalState, p core.Principal) *TerminalState {
 	return &copy
 }
 func shellNeedsReminder(t Task) bool {
-	return t.Mode != "foreground" && (t.Terminal == nil || t.Terminal.Control == "assistant")
+	return t.Kind != "watcher" && t.Mode != "foreground" && (t.Terminal == nil || t.Terminal.Control == "assistant")
 }
 
 func (s *Manager) StartTerminal(ctx context.Context, p core.Principal, id core.ID, raw json.RawMessage) (json.RawMessage, error) {

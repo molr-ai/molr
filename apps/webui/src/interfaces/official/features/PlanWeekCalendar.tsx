@@ -69,7 +69,7 @@ export function PlanWeekCalendar({ date, selectedDate, locale, events, selectedK
             return <div className="plans-week-day" data-day={key} data-today={key === planDate(now)} key={key}>
               {dayLayout(events, key).map(({ event, top, bottom, column, columns }) => {
                 const finish = eventEnd(event.Plan, event.At), done = eventDone(event.Plan, event.At);
-                const kind = event.Plan.Schedule?.Kind === 'assistant_plan' ? 'automatic' : event.Plan.Schedule ? 'event' : 'item';
+                const kind = event.Plan.Schedule?.Kind === 'assistant_schedule' ? 'automatic' : event.Plan.Schedule ? 'event' : 'item';
                 const Icon = done ? Check : event.Plan.Links.Paused ? Pause : kind === 'automatic' ? Repeat2 : kind === 'event' ? Clock3 : ListTodo;
                 const label = `${event.Plan.Title} · ${t[kind]} · ${new Date(event.At).toLocaleString(locale)}${finish ? ` – ${new Date(finish).toLocaleString(locale)}` : ''}${done ? ` · ${t.done}` : ''}${event.Plan.Links.Paused ? ` · ${t.paused}` : ''}`;
                 return <button type="button" key={event.Key} className="plans-week-event" data-kind={kind} data-completed={done} data-paused={event.Plan.Links.Paused} data-selected={event.Key === selectedKey} data-event-key={event.Key} data-compact={bottom - top === 30}

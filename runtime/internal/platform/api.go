@@ -92,8 +92,10 @@ type Command struct {
 	ComputeQuota            bool
 	NetworkAuthorizations   []NetworkAuthorization
 
-	ForwardPorts []int
-	TTY          bool
+	// ProtocolInput enables a bounded stdin channel for watcher acknowledgements.
+	ProtocolInput bool
+	ForwardPorts  []int
+	TTY           bool
 	// Managed permits no wall-clock deadline; authorization and resource limits still apply.
 	Managed bool
 	// Trusted output sinks persist the full streams before preview truncation.

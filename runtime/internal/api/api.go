@@ -22,6 +22,7 @@ import (
 	"molr.ai/runtime/internal/business/settings"
 	"molr.ai/runtime/internal/business/task"
 	"molr.ai/runtime/internal/business/todo"
+	"molr.ai/runtime/internal/business/watch"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/credential"
 	"molr.ai/runtime/internal/debugtrace"
@@ -45,6 +46,7 @@ type Services struct {
 	Tasks         task.Service
 	Todos         todo.Service
 	Schedules     schedule.Service
+	Watches       *watch.Service
 	Resources     resource.Service
 	Memories      memory.Service
 	Settings      settings.Service

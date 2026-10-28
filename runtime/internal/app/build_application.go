@@ -46,6 +46,11 @@ func (b *Bundle) buildApplication(cfg config.Config, identity *auth.Manager, aud
 	b.Application.(*Runtime).checkUpdates = updates.Run
 	b.Application.(*Runtime).refreshPrices = b.priceUpdater.Run
 	b.Application.(*Runtime).startShellTasks = b.shellTasks.Start
-	b.Application.(*Runtime).stopShellTasks = b.shellTasks.Close
+	b.Application.(*Runtime).stopShellTasks = func() {
+		if b.watchRuntime != nil {
+			b.watchRuntime.close()
+		}
+		b.shellTasks.Close()
+	}
 	return nil
 }

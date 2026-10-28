@@ -6,6 +6,7 @@ import (
 	"molr.ai/runtime/internal/business/memory"
 	"molr.ai/runtime/internal/business/plan"
 	"molr.ai/runtime/internal/business/task"
+	"molr.ai/runtime/internal/business/watch"
 	"molr.ai/runtime/internal/config"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/event"
@@ -16,6 +17,7 @@ import (
 )
 
 type planningServices struct {
+	watches     *watch.Service
 	tasks       task.Service
 	plans       *plan.Coordinator
 	memories    memory.Service
@@ -48,5 +50,5 @@ func buildPlanning(cfg config.Config, adapters adapters, chat conversation.Servi
 	}}
 	tasks := task.NewService(store, taskOptions)
 	plans = plan.New(store, permissions, tasks)
-	return planningServices{tasks, plans, memories, memoryFiles, dreams, searching, indexer}
+	return planningServices{watch.New(store, watch.Options{Authorizer: permissions, CheckAssistant: access.assistant}), tasks, plans, memories, memoryFiles, dreams, searching, indexer}
 }

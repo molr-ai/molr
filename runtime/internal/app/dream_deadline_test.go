@@ -142,7 +142,7 @@ func testDreamQueueRelease(t *testing.T, stop bool) {
 	if core.CodeOf(err) != core.FailedPrecondition {
 		t.Fatal("dream was expedited", err)
 	}
-	_, err = b.Services.Schedules.Create(ctx, p, schedule.CreateRequest{Mutation: core.Mutation{IdempotencyKey: "schedule"}, Kind: schedule.AssistantPlan, AssistantID: a.ID, Title: "queued plan", Instructions: "Wait until dreaming ends", Trigger: schedule.Trigger{StartAt: time.Now(), Timezone: "UTC", MissedPolicy: schedule.Coalesce}})
+	_, err = b.Services.Schedules.Create(ctx, p, schedule.CreateRequest{Mutation: core.Mutation{IdempotencyKey: "schedule"}, Kind: schedule.AssistantSchedule, AssistantID: a.ID, Title: "queued plan", Instructions: "Wait until dreaming ends", Trigger: schedule.Trigger{StartAt: time.Now(), Timezone: "UTC", MissedPolicy: schedule.Coalesce}})
 	need(t, err)
 	time.Sleep(150 * time.Millisecond)
 	messages, err := b.Services.Conversations.Messages(ctx, p, conversation.MessageQuery{ConversationID: a.ConversationID, MessageID: m.ID})

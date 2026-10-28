@@ -28,7 +28,7 @@ func defaultToolFixture(t *testing.T) (resourceAccessFixture, func(string, any) 
 	t.Helper()
 	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { c.Sandbox.Enabled = false })
 	fs := newResourceFileTools(resourceFileOptions{adapters: f.ad})
-	ex := tools.NewExecutor(f.b.store, tools.Options{Authorizer: f.ad.policy, Operations: f.b.Services.Operations.(operation.Service), Conversations: f.b.Services.Conversations.(conversation.Service), ConversationAttachments: &conversationAttachments{files: f.b.Services.Files, workspace: fs, conversations: f.b.Services.Conversations.(conversation.Service)}, Plan: planTools{store: f.b.store, plans: f.b.Services.Plans.(*plan.Coordinator), todos: f.b.Services.Todos, schedules: f.b.Services.Schedules}.execute})
+	ex := tools.NewExecutor(f.b.store, tools.Options{Authorizer: f.ad.policy, Operations: f.b.Services.Operations.(operation.Service), Conversations: f.b.Services.Conversations.(conversation.Service), ConversationAttachments: &conversationAttachments{files: f.b.Services.Files, workspace: fs, conversations: f.b.Services.Conversations.(conversation.Service)}, Plan: planTools{watches: f.b.Services.Watches, store: f.b.store, plans: f.b.Services.Plans.(*plan.Coordinator), todos: f.b.Services.Todos, schedules: f.b.Services.Schedules}.execute})
 	sequence := 0
 	return f, func(name string, args any) (json.RawMessage, error) {
 		sequence++
@@ -47,7 +47,7 @@ func TestPlanToolsCRUDPaginationAndIsolation(t *testing.T) {
 	}
 	create := func(title string) planView {
 		t.Helper()
-		raw, err := manage("create", map[string]any{"mode": "once", "title": title, "instructions": "instructions"})
+		raw, err := manage("create", map[string]any{"mode": "todo", "title": title, "instructions": "instructions"})
 		need(t, err)
 		var v planView
 		need(t, json.Unmarshal(raw, &v))
@@ -131,7 +131,7 @@ func TestPlanToolsCRUDPaginationAndIsolation(t *testing.T) {
 	bound.TaskID = a.Executions[0].ID
 	bound.OperationID = "read-current-plan"
 	input, _ := json.Marshal(map[string]any{"execution_id": bound.TaskID})
-	adapter := planTools{store: f.b.store, plans: f.b.Services.Plans.(*plan.Coordinator), todos: f.b.Services.Todos, schedules: f.b.Services.Schedules}
+	adapter := planTools{watches: f.b.Services.Watches, store: f.b.store, plans: f.b.Services.Plans.(*plan.Coordinator), todos: f.b.Services.Todos, schedules: f.b.Services.Schedules}
 	snapshot, err := adapter.execute(t.Context(), bound, "plan_read", input)
 	need(t, err)
 	var current planView
@@ -164,7 +164,7 @@ func TestPlanManagePartialUpdatesAndSingleVersion(t *testing.T) {
 	}
 	start := time.Now().Add(24 * time.Hour).Truncate(time.Second)
 	end := start.Add(time.Hour)
-	v := invoke(map[string]any{"action": "create", "mode": "once", "title": "test", "instructions": "keep", "start_at": start, "end_at": end, "due_at": end})
+	v := invoke(map[string]any{"action": "create", "mode": "todo", "title": "test", "instructions": "keep", "start_at": start, "end_at": end, "due_at": end})
 	initial := v.Version
 	v = invoke(map[string]any{"action": "update", "plan_id": v.PlanID, "expected_version": v.Version, "paused": true})
 	if v.Version == initial || !v.Paused || v.StartAt == nil || v.Instructions != "keep" {
@@ -177,7 +177,7 @@ func TestPlanManagePartialUpdatesAndSingleVersion(t *testing.T) {
 	if v.StartAt != nil || v.EndAt != nil || v.DueAt != nil || v.Instructions != "" || v.Paused {
 		t.Fatal("explicit clearing was ignored")
 	}
-	scheduled := invoke(map[string]any{"action": "create", "mode": "scheduled", "title": "reminder", "instructions": "notify", "start_at": start, "timezone": "Asia/Shanghai", "recurrence": "FREQ=DAILY;COUNT=2"})
+	scheduled := invoke(map[string]any{"action": "create", "mode": "assistant_schedule", "title": "reminder", "instructions": "notify", "start_at": start, "timezone": "Asia/Shanghai", "recurrence": "FREQ=DAILY;COUNT=2"})
 	scheduledID := core.ID(strings.TrimPrefix(scheduled.PlanID, "schedule:"))
 	repo := schedule.NewRepository(f.b.store)
 	source, err := repo.Get(t.Context(), f.owner.OwnerID, scheduledID)
@@ -274,4 +274,40 @@ func TestConversationToolsAttachmentRoundTripAndIsolation(t *testing.T) {
 	if err := (access{f.b.store}).owns(context.Background(), other, core.Object{Kind: "file", ID: download.File.ID}); core.CodeOf(err) != core.Forbidden {
 		t.Fatalf("assistant upload leaked: %v", err)
 	}
+}
+
+func TestPlanToolsWatchLifecycleAndTypeSpecificFields(t *testing.T) {
+	_, call := defaultToolFixture(t)
+	raw, err := call("plan_manage", map[string]any{"action": "create", "mode": "assistant_watch", "title": "Watch issues", "instructions": "Notify me of new issues", "watcher": map[string]any{"compute_id": "compute-fixture", "script": "exec watcher"}, "paused": true})
+	need(t, err)
+	var w planView
+	need(t, json.Unmarshal(raw, &w))
+	if w.Mode != "assistant_watch" || w.Watch == nil || w.EndAt != nil || !w.Paused {
+		t.Fatalf("wrong watch projection: %s", raw)
+	}
+	raw, err = call("plan_list", map[string]any{})
+	need(t, err)
+	if !strings.Contains(string(raw), w.PlanID) {
+		t.Fatal("watch missing from plan_list")
+	}
+	raw, err = call("plan_read", map[string]any{"plan_id": w.PlanID})
+	need(t, err)
+	if !strings.Contains(string(raw), "exec watcher") {
+		t.Fatal("watch configuration missing")
+	}
+	raw, err = call("plan_manage", map[string]any{"action": "update", "plan_id": w.PlanID, "expected_version": w.Version, "instructions": "Only relevant issues"})
+	need(t, err)
+	var updated planView
+	need(t, json.Unmarshal(raw, &updated))
+	if updated.Instructions != "Only relevant issues" || updated.Watch.Watcher.Script != "exec watcher" || !updated.Paused {
+		t.Fatal("watch partial update lost configuration")
+	}
+	if _, err = call("plan_manage", map[string]any{"action": "update", "plan_id": w.PlanID, "expected_version": updated.Version, "recurrence": "FREQ=MINUTELY"}); core.CodeOf(err) != core.InvalidArgument {
+		t.Fatal("watch accepted recurrence", err)
+	}
+	if _, err = call("plan_manage", map[string]any{"action": "create", "mode": "todo", "title": "Invalid", "watcher": map[string]any{"compute_id": "compute-fixture", "script": "exec watcher"}}); core.CodeOf(err) != core.InvalidArgument {
+		t.Fatal("todo accepted watcher", err)
+	}
+	_, err = call("plan_manage", map[string]any{"action": "delete", "plan_id": w.PlanID, "expected_version": updated.Version})
+	need(t, err)
 }

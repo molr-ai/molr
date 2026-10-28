@@ -41,6 +41,7 @@ export function useNoticeText() {
     help:zh?'已成功写入的记忆会保留。可在助理信息中调整做梦时长上限。':'Successfully saved memory changes are retained. You can adjust the dream duration limit in assistant info.',
    };
   }
+  if(n.Kind==='watch.failed')return {title:locale==='zh'?'持续关注已受阻':'Continuous watch blocked',description:n.Label||'',help:locale==='zh'?'已保存的变化和检查点会保留，请查看计划详情。':'Accepted changes and checkpoints are retained. Open the plan for details.'};
   if(n.Kind==='execution.failed') {
    const [state,reason]=n.Code.split(':'), review=state==='needs_review';
    const description=(t.waiting.reasons as Record<string,string>)[reason]??t.errors[reason as keyof typeof t.errors]??t.waiting.unknown;
@@ -51,7 +52,7 @@ export function useNoticeText() {
 }
 export function noticeRoute(n:SystemNotice, workbenchVisible = false) {
  if(n.Kind==='dream.failed')return n.AssistantID ? `#/assistants/${n.AssistantID}?panel=info` : '#/assistants';
- if(n.Kind==='plan.ready')return `#/plans/${n.Source.ID}`;
+ if(n.Kind==='plan.ready'||n.Kind==='watch.failed')return `#/plans/${n.Source.ID}`;
  // Source.ID is the triggering event ID, not an ExecutionID. The workbench
  // resolves it against retained runs before loading the corresponding steps.
  if(n.Kind==='execution.failed')return workbenchVisible && n.AssistantID && n.Source.ID ? `#/workbench/${n.AssistantID}?event=${n.Source.ID}` : '';

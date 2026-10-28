@@ -90,7 +90,7 @@ test('week is default; events retain their duration, overlaps, midnight boundari
   await post(page, '/api/todos', { Title: `${prefix} overlap`, StartAt: at(0,10), EndAt: at(0,11) });
   await post(page, '/api/todos', { Title: `${prefix} midnight`, StartAt: at(-1,23), EndAt: at(0,1) });
   await post(page, '/api/todos', { Title: `${prefix} point`, DueAt: at(0,23,55) });
-  await post(page, '/api/schedules', { Title: `${prefix} repeat`, Kind: 'personal', EndAt: at(0,15), Trigger: { StartAt: at(0,14), Timezone: 'Asia/Shanghai', Recurrence: 'FREQ=DAILY;COUNT=3', MissedPolicy: 'coalesce' } });
+  await post(page, '/api/schedules', { Title: `${prefix} repeat`, Kind: 'personal_schedule', EndAt: at(0,15), Trigger: { StartAt: at(0,14), Timezone: 'Asia/Shanghai', Recurrence: 'FREQ=DAILY;COUNT=3', MissedPolicy: 'coalesce' } });
   await page.goto('/#/plans');
   const week = page.locator('.plans-week-calendar');
   await expect(week).toHaveAttribute('data-week',key(monday));await expect(page.locator('.plans-calendar-return button')).toHaveCount(0);
@@ -121,7 +121,7 @@ test('week is default; events retain their duration, overlaps, midnight boundari
   await page.getByRole('button',{name:'Next week',exact:true}).click(); const next=new Date(monday);next.setDate(next.getDate()+7);
   await expect(week).toHaveAttribute('data-week',key(next));await expect(event('repeat')).toHaveCount(0);
   await page.getByRole('button',{name:'Previous week',exact:true}).click();await expect(event('repeat')).toHaveCount(3);
-  await page.getByRole('combobox',{name:'Plan type',exact:true}).click();await page.getByRole('option',{name:'Time block',exact:true}).click();
+  await page.getByRole('combobox',{name:'Plan type',exact:true}).click();await page.getByRole('option',{name:'Schedule',exact:true}).click();
   await expect(event('long')).toHaveCount(0);await expect(event('repeat')).toHaveCount(3);
   await page.getByRole('button',{name:'Clear filters',exact:true}).click();await expect(event('long')).toHaveCount(1);
   await page.getByRole('button',{name:'Month',exact:true}).click();await expect(page.locator('.plans-month-calendar')).toBeVisible();

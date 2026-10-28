@@ -11,8 +11,8 @@ func TestPlanRequestValidationAndOpaqueReferences(t *testing.T) {
 		name, raw string
 		valid     bool
 	}{
-		{"plan_manage", `{"action":"create","mode":"once","title":"Plan"}`, true},
-		{"plan_manage", `{"action":"create","mode":"once","title":"Plan","assistant_id":"foreign"}`, false},
+		{"plan_manage", `{"action":"create","mode":"todo","title":"Plan"}`, true},
+		{"plan_manage", `{"action":"create","mode":"todo","title":"Plan","assistant_id":"foreign"}`, false},
 		{"plan_manage", `{"action":"update","plan_id":"todo:one","paused":true,"expected_version":"revision"}`, true},
 		{"plan_manage", `{"action":"update","plan_id":"todo:one","title":"Plan","expected_version":0}`, false},
 		{"plan_manage", `{"action":"configure","plan_id":"todo:one","paused":true,"expected_version":"revision"}`, false},
@@ -22,7 +22,7 @@ func TestPlanRequestValidationAndOpaqueReferences(t *testing.T) {
 		{"plan_manage", `{"action":"update","plan_id":"todo:one","expected_version":"revision","title":null}`, false},
 		{"plan_manage", `{"action":"update","plan_id":"todo:one","expected_version":"revision","dependencies":null}`, false},
 		{"plan_manage", `{"action":"update","plan_id":"todo:one","expected_version":"revision","dependencies":["invalid"]}`, false},
-		{"plan_create", `{"mode":"once","title":"Plan"}`, false},
+		{"plan_create", `{"mode":"todo","title":"Plan"}`, false},
 		{"plan_read", `{"execution_id":"execution"}`, true},
 		{"plan_read", `{"execution_id":"execution","plan_id":"todo:one"}`, false},
 		{"plan_list", `{"from":"2026-01-01T00:00:00Z"}`, false},

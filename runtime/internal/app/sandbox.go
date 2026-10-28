@@ -85,7 +85,7 @@ func (s *shellService) authorize(ctx context.Context, e core.Execution, c platfo
 	return nil
 }
 func (s *shellService) plan(ctx context.Context, e core.Execution, req tools.ShellRequest) (platform.Command, error) {
-	c := platform.Command{FullAccess: req.FullAccess, ForwardPorts: req.ForwardPorts, Script: req.Script, Directory: req.Directory, RequireIsolation: true, Timeout: s.config.Timeout.Value(), MaxOutputBytes: s.config.MaxOutputBytes, Limits: platform.Limits{MemoryBytes: s.config.MemoryBytes, Processes: s.config.Processes, CPUPercent: s.config.CPUPercent, TempBytes: s.config.TempBytes, MaxFileBytes: s.config.MaxFileBytes}}
+	c := platform.Command{ProtocolInput: req.ProtocolInput, FullAccess: req.FullAccess, ForwardPorts: req.ForwardPorts, Script: req.Script, Directory: req.Directory, RequireIsolation: true, Timeout: s.config.Timeout.Value(), MaxOutputBytes: s.config.MaxOutputBytes, Limits: platform.Limits{MemoryBytes: s.config.MemoryBytes, Processes: s.config.Processes, CPUPercent: s.config.CPUPercent, TempBytes: s.config.TempBytes, MaxFileBytes: s.config.MaxFileBytes}}
 	if shellsession.ManagedFor(ctx, e) != nil {
 		c.Managed = true
 		c.TTY = req.TTY
@@ -297,6 +297,14 @@ func (s *shellService) execute(ctx context.Context, e core.Execution, req tools.
 	captureCtx, captureCancel := context.WithCancel(ctx)
 	defer captureCancel()
 	stdoutFile.budget.cancel = captureCancel
+	if req.ProtocolInput {
+		if scope := shellsession.ManagedFor(ctx, e); scope != nil && scope.AuthorizationExpiry != nil {
+			if err := scope.AuthorizationExpiry(c.AuthorizationDeadline); err != nil {
+				s.gate.Unlock()
+				return nil, err
+			}
+		}
+	}
 	p, err := s.runner.Start(captureCtx, e, c)
 	s.gate.Unlock()
 	if err != nil {

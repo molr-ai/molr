@@ -83,7 +83,7 @@ func (s *Service) sourceContent(ctx context.Context, tx persistence.Tx, owner, a
 			Kind, Title, Instructions string
 			Version                   core.Version
 		}
-		if tx.Get(ctx, "business.schedules", persistence.Key(owner, ref.ScheduleID), &plan) != nil || plan.ID != ref.ScheduleID || plan.OwnerID != owner || plan.AssistantID != assistant || plan.Kind != "assistant_plan" {
+		if tx.Get(ctx, "business.schedules", persistence.Key(owner, ref.ScheduleID), &plan) != nil || plan.ID != ref.ScheduleID || plan.OwnerID != owner || plan.AssistantID != assistant || plan.Kind != "assistant_schedule" {
 			return source
 		}
 		if (ref.ScheduleVersion == 0 && origin == "reference") || (ref.ScheduleVersion != 0 && plan.Version != ref.ScheduleVersion) {

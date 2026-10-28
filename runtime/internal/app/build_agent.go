@@ -147,6 +147,21 @@ func (b *Bundle) buildAgent(cfg config.Config, adapters adapters, permissions *p
 		if err != nil {
 			return err
 		}
+		if t.Event.TaskID != "" {
+			status, err := persistence.Load[agent.Status](ctx, store, "agent.status", persistence.Key(t.Principal.OwnerID, t.Event.AssistantID))
+			if err != nil {
+				return err
+			}
+			if status.ExecutionID == t.Principal.ExecutionID && status.ActiveTaskID == t.Event.TaskID {
+				state := task.Completed
+				if status.State == agent.Waiting {
+					state = task.Waiting
+				}
+				if err := planning.plans.RecordWatchHandling(ctx, t.Principal.OwnerID, t.Event.AssistantID, t.Event.TaskID, state, status.WaitingReason); err != nil {
+					return err
+				}
+			}
+		}
 		return queue.Ack(ctx, t.Principal, t.Event.ID, job.Version)
 	}})
 	cloneFiles := memory.NewFiles(memory.FileOptions{JournalRoot: filepath.Join(cfg.DataDir, "memory-operations"), Roots: func(ctx context.Context, owner core.ID, query memory.RootQuery) ([]memory.Root, error) {

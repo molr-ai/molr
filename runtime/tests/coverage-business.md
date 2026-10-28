@@ -213,3 +213,9 @@ Clone/返聘授权契约细化：新授权具有新 ID，并绑定目标助理�
 | `internal/business/plan` | `Service.History`, `Coordinator.History`, `Service.Execution`, `Coordinator.Execution` | `TestPlanHistoryPagesAndAccessBoundaries`, `TestPlanSummariesStaySmallWithLongExecutionHistory` |
 
 | `internal/business/plan` | `Service.Resolve`, `Coordinator.Resolve` | `TestResolveUsesBoundedReadsAndVisibleTodoFirst` |
+
+| `internal/business/watch` | `New`, `Load`, `Service.Save`, `Service.Get`, `Service.Begin`, `Service.Receive` | `TestWatcherProtocolStateAndIdempotentEvents`, `TestWatcherEventCheckpointRollBackTogether`, `TestWatcherRejectsMalformedAndBoundsQueue` |
+| `internal/business/watch` | `Service.Delete`, `Service.End` | `TestWatcherPauseRevisionExpiryAndFailureEpisode` |
+| `internal/business/plan` | `Coordinator.DispatchWatch` | `TestWatchBatchesAreBoundedImmutableAndIndependentOfObserver` |
+| `internal/business/plan` | `Coordinator.WatchPage`, `Service.WatchPage` | `TestContinuousPlansListWithoutCalendarOccurrences` |
+| `internal/business/plan` | `Coordinator.RecordWatchHandling` | `TestWatchHandlingCompletionReleasesOnlyItsBatch` |

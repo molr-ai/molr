@@ -189,7 +189,7 @@ func TestScheduledOccurrencesSharePlanAndRemainIndependent(t *testing.T) {
 	s, db := fixture(t)
 	ctx := context.Background()
 	at := time.Now().UTC().Truncate(time.Second).Add(-time.Minute)
-	source := schedule.Schedule{ID: "daily", OwnerID: "owner", Kind: schedule.AssistantPlan, AssistantID: "assistant", Title: "Daily review", Instructions: "Review notes", Trigger: schedule.Trigger{StartAt: at, Timezone: "UTC", Recurrence: "FREQ=DAILY;COUNT=2", MissedPolicy: schedule.Coalesce}, Enabled: true, NextAt: &at, Version: 1}
+	source := schedule.Schedule{ID: "daily", OwnerID: "owner", Kind: schedule.AssistantSchedule, AssistantID: "assistant", Title: "Daily review", Instructions: "Review notes", Trigger: schedule.Trigger{StartAt: at, Timezone: "UTC", Recurrence: "FREQ=DAILY;COUNT=2", MissedPolicy: schedule.Coalesce}, Enabled: true, NextAt: &at, Version: 1}
 	if err := schedule.NewRepository(db).Insert(ctx, source); err != nil {
 		t.Fatal(err)
 	}

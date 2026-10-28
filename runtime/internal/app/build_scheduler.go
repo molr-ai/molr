@@ -5,6 +5,7 @@ import (
 	"molr.ai/runtime/internal/agent"
 	"molr.ai/runtime/internal/agent/scheduler"
 	"molr.ai/runtime/internal/business/schedule"
+	"molr.ai/runtime/internal/business/task"
 	"molr.ai/runtime/internal/config"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/event"
@@ -23,11 +24,15 @@ func (b *Bundle) buildScheduler(cfg config.Config, permissions policy.Authorizer
 	dispatcher := schedule.NewDispatcher(store)
 	dispatcher.Ready = plans.ScheduleReady
 	dispatcher.Start = plans.StartScheduled
+	b.watchRuntime = &watchRuntime{store: store, watches: planning.watches, plans: plans, shell: b.shellTasks, active: map[string]*watchRun{}}
 	worker := scheduler.NewService(store, scheduler.Options{Ready: func(ctx context.Context) bool { return environment(ctx) == nil }, Authorizer: permissions, Concurrency: cfg.Execution.MaxAssistants, RecoverInterrupted: engine.RecoverInterrupted, Handle: func(ctx context.Context, c scheduler.Claim) error {
 		if c.Job.Event.Kind == event.UserMessage {
 			if err := chat.AcceptUserMessage(ctx, core.Execution{Principal: c.Principal, AssistantID: c.Job.Event.AssistantID, OperationID: c.Job.Event.ID}, c.Job.Event.MessageID); err != nil {
 				return err
 			}
+		}
+		if err := plans.RecordWatchHandling(ctx, c.Principal.OwnerID, c.Job.Event.AssistantID, c.Job.Event.TaskID, task.Running, ""); err != nil {
+			return err
 		}
 		_, err := engine.Handle(ctx, agent.Turn{Principal: c.Principal, Event: c.Job.Event, Attempt: c.Job.Attempts})
 		if err != nil && ctx.Err() == nil && !scheduler.IsDeferred(err) && c.Job.Event.Kind == event.DreamDue {
@@ -55,6 +60,9 @@ func (b *Bundle) buildScheduler(cfg config.Config, permissions policy.Authorizer
 		}
 	}, Tick: func(ctx context.Context, now time.Time) error {
 		sandboxRouter.remoteRuntime.Tick(ctx, now)
+		if err := b.watchRuntime.tick(ctx, now); err != nil {
+			return err
+		}
 		if err := plans.Tick(ctx, now); err != nil {
 			return err
 		}

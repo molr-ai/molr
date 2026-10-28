@@ -122,7 +122,7 @@ func eventText(e event.AssistantEvent, conversation core.ID) string {
 	text := prompt.Text("event", struct {
 		Event, Conversation      string
 		Shell, UserMessage, Born bool
-	}{body, string(conversation), e.Kind == event.ShellTaskFinished || e.Kind == event.ShellTasksRunning, e.Kind == event.UserMessage, e.Kind == event.Born})
+	}{body, string(conversation), e.Kind == event.ShellTaskFinished || e.Kind == event.ShellTasksRunning || e.Kind == event.WatchFailed, e.Kind == event.UserMessage, e.Kind == event.Born})
 	if e.Recovery != nil {
 		text += "\n" + prompt.Text("resume", nil)
 	}

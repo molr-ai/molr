@@ -6,10 +6,12 @@ import (
 	"strings"
 	"time"
 
+	"molr.ai/runtime/internal/business/watch"
 	"molr.ai/runtime/internal/core"
 )
 
 type PlanRequest struct {
+	Watcher         *watch.Config              `json:"watcher,omitempty"`
 	Action          string                     `json:"action,omitempty"`
 	PlanID          string                     `json:"plan_id,omitempty"`
 	ExecutionID     core.ID                    `json:"execution_id,omitempty"`
@@ -35,7 +37,7 @@ type PlanRequest struct {
 	Fields          map[string]json.RawMessage `json:"-"` // Presence distinguishes omitted values from explicit clearing.
 }
 
-const planFields = "title instructions start_at end_at due_at timezone recurrence missed_policy max_catch_up dependencies handoff paused"
+const planFields = "watcher title instructions start_at end_at due_at timezone recurrence missed_policy max_catch_up dependencies handoff paused"
 
 func ParsePlanRequest(name string, raw json.RawMessage) (PlanRequest, error) {
 	var r PlanRequest
@@ -115,8 +117,8 @@ func ParsePlanRequest(name string, raw json.RawMessage) (PlanRequest, error) {
 			return r, core.Invalid("expected_version", "use Version returned by plan_read")
 		}
 	}
-	if action == "create" && r.Mode != "once" && r.Mode != "scheduled" {
-		return r, core.Invalid("mode", "once or scheduled required")
+	if action == "create" && r.Mode != "todo" && r.Mode != "assistant_schedule" && r.Mode != "assistant_watch" {
+		return r, core.Invalid("mode", "todo, assistant_schedule or assistant_watch required")
 	}
 	if _, present := fields["title"]; present {
 		if strings.TrimSpace(r.Title) == "" || len(r.Title) > 4096 {
@@ -152,7 +154,7 @@ func ParsePlanRequest(name string, raw json.RawMessage) (PlanRequest, error) {
 }
 func PlanReference(id string) (core.Object, error) {
 	kind, value, ok := strings.Cut(id, ":")
-	if !ok || (kind != "todo" && kind != "schedule") || core.ID(value).Validate() != nil {
+	if !ok || (kind != "todo" && kind != "schedule" && kind != "watch") || core.ID(value).Validate() != nil {
 		return core.Object{}, core.Invalid("plan_id", "use an opaque plan_id returned by a plan tool")
 	}
 	return core.Object{Kind: kind, ID: core.ID(value)}, nil
@@ -166,11 +168,11 @@ func (e *executor) planDefinitions() []Definition {
 		return nil
 	}
 	ref := `"plan_id":{"type":"string","description":"Opaque PlanID returned by plan_list, plan_read or plan_manage"}`
-	fields := `"title":{"type":"string","minLength":1,"maxLength":4096},"instructions":{"type":"string","maxLength":65536},"start_at":{"type":["string","null"],"format":"date-time"},"end_at":{"type":["string","null"],"format":"date-time"},"due_at":{"type":["string","null"],"format":"date-time"},"timezone":{"type":"string"},"recurrence":{"type":"string","maxLength":1024},"missed_policy":{"enum":["skip","coalesce","catch_up"]},"max_catch_up":{"type":"integer","minimum":0,"maximum":100},"dependencies":{"type":"array","maxItems":32,"items":{"type":"string"}},"handoff":{"enum":["notify","automatic"]},"paused":{"type":"boolean"}`
+	fields := `"watcher":{"type":"object","properties":{"compute_id":{"type":"string"},"sandbox_id":{"type":"string"},"script":{"type":"string","maxLength":65536},"directory":{"type":"string"},"health_seconds":{"type":"integer","minimum":0,"maximum":86400},"network_mode":{"enum":["auto","none"]},"network_ids":{"type":"array","items":{"type":"string"},"maxItems":32},"files":{"type":"array","maxItems":32,"items":{"type":"object","properties":{"resource_id":{"type":"string"},"path":{"type":"string"},"write":{"type":"boolean"}},"required":["resource_id"],"additionalProperties":false}}},"required":["compute_id","script"],"additionalProperties":false},"title":{"type":"string","minLength":1,"maxLength":4096},"instructions":{"type":"string","maxLength":65536},"start_at":{"type":["string","null"],"format":"date-time"},"end_at":{"type":["string","null"],"format":"date-time"},"due_at":{"type":["string","null"],"format":"date-time"},"timezone":{"type":"string"},"recurrence":{"type":"string","maxLength":1024},"missed_policy":{"enum":["skip","coalesce","catch_up"]},"max_catch_up":{"type":"integer","minimum":0,"maximum":100},"dependencies":{"type":"array","maxItems":32,"items":{"type":"string"}},"handoff":{"enum":["notify","automatic"]},"paused":{"type":"boolean"}`
 	own := " Only plans assigned to you are accessible. Times use RFC3339 offsets and scheduled plans require an IANA timezone."
 	return []Definition{
 		{Name: "plan_list", Description: "List your plans with bounded pagination. Use NextCursor to continue; optional from/to expands scheduled occurrences within at most 125 days." + own, InputSchema: schema(`"cursor":{"type":"string"},"limit":{"type":"integer","minimum":1,"maximum":100},"from":{"type":"string","format":"date-time"},"to":{"type":"string","format":"date-time"}`, ""), RequiredActions: []string{"read"}},
 		{Name: "plan_read", Description: "Read a plan, its opaque Version, instructions, dependencies and latest 20 execution summaries. Provide plan_id, or execution_id from the current Runtime event to resolve its plan and immutable CurrentExecution instruction snapshot." + own, InputSchema: schema(ref+`,"execution_id":{"type":"string"}`, ""), RequiredActions: []string{"read"}},
-		{Name: "plan_manage", Description: "Create, update, delete or execute a plan. create requires mode and title: once creates an unscheduled plan without starting it (optional start_at/end_at time block); scheduled requires start_at/timezone and triggers automatically, with optional RRULE and missed_policy (default skip). update, delete and execute require plan_id and expected_version from Version. update changes only supplied fields, atomically including content, dates, dependencies, handoff and paused; omitted fields stay unchanged. Clear optional dates with null, instructions/recurrence with an empty string, dependencies with []; mode and assignee cannot change. Dependencies must be accessible one-time plans. handoff=notify leaves ready work pending, automatic enables dispatch after prerequisites. paused stops future starts, not an active execution. delete rejects plans with execution history or dependents; use update with paused=true instead. execute queues one run, requires occurrence_at for repeating schedules, and does not declare completion. Do not pass unrelated fields for an action." + own, InputSchema: schema(`"action":{"enum":["create","update","delete","execute"]},`+ref+`,"expected_version":{"type":"string","maxLength":128},"mode":{"enum":["once","scheduled"]},`+fields+`,"occurrence_at":{"type":"string","format":"date-time"}`, `"action"`), RequiredActions: []string{"write"}, SideEffect: true},
+		{Name: "plan_manage", Description: "Create, update, delete or execute a plan. create requires mode and title: todo creates an unscheduled plan without starting it (optional start_at/end_at time block); assistant_schedule requires start_at/timezone and triggers automatically, with optional RRULE and missed_policy (default skip). assistant_watch requires watcher and instructions; it runs a JSONL watcher v1 continuously, produces no calendar occurrences, and has no end unless requested. Read the watcher protocol in molr-docs before writing it. Watcher pause stops observation, execute resumes it, and authorization expiry blocks it. update, delete and execute require plan_id and expected_version from Version. update changes only supplied fields, atomically including content, dates, dependencies, handoff and paused; omitted fields stay unchanged. Clear optional dates with null, instructions/recurrence with an empty string, dependencies with []; mode and assignee cannot change. Dependencies must be accessible one-time plans. handoff=notify leaves ready work pending, automatic enables dispatch after prerequisites. paused stops future starts, not an active execution. delete rejects plans with execution history or dependents; use update with paused=true instead. execute queues one run, requires occurrence_at for repeating schedules, and does not declare completion. Do not pass unrelated fields for an action." + own, InputSchema: schema(`"action":{"enum":["create","update","delete","execute"]},`+ref+`,"expected_version":{"type":"string","maxLength":128},"mode":{"enum":["todo","assistant_schedule","assistant_watch"]},`+fields+`,"occurrence_at":{"type":"string","format":"date-time"}`, `"action"`), RequiredActions: []string{"write"}, SideEffect: true},
 	}
 }

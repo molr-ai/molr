@@ -23,6 +23,7 @@ export function queryTopic(path: string) {
 
 const eventTopics: Record<string, string[]> = {
   'notification.changed': ['notifications'],
+ 'watch.changed': ['plans'],
   'qq.changed': ['qq'], 'feishu.changed': ['feishu'], 'weixin.changed': ['weixin'],
   'dingtalk.changed': ['dingtalk'], 'slack.changed': ['slack'], 'telegram.changed': ['telegram'],
   'assistant.profile': ['assistants', 'conversations'],
@@ -73,7 +74,7 @@ export function expandTopics(topics: string[]) {
   for (const topic of topics) if (topic.startsWith('status:')) expanded.add('activity');
   if (topics.some(topic => ['assistants', 'status', 'messages'].includes(topic) || topic.startsWith('messages:'))) expanded.add('activity');
   if (topics.some(topic => ['admin', 'account', 'grants'].includes(topic))) expanded.add('usage');
-  if (topics.some(topic => ['todos', 'schedules', 'tasks', 'plans'].includes(topic))) expanded.add('plans');
+  if (topics.some(topic => ['todos', 'schedules', 'watches', 'tasks', 'plans'].includes(topic))) expanded.add('plans');
   if (topics.some(topic => ['grants', 'resources', 'assistants', 'sandboxes'].includes(topic))) expanded.add('capabilities');
   return [...expanded];
 }

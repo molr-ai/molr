@@ -71,7 +71,7 @@ func (d *Dispatcher) Tick(ctx context.Context, now time.Time) error {
 					return nil
 				}
 			}
-			if current.Kind == AssistantPlan {
+			if current.Kind == AssistantSchedule {
 				var assistant struct {
 					OwnerID core.ID
 					State   string

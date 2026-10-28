@@ -11,11 +11,13 @@ export function eventEnd(plan: Plan, at: string) {
   return plan.Schedule?.EndAt ? new Date(Date.parse(at) + Date.parse(plan.Schedule.EndAt) - Date.parse(plan.Schedule.Trigger.StartAt)).toISOString() : null;
 }
 export function eventDone(plan: Plan, at?: string) {
+ if(plan.Watch)return plan.Watch.State==='completed';
   const run = plan.Schedule?.Trigger.Recurrence ? plan.Executions.find(run => !!run.OccurrenceAt && !!at && Date.parse(run.OccurrenceAt) === Date.parse(at)) : plan.Executions[0];
   return run ? run.State === 'completed' : !!plan.Todo?.Completed;
 }
 export function calendarEvents(plans: Plan[]): PlanEvent[] {
   return plans.flatMap(plan => {
+ if(plan.Watch)return [];
     const dates = plan.Todo ? [plan.Todo.StartAt || plan.Todo.DueAt].filter((at): at is string => !!at) : plan.Occurrences;
     return dates.map(At => ({ Key: eventKey(plan, At), At, Plan: plan }));
   }).sort((a,b) => Date.parse(a.At)-Date.parse(b.At) || a.Key.localeCompare(b.Key));
@@ -28,6 +30,8 @@ export function eventsOnDay(events: PlanEvent[], day: string) {
 // Reload all displayed pages on a plan change so removed/revised occurrences
 // cannot survive in an appended page. Every cursor is scoped by the Runtime.
 const eventPage = (page: PlanEventPage) => ({Items: page.Items.map(item => ({Key:item.Key, At:item.At, Plan:page.Plans[item.PlanKey]})), NextCursor:page.NextCursor});
+const watchPage=(page:{Items:Plan[];NextCursor:string})=>page;
+export function useWatchPlans(path:string|null){return usePlanPages(path,watchPage);}
 const historyPage = (page: {Items:PlanExecutionSummary[];NextCursor:string}) => page;
 export function usePlanEvents(path: string | null) { return usePlanPages(path,eventPage); }
 export function usePlanHistory(path: string | null) { return usePlanPages(path,historyPage); }

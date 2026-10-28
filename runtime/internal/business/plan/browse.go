@@ -10,6 +10,7 @@ import (
 	"molr.ai/runtime/internal/business/schedule"
 	"molr.ai/runtime/internal/business/task"
 	"molr.ai/runtime/internal/business/todo"
+	"molr.ai/runtime/internal/business/watch"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/policy"
@@ -25,11 +26,13 @@ type ExecutionSummary struct {
 	CompletedAt  *time.Time
 }
 type Summary struct {
+	Kind           string
 	Ref            core.Object
 	Title          string
 	AssistantID    core.ID
 	Todo           *todo.Todo
 	Schedule       *schedule.Schedule
+	Watch          *watch.Watch
 	Links          Links
 	Executions     []ExecutionSummary // Latest plus occurrences in the requested window/page.
 	ExecutionCount int
@@ -45,7 +48,7 @@ func executionSummary(run Execution) ExecutionSummary {
 func summarize(p Plan, include func(Execution) bool) Summary {
 	links := p.Links
 	links.Runs = nil
-	out := Summary{Ref: p.Ref, Title: p.Title, AssistantID: p.AssistantID, Todo: p.Todo, Schedule: p.Schedule, Links: links,
+	out := Summary{Kind: p.Kind, Ref: p.Ref, Title: p.Title, AssistantID: p.AssistantID, Todo: p.Todo, Schedule: p.Schedule, Watch: p.Watch, Links: links,
 		Executions: []ExecutionSummary{}, ExecutionCount: len(p.Executions), Occurrences: p.Occurrences, BlockedBy: p.BlockedBy, Ready: p.Ready}
 	seen := map[time.Time]bool{}
 	for i, run := range p.Executions {
@@ -81,12 +84,16 @@ func (s *Coordinator) Overview(ctx context.Context, p core.Principal, from, to t
 	successors := successorRefs(plans)
 	out := make([]Summary, 0, len(plans))
 	for _, plan := range plans {
+		if plan.Watch != nil && !from.IsZero() {
+			continue
+		}
 		// CalendarTimes may include occurrences starting before the window.
 		dates := map[time.Time]bool{}
 		for _, at := range plan.Occurrences {
 			dates[at.UTC()] = true
 		}
 		item := summarize(plan, func(run Execution) bool { return run.OccurrenceAt != nil && dates[run.OccurrenceAt.UTC()] })
+		item.Watch = watchSummary(item.Watch)
 		item.HasSuccessors = successors[item.Ref]
 		out = append(out, item)
 	}

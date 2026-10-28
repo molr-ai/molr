@@ -45,7 +45,7 @@ func (w *writer) AppendAssistant(ctx context.Context, e AssistantEvent) error {
 		source.ID = e.ScheduleID
 		source.Version = e.ScheduleVersion
 		source.At = e.OccurrenceAt.UTC().Format(time.RFC3339Nano)
-	case ShellTaskFinished, ShellTasksRunning, OperationCompleted:
+	case ShellTaskFinished, ShellTasksRunning, OperationCompleted, WatchFailed:
 		source.ID = e.OperationID
 	// Each dream batch and explicitly authorized retry is a distinct event.
 	case DreamDue, ResumeRequested, BrowserControlReturned, TerminalControlReturned, UserStopped, ContextCompressionRequested:

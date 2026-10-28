@@ -104,6 +104,23 @@ func (r *Runner) startHost(parent context.Context, e core.Execution, c platform.
 	}
 	cmd.SysProcAttr = directProcessAttributes()
 	cmd.WaitDelay = time.Second
+	if c.ProtocolInput {
+		if c.TTY {
+			return nil, core.Invalid("watcher", "watcher cannot use a terminal")
+		}
+		input, output, pipeErr := os.Pipe()
+		if pipeErr != nil {
+			return nil, pipeErr
+		}
+		defer input.Close()
+		p.input = output
+		cmd.Stdin = input
+		defer func() {
+			if !ok {
+				output.Close()
+			}
+		}()
+	}
 	var ttyDone chan struct{}
 	var cleanup func()
 	defer func() {
@@ -237,6 +254,9 @@ func (r *Runner) startHost(parent context.Context, e core.Execution, c platform.
 		cancel()
 		p.stdout.finish()
 		p.stderr.finish()
+		if p.input != nil {
+			p.input.Close()
+		}
 		close(p.done)
 	}()
 	return p, nil

@@ -16,17 +16,20 @@ import (
 	"molr.ai/runtime/internal/business/schedule"
 	"molr.ai/runtime/internal/business/task"
 	"molr.ai/runtime/internal/business/todo"
+	"molr.ai/runtime/internal/business/watch"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 )
 
 type planTools struct {
+	watches   *watch.Service
 	store     persistence.Store
 	plans     *plan.Coordinator
 	todos     todo.Service
 	schedules schedule.Service
 }
 type planView struct {
+	Watch                 *watch.Watch    `json:",omitempty"`
 	CurrentExecution      *plan.Execution `json:",omitempty"`
 	ExecutionCount        int
 	ExecutionsTruncated   bool
@@ -57,15 +60,23 @@ func viewPlan(p plan.Plan) planView {
 	for _, ref := range p.BlockedBy {
 		v.BlockedBy = append(v.BlockedBy, planID(ref))
 	}
-	if p.Todo != nil {
-		v.Mode = "once"
+	if p.Watch != nil {
+		v.Mode = "assistant_watch"
+		v.Watch = p.Watch
+		v.Instructions = p.Watch.Instructions
+		v.StartAt = p.Watch.StartAt
+		v.EndAt = p.Watch.EndAt
+		v.Paused = p.Watch.Paused
+		v.Enabled = !p.Watch.Paused && p.Watch.State != "completed"
+	} else if p.Todo != nil {
+		v.Mode = "todo"
 		v.Instructions = p.Todo.Notes
 		v.StartAt = p.Todo.StartAt
 		v.EndAt = p.Todo.EndAt
 		v.DueAt = p.Todo.DueAt
 		v.Enabled = !p.Links.Paused
 	} else {
-		v.Mode = "scheduled"
+		v.Mode = "assistant_schedule"
 		v.Instructions = p.Schedule.Instructions
 		v.StartAt = &p.Schedule.Trigger.StartAt
 		v.EndAt = p.Schedule.EndAt
@@ -142,6 +153,17 @@ func (t planTools) run(ctx context.Context, e core.Execution, name string, raw j
 			}
 			v := viewPlan(row)
 			v.Executions = nil
+			if v.Watch != nil {
+				w := *v.Watch
+				w.Watcher.Script = ""
+				w.Checkpoint = nil
+				w.Pending = nil
+				w.Recent = nil
+				w.Batch = nil
+				w.Instructions = ""
+				w.AuthorizationFingerprint = ""
+				v.Watch = &w
+			}
 			v.ExecutionsTruncated = v.ExecutionCount > 0
 			if len([]rune(v.Instructions)) > 240 {
 				v.Instructions = string([]rune(v.Instructions)[:240])
@@ -194,7 +216,9 @@ func (t planTools) run(ctx context.Context, e core.Execution, name string, raw j
 
 func planVersion(p plan.Plan) string {
 	var version core.Version
-	if p.Todo != nil {
+	if p.Watch != nil {
+		version = p.Watch.Version
+	} else if p.Todo != nil {
 		version = p.Todo.Version
 	} else {
 		version = p.Schedule.Version
@@ -232,6 +256,9 @@ func (t planTools) manage(ctx context.Context, e core.Execution, r tools.PlanReq
 		}
 	}
 	mutation := core.Mutation{IdempotencyKey: string(e.OperationID)}
+	if current.Watch != nil {
+		return t.manageWatch(ctx, e, r, current)
+	}
 	if current.Todo != nil {
 		mutation.ExpectedVersion = current.Todo.Version
 	} else {
@@ -357,7 +384,20 @@ func (t planTools) manage(ctx context.Context, e core.Execution, r tools.PlanReq
 }
 func (t planTools) create(ctx context.Context, e core.Execution, r tools.PlanRequest) (core.Object, error) {
 	mutation := core.Mutation{IdempotencyKey: string(e.OperationID)}
-	if r.Mode == "once" {
+	if r.Mode == "assistant_watch" {
+		if t.watches == nil {
+			return core.Object{}, core.NewError(core.Unavailable, "watch service unavailable")
+		}
+		if r.Watcher == nil || hasPlanField(r, "due_at", "timezone", "recurrence", "missed_policy", "max_catch_up", "dependencies", "handoff") {
+			return core.Object{}, core.Invalid("watcher", "watcher required; scheduling fields are not accepted")
+		}
+		w, err := t.watches.Save(ctx, e.Principal, watch.Request{Mutation: mutation, AssistantID: e.AssistantID, Title: r.Title, Instructions: r.Instructions, Watcher: *r.Watcher, StartAt: r.StartAt, EndAt: r.EndAt, Paused: r.Paused})
+		return core.Object{Kind: "watch", ID: w.ID}, err
+	}
+	if r.Watcher != nil {
+		return core.Object{}, core.Invalid("watcher", "only continuous plans accept watcher")
+	}
+	if r.Mode == "todo" {
 		if hasPlanField(r, "timezone", "recurrence", "missed_policy", "max_catch_up") {
 			return core.Object{}, core.Invalid("mode", "scheduled fields do not apply to a once plan")
 		}
@@ -371,6 +411,49 @@ func (t planTools) create(ctx context.Context, e core.Execution, r tools.PlanReq
 	if missed == "" {
 		missed = schedule.Skip
 	}
-	v, err := t.schedules.Create(ctx, e.Principal, schedule.CreateRequest{Mutation: mutation, Kind: schedule.AssistantPlan, AssistantID: e.AssistantID, Title: r.Title, Instructions: r.Instructions, Trigger: schedule.Trigger{StartAt: *r.StartAt, Timezone: r.Timezone, Recurrence: r.Recurrence, MissedPolicy: missed, MaxCatchUp: r.MaxCatchUp}, EndAt: r.EndAt})
+	v, err := t.schedules.Create(ctx, e.Principal, schedule.CreateRequest{Mutation: mutation, Kind: schedule.AssistantSchedule, AssistantID: e.AssistantID, Title: r.Title, Instructions: r.Instructions, Trigger: schedule.Trigger{StartAt: *r.StartAt, Timezone: r.Timezone, Recurrence: r.Recurrence, MissedPolicy: missed, MaxCatchUp: r.MaxCatchUp}, EndAt: r.EndAt})
 	return core.Object{Kind: "schedule", ID: v.ID}, err
+}
+
+func (t planTools) manageWatch(ctx context.Context, e core.Execution, r tools.PlanRequest, p plan.Plan) (core.Object, error) {
+	if t.watches == nil {
+		return p.Ref, core.NewError(core.Unavailable, "watch service unavailable")
+	}
+	w := *p.Watch
+	m := core.Mutation{IdempotencyKey: string(e.OperationID), ExpectedVersion: w.Version}
+	if r.Action == "create" {
+		return p.Ref, nil
+	}
+	if r.Action == "delete" {
+		return p.Ref, t.watches.Delete(ctx, e.Principal, w.ID, m)
+	}
+	if hasPlanField(r, "due_at", "timezone", "recurrence", "missed_policy", "max_catch_up", "dependencies", "handoff", "occurrence_at") {
+		return p.Ref, core.Invalid("watch", "watch plans do not have occurrences or dependency handoffs")
+	}
+	if hasPlanField(r, "title") {
+		w.Title = r.Title
+	}
+	if hasPlanField(r, "instructions") {
+		w.Instructions = r.Instructions
+	}
+	if hasPlanField(r, "watcher") {
+		if r.Watcher == nil {
+			return p.Ref, core.Invalid("watcher", "required")
+		}
+		w.Watcher = *r.Watcher
+	}
+	if hasPlanField(r, "start_at") {
+		w.StartAt = r.StartAt
+	}
+	if hasPlanField(r, "end_at") {
+		w.EndAt = r.EndAt
+	}
+	if hasPlanField(r, "paused") {
+		w.Paused = r.Paused
+	}
+	if r.Action == "execute" {
+		w.Paused = false
+	}
+	_, err := t.watches.Save(ctx, e.Principal, watch.Request{Mutation: m, ID: w.ID, AssistantID: w.AssistantID, Title: w.Title, Instructions: w.Instructions, Watcher: w.Watcher, StartAt: w.StartAt, EndAt: w.EndAt, Paused: w.Paused})
+	return p.Ref, err
 }

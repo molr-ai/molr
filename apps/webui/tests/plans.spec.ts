@@ -100,7 +100,7 @@ test('upcoming list paginates occurrences in time order and calendar preserves r
  await login(page);const a=await assistant(page,`Upcoming ${info.project.name}-${Date.now()}`),at=new Date();at.setDate(at.getDate()+1);at.setHours(3,5,0,0);const title=`Daily ${Date.now()}`;
  const preferences=await(await page.request.get('/api/settings')).json();await post(page,'/api/settings',{Settings:{...preferences,Timezone:'Asia/Shanghai'},Mutation:{IdempotencyKey:crypto.randomUUID(),ExpectedVersion:preferences.Version}});
  const config=await(await page.request.get(`/api/dreams/config?assistant_id=${a.ID}`)).json();await post(page,'/api/dreams/config',{AssistantID:a.ID,Enabled:true,Hour:3,Minute:0,MaxDurationSeconds:600,Mutation:{IdempotencyKey:crypto.randomUUID(),ExpectedVersion:config.Version}});
- await post(page,'/api/schedules',{Title:title,Kind:'assistant_plan',AssistantID:a.ID,Instructions:'Review notes',Trigger:{StartAt:at.toISOString(),Timezone:'Asia/Shanghai',Recurrence:'FREQ=DAILY;COUNT=120',MissedPolicy:'coalesce'}});
+ await post(page,'/api/schedules',{Title:title,Kind:'assistant_schedule',AssistantID:a.ID,Instructions:'Review notes',Trigger:{StartAt:at.toISOString(),Timezone:'Asia/Shanghai',Recurrence:'FREQ=DAILY;COUNT=120',MissedPolicy:'coalesce'}});
  await page.goto('/#/plans');await page.getByRole('button',{name:'List',exact:true}).click();await page.getByRole('combobox',{name:'Owner',exact:true}).click();await page.getByRole('option',{name:a.Name,exact:true}).click();await expect(row(page,title)).toHaveCount(50);
  const times=await row(page,title).evaluateAll(rows=>rows.map(row=>row.getAttribute('data-occurrence')!));expect(new Set(times).size).toBe(50);expect(times.map(Date.parse)).toEqual([...times.map(Date.parse)].sort((a,b)=>a-b));
  await page.getByRole('button',{name:'Load 50 more events',exact:true}).click();await expect(row(page,title)).toHaveCount(100);expect(new Set(await row(page,title).evaluateAll(rows=>rows.map(row=>row.getAttribute('data-occurrence')))).size).toBe(100);
@@ -112,7 +112,7 @@ test('upcoming list paginates occurrences in time order and calendar preserves r
 
 test('completing a recurring event targets the selected occurrence only',async({page},info)=>{
  await login(page);const at=new Date();at.setDate(at.getDate()+1);at.setHours(10,0,0,0);const title=`Personal series ${info.project.name}-${Date.now()}`;
- const plan=await post(page,'/api/schedules',{Title:title,Kind:'personal',Trigger:{StartAt:at.toISOString(),Timezone:'Asia/Shanghai',Recurrence:'FREQ=DAILY;COUNT=3',MissedPolicy:'coalesce'}});
+ const plan=await post(page,'/api/schedules',{Title:title,Kind:'personal_schedule',Trigger:{StartAt:at.toISOString(),Timezone:'Asia/Shanghai',Recurrence:'FREQ=DAILY;COUNT=3',MissedPolicy:'coalesce'}});
  await page.goto('/#/plans');await page.getByRole('button',{name:'List',exact:true}).click();await expect(row(page,title)).toHaveCount(3);const second=row(page,title).nth(1),selected=await second.getAttribute('data-occurrence');await second.getByRole('button',{name:/Execution history/}).click();await details(page,title).getByRole('button',{name:'Complete this execution',exact:true}).click();
  const response=page.waitForResponse(r=>r.url().endsWith('/api/plans/execute')&&r.request().method()==='POST');await page.getByRole('dialog',{name:'Complete this execution',exact:true}).getByRole('button',{name:'Complete this execution',exact:true}).click();const result=await response;expect(result.ok(),await result.text()).toBe(true);expect(result.request().postDataJSON().OccurrenceAt).toBe(selected);
  const plans=await(await page.request.get('/api/plans')).json(),saved=plans.find((p:any)=>p.Ref.ID===plan.ID);expect(saved.Executions).toHaveLength(1);expect(Date.parse(saved.Executions[0].OccurrenceAt)).toBe(Date.parse(selected!));
@@ -124,7 +124,7 @@ test('old recurring plans warn in edit and exact event details using the shared 
  await login(page);const a=await assistant(page,`Alert ${info.project.name}-${Date.now()}`),old=new Date();old.setDate(old.getDate()-150);old.setHours(3,5,0,0);
  const preferences=await(await page.request.get('/api/settings')).json();await post(page,'/api/settings',{Settings:{...preferences,Timezone:'Asia/Shanghai'},Mutation:{IdempotencyKey:crypto.randomUUID(),ExpectedVersion:preferences.Version}});
  const cfg=await(await page.request.get(`/api/dreams/config?assistant_id=${a.ID}`)).json();await post(page,'/api/dreams/config',{AssistantID:a.ID,Enabled:true,Hour:3,Minute:0,MaxDurationSeconds:600,Mutation:{IdempotencyKey:crypto.randomUUID(),ExpectedVersion:cfg.Version}});
- const title=`Old recurring ${Date.now()}`;await post(page,'/api/schedules',{Title:title,Kind:'assistant_plan',AssistantID:a.ID,Instructions:'Review notes',Trigger:{StartAt:old.toISOString(),Timezone:'Asia/Shanghai',Recurrence:'FREQ=DAILY',MissedPolicy:'coalesce'}});
+ const title=`Old recurring ${Date.now()}`;await post(page,'/api/schedules',{Title:title,Kind:'assistant_schedule',AssistantID:a.ID,Instructions:'Review notes',Trigger:{StartAt:old.toISOString(),Timezone:'Asia/Shanghai',Recurrence:'FREQ=DAILY',MissedPolicy:'coalesce'}});
  await page.goto('/#/plans');await page.getByRole('button',{name:'List',exact:true}).click();await page.getByRole('combobox',{name:'Owner',exact:true}).click();await page.getByRole('option',{name:a.Name,exact:true}).click();await expect(row(page,title)).toHaveCount(50);
  const first=row(page,title).first();await expect(first.locator('.plans-row-summary .plans-type-dot')).toHaveAttribute('data-kind','automatic');await expect(first.locator('.plans-row-summary .plans-type-dot')).not.toHaveAttribute('tabindex');await expect(first.getByRole('checkbox')).toHaveCount(0);
  await planAction(page,title,'Edit');const edit=page.getByRole('dialog',{name:'Edit',exact:true});await expect(edit.locator('.ui-alert--warning.plans-dream-conflict')).toBeVisible();await expect(edit.locator('input[type="date"],input[type="datetime-local"],input[type="time"]')).toHaveCount(0);
@@ -139,10 +139,10 @@ test('old recurring plans warn in edit and exact event details using the shared 
 
 test('shared date picker preserves the plan timezone and type dots have distinct colors',async({page},info)=>{
  await login(page);const at=new Date();at.setDate(at.getDate()+2);const iso=at.toISOString().slice(0,10)+'T09:15:00Z',title=`UTC meeting ${info.project.name}-${Date.now()}`;
- const schedule=await post(page,'/api/schedules',{Title:title,Kind:'personal',Trigger:{StartAt:iso,Timezone:'UTC',Recurrence:'',MissedPolicy:'coalesce'}});const itemTitle=`Item ${Date.now()}`;await post(page,'/api/todos',{Title:itemTitle,DueAt:iso});
+ const schedule=await post(page,'/api/schedules',{Title:title,Kind:'personal_schedule',Trigger:{StartAt:iso,Timezone:'UTC',Recurrence:'',MissedPolicy:'coalesce'}});const itemTitle=`Item ${Date.now()}`;await post(page,'/api/todos',{Title:itemTitle,DueAt:iso});
  await page.goto('/#/plans');await page.getByRole('button',{name:'List',exact:true}).click();await planAction(page,title,'Edit');const edit=page.getByRole('dialog',{name:'Edit',exact:true});await edit.getByRole('group',{name:'Start time',exact:true}).getByRole('button',{name:'Custom',exact:true}).click();const picker=page.getByRole('dialog',{name:'Date and time',exact:true});await expect(picker.getByRole('listbox',{name:'Hour',exact:true}).getByRole('option',{name:'09',exact:true})).toHaveAttribute('aria-selected','true');await picker.getByRole('button',{name:'Cancel',exact:true}).click();
  await pickerTime(page,'Start time',10,20);const response=page.waitForResponse(r=>r.url().endsWith('/api/schedules/update')&&r.request().method()==='POST');await edit.getByRole('button',{name:'Save',exact:true}).click();const saved=await response;expect(saved.ok(),await saved.text()).toBe(true);expect(saved.request().postDataJSON().Trigger.StartAt).toBe(iso.slice(0,10)+'T10:20:00.000Z');expect(saved.request().postDataJSON().ID).toBe(schedule.ID);
- const color=(title:string)=>row(page,title).first().locator('.plans-type-dot').evaluate(el=>getComputedStyle(el).backgroundColor);expect(await color(title)).not.toBe(await color(itemTitle));await expect(row(page,itemTitle).locator('.plans-type-dot')).toHaveAttribute('aria-label','Item');await expect(row(page,title).locator('.plans-type-dot')).toHaveAttribute('aria-label','Time block');
+ const color=(title:string)=>row(page,title).first().locator('.plans-type-dot').evaluate(el=>getComputedStyle(el).backgroundColor);expect(await color(title)).not.toBe(await color(itemTitle));await expect(row(page,itemTitle).locator('.plans-type-dot')).toHaveAttribute('aria-label','To-do');await expect(row(page,title).locator('.plans-type-dot')).toHaveAttribute('aria-label','Schedule');
 });
 
 
@@ -169,7 +169,7 @@ test('plan lists omit execution bodies and load history pages and snapshots only
  await login(page);await isolatedCalendarAccount(page);
  const at=new Date();at.setDate(at.getDate()+1);at.setHours(9,0,0,0);
  const title=`Lazy history ${info.project.name}-${Date.now()}`,notes='Editable source text',result='Execution body only '.repeat(100);
- const schedule=await post(page,'/api/schedules',{Title:title,Kind:'personal',Instructions:notes,Trigger:{StartAt:at.toISOString(),Timezone:'Asia/Shanghai',Recurrence:'FREQ=DAILY;COUNT=30',MissedPolicy:'skip'}});
+ const schedule=await post(page,'/api/schedules',{Title:title,Kind:'personal_schedule',Instructions:notes,Trigger:{StartAt:at.toISOString(),Timezone:'Asia/Shanghai',Recurrence:'FREQ=DAILY;COUNT=30',MissedPolicy:'skip'}});
  for(let i=0;i<25;i++){
   const occurrence=new Date(at);occurrence.setDate(occurrence.getDate()+i);
   await post(page,'/api/plans/execute',{Ref:{Kind:'schedule',ID:schedule.ID},Action:'complete',OccurrenceAt:occurrence.toISOString(),Result:result,Mutation:{IdempotencyKey:crypto.randomUUID(),ExpectedVersion:i}});
@@ -191,4 +191,18 @@ test('plan lists omit execution bodies and load history pages and snapshots only
  await detail.getByRole('button',{name:'Load more history'}).click();await expect(detail.locator('.plan-execution')).toHaveCount(25);
  await detail.locator('.plan-execution summary').first().click();await expect(detail.locator('.plans-result')).toContainText(result.trim());expect(bodies).toHaveLength(1);
  await planAction(page,title,'Edit');await expect(page.getByRole('dialog',{name:'Edit',exact:true}).getByLabel('Notes',{exact:true})).toHaveValue(notes);
+});
+
+test('continuous watches share global and assistant lists without calendar occurrences',async({page},info)=>{
+ await login(page);const suffix=`${info.project.name}-${Date.now()}`,a=await assistant(page,`Watch owner ${suffix}`),title=`Watch ${suffix}`;
+ const compute=await post(page,'/api/resources',{Name:`Watch compute ${suffix}`,Kind:'compute',Provider:'local-sandbox'});
+ const w=await post(page,'/api/watches',{Title:title,AssistantID:a.ID,Instructions:'Report relevant changes',Paused:true,Watcher:{compute_id:compute.ID,script:'read start; printf \'%s\\n\' \'{"type":"ready","version":1}\'; read ack; sleep 600'}});
+ await page.goto('/#/plans');await page.getByRole('button',{name:'List',exact:true}).click();
+ const group=page.getByRole('region',{name:'Continuous watches',exact:true});await expect(group).toContainText(title);await expect(group.locator(`[data-plan-id="${w.ID}"]`)).toHaveCount(1);
+ await group.getByRole('button',{name:title,exact:true}).click();await expect(details(page,title)).toContainText('Report relevant changes');
+ await closePlanDrawer(page);await planAction(page,title,'Edit');const edit=page.getByRole('dialog',{name:'Edit',exact:true});await edit.getByRole('textbox',{name:'Instructions for changes'}).fill('Only report meaningful changes');await edit.getByRole('button',{name:'Save',exact:true}).click();await expect(edit).toBeHidden();
+ await page.getByRole('button',{name:'Calendar',exact:true}).click();await expect(page.locator('.plans-calendar-section')).not.toContainText(title);
+ const events=await (await page.request.get(`/api/plans/events?from=${encodeURIComponent(new Date().toISOString())}`)).json();expect(Object.values(events.Plans).some((v:any)=>v.Ref.ID===w.ID)).toBe(false);
+ await page.goto(`/#/assistants/${a.ID}`);await page.locator('.chat-header').getByRole('button',{name:'Plans',exact:true}).click();const panel=page.locator('.assistant-plans');await expect(panel).toContainText(title);await expect(panel.getByRole('heading',{name:'Continuous watches',exact:true})).toBeVisible();
+ await panel.getByRole('button',{name:title,exact:true}).click();await expect(panel).toContainText('Only report meaningful changes');await page.screenshot({path:info.outputPath('continuous-watch.png')});
 });

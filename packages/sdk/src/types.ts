@@ -18,7 +18,7 @@ export type ModelPricingTier = { InputTokensAbove: number; OutputTokensAbove: nu
 export type ModelPricing = { Tiers?: ModelPricingTier[]; AudioInputMicrosPerMillion?: number; Currency: string; InputMicrosPerMillion: number; OutputMicrosPerMillion: number; CachedInputMicrosPerMillion: number };
 export type Model = { ID: ID; Name: string; ResourceID: ID; SupportsTools: boolean; SupportsImages?: boolean; SupportsAudio?: boolean; ContextLimit: number; ProviderContextLimit?: number; EffectiveContextLimit?: number; ContextLimitSource?: 'manual' | 'provider' | 'fallback'; OutputLimit?: number; ProviderOutputLimit?: number; EffectiveOutputLimit?: number; OutputLimitSource?: 'manual' | 'provider' | 'fallback'; Pricing: ModelPricing | null; PricingInfo?: { Basis?: 'subscription-reference'; Source: 'builtin' | 'provider' | 'manual' | 'unknown'; Automatic: ModelPricing | null; RuleID: string; Version: string; Period: '' | 'peak' | 'off_peak'; SourceURL: string; CalendarKnown: boolean } | null };
 export type Todo = { ID: ID; Title: string; Notes: string; AssistantID: ID; DueAt: string | null; StartAt?: string | null; EndAt?: string | null; Completed: boolean; Version: number };
-export type Schedule = { ID: ID; Kind: 'personal' | 'assistant_plan'; AssistantID: ID; Title: string; Instructions: string; EndAt?: string | null; Trigger: { StartAt: string; Timezone: string; Recurrence: string; MissedPolicy: 'skip' | 'coalesce' | 'catch_up'; MaxCatchUp: number }; Enabled: boolean; NextAt: string | null; Version: number };
+export type Schedule = { ID: ID; Kind: 'personal_schedule' | 'assistant_schedule'; AssistantID: ID; Title: string; Instructions: string; EndAt?: string | null; Trigger: { StartAt: string; Timezone: string; Recurrence: string; MissedPolicy: 'skip' | 'coalesce' | 'catch_up'; MaxCatchUp: number }; Enabled: boolean; NextAt: string | null; Version: number };
 export type Resource = { Authentication?: 'chatgpt'; ID: ID; SandboxID?: ID; Kind: 'storage' | 'model' | 'compute' | 'network' | 'tool' | 'connection'; Name: string; Provider: string; Actions: string[]; State: string; Version: number };
 export type ResourceConstraints = {
  compute?: { gpu?: { device_ids: string[] } | null; cpu_percent: number; memory_bytes: number; processes: number; max_duration_seconds: number; unlimited_duration: boolean; temp_bytes: number };
@@ -53,13 +53,16 @@ export type DebugPayload = { Status: string; Data: Record<string, any> | null };
 export type ToolCapability = { Source?: 'builtin' | 'plugin' | 'mcp'; ConnectionID?: string; RemoteName?: string; Name: string; Description: string; InputSchema: unknown; RequiredActions: string[]; SideEffect: boolean; Available: boolean; Reason: string; ResourceIDs: string[] };
 export type AssistantCapabilities = { AssistantID: ID; Tools: ToolCapability[]; Skills: { Supported: boolean; Items: Array<{ ID: string; Name: string; Description: string; Version: string; Enabled: boolean; RequiredTools: string[]; RequiredActions: string[] }> } };
 
-export type PlanRef = { Kind: 'todo' | 'schedule'; ID: string };
+export type PlanRef = { Kind: 'todo' | 'schedule' | 'watch'; ID: string };
 export type PlanExecution = { ID: string; State: string; Title: string; Instructions: string; PlanVersion: number; OccurrenceAt: string | null; StartedAt: string; CompletedAt: string | null; Result: string; Task: Task | null };
 export type PlanExecutionSummary = Pick<PlanExecution, 'ID' | 'State' | 'OccurrenceAt' | 'StartedAt' | 'CompletedAt'>;
 export type PlanEventPage = { Items: { Key: string; At: string; PlanKey: string }[]; Plans: Record<string, Plan>; NextCursor: string };
 export type PlanEvent = { Key: string; At: string; Plan: Plan };
 export type PlanLinks = { Ref: PlanRef; Dependencies: PlanRef[] | null; Handoff: 'notify' | 'automatic'; Paused: boolean; Version: number; Dispatched: boolean; Runs: PlanExecution[] | null };
-export type Plan = { Ref: PlanRef; Title: string; AssistantID: string; Todo: Todo | null; Schedule: Schedule | null; Links: PlanLinks; Executions: PlanExecutionSummary[]; ExecutionCount: number; HasSuccessors: boolean; Occurrences: string[]; BlockedBy: PlanRef[]; Ready: boolean };
+export type WatchConfig = { compute_id: string; sandbox_id?: string; script: string; directory?: string; health_seconds?: number; files?: {resource_id:string;path?:string;write?:boolean}[]; network_mode?: string; network_ids?: string[] };
+export type WatchSignal = {Key:string;Data:unknown;At:string};
+export type Watch = {ID:string;OwnerID:string;AssistantID:string;Title:string;Instructions:string;Watcher:WatchConfig;StartAt:string|null;EndAt:string|null;Paused:boolean;Version:number;State:string;Reason:string;RunID:string;LastRunID:string;LastHealthyAt:string|null;LastInterruptionAt:string|null;Failures:number;PendingCount:number;Pending:WatchSignal[]|null;Recent:WatchSignal[]|null;CreatedAt:string;UpdatedAt:string};
+export type Plan = { Kind?:'todo'|'personal_schedule'|'assistant_schedule'|'assistant_watch'; Watch?: Watch | null; Ref: PlanRef; Title: string; AssistantID: string; Todo: Todo | null; Schedule: Schedule | null; Links: PlanLinks; Executions: PlanExecutionSummary[]; ExecutionCount: number; HasSuccessors: boolean; Occurrences: string[]; BlockedBy: PlanRef[]; Ready: boolean };
 export type TrajectoryEntry = { RunID: ID; Step: DebugStep };
 export type TrajectoryPage = { Items: TrajectoryEntry[]; Runs: DebugRun[]; RunsCursor: string; RunsReset: boolean; NextCursor: string; HeadCursor: string; ContextResetAt: string | null; Cleanup: DebugCleanupEvent | null };
 

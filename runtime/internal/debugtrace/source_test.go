@@ -103,7 +103,7 @@ func TestTriggerCaptureAndLegacySourceIsolation(t *testing.T) {
 
 func TestPlanSourceVersionAndPayloadLimits(t *testing.T) {
 	s, _, _ := fixture(t)
-	plan := map[string]any{"ID": "plan", "OwnerID": "owner", "AssistantID": "assistant", "Kind": "assistant_plan", "Title": "Daily plan", "Instructions": "original instructions", "Version": 2}
+	plan := map[string]any{"ID": "plan", "OwnerID": "owner", "AssistantID": "assistant", "Kind": "assistant_schedule", "Title": "Daily plan", "Instructions": "original instructions", "Version": 2}
 	put := func() {
 		t.Helper()
 		if err := s.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {

@@ -86,6 +86,7 @@
   --color-plan-item: #4d8b6b;
   --color-plan-event: #487eaa;
   --color-plan-automatic: #a374bb;
+  --color-plan-watch: #b47a32;
   --color-trace-model: #286fa8;
   --color-trace-tool: #956019;
   --color-context-system: #b85cfa;
@@ -126,6 +127,7 @@
   --color-plan-item: #7dc5a0;
   --color-plan-event: #81b6e0;
   --color-plan-automatic: #ca9fe0;
+  --color-plan-watch: #e2b16c;
   --color-trace-model: #70bbef;
   --color-trace-tool: #efbc65;
   --color-context-system: #cb83ff;

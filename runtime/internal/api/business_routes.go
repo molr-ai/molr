@@ -12,6 +12,7 @@ import (
 	"molr.ai/runtime/internal/business/settings"
 	"molr.ai/runtime/internal/business/task"
 	"molr.ai/runtime/internal/business/todo"
+	"molr.ai/runtime/internal/business/watch"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/im/conversation"
 	"molr.ai/runtime/internal/trigger"
@@ -164,6 +165,13 @@ func (s *HTTPServer) businessRoutes() {
 	route(s, "POST /api/todos/delete", func(ctx context.Context, p core.Principal, r todo.DeleteRequest) (any, error) {
 		return nil, s.services.Todos.Delete(ctx, p, r)
 	})
+	route(s, "POST /api/watches", func(ctx context.Context, p core.Principal, r watch.Request) (any, error) {
+		return s.services.Watches.Save(ctx, p, r)
+	})
+	route(s, "POST /api/watches/delete", func(ctx context.Context, p core.Principal, r struct {
+		ID       core.ID
+		Mutation core.Mutation
+	}) (any, error) { return nil, s.services.Watches.Delete(ctx, p, r.ID, r.Mutation) })
 	route(s, "POST /api/schedules", func(ctx context.Context, p core.Principal, r schedule.CreateRequest) (any, error) {
 		return s.services.Schedules.Create(ctx, p, r)
 	})

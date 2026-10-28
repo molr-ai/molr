@@ -1,4 +1,6 @@
 const zh = {
+ watch:'持续关注', resumeWatch:'恢复关注', loadMoreWatches:'加载更多关注', lastHealthy:'最近检查成功', watchEnd:'关注结束时间', watchEvents:'最近变化', watchProgram:'Watcher 与日志', watchCompute:'计算资源', watchScript:'检查命令', watchInstructions:'变化后的处理说明', watchInterrupted:'曾中断观察；恢复时由 watcher 补取数据', watchUnknownHealth:'未配置健康检查，仅确认进程运行状态', watchStates:{pending:'等待启动',starting:'启动中',running:'运行中',paused:'已暂停',blocked:'受阻',retrying:'等待重试',completed:'已结束'},
+
   returnToWeek: '返回本周', returnToMonth: '返回本月',
   week: '周', monthView: '月', weekView: '周日历', calendarMode: '日历模式', previousWeek: '上一周', nextWeek: '下一周', currentTime: '当前时间',
   noUpcomingHelp: '新增计划，安排接下来的事。',
@@ -11,7 +13,7 @@ const zh = {
   blocked: '等待前置事项', ready: '待交接', pausePlan: '暂停后续安排', resumePlan: '恢复安排', planned: '已安排', unscheduled: '待安排', ended: '已结束',
   source: '所属计划', snapshot: '执行时的说明', selectOccurrence: '选择本次安排', preserveHistory: '已有执行记录或后续依赖的计划请暂停，历史记录将保留。',
 
-  assistant: '助理', seriesEdit: '修改将应用到整个重复系列。', title: '计划', new: '新增计划', editor: '计划编辑', item: '事项', event: '时间安排', automatic: '自动执行',
+  assistant: '助理', seriesEdit: '修改将应用到整个重复系列。', title: '计划', new: '新增计划', editor: '计划编辑', item: '待办', event: '日程', automatic: '定时执行',
   list: '清单', calendar: '日历', view: '计划视图', type: '计划类型', all: '全部', owner: '负责人', me: '我',
   status: '状态', open: '未完成', done: '已完成', name: '要做什么', details: '更多选项', due: '截止日期（可选）',
   block: '安排时间段', start: '开始时间', end: '结束时间', save: '保存计划', cancel: '取消', edit: '编辑', remove: '删除',
@@ -23,6 +25,8 @@ const zh = {
   invalidTime: '请填写完整时间段，结束时间必须晚于开始时间。', saved: '计划已保存。', timezone: '时区', deadline: '截止', scheduled: '安排',
 };
 const en: typeof zh = {
+ watch:'Continuous watches', resumeWatch:'Resume watch', loadMoreWatches:'Load more watches', lastHealthy:'Last successful check', watchEnd:'Watch end time', watchEvents:'Recent changes', watchProgram:'Watcher and logs', watchCompute:'Compute resource', watchScript:'Watcher command', watchInstructions:'Instructions for changes', watchInterrupted:'Observation was interrupted; the watcher is responsible for catching up', watchUnknownHealth:'No health deadline configured; only process status is known', watchStates:{pending:'Pending',starting:'Starting',running:'Running',paused:'Paused',blocked:'Blocked',retrying:'Retrying',completed:'Ended'},
+
   returnToWeek: 'Back to this week', returnToMonth: 'Back to this month',
   week: 'Week', monthView: 'Month', weekView: 'Week calendar', calendarMode: 'Calendar mode', previousWeek: 'Previous week', nextWeek: 'Next week', currentTime: 'Current time',
   noUpcomingHelp: 'Create a plan for what’s next.',
@@ -35,7 +39,7 @@ const en: typeof zh = {
   blocked: 'Waiting for prerequisites', ready: 'Ready to hand off', pausePlan: 'Pause future arrangements', resumePlan: 'Resume arrangements', planned: 'Scheduled', unscheduled: 'Unscheduled', ended: 'Ended',
   source: 'Plan', snapshot: 'Instructions at execution', selectOccurrence: 'Choose occurrence', preserveHistory: 'Pause plans with execution history or dependents to retain their records.',
 
-  assistant: 'Assistant', seriesEdit: 'Changes apply to the entire recurring series.', title: 'Plans', new: 'New plan', editor: 'Plan editor', item: 'Item', event: 'Time block', automatic: 'Automatic execution',
+  assistant: 'Assistant', seriesEdit: 'Changes apply to the entire recurring series.', title: 'Plans', new: 'New plan', editor: 'Plan editor', item: 'To-do', event: 'Schedule', automatic: 'Scheduled execution',
   list: 'List', calendar: 'Calendar', view: 'Plan view', type: 'Plan type', all: 'All', owner: 'Owner', me: 'Me',
   status: 'Status', open: 'Open', done: 'Completed', name: 'What needs doing?', details: 'More options', due: 'Due date (optional)',
   block: 'Schedule time', start: 'Start time', end: 'End time', save: 'Save plan', cancel: 'Cancel', edit: 'Edit', remove: 'Delete',

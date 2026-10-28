@@ -4,7 +4,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { ModalPresence, Button, Checkbox, DateTimePicker, Dialog, Drawer, DropdownMenu, IconButton, Select, Textarea, TextField, planDate, useBreakpoint, useChoiceScroll } from '@molr/ui';
 import { ArrowRight, Bot, CalendarDays, Check, ChevronDown, ChevronLeft, Ellipsis, GitBranch, History, List, Pause, Pencil, Play, Plus, Repeat2, SlidersHorizontal, Trash2, UserRound, X } from 'lucide-react';
 import { api, APIError } from '@molr/sdk';
-import type { Assistant, Schedule, Todo, Plan, PlanRef, PlanEvent } from '@molr/sdk';
+import type { Assistant, Schedule, Todo, Watch, Plan, PlanRef, PlanEvent } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
 import { Confirm, EditDialog, Loading, PageHeader, localDateTime, zonedInput, zonedInstant, useAction } from '../components/common';
 import { planMessages } from '../../../plan-messages';
@@ -13,13 +13,13 @@ import { DreamConflictNotice } from './DreamConflictNotice';
 import { PlanCalendarToolbar } from './PlanCalendarToolbar';
 import { PlanWeekCalendar, weekDays } from './PlanWeekCalendar';
 import { PlanMonthCalendar, monthDays } from './PlanMonthCalendar';
-import { calendarEvents, eventDone, eventKey, eventsOnDay, usePlanEvents } from './plan-events';
+import { calendarEvents, eventDone, eventKey, eventsOnDay, usePlanEvents, useWatchPlans } from './plan-events';
 import './plans.css';
 
-type Entry = { kind: 'item'; value: Todo } | { kind: 'event' | 'automatic'; value: Schedule };
+type Entry = {kind:'watch';value:Watch} | { kind: 'item'; value: Todo } | { kind: 'event' | 'automatic'; value: Schedule };
 const listScopes = ['upcoming', 'overdue', 'undated'] as const;
 const refKey = (ref: PlanRef) => `${ref.Kind}-${ref.ID}`;
-const entry = (plan: Plan): Entry => plan.Todo ? { kind: 'item', value: plan.Todo } : { kind: plan.Schedule!.Kind === 'personal' ? 'event' : 'automatic', value: plan.Schedule! };
+const entry = (plan: Plan): Entry => plan.Watch ? {kind:'watch',value:plan.Watch} : plan.Todo ? { kind: 'item', value: plan.Todo } : { kind: plan.Schedule!.Kind === 'personal_schedule' ? 'event' : 'automatic', value: plan.Schedule! };
 const instantDay = (value: string) => planDate(new Date(value));
 function occurrenceEnd(plan: Plan, at: string) { const s = plan.Schedule; return s?.EndAt ? new Date(new Date(at).getTime() + new Date(s.EndAt).getTime() - new Date(s.Trigger.StartAt).getTime()).toISOString() : null; }
 
@@ -40,15 +40,16 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
   const visibleDays=view === 'calendar' && calendarMode === 'week' ? weekDays(month) : monthDays(month);
   const from = new Date(visibleDays[0]);from.setHours(0,0,0,0);
   const until = new Date(visibleDays[visibleDays.length-1]);until.setDate(until.getDate()+1);until.setHours(0,0,0,0);
-  const upcoming=usePlanEvents((embedded || view==='list' && listScope==='upcoming') && (!embedded || assistantID) ? `/api/plans/events?from=${encodeURIComponent(listFrom)}&limit=${embedded ? 10 : 50}&scope=${encodeURIComponent(listOwner)}&kind=${embedded ? 'all' : kind}&state=${embedded ? 'all' : status}` : null);
+  const watches=useWatchPlans((embedded || view==='list') && (kind==='all'||kind==='watch'||!!embedded)?`/api/plans/watches?scope=${encodeURIComponent(listOwner)}&state=${embedded?'all':status}&limit=${embedded?10:20}`:null);
+  const upcoming=usePlanEvents(kind!=='watch' && (embedded || view==='list' && listScope==='upcoming') && (!embedded || assistantID) ? `/api/plans/events?from=${encodeURIComponent(listFrom)}&limit=${embedded ? 10 : 50}&scope=${encodeURIComponent(listOwner)}&kind=${embedded ? 'all' : kind}&state=${embedded ? 'all' : status}` : null);
   const plans = useQuery<Plan[]>(!embedded && view === 'calendar' ? `/api/plans?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(until.toISOString())}` : embedded || listScope === 'undated' ? `/api/plans?mode=undated&scope=${encodeURIComponent(listOwner)}` : listScope === 'overdue' ? '/api/plans' : null);
   const selectedQuery = useQuery<Plan>(expanded ? `/api/plans/${expanded.replace('-', '/')}${selectedAt ? `?at=${encodeURIComponent(selectedAt)}` : ''}` : null);
   const related = useQuery<Plan[]>(expanded || configuring ? '/api/plans' : null);
   const selection = useQuery<{Plan:Plan;At:string|null}>(selectedID || selectedTaskID ? `/api/plans/selection?plan_id=${encodeURIComponent(selectedID || '')}&task_id=${encodeURIComponent(selectedTaskID || '')}` : null);
   const currentAssistant = useQuery<Assistant>(assistantID ? `/api/assistants/${assistantID}` : null);
   const assistants = currentAssistant.data && !availableAssistants.some(a => a.ID === assistantID) ? [...availableAssistants, currentAssistant.data] : availableAssistants;
-  const all = [...new Map([...(plans.data ?? []), ...upcoming.items.map(event=>event.Plan)].map(plan=>[refKey(plan.Ref),plan])).values()], latest = (p: Plan) => p.Executions[0];
-  const completed = (p: Plan) => latest(p)?.State === 'completed' || !p.Executions.length && !!p.Todo?.Completed;
+  const all = [...new Map([...(plans.data ?? []), ...watches.items, ...upcoming.items.map(event=>event.Plan)].map(plan=>[refKey(plan.Ref),plan])).values()], latest = (p: Plan) => p.Executions[0];
+  const completed = (p: Plan) => p.Watch ? p.Watch.State==='completed' : latest(p)?.State === 'completed' || !p.Executions.length && !!p.Todo?.Completed;
   const filtered = all.filter(p => (listOwner === 'all' || (p.AssistantID || 'me') === listOwner) && (embedded || kind === 'all' || entry(p).kind === kind) );
   const when = (p: Plan) => p.Todo?.StartAt || p.Todo?.DueAt || p.Schedule?.NextAt || p.Occurrences.find(at => instantDay(at) >= planDate()) || p.Schedule?.Trigger.StartAt || '';
   const matchesState=(p:Plan,at?:string)=>status==='all'||(status==='done'?eventDone(p,at):!eventDone(p,at));
@@ -56,9 +57,9 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
   const undated=filtered.filter(p=>p.Todo&&!when(p)&&matchesState(p));
   const overdue=filtered.filter(p=>!p.Schedule?.Trigger.Recurrence && !!when(p) && Date.parse(p.Todo?.EndAt||when(p))<Date.parse(listFrom) && !completed(p) && matchesState(p)).sort((a,b)=>Date.parse(when(a))-Date.parse(when(b)));
   const selectedDayEvents=eventsOnDay(scheduledEvents,dayAgenda||date);
-  const state = (p: Plan) => p.Links.Paused ? t.paused : p.BlockedBy.length ? t.blocked : !p.Schedule?.Trigger.Recurrence && completed(p) ? t.ended : p.Links.Dependencies?.length && !p.Executions.length && p.Ready ? t.ready : when(p) ? t.planned : t.unscheduled;
+  const state = (p: Plan) => p.Watch ? (t.watchStates[p.Watch.State as keyof typeof t.watchStates] ?? p.Watch.State) : p.Links.Paused ? t.paused : p.BlockedBy.length ? t.blocked : !p.Schedule?.Trigger.Recurrence && completed(p) ? t.ended : p.Links.Dependencies?.length && !p.Executions.length && p.Ready ? t.ready : when(p) ? t.planned : t.unscheduled;
   const tone = (p: Plan) => p.Links.Paused ? 'paused' : p.BlockedBy.length ? 'blocked' : completed(p) ? 'done' : p.Links.Dependencies?.length && !p.Executions.length && p.Ready ? 'ready' : 'open';
-  const executionState = (p: Plan) => latest(p) && ['pending', 'running', 'waiting', 'paused'].includes(latest(p).State) ? (copy.tasks[latest(p).State as 'pending'] ?? latest(p).State) : state(p);
+  const executionState = (p: Plan) => p.Watch ? state(p) : latest(p) && ['pending', 'running', 'waiting', 'paused'].includes(latest(p).State) ? (copy.tasks[latest(p).State as 'pending'] ?? latest(p).State) : state(p);
   const ownerName = (p: Plan) => assistants.find(a => a.ID === p.AssistantID)?.Name ?? (p.AssistantID ? t.assistant : t.me);
   const selected = selectedQuery.data ?? all.find(p => refKey(p.Ref) === expanded) ?? (selection.data && refKey(selection.data.Plan.Ref) === expanded ? selection.data.Plan : undefined);
   useLayoutEffect(() => {
@@ -77,7 +78,7 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
       appliedSelection.current = request;
       const at=selection.data?.At || when(match);
       setExpanded(refKey(match.Ref));setSelectedAt(at||undefined);
-      if(embedded){setView('list');}else if(at){setView('calendar');setMonth(instantDay(at));setDate(instantDay(at));}else{setListScope('undated');setView('list');}
+      if(embedded){setView('list');}else if(at){setView('calendar');setMonth(instantDay(at));setDate(instantDay(at));}else{setListScope(match.Watch?'upcoming':'undated');setView('list');}
     }
   }, [selection.data, selectedID, selectedTaskID]);
   useEffect(() => {
@@ -89,9 +90,9 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
   const occurrence = (p: Plan) => p.Schedule?.Trigger.Recurrence ? selectedAt : undefined;
   const repeat = (rule: string) => !rule ? t.once : rule === 'FREQ=DAILY' ? t.daily : rule === 'FREQ=WEEKLY' ? t.weekly : t.customRepeat;
   const pausePlan = useMutation([]);
-  function pause(p: Plan) { void action.run(() => pausePlan('/api/plans/configure', { Ref: p.Ref, Dependencies: p.Links.Dependencies ?? [], Handoff: p.Links.Handoff, Paused: !p.Links.Paused }, p.Links.Version, refKey(p.Ref))); }
+  function pause(p: Plan) { if(p.Watch){void action.run(()=>(async()=>{const full=await api.get<Plan>(`/api/plans/watch/${p.Ref.ID}`);if(full.Watch!.Version!==p.Watch!.Version)throw new APIError('conflict');return pausePlan('/api/watches',{...watchRequest(full.Watch!),Paused:!p.Watch!.Paused},p.Watch!.Version,refKey(p.Ref));})());return;} void action.run(() => pausePlan('/api/plans/configure', { Ref: p.Ref, Dependencies: p.Links.Dependencies ?? [], Handoff: p.Links.Handoff, Paused: !p.Links.Paused }, p.Links.Version, refKey(p.Ref))); }
   const startPlan = useMutation([]);
-  function start(p: Plan) { void action.run(() => startPlan('/api/plans/execute', { Ref: p.Ref, Action: 'start', OccurrenceAt: occurrence(p) || null }, p.Links.Version, refKey(p.Ref) + ":" + (occurrence(p) || "")), () => setExpanded(refKey(p.Ref))); }
+  function start(p: Plan) { if(p.Watch){void action.run(()=>startPlan('/api/watches',{...watchRequest(p.Watch!),Paused:false},p.Watch!.Version,refKey(p.Ref)));return;} void action.run(() => startPlan('/api/plans/execute', { Ref: p.Ref, Action: 'start', OccurrenceAt: occurrence(p) || null }, p.Links.Version, refKey(p.Ref) + ":" + (occurrence(p) || "")), () => setExpanded(refKey(p.Ref))); }
   function selectCalendarDate(value: string) { setMonth(value); setDate(value); setExpanded(''); setSelectedAt(undefined); setDayAgenda(''); }
   function selectDate(value: string) { setDate(value); setExpanded(''); setSelectedAt(undefined); setDayAgenda(value); }
   function selectEvent(event: PlanEvent) { setExpanded(refKey(event.Plan.Ref)); setSelectedAt(event.At); setDayAgenda(''); }
@@ -100,7 +101,7 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
     if (embedded) listScroll.current = listRef.current?.scrollTop ?? 0;
     setExpanded(refKey(p.Ref)); setSelectedAt(at); setDayAgenda('');
   }
-  useErrorToast(plans.error || upcoming.error || selectedQuery.error || related.error || selection.error || action.error || currentAssistant.error, ()=>{plans.reload();upcoming.reload();selectedQuery.reload();related.reload();selection.reload();});
+  useErrorToast(watches.error || plans.error || upcoming.error || selectedQuery.error || related.error || selection.error || action.error || currentAssistant.error, ()=>{watches.reload();plans.reload();upcoming.reload();selectedQuery.reload();related.reload();selection.reload();});
   function selectView(value: string) {
     if (value === view) return;
     setView(value); setExpanded(''); setSelectedAt(undefined); setDayAgenda('');
@@ -123,13 +124,13 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
     const linked=(related.data ?? all).find(p=>refKey(p.Ref)===refKey(ref)),at=linked?when(linked):'';
     if (embedded && linked?.AssistantID !== assistantID) { window.location.hash = `/plans/${ref.ID}`; return; }
     setOwner('all');setKind('all');setStatus('all');setExpanded(refKey(ref));setSelectedAt(at||undefined);
-    if(embedded){setView('list');}else if(at){setView('calendar');setMonth(instantDay(at));setDate(instantDay(at));}else{setListScope('undated');setView('list');}
+    if(embedded){setView('list');}else if(at){setView('calendar');setMonth(instantDay(at));setDate(instantDay(at));}else{setListScope(linked?.Watch?'upcoming':'undated');setView('list');}
   }
   function menu(p: Plan) {
-    const canDelete = !p.ExecutionCount && !p.HasSuccessors;
+    const canDelete = !p.ExecutionCount && !p.HasSuccessors && !p.Watch?.Recent?.length;
     return <DropdownMenu label={t.actions} align="end" trigger={<IconButton className="plans-more" label={t.actions}><Ellipsis size={18} /></IconButton>} items={[
       { id: 'edit', label: t.edit, icon: <Pencil size={15} />, onSelect: () => { void action.run(async()=>{const full=await api.get<Plan>(`/api/plans/${p.Ref.Kind}/${p.Ref.ID}`);setEditing(entry(full));}); } },
-      { id: 'handoff', label: t.handoff, icon: <GitBranch size={15} />, onSelect: () => setConfiguring(p) },
+      { id: 'handoff', disabled:!!p.Watch, label: t.handoff, icon: <GitBranch size={15} />, onSelect: () => setConfiguring(p) },
       { id: 'pause', label: p.Links.Paused ? t.resumePlan : t.pausePlan, icon: p.Links.Paused ? <Play size={15} /> : <Pause size={15} />, disabled: action.busy, onSelect: () => pause(p) },
       { id: 'delete', label: t.remove, icon: <Trash2 size={15} />, danger: true, separatorBefore: true, disabled: !canDelete, onSelect: () => setDeleting(p) },
     ]} />;
@@ -143,14 +144,15 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
     return <section id={`${scopeID}-detail-${key}`} className="plan-expanded plans-detail" role="region" aria-label={`${p.Title} · ${t.planDetails}`}>
       <div className="plans-detail-body">
         <h2 className="plans-detail-title">{p.Title}</h2>
-        {p.Schedule?.Kind==='assistant_plan' && <DreamConflictNotice assistantID={p.AssistantID} startAt={startAt || undefined} timezone={p.Schedule.Trigger.Timezone} recurrence={at?'':p.Schedule.Trigger.Recurrence} disabled={p.Links.Paused || !p.Schedule.Enabled} />}
+        {p.Schedule?.Kind==='assistant_schedule' && <DreamConflictNotice assistantID={p.AssistantID} startAt={startAt || undefined} timezone={p.Schedule.Trigger.Timezone} recurrence={at?'':p.Schedule.Trigger.Recurrence} disabled={p.Links.Paused || !p.Schedule.Enabled} />}
         <dl className="plans-properties"><div><dt>{t.owner}</dt><dd><span className="plans-avatar" data-person={!p.AssistantID}>{p.AssistantID ? <Bot size={13} /> : <UserRound size={13} />}</span>{ownerName(p)}</dd></div><div><dt>{t.status}</dt><dd><span className="plans-status" data-tone={tone(p)}><i />{state(p)}</span></dd></div>{latest(p) && <div><dt>{t.latestExecution}</dt><dd>{copy.tasks[latest(p).State as 'pending'] ?? latest(p).State}</dd></div>}
           {startAt && <div><dt>{t.scheduled}</dt><dd>{format(startAt)}{endAt && <span className="plans-end">– {instantDay(endAt) === instantDay(startAt) ? time(endAt) : format(endAt)}</span>}</dd></div>}
           {p.Todo?.DueAt && <div><dt>{t.deadline}</dt><dd>{format(p.Todo.DueAt)}</dd></div>}
           {p.Schedule && <div><dt>{t.repeat}</dt><dd title={p.Schedule.Trigger.Recurrence}>{repeat(p.Schedule.Trigger.Recurrence)}<span className="plans-subtle">{p.Schedule.Trigger.Timezone}</span></dd></div>}
         </dl>
-        {(p.Todo?.Notes || p.Schedule?.Instructions) && <p className="plans-description">{p.Todo?.Notes || p.Schedule?.Instructions}</p>}
-        <div className="plans-primary-actions"><Button size="sm" disabled={action.busy || !p.Ready || !!active || (!p.AssistantID && !!done) || !!p.Schedule?.Trigger.Recurrence && !at} onClick={() => start(p)}><Play size={14} />{t.startExecution}</Button>{!p.AssistantID && <Button size="sm" variant="secondary" disabled={action.busy || (!p.Ready && !active) || !!done || !!p.Schedule?.Trigger.Recurrence && !at} onClick={() => setCompleting({ plan: p, at })}><Check size={14} />{t.completeExecution}</Button>}</div>
+        {(p.Watch?.Instructions || p.Todo?.Notes || p.Schedule?.Instructions) && <p className="plans-description">{p.Watch?.Instructions || p.Todo?.Notes || p.Schedule?.Instructions}</p>}
+        {p.Watch && <WatchDetails watch={p.Watch}/>}
+        <div className="plans-primary-actions"><Button size="sm" disabled={action.busy || (!p.Watch && (!p.Ready || !!active)) || (p.Watch?.State==='running' || p.Watch?.State==='starting') || (!p.AssistantID && !!done) || !!p.Schedule?.Trigger.Recurrence && !at} onClick={() => start(p)}><Play size={14} />{p.Watch?t.resumeWatch:t.startExecution}</Button>{!p.AssistantID && <Button size="sm" variant="secondary" disabled={action.busy || (!p.Ready && !active) || !!done || !!p.Schedule?.Trigger.Recurrence && !at} onClick={() => setCompleting({ plan: p, at })}><Check size={14} />{t.completeExecution}</Button>}</div>
         {!!p.Links.Dependencies?.length && <section className="plans-related"><h3><GitBranch size={14} />{t.dependencies}</h3>{p.Links.Dependencies.map(ref => { const linked = (related.data ?? []).find(d => refKey(d.Ref) === refKey(ref)); return <button key={refKey(ref)} onClick={() => openRelated(ref)}><span className="plans-related-dot" data-done={linked && completed(linked)} /><span>{linked?.Title ?? ref.ID}</span><ArrowRight size={14} /></button>; })}</section>}
         {successors.length > 0 && <section className="plans-related"><h3><ArrowRight size={14} />{t.successors}</h3>{successors.map(next => <button key={refKey(next.Ref)} onClick={() => openRelated(next.Ref)}><span>{next.Title}</span><small>{state(next)}</small><ArrowRight size={14} /></button>)}</section>}
         <PlanHistory plan={p} selectedTaskID={selection.data?.Plan.Ref.ID === p.Ref.ID ? selectedTaskID : undefined} onComplete={run=>setCompleting({plan:p,at:run.OccurrenceAt || undefined})}/>
@@ -177,7 +179,7 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
     listRows.unshift({ Key: eventKey(selected, at), At: at, Plan: selected });
     listRows.splice(10);
   }
-  const filters = <div className="plans-filters"><SlidersHorizontal size={14} className="plans-filter-icon" aria-hidden="true" /><Select hideLabel size="sm" label={t.owner} value={owner} onValueChange={setOwner} options={[{ value: 'all', label: t.allOwners }, { value: 'me', label: t.me }, ...assistants.map(a => ({ value: a.ID, label: a.Name }))]} /><Select hideLabel size="sm" label={t.type} value={kind} onValueChange={setKind} options={[{ value: 'all', label: t.allTypes }, ...(['item', 'event', 'automatic'] as const).map(value => ({ value, label: t[value] }))]} /><Select hideLabel size="sm" label={t.status} value={status} onValueChange={setStatus} options={[{ value: 'all', label: t.allStatuses }, { value: 'open', label: t.open }, { value: 'done', label: t.done }]} />{hasFilters && <IconButton label={t.clearFilters} onClick={clearFilters}><X size={14} /></IconButton>}</div>;
+  const filters = <div className="plans-filters"><SlidersHorizontal size={14} className="plans-filter-icon" aria-hidden="true" /><Select hideLabel size="sm" label={t.owner} value={owner} onValueChange={setOwner} options={[{ value: 'all', label: t.allOwners }, { value: 'me', label: t.me }, ...assistants.map(a => ({ value: a.ID, label: a.Name }))]} /><Select hideLabel size="sm" label={t.type} value={kind} onValueChange={value=>{setKind(value);if(value==='watch'){setView('list');setListScope('upcoming');}}} options={[{ value: 'all', label: t.allTypes }, ...(['item', 'event', 'automatic', 'watch'] as const).map(value => ({ value, label: t[value] }))]} /><Select hideLabel size="sm" label={t.status} value={status} onValueChange={setStatus} options={[{ value: 'all', label: t.allStatuses }, { value: 'open', label: t.open }, { value: 'done', label: t.done }]} />{hasFilters && <IconButton label={t.clearFilters} onClick={clearFilters}><X size={14} /></IconButton>}</div>;
   const selectedDetail = selected ? selectedQuery.data ? detail(selectedQuery.data) : <Loading /> : null;
   const deletePlan = useMutation([deleting]);
   const workspace = <section className={`plans-workspace${embedded ? ' plans-workspace--embedded' : ''}`} data-view={view} data-detail={embedded && !!selected}>
@@ -204,19 +206,21 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
           {plans.loading && !plans.data ? <Loading /> : calendarMode === 'week' ? <PlanWeekCalendar date={month} selectedDate={date} locale={locale} events={scheduledEvents} selectedKey={selected ? eventKey(selected,selectedAt) : undefined} onDay={selectDate} onEvent={selectEvent}/> : <PlanMonthCalendar month={month} date={date} locale={locale} events={scheduledEvents} onDay={selectDate} onEvent={selectEvent} moreLabel={(count,day)=>t.moreEvents(count,day)}/>}
 
         </section> : <>
+          {(watches.items.length>0 || watches.loading) && <section className="plans-watch-group" aria-label={t.watch}><h2>{t.watch}</h2><div className="plan-list plans-list">{watches.items.map(p=>row(p))}</div>{watches.more&&<Button size="sm" variant="secondary" loading={watches.loading} onClick={watches.loadMore}>{t.loadMoreWatches}</Button>}</section>}
+          {watches.items.length>0 && listRows.length>0 && <h2 className="plans-group-title">{t[listScope]}</h2>}
           {!listRows.length && (plans.loading && !plans.data || listScope === 'upcoming' && upcoming.loading) ? <Loading /> : <div className="plan-list plans-list" aria-label={t.eventList}>{listRows.map(event=>row(event.Plan,event.At||undefined))}</div>}
           {!embedded&&listScope==='upcoming'&&upcoming.more&&<Button className="plans-load-more" variant="secondary" loading={upcoming.loading} onClick={upcoming.loadMore}>{t.loadMoreEvents}</Button>}
-          {!listRows.length&&!plans.loading&&!(listScope==='upcoming'&&upcoming.loading)&&<div className="plans-empty"><span className="plans-empty-icon"><CalendarDays size={32}/></span><h2>{hasFilters ? t.empty : listScope === 'upcoming' ? t.noUpcoming : listScope === 'overdue' ? t.noOverdue : t.noUndated}</h2>{!hasFilters && listScope === 'upcoming' && <p>{t.noUpcomingHelp}</p>}{embedded ? null : hasFilters ? <><p>{t.filteredEmpty}</p><Button size="sm" variant="secondary" onClick={clearFilters}>{t.clearFilters}</Button></> : listScope === 'overdue' ? <Button size="sm" variant="secondary" onClick={() => selectListScope('upcoming')}>{t.viewUpcoming}</Button> : <Button size="sm" onClick={() => setEditing('new')}><Plus size={14}/>{t.new}</Button>}</div>}
+          {!watches.items.length&&!watches.loading&&!listRows.length&&!plans.loading&&!(listScope==='upcoming'&&upcoming.loading)&&<div className="plans-empty"><span className="plans-empty-icon"><CalendarDays size={32}/></span><h2>{hasFilters ? t.empty : listScope === 'upcoming' ? t.noUpcoming : listScope === 'overdue' ? t.noOverdue : t.noUndated}</h2>{!hasFilters && listScope === 'upcoming' && <p>{t.noUpcomingHelp}</p>}{embedded ? null : hasFilters ? <><p>{t.filteredEmpty}</p><Button size="sm" variant="secondary" onClick={clearFilters}>{t.clearFilters}</Button></> : listScope === 'overdue' ? <Button size="sm" variant="secondary" onClick={() => selectListScope('upcoming')}>{t.viewUpcoming}</Button> : <Button size="sm" onClick={() => setEditing('new')}><Plus size={14}/>{t.new}</Button>}</div>}
         </>}
       </div>
       {embedded && <div className="plans-panel-detail" ref={detailRef} inert={!selected} aria-hidden={!selected}>{selectedDetail}</div>}
     </div>
     <ModalPresence>{dayAgenda&&<Dialog open onOpenChange={open=>{if(!open)setDayAgenda('');}} title={`${dayAgenda} · ${t.selectedDay}`} size="lg" className="plans-day-agenda"><div className="plan-list plans-list">{selectedDayEvents.map(event=>row(event.Plan,event.At))}{!selectedDayEvents.length&&<p className="plans-day-empty">{t.dayEmpty}</p>}</div><Button size="sm" onClick={()=>setEditing('new')}><Plus size={14}/>{t.new}</Button></Dialog>}</ModalPresence>
     <ModalPresence>{!embedded&&selected&&<Drawer open onOpenChange={open=>{if(!open)closeDetails();}} title={t.planDetails} closeLabel={t.closeDetails} className="plans-details-drawer">{selectedDetail}</Drawer>}</ModalPresence>
-    <ModalPresence>{editing && <PlanEditor entry={editing === 'new' ? undefined : editing} assistantID={assistantID} assistants={assistants} date={date} onClose={() => setEditing(null)} />}</ModalPresence>
+    <ModalPresence>{editing && (editing!=='new' && editing.kind==='watch' ? <WatchEditor watch={editing.value} onClose={()=>setEditing(null)}/> : <PlanEditor entry={editing === 'new' ? undefined : editing} assistantID={assistantID} assistants={assistants} date={date} onClose={() => setEditing(null)} />)}</ModalPresence>
     <ModalPresence>{configuring && related.data && <HandoffEditor plan={configuring} all={related.data ?? []} onClose={() => setConfiguring(null)} />}</ModalPresence>
     <ModalPresence>{completing && <CompletionEditor plan={completing.plan} occurrence={completing.at} onClose={() => setCompleting(null)} />}</ModalPresence>
-    <ModalPresence>{deleting && <Confirm title={t.remove} description={t.deleteHelp} danger onClose={() => setDeleting(null)} onConfirm={() => deletePlan(deleting.Todo ? '/api/todos/delete' : '/api/schedules/delete', { ID: deleting.Ref.ID }, (deleting.Todo || deleting.Schedule)!.Version)} />}</ModalPresence>
+    <ModalPresence>{deleting && <Confirm title={t.remove} description={t.deleteHelp} danger onClose={() => setDeleting(null)} onConfirm={() => deletePlan(deleting.Watch ? '/api/watches/delete' : deleting.Todo ? '/api/todos/delete' : '/api/schedules/delete', { ID: deleting.Ref.ID }, (deleting.Watch || deleting.Todo || deleting.Schedule)!.Version)} />}</ModalPresence>
   </section>;
   return embedded ? <Drawer className="assistant-plans" docked={embedded.docked} open onOpenChange={open => { if (!open) embedded.onClose(); }} side={mobile ? 'bottom' : 'right'} title={selected ? t.planDetails : t.title}
     headerContent={selected ? <div className="plans-panel-heading"><IconButton ref={backRef} label={t.backToList} onClick={closeDetails}><ChevronLeft size={18} /></IconButton><span>{t.planDetails}</span></div> : undefined}>
@@ -226,14 +230,14 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
 function HandoffEditor({plan,all,onClose}:{plan:Plan;all:Plan[];onClose:()=>void}){
  const {locale}=useCopy(),t=planMessages[locale];const [dependencies,setDependencies]=useState((plan.Links.Dependencies??[]).map(refKey)),[handoff,setHandoff]=useState(plan.Links.Handoff);
  const saveHandoff = useMutation([plan.Ref.Kind, plan.Ref.ID, dependencies, handoff, plan.Links.Paused]);
-  return <EditDialog title={t.handoff} onClose={onClose} onSubmit={()=>saveHandoff('/api/plans/configure',{Ref:plan.Ref,Dependencies:dependencies.map(key=>all.find(p=>refKey(p.Ref)===key)!.Ref),Handoff:dependencies.length&&plan.AssistantID?handoff:'notify',Paused:plan.Links.Paused},plan.Links.Version)}><Select multiple label={t.dependencies} value={dependencies} onValueChange={setDependencies} options={all.filter(p=>refKey(p.Ref)!==refKey(plan.Ref)&&!p.Schedule?.Trigger.Recurrence).map(p=>({value:refKey(p.Ref),label:p.Title}))}/>{plan.AssistantID&&plan.Todo&&<Select label={t.handoff} value={handoff} onValueChange={setHandoff} options={[{value:'notify',label:t.notify},{value:'automatic',label:t.autoHandoff}]}/>}<p className="muted">{t.handoffHelp}</p></EditDialog>;
+  return <EditDialog title={t.handoff} onClose={onClose} onSubmit={()=>saveHandoff('/api/plans/configure',{Ref:plan.Ref,Dependencies:dependencies.map(key=>all.find(p=>refKey(p.Ref)===key)!.Ref),Handoff:dependencies.length&&plan.AssistantID?handoff:'notify',Paused:plan.Links.Paused},plan.Links.Version)}><Select multiple label={t.dependencies} value={dependencies} onValueChange={setDependencies} options={all.filter(p=>refKey(p.Ref)!==refKey(plan.Ref)&&!p.Watch&&!p.Schedule?.Trigger.Recurrence).map(p=>({value:refKey(p.Ref),label:p.Title}))}/>{plan.AssistantID&&plan.Todo&&<Select label={t.handoff} value={handoff} onValueChange={setHandoff} options={[{value:'notify',label:t.notify},{value:'automatic',label:t.autoHandoff}]}/>}<p className="muted">{t.handoffHelp}</p></EditDialog>;
 }
 function CompletionEditor({plan,occurrence,onClose}:{plan:Plan;occurrence?:string;onClose:()=>void}){const {locale}=useCopy(),t=planMessages[locale],[result,setResult]=useState('');const completePlan = useMutation([plan.Ref.Kind, plan.Ref.ID, occurrence, result]);
   return <EditDialog title={t.completeExecution} submitLabel={t.completeExecution} onClose={onClose} onSubmit={()=>completePlan('/api/plans/execute',{Ref:plan.Ref,Action:'complete',OccurrenceAt:occurrence||null,Result:result},plan.Links.Version)}><Textarea label={t.result} value={result} onChange={e=>setResult(e.target.value)} maxLength={8192}/></EditDialog>;}
-function PlanEditor({ entry, assistants, assistantID, date, onClose }: { entry?: Entry; assistants: Assistant[]; assistantID?: string; date: string; onClose: () => void }) {
+function PlanEditor({ entry, assistants, assistantID, date, onClose }: { entry?: Exclude<Entry,{kind:'watch'}>; assistants: Assistant[]; assistantID?: string; date: string; onClose: () => void }) {
   const { locale } = useCopy(), t = planMessages[locale];
   const todo = entry?.kind === 'item' ? entry.value : undefined, schedule = entry && entry.kind !== 'item' ? entry.value : undefined;
-  const [kind, setKind] = useState<Entry['kind']>(entry?.kind ?? 'item'), [title, setTitle] = useState(entry?.value.Title ?? ''), [notes, setNotes] = useState(todo?.Notes ?? schedule?.Instructions ?? ''), [owner, setOwner] = useState(entry?.value.AssistantID ?? assistantID ?? '');
+  const [kind, setKind] = useState<Exclude<Entry['kind'],'watch'>>(entry?.kind ?? 'item'), [title, setTitle] = useState(entry?.value.Title ?? ''), [notes, setNotes] = useState(todo?.Notes ?? schedule?.Instructions ?? ''), [owner, setOwner] = useState(entry?.value.AssistantID ?? assistantID ?? '');
   const [due, setDue] = useState(localDateTime(todo?.DueAt)), [block, setBlock] = useState(!!todo?.StartAt);
   const [timezone, setTimezone] = useState(schedule?.Trigger.Timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone);
   const [start, setStart] = useState(schedule ? zonedInput(schedule.Trigger.StartAt, schedule.Trigger.Timezone) : todo?.StartAt ? localDateTime(todo.StartAt) : `${date}T09:00`), [end, setEnd] = useState(schedule?.EndAt ? zonedInput(schedule.EndAt, schedule.Trigger.Timezone) : todo?.EndAt ? localDateTime(todo.EndAt) : schedule ? '' : `${date}T10:00`);
@@ -252,7 +256,7 @@ function PlanEditor({ entry, assistants, assistantID, date, onClose }: { entry?:
       if (kind === 'automatic' && !owner) throw new APIError('invalid_argument');
       const startAt = zonedInstant(start, timezone), endAt = kind === 'event' && end ? zonedInstant(end, timezone) : null;
       if (endAt && endAt <= startAt) throw new Error(t.invalidTime);
-      await savePlan(schedule ? '/api/schedules/update' : '/api/schedules', { ...(schedule ? { ID: schedule.ID, Enabled: schedule.Enabled } : {}), Title: title.trim(), Kind: kind === 'event' ? 'personal' : 'assistant_plan', AssistantID: kind === 'event' ? '' : owner, Instructions: notes, EndAt: endAt, Trigger: { StartAt: startAt, Timezone: timezone, Recurrence: repeat, MissedPolicy: schedule?.Trigger.MissedPolicy ?? 'coalesce', MaxCatchUp: schedule?.Trigger.MaxCatchUp ?? 0 } }, schedule?.Version);
+      await savePlan(schedule ? '/api/schedules/update' : '/api/schedules', { ...(schedule ? { ID: schedule.ID, Enabled: schedule.Enabled } : {}), Title: title.trim(), Kind: kind === 'event' ? 'personal_schedule' : 'assistant_schedule', AssistantID: kind === 'event' ? '' : owner, Instructions: notes, EndAt: endAt, Trigger: { StartAt: startAt, Timezone: timezone, Recurrence: repeat, MissedPolicy: schedule?.Trigger.MissedPolicy ?? 'coalesce', MaxCatchUp: schedule?.Trigger.MaxCatchUp ?? 0 } }, schedule?.Version);
     }
   }}>
     {kind==='automatic' && <DreamConflictNotice assistantID={owner} startAt={startValue || undefined} timezone={timezone} recurrence={repeat} />}
@@ -264,4 +268,35 @@ function PlanEditor({ entry, assistants, assistantID, date, onClose }: { entry?:
     {schedule?.Trigger.Recurrence && <p className="muted">{t.seriesEdit}</p>}
     <details open={kind !== 'item' || !!entry}><summary>{t.details}</summary>{kind !== 'event' && <Select label={t.owner} value={owner} onValueChange={setOwner} options={[...(kind === 'item' ? [{ value: '', label: t.me }] : []), ...assistants.filter(a => a.State === 'active' || a.ID === owner).map(a => ({ value: a.ID, label: a.Name }))]} />}<Textarea label={kind === 'automatic' ? t.instructions : t.notes} value={notes} onChange={e => setNotes(e.target.value)} required={kind === 'automatic'} maxLength={8192} /><p className="muted">{kind === 'automatic' ? t.automaticHelp : kind === 'item' ? t.assignment : t.event}</p></details>
   </EditDialog>;
+}
+
+function watchRequest(w:Watch){return {ID:w.ID,AssistantID:w.AssistantID,Title:w.Title,Instructions:w.Instructions,Watcher:w.Watcher,StartAt:w.StartAt,EndAt:w.EndAt,Paused:w.Paused};}
+function WatchEditor({watch:w,onClose}:{watch:Watch;onClose:()=>void}){
+ const {locale}=useCopy(),t=planMessages[locale];
+ const [title,setTitle]=useState(w.Title),[instructions,setInstructions]=useState(w.Instructions),[end,setEnd]=useState(w.EndAt);
+ const save=useMutation([w.ID,w.Version,title,instructions,end]);
+ return <EditDialog title={t.edit} onClose={onClose} onSubmit={()=>save('/api/watches',{...watchRequest(w),Title:title,Instructions:instructions,EndAt:end},w.Version)}>
+  <TextField label={t.name} value={title} onChange={e=>setTitle(e.target.value)} required maxLength={4096}/>
+  <Textarea label={t.watchInstructions} value={instructions} onChange={e=>setInstructions(e.target.value)} required maxLength={65536}/>
+  <DateTimePicker label={t.watchEnd} value={end} onValueChange={setEnd} presets={[]}/>
+ </EditDialog>;
+}
+function WatchDetails({watch:w}:{watch:Watch}){
+ const {locale}=useCopy(),t=planMessages[locale],action=useAction();const [logs,setLogs]=useState('');
+ useErrorToast(action.error);
+ const reasons:Record<string,string>=locale==='zh'?{authorization_unavailable:'授权失效，需要重新授权',execution_limit:'已达到授权运行时限',watch_protocol_invalid:'Watcher 输出不符合协议',watch_queue_full:'待处理事件已达到上限',watch_health_timeout:'未按时收到有效检查进度',watch_start_timeout:'Watcher 未按时就绪',watch_platform_unsupported:'当前计算环境不支持 watcher',watch_exited:'Watcher 意外退出'}:{authorization_unavailable:'Authorization unavailable',execution_limit:'Authorized execution deadline reached',watch_protocol_invalid:'Invalid watcher protocol',watch_queue_full:'Pending event capacity reached',watch_health_timeout:'Health deadline exceeded',watch_start_timeout:'Watcher did not become ready',watch_platform_unsupported:'Watcher unsupported by this compute environment',watch_exited:'Watcher exited unexpectedly'};
+ return <section className="plans-watch-protocol">
+  <dl className="plans-properties">
+   {w.LastHealthyAt&&<div><dt>{t.lastHealthy}</dt><dd>{new Date(w.LastHealthyAt).toLocaleString(locale)}</dd></div>}
+   {w.EndAt&&<div><dt>{t.watchEnd}</dt><dd>{new Date(w.EndAt).toLocaleString(locale)}</dd></div>}
+   {w.Reason&&<div><dt>{t.status}</dt><dd>{reasons[w.Reason]??w.Reason}</dd></div>}
+  </dl>
+  {!w.Watcher.health_seconds&&<p className="muted">{t.watchUnknownHealth}</p>}
+  {w.LastInterruptionAt&&<p className="muted">{t.watchInterrupted}</p>}
+  {!!w.Recent?.length&&<details><summary>{t.watchEvents} ({w.Recent.length})</summary>{[...w.Recent].reverse().map(v=><div key={v.Key}><time>{new Date(v.At).toLocaleString(locale)}</time><pre>{JSON.stringify(v.Data,null,2)}</pre></div>)}</details>}
+  <details><summary>{t.watchProgram}</summary><p>{t.watchCompute}: {w.Watcher.compute_id}</p><pre>{w.Watcher.script}</pre>
+   {(w.RunID||w.LastRunID)&&<Button size="sm" variant="secondary" loading={action.busy} onClick={()=>void action.run(async()=>{const out=await api.read<{Output:string}>(`/api/assistants/${w.AssistantID}/shell-tasks`,{action:'read',task_id:w.RunID||w.LastRunID,stream:'stderr',cursor:0});setLogs(out.Output);})}>{locale==='zh'?'读取日志':'Read logs'}</Button>}
+   {logs&&<pre>{logs}</pre>}
+  </details>
+ </section>;
 }

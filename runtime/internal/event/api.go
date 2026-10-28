@@ -29,6 +29,7 @@ const (
 	ContextCompressionRequested Kind = "context_compression_requested"
 	ShellTaskFinished           Kind = "shell_task_finished"
 	ShellTasksRunning           Kind = "shell_tasks_running"
+	WatchFailed                 Kind = "watch_failed"
 	DreamDue                    Kind = "dream_due"
 	UserMessage                 Kind = "user_message"
 	ScheduleDue                 Kind = "schedule_due"
@@ -109,7 +110,7 @@ func (e AssistantEvent) Validate() error {
 	if e.Kind == UserStopped && mode != Interrupt {
 		return core.Invalid("delivery_mode", "stop requires interrupt")
 	}
-	if (e.Kind == Born || e.Kind == DreamDue || e.Kind == ScheduleDue || e.Kind == ResumeRequested || e.Kind == BrowserControlReturned || e.Kind == TerminalControlReturned) && mode != WhenIdle {
+	if (e.Kind == WatchFailed || e.Kind == Born || e.Kind == DreamDue || e.Kind == ScheduleDue || e.Kind == ResumeRequested || e.Kind == BrowserControlReturned || e.Kind == TerminalControlReturned) && mode != WhenIdle {
 		return core.Invalid("delivery_mode", "independent executions require when_idle")
 	}
 	for _, id := range []core.ID{e.ID, e.OwnerID, e.AssistantID} {
@@ -126,7 +127,7 @@ func (e AssistantEvent) Validate() error {
 	if e.Kind != UserStopped && e.ExecutionID != "" {
 		return core.Invalid("execution_id", "only control events reference an interrupted execution")
 	}
-	if len(e.Details) > 256<<10 || (len(e.Details) > 0 && (!json.Valid(e.Details) || (e.Kind != ShellTaskFinished && e.Kind != ShellTasksRunning && e.Kind != BrowserControlReturned && e.Kind != TerminalControlReturned))) {
+	if len(e.Details) > 256<<10 || (len(e.Details) > 0 && (!json.Valid(e.Details) || (e.Kind != ShellTaskFinished && e.Kind != ShellTasksRunning && e.Kind != WatchFailed && e.Kind != BrowserControlReturned && e.Kind != TerminalControlReturned))) {
 		return core.Invalid("details", "invalid shell event details")
 	}
 	valid := false
@@ -139,7 +140,7 @@ func (e AssistantEvent) Validate() error {
 		valid = e.ScheduleVersion == 0 && e.MessageID.Validate() == nil && e.ScheduleID == "" && e.OperationID == "" && e.OccurrenceAt.IsZero() && e.TaskID == ""
 	case ScheduleDue:
 		valid = e.ScheduleID.Validate() == nil && !e.OccurrenceAt.IsZero() && e.MessageID == "" && e.OperationID == "" && (e.TaskID == "" || e.TaskID.Validate() == nil)
-	case ShellTaskFinished, ShellTasksRunning:
+	case ShellTaskFinished, ShellTasksRunning, WatchFailed:
 		valid = e.ScheduleVersion == 0 && e.OperationID.Validate() == nil && e.MessageID == "" && e.ScheduleID == "" && e.OccurrenceAt.IsZero() && e.TaskID == ""
 	case OperationCompleted:
 		valid = e.ScheduleVersion == 0 && e.OperationID.Validate() == nil && e.MessageID == "" && e.ScheduleID == "" && e.OccurrenceAt.IsZero() && e.TaskID == ""

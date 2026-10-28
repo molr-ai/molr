@@ -39,6 +39,7 @@ type Bundle struct {
 	slack         *slack.Service
 	remote        *sandboxRouter
 	shellTasks    *shellsession.Manager
+	watchRuntime  *watchRuntime
 	sandbox       *shellService
 	Application   Application
 	Services      api.Services
@@ -59,6 +60,9 @@ func (b *Bundle) Close() error {
 	var first error
 	if b.Application != nil {
 		first = b.Application.Shutdown(ctx)
+	}
+	if b.watchRuntime != nil {
+		b.watchRuntime.close()
 	}
 	if b.shellTasks != nil {
 		b.shellTasks.Close()
@@ -174,7 +178,7 @@ func Build(ctx context.Context, cfg config.Config, options ...BuildOptions) (bun
 	worker, schedules := b.buildScheduler(cfg, permissions, chats.chat, planning, sandbox.router, engine)
 	preferences := buildSettings(cfg, store, identity, permissions, chats.files, planning)
 	b.Services = api.Services{
-		Dreams: planning.dreams, Plans: planning.plans, Debug: b.Trace, Exchange: b.Exchange,
+		Dreams: planning.dreams, Plans: planning.plans, Watches: planning.watches, Debug: b.Trace, Exchange: b.Exchange,
 		Auth: identity, Browser: identity, Audit: auditService, Assistants: assistants, Conversations: chats.chat,
 		Tasks: planning.tasks, Todos: todo.NewService(store, todo.Options{Authorizer: permissions, CheckAssistant: access.assistant}),
 		Schedules: schedules, Resources: sandbox.resources, Memories: planning.memories, Settings: preferences,

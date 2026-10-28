@@ -24,6 +24,18 @@ func (r *Runner) Terminal(ctx context.Context, e core.Execution, data string, ro
 	r.mu.Lock()
 	p := r.active[key(e)]
 	r.mu.Unlock()
+	if p != nil && p.operation == string(e.Principal.ExecutionID)+"/"+string(e.OperationID) && p.input != nil {
+		if rows != 0 || cols != 0 {
+			return core.Invalid("watcher", "watcher input cannot resize")
+		}
+		p.inputMu.Lock()
+		defer p.inputMu.Unlock()
+		if err := p.input.SetWriteDeadline(time.Now().Add(time.Second)); err != nil {
+			return err
+		}
+		_, err := p.input.WriteString(data)
+		return err
+	}
 	if p == nil || p.operation != string(e.Principal.ExecutionID)+"/"+string(e.OperationID) || p.terminal == nil {
 		return core.NewError(core.NotFound, "terminal is not running")
 	}

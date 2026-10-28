@@ -7,6 +7,7 @@ import (
 	"molr.ai/runtime/internal/business/schedule"
 	"molr.ai/runtime/internal/business/task"
 	"molr.ai/runtime/internal/business/todo"
+	"molr.ai/runtime/internal/business/watch"
 	"molr.ai/runtime/internal/core"
 	"time"
 )
@@ -34,11 +35,13 @@ type Links struct {
 	Dispatched   bool
 }
 type Plan struct {
+	Kind        string
 	Ref         core.Object
 	Title       string
 	AssistantID core.ID
 	Todo        *todo.Todo
 	Schedule    *schedule.Schedule
+	Watch       *watch.Watch
 	Links       Links
 	Executions  []Execution
 	Occurrences []time.Time
@@ -60,6 +63,7 @@ type ExecuteRequest struct {
 	Result       string
 }
 type Service interface {
+	WatchPage(context.Context, core.Principal, string, string, core.PageRequest) (core.Page[Summary], error)
 	Resolve(context.Context, core.Principal, core.ID) (core.Object, error)
 	Overview(context.Context, core.Principal, time.Time, time.Time) ([]Summary, error)
 	Detail(context.Context, core.Principal, core.Object, *time.Time) (Summary, error)

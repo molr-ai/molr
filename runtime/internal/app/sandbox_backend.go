@@ -431,7 +431,7 @@ func (b *remoteSandboxBackend) shell(ctx context.Context, q sm.Request) (json.Ra
 	if q.FullAccess && req.NetworkMode == "none" {
 		return nil, core.Invalid("network_mode", "Full Access cannot provide network isolation")
 	}
-	c := platform.Command{FullAccess: q.FullAccess, ForwardPorts: req.ForwardPorts, Managed: true, TTY: req.TTY, Script: req.Script, Directory: req.Directory, RequireIsolation: true, Timeout: time.Duration(req.TimeoutSeconds) * time.Second, MaxOutputBytes: s.MaxOutputBytes, AuthorizationDeadline: q.Deadline, Limits: platform.Limits{MemoryBytes: s.MemoryBytes, Processes: s.Processes, CPUPercent: s.CPUPercent, TempBytes: s.TempBytes, MaxFileBytes: s.MaxFileBytes, NetworkBytes: s.NetworkBytes, NetworkConnections: s.NetworkConnections}}
+	c := platform.Command{ProtocolInput: req.ProtocolInput, FullAccess: q.FullAccess, ForwardPorts: req.ForwardPorts, Managed: true, TTY: req.TTY, Script: req.Script, Directory: req.Directory, RequireIsolation: true, Timeout: time.Duration(req.TimeoutSeconds) * time.Second, MaxOutputBytes: s.MaxOutputBytes, AuthorizationDeadline: q.Deadline, Limits: platform.Limits{MemoryBytes: s.MemoryBytes, Processes: s.Processes, CPUPercent: s.CPUPercent, TempBytes: s.TempBytes, MaxFileBytes: s.MaxFileBytes, NetworkBytes: s.NetworkBytes, NetworkConnections: s.NetworkConnections}}
 	if !q.FullAccess {
 		c.GroupComputeConstraints = q.GroupComputeConstraints
 		c.NetworkAuthorizations = q.NetworkAuthorizations

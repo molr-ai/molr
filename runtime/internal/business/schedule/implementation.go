@@ -159,7 +159,7 @@ func (s *service) checkAssistant(ctx context.Context, p core.Principal, id core.
 }
 func (s *service) Create(ctx context.Context, p core.Principal, req CreateRequest) (Schedule, error) {
 	return mutate(ctx, s, p, "create", "", req.Mutation, req, false, false, func(ctx context.Context) (Schedule, error) {
-		if !validText(req.Title, 4096) || (req.Kind != Personal && req.Kind != AssistantPlan) || (req.Kind == AssistantPlan && req.AssistantID.Validate() != nil) || (req.Kind == Personal && req.AssistantID != "") {
+		if !validText(req.Title, 4096) || (req.Kind != Personal && req.Kind != AssistantSchedule) || (req.Kind == AssistantSchedule && req.AssistantID.Validate() != nil) || (req.Kind == Personal && req.AssistantID != "") {
 			return Schedule{}, invalid("request")
 		}
 		if err := validateEnd(req.Kind, req.Trigger.StartAt, req.EndAt); err != nil {
@@ -215,7 +215,7 @@ func (s *service) Update(ctx context.Context, p core.Principal, req UpdateReques
 		if v.Version != req.Mutation.ExpectedVersion {
 			return v, conflict()
 		}
-		if !validText(req.Title, 4096) || (req.Kind != Personal && req.Kind != AssistantPlan) || (req.Kind == AssistantPlan && req.AssistantID.Validate() != nil) || (req.Kind == Personal && req.AssistantID != "") {
+		if !validText(req.Title, 4096) || (req.Kind != Personal && req.Kind != AssistantSchedule) || (req.Kind == AssistantSchedule && req.AssistantID.Validate() != nil) || (req.Kind == Personal && req.AssistantID != "") {
 			return v, invalid("request")
 		}
 		if err := validateEnd(req.Kind, req.Trigger.StartAt, req.EndAt); err != nil {

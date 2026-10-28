@@ -12,8 +12,8 @@ import (
 type Kind string
 
 const (
-	Personal      Kind = "personal"
-	AssistantPlan Kind = "assistant_plan"
+	Personal      Kind = "personal_schedule"
+	AssistantSchedule Kind = "assistant_schedule"
 )
 
 // Scheduling semantics live in the shared trigger package; the public schedule

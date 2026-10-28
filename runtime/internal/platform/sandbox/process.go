@@ -68,6 +68,8 @@ type process struct {
 	forward           func(context.Context, int) (net.Conn, error)
 	terminalControl   func(context.Context, string, uint16, uint16) error
 	terminal          *os.File
+	input             *os.File
+	inputMu           sync.Mutex
 	stdout, stderr    *stream
 	done              chan struct{}
 	cancel            context.CancelFunc

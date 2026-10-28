@@ -1280,6 +1280,22 @@
     }
   },
   {
+    "path": "/molr/.agents/skills/molr-docs/references/docs/dev/runtime/watchers.md",
+    "contentLanguage": "zh",
+    "titles": {
+      "zh": "持续关注与 watcher 协议",
+      "en": "Continuous plans and watcher protocol"
+    },
+    "topics": {
+      "zh": "执行与数据",
+      "en": "Execution and data"
+    },
+    "urls": {
+      "zh": "https://molr.ai/zh/docs/dev/runtime/watchers/",
+      "en": "https://molr.ai/en/docs/dev/runtime/watchers/"
+    }
+  },
+  {
     "path": "/molr/.agents/skills/molr-docs/references/docs/dev/runtime/context-storage.md",
     "contentLanguage": "zh",
     "titles": {

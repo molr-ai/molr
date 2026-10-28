@@ -12,12 +12,19 @@ func planRef(r *http.Request) (core.Object, error) {
 	if err != nil {
 		return ref, err
 	}
-	if ref.Kind != "todo" && ref.Kind != "schedule" {
+	if ref.Kind != "todo" && ref.Kind != "schedule" && ref.Kind != "watch" {
 		return ref, core.Invalid("kind", "invalid plan kind")
 	}
 	return ref, nil
 }
 func (s *HTTPServer) planDetailRoutes() {
+	s.handle("GET /api/plans/watches", func(r *http.Request) (any, error) {
+		page, err := queryPage(r)
+		if err != nil {
+			return nil, err
+		}
+		return s.services.Plans.WatchPage(r.Context(), principal(r), r.URL.Query().Get("scope"), r.URL.Query().Get("state"), page)
+	})
 	s.handle("GET /api/plans/{kind}/{id}", func(r *http.Request) (any, error) {
 		ref, err := planRef(r)
 		if err != nil {

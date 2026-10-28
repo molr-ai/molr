@@ -12,7 +12,7 @@ func TestCalendarUsesRecurrenceTimezoneAndDoesNotAdvancePausedPlan(t *testing.T)
 		t.Fatal(err)
 	}
 	start := time.Date(2026, 10, 31, 9, 0, 0, 0, location)
-	plan := Schedule{Kind: AssistantPlan, Enabled: false, Trigger: Trigger{StartAt: start, Timezone: "America/New_York", Recurrence: "FREQ=DAILY;COUNT=3", MissedPolicy: Skip}, NextAt: &start}
+	plan := Schedule{Kind: AssistantSchedule, Enabled: false, Trigger: Trigger{StartAt: start, Timezone: "America/New_York", Recurrence: "FREQ=DAILY;COUNT=3", MissedPolicy: Skip}, NextAt: &start}
 	from := time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
 	to := from.Add(4 * 24 * time.Hour)
 	times, err := CalendarTimes(context.Background(), plan, from, to)
@@ -42,7 +42,7 @@ func TestPersonalEndValidation(t *testing.T) {
 	if validateEnd(Personal, start, &end) != nil || validateEnd(Personal, start, nil) != nil {
 		t.Fatal("valid or legacy personal plan rejected")
 	}
-	if validateEnd(Personal, start, &start) == nil || validateEnd(AssistantPlan, start, &end) == nil {
+	if validateEnd(Personal, start, &start) == nil || validateEnd(AssistantSchedule, start, &end) == nil {
 		t.Fatal("invalid end accepted")
 	}
 }

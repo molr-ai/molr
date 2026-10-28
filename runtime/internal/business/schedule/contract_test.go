@@ -57,7 +57,7 @@ var newContractFixture func(*testing.T) contractFixture
 func TestTDDServiceCRUD(t *testing.T) {
 	f := testkit.RequireFactory(t, "schedule", newContractFixture)
 	ctx := testkit.Context(t)
-	req := CreateRequest{Mutation: mutation("create", 0), Kind: AssistantPlan, AssistantID: "assistant", Title: "Morning brief", Trigger: validTrigger()}
+	req := CreateRequest{Mutation: mutation("create", 0), Kind: AssistantSchedule, AssistantID: "assistant", Title: "Morning brief", Trigger: validTrigger()}
 	created, err := f.Service.Create(ctx, owner(), req)
 	if err != nil {
 		t.Fatal(err)
@@ -77,15 +77,15 @@ func TestTDDServiceCRUD(t *testing.T) {
 	if err != nil || len(page.Items) != 1 || page.Items[0].ID != created.ID {
 		t.Fatalf("list: %+v %v", page, err)
 	}
-	updated, err := f.Service.Update(ctx, owner(), UpdateRequest{CreateRequest: CreateRequest{Mutation: mutation("update", created.Version), Kind: AssistantPlan, AssistantID: "assistant", Title: "Evening brief", Trigger: validTrigger()}, ID: created.ID, Enabled: false})
+	updated, err := f.Service.Update(ctx, owner(), UpdateRequest{CreateRequest: CreateRequest{Mutation: mutation("update", created.Version), Kind: AssistantSchedule, AssistantID: "assistant", Title: "Evening brief", Trigger: validTrigger()}, ID: created.ID, Enabled: false})
 	if err != nil || updated.Version <= created.Version {
 		t.Fatalf("update: %+v %v", updated, err)
 	}
-	_, err = f.Service.Update(ctx, owner(), UpdateRequest{CreateRequest: CreateRequest{Mutation: mutation("update", created.Version), Kind: AssistantPlan, AssistantID: "assistant", Title: "Evening brief", Trigger: validTrigger()}, ID: created.ID, Enabled: false})
+	_, err = f.Service.Update(ctx, owner(), UpdateRequest{CreateRequest: CreateRequest{Mutation: mutation("update", created.Version), Kind: AssistantSchedule, AssistantID: "assistant", Title: "Evening brief", Trigger: validTrigger()}, ID: created.ID, Enabled: false})
 	if err != nil {
 		t.Fatalf("replayed update must return original result: %v", err)
 	}
-	stale := UpdateRequest{CreateRequest: CreateRequest{Mutation: mutation("update", created.Version), Kind: AssistantPlan, AssistantID: "assistant", Title: "Evening brief", Trigger: validTrigger()}, ID: created.ID, Enabled: false}
+	stale := UpdateRequest{CreateRequest: CreateRequest{Mutation: mutation("update", created.Version), Kind: AssistantSchedule, AssistantID: "assistant", Title: "Evening brief", Trigger: validTrigger()}, ID: created.ID, Enabled: false}
 	stale.Mutation.IdempotencyKey = "stale-update"
 	_, err = f.Service.Update(ctx, owner(), stale)
 	wantCode(t, err, core.Conflict)
@@ -98,7 +98,7 @@ func TestTDDServiceCRUD(t *testing.T) {
 func TestTDDServiceOwnershipAndValidation(t *testing.T) {
 	f := testkit.RequireFactory(t, "schedule", newContractFixture)
 	ctx := testkit.Context(t)
-	created, err := f.Service.Create(ctx, owner(), CreateRequest{Mutation: mutation("create", 0), Kind: AssistantPlan, AssistantID: "assistant", Title: "Morning brief", Trigger: validTrigger()})
+	created, err := f.Service.Create(ctx, owner(), CreateRequest{Mutation: mutation("create", 0), Kind: AssistantSchedule, AssistantID: "assistant", Title: "Morning brief", Trigger: validTrigger()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,11 +108,11 @@ func TestTDDServiceOwnershipAndValidation(t *testing.T) {
 	if err != nil || len(page.Items) != 0 {
 		t.Fatalf("foreign rows leaked: %+v %v", page, err)
 	}
-	_, err = f.Service.Update(ctx, otherOwner(), UpdateRequest{CreateRequest: CreateRequest{Mutation: mutation("update", created.Version), Kind: AssistantPlan, AssistantID: "assistant", Title: "Evening brief", Trigger: validTrigger()}, ID: created.ID, Enabled: false})
+	_, err = f.Service.Update(ctx, otherOwner(), UpdateRequest{CreateRequest: CreateRequest{Mutation: mutation("update", created.Version), Kind: AssistantSchedule, AssistantID: "assistant", Title: "Evening brief", Trigger: validTrigger()}, ID: created.ID, Enabled: false})
 	wantDenied(t, err)
 	err = f.Service.Delete(ctx, otherOwner(), DeleteRequest{Mutation: mutation("foreign-delete", created.Version), ID: created.ID})
 	wantDenied(t, err)
-	_, err = f.Service.Create(ctx, core.Principal{}, CreateRequest{Mutation: mutation("create", 0), Kind: AssistantPlan, AssistantID: "assistant", Title: "Morning brief", Trigger: validTrigger()})
+	_, err = f.Service.Create(ctx, core.Principal{}, CreateRequest{Mutation: mutation("create", 0), Kind: AssistantSchedule, AssistantID: "assistant", Title: "Morning brief", Trigger: validTrigger()})
 	wantCode(t, err, core.Unauthenticated)
 	_, err = f.Service.Create(ctx, owner(), CreateRequest{})
 	wantCode(t, err, core.InvalidArgument)
@@ -122,7 +122,7 @@ func TestTDDServiceOwnershipAndValidation(t *testing.T) {
 func TestTDDRepositoryVersionAndIsolation(t *testing.T) {
 	f := testkit.RequireFactory(t, "schedule", newContractFixture)
 	ctx := testkit.Context(t)
-	item := Schedule{ID: "item", OwnerID: "owner", Kind: AssistantPlan, AssistantID: "assistant", Title: "Morning brief", Trigger: validTrigger(), Enabled: true, Version: 1}
+	item := Schedule{ID: "item", OwnerID: "owner", Kind: AssistantSchedule, AssistantID: "assistant", Title: "Morning brief", Trigger: validTrigger(), Enabled: true, Version: 1}
 	if err := f.Repository.Insert(ctx, item); err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +158,7 @@ func TestTDDCreateCommitFailureLeavesNoObject(t *testing.T) {
 	f := testkit.RequireFactory(t, "schedule", newContractFixture)
 	ctx := testkit.Context(t)
 	f.FailCommitOnce()
-	_, err := f.Service.Create(ctx, owner(), CreateRequest{Mutation: mutation("create", 0), Kind: AssistantPlan, AssistantID: "assistant", Title: "Morning brief", Trigger: validTrigger()})
+	_, err := f.Service.Create(ctx, owner(), CreateRequest{Mutation: mutation("create", 0), Kind: AssistantSchedule, AssistantID: "assistant", Title: "Morning brief", Trigger: validTrigger()})
 	if err == nil {
 		t.Fatal("commit failure reported success")
 	}
@@ -204,8 +204,8 @@ func TestTDDDueAndUniqueOccurrences(t *testing.T) {
 	ctx := testkit.Context(t)
 	now := validTrigger().StartAt
 	for _, item := range []Schedule{
-		{ID: "due", OwnerID: "owner", Kind: AssistantPlan, AssistantID: "assistant", Trigger: validTrigger(), Enabled: true, NextAt: &now, Version: 1},
-		{ID: "disabled", OwnerID: "owner", Kind: AssistantPlan, AssistantID: "assistant", Trigger: validTrigger(), Enabled: false, NextAt: &now, Version: 1},
+		{ID: "due", OwnerID: "owner", Kind: AssistantSchedule, AssistantID: "assistant", Trigger: validTrigger(), Enabled: true, NextAt: &now, Version: 1},
+		{ID: "disabled", OwnerID: "owner", Kind: AssistantSchedule, AssistantID: "assistant", Trigger: validTrigger(), Enabled: false, NextAt: &now, Version: 1},
 	} {
 		if err := f.Repository.Insert(ctx, item); err != nil {
 			t.Fatal(err)
@@ -250,7 +250,7 @@ func TestTDDOccurrenceConcurrentDeduplication(t *testing.T) {
 	f := testkit.RequireFactory(t, "schedule", newContractFixture)
 	ctx := testkit.Context(t)
 	now := validTrigger().StartAt
-	if err := f.Repository.Insert(ctx, Schedule{ID: "concurrent-plan", OwnerID: "owner", Kind: AssistantPlan, AssistantID: "assistant", Trigger: validTrigger(), Enabled: true, NextAt: &now, Version: 1}); err != nil {
+	if err := f.Repository.Insert(ctx, Schedule{ID: "concurrent-plan", OwnerID: "owner", Kind: AssistantSchedule, AssistantID: "assistant", Trigger: validTrigger(), Enabled: true, NextAt: &now, Version: 1}); err != nil {
 		t.Fatal(err)
 	}
 	occurrence := Occurrence{ScheduleID: "concurrent-plan", ScheduleVersion: 1, DueAt: now}

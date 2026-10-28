@@ -77,7 +77,7 @@ func (b *Bundle) buildTools(cfg config.Config, adapters adapters, permissions *p
 		return sandboxRouter.cancel(ctx, e, id)
 	}, ShellAvailable: sandboxRouter.available, ShellExecute: b.shellTasks.Execute, ShellTask: b.shellTasks.Tool, Browser: b.shellTasks.BrowserTool, Authorizer: permissions, Operations: operations, Conversations: conversations,
 		FileSearch: fileTools.Search, FileTransfer: fileTools.transfer, FileRead: fileTools.Read, FileList: fileTools.List, FileWrite: fileTools.Write, FileEdit: fileTools.Edit, FileMove: fileTools.Move, FileDelete: fileTools.Delete,
-		Plan:                    planTools{store: store, plans: plans, todos: todo.NewService(store, todo.Options{Authorizer: permissions, CheckAssistant: access.assistant}), schedules: schedule.NewService(store, schedule.Options{Authorizer: permissions, CheckAssistant: access.assistant})}.execute,
+		Plan:                    planTools{watches: planning.watches, store: store, plans: plans, todos: todo.NewService(store, todo.Options{Authorizer: permissions, CheckAssistant: access.assistant}), schedules: schedule.NewService(store, schedule.Options{Authorizer: permissions, CheckAssistant: access.assistant})}.execute,
 		ConversationAttachments: &conversationAttachments{files: fileService, workspace: fileTools, conversations: conversations, maxBytes: cfg.Execution.MaxUploadBytes},
 	})
 	sandboxRouter.catalog = executor

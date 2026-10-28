@@ -38,3 +38,5 @@ See the [HTTP API](reference/http-api.md) for client requests, [Go module interf
 ## Maintaining Releases
 
 [Release maintenance](releasing/releases.md) covers versions, channels, and build publication. Before committing and distributing, check [public content and file isolation](releasing/public-content.md) and [licenses](releasing/licensing.md).
+
+- [Continuous plans and watcher protocol](runtime/watchers.md)

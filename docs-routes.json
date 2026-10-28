@@ -800,6 +800,16 @@
     "section": "dev"
   },
   {
+    "file": "dev/runtime/watchers.md",
+    "path": "/docs/dev/runtime/watchers/",
+    "label": "持续关注与 watcher 协议",
+    "group": "执行与数据",
+    "englishLabel": "Continuous plans and watcher protocol",
+    "englishGroup": "Execution and data",
+    "root": "docs",
+    "section": "dev"
+  },
+  {
     "file": "dev/runtime/context-storage.md",
     "path": "/docs/dev/runtime/context-storage/",
     "label": "上下文存储",

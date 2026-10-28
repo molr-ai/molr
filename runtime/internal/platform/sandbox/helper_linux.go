@@ -19,6 +19,7 @@ import (
 type helperConfig struct {
 	NoWorkspace       bool
 	TTY               bool
+	ProtocolInput     bool
 	HostTools         bool
 	Script, Directory string
 	MaxFileBytes      int64
@@ -114,6 +115,9 @@ func HelperMain(args []string) int {
 		cmd.Env = []string{"GOMAXPROCS=2"}
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
+		if config.ProtocolInput {
+			cmd.Stdin = os.Stdin
+		}
 		if config.TTY {
 			cmd.Stdin = os.Stdin
 			// The controlling terminal was acquired before entering the PID

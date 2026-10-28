@@ -38,7 +38,7 @@ func TestPlanReadRoutesSeparateSummariesHistoryAndExecutionBodies(t *testing.T) 
 		return w.Body.Bytes()
 	}
 	at := time.Now().UTC().Add(time.Hour).Truncate(time.Second)
-	raw := request("/api/schedules", map[string]any{"Mutation": core.Mutation{IdempotencyKey: "series"}, "Title": "Series fixture", "Kind": "personal", "Instructions": "source-description-only", "Trigger": schedule.Trigger{StartAt: at, Timezone: "UTC", Recurrence: "FREQ=DAILY;COUNT=5", MissedPolicy: schedule.Skip}}, 200)
+	raw := request("/api/schedules", map[string]any{"Mutation": core.Mutation{IdempotencyKey: "series"}, "Title": "Series fixture", "Kind": "personal_schedule", "Instructions": "source-description-only", "Trigger": schedule.Trigger{StartAt: at, Timezone: "UTC", Recurrence: "FREQ=DAILY;COUNT=5", MissedPolicy: schedule.Skip}}, 200)
 	var source schedule.Schedule
 	if err := json.Unmarshal(raw, &source); err != nil {
 		t.Fatal(err)

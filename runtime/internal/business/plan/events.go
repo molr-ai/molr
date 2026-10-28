@@ -65,6 +65,9 @@ func (s *Coordinator) Events(ctx context.Context, p core.Principal, q EventQuery
 	candidates := make(eventSelection, 0, page.Limit+1)
 	for index := range plans {
 		plan := &plans[index]
+		if plan.Watch != nil {
+			continue
+		}
 		if err := ctx.Err(); err != nil {
 			return out, err
 		}
@@ -74,7 +77,7 @@ func (s *Coordinator) Events(ctx context.Context, p core.Principal, q EventQuery
 		kind := "item"
 		if plan.Schedule != nil {
 			kind = "event"
-			if plan.Schedule.Kind == "assistant_plan" {
+			if plan.Schedule.Kind == "assistant_schedule" {
 				kind = "automatic"
 			}
 		}

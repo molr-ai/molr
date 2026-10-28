@@ -8,6 +8,7 @@ import (
 	"molr.ai/runtime/internal/business/schedule"
 	"molr.ai/runtime/internal/business/task"
 	"molr.ai/runtime/internal/business/todo"
+	"molr.ai/runtime/internal/business/watch"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/policy"
@@ -52,14 +53,22 @@ func (s *Coordinator) list(ctx context.Context, p core.Principal, from, to time.
 		for i := range todos {
 			v := &todos[i]
 			if v.OwnerID == p.OwnerID {
-				add(&Plan{Ref: core.Object{Kind: "todo", ID: v.ID}, Title: v.Title, AssistantID: v.AssistantID, Todo: v, Occurrences: []time.Time{}, BlockedBy: []core.Object{}})
+				add(&Plan{Kind: "todo", Ref: core.Object{Kind: "todo", ID: v.ID}, Title: v.Title, AssistantID: v.AssistantID, Todo: v, Occurrences: []time.Time{}, BlockedBy: []core.Object{}})
 			}
 		}
 		for i := range schedules {
 			v := &schedules[i]
 			if v.OwnerID == p.OwnerID {
-				add(&Plan{Ref: core.Object{Kind: "schedule", ID: v.ID}, Title: v.Title, AssistantID: v.AssistantID, Schedule: v, Occurrences: []time.Time{}, BlockedBy: []core.Object{}})
+				add(&Plan{Kind: string(v.Kind), Ref: core.Object{Kind: "schedule", ID: v.ID}, Title: v.Title, AssistantID: v.AssistantID, Schedule: v, Occurrences: []time.Time{}, BlockedBy: []core.Object{}})
 			}
+		}
+		watches, err := persistence.Select[watch.Watch](ctx, s.store, watch.Bucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID)}, Unordered: true})
+		if err != nil {
+			return err
+		}
+		for i := range watches {
+			v := &watches[i]
+			add(&Plan{Kind: "assistant_watch", Ref: core.Object{Kind: "watch", ID: v.ID}, Title: v.Title, AssistantID: v.AssistantID, Watch: v, Occurrences: []time.Time{}, BlockedBy: []core.Object{}})
 		}
 		if err := s.loadListDetails(ctx, p.OwnerID, visible, light); err != nil {
 			return err
@@ -102,6 +111,9 @@ func (s *Coordinator) list(ctx context.Context, p core.Principal, from, to time.
 				if !complete {
 					row.BlockedBy = append(row.BlockedBy, ref)
 				}
+			}
+			if row.Watch != nil {
+				row.Links.Paused = row.Watch.Paused
 			}
 			row.Ready = len(row.BlockedBy) == 0 && !row.Links.Paused
 			if row.Schedule != nil && !from.IsZero() {
@@ -147,7 +159,7 @@ func (s *Coordinator) loadListDetails(ctx context.Context, owner core.ID, plans 
 			}
 		}
 		query := persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", owner)}}
-		for _, kind := range []string{"todo", "schedule"} {
+		for _, kind := range []string{"todo", "schedule", "watch"} {
 			if len(ids[kind]) > 0 {
 				query.Any = append(query.Any, []persistence.Filter{persistence.Eq("Plan.Kind", kind), {Field: "Plan.ID", Op: "in", Value: ids[kind]}})
 			}

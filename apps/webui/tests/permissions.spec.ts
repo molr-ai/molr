@@ -99,7 +99,7 @@ test('task, resource, schedule and permission cards share layout and display rea
   const models = await (await page.request.get('/api/models')).json();
   const assistant = await post(page, '/api/assistants', { Name: name, ModelID: models.find((m: any) => m.ResourceID === resource.ID).ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } });
   const task = await post(page, '/api/tasks', { AssistantID: assistant.ID, Goal: 'Prepare an analysis report' });
-  const schedule = await post(page, '/api/schedules', { Kind: 'assistant_plan', AssistantID: assistant.ID, Title: 'Review the report tomorrow', Instructions: 'Review the report', Trigger: { StartAt: new Date(Date.now() + 86400000).toISOString(), Timezone: 'Asia/Shanghai', Recurrence: '', MissedPolicy: 'skip' } });
+  const schedule = await post(page, '/api/schedules', { Kind: 'assistant_schedule', AssistantID: assistant.ID, Title: 'Review the report tomorrow', Instructions: 'Review the report', Trigger: { StartAt: new Date(Date.now() + 86400000).toISOString(), Timezone: 'Asia/Shanghai', Recurrence: '', MissedPolicy: 'skip' } });
   const cards = [
     { kind: 'task', target_id: task.ID, title: 'Analysis report', summary: 'Review the task and its deliverables.' },
     { kind: 'resource', target_id: resource.ID, title: 'Analysis model', summary: 'The model selected for this assistant.' },

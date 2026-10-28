@@ -64,7 +64,7 @@ func TestEventsSmallPagesMatchFullChronologicalProjection(t *testing.T) {
 		start := at.Add(time.Duration((11-i)%3) * time.Hour)
 		kind := schedule.Personal
 		if i%2 != 0 {
-			kind = schedule.AssistantPlan
+			kind = schedule.AssistantSchedule
 		}
 		item := schedule.Schedule{ID: id, OwnerID: "owner", AssistantID: "assistant", Kind: kind, Title: string(id), Enabled: true, Version: 1, Trigger: schedule.Trigger{StartAt: start, Timezone: "UTC", Recurrence: "FREQ=DAILY;COUNT=7", MissedPolicy: schedule.Coalesce}}
 		if err := schedule.NewRepository(db).Insert(t.Context(), item); err != nil {

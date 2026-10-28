@@ -24,6 +24,7 @@ import (
 	"molr.ai/runtime/internal/business/settings"
 	"molr.ai/runtime/internal/business/task"
 	"molr.ai/runtime/internal/business/todo"
+	"molr.ai/runtime/internal/business/watch"
 	"molr.ai/runtime/internal/config"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/credential"
@@ -105,7 +106,7 @@ func init() {
 		}})
 		exchange, err := pricing.NewExchange(nil)
 		testkit.RequireNoError(t, err)
-		services := Services{Dreams: dream.New(store, dream.Options{Authorizer: permissions}), Plans: plan.New(store, permissions, task.NewService(store, task.Options{Authorizer: permissions})), Debug: debugtrace.New(store, debugtrace.Options{}), Exchange: exchange, Auth: identity, Browser: identity, Audit: auditService,
+		services := Services{Watches: watch.New(store, watch.Options{Authorizer: permissions}), Dreams: dream.New(store, dream.Options{Authorizer: permissions}), Plans: plan.New(store, permissions, task.NewService(store, task.Options{Authorizer: permissions})), Debug: debugtrace.New(store, debugtrace.Options{}), Exchange: exchange, Auth: identity, Browser: identity, Audit: auditService,
 			Assistants: assistant.NewService(store, assistant.Options{Authorizer: permissions}), Conversations: conversation.NewService(store, conversation.Options{Authorizer: permissions, Visible: realtime.NewStore(store)}), Tasks: task.NewService(store, task.Options{Authorizer: permissions}), Todos: todo.NewService(store, todo.Options{Authorizer: permissions}), Schedules: schedule.NewService(store, schedule.Options{Authorizer: permissions}), Resources: resource.NewService(store, resource.Options{Authorizer: permissions}), Memories: memory.NewService(store, memory.Options{Authorizer: permissions}), Settings: settings.NewService(store, settings.Options{Authorizer: permissions, CheckVerification: identity.CheckVerification}), Models: models, Credentials: vault, Grants: permissions, Budget: permissions, Agent: agent.NewRuntime(store, agent.Options{Dependencies: agent.Dependencies{Policy: permissions, Budget: permissions, Models: models}}), Jobs: scheduler.NewService(store, scheduler.Options{Authorizer: permissions}), Operations: operation.NewService(store, operation.Options{Authorizer: permissions}), Search: search.NewService(store, search.Options{Authorizer: permissions}), Index: search.NewIndexer(store, search.Options{Authorizer: permissions}), Files: files.NewService(store, objects, files.Options{Authorizer: permissions, MaxUploadBytes: 1 << 20, DiskQuota: func() int64 { return 10 << 20 }}), Realtime: realtime.NewFeed(realtime.NewStore(store), realtime.Options{Authorizer: permissions, WatchAuthorization: func(p core.Principal) (realtime.AuthorizationWatch, error) { return identity.WatchPrincipal(p) }})}
 		limiter, err := NewRateLimiter(store, RateLimitOptions{Now: clock, Limit: 120, CategoryLimits: map[string]int{"login": 2}})
 		testkit.RequireNoError(t, err)

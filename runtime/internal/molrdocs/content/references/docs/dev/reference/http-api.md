@@ -660,3 +660,9 @@ API 合同测试使用真实 HTTP server、Auth、CSRF、持久限流、Realtime
 `POST /api/sandboxes/connect` 接收同样的连接信息及 `Name`、`Mutation`、`Verification`，保存前重新连接校验；更新凭据另传 `ID` 和预期版本，不能替换已保存节点的地址。响应的 `PublicKeySHA256` 是公开身份，连接码与令牌不会回显，令牌加密存储。只读复查可向 `test` 传已保存的 `ID`，不能借用保存凭据探测其他地址。
 
 连接码错误对应 `Field=ConnectionCode`，格式错误为 `sandbox_connection_code_invalid`，格式版本不受支持为 `sandbox_connection_code_unsupported`；节点协议不兼容为 `sandbox_protocol_unsupported`。证书固定的是公钥而非整张证书，证书续期不会改变身份，但证书有效期仍须通过验证。
+
+## 持续关注计划
+
+`Plan.Kind` 使用 `todo`、`personal_schedule`、`assistant_schedule` 或 `assistant_watch`；底层引用分别为 `todo`、`schedule`、`watch`。`GET /api/plans/watches` 返回分页的持续关注摘要，支持 `scope`、`state=all|open|done`、`limit` 和 `cursor`，不受日历日期范围限制。`GET /api/plans/watch/{id}` 读取配置、状态及最近变化，执行历史复用现有计划历史接口。日历范围查询和 `/api/plans/events` 不包含 watcher。
+
+`POST /api/watches` 创建或更新，更新传入 `ID` 和预期版本；字段为 `AssistantID`、`Title`、`Instructions`、`Watcher`、可选 `StartAt`／`EndAt` 和 `Paused`。`POST /api/watches/delete` 接收 `ID` 与 mutation；已有变化历史的计划保留并暂停。创建只登记计划，实际启动和授权结果通过状态返回。协议与运行约束见 [watcher 协议](https://molr.ai/zh/docs/dev/runtime/watchers/)。

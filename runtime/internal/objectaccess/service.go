@@ -11,6 +11,7 @@ import (
 	"molr.ai/runtime/internal/business/settings"
 	"molr.ai/runtime/internal/business/task"
 	"molr.ai/runtime/internal/business/todo"
+	"molr.ai/runtime/internal/business/watch"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/im/conversation"
 	"molr.ai/runtime/internal/persistence"
@@ -37,7 +38,7 @@ func (s Service) Require(ctx context.Context, p core.Principal, o core.Object) e
 			if owner {
 				return nil
 			}
-		case "task", "memory", "search", "resource", "todo", "schedule":
+		case "task", "memory", "search", "resource", "todo", "schedule", "watch":
 			return nil
 		}
 		if o.Kind == "file" {
@@ -121,6 +122,12 @@ func (s Service) Require(ctx context.Context, p core.Principal, o core.Object) e
 		return assigned(p, v.OwnerID, v.AssistantID)
 	case "schedule":
 		v, err := schedule.NewRepository(s.Store).Get(ctx, p.OwnerID, o.ID)
+		if err != nil {
+			return err
+		}
+		return assigned(p, v.OwnerID, v.AssistantID)
+	case "watch":
+		v, err := watch.Load(ctx, s.Store, p.OwnerID, o.ID)
 		if err != nil {
 			return err
 		}

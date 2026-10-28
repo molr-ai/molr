@@ -11,6 +11,8 @@ import (
 
 // ShellRequest contains resource references only, never host mounts or sandbox options.
 type ShellRequest struct {
+	// ProtocolInput is reserved for trusted watcher launches, never accepted by the model tool.
+	ProtocolInput   bool   `json:"protocol_input,omitempty"`
 	ForwardProtocol string `json:"forward_protocol,omitempty"`
 	// Browser is a trusted task launch descriptor; never accepted from Shell JSON.
 	Browser        *BrowserLaunch `json:"-"`
@@ -46,6 +48,9 @@ func parseShell(raw json.RawMessage) (ShellRequest, error) {
 	var extra any
 	if d.Decode(&extra) != io.EOF {
 		return r, core.Invalid("shell", "trailing arguments")
+	}
+	if r.ProtocolInput {
+		return r, core.Invalid("protocol_input", "reserved watcher input")
 	}
 	if r.NetworkMode != "" && r.NetworkMode != "auto" && r.NetworkMode != "none" {
 		return r, core.Invalid("network_mode", "auto or none required")

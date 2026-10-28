@@ -382,7 +382,7 @@ func (r *Runner) startAuthorized(parent context.Context, e core.Execution, c pla
 			}
 		}
 	}
-	launch := helperConfig{NoWorkspace: r.options.NoWorkspace, TTY: c.TTY, HostTools: r.options.HostTools, Script: c.Script, Directory: c.Directory, MaxFileBytes: c.Limits.MaxFileBytes, CPUPercent: c.Limits.CPUPercent}
+	launch := helperConfig{ProtocolInput: c.ProtocolInput, NoWorkspace: r.options.NoWorkspace, TTY: c.TTY, HostTools: r.options.HostTools, Script: c.Script, Directory: c.Directory, MaxFileBytes: c.Limits.MaxFileBytes, CPUPercent: c.Limits.CPUPercent}
 	var network *networkSession
 	if len(c.NetworkTargets) > 0 || len(c.ForwardPorts) > 0 {
 		network, err = r.startNetworkWithQuotas(ctx, e, c, func(check context.Context) error { return authorize(check, e, c) })
@@ -501,6 +501,23 @@ func (r *Runner) startAuthorized(parent context.Context, e core.Execution, c pla
 	}
 	cmd.WaitDelay = time.Second
 	cmd.SysProcAttr = &syscall.SysProcAttr{UseCgroupFD: true, CgroupFD: int(group.file.Fd()), Pdeathsig: syscall.SIGKILL}
+	if c.ProtocolInput {
+		if c.TTY {
+			return nil, core.Invalid("watcher", "watcher cannot use a terminal")
+		}
+		input, output, pipeErr := os.Pipe()
+		if pipeErr != nil {
+			return nil, pipeErr
+		}
+		defer input.Close()
+		p.input = output
+		cmd.Stdin = input
+		defer func() {
+			if !ok {
+				output.Close()
+			}
+		}()
+	}
 	var ttyDone chan struct{}
 	if c.TTY {
 		master, slave, ttyErr := openPTY()
@@ -622,6 +639,9 @@ func (r *Runner) startAuthorized(parent context.Context, e core.Execution, c pla
 		p.err = cleanErr
 		p.stdout.finish()
 		p.stderr.finish()
+		if p.input != nil {
+			p.input.Close()
+		}
 		close(p.done)
 	}()
 	return p, nil

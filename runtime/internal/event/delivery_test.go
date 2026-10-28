@@ -9,7 +9,7 @@ func TestDeliveryDefaultsAndValidation(t *testing.T) {
 	for _, tc := range []struct {
 		kind Kind
 		mode DeliveryMode
-	}{{Born, WhenIdle}, {UserMessage, WhenIdle}, {ScheduleDue, WhenIdle}, {ResumeRequested, WhenIdle}, {DreamDue, WhenIdle}, {UserStopped, Interrupt}, {ShellTaskFinished, AfterStep}, {ShellTasksRunning, AfterStep}, {OperationCompleted, AfterStep}, {ContextCompressionRequested, AfterStep}} {
+	}{{WatchFailed, WhenIdle}, {Born, WhenIdle}, {UserMessage, WhenIdle}, {ScheduleDue, WhenIdle}, {ResumeRequested, WhenIdle}, {DreamDue, WhenIdle}, {UserStopped, Interrupt}, {ShellTaskFinished, AfterStep}, {ShellTasksRunning, AfterStep}, {OperationCompleted, AfterStep}, {ContextCompressionRequested, AfterStep}} {
 		if got := (AssistantEvent{Kind: tc.kind}).Delivery(); got != tc.mode {
 			t.Fatalf("%s: %s", tc.kind, got)
 		}

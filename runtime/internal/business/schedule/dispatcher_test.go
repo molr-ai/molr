@@ -44,7 +44,7 @@ func TestTDDDispatcherMissedPoliciesAreBoundedAndAdvance(t *testing.T) {
 		hours  []int
 	}{{Skip, 0, nil}, {Coalesce, 0, []int{3}}, {CatchUp, 2, []int{2, 3}}} {
 		t.Run(string(tc.policy), func(t *testing.T) {
-			db, plan := dispatchFixture(t, Trigger{StartAt: start, Timezone: "UTC", Recurrence: "FREQ=HOURLY", MissedPolicy: tc.policy, MaxCatchUp: tc.limit}, AssistantPlan)
+			db, plan := dispatchFixture(t, Trigger{StartAt: start, Timezone: "UTC", Recurrence: "FREQ=HOURLY", MissedPolicy: tc.policy, MaxCatchUp: tc.limit}, AssistantSchedule)
 			ctx := testkit.Context(t)
 			dispatcher := NewDispatcher(db)
 			now := start.Add(3*time.Hour + 2*time.Minute)
@@ -72,11 +72,11 @@ func TestTDDDispatcherMissedPoliciesAreBoundedAndAdvance(t *testing.T) {
 	}
 }
 func TestTDDDispatcherPersonalAndDismissedPlansNeverWakeAgent(t *testing.T) {
-	for _, kind := range []Kind{Personal, AssistantPlan} {
+	for _, kind := range []Kind{Personal, AssistantSchedule} {
 		t.Run(string(kind), func(t *testing.T) {
 			start := time.Date(2026, 9, 24, 8, 0, 0, 0, time.UTC)
 			db, plan := dispatchFixture(t, Trigger{StartAt: start, Timezone: "UTC", MissedPolicy: Skip}, kind)
-			if kind == AssistantPlan {
+			if kind == AssistantSchedule {
 				fixturePut(t, db, "business.assistants", "owner/assistant", struct {
 					OwnerID core.ID
 					State   string
@@ -103,7 +103,7 @@ func TestTDDDispatcherPersonalAndDismissedPlansNeverWakeAgent(t *testing.T) {
 }
 func TestTDDDispatcherOccurrenceEventAndProgressRollBackTogether(t *testing.T) {
 	start := time.Now().UTC().Truncate(time.Second)
-	db, plan := dispatchFixture(t, Trigger{StartAt: start, Timezone: "UTC", MissedPolicy: Skip}, AssistantPlan)
+	db, plan := dispatchFixture(t, Trigger{StartAt: start, Timezone: "UTC", MissedPolicy: Skip}, AssistantSchedule)
 	ctx := testkit.Context(t)
 	dispatcher := NewDispatcher(db)
 	db.FailNextCommit(errors.New("commit interrupted"))
@@ -127,7 +127,7 @@ func TestTDDDispatcherTimezoneAndCountSurviveRepeatedTicks(t *testing.T) {
 	location, err := time.LoadLocation("America/New_York")
 	testkit.RequireNoError(t, err)
 	start := time.Date(2026, 3, 7, 9, 0, 0, 0, location)
-	db, plan := dispatchFixture(t, Trigger{StartAt: start, Timezone: location.String(), Recurrence: "FREQ=DAILY;COUNT=3", MissedPolicy: Skip}, AssistantPlan)
+	db, plan := dispatchFixture(t, Trigger{StartAt: start, Timezone: location.String(), Recurrence: "FREQ=DAILY;COUNT=3", MissedPolicy: Skip}, AssistantSchedule)
 	dispatcher := NewDispatcher(db)
 	ctx := testkit.Context(t)
 	for day := 0; day < 3; day++ {
@@ -149,7 +149,7 @@ func TestTDDDispatcherTimezoneAndCountSurviveRepeatedTicks(t *testing.T) {
 }
 func TestTDDDispatcherConcurrentTicksAndInvalidRule(t *testing.T) {
 	start := time.Now().UTC().Truncate(time.Second)
-	db, _ := dispatchFixture(t, Trigger{StartAt: start, Timezone: "UTC", MissedPolicy: Coalesce}, AssistantPlan)
+	db, _ := dispatchFixture(t, Trigger{StartAt: start, Timezone: "UTC", MissedPolicy: Coalesce}, AssistantSchedule)
 	ctx := testkit.Context(t)
 	results := make(chan error, 2)
 	for range 2 {
@@ -167,12 +167,12 @@ func TestTDDDispatcherConcurrentTicksAndInvalidRule(t *testing.T) {
 		t.Fatal("concurrent ticks duplicated occurrence")
 	}
 	service := NewService(db, Options{Authorizer: fixtureAuthorizer{}, CheckAssistant: fixtureCheckAssistant(db)})
-	_, err := service.Create(ctx, owner(), CreateRequest{Mutation: mutation("bad-rule", 0), Kind: AssistantPlan, AssistantID: "assistant", Title: "Invalid rule", Trigger: Trigger{StartAt: start, Timezone: "UTC", Recurrence: "not-a-rule", MissedPolicy: Skip}})
+	_, err := service.Create(ctx, owner(), CreateRequest{Mutation: mutation("bad-rule", 0), Kind: AssistantSchedule, AssistantID: "assistant", Title: "Invalid rule", Trigger: Trigger{StartAt: start, Timezone: "UTC", Recurrence: "not-a-rule", MissedPolicy: Skip}})
 	wantCode(t, err, core.InvalidArgument)
 }
 func TestTDDDispatcherResumesPersistedCursorWithoutReplayingLifetime(t *testing.T) {
 	start := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
-	db, plan := dispatchFixture(t, Trigger{StartAt: start, Timezone: "UTC", Recurrence: "FREQ=MINUTELY", MissedPolicy: Coalesce}, AssistantPlan)
+	db, plan := dispatchFixture(t, Trigger{StartAt: start, Timezone: "UTC", Recurrence: "FREQ=MINUTELY", MissedPolicy: Coalesce}, AssistantSchedule)
 	ctx := testkit.Context(t)
 	next := start.Add(200000 * time.Minute)
 	plan.NextAt = &next
@@ -187,7 +187,7 @@ func TestTDDDispatcherResumesPersistedCursorWithoutReplayingLifetime(t *testing.
 
 func TestDispatcherRecognizesLegacyOccurrenceLedger(t *testing.T) {
 	start := time.Now().UTC().Truncate(time.Second)
-	db, plan := dispatchFixture(t, Trigger{StartAt: start, Timezone: "UTC", MissedPolicy: Coalesce}, AssistantPlan)
+	db, plan := dispatchFixture(t, Trigger{StartAt: start, Timezone: "UTC", MissedPolicy: Coalesce}, AssistantSchedule)
 	legacy := Occurrence{ScheduleID: plan.ID, ScheduleVersion: plan.Version, DueAt: start}
 	fixturePut(t, db, "business.occurrences", "owner/plan/1/"+start.Format(time.RFC3339Nano), legacy)
 	if err := NewDispatcher(db).Tick(t.Context(), start); err != nil {

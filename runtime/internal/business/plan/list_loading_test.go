@@ -80,7 +80,7 @@ func TestListLoadsPlanSourcesWithoutPerPlanReads(t *testing.T) {
 	if len(plans) != 60 {
 		t.Fatalf("plans = %d", len(plans))
 	}
-	if counted.gets+counted.queries > 8 {
+	if counted.gets+counted.queries > 9 {
 		t.Fatalf("60 plans issued %d point reads and %d queries; expected bounded batch reads", counted.gets, counted.queries)
 	}
 }
@@ -227,7 +227,7 @@ func TestBatchListCancellationAndReadErrors(t *testing.T) {
 	if err != nil || len(rows) != 600 {
 		t.Fatalf("batch boundary: %d %v", len(rows), err)
 	}
-	if counted.gets != 0 || counted.queries > 8 {
+	if counted.gets != 0 || counted.queries > 9 {
 		t.Fatalf("unbounded hydration: gets=%d queries=%d", counted.gets, counted.queries)
 	}
 	for _, failed := range []string{bucket, "business.tasks"} {

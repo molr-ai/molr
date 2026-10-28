@@ -244,8 +244,8 @@
 .plans-week-day[data-today='true'] { background-color: color-mix(in srgb, var(--color-selected-bg) 12%, var(--color-surface)); }
 .plans-week-event { position: absolute; z-index: 1; display: flex; flex-direction: column; align-items: stretch; gap: 3px; min-width: 0; padding: 4px 8px; overflow: hidden; text-align: left; font: inherit; font-size: var(--text-xs); line-height: 18px; }
 .plans-month-event, .plans-week-event { --event-color: var(--color-plan-item); border: 0; border-left: 2px solid var(--event-color); border-radius: var(--radius-control); background: color-mix(in srgb, var(--event-color) 14%, var(--color-surface)); color: var(--color-text); }
-.plans-month-event[data-kind='personal'], .plans-week-event[data-kind='event'] { --event-color: var(--color-plan-event); }
-.plans-month-event[data-kind='assistant_plan'], .plans-week-event[data-kind='automatic'] { --event-color: var(--color-plan-automatic); }
+.plans-month-event[data-kind='personal_schedule'], .plans-week-event[data-kind='event'] { --event-color: var(--color-plan-event); }
+.plans-month-event[data-kind='assistant_schedule'], .plans-week-event[data-kind='automatic'] { --event-color: var(--color-plan-automatic); }
 .plans-month-event:hover, .plans-week-event:hover, .plans-week-event[data-selected='true'] { background: color-mix(in srgb, var(--event-color) 22%, var(--color-surface)); box-shadow: inset 0 0 0 1px var(--event-color); }
 .plans-month-event:focus-visible, .plans-week-event:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
 .plans-week-event:focus-visible { z-index: 2; }
@@ -268,3 +268,10 @@
   .plans-workspace:not(.plans-workspace--embedded) .plans-calendar-section[data-mode='week'] { flex: 1; min-height: 260px; }
   .plans-week-canvas { min-width: 830px; }
 }
+
+.plans-type-dot[data-kind='watch'] { background: var(--color-plan-watch); }
+.plans-watch-group { margin-block-end: 16px; }
+.plans-watch-group > h2, .plans-group-title { font-size: var(--text-sm); font-weight: 600; margin: 16px 24px 0; }
+.plans-watch-protocol pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--text-sm); }
+
+@media (max-width: 640px) { .plans-watch-group > h2, .plans-group-title { margin-inline: 12px; } }

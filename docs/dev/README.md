@@ -38,3 +38,5 @@
 ## 维护发行
 
 [发行维护](releasing/releases.md)管理版本、渠道和构建发布；提交与分发前核对[公开内容与文件隔离](releasing/public-content.md)及[许可证](releasing/licensing.md)。
+
+- [持续关注与 watcher 协议](runtime/watchers.md)

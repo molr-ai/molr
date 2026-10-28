@@ -38,3 +38,5 @@
 ## 维护发行
 
 [发行维护](https://molr.ai/zh/docs/dev/releasing/releases/)管理版本、渠道和构建发布；提交与分发前核对[公开内容与文件隔离](https://molr.ai/zh/docs/dev/releasing/public-content/)及[许可证](https://molr.ai/zh/docs/dev/releasing/licensing/)。
+
+- [持续关注与 watcher 协议](https://molr.ai/zh/docs/dev/runtime/watchers/)

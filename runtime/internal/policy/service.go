@@ -77,7 +77,7 @@ func (m *Manager) own(ctx context.Context, p core.Principal, target core.Object)
 	}
 	if target.ID == "" {
 		switch target.Kind {
-		case "assistant", "task", "todo", "schedule", "resource", "memory", "settings", "conversation", "file", "credential", "grant", "model", "tool", "operation", "job", "search", "realtime", "audit":
+		case "assistant", "task", "todo", "schedule", "watch", "resource", "memory", "settings", "conversation", "file", "credential", "grant", "model", "tool", "operation", "job", "search", "realtime", "audit":
 		default:
 			return core.Invalid("target", "unknown collection")
 		}
@@ -129,7 +129,7 @@ func (m *Manager) Require(ctx context.Context, p core.Principal, q CheckRequest)
 			// binding check in Owns, not merely by matching the owner account.
 			if q.Action == Read || q.Action == Write {
 				switch q.Target.Kind {
-				case "conversation", "task", "memory", "assistant", "file", "todo", "schedule", "operation", "permission_request":
+				case "conversation", "task", "memory", "assistant", "file", "todo", "schedule", "watch", "operation", "permission_request":
 					return nil
 				}
 			}

@@ -663,3 +663,9 @@ Automatic model pricing: `Pricing` and `PricingInfo.Automatic` may include `Tier
 `POST /api/sandboxes/connect` accepts the same connection input plus `Name`, `Mutation` and `Verification`, and checks the connection again before saving. Credential updates also supply `ID` and the expected version; the saved address cannot be replaced. Responses expose the public `PublicKeySHA256`, never the connection code or token; tokens are encrypted at rest. Read-only checks can send a saved `ID` to `test`, but cannot use saved credentials to probe another address.
 
 Code errors use `Field=ConnectionCode`: malformed codes report `sandbox_connection_code_invalid`, unsupported code formats report `sandbox_connection_code_unsupported`, and incompatible node protocols report `sandbox_protocol_unsupported`. Trust pins the public key rather than the whole certificate, so renewal preserves identity while certificate validity is still enforced.
+
+## Continuous plans
+
+`Plan.Kind` is `todo`, `personal_schedule`, `assistant_schedule`, or `assistant_watch`; source references use `todo`, `schedule`, or `watch`. `GET /api/plans/watches` returns paginated status summaries with `scope`, `state=all|open|done`, `limit`, and `cursor`, independently of calendar dates. `GET /api/plans/watch/{id}` returns configuration, status, and recent changes. Execution history uses the existing plan history endpoints. Calendar-range queries and `/api/plans/events` exclude watches.
+
+`POST /api/watches` creates or updates a watch; updates include `ID` and the expected version. Fields are `AssistantID`, `Title`, `Instructions`, `Watcher`, optional `StartAt`/`EndAt`, and `Paused`. `POST /api/watches/delete` takes `ID` and mutation metadata; retain and pause plans with change history. Creation registers a plan, while status reports asynchronous startup and authorization results. See the [watcher protocol](../runtime/watchers.md).

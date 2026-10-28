@@ -26,6 +26,9 @@ func (r *Runner) checkDirect() error {
 	return nil
 }
 func (r *Runner) startDirect(parent context.Context, e core.Execution, c platform.Command) (*process, error) {
+	if c.ProtocolInput {
+		return nil, core.WithReason(core.NewError(core.Unavailable, "watcher stdin unavailable on this backend"), "watch_platform_unsupported")
+	}
 	return r.startHost(parent, e, c)
 }
 

@@ -4,7 +4,7 @@ Arrange tasks into plans, and view the status, costs, and artifacts of each exec
 
 ## Plans and Execution Records
 
-"Plans" aggregate items, scheduled times, and automated executions for both you and your assistants, allowing filtering by owner, type, and status; the plan panel in chat defaults to viewing the current assistant.
+"Plans" aggregate to-dos, schedules, scheduled executions, and continuous watches for both you and your assistants, allowing filtering by owner, type, and status; the plan panel in chat defaults to viewing the current assistant.
 
 The plan sidebar or drawer in chat shows the current assistant’s next 10 items. Clicking a plan slides the panel content to the left to show its details, using the same layout as the standalone plan list. The back button in the header returns to the list and preserves its scroll position.
 
@@ -14,7 +14,7 @@ Plans opens in the current week by default, with Monday through Sunday in column
 
 The calendar toolbar centers the displayed week range or month and updates it as you navigate. Click this date label to open the date picker; applying jumps to the chosen period, while cancelling keeps the current range. When viewing another period, “Back to this week” or “Back to this month” appears on the left; it is hidden for the current week or month. A compact week/month switch is on the right. The list remains available. All views share owner, type, and status filters. Month mode provides previous/next month and month selection. Events that do not fit in a cell are collapsed as +N; clicking +N or the date opens the full list for that day. Dreaming is not a calendar event; automated time slots can be adjusted in the dream settings section of assistant info.
 
-The solid dots before list items indicate type: green for items, blue for scheduled times, and purple for automated executions; these are for distinction only and are not clickable. Creation, editing, plan details, and unfinished execution details warn about dreaming conflicts. Each assistant has one configurable automated time slot per day.
+The solid dots before list items indicate type: green for to-dos, blue for schedules, purple for scheduled execution, and orange for continuous watches; these are for distinction only and are not clickable. Creation, editing, plan details, and unfinished execution details warn about dreaming conflicts. Each assistant has one configurable automated time slot per day.
 
 When adding a new item, you can first fill in the title, then specify the owner, date, or time. Assigning to an assistant only indicates responsibility and does not mean immediate initiation. One-time executions and each occurrence of recurring plans have independent records; viewing records allows you to understand the instructions, status, costs, and artifacts at that time.
 
@@ -37,3 +37,13 @@ In execution details, view waiting reasons, usage, and deliverables, and pause, 
 "Message received," "Assistant has published a reply," and "Execution completed" are different statuses. Task delivery relies on actual artifacts and inspection evidence; currently, there is no universal acceptor that can automatically judge the quality of arbitrary content. Important results need to be verified by yourself.
 
 For time settings for automatic organization, see [Memory and Automatic Organization](memory.md#dreaming-automatic-organization).
+
+## Continuous watches
+
+Plan lists distinguish to-dos, personal schedules, scheduled execution, and continuous watches. The assistant prepares a watcher program and handles relevant changes; unchanged checks do not call a model. Ask, for example, “notify me about new issues.” No plan end date is set unless requested.
+
+Global lists, assistant plan pages, and the chat plan panel share continuous-watch and upcoming groups. Each watch occupies one row, never a calendar cell. Checks and process restarts do not become calendar events. Details show process status, successful observations, changes, execution history, and pause/resume controls. Processing one change does not complete the whole watch.
+
+Watchers use the assistant's existing compute, file, and network grants. Expired grants stop observation and leave the plan blocked; the assistant can notify you or request the necessary authorization. Changed permissions are checked before recovery. Paused or expired plans do not resume automatically. Whether missed changes can be recovered depends on the source and watcher program.
+
+Assistants create watchers through existing plan tools. The UI supports inspection, editing handling instructions and end dates, and pausing/resuming. See the [watcher protocol](../../dev/runtime/watchers.md).

@@ -396,3 +396,5 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 
 | `internal/runtimeclient` | `Client.WorkspaceUpload`, `Client.WorkspaceDownload` | `TestWorkspaceTransferUsesVersionsAndDetectsChangedDownload` |
 | `internal/runtimeclient` | `Connections.StateDirectory`, `Connections.Update`, `Connections.Remove` | `TestConnectionEditingPreservesOriginAndIsolation` |
+
+| `internal/shellsession` | `Manager.StartWatcher`, `Manager.WatcherIO`, `Manager.WatcherState` | `internal/app.TestWatcherRealProtocolAndCompletion`, `internal/app.TestWatcherRealGrantExpiryBlocksAndPreservesCheckpoint` |
