@@ -190,3 +190,49 @@ func TestStatusOnlySnapshotPreservesTranscriptAndDraft(t *testing.T) {
 		t.Fatal("empty update rebuilt messages")
 	}
 }
+
+func TestDetailLoadEarlyFailureCancelsLaterRequests(t *testing.T) {
+	notificationsStarted := make(chan struct{})
+	notificationsCanceled := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/notifications":
+			close(notificationsStarted)
+			<-r.Context().Done()
+			close(notificationsCanceled)
+		case "/api/assistants/a/status":
+			// Hold the earlier failure until the slow optional request is in flight.
+			select {
+			case <-notificationsStarted:
+			case <-r.Context().Done():
+				return
+			}
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprint(w, `{"Code":"unauthenticated"}`)
+		case "/api/permission-requests":
+			fmt.Fprint(w, `[]`)
+		case "/api/conversations":
+			fmt.Fprint(w, `{"Items":[]}`)
+		default:
+			fmt.Fprint(w, `{}`)
+		}
+	}))
+	defer server.Close()
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+	defer cancel()
+	client, _ := runtimeclient.New(server.URL, "")
+	out := snapshotMsg{target: "a"}
+	err := out.loadDetails(ctx, client, "chat")
+	var apiErr *runtimeclient.Error
+	if !errors.As(err, &apiErr) || apiErr.Status != http.StatusUnauthorized {
+		t.Fatalf("lost earlier failure: %v", err)
+	}
+	if ctx.Err() != nil {
+		t.Fatal("load waited for parent deadline instead of cancelling later requests")
+	}
+	select {
+	case <-notificationsCanceled:
+	case <-ctx.Done():
+		t.Fatal("optional request was not cancelled")
+	}
+}

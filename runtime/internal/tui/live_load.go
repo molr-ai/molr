@@ -72,6 +72,8 @@ func (m *model) loadLive(history bool) tea.Cmd {
 // Independent detail requests share a small concurrency bound. Results remain
 // private until the complete snapshot is delivered to the model.
 func (out *snapshotMsg) loadDetails(ctx context.Context, client *runtimeclient.Client, chat core.ID) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	jobs := []func() error{
 		func() error {
 			var err error
@@ -99,30 +101,37 @@ func (out *snapshotMsg) loadDetails(ctx context.Context, client *runtimeclient.C
 			return nil // Notifications remain best effort.
 		},
 	}
-	errs := make([]error, len(jobs))
+	results := make([]chan error, len(jobs))
+	pending := make(chan int, len(jobs))
+	for i := range jobs {
+		results[i] = make(chan error, 1)
+		pending <- i
+	}
+	close(pending)
 	var wg sync.WaitGroup
-	limit := make(chan struct{}, 3)
-	for i, job := range jobs {
+	for range 3 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			select {
-			case limit <- struct{}{}:
-			case <-ctx.Done():
-				errs[i] = ctx.Err()
-				return
+			for i := range pending {
+				if err := ctx.Err(); err != nil {
+					results[i] <- err
+				} else {
+					results[i] <- jobs[i]()
+				}
 			}
-			defer func() { <-limit }()
-			errs[i] = job()
 		}()
 	}
-	wg.Wait()
-	// Preserve the previous deterministic error priority.
-	for _, err := range errs {
-		if err != nil {
+	// Preserve request error priority without waiting for lower-priority reads.
+	// Wait after cancellation so no worker can mutate a delivered snapshot.
+	for _, result := range results {
+		if err := <-result; err != nil {
+			cancel()
+			wg.Wait()
 			return err
 		}
 	}
+	wg.Wait()
 	return nil
 }
 
