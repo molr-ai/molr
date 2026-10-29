@@ -10,6 +10,7 @@ import (
 	"molr.ai/runtime/internal/config"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/debugtrace"
+	"molr.ai/runtime/internal/im/conversation"
 	"molr.ai/runtime/internal/im/dingtalk"
 	"molr.ai/runtime/internal/im/feishu"
 	"molr.ai/runtime/internal/im/qq"
@@ -30,7 +31,7 @@ import (
 // Bundle is the complete single-server composition. Bootstrap and Database are
 // local CLI capabilities and never registered as HTTP routes or Agent tools.
 type Bundle struct {
-	channelStatus func(context.Context, core.Principal, core.ID) (any, error)
+	channelStatus func(context.Context, core.Principal, core.ID) (conversation.ChannelStatus, error)
 	dingtalk      *dingtalk.Service
 	feishu        *feishu.Service
 	qq            *qq.Service

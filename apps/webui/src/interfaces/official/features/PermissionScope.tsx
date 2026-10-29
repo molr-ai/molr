@@ -1,7 +1,7 @@
 import { useErrorToast } from '../../../error-toasts';
 import { GPUDeviceList } from './GPUAccess';
 import { fullAccessLabel, isSandboxResource } from './PermissionTargetFields';
-import type { GPUDevice, SandboxView } from '../../../sandbox-types';
+import type { GPUDevice, SandboxView } from '@molr/sdk';
 import { Folder, Globe, Server, Sparkles, Wrench } from 'lucide-react';
 import type { Grant, Model, PermissionRequestInput, Resource, ResourceConstraints } from '@molr/sdk';
 import { permissionLabel } from '../../../resource-permissions';

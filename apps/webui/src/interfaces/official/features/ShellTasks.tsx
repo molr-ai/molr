@@ -1,7 +1,7 @@
 import { useShellTaskList } from './ChatTools';
 import { TerminalSession } from './TerminalSession';
 import { GPUDeviceList } from './GPUAccess';
-import type { SandboxView } from '../../../sandbox-types';
+import type { SandboxView } from '@molr/sdk';
 import { DismissibleAlert } from '../components/DismissibleAlert';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Badge, Button, Drawer, SegmentedControl, useBreakpoint } from '@molr/ui';

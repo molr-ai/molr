@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"molr.ai/runtime/internal/agent/tools"
 	"molr.ai/runtime/internal/core"
 	"net/http"
 	"strconv"
@@ -73,7 +74,7 @@ func (s *HTTPServer) sandboxRoutes() {
 		if s.options.ShellTasks == nil {
 			return nil, core.NewError(core.Unavailable, "shell tasks unavailable")
 		}
-		return s.options.ShellTasks(r.Context(), principal(r), id, json.RawMessage(`{"action":"list"}`))
+		return s.options.ShellTasks(r.Context(), principal(r), id, tools.ShellTaskRequest{Action: "list"})
 	})
 	s.handle("POST /api/assistants/{id}/shell-tasks", func(r *http.Request) (any, error) {
 		id, err := pathID(r)
@@ -87,7 +88,14 @@ func (s *HTTPServer) sandboxRoutes() {
 		if s.options.ShellTasks == nil {
 			return nil, core.NewError(core.Unavailable, "shell tasks unavailable")
 		}
-		return s.options.ShellTasks(r.Context(), principal(r), id, raw)
+		if err := principal(r).RequireOwner(); err != nil {
+			return nil, err
+		}
+		q, err := tools.ParseShellTask(raw)
+		if err != nil {
+			return nil, err
+		}
+		return s.options.ShellTasks(r.Context(), principal(r), id, q)
 	})
 	s.handle("GET /api/resource-usage", func(r *http.Request) (any, error) {
 		raw, _ := json.Marshal(map[string]any{"AssistantID": r.URL.Query().Get("assistant_id"), "ResourceID": r.URL.Query().Get("resource_id")})

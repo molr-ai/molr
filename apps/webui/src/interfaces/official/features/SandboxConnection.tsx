@@ -2,7 +2,7 @@ import { sandboxComputeState } from '../../../sandbox-types';
 import { useErrorToast } from '../../../error-toasts';
 import { useRef, useState } from 'react';
 import { Alert, Badge, Button, SecretField, TextField } from '@molr/ui';
-import type { SandboxDiagnostic, SandboxView } from '../../../sandbox-types';
+import type { SandboxDiagnostic, SandboxView } from '@molr/sdk';
 import { useCopy } from '../../../state';
 import { useSandboxCopy } from '../../../sandbox-copy';
 import { api, mutationKey } from '@molr/sdk';

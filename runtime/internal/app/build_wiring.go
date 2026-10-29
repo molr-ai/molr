@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"molr.ai/runtime/internal/accountview"
 	"molr.ai/runtime/internal/agent/tools"
 	"molr.ai/runtime/internal/auth"
 	"molr.ai/runtime/internal/core"
@@ -23,7 +24,7 @@ func validateCatalogReferences(ctx context.Context, adapters adapters, sandboxRo
 	if err != nil {
 		return err
 	}
-	available := map[string]groupCatalogItem{}
+	available := map[string]accountview.CatalogItem{}
 	for _, item := range catalog {
 		available[item.Kind+":"+string(item.ID)] = item
 	}

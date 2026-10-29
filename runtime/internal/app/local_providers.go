@@ -16,19 +16,10 @@ import (
 	"time"
 )
 
-type LocalProvider struct {
-	Name       string
-	Preset     string
-	Endpoint   string
-	State      string
-	Models     []string
-	ResourceID core.ID
-}
-
 var localProviderOrigins = []string{"http://127.0.0.1:11434", "http://127.0.0.1:8080", "http://127.0.0.1:8000", "http://127.0.0.1:30000", "http://127.0.0.1:1234"}
 
-func probeLocalProvider(ctx context.Context, client *http.Client, origin string) *LocalProvider {
-	result := &LocalProvider{Name: "OpenAI compatible", Preset: "custom", Endpoint: origin + "/v1", Models: []string{}}
+func probeLocalProvider(ctx context.Context, client *http.Client, origin string) *resource.LocalProvider {
+	result := &resource.LocalProvider{Name: "OpenAI compatible", Preset: "custom", Endpoint: origin + "/v1", Models: []string{}}
 	// All requests only read catalog metadata. Never generate or load models.
 	for _, path := range []string{"/api/tags", "/api/v0/models", "/v1/models"} {
 		req, err := http.NewRequestWithContext(ctx, "GET", origin+path, nil)
@@ -123,10 +114,10 @@ func probeLocalProvider(ctx context.Context, client *http.Client, origin string)
 	}
 	return nil
 }
-func (a adapters) discoverLocalProviders(ctx context.Context, p core.Principal) ([]LocalProvider, error) {
+func (a adapters) discoverLocalProviders(ctx context.Context, p core.Principal) ([]resource.LocalProvider, error) {
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	found := make([]*LocalProvider, len(localProviderOrigins))
+	found := make([]*resource.LocalProvider, len(localProviderOrigins))
 	var wait sync.WaitGroup
 	for i, o := range localProviderOrigins {
 		wait.Add(1)
@@ -152,7 +143,7 @@ func (a adapters) discoverLocalProviders(ctx context.Context, p core.Principal) 
 	if err != nil {
 		return nil, err
 	}
-	out := []LocalProvider{}
+	out := []resource.LocalProvider{}
 	for _, item := range found {
 		if item == nil {
 			continue

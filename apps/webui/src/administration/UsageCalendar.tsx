@@ -4,7 +4,7 @@ import { IconButton, SegmentedControl, Tooltip, useBreakpoint } from '@molr/ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCopy } from '../state';
 import { amountLabel, amountMicros, calendarDate, compactTokens, dateAdd, emptyUsage } from './usage-analytics';
-import type { UsageAnalyticsView, UsageDay } from './usage-analytics';
+import type { UsageAnalyticsView, UsageDay } from '@molr/sdk';
 
 export function UsageCalendar({ data, selected, onSelect }: { data: UsageAnalyticsView; selected: string; onSelect: (day: string) => void }) {
  const { locale } = useCopy(), zh = locale === 'zh', mobile = useBreakpoint('mobile');

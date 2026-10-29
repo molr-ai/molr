@@ -14,6 +14,8 @@
 - 错误使用 `core.Code`，API 映射固定公开消息，不暴露底层错误、凭证、路径或内部堆栈。
 - `core.Secret` 默认打印与序列化均脱敏，只有可信适配显式读取。秘密值不出现在 Agent 的模型／工具接口中。
 
+HTTP 装配中的固定响应使用所属领域的具体类型：`accountview` 定义账号目录、额度与用量读模型，模型发现由 `business/resource` 定义，聊天入口摘要由 `im/conversation` 定义，技能目录与正文由 `agent` 分别定义。`UsageQuery` 属于账号读模型，不依赖 HTTP 包。HTTP 层解析浏览器与命令会话请求，并保留大小限制和未知字段拒绝。终端启动与浏览器代理设置在领域授权检查之后解析，保持拒绝顺序；会话模块继续检查身份、授权、幂等身份和版本。浏览器与终端的动态执行结果、流帧仍沿用原始 JSON 协议。`TestHTTPDecodesSessionRequestsBeforeInvokingServices` 与 `TestTypedReadModelsPreserveJSONShape` 验证请求边界及响应字段、空值和错误语义。
+
 接口注释中的授权、原子性和恢复规则是具体实现必须满足的合同。各模块已接入真实实现；接口存在或测试映射齐全不代表所有执行分支均已验证，验证范围见各模块测试。
 
 ## 2. IM

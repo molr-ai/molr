@@ -1,4 +1,4 @@
-import type { GPUDevice } from './sandbox-types';
+import type { GPUDevice } from '@molr/sdk';
 
 /** UUIDs remain the authorization identity; names are presentation only. */
 export function gpuName(id: string, devices: readonly GPUDevice[], locale: string): string {

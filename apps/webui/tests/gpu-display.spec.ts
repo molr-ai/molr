@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { gpuName } from '../src/gpu';
-import type { GPUDevice } from '../src/sandbox-types';
+import type { GPUDevice } from '@molr/sdk';
 
 const device = (ID: string): GPUDevice => ({ ID, Name: 'NVIDIA Example GPU', Vendor: 'nvidia', MemoryBytes: 24 * 1073741824, Available: true, Reason: 'available' });
 test('GPU labels identify the model and distinguish identical boards without exposing long UUIDs', () => {

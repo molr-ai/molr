@@ -9,7 +9,7 @@ import { useErrorToast } from '../../../error-toasts';
 import { ComponentDetails, MaintenanceProgress, maintenanceReason, useMaintenanceFailureToast } from '../../../maintenance/Components';
 import type { ComponentStatus } from '@molr/sdk';
 import './browser.css';
-import type { SandboxInfo } from '../../../sandbox-types';
+import type { SandboxInfo } from '@molr/sdk';
 import { SessionStart } from './SessionStart';
 import { ExecutionOptions, useExecutionOptions } from './ExecutionOptions';
 import { useBrowserView } from './useBrowserView';

@@ -6,7 +6,7 @@ import { api } from '@molr/sdk';
 import type { PluginInstallation, PluginConnection } from '@molr/sdk/plugins';
 import { useCopy, useQuery } from '../state';
 import { groupName, emptyQuota } from '../administration/types';
-import type { UserGroup } from '../administration/types';
+import type { UserGroup } from '@molr/sdk';
 import { Loading, useAction } from '../interfaces/official/components/common';
 
 export function PluginGroups({ plugin, onClose }: { plugin: PluginInstallation; onClose: () => void }) {

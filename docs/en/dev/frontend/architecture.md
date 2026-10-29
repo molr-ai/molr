@@ -22,6 +22,9 @@ Chat reads the binding summary from `/api/assistants/{id}/chat-channel` through 
 
 The desktop main process uses `RuntimeSession` to own view loading and handshake, timeout, initial-login permission, and notification/OAuth cleanup. Replacing or closing a connection releases its old view; stale view callbacks cannot complete the new connection. IPC identity and origin checks remain in the main entry point.
 
+HTTP DTOs for sandboxes, GPUs, user groups, resource quotas and usage analytics are exported by `@molr/sdk` from `sandbox.ts`, `administration.ts` and `usage.ts`. WebUI modules retain presentation logic such as state selection and name or amount formatting. Business pages import protocol types directly from the SDK, so page directories do not become contract dependencies for other callers.
+
+
 ## Shared State and Recovery
 
 Business writes pass an explicit key through `api.mutate(path, body, { idempotencyKey, expectedVersion })`; the SDK stores neither request bodies nor body fingerprints. WebUI's `useMutation` holds a local key for one operation. Callers declare the target and all editable inputs as dependencies; edits or unmounting discard the operation, and success releases the key. Network errors, 5xx responses, response parsing failures, and retryable 408/429 responses retain the key; other definite 4xx responses end the attempt. Version or target changes use a new key, and an older completion cannot clear a newer operation. Multi-step submissions own separate keys for each step. Immediate settings and message feedback restore or reconcile state after failure and treat a later selection as a new operation. `mutation-operation.unit.mjs` and `mutation-retry.spec.ts` cover lost responses, input edits, abandoned forms, new operations with equal input, and overlapping requests.

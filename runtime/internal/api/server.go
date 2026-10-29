@@ -11,11 +11,17 @@ import (
 	"io"
 	"log/slog"
 	"mime"
+	"molr.ai/runtime/internal/accountview"
+	"molr.ai/runtime/internal/agent"
+	"molr.ai/runtime/internal/agent/tools"
+	"molr.ai/runtime/internal/im/conversation"
 	"molr.ai/runtime/internal/maintenance"
 	"molr.ai/runtime/internal/notification"
 	"molr.ai/runtime/internal/oauthbroker"
 	"molr.ai/runtime/internal/pricing"
 	"molr.ai/runtime/internal/resultcache"
+	"molr.ai/runtime/internal/sandboxmanager"
+	"molr.ai/runtime/internal/shellsession"
 	"molr.ai/runtime/internal/updates"
 	"molr.ai/runtime/internal/workspace"
 	"net"
@@ -63,11 +69,12 @@ type Options struct {
 	ChatGPTDisconnect  func(context.Context, core.Principal, resource.DeleteProviderRequest) (bool, error)
 	RequestLogger      *slog.Logger
 	Workspace          workspace.Service
-	Skills             func(context.Context, core.Principal, core.ID, string) (any, error)
-	UsageAnalytics     func(context.Context, core.Principal, UsageQuery, bool) (any, error)
+	SkillsCatalog      func(context.Context, core.Principal) (agent.SkillsCatalog, error)
+	Skill              func(context.Context, core.Principal, core.ID, string) (agent.SkillDocument, error)
+	UsageAnalytics     func(context.Context, core.Principal, accountview.UsageQuery, bool) (accountview.AnalyticsView, error)
 	Maintenance        maintenance.Service
-	Browser            func(context.Context, core.Principal, core.ID, json.RawMessage) (json.RawMessage, error)
-	BrowserSettings    func(context.Context, core.Principal, json.RawMessage) (any, error)
+	Browser            func(context.Context, core.Principal, core.ID, tools.BrowserRequest) (json.RawMessage, error)
+	BrowserSettings    func(context.Context, core.Principal, json.RawMessage) (shellsession.BrowserSettingsView, error)
 	BrowserStream      func(context.Context, core.Principal, core.ID, core.ID, func(json.RawMessage) error) error
 	Updates            *updates.Service
 	Pricing            *pricing.Updater
@@ -79,25 +86,26 @@ type Options struct {
 	Weixin             *weixin.Service
 	Telegram           *telegram.Service
 	Slack              *slack.Service
-	ChatChannel        func(context.Context, core.Principal, core.ID) (any, error)
+	ChatChannel        func(context.Context, core.Principal, core.ID) (conversation.ChannelStatus, error)
 	Setup              func(context.Context, core.Principal, json.RawMessage) (any, error)
-	DiscoverProviders  func(context.Context, core.Principal) (any, error)
+	DiscoverProviders  func(context.Context, core.Principal) ([]resource.LocalProvider, error)
 	Accounts           *auth.Manager
-	AdminCatalog       func(context.Context, core.Principal) (any, error)
-	AdminUsage         func(context.Context, core.Principal) (any, error)
-	AccountQuotas      func(context.Context, core.Principal) (any, error)
+	AdminCatalog       func(context.Context, core.Principal) ([]accountview.CatalogItem, error)
+	AdminUsage         func(context.Context, core.Principal) (accountview.AdminUsage, error)
+	AccountQuotas      func(context.Context, core.Principal) (accountview.AccountQuotas, error)
 	Plugins            *plugins.Service
 	MCP                *mcpclient.Service
 	PermissionRequests permissionRequestService
 	SandboxAdmin       func(context.Context, core.Principal, string, json.RawMessage) (any, error)
-	TerminalStart      func(context.Context, core.Principal, core.ID, json.RawMessage) (json.RawMessage, error)
-	TerminalStream     func(context.Context, core.Principal, core.ID, core.ID, int64, func(json.RawMessage) error) error
-	ShellTasks         func(context.Context, core.Principal, core.ID, json.RawMessage) (json.RawMessage, error)
-	SandboxInfo        func(context.Context, core.Principal) (any, error)
-	Limiter            RateLimiter
-	PreLoginCSRF       func(context.Context) (auth.Challenge, core.Secret, error)
-	Listen             func(string, string) (net.Listener, error)
-	OnListen           func(net.Addr)
+	// TerminalStart and BrowserSettings decode after their domain authorization checks.
+	TerminalStart  func(context.Context, core.Principal, core.ID, json.RawMessage) (json.RawMessage, error)
+	TerminalStream func(context.Context, core.Principal, core.ID, core.ID, int64, func(json.RawMessage) error) error
+	ShellTasks     func(context.Context, core.Principal, core.ID, tools.ShellTaskRequest) (json.RawMessage, error)
+	SandboxInfo    func(context.Context, core.Principal) (sandboxmanager.RuntimeStatus, error)
+	Limiter        RateLimiter
+	PreLoginCSRF   func(context.Context) (auth.Challenge, core.Secret, error)
+	Listen         func(string, string) (net.Listener, error)
+	OnListen       func(net.Addr)
 }
 type HTTPServer struct {
 	responses        *resultcache.Cache[string, []byte]

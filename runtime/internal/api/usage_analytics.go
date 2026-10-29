@@ -1,17 +1,11 @@
 package api
 
 import (
+	"molr.ai/runtime/internal/accountview"
 	"molr.ai/runtime/internal/core"
 	"net/http"
 	"strconv"
 )
-
-// UsageQuery selects calendar dates in Timezone; Until is exclusive.
-type UsageQuery struct {
-	From, Until, Timezone, GroupBy, Sort, Day, Search string
-	AssistantID, ModelID, UserID, GroupID             core.ID
-	Page                                              int
-}
 
 func (s *HTTPServer) usageAnalyticsRoutes() {
 	for _, admin := range []bool{false, true} {
@@ -37,7 +31,7 @@ func (s *HTTPServer) usageAnalyticsRoutes() {
 					return nil, core.Invalid("page", "invalid page")
 				}
 			}
-			q := UsageQuery{From: v.Get("from"), Until: v.Get("until"), Timezone: v.Get("timezone"), GroupBy: v.Get("group_by"), Sort: v.Get("sort"), Day: v.Get("day"), Search: v.Get("search"), AssistantID: core.ID(v.Get("assistant_id")), ModelID: core.ID(v.Get("model_id")), UserID: core.ID(v.Get("user_id")), GroupID: core.ID(v.Get("group_id")), Page: page}
+			q := accountview.UsageQuery{From: v.Get("from"), Until: v.Get("until"), Timezone: v.Get("timezone"), GroupBy: v.Get("group_by"), Sort: v.Get("sort"), Day: v.Get("day"), Search: v.Get("search"), AssistantID: core.ID(v.Get("assistant_id")), ModelID: core.ID(v.Get("model_id")), UserID: core.ID(v.Get("user_id")), GroupID: core.ID(v.Get("group_id")), Page: page}
 			return s.options.UsageAnalytics(r.Context(), principal(r), q, admin)
 		})
 	}

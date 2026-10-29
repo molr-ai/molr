@@ -23,7 +23,7 @@ func TestChatChannelSummaryPreservesBindingAndOwnership(t *testing.T) {
 		t.Helper()
 		value, err := b.channelStatus(t.Context(), owner, e.AssistantID)
 		need(t, err)
-		if value.(chatChannelStatus).Channel != want {
+		if value.Channel != want {
 			t.Fatalf("want %s, got %+v", want, value)
 		}
 	}

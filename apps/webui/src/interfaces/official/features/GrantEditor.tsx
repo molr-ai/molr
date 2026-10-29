@@ -4,7 +4,7 @@ import { useErrorToast } from '../../../error-toasts';
 import { useEffect, useState } from 'react';
 import { DateTimePicker, Select, Textarea } from '@molr/ui';
 import type { Assistant, Grant, Model, Resource, ResourceConstraints, TemporaryConstraints } from '@molr/sdk';
-import type { SandboxView } from '../../../sandbox-types';
+import type { SandboxView } from '@molr/sdk';
 import { APIError } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
 import { useSandboxCopy } from '../../../sandbox-copy';

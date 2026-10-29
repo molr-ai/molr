@@ -1,5 +1,5 @@
 import type { Resource } from '@molr/sdk';
-import type { SandboxView } from './sandbox-types';
+import type { SandboxView } from '@molr/sdk';
 
 export function fullAccessAvailable(resource: Resource | undefined, sandboxes: SandboxView[] | undefined) {
   return resource?.Kind === 'compute' && !!sandboxes?.some(s => s.ID === (resource.SandboxID || 'local') && s.State === 'available' && s.Info.Enabled && s.Info.Capabilities.FullAccess);

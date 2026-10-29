@@ -5,7 +5,7 @@ import { Badge, Button, TextField } from '@molr/ui';
 import { AssistantAvatarField } from '../interfaces/official/features/AssistantAvatarField';
 import { useCopy, useQuery, useSession } from '../state';
 import { Loading, useAction } from '../interfaces/official/components/common';
-import type { UserInfo } from './types';
+import type { UserInfo } from '@molr/sdk';
 import { groupName } from './types';
 
 export function ProfileSettings() {

@@ -158,7 +158,7 @@
 | internal/api | NewServer | TestTDDServerHandlerAuthAndCSRFBeforeServices |
 | internal/api | NewRateLimiter | TestTDDRateLimiterBoundedIndependentAndFailureClosed |
 | internal/api | Limiter.Allow | TestTDDRateLimiterBoundedIndependentAndFailureClosed |
-| internal/api | HTTPServer.Handler | TestTDDServerHandlerAuthAndCSRFBeforeServices |
+| internal/api | HTTPServer.Handler | TestTDDServerHandlerAuthAndCSRFBeforeServices, TestHTTPDecodesSessionRequestsBeforeInvokingServices, TestTypedReadModelsPreserveJSONShape |
 | internal/api | HTTPServer.Serve | TestTDDServerServeAndShutdown |
 | internal/api | HTTPServer.Shutdown | TestTDDServerServeAndShutdown |
 | internal/app | NewApplication | TestTDDApplicationStartupAndShutdownOrder |

@@ -1,6 +1,6 @@
 import { useMutation } from '../../../use-mutation';
 import { useErrorToast } from '../../../error-toasts';
-import type { SandboxView } from '../../../sandbox-types';
+import type { SandboxView } from '@molr/sdk';
 import { GrantEditor } from './GrantEditor';
 import { fullAccessLabel } from './PermissionTargetFields';
 import { ConstraintsSummary, ResourceQuotaUsage } from './ResourceConstraints';

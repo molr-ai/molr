@@ -1,4 +1,4 @@
-import type { GPUDevice } from '../../../sandbox-types';
+import type { GPUDevice } from '@molr/sdk';
 import { gpuName } from '../../../gpu';
 import { useCopy } from '../../../state';
 

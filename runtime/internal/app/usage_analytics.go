@@ -3,8 +3,8 @@ package app
 import (
 	"context"
 	"math"
+	"molr.ai/runtime/internal/accountview"
 	"molr.ai/runtime/internal/agent/model"
-	"molr.ai/runtime/internal/api"
 	"molr.ai/runtime/internal/auth"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
@@ -15,41 +15,10 @@ import (
 	"time"
 )
 
-type analyticsTotals struct {
-	ReferenceCalls                                               int64
-	InputTokens, OutputTokens, CachedTokens, TotalTokens         int64
-	ModelCalls, MissingTokenCalls, UnknownCostCalls, ActiveCalls int64
-	Spent                                                        []core.Money
+func emptyAnalytics() accountview.AnalyticsTotals {
+	return accountview.AnalyticsTotals{Spent: []core.Money{}}
 }
-type analyticsRow struct {
-	ID                     core.ID
-	Name, Secondary, State string
-	analyticsTotals
-}
-type analyticsDay struct {
-	Date string
-	analyticsTotals
-}
-type analyticsOption struct {
-	ID                     core.ID
-	Name, Secondary, State string
-}
-type analyticsOptions struct{ Assistants, Models, Users, Groups []analyticsOption }
-type analyticsView struct {
-	From, Until, Timezone     string
-	AsOf                      time.Time
-	Currency                  string
-	Rates                     pricing.ExchangeSnapshot
-	Summary                   analyticsTotals
-	ActiveDays, ActiveUsers   int
-	Daily                     []analyticsDay
-	Rows                      []analyticsRow
-	TotalRows, Page, PageSize int
-	Options                   analyticsOptions
-}
-
-func emptyAnalytics() analyticsTotals { return analyticsTotals{Spent: []core.Money{}} }
-func (a *analyticsTotals) add(b analyticsTotals) error {
+func addAnalytics(a *accountview.AnalyticsTotals, b accountview.AnalyticsTotals) error {
 	for _, pair := range []struct {
 		to    *int64
 		value int64
@@ -81,8 +50,8 @@ func (a *analyticsTotals) add(b analyticsTotals) error {
 	sort.Slice(a.Spent, func(i, j int) bool { return a.Spent[i].Currency < a.Spent[j].Currency })
 	return nil
 }
-func usageAnalytics(ctx context.Context, store persistence.Store, identity *auth.Manager, p core.Principal, q api.UsageQuery, admin bool, currency string, rates pricing.ExchangeSnapshot) (analyticsView, error) {
-	out := analyticsView{AsOf: time.Now().UTC(), Currency: currency, Rates: rates, Summary: emptyAnalytics(), Daily: []analyticsDay{}, Rows: []analyticsRow{}, Page: q.Page, PageSize: 20, Options: analyticsOptions{Assistants: []analyticsOption{}, Models: []analyticsOption{}, Users: []analyticsOption{}, Groups: []analyticsOption{}}}
+func usageAnalytics(ctx context.Context, store persistence.Store, identity *auth.Manager, p core.Principal, q accountview.UsageQuery, admin bool, currency string, rates pricing.ExchangeSnapshot) (accountview.AnalyticsView, error) {
+	out := accountview.AnalyticsView{AsOf: time.Now().UTC(), Currency: currency, Rates: rates, Summary: emptyAnalytics(), Daily: []accountview.AnalyticsDay{}, Rows: []accountview.AnalyticsRow{}, Page: q.Page, PageSize: 20, Options: accountview.AnalyticsOptions{Assistants: []accountview.AnalyticsOption{}, Models: []accountview.AnalyticsOption{}, Users: []accountview.AnalyticsOption{}, Groups: []accountview.AnalyticsOption{}}}
 	if admin {
 		if err := identity.RequireAdministrator(ctx, p); err != nil {
 			return out, err
@@ -143,7 +112,7 @@ func usageAnalytics(ctx context.Context, store persistence.Store, identity *auth
 	for d := from; d.Before(until); d = d.AddDate(0, 0, 1) {
 		key := d.Format("2006-01-02")
 		dayIndex[key] = len(out.Daily)
-		out.Daily = append(out.Daily, analyticsDay{key, emptyAnalytics()})
+		out.Daily = append(out.Daily, accountview.AnalyticsDay{key, emptyAnalytics()})
 	}
 	err = store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		users := []auth.UserInfo{}
@@ -165,7 +134,7 @@ func usageAnalytics(ctx context.Context, store persistence.Store, identity *auth
 				return e
 			}
 			for _, g := range groups {
-				out.Options.Groups = append(out.Options.Groups, analyticsOption{ID: g.ID, Name: g.Name})
+				out.Options.Groups = append(out.Options.Groups, accountview.AnalyticsOption{ID: g.ID, Name: g.Name})
 			}
 		} else {
 			u, e := identity.CurrentUser(ctx, p)
@@ -178,9 +147,9 @@ func usageAnalytics(ctx context.Context, store persistence.Store, identity *auth
 		for _, g := range out.Options.Groups {
 			groups[g.ID] = g.Name
 		}
-		assistants := map[core.ID]analyticsOption{}
+		assistants := map[core.ID]accountview.AnalyticsOption{}
 		if !admin {
-			items, e := persistence.Select[analyticsOption](ctx, tx.Store(), "business.assistants", persistence.Query{Fields: []string{"ID", "Name", "State"}, Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID)}})
+			items, e := persistence.Select[accountview.AnalyticsOption](ctx, tx.Store(), "business.assistants", persistence.Query{Fields: []string{"ID", "Name", "State"}, Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID)}})
 			if e != nil {
 				return e
 			}
@@ -188,8 +157,8 @@ func usageAnalytics(ctx context.Context, store persistence.Store, identity *auth
 				assistants[a.ID] = a
 			}
 		}
-		models := map[core.ID]analyticsOption{}
-		rows := map[core.ID]*analyticsRow{}
+		models := map[core.ID]accountview.AnalyticsOption{}
+		rows := map[core.ID]*accountview.AnalyticsRow{}
 		activeUsers := map[core.ID]bool{}
 		seenAssistants := map[core.ID]bool{}
 		for _, u := range users {
@@ -198,7 +167,7 @@ func usageAnalytics(ctx context.Context, store persistence.Store, identity *auth
 				name = u.Username
 			}
 			if admin {
-				out.Options.Users = append(out.Options.Users, analyticsOption{ID: u.ID, Name: name, Secondary: u.Username})
+				out.Options.Users = append(out.Options.Users, accountview.AnalyticsOption{ID: u.ID, Name: name, Secondary: u.Username})
 			}
 			if (q.UserID != "" && q.UserID != u.ID) || (q.GroupID != "" && q.GroupID != u.GroupID) || !strings.Contains(strings.ToLower(name+" "+u.Username), strings.ToLower(strings.TrimSpace(q.Search))) {
 				continue
@@ -226,7 +195,7 @@ func usageAnalytics(ctx context.Context, store persistence.Store, identity *auth
 					label = string(r.ModelID)
 				}
 				if r.ModelID != "" {
-					models[r.ModelID] = analyticsOption{ID: r.ModelID, Name: label}
+					models[r.ModelID] = accountview.AnalyticsOption{ID: r.ModelID, Name: label}
 				}
 				if !admin {
 					seenAssistants[r.AssistantID] = true
@@ -257,11 +226,11 @@ func usageAnalytics(ctx context.Context, store persistence.Store, identity *auth
 				} else {
 					value.UnknownCostCalls = 1
 				}
-				if e = out.Summary.add(value); e != nil {
+				if e = addAnalytics(&out.Summary, value); e != nil {
 					return e
 				}
 				day := r.CreatedAt.In(loc).Format("2006-01-02")
-				if e = out.Daily[dayIndex[day]].add(value); e != nil {
+				if e = addAnalytics(&out.Daily[dayIndex[day]].AnalyticsTotals, value); e != nil {
 					return e
 				}
 				activeUsers[u.ID] = true
@@ -284,9 +253,9 @@ func usageAnalytics(ctx context.Context, store persistence.Store, identity *auth
 					id, rowName = u.GroupID, groups[u.GroupID]
 				}
 				if rows[id] == nil {
-					rows[id] = &analyticsRow{ID: id, Name: rowName, Secondary: secondary, State: state, analyticsTotals: emptyAnalytics()}
+					rows[id] = &accountview.AnalyticsRow{ID: id, Name: rowName, Secondary: secondary, State: state, AnalyticsTotals: emptyAnalytics()}
 				}
-				if e = rows[id].add(value); e != nil {
+				if e = addAnalytics(&rows[id].AnalyticsTotals, value); e != nil {
 					return e
 				}
 			}
@@ -294,7 +263,7 @@ func usageAnalytics(ctx context.Context, store persistence.Store, identity *auth
 		for id := range seenAssistants {
 			a, ok := assistants[id]
 			if !ok {
-				a = analyticsOption{ID: id, Name: string(id), State: "deleted"}
+				a = accountview.AnalyticsOption{ID: id, Name: string(id), State: "deleted"}
 			}
 			out.Options.Assistants = append(out.Options.Assistants, a)
 		}
@@ -315,7 +284,7 @@ func usageAnalytics(ctx context.Context, store persistence.Store, identity *auth
 			out.ActiveDays++
 		}
 	}
-	for _, items := range [][]analyticsOption{out.Options.Assistants, out.Options.Models, out.Options.Users, out.Options.Groups} {
+	for _, items := range [][]accountview.AnalyticsOption{out.Options.Assistants, out.Options.Models, out.Options.Users, out.Options.Groups} {
 		sort.Slice(items, func(i, j int) bool {
 			if items[i].Name == items[j].Name {
 				return items[i].ID < items[j].ID

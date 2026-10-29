@@ -11,8 +11,8 @@ import { ModalPresence, Alert, Badge, Button, Progress, DropdownMenu, IconButton
 import type { MenuItem } from '@molr/ui';
 import { Cpu, Ellipsis, Globe, HardDrive, Pencil, Plus, RefreshCw, Server, ShieldCheck, Unplug, Users } from 'lucide-react';
 import type { Assistant, Grant, Resource } from '@molr/sdk';
-import type { SandboxInfo, SandboxKind, SandboxResourceDetail, SandboxView } from '../../../sandbox-types';
-export type { SandboxView } from '../../../sandbox-types';
+import type { SandboxInfo, SandboxKind, SandboxResourceDetail, SandboxView } from '@molr/sdk';
+export type { SandboxView } from '@molr/sdk';
 import { onMutation } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
 import { sandboxResourceName, useSandboxCopy } from '../../../sandbox-copy';

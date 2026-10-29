@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"molr.ai/runtime/internal/agent"
 	"net/http/httptest"
 	"net/url"
 	"os"
@@ -58,7 +59,7 @@ func TestSkillsCatalogScopesAndReadOnlyContent(t *testing.T) {
 	if response.Code != 200 {
 		t.Fatalf("catalog: %d %s", response.Code, response.Body.String())
 	}
-	var catalog skillsCatalog
+	var catalog agent.SkillsCatalog
 	need(t, json.Unmarshal(response.Body.Bytes(), &catalog))
 	if len(catalog.Items) != 4 || len(catalog.Assistants) != 2 {
 		t.Fatalf("wrong scope: %+v", catalog)
@@ -97,7 +98,7 @@ func TestSkillsCatalogScopesAndReadOnlyContent(t *testing.T) {
 		t.Fatal("unauthenticated catalog")
 	}
 	ad := adapters{store: b.store, dataDir: cfg.DataDir, storageConfig: cfg.Sandbox}
-	if _, err := inspectSkills(t.Context(), ad, core.Principal{Kind: core.ActorAssistant, OwnerID: p.OwnerID, SubjectID: "alpha"}, "", ""); err == nil {
+	if _, err := listSkills(t.Context(), ad, core.Principal{Kind: core.ActorAssistant, OwnerID: p.OwnerID, SubjectID: "alpha"}); err == nil {
 		t.Fatal("assistant principal accepted")
 	}
 	// Inspection must neither write nor activate the skill; external edits appear on refresh.

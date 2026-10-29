@@ -51,6 +51,14 @@ func shellNeedsReminder(t Task) bool {
 	return t.Kind != "watcher" && t.Mode != "foreground" && (t.Terminal == nil || t.Terminal.Control == "assistant")
 }
 
+// TerminalRequest selects a resource and an idempotent startup identity.
+type TerminalRequest struct {
+	RequestID  core.ID `json:"request_id"`
+	ClientID   string  `json:"client_id"`
+	ComputeID  core.ID `json:"compute_id"`
+	FullAccess bool    `json:"full_access"`
+}
+
 func (s *Manager) StartTerminal(ctx context.Context, p core.Principal, id core.ID, raw json.RawMessage) (json.RawMessage, error) {
 	if err := p.RequireOwner(); err != nil {
 		return nil, err
@@ -58,12 +66,7 @@ func (s *Manager) StartTerminal(ctx context.Context, p core.Principal, id core.I
 	if err := s.host.CheckAssistant(ctx, p, id); err != nil {
 		return nil, err
 	}
-	var q struct {
-		RequestID  core.ID `json:"request_id"`
-		ClientID   string  `json:"client_id"`
-		ComputeID  core.ID `json:"compute_id"`
-		FullAccess bool    `json:"full_access"`
-	}
+	var q TerminalRequest
 	d := json.NewDecoder(bytes.NewReader(raw))
 	d.DisallowUnknownFields()
 	if len(raw) > 4096 || d.Decode(&q) != nil || q.RequestID.Validate() != nil || q.ComputeID.Validate() != nil || q.ClientID == "" || len(q.ClientID) > 128 || p.SessionID == "" {

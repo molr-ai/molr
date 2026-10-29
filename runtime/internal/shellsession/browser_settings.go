@@ -22,12 +22,12 @@ type browserSettingsRecord struct {
 	Proxy       browser.ProxySummary
 	Credentials []byte
 }
-type browserSettingsView struct {
+type BrowserSettingsView struct {
 	browser.ProxySummary
 	Username           string
 	PasswordConfigured bool
 }
-type browserSettingsRequest struct {
+type BrowserSettingsRequest struct {
 	Mode           string
 	Server         string
 	Bypass         []string
@@ -71,59 +71,59 @@ func (s *Manager) loadBrowserProxy(ctx context.Context) (browser.Proxy, error) {
 	}
 	return p, nil
 }
-func proxySettingsView(p browser.Proxy) browserSettingsView {
-	return browserSettingsView{ProxySummary: p.ProxySummary, Username: p.Username, PasswordConfigured: p.Authentication}
+func proxySettingsView(p browser.Proxy) BrowserSettingsView {
+	return BrowserSettingsView{ProxySummary: p.ProxySummary, Username: p.Username, PasswordConfigured: p.Authentication}
 }
-func (s *Manager) BrowserSettings(ctx context.Context, p core.Principal, raw json.RawMessage) (any, error) {
+func (s *Manager) BrowserSettings(ctx context.Context, p core.Principal, raw json.RawMessage) (BrowserSettingsView, error) {
 	manager, ok := s.identity.(interface {
 		RequireAdministrator(context.Context, core.Principal) error
 	})
 	if !ok {
-		return nil, core.NewError(core.Unavailable, "browser settings unavailable")
+		return BrowserSettingsView{}, core.NewError(core.Unavailable, "browser settings unavailable")
 	}
 	if err := manager.RequireAdministrator(ctx, p); err != nil {
-		return nil, err
+		return BrowserSettingsView{}, err
 	}
 	current, err := s.loadBrowserProxy(ctx)
 	if err != nil {
-		return nil, err
+		return BrowserSettingsView{}, err
 	}
 	if len(raw) == 0 {
 		return proxySettingsView(current), nil
 	}
-	var q browserSettingsRequest
+	var q BrowserSettingsRequest
 	d := json.NewDecoder(bytes.NewReader(raw))
 	d.DisallowUnknownFields()
 	if len(raw) > 16<<10 || d.Decode(&q) != nil || d.Decode(new(any)) != io.EOF {
-		return nil, core.Invalid("settings", "invalid browser settings")
+		return BrowserSettingsView{}, core.Invalid("settings", "invalid browser settings")
 	}
 	if q.Version != current.Version {
-		return nil, core.NewError(core.Conflict, "browser settings changed; reload before saving")
+		return BrowserSettingsView{}, core.NewError(core.Conflict, "browser settings changed; reload before saving")
 	}
 	next := browser.Proxy{ProxySummary: browser.ProxySummary{Mode: q.Mode, Server: strings.TrimSpace(q.Server), Bypass: q.Bypass, Version: q.Version + 1}, Username: q.Username}
 	switch q.PasswordAction {
 	case "keep":
 		if q.Password != "" || q.Username != current.Username || q.Mode == "proxy" && current.Authentication && next.Server != current.Server {
-			return nil, core.Invalid("password", "re-enter credentials when changing the proxy server or username")
+			return BrowserSettingsView{}, core.Invalid("password", "re-enter credentials when changing the proxy server or username")
 		}
 		next.Password = current.Password
 	case "replace":
 		next.Password = q.Password
 	case "clear":
 		if q.Password != "" || q.Username != "" {
-			return nil, core.Invalid("password", "clear both username and password")
+			return BrowserSettingsView{}, core.Invalid("password", "clear both username and password")
 		}
 	default:
-		return nil, core.Invalid("password_action", "keep, replace or clear required")
+		return BrowserSettingsView{}, core.Invalid("password_action", "keep, replace or clear required")
 	}
 	if next.Bypass == nil {
 		next.Bypass = []string{}
 	}
 	if err := next.Validate(); err != nil {
-		return nil, core.Invalid("proxy", err.Error())
+		return BrowserSettingsView{}, core.Invalid("proxy", err.Error())
 	}
 	if err := s.host.VerifyProxy(ctx, p, auth.Verification{Token: core.NewSecret(q.Verification)}); err != nil {
-		return nil, err
+		return BrowserSettingsView{}, err
 	}
 	row := browserSettingsRecord{Proxy: next.ProxySummary}
 	if next.Authentication {
@@ -132,7 +132,7 @@ func (s *Manager) BrowserSettings(ctx context.Context, p core.Principal, raw jso
 		box := s.host.ProxyCipher()
 		nonce := make([]byte, box.NonceSize())
 		if _, err = rand.Read(nonce); err != nil {
-			return nil, err
+			return BrowserSettingsView{}, err
 		}
 		row.Credentials = box.Seal(nonce, nonce, secret, browserSettingsAAD)
 	}
@@ -148,7 +148,7 @@ func (s *Manager) BrowserSettings(ctx context.Context, p core.Principal, raw jso
 		return tx.Put(ctx, browserSettingsBucket, browserSettingsKey, row)
 	})
 	if err != nil {
-		return nil, err
+		return BrowserSettingsView{}, err
 	}
 	return proxySettingsView(next), nil
 }

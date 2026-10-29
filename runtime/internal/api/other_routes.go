@@ -103,10 +103,20 @@ func (s *HTTPServer) routes() {
 }
 func (s *HTTPServer) otherRoutes() {
 	s.handle("GET /api/skills", func(r *http.Request) (any, error) {
-		if s.options.Skills == nil {
+		if s.options.SkillsCatalog == nil || s.options.Skill == nil {
 			return nil, core.NewError(core.Unavailable, "skills unavailable")
 		}
-		return s.options.Skills(r.Context(), principal(r), queryID(r, "assistant_id"), r.URL.Query().Get("path"))
+		if err := principal(r).RequireOwner(); err != nil {
+			return nil, err
+		}
+		id, path := queryID(r, "assistant_id"), r.URL.Query().Get("path")
+		if path != "" {
+			return s.options.Skill(r.Context(), principal(r), id, path)
+		}
+		if id != "" {
+			return nil, core.Invalid("assistant_id", "assistant_id requires a skill path")
+		}
+		return s.options.SkillsCatalog(r.Context(), principal(r))
 	})
 	s.handle("GET /api/setup", func(r *http.Request) (any, error) {
 		if s.options.Setup == nil {

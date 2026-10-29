@@ -3,7 +3,7 @@ import { usesNetworkToggle } from '../../../sandbox-types';
 import { useErrorToast } from '../../../error-toasts';
 import { PermissionTargetFields, fullAccessLabel, isSandboxResource, targetFor } from './PermissionTargetFields';
 import type { PermissionTarget } from './PermissionTargetFields';
-import type { SandboxView } from '../../../sandbox-types';
+import type { SandboxView } from '@molr/sdk';
 import { initialActions, initialConstraints } from './GrantEditor';
 import { ConstraintsEditor, constraintsForNode, ConstraintsSummary, TemporaryConstraintsEditor, suggestedConstraints } from './ResourceConstraints';
 import type { PermissionRequestInput } from '@molr/sdk';

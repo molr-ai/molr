@@ -16,6 +16,8 @@ Updated: 2026-10-03. Status: The monolithic Runtime is connected to real impleme
 
 Authorization, atomicity, and recovery rules in interface comments are contracts that specific implementations must satisfy. Each module is connected to real implementations; the existence of interfaces or complete test mappings does not mean all execution branches have been verified; see module tests for verification scope.
 
+Fixed HTTP composition responses use concrete types owned by their domain: `accountview` defines account catalog, quota and usage read models; `business/resource` owns model discovery; `im/conversation` owns chat-channel summaries; and `agent` defines separate skill catalog and document responses. `UsageQuery` belongs to the account read model and does not depend on the HTTP package. The HTTP adapter decodes browser and shell-session requests, preserving size limits and unknown-field rejection. Terminal startup and browser-proxy settings decode after domain authorization to retain rejection order. The session module still checks identity, authorization, idempotent startup identity and versions. Dynamic browser and terminal results and stream frames retain their raw JSON protocol. `TestHTTPDecodesSessionRequestsBeforeInvokingServices` and `TestTypedReadModelsPreserveJSONShape` verify request boundaries and response fields, empty values and errors.
+
 ## 2. IM
 
 | Package | Exported Interfaces | Core Responsibilities |

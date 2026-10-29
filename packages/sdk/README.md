@@ -5,6 +5,8 @@ Framework-independent Runtime client and UI host contract. No React or @molr/ui 
 - `@molr/sdk`: APIError, createClient, default browser api, DTOs, resumable subscribeRuntime.
 - `@molr/sdk/ui`: theme manifest, route and shared draft types.
 
+Sandbox, GPU, account administration, quota and usage-analytics DTOs are exported from `@molr/sdk`; their source modules are `sandbox.ts`, `administration.ts` and `usage.ts`. Application modules own display helpers and local state, not copies of these protocol types.
+
 The direct client authenticates with same-origin cookies/CSRF. Runtime responses identify the active proof cookie through `X-Molr-CSRF-Cookie`; the development proxy rewrites its port together with `Set-Cookie`. Clients read only that cookie, including after reloads and cross-tab session rotation, and never fall back to stale cookies from another transport mode. A first authenticated write discovers the cookie through `/api/auth/me` if needed; login continues to use its explicit pre-login proof. Sandboxed plugin pages use `connectPlugin()` and named capability-scoped operations; credentials never enter the frame.
 
 Business writes use `api.mutate(path, body, { idempotencyKey, expectedVersion })`. The caller owns the key for one logical operation: retain it across uncertain failures and retries, replace it for new operations or changed inputs, and release it on completion or abandonment. The client does not cache request bodies or infer retries from equal payloads. WebUI forms use `useMutation` with explicit input dependencies; immediate settings changes restore/reconcile state after failure and treat a later selection as a new operation.

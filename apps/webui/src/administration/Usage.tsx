@@ -2,7 +2,7 @@ import { ChevronDown } from 'lucide-react';
 import { UsageAnalytics } from './UsageAnalytics';
 import { useErrorToast } from '../error-toasts';
 import { usePluginsVisible, pluginResourceVisible } from '../plugins/visibility';
-import type { GPUDevice, SandboxView } from '../sandbox-types';
+import type { GPUDevice, SandboxView } from '@molr/sdk';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Badge, Button, Progress, Select } from '@molr/ui';
@@ -11,7 +11,7 @@ import { useCopy, useQuery } from '../state';
 import { Empty, Loading } from '../interfaces/official/components/common';
 import { MoneyText } from '../interfaces/official/components/Money';
 import { ConstraintsSummary } from '../interfaces/official/features/ResourceConstraints';
-import type { AccountQuotas, AdminUsageView, ContextStorageUsage, ResourceReference, UsageSummary } from './types';
+import type { AccountQuotas, AdminUsageView, ContextStorageUsage, ResourceReference, UsageSummary } from '@molr/sdk';
 import { groupName } from './types';
 import './usage.css';
 

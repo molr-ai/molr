@@ -5,7 +5,7 @@ import { Bot, ChevronLeft, ChevronRight, GripHorizontal, PanelRight, PictureInPi
 import { api, APIError, mutationKey } from '@molr/sdk';
 import type { Grant, Resource, ShellTask } from '@molr/sdk';
 import { useErrorToast, useErrorToasts } from '../../../error-toasts';
-import type { SandboxInfo } from '../../../sandbox-types';
+import type { SandboxInfo } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
 import { terminalClient, TerminalSession } from './TerminalSession';
 import { TerminalThemePicker, useTerminalTheme } from './terminalTheme';

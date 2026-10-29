@@ -3,6 +3,8 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"molr.ai/runtime/internal/agent/tools"
+	"molr.ai/runtime/internal/browser"
 	"molr.ai/runtime/internal/core"
 	"net/http"
 	"strings"
@@ -35,7 +37,7 @@ func (s *HTTPServer) browserRoutes() {
 		if s.options.Browser == nil {
 			return nil, core.NewError(core.Unavailable, "browser unavailable")
 		}
-		return s.options.Browser(r.Context(), principal(r), id, json.RawMessage(`{"action":"status"}`))
+		return s.options.Browser(r.Context(), principal(r), id, tools.BrowserRequest{Action: browser.Action{Action: "status"}})
 	})
 	s.handle("POST /api/assistants/{id}/browser", func(r *http.Request) (any, error) {
 		id, err := pathID(r)
@@ -49,7 +51,11 @@ func (s *HTTPServer) browserRoutes() {
 		if err != nil {
 			return nil, err
 		}
-		result, err := s.options.Browser(r.Context(), principal(r), id, raw)
+		q, err := tools.ParseBrowser(raw)
+		if err != nil {
+			return nil, err
+		}
+		result, err := s.options.Browser(r.Context(), principal(r), id, q)
 		return result, maintenanceError(err)
 	})
 	s.mux.HandleFunc("GET /api/assistants/{id}/browser/stream", func(w http.ResponseWriter, r *http.Request) {

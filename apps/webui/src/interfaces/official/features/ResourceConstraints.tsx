@@ -4,7 +4,7 @@ import { gpuName } from '../../../gpu';
 import { Checkbox, DateTimePicker, Select, TextField } from '@molr/ui';
 import type { ResourceConstraints, TemporaryConstraints } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
-import type { GPUDevice, SandboxInfo } from '../../../sandbox-types';
+import type { GPUDevice, SandboxInfo } from '@molr/sdk';
 export function suggestedConstraints(kind: string, native = false): ResourceConstraints | undefined {
  if(native) { if(kind==='compute') return {compute:{cpu_percent:0,memory_bytes:0,processes:0,temp_bytes:0,max_duration_seconds:1800,unlimited_duration:false}}; return undefined; }
  if(kind==='compute')return {compute:{cpu_percent:100,memory_bytes:512*1048576,processes:64,max_duration_seconds:1800,unlimited_duration:false,temp_bytes:64*1048576}};

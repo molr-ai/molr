@@ -7,7 +7,7 @@ import { useCurrency } from '../interfaces/official/components/Money';
 import { Empty, Loading } from '../interfaces/official/components/common';
 import { UsageCalendar } from './UsageCalendar';
 import { amountLabel, amountMicros, calendarDate, compactTokens, dateAdd } from './usage-analytics';
-import type { UsageAnalyticsView, UsageOption, UsageRow } from './usage-analytics';
+import type { UsageAnalyticsView, UsageOption, UsageRow } from '@molr/sdk';
 import type { TableColumn } from '@molr/ui';
 import { groupName } from './types';
 import './usage-analytics.css';

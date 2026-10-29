@@ -12,7 +12,7 @@ import { useNavigation } from '../navigation';
 import { Confirm, EditDialog, Empty, Loading, PageHeader, micros } from '../interfaces/official/components/common';
 import { ConstraintsEditor, suggestedConstraints } from '../interfaces/official/features/ResourceConstraints';
 import { emptyQuota, groupName } from './types';
-import type { CatalogItem, ResourceQuota, ResourceReference, UserGroup, UserInfo } from './types';
+import type { CatalogItem, ResourceQuota, ResourceReference, UserGroup, UserInfo } from '@molr/sdk';
 import '../interfaces/official/features/settings.css';
 import './administration.css';
 

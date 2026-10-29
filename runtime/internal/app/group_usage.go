@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"molr.ai/runtime/internal/accountview"
 	"time"
 
 	"molr.ai/runtime/internal/agent/tools"
@@ -69,18 +70,8 @@ func checkGroupToolQuota(ctx context.Context, store persistence.Store, call tool
 	return quota.CheckCalls(used, ref.Quota.Calls, ref.Quota.Concurrent)
 }
 
-type userUsageSummary struct {
-	UserID                                                  core.ID
-	Username, DisplayName                                   string
-	GroupID                                                 core.ID
-	ModelCalls, ToolCalls, ConnectionCalls, AttachmentBytes int64
-	UserMessages                                            int64
-	Active, Unknown                                         int
-	Spent, Reserved                                         []core.Money
-}
-
-func userUsage(ctx context.Context, store persistence.Store, u auth.UserInfo) (userUsageSummary, error) {
-	out := userUsageSummary{UserID: u.ID, Username: u.Username, DisplayName: u.DisplayName, GroupID: u.GroupID, Spent: []core.Money{}, Reserved: []core.Money{}}
+func userUsage(ctx context.Context, store persistence.Store, u auth.UserInfo) (accountview.UsageSummary, error) {
+	out := accountview.UsageSummary{UserID: u.ID, Username: u.Username, DisplayName: u.DisplayName, GroupID: u.GroupID, Spent: []core.Money{}, Reserved: []core.Money{}}
 	models, err := quota.ModelTotals(ctx, store, u.ID, "", time.Time{}, time.Time{})
 	if err != nil {
 		return out, err
@@ -110,16 +101,11 @@ func userUsage(ctx context.Context, store persistence.Store, u auth.UserInfo) (u
 	return out, err
 }
 
-type adminUsageView struct {
-	Users          []userUsageSummary
-	ContextStorage contextstore.Usage
-}
-
-func adminUsage(ctx context.Context, store persistence.Store, identity *auth.Manager, p core.Principal) (adminUsageView, error) {
+func adminUsage(ctx context.Context, store persistence.Store, identity *auth.Manager, p core.Principal) (accountview.AdminUsage, error) {
 	if err := identity.RequireAdministrator(ctx, p); err != nil {
-		return adminUsageView{}, err
+		return accountview.AdminUsage{}, err
 	}
-	out := adminUsageView{Users: []userUsageSummary{}}
+	out := accountview.AdminUsage{Users: []accountview.UsageSummary{}}
 	err := store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		page := core.PageRequest{Limit: 200}
 		for {

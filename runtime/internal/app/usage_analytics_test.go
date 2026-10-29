@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"molr.ai/runtime/internal/accountview"
 	"molr.ai/runtime/internal/agent/model"
-	"molr.ai/runtime/internal/api"
 	"molr.ai/runtime/internal/auth"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
@@ -50,8 +50,8 @@ func TestUsageAnalyticsCalendarScopeAndEvidence(t *testing.T) {
 	need(t, f.b.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		return tx.Put(ctx, "business.assistants", persistence.Key(f.alice.OwnerID, "dismissed"), map[string]any{"OwnerID": f.alice.OwnerID, "ID": "dismissed", "Name": "Private assistant title", "State": "dismissed"})
 	}))
-	q := api.UsageQuery{From: "2026-10-01", Until: "2026-10-03", Timezone: "Asia/Shanghai", GroupBy: "assistant", Page: 1}
-	run := func(q api.UsageQuery, admin bool) analyticsView {
+	q := accountview.UsageQuery{From: "2026-10-01", Until: "2026-10-03", Timezone: "Asia/Shanghai", GroupBy: "assistant", Page: 1}
+	run := func(q accountview.UsageQuery, admin bool) accountview.AnalyticsView {
 		t.Helper()
 		p := f.alice
 		if admin {
@@ -117,7 +117,7 @@ func TestUsageAnalyticsValidationDSTAndPagination(t *testing.T) {
 	f := newMultiUserFixture(t)
 	m := f.b.Services.Auth.(*auth.Manager)
 	ctx := t.Context()
-	base := api.UsageQuery{From: "2026-03-08", Until: "2026-03-09", Timezone: "America/New_York", GroupBy: "assistant", Page: 1}
+	base := accountview.UsageQuery{From: "2026-03-08", Until: "2026-03-09", Timezone: "America/New_York", GroupBy: "assistant", Page: 1}
 	putAnalyticsCall(t, f, f.alice.OwnerID, "before", "before", "settled", "2026-03-08T04:59:59.999999999Z", "USD", 1, 1, 0, 0)
 	putAnalyticsCall(t, f, f.alice.OwnerID, "start", "start", "settled", "2026-03-08T05:00:00Z", "USD", 2, 2, 0, 0)
 	putAnalyticsCall(t, f, f.alice.OwnerID, "end", "end", "settled", "2026-03-09T03:59:59.999999999Z", "USD", 3, 3, 0, 0)
@@ -127,7 +127,7 @@ func TestUsageAnalyticsValidationDSTAndPagination(t *testing.T) {
 	if v.Summary.TotalTokens != 5 || len(v.Daily) != 1 {
 		t.Fatal(v)
 	}
-	for _, change := range []func(*api.UsageQuery){func(q *api.UsageQuery) { q.Timezone = "invalid" }, func(q *api.UsageQuery) { q.Until = "2028-01-01" }, func(q *api.UsageQuery) { q.From = "2026-02-30" }, func(q *api.UsageQuery) { q.Day = "2026-03-09" }, func(q *api.UsageQuery) { q.GroupBy = "user" }, func(q *api.UsageQuery) { q.UserID = f.bob.OwnerID }, func(q *api.UsageQuery) { q.Sort = "bad" }} {
+	for _, change := range []func(*accountview.UsageQuery){func(q *accountview.UsageQuery) { q.Timezone = "invalid" }, func(q *accountview.UsageQuery) { q.Until = "2028-01-01" }, func(q *accountview.UsageQuery) { q.From = "2026-02-30" }, func(q *accountview.UsageQuery) { q.Day = "2026-03-09" }, func(q *accountview.UsageQuery) { q.GroupBy = "user" }, func(q *accountview.UsageQuery) { q.UserID = f.bob.OwnerID }, func(q *accountview.UsageQuery) { q.Sort = "bad" }} {
 		q := base
 		change(&q)
 		if _, e := usageAnalytics(ctx, f.b.store, m, f.alice, q, false, "USD", f.b.Exchange.Snapshot()); e == nil {
@@ -176,7 +176,7 @@ func TestSubscriptionValuationReusesLedgerAndLabelsTotals(t *testing.T) {
 		receipt.PricingInfo = &model.PricingInfo{Basis: "subscription-reference"}
 		return tx.Put(ctx, "agent.model_receipts", persistence.Key(f.alice.OwnerID, receipt.ID), receipt)
 	}))
-	result, err := usageAnalytics(ctx, f.b.store, f.b.Services.Auth.(*auth.Manager), f.alice, api.UsageQuery{From: "2026-10-01", Until: "2026-10-03", Timezone: "UTC", GroupBy: "model", Page: 1}, false, "USD", f.b.Exchange.Snapshot())
+	result, err := usageAnalytics(ctx, f.b.store, f.b.Services.Auth.(*auth.Manager), f.alice, accountview.UsageQuery{From: "2026-10-01", Until: "2026-10-03", Timezone: "UTC", GroupBy: "model", Page: 1}, false, "USD", f.b.Exchange.Snapshot())
 	need(t, err)
 	if result.Summary.ReferenceCalls != 1 || result.Rows[0].ReferenceCalls != 1 || result.Daily[1].ReferenceCalls != 1 || result.Summary.Spent[0].Micros != 42 || result.Summary.TotalTokens != 12 {
 		t.Fatalf("reference valuation was lost: %+v", result.Summary)
@@ -206,7 +206,7 @@ func TestUsageAnalyticsOmitsEmptyModelOptionButPreservesTotals(t *testing.T) {
 		receipt.ModelName = ""
 		return tx.Put(ctx, "agent.model_receipts", key, receipt)
 	}))
-	q := api.UsageQuery{From: "2026-10-01", Until: "2026-10-02", GroupBy: "model"}
+	q := accountview.UsageQuery{From: "2026-10-01", Until: "2026-10-02", GroupBy: "model"}
 	got, err := usageAnalytics(t.Context(), f.b.store, f.b.Services.Auth.(*auth.Manager), f.alice, q, false, "USD", f.b.Exchange.Snapshot())
 	need(t, err)
 	if len(got.Options.Models) != 1 || got.Options.Models[0].ID != "analytics-model" || got.Summary.ModelCalls != 2 || got.Summary.TotalTokens != 60 || got.Summary.Spent[0].Micros != 25 || len(got.Rows) != 2 {

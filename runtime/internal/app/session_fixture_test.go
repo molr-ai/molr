@@ -36,12 +36,6 @@ func taskFixture(t *testing.T) (*Bundle, core.Principal, core.Execution) {
 
 const shellTasksBucket = "sandbox.shell_tasks"
 
-type browserSettingsRequest struct {
-	Mode, Server, Username, Password, PasswordAction string
-	Bypass                                           []string
-	Version                                          uint64
-}
-
 func sessionRows(t *testing.T, s *shellsession.Manager, p core.Principal, id core.ID) []shellsession.Task {
 	t.Helper()
 	raw, err := s.Manage(t.Context(), p, id, tools.ShellTaskRequest{Action: "list"})

@@ -1,6 +1,6 @@
 import { Select } from '@molr/ui';
 import type { Model, Resource } from '@molr/sdk';
-import type { SandboxView } from '../../../sandbox-types';
+import type { SandboxView } from '@molr/sdk';
 import { fullAccessAvailable, fullAccessHelp } from '../../../full-access';
 import { useCopy } from '../../../state';
 import { useSandboxCopy } from '../../../sandbox-copy';

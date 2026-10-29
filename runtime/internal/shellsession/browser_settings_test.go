@@ -19,18 +19,18 @@ func TestBrowserProxySettingsEncryptedVersionedAndAdministratorOnly(t *testing.T
 	s := b.shellTasks
 	defaults, err := s.BrowserSettings(t.Context(), p, nil)
 	need(t, err)
-	if defaults.(browserSettingsView).Mode != "direct" {
+	if defaults.Mode != "direct" {
 		t.Fatal(defaults)
 	}
-	write := func(q browserSettingsRequest) (browserSettingsView, error) {
+	write := func(q BrowserSettingsRequest) (BrowserSettingsView, error) {
 		raw, _ := json.Marshal(q)
 		v, err := s.BrowserSettings(t.Context(), p, raw)
 		if err != nil {
-			return browserSettingsView{}, err
+			return BrowserSettingsView{}, err
 		}
-		return v.(browserSettingsView), nil
+		return v, nil
 	}
-	q := browserSettingsRequest{Mode: "proxy", Server: "http://proxy.test:8080", Username: "fixture-proxy-user", Password: "fixture-proxy-password", PasswordAction: "replace"}
+	q := BrowserSettingsRequest{Mode: "proxy", Server: "http://proxy.test:8080", Username: "fixture-proxy-user", Password: "fixture-proxy-password", PasswordAction: "replace"}
 	view, err := write(q)
 	need(t, err)
 	if view.Version != 1 || !view.PasswordConfigured {
@@ -73,7 +73,7 @@ func TestBrowserProxySettingsEncryptedVersionedAndAdministratorOnly(t *testing.T
 	if _, err = s.BrowserSettings(t.Context(), e.Principal, nil); err == nil {
 		t.Fatal("assistant read administrator credentials")
 	}
-	q = browserSettingsRequest{Mode: "direct", PasswordAction: "clear", Version: 2}
+	q = BrowserSettingsRequest{Mode: "direct", PasswordAction: "clear", Version: 2}
 	view, err = write(q)
 	need(t, err)
 	if view.Authentication || view.Username != "" {
@@ -84,7 +84,7 @@ func TestBrowserProxySettingsEncryptedVersionedAndAdministratorOnly(t *testing.T
 func TestBrowserProxyStatusUsesLaunchSnapshotAndUpdatesDiagnostics(t *testing.T) {
 	s, p, e, r := browserTaskFixture(t)
 	r.task.Browser.Proxy = browser.ProxySummary{Mode: "direct"}
-	raw, _ := json.Marshal(browserSettingsRequest{Mode: "proxy", Server: "http://proxy.test:8080", PasswordAction: "clear"})
+	raw, _ := json.Marshal(BrowserSettingsRequest{Mode: "proxy", Server: "http://proxy.test:8080", PasswordAction: "clear"})
 	_, err := s.BrowserSettings(t.Context(), p, raw)
 	need(t, err)
 	status, err := s.browserStatus(t.Context(), p, e.AssistantID)

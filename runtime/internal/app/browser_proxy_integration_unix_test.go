@@ -206,7 +206,7 @@ func testBrowserProxy(t *testing.T, full bool) {
 		need(t, err)
 		var old struct{ Version uint64 }
 		need(t, json.Unmarshal(encoded, &old))
-		q := browserSettingsRequest{Mode: "proxy", Server: server, Bypass: bypass, PasswordAction: "clear", Version: old.Version}
+		q := shellsession.BrowserSettingsRequest{Mode: "proxy", Server: server, Bypass: bypass, PasswordAction: "clear", Version: old.Version}
 		if auth {
 			q.Username = "fixture-user"
 			q.Password = "fixture-password"
