@@ -69,30 +69,25 @@ func mutate[T any](ctx context.Context, s *service, p core.Principal, action str
 			return err
 		}
 		key := persistence.Key(p.OwnerID, core.ID(action+"/"+string(id)+"/"+m.IdempotencyKey))
-		replayed, err := persistence.ReplayReceipt(ctx, tx, receiptBucket, key, digest, &result)
-		if replayed || err != nil {
-			return err
-		}
-		result, err = fn(ctx)
-		if err != nil {
-			return err
-		}
-		encoded, err := json.Marshal(result)
-		if err != nil {
-			return err
-		}
-		if action != "cleanup" {
-			target := core.Object{Kind: objectKind, ID: id}
-			auditAction := "settings." + action
-			if value, ok := any(result).(Export); ok {
-				target.ID = value.ID
-				auditAction = "settings.export.request"
+		result, err = persistence.MutateReceipt(ctx, tx, receiptBucket, key, digest, func(ctx context.Context) (T, error) {
+			value, err := fn(ctx)
+			if err != nil {
+				return value, err
 			}
-			if err := audit.NewRepository(tx.Store()).Append(ctx, audit.Record{ID: s.id(), OwnerID: p.OwnerID, SubjectID: p.SubjectID, ActorKind: p.Kind, Action: auditAction, Target: target, Outcome: audit.Succeeded, At: s.now()}); err != nil {
-				return err
+			if action != "cleanup" {
+				target := core.Object{Kind: objectKind, ID: id}
+				auditAction := "settings." + action
+				if exported, ok := any(value).(Export); ok {
+					target.ID = exported.ID
+					auditAction = "settings.export.request"
+				}
+				if err := audit.NewRepository(tx.Store()).Append(ctx, audit.Record{ID: s.id(), OwnerID: p.OwnerID, SubjectID: p.SubjectID, ActorKind: p.Kind, Action: auditAction, Target: target, Outcome: audit.Succeeded, At: s.now()}); err != nil {
+					return value, err
+				}
 			}
-		}
-		return tx.Put(ctx, receiptBucket, key, persistence.Receipt{Digest: digest, Result: encoded})
+			return value, nil
+		})
+		return err
 	})
 	return result, err
 }

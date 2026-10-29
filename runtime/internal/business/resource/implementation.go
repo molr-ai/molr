@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"molr.ai/runtime/internal/catalog"
 	"strings"
 	"time"
@@ -69,26 +68,21 @@ func mutateForTarget[T any](ctx context.Context, s *service, p core.Principal, a
 			return err
 		}
 		key := persistence.Key(p.OwnerID, core.ID(action+"/"+string(id)+"/"+m.IdempotencyKey))
-		replayed, err := persistence.ReplayReceipt(ctx, tx, receiptBucket, key, digest, &result)
-		if replayed || err != nil {
-			return err
-		}
-		result, err = fn(ctx)
-		if err != nil {
-			return err
-		}
-		encoded, err := json.Marshal(result)
-		if err != nil {
-			return err
-		}
-		target := core.Object{Kind: objectKind, ID: id}
-		if value, ok := any(result).(Resource); ok {
-			target.ID = value.ID
-		}
-		if err := audit.NewRepository(tx.Store()).Append(ctx, audit.Record{ID: s.id(), OwnerID: p.OwnerID, SubjectID: p.SubjectID, ActorKind: p.Kind, Action: "resource." + action, Target: target, Outcome: audit.Succeeded, At: s.now()}); err != nil {
-			return err
-		}
-		return tx.Put(ctx, receiptBucket, key, persistence.Receipt{Digest: digest, Result: encoded})
+		result, err = persistence.MutateReceipt(ctx, tx, receiptBucket, key, digest, func(ctx context.Context) (T, error) {
+			value, err := fn(ctx)
+			if err != nil {
+				return value, err
+			}
+			target := core.Object{Kind: objectKind, ID: id}
+			if resource, ok := any(value).(Resource); ok {
+				target.ID = resource.ID
+			}
+			if err := audit.NewRepository(tx.Store()).Append(ctx, audit.Record{ID: s.id(), OwnerID: p.OwnerID, SubjectID: p.SubjectID, ActorKind: p.Kind, Action: "resource." + action, Target: target, Outcome: audit.Succeeded, At: s.now()}); err != nil {
+				return value, err
+			}
+			return value, nil
+		})
+		return err
 	})
 	return result, err
 }

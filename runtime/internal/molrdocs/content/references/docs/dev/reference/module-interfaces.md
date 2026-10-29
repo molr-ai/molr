@@ -71,7 +71,7 @@ IM 保存 `MessageCreated` outbox，Agent 调度消费并通过业务绑定找�
 
 | 包 | 主要导出接口／类型 |
 | --- | --- |
-| `app` | `Application`、`Dependencies.Validate`：生命周期与组合检查 |
+| `app` | `Application`、`Dependencies.Validate`：生命周期与组合检查；`NewApplication` 在构造时接收完整 `LifecycleHooks`，命令任务启动与清理须成对提供 |
 | `shellsession` | `Manager` 管理命令、终端、浏览器与转发的生命周期；`Host` 注入授权和执行路由，进程内能力绑定原执行身份 |
 | `filetools` | `Tools` 与能力回调：受控文件操作、媒体准备及结果归档 |
 | `workspace` | `Explorer`、`Service` 与请求／响应类型：用户工作区文件操作，注入授权根目录 |

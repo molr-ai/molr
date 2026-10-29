@@ -161,7 +161,7 @@
 | internal/api | HTTPServer.Handler | TestTDDServerHandlerAuthAndCSRFBeforeServices, TestHTTPDecodesSessionRequestsBeforeInvokingServices, TestTypedReadModelsPreserveJSONShape |
 | internal/api | HTTPServer.Serve | TestTDDServerServeAndShutdown |
 | internal/api | HTTPServer.Shutdown | TestTDDServerServeAndShutdown |
-| internal/app | NewApplication | TestTDDApplicationStartupAndShutdownOrder |
+| internal/app | NewApplication | TestTDDApplicationStartupAndShutdownOrder, TestApplicationRequiresPairedShellLifecycle |
 | internal/app | Runtime.Run | TestTDDApplicationStartupAndShutdownOrder |
 | internal/app | Runtime.Shutdown | TestTDDApplicationStartupAndShutdownOrder |
 

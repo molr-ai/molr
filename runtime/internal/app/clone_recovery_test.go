@@ -115,7 +115,7 @@ func TestCloneRecoveryAfterCopyOrCommitFailureAndRestart(t *testing.T) {
 			b = nil
 			b, err = Build(ctx, cfg)
 			need(t, err)
-			need(t, b.Application.(*Runtime).recoverCalls(ctx))
+			need(t, b.Application.(*Runtime).hooks.RecoverCalls(ctx))
 			recovered, err := assistant.NewRepository(b.store).Get(ctx, p.OwnerID, target)
 			need(t, err)
 			if recovered.State != assistant.Active {

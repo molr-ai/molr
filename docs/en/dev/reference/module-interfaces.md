@@ -71,7 +71,7 @@ Each business package provides `Service` and required `Repository`; task additio
 
 | Package | Main Exported Interfaces/Types |
 | --- | --- |
-| `app` | `Application`, `Dependencies.Validate`: Lifecycle and composition checks |
+| `app` | `Application`, `Dependencies.Validate`: lifecycle and composition checks; `NewApplication` receives complete `LifecycleHooks` at construction, with shell task startup and cleanup supplied together |
 | `shellsession` | `Manager` owns command, terminal, browser, and forwarding lifecycles; `Host` injects authorization and execution routing, with process-local capabilities bound to the original execution identity |
 | `filetools` | `Tools` and capability callbacks: confined file operations, media preparation, and result archives |
 | `workspace` | `Explorer`, `Service`, and request/response types: user workspace operations with an injected authorized root |

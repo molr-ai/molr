@@ -8,17 +8,24 @@ import (
 	"sync"
 )
 
+// LifecycleHooks supplies optional application workers and startup steps.
+// Hooks are fixed at construction. Shell task startup and cleanup are paired;
+// cleanup runs before the database closes, including after failed startup.
+type LifecycleHooks struct {
+	RefreshPrices   func(context.Context)
+	RunChannels     func(context.Context) error
+	CheckUpdates    func(context.Context)
+	CollectContexts func(context.Context)
+	CollectAuth     func(context.Context)
+	StartShellTasks func(context.Context) error
+	RecoverCalls    func(context.Context) error
+	StopShellTasks  func()
+	PrepareSandbox  func(context.Context)
+}
+
 // Runtime owns lifecycle coordination; product composition belongs to Build.
 type Runtime struct {
-	refreshPrices    func(context.Context)
-	runChannels      func(context.Context) error
-	checkUpdates     func(context.Context)
-	collectContexts  func(context.Context)
-	collectAuth      func(context.Context)
-	startShellTasks  func(context.Context) error
-	recoverCalls     func(context.Context) error
-	stopShellTasks   func()
-	prepareSandbox   func(context.Context)
+	hooks            LifecycleHooks
 	dependencies     Dependencies
 	mu               sync.Mutex
 	started, stopped bool
@@ -27,11 +34,14 @@ type Runtime struct {
 	result           error
 }
 
-func NewApplication(dependencies Dependencies) (*Runtime, error) {
+func NewApplication(dependencies Dependencies, hooks LifecycleHooks) (*Runtime, error) {
 	if err := dependencies.Validate(); err != nil {
 		return nil, err
 	}
-	return &Runtime{dependencies: dependencies, done: make(chan struct{})}, nil
+	if (hooks.StartShellTasks == nil) != (hooks.StopShellTasks == nil) {
+		return nil, core.Invalid("lifecycle.shell_tasks", "startup and cleanup must be supplied together")
+	}
+	return &Runtime{dependencies: dependencies, hooks: hooks, done: make(chan struct{})}, nil
 }
 func (a *Runtime) Run(ctx context.Context) (result error) {
 	a.mu.Lock()
@@ -68,8 +78,8 @@ func (a *Runtime) Run(ctx context.Context) (result error) {
 				return
 			}
 		}
-		if a.stopShellTasks != nil {
-			a.stopShellTasks()
+		if a.hooks.StopShellTasks != nil {
+			a.hooks.StopShellTasks()
 		}
 		if databaseOpened {
 			result = errors.Join(result, a.dependencies.Database.Close())
@@ -105,16 +115,16 @@ func (a *Runtime) Run(ctx context.Context) (result error) {
 	if !initialized {
 		return core.NewError(core.FailedPrecondition, "initialize the owner using the local CLI before serving")
 	}
-	if a.prepareSandbox != nil {
-		a.prepareSandbox(runctx)
+	if a.hooks.PrepareSandbox != nil {
+		a.hooks.PrepareSandbox(runctx)
 	}
-	if a.startShellTasks != nil {
-		if err = a.startShellTasks(runctx); err != nil {
+	if a.hooks.StartShellTasks != nil {
+		if err = a.hooks.StartShellTasks(runctx); err != nil {
 			return err
 		}
 	}
-	if a.recoverCalls != nil {
-		if err = a.recoverCalls(runctx); err != nil {
+	if a.hooks.RecoverCalls != nil {
+		if err = a.hooks.RecoverCalls(runctx); err != nil {
 			return err
 		}
 	}
@@ -125,26 +135,26 @@ func (a *Runtime) Run(ctx context.Context) (result error) {
 		return err
 	}
 	workersStarted = true
-	if a.collectContexts != nil {
+	if a.hooks.CollectContexts != nil {
 		workers.Add(1)
-		go func() { defer workers.Done(); a.collectContexts(runctx) }()
+		go func() { defer workers.Done(); a.hooks.CollectContexts(runctx) }()
 	}
-	if a.collectAuth != nil {
+	if a.hooks.CollectAuth != nil {
 		workers.Add(1)
-		go func() { defer workers.Done(); a.collectAuth(runctx) }()
+		go func() { defer workers.Done(); a.hooks.CollectAuth(runctx) }()
 	}
-	if a.checkUpdates != nil {
+	if a.hooks.CheckUpdates != nil {
 		workers.Add(1)
-		go func() { defer workers.Done(); a.checkUpdates(runctx) }()
+		go func() { defer workers.Done(); a.hooks.CheckUpdates(runctx) }()
 	}
-	if a.refreshPrices != nil {
+	if a.hooks.RefreshPrices != nil {
 		workers.Add(1)
-		go func() { defer workers.Done(); a.refreshPrices(runctx) }()
+		go func() { defer workers.Done(); a.hooks.RefreshPrices(runctx) }()
 	}
 	results := make(chan error, 3)
-	if a.runChannels != nil {
+	if a.hooks.RunChannels != nil {
 		workers.Add(1)
-		go func() { defer workers.Done(); results <- a.runChannels(runctx) }()
+		go func() { defer workers.Done(); results <- a.hooks.RunChannels(runctx) }()
 	}
 	workers.Add(2)
 	go func() { defer workers.Done(); results <- a.dependencies.Scheduler.Run(runctx) }()

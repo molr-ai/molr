@@ -153,9 +153,13 @@ func init() {
 		cfg.HTTP.CertFile = "cert.pem"
 		cfg.HTTP.KeyFile = "key.pem"
 		dependencies := Dependencies{Config: cfg, HTTP: &lifecycleHTTP{probe}, Auth: identity, Bootstrap: &observedBootstrap{identity, probe}, Audit: auditService, Database: &observedDatabase{db, probe}, Restore: restorer, Scheduler: &lifecycleScheduler{Service: scheduler.NewService(db.Store(), scheduler.Options{}), probe: probe}, Locker: &observedLocker{platform.NewLocker(), probe}}
-		application, err := NewApplication(dependencies)
+		application, err := NewApplication(dependencies, LifecycleHooks{
+			PrepareSandbox:  func(context.Context) { _ = probe.mark("sandbox.prepare") },
+			StartShellTasks: func(context.Context) error { return probe.mark("shell.start") },
+			StopShellTasks:  func() { _ = probe.mark("shell.stop") },
+			RecoverCalls:    func(context.Context) error { return probe.mark("calls.recover") },
+		})
 		testkit.RequireNoError(t, err)
-		application.recoverCalls = func(context.Context) error { return probe.mark("calls.recover") }
 		return contractFixture{Application: application, Dependencies: dependencies, Events: func() []string {
 			probe.mu.Lock()
 			defer probe.mu.Unlock()

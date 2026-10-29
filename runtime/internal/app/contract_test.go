@@ -73,7 +73,7 @@ func TestTDDApplicationStartupAndShutdownOrder(t *testing.T) {
 		t.Fatal("application did not become ready")
 	}
 	events := f.Events()
-	ordered(t, events, "lock.acquire", "database.migrate", "bootstrap.initialized", "calls.recover", "scheduler.recover")
+	ordered(t, events, "lock.acquire", "database.migrate", "bootstrap.initialized", "sandbox.prepare", "shell.start", "calls.recover", "scheduler.recover")
 	ordered(t, events, "scheduler.recover", "scheduler.run")
 	ordered(t, events, "scheduler.recover", "http.serve")
 	testkit.RequireNoError(t, f.Application.Shutdown(ctx))
@@ -86,10 +86,10 @@ func TestTDDApplicationStartupAndShutdownOrder(t *testing.T) {
 		t.Fatal("shutdown did not complete")
 	}
 	events = f.Events()
-	ordered(t, events, "http.shutdown", "database.close", "lock.close")
+	ordered(t, events, "http.shutdown", "shell.stop", "database.close", "lock.close")
 	ordered(t, events, "scheduler.shutdown", "database.close")
 	testkit.RequireNoError(t, f.Application.Shutdown(ctx))
-	for _, name := range []string{"database.close", "lock.close"} {
+	for _, name := range []string{"shell.stop", "database.close", "lock.close"} {
 		count := 0
 		for _, e := range f.Events() {
 			if e == name {
@@ -102,7 +102,7 @@ func TestTDDApplicationStartupAndShutdownOrder(t *testing.T) {
 	}
 }
 func TestTDDApplicationStartupFailureUnwinds(t *testing.T) {
-	for _, stage := range []string{"lock.acquire", "database.migrate", "bootstrap.initialized", "calls.recover", "scheduler.recover", "http.serve"} {
+	for _, stage := range []string{"lock.acquire", "database.migrate", "bootstrap.initialized", "shell.start", "calls.recover", "scheduler.recover", "http.serve"} {
 		t.Run(stage, func(t *testing.T) {
 			f := fixture(t)
 			sentinel := errors.New("injected startup failure")
@@ -115,11 +115,24 @@ func TestTDDApplicationStartupFailureUnwinds(t *testing.T) {
 			switch stage {
 			case "lock.acquire":
 				absent(t, events, "database.migrate", "http.serve", "scheduler.run", "lock.close")
-			case "database.migrate", "bootstrap.initialized", "calls.recover", "scheduler.recover":
+			case "database.migrate", "bootstrap.initialized", "shell.start", "calls.recover", "scheduler.recover":
 				absent(t, events, "http.serve", "scheduler.run")
 				ordered(t, events, "database.close", "lock.close")
 			case "http.serve":
 				ordered(t, events, "scheduler.shutdown", "database.close", "lock.close")
+			}
+			ordered(t, events, "shell.stop")
+			if stage != "lock.acquire" {
+				ordered(t, events, "shell.stop", "database.close", "lock.close")
+			}
+			stops := 0
+			for _, event := range events {
+				if event == "shell.stop" {
+					stops++
+				}
+			}
+			if stops != 1 {
+				t.Fatalf("shell cleanup ran %d times after %s failed", stops, stage)
 			}
 		})
 	}
@@ -184,5 +197,22 @@ func TestTDDDependenciesRejectInvalidConfigAndTypedNil(t *testing.T) {
 	var detail *core.Error
 	if !errors.As(err, &detail) || detail.Field != "dependencies.HTTP" {
 		t.Fatalf("typed nil HTTP dependency accepted: %v", err)
+	}
+}
+
+func TestApplicationRequiresPairedShellLifecycle(t *testing.T) {
+	f := fixture(t)
+	for _, hooks := range []LifecycleHooks{
+		{StartShellTasks: func(context.Context) error { return nil }},
+		{StopShellTasks: func() {}},
+	} {
+		_, err := NewApplication(f.Dependencies, hooks)
+		testkit.RequireCode(t, err, core.InvalidArgument)
+	}
+	application, err := NewApplication(f.Dependencies, LifecycleHooks{})
+	testkit.RequireNoError(t, err)
+	testkit.RequireNoError(t, application.Shutdown(testkit.Context(t)))
+	if len(f.Events()) != 0 {
+		t.Fatal("constructing or stopping an unstarted application acquired resources")
 	}
 }

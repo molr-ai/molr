@@ -16,41 +16,43 @@ import (
 
 func (b *Bundle) buildApplication(cfg config.Config, identity *auth.Manager, auditService audit.Service, channels *chatChannels, updates *updates.Service, wiring *buildWiring, recoverClones func(context.Context) error, worker scheduler.Service) error {
 	store := b.store
-	var err error
 	restore, err := sqlite.NewRestorer(filepath.Join(cfg.DataDir, "runtime.db"))
 	if err != nil {
 		return err
 	}
-	b.Application, err = NewApplication(Dependencies{Config: cfg, HTTP: b.HTTP, Auth: identity, Bootstrap: identity, Audit: auditService, Database: b.Database, Restore: restore, Scheduler: worker, Locker: platform.NewLocker()})
+	hooks := LifecycleHooks{
+		CollectAuth:     identity.RunGC,
+		CollectContexts: func(ctx context.Context) { contextstore.RunGC(ctx, store) },
+		RunChannels:     channels.Run,
+		CheckUpdates:    updates.Run,
+		RefreshPrices:   b.priceUpdater.Run,
+		StartShellTasks: b.shellTasks.Start,
+		StopShellTasks: func() {
+			if b.watchRuntime != nil {
+				b.watchRuntime.close()
+			}
+			b.shellTasks.Close()
+		},
+		RecoverCalls: func(ctx context.Context) error {
+			if err := recoverClones(ctx); err != nil {
+				log.Printf("assistant clone recovery incomplete: %v", err)
+			}
+			if err := recoverCallUsage(ctx, store); err != nil {
+				return err
+			}
+			if err := wiring.mcp.Recover(ctx); err != nil {
+				return err
+			}
+			return wiring.plugins.RecoverHTTP(ctx)
+		},
+	}
+	if b.sandbox != nil {
+		hooks.PrepareSandbox = b.sandbox.startup
+	}
+	application, err := NewApplication(Dependencies{Config: cfg, HTTP: b.HTTP, Auth: identity, Bootstrap: identity, Audit: auditService, Database: b.Database, Restore: restore, Scheduler: worker, Locker: platform.NewLocker()}, hooks)
 	if err != nil {
 		return err
 	}
-	if b.sandbox != nil {
-		b.Application.(*Runtime).prepareSandbox = b.sandbox.startup
-	}
-	b.Application.(*Runtime).recoverCalls = func(ctx context.Context) error {
-		if err := recoverClones(ctx); err != nil {
-			log.Printf("assistant clone recovery incomplete: %v", err)
-		}
-		if err := recoverCallUsage(ctx, store); err != nil {
-			return err
-		}
-		if err := wiring.mcp.Recover(ctx); err != nil {
-			return err
-		}
-		return wiring.plugins.RecoverHTTP(ctx)
-	}
-	b.Application.(*Runtime).collectAuth = identity.RunGC
-	b.Application.(*Runtime).collectContexts = func(ctx context.Context) { contextstore.RunGC(ctx, store) }
-	b.Application.(*Runtime).runChannels = channels.Run
-	b.Application.(*Runtime).checkUpdates = updates.Run
-	b.Application.(*Runtime).refreshPrices = b.priceUpdater.Run
-	b.Application.(*Runtime).startShellTasks = b.shellTasks.Start
-	b.Application.(*Runtime).stopShellTasks = func() {
-		if b.watchRuntime != nil {
-			b.watchRuntime.close()
-		}
-		b.shellTasks.Close()
-	}
+	b.Application = application
 	return nil
 }

@@ -63,6 +63,11 @@ func TestTDDSettingsSensitiveAuditsCommitWithEffectsAndRedactProofs(t *testing.T
 	if len(rows.Items) != 2 {
 		t.Fatalf("export request/completion audit missing: %+v", rows)
 	}
+	replayed, err := service.Export(ctx, owner(), req)
+	testkit.RequireNoError(t, err)
+	if replayed.ID != exported.ID || saved != 1 || fixtureCount(t, db, "security.audit") != 2 {
+		t.Fatal("export replay repeated file creation or audit")
+	}
 	cleanup := CleanupRequest{Mutation: mutation("audited-cleanup", 0), Verification: proof, ObjectIDs: []core.Object{object}}
 	db.FailNextCommit(errors.New("cleanup interrupted"))
 	err = service.Cleanup(ctx, owner(), cleanup)
@@ -77,6 +82,10 @@ func TestTDDSettingsSensitiveAuditsCommitWithEffectsAndRedactProofs(t *testing.T
 	testkit.RequireNoError(t, err)
 	if len(rows.Items) != 3 {
 		t.Fatal("cleanup audit missing")
+	}
+	testkit.RequireNoError(t, service.Cleanup(ctx, owner(), cleanup))
+	if fixtureCount(t, db, "security.audit") != 3 {
+		t.Fatal("cleanup replay repeated audit")
 	}
 	found := false
 	for _, record := range rows.Items {
