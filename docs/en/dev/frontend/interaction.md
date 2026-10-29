@@ -112,6 +112,8 @@ Above 640px panel width, the directory and preview appear side by side; narrower
 
 ## TUI message boundaries
 
+The assistant picker shows a bold, reverse-color “X条未读” (X unread) badge beside the assistant name, using the Runtime conversation unread count; zero counts are hidden. Processing and approval status remain at the row end. Narrow layouts and long names preserve space for the unread badge.
+
 Clicking the left-side pending approval, active reminder, or bound-channel prompt opens approvals, status details, or channel management respectively; the no-assistant prompt opens the creation form. Clicks only open pages; approvals and disconnection still require confirmation there. Passive status, transient errors, and command completion prompts are not clickable. Hit areas follow the visible truncated text, preserving drafts and history position.
 
 When the TUI is scrolled away from the bottom, a clickable “↓ Back to bottom · Ctrl+G” control is right-aligned in the status row above the composer; unread messages change it to “↓ New messages · Ctrl+G”. Its right inset matches the two-column content padding, with one blank row between the control and the composer. Viewport height stays unchanged; execution status occupies the left side of the same row and truncates when necessary. Clicking or pressing Ctrl+G returns to the bottom and uses existing read reporting without changing the draft. Incoming messages do not interrupt history reading. Alt+↑ / Alt+↓ reuse paging in chat, help, approval details, and attachment previews. PgUp/PgDn and Ctrl+End remain available.

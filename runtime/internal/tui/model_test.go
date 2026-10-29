@@ -40,7 +40,7 @@ func TestDraftAndDelayedReplyStayWithTheirAssistant(t *testing.T) {
 	before := len(m.assistants[0].messages)
 	next, _ = m.Update(replyMsg{assistant: 1, generation: 1, text: "代码演示回复"})
 	m = next.(model)
-	if len(m.assistants[0].messages) != before || m.assistants[1].busy || !m.assistants[1].unread {
+	if len(m.assistants[0].messages) != before || m.assistants[1].busy || m.assistants[1].unreadCount != 1 {
 		t.Fatal("reply was attached to wrong assistant")
 	}
 	if last := m.assistants[1].messages[len(m.assistants[1].messages)-1]; last.text != "代码演示回复" {

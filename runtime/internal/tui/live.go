@@ -334,7 +334,7 @@ func (m model) updateLive(event tea.Msg) (tea.Model, tea.Cmd, bool) {
 					a.id, a.chat, a.name, a.role = remote.ID, remote.ConversationID, cleanText(remote.Name), cleanText(remote.Status)
 					for _, c := range msg.chats {
 						if c.ID == a.chat {
-							a.unread = c.UnreadCount > 0
+							a.unreadCount = c.UnreadCount
 						}
 					}
 					m.assistants = append(m.assistants, a)
@@ -388,7 +388,7 @@ func (m model) updateLive(event tea.Msg) (tea.Model, tea.Cmd, bool) {
 					a.status = msg.status
 					a.channel = msg.channel.Channel
 					a.busy = msg.status.State == agent.Working
-					a.unread = msg.conversation.UnreadCount > 0
+					a.unreadCount = msg.conversation.UnreadCount
 					a.readSequence = max(a.readSequence, msg.conversation.LastReadSequence)
 					a.requests = nil
 					for _, q := range msg.requests {

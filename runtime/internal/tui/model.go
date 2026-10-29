@@ -200,7 +200,7 @@ func (m model) Update(event tea.Msg) (tea.Model, tea.Cmd) {
 		case chatPage:
 			m.viewport, cmd = m.viewport.Update(msg)
 			if m.viewport.AtBottom() && len(m.assistants) > 0 {
-				m.assistants[m.selected].unread = false
+				m.assistants[m.selected].unreadCount = 0
 			}
 		case helpPage:
 			m.help, cmd = m.help.Update(msg)
@@ -228,7 +228,11 @@ func (m model) Update(event tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		a.busy = false
 		a.messages = append(a.messages, message{role: "assistant", text: msg.text})
-		a.unread = msg.assistant != m.selected || m.page != chatPage || m.selection != nil || !m.viewport.AtBottom()
+		if msg.assistant != m.selected || m.page != chatPage || m.selection != nil || !m.viewport.AtBottom() {
+			a.unreadCount++
+		} else {
+			a.unreadCount = 0
+		}
 		if msg.assistant == m.selected {
 			m.refresh(m.selection == nil && m.page == chatPage && m.viewport.AtBottom())
 		}
@@ -338,7 +342,7 @@ func (m model) Update(event tea.Msg) (tea.Model, tea.Cmd) {
 			case "pgdown":
 				m.viewport.HalfPageDown()
 				if m.viewport.AtBottom() && len(m.assistants) > 0 {
-					m.assistants[m.selected].unread = false
+					m.assistants[m.selected].unreadCount = 0
 				}
 				return m, m.markLiveRead()
 			case "ctrl+g", "ctrl+end":
@@ -457,7 +461,7 @@ func (m *model) selectAssistant(index int) {
 		m.viewport.SetYOffset(a.scroll)
 	}
 	if m.viewport.AtBottom() {
-		a.unread = false
+		a.unreadCount = 0
 	}
 }
 
@@ -480,7 +484,7 @@ func cleanText(s string) string {
 func (m *model) returnToLatest() tea.Cmd {
 	m.viewport.GotoBottom()
 	if len(m.assistants) > 0 {
-		m.assistants[m.selected].unread = false
+		m.assistants[m.selected].unreadCount = 0
 	}
 	return m.markLiveRead()
 }

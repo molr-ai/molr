@@ -13,6 +13,7 @@ const accentColor lipgloss.Color = "6"
 
 var (
 	accent      = lipgloss.NewStyle().Foreground(accentColor)
+	unreadBadge = accent.Bold(true).Reverse(true)
 	muted       = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 	warning     = lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
 	strong      = lipgloss.NewStyle().Bold(true)
@@ -305,7 +306,7 @@ func (m model) latestControl() (label string, x, y int) {
 		return "", 0, 0
 	}
 	label = "↓ 返回底部 · Ctrl+G"
-	if len(m.assistants) > 0 && m.assistants[m.selected].unread {
+	if len(m.assistants) > 0 && m.assistants[m.selected].unreadCount > 0 {
 		label = "↓ 有新消息 · Ctrl+G"
 	}
 	return label, m.width - 2 - cellWidth(label), 3 + m.viewport.Height + 1

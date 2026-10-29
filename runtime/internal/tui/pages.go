@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/x/ansi"
@@ -25,23 +26,26 @@ func (m model) pickerView() string {
 		if pos == m.pickerCursor {
 			prefix = "› "
 		}
-		name := prefix + a.name
-		if rowHeight == 2 {
-			name += "   " + muted.Render(a.role)
-		}
 		status := ""
 		switch {
 		case a.busy:
 			status = "正在处理"
 		case a.approval == "pending":
 			status = "待审批"
-		case a.unread:
-			status = "新消息"
 		case index == m.selected:
 			status = "当前"
 		}
+		badge := ""
+		if a.unreadCount > 0 {
+			badge = " " + unreadBadge.Render(fmt.Sprintf(" %d条未读 ", a.unreadCount))
+		}
+		name := cellTruncate(prefix+a.name, max(0, m.contentWidth()-cellWidth(status)-1-cellWidth(badge)), "…")
 		if pos == m.pickerCursor {
 			name = accent.Bold(true).Render(name)
+		}
+		name += badge
+		if room := m.contentWidth() - cellWidth(status) - 1 - cellWidth(name) - 3; rowHeight == 2 && room > 0 {
+			name += "   " + muted.Render(cellTruncate(a.role, room, "…"))
 		}
 		lines = append(lines, spread(name, muted.Render(status), m.contentWidth()))
 		if rowHeight == 3 {

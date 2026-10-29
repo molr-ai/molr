@@ -61,7 +61,7 @@ func TestLatestControlLayoutAndActions(t *testing.T) {
 				next, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlG})
 			}
 			m = next.(model)
-			if !m.viewport.AtBottom() || m.assistants[0].unread || strings.Contains(ansi.Strip(m.View()), "有新消息") {
+			if !m.viewport.AtBottom() || m.assistants[0].unreadCount > 0 || strings.Contains(ansi.Strip(m.View()), "有新消息") {
 				t.Fatal("did not return to bottom and clear indicator")
 			}
 			if m.input.Value() != "保留草稿\n第二行" || !m.input.Focused() {
@@ -152,7 +152,7 @@ func TestReturnLatestReportsRead(t *testing.T) {
 		})
 		m.assistants[0].messages = []message{{role: "assistant", text: strings.Repeat("history\n\n", 60)}}
 		m.assistants[0].sequence = 9
-		m.assistants[0].unread = true
+		m.assistants[0].unreadCount = 1
 		m.refresh(true)
 		m.viewport.HalfPageUp()
 		var event tea.Msg = tea.KeyMsg{Type: tea.KeyCtrlG}
