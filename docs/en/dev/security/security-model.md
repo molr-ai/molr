@@ -42,6 +42,8 @@ Browser SSE continues to use login cookies, while native clients use authenticat
 
 ## 4. User Permissions and Assistant Permissions
 
+Business modules and search share `policy.Authorize` for authorization preconditions: validate the principal shape, enforce an owner-only restriction when requested, then call the live authorizer. Missing authorization configuration denies access. Callers retain transaction boundaries, object-state checks and domain validation; incomplete assistant clones remain an assistant-domain check. `TestAuthorizePreservesChecksAndRequest` and `TestAuthorizeRechecksLiveGrant` cover error precedence, request forwarding and live revocation.
+
 | Check Layer | Issues Addressed | Implementation Location |
 | --- | --- | --- |
 | Identity Authentication | Who initiated the request, are credentials valid | `auth` and API middleware |

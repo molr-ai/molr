@@ -66,6 +66,7 @@
 | internal/credential | Repository.List | TestTDDRepositoryEncryptionCatalogAndCAS |
 | internal/credential | Repository.Save | TestTDDRepositoryEncryptionCatalogAndCAS |
 | internal/credential | Repository.Delete | TestTDDRepositoryEncryptionCatalogAndCAS |
+| internal/policy | Authorize | TestAuthorizePreservesChecksAndRequest / TestAuthorizeRechecksLiveGrant |
 | internal/policy | Authorizer.Require | TestTDDGrantsAndLiveAuthorization |
 | internal/policy | Service.Require | TestTDDGrantsAndLiveAuthorization |
 | internal/policy | Grants.Grant | TestTDDGrantsAndLiveAuthorization |

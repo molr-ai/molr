@@ -42,18 +42,7 @@ func (s *service) id() core.ID {
 	return newID()
 }
 func (s *service) authorize(ctx context.Context, p core.Principal, target core.Object, action policy.Action, ownerOnly bool) error {
-	if err := p.Validate(); err != nil {
-		return err
-	}
-	if ownerOnly {
-		if err := p.RequireOwner(); err != nil {
-			return err
-		}
-	}
-	if s.options.Authorizer == nil {
-		return core.NewError(core.Unavailable, "authorization not configured")
-	}
-	if err := s.options.Authorizer.Require(ctx, p, policy.CheckRequest{Target: target, Action: action}); err != nil {
+	if err := policy.Authorize(ctx, p, s.options.Authorizer, policy.CheckRequest{Target: target, Action: action}, ownerOnly); err != nil {
 		return err
 	}
 	if target.ID != "" {

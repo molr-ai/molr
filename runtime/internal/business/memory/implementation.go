@@ -22,18 +22,7 @@ func (s *service) now() time.Time {
 	return time.Now().UTC()
 }
 func (s *service) authorize(ctx context.Context, p core.Principal, target core.Object, action policy.Action, ownerOnly bool) error {
-	if err := p.Validate(); err != nil {
-		return err
-	}
-	if ownerOnly {
-		if err := p.RequireOwner(); err != nil {
-			return err
-		}
-	}
-	if s.options.Authorizer == nil {
-		return core.NewError(core.Unavailable, "authorization not configured")
-	}
-	return s.options.Authorizer.Require(ctx, p, policy.CheckRequest{Target: target, Action: action})
+	return policy.Authorize(ctx, p, s.options.Authorizer, policy.CheckRequest{Target: target, Action: action}, ownerOnly)
 }
 func validText(text string, limit int) bool {
 	return strings.TrimSpace(text) != "" && len(text) <= limit
