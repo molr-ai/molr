@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { api, APIError } from '@molr/sdk';
+import { api, APIError, mutationKey } from '@molr/sdk';
 import type { WorkspaceEntry } from '@molr/sdk';
 import { useCopy } from '../../../../state';
 import { join } from './shared';
@@ -58,7 +58,7 @@ export function useWorkspaceUploads(assistantID: string, directory: string, relo
                 ext = dot > 0 ? file.name.slice(dot) : '';
               path = join(
                 target,
-                `${stem}-${crypto.randomUUID().slice(0, 8)}${ext}`,
+                `${stem}-${mutationKey().slice(0, 8)}${ext}`,
               );
             }
           }

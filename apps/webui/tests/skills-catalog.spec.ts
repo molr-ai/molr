@@ -8,6 +8,7 @@ test('skills catalog preserves ownership, combines filters and reads instruction
     await page.getByLabel('Password', { exact: true }).fill(process.env.MOLR_E2E_PASSWORD ?? 'webui-e2e-password-2026!');
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   }
+  await expect(page.getByRole('navigation', { name: 'Molr', exact: true })).toBeVisible();
   const origin = new URL(page.url()).origin;
   const csrf = (await page.context().cookies()).find(c => c.name === `molr_dev_csrf_p${new URL(origin).port}`)!.value;
   const post = async (path: string, data: object) => {

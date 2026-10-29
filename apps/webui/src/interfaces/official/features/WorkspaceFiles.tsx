@@ -420,7 +420,7 @@ export function WorkspaceFiles({
             }
             items={[
               {
-                id: crypto.randomUUID(),
+                id: 'toggle-hidden-files',
                 label: hidden
                   ? t('隐藏点文件', 'Hide hidden files')
                   : t('显示隐藏文件', 'Show hidden files'),

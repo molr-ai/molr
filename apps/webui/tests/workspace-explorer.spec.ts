@@ -8,6 +8,8 @@ async function post(page: Page, path: string, data: object) {
 }
 test('workspace file lifecycle, draft conflicts, floating geometry and mobile navigation', async ({ page }, info) => {
   test.setTimeout(120_000);
+  // LAN HTTP exposes getRandomValues but not the secure-context randomUUID API.
+  await page.addInitScript(() => Object.defineProperty(Crypto.prototype, 'randomUUID', { value: undefined, configurable: true }));
   if (info.project.name === 'desktop') await page.setViewportSize({ width: 1920, height: 1000 });
   await page.addInitScript(() => {
     const renders: Record<string, number> = {}; Object.assign(window, { workspaceRenders: renders });
