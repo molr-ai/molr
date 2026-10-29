@@ -88,6 +88,7 @@
 | internal/policy | Service.MarkUnknown | TestTDDBudgetSettlementUnknownAndRelease |
 | internal/policy | Service.Release | TestTDDBudgetSettlementUnknownAndRelease |
 | internal/policy | Service.Usage | TestTDDBudgetSettlementUnknownAndRelease |
+| internal/policy | ActiveGrants | TestActiveGrantsFiltersScopeExpiryAndObservesRevocation |
 | internal/policy | Repository.Grants | TestTDDRepositoryGrantIsolationAndCAS |
 | internal/policy | Repository.InsertGrant | TestTDDRepositoryGrantIsolationAndCAS |
 | internal/policy | Repository.RevokeGrant | TestTDDRepositoryGrantIsolationAndCAS |

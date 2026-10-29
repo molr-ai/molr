@@ -7,13 +7,10 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/pricing"
 	"molr.ai/runtime/internal/quota"
-	"strconv"
-	"strings"
 	"time"
 )
 
@@ -35,17 +32,9 @@ func (r *repository) Grants(ctx context.Context, owner core.ID, q Query) (core.P
 	if q.ResourceID != "" {
 		filters = append(filters, persistence.Eq("ResourceID", q.ResourceID))
 	}
-	all, e := persistence.Select[Grant](ctx, r.store, "security.grants", persistence.Query{Where: filters})
-	if e != nil {
-		return core.Page[Grant]{}, e
-	}
-	items := []Grant{}
-	for _, g := range all {
-		if g.OwnerID == owner && (q.AssistantID == "" || g.AssistantID == q.AssistantID) && (q.ResourceID == "" || g.ResourceID == q.ResourceID) {
-			items = append(items, g)
-		}
-	}
-	return pageSlice(items, q.Page, fmt.Sprintf("%s/%s/%s", owner, q.AssistantID, q.ResourceID))
+	request := q.Page
+	q.Page = core.PageRequest{}
+	return persistence.Page[Grant](ctx, r.store, "security.grants", persistence.Query{Where: filters}, request, q, nil)
 }
 func (r *repository) InsertGrant(ctx context.Context, g Grant) error {
 	return r.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
@@ -114,37 +103,4 @@ func payloadDigest(v any) string {
 	b, _ := json.Marshal(v)
 	h := sha256.Sum256(b)
 	return hex.EncodeToString(h[:])
-}
-
-func pageSlice[T any](items []T, p core.PageRequest, binding string) (core.Page[T], error) {
-	p, e := p.Normalize()
-	if e != nil {
-		return core.Page[T]{}, e
-	}
-	h := sha256.Sum256([]byte(binding))
-	tag := hex.EncodeToString(h[:])
-	start := 0
-	if p.Cursor != "" {
-		b, e := base64.RawURLEncoding.DecodeString(p.Cursor)
-		if e != nil {
-			return core.Page[T]{}, core.Invalid("cursor", "invalid")
-		}
-		parts := strings.Split(string(b), ":")
-		if len(parts) != 2 || parts[0] != tag {
-			return core.Page[T]{}, core.Invalid("cursor", "wrong query")
-		}
-		start, e = strconv.Atoi(parts[1])
-		if e != nil || start < 0 || start > len(items) {
-			return core.Page[T]{}, core.Invalid("cursor", "invalid position")
-		}
-	}
-	end := start + p.Limit
-	if end > len(items) {
-		end = len(items)
-	}
-	out := core.Page[T]{Items: items[start:end]}
-	if end < len(items) {
-		out.NextCursor = base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%d", tag, end)))
-	}
-	return out, nil
 }

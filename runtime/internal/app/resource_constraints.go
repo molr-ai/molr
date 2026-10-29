@@ -14,7 +14,7 @@ import (
 )
 
 func executionGrant(ctx context.Context, store persistence.Store, e core.Execution, id core.ID) (policy.Grant, error) {
-	rows, err := persistence.Select[policy.Grant](ctx, store, "security.grants", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", e.Principal.OwnerID), persistence.Eq("AssistantID", e.AssistantID)}})
+	rows, err := policy.ActiveGrants(ctx, store, e.Principal.OwnerID, policy.Query{AssistantID: e.AssistantID, ResourceID: id}, time.Now())
 	if err != nil {
 		return policy.Grant{}, err
 	}
@@ -40,7 +40,7 @@ func executionGrant(ctx context.Context, store persistence.Store, e core.Executi
 	return policy.Grant{}, denied()
 }
 func automaticNetworks(ctx context.Context, store persistence.Store, e core.Execution, sandboxID core.ID) ([]core.ID, error) {
-	rows, err := persistence.Select[policy.Grant](ctx, store, "security.grants", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", e.Principal.OwnerID), persistence.Eq("AssistantID", e.AssistantID)}})
+	rows, err := policy.ActiveGrants(ctx, store, e.Principal.OwnerID, policy.Query{AssistantID: e.AssistantID}, time.Now())
 	if err != nil {
 		return nil, err
 	}
@@ -50,20 +50,38 @@ func automaticNetworks(ctx context.Context, store persistence.Store, e core.Exec
 	}
 	selected := map[string]choice{}
 	repo := resource.NewRepository(store)
+	type candidate struct {
+		resource resource.Resource
+		binding  resource.Binding
+		bound    bool
+	}
+	candidates := map[core.ID]candidate{}
+	missing := map[core.ID]bool{}
 	for _, g := range rows {
 		if g.OwnerID != e.Principal.OwnerID || g.AssistantID != e.AssistantID || g.RevokedAt != nil || (g.ExpiresAt != nil && !g.ExpiresAt.After(time.Now())) || !slices.Contains(g.Actions, policy.Execute) {
 			continue
 		}
-		r, err := repo.Get(ctx, e.Principal.OwnerID, g.ResourceID)
-		if persistence.Missing(err) {
+		if missing[g.ResourceID] {
 			continue
 		}
-		if err != nil {
-			return nil, err
+		c, found := candidates[g.ResourceID]
+		if !found {
+			r, err := repo.Get(ctx, e.Principal.OwnerID, g.ResourceID)
+			if persistence.Missing(err) {
+				missing[g.ResourceID] = true
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+			if r.Kind != resource.Network || r.State != resource.Available || sandboxOf(r) != sandboxID {
+				missing[g.ResourceID] = true
+				continue
+			}
+			c.resource = r
+			candidates[g.ResourceID] = c
 		}
-		if r.Kind != resource.Network || r.State != resource.Available || sandboxOf(r) != sandboxID {
-			continue
-		}
+		r := c.resource
 		if g.Constraints == nil {
 			native, err := nativeNetworkResource(ctx, store, e.Principal.OwnerID, r)
 			if err != nil {
@@ -73,10 +91,16 @@ func automaticNetworks(ctx context.Context, store persistence.Store, e core.Exec
 				continue
 			}
 		}
-		binding, err := repo.Binding(ctx, e.Principal.OwnerID, r.ID)
-		if err != nil {
-			return nil, err
+		if !c.bound {
+			binding, err := repo.Binding(ctx, e.Principal.OwnerID, r.ID)
+			if err != nil {
+				return nil, err
+			}
+			c.binding = binding
+			c.bound = true
+			candidates[g.ResourceID] = c
 		}
+		binding := c.binding
 		key := binding.SandboxResource + "\x00" + binding.SandboxTarget
 		previous, exists := selected[key]
 		if !exists || g.UpdatedAt.After(previous.updated) || (g.UpdatedAt.Equal(previous.updated) && r.ID < previous.id) {

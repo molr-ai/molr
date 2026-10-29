@@ -55,3 +55,54 @@ func TestQuotaGrantSelectionUsesActiveRangeIndexes(t *testing.T) {
 		t.Fatal("missing expiry/FullAccess branches", branches)
 	}
 }
+
+func TestActiveGrantCandidatesUseExpiryIndexes(t *testing.T) {
+	s, err := Open(filepath.Join(t.TempDir(), "active.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	for _, resource := range []string{"", "compute"} {
+		q := persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", "owner"), persistence.Eq("AssistantID", "assistant"), persistence.Eq("RevokedAt", nil)}, Any: [][]persistence.Filter{{persistence.Eq("ExpiresAtKey", "")}, {{Field: "ExpiresAtKey", Op: ">", Value: persistence.TimeKey(time.Now())}}}}
+		if resource != "" {
+			q.Where = append(q.Where, persistence.Eq("ResourceID", resource))
+		}
+		statement, args, err := querySQL("security.grants", q)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rows, err := s.db.QueryContext(t.Context(), "EXPLAIN QUERY PLAN "+statement, args...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		branches := 0
+		for rows.Next() {
+			var id, parent, unused int
+			var detail string
+			if err := rows.Scan(&id, &parent, &unused, &detail); err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(detail, "SCAN records") || strings.Contains(detail, "TEMP B-TREE") {
+				t.Fatal(detail)
+			}
+			if strings.Contains(detail, "SEARCH records") && !strings.Contains(detail, "key=?") {
+				branches++
+				required := 3
+				if resource != "" {
+					required++
+				}
+				equalities := strings.Count(detail, "<expr>=?")
+				if equalities < required || (equalities == required && !strings.Contains(detail, "<expr>>?")) {
+					t.Fatal("expiry not indexed", detail)
+				}
+			}
+		}
+		if err := rows.Err(); err != nil {
+			t.Fatal(err)
+		}
+		rows.Close()
+		if branches != 2 {
+			t.Fatal("missing expiry branches", branches)
+		}
+	}
+}

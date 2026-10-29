@@ -235,3 +235,26 @@ func TestQuotaGrantQueryKeepsOwnerAssistantResourceScope(t *testing.T) {
 		t.Fatal("scope selection changed", rows)
 	}
 }
+
+func TestExecutionGrantLoadsOnlyActiveResourceCandidates(t *testing.T) {
+	_, _, store := quotaGrantFixture(t)
+	e := core.Execution{Principal: core.Principal{OwnerID: "owner", SubjectID: "assistant", Kind: core.ActorAssistant}, AssistantID: "assistant"}
+	g, err := executionGrant(t.Context(), store, e, "compute")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g.ID != "zzz-first" || store.loaded != 3 {
+		t.Fatalf("selected=%s loaded=%d", g.ID, store.loaded)
+	}
+	store.loaded = 0
+	if _, err := executionGrant(t.Context(), store, e, "other"); core.CodeOf(err) != core.Forbidden || store.loaded != 0 {
+		t.Fatal("unrelated resources loaded", store.loaded, err)
+	}
+	if err := policy.NewRepository(store).RevokeGrant(t.Context(), "owner", g.ID, g.Version, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	g, err = executionGrant(t.Context(), store, e, "compute")
+	if err != nil || g.ID != "zzz-second" {
+		t.Fatal("revocation not observed", g.ID, err)
+	}
+}

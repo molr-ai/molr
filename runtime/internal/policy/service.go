@@ -146,7 +146,7 @@ func (m *Manager) Require(ctx context.Context, p core.Principal, q CheckRequest)
 		} else if !supported {
 			return core.NewError(core.Forbidden, "resource action unavailable")
 		}
-		grants, e := persistence.Select[Grant](ctx, tx.Store(), "security.grants", persistence.Query{Where: []persistence.Filter{persistence.Eq("RevokedAt", nil), persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("AssistantID", p.SubjectID), persistence.Eq("ResourceID", q.ResourceID)}, Any: [][]persistence.Filter{{persistence.Eq("ExpiresAtKey", "")}, {{Field: "ExpiresAtKey", Op: ">", Value: persistence.TimeKey(m.options.Now())}}}})
+		grants, e := ActiveGrants(ctx, tx.Store(), p.OwnerID, Query{AssistantID: p.SubjectID, ResourceID: q.ResourceID}, m.options.Now())
 		if e != nil {
 			return e
 		}
@@ -304,7 +304,7 @@ func (m *Manager) Grant(ctx context.Context, p core.Principal, r GrantRequest) (
 			}
 		}
 		if r.Constraints != nil {
-			rows, err := persistence.Select[Grant](ctx, m.store, "security.grants", persistence.Query{Where: []persistence.Filter{persistence.Eq("RevokedAt", nil), persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("AssistantID", r.AssistantID), persistence.Eq("ResourceID", r.ResourceID)}, Any: [][]persistence.Filter{{persistence.Eq("ExpiresAtKey", "")}, {{Field: "ExpiresAtKey", Op: ">", Value: persistence.TimeKey(m.options.Now())}}}})
+			rows, err := ActiveGrants(ctx, m.store, p.OwnerID, Query{AssistantID: r.AssistantID, ResourceID: r.ResourceID}, m.options.Now())
 			if err != nil {
 				return err
 			}
