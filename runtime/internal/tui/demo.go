@@ -6,8 +6,6 @@ import (
 	"molr.ai/runtime/internal/notification"
 	"molr.ai/runtime/internal/policy"
 	"strings"
-
-	"github.com/charmbracelet/bubbles/textarea"
 )
 
 type message struct {
@@ -20,33 +18,25 @@ type message struct {
 }
 
 type assistant struct {
-	notices                      []notification.Notice
-	messageDraft                 *textarea.Model
-	messagePastes                []pasteBlock
-	pastes                       []pasteBlock
-	clearVersion                 uint64
-	channel                      string
-	attachments                  []draftAttachment
-	commandBusy                  bool
-	commandSignature, commandKey string
-	status                       agent.Status
-	id, chat                     core.ID
-	sequence, readSequence       uint64
-	reading, loaded              bool
-	older                        string
-	requests                     []policy.PermissionRequest
-	pending                      pendingSend
-	name                         string
-	messages                     []message
-	composer                     textarea.Model
-	busy                         bool
-	generation                   uint64
-	unreadSequence               uint64
-	unreadCount                  uint64
-	approval                     string
-	scroll                       int
-	follow                       bool
-	visited                      bool
+	composerState
+	notices                []notification.Notice
+	channel                string
+	status                 agent.Status
+	id, chat               core.ID
+	sequence, readSequence uint64
+	reading, loaded        bool
+	older                  string
+	requests               []policy.PermissionRequest
+	name                   string
+	messages               []message
+	busy                   bool
+	generation             uint64
+	unreadSequence         uint64
+	unreadCount            uint64
+	approval               string
+	scroll                 int
+	follow                 bool
+	visited                bool
 }
 
 func demoAssistants() []assistant {

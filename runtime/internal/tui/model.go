@@ -119,6 +119,7 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(event tea.Msg) (tea.Model, tea.Cmd) {
+	m.syncComposerMode()
 	// Route compact-keyboard shortcuts through every page's existing paging.
 	if msg, ok := event.(tea.KeyMsg); ok && msg.Alt && !msg.Paste {
 		switch msg.Type {
@@ -443,16 +444,14 @@ func (m *model) selectAssistant(index int) {
 		return
 	}
 	previous := &m.assistants[m.selected]
-	previous.composer = m.input
+	m.saveComposer()
 	previous.scroll, previous.visited = m.viewport.YOffset, true
 	if m.page == chatPage {
 		previous.follow = m.viewport.AtBottom()
 	}
 	m.selected = index
 	a := &m.assistants[index]
-	m.input = a.composer
-	m.input.SetWidth(m.contentWidth())
-	m.resizeComposer()
+	m.activateComposer()
 	m.notice = ""
 	m.refresh(!a.visited || a.follow)
 	if a.visited && !a.follow {

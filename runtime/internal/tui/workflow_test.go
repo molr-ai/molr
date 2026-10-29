@@ -29,7 +29,7 @@ func workflowModel(t *testing.T, handler http.HandlerFunc) model {
 	t.Cleanup(server.Close)
 	client, _ := runtimeclient.New(server.URL, "")
 	m := newConnectedModel(t.Context(), client, make(chan runtimeclient.Event))
-	m.assistants = []assistant{{id: "a", chat: "chat", loaded: true, channel: "webui", name: "A", composer: newComposer()}, {id: "b", chat: "other", loaded: true, channel: "webui", name: "B", composer: newComposer()}}
+	m.assistants = []assistant{{id: "a", chat: "chat", loaded: true, channel: "webui", name: "A", composerState: composerState{composer: newComposer()}}, {id: "b", chat: "other", loaded: true, channel: "webui", name: "B", composerState: composerState{composer: newComposer()}}}
 	m.notice = ""
 	return m
 }

@@ -22,6 +22,7 @@ func TestBoundComposerCommandsAndDraftRestoration(t *testing.T) {
 	original, caret := m.composerText(), composerCaret(m.input)
 	m.assistants[0].attachments = []draftAttachment{{name: "saved.txt"}}
 	m.assistants[0].channel = "weixin"
+	m.syncComposerMode()
 	m.resizeComposer()
 	if !m.commandOnly() || m.input.Value() != "" || m.input.Height() != 1 || m.attachmentRows() != 0 {
 		t.Fatal("channel binding did not switch to an empty command composer")
@@ -69,6 +70,7 @@ func TestBoundComposerCommandsAndDraftRestoration(t *testing.T) {
 		t.Fatal("switching assistants lost command")
 	}
 	m.assistants[0].channel = "webui"
+	m.syncComposerMode()
 	m.resizeComposer()
 	if m.commandOnly() || m.composerText() != original || composerCaret(m.input) != caret || len(m.assistants[0].pastes) != 1 || len(m.assistants[0].attachments) != 1 {
 		t.Fatal("unbinding did not restore message draft, caret, paste block and attachment")
@@ -82,6 +84,7 @@ func TestCommandComposerBlocksMessagesAndMultilinePaste(t *testing.T) {
 	m := workflowModel(t, func(w http.ResponseWriter, r *http.Request) { t.Error("unexpected request", r.URL.Path) })
 	for _, channel := range []string{"", "weixin", "telegram", "slack", "dingtalk", "feishu", "qq"} {
 		m.assistants[0].channel = channel
+		m.syncComposerMode()
 		m.resizeComposer()
 		m.resetComposer()
 		m = pasteText(m, "compress\nstop")
@@ -114,6 +117,7 @@ func TestCommandComposerReceiptsPreserveCurrentInput(t *testing.T) {
 	m := workflowModel(t, func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, `{}`) })
 	m.input.SetValue("message in flight")
 	m.assistants[0].channel = "weixin"
+	m.syncComposerMode()
 	m.resizeComposer()
 	m = typeText(m, "compress")
 	next, _, _ := m.updateLive(sentMsg{id: "a", text: "message in flight", message: conversation.Message{ID: "sent", Sequence: 1}})
@@ -132,6 +136,7 @@ func TestCommandComposerReceiptsPreserveCurrentInput(t *testing.T) {
 	}
 	m.assistants[0].messageDraft.SetValue("/compress")
 	m.assistants[0].channel = "webui"
+	m.syncComposerMode()
 	m.resizeComposer()
 	next, _, _ = m.updateLive(commandResult{id: "a", input: "/compress", commandOnly: true})
 	m = next.(model)
@@ -153,6 +158,7 @@ func TestBoundCommandInputPreservesPersistentMessageDraft(t *testing.T) {
 	m.insertPasteBlock(strings.Repeat("材料", 80))
 	original, caret := m.composerText(), composerCaret(m.input)
 	m.assistants[0].channel = "weixin"
+	m.syncComposerMode()
 	m.resizeComposer()
 	m = typeText(m, "compress")
 	m.selectAssistant(1)
@@ -162,7 +168,7 @@ func TestBoundCommandInputPreservesPersistentMessageDraft(t *testing.T) {
 	store.close()
 	restored := openDraftStore(root, "connection", "owner")
 	defer restored.close()
-	a := assistant{id: "a", composer: newComposer()}
+	a := assistant{id: "a", composerState: composerState{composer: newComposer()}}
 	if err := restored.restore(&a); err != nil {
 		t.Fatal(err)
 	}

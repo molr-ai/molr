@@ -46,6 +46,7 @@ func TestChatStatusClickOpensDetailsWithoutMutation(t *testing.T) {
 			case "/channel":
 				a.channel = "weixin"
 			}
+			m.syncComposerMode()
 			m.refresh(true)
 			m.input.SetValue("保留草稿")
 			m.viewport.HalfPageUp()

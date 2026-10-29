@@ -1,12 +1,62 @@
 package tui
 
 import (
-	tea "github.com/charmbracelet/bubbletea"
 	"strings"
+
+	"github.com/charmbracelet/bubbles/textarea"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
-func (m *model) resizeComposer() {
+type composerState struct {
+	messageDraft                 *textarea.Model
+	messagePastes                []pasteBlock
+	pastes                       []pasteBlock
+	clearVersion                 uint64
+	attachments                  []draftAttachment
+	commandBusy                  bool
+	commandSignature, commandKey string
+	pending                      pendingSend
+	composer                     textarea.Model
+}
+
+// Message state remains available while the active editor accepts commands.
+func (s composerState) messageEditor() (textarea.Model, []pasteBlock) {
+	if s.messageDraft != nil {
+		return *s.messageDraft, s.messagePastes
+	}
+	return s.composer, s.pastes
+}
+
+func (s *composerState) acknowledgeMessage(text string, version uint64) bool {
+	editor, pastes := s.messageEditor()
+	if s.clearVersion != version || strings.TrimSpace(expandPasteBlocks(editor.Value(), pastes)) != text {
+		return false
+	}
+	if s.messageDraft != nil {
+		s.messageDraft.Reset()
+		s.messagePastes = nil
+	} else {
+		s.composer.Reset()
+		s.pastes = nil
+	}
+	return true
+}
+
+// The selected textarea is the active editor; inactive editors belong to their assistant.
+func (m *model) saveComposer() {
+	if len(m.assistants) > 0 {
+		m.assistants[m.selected].composer = m.input
+	}
+}
+
+func (m *model) activateComposer() {
+	m.input = m.assistants[m.selected].composer
+	m.input.SetWidth(m.contentWidth())
 	m.syncComposerMode()
+	m.resizeComposer()
+}
+
+func (m *model) resizeComposer() {
 	follow := m.viewport.AtBottom()
 	rows := m.inputRows()
 	if rows != m.input.Height() {

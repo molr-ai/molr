@@ -57,7 +57,7 @@ func managedModel(t *testing.T, handler http.HandlerFunc) model {
 		t.Fatal(err)
 	}
 	m := newConnectedModel(t.Context(), c, make(chan runtimeclient.Event))
-	m.assistants = []assistant{{id: "a", name: "A", chat: "chat", loaded: true, channel: "webui", composer: newComposer()}}
+	m.assistants = []assistant{{id: "a", name: "A", chat: "chat", loaded: true, channel: "webui", composerState: composerState{composer: newComposer()}}}
 	return m
 }
 
@@ -257,14 +257,14 @@ func TestPersistentDraftRestoresOriginalBytesAndPendingReceipt(t *testing.T) {
 	}
 	other := openDraftStore(root, "connection", "different-owner")
 	defer other.close()
-	empty := assistant{id: "a", composer: newComposer()}
+	empty := assistant{id: "a", composerState: composerState{composer: newComposer()}}
 	if err := other.restore(&empty); err != nil || empty.composer.Value() != "" {
 		t.Fatal("cross-account draft leak")
 	}
 	store.close()
 	restored := openDraftStore(root, "connection", "owner")
 	defer restored.close()
-	next := assistant{id: "a", composer: newComposer()}
+	next := assistant{id: "a", composerState: composerState{composer: newComposer()}}
 	if err := restored.restore(&next); err != nil {
 		t.Fatal(err)
 	}
@@ -283,7 +283,7 @@ func TestCorruptDraftIsNotOverwrittenAndClearPersists(t *testing.T) {
 	os.MkdirAll(dir, 0700)
 	file := filepath.Join(dir, "draft.json")
 	os.WriteFile(file, []byte("broken"), 0600)
-	a := assistant{id: "a", composer: newComposer()}
+	a := assistant{id: "a", composerState: composerState{composer: newComposer()}}
 	if err := s.restore(&a); err == nil {
 		t.Fatal("corruption ignored")
 	}
@@ -310,7 +310,7 @@ func TestCorruptDraftIsNotOverwrittenAndClearPersists(t *testing.T) {
 		t.Fatal(err)
 	}
 	fresh.restored = map[core.ID]bool{}
-	out := assistant{id: "a", composer: newComposer()}
+	out := assistant{id: "a", composerState: composerState{composer: newComposer()}}
 	if err := fresh.restore(&out); err != nil || out.composer.Value() != "" {
 		t.Fatal("cleared draft resurrected")
 	}
@@ -348,7 +348,7 @@ func TestPendingSendKeepsOriginalPayloadAfterEditing(t *testing.T) {
 
 func TestPendingReviewRestoresComposerFocus(t *testing.T) {
 	m := newConnectedModel(t.Context(), nil, make(chan runtimeclient.Event))
-	m.assistants = []assistant{{id: "a", chat: "chat", composer: newComposer(), pending: pendingSend{text: "original", key: "key"}}}
+	m.assistants = []assistant{{id: "a", chat: "chat", composerState: composerState{composer: newComposer(), pending: pendingSend{text: "original", key: "key"}}}}
 	m.input.SetValue("later draft")
 	m.pendingScreen("a", m.assistants[0].pending)
 	if m.input.Focused() {

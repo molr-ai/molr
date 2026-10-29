@@ -167,7 +167,7 @@ func TestLiveSelectionFreezeAndApprovalExactScope(t *testing.T) {
 	m := newConnectedModel(context.Background(), c, make(chan runtimeclient.Event))
 	expiry := time.Now().Add(time.Hour)
 	q := policy.PermissionRequest{ID: "p", AssistantID: "a", State: "pending", Version: 7, Input: policy.PermissionRequestInput{ResourceKind: "storage", ResourceID: "disk", ResourceDescription: "测试目录", Actions: []policy.Action{policy.Read}, PathPrefixes: []string{"/reports"}, ExpiresAt: &expiry, Additional: []policy.PermissionRequestInput{{ResourceKind: "compute", ResourceID: "cpu", FullAccess: true, Actions: []policy.Action{policy.Execute}, ExpiresAt: &expiry}}}}
-	m.assistants = []assistant{{id: "a", chat: "chat", name: "助理", loaded: true, composer: newComposer(), requests: []policy.PermissionRequest{q}}}
+	m.assistants = []assistant{{id: "a", chat: "chat", name: "助理", loaded: true, composerState: composerState{composer: newComposer()}, requests: []policy.PermissionRequest{q}}}
 	requests = []policy.PermissionRequest{q}
 	next, load := m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
 	m = next.(model)
@@ -217,7 +217,7 @@ func TestRunConnectedRejectsNonTerminalAndLiveErrors(t *testing.T) {
 
 func TestHistoryPaginationPreservesReaderAndBackgroundDraft(t *testing.T) {
 	m := newConnectedModel(t.Context(), nil, make(chan runtimeclient.Event))
-	m.assistants = []assistant{{id: "a", chat: "chat", name: "A", loaded: true, composer: newComposer(), sequence: 100, older: "older"}, {id: "b", chat: "other", name: "B", loaded: true, composer: newComposer()}}
+	m.assistants = []assistant{{id: "a", chat: "chat", name: "A", loaded: true, composerState: composerState{composer: newComposer()}, sequence: 100, older: "older"}, {id: "b", chat: "other", name: "B", loaded: true, composerState: composerState{composer: newComposer()}}}
 	for i := 51; i <= 100; i++ {
 		m.assistants[0].messages = append(m.assistants[0].messages, message{id: core.ID(fmt.Sprint(i)), sequence: uint64(i), role: "assistant", text: fmt.Sprintf("message %03d", i)})
 	}

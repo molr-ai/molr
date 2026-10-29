@@ -184,7 +184,7 @@ func TestReadAcknowledgementPreservesNewerUnreadAndRejectsStaleSnapshots(t *test
 	for _, newer := range []bool{false, true} {
 		m := newConnectedModel(t.Context(), nil, make(chan runtimeclient.Event))
 		m.page = assistantsPage
-		m.assistants = []assistant{{id: "a", chat: "chat", sequence: 9, unreadSequence: 9, unreadCount: 2, reading: true, composer: newComposer()}}
+		m.assistants = []assistant{{id: "a", chat: "chat", sequence: 9, unreadSequence: 9, unreadCount: 2, reading: true, composerState: composerState{composer: newComposer()}}}
 		last := uint64(9)
 		if newer {
 			last = 10
@@ -229,7 +229,7 @@ func TestReadAcknowledgementPreservesNewerUnreadAndRejectsStaleSnapshots(t *test
 
 func TestFailedReadPreservesUnreadCount(t *testing.T) {
 	m := newConnectedModel(t.Context(), nil, make(chan runtimeclient.Event))
-	m.assistants = []assistant{{id: "a", chat: "chat", sequence: 9, unreadSequence: 9, unreadCount: 2, composer: newComposer()}}
+	m.assistants = []assistant{{id: "a", chat: "chat", sequence: 9, unreadSequence: 9, unreadCount: 2, composerState: composerState{composer: newComposer()}}}
 	m.refresh(true)
 	m.returnToLatest()
 	if m.assistants[0].unreadCount != 2 {

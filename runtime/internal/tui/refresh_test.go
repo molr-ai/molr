@@ -168,7 +168,7 @@ func TestDetailLoadCancellationAndErrorPriority(t *testing.T) {
 
 func TestStatusOnlySnapshotPreservesTranscriptAndDraft(t *testing.T) {
 	m := newConnectedModel(t.Context(), nil, make(chan runtimeclient.Event))
-	a := assistant{id: "a", chat: "chat", name: "A", loaded: true, channel: "webui", composer: newComposer()}
+	a := assistant{id: "a", chat: "chat", name: "A", loaded: true, channel: "webui", composerState: composerState{composer: newComposer()}}
 	for i := 0; i < 50; i++ {
 		a.messages = append(a.messages, message{id: core.ID(fmt.Sprint(i)), role: "assistant", text: fmt.Sprintf("Line %d", i)})
 	}

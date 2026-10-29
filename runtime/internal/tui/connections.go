@@ -115,13 +115,16 @@ func (m *connectionModel) chatUpdate(msg tea.Msg) tea.Cmd {
 	if m.chat == nil {
 		return nil
 	}
+	previous := m.chat.assistantID()
 	next, cmd := m.chat.Update(msg)
 	chat := next.(model)
 	m.chat = &chat
-	if err := m.chat.persistDrafts(); err != nil {
-		m.chat.draftError = err.Error()
-	} else {
-		m.chat.draftError = ""
+	if saved, err := m.chat.persistEventDrafts(msg, previous); saved {
+		if err != nil {
+			m.chat.draftError = err.Error()
+		} else {
+			m.chat.draftError = ""
+		}
 	}
 	return tagChat(cmd, m.generation)
 }

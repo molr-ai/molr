@@ -66,7 +66,7 @@ func TestTUIExistingRuntimeAcceptance(t *testing.T) {
 	if err := client.Do(t.Context(), "GET", "/api/assistants/"+string(id), nil, &a); err != nil {
 		t.Fatal(err)
 	}
-	m.assistants = []assistant{{id: id, chat: a.ConversationID, name: a.Name, channel: "webui", loaded: true, composer: newComposer()}}
+	m.assistants = []assistant{{id: id, chat: a.ConversationID, name: a.Name, channel: "webui", loaded: true, composerState: composerState{composer: newComposer()}}}
 	m.selected = 0
 	m.input = m.assistants[0].composer
 	m.live.loading = false

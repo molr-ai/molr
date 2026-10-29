@@ -8,7 +8,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
+
+	"github.com/charmbracelet/bubbles/cursor"
+	tea "github.com/charmbracelet/bubbletea"
 
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/storage/files"
@@ -180,7 +184,28 @@ func (s *draftStore) restore(a *assistant) (restoreErr error) {
 	s.last[a.id] = string(raw)
 	return nil
 }
-func (m *model) persistDrafts() error {
+
+// Persist only assistants affected by a draft-changing event. A selection key
+// can change both the outgoing draft and the newly selected editor.
+func (m *model) persistEventDrafts(event tea.Msg, previous core.ID) (bool, error) {
+	if m.draftError != "" {
+		return true, m.persistDrafts()
+	}
+	ids := []core.ID{previous, m.assistantID()}
+	switch msg := event.(type) {
+	case sentMsg:
+		ids = append(ids, msg.id)
+	case commandResult:
+		ids = append(ids, msg.id)
+	case attachmentResult:
+		ids = append(ids, msg.assistant)
+	case cursor.BlinkMsg, transferTick, clipboardResult, liveEvent, refreshLive, managedPoll:
+		return false, nil
+	}
+	return true, m.persistDrafts(ids...)
+}
+
+func (m *model) persistDrafts(ids ...core.ID) error {
 	s := m.drafts
 	if s == nil {
 		return nil
@@ -196,9 +221,14 @@ func (m *model) persistDrafts() error {
 			}
 			s.selected = id
 		}
-		m.assistants[m.selected].composer = m.input
+		m.saveComposer()
 	}
+	var cacheSize int64
+	cacheScanned := false
 	for _, a := range m.assistants {
+		if len(ids) > 0 && !slices.Contains(ids, a.id) {
+			continue
+		}
 		if a.id.Validate() != nil {
 			continue
 		}
@@ -206,9 +236,7 @@ func (m *model) persistDrafts() error {
 			continue
 		}
 		// Persist the message draft while the visible composer accepts commands.
-		if a.messageDraft != nil {
-			a.composer, a.pastes = *a.messageDraft, a.messagePastes
-		}
+		a.composer, a.pastes = a.messageEditor()
 		d := diskDraft{Text: a.composer.Value(), Caret: composerCaret(a.composer), ClearVersion: a.clearVersion, Pending: diskPending{Text: a.pending.text, Key: a.pending.key, Attachments: a.pending.attachments, ClearVersion: a.pending.clearVersion}}
 		for _, p := range a.pastes {
 			d.Pastes = append(d.Pastes, diskPaste{p.start, p.end, p.label, p.text})
@@ -236,41 +264,57 @@ func (m *model) persistDrafts() error {
 			used[name] = true
 			file := filepath.Join(root, name)
 			if _, err := os.Lstat(file); errors.Is(err, os.ErrNotExist) {
-				var size int64
-				err = filepath.WalkDir(s.root, func(_ string, e os.DirEntry, err error) error {
-					if err != nil {
-						return err
-					}
-					if !e.IsDir() {
-						info, err := e.Info()
+				if !cacheScanned {
+					err = filepath.WalkDir(s.root, func(_ string, e os.DirEntry, err error) error {
 						if err != nil {
 							return err
 						}
-						size += info.Size()
+						if !e.IsDir() {
+							info, err := e.Info()
+							if err != nil {
+								return err
+							}
+							cacheSize += info.Size()
+						}
+						return nil
+					})
+					if err != nil {
+						return err
 					}
-					return nil
-				})
-				if err != nil {
-					return err
+					cacheScanned = true
 				}
-				if size+int64(len(f.data)) > draftCacheLimit {
+				if cacheSize+int64(len(f.data)) > draftCacheLimit {
 					return fmt.Errorf("草稿缓存已达到 256 MiB，请先发送或移除其他草稿附件")
 				}
 				if err = atomicPrivate(file, f.data); err != nil {
 					return err
 				}
+				cacheSize += int64(len(f.data))
 			} else if err != nil {
 				return err
 			}
 		}
-		if err = atomicPrivate(filepath.Join(root, "draft.json"), raw); err != nil {
+		draftPath := filepath.Join(root, "draft.json")
+		var oldSize int64
+		if cacheScanned {
+			if info, statErr := os.Lstat(draftPath); statErr == nil {
+				oldSize = info.Size()
+			}
+		}
+		if err = atomicPrivate(draftPath, raw); err != nil {
 			return err
+		}
+		if cacheScanned {
+			cacheSize += int64(len(raw)) - oldSize
 		}
 		s.last[a.id] = string(raw)
 		entries, _ := os.ReadDir(root)
 		for _, entry := range entries {
 			if strings.HasSuffix(entry.Name(), ".bin") && !used[entry.Name()] {
-				_ = os.Remove(filepath.Join(root, entry.Name()))
+				info, statErr := entry.Info()
+				if err := os.Remove(filepath.Join(root, entry.Name())); err == nil && cacheScanned && statErr == nil {
+					cacheSize -= info.Size()
+				}
 			}
 		}
 	}
