@@ -695,6 +695,9 @@ func (m *model) startDownload() tea.Cmd {
 	} else if !os.IsNotExist(err) {
 		f.notice = cleanText(err.Error())
 		return nil
+	} else if f.overwrite {
+		f.notice = "下载失败：目标文件已变化，请重新确认"
+		return nil
 	}
 	ctx, cancel := context.WithCancel(m.live.ctx)
 	f.cancel = cancel

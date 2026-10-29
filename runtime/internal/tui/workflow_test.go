@@ -282,6 +282,50 @@ func TestDownloadPreservesExistingAndVerifiesBeforePublish(t *testing.T) {
 	}
 }
 
+func TestDownloadRejectsDestinationRemovedBeforeConfirmation(t *testing.T) {
+	m := workflowModel(t, func(w http.ResponseWriter, r *http.Request) {
+		t.Error("changed destination must be rejected before downloading")
+	})
+	dir := t.TempDir()
+	target := filepath.Join(dir, "existing.txt")
+	other := filepath.Join(dir, "keep.txt")
+	for _, path := range []string{target, other} {
+		if err := os.WriteFile(path, []byte("original"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	m.files = newFileDialog()
+	m.files.saving = true
+	m.files.path.SetValue(target)
+	m.files.downloadFile = files.File{ID: "file", Size: 12}
+	if cmd := m.startDownload(); cmd != nil || !m.files.overwrite {
+		t.Fatal("existing destination did not require confirmation")
+	}
+	if err := os.Remove(target); err != nil {
+		t.Fatal(err)
+	}
+	if cmd := m.startDownload(); cmd != nil {
+		t.Fatal("removed destination started a download")
+	}
+	if m.files.notice != "下载失败：目标文件已变化，请重新确认" {
+		t.Fatalf("unexpected notice: %s", m.files.notice)
+	}
+	if m.files.busy || m.files.cancel != nil || m.files.progress != nil || !m.files.saving || !m.files.overwrite || m.files.path.Value() != target || m.files.downloadFile.ID != "file" || m.files.downloadFile.Size != 12 {
+		t.Fatal("rejected download changed dialog or transfer state")
+	}
+	if _, err := os.Stat(target); !os.IsNotExist(err) {
+		t.Fatalf("destination was recreated: %v", err)
+	}
+	data, err := os.ReadFile(other)
+	if err != nil || string(data) != "original" {
+		t.Fatalf("unrelated file changed: %q, %v", data, err)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil || len(entries) != 1 || entries[0].Name() != "keep.txt" {
+		t.Fatalf("unexpected files after rejection: %v, %v", entries, err)
+	}
+}
+
 func TestAttachmentOnlySendAndApprovalChildExpiry(t *testing.T) {
 	var body conversation.SendUserRequest
 	m := workflowModel(t, func(w http.ResponseWriter, r *http.Request) {
