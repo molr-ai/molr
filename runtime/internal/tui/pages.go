@@ -33,7 +33,7 @@ func (m model) pickerView() string {
 		}
 		badge := ""
 		if a.unreadCount > 0 {
-			badge = " " + unreadBadge.Render(fmt.Sprintf(" %d条未读 ", a.unreadCount))
+			badge = " " + unreadBadge.Render(fmt.Sprintf(" %d 条未读 ", a.unreadCount))
 		}
 		name := cellTruncate(prefix+a.name, max(0, m.contentWidth()-cellWidth(status)-1-cellWidth(badge)), "…")
 		if pos == m.pickerCursor {

@@ -38,7 +38,7 @@ func TestPickerUnreadBadgePreservesCountAndStatus(t *testing.T) {
 						}
 						continue
 					}
-					badge := fmt.Sprintf("%d条未读", count)
+					badge := fmt.Sprintf("%d 条未读", count)
 					if !strings.Contains(line, badge) || strings.Contains(line, "新消息") {
 						t.Fatalf("missing exact unread count: %q", line)
 					}
