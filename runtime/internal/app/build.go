@@ -10,6 +10,7 @@ import (
 	"molr.ai/runtime/internal/config"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/debugtrace"
+	"molr.ai/runtime/internal/im/channelstate"
 	"molr.ai/runtime/internal/im/conversation"
 	"molr.ai/runtime/internal/im/dingtalk"
 	"molr.ai/runtime/internal/im/feishu"
@@ -31,28 +32,29 @@ import (
 // Bundle is the complete single-server composition. Bootstrap and Database are
 // local CLI capabilities and never registered as HTTP routes or Agent tools.
 type Bundle struct {
-	channelStatus func(context.Context, core.Principal, core.ID) (conversation.ChannelStatus, error)
-	dingtalk      *dingtalk.Service
-	feishu        *feishu.Service
-	qq            *qq.Service
-	weixin        *weixin.Service
-	telegram      *telegram.Service
-	slack         *slack.Service
-	remote        *sandboxRouter
-	shellTasks    *shellsession.Manager
-	watchRuntime  *watchRuntime
-	sandbox       *shellService
-	Application   Application
-	Services      api.Services
-	Bootstrap     auth.Bootstrap
-	Database      sqlite.Database
-	HTTP          api.Server
-	Pricing       *pricing.Catalog
-	priceUpdater  *pricing.Updater
-	Exchange      *pricing.Exchange
-	Trace         *debugtrace.Service
-	store         persistence.Store
-	objects       *files.ObjectStore
+	channelManagement func(context.Context, core.Principal, core.ID) (map[string]channelstate.Summary, error)
+	channelStatus     func(context.Context, core.Principal, core.ID) (conversation.ChannelStatus, error)
+	dingtalk          *dingtalk.Service
+	feishu            *feishu.Service
+	qq                *qq.Service
+	weixin            *weixin.Service
+	telegram          *telegram.Service
+	slack             *slack.Service
+	remote            *sandboxRouter
+	shellTasks        *shellsession.Manager
+	watchRuntime      *watchRuntime
+	sandbox           *shellService
+	Application       Application
+	Services          api.Services
+	Bootstrap         auth.Bootstrap
+	Database          sqlite.Database
+	HTTP              api.Server
+	Pricing           *pricing.Catalog
+	priceUpdater      *pricing.Updater
+	Exchange          *pricing.Exchange
+	Trace             *debugtrace.Service
+	store             persistence.Store
+	objects           *files.ObjectStore
 }
 
 func (b *Bundle) Close() error {

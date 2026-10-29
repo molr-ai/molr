@@ -178,7 +178,17 @@ func (s *Service) connectionNotice(b Binding) channelstate.Connection {
 func (s *Service) notify(ctx context.Context, b Binding) error {
 	return channelstate.Notify(ctx, s.store, s.connectionNotice(b))
 }
-func (s *Service) Status(ctx context.Context, p core.Principal, id core.ID) (out Status, err error) {
+func (s *Service) Status(ctx context.Context, p core.Principal, id core.ID) (Status, error) {
+	return s.status(ctx, p, id, true)
+}
+
+// Summary reads the authorized binding state without loading delivery history.
+func (s *Service) Summary(ctx context.Context, p core.Principal, id core.ID) (channelstate.Summary, error) {
+	value, err := s.status(ctx, p, id, false)
+	return channelstate.Summary{Channel: value.Channel, State: value.State}, err
+}
+
+func (s *Service) status(ctx context.Context, p core.Principal, id core.ID, deliveries bool) (out Status, err error) {
 	out = Status{Channel: "webui", State: "disconnected", Deliveries: []DeliveryStatus{}}
 	err = s.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		a, err := s.options.Authorize(ctx, p, id, false)
@@ -200,6 +210,9 @@ func (s *Service) Status(ctx context.Context, p core.Principal, id core.ID) (out
 		out.LastError = b.LastError
 		if !a.Active {
 			out.State = "paused"
+		}
+		if !deliveries {
+			return nil
 		}
 		rows, err := persistence.Select[Delivery](ctx, s.store, deliveriesBucket, persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerKey", p.OwnerID), persistence.Eq("BindingID", b.ID)}, OrderBy: "CreatedAtKey", Descending: true, ThenBy: "key", Limit: 30})
 		if err != nil {

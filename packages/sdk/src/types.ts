@@ -171,3 +171,5 @@ export type SkillContent = { Text: string; Version: string };
 export type PricingRefreshResult = { Source: 'builtin' | 'file' | 'url'; Version: string; Updated: boolean };
 
 export type ChatChannelStatus = { Channel: 'webui' | 'weixin' | 'telegram' | 'slack' | 'dingtalk' | 'feishu' | 'qq' };
+
+export type ChatChannelSummaries = Record<Exclude<ChatChannelStatus["Channel"], "webui">, { Channel: ChatChannelStatus["Channel"]; State: string }>;

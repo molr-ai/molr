@@ -1,3 +1,4 @@
+import { channelSummaries } from './channel-summary';
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
@@ -23,7 +24,8 @@ test('Weixin binding keeps WebUI chat until confirmation and restores it on disc
  const assistant = await post(page, '/api/assistants', { Name: name, ModelID: models.find((m: any) => m.ResourceID === resource.ID).ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } });
  let bound = false, stage = 'need_verifycode', generation = 0;
  const status = () => ({ Channel: bound ? 'weixin' : 'webui', State: bound ? 'connected' : 'disconnected', LastInboundAt: null, ConnectedAt: null, LastError: '', Deliveries: [] });
- await page.route(`**/api/assistants/${assistant.ID}/chat-channel*`, route => route.fulfill({ json: { Channel: bound ? 'weixin' : 'webui' } }));
+ await page.route(`**/api/assistants/${assistant.ID}/chat-channel`, route => route.fulfill({ json: { Channel: bound ? 'weixin' : 'webui' } }));
+ await page.route(`**/api/assistants/${assistant.ID}/chat-channels`, route => route.fulfill({ json: channelSummaries('weixin', { Channel: bound ? 'weixin' : 'webui', State: bound ? 'connected' : 'disconnected' }) }));
  await page.route(`**/api/assistants/${assistant.ID}/weixin*`, route => route.fulfill({ json: status() }));
  await page.route('**/api/weixin/login', route => route.fulfill({ json: { ID: `qr-${++generation}`, Status: 'wait', QRCode: 'https://weixin.qq.com/qr/test', ExpiresAt: new Date(Date.now() + 300000).toISOString() } }));
  await page.route('**/api/weixin/poll', async route => {
@@ -115,7 +117,8 @@ test('successful deliveries stay quiet while abnormal outcomes remain visible', 
  });
  let writes = 0;
  page.on('request', request => { if (request.method() === 'POST' && request.url().includes('/api/weixin/')) writes++; });
- await page.route(`**/api/assistants/${assistant.ID}/chat-channel*`, route => route.fulfill({ json: { Channel: 'weixin' } }));
+ await page.route(`**/api/assistants/${assistant.ID}/chat-channel`, route => route.fulfill({ json: { Channel: 'weixin' } }));
+ await page.route(`**/api/assistants/${assistant.ID}/chat-channels`, route => route.fulfill({ json: channelSummaries('weixin', { Channel: 'weixin', State: 'reconnecting' }) }));
  await page.route(`**/api/assistants/${assistant.ID}/weixin*`, route => route.fulfill({ json: {
   Channel: 'weixin', State: 'connected', LastInboundAt: new Date().toISOString(), ConnectedAt: new Date().toISOString(), LastError: '',
   Deliveries: [{ ID: deliveryID, BindingID: 'binding', MessageID: 'message', Sequence: 1, Part: 0, State: state, Error: error, Attempts: attempts, CreatedAt: new Date().toISOString() }],
@@ -203,7 +206,8 @@ test('rate limit appears once, can be dismissed, and pauses background retries',
 test('already connected login skips QR and preserves the connection', async ({ page }, info) => {
  const assistant = await noticeAssistant(page, `recognized-${info.project.name}`);
  let bound = false, polls = 0;
- await page.route(`**/api/assistants/${assistant.ID}/chat-channel*`, route => route.fulfill({ json: { Channel: bound ? 'weixin' : 'webui' } }));
+ await page.route(`**/api/assistants/${assistant.ID}/chat-channel`, route => route.fulfill({ json: { Channel: bound ? 'weixin' : 'webui' } }));
+ await page.route(`**/api/assistants/${assistant.ID}/chat-channels`, route => route.fulfill({ json: channelSummaries('weixin', { Channel: bound ? 'weixin' : 'webui', State: bound ? 'connected' : 'disconnected' }) }));
  await page.route(`**/api/assistants/${assistant.ID}/weixin*`, route => route.fulfill({ json: { Channel: bound ? 'weixin' : 'webui', State: bound ? 'connected' : 'disconnected', ConnectedAt: bound ? new Date().toISOString() : null, LastInboundAt: null, LastError: '', Deliveries: [] } }));
  await page.route('**/api/weixin/login', route => { bound = true; return route.fulfill({ json: { ID: '', Status: 'already_connected', QRCode: '', ExpiresAt: '' } }); });
  await page.route('**/api/weixin/poll', route => { polls++; return route.fulfill({ json: { Status: 'already_connected' } }); });

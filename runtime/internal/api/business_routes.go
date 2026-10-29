@@ -33,6 +33,15 @@ func (s *HTTPServer) businessRoutes() {
 			return s.options.ChatChannel(r.Context(), principal(r), id)
 		})
 	}
+	if s.options.ChatChannels != nil {
+		s.handle("GET /api/assistants/{id}/chat-channels", func(r *http.Request) (any, error) {
+			id, err := pathID(r)
+			if err != nil {
+				return nil, err
+			}
+			return s.options.ChatChannels(r.Context(), principal(r), id)
+		})
+	}
 	s.weixinRoutes()
 	s.feishuRoutes()
 	s.qqRoutes()
@@ -171,7 +180,9 @@ func (s *HTTPServer) businessRoutes() {
 	route(s, "POST /api/watches/delete", func(ctx context.Context, p core.Principal, r struct {
 		ID       core.ID
 		Mutation core.Mutation
-	}) (any, error) { return nil, s.services.Watches.Delete(ctx, p, r.ID, r.Mutation) })
+	}) (any, error) {
+		return nil, s.services.Watches.Delete(ctx, p, r.ID, r.Mutation)
+	})
 	route(s, "POST /api/schedules", func(ctx context.Context, p core.Principal, r schedule.CreateRequest) (any, error) {
 		return s.services.Schedules.Create(ctx, p, r)
 	})

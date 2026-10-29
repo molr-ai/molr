@@ -84,6 +84,7 @@ Verified on 2026-10-03 against the registrations in `runtime/internal/api/*_rout
 | GET | `/api/assistants/{id}/terminals/{task}/stream` |
 | GET | `/api/assistants/{id}/status` |
 | GET | `/api/assistants/{id}/chat-channel` |
+| GET | `/api/assistants/{id}/chat-channels` |
 | GET | `/api/audit` |
 | GET | `/api/auth/csrf` |
 | GET | `/api/auth/login-links` |
@@ -405,6 +406,8 @@ The owner update interface remains owner-only. Names for hiring, cloning, and up
 ### Assistant Wait Reasons
 
 The `WaitingReason` of `GET /api/assistants/{id}/chat-channel` authorizes the assistant and reads confirmed bindings for all six channels in one read transaction. It returns `{ "Channel": "webui" }` or `weixin`, `telegram`, `slack`, `dingtalk`, `feishu`, or `qq`. Unconfirmed pairing remains `webui`; a bound channel still locks web input while reconnecting or paused. The summary omits credentials, connection details, and delivery history, which remain available through the individual channel endpoints. Account and assistant ownership errors return no partial summary.
+
+`GET /api/assistants/{id}/chat-channels` returns a connection-management object keyed by all six channel names; each entry contains only `Channel` and `State`. One read transaction preserves confirmed bindings, pending pairing, expiry and paused states without reading delivery history. Any authorization or channel-read error fails the whole request. The list retains pairing exclusion, and only the selected channel loads its details.
 
 `GET /api/assistants/{id}/status` returns stable reason codes: `model_not_configured`, `model_unavailable`, `model_not_authorized`, `model_pricing_missing`, `budget_exceeded`, `model_authentication_failed`, `model_rate_limited`, `model_service_unavailable`, `network_access_denied`, `context_limit`, `unsupported_attachment`, `step_limit`, etc. Unsubdivided errors retain the original error code, without returning exception text, vendor responses, or credentials. Existing HTTP status and scheduling error classifications are still determined by the code.
 

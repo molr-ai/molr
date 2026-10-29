@@ -6,6 +6,7 @@ import (
 	"molr.ai/runtime/internal/business/assistant"
 	"molr.ai/runtime/internal/config"
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/im/channelstate"
 	"molr.ai/runtime/internal/im/dingtalk"
 	"molr.ai/runtime/internal/im/feishu"
 	"molr.ai/runtime/internal/im/qq"
@@ -110,6 +111,24 @@ func (b *Bundle) buildChannels(cfg config.Config, key []byte, permissions policy
 		{"qq", b.qq}, {"feishu", b.feishu}, {"dingtalk", b.dingtalk},
 		{"slack", b.slack}, {"telegram", b.telegram}, {"weixin", b.weixin},
 	}}).read
+	readers := map[string]func(context.Context, core.Principal, core.ID) (channelstate.Summary, error){
+		"weixin": b.weixin.Summary, "telegram": b.telegram.Summary, "slack": b.slack.Summary,
+		"qq": func(ctx context.Context, p core.Principal, id core.ID) (channelstate.Summary, error) {
+			value, err := b.qq.Status(ctx, p, id)
+			return channelstate.Summary{Channel: value.Channel, State: value.State}, err
+		},
+		"feishu": func(ctx context.Context, p core.Principal, id core.ID) (channelstate.Summary, error) {
+			value, err := b.feishu.Status(ctx, p, id)
+			return channelstate.Summary{Channel: value.Channel, State: value.State}, err
+		},
+		"dingtalk": func(ctx context.Context, p core.Principal, id core.ID) (channelstate.Summary, error) {
+			value, err := b.dingtalk.Status(ctx, p, id)
+			return channelstate.Summary{Channel: value.Channel, State: value.State}, err
+		},
+	}
+	b.channelManagement = func(ctx context.Context, p core.Principal, id core.ID) (map[string]channelstate.Summary, error) {
+		return (channelSummary{access: access}).management(ctx, p, id, readers)
+	}
 	// Reservations in Slack, DingTalk and QQ block binding even before confirmation.
 	// Keep each caller's existing check order so the first error remains unchanged.
 	router.bindingChecks = map[string]func(context.Context, core.ID, core.ID) error{

@@ -1,3 +1,4 @@
+import { channelSummaries } from './channel-summary';
 import { test, expect, type Page } from '@playwright/test';
 import type { SystemNotice } from '@molr/sdk';
 const port=process.env.MOLR_TEST_PORT??'5193',base=`http://127.0.0.1:${port}`;
@@ -237,7 +238,8 @@ test('Weixin reconnect notice explains automatic retries and opens channel manag
  const seed=(await notices(page,a.ID))[0];
  const notice={...seed,ID:'weixin-reconnect',Kind:'weixin.connection',Code:'reconnecting'};
  await page.route('**/api/notifications?*',route=>route.fulfill({json:{Items:[notice],NextCursor:'',UnreadCount:1,PendingCount:1}}));
- await page.route(`**/api/assistants/${a.ID}/chat-channel*`,route=>route.fulfill({json:{Channel:'weixin'}}));
+ await page.route(`**/api/assistants/${a.ID}/chat-channel`,route=>route.fulfill({json:{Channel:'weixin'}}));
+ await page.route(`**/api/assistants/${a.ID}/chat-channels`, route => route.fulfill({ json: channelSummaries('weixin', { Channel: 'weixin', State: 'reconnecting' }) }));
  await page.route(`**/api/assistants/${a.ID}/weixin`,route=>route.fulfill({json:{Channel:'weixin',State:'reconnecting',LastError:'unknown',Deliveries:[]}}));
  await page.goto(`/#/assistants/${a.ID}`);
  const region=page.getByRole('region',{name:'Assistant notices',exact:true});

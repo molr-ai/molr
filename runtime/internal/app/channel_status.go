@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/im/channelstate"
 	"molr.ai/runtime/internal/im/conversation"
 	"molr.ai/runtime/internal/persistence"
 )
@@ -37,4 +38,27 @@ func (s channelSummary) read(ctx context.Context, p core.Principal, id core.ID) 
 		return nil
 	})
 	return result, err
+}
+
+// management reads every binding in one transaction. Pairing reservations remain
+// visible, but delivery history and credentials never enter this response.
+func (s channelSummary) management(ctx context.Context, p core.Principal, id core.ID, readers map[string]func(context.Context, core.Principal, core.ID) (channelstate.Summary, error)) (map[string]channelstate.Summary, error) {
+	result := make(map[string]channelstate.Summary, len(readers))
+	err := s.access.store.Read(ctx, func(ctx context.Context, _ persistence.Tx) error {
+		if _, err := s.access.target(ctx, p, id, false); err != nil {
+			return err
+		}
+		for _, name := range []string{"weixin", "qq", "feishu", "dingtalk", "telegram", "slack"} {
+			value, err := readers[name](ctx, p, id)
+			if err != nil {
+				return err
+			}
+			result[name] = value
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }

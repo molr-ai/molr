@@ -391,3 +391,6 @@
 
 | `internal/agent/scheduler` | `RequireRunningExecution` | `internal/app.TestExecutionChecksReadOnlyMatchingJobs`、`internal/app.TestExecutionDomainChecksPreserveLifecycleAndTransaction` |
 | `internal/agent/scheduler` | `RequireHistoricalExecution` | `internal/app.TestExecutionChecksReadOnlyMatchingJobs`、`internal/app.TestExecutionDomainChecksPreserveLifecycleAndTransaction` |
+| `internal/im/weixin` | `Service.Summary` | `TestSummarySkipsDeliveryHistoryAndChecksIdentity` |
+| `internal/im/telegram` | `Service.Summary` | `TestSummarySkipsDeliveryHistoryAndChecksIdentity` |
+| `internal/im/slack` | `Service.Summary` | `TestSummarySkipsDeliveryHistoryAndChecksIdentity` |

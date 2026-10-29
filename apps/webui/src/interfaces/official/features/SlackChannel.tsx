@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Button, ModalPresence, TextField } from '@molr/ui';
 import type { Assistant, SlackLogin, SlackStatus } from '@molr/sdk';
 import { api } from '@molr/sdk';
@@ -7,12 +7,13 @@ import { useErrorToast } from '../../../error-toasts';
 import { slackCopy } from '../../../slack-copy';
 import { Confirm, useAction } from '../components/common';
 
-export function SlackChannel({ assistant, disabled }: { assistant: Assistant; disabled: boolean }) {
+export function SlackChannel({ assistant, disabled, onStatusChange }: { assistant: Assistant; disabled: boolean; onStatusChange?: (value: { Channel: string; State: string }) => void }) {
  const { locale } = useCopy(), t = slackCopy[locale], { invalidateTopics } = useData();
  const status = useQuery<SlackStatus>(`/api/assistants/${assistant.ID}/slack`), action = useAction();
  const [appToken, setAppToken] = useState(''), [botToken, setBotToken] = useState(''), [userID, setUserID] = useState('');
  const [login, setLogin] = useState<SlackLogin | null>(null), [disconnect, setDisconnect] = useState(false);
  const pending = !!status.data && status.data.State !== 'disconnected' && status.data.Channel !== 'slack';
+ useEffect(() => { if (status.data) onStatusChange?.(status.data); }, [status.data?.Channel, status.data?.State]);
  const bound = status.data?.Channel === 'slack';
  const changed = () => invalidateTopics(['slack']);
  useErrorToast(action.error || status.error, action.error ? undefined : status.reload);

@@ -1,3 +1,4 @@
+import { channelSummaries } from './channel-summary';
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
@@ -23,7 +24,8 @@ test('Channel drawer navigates, pairs QQ, restores drafts and supports manual se
  let bound = false, stage = 'waiting', canceled = 0;
  const status = () => ({ Channel: bound ? 'qq' : 'webui', State: bound ? 'connected' : 'disconnected', AppID: '123456', LastInboundAt: null, ConnectedAt: null, LastError: '' });
  const login = () => ({ ID: 'qr-task', Status: stage, QRCode: 'https://q.qq.com/qqbot/openclaw/connect.html?task_id=fixture', Code: '', ExpiresAt: new Date(Date.now()+300000).toISOString() });
- await page.route(`**/api/assistants/${assistant.ID}/chat-channel*`, route => route.fulfill({ json: { Channel: status().Channel } }));
+ await page.route(`**/api/assistants/${assistant.ID}/chat-channel`, route => route.fulfill({ json: { Channel: status().Channel } }));
+ await page.route(`**/api/assistants/${assistant.ID}/chat-channels`, route => route.fulfill({ json: channelSummaries('qq', status()) }));
  await page.route(`**/api/assistants/${assistant.ID}/qq*`, route => route.fulfill({ json: status() }));
  await page.route('**/api/qq/login', route => route.fulfill({ json: login() }));
  await page.route('**/api/qq/poll', route => { if(stage==='confirmed')bound=true;return route.fulfill({json:login()}); });

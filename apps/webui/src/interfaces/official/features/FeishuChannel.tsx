@@ -1,21 +1,20 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Alert, Button, ModalPresence, TextField } from '@molr/ui';
 import type { Assistant, FeishuStatus, FeishuLogin } from '@molr/sdk';
 import { api } from '@molr/sdk';
 import { useCopy, useData } from '../../../state';
 import { useErrorToast } from '../../../error-toasts';
-import { poll } from '../../../polling';
+import { useChannelPairing, usePairingPoll } from './use-channel-pairing';
 import { feishuCopy } from '../../../feishu-copy';
 import { Confirm, useAction } from '../components/common';
 import { LocalQRCode } from './ChannelQRCode';
 
 export function FeishuChannel({ assistant, status, disabled }: { assistant: Assistant; status?: FeishuStatus; disabled: boolean }) {
  const { locale } = useCopy(), t = feishuCopy[locale], { invalidateTopics } = useData(), action = useAction();
- const [login, setLogin] = useState<FeishuLogin | null>(null), [manual, setManual] = useState(false), [disconnect, setDisconnect] = useState(false);
+ const { login, setLogin } = useChannelPairing<FeishuLogin>(assistant.ID, 'feishu');
+ const [manual, setManual] = useState(false), [disconnect, setDisconnect] = useState(false);
  const [appID, setAppID] = useState(''), [secret, setSecret] = useState(''), [openID, setOpenID] = useState('');
  const changed = () => invalidateTopics(['feishu']);
- const activeLogin = useRef<FeishuLogin | null>(null); activeLogin.current = login;
- useEffect(() => () => { if (activeLogin.current) void api.post('/api/feishu/cancel', { AssistantID: assistant.ID, ID: activeLogin.current.ID }).catch(() => {}); }, [assistant.ID]);
  const bound = status?.Channel === 'feishu';
  const begin = () => action.run(async () => { setLogin(await api.post<FeishuLogin>('/api/feishu/login', { AssistantID: assistant.ID })); }, undefined, false);
  useErrorToast(action.error);
@@ -40,14 +39,12 @@ export function FeishuChannel({ assistant, status, disabled }: { assistant: Assi
 }
 function FeishuLoginDialog({ login, assistantID, onChange, onConnected, onCancel, onRefresh, busy }: { login: FeishuLogin; assistantID: string; onChange: (login: FeishuLogin) => void; onConnected: () => void; onCancel: () => void; onRefresh: () => void; busy: boolean }) {
  const { locale } = useCopy(), t = feishuCopy[locale];
- const [error, setError] = useState<unknown>(null), [expired, setExpired] = useState(false);
+ const { expired, error } = usePairingPoll({
+  login, enabled: login.Status === 'waiting',
+  read: signal => api.read<FeishuLogin>('/api/feishu/poll', { AssistantID: assistantID, ID: login.ID }, signal),
+  receive: next => { if (next.Status === 'confirmed') { onConnected(); return false; } onChange(next); return next.Status === 'waiting' ? 5000 : false; },
+ });
  const terminal = expired || login.Status !== 'waiting';
- useEffect(() => { setExpired(false); setError(null); const timer = setTimeout(() => setExpired(true), Math.max(0, Date.parse(login.ExpiresAt) - Date.now())); return () => clearTimeout(timer); }, [login.ID, login.ExpiresAt]);
- useEffect(() => {
-  if (terminal) return;
-  const loop = poll(async signal => { try { const next = await api.read<FeishuLogin>('/api/feishu/poll', { AssistantID: assistantID, ID: login.ID }, signal); if (signal.aborted) return false; setError(null); if (next.Status === 'confirmed') { onConnected(); return false; } onChange(next); return next.Status === 'waiting' ? 5000 : false; } catch (error) { if (!signal.aborted) setError(error); throw error; } });
-  return () => loop.stop();
- }, [assistantID, login.ID, terminal]);
  useErrorToast(error);
  return <section aria-label={t.scan}><div className="weixin-login">
   <p>{t.privacy}</p>

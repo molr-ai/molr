@@ -1,3 +1,4 @@
+import { channelSummaries } from './channel-summary';
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 const port = process.env.MOLR_TEST_PORT ?? '5193';
@@ -18,7 +19,8 @@ test('Telegram requires confirmation, preserves drafts, survives refresh and dis
  let bound = false, ready = false, canceled = 0, generation = 0, state = 'connected';
  const status = () => ({ Channel: bound ? 'telegram' : 'webui', State: bound ? state : 'disconnected', BotUsername: 'fixture_bot', LastError: '', Deliveries: [] });
  const login = () => ({ ID: `connect-${generation}`, Status: ready ? 'ready' : 'waiting', URL: 'https://t.me/fixture_bot?start=fixture-code', BotUsername: 'fixture_bot', UserID: 12345, UserName: 'Fixture User', ExpiresAt: new Date(Date.now() + 300000).toISOString() });
- await page.route(`**/api/assistants/${assistant.ID}/chat-channel*`, route => route.fulfill({ json: { Channel: status().Channel } }));
+ await page.route(`**/api/assistants/${assistant.ID}/chat-channel`, route => route.fulfill({ json: { Channel: status().Channel } }));
+ await page.route(`**/api/assistants/${assistant.ID}/chat-channels`, route => route.fulfill({ json: channelSummaries('telegram', status()) }));
  await page.route(`**/api/assistants/${assistant.ID}/telegram*`, r => r.fulfill({ json: status() }));
  await page.route('**/api/telegram/login', async r => { expect(r.request().postDataJSON().Token).toBe('123456:synthetic-token-for-ui-tests'); generation++; await r.fulfill({ json: login() }); });
  await page.route('**/api/telegram/poll', r => r.fulfill({ json: login() }));
@@ -29,7 +31,14 @@ test('Telegram requires confirmation, preserves drafts, survives refresh and dis
  await expect(page.locator('.chat-input textarea')).toBeEnabled(); await page.locator('.chat-input textarea').fill('preserved draft');
  async function open() { await page.locator('.chat-header').getByRole('button', { name: 'More', exact: true }).click(); await page.getByRole('menuitem', { name: 'Switch chat channel', exact: true }).click(); }
  async function begin() { await page.getByRole('button', { name: 'Telegram', exact: true }).click(); await page.getByRole('dialog', { name: 'Chat channel', exact: true }).getByLabel('Bot Token', { exact: true }).fill('123456:synthetic-token-for-ui-tests'); await page.getByRole('button', { name: 'Verify and continue', exact: true }).click(); }
- await open(); await begin(); await expect(page.getByRole('link', { name: 'Open Telegram', exact: true })).toHaveAttribute('href', 'https://t.me/fixture_bot?start=fixture-code'); expect(bound).toBe(false);
+ const reads: string[] = [];
+ page.on('request', request => { const path = new URL(request.url()).pathname; if (path.startsWith(`/api/assistants/${assistant.ID}/`)) reads.push(path.split('/').at(-1)!); });
+ await open();
+ await expect(page.getByRole('button', { name: 'Telegram', exact: true })).toBeVisible();
+ expect(reads.filter(path => path === 'chat-channels')).toHaveLength(1);
+ expect(reads.filter(path => ['weixin', 'qq', 'feishu', 'dingtalk', 'telegram', 'slack'].includes(path))).toEqual([]);
+ await begin();
+ expect(reads.filter(path => ['weixin', 'qq', 'feishu', 'dingtalk', 'telegram', 'slack'].includes(path))).toEqual(['telegram']); await expect(page.getByRole('link', { name: 'Open Telegram', exact: true })).toHaveAttribute('href', 'https://t.me/fixture_bot?start=fixture-code'); expect(bound).toBe(false);
  await page.getByRole('button', { name: 'Cancel connection', exact: true }).click(); expect(canceled).toBe(1); expect(bound).toBe(false);
  await begin();
  for (const theme of ['light', 'dark']) for (const palette of ['forest', 'ocean', 'iris', 'sand', 'rose', 'monochrome']) {
@@ -52,4 +61,15 @@ test('Telegram requires confirmation, preserves drafts, survives refresh and dis
  await expect(page.getByRole('button', { name: 'Telegram', exact: true })).toBeVisible();
  await page.getByRole('dialog', { name: 'Chat channel', exact: true }).getByRole('button', { name: 'Close', exact: true }).click();
  await expect(page.locator('.chat-input textarea')).toBeEnabled();
+ // No SSE: a fresh management summary must update input even while details fail.
+ const fresh = await post(page, '/api/assistants', { Name: `${name} summary`, ModelID: models.find((m: any) => m.ResourceID === resource.ID).ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } });
+ bound = false;
+ await page.route(`**/api/assistants/${fresh.ID}/chat-channel`, route => route.fulfill({ json: { Channel: bound ? 'telegram' : 'webui' } }));
+ await page.route(`**/api/assistants/${fresh.ID}/chat-channels`, route => route.fulfill({ json: channelSummaries('telegram', status()) }));
+ await page.route(`**/api/assistants/${fresh.ID}/telegram`, route => route.abort());
+ await page.goto(`/#/assistants/${fresh.ID}`);
+ await expect(page.locator('.chat-input textarea')).toBeEnabled();
+ bound = true;
+ await open();
+ await expect(page.locator('.message-composer--locked')).toContainText('Send messages in Telegram');
 });

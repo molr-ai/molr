@@ -61,7 +61,7 @@ test('dependent invalidations preserve batching, input and one-step expansion', 
   expect(expandTopics(['account'])).toEqual(['account', 'usage']);
   expect(expandTopics([])).toEqual([]);
   expect(expandTopics(['debug'])).toEqual(['debug']);
-  for (const channel of ['qq', 'feishu', 'weixin', 'dingtalk', 'slack', 'telegram']) expect(expandTopics([channel])).toEqual([channel, 'chat-channel']);
+  for (const channel of ['qq', 'feishu', 'weixin', 'dingtalk', 'slack', 'telegram']) expect(expandTopics([channel])).toEqual([channel, 'chat-channel', 'chat-channels']);
   // Expansion must not fan out into unrelated conversations or statuses.
   expect(expandTopics(['messages:a'])).toEqual(['messages:a', 'activity']);
 });

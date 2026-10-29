@@ -1,6 +1,7 @@
 import type { RuntimeEvent } from './notifications/types';
 
 export function queryTopic(path: string) {
+  if (/\/assistants\/[^/]+\/chat-channels$/.test(path)) return 'chat-channels';
   if (/\/assistants\/[^/]+\/chat-channel$/.test(path)) return 'chat-channel';
   if (path === '/api/status') return 'runtime';
   const shell = path.match(/^\/api\/assistants\/([^/]+)\/shell-tasks/);
@@ -69,7 +70,7 @@ export function mutationTopics(path: string): string[] {
 
 export function expandTopics(topics: string[]) {
   const expanded = new Set(topics);
-  if (topics.some(topic => ['qq', 'feishu', 'weixin', 'dingtalk', 'slack', 'telegram'].includes(topic))) expanded.add('chat-channel');
+  if (topics.some(topic => ['qq', 'feishu', 'weixin', 'dingtalk', 'slack', 'telegram'].includes(topic))) { expanded.add('chat-channel'); expanded.add('chat-channels'); }
   if (topics.includes('settings')) { expanded.add('dreams'); expanded.add('plans'); }
   for (const topic of topics) if (topic.startsWith('status:')) expanded.add('activity');
   if (topics.some(topic => ['assistants', 'status', 'messages'].includes(topic) || topic.startsWith('messages:'))) expanded.add('activity');

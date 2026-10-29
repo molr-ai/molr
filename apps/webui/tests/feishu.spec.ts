@@ -1,3 +1,4 @@
+import { channelSummaries } from './channel-summary';
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
@@ -22,7 +23,8 @@ test('Feishu private chat connects, preserves drafts and disconnects', async ({ 
 
  let bound = false, stage = 'waiting';
  const state = () => ({ Channel: bound ? 'feishu' : 'webui', State: bound ? 'connected' : 'disconnected', AppID: bound ? 'cli_fixture' : '', LastInboundAt: null, ConnectedAt: null, LastError: '' });
- await page.route(`**/api/assistants/${assistant.ID}/chat-channel*`, route => route.fulfill({ json: { Channel: state().Channel } }));
+ await page.route(`**/api/assistants/${assistant.ID}/chat-channel`, route => route.fulfill({ json: { Channel: state().Channel } }));
+ await page.route(`**/api/assistants/${assistant.ID}/chat-channels`, route => route.fulfill({ json: channelSummaries('feishu', state()) }));
  await page.route(`**/api/assistants/${assistant.ID}/feishu*`, route => route.fulfill({ json: state() }));
  await page.route('**/api/feishu/login', route => route.fulfill({ json: { ID: 'registration', Status: 'waiting', QRCode: 'https://accounts.feishu.cn/authorize?test=fixture', ExpiresAt: new Date(Date.now()+600000).toISOString() } }));
  await page.route('**/api/feishu/poll', route => { if(stage==='confirmed')bound=true;return route.fulfill({ json:{ID:'registration',Status:stage,QRCode:'https://accounts.feishu.cn/authorize?test=fixture',ExpiresAt:new Date(Date.now()+600000).toISOString()} }); });

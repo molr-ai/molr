@@ -11,7 +11,7 @@ test('the assistant list defers secondary pages and panels until navigation', as
   page.on('request', request => { if (request.resourceType() === 'script') scripts.push(new URL(request.url()).pathname); });
   await page.goto('/#/assistants'); await signIn(page);
   await expect(page.locator('.assistant-workspace')).toBeVisible();
-  expect(scripts.filter(path => /\/(Plans|Resources|Settings|Workbench|Browser|Terminals|ShellTasks|WorkspaceFiles|AssistantInfo|TerminalSession|WeixinChannel)-/.test(path))).toEqual([]);
+  expect(scripts.filter(path => /\/(Plans|Resources|Settings|Workbench|Browser|Terminals|ShellTasks|WorkspaceFiles|AssistantInfo|TerminalSession|ChatChannelDrawer)-/.test(path))).toEqual([]);
   await page.evaluate(() => { location.hash = '#/resources'; });
   await expect.poll(() => scripts.some(path => /\/Resources-/.test(path))).toBe(true);
   await expect(page.getByRole('navigation', { name: 'Molr', exact: true })).toBeVisible();
@@ -163,14 +163,14 @@ for (const route of ['plans', 'account/general', 'workbench']) {
     const chunk = route === 'plans' ? 'Plans' : route === 'workbench' ? 'Workbench' : 'Settings';
     await expect.poll(() => scripts.some(path => path.includes(`/${chunk}-`))).toBe(true);
     await expect(page.locator(route === 'plans' ? '.plans-workspace' : route === 'workbench' ? '.workspace-main section.page' : '.settings-workspace')).toBeVisible();
-    expect(scripts.filter(path => /\/(AssistantsPage|WeixinChannel)-/.test(path))).toEqual([]);
+    expect(scripts.filter(path => /\/(AssistantsPage|ChatChannelDrawer)-/.test(path))).toEqual([]);
     expect(queries.filter(path => path === '/api/models' || path === '/api/assistants/activity')).toEqual([]);
     await page.evaluate(() => { location.hash = '#/assistants'; });
     await expect(page.locator('.assistant-workspace')).toBeVisible();
     expect(scripts.some(path => /\/AssistantsPage-/.test(path))).toBe(true);
     await expect.poll(() => queries.includes('/api/models')).toBe(true);
     await expect.poll(() => queries.includes('/api/assistants/activity')).toBe(true);
-    expect(scripts.some(path => /\/WeixinChannel-/.test(path))).toBe(false);
+    expect(scripts.some(path => /\/ChatChannelDrawer-/.test(path))).toBe(false);
     const filter = page.getByRole('searchbox', { name: 'Search assistants', exact: true });
     await filter.fill('Remember my filter');
     await page.evaluate(() => { location.hash = '#/plans'; });

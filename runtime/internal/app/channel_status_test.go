@@ -75,3 +75,45 @@ func TestChatChannelSummaryPreservesBindingAndOwnership(t *testing.T) {
 		t.Fatal("unknown assistant accepted")
 	}
 }
+
+func TestChannelManagementSummaryPreservesPairingAndFailsClosed(t *testing.T) {
+	b, owner, execution := taskFixture(t)
+	a, err := b.Services.Assistants.Get(t.Context(), owner, execution.AssistantID)
+	need(t, err)
+	key := persistence.Key(owner.OwnerID, a.ConversationID)
+	put := func(channel, state string, confirmed bool) {
+		t.Helper()
+		value := map[string]any{"ID": "binding", "OwnerID": owner.OwnerID, "AssistantID": a.ID, "ConversationID": a.ConversationID, "State": state, "ExpiresAt": "2099-01-01T00:00:00Z"}
+		if confirmed {
+			value[map[string]string{"qq": "OpenID", "dingtalk": "UserID", "slack": "ChannelID"}[channel]] = "confirmed"
+		}
+		need(t, b.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
+			return tx.Put(ctx, channel+".bindings", key, value)
+		}))
+	}
+	for _, channel := range []string{"qq", "dingtalk", "slack"} {
+		put(channel, "pairing", false)
+		values, err := b.channelManagement(t.Context(), owner, a.ID)
+		need(t, err)
+		if len(values) != 6 || values[channel].Channel != "webui" || values[channel].State != "pairing" {
+			t.Fatalf("pairing lost: %+v", values)
+		}
+		put(channel, "reconnecting", true)
+		values, err = b.channelManagement(t.Context(), owner, a.ID)
+		need(t, err)
+		if values[channel].Channel != channel || values[channel].State != "reconnecting" {
+			t.Fatalf("binding lost: %+v", values)
+		}
+	}
+	forged := owner
+	forged.SessionID = "revoked"
+	if values, err := b.channelManagement(t.Context(), forged, a.ID); err == nil || values != nil {
+		t.Fatalf("identity accepted: %+v %v", values, err)
+	}
+	need(t, b.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
+		return tx.Put(ctx, "weixin.bindings", key, "invalid binding")
+	}))
+	if values, err := b.channelManagement(t.Context(), owner, a.ID); err == nil || values != nil {
+		t.Fatalf("partial summary returned: %+v %v", values, err)
+	}
+}

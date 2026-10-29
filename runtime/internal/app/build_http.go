@@ -63,7 +63,7 @@ func (b *Bundle) buildHTTP(cfg config.Config, adapters adapters, identity *auth.
 			}
 		}
 		return b.shellTasks.BrowserManage(ctx, p, id, q)
-	}, BrowserSettings: b.shellTasks.BrowserSettings, BrowserStream: b.shellTasks.BrowserFrames, Updates: updateService, UpgradeInfo: installation, Notifications: notification.New(store, permissions), ChatChannel: b.channelStatus, Weixin: b.weixin, Telegram: b.telegram, Slack: b.slack, Dingtalk: b.dingtalk, Feishu: b.feishu, QQ: b.qq, Accounts: identity, Setup: b.setup, DiscoverProviders: func(ctx context.Context, p core.Principal) ([]resource.LocalProvider, error) {
+	}, BrowserSettings: b.shellTasks.BrowserSettings, BrowserStream: b.shellTasks.BrowserFrames, Updates: updateService, UpgradeInfo: installation, Notifications: notification.New(store, permissions), ChatChannel: b.channelStatus, ChatChannels: b.channelManagement, Weixin: b.weixin, Telegram: b.telegram, Slack: b.slack, Dingtalk: b.dingtalk, Feishu: b.feishu, QQ: b.qq, Accounts: identity, Setup: b.setup, DiscoverProviders: func(ctx context.Context, p core.Principal) ([]resource.LocalProvider, error) {
 		if err := identity.RequireAdministrator(ctx, p); err != nil {
 			return nil, err
 		}

@@ -1,3 +1,4 @@
+import { channelSummaries } from './channel-summary';
 import { test, expect, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 const port = process.env.MOLR_TEST_PORT ?? '5193', base = `http://127.0.0.1:${port}`;
@@ -22,7 +23,8 @@ test('Slack pairs without losing drafts, locks chat only after confirmation, and
  const models = await (await page.request.get('/api/models')).json();
  const a = await post(page, '/api/assistants', { Name: name, ModelID: models.find((m: any) => m.ResourceID === r.ID).ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } });
  let state = 'disconnected';
- await page.route(`**/api/assistants/${a.ID}/chat-channel*`, route => route.fulfill({ json: { Channel: state === 'connected' ? 'slack' : 'webui' } }));
+ await page.route(`**/api/assistants/${a.ID}/chat-channel`, route => route.fulfill({ json: { Channel: state === 'connected' ? 'slack' : 'webui' } }));
+ await page.route(`**/api/assistants/${a.ID}/chat-channels`, route => route.fulfill({ json: channelSummaries('slack', { Channel: state === 'connected' ? 'slack' : 'webui', State: state }) }));
  await page.route(`**/api/assistants/${a.ID}/slack*`, route => route.fulfill({ json: { Channel: state === 'connected' ? 'slack' : 'webui', State: state, ConnectedAt: null, LastInboundAt: null, LastError: '', Deliveries: [] } }));
  await page.route('**/api/slack/connect', route => { const input = route.request().postDataJSON(); expect(input.AppToken).toBe('xapp-test'); expect(input.BotToken).toBe('xoxb-test'); expect(input.UserID).toBe('UUSER'); state = 'pairing'; return route.fulfill({ json: { ID: 'pair', Code: 'molr-test-pairing-code', ExpiresAt: new Date(Date.now() + 300000).toISOString() } }); });
  await page.route('**/api/slack/disconnect', route => { state = 'disconnected'; return route.fulfill({ json: null }); });
@@ -34,6 +36,13 @@ test('Slack pairs without losing drafts, locks chat only after confirmation, and
  await page.getByLabel('App Token', { exact: true }).fill('xapp-test'); await page.getByLabel('Bot Token', { exact: true }).fill('xoxb-test'); await page.getByLabel('Slack member ID', { exact: true }).fill('UUSER');
  await page.getByRole('button', { name: 'Connect Slack', exact: true }).click(); await expect(page.getByText('molr-test-pairing-code', { exact: true })).toBeVisible();
  await expect(page.getByRole('button', { name: 'Connect Weixin', exact: true })).toHaveCount(0);
+ await dialog.getByRole('button', { name: 'Back to channels', exact: true }).click();
+ await page.getByRole('button', { name: 'Weixin', exact: true }).click();
+ await expect(page.getByText('Cancel the pending pairing in the other channel first.', { exact: true })).toBeVisible();
+ await expect(page.getByRole('button', { name: 'Connect Weixin', exact: true })).toBeDisabled();
+ await dialog.getByRole('button', { name: 'Back to channels', exact: true }).click();
+ await dialog.getByRole('button', { name: 'Slack Pairing', exact: true }).click();
+
  for (const theme of ['light', 'dark']) for (const palette of ['forest', 'ocean', 'iris', 'sand', 'rose', 'monochrome']) {
   await page.evaluate(({ theme, palette }) => { document.documentElement.dataset.theme = theme; document.documentElement.dataset.palette = palette; }, { theme, palette });
   await expect(dialog).toBeVisible(); const box = await dialog.boundingBox(); expect(box!.width).toBeLessThanOrEqual(page.viewportSize()!.width);

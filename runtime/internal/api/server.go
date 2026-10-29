@@ -14,6 +14,7 @@ import (
 	"molr.ai/runtime/internal/accountview"
 	"molr.ai/runtime/internal/agent"
 	"molr.ai/runtime/internal/agent/tools"
+	"molr.ai/runtime/internal/im/channelstate"
 	"molr.ai/runtime/internal/im/conversation"
 	"molr.ai/runtime/internal/maintenance"
 	"molr.ai/runtime/internal/notification"
@@ -86,6 +87,7 @@ type Options struct {
 	Weixin             *weixin.Service
 	Telegram           *telegram.Service
 	Slack              *slack.Service
+	ChatChannels       func(context.Context, core.Principal, core.ID) (map[string]channelstate.Summary, error)
 	ChatChannel        func(context.Context, core.Principal, core.ID) (conversation.ChannelStatus, error)
 	Setup              func(context.Context, core.Principal, json.RawMessage) (any, error)
 	DiscoverProviders  func(context.Context, core.Principal) ([]resource.LocalProvider, error)

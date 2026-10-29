@@ -23,7 +23,7 @@ import type { BrowserBounds } from './features/useBrowserView';
 import { usePanelDocking } from '../../use-panel-docking';
 import { ChatSidePanel, isChatPanel } from './components/ChatSidePanel';
 
-const ChatChannelDrawer = lazy(() => import('./features/WeixinChannel').then(module => ({ default: module.ChatChannelDrawer })));
+const ChatChannelDrawer = lazy(() => import('./features/ChatChannelDrawer').then(module => ({ default: module.ChatChannelDrawer })));
 const AssistantInfo = lazy(() => import('./features/AssistantInfo').then(module => ({ default: module.AssistantInfo })));
 const WorkspaceFiles = lazy(() => import('./features/WorkspaceFiles').then(module => ({ default: module.WorkspaceFiles })));
 const Browser = lazy(() => import('./features/Browser').then(module => ({ default: module.Browser })));
