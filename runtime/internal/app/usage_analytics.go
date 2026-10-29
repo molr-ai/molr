@@ -112,7 +112,7 @@ func usageAnalytics(ctx context.Context, store persistence.Store, identity *auth
 	for d := from; d.Before(until); d = d.AddDate(0, 0, 1) {
 		key := d.Format("2006-01-02")
 		dayIndex[key] = len(out.Daily)
-		out.Daily = append(out.Daily, accountview.AnalyticsDay{key, emptyAnalytics()})
+		out.Daily = append(out.Daily, accountview.AnalyticsDay{Date: key, AnalyticsTotals: emptyAnalytics()})
 	}
 	err = store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		users := []auth.UserInfo{}
