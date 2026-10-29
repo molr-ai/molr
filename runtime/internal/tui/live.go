@@ -334,7 +334,7 @@ func (m model) updateLive(event tea.Msg) (tea.Model, tea.Cmd, bool) {
 					a.id, a.chat, a.name = remote.ID, remote.ConversationID, cleanText(remote.Name)
 					for _, c := range msg.chats {
 						if c.ID == a.chat {
-							a.unreadCount = c.UnreadCount
+							a.updateReadState(c)
 						}
 					}
 					m.assistants = append(m.assistants, a)
@@ -388,8 +388,7 @@ func (m model) updateLive(event tea.Msg) (tea.Model, tea.Cmd, bool) {
 					a.status = msg.status
 					a.channel = msg.channel.Channel
 					a.busy = msg.status.State == agent.Working
-					a.unreadCount = msg.conversation.UnreadCount
-					a.readSequence = max(a.readSequence, msg.conversation.LastReadSequence)
+					a.updateReadState(msg.conversation)
 					a.requests = nil
 					for _, q := range msg.requests {
 						if q.State == "pending" {
@@ -477,18 +476,32 @@ func (m model) updateLive(event tea.Msg) (tea.Model, tea.Cmd, bool) {
 		return m, tea.Batch(back, m.scheduleLive()), true
 	case readMsg:
 		if i := m.assistantIndex(msg.id); i >= 0 {
-			m.assistants[i].reading = false
+			a := &m.assistants[i]
+			a.reading = false
 			if msg.err == nil {
-				m.assistants[i].readSequence = max(m.assistants[i].readSequence, msg.sequence)
+				a.readSequence = max(a.readSequence, msg.sequence)
+				if msg.sequence >= a.unreadSequence {
+					a.unreadCount = 0
+				}
 			}
 		}
 		if msg.err != nil {
 			m.liveError(msg.err)
+			return m, nil, true
 		}
-		return m, nil, true
+		return m, tea.Batch(m.markLiveRead(), m.scheduleLive()), true
 	}
 	return m, nil, false
 }
+
+// A snapshot started before a read acknowledgement must not restore its old count.
+func (a *assistant) updateReadState(c conversation.Conversation) {
+	if c.LastReadSequence < a.readSequence || c.LastSequence < a.unreadSequence {
+		return
+	}
+	a.unreadCount, a.unreadSequence, a.readSequence = c.UnreadCount, c.LastSequence, c.LastReadSequence
+}
+
 func (m model) assistantIndex(id core.ID) int {
 	for i, a := range m.assistants {
 		if a.id == id {

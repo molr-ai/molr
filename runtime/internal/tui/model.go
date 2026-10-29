@@ -199,7 +199,7 @@ func (m model) Update(event tea.Msg) (tea.Model, tea.Cmd) {
 		switch m.page {
 		case chatPage:
 			m.viewport, cmd = m.viewport.Update(msg)
-			if m.viewport.AtBottom() && len(m.assistants) > 0 {
+			if m.live == nil && m.viewport.AtBottom() && len(m.assistants) > 0 {
 				m.assistants[m.selected].unreadCount = 0
 			}
 		case helpPage:
@@ -341,7 +341,7 @@ func (m model) Update(event tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case "pgdown":
 				m.viewport.HalfPageDown()
-				if m.viewport.AtBottom() && len(m.assistants) > 0 {
+				if m.live == nil && m.viewport.AtBottom() && len(m.assistants) > 0 {
 					m.assistants[m.selected].unreadCount = 0
 				}
 				return m, m.markLiveRead()
@@ -449,7 +449,10 @@ func (m *model) selectAssistant(index int) {
 	}
 	previous := &m.assistants[m.selected]
 	previous.composer = m.input
-	previous.scroll, previous.follow, previous.visited = m.viewport.YOffset, m.viewport.AtBottom(), true
+	previous.scroll, previous.visited = m.viewport.YOffset, true
+	if m.page == chatPage {
+		previous.follow = m.viewport.AtBottom()
+	}
 	m.selected = index
 	a := &m.assistants[index]
 	m.input = a.composer
@@ -460,7 +463,7 @@ func (m *model) selectAssistant(index int) {
 	if a.visited && !a.follow {
 		m.viewport.SetYOffset(a.scroll)
 	}
-	if m.viewport.AtBottom() {
+	if m.live == nil && m.viewport.AtBottom() {
 		a.unreadCount = 0
 	}
 }
@@ -483,7 +486,7 @@ func cleanText(s string) string {
 
 func (m *model) returnToLatest() tea.Cmd {
 	m.viewport.GotoBottom()
-	if len(m.assistants) > 0 {
+	if m.live == nil && len(m.assistants) > 0 {
 		m.assistants[m.selected].unreadCount = 0
 	}
 	return m.markLiveRead()

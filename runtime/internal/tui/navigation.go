@@ -10,6 +10,9 @@ func (m *model) openPage(next page) tea.Cmd {
 	if next == helpPage && m.live != nil {
 		return m.managementMenu()
 	}
+	if m.page == chatPage && len(m.assistants) > 0 {
+		m.assistants[m.selected].follow = m.viewport.AtBottom()
+	}
 	m.input.Blur()
 	m.search.Blur()
 	m.back = append(m.back, m.page)
@@ -44,7 +47,17 @@ func (m *model) goBack() tea.Cmd {
 	m.search.Blur()
 	m.page = m.back[len(m.back)-1]
 	m.back = m.back[:len(m.back)-1]
-	return m.focusPage()
+	cmd := m.focusPage()
+	if m.page == chatPage && len(m.assistants) > 0 && m.selection == nil {
+		if m.assistants[m.selected].follow {
+			m.refresh(true)
+		}
+		if m.live == nil && m.viewport.AtBottom() {
+			m.assistants[m.selected].unreadCount = 0
+		}
+		cmd = tea.Batch(cmd, m.markLiveRead())
+	}
+	return cmd
 }
 
 func (m *model) focusPage() tea.Cmd {

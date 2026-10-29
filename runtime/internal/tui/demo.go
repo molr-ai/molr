@@ -41,6 +41,7 @@ type assistant struct {
 	composer                     textarea.Model
 	busy                         bool
 	generation                   uint64
+	unreadSequence               uint64
 	unreadCount                  uint64
 	approval                     string
 	scroll                       int

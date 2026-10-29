@@ -112,7 +112,7 @@ Above 640px panel width, the directory and preview appear side by side; narrower
 
 ## TUI message boundaries
 
-The assistant picker right-aligns a bold, reverse-color “X 条未读” (X unread) badge at the row end, using the Runtime conversation unread count. Only one item appears there, in priority order: unread count, processing, pending approval, current selection. Zero counts are hidden. Narrow layouts and long names preserve space for the row-end information.
+The assistant picker right-aligns a bold, reverse-color “X 条未读” (X unread) badge at the row end, using the Runtime conversation unread count. Only one item appears there, in priority order: unread count, processing, pending approval, current selection. Zero counts are hidden. Narrow layouts and long names preserve space for the row-end information. Returning to chat restores whether it was following the bottom and rechecks read conditions, preserving history positions. Connected mode clears counts only after successful acknowledgement of their sequence boundary, then refreshes authoritative counts; stale snapshots cannot restore acknowledged unread counts, and failures retain them.
 
 Clicking the left-side pending approval, active reminder, or bound-channel prompt opens approvals, status details, or channel management respectively; the no-assistant prompt opens the creation form. Clicks only open pages; approvals and disconnection still require confirmation there. Passive status, transient errors, and command completion prompts are not clickable. Hit areas follow the visible truncated text, preserving drafts and history position.
 
