@@ -58,6 +58,7 @@ type model struct {
 	viewport           viewport.Model
 	help               viewport.Model
 	markdown           markdownRenderer
+	renderCache        map[messageRenderKey]string
 	notice             string
 	selection          *textSelection
 	selectionID        uint64

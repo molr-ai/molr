@@ -51,6 +51,11 @@ func (m *model) resize(width, height int) {
 	m.refresh(follow)
 }
 
+type messageRenderKey struct {
+	role, text string
+	width      int
+}
+
 func (m *model) refresh(follow bool) {
 	m.resizeComposer()
 	var parts []string
@@ -58,6 +63,7 @@ func (m *model) refresh(follow bool) {
 	if len(m.assistants) > 0 {
 		messages = m.assistants[m.selected].messages
 	}
+	cache := make(map[messageRenderKey]string, len(messages))
 	for _, msg := range messages {
 		text := cleanText(msg.text)
 		for _, id := range msg.attachments {
@@ -66,6 +72,12 @@ func (m *model) refresh(follow bool) {
 				label = fmt.Sprintf("%s · %d 字节", cleanText(info.Name), info.Size)
 			}
 			text += "\n\n[" + label + " · /attachments 下载]"
+		}
+		key := messageRenderKey{msg.role, text, m.width}
+		if rendered, ok := m.renderCache[key]; ok {
+			cache[key] = rendered
+			parts = append(parts, rendered)
+			continue
 		}
 		switch msg.role {
 		case "user":
@@ -80,8 +92,10 @@ func (m *model) refresh(follow bool) {
 		default:
 			text = m.pagePadding(m.markdown.render(text))
 		}
+		cache[key] = text
 		parts = append(parts, text)
 	}
+	m.renderCache = cache
 	content, restore := layoutKeycaps(strings.Join(parts, "\n\n"))
 	m.restoreHistory = restore
 	m.viewport.SetContent(content)
