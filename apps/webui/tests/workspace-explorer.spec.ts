@@ -9,6 +9,26 @@ async function post(page: Page, path: string, data: object) {
 test('workspace file lifecycle, draft conflicts, floating geometry and mobile navigation', async ({ page }, info) => {
   test.setTimeout(120_000);
   if (info.project.name === 'desktop') await page.setViewportSize({ width: 1920, height: 1000 });
+  await page.addInitScript(() => {
+    const renders: Record<string, number> = {}; Object.assign(window, { workspaceRenders: renders });
+    type Fiber = { type?: { name?: string }; flags: number; child: Fiber | null; sibling: Fiber | null; alternate?: Fiber };
+    const renderers = new Map();
+    Object.assign(window, { __REACT_DEVTOOLS_GLOBAL_HOOK__: {
+      supportsFiber: true, renderers,
+      inject(renderer: unknown) { const id = renderers.size + 1; renderers.set(id, renderer); return id; },
+      onCommitFiberRoot(_id: number, root: { current: Fiber }) {
+        function visit(fiber: Fiber | null) {
+          if (!fiber) return;
+          const name = fiber.type?.name;
+          if (name && ['WorkspaceDirectory', 'WorkspacePreview'].includes(name) && (fiber.flags & 1)) renders[name] = (renders[name] ?? 0) + 1;
+          if (fiber.child !== fiber.alternate?.child) visit(fiber.child);
+          visit(fiber.sibling);
+        }
+        visit(root.current);
+      },
+      onCommitFiberUnmount() {},
+    } });
+  });
   await page.goto('/');
   await page.getByLabel('Username', { exact: true }).fill('owner');
   await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!');
@@ -42,7 +62,15 @@ test('workspace file lifecycle, draft conflicts, floating geometry and mobile na
   await create.getByRole('button', { name: 'Confirm', exact: true }).click();
   await expect(panel.getByRole('button', { name: 'Edit', exact: true })).toBeVisible();
   await panel.getByRole('button', { name: 'Edit', exact: true }).click();
-  await panel.getByLabel('File content', { exact: true }).fill('user draft');
+  await page.clock.install(); await page.clock.pauseAt(new Date());
+  const counts = () => page.evaluate(() => ({ ...(window as unknown as { workspaceRenders: Record<string, number> }).workspaceRenders }));
+  const beforeTyping = await counts();
+  expect(beforeTyping.WorkspaceDirectory).toBeGreaterThan(0);
+  await panel.getByLabel('File content', { exact: true }).pressSequentially('user draft');
+  const afterTyping = await counts();
+  expect(afterTyping.WorkspacePreview).toBeGreaterThan(beforeTyping.WorkspacePreview);
+  expect(afterTyping.WorkspaceDirectory).toBe(beforeTyping.WorkspaceDirectory);
+  await page.clock.resume();
   await panel.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(panel.locator('.files-text')).toHaveText('user draft');
   let current = await (await page.request.get(`${base}?action=read&path=projects%2F你好..txt`)).json();
@@ -61,8 +89,31 @@ test('workspace file lifecycle, draft conflicts, floating geometry and mobile na
   await panel.getByRole('button', { name: 'Close file explorer', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Unsaved changes', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Keep working', exact: true }).click();
+  // Delay a real version check: ticks and focus must not overlap file reads.
+  await page.clock.pauseAt(new Date());
+  let statRequests = 0, contentRequests = 0;
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  const routePattern = (url: URL) => url.pathname === base;
+  await page.route(routePattern, async route => {
+    const action = new URL(route.request().url()).searchParams.get('action');
+    if (action === 'read') contentRequests++;
+    if (action === 'stat' && ++statRequests === 1) await held;
+    await route.continue();
+  });
+  await page.clock.runFor(5000);
+  await expect.poll(() => statRequests).toBe(1);
+  await page.evaluate(() => { for (let i = 0; i < 3; i++) window.dispatchEvent(new Event('focus')); });
+  await page.clock.runFor(15000);
+  expect(statRequests).toBe(1); expect(contentRequests).toBe(0);
   await post(page, base, { Action: 'write', Path: 'projects/你好..txt', ExpectedVersion: current.Version, Text: 'assistant update' });
   await panel.getByRole('button', { name: 'Save', exact: true }).click();
+  release();
+  await expect(panel.getByText('File changed. Your draft is preserved.', { exact: true })).toBeVisible();
+  expect(contentRequests).toBe(0);
+  await page.unroute(routePattern);
+  await page.clock.resume();
+  await expect(panel.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
   await expect(panel.getByText('File changed. Your draft is preserved.', { exact: true })).toBeVisible();
   await expect(panel.getByLabel('File content', { exact: true })).toHaveValue('unsaved draft');
   await panel.getByRole('button', { name: 'Save as', exact: true }).click();
