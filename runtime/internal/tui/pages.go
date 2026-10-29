@@ -24,23 +24,20 @@ func (m model) pickerView() string {
 		}
 		status := ""
 		switch {
+		case a.unreadCount > 0:
+			status = unreadBadge.Render(fmt.Sprintf(" %d 条未读 ", a.unreadCount))
 		case a.busy:
-			status = "正在处理"
+			status = muted.Render("正在处理")
 		case a.approval == "pending":
-			status = "待审批"
+			status = muted.Render("待审批")
 		case index == m.selected:
-			status = "当前"
+			status = muted.Render("当前")
 		}
-		badge := ""
-		if a.unreadCount > 0 {
-			badge = " " + unreadBadge.Render(fmt.Sprintf(" %d 条未读 ", a.unreadCount))
-		}
-		name := cellTruncate(prefix+a.name, max(0, m.contentWidth()-cellWidth(status)-1-cellWidth(badge)), "…")
+		name := prefix + a.name
 		if pos == m.pickerCursor {
 			name = accent.Bold(true).Render(name)
 		}
-		name += badge
-		lines = append(lines, spread(name, muted.Render(status), m.contentWidth()))
+		lines = append(lines, spread(name, status, m.contentWidth()))
 		lines = append(lines, "")
 	}
 	if m.live != nil {

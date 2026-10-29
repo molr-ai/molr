@@ -12,7 +12,7 @@ import (
 	"molr.ai/runtime/internal/runtimeclient"
 )
 
-func TestPickerUnreadBadgePreservesCountAndStatus(t *testing.T) {
+func TestPickerUnreadBadgeTakesPriorityAtRowEnd(t *testing.T) {
 	for _, width := range []int{42, 70, 120} {
 		for _, count := range []uint64{0, 1, 1234} {
 			for _, busy := range []bool{false, true} {
@@ -29,6 +29,9 @@ func TestPickerUnreadBadgePreservesCountAndStatus(t *testing.T) {
 					if busy {
 						status = "正在处理"
 					}
+					if count > 0 {
+						status = fmt.Sprintf("%d 条未读 ", count)
+					}
 					if !strings.HasSuffix(line, status) || cellWidth(line) > m.contentWidth() {
 						t.Fatalf("width=%d count=%d: %q", width, count, line)
 					}
@@ -42,8 +45,8 @@ func TestPickerUnreadBadgePreservesCountAndStatus(t *testing.T) {
 					if !strings.Contains(line, badge) || strings.Contains(line, "新消息") {
 						t.Fatalf("missing exact unread count: %q", line)
 					}
-					if name == "研究助理" && !strings.Contains(line, name+"  "+badge) {
-						t.Fatalf("badge not beside name: %q", line)
+					if cellWidth(line) != m.contentWidth() || strings.Contains(line, "正在处理") || strings.Contains(line, "待审批") || strings.Contains(line, "当前") {
+						t.Fatalf("unread badge did not take priority at row end: %q", line)
 					}
 				}
 			}

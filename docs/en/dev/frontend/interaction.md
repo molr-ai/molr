@@ -112,7 +112,7 @@ Above 640px panel width, the directory and preview appear side by side; narrower
 
 ## TUI message boundaries
 
-The assistant picker shows a bold, reverse-color “X 条未读” (X unread) badge beside the assistant name, using the Runtime conversation unread count; zero counts are hidden. Processing and approval status remain at the row end. Narrow layouts and long names preserve space for the unread badge.
+The assistant picker right-aligns a bold, reverse-color “X 条未读” (X unread) badge at the row end, using the Runtime conversation unread count. Only one item appears there, in priority order: unread count, processing, pending approval, current selection. Zero counts are hidden. Narrow layouts and long names preserve space for the row-end information.
 
 Clicking the left-side pending approval, active reminder, or bound-channel prompt opens approvals, status details, or channel management respectively; the no-assistant prompt opens the creation form. Clicks only open pages; approvals and disconnection still require confirmation there. Passive status, transient errors, and command completion prompts are not clickable. Hit areas follow the visible truncated text, preserving drafts and history position.
 
