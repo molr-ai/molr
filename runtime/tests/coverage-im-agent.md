@@ -388,3 +388,6 @@
 | `internal/im/conversation` | `LoadMessage`, `AttachmentConversations` | `internal/objectaccess.TestOwnershipUsesDomainRecordsAndAttachmentReferences` |
 
 | `internal/agent/tools` | `Executor.Execute` | `internal/app.TestFullAccessBrowserToolUsesItsSeparateGrant` |
+
+| `internal/agent/scheduler` | `RequireRunningExecution` | `internal/app.TestExecutionChecksReadOnlyMatchingJobs`、`internal/app.TestExecutionDomainChecksPreserveLifecycleAndTransaction` |
+| `internal/agent/scheduler` | `RequireHistoricalExecution` | `internal/app.TestExecutionChecksReadOnlyMatchingJobs`、`internal/app.TestExecutionDomainChecksPreserveLifecycleAndTransaction` |

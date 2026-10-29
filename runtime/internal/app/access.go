@@ -68,20 +68,7 @@ func (a access) assistant(ctx context.Context, p core.Principal, id core.ID) err
 	return err
 }
 func (a access) resolveAssistant(ctx context.Context, p core.Principal, id core.ID) (assistant.Assistant, error) {
-	if id.Validate() != nil {
-		return assistant.Assistant{}, core.Invalid("assistant_id", "required")
-	}
-	if p.Kind == core.ActorAssistant && p.SubjectID != id {
-		return assistant.Assistant{}, denied()
-	}
-	v, err := persistence.Load[assistant.Assistant](ctx, a.store, "business.assistants", persistence.Key(p.OwnerID, id))
-	if err != nil {
-		return assistant.Assistant{}, err
-	}
-	if v.OwnerID != p.OwnerID || v.State != assistant.Active {
-		return assistant.Assistant{}, denied()
-	}
-	return v, nil
+	return assistant.ResolveActive(ctx, a.store, p, id)
 }
 func (a access) liveAssistant(ctx context.Context, p core.Principal) error {
 	_, err := a.resolveLiveAssistant(ctx, p)
@@ -98,16 +85,10 @@ func (a access) resolveLiveAssistant(ctx context.Context, p core.Principal) (ass
 	if shellsession.ManagedPrincipal(ctx, p) {
 		return value, nil
 	}
-	jobs, err := persistence.Select[scheduler.Job](ctx, a.store, "agent.jobs", persistence.Query{Where: []persistence.Filter{persistence.Eq("Event.OwnerID", p.OwnerID), persistence.Eq("Event.AssistantID", p.SubjectID), persistence.Eq("ExecutionID", p.ExecutionID), persistence.Eq("State", scheduler.Running)}, Limit: 1, Unordered: true})
-	if err != nil {
+	if err := scheduler.RequireRunningExecution(ctx, a.store, p); err != nil {
 		return assistant.Assistant{}, err
 	}
-	for _, job := range jobs {
-		if job.State == scheduler.Running && job.Event.OwnerID == p.OwnerID && job.Event.AssistantID == p.SubjectID && job.ExecutionID == p.ExecutionID {
-			return value, nil
-		}
-	}
-	return assistant.Assistant{}, denied()
+	return value, nil
 }
 func (a access) execution(ctx context.Context, e core.Execution) error {
 	_, err := a.executionAssistant(ctx, e)
@@ -125,12 +106,8 @@ func (a access) executionAssistant(ctx context.Context, e core.Execution) (assis
 		return value, nil
 	}
 	if e.TaskID != "" {
-		v, err := persistence.Load[task.Task](ctx, a.store, "business.tasks", persistence.Key(e.Principal.OwnerID, e.TaskID))
-		if err != nil {
+		if err := task.RequireExecution(ctx, a.store, e.Principal.OwnerID, e.TaskID, e.AssistantID); err != nil {
 			return assistant.Assistant{}, err
-		}
-		if v.AssistantID != e.AssistantID || v.State == task.Paused || v.State == task.Canceled || v.State == task.Completed || v.State == task.Failed {
-			return assistant.Assistant{}, denied()
 		}
 	}
 	return value, nil
@@ -173,19 +150,8 @@ func (a access) historicalExecution(ctx context.Context, e core.Execution) error
 	if err := e.Validate(); err != nil {
 		return err
 	}
-	jobs, err := persistence.Select[scheduler.Job](ctx, a.store, "agent.jobs", persistence.Query{Where: []persistence.Filter{persistence.Eq("Event.OwnerID", e.Principal.OwnerID), persistence.Eq("Event.AssistantID", e.AssistantID), persistence.Eq("ExecutionID", e.Principal.ExecutionID), persistence.Eq("Event.TaskID", e.TaskID)}, Limit: 1, Unordered: true})
-	if err != nil {
+	if err := scheduler.RequireHistoricalExecution(ctx, a.store, e); err != nil {
 		return err
-	}
-	matched := false
-	for _, job := range jobs {
-		if job.Event.OwnerID == e.Principal.OwnerID && job.Event.AssistantID == e.AssistantID && job.ExecutionID == e.Principal.ExecutionID && job.Event.TaskID == e.TaskID {
-			matched = true
-			break
-		}
-	}
-	if !matched {
-		return denied()
 	}
 	op, err := operation.NewRepository(a.store).Get(ctx, e.Principal.OwnerID, e.OperationID)
 	if persistence.Missing(err) {
