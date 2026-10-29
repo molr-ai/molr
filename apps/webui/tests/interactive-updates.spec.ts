@@ -54,3 +54,39 @@ for (const scoped of [true, false]) {
     expect(metadataReads).toBe(1);
   });
 }
+
+test('StrictMode reentry ignores a released reader even when its transport delivers a late response', async ({ page }) => {
+  await page.addInitScript(() => {
+    const fetch = window.fetch.bind(window);
+    // Exercise the hook's lifecycle guard even if a transport does not cancel.
+    window.fetch = (input, init) => fetch(input, typeof input === 'string' && input.includes('/messages?') ? { ...init, signal: undefined } : init);
+  });
+  let release!: () => void;
+  const pending = new Promise<void>(resolve => { release = resolve; });
+  let initialReads = 0, revisiting = false;
+  const message = { ID: 'message', ConversationID: 'fixture', Sequence: 1, Feedback: 'none' };
+  await page.route('**/api/events/stream*', route => route.fulfill({ contentType: 'text/event-stream', body: 'event: ready\ndata: {}\n\n' }));
+  await page.route('**/api/conversations/*/messages?*', async route => {
+    const url = new URL(route.request().url());
+    if (!url.pathname.includes('/fixture/')) {
+      await route.fulfill({ json: { Items: [], NextCursor: '' } });
+    } else if (!revisiting) {
+      initialReads++;
+      await pending;
+      await route.fulfill({ json: { Items: [message], NextCursor: '' } });
+    } else await route.fulfill({ json: { Items: url.searchParams.has('after_sequence') ? [] : [{ ...message, Feedback: 'like' }], NextCursor: '' } });
+  });
+  await page.goto('/tests/fixtures/interactive-updates.html?strict');
+  await expect.poll(() => initialReads).toBeGreaterThan(0);
+  await page.evaluate(() => window.selectHistory('other'));
+  await expect(page.getByLabel('history')).toContainText('"conversationID":"other","loaded":true');
+  revisiting = true;
+  await page.evaluate(() => window.selectHistory('fixture'));
+  await expect(page.getByLabel('history')).toContainText('"Feedback":"like"');
+  const stale = page.waitForResponse(async response => response.url().includes('/fixture/messages?') && (await response.json()).Items?.[0]?.Feedback === 'none');
+  release();
+  await (await stale).finished();
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  expect(await page.evaluate(() => window.cachedHistoryFeedback())).toBe('like');
+  await expect(page.getByLabel('history')).toContainText('"Feedback":"like"');
+});
