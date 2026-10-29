@@ -13,11 +13,7 @@ func (m model) pickerView() string {
 	if len(matches) == 0 {
 		return strings.Join(append(lines, "没有匹配的助理", muted.Render("Ctrl+N 创建助理 · Esc 返回聊天")), "\n")
 	}
-	rowHeight := 2
-	if m.contentWidth() < 64 {
-		rowHeight = 3
-	}
-	visible := max(1, (m.bodyHeight()-4)/rowHeight)
+	visible := max(1, (m.bodyHeight()-4)/2)
 	start := max(0, min(m.pickerCursor-visible+1, len(matches)-visible))
 	for pos := start; pos < min(len(matches), start+visible); pos++ {
 		index := matches[pos]
@@ -44,13 +40,7 @@ func (m model) pickerView() string {
 			name = accent.Bold(true).Render(name)
 		}
 		name += badge
-		if room := m.contentWidth() - cellWidth(status) - 1 - cellWidth(name) - 3; rowHeight == 2 && room > 0 {
-			name += "   " + muted.Render(cellTruncate(a.role, room, "…"))
-		}
 		lines = append(lines, spread(name, muted.Render(status), m.contentWidth()))
-		if rowHeight == 3 {
-			lines = append(lines, "  "+muted.Render(a.role))
-		}
 		lines = append(lines, "")
 	}
 	if m.live != nil {

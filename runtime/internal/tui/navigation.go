@@ -61,7 +61,7 @@ func (m model) matches() []int {
 	query := strings.ToLower(strings.TrimSpace(m.search.Value()))
 	var matches []int
 	for i, a := range m.assistants {
-		if strings.Contains(strings.ToLower(a.name+" "+a.role), query) {
+		if strings.Contains(strings.ToLower(a.name), query) {
 			matches = append(matches, i)
 		}
 	}

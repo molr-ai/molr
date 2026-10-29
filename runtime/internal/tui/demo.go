@@ -37,7 +37,6 @@ type assistant struct {
 	requests                     []policy.PermissionRequest
 	pending                      pendingSend
 	name                         string
-	role                         string
 	messages                     []message
 	composer                     textarea.Model
 	busy                         bool
@@ -52,7 +51,7 @@ type assistant struct {
 func demoAssistants() []assistant {
 	return []assistant{
 		{
-			name: "研究助理", role: "资料整理与研究", approval: "pending",
+			name: "研究助理", approval: "pending",
 			messages: []message{
 				{role: "user", text: "帮我整理一下 Molr 终端版的第一版体验。"},
 				{role: "assistant", text: "先把每天最常用的事情放到终端里：\n\n  01  切换助理，继续已有的对话\n  02  发送消息，查看执行进度\n  03  在需要时确认授权\n\n按 Ctrl+K 打开助理选择页，底部可以直接输入。每位助理会保留自己的草稿和聊天记录。"},
@@ -60,11 +59,11 @@ func demoAssistants() []assistant {
 			},
 		},
 		{
-			name: "开发助理", role: "开发与代码审查",
+			name:     "开发助理",
 			messages: []message{{role: "assistant", text: "终端界面已经准备好了。\n\n可以试着输入一段需求，或粘贴多行文字。Enter 发送，Alt+Enter 换行。\n\n这是离线演示，我会返回示例回复，不会读取本机文件或执行命令。"}},
 		},
 		{
-			name: "日常助理", role: "计划与日常事务",
+			name:     "日常助理",
 			messages: []message{{role: "assistant", text: "今天想先处理哪件事？\n\n把想法写下来，试试这套终端交互。按 F1 可以查看快捷键。"}},
 		},
 	}

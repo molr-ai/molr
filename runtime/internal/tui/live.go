@@ -331,7 +331,7 @@ func (m model) updateLive(event tea.Msg) (tea.Model, tea.Cmd, bool) {
 							}
 						}
 					}
-					a.id, a.chat, a.name, a.role = remote.ID, remote.ConversationID, cleanText(remote.Name), cleanText(remote.Status)
+					a.id, a.chat, a.name = remote.ID, remote.ConversationID, cleanText(remote.Name)
 					for _, c := range msg.chats {
 						if c.ID == a.chat {
 							a.unreadCount = c.UnreadCount
