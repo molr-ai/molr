@@ -2,7 +2,6 @@ package tui
 
 import (
 	"molr.ai/runtime/internal/core"
-	"molr.ai/runtime/internal/policy"
 	"molr.ai/runtime/internal/storage/files"
 	"strings"
 	"time"
@@ -47,11 +46,6 @@ type model struct {
 	restoreHistory     func(string) string
 	connectionName     string
 	live               *liveSession
-	review             *policy.PermissionRequest
-	reviewKey          string
-	reviewDecision     int
-	resolving          bool
-	approvalScroll     int
 	width, height      int
 	assistants         []assistant
 	selected           int

@@ -156,9 +156,6 @@ func (m model) View() string {
 		if m.connectionName != "" {
 			badge = muted.Render(cellTruncate(m.connectionName, max(4, m.contentWidth()/4), "…")+" · ") + badge
 		}
-		if m.page == approvalPage {
-			left, right = "↑↓ 选择 · Enter 确认", "Alt+↑↓ 滚动 · Esc 返回"
-		}
 	}
 	header := spread(title, badge, m.contentWidth())
 	if m.page != chatPage {

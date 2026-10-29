@@ -467,3 +467,7 @@ func (m *model) requestByIDScreen(id core.ID) tea.Cmd {
 		return s, nil
 	})
 }
+
+func approveInput(input policy.PermissionRequestInput) policy.PermissionResolution {
+	return policy.PermissionResolution{ResourceID: input.ResourceID, Actions: input.Actions, Scope: policy.Scope{ReadOnly: !slices.Contains(input.Actions, policy.Write) && !slices.Contains(input.Actions, policy.Execute), FullAccess: input.FullAccess, ModelID: input.ModelID, PathPrefixes: input.PathPrefixes}, ExpiresAt: input.ExpiresAt, Constraints: input.Constraints, Temporary: input.Temporary, GrantID: input.GrantID, GrantVersion: input.GrantVersion}
+}

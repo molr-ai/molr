@@ -108,14 +108,6 @@ func (m model) runCommand(text string) (tea.Model, tea.Cmd, bool) {
 		m.resizeComposer()
 		cmd := m.openAttachments(name == "/drafts")
 		return m, cmd, true
-	case "/channel":
-		m.notice = m.channelNotice()
-		if m.notice == "" {
-			m.notice = "当前聊天入口：Molr（可在 TUI 发送）"
-		}
-		m.resetComposer()
-		m.resizeComposer()
-		return m, nil, true
 	case "/stop", "/停止", "/expedite", "/加急", "/compress", "/压缩", "/permission", "/权限审批":
 	default:
 		return m, nil, false

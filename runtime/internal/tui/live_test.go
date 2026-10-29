@@ -152,7 +152,12 @@ func TestConnectedHistorySendRetryAndSwitch(t *testing.T) {
 
 func TestLiveSelectionFreezeAndApprovalExactScope(t *testing.T) {
 	var sent policy.PermissionResolution
+	var requests []policy.PermissionRequest
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			json.NewEncoder(w).Encode(requests)
+			return
+		}
 		sent = policy.PermissionResolution{}
 		json.NewDecoder(r.Body).Decode(&sent)
 		json.NewEncoder(w).Encode(policy.PermissionRequest{ID: sent.RequestID, State: "approved"})
@@ -163,13 +168,17 @@ func TestLiveSelectionFreezeAndApprovalExactScope(t *testing.T) {
 	expiry := time.Now().Add(time.Hour)
 	q := policy.PermissionRequest{ID: "p", AssistantID: "a", State: "pending", Version: 7, Input: policy.PermissionRequestInput{ResourceKind: "storage", ResourceID: "disk", ResourceDescription: "测试目录", Actions: []policy.Action{policy.Read}, PathPrefixes: []string{"/reports"}, ExpiresAt: &expiry, Additional: []policy.PermissionRequestInput{{ResourceKind: "compute", ResourceID: "cpu", FullAccess: true, Actions: []policy.Action{policy.Execute}, ExpiresAt: &expiry}}}}
 	m.assistants = []assistant{{id: "a", chat: "chat", name: "助理", loaded: true, composer: newComposer(), requests: []policy.PermissionRequest{q}}}
-	m.openPage(approvalPage)
+	requests = []policy.PermissionRequest{q}
+	next, load := m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
+	m = next.(model)
+	applyManaged(t, &m, load)
+	m.manage.screen.rows[0].open(&m)
+	m.manage.screen.rows[0].open(&m)
 	// A later request must not replace the one the user is reviewing.
 	m.assistants[0].requests = []policy.PermissionRequest{{ID: "new", Version: 9}}
-	next, cmd := m.updateLiveApproval(tea.KeyMsg{Type: tea.KeyEnter})
-	m = next.(model)
-	result := cmd().(resolvedMsg)
-	if result.err != nil || sent.RequestID != "p" || sent.Mutation.ExpectedVersion != 7 || sent.Scope.PathPrefixes[0] != "/reports" || !sent.Scope.ReadOnly || !sent.Additional[0].Scope.FullAccess || !sent.ExpiresAt.Equal(expiry) {
+	cmd, _ := m.updateManaged(tea.KeyMsg{Type: tea.KeyEnter})
+	result := cmd().(managedResult)
+	if result.err != nil || sent.RequestID != "p" || sent.Mutation.ExpectedVersion != 7 || sent.Scope.PathPrefixes[0] != "/reports" || !sent.Scope.ReadOnly || !sent.Additional[0].Scope.FullAccess || !sent.ExpiresAt.Equal(expiry) || !sent.Additional[0].ExpiresAt.Equal(expiry) {
 		t.Fatalf("wrong resolution %+v", sent)
 	}
 	m.liveError(&runtimeclient.Error{Status: 401, Code: "unauthenticated"})
@@ -178,11 +187,10 @@ func TestLiveSelectionFreezeAndApprovalExactScope(t *testing.T) {
 	if !m.live.expired || cmd != nil {
 		t.Fatal("expired session still sends")
 	}
-	m.review = &q
 	m.live.expired = false
-	m.resolving = false
-	m.approvalChoice = 1
-	_, cmd = m.updateLiveApproval(tea.KeyMsg{Type: tea.KeyEnter})
+	m.requestScreen(q)
+	m.manage.screen.rows[len(m.manage.screen.rows)-1].open(&m)
+	cmd, _ = m.updateManaged(tea.KeyMsg{Type: tea.KeyEnter})
 	cmd()
 	if sent.Decision != "reject" || sent.ResourceID != "" || len(sent.Additional) != 0 {
 		t.Fatal("rejection carried grants")

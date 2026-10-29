@@ -299,8 +299,8 @@ func TestAttachmentOnlySendAndApprovalChildExpiry(t *testing.T) {
 	}
 	parent := time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)
 	child := parent.Add(24 * time.Hour)
-	m.review = &policy.PermissionRequest{Input: policy.PermissionRequestInput{ExpiresAt: &parent, Additional: []policy.PermissionRequestInput{{ExpiresAt: &child}}}}
-	detail := strings.Join(m.liveApprovalDetails(), "\n")
+	m.requestScreen(policy.PermissionRequest{Input: policy.PermissionRequestInput{ExpiresAt: &parent, Additional: []policy.PermissionRequestInput{{ExpiresAt: &child}}}})
+	detail := m.manage.screen.body
 	if !strings.Contains(detail, child.Local().Format("2006-01-02")) {
 		t.Fatal("child expiry not shown")
 	}

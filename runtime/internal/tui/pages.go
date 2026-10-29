@@ -60,9 +60,6 @@ func (m model) searchView() string {
 }
 
 func (m model) approvalView() string {
-	if m.live != nil {
-		return m.liveApprovalView()
-	}
 	a := m.assistants[m.selected]
 	switch a.approval {
 	case "approved":

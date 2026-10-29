@@ -55,7 +55,7 @@ func (m *model) downloadScreen(name string, download func(context.Context, *runt
 			return nil
 		}
 		action := func(ctx context.Context, c *runtimeclient.Client) error {
-			return publishFile(target, info, func(w io.Writer) error { return download(ctx, c, w) })
+			return publishFile(ctx, target, info, func(w io.Writer) error { return download(ctx, c, w) })
 		}
 		detail := "下载到：" + target
 		if info != nil {
@@ -72,40 +72,6 @@ func (m *model) downloadScreen(name string, download func(context.Context, *runt
 		return cmd
 	}
 	return m.showScreen(s)
-}
-func publishFile(target string, expected os.FileInfo, write func(io.Writer) error) error {
-	f, err := os.CreateTemp(filepath.Dir(target), ".molr-download-*")
-	if err != nil {
-		return err
-	}
-	defer os.Remove(f.Name())
-	defer f.Close()
-	if err = write(f); err != nil {
-		return err
-	}
-	if err = f.Sync(); err != nil {
-		return err
-	}
-	if err = f.Close(); err != nil {
-		return err
-	}
-	current, err := os.Lstat(target)
-	if expected == nil {
-		if err == nil {
-			return fmt.Errorf("目标文件刚刚被创建，请重新确认")
-		}
-		if !errors.Is(err, os.ErrNotExist) {
-			return err
-		}
-		if err = os.Link(f.Name(), target); err != nil {
-			return err
-		}
-		return nil
-	}
-	if err != nil || !current.Mode().IsRegular() || !os.SameFile(expected, current) || current.Size() != expected.Size() || !current.ModTime().Equal(expected.ModTime()) {
-		return fmt.Errorf("目标文件已变化，请重新确认替换")
-	}
-	return os.Rename(f.Name(), target)
 }
 func (m *model) saveTextScreen(text string) tea.Cmd {
 	return m.downloadScreen("message.txt", func(_ context.Context, _ *runtimeclient.Client, w io.Writer) error {

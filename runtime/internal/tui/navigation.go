@@ -23,17 +23,6 @@ func (m *model) openPage(next page) tea.Cmd {
 		m.pickerCursor = m.selected
 	case approvalPage:
 		m.approvalChoice = 0
-		m.approvalScroll = 0
-		if m.live != nil {
-			m.notice = ""
-			m.review = nil
-			m.reviewKey = ""
-			m.resolving = false
-			if len(m.assistants) > 0 && len(m.assistants[m.selected].requests) > 0 {
-				q := m.assistants[m.selected].requests[0]
-				m.review = &q
-			}
-		}
 	case helpPage:
 		m.help.GotoTop()
 	}
@@ -119,9 +108,6 @@ func (m model) updatePicker(event tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) updateApproval(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.live != nil {
-		return m.updateLiveApproval(msg)
-	}
 	a := &m.assistants[m.selected]
 	if a.approval != "pending" {
 		return m, nil

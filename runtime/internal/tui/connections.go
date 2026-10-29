@@ -335,8 +335,6 @@ func (m *connectionModel) activate(result connectionResult) tea.Cmd {
 			m.chat.files.cancel()
 		}
 		m.chat.files = fileDialog{}
-		m.chat.resolving = false
-		m.chat.review = nil
 		if m.chat.page == filesPage || m.chat.page == attachmentsPage {
 			m.chat.page = chatPage
 			m.chat.back = nil

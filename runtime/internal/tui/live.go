@@ -56,11 +56,6 @@ type sentMsg struct {
 	message      conversation.Message
 	err          error
 }
-type resolvedMsg struct {
-	id      core.ID
-	request policy.PermissionRequest
-	err     error
-}
 type readMsg struct {
 	id       core.ID
 	sequence uint64
@@ -399,7 +394,6 @@ func (m model) updateLive(event tea.Msg) (tea.Model, tea.Cmd, bool) {
 					if len(a.requests) > 0 {
 						a.approval = "pending"
 					}
-					// Freeze the request being reviewed; a new event must never change Enter's target.
 				}
 				if i == m.selected {
 					m.refresh(!msg.history && (msg.initial || follow))
@@ -458,22 +452,6 @@ func (m model) updateLive(event tea.Msg) (tea.Model, tea.Cmd, bool) {
 			a.pastes = nil
 		}
 		return m, m.scheduleLive(), true
-	case resolvedMsg:
-		if m.review == nil || m.review.ID != msg.id {
-			return m, m.scheduleLive(), true
-		}
-		m.resolving = false
-		if msg.err != nil {
-			m.liveError(msg.err)
-			return m, nil, true
-		}
-		m.notice = "授权申请已处理"
-		m.review = nil
-		var back tea.Cmd
-		if m.page == approvalPage {
-			back = m.goBack()
-		}
-		return m, tea.Batch(back, m.scheduleLive()), true
 	case readMsg:
 		if i := m.assistantIndex(msg.id); i >= 0 {
 			a := &m.assistants[i]

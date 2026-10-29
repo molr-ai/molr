@@ -700,41 +700,13 @@ func (m *model) startDownload() tea.Cmd {
 	f.cancel = cancel
 	f.busy = true
 	f.progress = &atomic.Int64{}
-	client, file, progress, overwrite := m.live.client, f.downloadFile, f.progress, f.overwrite
+	client, file, progress := m.live.client, f.downloadFile, f.progress
 	return tea.Batch(func() tea.Msg {
 		defer cancel()
 		out := downloaded{path: path}
-		tmp, err := os.CreateTemp(filepath.Dir(path), ".molr-download-*")
-		if err != nil {
-			out.err = err
-			return out
-		}
-		defer os.Remove(tmp.Name())
-		err = client.Download(ctx, file, tmp, progress.Store)
-		if err == nil {
-			err = tmp.Sync()
-		}
-		closeErr := tmp.Close()
-		if err == nil {
-			err = closeErr
-		}
-		if err == nil && ctx.Err() != nil {
-			err = ctx.Err()
-		}
-		if err == nil {
-			if overwrite {
-				// Refuse to overwrite a destination replaced since confirmation.
-				now, statErr := os.Lstat(path)
-				if statErr != nil || info == nil || !os.SameFile(info, now) || now.Size() != info.Size() || !now.ModTime().Equal(info.ModTime()) {
-					err = fmt.Errorf("目标文件已变化，请重新确认")
-				} else {
-					err = os.Rename(tmp.Name(), path)
-				}
-			} else {
-				err = os.Link(tmp.Name(), path)
-			}
-		}
-		out.err = err
+		out.err = publishFile(ctx, path, info, func(w io.Writer) error {
+			return client.Download(ctx, file, w, progress.Store)
+		})
 		return out
 	}, transferTimer())
 }
