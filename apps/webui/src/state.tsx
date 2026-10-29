@@ -8,7 +8,7 @@ import { api, APIError, clearClientState, csrfToken, onSessionExpired, onMutatio
 import type { Principal } from '@molr/sdk';
 import { messages } from './messages';
 import { useRuntimeConnection } from './use-runtime-connection';
-import { QueryCache } from './query-cache';
+import { ChatHistoryCache } from './chat-history-cache';
 import { QueryStore } from './query-store';
 import type { QueryInterval } from './query-store';
 import { queryInterval } from './query-policy';
@@ -94,20 +94,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 }
 export function useSession() { return useContext(SessionContext)!; }
 
-const DataContext = createContext({ subscribeEvents: (_listener: (event: RuntimeEvent) => void): (() => void) => () => {}, topics: new TopicStore(), invalidate: () => {}, invalidateTopics: (_topics: string[]) => {}, cache: new QueryCache(), queries: new QueryStore(), turnMetrics: new TurnMetricsCache(), messageChanges: new Map<string, number>(), invalidateMessage: (_id: string, _conversationID?: string): number => 0 });
+const DataContext = createContext({ subscribeEvents: (_listener: (event: RuntimeEvent) => void): (() => void) => () => {}, topics: new TopicStore(), invalidate: () => {}, invalidateTopics: (_topics: string[]) => {}, cache: new ChatHistoryCache(), queries: new QueryStore(), turnMetrics: new TurnMetricsCache(), invalidateMessage: (_id: string, _conversationID?: string): number => 0 });
 const ConnectionContext = createContext({ connection: 'reconnecting' as ConnectionState, hasConnectionNotice: false, retryConnection: () => {} });
 export const useConnection = () => useContext(ConnectionContext);
 export function DataProvider({ children }: { children: ReactNode }) {
   const [eventListeners] = useState(() => new Set<(event: RuntimeEvent) => void>());
   const subscribeEvents = useCallback((listener: (event: RuntimeEvent) => void) => { eventListeners.add(listener); return () => { eventListeners.delete(listener); }; }, [eventListeners]);
   const [topics] = useState(() => new TopicStore());
-  const [cache] = useState(() => new QueryCache());
+  const [cache] = useState(() => new ChatHistoryCache());
   const [queries] = useState(() => new QueryStore());
   const [turnMetrics] = useState(() => new TurnMetricsCache());
-  const [messageChanges] = useState(() => new Map<string, number>());
   const publish = useRef<(topics: string[]) => void>(() => {});
   const invalidate = useCallback(() => topics.invalidate(['all']), [topics]);
-  const invalidateMessage = useCallback((id: string, conversationID?: string) => { const revision = cache.next(); messageChanges.set(id, revision); publish.current([conversationID ? `messages:${conversationID}` : 'messages']); return revision; }, [cache, messageChanges]);
+  const invalidateMessage = useCallback((id: string, conversationID?: string) => { const revision = cache.invalidate(id, conversationID); publish.current([conversationID ? `messages:${conversationID}` : 'messages']); return revision; }, [cache]);
   const { connection, retryConnection } = useRuntimeConnection(event => {
     try {
       const visible = JSON.parse(event.data) as RuntimeEvent;
@@ -127,11 +126,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (topics.length) changed(topics);
     });
 
-    return () => { unsubscribe(); publish.current = () => {}; cache.clear(); queries.clear(); turnMetrics.clear(); messageChanges.clear(); batch.cancel(); };
-  }, [invalidate, cache, queries, messageChanges, topics]);
+    return () => { unsubscribe(); publish.current = () => {}; cache.clear(); queries.clear(); turnMetrics.clear(); batch.cancel(); };
+  }, [invalidate, cache, queries, topics]);
   const invalidateTopics = useCallback((topics: string[]) => publish.current(topics), []);
   const hasConnectionNotice = connection !== 'connected' && connection !== 'recovered';
-  const data = useMemo(() => ({ subscribeEvents, topics, invalidate, invalidateTopics, cache, queries, turnMetrics, messageChanges, invalidateMessage }), [subscribeEvents, topics, invalidate, invalidateTopics, cache, queries, turnMetrics, messageChanges, invalidateMessage]);
+  const data = useMemo(() => ({ subscribeEvents, topics, invalidate, invalidateTopics, cache, queries, turnMetrics, invalidateMessage }), [subscribeEvents, topics, invalidate, invalidateTopics, cache, queries, turnMetrics, invalidateMessage]);
   const connectionState = useMemo(() => ({ connection, hasConnectionNotice, retryConnection }), [connection, hasConnectionNotice, retryConnection]);
   return <DataContext.Provider value={data}><ConnectionContext.Provider value={connectionState}>{children}</ConnectionContext.Provider></DataContext.Provider>;
 }

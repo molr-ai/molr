@@ -3,7 +3,7 @@ import { DraftProvider, useDraft } from '../../src/drafts';
 import { DataProvider, useData } from '../../src/state';
 import { useChatHistory } from '../../src/use-chat-history';
 
-declare global { interface Window { renders: Record<string, number>; refreshHistory: () => void } }
+declare global { interface Window { renders: Record<string, number>; refreshHistory: () => void; invalidateHistoryMessage: (id: string, conversationID?: string) => void } }
 window.renders = {};
 function count(name: string) { window.renders[name] = (window.renders[name] ?? 0) + 1; }
 function Draft({ id }: { id: string }) {
@@ -14,7 +14,8 @@ function Draft({ id }: { id: string }) {
 function History() {
   count('history');
   const history = useChatHistory('fixture');
-  const { invalidateTopics } = useData();
+  const { invalidateTopics, invalidateMessage } = useData();
+  window.invalidateHistoryMessage = invalidateMessage;
   window.refreshHistory = () => invalidateTopics(['messages:fixture']);
   return <output aria-label="history">{JSON.stringify({ loaded: history.loaded, loading: history.loading, error: !!history.error, messages: history.messages })}</output>;
 }

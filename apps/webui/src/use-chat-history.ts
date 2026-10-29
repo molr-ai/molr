@@ -3,20 +3,20 @@ import { poll } from './polling';
 import { api, APIError } from '@molr/sdk';
 import type { Message, Page } from '@molr/sdk';
 import { useData } from './state';
+import type { ChatSnapshot } from './chat-history-cache';
 
-type Snapshot = { messages: Message[]; olderCursor: string; metadataVersions: Record<string, number> };
 type History = { messages: Message[]; metadataVersions: Record<string, number>; more: boolean; loaded: boolean; loading: boolean; loadingOlder: boolean; error: unknown };
 
 export function useChatHistory(conversationID: string, targetMessageID = '') {
-  const { cache, messageChanges, topics } = useData();
-  const key = `chat:${conversationID}`;
-  const initial = cache.get<Snapshot>(key);
+  const { cache, topics } = useData();
+  const initial = cache.get(conversationID);
   const [history, setHistory] = useState<History>(() => ({ messages: initial?.messages ?? [], metadataVersions: initial?.metadataVersions ?? {}, more: !!initial?.olderCursor, loaded: !!initial, loading: true, loadingOlder: false, error: null }));
   const requests = useRef({ older: () => {} });
   const [location, setLocation] = useState<{ id: string; status: 'loading' | 'found' | 'missing' }>({ id: targetMessageID, status: 'loading' });
   useEffect(() => {
     const controller = new AbortController();
-    let snapshot = cache.get<Snapshot>(key);
+    const release = cache.retain(conversationID);
+    let snapshot: ChatSnapshot | undefined = cache.get(conversationID);
     let running: Promise<void> | undefined;
     let refreshPending = false, olderPending = false;
     let locatePending = !!targetMessageID;
@@ -46,18 +46,20 @@ export function useChatHistory(conversationID: string, targetMessageID = '') {
       }
       if (!snapshot || messages !== snapshot.messages || olderCursor !== snapshot.olderCursor || metadataVersions !== snapshot.metadataVersions) {
         snapshot = { messages, olderCursor, metadataVersions };
-        cache.set(key, snapshot);
+        cache.set(conversationID, snapshot);
       }
       updateHistory({ messages, metadataVersions, more: !!olderCursor, loaded: true, error: null });
     }
     async function fetchPage(query: string, older = false) {
-      // Capture versions before the request; events arriving in flight must
+      // Capture the revision before the request; events arriving in flight must
       // still cause another metadata read, even if this response is stale.
-      const versions = new Map(messageChanges);
-      const page = await get(query);
-      const items = page.Items ?? [];
-      commit(items, older ? page.NextCursor : undefined, Object.fromEntries(items.map(message => [message.ID, versions.get(message.ID) ?? 0])));
-      return page;
+      const read = cache.beginRead(conversationID);
+      try {
+        const page = await get(query);
+        const items = page.Items ?? [];
+        commit(items, older ? page.NextCursor : undefined, Object.fromEntries(items.map(message => [message.ID, read.revision])));
+        return page;
+      } finally { read.finish(); }
     }
     async function refresh() {
       if (!snapshot) {
@@ -76,8 +78,8 @@ export function useChatHistory(conversationID: string, targetMessageID = '') {
       // Existing rows change only through acceptance/feedback events. Refresh
       // those exact rows without downloading all previously loaded history.
       for (const message of snapshot?.messages ?? []) {
-        const version = messageChanges.get(message.ID) ?? 0;
-        if (version === (snapshot?.metadataVersions[message.ID] ?? 0)) continue;
+        const version = cache.changed(conversationID, message.ID);
+        if (version <= (snapshot?.metadataVersions[message.ID] ?? 0)) continue;
         const page = await get(`message_id=${encodeURIComponent(message.ID)}`);
         commit(page.Items ?? [], undefined, { [message.ID]: version });
       }
@@ -118,7 +120,7 @@ export function useChatHistory(conversationID: string, targetMessageID = '') {
       } catch (error) {
         if (!controller.signal.aborted) {
           const inaccessible = error instanceof APIError && [401, 403, 404].includes(error.status);
-          if (inaccessible) { cache.delete(key); snapshot = undefined; refreshPending = olderPending = false; }
+          if (inaccessible) { cache.delete(conversationID); snapshot = undefined; refreshPending = olderPending = false; }
           updateHistory({ ...(inaccessible ? { messages: [], metadataVersions: {}, more: false, loaded: false } : {}), error });
           throw error;
         }
@@ -139,7 +141,7 @@ export function useChatHistory(conversationID: string, targetMessageID = '') {
     loop.request(true);
     // Updates queue behind in-flight requests instead of aborting them. A
     // continuous event stream cannot starve an otherwise successful response.
-    return () => { unsubscribe(); loop.stop(); controller.abort(); requests.current = { older: () => {} }; };
-  }, [conversationID, key, cache, messageChanges, topics, targetMessageID]);
+    return () => { unsubscribe(); loop.stop(); controller.abort(); release(); requests.current = { older: () => {} }; };
+  }, [conversationID, cache, topics, targetMessageID]);
   return { ...history, targetStatus: location.id === targetMessageID ? location.status : 'loading', loadOlder: () => requests.current.older() };
 }

@@ -27,3 +27,30 @@ test('typing isolates draft subscribers and empty background refreshes do not re
   expect(after.history).toBe(typed.history);
   await info.attach('render-counts', { body: JSON.stringify({ before, typed, after, reads }), contentType: 'application/json' });
 });
+
+for (const scoped of [true, false]) {
+  test(`metadata changed during an initial page read is reconciled (${scoped ? 'scoped' : 'unknown conversation'})`, async ({ page }) => {
+    let release!: () => void;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    let initial = false, metadataReads = 0;
+    const message = { ID: 'message', ConversationID: 'fixture', Sequence: 1, Feedback: 'none' };
+    await page.route('**/api/events/stream*', route => route.fulfill({ contentType: 'text/event-stream', body: 'event: ready\ndata: {}\n\n' }));
+    await page.route('**/api/conversations/fixture/messages?*', async route => {
+      const query = new URL(route.request().url()).searchParams;
+      if (query.has('message_id')) {
+        metadataReads++;
+        await route.fulfill({ json: { Items: [{ ...message, Feedback: 'like' }], NextCursor: '' } });
+      } else if (!initial) {
+        initial = true;
+        await pending;
+        await route.fulfill({ json: { Items: [message], NextCursor: '' } });
+      } else await route.fulfill({ json: { Items: [], NextCursor: '' } });
+    });
+    await page.goto('/tests/fixtures/interactive-updates.html');
+    await expect.poll(() => initial).toBe(true);
+    await page.evaluate(scoped => window.invalidateHistoryMessage('message', scoped ? 'fixture' : undefined), scoped);
+    release();
+    await expect(page.getByLabel('history')).toContainText('"Feedback":"like"');
+    expect(metadataReads).toBe(1);
+  });
+}
