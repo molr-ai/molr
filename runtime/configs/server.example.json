@@ -1,7 +1,7 @@
 {
   "logging": { "max_file_bytes": 268435456, "backup_files": 1 },
   "diagnostics": { "model_responses": false },
-  "debug": { "enabled": false, "max_runs": 1000, "max_payload_bytes": 4194304 },
+  "debug": { "enabled": true, "max_runs": 1000, "max_payload_bytes": 4194304 },
   "pricing": { "rules_file": "", "rules_url": "", "exchange_rates_file": "" },
   "data_dir": "/var/lib/molr",
   "network": { "allowed_private_ips": ["127.0.0.1"] },

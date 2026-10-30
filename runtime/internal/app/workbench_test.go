@@ -44,7 +44,9 @@ func debugRequest(b *Bundle, token core.Secret, path string) *httptest.ResponseR
 	return response
 }
 func TestWorkbenchDisabledByDeploymentCannotBeShownByOwner(t *testing.T) {
-	b, err := Build(t.Context(), testConfig(t))
+	cfg := testConfig(t)
+	cfg.Debug.Enabled = false
+	b, err := Build(t.Context(), cfg)
 	need(t, err)
 	defer b.Close()
 	p, token := ownerSession(t, b)
@@ -59,12 +61,16 @@ func TestWorkbenchDisabledByDeploymentCannotBeShownByOwner(t *testing.T) {
 }
 func TestWorkbenchCapturesActualLoopAndKeepsPrivateDataOutOfChat(t *testing.T) {
 	cfg := testConfig(t)
-	cfg.Debug.Enabled = true
 	b, err := Build(t.Context(), cfg)
 	need(t, err)
 	defer b.Close()
 	p, token := ownerSession(t, b)
 	ctx := t.Context()
+	pref, err := b.Services.Settings.Get(ctx, p)
+	need(t, err)
+	if pref.WorkbenchVisible {
+		t.Fatal("workbench entry must remain hidden by default")
+	}
 	if r := debugRequest(b, token, "/api/debug/runs"); r.Code != 200 {
 		t.Fatal("hidden workbench denied reading")
 	}

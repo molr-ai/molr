@@ -113,3 +113,27 @@ func TestNetworkAllowlistIsExplicitDeploymentConfiguration(t *testing.T) {
 		}
 	}
 }
+
+func TestDebugCollectionDefaultsAndExplicitOverride(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		debug string
+		want  bool
+	}{
+		{"omitted", "", true},
+		{"limits only", `,"debug":{"max_runs":50}`, true},
+		{"disabled", `,"debug":{"enabled":false}`, false},
+		{"enabled", `,"debug":{"enabled":true}`, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			input := `{"data_dir":"/var/lib/molr","http":{"public_url":"https://molr.example.com","tls_mode":"proxy","trusted_proxies":["192.0.2.10/32"]}` + tc.debug + `}`
+			cfg, err := Load(strings.NewReader(input))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cfg.Debug.Enabled != tc.want {
+				t.Fatalf("debug.enabled = %v, want %v", cfg.Debug.Enabled, tc.want)
+			}
+		})
+	}
+}

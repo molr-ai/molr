@@ -19,4 +19,4 @@
 
 安装、更新或重启后，按[启动后的检查](deployment/installation.md#启动后的检查)验证页面、认证和沙盒能力。端口监听或服务 active 状态不能代替能力检查。
 
-需要执行详情时，由部署者启用 `debug.enabled`，再按[开发工作台](../dev/runtime/workbench.md)查看已采集记录。个人设置中的显示开关不能补回未采集的记录。模型响应问题可临时启用[诊断日志](deployment/maintenance.md#模型响应诊断日志)，收集后关闭，并在分享前审查敏感内容。
+Runtime 默认开启执行采集；在「设置 → 常规」打开「显示开发工作台」，再按[开发工作台](../dev/runtime/workbench.md)查看已采集记录。个人设置中的显示开关不能补回未采集的记录。模型响应问题可临时启用[诊断日志](deployment/maintenance.md#模型响应诊断日志)，收集后关闭，并在分享前审查敏感内容。

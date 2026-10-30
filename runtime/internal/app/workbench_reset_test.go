@@ -105,7 +105,9 @@ func TestWorkbenchResetRequiresWriteScopeAndFreshCheckpointWhileHidden(t *testin
 }
 
 func TestWorkbenchDeploymentDisablesContextReset(t *testing.T) {
-	b, err := Build(t.Context(), testConfig(t))
+	cfg := testConfig(t)
+	cfg.Debug.Enabled = false
+	b, err := Build(t.Context(), cfg)
 	need(t, err)
 	defer b.Close()
 	p, _ := ownerSession(t, b)

@@ -141,7 +141,7 @@ func Defaults(dataDir string) Config {
 		Updates:     Updates{AutoCheck: true},
 		PortForward: PortForward{Enabled: true, ListenHost: "0.0.0.0"},
 		Sandbox:     sandboxDefaults(),
-		Debug:       Debug{MaxRuns: 1000, MaxPayloadBytes: 4 << 20},
+		Debug:       Debug{Enabled: true, MaxRuns: 1000, MaxPayloadBytes: 4 << 20},
 		Network:     Network{AllowedPrivateIPs: []string{"127.0.0.1"}},
 		HTTP:        HTTP{Listen: "0.0.0.0:8080", TLSMode: DirectTLS, ReadHeaderTimeout: Duration(10 * time.Second), RequestTimeout: Duration(30 * time.Second), StreamWriteTimeout: Duration(10 * time.Second), MaxBodyBytes: 1 << 20, MaxSSEConnections: 20, RequestsPerMinute: 600},
 		Auth:        Auth{SessionIdle: Duration(7 * 24 * time.Hour), SessionLifetime: Duration(30 * 24 * time.Hour), VerificationLifetime: Duration(5 * time.Minute), LoginAttemptsPerMinute: 5},
