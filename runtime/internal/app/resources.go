@@ -24,15 +24,16 @@ import (
 )
 
 type adapters struct {
-	store         persistence.Store
-	policy        policy.Authorizer
-	dataDir       string
-	broker        credential.Broker
-	networkConfig config.Network
-	storageConfig config.Sandbox
-	ownPort       uint16
-	pricing       *pricing.Catalog
-	now           func() time.Time
+	reserveModelCost bool
+	store            persistence.Store
+	policy           policy.Authorizer
+	dataDir          string
+	broker           credential.Broker
+	networkConfig    config.Network
+	storageConfig    config.Sandbox
+	ownPort          uint16
+	pricing          *pricing.Catalog
+	now              func() time.Time
 }
 
 func origin(raw string) (string, error) {
@@ -266,15 +267,18 @@ func (a adapters) estimate(ctx context.Context, id core.ID, inputs []model.Input
 	if err != nil {
 		return core.Money{}, err
 	}
-	return estimateProvider(provider, max)
+	return estimateProvider(provider, max, a.reserveModelCost)
 }
-func estimateProvider(provider model.Provider, max int) (core.Money, error) {
+func estimateProvider(provider model.Provider, max int, reserveModelCost bool) (core.Money, error) {
 	price := provider.ReservePricing
 	if price == nil {
 		price = provider.Pricing
 	}
 	if price == nil {
 		return core.Money{}, core.WithReason(core.NewError(core.FailedPrecondition, "model pricing unavailable"), core.ModelPricingMissing)
+	}
+	if !reserveModelCost {
+		return core.Money{Currency: price.Currency}, nil
 	}
 	// Reserve the full context at peak rates; settlement uses actual usage and
 	// the price snapshot resolved for this invocation.

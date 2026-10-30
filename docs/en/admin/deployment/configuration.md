@@ -93,8 +93,10 @@ For a self-hosted gateway, configure its URL and key as a [custom service](../re
 Manual prices take precedence over automatic pricing; unknown prices block calls. External pricing sources are disabled by default:
 
 ```json
-"pricing": { "rules_file": "", "rules_url": "", "exchange_rates_file": "" }
+"pricing": { "reserve_model_cost": false, "rules_file": "", "rules_url": "", "exchange_rates_file": "" }
 ```
+
+`reserve_model_cost` defaults to `false`: model cost estimates return zero in the model currency. Assistant and user-group model budgets block new calls only after settled spending exceeds the limit; calls are still allowed at exactly the limit. In-flight calls settle their actual costs and may exceed the limit. Set it to `true` to reserve the full context and maximum output at upper-bound prices. Restart Runtime after changing this setting. Model prices remain required; network traffic, storage and concurrency limits are unaffected.
 
 `rules_file` accepts an absolute local path; `rules_url` accepts an HTTPS URL such as `https://prices.example.com/models.json`. Configure at most one. See the [Runtime README](../../../../runtime/README.md) for the external JSON format. The service checks the source at startup and every 24 hours. Administrators can immediately check through Resources → Models → More → Refresh model pricing. Valid updates apply without restarting, including to saved models; manual prices and historical receipts remain unchanged. With no external source, the button reports built-in pricing without a download.
 

@@ -63,10 +63,10 @@ func TestLoadStrictConfiguration(t *testing.T) {
 
 func TestPricingSourcesAreOptionalAndMutuallyExclusive(t *testing.T) {
 	c := validConfig()
-	if c.Pricing.RulesFile != "" || c.Pricing.RulesURL != "" {
+	if c.Pricing.ReserveModelCost || c.Pricing.RulesFile != "" || c.Pricing.RulesURL != "" {
 		t.Fatal("pricing source enabled by default")
 	}
-	for _, source := range []Pricing{{}, {RulesFile: "/etc/molr/pricing.json"}, {RulesURL: "https://prices.example/models.json"}} {
+	for _, source := range []Pricing{{}, {ReserveModelCost: true}, {RulesFile: "/etc/molr/pricing.json"}, {RulesURL: "https://prices.example/models.json"}} {
 		c.Pricing = source
 		data, err := json.Marshal(c)
 		if err != nil {

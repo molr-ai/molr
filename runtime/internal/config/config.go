@@ -72,6 +72,7 @@ type Network struct {
 }
 
 type Pricing struct {
+	ReserveModelCost  bool   `json:"reserve_model_cost"`
 	RulesFile         string `json:"rules_file"`
 	RulesURL          string `json:"rules_url"`
 	ExchangeRatesFile string `json:"exchange_rates_file"`

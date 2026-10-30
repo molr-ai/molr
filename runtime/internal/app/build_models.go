@@ -48,7 +48,7 @@ func (b *Bundle) buildModels(cfg config.Config, adapters adapters, permissions *
 		}
 		return chat.ReadUserMessages(ctx, request.Execution, ids)
 	}, PrepareInputs: fileTools.PrepareMedia, Observe: observeModel, Authorizer: permissions, Operations: operations, ListModels: adapters.models, Resolve: adapters.provider, CheckReservation: func(ctx context.Context, r model.Request, provider model.Provider) error {
-		return checkReservation(ctx, store, access, r, provider)
+		return checkReservation(ctx, store, access, r, provider, cfg.Pricing.ReserveModelCost)
 	}, Settle: func(ctx context.Context, e core.Execution, r model.Receipt) error {
 		if r.Charged == nil {
 			return core.NewError(core.FailedPrecondition, "provider cost unknown")

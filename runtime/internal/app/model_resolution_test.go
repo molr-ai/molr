@@ -80,7 +80,7 @@ func TestModelResolutionReadsOnlySelectedProvider(t *testing.T) {
 		t.Fatal(err)
 	}
 	reads := &modelReads{}
-	a := adapters{store: modelReadStore{db, reads}}
+	a := adapters{reserveModelCost: true, store: modelReadStore{db, reads}}
 	p := core.Principal{OwnerID: "owner", SubjectID: "owner", Kind: core.ActorOwner, SessionID: "session"}
 	got, err := a.provider(t.Context(), p, target)
 	if err != nil || got.Model.ID != target || reads.bindings != 1 || reads.resources != 1 {
@@ -137,7 +137,7 @@ func TestModelResolutionReadsOnlySelectedProvider(t *testing.T) {
 
 func TestModelResolutionKeepsLiveGroupAndProviderChecks(t *testing.T) {
 	f := newMultiUserFixture(t)
-	a := adapters{store: f.b.store, pricing: f.b.Pricing}
+	a := adapters{reserveModelCost: true, store: f.b.store, pricing: f.b.Pricing}
 	provider, err := a.provider(t.Context(), f.alice, f.model)
 	need(t, err)
 	binding, err := resource.NewRepository(f.b.store).Binding(t.Context(), f.admin.OwnerID, provider.Model.ResourceID)

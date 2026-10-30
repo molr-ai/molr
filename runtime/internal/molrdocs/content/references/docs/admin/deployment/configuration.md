@@ -93,8 +93,10 @@ location /api/ {
 手动模型价格优先于自动计价，未知价格阻止调用。默认不配置外部价表：
 
 ```json
-"pricing": { "rules_file": "", "rules_url": "", "exchange_rates_file": "" }
+"pricing": { "reserve_model_cost": false, "rules_file": "", "rules_url": "", "exchange_rates_file": "" }
 ```
+
+`reserve_model_cost` 默认 `false`：模型费用预估返回同币种的零金额，助理预算与用户组模型金额额度只在已结算费用超过限额后拦截新调用；恰好等于限额时仍允许调用，已开始的调用继续按实际费用结算，可能超出限额。设为 `true` 恢复按完整上下文及最大输出、价格上界预留费用。修改此项后重启 Runtime；价格配置仍为必需，网络流量、存储和并发限制不受影响。
 
 `rules_file` 接受本地绝对路径，`rules_url` 接受 HTTPS URL，例如 `https://prices.example.com/models.json`；最多配置其中一项。外部 JSON 格式见 [Runtime README](https://github.com/molr-ai/molr/blob/main/runtime/README.md)。服务启动时及之后每 24 小时检查价表内容；管理员可以在「资源 → 模型 → 更多 → 刷新模型价格配置」立即刷新。检查成功后无需重启，已保存模型使用新规则；手动价格和历史账单不变。按钮在没有外部来源时提示正在使用内置规则，不执行网络下载。
 

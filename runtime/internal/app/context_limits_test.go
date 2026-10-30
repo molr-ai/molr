@@ -27,7 +27,7 @@ func TestContextLimitSourcesAndFallback(t *testing.T) {
 		})
 	}
 	p := model.Provider{Model: model.Model{}, Pricing: &model.Pricing{Currency: "USD", InputMicrosPerMillion: 1000000}}
-	money, err := estimateProvider(p, 0)
+	money, err := estimateProvider(p, 0, true)
 	need(t, err)
 	if money.Micros != 262144 {
 		t.Fatal("budget reserve ignored fallback", money)

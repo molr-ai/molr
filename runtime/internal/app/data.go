@@ -31,7 +31,7 @@ func stableEventID(id core.ID, v core.Version) core.ID {
 
 type reservationRecord = quota.ModelRecord
 
-func checkReservation(ctx context.Context, store persistence.Store, a access, q model.Request, provider model.Provider) error {
+func checkReservation(ctx context.Context, store persistence.Store, a access, q model.Request, provider model.Provider, reserveModelCost bool) error {
 	if err := a.execution(ctx, q.Execution); err != nil {
 		return err
 	}
@@ -42,7 +42,7 @@ func checkReservation(ctx context.Context, store persistence.Store, a access, q 
 	if r.OwnerID != q.Execution.Principal.OwnerID || r.AssistantID != q.Execution.AssistantID || r.ExecutionID != q.Execution.Principal.ExecutionID || r.Reservation.OperationID != q.Execution.OperationID || r.Reservation.TaskID != q.Execution.TaskID || r.Reservation.State != "reserved" {
 		return denied()
 	}
-	estimate, err := estimateProvider(provider, q.MaxOutputTokens)
+	estimate, err := estimateProvider(provider, q.MaxOutputTokens, reserveModelCost)
 	if err != nil {
 		return err
 	}

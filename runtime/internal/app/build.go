@@ -142,7 +142,7 @@ func Build(ctx context.Context, cfg config.Config, options ...BuildOptions) (bun
 	if err != nil {
 		return nil, err
 	}
-	adapters := adapters{store: store, policy: permissions, dataDir: cfg.DataDir, networkConfig: cfg.Network, storageConfig: cfg.Sandbox, ownPort: cfg.OwnListenPort(), pricing: b.Pricing}
+	adapters := adapters{store: store, policy: permissions, dataDir: cfg.DataDir, networkConfig: cfg.Network, storageConfig: cfg.Sandbox, ownPort: cfg.OwnListenPort(), pricing: b.Pricing, reserveModelCost: cfg.Pricing.ReserveModelCost}
 	vault, oauth, err := buildCredentials(adapters, identity, key, wiring)
 	if err != nil {
 		return nil, err

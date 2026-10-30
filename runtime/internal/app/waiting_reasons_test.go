@@ -23,7 +23,9 @@ import (
 func TestWaitingReasonsDescribeActualBlockers(t *testing.T) {
 	for _, reason := range []string{"model_pricing_missing", "model_not_authorized", "budget_exceeded", "model_unavailable", "model_not_configured", "model_authentication_failed", "model_rate_limited"} {
 		t.Run(reason, func(t *testing.T) {
-			b, err := Build(t.Context(), testConfig(t))
+			cfg := testConfig(t)
+			cfg.Pricing.ReserveModelCost = true
+			b, err := Build(t.Context(), cfg)
 			need(t, err)
 			defer b.Close()
 			p, _ := ownerSession(t, b)
