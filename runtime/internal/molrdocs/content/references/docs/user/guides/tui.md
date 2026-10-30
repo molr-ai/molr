@@ -16,6 +16,8 @@
 molr tui
 ```
 
+独立入口 `molr-tui` 使用相同的参数、连接、登录会话和草稿，不需要额外的 `tui` 子命令，例如 `molr-tui --server https://molr.example.com`。Windows 使用控制台程序 `molr-tui.exe`；源码构建见[独立终端客户端](https://molr.ai/zh/docs/admin/deployment/source-build/#独立终端客户端)。
+
 默认恢复上一次成功连接的 Runtime；没有使用记录时进入连接管理页。方向键选择已有连接，Enter 连接；选择“新增连接”或按 N 添加地址，名称与 CA 证书路径可选，Tab 切换输入项，Enter 保存并连接。连接失败时保留列表和错误提示，可重试或选择另一项。
 
 在聊天页按 Ctrl+O 或发送 `/connections` 打开连接管理；Esc 可返回当前聊天。切换到其他 Runtime 后，原连接的请求和实时订阅会停止。连接、登录会话及本机聊天草稿按 Runtime 和账号隔离；切回同一账号可继续原草稿。

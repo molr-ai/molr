@@ -20,6 +20,22 @@ Linux artifacts must be static ELF executables. macOS artifacts are Mach-O execu
 
 After building, complete [configuration and initialization](configuration.md#configuration-and-initialization), [service installation](installation.md#linux-services-and-command-environment), and [post-start checks](installation.md#post-startup-checks), in that order.
 
+## Standalone terminal client
+
+`runtime/cmd/molr-tui` reuses the `molr tui` client implementation. It connects to an existing service without starting a local Runtime or requiring a WebUI build. From `runtime/`, build with the project's specified Go version:
+
+```bash
+go build -trimpath -o ../.cache/build/molr-tui ./cmd/molr-tui
+```
+
+In Windows PowerShell, use an `.exe` filename and keep the default console build mode:
+
+```powershell
+go build -trimpath -o ../.cache/build/molr-tui.exe ./cmd/molr-tui
+```
+
+Run the executable in a terminal. Use `--help` to list options or `--demo` for an offline preview. The standalone entry uses the existing TUI connections, login sessions, and drafts; see the [TUI user guide](../../user/guides/tui.md).
+
 ## Native macOS execution
 
 Runtime supports macOS ARM64 and AMD64. Workspaces, file tools, attachments, and memory are independent of command execution; `sandbox.enabled: false` disables only local commands. Controlled commands use Seatbelt; see [native macOS command permissions](../sandbox/macos.md) for configuration and capabilities. Installation, CLI updates, and uninstall support macOS; see the [installation guide](installation.md#macos-command-line-installation). In-app updates remain unavailable.

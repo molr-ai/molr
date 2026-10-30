@@ -20,6 +20,22 @@ Linux 产物须为静态 ELF；macOS 产物为 Mach-O，使用系统运行库，
 
 构建后依次完成[配置与初始化](configuration.md#配置与初始化)、[服务安装](installation.md#linux-服务与命令环境)和[启动后的检查](installation.md#启动后的检查)。
 
+## 独立终端客户端
+
+`runtime/cmd/molr-tui` 复用 `molr tui` 的客户端实现，仅连接已有服务，不启动本机 Runtime，也不需要构建 WebUI。在 `runtime/` 目录使用项目指定的 Go 版本构建：
+
+```bash
+go build -trimpath -o ../.cache/build/molr-tui ./cmd/molr-tui
+```
+
+Windows PowerShell 使用 `.exe` 文件名，并保持默认控制台构建方式：
+
+```powershell
+go build -trimpath -o ../.cache/build/molr-tui.exe ./cmd/molr-tui
+```
+
+在终端执行生成的程序，使用 `--help` 查看参数，或使用 `--demo` 打开离线预览。独立入口沿用现有 TUI 的连接、登录会话和草稿；操作见 [TUI 使用指南](../../user/guides/tui.md)。
+
 ## macOS 原生运行
 
 Runtime 支持 macOS ARM64 和 AMD64。工作区、文件工具、附件和记忆不依赖命令执行；`sandbox.enabled: false` 只关闭本机命令执行。受控命令使用 Seatbelt，能力和部署配置见 [macOS 原生命令权限](../sandbox/macos.md)。安装、更新和卸载支持 macOS，见[安装指南](installation.md#macos-命令行安装)；应用内升级暂不可用。

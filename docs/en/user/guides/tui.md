@@ -16,6 +16,8 @@ Run in an interactive terminal:
 molr tui
 ```
 
+The standalone `molr-tui` entry uses the same options, connections, login sessions, and drafts, without a `tui` subcommand: for example, `molr-tui --server https://molr.example.com`. On Windows, use the console executable `molr-tui.exe`; see [Standalone terminal client](../../admin/deployment/source-build.md#standalone-terminal-client) for source builds.
+
 By default, the TUI restores the last successfully connected Runtime. With no previous selection, it opens connection management. Use arrows and Enter to open a saved connection; choose “Add connection” or press N to add an address. Name and CA certificate path are optional. Tab changes fields and Enter saves and connects. Failed connections keep the list and error visible for retry or another selection.
 
 Press Ctrl+O or send `/connections` from chat to open connection management; Esc returns to the current chat. Switching Runtimes cancels the previous connection's requests and realtime subscription. Connections, login sessions, and local chat drafts are isolated by Runtime and account. Returning to the same account restores its drafts.
