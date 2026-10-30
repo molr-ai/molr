@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"golang.org/x/sys/windows"
 	"io"
+	"molr.ai/runtime/internal/core"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -21,6 +22,8 @@ var deleteContainer = userenv.NewProc("DeleteAppContainerProfile")
 var deriveContainer = userenv.NewProc("DeriveAppContainerSidFromAppContainerName")
 
 type containerLaunch struct {
+	Executable             string
+	Args                   []string
 	SID, Script, Directory string
 	Environment            []string
 	Network                bool
@@ -245,6 +248,14 @@ func createContainerProcess(spec containerLaunch, hpc windows.Handle) (result wi
 		args = append(args, "-NonInteractive")
 	}
 	args = append(args, "-Command", script)
+	applicationPath := windowsShell()
+	if spec.Executable != "" {
+		if !spec.FullAccess || spec.Script != "" || !filepath.IsAbs(spec.Executable) || !strings.EqualFold(filepath.Ext(spec.Executable), ".exe") {
+			return result, nil, core.Invalid("executable", "invalid direct terminal program")
+		}
+		applicationPath = spec.Executable
+		args = append([]string{spec.Executable}, spec.Args...)
+	}
 	for i := range args {
 		args[i] = syscall.EscapeArg(args[i])
 	}
@@ -252,7 +263,7 @@ func createContainerProcess(spec containerLaunch, hpc windows.Handle) (result wi
 	if err != nil {
 		return result, nil, err
 	}
-	application, _ := windows.UTF16PtrFromString(windowsShell())
+	application, _ := windows.UTF16PtrFromString(applicationPath)
 	directory, err := windows.UTF16PtrFromString(spec.Directory)
 	if err != nil {
 		return result, nil, err

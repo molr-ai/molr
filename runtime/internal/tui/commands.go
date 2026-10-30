@@ -262,7 +262,7 @@ func (m model) runCommand(text string) (tea.Model, tea.Cmd, bool) {
 
 func approvalComplete(q policy.PermissionRequest) bool {
 	for _, item := range append([]policy.PermissionRequestInput{q.Input}, q.Input.Additional...) {
-		if item.ResourceID == "" || item.ResourceKind == "model" && item.ModelID == "" || !item.FullAccess && (item.ResourceKind == "compute" || item.ResourceKind == "network") && item.Constraints == nil {
+		if item.FullAccess && (item.FullAccessScope.Validate() != nil || item.ExpiresAt == nil) || item.ResourceID == "" || item.ResourceKind == "model" && item.ModelID == "" || !item.FullAccess && (item.ResourceKind == "compute" || item.ResourceKind == "network") && item.Constraints == nil {
 			return false
 		}
 	}

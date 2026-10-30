@@ -34,6 +34,7 @@ type Options struct {
 	NetworkBytes                                             int64
 	NetworkConnections                                       int
 	Authorize                                                func(context.Context, core.Execution, platform.Command) error
+	BeforeStart                                              func(context.Context, core.Execution, platform.Command) error
 }
 type Runner struct {
 	// Selected once by startup probes; business commands never retry another profile.
@@ -250,6 +251,11 @@ func (r *Runner) Start(ctx context.Context, e core.Execution, c platform.Command
 	}
 	if err := r.options.Authorize(ctx, e, c); err != nil {
 		return nil, err
+	}
+	if r.options.BeforeStart != nil {
+		if err := r.options.BeforeStart(ctx, e, c); err != nil {
+			return nil, err
+		}
 	}
 	p, err := r.startMode(ctx, e, c)
 	if err != nil {

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/tls"
@@ -450,7 +451,13 @@ func decode[T any](r *http.Request) (T, error) {
 			return value, core.Invalid("content_type", "JSON required")
 		}
 	}
-	decoder := json.NewDecoder(r.Body)
+	var captured bytes.Buffer
+	var input io.Reader = r.Body
+	switch any(value).(type) {
+	case policy.GrantRequest, policy.UpdateGrantRequest, policy.PermissionResolution:
+		input = io.TeeReader(r.Body, &captured)
+	}
+	decoder := json.NewDecoder(input)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&value); err != nil {
 		return value, core.Wrap(core.InvalidArgument, "invalid JSON", err)
@@ -458,6 +465,11 @@ func decode[T any](r *http.Request) (T, error) {
 	var trailing any
 	if err := decoder.Decode(&trailing); err != io.EOF {
 		return value, core.Invalid("body", "single JSON object required")
+	}
+	if captured.Len() > 0 {
+		if err := explicitGrantExpiry(captured.Bytes(), value); err != nil {
+			return value, err
+		}
 	}
 	return value, nil
 }

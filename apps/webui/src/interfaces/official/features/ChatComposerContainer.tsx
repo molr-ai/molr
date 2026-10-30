@@ -1,3 +1,4 @@
+import { validFullAccessScope } from './FullAccessScope';
 import { useMutation } from '../../../use-mutation';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Button, ChatAttachmentList, ChatComposer } from '@molr/ui';
@@ -206,6 +207,7 @@ export function ChatComposerContainer({
               items.some(
                 (item) =>
                   !item.resource_id ||
+                  (item.full_access && (!validFullAccessScope(item.full_access_scope) || !item.expires_at)) ||
                   (item.resource_kind === 'model' && !item.model_id) ||
                   (!item.full_access &&
                     ['compute', 'network'].includes(item.resource_kind) &&
@@ -215,8 +217,8 @@ export function ChatComposerContainer({
           ) {
             setNotice(
               zh
-                ? '申请需要补全资源或额度，请从权限卡片查看并授权。'
-                : 'This request needs a resource or quota. Review it using the permission card.',
+                ? '申请需要补全资源、授权范围或额度，请从权限卡片查看并授权。'
+                : 'This request needs a resource, access scope or quota. Review it using the permission card.',
             );
             return;
           }
@@ -229,7 +231,9 @@ export function ChatComposerContainer({
                 GrantVersion: item.grant_version,
                 Actions: item.actions,
                 Scope: {
+                  Once: !!item.full_access && !!item.once,
                   FullAccess: item.full_access ?? false,
+                  FullAccessScope: item.full_access ? item.full_access_scope : undefined,
                   ModelID: item.model_id ?? '',
                   PathPrefixes: item.path_prefixes ?? [],
                   ReadOnly: item.actions.every((value) => value === 'read'),

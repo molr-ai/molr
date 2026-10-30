@@ -87,7 +87,10 @@ func (r *Runner) startHost(parent context.Context, e core.Execution, c platform.
 	budget := &outputBudget{left: c.MaxOutputBytes}
 	p := &process{stdout: newStream(budget), stderr: newStream(budget), done: make(chan struct{}), cancel: cancel, operation: string(e.Principal.ExecutionID) + "/" + string(e.OperationID)}
 	cmd := exec.Command("/bin/sh", "-c", c.Script)
-	if c.TTY && !r.options.NoWorkspace {
+	if c.Executable != "" {
+		cmd = exec.Command(c.Executable, c.Args...)
+	}
+	if c.Executable == "" && c.TTY && !r.options.NoWorkspace {
 		cmd = exec.Command("/bin/sh", "-c", `if [ -f "$MOLR_WORKSPACE/.profile" ]; then . "$MOLR_WORKSPACE/.profile"; fi; `+c.Script)
 	}
 	cmd.Dir = directory

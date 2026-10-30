@@ -39,11 +39,19 @@ macOS 本机浏览器由 `browser_native_unix.go` 启动固定 Chromium 和前�
 
 以下隔离机制适用于普通调用。`sandbox.allow_full_access` 默认 false；开启后，同一 Runner 可并发处理普通隔离调用和显式 Full Access 调用。节点没有全局执行模式。Full Access 必须同时满足部署允许、用户组允许（管理员默认允许）、有效的 `Scope.FullAccess` 计算授权和本次 `full_access: true`。
 
-`direct_unix.go` 在服务环境中直接执行 `/bin/sh`，继承环境并设置 `MOLR_WORKSPACE`，支持后台、TTY、输入、取消和端口转发；不创建 namespace、seccomp、cgroup 或资源限额，不承诺文件、网络和进程隔离。文件工具使用绝对路径或工作区别名。Full Access 不依赖普通计算、文件、网络授权，不计入普通任务十个并发上限。调用者显式设置的超时、授权期限、输出分页和 API 请求大小边界仍保留；这些是调用生命周期和协议边界，不是资源配额。
+不限范围的脚本调用由 `direct_unix.go` 在服务环境中直接执行 `/bin/sh`，继承环境并设置 `MOLR_WORKSPACE`，支持后台、TTY、输入、取消和端口转发；不创建 namespace、seccomp、cgroup 或资源限额，不承诺文件、网络和进程隔离。文件工具使用绝对路径或工作区别名。Full Access 不依赖普通计算、文件、网络授权，不计入普通任务十个并发上限。调用者显式设置的超时、授权期限、输出分页和 API 请求大小边界仍保留；这些是调用生命周期和协议边界，不是资源配额。
 
 普通调用永不自动升级；两类计算授权独立匹配。直接执行定期重查授权，撤销、过期、助理停用和远程租约失效会取消任务及其进程组；不承诺对脱离进程组的恶意进程提供强制隔离。Full Access 撤销只停止对应路径，普通任务继续运行。`Capabilities.FullAccess` 单独探测，即便隔离准备失败仍可为 true；五项隔离能力与 Reason 继续如实反映普通路径。
 
 Full Access 设计用于外部容器／虚拟机已提供所需隔离的环境。进程继承外部环境现有的系统限制；Molr 不移除部署环境本身的限制。
+
+授权对象使用 `Scope.FullAccessScope`，工具申请使用 `full_access_scope`，两者结构一致：`mode` 为 `unrestricted` 或 `programs`；程序规则为 `executable`、`arguments: any|exact` 和可选 `args` 数组。最多 32 条规则，每次最多 256 个参数、合计 65536 字节；权限申请仍受整体请求大小限制。`exact` 省略 `args` 等价于空数组，不允许任何额外参数。路径按声明的字符串精确匹配，执行节点再检查本平台绝对路径；不做 PATH 查找、Shell 展开、前缀或通配匹配。
+
+`shell_execute` 的程序调用携带 `full_access: true`、`executable` 与 `args`，不得同时提供 `script`。Linux/macOS 直接启动程序，Windows 直接启动 `.exe`；脚本需明确授权其解释器和参数。Windows 参数由进程启动 API 转义，目标程序自己的命令行解析仍属于其行为。普通 Shell 仍使用 `script`，不限范围的 Full Access 也可使用原有脚本入口。程序调用不会读取助理的 Shell 启动配置。
+
+权限校验、启动前复查、运行中复查与撤权沿用同一范围。没有具体程序的 Full Access 校验只匹配 `unrestricted`，因此文件工具、通用终端和受管浏览器不能凭程序授权直接使用宿主能力。远程协议版本为 11，受信任请求携带 `FullAccessScope`；程序调用只委派本次精确程序及参数，节点再次校验，旧版本连接被拒绝。
+
+一次性授权通过 `Scope.Once` 表达，`Grant.Used` 保存 `OperationID`、`ExecutionID` 与 `UsedAt`。可信执行入口使用 `CheckRequest.ConsumeOnce` 和操作 ID 在写事务内完成实时授权检查、消费记录、审计及通知；普通检查保持只读。`security.grant_uses` 将操作与计算资源绑定到实际消费的授权，复查不能换用另一份授权绕过撤销。运行时检查携带原操作 ID；发现名额已用时只允许原执行复查，不允许再次提交执行。程序启动入口、远程控制器与文件操作入口统一使用这一规则，远程节点仍用原操作标识去重。消费后的授权不可修改，避免修改时长或切换模式恢复次数。 Full Access 多媒体快照保留 `SourceOperationID`，在同次执行中加载已产生的输出时复用原调用的授权检查，不再次消费；有效期和撤权检查仍然生效。
 
 ## 1. 结论与一期范围
 
@@ -163,7 +171,7 @@ gVisor Go netstack 将流量转换为普通 TCP/UDP 连接。传输协议、目�
 
 内部 DNS 支持 TCP/UDP 的 A/AAAA 查询，使用系统解析器处理真实 CNAME。返回执行内虚拟地址，将域名身份绑定到连接；新连接重新解析，所有实际答案都须获授权，然后直拨已检查 IP。不会将域名直接转成全局 IP 白名单。虚拟映射限定 1024 项，TTL 30 秒，DNS 并发单独限定 8，不能从外部覆盖或跨执行复用。未授权域名、任意 DNS 记录类型和未知虚拟 IP 均拒绝。
 
-网络授权只表达主机/地址、端口、TCP/UDP，不表达 TLS 内的 URL 路径或内容。内置 internet/lan/host（互联网访问／局域网访问／宿主机访问）三项预设只是候选资源，连接和助理授权仍显式进行；三项均开放 TCP/UDP 全部端口，host 包含本服务自身监听端口；lan 仅含 RFC1918/ULA、不含回环，宿主局域网地址仍按 lan 判断；部署可关闭预设。旧的未声明协议配置拒绝加载；远程协议使用 `/v2/sandbox/` 和 `Protocol=9`，连接和执行前拒绝旧服务。详细配置、内部宿主别名和限额见 [部署说明](../../admin/sandbox/linux.md)。
+网络授权只表达主机/地址、端口、TCP/UDP，不表达 TLS 内的 URL 路径或内容。内置 internet/lan/host（互联网访问／局域网访问／宿主机访问）三项预设只是候选资源，连接和助理授权仍显式进行；三项均开放 TCP/UDP 全部端口，host 包含本服务自身监听端口；lan 仅含 RFC1918/ULA、不含回环，宿主局域网地址仍按 lan 判断；部署可关闭预设。旧的未声明协议配置拒绝加载；远程协议使用 `/v2/sandbox/` 和 `Protocol=11`，连接和执行前拒绝旧服务。详细配置、内部宿主别名和限额见 [部署说明](../../admin/sandbox/linux.md)。
 
 就绪探针实际执行隔离命令，并在临时回环端点上验证 DNS、TUN 与 TCP 转发，不依赖公网。宿主工具环境通过标准 curl 下载；最小 BusyBox 环境不承诺 HTTPS 下载能力。工具参数不是强制边界，网络仍由 Runtime 授权。`NetworkBackend=transparent`、`NetworkProtocols=[tcp,udp]` 随能力接口报告；不得仅凭进程存活宣称网络就绪。
 

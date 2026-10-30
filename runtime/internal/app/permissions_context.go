@@ -42,7 +42,7 @@ func permissionsContext(ctx context.Context, store persistence.Store, p core.Pri
 			if err != nil {
 				return err
 			}
-			rows = append(rows, contextGrant{permissionGrant: permissionGrant{grant.Version, grant.Constraints, grant.Temporary, grant.ID, grant.Actions, grant.Scope, grant.ExpiresAt}, ResourceID: r.ID, Name: r.Name, Kind: r.Kind, Version: grant.Version})
+			rows = append(rows, contextGrant{permissionGrant: permissionGrant{grant.Used, grant.Version, grant.Constraints, grant.Temporary, grant.ID, grant.Actions, grant.Scope, grant.ExpiresAt}, ResourceID: r.ID, Name: r.Name, Kind: r.Kind, Version: grant.Version})
 		}
 		sort.Slice(rows, func(i, j int) bool { return rows[i].ID < rows[j].ID })
 		revision := permissionDigest(rows)

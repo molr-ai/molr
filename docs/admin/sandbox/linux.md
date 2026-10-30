@@ -61,6 +61,8 @@ GPU 执行仍保留文件、进程和网络隔离。CUDA 所需的抽象 Unix SE
 
 ## 按需授予 Full Access
 
+完全访问授权需要明确选择不限范围或指定程序。程序及参数规则、申请和审批方式见[权限指南](../../user/guides/permissions-and-budget.md#full-access-权限)。以下宿主文件和任意脚本说明适用于不限范围授权。
+
 同一节点可以同时处理普通隔离调用和 Full Access 调用。Full Access（完全访问）是沙盒下与存储、计算、网络并列的权限类型，默认不开放；它不是节点运行模式，也不会在隔离失败时自动启用。
 
 部署者在 `molr` 或 `molr serve --mode sandbox` 配置中开启：

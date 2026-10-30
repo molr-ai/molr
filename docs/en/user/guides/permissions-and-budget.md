@@ -14,9 +14,19 @@ Browse tools by purpose such as chat, files, and planning in "Resources → Tool
 
 ## Full Access Permissions
 
-The authorization form first requires selecting the resource type "Model / Tool / Sandbox". After selecting Sandbox, select the specific sandbox and permission type "Storage / Compute / Network / Full Access". Storage continues by selecting storage resources and paths, Network continues by selecting network scopes, and Compute requires filling in compute quotas. If deployment allows Full Access, you can select "Full Access". Regular user groups also require explicit administrator permission to grant this privilege. It allows assistants to explicitly choose non-isolated file and command invocations without resource limits; unselected invocations continue to follow original permissions. The same resource can retain both regular compute authorization and Full Access authorization simultaneously, with separate validity periods, modifications, and revocations.
+Full Access requires an explicit scope. Missing scopes, empty modes and empty program lists are rejected; unrestricted access is never the default. Choose “Unrestricted” or “Specified programs” in the authorization form. Each program rule specifies an absolute host path and either “Any arguments” or “Exact arguments”. Exact arguments match each value in order, preserving whitespace and empty arguments; no entries permits only a launch without arguments.
 
-When selecting Full Access, do not fill in quotas, and do not separately grant directory and network permissions. See [Full Access Deployment and Execution Semantics](../../admin/sandbox/linux.md#granting-full-access-on-demand) for details.
+Program-scoped access authorizes matching program invocations only. It does not enable host paths in file tools, generic shell terminals or managed browser sessions. Authorized programs and their children run as the service account outside Molr sandbox isolation and quotas, while operating-system and deployment restrictions remain. Programs, scripts, plugins and configuration are trusted; allowing arbitrary arguments to an interpreter allows arbitrary code. Trusted operators should maintain programs so assistants cannot replace executables or loaded code.
+
+Assistant proposals must include `full_access: true` and `full_access_scope`, separately for each grouped item. Unrestricted access requires explicit `{"mode":"unrestricted"}`; a program scope can use `{"mode":"programs","programs":[{"executable":"/usr/bin/ffmpeg","arguments":"any"}]}`. Review cards and granted snapshots show the scope. Quick approval preserves it and refuses proposals with a missing scope.
+
+### Use once
+
+Full Access offers an optional “Use once” setting, disabled by default. Otherwise the grant is repeatable within its expiry. Expiry must still be explicit: new forms default to one day, and permanent access requires an explicit choice. Assistant proposals use `once: true` and still require a future `expires_at`; approvals and grants use `Scope.Once`. Program scope and usage count are checked independently.
+
+One use counts execution admission: scope and call-shape validation failures do not consume it. Once an execution is admitted, the use is claimed atomically; launch failure, command failure, cancellation and uncertain outcomes do not refund it. A terminal or browser session counts as one launch, with later session interactions remaining within that use. An unrestricted grant can also be consumed by one file-tool invocation. Status queries, task-output reads and running authorization rechecks do not consume again.
+
+Used grants display “Use once (used)”, with an expandable use time and operation ID. Consumption persists across restarts. Retries of the same operation may only reuse its task or result, not launch it again. Editing cannot restore a consumed grant; create a new grant instead. Expiry and revocation still invalidate running tasks. A matching repeatable grant takes precedence over an unused one-use grant.
 
 ## Assistant Requesting Authorization
 

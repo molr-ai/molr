@@ -98,6 +98,9 @@ func (f *Tools) Move(ctx context.Context, e core.Execution, r tools.FileMoveRequ
 	if root != destRoot {
 		return nil, core.Invalid("to_path", "move must stay in one storage root")
 	}
+	if err := f.begin(ctx, e, r.FileTarget); err != nil {
+		return nil, err
+	}
 	first, second := from, to
 	if first > second {
 		first, second = second, first
@@ -167,6 +170,9 @@ func (f *Tools) Delete(ctx context.Context, e core.Execution, r tools.FileDelete
 	}
 	root, name, err := f.resolve(ctx, e, r.FileTarget, policy.Write)
 	if err != nil {
+		return nil, err
+	}
+	if err := f.begin(ctx, e, r.FileTarget); err != nil {
 		return nil, err
 	}
 	unlock, err := f.Lock(ctx, root+"/"+name)

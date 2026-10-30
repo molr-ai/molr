@@ -61,6 +61,8 @@ Common causes include `gpu_host_tools_required` (host tool mode not enabled), `g
 
 ## Granting Full Access On Demand
 
+Full Access grants require an explicit choice of unrestricted access or specified programs. See the [permissions guide](../../user/guides/permissions-and-budget.md#full-access-permissions) for program rules, proposals and approval. The host-file and arbitrary-script behavior below applies to unrestricted grants.
+
 The same node can handle both normal isolated calls and Full Access calls simultaneously. Full Access is a permission type parallel to storage, compute, and network under the sandbox, and is not open by default. It is not a node running mode and is not automatically enabled upon isolation failure.
 
 Deployers enable it in `molr` or `molr serve --mode sandbox` configurations:

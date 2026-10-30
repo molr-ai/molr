@@ -165,6 +165,11 @@ func (s *sandboxRouter) list(ctx context.Context, p core.Principal) (json.RawMes
 		}
 		for j := range item.Operations {
 			op := &item.Operations[j]
+			if item.Kind == resource.Compute && op.Action == policy.Execute && info.Enabled && r.State == resource.Available && computeAccess(ctx, s.adapters.policy, p, r.ID, info.Capabilities) {
+				op.Available = true
+				op.Reason = ""
+				continue
+			}
 			if item.SandboxID == "local" {
 				if !info.Enabled {
 					op.Available = false
@@ -251,7 +256,7 @@ func (s *sandboxRouter) list(ctx context.Context, p core.Principal) (json.RawMes
 	}
 	for _, id := range ids {
 		info := infos[id]
-		out.Sandboxes = append(out.Sandboxes, sandboxDescriptor{FullAccessComputeIDs: fullCompute[id], Description: "Ordinary calls remain isolated. FullAccessComputeIDs require explicit full_access:true for unrestricted shell/files; no resource limits apply to those calls. Full Access scripts use actual host paths; only local execution provides $MOLR_WORKSPACE. A Full Access grant never authorizes an ordinary compute call without its separate quota grant.", ID: id, Name: names[id], Local: id == "local", Capabilities: info.Capabilities, Storage: info.Storage})
+		out.Sandboxes = append(out.Sandboxes, sandboxDescriptor{FullAccessComputeIDs: fullCompute[id], Description: "Ordinary calls remain isolated. Program-scoped Full Access grants appear in Grants.Scope.FullAccessScope and require matching executable/args with full_access:true. FullAccessComputeIDs list only unrestricted access and require explicit full_access:true for unrestricted shell/files; no resource limits apply to those calls. Full Access scripts use actual host paths; only local execution provides $MOLR_WORKSPACE. A Full Access grant never authorizes an ordinary compute call without its separate quota grant.", ID: id, Name: names[id], Local: id == "local", Capabilities: info.Capabilities, Storage: info.Storage})
 
 		if info.Capabilities.NetworkBackend == "seatbelt-toggle" {
 			out.Sandboxes[len(out.Sandboxes)-1].Description = "Controlled macOS commands use Seatbelt file scopes and a network toggle in the native host environment. Use $MOLR_WORKSPACE, $MOLR_GLOBAL, $TMPDIR and resource ShellPath values in scripts; /work, /global and /resources are file-tool paths, not shell mounts. Compute grants control duration only; no CPU, memory, process, disk or network quotas. Cancellation targets the process group; detached descendants may survive. Full Access requires its separate explicit grant and full_access:true."

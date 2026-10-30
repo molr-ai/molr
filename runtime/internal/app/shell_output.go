@@ -68,7 +68,14 @@ func (s *shellOutput) close() {
 }
 func (s *shellService) outputFiles(ctx context.Context, e core.Execution, full bool) (*shellOutput, *shellOutput, string, string, error) {
 	f := newResourceFileTools(resourceFileOptions{adapters: adapters{store: s.store, policy: s.policy, dataDir: s.dataDir, storageConfig: s.config, ownPort: s.ownPort}})
-	root, _, err := f.resolve(ctx, e, tools.FileTarget{Path: ".", FullAccess: full}, policy.Write)
+	var root string
+	var err error
+	if full {
+		// Execution authorization was checked by plan; capture may only use this assistant's workspace.
+		root, _, err = directFilePath(s.dataDir, s.config.WorkRoot, e, tools.FileTarget{Path: "."})
+	} else {
+		root, _, err = f.resolve(ctx, e, tools.FileTarget{Path: "."}, policy.Write)
+	}
 	if err != nil {
 		return nil, nil, "", "", err
 	}

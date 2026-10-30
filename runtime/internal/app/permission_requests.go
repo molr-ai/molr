@@ -410,7 +410,7 @@ func (s *permissionRequests) validateProposal(ctx context.Context, e core.Execut
 			return core.Invalid("actions", fmt.Sprintf("selected resource does not support action %s; refresh permission_list", action))
 		}
 	}
-	if err := (access{s.store}).grantScope(ctx, e.Principal, input.ResourceID, policy.Scope{FullAccess: input.FullAccess, ModelID: input.ModelID, PathPrefixes: input.PathPrefixes}); err != nil {
+	if err := (access{s.store}).grantScope(ctx, e.Principal, input.ResourceID, policy.Scope{FullAccess: input.FullAccess, Once: input.Once, FullAccessScope: input.FullAccessScope, ModelID: input.ModelID, PathPrefixes: input.PathPrefixes}); err != nil {
 		return err
 	}
 	if input.GrantID != "" {
@@ -423,6 +423,9 @@ func (s *permissionRequests) validateProposal(ctx context.Context, e core.Execut
 		}
 		if g.AssistantID != e.AssistantID || g.ResourceID != input.ResourceID || g.RevokedAt != nil {
 			return core.Invalid("grant_id", "grant must be active and belong to this assistant and selected resource")
+		}
+		if g.Used != nil {
+			return core.WithReason(core.Invalid("grant_id", "used one-use grant cannot be edited; request a new grant"), "grant_already_used")
 		}
 		if g.Version != input.GrantVersion {
 			return &core.Error{Code: core.Conflict, Field: "grant_version", Message: "grant changed; refresh permission_list", Reason: "grant_changed"}

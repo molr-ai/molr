@@ -8,7 +8,7 @@ export function useExecutionOptions(resources: Resource[] | undefined, grants: G
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, []);
   const options = (resources ?? []).filter(r => r.State === 'available' && (r.SandboxID ?? 'local') === 'local').map(resource => {
     const active = (grants ?? []).filter(g => g.ResourceID === resource.ID && !g.RevokedAt && (!g.ExpiresAt || Date.parse(g.ExpiresAt) > now) && g.Actions.includes('execute'));
-    return { resource, sandbox: sandbox && active.some(g => !g.Scope.FullAccess), fullAccess: fullAccess && active.some(g => g.Scope.FullAccess) };
+    return { resource, sandbox: sandbox && active.some(g => !g.Scope.FullAccess), fullAccess: fullAccess && active.some(g => !g.Used && g.Scope.FullAccess && g.Scope.FullAccessScope?.mode === 'unrestricted') };
   }).filter(option => option.sandbox || option.fullAccess);
   const [selection, setSelection] = useState<{ id: string; fullAccess: boolean } | null>(null);
   useEffect(() => {

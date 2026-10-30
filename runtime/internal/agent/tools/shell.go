@@ -6,11 +6,15 @@ import (
 	"io"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/platform"
+	"molr.ai/runtime/internal/policy"
 	"strings"
 )
 
-// ShellRequest contains resource references only, never host mounts or sandbox options.
+// ShellRequest contains resource references and explicit Full Access program invocations,
+// never trusted host mounts or sandbox options.
 type ShellRequest struct {
+	Executable string   `json:"executable,omitempty"`
+	Args       []string `json:"args,omitempty"`
 	// ProtocolInput is reserved for trusted watcher launches, never accepted by the model tool.
 	ProtocolInput   bool   `json:"protocol_input,omitempty"`
 	ForwardProtocol string `json:"forward_protocol,omitempty"`
@@ -49,6 +53,16 @@ func parseShell(raw json.RawMessage) (ShellRequest, error) {
 	if d.Decode(&extra) != io.EOF {
 		return r, core.Invalid("shell", "trailing arguments")
 	}
+	if r.Executable != "" {
+		if !r.FullAccess || r.Script != "" {
+			return r, core.Invalid("executable", "program execution requires full_access and excludes script")
+		}
+		if err := policy.ValidateProgramInvocation(r.Executable, r.Args); err != nil {
+			return r, err
+		}
+	} else if len(r.Args) > 0 {
+		return r, core.Invalid("args", "executable required")
+	}
 	if r.ProtocolInput {
 		return r, core.Invalid("protocol_input", "reserved watcher input")
 	}
@@ -64,7 +78,7 @@ func parseShell(raw json.RawMessage) (ShellRequest, error) {
 	if r.SandboxID != "" && r.SandboxID.Validate() != nil {
 		return r, core.Invalid("sandbox_id", "invalid sandbox ID")
 	}
-	if r.ComputeID.Validate() != nil || (!r.TTY && r.Script == "") || len(r.Script) > 65536 || strings.ContainsRune(r.Script, 0) || len(r.Files) > 32 || len(r.NetworkIDs) > 32 {
+	if r.ComputeID.Validate() != nil || (!r.TTY && r.Script == "" && r.Executable == "") || len(r.Script) > 65536 || strings.ContainsRune(r.Script, 0) || len(r.Files) > 32 || len(r.NetworkIDs) > 32 {
 		return r, core.Invalid("shell", "bounded script and compute resource required")
 	}
 	if r.ForwardProtocol != "" && r.ForwardProtocol != "http" {

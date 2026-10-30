@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strconv"
@@ -36,8 +37,12 @@ func (m *model) approvalsScreen(id core.ID) tea.Cmd {
 }
 func resolutionText(r policy.PermissionResolution) string {
 	text := fmt.Sprintf("资源：%s\n操作：%v\n模型：%s\n目录：%s", r.ResourceID, r.Actions, r.Scope.ModelID, strings.Join(r.Scope.PathPrefixes, "; "))
+	if r.Scope.Once {
+		text += "\n使用次数：仅执行一次"
+	}
 	if r.Scope.FullAccess {
-		text += "\n完全访问：使用服务账户权限，不受 Molr 文件、网络隔离和配额限制"
+		raw, _ := json.Marshal(r.Scope.FullAccessScope)
+		text += "\n完全访问范围：" + string(raw) + "\n获准程序以服务账户权限执行，不受 Molr 沙盒限制"
 	}
 	if r.ExpiresAt != nil {
 		text += "\n有效期至：" + r.ExpiresAt.Local().Format(time.DateTime)
@@ -221,8 +226,10 @@ func (m *model) permissionForm(r resource.Resource, p policy.PermissionResolutio
 		expiry := ""
 		if p.ExpiresAt != nil {
 			expiry = p.ExpiresAt.Format(time.RFC3339)
+		} else if p.Scope.FullAccess {
+			expiry = "permanent"
 		}
-		fields := []formField{field("actions", "操作（分号分隔）："+strings.Join(r.Actions, ";"), strings.Join(actions, ";")), field("expires", "到期时间 RFC3339（空为不设到期）", expiry)}
+		fields := []formField{field("actions", "操作（分号分隔）："+strings.Join(r.Actions, ";"), strings.Join(actions, ";")), field("expires", "到期时间 RFC3339（完全访问必填；永久填 permanent）", expiry)}
 		if r.Kind == resource.Storage {
 			fields = append(fields, field("paths", "授权目录（分号分隔，/ 表示整个资源）", strings.Join(p.Scope.PathPrefixes, ";")))
 		}
@@ -248,6 +255,14 @@ func (m *model) permissionForm(r resource.Resource, p policy.PermissionResolutio
 		}
 		if r.Kind == resource.Compute {
 			fields = append(fields, field("full", "完全访问（绕过 Molr 隔离与配额）", strconv.FormatBool(p.Scope.FullAccess), "false", "true"))
+			fields = append(fields, field("once", "仅执行一次", strconv.FormatBool(p.Scope.Once), "false", "true"))
+			mode, rules := "", "[]"
+			if p.Scope.FullAccessScope != nil {
+				mode = p.Scope.FullAccessScope.Mode
+				data, _ := json.Marshal(p.Scope.FullAccessScope.Programs)
+				rules = string(data)
+			}
+			fields = append(fields, field("full_mode", "完全访问范围（必须明确选择）", mode, "", "programs", "unrestricted"), field("full_programs", "程序规则 JSON（executable、arguments:any/exact、args）", rules))
 		}
 		// Use node capabilities for native duration-only compute and network toggles.
 		var nodes []struct {
@@ -313,7 +328,10 @@ func (m *model) permissionForm(r resource.Resource, p policy.PermissionResolutio
 				}
 			}
 			out.ExpiresAt = nil
-			if v["expires"] != "" {
+			if v["full"] == "true" && v["expires"] == "" {
+				return out, fmt.Errorf("完全访问必须明确有效期；永久请填写 permanent")
+			}
+			if v["expires"] != "" && v["expires"] != "permanent" {
 				at, err := time.Parse(time.RFC3339, v["expires"])
 				if err != nil || !at.After(time.Now()) {
 					return out, fmt.Errorf("到期时间必须是未来的 RFC3339 时间")
@@ -321,6 +339,23 @@ func (m *model) permissionForm(r resource.Resource, p policy.PermissionResolutio
 				out.ExpiresAt = &at
 			}
 			out.Scope.FullAccess = v["full"] == "true"
+			if v["once"] == "true" && !out.Scope.FullAccess {
+				return out, fmt.Errorf("仅执行一次需要完全访问授权")
+			}
+			out.Scope.Once = out.Scope.FullAccess && v["once"] == "true"
+			out.Scope.FullAccessScope = nil
+			if out.Scope.FullAccess {
+				scope := &policy.FullAccessScope{Mode: v["full_mode"]}
+				if scope.Mode == "programs" {
+					if err := json.Unmarshal([]byte(v["full_programs"]), &scope.Programs); err != nil {
+						return out, fmt.Errorf("程序规则 JSON 无效")
+					}
+				}
+				if err := scope.Validate(); err != nil {
+					return out, err
+				}
+				out.Scope.FullAccessScope = scope
+			}
 			out.Constraints = nil
 			out.Temporary = nil
 			if !out.Scope.FullAccess {
@@ -469,5 +504,5 @@ func (m *model) requestByIDScreen(id core.ID) tea.Cmd {
 }
 
 func approveInput(input policy.PermissionRequestInput) policy.PermissionResolution {
-	return policy.PermissionResolution{ResourceID: input.ResourceID, Actions: input.Actions, Scope: policy.Scope{ReadOnly: !slices.Contains(input.Actions, policy.Write) && !slices.Contains(input.Actions, policy.Execute), FullAccess: input.FullAccess, ModelID: input.ModelID, PathPrefixes: input.PathPrefixes}, ExpiresAt: input.ExpiresAt, Constraints: input.Constraints, Temporary: input.Temporary, GrantID: input.GrantID, GrantVersion: input.GrantVersion}
+	return policy.PermissionResolution{ResourceID: input.ResourceID, Actions: input.Actions, Scope: policy.Scope{ReadOnly: !slices.Contains(input.Actions, policy.Write) && !slices.Contains(input.Actions, policy.Execute), FullAccess: input.FullAccess, Once: input.Once, FullAccessScope: input.FullAccessScope, ModelID: input.ModelID, PathPrefixes: input.PathPrefixes}, ExpiresAt: input.ExpiresAt, Constraints: input.Constraints, Temporary: input.Temporary, GrantID: input.GrantID, GrantVersion: input.GrantVersion}
 }

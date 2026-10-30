@@ -69,6 +69,9 @@ func newSandboxBackend(ctx context.Context, cfg config.Config, store persistence
 		if !ok || q.Identity.Execution() != e || !q.Compute || q.FullAccess != c.FullAccess {
 			return denied()
 		}
+		if c.FullAccess && !q.FullAccessScope.Allows(&policy.ProgramInvocation{Executable: c.Executable, Args: c.Args}) {
+			return denied()
+		}
 		return ctx.Err()
 	}})
 	if cfg.Sandbox.Enabled {
@@ -226,6 +229,16 @@ type sandboxUpload struct {
 func (b *remoteSandboxBackend) Call(ctx context.Context, q sm.Request) (json.RawMessage, error) {
 	if err := q.Identity.Execution().Validate(); err != nil {
 		return nil, err
+	}
+	if q.FullAccess {
+		if err := q.FullAccessScope.Validate(); err != nil {
+			return nil, err
+		}
+		if q.Method != "shell_execute" && !q.FullAccessScope.Allows(nil) {
+			return nil, denied()
+		}
+	} else if q.FullAccessScope != nil {
+		return nil, denied()
 	}
 	if q.FullAccess && !b.cfg.Sandbox.AllowFullAccess {
 		return nil, core.NewError(core.Forbidden, "Full Access disabled by deployment")
@@ -424,14 +437,17 @@ func (b *remoteSandboxBackend) shell(ctx context.Context, q sm.Request) (json.Ra
 	if err := decodeSandboxArgs(q.Arguments, &req); err != nil {
 		return nil, err
 	}
-	if req.Script == "" || len(req.Script) > 65536 || len(req.Files) > 32 || len(req.NetworkIDs) > 32 {
+	if req.FullAccess != q.FullAccess || q.FullAccess && !q.FullAccessScope.Allows(&policy.ProgramInvocation{Executable: req.Executable, Args: req.Args}) {
+		return nil, denied()
+	}
+	if (req.Script == "" && req.Executable == "") || len(req.Script) > 65536 || len(req.Files) > 32 || len(req.NetworkIDs) > 32 {
 		return nil, core.Invalid("script", "invalid shell request")
 	}
 	s := b.cfg.Sandbox
 	if q.FullAccess && req.NetworkMode == "none" {
 		return nil, core.Invalid("network_mode", "Full Access cannot provide network isolation")
 	}
-	c := platform.Command{ProtocolInput: req.ProtocolInput, FullAccess: q.FullAccess, ForwardPorts: req.ForwardPorts, Managed: true, TTY: req.TTY, Script: req.Script, Directory: req.Directory, RequireIsolation: true, Timeout: time.Duration(req.TimeoutSeconds) * time.Second, MaxOutputBytes: s.MaxOutputBytes, AuthorizationDeadline: q.Deadline, Limits: platform.Limits{MemoryBytes: s.MemoryBytes, Processes: s.Processes, CPUPercent: s.CPUPercent, TempBytes: s.TempBytes, MaxFileBytes: s.MaxFileBytes, NetworkBytes: s.NetworkBytes, NetworkConnections: s.NetworkConnections}}
+	c := platform.Command{ProtocolInput: req.ProtocolInput, FullAccess: q.FullAccess, ForwardPorts: req.ForwardPorts, Managed: true, TTY: req.TTY, Script: req.Script, Executable: req.Executable, Args: req.Args, Directory: req.Directory, RequireIsolation: true, Timeout: time.Duration(req.TimeoutSeconds) * time.Second, MaxOutputBytes: s.MaxOutputBytes, AuthorizationDeadline: q.Deadline, Limits: platform.Limits{MemoryBytes: s.MemoryBytes, Processes: s.Processes, CPUPercent: s.CPUPercent, TempBytes: s.TempBytes, MaxFileBytes: s.MaxFileBytes, NetworkBytes: s.NetworkBytes, NetworkConnections: s.NetworkConnections}}
 	if !q.FullAccess {
 		c.GroupComputeConstraints = q.GroupComputeConstraints
 		c.NetworkAuthorizations = q.NetworkAuthorizations

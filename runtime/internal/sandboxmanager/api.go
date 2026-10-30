@@ -13,7 +13,7 @@ import (
 	"molr.ai/runtime/internal/policy"
 )
 
-const ProtocolVersion = 9
+const ProtocolVersion = 11
 const LeaseDuration = 15 * time.Second
 const MaxMessage = 96 << 20
 const MaxRequest = 32 << 20
@@ -66,6 +66,7 @@ type Scope struct {
 	Read, Write bool
 }
 type Request struct {
+	FullAccessScope         *policy.FullAccessScope `json:",omitempty"`
 	FullAccess              bool
 	ComputeConstraints      *policy.ComputeConstraints
 	GroupComputeConstraints *policy.ComputeConstraints `json:",omitempty"`

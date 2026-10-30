@@ -1,3 +1,5 @@
+import { GrantUseSummary } from './GrantUse';
+import { FullAccessScopeSummary } from './FullAccessScope';
 import { useErrorToast } from '../../../error-toasts';
 import { GPUDeviceList } from './GPUAccess';
 import { fullAccessLabel, isSandboxResource } from './PermissionTargetFields';
@@ -52,8 +54,8 @@ function QuotaGrid({ value, gpus }: { value: ResourceConstraints; gpus?: readonl
 }
 
 /** Pending scopes use the proposal; resolved scopes use only the granted snapshot. */
-export function PermissionScope({ input, grant, showReason, showExpiry, timeZone }: {
-  input?: PermissionRequestInput; grant?: Grant; showReason?: boolean; showExpiry?: boolean; timeZone?: string;
+export function PermissionScope({ input, grant, showReason, showExpiry, timeZone, grouped }: {
+  input?: PermissionRequestInput; grant?: Grant; showReason?: boolean; showExpiry?: boolean; timeZone?: string; grouped?: boolean;
 }) {
   const { t, locale } = useCopy(), zh = locale === 'zh';
   const resource = useQuery<Resource>(grant ? `/api/resources/${grant.ResourceID}` : input?.resource_id ? `/api/resources/${input.resource_id}` : null);
@@ -71,9 +73,11 @@ export function PermissionScope({ input, grant, showReason, showExpiry, timeZone
   const constraints = fullAccess ? undefined : grant ? grant.Constraints : input?.constraints;
   const temporary = fullAccess ? undefined : grant ? grant.Temporary : input?.temporary;
   useErrorToast(resource.error || models.error, () => { resource.reload(); models.reload(); });
-  return <section className="permission-scope" aria-label={target}>
-    <div className="permission-scope__heading"><Icon aria-hidden="true" /><h5>{isSandboxResource(kind) ? `${zh ? '沙盒' : 'Sandbox'} · ` : ''}{fullAccess ? fullAccessLabel(zh) : kind ? t.resources.categories[kind] : t.loading}</h5>{!fullAccess && <span>{actions.map(action => permissionLabel(t, kind, action)).join(' · ')}</span>}</div>
-    <p className="permission-scope__target">{target}</p>
+  return <section className={`permission-scope${fullAccess ? ' permission-scope--full-access' : ''}`} aria-label={target}>
+    {fullAccess ? <div className="permission-scope__location"><span>{grouped ? fullAccessLabel(zh) : zh ? '执行位置' : 'Runs on'}</span><strong>{target}</strong></div> : <><div className="permission-scope__heading"><Icon aria-hidden="true" /><h5>{isSandboxResource(kind) ? `${zh ? '沙盒' : 'Sandbox'} · ` : ''}{fullAccess ? fullAccessLabel(zh) : kind ? t.resources.categories[kind] : t.loading}</h5>{!fullAccess && <span>{actions.map(action => permissionLabel(t, kind, action)).join(' · ')}</span>}</div>
+    <p className="permission-scope__target">{target}</p></>}
+    {fullAccess && <GrantUseSummary once={input?.once} grant={grant} timeZone={timeZone} />}
+    {fullAccess && <FullAccessScopeSummary value={grant ? grant.Scope.FullAccessScope : input?.full_access_scope} />}
     {showReason && input?.reason && <p className="permission-scope__note">{input.reason}</p>}
     {modelID && <p className="permission-scope__note">{t.resources.categories.model} · {models.data?.find(model => model.ID === modelID)?.Name ?? t.resources.modelUnavailable}</p>}
     {kind === 'storage' && <dl className="permission-scope__paths"><dt>{zh ? '目录范围' : 'Paths'}</dt><dd>{(paths?.length ? paths : ['/']).map(path => <code key={path}>{path === '/' ? (zh ? '整个资源目录' : 'Entire resource directory') : path}</code>)}</dd></dl>}

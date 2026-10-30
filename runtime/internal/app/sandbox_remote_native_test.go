@@ -188,7 +188,7 @@ func TestRemoteNativeSandboxIntegration(t *testing.T) {
 	if _, err := router.shellExecute(t.Context(), e, full); err == nil {
 		t.Fatal("ungranted Full Access accepted")
 	}
-	grant(compute, "full-access", []policy.Action{policy.Execute}, policy.Scope{FullAccess: true}, nil)
+	grant(compute, "full-access", []policy.Action{policy.Execute}, policy.Scope{FullAccess: true, FullAccessScope: &policy.FullAccessScope{Mode: "unrestricted"}}, nil)
 	raw, err = router.shellExecute(t.Context(), e, full)
 	need(t, err)
 	if !strings.Contains(string(raw), "FULL_OK") {

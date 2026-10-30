@@ -97,6 +97,9 @@ func (r *Runner) startHost(parent context.Context, e core.Execution, c platform.
 		return nil, unavailable("terminal_platform_unsupported")
 	}
 	cmd := exec.Command(windowsShell(), "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new(); "+c.Script)
+	if c.Executable != "" {
+		cmd = exec.Command(c.Executable, c.Args...)
+	}
 	cmd.Dir = directory
 	cmd.Env = os.Environ()
 	if !r.options.NoWorkspace {
@@ -118,7 +121,7 @@ func (r *Runner) startHost(parent context.Context, e core.Execution, c platform.
 		}()
 	}
 	if c.TTY && c.FullAccess {
-		spec := containerLaunch{TTY: true, FullAccess: true, Script: c.Script, Directory: cmd.Dir, Environment: cmd.Env}
+		spec := containerLaunch{TTY: true, FullAccess: true, Script: c.Script, Executable: c.Executable, Args: c.Args, Directory: cmd.Dir, Environment: cmd.Env}
 		data, _ := json.Marshal(spec)
 		helper := r.options.Helper
 		var err error

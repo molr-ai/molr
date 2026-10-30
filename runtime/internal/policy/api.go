@@ -19,10 +19,16 @@ const (
 )
 
 type CheckRequest struct {
-	FullAccess bool
-	Target     core.Object
-	Action     Action
-	ResourceID core.ID
+	// ConsumeOnce is a trusted effect-admission check, never a discovery or periodic check.
+	ConsumeOnce bool
+	OperationID core.ID
+	Program     *ProgramInvocation
+	// FullAccessProbe is only for capability discovery, never execution.
+	FullAccessProbe bool
+	FullAccess      bool
+	Target          core.Object
+	Action          Action
+	ResourceID      core.ID
 	// ModelID is required at model catalogue/dispatch entry points. Transport
 	// and resource metadata checks remain bound to ResourceID.
 	ModelID     core.ID
@@ -39,7 +45,13 @@ type Decision struct {
 type Authorizer interface {
 	Require(context.Context, core.Principal, CheckRequest) error
 }
+type GrantUse struct {
+	OperationID core.ID
+	ExecutionID core.ID
+	UsedAt      time.Time
+}
 type Grant struct {
+	Used        *GrantUse `json:",omitempty"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	Constraints *Constraints          `json:",omitempty"`
@@ -55,7 +67,9 @@ type Grant struct {
 	Version     core.Version
 }
 type Scope struct {
-	FullAccess bool `json:",omitempty"`
+	Once            bool             `json:",omitempty"`
+	FullAccessScope *FullAccessScope `json:",omitempty"`
+	FullAccess      bool             `json:",omitempty"`
 	// Model grants cover exactly one model belonging to ResourceID.
 	ModelID      core.ID
 	PathPrefixes []string

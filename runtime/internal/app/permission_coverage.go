@@ -36,7 +36,13 @@ func (s *permissionRequests) checkExistingPermission(ctx context.Context, e core
 }
 
 func permissionCovered(g policy.Grant, q policy.PermissionRequestInput, now time.Time) bool {
+	if g.Scope.Once && (g.Used != nil || !q.Once) {
+		return false
+	}
 	if g.RevokedAt != nil || g.ResourceID != q.ResourceID || g.Scope.FullAccess != q.FullAccess || g.Scope.ModelID != q.ModelID || q.ExpiresAt == nil || !q.ExpiresAt.After(now) || g.ExpiresAt != nil && g.ExpiresAt.Before(*q.ExpiresAt) {
+		return false
+	}
+	if q.FullAccess && !g.Scope.FullAccessScope.Covers(q.FullAccessScope) {
 		return false
 	}
 	for _, action := range q.Actions {

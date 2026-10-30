@@ -54,7 +54,7 @@ func TestFullAccessThroughToolExecutor(t *testing.T) {
 	for _, g := range grants {
 		need(t, f.b.Services.Grants.Revoke(t.Context(), f.owner, policy.RevokeRequest{GrantID: g.ID, Mutation: core.Mutation{IdempotencyKey: "revoke-" + string(g.ID), ExpectedVersion: g.Version}}))
 	}
-	full, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: f.execution.AssistantID, ResourceID: f.compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true}, Mutation: core.Mutation{IdempotencyKey: "tool-full"}})
+	full, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: f.execution.AssistantID, ResourceID: f.compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true, FullAccessScope: &policy.FullAccessScope{Mode: "unrestricted"}}, Mutation: core.Mutation{IdempotencyKey: "tool-full"}})
 	need(t, err)
 	executor := tools.NewExecutor(f.b.store, tools.Options{Authorizer: f.ad.policy, Operations: operation.NewService(f.b.store, operation.Options{Authorizer: f.ad.policy}), ShellExecute: f.b.shellTasks.Execute})
 	call := tools.Call{Execution: f.execution, Name: "shell_execute", Arguments: json.RawMessage(fmt.Sprintf(`{"compute_id":%q,"script":"printf native-tool-ok","full_access":true}`, f.compute.ID))}
@@ -129,7 +129,7 @@ func TestFullAccessLocalAndRemote(t *testing.T) {
 			if _, err := files.Write(t.Context(), f.execution, tools.FileWriteRequest{FileTarget: target, Text: "outside"}); err == nil {
 				t.Fatal("file access without node grant")
 			}
-			grant, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: f.execution.AssistantID, ResourceID: compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true}, Mutation: core.Mutation{IdempotencyKey: "full-access"}})
+			grant, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: f.execution.AssistantID, ResourceID: compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true, FullAccessScope: &policy.FullAccessScope{Mode: "unrestricted"}}, Mutation: core.Mutation{IdempotencyKey: "full-access"}})
 			need(t, err)
 			if grant.Constraints != nil {
 				t.Fatal("full access requires no quota")
@@ -184,12 +184,95 @@ func TestFullAccessLocalAndRemote(t *testing.T) {
 			if err == nil {
 				t.Fatal("network isolation silently ignored")
 			}
+			grant, err = f.b.Services.Grants.UpdateGrant(t.Context(), f.owner, policy.UpdateGrantRequest{GrantID: grant.ID, Actions: grant.Actions, Scope: policy.Scope{FullAccess: true, FullAccessScope: &policy.FullAccessScope{Mode: "programs", Programs: []policy.ProgramRule{{Executable: "/usr/bin/printf", Arguments: "exact", Args: []string{"remote-scoped"}}}}}, Mutation: core.Mutation{IdempotencyKey: "narrow-program", ExpectedVersion: grant.Version}})
+			need(t, err)
+			run.OperationID = "scoped-remote"
+			raw, err = router.shellExecute(t.Context(), run, tools.ShellRequest{SandboxID: id, ComputeID: compute.ID, FullAccess: true, Executable: "/usr/bin/printf", Args: []string{"remote-scoped"}})
+			need(t, err)
+			if !strings.Contains(string(raw), "remote-scoped") {
+				t.Fatal(string(raw))
+			}
+			run.OperationID = "scoped-remote-denied"
+			if _, err = router.shellExecute(t.Context(), run, tools.ShellRequest{SandboxID: id, ComputeID: compute.ID, FullAccess: true, Executable: "/usr/bin/printf", Args: []string{"denied"}}); core.CodeOf(err) != core.Forbidden {
+				t.Fatal("remote scope widened", err)
+			}
+			if _, err = files.Read(t.Context(), run, tools.FileReadRequest{FileTarget: target}); core.CodeOf(err) != core.Forbidden {
+				t.Fatal("remote files widened", err)
+			}
 			need(t, f.b.Services.Grants.Revoke(t.Context(), f.owner, policy.RevokeRequest{GrantID: grant.ID, Mutation: core.Mutation{IdempotencyKey: "revoke-full", ExpectedVersion: grant.Version}}))
 			run.OperationID = "denied"
 			if _, err = router.shellExecute(t.Context(), run, tools.ShellRequest{SandboxID: id, FullAccess: true, ComputeID: compute.ID, Script: "true"}); err == nil {
 				t.Fatal("execution survived grant revocation")
 			}
+			expires := time.Now().Add(time.Hour)
+			once, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: f.execution.AssistantID, ResourceID: compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true, FullAccessScope: &policy.FullAccessScope{Mode: "unrestricted"}, Once: true}, ExpiresAt: &expires, Mutation: core.Mutation{IdempotencyKey: "once-remote"}})
+			need(t, err)
+			run.OperationID = "once-remote-first"
+			_, err = router.shellExecute(t.Context(), run, tools.ShellRequest{SandboxID: id, FullAccess: true, ComputeID: compute.ID, Executable: "/usr/bin/printf", Args: []string{"once-remote"}})
+			need(t, err)
+			used, err := persistence.Load[policy.Grant](t.Context(), f.b.store, "security.grants", persistence.Key(f.owner.OwnerID, once.ID))
+			need(t, err)
+			if used.Used == nil || used.Used.OperationID != run.OperationID {
+				t.Fatal("remote use missing", used)
+			}
+			run.OperationID = "once-remote-second"
+			if _, err = router.shellExecute(t.Context(), run, tools.ShellRequest{SandboxID: id, FullAccess: true, ComputeID: compute.ID, Script: "true"}); core.CodeOf(err) != core.Forbidden {
+				t.Fatal("remote authorization reused", err)
+			}
 		})
+	}
+}
+
+func TestFullAccessProgramScopeThroughTools(t *testing.T) {
+	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { directConfig(c) })
+	missing := policy.GrantRequest{AssistantID: f.execution.AssistantID, ResourceID: f.compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true}, Mutation: core.Mutation{IdempotencyKey: "missing-scope"}}
+	if _, err := f.b.Services.Grants.Grant(t.Context(), f.owner, missing); err == nil {
+		t.Fatal("grant without scope accepted")
+	}
+	program := "/usr/bin/printf"
+	args := []string{"%s|%s", "literal $(echo not-executed)", ""}
+	scope := &policy.FullAccessScope{Mode: "programs", Programs: []policy.ProgramRule{{Executable: program, Arguments: "exact", Args: args}}}
+	missing.Scope.FullAccessScope = scope
+	missing.Mutation.IdempotencyKey = "program-scope"
+	grant, err := f.b.Services.Grants.Grant(t.Context(), f.owner, missing)
+	need(t, err)
+	executor := tools.NewExecutor(f.b.store, tools.Options{Authorizer: f.ad.policy, Operations: operation.NewService(f.b.store, operation.Options{Authorizer: f.ad.policy}), ShellExecute: f.b.shellTasks.Execute})
+	request := tools.ShellRequest{ComputeID: f.compute.ID, FullAccess: true, Executable: program, Args: args}
+	raw, err := json.Marshal(request)
+	need(t, err)
+	result, err := executor.Execute(t.Context(), tools.Call{Execution: f.execution, Name: "shell_execute", Arguments: raw})
+	need(t, err)
+	if !strings.Contains(string(result.Content), "literal $(echo not-executed)|") {
+		t.Fatal(string(result.Content))
+	}
+	for i, req := range []tools.ShellRequest{
+		{ComputeID: f.compute.ID, FullAccess: true, Script: "/usr/bin/printf wrong"},
+		{ComputeID: f.compute.ID, FullAccess: true, Executable: program, Args: []string{"wrong"}},
+		{ComputeID: f.compute.ID, FullAccess: true, Executable: "/bin/sh", Args: []string{"-c", "true"}},
+		{ComputeID: f.compute.ID, FullAccess: true, TTY: true},
+	} {
+		e := f.execution
+		e.OperationID = core.ID(fmt.Sprintf("program-denied-%d", i))
+		if _, err := f.b.remote.shellExecute(t.Context(), e, req); core.CodeOf(err) != core.Forbidden {
+			t.Fatalf("request %+v: %v", req, err)
+		}
+	}
+	files := newResourceFileTools(resourceFileOptions{adapters: f.ad, router: f.b.remote})
+	if _, err := files.Read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: tools.FileTarget{FullAccess: true, Path: "/etc/hosts"}}); core.CodeOf(err) != core.Forbidden {
+		t.Fatal("program scope authorized host file tool", err)
+	}
+	projected, err := f.b.remote.list(t.Context(), f.execution.Principal)
+	need(t, err)
+	view, err := prompt.Structured("permission_list", string(projected))
+	need(t, err)
+	if !strings.Contains(view, `"FullAccessScope"`) || !strings.Contains(view, `"arguments":"exact"`) {
+		t.Fatal("model lost scope", view)
+	}
+	need(t, f.b.Services.Grants.Revoke(t.Context(), f.owner, policy.RevokeRequest{GrantID: grant.ID, Mutation: core.Mutation{IdempotencyKey: "revoke-program", ExpectedVersion: grant.Version}}))
+	e := f.execution
+	e.OperationID = "program-revoked"
+	if _, err := f.b.remote.shellExecute(t.Context(), e, request); core.CodeOf(err) != core.Forbidden {
+		t.Fatal("revoked program authorized", err)
 	}
 }
 
@@ -215,7 +298,7 @@ func TestFullAccessConfigAndDisabled(t *testing.T) {
 
 func TestFullAccessBackgroundTasksHaveNoTenTaskQuota(t *testing.T) {
 	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { directConfig(c) })
-	_, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: f.execution.AssistantID, ResourceID: f.compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true}, Mutation: core.Mutation{IdempotencyKey: "full-background"}})
+	_, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: f.execution.AssistantID, ResourceID: f.compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true, FullAccessScope: &policy.FullAccessScope{Mode: "unrestricted"}}, Mutation: core.Mutation{IdempotencyKey: "full-background"}})
 	need(t, err)
 	for i := 0; i < 11; i++ {
 		e := f.execution
@@ -248,7 +331,7 @@ func TestFullAccessPermissionIsExplicit(t *testing.T) {
 	if _, err := files.Read(t.Context(), e, tools.FileReadRequest{FileTarget: tools.FileTarget{FullAccess: true, Path: outside}}); core.CodeOf(err) != core.Forbidden {
 		t.Fatal("ordinary grant elevated files", err)
 	}
-	full, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: e.AssistantID, ResourceID: f.compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true}, Mutation: core.Mutation{IdempotencyKey: "full"}})
+	full, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: e.AssistantID, ResourceID: f.compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true, FullAccessScope: &policy.FullAccessScope{Mode: "unrestricted"}}, Mutation: core.Mutation{IdempotencyKey: "full"}})
 	need(t, err)
 	if _, err := files.Read(t.Context(), e, tools.FileReadRequest{FileTarget: tools.FileTarget{Path: outside}}); err == nil {
 		t.Fatal("file call upgraded without explicit flag")
@@ -266,7 +349,7 @@ func TestFullAccessPermissionIsExplicit(t *testing.T) {
 	if !strings.Contains(string(raw), `"FullAccessAvailable":true`) || !strings.Contains(string(raw), `"FullAccessComputeIDs"`) {
 		t.Fatal(string(raw))
 	}
-	bad := policy.GrantRequest{AssistantID: e.AssistantID, ResourceID: f.compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true}, Constraints: testResourceConstraints(resource.Compute), Mutation: core.Mutation{IdempotencyKey: "full-quota"}}
+	bad := policy.GrantRequest{AssistantID: e.AssistantID, ResourceID: f.compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true, FullAccessScope: &policy.FullAccessScope{Mode: "unrestricted"}}, Constraints: testResourceConstraints(resource.Compute), Mutation: core.Mutation{IdempotencyKey: "full-quota"}}
 	if _, err := f.b.Services.Grants.Grant(t.Context(), f.owner, bad); err == nil {
 		t.Fatal("Full Access accepted quotas")
 	}
@@ -306,7 +389,7 @@ func TestFullAccessAndIsolationCoexist(t *testing.T) {
 	if !caps.Shell || !caps.FullAccess || !caps.FileIsolation {
 		t.Fatal(caps)
 	}
-	full, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: f.execution.AssistantID, ResourceID: f.compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true}, Mutation: core.Mutation{IdempotencyKey: "full-coexist"}})
+	full, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: f.execution.AssistantID, ResourceID: f.compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true, FullAccessScope: &policy.FullAccessScope{Mode: "unrestricted"}}, Mutation: core.Mutation{IdempotencyKey: "full-coexist"}})
 	need(t, err)
 	outside := filepath.Join(t.TempDir(), "private")
 	need(t, os.WriteFile(outside, []byte("full-ok"), 0600))
@@ -364,7 +447,7 @@ func TestFullAccessAndIsolationCoexist(t *testing.T) {
 func TestFullAccessDeploymentGateAndGrantExpiry(t *testing.T) {
 	t.Run("deployment", func(t *testing.T) {
 		f := newResourceAccessFixture(t, func(c *config.Config, _ string) { directConfig(c); c.Sandbox.AllowFullAccess = false })
-		_, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: f.execution.AssistantID, ResourceID: f.compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true}, Mutation: core.Mutation{IdempotencyKey: "disabled-full"}})
+		_, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: f.execution.AssistantID, ResourceID: f.compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true, FullAccessScope: &policy.FullAccessScope{Mode: "unrestricted"}}, Mutation: core.Mutation{IdempotencyKey: "disabled-full"}})
 		if err == nil {
 			t.Fatal("Full Access granted without deployment permission")
 		}
@@ -378,7 +461,7 @@ func TestFullAccessDeploymentGateAndGrantExpiry(t *testing.T) {
 		// after the real command has started. Native capability probes can take
 		// longer than the old one-second grant on CI runners.
 		until := time.Now().Add(time.Hour)
-		grant, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: f.execution.AssistantID, ResourceID: f.compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true}, ExpiresAt: &until, Mutation: core.Mutation{IdempotencyKey: "expires-full"}})
+		grant, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: f.execution.AssistantID, ResourceID: f.compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true, FullAccessScope: &policy.FullAccessScope{Mode: "unrestricted"}}, ExpiresAt: &until, Mutation: core.Mutation{IdempotencyKey: "expires-full"}})
 		need(t, err)
 		e := f.execution
 		e.OperationID = "expires-call"
@@ -456,7 +539,7 @@ func TestFullAccessRequiresGroupDelegation(t *testing.T) {
 	}
 	save("node")
 	a := f.assistant(t, f.alice, "full-access-member")
-	q := policy.GrantRequest{AssistantID: a.ID, ResourceID: r.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true}, Mutation: core.Mutation{IdempotencyKey: "full-member"}}
+	q := policy.GrantRequest{AssistantID: a.ID, ResourceID: r.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true, FullAccessScope: &policy.FullAccessScope{Mode: "unrestricted"}}, Mutation: core.Mutation{IdempotencyKey: "full-member"}}
 	if _, err := f.b.Services.Grants.Grant(ctx, f.alice, q); core.CodeOf(err) != core.Forbidden {
 		t.Fatal("member self-elevated", err)
 	}
@@ -513,7 +596,7 @@ func TestFullAccessManualTerminalRequiresGrantAndStopsOnRevocation(t *testing.T)
 	if _, err := start("full-denied"); err == nil {
 		t.Fatal("ungranted Full Access terminal started")
 	}
-	grant, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: f.execution.AssistantID, ResourceID: f.compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true}, Mutation: core.Mutation{IdempotencyKey: "terminal-full"}})
+	grant, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: f.execution.AssistantID, ResourceID: f.compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true, FullAccessScope: &policy.FullAccessScope{Mode: "unrestricted"}}, Mutation: core.Mutation{IdempotencyKey: "terminal-full"}})
 	need(t, err)
 	raw, err := start("full-allowed")
 	need(t, err)
@@ -549,7 +632,7 @@ func TestFullAccessBrowserToolUsesItsSeparateGrant(t *testing.T) {
 	for _, g := range grants {
 		need(t, f.b.Services.Grants.Revoke(t.Context(), f.owner, policy.RevokeRequest{GrantID: g.ID, Mutation: core.Mutation{IdempotencyKey: "clear-" + string(g.ID), ExpectedVersion: g.Version}}))
 	}
-	grant, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: f.execution.AssistantID, ResourceID: f.compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true}, Mutation: core.Mutation{IdempotencyKey: "browser-full"}})
+	grant, err := f.b.Services.Grants.Grant(t.Context(), f.owner, policy.GrantRequest{AssistantID: f.execution.AssistantID, ResourceID: f.compute.ID, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: true, FullAccessScope: &policy.FullAccessScope{Mode: "unrestricted"}}, Mutation: core.Mutation{IdempotencyKey: "browser-full"}})
 	need(t, err)
 	calls := 0
 	executor := tools.NewExecutor(f.b.store, tools.Options{Authorizer: f.ad.policy, Operations: operation.NewService(f.b.store, operation.Options{Authorizer: f.ad.policy}), Browser: func(_ context.Context, _ core.Execution, _ string, q tools.BrowserRequest) (json.RawMessage, error) {
@@ -575,5 +658,50 @@ func TestFullAccessBrowserToolUsesItsSeparateGrant(t *testing.T) {
 	}
 	if calls != 1 {
 		t.Fatal("unauthorized browser reached launcher", calls)
+	}
+}
+
+func TestFullAccessScopeProposalApproval(t *testing.T) {
+	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { directConfig(c) })
+	s := newPermissionRequestsFixture(t, f)
+	s.router = f.b.remote
+	input := policy.PermissionRequestInput{Once: true, FullAccess: true, ResourceKind: "compute", ResourceID: f.compute.ID, ResourceDescription: "Host program", Actions: []policy.Action{policy.Execute}, ExpiresAt: futurePermissionTime(), Reason: "Inspect the tool version"}
+	if _, err := s.create(t.Context(), f.execution, input); err == nil {
+		t.Fatal("missing proposal scope accepted")
+	}
+	rows, err := s.List(t.Context(), f.owner, f.execution.AssistantID)
+	need(t, err)
+	if len(rows) != 0 {
+		t.Fatal("invalid proposal published a card")
+	}
+	input.FullAccessScope = &policy.FullAccessScope{Mode: "programs", Programs: []policy.ProgramRule{{Executable: "/usr/bin/printf", Arguments: "exact", Args: []string{"version"}}}}
+	raw, err := s.create(t.Context(), f.execution, input)
+	need(t, err)
+	var request policy.PermissionRequest
+	need(t, json.Unmarshal(raw, &request))
+	if !input.FullAccessScope.Covers(request.Input.FullAccessScope) {
+		t.Fatal("proposal scope lost")
+	}
+	q := policy.PermissionResolution{RequestID: request.ID, Decision: "approve", ResourceID: input.ResourceID, Actions: input.Actions, Scope: policy.Scope{FullAccess: true}, ExpiresAt: input.ExpiresAt, Mutation: core.Mutation{IdempotencyKey: "approve-scope", ExpectedVersion: request.Version}}
+	if _, err := s.Resolve(t.Context(), f.owner, q); err == nil {
+		t.Fatal("approval without explicit scope accepted")
+	}
+	q.Scope.FullAccessScope = input.FullAccessScope
+	q.Scope.Once = input.Once
+	approved, err := s.Resolve(t.Context(), f.owner, q)
+	need(t, err)
+	if approved.Granted == nil || !approved.Granted.Scope.Once || !approved.Granted.Scope.FullAccessScope.Covers(input.FullAccessScope) {
+		t.Fatal("approval scope lost")
+	}
+	if !permissionCovered(*approved.Granted, input, time.Now()) {
+		t.Fatal("identical proposal not covered")
+	}
+	input.FullAccessScope = &policy.FullAccessScope{Mode: "unrestricted"}
+	if permissionCovered(*approved.Granted, input, time.Now()) {
+		t.Fatal("program grant covered unrestricted request")
+	}
+	old := *approved.Granted
+	if _, err := f.b.Services.Grants.UpdateGrant(t.Context(), f.owner, policy.UpdateGrantRequest{GrantID: old.ID, Actions: old.Actions, Scope: policy.Scope{FullAccess: true}, Mutation: core.Mutation{IdempotencyKey: "missing-update-scope", ExpectedVersion: old.Version}}); err == nil {
+		t.Fatal("update defaulted to unrestricted")
 	}
 }

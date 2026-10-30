@@ -1,10 +1,11 @@
 package prompt
 
-var scope = object("ModelID ReadOnly FullAccess", nested("PathPrefixes", array(scalar)))
+var fullAccessScope = object("mode", nested("programs", array(object("executable arguments", nested("args", array(scalar))))))
+var scope = object("ModelID ReadOnly FullAccess Once", nested("FullAccessScope", fullAccessScope), nested("PathPrefixes", array(scalar)))
 var constraints = object("", nested("compute", object("cpu_percent memory_bytes processes max_duration_seconds unlimited_duration temp_bytes", nested("gpu", object("", nested("device_ids", array(scalar)))))), nested("network", object("bytes connections period timezone")), nested("storage", object("capacity_bytes max_file_bytes max_files")))
 var temporary = object("until", nested("limits", constraints))
-var grant = object("ID ResourceID Name Kind Version", nested("Constraints", constraints), nested("Temporary", temporary), required("ExpiresAt", scalar), nested("Actions", array(scalar)), nested("Scope", scope))
-var requestInput = object("full_access resource_kind resource_id model_id resource_description expires_at reason grant_id grant_version", nested("constraints", constraints), nested("temporary", temporary), nested("actions", array(scalar)), nested("path_prefixes", array(scalar)))
+var grant = object("ID ResourceID Name Kind Version", nested("Used", object("OperationID ExecutionID UsedAt")), nested("Constraints", constraints), nested("Temporary", temporary), required("ExpiresAt", scalar), nested("Actions", array(scalar)), nested("Scope", scope))
+var requestInput = object("full_access once resource_kind resource_id model_id resource_description expires_at reason grant_id grant_version", nested("full_access_scope", fullAccessScope), nested("constraints", constraints), nested("temporary", temporary), nested("actions", array(scalar)), nested("path_prefixes", array(scalar)))
 var request = object("ID State GrantID MessageID CreatedAt ResolvedAt", nested("Input", requestInput), nested("Granted", grant))
 var profile = object("Name Status Version", nested("Avatar", object("Type ID Digest")))
 var failure = object("code reason field message execution_state side_effects_possible guidance", nested("current_profile", profile))
@@ -13,7 +14,7 @@ var message = object("ID ConversationID Sequence Sender CreatedAt", nested("Cont
 var operation = object("Action Via Available Reason")
 var capabilities = object("GPUAccessMode OS NetworkBackend FullAccess Shell ProcessIsolation FileIsolation NetworkIsolation ResourceLimits Reason")
 var terminalControl = object("Control Generation Rows Cols NeedsRead")
-var shell = object("ID TaskID Kind CreatedBy SandboxID OutputSandboxID FullAccess Mode State Script Failure StartedAt FinishedAt Stdout Stderr StdoutPath StderrPath Output NextCursor Path Stopping Bytes Truncated OutputComplete CaptureReason StdoutBytes StderrBytes", nested("GPUDeviceIDs", array(scalar)), nested("Forwards", array(object("Protocol Port Address URL State"))), nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")))
+var shell = object("ID TaskID Kind CreatedBy SandboxID OutputSandboxID FullAccess Mode State Script Executable Failure StartedAt FinishedAt Stdout Stderr StdoutPath StderrPath Output NextCursor Path Stopping Bytes Truncated OutputComplete CaptureReason StdoutBytes StderrBytes", nested("Args", array(scalar)), nested("GPUDeviceIDs", array(scalar)), nested("Forwards", array(object("Protocol Port Address URL State"))), nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")))
 var browserProxy = object("Mode Server Authentication Version", nested("Bypass", array(scalar)))
 var browserNetworkFailure = object("TaskID At Reason Message", nested("Proxy", browserProxy), nested("Sandbox", object("Reason At")))
 var browserControl = object("Control NeedsSnapshot Generation", nested("Proxy", browserProxy), nested("LastNetworkFailure", browserNetworkFailure))
@@ -23,7 +24,7 @@ var plan = object("PlanID Mode Title Instructions Version StartAt EndAt DueAt Ti
 var networkTarget = object("", nested("Protocols", array(scalar)), nested("Addresses", array(scalar)), nested("Ports", array(scalar)), nested("ExcludeAddresses", array(scalar)), nested("ExcludePorts", array(scalar)))
 var networkScope = object("Mode Known Reason LoopbackAccess", nested("Target", networkTarget), nested("Restrictions", array(scalar)))
 var quotaUsage = object("", nested("Constraints", constraints), nested("Network", object("UsedBytes ReservedBytes LimitBytes PeriodStart PeriodEnd Connections")), nested("Compute", object("MemoryBytes Processes CPUUsageMicroseconds")), nested("Storage", object("Supported Reason UsedBytes CapacityBytes Files MaxFiles")))
-var quotaCeilings = object("CPUPercent MemoryBytes Processes TempBytes MaxFileBytes NetworkBytes NetworkConnections", nested("GPUDeviceIDs", array(scalar)))
+var quotaCeilings = object("CPUPercent MemoryBytes Processes TempBytes MaxFileBytes NetworkBytes NetworkConnections", nested("Args", array(scalar)), nested("GPUDeviceIDs", array(scalar)))
 var permissions = object("CurrentTime Truncated RequestableTruncated",
 	nested("Sandboxes", array(object("ID Name Local Description Storage", nested("FullAccessComputeIDs", array(scalar)), nested("Capabilities", object("Shell FullAccess Reason"))))),
 	required("Resources", array(object("FullAccess SandboxID ResourceID Name Kind Source Path PathMeaning FilePath ShellPath ShellEnvironment ModelID ModelName", nested("Usage", quotaUsage), nested("Network", networkScope), required("Grants", array(grant)), nested("Operations", array(operation))))),

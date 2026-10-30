@@ -188,7 +188,13 @@ func testBrowserProxy(t *testing.T, full bool) {
 	if !full {
 		constraints = &policy.Constraints{Compute: computeLimits}
 	}
-	_, err = b.Services.Grants.Grant(t.Context(), owner, policy.GrantRequest{Scope: policy.Scope{FullAccess: full}, Mutation: core.Mutation{IdempotencyKey: "proxy-compute"}, AssistantID: e.AssistantID, ResourceID: compute, Actions: []policy.Action{policy.Execute}, Constraints: constraints})
+	_, err = b.Services.Grants.Grant(t.Context(), owner, policy.GrantRequest{Scope: func() policy.Scope {
+		s := policy.Scope{FullAccess: full}
+		if full {
+			s.FullAccessScope = &policy.FullAccessScope{Mode: "unrestricted"}
+		}
+		return s
+	}(), Mutation: core.Mutation{IdempotencyKey: "proxy-compute"}, AssistantID: e.AssistantID, ResourceID: compute, Actions: []policy.Action{policy.Execute}, Constraints: constraints})
 	need(t, err)
 	network, err := b.Services.Resources.Connect(t.Context(), owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "proxy-network"}, Kind: resource.Network, Provider: "sandbox-network", Name: "Proxy fixture", Binding: resource.Binding{SandboxTarget: networkTarget}})
 	need(t, err)

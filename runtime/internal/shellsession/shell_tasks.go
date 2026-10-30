@@ -30,6 +30,8 @@ const shellTaskLimit = 10
 const shellReminderInterval = 5 * time.Minute
 
 type Task struct {
+	Executable               string         `json:",omitempty"`
+	Args                     []string       `json:",omitempty"`
 	AuthorizationExpiresAt   *time.Time     `json:",omitempty"`
 	Terminal                 *TerminalState `json:",omitempty"`
 	CreatedBy                string         `json:",omitempty"`
@@ -215,7 +217,7 @@ func (s *Manager) Execute(ctx context.Context, e core.Execution, req tools.Shell
 	cap := &Control{e: e}
 	cap.alive.Store(true)
 	run, cancel := context.WithCancel(context.WithValue(context.WithoutCancel(ctx), managedShellKey{}, cap))
-	r := &runningShell{task: Task{ComputeID: req.ComputeID, FullAccess: req.FullAccess, SandboxID: sandboxID, ID: e.OperationID, OwnerID: e.Principal.OwnerID, AssistantID: e.AssistantID, Mode: mode, State: "running", Script: req.Script, StartedAt: time.Now().UTC()}, cancel: cancel, done: make(chan struct{}), ready: make(chan struct{}), scope: cap}
+	r := &runningShell{task: Task{ComputeID: req.ComputeID, FullAccess: req.FullAccess, SandboxID: sandboxID, ID: e.OperationID, OwnerID: e.Principal.OwnerID, AssistantID: e.AssistantID, Mode: mode, State: "running", Script: req.Script, Executable: req.Executable, Args: req.Args, StartedAt: time.Now().UTC()}, cancel: cancel, done: make(chan struct{}), ready: make(chan struct{}), scope: cap}
 	r.browserCtx = run
 	r.task.Kind = "shell"
 	if req.ProtocolInput {

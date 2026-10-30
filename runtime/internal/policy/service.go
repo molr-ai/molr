@@ -14,6 +14,7 @@ import (
 )
 
 type Options struct {
+	GrantUsed         func(context.Context, Grant) error
 	CheckAccess       func(context.Context, core.Principal, CheckRequest) error
 	CheckGroupBudget  func(context.Context, ReserveRequest) error
 	ObserveBudget     func(context.Context, core.ID, any, error)
@@ -88,7 +89,14 @@ func (m *Manager) own(ctx context.Context, p core.Principal, target core.Object)
 	return m.options.Owns(ctx, p, target)
 }
 func (m *Manager) Require(ctx context.Context, p core.Principal, q CheckRequest) error {
-	return m.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
+	transaction := m.store.Read
+	if q.ConsumeOnce {
+		if !q.FullAccess || q.FullAccessProbe || q.OperationID.Validate() != nil {
+			return core.Invalid("once", "execution admission requires a Full Access operation")
+		}
+		transaction = m.store.Write
+	}
+	return transaction(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		if e := m.live(ctx, p); e != nil {
 			return e
 		}
@@ -150,12 +158,45 @@ func (m *Manager) Require(ctx context.Context, p core.Principal, q CheckRequest)
 		if e != nil {
 			return e
 		}
+		// Prefer repeatable authorization; a one-use grant is not spent unnecessarily.
+		slices.SortStableFunc(grants, func(a, b Grant) int {
+			if a.Scope.Once == b.Scope.Once {
+				return 0
+			}
+			if a.Scope.Once {
+				return 1
+			}
+			return -1
+		})
+		var pinned grantUseBinding
+		if q.FullAccess && q.OperationID != "" {
+			err := tx.Get(ctx, "security.grant_uses", grantUseKey(p.OwnerID, q.ResourceID, q.OperationID), &pinned)
+			if err != nil && !persistence.Missing(err) {
+				return err
+			}
+			if err == nil && (pinned.AssistantID != p.SubjectID || pinned.ExecutionID != p.ExecutionID) {
+				return core.WithReason(core.NewError(core.Forbidden, "operation belongs to another execution"), "grant_already_used")
+			}
+		}
+		spent := pinned.GrantID != ""
 		for _, g := range grants {
 			if g.OwnerID != p.OwnerID || g.AssistantID != p.SubjectID || g.ResourceID != q.ResourceID || g.RevokedAt != nil || (g.ExpiresAt != nil && !m.options.Now().Before(*g.ExpiresAt)) {
 				continue
 			}
 			if g.Scope.FullAccess != q.FullAccess {
 				continue
+			}
+			if q.FullAccess && (g.Scope.FullAccessScope.Validate() != nil || !q.FullAccessProbe && !g.Scope.FullAccessScope.Allows(q.Program)) {
+				continue
+			}
+			if pinned.GrantID != "" && g.ID != pinned.GrantID {
+				continue
+			}
+			if g.Scope.Once && g.Used != nil {
+				spent = true
+				if q.ConsumeOnce || q.FullAccessProbe || pinned.GrantID != g.ID || g.Used.OperationID != q.OperationID || g.Used.ExecutionID != p.ExecutionID {
+					continue
+				}
 			}
 			if q.ModelID != "" && g.Scope.ModelID != q.ModelID {
 				continue
@@ -189,7 +230,30 @@ func (m *Manager) Require(ctx context.Context, p core.Principal, q CheckRequest)
 					continue
 				}
 			}
+			if q.ConsumeOnce && g.Scope.Once {
+				g.Used = &GrantUse{OperationID: q.OperationID, ExecutionID: p.ExecutionID, UsedAt: m.options.Now().UTC()}
+				g.UpdatedAt = g.Used.UsedAt
+				g.Version++
+				if err := tx.Put(ctx, "security.grants", persistence.Key(g.OwnerID, g.ID), g); err != nil {
+					return err
+				}
+				binding := grantUseBinding{GrantID: g.ID, AssistantID: p.SubjectID, ExecutionID: p.ExecutionID}
+				if err := tx.Put(ctx, "security.grant_uses", grantUseKey(p.OwnerID, q.ResourceID, q.OperationID), binding); err != nil {
+					return err
+				}
+				if err := m.audit(ctx, p, "grant.use", g.ID); err != nil {
+					return err
+				}
+				if m.options.GrantUsed != nil {
+					if err := m.options.GrantUsed(ctx, g); err != nil {
+						return err
+					}
+				}
+			}
 			return nil
+		}
+		if spent {
+			return core.WithReason(core.NewError(core.Forbidden, "one-use authorization has already been used"), "grant_already_used")
 		}
 		return core.NewError(core.Forbidden, "assistant grant denied")
 	})
@@ -210,6 +274,16 @@ func (m *Manager) supports(ctx context.Context, p core.Principal, id core.ID, ac
 	return true, nil
 }
 func (m *Manager) validateGrant(r GrantRequest) error {
+	if r.Scope.Once && !r.Scope.FullAccess {
+		return core.Invalid("once", "one-use authorization requires Full Access")
+	}
+	if r.Scope.FullAccess {
+		if err := r.Scope.FullAccessScope.Validate(); err != nil {
+			return err
+		}
+	} else if r.Scope.FullAccessScope != nil {
+		return core.Invalid("full_access_scope", "scope requires Full Access")
+	}
 	if r.Scope.FullAccess && (r.Scope.ReadOnly || r.Scope.ModelID != "" || len(r.Scope.PathPrefixes) > 0 || len(r.Actions) != 1 || r.Actions[0] != Execute || r.Constraints != nil || r.Temporary != nil) {
 		return core.Invalid("full_access", "Full Access is a compute execute permission without quotas or path restrictions")
 	}

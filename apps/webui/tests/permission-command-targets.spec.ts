@@ -24,8 +24,6 @@ async function fixture(page: Page) {
   await expect(page.locator('.permission-request-card')).toBeVisible();
   const path = `/api/permission-requests?assistant_id=${assistant.ID}`;
   const [proposal]: PermissionRequest[] = await (await page.request.get(path)).json();
-  await expect(page.locator('.permission-request-card code')).toHaveText(proposal.ID);
-  await expect(page.getByRole('button', { name: 'Copy request ID', exact: true })).toBeVisible();
   // Model/Runtime creation is real; controlled list/resolve responses exercise
   // concurrent arrivals and partial failures without timing-dependent scheduling.
   let rows: PermissionRequest[] = [], calls: any[] = [], failAt = 0, arrive = false;
@@ -94,7 +92,7 @@ test('all and 全部 resolve a fixed batch with either decision, excluding new a
 test('batch preflight prevents incomplete grants; later failure reports partial progress and stops', async ({ page }) => {
   const f = await fixture(page); await f.reset({ incomplete: true });
   await f.command('/permission approve all');
-  await expect(page.locator('.composer-notice')).toContainText('This request needs a resource or quota.');
+  await expect(page.locator('.composer-notice')).toContainText('This request needs a resource, access scope or quota.');
   expect(f.calls()).toHaveLength(0);
   await f.reset({ failAt: 2 }); await f.command('/permission approve all');
   await expect(page.locator('.composer-notice')).toContainText('Processed 1/3 requests, then stopped.');

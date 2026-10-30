@@ -51,7 +51,7 @@ func newShellService(store persistence.Store, p policy.Authorizer, c config.Conf
 		return nil, err
 	}
 	s := &shellService{store: store, policy: p, config: c.Sandbox, ownPort: c.OwnListenPort(), dataDir: c.DataDir}
-	s.runner = sandbox.New(sandbox.Options{ProtectedRoots: c.Sandbox.ProtectedRoots, ToolDirectories: c.Sandbox.ToolDirectories, QuotaStore: store, GPU: c.Sandbox.GPU, AllowFullAccess: c.Sandbox.AllowFullAccess, HostTools: c.Sandbox.UsesHostTools(), Bwrap: c.Sandbox.Bwrap, RootFS: c.Sandbox.RootFS, Helper: exe, CgroupRoot: c.Sandbox.CgroupRoot, WorkRoot: c.Sandbox.WorkRoot, PrivateRoot: c.DataDir, MinFreeDiskBytes: c.Sandbox.MinFreeDiskBytes, NetworkBytes: c.Sandbox.NetworkBytes, NetworkConnections: c.Sandbox.NetworkConnections, NetworkAuthorization: s.networkAuthorization, Authorize: s.authorize})
+	s.runner = sandbox.New(sandbox.Options{ProtectedRoots: c.Sandbox.ProtectedRoots, ToolDirectories: c.Sandbox.ToolDirectories, QuotaStore: store, GPU: c.Sandbox.GPU, AllowFullAccess: c.Sandbox.AllowFullAccess, HostTools: c.Sandbox.UsesHostTools(), Bwrap: c.Sandbox.Bwrap, RootFS: c.Sandbox.RootFS, Helper: exe, CgroupRoot: c.Sandbox.CgroupRoot, WorkRoot: c.Sandbox.WorkRoot, PrivateRoot: c.DataDir, MinFreeDiskBytes: c.Sandbox.MinFreeDiskBytes, NetworkBytes: c.Sandbox.NetworkBytes, NetworkConnections: c.Sandbox.NetworkConnections, NetworkAuthorization: s.networkAuthorization, Authorize: s.authorize, BeforeStart: s.consume})
 	return s, nil
 }
 func shellKey(e core.Execution) string {
@@ -84,8 +84,19 @@ func (s *shellService) authorize(ctx context.Context, e core.Execution, c platfo
 	}
 	return nil
 }
+func (s *shellService) consume(ctx context.Context, e core.Execution, c platform.Command) error {
+	if !c.FullAccess {
+		return nil
+	}
+	v, ok := s.leases.Load(shellKey(e))
+	if !ok {
+		return denied()
+	}
+	req := v.(shellLease).request
+	return s.policy.Require(ctx, e.Principal, policy.CheckRequest{Target: core.Object{Kind: "resource", ID: req.ComputeID}, ResourceID: req.ComputeID, Action: policy.Execute, FullAccess: true, OperationID: e.OperationID, ConsumeOnce: true, Program: &policy.ProgramInvocation{Executable: req.Executable, Args: req.Args}, Destination: "/"})
+}
 func (s *shellService) plan(ctx context.Context, e core.Execution, req tools.ShellRequest) (platform.Command, error) {
-	c := platform.Command{ProtocolInput: req.ProtocolInput, FullAccess: req.FullAccess, ForwardPorts: req.ForwardPorts, Script: req.Script, Directory: req.Directory, RequireIsolation: true, Timeout: s.config.Timeout.Value(), MaxOutputBytes: s.config.MaxOutputBytes, Limits: platform.Limits{MemoryBytes: s.config.MemoryBytes, Processes: s.config.Processes, CPUPercent: s.config.CPUPercent, TempBytes: s.config.TempBytes, MaxFileBytes: s.config.MaxFileBytes}}
+	c := platform.Command{ProtocolInput: req.ProtocolInput, FullAccess: req.FullAccess, ForwardPorts: req.ForwardPorts, Script: req.Script, Executable: req.Executable, Args: req.Args, Directory: req.Directory, RequireIsolation: true, Timeout: s.config.Timeout.Value(), MaxOutputBytes: s.config.MaxOutputBytes, Limits: platform.Limits{MemoryBytes: s.config.MemoryBytes, Processes: s.config.Processes, CPUPercent: s.config.CPUPercent, TempBytes: s.config.TempBytes, MaxFileBytes: s.config.MaxFileBytes}}
 	if shellsession.ManagedFor(ctx, e) != nil {
 		c.Managed = true
 		c.TTY = req.TTY
@@ -120,7 +131,7 @@ func (s *shellService) plan(ctx context.Context, e core.Execution, req tools.She
 		}
 		repo := resource.NewRepository(s.store)
 		require := func(id core.ID, action policy.Action, destination string) error {
-			return s.policy.Require(ctx, e.Principal, policy.CheckRequest{Target: core.Object{Kind: "resource", ID: id}, ResourceID: id, Action: action, FullAccess: req.FullAccess, Destination: destination})
+			return s.policy.Require(ctx, e.Principal, policy.CheckRequest{Target: core.Object{Kind: "resource", ID: id}, ResourceID: id, Action: action, FullAccess: req.FullAccess, OperationID: e.OperationID, Program: &policy.ProgramInvocation{Executable: req.Executable, Args: req.Args}, Destination: destination})
 		}
 		if req.FullAccess && !s.config.AllowFullAccess {
 			return core.NewError(core.Forbidden, "Full Access disabled by deployment")

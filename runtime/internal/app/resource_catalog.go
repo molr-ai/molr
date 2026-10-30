@@ -23,6 +23,7 @@ type resourceOperation struct {
 	Reason    string
 }
 type permissionGrant struct {
+	Used        *policy.GrantUse `json:",omitempty"`
 	Version     core.Version
 	Constraints *policy.Constraints          `json:",omitempty"`
 	Temporary   *policy.TemporaryConstraints `json:",omitempty"`
@@ -186,7 +187,7 @@ func (c resourceCatalog) list(ctx context.Context, p core.Principal) (json.RawMe
 					}
 				}
 				key := string(r.ID) + "\x00" + name + "\x00" + string(item.ModelID)
-				item.Grants = append(candidates[key].Grants, permissionGrant{g.Version, g.Constraints, g.Temporary, g.ID, g.Actions, g.Scope, g.ExpiresAt})
+				item.Grants = append(candidates[key].Grants, permissionGrant{g.Used, g.Version, g.Constraints, g.Temporary, g.ID, g.Actions, g.Scope, g.ExpiresAt})
 				candidates[key] = item
 			}
 		}

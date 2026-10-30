@@ -26,6 +26,7 @@ import (
 // Mutations resolve again immediately before commit; host callbacks must not
 // cache authorization across those checks. Remote may decline local requests.
 type Options struct {
+	Begin     func(context.Context, core.Execution, tools.FileTarget) error
 	DataDir   string
 	Resolve   func(context.Context, core.Execution, tools.FileTarget, ...policy.Action) (string, string, error)
 	Remote    func(context.Context, core.Execution, string, tools.FileTarget, any, core.ID) (json.RawMessage, bool, error)
@@ -40,6 +41,12 @@ type Tools struct {
 }
 
 func New(o Options) *Tools { return &Tools{options: o} }
+func (f *Tools) begin(ctx context.Context, e core.Execution, t tools.FileTarget) error {
+	if f.options.Begin != nil {
+		return f.options.Begin(ctx, e, t)
+	}
+	return nil
+}
 func (f *Tools) resolve(ctx context.Context, e core.Execution, t tools.FileTarget, actions ...policy.Action) (string, string, error) {
 	return f.options.Resolve(ctx, e, t, actions...)
 }
@@ -290,6 +297,9 @@ func (f *Tools) List(ctx context.Context, e core.Execution, r tools.FileListRequ
 	if err != nil {
 		return nil, err
 	}
+	if err := f.begin(ctx, e, r.FileTarget); err != nil {
+		return nil, err
+	}
 	if name == "" {
 		name = "."
 	}
@@ -375,6 +385,9 @@ func (f *Tools) Write(ctx context.Context, e core.Execution, r tools.FileWriteRe
 	if err != nil {
 		return nil, err
 	}
+	if err := f.begin(ctx, e, r.FileTarget); err != nil {
+		return nil, err
+	}
 	unlock, err := f.Lock(ctx, filepath.Join(root, name))
 	if err != nil {
 		return nil, err
@@ -422,6 +435,9 @@ func (f *Tools) Edit(ctx context.Context, e core.Execution, r tools.FileEditRequ
 	}
 	root, name, err := f.resolve(ctx, e, r.FileTarget, policy.Read, policy.Write)
 	if err != nil {
+		return nil, err
+	}
+	if err := f.begin(ctx, e, r.FileTarget); err != nil {
 		return nil, err
 	}
 	unlock, err := f.Lock(ctx, filepath.Join(root, name))

@@ -13,12 +13,14 @@ import (
 
 // PermissionRequestInput describes a need, never an authorization or an owner identity.
 type PermissionRequestInput struct {
-	FullAccess   bool                     `json:"full_access,omitempty"`
-	Additional   []PermissionRequestInput `json:"additional_requests,omitempty"`
-	Constraints  *Constraints             `json:"constraints,omitempty"`
-	Temporary    *TemporaryConstraints    `json:"temporary,omitempty"`
-	GrantID      core.ID                  `json:"grant_id,omitempty"`
-	GrantVersion core.Version             `json:"grant_version,omitempty"`
+	Once            bool                     `json:"once,omitempty"`
+	FullAccessScope *FullAccessScope         `json:"full_access_scope,omitempty"`
+	FullAccess      bool                     `json:"full_access,omitempty"`
+	Additional      []PermissionRequestInput `json:"additional_requests,omitempty"`
+	Constraints     *Constraints             `json:"constraints,omitempty"`
+	Temporary       *TemporaryConstraints    `json:"temporary,omitempty"`
+	GrantID         core.ID                  `json:"grant_id,omitempty"`
+	GrantVersion    core.Version             `json:"grant_version,omitempty"`
 
 	ResourceKind        string     `json:"resource_kind"`
 	ResourceID          core.ID    `json:"resource_id,omitempty"`
@@ -31,6 +33,16 @@ type PermissionRequestInput struct {
 }
 
 func (r *PermissionRequestInput) Normalize(now time.Time) error {
+	if r.Once && !r.FullAccess {
+		return core.Invalid("once", "one-use authorization requires Full Access")
+	}
+	if r.FullAccess {
+		if err := r.FullAccessScope.Validate(); err != nil {
+			return err
+		}
+	} else if r.FullAccessScope != nil {
+		return core.Invalid("full_access_scope", "scope requires Full Access")
+	}
 	if r.FullAccess && (r.ResourceKind != "compute" || r.Constraints != nil || r.Temporary != nil) {
 		return core.Invalid("full_access", "Full Access requires compute permission without quotas")
 	}

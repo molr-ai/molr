@@ -5,6 +5,8 @@ import (
 	"molr.ai/runtime/internal/browser"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/platform"
+	"molr.ai/runtime/internal/policy"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
@@ -56,7 +58,20 @@ func (r *Runner) validateMode(c platform.Command) error {
 	if c.RequireIsolation {
 		return core.Invalid("mode", "direct execution cannot provide isolation")
 	}
-	if c.Script == "" || len(c.Script) > 65536 || strings.ContainsRune(c.Script, 0) || strings.ContainsRune(c.Directory, 0) || c.Timeout < 0 || c.MaxOutputBytes < 1 || c.MaxOutputBytes > 128<<10 {
+	if c.Executable != "" {
+		if c.Script != "" || c.BrowserAssets || c.ProtocolInput || !filepath.IsAbs(c.Executable) {
+			return core.Invalid("executable", "native absolute executable required, without script or managed protocol")
+		}
+		if err := policy.ValidateProgramInvocation(c.Executable, c.Args); err != nil {
+			return err
+		}
+		if runtime.GOOS == "windows" && !strings.EqualFold(filepath.Ext(c.Executable), ".exe") {
+			return core.Invalid("executable", "Windows requires an .exe; authorize its interpreter explicitly for scripts")
+		}
+	} else if len(c.Args) > 0 {
+		return core.Invalid("args", "executable required")
+	}
+	if (c.Script == "" && c.Executable == "") || len(c.Script) > 65536 || strings.ContainsRune(c.Script, 0) || strings.ContainsRune(c.Directory, 0) || c.Timeout < 0 || c.MaxOutputBytes < 1 || c.MaxOutputBytes > 128<<10 {
 		return core.Invalid("command", "invalid direct command")
 	}
 	return platform.ValidateForwardPorts(c.ForwardPorts)

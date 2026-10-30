@@ -94,7 +94,13 @@ func testBrowserRealTask(t *testing.T, full bool) {
 	if !full {
 		constraints = &policy.Constraints{Compute: computeLimits}
 	}
-	computeGrant, err := b.Services.Grants.Grant(t.Context(), owner, policy.GrantRequest{Mutation: core.Mutation{IdempotencyKey: "browser-compute"}, AssistantID: e.AssistantID, ResourceID: compute, Actions: []policy.Action{policy.Execute}, Scope: policy.Scope{FullAccess: full}, Constraints: constraints})
+	computeGrant, err := b.Services.Grants.Grant(t.Context(), owner, policy.GrantRequest{Mutation: core.Mutation{IdempotencyKey: "browser-compute"}, AssistantID: e.AssistantID, ResourceID: compute, Actions: []policy.Action{policy.Execute}, Scope: func() policy.Scope {
+		s := policy.Scope{FullAccess: full}
+		if full {
+			s.FullAccessScope = &policy.FullAccessScope{Mode: "unrestricted"}
+		}
+		return s
+	}(), Constraints: constraints})
 	need(t, err)
 	network, err := b.Services.Resources.Connect(t.Context(), owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "browser-network"}, Kind: resource.Network, Provider: "sandbox-network", Name: "Fixture network", Binding: resource.Binding{SandboxTarget: networkTarget}})
 	need(t, err)

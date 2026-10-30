@@ -29,6 +29,7 @@ const eventTopics: Record<string, string[]> = {
   'dingtalk.changed': ['dingtalk'], 'slack.changed': ['slack'], 'telegram.changed': ['telegram'],
   'assistant.profile': ['assistants', 'conversations'],
   'permission.request': ['permission-requests', 'grants', 'status'],
+  'grants.changed': ['permission-requests', 'grants', 'capabilities'],
   'conversation.read': ['conversations'],
 };
 

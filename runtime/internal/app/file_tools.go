@@ -32,7 +32,16 @@ type resourceFileTools struct {
 func newResourceFileTools(o resourceFileOptions) *resourceFileTools {
 	f := &resourceFileTools{resourceFileOptions: o}
 	f.Tools = filetools.New(filetools.Options{
-		DataDir: o.adapters.dataDir, Resolve: f.resolve, CheckSize: f.checkWorkspaceFileSize,
+		DataDir: o.adapters.dataDir, Resolve: f.resolve, Begin: func(ctx context.Context, e core.Execution, t tools.FileTarget) error {
+			if !t.FullAccess || f.resolveOverride != nil {
+				return nil
+			}
+			router := f.router
+			if router == nil {
+				router = &sandboxRouter{adapters: f.adapters}
+			}
+			return router.consumeFullAccess(ctx, e, targetSandbox(t.SandboxID))
+		}, CheckSize: f.checkWorkspaceFileSize,
 		Remote: func(ctx context.Context, e core.Execution, kind string, target tools.FileTarget, request any, modelID core.ID) (json.RawMessage, bool, error) {
 			if f.router == nil {
 				return nil, false, nil

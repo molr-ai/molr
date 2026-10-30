@@ -122,6 +122,9 @@ func (f *Tools) Read(ctx context.Context, e core.Execution, r tools.FileReadRequ
 	if err != nil {
 		return nil, err
 	}
+	if err := f.begin(ctx, e, r.FileTarget); err != nil {
+		return nil, err
+	}
 	file, err := textfiles.Open(root, name)
 	if err != nil {
 		return nil, err
@@ -165,6 +168,11 @@ func (f *Tools) Read(ctx context.Context, e core.Execution, r tools.FileReadRequ
 		}
 		if currentRoot != root {
 			return nil, textfiles.Changed()
+		}
+		if r.FullAccess {
+			for i := range out.Media {
+				out.Media[i].SourceOperationID = e.OperationID
+			}
 		}
 		return json.Marshal(out)
 	}
@@ -271,11 +279,15 @@ func (f *Tools) PrepareMedia(ctx context.Context, req model.Request, provider mo
 		for j := range inputs[i].Media {
 			p := &inputs[i].Media[j]
 			p.Data = nil
+			mediaExecution := req.Execution
+			if p.FullAccess && p.SourceOperationID != "" {
+				mediaExecution.OperationID = p.SourceOperationID
+			}
 			if p.Kind == "image" && !provider.Model.SupportsImages || p.Kind == "audio" && (!provider.Model.SupportsAudio || provider.Protocol == model.DeepSeekChat) {
 				continue
 			}
 			if f.options.Media != nil && p.SandboxID != "" && p.SandboxID != "local" {
-				data, handled, err := f.options.Media(ctx, req.Execution, *p)
+				data, handled, err := f.options.Media(ctx, mediaExecution, *p)
 				if handled {
 					if err != nil {
 						if core.CodeOf(err) == core.Forbidden || core.CodeOf(err) == core.NotFound || core.CodeOf(err) == core.Unavailable {
@@ -292,7 +304,7 @@ func (f *Tools) PrepareMedia(ctx context.Context, req model.Request, provider mo
 					continue
 				}
 			}
-			root, name, err := f.resolve(ctx, req.Execution, tools.FileTarget{FullAccess: p.FullAccess, SandboxID: "local", ResourceID: p.ResourceID, Path: p.Path}, policy.Read)
+			root, name, err := f.resolve(ctx, mediaExecution, tools.FileTarget{FullAccess: p.FullAccess, SandboxID: "local", ResourceID: p.ResourceID, Path: p.Path}, policy.Read)
 			if err != nil {
 				if core.CodeOf(err) == core.Forbidden || core.CodeOf(err) == core.NotFound {
 					continue

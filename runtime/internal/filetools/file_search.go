@@ -26,6 +26,9 @@ func (f *Tools) Search(ctx context.Context, e core.Execution, r tools.FileSearch
 	if err != nil {
 		return nil, err
 	}
+	if err := f.begin(ctx, e, r.FileTarget); err != nil {
+		return nil, err
+	}
 	externalPath := func(child string) string {
 		suffix := strings.TrimPrefix(strings.TrimPrefix(child, name), "/")
 		if name == "." {

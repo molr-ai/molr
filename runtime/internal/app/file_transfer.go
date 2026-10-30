@@ -6,6 +6,7 @@ import (
 	"io"
 	"molr.ai/runtime/internal/agent/tools"
 	"molr.ai/runtime/internal/core"
+	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/policy"
 	"path/filepath"
 )
@@ -33,6 +34,22 @@ func (f *resourceFileTools) transfer(ctx context.Context, e core.Execution, r to
 			}
 		}
 	}
+	admitted := map[core.ID]bool{}
+	if err := f.adapters.store.Write(ctx, func(ctx context.Context, _ persistence.Tx) error {
+		for _, target := range []tools.FileTarget{r.Source, r.Destination} {
+			id := targetSandbox(target.SandboxID)
+			if target.FullAccess && !admitted[id] {
+				if err := f.router.consumeFullAccess(ctx, e, id); err != nil {
+					return err
+				}
+				admitted[id] = true
+			}
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	ctx = context.WithValue(ctx, fullAccessAdmissionsKey{}, admitted)
 	var blob sandboxBlob
 	if targetSandbox(r.Source.SandboxID) != "local" {
 		data, _, err := f.router.file(ctx, e, "download", r.Source, sandboxDownload{Target: r.Source, MaxBytes: transferLimit}, "")

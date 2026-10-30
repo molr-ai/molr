@@ -34,7 +34,7 @@ func computeAccess(ctx context.Context, auth policy.Authorizer, p core.Principal
 		if (!full && !caps.Shell) || (full && !caps.FullAccess) {
 			continue
 		}
-		if auth.Require(ctx, p, policy.CheckRequest{Target: core.Object{Kind: "resource", ID: id}, ResourceID: id, Action: policy.Execute, FullAccess: full, Destination: "/"}) == nil {
+		if auth.Require(ctx, p, policy.CheckRequest{Target: core.Object{Kind: "resource", ID: id}, ResourceID: id, Action: policy.Execute, FullAccess: full, FullAccessProbe: full, Destination: "/"}) == nil {
 			return true
 		}
 	}
@@ -44,6 +44,18 @@ func computeAccess(ctx context.Context, auth policy.Authorizer, p core.Principal
 // Full access still requires permission to use the execution node. That one
 // permission covers commands, all filesystem paths and the environment network.
 func (s *sandboxRouter) requireFullAccess(ctx context.Context, e core.Execution, id core.ID) error {
+	return s.checkFullAccessUse(ctx, e, id, false)
+}
+func (s *sandboxRouter) consumeFullAccess(ctx context.Context, e core.Execution, id core.ID) error {
+	if admitted, _ := ctx.Value(fullAccessAdmissionsKey{}).(map[core.ID]bool); admitted[id] {
+		return s.requireFullAccess(ctx, e, id)
+	}
+	return s.checkFullAccessUse(ctx, e, id, true)
+}
+
+type fullAccessAdmissionsKey struct{}
+
+func (s *sandboxRouter) checkFullAccessUse(ctx context.Context, e core.Execution, id core.ID, consume bool) error {
 	allowed := s.adapters.storageConfig.Enabled && s.adapters.storageConfig.AllowFullAccess
 	if id != "local" {
 		info, err := s.info(ctx, e.Principal, id)
@@ -62,10 +74,21 @@ func (s *sandboxRouter) requireFullAccess(ctx context.Context, e core.Execution,
 	if err != nil {
 		return err
 	}
+	var usedErr error
 	for _, r := range rows {
-		if r.OwnerID == catalog.Scope && r.Kind == resource.Compute && sandboxOf(r) == id && r.State == resource.Available && s.adapters.policy.Require(ctx, e.Principal, policy.CheckRequest{Target: core.Object{Kind: "resource", ID: r.ID}, ResourceID: r.ID, Action: policy.Execute, FullAccess: true, Destination: "/"}) == nil {
+		if r.OwnerID != catalog.Scope || r.Kind != resource.Compute || sandboxOf(r) != id || r.State != resource.Available {
+			continue
+		}
+		err := s.adapters.policy.Require(ctx, e.Principal, policy.CheckRequest{Target: core.Object{Kind: "resource", ID: r.ID}, ResourceID: r.ID, Action: policy.Execute, FullAccess: true, OperationID: e.OperationID, ConsumeOnce: consume, Destination: "/"})
+		if err == nil {
 			return nil
 		}
+		if core.ReasonOf(err) == "grant_already_used" {
+			usedErr = err
+		}
+	}
+	if usedErr != nil {
+		return usedErr
 	}
 	return denied()
 }

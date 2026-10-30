@@ -8,7 +8,9 @@ import (
 	"molr.ai/runtime/internal/config"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/debugtrace"
+	"molr.ai/runtime/internal/im/realtime"
 	"molr.ai/runtime/internal/policy"
+	"time"
 )
 
 func (b *Bundle) buildPolicy(ctx context.Context, cfg config.Config, identity *auth.Manager, wiring *buildWiring) (*policy.Manager, error) {
@@ -26,7 +28,9 @@ func (b *Bundle) buildPolicy(ctx context.Context, cfg config.Config, identity *a
 	if traceErr := b.Trace.Recover(ctx); traceErr != nil {
 		log.Printf("debug trace recovery unavailable: %s", core.CodeOf(traceErr))
 	}
-	permissions, err := policy.NewService(store, policy.Options{CheckGroupBudget: func(ctx context.Context, r policy.ReserveRequest) error {
+	permissions, err := policy.NewService(store, policy.Options{GrantUsed: func(ctx context.Context, g policy.Grant) error {
+		return realtime.NewStore(store).Append(ctx, realtime.Visible{ID: randomOperation(), OwnerID: g.OwnerID, Topic: "grants.changed", Object: core.Object{Kind: "assistant", ID: g.AssistantID}, CreatedAt: time.Now().UTC()})
+	}, CheckGroupBudget: func(ctx context.Context, r policy.ReserveRequest) error {
 		return checkGroupModelBudget(ctx, store, r, b.Exchange.Snapshot())
 	}, CheckAccess: func(ctx context.Context, p core.Principal, q policy.CheckRequest) error {
 		return groupAccess(ctx, store, p, q)

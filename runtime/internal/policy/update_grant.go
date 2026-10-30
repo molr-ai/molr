@@ -48,6 +48,9 @@ func (m *Manager) UpdateGrant(ctx context.Context, p core.Principal, r UpdateGra
 		if !persistence.Missing(err) {
 			return err
 		}
+		if out.Used != nil {
+			return core.WithReason(core.NewError(core.FailedPrecondition, "used one-use authorization cannot be edited; create a new grant"), "grant_already_used")
+		}
 		if out.Version != r.Mutation.ExpectedVersion {
 			return core.WithReason(persistence.Conflict("grant version mismatch"), "grant_changed")
 		}

@@ -483,15 +483,18 @@ WebUI 日历、近期清单和无日期／逾期清单使用摘要；近期清�
 WebUI 采用「资源类型：沙盒 → 选择沙盒 → 权限类型：存储／计算／网络／完全访问」的展示层级，完全访问不嵌在计算额度表单中。API 仍以节点计算资源 ID 与 `Scope.FullAccess` 表达独立授权；前端切换目标时重置无关的路径、操作和额度，服务端继续校验最终请求。
 
 - 沙盒配置：`sandbox.allow_full_access`（默认 false），无节点模式字段。`GET /api/sandbox`、沙盒列表的 Info 提供 `Capabilities.FullAccess`，其余五项能力仍只描述普通隔离路径。普通成员列表按组委派隐藏不可授予的 Full Access 能力。
-- 创建／更新授权与审批：`Scope.FullAccess: true` 仅用于计算资源的 `Actions: ["execute"]`；不能携带 `Constraints`、`Temporary`、路径、模型或只读范围。普通计算授权仍需配额，两者可独立存在。
-- 模型 `permission_request` 与组合子申请：`full_access: true`，不得附带额度；仍需到期时间。`permission_list` 保留可申请与已授权的 Full Access 元数据。
+- 创建／更新授权与审批：`Scope.FullAccess: true` 必须同时提供 `Scope.FullAccessScope`，仅用于计算资源的 `Actions: ["execute"]`；不能携带 `Constraints`、`Temporary`、路径、模型或只读范围。普通计算授权仍需配额，两者可独立存在。
+- 模型 `permission_request` 与组合子申请：`full_access: true` 必须同时提供 `full_access_scope`，不得附带额度；仍需到期时间。`permission_list` 保留可申请与已授权的 Full Access 元数据。
 - 模型命令／文件调用：`full_access: true` 选择直接路径，每次重新校验授权；省略时继续普通路径。Shell 任务返回 `FullAccess`；十个任务的并发上限仅适用于普通隔离任务。
+- 一次性 Full Access：申请字段 `once`（默认 false）；审批／创建／修改使用 `Scope.Once`。消费后返回 `Used: {OperationID, ExecutionID, UsedAt}`，修改返回 `grant_already_used`。Full Access 的创建、修改及批准必须显式包含 `ExpiresAt`；明确选择永久时使用 `null`，省略会被拒绝。
 - 用户组沙盒引用：`Resources[].AllowFullAccess`，默认 false，仅 `Kind: "sandbox"` 可设置。管理员目录返回 `FullAccessAvailable`；撤回组委派同时使已有授权失效。
-- 远程协议版本 9，URL 仍为 `/v2/sandbox/`，可信请求携带 `FullAccess`。两端分别检查部署能力与授权租约，不依赖旧缓存自动提权。
+- 远程协议版本 11，URL 仍为 `/v2/sandbox/`，可信请求携带 `FullAccess` 与 `FullAccessScope`。两端分别检查部署能力与授权租约，不依赖旧缓存自动提权。
+
+范围结构为 `{mode:"unrestricted"}` 或 `{mode:"programs",programs:[{executable:"/usr/bin/printf",arguments:"exact",args:["hello"]}]}`。省略范围直接拒绝。程序调用使用 `shell_execute` 的 `executable` 和 `args`，与 `script` 互斥；文件工具、通用终端和受管浏览器需要不限范围授权。匹配与执行机制见[沙盒](https://molr.ai/zh/docs/dev/security/sandbox/#full-access-权限与双路径执行)。
 
 ### 计算权限中的 GPU
 
-`SandboxInfo.GPUs` 返回 `{ID, Name, Vendor, MemoryBytes, Available, Reason}` 数组；`AuthorizationCeilings.GPUDeviceIDs` 为部署与用户组允许的设备范围。`Constraints.compute.gpu` 可选，结构为 `{"device_ids":["GPU-00000000-0000-0000-0000-000000000001"]}`；缺省或空列表无 GPU 权限。基础／临时授权及 `permission_request` 使用同一字段。`shell_execute` 不新增 GPU 参数，按 `compute_id` 的生效授权注入；任务详情 `GPUDeviceIDs` 记录启动设备。远程沙盒协议版本为 9。
+`SandboxInfo.GPUs` 返回 `{ID, Name, Vendor, MemoryBytes, Available, Reason}` 数组；`AuthorizationCeilings.GPUDeviceIDs` 为部署与用户组允许的设备范围。`Constraints.compute.gpu` 可选，结构为 `{"device_ids":["GPU-00000000-0000-0000-0000-000000000001"]}`；缺省或空列表无 GPU 权限。基础／临时授权及 `permission_request` 使用同一字段。`shell_execute` 不新增 GPU 参数，按 `compute_id` 的生效授权注入；任务详情 `GPUDeviceIDs` 记录启动设备。远程沙盒协议版本为 11。
 
 ## Agent Shell 沙盒
 

@@ -1,3 +1,5 @@
+import { GrantUseSummary } from './GrantUse';
+import { FullAccessScopeSummary } from './FullAccessScope';
 import { useMutation } from '../../../use-mutation';
 import { useErrorToast } from '../../../error-toasts';
 import type { SandboxView } from '@molr/sdk';
@@ -34,6 +36,8 @@ export function SandboxAccess({ resource, resources, fullAccess = false, canGran
         {!people.length && <p className="muted">{copy.noAssistants}</p>}
         {!active.length ? <Empty title={copy.noAccess} description={copy.accessEmptyHelp} /> : active.map(grant => <article className="sandbox-access-row" key={grant.ID}>
           <div><h3>{people.find(person => person.ID === grant.AssistantID)?.Name ?? grant.AssistantID}</h3><p>{grant.Scope.FullAccess ? fullAccessLabel(locale === 'zh') : grantSummary(t, grant, resource)}</p>
+            {grant.Scope.FullAccess && <GrantUseSummary grant={grant} />}
+            {grant.Scope.FullAccess && <FullAccessScopeSummary value={grant.Scope.FullAccessScope} />}
             {resource.Kind === 'storage' && <p className="sandbox-path">{grant.Scope.PathPrefixes?.join(', ') || '/'}</p>}
             <ConstraintsSummary gpuAccessMode={gpuAccessMode} gpus={gpus} value={grant.Constraints} temporary={grant.Temporary}/>{!grant.Scope.FullAccess && resource.Kind !== 'model' && resource.Kind !== 'tool' && <ResourceQuotaUsage assistantID={grant.AssistantID} resourceID={grant.ResourceID}/>}<small className="muted">{grant.ExpiresAt ? `${t.resources.expires} · ${new Date(grant.ExpiresAt).toLocaleString(locale)}` : copy.noExpiry}</small></div>
           <div className="sandbox-row-actions"><Button size="sm" variant="ghost" disabled={!canGrant} onClick={() => setEditing(grant)}>{t.edit}</Button><Button size="sm" variant="ghost" onClick={() => setRevoking(grant)}>{t.resources.revoke}</Button></div>

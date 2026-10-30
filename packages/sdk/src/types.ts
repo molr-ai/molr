@@ -26,7 +26,9 @@ export type ResourceConstraints = {
  storage?: { capacity_bytes: number; max_file_bytes: number; max_files: number };
 };
 export type TemporaryConstraints = { limits: ResourceConstraints; until: string };
-export type Grant = { Constraints?: ResourceConstraints; Temporary?: TemporaryConstraints; ID: ID; AssistantID: ID; ResourceID: ID; Actions: string[]; Scope: { FullAccess?: boolean; ModelID: ID; PathPrefixes: string[] | null; ReadOnly: boolean }; RevokedAt: string | null; ExpiresAt: string | null; Version: number };
+export type FullAccessScope = { mode: 'unrestricted' | 'programs'; programs?: { executable: string; arguments: 'any' | 'exact'; args?: string[] }[] };
+export type GrantUse = { OperationID: ID; ExecutionID: ID; UsedAt: string };
+export type Grant = { Used?: GrantUse; Constraints?: ResourceConstraints; Temporary?: TemporaryConstraints; ID: ID; AssistantID: ID; ResourceID: ID; Actions: string[]; Scope: { Once?: boolean; FullAccess?: boolean; FullAccessScope?: FullAccessScope; ModelID: ID; PathPrefixes: string[] | null; ReadOnly: boolean }; RevokedAt: string | null; ExpiresAt: string | null; Version: number };
 export type MemoryRef = { Scope: 'assistant' | 'global'; AssistantID: ID; Path: string };
 export type Memory = MemoryRef & { Dependencies?: { Ref: MemoryRef; Version: string }[]; State: 'active' | 'pending' | 'superseded'; Context?: string; Evidence?: string; Confirmed?: boolean; DreamID?: ID; Replaces?: MemoryRef; ReplacesVersion?: string; UpdatedAt?: string; Text: string; Sources: { Kind: string; ID: string }[] | null; Version: string; Summary: boolean };
 export type MemoryEntry = MemoryRef & { Kind: 'file' | 'directory'; Version: string; State?: Memory['State']; UpdatedAt?: string };
@@ -95,7 +97,7 @@ export type BrowserProxySettings = BrowserProxySummary & { Username: string; Pas
 export type BrowserNetworkFailure = { TaskID: string; At: string; Reason: string; Message: string; Proxy: BrowserProxySummary; Sandbox?: {Reason: string; At: string} };
 export type BrowserStatus = { SandboxAvailable?: boolean; FullAccessAvailable?: boolean; Proxy?: BrowserProxySummary; ProxyAppliesTo?: 'current_session' | 'next_start'; RestartRequired?: boolean; LastNetworkFailure?: BrowserNetworkFailure; LastFailure?: { TaskID: string; Reason: string }; ComponentsEnabled?: boolean; Preparation?: { task_id: string; state: string; error_code?: string }; Available: boolean; Reason?: string; Task?: ShellTask; ControllerIsCurrentSession?: boolean; ControllerClientID?: string; TabCount?: number };
 export type TerminalControl = { Control: 'assistant' | 'user'; Generation: number; Rows: number; Cols: number; NeedsRead: boolean; ControllerIsCurrentSession?: boolean; ControllerClientID?: string };
-export type ShellTask = { Terminal?: TerminalControl; CreatedBy?: 'user' | 'assistant'; Kind?: 'shell' | 'browser'; Browser?: BrowserControl; GPUDeviceIDs?: string[]; FullAccess?: boolean; ComputeID?: ID;
+export type ShellTask = { Executable?: string; Args?: string[]; Terminal?: TerminalControl; CreatedBy?: 'user' | 'assistant'; Kind?: 'shell' | 'browser'; Browser?: BrowserControl; GPUDeviceIDs?: string[]; FullAccess?: boolean; ComputeID?: ID;
   Forwards?: ShellForward[];
   ID: string; OwnerID: string; AssistantID: string; SandboxID: string;
   Mode: 'foreground' | 'background' | 'tty'; State: 'running' | 'completed' | 'failed' | 'stopped' | 'interrupted';
@@ -105,7 +107,7 @@ export type ShellTask = { Terminal?: TerminalControl; CreatedBy?: 'user' | 'assi
 export type ShellTaskAction = { action: 'list' | 'read' | 'write' | 'interrupt' | 'stop' | 'stop_all' | 'resize' | 'takeover' | 'release'; client_id?: string; generation?: number; sequence?: number; encoding?: 'base64'; task_id?: string; cursor?: number; stream?: 'stdout' | 'stderr'; data?: string; rows?: number; cols?: number };
 export type ShellTaskOutput = { Terminal?: TerminalControl; Finished?: boolean; OutputComplete?: boolean; Output: string; NextCursor: number; Path: string };
 
-export type PermissionRequestInput = { full_access?: boolean; constraints?: ResourceConstraints; temporary?: TemporaryConstraints; grant_id?: ID; grant_version?: number; resource_kind: Resource['Kind']; resource_id?: ID; model_id?: ID; resource_description: string; actions: string[]; path_prefixes?: string[]; expires_at?: string; reason: string; additional_requests?: PermissionRequestInput[]; };
+export type PermissionRequestInput = { once?: boolean; full_access?: boolean; full_access_scope?: FullAccessScope; constraints?: ResourceConstraints; temporary?: TemporaryConstraints; grant_id?: ID; grant_version?: number; resource_kind: Resource['Kind']; resource_id?: ID; model_id?: ID; resource_description: string; actions: string[]; path_prefixes?: string[]; expires_at?: string; reason: string; additional_requests?: PermissionRequestInput[]; };
 
 export type DebugRetentionPolicy = { Version: number; MaxRuns: number };
 export type DebugCleanupEvent = { At: string; Policy: DebugRetentionPolicy };

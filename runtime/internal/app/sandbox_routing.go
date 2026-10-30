@@ -159,6 +159,9 @@ func (s *sandboxRouter) file(ctx context.Context, e core.Execution, method strin
 		return nil, true, err
 	}
 	q := sm.Request{FullAccess: t.FullAccess, Method: method, Arguments: raw}
+	if t.FullAccess {
+		q.FullAccessScope = &policy.FullAccessScope{Mode: "unrestricted"}
+	}
 	if read, ok := args.(tools.FileReadRequest); ok {
 		q.TextRange = read.TextRange
 	}
@@ -220,6 +223,11 @@ func (s *sandboxRouter) file(ctx context.Context, e core.Execution, method strin
 		q.Audio = provider.Model.SupportsAudio
 		q.Protocol = string(provider.Protocol)
 		q.AudioPricing = provider.Pricing != nil && provider.Pricing.AudioInputMicrosPerMillion != nil
+	}
+	if t.FullAccess && method != "snapshot" {
+		if err := s.consumeFullAccess(ctx, e, id); err != nil {
+			return nil, true, err
+		}
 	}
 	out, err := s.remoteRuntime.Execute(ctx, e, id, q, func(ctx context.Context) error {
 		actual, err := s.location(ctx, e, t)
@@ -286,7 +294,7 @@ func (s *sandboxRouter) shellExecute(ctx context.Context, e core.Execution, req 
 	if err != nil {
 		return nil, err
 	}
-	if req.TTY && req.Script == "" {
+	if req.TTY && req.Script == "" && req.Executable == "" {
 		req.Script = shellsession.TerminalScript(info.Capabilities.ShellType)
 	}
 	direct := req.FullAccess
@@ -369,6 +377,12 @@ func (s *sandboxRouter) shellExecute(ctx context.Context, e core.Execution, req 
 	}
 	raw, _ := json.Marshal(req)
 	q := sm.Request{FullAccess: req.FullAccess, Method: "shell_execute", Arguments: raw, Compute: true}
+	if req.FullAccess {
+		q.FullAccessScope = &policy.FullAccessScope{Mode: "unrestricted"}
+		if req.Executable != "" {
+			q.FullAccessScope = &policy.FullAccessScope{Mode: "programs", Programs: []policy.ProgramRule{{Executable: req.Executable, Arguments: "exact", Args: req.Args}}}
+		}
+	}
 	if !direct {
 		cg, err := executionGrant(ctx, s.adapters.store, e, req.ComputeID)
 		if err != nil {
@@ -400,7 +414,7 @@ func (s *sandboxRouter) shellExecute(ctx context.Context, e core.Execution, req 
 		if !direct && !reflect.DeepEqual(currentCompute, q.GroupComputeConstraints) {
 			return denied()
 		}
-		if err := s.adapters.policy.Require(ctx, e.Principal, policy.CheckRequest{Target: core.Object{Kind: "resource", ID: req.ComputeID}, ResourceID: req.ComputeID, Action: policy.Execute, FullAccess: req.FullAccess, Destination: "/"}); err != nil {
+		if err := s.adapters.policy.Require(ctx, e.Principal, policy.CheckRequest{Target: core.Object{Kind: "resource", ID: req.ComputeID}, ResourceID: req.ComputeID, Action: policy.Execute, FullAccess: req.FullAccess, OperationID: e.OperationID, Program: &policy.ProgramInvocation{Executable: req.Executable, Args: req.Args}, Destination: "/"}); err != nil {
 			return err
 		}
 		if direct {
@@ -567,6 +581,11 @@ func (s *sandboxRouter) shellExecute(ctx context.Context, e core.Execution, req 
 			observeRemoteShell(observe, scope, e.OperationID, q.ComputeConstraints.GPUDevices(), control)
 		}()
 
+	}
+	if req.FullAccess {
+		if err := s.adapters.policy.Require(ctx, e.Principal, policy.CheckRequest{Target: core.Object{Kind: "resource", ID: req.ComputeID}, ResourceID: req.ComputeID, Action: policy.Execute, FullAccess: true, OperationID: e.OperationID, ConsumeOnce: true, Program: &policy.ProgramInvocation{Executable: req.Executable, Args: req.Args}, Destination: "/"}); err != nil {
+			return nil, err
+		}
 	}
 	out, err := s.remoteRuntime.Execute(ctx, e, id, q, check)
 	if err != nil {

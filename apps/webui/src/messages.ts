@@ -172,6 +172,7 @@ const zh = {
   errorReasons: { pricing_refresh_failed: '模型价格刷新失败，已保留最近有效配置。请检查配置来源后重试。', pricing_rules_invalid: '模型价格配置无效，已保留最近有效配置。请检查价表格式和内容。',
     grant_exists: '助理已有此资源的有效授权，请在助理权限中修改已有授权。',
     grant_changed: '已有授权已发生变化，请在助理权限中查看并修改最新授权。',
+    grant_already_used: '这份仅一次授权已使用，请创建新的授权。修改不会恢复次数。',
     permission_request_changed: '此权限申请已处理或发生变化，请关闭窗口后查看最新状态。',
     permission_already_granted: '已有有效授权已覆盖本次申请，无需重复授权。',
 
@@ -372,6 +373,7 @@ const en: typeof zh = {
   errorReasons: { pricing_refresh_failed: 'Model pricing could not be refreshed. The last valid prices are retained. Check the configured source and retry.', pricing_rules_invalid: 'The model pricing configuration is invalid. The last valid prices are retained. Check the rule format and values.',
     grant_exists: 'The assistant already has an active grant for this resource. Edit it in the assistant’s permissions.',
     grant_changed: 'The existing grant has changed. Review and edit the latest grant in the assistant’s permissions.',
+    grant_already_used: 'This one-use authorization has been used. Create a new grant; editing cannot restore its use.',
     permission_request_changed: 'This permission request has been resolved or changed. Close the dialog to check its latest state.',
     permission_already_granted: 'An active grant already covers this request. No additional permission is needed.',
 

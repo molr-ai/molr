@@ -233,3 +233,6 @@
 | `internal/policy` | `LoadPermissionRequest` | `internal/objectaccess.TestOwnershipUsesDomainRecordsAndAttachmentReferences` |
 
 | internal/chatgpt | New, Client.Exchange, Client.Resolve, Client.Revoke | TestChatGPTIdentityExchangeRefreshAndRevocation, TestChatGPTRejectsUntrustedDiscoveryAndRefreshErrors |
+
+| `internal/policy` | `FullAccessScope.Validate`, `FullAccessScope.Allows`, `FullAccessScope.Covers` | `TestFullAccessScopeValidationAndMatching` |
+| `internal/policy` | `ValidateProgramInvocation` | `TestProgramInvocationValidationAcrossPlatforms` |
