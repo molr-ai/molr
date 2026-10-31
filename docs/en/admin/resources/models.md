@@ -61,7 +61,7 @@ Connecting does not grant access to every model. See [permissions and budgets](.
 
 ### Connections rejected by network configuration
 
-Runtime sends model requests directly, subject to `network.allowed_private_ips`. Sandbox Shell uses separate `sandbox.networks` settings; allowing sandbox traffic does not allow a model endpoint. Administrators must add required private / loopback IPs to `network.allowed_private_ips` and restart Runtime. Public HTTP endpoints require HTTPS; prohibited destinations such as cloud metadata and link-local addresses cannot be allowed.
+Runtime sends model requests directly. Administrator-configured model services allow private and loopback IPs without setting `network.allowed_private_ips` or restarting Runtime. Connection tests, discovery, and inference stay bound to the configured scheme, host, and port, with automatic redirects disabled. Private models may use HTTP; public endpoints require HTTPS. Cloud metadata, link-local, and other prohibited destinations remain blocked. Sandbox Shell uses separate `sandbox.networks` settings; model connections do not expand sandbox network permissions.
 
 Local addresses refer to the Runtime machine, not the browser device; container loopback addresses refer to the container itself. See [building from source](../deployment/source-build.md) and the [installation guide](../deployment/installation.md).
 

@@ -63,6 +63,7 @@ func TestBuildRealMessageAgentAndRestart(t *testing.T) {
 func testMessageAgentAndRestart(t *testing.T, commands bool) {
 	cfg := testConfig(t)
 	cfg.Sandbox.Enabled = commands
+	cfg.Network.AllowedPrivateIPs = nil
 	ctx := t.Context()
 	b, err := Build(ctx, cfg)
 	need(t, err)

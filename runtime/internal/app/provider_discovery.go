@@ -178,7 +178,7 @@ func (a adapters) testModelConnection(ctx context.Context, p core.Principal, req
 	if err != nil {
 		return resource.ConnectionTest{}, err
 	}
-	guard := platform.NewNetworkGuard(platform.NetworkOptions{AllowedPrivateAddresses: a.privateAddresses(), OwnerBinding: func(ctx context.Context, actor core.Principal, _ core.ID) (platform.NetworkBinding, error) {
+	guard := platform.NewNetworkGuard(platform.NetworkOptions{AllowPrivate: true, OwnerBinding: func(ctx context.Context, actor core.Principal, _ core.ID) (platform.NetworkBinding, error) {
 		if actor != p || actor.SessionID == "" {
 			return platform.NetworkBinding{}, denied()
 		}

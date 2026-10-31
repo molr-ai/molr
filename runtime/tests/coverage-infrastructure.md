@@ -118,7 +118,7 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/persistence/sqlitestore` | `Store.Watch` | `TestCommitNotificationsSavepointsAndFailures`、`TestWatchLifecycleAndScope`、`TestConcurrentWatchCloseAndPublish` |
 | `internal/platform` | `NewRunner`, `ProcessRunner.Capabilities`, `ProcessRunner.Start` | `TestTDDPlatformCapabilitiesAndProcessStreams` |
 | `internal/platform` | `NewLocker`, `FileLocker.Acquire` | `TestTDDPlatformLockExcludesConcurrentInstanceAndReleases` |
-| `internal/platform` | `NewNetworkGuard`, `Guard.Check` | `TestTDDPlatformNetworkRejectsSSRFAndRebinding` |
+| `internal/platform` | `NewNetworkGuard`, `Guard.Check` | `TestTDDPlatformNetworkRejectsSSRFAndRebinding`, `TestServicePrivateAccessPreservesNetworkBoundaries` |
 | `internal/platform` | `Guard.HTTPClient` | `TestNetworkHTTPClientChecksActualDialAndRevocation` |
 | `internal/storage/files` | `NewObjects`, `ObjectStore.Put`, `ObjectStore.Publish`, `ObjectStore.Open`, `ObjectStore.Remove`, `ObjectStore.Close` | `TestTDDFilesObjectsStageCommitOpenRemove` |
 | `internal/storage/files` | `ObjectStore.Recover` | `TestTDDFilesObjectsRecoverIsRepeatable` |

@@ -71,8 +71,10 @@ func TestProviderConnectionDiscoversMultipleModelsWithoutManualConfiguration(t *
 	}
 }
 
-func TestProviderDiscoveryUsesBoundCredentialAndRejectsPrivateDestinations(t *testing.T) {
-	b, err := Build(t.Context(), testConfig(t))
+func TestProviderDiscoveryUsesBoundCredentialWithoutPrivateAllowlist(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Network.AllowedPrivateIPs = nil
+	b, err := Build(t.Context(), cfg)
 	need(t, err)
 	defer b.Close()
 	p, _ := ownerSession(t, b)
@@ -96,20 +98,7 @@ func TestProviderDiscoveryUsesBoundCredentialAndRejectsPrivateDestinations(t *te
 	if calls != 1 {
 		t.Fatal("discovery did not reach provider")
 	}
-	privateCalls := 0
-	private := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { privateCalls++; w.WriteHeader(200) }))
-	defer private.Close()
-	cfg := testConfig(t)
-	cfg.Network.AllowedPrivateIPs = nil
-	blocked, err := Build(t.Context(), cfg)
-	need(t, err)
-	defer blocked.Close()
-	blockedOwner, _ := ownerSession(t, blocked)
-	r, err = blocked.Services.Resources.Connect(t.Context(), blockedOwner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "private"}, Kind: resource.Model, Name: "private", Provider: "openai-compatible", Binding: resource.Binding{Endpoint: private.URL + "/v1/chat/completions", AllowedOrigins: []string{private.URL}}})
-	need(t, err)
-	if _, err = blocked.Services.Resources.RefreshModels(t.Context(), blockedOwner, resource.RefreshModelsRequest{ID: r.ID, Mutation: core.Mutation{IdempotencyKey: "blocked", ExpectedVersion: r.Version}}); err == nil || privateCalls != 0 {
-		t.Fatal("unapproved private destination reached")
-	}
+
 }
 
 func TestProviderDiscoveryRejectsUnauthenticatedCallsAndRedirects(t *testing.T) {
@@ -298,34 +287,37 @@ func TestDiscoveryContextWindowPrecedenceAndBounds(t *testing.T) {
 }
 
 func TestProviderNetworkRejectionExplainsTestAndSave(t *testing.T) {
-	for _, allowed := range [][]string{{"127.0.0.1"}, {}} {
-		cfg := testConfig(t)
-		cfg.Network.AllowedPrivateIPs = allowed
-		b, err := Build(t.Context(), cfg)
-		need(t, err)
-		defer b.Close()
-		p, _ := ownerSession(t, b)
-		for _, tc := range []struct {
-			endpoint string
-			reason   core.Reason
-		}{
-			{"http://192.168.50.20:8000/v1/chat/completions", core.NetworkPrivateAddressDenied},
-			{"http://[::ffff:192.168.50.20]:8000/v1/chat/completions", core.NetworkPrivateAddressDenied},
-			{"http://example.com/v1/chat/completions", core.NetworkHTTPNotAllowed},
-		} {
-			// A hostname with a non-empty allowlist is checked after DNS resolution.
-			if len(allowed) != 0 && tc.reason == core.NetworkHTTPNotAllowed {
-				continue
-			}
-			u, _ := url.Parse(tc.endpoint)
-			_, err = b.Services.Resources.TestConnection(t.Context(), p, resource.TestConnectionRequest{Provider: "openai-compatible", Binding: resource.Binding{Endpoint: tc.endpoint, AllowedOrigins: []string{u.Scheme + "://" + u.Host}}})
-			if core.CodeOf(err) != core.InvalidArgument || core.ReasonOf(err) != tc.reason {
-				t.Fatalf("test: %v, reason=%s", err, core.ReasonOf(err))
-			}
-			_, err = b.Services.Resources.SaveProvider(t.Context(), p, resource.SaveProviderRequest{Name: "Local provider", PricingProvider: "vllm", Endpoint: tc.endpoint, Mutation: core.Mutation{IdempotencyKey: string(tc.reason)}})
-			if core.CodeOf(err) != core.InvalidArgument || core.ReasonOf(err) != tc.reason {
+	cfg := testConfig(t)
+	cfg.Network.AllowedPrivateIPs = nil
+	b, err := Build(t.Context(), cfg)
+	need(t, err)
+	defer b.Close()
+	p, _ := ownerSession(t, b)
+	for _, tc := range []struct {
+		endpoint string
+		reason   core.Reason
+	}{
+		{"http://93.184.216.34/v1/chat/completions", core.NetworkHTTPNotAllowed},
+		{"https://169.254.169.254/v1/chat/completions", core.NetworkDestinationProhibited},
+		{"http://100.100.100.200/v1/chat/completions", core.NetworkDestinationProhibited},
+	} {
+		u, _ := url.Parse(tc.endpoint)
+		_, err = b.Services.Resources.TestConnection(t.Context(), p, resource.TestConnectionRequest{Provider: "openai-compatible", Binding: resource.Binding{Endpoint: tc.endpoint, AllowedOrigins: []string{u.Scheme + "://" + u.Host}}})
+		if core.ReasonOf(err) != tc.reason {
+			t.Fatalf("test: %v, reason=%s", err, core.ReasonOf(err))
+		}
+		r, err := b.Services.Resources.SaveProvider(t.Context(), p, resource.SaveProviderRequest{Name: "Local provider", PricingProvider: "vllm", Endpoint: tc.endpoint, Mutation: core.Mutation{IdempotencyKey: tc.endpoint}})
+		if tc.reason == core.NetworkHTTPNotAllowed {
+			if core.ReasonOf(err) != tc.reason {
 				t.Fatalf("save: %v, reason=%s", err, core.ReasonOf(err))
 			}
+			continue
+		}
+		// Saving a binding does not dial it; refresh must enforce the same destination policy as testing.
+		need(t, err)
+		_, err = b.Services.Resources.RefreshModels(t.Context(), p, resource.RefreshModelsRequest{ID: r.ID, Mutation: core.Mutation{IdempotencyKey: "refresh-" + tc.endpoint, ExpectedVersion: r.Version}})
+		if core.ReasonOf(err) != tc.reason {
+			t.Fatalf("refresh: %v, reason=%s", err, core.ReasonOf(err))
 		}
 	}
 }

@@ -58,35 +58,25 @@ location /api/ {
 
 模型请求由 Runtime 发出，服务地址必须能从 Runtime 所在设备访问。在「资源 → 模型 → 更多 → 连接提供商」中选择预设或自定义服务，填写基础地址与认证信息，测试并保存连接，再刷新模型列表。模型能力、价格与用户组授权按[模型接入概览](https://molr.ai/zh/docs/admin/resources/models/#连接提供商)配置；连接测试只读取模型目录，实际推理需通过对话验证。
 
-模型连接使用 `network.allowed_private_ips` 控制私网访问；Shell 使用独立的[沙盒网络配置](https://molr.ai/zh/docs/admin/sandbox/linux/#网络与高级部署)，不会放行模型地址。用户授权不能扩大部署网络限制。
+管理员配置的模型、MCP 和远程 Sandbox 服务默认允许私网与回环 IP，无需设置 `network.allowed_private_ips` 或重启 Runtime。Shell 使用独立的[沙盒网络配置](https://molr.ai/zh/docs/admin/sandbox/linux/#网络与高级部署)，服务连接不会扩大沙盒网络权限。
 
 ### 连接本地模型
 
 先在 Runtime 所在设备启动模型服务并准备模型，再使用本机发现结果或手动填写地址。例如，[Ollama](https://molr.ai/zh/docs/admin/resources/providers/ollama/) 的基础地址为 `http://127.0.0.1:11434/v1`。本机发现仅查询已有服务，不会启动服务或下载模型。
 
-默认 `network.allowed_private_ips` 包含 `127.0.0.1`；使用其他回环地址（例如 `::1`）时，需将该地址加入配置并重启 Runtime。这里的本机指 Runtime 所在设备；容器内的回环地址指容器自身，访问宿主机模型时应使用容器可达的宿主机地址，并按下一节放行。
+模型连接支持 IPv4 和 IPv6 回环地址（如 `127.0.0.1`、`::1`）。这里的本机指 Runtime 所在设备；容器内的回环地址指容器自身，访问宿主机模型时应使用容器可达的宿主机地址。
 
 ### 连接局域网模型
 
 让模型服务监听 Runtime 可达的局域网地址，并在模型主机的防火墙中允许 Runtime 访问服务端口。连接时将基础地址中的回环地址替换为模型主机的局域网 IP，保留服务要求的端口和 API 路径。
 
-在 Runtime 配置中将模型主机 IP 加入 `network.allowed_private_ips`，保留仍需访问的已有地址，然后重启 Runtime。以下 `192.168.1.20` 为示例模型主机 IP，需替换为实际地址：
-
-```json
-{
-  "network": {
-    "allowed_private_ips": ["127.0.0.1", "192.168.1.20"]
-  }
-}
-```
-
-该列表接受具体 IP，不接受域名或 CIDR；允许一个 IP 会允许访问该 IP 的服务端口。使用域名连接时，其解析地址也必须通过网络校验。元数据与链路本地地址始终禁止。放行后的私网模型可使用 HTTP，适用于可信局域网；服务要求认证时仍需填写对应密钥。
+可直接填写模型主机 IP 或域名，无需额外放行。Runtime 只连接配置的协议、主机和端口，域名解析后的每个 IP 都会接受检查；云元数据与链路本地等禁止地址仍被拦截。私网模型可使用 HTTP，适用于可信局域网；服务要求认证时仍需填写对应密钥。
 
 ### 连接云服务
 
 选择对应提供商预设，按其接入说明填写 HTTPS 基础地址和 API Key；支持方式和各提供商文档见[模型接入概览](https://molr.ai/zh/docs/admin/resources/models/#支持的接入方式)。Runtime 需要能够解析并访问该服务地址，公网 HTTP 地址会被拒绝，公网 IP 无需加入 `network.allowed_private_ips`。
 
-使用自建网关时，按[自定义服务](https://molr.ai/zh/docs/admin/resources/providers/custom/)配置地址与密钥，并确认网关提供兼容协议；局域网网关沿用上一节的私网访问配置。
+使用自建网关时，按[自定义服务](https://molr.ai/zh/docs/admin/resources/providers/custom/)配置地址与密钥，并确认网关提供兼容协议；局域网网关沿用上一节的连接方式。
 
 ## 配置模型价格
 

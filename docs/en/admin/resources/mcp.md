@@ -12,7 +12,7 @@ Administrators connect remote MCP services under Resources → Tools → MCP too
 
 The Resources page is restricted to administrators. Members use permitted tools through assistant permissions and capabilities; connection endpoints, credentials and cross-member call history remain private.
 
-Public endpoints require HTTPS. Private services additionally require deployment approval in `network.allowed_private_ips` and a TLS certificate trusted by Runtime. URLs cannot include credentials, query strings or fragments. Requests originate from Runtime, so the service must be reachable from its machine.
+MCP services always require HTTPS and a TLS certificate trusted by Runtime. Administrator-configured services allow private and loopback IPs without setting `network.allowed_private_ips` or restarting Runtime. Connections stay bound to the configured scheme, host, and port; automatic redirects, cloud metadata, link-local, and other prohibited destinations remain blocked. URLs cannot include credentials, query strings or fragments. Requests originate from Runtime, so the service must be reachable from its machine.
 
 ## Update and disable
 

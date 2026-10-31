@@ -67,22 +67,9 @@ func (a adapters) providers() map[string]resource.Provider {
 			u, _ := url.Parse(b.Endpoint)
 			if address, err := netip.ParseAddr(u.Hostname()); err == nil && u.Scheme == "http" {
 				address = address.Unmap()
-				approved := false
-				for _, raw := range a.networkConfig.AllowedPrivateIPs {
-					if netip.MustParseAddr(raw).Unmap() == address.Unmap() {
-						approved = true
-					}
+				if !address.IsPrivate() && !address.IsLoopback() && !netip.MustParsePrefix("100.64.0.0/10").Contains(address) {
+					return nil, core.WithReason(core.Invalid("endpoint", "public providers require HTTPS"), core.NetworkHTTPNotAllowed)
 				}
-				if !approved {
-					reason := core.NetworkHTTPNotAllowed
-					if address.IsPrivate() || address.IsLoopback() || netip.MustParsePrefix("100.64.0.0/10").Contains(address.Unmap()) {
-						reason = core.NetworkPrivateAddressDenied
-					}
-					return nil, core.WithReason(core.Invalid("endpoint", "HTTP endpoint not allowed by server configuration"), reason)
-				}
-			}
-			if u.Scheme != "https" && len(a.networkConfig.AllowedPrivateIPs) == 0 {
-				return nil, core.WithReason(core.Invalid("endpoint", "public providers require HTTPS"), core.NetworkHTTPNotAllowed)
 			}
 			if len(b.AllowedOrigins) != 1 || b.AllowedOrigins[0] != o || b.RootPath != "" {
 				return nil, core.Invalid("binding", "exact origin required; directory path is not supported")
@@ -190,7 +177,7 @@ func (a adapters) privateAddresses() []netip.Addr {
 	return addresses
 }
 func (a adapters) network() *platform.Guard {
-	return platform.NewNetworkGuard(platform.NetworkOptions{AllowedPrivateAddresses: a.privateAddresses(), OwnerBinding: a.ownerNetworkBinding, Binding: func(ctx context.Context, e core.Execution, id core.ID) (platform.NetworkBinding, error) {
+	return platform.NewNetworkGuard(platform.NetworkOptions{AllowPrivate: true, OwnerBinding: a.ownerNetworkBinding, Binding: func(ctx context.Context, e core.Execution, id core.ID) (platform.NetworkBinding, error) {
 		if err := (access{a.store}).execution(ctx, e); err != nil {
 			return platform.NetworkBinding{}, err
 		}

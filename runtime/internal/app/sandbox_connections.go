@@ -10,7 +10,6 @@ import (
 	"molr.ai/runtime/internal/sandboxruntime"
 	"molr.ai/runtime/internal/textfiles"
 	"net/http"
-	"net/netip"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -89,15 +88,7 @@ func (s *sandboxRouter) client(ctx context.Context, p core.Principal, c sandboxC
 	return s.newClient(p, c.View.Endpoint, c.View.PublicKeySHA256, core.NewSecret(string(data)))
 }
 func (s *sandboxRouter) newClient(p core.Principal, endpoint, fingerprint string, token core.Secret) (*sm.Client, error) {
-	addresses := []netip.Addr{}
-	for _, raw := range s.adapters.networkConfig.AllowedPrivateIPs {
-		a, err := netip.ParseAddr(raw)
-		if err != nil {
-			return nil, err
-		}
-		addresses = append(addresses, a)
-	}
-	guard := platform.NewNetworkGuard(platform.NetworkOptions{AllowedPrivateAddresses: addresses, OwnerBinding: func(context.Context, core.Principal, core.ID) (platform.NetworkBinding, error) {
+	guard := platform.NewNetworkGuard(platform.NetworkOptions{AllowPrivate: true, OwnerBinding: func(context.Context, core.Principal, core.ID) (platform.NetworkBinding, error) {
 		return platform.NetworkBinding{Origin: endpoint}, nil
 	}, Binding: func(context.Context, core.Execution, core.ID) (platform.NetworkBinding, error) {
 		return platform.NetworkBinding{Origin: endpoint}, nil

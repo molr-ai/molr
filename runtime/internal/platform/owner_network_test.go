@@ -17,7 +17,7 @@ func TestOwnerNetworkRequiresApprovedBindingAndLiveIdentity(t *testing.T) {
 	defer server.Close()
 	p := core.Principal{OwnerID: "owner", SubjectID: "owner", SessionID: "session", Kind: core.ActorOwner}
 	allowed := true
-	guard := platform.NewNetworkGuard(platform.NetworkOptions{AllowedPrivateAddresses: []netip.Addr{netip.MustParseAddr("127.0.0.1")}, OwnerBinding: func(_ context.Context, actor core.Principal, id core.ID) (platform.NetworkBinding, error) {
+	guard := platform.NewNetworkGuard(platform.NetworkOptions{AllowPrivate: true, OwnerBinding: func(_ context.Context, actor core.Principal, id core.ID) (platform.NetworkBinding, error) {
 		if actor != p || id != "resource" || !allowed {
 			return platform.NetworkBinding{}, core.NewError(core.Forbidden, "denied")
 		}

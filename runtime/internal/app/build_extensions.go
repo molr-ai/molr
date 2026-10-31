@@ -81,5 +81,5 @@ func buildExtensions(adapters adapters, permissions *policy.Manager, identity *a
 			return plans.List(ctx, p, time.Time{}, time.Time{})
 		},
 	})
-	wiring.mcp = newMCPService(store, identity, permissions, vault, adapters)
+	wiring.mcp = newMCPService(store, identity, permissions, vault)
 }

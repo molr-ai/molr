@@ -61,7 +61,7 @@ Molr 当前提供标准模型 API 接入，没有内置订阅套餐专用的登�
 
 ### 连接被网络配置拒绝
 
-Runtime 直接发送模型请求，受 `network.allowed_private_ips` 限制；沙盒 Shell 使用独立的 `sandbox.networks`，配置沙盒网络不会放行模型地址。私网／回环 IP 未获允许时，部署者需将其加入 `network.allowed_private_ips` 并重启 Runtime。公网 HTTP 地址需改用 HTTPS；云元数据、链路本地等禁止地址不能通过白名单放行。
+Runtime 直接发送模型请求，管理员配置的模型服务默认允许私网与回环 IP，无需设置 `network.allowed_private_ips` 或重启 Runtime。连接测试、模型发现与推理均限定于配置的协议、主机和端口，禁止自动重定向。私网模型可使用 HTTP，公网要求 HTTPS；云元数据、链路本地等禁止地址仍被拦截。沙盒 Shell 使用独立的 `sandbox.networks`，模型连接不会扩大沙盒网络权限。
 
 本机地址指 Runtime 所在机器，不是浏览器设备；容器内回环地址指容器自身。部署步骤见[源码构建](../deployment/source-build.md)与[安装指南](../deployment/installation.md)。
 

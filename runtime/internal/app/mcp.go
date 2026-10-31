@@ -22,7 +22,7 @@ type vaultManager interface {
 	credential.Broker
 }
 
-func newMCPService(store persistence.Store, identity *auth.Manager, permissions policy.Service, vault vaultManager, a adapters) *mcpclient.Service {
+func newMCPService(store persistence.Store, identity *auth.Manager, permissions policy.Service, vault vaultManager) *mcpclient.Service {
 	var service *mcpclient.Service
 	service = mcpclient.New(store, mcpclient.Options{
 		Authorize: func(ctx context.Context, p core.Principal, write bool) error {
@@ -60,7 +60,7 @@ func newMCPService(store persistence.Store, identity *auth.Manager, permissions 
 				c, err := service.ConnectionAccess(ctx, p, id)
 				return platform.NetworkBinding{Origin: c.Origin()}, err
 			}
-			guard := platform.NewNetworkGuard(platform.NetworkOptions{AllowedPrivateAddresses: a.privateAddresses(), OwnerBinding: binding, Binding: func(ctx context.Context, e core.Execution, id core.ID) (platform.NetworkBinding, error) {
+			guard := platform.NewNetworkGuard(platform.NetworkOptions{AllowPrivate: true, OwnerBinding: binding, Binding: func(ctx context.Context, e core.Execution, id core.ID) (platform.NetworkBinding, error) {
 				if err := (access{store}).execution(ctx, e); err != nil {
 					return platform.NetworkBinding{}, err
 				}

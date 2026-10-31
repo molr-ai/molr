@@ -125,7 +125,7 @@ func (a adapters) discoverLocalProviders(ctx context.Context, p core.Principal) 
 			defer wait.Done()
 			requestCtx, stop := context.WithTimeout(ctx, time.Second)
 			defer stop()
-			guard := platform.NewNetworkGuard(platform.NetworkOptions{AllowedPrivateAddresses: a.privateAddresses(), OwnerBinding: func(_ context.Context, actor core.Principal, _ core.ID) (platform.NetworkBinding, error) {
+			guard := platform.NewNetworkGuard(platform.NetworkOptions{AllowPrivate: true, OwnerBinding: func(_ context.Context, actor core.Principal, _ core.ID) (platform.NetworkBinding, error) {
 				if actor != p || actor.SessionID == "" {
 					return platform.NetworkBinding{}, denied()
 				}

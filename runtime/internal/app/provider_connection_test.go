@@ -11,7 +11,9 @@ import (
 )
 
 func TestDraftProviderConnectionUsesRealNetworkWithoutSaving(t *testing.T) {
-	b, err := Build(t.Context(), testConfig(t))
+	cfg := testConfig(t)
+	cfg.Network.AllowedPrivateIPs = nil
+	b, err := Build(t.Context(), cfg)
 	need(t, err)
 	defer b.Close()
 	p, _ := ownerSession(t, b)
@@ -50,10 +52,10 @@ func TestDraftProviderConnectionUsesRealNetworkWithoutSaving(t *testing.T) {
 	if err == nil {
 		t.Fatal("rejected key reported success")
 	}
-	req.Binding.Endpoint = "http://127.0.0.2/v1/chat/completions"
-	req.Binding.AllowedOrigins = []string{"http://127.0.0.2"}
+	req.Binding.Endpoint = "http://100.100.100.200/v1/chat/completions"
+	req.Binding.AllowedOrigins = []string{"http://100.100.100.200"}
 	_, err = b.Services.Resources.TestConnection(t.Context(), p, req)
-	if err == nil || calls != 2 {
-		t.Fatal("probe bypassed deployment network policy")
+	if core.ReasonOf(err) != core.NetworkDestinationProhibited || calls != 2 {
+		t.Fatal("probe reached a prohibited destination")
 	}
 }

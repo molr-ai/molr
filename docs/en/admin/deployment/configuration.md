@@ -58,35 +58,25 @@ location /api/ {
 
 The Runtime sends model requests, so the service address must be reachable from the device running the Runtime. In Resources → Models → More → Connect provider, select a preset or custom service, enter the base URL and authentication details, test and save the connection, then refresh the model list. Configure capabilities, prices and group permissions using the [model connection overview](../resources/models.md#connecting-providers). Connection tests only read the model catalog; verify inference through a conversation.
 
-Model connections use `network.allowed_private_ips` to control private-network access. Shell uses separate [sandbox network configuration](../sandbox/linux.md#network-and-advanced-deployment), which does not allow model addresses. User permissions cannot expand deployment network restrictions.
+Administrator-configured model, MCP, and remote Sandbox services allow private and loopback IPs without setting `network.allowed_private_ips` or restarting Runtime. Shell uses separate [sandbox network configuration](../sandbox/linux.md#network-and-advanced-deployment); service connections do not expand sandbox network permissions.
 
 ### Connect Local Models
 
 Start the model service and prepare models on the device running the Runtime, then select a discovered local service or enter its address manually. For example, the [Ollama](../resources/providers/ollama.md) base URL is `http://127.0.0.1:11434/v1`. Local discovery only queries existing services; it does not start services or download models.
 
-By default, `network.allowed_private_ips` includes `127.0.0.1`. To use another loopback address, such as `::1`, add it to the configuration and restart the Runtime. Local means the device running the Runtime. Inside a container, loopback refers to the container itself; to connect to a model on the host, use a host address reachable from the container and allow it as described below.
+Model connections support IPv4 and IPv6 loopback addresses, such as `127.0.0.1` and `::1`. Local means the device running Runtime. Inside a container, loopback refers to the container itself; to connect to a model on the host, use a host address reachable from the container.
 
 ### Connect LAN Models
 
 Configure the model service to listen on a LAN address reachable from the Runtime, and allow the Runtime to access its port through the model host's firewall. Replace the loopback address in the connection's base URL with the model host's LAN IP, keeping the port and API path required by the service.
 
-Add the model host IP to `network.allowed_private_ips` in the Runtime configuration, retain existing addresses that are still needed, and restart the Runtime. Replace the example model host IP `192.168.1.20` below with the actual address:
-
-```json
-{
-  "network": {
-    "allowed_private_ips": ["127.0.0.1", "192.168.1.20"]
-  }
-}
-```
-
-The list accepts specific IPs, not domains or CIDRs. Allowing an IP allows access to service ports on that IP. When connecting through a domain, its resolved addresses must also pass network validation. Metadata and link-local addresses are always prohibited. Allowed private model services can use HTTP on trusted LANs; enter the appropriate key if the service requires authentication.
+Enter the model host IP or domain directly; no additional allowlist entry is required. Runtime connects only to the configured scheme, host, and port and checks every resolved IP. Cloud metadata, link-local, and other prohibited destinations remain blocked. Private models may use HTTP on a trusted LAN; supply credentials when the service requires authentication.
 
 ### Connect Cloud Services
 
 Select the provider preset and enter its HTTPS base URL and API Key according to its connection guide. See the [model connection overview](../resources/models.md#supported-connection-methods) for supported methods and provider documentation. The Runtime must be able to resolve and reach the service address. Public HTTP addresses are rejected; public IPs do not need to be added to `network.allowed_private_ips`.
 
-For a self-hosted gateway, configure its URL and key as a [custom service](../resources/providers/custom.md) and verify protocol compatibility. LAN gateways use the private-network configuration described above.
+For a self-hosted gateway, configure its URL and key as a [custom service](../resources/providers/custom.md) and verify protocol compatibility. LAN gateways use the connection steps described above.
 
 ## Configure Model Prices
 

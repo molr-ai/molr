@@ -49,7 +49,7 @@ func TestRemoteSandboxStorageRoutingAuthorizationAndContext(t *testing.T) {
 	server := httptest.NewTLSServer(handler)
 	t.Cleanup(server.Close)
 	sum := sha256.Sum256(server.Certificate().RawSubjectPublicKeyInfo)
-	f.ad.networkConfig.AllowedPrivateIPs = []string{"127.0.0.1"}
+	f.ad.networkConfig.AllowedPrivateIPs = nil
 	router, err := newSandboxRouter(f.ad, nil, make([]byte, 32))
 	need(t, err)
 	files := newResourceFileTools(resourceFileOptions{adapters: f.ad, router: router})

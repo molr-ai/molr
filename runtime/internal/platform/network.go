@@ -17,6 +17,9 @@ type NetworkBinding struct {
 	Origin string
 }
 type NetworkOptions struct {
+	// AllowPrivate is reserved for administrator-configured model, MCP and sandbox services.
+	// Origin binding and prohibited destination checks still apply.
+	AllowPrivate            bool
 	AllowedPrivateAddresses []netip.Addr
 	OwnerBinding            func(context.Context, core.Principal, core.ID) (NetworkBinding, error)
 	Binding                 func(context.Context, core.Execution, core.ID) (NetworkBinding, error)
@@ -84,7 +87,7 @@ func (g *Guard) checkBinding(binding NetworkBinding, destination Destination) er
 		if !address.IsValid() || address.IsUnspecified() || address.IsMulticast() || address.IsLinkLocalUnicast() || address.IsLinkLocalMulticast() {
 			return core.WithReason(core.NewError(core.Forbidden, "prohibited network destination"), core.NetworkDestinationProhibited)
 		}
-		explicit := false
+		explicit := g.options.AllowPrivate && (address.IsPrivate() || address.IsLoopback() || netip.MustParsePrefix("100.64.0.0/10").Contains(address))
 		for _, allowed := range g.options.AllowedPrivateAddresses {
 			if allowed.Unmap() == address {
 				explicit = true
