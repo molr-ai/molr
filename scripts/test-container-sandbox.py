@@ -92,7 +92,7 @@ def main():
                 assert error.code == 401
             if attempt == 0:
                 identity = {"OwnerID": "owner", "AssistantID": "assistant", "ExecutionID": "execution", "OperationID": "container-test"}
-                request = {"Identity": identity, "Method": "shell_execute", "FullAccess": True, "Compute": True, "Arguments": {"script": "id -u > /data/projects/verified-user", "directory": "/data/projects", "timeout_seconds": 5}}
+                request = {"Identity": identity, "Method": "shell_execute", "FullAccess": True, "FullAccessScope": {"Mode": "unrestricted"}, "Compute": True, "Arguments": {"full_access": True, "script": "id -u > /data/projects/verified-user", "directory": "/data/projects", "timeout_seconds": 5}}
                 result = call("submit", request)
                 deadline = time.monotonic() + 10
                 while result["State"] == "running" and time.monotonic() < deadline:
