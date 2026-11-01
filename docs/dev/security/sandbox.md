@@ -83,7 +83,7 @@ GPU 展示快照通过 `Runner.GPUSnapshot` 获取：在启动设备清单的副
 
 脚本仍不能使用 `pidfd_getfd`、`process_vm_readv`、ptrace、mknod 或绕过网络的系统调用；仅可信 supervisor 使用前两项模拟连接。普通 Shell 也依赖 seccomp 通知及 supervisor 读取子进程 FD 的能力，真实启动／网络探针失败时不可用，不放宽宿主安全设置。supervisor 作为 child subreaper 接管双重 fork 后脱离的后代，并回收退出的子进程，保持 Yama 所需的祖先关系，不授予脚本额外调试权限。每次执行最多同时处理 32 个连接通知，超过返回 EAGAIN；supervisor 与所有子进程处于原有执行 cgroup，统一计入资源限制、取消及撤权清理。
 
-授权变更与临时范围到期复用计算执行计划重查及 cgroup 清理；远程租约续约还会比较当前生效计算配置。任务回执记录实际启动的 `GPUDeviceIDs`。GPU 共享访问不提供显存、算力或独占调度保证，不能把普通 `memory.max` 视为显存限制。
+授权变更与临时范围到期复用计算执行计划重查及 cgroup 清理；远程执行的权限变更观察器也会比较当前生效计算配置。任务回执记录实际启动的 `GPUDeviceIDs`。GPU 共享访问不提供显存、算力或独占调度保证，不能把普通 `memory.max` 视为显存限制。
 
 真实 GPU 验收在 `runtime/` 执行 `MOLR_GPU_INTEGRATION=1 scripts/test-sandbox-linux.sh -run TestLinuxGPUIsolation -v`；需要至少两块 NVIDIA GPU，验证单卡／双卡 CUDA、无授权设备不可见、宿主 Unix socket 不可连接和获准 TCP 可用。
 
@@ -256,7 +256,7 @@ bash scripts/test-sandbox-linux.sh -count=1 -v
 
 画面经私有 WS 连接转为所有者认证 SSE，10 fps 上限与 ACK 节流。连接取消从 WS 握手开始生效，握手最多等待 5 秒。观看者断线取消流；前端隐藏或离线时断流并取消绘制、解码与重连计时，恢复可见且在线后重新连接；断线或控制权变化时丢弃排队输入。同尺寸画面复用 Canvas 缓冲，绘制与浮窗布局按动画帧合并。任务内复用最多两个私有 HTTP 命令连接，任务结束关闭空闲连接；执行租约继续检查授权并在撤权时关闭转发连接。写操作不因连接复用而自动重试。支持指针、滚动、键盘文本／输入法、导航与标签页。强制终止可能丢失未落盘 profile 数据。
 
-独立 macOS 节点使用 `NoWorkspace` 执行计划，任务临时目录不产生助理工作区。授权目录通过 `ShellEnvironment` 注入；Linux 与 macOS 主 Runtime 均按目标节点能力选择网络授权。原生网络不使用配额更新，授权到期纳入执行截止时间，撤权或范围变化终止受管进程组。传输与租约复用 `sandboxmanager`，见[远程部署](../../admin/sandbox/remote.md)。
+独立 macOS 节点使用 `NoWorkspace` 执行计划，任务临时目录不产生助理工作区。授权目录通过 `ShellEnvironment` 注入；Linux 与 macOS 主 Runtime 均按目标节点能力选择网络授权。原生网络不使用配额更新；控制端通过权限变更和到期定时器停止受管进程组，远端租约约束失联后的执行时长。传输与租约复用 `sandboxmanager`，见[远程部署](../../admin/sandbox/remote.md)。
 
 ### 终端控制权
 

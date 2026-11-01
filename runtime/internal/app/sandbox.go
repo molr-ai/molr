@@ -442,12 +442,21 @@ func (s sandboxGrants) UpdateGrant(ctx context.Context, p core.Principal, r poli
 	if batch, _ := ctx.Value(permissionBatchKey{}).(bool); batch {
 		return g, nil
 	}
+	if grantExecutionPolicyEqual(previous, g) {
+		// The observer reschedules expiry without interrupting an otherwise valid run.
+		return g, nil
+	}
 	res, loadErr := resource.NewRepository(s.shell.store).Get(ctx, p.OwnerID, g.ResourceID)
 	if loadErr == nil && res.Kind == resource.Network {
 		return g, nil
 	}
 	return g, s.shell.runner.StopAccess(ctx, p.OwnerID, g.AssistantID, previous.Scope.FullAccess)
 }
+func grantExecutionPolicyEqual(a, b policy.Grant) bool {
+	return reflect.DeepEqual(a.Actions, b.Actions) && reflect.DeepEqual(a.Scope, b.Scope) &&
+		reflect.DeepEqual(a.Constraints, b.Constraints) && reflect.DeepEqual(a.Temporary, b.Temporary)
+}
+
 func (s sandboxGrants) stop(owner core.ID) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

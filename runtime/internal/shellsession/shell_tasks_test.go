@@ -419,3 +419,19 @@ func TestWatcherChangesRequireExactCapabilityAndPreserveWake(t *testing.T) {
 		t.Fatal("missing capability accepted", err)
 	}
 }
+
+func TestShellFailurePreservesAuthorizationReason(t *testing.T) {
+	b, p, e := taskFixture(t)
+	b.shellTasks.executeCommand = func(context.Context, core.Execution, tools.ShellRequest) (json.RawMessage, error) {
+		return nil, core.WithReason(core.NewError(core.DeadlineExceeded, "policy read timed out"), "authorization_check_timeout")
+	}
+	_, err := b.shellTasks.Execute(t.Context(), e, tools.ShellRequest{ComputeID: "compute", Script: "true"})
+	if core.ReasonOf(err) != "authorization_check_timeout" {
+		t.Fatal(err)
+	}
+	task, err := persistence.Load[Task](t.Context(), b.store, shellTasksBucket, persistence.Key(p.OwnerID, e.OperationID))
+	need(t, err)
+	if task.State != "failed" || task.Failure != "authorization_check_timeout" {
+		t.Fatalf("failure reason lost: %+v", task)
+	}
+}

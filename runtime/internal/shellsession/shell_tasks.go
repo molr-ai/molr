@@ -394,7 +394,10 @@ func (s *Manager) run(ctx context.Context, e core.Execution, req tools.ShellRequ
 	r.task.State = "completed"
 	if err != nil {
 		r.task.State = "failed"
-		r.task.Failure = string(core.CodeOf(err))
+		r.task.Failure = string(core.ReasonOf(err))
+		if r.task.Failure == "" {
+			r.task.Failure = string(core.CodeOf(err))
+		}
 		if core.CodeOf(err) == core.Canceled {
 			r.task.State = "stopped"
 		}

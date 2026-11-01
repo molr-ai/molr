@@ -458,7 +458,7 @@ func (s *sandboxRouter) shellExecute(ctx context.Context, e core.Execution, req 
 				if err != nil {
 					return err
 				}
-				if g.ID != n.GrantID || g.Constraints != nil || !reflect.DeepEqual(g.ExpiresAt, n.ExpiresAt) {
+				if g.ID != n.GrantID || g.Constraints != nil {
 					return denied()
 				}
 				r, binding, err := s.adapters.binding(ctx, e.Principal, g.ResourceID)
@@ -749,11 +749,18 @@ func (s remoteSandboxGrants) Revoke(ctx context.Context, p core.Principal, r pol
 	return s.router.invalidate(ctx, p)
 }
 func (s remoteSandboxGrants) UpdateGrant(ctx context.Context, p core.Principal, r policy.UpdateGrantRequest) (policy.Grant, error) {
+	previous, err := persistence.Load[policy.Grant](ctx, s.router.adapters.store, "security.grants", persistence.Key(p.OwnerID, r.GrantID))
+	if err != nil {
+		return policy.Grant{}, err
+	}
 	g, err := s.Service.UpdateGrant(ctx, p, r)
 	if err != nil {
 		return g, err
 	}
 	if batch, _ := ctx.Value(permissionBatchKey{}).(bool); batch {
+		return g, nil
+	}
+	if grantExecutionPolicyEqual(previous, g) {
 		return g, nil
 	}
 	if g.Scope.FullAccess {

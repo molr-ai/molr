@@ -140,3 +140,84 @@ read ack
 		t.Fatalf("remote protocol: %+v", got)
 	}
 }
+
+func TestWatcherRealGrantExtensionAndEarlierExpiry(t *testing.T) {
+	t.Run("local", func(t *testing.T) { watcherGrantExtension(t, false) })
+	t.Run("remote", func(t *testing.T) { watcherGrantExtension(t, true) })
+}
+
+func watcherGrantExtension(t *testing.T, remote bool) {
+	if os.Getenv("MOLR_SANDBOX_INTEGRATION") != "1" {
+		t.Skip("real sandbox required")
+	}
+	expiry := time.Now().Add(5 * time.Second)
+	var b *Bundle
+	var p core.Principal
+	var w watch.Watch
+	if !remote {
+		b, p, w = watcherIntegration(t, watcherHandshake+"sleep 30\n", &expiry)
+	} else {
+		exe, err := os.Executable()
+		need(t, err)
+		need(t, os.Chmod(exe, 0755))
+		var e core.Execution
+		b, p, e = taskFixture(t)
+		compute := forwardCompute(t, b, p, true)
+		r, err := resource.NewRepository(b.store).Get(t.Context(), p.OwnerID, compute)
+		need(t, err)
+		_, err = b.Services.Grants.Grant(t.Context(), p, policy.GrantRequest{Mutation: core.Mutation{IdempotencyKey: "expiry-grant"}, AssistantID: e.AssistantID, ResourceID: compute, Actions: []policy.Action{policy.Execute}, ExpiresAt: &expiry, Constraints: testResourceConstraints(resource.Compute)})
+		need(t, err)
+		w, err = b.Services.Watches.Save(t.Context(), p, watch.Request{Mutation: core.Mutation{IdempotencyKey: "expiry-watch"}, AssistantID: e.AssistantID, Title: "Remote expiry", Instructions: "Verify expiry", Watcher: watch.Config{ComputeID: compute, SandboxID: r.SandboxID, Script: watcherHandshake + "sleep 30\n"}})
+		need(t, err)
+	}
+	next, err := b.Services.Watches.Begin(t.Context(), p.OwnerID, w.ID, w.Version)
+	need(t, err)
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+	done := make(chan struct{})
+	go func() { defer close(done); b.watchRuntime.run(ctx, next, "") }()
+	defer func() { cancel(); <-done }()
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		current, err := b.Services.Watches.Get(t.Context(), p, w.ID)
+		need(t, err)
+		if current.State == "running" && current.LastHealthyAt != nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("watcher did not start")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	grants, err := policy.ActiveGrants(t.Context(), b.store, p.OwnerID, policy.Query{AssistantID: w.AssistantID, ResourceID: w.Watcher.ComputeID}, time.Now())
+	need(t, err)
+	if len(grants) != 1 {
+		t.Fatalf("grants: %d", len(grants))
+	}
+	g := grants[0]
+	extended := expiry.Add(10 * time.Second)
+	g, err = b.Services.Grants.UpdateGrant(t.Context(), p, policy.UpdateGrantRequest{GrantID: g.ID, Actions: g.Actions, Scope: g.Scope, Constraints: g.Constraints, ExpiresAt: &extended, Mutation: core.Mutation{IdempotencyKey: "extend-running", ExpectedVersion: g.Version}})
+	need(t, err)
+	select {
+	case <-done:
+		t.Fatal("grant extension interrupted watcher")
+	case <-time.After(time.Until(expiry.Add(100 * time.Millisecond))):
+	}
+	current, err := b.Services.Watches.Get(t.Context(), p, w.ID)
+	need(t, err)
+	if current.State != "running" || current.RunID != next.RunID {
+		t.Fatalf("extension restarted watcher: %+v", current)
+	}
+	shortened := time.Now().Add(200 * time.Millisecond)
+	_, err = b.Services.Grants.UpdateGrant(t.Context(), p, policy.UpdateGrantRequest{GrantID: g.ID, Actions: g.Actions, Scope: g.Scope, Constraints: g.Constraints, ExpiresAt: &shortened, Mutation: core.Mutation{IdempotencyKey: "expire-running", ExpectedVersion: g.Version}})
+	need(t, err)
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("earlier expiry did not stop watcher")
+	}
+	current, err = b.Services.Watches.Get(t.Context(), p, w.ID)
+	need(t, err)
+	if current.State != "blocked" || current.Reason != "authorization_unavailable" {
+		t.Fatalf("earlier expiry: %+v", current)
+	}
+}

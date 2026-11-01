@@ -5,7 +5,7 @@ An `assistant_watch` plan appears in the continuous-watch group in global and as
 
 Runtime schedules watchers from committed plan, authorization, and execution changes and the nearest time boundary. Idle watchers do not periodically scan plans or read output. Persisted local output wakes protocol reads; timers enforce startup and health deadlines. Remote output uses revision-based long waits and completion uses server-side change waits. Leases are still renewed periodically; a disconnected remote execution stops when its lease expires.
 
-Execution authorization subscribes and validates before startup, then rechecks on grant/account/assistant/group/resource changes and grant or temporary-quota expiry. Explicit denial, check timeout, check failure, and network gateway failure have distinct reasons. An unverifiable authorization stops execution without reporting a lookup failure as a user revocation. Writable-space probes, external-node recovery probes, and transport heartbeats remain independent.
+Execution authorization subscribes and validates before startup, then rechecks on grant/account/assistant/group/resource changes and grant or temporary-quota expiry. Explicit denial, check timeout, check failure, and network gateway failure have distinct reasons. An unverifiable authorization stops execution without reporting a lookup failure as a user revocation. Writable-space probes, external-node recovery probes, and transport heartbeats remain independent. Changing only grant expiry reschedules the deadline: extensions preserve the running watcher, and shortened grants stop it at the new expiry. Local and remote execution follow the same rule; the remote lease bounds controller disconnection.
 
 ## Creation and management
 

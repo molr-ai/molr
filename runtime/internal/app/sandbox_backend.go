@@ -469,9 +469,8 @@ func (b *remoteSandboxBackend) shell(ctx context.Context, q sm.Request) (json.Ra
 					if !n.ExpiresAt.After(time.Now()) {
 						return nil, denied()
 					}
-					if c.AuthorizationDeadline.IsZero() || n.ExpiresAt.Before(c.AuthorizationDeadline) {
-						c.AuthorizationDeadline = *n.ExpiresAt
-					}
+					// The controller observes live grant expiry; the operation lease
+					// enforces loss of contact without freezing an extendable deadline.
 				}
 			} else if n.Constraints == nil {
 				return nil, denied()

@@ -39,40 +39,45 @@ func (s *Remote) Execute(ctx context.Context, e core.Execution, id core.ID, q sm
 		return nil, err
 	}
 	q.Deadline = time.Now().Add(time.Hour - time.Second)
-	if q.Method == "shell_execute" && shellsession.ManagedFor(ctx, e) != nil {
+	managedShell := q.Method == "shell_execute" && shellsession.ManagedFor(ctx, e) != nil
+	if managedShell {
 		q.Deadline = time.Time{}
 	}
-	relevant := map[core.ID]bool{}
-	if info.Capabilities.NetworkToggle() && !q.FullAccess {
-		for _, n := range q.NetworkAuthorizations {
-			if n.ExpiresAt != nil && (q.Deadline.IsZero() || n.ExpiresAt.Before(q.Deadline)) {
-				q.Deadline = *n.ExpiresAt
+	// Managed shells use the controller's live authorization observer and node
+	// lease. Only one-shot operations freeze grant deadlines at admission.
+	if !managedShell {
+		relevant := map[core.ID]bool{}
+		if info.Capabilities.NetworkToggle() && !q.FullAccess {
+			for _, n := range q.NetworkAuthorizations {
+				if n.ExpiresAt != nil && (q.Deadline.IsZero() || n.ExpiresAt.Before(q.Deadline)) {
+					q.Deadline = *n.ExpiresAt
+				}
 			}
 		}
-	}
 
-	for _, scope := range q.Scopes {
-		relevant[scope.ResourceID] = true
-	}
-	if q.Compute {
-		var shell tools.ShellRequest
-		if json.Unmarshal(q.Arguments, &shell) == nil {
-			relevant[shell.ComputeID] = true
+		for _, scope := range q.Scopes {
+			relevant[scope.ResourceID] = true
 		}
-	}
-	grants, grantErr := persistence.Select[policy.Grant](ctx, s.store, "security.grants", persistence.Query{Where: []persistence.Filter{persistence.Eq("RevokedAt", nil), persistence.Eq("OwnerID", e.Principal.OwnerID), persistence.Eq("AssistantID", e.AssistantID)}, Any: [][]persistence.Filter{{persistence.Eq("ExpiresAtKey", "")}, {{Field: "ExpiresAtKey", Op: ">", Value: persistence.TimeKey(time.Now())}}}})
-	if grantErr != nil {
-		return nil, grantErr
-	}
-	for _, g := range grants {
-		if q.FullAccess && !q.Compute && g.OwnerID == e.Principal.OwnerID && g.AssistantID == e.AssistantID && g.Scope.FullAccess {
-			res, err := resource.NewRepository(s.store).Get(ctx, e.Principal.OwnerID, g.ResourceID)
-			if err == nil && res.Kind == resource.Compute && (res.SandboxID == id || res.SandboxID == "" && id == "local") {
-				relevant[g.ResourceID] = true
+		if q.Compute {
+			var shell tools.ShellRequest
+			if json.Unmarshal(q.Arguments, &shell) == nil {
+				relevant[shell.ComputeID] = true
 			}
 		}
-		if g.OwnerID == e.Principal.OwnerID && g.AssistantID == e.AssistantID && relevant[g.ResourceID] && g.Scope.FullAccess == q.FullAccess && g.RevokedAt == nil && g.ExpiresAt != nil && g.ExpiresAt.After(time.Now()) && (q.Deadline.IsZero() || g.ExpiresAt.Before(q.Deadline)) {
-			q.Deadline = *g.ExpiresAt
+		grants, grantErr := persistence.Select[policy.Grant](ctx, s.store, "security.grants", persistence.Query{Where: []persistence.Filter{persistence.Eq("RevokedAt", nil), persistence.Eq("OwnerID", e.Principal.OwnerID), persistence.Eq("AssistantID", e.AssistantID)}, Any: [][]persistence.Filter{{persistence.Eq("ExpiresAtKey", "")}, {{Field: "ExpiresAtKey", Op: ">", Value: persistence.TimeKey(time.Now())}}}})
+		if grantErr != nil {
+			return nil, grantErr
+		}
+		for _, g := range grants {
+			if q.FullAccess && !q.Compute && g.OwnerID == e.Principal.OwnerID && g.AssistantID == e.AssistantID && g.Scope.FullAccess {
+				res, err := resource.NewRepository(s.store).Get(ctx, e.Principal.OwnerID, g.ResourceID)
+				if err == nil && res.Kind == resource.Compute && (res.SandboxID == id || res.SandboxID == "" && id == "local") {
+					relevant[g.ResourceID] = true
+				}
+			}
+			if g.OwnerID == e.Principal.OwnerID && g.AssistantID == e.AssistantID && relevant[g.ResourceID] && g.Scope.FullAccess == q.FullAccess && g.RevokedAt == nil && g.ExpiresAt != nil && g.ExpiresAt.After(time.Now()) && (q.Deadline.IsZero() || g.ExpiresAt.Before(q.Deadline)) {
+				q.Deadline = *g.ExpiresAt
+			}
 		}
 	}
 
