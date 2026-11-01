@@ -1,10 +1,10 @@
 {
   "schema": 1,
-  "reviewedAt": "2026-10-26",
+  "reviewedAt": "2026-11-02",
   "baseCommit": "0e38689",
   "scope": "License compatibility and notice delivery review; see docs/dev/releasing/licensing.md.",
   "inputs": {
-    "package-lock.json": "56e2fa068a410cae6c82e03d05300fb28a9d3eb4ad8a8215a2b8dde706371869",
+    "package-lock.json": "7189d2723a58a9434c0d6f588ad024ab72708a9244df11ba267de0b16d566789",
     "runtime/go.mod": "20695b66298a1aabe9327797372483900b07fe563d768cc5db5f76f7fb532e6b",
     "runtime/go.sum": "f2da58d8690bb4fd0eb35f8262bfd09fec890940119577fe7db8b3935693c66d",
     "runtime/.go-version": "6c075150045fda9bac31bb93cf5a0a0bc91622a75c1f10fb2971e6f994c6d4d6",

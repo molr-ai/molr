@@ -1,0 +1,1129 @@
+{
+  "version": 1,
+  "files": [
+    {
+      "file": "apps/desktop/src/main/index.ts",
+      "reason": "Desktop startup/login lifetime and daily external update checks need timers.",
+      "budget": "Zero-delay UI teardown, finite 14min login lifetime, and one daily update check; no fast database polling.",
+      "tests": ["apps/desktop/tests/updates.test.mjs"],
+      "sites": [
+        {"scope": "disconnectLater", "api": "setTimeout", "delay": "0", "loops": 0},
+        {"scope": "closeLater", "api": "setTimeout", "delay": "0", "loops": 0},
+        {"scope": "localAction", "api": "setTimeout", "delay": "14 * 60000", "loops": 0},
+        {"scope": "initialize", "api": "setTimeout", "delay": "0", "loops": 0},
+        {"scope": "initialize", "api": "setInterval", "delay": "86400000", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/desktop/src/main/notifications.ts",
+      "reason": "Desktop notification, OAuth, and navigation operations have finite lifetimes.",
+      "budget": "Single operation timeout; cancel on completion or superseding navigation.",
+      "tests": ["apps/desktop/tests/notifications.test.mjs"],
+      "sites": [
+        {"scope": "show", "api": "setTimeout", "delay": "this.timeout", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/desktop/src/main/oauth.ts",
+      "reason": "Desktop notification, OAuth, and navigation operations have finite lifetimes.",
+      "budget": "Single operation timeout; cancel on completion or superseding navigation.",
+      "tests": ["apps/desktop/tests/oauth.test.mjs"],
+      "sites": [
+        {"scope": "authorize", "api": "setTimeout", "delay": "5 * 60000", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/desktop/src/main/runtime-session.ts",
+      "reason": "Desktop notification, OAuth, and navigation operations have finite lifetimes.",
+      "budget": "Single operation timeout; cancel on completion or superseding navigation.",
+      "tests": ["apps/desktop/tests/runtime-session.test.mjs"],
+      "sites": [
+        {"scope": "navigate", "api": "setTimeout", "delay": "30000", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/desktop/src/renderer/main.tsx",
+      "reason": "The desktop connection manager reconciles local service status outside the current Runtime stream.",
+      "budget": "5s only while the manager UI is mounted; release the interval on unmount.",
+      "tests": ["apps/desktop/tests/manager-polling.mjs"],
+      "sites": [
+        {"scope": "App", "api": "setInterval", "delay": "5000", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/ui-design/src/App.tsx",
+      "reason": "Interactive design examples simulate UI transitions without Runtime data access.",
+      "budget": "Timers are limited to mounted demos, user feedback, or a finite recording; no network/database work.",
+      "tests": [],
+      "sites": [
+        {"scope": "announce", "api": "setTimeout", "delay": "2800", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/ui-design/src/AssistantPanels.tsx",
+      "reason": "Interactive design examples simulate UI transitions without Runtime data access.",
+      "budget": "Timers are limited to mounted demos, user feedback, or a finite recording; no network/database work.",
+      "tests": [],
+      "sites": [
+        {"scope": "download", "api": "setTimeout", "delay": "1000", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/ui-design/src/ChatCommandExample.tsx",
+      "reason": "Interactive design examples simulate UI transitions without Runtime data access.",
+      "budget": "Timers are limited to mounted demos, user feedback, or a finite recording; no network/database work.",
+      "tests": [],
+      "sites": [
+        {"scope": "ChatCommandExample", "api": "setTimeout", "delay": "1500", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/ui-design/src/ChatShowcase.tsx",
+      "reason": "Interactive design examples simulate UI transitions without Runtime data access.",
+      "budget": "Timers are limited to mounted demos, user feedback, or a finite recording; no network/database work.",
+      "tests": [],
+      "sites": [
+        {"scope": "ConversationPreview", "api": "setTimeout", "delay": "75", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/ui-design/src/ComponentsShowcase.tsx",
+      "reason": "Interactive design examples simulate UI transitions without Runtime data access.",
+      "budget": "Timers are limited to mounted demos, user feedback, or a finite recording; no network/database work.",
+      "tests": [],
+      "sites": [
+        {"scope": "later", "api": "setTimeout", "delay": "1000", "loops": 0},
+        {"scope": "ComponentsShowcase", "api": "setInterval", "delay": "600", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/ui-design/src/ConnectionNoticeShowcase.tsx",
+      "reason": "Interactive design examples simulate UI transitions without Runtime data access.",
+      "budget": "Timers are limited to mounted demos, user feedback, or a finite recording; no network/database work.",
+      "tests": [],
+      "sites": [
+        {"scope": "ConnectionNoticeShowcase", "api": "setTimeout", "delay": "1800", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/ui-design/src/LogoConnectionShowcase.tsx",
+      "reason": "Interactive design examples simulate UI transitions without Runtime data access.",
+      "budget": "Timers are limited to mounted demos, user feedback, or a finite recording; no network/database work.",
+      "tests": [],
+      "sites": [
+        {"scope": "LogoConnectionShowcase", "api": "setTimeout", "delay": "2400", "loops": 0},
+        {"scope": "LogoConnectionShowcase", "api": "setTimeout", "delay": "state === 'disconnected' ? 1600 : 3200", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/ui-design/src/MessageComposer.tsx",
+      "reason": "Interactive design examples simulate UI transitions without Runtime data access.",
+      "budget": "Timers are limited to mounted demos, user feedback, or a finite recording; no network/database work.",
+      "tests": [],
+      "sites": [
+        {"scope": "voice", "api": "setTimeout", "delay": "60000", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/ui-design/src/interface-demo.ts",
+      "reason": "Interactive design examples simulate UI transitions without Runtime data access.",
+      "budget": "Timers are limited to mounted demos, user feedback, or a finite recording; no network/database work.",
+      "tests": [],
+      "sites": [
+        {"scope": "useInterfaceDemo", "api": "setTimeout", "delay": "650", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/website/src/AgentInstall.tsx",
+      "reason": "Public-site copy feedback, scroll affordances, and presentation animation are local UI state.",
+      "budget": "Finite feedback delay or visible animation only; no Runtime API requests.",
+      "tests": [],
+      "sites": [
+        {"scope": "AgentInstall", "api": "setTimeout", "delay": "2000", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/website/src/DocsPrompt.tsx",
+      "reason": "Public-site copy feedback, scroll affordances, and presentation animation are local UI state.",
+      "budget": "Finite feedback delay or visible animation only; no Runtime API requests.",
+      "tests": [],
+      "sites": [
+        {"scope": "DocsPrompt", "api": "setTimeout", "delay": "2500", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/website/src/InstallCommand.tsx",
+      "reason": "Public-site copy feedback, scroll affordances, and presentation animation are local UI state.",
+      "budget": "Finite feedback delay or visible animation only; no Runtime API requests.",
+      "tests": [],
+      "sites": [
+        {"scope": "InstallCommand", "api": "setTimeout", "delay": "2000", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/website/src/StatusMessage.tsx",
+      "reason": "Public-site copy feedback, scroll affordances, and presentation animation are local UI state.",
+      "budget": "Finite feedback delay or visible animation only; no Runtime API requests.",
+      "tests": [],
+      "sites": [
+        {"scope": "restart", "api": "setInterval", "delay": "5200", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/website/src/use-scroll-activity.ts",
+      "reason": "Public-site copy feedback, scroll affordances, and presentation animation are local UI state.",
+      "budget": "Finite feedback delay or visible animation only; no Runtime API requests.",
+      "tests": [],
+      "sites": [
+        {"scope": "onScroll", "api": "setTimeout", "delay": "700", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/administration/UsageAnalytics.tsx",
+      "reason": "Search text input is debounced before a request.",
+      "budget": "One 250ms delay per input burst; cancel superseded/unmounted searches.",
+      "tests": [],
+      "sites": [
+        {"scope": "UsageAnalytics", "api": "setTimeout", "delay": "250", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/auth-device.ts",
+      "reason": "Same-origin tabs maintain exclusive use of a device session.",
+      "budget": "30s local lease heartbeat while held; close timer when the session/tab releases ownership.",
+      "tests": [],
+      "sites": [
+        {"scope": "acquire", "api": "setInterval", "delay": "30000", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/batch-topics.ts",
+      "reason": "Committed UI events are coalesced within a bounded batch window.",
+      "budget": "No timer without an event; quiet-window and maximum-wait timers flush a pending batch only.",
+      "tests": [],
+      "sites": [
+        {"scope": "add", "api": "setTimeout", "delay": "delay", "loops": 0},
+        {"scope": "add", "api": "setTimeout", "delay": "maxWait", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/error-toasts.tsx",
+      "reason": "Pending/error/loading feedback and scrollbar fading are local UI presentation.",
+      "budget": "Only local state updates while feedback is pending; no timer-triggered API reads.",
+      "tests": [],
+      "sites": [
+        {"scope": "sync", "api": "setTimeout", "delay": "Math.min(1000, source.retryAt - Date.now())", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/interfaces/official/components/common.tsx",
+      "reason": "Pending/error/loading feedback and scrollbar fading are local UI presentation.",
+      "budget": "Only local state updates while feedback is pending; no timer-triggered API reads.",
+      "tests": [],
+      "sites": [
+        {"scope": "Loading", "api": "setTimeout", "delay": "delay", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/interfaces/official/features/Browser.tsx",
+      "reason": "Active browser tabs/component preparation change outside the application event stream; input and resize are paced.",
+      "budget": "Idle browser cadence is false; 2s only while active/preparing; reconnect and input waits cancel when hidden/closed.",
+      "tests": ["apps/webui/tests/browser-panel.spec.ts", "apps/webui/tests/browser-input.spec.ts"],
+      "sites": [
+        {"scope": "Browser", "api": "useQuery", "delay": "2000", "loops": 0},
+        {"scope": "Browser", "api": "useQuery", "delay": "useCallback((data?: BrowserStatus) => data?.Task || data?.Preparation?.state === 'installing' ? 2000 : false, [])", "loops": 0},
+        {"scope": "input", "api": "setTimeout", "delay": "nextInputAt.current - performance.now()", "loops": 1},
+        {"scope": "connect", "api": "setTimeout", "delay": "2000", "loops": 0},
+        {"scope": "measure", "api": "setTimeout", "delay": "200", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/interfaces/official/features/ChatTools.tsx",
+      "reason": "Active browser tabs/component preparation change outside the application event stream; input and resize are paced.",
+      "budget": "Idle browser cadence is false; 2s only while active/preparing; reconnect and input waits cancel when hidden/closed.",
+      "tests": ["apps/webui/tests/browser-panel.spec.ts", "apps/webui/tests/browser-input.spec.ts"],
+      "sites": [
+        {"scope": "BrowserButton", "api": "useQueryValue", "delay": "useCallback((data?: BrowserStatus) => data?.Task ? 2000 : false, [])", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/interfaces/official/features/ExecutionOptions.tsx",
+      "reason": "Visible duration labels and calendar time indicators advance with wall-clock time.",
+      "budget": "Local calculations only (1s/30s/250ms respectively); release on unmount; no periodic API reads.",
+      "tests": [],
+      "sites": [
+        {"scope": "useExecutionOptions", "api": "setInterval", "delay": "1000", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/interfaces/official/features/LoginLinksSettings.tsx",
+      "reason": "Login-link status changes at the known expiry boundary.",
+      "budget": "One timer for the earliest displayed expiry; remove expired/unmounted timers.",
+      "tests": [],
+      "sites": [
+        {"scope": "sync", "api": "setTimeout", "delay": "Math.min(next - current, 2147483647)", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/interfaces/official/features/PlanWeekCalendar.tsx",
+      "reason": "Visible duration labels and calendar time indicators advance with wall-clock time.",
+      "budget": "Local calculations only (1s/30s/250ms respectively); release on unmount; no periodic API reads.",
+      "tests": [],
+      "sites": [
+        {"scope": "PlanWeekCalendar", "api": "setInterval", "delay": "30000", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/interfaces/official/features/QQChannel.tsx",
+      "reason": "An external login/QR handshake has no application event until pairing completes.",
+      "budget": "Poll only a pending pairing; stop at success, expiry, permanent error, or unmount; shared poller prevents overlap.",
+      "tests": [],
+      "sites": [
+        {"scope": "QQChannel", "api": "setTimeout", "delay": "Math.max(0, Date.parse(login.ExpiresAt) - Date.now())", "loops": 0},
+        {"scope": "QQChannel", "api": "poll", "delay": "async (signal) => { try { const next = await api.read<QQLogin>('/api/qq/poll', { AssistantID: assistant.ID, ID: login.ID }, signal); if (signal.aborted) return false; setError(null); setLogin(next); if (next.Status !== 'waiting') { changed(); return false; } return 2000; } catch (err) { if (!signal.aborted) setError(err); throw err; } }", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/interfaces/official/features/Search.tsx",
+      "reason": "Search text input is debounced before a request.",
+      "budget": "One 250ms delay per input burst; cancel superseded/unmounted searches.",
+      "tests": [],
+      "sites": [
+        {"scope": "Search", "api": "setTimeout", "delay": "250", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/interfaces/official/features/SecurityVerificationSettings.tsx",
+      "reason": "The browser needs a short grace interval before releasing a downloaded object URL.",
+      "budget": "One 1s object-URL cleanup per user download; no recurring requests.",
+      "tests": [],
+      "sites": [
+        {"scope": "download", "api": "setTimeout", "delay": "1000", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/interfaces/official/features/ShellTasks.tsx",
+      "reason": "A visible output archive may grow without a domain event for every byte.",
+      "budget": "Active visible output backs off from 1.5s to 15s when empty; stop at EOF, hide, or unmount.",
+      "tests": ["apps/webui/tests/shell-polling.spec.ts"],
+      "sites": [
+        {"scope": "ShellTasks", "api": "poll", "delay": "async (signal) => { try { const data = await api.read<ShellTaskOutput>(path, { action: 'read', task_id: selected, cursor: cursor.current, stream }, signal); if (signal.aborted) return false; setError(false); cursor.current = data.NextCursor; setOutput(previous => (previous + plain(data.Output)).slice(-65536)); const finished = taskState.current && taskState.current.State !== 'running'; if (finished && data.Finished === true && !data.Output) { loop.stop(); return false; } idleDelay = data.Output ? 1500 : Math.min(15000, idleDelay * 2); return finished && !data.Finished && !data.Output ? 30000 : idleDelay; } catch (error) { if (!signal.aborted) setError(true); throw error; } }", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/interfaces/official/features/TerminalSession.tsx",
+      "reason": "Terminal input is paced and a dropped byte stream must reconnect.",
+      "budget": "Input/resize batching and bounded reconnect backoff only while the terminal is visible/alive.",
+      "tests": ["apps/webui/tests/terminal-control.spec.ts"],
+      "sites": [
+        {"scope": "enqueue", "api": "setTimeout", "delay": "Math.max(0, nextInput.current - performance.now())", "loops": 0},
+        {"scope": "input", "api": "setTimeout", "delay": "150", "loops": 0},
+        {"scope": "TerminalSession", "api": "setTimeout", "delay": "200", "loops": 0},
+        {"scope": "stream", "api": "setTimeout", "delay": "Math.min(30000, 2000 * 2 ** Math.min(failures++, 4))", "loops": 1}
+      ]
+    },
+    {
+      "file": "apps/webui/src/interfaces/official/features/TurnInformation.tsx",
+      "reason": "Visible duration labels and calendar time indicators advance with wall-clock time.",
+      "budget": "Local calculations only (1s/30s/250ms respectively); release on unmount; no periodic API reads.",
+      "tests": [],
+      "sites": [
+        {"scope": "TurnDetails", "api": "setInterval", "delay": "250", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/interfaces/official/features/plan-events.ts",
+      "reason": "The shared request coordinator serializes event-triggered reads.",
+      "budget": "Return false after a successful read; zero successful idle polling; failed requests may back off.",
+      "tests": ["apps/webui/tests/query-invalidation.spec.ts", "apps/webui/tests/polling.spec.ts"],
+      "sites": [
+        {"scope": "usePlanPages", "api": "poll", "delay": "async (signal) => { try { const items: T[] = []; let cursor = ''; for (let i = 0; i < count; i++) { const page = decode(await api.get<P>(path + (cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''), signal)); items.push(...page.Items); cursor = page.NextCursor; if (!cursor) break; } if (!signal.aborted) setState({ path, items, more: !!cursor, loading: false }); } catch (error) { if (!signal.aborted) setState(old => ({ ...old, error, loading: false })); throw error; } return false; }", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/interfaces/official/features/use-channel-pairing.ts",
+      "reason": "An external login/QR handshake has no application event until pairing completes.",
+      "budget": "Poll only a pending pairing; stop at success, expiry, permanent error, or unmount; shared poller prevents overlap.",
+      "tests": [],
+      "sites": [
+        {"scope": "usePairingPoll", "api": "setTimeout", "delay": "Math.max(0, Date.parse(login.ExpiresAt) - Date.now())", "loops": 0},
+        {"scope": "usePairingPoll", "api": "poll", "delay": "async (signal) => { try { const next = await callbacks.current.read(signal); if (signal.aborted) return false; setError(null); return callbacks.current.receive(next); } catch (error) { if (!signal.aborted) setError(error); throw error; } }", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/interfaces/official/features/use-trajectory.ts",
+      "reason": "The shared request coordinator serializes event-triggered reads.",
+      "budget": "Return false after a successful read; zero successful idle polling; failed requests may back off.",
+      "tests": ["apps/webui/tests/query-invalidation.spec.ts", "apps/webui/tests/polling.spec.ts"],
+      "sites": [
+        {"scope": "useTrajectory", "api": "poll", "delay": "async () => { await enqueue(async () => { if (!current.head) { const page = await request(); receive(page); commit({ older: page.NextCursor, head: page.HeadCursor, loading: false }); return; } let after = current.head; do { const page = await request('', after); if (controller.signal.aborted) return; receive(page); commit({ head: page.HeadCursor, loading: false }); after = page.NextCursor; } while (after); }); return false; }", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/interfaces/official/features/workspace-files/useWorkspaceDirectory.ts",
+      "reason": "External programs can change workspace files without a Runtime commit event.",
+      "budget": "Only the visible directory/document reconciles; 5s cadence, serial requests, cancel when hidden/offline/unmounted.",
+      "tests": [],
+      "sites": [
+        {"scope": "useWorkspaceDirectory", "api": "poll", "delay": "async (signal) => { const { listing, busy } = current.current; try { if (!busy && (!listing || !listing.Truncated && listing.Entries.length <= 100)) await read(false, false, signal); } catch (error) { halted.current = retryDelay(error, 1) === false; throw error; } return refreshInterval; }", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/interfaces/official/features/workspace-files/useWorkspaceDocument.ts",
+      "reason": "External programs can change workspace files without a Runtime commit event.",
+      "budget": "Only the visible directory/document reconciles; 5s cadence, serial requests, cancel when hidden/offline/unmounted.",
+      "tests": [],
+      "sites": [
+        {"scope": "useWorkspaceDocument", "api": "poll", "delay": "async (signal) => { try { if (!latest.current.busy) await read(selected, true, false, signal); } catch (error) { halted.current = retryDelay(error, 1) === false; throw error; } return 5000; }", "loops": 0},
+        {"scope": "useWorkspaceDocument", "api": "query.reschedule", "delay": "5000", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/maintenance/Components.tsx",
+      "reason": "An active install/update job progresses outside normal application events.",
+      "budget": "1–2s while the progress view is mounted and operation active; release subscriptions when closed.",
+      "tests": [],
+      "sites": [
+        {"scope": "MaintenanceProgress", "api": "useQuery", "delay": "1000", "loops": 0},
+        {"scope": "Components", "api": "useQuery", "delay": "2000", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/notifications/browser.ts",
+      "reason": "Browser APIs and plugin readiness have finite operation deadlines.",
+      "budget": "One timeout per operation (10s or 1.2s audio unlock); no repeating database/status checks.",
+      "tests": [],
+      "sites": [
+        {"scope": "worker", "api": "setTimeout", "delay": "10000", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/notifications/provider.tsx",
+      "reason": "Notifications reconcile missed events and coordinate active/background presentation.",
+      "budget": "One successful notice initialization; hidden-tab badge reconciliation every 30s, plus coalesced committed events. Stop background reconciliation when visible; cancel on session teardown.",
+      "tests": ["apps/webui/tests/notifications.spec.ts", "apps/webui/tests/notification-claims.spec.ts"],
+      "sites": [
+        {"scope": "NotificationProvider", "api": "poll", "delay": "async (signal) => { const items = await api.all<SystemNotice>('/api/notifications?filter=active', signal); if (!signal.aborted && active) noticeBaseline = new Set(items.map(item => item.ID)); noticeInitialization.stop(); return false; }", "loops": 0},
+        {"scope": "event", "api": "setTimeout", "delay": "focused() ? 350 : 650", "loops": 0},
+        {"scope": "visibility", "api": "poll", "delay": "async (signal) => { if (!hidden()) return false; const items = await api.all<Conversation>('/api/conversations', signal); if (active && !signal.aborted && hidden()) await update(conversationUnread(items)); return 30000; }", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/notifications/sound.ts",
+      "reason": "Browser APIs and plugin readiness have finite operation deadlines.",
+      "budget": "One timeout per operation (10s or 1.2s audio unlock); no repeating database/status checks.",
+      "tests": [],
+      "sites": [
+        {"scope": "unlock", "api": "setTimeout", "delay": "1200", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/plugins/PluginFrame.tsx",
+      "reason": "Browser APIs and plugin readiness have finite operation deadlines.",
+      "budget": "One timeout per operation (10s or 1.2s audio unlock); no repeating database/status checks.",
+      "tests": [],
+      "sites": [
+        {"scope": "PluginFrame", "api": "setTimeout", "delay": "10000", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/polling.ts",
+      "reason": "Centralized request scheduling enforces explicit cadences, visibility, cancellation, and error backoff.",
+      "budget": "Zero interval means event-only; no overlap; pause hidden/offline except explicit background callers; default policy and overrides are reviewed.",
+      "tests": ["scripts/test-polling-behavior.mjs", "apps/webui/tests/polling.spec.ts"],
+      "sites": [
+        {"scope": "<module>", "api": "polling.retry-policy", "delay": "export function retryDelay(error: unknown, failures: number): PollDelay { if (error instanceof APIError && [400, 401, 403, 404].includes(error.status)) return false; return Math.max(Math.min(60000, 2000 * 2 ** Math.min(failures - 1, 5)), error instanceof APIError ? error.retryAt - Date.now() : 0); }", "loops": 0},
+        {"scope": "schedule", "api": "setTimeout", "delay": "Math.max(0, delay)", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/query-policy.ts",
+      "reason": "Centralized request scheduling enforces explicit cadences, visibility, cancellation, and error backoff.",
+      "budget": "Zero interval means event-only; no overlap; pause hidden/offline except explicit background callers; default policy and overrides are reviewed.",
+      "tests": ["scripts/test-polling-behavior.mjs", "apps/webui/tests/polling.spec.ts"],
+      "sites": [
+        {"scope": "<module>", "api": "query.policy", "delay": "export function queryInterval(path: string): QueryInterval { const url = path.split('?')[0]; if (url === '/api/status' || /\\/debug\\/runs\\/[^/]+\\/steps\\//.test(url) || /^\\/api\\/files\\/[^/]+$/.test(url)) return 0; if (['/api/account/quotas', '/api/admin/usage', '/api/account/usage', '/api/admin/usage/analytics', '/api/resource-usage'].includes(url)) return 30000; if (/\\/assistants\\/[^/]+\\/(status|shell-tasks)$/.test(url)) return 0; if (url === '/api/dreams') return data => Array.isArray(data) && data.some(run => [run.State, run.SessionState].some(state => ['queued', 'running', 'committing'].includes(state))) ? 5000 : 30000; if (/^\\/api\\/(settings|models|plugins|resources|grants|sandboxes|tools|setup|auth|admin|account)(\\/|$)/.test(url) || url.endsWith('/capabilities') || url === '/api/dreams/config') return 300000; if (/^\\/api\\/(debug\\/runs|tasks|operations)\\/[^/]+$/.test(url)) return data => data && typeof data === 'object' && 'State' in data && ['completed', 'succeeded', 'failed', 'canceled', 'interrupted', 'stopped'].includes(String(data.State)) ? false : 30000; return 30000; }", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/query-store.ts",
+      "reason": "Centralized request scheduling enforces explicit cadences, visibility, cancellation, and error backoff.",
+      "budget": "Zero interval means event-only; no overlap; pause hidden/offline except explicit background callers; default policy and overrides are reviewed.",
+      "tests": ["scripts/test-polling-behavior.mjs", "apps/webui/tests/polling.spec.ts"],
+      "sites": [
+        {"scope": "<module>", "api": "query.default", "delay": "0", "loops": 0},
+        {"scope": "subscribe", "api": "query.reschedule", "delay": "this.interval(entry)", "loops": 0},
+        {"scope": "subscribe", "api": "query.reschedule", "delay": "this.interval(entry)", "loops": 0},
+        {"scope": "refresh", "api": "poll", "delay": "async (signal) => { const requested = entry.requested, refresh = entry.refreshOnce ?? false; entry.refreshOnce = false; entry.fetching = true; this.emit(entry, { ...entry.snapshot, loading: true, started: true }); try { const data = await entry.loader!(signal, refresh); if (!signal.aborted) this.emit(entry, { data: shareJSON(entry.snapshot.data, data), loading: false, started: true }); } catch (error) { if (!signal.aborted) { const inaccessible = error instanceof APIError && [401, 403, 404].includes(error.status); this.emit(entry, { data: inaccessible ? undefined : entry.snapshot.data, error, loading: false, started: true }); } throw error; } finally { if (!signal.aborted) { entry.fetching = false; entry.revision = requested; } } return this.interval(entry); }", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/scrollbars.tsx",
+      "reason": "Pending/error/loading feedback and scrollbar fading are local UI presentation.",
+      "budget": "Only local state updates while feedback is pending; no timer-triggered API reads.",
+      "tests": [],
+      "sites": [
+        {"scope": "hideLater", "api": "setTimeout", "delay": "1000", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/state.tsx",
+      "reason": "Centralized request scheduling enforces explicit cadences, visibility, cancellation, and error backoff.",
+      "budget": "Zero interval means event-only; no overlap; pause hidden/offline except explicit background callers; default policy and overrides are reviewed.",
+      "tests": ["scripts/test-polling-behavior.mjs", "apps/webui/tests/polling.spec.ts"],
+      "sites": [
+        {"scope": "SessionProvider", "api": "poll", "delay": "async () => { await refresh(false, false, true); return 30000; }", "loops": 0},
+        {"scope": "SessionProvider", "api": "query.reschedule", "delay": "30000", "loops": 0},
+        {"scope": "useQuerySubscription", "api": "query.subscribe", "delay": "cadence as QueryInterval", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/turn-metrics-cache.ts",
+      "reason": "Metrics can finalize after the conversation message itself is delivered.",
+      "budget": "2s only while there are listeners and metrics are unfinished; stop on finalization/error/unsubscribe.",
+      "tests": [],
+      "sites": [
+        {"scope": "refresh", "api": "setTimeout", "delay": "2000", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/updates/AboutUpdates.tsx",
+      "reason": "Desktop/update versions and external release sources need low-frequency reconciliation.",
+      "budget": "5min check cadence while visible/mounted; retry countdown updates are local UI only.",
+      "tests": ["apps/webui/tests/updates.spec.ts"],
+      "sites": [
+        {"scope": "VersionEntry", "api": "poll", "delay": "async () => { await updates.check(true); return 300000; }", "loops": 0},
+        {"scope": "VersionDetails", "api": "setTimeout", "delay": "Math.min(1000, Math.max(0, retryAt - Date.now()) + 20)", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/updates/ServiceRelease.tsx",
+      "reason": "An active install/update job progresses outside normal application events.",
+      "budget": "1–2s while the progress view is mounted and operation active; release subscriptions when closed.",
+      "tests": [],
+      "sites": [
+        {"scope": "ServiceRelease", "api": "useQuery", "delay": "2000", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/updates/provider.tsx",
+      "reason": "Desktop/update versions and external release sources need low-frequency reconciliation.",
+      "budget": "5min check cadence while visible/mounted; retry countdown updates are local UI only.",
+      "tests": ["apps/webui/tests/updates.spec.ts"],
+      "sites": [
+        {"scope": "useUpdateState", "api": "setInterval", "delay": "300000", "loops": 0},
+        {"scope": "useUpdateState", "api": "useQuery", "delay": "300000", "loops": 0}
+      ]
+    },
+    {
+      "file": "apps/webui/src/use-chat-history.ts",
+      "reason": "The shared request coordinator serializes event-triggered reads.",
+      "budget": "Return false after a successful read; zero successful idle polling; failed requests may back off.",
+      "tests": ["apps/webui/tests/query-invalidation.spec.ts", "apps/webui/tests/polling.spec.ts"],
+      "sites": [
+        {"scope": "useChatHistory", "api": "poll", "delay": "async () => { refreshPending = true; await drain(); return false; }", "loops": 0}
+      ]
+    },
+    {
+      "file": "packages/sdk/src/events.ts",
+      "reason": "External SSE transport can disconnect without delivering application events.",
+      "budget": "Bounded handshake/silence deadlines and reconnect backoff; cancel on unsubscribe.",
+      "tests": ["packages/sdk/tests/events.test.mjs"],
+      "sites": [
+        {"scope": "schedule", "api": "setTimeout", "delay": "delay", "loops": 0},
+        {"scope": "armDeadline", "api": "setTimeout", "delay": "20000", "loops": 0},
+        {"scope": "connect", "api": "setTimeout", "delay": "2400", "loops": 0}
+      ]
+    },
+    {
+      "file": "packages/sdk/src/plugin-host.ts",
+      "reason": "Plugin handshake and individual RPC calls must time out.",
+      "budget": "One timeout per outstanding handshake/RPC; no repeating status query.",
+      "tests": [],
+      "sites": [
+        {"scope": "call", "api": "setTimeout", "delay": "method === 'connections.test' ? 65000 : timeout", "loops": 0},
+        {"scope": "connectPlugin", "api": "setTimeout", "delay": "10000", "loops": 0}
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/ChatCopyButton.tsx",
+      "reason": "Shared visual feedback, hover/visibility transitions, and daily logo state are local presentation.",
+      "budget": "No network/database work; dispose timers when interaction, visibility, or component lifetime ends.",
+      "tests": [],
+      "sites": [
+        {"scope": "ChatCopyButton", "api": "setTimeout", "delay": "2500", "loops": 0}
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/ChatFeedback.tsx",
+      "reason": "Shared visual feedback, hover/visibility transitions, and daily logo state are local presentation.",
+      "budget": "No network/database work; dispose timers when interaction, visibility, or component lifetime ends.",
+      "tests": [],
+      "sites": [
+        {"scope": "ChatFeedback", "api": "setTimeout", "delay": "600", "loops": 0}
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/InteractiveLogo.tsx",
+      "reason": "Shared visual feedback, hover/visibility transitions, and daily logo state are local presentation.",
+      "budget": "No network/database work; dispose timers when interaction, visibility, or component lifetime ends.",
+      "tests": [],
+      "sites": [
+        {"scope": "sync", "api": "setInterval", "delay": "150", "loops": 0}
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/Popover.tsx",
+      "reason": "Shared visual feedback, hover/visibility transitions, and daily logo state are local presentation.",
+      "budget": "No network/database work; dispose timers when interaction, visibility, or component lifetime ends.",
+      "tests": [],
+      "sites": [
+        {"scope": "show", "api": "setTimeout", "delay": "delay", "loops": 0},
+        {"scope": "hideWhenIdle", "api": "setTimeout", "delay": "120", "loops": 0}
+      ]
+    },
+    {
+      "file": "packages/ui/src/components/Toast.tsx",
+      "reason": "Shared visual feedback, hover/visibility transitions, and daily logo state are local presentation.",
+      "budget": "No network/database work; dispose timers when interaction, visibility, or component lifetime ends.",
+      "tests": [],
+      "sites": [
+        {"scope": "ToastItem", "api": "setTimeout", "delay": "Math.max(0, remaining.current)", "loops": 0}
+      ]
+    },
+    {
+      "file": "packages/ui/src/logo-daily.ts",
+      "reason": "Shared visual feedback, hover/visibility transitions, and daily logo state are local presentation.",
+      "budget": "No network/database work; dispose timers when interaction, visibility, or component lifetime ends.",
+      "tests": [],
+      "sites": [
+        {"scope": "synchronize", "api": "setTimeout", "delay": "boundary.getTime() - now.getTime() + 50", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/agent/delivery.go",
+      "reason": "Committed work wakes the scheduler; timers wait for the nearest persisted deadline or bounded failure retry.",
+      "budget": "No periodic work when the queue is idle; cancel waits on shutdown.",
+      "tests": ["runtime/internal/agent/scheduler/tick_wakeup_test.go", "runtime/internal/agent/delivery_wakeup_test.go"],
+      "sites": [
+        {"scope": "(*Engine).watchInterrupts", "api": "time.NewTimer", "delay": "next.Sub(e.options.Now()) [next=e.options.Now().Add(time.Second)]", "loops": 1}
+      ]
+    },
+    {
+      "file": "runtime/internal/agent/scheduler/service.go",
+      "reason": "Committed work wakes the scheduler; timers wait for the nearest persisted deadline or bounded failure retry.",
+      "budget": "No periodic work when the queue is idle; cancel waits on shutdown.",
+      "tests": ["runtime/internal/agent/scheduler/tick_wakeup_test.go", "runtime/internal/agent/delivery_wakeup_test.go"],
+      "sites": [
+        {"scope": "NewService", "api": "policy.TickInterval", "delay": "time.Second", "loops": 0},
+        {"scope": "waitForWork", "api": "time.NewTimer", "delay": "at.Sub(now)", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/api/debug_routes.go",
+      "reason": "SSE transport heartbeats and credential expiry deadlines keep established streams bounded.",
+      "budget": "Heartbeat writes only (10s debug, 15s events); identity reads wake on changes or expiry, not heartbeat ticks.",
+      "tests": ["runtime/internal/api/debug_stream_idle_test.go", "runtime/internal/api/stream_idle_test.go"],
+      "sites": [
+        {"scope": "(*HTTPServer).debugStream", "api": "time.NewTimer", "delay": "remaining [identity=s.services.Auth.WatchPrincipal(principal(r))] [remaining=identity.Check(r.Context()); identity.Check(r.Context())]", "loops": 0},
+        {"scope": "(*HTTPServer).debugStream", "api": "time.NewTicker", "delay": "10 * time.Second", "loops": 0},
+        {"scope": "(*HTTPServer).debugStream", "api": "timer.Reset", "delay": "remaining [identity=s.services.Auth.WatchPrincipal(principal(r))] [remaining=identity.Check(r.Context()); identity.Check(r.Context())]", "loops": 1}
+      ]
+    },
+    {
+      "file": "runtime/internal/api/server.go",
+      "reason": "SSE transport heartbeats and credential expiry deadlines keep established streams bounded.",
+      "budget": "Heartbeat writes only (10s debug, 15s events); identity reads wake on changes or expiry, not heartbeat ticks.",
+      "tests": ["runtime/internal/api/debug_stream_idle_test.go", "runtime/internal/api/stream_idle_test.go"],
+      "sites": [
+        {"scope": "(*HTTPServer).sse", "api": "time.NewTicker", "delay": "15 * time.Second", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/app/build.go",
+      "reason": "Production composition must supply committed authorization watches and scheduler wake/deadline capabilities.",
+      "budget": "The guard rejects missing/nil capabilities even if an inventory entry is added; 100ms/1s generic fallback loops must not be activated by production wiring.",
+      "tests": ["runtime/internal/api/stream_idle_test.go", "runtime/internal/agent/scheduler/tick_wakeup_test.go"],
+      "sites": [
+        {"scope": "Build", "api": "wiring.realtime.NewFeed", "delay": "WatchAuthorization", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/app/build_scheduler.go",
+      "reason": "Production composition must supply committed authorization watches and scheduler wake/deadline capabilities.",
+      "budget": "The guard rejects missing/nil capabilities even if an inventory entry is added; 100ms/1s generic fallback loops must not be activated by production wiring.",
+      "tests": ["runtime/internal/api/stream_idle_test.go", "runtime/internal/agent/scheduler/tick_wakeup_test.go"],
+      "sites": [
+        {"scope": "(*Bundle).buildScheduler", "api": "wiring.scheduler.NewService", "delay": "TickSignals+NextTick", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/app/shell_output.go",
+      "reason": "Remote output observation is a server-side long wait.",
+      "budget": "Wake on changed output or a 10s transport timeout; no repeated archive reads inside the wait.",
+      "tests": ["runtime/internal/app/shell_remote_test.go"],
+      "sites": [
+        {"scope": "(*shellOutputBudget).observe", "api": "time.NewTimer", "delay": "10 * time.Second", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/app/shell_remote.go",
+      "reason": "Remote startup and transient transport errors need retries until output observation becomes available.",
+      "budget": "Back off from 100ms to 5s only during startup/failure; healthy output uses a revision wait; cancel on task end.",
+      "tests": ["runtime/internal/app/shell_remote_test.go"],
+      "sites": [
+        {"scope": "observeRemoteShell", "api": "time.NewTimer", "delay": "backoff [backoff=100 * time.Millisecond; 100 * time.Millisecond; min(backoff*2, 5*time.Second)]", "loops": 1}
+      ]
+    },
+    {
+      "file": "runtime/internal/app/watch_runtime.go",
+      "reason": "Watch protocol reads wake on output and completion; deadlines enforce startup and configured health.",
+      "budget": "No periodic output reads when idle; one startup deadline and nearest health deadline.",
+      "tests": ["runtime/internal/app/watch_integration_linux_test.go"],
+      "sites": [
+        {"scope": "(*watchRuntime).pump", "api": "time.NewTimer", "delay": "30 * time.Second", "loops": 0},
+        {"scope": "(*watchRuntime).pump", "api": "timer.Reset", "delay": "max(time.Until(started.Add(30*time.Second)), time.Nanosecond) [started=time.Now()]", "loops": 1},
+        {"scope": "(*watchRuntime).pump", "api": "timer.Reset", "delay": "max(time.Until(healthy.Add(time.Duration(w.Watcher.HealthSeconds)*time.Second)), time.Nanosecond) [healthy=started; time.Now()] [started=time.Now()]", "loops": 1}
+      ]
+    },
+    {
+      "file": "runtime/internal/auth/gc.go",
+      "reason": "Retention cleanup has time-based work even without user changes.",
+      "budget": "Auth cleanup: hourly, 500 records/batch; context cleanup: once/minute, 200 records/batch; 1s continuation only after a full batch; stop with Runtime.",
+      "tests": ["runtime/internal/auth/devices_test.go"],
+      "sites": [
+        {"scope": "(*Manager).RunGC", "api": "time.NewTimer", "delay": "0", "loops": 0},
+        {"scope": "(*Manager).RunGC", "api": "timer.Reset", "delay": "delay [delay=time.Hour; time.Second]", "loops": 1}
+      ]
+    },
+    {
+      "file": "runtime/internal/contextstore/gc.go",
+      "reason": "Retention cleanup has time-based work even without user changes.",
+      "budget": "Auth cleanup: hourly, 500 records/batch; context cleanup: once/minute, 200 records/batch; 1s continuation only after a full batch; stop with Runtime.",
+      "tests": ["runtime/internal/contextstore/gc_test.go"],
+      "sites": [
+        {"scope": "RunGC", "api": "time.NewTimer", "delay": "0", "loops": 0},
+        {"scope": "RunGC", "api": "timer.Reset", "delay": "delay [delay=time.Minute; time.Second]", "loops": 1}
+      ]
+    },
+    {
+      "file": "runtime/internal/im/channelworker/worker.go",
+      "reason": "Channel bindings, deliveries, and credentials use committed notifications with deadlines and bounded recovery.",
+      "budget": "No idle database reads; time waits only for expiry, due work, or recovery after an error.",
+      "tests": ["runtime/internal/im/channelworker/worker_test.go"],
+      "sites": [
+        {"scope": "observe", "api": "time.NewTimer", "delay": "time.Hour", "loops": 0},
+        {"scope": "observe", "api": "timer.Reset", "delay": "time.Until(info.Expires) [b=persistence.Load[B](ctx, o.Store, o.Bucket, persistence.Key(ref.OwnerID, ref.ConversationID))] [info=o.Describe(b)]", "loops": 1},
+        {"scope": "observe", "api": "time.After", "delay": "time.Second", "loops": 1},
+        {"scope": "runWork", "api": "time.NewTimer", "delay": "time.Hour", "loops": 0},
+        {"scope": "runWork", "api": "timer.Reset", "delay": "time.Until(deadline) [b=persistence.Load[B](ctx, o.Store, o.Bucket, persistence.Key(ref.OwnerID, ref.ConversationID))] [backoff=time.Second; min(backoff*2, time.Minute); time.Second] [deadline=o.Step(ctx, b); time.Now().Add(backoff)]", "loops": 1}
+      ]
+    },
+    {
+      "file": "runtime/internal/im/dingtalk/worker.go",
+      "reason": "Provider transport retry waits are cancelable; deliveries use committed work notifications.",
+      "budget": "Wait only for failed external work/backoff or credential expiry; no idle delivery discovery polling.",
+      "tests": ["runtime/internal/im/dingtalk/idle_test.go"],
+      "sites": [
+        {"scope": "sleep", "api": "time.NewTimer", "delay": "d", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/im/feishu/worker.go",
+      "reason": "Provider transport retry waits are cancelable; deliveries use committed work notifications.",
+      "budget": "Wait only for failed external work/backoff or credential expiry; no idle delivery discovery polling.",
+      "tests": ["runtime/internal/im/feishu/idle_test.go"],
+      "sites": [
+        {"scope": "sleep", "api": "time.NewTimer", "delay": "d", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/im/qq/client.go",
+      "reason": "The external gateway requires protocol heartbeats.",
+      "budget": "One gateway-specified heartbeat per active connection; cancel when that connection ends.",
+      "tests": [],
+      "sites": [
+        {"scope": "(HTTPClient).listenSession", "api": "time.NewTicker", "delay": "interval [interval=time.Duration(heartbeat.Interval) * time.Millisecond]", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/im/qq/worker.go",
+      "reason": "Provider transport retry waits are cancelable; deliveries use committed work notifications.",
+      "budget": "Wait only for failed external work/backoff or credential expiry; no idle delivery discovery polling.",
+      "tests": [],
+      "sites": [
+        {"scope": "sleep", "api": "time.NewTimer", "delay": "d", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/im/realtime/feed.go",
+      "reason": "Store-backed authorization uses watches and expiry; the generic feed retains a fallback for authorizers without notifications.",
+      "budget": "Zero idle checks for production watch-backed authorization; fallback interval applies only when no watch capability is supplied.",
+      "tests": ["runtime/internal/im/realtime/auth_watch_test.go"],
+      "sites": [
+        {"scope": "NewFeed", "api": "policy.AuthorizationInterval", "delay": "100 * time.Millisecond", "loops": 0},
+        {"scope": "(*subscription).waitAuthorization", "api": "time.NewTimer", "delay": "time.Hour", "loops": 0},
+        {"scope": "(*subscription).waitAuthorization", "api": "timer.Reset", "delay": "remaining [remaining=s.authorization.Check(ctx)]", "loops": 1},
+        {"scope": "(*subscription).pollAuthorization", "api": "time.NewTicker", "delay": "s.feed.options.AuthorizationInterval", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/im/slack/worker.go",
+      "reason": "Provider transport retry waits are cancelable; deliveries use committed work notifications.",
+      "budget": "Wait only for failed external work/backoff or credential expiry; no idle delivery discovery polling.",
+      "tests": ["runtime/internal/im/slack/idle_test.go"],
+      "sites": [
+        {"scope": "sleep", "api": "time.NewTimer", "delay": "d", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/im/telegram/worker.go",
+      "reason": "Provider transport retry waits are cancelable; deliveries use committed work notifications.",
+      "budget": "Wait only for failed external work/backoff or credential expiry; no idle delivery discovery polling.",
+      "tests": ["runtime/internal/im/telegram/idle_test.go"],
+      "sites": [
+        {"scope": "sleep", "api": "time.NewTimer", "delay": "d", "loops": 0},
+        {"scope": "(*Service).expirePendingLogins", "api": "time.NewTimer", "delay": "time.Hour", "loops": 0},
+        {"scope": "(*Service).expirePendingLogins", "api": "timer.Reset", "delay": "time.Until(next) [next=s.expireLoginsLocked()]", "loops": 1}
+      ]
+    },
+    {
+      "file": "runtime/internal/im/weixin/worker.go",
+      "reason": "Provider transport retry waits are cancelable; deliveries use committed work notifications.",
+      "budget": "Wait only for failed external work/backoff or credential expiry; no idle delivery discovery polling.",
+      "tests": ["runtime/internal/im/weixin/idle_test.go"],
+      "sites": [
+        {"scope": "sleep", "api": "time.NewTimer", "delay": "d", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/installation/bridge.go",
+      "reason": "A separate installer process reports maintenance progress through filesystem state.",
+      "budget": "50ms only until worker acknowledgement, with a 15s startup deadline; no main database polling.",
+      "tests": ["runtime/internal/installation/desktop_test.go"],
+      "sites": [
+        {"scope": "(*Maintenance).Start", "api": "time.NewTicker", "delay": "50 * time.Millisecond", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/installation/download.go",
+      "reason": "Download stall detection measures external transfer progress.",
+      "budget": "Configured watchdog interval while a transfer exists; cancel on completion or timeout.",
+      "tests": ["runtime/internal/installation/download_mirror_test.go"],
+      "sites": [
+        {"scope": "watchDownload", "api": "time.NewTicker", "delay": "interval", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/installation/health.go",
+      "reason": "A newly launched service has no ready notification available to the installer.",
+      "budget": "250ms readiness retries bounded by the verification context; no polling after readiness.",
+      "tests": ["runtime/internal/installation/setup_test.go", "runtime/internal/installation/sandbox_test.go"],
+      "sites": [
+        {"scope": "(*Engine).verify", "api": "time.After", "delay": "250 * time.Millisecond", "loops": 1}
+      ]
+    },
+    {
+      "file": "runtime/internal/installation/maintenance.go",
+      "reason": "Installer lock acquisition and cancellation of external downloads need bounded cross-process checks.",
+      "budget": "50ms only during lock contention; 250ms while a download exists; stop on cancellation/completion.",
+      "tests": ["runtime/internal/installation/setup_test.go"],
+      "sites": [
+        {"scope": "(*Engine).acquire", "api": "time.After", "delay": "50 * time.Millisecond", "loops": 1},
+        {"scope": "(*Engine).downloadContext", "api": "time.NewTicker", "delay": "250 * time.Millisecond", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/installation/sandbox.go",
+      "reason": "A newly launched service has no ready notification available to the installer.",
+      "budget": "250ms readiness retries bounded by the verification context; no polling after readiness.",
+      "tests": ["runtime/internal/installation/setup_test.go", "runtime/internal/installation/sandbox_test.go"],
+      "sites": [
+        {"scope": "(*Engine).verifySandbox", "api": "time.After", "delay": "250 * time.Millisecond", "loops": 1}
+      ]
+    },
+    {
+      "file": "runtime/internal/installation/service_darwin.go",
+      "reason": "OS service managers expose startup/stop readiness through queries.",
+      "budget": "100–200ms only during a bounded service transition; stop on completion or timeout.",
+      "tests": [],
+      "sites": [
+        {"scope": "(*Engine).stopService", "api": "time.Sleep", "delay": "100 * time.Millisecond", "loops": 1}
+      ]
+    },
+    {
+      "file": "runtime/internal/installationwindows/setup_windows.go",
+      "reason": "OS service managers expose startup/stop readiness through queries.",
+      "budget": "100–200ms only during a bounded service transition; stop on completion or timeout.",
+      "tests": [],
+      "sites": [
+        {"scope": "stop", "api": "time.After", "delay": "100 * time.Millisecond", "loops": 1},
+        {"scope": "waitReady", "api": "time.After", "delay": "200 * time.Millisecond", "loops": 1}
+      ]
+    },
+    {
+      "file": "runtime/internal/platform/capacity_linux.go",
+      "reason": "CPU utilization requires two counter samples separated in time.",
+      "budget": "Exactly two samples 100ms apart per requested measurement; no resident polling loop.",
+      "tests": ["runtime/internal/platform/capacity_usage_test.go"],
+      "sites": [
+        {"scope": "hostComputeCapacity", "api": "time.Sleep", "delay": "100 * time.Millisecond", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/platform/capacity_windows.go",
+      "reason": "CPU utilization requires two counter samples separated in time.",
+      "budget": "Exactly two samples 100ms apart per requested measurement; no resident polling loop.",
+      "tests": ["runtime/internal/platform/capacity_usage_test.go"],
+      "sites": [
+        {"scope": "MachineCapacity", "api": "time.Sleep", "delay": "100 * time.Millisecond", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/platform/process_unix.go",
+      "reason": "Process termination has a grace period before forced cleanup.",
+      "budget": "A single 300ms grace deadline per termination; return early when the process exits.",
+      "tests": [],
+      "sites": [
+        {"scope": "terminateProcess", "api": "time.NewTimer", "delay": "300 * time.Millisecond", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/platform/runner.go",
+      "reason": "Command timeout is a caller-defined deadline.",
+      "budget": "One deadline per active command, canceled on completion.",
+      "tests": ["runtime/internal/platform/contract_test.go"],
+      "sites": [
+        {"scope": "(*ProcessRunner).Start", "api": "time.NewTimer", "delay": "command.Timeout", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/platform/sandbox/authorization.go",
+      "reason": "Authorization waits for committed policy changes or the nearest grant/temporary-quota expiry.",
+      "budget": "Exactly one initial check; zero extra checks over an idle hour; expiry reschedules and cancellation releases the watch.",
+      "tests": ["runtime/internal/platform/sandbox/authorization_test.go"],
+      "sites": [
+        {"scope": "ObserveAuthorization", "api": "time.NewTimer", "delay": "time.Hour", "loops": 0},
+        {"scope": "ObserveAuthorization", "api": "timer.Reset", "delay": "max(time.Until(next), time.Nanosecond) [check=func() (time.Time, error) {\n\tcheckCtx, finish := context.WithTimeout(ctx, 2*time.Second)\n\tdefer finish()\n\treturn watch.Check(checkCtx)\n}] [checkCtx=context.WithTimeout(ctx, 2*time.Second)] [ctx=context.WithCancelCause(parent)] [next=check(); check()]", "loops": 1}
+      ]
+    },
+    {
+      "file": "runtime/internal/platform/sandbox/backend_linux.go",
+      "reason": "Writable-space pressure has no reliable filesystem notification; cleanup must bound surviving processes.",
+      "budget": "2s space probes only while an execution exists; 1s teardown deadline and 10ms cgroup-empty checks only during bounded cleanup.",
+      "tests": ["runtime/internal/platform/sandbox/integration_linux_test.go"],
+      "sites": [
+        {"scope": "(*Runner).startAuthorized", "api": "time.NewTicker", "delay": "2 * time.Second", "loops": 0},
+        {"scope": "(*Runner).startAuthorized", "api": "time.After", "delay": "time.Second", "loops": 0},
+        {"scope": "(*cgroup).cleanup", "api": "time.Sleep", "delay": "10 * time.Millisecond", "loops": 1}
+      ]
+    },
+    {
+      "file": "runtime/internal/platform/sandbox/browser_native_unix.go",
+      "reason": "Browser endpoint readiness and isolation verification are externally produced startup states.",
+      "budget": "30–50ms only during bounded browser startup/verification; 5s close deadline; no steady-state authorization polling.",
+      "tests": ["runtime/internal/platform/sandbox/browser_darwin_test.go"],
+      "sites": [
+        {"scope": "browserEndpoint", "api": "time.After", "delay": "50 * time.Millisecond", "loops": 1},
+        {"scope": "closeBrowser", "api": "time.After", "delay": "5 * time.Second", "loops": 0},
+        {"scope": "(*Runner).startBrowser", "api": "time.After", "delay": "30 * time.Millisecond", "loops": 1}
+      ]
+    },
+    {
+      "file": "runtime/internal/platform/sandbox/browser_verify_unix.go",
+      "reason": "Browser endpoint readiness and isolation verification are externally produced startup states.",
+      "budget": "30–50ms only during bounded browser startup/verification; 5s close deadline; no steady-state authorization polling.",
+      "tests": ["runtime/internal/platform/sandbox/browser_darwin_test.go"],
+      "sites": [
+        {"scope": "verifyBrowserSandbox", "api": "time.After", "delay": "50 * time.Millisecond", "loops": 1}
+      ]
+    },
+    {
+      "file": "runtime/internal/platform/sandbox/direct_unix.go",
+      "reason": "Child pipes may outlive the direct command during teardown.",
+      "budget": "A single 1s drain deadline during teardown; authorization remains event driven.",
+      "tests": ["runtime/internal/platform/sandbox/direct_unix_test.go"],
+      "sites": [
+        {"scope": "(*Runner).startHost", "api": "time.After", "delay": "time.Second", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/platform/sandbox/job_windows.go",
+      "reason": "Windows job teardown must wait for all members to leave.",
+      "budget": "10ms checks only during bounded termination; normal process completion uses an OS wait.",
+      "tests": ["runtime/internal/platform/sandbox/backend_windows_test.go"],
+      "sites": [
+        {"scope": "terminateWindowsJob", "api": "time.Sleep", "delay": "10 * time.Millisecond", "loops": 1}
+      ]
+    },
+    {
+      "file": "runtime/internal/platform/sandbox/network_helper_linux.go",
+      "reason": "The isolated network gateway requires a liveness heartbeat with its controller.",
+      "budget": "One 1s heartbeat per active gateway; no database authorization query in the heartbeat.",
+      "tests": ["runtime/internal/platform/sandbox/network_integration_linux_test.go"],
+      "sites": [
+        {"scope": "serveNetworkGateway", "api": "time.NewTicker", "delay": "time.Second", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/platform/sandbox/network_session_linux.go",
+      "reason": "Startup/teardown IPC must have finite wait deadlines.",
+      "budget": "One bounded wait per startup/teardown phase; successful readiness/completion returns early.",
+      "tests": [],
+      "sites": [
+        {"scope": "(*networkSession).close", "api": "time.After", "delay": "5 * time.Second", "loops": 1},
+        {"scope": "(*Runner).startNetworkWithQuotas", "api": "time.After", "delay": "5 * time.Second", "loops": 0},
+        {"scope": "(*Runner).startNetworkWithQuotas", "api": "time.After", "delay": "5 * time.Second", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/platform/sandbox/prepare_linux.go",
+      "reason": "Startup/teardown IPC must have finite wait deadlines.",
+      "budget": "One bounded wait per startup/teardown phase; successful readiness/completion returns early.",
+      "tests": [],
+      "sites": [
+        {"scope": "startSupervisor", "api": "time.After", "delay": "6 * time.Second", "loops": 0},
+        {"scope": "startSupervisor", "api": "time.NewTimer", "delay": "8 * time.Second", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/platform/sandbox/terminal_windows.go",
+      "reason": "Startup/teardown IPC must have finite wait deadlines.",
+      "budget": "One bounded wait per startup/teardown phase; successful readiness/completion returns early.",
+      "tests": [],
+      "sites": [
+        {"scope": "runTerminalContainer", "api": "time.After", "delay": "5 * time.Second", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/pricing/updater.go",
+      "reason": "The external price catalog has no change notification.",
+      "budget": "Default daily refresh; one in-flight request; stop when Runtime closes.",
+      "tests": ["runtime/internal/pricing/updater_test.go"],
+      "sites": [
+        {"scope": "(*Updater).run", "api": "time.NewTicker", "delay": "interval", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/runtimeclient/events.go",
+      "reason": "SSE connection recovery and silence detection use transport timers.",
+      "budget": "20/45s liveness deadlines and retry backoff; stop when the subscription context closes.",
+      "tests": ["runtime/internal/runtimeclient/client_test.go"],
+      "sites": [
+        {"scope": "(*Client).Watch", "api": "time.NewTimer", "delay": "pause [delay=time.Second; time.Second; min(30*time.Second, delay*2)] [pause=delay; apiErr.RetryAfter]", "loops": 1},
+        {"scope": "(*Client).stream", "api": "time.AfterFunc", "delay": "20 * time.Second", "loops": 0},
+        {"scope": "(*Client).stream", "api": "timer.Reset", "delay": "45 * time.Second", "loops": 1},
+        {"scope": "(*Client).stream", "api": "timer.Reset", "delay": "45 * time.Second", "loops": 1}
+      ]
+    },
+    {
+      "file": "runtime/internal/sandboxidentity/tls.go",
+      "reason": "Certificate renewal must observe wall-clock validity.",
+      "budget": "Hourly validity checks on the active TLS identity; no business-state SQL polling.",
+      "tests": ["runtime/internal/sandboxidentity/identity_test.go"],
+      "sites": [
+        {"scope": "ServerTLS", "api": "time.NewTicker", "delay": "time.Hour", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/sandboxmanager/manager.go",
+      "reason": "Remote execution needs lease expiry, result-write recovery, and bounded completion waits.",
+      "budget": "Reset lease only on renewal; 3s server-side completion wait; retry persistence only after a write failure.",
+      "tests": ["runtime/internal/sandboxmanager/manager_test.go"],
+      "sites": [
+        {"scope": "(*Manager).Submit", "api": "time.NewTimer", "delay": "LeaseDuration", "loops": 0},
+        {"scope": "(*Manager).Submit", "api": "timer.Reset", "delay": "remaining [a=&active{cancel: cancel, lease: time.Now().Add(LeaseDuration), identity: r.Identity, renewed: make(chan struct{}, 1)}] [remaining=time.Until(a.lease)]", "loops": 1},
+        {"scope": "(*Manager).persistResult", "api": "time.NewTimer", "delay": "delay [delay=100 * time.Millisecond; min(delay*2, time.Second)]", "loops": 1},
+        {"scope": "(*Manager).Wait", "api": "time.NewTimer", "delay": "3 * time.Second", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/shellsession/browser_stream.go",
+      "reason": "Visible browser/terminal streaming needs pacing and transport liveness.",
+      "budget": "Timers exist only during an active stream; bounded frame cadence and cancellation close the stream.",
+      "tests": [],
+      "sites": [
+        {"scope": "(*Manager).BrowserFrames", "api": "time.NewTimer", "delay": "left [call=context.WithCancel(r.browserCtx)] [left=watch.Check(call); time.Millisecond] [r=s.activeBrowser(p, id, task)] [watch=s.identity.WatchPrincipal(p)]", "loops": 1}
+      ]
+    },
+    {
+      "file": "runtime/internal/shellsession/browser_tasks.go",
+      "reason": "Browser component installation and initial session readiness are externally progressing operations.",
+      "budget": "100ms readiness checks and 1s progress updates only while preparing; stop at readiness/failure/cancellation.",
+      "tests": ["runtime/internal/shellsession/browser_tasks_test.go"],
+      "sites": [
+        {"scope": "(*Manager).browserWaitReady", "api": "time.NewTimer", "delay": "100 * time.Millisecond", "loops": 1},
+        {"scope": "(*Manager).prepareBrowser", "api": "time.NewTicker", "delay": "time.Second", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/shellsession/forward_conn.go",
+      "reason": "Forwarded connections honor explicit I/O deadlines.",
+      "budget": "One timer per current deadline; reset/release when the deadline changes or connection closes.",
+      "tests": ["runtime/internal/shellsession/forward_conn_test.go"],
+      "sites": [
+        {"scope": "(*forwardNetConn).deadline", "api": "time.AfterFunc", "delay": "time.Until(t)", "loops": 0}
+      ]
+    },
+    {
+      "file": "runtime/internal/shellsession/shell_forward.go",
+      "reason": "A forwarded service can become reachable outside Runtime control.",
+      "budget": "Retry only an active forward; exponential backoff capped at 30s; no overlapping probes; stop with task.",
+      "tests": ["runtime/internal/shellsession/shell_forward_http_test.go"],
+      "sites": [
+        {"scope": "(*Manager).serveTCPForward", "api": "time.NewTimer", "delay": "delay [delay=time.Second; 30 * time.Second; min(delay*2, 30*time.Second)]", "loops": 0},
+        {"scope": "(*Manager).serveTCPForward", "api": "timer.Reset", "delay": "delay [delay=time.Second; 30 * time.Second; min(delay*2, 30*time.Second)]", "loops": 1}
+      ]
+    },
+    {
+      "file": "runtime/internal/shellsession/shell_forward_http.go",
+      "reason": "A forwarded service can become reachable outside Runtime control.",
+      "budget": "Retry only an active forward; exponential backoff capped at 30s; no overlapping probes; stop with task.",
+      "tests": ["runtime/internal/shellsession/shell_forward_http_test.go"],
+      "sites": [
+        {"scope": "(*Manager).serveForward", "api": "time.NewTimer", "delay": "left [call=context.WithCancel(req.Context())] [left=watch.Check(call); time.Millisecond] [p=s.forwardPrincipal(req.Context(), req, task)] [task=r.task] [watch=s.identity.WatchPrincipal(p)]", "loops": 1},
+        {"scope": "(*Manager).serveForward", "api": "time.NewTimer", "delay": "delay [delay=time.Second; 30 * time.Second; min(delay*2, 30*time.Second)]", "loops": 0},
+        {"scope": "(*Manager).serveForward", "api": "timer.Reset", "delay": "delay [delay=time.Second; 30 * time.Second; min(delay*2, 30*time.Second)]", "loops": 1}
+      ]
+    },
+    {
+      "file": "runtime/internal/shellsession/shell_tasks.go",
+      "reason": "Foreground detachment and aggregate running reminders have explicit deadlines.",
+      "budget": "No idle scanner; one foreground wait and nearest reminder/pending persistence deadline.",
+      "tests": ["runtime/internal/shellsession/shell_tasks_test.go"],
+      "sites": [
+        {"scope": "(*Manager).Execute", "api": "time.NewTimer", "delay": "s.foregroundWait", "loops": 0},
+        {"scope": "(*Manager).Start", "api": "time.NewTimer", "delay": "time.Hour", "loops": 0},
+        {"scope": "(*Manager).Start", "api": "timer.Reset", "delay": "max(time.Until(next), time.Nanosecond) [due=timer.C] [next=due; time.Now().Add(time.Second)] [timer=time.NewTimer(time.Hour)]", "loops": 1}
+      ]
+    },
+    {
+      "file": "runtime/internal/shellsession/terminal_stream.go",
+      "reason": "Visible browser/terminal streaming needs pacing and transport liveness.",
+      "budget": "Timers exist only during an active stream; bounded frame cadence and cancellation close the stream.",
+      "tests": [],
+      "sites": [
+        {"scope": "(*Manager).TerminalFrames", "api": "time.NewTimer", "delay": "delay [delay=100 * time.Millisecond; 5 * time.Millisecond]", "loops": 1}
+      ]
+    },
+    {
+      "file": "runtime/internal/tui/input.go",
+      "reason": "Terminal paste input batches a burst of bytes.",
+      "budget": "One 50ms frame flush after input; no background database queries.",
+      "tests": [],
+      "sites": [
+        {"scope": "frameTerminalInput", "api": "time.NewTimer", "delay": "50 * time.Millisecond", "loops": 1}
+      ]
+    },
+    {
+      "file": "runtime/internal/updates/service.go",
+      "reason": "Release catalogs are external sources without server push.",
+      "budget": "Initial jitter and configured update deadline; single refresh and cancellation on Runtime shutdown.",
+      "tests": ["runtime/internal/updates/service_test.go"],
+      "sites": [
+        {"scope": "(*Service).Run", "api": "time.NewTimer", "delay": "30*time.Second + time.Duration(rand.IntN(30))*time.Second", "loops": 0},
+        {"scope": "(*Service).Run", "api": "timer.Reset", "delay": "delay [delay=24*time.Hour + time.Duration(rand.IntN(600))*time.Second; time.Hour]", "loops": 1}
+      ]
+    }
+  ]
+}

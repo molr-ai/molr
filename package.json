@@ -9,7 +9,7 @@
     "packages/*"
   ],
   "scripts": {
-    "check": "npm run check:contracts && npm run docs:check && npm run check:platforms && npm run check:release && npm run check:licenses",
+    "check": "npm run check:contracts && npm run check:polling && npm run docs:check && npm run check:platforms && npm run check:release && npm run check:licenses",
     "check:contracts": "node scripts/check-contracts.mjs",
     "check:base-version": "node scripts/check-base-version.mjs",
     "dev:desktop": "npm run dev --workspace @molr/desktop --",
@@ -50,12 +50,15 @@
     "build:website:release": "node scripts/build-release-website.mjs",
     "docs:generate": "node scripts/generate-molr-docs.mjs",
     "docs:check": "node scripts/generate-molr-docs.mjs --check",
-    "test:docs": "node --test scripts/test-molr-docs.mjs"
+    "test:docs": "node --test scripts/test-molr-docs.mjs",
+    "check:polling": "node scripts/check-polling.mjs",
+    "test:polling": "node scripts/test-polling.mjs"
   },
   "engines": {
     "node": ">=22.12.0"
   },
   "devDependencies": {
-    "js-yaml": "4.3.2"
+    "js-yaml": "4.3.2",
+    "typescript": "~5.9.3"
   }
 }

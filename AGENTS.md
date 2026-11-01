@@ -12,4 +12,6 @@
 - [交互约定](docs/dev/frontend/interaction.md)：UI/UX 标准、文案、操作与反馈。
 - [文档维护约定](docs/dev/contributing/documentation.md)
 
+后台状态等待默认使用提交后事件通知与最近到期定时器。新增或调整周期轮询必须遵守[后台等待与轮询门禁](docs/dev/contributing/workflow.md#后台等待与轮询门禁)，登记必要性和调用预算，并通过空闲行为测试；不得用调小轮询间隔解决状态同步问题。
+
 阅读顺序见[开发协作指南](docs/dev/contributing/README.md)，产品实现与专项文档见[开发文档索引](docs/dev/README.md)。
