@@ -41,6 +41,16 @@ type Tx interface {
 // SignalKey identifies a process-local wakeup scope, not an event payload.
 type SignalKey struct{ Namespace, Key string }
 
+// BucketSignal observes any committed change in a bucket. Notifications carry no data.
+func BucketSignal(bucket string) SignalKey {
+	return SignalKey{Namespace: "records.bucket", Key: bucket}
+}
+
+// RecordSignal observes one record, including deletion. Subscribe before reading it.
+func RecordSignal(bucket, key string) SignalKey {
+	return SignalKey{Namespace: "records.record", Key: bucket + "/" + key}
+}
+
 // Watch broadcasts committed changes independently to every subscriber.
 // Changes coalesces notifications; Done closes on Close or backing-store shutdown.
 // Close is idempotent. Callers must close their watch when finished.
@@ -56,7 +66,7 @@ type Watch interface {
 // callback decides whether to continue or propagate the failure.
 // No callback may perform external effects or retain its Tx after completion.
 type Store interface {
-	Watch(SignalKey) (Watch, error)
+	Watch(...SignalKey) (Watch, error)
 	Read(context.Context, func(context.Context, Tx) error) error
 	Write(context.Context, func(context.Context, Tx) error) error
 }

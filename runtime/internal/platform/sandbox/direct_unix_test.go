@@ -70,12 +70,14 @@ func TestDirectRevocationStopsRunningCommand(t *testing.T) {
 		}
 		return nil
 	}})
+	notifyAuthorization := enableAuthorizationNotifications(t, r)
 	defer r.Close()
 	p, err := r.Start(t.Context(), testExecution(), platform.Command{FullAccess: true, Script: "sleep 3600", MaxOutputBytes: 4096})
 	if err != nil {
 		t.Fatal(err)
 	}
 	revoked.Store(true)
+	notifyAuthorization()
 	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 	defer cancel()
 	result, err := p.Wait(ctx)
@@ -89,6 +91,7 @@ func TestDirectRevocationStopsRunningCommand(t *testing.T) {
 // Exercise the same readiness handshake on native Seatbelt and direct Unix PTYs.
 func testTerminalRevocation(t *testing.T, r *Runner, c platform.Command, revoked *atomic.Bool) {
 	t.Helper()
+	notifyAuthorization := enableAuthorizationNotifications(t, r)
 	// Deliberately exceed the old fixed 100ms waits before readiness and reply.
 	c.Script = "sleep 0.3; echo READY; read line; sleep 0.3; echo RECEIVED:$line; sleep 30"
 	c.TTY = true
@@ -143,6 +146,7 @@ func testTerminalRevocation(t *testing.T, r *Runner, c platform.Command, revoked
 	}
 	waitLine("RECEIVED:hello")
 	revoked.Store(true)
+	notifyAuthorization()
 	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 	defer cancel()
 	exit, err := p.Wait(ctx)

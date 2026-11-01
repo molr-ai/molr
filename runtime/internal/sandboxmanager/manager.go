@@ -24,6 +24,7 @@ type record struct {
 type active struct {
 	cancel   context.CancelFunc
 	lease    time.Time
+	renewed  chan struct{}
 	identity Identity
 }
 type Manager struct {
@@ -119,7 +120,7 @@ func (m *Manager) Submit(ctx context.Context, r Request) (Reply, error) {
 		cancel()
 		run, cancel = context.WithDeadline(context.Background(), r.Deadline)
 	}
-	a := &active{cancel: cancel, lease: time.Now().Add(LeaseDuration), identity: r.Identity}
+	a := &active{cancel: cancel, lease: time.Now().Add(LeaseDuration), identity: r.Identity, renewed: make(chan struct{}, 1)}
 	m.active[key] = a
 	m.wg.Add(1)
 	go func(out record) {
@@ -127,22 +128,24 @@ func (m *Manager) Submit(ctx context.Context, r Request) (Reply, error) {
 		defer cancel()
 		done := make(chan struct{})
 		go func() {
-			ticker := time.NewTicker(time.Second)
-			defer ticker.Stop()
+			timer := time.NewTimer(LeaseDuration)
+			defer timer.Stop()
 			for {
+				m.mu.Lock()
+				remaining := time.Until(a.lease)
+				m.mu.Unlock()
+				if remaining <= 0 {
+					cancel()
+					return
+				}
+				timer.Reset(remaining)
 				select {
 				case <-done:
 					return
 				case <-run.Done():
 					return
-				case <-ticker.C:
-					m.mu.Lock()
-					expired := time.Now().After(a.lease)
-					m.mu.Unlock()
-					if expired {
-						cancel()
-						return
-					}
+				case <-a.renewed:
+				case <-timer.C:
 				}
 			}
 		}()
@@ -213,6 +216,38 @@ func (m *Manager) Get(ctx context.Context, i Identity) (Reply, error) {
 	}
 	return r.Reply, nil
 }
+
+// Wait returns immediately on completion and otherwise waits for a committed
+// result, bounded by the lease renewal cadence. Identity is checked before waiting.
+func (m *Manager) Wait(ctx context.Context, i Identity) (Reply, error) {
+	watch, err := m.Store.Watch(persistence.RecordSignal(operationsBucket, operationKey(i)))
+	if err != nil {
+		return Reply{}, err
+	}
+	defer watch.Close()
+	timer := time.NewTimer(3 * time.Second)
+	defer timer.Stop()
+	for {
+		select {
+		case <-watch.Changes():
+		default:
+		}
+		reply, err := m.Get(ctx, i)
+		if err != nil || reply.State != "running" {
+			return reply, err
+		}
+		select {
+		case <-ctx.Done():
+			return Reply{}, persistence.CheckContext(ctx)
+		case <-watch.Done():
+			return Reply{}, core.NewError(core.Unavailable, "operation observer closed")
+		case <-watch.Changes():
+		case <-timer.C:
+			return m.Get(ctx, i)
+		}
+	}
+}
+
 func (m *Manager) Renew(ctx context.Context, i Identity) error {
 	if _, err := m.Get(ctx, i); err != nil {
 		return err
@@ -220,7 +255,15 @@ func (m *Manager) Renew(ctx context.Context, i Identity) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if a := m.active[operationKey(i)]; a != nil {
+		if !time.Now().Before(a.lease) {
+			a.cancel()
+			return core.WithReason(core.NewError(core.FailedPrecondition, "execution lease expired"), "sandbox_lease_expired")
+		}
 		a.lease = time.Now().Add(LeaseDuration)
+		select {
+		case a.renewed <- struct{}{}:
+		default:
+		}
 	}
 	return nil
 }
@@ -285,7 +328,7 @@ func (m *Manager) Read(ctx context.Context, q Request) (json.RawMessage, error) 
 	if err := q.Identity.Execution().Validate(); err != nil {
 		return nil, err
 	}
-	if q.Method != "snapshot" && q.Method != "download" && q.Method != "shell_read" && q.Method != "shell_output" && q.Method != "quota_usage" {
+	if q.Method != "snapshot" && q.Method != "download" && q.Method != "shell_read" && q.Method != "shell_observe" && q.Method != "shell_output" && q.Method != "quota_usage" {
 		return nil, core.Invalid("method", "read-only method required")
 	}
 	if len(q.Scopes) > 32 || len(q.Arguments) > MaxMessage || !q.Deadline.After(time.Now()) || q.Deadline.After(time.Now().Add(time.Hour)) {

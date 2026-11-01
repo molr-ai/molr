@@ -10,7 +10,7 @@ import (
 
 type ProfileAvatarRequest struct {
 	Type string `json:"type"`
-	ID   string `json:"id,omitempty"`
+	ID   string `json:"avatar_id,omitempty"`
 	FileTarget
 }
 type ProfileUpdateRequest struct {
@@ -21,7 +21,7 @@ type ProfileUpdateRequest struct {
 }
 
 func profileDefinition() Definition {
-	return Definition{Name: "profile_update", Description: "Update your own display name, status and/or avatar atomically. Omitted fields stay unchanged. Use expected_version from the current profile runtime context or the last result. On conflict inspect current_profile; do not blindly overwrite a user's edit. Names are trimmed, 1–256 characters, with no control characters. Status expresses your current mood, thoughts, hopes, or personality and is shown while idle. Only you can set it. Status is trimmed, at most 256 characters, with no control characters; use an empty string to clear it. Avatars: preset (robot, cat, fox, bear, rabbit, panda, owl, frog, penguin, whale, sprout, star), file (PNG/JPEG/WebP up to 10 MiB and 40 million pixels, center-cropped to 256×256), or clear (name initial). File paths use the local workspace or local authorized resources. Download remote images using file_transfer first; chat attachments must first be saved using conversation_attachment. URLs and base64 are not accepted. Only name, status and avatar change, never your model, permissions or budget. Changes take effect immediately. Check the result before announcing success via conversation_publish.", InputSchema: schema(`"status":{"type":"string","maxLength":256,"description":"Express your current mood, thoughts, hopes, or personality. Shown while idle; empty string clears it."},"name":{"type":"string","minLength":1,"maxLength":256},"expected_version":{"type":"integer","minimum":1},"avatar":{"type":"object","properties":{"type":{"enum":["preset","file","clear"]},"id":{"enum":["robot","cat","fox","bear","rabbit","panda","owl","frog","penguin","whale","sprout","star"]},"path":{"type":"string","maxLength":4096},"sandbox_id":{"enum":["local"]},"resource_id":{"type":"string"}},"required":["type"],"additionalProperties":false}`, `"expected_version"`), RequiredActions: []string{"write"}, SideEffect: true}
+	return Definition{Name: "profile_update", Description: "Update your own display name, status and/or avatar atomically. Omitted fields stay unchanged. Use expected_version from the current profile runtime context or the last result. On conflict inspect current_profile; do not blindly overwrite a user's edit. Names are trimmed, 1–256 characters, with no control characters. Status expresses your current mood, thoughts, hopes, or personality and is shown while idle. Only you can set it. Status is trimmed, at most 256 characters, with no control characters; use an empty string to clear it. Avatars: preset (robot, cat, fox, bear, rabbit, panda, owl, frog, penguin, whale, sprout, star), file (PNG/JPEG/WebP up to 10 MiB and 40 million pixels, center-cropped to 256×256), or clear (name initial). File paths use the local workspace or local authorized resources. Download remote images using file_transfer first; chat attachments must first be saved using conversation_attachment. URLs and base64 are not accepted. Only name, status and avatar change, never your model, permissions or budget. Changes take effect immediately. Check the result before announcing success via conversation_publish.", InputSchema: schema(`"status":{"type":"string","maxLength":256,"description":"Express your current mood, thoughts, hopes, or personality. Shown while idle; empty string clears it."},"name":{"type":"string","minLength":1,"maxLength":256},"expected_version":{"type":"integer","minimum":1},"avatar":{"type":"object","properties":{"type":{"enum":["preset","file","clear"]},"avatar_id":{"enum":["robot","cat","fox","bear","rabbit","panda","owl","frog","penguin","whale","sprout","star"]},"path":{"type":"string","maxLength":4096},"sandbox_id":{"enum":["local"]},"resource_id":{"type":"string"}},"required":["type"],"additionalProperties":false}`, `"expected_version"`), RequiredActions: []string{"write"}, SideEffect: true}
 }
 
 func parseProfile(raw json.RawMessage) (ProfileUpdateRequest, error) {
@@ -61,7 +61,7 @@ func parseProfile(raw json.RawMessage) (ProfileUpdateRequest, error) {
 			if bytes.Equal(bytes.TrimSpace(v), []byte("null")) {
 				return r, core.Invalid("avatar", "null avatar fields are not supported")
 			}
-			if k != "type" && !((a.Type == "preset" && k == "id") || (a.Type == "file" && (k == "path" || k == "sandbox_id" || k == "resource_id"))) {
+			if k != "type" && !((a.Type == "preset" && k == "avatar_id") || (a.Type == "file" && (k == "path" || k == "sandbox_id" || k == "resource_id"))) {
 				return r, core.Invalid("avatar", "fields do not match avatar type")
 			}
 		}
@@ -70,7 +70,7 @@ func parseProfile(raw json.RawMessage) (ProfileUpdateRequest, error) {
 			switch a.ID {
 			case "robot", "cat", "fox", "bear", "rabbit", "panda", "owl", "frog", "penguin", "whale", "sprout", "star":
 			default:
-				return r, core.Invalid("avatar.id", "unknown preset")
+				return r, core.Invalid("avatar.avatar_id", "unknown preset")
 			}
 		case "file":
 			delete(avatarFields, "type")

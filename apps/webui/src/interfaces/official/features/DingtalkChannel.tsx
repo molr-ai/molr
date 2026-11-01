@@ -15,7 +15,6 @@ export function DingtalkChannel({ assistant, status, reload, disabled }: { assis
  const bound = status?.Channel === 'dingtalk', pending = !!status && status.State !== 'disconnected' && !bound;
  const changed = () => { invalidateTopics(['dingtalk', 'weixin']); reload(); };
  useEffect(() => { if (bound) { setPairing(null); setEditing(false); setSecret(''); } }, [bound]);
- useEffect(() => { if (!pending) return; const timer = setInterval(reload, 2500); return () => clearInterval(timer); }, [pending, reload]);
  useErrorToast(action.error);
  async function connect() { await action.run(async () => { const value = await api.post<DingtalkPairing>('/api/dingtalk/connect', { AssistantID: assistant.ID, ClientID: clientID.trim(), ClientSecret: secret }); setSecret(''); setPairing(value); setEditing(false); changed(); }, undefined, false); }
  async function cancel() { await action.run(async () => { await api.post('/api/dingtalk/disconnect', { AssistantID: assistant.ID }); setPairing(null); changed(); }, undefined, false); }

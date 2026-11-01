@@ -50,7 +50,7 @@ type Options struct {
 }
 
 func New(store persistence.Store, host Host, options Options) *Manager {
-	return &Manager{store: store, host: host, identity: options.Identity, forwardHTTP: options.ForwardHTTP,
+	return &Manager{wake: make(chan struct{}, 1), store: store, host: host, identity: options.Identity, forwardHTTP: options.ForwardHTTP,
 		forwardConfig: options.Forward, browserConfig: options.Browser, maintenance: options.Maintenance, browserReadShot: options.ReadScreenshot,
 		forwardSlots: make(chan struct{}, 128), active: map[string]*runningShell{}, reminders: map[string]time.Time{}, foregroundWait: 60 * time.Second, executeCommand: host.Execute}
 }

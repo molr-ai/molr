@@ -314,11 +314,22 @@ func (tx *transaction) DeleteMatching(ctx context.Context, bucket string, q pers
 	if err != nil {
 		return 0, err
 	}
+	keysOnly := q
+	keysOnly.Fields = []string{"key"}
+	rows, err := tx.Query(ctx, bucket, keysOnly)
+	if err != nil {
+		return 0, err
+	}
 	args = append([]any{bucket}, args...)
 	result, err := tx.sql.ExecContext(ctx, "DELETE FROM records WHERE bucket=? AND key IN (SELECT key FROM ("+query+"))", args...)
 	if err != nil {
 		return 0, translate(ctx, err)
 	}
 	n, err := result.RowsAffected()
+	if err == nil && n > 0 {
+		for _, row := range rows {
+			tx.changed(bucket, row.Key)
+		}
+	}
 	return n, translate(ctx, err)
 }

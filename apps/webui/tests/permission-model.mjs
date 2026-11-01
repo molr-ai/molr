@@ -41,7 +41,7 @@ export function permissionModel(input, response) {
   }
   results = results.filter(result => typeof result.ByteOffset !== 'number');
   if (input.model.startsWith('Permission unified ') && !requests.length) {
-    if (event.event.TaskID) return finish();
+    if (event.event.PlanExecutionID) return finish();
     if (!published) {
       const history = results.find(r => r.Items);
       if (!history) call('conversation_read', { conversation_id: event.conversation_id, message_id: event.event.MessageID, limit: 1 });
@@ -70,7 +70,7 @@ export function permissionModel(input, response) {
       const cpu = input.model.startsWith('Permission cpu ');
       const network = quota ? listing.Requestable.find(r => r.Kind === 'network') : null;
       const compute = { cpu_percent: 200, memory_bytes: 536870912, processes: 128, max_duration_seconds: 300, unlimited_duration: false, temp_bytes: 67108864,
-        ...(gpu ? { gpu: { device_ids: [target.GPUs[0].ID] } } : {}) };
+        ...(gpu ? { gpu: { device_ids: [target.GPUs[0].GPUDeviceID] } } : {}) };
       call('permission_request', {
         resource_kind: 'compute', resource_id: target.ResourceID, resource_description: target.Name, actions: ['execute'],
         expires_at: new Date(Date.now()+3600000).toISOString(), reason: 'Run the calculation in an isolated sandbox.',
@@ -83,7 +83,7 @@ export function permissionModel(input, response) {
     call('conversation_publish', { conversation_id: event.conversation_id, text: 'Permission was declined. No command was executed.' });
   } else if (decision?.State === 'approved' && !published) {
     const listing = results.find(r => r.Resources);
-    if (!permissions.Granted?.some(g => g.ID === decision.GrantID)) throw Error('approved permission missing from injected context');
+    if (!permissions.Granted?.some(g => g.GrantID === decision.GrantID)) throw Error('approved permission missing from injected context');
     if (!listing) call('permission_list', {});
     else if ((input.model.startsWith('Permission shell ') || input.model.startsWith('Permission quota ')) && results.length === 1) {
       call('shell_execute', { compute_id: listing.Resources.find(r => r.Kind === 'compute').ResourceID, script: input.model.startsWith('Permission quota ') ? `wget -qO /work/quota-fixture.txt http://host.molr.internal:${process.env.MOLR_E2E_MODEL_PORT ?? 18882}/quota-fixture; wc -c /work/quota-fixture.txt` : 'printf permission-approved', files: [] });

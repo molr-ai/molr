@@ -4,33 +4,34 @@ var fullAccessScope = object("mode", nested("programs", array(object("executable
 var scope = object("ModelID ReadOnly FullAccess Once", nested("FullAccessScope", fullAccessScope), nested("PathPrefixes", array(scalar)))
 var constraints = object("", nested("compute", object("cpu_percent memory_bytes processes max_duration_seconds unlimited_duration temp_bytes", nested("gpu", object("", nested("device_ids", array(scalar)))))), nested("network", object("bytes connections period timezone")), nested("storage", object("capacity_bytes max_file_bytes max_files")))
 var temporary = object("until", nested("limits", constraints))
-var grant = object("ID ResourceID Name Kind Version", nested("Used", object("OperationID ExecutionID UsedAt")), nested("Constraints", constraints), nested("Temporary", temporary), required("ExpiresAt", scalar), nested("Actions", array(scalar)), nested("Scope", scope))
+var grant = object("ID=GrantID ResourceID Name Kind Version=GrantVersion", nested("Used", object("OperationID ExecutionID=AgentExecutionID UsedAt")), nested("Constraints", constraints), nested("Temporary", temporary), required("ExpiresAt", scalar), nested("Actions", array(scalar)), nested("Scope", scope))
 var requestInput = object("full_access once resource_kind resource_id model_id resource_description expires_at reason grant_id grant_version", nested("full_access_scope", fullAccessScope), nested("constraints", constraints), nested("temporary", temporary), nested("actions", array(scalar)), nested("path_prefixes", array(scalar)))
-var request = object("ID State GrantID MessageID CreatedAt ResolvedAt", nested("Input", requestInput), nested("Granted", grant))
-var profile = object("Name Status Version", nested("Avatar", object("Type ID Digest")))
+var request = object("ID=PermissionRequestID State GrantID MessageID CreatedAt ResolvedAt", nested("Input", requestInput), nested("Granted", grant))
+var profile = object("Name Status Version", nested("Avatar", object("Type ID=AvatarID Digest")))
 var failure = object("code reason field message execution_state side_effects_possible guidance", nested("current_profile", profile))
-var file = object("ID Name MediaType Size State Path Version")
-var message = object("ID ConversationID Sequence Sender CreatedAt", nested("Content", object("Kind", required("Text", scalar), nested("Card", object("Kind TargetID Title Summary")), nested("AttachmentIDs", array(scalar)))))
+var file = object("ID=FileID Name MediaType Size State Path Version")
+var message = object("ID=MessageID ConversationID Sequence Sender CreatedAt", nested("Content", object("Kind", required("Text", scalar), nested("Card", object("Kind TargetID=CardTargetID Title Summary")), nested("AttachmentIDs", array(scalar)))))
 var operation = object("Action Via Available Reason")
 var capabilities = object("GPUAccessMode OS NetworkBackend FullAccess Shell ProcessIsolation FileIsolation NetworkIsolation ResourceLimits Reason")
 var terminalControl = object("Control Generation Rows Cols NeedsRead")
-var shell = object("ID TaskID Kind CreatedBy SandboxID OutputSandboxID FullAccess Mode State Script Executable Failure StartedAt FinishedAt Stdout Stderr StdoutPath StderrPath Output NextCursor Path Stopping Bytes Truncated OutputComplete CaptureReason StdoutBytes StderrBytes", nested("Args", array(scalar)), nested("GPUDeviceIDs", array(scalar)), nested("Forwards", array(object("Protocol Port Address URL State"))), nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")))
+var shell = object("ID|TaskID=ShellTaskID Kind CreatedBy SandboxID OutputSandboxID FullAccess Mode State Script Executable Failure StartedAt FinishedAt Stdout Stderr StdoutPath StderrPath Output NextCursor Path Stopping Bytes Truncated OutputComplete CaptureReason StdoutBytes StderrBytes", nested("Args", array(scalar)), nested("GPUDeviceIDs", array(scalar)), nested("Forwards", array(object("Protocol Port Address URL State"))), nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")))
 var browserProxy = object("Mode Server Authentication Version", nested("Bypass", array(scalar)))
-var browserNetworkFailure = object("TaskID At Reason Message", nested("Proxy", browserProxy), nested("Sandbox", object("Reason At")))
+var browserNetworkFailure = object("TaskID=ShellTaskID At Reason Message", nested("Proxy", browserProxy), nested("Sandbox", object("Reason At")))
 var browserControl = object("Control NeedsSnapshot Generation", nested("Proxy", browserProxy), nested("LastNetworkFailure", browserNetworkFailure))
-var browserData = object("url title text snapshot path clicked filled pressed dispatched moved x y closed index tabId", nested("refs", &shape{dictionary: object("name role")}), nested("tabs", array(object("index id tabId title url active"))))
-var execution = object("ID State Title Instructions PlanVersion OccurrenceAt StartedAt CompletedAt Result")
-var plan = object("PlanID Mode Title Instructions Version StartAt EndAt DueAt Timezone Recurrence MissedPolicy MaxCatchUp Enabled Handoff Paused Ready ExecutionCount ExecutionsTruncated InstructionsTruncated Deleted", nested("CurrentExecution", execution), nested("Dependencies", array(scalar)), nested("BlockedBy", array(scalar)), nested("Executions", array(execution)), nested("Occurrences", array(scalar)))
+var browserData = object("url title text snapshot path clicked filled pressed dispatched moved x y closed index tabId=BrowserTabID", nested("refs", &shape{dictionary: object("name role")}), nested("tabs", array(object("index id|tabId=BrowserTabID title url active"))))
+var execution = object("ID=PlanExecutionID State Title Instructions PlanVersion OccurrenceAt StartedAt CompletedAt Result")
+var watcher = object("compute_id sandbox_id directory script network_mode health_seconds", nested("network_ids", array(scalar)), nested("files", array(object("resource_id path write"))))
+var watch = object("ID=WatchID State Reason RunID=WatchRunID LastRunID=LastWatchRunID LastHealthyAt LastInterruptionAt RetryAt Failures FailureNotified PendingCount Paused", nested("Watcher", watcher))
+var plan = object("PlanID Mode Title Instructions Version StartAt EndAt DueAt Timezone Recurrence MissedPolicy MaxCatchUp Enabled Handoff Paused Ready ExecutionCount ExecutionsTruncated InstructionsTruncated Deleted", nested("Watch", watch), nested("CurrentExecution", execution), nested("Dependencies", array(scalar)), nested("BlockedBy", array(scalar)), nested("Executions", array(execution)), nested("Occurrences", array(scalar)))
 var networkTarget = object("", nested("Protocols", array(scalar)), nested("Addresses", array(scalar)), nested("Ports", array(scalar)), nested("ExcludeAddresses", array(scalar)), nested("ExcludePorts", array(scalar)))
 var networkScope = object("Mode Known Reason LoopbackAccess", nested("Target", networkTarget), nested("Restrictions", array(scalar)))
 var quotaUsage = object("", nested("Constraints", constraints), nested("Network", object("UsedBytes ReservedBytes LimitBytes PeriodStart PeriodEnd Connections")), nested("Compute", object("MemoryBytes Processes CPUUsageMicroseconds")), nested("Storage", object("Supported Reason UsedBytes CapacityBytes Files MaxFiles")))
 var quotaCeilings = object("CPUPercent MemoryBytes Processes TempBytes MaxFileBytes NetworkBytes NetworkConnections", nested("Args", array(scalar)), nested("GPUDeviceIDs", array(scalar)))
 var permissions = object("CurrentTime Truncated RequestableTruncated",
-	nested("Sandboxes", array(object("ID Name Local Description Storage", nested("FullAccessComputeIDs", array(scalar)), nested("Capabilities", object("Shell FullAccess Reason"))))),
 	required("Resources", array(object("FullAccess SandboxID ResourceID Name Kind Source Path PathMeaning FilePath ShellPath ShellEnvironment ModelID ModelName", nested("Usage", quotaUsage), nested("Network", networkScope), required("Grants", array(grant)), nested("Operations", array(operation))))),
 	required("BuiltInStorage", array(object("SandboxID Kind Source Path Lifetime Available Reason", nested("Actions", array(scalar)), nested("Operations", array(operation)), nested("ShellComputeIDs", array(scalar))))),
-	required("Requestable", array(object("ResourceID ResourceKind Kind Name SandboxID State ModelID ModelName Description ConstraintMode GPUAccessMode Workspace WorkspaceQuotaSupported FullAccessAvailable", nested("AuthorizationCeilings", quotaCeilings), nested("GPUs", array(object("ID Name Vendor MemoryBytes Available Reason"))), nested("SharedGPUs", array(object("ID Name Vendor MemoryBytes"))), nested("Network", networkScope), nested("Actions", array(scalar)), nested("PathPrefixes", array(scalar)), nested("Scope", scope)))),
-	nested("Sandboxes", array(object("ID Name Default Storage Description", nested("FullAccessComputeIDs", array(scalar)), nested("Capabilities", capabilities)))))
+	required("Requestable", array(object("ResourceID ResourceKind Kind Name SandboxID State ModelID ModelName Description ConstraintMode GPUAccessMode Workspace WorkspaceQuotaSupported FullAccessAvailable", nested("AuthorizationCeilings", quotaCeilings), nested("GPUs", array(object("ID=GPUDeviceID Name Vendor MemoryBytes Available Reason"))), nested("SharedGPUs", array(object("ID=GPUDeviceID Name Vendor MemoryBytes"))), nested("Network", networkScope), nested("Actions", array(scalar)), nested("PathPrefixes", array(scalar)), nested("Scope", scope)))),
+	nested("Sandboxes", array(object("ID=SandboxID Name Local Default Storage Description", nested("FullAccessComputeIDs", array(scalar)), nested("Capabilities", capabilities)))))
 
 var schemas = map[string]*shape{
 	"workspace":               object("SandboxID Path Available Reason Lifetime", nested("Shared", object("Path Access Lifetime")), nested("Temporary", object("Path Access Lifetime")), nested("Directories", array(object("Path Purpose")))),
@@ -40,10 +41,10 @@ var schemas = map[string]*shape{
 	"permissions":             object("Total Truncated", required("Granted", array(grant))),
 	"permission_requests":     array(request),
 	"skill":                   object("name path frontmatter read_tool"),
-	"event":                   object("ID Kind MessageID ScheduleID ScheduleVersion OccurrenceAt OperationID TaskID CreatedAt ExecutionID", nested("Recovery", object("PreviousEventID PreviousExecutionID SourceKind SourceCreatedAt Reason InterruptedAt")), nested("Details", object("ID Mode State Failure StartedAt FinishedAt StdoutPath StderrPath BrowserTaskID TerminalTaskID Generation Notice", nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")), nested("Tasks", array(shell))))),
+	"event":                   object("ID=EventID Kind MessageID ScheduleID ScheduleVersion OccurrenceAt OperationID TaskID=PlanExecutionID CreatedAt ExecutionID=AgentExecutionID", nested("Recovery", object("PreviousEventID PreviousExecutionID=PreviousAgentExecutionID SourceKind SourceCreatedAt Reason InterruptedAt")), nested("Details", object("ID=ShellTaskID PlanID Reason Mode State Failure StartedAt FinishedAt StdoutPath StderrPath BrowserTaskID TerminalTaskID Generation Notice", nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")), nested("Tasks", array(shell))))),
 	"failure":                 object("ok operation_id", nested("error", failure)),
 	"conversation_read":       object("NextCursor", required("Items", array(message)), nested("Attachments", &shape{dictionary: file})),
-	"conversation_publish":    object("ID ConversationID Sequence CreatedAt"),
+	"conversation_publish":    object("ID=MessageID ConversationID Sequence CreatedAt"),
 	"conversation_attachment": object("Path Version", nested("File", file)),
 	"file_transfer":           object("SourceVersion Version SHA256 Bytes", nested("Source", object("sandbox_id resource_id path")), nested("Destination", object("sandbox_id resource_id path"))),
 	"file_read":               object("SandboxID ResourceID Path Version StartLine EndLine TotalLines NextOffset ByteOffset NextByteOffset Truncated path version media_type size_bytes width height duration_seconds content_loaded reason start_seconds end_seconds audio_included truncated", required("Text", scalar), nested("File", file)),
@@ -68,7 +69,7 @@ func init() {
 	request.fields = append(request.fields, nested("GrantedAll", array(grant)))
 	shell.fields = append(shell.fields, nested("Result", object("Stdout Stderr Truncated OutputComplete StdoutPath StderrPath StdoutBytes StderrBytes", nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")))))
 	shell.fields = append(shell.fields, nested("Browser", browserControl), nested("Terminal", terminalControl))
-	schemas["browser_session"] = object("Available Reason Stopping Graceful ProxyAppliesTo RestartRequired", nested("Task", shell), nested("Proxy", browserProxy), nested("LastNetworkFailure", browserNetworkFailure), nested("LastFailure", object("TaskID Reason", nested("Proxy", browserProxy))))
+	schemas["browser_session"] = object("Available Reason Stopping Graceful ProxyAppliesTo RestartRequired", nested("Task", shell), nested("Proxy", browserProxy), nested("LastNetworkFailure", browserNetworkFailure), nested("LastFailure", object("TaskID=ShellTaskID Reason", nested("Proxy", browserProxy))))
 	schemas["browser_action"] = object("ok", nested("data", browserData))
 	schemas["browser_action"].fields = append(schemas["browser_action"].fields, schemas["file_read"].fields...)
 	schemas["shell_execute"] = &shape{fields: append(append([]field{}, shell.fields...), nested("Task", shell))}

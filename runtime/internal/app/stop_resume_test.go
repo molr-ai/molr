@@ -38,19 +38,19 @@ func TestManualInterruptLeavesIdleAndAllLaterEventsCanRun(t *testing.T) {
 		}
 		var input struct {
 			ConversationID core.ID `json:"conversation_id"`
-			Event          struct{ ID, MessageID core.ID }
+			Event          struct{ EventID, MessageID core.ID }
 		}
 		eventIndex := -1
 		for i, m := range request.Messages {
 			if strings.HasPrefix(m.Content, "Runtime event: ") {
 				// Optional fields are omitted in the model presentation; decode each event independently.
-				input.Event.ID, input.Event.MessageID, input.ConversationID = "", "", ""
+				input.Event.EventID, input.Event.MessageID, input.ConversationID = "", "", ""
 				_ = json.Unmarshal([]byte(strings.TrimPrefix(strings.SplitN(m.Content, "\n", 2)[0], "Runtime event: ")), &input)
 				eventIndex = i
 			}
 		}
 		if input.Event.MessageID == "" {
-			input.Event.MessageID = input.Event.ID
+			input.Event.MessageID = input.Event.EventID
 		}
 		for _, m := range request.Messages[eventIndex+1:] {
 			if m.Role == "tool" {

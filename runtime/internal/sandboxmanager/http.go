@@ -33,6 +33,7 @@ func Handler(m *Manager, token core.Secret) (http.Handler, error) {
 	}
 	gate := make(chan struct{}, 16)
 	forwardGate := make(chan struct{}, 64)
+	waitGate := make(chan struct{}, 128)
 	expected := sha256.Sum256([]byte(token.Reveal()))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -54,9 +55,13 @@ func Handler(m *Manager, token core.Secret) (http.Handler, error) {
 			m.forwardHTTP(w, r)
 			return
 		}
+		requestGate := gate
+		if r.URL.Path == "/v2/sandbox/wait" || r.URL.Path == "/v2/sandbox/observe" {
+			requestGate = waitGate
+		}
 		select {
-		case gate <- struct{}{}:
-			defer func() { <-gate }()
+		case requestGate <- struct{}{}:
+			defer func() { <-requestGate }()
 		default:
 			w.WriteHeader(http.StatusTooManyRequests)
 			_ = json.NewEncoder(w).Encode(response{Code: core.RateLimited})
@@ -102,7 +107,7 @@ func Handler(m *Manager, token core.Secret) (http.Handler, error) {
 						value, err = m.Backend.Call(r.Context(), q)
 					}
 				}
-			case "/v2/sandbox/read":
+			case "/v2/sandbox/read", "/v2/sandbox/observe":
 				var q Request
 				if err = decode(&q); err == nil {
 					value, err = m.Read(r.Context(), q)
@@ -112,12 +117,14 @@ func Handler(m *Manager, token core.Secret) (http.Handler, error) {
 				if err = decode(&q); err == nil {
 					value, err = m.Submit(r.Context(), q)
 				}
-			case "/v2/sandbox/get", "/v2/sandbox/renew", "/v2/sandbox/cancel":
+			case "/v2/sandbox/get", "/v2/sandbox/wait", "/v2/sandbox/renew", "/v2/sandbox/cancel":
 				var q Identity
 				if err = decode(&q); err == nil {
 					switch r.URL.Path {
 					case "/v2/sandbox/get":
 						value, err = m.Get(r.Context(), q)
+					case "/v2/sandbox/wait":
+						value, err = m.Wait(r.Context(), q)
 					case "/v2/sandbox/renew":
 						err = m.Renew(r.Context(), q)
 					case "/v2/sandbox/cancel":
@@ -292,9 +299,13 @@ func (c *Client) Execute(ctx context.Context, q Request, recheck func(context.Co
 	if err := recheck(ctx); err != nil {
 		return nil, err
 	}
-	if q.Method == "snapshot" || q.Method == "download" || q.Method == "shell_read" || q.Method == "shell_output" {
+	if q.Method == "snapshot" || q.Method == "download" || q.Method == "shell_read" || q.Method == "shell_observe" || q.Method == "shell_output" {
 		var result json.RawMessage
-		err := c.call(ctx, "read", q, &result)
+		endpoint := "read"
+		if q.Method == "shell_observe" {
+			endpoint = "observe"
+		}
+		err := c.call(ctx, endpoint, q, &result)
 		if err != nil {
 			return nil, err
 		}
@@ -334,32 +345,22 @@ func (c *Client) Await(ctx context.Context, id Identity, recheck func(context.Co
 }
 func (c *Client) wait(ctx context.Context, id Identity, reply Reply, recheck func(context.Context) error) (json.RawMessage, error) {
 	var err error
-	ticker := time.NewTicker(250 * time.Millisecond)
-	defer ticker.Stop()
-	renew := time.Now()
 	for reply.State == "running" {
-		select {
-		case <-ctx.Done():
+		if err = recheck(ctx); err != nil {
 			cleanup, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			_ = c.Cancel(cleanup, id)
 			cancel()
-			return nil, core.NewError(core.Canceled, "sandbox wait canceled")
-		case <-ticker.C:
+			return nil, err
 		}
-		if time.Since(renew) > 3*time.Second {
-			if err = recheck(ctx); err != nil {
+		if err = c.call(ctx, "renew", id, nil); err != nil {
+			return nil, err
+		}
+		if err = c.call(ctx, "wait", id, &reply); err != nil {
+			if ctx.Err() != nil {
 				cleanup, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				_ = c.Cancel(cleanup, id)
 				cancel()
-				return nil, err
 			}
-			if err = c.call(ctx, "renew", id, nil); err != nil {
-				return nil, err
-			}
-			renew = time.Now()
-		}
-		reply, err = c.Get(ctx, id)
-		if err != nil {
 			return nil, err
 		}
 	}

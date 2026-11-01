@@ -497,6 +497,7 @@ func TestLinuxRealRevocationAndOutputLimit(t *testing.T) {
 		}
 		return nil
 	})
+	notifyAuthorization := enableAuthorizationNotifications(t, r)
 	c := testCommand()
 	c.Timeout = 10 * time.Second
 	c.Script = "yes output"
@@ -506,6 +507,7 @@ func TestLinuxRealRevocationAndOutputLimit(t *testing.T) {
 	}
 	time.Sleep(100 * time.Millisecond)
 	revoked.Store(true)
+	notifyAuthorization()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	exit, e := p.Wait(ctx)

@@ -12,10 +12,12 @@ import (
 )
 
 type shellRemoteOutput struct {
+	changes                *shellOutputBudget
 	Identity               sm.Identity
 	StdoutPath, StderrPath string
 }
 type shellRemoteControl struct {
+	WaitRevision           *uint64 `json:",omitempty"`
 	Target                 sm.Identity
 	Request                tools.ShellTaskRequest
 	StdoutPath, StderrPath string
@@ -37,11 +39,12 @@ func (b *remoteSandboxBackend) shellControl(ctx context.Context, q sm.Request) (
 	if err != nil {
 		return nil, err
 	}
-	if q.Method == "shell_read" && request.Action != "read" {
+	if (q.Method == "shell_read" || q.Method == "shell_observe") && request.Action != "read" {
 		return nil, core.Invalid("action", "read-only method required")
 	}
 	if request.Action == "read" {
 		started := false
+		var revision uint64
 		if v, ok := b.shellOutputs.Load(shellKey(r.Target.Execution())); ok {
 			started = true
 			o := v.(shellRemoteOutput)
@@ -49,6 +52,12 @@ func (b *remoteSandboxBackend) shellControl(ctx context.Context, q sm.Request) (
 				return nil, denied()
 			}
 			r.StdoutPath, r.StderrPath = o.StdoutPath, o.StderrPath
+			if o.changes != nil {
+				revision, err = o.changes.observe(ctx, r.WaitRevision)
+				if err != nil {
+					return nil, err
+				}
+			}
 		}
 		root := b.operationRoot(r.Target)
 		out, err := shellsession.ReadOutput(root, r.StdoutPath, r.StderrPath, request)
@@ -60,6 +69,7 @@ func (b *remoteSandboxBackend) shellControl(ctx context.Context, q sm.Request) (
 			return nil, err
 		}
 		fields["Started"], _ = json.Marshal(started)
+		fields["OutputRevision"], _ = json.Marshal(revision)
 		return json.Marshal(fields)
 	}
 	if request.Action != "write" && request.Action != "interrupt" && request.Action != "resize" {
@@ -73,11 +83,7 @@ func (b *remoteSandboxBackend) shellControl(ctx context.Context, q sm.Request) (
 	return json.RawMessage(`{"Accepted":true}`), err
 }
 func (s *sandboxRouter) remoteShellControl(ctx context.Context, e core.Execution, id core.ID, q tools.ShellTaskRequest) (json.RawMessage, error) {
-	if q.Action == "read" {
-		if err := s.mirrorShellLogs(ctx, e, id); err != nil {
-			return nil, err
-		}
-	}
+
 	c, err := s.connection(ctx, e.Principal, id)
 	if err != nil {
 		return nil, err
@@ -90,33 +96,61 @@ func (s *sandboxRouter) remoteShellControl(ctx context.Context, e core.Execution
 	if err != nil {
 		return nil, err
 	}
-	raw, _ := json.Marshal(shellRemoteControl{Target: identity(e), Request: q, StdoutPath: "/work/" + shellsession.OutputPrefix(e) + "-stdout.txt", StderrPath: "/work/" + shellsession.OutputPrefix(e) + "-stderr.txt"})
+	raw, _ := json.Marshal(shellRemoteControl{WaitRevision: q.WaitOutput, Target: identity(e), Request: q, StdoutPath: "/work/" + shellsession.OutputPrefix(e) + "-stdout.txt", StderrPath: "/work/" + shellsession.OutputPrefix(e) + "-stderr.txt"})
 	i := identity(e)
 	i.OperationID = randomOperation()
 	method := "shell_control"
 	if q.Action == "read" {
 		method = "shell_read"
+		if q.WaitOutput != nil {
+			method = "shell_observe"
+		}
 	}
-	return client.Execute(ctx, sm.Request{Identity: i, Method: method, Arguments: raw, Epoch: epoch, Deadline: time.Now().Add(15 * time.Second)}, func(context.Context) error { return nil })
+	data, err := client.Execute(ctx, sm.Request{Identity: i, Method: method, Arguments: raw, Epoch: epoch, Deadline: time.Now().Add(15 * time.Second)}, func(context.Context) error { return nil })
+	if err == nil && q.Action == "read" {
+		err = s.mirrorShellLogs(ctx, e, id)
+	}
+	return data, err
 }
 
 // Reads keep mirroring logs after the task's start has been recorded.
 func observeRemoteShell(ctx context.Context, scope *shellsession.Control, taskID core.ID, gpuIDs []string, control func(context.Context, tools.ShellTaskRequest) (json.RawMessage, error)) {
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
 	started := false
+	var revision *uint64
+	backoff := 100 * time.Millisecond
 	for {
-		if raw, err := control(ctx, tools.ShellTaskRequest{Action: "read", TaskID: taskID}); err == nil && !started {
-			var status struct{ Started bool }
+		raw, err := control(ctx, tools.ShellTaskRequest{Action: "read", TaskID: taskID, WaitOutput: revision})
+		if err == nil {
+			var status struct {
+				Started        bool
+				OutputRevision uint64
+			}
 			if json.Unmarshal(raw, &status) == nil && status.Started {
-				started = scope.Started("", "", gpuIDs, control) == nil
+				if !started {
+					started = scope.Started("", "", gpuIDs, control) == nil
+				}
+				if started {
+					if revision == nil || *revision != status.OutputRevision {
+						if scope.OutputChanged != nil {
+							scope.OutputChanged()
+						}
+					}
+					value := status.OutputRevision
+					revision = &value
+					backoff = 100 * time.Millisecond
+					continue
+				}
 			}
 		}
+		// Only startup/transient failures retry; healthy output is a remote wait.
+		timer := time.NewTimer(backoff)
 		select {
 		case <-ctx.Done():
+			timer.Stop()
 			return
-		case <-ticker.C:
+		case <-timer.C:
 		}
+		backoff = min(backoff*2, 5*time.Second)
 	}
 }
 

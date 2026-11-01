@@ -33,13 +33,13 @@ func TestProfileToolPersistenceConflictFileAccessAndContext(t *testing.T) {
 		need(t, err)
 		return a
 	}
-	first, err := call("rename", `{"name":"小满","status":"  期待新发现 🌱  ","avatar":{"type":"preset","id":"cat"},"expected_version":1}`)
+	first, err := call("rename", `{"name":"小满","status":"  期待新发现 🌱  ","avatar":{"type":"preset","avatar_id":"cat"},"expected_version":1}`)
 	need(t, err)
 	updated := get()
 	if updated.Name != "小满" || updated.Status != "期待新发现 🌱" || updated.Avatar != "preset:cat" || updated.Version != 2 {
 		t.Fatal(updated)
 	}
-	replay, err := call("rename", `{"name":"小满","status":"  期待新发现 🌱  ","avatar":{"type":"preset","id":"cat"},"expected_version":1}`)
+	replay, err := call("rename", `{"name":"小满","status":"  期待新发现 🌱  ","avatar":{"type":"preset","avatar_id":"cat"},"expected_version":1}`)
 	need(t, err)
 	if string(replay.Content) != string(first.Content) || get().Version != 2 {
 		t.Fatal("operation replay repeated effect")

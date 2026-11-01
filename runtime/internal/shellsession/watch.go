@@ -9,8 +9,15 @@ import (
 )
 
 type watchControlKey struct{}
+type watcherControl struct {
+	execution core.Execution
+	changes   <-chan struct{}
+}
 
-func watchControl(ctx context.Context) bool { v, _ := ctx.Value(watchControlKey{}).(bool); return v }
+func watchControl(ctx context.Context) bool {
+	_, ok := ctx.Value(watchControlKey{}).(watcherControl)
+	return ok
+}
 
 // StartWatcher is a trusted Runtime entry, not a model tool. Resource grants are
 // checked by the same local/remote execution host as ordinary shell commands.
@@ -35,9 +42,11 @@ func (s *Manager) StartWatcher(ctx context.Context, e core.Execution, q tools.Sh
 	defer s.mu.Unlock()
 	r := s.active[shellKey(e)]
 	if r == nil {
-		return context.WithValue(ctx, watchControlKey{}, true), nil
+		changed := make(chan struct{}, 1)
+		changed <- struct{}{}
+		return context.WithValue(ctx, watchControlKey{}, watcherControl{e, changed}), nil
 	}
-	return context.WithValue(context.WithValue(ctx, managedShellKey{}, r.scope), watchControlKey{}, true), nil
+	return context.WithValue(context.WithValue(ctx, managedShellKey{}, r.scope), watchControlKey{}, watcherControl{e, r.scope.changes}), nil
 }
 
 // WatcherState returns the durable state for the exact watcher execution.
@@ -55,4 +64,14 @@ func (s *Manager) WatcherIO(ctx context.Context, e core.Execution, q tools.Shell
 		return nil, denied()
 	}
 	return s.Manage(ctx, e.Principal, e.AssistantID, q)
+}
+
+// WatcherChanges wakes only after output, startup, or completion. Subscribe via
+// StartWatcher before reading state/output so concurrent writes cannot be lost.
+func (s *Manager) WatcherChanges(ctx context.Context, e core.Execution) (<-chan struct{}, error) {
+	control, ok := ctx.Value(watchControlKey{}).(watcherControl)
+	if !ok || control.execution != e {
+		return nil, denied()
+	}
+	return control.changes, nil
 }

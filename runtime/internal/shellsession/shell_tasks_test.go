@@ -395,3 +395,27 @@ func TestFinishedShellOutputStopsAtRetainedEOF(t *testing.T) {
 		t.Fatal(output)
 	}
 }
+
+func TestWatcherChangesRequireExactCapabilityAndPreserveWake(t *testing.T) {
+	b, _, e := taskFixture(t)
+	changes := make(chan struct{}, 1)
+	ctx := context.WithValue(t.Context(), watchControlKey{}, watcherControl{e, changes})
+	wake, err := b.shellTasks.WatcherChanges(ctx, e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changes <- struct{}{}
+	select {
+	case <-wake:
+	default:
+		t.Fatal("wake lost before wait")
+	}
+	wrong := e
+	wrong.OperationID = "other"
+	if _, err = b.shellTasks.WatcherChanges(ctx, wrong); core.CodeOf(err) != core.Forbidden {
+		t.Fatal("foreign execution accepted", err)
+	}
+	if _, err = b.shellTasks.WatcherChanges(t.Context(), e); core.CodeOf(err) != core.Forbidden {
+		t.Fatal("missing capability accepted", err)
+	}
+}

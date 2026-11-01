@@ -132,8 +132,9 @@ func (s *Manager) serveTCPForward(ctx context.Context, e core.Execution, r *runn
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		ticker := time.NewTicker(2 * time.Second)
-		defer ticker.Stop()
+		delay := time.Second
+		timer := time.NewTimer(delay)
+		defer timer.Stop()
 		for {
 			probe, cancel := context.WithTimeout(f.ctx, 4*time.Second)
 			conn, err := dial(probe)
@@ -144,10 +145,16 @@ func (s *Manager) serveTCPForward(ctx context.Context, e core.Execution, r *runn
 				s.forwardState(r, index, "waiting")
 			}
 			cancel()
+			if err == nil {
+				delay = 30 * time.Second
+			} else {
+				delay = min(delay*2, 30*time.Second)
+			}
+			timer.Reset(delay)
 			select {
 			case <-f.ctx.Done():
 				return
-			case <-ticker.C:
+			case <-timer.C:
 			}
 		}
 	}()

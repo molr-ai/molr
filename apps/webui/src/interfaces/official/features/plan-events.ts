@@ -54,7 +54,7 @@ function usePlanPages<T, P>(path: string | null, decode: (page:P)=>{Items:T[];Ne
       }
       if(!signal.aborted)setState({path,items,more:!!cursor,loading:false});
      } catch(error) { if(!signal.aborted)setState(old=>({...old,error,loading:false})); throw error; }
-     return 30_000;
+     return false;
     }, false);
     refresh.current = () => loop.request(true);
     return ()=>{loop.stop(); refresh.current=()=>{};};

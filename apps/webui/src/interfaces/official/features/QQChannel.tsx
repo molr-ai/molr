@@ -27,7 +27,6 @@ export function QQChannel({ assistant, status, disabled }: { assistant: Assistan
    catch (err) { if (!signal.aborted) setError(err); throw err; }
   }); return () => loop.stop();
  }, [assistant.ID, login?.ID, login?.Status, expired]);
- useEffect(() => { if (!pairing) return; const timer = setInterval(changed, 2500); return () => clearInterval(timer); }, [pairing]);
  useErrorToast(action.error || error);
  const begin = () => action.run(async () => { setError(null); setLogin(await api.post<QQLogin>('/api/qq/login', { AssistantID: assistant.ID })); }, undefined, false);
  const cancel = () => action.run(async () => { if (login?.ID) await api.post('/api/qq/cancel', { AssistantID: assistant.ID, ID: login.ID }); if (pairing) await api.post('/api/qq/disconnect', { AssistantID: assistant.ID }); setLogin(null); changed(); }, undefined, false);

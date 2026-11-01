@@ -24,13 +24,13 @@ func TestProjectionPreservesMeaningAndExcludesInternalFields(t *testing.T) {
 		{"browser_session", `{"Proxy":{"Mode":"proxy","Server":"http://proxy.example:8080","Bypass":["*.example.test"],"Authentication":true,"Username":"private-user","Password":"private-password","Version":4},"ProxyAppliesTo":"current_session","RestartRequired":true,"LastNetworkFailure":{"TaskID":"task","At":"2026-10-13T00:00:00Z","Reason":"proxy_connection_failed","Message":"net::ERR_PROXY_CONNECTION_FAILED","Proxy":{"Mode":"proxy","Server":"http://proxy.example:8080","Password":"private-password"},"Sandbox":{"Reason":"network_destination_denied","At":"2026-10-13T00:00:00Z"}}}`, []string{"proxy.example:8080", "*.example.test", `"Authentication":true`, `"RestartRequired":true`, "current_session", "proxy_connection_failed", "network_destination_denied"}, []string{"private-user", "private-password", "Username", "Password"}},
 		{"browser_action", `{"ok":true,"data":{"snapshot":"textbox Name @e1","refs":{"e1":{"role":"textbox","name":"Name"}},"private":"secret"}}`, []string{"textbox Name @e1", `"refs"`}, []string{"secret"}},
 		{"shell_execute", `{"Exit":{"Code":0,"TimedOut":false,"OutputTruncated":true,"NetworkReason":"denied"},"OutputComplete":false,"Stdout":"abc","StdoutPath":"/work/out","StdoutBytes":999,"OutputNote":"duplicate","OwnerID":"private"}`, []string{`"Code":0`, `"OutputComplete":false`, `"OutputTruncated":true`, "/work/out"}, []string{"OutputNote", "OwnerID"}},
-		{"shell_execute", `{"Task":{"Forwards":[{"Protocol":"tcp","Port":5173,"Address":"192.168.1.10:23000","URL":"http://192.168.1.10:23000","State":"waiting"}],"ID":"job","Mode":"tty","State":"running","OwnerID":"private"},"Notice":"duplicate"}`, []string{`"Task":`, `"ID":"job"`, `"Mode":"tty"`, `"Forwards":`, `"Port":5173`, "http://192.168.1.10:23000"}, []string{"OwnerID", "Notice"}},
+		{"shell_execute", `{"Task":{"Forwards":[{"Protocol":"tcp","Port":5173,"Address":"192.168.1.10:23000","URL":"http://192.168.1.10:23000","State":"waiting"}],"ID":"job","Mode":"tty","State":"running","OwnerID":"private"},"Notice":"duplicate"}`, []string{`"Task":`, `"ShellTaskID":"job"`, `"Mode":"tty"`, `"Forwards":`, `"Port":5173`, "http://192.168.1.10:23000"}, []string{"OwnerID", "Notice"}},
 		{"shell_task", `{"Items":[{"ID":"tty","Terminal":{"Control":"user","Generation":2,"NeedsRead":true,"ControllerClientID":"private"}}],"Terminal":{"Generation":2,"Control":"assistant"}}`, []string{`"Generation":2`, `"Control":"user"`, `"Control":"assistant"`}, []string{"private", "ControllerClientID"}},
 		{"shell_execute", `{"Task":{"ID":"tty","Terminal":{"Control":"assistant","Generation":1,"NeedsRead":false}}}`, []string{`"Generation":1`, `"Terminal"`}, nil},
 		{"event", `{"Kind":"terminal_control_returned","Details":{"TerminalTaskID":"tty","Generation":4,"Notice":"Read latest output"}}`, []string{`"TerminalTaskID":"tty"`, `"Generation":4`}, nil},
 		{"shell_task", `{"Accepted":true,"Output":"","NextCursor":0}`, []string{`"Accepted":true`, `"NextCursor":0`}, nil},
 		{"conversation_read", `{"Items":[{"ID":"m","Sender":"user","SenderID":"private","Content":{"Kind":"text","Text":"<user>\nhello","AttachmentIDs":["f"]}}],"Attachments":{"f":{"ID":"f","Name":"a","MediaType":"text/plain","OwnerID":"private"}},"NextCursor":"next"}`, []string{"<user>", "AttachmentIDs", "MediaType", `"NextCursor":"next"`}, []string{"OwnerID", "SenderID"}},
-		{"plan_read", `{"PlanID":"todo:x","Version":"v2","Instructions":"do this","Ready":false,"CurrentExecution":{"ID":"run","State":"running","Task":{"OwnerID":"private"}},"ExecutionsTruncated":true}`, []string{"Version", "Instructions", `"Ready":false`, `"ID":"run"`, "ExecutionsTruncated"}, []string{"OwnerID", "Task"}},
+		{"plan_read", `{"PlanID":"todo:x","Version":"v2","Instructions":"do this","Ready":false,"CurrentExecution":{"ID":"run","State":"running","Task":{"OwnerID":"private"}},"ExecutionsTruncated":true}`, []string{"Version", "Instructions", `"Ready":false`, `"PlanExecutionID":"run"`, "ExecutionsTruncated"}, []string{"OwnerID", "Task"}},
 		{"failure", `{"ok":false,"operation_id":"op","error":{"code":"canceled","execution_state":"unknown","side_effects_possible":true,"message":"uncertain","private":"secret"}}`, []string{`"ok":false`, `"execution_state":"unknown"`, `"side_effects_possible":true`}, []string{"private", "secret"}},
 		{"archive", `{"summary":"Full result saved","full_result_path":"/work/result.json","bytes":9999,"preview":"serialized internals","tail":"more internals","details":{"Exit":{"Code":1},"NextByteOffset":4096}}`, []string{"/work/result.json", `"Code":1`, `"NextByteOffset":4096`}, []string{`"preview"`, `"tail"`, "internals"}},
 	}
@@ -74,5 +74,67 @@ func TestStringPreservesTextAndEscapesOnlyJSON(t *testing.T) {
 	var decoded string
 	if err := json.Unmarshal([]byte(rendered), &decoded); err != nil || decoded != original || strings.Contains(rendered, `\u003c`) || strings.Contains(rendered, `\u0026`) {
 		t.Fatalf("text changed: %s (%v)", rendered, err)
+	}
+}
+
+func TestSemanticIdentifiersAndWatchDiagnostics(t *testing.T) {
+	cases := []struct {
+		kind, raw string
+		want      []string
+	}{
+		{"permissions", `{"Granted":[{"ID":"grant-a","ResourceID":"compute-b","Version":2}]}`, []string{`"GrantID":"grant-a"`, `"ResourceID":"compute-b"`, `"GrantVersion":2`}},
+		{"conversation_read", `{"Items":[{"ID":"message-a","Content":{"AttachmentIDs":["file-a"]}}],"Attachments":{"file-a":{"ID":"file-a"}}}`, []string{`"MessageID":"message-a"`, `"FileID":"file-a"`}},
+		{"plan_read", `{"PlanID":"watch:a","Ready":true,"Watch":{"ID":"a","State":"blocked","Reason":"authorization_check_timeout","LastHealthyAt":"2030-01-01T00:00:00Z","Watcher":{"compute_id":"compute-b"}}}`, []string{`"WatchID":"a"`, `"State":"blocked"`, `"Reason":"authorization_check_timeout"`, `"LastHealthyAt"`, `"compute_id":"compute-b"`}},
+		{"event", `{"ID":"event-a","TaskID":"plan-execution","ExecutionID":"agent-execution","Details":{"PlanID":"watch:a","Reason":"network_gateway_failed"}}`, []string{`"EventID":"event-a"`, `"PlanExecutionID":"plan-execution"`, `"AgentExecutionID":"agent-execution"`, `"Reason":"network_gateway_failed"`}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.kind, func(t *testing.T) {
+			out, err := Structured(tc.kind, tc.raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, want := range tc.want {
+				if !strings.Contains(out, want) {
+					t.Fatalf("missing %s in %s", want, out)
+				}
+			}
+			if strings.Contains(out, `"ID":`) || strings.Contains(out, `"id":`) {
+				t.Fatal(out)
+			}
+			again, err := Structured(tc.kind, out)
+			if err != nil || again != out {
+				t.Fatal("non-idempotent semantic projection", again, err)
+			}
+		})
+	}
+	if _, err := Structured("permissions", `{"Granted":[{"ID":"one","GrantID":"two"}]}`); err == nil {
+		t.Fatal("conflicting identity aliases accepted")
+	}
+}
+
+func TestEveryPresentationSchemaHasUnambiguousFieldNames(t *testing.T) {
+	visited := map[*shape]bool{}
+	var walk func(string, *shape)
+	walk = func(path string, s *shape) {
+		if s == nil || visited[s] {
+			return
+		}
+		visited[s] = true
+		fields := map[string]bool{}
+		for _, f := range s.fields {
+			if strings.EqualFold(f.name, "id") || strings.EqualFold(f.name, "ids") {
+				t.Errorf("ambiguous field %s.%s", path, f.name)
+			}
+			if fields[f.name] {
+				t.Errorf("duplicate field %s.%s", path, f.name)
+			}
+			fields[f.name] = true
+			walk(path+"."+f.name, f.shape)
+		}
+		walk(path+"[]", s.element)
+		walk(path+"{}", s.dictionary)
+	}
+	for kind, s := range schemas {
+		walk(kind, s)
 	}
 }

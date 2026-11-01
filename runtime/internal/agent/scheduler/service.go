@@ -23,6 +23,8 @@ type Options struct {
 	Now          func() time.Time
 	Concurrency  int
 	TickInterval time.Duration
+	TickSignals  []persistence.SignalKey
+	NextTick     func(context.Context, time.Time) (time.Time, error)
 	Handle       func(context.Context, Claim) error
 	// DrainMessages consumes the IM outbox after committed message arrivals.
 	DrainMessages func(context.Context) error
@@ -143,22 +145,45 @@ func (s *service) Run(ctx context.Context) error {
 	workers.Add(1)
 	go func() {
 		defer workers.Done()
-		ticker := time.NewTicker(s.options.TickInterval)
-		defer ticker.Stop()
+		keys := s.options.TickSignals
+		if len(keys) == 0 {
+			keys = []persistence.SignalKey{{Namespace: "scheduler.tick", Key: "default"}}
+		}
+		changes, err := s.store.Watch(keys...)
+		if err != nil {
+			failure <- err
+			return
+		}
+		defer changes.Close()
 		for {
+			consumeWake(changes)
+			now := s.options.Now()
 			if s.options.Tick != nil {
-				if err := s.options.Tick(runCtx, s.options.Now()); err != nil && runCtx.Err() == nil {
-					select {
-					case failure <- err:
-					default:
+				if err := s.options.Tick(runCtx, now); err != nil {
+					if runCtx.Err() == nil {
+						select {
+						case failure <- err:
+						default:
+						}
 					}
 					return
 				}
 			}
-			select {
-			case <-runCtx.Done():
+			next := now.Add(s.options.TickInterval)
+			if s.options.NextTick != nil {
+				next, err = s.options.NextTick(runCtx, now)
+				if err != nil {
+					if runCtx.Err() == nil {
+						select {
+						case failure <- err:
+						default:
+						}
+					}
+					return
+				}
+			}
+			if err = waitForWork(runCtx, changes, next, s.options.Now()); err != nil {
 				return
-			case <-ticker.C:
 			}
 		}
 	}()

@@ -6,6 +6,8 @@ export function queryTopic(path: string) {
   if (path === '/api/status') return 'runtime';
   const shell = path.match(/^\/api\/assistants\/([^/]+)\/shell-tasks/);
   if (shell) return `shell-tasks:${shell[1]}`;
+  const browser = path.match(/^\/api\/assistants\/([^/]+)\/browser/);
+  if (browser) return `browser:${browser[1]}`;
   if (/\/assistants\/[^/]+\/qq/.test(path)) return 'qq';
   if (/\/assistants\/[^/]+\/feishu/.test(path)) return 'feishu';
   if (/\/assistants\/[^/]+\/weixin/.test(path)) return 'weixin';
@@ -35,7 +37,7 @@ const eventTopics: Record<string, string[]> = {
 
 type EventInvalidation = { topics: string[]; messageID?: string };
 export function eventInvalidation(event: RuntimeEvent): EventInvalidation {
-  if (event.Topic === 'shell.tasks' && event.Object?.ID) return { topics: [`shell-tasks:${event.Object.ID}`] };
+  if (event.Topic === 'shell.tasks' && event.Object?.ID) return { topics: [`shell-tasks:${event.Object.ID}`, `browser:${event.Object.ID}`] };
   if (Object.hasOwn(eventTopics, event.Topic)) return { topics: eventTopics[event.Topic] };
   if (event.Topic.startsWith('assistant.') && event.Object?.ID) return { topics: [`status:${event.Object.ID}`, 'activity', 'tasks', 'dreams', 'memories', 'usage'] };
   if (['message.feedback', 'message.accepted', 'message.read'].includes(event.Topic) && event.Object?.ID) {

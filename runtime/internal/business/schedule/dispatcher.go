@@ -124,3 +124,31 @@ func (d *Dispatcher) Tick(ctx context.Context, now time.Time) error {
 	}
 	return errors.Join(failures...)
 }
+
+// NextWake returns the nearest runnable occurrence. Blocked overdue schedules
+// wait for dependency changes instead of creating an immediate timer loop.
+func (d *Dispatcher) NextWake(ctx context.Context, now time.Time) (time.Time, error) {
+	rows, err := persistence.Select[Schedule](ctx, d.store, "business.schedules", persistence.Query{Where: []persistence.Filter{persistence.Eq("Enabled", true)}, Fields: []string{"ID", "OwnerID", "Kind", "NextAt"}, Unordered: true})
+	if err != nil {
+		return time.Time{}, err
+	}
+	var next time.Time
+	for _, s := range rows {
+		if s.NextAt == nil || (s.Kind != AssistantSchedule && s.Kind != Personal) {
+			continue
+		}
+		if !s.NextAt.After(now) && d.Ready != nil {
+			ready, err := d.Ready(ctx, s.OwnerID, s.ID)
+			if err != nil {
+				return next, err
+			}
+			if !ready {
+				continue
+			}
+		}
+		if next.IsZero() || s.NextAt.Before(next) {
+			next = *s.NextAt
+		}
+	}
+	return next, nil
+}

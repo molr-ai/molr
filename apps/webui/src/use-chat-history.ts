@@ -132,7 +132,7 @@ export function useChatHistory(conversationID: string, targetMessageID = '') {
       running ??= work().finally(() => { running = undefined; });
       return running;
     }
-    const loop = poll(async () => { refreshPending = true; await drain(); return 30_000; }, false);
+    const loop = poll(async () => { refreshPending = true; await drain(); return false; }, false);
     requests.current = {
       older() { if (!snapshot?.olderCursor || olderPending) return; olderPending = true; updateHistory({ loadingOlder: true }); void drain().catch(() => {}); },
     };

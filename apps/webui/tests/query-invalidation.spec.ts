@@ -8,6 +8,7 @@ test('queries retain conversation, assistant and independent detail scopes', () 
     expect(queryTopic(`/api/assistants/${id}/status`)).toBe(`status:${id}`);
     expect(queryTopic(`/api/assistants/${id}/capabilities`)).toBe(`capabilities:${id}`);
     expect(queryTopic(`/api/assistants/${id}/shell-tasks?active=true`)).toBe(`shell-tasks:${id}`);
+    expect(queryTopic(`/api/assistants/${id}/browser`)).toBe(`browser:${id}`);
     for (const channel of ['qq', 'feishu', 'weixin', 'dingtalk', 'slack', 'telegram']) {
       expect(queryTopic(`/api/assistants/${id}/${channel}`)).toBe(channel);
     }
@@ -26,7 +27,7 @@ test('message events preserve exact-message reconciliation and fallback refresh'
     expect(eventInvalidation({ ...message, Topic })).toEqual({ messageID: 'message', topics: ['status', 'conversations', 'tasks', 'memories', 'usage'] });
   }
   expect(eventInvalidation({ Topic: 'conversation.read', ...message })).toEqual({ topics: ['conversations'] });
-  expect(eventInvalidation({ Topic: 'shell.tasks', Object: { ID: 'assistant' } })).toEqual({ topics: ['shell-tasks:assistant'] });
+  expect(eventInvalidation({ Topic: 'shell.tasks', Object: { ID: 'assistant' } })).toEqual({ topics: ['shell-tasks:assistant', 'browser:assistant'] });
   expect(eventInvalidation({ Topic: 'assistant.profile', Object: { ID: 'assistant' } })).toEqual({ topics: ['assistants', 'conversations'] });
   expect(eventInvalidation({ Topic: 'assistant.changed', Object: { ID: 'assistant' } }).topics).toEqual(['status:assistant', 'activity', 'tasks', 'dreams', 'memories', 'usage']);
   expect(eventInvalidation({ Topic: 'notification.changed' })).toEqual({ topics: ['notifications'] });

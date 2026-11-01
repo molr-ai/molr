@@ -15,14 +15,14 @@ export function profileModel(input, response) {
   const called = name => recent.some(m => m.tool_calls?.some(c => c.function.name === name));
   if (event.event?.Kind !== 'born' && event.conversation_id && !called('conversation_publish')) {
     const history = results.find(r => r.Items);
-    const user = history?.Items.find(m => m.ID === event.event?.MessageID) ?? history?.Items.find(m => m.Sender === 'user');
+    const user = history?.Items.find(m => m.MessageID === event.event?.MessageID) ?? history?.Items.find(m => m.Sender === 'user');
     if (!history) call('conversation_read', { conversation_id: event.conversation_id });
     else if (!profile) call('conversation_publish', { conversation_id: event.conversation_id, text: 'Profile context missing.' });
     else if (results.some(r => r.error)) call('conversation_publish', { conversation_id: event.conversation_id, text: `Profile failed: ${results.find(r => r.error).error.code}` });
     else if (called('profile_update')) {
       const result = results.find(r => r.Profile);
       const same = result?.Profile.Version === profile.Version && result.Profile.Name === profile.Name && result.Profile.Status === profile.Status && result.Profile.Avatar.Type === profile.Avatar.Type;
-      call('conversation_publish', { conversation_id: event.conversation_id, text: same ? `Profile saved: ${profile.Name} / ${profile.Avatar.Type}${profile.Avatar.ID ? ':' + profile.Avatar.ID : ''}` : 'Profile context did not refresh.' });
+      call('conversation_publish', { conversation_id: event.conversation_id, text: same ? `Profile saved: ${profile.Name} / ${profile.Avatar.Type}${profile.Avatar.AvatarID ? ':' + profile.Avatar.AvatarID : ''}` : 'Profile context did not refresh.' });
     } else if (user?.Content.AttachmentIDs?.length && !called('conversation_attachment')) {
       call('conversation_attachment', { conversation_id: event.conversation_id, file_id: user.Content.AttachmentIDs[0], path: '/work/profile-upload' });
     } else {
@@ -32,7 +32,7 @@ export function profileModel(input, response) {
       catch {
         if (/清除|clear/i.test(text)) args.avatar = { type: 'clear' };
         else if (user?.Content.AttachmentIDs?.length) args.avatar = { type: 'file', path: '/work/profile-upload' };
-        else { args.name = text.match(/(?:叫|改名为|name[:：])\s*[“"']?([^，。\n”"']+)/)?.[1]?.trim() ?? '小满'; args.avatar = { type: 'preset', id: /狐狸|fox/.test(text) ? 'fox' : 'cat' }; }
+        else { args.name = text.match(/(?:叫|改名为|name[:：])\s*[“"']?([^，。\n”"']+)/)?.[1]?.trim() ?? '小满'; args.avatar = { type: 'preset', avatar_id: /狐狸|fox/.test(text) ? 'fox' : 'cat' }; }
       }
       call('profile_update', args);
     }

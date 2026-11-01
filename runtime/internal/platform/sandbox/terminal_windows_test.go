@@ -238,6 +238,7 @@ func TestWindowsTerminalLifecycle(t *testing.T) {
 				}
 				return nil
 			}
+			notifyAuthorization := enableAuthorizationNotifications(t, r)
 			e := testExecution()
 			e.OperationID = core.ID(mode)
 			command := platform.Command{TTY: true, Managed: true, Script: " ", Directory: "/work", RequireIsolation: mode != "full-access", MaxOutputBytes: 128 << 10, FullAccess: mode == "full-access"}
@@ -273,6 +274,7 @@ func TestWindowsTerminalLifecycle(t *testing.T) {
 			switch mode {
 			case "revoke":
 				revoked.Store(true)
+				notifyAuthorization()
 			case "exit", "full-access":
 				writeWindowsTerminal(t, r, e, "exit 0\r")
 			case "cancel":

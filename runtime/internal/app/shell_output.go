@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"molr.ai/runtime/internal/agent/tools"
 	"molr.ai/runtime/internal/config"
@@ -27,12 +28,16 @@ type shellOutputBudget struct {
 	failed    bool
 	unlimited bool
 	cancel    context.CancelFunc
+	revision  uint64
+	changed   chan struct{}
+	finished  bool
 }
 type shellOutput struct {
-	file   *os.File
-	budget *shellOutputBudget
-	bytes  int64
-	closed bool
+	file    *os.File
+	changed func()
+	budget  *shellOutputBudget
+	bytes   int64
+	closed  bool
 }
 
 func (s *shellOutput) Write(data []byte) (int, error) {
@@ -41,6 +46,14 @@ func (s *shellOutput) Write(data []byte) (int, error) {
 	allowed := min(int64(len(data)), s.budget.left)
 	n, err := s.file.Write(data[:allowed])
 	s.bytes += int64(n)
+	if n > 0 && s.budget.changed != nil {
+		s.budget.revision++
+		close(s.budget.changed)
+		s.budget.changed = make(chan struct{})
+	}
+	if n > 0 && s.changed != nil {
+		s.changed()
+	}
 	s.budget.left -= int64(n)
 	if err == nil && int64(len(data)) > allowed {
 		err = errors.New("shell output archive quota exceeded")
@@ -104,7 +117,7 @@ func createShellOutputsNamed(root string, maxBytes int64, prefix string) (*shell
 		out.Close()
 		return nil, nil, "", "", err
 	}
-	budget := &shellOutputBudget{left: min(64<<20, maxBytes)}
+	budget := &shellOutputBudget{left: min(64<<20, maxBytes), changed: make(chan struct{})}
 	if maxBytes == 0 {
 		budget.left = 1<<63 - 1
 		budget.unlimited = true
@@ -127,4 +140,32 @@ func shellOutputResult(stdoutFile, stderrFile *shellOutput, stdoutPath, stderrPa
 		Exit                     platform.Exit
 		Stdout, Stderr           string
 	}{!stdoutFile.budget.failed, stdoutPath, stderrPath, stdoutFile.bytes, stderrFile.bytes, note, exit, string(stdout), string(stderr)})
+}
+
+func (b *shellOutputBudget) finish() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.finished = true
+	b.revision++
+	close(b.changed)
+	b.changed = make(chan struct{})
+}
+func (b *shellOutputBudget) observe(ctx context.Context, previous *uint64) (uint64, error) {
+	timer := time.NewTimer(10 * time.Second)
+	defer timer.Stop()
+	for {
+		b.mu.Lock()
+		revision, changed, finished := b.revision, b.changed, b.finished
+		b.mu.Unlock()
+		if previous == nil || revision != *previous || finished {
+			return revision, nil
+		}
+		select {
+		case <-ctx.Done():
+			return 0, ctx.Err()
+		case <-changed:
+		case <-timer.C:
+			return revision, nil
+		}
+	}
 }

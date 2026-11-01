@@ -213,10 +213,13 @@ func (r *Runner) start(parent context.Context, e core.Execution, c platform.Comm
 }
 func (r *Runner) startAuthorized(parent context.Context, e core.Execution, c platform.Command, authorize func(context.Context, core.Execution, platform.Command) error) (*process, error) {
 	deadline := c.AuthorizationDeadline
+	if r.options.WatchAuthorization != nil {
+		deadline = time.Time{}
+	}
 	if c.Timeout > 0 {
 		deadline = time.Now().Add(c.Timeout)
 	}
-	if !c.AuthorizationDeadline.IsZero() && (deadline.IsZero() || c.AuthorizationDeadline.Before(deadline)) {
+	if r.options.WatchAuthorization == nil && !c.AuthorizationDeadline.IsZero() && (deadline.IsZero() || c.AuthorizationDeadline.Before(deadline)) {
 		deadline = c.AuthorizationDeadline
 	}
 	ctx, cancel := context.WithCancel(parent)
@@ -385,7 +388,7 @@ func (r *Runner) startAuthorized(parent context.Context, e core.Execution, c pla
 	launch := helperConfig{ProtocolInput: c.ProtocolInput, NoWorkspace: r.options.NoWorkspace, TTY: c.TTY, HostTools: r.options.HostTools, Script: c.Script, Directory: c.Directory, MaxFileBytes: c.Limits.MaxFileBytes, CPUPercent: c.Limits.CPUPercent}
 	var network *networkSession
 	if len(c.NetworkTargets) > 0 || len(c.ForwardPorts) > 0 {
-		network, err = r.startNetworkWithQuotas(ctx, e, c, func(check context.Context) error { return authorize(check, e, c) })
+		network, err = r.startNetworkWithQuotas(ctx, e, c, func(check context.Context) error { return context.Cause(ctx) })
 		if err != nil {
 			return nil, err
 		}
@@ -544,7 +547,7 @@ func (r *Runner) startAuthorized(parent context.Context, e core.Execution, c pla
 	go func() {
 		done := make(chan error, 1)
 		go func() { done <- cmd.Wait() }()
-		ticker := time.NewTicker(100 * time.Millisecond)
+		ticker := time.NewTicker(2 * time.Second)
 		defer ticker.Stop()
 		var waitErr, errorState error
 	loop:
@@ -555,13 +558,13 @@ func (r *Runner) startAuthorized(parent context.Context, e core.Execution, c pla
 			case <-networkFailure:
 				errorState = unavailable("sandbox_network_gateway_failed")
 				if ctx.Err() != nil {
-					errorState = ctx.Err()
+					errorState = context.Cause(ctx)
 				}
 				_ = group.kill()
 				waitErr = <-done
 				break loop
 			case <-ctx.Done():
-				errorState = ctx.Err()
+				errorState = context.Cause(ctx)
 				_ = group.kill()
 				waitErr = <-done
 				break loop
@@ -572,15 +575,7 @@ func (r *Runner) startAuthorized(parent context.Context, e core.Execution, c pla
 					waitErr = <-done
 					break loop
 				}
-				authCtx, stop := context.WithTimeout(ctx, 2*time.Second)
-				authErr := authorize(authCtx, e, c)
-				stop()
-				if authErr != nil {
-					errorState = authErr
-					_ = group.kill()
-					waitErr = <-done
-					break loop
-				}
+
 			}
 		}
 		var networkErr error
@@ -608,7 +603,7 @@ func (r *Runner) startAuthorized(parent context.Context, e core.Execution, c pla
 		}
 		p.exit.TimedOut = errorState == context.DeadlineExceeded
 		if errorState != nil {
-			p.exit.Reason = "authorization_changed"
+			p.exit.Reason = executionStopReason(errorState)
 			if core.ReasonOf(errorState) == "sandbox_network_gateway_failed" {
 				p.exit.Reason = "network_gateway_failed"
 				if network != nil && network.lastReason() != "" {

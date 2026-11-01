@@ -2,6 +2,7 @@ package schedule
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -247,5 +248,34 @@ func TestDispatcherRecognizesLegacyOccurrenceLedger(t *testing.T) {
 	current, err := NewRepository(db).Get(t.Context(), "owner", plan.ID)
 	if err != nil || current.NextAt != nil || current.Enabled {
 		t.Fatal(current, err)
+	}
+}
+
+func TestDispatcherNextWakeIgnoresBlockedOverdueSchedule(t *testing.T) {
+	now := time.Now().UTC()
+	db, overdue := dispatchFixture(t, Trigger{StartAt: now.Add(-time.Hour), Timezone: "UTC", Recurrence: "FREQ=DAILY", MissedPolicy: Coalesce}, Personal)
+	future := overdue
+	future.ID = "future"
+	at := now.Add(time.Hour)
+	future.NextAt = &at
+	testkit.RequireNoError(t, NewRepository(db).Insert(t.Context(), future))
+	d := NewDispatcher(db)
+	d.Ready = func(_ context.Context, _, id core.ID) (bool, error) { return id != "plan", nil }
+	next, err := d.NextWake(t.Context(), now)
+	testkit.RequireNoError(t, err)
+	if !next.Equal(at) {
+		t.Fatal("blocked occurrence caused timer spin", next)
+	}
+	d.Ready = func(context.Context, core.ID, core.ID) (bool, error) { return true, nil }
+	next, err = d.NextWake(t.Context(), now)
+	testkit.RequireNoError(t, err)
+	if next.After(now) {
+		t.Fatal("ready overdue work delayed", next)
+	}
+	testkit.RequireNoError(t, d.Tick(t.Context(), now))
+	next, err = d.NextWake(t.Context(), now)
+	testkit.RequireNoError(t, err)
+	if !next.Equal(at) {
+		t.Fatal("did not advance to next future occurrence", next)
 	}
 }

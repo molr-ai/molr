@@ -239,8 +239,9 @@ func (s *Manager) serveForward(ctx context.Context, e core.Execution, r *running
 	defer stop()
 	// Readiness is a TCP reachability hint, never an authentication bypass.
 	go func() {
-		ticker := time.NewTicker(2 * time.Second)
-		defer ticker.Stop()
+		delay := time.Second
+		timer := time.NewTimer(delay)
+		defer timer.Stop()
 		for {
 			probe, cancel := context.WithTimeout(f.ctx, 4*time.Second)
 			conn, err := s.host.DialForward(probe, e, task.SandboxID, entry.Port)
@@ -251,10 +252,16 @@ func (s *Manager) serveForward(ctx context.Context, e core.Execution, r *running
 			} else {
 				s.forwardState(r, index, "waiting")
 			}
+			if err == nil {
+				delay = 30 * time.Second
+			} else {
+				delay = min(delay*2, 30*time.Second)
+			}
+			timer.Reset(delay)
 			select {
 			case <-f.ctx.Done():
 				return
-			case <-ticker.C:
+			case <-timer.C:
 			}
 		}
 	}()

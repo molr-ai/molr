@@ -49,6 +49,7 @@ func TestWindowsNativeBackend(t *testing.T) {
 		}
 		return nil
 	}})
+	notifyAuthorization := enableAuthorizationNotifications(t, r)
 	defer r.Close()
 	ctx, cancel := context.WithTimeout(t.Context(), windowsBackendTestTimeout)
 	defer cancel()
@@ -123,6 +124,7 @@ func TestWindowsNativeBackend(t *testing.T) {
 		t.Fatal("child did not remain alive", state, err)
 	}
 	revoked.Store(true)
+	notifyAuthorization()
 	exit, err = proc.Wait(ctx)
 	if err != nil || exit.Reason != "authorization_changed" {
 		t.Fatal(exit, err)

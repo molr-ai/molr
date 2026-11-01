@@ -78,7 +78,7 @@ func TestRestartCreatesResumeWithCommittedAndUnstartedToolEvidence(t *testing.T)
 	testkit.RequireNoError(t, err)
 	<-bodies
 	body := <-bodies
-	for _, fragment := range []string{"Runtime recovery:", "runtime_interrupted", "published once", "not_started", "PreviousExecutionID", "conversation_read", "unknown result alone"} {
+	for _, fragment := range []string{"Runtime recovery:", "runtime_interrupted", "published once", "not_started", "PreviousAgentExecutionID", "conversation_read", "unknown result alone"} {
 		if !strings.Contains(body, fragment) {
 			t.Fatalf("missing %q in recovery request", fragment)
 		}

@@ -42,6 +42,7 @@ func quote(value any) (string, error) {
 
 type field struct {
 	name      string
+	sources   []string
 	shape     *shape
 	keepEmpty bool
 }
@@ -66,14 +67,18 @@ var scalar = &shape{}
 func object(names string, extra ...field) *shape {
 	s := &shape{}
 	for _, name := range strings.Fields(names) {
-		s.fields = append(s.fields, field{name, scalar, false})
+		source, target, renamed := strings.Cut(name, "=")
+		if !renamed {
+			target = source
+		}
+		s.fields = append(s.fields, field{name: target, sources: strings.Split(source, "|"), shape: scalar})
 	}
 	s.fields = append(s.fields, extra...)
 	return s
 }
 func array(s *shape) *shape                { return &shape{element: s} }
-func nested(name string, s *shape) field   { return field{name, s, false} }
-func required(name string, s *shape) field { return field{name, s, true} }
+func nested(name string, s *shape) field   { return field{name: name, shape: s} }
+func required(name string, s *shape) field { return field{name: name, shape: s, keepEmpty: true} }
 func empty(v any) bool {
 	switch x := v.(type) {
 	case nil:
@@ -125,6 +130,16 @@ func project(v any, s *shape) (node, error) {
 		}
 		for _, f := range fields {
 			value, exists := values[f.name]
+			for _, source := range f.sources {
+				if original, ok := values[source]; ok {
+					if exists && !empty(value) && !empty(original) && fmt.Sprint(value) != fmt.Sprint(original) {
+						return node{}, fmt.Errorf("conflicting %s", f.name)
+					}
+					if !exists || empty(value) {
+						value, exists = original, true
+					}
+				}
+			}
 			if !exists || (!f.keepEmpty && empty(value)) {
 				continue
 			}

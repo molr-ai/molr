@@ -299,3 +299,53 @@ func TestQuotaControlsBindExecutionIdentityAndServiceCredential(t *testing.T) {
 		t.Fatal("unauthenticated usage read")
 	}
 }
+
+func TestWaitWakesOnCommittedResultAndChecksIdentity(t *testing.T) {
+	backend := &testBackend{started: make(chan struct{}, 1), release: make(chan struct{})}
+	m := managerFixture(t, backend)
+	request := testRequest()
+	_, err := m.Submit(t.Context(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-backend.started
+	foreign := request.Identity
+	foreign.AssistantID = "other"
+	if _, err = m.Wait(t.Context(), foreign); core.CodeOf(err) != core.Forbidden {
+		t.Fatal("foreign wait accepted", err)
+	}
+	result := make(chan Reply, 1)
+	failed := make(chan error, 1)
+	go func() { reply, err := m.Wait(t.Context(), request.Identity); result <- reply; failed <- err }()
+	close(backend.release)
+	select {
+	case reply := <-result:
+		if err := <-failed; err != nil || reply.State != "succeeded" {
+			t.Fatal(reply, err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("completion did not wake result waiter")
+	}
+	if backend.calls.Load() != 1 {
+		t.Fatal("wait resubmitted execution")
+	}
+}
+
+func TestExpiredLeaseCannotBeRenewedBeforeTimerDispatch(t *testing.T) {
+	backend := &testBackend{started: make(chan struct{}, 1), release: make(chan struct{})}
+	m := managerFixture(t, backend)
+	q := testRequest()
+	if _, err := m.Submit(t.Context(), q); err != nil {
+		t.Fatal(err)
+	}
+	<-backend.started
+	m.mu.Lock()
+	m.active[operationKey(q.Identity)].lease = time.Now().Add(-time.Second)
+	m.mu.Unlock()
+	if err := m.Renew(t.Context(), q.Identity); core.ReasonOf(err) != "sandbox_lease_expired" {
+		t.Fatal("expired lease revived", err)
+	}
+	if r := awaitReply(t, m, q.Identity); r.State == "running" {
+		t.Fatal(r)
+	}
+}

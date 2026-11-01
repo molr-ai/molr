@@ -29,9 +29,9 @@ func (s *IdleStore) Write(ctx context.Context, fn func(context.Context, persiste
 	defer func() { s.Calls.Add(1); s.Active.Add(-1) }()
 	return s.Store.Write(ctx, fn)
 }
-func (s *IdleStore) Watch(key persistence.SignalKey) (persistence.Watch, error) {
+func (s *IdleStore) Watch(keys ...persistence.SignalKey) (persistence.Watch, error) {
 	s.Watches.Add(1)
-	return s.Store.Watch(key)
+	return s.Store.Watch(keys...)
 }
 func (s *IdleStore) RequireIdle(t *testing.T) {
 	t.Helper()

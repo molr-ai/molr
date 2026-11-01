@@ -170,6 +170,9 @@ func (r *Runner) startBrowser(parent context.Context, e core.Execution, c platfo
 	}
 	ctx, cancel := context.WithCancel(parent)
 	deadline := c.AuthorizationDeadline
+	if r.options.WatchAuthorization != nil {
+		deadline = time.Time{}
+	}
 	if c.Timeout > 0 {
 		d := time.Now().Add(c.Timeout)
 		if deadline.IsZero() || d.Before(deadline) {
@@ -471,32 +474,26 @@ func (r *Runner) startBrowser(parent context.Context, e core.Execution, c platfo
 	}
 	success = true
 	go func() {
-		tick := time.NewTicker(200 * time.Millisecond)
-		defer tick.Stop()
 		reason := "browser_exited"
 		var stopErr error
 	loop:
 		for {
 			select {
 			case <-ctx.Done():
-				stopErr = ctx.Err()
+				stopErr = context.Cause(ctx)
 				break loop
 			case <-daemon.done:
 				break loop
 			case <-chrome.done:
 				break loop
-			case <-tick.C:
-				if stopErr = r.options.Authorize(ctx, e, c); stopErr != nil {
-					break loop
-				}
 			}
 		}
 		if stopErr != nil {
-			reason = "authorization_changed"
-			if errors.Is(stopErr, context.Canceled) {
+			reason = executionStopReason(stopErr)
+			if core.ReasonOf(stopErr) == "" && errors.Is(stopErr, context.Canceled) {
 				reason = "canceled"
 			}
-			if errors.Is(stopErr, context.DeadlineExceeded) {
+			if core.ReasonOf(stopErr) == "" && errors.Is(stopErr, context.DeadlineExceeded) {
 				reason = "timeout"
 				p.exit.TimedOut = true
 			}

@@ -51,7 +51,7 @@ func TestPermissionQuotaProjectionPreservesAuthoritativeLimitsAndVersion(t *test
 	data, _ := json.Marshal(raw)
 	text, err := prompt.Structured("permission_list", string(data))
 	need(t, err)
-	for _, want := range []string{`"Version":7`, `"bytes":1073741824`, `"period":"day"`, `"connections":32`} {
+	for _, want := range []string{`"GrantVersion":7`, `"bytes":1073741824`, `"period":"day"`, `"connections":32`} {
 		if !strings.Contains(text, want) {
 			t.Fatal("quota stripped", want, text)
 		}

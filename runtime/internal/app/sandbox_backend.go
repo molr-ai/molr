@@ -422,7 +422,7 @@ func (b *remoteSandboxBackend) Call(ctx context.Context, q sm.Request) (json.Raw
 		return json.RawMessage(`{"Updated":true}`), nil
 	case "shell_output":
 		return b.shellLog(ctx, q)
-	case "shell_control", "shell_read":
+	case "shell_control", "shell_read", "shell_observe":
 		return b.shellControl(ctx, q)
 	case "shell_execute":
 		return b.shell(ctx, q)
@@ -570,7 +570,8 @@ func (b *remoteSandboxBackend) shell(ctx context.Context, q sm.Request) (json.Ra
 		return nil, err
 	}
 	defer b.shellOutputs.Delete(shellKey(q.Identity.Execution()))
-	b.shellOutputs.Store(shellKey(q.Identity.Execution()), shellRemoteOutput{Identity: q.Identity, StdoutPath: stdoutPath, StderrPath: stderrPath})
+	defer stdoutFile.budget.finish()
+	b.shellOutputs.Store(shellKey(q.Identity.Execution()), shellRemoteOutput{changes: stdoutFile.budget, Identity: q.Identity, StdoutPath: stdoutPath, StderrPath: stderrPath})
 	var stdout, stderr []byte
 	var wg sync.WaitGroup
 	wg.Add(2)

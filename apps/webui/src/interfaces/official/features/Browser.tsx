@@ -32,7 +32,8 @@ export function Browser({ assistantID, docked, floating, onFloatingChange, bound
   const components = useQuery<ComponentStatus[]>(admin ? '/api/components' : null, false, 2000);
   const component = components.data?.[0];
   const path = `/api/assistants/${assistantID}/browser`;
-  const query = useQuery<BrowserStatus>(path, false, 2000);
+  const browserCadence = useCallback((data?: BrowserStatus) => data?.Task || data?.Preparation?.state === 'installing' ? 2000 : false, []);
+  const query = useQuery<BrowserStatus>(path, false, browserCadence);
   const resources = useQuery<Resource[]>('/api/resources?kind=compute', true);
   const grants = useQuery<Grant[]>(`/api/grants?assistant_id=${assistantID}`, true);
   const client = windowClient(assistantID);

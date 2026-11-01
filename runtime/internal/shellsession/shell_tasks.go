@@ -56,6 +56,8 @@ type managedShellKey struct{}
 // Process-local capability with a private identity and lifetime; never derived from tool arguments. It
 // authorizes only the original execution while the manager retains its slot.
 type Control struct {
+	OutputChanged       func()
+	changes             chan struct{}
 	terminal            *TerminalState
 	e                   core.Execution
 	alive               atomic.Bool
@@ -99,6 +101,7 @@ type runningShell struct {
 	err                error
 }
 type Manager struct {
+	wake             chan struct{}
 	browserReadShot  func(context.Context, core.Execution, tools.FileReadRequest) (json.RawMessage, error)
 	browserRoundTrip func(context.Context, *runningShell, []byte) (json.RawMessage, error)
 	identity         auth.Service
@@ -214,7 +217,13 @@ func (s *Manager) Execute(ctx context.Context, e core.Execution, req tools.Shell
 	if req.TTY {
 		mode = "tty"
 	}
-	cap := &Control{e: e}
+	cap := &Control{e: e, changes: make(chan struct{}, 1)}
+	cap.OutputChanged = func() {
+		select {
+		case cap.changes <- struct{}{}:
+		default:
+		}
+	}
 	cap.alive.Store(true)
 	run, cancel := context.WithCancel(context.WithValue(context.WithoutCancel(ctx), managedShellKey{}, cap))
 	r := &runningShell{task: Task{ComputeID: req.ComputeID, FullAccess: req.FullAccess, SandboxID: sandboxID, ID: e.OperationID, OwnerID: e.Principal.OwnerID, AssistantID: e.AssistantID, Mode: mode, State: "running", Script: req.Script, Executable: req.Executable, Args: req.Args, StartedAt: time.Now().UTC()}, cancel: cancel, done: make(chan struct{}), ready: make(chan struct{}), scope: cap}
@@ -247,6 +256,7 @@ func (s *Manager) Execute(ctx context.Context, e core.Execution, req tools.Shell
 	cap.AuthorizationExpiry = func(at time.Time) error {
 		s.mu.Lock()
 		defer s.mu.Unlock()
+		r.task.AuthorizationExpiresAt = nil
 		if !at.IsZero() {
 			r.task.AuthorizationExpiresAt = &at
 		}
@@ -270,6 +280,7 @@ func (s *Manager) Execute(ctx context.Context, e core.Execution, req tools.Shell
 		case <-r.ready:
 		default:
 			close(r.ready)
+			cap.OutputChanged()
 		}
 		return nil
 	}
@@ -413,6 +424,7 @@ func (s *Manager) run(ctx context.Context, e core.Execution, req tools.ShellRequ
 	s.disarmLocked(r.task.OwnerID, r.task.AssistantID)
 	_ = refreshShellReminder(context.Background(), s.store, r.task.OwnerID, r.task.AssistantID, time.Now(), s.reminderDetailsLocked(r.task.OwnerID, r.task.AssistantID, time.Now()))
 	close(r.done)
+	r.scope.OutputChanged()
 }
 func (s *Manager) finish(ctx context.Context, t Task) error {
 	return s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
@@ -428,7 +440,14 @@ func (s *Manager) finish(ctx context.Context, t Task) error {
 		return s.save(ctx, t)
 	})
 }
+func (s *Manager) wakeMaintenance() {
+	select {
+	case s.wake <- struct{}{}:
+	default:
+	}
+}
 func (s *Manager) armLocked(t Task) {
+	defer s.wakeMaintenance()
 	if !shellNeedsReminder(t) {
 		return
 	}
@@ -438,6 +457,7 @@ func (s *Manager) armLocked(t Task) {
 	}
 }
 func (s *Manager) disarmLocked(owner, id core.ID) {
+	defer s.wakeMaintenance()
 	for _, r := range s.active {
 		if r.task.OwnerID == owner && r.task.AssistantID == id && shellNeedsReminder(r.task) {
 			return
@@ -477,14 +497,42 @@ func (s *Manager) Start(ctx context.Context) error {
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
-		ticker := time.NewTicker(time.Second)
-		defer ticker.Stop()
+		timer := time.NewTimer(time.Hour)
+		defer timer.Stop()
 		for {
+			select {
+			case <-s.wake:
+			default:
+			}
+			err := s.tick(ctx, time.Now())
+			s.mu.Lock()
+			var next time.Time
+			for _, due := range s.reminders {
+				if next.IsZero() || due.Before(next) {
+					next = due
+				}
+			}
+			for _, r := range s.active {
+				if r.task.State != "running" {
+					err = core.NewError(core.Unavailable, "shell completion pending")
+					break
+				}
+			}
+			s.mu.Unlock()
+			if err != nil {
+				next = time.Now().Add(time.Second)
+			}
+			timer.Stop()
+			var due <-chan time.Time
+			if !next.IsZero() {
+				timer.Reset(max(time.Until(next), time.Nanosecond))
+				due = timer.C
+			}
 			select {
 			case <-ctx.Done():
 				return
-			case now := <-ticker.C:
-				_ = s.tick(ctx, now)
+			case <-s.wake:
+			case <-due:
 			}
 		}
 	}()

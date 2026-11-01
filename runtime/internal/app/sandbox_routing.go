@@ -14,6 +14,7 @@ import (
 	"molr.ai/runtime/internal/media"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/platform"
+	"molr.ai/runtime/internal/platform/sandbox"
 	"molr.ai/runtime/internal/policy"
 	sm "molr.ai/runtime/internal/sandboxmanager"
 	"molr.ai/runtime/internal/shellsession"
@@ -403,6 +404,9 @@ func (s *sandboxRouter) shellExecute(ctx context.Context, e core.Execution, req 
 	nativeNetwork := info.Capabilities.NetworkToggle()
 	initialized := false
 	check := func(ctx context.Context) error {
+		if _, err := s.connection(ctx, e.Principal, id); err != nil {
+			return err
+		}
 		currentRef, err := groupReference(ctx, s.adapters.store, e.Principal.OwnerID, "sandbox", id)
 		if err != nil {
 			return err
@@ -431,6 +435,21 @@ func (s *sandboxRouter) shellExecute(ctx context.Context, e core.Execution, req 
 		if currentRef != nil {
 			if err := core.CheckGPUDevices(current.Compute.GPUDevices(), currentRef.Quota.Compute.GPUDevices()); err != nil {
 				return err
+			}
+		}
+		if initialized {
+			for i, f := range req.Files {
+				actions := []policy.Action{policy.Read}
+				if f.Write {
+					actions = append(actions, policy.Write)
+				}
+				currentScope, err := s.scope(ctx, e, id, tools.FileTarget{ResourceID: f.ResourceID, Path: f.Path}, actions...)
+				if err != nil {
+					return err
+				}
+				if i >= len(q.Scopes) || currentScope != q.Scopes[i] {
+					return denied()
+				}
 			}
 		}
 		if initialized && nativeNetwork {
@@ -587,7 +606,19 @@ func (s *sandboxRouter) shellExecute(ctx context.Context, e core.Execution, req 
 			return nil, err
 		}
 	}
-	out, err := s.remoteRuntime.Execute(ctx, e, id, q, check)
+	authorization, err := executionAuthorization(s.adapters.store, e, check)
+	if err != nil {
+		return nil, err
+	}
+	observed, stopAuthorization, err := sandbox.ObserveAuthorization(ctx, authorization)
+	if err != nil {
+		return nil, err
+	}
+	defer stopAuthorization()
+	out, err := s.remoteRuntime.Execute(observed, e, id, q, func(ctx context.Context) error { return context.Cause(ctx) })
+	if cause := context.Cause(observed); cause != nil {
+		return nil, cause
+	}
 	if err != nil {
 		return nil, err
 	}

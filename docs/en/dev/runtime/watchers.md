@@ -2,6 +2,11 @@
 
 An `assistant_watch` plan appears in the continuous-watch group in global and assistant plan lists, without calendar occurrences. The assistant prepares and validates the program; Runtime does not adapt websites or third-party CLIs. See [Plans and execution](../../user/guides/plans.md).
 
+
+Runtime schedules watchers from committed plan, authorization, and execution changes and the nearest time boundary. Idle watchers do not periodically scan plans or read output. Persisted local output wakes protocol reads; timers enforce startup and health deadlines. Remote output uses revision-based long waits and completion uses server-side change waits. Leases are still renewed periodically; a disconnected remote execution stops when its lease expires.
+
+Execution authorization subscribes and validates before startup, then rechecks on grant/account/assistant/group/resource changes and grant or temporary-quota expiry. Explicit denial, check timeout, check failure, and network gateway failure have distinct reasons. An unverifiable authorization stops execution without reporting a lookup failure as a user revocation. Writable-space probes, external-node recovery probes, and transport heartbeats remain independent.
+
 ## Creation and management
 
 Call `plan_manage` with `action=create`, `mode=assistant_watch`, `title`, `instructions`, and `watcher`. Watcher configuration requires `compute_id` and `script`; optional fields are `sandbox_id`, `directory`, `files`, `network_mode`, `network_ids`, and `health_seconds`. File and network references follow the Shell resource rules. TTY, port forwarding, Full Access, and Shell timeout parameters are not accepted. Watcher stdin currently supports Linux and macOS; Windows backends return an explicit capability error.

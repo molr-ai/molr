@@ -13,7 +13,7 @@ import (
 	"molr.ai/runtime/internal/policy"
 )
 
-const ProtocolVersion = 11
+const ProtocolVersion = 12
 const LeaseDuration = 15 * time.Second
 const MaxMessage = 96 << 20
 const MaxRequest = 32 << 20

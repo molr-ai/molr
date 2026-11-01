@@ -51,16 +51,20 @@ func newShellService(store persistence.Store, p policy.Authorizer, c config.Conf
 		return nil, err
 	}
 	s := &shellService{store: store, policy: p, config: c.Sandbox, ownPort: c.OwnListenPort(), dataDir: c.DataDir}
-	s.runner = sandbox.New(sandbox.Options{ProtectedRoots: c.Sandbox.ProtectedRoots, ToolDirectories: c.Sandbox.ToolDirectories, QuotaStore: store, GPU: c.Sandbox.GPU, AllowFullAccess: c.Sandbox.AllowFullAccess, HostTools: c.Sandbox.UsesHostTools(), Bwrap: c.Sandbox.Bwrap, RootFS: c.Sandbox.RootFS, Helper: exe, CgroupRoot: c.Sandbox.CgroupRoot, WorkRoot: c.Sandbox.WorkRoot, PrivateRoot: c.DataDir, MinFreeDiskBytes: c.Sandbox.MinFreeDiskBytes, NetworkBytes: c.Sandbox.NetworkBytes, NetworkConnections: c.Sandbox.NetworkConnections, NetworkAuthorization: s.networkAuthorization, Authorize: s.authorize, BeforeStart: s.consume})
+	s.runner = sandbox.New(sandbox.Options{ProtectedRoots: c.Sandbox.ProtectedRoots, ToolDirectories: c.Sandbox.ToolDirectories, QuotaStore: store, GPU: c.Sandbox.GPU, AllowFullAccess: c.Sandbox.AllowFullAccess, HostTools: c.Sandbox.UsesHostTools(), Bwrap: c.Sandbox.Bwrap, RootFS: c.Sandbox.RootFS, Helper: exe, CgroupRoot: c.Sandbox.CgroupRoot, WorkRoot: c.Sandbox.WorkRoot, PrivateRoot: c.DataDir, MinFreeDiskBytes: c.Sandbox.MinFreeDiskBytes, NetworkBytes: c.Sandbox.NetworkBytes, NetworkConnections: c.Sandbox.NetworkConnections, NetworkAuthorization: s.networkAuthorization, Authorize: s.authorize, WatchAuthorization: s.watchAuthorization, BeforeStart: s.consume})
 	return s, nil
 }
 func shellKey(e core.Execution) string {
 	return string(e.Principal.OwnerID) + "/" + string(e.OperationID)
 }
 func (s *shellService) authorize(ctx context.Context, e core.Execution, c platform.Command) error {
+	_, err := s.authorizationDeadline(ctx, e, c)
+	return err
+}
+func (s *shellService) authorizationDeadline(ctx context.Context, e core.Execution, c platform.Command) (time.Time, error) {
 	v, ok := s.leases.Load(shellKey(e))
 	if !ok {
-		return denied()
+		return time.Time{}, denied()
 	}
 	lease := v.(shellLease)
 	request := lease.request
@@ -69,20 +73,32 @@ func (s *shellService) authorize(ctx context.Context, e core.Execution, c platfo
 	}
 	plan, err := s.plan(ctx, e, request)
 	if err != nil {
-		return err
+		return time.Time{}, err
 	}
 	if c.StdoutSink != lease.plan.StdoutSink || c.StderrSink != lease.plan.StderrSink {
-		return denied()
+		return time.Time{}, denied()
 	}
 	c.StdoutSink, c.StderrSink = nil, nil
 	if !platform.NativeSandbox() {
 		c.NetworkTargets = nil
 		c.NetworkAuthorizations = nil
 	}
-	if !reflect.DeepEqual(plan, c) {
-		return denied()
+	if platform.NativeSandbox() {
+		c.NetworkAuthorizations = append([]platform.NetworkAuthorization(nil), c.NetworkAuthorizations...)
+		for i := range c.NetworkAuthorizations {
+			c.NetworkAuthorizations[i].ExpiresAt = nil
+		}
+		for i := range plan.NetworkAuthorizations {
+			plan.NetworkAuthorizations[i].ExpiresAt = nil
+		}
 	}
-	return nil
+	// Deadlines are maintained by the authorization observer, independently of OS limits.
+	deadline := plan.AuthorizationDeadline
+	plan.AuthorizationDeadline, c.AuthorizationDeadline = time.Time{}, time.Time{}
+	if !reflect.DeepEqual(plan, c) {
+		return time.Time{}, denied()
+	}
+	return deadline, nil
 }
 func (s *shellService) consume(ctx context.Context, e core.Execution, c platform.Command) error {
 	if !c.FullAccess {
@@ -303,6 +319,10 @@ func (s *shellService) execute(ctx context.Context, e core.Execution, req tools.
 	}
 	defer stdoutFile.close()
 	defer stderrFile.close()
+	if scope := shellsession.ManagedFor(ctx, e); scope != nil {
+		stdoutFile.changed = scope.OutputChanged
+		stderrFile.changed = scope.OutputChanged
+	}
 	c.StdoutSink, c.StderrSink = stdoutFile, stderrFile
 	s.leases.Store(k, shellLease{req, c})
 	captureCtx, captureCancel := context.WithCancel(ctx)

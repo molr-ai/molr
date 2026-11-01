@@ -18,7 +18,7 @@ import { ExecutionOptions, useExecutionOptions } from './ExecutionOptions';
 const selections = new Map<string,string>();
 export function Terminals({ assistantID, assistantName, docked, floating, onFloatingChange, bounds, onClose }: { assistantID: string; assistantName: string; docked: boolean; floating: boolean; onFloatingChange: (value: boolean) => void; bounds: RefObject<FloatingBounds | null>; onClose: () => void }) {
   const { locale, t } = useCopy(), zh = locale === 'zh', mobile = useBreakpoint('mobile');
-  const query = useQuery<{ Items: ShellTask[] }>(`/api/assistants/${assistantID}/shell-tasks`, false, 2000);
+  const query = useQuery<{ Items: ShellTask[] }>(`/api/assistants/${assistantID}/shell-tasks`, false, 0);
   const resources = useQuery<Resource[]>('/api/resources?kind=compute', true), grants = useQuery<Grant[]>(`/api/grants?assistant_id=${assistantID}`, true);
   const sandbox = useQuery<SandboxInfo>('/api/sandbox');
   const supported = sandbox.data?.Capabilities.Terminal;

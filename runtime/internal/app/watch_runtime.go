@@ -90,7 +90,6 @@ func (wr *watchRuntime) tick(ctx context.Context, now time.Time) error {
 			select {
 			case <-active.done:
 				delete(wr.active, k)
-				continue
 			default:
 				continue
 			}
@@ -148,7 +147,16 @@ func (wr *watchRuntime) tick(ctx context.Context, now time.Time) error {
 		runCtx, cancel := context.WithCancel(context.Background())
 		run := &watchRun{cancel: cancel, done: make(chan struct{}), runID: next.RunID}
 		wr.active[k] = run
-		go func(w watch.Watch, fp string) { defer close(run.done); defer cancel(); wr.run(runCtx, w, fp) }(next, fingerprint)
+		go func(w watch.Watch, fp string) {
+			defer cancel()
+			wr.run(runCtx, w, fp)
+			close(run.done)
+			wake, stop := context.WithTimeout(context.Background(), 5*time.Second)
+			defer stop()
+			_ = wr.store.Write(wake, func(ctx context.Context, tx persistence.Tx) error {
+				return tx.NotifyAfterCommit(ctx, persistence.SignalKey{Namespace: "runtime.watch", Key: "completed"})
+			})
+		}(next, fingerprint)
 	}
 	for k, run := range wr.active {
 		if !seen[k] {
@@ -238,8 +246,12 @@ func (wr *watchRuntime) pump(ctx context.Context, e core.Execution, w watch.Watc
 		defer stop()
 		_, _ = wr.shell.WatcherIO(cleanup, e, tools.ShellTaskRequest{Action: "stop", TaskID: e.OperationID})
 	}()
-	ticker := time.NewTicker(250 * time.Millisecond)
-	defer ticker.Stop()
+	changes, err := wr.shell.WatcherChanges(ctx, e)
+	if err != nil {
+		return "", err
+	}
+	timer := time.NewTimer(30 * time.Second)
+	defer timer.Stop()
 	cursor := int64(0)
 	pending := []byte{}
 	started := time.Now()
@@ -250,6 +262,10 @@ func (wr *watchRuntime) pump(ctx context.Context, e core.Execution, w watch.Watc
 	messages := 0
 	start, _ := json.Marshal(map[string]any{"type": "start", "version": 1, "state": w.Checkpoint, "resumed": w.LastInterruptionAt != nil})
 	for {
+		select {
+		case <-changes:
+		default:
+		}
 		if ctx.Err() != nil {
 			return "", ctx.Err()
 		}
@@ -265,6 +281,9 @@ func (wr *watchRuntime) pump(ctx context.Context, e core.Execution, w watch.Watc
 		}
 		raw, readErr := wr.shell.WatcherIO(ctx, e, tools.ShellTaskRequest{Action: "read", TaskID: e.OperationID, Cursor: cursor, Encoding: "base64"})
 		hadOutput := false
+		if readErr != nil && (initialized || state.State != "running" || (core.CodeOf(readErr) != core.NotFound && core.CodeOf(readErr) != core.FailedPrecondition)) {
+			return "watch_output_failed", readErr
+		}
 		if readErr == nil {
 			var out struct {
 				Output     string
@@ -362,10 +381,22 @@ func (wr *watchRuntime) pump(ctx context.Context, e core.Execution, w watch.Watc
 		if hadOutput {
 			continue
 		}
+
+		timer.Stop()
+		var expiry <-chan time.Time
+		if !ready {
+			timer.Reset(max(time.Until(started.Add(30*time.Second)), time.Nanosecond))
+			expiry = timer.C
+		} else if w.Watcher.HealthSeconds > 0 {
+			timer.Reset(max(time.Until(healthy.Add(time.Duration(w.Watcher.HealthSeconds)*time.Second)), time.Nanosecond))
+			expiry = timer.C
+		}
 		select {
 		case <-ctx.Done():
 			return "", ctx.Err()
-		case <-ticker.C:
+		case <-changes:
+		case <-expiry:
 		}
+
 	}
 }

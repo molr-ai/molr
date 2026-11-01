@@ -172,3 +172,62 @@ func TestConcurrentWatchCloseAndPublish(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestRecordAndBucketObserversCommitRollbackAndNoop(t *testing.T) {
+	s := openStore(t)
+	both, err := s.Watch(persistence.BucketSignal("records-test"), persistence.RecordSignal("records-test", "one"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer both.Close()
+	exact, err := s.Watch(persistence.RecordSignal("records-test", "one"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer exact.Close()
+	put := func(key string, value int) error {
+		return s.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error { return tx.Put(ctx, "records-test", key, value) })
+	}
+	if err = put("one", 1); err != nil {
+		t.Fatal(err)
+	}
+	expectSignal(t, both, true)
+	expectSignal(t, both, false)
+	expectSignal(t, exact, true)
+	if err = put("one", 1); err != nil {
+		t.Fatal(err)
+	}
+	expectSignal(t, both, false)
+	expectSignal(t, exact, false)
+	sentinel := errors.New("rollback")
+	err = s.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
+		if err := tx.Put(ctx, "records-test", "one", 2); err != nil {
+			return err
+		}
+		return sentinel
+	})
+	if !errors.Is(err, sentinel) {
+		t.Fatal(err)
+	}
+	expectSignal(t, both, false)
+	expectSignal(t, exact, false)
+	if err = put("two", 2); err != nil {
+		t.Fatal(err)
+	}
+	expectSignal(t, both, true)
+	expectSignal(t, exact, false)
+	err = s.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
+		n, err := tx.DeleteMatching(ctx, "records-test", persistence.Query{})
+		if n != 2 {
+			t.Fatalf("deleted %d", n)
+		}
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectSignal(t, both, true)
+	expectSignal(t, exact, true)
+	both.Close()
+	both.Close()
+}

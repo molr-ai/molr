@@ -49,7 +49,7 @@ export function useTrajectory(assistantID: string) {
           receive(page); commit({ head: page.HeadCursor, loading: false }); after = page.NextCursor;
         } while (after);
       });
-      return 30_000;
+      return false;
     }, false);
     refresh.current = () => loop.request(true);
     older.current = () => {

@@ -126,6 +126,7 @@ func TestLinuxNetworkRevocationClosesUpstream(t *testing.T) {
 		}
 		return nil
 	})
+	notifyAuthorization := enableAuthorizationNotifications(t, r)
 	connected, closed := make(chan struct{}), make(chan struct{})
 	server, ca := networkTestTLS(t, "127.0.0.1", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		io.WriteString(w, "connected\n")
@@ -148,6 +149,7 @@ func TestLinuxNetworkRevocationClosesUpstream(t *testing.T) {
 		t.Fatal("stream did not connect")
 	}
 	revoked.Store(true)
+	notifyAuthorization()
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 	exit, err := p.Wait(ctx)

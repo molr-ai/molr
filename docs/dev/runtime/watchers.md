@@ -2,6 +2,11 @@
 
 持续关注是 `assistant_watch` 计划。它进入全局与助理计划清单的「持续关注」分组，不生成日历发生点。助理负责准备、验证符合本文协议的程序；Runtime 不适配具体网站或第三方 CLI。使用方式见[计划与执行](../../user/guides/plans.md)。
 
+
+Runtime 通过已提交的计划、授权及执行变更通知和最近到期时间调度 watcher；空闲时不按固定周期扫描计划或读取输出。本机输出持久化后唤醒协议读取，启动、健康期限由定时器维护。远程输出按版本长等待，完成状态使用服务端变更等待；租约仍定期续期，失联到期停止远程执行。
+
+执行授权在启动前订阅并校验，之后由授权／账号／助理／组／资源变更和授权、临时额度到期触发复核。明确拒绝、复核超时、复核失败与网络网关故障使用不同原因码；无法确认授权时停止执行，不把查询故障误报为用户撤权。磁盘可写空间探测、外部节点恢复探测和传输心跳仍独立运行。
+
 ## 创建与管理
 
 使用 `plan_manage`，`action=create`、`mode=assistant_watch`，提供 `title`、`instructions` 和 `watcher`。`watcher` 包含 `compute_id`、`script`，以及可选的 `sandbox_id`、`directory`、`files`、`network_mode`、`network_ids`、`health_seconds`。文件和网络引用沿用 Shell 的资源规则；不接受 TTY、端口转发、Full Access 或 Shell 超时参数。当前 watcher 标准输入管道支持 Linux 和 macOS；Windows 执行端返回明确的能力错误。

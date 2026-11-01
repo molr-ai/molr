@@ -5,7 +5,7 @@ import { useCopy, useQuery } from '../../../state';
 export function GrantUseSummary({ once, grant, timeZone }: { once?: boolean; grant?: Grant; timeZone?: string }) {
  const { locale } = useCopy(), zh=locale==='zh';
  // Scope always comes from the approved snapshot; only usage is read live.
- const live=useQuery<Grant[]>(grant?.Scope.Once && !grant.Used ? `/api/grants?assistant_id=${grant.AssistantID}` : null,true,30000);
+ const live=useQuery<Grant[]>(grant?.Scope.Once && !grant.Used ? `/api/grants?assistant_id=${grant.AssistantID}` : null,true,0);
  const used=grant?.Used ?? live.data?.find(g=>g.ID===grant?.ID)?.Used;
  const single=grant ? grant.Scope.Once : once;
  return <div className="permission-use">

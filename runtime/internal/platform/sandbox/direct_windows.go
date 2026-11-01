@@ -36,6 +36,9 @@ func (r *Runner) startDirect(parent context.Context, e core.Execution, c platfor
 func (r *Runner) startHost(parent context.Context, e core.Execution, c platform.Command) (*process, error) {
 	ctx, cancel := context.WithCancel(parent)
 	deadline := c.AuthorizationDeadline
+	if r.options.WatchAuthorization != nil {
+		deadline = time.Time{}
+	}
 	if c.Timeout > 0 {
 		d := time.Now().Add(c.Timeout)
 		if deadline.IsZero() || d.Before(deadline) {
@@ -194,8 +197,6 @@ func (r *Runner) startHost(parent context.Context, e core.Execution, c platform.
 		defer closePipe()
 		done := make(chan error, 1)
 		go func() { done <- cmd.Wait() }()
-		tick := time.NewTicker(200 * time.Millisecond)
-		defer tick.Stop()
 		var waitErr, stopErr error
 	loop:
 		for {
@@ -203,9 +204,7 @@ func (r *Runner) startHost(parent context.Context, e core.Execution, c platform.
 			case waitErr = <-done:
 				break loop
 			case <-ctx.Done():
-				stopErr = ctx.Err()
-			case <-tick.C:
-				stopErr = r.options.Authorize(ctx, e, c)
+				stopErr = context.Cause(ctx)
 			}
 			if stopErr != nil {
 				_ = terminateWindowsJob(job)
@@ -218,7 +217,7 @@ func (r *Runner) startHost(parent context.Context, e core.Execution, c platform.
 		p.exit.Code = cmd.ProcessState.ExitCode()
 		if stopErr != nil {
 			p.exit.Code = 125
-			p.exit.Reason = "authorization_changed"
+			p.exit.Reason = executionStopReason(stopErr)
 			if stopErr == context.Canceled {
 				p.exit.Reason = "canceled"
 			}

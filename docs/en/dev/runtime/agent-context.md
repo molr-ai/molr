@@ -12,6 +12,11 @@ User input in user message events appends natural language constraints after the
 
 Automatic context, control, recovery, verification, handover, and urgent notifications directly use the user role; identified Runtime notifications in old checkpoints are converted to user role during continued execution / request projection, retaining source, body, and recovery metadata. The first base instruction remains system, and custom system instructions are not rewritten by this migration. Historical workbench records and checkpoint load snapshots retain the original role.
 
+
+Model-facing Runtime identifiers name their entities explicitly: `GrantID`, `ResourceID`, `MessageID`, `FileID`, `SandboxID`, `GPUDeviceID`, `ShellTaskID`, `PlanExecutionID`, `AgentExecutionID`, `EventID`, `WatchID`, and `WatchRunID`. Presentation emits no generic `ID`/`id` fields or duplicate object keys, and different entities do not share ambiguous identifiers. Internal records and third-party source text retain their meaning; tool schemas explain the corresponding identifier. Compute tools take `ResourceID` as `compute_id`; `GrantID` and `GrantVersion` identify authorization adjustments. Conflicting identity aliases fail presentation rather than silently selecting a value.
+
+`plan_read`, `plan_list`, and `plan_manage` preserve `Watch.State`, `Reason`, `LastHealthyAt`, run references, and watcher configuration. `watch_failed` events preserve `PlanID` and `Reason`. `Ready` describes plan dependencies and pause conditions, not watcher liveness.
+
 ## Sources and Loading
 
 - Chat entry: Each context collection validates the current Execution once for channel composition and reuses the Assistant read during that check. It selects the first matching `chat_channel` source in Weixin, QQ, Feishu, Telegram, DingTalk order; Slack is checked and appended independently. Channel adapters read current bindings and supply format and media guidance. Disconnecting removes the corresponding source. Identity, bindings, and authorization results are not cached or written into permanent assistant instructions. Actual model calls still reauthorize.

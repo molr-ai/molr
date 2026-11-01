@@ -129,6 +129,13 @@ func runTerminalContainer(spec containerLaunch, commands *bufio.Reader) (int, er
 	if err != nil {
 		return 125, err
 	}
+	// Disposal closes the original handle while the exit wait may still be active.
+	var waitProcess windows.Handle
+	current := windows.CurrentProcess()
+	if err = windows.DuplicateHandle(current, process.Process, current, &waitProcess, 0, false, windows.DUPLICATE_SAME_ACCESS); err != nil {
+		return 125, errors.Join(err, dispose())
+	}
+	defer windows.CloseHandle(waitProcess)
 	windows.CloseHandle(inputRead)
 	inputRead = 0
 	windows.CloseHandle(outputWrite)
@@ -171,16 +178,15 @@ func runTerminalContainer(spec containerLaunch, commands *bufio.Reader) (int, er
 	}()
 	outputFinished := false
 	var code uint32
-	poll := time.NewTicker(50 * time.Millisecond)
-	defer poll.Stop()
+	processExited := false
+	exited := make(chan error, 1)
+	go func() { _, err := windows.WaitForSingleObject(waitProcess, windows.INFINITE); exited <- err }()
 wait:
 	for {
 		select {
-		case <-poll.C:
-			err = windows.GetExitCodeProcess(process.Process, &code)
-			if err != nil || code != 259 {
-				break wait
-			}
+		case err = <-exited:
+			processExited = true
+			break wait
 		case err = <-controlDone:
 			break wait
 		case err = <-outputDone:
@@ -197,6 +203,9 @@ wait:
 	// Stop the entire inner job before closing ConPTY. Detached grandchildren
 	// cannot keep its pipes alive and prevent the helper from exiting.
 	err = errors.Join(err, dispose())
+	if !processExited {
+		err = errors.Join(err, <-exited)
+	}
 	os.Stdin.Close()
 	input.Close()
 	terminalMu.Lock()

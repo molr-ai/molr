@@ -25,7 +25,20 @@ func (b *Bundle) buildScheduler(cfg config.Config, permissions policy.Authorizer
 	dispatcher.Ready = plans.ScheduleReady
 	dispatcher.Start = plans.StartScheduled
 	b.watchRuntime = &watchRuntime{store: store, watches: planning.watches, plans: plans, shell: b.shellTasks, active: map[string]*watchRun{}}
-	worker := scheduler.NewService(store, scheduler.Options{Ready: func(ctx context.Context) bool { return environment(ctx) == nil }, Authorizer: permissions, Concurrency: cfg.Execution.MaxAssistants, RecoverInterrupted: engine.RecoverInterrupted, Handle: func(ctx context.Context, c scheduler.Claim) error {
+	worker := scheduler.NewService(store, scheduler.Options{TickSignals: runtimeSignals(), NextTick: func(ctx context.Context, now time.Time) (time.Time, error) {
+		next, err := nextRuntimeTick(ctx, store, now)
+		if err != nil {
+			return next, err
+		}
+		scheduled, err := dispatcher.NextWake(ctx, now)
+		if err != nil {
+			return next, err
+		}
+		if !scheduled.IsZero() && (next.IsZero() || scheduled.Before(next)) {
+			next = scheduled
+		}
+		return next, nil
+	}, Ready: func(ctx context.Context) bool { return environment(ctx) == nil }, Authorizer: permissions, Concurrency: cfg.Execution.MaxAssistants, RecoverInterrupted: engine.RecoverInterrupted, Handle: func(ctx context.Context, c scheduler.Claim) error {
 		if c.Job.Event.Kind == event.UserMessage {
 			if err := chat.AcceptUserMessage(ctx, core.Execution{Principal: c.Principal, AssistantID: c.Job.Event.AssistantID, OperationID: c.Job.Event.ID}, c.Job.Event.MessageID); err != nil {
 				return err

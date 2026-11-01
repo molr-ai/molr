@@ -12,6 +12,11 @@
 
 自动上下文、控制、恢复、核对、交接及加急通知直接使用 user role；旧检查点中已识别的 Runtime 通知在继续执行／请求投影时转换为 user，保留来源、正文和恢复元数据。首条基础指令仍为 system，自定义系统指令不由此迁移改写。历史工作台记录与检查点加载快照保留原始 role。
 
+
+模型可见的 Runtime 标识使用明确的实体名：`GrantID`、`ResourceID`、`MessageID`、`FileID`、`SandboxID`、`GPUDeviceID`、`ShellTaskID`、`PlanExecutionID`、`AgentExecutionID`、`EventID`、`WatchID` 和 `WatchRunID`。展示层不输出通用 `ID`／`id`，同一对象内字段不得重名，不同实体的标识不能共用模糊名称。内部记录与第三方原始正文保持原义；工具参数通过各自 schema 说明对应标识。计算工具的 `compute_id` 使用 `ResourceID`；`GrantID` 与 `GrantVersion` 仅用于调整授权。冲突的标识别名拒绝展示，不静默选择一个值。
+
+`plan_read`、`plan_list` 和 `plan_manage` 保留 `Watch.State`、`Reason`、`LastHealthyAt`、运行引用及 watcher 配置；`watch_failed` 事件保留 `PlanID` 和 `Reason`。`Ready` 表示计划依赖及暂停条件，不代表 watcher 存活。
+
 ## 来源与加载
 
 - 聊天入口：每次上下文收集为渠道组合校验一次当前 Execution，并复用校验时读取的 Assistant。按微信、QQ、飞书、Telegram、钉钉顺序选择首个命中的 `chat_channel` 来源；Slack 独立检查并追加。渠道适配器各自读取当前绑定并提供格式与媒体能力说明，解绑后移除对应来源；不缓存身份、绑定或鉴权结果，也不写入助理永久指令。实际模型调用仍重新鉴权。

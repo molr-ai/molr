@@ -40,8 +40,7 @@ func TestExpiryUsesOnlyDueActiveSessionsAcrossBatches(t *testing.T) {
 	}
 	observed := &testkit.ObservedStore{Store: f.db}
 	f.s.store = observed
-	// Expiry must still run inside the one-minute discovery throttle.
-	f.s.lastTick = now.Add(-time.Second)
+	// Expiry remains independently bounded when a deadline wakes the scheduler.
 	if err := f.s.Tick(ctx, now); err != nil {
 		t.Fatal(err)
 	}

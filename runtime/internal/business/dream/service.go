@@ -36,7 +36,6 @@ type Coordinator struct {
 	store    persistence.Store
 	options  Options
 	mu       sync.Mutex
-	lastTick time.Time
 	commitMu sync.Mutex
 }
 
@@ -250,9 +249,6 @@ func (s *Coordinator) Tick(ctx context.Context, now time.Time) error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.lastTick.IsZero() && !now.Before(s.lastTick) && now.Sub(s.lastTick) < time.Minute {
-		return nil
-	}
 	rows, err := persistence.Select[assistant.Assistant](ctx, s.store, "business.assistants", persistence.Query{Where: []persistence.Filter{persistence.Eq("State", assistant.Active)}})
 	if err != nil {
 		return err
@@ -266,7 +262,6 @@ func (s *Coordinator) Tick(ctx context.Context, now time.Time) error {
 			return err
 		}
 	}
-	s.lastTick = now
 	return nil
 }
 func (s *Coordinator) saveEvent(ctx context.Context, r Run) error {

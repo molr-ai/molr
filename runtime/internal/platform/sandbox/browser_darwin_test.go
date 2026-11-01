@@ -39,6 +39,7 @@ func TestSeatbeltNativeBrowser(t *testing.T) {
 		}
 		return nil
 	})
+	notifyAuthorization := enableAuthorizationNotifications(t, r)
 	r.options.Helper = helper
 	slowStarted := make(chan struct{})
 	page := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -218,6 +219,7 @@ func TestSeatbeltNativeBrowser(t *testing.T) {
 		t.Fatal(err)
 	}
 	revoked.Store(true)
+	notifyAuthorization()
 	ctx, cancel = context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 	exit, err = p.Wait(ctx)

@@ -34,7 +34,7 @@ function ForwardAddress({ address, zh }: { address: string; zh: boolean }) {
 
 export function ShellTasks({ assistantID, docked, onClose }: { assistantID: string; docked: boolean; onClose: () => void }) {
   const { locale } = useCopy(), zh = locale === 'zh', mobile = useBreakpoint('mobile');
-  const { items, error: listError, loading, refresh } = useShellTaskList(assistantID, 2000);
+  const { items, error: listError, loading, refresh } = useShellTaskList(assistantID);
   const sandboxes = useQuery<SandboxView[]>('/api/sandboxes');
   const [selected, setSelected] = useState('');
   const [error, setError] = useState(false), [busy, setBusy] = useState(false), [output, setOutput] = useState('');
@@ -55,6 +55,7 @@ export function ShellTasks({ assistantID, docked, onClose }: { assistantID: stri
   useEffect(() => {
     cursor.current = 0; setOutput(''); setError(false);
     if (!selected || taskState.current?.Mode === 'tty') return;
+    let idleDelay = 1500;
     const loop = poll(async signal => {
       try {
         const data = await api.read<ShellTaskOutput>(path, { action: 'read', task_id: selected, cursor: cursor.current, stream }, signal);
@@ -63,7 +64,8 @@ export function ShellTasks({ assistantID, docked, onClose }: { assistantID: stri
         setOutput(previous => (previous + plain(data.Output)).slice(-65536));
         const finished = taskState.current && taskState.current.State !== 'running';
         if (finished && data.Finished === true && !data.Output) { loop.stop(); return false; }
-        return finished && !data.Finished && !data.Output ? 30_000 : 1500;
+        idleDelay = data.Output ? 1500 : Math.min(15_000, idleDelay * 2);
+        return finished && !data.Finished && !data.Output ? 30_000 : idleDelay;
       } catch (error) { if (!signal.aborted) setError(true); throw error; }
     });
     return () => loop.stop();

@@ -21,7 +21,7 @@ func (idleTestStore) Write(ctx context.Context, fn func(context.Context, persist
 	return fn(ctx, nil)
 }
 
-func (idleTestStore) Watch(persistence.SignalKey) (persistence.Watch, error) {
+func (idleTestStore) Watch(...persistence.SignalKey) (persistence.Watch, error) {
 	return idleTestWatch{}, nil
 }
 

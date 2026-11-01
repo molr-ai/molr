@@ -16,71 +16,68 @@ func TestRemoteShellObservationRecordsStartOnceAndKeepsReading(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
-		reads, starts := 0, 0
+		changes := make(chan uint64)
+		reads, starts, wakes := 0, 0, 0
 		control := func(ctx context.Context, q tools.ShellTaskRequest) (json.RawMessage, error) {
 			if q.Action != "read" || q.TaskID != "remote-task" {
-				t.Errorf("unexpected observation: %+v", q)
+				t.Errorf("unexpected observation %+v", q)
 			}
 			reads++
-			switch reads {
-			case 1, 6:
-				return nil, errors.New("temporary read failure")
-			case 2:
-				return json.RawMessage(`{"Started":false}`), nil
-			case 3:
-				return json.RawMessage(`invalid`), nil
-			default:
-				return json.RawMessage(`{"Started":true}`), nil
+			revision := uint64(1)
+			if q.WaitOutput != nil {
+				select {
+				case revision = <-changes:
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				}
 			}
+			return json.Marshal(struct {
+				Started        bool
+				OutputRevision uint64
+			}{true, revision})
 		}
-		scope := &shellsession.Control{Started: func(out, stderr string, gpuIDs []string, control func(context.Context, tools.ShellTaskRequest) (json.RawMessage, error)) error {
+		scope := &shellsession.Control{OutputChanged: func() { wakes++ }, Started: func(out, stderr string, gpu []string, control func(context.Context, tools.ShellTaskRequest) (json.RawMessage, error)) error {
 			starts++
-			if out != "" || stderr != "" || !slices.Equal(gpuIDs, []string{"gpu-0"}) || control == nil {
-				t.Error("start lost output defaults, GPU devices or terminal control")
+			if out != "" || stderr != "" || !slices.Equal(gpu, []string{"gpu-0"}) || control == nil {
+				t.Error("lost start metadata")
 			}
 			return nil
 		}}
 		done := make(chan struct{})
-		go func() {
-			defer close(done)
-			observeRemoteShell(ctx, scope, "remote-task", []string{"gpu-0"}, control)
-		}()
-		for i := 1; i <= 8; i++ {
-			synctest.Wait()
-			wantStarts := 0
-			if i >= 4 {
-				wantStarts = 1
-			}
-			if reads != i || starts != wantStarts {
-				t.Fatalf("poll %d: reads=%d, starts=%d; want %d, %d", i, reads, starts, i, wantStarts)
-			}
-			if i < 8 {
-				time.Sleep(time.Second)
-			}
+		go func() { defer close(done); observeRemoteShell(ctx, scope, "remote-task", []string{"gpu-0"}, control) }()
+		synctest.Wait()
+		time.Sleep(time.Hour)
+		synctest.Wait()
+		if reads != 2 || starts != 1 || wakes != 1 {
+			t.Fatal("idle remote shell polled", reads, starts, wakes)
+		}
+		changes <- 2
+		synctest.Wait()
+		if reads != 3 || starts != 1 || wakes != 2 {
+			t.Fatal("output change not observed", reads, starts, wakes)
 		}
 		cancel()
 		<-done
-		time.Sleep(2 * time.Second)
-		if reads != 8 {
-			t.Fatal("observation continued after cancellation")
+		time.Sleep(time.Hour)
+		if reads != 3 {
+			t.Fatal("read after cancellation")
 		}
 	})
 }
-
 func TestRemoteShellObservationRetriesFailedStartUnlessCanceled(t *testing.T) {
 	for _, cancelOnFailure := range []bool{false, true} {
-		name := "retry"
-		if cancelOnFailure {
-			name = "cancel"
-		}
-		t.Run(name, func(t *testing.T) {
+		t.Run(map[bool]string{false: "retry", true: "cancel"}[cancelOnFailure], func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
 				ctx, cancel := context.WithCancel(t.Context())
 				defer cancel()
 				reads, starts := 0, 0
-				control := func(context.Context, tools.ShellTaskRequest) (json.RawMessage, error) {
+				control := func(ctx context.Context, q tools.ShellTaskRequest) (json.RawMessage, error) {
 					reads++
-					return json.RawMessage(`{"Started":true}`), nil
+					if q.WaitOutput != nil {
+						<-ctx.Done()
+						return nil, ctx.Err()
+					}
+					return json.RawMessage(`{"Started":true,"OutputRevision":1}`), nil
 				}
 				scope := &shellsession.Control{Started: func(string, string, []string, func(context.Context, tools.ShellTaskRequest) (json.RawMessage, error)) error {
 					starts++
@@ -93,27 +90,19 @@ func TestRemoteShellObservationRetriesFailedStartUnlessCanceled(t *testing.T) {
 					return nil
 				}}
 				done := make(chan struct{})
-				go func() {
-					defer close(done)
-					observeRemoteShell(ctx, scope, "remote-task", nil, control)
-				}()
+				go func() { defer close(done); observeRemoteShell(ctx, scope, "remote-task", nil, control) }()
 				synctest.Wait()
-				if reads != 1 || starts != 1 {
-					t.Fatalf("initial observation: reads=%d, starts=%d", reads, starts)
-				}
-				for i := 0; i < 3; i++ {
-					time.Sleep(time.Second)
-					synctest.Wait()
+				time.Sleep(time.Second)
+				synctest.Wait()
+				if cancelOnFailure {
+					if reads != 1 || starts != 1 {
+						t.Fatal(reads, starts)
+					}
+				} else if reads != 3 || starts != 2 {
+					t.Fatal(reads, starts)
 				}
 				cancel()
 				<-done
-				wantReads, wantStarts := 4, 2
-				if cancelOnFailure {
-					wantReads, wantStarts = 1, 1
-				}
-				if reads != wantReads || starts != wantStarts {
-					t.Fatalf("reads=%d, starts=%d; want %d, %d", reads, starts, wantReads, wantStarts)
-				}
 			})
 		})
 	}

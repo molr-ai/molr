@@ -114,7 +114,7 @@ func (s *Store) prepareStatements() error {
 		text string
 	}{
 		{&s.get, "SELECT value FROM records WHERE bucket=? AND key=?"},
-		{&s.put, "INSERT INTO records(bucket,key,value) VALUES(?,?,?) ON CONFLICT(bucket,key) DO UPDATE SET value=excluded.value"},
+		{&s.put, "INSERT INTO records(bucket,key,value) VALUES(?,?,?) ON CONFLICT(bucket,key) DO UPDATE SET value=excluded.value WHERE records.value != excluded.value"},
 		{&s.remove, "DELETE FROM records WHERE bucket=? AND key=?"},
 	} {
 		var err error
@@ -315,7 +315,14 @@ func (tx *transaction) Put(ctx context.Context, bucket, key string, value any) e
 	if len(data) > limit {
 		return core.Invalid("record", "record too large")
 	}
-	_, err = tx.put.ExecContext(ctx, bucket, key, data)
+	result, err := tx.put.ExecContext(ctx, bucket, key, data)
+	if err == nil {
+		var n int64
+		n, err = result.RowsAffected()
+		if err == nil && n > 0 {
+			tx.changed(bucket, key)
+		}
+	}
 	return translate(ctx, err)
 }
 func (tx *transaction) Delete(ctx context.Context, bucket, key string) error {
@@ -339,6 +346,7 @@ func (tx *transaction) Delete(ctx context.Context, bucket, key string) error {
 	if n == 0 {
 		return core.NewError(core.NotFound, "record not found")
 	}
+	tx.changed(bucket, key)
 	return nil
 }
 func (tx *transaction) Scan(ctx context.Context, bucket string) ([]persistence.Record, error) {

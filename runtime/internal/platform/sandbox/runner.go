@@ -20,9 +20,10 @@ import (
 )
 
 type Options struct {
-	ProtectedRoots  []string
-	ToolDirectories []string
-	GPU             platform.GPUConfig
+	WatchAuthorization func(context.Context, core.Execution, platform.Command) (*Authorization, error)
+	ProtectedRoots     []string
+	ToolDirectories    []string
+	GPU                platform.GPUConfig
 	// NoWorkspace executes remote commands without an assistant home.
 	NoWorkspace                                              bool
 	QuotaStore                                               persistence.Store
@@ -249,6 +250,17 @@ func (r *Runner) Start(ctx context.Context, e core.Execution, c platform.Command
 		}
 		r.recovered = true
 	}
+	observed, stopAuthorization, err := r.observeAuthorization(ctx, e, c)
+	if err != nil {
+		return nil, err
+	}
+	started := false
+	defer func() {
+		if !started {
+			stopAuthorization()
+		}
+	}()
+	ctx = observed
 	if err := r.options.Authorize(ctx, e, c); err != nil {
 		return nil, err
 	}
@@ -269,10 +281,12 @@ func (r *Runner) Start(ctx context.Context, e core.Execution, c platform.Command
 		}
 		return nil, err
 	}
+	started = true
 	p.fullAccess = c.FullAccess
 	r.active[key(e)] = p
 	go func() {
 		<-p.done
+		stopAuthorization()
 		r.mu.Lock()
 		if p.err != nil {
 			r.closed = true
