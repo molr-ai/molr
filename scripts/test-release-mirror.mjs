@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import yaml from 'js-yaml';
 import { fixture, desktopFixture } from './release-test-fixtures.mjs';
-import { publishMirror } from './publish-release-mirror.mjs';
+import { publishMirror, readMirrorObject } from './publish-release-mirror.mjs';
 
 function setup(t, version = '0.2.0') {
   const directory = mkdtempSync(join(tmpdir(), 'molr-mirror-test-'));
@@ -86,9 +86,36 @@ test('release workflow mirrors stable only, includes existing releases on retry,
   assert.match(job.if, /existing == 'true'/);
   assert.match(job.if, /needs.publish.result == 'success'/);
   assert.equal(job.environment, 'release');
+  assert.equal(job.steps.find(s => s.uses === 'actions/checkout@v5').with.ref, '${{ github.workflow_sha }}');
   assert.equal(job.concurrency.group, 'release-mirror');
   assert(job.steps.some(s => s.run?.includes('sha256sum --check')));
   const upload = job.steps.find(s => s.run?.includes('publish-release-mirror.mjs'));
   assert.equal(upload.env.OSS_ACCESS_KEY_SECRET, '${{ secrets.MOLR_OSS_ACCESS_KEY_SECRET }}');
   assert(!upload.run.includes('secrets.'));
+});
+
+
+test('OSS object reads ignore CLI output and clean up downloads on success and failure', () => {
+  const content = Buffer.from(JSON.stringify(fixture('0.2.0')));
+  let downloaded;
+  const oss = (command, source, destination) => {
+    assert.equal(command, 'cp');
+    assert.equal(source, 'oss://example-bucket/releases/stable/manifest.json');
+    downloaded = destination;
+    writeFileSync(destination, content);
+    return 'Download complete\n1.166645(s) elapsed\n';
+  };
+  assert.deepEqual(readMirrorObject(oss, 'example-bucket', 'releases/stable/manifest.json'), content);
+  assert(!existsSync(downloaded));
+  for (const code of ['NoSuchKey', 'AccessDenied', 'RequestTimeout']) {
+    const failing = (_command, _source, destination) => {
+      downloaded = destination;
+      writeFileSync(destination, 'partial bytes');
+      throw Object.assign(new Error('OSS failed'), { stderr: code });
+    };
+    const read = () => readMirrorObject(failing, 'example-bucket', 'releases/stable/manifest.json');
+    if (code === 'NoSuchKey') assert.equal(read(), null);
+    else assert.throws(read, /Cannot read OSS object/);
+    assert(!existsSync(downloaded));
+  }
 });

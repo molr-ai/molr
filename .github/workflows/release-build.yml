@@ -142,7 +142,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: ${{ needs.prepare.outputs.commit }}
+          ref: ${{ github.workflow_sha }}
       - uses: actions/setup-node@v5
         with:
           node-version: '22.21.0'

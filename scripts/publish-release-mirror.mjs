@@ -64,6 +64,21 @@ export async function publishMirror({ directory, repository, version, store, ins
   } finally { rmSync(temporary, { recursive: true, force: true }); }
 }
 
+// Read object bytes from a file: ossutil stdout also contains progress and timing.
+export function readMirrorObject(oss, bucket, key) {
+  const directory = mkdtempSync(join(tmpdir(), 'molr-mirror-read-'));
+  const path = join(directory, 'object');
+  try {
+    oss('cp', `oss://${bucket}/${key}`, path);
+    return readFileSync(path);
+  } catch (error) {
+    if (/\bNoSuchKey\b/.test(String(error.stderr))) return null;
+    throw new Error(`Cannot read OSS object: ${key}`);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   for (const key of ['MOLR_OSS_BUCKET', 'OSS_REGION', 'OSS_ACCESS_KEY_ID', 'OSS_ACCESS_KEY_SECRET', 'MOLR_VERSION', 'GITHUB_REPOSITORY']) {
     if (!process.env[key]) throw new Error(`Missing mirror configuration: ${key}`);
@@ -72,13 +87,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   if (!/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(bucket)) throw new Error('Invalid OSS bucket');
   const oss = (...args) => execFileSync('ossutil', args, { encoding: 'utf8', maxBuffer: 2 << 20, timeout: 30 * 60 * 1000 });
   await publishMirror({ directory: resolve(process.env.MOLR_DIST_DIR || 'dist/releases'), repository: process.env.GITHUB_REPOSITORY, version: process.env.MOLR_VERSION, store: {
-    read(key) {
-      try { return oss('cat', `oss://${bucket}/${key}`); }
-      catch (error) {
-        if (/\bNoSuchKey\b/.test(String(error.stderr))) return null;
-        throw new Error(`Cannot read OSS object: ${key}`);
-      }
-    },
+    read(key) { return readMirrorObject(oss, bucket, key); },
     put(key, path, cache) {
       oss('api', 'put-object', '--bucket', bucket, '--key', key, '--body', pathToFileURL(path).href, '--cache-control', cache);
       console.log(`Mirrored ${key}`);
