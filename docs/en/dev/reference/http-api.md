@@ -256,7 +256,7 @@ Verified on 2026-10-03 against the registrations in `runtime/internal/api/*_rout
 | POST | `/api/todos/delete` |
 | POST | `/api/todos/update` |
 
-Storage connections: `POST /api/sandboxes/resource` accepts `SourceID` and relative subdirectory `Path`. When unrestricted directories are permitted, omit `SourceID` and supply an absolute path or `~/` on the target machine. `Info.AllowDirectoryPaths` in `GET /api/sandboxes` advertises this capability. The server validates authorization and deployment scope.
+Storage connections: `POST /api/sandboxes/resource` accepts `SourceID` and relative subdirectory `Path`. When unrestricted directories are permitted, omit `SourceID` and supply an absolute path or `~/` on the target machine. `Info.AllowDirectoryPaths` in `GET /api/sandboxes` advertises this capability. The server validates authorization and deployment scope. The server removes trailing separators from `Path` using the target machine’s path rules and saves a normalized reference, preserving filesystem roots. Other path-format, symbolic-link and deployment-scope checks remain enforced. Fixed `directory_*` reason codes provide actionable errors without exposing underlying diagnostics or private paths.
 
 HTTP rate limiting reads and updates persistent counters within a transaction; passing requests consume the current window quota. When the quota is exhausted, it returns 429 and `Retry-After`, without rewriting unchanged counters or extending the window. Concurrent requests share the transaction counter, and the window is preserved across restarts; if storage fails, requests are denied.
 

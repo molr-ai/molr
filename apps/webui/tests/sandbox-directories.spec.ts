@@ -18,7 +18,21 @@ test('connect an unrestricted local directory and keep assistant authorization s
     const name = `Directory ${info.project.name} ${Date.now()}`;
     await dialog.getByRole('textbox', { name: 'Name', exact: true }).fill(name);
     await expect(dialog.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
-    await dialog.getByRole('textbox', { name: 'Directory path', exact: true }).fill(directory);
+    const path = dialog.getByRole('textbox', { name: 'Directory path', exact: true });
+    for (const [input, message] of [
+      ['relative/path/', 'Enter an absolute directory path or ~/ path on the sandbox machine'],
+      [`${directory}/missing/`, 'The directory does not exist or cannot be accessed'],
+    ]) {
+      await path.fill(input);
+      await expect(path).not.toHaveAttribute('aria-invalid', 'true');
+      await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+      await expect(dialog.getByText(message, { exact: false })).toBeVisible();
+      await expect(path).toHaveValue(input);
+      await expect(path).toHaveAttribute('aria-invalid', 'true');
+      await expect(page.locator('.ui-toast--danger')).toHaveCount(0);
+      await expect(dialog.getByRole('textbox', { name: 'Name', exact: true })).toHaveValue(name);
+    }
+    await path.fill(`${directory}///`);
     await dialog.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page.getByRole('dialog', { name: `Manage access · ${name}`, exact: true })).toBeVisible();
     await page.keyboard.press('Escape');

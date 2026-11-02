@@ -256,7 +256,7 @@ Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugi
 | POST | `/api/todos/delete` |
 | POST | `/api/todos/update` |
 
-目录接入：`POST /api/sandboxes/resource` 的存储请求可带 `SourceID` 与相对子目录 `Path`；部署允许任意目录时，省略 `SourceID` 并填写目标机器的绝对路径或 `~/` 路径。`GET /api/sandboxes` 的 `Info.AllowDirectoryPaths` 表示是否允许此操作。权限和目录范围在服务器校验。
+目录接入：`POST /api/sandboxes/resource` 的存储请求可带 `SourceID` 与相对子目录 `Path`；部署允许任意目录时，省略 `SourceID` 并填写目标机器的绝对路径或 `~/` 路径。`GET /api/sandboxes` 的 `Info.AllowDirectoryPaths` 表示是否允许此操作。权限和目录范围在服务器校验。 服务器按目标机器的路径规则移除 `Path` 末尾分隔符并保存规范化引用，保留文件系统根路径；其他路径格式、符号链接和部署范围校验仍然生效。目录失败通过固定的 `directory_*` 原因码返回操作提示，不公开底层错误或私有路径。
 
 HTTP 限流在事务内读取并更新持久计数，通过的请求占用当前窗口额度；额度已耗尽时返回 429 和 `Retry-After`，不重写未变化的计数，也不延长窗口。并发请求共享事务计数，重启保留窗口；存储失败时拒绝放行。
 

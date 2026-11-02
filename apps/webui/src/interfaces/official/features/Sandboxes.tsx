@@ -5,7 +5,7 @@ import { gpuName } from '../../../gpu';
 import { fullAccessHelp } from '../../../full-access';
 import { fullAccessLabel, sandboxPermissions } from './PermissionTargetFields';
 import type { SandboxPermission } from './PermissionTargetFields';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ModalPresence, Alert, Badge, Button, Progress, DropdownMenu, IconButton, Select, SlidingHighlight, Tabs, TextField, useBreakpoint } from '@molr/ui';
 import type { MenuItem } from '@molr/ui';
@@ -13,13 +13,13 @@ import { Cpu, Ellipsis, Globe, HardDrive, Pencil, Plus, RefreshCw, Server, Shiel
 import type { Assistant, Grant, Resource } from '@molr/sdk';
 import type { SandboxInfo, SandboxKind, SandboxResourceDetail, SandboxView } from '@molr/sdk';
 export type { SandboxView } from '@molr/sdk';
-import { onMutation } from '@molr/sdk';
+import { APIError, onMutation } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
 import { sandboxResourceName, useSandboxCopy } from '../../../sandbox-copy';
 import { useSandboxPreference } from '../../../sandbox-navigation';
 import { sandboxReason } from '../../../sandbox';
 import { SettingsHelp } from '../components/SettingsHelp';
-import { Confirm, EditDialog, Empty, Loading, useAction } from '../components/common';
+import { ActionCancelled, Confirm, EditDialog, Empty, Loading, useAction } from '../components/common';
 import { SandboxConnection, connectionError } from './SandboxConnection';
 import { SandboxAccess, activeResourceGrants } from './SandboxAccess';
 
@@ -224,13 +224,28 @@ function AddSandboxResource({ sandbox, kind, onClose, onConnected }: { sandbox: 
   const { t } = useCopy(), copy = useSandboxCopy(), options = sourceOptions(sandbox, kind, copy);
   const [source, setSource] = useState(options[0]?.value ?? ''), [name, setName] = useState(kind === 'compute' ? `${sandbox.Local ? copy.local : sandbox.Name} · ${copy.compute}` : kind === 'network' ? options[0]?.label ?? '' : '');
   const [directoryPath, setDirectoryPath] = useState('');
+  const [directoryError, setDirectoryError] = useState<keyof typeof t.errorReasons>();
+  const directoryRevision = useRef(0);
   const network = sandbox.Info.Networks?.find(item => item.ID === source);
   const title = kind === 'storage' ? copy.addDirectory : kind === 'network' ? copy.addNetwork : copy.enableCompute;
   const addResource = useMutation([sandbox.ID, kind, source, directoryPath, name]);
-  return <EditDialog title={title} description={copy.notGranted} onClose={onClose} submitDisabled={!source || (kind === 'storage' && source === 'custom' && !directoryPath.trim())} onSubmit={async () => onConnected(await addResource<Resource>('/api/sandboxes/resource', { SandboxID: sandbox.ID, Kind: kind, SourceID: kind === 'storage' && source === 'custom' ? '' : source, ...(kind === 'storage' ? {Path: directoryPath.trim()} : {}), Name: name.trim() }))}>
+  async function submit() {
+    const revision = directoryRevision.current;
+    setDirectoryError(undefined);
+    try {
+      onConnected(await addResource<Resource>('/api/sandboxes/resource', { SandboxID: sandbox.ID, Kind: kind, SourceID: kind === 'storage' && source === 'custom' ? '' : source, ...(kind === 'storage' ? {Path: directoryPath.trim()} : {}), Name: name.trim() }));
+    } catch (error) {
+      if (kind === 'storage' && error instanceof APIError && error.reason.startsWith('directory_') && Object.hasOwn(t.errorReasons, error.reason)) {
+        if (revision === directoryRevision.current) setDirectoryError(error.reason as keyof typeof t.errorReasons);
+        throw new ActionCancelled();
+      }
+      throw error;
+    }
+  }
+  return <EditDialog title={title} description={copy.notGranted} onClose={onClose} submitDisabled={!source || (kind === 'storage' && source === 'custom' && !directoryPath.trim())} onSubmit={submit}>
     <TextField label={t.name} value={name} onChange={event => setName(event.target.value)} required maxLength={256} />
-    {kind !== 'compute' && <Select label={kind === 'network' ? t.sandbox.target : copy.source} value={source} onValueChange={value => { setSource(value); if (kind === 'storage') setDirectoryPath(''); if (kind === 'network' && (!name.trim() || name === options.find(item => item.value === source)?.label)) setName(options.find(item => item.value === value)?.label ?? ''); }} options={options} />}
-    {kind === 'storage' && <TextField label={source === 'custom' ? copy.directoryPath : copy.subdirectory} description={source === 'custom' ? copy.directoryPathHelp : copy.subdirectoryHelp} value={directoryPath} onChange={event => setDirectoryPath(event.target.value)} required={source === 'custom'} maxLength={4096} />}
+    {kind !== 'compute' && <Select label={kind === 'network' ? t.sandbox.target : copy.source} value={source} onValueChange={value => { setSource(value); if (kind === 'storage') { directoryRevision.current++; setDirectoryPath(''); setDirectoryError(undefined); } if (kind === 'network' && (!name.trim() || name === options.find(item => item.value === source)?.label)) setName(options.find(item => item.value === value)?.label ?? ''); }} options={options} />}
+    {kind === 'storage' && <TextField label={source === 'custom' ? copy.directoryPath : copy.subdirectory} description={source === 'custom' ? copy.directoryPathHelp : copy.subdirectoryHelp} error={directoryError ? t.errorReasons[directoryError] : undefined} value={directoryPath} onChange={event => { directoryRevision.current++; setDirectoryPath(event.target.value); setDirectoryError(undefined); }} required={source === 'custom'} maxLength={4096} />}
     {kind === 'network' && network && <><p className="muted sandbox-resource-description">{copy.automaticNetwork}</p><NetworkDetails network={network} backend={sandbox.Info.Capabilities.NetworkBackend} /></>}
   </EditDialog>;
 }

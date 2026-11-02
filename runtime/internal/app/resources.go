@@ -111,19 +111,22 @@ func (a adapters) providers() map[string]resource.Provider {
 			if b.SandboxTarget != "" {
 				return nil, core.Invalid("binding", "sandbox target not supported by directory")
 			}
-			if !filepath.IsAbs(b.RootPath) || filepath.Clean(b.RootPath) == string(filepath.Separator) || b.Endpoint != "" || len(b.Models) != 0 || b.CredentialID != "" {
+			if filepath.Clean(b.RootPath) == string(filepath.Separator) {
+				return nil, core.WithReason(core.Invalid("root_path", "dedicated directory required"), core.DirectoryRootProhibited)
+			}
+			if !filepath.IsAbs(b.RootPath) || b.Endpoint != "" || len(b.Models) != 0 || b.CredentialID != "" {
 				return nil, core.Invalid("root_path", "dedicated absolute directory required")
 			}
 			root, err := filepath.EvalSymlinks(b.RootPath)
 			if err != nil {
-				return nil, core.Invalid("root_path", "existing directory required")
+				return nil, core.WithReason(core.Invalid("root_path", "existing accessible directory required"), core.DirectoryUnavailable)
 			}
 			if root != filepath.Clean(textfiles.SystemPath(b.RootPath)) {
-				return nil, core.Invalid("root_path", "resource path must not contain symbolic links")
+				return nil, core.WithReason(core.Invalid("root_path", "resource path must not contain symbolic links"), core.DirectorySymlinkProhibited)
 			}
 			for _, protected := range a.storageConfig.ProtectedRoots {
 				if textfiles.Overlaps(root, protected) {
-					return nil, core.NewError(core.Forbidden, "installation assets cannot be resources")
+					return nil, core.WithReason(core.NewError(core.Forbidden, "installation assets cannot be resources"), core.DirectoryProtected)
 				}
 			}
 			private, err := filepath.EvalSymlinks(a.dataDir)
@@ -131,14 +134,14 @@ func (a adapters) providers() map[string]resource.Provider {
 				return nil, err
 			}
 			if textfiles.Overlaps(root, private) {
-				return nil, core.NewError(core.Forbidden, "runtime data cannot be a resource")
+				return nil, core.WithReason(core.NewError(core.Forbidden, "runtime data cannot be a resource"), core.DirectoryProtected)
 			}
 			if work := a.storageConfig.WorkRoot; work != "" && textfiles.Overlaps(root, work) {
-				return nil, core.NewError(core.Forbidden, "managed assistant workspaces cannot be external resources")
+				return nil, core.WithReason(core.NewError(core.Forbidden, "managed assistant workspaces cannot be external resources"), core.DirectoryProtected)
 			}
 			info, err := os.Stat(root)
 			if err != nil || !info.IsDir() {
-				return nil, core.Invalid("root_path", "directory required")
+				return nil, core.WithReason(core.Invalid("root_path", "directory required"), core.DirectoryRequired)
 			}
 			readOnly, err := directoryPolicy(a.storageConfig, root)
 			if err != nil {

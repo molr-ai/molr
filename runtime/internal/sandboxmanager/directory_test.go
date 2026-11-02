@@ -64,6 +64,8 @@ func TestDirectoryClientRoundTripAndBackendErrors(t *testing.T) {
 		{"success", "", ""},
 		{"denied", core.Forbidden, "directory_denied"},
 		{"missing", core.NotFound, "directory_missing"},
+		{"invalid path", core.InvalidArgument, core.DirectoryAbsolutePathRequired},
+		{"protected directory", core.Forbidden, core.DirectoryProtected},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			backend := &directoryTestBackend{requests: make(chan DirectoryRequest, 1), result: want}

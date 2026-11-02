@@ -63,6 +63,15 @@ func directoryPolicy(s config.Sandbox, root string) (bool, error) {
 }
 
 func resolveSandboxDirectory(ctx context.Context, a adapters, q sm.DirectoryRequest) (sm.Directory, error) {
+	// Accept trailing separators using the target machine's path rules. Keep
+	// volume roots intact and leave other non-canonical input for validation.
+	minimum := len(filepath.VolumeName(q.Path)) + 1
+	if q.SourceID == "" && strings.HasPrefix(q.Path, "~/") {
+		minimum = 2 // Preserve the home alias itself for expansion below.
+	}
+	for len(q.Path) > minimum && os.IsPathSeparator(q.Path[len(q.Path)-1]) {
+		q.Path = q.Path[:len(q.Path)-1]
+	}
 	root := q.Path
 	if q.SourceID != "" {
 		root = ""
@@ -77,7 +86,7 @@ func resolveSandboxDirectory(ctx context.Context, a adapters, q sm.DirectoryRequ
 		}
 		if q.Path != "" && q.Path != "." {
 			if !filepath.IsLocal(q.Path) || filepath.Clean(q.Path) != q.Path {
-				return sm.Directory{}, core.Invalid("path", "clean relative subdirectory required")
+				return sm.Directory{}, core.WithReason(core.Invalid("path", "clean relative subdirectory required"), core.DirectoryRelativePathRequired)
 			}
 			root = filepath.Join(root, q.Path)
 		}
@@ -90,11 +99,11 @@ func resolveSandboxDirectory(ctx context.Context, a adapters, q sm.DirectoryRequ
 		root = filepath.Join(home, strings.TrimPrefix(root, "~/"))
 	}
 	if !filepath.IsAbs(root) || filepath.Clean(root) != root || len(root) > 4096 {
-		return sm.Directory{}, core.Invalid("path", "absolute directory path required")
+		return sm.Directory{}, core.WithReason(core.Invalid("path", "absolute directory path required"), core.DirectoryAbsolutePathRequired)
 	}
 	ro, err := directoryPolicy(a.storageConfig, root)
 	if err != nil {
-		return sm.Directory{}, err
+		return sm.Directory{}, core.WithReason(core.NewError(core.CodeOf(err), "directory is outside deployment scope"), core.DirectoryOutsideScope)
 	}
 	if _, err = a.providers()["local-directory"].Validate(ctx, resource.Binding{RootPath: root}); err != nil {
 		return sm.Directory{}, err
