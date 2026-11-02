@@ -26,9 +26,9 @@ Public documentation describes the current implementation, limitations, and repr
 
 When a topic has multiple audiences, user documentation maintains operations and results, reference documentation maintains fields, and specialized development documentation maintains mechanisms. Use links to associate content, avoiding duplication of interface lists, default values, and complete feature lists. Component APIs are maintained by `packages/ui/COMPONENTS.md`.
 
-Files use lowercase hyphenated naming, and directory entries use `README.md`. Split content by reader task; retain a single file when content is minimal and responsibilities are consistent; do not create a directory for every feature. Directly replace outdated body text; do not append historical correction records. Save detailed acceptance results in internal directories, and note the date for test results.
+Files use lowercase hyphenated naming, and directory entries use `README.md`. Split content by reader task; retain a single file when content is minimal and responsibilities are consistent; do not create a directory for every feature. Directly replace outdated body text; do not append historical correction records. Keep detailed acceptance results temporarily in the current instance’s private directory and date the test results. After task closure, remove them under the [retention limits](environment.md#acceptance-data-and-backup-retention-limits), without permanent archival.
 
-Store acceptance records containing credentials, login sessions, or user data in [external instance or archive directories](environment.md#private-instance-directories-and-source-isolation), not in source-tree `internal-docs/`. Keep only internal materials suitable for the intended source-directory access in that directory.
+Store acceptance records containing credentials, login sessions, or user data in [external instance directories](environment.md#private-instance-directories-and-source-isolation), not in source-tree `internal-docs/`. Keep only internal materials suitable for the intended source-directory access in that directory.
 
 ## Indexing and Official Website Publishing
 

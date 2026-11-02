@@ -18,7 +18,7 @@
 - 保存该实例的启动方式、端口和数据目录，便于继续验收与重启。改动后检查验收服务是否已加载当前代码；需要时只重建、重启本 worktree 的对应服务，并保留已有验收数据。
 - 交付前验证页面可访问、前端代理指向正确的独立 Runtime，以及相关功能或能力状态正常。向用户提供局域网验收地址和验证结果；**worktree 验收服务中需要登录的页面必须提供点击后可直接登录的一次性登录链接，不得仅提供普通登录页或要求用户手动输入用户名、密码。** 无需登录的页面提供可直接访问的链接。临时测试服务不能替代供用户访问的验收服务。
 - 一次性登录链接必须指向对应 worktree 的 WebUI 和独立 Runtime，使用该验收实例的账号生成。验收链接有效期默认设置为 **3 小时**（`expires_in: 10800`），用户另有要求时按其要求设置；生成时显式指定有效期，不沿用工具可能较短的默认值。验证登录流程时使用单独的测试链接，交付前重新生成尚未使用的链接，并注明具体到期时间及其时区，不能提前消费交付给用户的链接；链接过期或已使用时重新生成，无需用户手动登录。链接和令牌不纳入 Git 提交。
-- 验收服务在等待验收和合并期间随 worktree 保留；合并完成并验证主分支服务生效后，随本任务 worktree 一并清理。清理时先精确停止该 worktree 的服务进程，并妥善处理需要保留的数据，不使用会影响其他实例的批量终止命令。
+- 验收服务在等待验收和合并期间随 worktree 保留；合并完成并验证主分支服务生效后，随本任务 worktree 一并清理。清理时先精确停止该 worktree 的服务进程，按[保留上限](https://molr.ai/zh/docs/dev/contributing/environment/#验收资料与备份保留上限)删除实例和历史验收资料，不归档转存；不使用会影响其他实例的批量终止命令。
 
 ## 真实模型测试
 
@@ -33,7 +33,7 @@
 - 部署前检查最终产物，不能仅凭构建命令或参数判断：用 `file <binary>` 确认 Linux 静态链接或 macOS Mach-O 类型，用 `go version -m <binary>` 核对 `CGO_ENABLED=0` 和构建提交，主服务产物还必须满足 `vcs.modified=false`；验收产物记录任务当前的修改状态，不得将含未提交修改的验收产物部署到主服务。必要时用 `readelf -h -l <binary>` 确认架构匹配、ELF 类型为 `EXEC` 且没有 `INTERP` 段。检查不通过时不得替换正在运行的服务。
 - **构建后和部署后均检查二进制权限，Runtime/helper 使用 `0755`，不得为 `0775`、`0777` 等组可写或其他用户可写的模式。** Bubblewrap（默认 `/usr/bin/bwrap`）和 helper 必须是可执行的普通文件，路径及其父目录不得经过符号链接；不要通过放宽权限绕过检查。另行确认静态 BusyBox 可用，其来源和解析后的文件权限应符合 Runtime 的检查要求。
 - 启用沙盒的 Linux 实例必须具有有效的 cgroup v2 委派。沿用已验证的 systemd 用户服务启动方式，设置 `Type=exec`、`Delegate=yes`、`DelegateSubgroup=supervisor`、`KillMode=control-group`；服务名使用以 `molr` 开头的独立名称，每个 worktree 使用不同的 unit。不要随意改回普通登录会话中的后台启动方式，也不能将 systemd unit 启动成功视为沙盒已就绪。
-- 更新主 Runtime 前再次核对构建提交与当前 `main`，保存旧二进制和配置；替换使用临时文件校验后原子重命名，不能直接覆盖正在执行的二进制文件。保留原数据库、密钥和账号；需要复制数据目录时先正常停止对应实例，完成后按原安全配置重启。记录实际 PID、构建提交、二进制摘要、启动方式和回退位置。
+- 更新主 Runtime 前再次核对构建提交与当前 `main`，保存旧二进制和配置；替换使用临时文件校验后原子重命名，不能直接覆盖正在执行的二进制文件。保留原数据库、密钥和账号；需要复制数据目录时先正常停止对应实例，完成后按原安全配置重启。记录实际 PID、构建提交、二进制摘要、启动方式和回退位置；回退文件纳入[唯一保留备份](https://molr.ai/zh/docs/dev/contributing/environment/#验收资料与备份保留上限)，不按部署次数累积。
 - **每次启动、重建或重启后，除页面和 HTTP 连通性外，还必须通过已认证请求检查 `GET /api/sandbox`；配有 WebUI 的实例还须通过其代理完成验证。** 沙盒未被用户明确关闭时，要求 `Enabled=true`、`Capabilities.Reason=available`，且 `Shell`、`ProcessIsolation`、`FileIsolation`、`NetworkIsolation`、`ResourceLimits` 均为 `true`，确认 Runtime 的真实隔离启动探针通过。此项适用于独立验收和合并后的主服务；不能只凭启动日志、监听端口或 `/api/status` 正常就宣布验收成功。
 - macOS 验收使用独立数据目录和服务。受控执行要求 `Enabled=true`、`Reason=available`、`Shell`、`FileIsolation`、`NetworkIsolation` 为 true，`NetworkBackend=seatbelt-toggle`；`ProcessIsolation` 与 `ResourceLimits` 为 false。关闭命令时检查 `Enabled=false`、`Storage=true`；独立开启 Full Access 时检查其能力为 true。文件、网络开关、终端和撤权必须原生验证。远程节点按执行平台验收：Linux 遵守 Linux 要求，macOS 遵守 Seatbelt 要求；独立节点关闭时要求 Enabled=false、Storage=false。
 - 沙盒异常时依据实际原因码定位：`sandbox_package_incomplete` 优先检查 helper 的静态链接和静态 BusyBox；`sandbox_helper_unavailable` 检查 Bubblewrap/helper 的存在性、可执行权限、组或其他用户写权限及符号链接；cgroup 或其他启动错误检查对应 unit、委派状态和日志。不得通过关闭沙盒、放宽隔离或回退宿主执行掩盖问题；修复后重新验证能力状态，未恢复时明确报告不可用项。

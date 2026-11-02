@@ -29,13 +29,21 @@ Store main and acceptance instance configuration, databases, keys, login session
 | --- | --- |
 | Main service private files | `~/workspace/molr/instances/main/` |
 | Independent task acceptance instance | `~/workspace/molr/instances/acceptance/<task>/` |
-| Historical acceptance records, deployment backups, and rollback copies | `~/workspace/molr/archives/<task-or-date>/` |
+| Single development environment backup and rollback copy | `~/workspace/molr/backups/latest/` |
+| Internal materials requiring retention beyond acceptance | `~/workspace/molr/internal-docs/` |
 
 - Give each instance its own directory and record its task branch, source worktree, service name, ports, and actual paths. External placement preserves task isolation and cleanup responsibilities; do not share databases, keys, or writable assistant workspaces. Instance directories are not shared download caches.
 - Source, `node_modules`, build artifacts, and compilation caches may remain in worktrees. Deploy running Runtime/helper binaries to an external instance or managed installation directory so that source write access does not expose running programs. Frontend development services may keep source working directories, with private logs and session files in the corresponding instance directory.
 - Before exposing an entire repository, inspect all ignored directories, including `.cache/` and `internal-docs/`. Move historical files containing real credentials, databases, login links, or user data outside it; any retained internal materials must also fit the intended directory grant. Git ignore rules do not restrict sandbox reads. Do not substitute symlinks or weakened protected-path checks for physical separation.
 - Before migrating an existing instance, inventory actual processes, configuration, and installation records. Stop that instance normally, then copy its complete data and verify digests, permissions, and database integrity. Update paths in configuration, installation records, and startup entries while preserving security settings, accounts, and sessions. Keep backups and rollback copies outside the directory to be exposed; leave no private data or symlink to the new location at the old path.
 - After restarting, follow [Runtime acceptance](acceptance.md#runtime-builds-and-sandbox-acceptance) to verify HTTP readiness, existing sessions, and authenticated sandbox capabilities, including the WebUI proxy when present. Finally, use the directory connection flow to verify that the source root is accepted and the new private instance directory remains rejected. Disconnect temporary verification resources afterward and do not grant assistant permissions.
+
+### Acceptance Data and Backup Retention Limits
+
+- Acceptance materials serve the current task only. Keep the required instance and records while awaiting user acceptance or merging. After merging and verifying main service activation, or explicit task closure, delete that task’s acceptance databases, accounts and login files, logs, screenshots, recordings, test output, temporary programs, and installers. Do not retain historical acceptance materials, create archives, package them for storage, or perpetuate them by moving `internal-docs/`.
+- Keep at most one latest verified complete backup for this development environment, at `~/workspace/molr/backups/latest/`. Data, necessary configuration, keys, and matching programs form one recovery set. Do not retain additional rollback directories, database copies, or `.previous` files by task or date. This development convention does not replace production backup policies.
+- Build a consistent candidate backup in a temporary directory and verify file digests, permissions, database integrity, and required recovery files before replacing the retained backup and deleting the old copy and temporary files. At most one backup remains after replacement. If candidate validation fails, keep the previous valid backup and delete the failed candidate.
+- Before cleanup, check task state, processes, and actual paths. Preserve running instances, materials still awaiting acceptance, shared download caches, and non-acceptance work such as product requirements, research, and promotional content. Incorporate lasting technical conclusions into the owning documentation and report current verification results in the delivery message; the full acceptance process need not be retained permanently.
 
 ## Development and Preview Services
 
