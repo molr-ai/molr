@@ -28,6 +28,8 @@ When a topic has multiple audiences, user documentation maintains operations and
 
 Files use lowercase hyphenated naming, and directory entries use `README.md`. Split content by reader task; retain a single file when content is minimal and responsibilities are consistent; do not create a directory for every feature. Directly replace outdated body text; do not append historical correction records. Save detailed acceptance results in internal directories, and note the date for test results.
 
+Store acceptance records containing credentials, login sessions, or user data in [external instance or archive directories](environment.md#private-instance-directories-and-source-isolation), not in source-tree `internal-docs/`. Keep only internal materials suitable for the intended source-directory access in that directory.
+
 ## Indexing and Official Website Publishing
 
 The root README guides reading by task. `docs-routes.json` is the explicit list of reviewed documentation for the official website, maintaining URLs, groups, and reading order. Register all public documentation, including user, administrator, contributor, CI, and roadmap documents. New files are not published automatically; review their content before adding them to the list.

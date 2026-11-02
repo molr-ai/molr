@@ -4,7 +4,7 @@ This document defines development machine directories, shared download caches, a
 
 ## Machine Directories and Shared Download Caches
 
-On each development machine, including machines accessed over SSH, use `~/workspace/molr` as the recommended main working directory and `~/workspace/molr/.cache` as the fixed cache root. `~` refers to the current user's home directory on the machine running the command. Existing repositories may stay in their current location without moving running services; reusable downloads still belong in the fixed cache root.
+On each development machine, including machines accessed over SSH, use `~/workspace/molr.ai` for the recommended source workspace, a separate `~/workspace/molr` for development runtime materials, and `~/workspace/molr/.cache` for shared downloads. `~` refers to the current user's home directory on the machine running the command. Existing repositories may keep their paths; a source tree intended as a sandbox external directory must neither contain nor be contained by private instance directories.
 
 | Contents | Fixed directory relative to `~/workspace/molr/.cache` |
 | --- | --- |
@@ -20,6 +20,22 @@ On each development machine, including machines accessed over SSH, use `~/worksp
 - Before downloading, inspect the fixed directory and the tool's existing default cache. Reuse files that match the required version, OS, architecture, and available integrity checks, and place reusable files in the fixed directory. Download only missing or invalid files. Use the tool's cache locks and integrity checks. For manual downloads, write a temporary file, verify it, and replace the destination atomically. Wait for or reuse an existing download of the same item rather than starting another.
 - Shared contents include downloaded packages, tool-managed module caches, and versioned common tools. Each worktree owns its `node_modules`, application build artifacts, compilation caches, test output, and acceptance instance data. Do not share writable installation directories across tasks. Databases, credentials, login sessions, and user materials do not belong in shared download caches.
 - Cache lifetime is independent of task lifetime. Preserve shared downloads when cleaning up worktrees or temporary acceptance directories. Remove only confirmed damaged or unused cache entries, without clearing directories another task might use.
+
+## Private Instance Directories and Source Isolation
+
+Store main and acceptance instance configuration, databases, keys, login sessions, assistant workspaces, runtime caches, and logs outside source trees. The following layout is recommended; existing managed installation directories outside the repository may remain in use without relocating programs and configuration merely to match names.
+
+| Contents | Recommended location |
+| --- | --- |
+| Main service private files | `~/workspace/molr/instances/main/` |
+| Independent task acceptance instance | `~/workspace/molr/instances/acceptance/<task>/` |
+| Historical acceptance records, deployment backups, and rollback copies | `~/workspace/molr/archives/<task-or-date>/` |
+
+- Give each instance its own directory and record its task branch, source worktree, service name, ports, and actual paths. External placement preserves task isolation and cleanup responsibilities; do not share databases, keys, or writable assistant workspaces. Instance directories are not shared download caches.
+- Source, `node_modules`, build artifacts, and compilation caches may remain in worktrees. Deploy running Runtime/helper binaries to an external instance or managed installation directory so that source write access does not expose running programs. Frontend development services may keep source working directories, with private logs and session files in the corresponding instance directory.
+- Before exposing an entire repository, inspect all ignored directories, including `.cache/` and `internal-docs/`. Move historical files containing real credentials, databases, login links, or user data outside it; any retained internal materials must also fit the intended directory grant. Git ignore rules do not restrict sandbox reads. Do not substitute symlinks or weakened protected-path checks for physical separation.
+- Before migrating an existing instance, inventory actual processes, configuration, and installation records. Stop that instance normally, then copy its complete data and verify digests, permissions, and database integrity. Update paths in configuration, installation records, and startup entries while preserving security settings, accounts, and sessions. Keep backups and rollback copies outside the directory to be exposed; leave no private data or symlink to the new location at the old path.
+- After restarting, follow [Runtime acceptance](acceptance.md#runtime-builds-and-sandbox-acceptance) to verify HTTP readiness, existing sessions, and authenticated sandbox capabilities, including the WebUI proxy when present. Finally, use the directory connection flow to verify that the source root is accepted and the new private instance directory remains rejected. Disconnect temporary verification resources afterward and do not grant assistant permissions.
 
 ## Development and Preview Services
 

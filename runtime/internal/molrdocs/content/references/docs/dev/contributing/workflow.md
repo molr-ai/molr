@@ -15,7 +15,7 @@
 - worktree 推荐放在主工作目录下的 `.cache/worktrees/<task>`，该目录由现有 `.cache/` 忽略规则排除，不纳入 Git 提交。例如，在主工作目录执行 `git worktree add -b feat/<task> .cache/worktrees/<task> main`。路径统一以主工作目录为基准，不在任务 worktree 内嵌套创建。不能创建 worktree 时先解决路径或权限问题，不得退回主工作目录直接开发。
 - 创建后，版本管理范围内的编辑、依赖安装、代码生成、构建、测试及提交都以对应 worktree 为工作目录。并行任务不得共用同一个 worktree，也不得修改其他任务的 worktree。
 - Runtime 新增、删除或改名公开函数、具体方法或接口方法时，同步维护 `runtime/tests/coverage-*.md` 中的行为测试映射；嵌入接口展开的方法也需要登记。局部包测试通过后仍须运行 `npm run check:contracts`，提交前和 rebase 后运行 `npm run check`。映射必须引用实际验证该入口行为的测试，缺少断言时补测试，不得自动填入无关用例或跳过清单检查。`make -C runtime test` 等测试入口会先执行全仓库契约清单检查，不受 `PACKAGES`、`RUN` 筛选影响。
-- 各 worktree 的依赖安装目录、构建产物、编译缓存和 Runtime 测试数据独立管理；可复用下载遵守[共享下载缓存约定](https://molr.ai/zh/docs/dev/contributing/environment/#开发机器目录与共享下载缓存)。不得复用或修改主工作目录的运行数据库、凭证及私有数据目录。开发和验收期间不得停止或替换其他任务或主分支的服务；合并完成后按[合并后的服务生效](https://molr.ai/zh/docs/dev/contributing/acceptance/#合并后的服务生效)要求更新主分支服务。
+- 各 worktree 的依赖安装目录、构建产物、编译缓存和 Runtime 测试数据独立管理；持久验收实例及其私有记录按[实例目录约定](https://molr.ai/zh/docs/dev/contributing/environment/#实例私有目录与源码隔离)放在源码树外，按任务关联和清理；可复用下载遵守[共享下载缓存约定](https://molr.ai/zh/docs/dev/contributing/environment/#开发机器目录与共享下载缓存)。不得复用或修改主工作目录的运行数据库、凭证及私有数据目录。开发和验收期间不得停止或替换其他任务或主分支的服务；合并完成后按[合并后的服务生效](https://molr.ai/zh/docs/dev/contributing/acceptance/#合并后的服务生效)要求更新主分支服务。
 
 ## 后台等待与轮询门禁
 
