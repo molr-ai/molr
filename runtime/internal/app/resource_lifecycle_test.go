@@ -20,8 +20,22 @@ import (
 )
 
 func TestDefaultResourcesInitializeAtomicallyOnce(t *testing.T) {
+	t.Run("deleted-defaults", func(t *testing.T) { testDefaultResourcesInitializeOnce(t, false) })
+	t.Run("new-network-policy", func(t *testing.T) { testDefaultResourcesInitializeOnce(t, true) })
+}
+
+func testDefaultResourcesInitializeOnce(t *testing.T, addNetworkOnRestart bool) {
+	t.Helper()
 	cfg := testConfig(t)
 	cfg.Sandbox, _ = config.SandboxPreset("permissive")
+	networkPresets := cfg.Sandbox.NetworkPresets
+	if len(networkPresets) == 0 {
+		t.Fatal("expected platform network presets")
+	}
+	if addNetworkOnRestart {
+		// Reserve a supported preset so restart introduces a new policy on every platform.
+		cfg.Sandbox.NetworkPresets = networkPresets[:len(networkPresets)-1]
+	}
 	b, err := Build(t.Context(), cfg)
 	need(t, err)
 	req := auth.InitializeRequest{Username: "owner", Password: core.NewSecret("resource-initialization-password-2026!")}
@@ -63,7 +77,7 @@ func TestDefaultResourcesInitializeAtomicallyOnce(t *testing.T) {
 		need(t, b.Services.Resources.Delete(t.Context(), p, resource.DeleteRequest{ID: r.ID, Mutation: core.Mutation{IdempotencyKey: "delete-" + string(r.ID), ExpectedVersion: r.Version + 1}}))
 	}
 	need(t, b.Close())
-	cfg.Sandbox.Networks = append(cfg.Sandbox.Networks, config.SandboxNetwork{Name: "new-deployment-rule", Protocols: []string{"tcp"}, Addresses: []string{"203.0.113.0/24"}, Ports: []string{"443"}})
+	cfg.Sandbox.NetworkPresets = networkPresets
 	next, err := Build(t.Context(), cfg)
 	need(t, err)
 	defer next.Close()
