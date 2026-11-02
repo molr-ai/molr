@@ -28,7 +28,7 @@ When a topic has multiple audiences, user documentation maintains operations and
 
 Files use lowercase hyphenated naming, and directory entries use `README.md`. Split content by reader task; retain a single file when content is minimal and responsibilities are consistent; do not create a directory for every feature. Directly replace outdated body text; do not append historical correction records. Keep detailed acceptance results temporarily in the current instance’s private directory and date the test results. After task closure, remove them under the [retention limits](environment.md#acceptance-data-and-backup-retention-limits), without permanent archival.
 
-Store acceptance records containing credentials, login sessions, or user data in [external instance directories](environment.md#private-instance-directories-and-source-isolation), not in source-tree `internal-docs/`. Keep only internal materials suitable for the intended source-directory access in that directory.
+Store acceptance records containing credentials, login sessions, or user data in [external instance directories](environment.md#private-instance-directories-and-source-isolation), not in source-tree `internal-docs/`. Keep project requirements, research, and promotional materials in repository-root `internal-docs/` for project development.
 
 ## Indexing and Official Website Publishing
 

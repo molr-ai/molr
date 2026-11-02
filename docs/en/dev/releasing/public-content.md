@@ -18,7 +18,7 @@ Release checks prevent common accidental commits; they do not replace content an
 
 ## Local Files and Git
 
-Runtime databases, passwords, master keys, login links, actual deployment configuration, logs, runtime caches, and backups belong in independent private directories outside the repository; see the [private instance directory convention](../contributing/environment.md#private-instance-directories-and-source-isolation). Before exposing development source as a sandbox external directory, also move private historical files out of ignored directories. Git ignore rules do not provide filesystem access isolation.
+Runtime databases, passwords, master keys, login links, actual deployment configuration, logs, runtime caches, and backups belong in independent private directories outside the repository; see the [private instance directory convention](../contributing/environment.md#private-instance-directories-and-source-isolation). When using Molr to develop itself, keep project materials in repository-root `internal-docs/` under the existing convention. Runtime file placement does not change internal documentation ownership or public-release scope.
 
 `.gitignore` covers common databases and WAL/SHM files, private key/certificate containers, initial passwords, saved login links, environment files, backups, and local configurations. `runtime/configs/` retains only `*.example.json`; `.env.example` and `.env.*.example` may be committed, but their content must still use example values. Do not rename real credentials to example file names just to pass checks.
 

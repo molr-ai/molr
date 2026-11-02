@@ -28,7 +28,7 @@
 
 文件采用小写短横线命名，目录入口使用 `README.md`。按读者任务拆分，内容较少且职责一致时保留单篇；不为每个功能建立目录。直接替换过期正文，不追加历史修正记录。当前任务的详细验收结果暂存于实例私有目录，测试结果注明日期；任务结束后按[保留上限](https://molr.ai/zh/docs/dev/contributing/environment/#验收资料与备份保留上限)清理，不长期归档。
 
-含凭据、登录会话或用户资料的验收记录存放在[仓库外实例目录](https://molr.ai/zh/docs/dev/contributing/environment/#实例私有目录与源码隔离)，不放入源码树内的 `internal-docs/`；该目录只保留适合随源码目录授权开放的内部资料。
+含凭据、登录会话或用户资料的验收记录存放在[仓库外实例目录](https://molr.ai/zh/docs/dev/contributing/environment/#实例私有目录与源码隔离)，不放入源码树内的 `internal-docs/`；项目需求、研究和推广资料继续保存在仓库根目录 `internal-docs/`，供项目开发使用。
 
 ## 索引与官网发布
 
