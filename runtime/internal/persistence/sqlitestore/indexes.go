@@ -159,6 +159,7 @@ var recordIndexes = []recordIndex{
 	{"records_query_security_audit_ownerid_atkey_id_key", "security.audit", []string{"OwnerID", "AtKey", "ID", "key"}},
 	{"records_query_security_credentials_metadata_ownerid_key", "security.credentials", []string{"Metadata.OwnerID", "key"}},
 	{"records_query_security_grants_ownerid_assistantid_key", "security.grants", []string{"OwnerID", "AssistantID", "key"}},
+	{"records_query_security_grants_resourceid_revokedat_expiresatkey_key", "security.grants", []string{"ResourceID", "RevokedAt", "ExpiresAtKey", "key"}},
 	{"records_query_security_grants_ownerid_assistantid_resourceid_key", "security.grants", []string{"OwnerID", "AssistantID", "ResourceID", "key"}},
 	{"records_query_security_grants_ownerid_assistantid_resourceid_revokedat_expiresatkey_key", "security.grants", []string{"OwnerID", "AssistantID", "ResourceID", "RevokedAt", "ExpiresAtKey", "key"}},
 	{"records_query_security_grants_ownerid_assistantid_revokedat_expiresatkey_key", "security.grants", []string{"OwnerID", "AssistantID", "RevokedAt", "ExpiresAtKey", "key"}},

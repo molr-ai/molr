@@ -289,6 +289,7 @@ SQLite 实现接线与恢复安全：真实数据库聚合器持有独立实例�
 | `internal/updates` | `ReadInstallation` | `TestInstallationReceiptRequiresMatchingExecutableAndCompletedInstall` |
 | `internal/config` | `Sandbox.ComputeCeilings` | `internal/app.TestSandboxPlansRequireIndependentComputeStorageAndNetworkGrants` |
 | `internal/core` | `CheckGPUDevices`, `ComputeConstraints.GPUDevices`, `ValidateGPUDevices` | `TestGPUDevicesAreExplicitAndBounded` |
+| `internal/platform` | `ServiceHTTPClient` | `TestConfiguredServiceHTTPClientKeepsDialPolicy` |
 | `internal/platform` | `ConfiguredHTTPClient` | `TestConfiguredHTTPClientPinsExplicitLocalSource` |
 | `internal/platform/sandbox` | `Runner.GPUs` | `TestLinuxGPUIsolation` |
 | `internal/platform/sandbox` | `Runner.GPUSnapshot` | `TestGPUSnapshotPreservesInventoryWhenSamplingCanceled`, `TestGPUSnapshotWithoutDevices`, `TestGPUUsageSnapshotParsesUnknownAndZero`, `TestGPUUsageDoesNotChangeInventoryOrAvailability` |

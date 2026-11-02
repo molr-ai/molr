@@ -105,6 +105,8 @@ type Provider struct {
 	Discover func(context.Context, core.Principal, Binding) ([]ModelConfig, error)
 }
 type Options struct {
+	// CheckResource validates sandbox bindings outside storage transactions.
+	CheckResource     func(context.Context, core.Principal, Resource, Binding) (Status, error)
 	Credentials       credential.Manager
 	CheckVerification func(context.Context, core.Principal, auth.Verification, string) error
 	// OnDeleteProvider updates cross-module references within the current transaction.
@@ -391,8 +393,8 @@ func (s *service) Disconnect(ctx context.Context, p core.Principal, req Disconne
 		if err != nil {
 			return struct{}{}, err
 		}
-		if v.Kind == Connection || v.Provider == "mcp" {
-			return struct{}{}, core.NewError(core.Forbidden, "use the service connection settings")
+		if v.Kind == Connection || v.Provider == "mcp" || v.Provider == "managed-workspace" {
+			return struct{}{}, core.NewError(core.Forbidden, "resource cannot be disconnected here")
 		}
 		binding, err := s.repo.Binding(ctx, p.OwnerID, v.ID)
 		if err != nil {
@@ -425,6 +427,35 @@ func (s *service) Check(ctx context.Context, p core.Principal, id core.ID) (Stat
 	}
 	if v.State == Disconnected {
 		return Status{State: Disconnected, CheckedAt: s.now()}, nil
+	}
+	if s.options.CheckResource != nil && (v.Kind == Storage || v.Kind == Compute || v.Kind == Network) {
+		status, err := s.options.CheckResource(ctx, p, v, binding)
+		if err != nil {
+			return status, err
+		}
+		err = s.store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+			current, err := s.repo.Get(ctx, p.OwnerID, id)
+			if err != nil {
+				return err
+			}
+			// A concurrent disconnect, rename or reconnect wins over this probe.
+			if current.Version != v.Version || current.State == Disconnected {
+				status.State = current.State
+				status.ReasonCode = current.Reason
+				return nil
+			}
+			reason := status.ReasonCode
+			if status.State == Available {
+				reason = ""
+			}
+			if current.State == status.State && current.Reason == reason {
+				return nil
+			}
+			current.State, current.Reason = status.State, reason
+			current.Version++
+			return s.repo.Save(ctx, current, v.Version)
+		})
+		return status, err
 	}
 	provider, ok := s.options.Providers[v.Provider]
 	if !ok || provider.Check == nil {

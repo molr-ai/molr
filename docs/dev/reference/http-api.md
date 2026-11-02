@@ -25,6 +25,7 @@ Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugi
 - 模型类 `POST /api/grants` 必须提供有效的 `Scope.ModelID`，且模型属于 `ResourceID` 指定的 Provider；非模型资源不能携带模型范围。不接受未指定模型的 Provider 整体授权。模型目录与推理入口逐模型检查读／执行权限，同一 Provider 的其他模型不会自动获得授权。克隆保留模型范围，撤销只影响对应授权。
 - 资源返回的 `Actions` 是当前 Provider 支持的授权子项。模型的 `read` / `execute` 分别为「查看模型／调用模型」，本地存储的 `read` / `write` 为「读取文件／写入文件」。`POST /api/grants` 拒绝资源不支持的动作；助理执行时也重新检查当前能力，旧授权不能越过能力限制。前端按资源类型显示名称，只提供该资源实际声明的选项；切换资源清空不适用的动作与范围。
 - WebUI 通过 `POST /api/resources/provider` 原子创建/更新 Provider：传入 `Mutation`、可选 `ID`、`Name`、`Endpoint`、`UseAPIKey`，需要保存或更换 Key 时另传 `APIKey`；敏感操作验证开启时，需用途为 `credential.put` 的 `verification`，关闭时可为空。编辑时 Key 留空表示保留已配置的 Key；`UseAPIKey: false` 取消该连接的认证。新 Key 与资源绑定、版本及审计在同一事务提交，失败一起回滚。`GET /api/resources/{id}/connection` 仅供管理员读取可编辑元数据，不返回密钥。
+- `POST /api/resources/reconnect` 与 `/api/resources/delete` 接收 `ID` 和 `Mutation`，仅管理员管理目录、计算和网络资源；内置工作区拒绝操作。重新连接仅接受已断开资源，在事务外校验来源，再按版本提交，保留授权与额度；删除在同一事务校验已断开且所有账号均无未撤销、未过期授权，删除资源和绑定，保留历史。失败回滚、重试幂等。`POST /api/resources/check-sandbox` 接收沙盒 `ID`，一次性检查未断开的已有资源；不创建资源。资源 `Reason` 提供不可用原因，沙盒资源详情的 `HasActiveGrants` 是所有账号有效授权的布尔快照，删除时仍会重新校验。
 - `POST /api/resources/delete-provider` 接收 `ID`、`Mutation` 和可选 `verification`，仅管理员可删除模型类 Provider，已断开连接同样支持。敏感操作验证开启时要求用途为 `credential.delete` 的证明。删除连接、绑定／模型目录、未被其他连接引用的凭证，撤销资源授权并清除失效的默认模型，均在同一事务提交；失败回滚，重复请求幂等。助理、聊天、任务和审计历史保留，显式使用已删除模型的助理需重新选择模型，不会自动切换到其他提供商。
 - 模型连接以 provider 为资源；管理员配置的模型服务默认允许私网与回环 IP，不受 `network.allowed_private_ips` 限制，资源 API 不接受网络放行参数。`POST /api/resources/test-connection` 接收 `Provider`、`Binding` 与可选 `APIKey`，返回 `ModelCount`；仅管理员可用，临时 API Key 与已保存 `CredentialID` 二选一，不保存配置、不上传聊天内容，使用模型服务网络策略（绑定 origin、禁止特殊地址及自动重定向，公网要求 HTTPS）。`Binding.Models` 可为空；可选手动模型包含名称、上下文、工具能力和价格，`Pricing: null` 表示未配置价格；显式提供 `Pricing` 三项单价且全零才表示确认免费。`POST /api/resources/refresh-models` 接收 `ID` 与 `Mutation`，在事务外发现模型，再按版本保存结果。`GET /api/models` 返回独立模型 ID、所属 `ResourceID` 和 `Pricing`；模型授权同时绑定资源与 `Scope.ModelID`，未知价格不允许推理。`POST /api/resources/configure-model` 接收 `ID`、`Model` 和 `Mutation`，配置单个模型的上下文、工具能力与可选价格，刷新保留手动配置。发现失败保留已有列表，重复刷新不改变模型 ID，断开 provider 后模型退出可用列表。
 - `GET /api/status` 需要认证，返回 `name`（Molr Runtime）、`status`（running）和配置中的 `public_url`，供连接设置展示实际 Runtime 地址。
@@ -229,6 +230,9 @@ Runtime 仍是 Go 单体，不加载 Go 动态业务模块；已实现的 [Plugi
 | POST | `/api/resources/configure-model` |
 | POST | `/api/resources/delete-provider` |
 | POST | `/api/resources/disconnect` |
+| POST | `/api/resources/reconnect` |
+| POST | `/api/resources/delete` |
+| POST | `/api/resources/check-sandbox` |
 | POST | `/api/resources/provider` |
 | POST | `/api/resources/refresh-models` |
 | POST | `/api/resources/test-connection` |

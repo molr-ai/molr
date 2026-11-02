@@ -18,6 +18,8 @@ type PrincipalValidator interface {
 	ValidatePrincipal(context.Context, core.Principal) error
 }
 type Options struct {
+	// InitializeResources runs in the account initialization transaction, once per instance.
+	InitializeResources    func(context.Context, Account) error
 	AfterAccessChange      func(context.Context)
 	ValidateResources      func(context.Context, core.Principal, []ResourceReference) error
 	Now                    func() time.Time
@@ -206,6 +208,11 @@ func (m *Manager) Initialize(ctx context.Context, r InitializeRequest) (Account,
 		}
 		if err := m.repo.InsertAccount(ctx, StoredAccount{Account: a, PasswordHash: core.NewSecret(hash), Version: 1}); err != nil {
 			return err
+		}
+		if m.options.InitializeResources != nil {
+			if err := m.options.InitializeResources(ctx, a); err != nil {
+				return err
+			}
 		}
 		return m.audit(ctx, a.ID, a.ID, "auth.initialize", "succeeded", core.Object{Kind: "account", ID: a.ID})
 	})

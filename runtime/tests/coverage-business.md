@@ -143,6 +143,7 @@ Clone/返聘授权契约细化：新授权具有新 ID，并绑定目标助理�
 
 | `internal/business/resource` | `Service.ProviderConnection`, `Service.SaveProvider` | `TestProviderConnectionOwnerOnlyAndVersionedChanges` |
 
+| `internal/business/resource` | `Service.Reconnect`, `Service.Delete` | `TestResourceReconnectDeleteLifecycle`, `TestResourceDeleteChecksAllAccountsAndPreservesHistory`, `TestResourceBuiltinCannotDisconnectReconnectOrDelete`, `TestResourceDeleteGrantRace` |
 | `internal/business/resource` | `Service.DeleteProvider` | `TestDeleteProviderAuthorizationVersionAndReplay` |
 
 | `internal/business/plan` | `New` | `TestPersonalHandoffCreatesExactlyOneLinkedExecutionWithSnapshot` |

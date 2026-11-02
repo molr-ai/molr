@@ -786,24 +786,5 @@ func (s remoteSandboxResources) Disconnect(ctx context.Context, p core.Principal
 }
 
 func (s remoteSandboxResources) Check(ctx context.Context, p core.Principal, id core.ID) (resource.Status, error) {
-	r, err := s.Service.Get(ctx, p, id)
-	if err != nil {
-		return resource.Status{}, err
-	}
-	if sandboxOf(r) == "local" || r.Kind == resource.Model || r.Kind == resource.Tool {
-		return s.Service.Check(ctx, p, id)
-	}
-	info, err := s.router.info(ctx, p, sandboxOf(r))
-	status := resource.Status{State: resource.Available, ReasonCode: "available", CheckedAt: time.Now()}
-	if err != nil || !info.Enabled {
-		status.State = resource.Offline
-		status.ReasonCode = "sandbox_offline"
-	} else if r.Kind == resource.Compute && !info.Capabilities.Shell && !info.Capabilities.FullAccess {
-		status.State = resource.Offline
-		status.ReasonCode = info.Capabilities.Reason
-	} else if r.Kind == resource.Storage && !info.Storage {
-		status.State = resource.Offline
-		status.ReasonCode = "storage_unavailable"
-	}
-	return status, nil
+	return s.Service.Check(ctx, p, id)
 }

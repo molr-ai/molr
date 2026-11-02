@@ -20,31 +20,33 @@ export function activeResourceGrants(grants: Grant[], assistants: Assistant[]) {
 }
 export function SandboxAccess({ resource, resources, fullAccess = false, canGrant, onClose }: { resource: Resource; resources: Resource[]; fullAccess?: boolean; canGrant: boolean; onClose: () => void }) {
   const { t, locale } = useCopy(), copy = useSandboxCopy();
+  const workspace = resource.Provider === 'managed-workspace';
+  const capacityEnd = locale === 'zh' ? '结束额度调整' : 'End capacity adjustment';
   const sandboxes = useQuery<SandboxView[]>('/api/sandboxes');
   const gpus = sandboxes.data?.find(node => node.ID === (resource.SandboxID || 'local'))?.Info.GPUs;
   const gpuAccessMode = sandboxes.data?.find(node => node.ID === (resource.SandboxID || 'local'))?.Info.Capabilities.GPUAccessMode;
   const assistants = useQuery<Assistant[]>('/api/assistants', true), grants = useQuery<Grant[]>(`/api/grants?resource_id=${resource.ID}`, true);
   const [editing, setEditing] = useState<Grant | 'new' | null>(null), [revoking, setRevoking] = useState<Grant | null>(null);
-  const active = activeResourceGrants(grants.data ?? [], assistants.data ?? []).filter(g => !!g.Scope.FullAccess === fullAccess);
+  const active = activeResourceGrants(grants.data ?? [], assistants.data ?? []).filter(g => resource.State === 'disconnected' && resource.Kind === 'compute' || !!g.Scope.FullAccess === fullAccess);
   const people = (assistants.data ?? []).filter(item => item.State === 'active');
   useErrorToast(assistants.error || grants.error, () => { assistants.reload(); grants.reload(); });
   const revokeGrant = useMutation([revoking]);
-  return <Dialog open title={`${copy.access} · ${fullAccess ? fullAccessLabel(locale === 'zh') : sandboxResourceName(resource, copy)}`} description={copy.manageHint} onOpenChange={open => { if (!open && !editing && !revoking) onClose(); }}>
+  return <Dialog open title={`${workspace ? copy.workspaceCapacity : copy.access} · ${fullAccess ? fullAccessLabel(locale === 'zh') : sandboxResourceName(resource, copy)}`} description={workspace ? copy.workspaceCapacityHelp : copy.manageHint} onOpenChange={open => { if (!open && !editing && !revoking) onClose(); }}>
     <div className="sandbox-access">
       {(assistants.loading && !assistants.data) || (grants.loading && !grants.data) ? <Loading /> : <>
-        <div className="sandbox-access-heading"><span>{copy.authorized} · {new Set(active.map(grant => grant.AssistantID)).size}</span><Button size="sm" disabled={!canGrant || !people.length} onClick={() => setEditing('new')}>{copy.grant}</Button></div>
-        {!people.length && <p className="muted">{copy.noAssistants}</p>}
-        {!active.length ? <Empty title={copy.noAccess} description={copy.accessEmptyHelp} /> : active.map(grant => <article className="sandbox-access-row" key={grant.ID}>
-          <div><h3>{people.find(person => person.ID === grant.AssistantID)?.Name ?? grant.AssistantID}</h3><p>{grant.Scope.FullAccess ? fullAccessLabel(locale === 'zh') : grantSummary(t, grant, resource)}</p>
+        <div className="sandbox-access-heading"><span>{workspace ? copy.configuredCapacity : copy.authorized} · {new Set(active.map(grant => grant.AssistantID)).size}</span><Button size="sm" disabled={!canGrant || !people.length} onClick={() => setEditing('new')}>{workspace ? copy.setCapacity : copy.grant}</Button></div>
+        {!people.length && <p className="muted">{workspace ? (locale === 'zh' ? '请先聘请一位助理，再设置容量。' : 'Hire an assistant before setting capacity.') : copy.noAssistants}</p>}
+        {!active.length ? <Empty title={workspace ? copy.noCapacity : copy.noAccess} description={workspace ? copy.noCapacityHelp : copy.accessEmptyHelp} /> : active.map(grant => <article className="sandbox-access-row" key={grant.ID}>
+          <div><h3>{people.find(person => person.ID === grant.AssistantID)?.Name ?? grant.AssistantID}</h3>{!workspace && <p>{grant.Scope.FullAccess ? fullAccessLabel(locale === 'zh') : grantSummary(t, grant, resource)}</p>}
             {grant.Scope.FullAccess && <GrantUseSummary grant={grant} />}
             {grant.Scope.FullAccess && <FullAccessScopeSummary value={grant.Scope.FullAccessScope} />}
-            {resource.Kind === 'storage' && <p className="sandbox-path">{grant.Scope.PathPrefixes?.join(', ') || '/'}</p>}
+            {resource.Kind === 'storage' && !workspace && <p className="sandbox-path">{grant.Scope.PathPrefixes?.join(', ') || '/'}</p>}
             <ConstraintsSummary gpuAccessMode={gpuAccessMode} gpus={gpus} value={grant.Constraints} temporary={grant.Temporary}/>{!grant.Scope.FullAccess && resource.Kind !== 'model' && resource.Kind !== 'tool' && <ResourceQuotaUsage assistantID={grant.AssistantID} resourceID={grant.ResourceID}/>}<small className="muted">{grant.ExpiresAt ? `${t.resources.expires} · ${new Date(grant.ExpiresAt).toLocaleString(locale)}` : copy.noExpiry}</small></div>
-          <div className="sandbox-row-actions"><Button size="sm" variant="ghost" disabled={!canGrant} onClick={() => setEditing(grant)}>{t.edit}</Button><Button size="sm" variant="ghost" onClick={() => setRevoking(grant)}>{t.resources.revoke}</Button></div>
+          <div className="sandbox-row-actions"><Button size="sm" variant="ghost" disabled={!canGrant} onClick={() => setEditing(grant)}>{t.edit}</Button><Button size="sm" variant="ghost" onClick={() => setRevoking(grant)}>{workspace ? capacityEnd : t.resources.revoke}</Button></div>
         </article>)}
       </>}
     </div>
-    <ModalPresence>{editing && <GrantEditor resources={resources} initialResource={resource} initialFullAccess={fullAccess} assistants={people} grant={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} />}</ModalPresence>
-    <ModalPresence>{revoking && <Confirm title={t.resources.revoke} description={t.resources.revokeHelp} danger onClose={() => setRevoking(null)} onConfirm={() => revokeGrant('/api/grants/revoke', { GrantID: revoking.ID }, revoking.Version)} />}</ModalPresence>
+    <ModalPresence>{editing && <GrantEditor workspaceCapacity={workspace} resources={resources} initialResource={resource} initialFullAccess={fullAccess} assistants={people} grant={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} />}</ModalPresence>
+    <ModalPresence>{revoking && <Confirm title={workspace ? capacityEnd : t.resources.revoke} description={workspace ? (locale === 'zh' ? '结束当前调整后保留基础容量和已有文件，临时扩容停止生效，默认读写权限不变。' : 'Keeps the base capacity and existing files, ends temporary expansion, and preserves workspace read and write access.') : t.resources.revokeHelp} danger onClose={() => setRevoking(null)} onConfirm={() => revokeGrant('/api/grants/revoke', { GrantID: revoking.ID }, revoking.Version)} />}</ModalPresence>
   </Dialog>;
 }

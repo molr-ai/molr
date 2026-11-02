@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
@@ -138,6 +139,7 @@ func TestSandboxPresentationPreservesCredentialsAndOwnerBoundary(t *testing.T) {
 	out, err = call(f.owner, "details", map[string]any{"ID": "local"})
 	need(t, err)
 	details = out.([]sandboxResourceDetail)
+	details = slices.DeleteFunc(details, func(d sandboxResourceDetail) bool { return d.ID != f.storage.ID })
 	if len(details) != 1 || details[0].Capacity == nil || details[0].Capacity.StorageBytes <= 0 {
 		t.Fatal("local filesystem capacity missing", details)
 	}

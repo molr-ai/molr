@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"molr.ai/runtime/internal/auth"
 	"molr.ai/runtime/internal/business/assistant"
 	"molr.ai/runtime/internal/business/dream"
@@ -232,6 +233,19 @@ func (s *HTTPServer) businessRoutes() {
 	})
 	route(s, "POST /api/resources/disconnect", func(ctx context.Context, p core.Principal, r resource.DisconnectRequest) (any, error) {
 		return nil, s.services.Resources.Disconnect(ctx, p, r)
+	})
+	route(s, "POST /api/resources/reconnect", func(ctx context.Context, p core.Principal, r resource.ReconnectRequest) (any, error) {
+		return s.services.Resources.Reconnect(ctx, p, r)
+	})
+	route(s, "POST /api/resources/delete", func(ctx context.Context, p core.Principal, r resource.DeleteRequest) (any, error) {
+		return nil, s.services.Resources.Delete(ctx, p, r)
+	})
+	route(s, "POST /api/resources/check-sandbox", func(ctx context.Context, p core.Principal, r struct{ ID core.ID }) (any, error) {
+		if s.options.SandboxAdmin == nil {
+			return nil, core.NewError(core.Unavailable, "sandbox manager unavailable")
+		}
+		raw, _ := json.Marshal(r)
+		return s.options.SandboxAdmin(ctx, p, "check_resources", raw)
 	})
 	route(s, "POST /api/resources/delete-provider", func(ctx context.Context, p core.Principal, r struct {
 		Mutation     core.Mutation

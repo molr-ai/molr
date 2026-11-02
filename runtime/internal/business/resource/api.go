@@ -30,6 +30,7 @@ const (
 
 // Resource is safe for authorized UI/Agent views; it has no secret or raw binding.
 type Resource struct {
+	Reason         string  `json:",omitempty"`
 	Authentication string  `json:",omitempty"`
 	SandboxID      core.ID `json:",omitempty"`
 	ID             core.ID
@@ -143,6 +144,14 @@ type DisconnectRequest struct {
 	Mutation core.Mutation
 	ID       core.ID
 }
+type ReconnectRequest struct {
+	Mutation core.Mutation
+	ID       core.ID
+}
+type DeleteRequest struct {
+	Mutation core.Mutation
+	ID       core.ID
+}
 type DeleteProviderRequest struct {
 	Mutation     core.Mutation
 	ID           core.ID
@@ -173,6 +182,8 @@ type Service interface {
 	List(context.Context, core.Principal, Query) (core.Page[Resource], error)
 	Update(context.Context, core.Principal, UpdateRequest) (Resource, error)
 	Disconnect(context.Context, core.Principal, DisconnectRequest) error
+	Reconnect(context.Context, core.Principal, ReconnectRequest) (Resource, error)
+	Delete(context.Context, core.Principal, DeleteRequest) error
 	DeleteProvider(context.Context, core.Principal, DeleteProviderRequest) error
 	Check(context.Context, core.Principal, core.ID) (Status, error)
 	RefreshModels(context.Context, core.Principal, RefreshModelsRequest) (Resource, error)

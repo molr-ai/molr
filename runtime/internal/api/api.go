@@ -144,9 +144,18 @@ func PublicError(err error, requestID core.ID) (int, ErrorResponse) {
 	case core.NetworkPrivateAddressDenied, core.NetworkHTTPNotAllowed, core.NetworkDestinationProhibited, "pricing_refresh_failed", "pricing_rules_invalid",
 		core.DirectoryAbsolutePathRequired, core.DirectoryRelativePathRequired, core.DirectoryUnavailable, core.DirectoryRequired,
 		core.DirectoryRootProhibited, core.DirectorySymlinkProhibited, core.DirectoryProtected, core.DirectoryOutsideScope,
+		"resource_not_disconnected", "resource_has_grants", "network_target_unavailable", "sandbox_compute_unavailable", "storage_read_only", "sandbox_offline", "sandbox_disabled",
 		"grant_exists", "grant_changed", "permission_request_changed", "permission_already_granted",
 		"maintenance_busy", "maintenance_not_cancellable", "maintenance_not_installed", "maintenance_runner_unavailable", "maintenance_permission_denied", "maintenance_admin_cli_required", "maintenance_start_timeout", "maintenance_invalid_request", "component_externally_managed", "component_platform_unsupported":
 		reason = value
+	}
+	if code == core.FailedPrecondition {
+		switch reason {
+		case "resource_not_disconnected":
+			message = "Disconnect this resource before deleting it."
+		case "resource_has_grants":
+			message = "This resource still has active permissions. Revoke them before deleting it."
+		}
 	}
 	return status, ErrorResponse{Code: code, Message: message, RequestID: requestID, Reason: reason}
 }

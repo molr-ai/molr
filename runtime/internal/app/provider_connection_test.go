@@ -3,6 +3,7 @@ package app
 import (
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
 	"molr.ai/runtime/internal/buildinfo"
@@ -17,6 +18,8 @@ func TestDraftProviderConnectionUsesRealNetworkWithoutSaving(t *testing.T) {
 	need(t, err)
 	defer b.Close()
 	p, _ := ownerSession(t, b)
+	before, err := b.Services.Resources.List(t.Context(), p, resource.Query{})
+	need(t, err)
 	calls := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got, want := r.UserAgent(), "molr/"+buildinfo.Version; got != want {
@@ -40,7 +43,7 @@ func TestDraftProviderConnectionUsesRealNetworkWithoutSaving(t *testing.T) {
 	need(t, err)
 	credentials, err := b.Services.Credentials.List(t.Context(), p, core.PageRequest{})
 	need(t, err)
-	if len(resources.Items) != 0 || len(credentials.Items) != 0 {
+	if !reflect.DeepEqual(resources.Items, before.Items) || len(credentials.Items) != 0 {
 		t.Fatal("connection test persisted resources or credentials")
 	}
 	_, err = b.Services.Resources.TestConnection(t.Context(), core.Principal{}, req)

@@ -55,7 +55,7 @@ func TestHTTPCompositionExcludesPrivilegedExecutionPorts(t *testing.T) {
 }
 
 func TestPublicErrorReasonsAreReviewedAndKeepDiagnosticsPrivate(t *testing.T) {
-	for _, reason := range []core.Reason{core.NetworkPrivateAddressDenied, core.NetworkHTTPNotAllowed, core.NetworkDestinationProhibited, "grant_exists", "grant_changed", "permission_request_changed", "permission_already_granted", core.DirectoryAbsolutePathRequired, core.DirectoryRelativePathRequired, core.DirectoryUnavailable, core.DirectoryRequired, core.DirectoryRootProhibited, core.DirectorySymlinkProhibited, core.DirectoryProtected, core.DirectoryOutsideScope, "private-secret"} {
+	for _, reason := range []core.Reason{core.NetworkPrivateAddressDenied, core.NetworkHTTPNotAllowed, core.NetworkDestinationProhibited, "grant_exists", "grant_changed", "permission_request_changed", "permission_already_granted", core.DirectoryAbsolutePathRequired, core.DirectoryRelativePathRequired, core.DirectoryUnavailable, core.DirectoryRequired, core.DirectoryRootProhibited, core.DirectorySymlinkProhibited, core.DirectoryProtected, core.DirectoryOutsideScope, "resource_not_disconnected", "resource_has_grants", "network_target_unavailable", "sandbox_compute_unavailable", "storage_read_only", "sandbox_offline", "sandbox_disabled", "private-secret"} {
 		err := core.WithReason(core.Invalid("private-secret", "private-secret"), reason)
 		status, response := PublicError(err, "request")
 		if status != http.StatusBadRequest || response.Code != core.InvalidArgument {
@@ -71,6 +71,18 @@ func TestPublicErrorReasonsAreReviewedAndKeepDiagnosticsPrivate(t *testing.T) {
 		body, _ := json.Marshal(response)
 		if strings.Contains(string(body), "private-secret") {
 			t.Fatal("diagnostics exposed", string(body))
+		}
+	}
+}
+
+func TestResourceDeletionErrorsExplainRequiredAction(t *testing.T) {
+	for reason, message := range map[core.Reason]string{
+		"resource_not_disconnected": "Disconnect this resource before deleting it.",
+		"resource_has_grants":       "This resource still has active permissions. Revoke them before deleting it.",
+	} {
+		status, response := PublicError(core.WithReason(core.NewError(core.FailedPrecondition, "private diagnostic"), reason), "request")
+		if status != http.StatusConflict || response.Message != message || response.Reason != reason {
+			t.Fatal(status, response)
 		}
 	}
 }

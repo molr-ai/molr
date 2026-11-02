@@ -49,6 +49,7 @@ type sandboxRouter struct {
 	files         *resourceFileTools
 	catalog       tools.Catalog
 	cipher        cipher.AEAD
+	resources     resource.Service
 	verify        func(context.Context, core.Principal, auth.Verification, string) error
 }
 
@@ -94,7 +95,10 @@ func (s *sandboxRouter) newClient(p core.Principal, endpoint, fingerprint string
 		return platform.NetworkBinding{Origin: endpoint}, nil
 	}})
 	var client *http.Client
-	if p.Kind == core.ActorOwner {
+	if p == (core.Principal{}) {
+		// Startup checks read persisted administrator-approved connections only.
+		client = platform.ServiceHTTPClient(endpoint)
+	} else if p.Kind == core.ActorOwner {
 		client = guard.OwnerHTTPClient(p, "sandbox", endpoint)
 	} else {
 		client = guard.HTTPClient(core.Execution{Principal: p, AssistantID: p.SubjectID, OperationID: "sandbox-transport"}, "sandbox", endpoint)
@@ -137,6 +141,16 @@ func (s *sandboxRouter) admin(ctx context.Context, p core.Principal, action stri
 	}
 	if err := s.adapters.policy.Require(ctx, p, policy.CheckRequest{Target: core.Object{Kind: "resource"}, Action: accessAction}); err != nil {
 		return nil, err
+	}
+	if action == "check_resources" {
+		var q struct{ ID core.ID }
+		if err := decodeSandboxArgs(raw, &q); err != nil {
+			return nil, err
+		}
+		if q.ID.Validate() != nil {
+			return nil, core.Invalid("sandbox_id", "required")
+		}
+		return nil, refreshSandboxResources(ctx, s.adapters.store, s.resources, p, q.ID)
 	}
 	switch action {
 	case "quota_usage":

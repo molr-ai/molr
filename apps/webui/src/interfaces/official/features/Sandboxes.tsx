@@ -7,13 +7,13 @@ import { fullAccessLabel, sandboxPermissions } from './PermissionTargetFields';
 import type { SandboxPermission } from './PermissionTargetFields';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { ModalPresence, Alert, Badge, Button, Progress, DropdownMenu, IconButton, Select, SlidingHighlight, Tabs, TextField, useBreakpoint } from '@molr/ui';
+import { ModalPresence, Drawer, Alert, Badge, Button, Progress, DropdownMenu, IconButton, Select, SlidingHighlight, Tabs, TextField, useBreakpoint } from '@molr/ui';
 import type { MenuItem } from '@molr/ui';
-import { Cpu, Ellipsis, Globe, HardDrive, Pencil, Plus, RefreshCw, Server, ShieldCheck, Unplug, Users } from 'lucide-react';
+import { Cpu, Ellipsis, Globe, HardDrive, Pencil, Plus, RefreshCw, Server, ShieldCheck, Unplug, Users, Trash2, Plug } from 'lucide-react';
 import type { Assistant, Grant, Resource } from '@molr/sdk';
 import type { SandboxInfo, SandboxKind, SandboxResourceDetail, SandboxView } from '@molr/sdk';
 export type { SandboxView } from '@molr/sdk';
-import { APIError, onMutation } from '@molr/sdk';
+import { api, APIError, onMutation } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
 import { sandboxResourceName, useSandboxCopy } from '../../../sandbox-copy';
 import { useSandboxPreference } from '../../../sandbox-navigation';
@@ -39,15 +39,20 @@ export function Sandboxes({ resources, resourceID = '' }: { resources: Resource[
   const details = useQuery<SandboxResourceDetail[]>(query.data?.some(item => item.ID === selected) ? `/api/sandboxes/${selected}/resources` : null);
   const grants = useQuery<Grant[]>('/api/grants', true), assistants = useQuery<Assistant[]>('/api/assistants', true);
   useEffect(() => onMutation(path => {
-    if (path.startsWith('/api/sandboxes/') || path.startsWith('/api/resources/')) { query.reload(); details.reload(); }
+    if (path.startsWith('/api/sandboxes/') || path.startsWith('/api/resources/') || path.startsWith('/api/grants')) { query.reload(); details.reload(); }
   }), [query.reload, details.reload]);
   const [connecting, setConnecting] = useState(false), [editing, setEditing] = useState<SandboxView | null>(null), [disconnecting, setDisconnecting] = useState<SandboxView | null>(null), [renamingSandbox, setRenamingSandbox] = useState<SandboxView | null>(null), [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<Resource | null>(null), [renaming, setRenaming] = useState<Resource | null>(null), [access, setAccess] = useState<Resource | null>(null);
+  const [showDisconnected, setShowDisconnected] = useState(false);
+  const [reconnecting, setReconnecting] = useState<Resource | null>(null), [deleting, setDeleting] = useState<Resource | null>(null);
+  useEffect(() => { setShowDisconnected(false); }, [selected, kind]);
   const target = resources.find(resource => resource.ID === resourceID);
   useEffect(() => { if (target && kinds.includes(target.Kind as SandboxKind)) { setSelected(target.SandboxID || 'local'); setKind(target.Kind as SandboxKind); } }, [target?.ID, target?.SandboxID, target?.Kind]);
   useEffect(() => { if (query.data?.length && !query.data.some(item => item.ID === selected)) setSelected(query.data[0].ID); }, [query.data, selected]);
   const sandbox = query.data?.find(item => item.ID === selected);
-  const rows = resources.filter(resource => (resource.SandboxID || 'local') === selected && resource.Kind === kind);
+  const workspace = resources.find(resource => (resource.SandboxID || 'local') === selected && resource.Provider === 'managed-workspace');
+  const rows = resources.filter(resource => (resource.SandboxID || 'local') === selected && resource.Kind === kind && resource.Provider !== 'managed-workspace' && resource.State !== 'disconnected');
+  const disconnectedRows = resources.filter(resource => (resource.SandboxID || 'local') === selected && resource.Kind === kind && resource.Provider !== 'managed-workspace' && resource.State === 'disconnected');
   const connected = !!sandbox && isConnected(sandbox), enabled = connected && sandbox.Info.Enabled;
   const computeState = sandbox ? sandboxComputeState(sandbox.Info, sandbox.State) : 'offline';
   const computeReady = computeState === 'ready';
@@ -57,7 +62,7 @@ export function Sandboxes({ resources, resourceID = '' }: { resources: Resource[
   const addLabel = kind === 'storage' ? copy.addDirectory : kind === 'network' ? copy.addNetwork : copy.enableCompute;
   const canAdd = kind !== 'full_access' && enabled && sources.length > 0 && (kind !== 'compute' || !rows.some(row => row.State !== 'disconnected'));
   const name = (item: SandboxView) => item.Local ? copy.local : item.Name;
-  const refresh = () => void check.run(async () => { await query.reload(); await details.reload(); }, undefined, false);
+  const refresh = () => void check.run(async () => { await api.post('/api/resources/check-sandbox', { ID: selected }); query.reload(); details.reload(); }, undefined, false);
   useErrorToast(query.error || details.error || grants.error || assistants.error || check.error, refresh);
   const menu: MenuItem[] = sandbox && !sandbox.Local ? [
     { id: 'rename', label: copy.rename, icon: <Pencil size={15} />, onSelect: () => setRenamingSandbox(sandbox) },
@@ -66,6 +71,21 @@ export function Sandboxes({ resources, resourceID = '' }: { resources: Resource[
   ] : [];
   const disconnectResource = useMutation([removing]);
   const disconnectSandbox = useMutation([disconnecting]);
+  const reconnectResource = useMutation([reconnecting]), deleteResource = useMutation([deleting]);
+  const renderResource = (resource: Resource) => {
+    if (!sandbox) return null;
+    const detail = details.data?.find(item => item.ID === resource.ID), count = new Set(liveGrants.filter(grant => grant.ResourceID === resource.ID && !grant.Scope.FullAccess).map(grant => grant.AssistantID)).size;
+    const usable = enabled && resource.State === 'available' && (kind !== 'compute' || computeReady);
+    const disconnected = resource.State === 'disconnected';
+    const resourceMenu: MenuItem[] = [{ id: 'rename', label: copy.rename, icon: <Pencil size={15} />, onSelect: () => setRenaming(resource) }, ...(resource.State !== 'disconnected' && resource.Provider !== 'managed-workspace' ? [{ id: 'disconnect', label: t.resources.disconnect, icon: <Unplug size={15} />, danger: true, separatorBefore: true, onSelect: () => setRemoving(resource) }] : []), ...(disconnected ? [{ id: 'delete', label: copy.deleteResource, icon: <Trash2 size={15} />, danger: true, separatorBefore: true, disabled: !detail || detail.HasActiveGrants, disabledReason: detail?.HasActiveGrants ? copy.deleteBlocked : undefined, onSelect: () => setDeleting(resource) }] : [])];
+    return <article className="sandbox-resource" key={resource.ID} data-resource-id={resource.ID}>
+      <div className="sandbox-resource-body"><div className="sandbox-resource-heading"><h3>{sandboxResourceName(resource, copy)}</h3><Badge dot={false} tone={resource.State === 'disconnected' ? 'neutral' : kind === 'storage' ? 'neutral' : usable ? 'positive' : 'neutral'}>{resource.State === 'disconnected' ? copy.disconnected : !usable ? copy.unavailableShort : kind === 'storage' ? resource.Actions.includes('write') ? copy.readWrite : copy.readOnly : usable ? copy.available : copy.unavailableShort}</Badge></div>
+      {resource.State === 'offline' && <p className="muted">{(t.errorReasons as Record<string, string>)[resource.Reason ?? ''] ?? sandboxReason(t, resource.Reason)}</p>}
+      <ResourceDetails sandbox={sandbox} resource={resource} detail={detail} loading={details.loading && !details.data} /></div>
+      <div className="sandbox-resource-footer">{disconnected && <Button size="sm" variant="secondary" onClick={() => setReconnecting(resource)} disabled={!connected}><Plug size={15} />{copy.reconnectResource}</Button>}<Button size="sm" variant="ghost" onClick={() => setAccess(resource)} disabled={!grantDataReady}><Users size={15} />{disconnected ? copy.access : grantDataReady ? count ? `${copy.authorized} · ${count}` : copy.grant : t.loading}</Button><DropdownMenu label={t.more} align="end" trigger={<IconButton label={`${t.more} · ${sandboxResourceName(resource, copy)}`}><Ellipsis size={16} /></IconButton>} items={resourceMenu} />{!disconnected && !count && grantDataReady && <span className="muted">{copy.noAccess}</span>}</div>
+    </article>;
+
+  };
   if (query.loading && !query.data) return <div className="sandbox-workspace"><Loading /></div>;
   return <div className="sandbox-workspace">
     <div className="sandbox-mobile-switch"><Select hideLabel label={copy.select} value={selected} onValueChange={setSelected} options={(query.data ?? []).map(item => ({ value: item.ID, label: name(item), description: statusLabel(item, copy) }))} /><IconButton label={copy.connect} onClick={() => setConnecting(true)}><Plus size={18} /></IconButton></div>
@@ -88,23 +108,23 @@ export function Sandboxes({ resources, resourceID = '' }: { resources: Resource[
         {!connected || !sandbox.Info.Enabled ? <Alert tone="warning" title={sandbox.State === 'disconnected' ? copy.disconnected : sandbox.State === 'disabled' ? copy.disabled : !connected ? copy.offline : copy.disabled}>{sandbox.State === 'disconnected' ? copy.reconnectHelp : sandbox.State === 'disabled' ? copy.disabledHelp : !connected ? connectionError(copy, sandbox.ConnectionReason) : copy.disabledHelp}{sandbox.State === 'offline' && <p>{copy.snapshot}</p>}</Alert> : null}
         <Tabs label={copy.title} value={kind} onValueChange={setKind} items={kinds.map(value => { const Icon = icons[value]; return { value, label: value === 'full_access' ? fullAccessLabel(locale === 'zh') : copy[value], icon: <Icon size={15} />, content: value === kind && (kind === 'full_access' ? <FullAccessSection sandbox={sandbox} resources={resources} grants={liveGrants} ready={grantDataReady} onAccess={setAccess} /> : <div className="sandbox-section">
           {kind === 'compute' && <ComputeSummary sandbox={sandbox} />}
-          {kind === 'storage' && <StorageSummary sandbox={sandbox} resources={rows} details={details.data} loading={details.loading && !details.data} />}
+          {kind === 'storage' && <StorageSummary sandbox={sandbox} resources={workspace ? [workspace, ...rows] : rows} details={details.data} loading={details.loading && !details.data} />}
           {kind === 'network' && <div className="sandbox-workspace-summary sandbox-network-summary"><Globe size={18} /><div><h3>{copy.networkOverview}</h3><p>{usesNetworkToggle(sandbox?.Info.Capabilities.NetworkBackend) ? (sandbox?.Info.Capabilities.NetworkBackend === 'appcontainer-toggle' ? copy.windowsNetworkHelp : copy.nativeNetworkHelp) : copy.networkQuotaHelp}</p></div><SettingsHelp label={copy.networkOverview} content={usesNetworkToggle(sandbox?.Info.Capabilities.NetworkBackend) ? (sandbox?.Info.Capabilities.NetworkBackend === 'appcontainer-toggle' ? copy.windowsNetworkHelp : copy.nativeNetworkHelp) : `${copy.automaticNetwork} ${copy.networkTransportHelp}`} /></div>}
-          {kind === 'storage' && sandbox.Local && <div className="sandbox-workspace-summary sandbox-storage-summary"><HardDrive size={18} /><div><h3>{copy.workspace} <code>/work</code></h3><p>{copy.workspaceDescription}</p></div><Badge dot={false}>{enabled && sandbox.Info.Storage ? copy.available : copy.unavailableShort}</Badge></div>}
-          <div className="sandbox-section-heading"><h3>{kind === 'storage' ? copy.directories : kind === 'network' ? copy.networkPolicy : copy.compute}</h3><div className="sandbox-row-actions"><SettingsHelp label={copy.sourceLabel} content={copy.limitsHelp} />{(canAdd || kind === 'storage') && <Button size="sm" variant="secondary" disabled={!canAdd} onClick={() => setAdding(true)}><Plus size={14} />{addLabel}</Button>}</div></div>
-          {!rows.length ? kind === 'compute' && !computeReady ? null : <div className="sandbox-empty"><Empty title={sandbox.State === 'disabled' ? copy.disabled : sandbox.State === 'disconnected' ? copy.disconnected : !connected ? copy.offline : !sandbox.Info.Enabled ? copy.disabled : !sources.length ? kind === 'storage' ? copy.directoriesNeeded : copy.networksNeeded : kind === 'storage' ? copy.noDirectories : kind === 'network' ? copy.noNetworks : copy.noCompute} description={sandbox.State === 'disabled' ? copy.disabledHelp : !connected ? sandbox.State === 'disconnected' ? copy.reconnectHelp : copy.offlineHelp : !sandbox.Info.Enabled ? copy.disabledHelp : !sources.length ? kind === 'storage' ? copy.directoriesHelp : copy.networksHelp : kind === 'storage' ? copy.noDirectoriesHelp : kind === 'network' ? copy.noNetworksHelp : copy.noComputeHelp} /></div> : <div className="sandbox-resources">{rows.map(resource => {
-            const detail = details.data?.find(item => item.ID === resource.ID), count = new Set(liveGrants.filter(grant => grant.ResourceID === resource.ID && !grant.Scope.FullAccess).map(grant => grant.AssistantID)).size;
-            const usable = enabled && resource.State === 'available' && (kind !== 'compute' || computeReady);
-            const resourceMenu: MenuItem[] = [{ id: 'rename', label: copy.rename, icon: <Pencil size={15} />, onSelect: () => setRenaming(resource) }, ...(resource.State !== 'disconnected' && resource.Provider !== 'managed-workspace' ? [{ id: 'disconnect', label: t.resources.disconnect, icon: <Unplug size={15} />, danger: true, separatorBefore: true, onSelect: () => setRemoving(resource) }] : [])];
-            return <article className="sandbox-resource" key={resource.ID} data-resource-id={resource.ID}>
-              <div className="sandbox-resource-body"><div className="sandbox-resource-heading"><h3>{sandboxResourceName(resource, copy)}</h3><Badge dot={false} tone={resource.State === 'disconnected' ? 'neutral' : kind === 'storage' ? 'neutral' : usable ? 'positive' : 'neutral'}>{resource.State === 'disconnected' ? copy.disconnected : kind === 'storage' ? resource.Actions.includes('write') ? copy.readWrite : copy.readOnly : usable ? copy.available : copy.unavailableShort}</Badge></div>
-              <ResourceDetails sandbox={sandbox} resource={resource} detail={detail} loading={details.loading && !details.data} /></div>
-              <div className="sandbox-resource-footer"><Button size="sm" variant="ghost" onClick={() => setAccess(resource)} disabled={!grantDataReady}><Users size={15} />{grantDataReady ? count ? `${copy.authorized} · ${count}` : copy.grant : t.loading}</Button><DropdownMenu label={t.more} align="end" trigger={<IconButton label={`${t.more} · ${sandboxResourceName(resource, copy)}`}><Ellipsis size={16} /></IconButton>} items={resourceMenu} />{!count && grantDataReady && <span className="muted">{copy.noAccess}</span>}</div>
-            </article>;
-          })}</div>}
+          {kind === 'storage' && sandbox.Local && <div className="sandbox-workspace-summary sandbox-storage-summary sandbox-assistant-workspace" data-resource-id={workspace?.ID}>
+            <HardDrive size={18} /><div><h3>{workspace ? sandboxResourceName(workspace, copy) : copy.workspace} <code>/work</code></h3><p>{copy.workspaceDescription}</p></div>
+            <span className="sandbox-row-actions"><Badge dot={false}>{enabled && sandbox.Info.Storage ? copy.available : copy.unavailableShort}</Badge>{workspace && sandbox.Info.WorkspaceProjectQuotas && <Button size="sm" variant="ghost" disabled={!grantDataReady} onClick={() => setAccess(workspace)}>{copy.workspaceCapacity}</Button>}</span>
+          </div>}
+          <div className="sandbox-section-heading"><h3>{kind === 'storage' ? copy.directories : kind === 'network' ? copy.networkPolicy : copy.compute}</h3><div className="sandbox-row-actions">{disconnectedRows.length > 0 && <Button size="sm" variant="ghost" onClick={() => { details.reload(); setShowDisconnected(true); }}>{copy.disconnectedResources} · {disconnectedRows.length}</Button>}<SettingsHelp label={copy.sourceLabel} content={copy.limitsHelp} />{(canAdd || kind === 'storage') && <Button size="sm" variant="secondary" disabled={!canAdd} onClick={() => setAdding(true)}><Plus size={14} />{addLabel}</Button>}</div></div>
+          {!rows.length ? kind === 'compute' && !computeReady ? null : <div className="sandbox-empty"><Empty title={sandbox.State === 'disabled' ? copy.disabled : sandbox.State === 'disconnected' ? copy.disconnected : !connected ? copy.offline : !sandbox.Info.Enabled ? copy.disabled : !sources.length ? kind === 'storage' ? copy.directoriesNeeded : copy.networksNeeded : kind === 'storage' ? copy.noDirectories : kind === 'network' ? copy.noNetworks : copy.noCompute} description={sandbox.State === 'disabled' ? copy.disabledHelp : !connected ? sandbox.State === 'disconnected' ? copy.reconnectHelp : copy.offlineHelp : !sandbox.Info.Enabled ? copy.disabledHelp : !sources.length ? kind === 'storage' ? copy.directoriesHelp : copy.networksHelp : kind === 'storage' ? copy.noDirectoriesHelp : kind === 'network' ? copy.noNetworksHelp : copy.noComputeHelp} /></div> : <div className="sandbox-resources">{rows.map(renderResource)}</div>}
         </div>) }; })} />
       </div>}
     </div>
+    <ModalPresence>{showDisconnected && <Drawer open side={compact ? 'bottom' : 'right'} title={copy.disconnectedResources} onOpenChange={open => { if (!open && !access && !renaming && !reconnecting && !deleting) setShowDisconnected(false); }}>
+      <div className="sandbox-disconnected-resources">
+      {disconnectedRows.length ? <div className="sandbox-resources">{disconnectedRows.map(renderResource)}</div> : <Empty title={copy.noDisconnected} />}</div>
+    </Drawer>}</ModalPresence>
+    <ModalPresence>{reconnecting && <Confirm title={copy.reconnectResource} description={copy.reconnectResourceHelp} onClose={() => setReconnecting(null)} onConfirm={() => reconnectResource('/api/resources/reconnect', { ID: reconnecting.ID }, reconnecting.Version)} />}</ModalPresence>
+    <ModalPresence>{deleting && <Confirm danger title={copy.deleteResource} description={copy.deleteResourceHelp} onClose={() => setDeleting(null)} onConfirm={() => deleteResource('/api/resources/delete', { ID: deleting.ID }, deleting.Version)} />}</ModalPresence>
     <ModalPresence>{connecting && <SandboxConnection onClose={() => setConnecting(false)} onConnected={setSelected} />}</ModalPresence><ModalPresence>{editing && <SandboxConnection sandbox={editing} onClose={() => setEditing(null)} onConnected={setSelected} />}</ModalPresence>
     <ModalPresence>{adding && sandbox && kind !== 'full_access' && <AddSandboxResource sandbox={sandbox} kind={kind} onClose={() => setAdding(false)} onConnected={resource => { setAdding(false); setAccess(resource); }} />}</ModalPresence>
     <ModalPresence>{renamingSandbox && <RenameSandbox sandbox={renamingSandbox} onClose={() => setRenamingSandbox(null)} />}</ModalPresence>

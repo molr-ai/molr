@@ -11,7 +11,16 @@ import (
 
 func buildIdentity(store persistence.Store, cfg config.Config, key []byte, wiring *buildWiring) (*auth.Manager, error) {
 	access := access{store}
-	return auth.NewService(store, auth.Options{AfterAccessChange: func(ctx context.Context) {
+	return auth.NewService(store, auth.Options{InitializeResources: func(ctx context.Context, account auth.Account) error {
+		if err := ensureWorkspaceResource(ctx, store, account.ID, "local"); err != nil {
+			return err
+		}
+		if !cfg.Sandbox.Enabled {
+			return nil
+		}
+		seed := &shellService{store: store, config: cfg.Sandbox, ownPort: cfg.OwnListenPort()}
+		return seed.ensureCompute(ctx)
+	}, AfterAccessChange: func(ctx context.Context) {
 		if wiring.plugins != nil {
 			wiring.plugins.RevalidateRunning(ctx)
 		}

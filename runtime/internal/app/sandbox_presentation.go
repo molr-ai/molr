@@ -12,6 +12,7 @@ import (
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/platform"
+	"molr.ai/runtime/internal/policy"
 	"molr.ai/runtime/internal/sandboxidentity"
 	sm "molr.ai/runtime/internal/sandboxmanager"
 )
@@ -147,9 +148,10 @@ func (s *sandboxRouter) renameSandbox(ctx context.Context, p core.Principal, raw
 // Metadata is available only through the owner API, never permission_list or tool
 // results. Remote host paths and all connection secrets remain inaccessible.
 type sandboxResourceDetail struct {
-	Capacity       *platform.StorageCapacity `json:",omitempty"`
-	ID             core.ID
-	SourceID, Path string
+	HasActiveGrants bool
+	Capacity        *platform.StorageCapacity `json:",omitempty"`
+	ID              core.ID
+	SourceID, Path  string
 }
 
 func (s *sandboxRouter) sandboxResourceDetails(ctx context.Context, p core.Principal, raw json.RawMessage) (any, error) {
@@ -185,6 +187,14 @@ func (s *sandboxRouter) sandboxResourceDetails(ctx context.Context, p core.Princ
 				return err
 			}
 			v := sandboxResourceDetail{ID: r.ID, SourceID: b.SandboxResource}
+			grants, err := persistence.Select[policy.Grant](ctx, s.adapters.store, "security.grants", persistence.Query{
+				Where: []persistence.Filter{persistence.Eq("ResourceID", r.ID), persistence.Eq("RevokedAt", nil)},
+				Any:   [][]persistence.Filter{{persistence.Eq("ExpiresAtKey", "")}, {{Field: "ExpiresAtKey", Op: ">", Value: persistence.TimeKey(time.Now())}}}, Limit: 1,
+			})
+			if err != nil {
+				return err
+			}
+			v.HasActiveGrants = len(grants) != 0
 			if q.ID != "local" && r.Kind == resource.Storage {
 				if ref, err := directoryReference(b.SandboxResource); err == nil {
 					v.SourceID = ref.SourceID

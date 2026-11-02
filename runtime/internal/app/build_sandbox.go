@@ -6,6 +6,7 @@ import (
 	"molr.ai/runtime/internal/auth"
 	"molr.ai/runtime/internal/business/resource"
 	"molr.ai/runtime/internal/config"
+	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/credential"
 	"molr.ai/runtime/internal/maintenance"
 	"molr.ai/runtime/internal/policy"
@@ -27,7 +28,10 @@ func (b *Bundle) buildSandbox(cfg config.Config, key []byte, adapters adapters, 
 	for name, provider := range sandboxProviders(cfg) {
 		providers[name] = provider
 	}
-	var resources resource.Service = resource.NewService(store, resource.Options{Authorizer: permissions, Providers: providers, Credentials: vault, CheckVerification: identity.CheckVerification, OnDeleteProvider: adapters.deleteProviderReferences})
+	var resourceRouter *sandboxRouter
+	var resources resource.Service = resource.NewService(store, resource.Options{CheckResource: func(ctx context.Context, p core.Principal, r resource.Resource, binding resource.Binding) (resource.Status, error) {
+		return resourceRouter.checkResource(ctx, p, r, binding)
+	}, Authorizer: permissions, Providers: providers, Credentials: vault, CheckVerification: identity.CheckVerification, OnDeleteProvider: adapters.deleteProviderReferences})
 	var grants policy.Service = permissions
 	if cfg.Sandbox.Enabled {
 		b.sandbox, err = newShellService(store, permissions, cfg)
@@ -52,6 +56,7 @@ func (b *Bundle) buildSandbox(cfg config.Config, key []byte, adapters adapters, 
 	if err != nil {
 		return sandboxServices{}, err
 	}
+	resourceRouter = sandboxRouter
 	sandboxRouter.verify = identity.CheckVerification
 	fileTools := newResourceFileTools(resourceFileOptions{adapters: adapters, router: sandboxRouter})
 	sandboxRouter.files = fileTools
@@ -62,5 +67,6 @@ func (b *Bundle) buildSandbox(cfg config.Config, key []byte, adapters adapters, 
 	})
 	grants = remoteSandboxGrants{Service: grants, router: sandboxRouter}
 	resources = remoteSandboxResources{Service: resources, router: sandboxRouter}
+	sandboxRouter.resources = resources
 	return sandboxServices{sandboxRouter, fileTools, resources, grants}, nil
 }

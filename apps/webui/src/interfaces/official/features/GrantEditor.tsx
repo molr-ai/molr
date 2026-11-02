@@ -19,8 +19,8 @@ import type { PermissionTarget } from './PermissionTargetFields';
 export const initialConstraints = (resource?: Resource) => resource?.Kind === 'storage' && resource.Provider !== 'managed-workspace' ? undefined : suggestedConstraints(resource?.Kind ?? '');
 export const initialActions = (resource?: Resource) => resource?.Actions.includes('read') ? defaultPermissions(resource) : resource?.Actions.includes('execute') ? ['execute'] : [];
 
-export function GrantEditor({ assistant, assistants, resources, grant, initialResource, initialFullAccess = false, onClose }: {
-  assistant?: Assistant; assistants?: Assistant[]; resources: Resource[]; grant?: Grant; initialResource?: Resource; initialFullAccess?: boolean; onClose: () => void;
+export function GrantEditor({ assistant, assistants, resources, grant, initialResource, initialFullAccess = false, workspaceCapacity = false, onClose }: {
+  assistant?: Assistant; assistants?: Assistant[]; resources: Resource[]; grant?: Grant; initialResource?: Resource; initialFullAccess?: boolean; workspaceCapacity?: boolean; onClose: () => void;
 }) {
   const { t, locale } = useCopy(), copy = useSandboxCopy();
   const sandboxes = useQuery<SandboxView[]>('/api/sandboxes'), models = useQuery<Model[]>('/api/models');
@@ -29,7 +29,7 @@ export function GrantEditor({ assistant, assistants, resources, grant, initialRe
   const [once, setOnce] = useState(grant?.Scope.Once ?? false);
   const [fullScope, setFullScope] = useState<FullAccessScope | undefined>(grant?.Scope.FullAccessScope);
   const [assistantID, setAssistantID] = useState(grant?.AssistantID ?? assistant?.ID ?? assistants?.[0]?.ID ?? '');
-  const [actions, setActions] = useState(grant?.Actions ?? initialActions(first));
+  const [actions, setActions] = useState(workspaceCapacity ? ['read', 'write'] : grant?.Actions ?? initialActions(first));
   const [constraints, setConstraints] = useState<ResourceConstraints | undefined>(grant?.Constraints ?? initialConstraints(first));
   const [temporary, setTemporary] = useState<TemporaryConstraints | undefined>(grant?.Temporary);
   const [paths, setPaths] = useState(grant?.Scope.PathPrefixes?.join('\n') ?? ''), [expires, setExpires] = useState<string | null>(grant ? grant.ExpiresAt : initialFullAccess ? new Date(Date.now() + 86400000).toISOString() : null);
@@ -50,7 +50,7 @@ export function GrantEditor({ assistant, assistants, resources, grant, initialRe
   }
   useErrorToast(sandboxes.error || models.error, () => { sandboxes.reload(); models.reload(); });
   const saveGrant = useMutation([grant?.ID, assistantID, resource?.ID, target, actions, constraints, temporary, paths, expires, fullScope, once]);
-  return <EditDialog title={grant ? t.assistantInfo.editPermission : assistant ? t.resources.grant : copy.grant} description={assistant ? t.resourcePermissions.recipient(assistant.Name) : undefined} onClose={onClose} submitDisabled={!!grant?.Used || target.fullAccess && !validFullAccessScope(fullScope) || !assistantID || !resource || !actions.length || !sandboxes.data || !!sandboxes.error || !!models.error} onSubmit={async () => {
+  return <EditDialog title={workspaceCapacity ? copy.setCapacity : grant ? t.assistantInfo.editPermission : assistant ? t.resources.grant : copy.grant} description={assistant ? t.resourcePermissions.recipient(assistant.Name) : undefined} onClose={onClose} submitDisabled={!!grant?.Used || target.fullAccess && !validFullAccessScope(fullScope) || !assistantID || !resource || !actions.length || !sandboxes.data || !!sandboxes.error || !!models.error} onSubmit={async () => {
     if (target.fullAccess && !validFullAccessScope(fullScope)) throw new APIError('invalid_argument');
     if (!resource || resource.State !== 'available' || !assistantID || !actions.length || actions.some(a => !resource.Actions.includes(a)) || (expires && Date.parse(expires) <= Date.now()) || (resource.Kind === 'model' && !models.data?.some(m => m.ID === target.modelID && m.ResourceID === resource.ID))) throw new APIError('invalid_argument');
     const values = { Actions: target.fullAccess ? ['execute'] : actions, Scope: { Once: target.fullAccess && once, FullAccess: target.fullAccess, FullAccessScope: target.fullAccess ? fullScope : undefined, ModelID: target.kind === 'model' ? target.modelID : '', ReadOnly: !target.fullAccess && actions.every(a => a === 'read'), PathPrefixes: target.kind === 'storage' ? lines(paths) : [] }, Constraints: target.fullAccess ? undefined : constraints, Temporary: target.fullAccess ? undefined : temporary, ExpiresAt: expires };
@@ -58,11 +58,11 @@ export function GrantEditor({ assistant, assistants, resources, grant, initialRe
     else await saveGrant('/api/grants', { AssistantID: assistantID, ResourceID: resource.ID, ...values });
   }}>
     {!assistant && <Select label={copy.assistant} disabled={!!grant} value={assistantID} onValueChange={setAssistantID} options={(assistants ?? []).map(a => ({ value: a.ID, label: a.Name }))} />}
-    <PermissionTargetFields value={current} onChange={select} resources={resources} models={models.data ?? []} sandboxes={sandboxes.data ?? []} lockedResource={!!grant} sandboxOnly={!!initialResource} />
+    {!workspaceCapacity && <PermissionTargetFields value={current} onChange={select} resources={resources} models={models.data ?? []} sandboxes={sandboxes.data ?? []} lockedResource={!!grant} sandboxOnly={!!initialResource} />}
     {target.fullAccess && <FullAccessScopeEditor value={fullScope} onChange={setFullScope} />}
     {!target.fullAccess && <>
-      <Select multiple label={t.resources.actions} value={actions} onValueChange={setActions} options={permissionOptions(t, resource)} />
-      {target.kind === 'storage' && <Textarea label={t.resources.pathPrefixes} description={copy.pathsHelp} value={paths} onChange={e => setPaths(e.target.value)} placeholder="/" rows={3} />}
+      {!workspaceCapacity && <Select multiple label={t.resources.actions} value={actions} onValueChange={setActions} options={permissionOptions(t, resource)} />}
+      {target.kind === 'storage' && !workspaceCapacity && <Textarea label={t.resources.pathPrefixes} description={copy.pathsHelp} value={paths} onChange={e => setPaths(e.target.value)} placeholder="/" rows={3} />}
       {target.kind==='network'&&usesNetworkToggle(node?.Capabilities.NetworkBackend)&&<p className="muted">{node?.Capabilities.NetworkBackend === 'appcontainer-toggle' ? copy.windowsNetworkHelp : copy.nativeNetworkHelp}</p>}
       <ConstraintsEditor gpuAccessMode={sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info.Capabilities.GPUAccessMode} gpus={sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info.GPUs} kind={target.kind} value={constraints} onChange={setConstraints} lockNetworkPeriod={!!grant?.Constraints?.network} />
       <TemporaryConstraintsEditor gpuAccessMode={sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info.Capabilities.GPUAccessMode} gpus={sandboxes.data?.find(s=>s.ID===target.sandboxID)?.Info.GPUs} kind={target.kind} base={constraints} value={temporary} onChange={setTemporary} />

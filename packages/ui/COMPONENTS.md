@@ -165,7 +165,7 @@ UI Design 的 聊天组（英文版为 Chat）提供独立的本地演示：发�
 
 触发元素可以使用对象 ref 或回调 ref，包括返回清理函数的回调。稳定的回调不会因为弹层状态更新而反复解绑；卸载时执行相应清理。
 
-菜单项接受 `id`、`label`、`onSelect`、`icon?`、`shortcut?`、`disabled?`、`danger?`、`separatorBefore?`。方向键、Home / End、字符前缀查找可定位选项；Enter / 空格执行，Escape 取消并恢复焦点。`shortcut` 仅显示快捷键说明，快捷键绑定由调用方负责。
+菜单项接受 `id`、`label`、`onSelect`、`icon?`、`shortcut?`、`disabled?`、`disabledReason?`、`danger?`、`separatorBefore?`。方向键、Home / End、字符前缀查找可定位选项；Enter / 空格执行，Escape 取消并恢复焦点。`shortcut` 仅显示快捷键说明，快捷键绑定由调用方负责。设置 `disabledReason` 的禁用项通过共享 Tooltip 说明原因，鼠标悬停、键盘聚焦或触屏点击均可查看；方向键可定位此类禁用项，但不会执行操作。菜单关闭时移除提示。
 
 `Popover` 是有标题的非模态详情容器，适合放置可操作内容；可选 `open` / `onOpenChange` 进行外部控制。`Tooltip` 仅用于补充说明，`content` 接受文本或 ReactNode，支持通过语义标记展示多行提示，默认延迟 400 ms，在悬停或聚焦时显示，可用 Escape 关闭。`side` 可选 `top`（默认）、`bottom`、`left` 或 `right`，空间不足时翻转；`width` 默认 220，也可设为数字或 `auto` 随文字收紧。
 

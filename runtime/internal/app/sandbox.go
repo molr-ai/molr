@@ -516,9 +516,6 @@ func (s *shellService) startup(ctx context.Context) {
 	if ctx.Err() != nil {
 		return
 	}
-	if err := s.ensureCompute(ctx); err != nil {
-		log.Printf("Sandbox resource initialization: %s", core.CodeOf(err))
-	}
 }
 
 func (s *shellService) ensureCompute(ctx context.Context) error {

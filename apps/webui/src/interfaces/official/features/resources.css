@@ -206,3 +206,5 @@
 }
 
 .provider-models-drawer.ui-drawer[data-side='bottom'] { width: 100%; height: 88dvh; }
+
+.sandbox-disconnected-resources { container: sandbox-detail / inline-size; }

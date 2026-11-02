@@ -116,6 +116,19 @@ func (g *Guard) OwnerHTTPClient(p core.Principal, resourceID core.ID, origin str
 	return boundHTTPClient(resourceID, origin, func(ctx context.Context, d Destination) error { return g.CheckOwner(ctx, p, d) })
 }
 
+// ServiceHTTPClient is for persisted administrator-configured sandbox services.
+// It needs no user session at startup, but retains origin pinning, destination
+// prohibitions and redirect protection. Never use it for tool-selected URLs.
+func ServiceHTTPClient(origin string) *http.Client {
+	g := NewNetworkGuard(NetworkOptions{AllowPrivate: true})
+	return boundHTTPClient("", origin, func(ctx context.Context, d Destination) error {
+		if err := persistence.CheckContext(ctx); err != nil {
+			return err
+		}
+		return g.checkBinding(NetworkBinding{Origin: origin}, d)
+	})
+}
+
 // PublicHTTPClient is for fixed server integrations, not user-selected tools.
 // It pins the origin and allows only public HTTPS destinations at the actual dial.
 func PublicHTTPClient(origin string) *http.Client {

@@ -41,11 +41,14 @@ test('sandbox capacity uses hardware bounds, quotas and separate GPU lines', asy
   await page.getByRole('tab', { name: /^(Sandboxes|沙盒)$/ }).click();
   await page.getByRole('tab', { name: /^(Storage|存储)$/ }).click();
   const summary = page.locator('.sandbox-compute-summary');
+  const workspace = page.locator('.sandbox-assistant-workspace');
   await expect(summary).toContainText(/Available storage capacity|可使用的存储空间上限/);
   await expect(summary).toContainText('8 GiB');
-  await expect(summary).toContainText(/Local workspace|本地工作区/);
-  await expect(page.locator('.sandbox-resource-heading').filter({ hasText: /Local workspace|本地工作区/ })).toContainText(/Local workspace|本地工作区/);
-  await expect(page.locator('.sandbox-section')).not.toContainText('Assistant workspace');
+  await expect(page.getByRole('heading', { name: /^(Assistant workspace|助理工作区) \/work$/ })).toHaveCount(1);
+  await expect(page.locator('.sandbox-resources .sandbox-resource-heading').filter({ hasText: /Assistant workspace|助理工作区/ })).toHaveCount(0);
+  await expect(workspace).not.toContainText(/No assistants authorized|尚未授权/);
+  await expect(workspace.getByRole('button', { name: /Grant assistant access|授权给助理/ })).toHaveCount(0);
+  await expect(workspace.getByRole('button', { name: /Manage capacity|容量管理/ })).toHaveCount(0);
   await expect(summary.getByRole('progressbar', { name: /Disk usage|磁盘占用/ }).first()).toHaveAttribute('aria-valuenow', '50');
   await page.getByRole('tab', { name: /^(Compute|计算)$/ }).click();
   await expect(summary).toContainText(/2\.5 (cores|核) · 250%/);
@@ -73,7 +76,7 @@ test('sandbox capacity uses hardware bounds, quotas and separate GPU lines', asy
   await page.reload();
   await page.getByRole('tab', { name: /^(Sandboxes|沙盒)$/ }).click();
   await page.getByRole('tab', { name: /^(Storage|存储)$/ }).click();
-  await expect(summary).toContainText('Project files');
+  await expect(workspace).toContainText('Project files');
 });
 
 test('Windows compute includes shared GPUs without a separate device grant', async ({ page }) => {
@@ -110,4 +113,49 @@ test('Windows compute includes shared GPUs without a separate device grant', asy
   await expect(editor).toContainText(/all GPUs|全部 GPU/);
   await expect(editor.getByRole('combobox', { name: /GPU devices|GPU 设备/ })).toHaveCount(0);
   await expect(editor.getByRole('checkbox', { name: /No per-execution duration limit|不限制单次运行时长/ })).toBeVisible();
+});
+
+
+test('workspace capacity controls are separate from automatic file access', async ({ page }) => {
+  await page.route(url => url.pathname === '/api/resources', async route => {
+    const response = await route.fetch();
+    const data = await response.json();
+    const onlyWorkspace = (data.Items ?? data).filter((resource: { Kind: string; Provider: string }) => resource.Kind !== 'storage' || resource.Provider === 'managed-workspace');
+    await route.fulfill({ response, json: Array.isArray(data) ? onlyWorkspace : { ...data, Items: onlyWorkspace } });
+  });
+  await page.route(url => url.pathname === '/api/sandboxes', async route => {
+    const response = await route.fetch();
+    const data = await response.json();
+    for (const node of data) if (node.Local) node.Info.WorkspaceProjectQuotas = true;
+    await route.fulfill({ response, json: data });
+  });
+  await page.route(url => url.pathname === '/api/assistants', route => route.fulfill({ json: { Items: [{ ID: 'capacity-assistant', Name: 'Capacity assistant', State: 'active', Version: 1 }], HasMore: false } }));
+  await page.goto('/#/resources');
+  await page.getByRole('textbox', { name: 'Username', exact: true }).fill('owner');
+  await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await page.getByRole('tab', { name: 'Sandboxes', exact: true }).click();
+  await page.getByRole('tab', { name: 'Storage', exact: true }).click();
+  await expect(page.getByText('No directories connected', { exact: true })).toBeVisible();
+  await page.locator('.sandbox-assistant-workspace').getByRole('button', { name: 'Manage capacity', exact: true }).click();
+  const capacity = page.getByRole('dialog', { name: 'Manage capacity · Assistant workspace', exact: true });
+  await expect(capacity).toContainText('No active capacity adjustments');
+  await capacity.getByRole('button', { name: 'Set capacity', exact: true }).click();
+  const editor = page.getByRole('dialog', { name: 'Set capacity', exact: true });
+  await expect(editor.getByRole('combobox', { name: 'Assistant', exact: true })).toBeVisible();
+  await expect(editor.getByRole('combobox', { name: /Actions|Resource|Sandbox/ })).toHaveCount(0);
+  await expect(editor.getByRole('textbox', { name: /Path/ })).toHaveCount(0);
+  await expect(editor).toContainText(/Capacity|capacity|Storage|storage/);
+  // The backend applies workspace quotas only to grants with write access.
+  let saved: { Actions: string[]; Constraints: { storage: { capacity_bytes: number } } } | undefined;
+  await page.route(url => url.pathname === '/api/grants', async route => {
+    if (route.request().method() !== 'POST') return route.fallback();
+    saved = route.request().postDataJSON();
+    await route.fulfill({ json: { ID: 'capacity-grant', Version: 1 } });
+  });
+  await editor.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(editor).toHaveCount(0);
+  expect(saved?.Actions).toEqual(['read', 'write']);
+  expect(saved?.Constraints.storage.capacity_bytes).toBeGreaterThan(0);
+  await page.unrouteAll({ behavior: 'wait' });
 });

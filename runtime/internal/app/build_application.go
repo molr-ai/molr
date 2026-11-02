@@ -46,8 +46,13 @@ func (b *Bundle) buildApplication(cfg config.Config, identity *auth.Manager, aud
 			return wiring.plugins.RecoverHTTP(ctx)
 		},
 	}
-	if b.sandbox != nil {
-		hooks.PrepareSandbox = b.sandbox.startup
+	hooks.PrepareSandbox = func(ctx context.Context) {
+		if b.sandbox != nil {
+			b.sandbox.startup(ctx)
+		}
+		if err := b.refreshStartupResources(ctx); err != nil {
+			log.Printf("Sandbox resource checks: %v", err)
+		}
 	}
 	application, err := NewApplication(Dependencies{Config: cfg, HTTP: b.HTTP, Auth: identity, Bootstrap: identity, Audit: auditService, Database: b.Database, Restore: restore, Scheduler: worker, Locker: platform.NewLocker()}, hooks)
 	if err != nil {

@@ -1057,7 +1057,7 @@ test('resource tabs expose tools and sandbox-scoped resources', async ({ page })
   await expect(page.locator('.tools-catalog-row').filter({ has: page.getByText('Read file', { exact: true }) })).toBeVisible();
   await resourceCategory(page, 'Sandboxes').click();
   await expect(page.getByRole('button', { name: 'Connect sandbox', exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Local workspace /work', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Assistant workspace /work', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Connect sandbox', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Connect sandbox', exact: true });
   for (const label of ['Service URL', 'Connection code']) await expect(dialog.getByLabel(label, { exact: true })).toBeVisible();
