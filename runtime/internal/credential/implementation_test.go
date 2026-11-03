@@ -55,6 +55,13 @@ func init() {
 		assistant := core.Principal{OwnerID: account.ID, Kind: core.ActorAssistant, SubjectID: "assistant", ExecutionID: "execution"}
 		execution := core.Execution{Principal: assistant, AssistantID: assistant.SubjectID, OperationID: "operation"}
 		testkit.RequireNoError(t, store.Write(ctx, func(ctx context.Context, tx persistence.Tx) error {
+			// Resource grants require a persisted, non-temporary assistant.
+			if err := tx.Put(ctx, "business.assistants", persistence.Key(account.ID, assistant.SubjectID), struct {
+				ID, OwnerID core.ID
+				State       string
+			}{ID: assistant.SubjectID, OwnerID: account.ID, State: "active"}); err != nil {
+				return err
+			}
 			return tx.Put(ctx, "security.test_executions", persistence.Key(account.ID, assistant.ExecutionID), assistant)
 		}))
 		owns := func(ctx context.Context, p core.Principal, o core.Object) error {
