@@ -421,13 +421,28 @@ func (m *messageConsumer) AcceptMessage(ctx context.Context, e conversation.Mess
 		if e.Sender == conversation.User && e.SenderID != e.OwnerID {
 			return core.NewError(core.Forbidden, "user sender mismatch")
 		}
-		if e.Sender == conversation.Assistant && e.SenderID != c.PeerID {
+		if e.Sender == conversation.Assistant && e.SenderID != c.PeerID && e.SenderID != c.PartnerID {
 			return core.NewError(core.Forbidden, "assistant sender mismatch")
 		}
 		if e.Sender != conversation.User && e.Sender != conversation.Assistant {
 			return core.Invalid("sender", "invalid sender")
 		}
-		if e.Sender == conversation.User && !c.Archived {
+		if e.Sender == conversation.Assistant && c.PartnerID != "" && !c.Archived {
+			receiver := c.PartnerID
+			if receiver == e.SenderID {
+				receiver = c.PeerID
+			}
+			if e.Receiver.ID != "" && e.Receiver != (conversation.Endpoint{Type: conversation.Assistant, ID: receiver}) {
+				return core.NewError(core.Forbidden, "receiver mismatch")
+			}
+			input := UserMessageEvent(e.OwnerID, receiver, conversation.Message{ID: e.MessageID, CreatedAt: e.At})
+			input.Kind = event.AssistantMessage
+			input.ConversationID = c.ID
+			if err = m.events.AppendAssistant(ctx, input); err != nil {
+				return err
+			}
+		}
+		if e.Sender == conversation.User && c.PartnerID == "" && !c.Archived {
 			input := UserMessageEvent(e.OwnerID, c.PeerID, conversation.Message{ID: e.MessageID, Sequence: e.Sequence, CreatedAt: e.At})
 			if err = m.events.AppendAssistant(ctx, input); err != nil {
 				return err

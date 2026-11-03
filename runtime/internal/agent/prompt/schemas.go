@@ -5,12 +5,16 @@ var scope = object("ModelID ReadOnly FullAccess Once", nested("FullAccessScope",
 var constraints = object("", nested("compute", object("cpu_percent memory_bytes processes max_duration_seconds unlimited_duration temp_bytes", nested("gpu", object("", nested("device_ids", array(scalar)))))), nested("network", object("bytes connections period timezone")), nested("storage", object("capacity_bytes max_file_bytes max_files")))
 var temporary = object("until", nested("limits", constraints))
 var grant = object("ID=GrantID ResourceID Name Kind Version=GrantVersion", nested("Used", object("OperationID ExecutionID=AgentExecutionID UsedAt")), nested("Constraints", constraints), nested("Temporary", temporary), required("ExpiresAt", scalar), nested("Actions", array(scalar)), nested("Scope", scope))
-var requestInput = object("full_access once resource_kind resource_id model_id resource_description expires_at reason grant_id grant_version", nested("full_access_scope", fullAccessScope), nested("constraints", constraints), nested("temporary", temporary), nested("actions", array(scalar)), nested("path_prefixes", array(scalar)))
-var request = object("ID=PermissionRequestID State GrantID MessageID CreatedAt ResolvedAt", nested("Input", requestInput), nested("Granted", grant))
+var hiringProposal = object("max_assistants", nested("budget", object("Currency Micros")), nested("grant_ids", array(scalar)))
+var communicationProposal = object("all_assistants", nested("assistant_ids", array(scalar)))
+var requestInput = object("permission_type full_access once resource_kind resource_id model_id resource_description reason grant_id grant_version", required("expires_at", scalar), nested("full_access_scope", fullAccessScope), nested("constraints", constraints), nested("temporary", temporary), nested("actions", array(scalar)), nested("path_prefixes", array(scalar)))
+var delegationState = object("Enabled Active", nested("Configuration", requestInput))
+var delegationPermissions = object("AssistantVersion", nested("Hiring", delegationState), nested("Communication", delegationState))
+var request = object("ID=PermissionRequestID State GrantID MessageID CreatedAt ResolvedAt ApprovedAssistantVersion", nested("Input", requestInput), nested("Granted", grant))
 var profile = object("Name Status Version", nested("Avatar", object("Type ID=AvatarID Digest")))
 var failure = object("code reason field message execution_state side_effects_possible guidance", nested("current_profile", profile))
 var file = object("ID=FileID Name MediaType Size State Path Version")
-var message = object("ID=MessageID ConversationID Sequence Sender CreatedAt", nested("Content", object("Kind", required("Text", scalar), nested("Card", object("Kind TargetID=CardTargetID Title Summary")), nested("AttachmentIDs", array(scalar)))))
+var message = object("ID=MessageID ConversationID Sequence Sender SenderID CreatedAt AcceptedAt ReadAt", nested("Receiver", object("Type ID=ReceiverID")), nested("Origin", object("ClientKind DeviceID ChannelBindingID")), nested("Content", object("Kind", required("Text", scalar), nested("Card", object("Kind TargetID=CardTargetID Title Summary")), nested("AttachmentIDs", array(scalar)))))
 var operation = object("Action Via Available Reason")
 var capabilities = object("GPUAccessMode OS NetworkBackend FullAccess Shell ProcessIsolation FileIsolation NetworkIsolation ResourceLimits Reason")
 var terminalControl = object("Control Generation Rows Cols NeedsRead")
@@ -36,12 +40,15 @@ var permissions = object("CurrentTime Truncated RequestableTruncated",
 var schemas = map[string]*shape{
 	"workspace":               object("SandboxID Path Available Reason Lifetime", nested("Shared", object("Path Access Lifetime")), nested("Temporary", object("Path Access Lifetime")), nested("Directories", array(object("Path Purpose")))),
 	"profile":                 profile,
+	"assistant_list":          array(object("AssistantID Name Description State EmployerID Version")),
+	"assistant_hire":          object("ID=AssistantID Name Description State EmployerID ConversationID ExpiresAt Version", nested("AttachedGrants", array(object("ID=GrantID Version")))),
+	"assistant_dismiss":       object("ID=AssistantID Name State EmployerID ConversationID Version"),
 	"profile_update":          object("Changed", nested("Profile", profile)),
 	"user_preferences":        object("timezone language currency", nested("sources", object("timezone language currency"))),
 	"permissions":             object("Total Truncated", required("Granted", array(grant))),
 	"permission_requests":     array(request),
 	"skill":                   object("name path frontmatter read_tool"),
-	"event":                   object("ID=EventID Kind MessageID ScheduleID ScheduleVersion OccurrenceAt OperationID TaskID=PlanExecutionID CreatedAt ExecutionID=AgentExecutionID", nested("Recovery", object("PreviousEventID PreviousExecutionID=PreviousAgentExecutionID SourceKind SourceCreatedAt Reason InterruptedAt")), nested("Details", object("ID=ShellTaskID PlanID Reason Mode State Failure StartedAt FinishedAt StdoutPath StderrPath BrowserTaskID TerminalTaskID Generation Notice", nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")), nested("Tasks", array(shell))))),
+	"event":                   object("ID=EventID Kind MessageID ScheduleID ScheduleVersion OccurrenceAt OperationID TaskID=PlanExecutionID CreatedAt ExecutionID=AgentExecutionID", nested("Recovery", object("PreviousEventID PreviousExecutionID=PreviousAgentExecutionID SourceKind SourceCreatedAt Reason InterruptedAt")), nested("Details", object("AssistantID ID=ShellTaskID PlanID Reason Mode State Failure StartedAt FinishedAt StdoutPath StderrPath BrowserTaskID TerminalTaskID Generation Notice", nested("Exit", object("NetworkReason Reason Code TimedOut OutputTruncated")), nested("Tasks", array(shell))))),
 	"failure":                 object("ok operation_id", nested("error", failure)),
 	"conversation_read":       object("NextCursor", required("Items", array(message)), nested("Attachments", &shape{dictionary: file})),
 	"conversation_publish":    object("ID=MessageID ConversationID Sequence CreatedAt"),
@@ -64,6 +71,10 @@ var schemas = map[string]*shape{
 }
 
 func init() {
+	requestInput.fields = append(requestInput.fields, nested("hiring", hiringProposal), nested("communication", communicationProposal))
+	request.fields = append(request.fields, nested("ApprovedDelegation", requestInput))
+	permissions.fields = append(permissions.fields, nested("TaskDelegation", delegationPermissions))
+	schemas["permissions"].fields = append(schemas["permissions"].fields, nested("TaskDelegation", delegationPermissions))
 	entry := &shape{fields: append([]field{}, requestInput.fields...)}
 	requestInput.fields = append(requestInput.fields, nested("additional_requests", array(entry)))
 	request.fields = append(request.fields, nested("GrantedAll", array(grant)))

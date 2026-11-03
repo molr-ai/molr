@@ -424,7 +424,7 @@ func conversationReadIDs(call model.ToolCall, result tools.Result) []core.ID {
 	}
 	var ids []core.ID
 	for _, m := range page.Items {
-		if m.Sender == conversation.User {
+		if m.Sender == conversation.User || m.Receiver.Type == conversation.Assistant {
 			ids = append(ids, m.ID)
 		}
 	}

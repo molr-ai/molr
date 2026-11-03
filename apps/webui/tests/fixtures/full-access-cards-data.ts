@@ -1,12 +1,13 @@
-import type { FullAccessScope, Grant, PermissionRequest, PermissionRequestInput, Resource, SandboxView } from '@molr/sdk';
+import type { FullAccessScope, Grant, PermissionRequest as GenericPermissionRequest, ResourcePermissionRequestInput, Resource, SandboxView } from '@molr/sdk';
+type PermissionRequest = GenericPermissionRequest<ResourcePermissionRequestInput>;
 
 const expires = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString();
 const programs = (...rules: NonNullable<FullAccessScope['programs']>): FullAccessScope => ({ mode: 'programs', programs: rules });
-const input = (scope: FullAccessScope | undefined, reason: string, resourceID = 'local-compute'): PermissionRequestInput => ({
+const input = (scope: FullAccessScope | undefined, reason: string, resourceID = 'local-compute'): ResourcePermissionRequestInput => ({
   full_access: true, full_access_scope: scope, resource_kind: 'compute', resource_id: resourceID, resource_description: 'Local compute', actions: ['execute'], expires_at: expires, reason,
 });
 export type CardCase = { id: string; zh: string; en: string; request: PermissionRequest };
-const makeCase = (id: string, zh: string, en: string, proposal: PermissionRequestInput, state: PermissionRequest['State'] = 'pending', granted?: FullAccessScope, permanent = false): CardCase => {
+const makeCase = (id: string, zh: string, en: string, proposal: ResourcePermissionRequestInput, state: PermissionRequest['State'] = 'pending', granted?: FullAccessScope, permanent = false): CardCase => {
   const grant: Grant | undefined = state === 'approved' ? { ID: `grant-${id}`, AssistantID: 'preview-assistant', ResourceID: proposal.resource_id!, Actions: ['execute'], Scope: { FullAccess: true, FullAccessScope: granted ?? proposal.full_access_scope, ModelID: '', PathPrefixes: [], ReadOnly: false }, RevokedAt: null, ExpiresAt: permanent ? null : expires, Version: 1 } : undefined;
   return { id, zh, en, request: { ID: `permission-${id}-0123456789abcdef0123456789abcdef`, AssistantID: 'preview-assistant', TaskID: 'preview-task', State: state, GrantID: grant?.ID ?? '', MessageID: `message-${id}`, Granted: grant, GrantedAll: grant ? [grant] : [], CreatedAt: new Date().toISOString(), ResolvedAt: state === 'pending' ? null : new Date().toISOString(), Version: 1, Input: proposal } };
 };

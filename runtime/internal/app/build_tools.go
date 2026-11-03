@@ -70,7 +70,7 @@ func (b *Bundle) buildTools(cfg config.Config, adapters adapters, permissions *p
 	}}
 	extensions := externalTools{plugin: wiring.plugins, mcp: wiring.mcp}
 	profile := &profileTools{workspace: fileTools}
-	executor := tools.NewExecutor(store, tools.Options{ProfileUpdate: profile.update, CheckGroupQuota: func(ctx context.Context, c tools.Call) error { return checkGroupToolQuota(ctx, store, c) }, ExtensionDefinitions: extensions.Definitions, ExtensionValidate: extensions.ValidateCall, ExtensionPrepare: extensions.PrepareCall, ExtensionExecute: extensions.Execute, PermissionList: sandboxRouter.list, PermissionRequest: permissionRequests.create, Cancel: func(ctx context.Context, e core.Execution, id core.ID) error {
+	executor := tools.NewExecutor(store, tools.Options{Assistant: profile.collaborate, ProfileUpdate: profile.update, CheckGroupQuota: func(ctx context.Context, c tools.Call) error { return checkGroupToolQuota(ctx, store, c) }, ExtensionDefinitions: extensions.Definitions, ExtensionValidate: extensions.ValidateCall, ExtensionPrepare: extensions.PrepareCall, ExtensionExecute: extensions.Execute, PermissionList: sandboxRouter.list, PermissionRequest: permissionRequests.create, Cancel: func(ctx context.Context, e core.Execution, id core.ID) error {
 		if wiring.mcp.CancelOperation(e.Principal.OwnerID, id) || wiring.plugins.CancelOperation(e.Principal.OwnerID, id) {
 			return nil
 		}

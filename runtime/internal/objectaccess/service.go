@@ -51,7 +51,7 @@ func (s Service) Require(ctx context.Context, p core.Principal, o core.Object) e
 			return nil
 		}
 		switch o.ID {
-		case "browser_session", "browser_action", "profile_update", "permission_list", "permission_request", "shell_execute", "shell_task", "catalog", "conversation_read", "conversation_publish", "file_search", "file_read", "file_list", "file_write", "file_edit", "file_move", "file_delete", "file_transfer", "conversation_attachment", "plan_list", "plan_read", "plan_manage":
+		case "assistant_list", "assistant_hire", "assistant_dismiss", "browser_session", "browser_action", "profile_update", "permission_list", "permission_request", "shell_execute", "shell_task", "catalog", "conversation_read", "conversation_publish", "file_search", "file_read", "file_list", "file_write", "file_edit", "file_move", "file_delete", "file_transfer", "conversation_attachment", "plan_list", "plan_read", "plan_manage":
 			return nil
 		}
 		return denied()
@@ -105,7 +105,7 @@ func (s Service) Require(ctx context.Context, p core.Principal, o core.Object) e
 		if v.OwnerID != p.OwnerID || peer.State == assistant.Cloning {
 			return denied()
 		}
-		if owner || v.PeerID == p.SubjectID {
+		if owner || v.PeerID == p.SubjectID || v.PartnerID == p.SubjectID {
 			return nil
 		}
 	case "task":
@@ -168,7 +168,11 @@ func (s Service) Require(ctx context.Context, p core.Principal, o core.Object) e
 			return nil
 		}
 		if v.TaskID != "" {
-			return s.Require(ctx, p, core.Object{Kind: "task", ID: v.TaskID})
+			if err := s.Require(ctx, p, core.Object{Kind: "task", ID: v.TaskID}); err == nil {
+				return nil
+			} else if core.CodeOf(err) != core.Forbidden && core.CodeOf(err) != core.NotFound {
+				return err
+			}
 		}
 		return s.Store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
 			chats, err := conversation.AttachmentConversations(ctx, tx.Store(), p.OwnerID, o.ID)

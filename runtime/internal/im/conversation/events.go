@@ -8,9 +8,10 @@ import (
 )
 
 // MessageCreated is the durable IM outbox event for both send paths. It carries
-// no Loop instructions. The Agent scheduler resolves the recipient using the
-// business assistant binding and ignores assistant-authored messages.
+// no Loop instructions. The Agent scheduler validates the conversation and
+// routes inputs to the receiving assistant without waking the sender.
 type MessageCreated struct {
+	Receiver       Endpoint
 	Sequence       uint64 `json:",omitempty"`
 	ID             core.ID
 	OwnerID        core.ID

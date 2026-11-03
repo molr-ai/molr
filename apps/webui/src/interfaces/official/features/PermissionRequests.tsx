@@ -1,4 +1,5 @@
-import { GrantUseSummary } from './GrantUse';
+import { isDelegationPermission } from '../../../delegation-permissions';
+import { DelegationPermissionRequestCard } from './DelegationPermissionRequest';
 import { FullAccessScopeEditor, FullAccessScopeSummary, validFullAccessScope } from './FullAccessScope';
 import { useMutation } from '../../../use-mutation';
 import { usesNetworkToggle } from '../../../sandbox-types';
@@ -8,22 +9,32 @@ import type { PermissionTarget } from './PermissionTargetFields';
 import type { SandboxView } from '@molr/sdk';
 import { initialActions, initialConstraints } from './GrantEditor';
 import { ConstraintsEditor, constraintsForNode, ConstraintsSummary, TemporaryConstraintsEditor, suggestedConstraints } from './ResourceConstraints';
-import type { PermissionRequestInput } from '@molr/sdk';
-import { Folder, Globe, Server, ShieldAlert, Sparkles, Terminal, Wrench } from 'lucide-react';
-import { useEffect, useId, useState } from 'react';
-import { ModalPresence, Badge, Button, Card, ChatCard, DateTimePicker, Dialog, Select, Switch, Textarea } from '@molr/ui';
+import type { ResourcePermissionRequestInput as PermissionRequestInput } from '@molr/sdk';
+import { ArrowLeft, Folder, Globe, Server, ShieldAlert, Sparkles, Terminal, Wrench } from 'lucide-react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { ModalPresence, Button, ChatCard, DateTimePicker, Dialog, Select, Switch, Textarea } from '@molr/ui';
 import { PermissionExpiry, PermissionScope } from './PermissionScope';
-import type { Assistant, Grant, Model, PermissionRequest, Resource } from '@molr/sdk';
+import type { Assistant, DelegationPermissionRequestInput, Model, PermissionRequest, ResourcePermissionRequestInput, Resource } from '@molr/sdk';
 import { APIError } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
-import { grantSummary, permissionLabel, permissionOptions } from '../../../resource-permissions';
+import { permissionLabel, permissionOptions } from '../../../resource-permissions';
 import { Confirm, lines, useAction } from '../components/common';
 
-export function PermissionRequestCard({ requestID, assistant, title, summary, timeZone }: { timeZone?: string; requestID: string; assistant: Assistant; title: string; summary: string }) {
-  const { locale } = useCopy(), zh = locale === 'zh';
-  const query = useQuery<PermissionRequest>(`/api/permission-requests/${requestID}`);
+type ResourceRequest = PermissionRequest<ResourcePermissionRequestInput>;
+type CardProps = { timeZone?: string; requestID: string; assistant: Assistant; title: string; summary: string };
+export function PermissionRequestCard(props: CardProps) {
+  const query = useQuery<PermissionRequest>(`/api/permission-requests/${props.requestID}`);
+  useErrorToast(query.error, query.reload);
+  if (query.data) return <PermissionRequestRecordCard assistant={props.assistant} request={query.data} timeZone={props.timeZone} />;
+  return <ResourcePermissionRequestCard {...props} request={query.data as ResourceRequest | undefined} />;
+}
+export function PermissionRequestRecordCard({ request, assistant, timeZone }: { request: PermissionRequest; assistant: Assistant; timeZone?: string }) {
+  if (isDelegationPermission(request.Input)) return <DelegationPermissionRequestCard assistant={assistant} request={request as PermissionRequest<DelegationPermissionRequestInput>} />;
+  return <ResourcePermissionRequestCard requestID={request.ID} assistant={assistant} request={request as ResourceRequest} title="" summary="" timeZone={timeZone} />;
+}
+function ResourcePermissionRequestCard({ requestID, assistant, title, summary, timeZone, request }: CardProps & { request?: ResourceRequest }) {
+  const { t, locale } = useCopy(), zh = locale === 'zh';
   const [review, setReview] = useState(false), [reject, setReject] = useState(false);
-  const request = query.data;
   const state = request?.State;
   const input = request?.Input;
   const grant = request?.GrantedAll?.[0] ?? request?.Granted;
@@ -43,18 +54,19 @@ export function PermissionRequestCard({ requestID, assistant, title, summary, ti
   const expiries = approved ? grants.map(item => item.ExpiresAt) : proposals.map(item => item.expires_at);
   const sharedExpiry = expiries.length > 0 && expiries.every(value => (value || null) === (expiries[0] || null));
   const cardTitle = count > 1 ? (zh ? `${count} 项资源权限` : `Access to ${count} resources`) : headline;
-  useErrorToast(query.error || resource.error, () => { query.reload(); resource.reload(); });
+  useErrorToast(resource.error, resource.reload);
   const rejectPermission = useMutation([requestID, reject]);
+  const reviewActions = state === 'pending' && <><Button size="sm" variant="secondary" disabled={assistant.State !== 'active'} onClick={() => setReview(true)}>{zh ? '查看并授权' : 'Review permission'}</Button><Button size="sm" variant="ghost" disabled={assistant.State !== 'active'} onClick={() => setReject(true)}>{zh ? '拒绝' : 'Reject'}</Button></>;
   return <><ChatCard className="permission-request-card" eyebrow={fullAccess && count === 1 ? (zh ? '完全访问申请' : 'Full Access request') : (zh ? '权限申请' : 'Permission request')} title={cardTitle} icon={count > 1 ? undefined : fullAccess ? fullScope?.mode === 'unrestricted' ? <ShieldAlert /> : <Terminal /> : <Icon />} description={input?.reason ?? summary}
     status={state ? { label: state === 'pending' ? (zh ? '等待授权' : 'Awaiting permission') : state === 'approved' ? (zh ? '已批准' : 'Approved') : (zh ? '已拒绝' : 'Rejected'), tone: state === 'pending' ? 'warning' : state === 'approved' ? 'positive' : 'neutral' } : undefined}
     metadata={state === 'approved' ? (zh ? '已按确认的内容授权' : 'Granted with your confirmed settings') : state === 'rejected' ? (zh ? '申请已拒绝，未授予权限' : 'Request declined; no access granted') : undefined}
-    actions={state === 'pending' && <><Button size="sm" variant="secondary" disabled={assistant.State !== 'active'} onClick={() => setReview(true)}>{zh ? '查看并授权' : 'Review permission'}</Button><Button size="sm" variant="ghost" disabled={assistant.State !== 'active'} onClick={() => setReject(true)}>{zh ? '拒绝' : 'Reject'}</Button></>}>
+    actions={reviewActions}>
     <div className="permission-scopes">
       {approved ? grants.map(item => <PermissionScope grouped={count > 1} key={item.ID} grant={item} showExpiry={!sharedExpiry} timeZone={timeZone} />)
         : proposals.map((item, index) => <PermissionScope grouped={count > 1} key={index} input={item} showReason={index > 0} showExpiry={!sharedExpiry} timeZone={timeZone} />)}
     </div>
     {sharedExpiry && <div className="permission-request-meta">
-      <div className="permission-request-meta__expiry"><span>{zh ? '授权至' : 'Expires'}</span><PermissionExpiry value={expiries[0]} timeZone={timeZone} /></div>
+      <div className="permission-request-meta__expiry"><span>{t.resources.expires}</span><PermissionExpiry value={expiries[0]} timeZone={timeZone} /></div>
     </div>}
   </ChatCard>
   <ModalPresence>{review && request && <PermissionReview request={request} assistant={assistant} onClose={() => setReview(false)} />}</ModalPresence>
@@ -62,55 +74,46 @@ export function PermissionRequestCard({ requestID, assistant, title, summary, ti
   </>;
 }
 
-export function PermissionRequests({ assistant }: { assistant: Assistant }) {
-  const { t, locale } = useCopy(), zh = locale === 'zh';
+export function PermissionRequests({ assistant, history, onHistoryChange }: { assistant: Assistant; history: boolean; onHistoryChange: (history: boolean) => void }) {
+  const { locale } = useCopy(), zh = locale === 'zh';
   const query = useQuery<PermissionRequest[]>(`/api/permission-requests?assistant_id=${assistant.ID}`);
-  const resources = useQuery<Resource[]>('/api/resources', true), sandboxes = useQuery<SandboxView[]>('/api/sandboxes');
-  const [review, setReview] = useState<PermissionRequest | null>(null), [reject, setReject] = useState<PermissionRequest | null>(null);
-  const states = zh ? { pending: '待审批', approved: '已批准', rejected: '已拒绝' } : { pending: 'Pending', approved: 'Approved', rejected: 'Rejected' };
   const pending = query.data?.filter(row => row.State === 'pending') ?? [], resolved = query.data?.filter(row => row.State !== 'pending') ?? [];
   useErrorToast(query.error, query.reload);
-  function requestCard(row: PermissionRequest) {
-    const resource = resources.data?.find(item => item.ID === row.Input.resource_id);
-    const gpus = resource ? sandboxes.data?.find(node => node.ID === (resource.SandboxID || 'local'))?.Info.GPUs : undefined;
-    const gpuAccessMode = resource ? sandboxes.data?.find(node => node.ID === (resource.SandboxID || 'local'))?.Info.Capabilities.GPUAccessMode : undefined;
-    return <Card key={row.ID}><div className="record-heading"><h3>{row.Input.resource_description}</h3><Badge tone={row.State === 'pending' ? 'warning' : 'neutral'}>{states[row.State]}</Badge></div>
-      <p>{row.Input.reason}</p><p>{zh ? '申请权限' : 'Requested'}: {row.Input.full_access ? fullAccessLabel(zh) : t.resources.categories[row.Input.resource_kind]} · {row.Input.actions.map(action => (t.resourcePermissions.generic as Record<string, string>)[action] ?? action).join(' / ')}</p>
-      {row.Input.resource_kind === 'storage' && <p>{t.resources.pathPrefixes}: {row.Input.path_prefixes?.join(', ') || '/'}</p>}
-      {row.Input.full_access && row.State !== 'approved' && <GrantUseSummary once={row.Input.once} />}
-      {row.Input.full_access && row.State !== 'approved' && <FullAccessScopeSummary value={row.Input.full_access_scope} />}
-      <p className="muted">{row.Input.expires_at ? `${t.resources.expires}: ${new Date(row.Input.expires_at).toLocaleString(locale)}` : t.resourcePermissions.noExpiry}</p>
-      <ConstraintsSummary gpuAccessMode={gpuAccessMode} gpus={gpus} value={row.Input.constraints} temporary={row.Input.temporary}/>{row.Granted && <GrantedPermission grant={row.Granted} />}
-      {row.State === 'pending' && <div className="form-actions"><Button size="sm" disabled={assistant.State !== 'active'} onClick={() => setReview(row)}>{zh ? '审核授权' : 'Review permission'}</Button><Button size="sm" variant="secondary" disabled={assistant.State !== 'active'} onClick={() => setReject(row)}>{zh ? '拒绝' : 'Reject'}</Button></div>}
-    </Card>;
-  }
-  const rejectPermission = useMutation([reject]);
-  return <section className="permission-requests">
-    {!!pending.length && <><h2>{zh ? '授权请求' : 'Permission requests'}</h2><div className="record-list">{pending.map(requestCard)}</div></>}
-    {!!resolved.length && <details><summary>{zh ? '已处理的授权请求' : 'Resolved permission requests'} · {resolved.length}</summary><div className="record-list">{resolved.map(requestCard)}</div></details>}
-    <ModalPresence>{review && <PermissionReview request={review} assistant={assistant} onClose={() => setReview(null)} />}</ModalPresence>
-    <ModalPresence>{reject && <Confirm title={zh ? '拒绝授权请求' : 'Reject permission request'} description={reject.Input.reason} onClose={() => setReject(null)} onConfirm={() => rejectPermission('/api/permission-requests/resolve', { RequestID: reject.ID, Decision: 'reject' }, reject.Version)} />}</ModalPresence>
+  const requestCard = (row: PermissionRequest) => <PermissionRequestRecordCard key={row.ID} assistant={assistant} request={row} />;
+  const container = useRef<HTMLElement>(null), historyButton = useRef<HTMLButtonElement>(null), historyTitle = useRef<HTMLHeadingElement>(null);
+  const previousHistory = useRef(history), listScroll = useRef(0);
+  useLayoutEffect(() => {
+    if (previousHistory.current === history) return;
+    previousHistory.current = history;
+    const scroll = container.current?.closest('.ui-dialog__body');
+    if (scroll) scroll.scrollTop = history ? 0 : listScroll.current;
+    if (history) historyTitle.current?.focus({ preventScroll: true });
+    else historyButton.current?.focus({ preventScroll: true });
+  }, [history]);
+  if (!query.data?.length) return null;
+  return <section ref={container} className="assistant-settings-section permission-requests" aria-label={history ? (zh ? '授权历史' : 'Authorization history') : (zh ? '授权请求' : 'Permission requests')}>
+
+    {history ? <>
+      <div className="permission-history-heading">
+        <Button size="sm" variant="ghost" onClick={() => onHistoryChange(false)}><ArrowLeft size={16} aria-hidden="true" />{zh ? '返回' : 'Back'}</Button>
+        <h3 ref={historyTitle} tabIndex={-1}>{zh ? '授权历史' : 'Authorization history'}</h3>
+      </div>
+      <div className="record-list">{resolved.map(requestCard)}</div>
+    </> : <>
+      <h3>{zh ? '授权请求' : 'Permission requests'}</h3>
+      <div className="assistant-info-section-heading permission-requests-actions">
+        <p className="assistant-info-help">{pending.length ? (zh ? `${pending.length} 个授权请求待处理` : `${pending.length} pending permission request${pending.length === 1 ? '' : 's'}`) : (zh ? '暂无待处理的授权请求' : 'No pending permission requests')}</p>
+        {!!resolved.length && <Button ref={historyButton} size="sm" variant="secondary" onClick={() => {
+          listScroll.current = container.current?.closest('.ui-dialog__body')?.scrollTop ?? 0;
+          onHistoryChange(true);
+        }}>{zh ? '授权历史' : 'Authorization history'}</Button>}
+      </div>
+      {!!pending.length && <div className="record-list">{pending.map(requestCard)}</div>}
+    </>}
   </section>;
 }
 
-function GrantedPermission({ grant, timeZone }: { grant: Grant; timeZone?: string }) {
-  const { t, locale } = useCopy(), zh = locale === 'zh';
-  const resource = useQuery<Resource>(`/api/resources/${grant.ResourceID}`);
-  const sandboxes = useQuery<SandboxView[]>('/api/sandboxes');
-  const gpus = resource.data ? sandboxes.data?.find(node => node.ID === (resource.data?.SandboxID || 'local'))?.Info.GPUs : undefined;
-  const gpuAccessMode = resource.data ? sandboxes.data?.find(node => node.ID === (resource.data?.SandboxID || 'local'))?.Info.Capabilities.GPUAccessMode : undefined;
-  const models = useQuery<Model[]>(grant.Scope.ModelID ? '/api/models' : null);
-  const target = grant.Scope.ModelID ? models.data?.find(model => model.ID === grant.Scope.ModelID)?.Name ?? t.resources.modelUnavailable : resource.data?.Name ?? t.loading;
-  useErrorToast(resource.error || models.error, () => {resource.reload();models.reload();});
-  return <div className="permission-granted"><p>{zh ? '实际批准' : 'Approved scope'}: {target} · {grant.Scope.FullAccess ? fullAccessLabel(zh) : grantSummary(t, grant, resource.data)}</p>
-    {grant.Scope.FullAccess && <GrantUseSummary grant={grant} timeZone={timeZone} />}
-    {grant.Scope.FullAccess && <FullAccessScopeSummary value={grant.Scope.FullAccessScope} />}
-    {resource.data?.Kind === 'storage' && <p>{t.resources.pathPrefixes}: {grant.Scope.PathPrefixes?.join(', ') || '/'}</p>}
-    <ConstraintsSummary gpuAccessMode={gpuAccessMode} gpus={gpus} value={grant.Constraints} temporary={grant.Temporary}/><p>{t.resources.expires}: {grant.ExpiresAt ? new Intl.DateTimeFormat(locale,{timeZone:timeZone||undefined,dateStyle:'medium',timeStyle:'short'}).format(new Date(grant.ExpiresAt)) : t.resourcePermissions.noExpiry}</p>
-  </div>;
-}
-
-function PermissionReview({ request, assistant, onClose }: { request: PermissionRequest; assistant: Assistant; onClose: () => void }) {
+function PermissionReview({ request, assistant, onClose }: { request: ResourceRequest; assistant: Assistant; onClose: () => void }) {
   const { t, locale } = useCopy(), zh = locale === 'zh';
   const resources = useQuery<Resource[]>('/api/resources', true), models = useQuery<Model[]>('/api/models');
   const [items, setItems] = useState<PermissionRequestInput[]>(() => [request.Input, ...(request.Input.additional_requests ?? [])].map(item => ({ ...item, constraints: item.full_access ? undefined : item.constraints ?? (['compute', 'network'].includes(item.resource_kind) ? suggestedConstraints(item.resource_kind) : undefined) })));
@@ -148,7 +151,7 @@ function PermissionReview({ request, assistant, onClose }: { request: Permission
       if (section) section.open = true;
     }} onSubmit={event => { event.preventDefault(); if (!action.busy && !expiryError) void action.run(approve, onClose); }}>
       <p className="permission-review__reason">{request.Input.reason}</p>
-      <DateTimePicker label={grouped ? (zh ? '统一授权时间' : 'Shared authorization expiry') : t.resources.expires} value={expires} onValueChange={setExpires} min={new Date().toISOString()}
+      <DateTimePicker className="permission-expiry-picker" size="md" label={grouped ? (zh ? '统一有效期' : 'Shared validity') : t.resources.expires} value={expires} onValueChange={setExpires} min={new Date().toISOString()}
         error={expiryError} description={grouped ? (zh ? `以下 ${items.length} 项权限共用此有效期。` : `This duration applies to all ${items.length} permissions.`) : undefined} />
       {grouped && new Set(deadlines).size > 1 && <p className="permission-review__note">{zh ? '原申请的时间不同，已预选最早的到期时间，可统一调整。' : 'The proposals had different deadlines. The earliest is preselected; you can change it for the whole group.'}</p>}
       <div className="permission-review__items">{items.map((item, index) => <PermissionItemEditor key={index} item={item} grouped={grouped} primary={index === 0} resources={resources.data ?? []} models={models.data ?? []} loading={resources.loading}

@@ -225,3 +225,7 @@ Clone/返聘授权契约细化：新授权具有新 ID，并绑定目标助理�
 | `internal/business/task` | `RequireExecution` | `internal/app.TestExecutionDomainChecksPreserveLifecycleAndTransaction` |
 
 | `internal/business/schedule` | `Dispatcher.NextWake` | `TestDispatcherNextWakeIgnoresBlockedOverdueSchedule` |
+
+| `internal/business/assistant` | `Service.SaveHiring`, `Service.Directory`, `Service.HireTemporary`, `Service.EndTemporary`, `Service.ExpireTemporary` | `internal/app.TestTemporaryPreauthorizationLifecycleAndIsolation`, `internal/app.TestTemporaryConcurrentSlotsAndBudget`, `internal/app.TestTemporaryCreateRollbackAndExpiry`, `internal/app.TestPermanentHiringRetainsSourceExpiryAndCanBecomeFinite` |
+
+| `internal/business/assistant` | `Service.SetPeerCommunication`, `CanContact` | `internal/app.TestPeerCommunicationGatesDirectoryAndBothMessageDirections`, `TestCanContactIntersectsScopeExpiryAndEmployment` |

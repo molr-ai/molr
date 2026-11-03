@@ -4,6 +4,7 @@ export function queryTopic(path: string) {
   if (/\/assistants\/[^/]+\/chat-channels$/.test(path)) return 'chat-channels';
   if (/\/assistants\/[^/]+\/chat-channel$/.test(path)) return 'chat-channel';
   if (path === '/api/status') return 'runtime';
+  if (/\/assistants\/[^/]+\/conversations/.test(path)) return 'conversations';
   const shell = path.match(/^\/api\/assistants\/([^/]+)\/shell-tasks/);
   if (shell) return `shell-tasks:${shell[1]}`;
   const browser = path.match(/^\/api\/assistants\/([^/]+)\/browser/);
@@ -30,7 +31,7 @@ const eventTopics: Record<string, string[]> = {
   'qq.changed': ['qq'], 'feishu.changed': ['feishu'], 'weixin.changed': ['weixin'],
   'dingtalk.changed': ['dingtalk'], 'slack.changed': ['slack'], 'telegram.changed': ['telegram'],
   'assistant.profile': ['assistants', 'conversations'],
-  'permission.request': ['permission-requests', 'grants', 'status'],
+  'permission.request': ['permission-requests', 'grants', 'status', 'assistants'],
   'grants.changed': ['permission-requests', 'grants', 'capabilities'],
   'conversation.read': ['conversations'],
 };
@@ -65,7 +66,7 @@ export function mutationTopics(path: string): string[] {
   if (path.includes('/assistants/')) return ['assistants', 'conversations', 'status', 'schedules', 'grants'];
   if (path === '/api/assistants') return ['assistants', 'conversations'];
   if (path.startsWith('/api/sandboxes')) return ['sandboxes', 'resources', 'grants', 'capabilities', 'assistants'];
-  if (path.startsWith('/api/permission-requests')) return ['permission-requests', 'grants', 'status'];
+  if (path.startsWith('/api/permission-requests')) return ['permission-requests', 'grants', 'status', 'assistants'];
   if (path.startsWith('/api/mcp/')) return ['mcp', 'tools', 'resources', 'grants', 'capabilities', 'admin', 'usage'];
   if (path.startsWith('/api/resources')) return ['resources', 'models', 'grants'];
   return [queryTopic(path)];

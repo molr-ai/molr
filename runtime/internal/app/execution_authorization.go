@@ -47,6 +47,16 @@ func executionAuthorization(store persistence.Store, e core.Execution, check fun
 	for _, bucket := range []string{"security.grants", "auth.groups", "business.resources", "business.bindings", "sandbox.connections", "sandbox.epochs"} {
 		keys = append(keys, persistence.BucketSignal(bucket))
 	}
+	// A parent's hiring authorization can revoke a worker's borrowed grants.
+	var worker struct{ EmployerID core.ID }
+	if err := store.Read(context.Background(), func(ctx context.Context, tx persistence.Tx) error {
+		return tx.Get(ctx, "business.assistants", persistence.Key(e.Principal.OwnerID, e.AssistantID), &worker)
+	}); err != nil && !persistence.Missing(err) {
+		return nil, err
+	}
+	if worker.EmployerID != "" {
+		keys = append(keys, persistence.RecordSignal("business.assistants", persistence.Key(e.Principal.OwnerID, worker.EmployerID)))
+	}
 	watch, err := store.Watch(keys...)
 	if err != nil {
 		return nil, err

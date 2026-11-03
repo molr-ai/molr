@@ -112,3 +112,25 @@ func (p *profileTools) image(ctx context.Context, e core.Execution, target tools
 	}
 	return data, nil
 }
+
+func (p *profileTools) collaborate(ctx context.Context, e core.Execution, name string, r tools.AssistantRequest) (json.RawMessage, error) {
+	if err := (access{p.workspace.adapters.store}).execution(ctx, e); err != nil {
+		return nil, err
+	}
+	var value any
+	var err error
+	switch name {
+	case "assistant_list":
+		value, err = p.assistants.Directory(ctx, e.Principal)
+	case "assistant_hire":
+		value, err = p.assistants.HireTemporary(ctx, e, assistant.TemporaryRequest{Mutation: core.Mutation{IdempotencyKey: string(e.OperationID)}, Name: r.Name, Instructions: r.Instructions, ModelID: r.ModelID, GrantIDs: r.GrantIDs})
+	case "assistant_dismiss":
+		value, err = p.assistants.EndTemporary(ctx, e.Principal, assistant.LifecycleRequest{ID: r.AssistantID, Mutation: core.Mutation{IdempotencyKey: string(e.OperationID), ExpectedVersion: r.ExpectedVersion}})
+	default:
+		return nil, core.Invalid("tool", "unknown assistant tool")
+	}
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(value)
+}

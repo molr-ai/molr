@@ -1,3 +1,4 @@
+import { collaborationModel } from './collaboration-model.mjs';
 import { mcpModel, mcpProvider } from './mcp-test-model.mjs';
 import { pluginHTTPTestModel, pluginHTTPProvider } from './plugin-http-test-model.mjs';
 import { createServer as createHTTPSServer } from 'node:https';
@@ -53,7 +54,7 @@ const model = createServer(async (request, response) => {
   }
   let raw = ''; for await (const part of request) raw += part;
   try {
-    const input = JSON.parse(raw); if (profileModel(input, response)) return; if (mcpModel(input, response)) return; if (await compressionModel(input, response)) return; if (workspaceCLIModel(input, response)) return; if (pluginHTTPTestModel(input, response)) return; if (responseModel(input, response)) return; if (permissionModel(input, response)) return; if (retryModel(input, response)) return; if (input.model?.startsWith('Expedite ')) { await expediteModel(input, response); return; } const messages = input.messages ?? [];
+    const input = JSON.parse(raw); if (collaborationModel(input, response)) return; if (profileModel(input, response)) return; if (mcpModel(input, response)) return; if (await compressionModel(input, response)) return; if (workspaceCLIModel(input, response)) return; if (pluginHTTPTestModel(input, response)) return; if (responseModel(input, response)) return; if (permissionModel(input, response)) return; if (retryModel(input, response)) return; if (input.model?.startsWith('Expedite ')) { await expediteModel(input, response); return; } const messages = input.messages ?? [];
     const eventIndex = messages.findLastIndex(message => typeof message.content === 'string' && message.content.startsWith('Runtime event: '));
     const event = eventIndex >= 0 ? JSON.parse(messages[eventIndex].content.split('\n')[0].slice('Runtime event: '.length)) : {};
     const recent = messages.slice(eventIndex + 1), toolResults = recent.filter(message => message.role === 'tool');

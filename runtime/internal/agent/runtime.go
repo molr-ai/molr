@@ -119,6 +119,9 @@ func (b *contextBuilder) build(ctx context.Context, t Turn, saved *privateContex
 		}
 		conversationID = id
 	}
+	if t.Event.ConversationID != "" {
+		conversationID = t.Event.ConversationID
+	}
 	if t.Event.Kind != event.ContextCompressionRequested {
 		inputs = append(inputs, model.Input{Role: model.User, Text: eventText(t.Event, conversationID)})
 	}
@@ -171,6 +174,25 @@ func (e *Engine) Lifecycle(ctx context.Context, p core.Principal, id core.ID, ac
 	if err := p.RequireOwner(); err != nil {
 		return err
 	}
+	return e.lifecycle(ctx, p, id, action, false)
+}
+
+// TemporaryLifecycle is a trusted business port for already-authorized
+// employment transactions. It accepts only temporary identities and cannot
+// mutate a permanent assistant or create an owner session.
+func (e *Engine) TemporaryLifecycle(ctx context.Context, owner, id core.ID, action string) error {
+	var a struct{ EmployerID core.ID }
+	if err := e.store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
+		return tx.Get(ctx, "business.assistants", persistence.Key(owner, id), &a)
+	}); err != nil {
+		return err
+	}
+	if a.EmployerID == "" || (action != "initialize" && action != "stop") {
+		return core.NewError(core.Forbidden, "temporary lifecycle required")
+	}
+	return e.lifecycle(ctx, core.Principal{OwnerID: owner, SubjectID: owner, Kind: core.ActorOwner}, id, action, true)
+}
+func (e *Engine) lifecycle(ctx context.Context, p core.Principal, id core.ID, action string, temporary bool) error {
 	if err := id.Validate(); err != nil {
 		return err
 	}
@@ -187,7 +209,7 @@ func (e *Engine) Lifecycle(ctx context.Context, p core.Principal, id core.ID, ac
 			}
 			current = Status{AssistantID: id, State: Idle}
 		case "stop":
-			if e.options.DreamStop != nil {
+			if !temporary && e.options.DreamStop != nil {
 				if err := e.options.DreamStop(ctx, p, id); err != nil {
 					return err
 				}
@@ -218,15 +240,19 @@ func (e *Engine) Lifecycle(ctx context.Context, p core.Principal, id core.ID, ac
 				if err != nil {
 					return err
 				}
-				pending, err := persistence.Select[conversation.MessageCreated](ctx, e.store, "im.outbox", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID), persistence.Eq("ConversationID", chatID), persistence.Eq("Sender", conversation.User)}})
+				pending, err := persistence.Select[conversation.MessageCreated](ctx, e.store, "im.outbox", persistence.Query{Where: []persistence.Filter{persistence.Eq("OwnerID", p.OwnerID)}, Any: [][]persistence.Filter{{persistence.Eq("ConversationID", chatID), persistence.Eq("Sender", conversation.User)}, {persistence.Eq("Receiver.ID", id), persistence.Eq("Receiver.Type", conversation.Assistant)}}})
 				if err != nil {
 					return err
 				}
 				for _, input := range pending {
-					if input.OwnerID != p.OwnerID || input.ConversationID != chatID || input.Sender != conversation.User {
+					if input.OwnerID != p.OwnerID || !((input.ConversationID == chatID && input.Sender == conversation.User) || (input.Receiver.ID == id && input.Receiver.Type == conversation.Assistant)) {
 						continue
 					}
 					source := scheduler.UserMessageEvent(p.OwnerID, id, conversation.Message{ID: input.MessageID, CreatedAt: input.At})
+					if input.Sender == conversation.Assistant {
+						source.Kind = event.AssistantMessage
+						source.ConversationID = input.ConversationID
+					}
 					if _, exists := byID[source.ID]; !exists {
 						byID[source.ID] = scheduler.Job{Event: source, State: scheduler.Queued, NotBefore: source.CreatedAt, Version: 1}
 					}

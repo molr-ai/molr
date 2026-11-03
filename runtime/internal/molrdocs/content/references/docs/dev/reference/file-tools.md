@@ -24,7 +24,14 @@ Shell 只挂载请求中选择的资源范围。`permission_list` 返回稳定�
 
 ## 授权请求
 
-`permission_request` 创建申请，不直接授予权限。必填 `resource_id`、`resource_kind`、`resource_description`、`actions`、`reason` 和未来的 RFC3339 `expires_at`（组合申请只在顶层设置，`additional_requests` 中各项继承同一时间）；存储必须填写资源内 `path_prefixes`。必须从 `permission_list.Requestable` 选择真实的 `resource_id`；模型申请还需所属 `model_id`。未知资源或只有描述的申请在创建前被拒绝，不生成卡片或等待状态；需先由管理员连接并分配资源。计算、网络与受管工作区申请还须提供额度，组合申请及校验规则见[资源授权额度](https://molr.ai/zh/docs/dev/security/resource-quotas/#数据与审批)。工具描述要求最小权限：只申请当前任务需要的资源、最少操作、最窄范围和最短合理授权时间，不默认整资源或永久授权。整个请求最多 4096 字节，单个助理最多 20 项待审批请求；身份和任务由执行上下文确定，不接受模型传入所有者或助理 ID。
+`permission_request` 创建申请，不直接授予权限。资源申请省略 `permission_type` 或设为 `resource`，必填 `resource_id`、`resource_kind`、`resource_description`、`actions`、`reason` 和未来的 RFC3339 `expires_at`（组合申请只在顶层设置，`additional_requests` 中各项继承同一时间）；存储必须填写资源内 `path_prefixes`。必须从 `permission_list.Requestable` 选择真实的 `resource_id`；模型申请还需所属 `model_id`。未知资源或只有描述的申请在创建前被拒绝，不生成卡片或等待状态；需先由管理员连接并分配资源。计算、网络与受管工作区申请还须提供额度，组合申请及校验规则见[资源授权额度](https://molr.ai/zh/docs/dev/security/resource-quotas/#数据与审批)。工具描述要求最小权限：只申请当前任务需要的资源、最少操作、最窄范围和最短合理授权时间，不默认整资源或永久授权。整个请求最多 4096 字节，单个助理最多 20 项待审批请求；身份和任务由执行上下文确定，不接受模型传入所有者或助理 ID。
+
+任务委派沿用同一工具、审批记录和聊天卡片，每次申请一种权限，不与资源申请组合：
+
+- `permission_type=temporary_hiring`：`hiring={max_assistants,budget:{Currency,Micros},grant_ids}`。预算为共享总额度，包含此前已用金额；授权修改不重置累计用量。`grant_ids` 从本助理已有的可委派授权中选择；空列表表示由用户在审批时选择。
+- `permission_type=assistant_communication`：`communication={all_assistants,assistant_ids}`。指定助理不可见时，使用 `all_assistants=false` 与空列表，并在理由中说明合作对象，由用户选择；不能借申请查询隐藏助理。批准只修改申请方授权，对方仍需独立允许对话。
+
+两类申请均必填 `reason` 和 `expires_at`（未来时间或显式 `null` 表示永久），最多 16 KiB。临时助理不能申请。`permission_list.TaskDelegation` 和 `permissions.TaskDelegation` 提供 `AssistantVersion`，以及 `Hiring`、`Communication` 的 `Enabled`、`Active` 和 `Configuration`；申请前先检查现有授权。审批界面复用任务委派配置表单，支持调整后批准；记录保留原始 `Input` 和实际 `ApprovedDelegation`，审批写入与授权修改原子提交。
 
 请求、助理聊天卡片和工具操作回执在同一事务内提交为 `pending`，提交失败两者一起回滚，通过操作回执和申请记录防止重复创建；同一助理、任务和规范化需求（不含理由文本）复用待处理请求及其 MessageID，不重复发卡。卡片类型为 `permission_request`，TargetID 指向真实请求；显示内容与当前处理状态由授权 API 读取。点击卡片直接打开预填表单。请求完成后执行保存 `PermissionPending`，同批未执行工具返回 `not_started`，当前执行以 `waiting / permission_pending` 结束，不再调用模型。重启恢复保留这一边界。
 

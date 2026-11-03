@@ -93,6 +93,14 @@ func (b *Bundle) buildAgent(cfg config.Config, adapters adapters, permissions *p
 		}
 		docs = append(docs, channelDocs...)
 		docs = append(docs, profileDoc)
+		current, err := assistant.NewRepository(store).Get(ctx, r.Execution.Principal.OwnerID, r.Execution.AssistantID)
+		if err != nil {
+			return nil, err
+		}
+		if current.EmployerID != "" {
+			text := "You are a temporary assistant. Employer AssistantID: " + string(current.EmployerID) + ". Your only conversation is " + string(current.ConversationID) + ". Work only on your employer's requests and send results or limitations there using conversation_publish. Permissions were fixed at creation; you cannot request or manage permissions, hire assistants, create plans, or contact others. Use the current permissions context rather than permission tools. A denied operation was not performed; do not repeatedly retry it. Do not reply to acknowledgements unless useful. Ending a turn does not end your employment."
+			docs = append(docs, agent.ContextDocument{Kind: "project_instruction", Source: "runtime:temporary", Scope: "assistant", Revision: digestBytes([]byte(text)), Content: text})
+		}
 		docs = append(docs, permissionDocs...)
 		mem, err := memoryContext.context(ctx, r)
 		return append(docs, mem...), err
@@ -167,7 +175,7 @@ func (b *Bundle) buildAgent(cfg config.Config, adapters adapters, permissions *p
 	cloneFiles := memory.NewFiles(memory.FileOptions{JournalRoot: filepath.Join(cfg.DataDir, "memory-operations"), Roots: func(ctx context.Context, owner core.ID, query memory.RootQuery) ([]memory.Root, error) {
 		return memoryRoots(ctx, store, cfg.DataDir, adapters.storageConfig.WorkRoot, owner, query, true)
 	}})
-	assistants := assistant.NewService(store, assistant.Options{ContextWindow: func(ctx context.Context, p core.Principal, id core.ID) (int, error) {
+	assistants := assistant.NewService(store, assistant.Options{TemporaryLoop: engine.TemporaryLifecycle, ContextWindow: func(ctx context.Context, p core.Principal, id core.ID) (int, error) {
 		provider, err := adapters.provider(ctx, p, id)
 		return provider.Model.ContextWindow(), err
 	}, CopyMemory: cloneFiles.CloneStaged, Authorizer: permissions, Conversations: conversation.NewRepository(store), Grants: policy.NewRepository(store), Loop: engine.Lifecycle, CheckModel: func(ctx context.Context, p core.Principal, id core.ID) error {
@@ -193,5 +201,6 @@ func (b *Bundle) buildAgent(cfg config.Config, adapters adapters, permissions *p
 		return err
 	}})
 	profile.assistants = assistants
+	permissionRequests.assistants = assistants
 	return agentServices{engine, assistants, assistants.RecoverClones}
 }

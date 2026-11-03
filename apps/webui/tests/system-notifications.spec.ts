@@ -211,7 +211,7 @@ test('chat queues one notice, keeps the current item stable and advances only af
  // Query refresh from another business event must not replace the selected item.
  rows.unshift({...seed,ID:'third',Kind:'permission.request',Code:'pending'});
  await post(page,`/api/assistants/${a.ID}/stop`,{},false);
- await expect(region).toContainText('2 more notices');
+ await expect(region).toContainText('1 more notice');
  await expect(region).toHaveAttribute('data-notification-id','first');
  await banner.getByRole('button',{name:'Close',exact:true}).click();
  await expect.poll(()=>updates.length).toBe(1);
@@ -224,11 +224,8 @@ test('chat queues one notice, keeps the current item stable and advances only af
  expect(await region.evaluate(el=>el.scrollHeight<=el.clientHeight)).toBe(true);
  await page.screenshot({path:info.outputPath('notification-queue.png')});
  await banner.getByRole('button',{name:'Close',exact:true}).click();
- await expect(region).toHaveAttribute('data-notification-id','third');
- await expect(banner).toHaveCount(1);
- await banner.getByRole('button',{name:'Close',exact:true}).click();
  await expect(region).toHaveCount(0);
- expect(updates).toEqual([['first'],['first'],['second'],['third']]);
+ expect(updates).toEqual([['first'],['first'],['second']]);
  await expect(page.locator('.chat-input textarea')).toBeVisible();
 });
 

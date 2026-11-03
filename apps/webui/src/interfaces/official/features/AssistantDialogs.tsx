@@ -34,6 +34,7 @@ function HireForm({ models, defaultModelID, onClose, onCreated, currencyContext 
 type EditProps = { assistant: Assistant; models: Model[]; onClose: () => void };
 export function AssistantSettingsForm({ assistant, models, onClose, currencyContext, action, formID, onSubmitDisabledChange }: EditProps & { currencyContext: CurrencyContext; action: ReturnType<typeof useAction>; formID: string; onSubmitDisabledChange: (disabled: boolean) => void }) {
   const { t, locale } = useCopy(), [name, setName] = useState(assistant.Name), [model, setModel] = useState(assistant.ModelID);
+  const [description, setDescription] = useState(assistant.Description ?? '');
   const dreamConfig = useQuery<DreamConfig>(`/api/dreams/config?assistant_id=${assistant.ID}`);
   const dream = useDreamSettings(dreamConfig.data, action.busy);
   useErrorToast(dreamConfig.error, dreamConfig.reload);
@@ -44,7 +45,7 @@ export function AssistantSettingsForm({ assistant, models, onClose, currencyCont
   const [baseline, setBaseline] = useState(assistant);
   const submitDisabled = avatarBusy || !dream.ready;
   useEffect(() => { onSubmitDisabledChange(submitDisabled); }, [submitDisabled, onSubmitDisabledChange]);
-  const pristine = contextTokens === (baseline.ContextCompressionTokens ?? 0) && name === baseline.Name && avatar === (baseline.Avatar ?? '') && model === baseline.ModelID && currency === (baseline.Budget?.Limit.Currency || currencyContext.Currency) && limit === (baseline.Budget?.Period ? String(baseline.Budget.Limit.Micros / 1_000_000) : '') && period === (baseline.Budget?.Period || 'daily');
+  const pristine = description === (baseline.Description ?? '') && contextTokens === (baseline.ContextCompressionTokens ?? 0) && name === baseline.Name && avatar === (baseline.Avatar ?? '') && model === baseline.ModelID && currency === (baseline.Budget?.Limit.Currency || currencyContext.Currency) && limit === (baseline.Budget?.Period ? String(baseline.Budget.Limit.Micros / 1_000_000) : '') && period === (baseline.Budget?.Period || 'daily');
   useEffect(() => {
     if (!pristine || avatarBusy || action.busy || assistant.Version <= baseline.Version) return;
     setContextTokens(assistant.ContextCompressionTokens ?? 0); setName(assistant.Name); setAvatar(assistant.Avatar ?? ''); setModel(assistant.ModelID);
@@ -52,10 +53,10 @@ export function AssistantSettingsForm({ assistant, models, onClose, currencyCont
     setLimit(assistant.Budget?.Period ? String(assistant.Budget.Limit.Micros / 1_000_000) : ''); setPeriod(assistant.Budget?.Period || 'daily');
     setBaseline(assistant);
   }, [assistant, baseline.Version, pristine, avatarBusy, action.busy, currencyContext.Currency]);
-  const saveAssistant = useMutation([assistant.ID, name, avatar, model, contextTokens, currency, limit, period, clampContextTokens(contextTokens, models.find(item => item.ID === model))]);
+  const saveAssistant = useMutation([assistant.ID, name, description, avatar, model, contextTokens, currency, limit, period, clampContextTokens(contextTokens, models.find(item => item.ID === model))]);
   return <EditForm id={formID} externalActions submitDisabled={submitDisabled} action={action} onClose={onClose} onSubmit={async () => {
     if (!pristine) {
-      const saved = await saveAssistant<Assistant>('/api/assistants/update', { ID: assistant.ID, Name: name.trim(), Avatar: avatar, ModelID: model, ContextCompressionTokens: clampContextTokens(contextTokens, models.find(item => item.ID === model)), Budget: { Limit: { Currency: currency, Micros: micros(limit) }, Period: period } }, baseline.Version);
+      const saved = await saveAssistant<Assistant>('/api/assistants/update', { ID: assistant.ID, Name: name.trim(), Description: description, Avatar: avatar, ModelID: model, ContextCompressionTokens: clampContextTokens(contextTokens, models.find(item => item.ID === model)), Budget: { Limit: { Currency: currency, Micros: micros(limit) }, Period: period } }, baseline.Version);
       // Retain a successful save's version if the dream update needs a retry.
       setBaseline(saved);
     }
@@ -65,6 +66,7 @@ export function AssistantSettingsForm({ assistant, models, onClose, currencyCont
       <h3>{locale === 'zh' ? '基本信息' : 'Profile'}</h3>
       <AssistantAvatarField name={name} value={avatar} onChange={setAvatar} onBusyChange={setAvatarBusy} />
       <TextField label={t.assistants.name} value={name} onChange={event => setName(event.target.value)} required maxLength={256} />
+      <TextField label={locale === 'zh' ? '职责简介' : 'Responsibilities'} value={description} onChange={event => setDescription(event.target.value)} maxLength={1024} />
     </section>
     <section className="assistant-settings-section" aria-label={locale === 'zh' ? '模型与上下文' : 'Model and context'}>
       <h3>{locale === 'zh' ? '模型与上下文' : 'Model and context'}</h3>

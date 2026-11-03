@@ -13,7 +13,7 @@ func (r PublishRequest) Validate(execution core.Execution) error {
 	if err := r.Mutation.Validate(false); err != nil {
 		return err
 	}
-	if err := r.ConversationID.Validate(); err != nil {
+	if err := r.ConversationID.Validate(); err != nil && r.Receiver == nil {
 		return err
 	}
 	if r.Source.OperationID != "" && r.Source.OperationID != execution.OperationID {

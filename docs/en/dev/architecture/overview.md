@@ -39,7 +39,7 @@ A single Go main process hosts core modules, which call interfaces directly. Whe
 
 Each assistant has an independent Agent Loop, which is an independent execution state and does not imply an exclusive process. The Loop advances based on events and sleeps when idle; the same assistant processes events sequentially, while multiple assistants run within concurrency quotas.
 
-Chat sessions only save the actual interaction history between users and assistants. Raw chat records do not automatically become model context; the Loop organizes context based on current events, task status, work summaries, and tool results.
+Chat sessions save actual exchanges between a user and an assistant or between two assistants. Raw chat records do not automatically become model context; the Loop organizes context based on current events, task status, work summaries, and tool results.
 
 | Session Tool | Purpose |
 | --- | --- |
@@ -53,7 +53,7 @@ Model internal outputs and tool returns are not automatically written to chat. A
 
 Divided into three functional domains: **IM / Agent / Business**. IM manages sessions, messages, read status, and real-time delivery; Agent manages scheduling, Loops, context, models, and tools; Business manages assistant identity, tasks, to-dos, plans, resources, memory, and preferences. Authentication, permissions, auditing, retrieval, and storage are common support. Export interfaces are implemented in Go packages, see [Interface Contracts](../reference/module-interfaces.md).
 
-IM does not directly depend on Agent or Business packages. User sending and assistant publishing share message formats and storage but use different write entry points to bind identity; Agent scheduling consumes IM's persistent message events, converting only real user input into execution input, and assistant publishing does not repeatedly trigger itself.
+IM does not directly depend on Agent or Business packages. User sending and assistant publishing share message formats and storage but use different write entry points to bind identity; Agent scheduling consumes IM's persistent message events, routing execution input to its receiver while distinguishing user messages from assistant messages; publishing does not repeatedly trigger the sender.
 
 Session read cursors only advance forward and do not accept sequence numbers beyond the message tail. Remaining unread assistant messages are counted via database covering indexes by account, session, sender, and sequence number range; cursors and counts are updated within the same write transaction, maintaining consistency with appended messages.
 

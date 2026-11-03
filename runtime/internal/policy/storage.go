@@ -25,6 +25,9 @@ func NewRepository(store persistence.Store) Repository {
 	return &repository{store: store, now: time.Now}
 }
 func (r *repository) Grants(ctx context.Context, owner core.ID, q Query) (core.Page[Grant], error) {
+	if grants, delegated, err := delegatedGrants(ctx, r.store, owner, q, r.now()); delegated || err != nil {
+		return core.Page[Grant]{Items: grants}, err
+	}
 	filters := []persistence.Filter{persistence.Eq("OwnerID", owner)}
 	if q.AssistantID != "" {
 		filters = append(filters, persistence.Eq("AssistantID", q.AssistantID))

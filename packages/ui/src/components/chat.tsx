@@ -1,3 +1,6 @@
+import { resolveComposerCommands } from './composer-commands';
+import type { ChatComposerCommand } from './composer-commands';
+export type { ChatComposerCommand } from './composer-commands';
 import { ChatFeedback } from './ChatFeedback';
 import { useId, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -107,7 +110,6 @@ export function ChatTypingIndicator({ label }: { label?: string }) {
   return <ChatStatus status="typing" label={label} />;
 }
 
-export type ChatComposerCommand = { name: string; description: string; aliases?: readonly string[]; keywords?: readonly string[]; disabled?: boolean };
 export type ChatComposerProps = {
   lock?: { title: string; description?: ReactNode; action?: ReactNode };
   commands?: readonly ChatComposerCommand[];
@@ -116,9 +118,10 @@ export type ChatComposerProps = {
   attachments?: readonly ChatAttachment[]; onAttachFiles?: (files: File[]) => void; onRemoveAttachment?: (id: string) => void;
   models?: readonly { value: string; label: string }[]; model?: string; onModelChange?: (model: string) => void;
   onVoiceInput?: () => void; recording?: boolean; disabled?: boolean; sendDisabled?: boolean; sending?: boolean; allowSendWhileSending?: boolean; onStop?: () => void;
+  extension?: ReactNode;
   hint?: string; notice?: string; processingLabel?: string; className?: string;
 };
-export function ChatComposer({ lock, commands = [], value, onValueChange, onSubmit, label, placeholder, maxLength = 4000, attachments = [], onAttachFiles, onPasteText, onRemoveAttachment, models, model, onModelChange, onVoiceInput, recording = false, disabled = false, sendDisabled = false, sending = false, allowSendWhileSending = false, onStop, hint, notice, processingLabel, className = '' }: ChatComposerProps) {
+export function ChatComposer({ lock, commands = [], value, onValueChange, onSubmit, label, placeholder, maxLength = 4000, attachments = [], onAttachFiles, onPasteText, onRemoveAttachment, models, model, onModelChange, onVoiceInput, recording = false, disabled = false, sendDisabled = false, sending = false, allowSendWhileSending = false, onStop, extension, hint, notice, processingLabel, className = '' }: ChatComposerProps) {
   const { messages } = useUILocale();
   const locked = !!lock;
   const id = useId(); const textarea = useRef<HTMLTextAreaElement>(null); const fileInput = useRef<HTMLInputElement>(null);
@@ -138,31 +141,27 @@ export function ChatComposer({ lock, commands = [], value, onValueChange, onSubm
   const [focused, setFocused] = useState(false), [dismissed, setDismissed] = useState<string | null>(null), [activeCommand, setActiveCommand] = useState(0), [caret, setCaret] = useState(0);
   useLayoutEffect(() => { if (textarea.current && document.activeElement === textarea.current) setCaret(textarea.current.selectionStart); }, [value]);
   useLayoutEffect(() => { if (locked) setFocused(false); }, [locked]);
-  const query = /^\/([^/\r\n]*)$/.exec(value)?.[1];
-  const commandMatches = query === undefined ? [] : commands.flatMap(command => {
-    const search = query.toLocaleLowerCase();
-    const name = [command.name, ...(command.aliases ?? [])].find(word => word.toLocaleLowerCase().includes(search));
-    return name ? [{ ...command, name }] : (command.keywords ?? []).some(word => word.toLocaleLowerCase().includes(search)) ? [command] : [];
-  });
-  const commandMenu = focused && !disabled && !recording && commands.length > 0 && query !== undefined && caret === value.length && dismissed !== value;
+  const commandContext = resolveComposerCommands(value, commands);
+  const commandMatches = commandContext?.matches ?? [];
+  const commandMenu = focused && !disabled && !recording && commands.length > 0 && commandContext !== undefined && caret === value.length && dismissed !== value;
   const selectedCommand = Math.min(activeCommand, commandMatches.length - 1);
   function completeCommand(index: number) {
     const command = commandMatches[index]; if (!command || command.disabled) return;
-    const text = `/${command.name}`; onValueChange(text); setDismissed(text); setCaret(text.length);
+    const text = command.completion; onValueChange(text); setDismissed(command.hasChildren ? null : text); setActiveCommand(0); setCaret(text.length);
     requestAnimationFrame(() => { textarea.current?.focus(); textarea.current?.setSelectionRange(text.length, text.length); });
   }
   const cannotSend = disabled || sendDisabled || recording || (sending && !allowSendWhileSending) || (!value.trim() && !attachments.length);
   function submit() { if (!cannotSend) onSubmit(); }
-  if (lock) return <div className={`message-composer-wrap ${className}`}><div className="message-composer message-composer--locked" role="group" aria-labelledby={`${id}-lock-title`} aria-describedby={lock.description ? `${id}-lock-description` : undefined}>
+  if (lock) return <div className={`message-composer-wrap ${className}`}>{extension && <div className="message-composer-extension">{extension}</div>}<div className="message-composer message-composer--locked" role="group" aria-labelledby={`${id}-lock-title`} aria-describedby={lock.description ? `${id}-lock-description` : undefined}>
     <div className="message-composer__lock-copy" role="status"><UIIcon name="lock" /><div><strong id={`${id}-lock-title`}>{lock.title}</strong>{lock.description && <div id={`${id}-lock-description`} className="message-composer__lock-description">{lock.description}</div>}</div></div>
     {lock.action && <div className="message-composer__lock-action">{lock.action}</div>}
   </div></div>;
-  return <div className={`message-composer-wrap ${className}`}><form className="message-composer" aria-label={messages.chat.messageComposer} onClick={event => {
+  return <div className={`message-composer-wrap ${className}`}>{extension && <div className="message-composer-extension">{extension}</div>}<form className="message-composer" aria-label={messages.chat.messageComposer} onClick={event => {
     if (disabled || event.defaultPrevented || !(event.target instanceof Element) || event.target.closest('button, input, textarea, select, .select, a, label, [role="button"], [contenteditable="true"]')) return;
     textarea.current?.focus();
   }} onSubmit={event => { event.preventDefault(); submit(); }}>
     <ChatAttachmentList files={attachments} onRemove={onRemoveAttachment} disabled={disabled || recording} className="composer-attachments" />
-    {commandMenu && <ComposerCommandMenu id={id} anchor={textarea} commands={commandMatches} selected={selectedCommand} onActive={setActiveCommand} onSelect={completeCommand} onDismiss={() => setDismissed(value)} />}
+    {commandMenu && <ComposerCommandMenu id={id} anchor={textarea} prefix={commandContext?.prefix ?? ''} commands={commandMatches} selected={selectedCommand} onActive={setActiveCommand} onSelect={completeCommand} onDismiss={() => setDismissed(value)} />}
     <textarea autoComplete="off" aria-autocomplete={commands.length ? 'list' : undefined} aria-controls={commandMenu ? `${id}-commands` : undefined} aria-activedescendant={commandMenu && selectedCommand >= 0 ? `${id}-command-${selectedCommand}` : undefined}
       onFocus={event => { setFocused(true); setDismissed(null); setCaret(event.currentTarget.selectionStart); }} onBlur={() => setFocused(false)} onSelect={event => setCaret(event.currentTarget.selectionStart)} ref={textarea} id={`${id}-message`} rows={1} aria-label={label ?? messages.chat.messageYourAssistant} aria-describedby={[hint && `${id}-hint`, notice && `${id}-notice`].filter(Boolean).join(' ') || undefined} disabled={disabled} value={value} maxLength={maxLength} onChange={event => { onValueChange(event.target.value); setDismissed(null); setActiveCommand(0); setCaret(event.target.selectionStart); }} onPaste={event => {
       if (disabled || recording) return;
@@ -184,7 +183,7 @@ export function ChatComposer({ lock, commands = [], value, onValueChange, onSubm
       if (commandMenu) {
         if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setDismissed(value); return; }
         if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && commandMatches.length) { event.preventDefault(); setActiveCommand((selectedCommand + (event.key === 'ArrowDown' ? 1 : -1) + commandMatches.length) % commandMatches.length); return; }
-        if ((event.key === 'Tab' && !event.shiftKey || event.key === 'Enter' && !event.shiftKey && value !== `/${commandMatches[selectedCommand]?.name}`) && commandMatches.length) { event.preventDefault(); completeCommand(selectedCommand); return; }
+        if ((event.key === 'Tab' && !event.shiftKey || event.key === 'Enter' && !event.shiftKey && (commandMatches[selectedCommand]?.hasChildren || value !== commandMatches[selectedCommand]?.completion)) && commandMatches.length) { event.preventDefault(); completeCommand(selectedCommand); return; }
       }
       if (event.key === 'Enter'  && !event.shiftKey && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) { event.preventDefault(); submit(); } }} placeholder={placeholder ?? messages.chat.messagePlaceholder} />
     <div className="message-composer__tools"><div>{onAttachFiles && <><input ref={fileInput} type="file" multiple hidden disabled={disabled || recording} onChange={event => { onAttachFiles(Array.from(event.target.files ?? [])); event.target.value = ''; }} /><button type="button" className="composer-icon" aria-label={messages.chat.attachFiles} disabled={disabled || recording} onClick={() => fileInput.current?.click()}><UIIcon name="paperclip" /></button></>}</div><div className="message-composer__right">

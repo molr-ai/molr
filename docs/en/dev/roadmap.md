@@ -24,7 +24,7 @@ Users can currently access the WebUI through mobile browsers; a standalone mobil
 
 ### Task delegation between assistants
 
-[Plan dependencies and handoffs](../user/guides/plans.md) already exist, while an assistant's [plan tools](../../../runtime/internal/agent/tools/plans.go) are limited to plans assigned to that assistant. This feature adds delegation during execution and collection of results.
+[Direct assistant messaging and preauthorized temporary assistants](../user/guides/assistants-and-chat.md#assistant-collaboration-and-temporary-assistants) already support requesting work and returning results through messages, alongside [plan dependencies and handoffs](../user/guides/plans.md). This feature adds structured parent/child tasks, aggregated state and delivery verification.
 
 - **Scope**: Within collaboration boundaries allowed by the user, an assistant can delegate subtasks to another assistant, share necessary material, wait for results, and assemble the final output. Users can inspect parent and child tasks, responsible assistants, status, and costs.
 - **Completion criteria**: Complete a flow covering decomposition, delegation, execution, result return, and assembly. The parent task reflects subtask failure, cancellation, or permission waits. Delegation depth and concurrency are bounded to prevent cycles.

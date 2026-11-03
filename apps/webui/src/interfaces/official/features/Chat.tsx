@@ -608,6 +608,7 @@ export function Chat({
         channel={channel}
         onStatusChange={status.reload}
         onManageChannel={() => onAction('channel')}
+        onManagePermissions={() => onAction('permissions')}
         onSent={() => {
           bottom.current = true;
           onClearTarget();

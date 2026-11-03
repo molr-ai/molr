@@ -25,6 +25,8 @@ const TerminalControlReturned Kind = "terminal_control_returned"
 const BrowserControlReturned Kind = "browser_control_returned"
 
 const (
+	AssistantMessage            Kind = "assistant_message"
+	AssistantNotice             Kind = "assistant_notice"
 	Born                        Kind = "born"
 	ContextCompressionRequested Kind = "context_compression_requested"
 	ShellTaskFinished           Kind = "shell_task_finished"
@@ -55,8 +57,9 @@ type Recovery struct {
 // TaskID associates a scheduled occurrence or a resume event with its execution. ScheduleVersion belongs only to
 // ScheduleDue; zero supports legacy inputs, new dispatchers provide the revision.
 type AssistantEvent struct {
-	Recovery     *Recovery `json:",omitempty"`
-	DeliveryMode DeliveryMode
+	ConversationID core.ID   `json:",omitempty"`
+	Recovery       *Recovery `json:",omitempty"`
+	DeliveryMode   DeliveryMode
 	// Manual compression bypasses the automatic threshold, never capacity checks.
 	Manual  bool            `json:",omitempty"`
 	Details json.RawMessage `json:",omitempty"`
@@ -127,7 +130,7 @@ func (e AssistantEvent) Validate() error {
 	if e.Kind != UserStopped && e.ExecutionID != "" {
 		return core.Invalid("execution_id", "only control events reference an interrupted execution")
 	}
-	if len(e.Details) > 256<<10 || (len(e.Details) > 0 && (!json.Valid(e.Details) || (e.Kind != ShellTaskFinished && e.Kind != ShellTasksRunning && e.Kind != WatchFailed && e.Kind != BrowserControlReturned && e.Kind != TerminalControlReturned))) {
+	if len(e.Details) > 256<<10 || (len(e.Details) > 0 && (!json.Valid(e.Details) || (e.Kind != ShellTaskFinished && e.Kind != ShellTasksRunning && e.Kind != WatchFailed && e.Kind != BrowserControlReturned && e.Kind != TerminalControlReturned && e.Kind != AssistantNotice))) {
 		return core.Invalid("details", "invalid shell event details")
 	}
 	valid := false
@@ -136,7 +139,7 @@ func (e AssistantEvent) Validate() error {
 		valid = e.ScheduleVersion == 0 && e.MessageID == "" && e.ScheduleID == "" && e.OperationID == "" && e.OccurrenceAt.IsZero() && e.TaskID == ""
 	case DreamDue:
 		valid = e.OperationID.Validate() == nil && !e.OccurrenceAt.IsZero() && e.MessageID == "" && e.ScheduleID == "" && e.ScheduleVersion == 0 && e.TaskID == ""
-	case UserMessage:
+	case UserMessage, AssistantMessage:
 		valid = e.ScheduleVersion == 0 && e.MessageID.Validate() == nil && e.ScheduleID == "" && e.OperationID == "" && e.OccurrenceAt.IsZero() && e.TaskID == ""
 	case ScheduleDue:
 		valid = e.ScheduleID.Validate() == nil && !e.OccurrenceAt.IsZero() && e.MessageID == "" && e.OperationID == "" && (e.TaskID == "" || e.TaskID.Validate() == nil)
@@ -146,7 +149,7 @@ func (e AssistantEvent) Validate() error {
 		valid = e.ScheduleVersion == 0 && e.OperationID.Validate() == nil && e.MessageID == "" && e.ScheduleID == "" && e.OccurrenceAt.IsZero() && e.TaskID == ""
 	case UserStopped:
 		valid = e.ScheduleVersion == 0 && e.MessageID == "" && e.ScheduleID == "" && e.OperationID == "" && e.OccurrenceAt.IsZero() && (e.TaskID == "" || e.TaskID.Validate() == nil) && (e.ExecutionID == "" || e.ExecutionID.Validate() == nil)
-	case ContextCompressionRequested, ResumeRequested, BrowserControlReturned, TerminalControlReturned:
+	case AssistantNotice, ContextCompressionRequested, ResumeRequested, BrowserControlReturned, TerminalControlReturned:
 		valid = e.ScheduleVersion == 0 && e.MessageID == "" && e.ScheduleID == "" && e.OperationID == "" && e.OccurrenceAt.IsZero() && (e.TaskID == "" || e.TaskID.Validate() == nil)
 	}
 	if !valid {

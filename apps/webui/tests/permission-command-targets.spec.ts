@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import type { PermissionRequest } from '@molr/sdk';
+import type { PermissionRequest as GenericPermissionRequest, ResourcePermissionRequestInput } from '@molr/sdk';
+type PermissionRequest = GenericPermissionRequest<ResourcePermissionRequestInput>;
 
 const port = process.env.MOLR_TEST_PORT ?? '5193', base = `http://127.0.0.1:${port}`;
 async function post(page: Page, path: string, data: object) {
@@ -27,7 +28,7 @@ async function fixture(page: Page) {
   // Model/Runtime creation is real; controlled list/resolve responses exercise
   // concurrent arrivals and partial failures without timing-dependent scheduling.
   let rows: PermissionRequest[] = [], calls: any[] = [], failAt = 0, arrive = false;
-  const proposals = () => ['newest', 'middle', 'oldest'].map((id, index) => ({ ...proposal, ID: id, Version: index + 1, CreatedAt: new Date(Date.now() - index * 1000).toISOString() }));
+  const proposals = () => ['newest', 'middle', 'oldest'].map((id, index) => ({ ...proposal, ID: id, Version: index + 1, Input: { ...proposal.Input, reason: `Summary-${id}: ${proposal.Input.reason}` }, CreatedAt: new Date(Date.now() - index * 1000).toISOString() }));
   // Manual refresh adds a query parameter; keep every list read in this fixture
   // on the same controlled dataset as the mocked resolve responses.
   await page.route(url => url.pathname === '/api/permission-requests' && url.searchParams.get('assistant_id') === assistant.ID,
@@ -46,7 +47,7 @@ async function fixture(page: Page) {
     if (options.incomplete) rows[1] = { ...rows[1], Input: { ...rows[1].Input, constraints: undefined } };
     // A newer resolved record must not be selected by a default command.
     rows.unshift({ ...proposal, ID: 'resolved', State: 'approved' });
-    await page.reload(); await input.fill('/'); await expect(page.getByRole('option')).toHaveCount(3);
+    await page.reload(); await input.fill('/'); await expect(page.getByRole('option')).toHaveCount(2);
   }
   async function command(value: string) { await input.fill(value); await send.click(); }
   return { reset, command, input, calls: () => calls, rows: () => rows };
@@ -100,4 +101,41 @@ test('batch preflight prevents incomplete grants; later failure reports partial 
   expect(f.rows().find(row => row.ID === 'newest')?.State).toBe('approved');
   expect(f.rows().find(row => row.ID === 'oldest')?.State).toBe('pending');
   await expect(f.input).toHaveValue('/permission approve all');
+});
+
+
+test('hierarchical suggestions select exact summaries and update after resolution', async ({ page }) => {
+  const f = await fixture(page); await f.reset();
+  const menu = page.getByRole('listbox', { name: 'Commands', exact: true });
+  await expect(menu.getByRole('option')).toHaveCount(2);
+  await f.input.fill('/pe'); await expect(menu.getByRole('option')).toHaveCount(1);
+  await f.input.dispatchEvent('keydown', { key: 'Enter', code: 'Enter', isComposing: true });
+  await expect(f.input).toHaveValue('/pe');
+  await f.input.press('Tab'); await expect(f.input).toHaveValue('/permission ');
+  await expect(menu.getByRole('option')).toHaveCount(2);
+  await f.input.press('ArrowDown'); await f.input.press('Enter');
+  await expect(f.input).toHaveValue('/permission reject ');
+  await expect(menu.getByRole('option')).toHaveCount(4);
+  await expect(page.locator('.composer-commands__heading')).toHaveText('/permission reject');
+  expect(f.calls()).toHaveLength(0);
+  await f.input.fill('/permission reject Summary-middle');
+  await expect(menu.getByRole('option')).toHaveCount(1);
+  await expect(menu).toContainText('Summary-middle');
+  await f.input.press('Tab'); await expect(f.input).toHaveValue('/permission reject middle');
+  await expect(menu).toHaveCount(0); expect(f.calls()).toHaveLength(0);
+  await f.input.press('Enter');
+  await expect(f.input).toHaveValue('');
+  expect(f.calls().map(call => [call.RequestID, call.Decision])).toEqual([['middle', 'reject']]);
+  await f.input.fill('/permission reject '); await expect(menu.getByRole('option')).toHaveCount(3);
+  await expect(menu).not.toContainText('Summary-middle');
+  await f.input.fill('/权限'); await f.input.press('Tab');
+  await expect(f.input).toHaveValue('/权限审批 ');
+  await expect(menu.getByRole('option')).toHaveCount(2);
+  await f.input.press('Tab'); await expect(f.input).toHaveValue('/权限审批 同意 ');
+  await expect(menu.getByRole('option').first().locator('.select__option-label')).toHaveText('全部');
+  await f.input.press('Escape'); await expect(menu).toHaveCount(0);
+  await f.input.press('Backspace'); await expect(f.input).toHaveValue('/权限审批 同意');
+  await expect(menu.getByRole('option')).toHaveCount(1);
+  expect(f.calls()).toHaveLength(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

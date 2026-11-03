@@ -113,6 +113,14 @@ func inspectCapabilities(ctx context.Context, store persistence.Store, catalog t
 					}
 				}
 			}
+			if a.EmployerID != "" && (strings.HasPrefix(definition.Name, "permission_") || strings.HasPrefix(definition.Name, "plan_") || strings.HasPrefix(definition.Name, "plg_") || strings.HasPrefix(definition.Name, "mcp_") || definition.Name == "assistant_hire" || definition.Name == "assistant_dismiss") {
+				item.Available = false
+				item.Reason = "temporary_tool_restricted"
+			}
+			if definition.Name == "assistant_hire" && (a.Hiring == nil || !a.Hiring.Enabled || (a.Hiring.ExpiresAt != nil && !a.Hiring.ExpiresAt.After(now))) {
+				item.Available = false
+				item.Reason = "hiring_permission_required"
+			}
 			if a.State != assistant.Active {
 				item.Available = false
 				item.Reason = "assistant_archived"

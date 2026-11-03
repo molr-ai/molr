@@ -1,8 +1,9 @@
+import { AssistantConversations } from './AssistantConversations';
 import { useErrorToast } from '../../../error-toasts';
 import { usePluginsVisible, pluginResourceVisible } from '../../../plugins/visibility';
 import { Activity, useEffect, useId, useState } from 'react';
 import { Badge, Button, EmptyState, Tabs } from '@molr/ui';
-import { BookOpen, ChevronDown, FlaskConical, Info, Shield, Wrench } from 'lucide-react';
+import { BookOpen, ChevronDown, FlaskConical, Info, MessagesSquare, Shield, Wrench } from 'lucide-react';
 import type { Assistant, AssistantCapabilities, CurrencyContext, Model } from '@molr/sdk';
 import { useCopy, useQuery } from '../../../state';
 import { CurrencyDialog } from '../components/Money';
@@ -12,7 +13,7 @@ import { AssistantPermissions } from './Resources';
 import { sandboxReason } from '../../../sandbox';
 import { toolGroup, toolGroups } from './tool-groups';
 
-type Tab = 'overview' | 'tools' | 'permissions' | 'skills';
+type Tab = 'overview' | 'tools' | 'permissions' | 'skills' | 'conversations';
 type Props = { assistant: Assistant; models: Model[]; initialTab?: Tab; docked?: boolean; onClose: () => void; onDebug?: () => void };
 export function AssistantInfo(props: Props) {
   const { t } = useCopy(), action = useAction(), formID = useId();
@@ -28,7 +29,7 @@ export function AssistantInfo(props: Props) {
   </CurrencyDialog>;
 }
 function InfoContents({ assistant, models, onClose, onDebug, context, action, tab, onTabChange, formID, onSubmitDisabledChange }: Props & { context: CurrencyContext; action: ReturnType<typeof useAction>; tab: Tab; onTabChange: (tab: Tab) => void; formID: string; onSubmitDisabledChange: (disabled: boolean) => void }) {
-  const { t } = useCopy();
+  const { t, locale } = useCopy();
   const [visited, setVisited] = useState(() => new Set<Tab>([tab]));
   useEffect(() => { setVisited(previous => new Set([...previous, tab])); }, [tab]);
   const archived = assistant.State !== 'active';
@@ -39,6 +40,7 @@ function InfoContents({ assistant, models, onClose, onDebug, context, action, ta
     </> },
     { value: 'tools', label: t.assistantInfo.tools, icon: <Wrench size={16} />, content: <Capabilities assistantID={assistant.ID} kind="tools" onPermissions={() => changeTab('permissions')} /> },
     { value: 'permissions', label: t.assistants.permissions, icon: <Shield size={16} />, content: <AssistantPermissions assistant={assistant} /> },
+    { value: 'conversations', label: locale === 'zh' ? '对话' : 'Conversations', icon: <MessagesSquare size={16} />, content: <AssistantConversations assistant={assistant} /> },
     { value: 'skills', label: t.assistantInfo.skills, icon: <BookOpen size={16} />, content: <Capabilities assistantID={assistant.ID} kind="skills" onPermissions={() => changeTab('permissions')} /> },
   ];
   function changeTab(value: string) { const next = value as Tab; onTabChange(next); setVisited(previous => new Set([...previous, next])); }

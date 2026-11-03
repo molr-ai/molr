@@ -30,7 +30,7 @@ for (const command of ['/permission approve', '/permission reject', '/权限审�
     await expect(page.locator('.ui-chat-message--user')).toHaveCount(0);
     await input.fill('Please run the calculation.'); await send.click();
     await expect(page.locator('.permission-request-card')).toBeVisible({ timeout: 60_000 });
-    await input.fill('/'); await expect(page.getByRole('option')).toHaveCount(3);
+    await input.fill('/'); await expect(page.getByRole('option')).toHaveCount(2);
     const requestPath = `/api/permission-requests?assistant_id=${assistant.ID}`;
     const [proposal] = await (await page.request.get(requestPath)).json();
     // A newer request arriving before submission must not silently change the target.
@@ -44,12 +44,24 @@ for (const command of ['/permission approve', '/permission reject', '/权限审�
     await expect(page.locator('.composer-notice')).toContainText('Usage: /permission approve|reject [id|all].');
     await page.locator('.message-composer input[type=file]').setInputFiles({ name: 'retained.txt', mimeType: 'text/plain', buffer: Buffer.from('Keep this attachment.') });
     await expect(page.locator('.composer-attachments')).toContainText('retained.txt');
-    await input.fill(command.startsWith('/权限') ? '/权限审批 ' : '/permission ');
+    const chinese = command.startsWith('/权限');
+    await input.fill(chinese ? '/权限' : '/pe');
+    await expect(page.getByRole('option')).toHaveCount(1);
+    await input.press('Tab');
+    await expect(input).toHaveValue(chinese ? '/权限审批 ' : '/permission ');
     await expect(page.getByRole('option')).toHaveCount(2);
-    await page.getByRole('option').filter({ has: page.locator('.select__option-label', { hasText: command }) }).click();
-    await expect(input).toHaveValue(command);
-    if (command === '/permission approve') await input.fill(`${command} all`);
-    if (command === '/权限审批 同意') await input.fill(`${command} ${proposal.ID}`);
+    await page.getByRole('option').filter({ has: page.locator('.select__option-label', { hasText: new RegExp(`^${command.split(' ')[1]}$`) }) }).click();
+    await expect(input).toHaveValue(`${command} `);
+    await expect(page.getByRole('option')).toHaveCount(2);
+    if (command === '/permission approve') {
+      await page.getByRole('option').filter({ has: page.locator('.select__option-label', { hasText: /^all$/ }) }).click();
+      await expect(input).toHaveValue(`${command} all`);
+    } else {
+      await page.getByRole('option').filter({ hasText: proposal.Input.reason }).click();
+      await expect(input).toHaveValue(`${command} ${proposal.ID}`);
+    }
+    await expect(page.getByRole('listbox', { name: 'Commands', exact: true })).toHaveCount(0);
+    await expect(page.locator('.permission-request-card')).toContainText('Awaiting permission');
     await input.press('Enter');
     await expect(input).toHaveValue('');
     const approved = command.endsWith('approve') || command.endsWith('同意');

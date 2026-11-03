@@ -299,3 +299,26 @@ func TestRestartCannotReadCheckpointOnlyFailsThatAssistant(t *testing.T) {
 		t.Fatal("requested model with corrupt history")
 	}
 }
+
+func TestRestartPreservesAssistantConversation(t *testing.T) {
+	f, _ := makeLoopFixture(t, nil)
+	e := f.Runtime.(*Engine)
+	turn := f.Turn
+	turn.Event.Kind = event.AssistantMessage
+	turn.Event.ConversationID = "collaboration-chat"
+	turn.Event.MessageSequence = 0
+	job := seedInterrupted(t, e, turn)
+	progress := turnProgress{Step: 1, Inputs: []model.Input{{Role: model.System, Text: loopInstructions}}}
+	testkit.RequireNoError(t, e.saveProgress(t.Context(), turn, &progress, progressAlways))
+	claim := recoveryClaim(t, e, job)
+	if claim.Job.Event.ConversationID != "collaboration-chat" {
+		t.Fatal("recovery lost direct conversation")
+	}
+	_, err := e.Handle(t.Context(), Turn{Principal: claim.Principal, Event: claim.Job.Event})
+	testkit.RequireNoError(t, err)
+	requests := f.ModelRequests()
+	raw, _ := json.Marshal(requests)
+	if !strings.Contains(string(raw), "collaboration-chat") {
+		t.Fatal("recovery context switched to the user conversation")
+	}
+}

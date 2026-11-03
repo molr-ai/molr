@@ -3,11 +3,11 @@ import { useLayoutEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 import { getOverlayViewport, useModalScope } from '../modal-scope';
 import { useUILocale } from '../locale';
-import type { ChatComposerCommand } from './chat';
+import type { ComposerCommandMatch } from './composer-commands';
 
 /** A non-modal suggestion list: typing focus stays in the composer. */
-export function ComposerCommandMenu({ id, anchor, commands, selected, onSelect, onActive, onDismiss }: {
-  id: string; anchor: RefObject<HTMLTextAreaElement | null>; commands: readonly ChatComposerCommand[]; selected: number;
+export function ComposerCommandMenu({ id, anchor, prefix, commands, selected, onSelect, onActive, onDismiss }: {
+  id: string; prefix: string; anchor: RefObject<HTMLTextAreaElement | null>; commands: readonly ComposerCommandMatch[]; selected: number;
   onSelect: (index: number) => void; onActive: (index: number) => void; onDismiss: () => void;
 }) {
   const { messages } = useUILocale();
@@ -46,12 +46,12 @@ export function ComposerCommandMenu({ id, anchor, commands, selected, onSelect, 
     else if (bounds.bottom > viewport.bottom) list.scrollTop += bounds.bottom - viewport.bottom;
   }, [id, selected, commands]);
   return <div ref={popup} popover="manual" className="composer-commands select__popup" onMouseDown={event => event.preventDefault()}>
-    <div className="composer-commands__heading">{messages.chat.commands}</div>
+    <div className="composer-commands__heading">{prefix ? `/${prefix}` : messages.chat.commands}</div>
     <div ref={results} id={`${id}-commands`} role="listbox" aria-label={messages.chat.commands} className="composer-commands__results">
-      {commands.map((command, index) => <button key={command.name} tabIndex={-1} id={`${id}-command-${index}`} type="button" role="option" aria-selected={index === selected} data-active={index === selected || undefined} aria-disabled={command.disabled || undefined} className="composer-command select__option" onPointerMove={() => onActive(index)} onClick={() => onSelect(index)}>
-        <span className="composer-command__symbol" aria-hidden="true">/</span>
-        <span className="select__option-text"><span className="select__option-label">/{command.name}</span><span className="composer-command__description">{command.description}</span></span>
-        {index === selected && !command.disabled && <span className="composer-command__enter" aria-hidden="true">↵</span>}
+      {commands.map((command, index) => <button key={command.completion} tabIndex={-1} id={`${id}-command-${index}`} type="button" role="option" aria-selected={index === selected} data-active={index === selected || undefined} aria-disabled={command.disabled || undefined} className="composer-command select__option" onPointerMove={() => onActive(index)} onClick={() => onSelect(index)}>
+        <span className="composer-command__symbol" aria-hidden="true">{prefix ? '›' : '/'}</span>
+        <span className="select__option-text"><span className="select__option-label">{command.label ?? `${prefix ? '' : '/'}${command.name}`}</span><span className="composer-command__description">{command.description}</span></span>
+        {!command.disabled && (command.hasChildren || index === selected) && <span className="composer-command__enter" aria-hidden="true">{command.hasChildren ? '›' : '↵'}</span>}
       </button>)}
       {!commands.length && <p className="composer-commands__empty" role="status">{messages.chat.noCommands}</p>}
     </div>

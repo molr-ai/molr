@@ -69,6 +69,6 @@ export function GrantEditor({ assistant, assistants, resources, grant, initialRe
     </>}
     {target.fullAccess && <Switch size="sm" label={locale === 'zh' ? '仅执行一次' : 'Use once'} checked={once} disabled={!!grant?.Used} onChange={e => setOnce(e.target.checked)} />}
     {target.fullAccess && <p className="muted">{grant?.Used ? (locale === 'zh' ? '此授权已使用，请创建新授权。修改不会恢复次数。' : 'This authorization has been used. Create a new grant; editing cannot restore its use.') : once ? (locale === 'zh' ? '有效期内仅可发起一次执行。发起后即消耗，失败不返还；查询和运行中的检查不重复计次。' : 'Admit one execution within the expiry. Admission consumes the use even if execution fails; observation and running checks do not consume again.') : (locale === 'zh' ? '有效期内可重复执行。' : 'May be used repeatedly within the expiry.')}</p>}
-    <DateTimePicker size="sm" label={t.resources.expires} value={expires} onValueChange={setExpires} min={new Date().toISOString()} />
+    <DateTimePicker className="permission-expiry-picker" size="md" label={t.resources.expires} value={expires} onValueChange={setExpires} min={new Date().toISOString()} />
   </EditDialog>;
 }

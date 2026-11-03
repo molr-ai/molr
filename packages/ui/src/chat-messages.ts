@@ -1,5 +1,5 @@
 const zh = {
-  commandChoose: '选择', commandComplete: '补全', commands: '指令', noCommands: '没有匹配指令，发送将作为普通消息。',
+  commandChoose: '选择', commandComplete: '补全', commands: '指令', noCommands: '没有匹配的指令或选项。',
 
   copyOriginal: "复制原文",
   copied: "已复制",
@@ -44,7 +44,7 @@ const zh = {
 };
 
 const en: typeof zh = {
-  commandChoose: 'Select', commandComplete: 'Complete', commands: 'Commands', noCommands: 'No matching commands. Send as a regular message.',
+  commandChoose: 'Select', commandComplete: 'Complete', commands: 'Commands', noCommands: 'No matching commands or options.',
 
   copyOriginal: "Copy original text",
   copied: "Copied",

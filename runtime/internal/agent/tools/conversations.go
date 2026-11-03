@@ -21,16 +21,17 @@ type Attachment struct {
 	MediaType string  `json:"media_type,omitempty"`
 }
 type ConversationRequest struct {
-	SandboxID      core.ID        `json:"sandbox_id,omitempty"`
-	ConversationID core.ID        `json:"conversation_id"`
-	MessageID      core.ID        `json:"message_id,omitempty"`
-	Cursor         string         `json:"cursor,omitempty"`
-	Limit          int            `json:"limit,omitempty"`
-	Text           string         `json:"text,omitempty"`
-	Card           *cardArguments `json:"card,omitempty"`
-	Attachments    []Attachment   `json:"attachments,omitempty"`
-	FileID         core.ID        `json:"file_id,omitempty"`
-	Path           string         `json:"path,omitempty"`
+	Receiver       *conversation.Endpoint `json:"receiver,omitempty"`
+	SandboxID      core.ID                `json:"sandbox_id,omitempty"`
+	ConversationID core.ID                `json:"conversation_id"`
+	MessageID      core.ID                `json:"message_id,omitempty"`
+	Cursor         string                 `json:"cursor,omitempty"`
+	Limit          int                    `json:"limit,omitempty"`
+	Text           string                 `json:"text,omitempty"`
+	Card           *cardArguments         `json:"card,omitempty"`
+	Attachments    []Attachment           `json:"attachments,omitempty"`
+	FileID         core.ID                `json:"file_id,omitempty"`
+	Path           string                 `json:"path,omitempty"`
 }
 type ConversationAttachments interface {
 	Get(context.Context, core.Principal, core.ID) (files.File, error)
@@ -75,7 +76,8 @@ func conversationArgs(call Call) (ConversationRequest, error) {
 	case "conversation_read":
 		allowed += " message_id cursor limit"
 	case "conversation_publish":
-		allowed += " text card attachments"
+		allowed += " text card attachments receiver"
+		required = nil
 	case "conversation_attachment":
 		allowed += " file_id path sandbox_id"
 		required = append(required, "file_id", "path")
@@ -83,7 +85,7 @@ func conversationArgs(call Call) (ConversationRequest, error) {
 	if err := decodeArguments(call.Arguments, &r, allowed, required...); err != nil {
 		return r, err
 	}
-	if r.ConversationID.Validate() != nil {
+	if r.ConversationID.Validate() != nil && !(call.Name == "conversation_publish" && r.Receiver != nil) {
 		return r, core.Invalid("conversation_id", "required")
 	}
 	if r.MessageID != "" && (r.MessageID.Validate() != nil || r.Cursor != "") {
@@ -142,9 +144,10 @@ func (e *executor) conversationDefinitions() []Definition {
 		return nil
 	}
 	ref := `"conversation_id":{"type":"string"}`
+	receiver := `,"receiver":{"type":"object","properties":{"Type":{"enum":["user","assistant"]},"ID":{"type":"string"}},"required":["Type","ID"],"additionalProperties":false}`
 	defs := []Definition{
 		{Name: "conversation_read", Description: "Read recent conversation messages (default 50, maximum 200), returned in chronological order within each page (oldest first, newest last). Use NextCursor as cursor to read older pages. Before replying, read all unread user messages: omit message_id to read recent history, then follow NextCursor until all messages not yet read in your context are covered. Process them in sequence order. If the previously read boundary is uncertain, continue to the end of history. message_id retrieves only one specific message and is not sufficient for checking all unread messages. Attachment metadata is returned with messages; use conversation_attachment to save an attachment to your workspace.", InputSchema: schema(ref+`,"message_id":{"type":"string"},"cursor":{"type":"string","maxLength":2048},"limit":{"type":"integer","minimum":1,"maximum":200}`, `"conversation_id"`), RequiredActions: []string{"read"}},
-		{Name: "conversation_publish", Description: "The only way to communicate with the user: publish a user-visible message, card, and/or attachments. You MUST use this tool for answers, questions, progress updates, completion notices and error explanations. Direct assistant content and final replies are private; the user cannot see them and they are never published automatically. Check the result to confirm publication. Attachments accept either an accessible file_id or a file path in your workspace (relative or /work/...), with optional name and media_type. Paths always refer to the local workspace; download remote files using file_transfer first. Workspace files may be binary. Publication does not start another assistant turn.", InputSchema: schema(ref+`,"text":{"type":"string","maxLength":65536},"card":{"type":"object","properties":{"kind":{"enum":["task","resource","schedule"]},"target_id":{"type":"string"},"title":{"type":"string"},"summary":{"type":"string"}},"required":["kind","target_id"],"additionalProperties":false},"attachments":{"type":"array","maxItems":20,"items":{"type":"object","properties":{"sandbox_id":{"enum":["local"]},"file_id":{"type":"string"},"path":{"type":"string"},"name":{"type":"string"},"media_type":{"type":"string"}},"additionalProperties":false}}`, `"conversation_id"`), RequiredActions: []string{"write"}, SideEffect: true},
+		{Name: "conversation_publish", Description: "Send a message, card or attachments to a user or assistant. Supply conversation_id to reply, or receiver {Type, ID} to open a direct conversation. Sender is your current identity. You MUST use this tool for answers, questions, progress updates, completion notices and error explanations. Direct assistant content and final replies are private; the user cannot see them and they are never published automatically. Check the result to confirm publication. Attachments accept either an accessible file_id or a file path in your workspace (relative or /work/...), with optional name and media_type. Paths always refer to the local workspace; download remote files using file_transfer first. Workspace files may be binary. Messages addressed to another assistant wake that receiver; replies to users do not. Do not reply to acknowledgements unnecessarily.", InputSchema: schema(ref+receiver+`,"text":{"type":"string","maxLength":65536},"card":{"type":"object","properties":{"kind":{"enum":["task","resource","schedule"]},"target_id":{"type":"string"},"title":{"type":"string"},"summary":{"type":"string"}},"required":["kind","target_id"],"additionalProperties":false},"attachments":{"type":"array","maxItems":20,"items":{"type":"object","properties":{"sandbox_id":{"enum":["local"]},"file_id":{"type":"string"},"path":{"type":"string"},"name":{"type":"string"},"media_type":{"type":"string"}},"additionalProperties":false}}`, ``), RequiredActions: []string{"write"}, SideEffect: true},
 	}
 	if e.options.ConversationAttachments != nil {
 		defs = append(defs, Definition{Name: "conversation_attachment", Description: "Save an attachment from this conversation into a new file in your own workspace, preserving binary bytes. Files are always saved locally. Use file_transfer afterwards to upload to a remote authorized directory. path must be a relative file path or /work/...; its parent must already exist. Never overwrites an existing file. Use file_read to inspect the saved file: text is returned directly, supported images/audio/video frames are loaded into model context, and unsupported formats return metadata.", InputSchema: schema(ref+`,"sandbox_id":{"enum":["local"]},"file_id":{"type":"string"},"path":{"type":"string","maxLength":4096}`, `"conversation_id","file_id","path"`), RequiredActions: []string{"read", "write"}, SideEffect: true})
@@ -185,6 +188,17 @@ func (e *executor) conversationDispatch(ctx context.Context, call Call) (json.Ra
 			core.Page[conversation.Message]
 			Attachments map[core.ID]files.File
 		}{page, attachments})
+	}
+	// Resolve and authorize the target before uploading anything.
+	if r.Receiver != nil {
+		chat, err := e.options.Conversations.OpenDirect(ctx, call.Execution, *r.Receiver)
+		if err != nil {
+			return nil, err
+		}
+		if r.ConversationID != "" && r.ConversationID != chat.ID {
+			return nil, core.Invalid("receiver", "receiver does not match conversation")
+		}
+		r.ConversationID = chat.ID
 	}
 	// Check the target before uploading anything.
 	if _, err := e.options.Conversations.Get(ctx, call.Execution.Principal, r.ConversationID); err != nil {

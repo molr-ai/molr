@@ -23,6 +23,8 @@ for (const decision of ['approve', 'reject']) test(`permission request ${decisio
   await page.getByRole('textbox', { name: 'Message your assistant', exact: true }).fill('Please run the calculation.');
   await page.getByRole('button', { name: 'Send', exact: true }).click();
   await expect(page.locator('.permission-request-card')).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole('button', { name: '1 pending permission request', exact: true })).toContainText('1 pending permission request');
+  await expect(page.locator('.assistant-notifications')).toHaveCount(0);
   await expect.poll(async () => (await (await page.request.get(`/api/assistants/${assistant.ID}/status`)).json()).WaitingReason).toBe('permission_pending');
   await page.reload();
   await expect(page.locator('.permission-request-card')).toContainText('Run the calculation in an isolated sandbox.');
@@ -37,6 +39,10 @@ for (const decision of ['approve', 'reject']) test(`permission request ${decisio
   let permissionsPanel = page.locator('.assistant-info');
   await permissionsPanel.getByRole('tab', { name: 'Permissions', exact: true }).click();
   await expect(permissionsPanel.locator('.permission-requests')).toContainText('Permission requests');
+  await expect(permissionsPanel.locator('.permission-requests .permission-request-card')).toHaveCount(1);
+  await expect(permissionsPanel.locator('.permission-requests')).toContainText('1 pending permission request');
+  await expect(permissionsPanel.locator('.permissions-content > section').first()).toHaveClass(/permission-requests/);
+  await expect(permissionsPanel.getByRole('button', { name: 'Authorization history', exact: true })).toHaveCount(0);
   await expect(permissionsPanel.locator('.permission-requests')).toContainText('Run the calculation in an isolated sandbox.');
   await expect(page.getByText('This theme could not load', { exact: true })).toHaveCount(0);
   await permissionsPanel.getByRole('button', { name: 'Close', exact: true }).click();
@@ -81,8 +87,10 @@ for (const decision of ['approve', 'reject']) test(`permission request ${decisio
   await page.locator('.chat-assistant-info').click();
   permissionsPanel = page.locator('.assistant-info');
   await permissionsPanel.getByRole('tab', { name: 'Permissions', exact: true }).click();
-  await permissionsPanel.getByText(/Resolved permission requests/).click();
-  await expect(permissionsPanel.locator('.permission-requests')).toContainText(decision === 'approve' ? 'Approved scope' : 'Rejected');
+  await permissionsPanel.getByRole('button', { name: 'Authorization history', exact: true }).click();
+  await expect(permissionsPanel.locator('.permission-requests')).toContainText(decision === 'approve' ? 'Granted with your confirmed settings' : 'Rejected');
+  await permissionsPanel.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(permissionsPanel.getByText('No pending permission requests', { exact: true })).toBeVisible();
   await expect(permissionsPanel.getByRole('button', { name: 'Add permission', exact: true })).toBeEnabled();
   await expect(page.getByText('This theme could not load', { exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

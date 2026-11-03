@@ -9,7 +9,21 @@ import (
 	"molr.ai/runtime/internal/core"
 )
 
+// Endpoint identifies a logical participant, independently of transport.
+type Endpoint struct {
+	Type Sender
+	ID   core.ID
+}
+type Origin struct {
+	ClientKind       string
+	DeviceID         core.ID `json:",omitempty"`
+	ChannelBindingID core.ID `json:",omitempty"`
+}
+
 type Conversation struct {
+	// PartnerID is the second assistant in a direct assistant conversation.
+	// Empty means the account owner is the other participant.
+	PartnerID     core.ID `json:",omitempty"`
 	LastMessageID core.ID
 	// LastSequence is a durable high-water mark; history cleanup never resets it.
 	LastSequence     uint64
@@ -96,6 +110,8 @@ type Source struct {
 	OperationID core.ID
 }
 type Message struct {
+	Receiver       Endpoint
+	Origin         Origin
 	Feedback       Feedback
 	ID             core.ID
 	ConversationID core.ID
@@ -130,6 +146,7 @@ func (r SendUserRequest) Validate() error {
 // PublishRequest is available only with a trusted assistant Execution; sender
 // is not a request field. It emits visible events, never user input events.
 type PublishRequest struct {
+	Receiver       *Endpoint `json:",omitempty"`
 	Mutation       core.Mutation
 	ConversationID core.ID
 	Content        Content
@@ -164,8 +181,9 @@ type FeedbackRequest struct {
 // Service separates actual user input from explicit assistant publishing.
 // SendUser and Publish persist message, IM outbox event, visible event and
 // idempotency receipt in one transaction. IM never enqueues an Agent event.
-// The Agent scheduler consumes IM events and wakes only for real user input.
+// The Agent scheduler consumes IM events and wakes their assistant receiver.
 type Client interface {
+	Collaborations(context.Context, core.Principal, core.ID, core.PageRequest) (core.Page[Conversation], error)
 	List(context.Context, core.Principal, core.PageRequest) (core.Page[Conversation], error)
 	Get(context.Context, core.Principal, core.ID) (Conversation, error)
 	Messages(context.Context, core.Principal, MessageQuery) (core.Page[Message], error)
@@ -175,6 +193,7 @@ type Client interface {
 	SetFeedback(context.Context, core.Principal, FeedbackRequest) error
 }
 type Publisher interface {
+	OpenDirect(context.Context, core.Execution, Endpoint) (Conversation, error)
 	Publish(context.Context, core.Execution, PublishRequest) (Message, error)
 	AcceptUserMessage(context.Context, core.Execution, core.ID) error
 	ReadUserMessages(context.Context, core.Execution, []core.ID) error

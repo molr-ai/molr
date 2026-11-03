@@ -121,7 +121,7 @@ import '@molr/ui/styles.css';
   onVoiceInput={toggleRecording} recording={recording} sending={sending} onStop={stop} />
 ```
 
-`ChatComposer` 使用受控草稿，textarea 从 28 px 自适应到 180 px，超过后内部滚动；外框默认使用弱边框，悬停时轻微加深，聚焦时向内加粗。点击空白区域自动聚焦 textarea，按钮、文件输入和模型选择保留自身事件；禁用时不响应空白区域点击。Enter 发送、Shift+Enter 换行，输入法组合期间不发送。左下附件按钮通过 `onAttachFiles` 返回 `File[]`，右下为模型、语音和发送／停止按钮；`disabled` 禁用所有输入，`sendDisabled` 只限制提交，`sending` 配合 `onStop` 展示停止生成。`hint` 和 `notice` 分别提供辅助说明和状态反馈。录音、文件限制、上传、回复生成与持久化均由调用方负责。
+`ChatComposer` 使用受控草稿，textarea 从 28 px 自适应到 180 px，超过后内部滚动；外框默认使用弱边框，悬停时轻微加深，聚焦时向内加粗。点击空白区域自动聚焦 textarea，按钮、文件输入和模型选择保留自身事件；禁用时不响应空白区域点击。Enter 发送、Shift+Enter 换行，输入法组合期间不发送。左下附件按钮通过 `onAttachFiles` 返回 `File[]`，右下为模型、语音和发送／停止按钮；`disabled` 禁用所有输入，`sendDisabled` 只限制提交，`sending` 配合 `onStop` 展示停止生成。`hint` 和 `notice` 分别提供辅助说明和状态反馈。 `extension` 接收输入框顶部的附属内容，采用 warning 背景色，仅顶部左右圆角，并延伸至输入框顶部圆角后方以填补接缝；位于提交表单外，输入框保留原有边框和完整圆角；锁定输入时仍可展示和操作。业务层负责内容与可见性。录音、文件限制、上传、回复生成与持久化均由调用方负责。
 
 `lock={{ title, description?, action? }}` 展示通用锁定样式，保留输入框的轮廓、表面色和圆角，以锁图标、标题、说明和可选操作替代编辑区与工具栏。锁定时不显示草稿、附件、输入提示或发送控件，操作区保持可用；移除 `lock` 后恢复调用方持有的草稿和附件。`description` 与 `action` 支持 ReactNode，组件不包含渠道业务；微信聊天入口通过此配置展示发送方式、解绑恢复输入的说明与管理按钮。
 
@@ -303,8 +303,8 @@ const [range, setRange] = useState<[number, number]>([20, 80]);
 
 组件保留源字符串与空白，不执行代码、不插入 HTML。无效 JSON、超过 100,000 字符或超过约 10,000 个标记的内容回退为完整纯文本，限制高亮开销但不截断数据。需要格式化时由调用方显式提供缩进后的字符串。UI Design 的「设计基础 → 代码高亮」可切换格式、换行和编辑示例。
 
-`ChatComposer.commands` 可选地提供 `{ name, description, aliases?, keywords?, disabled? }[]`。组件负责输入开头的斜杠菜单、键盘与输入法行为，选择只补全文本；实际指令执行由调用方 `onSubmit` 根据完整输入分发。路径及正文中的斜杠保持普通输入。未传入 commands 的调用保持原有行为。
-`ChatComposerCommand.aliases?: readonly string[]` 指定可补全别名（不含 `/`）；按别名筛选时补全该别名。`name` 与别名均支持空格分隔的子命令。业务调用方负责解析别名并限制指令生效条件。
+`ChatComposer.commands` 可选地提供 `{ name, description, label?, aliases?, keywords?, disabled?, children? }[]`。组件负责输入开头的斜杠菜单、键盘与输入法行为，选择只补全文本；实际指令执行由调用方 `onSubmit` 根据完整输入分发。路径及正文中的斜杠保持普通输入。未传入 commands 的调用保持原有行为。
+`ChatComposerCommand.aliases?: readonly string[]` 指定可补全别名（不含 `/`）；按别名筛选时补全该别名。每个节点的 `name` 是一段补全值，`children` 声明下一级候选，`label` 可用摘要代替内部 ID 展示；父级匹配别名后，下一级优先沿用对应别名。菜单只筛选当前层级，父级必须完整匹配。选择父级补上空格并继续展示子级，选择末级补全文本并收起菜单，均不自动提交。业务调用方负责解析别名并限制指令生效条件。
 
 指令菜单复用 Select 浮层及选项样式，最大宽度 360 px，默认在输入框上方，不足时调整到下方。浮层使用原生非模态 popover，遵循 `ModalScope` 和 `visualViewport` 边界，焦点保留在 textarea；方向键仅滚动候选列表，触屏不显示键盘提示。示例入口为 UI Design `?components=chat#command-selector`。
 

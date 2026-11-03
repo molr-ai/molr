@@ -24,7 +24,7 @@
 
 ### 助理间任务委派
 
-当前已有[计划前置依赖与交接](https://molr.ai/zh/docs/user/guides/plans/)，助理的[计划工具](https://github.com/molr-ai/molr/blob/main/runtime/internal/agent/tools/plans.go)限定操作分配给自己的计划。本项增加执行过程中的委派与结果回收。
+当前已有[助理私聊与预授权临时助理](https://molr.ai/zh/docs/user/guides/assistants-and-chat/#助理间协作与临时助理)，可以通过消息安排工作与回传结果；另有[计划前置依赖与交接](https://molr.ai/zh/docs/user/guides/plans/)。本项增加结构化的父子任务关系、状态汇总与结果验收。
 
 - **新增范围**：在用户允许的协作范围内，一位助理可向另一位助理委派子任务、传递必要资料、等待结果并汇总；用户可查看父子任务、责任助理、状态和费用。
 - **完成标准**：可以完成一次拆分、委派、执行、回传和汇总；子任务失败、取消或等待授权时，父任务正确反映状态；限制委派深度和并发，避免循环委派。

@@ -394,3 +394,7 @@
 | `internal/im/weixin` | `Service.Summary` | `TestSummarySkipsDeliveryHistoryAndChecksIdentity` |
 | `internal/im/telegram` | `Service.Summary` | `TestSummarySkipsDeliveryHistoryAndChecksIdentity` |
 | `internal/im/slack` | `Service.Summary` | `TestSummarySkipsDeliveryHistoryAndChecksIdentity` |
+
+| `internal/im/conversation` | `Client.Collaborations`, `Publisher.OpenDirect`, `Service.Collaborations`, `Service.OpenDirect` | `internal/app.TestTemporaryPreauthorizationLifecycleAndIsolation` |
+
+| `internal/agent` | `Engine.TemporaryLifecycle` | `internal/app.TestTemporaryPreauthorizationLifecycleAndIsolation`, `internal/app.TestTemporaryCreateRollbackAndExpiry` |

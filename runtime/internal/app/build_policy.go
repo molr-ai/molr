@@ -31,8 +31,14 @@ func (b *Bundle) buildPolicy(ctx context.Context, cfg config.Config, identity *a
 	permissions, err := policy.NewService(store, policy.Options{GrantUsed: func(ctx context.Context, g policy.Grant) error {
 		return realtime.NewStore(store).Append(ctx, realtime.Visible{ID: randomOperation(), OwnerID: g.OwnerID, Topic: "grants.changed", Object: core.Object{Kind: "assistant", ID: g.AssistantID}, CreatedAt: time.Now().UTC()})
 	}, CheckGroupBudget: func(ctx context.Context, r policy.ReserveRequest) error {
+		if err := checkTemporaryBudget(ctx, store, r, b.Exchange.Snapshot()); err != nil {
+			return err
+		}
 		return checkGroupModelBudget(ctx, store, r, b.Exchange.Snapshot())
 	}, CheckAccess: func(ctx context.Context, p core.Principal, q policy.CheckRequest) error {
+		if err := temporaryAccess(ctx, store, p, q); err != nil {
+			return err
+		}
 		return groupAccess(ctx, store, p, q)
 	}, ObserveBudget: func(ctx context.Context, id core.ID, data any, err error) {
 		state := "succeeded"

@@ -1,0 +1,134 @@
+import { test, expect } from '@playwright/test';
+import type { Page } from '@playwright/test';
+const port = process.env.MOLR_TEST_PORT ?? '5193';
+const base = `http://127.0.0.1:${port}`;
+async function post(page: Page, path: string, data: object) {
+ const csrf = (await page.context().cookies()).find(c => c.name === `molr_dev_csrf_p${port}`)!.value;
+ const response = await page.request.post(path, { headers: { Origin: base, 'X-CSRF-Token': csrf }, data: { ...data, Mutation: { IdempotencyKey: crypto.randomUUID() } } });
+ expect(response.status(), await response.text()).toBe(200); return response.json();
+}
+for (const manual of [false, true]) test(`hiring permission and unique conversation entry (${manual ? 'manual dismissal' : 'automatic dismissal'})`, async ({ page }, info) => {
+ await page.goto('/');
+ await page.getByLabel('Username', { exact: true }).fill('owner');
+ await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!');
+ await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+ await expect(page.getByRole('navigation', { name: 'Molr' })).toBeVisible();
+ const name = `Collaboration ${manual ? "manual " : ""}${info.project.name}-${Date.now()}`;
+ const origin = `http://127.0.0.1:${process.env.MOLR_E2E_MODEL_PORT ?? 18882}`;
+ const resource = await post(page, '/api/resources', { Name: name, Kind: 'model', Provider: 'openai-compatible', Binding: { Endpoint: origin, AllowedOrigins: [origin], Models: [{ Name: name, ContextLimit: 32768, SupportsTools: true, Pricing: { Currency: 'USD', InputMicrosPerMillion: 0, CachedInputMicrosPerMillion: 0, OutputMicrosPerMillion: 0 } }] } });
+ const models = await (await page.request.get('/api/models')).json();
+ const model = models.find((m: any) => m.ResourceID === resource.ID);
+ const parent = await post(page, '/api/assistants', { Name: name, ModelID: model.ID, Budget: { Limit: { Currency: 'USD', Micros: 10_000_000 }, Period: 'daily' } });
+ const peer = await post(page, '/api/assistants', { Name: `Peer ${name}`, ModelID: model.ID, Budget: { Limit: { Currency: 'USD', Micros: 10_000_000 }, Period: 'daily' } });
+ await page.goto(`/#/assistants/${parent.ID}`);
+ await page.locator('.chat-assistant-info').click();
+ await page.getByRole('tab', { name: 'Permissions', exact: true }).click();
+ const panel = page.locator('.assistant-info');
+ const permission = panel.getByRole('region', { name: 'Task delegation', exact: true });
+ const peerRow = permission.getByRole('article', { name: 'Talk to other assistants', exact: true });
+ const hiringRow = permission.getByRole('article', { name: 'Temporary hiring', exact: true });
+ await peerRow.getByRole('button', { name: 'Edit', exact: true }).click();
+ const peerEditor = page.getByRole('dialog', { name: 'Assistant communication authorization', exact: true });
+ const peerEnabled = peerEditor.getByRole('switch', { name: 'Allow communication with other assistants', exact: true });
+ await expect(peerEnabled).not.toBeChecked();
+ await expect(peerEditor.getByRole('radio', { name: 'All assistants', exact: true })).toBeChecked();
+ await expect(peerEditor.getByRole('button', { name: 'Forever', exact: true })).toHaveAttribute('aria-pressed', 'true');
+ await peerEnabled.check();
+ if (manual) {
+  await peerEditor.getByRole('radio', { name: 'Selected assistants', exact: true }).check();
+  await peerEditor.getByRole('combobox', { name: 'Allowed assistants', exact: true }).click();
+  await page.getByRole('option', { name: peer.Name, exact: true }).click();
+  await page.keyboard.press('Escape');
+  await peerEditor.getByRole('button', { name: '7 days', exact: true }).click();
+ }
+ await peerEditor.getByRole('button', { name: 'Save', exact: true }).click();
+ await expect(peerEditor).toHaveCount(0);
+ const permissionConfig = (await (await page.request.get(`/api/assistants/${parent.ID}`)).json()).PeerCommunication;
+ expect(permissionConfig.Enabled).toBe(true);
+ expect(permissionConfig.AllAssistants).toBe(!manual);
+ if (manual) { expect(permissionConfig.AssistantIDs).toEqual([peer.ID]); expect(Date.parse(permissionConfig.ExpiresAt)).toBeGreaterThan(Date.now()); }
+ else expect(permissionConfig.ExpiresAt).toBeNull();
+ await peerRow.getByRole('button', { name: 'Edit', exact: true }).click();
+ await peerEnabled.uncheck();
+ await peerEditor.getByRole('button', { name: 'Cancel', exact: true }).click();
+ await expect(peerEditor).toHaveCount(0);
+ expect((await (await page.request.get(`/api/assistants/${parent.ID}`)).json()).PeerCommunication.Enabled).toBe(true);
+ await peerRow.getByRole('button', { name: 'Edit', exact: true }).click();
+ await peerEnabled.uncheck();
+ await peerEditor.getByRole('button', { name: 'Save', exact: true }).click();
+ await expect(peerEditor).toHaveCount(0);
+ await expect(peerRow.getByText('Not allowed', { exact: true })).toBeVisible();
+ await expect(panel.getByLabel('Maximum active assistants')).toHaveCount(0);
+ await hiringRow.getByRole('button', { name: 'Edit', exact: true }).click();
+ const editor = page.getByRole('dialog', { name: 'Temporary hiring authorization', exact: true });
+ await editor.getByRole('switch', { name: 'Allow temporary hiring' }).check();
+ await editor.getByLabel('Maximum active assistants').fill('2');
+ await editor.getByRole('spinbutton', { name: 'Shared total budget (USD)' }).fill('1');
+ const expiry = editor.getByRole('group', { name: 'Validity', exact: true });
+ await expect(expiry.getByRole('button', { name: 'Forever', exact: true })).toBeVisible();
+ await expiry.getByRole('button', { name: '7 days', exact: true }).click();
+ await expiry.getByRole('button', { name: 'Custom', exact: true }).click();
+ await page.getByRole('dialog', { name: 'Date and time', exact: true }).getByRole('button', { name: 'Cancel', exact: true }).click();
+ await expect(expiry.getByRole('button', { name: '7 days', exact: true })).toHaveAttribute('aria-pressed', 'true');
+ if (manual) await expiry.getByRole('button', { name: 'Forever', exact: true }).click();
+ await editor.getByRole('checkbox').first().check();
+ await editor.getByRole('button', { name: 'Save', exact: true }).click();
+ await expect.poll(async () => (await (await page.request.get(`/api/assistants/${parent.ID}`)).json()).Hiring?.Enabled).toBe(true);
+ await expect(editor).toHaveCount(0);
+ const savedHiring = (await (await page.request.get(`/api/assistants/${parent.ID}`)).json()).Hiring;
+ if (manual) expect(savedHiring.ExpiresAt).toBeNull();
+ else expect(Date.parse(savedHiring.ExpiresAt)).toBeGreaterThan(Date.now());
+ await expect(permission).toContainText('Up to 2 assistants');
+ await hiringRow.getByRole('button', { name: 'Edit', exact: true }).click();
+ await editor.getByLabel('Maximum active assistants').fill('3');
+ await editor.getByRole('button', { name: 'Cancel', exact: true }).click();
+ await expect(editor).toHaveCount(0);
+ await expect(permission).toContainText('Up to 2 assistants');
+ await page.keyboard.press('Escape');
+ await expect(panel).toHaveCount(0);
+ await page.getByRole('textbox', { name: 'Message your assistant', exact: true }).fill('Hire a temporary assistant to compute 6 times 7. Return its result and end its employment.');
+ await page.getByRole('button', { name: 'Send', exact: true }).click();
+ try {
+ await expect(page.getByRole('log', { name: 'Assistant conversation' }).getByText(manual ? 'The temporary assistant completed the work: 42. Employment stays active.' : 'The temporary assistant completed the work: 42. Employment ended.', { exact: true })).toBeVisible({ timeout: 30000 });
+ } catch (error) {
+  const diagnostics = await Promise.all([`/api/assistants/${parent.ID}/status`, `/api/jobs?assistant_id=${parent.ID}`, '/api/notifications', `/api/assistants?employer_id=${parent.ID}&include_temporary=true`].map(async path => ({ path, data: await (await page.request.get(path)).json() })));
+  await info.attach('collaboration-runtime', { body: JSON.stringify(diagnostics, null, 2), contentType: 'application/json' });
+  throw error;
+ }
+
+ await page.locator('.chat-assistant-info').click();
+ await page.getByRole('tab', { name: 'Conversations', exact: true }).click();
+ await expect(panel.getByRole('heading', { name: 'Temporary hiring authorization', exact: true })).toHaveCount(0);
+ const list = panel.getByRole('list', { name: 'Assistant conversations' });
+ const entry = list.getByRole('button', { name: /Temporary researcher/ });
+ await expect(entry).toHaveCount(1);
+ await expect(entry).toContainText('Worker result: 42.');
+ await expect(entry.getByText(manual ? 'Idle' : 'Ended', { exact: true })).toBeVisible();
+ await expect(entry.getByText('Temporary assistant', { exact: true })).toBeVisible();
+ await entry.click();
+ await expect(panel.getByRole('heading', { name: 'Temporary researcher', exact: true })).toBeVisible();
+ await expect(panel.getByRole('region', { name: 'Conversation history' }).getByText('Worker result: 42.', { exact: true })).toBeVisible();
+ await expect(panel.getByRole('textbox', { name: 'Message your assistant', exact: true })).toHaveCount(0);
+ if (manual) {
+  await panel.getByRole('button', { name: 'More', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'End employment', exact: true }).click();
+  const confirm = page.getByRole('dialog', { name: 'End temporary employment', exact: true });
+  await confirm.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(confirm).toHaveCount(0);
+  await expect(panel.getByRole('region', { name: 'Conversation history' }).getByText('Worker result: 42.', { exact: true })).toBeVisible();
+  await panel.getByRole('button', { name: 'More', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'End employment', exact: true }).click();
+  await confirm.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await expect(confirm).toHaveCount(0);
+ }
+ await expect(panel.getByText('Ended', { exact: true }).filter({ visible: true })).toBeVisible();
+ await expect(panel.getByRole('button', { name: 'More', exact: true })).toHaveCount(0);
+ await panel.getByRole('button', { name: 'Back to conversations', exact: true }).click();
+ await expect(entry).toBeFocused();
+ await expect(entry).toHaveCount(1);
+ await expect(entry.getByText('Ended', { exact: true })).toBeVisible();
+ const workers = await (await page.request.get(`/api/assistants?employer_id=${parent.ID}&include_temporary=true`)).json();
+ expect(workers.Items).toHaveLength(1); expect(workers.Items[0].State).toBe('dismissed');
+ const visible = await (await page.request.get('/api/assistants?state=active')).json();
+ expect(visible.Items.some((a: any) => a.ID === workers.Items[0].ID)).toBe(false);
+});

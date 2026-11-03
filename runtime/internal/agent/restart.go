@@ -152,7 +152,7 @@ func (e *Engine) RecoverInterrupted(ctx context.Context, job scheduler.Job) (boo
 		if r.Attempts > 3 {
 			return fail("runtime_recovery_exhausted")
 		}
-		resume := event.AssistantEvent{ID: stableID("runtime-resume", string(job.Event.ID), string(job.ExecutionID)), OwnerID: job.Event.OwnerID, AssistantID: job.Event.AssistantID, TaskID: job.Event.TaskID, Kind: event.ResumeRequested, DeliveryMode: event.WhenIdle, CreatedAt: e.options.Now().UTC(), Recovery: r}
+		resume := event.AssistantEvent{ConversationID: job.Event.ConversationID, ID: stableID("runtime-resume", string(job.Event.ID), string(job.ExecutionID)), OwnerID: job.Event.OwnerID, AssistantID: job.Event.AssistantID, TaskID: job.Event.TaskID, Kind: event.ResumeRequested, DeliveryMode: event.WhenIdle, CreatedAt: e.options.Now().UTC(), Recovery: r}
 		if err := event.NewWriter(tx.Store()).AppendAssistant(ctx, resume); err != nil {
 			return err
 		}

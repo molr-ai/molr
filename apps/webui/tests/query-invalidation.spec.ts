@@ -32,7 +32,7 @@ test('message events preserve exact-message reconciliation and fallback refresh'
   expect(eventInvalidation({ Topic: 'assistant.changed', Object: { ID: 'assistant' } }).topics).toEqual(['status:assistant', 'activity', 'tasks', 'dreams', 'memories', 'usage']);
   expect(eventInvalidation({ Topic: 'notification.changed' })).toEqual({ topics: ['notifications'] });
   for (const channel of ['qq', 'feishu', 'weixin', 'dingtalk', 'slack', 'telegram']) expect(eventInvalidation({ Topic: `${channel}.changed` })).toEqual({ topics: [channel] });
-  expect(eventInvalidation({ Topic: 'permission.request' }).topics).toEqual(['permission-requests', 'grants', 'status']);
+  expect(eventInvalidation({ Topic: 'permission.request' }).topics).toEqual(['permission-requests', 'grants', 'status', 'assistants']);
   const fallback = ['activity', 'conversations', 'status', 'tasks', 'memories', 'usage'];
   expect(eventInvalidation({ Topic: 'future.event', ConversationID: 'chat' })).toEqual({ topics: ['messages:chat', ...fallback] });
   expect(eventInvalidation({ Topic: 'message.feedback' })).toEqual({ topics: ['messages', ...fallback] });
@@ -47,7 +47,7 @@ test('input and caller-managed mutations avoid broad reloads; business writes re
   expect(mutationTopics('/api/assistants/a/stop')).toEqual(['assistants', 'conversations', 'status', 'schedules', 'grants']);
   for (const channel of ['weixin', 'dingtalk', 'slack', 'telegram']) expect(mutationTopics(`/api/${channel}/disconnect`)).toEqual([channel]);
   expect(mutationTopics('/api/sandboxes/node')).toEqual(['sandboxes', 'resources', 'grants', 'capabilities', 'assistants']);
-  expect(mutationTopics('/api/permission-requests/request')).toEqual(['permission-requests', 'grants', 'status']);
+  expect(mutationTopics('/api/permission-requests/request')).toEqual(['permission-requests', 'grants', 'status', 'assistants']);
   expect(mutationTopics('/api/mcp/connect')).toEqual(['mcp', 'tools', 'resources', 'grants', 'capabilities', 'admin', 'usage']);
   expect(mutationTopics('/api/resources/provider')).toEqual(['resources', 'models', 'grants']);
   expect(mutationTopics('/api/settings')).toEqual(['settings']);

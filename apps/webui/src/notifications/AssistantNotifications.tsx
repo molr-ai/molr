@@ -21,7 +21,7 @@ export function AssistantNotifications({ assistant, status, onAction, onNavigate
  const region = useRef<HTMLElement>(null), focusNext = useRef(false);
  // Keep the visible notice stable when a newer one arrives. The oldest pending
  // notice is next; closing acknowledges exactly one occurrence, never a group.
- const rows = query.data ?? [];
+ const rows = (query.data ?? []).filter(n => n.Kind !== 'permission.request' && n.Kind !== 'plan.ready' && !(n.Kind === 'assistant.waiting' && n.Code === 'permission_pending'));
  const current = rows.find(n => n.ID === currentID) ?? rows.at(-1);
  useEffect(() => { setCurrentID(current?.ID ?? ''); }, [current?.ID]);
  useEffect(() => {
@@ -36,7 +36,7 @@ export function AssistantNotifications({ assistant, status, onAction, onNavigate
  const target = noticeAction(n);
  let label = target?.label ?? copy.open, open = () => { if (target) location.hash = target.route; };
  if (n.Kind.startsWith('qq.') || n.Kind.startsWith('feishu.') || n.Kind.startsWith('dingtalk.') || n.Kind.startsWith('weixin.') || n.Kind.startsWith('telegram.') || n.Kind.startsWith('slack.')) open = () => onAction('channel');
- else if (n.Kind === 'permission.request' || n.Code === 'model_not_authorized') { label = t.waiting.permissions; open = () => onAction('permissions'); }
+ else if (n.Code === 'model_not_authorized') { label = t.waiting.permissions; open = () => onAction('permissions'); }
  else if (n.Kind === 'assistant.waiting') {
   open = () => onAction('info');
   if (n.Code === 'budget_exceeded' || n.Code === 'assistant_budget_missing') label = t.waiting.budget;

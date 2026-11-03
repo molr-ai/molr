@@ -17,6 +17,7 @@ import (
 )
 
 type Options struct {
+	Assistant               func(context.Context, core.Execution, string, AssistantRequest) (json.RawMessage, error)
 	Browser                 func(context.Context, core.Execution, string, BrowserRequest) (json.RawMessage, error)
 	CheckGroupQuota         func(context.Context, Call) error
 	ProfileUpdate           func(context.Context, core.Execution, ProfileUpdateRequest) (json.RawMessage, error)
@@ -104,6 +105,7 @@ func (e *executor) definitions() []Definition {
 	}
 	definitions = append(definitions, e.planDefinitions()...)
 	definitions = append(definitions, e.conversationDefinitions()...)
+	definitions = append(definitions, e.assistantDefinitions()...)
 	return definitions
 }
 func (e *executor) authorize(ctx context.Context, p core.Principal, name string) error {
@@ -186,7 +188,7 @@ func (e *executor) Definitions(ctx context.Context, p core.Principal) ([]Definit
 			return nil, err
 		}
 		for _, d := range extra {
-			if visibleTool(ctx, d.Name) {
+			if visibleTool(ctx, d.Name) && e.authorize(ctx, p, d.Name) == nil {
 				result = append(result, d)
 			}
 		}
@@ -195,6 +197,10 @@ func (e *executor) Definitions(ctx context.Context, p core.Principal) ([]Definit
 }
 func parse(call Call) (arguments, error) {
 	var args arguments
+	if strings.HasPrefix(call.Name, "assistant_") {
+		_, err := assistantArguments(call)
+		return args, err
+	}
 	if call.Name == "file_transfer" {
 		r, err := parseFileTransfer(call.Arguments)
 		args.fileTransfer = &r
@@ -411,7 +417,7 @@ func (e *executor) execute(ctx context.Context, call Call) (_ Result, runErr err
 		// File mutations reject these errors before commit; plan mutations run
 		// in one transaction. Other side effects remain unknown on failure.
 		rejected := (IsExtension(call.Name) && (core.ReasonOf(err) == "plugin_http_failed" || core.ReasonOf(err) == "mcp_not_dispatched")) || (core.ReasonOf(err) == "browser_user_controlled" || core.ReasonOf(err) == "browser_snapshot_required")
-		if call.Name == "profile_update" || call.Name == "file_write" || call.Name == "file_edit" || call.Name == "file_move" || call.Name == "file_delete" || call.Name == "file_transfer" || call.Name == "conversation_attachment" || (strings.HasPrefix(call.Name, "plan_") || call.Name == "permission_request") {
+		if strings.HasPrefix(call.Name, "assistant_") || call.Name == "profile_update" || call.Name == "file_write" || call.Name == "file_edit" || call.Name == "file_move" || call.Name == "file_delete" || call.Name == "file_transfer" || call.Name == "conversation_attachment" || (strings.HasPrefix(call.Name, "plan_") || call.Name == "permission_request") {
 			switch core.CodeOf(err) {
 			case core.Conflict, core.InvalidArgument, core.Forbidden, core.NotFound, core.FailedPrecondition:
 				rejected = true
@@ -439,6 +445,12 @@ func (e *executor) dispatch(ctx context.Context, call Call, args arguments) (jso
 		return e.options.ExtensionExecute(ctx, call)
 	}
 	switch call.Name {
+	case "assistant_list", "assistant_hire", "assistant_dismiss":
+		r, err := assistantArguments(call)
+		if err != nil {
+			return nil, err
+		}
+		return e.options.Assistant(ctx, call.Execution, call.Name, r)
 	case "profile_update":
 		return e.options.ProfileUpdate(ctx, call.Execution, *args.profile)
 	case "browser_session", "browser_action":

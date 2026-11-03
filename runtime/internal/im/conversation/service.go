@@ -17,6 +17,9 @@ import (
 const receiptsBucket = "im.receipts"
 
 type Options struct {
+	ClientOrigin        func(context.Context, core.Principal) (Origin, error)
+	CheckDirect         func(context.Context, core.Principal, Endpoint) error
+	CheckAssistantInput func(context.Context, core.Principal, Message) error
 	// Channel hooks run inside the message transaction; they perform no network I/O.
 	CheckWebInput       func(context.Context, core.ID, core.ID) error
 	AuthorizeChannel    func(context.Context, core.ID, core.ID, core.ID) error
@@ -65,7 +68,7 @@ func (s *service) conversation(ctx context.Context, tx persistence.Tx, p core.Pr
 	if err != nil {
 		return c, err
 	}
-	if p.Kind == core.ActorAssistant && p.SubjectID != c.PeerID {
+	if p.Kind == core.ActorAssistant && p.SubjectID != c.PeerID && p.SubjectID != c.PartnerID {
 		return Conversation{}, core.NewError(core.Forbidden, "assistant is not conversation participant")
 	}
 	return c, nil
@@ -150,7 +153,7 @@ func (s *service) LatestMessages(ctx context.Context, p core.Principal, ids []co
 			if err != nil {
 				return err
 			}
-			if p.Kind == core.ActorAssistant && p.SubjectID != c.PeerID {
+			if p.Kind == core.ActorAssistant && p.SubjectID != c.PeerID && p.SubjectID != c.PartnerID {
 				return core.NewError(core.Forbidden, "assistant is not conversation participant")
 			}
 			found[c.ID] = true
@@ -231,6 +234,16 @@ func (s *service) Publish(ctx context.Context, execution core.Execution, req Pub
 	if err := req.Validate(execution); err != nil {
 		return Message{}, err
 	}
+	if req.Receiver != nil {
+		c, err := s.OpenDirect(ctx, execution, *req.Receiver)
+		if err != nil {
+			return Message{}, err
+		}
+		if req.ConversationID != "" && req.ConversationID != c.ID {
+			return Message{}, core.Invalid("receiver", "receiver does not match conversation")
+		}
+		req.ConversationID = c.ID
+	}
 	req.Source.OperationID = execution.OperationID
 	req.Source.ExecutionID = execution.Principal.ExecutionID
 	return s.send(ctx, execution.Principal, req.Mutation, req.ConversationID, req.Content, req.Source, Assistant)
@@ -278,6 +291,15 @@ func (s *service) sendFrom(ctx context.Context, p core.Principal, mutation core.
 		if err != nil {
 			return err
 		}
+		if c.PartnerID != "" && sender == User {
+			return core.NewError(core.Forbidden, "assistant conversations are read-only for the owner")
+		}
+		if sender == Assistant && s.options.CheckDirect != nil {
+			receiver := recipient(c, p.SubjectID)
+			if err := s.options.CheckDirect(ctx, p, receiver); err != nil {
+				return err
+			}
+		}
 		if sender == User && binding == "" && s.options.CheckWebInput != nil {
 			if err = s.options.CheckWebInput(ctx, p.OwnerID, chatID); err != nil {
 				return err
@@ -317,7 +339,19 @@ func (s *service) sendFrom(ctx context.Context, p core.Principal, mutation core.
 		if err != nil {
 			return err
 		}
-		m := Message{ID: id, ConversationID: chatID, Sender: sender, SenderID: p.SubjectID, Content: content, Source: source, CreatedAt: s.options.Now().UTC()}
+		m := Message{ID: id, ConversationID: chatID, Sender: sender, SenderID: p.SubjectID, Receiver: recipient(c, p.SubjectID), Origin: Origin{ClientKind: "runtime", ChannelBindingID: binding}, Content: content, Source: source, CreatedAt: s.options.Now().UTC()}
+		if sender == User {
+			m.Origin.ClientKind = "webui"
+			if binding == "" && s.options.ClientOrigin != nil {
+				m.Origin, err = s.options.ClientOrigin(ctx, p)
+				if err != nil {
+					return err
+				}
+			}
+			if binding != "" {
+				m.Origin.ClientKind = "channel"
+			}
+		}
 		m, err = s.repo.Append(ctx, p.OwnerID, m)
 		if err != nil {
 			return err
@@ -326,13 +360,13 @@ func (s *service) sendFrom(ctx context.Context, p core.Principal, mutation core.
 		if err != nil {
 			return err
 		}
-		if err = s.outbox.Append(ctx, MessageCreated{Sequence: m.Sequence, ID: eventID, OwnerID: p.OwnerID, ConversationID: chatID, MessageID: m.ID, Sender: m.Sender, SenderID: m.SenderID, At: m.CreatedAt}); err != nil {
+		if err = s.outbox.Append(ctx, MessageCreated{Sequence: m.Sequence, ID: eventID, OwnerID: p.OwnerID, ConversationID: chatID, MessageID: m.ID, Sender: m.Sender, SenderID: m.SenderID, Receiver: m.Receiver, At: m.CreatedAt}); err != nil {
 			return err
 		}
 		if err = s.visible(ctx, p.OwnerID, "message.created", core.Object{Kind: "message", ID: m.ID}, m.ConversationID); err != nil {
 			return err
 		}
-		if sender == Assistant && s.options.Published != nil {
+		if m.Receiver.Type == User && sender == Assistant && s.options.Published != nil {
 			if err = s.options.Published(ctx, p.OwnerID, m); err != nil {
 				return err
 			}
@@ -419,6 +453,14 @@ func (s *service) AcceptUserMessage(ctx context.Context, execution core.Executio
 		if _, err = s.conversation(ctx, tx, execution.Principal, m.ConversationID, policy.Write); err != nil {
 			return err
 		}
+		if m.Receiver.ID != "" && m.Receiver != (Endpoint{Type: Assistant, ID: execution.AssistantID}) {
+			return core.NewError(core.Forbidden, "message receiver mismatch")
+		}
+		if m.Sender == Assistant && s.options.CheckAssistantInput != nil {
+			if err := s.options.CheckAssistantInput(ctx, execution.Principal, m); err != nil {
+				return err
+			}
+		}
 		if err = s.repo.AcceptUserMessage(ctx, execution.Principal.OwnerID, id, s.options.Now().UTC()); err != nil {
 			return err
 		}
@@ -453,7 +495,10 @@ func (s *service) ReadUserMessages(ctx context.Context, execution core.Execution
 			if err != nil {
 				return err
 			}
-			if c.PeerID != execution.AssistantID || m.Sender != User {
+			if m.Receiver.Type == Assistant && m.Receiver.ID != execution.AssistantID {
+				continue
+			}
+			if (c.PeerID != execution.AssistantID && c.PartnerID != execution.AssistantID) || (m.Receiver.ID != execution.AssistantID && !(m.Receiver.ID == "" && m.Sender == User)) {
 				return core.NewError(core.Forbidden, "message is not this assistant's user input")
 			}
 			if m.ReadAt != nil {

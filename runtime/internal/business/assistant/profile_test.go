@@ -8,6 +8,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -92,7 +93,7 @@ func TestProfileMutationAtomicNoopAndIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 	after, _ := f.Service.Get(t.Context(), owner(), a.ID)
-	if after != got {
+	if !reflect.DeepEqual(after, got) {
 		t.Fatal("partial update persisted")
 	}
 	avatar = "preset:fox"
@@ -102,7 +103,7 @@ func TestProfileMutationAtomicNoopAndIdentity(t *testing.T) {
 		t.Fatal("commit failure ignored")
 	}
 	after, _ = f.Service.Get(t.Context(), owner(), a.ID)
-	if after != got {
+	if !reflect.DeepEqual(after, got) {
 		t.Fatal("failed commit persisted")
 	}
 	e.AssistantID = "other"

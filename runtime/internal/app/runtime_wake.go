@@ -64,6 +64,25 @@ func nextRuntimeTick(ctx context.Context, store persistence.Store, now time.Time
 			}
 		}
 	}
+	rows, err := persistence.Select[struct {
+		EmployerID string
+		ExpiresAt  *time.Time
+		Hiring     *struct {
+			Enabled   bool
+			ExpiresAt *time.Time
+		}
+	}](ctx, store, "business.assistants", persistence.Query{Where: []persistence.Filter{persistence.Eq("State", "active")}, Fields: []string{"EmployerID", "ExpiresAt", "Hiring"}})
+	if err != nil {
+		return next, err
+	}
+	for _, row := range rows {
+		if row.EmployerID != "" {
+			consider(row.ExpiresAt)
+		}
+		if row.Hiring != nil && row.Hiring.Enabled {
+			consider(row.Hiring.ExpiresAt)
+		}
+	}
 	for _, pending := range []struct {
 		bucket string
 		retry  time.Duration

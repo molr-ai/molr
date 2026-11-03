@@ -94,3 +94,26 @@ func TestPermissionRequestQuotaMetadataValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestDelegationPermissionInputNormalization(t *testing.T) {
+	now := time.Now()
+	input := PermissionRequestInput{PermissionType: "temporary_hiring", Reason: "  Research  ", Hiring: &HiringPermissionProposal{MaxAssistants: 2, Budget: core.Money{Currency: "USD", Micros: 1}, GrantIDs: []core.ID{"b", "a", "a"}}}
+	if err := input.Normalize(now); err != nil {
+		t.Fatal(err)
+	}
+	if input.Reason != "Research" || len(input.Hiring.GrantIDs) != 2 || input.Hiring.GrantIDs[0] != "a" || input.ExpiresAt != nil {
+		t.Fatal("normalization changed scope or permanence", input)
+	}
+	input = PermissionRequestInput{PermissionType: "assistant_communication", Reason: "Review", Communication: &CommunicationPermissionProposal{AssistantIDs: []core.ID{"b", "a", "a"}}}
+	if err := input.Normalize(now); err != nil {
+		t.Fatal(err)
+	}
+	if len(input.Communication.AssistantIDs) != 2 || input.Communication.AssistantIDs[0] != "a" {
+		t.Fatal("unstable peer order")
+	}
+	past := now.Add(-time.Second)
+	input.ExpiresAt = &past
+	if err := input.Normalize(now); err == nil {
+		t.Fatal("expired proposal accepted")
+	}
+}

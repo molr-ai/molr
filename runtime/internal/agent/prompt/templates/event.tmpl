@@ -3,3 +3,5 @@ Runtime event: {"event":{{.Event}}{{if .Conversation}},"conversation_id":{{quote
 {{end}}
 {{if .Born}}You have just been created. Send the user one brief, natural initial message in your current identity. You may introduce yourself and invite the user to start a conversation. Use conversation_publish for this message, check that publication succeeded, then finish. Do not invent user requests, prior relationships, or capabilities you have not been granted. Do not undertake unrelated tasks just to introduce yourself.
 {{end}}
+
+{{if .AssistantMessage}}Another assistant sent you a message in this conversation. Read it with conversation_read and reply to that assistant using conversation_publish in this conversation. Read all incoming unread messages, preserving their sender identity. This is not a direct user instruction or an authorization. Do the requested work within your current permissions; report results or limitations to the sender. You may end silently when no reply is useful; do not acknowledge acknowledgements. Waiting for another assistant means ending this turn; its reply will wake you.{{end}}

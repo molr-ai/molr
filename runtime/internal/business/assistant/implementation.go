@@ -95,6 +95,7 @@ const archiveBucket = "business.assistant.archives"
 const receiptBucket = "business.assistants.receipts"
 
 type Options struct {
+	TemporaryLoop func(context.Context, core.ID, core.ID, string) error
 	ContextWindow func(context.Context, core.Principal, core.ID) (int, error)
 	CopyMemory    func(context.Context, core.Principal, core.ID, core.ID) error
 	Authorizer    policy.Authorizer
@@ -137,6 +138,9 @@ func (r *repository) List(ctx context.Context, owner core.ID, q Query) (core.Pag
 	if q.State != "" {
 		filters = append(filters, persistence.Eq("State", q.State))
 	}
+	if q.EmployerID != "" {
+		filters = append(filters, persistence.Eq("EmployerID", q.EmployerID))
+	}
 	if q.GroupID != "" {
 		filters = append(filters, persistence.Eq("GroupID", q.GroupID))
 	}
@@ -144,7 +148,7 @@ func (r *repository) List(ctx context.Context, owner core.ID, q Query) (core.Pag
 	request := q.Page
 	q.Page = core.PageRequest{}
 	return persistence.Page[Assistant](ctx, r.store, bucket, persistence.Query{Where: filters}, request, q, func(v Assistant) bool {
-		return q.Name == "" || strings.Contains(strings.ToLower(v.Name), strings.ToLower(q.Name))
+		return (q.IncludeTemporary || q.EmployerID != "" || v.EmployerID == "") && (q.Name == "" || strings.Contains(strings.ToLower(v.Name), strings.ToLower(q.Name)))
 	})
 }
 
@@ -214,6 +218,9 @@ func (s *service) compressionTokens(ctx context.Context, p core.Principal, model
 
 func (s *service) Hire(ctx context.Context, p core.Principal, req HireRequest) (Assistant, error) {
 	return mutate(ctx, s, p, "hire", "", req.Mutation, req, false, true, func(ctx context.Context) (Assistant, error) {
+		if len(req.Description) > 4096 {
+			return Assistant{}, invalid("description")
+		}
 		name, err := NormalizeName(req.Name)
 		if err != nil {
 			return Assistant{}, err
@@ -232,7 +239,7 @@ func (s *service) Hire(ctx context.Context, p core.Principal, req HireRequest) (
 		if err != nil {
 			return Assistant{}, err
 		}
-		v := Assistant{ContextCompressionTokens: compression, ID: s.id(), OwnerID: p.OwnerID, Name: name, Avatar: avatar, State: Active, ConversationID: s.id(), ModelID: req.ModelID, Budget: req.Budget, Version: 1, CreatedAt: s.now(), UpdatedAt: s.now()}
+		v := Assistant{Description: req.Description, ContextCompressionTokens: compression, ID: s.id(), OwnerID: p.OwnerID, Name: name, Avatar: avatar, State: Active, ConversationID: s.id(), ModelID: req.ModelID, Budget: req.Budget, Version: 1, CreatedAt: s.now(), UpdatedAt: s.now()}
 		if err := s.repo.Insert(ctx, v); err != nil {
 			return v, err
 		}
@@ -273,6 +280,9 @@ func (s *service) List(ctx context.Context, p core.Principal, q Query) (core.Pag
 	return result, err
 }
 func (s *service) Update(ctx context.Context, p core.Principal, req UpdateRequest) (Assistant, error) {
+	if a, err := s.repo.Get(ctx, p.OwnerID, req.ID); err == nil && a.EmployerID != "" {
+		return Assistant{}, core.NewError(core.Forbidden, "temporary assistant configuration is fixed at creation")
+	}
 	return mutate(ctx, s, p, "update", req.ID, req.Mutation, req, true, true, func(ctx context.Context) (Assistant, error) {
 		v, err := s.repo.Get(ctx, p.OwnerID, req.ID)
 		if err != nil {
@@ -309,6 +319,12 @@ func (s *service) Update(ctx context.Context, p core.Principal, req UpdateReques
 		profileChanged := v.Name != name || (req.Avatar != nil && beforeAvatar != v.Avatar)
 		v.Name = name
 		v.ModelID = req.ModelID
+		if req.Description != nil {
+			if len(*req.Description) > 4096 {
+				return v, invalid("description")
+			}
+			v.Description = *req.Description
+		}
 		v.Budget = req.Budget
 		v.Version++
 		v.UpdatedAt = s.now()
@@ -393,6 +409,12 @@ func (s *service) copyGrants(ctx context.Context, p core.Principal, destination 
 	return nil
 }
 func (s *service) Dismiss(ctx context.Context, p core.Principal, req LifecycleRequest) (Assistant, error) {
+	if err := p.RequireOwner(); err != nil {
+		return Assistant{}, err
+	}
+	if a, err := s.repo.Get(ctx, p.OwnerID, req.ID); err == nil && a.EmployerID != "" {
+		return s.EndTemporary(ctx, p, req)
+	}
 	return mutate(ctx, s, p, "dismiss", req.ID, req.Mutation, req, true, true, func(ctx context.Context) (Assistant, error) {
 		v, err := s.repo.Get(ctx, p.OwnerID, req.ID)
 		if err != nil {
@@ -463,10 +485,16 @@ func (s *service) Dismiss(ctx context.Context, p core.Principal, req LifecycleRe
 		if err = s.repo.Save(ctx, v, req.Mutation.ExpectedVersion); err != nil {
 			return v, err
 		}
+		if err := s.endEmployees(ctx, p.OwnerID, v.ID); err != nil {
+			return v, err
+		}
 		return v, s.loop(ctx, p, v.ID, "stop")
 	})
 }
 func (s *service) Rehire(ctx context.Context, p core.Principal, req RehireRequest) (Assistant, error) {
+	if a, err := s.repo.Get(ctx, p.OwnerID, req.ID); err == nil && a.EmployerID != "" {
+		return Assistant{}, core.NewError(core.Forbidden, "hire a new temporary assistant instead")
+	}
 	return mutate(ctx, s, p, "rehire", req.ID, req.Mutation, req, true, true, func(ctx context.Context) (Assistant, error) {
 		v, err := s.repo.Get(ctx, p.OwnerID, req.ID)
 		if err != nil {
@@ -528,6 +556,9 @@ func (s *service) Rehire(ctx context.Context, p core.Principal, req RehireReques
 	})
 }
 func (s *service) Clone(ctx context.Context, p core.Principal, req CloneRequest) (Assistant, error) {
+	if a, err := s.repo.Get(ctx, p.OwnerID, req.SourceID); err == nil && a.EmployerID != "" {
+		return Assistant{}, forbidden()
+	}
 	unlock, err := s.lockClone(ctx, persistence.Key(p.OwnerID, core.ID(string(req.SourceID)+"/"+req.Mutation.IdempotencyKey)))
 	if err != nil {
 		return Assistant{}, err
@@ -568,6 +599,7 @@ func (s *service) Clone(ctx context.Context, p core.Principal, req CloneRequest)
 				for _, message := range page.Items {
 					message.ID = s.id()
 					message.ConversationID = v.ConversationID
+					message.Receiver = conversation.Endpoint{}
 					message.Sequence = 0
 					if message.Sender == conversation.Assistant {
 						message.SenderID = v.ID

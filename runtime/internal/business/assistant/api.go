@@ -16,7 +16,14 @@ const (
 )
 
 type Assistant struct {
-	ContextCompressionTokens int // Zero uses the automatic model-dependent default.
+	PeerCommunication        *PeerCommunicationAuthorization `json:",omitempty"`
+	Description              string
+	EmployerID               core.ID              `json:",omitempty"`
+	HiringID                 core.ID              `json:",omitempty"`
+	Hiring                   *HiringAuthorization `json:",omitempty"`
+	AttachedGrants           []GrantReference     `json:",omitempty"`
+	ExpiresAt                *time.Time           `json:",omitempty"`
+	ContextCompressionTokens int                  // Zero uses the automatic model-dependent default.
 	ID                       core.ID
 	OwnerID                  core.ID
 	Name                     string
@@ -40,12 +47,15 @@ type Group struct {
 	Version  core.Version
 }
 type Query struct {
-	State   State
-	GroupID core.ID
-	Name    string
-	Page    core.PageRequest
+	IncludeTemporary bool
+	EmployerID       core.ID
+	State            State
+	GroupID          core.ID
+	Name             string
+	Page             core.PageRequest
 }
 type HireRequest struct {
+	Description              string
 	ContextCompressionTokens int
 	Avatar                   string
 	Mutation                 core.Mutation
@@ -54,6 +64,7 @@ type HireRequest struct {
 	Budget                   core.AssistantBudget
 }
 type UpdateRequest struct {
+	Description              *string
 	ContextCompressionTokens *int    // Omitted preserves the setting; zero restores automatic.
 	Avatar                   *string // Omitted/null preserves the avatar; empty clears it.
 	Mutation                 core.Mutation
@@ -101,6 +112,12 @@ type GroupRequest struct {
 // assistant, persistent conversation, selected model's read/execute grant
 // and initial Loop state atomically. Model calls use the provider's current endpoint.
 type Service interface {
+	SetPeerCommunication(context.Context, core.Principal, PeerCommunicationRequest) (Assistant, error)
+	SaveHiring(context.Context, core.Principal, HiringRequest) (Assistant, error)
+	Directory(context.Context, core.Principal) ([]DirectoryEntry, error)
+	HireTemporary(context.Context, core.Execution, TemporaryRequest) (Assistant, error)
+	EndTemporary(context.Context, core.Principal, LifecycleRequest) (Assistant, error)
+	ExpireTemporary(context.Context, time.Time) error
 	Hire(context.Context, core.Principal, HireRequest) (Assistant, error)
 	Get(context.Context, core.Principal, core.ID) (Assistant, error)
 	List(context.Context, core.Principal, Query) (core.Page[Assistant], error)

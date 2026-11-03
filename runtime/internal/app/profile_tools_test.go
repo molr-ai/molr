@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -68,7 +69,7 @@ func TestProfileToolPersistenceConflictFileAccessAndContext(t *testing.T) {
 	need(t, os.WriteFile(filepath.Join(root, "avatar.png"), testPNG(t, color.White), 0600))
 	need(t, os.WriteFile(filepath.Join(root, "bad.png"), []byte("invalid"), 0600))
 	_, err = call("bad-image", `{"name":"Partial","avatar":{"type":"file","path":"bad.png"},"expected_version":2}`)
-	if core.CodeOf(err) != core.InvalidArgument || get() != updated {
+	if core.CodeOf(err) != core.InvalidArgument || !reflect.DeepEqual(get(), updated) {
 		t.Fatal("invalid avatar partially updated profile", err)
 	}
 	_, err = call("file", `{"avatar":{"type":"file","path":"avatar.png"},"expected_version":2}`)

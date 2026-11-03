@@ -13,6 +13,9 @@ import (
 )
 
 func (s *permissionRequests) checkExistingPermission(ctx context.Context, e core.Execution, input policy.PermissionRequestInput) error {
+	if input.PermissionType != "" {
+		return s.checkExistingDelegation(ctx, e, input)
+	}
 	now := time.Now()
 	grants, err := persistence.Select[policy.Grant](ctx, s.store, "security.grants", persistence.Query{Where: []persistence.Filter{
 		persistence.Eq("OwnerID", e.Principal.OwnerID), persistence.Eq("AssistantID", e.AssistantID), persistence.Eq("ResourceID", input.ResourceID), persistence.Eq("RevokedAt", nil),

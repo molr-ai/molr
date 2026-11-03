@@ -275,7 +275,7 @@ func (r *repository) Append(ctx context.Context, owner core.ID, m Message) (resu
 		if c.Archived {
 			return core.NewError(core.FailedPrecondition, "conversation archived")
 		}
-		if (m.Sender == User && m.SenderID != owner) || (m.Sender == Assistant && m.SenderID != c.PeerID) || (m.Sender != User && m.Sender != Assistant) {
+		if (m.Sender == User && (m.SenderID != owner || c.PartnerID != "")) || (m.Sender == Assistant && m.SenderID != c.PeerID && m.SenderID != c.PartnerID) || (m.Sender != User && m.Sender != Assistant) {
 			return core.NewError(core.Forbidden, "sender is not a conversation participant")
 		}
 		if _, err = getMessage(ctx, tx, owner, m.ID); err == nil {
@@ -284,6 +284,11 @@ func (r *repository) Append(ctx context.Context, owner core.ID, m Message) (resu
 		if !persistence.Missing(err) {
 			return err
 		}
+		expected := recipient(c, m.SenderID)
+		if m.Receiver.ID != "" && m.Receiver != expected {
+			return core.NewError(core.Forbidden, "receiver mismatch")
+		}
+		m.Receiver = expected
 		previous := c.LastSequence
 		if c.LastMessageID != "" {
 			last, err := getMessage(ctx, tx, owner, c.LastMessageID)
@@ -357,8 +362,8 @@ func (r *repository) AcceptUserMessage(ctx context.Context, owner, id core.ID, a
 		if err != nil {
 			return err
 		}
-		if m.Sender != User {
-			return core.Invalid("message", "only user messages can be accepted")
+		if m.Receiver.Type != Assistant && m.Sender != User {
+			return core.Invalid("message", "only assistant input can be accepted")
 		}
 		if m.AcceptedAt != nil {
 			return nil

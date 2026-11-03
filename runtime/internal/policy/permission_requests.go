@@ -12,27 +12,49 @@ import (
 )
 
 // PermissionRequestInput describes a need, never an authorization or an owner identity.
-type PermissionRequestInput struct {
-	Once            bool                     `json:"once,omitempty"`
-	FullAccessScope *FullAccessScope         `json:"full_access_scope,omitempty"`
-	FullAccess      bool                     `json:"full_access,omitempty"`
-	Additional      []PermissionRequestInput `json:"additional_requests,omitempty"`
-	Constraints     *Constraints             `json:"constraints,omitempty"`
-	Temporary       *TemporaryConstraints    `json:"temporary,omitempty"`
-	GrantID         core.ID                  `json:"grant_id,omitempty"`
-	GrantVersion    core.Version             `json:"grant_version,omitempty"`
+type HiringPermissionProposal struct {
+	MaxAssistants int        `json:"max_assistants"`
+	Budget        core.Money `json:"budget"`
+	GrantIDs      []core.ID  `json:"grant_ids"`
+}
+type CommunicationPermissionProposal struct {
+	AllAssistants bool      `json:"all_assistants"`
+	AssistantIDs  []core.ID `json:"assistant_ids"`
+}
 
-	ResourceKind        string     `json:"resource_kind"`
+type PermissionRequestInput struct {
+	PermissionType  string                           `json:"permission_type,omitempty"`
+	Hiring          *HiringPermissionProposal        `json:"hiring,omitempty"`
+	Communication   *CommunicationPermissionProposal `json:"communication,omitempty"`
+	Once            bool                             `json:"once,omitempty"`
+	FullAccessScope *FullAccessScope                 `json:"full_access_scope,omitempty"`
+	FullAccess      bool                             `json:"full_access,omitempty"`
+	Additional      []PermissionRequestInput         `json:"additional_requests,omitempty"`
+	Constraints     *Constraints                     `json:"constraints,omitempty"`
+	Temporary       *TemporaryConstraints            `json:"temporary,omitempty"`
+	GrantID         core.ID                          `json:"grant_id,omitempty"`
+	GrantVersion    core.Version                     `json:"grant_version,omitempty"`
+
+	ResourceKind        string     `json:"resource_kind,omitempty"`
 	ResourceID          core.ID    `json:"resource_id,omitempty"`
 	ModelID             core.ID    `json:"model_id,omitempty"`
-	ResourceDescription string     `json:"resource_description"`
-	Actions             []Action   `json:"actions"`
+	ResourceDescription string     `json:"resource_description,omitempty"`
+	Actions             []Action   `json:"actions,omitempty"`
 	PathPrefixes        []string   `json:"path_prefixes,omitempty"`
-	ExpiresAt           *time.Time `json:"expires_at,omitempty"`
+	ExpiresAt           *time.Time `json:"expires_at"`
 	Reason              string     `json:"reason"`
 }
 
 func (r *PermissionRequestInput) Normalize(now time.Time) error {
+	if r.PermissionType == "resource" {
+		r.PermissionType = ""
+	}
+	if r.PermissionType != "" {
+		return r.normalizeDelegation(now)
+	}
+	if r.Hiring != nil || r.Communication != nil {
+		return core.Invalid("permission_type", "delegation payload requires its permission type")
+	}
 	if r.Once && !r.FullAccess {
 		return core.Invalid("once", "one-use authorization requires Full Access")
 	}
@@ -136,7 +158,9 @@ func (r *PermissionRequestInput) Normalize(now time.Time) error {
 }
 
 type PermissionRequest struct {
-	GrantedAll                       []Grant `json:",omitempty"`
+	ApprovedAssistantVersion         core.Version            `json:",omitempty"`
+	ApprovedDelegation               *PermissionRequestInput `json:",omitempty"`
+	GrantedAll                       []Grant                 `json:",omitempty"`
 	ID, OwnerID, AssistantID, TaskID core.ID
 	Input                            PermissionRequestInput
 	State                            string
@@ -149,11 +173,14 @@ type PermissionRequest struct {
 }
 
 type PermissionResolution struct {
-	Additional   []PermissionResolution `json:",omitempty"`
-	Constraints  *Constraints           `json:",omitempty"`
-	Temporary    *TemporaryConstraints  `json:",omitempty"`
-	GrantID      core.ID
-	GrantVersion core.Version
+	Hiring           *HiringPermissionProposal        `json:",omitempty"`
+	Communication    *CommunicationPermissionProposal `json:",omitempty"`
+	AssistantVersion core.Version                     `json:",omitempty"`
+	Additional       []PermissionResolution           `json:",omitempty"`
+	Constraints      *Constraints                     `json:",omitempty"`
+	Temporary        *TemporaryConstraints            `json:",omitempty"`
+	GrantID          core.ID
+	GrantVersion     core.Version
 
 	Mutation   core.Mutation
 	RequestID  core.ID
@@ -179,4 +206,51 @@ func PermissionRequestItemError(index int, err error) error {
 		return &out
 	}
 	return err
+}
+
+func (r *PermissionRequestInput) normalizeDelegation(now time.Time) error {
+	if r.PermissionType != "temporary_hiring" && r.PermissionType != "assistant_communication" {
+		return core.Invalid("permission_type", "unknown permission type")
+	}
+	if r.ResourceKind != "" || r.ResourceID != "" || r.ModelID != "" || len(r.Actions) > 0 || len(r.PathPrefixes) > 0 || r.ResourceDescription != "" || r.FullAccess || r.Once || r.FullAccessScope != nil || r.Constraints != nil || r.Temporary != nil || r.GrantID != "" || r.GrantVersion != 0 || len(r.Additional) > 0 {
+		return core.Invalid("request", "one delegation permission per request; resource fields are not applicable")
+	}
+	r.Reason = strings.TrimSpace(r.Reason)
+	if r.Reason == "" || len(r.Reason) > 2000 || r.ExpiresAt != nil && !r.ExpiresAt.After(now) {
+		return core.Invalid("request", "reason and a future validity time or null required")
+	}
+	var ids []core.ID
+	if r.PermissionType == "temporary_hiring" {
+		if r.Hiring == nil || r.Communication != nil {
+			return core.Invalid("hiring", "hiring proposal required")
+		}
+		h := r.Hiring
+		if h.MaxAssistants < 1 || h.MaxAssistants > 32 || h.Budget.Validate() != nil || h.Budget.Micros <= 0 || len(h.GrantIDs) > 64 {
+			return core.Invalid("hiring", "valid active-worker limit, shared total budget and grants required")
+		}
+		slices.Sort(h.GrantIDs)
+		h.GrantIDs = slices.Compact(h.GrantIDs)
+		ids = h.GrantIDs
+	} else {
+		if r.Communication == nil || r.Hiring != nil {
+			return core.Invalid("communication", "communication proposal required")
+		}
+		c := r.Communication
+		if len(c.AssistantIDs) > 200 || c.AllAssistants && len(c.AssistantIDs) > 0 {
+			return core.Invalid("assistant_ids", "choose all assistants or specified IDs")
+		}
+		slices.Sort(c.AssistantIDs)
+		c.AssistantIDs = slices.Compact(c.AssistantIDs)
+		ids = c.AssistantIDs
+	}
+	for _, id := range ids {
+		if id.Validate() != nil {
+			return core.Invalid("id", "invalid grant or assistant ID")
+		}
+	}
+	raw, _ := json.Marshal(r)
+	if len(raw) > 16384 {
+		return core.Invalid("request", "delegation request too large")
+	}
+	return nil
 }

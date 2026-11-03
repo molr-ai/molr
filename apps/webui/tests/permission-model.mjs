@@ -40,6 +40,29 @@ export function permissionModel(input, response) {
     results[i] = JSON.parse(text);
   }
   results = results.filter(result => typeof result.ByteOffset !== 'number');
+  if (input.model.startsWith('Permission delegation ')) {
+    if (published) return finish();
+    const hiring = input.model.includes(' hiring ');
+    const type = hiring ? 'temporary_hiring' : 'assistant_communication';
+    const request = requests.find(r => r.Input.permission_type === type);
+    const listing = results.find(r => r.TaskDelegation);
+    if (!request) {
+      if (!listing) call('permission_list', {});
+      else call('permission_request', {
+        permission_type: type, reason: hiring ? 'Hire researchers to compare the supplied reports.' : 'Ask another assistant to review the report.', expires_at: null,
+        ...(hiring ? { hiring: { max_assistants: 2, budget: { Currency: 'USD', Micros: 1000000 }, grant_ids: (permissions.Granted ?? []).filter(g => g.Scope?.ModelID).map(g => g.GrantID) } }
+          : { communication: { all_assistants: false, assistant_ids: [] } }),
+      });
+    } else if (request.State === 'approved') {
+      if (!listing) call('permission_list', {});
+      else {
+        const state = hiring ? listing.TaskDelegation.Hiring : listing.TaskDelegation.Communication;
+        if (!state?.Active || !request.ApprovedDelegation) throw Error('approved delegation missing from current permissions or decision');
+        call('conversation_publish', { conversation_id: event.conversation_id, text: 'Delegation approved; current authorization checked before continuing.' });
+      }
+    } else if (request.State === 'rejected') call('conversation_publish', { conversation_id: event.conversation_id, text: 'Delegation declined; no additional authorization was granted.' });
+    return finish();
+  }
   if (input.model.startsWith('Permission unified ') && !requests.length) {
     if (event.event.PlanExecutionID) return finish();
     if (!published) {

@@ -676,3 +676,15 @@ API 合同测试使用真实 HTTP server、Auth、CSRF、持久限流、Realtime
 `Plan.Kind` 使用 `todo`、`personal_schedule`、`assistant_schedule` 或 `assistant_watch`；底层引用分别为 `todo`、`schedule`、`watch`。`GET /api/plans/watches` 返回分页的持续关注摘要，支持 `scope`、`state=all|open|done`、`limit` 和 `cursor`，不受日历日期范围限制。`GET /api/plans/watch/{id}` 读取配置、状态及最近变化，执行历史复用现有计划历史接口。日历范围查询和 `/api/plans/events` 不包含 watcher。
 
 `POST /api/watches` 创建或更新，更新传入 `ID` 和预期版本；字段为 `AssistantID`、`Title`、`Instructions`、`Watcher`、可选 `StartAt`／`EndAt` 和 `Paused`。`POST /api/watches/delete` 接收 `ID` 与 mutation；已有变化历史的计划保留并暂停。创建只登记计划，实际启动和授权结果通过状态返回。协议与运行约束见 [watcher 协议](https://molr.ai/zh/docs/dev/runtime/watchers/)。
+
+## 助理协作
+
+`POST /api/assistants/peer-communication` 接受 AssistantID、Mutation 与 Authorization（Enabled、AllAssistants、AssistantIDs、ExpiresAt）。仅所有者可修改助理；默认未授权。AllAssistants=true 表示全部助理，否则 AssistantIDs 必须包含指定对象；ExpiresAt=null 表示永久。双方范围及有效期均满足才可收发消息。服务端维护 EnabledAt 入站边界，重新授权不自动投递旧的未处理消息。关闭后所有者仍可查看历史；雇主与自己的临时助理由雇佣授权独立控制。`assistant_list` 始终可调用，但只返回双方当前允许联系的对象。
+
+`POST /api/assistants/hiring` 接受 AssistantID、Mutation 与 Authorization（Enabled、MaxAssistants、Budget、GrantIDs、ExpiresAt）。ExpiresAt 为可空时间，null 表示永久；未到期授权可雇佣，永久授权不登记到期唤醒，附带资源授权仍遵守其自身有效期。授权 ID 由服务端确定并跨修改保留；预算为所有相关临时助理累计共享。仅账号所有者可修改。
+
+`GET /api/assistants/{id}/conversations` 分页返回该助理参与的助理间对话，并通过现有 LatestMessages 批量读取每个会话的最近消息，返回 Preview（Kind、Text、CreatedAt）；摘要最多 80 个字符并合并空白。完整消息继续使用现有会话读取接口。`GET /api/assistants` 支持 employer_id 和 include_temporary=true；默认列表隐藏临时助理。临时助理通过原有 dismiss 接口结束雇佣，不允许通过 update、clone 或 rehire 扩大创建时配置。
+
+模型工具新增 assistant_list、assistant_hire、assistant_dismiss。conversation_publish 可使用 receiver={Type,ID} 自动打开直接会话，或通过 conversation_id 回复；两者同时指定时须一致。消息返回 Sender、SenderID、Receiver 和 Origin，群聊接收者尚不支持。
+
+`POST /api/permission-requests/resolve` 也支持任务委派审批：提交 `RequestID`、`Decision`、`Mutation`，批准时额外提供当前 `AssistantVersion`、`ExpiresAt` 以及 `Hiring={max_assistants,budget,grant_ids}` 或 `Communication={all_assistants,assistant_ids}`。字段由原申请类型确定，不接受资源授权字段。返回 `ApprovedDelegation` 保存实际配置，`ApprovedAssistantVersion` 为批准后的助理版本；版本冲突保持申请待处理。拒绝不提交配置。授权修改、决定与恢复事件同事务提交；用户审批权限不开放给助理。模型提案契约见[授权请求](https://molr.ai/zh/docs/dev/reference/file-tools/#授权请求)。

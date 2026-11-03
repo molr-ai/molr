@@ -11,7 +11,7 @@ export const toolGroups = [
 export type ToolGroup = typeof toolGroups[number]['key'];
 
 export function toolGroup(name: string): ToolGroup {
-  if (name.startsWith('conversation_') || name.startsWith('profile_')) return 'conversation';
+  if (name.startsWith('conversation_') || name.startsWith('profile_') || name.startsWith('assistant_')) return 'conversation';
   if (name.startsWith('file_')) return 'files';
   if (name.startsWith('plan_')) return 'plans';
   if (name.startsWith('memory_')) return 'memory';

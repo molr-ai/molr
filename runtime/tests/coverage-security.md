@@ -71,7 +71,7 @@
 | internal/policy | Service.Require | TestTDDGrantsAndLiveAuthorization |
 | internal/policy | Grants.Grant | TestTDDGrantsAndLiveAuthorization |
 | internal/policy | Grants.List | TestTDDGrantsAndLiveAuthorization |
-| internal/policy | PermissionRequestInput.Normalize | TestPermissionRequestInputBoundaries |
+| internal/policy | PermissionRequestInput.Normalize | TestPermissionRequestInputBoundaries, TestDelegationPermissionInputNormalization |
 | internal/policy | PermissionRequestItemError | TestPermissionRequestQuotaMetadataValidation |
 | internal/policy | Grants.Revoke | TestTDDGrantsAndLiveAuthorization |
 | internal/policy | Service.Grant | TestTDDGrantsAndLiveAuthorization |

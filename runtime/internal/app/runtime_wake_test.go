@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"molr.ai/runtime/internal/business/assistant"
 	"molr.ai/runtime/internal/business/watch"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/persistence/sqlitestore"
@@ -39,5 +40,23 @@ func TestRuntimeWakeUsesPersistedBoundariesAndPendingExternalWork(t *testing.T) 
 	need(t, err)
 	if !next.Equal(now.Add(30 * time.Second)) {
 		t.Fatal("pending deletion retry lost", next)
+	}
+}
+
+func TestRuntimeWakeIgnoresPermanentHiring(t *testing.T) {
+	store, err := sqlitestore.Open(filepath.Join(t.TempDir(), "runtime.db"))
+	need(t, err)
+	defer store.Close()
+	now := time.Now().UTC()
+	due := now.Add(time.Hour)
+	for _, deadline := range []*time.Time{nil, &due, nil} {
+		need(t, store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
+			return tx.Put(ctx, "business.assistants", "owner/parent", assistant.Assistant{State: assistant.Active, Hiring: &assistant.HiringAuthorization{Enabled: true, ExpiresAt: deadline}})
+		}))
+		next, err := nextRuntimeTick(t.Context(), store, now)
+		need(t, err)
+		if deadline == nil && !next.IsZero() || deadline != nil && !next.Equal(*deadline) {
+			t.Fatalf("deadline %v: unexpected wake %v", deadline, next)
+		}
 	}
 }

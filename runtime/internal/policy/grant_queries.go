@@ -11,6 +11,9 @@ import (
 // internal repository read, not authorization: callers still check action,
 // scope, resource availability and execution identity before use.
 func ActiveGrants(ctx context.Context, store persistence.Store, owner core.ID, q Query, at time.Time) ([]Grant, error) {
+	if grants, delegated, err := delegatedGrants(ctx, store, owner, q, at); delegated || err != nil {
+		return grants, err
+	}
 	filters := []persistence.Filter{persistence.Eq("OwnerID", owner), persistence.Eq("RevokedAt", nil)}
 	if q.AssistantID != "" {
 		filters = append(filters, persistence.Eq("AssistantID", q.AssistantID))

@@ -39,7 +39,7 @@ func (b *Bundle) buildScheduler(cfg config.Config, permissions policy.Authorizer
 		}
 		return next, nil
 	}, Ready: func(ctx context.Context) bool { return environment(ctx) == nil }, Authorizer: permissions, Concurrency: cfg.Execution.MaxAssistants, RecoverInterrupted: engine.RecoverInterrupted, Handle: func(ctx context.Context, c scheduler.Claim) error {
-		if c.Job.Event.Kind == event.UserMessage {
+		if c.Job.Event.Kind == event.UserMessage || c.Job.Event.Kind == event.AssistantMessage {
 			if err := chat.AcceptUserMessage(ctx, core.Execution{Principal: c.Principal, AssistantID: c.Job.Event.AssistantID, OperationID: c.Job.Event.ID}, c.Job.Event.MessageID); err != nil {
 				return err
 			}
@@ -72,6 +72,9 @@ func (b *Bundle) buildScheduler(cfg config.Config, permissions policy.Authorizer
 			}
 		}
 	}, Tick: func(ctx context.Context, now time.Time) error {
+		if err := b.Services.Assistants.ExpireTemporary(ctx, now); err != nil {
+			return err
+		}
 		sandboxRouter.remoteRuntime.Tick(ctx, now)
 		if err := b.watchRuntime.tick(ctx, now); err != nil {
 			return err

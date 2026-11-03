@@ -84,3 +84,28 @@ func TestNativePermissionRequestUsesDurationAndNetworkToggle(t *testing.T) {
 		}
 	}
 }
+
+func TestDelegationPermissionRequestRequiresExplicitValidityAndExclusiveType(t *testing.T) {
+	valid := []string{
+		`{"permission_type":"temporary_hiring","hiring":{"max_assistants":2,"budget":{"Currency":"USD","Micros":1000000},"grant_ids":[]},"expires_at":null,"reason":"Parallel research"}`,
+		`{"permission_type":"assistant_communication","communication":{"all_assistants":false,"assistant_ids":[]},"expires_at":null,"reason":"User chooses the collaborator"}`,
+	}
+	for _, raw := range valid {
+		if _, err := parsePermissionRequest(json.RawMessage(raw)); err != nil {
+			t.Fatalf("valid proposal: %v", err)
+		}
+	}
+	for _, raw := range []string{
+		`{"permission_type":"assistant_communication","communication":{"all_assistants":true,"assistant_ids":[]},"reason":"Missing validity"}`,
+		`{"permission_type":"assistant_communication","communication":{"all_assistants":true,"assistant_ids":["peer"]},"expires_at":null,"reason":"Ambiguous scope"}`,
+		`{"permission_type":"temporary_hiring","hiring":{"max_assistants":33,"budget":{"Currency":"USD","Micros":1},"grant_ids":[]},"expires_at":null,"reason":"Too many"}`,
+		`{"permission_type":"temporary_hiring","hiring":{"max_assistants":1,"budget":{"Currency":"USD","Micros":0},"grant_ids":[]},"expires_at":null,"reason":"No budget"}`,
+		`{"permission_type":"assistant_communication","communication":{"all_assistants":true,"assistant_ids":[]},"resource_id":"resource","expires_at":null,"reason":"Mixed request"}`,
+		`{"permission_type":"assistant_communication","communication":{"all_assistants":true,"assistant_ids":[]},"assistant_id":"other","expires_at":null,"reason":"Identity injection"}`,
+		`{"resource_kind":"compute","resource_id":"compute","resource_description":"Compute","actions":["execute"],"expires_at":"2099-01-01T00:00:00Z","reason":"Mixed group","additional_requests":[{"permission_type":"assistant_communication","communication":{"all_assistants":true,"assistant_ids":[]},"reason":"Not a resource"}]}`,
+	} {
+		if _, err := parsePermissionRequest(json.RawMessage(raw)); err == nil {
+			t.Fatalf("accepted %s", raw)
+		}
+	}
+}

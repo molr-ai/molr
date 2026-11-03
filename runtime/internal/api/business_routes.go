@@ -127,6 +127,12 @@ func (s *HTTPServer) businessRoutes() {
 	route(s, "POST /api/assistants", func(ctx context.Context, p core.Principal, r assistant.HireRequest) (any, error) {
 		return s.services.Assistants.Hire(ctx, p, r)
 	})
+	route(s, "POST /api/assistants/peer-communication", func(ctx context.Context, p core.Principal, r assistant.PeerCommunicationRequest) (any, error) {
+		return s.services.Assistants.SetPeerCommunication(ctx, p, r)
+	})
+	route(s, "POST /api/assistants/hiring", func(ctx context.Context, p core.Principal, r assistant.HiringRequest) (any, error) {
+		return s.services.Assistants.SaveHiring(ctx, p, r)
+	})
 	route(s, "POST /api/assistants/update", func(ctx context.Context, p core.Principal, r assistant.UpdateRequest) (any, error) {
 		return s.services.Assistants.Update(ctx, p, r)
 	})
@@ -323,6 +329,48 @@ func (s *HTTPServer) businessRoutes() {
 	route(s, "POST /api/settings", func(ctx context.Context, p core.Principal, r settings.UpdateRequest) (any, error) {
 		return s.services.Settings.Update(ctx, p, r)
 	})
+	s.handle("GET /api/assistants/{id}/conversations", func(r *http.Request) (any, error) {
+		id, err := pathID(r)
+		if err != nil {
+			return nil, err
+		}
+		q, err := queryPage(r)
+		if err != nil {
+			return nil, err
+		}
+		page, err := s.services.Conversations.Collaborations(r.Context(), principal(r), id, q)
+		if err != nil {
+			return nil, err
+		}
+		ids := make([]core.ID, 0, len(page.Items))
+		for _, c := range page.Items {
+			ids = append(ids, c.ID)
+		}
+		latest, err := s.services.Conversations.LatestMessages(r.Context(), principal(r), ids)
+		if err != nil {
+			return nil, err
+		}
+		type summary struct {
+			conversation.Conversation
+			Preview *messagePreview
+		}
+		out := core.Page[summary]{Items: make([]summary, 0, len(page.Items)), NextCursor: page.NextCursor}
+		for _, c := range page.Items {
+			row := summary{Conversation: c}
+			if m, ok := latest[c.ID]; ok {
+				text := m.Content.Text
+				if m.Content.Card != nil {
+					text = m.Content.Card.Title
+					if text == "" {
+						text = m.Content.Card.Summary
+					}
+				}
+				row.Preview = &messagePreview{Kind: m.Content.Kind, Text: previewText(text), CreatedAt: m.CreatedAt}
+			}
+			out.Items = append(out.Items, row)
+		}
+		return out, nil
+	})
 	s.handle("GET /api/assistants/{id}", func(r *http.Request) (any, error) {
 		id, err := pathID(r)
 		if err != nil {
@@ -387,7 +435,7 @@ func (s *HTTPServer) businessRoutes() {
 		if e != nil {
 			return nil, e
 		}
-		return s.services.Assistants.List(r.Context(), principal(r), assistant.Query{State: assistant.State(r.URL.Query().Get("state")), GroupID: queryID(r, "group_id"), Name: r.URL.Query().Get("name"), Page: q})
+		return s.services.Assistants.List(r.Context(), principal(r), assistant.Query{IncludeTemporary: r.URL.Query().Get("include_temporary") == "true", EmployerID: queryID(r, "employer_id"), State: assistant.State(r.URL.Query().Get("state")), GroupID: queryID(r, "group_id"), Name: r.URL.Query().Get("name"), Page: q})
 	})
 	s.handle("GET /api/assistants/groups", func(r *http.Request) (any, error) {
 		q, e := queryPage(r)

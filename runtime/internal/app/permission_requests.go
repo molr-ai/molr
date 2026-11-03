@@ -26,6 +26,7 @@ const permissionRequestsBucket = "security.permission_requests"
 
 type permissionBatchKey struct{}
 type permissionRequests struct {
+	assistants    assistant.Service
 	router        *sandboxRouter
 	afterApproval func(context.Context, core.Principal, []policy.Grant) error
 	store         persistence.Store
@@ -111,7 +112,7 @@ func (s *permissionRequests) create(ctx context.Context, e core.Execution, input
 		if s.chat == nil {
 			return core.NewError(core.FailedPrecondition, "conversation publisher required")
 		}
-		title := input.ResourceDescription
+		title := permissionRequestTitle(input)
 		if len(title) > 256 {
 			runes := []rune(title)
 			title = string(runes[:min(64, len(runes))])
@@ -195,7 +196,7 @@ func (s *permissionRequests) Get(ctx context.Context, p core.Principal, id core.
 }
 
 func (s *permissionRequests) notify(ctx context.Context, row policy.PermissionRequest) error {
-	if err := notification.Sync(ctx, s.store, row.OwnerID, notification.Input{Kind: "permission.request", Code: "pending", Source: core.Object{Kind: "permission_request", ID: row.ID}, AssistantID: row.AssistantID, Label: row.Input.ResourceDescription}, row.State == "pending"); err != nil {
+	if err := notification.Sync(ctx, s.store, row.OwnerID, notification.Input{Kind: "permission.request", Code: "pending", Source: core.Object{Kind: "permission_request", ID: row.ID}, AssistantID: row.AssistantID, Label: permissionRequestTitle(row.Input)}, row.State == "pending"); err != nil {
 		return err
 	}
 	return realtime.NewStore(s.store).Append(ctx, realtime.Visible{ID: randomOperation(), OwnerID: row.OwnerID, Topic: "permission.request", Object: core.Object{Kind: "assistant", ID: row.AssistantID}, Version: row.Version, CreatedAt: time.Now().UTC()})
@@ -243,7 +244,22 @@ func (s *permissionRequests) Resolve(ctx context.Context, p core.Principal, q po
 		if a.State != assistant.Active {
 			return core.NewError(core.FailedPrecondition, "assistant archived")
 		}
-		if q.Decision == "approve" {
+		if q.Decision == "approve" && out.Input.PermissionType != "" {
+			approved, err := s.approveDelegation(ctx, p, a, out, q)
+			if err != nil {
+				return err
+			}
+			out.ApprovedDelegation = approved
+			current, err := assistant.NewRepository(s.store).Get(ctx, p.OwnerID, out.AssistantID)
+			if err != nil {
+				return err
+			}
+			out.ApprovedAssistantVersion = current.Version
+			out.State = "approved"
+		} else if q.Decision == "approve" {
+			if q.Hiring != nil || q.Communication != nil || q.AssistantVersion != 0 {
+				return core.Invalid("approval", "resource approval does not accept delegation fields")
+			}
 			if len(q.Additional) != len(out.Input.Additional) {
 				return core.Invalid("additional", "review every item in the permission group")
 			}
@@ -284,7 +300,7 @@ func (s *permissionRequests) Resolve(ctx context.Context, p core.Principal, q po
 			out.GrantedAll = approved
 			out.State, out.GrantID, out.Granted = "approved", approved[0].ID, &approved[0]
 		} else {
-			if len(q.Additional) > 0 || q.Constraints != nil || q.Temporary != nil || q.GrantID != "" || q.GrantVersion != 0 || q.ResourceID != "" || len(q.Actions) > 0 || q.Scope.ModelID != "" || len(q.Scope.PathPrefixes) > 0 || q.Scope.ReadOnly || q.ExpiresAt != nil {
+			if q.Hiring != nil || q.Communication != nil || q.AssistantVersion != 0 || len(q.Additional) > 0 || q.Constraints != nil || q.Temporary != nil || q.GrantID != "" || q.GrantVersion != 0 || q.ResourceID != "" || len(q.Actions) > 0 || q.Scope.ModelID != "" || len(q.Scope.PathPrefixes) > 0 || q.Scope.ReadOnly || q.ExpiresAt != nil {
 				return core.Invalid("decision", "reject takes no grant fields")
 			}
 			out.State = "rejected"
@@ -334,6 +350,9 @@ func (s *permissionRequests) Resolve(ctx context.Context, p core.Principal, q po
 }
 
 func (s *permissionRequests) validateApproval(ctx context.Context, p core.Principal, q policy.PermissionResolution) error {
+	if q.Hiring != nil || q.Communication != nil || q.AssistantVersion != 0 {
+		return core.Invalid("approval", "resource approval does not accept delegation fields")
+	}
 	// The owner's submitted fields are authoritative. The assistant's proposal
 	// pre-fills the form but does not constrain the owner's own resource choices.
 	r, err := resource.NewRepository(s.store).Get(ctx, p.OwnerID, q.ResourceID)
@@ -357,6 +376,13 @@ func (s *permissionRequests) validateApproval(ctx context.Context, p core.Princi
 
 func (s *permissionRequests) context(ctx context.Context, e core.Execution) ([]agent.ContextDocument, error) {
 	if err := s.authorizer.Require(ctx, e.Principal, policy.CheckRequest{Target: core.Object{Kind: "tool", ID: "permission_list"}, Action: policy.Execute}); err != nil {
+		if core.ReasonOf(err) == "temporary_tool_restricted" {
+			permissions, err := permissionsContext(ctx, s.store, e.Principal, time.Now())
+			if err != nil {
+				return nil, err
+			}
+			return []agent.ContextDocument{permissions}, nil
+		}
 		if core.ReasonOf(err) == "group_resource_denied" {
 			return []agent.ContextDocument{}, nil
 		}
@@ -384,6 +410,9 @@ func (s *permissionRequests) context(ctx context.Context, e core.Execution) ([]a
 
 // Validate every target before writing any request, receipt, card or notification.
 func (s *permissionRequests) validateProposal(ctx context.Context, e core.Execution, input policy.PermissionRequestInput) error {
+	if input.PermissionType != "" {
+		return s.validateDelegationProposal(ctx, e, input)
+	}
 	r, err := resource.NewRepository(s.store).Get(ctx, e.Principal.OwnerID, input.ResourceID)
 	if persistence.Missing(err) {
 		return core.Invalid("resource_id", "resource does not exist or is not requestable by this account; refresh permission_list")

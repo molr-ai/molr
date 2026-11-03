@@ -56,6 +56,7 @@ export function AssistantsPage({ assistants, settings, workbenchVisible, memory,
   const conversations = useQuery<Conversation[]>('/api/conversations', true), models = useQuery<Model[]>('/api/models');
   const activity = useQuery<AssistantActivity[]>((!mobile || !id) ? '/api/assistants/activity' : null, true);
   const activityByID = new Map(activity.data?.map(item => [item.AssistantID, item]));
+  const [permissionOpenKey, setPermissionOpenKey] = useState(0);
   const [hire, setHire] = useState(false), [dialog, setDialog] = useState<{ kind: AssistantAction; assistant: Assistant } | null>(null), [taskCard, setTaskCard] = useState('');
   const [assistantQuery, setAssistantQuery] = useState(memory.query ?? '');
   const [chatWorkspace, setChatWorkspace] = useState<HTMLDivElement | null>(null);
@@ -104,6 +105,7 @@ export function AssistantsPage({ assistants, settings, workbenchVisible, memory,
     if (kind === 'pin') void action.run(() => placeAssistant('/api/assistants/place', { ID: selected.ID, GroupID: selected.GroupID, Pinned: !selected.Pinned }, selected.Version, selected.ID), undefined, false);
     else guardedNavigation(() => void action.run(async () => {
       const current = await api.get<Assistant>(`/api/assistants/${selected.ID}`);
+      if (kind === 'permissions') setPermissionOpenKey(value => value + 1);
       setDialog({ kind, assistant: current });
     }, undefined, false));
   }
@@ -130,7 +132,7 @@ export function AssistantsPage({ assistants, settings, workbenchVisible, memory,
           <MobileChatPresence enabled={mobile}>{selected && (!mobile || id) ? <Chat targetMessageID={messageID} onClearTarget={() => go('assistants', selected.ID)} timeZone={settings?.Timezone} onDebug={workbenchVisible ? turnID => go('workbench', selected.ID, turnID) : undefined} key={selected.ID} assistant={selected} conversation={conversations.data?.find(conversation => conversation.ID === selected.ConversationID)} onBack={mobile ? () => go('assistants') : undefined} onAction={assistantAction} onCard={(kind, target) => { if (kind === 'task') { setTaskCard(target); setDialog({ kind: 'tasks', assistant: selected }); } else go(kind === 'resource' ? 'resources' : kind === 'settings' ? 'settings' : 'schedules', target); }} /> : null}</MobileChatPresence>
           {!selected && !mobile && <div className="workspace-empty"><EmptyState title={t.chat.workspaceTitle} illustration={<Logo markOnly animation="static" variant={theme === 'dark' ? 'light' : 'dark'} className="workspace-empty__logo" />} /></div>}
           <ChatSidePanel width={resizable ? panes.panel : undefined} panel={isChatPanel(dialog) ? dialog : null} docked={panelDocked} floating={{ terminal: terminalFloating && !mobile, browser: floating, files: filesFloating && !mobile }}>{panel => <Suspense fallback={<Loading />}>
-            {(panel.kind === 'info' || panel.kind === 'permissions') && <AssistantInfo docked={panelDocked} assistant={assistants.data?.find(item => item.ID === panel.assistant.ID) ?? panel.assistant} models={models.data ?? []} initialTab={panel.kind === 'permissions' ? 'permissions' : 'overview'} onClose={closeDialog} onDebug={workbenchVisible ? () => { setDialog(null); go('workbench', panel.assistant.ID); } : undefined} />}
+            {(panel.kind === 'info' || panel.kind === 'permissions') && <AssistantInfo key={permissionOpenKey} docked={panelDocked} assistant={assistants.data?.find(item => item.ID === panel.assistant.ID) ?? panel.assistant} models={models.data ?? []} initialTab={panel.kind === 'permissions' ? 'permissions' : 'overview'} onClose={closeDialog} onDebug={workbenchVisible ? () => { setDialog(null); go('workbench', panel.assistant.ID); } : undefined} />}
             {panel.kind === 'files' && <WorkspaceFiles key={panel.assistant.ID} assistantID={panel.assistant.ID} assistantName={panel.assistant.Name} docked={panelDocked} floating={filesFloating && !mobile} onFloatingChange={setFilesFloating} bounds={filesBounds} memory={explorerMemory(panel.assistant.ID)} onClose={closeDialog} />}
             {panel.kind === 'browser' && <Browser key={panel.assistant.ID} floating={floating} onFloatingChange={setBrowserFloating} bounds={browserBounds} docked={panelDocked} assistantID={panel.assistant.ID} onClose={closeDialog} />}
             {panel.kind === 'terminal' && <Terminals key={panel.assistant.ID} assistantID={panel.assistant.ID} assistantName={panel.assistant.Name} docked={panelDocked} floating={terminalFloating && !mobile} onFloatingChange={setTerminalFloating} bounds={terminalBounds} onClose={closeDialog} />}

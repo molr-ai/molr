@@ -82,6 +82,9 @@ func (a access) resolveLiveAssistant(ctx context.Context, p core.Principal) (ass
 	if err != nil {
 		return assistant.Assistant{}, err
 	}
+	if err := temporaryLive(ctx, a.store, value); err != nil {
+		return assistant.Assistant{}, err
+	}
 	if shellsession.ManagedPrincipal(ctx, p) {
 		return value, nil
 	}

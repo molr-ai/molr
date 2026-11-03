@@ -5,7 +5,7 @@ import { GPUDeviceList } from './GPUAccess';
 import { fullAccessLabel, isSandboxResource } from './PermissionTargetFields';
 import type { GPUDevice, SandboxView } from '@molr/sdk';
 import { Folder, Globe, Server, Sparkles, Wrench } from 'lucide-react';
-import type { Grant, Model, PermissionRequestInput, Resource, ResourceConstraints } from '@molr/sdk';
+import type { Grant, Model, ResourcePermissionRequestInput as PermissionRequestInput, Resource, ResourceConstraints } from '@molr/sdk';
 import { permissionLabel } from '../../../resource-permissions';
 import { useCopy, useQuery } from '../../../state';
 
@@ -83,6 +83,6 @@ export function PermissionScope({ input, grant, showReason, showExpiry, timeZone
     {kind === 'storage' && <dl className="permission-scope__paths"><dt>{zh ? '目录范围' : 'Paths'}</dt><dd>{(paths?.length ? paths : ['/']).map(path => <code key={path}>{path === '/' ? (zh ? '整个资源目录' : 'Entire resource directory') : path}</code>)}</dd></dl>}
     {constraints && <>{temporary && <p className="permission-scope__note">{zh ? '基础额度' : 'Base limits'}</p>}<QuotaGrid value={constraints} gpus={node?.Info.GPUs} /></>}
     {temporary && <div className="permission-scope__temporary"><p className="permission-scope__note">{zh ? '临时额度 · 有效至 ' : 'Temporary limits · Until '}<PermissionExpiry value={temporary.until} timeZone={timeZone} /></p><QuotaGrid value={temporary.limits} gpus={node?.Info.GPUs} /></div>}
-    {showExpiry && <p className="permission-scope__note">{zh ? '授权至 ' : 'Expires '}<PermissionExpiry value={grant ? grant.ExpiresAt : input?.expires_at} timeZone={timeZone} /></p>}
+    {showExpiry && <p className="permission-scope__note">{zh ? '有效期 ' : 'Validity '}<PermissionExpiry value={grant ? grant.ExpiresAt : input?.expires_at} timeZone={timeZone} /></p>}
   </section>;
 }

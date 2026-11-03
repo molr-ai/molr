@@ -1,3 +1,4 @@
+import { AssistantDelegationPermissions } from './AssistantDelegationPermissions';
 import { useMutation } from '../../../use-mutation';
 import { useErrorToast } from '../../../error-toasts';
 import { GrantEditor } from './GrantEditor';
@@ -6,9 +7,8 @@ import { ResourceQuotaUsage } from './ResourceConstraints';
 import { PermissionScope, PermissionExpiry } from './PermissionScope';
 import { PermissionRequests } from './PermissionRequests';
 import { useEffect, useState } from 'react';
-import { ModalPresence, Badge, Button, Card, Dialog, DropdownMenu, IconButton, Tabs, useToast } from '@molr/ui';
+import { ModalPresence, Badge, Button, Dialog, DropdownMenu, IconButton, Tabs, useToast } from '@molr/ui';
 import { BookOpen, Bot, Ellipsis, Folder, Globe, Info, Pencil, Plus, RefreshCw, Server, Trash2, Unplug, Wifi, Wrench } from 'lucide-react';
-import { SettingsHelp } from '../components/SettingsHelp';
 import { DefaultModelSettings } from './DefaultModelSettings';
 import { ProviderModelsDrawer } from './ProviderModelsDrawer';
 import { ProviderConnectionDialog } from './ProviderConnectionDialog';
@@ -83,12 +83,15 @@ export function AssistantPermissions({ assistant }: { assistant: Assistant }) {
   const active = (grants.data ?? []).filter(grant => !grant.RevokedAt && (!grant.ExpiresAt || Date.parse(grant.ExpiresAt) > Date.now()));
   useErrorToast(grants.error || resources.error || models.error, () => { grants.reload(); resources.reload(); models.reload(); });
   const revokeGrant = useMutation([revoking]);
+  const [history, setHistory] = useState(false);
   return <>
     <div className="permissions-content">
-      <section><div className="assistant-info-section-heading"><h3>{copy.workspace}<SettingsHelp label={copy.workspace} content={copy.workspaceHelp} /></h3></div><p className="muted">/work · {copy.local}</p></section>
-      <PermissionRequests assistant={assistant} />
-      <section className="assistant-grants">
-        <div className="assistant-info-section-heading"><h3>{t.assistantInfo.activePermissions}{grants.data && <Badge size="sm" dot={false}>{active.length}</Badge>}<SettingsHelp label={t.assistantInfo.activePermissions} content={t.resources.accessHint} /></h3><Button size="sm" disabled={assistant.State !== 'active' || !resources.data?.some(row => row.State === 'available' && row.Actions.length)} onClick={() => setCreating(true)}><Plus size={14} aria-hidden="true" />{t.resources.grant}</Button></div>
+      <PermissionRequests assistant={assistant} history={history} onHistoryChange={setHistory} />
+      {!history && <>
+      <AssistantDelegationPermissions assistant={assistant} models={models.data ?? []} />
+      <section className="assistant-settings-section assistant-grants">
+        <h3>{t.assistantInfo.activePermissions}</h3>
+        <div className="assistant-info-section-heading"><span className="assistant-permission-meta">{grants.data && <span>{locale === 'zh' ? `${active.length} 项授权` : `${active.length} grants`}</span>}</span><Button size="sm" variant="secondary" disabled={assistant.State !== 'active' || !resources.data?.some(row => row.State === 'available' && row.Actions.length)} onClick={() => setCreating(true)}><Plus size={14} aria-hidden="true" />{t.resources.grant}</Button></div>
         {grants.loading && !grants.data ? <Loading /> : !active.length ? <Empty title={t.resources.noGrants} /> : <div className="assistant-grant-list">{active.map(grant => {
           const resource = resources.data?.find(row => row.ID === grant.ResourceID);
           const node = sandboxes.data?.find(s => s.ID === (resource?.SandboxID || 'local'));
@@ -96,20 +99,20 @@ export function AssistantPermissions({ assistant }: { assistant: Assistant }) {
           const permission = grant.Scope.FullAccess ? fullAccessLabel(locale === 'zh') : resource ? t.resources.categories[resource.Kind] : t.nav.resources;
           const target = isSandboxResource(resource?.Kind) && nodeName ? `${nodeName}${resource?.Kind === 'compute' ? '' : ` · ${resource?.Name}`}` : grantTarget(t, grant, resource, models.data ?? []);
           const Icon = resource ? { model: Bot, tool: Wrench, storage: Folder, compute: Server, connection: Globe, network: Globe }[resource.Kind] : Folder;
-          return <Card className="assistant-grant" key={grant.ID}>
+          return <article className="assistant-grant" key={grant.ID}>
             <div className="assistant-grant-heading">
               <span className="assistant-grant-icon"><Icon size={16} aria-hidden="true" /></span>
-              <h3 className="assistant-grant-title">{isSandboxResource(resource?.Kind) ? `${copy.title} · ${permission}` : permission}</h3>
+              <div className="assistant-grant-identity"><h4 className="assistant-grant-title"><button type="button" className="assistant-grant-name" onClick={() => setInspecting(grant)}>{target}</button></h4><p className="assistant-grant-category">{isSandboxResource(resource?.Kind) ? `${copy.title} · ${permission}` : permission}{resource?.Kind === 'model' && resource.Name !== target && <> · {resource.Name}</>}</p></div>
               <div className="assistant-grant-actions"><IconButton size="sm" label={t.edit} disabled={assistant.State !== 'active' || resource?.State !== 'available'} onClick={() => setEditing(grant)}><Pencil size={15} /></IconButton><DropdownMenu label={t.more} align="end" trigger={<IconButton size="sm" label={t.more}><Ellipsis size={16} /></IconButton>} items={[{ id: 'details', label: t.assistantInfo.permissionDetails, icon: <Info size={15} />, onSelect: () => setInspecting(grant) }, { id: 'revoke', label: t.resources.revoke, icon: <Unplug size={15} />, danger: true, disabled: assistant.State !== 'active', onSelect: () => setRevoking(grant) }]} /></div>
             </div>
             <dl className="assistant-info-facts assistant-grant-facts">
-              <div><dt>{t.resources.expires}</dt><dd><PermissionExpiry value={grant.ExpiresAt} /></dd></div>
+              <div><dt>{locale === 'zh' ? '允许操作' : 'Allowed actions'}</dt><dd>{grant.Scope.FullAccess ? fullAccessLabel(locale === 'zh') : grantSummary(t, grant, resource)}</dd></div>
+              <div><dt>{locale === 'zh' ? '有效期' : 'Validity'}</dt><dd><PermissionExpiry value={grant.ExpiresAt} /></dd></div>
             </dl>
-            <div className="assistant-grant-resource"><span className="assistant-grant-resource-name"><button type="button" className="assistant-grant-name" onClick={() => setInspecting(grant)}>{target}</button>{resource?.Kind === 'model' && resource.Name !== target && <span className="assistant-grant-provider"> · {resource.Name}</span>}</span><span className="assistant-grant-allowed">{grant.Scope.FullAccess ? fullAccessLabel(locale === 'zh') : grantSummary(t, grant, resource)}</span></div>
-
-          </Card>;
+          </article>;
         })}</div>}
       </section>
+      </>}
     </div>
     <ModalPresence>{inspecting && <Dialog open title={t.assistantInfo.permissionDetails} description={t.resourcePermissions.recipient(assistant.Name)} onOpenChange={open => { if (!open) setInspecting(null); }}>
       <div className="assistant-grant-details"><PermissionScope grant={inspecting} showExpiry />{!inspecting.Scope.FullAccess && resources.data?.some(resource => resource.ID === inspecting.ResourceID && !['model', 'tool'].includes(resource.Kind)) && <div className="assistant-grant-usage"><ResourceQuotaUsage assistantID={inspecting.AssistantID} resourceID={inspecting.ResourceID} /></div>}</div>

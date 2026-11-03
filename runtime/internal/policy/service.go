@@ -336,6 +336,13 @@ func (m *Manager) Grant(ctx context.Context, p core.Principal, r GrantRequest) (
 		if e := m.owner(ctx, p, "manage"); e != nil {
 			return e
 		}
+		var target struct{ EmployerID core.ID }
+		if err := tx.Get(ctx, "business.assistants", persistence.Key(p.OwnerID, r.AssistantID), &target); err != nil {
+			return err
+		}
+		if target.EmployerID != "" {
+			return core.NewError(core.Forbidden, "temporary permissions are fixed at creation")
+		}
 		if e := m.own(ctx, p, core.Object{Kind: "assistant", ID: r.AssistantID}); e != nil {
 			return e
 		}

@@ -15,6 +15,11 @@ type recordIndex struct {
 }
 
 var recordIndexes = []recordIndex{
+	{"records_query_outbox_owner_receiver", "im.outbox", []string{"OwnerID", "Receiver.ID", "Receiver.Type", "key"}},
+	{"records_query_assistants_owner_employer_state", "business.assistants", []string{"OwnerID", "EmployerID", "State", "key"}},
+	{"records_query_assistants_owner_hiring", "business.assistants", []string{"OwnerID", "HiringID", "key"}},
+	{"records_query_conversations_owner_peer_partner", "im.conversations", []string{"OwnerID", "PeerID", "PartnerID", "key"}},
+	{"records_query_conversations_owner_partner_peer", "im.conversations", []string{"OwnerID", "PartnerID", "PeerID", "key"}},
 	{"records_query_all_ownerid_key", "", []string{"OwnerID", "key"}},
 	{"records_query_agent_events_ownerid_assistantid_key", "agent.events", []string{"OwnerID", "AssistantID", "key"}},
 	{"records_query_agent_events_ownerid_assistantid_kind_key", "agent.events", []string{"OwnerID", "AssistantID", "Kind", "key"}},

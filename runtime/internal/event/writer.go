@@ -39,7 +39,7 @@ func (w *writer) AppendAssistant(ctx context.Context, e AssistantEvent) error {
 	case Born:
 		// Birth belongs to the assistant identity, independent of event ID/time.
 		source.ID = e.AssistantID
-	case UserMessage:
+	case UserMessage, AssistantMessage:
 		source.ID = e.MessageID
 	case ScheduleDue:
 		source.ID = e.ScheduleID
@@ -48,7 +48,7 @@ func (w *writer) AppendAssistant(ctx context.Context, e AssistantEvent) error {
 	case ShellTaskFinished, ShellTasksRunning, OperationCompleted, WatchFailed:
 		source.ID = e.OperationID
 	// Each dream batch and explicitly authorized retry is a distinct event.
-	case DreamDue, ResumeRequested, BrowserControlReturned, TerminalControlReturned, UserStopped, ContextCompressionRequested:
+	case AssistantNotice, DreamDue, ResumeRequested, BrowserControlReturned, TerminalControlReturned, UserStopped, ContextCompressionRequested:
 		source.ID = e.ID
 		source.Task = e.TaskID
 	}

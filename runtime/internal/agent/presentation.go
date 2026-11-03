@@ -120,9 +120,9 @@ func eventPayload(e event.AssistantEvent) string {
 func eventText(e event.AssistantEvent, conversation core.ID) string {
 	body := eventPayload(e)
 	text := prompt.Text("event", struct {
-		Event, Conversation      string
-		Shell, UserMessage, Born bool
-	}{body, string(conversation), e.Kind == event.ShellTaskFinished || e.Kind == event.ShellTasksRunning || e.Kind == event.WatchFailed, e.Kind == event.UserMessage, e.Kind == event.Born})
+		Event, Conversation                        string
+		Shell, UserMessage, Born, AssistantMessage bool
+	}{body, string(conversation), e.Kind == event.ShellTaskFinished || e.Kind == event.ShellTasksRunning || e.Kind == event.WatchFailed, e.Kind == event.UserMessage, e.Kind == event.Born, e.Kind == event.AssistantMessage})
 	if e.Recovery != nil {
 		text += "\n" + prompt.Text("resume", nil)
 	}

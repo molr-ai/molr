@@ -45,13 +45,21 @@ func permissionsContext(ctx context.Context, store persistence.Store, p core.Pri
 			rows = append(rows, contextGrant{permissionGrant: permissionGrant{grant.Used, grant.Version, grant.Constraints, grant.Temporary, grant.ID, grant.Actions, grant.Scope, grant.ExpiresAt}, ResourceID: r.ID, Name: r.Name, Kind: r.Kind, Version: grant.Version})
 		}
 		sort.Slice(rows, func(i, j int) bool { return rows[i].ID < rows[j].ID })
-		revision := permissionDigest(rows)
+		delegation, err := currentDelegationPermissions(ctx, store, p, now)
+		if err != nil {
+			return err
+		}
+		revision := permissionDigest(struct {
+			Grants     []contextGrant
+			Delegation *delegationPermissionSnapshot
+		}{rows, delegation})
 		out := struct {
-			Granted   []contextGrant
-			Total     int
-			Truncated bool
-			Revision  string
-		}{Granted: []contextGrant{}, Total: len(rows), Revision: revision}
+			TaskDelegation *delegationPermissionSnapshot `json:",omitempty"`
+			Granted        []contextGrant
+			Total          int
+			Truncated      bool
+			Revision       string
+		}{TaskDelegation: delegation, Granted: []contextGrant{}, Total: len(rows), Revision: revision}
 		bytes := 0
 		for _, row := range rows {
 			raw, err := json.Marshal(row)

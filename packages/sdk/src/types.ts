@@ -9,9 +9,11 @@ export type ExchangeRates = { version: string; as_of: string; source_url: string
 export type CurrencyContext = { Currency: CurrencyCode; Timezone: string; Rates: ExchangeRates };
 export type Money = { Currency: string; Micros: number };
 export type AssistantBudget = { Limit: Money; Period: 'daily' | 'weekly' };
-export type Assistant = { ContextCompressionTokens: number; ID: ID; Name: string; Status?: string; Avatar?: string; State: 'active' | 'dismissed'; ConversationID: ID; GroupID: ID; Pinned: boolean; ModelID: ID; Budget: AssistantBudget; Version: number };
-export type Conversation = { ID: ID; PeerID: ID; Archived: boolean; LastSequence: number; LastReadSequence: number; UnreadCount: number };
-export type Message = { Source?: { ExecutionID?: ID; OperationID?: ID }; ID: ID; ConversationID: ID; Sequence: number; Sender: 'user' | 'assistant'; Content: { Kind: 'text' | 'card'; Text: string; AttachmentIDs: ID[] | null; Card: { Kind: 'task' | 'resource' | 'schedule' | 'permission_request'; TargetID: ID; Title: string; Summary: string } | null }; CreatedAt: string; AcceptedAt: string | null; ReadAt?: string | null; Feedback?: 'like' | 'dislike' | 'none' };
+export type HiringAuthorization = { ID: ID; Enabled: boolean; MaxAssistants: number; Budget: Money; GrantIDs: ID[]; ExpiresAt: string | null };
+export type PeerCommunicationAuthorization = { Enabled: boolean; AllAssistants: boolean; AssistantIDs: ID[] | null; ExpiresAt: string | null; EnabledAt?: string };
+export type Assistant = { PeerCommunication?: PeerCommunicationAuthorization; Description?: string; EmployerID?: ID; HiringID?: ID; Hiring?: HiringAuthorization; ExpiresAt?: string; ContextCompressionTokens: number; ID: ID; Name: string; Status?: string; Avatar?: string; State: 'active' | 'dismissed'; ConversationID: ID; GroupID: ID; Pinned: boolean; ModelID: ID; Budget: AssistantBudget; Version: number };
+export type Conversation = { PartnerID?: ID; ID: ID; PeerID: ID; Archived: boolean; LastSequence: number; LastReadSequence: number; UnreadCount: number };
+export type Message = { SenderID?: ID; Receiver?: { Type: "user" | "assistant" | "group"; ID: ID }; Origin?: { ClientKind: string; DeviceID?: ID; ChannelBindingID?: ID }; Source?: { ExecutionID?: ID; OperationID?: ID }; ID: ID; ConversationID: ID; Sequence: number; Sender: 'user' | 'assistant'; Content: { Kind: 'text' | 'card'; Text: string; AttachmentIDs: ID[] | null; Card: { Kind: 'task' | 'resource' | 'schedule' | 'permission_request'; TargetID: ID; Title: string; Summary: string } | null }; CreatedAt: string; AcceptedAt: string | null; ReadAt?: string | null; Feedback?: 'like' | 'dislike' | 'none' };
 export type ExpediteStatus = { ThroughSequence: number; State: 'pending' | 'waiting_tool' | 'waiting' | 'read' | 'not_running' | 'not_needed' };
 export type AgentStatus = { Compression?: { EventID: ID; State: string; Reason?: string }; ModelRetry?: { Attempt: number; MaxAttempts: number; NextAt: string; Reason: string }; Context?: { ModelID: ID; Limit: number; Tokens: number; Source: string; CompressionThresholdTokens: number; Compressions: number }; TriggerMessageID?: ID; InterruptedThroughSequence?: number; Expedite?: ExpediteStatus; ExecutionID?: ID; AssistantID: ID; DreamDeadline?: string; DreamRunID?: ID; State: 'idle' | 'dreaming' | 'working' | 'waiting' | 'paused' | 'stopped'; WaitingReason: string; ActiveTaskID?: ID };
 export type ModelPricingTier = { InputTokensAbove: number; OutputTokensAbove: number; InputMicrosPerMillion: number; OutputMicrosPerMillion: number; CachedInputMicrosPerMillion: number };
@@ -85,9 +87,10 @@ export type DreamRun = { Maintenance?: boolean; ReviewPath?: string; ReviewRetai
 
 export type DreamWindow = { AssistantID: ID; Start: string; End: string; Timezone: string; State: string; Manual: boolean; SessionID: ID };
 
-export type PermissionRequest = {
+export type PermissionRequest<Input extends PermissionRequestInput = PermissionRequestInput> = {
+  ApprovedDelegation?: DelegationPermissionRequestInput; ApprovedAssistantVersion?: number;
   ID: ID; AssistantID: ID; TaskID: ID; State: 'pending' | 'approved' | 'rejected'; GrantID: ID; MessageID: ID; Granted?: Grant; GrantedAll?: Grant[]; CreatedAt: string; ResolvedAt: string | null; Version: number;
-  Input: PermissionRequestInput;
+  Input: Input;
 };
 
 export type ShellForward = { Protocol: 'http' | 'tcp'; Port: number; Address: string; URL: string; State: 'waiting' | 'ready' | 'closed' };
@@ -107,7 +110,12 @@ export type ShellTask = { Executable?: string; Args?: string[]; Terminal?: Termi
 export type ShellTaskAction = { action: 'list' | 'read' | 'write' | 'interrupt' | 'stop' | 'stop_all' | 'resize' | 'takeover' | 'release'; client_id?: string; generation?: number; sequence?: number; encoding?: 'base64'; task_id?: string; cursor?: number; stream?: 'stdout' | 'stderr'; data?: string; rows?: number; cols?: number };
 export type ShellTaskOutput = { Terminal?: TerminalControl; Finished?: boolean; OutputComplete?: boolean; Output: string; NextCursor: number; Path: string };
 
-export type PermissionRequestInput = { once?: boolean; full_access?: boolean; full_access_scope?: FullAccessScope; constraints?: ResourceConstraints; temporary?: TemporaryConstraints; grant_id?: ID; grant_version?: number; resource_kind: Resource['Kind']; resource_id?: ID; model_id?: ID; resource_description: string; actions: string[]; path_prefixes?: string[]; expires_at?: string; reason: string; additional_requests?: PermissionRequestInput[]; };
+export type ResourcePermissionRequestInput = { permission_type?: 'resource'; once?: boolean; full_access?: boolean; full_access_scope?: FullAccessScope; constraints?: ResourceConstraints; temporary?: TemporaryConstraints; grant_id?: ID; grant_version?: number; resource_kind: Resource['Kind']; resource_id?: ID; model_id?: ID; resource_description: string; actions: string[]; path_prefixes?: string[]; expires_at?: string; reason: string; additional_requests?: ResourcePermissionRequestInput[]; };
+
+export type HiringPermissionProposal = { max_assistants: number; budget: Money; grant_ids: ID[] };
+export type CommunicationPermissionProposal = { all_assistants: boolean; assistant_ids: ID[] | null };
+export type DelegationPermissionRequestInput = { permission_type: 'temporary_hiring' | 'assistant_communication'; hiring?: HiringPermissionProposal; communication?: CommunicationPermissionProposal; expires_at: string | null; reason: string };
+export type PermissionRequestInput = ResourcePermissionRequestInput | DelegationPermissionRequestInput;
 
 export type DebugRetentionPolicy = { Version: number; MaxRuns: number };
 export type DebugCleanupEvent = { At: string; Policy: DebugRetentionPolicy };

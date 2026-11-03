@@ -1,3 +1,4 @@
+import { isDelegationPermission } from '../../../delegation-permissions';
 import { validFullAccessScope } from './FullAccessScope';
 import { useMutation } from '../../../use-mutation';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -19,6 +20,7 @@ export function ChatComposerContainer({
   channel,
   onStatusChange,
   onManageChannel,
+  onManagePermissions,
   onSent,
 }: {
   assistant: Assistant;
@@ -27,6 +29,7 @@ export function ChatComposerContainer({
   channel: ReturnType<typeof useChatChannel>;
   onStatusChange: () => void;
   onManageChannel: () => void;
+  onManagePermissions: () => void;
   onSent: () => void;
 }) {
   const [draft, updateDraft] = useDraft(assistant.ID);
@@ -195,16 +198,17 @@ export function ChatComposerContainer({
           }
           const proposals = selected.map((request) => ({
             request,
-            items: [
-              request.Input,
-              ...(request.Input.additional_requests ?? []),
-            ],
+            items: isDelegationPermission(request.Input) ? [] : [request.Input, ...(request.Input.additional_requests ?? [])],
           }));
           // Validate every proposal before starting a batch; never invent missing limits.
           if (
             decision === 'approve' &&
-            proposals.some(({ items }) =>
-              items.some(
+            proposals.some(({ request, items }) =>
+              (isDelegationPermission(request.Input) && (
+                (!!request.Input.expires_at && Date.parse(request.Input.expires_at) <= Date.now()) ||
+                (request.Input.hiring && !request.Input.hiring.grant_ids?.length) ||
+                (request.Input.communication && !request.Input.communication.all_assistants && !request.Input.communication.assistant_ids?.length)
+              )) || items.some(
                 (item) =>
                   !item.resource_id ||
                   (item.full_access && (!validFullAccessScope(item.full_access_scope) || !item.expires_at)) ||
@@ -215,13 +219,14 @@ export function ChatComposerContainer({
               ),
             )
           ) {
-            setNotice(
-              zh
-                ? '申请需要补全资源、授权范围或额度，请从权限卡片查看并授权。'
-                : 'This request needs a resource, access scope or quota. Review it using the permission card.',
-            );
+            setNotice(proposals.some(({ request }) => isDelegationPermission(request.Input))
+              ? (zh ? '申请需要补全授权范围或调整有效期，请从权限卡片查看并授权。' : 'Complete the authorization scope or validity using the permission card.')
+              : (zh ? '申请需要补全资源、授权范围或额度，请从权限卡片查看并授权。' : 'This request needs a resource, access scope or quota. Review it using the permission card.'));
+
             return;
           }
+          let assistantVersion = decision === 'approve' && proposals.some(({ request }) => isDelegationPermission(request.Input))
+            ? (await api.get<Assistant>(`/api/assistants/${assistant.ID}`)).Version : 0;
           let completed = 0;
           try {
             for (const { request, items } of proposals) {
@@ -242,17 +247,20 @@ export function ChatComposerContainer({
                 Constraints: item.full_access ? undefined : item.constraints,
                 Temporary: item.full_access ? undefined : item.temporary,
               }));
-              await resolvePermission(
+              const result = await resolvePermission<PermissionRequest>(
                 '/api/permission-requests/resolve',
                 {
                   RequestID: request.ID,
                   Decision: decision,
                   ...(decision === 'approve'
-                    ? { ...resolutions[0], Additional: resolutions.slice(1) }
+                    ? isDelegationPermission(request.Input)
+                      ? { Hiring: request.Input.hiring, Communication: request.Input.communication, ExpiresAt: request.Input.expires_at, AssistantVersion: assistantVersion }
+                      : { ...resolutions[0], Additional: resolutions.slice(1) }
                     : {}),
                 },
                 request.Version, request.ID,
               );
+              if (result.ApprovedAssistantVersion) assistantVersion = result.ApprovedAssistantVersion;
               completed++;
             }
             updateDraft((current) =>
@@ -342,6 +350,9 @@ export function ChatComposerContainer({
         </Button>}
       </div>}
       <ChatComposer
+        extension={pendingPermissions.length > 0 && <button type="button" className="composer-permissions" aria-haspopup="dialog" onClick={onManagePermissions}>
+          {locale === 'zh' ? `${pendingPermissions.length} 个授权请求待处理` : `${pendingPermissions.length} pending permission request${pendingPermissions.length === 1 ? '' : 's'}`}
+        </button>}
         lock={
           externalChannel
             ? {
@@ -367,26 +378,26 @@ export function ChatComposerContainer({
             keywords: ['上下文'],
             disabled: compressing,
           },
-          ...(pendingPermissions.length
-            ? [
-                {
-                  name: 'permission approve',
-                  aliases: ['权限审批 同意'],
-                  description:
-                    locale === 'zh'
-                      ? '同意最新申请；可加 ID 或 all（全部）'
-                      : 'Approve latest; optionally add an ID or all',
-                },
-                {
-                  name: 'permission reject',
-                  aliases: ['权限审批 拒绝'],
-                  description:
-                    locale === 'zh'
-                      ? '拒绝最新申请；可加 ID 或 all（全部）'
-                      : 'Reject latest; optionally add an ID or all',
-                },
-              ]
-            : []),
+          ...(pendingPermissions.length ? [{
+            name: 'permission', aliases: ['权限审批'],
+            description: locale === 'zh' ? '审批授权请求' : 'Review permission requests',
+            children: [
+              { name: 'approve', aliases: ['同意'], description: locale === 'zh' ? '同意授权请求' : 'Approve permission requests' },
+              { name: 'reject', aliases: ['拒绝'], description: locale === 'zh' ? '拒绝授权请求' : 'Reject permission requests' },
+            ].map(command => ({ ...command, children: [
+              { name: 'all', aliases: ['全部'], description: locale === 'zh' ? `全部 ${pendingPermissions.length} 个待处理请求` : `All ${pendingPermissions.length} pending requests` },
+              ...pendingPermissions.map(request => {
+                const input = request.Input;
+                const label = isDelegationPermission(input)
+                  ? input.permission_type === 'temporary_hiring'
+                    ? (locale === 'zh' ? '雇佣临时助理' : 'Temporary hiring')
+                    : (locale === 'zh' ? '与其它助理对话' : 'Assistant communication')
+                  : input.resource_description;
+                const summary = input.reason.replace(/\s+/g, ' ').trim();
+                return { name: request.ID, label, description: summary, keywords: [summary] };
+              }),
+            ] })),
+          }] : []),
         ]}
         value={draft.text}
         onValueChange={(text) => updateDraft(current => ({ ...current, text }))}
