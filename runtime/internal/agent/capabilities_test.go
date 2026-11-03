@@ -8,6 +8,7 @@ import (
 )
 
 func TestCapabilitiesOwnerInspectionDoesNotStartExecution(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	engine := f.Runtime.(*Engine)
 	called := false

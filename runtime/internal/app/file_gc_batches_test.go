@@ -49,6 +49,7 @@ func seedGCQueue(ctx context.Context, store persistence.Store, count int) error 
 	})
 }
 func TestFileGCCommitsCompletedRemovalsInBatches(t *testing.T) {
+	t.Parallel()
 	db, err := sqlitestore.Open(filepath.Join(t.TempDir(), "gc.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -74,6 +75,7 @@ func TestFileGCCommitsCompletedRemovalsInBatches(t *testing.T) {
 	}
 }
 func TestFileGCStopsOnCanceledRemoval(t *testing.T) {
+	t.Parallel()
 	db, err := sqlitestore.Open(filepath.Join(t.TempDir(), "gc.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -155,6 +157,7 @@ func pendingGC(t *testing.T, store persistence.Store) []core.ID {
 	return rows
 }
 func TestFileGCCommitFailureSurvivesRestart(t *testing.T) {
+	t.Parallel()
 	root, db, objects := gcDiskFixture(t, 5)
 	failure := errors.New("queue commit interrupted")
 	db.FailNextCommit(failure)
@@ -217,6 +220,7 @@ func (o *gcSelectiveRemoval) Remove(ctx context.Context, id core.ID) error {
 	return nil
 }
 func TestFileGCRetainsFailuresButAttemptsLaterFiles(t *testing.T) {
+	t.Parallel()
 	_, db, objects := gcDiskFixture(t, 6)
 	removal := &gcSelectiveRemoval{Objects: objects, failed: map[core.ID]bool{"file-0000": true, "file-0002": true}}
 	if err := collectFiles(t.Context(), db, removal); err != nil {
@@ -242,6 +246,7 @@ func TestFileGCRetainsFailuresButAttemptsLaterFiles(t *testing.T) {
 	}
 }
 func TestFileGCCancellationLeavesPartialBatchRetryable(t *testing.T) {
+	t.Parallel()
 	_, db, objects := gcDiskFixture(t, 6)
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
@@ -261,6 +266,7 @@ func TestFileGCCancellationLeavesPartialBatchRetryable(t *testing.T) {
 	}
 }
 func TestFileGCBatchBoundaries(t *testing.T) {
+	t.Parallel()
 	for _, count := range []int{0, 1, 128, 129, 257} {
 		t.Run(fmt.Sprint(count), func(t *testing.T) {
 			db, err := sqlitestore.Open(filepath.Join(t.TempDir(), "gc.db"))

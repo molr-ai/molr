@@ -7,6 +7,7 @@ import (
 )
 
 func TestBrowserProxySettingsRejectRegularMembers(t *testing.T) {
+	t.Parallel()
 	f := newMultiUserFixture(t)
 	for _, raw := range []json.RawMessage{nil, json.RawMessage(`{"Mode":"direct","PasswordAction":"clear","Version":0}`)} {
 		if _, err := f.b.shellTasks.BrowserSettings(t.Context(), f.alice, raw); core.CodeOf(err) != core.Forbidden {

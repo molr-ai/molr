@@ -17,6 +17,7 @@ import (
 )
 
 func TestWorkbenchResetRequiresWriteScopeAndFreshCheckpointWhileHidden(t *testing.T) {
+	t.Parallel()
 	cfg := testConfig(t)
 	cfg.Debug.Enabled = true
 	b, err := Build(t.Context(), cfg)
@@ -105,6 +106,7 @@ func TestWorkbenchResetRequiresWriteScopeAndFreshCheckpointWhileHidden(t *testin
 }
 
 func TestWorkbenchDeploymentDisablesContextReset(t *testing.T) {
+	t.Parallel()
 	cfg := testConfig(t)
 	cfg.Debug.Enabled = false
 	b, err := Build(t.Context(), cfg)

@@ -61,6 +61,7 @@ func saveInterruptJob(t *testing.T, db persistence.Store, job event.Job) {
 	}
 }
 func TestIdleInterruptReadCount(t *testing.T) {
+	t.Parallel()
 	e, store, db, turn := interruptFixture(t)
 	ready := make(chan struct{})
 	store.afterRead = func(n int64) {
@@ -89,6 +90,7 @@ func TestIdleInterruptReadCount(t *testing.T) {
 	t.Log("idle window 550ms with 20 unrelated commits: 3 initial read transactions, no repeated reads")
 }
 func TestInterruptCommitDuringReadIsNotLost(t *testing.T) {
+	t.Parallel()
 	e, store, db, turn := interruptFixture(t)
 	queried, release := make(chan struct{}), make(chan struct{})
 	store.afterRead = func(n int64) {
@@ -108,6 +110,7 @@ func TestInterruptCommitDuringReadIsNotLost(t *testing.T) {
 	}
 }
 func TestInterruptFutureDeadlineWithoutAnotherCommit(t *testing.T) {
+	t.Parallel()
 	e, store, db, turn := interruptFixture(t)
 	due := time.Now().Add(300 * time.Millisecond)
 	saveInterruptJob(t, db, interruptJob("future", due))
@@ -121,6 +124,7 @@ func TestInterruptFutureDeadlineWithoutAnotherCommit(t *testing.T) {
 	}
 }
 func TestInterruptRollbackDoesNotWakeAndCommitDoes(t *testing.T) {
+	t.Parallel()
 	e, store, db, turn := interruptFixture(t)
 	ready := make(chan struct{})
 	store.afterRead = func(n int64) {
@@ -151,6 +155,7 @@ func TestInterruptRollbackDoesNotWakeAndCommitDoes(t *testing.T) {
 	}
 }
 func TestInterruptRetriesReadFailureWithoutNewWrite(t *testing.T) {
+	t.Parallel()
 	e, store, db, turn := interruptFixture(t)
 	saveInterruptJob(t, db, interruptJob("pending", time.Now()))
 	store.failFirst = true
@@ -161,6 +166,7 @@ func TestInterruptRetriesReadFailureWithoutNewWrite(t *testing.T) {
 	}
 }
 func TestInterruptStoreCloseAndDreamCleanup(t *testing.T) {
+	t.Parallel()
 	t.Run("closed store", func(t *testing.T) {
 		e, store, db, turn := interruptFixture(t)
 		ready := make(chan struct{})

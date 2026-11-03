@@ -36,6 +36,7 @@ func testPNG(t *testing.T, c color.Color) []byte {
 	return b.Bytes()
 }
 func TestFileMediaMetadataSnapshotsModelSwitchAndRevocation(t *testing.T) {
+	t.Parallel()
 	f, fs, target := fileFixture(t)
 	p := mediaTestModel(t, f)
 	original := testPNG(t, color.White)
@@ -90,6 +91,7 @@ func TestFileMediaMetadataSnapshotsModelSwitchAndRevocation(t *testing.T) {
 	}
 }
 func TestFileMediaOptionsAndMalformedImages(t *testing.T) {
+	t.Parallel()
 	f, fs, target := fileFixture(t)
 	p := mediaTestModel(t, f)
 	need(t, os.WriteFile(filepath.Join(f.root, "write/data"), testPNG(t, color.White)[:24], 0600))
@@ -112,6 +114,7 @@ func TestFileMediaOptionsAndMalformedImages(t *testing.T) {
 }
 
 func TestFileReadUnknownBinaryReturnsMetadata(t *testing.T) {
+	t.Parallel()
 	f, fs, target := fileFixture(t)
 	need(t, os.WriteFile(filepath.Join(f.root, "write/data"), []byte{0, 1, 2}, 0600))
 	raw, err := fs.Read(t.Context(), f.execution, tools.FileReadRequest{FileTarget: target})
@@ -124,6 +127,7 @@ func TestFileReadUnknownBinaryReturnsMetadata(t *testing.T) {
 }
 
 func TestMediaWindowKeepsRecentReadsAndSurvivesCacheEviction(t *testing.T) {
+	t.Parallel()
 	f, fs, target := fileFixture(t)
 	p := mediaTestModel(t, f)
 	need(t, os.WriteFile(filepath.Join(f.root, "write/data"), testPNG(t, color.White), 0600))

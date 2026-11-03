@@ -23,6 +23,7 @@ import (
 )
 
 func TestWorkspaceFileToolsNeedNoStorageOrComputeGrant(t *testing.T) {
+	t.Parallel()
 	for _, override := range []bool{false, true} {
 		t.Run(map[bool]string{false: "default", true: "override"}[override], func(t *testing.T) {
 			f := newResourceAccessFixture(t, func(cfg *config.Config, _ string) {
@@ -83,6 +84,7 @@ func TestWorkspaceFileToolsNeedNoStorageOrComputeGrant(t *testing.T) {
 }
 
 func TestWorkspaceIdentityAndSymlinkIsolation(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, func(cfg *config.Config, _ string) { cfg.Sandbox.Enabled = false })
 	fs := newResourceFileTools(resourceFileOptions{adapters: f.ad})
 	other := f.execution
@@ -115,6 +117,7 @@ func TestWorkspaceIdentityAndSymlinkIsolation(t *testing.T) {
 }
 
 func TestGlobalFilesReadSameOwnerMemoryAndRejectWrites(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, func(cfg *config.Config, _ string) { cfg.Sandbox.Enabled = false })
 	fs := newResourceFileTools(resourceFileOptions{adapters: f.ad})
 	root := platform.UserGlobal(f.ad.dataDir, f.owner.OwnerID)
@@ -143,6 +146,7 @@ func TestGlobalFilesReadSameOwnerMemoryAndRejectWrites(t *testing.T) {
 }
 
 func TestWorkspaceContextAvailabilityAndStableContract(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { c.Sandbox.Enabled = true })
 	fs := newResourceFileTools(resourceFileOptions{adapters: f.ad, router: &sandboxRouter{adapters: f.ad}})
 	request := agent.ContextRequest{Execution: f.execution}

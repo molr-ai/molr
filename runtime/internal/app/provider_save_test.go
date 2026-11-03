@@ -19,6 +19,7 @@ func (providerTestPolicy) Require(_ context.Context, p core.Principal, _ policy.
 }
 
 func TestProviderKeyRotationRollsBackWithConnectionFailure(t *testing.T) {
+	t.Parallel()
 	cfg := testConfig(t)
 	b, err := Build(t.Context(), cfg)
 	need(t, err)

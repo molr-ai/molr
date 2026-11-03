@@ -93,6 +93,7 @@ func quotaGrantFixture(tb testing.TB) (*sandboxRouter, core.Principal, *quotaGra
 	return &sandboxRouter{adapters: adapters{store: observed}, shell: &shellService{runner: runner}}, core.Principal{OwnerID: "owner", SubjectID: "owner", Kind: core.ActorOwner, SessionID: "session"}, observed
 }
 func TestQuotaUsageLoadsOnlySelectedActiveGrant(t *testing.T) {
+	t.Parallel()
 	router, p, store := quotaGrantFixture(t)
 	usage, err := router.quotaUsage(t.Context(), p, "assistant", "compute")
 	need(t, err)
@@ -119,6 +120,7 @@ func BenchmarkQuotaUsageGrantHistory(b *testing.B) {
 }
 
 func TestQuotaGrantQueryExpiryAndFullAccessRepresentations(t *testing.T) {
+	t.Parallel()
 	db, err := sqlitestore.Open(filepath.Join(t.TempDir(), "boundary.db"))
 	need(t, err)
 	defer db.Close()
@@ -170,6 +172,7 @@ func TestQuotaGrantQueryExpiryAndFullAccessRepresentations(t *testing.T) {
 }
 
 func TestQuotaUsageObservesGrantChangesAndFailsClosed(t *testing.T) {
+	t.Parallel()
 	router, p, store := quotaGrantFixture(t)
 	update := func(id core.ID, change func(*policy.Grant)) {
 		t.Helper()
@@ -217,6 +220,7 @@ func TestQuotaUsageObservesGrantChangesAndFailsClosed(t *testing.T) {
 }
 
 func TestQuotaGrantQueryKeepsOwnerAssistantResourceScope(t *testing.T) {
+	t.Parallel()
 	db, err := sqlitestore.Open(filepath.Join(t.TempDir(), "scope.db"))
 	need(t, err)
 	defer db.Close()
@@ -237,6 +241,7 @@ func TestQuotaGrantQueryKeepsOwnerAssistantResourceScope(t *testing.T) {
 }
 
 func TestExecutionGrantLoadsOnlyActiveResourceCandidates(t *testing.T) {
+	t.Parallel()
 	_, _, store := quotaGrantFixture(t)
 	e := core.Execution{Principal: core.Principal{OwnerID: "owner", SubjectID: "assistant", Kind: core.ActorAssistant}, AssistantID: "assistant"}
 	g, err := executionGrant(t.Context(), store, e, "compute")

@@ -10,6 +10,7 @@ import (
 )
 
 func TestMaintenanceAPIRequiresAuthenticationCSRFAndKnownRequests(t *testing.T) {
+	t.Parallel()
 	cfg := testConfig(t)
 	cfg.HTTP.TLSMode = config.LocalHTTP
 	cfg.HTTP.TrustedProxies = nil

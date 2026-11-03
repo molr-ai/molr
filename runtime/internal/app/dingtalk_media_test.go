@@ -15,6 +15,7 @@ import (
 )
 
 func TestDingtalkMediaAndContextUseLiveBinding(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, nil)
 	ctx := t.Context()
 	a, err := assistant.NewRepository(f.b.store).Get(ctx, f.owner.OwnerID, f.execution.AssistantID)

@@ -13,6 +13,7 @@ import (
 )
 
 func TestDeleteProviderCleansReferencesAndPreservesHistory(t *testing.T) {
+	t.Parallel()
 	for _, disconnected := range []bool{false, true} {
 		t.Run(map[bool]string{false: "active-exclusive-key", true: "disconnected-shared-key"}[disconnected], func(t *testing.T) {
 			b, err := Build(t.Context(), testConfig(t))

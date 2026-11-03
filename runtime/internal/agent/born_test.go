@@ -13,6 +13,7 @@ import (
 )
 
 func TestBornPublishesThroughNormalLoopAndDoesNotRepeatAfterRestart(t *testing.T) {
+	t.Parallel()
 	var calls atomic.Int32
 	f, _ := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)

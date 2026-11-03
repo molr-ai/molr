@@ -72,6 +72,7 @@ func attachmentAccessFixture(tb testing.TB) (access, *attachmentAccessStore, cor
 	return access{observed}, observed, core.Principal{Kind: core.ActorAssistant, OwnerID: "owner", SubjectID: "assistant"}
 }
 func TestAttachmentAccessDoesNotLoadBodiesOrRepeatPeerChecks(t *testing.T) {
+	t.Parallel()
 	a, s, p := attachmentAccessFixture(t)
 	if err := a.owns(t.Context(), p, core.Object{Kind: "file", ID: "file"}); core.CodeOf(err) != core.Forbidden {
 		t.Fatal(err)
@@ -96,6 +97,7 @@ func BenchmarkAttachmentAccess(b *testing.B) {
 }
 
 func TestAttachmentAccessRechecksPeerAndOwnerBindings(t *testing.T) {
+	t.Parallel()
 	a, s, p := attachmentAccessFixture(t)
 	object := core.Object{Kind: "file", ID: "file"}
 	put := func(bucket, key string, value any) {

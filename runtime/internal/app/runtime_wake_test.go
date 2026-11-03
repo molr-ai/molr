@@ -13,6 +13,7 @@ import (
 )
 
 func TestRuntimeWakeUsesPersistedBoundariesAndPendingExternalWork(t *testing.T) {
+	t.Parallel()
 	store, err := sqlitestore.Open(filepath.Join(t.TempDir(), "runtime.db"))
 	need(t, err)
 	defer store.Close()
@@ -44,6 +45,7 @@ func TestRuntimeWakeUsesPersistedBoundariesAndPendingExternalWork(t *testing.T) 
 }
 
 func TestRuntimeWakeIgnoresPermanentHiring(t *testing.T) {
+	t.Parallel()
 	store, err := sqlitestore.Open(filepath.Join(t.TempDir(), "runtime.db"))
 	need(t, err)
 	defer store.Close()

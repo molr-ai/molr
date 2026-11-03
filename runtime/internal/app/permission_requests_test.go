@@ -43,6 +43,7 @@ func newPermissionRequestsFixture(t *testing.T, f resourceAccessFixture) *permis
 }
 
 func TestPermissionRequestApprovalIsExplicitScopedAndIdempotent(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, nil)
 	s := newPermissionRequestsFixture(t, f)
 	expires := time.Now().Add(time.Hour).UTC()
@@ -135,6 +136,7 @@ func TestPermissionRequestApprovalIsExplicitScopedAndIdempotent(t *testing.T) {
 }
 
 func TestPermissionRequestRejectionAndManualStop(t *testing.T) {
+	t.Parallel()
 	for _, stopped := range []bool{false, true} {
 		t.Run(map[bool]string{false: "reject resumes", true: "stop stays stopped"}[stopped], func(t *testing.T) {
 			f := newResourceAccessFixture(t, nil)
@@ -173,6 +175,7 @@ func TestPermissionRequestRejectionAndManualStop(t *testing.T) {
 }
 
 func TestPermissionListRetainsGrantDetailsWhenResourceUnavailable(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, nil)
 	expires := time.Now().Add(time.Hour).UTC()
 	g := f.grant(t, f.storage.ID, "read", []policy.Action{policy.Read}, policy.Scope{PathPrefixes: []string{"/read"}, ReadOnly: true}, &expires)
@@ -205,6 +208,7 @@ func TestPermissionListRetainsGrantDetailsWhenResourceUnavailable(t *testing.T) 
 func futurePermissionTime() *time.Time { value := time.Now().Add(time.Hour).UTC(); return &value }
 
 func TestGroupedQuotaApprovalRollsBackAndRetriesAtomically(t *testing.T) {
+	t.Parallel()
 	for _, permanent := range []bool{false, true} {
 		name := "finite"
 		if permanent {
@@ -267,6 +271,7 @@ func TestGroupedQuotaApprovalRollsBackAndRetriesAtomically(t *testing.T) {
 }
 
 func TestPermissionRequestValidationFailsBeforePublishing(t *testing.T) {
+	t.Parallel()
 	for _, grouped := range []bool{false, true} {
 		for _, tc := range []struct {
 			name, field, message string
@@ -348,6 +353,7 @@ func TestPermissionRequestValidationFailsBeforePublishing(t *testing.T) {
 }
 
 func TestPermissionRequestRejectsUnknownModel(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, nil)
 	s := newPermissionRequestsFixture(t, f)
 	configureTestModel(t, f.b, f.owner)

@@ -9,6 +9,7 @@ import (
 )
 
 func TestTurnRejectsCrossOwnerAndAssistantCheckpoints(t *testing.T) {
+	t.Parallel()
 	turn := Turn{Principal: core.Principal{OwnerID: "o", SubjectID: "a", Kind: core.ActorAssistant, ExecutionID: "run"}, Event: event.AssistantEvent{ID: "event", OwnerID: "o", AssistantID: "a", Kind: event.UserMessage, MessageID: "message", CreatedAt: time.Now()}}
 	if err := turn.Validate(); err != nil {
 		t.Fatal(err)

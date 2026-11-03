@@ -17,6 +17,7 @@ import (
 )
 
 func TestLANHTTPBrowserAndTransportBoundaries(t *testing.T) {
+	t.Parallel()
 	cfg := config.Defaults(t.TempDir())
 	cfg.HTTP.TLSMode = config.LANHTTP
 	cfg.HTTP.Listen = "0.0.0.0:8787"
@@ -98,6 +99,7 @@ func TestLANHTTPBrowserAndTransportBoundaries(t *testing.T) {
 }
 
 func TestSetupAtomicCompletionAndConcurrentRetry(t *testing.T) {
+	t.Parallel()
 	b, err := Build(t.Context(), testConfig(t))
 	need(t, err)
 	defer b.Close()
@@ -171,6 +173,7 @@ func TestSetupAtomicCompletionAndConcurrentRetry(t *testing.T) {
 }
 
 func TestProbeLocalProviderOnlyReadsMetadata(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name, body, state string
 		code              int

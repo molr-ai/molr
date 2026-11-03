@@ -10,6 +10,7 @@ import (
 )
 
 func TestUncheckpointedModelResultUsesFreshAttemptAfterRestart(t *testing.T) {
+	t.Parallel()
 	for _, unknown := range []bool{false, true} {
 		name := "completed"
 		if unknown {

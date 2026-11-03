@@ -26,6 +26,7 @@ import (
 )
 
 func TestWorkspaceContextDiscoversScopesAndRefreshesLoadedSkills(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	write := func(name, body string) {
 		t.Helper()
@@ -82,6 +83,7 @@ func TestWorkspaceContextDiscoversScopesAndRefreshesLoadedSkills(t *testing.T) {
 	}
 }
 func TestWorkspaceContextRejectsUnsafeOrOversizedSources(t *testing.T) {
+	t.Parallel()
 	for _, name := range []string{"symlink", "hardlink", "oversize", "binary"} {
 		t.Run(name, func(t *testing.T) {
 			root := t.TempDir()
@@ -107,6 +109,7 @@ func TestWorkspaceContextRejectsUnsafeOrOversizedSources(t *testing.T) {
 	}
 }
 func TestWorkspaceContextAuthorizesIdentityAndSkillReads(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, func(cfg *config.Config, _ string) { cfg.Sandbox.Enabled = false })
 	root := platform.AssistantWorkspace(f.ad.dataDir, f.ad.storageConfig.WorkRoot, f.owner.OwnerID, f.execution.AssistantID)
 	need(t, os.MkdirAll(filepath.Join(root, ".agents/skills/check"), 0700))
@@ -148,6 +151,7 @@ func TestWorkspaceContextAuthorizesIdentityAndSkillReads(t *testing.T) {
 }
 
 func TestLoopLoadsAndUpdatesWorkspaceContextThroughRealTools(t *testing.T) {
+	t.Parallel()
 	cfg := testConfig(t)
 	cfg.Sandbox.Enabled = true // Storage stays available even without a ready compute backend.
 	cfg.Debug.Enabled = true
@@ -315,6 +319,7 @@ func TestLoopLoadsAndUpdatesWorkspaceContextThroughRealTools(t *testing.T) {
 }
 
 func TestGlobalContextDiscoveryAndExplicitSkillRead(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	need(t, os.MkdirAll(filepath.Join(root, ".agents/skills/shared"), 0700))
 	need(t, os.WriteFile(filepath.Join(root, "AGENTS.md"), []byte("Shared instructions"), 0600))
@@ -355,6 +360,7 @@ func directoryVisit(name string) agent.ContextRequest {
 }
 
 func TestInstructionDiscoveryIgnoresBulkDataAndLoadsVisitedAncestors(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	write := func(name, body string) {
 		t.Helper()
@@ -414,6 +420,7 @@ func TestInstructionDiscoveryIgnoresBulkDataAndLoadsVisitedAncestors(t *testing.
 }
 
 func TestInstructionDiscoveryRequiresSuccessfulLocalWorkspaceRead(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	need(t, os.MkdirAll(filepath.Join(root, "project"), 0700))
 	need(t, os.WriteFile(filepath.Join(root, "project/AGENTS.md"), []byte("local only"), 0600))

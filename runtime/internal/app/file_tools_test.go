@@ -32,6 +32,7 @@ func readFileResult(t *testing.T, fs *resourceFileTools, e core.Execution, targe
 	return out
 }
 func TestFileReadRangesLargeFilesAndExplicitTruncation(t *testing.T) {
+	t.Parallel()
 	f, fs, target := fileFixture(t)
 	// Larger than the old 1 MiB ceiling; a small requested range remains cheap.
 	need(t, os.WriteFile(filepath.Join(f.root, "write/data"), []byte(strings.Repeat("hello 世界\r\n", 100000)), 0600))
@@ -59,6 +60,7 @@ func TestFileReadRangesLargeFilesAndExplicitTruncation(t *testing.T) {
 	}
 }
 func TestFileReadRejectsLongLinesAndReportsEmpty(t *testing.T) {
+	t.Parallel()
 	f, fs, target := fileFixture(t)
 	for _, data := range [][]byte{[]byte(strings.Repeat("x", filetools.OutputLimit+1))} {
 		need(t, os.WriteFile(filepath.Join(f.root, "write/data"), data, 0600))
@@ -81,6 +83,7 @@ func TestFileReadRejectsLongLinesAndReportsEmpty(t *testing.T) {
 	}
 }
 func TestFileListPaginationScopeAndVersion(t *testing.T) {
+	t.Parallel()
 	f, fs, _ := fileFixture(t)
 	target := tools.FileTarget{ResourceID: f.storage.ID, Path: "/read"}
 	for i := 0; i < 6; i++ {
@@ -126,6 +129,7 @@ func TestFileListPaginationScopeAndVersion(t *testing.T) {
 	}
 }
 func TestFileWriteExplicitCreateReplaceAndVersions(t *testing.T) {
+	t.Parallel()
 	f, fs, target := fileFixture(t)
 	if _, err := fs.Write(t.Context(), f.execution, tools.FileWriteRequest{FileTarget: target, Text: "bad"}); core.CodeOf(err) != core.Conflict {
 		t.Fatal("implicit overwrite")
@@ -150,6 +154,7 @@ func TestFileWriteExplicitCreateReplaceAndVersions(t *testing.T) {
 	}
 }
 func TestFileEditExactMatchConflictAndConcurrentUpdates(t *testing.T) {
+	t.Parallel()
 	f, fs, target := fileFixture(t)
 	need(t, os.WriteFile(filepath.Join(f.root, "write/data"), []byte("one\r\ntwo one\r\n"), 0600))
 	before := readFileResult(t, fs, f.execution, target)
@@ -201,6 +206,7 @@ func TestFileEditExactMatchConflictAndConcurrentUpdates(t *testing.T) {
 	}
 }
 func TestFileEditRequiresReadAndWriteOnSamePath(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, nil)
 	fs := newResourceFileTools(resourceFileOptions{adapters: f.ad})
 	target := tools.FileTarget{ResourceID: f.storage.ID, Path: "/write/data"}
@@ -240,6 +246,7 @@ func TestFileEditRequiresReadAndWriteOnSamePath(t *testing.T) {
 }
 
 func TestFileToolsExecuteWithReceiptsAndIdempotency(t *testing.T) {
+	t.Parallel()
 	f, fs, target := fileFixture(t)
 	ex := tools.NewExecutor(f.b.store, tools.Options{Authorizer: f.ad.policy, Operations: f.b.Services.Operations.(operation.Service), FileRead: fs.Read, FileList: fs.List, FileWrite: fs.Write, FileEdit: fs.Edit})
 	input, _ := json.Marshal(tools.FileReadRequest{FileTarget: target})

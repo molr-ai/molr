@@ -62,6 +62,7 @@ func (s *cancelExportFiles) Upload(ctx context.Context, _ core.Principal, _ file
 	return files.File{}, persistence.CheckContext(ctx)
 }
 func TestExportStopsCopyingArtifactAfterCancellation(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	content := bytes.Repeat([]byte("export fixture "), 150000)
@@ -86,6 +87,7 @@ func TestExportStopsCopyingArtifactAfterCancellation(t *testing.T) {
 }
 
 func TestExportCancellationBoundaries(t *testing.T) {
+	t.Parallel()
 	for _, when := range []string{"before", "deadline", "last-read", "close", "read-error"} {
 		t.Run(when, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(t.Context())

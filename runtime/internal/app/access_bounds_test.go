@@ -17,6 +17,7 @@ import (
 )
 
 func TestExecutionChecksReadOnlyMatchingJobs(t *testing.T) {
+	t.Parallel()
 	db, err := sqlitestore.Open(filepath.Join(t.TempDir(), "access.db"))
 	testkit.RequireNoError(t, err)
 	defer db.Close()
@@ -48,6 +49,7 @@ func TestExecutionChecksReadOnlyMatchingJobs(t *testing.T) {
 }
 
 func TestExecutionDomainChecksPreserveLifecycleAndTransaction(t *testing.T) {
+	t.Parallel()
 	db, err := sqlitestore.Open(filepath.Join(t.TempDir(), "access.db"))
 	testkit.RequireNoError(t, err)
 	defer db.Close()

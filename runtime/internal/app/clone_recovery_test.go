@@ -22,6 +22,7 @@ import (
 )
 
 func TestCloneReplayAndConcurrentCallsUseRealLifecycle(t *testing.T) {
+	t.Parallel()
 	b, p := dataBundle(t)
 	a := dataAssistant(t, b, p)
 	req := assistant.CloneRequest{SourceID: a.ID, Name: "Copy", CopyMemory: true, Mutation: core.Mutation{IdempotencyKey: "copy"}}
@@ -65,6 +66,7 @@ func TestCloneReplayAndConcurrentCallsUseRealLifecycle(t *testing.T) {
 }
 
 func TestCloneRecoveryAfterCopyOrCommitFailureAndRestart(t *testing.T) {
+	t.Parallel()
 	for _, point := range []string{"copy", "commit"} {
 		t.Run(point, func(t *testing.T) {
 			ctx := t.Context()

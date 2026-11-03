@@ -18,6 +18,7 @@ import (
 )
 
 func TestTurnMetricsDynamicAggregationFinalizationAndIsolation(t *testing.T) {
+	t.Parallel()
 	store, err := sqlitestore.Open(filepath.Join(t.TempDir(), "metrics.db"))
 	testkit.RequireNoError(t, err)
 	defer store.Close()

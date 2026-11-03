@@ -16,6 +16,7 @@ import (
 )
 
 func TestUsageViewsMatchAllowanceAcrossPeriods(t *testing.T) {
+	t.Parallel()
 	f := newMultiUserFixture(t)
 	ctx := t.Context()
 	now := time.Now().UTC()
@@ -77,6 +78,7 @@ func TestUsageViewsMatchAllowanceAcrossPeriods(t *testing.T) {
 }
 
 func TestContextUsageAccountScopeAndGlobalPrivacy(t *testing.T) {
+	t.Parallel()
 	f := newMultiUserFixture(t)
 	ctx := t.Context()
 	identity := f.b.Services.Auth.(*auth.Manager)
@@ -109,6 +111,7 @@ func TestContextUsageAccountScopeAndGlobalPrivacy(t *testing.T) {
 }
 
 func TestLifetimeUserMessagesCountSuccessfulSends(t *testing.T) {
+	t.Parallel()
 	f := newMultiUserFixture(t)
 	ctx := t.Context()
 	identity := f.b.Services.Auth.(*auth.Manager)

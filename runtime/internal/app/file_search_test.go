@@ -17,6 +17,7 @@ import (
 )
 
 func TestFileSearchWorkspaceGlobalAndExternalScope(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, func(cfg *config.Config, _ string) { cfg.Sandbox.Enabled = false })
 	files := newResourceFileTools(resourceFileOptions{adapters: f.ad})
 	root := platform.AssistantWorkspace(f.ad.dataDir, f.ad.storageConfig.WorkRoot, f.owner.OwnerID, f.execution.AssistantID)
@@ -45,6 +46,7 @@ func TestFileSearchWorkspaceGlobalAndExternalScope(t *testing.T) {
 }
 
 func TestMemoryFileRevisionsInvalidateOldSearchSnippets(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, func(cfg *config.Config, _ string) { cfg.Sandbox.Enabled = false })
 	files := newResourceFileTools(resourceFileOptions{adapters: f.ad})
 	root := platform.AssistantWorkspace(f.ad.dataDir, f.ad.storageConfig.WorkRoot, f.owner.OwnerID, f.execution.AssistantID)

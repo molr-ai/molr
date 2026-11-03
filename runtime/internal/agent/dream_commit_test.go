@@ -14,6 +14,7 @@ import (
 )
 
 func TestDreamCommitPlanSurvivesEngineFailure(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	f.Turn.Event.Kind = event.DreamDue
@@ -52,6 +53,7 @@ func TestDreamCommitPlanSurvivesEngineFailure(t *testing.T) {
 }
 
 func TestDreamRecoveryUsesSavedOutputWithoutModelCall(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	f.Turn.Event.Kind = event.DreamDue

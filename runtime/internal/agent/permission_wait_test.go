@@ -19,6 +19,7 @@ import (
 )
 
 func TestPermissionRequestWaitsBeforeDependentCallsAndContinuesAfterRestart(t *testing.T) {
+	t.Parallel()
 	var modelCalls, requests atomic.Int32
 	f, db := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !testkit.DrainRequestBody(t, r) {
@@ -62,6 +63,7 @@ func TestPermissionRequestWaitsBeforeDependentCallsAndContinuesAfterRestart(t *t
 }
 
 func TestInvalidPermissionRequestReturnsReasonWithoutWaiting(t *testing.T) {
+	t.Parallel()
 	var calls atomic.Int32
 	f, db := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw, _ := io.ReadAll(r.Body)

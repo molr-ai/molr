@@ -37,6 +37,7 @@ func dataAssistant(t *testing.T, b *Bundle, p core.Principal) assistant.Assistan
 	return a
 }
 func TestCleanupMessageKeepsSequenceMonotonicAndReadStateUsable(t *testing.T) {
+	t.Parallel()
 	b, p := dataBundle(t)
 	ctx := testkit.Context(t)
 	a := dataAssistant(t, b, p)
@@ -69,6 +70,7 @@ func TestCleanupMessageKeepsSequenceMonotonicAndReadStateUsable(t *testing.T) {
 	}
 }
 func TestCleanupConversationKeepsRehireShellAndOtherOwnerMessages(t *testing.T) {
+	t.Parallel()
 	b, p := dataBundle(t)
 	ctx := testkit.Context(t)
 	a := dataAssistant(t, b, p)
@@ -111,6 +113,7 @@ func TestCleanupConversationKeepsRehireShellAndOtherOwnerMessages(t *testing.T) 
 	}
 }
 func TestCleanupTaskRemovesRevisionsAndResumeEmitsTaskEvent(t *testing.T) {
+	t.Parallel()
 	b, p := dataBundle(t)
 	ctx := testkit.Context(t)
 	a := dataAssistant(t, b, p)
@@ -152,6 +155,7 @@ func TestCleanupTaskRemovesRevisionsAndResumeEmitsTaskEvent(t *testing.T) {
 	}))
 }
 func TestExportIncludesCompleteArtifactsAndRejectsTruncation(t *testing.T) {
+	t.Parallel()
 	b, p := dataBundle(t)
 	ctx := testkit.Context(t)
 	content := []byte("complete artifact contents")
@@ -203,6 +207,7 @@ func TestExportIncludesCompleteArtifactsAndRejectsTruncation(t *testing.T) {
 	testkit.RequireCode(t, err, core.InvalidArgument)
 }
 func TestCleanupFilePublishesGCBeforePhysicalDeletion(t *testing.T) {
+	t.Parallel()
 	b, p := dataBundle(t)
 	ctx := testkit.Context(t)
 	uploaded, err := b.Services.Files.Upload(ctx, p, files.UploadRequest{Mutation: core.Mutation{IdempotencyKey: "gc-source"}, Name: "discard.txt", Size: 7, Body: strings.NewReader("discard")})

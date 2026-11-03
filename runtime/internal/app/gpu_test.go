@@ -22,6 +22,7 @@ const gpuA = "GPU-00000000-0000-0000-0000-000000000001"
 const gpuB = "GPU-00000000-0000-0000-0000-000000000002"
 
 func TestGPUComputeGrantAutomaticallyBuildsPlanAndRestoresTemporaryScope(t *testing.T) {
+	t.Parallel()
 	if platform.NativeSandbox() {
 		t.Skip("requires Linux GPU device grants; macOS rejects GPU configuration")
 	}
@@ -58,6 +59,7 @@ func TestGPUComputeGrantAutomaticallyBuildsPlanAndRestoresTemporaryScope(t *test
 	}
 }
 func TestGPUGroupCatalogDoesNotExpandOrLeakDevices(t *testing.T) {
+	t.Parallel()
 	info := sm.Info{AuthorizationCeilings: platform.Limits{GPUDeviceIDs: []string{gpuA, gpuB}}, GPUs: []platform.GPUDevice{{ID: gpuA}, {ID: gpuB}}}
 	info.HostCapacity.GPUs = []platform.GPUDevice{{ID: gpuB, Name: "Telemetry only", Reason: "gpu_platform_unsupported"}}
 	for _, ref := range []*auth.ResourceReference{{}, {Quota: auth.ResourceQuota{Compute: &core.ComputeConstraints{}}}} {
@@ -76,6 +78,7 @@ func TestGPUGroupCatalogDoesNotExpandOrLeakDevices(t *testing.T) {
 	}
 }
 func TestGPUPermissionContextPreservesHardwareScope(t *testing.T) {
+	t.Parallel()
 	raw := map[string]any{"Resources": []any{map[string]any{"Grants": []any{permissionGrant{Constraints: &policy.Constraints{Compute: &core.ComputeConstraints{GPU: &core.GPUAccess{DeviceIDs: []string{gpuA}}}}}}}}, "Requestable": []any{map[string]any{"ResourceID": "compute", "GPUs": []platform.GPUDevice{{ID: gpuA, Name: "Example GPU", Available: true}}, "AuthorizationCeilings": platform.Limits{GPUDeviceIDs: []string{gpuA}}}}, "BuiltInStorage": []any{}}
 	data, _ := json.Marshal(raw)
 	text, err := prompt.Structured("permission_list", string(data))
@@ -88,6 +91,7 @@ func TestGPUPermissionContextPreservesHardwareScope(t *testing.T) {
 }
 
 func TestGPUAssistantRequestRequiresApprovalAndOwnerCanNarrow(t *testing.T) {
+	t.Parallel()
 	if platform.NativeSandbox() {
 		t.Skip("requires Linux GPU device grants; macOS rejects GPU configuration")
 	}
@@ -126,6 +130,7 @@ func TestGPUAssistantRequestRequiresApprovalAndOwnerCanNarrow(t *testing.T) {
 }
 
 func TestSharedGPUComputeContextDoesNotAdvertiseDeviceGrants(t *testing.T) {
+	t.Parallel()
 	descriptor := requestablePermission{ResourceID: "compute", GPUAccessMode: "shared", SharedGPUs: []platform.GPUDevice{{ID: gpuA, Name: "Shared GPU", MemoryBytes: 16 << 30}}}
 	data, err := json.Marshal(map[string]any{"Resources": []any{}, "BuiltInStorage": []any{}, "Requestable": []requestablePermission{descriptor}})
 	need(t, err)

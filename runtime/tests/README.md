@@ -30,7 +30,7 @@ make -C runtime check-contracts
 make -C runtime test-existing
 ```
 
-`PACKAGES` 控制 Go 包选择；`TEST_FLAGS` 可传 `-count=1`、`-race` 等选项。Go 可并行检查不同包；用例中涉及共享时钟、故障注入或进程环境时，不强制 `t.Parallel()`。
+`PACKAGES` 控制 Go 包选择；`TEST_FLAGS` 可传 `-count=1`、`-race`、`-shuffle=on` 等选项。Makefile 和原生 CI 使用 `-p 4 -parallel 4`，分别限制并行包数和每个包的并行用例数；直接运行 Go 时也使用这组参数。`app` 与 `agent` 中资源独立的顶层用例通过 `t.Parallel()` 并行执行，每个用例保留自己的临时数据库、账号、HTTP 服务和清理逻辑。共享夹具的子用例、修改进程环境的用例、原生集成测试及受固定上下文期限约束的长用例保留串行。新增并行用例前检查资源隔离，并验证随机顺序和 race 模式；不能通过删除断言、跳过测试或放宽业务截止时间换取提速。
 
 ## 测试结构与实现接入
 
@@ -66,7 +66,7 @@ make -C runtime test-existing
 
 需要允许测试创建本机 socket。容器或受限沙箱若禁止监听，应使用允许本机测试网络的环境；不应把这些用例改为 Skip。生产权限边界测试不能证明所有浏览器、供应商和操作系统的行为，也不等于独立安全审计。
 
-完整检查使用 `make -C runtime check`；并发检查可另行运行 `go test -race -p 4 ./...`。实际结果须注明日期、提交、环境和跳过项；本地实例记录保存在不提交的内部文档目录。
+完整检查使用 `make -C runtime check`。修改并行调度后，先运行全部普通测试并比较覆盖率，再通过 `PACKAGES`、`RUN` 选择实际改动的用例，追加 `TEST_FLAGS='-race -p 1 -parallel 4 -shuffle=on -count=1'` 检查并行夹具。race 插桩下的截止时间失败需用同一用例串行复核，区分既有耗时限制与新增并行竞争；不修改原有时间断言来消除失败。实际结果须注明日期、提交、环境和跳过项；本地实例记录保存在不提交的内部文档目录。
 
 ## 调度唤醒与历史规模
 

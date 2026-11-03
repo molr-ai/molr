@@ -11,6 +11,7 @@ import (
 )
 
 func TestAnthropicSaveDiscoveryPaginationAndProtocol(t *testing.T) {
+	t.Parallel()
 	requests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests++
@@ -48,6 +49,7 @@ func TestAnthropicSaveDiscoveryPaginationAndProtocol(t *testing.T) {
 	}
 }
 func TestAnthropicDiscoveryRejectsBrokenPagination(t *testing.T) {
+	t.Parallel()
 	for _, body := range []string{`{"data":[],"has_more":true,"last_id":"x"}`, `{"data":[{"id":"x"}],"has_more":true}`, `{"data":[{"id":"x"}],"has_more":true,"last_id":"x"}`} {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, body) }))
 		_, err := fetchProviderModels(t.Context(), server.Client(), server.URL+"/v1/messages", core.Secret{}, "anthropic")
@@ -58,6 +60,7 @@ func TestAnthropicDiscoveryRejectsBrokenPagination(t *testing.T) {
 	}
 }
 func TestLMStudioDiscoveryUsesMetadata(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v0/models" {
 			http.NotFound(w, r)

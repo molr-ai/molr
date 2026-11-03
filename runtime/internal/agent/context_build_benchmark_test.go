@@ -21,6 +21,7 @@ func contextBuildFixture() (*contextBuilder, Turn, privateContext) {
 }
 
 func TestDecodedContextBuildMatchesCheckpointAndDoesNotAppendToState(t *testing.T) {
+	t.Parallel()
 	builder, turn, state := contextBuildFixture()
 	// Spare capacity makes accidental append to the saved slice observable.
 	state.Inputs = append(make([]model.Input, 0, 10), state.Inputs...)

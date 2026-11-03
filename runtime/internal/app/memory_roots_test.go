@@ -92,6 +92,7 @@ func memoryRootsFixture(tb testing.TB) (*memory.Files, *memoryRootReadStore) {
 	return files, observed
 }
 func TestGlobalMemoryReadDoesNotLoadAssistantRecords(t *testing.T) {
+	t.Parallel()
 	files, store := memoryRootsFixture(t)
 	value, err := files.Get(t.Context(), "owner", memory.Ref{Scope: memory.Global, Path: "MEMORY.md"})
 	need(t, err)
@@ -118,6 +119,7 @@ func BenchmarkGlobalMemoryRootRead(b *testing.B) {
 }
 
 func TestAssistantMemoryLoadsOnlyTargetIdentity(t *testing.T) {
+	t.Parallel()
 	files, store := memoryRootsFixture(t)
 	store.inspectPayloads = true
 	ref := memory.Ref{Scope: memory.Assistant, AssistantID: "assistant-249", Path: "MEMORY.md"}
@@ -150,6 +152,7 @@ func TestAssistantMemoryLoadsOnlyTargetIdentity(t *testing.T) {
 }
 
 func TestMemoryListsNarrowRootsAndAllRootsProjectOnlyIdentity(t *testing.T) {
+	t.Parallel()
 	files, store := memoryRootsFixture(t)
 	store.inspectPayloads = true
 	global, err := files.List(t.Context(), "owner", memory.Query{Scope: memory.Global})
@@ -176,6 +179,7 @@ func TestMemoryListsNarrowRootsAndAllRootsProjectOnlyIdentity(t *testing.T) {
 }
 
 func TestMemoryExportKeepsEveryRoot(t *testing.T) {
+	t.Parallel()
 	files, store := memoryRootsFixture(t)
 	store.inspectPayloads = true
 	exported := map[string]string{}
@@ -189,6 +193,7 @@ func TestMemoryExportKeepsEveryRoot(t *testing.T) {
 }
 
 func TestGlobalMemoryDoesNotDependOnAssistantQueries(t *testing.T) {
+	t.Parallel()
 	files, store := memoryRootsFixture(t)
 	store.failQueries = true
 	value, err := files.Get(t.Context(), "owner", memory.Ref{Scope: memory.Global, Path: "MEMORY.md"})

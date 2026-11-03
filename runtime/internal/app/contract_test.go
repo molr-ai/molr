@@ -60,6 +60,7 @@ func absent(t *testing.T, events []string, names ...string) {
 	}
 }
 func TestTDDApplicationStartupAndShutdownOrder(t *testing.T) {
+	t.Parallel()
 	f := fixture(t)
 	ctx, cancel := context.WithCancel(testkit.Context(t))
 	defer cancel()
@@ -102,6 +103,7 @@ func TestTDDApplicationStartupAndShutdownOrder(t *testing.T) {
 	}
 }
 func TestTDDApplicationStartupFailureUnwinds(t *testing.T) {
+	t.Parallel()
 	for _, stage := range []string{"lock.acquire", "database.migrate", "bootstrap.initialized", "shell.start", "calls.recover", "scheduler.recover", "http.serve"} {
 		t.Run(stage, func(t *testing.T) {
 			f := fixture(t)
@@ -138,6 +140,7 @@ func TestTDDApplicationStartupFailureUnwinds(t *testing.T) {
 	}
 }
 func TestTDDApplicationRefusesUninitializedPublicServer(t *testing.T) {
+	t.Parallel()
 	f := fixture(t)
 	f.Uninitialized()
 	err := f.Application.Run(testkit.Context(t))
@@ -148,6 +151,7 @@ func TestTDDApplicationRefusesUninitializedPublicServer(t *testing.T) {
 	ordered(t, f.Events(), "database.close", "lock.close")
 }
 func TestTDDApplicationCanceledContextReleasesResources(t *testing.T) {
+	t.Parallel()
 	f := fixture(t)
 	ctx, cancel := context.WithCancel(testkit.Context(t))
 	defer cancel()
@@ -172,6 +176,7 @@ func TestTDDApplicationCanceledContextReleasesResources(t *testing.T) {
 	ordered(t, f.Events(), "database.close", "lock.close")
 }
 func TestTDDDependenciesValidateEveryRequiredPort(t *testing.T) {
+	t.Parallel()
 	f := fixture(t)
 	testkit.RequireNoError(t, f.Dependencies.Validate())
 	v := reflect.ValueOf(f.Dependencies)
@@ -187,6 +192,7 @@ func TestTDDDependenciesValidateEveryRequiredPort(t *testing.T) {
 type nilServer struct{ api.Server }
 
 func TestTDDDependenciesRejectInvalidConfigAndTypedNil(t *testing.T) {
+	t.Parallel()
 	testkit.RequireCode(t, (Dependencies{}).Validate(), core.InvalidArgument)
 	cfg := config.Defaults(t.TempDir())
 	cfg.HTTP.PublicURL = "https://molr.example"
@@ -201,6 +207,7 @@ func TestTDDDependenciesRejectInvalidConfigAndTypedNil(t *testing.T) {
 }
 
 func TestApplicationRequiresPairedShellLifecycle(t *testing.T) {
+	t.Parallel()
 	f := fixture(t)
 	for _, hooks := range []LifecycleHooks{
 		{StartShellTasks: func(context.Context) error { return nil }},

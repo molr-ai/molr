@@ -13,6 +13,7 @@ import (
 )
 
 func TestMediaCodecIsolationAndAudioVideoRead(t *testing.T) {
+	t.Parallel()
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		t.Skip("ffmpeg unavailable")
 	}

@@ -18,6 +18,7 @@ import (
 )
 
 func TestPricingRefreshHTTPAuthorizationAndRestartCache(t *testing.T) {
+	t.Parallel()
 	cfg := testConfig(t)
 	cfg.HTTP.TLSMode, cfg.HTTP.TrustedProxies = config.LocalHTTP, nil
 	cfg.HTTP.Listen, cfg.HTTP.PublicURL = "127.0.0.1:18599", "http://127.0.0.1:18599"

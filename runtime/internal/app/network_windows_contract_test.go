@@ -12,6 +12,7 @@ import (
 
 // Exercises remote Windows capability presentation from every host platform.
 func TestAppContainerNetworkScopePreservesWindowsRestrictions(t *testing.T) {
+	t.Parallel()
 	info := sm.Info{
 		Enabled:      true,
 		Capabilities: platform.Capabilities{OS: "windows", NetworkBackend: "appcontainer-toggle"},
@@ -33,6 +34,7 @@ func TestAppContainerNetworkScopePreservesWindowsRestrictions(t *testing.T) {
 }
 
 func TestNativeComputeGrantRejectsUnsupportedHardLimits(t *testing.T) {
+	t.Parallel()
 	command := platform.Command{}
 	limits := policy.ComputeConstraints{MaxDurationSeconds: 90}
 	if err := applyComputeConstraints(&command, &limits, platform.Limits{}); err != nil {

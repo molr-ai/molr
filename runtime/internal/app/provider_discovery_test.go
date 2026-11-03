@@ -18,6 +18,7 @@ import (
 )
 
 func TestProviderConnectionDiscoversMultipleModelsWithoutManualConfiguration(t *testing.T) {
+	t.Parallel()
 	b, err := Build(t.Context(), testConfig(t))
 	need(t, err)
 	defer b.Close()
@@ -72,6 +73,7 @@ func TestProviderConnectionDiscoversMultipleModelsWithoutManualConfiguration(t *
 }
 
 func TestProviderDiscoveryUsesBoundCredentialWithoutPrivateAllowlist(t *testing.T) {
+	t.Parallel()
 	cfg := testConfig(t)
 	cfg.Network.AllowedPrivateIPs = nil
 	b, err := Build(t.Context(), cfg)
@@ -102,6 +104,7 @@ func TestProviderDiscoveryUsesBoundCredentialWithoutPrivateAllowlist(t *testing.
 }
 
 func TestProviderDiscoveryRejectsUnauthenticatedCallsAndRedirects(t *testing.T) {
+	t.Parallel()
 	b, err := Build(t.Context(), testConfig(t))
 	need(t, err)
 	defer b.Close()
@@ -132,6 +135,7 @@ func TestProviderDiscoveryRejectsUnauthenticatedCallsAndRedirects(t *testing.T) 
 }
 
 func TestDiscoveryReadsDeclaredModalitiesWithoutGuessing(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":[{"id":"vision","input_modalities":["text","image"],"context_window":65536},{"id":"audio","input_modalities":["text","audio"]},{"id":"unknown-vision-model"}]}`))
 	}))
@@ -144,6 +148,7 @@ func TestDiscoveryReadsDeclaredModalitiesWithoutGuessing(t *testing.T) {
 }
 
 func TestOutputLimitsDiscoveryOverridesRefreshAndClear(t *testing.T) {
+	t.Parallel()
 	declared := 8192
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, `{"data":[{"id":"declared","max_output_tokens":%d},{"id":"completion","max_completion_tokens":4096},{"id":"nested","top_provider":{"max_completion_tokens":16384}},{"id":"unknown"},{"id":"invalid","max_output_tokens":-1}]}`, declared)
@@ -205,6 +210,7 @@ func TestOutputLimitsDiscoveryOverridesRefreshAndClear(t *testing.T) {
 }
 
 func TestModelTransportUsesTenMinuteTimeout(t *testing.T) {
+	t.Parallel()
 	client, err := (adapters{}).client(t.Context(), model.Request{}, model.Provider{Endpoint: "https://example.com/v1/chat/completions"})
 	need(t, err)
 	defer client.CloseIdleConnections()
@@ -214,6 +220,7 @@ func TestModelTransportUsesTenMinuteTimeout(t *testing.T) {
 }
 
 func TestCompatibleProviderPresetsSaveDiscoverAndRefresh(t *testing.T) {
+	t.Parallel()
 	for _, preset := range []string{"vllm", "sglang", "bailian", "zhipu", "moonshot", "gemini", "minimax", "volcengine", "siliconflow", "lmstudio", "zai"} {
 		for _, useKey := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/key=%t", preset, useKey), func(t *testing.T) {
@@ -269,6 +276,7 @@ func TestCompatibleProviderPresetsSaveDiscoverAndRefresh(t *testing.T) {
 }
 
 func TestDiscoveryContextWindowPrecedenceAndBounds(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"data":[{"id":"priority","context_window":8192,"max_model_len":65536},{"id":"fallback","context_window":-1,"max_model_len":4096},{"id":"negative","max_model_len":-1},{"id":"too-small","max_model_len":255},{"id":"too-large","max_model_len":2000001},{"id":"missing"},{"id":"null","max_model_len":null}]}`))
 	}))
@@ -287,6 +295,7 @@ func TestDiscoveryContextWindowPrecedenceAndBounds(t *testing.T) {
 }
 
 func TestProviderNetworkRejectionExplainsTestAndSave(t *testing.T) {
+	t.Parallel()
 	cfg := testConfig(t)
 	cfg.Network.AllowedPrivateIPs = nil
 	b, err := Build(t.Context(), cfg)
@@ -323,6 +332,7 @@ func TestProviderNetworkRejectionExplainsTestAndSave(t *testing.T) {
 }
 
 func TestDiscoveryPreservesNetworkReasonAfterDial(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { t.Error("blocked endpoint was contacted") }))
 	defer server.Close()
 	client := platform.ConfiguredHTTPClient(server.URL, nil)

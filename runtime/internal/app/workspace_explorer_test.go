@@ -15,6 +15,7 @@ import (
 )
 
 func TestWorkspaceExplorerLifecycleAndConflict(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, nil)
 	s := newWorkspaceExplorer(f.ad, 2<<20)
 	id := f.execution.AssistantID
@@ -64,6 +65,7 @@ func TestWorkspaceExplorerLifecycleAndConflict(t *testing.T) {
 	}
 }
 func TestWorkspaceExplorerConfinementAndLimits(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, nil)
 	s := newWorkspaceExplorer(f.ad, 1024)
 	id := f.execution.AssistantID
@@ -102,6 +104,7 @@ func TestWorkspaceExplorerConfinementAndLimits(t *testing.T) {
 	need(t, err) // File access remains available when command execution is disabled.
 }
 func TestWorkspaceExplorerPaginationAndExternalEdits(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, nil)
 	s := newWorkspaceExplorer(f.ad, 2<<20)
 	id := f.execution.AssistantID

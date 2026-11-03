@@ -16,6 +16,7 @@ import (
 )
 
 func TestResetContextPreservesProductDataAndFencesOldEvents(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	ctx := testkit.Context(t)
 	out, err := f.Runtime.Handle(ctx, f.Turn)
@@ -92,6 +93,7 @@ func TestResetContextPreservesProductDataAndFencesOldEvents(t *testing.T) {
 }
 
 func TestResetContextCancelsActiveCallAndRejectsLateCheckpoint(t *testing.T) {
+	t.Parallel()
 	entered, release := make(chan struct{}), make(chan struct{})
 	// Intentionally leave the request unread until reset cancels the client.
 	f, _ := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -133,6 +135,7 @@ func TestResetContextCancelsActiveCallAndRejectsLateCheckpoint(t *testing.T) {
 }
 
 func TestResetContextOwnershipAndTransactionRollback(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	ctx := testkit.Context(t)
 	engine := f.Runtime.(*Engine)

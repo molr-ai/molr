@@ -52,7 +52,7 @@ jobs:
         working-directory: runtime
         env:
           CGO_ENABLED: '0'
-        run: go test -p 4 ./... && go vet ./...
+        run: go test -p 4 -parallel 4 ./... && go vet ./...
       - if: inputs.validate && runner.os == 'Windows'
         name: Native Windows backend
         shell: pwsh

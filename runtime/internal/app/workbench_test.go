@@ -44,6 +44,7 @@ func debugRequest(b *Bundle, token core.Secret, path string) *httptest.ResponseR
 	return response
 }
 func TestWorkbenchDisabledByDeploymentCannotBeShownByOwner(t *testing.T) {
+	t.Parallel()
 	cfg := testConfig(t)
 	cfg.Debug.Enabled = false
 	b, err := Build(t.Context(), cfg)
@@ -60,6 +61,7 @@ func TestWorkbenchDisabledByDeploymentCannotBeShownByOwner(t *testing.T) {
 	}
 }
 func TestWorkbenchCapturesActualLoopAndKeepsPrivateDataOutOfChat(t *testing.T) {
+	t.Parallel()
 	cfg := testConfig(t)
 	b, err := Build(t.Context(), cfg)
 	need(t, err)
@@ -233,6 +235,7 @@ func TestWorkbenchCapturesActualLoopAndKeepsPrivateDataOutOfChat(t *testing.T) {
 }
 
 func TestWorkbenchBrokenRecordingDoesNotBlockRuntimeStartup(t *testing.T) {
+	t.Parallel()
 	cfg := testConfig(t)
 	cfg.Debug.Enabled = true
 	b, err := Build(t.Context(), cfg)

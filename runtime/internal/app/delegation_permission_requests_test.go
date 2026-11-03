@@ -28,6 +28,7 @@ func createDelegationRequest(t *testing.T, s *permissionRequests, e core.Executi
 	return r
 }
 func TestDelegationPermissionApprovalAtomicAndIdempotent(t *testing.T) {
+	t.Parallel()
 	for _, kind := range []string{"temporary_hiring", "assistant_communication"} {
 		t.Run(kind, func(t *testing.T) {
 			f := collaborationTestFixture(t, true)
@@ -115,6 +116,7 @@ func TestDelegationPermissionApprovalAtomicAndIdempotent(t *testing.T) {
 	}
 }
 func TestDelegationPermissionReviewSelectionRejectionAndTemporaryIsolation(t *testing.T) {
+	t.Parallel()
 	f := collaborationTestFixture(t, true)
 	s := delegationRequestService(f)
 	ctx := t.Context()

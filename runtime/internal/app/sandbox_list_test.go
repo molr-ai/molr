@@ -20,6 +20,7 @@ import (
 )
 
 func TestSandboxListBoundsConcurrencyPreservesOrderAndCancels(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, func(cfg *config.Config, _ string) { cfg.Sandbox.Enabled = false })
 	f.ad.networkConfig.AllowedPrivateIPs = []string{"127.0.0.1"}
 	router, err := newSandboxRouter(f.ad, nil, make([]byte, 32))

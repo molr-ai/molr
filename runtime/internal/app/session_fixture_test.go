@@ -102,6 +102,7 @@ func (h observingSessionHost) Execute(ctx context.Context, e core.Execution, q t
 	return json.RawMessage(`{"Exit":{"Code":125,"Reason":"canceled"}}`), nil
 }
 func TestSessionHostPreservesExecutionCapability(t *testing.T) {
+	t.Parallel()
 	b, p, e := taskFixture(t)
 	host := observingSessionHost{shellTaskEnvironment{b.remote}, make(chan context.Context, 1)}
 	manager := shellsession.New(b.store, host, shellsession.Options{})

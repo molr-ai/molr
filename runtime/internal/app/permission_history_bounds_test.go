@@ -49,6 +49,7 @@ func (tx *permissionHistoryTx) Query(ctx context.Context, bucket string, q persi
 }
 
 func TestPermissionHistoryLoadsOnlyVisibleRequests(t *testing.T) {
+	t.Parallel()
 	db, err := sqlitestore.Open(filepath.Join(t.TempDir(), "requests.db"))
 	need(t, err)
 	defer db.Close()
@@ -100,6 +101,7 @@ func TestPermissionHistoryLoadsOnlyVisibleRequests(t *testing.T) {
 }
 
 func TestPermissionHistoryOrderingScopeAndQueryFailure(t *testing.T) {
+	t.Parallel()
 	db, err := sqlitestore.Open(filepath.Join(t.TempDir(), "order.db"))
 	need(t, err)
 	defer db.Close()
@@ -154,6 +156,7 @@ func TestPermissionHistoryOrderingScopeAndQueryFailure(t *testing.T) {
 }
 
 func TestPermissionCreateReadsOnlyPendingAndReusesAtCap(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, nil)
 	s := newPermissionRequestsFixture(t, f)
 	input := policy.PermissionRequestInput{ResourceKind: "storage", ResourceID: f.storage.ID, ResourceDescription: "Reports", Actions: []policy.Action{policy.Read}, PathPrefixes: []string{"/read"}, ExpiresAt: futurePermissionTime(), Reason: "Read reports"}

@@ -13,6 +13,7 @@ import (
 )
 
 func TestLocalHTTPBrowserLoginAndAccessBoundaries(t *testing.T) {
+	t.Parallel()
 	cfg := config.Defaults(t.TempDir())
 	cfg.HTTP.TLSMode = config.TLSMode("local")
 	cfg.HTTP.Listen = "127.0.0.1:8080"

@@ -12,6 +12,7 @@ import (
 )
 
 func TestDreamUsesCommonFileExecutorWithScopedAccess(t *testing.T) {
+	t.Parallel()
 	f, files, _ := fileFixture(t)
 	target := tools.FileTarget{Path: "/work/.agents/memory/note.md"}
 	_, err := files.Write(t.Context(), f.execution, tools.FileWriteRequest{FileTarget: target, Text: "prior observation"})
@@ -67,6 +68,7 @@ func TestDreamUsesCommonFileExecutorWithScopedAccess(t *testing.T) {
 }
 
 func TestDreamReadsDiagnosticsRepairsMalformedMemoryAndPreservesUndo(t *testing.T) {
+	t.Parallel()
 	f, files, _ := fileFixture(t)
 	target := tools.FileTarget{Path: "/work/.agents/memory/note.md"}
 	original := "---\nstate: invalid-state\ncreated_at: yesterday\ncustom: keep-me\n---\nKeep useful knowledge.\n"

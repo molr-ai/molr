@@ -57,6 +57,7 @@ func (tx modelReadTx) Query(ctx context.Context, bucket string, q persistence.Qu
 }
 
 func TestModelResolutionReadsOnlySelectedProvider(t *testing.T) {
+	t.Parallel()
 	db, err := sqlitestore.Open(filepath.Join(t.TempDir(), "models.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -136,6 +137,7 @@ func TestModelResolutionReadsOnlySelectedProvider(t *testing.T) {
 }
 
 func TestModelResolutionKeepsLiveGroupAndProviderChecks(t *testing.T) {
+	t.Parallel()
 	f := newMultiUserFixture(t)
 	a := adapters{reserveModelCost: true, store: f.b.store, pricing: f.b.Pricing}
 	provider, err := a.provider(t.Context(), f.alice, f.model)

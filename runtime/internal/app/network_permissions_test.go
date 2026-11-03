@@ -75,6 +75,7 @@ func assertNetworkScope(t *testing.T, raw json.RawMessage, id core.ID, expected 
 }
 
 func TestPermissionListReportsActualNetworkScopeBeforeAndAfterGrant(t *testing.T) {
+	t.Parallel()
 	if platform.NativeSandbox() {
 		t.Skip("requires Linux destination network rules; macOS uses a network toggle")
 	}
@@ -102,6 +103,7 @@ func TestPermissionListReportsActualNetworkScopeBeforeAndAfterGrant(t *testing.T
 }
 
 func TestPermissionListUsesLiveRemoteNetworkRulesAndMarksOfflineUnknown(t *testing.T) {
+	t.Parallel()
 	if runtime.GOOS != "linux" {
 		t.Skip("requires an in-process Linux remote server; covered by Linux CI")
 	}

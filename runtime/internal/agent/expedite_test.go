@@ -52,6 +52,7 @@ func completeModel(w http.ResponseWriter, calls []any) {
 	_ = json.NewEncoder(w).Encode(map[string]any{"id": "receipt", "choices": []any{map[string]any{"message": m, "finish_reason": finish}}, "usage": map[string]int{"prompt_tokens": 10, "completion_tokens": 2}})
 }
 func TestExpediteCancelsModelReadsOrderedMessagesAndConsumesQueueOnce(t *testing.T) {
+	t.Parallel()
 	for _, separate := range []bool{false, true} {
 		t.Run(map[bool]string{false: "active-engine", true: "shared-store-engine"}[separate], func(t *testing.T) {
 			testExpediteModelDelivery(t, separate)
@@ -178,6 +179,7 @@ func (b *blockingExpediteTools) Execute(ctx context.Context, c tools.Call) (tool
 	return b.Executor.Execute(ctx, c)
 }
 func TestExpediteWaitsForRunningToolAndSkipsRemainingCalls(t *testing.T) {
+	t.Parallel()
 	var calls atomic.Int32
 	after := make(chan string, 1)
 	f, _ := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -223,6 +225,7 @@ func TestExpediteWaitsForRunningToolAndSkipsRemainingCalls(t *testing.T) {
 	}
 }
 func TestExpediteAuthorizationBoundsAndStop(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	m := expeditedMessage(t, e, f.Owner, "unread")
@@ -252,6 +255,7 @@ func TestExpediteAuthorizationBoundsAndStop(t *testing.T) {
 }
 
 func TestExpeditePersistedInboxSurvivesRestartAndRespectsCutoff(t *testing.T) {
+	t.Parallel()
 	body := make(chan string, 2)
 	f, db := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		data, _ := io.ReadAll(r.Body)
@@ -290,6 +294,7 @@ func TestExpeditePersistedInboxSurvivesRestartAndRespectsCutoff(t *testing.T) {
 }
 
 func TestExpediteRestartAfterIntakeRetainsJoinedContext(t *testing.T) {
+	t.Parallel()
 	body := make(chan string, 2)
 	f, db := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		data, _ := io.ReadAll(r.Body)
@@ -324,6 +329,7 @@ func TestExpediteRestartAfterIntakeRetainsJoinedContext(t *testing.T) {
 }
 
 func TestSchedulerAcceptanceDoesNotMarkMessageRead(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	m := expeditedMessage(t, e, f.Owner, "still unread")
@@ -350,6 +356,7 @@ func (b *failAfterExpediteTool) Execute(ctx context.Context, c tools.Call) (tool
 	return result, err
 }
 func TestExpediteRecoveryKeepsCompletedToolResult(t *testing.T) {
+	t.Parallel()
 	var calls atomic.Int32
 	body := make(chan string, 2)
 	f, db := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -32,6 +32,7 @@ func requestCompression(t *testing.T, e *Engine, p core.Principal, key string) C
 	return out
 }
 func TestCompressionEventManualIdleDeduplicatesAndSurvivesRestart(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	seedCompressionHistory(t, f)
@@ -64,6 +65,7 @@ func TestCompressionEventManualIdleDeduplicatesAndSurvivesRestart(t *testing.T) 
 	}
 }
 func TestCompressionAfterFinalResponseAndStatus(t *testing.T) {
+	t.Parallel()
 	started, release := make(chan struct{}), make(chan struct{})
 	summary, finish := make(chan struct{}), make(chan struct{})
 	var calls atomic.Int32
@@ -121,6 +123,7 @@ func TestCompressionAfterFinalResponseAndStatus(t *testing.T) {
 	}
 }
 func TestAutomaticCompressionUsesAfterStepEvent(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	e.options.ContextWindow = func(context.Context, core.Principal, core.ID) (int, error) { return 32768, nil }
@@ -142,6 +145,7 @@ func TestAutomaticCompressionUsesAfterStepEvent(t *testing.T) {
 	}
 }
 func TestEventDeliveryModesAtModelBoundary(t *testing.T) {
+	t.Parallel()
 	for _, mode := range []event.DeliveryMode{event.AfterStep, event.Interrupt, event.WhenIdle} {
 		t.Run(string(mode), func(t *testing.T) {
 			started, release := make(chan struct{}), make(chan struct{})
@@ -191,6 +195,7 @@ func TestEventDeliveryModesAtModelBoundary(t *testing.T) {
 }
 
 func TestCompressionRetryAfterFinalResponseResumesSummaryOnly(t *testing.T) {
+	t.Parallel()
 	started, release := make(chan struct{}), make(chan struct{})
 	var calls atomic.Int32
 	f, _ := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -252,6 +257,7 @@ func (b *compressionBatchTools) Execute(ctx context.Context, c tools.Call) (tool
 	return b.Executor.Execute(ctx, c)
 }
 func TestCompressionWaitsForWholeToolBatch(t *testing.T) {
+	t.Parallel()
 	var calls atomic.Int32
 	f, _ := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !testkit.DrainRequestBody(t, r) {

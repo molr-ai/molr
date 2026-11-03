@@ -94,6 +94,7 @@ func TestSandboxDirectoryTrailingSeparatorsAndErrors(t *testing.T) {
 }
 
 func TestSandboxDirectorySelectionAndPolicyRecheck(t *testing.T) {
+	t.Parallel()
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	need(t, err)
 	private, err := filepath.EvalSymlinks(t.TempDir())
@@ -148,6 +149,7 @@ func TestSandboxDirectorySelectionAndPolicyRecheck(t *testing.T) {
 }
 
 func TestRemoteDirectoryReferenceChecksScopeAfterDeploymentChanges(t *testing.T) {
+	t.Parallel()
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	need(t, err)
 	private, err := filepath.EvalSymlinks(t.TempDir())

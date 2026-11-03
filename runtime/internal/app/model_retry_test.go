@@ -231,6 +231,7 @@ func deferFirstRetry(t *testing.T, b *Bundle, p core.Principal, a assistant.Assi
 	return jobs.Items[0]
 }
 func TestModelRetrySurvivesRuntimeRestart(t *testing.T) {
+	t.Parallel()
 	var calls atomic.Int32
 	b, p, a, cfg := retryFixture(t, func(w http.ResponseWriter, r *http.Request) {
 		if !testkit.DrainRequestBody(t, r) {
@@ -260,6 +261,7 @@ func TestModelRetrySurvivesRuntimeRestart(t *testing.T) {
 	}
 }
 func TestModelRetryStopAndRevocationPreventAnotherRequest(t *testing.T) {
+	t.Parallel()
 	for _, action := range []string{"stop", "revoke"} {
 		t.Run(action, func(t *testing.T) {
 			var calls atomic.Int32
@@ -303,6 +305,7 @@ func TestModelRetryStopAndRevocationPreventAnotherRequest(t *testing.T) {
 }
 
 func TestExpediteSupersedesSleepingRetryWithoutWaitingForDelay(t *testing.T) {
+	t.Parallel()
 	var calls atomic.Int32
 	b, p, a, _ := retryFixture(t, func(w http.ResponseWriter, r *http.Request) {
 		if !testkit.DrainRequestBody(t, r) {
@@ -334,6 +337,7 @@ func TestExpediteSupersedesSleepingRetryWithoutWaitingForDelay(t *testing.T) {
 }
 
 func TestCanceledModelCallReleasesLocalHoldWithoutRetry(t *testing.T) {
+	t.Parallel()
 	started := make(chan struct{})
 	release := make(chan struct{})
 	// Intentionally leave the request unread while exercising client cancellation.

@@ -20,6 +20,7 @@ import (
 )
 
 func TestTurnCleanupFailurePreservesOriginalErrorAndReportsDiagnostic(t *testing.T) {
+	t.Parallel()
 	for _, original := range []error{
 		core.NewError(core.BudgetExceeded, "budget exhausted"),
 		modelTerminal(core.WithReason(core.NewError(core.FailedPrecondition, "binding changed"), core.ModelBindingChanged)),
@@ -82,6 +83,7 @@ func TestTurnCleanupFailurePreservesOriginalErrorAndReportsDiagnostic(t *testing
 }
 
 func TestTurnCleanupKeepsDeferredAndRuntimeInterruptedState(t *testing.T) {
+	t.Parallel()
 	for _, interrupted := range []bool{false, true} {
 		t.Run(map[bool]string{false: "deferred", true: "runtime-interrupted"}[interrupted], func(t *testing.T) {
 			f, db := makeLoopFixture(t, nil)
@@ -117,6 +119,7 @@ func TestTurnCleanupKeepsDeferredAndRuntimeInterruptedState(t *testing.T) {
 }
 
 func TestTurnCommitFailureRetriesWithoutReplayingPublishedTool(t *testing.T) {
+	t.Parallel()
 	for _, failure := range []error{errors.New("acknowledgement commit failed"), context.Canceled} {
 		t.Run(failure.Error(), func(t *testing.T) {
 			var calls atomic.Int32
@@ -169,6 +172,7 @@ func TestTurnCommitFailureRetriesWithoutReplayingPublishedTool(t *testing.T) {
 }
 
 func TestDreamDeadlineCleanupPreservesIdleState(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	f.Turn.Event.Kind = event.DreamDue

@@ -124,6 +124,7 @@ func lookupOperation(t *testing.T, out resourceListing, id core.ID, path string,
 }
 
 func TestResourceCatalogSeparatesScopeAndRuntimeStorage(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, nil)
 	f.grant(t, f.storage.ID, "read", []policy.Action{policy.Read}, policy.Scope{PathPrefixes: []string{"/read"}}, nil)
 	f.grant(t, f.storage.ID, "write", []policy.Action{policy.Read, policy.Write}, policy.Scope{PathPrefixes: []string{"/write"}}, nil)
@@ -162,6 +163,7 @@ func TestResourceCatalogSeparatesScopeAndRuntimeStorage(t *testing.T) {
 }
 
 func TestStorageDeploymentRestrictionsApplyToDiscoveryFilesAndShell(t *testing.T) {
+	t.Parallel()
 	for _, mode := range []string{"readonly", "disabled"} {
 		t.Run(mode, func(t *testing.T) {
 			f := newResourceAccessFixture(t, nil)
@@ -207,6 +209,7 @@ func TestStorageDeploymentRestrictionsApplyToDiscoveryFilesAndShell(t *testing.T
 }
 
 func TestResourceCatalogRevocationIdentityAndWriteOnlyGrant(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, nil)
 	g := f.grant(t, f.storage.ID, "write", []policy.Action{policy.Write}, policy.Scope{PathPrefixes: []string{"/write"}}, nil)
 	out := f.list(t)
@@ -232,6 +235,7 @@ func TestResourceCatalogRevocationIdentityAndWriteOnlyGrant(t *testing.T) {
 }
 
 func TestResourceMountIdentityAndOverlap(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, nil)
 	f.grant(t, f.storage.ID, "all", []policy.Action{policy.Read, policy.Write}, policy.Scope{}, nil)
 	for _, paths := range [][]string{{"/", "/read"}, {"/read", "/"}, {"/read", "/read"}} {
@@ -254,6 +258,7 @@ func TestResourceMountIdentityAndOverlap(t *testing.T) {
 }
 
 func TestResourceCatalogFiltersModelsExpiryAndOfflineResources(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, nil)
 	binding := resource.Binding{Endpoint: "https://models.example/chat/completions", AllowedOrigins: []string{"https://models.example"}, Models: []resource.ModelConfig{{Name: "allowed-model", ContextLimit: 8192}, {Name: "ungranted-model", ContextLimit: 8192}}}
 	r, err := f.b.Services.Resources.Connect(t.Context(), f.owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "models"}, Kind: resource.Model, Provider: "openai-compatible", Name: "provider", Binding: binding})
@@ -303,6 +308,7 @@ func TestResourceCatalogFiltersModelsExpiryAndOfflineResources(t *testing.T) {
 }
 
 func TestPermissionListInstalledWithoutShell(t *testing.T) {
+	t.Parallel()
 	cfg := testConfig(t)
 	cfg.Sandbox.Enabled = false
 	b, err := Build(t.Context(), cfg)
@@ -347,6 +353,7 @@ func testResourceConstraints(kind resource.Kind) *policy.Constraints {
 }
 
 func TestComponentDirectoriesCannotBeGrantedThroughParentResources(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, nil)
 	protected := filepath.Join(f.root, "components")
 	need(t, os.Mkdir(protected, 0700))

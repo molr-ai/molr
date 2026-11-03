@@ -32,6 +32,7 @@ func (tx *watchTickTx) Query(ctx context.Context, bucket string, query persisten
 }
 
 func TestWatchTickSkipsSettledHistoryAndDrainsCompletedWork(t *testing.T) {
+	t.Parallel()
 	b, p, e := taskFixture(t)
 	future := time.Now().Add(time.Hour)
 	rows := []watch.Watch{

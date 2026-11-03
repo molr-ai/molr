@@ -13,6 +13,7 @@ import (
 )
 
 func TestCheckpointStorageSharesMessagesAndRetainsOnlyCurrentReference(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	cp := Checkpoint{OwnerID: f.Owner.OwnerID, AssistantID: "assistant", ExecutionID: f.Turn.Principal.ExecutionID, LastEventID: f.Turn.Event.ID, FormatVersion: 1, Sequence: 1, SavedAt: time.Now(), Context: json.RawMessage(`{"Inputs":[{"Role":"system","Text":"shared"},{"Role":"user","Text":"old"}]}`)}
 	if err := f.Checkpoints.Save(t.Context(), cp, 0); err != nil {
@@ -59,6 +60,7 @@ func TestCheckpointStorageSharesMessagesAndRetainsOnlyCurrentReference(t *testin
 }
 
 func TestCheckpointReferenceRollsBackWithExecutionTransaction(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	cp := Checkpoint{OwnerID: f.Owner.OwnerID, AssistantID: "assistant", ExecutionID: f.Turn.Principal.ExecutionID, LastEventID: f.Turn.Event.ID, FormatVersion: 1, Sequence: 1, SavedAt: time.Now(), Context: json.RawMessage(`{"Inputs":[{"Role":"user","Text":"durable"}]}`)}
 	if err := f.Checkpoints.Save(t.Context(), cp, 0); err != nil {
@@ -103,6 +105,7 @@ func (tx unavailableContextTx) Put(ctx context.Context, bucket, key string, valu
 	return tx.Tx.Put(ctx, bucket, key, value)
 }
 func TestAgentDoesNotDispatchWhenContextCannotPersist(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	blocked := unavailableContextStore{db}

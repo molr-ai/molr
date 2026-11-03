@@ -14,6 +14,7 @@ import (
 )
 
 func TestContextPresentationDropsToolsAndKeepsExplicitEmptyAuthorization(t *testing.T) {
+	t.Parallel()
 	memory := contextEntry{ContextDocument: ContextDocument{Kind: "memory", Source: "memory/m", Scope: "owner", Revision: "3", Content: `{"Text":"<unchanged memory>"}`}, Version: "hash"}
 	snapshot := &automaticContext{Sources: []contextEntry{
 		{ContextDocument: ContextDocument{Kind: "tool", Source: "file_read", Content: `{"InputSchema":{"type":"object"},"Description":"duplicate-tool-description"}`}},
@@ -39,6 +40,7 @@ func TestContextPresentationDropsToolsAndKeepsExplicitEmptyAuthorization(t *test
 }
 
 func TestRuntimeNotificationsPreserveContentAndRecoveryMetadata(t *testing.T) {
+	t.Parallel()
 	inputs := []model.Input{
 		{Role: model.System, Text: loopInstructions},
 		{Role: model.User, RuntimeContext: true, Text: "Runtime context_changed: current permissions"},
@@ -76,6 +78,7 @@ func TestRuntimeNotificationsPreserveContentAndRecoveryMetadata(t *testing.T) {
 	}
 }
 func TestToolPresentationDoesNotMutateRecoveryEvidence(t *testing.T) {
+	t.Parallel()
 	raw := `{"SandboxID":"local","Text":"skill content","OwnerID":"internal"}`
 	inputs := []model.Input{{Role: model.Assistant, Calls: []model.ToolCall{{ID: "reused", Name: "file_read"}}}, {Role: model.Tool, ReplyTo: "reused", Text: raw, ToolOperationID: "op"}, {Role: model.Assistant, Calls: []model.ToolCall{{ID: "reused", Name: "file_search"}}}, {Role: model.Tool, ReplyTo: "reused", Text: raw}}
 	out := modelInputs(inputs)
@@ -87,6 +90,7 @@ func TestToolPresentationDoesNotMutateRecoveryEvidence(t *testing.T) {
 	}
 }
 func TestTemplateMigrationReplacesLegacySnapshotWithoutSourceChange(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	exec := core.Execution{Principal: f.Turn.Principal, AssistantID: f.Turn.Event.AssistantID, OperationID: "refresh"}
@@ -104,6 +108,7 @@ func TestTemplateMigrationReplacesLegacySnapshotWithoutSourceChange(t *testing.T
 	}
 }
 func TestAllInstalledToolsHavePresentationTemplates(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	defs, err := e.options.Dependencies.Tools.Definitions(t.Context(), f.Turn.Principal)
@@ -118,6 +123,7 @@ func TestAllInstalledToolsHavePresentationTemplates(t *testing.T) {
 }
 
 func TestPluginHTTPResultsReachModelWithoutPrivateEnvelope(t *testing.T) {
+	t.Parallel()
 	name := "plg_" + strings.Repeat("a", 48)
 	cases := []struct{ raw, want string }{
 		{`{"provider":"fixture","data":{"text":"A: fixture","items":[{"url":"https://example.com"}]},"usage":1,"duration_ms":2,"connection_id":"private-connection","OwnerID":"private-owner"}`, `"text":"A: fixture"`},
@@ -133,6 +139,7 @@ func TestPluginHTTPResultsReachModelWithoutPrivateEnvelope(t *testing.T) {
 	}
 }
 func TestEventDoesNotExposeOwnershipAndEmptyMetadata(t *testing.T) {
+	t.Parallel()
 	text := eventText(event.AssistantEvent{ID: "event", Kind: event.UserMessage, OwnerID: "private-owner", MessageID: "message"}, "chat")
 	for _, bad := range []string{"private-owner", "OwnerID", "AssistantID", "0001-01-01"} {
 		if strings.Contains(text, bad) {
@@ -145,6 +152,7 @@ func TestEventDoesNotExposeOwnershipAndEmptyMetadata(t *testing.T) {
 }
 
 func TestLegacyProjectionDoesNotRewriteCustomInstructions(t *testing.T) {
+	t.Parallel()
 	raw := "You are an independent assistant. Custom constraints must survive."
 	inputs := []model.Input{{Role: model.System, Text: raw}, {Role: model.System, Text: loopInstructions}, {Role: model.User, Text: raw}}
 	out := modelInputs(inputs)
@@ -154,6 +162,7 @@ func TestLegacyProjectionDoesNotRewriteCustomInstructions(t *testing.T) {
 }
 
 func TestTriggeringEventIsAUserTurn(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	inputs, err := f.Context.Build(t.Context(), f.Turn)
 	if err != nil {
@@ -170,6 +179,7 @@ func TestTriggeringEventIsAUserTurn(t *testing.T) {
 }
 
 func TestProfileContextAndResultPresentation(t *testing.T) {
+	t.Parallel()
 	snapshot := &automaticContext{Sources: []contextEntry{{ContextDocument: ContextDocument{Kind: "profile", Source: "profile", Scope: "assistant", Content: `{"Name":"小满","Status":"期待新发现","Avatar":{"Type":"preset","ID":"cat"},"Version":3,"OwnerID":"private-owner"}`}}}}
 	text := contextInput(snapshot).Text
 	if !strings.Contains(text, `"Name":"小满"`) || !strings.Contains(text, `"Status":"期待新发现"`) || !strings.Contains(text, `"Version":3`) || strings.Contains(text, "private-owner") {
@@ -186,6 +196,7 @@ func TestProfileContextAndResultPresentation(t *testing.T) {
 }
 
 func TestMCPResultPresentationPreservesContentAndErrorWithoutPrivateMetadata(t *testing.T) {
+	t.Parallel()
 	name := "mcp_" + strings.Repeat("b", 48)
 	for _, raw := range []string{
 		`{"tool":"lookup","content":["MCP fixture result"],"structuredContent":{"found":true},"isError":false,"unsupportedContent":[],"connection_id":"private-connection","OwnerID":"private-owner"}`,

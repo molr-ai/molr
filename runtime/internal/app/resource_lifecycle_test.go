@@ -20,6 +20,7 @@ import (
 )
 
 func TestDefaultResourcesInitializeAtomicallyOnce(t *testing.T) {
+	t.Parallel()
 	t.Run("deleted-defaults", func(t *testing.T) { testDefaultResourcesInitializeOnce(t, false) })
 	t.Run("new-network-policy", func(t *testing.T) { testDefaultResourcesInitializeOnce(t, true) })
 }
@@ -94,6 +95,7 @@ func testDefaultResourcesInitializeOnce(t *testing.T, addNetworkOnRestart bool) 
 }
 
 func TestResourceReconnectPreservesGrantsAndDirectory(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, func(cfg *config.Config, _ string) { cfg.Sandbox.Enabled = false })
 	expires := time.Now().Add(time.Hour).UTC()
 	original := f.grant(t, f.storage.ID, "files", []policy.Action{policy.Read}, policy.Scope{}, &expires)
@@ -146,6 +148,7 @@ func TestResourceReconnectPreservesGrantsAndDirectory(t *testing.T) {
 }
 
 func TestResourceRefreshSkipsDisconnectedAndRecoversAvailability(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, func(cfg *config.Config, _ string) { cfg.Sandbox.Enabled = false })
 	p := f.owner
 	need(t, f.b.Services.Resources.Disconnect(t.Context(), p, resource.DisconnectRequest{ID: f.storage.ID, Mutation: core.Mutation{IdempotencyKey: "disconnect", ExpectedVersion: f.storage.Version}}))
@@ -188,6 +191,7 @@ func TestResourceRefreshSkipsDisconnectedAndRecoversAvailability(t *testing.T) {
 }
 
 func TestResourceDisconnectPreservesAuthorizationHistory(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, func(cfg *config.Config, _ string) { cfg.Sandbox.Enabled = false })
 	grant := f.grant(t, f.storage.ID, "files", []policy.Action{policy.Read}, policy.Scope{}, nil)
 	observer, err := executionAuthorization(f.b.store, f.execution, func(ctx context.Context) error {

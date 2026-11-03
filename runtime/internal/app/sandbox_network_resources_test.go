@@ -13,6 +13,7 @@ import (
 )
 
 func TestLocalNetworkPresetsBecomeRequestableWithoutGrants(t *testing.T) {
+	t.Parallel()
 	for _, name := range []string{"permissive", "least-privilege"} {
 		t.Run(name, func(t *testing.T) {
 			cfg := testConfig(t)

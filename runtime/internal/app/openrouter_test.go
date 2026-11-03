@@ -12,6 +12,7 @@ import (
 )
 
 func TestOpenRouterCatalogRefreshPreservesManualOverrides(t *testing.T) {
+	t.Parallel()
 	price := "0.000002"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v1/models" {
@@ -68,6 +69,7 @@ func TestOpenRouterCatalogRefreshPreservesManualOverrides(t *testing.T) {
 }
 
 func TestOpenRouterCatalogBoundsAndCapabilities(t *testing.T) {
+	t.Parallel()
 	count := 600
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rows := make([]any, count)
@@ -92,6 +94,7 @@ func TestOpenRouterCatalogBoundsAndCapabilities(t *testing.T) {
 }
 
 func TestOpenRouterPricingDoesNotInventFreeUsage(t *testing.T) {
+	t.Parallel()
 	for _, prices := range []map[string]string{
 		nil, {"prompt": "0"}, {"prompt": "-1", "completion": "0"}, {"prompt": "NaN", "completion": "0"},
 		{"prompt": "9999999999999999999999", "completion": "0"}, {"prompt": "0.000001", "completion": "0.000002", "request": "0.01"},
@@ -108,6 +111,7 @@ func TestOpenRouterPricingDoesNotInventFreeUsage(t *testing.T) {
 }
 
 func TestOpenRouterStructuredPricingDoesNotRejectCatalog(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, `{"data":[{"id":"vendor/conditional","architecture":{"output_modalities":["text"]},"pricing":{"prompt":"0.000001","completion":"0.000002","overrides":[{"condition":"large-context","prompt":"0.000003"}]}},{"id":"vendor/plain","architecture":{"output_modalities":["text"]},"pricing":{"prompt":"0.000001","completion":"0.000002"}}]}`)
 	}))

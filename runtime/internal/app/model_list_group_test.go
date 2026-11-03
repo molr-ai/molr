@@ -82,6 +82,7 @@ func modelGroupFixture(tb testing.TB) (adapters, core.Principal, *modelGroupRead
 	return adapters{store: observed}, core.Principal{OwnerID: "member", SubjectID: "member", Kind: core.ActorOwner, SessionID: "session"}, observed
 }
 func TestModelListReusesGroupWithinOneSnapshot(t *testing.T) {
+	t.Parallel()
 	a, p, observed := modelGroupFixture(t)
 	models, err := a.models(t.Context(), p)
 	need(t, err)
@@ -113,6 +114,7 @@ func BenchmarkModelListSharedGroup(b *testing.B) {
 }
 
 func TestModelListReloadsGroupAndAccountForEachRequest(t *testing.T) {
+	t.Parallel()
 	a, p, s := modelGroupFixture(t)
 	first, err := a.models(t.Context(), p)
 	need(t, err)
@@ -152,6 +154,7 @@ func TestModelListReloadsGroupAndAccountForEachRequest(t *testing.T) {
 }
 
 func TestModelListAdministratorStandaloneAndMissingPolicy(t *testing.T) {
+	t.Parallel()
 	for _, mode := range []string{"administrator", "standalone", "missing_account", "missing_group"} {
 		t.Run(mode, func(t *testing.T) {
 			a, p, s := modelGroupFixture(t)

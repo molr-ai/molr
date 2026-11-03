@@ -12,6 +12,7 @@ import (
 )
 
 func TestCommonFileMoveDeleteReceiptsAndVisibility(t *testing.T) {
+	t.Parallel()
 	f, files, target := fileFixture(t)
 	executor := tools.NewExecutor(f.b.store, tools.Options{Authorizer: f.ad.policy, Operations: f.b.Services.Operations.(operation.Service), FileRead: files.Read, FileWrite: files.Write, FileMove: files.Move, FileDelete: files.Delete})
 	defs, err := executor.Definitions(t.Context(), f.execution.Principal)
@@ -73,6 +74,7 @@ func TestCommonFileMoveDeleteReceiptsAndVisibility(t *testing.T) {
 	}
 }
 func TestFileMoveDeleteVersionsDestinationsAndLinks(t *testing.T) {
+	t.Parallel()
 	f, files, target := fileFixture(t)
 	before := readFileResult(t, files, f.execution, target)
 	need(t, os.WriteFile(filepath.Join(f.root, "write/existing"), []byte("keep"), 0600))
@@ -102,6 +104,7 @@ func TestFileMoveDeleteVersionsDestinationsAndLinks(t *testing.T) {
 	}
 }
 func TestFileMoveRequiresDestinationWritePermission(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, nil)
 	f.grant(t, f.storage.ID, "write-scope", []policy.Action{policy.Read, policy.Write}, policy.Scope{PathPrefixes: []string{"/write"}}, nil)
 	files := newResourceFileTools(resourceFileOptions{adapters: f.ad})

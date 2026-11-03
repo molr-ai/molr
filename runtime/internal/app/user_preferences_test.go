@@ -12,6 +12,7 @@ import (
 )
 
 func TestOwnerPreferencesIsolationDefaultsAndUpdates(t *testing.T) {
+	t.Parallel()
 	db, err := sqlitestore.Open(filepath.Join(t.TempDir(), "runtime.db"))
 	need(t, err)
 	defer db.Close()

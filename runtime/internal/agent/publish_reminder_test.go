@@ -26,6 +26,7 @@ func reminderCount(inputs []model.Input) int {
 }
 
 func TestPublishReminderContinuesOnceAndAllowsSilence(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	out, err := f.Runtime.Handle(t.Context(), f.Turn)
 	testkit.RequireNoError(t, err)
@@ -49,6 +50,7 @@ func TestPublishReminderContinuesOnceAndAllowsSilence(t *testing.T) {
 }
 
 func TestPublishReminderCanRecoverMissingReply(t *testing.T) {
+	t.Parallel()
 	var calls atomic.Int32
 	f, _ := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !testkit.DrainRequestBody(t, r) {
@@ -68,6 +70,7 @@ func TestPublishReminderCanRecoverMissingReply(t *testing.T) {
 }
 
 func TestPublishAttemptSuppressesReminderEvenOnFailure(t *testing.T) {
+	t.Parallel()
 	for _, args := range []string{`{"conversation_id":"chat","text":"sent"}`, `{"conversation_id":"missing","text":"failed"}`} {
 		t.Run(args, func(t *testing.T) {
 			var calls atomic.Int32
@@ -91,6 +94,7 @@ func TestPublishAttemptSuppressesReminderEvenOnFailure(t *testing.T) {
 }
 
 func TestPublishReminderSurvivesRestart(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	estimate := e.options.Estimate
@@ -119,6 +123,7 @@ func TestPublishReminderSurvivesRestart(t *testing.T) {
 }
 
 func TestPublishReminderDoesNotWakeNonUserEventsOrBypassStepLimit(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	_, err := f.Runtime.Handle(t.Context(), nextStateTurn(f, "scheduled", event.ScheduleDue))
 	testkit.RequireNoError(t, err)
@@ -135,6 +140,7 @@ func TestPublishReminderDoesNotWakeNonUserEventsOrBypassStepLimit(t *testing.T) 
 }
 
 func TestPublishReminderFollowsUserEventAcrossExecutions(t *testing.T) {
+	t.Parallel()
 	for _, kind := range []event.Kind{event.ResumeRequested, event.ShellTasksRunning, event.ShellTaskFinished, event.OperationCompleted, event.ScheduleDue} {
 		t.Run(string(kind), func(t *testing.T) {
 			var calls atomic.Int32
@@ -185,6 +191,7 @@ func TestPublishReminderFollowsUserEventAcrossExecutions(t *testing.T) {
 }
 
 func TestPublishAttemptSurvivesCompletedTurnAndNewUserResetsIt(t *testing.T) {
+	t.Parallel()
 	for _, conversation := range []string{"chat", "missing"} {
 		t.Run(conversation, func(t *testing.T) {
 			var calls atomic.Int32
@@ -218,6 +225,7 @@ func TestPublishAttemptSurvivesCompletedTurnAndNewUserResetsIt(t *testing.T) {
 }
 
 func TestPublishReminderSurvivesContextCompression(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	_, err := f.Runtime.Handle(t.Context(), f.Turn)
 	testkit.RequireNoError(t, err)
@@ -241,6 +249,7 @@ func TestPublishReminderSurvivesContextCompression(t *testing.T) {
 }
 
 func TestPublishReminderUrgentMessageResetsPriorAttemptOrReminder(t *testing.T) {
+	t.Parallel()
 	for _, published := range []bool{false, true} {
 		t.Run(fmt.Sprint(published), func(t *testing.T) {
 			started := make(chan struct{})

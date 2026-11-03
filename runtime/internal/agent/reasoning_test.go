@@ -16,6 +16,7 @@ import (
 )
 
 func TestIncompleteDeepSeekCheckpointStopsWithoutRequestOrBudgetHold(t *testing.T) {
+	t.Parallel()
 	var requests atomic.Int64
 	f, db := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests.Add(1)
@@ -50,6 +51,7 @@ func TestIncompleteDeepSeekCheckpointStopsWithoutRequestOrBudgetHold(t *testing.
 }
 
 func TestAgentPreservesReasoningAcrossToolsCacheAndRestart(t *testing.T) {
+	// Keep this long fixture lifetime serial: its context has a fixed deadline.
 	// Include an explicitly empty value: it must not turn into an absent field.
 	reasoning := []string{"private reasoning\n读取消息", "", "private final reasoning", "reminder reasoning", "next event reasoning", "next reminder reasoning"}
 	var requests atomic.Int64

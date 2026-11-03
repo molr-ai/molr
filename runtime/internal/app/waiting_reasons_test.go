@@ -21,6 +21,7 @@ import (
 )
 
 func TestWaitingReasonsDescribeActualBlockers(t *testing.T) {
+	t.Parallel()
 	for _, reason := range []string{"model_pricing_missing", "model_not_authorized", "budget_exceeded", "model_unavailable", "model_not_configured", "model_authentication_failed", "model_rate_limited"} {
 		t.Run(reason, func(t *testing.T) {
 			cfg := testConfig(t)

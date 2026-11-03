@@ -12,6 +12,7 @@ import (
 )
 
 func TestDraftProviderConnectionUsesRealNetworkWithoutSaving(t *testing.T) {
+	t.Parallel()
 	cfg := testConfig(t)
 	cfg.Network.AllowedPrivateIPs = nil
 	b, err := Build(t.Context(), cfg)

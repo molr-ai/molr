@@ -74,6 +74,7 @@ func workspaceQuotaFixture(tb testing.TB) (*workspaceQuotaReadStore, policy.Gran
 	return &workspaceQuotaReadStore{Store: db}, current
 }
 func TestWorkspaceQuotaLoadsOnlyItsResourceGrants(t *testing.T) {
+	t.Parallel()
 	store, _ := workspaceQuotaFixture(t)
 	value, err := workspaceConstraints(t.Context(), store, "owner", "assistant", "local")
 	need(t, err)
@@ -100,6 +101,7 @@ func BenchmarkWorkspaceQuotaResourceScope(b *testing.B) {
 }
 
 func TestWorkspaceQuotaRetainsLifetimeAndFallbackSelection(t *testing.T) {
+	t.Parallel()
 	store, current := workspaceQuotaFixture(t)
 	put := func(g policy.Grant) {
 		t.Helper()
@@ -163,6 +165,7 @@ func TestWorkspaceQuotaRetainsLifetimeAndFallbackSelection(t *testing.T) {
 }
 
 func TestWorkspaceQuotaUsesCatalogResourceAndCallerGrantOwner(t *testing.T) {
+	t.Parallel()
 	store, current := workspaceQuotaFixture(t)
 	current.ID = "catalog-workspace"
 	current.ResourceID = workspaceResourceID("local")

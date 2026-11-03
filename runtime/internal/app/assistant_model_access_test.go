@@ -16,6 +16,7 @@ import (
 )
 
 func TestHireGrantsSelectedProviderAtomically(t *testing.T) {
+	t.Parallel()
 	b, err := Build(t.Context(), testConfig(t))
 	need(t, err)
 	defer b.Close()
@@ -80,6 +81,7 @@ func TestHireGrantsSelectedProviderAtomically(t *testing.T) {
 }
 
 func TestModelGrantFollowsProviderConnection(t *testing.T) {
+	t.Parallel()
 	b, err := Build(t.Context(), testConfig(t))
 	need(t, err)
 	defer b.Close()

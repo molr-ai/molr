@@ -14,6 +14,7 @@ import (
 )
 
 func TestPermissionContextTracksGrantChangesAndExpiration(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, nil)
 	now := time.Now()
 	expires := now.Add(time.Hour)
@@ -51,6 +52,7 @@ func TestPermissionContextTracksGrantChangesAndExpiration(t *testing.T) {
 }
 
 func TestRequestablePermissionsExposeChoicesWithoutGrantingAccess(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, nil)
 	need(t, f.b.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
 		return tx.Put(ctx, "business.resources", "other/hidden", resource.Resource{ID: "hidden", OwnerID: "other", Name: "private-resource", Kind: resource.Storage, Actions: []string{"read"}, State: resource.Available})
@@ -79,6 +81,7 @@ func TestRequestablePermissionsExposeChoicesWithoutGrantingAccess(t *testing.T) 
 }
 
 func TestPermissionOwnerCanEditProposedScopeAndTime(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, nil)
 	s := newPermissionRequestsFixture(t, f)
 	raw, err := s.create(t.Context(), f.execution, policy.PermissionRequestInput{ResourceKind: "storage", ResourceID: f.storage.ID, ResourceDescription: "Reports", Actions: []policy.Action{policy.Read}, PathPrefixes: []string{"/read"}, ExpiresAt: futurePermissionTime(), Reason: "Read reports"})

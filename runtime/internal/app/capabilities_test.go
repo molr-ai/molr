@@ -17,6 +17,7 @@ import (
 )
 
 func TestAssistantCapabilitiesAreReadOnlyScopedAndReflectStorageGrants(t *testing.T) {
+	t.Parallel()
 	b, err := Build(t.Context(), testConfig(t))
 	need(t, err)
 	defer b.Close()

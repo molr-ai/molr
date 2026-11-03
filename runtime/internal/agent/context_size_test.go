@@ -12,6 +12,7 @@ import (
 )
 
 func TestContextSizeMatchesWholeJSONEncoding(t *testing.T) {
+	t.Parallel()
 	timestamp := 1.2345
 	cases := [][]model.Input{
 		nil, {}, {{}},
@@ -45,6 +46,7 @@ func TestContextSizeMatchesWholeJSONEncoding(t *testing.T) {
 }
 
 func TestContextSizeKeepsEncodingErrorsEvenAfterLimit(t *testing.T) {
+	t.Parallel()
 	badFloat := math.NaN()
 	for _, invalid := range []model.Input{
 		{Calls: []model.ToolCall{{Arguments: json.RawMessage(`{"bad":`)}}},
@@ -66,6 +68,7 @@ func TestContextSizeKeepsEncodingErrorsEvenAfterLimit(t *testing.T) {
 }
 
 func TestContextSizeRetainsProductionLimit(t *testing.T) {
+	t.Parallel()
 	// Share the source string so the test need not allocate a 256 MiB input copy.
 	inputs := make([]model.Input, 256)
 	text := strings.Repeat("a", 1<<20)

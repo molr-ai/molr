@@ -39,6 +39,7 @@ func (tx checkpointCountTx) Ancestors(ctx context.Context, bucket, key, parent s
 }
 
 func TestProgressSavesReadOnlyCheckpointHeader(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	s := &checkpointReadCounter{Store: db}
 	e := f.Runtime.(*Engine)
@@ -66,6 +67,7 @@ func TestProgressSavesReadOnlyCheckpointHeader(t *testing.T) {
 }
 
 func TestProgressHeaderRejectsInvalidIdentityAndStorage(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name   string
 		change func(*storedCheckpoint)
@@ -99,6 +101,7 @@ func TestProgressHeaderRejectsInvalidIdentityAndStorage(t *testing.T) {
 }
 
 func TestProgressEvidenceSurvivesSavesRecoveryAndHandoff(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	p := turnProgress{Inputs: []model.Input{{Role: model.System, Text: loopInstructions}}}

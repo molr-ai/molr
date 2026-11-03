@@ -20,6 +20,7 @@ import (
 )
 
 func TestFileMemoriesCloneSearchExportAndCleanup(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	cfg := testConfig(t)
 	b, err := Build(ctx, cfg)

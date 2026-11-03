@@ -27,6 +27,7 @@ type chatgptTransport func(*http.Request) (*http.Response, error)
 
 func (f chatgptTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 func TestChatGPTAdminConnectionLifecycle(t *testing.T) {
+	t.Parallel()
 	f := newMultiUserFixture(t)
 	ctx := t.Context()
 	vault := f.b.Services.Credentials.(*credential.Vault)
@@ -179,6 +180,7 @@ func TestChatGPTAdminConnectionLifecycle(t *testing.T) {
 	}
 }
 func TestChatGPTModelCatalogIsAccountSpecific(t *testing.T) {
+	t.Parallel()
 	client := &http.Client{Transport: chatgptTransport(func(r *http.Request) (*http.Response, error) {
 		if r.URL.String() != chatgpt.Resource+"/models" || r.Header.Get("Authorization") != "Bearer fixture" {
 			t.Fatal("incorrect catalog request")

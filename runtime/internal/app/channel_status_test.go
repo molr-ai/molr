@@ -9,6 +9,7 @@ import (
 )
 
 func TestChatChannelSummaryPreservesBindingAndOwnership(t *testing.T) {
+	t.Parallel()
 	b, owner, e := taskFixture(t)
 	chat := core.ID("channel-summary-chat")
 	need(t, b.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
@@ -77,6 +78,7 @@ func TestChatChannelSummaryPreservesBindingAndOwnership(t *testing.T) {
 }
 
 func TestChannelManagementSummaryPreservesPairingAndFailsClosed(t *testing.T) {
+	t.Parallel()
 	b, owner, execution := taskFixture(t)
 	a, err := b.Services.Assistants.Get(t.Context(), owner, execution.AssistantID)
 	need(t, err)

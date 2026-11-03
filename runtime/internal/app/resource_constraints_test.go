@@ -16,6 +16,7 @@ import (
 )
 
 func TestAutomaticNetworkSelectionFollowsLiveAssistantAndSandboxGrants(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, nil)
 	r, err := f.b.Services.Resources.Connect(t.Context(), f.owner, resource.ConnectRequest{Mutation: core.Mutation{IdempotencyKey: "network-auto"}, Kind: resource.Network, Provider: "sandbox-network", Name: "Internet", Binding: resource.Binding{SandboxTarget: testNetworkPreset()}})
 	need(t, err)
@@ -47,6 +48,7 @@ func TestAutomaticNetworkSelectionFollowsLiveAssistantAndSandboxGrants(t *testin
 	}
 }
 func TestPermissionQuotaProjectionPreservesAuthoritativeLimitsAndVersion(t *testing.T) {
+	t.Parallel()
 	raw := map[string]any{"Resources": []any{map[string]any{"Grants": []any{permissionGrant{Version: 7, Constraints: &policy.Constraints{Network: &policy.NetworkConstraints{Bytes: 1 << 30, Connections: 32, Period: "day", Timezone: "Asia/Shanghai"}}}}}}, "Requestable": []any{}, "BuiltInStorage": []any{}}
 	data, _ := json.Marshal(raw)
 	text, err := prompt.Structured("permission_list", string(data))
@@ -58,6 +60,7 @@ func TestPermissionQuotaProjectionPreservesAuthoritativeLimitsAndVersion(t *test
 	}
 }
 func TestComputeQuotaOverridesDeploymentDefaultsAndBoundsDuration(t *testing.T) {
+	t.Parallel()
 	c := platform.Command{Timeout: 0, Limits: platform.Limits{MemoryBytes: 512 << 20}}
 	q := policy.ComputeConstraints{CPUPercent: 200, MemoryBytes: 2 << 30, Processes: 128, TempBytes: 64 << 20, MaxDurationSeconds: 1800}
 	max := platform.Limits{CPUPercent: 400, MemoryBytes: 4 << 30, Processes: 256, TempBytes: 1 << 30}
@@ -72,6 +75,7 @@ func TestComputeQuotaOverridesDeploymentDefaultsAndBoundsDuration(t *testing.T) 
 }
 
 func TestWorkspaceRegrantUsesCurrentAuthorizationInsteadOfHistoricalVersion(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, nil)
 	id := workspaceResourceID("local")
 	now := time.Now()
@@ -98,6 +102,7 @@ func TestWorkspaceRegrantUsesCurrentAuthorizationInsteadOfHistoricalVersion(t *t
 }
 
 func TestNetworkQuotaRejectsMissingLimitsAndDeduplicatesAliases(t *testing.T) {
+	t.Parallel()
 	if platform.NativeSandbox() {
 		t.Skip("requires Linux hard quota grants; native grants are covered by TestNativeSandboxGrantRoutingAndRevocation")
 	}
@@ -127,6 +132,7 @@ func TestNetworkQuotaRejectsMissingLimitsAndDeduplicatesAliases(t *testing.T) {
 }
 
 func TestQuotaGrantsRequireExplicitLimits(t *testing.T) {
+	t.Parallel()
 	if platform.NativeSandbox() {
 		t.Skip("requires Linux hard quota grants; native grants are covered by TestNativeSandboxGrantRoutingAndRevocation")
 	}
@@ -162,6 +168,7 @@ func TestQuotaGrantsRequireExplicitLimits(t *testing.T) {
 }
 
 func TestComputeGrantCanExceedFormerImplicitCeilings(t *testing.T) {
+	t.Parallel()
 	if platform.NativeSandbox() {
 		t.Skip("macOS uses duration-only compute grants")
 	}

@@ -8,6 +8,7 @@ import (
 )
 
 func TestHTTPDomainAuthorizationPrecedesDeferredRequestDecoding(t *testing.T) {
+	t.Parallel()
 	f := newMultiUserFixture(t)
 	own := f.assistant(t, f.alice, "owned-terminal")
 	foreign := f.assistant(t, f.bob, "foreign-terminal")

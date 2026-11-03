@@ -21,6 +21,7 @@ import (
 )
 
 func TestProfileToolPersistenceConflictFileAccessAndContext(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { c.Sandbox.Enabled = false })
 	p := &profileTools{assistants: f.b.Services.Assistants, workspace: newResourceFileTools(resourceFileOptions{adapters: f.ad})}
 	ex := tools.NewExecutor(f.b.store, tools.Options{Authorizer: f.ad.policy, Operations: f.b.Services.Operations.(operation.Service), ProfileUpdate: p.update})
@@ -130,6 +131,7 @@ func TestProfileToolPersistenceConflictFileAccessAndContext(t *testing.T) {
 }
 
 func TestProfileStatusSetClearAndValidation(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { c.Sandbox.Enabled = false })
 	p := &profileTools{assistants: f.b.Services.Assistants, workspace: newResourceFileTools(resourceFileOptions{adapters: f.ad})}
 	ex := tools.NewExecutor(f.b.store, tools.Options{Authorizer: f.ad.policy, Operations: f.b.Services.Operations.(operation.Service), ProfileUpdate: p.update})

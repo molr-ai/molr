@@ -18,6 +18,7 @@ import (
 )
 
 func TestLargeToolResultIsSavedAndReadableInChunks(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { c.Sandbox.Enabled = false })
 	fs := newResourceFileTools(resourceFileOptions{adapters: f.ad})
 	content, _ := json.Marshal(map[string]any{"Text": strings.Repeat("原始长结果 test\n", 20000), "Exit": map[string]int{"Code": 1}})
@@ -79,6 +80,7 @@ func TestLargeToolResultIsSavedAndReadableInChunks(t *testing.T) {
 	}
 }
 func TestToolResultRefusesLinkedOutput(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { c.Sandbox.Enabled = false })
 	fs := newResourceFileTools(resourceFileOptions{adapters: f.ad})
 	content, _ := json.Marshal(strings.Repeat("test", 10000))
@@ -105,6 +107,7 @@ func TestToolResultRefusesLinkedOutput(t *testing.T) {
 	}
 }
 func TestShellArchiveQuotaReportsPartialOutput(t *testing.T) {
+	t.Parallel()
 	file, err := os.CreateTemp(t.TempDir(), "output")
 	need(t, err)
 	sink := &shellOutput{file: file, budget: &shellOutputBudget{left: 8}}
@@ -125,6 +128,7 @@ func TestShellArchiveQuotaReportsPartialOutput(t *testing.T) {
 }
 
 func TestToolEnvelopeBoundsEscapedJSON(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { c.Sandbox.Enabled = false })
 	fs := newResourceFileTools(resourceFileOptions{adapters: f.ad})
 	content := json.RawMessage(`{"Path":"` + strings.Repeat("<", 500) + `","Text":"` + strings.Repeat("<", 30000) + `"}`)
@@ -136,6 +140,7 @@ func TestToolEnvelopeBoundsEscapedJSON(t *testing.T) {
 }
 
 func TestShellArchiveCanBeReadFromStateDirectory(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	e := core.Execution{Principal: core.Principal{OwnerID: "owner"}, OperationID: "capture"}
 	stdout, stderr, outPath, errPath, err := createShellTaskOutputs(root, 1<<20, e)

@@ -11,6 +11,7 @@ import (
 )
 
 func TestActivitiesBoundedProjectionAndDreamDeadline(t *testing.T) {
+	t.Parallel()
 	f, store := makeLoopFixture(t, nil)
 	engine := f.Runtime.(*Engine)
 	now := time.Now()

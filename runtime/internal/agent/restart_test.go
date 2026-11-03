@@ -45,6 +45,7 @@ func recoveryClaim(t *testing.T, e *Engine, job scheduler.Job) scheduler.Claim {
 	return next
 }
 func TestRestartCreatesResumeWithCommittedAndUnstartedToolEvidence(t *testing.T) {
+	t.Parallel()
 	var calls atomic.Int32
 	bodies := make(chan string, 4)
 	f, _ := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -96,6 +97,7 @@ func TestRestartCreatesResumeWithCommittedAndUnstartedToolEvidence(t *testing.T)
 }
 
 func TestRestartUnknownToolOutcomeDoesNotBlockModelRecovery(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	job := seedInterrupted(t, e, f.Turn)
@@ -126,6 +128,7 @@ func TestRestartUnknownToolOutcomeDoesNotBlockModelRecovery(t *testing.T) {
 }
 
 func TestRestartStopAndNewerEventPreventRecovery(t *testing.T) {
+	t.Parallel()
 	for _, mode := range []string{"stop-before", "stop-after", "reset", "newer"} {
 		t.Run(mode, func(t *testing.T) {
 			f, _ := makeLoopFixture(t, nil)
@@ -157,6 +160,7 @@ func TestRestartStopAndNewerEventPreventRecovery(t *testing.T) {
 }
 
 func TestRestartRecoveryTransactionRollsBackAndDeduplicates(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	job := seedInterrupted(t, e, f.Turn)
@@ -179,6 +183,7 @@ func TestRestartRecoveryTransactionRollsBackAndDeduplicates(t *testing.T) {
 }
 
 func TestRestartRecoveryLimitAndProgress(t *testing.T) {
+	t.Parallel()
 	for _, progress := range []bool{false, true} {
 		t.Run(map[bool]string{false: "no-progress", true: "progress"}[progress], func(t *testing.T) {
 			f, _ := makeLoopFixture(t, nil)
@@ -206,6 +211,7 @@ func TestRestartRecoveryLimitAndProgress(t *testing.T) {
 }
 
 func TestRestartBeforeRecoveryHandoffReusesThePendingEvent(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	job := seedInterrupted(t, e, f.Turn)
@@ -228,6 +234,7 @@ func TestRestartBeforeRecoveryHandoffReusesThePendingEvent(t *testing.T) {
 }
 
 func TestRestartIneligibleTaskDoesNotResume(t *testing.T) {
+	t.Parallel()
 	for _, late := range []bool{false, true} {
 		t.Run(map[bool]string{false: "before-startup", true: "before-handle"}[late], func(t *testing.T) {
 			f, _ := makeLoopFixture(t, nil)
@@ -255,6 +262,7 @@ func TestRestartIneligibleTaskDoesNotResume(t *testing.T) {
 }
 
 func TestRestartEarlyRecoveryFailureHasWaitingReason(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	job := seedInterrupted(t, e, f.Turn)
@@ -274,6 +282,7 @@ func TestRestartEarlyRecoveryFailureHasWaitingReason(t *testing.T) {
 }
 
 func TestRestartCannotReadCheckpointOnlyFailsThatAssistant(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	job := seedInterrupted(t, e, f.Turn)
@@ -301,6 +310,7 @@ func TestRestartCannotReadCheckpointOnlyFailsThatAssistant(t *testing.T) {
 }
 
 func TestRestartPreservesAssistantConversation(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	turn := f.Turn

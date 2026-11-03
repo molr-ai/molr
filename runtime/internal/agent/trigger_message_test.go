@@ -14,6 +14,7 @@ import (
 )
 
 func TestTriggerTracksTurnChangesAndStop(t *testing.T) {
+	t.Parallel()
 	started := make(chan struct{}, 4)
 	release := make(chan struct{}, 4)
 	f, _ := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -77,6 +78,7 @@ func TestTriggerTracksTurnChangesAndStop(t *testing.T) {
 }
 
 func TestTriggerClearedOnFailureAndRestoredOnRetry(t *testing.T) {
+	t.Parallel()
 	started := make(chan struct{}, 2)
 	f, _ := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.Copy(io.Discard, r.Body)

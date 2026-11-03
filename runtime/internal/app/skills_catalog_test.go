@@ -19,6 +19,7 @@ import (
 )
 
 func TestSkillsCatalogScopesAndReadOnlyContent(t *testing.T) {
+	t.Parallel()
 	cfg := testConfig(t)
 	b, err := Build(t.Context(), cfg)
 	need(t, err)

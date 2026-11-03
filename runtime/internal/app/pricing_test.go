@@ -25,6 +25,7 @@ import (
 )
 
 func TestBuiltInPricingAppliesToSavedModelsAndReloads(t *testing.T) {
+	t.Parallel()
 	b, err := Build(t.Context(), testConfig(t))
 	need(t, err)
 	defer b.Close()
@@ -66,6 +67,7 @@ func TestBuiltInPricingAppliesToSavedModelsAndReloads(t *testing.T) {
 }
 
 func TestPricingRulesFileStartupFallback(t *testing.T) {
+	t.Parallel()
 	cfg := testConfig(t)
 	cfg.Pricing.RulesFile = filepath.Join(t.TempDir(), "rules.json")
 	need(t, os.WriteFile(cfg.Pricing.RulesFile, []byte(`{}`), 0600))
@@ -91,6 +93,7 @@ func TestPricingRulesFileStartupFallback(t *testing.T) {
 }
 
 func TestReservationRejectsPriceIncreaseBeforeDispatch(t *testing.T) {
+	t.Parallel()
 	b, err := Build(t.Context(), testConfig(t))
 	need(t, err)
 	defer b.Close()
@@ -114,6 +117,7 @@ func TestReservationRejectsPriceIncreaseBeforeDispatch(t *testing.T) {
 }
 
 func TestModelCostReservationSwitchDispatchesAndSettles(t *testing.T) {
+	t.Parallel()
 	for _, currency := range []string{"USD", "CNY"} {
 		for _, enabled := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/enabled=%t", currency, enabled), func(t *testing.T) {
@@ -186,6 +190,7 @@ func TestModelCostReservationSwitchDispatchesAndSettles(t *testing.T) {
 }
 
 func TestZeroEstimateStillEnforcesGroupModelBudget(t *testing.T) {
+	t.Parallel()
 	f := newMultiUserFixture(t, func(c *config.Config) { c.Pricing.ReserveModelCost = false })
 	a := f.assistant(t, f.alice, "group-budget")
 	adapter := adapters{store: f.b.store, pricing: f.b.Pricing}
@@ -209,6 +214,7 @@ func TestZeroEstimateStillEnforcesGroupModelBudget(t *testing.T) {
 }
 
 func TestZeroEstimateStillRequiresModelPricing(t *testing.T) {
+	t.Parallel()
 	_, err := estimateProvider(model.Provider{}, 16, false)
 	if core.ReasonOf(err) != core.ModelPricingMissing {
 		t.Fatalf("unknown price treated as free: %v", err)

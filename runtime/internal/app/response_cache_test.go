@@ -10,6 +10,7 @@ import (
 )
 
 func TestCachedUsageRechecksIdentityGroupAndAdministrator(t *testing.T) {
+	t.Parallel()
 	f := newMultiUserFixture(t)
 	m := f.b.Services.Auth.(*auth.Manager)
 	get := func(path string) *httptest.ResponseRecorder {
@@ -66,6 +67,7 @@ func TestCachedUsageRechecksIdentityGroupAndAdministrator(t *testing.T) {
 }
 
 func TestCachedSandboxVisibilityChangesWithGroup(t *testing.T) {
+	t.Parallel()
 	f := newMultiUserFixture(t)
 	m := f.b.Services.Auth.(*auth.Manager)
 	get := func() *httptest.ResponseRecorder {

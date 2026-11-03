@@ -22,6 +22,9 @@ import (
 	"molr.ai/runtime/internal/search"
 )
 
+// Parallel application tests own their configuration, database, accounts and ports.
+// Keep process-environment mutations and native integration tests serial; do not
+// parallelize subtests that share a fixture. CI and Makefile bound -parallel to 4.
 func testConfig(t *testing.T) config.Config {
 	t.Helper()
 	c := config.Defaults(t.TempDir())
@@ -186,6 +189,7 @@ func testMessageAgentAndRestart(t *testing.T, commands bool) {
 	}
 }
 func TestBuildKeysPersistAndRefuseLoss(t *testing.T) {
+	t.Parallel()
 	c := testConfig(t)
 	b, err := Build(t.Context(), c)
 	need(t, err)

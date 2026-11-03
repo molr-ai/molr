@@ -11,6 +11,7 @@ import (
 )
 
 func TestTerminalOutputPreservesBytesAcrossChunks(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	prefix := ".molr/tool-shell-test"
 	// Use the same archive naming as the runtime rather than a second protocol.

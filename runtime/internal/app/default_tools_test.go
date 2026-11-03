@@ -40,6 +40,7 @@ func defaultToolFixture(t *testing.T) (resourceAccessFixture, func(string, any) 
 	}
 }
 func TestPlanToolsCRUDPaginationAndIsolation(t *testing.T) {
+	t.Parallel()
 	f, call := defaultToolFixture(t)
 	manage := func(action string, args map[string]any) (json.RawMessage, error) {
 		args["action"] = action
@@ -150,6 +151,7 @@ func TestPlanToolsCRUDPaginationAndIsolation(t *testing.T) {
 }
 
 func TestPlanManagePartialUpdatesAndSingleVersion(t *testing.T) {
+	t.Parallel()
 	f, call := defaultToolFixture(t)
 	invoke := func(args map[string]any) planView {
 		t.Helper()
@@ -208,6 +210,7 @@ func TestPlanManagePartialUpdatesAndSingleVersion(t *testing.T) {
 }
 
 func TestConversationToolsAttachmentRoundTripAndIsolation(t *testing.T) {
+	t.Parallel()
 	f, call := defaultToolFixture(t)
 	ctx := t.Context()
 	repo := conversation.NewRepository(f.b.store)
@@ -277,6 +280,7 @@ func TestConversationToolsAttachmentRoundTripAndIsolation(t *testing.T) {
 }
 
 func TestPlanToolsWatchLifecycleAndTypeSpecificFields(t *testing.T) {
+	t.Parallel()
 	_, call := defaultToolFixture(t)
 	raw, err := call("plan_manage", map[string]any{"action": "create", "mode": "assistant_watch", "title": "Watch issues", "instructions": "Notify me of new issues", "watcher": map[string]any{"compute_id": "compute-fixture", "script": "exec watcher"}, "paused": true})
 	need(t, err)

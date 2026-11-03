@@ -17,6 +17,7 @@ import (
 )
 
 func TestFileSearchSingleFileRefreshesParentInstructions(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, func(cfg *config.Config, _ string) { cfg.Sandbox.Enabled = false })
 	files := newResourceFileTools(resourceFileOptions{adapters: f.ad})
 	for _, prefix := range []string{"/work", "/global"} {
@@ -94,6 +95,7 @@ func TestFileSearchSingleFileRefreshesParentInstructions(t *testing.T) {
 }
 
 func TestFileSearchInstructionDiscoveryRejectsIneligibleResults(t *testing.T) {
+	t.Parallel()
 	for _, variant := range []string{"remote target", "remote result", "external target", "external result", "full access", "failed", "uncompleted", "missing kind", "unknown kind"} {
 		t.Run(variant, func(t *testing.T) {
 			target := map[string]any{"path": "/work/project/notes.txt"}

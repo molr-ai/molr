@@ -32,6 +32,7 @@ type contractFixture struct {
 var newContractFixture func(*testing.T) contractFixture
 
 func TestTDDAgentHandlesEventAndResumesCommittedCheckpoint(t *testing.T) {
+	t.Parallel()
 	f := testkit.RequireFactory(t, "agent", newContractFixture)
 	ctx := testkit.Context(t)
 	out, err := f.Runtime.Handle(ctx, f.Turn)
@@ -61,6 +62,7 @@ func TestTDDAgentHandlesEventAndResumesCommittedCheckpoint(t *testing.T) {
 	}
 }
 func TestTDDAgentContextExcludesImplicitChatHistory(t *testing.T) {
+	t.Parallel()
 	f := testkit.RequireFactory(t, "agent", newContractFixture)
 	ctx := testkit.Context(t)
 	inputs, err := f.Context.Build(ctx, f.Turn)
@@ -79,6 +81,7 @@ func TestTDDAgentContextExcludesImplicitChatHistory(t *testing.T) {
 	testkit.RequireCode(t, err, core.Forbidden)
 }
 func TestTDDAgentAuthorizationStopAndFailedCommitRecovery(t *testing.T) {
+	t.Parallel()
 	f := testkit.RequireFactory(t, "agent", newContractFixture)
 	ctx := testkit.Context(t)
 	_, err := f.Runtime.Status(ctx, f.Other, f.Turn.Event.AssistantID)
@@ -112,6 +115,7 @@ func TestTDDAgentAuthorizationStopAndFailedCommitRecovery(t *testing.T) {
 	}
 }
 func TestTDDCheckpointCompareAndSwapAndOwnerIsolation(t *testing.T) {
+	t.Parallel()
 	f := testkit.RequireFactory(t, "agent", newContractFixture)
 	ctx := testkit.Context(t)
 	cp := Checkpoint{OwnerID: f.Owner.OwnerID, AssistantID: f.Turn.Event.AssistantID, ExecutionID: f.Turn.Principal.ExecutionID, FormatVersion: 1, Sequence: 1, Context: json.RawMessage(`{"step":1}`), LastEventID: f.Turn.Event.ID, SavedAt: time.Now()}
@@ -139,6 +143,7 @@ func TestTDDCheckpointCompareAndSwapAndOwnerIsolation(t *testing.T) {
 	}
 }
 func TestTDDTurnValidationSourceAndCheckpointFormat(t *testing.T) {
+	t.Parallel()
 	// This is a pure validation test and deliberately has no implementation fixture.
 	base := Turn{Principal: core.Principal{OwnerID: "owner", SubjectID: "assistant", Kind: core.ActorAssistant, ExecutionID: "run"}, Event: event.AssistantEvent{ID: "event", OwnerID: "owner", AssistantID: "assistant", Kind: event.ResumeRequested, CreatedAt: time.Now()}}
 	testkit.RequireNoError(t, base.Validate())

@@ -13,6 +13,7 @@ import (
 )
 
 func TestRemoteFailureDoesNotRestoreStoppedWork(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, nil)
 	router, err := newSandboxRouter(f.ad, nil, make([]byte, 32))
 	need(t, err)

@@ -16,6 +16,7 @@ import (
 )
 
 func TestAssistantActivityPageIsolationAndPreview(t *testing.T) {
+	t.Parallel()
 	f := newMultiUserFixture(t)
 	ctx := t.Context()
 	first := f.assistant(t, f.alice, "first")

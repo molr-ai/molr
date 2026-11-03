@@ -16,6 +16,7 @@ import (
 )
 
 func TestPermissionAlreadyGrantedPublishesNothing(t *testing.T) {
+	t.Parallel()
 	for _, grouped := range []bool{false, true} {
 		t.Run(map[bool]string{false: "single", true: "group"}[grouped], func(t *testing.T) {
 			f := newResourceAccessFixture(t, nil)
@@ -53,6 +54,7 @@ func TestPermissionAlreadyGrantedPublishesNothing(t *testing.T) {
 }
 
 func TestPermissionCoverageScopeExpiryAndLimits(t *testing.T) {
+	t.Parallel()
 	now := time.Now()
 	end := now.Add(time.Hour)
 	later := end.Add(time.Hour)
@@ -107,6 +109,7 @@ func TestPermissionCoverageScopeExpiryAndLimits(t *testing.T) {
 }
 
 func TestPermissionCoverageQuotaDimensions(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name       string
 		have, want *policy.Constraints

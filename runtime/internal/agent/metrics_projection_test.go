@@ -76,6 +76,7 @@ func metricsProjectionFixture(tb testing.TB) (*Engine, core.Principal, *metricPa
 	return engine, owner, observed
 }
 func TestTurnMetricsDoesNotReadToolResultBodies(t *testing.T) {
+	t.Parallel()
 	engine, owner, observed := metricsProjectionFixture(t)
 	got, err := engine.MessageMetrics(t.Context(), owner, "chat", "message")
 	if err != nil {
@@ -101,6 +102,7 @@ func BenchmarkTurnMetricsLargeToolResults(b *testing.B) {
 }
 
 func TestTurnMetricsProjectionExcludesUnrelatedOperationsAndKeepsPendingState(t *testing.T) {
+	t.Parallel()
 	engine, owner, store := metricsProjectionFixture(t)
 	err := store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
 		for _, op := range []operation.Operation{
@@ -145,6 +147,7 @@ func TestTurnMetricsProjectionExcludesUnrelatedOperationsAndKeepsPendingState(t 
 }
 
 func TestTurnMetricsHistoricalSourceReadsOnlyIdentity(t *testing.T) {
+	t.Parallel()
 	engine, owner, store := metricsProjectionFixture(t)
 	err := store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
 		return tx.Put(ctx, "im.messages", "owner/message", conversation.Message{ID: "message", ConversationID: "chat", Sender: conversation.Assistant, Source: conversation.Source{OperationID: "tool-000"}})

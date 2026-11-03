@@ -14,6 +14,7 @@ import (
 )
 
 func TestGrantIDInResourceArgumentReturnsActionableDiagnosticWithoutAdmission(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, nil)
 	g := f.grant(t, f.storage.ID, "named-grant", []policy.Action{policy.Read}, policy.Scope{}, nil)
 	executor := tools.NewExecutor(f.b.store, tools.Options{Authorizer: f.ad.policy, Operations: f.b.Services.Operations.(operation.Service), Browser: func(context.Context, core.Execution, string, tools.BrowserRequest) (json.RawMessage, error) {

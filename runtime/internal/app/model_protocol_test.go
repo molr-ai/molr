@@ -9,6 +9,7 @@ import (
 )
 
 func TestProviderPresetSelectsProtocolIndependentlyOfPriceAndAddress(t *testing.T) {
+	t.Parallel()
 	catalog, err := pricing.New(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -33,6 +34,7 @@ func TestProviderPresetSelectsProtocolIndependentlyOfPriceAndAddress(t *testing.
 }
 
 func TestUnspecifiedProviderProtocolRecognizesOnlyOfficialDeepSeekOrigin(t *testing.T) {
+	t.Parallel()
 	catalog, err := pricing.New(nil)
 	if err != nil {
 		t.Fatal(err)

@@ -34,6 +34,7 @@ func (tx channelReadTx) Query(ctx context.Context, bucket string, q persistence.
 }
 
 func TestChannelContextSharesReadsAndRefreshesAuthorization(t *testing.T) {
+	t.Parallel()
 	b, owner, e := taskFixture(t)
 	e.TaskID = "context-task"
 	currentTask := task.Task{ID: e.TaskID, OwnerID: owner.OwnerID, AssistantID: e.AssistantID, State: task.Running}
@@ -73,6 +74,7 @@ func TestChannelContextSharesReadsAndRefreshesAuthorization(t *testing.T) {
 }
 
 func TestChannelContextOrderSlackAndBindingChanges(t *testing.T) {
+	t.Parallel()
 	b, owner, e := taskFixture(t)
 	a, err := assistant.NewRepository(b.store).Get(t.Context(), owner.OwnerID, e.AssistantID)
 	need(t, err)

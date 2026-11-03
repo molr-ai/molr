@@ -13,6 +13,7 @@ import (
 )
 
 func TestRemoteShellObservationRecordsStartOnceAndKeepsReading(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
@@ -65,6 +66,7 @@ func TestRemoteShellObservationRecordsStartOnceAndKeepsReading(t *testing.T) {
 	})
 }
 func TestRemoteShellObservationRetriesFailedStartUnlessCanceled(t *testing.T) {
+	t.Parallel()
 	for _, cancelOnFailure := range []bool{false, true} {
 		t.Run(map[bool]string{false: "retry", true: "cancel"}[cancelOnFailure], func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {

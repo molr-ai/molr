@@ -20,6 +20,7 @@ import (
 )
 
 func TestSandboxPlansRequireIndependentComputeStorageAndNetworkGrants(t *testing.T) {
+	t.Parallel()
 	if platform.NativeSandbox() {
 		t.Skip("requires Linux mount and network plans; native plans are covered by TestNativeSandboxGrantRoutingAndRevocation")
 	}
@@ -100,6 +101,7 @@ func TestSandboxPlansRequireIndependentComputeStorageAndNetworkGrants(t *testing
 	}
 }
 func TestSandboxDiscoveryIsOwnerScopedAndDoesNotExposeInternalPaths(t *testing.T) {
+	t.Parallel()
 	b, err := Build(t.Context(), testConfig(t))
 	need(t, err)
 	defer b.Close()

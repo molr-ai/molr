@@ -25,6 +25,7 @@ import (
 )
 
 func TestSandboxPresentationPreservesCredentialsAndOwnerBoundary(t *testing.T) {
+	t.Parallel()
 	if runtime.GOOS != "linux" && runtime.GOOS != "darwin" {
 		t.Skip("requires a supported remote server")
 	}

@@ -17,6 +17,7 @@ import (
 )
 
 func TestCompactionRetainsOriginalHistoryAndResumes(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	engine := f.Runtime.(*Engine)
 	engine.options.ContextWindow = func(context.Context, core.Principal, core.ID) (int, error) { return 32768, nil }
@@ -58,6 +59,7 @@ func TestCompactionRetainsOriginalHistoryAndResumes(t *testing.T) {
 }
 
 func TestCompactionFailureKeepsInputs(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !testkit.DrainRequestBody(t, r) {
 			return
@@ -79,6 +81,7 @@ func TestCompactionFailureKeepsInputs(t *testing.T) {
 }
 
 func TestContextTokensUseProviderAndNewContent(t *testing.T) {
+	t.Parallel()
 	inputs := []model.Input{{Role: model.User, Text: "hello"}}
 	p := turnProgress{Inputs: inputs, Usage: &contextUsage{ModelID: "m", Tokens: 250000, Inputs: usageInputs(inputs, model.StateSource{}), Tools: contextHash([]model.ToolDefinition(nil))}}
 	tokens, source := contextTokens(p, "m", model.StateSource{})
@@ -96,6 +99,7 @@ func TestContextTokensUseProviderAndNewContent(t *testing.T) {
 	}
 }
 func TestOldMessageAndJSONCapsNoLongerBlock(t *testing.T) {
+	t.Parallel()
 	inputs := make([]model.Input, 300)
 	for i := range inputs {
 		inputs[i] = model.Input{Role: model.User, Text: strings.Repeat("a", 8192)}
@@ -106,6 +110,7 @@ func TestOldMessageAndJSONCapsNoLongerBlock(t *testing.T) {
 }
 
 func TestToolArtifactFailureDoesNotRepeatPublishedMessage(t *testing.T) {
+	t.Parallel()
 	calls := 0
 	f, db := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !testkit.DrainRequestBody(t, r) {
@@ -150,6 +155,7 @@ func TestToolArtifactFailureDoesNotRepeatPublishedMessage(t *testing.T) {
 }
 
 func TestCompactionDoesNotInjectSummaryReasoningIntoContinuation(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !testkit.DrainRequestBody(t, r) {
 			return
@@ -175,6 +181,7 @@ func TestCompactionDoesNotInjectSummaryReasoningIntoContinuation(t *testing.T) {
 }
 
 func TestContextStatusSurvivesTurnsAndResetsExplicitly(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	key := persistence.Key(f.Turn.Principal.OwnerID, f.Turn.Event.AssistantID)
 	err := db.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
@@ -209,6 +216,7 @@ func TestContextStatusSurvivesTurnsAndResetsExplicitly(t *testing.T) {
 }
 
 func TestSingleSummaryRejectsIncompleteOutput(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name, finish, text string
 		calls              bool
@@ -273,6 +281,7 @@ func TestSingleSummaryRejectsIncompleteOutput(t *testing.T) {
 }
 
 func TestOversizedEstimateStillSendsCompleteSummaryRequest(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	e.options.ContextWindow = func(context.Context, core.Principal, core.ID) (int, error) { return 32768, nil }
@@ -297,6 +306,7 @@ func TestOversizedEstimateStillSendsCompleteSummaryRequest(t *testing.T) {
 }
 
 func TestProviderContextRejectionRetainsHistory(t *testing.T) {
+	t.Parallel()
 	calls := 0
 	f, db := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !testkit.DrainRequestBody(t, r) {
@@ -322,6 +332,7 @@ func TestProviderContextRejectionRetainsHistory(t *testing.T) {
 }
 
 func TestInputEstimateMatchesReplayedReasoning(t *testing.T) {
+	t.Parallel()
 	source := model.StateSource{Protocol: model.DeepSeekChat, ModelID: "model", Endpoint: "https://model.example"}
 	in := model.Input{Role: model.Assistant, Text: "visible answer", Calls: []model.ToolCall{{ID: "one", Name: "read", Arguments: json.RawMessage(`{"path":"x"}`)}}}
 	baseline := inputEstimate(in, source)
@@ -337,6 +348,7 @@ func TestInputEstimateMatchesReplayedReasoning(t *testing.T) {
 }
 
 func TestSuccessfulSummaryIsNotRejectedByEstimates(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !testkit.DrainRequestBody(t, r) {
 			return
@@ -371,6 +383,7 @@ func (b compactionCommitFaultBudget) Settle(ctx context.Context, e core.Executio
 	return out, err
 }
 func TestCompactionCheckpointAndCounterRollbackTogether(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	e.options.ContextWindow = func(context.Context, core.Principal, core.ID) (int, error) { return 32768, nil }
@@ -394,6 +407,7 @@ func TestCompactionCheckpointAndCounterRollbackTogether(t *testing.T) {
 }
 
 func TestDefaultCompressionThresholdUsesMeasuredBaseline(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	e.options.ContextWindow = func(context.Context, core.Principal, core.ID) (int, error) { return 10000, nil }
@@ -415,6 +429,7 @@ func TestDefaultCompressionThresholdUsesMeasuredBaseline(t *testing.T) {
 }
 
 func TestMeasuredInputBaselineExcludesUnsentOutputReasoning(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !testkit.DrainRequestBody(t, r) {
 			return
@@ -443,6 +458,7 @@ func TestMeasuredInputBaselineExcludesUnsentOutputReasoning(t *testing.T) {
 }
 
 func TestCompactionPreservesWirePrefixAndTools(t *testing.T) {
+	t.Parallel()
 	var wire []struct {
 		Messages []json.RawMessage `json:"messages"`
 		Tools    json.RawMessage   `json:"tools"`
@@ -516,6 +532,7 @@ func summarySources(t *testing.T, store persistence.Store) ([]contextArchive, er
 }
 
 func TestAssistantCompressionThresholdChangesDuringLoop(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	e.options.ContextWindow = func(context.Context, core.Principal, core.ID) (int, error) { return 1024 * 1024, nil }

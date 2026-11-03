@@ -19,6 +19,7 @@ import (
 )
 
 func TestCheckpointSaveIfChanged(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	trace := debugtrace.New(db, debugtrace.Options{Enabled: true, Authorize: func(context.Context, core.Principal) error { return nil }})
 	repo := &checkpoints{store: db, trace: trace}
@@ -144,6 +145,7 @@ func TestCheckpointSaveIfChanged(t *testing.T) {
 }
 
 func TestProgressNoopPreservesRecoveryReferenceAndForcedObservation(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	trace := debugtrace.New(db, debugtrace.Options{Enabled: true, Authorize: func(context.Context, core.Principal) error { return nil }})

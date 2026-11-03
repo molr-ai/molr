@@ -55,6 +55,8 @@ func (b fixtureBudget) Usage(ctx context.Context, p core.Principal, q policy.Usa
 func init() {
 	newContractFixture = func(t *testing.T) contractFixture { f, _ := makeLoopFixture(t, nil); return f }
 }
+
+// Each parallel test owns its database, HTTP server and recorded calls.
 func makeLoopFixture(t *testing.T, handler http.Handler, protocols ...model.Protocol) (contractFixture, *sqlitestore.Store) {
 	t.Helper()
 	ctx := testkit.Context(t)

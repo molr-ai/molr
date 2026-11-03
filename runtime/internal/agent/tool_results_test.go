@@ -27,6 +27,7 @@ func (e resultExecutor) Execute(ctx context.Context, c tools.Call) (tools.Result
 }
 
 func TestLoopContinuesAfterEveryToolFailure(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name     string
 		failure  error
@@ -133,6 +134,7 @@ func TestLoopContinuesAfterEveryToolFailure(t *testing.T) {
 }
 
 func TestRuntimeCancellationStillStopsFurtherCalls(t *testing.T) {
+	t.Parallel()
 	var models atomic.Int64
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		models.Add(1)

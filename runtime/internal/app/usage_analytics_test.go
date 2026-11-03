@@ -36,6 +36,7 @@ func putAnalyticsCall(t *testing.T, f multiUserFixture, owner core.ID, id, assis
 	}))
 }
 func TestUsageAnalyticsCalendarScopeAndEvidence(t *testing.T) {
+	t.Parallel()
 	f := newMultiUserFixture(t)
 	ctx := t.Context()
 	m := f.b.Services.Auth.(*auth.Manager)
@@ -114,6 +115,7 @@ func TestUsageAnalyticsCalendarScopeAndEvidence(t *testing.T) {
 	}
 }
 func TestUsageAnalyticsValidationDSTAndPagination(t *testing.T) {
+	t.Parallel()
 	f := newMultiUserFixture(t)
 	m := f.b.Services.Auth.(*auth.Manager)
 	ctx := t.Context()
@@ -147,6 +149,7 @@ func TestUsageAnalyticsValidationDSTAndPagination(t *testing.T) {
 	}
 }
 func TestUsageAnalyticsHTTPAuthorization(t *testing.T) {
+	t.Parallel()
 	f := newMultiUserFixture(t)
 	for _, tc := range []struct {
 		path   string
@@ -165,6 +168,7 @@ func TestUsageAnalyticsHTTPAuthorization(t *testing.T) {
 }
 
 func TestSubscriptionValuationReusesLedgerAndLabelsTotals(t *testing.T) {
+	t.Parallel()
 	f := newMultiUserFixture(t)
 	ctx := t.Context()
 	putAnalyticsCall(t, f, f.alice.OwnerID, "reference", "assistant", "settled", "2026-10-02T03:00:00Z", "USD", 42, 10, 2, 0)
@@ -184,6 +188,7 @@ func TestSubscriptionValuationReusesLedgerAndLabelsTotals(t *testing.T) {
 }
 
 func TestUsageAnalyticsOmitsEmptyModelOptionButPreservesTotals(t *testing.T) {
+	t.Parallel()
 	f := newMultiUserFixture(t)
 	putAnalyticsCall(t, f, f.alice.OwnerID, "known", "assistant", "settled", "2026-10-01T00:00:00Z", "USD", 10, 20, 5, 0)
 	putAnalyticsCall(t, f, f.alice.OwnerID, "missing", "assistant", "settled", "2026-10-01T00:00:00Z", "USD", 15, 30, 5, 0)
@@ -221,6 +226,7 @@ func TestUsageAnalyticsOmitsEmptyModelOptionButPreservesTotals(t *testing.T) {
 }
 
 func TestAnalyticsReceiptsBatchesIndexesAndPreservesMissingEvidence(t *testing.T) {
+	t.Parallel()
 	f := newMultiUserFixture(t)
 	records := make([]quota.ModelRecord, 515)
 	need(t, f.b.store.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {

@@ -14,6 +14,7 @@ import (
 )
 
 func TestWeixinCompositionEnforcesSingleChatAndOwnership(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	b, err := Build(ctx, testConfig(t))
 	need(t, err)

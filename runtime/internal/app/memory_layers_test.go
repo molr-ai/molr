@@ -20,6 +20,7 @@ func (memoryLayerAuthorizer) Require(ctx context.Context, p core.Principal, _ po
 	return p.Validate()
 }
 func TestCoreContextInvalidatedByTopicEditAndForget(t *testing.T) {
+	t.Parallel()
 	for _, remove := range []bool{false, true} {
 		t.Run(map[bool]string{false: "edit", true: "forget"}[remove], func(t *testing.T) {
 			root := t.TempDir()
@@ -60,6 +61,7 @@ func TestCoreContextInvalidatedByTopicEditAndForget(t *testing.T) {
 }
 
 func TestDreamMaintenanceAdmissionDoesNotRequireExecutionIdentity(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, nil)
 	_, err := f.b.Services.Memories.Create(t.Context(), f.owner, memory.CreateRequest{Ref: memory.Ref{Scope: memory.Assistant, AssistantID: f.execution.AssistantID, Path: ".agents/memory/约定.md"}, Text: "以后工作汇报先写结论", Mutation: memory.Mutation{IdempotencyKey: "topic"}})
 	need(t, err)

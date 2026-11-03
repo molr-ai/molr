@@ -12,6 +12,7 @@ import (
 )
 
 func TestExecutionStepLimitDefaultsAndCeiling(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct{ requested, want int }{{0, 999}, {-1, 999}, {12, 12}, {999, 999}, {1000, 999}} {
 		e := NewRuntime(nil, Options{MaxSteps: tc.requested})
 		if e.options.MaxSteps != tc.want {
@@ -21,6 +22,7 @@ func TestExecutionStepLimitDefaultsAndCeiling(t *testing.T) {
 }
 
 func TestDefaultExecutionContinuesPastTwelveSteps(t *testing.T) {
+	t.Parallel()
 	calls := 0
 	f, _ := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !testkit.DrainRequestBody(t, r) {
@@ -41,6 +43,7 @@ func TestDefaultExecutionContinuesPastTwelveSteps(t *testing.T) {
 }
 
 func TestOutputLimitAppliesToRequestAndBudget(t *testing.T) {
+	t.Parallel()
 	for _, limit := range []int{0, 8192, 65536} {
 		t.Run(fmt.Sprint(limit), func(t *testing.T) {
 			f, _ := makeLoopFixture(t, nil)
@@ -67,6 +70,7 @@ func TestOutputLimitAppliesToRequestAndBudget(t *testing.T) {
 }
 
 func TestOutputLimitDoesNotDependOnContextEstimate(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	e.options.ContextWindow = func(context.Context, core.Principal, core.ID) (int, error) { return 8192, nil }

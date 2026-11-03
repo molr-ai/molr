@@ -72,6 +72,7 @@ func (f collaborationFixture) hire(t *testing.T, key string) assistant.Assistant
 	return a
 }
 func TestTemporaryPreauthorizationLifecycleAndIsolation(t *testing.T) {
+	t.Parallel()
 	f := collaborationTestFixture(t, true)
 	ctx := t.Context()
 	a := f.hire(t, "worker")
@@ -187,6 +188,7 @@ func TestTemporaryPreauthorizationLifecycleAndIsolation(t *testing.T) {
 	}
 }
 func TestTemporaryConcurrentSlotsAndBudget(t *testing.T) {
+	t.Parallel()
 	f := collaborationTestFixture(t, true)
 	ctx := t.Context()
 	var wg sync.WaitGroup
@@ -253,6 +255,7 @@ func TestTemporaryConcurrentSlotsAndBudget(t *testing.T) {
 	}
 }
 func TestTemporaryCreateRollbackAndExpiry(t *testing.T) {
+	t.Parallel()
 	f := collaborationTestFixture(t)
 	ctx := t.Context()
 	if err := f.b.Services.Agent.(*agent.Engine).TemporaryLifecycle(ctx, f.owner.OwnerID, f.parent.ID, "stop"); core.CodeOf(err) != core.Forbidden {
@@ -289,6 +292,7 @@ func TestTemporaryCreateRollbackAndExpiry(t *testing.T) {
 }
 
 func TestAssistantDirectMessagesWakeOnlyReceiverAndPreserveHistory(t *testing.T) {
+	t.Parallel()
 	f := collaborationTestFixture(t)
 	ctx := t.Context()
 	f.parent = f.communication(t, f.parent, true, "enable-parent")
@@ -368,6 +372,7 @@ func TestAssistantDirectMessagesWakeOnlyReceiverAndPreserveHistory(t *testing.T)
 }
 
 func TestDismissEmployerFencesPendingMessagesAndEndsChildren(t *testing.T) {
+	t.Parallel()
 	f := collaborationTestFixture(t)
 	ctx := t.Context()
 	f.parent = f.communication(t, f.parent, true, "enable-parent")
@@ -416,6 +421,7 @@ func TestDismissEmployerFencesPendingMessagesAndEndsChildren(t *testing.T) {
 }
 
 func TestTemporaryAttachmentsStayScopedAndSurviveDismissal(t *testing.T) {
+	t.Parallel()
 	f := collaborationTestFixture(t)
 	ctx := t.Context()
 	a := f.hire(t, "author")
@@ -451,6 +457,7 @@ func TestTemporaryAttachmentsStayScopedAndSurviveDismissal(t *testing.T) {
 }
 
 func TestPermanentHiringRetainsSourceExpiryAndCanBecomeFinite(t *testing.T) {
+	t.Parallel()
 	f := collaborationTestFixture(t, true)
 	ctx := t.Context()
 	now := time.Now()
@@ -502,6 +509,7 @@ func (f collaborationFixture) communication(t *testing.T, a assistant.Assistant,
 }
 
 func TestPeerCommunicationGatesDirectoryAndBothMessageDirections(t *testing.T) {
+	t.Parallel()
 	f := collaborationTestFixture(t, true)
 	ctx := t.Context()
 	chat := f.b.Services.Conversations.(conversation.Service)

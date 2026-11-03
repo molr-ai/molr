@@ -82,6 +82,7 @@ func (f multiUserFixture) execution(t *testing.T, p core.Principal, a assistant.
 }
 
 func TestMultiUserPrivateDataAndCatalogPermissions(t *testing.T) {
+	t.Parallel()
 	f := newMultiUserFixture(t)
 	ctx := t.Context()
 	a := f.assistant(t, f.alice, "private-alice-assistant")
@@ -142,6 +143,7 @@ func TestMultiUserPrivateDataAndCatalogPermissions(t *testing.T) {
 }
 
 func TestGroupModelQuotaIsAtomicAcrossAssistantsAndIndependentAcrossUsers(t *testing.T) {
+	t.Parallel()
 	f := newMultiUserFixture(t)
 	ctx := t.Context()
 	a := f.assistant(t, f.alice, "alice-one")
@@ -186,6 +188,7 @@ func TestGroupModelQuotaIsAtomicAcrossAssistantsAndIndependentAcrossUsers(t *tes
 }
 
 func TestOrdinaryUserHTTPManagementIsDenied(t *testing.T) {
+	t.Parallel()
 	f := newMultiUserFixture(t)
 	request := func(method, path, body string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(method, "https://runtime.example"+path, strings.NewReader(body))
@@ -221,6 +224,7 @@ func TestOrdinaryUserHTTPManagementIsDenied(t *testing.T) {
 }
 
 func TestUserWithoutSandboxCanBuildChatContext(t *testing.T) {
+	t.Parallel()
 	f := newMultiUserFixture(t)
 	a := f.assistant(t, f.alice, "no-sandbox")
 	e := f.execution(t, f.alice, a, "context")
@@ -259,6 +263,7 @@ func TestUserWithoutSandboxCanBuildChatContext(t *testing.T) {
 }
 
 func TestMemberCanResolveOwnPermissionRequestsWithinGroup(t *testing.T) {
+	t.Parallel()
 	f := newMultiUserFixture(t)
 	ctx := t.Context()
 	a := f.assistant(t, f.alice, "approval")

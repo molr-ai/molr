@@ -16,6 +16,7 @@ import (
 )
 
 func TestCheckpointTraceCommitsAtomicallyAndRejectsStaleSaves(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	trace := debugtrace.New(db, debugtrace.Options{Enabled: true, Authorize: func(context.Context, core.Principal) error { return nil }})
 	testkit.RequireNoError(t, db.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
@@ -110,6 +111,7 @@ func TestCheckpointTraceCommitsAtomicallyAndRejectsStaleSaves(t *testing.T) {
 }
 
 func TestCheckpointLoadTracePrecedesNewEvent(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	trace := debugtrace.New(db, debugtrace.Options{Enabled: true, Authorize: func(context.Context, core.Principal) error { return nil }})
 	testkit.RequireNoError(t, db.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
@@ -155,6 +157,7 @@ func TestCheckpointLoadTracePrecedesNewEvent(t *testing.T) {
 }
 
 func TestCheckpointTraceKeepsSmallSaveEventsAndFullRecoveryState(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	trace := debugtrace.New(db, debugtrace.Options{Enabled: true, Authorize: func(context.Context, core.Principal) error { return nil }})
 	testkit.RequireNoError(t, db.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {

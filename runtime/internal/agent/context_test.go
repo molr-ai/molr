@@ -68,6 +68,7 @@ func snapshotFrom(t *testing.T, inputs []model.Input) automaticContext {
 	return snapshot
 }
 func TestContextChangesRefreshWithinTurnAndAcrossRestart(t *testing.T) {
+	// Keep this long fixture lifetime serial: its context has a fixed deadline.
 	var phase atomic.Int64
 	var calls atomic.Int64
 	f, db := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -164,6 +165,7 @@ func TestContextChangesRefreshWithinTurnAndAcrossRestart(t *testing.T) {
 }
 
 func TestContextRefreshFailureDoesNotDispatchOrReserve(t *testing.T) {
+	t.Parallel()
 	for _, name := range []string{"read error", "oversize", "duplicate", "malformed structured source"} {
 		t.Run(name, func(t *testing.T) {
 			f, db := makeLoopFixture(t, nil)
@@ -212,6 +214,7 @@ func (x *contextTestTools) Definitions(context.Context, core.Principal) ([]tools
 }
 
 func TestToolContextAddSchemaChangeReorderAndReaddition(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	executor := &contextTestTools{Executor: e.options.Dependencies.Tools, definitions: []tools.Definition{{Name: "first", Description: "first tool", InputSchema: json.RawMessage(`{"type":"object"}`)}}}
@@ -256,6 +259,7 @@ func TestToolContextAddSchemaChangeReorderAndReaddition(t *testing.T) {
 }
 
 func TestUserPreferencesReplaceLegacyTimeContextAndStayStableAcrossClockChanges(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	execution := core.Execution{Principal: f.Turn.Principal, AssistantID: f.Turn.Event.AssistantID, OperationID: "refresh"}
@@ -297,6 +301,7 @@ func TestUserPreferencesReplaceLegacyTimeContextAndStayStableAcrossClockChanges(
 }
 
 func TestChatChannelContextReachesModelAndIsRemovedOnDisconnect(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !testkit.DrainRequestBody(t, r) {
 			return
@@ -329,6 +334,7 @@ func TestChatChannelContextReachesModelAndIsRemovedOnDisconnect(t *testing.T) {
 }
 
 func TestWorkspaceContextSurvivesCompactionAndRefreshesAfterRecovery(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	e.options.ContextWindow = func(context.Context, core.Principal, core.ID) (int, error) { return 65536, nil }

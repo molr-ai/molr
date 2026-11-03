@@ -28,6 +28,7 @@ import (
 )
 
 func TestRemoteSandboxStorageRoutingAuthorizationAndContext(t *testing.T) {
+	t.Parallel()
 	if runtime.GOOS != "linux" && runtime.GOOS != "darwin" {
 		t.Skip("requires supported remote storage")
 	}
@@ -231,6 +232,7 @@ func TestRemoteSandboxStorageRoutingAuthorizationAndContext(t *testing.T) {
 }
 
 func TestStandaloneSandboxRequiresTLS(t *testing.T) {
+	t.Parallel()
 	cfg := testConfig(t)
 	if err := ServeSandbox(t.Context(), cfg, core.NewSecret(strings.Repeat("a", 40))); core.CodeOf(err) != core.InvalidArgument {
 		t.Fatal("standalone sandbox accepted a proxy/plaintext listener", err)

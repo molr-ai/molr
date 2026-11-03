@@ -24,6 +24,7 @@ import (
 )
 
 func TestTDDAgentUsesExplicitHistoryAndPublishingToolsOverHTTP(t *testing.T) {
+	t.Parallel()
 	var calls atomic.Int64
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
@@ -74,6 +75,7 @@ func TestTDDAgentUsesExplicitHistoryAndPublishingToolsOverHTTP(t *testing.T) {
 	}
 }
 func TestTDDAgentTaskEventBindsEveryExecutionToTask(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	ctx := testkit.Context(t)
 	// The real policy repository reads the existing task's persisted budget.
@@ -102,6 +104,7 @@ func TestTDDAgentTaskEventBindsEveryExecutionToTask(t *testing.T) {
 }
 
 func TestTDDAgentCanPublishProductCardWithFixedTool(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	ctx := testkit.Context(t)
 	engine := f.Runtime.(*Engine)
@@ -116,6 +119,7 @@ func TestTDDAgentCanPublishProductCardWithFixedTool(t *testing.T) {
 }
 
 func TestTDDAgentRehireDoesNotReviveOldJobs(t *testing.T) {
+	t.Parallel()
 	ctx := testkit.Context(t)
 	db, err := sqlitestore.Open(filepath.Join(t.TempDir(), "lifecycle.db"))
 	testkit.RequireNoError(t, err)
@@ -152,6 +156,7 @@ func TestTDDAgentRehireDoesNotReviveOldJobs(t *testing.T) {
 }
 
 func TestConversationHistoryReadsLatestPagesAndExactEvent(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	ctx := t.Context()
 	repo := conversation.NewRepository(db)
@@ -215,6 +220,7 @@ func TestConversationHistoryReadsLatestPagesAndExactEvent(t *testing.T) {
 }
 
 func TestLoopReturnsToolErrorsToModel(t *testing.T) {
+	t.Parallel()
 	var count atomic.Int64
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)

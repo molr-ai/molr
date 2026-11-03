@@ -8,9 +8,10 @@ export GOTOOLCHAIN := go$(GO_VERSION)
 
 .PHONY: test test-tdd test-existing test-compile test-inventory vet build fmt check-fmt check check-contracts
 
+# Bound both package and in-package concurrency for integration fixtures.
 # Full suite includes behavior contracts and production composition tests.
 test: test-inventory
-	$(GO) test $(PACKAGES) -run '$(RUN)' $(TEST_FLAGS)
+	$(GO) test -p 4 -parallel 4 $(PACKAGES) -run '$(RUN)' $(TEST_FLAGS)
 
 # Real kernel isolation; ordinary go test does not substitute for this target.
 .PHONY: test-sandbox
@@ -18,14 +19,14 @@ test-sandbox:
 	bash scripts/test-sandbox-linux.sh -count=1 -v
 
 test-tdd: test-inventory
-	$(GO) test $(PACKAGES) -run '^TestTDD' $(TEST_FLAGS)
+	$(GO) test -p 4 -parallel 4 $(PACKAGES) -run '^TestTDD' $(TEST_FLAGS)
 
 # Explicit baseline selection only; this is not a replacement for the full suite.
 test-existing: test-inventory
-	$(GO) test $(PACKAGES) -skip '^TestTDD' $(TEST_FLAGS)
+	$(GO) test -p 4 -parallel 4 $(PACKAGES) -skip '^TestTDD' $(TEST_FLAGS)
 
 test-compile: test-inventory
-	$(GO) test $(PACKAGES) -run '^$$'
+	$(GO) test -p 4 -parallel 4 $(PACKAGES) -run '^$$'
 
 test-inventory:
 	GO='$(GO)' node ../scripts/check-contracts.mjs

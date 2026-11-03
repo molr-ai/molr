@@ -15,6 +15,7 @@ import (
 )
 
 func TestUpdateAPIUsesSharedConfiguredSourceAndRequiresCSRF(t *testing.T) {
+	t.Parallel()
 	var calls atomic.Int32
 	source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls.Add(1)

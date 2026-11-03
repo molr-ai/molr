@@ -35,6 +35,7 @@ func nextStateTurn(f contractFixture, id string, kind event.Kind) Turn {
 	return next
 }
 func TestNewScheduledEventContinuesFailedExecutionFacts(t *testing.T) {
+	t.Parallel()
 	var calls atomic.Int32
 	body := make(chan string, 4)
 	f, db := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -93,6 +94,7 @@ func TestNewScheduledEventContinuesFailedExecutionFacts(t *testing.T) {
 	}
 }
 func TestHandoffUsesCommittedToolReceiptAndSkipsUnstartedCalls(t *testing.T) {
+	t.Parallel()
 	var calls atomic.Int32
 	request := make(chan string, 2)
 	f, _ := makeLoopFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -125,6 +127,7 @@ func TestHandoffUsesCommittedToolReceiptAndSkipsUnstartedCalls(t *testing.T) {
 	}
 }
 func TestUnknownOperationSurvivesStopAndLateCompletionIsReconciled(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	call := model.ToolCall{ID: "same-call-id", Name: "file_write", Arguments: json.RawMessage(`{"path":"output","text":"value"}`)}
@@ -173,6 +176,7 @@ func TestUnknownOperationSurvivesStopAndLateCompletionIsReconciled(t *testing.T)
 	}
 }
 func TestStaleCheckpointWriteCannotOverwriteNewExecution(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	old := turnProgress{Inputs: []model.Input{{Role: model.System, Text: loopInstructions}, {Role: model.User, Text: "old progress"}}}
@@ -189,6 +193,7 @@ func TestStaleCheckpointWriteCannotOverwriteNewExecution(t *testing.T) {
 	}
 }
 func TestUnupgradedProgressIsRejected(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	testkit.RequireNoError(t, db.Write(t.Context(), func(ctx context.Context, tx persistence.Tx) error {
 		return tx.Put(ctx, progressBucket, "owner/event", map[string]any{"Inputs": []any{}})
@@ -198,6 +203,7 @@ func TestUnupgradedProgressIsRejected(t *testing.T) {
 }
 
 func TestHandoffUsesOnlyCheckpointedModelOutput(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	p := turnProgress{Inputs: []model.Input{{Role: model.System, Text: loopInstructions}, {Role: model.User, Text: "in-flight work"}}}
@@ -220,6 +226,7 @@ func TestHandoffUsesOnlyCheckpointedModelOutput(t *testing.T) {
 }
 
 func TestHandoffRetainsProviderUsageBaseline(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	response := model.Input{Role: model.Assistant, Calls: []model.ToolCall{{ID: "pending", Name: "conversation_read", Arguments: json.RawMessage(`{"conversation_id":"chat","limit":1}`)}}}

@@ -84,6 +84,7 @@ func seedMetricsTarget(tb testing.TB, ctx context.Context, db persistence.Store)
 }
 
 func TestTurnMetricsBoundsHistoryAndExecutionScope(t *testing.T) {
+	t.Parallel()
 	db, err := sqlitestore.Open(filepath.Join(t.TempDir(), "metrics.db"))
 	testkit.RequireNoError(t, err)
 	defer db.Close()

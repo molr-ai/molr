@@ -22,6 +22,7 @@ import (
 )
 
 func TestBuildAuthorizationUsesLiveJobAndPeerBinding(t *testing.T) {
+	t.Parallel()
 	b, err := Build(t.Context(), testConfig(t))
 	need(t, err)
 	defer b.Close()
@@ -68,6 +69,7 @@ func TestBuildAuthorizationUsesLiveJobAndPeerBinding(t *testing.T) {
 	}
 }
 func TestBuildResourceCannotReadRuntimeOrEscapeDirectory(t *testing.T) {
+	t.Parallel()
 	cfg := testConfig(t)
 	b, err := Build(t.Context(), cfg)
 	need(t, err)
@@ -120,6 +122,7 @@ func TestBuildResourceCannotReadRuntimeOrEscapeDirectory(t *testing.T) {
 	}
 }
 func TestExistingDatabaseNeverGetsReplacementMasterKey(t *testing.T) {
+	t.Parallel()
 	cfg := testConfig(t)
 	b, err := Build(t.Context(), cfg)
 	need(t, err)

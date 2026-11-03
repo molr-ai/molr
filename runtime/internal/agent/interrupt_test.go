@@ -17,6 +17,7 @@ import (
 )
 
 func TestManualInterruptRecordsNonWakingEventAndAcceptsEveryTrigger(t *testing.T) {
+	t.Parallel()
 	for _, kind := range []event.Kind{event.UserMessage, event.ScheduleDue, event.OperationCompleted, event.ResumeRequested} {
 		t.Run(string(kind), func(t *testing.T) {
 			f, db := makeLoopFixture(t, nil)
@@ -64,6 +65,7 @@ func TestManualInterruptRecordsNonWakingEventAndAcceptsEveryTrigger(t *testing.T
 }
 
 func TestManualInterruptPreservesCompletedContextAndClosesPendingTools(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	response := model.Input{Role: model.Assistant, Calls: []model.ToolCall{{ID: "pending", Name: "conversation_publish", Arguments: json.RawMessage(`{"conversation_id":"chat","text":"not sent"}`)}}}
@@ -97,6 +99,7 @@ func TestManualInterruptPreservesCompletedContextAndClosesPendingTools(t *testin
 }
 
 func TestPersistentStopRemainsSeparateFromManualInterrupt(t *testing.T) {
+	t.Parallel()
 	f, _ := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	testkit.RequireNoError(t, e.Lifecycle(t.Context(), f.Owner, "assistant", "stop"))
@@ -111,6 +114,7 @@ func TestPersistentStopRemainsSeparateFromManualInterrupt(t *testing.T) {
 }
 
 func TestManualStopFencesQueuedDelayedAndRestartedEvents(t *testing.T) {
+	t.Parallel()
 	for _, kind := range []event.Kind{event.UserMessage, event.ScheduleDue, event.OperationCompleted, event.ResumeRequested} {
 		t.Run(string(kind), func(t *testing.T) {
 			f, db := makeLoopFixture(t, nil)
@@ -168,6 +172,7 @@ func TestManualStopFencesQueuedDelayedAndRestartedEvents(t *testing.T) {
 }
 
 func TestManualStopFencesOutboxWithoutSuppressingSameTickNewMessage(t *testing.T) {
+	t.Parallel()
 	f, db := makeLoopFixture(t, nil)
 	e := f.Runtime.(*Engine)
 	now := time.Now()

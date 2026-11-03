@@ -17,6 +17,7 @@ import (
 )
 
 func TestBuiltinDocsWithoutSandbox(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { c.Sandbox.Enabled = false })
 	files := newResourceFileTools(resourceFileOptions{adapters: f.ad, router: &sandboxRouter{adapters: f.ad}})
 	target := tools.FileTarget{Path: molrdocs.SkillPath}
@@ -76,6 +77,7 @@ func TestBuiltinDocsWithoutSandbox(t *testing.T) {
 }
 
 func TestBuiltinDocsRejectMutationsAndForeignPaths(t *testing.T) {
+	t.Parallel()
 	f := newResourceAccessFixture(t, func(c *config.Config, _ string) { c.Sandbox.Enabled = false })
 	files := newResourceFileTools(resourceFileOptions{adapters: f.ad, router: &sandboxRouter{adapters: f.ad}})
 	target := tools.FileTarget{Path: molrdocs.SkillPath}
@@ -124,6 +126,7 @@ func TestBuiltinDocsRejectMutationsAndForeignPaths(t *testing.T) {
 }
 
 func TestBuiltinSkillActivationAndRevision(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name, args, result string
 		loaded             bool
