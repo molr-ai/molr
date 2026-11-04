@@ -2119,6 +2119,14 @@ test('chat sidebar animates layout both ways, reverses smoothly and respects red
   const trigger = page.getByRole('button', { name: `View information for ${assistant.Name}`, exact: true });
   const slot = page.locator('.chat-side-panel');
   const panel = page.getByRole('complementary', { name: 'Assistant information', exact: true });
+  await page.evaluate(() => {
+    const animate = Element.prototype.animate;
+    Element.prototype.animate = function(keyframes, options) {
+      const animation = animate.call(this, keyframes, options);
+      if (animation.id === 'molr-chat-panel-size') animation.pause();
+      return animation;
+    };
+  });
   const pause = async () => {
     const width = await page.waitForFunction(() => {
       const element = document.querySelector('.chat-side-panel');

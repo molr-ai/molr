@@ -10,17 +10,32 @@ async function finish(dialog: Locator) {
 async function pauseExit(dialog: Locator, button: string) {
   await finish(dialog);
   await dialog.evaluate(async (element, button) => {
+    const animate = element.animate;
+    let slide: Animation | undefined;
+    // Pause at creation: a busy runner can consume the entire 220ms exit
+    // before a MutationObserver continuation gets back onto the main thread.
+    element.animate = function(keyframes, options) {
+      const animation = animate.call(this, keyframes, options);
+      if (animation.id === 'molr-drawer-slide' && this.getAttribute('data-state') === 'closed') {
+        slide = animation; animation.pause(); animation.currentTime = 110;
+      }
+      return animation;
+    };
+    let observer: MutationObserver;
     const changed = new Promise<void>(resolve => {
-      const observer = new MutationObserver(() => {
+      observer = new MutationObserver(() => {
         if (!element.isConnected || element.getAttribute('data-state') === 'closed') { observer.disconnect(); resolve(); }
       });
       observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-state'] });
     });
-    [...element.querySelectorAll('button')].find(item => item.textContent === button)!.click();
-    await changed;
-    const slide = element.getAnimations().find(animation => animation.id === 'molr-drawer-slide');
-    if (!element.isConnected || !slide) throw new Error('Conditional modal disappeared before exit');
-    slide.pause(); slide.currentTime = 110;
+    try {
+      [...element.querySelectorAll('button')].find(item => item.textContent === button)!.click();
+      await changed;
+      if (!element.isConnected || !slide) throw new Error('Conditional modal disappeared before exit');
+    } finally {
+      element.animate = animate;
+      observer!.disconnect();
+    }
   }, button);
 }
 
