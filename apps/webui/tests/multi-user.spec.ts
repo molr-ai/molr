@@ -85,9 +85,12 @@ test('ordinary user creates and edits own assistant but cannot configure shared 
     expect([403, 404]).toContain((await page.request.get(`/api/conversations/${a.ConversationID}/messages`)).status());
     await member.goto('/#/settings'); await expect(member.locator('.workspace-main')).toContainText('Administrator access required');
     await nav.getByRole('button', { name: 'Assistants', exact: true }).click();
+    await expect(member.getByRole('list', { name: 'Assistant list', exact: true })).toBeVisible();
     await member.getByRole('button', { name: /^User settings(?: ·.*)?$/ }).click();
     await expect(member.locator('.settings-nav')).not.toContainText('Plugins');
-    const stats = await request(page, '/api/admin/usage');
+    // Usage summaries are cached across users/tests; verify this new user's
+    // completed call using the endpoint's explicit refresh contract.
+    const stats = await request(page, '/api/admin/usage?refresh=true');
     expect(JSON.stringify(stats)).not.toContain('Private multi-user acceptance message');
     expect(stats.Users.find((s: any) => s.UserID === u.user.ID).ModelCalls).toBeGreaterThan(0);
   } finally { await context.close(); }
