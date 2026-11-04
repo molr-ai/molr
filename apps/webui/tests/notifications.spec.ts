@@ -36,8 +36,14 @@ async function send(page: Page, conversation: string) {
   }).toBe(true);
 }
 async function expectUnreadBadge(page: Page) {
-  const conversations = await (await page.request.get('/api/conversations')).json();
-  const count = (conversations.Items ?? []).filter((item: { Archived: boolean }) => !item.Archived).reduce((sum: number, item: { UnreadCount: number }) => sum + item.UnreadCount, 0);
+  let count = 0, cursor = '';
+  do {
+    const response = await page.request.get(`/api/conversations?cursor=${encodeURIComponent(cursor)}`);
+    expect(response.ok(), await response.text()).toBe(true);
+    const conversations = await response.json();
+    count += (conversations.Items ?? []).filter((item: { Archived: boolean }) => !item.Archived).reduce((sum: number, item: { UnreadCount: number }) => sum + item.UnreadCount, 0);
+    cursor = conversations.NextCursor ?? '';
+  } while (cursor);
   const badge = page.getByRole('navigation', { name: 'Molr', exact: true }).getByRole('button',{name:'Assistants',exact:true}).locator('.nav-unread');
   if (count) { await expect(badge).toBeVisible(); await expect(badge).toHaveText(count > 99 ? '99+' : String(count)); await expect(badge).toHaveAttribute('aria-label', `${count} unread messages`); }
   else await expect(badge).toHaveCount(0);

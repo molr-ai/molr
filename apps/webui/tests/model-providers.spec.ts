@@ -32,10 +32,10 @@ test('new providers preserve protocol endpoints and credentials through save and
     await dialog.getByLabel('Name', { exact: true }).fill(name);
     await dialog.getByRole('button', { name: 'Test connection', exact: true }).click();
     await expect(dialog.locator('.ui-alert--positive')).toBeVisible();
+    const created = page.waitForResponse(response => response.url().endsWith('/api/resources/provider') && response.request().method() === 'POST');
     await dialog.getByRole('button', { name: 'Connect provider', exact: true }).click();
     await expect(dialog).toHaveCount(0);
-    const resources = await (await page.request.get('/api/resources')).json();
-    const resource = resources.Items.find((r: { Name: string }) => r.Name === name);
+    const resource = await (await created).json();
     const connection = await (await page.request.get(`/api/resources/${resource.ID}/connection`)).json();
     expect(connection.PricingProvider).toBe(preset);
     expect(connection.Endpoint).toBe(base + (preset === 'anthropic' ? '/messages' : '/chat/completions'));

@@ -26,11 +26,11 @@ test('account avatars persist presets, uploads and clearing across navigation an
   await expect(page.getByRole('button', { name: 'Cat', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await page.goto('/#/assistants');
   const nav = info.project.name === 'mobile' ? '.mobile-account-button' : '.nav-account-actions';
-  await expect(page.locator(`${nav} .user-avatar svg`)).toBeVisible();
+  await expect(page.locator(`${nav} .ui-avatar svg`)).toBeVisible();
   const other = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   try {
     await login(other);
-    await expect(other.locator('.nav-account-actions .user-avatar svg')).toBeVisible();
+    await expect(other.locator('.nav-account-actions .ui-avatar svg')).toBeVisible();
   } finally { await other.close(); }
   await page.goto('/#/account/profile');
   const png = await page.evaluate(() => {
@@ -43,8 +43,8 @@ test('account avatars persist presets, uploads and clearing across navigation an
   await expect(page.getByRole('img', { name: 'Avatar preview' }).locator('img')).toBeVisible();
   await save(page, /^data:image\/jpeg;base64,/);
   await page.goto('/#/assistants');
-  await expect(page.locator(`${nav} .user-avatar img`)).toBeVisible();
-  expect(await page.locator(`${nav} .user-avatar img`).evaluate((image: HTMLImageElement) => [image.naturalWidth, image.naturalHeight])).toEqual([256, 256]);
+  await expect(page.locator(`${nav} .ui-avatar img`)).toBeVisible();
+  expect(await page.locator(`${nav} .ui-avatar img`).evaluate((image: HTMLImageElement) => [image.naturalWidth, image.naturalHeight])).toEqual([256, 256]);
   await page.goto('/#/account/profile');
   await page.locator('input[type="file"]').setInputFiles({ name: 'invalid.png', mimeType: 'image/png', buffer: Buffer.from('invalid image') });
   await expect(page.getByRole('alert').filter({ hasText: 'Unable to read' })).toBeVisible();
@@ -85,7 +85,7 @@ test('saving an avatar updates both tabs without remounting their workspaces', a
     release();
     await otherUpdated;
     const nav = info.project.name === 'mobile' ? '.mobile-account-button' : '.nav-account-actions';
-    await expect(other.locator(`${nav} .user-avatar svg`)).toBeVisible();
+    await expect(other.locator(`${nav} .ui-avatar svg`)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
     expect(await currentWorkspace!.evaluate(node => node.isConnected)).toBe(true);
     expect(await otherWorkspace!.evaluate(node => node.isConnected)).toBe(true);

@@ -58,8 +58,9 @@ test('usage combines native currencies into one preferred amount and marks only 
       const rates = (await (await page.request.get('/api/settings/currency')).json()).Rates.units;
       const total = summary.Spent.reduce((sum: number, v: { Currency: string; Micros: number }) => sum + Math.ceil(v.Micros * rates[Currency] / rates[v.Currency]), 0);
       const displayed = new Intl.NumberFormat('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.ceil(total / 10_000) / 100);
-      await expect(page.locator('.usage-overview').first().locator('dd').first()).toHaveText(`≈ ${displayed} ${Currency}`);
-      await expect(page.locator('.usage-overview').first().locator('dd').nth(1)).toHaveText(`0.00 ${Currency}`);
+      const overview = page.locator('.usage-overview').first();
+      await expect(overview.locator('.usage-metric').filter({ has: page.getByText('Lifetime model spend', { exact: true }) }).locator('dd')).toHaveText(`≈ ${displayed} ${Currency}`);
+      await expect(overview.locator('.usage-metric').filter({ has: page.getByText('Reserved spend', { exact: true }) }).locator('dd')).toHaveText(`0.00 ${Currency}`);
       await expect(page.locator('.usage-money').first()).not.toContainText(Currency === 'CNY' ? 'USD' : 'CNY');
     }
   } finally {

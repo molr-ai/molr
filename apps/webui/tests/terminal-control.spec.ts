@@ -34,6 +34,8 @@ test('real terminal shares workspace, fences old controllers and reconnects', as
   await expect(page.getByRole('button',{name:'Ctrl-C',exact:true})).toBeEnabled();
   const list=async()=> (await (await page.request.get(`/api/assistants/${assistant.ID}/shell-tasks`)).json()).Items;
   const initial=(await list()).find((t:{State:string})=>t.State==='running'); expect(initial.Terminal.Control).toBe('user');
+  // The stream can connect before the shell has initialized its terminal mode.
+  await expect(page.locator('.xterm-screen')).toContainText('~ $');
   async function type(target:Page,command:string){const input=target.getByRole('textbox',{name:'Terminal input',exact:true});await expect(input).toBeEnabled();await input.focus();await target.keyboard.insertText(command);await target.keyboard.press('Enter');}
   await type(page,"printf '\\344\\270\\255\\346\\226\\207-terminal-ok\\n' > terminal-proof.txt; cat terminal-proof.txt");
   await expect(page.locator('.xterm-screen')).toContainText('中文-terminal-ok');

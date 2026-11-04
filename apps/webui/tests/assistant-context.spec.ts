@@ -21,7 +21,8 @@ test('assistant context threshold persists, reaches endpoints and follows model 
   const get = async () => (await page.request.get(`/api/assistants/${assistant.ID}`)).json();
   const open = async () => { await page.locator('.chat-assistant-info').click(); await expect(page.getByRole('slider', { name: 'Context compression threshold' })).toBeVisible(); };
   const save = async () => { await page.locator('.assistant-info').getByRole('button', { name: 'Save', exact: true }).click(); await expect(page.getByRole('slider')).toHaveCount(0); };
-  await page.goto(`/#/assistants/${assistant.ID}`); await open();
+  // APIRequestContext seeding does not publish the browser SDK's invalidation.
+  await page.goto(`/#/assistants/${assistant.ID}`); await page.reload(); await open();
   const slider = page.getByRole('slider', { name: 'Context compression threshold' });
   await expect(slider).toHaveValue('131072');
   await expect(slider).toHaveAttribute('max', '209715');

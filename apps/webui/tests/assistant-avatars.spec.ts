@@ -50,6 +50,9 @@ test('optional avatars persist presets, uploads, clearing and cloning', async ({
  await hire.getByRole('spinbutton', { name: 'Spending limit (USD)', exact: true }).fill('0');
  await hire.getByRole('button', { name: 'Hire new assistant', exact: true }).click(); await expect(hire).not.toBeVisible();
  await expect(page.locator('.chat-header h1')).toHaveText(`${name} hired`);
+ const saved = page.locator('.ui-toast').filter({ hasText: 'Saved' });
+ await saved.getByRole('button', { name: 'Close', exact: true }).click();
+ await expect(saved).toHaveCount(0);
  await page.getByRole('textbox', { name: 'Message your assistant', exact: true }).fill('Hello'); await page.getByRole('button', { name: 'Send', exact: true }).click();
  await expect(page.locator('.ui-chat-message--assistant .ui-chat-avatar svg').first()).toBeVisible({ timeout: 20000 });
  if (info.project.name === 'mobile') await page.getByRole('button', { name: 'Back to assistants', exact: true }).click();

@@ -27,7 +27,7 @@ async function assistant(page: Page, name: string) {
 test('cloud presets test, save, discover and reopen for editing', async ({ page }) => {
   test.setTimeout(90_000);
   await login(page);
-  for (const [preset, label] of [['bailian', 'Bailian'], ['zhipu', 'Zhipu'], ['moonshot', 'Moonshot AI']]) {
+  for (const [preset, label] of [['bailian', 'Aliyun Bailian · 阿里云百炼'], ['zhipu', 'Zhipu · 智谱'], ['moonshot', 'Moonshot AI · 月之暗面']]) {
     await page.locator('.resources-header').getByRole('button', { name: 'More', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Connect provider', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Connect provider', exact: true });
@@ -39,10 +39,10 @@ test('cloud presets test, save, discover and reopen for editing', async ({ page 
     await dialog.getByRole('textbox', { name: 'Service URL', exact: true }).fill(`${modelOrigin}/private/v1`);
     await dialog.getByRole('button', { name: 'Test connection', exact: true }).click();
     await expect(dialog).toContainText('2');
+    const created = page.waitForResponse(response => response.url().endsWith('/api/resources/provider') && response.request().method() === 'POST');
     await dialog.getByRole('button', { name: 'Connect provider', exact: true }).click();
     await expect(dialog).not.toBeVisible();
-    const resources = await (await page.request.get('/api/resources')).json();
-    const resource = resources.Items.find((r: { Name: string }) => r.Name === name);
+    const resource = await (await created).json();
     const connection = await (await page.request.get(`/api/resources/${resource.ID}/connection`)).json();
     expect(connection.PricingProvider).toBe(preset);
     const models = await (await page.request.get('/api/models')).json();
@@ -112,7 +112,7 @@ test('search locates old messages across pages, preserves links and handles miss
   await expect(page.getByText(needle, { exact: true })).toHaveCount(0);
   await page.goto(`/#/assistants/${a.ID}?message=missing-message`);
   await expect(page.getByText('This message does not exist or is no longer accessible.')).toBeVisible();
-  await page.getByRole('button', { name: 'Back to bottom', exact: true }).click();
+  await page.getByRole('status').filter({ hasText: 'This message does not exist or is no longer accessible.' }).getByRole('button', { name: 'Back to bottom', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/assistants/${a.ID}$`));
   await expect(page.getByRole('log').getByText('New while inspecting history', { exact: true })).toBeInViewport();
   await settings(page, { UITheme: 'molr.official@1.0.0' });

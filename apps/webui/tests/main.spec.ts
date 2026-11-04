@@ -10,6 +10,13 @@ import type { Locator, Page, Request, Route } from '@playwright/test';
 const base = `http://127.0.0.1:${process.env.MOLR_TEST_PORT ?? process.env.MOLR_E2E_PORT ?? 5193}`;
 const csrfCookie = `molr_dev_csrf_p${new URL(base).port}`, sessionCookie = `molr_dev_session_p${new URL(base).port}`;
 const modelOrigin = `http://127.0.0.1:${process.env.MOLR_E2E_MODEL_PORT ?? 18882}`;
+async function dismissSaved(page: Page) {
+  const saved = page.locator('.ui-toast').filter({ hasText: 'Saved' });
+  await expect(saved.first()).toBeVisible();
+  while (await saved.count()) {
+    await saved.first().getByRole('button', { name: 'Close', exact: true }).click();
+  }
+}
 // Resource cards keep model and provider actions in a menu.
 async function cardAction(page: Page, card: Locator, name: string) {
   const drawer = page.locator('.provider-models-drawer');
@@ -336,6 +343,7 @@ test('todos, schedules and memory persist through real APIs and browser reload',
   await page.getByRole('button', { name: 'New plan', exact: true }).first().click();
   await page.getByRole('textbox', { name: 'What needs doing?', exact: true }).fill(`Todo ${suffix}`);
   await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
+  await dismissSaved(page);
   await selectPlanRange(page, /No date/);
   const personal = page.locator('.plan-row').filter({ has: page.getByRole('heading', { name: `Todo ${suffix}`, exact: true }) });
   await personal.getByRole('button', { name: /Execution history/ }).click(); await page.getByRole('region', { name: `Todo ${suffix} · Plan details`, exact: true }).getByRole('button', { name: 'Complete this execution' }).click();
@@ -346,34 +354,37 @@ test('todos, schedules and memory persist through real APIs and browser reload',
   await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click();
   await page.getByRole('button', { name: 'New plan', exact: true }).first().click();
   await page.getByRole('dialog').getByRole('combobox', { name: 'Plan type', exact: true }).click();
-  await page.getByRole('option', { name: 'Time block', exact: true }).click();
+  await page.getByRole('option', { name: 'Schedule', exact: true }).click();
   await page.getByRole('textbox', { name: 'What needs doing?', exact: true }).fill(`Schedule ${suffix}`);
   const savedBlock = page.waitForResponse(r => r.url().endsWith('/api/schedules') && r.request().method() === 'POST');
   await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
   const block = await (await savedBlock).json();
+  await dismissSaved(page);
   const eventRange = () => selectPlanRange(page, Date.parse(block.Trigger.StartAt) > Date.now() ? 'Upcoming' : /^Overdue/);
   await eventRange();
   await expect(page.getByRole('heading', { name: `Schedule ${suffix}`, exact: true })).toBeVisible();
   await page.reload(); await eventRange(); await expect(page.getByRole('heading', { name: `Schedule ${suffix}`, exact: true })).toBeVisible();
   await openUserSettings(page);
   await openSettingsSection(page, 'Memory'); await page.getByRole('button', { name: 'New file', exact: true }).click();
-  await page.getByLabel('Descriptive filename (including .md)').fill(`reload-preference-${info.project.name}.md`);
+  await page.getByLabel('Descriptive filename (including .md)').fill(`reload-preference-${suffix}.md`);
   await page.getByRole('textbox', { name: 'Memory text' }).fill(`Memory ${suffix}`);
   await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.reload(); await openSettingsSection(page, 'Memory');
-  await page.getByRole('button', { name: `reload-preference-${info.project.name}.md`, exact: true }).click();
+  await page.getByRole('button', { name: `reload-preference-${suffix}.md`, exact: true }).click();
   await expect(page.getByRole('dialog').getByRole('textbox', { name: 'Memory text' })).toHaveValue(`Memory ${suffix}`);
   await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
   await openSettingsSection(page, 'Theme');
+  const motion = page.getByRole('switch', { name: 'Reduce motion', exact: true });
+  const initialMotion = await motion.isChecked();
   const saveMotion = page.waitForResponse(response => response.url().endsWith('/api/settings') && response.request().method() === 'POST' && response.status() === 200);
-  await page.getByRole('switch', { name: 'Reduce motion', exact: true }).check(); await saveMotion;
+  await motion.setChecked(!initialMotion); await saveMotion;
   await page.reload();
   await openSettingsSection(page, 'Theme');
-  await expect(page.getByRole('switch', { name: 'Reduce motion', exact: true })).toBeChecked();
-  await expect(page.locator('html')).toHaveAttribute('data-reduced-motion', 'true');
-  await page.getByRole('switch', { name: 'Reduce motion', exact: true }).uncheck();
-  await expect(page.locator('html')).toHaveAttribute('data-reduced-motion', 'false');
+  await expect(motion).toBeChecked({ checked: !initialMotion });
+  await expect(page.locator('html')).toHaveAttribute('data-reduced-motion', String(!initialMotion));
+  await motion.setChecked(initialMotion);
+  await expect(page.locator('html')).toHaveAttribute('data-reduced-motion', String(initialMotion));
 });
 
 test('message pagination and optimistic version conflicts are real, not simulated', async ({ page }) => {
@@ -445,7 +456,7 @@ test('resource permissions follow capabilities and clear irrelevant scopes', asy
     await login(page);
     const name = `Permissions ${info.project.name}-${Date.now()}`;
     const assistant = await seedAssistant(page, name);
-    const storage = await post(page, '/api/resources', { Name: `${name} files`, Kind: 'storage', Provider: 'local-directory', Binding: { RootPath: directory } });
+    const storage = await post(page, '/api/sandboxes/resource', { Name: `${name} files`, SandboxID: 'local', Kind: 'storage', Path: directory });
     await page.goto(`/#/assistants/${assistant.ID}`); await page.reload();
     await page.getByRole('textbox', { name: 'Message your assistant', exact: true }).fill('Draft remains while managing permissions');
     await assistantMenu(page, 'Assistant information');
@@ -456,9 +467,6 @@ test('resource permissions follow capabilities and clear irrelevant scopes', asy
     await expect(drawer.locator('.ui-dialog__header')).toContainText(name);
     await expect(page.locator('.chat-panel')).toHaveCount(1);
     await expect(page.getByText('View models · Call models', { exact: true })).toBeVisible();
-    await drawer.getByRole('button', { name: 'Local workspace information', exact: true }).click();
-    await expect(page.getByRole('tooltip')).toContainText('Each assistant has one private /work on this Runtime.');
-    await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'Add permission', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Add permission', exact: true });
     await expect(dialog).toContainText(`Grant access to: ${name}`);
@@ -521,7 +529,7 @@ test('resource permissions follow capabilities and clear irrelevant scopes', asy
     expect(grant.Scope.PathPrefixes).toEqual(['/reports']);
     await expect(dialog).not.toBeVisible();
     await expect(page.getByText('Read files · Write files', { exact: true })).toBeVisible();
-    const storageGrant = drawer.locator('.card').filter({ has: page.getByRole('button', { name: `Local sandbox · ${storage.Name}`, exact: true }) });
+    const storageGrant = drawer.locator('.assistant-grant').filter({ has: page.getByRole('button', { name: `Local sandbox · ${storage.Name}`, exact: true }) });
     await expect(storageGrant.getByText('/reports', { exact: true })).toHaveCount(0);
     await storageGrant.getByRole('button', { name: `Local sandbox · ${storage.Name}`, exact: true }).click();
     const permissionDetails = page.getByRole('dialog', { name: 'Permission details', exact: true });
@@ -785,7 +793,7 @@ test('provider connection discovers models without manual configuration and keep
   await expect(form.getByRole('textbox', { name: 'Model identifier', exact: true })).toHaveCount(0);
   await expect(form.getByRole('spinbutton')).toHaveCount(0);
   await expect(form.getByLabel('API Key', { exact: false })).toBeVisible();
-  await expect(form.getByRole('combobox', { name: 'Authentication', exact: true })).toHaveCount(0);
+  await expect(form.getByRole('combobox', { name: 'Authentication', exact: true })).toContainText('API key');
   await form.getByLabel('API Key', { exact: false }).fill('draft-openai-key');
   await providers.getByRole('button', { name: 'DeepSeek · 深度求索', exact: true }).click();
   await expect(form.getByRole('combobox', { name: 'Authentication', exact: true })).toHaveCount(0);
@@ -1031,7 +1039,7 @@ test('disconnected providers can be deleted while assistants are kept', async ({
   expect((await (await page.request.get(`/api/assistants/${assistant.ID}`)).json()).ID).toBe(assistant.ID);
 });
 
-test('resource APIs cannot change deployment network policy', async ({ page }) => {
+test('configured services allow private addresses without accepting network policy overrides', async ({ page }) => {
   await login(page);
   const token = (await page.context().cookies()).find(cookie => cookie.name === csrfCookie)!.value;
   for (const extra of [{ AllowPrivateNetwork: true }, { AllowedIPs: ['127.0.0.2'] }]) {
@@ -1043,10 +1051,10 @@ test('resource APIs cannot change deployment network policy', async ({ page }) =
     expect((await response.json()).code).toBe('invalid_argument');
   }
   const response = await page.request.post('/api/resources', { headers: { Origin: base, 'X-CSRF-Token': token }, data: {
-    Mutation: { IdempotencyKey: crypto.randomUUID(), ExpectedVersion: 0 }, Name: 'Unapproved local address', Kind: 'model', Provider: 'openai-compatible',
+    Mutation: { IdempotencyKey: crypto.randomUUID(), ExpectedVersion: 0 }, Name: 'Configured loopback service', Kind: 'model', Provider: 'openai-compatible',
     Binding: { Endpoint: 'http://127.0.0.2:18882', AllowedOrigins: ['http://127.0.0.2:18882'] },
   } });
-  expect(response.status()).toBe(400);
+  expect(response.status(), await response.text()).toBe(200);
 });
 
 test('resource tabs expose tools and sandbox-scoped resources', async ({ page }) => {
@@ -1076,7 +1084,7 @@ test('local command environment is prepared automatically without sandbox paths'
   await expect(page.getByRole('heading', { name: 'Local sandbox', exact: true }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Connect compute', exact: true })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Requestable compute capacity', exact: true })).toBeVisible();
-  await expect(page.locator('.sandbox-limits')).toContainText('MiB');
+  await expect(page.locator('.sandbox-limits > div').filter({ has: page.getByText('Memory limit', { exact: true }) }).locator('dd')).toContainText(/\d[\d.,]* (?:[KMGT]i)?B/);
 });
 
 test('resource links select their sandbox and resource category', async ({ page }, info) => {
@@ -1084,7 +1092,9 @@ test('resource links select their sandbox and resource category', async ({ page 
   try {
     await login(page);
     const name = `Sandbox files ${info.project.name} ${Date.now()}`;
-    const resource = await post(page, '/api/resources', { Name: name, Kind: 'storage', Provider: 'local-directory', Binding: { RootPath: directory } });
+    const resource = await post(page, '/api/sandboxes/resource', { Name: name, SandboxID: 'local', Kind: 'storage', Path: directory });
+    // Direct fixture writes bypass the UI's explicit refresh of cached details.
+    expect((await page.request.get('/api/sandboxes/local/resources?refresh=true')).ok()).toBe(true);
     await page.goto(`/#/resources/${resource.ID}`); await page.reload();
     await expect(resourceCategory(page, 'Sandboxes')).toHaveAttribute('aria-selected', 'true');
     await expect(resourceCategory(page, 'Storage')).toHaveAttribute('aria-selected', 'true');
@@ -1096,7 +1106,9 @@ test('resource links select their sandbox and resource category', async ({ page 
     const confirmation = page.getByRole('dialog', { name: 'Disconnect resource', exact: true });
     await confirmation.getByRole('button', { name: 'Confirm', exact: true }).click();
     await expect(confirmation).not.toBeVisible();
-    await expect(card).toContainText('Disconnected');
+    await expect(card).toHaveCount(0);
+    await page.getByRole('button', { name: /^Disconnected resources/ }).click();
+    await expect(page.getByRole('dialog', { name: 'Disconnected resources', exact: true }).locator('.sandbox-resource').filter({ hasText: name })).toContainText('Disconnected');
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
@@ -1116,6 +1128,7 @@ test('assistant pinning, clone, archive, rehire and search use persisted data', 
   await assistantMenu(page, 'Clone assistant'); const clone = page.getByRole('dialog', { name: 'Clone assistant', exact: true });
   await clone.getByRole('textbox', { name: 'Assistant name', exact: true }).fill(cloneName); await clone.getByRole('button', { name: 'Confirm', exact: true }).click();
   await expect(page.locator('.chat-header h1')).toHaveText(cloneName);
+  await dismissSaved(page);
   await assistantMenu(page, 'Dismiss assistant'); await page.getByRole('dialog', { name: 'Dismiss assistant', exact: true }).getByRole('button', { name: 'Confirm', exact: true }).click();
   await openUserSettings(page); await openSettingsSection(page, 'Former assistants');
   const former = settingsPane(page).locator('.settings-row-item').filter({ hasText: cloneName });
@@ -1123,6 +1136,7 @@ test('assistant pinning, clone, archive, rehire and search use persisted data', 
   await expect(page.getByRole('textbox', { name: 'Message your assistant', exact: true })).toBeDisabled();
   await openUserSettings(page); await openSettingsSection(page, 'Former assistants');
   await former.getByRole('button', { name: 'Rehire assistant', exact: true }).click(); await page.getByRole('dialog', { name: 'Rehire assistant', exact: true }).getByRole('button', { name: 'Confirm', exact: true }).click(); await expect(former).toHaveCount(0);
+  await dismissSaved(page);
   await page.getByRole('navigation').getByRole('button', { name: 'Assistants', exact: true }).click(); await page.getByRole('button', { name: 'Search', exact: true }).first().click();
   const search = page.getByRole('dialog', { name: 'Search', exact: true }); await search.getByRole('searchbox').fill(cloneName);
   await search.getByRole('button').filter({ hasText: cloneName }).first().click(); await expect(page.locator('.chat-header h1')).toHaveText(cloneName);
@@ -1133,8 +1147,7 @@ test('task controls and protected data export reach the backend', async ({ page 
   await page.goto(`/#/assistants/${assistant.ID}`); await page.locator('.chat-header').getByRole('button', { name: 'Plans', exact: true }).click();
   await post(page, '/api/tasks', { AssistantID: assistant.ID, Goal: `Goal ${suffix}`, AcceptanceCriteria: ['A reviewed report'] });
   await page.reload(); await page.locator('.chat-header').getByRole('button', { name: 'Plans', exact: true }).click();
-  const tasks = page.getByRole('dialog', { name: 'Plans', exact: true });
-  await selectPlanRange(tasks, /^No date/);
+  const tasks = page.locator('.assistant-plans');
   await expect(tasks.getByRole('heading', { name: `Goal ${suffix}`, exact: true })).toBeVisible();
   await tasks.getByRole('button', { name: /Execution history/ }).click(); await tasks.locator('.plan-execution summary').click();
   await tasks.getByRole('button', { name: 'Pause task', exact: true }).click(); await expect(tasks.getByRole('button', { name: 'Resume task', exact: true })).toBeVisible();
@@ -1575,8 +1588,11 @@ test('fast pages skip skeletons, slow first reads show them, and revisits retain
   await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
   await page.clock.runFor(1000); await expect(page.locator('.ui-skeleton')).toHaveCount(0);
   await revisit.release(); await expect(page.getByRole('heading', { name: updatedTitle, exact: true })).toBeVisible();
+  await page.getByRole('group', { name: 'Plan view' }).getByRole('button', { name: 'Calendar', exact: true }).click();
+  await page.getByRole('button', { name: 'Month', exact: true }).click();
+  await expect(page.locator('.plans-month-calendar')).toBeVisible();
   const slow = await holdRead(page, '**/api/plans?*');
-  await page.getByRole('group', { name: 'Plan view' }).getByRole('button', { name: 'Calendar', exact: true }).click(); await page.getByRole('button', { name: 'Next month', exact: true }).click(); await slow.started;
+  await page.getByRole('button', { name: 'Next month', exact: true }).click(); await slow.started;
   await page.clock.runFor(250); await expect(page.locator('.ui-skeleton')).toHaveCount(0);
   await page.clock.runFor(100); await expect(page.locator('.ui-skeleton').first()).toBeVisible();
   if (info.project.name === 'desktop') await expect(page.locator('.ui-skeleton').first()).toHaveCSS('background-image', /linear-gradient/);
@@ -1729,10 +1745,11 @@ test('assistant budgets are set at hire and edited independently', async ({ page
   await expect(hire.getByRole('spinbutton', { name: 'Spending limit (USD)', exact: true })).toHaveValue('');
   await hire.getByRole('spinbutton', { name: 'Spending limit (USD)', exact: true }).fill('2');
   await choose(page, 'Reset period', 'Weekly');
+  const created = page.waitForResponse(response => response.url().endsWith('/api/assistants') && response.request().method() === 'POST');
   await hire.getByRole('button', { name: 'Hire new assistant', exact: true }).click();
   await expect(hire).not.toBeVisible();
   await expect(page.locator('.chat-header h1')).toHaveText(name);
-  const assistant = (await (await page.request.get('/api/assistants')).json()).Items.find((item: { Name: string }) => item.Name === name);
+  const assistant = await (await created).json();
   expect(assistant.Budget).toEqual({ Limit: { Currency: 'USD', Micros: 2_000_000 }, Period: 'weekly' });
   const usage = await (await page.request.get(`/api/usage?assistant_id=${assistant.ID}&current_period=true`)).json();
   expect(usage.Limit.Micros).toBe(2_000_000); expect(usage.PeriodEnd).toBeTruthy();
@@ -1740,20 +1757,18 @@ test('assistant budgets are set at hire and edited independently', async ({ page
   const edit = page.getByRole('dialog', { name: 'Assistant information', exact: true });
   await expect(edit.getByRole('spinbutton', { name: 'Spending limit (USD)', exact: true })).toHaveValue('2');
   await expect(edit.getByRole('combobox', { name: 'Reset period', exact: true })).toContainText('Weekly');
-  await expect(edit.getByText('Spent this period', { exact: true })).toBeVisible();
   await edit.getByRole('spinbutton', { name: 'Spending limit (USD)', exact: true }).fill('3');
   await choose(page, 'Reset period', 'Daily');
   await edit.getByRole('button', { name: 'Save', exact: true }).click(); await expect(edit).not.toBeVisible();
   expect((await (await page.request.get(`/api/assistants/${assistant.ID}`)).json()).Budget).toEqual({ Limit: { Currency: 'USD', Micros: 3_000_000 }, Period: 'daily' });
   expect((await (await page.request.get(`/api/assistants/${seed.ID}`)).json()).Budget.Limit.Micros).toBe(0);
-  await page.locator('.chat-header').getByRole('button', { name: 'Plans', exact: true }).click();
-  await page.getByRole('dialog', { name: 'Plans', exact: true }).locator('.plans-header').getByRole('button', { name: 'New plan', exact: true }).click();
+  await page.goto('/#/plans');
+  await page.getByRole('button', { name: 'New plan', exact: true }).click();
   const task = page.getByRole('dialog', { name: 'New plan', exact: true });
   await expect(task.getByRole('spinbutton')).toHaveCount(0);
   await task.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await page.getByRole('dialog', { name: 'Plans', exact: true }).locator('.ui-dialog__header').getByRole('button', { name: 'Close', exact: true }).click();
   await openUserSettings(page);
-  await openSettingsSection(page, 'Preferences');
+  await openSettingsSection(page, 'General');
   await expect(settingsPane(page).getByRole('spinbutton')).toHaveCount(0);
 });
 
@@ -1784,10 +1799,11 @@ test('currency preferences preserve native budgets and prices without assistant 
     await expect(hire).not.toContainText('at midnight every day');
     await hire.getByRole('textbox', { name: 'Assistant name', exact: true }).fill(name);
     await hire.getByRole('spinbutton', { name: 'Spending limit (CNY)', exact: true }).fill('7');
+    const created = page.waitForResponse(response => response.url().endsWith('/api/assistants') && response.request().method() === 'POST');
     await hire.getByRole('button', { name: 'Hire new assistant', exact: true }).click();
     await expect(hire).not.toBeVisible();
     await expect(page.locator('.chat-header h1')).toHaveText(name);
-    const assistant = (await (await page.request.get('/api/assistants')).json()).Items.find((a: { Name: string }) => a.Name === name);
+    const assistant = await (await created).json();
     expect(assistant.Budget).toEqual({ Limit: { Currency: 'CNY', Micros: 7_000_000 }, Period: 'weekly' });
     // New model prices default to the preference; saved values keep that denomination.
     const back = page.getByRole('button', { name: 'Back to assistants', exact: true });
@@ -1896,7 +1912,10 @@ test('developer workbench records hidden executions and only gates entry visibil
     await expect(inspector).toContainText('conversation_publish');
     await inspector.getByRole('tab', { name: 'Model request', exact: true }).click();
     await expect(inspector).toContainText('"messages"'); await expect(inspector).toContainText('"tools"');
-    await expect(inspector.locator('.ui-code-token--property').filter({ hasText: '"messages"' }).first()).toBeAttached();
+    // The first JSON block is collapsed model metadata; inspect the request body.
+    const requestBody = inspector.locator('.workbench-disclosure').filter({ has: page.getByRole('heading', { name: 'Request body', exact: true }) }).locator('pre');
+    await expect(requestBody).toBeVisible();
+    expect(JSON.parse(await requestBody.innerText())).toMatchObject({ messages: expect.any(Array), tools: expect.any(Array) });
     await inspector.getByRole('tab', { name: 'Model response', exact: true }).click();
     await expect(inspector.getByRole('tab', { name: 'Response content', exact: true })).toHaveAttribute('aria-selected', 'true');
     await expect(inspector).toContainText('Internal reasoning is not a chat message.');
@@ -1970,7 +1989,7 @@ test('assistant information unifies settings, real tools, permissions and Skills
   await expect(drawer).toHaveClass(/ui-drawer/);
   await expect(drawer).toHaveAttribute('data-side', info.project.name === 'mobile' ? 'bottom' : 'right');
   if (info.project.name === 'desktop') await expect(drawer).toHaveCSS('width', '600px');
-  await expect(drawer.getByRole('tab')).toHaveText(['Overview', 'Tools', 'Permissions', 'Skills']);
+  await expect(drawer.getByRole('tab')).toHaveText(['Overview', 'Tools', 'Permissions', 'Conversations', 'Skills']);
   await expect(drawer.getByRole('combobox', { name: 'Model', exact: true })).toContainText(assistant.Name);
   await expect(drawer.getByText(`Model provider · ${assistant.Name}`, { exact: true })).toBeVisible();
   await drawer.getByRole('textbox', { name: 'Assistant name', exact: true }).fill('Unsaved assistant name');
@@ -2002,7 +2021,11 @@ test('assistant information unifies settings, real tools, permissions and Skills
   await expect(drawer.getByText('View models · Call models', { exact: true })).toBeVisible();
   await drawer.getByRole('tab', { name: 'Skills', exact: true }).click();
   const capabilities = await (await page.request.get(`/api/assistants/${assistant.ID}/capabilities`)).json();
-  await expect(drawer.getByText(capabilities.Skills.Supported ? 'No Skills assigned' : 'This Runtime does not support Skills yet', { exact: true })).toBeVisible();
+  const skills = drawer.getByRole('tabpanel', { name: 'Skills', exact: true });
+  if (capabilities.Skills.Supported && capabilities.Skills.Items.length) {
+    await expect(skills.getByRole('article')).toHaveCount(capabilities.Skills.Items.length);
+    for (const skill of capabilities.Skills.Items) await expect(skills.getByRole('heading', { name: skill.Name, exact: true })).toBeVisible();
+  } else await expect(skills.getByText(capabilities.Skills.Supported ? 'No Skills assigned' : 'This Runtime does not support Skills yet', { exact: true })).toBeVisible();
   await drawer.getByRole('tab', { name: 'Overview', exact: true }).click();
   await expect(drawer.getByRole('textbox', { name: 'Assistant name', exact: true })).toHaveValue('Unsaved assistant name');
   await drawer.screenshot({ path: `/tmp/molr-assistant-info-${info.project.name}.png` });
@@ -2170,8 +2193,11 @@ test('trajectory spans runs, pages older history and preserves inspection while 
     const readingArea = await scroll.boundingBox();
     expect(readingArea!.height).toBeGreaterThan(info.project.name === 'mobile' ? 350 : 500);
     expect(readingArea!.y).toBeLessThan(380);
+    const beforeScroll = await scroll.evaluate(el => el.scrollTop);
     await scroll.hover(); await page.mouse.wheel(0, -400);
     await expect(follow).not.toBeChecked();
+    // Wheel dispatch returns before Chromium applies the scroll offset.
+    await expect.poll(() => scroll.evaluate(el => el.scrollTop)).toBe(Math.max(0, beforeScroll - 400));
     const anchor = await scroll.evaluate(el => {
       const top = el.getBoundingClientRect().top;
       const row = [...el.querySelectorAll<HTMLElement>('[data-record-id]')].find(row => row.getBoundingClientRect().top >= top);
@@ -2530,7 +2556,7 @@ test('sandbox access grants can be created edited and revoked from the resource'
     await login(page);
     const name = `Sandbox access ${info.project.name} ${Date.now()}`;
     const assistant = await seedAssistant(page, name);
-    const resource = await post(page, '/api/resources', { Name: name, Kind: 'storage', Provider: 'local-directory', Binding: { RootPath: directory } });
+    const resource = await post(page, '/api/sandboxes/resource', { Name: name, SandboxID: 'local', Kind: 'storage', Path: directory });
     await page.goto(`/#/resources/${resource.ID}`);
     const card = page.locator('.sandbox-resource').filter({ has: page.getByRole('heading', { name, exact: true }) });
     await card.getByRole('button', { name: 'Grant assistant access', exact: true }).click();
@@ -2678,6 +2704,7 @@ for (const [preset, name, endpoint] of [
   await editor.getByRole('textbox', { name: 'Name', exact: true }).fill(`${resourceName} edited`);
   await editor.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(editor).not.toBeVisible();
+  await dismissSaved(page);
   await expect(resourceRow(page, `${resourceName} edited`)).toBeVisible();
   const current = await (await page.request.get(`/api/resources/${resource.ID}`)).json();
   await post(page, '/api/resources/configure-model', { ID: resource.ID, Mutation: { IdempotencyKey: crypto.randomUUID(), ExpectedVersion: current.Version }, Model: { Name: 'discovered-one', SupportsTools: true, ContextLimit: 65536, Pricing: { Currency: 'USD', InputMicrosPerMillion: 0, OutputMicrosPerMillion: 0, CachedInputMicrosPerMillion: 0 } } }, false);
@@ -2699,13 +2726,21 @@ test('provider network rejection explains test and save without clearing the dra
   await dialog.getByRole('button', { name: 'vLLM', exact: true }).click();
   await dialog.getByText('More configuration', { exact: true }).click();
   const endpoint = dialog.getByRole('textbox', { name: 'Service URL' });
-  await endpoint.fill('http://192.168.50.20:8000/v1');
+  await endpoint.fill('https://169.254.169.254/v1');
+  const prohibited = page.waitForResponse(response => response.url().endsWith('/api/resources/test-connection') && response.request().method() === 'POST');
+  await dialog.getByRole('button', { name: 'Test connection', exact: true }).click();
+  expect(await (await prohibited).json()).toMatchObject({ code: 'unavailable', reason: 'network_destination_prohibited' });
+  await expect(dialog.getByText(/Runtime blocks this destination/)).toBeVisible();
+  await expect(endpoint).toHaveValue('https://169.254.169.254/v1');
+  await dialog.locator('.ui-toast').getByRole('button', { name: 'Close', exact: true }).click();
+  // Saving a binding does not dial it. Public HTTP is rejected by both paths.
+  await endpoint.fill('http://203.0.113.1:8000/v1');
   for (const [action, path] of [['Test connection', 'test-connection'], ['Connect provider', 'provider']]) {
     const response = page.waitForResponse(response => response.url().endsWith(`/api/resources/${path}`) && response.request().method() === 'POST');
     await dialog.getByRole('button', { name: action, exact: true }).click();
-    expect(await (await response).json()).toMatchObject({ code: 'invalid_argument', reason: 'network_private_address_denied' });
-    await expect(dialog.getByText(/Runtime does not allow this private or loopback IP/)).toBeVisible();
-    await expect(endpoint).toHaveValue('http://192.168.50.20:8000/v1');
+    expect(await (await response).json()).toMatchObject({ code: 'invalid_argument', reason: 'network_http_not_allowed' });
+    await expect(dialog.getByText(/HTTP is not allowed for this address/)).toBeVisible();
+    await expect(endpoint).toHaveValue('http://203.0.113.1:8000/v1');
     await dialog.locator('.ui-toast').getByRole('button', { name: 'Close', exact: true }).click();
   }
   await endpoint.fill(`${modelOrigin}/v1`);

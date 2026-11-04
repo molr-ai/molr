@@ -4,7 +4,7 @@ import type { Page } from '@playwright/test';
 import { defaultConfiguration, resolveUI } from '@molr/ui-host';
 import { officialPackage } from '../src/interfaces/official/manifest';
 import type { InstalledUI } from '@molr/ui-host';
-import { fixtureTheme, installThemeFixture } from './theme-fixture';
+import { fixtureTheme, fixtureThemeName, installThemeFixture } from './theme-fixture';
 import { expectFitsWebView } from './viewport';
 const uiPort = Number(process.env.MOLR_TEST_PORT ?? '5193');
 async function login(page: Page) {
@@ -59,7 +59,7 @@ test('theme settings have one theme selector, persists its choice and exposes no
   await expect(page.getByRole('combobox', { name: 'Theme', exact: true })).toContainText('Molr default theme');
   await expect(page.getByRole('textbox', { name: /manifest/i })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Theme colors', exact: true })).toBeVisible();
-  await expect(page.getByRole('combobox', { name: 'Display mode', exact: true })).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Display mode', exact: true })).toBeVisible();
   await page.screenshot({ path: info.outputPath('appearance-theme-selector.png') });
   await page.setViewportSize({ width: 320, height: 720 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -75,7 +75,7 @@ test('plugin theme replaces plans and preserves default chat drafts and messages
   await login(page); await installThemeFixture(page); await chooseTheme(page, 'Molr default theme'); const selected = await assistant(page);
   await page.goto(`/#/assistants/${selected.ID}`);
   await page.locator('.chat-input textarea').fill('A shared draft');
-  await page.goto('/#/account/theme'); await chooseTheme(page, 'Fixture theme');
+  await page.goto('/#/account/theme'); await chooseTheme(page, fixtureThemeName);
   await page.goto('/#/plans');
   await expect(page.frameLocator('iframe').getByText('Fixture plans', { exact: true })).toBeVisible();
   await page.goto(`/#/assistants/${selected.ID}`);
@@ -88,7 +88,7 @@ test('plugin theme replaces plans and preserves default chat drafts and messages
   await page.getByRole('navigation', { name: 'Molr' }).getByRole('button', { name: 'Resources', exact: true }).click();
   await expect(page.locator('.resources-workspace')).toBeVisible();
   await page.goto('/#/account/theme');
-  await expect(page.getByRole('combobox', { name: 'Theme', exact: true })).toContainText('Fixture theme');
+  await expect(page.getByRole('combobox', { name: 'Theme', exact: true })).toContainText(fixtureThemeName);
   await chooseTheme(page, 'Molr default theme');
   await page.goto(`/#/assistants/${selected.ID}`);
   await expect(page.locator('.chat-input textarea')).toHaveValue('Back to default');
@@ -180,13 +180,13 @@ test('theme saves preserve preferences, ignore local storage and keep the saved 
   await expect(page.getByRole('combobox', { name: 'Theme', exact: true })).toContainText('Molr default theme');
   await page.route('**/api/settings', route => route.request().method() === 'POST' ? route.fulfill({ status: 503, contentType: 'application/json', body: '{"code":"unavailable"}' }) : route.continue());
   await page.getByRole('combobox', { name: 'Theme', exact: true }).click();
-  await page.getByRole('option', { name: 'Fixture theme', exact: true }).click();
+  await page.getByRole('option', { name: fixtureThemeName, exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Could not save your theme');
   await expect(page.getByRole('combobox', { name: 'Theme', exact: true })).toContainText('Molr default theme');
   expect((await (await page.request.get('/api/settings')).json()).Version).toBe(before.Version);
   await page.unroute('**/api/settings');
   await page.evaluate(() => { Storage.prototype.setItem = () => { throw new DOMException('Full', 'QuotaExceededError'); }; });
-  await chooseTheme(page, 'Fixture theme');
+  await chooseTheme(page, fixtureThemeName);
   const after = await (await page.request.get('/api/settings')).json();
   expect(after.UITheme).toBe(fixtureTheme);
   for (const field of ['Theme', 'Palette', 'Language', 'Currency', 'Timezone', 'ReducedMotion', 'DefaultModelID']) expect(after[field]).toEqual(before[field]);
@@ -195,17 +195,16 @@ test('theme saves preserve preferences, ignore local storage and keep the saved 
 
 test('theme, palette and display mode sync to a separate browser; remote theme changes preserve drafts', async ({ page, browser }) => {
   await login(page); await installThemeFixture(page); const selected = await assistant(page);
-  await chooseTheme(page, 'Fixture theme');
+  await chooseTheme(page, fixtureThemeName);
   await page.getByRole('group', { name: 'Color palettes' }).getByRole('button', { name: 'Ocean', exact: true }).click();
   await expect.poll(async () => (await (await page.request.get('/api/settings')).json()).Palette).toBe('ocean');
-  await page.getByRole('combobox', { name: 'Display mode', exact: true }).click();
-  await page.getByRole('option', { name: /^Dark / }).click();
+  await page.getByRole('group', { name: 'Display mode', exact: true }).getByRole('radio', { name: 'Dark', exact: true }).check();
   await expect.poll(async () => (await (await page.request.get('/api/settings')).json()).Theme).toBe('dark');
   expect((await (await page.request.get('/api/settings')).json()).UITheme).toBe(fixtureTheme);
   const other = await browser.newContext({ locale: 'en-US' });
   try {
     const next = await other.newPage(); await login(next);
-    await expect(next.getByRole('combobox', { name: 'Theme', exact: true })).toContainText('Fixture theme');
+    await expect(next.getByRole('combobox', { name: 'Theme', exact: true })).toContainText(fixtureThemeName);
     await expect(next.locator('html')).toHaveAttribute('data-palette', 'ocean');
     await expect(next.locator('html')).toHaveAttribute('data-theme', 'dark');
     await next.goto(`/#/assistants/${selected.ID}`);
@@ -249,13 +248,14 @@ test('settings rows only activate their controls and keep theme controls togethe
   await login(page);
   const panel = page.locator('.settings-theme'), rows = panel.locator('.settings-list');
   await expect(rows).toHaveCount(1);
-  await expect(rows.getByRole('combobox')).toHaveCount(2);
+  await expect(rows.getByRole('combobox')).toHaveCount(1);
+  await expect(rows.getByRole('group', { name: 'Display mode', exact: true }).getByRole('radio')).toHaveCount(3);
   await expect(rows.getByRole('switch', { name: 'Reduce motion', exact: true })).toBeVisible();
   expect(await panel.evaluate(element => {
     const controls = element.querySelector('.settings-list')!, palettes = element.querySelector('.settings-theme__palettes')!;
     return !!(controls.compareDocumentPosition(palettes) & Node.DOCUMENT_POSITION_FOLLOWING);
   })).toBe(true);
-  for (const label of ['Theme', 'Display mode']) {
+  for (const label of ['Theme']) {
     const select = rows.getByRole('combobox', { name: label, exact: true });
     const row = select.locator('..');
     await row.locator('.select__label').click();
@@ -264,6 +264,14 @@ test('settings rows only activate their controls and keep theme controls togethe
     await expect(select).toHaveAttribute('aria-expanded', 'false');
     await select.click(); await expect(select).toHaveAttribute('aria-expanded', 'true'); await page.keyboard.press('Escape');
   }
+  async function checkChoiceLabel(label: string) {
+    const group = page.getByRole('group', { name: label, exact: true });
+    const value = () => group.locator('input:checked').inputValue();
+    const before = await value();
+    await page.locator('.settings-row--choice').filter({ has: group }).locator('.settings-label').click();
+    expect(await value()).toBe(before);
+  }
+  await checkChoiceLabel('Display mode');
   const toggle = rows.getByRole('switch', { name: 'Reduce motion', exact: true }), checked = await toggle.isChecked();
   const row = toggle.locator('..').locator('..');
   await row.locator('.settings-label > span').click();
@@ -274,11 +282,12 @@ test('settings rows only activate their controls and keep theme controls togethe
   await expect(toggle).toBeEnabled(); await toggle.focus(); await page.keyboard.press('Space');
   await expect.poll(async () => (await (await page.request.get('/api/settings')).json()).ReducedMotion).toBe(checked);
   await page.goto('/#/account/general');
-  for (const label of ['Language', 'Timezone', 'Currency']) {
+  for (const label of ['Timezone']) {
     const select = page.getByRole('combobox', { name: label, exact: true });
     await select.locator('..').locator('.select__label').click();
     await expect(select).toHaveAttribute('aria-expanded', 'false');
   }
+  for (const label of ['Language', 'Currency']) await checkChoiceLabel(label);
   const workbench = page.getByRole('switch', { name: 'Show developer workbench', exact: true });
   const before = await workbench.isChecked();
   await page.locator('.settings-row').filter({ has: workbench }).locator('.settings-label > span').click();

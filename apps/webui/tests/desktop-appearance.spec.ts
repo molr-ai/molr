@@ -40,8 +40,7 @@ test('desktop inherits saved account appearance only after login and preserves t
   await expect.poll(latest).toEqual({ theme: saved.Theme, palette: saved.Palette });
   await palettes.getByRole('button', { name: 'Ocean', exact: true }).click();
   await expect.poll(async () => (await latest())?.palette).toBe('ocean');
-  await page.getByRole('combobox', { name: 'Display mode', exact: true }).click();
-  await page.getByRole('option', { name: /^Dark / }).click();
+  await page.getByRole('group', { name: 'Display mode', exact: true }).getByRole('radio', { name: 'Dark', exact: true }).check();
   await expect.poll(latest).toEqual({ theme: 'dark', palette: 'ocean' });
 
   await page.route('**/api/settings', route => route.request().method() === 'POST'
@@ -53,8 +52,7 @@ test('desktop inherits saved account appearance only after login and preserves t
   expect((await calls()).slice(beforeFailure)).not.toContainEqual({ theme: 'dark', palette: 'rose' });
   expect(await latest()).toEqual({ theme: 'dark', palette: 'ocean' });
   await page.unroute('**/api/settings');
-  await page.getByRole('combobox', { name: 'Display mode', exact: true }).click();
-  await page.getByRole('option', { name: /^System / }).click();
+  await page.getByRole('group', { name: 'Display mode', exact: true }).getByRole('radio', { name: 'System', exact: true }).check();
   await expect.poll(latest).toEqual({ theme: 'system', palette: 'ocean' });
   for (const colorScheme of ['dark', 'light'] as const) {
     await page.emulateMedia({ colorScheme });

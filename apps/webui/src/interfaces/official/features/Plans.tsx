@@ -35,6 +35,7 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
   const [listFrom] = useState(() => new Date().toISOString());
   const backRef = useRef<HTMLButtonElement>(null), detailRef = useRef<HTMLDivElement>(null);
   const listScroll = useRef(0);
+  const returnFocusKey = useRef('');
   const listOwner = embedded ? assistantID || '' : owner;
   const [expanded, setExpanded] = useState(''), [editing, setEditing] = useState<Entry | 'new' | null>(null), [deleting, setDeleting] = useState<Plan | null>(null), [configuring, setConfiguring] = useState<Plan | null>(null), [completing, setCompleting] = useState<{ plan: Plan; at?: string } | null>(null);
   const visibleDays=view === 'calendar' && calendarMode === 'week' ? weekDays(month) : monthDays(month);
@@ -64,7 +65,15 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
   const selected = selectedQuery.data ?? all.find(p => refKey(p.Ref) === expanded) ?? (selection.data && refKey(selection.data.Plan.Ref) === expanded ? selection.data.Plan : undefined);
   useLayoutEffect(() => {
     if (!embedded) return;
-    if (!selected) { listRef.current?.scrollTo({ top: listScroll.current, behavior: 'instant' }); return; }
+    if (!selected) {
+      // Restore focus only after React has removed inert from the list.
+      if (returnFocusKey.current) {
+        document.getElementById(`${scopeID}-title-${returnFocusKey.current}`)?.focus({ preventScroll: true });
+        returnFocusKey.current = '';
+      }
+      listRef.current?.scrollTo({ top: listScroll.current, behavior: 'instant' });
+      return;
+    }
     detailRef.current?.scrollTo({ top: 0, behavior: 'instant' });
     backRef.current?.focus({ preventScroll: true });
   }, [embedded && selected?.Ref.ID, selectedAt]);
@@ -113,12 +122,8 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
   }
   function clearFilters() { setOwner(assistantID || 'all'); setKind('all'); setStatus('all'); }
   function closeDetails() {
-    const key = `${expanded}@${selectedAt || ''}`;
+    if (embedded) returnFocusKey.current = `${expanded}@${selectedAt || ''}`;
     setExpanded(''); setSelectedAt(undefined);
-    if (embedded) requestAnimationFrame(() => {
-      document.getElementById(`${scopeID}-title-${key}`)?.focus({ preventScroll: true });
-      listRef.current?.scrollTo({ top: listScroll.current, behavior: 'instant' });
-    });
   }
   function openRelated(ref: PlanRef) {
     const linked=(related.data ?? all).find(p=>refKey(p.Ref)===refKey(ref)),at=linked?when(linked):'';

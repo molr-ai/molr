@@ -24,15 +24,18 @@ async function setup(page: Page, suffix: string) {
   return assistant;
 }
 async function send(page: Page, input: object, reply: string) {
+  const replies = page.locator('.ui-chat-message--assistant');
+  const previousCount = await replies.count();
   await page.getByRole('textbox', { name: 'Message your assistant', exact: true }).fill(JSON.stringify(input));
   await page.getByRole('button', { name: 'Send', exact: true }).click();
-  await expect(page.locator('.ui-chat-message--assistant').last()).toContainText(reply, { timeout: 60000 });
+  await expect(replies).toHaveCount(previousCount + 1, { timeout: 60000 });
+  await expect(replies.last()).toContainText(reply);
 }
 
 test('profile tool updates presets, file avatars and context without refreshing the page', async ({ page }, info) => {
   const a = await setup(page, info.project.name);
   const get = async () => (await page.request.get(`/api/assistants/${a.ID}`)).json();
-  await send(page, { name: '小满', avatar: { type: 'preset', id: 'cat' } }, 'Profile saved: 小满 / preset:cat');
+  await send(page, { name: '小满', avatar: { type: 'preset', avatar_id: 'cat' } }, 'Profile saved: 小满 / preset:cat');
   await expect(page.locator('.chat-header h1')).toHaveText('小满');
   expect((await get()).Avatar).toBe('preset:cat');
   await send(page, { name: '小满的新名字' }, 'Profile saved: 小满的新名字 / preset:cat');
@@ -58,7 +61,7 @@ test('open profile forms sync clean values and retain dirty drafts with their or
   await page.locator('.chat-assistant-info').click();
   const field = page.getByRole('textbox', { name: 'Assistant name', exact: true });
   const publish = (args: object) => post(page, '/api/conversations/messages', { ConversationID: a.ConversationID, Content: { Kind: 'text', Text: JSON.stringify(args) } });
-  await publish({ name: '同步的新名字', avatar: { type: 'preset', id: 'fox' } });
+  await publish({ name: '同步的新名字', avatar: { type: 'preset', avatar_id: 'fox' } });
   await expect(field).toHaveValue('同步的新名字', { timeout: 25000 });
   await expect(page.getByRole('button', { name: 'Fox', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await field.fill('尚未保存的草稿');
@@ -81,13 +84,16 @@ test('assistant status is self-authored, live, persistent and cleared back to id
   await page.reload();
   await expect(label).toHaveText(status);
   await page.locator('.chat-assistant-info').click();
+  const dialog = page.getByRole('dialog', { name: 'Assistant information', exact: true });
+  await expect(dialog).toBeVisible();
   await expect(page.locator('.assistant-profile-status')).toHaveCount(0);
   await expect(page.locator('.assistant-profile-status input, .assistant-profile-status textarea')).toHaveCount(0);
   const csrf = (await page.context().cookies()).find(c => c.name === `molr_dev_csrf_p${port}`)!.value;
   const current = await (await page.request.get(`/api/assistants/${a.ID}`)).json();
   const denied = await page.request.post('/api/assistants/update', { headers: { Origin: base, 'X-CSRF-Token': csrf }, data: { ID: a.ID, Name: a.Name, ModelID: a.ModelID, Budget: a.Budget, Status: 'user edit', Mutation: { IdempotencyKey: crypto.randomUUID(), ExpectedVersion: current.Version } } });
   expect(denied.status()).toBe(400);
-  await page.keyboard.press('Escape');
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
   const longStatus = '🌱'.repeat(256);
   await send(page, { status: longStatus }, `Profile saved: ${a.Name}`);
   await expect(label).toHaveText(longStatus);

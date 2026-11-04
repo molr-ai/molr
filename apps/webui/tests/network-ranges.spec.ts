@@ -51,7 +51,7 @@ test('network connection displays multiple address and port ranges and persists 
 });
 
 
-test('built-in network presets require an explicit connection and no network configuration', async ({ page }, info) => {
+test('adding another resource for a built-in network preset does not grant assistant access', async ({ page }, info) => {
   await page.goto(`${origin}/#/resources`);
   await page.getByRole('textbox', { name: 'Username', exact: true }).fill('second-owner');
   await page.getByLabel('Password', { exact: true }).fill('second-webui-e2e-password-2026!');

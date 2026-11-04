@@ -1,8 +1,13 @@
+import { installRuntimeEvents, emitRuntimeEvent } from './runtime-events';
 import { readLayout } from '../../../scripts/test-support/layout.ts';
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 const port = process.env.MOLR_TEST_PORT ?? '5193';
+test.beforeEach(async ({ page }) => installRuntimeEvents(page));
+async function browserChanged(page: Page, assistantID: string) {
+  await emitRuntimeEvent(page, { Topic: 'shell.tasks', Object: { ID: assistantID } });
+}
 async function post(page: Page, path: string, data: object) {
   const csrf = (await page.context().cookies()).find(c => c.name === `molr_dev_csrf_p${port}`)!.value;
   const response = await page.request.post(path, { headers: { Origin: `http://127.0.0.1:${port}`, 'X-CSRF-Token': csrf }, data: { ...data, Mutation: { IdempotencyKey: crypto.randomUUID() } } });
@@ -309,9 +314,10 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   await expect(toast).toHaveCount(0);
   await expect(page.locator('.browser-notice')).toHaveCount(0);
 
-  // Fast failures can happen between polls; the persisted result still produces
-  // a dismissible notice, and polling/reopening must not resurrect it.
+  // Lifecycle events refresh stopped sessions, whose idle reads no longer poll.
+  // Repeated notifications and reopening must not resurrect a dismissed error.
   running = false; lastFailure = { TaskID: 'failed-process-limit', Reason: 'process_limit' };
+  await browserChanged(page, assistant.ID);
   const failureNotice = page.getByText('Browser stopped after reaching the authorized process/thread limit. Adjust the process limit in compute permissions and retry.', { exact: true });
   await expect(failureNotice).toBeVisible();
   const failureToast = page.locator('.ui-toast').filter({ hasText: 'Browser stopped after reaching the authorized process/thread limit.' });
@@ -320,9 +326,11 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   await page.getByRole('button', { name: 'Close browser panel', exact: true }).click(); await trigger.click();
   await page.waitForTimeout(2300); await expect(failureNotice).toHaveCount(0);
   lastFailure = { TaskID: 'failed-unknown', Reason: 'unknown' };
+  await browserChanged(page, assistant.ID);
   await expect(page.getByText(/Browser exited unexpectedly. Check the browser task/)).toBeVisible();
 
   lastFailure = undefined; running = true;
+  await browserChanged(page, assistant.ID);
   await expect(page.getByText(/Browser exited unexpectedly. Check the browser task/)).toHaveCount(0);
   await page.unrouteAll({behavior:'wait'});
 });
@@ -340,9 +348,10 @@ test('browser installation failure uses one toast across task polling, panel reo
   const task = { id: 'installation-first', operation: 'component_install', state: 'running', stage: 'downloading', downloaded: 50, total: 100, error_code: '' };
   const preparation = { task_id: task.id, state: 'installing', error_code: '' };
   let taskReads = 0, browserReads = 0;
+  let taskFailed = false, browserFailed = false;
   await page.route('**/api/components', route => route.fulfill({ json: [{ id: 'browser', state: 'missing', can_install: true, download_bytes: 100, disk_bytes: 200, task }] }));
-  await page.route('**/api/maintenance/tasks/*', route => { taskReads++; return route.fulfill({ json: task }); });
-  await page.route(new RegExp(`/api/assistants/${assistant.ID}/browser(?:\\?.*)?$`), route => { browserReads++; return route.fulfill({ json: { Available: false, Preparation: preparation } }); });
+  await page.route('**/api/maintenance/tasks/*', route => { taskReads++; taskFailed ||= task.state === 'failed'; return route.fulfill({ json: task }); });
+  await page.route(new RegExp(`/api/assistants/${assistant.ID}/browser(?:\\?.*)?$`), route => { browserReads++; browserFailed ||= preparation.state === 'failed'; return route.fulfill({ json: { Available: false, Preparation: preparation } }); });
   await page.goto(`/#/assistants/${assistant.ID}`);
   const open = () => page.getByRole('button', { name: 'Browser', exact: true }).click();
   await open();
@@ -352,20 +361,20 @@ test('browser installation failure uses one toast across task polling, panel reo
   const message = 'Maintenance failed. Check the environment and retry.';
   const toast = page.locator('.ui-toast').filter({ hasText: message });
   await expect(toast).toHaveCount(1);
-  // Wait until both polling sources have observed the failure.
-  const reads = { task: taskReads, browser: browserReads };
-  await expect.poll(() => taskReads).toBeGreaterThan(reads.task);
-  await expect.poll(() => browserReads).toBeGreaterThan(reads.browser);
+  // Installing sessions poll until failure; idle sessions then stop reading.
+  await expect.poll(() => taskFailed && browserFailed).toBe(true);
   await expect(page.getByText(message, { exact: true })).toHaveCount(1);
   await expect(page.locator('.browser-drawer .ui-alert')).toHaveCount(0);
   await toast.getByRole('button', { name: 'Close', exact: true }).click();
   await page.getByRole('button', { name: 'Close browser panel', exact: true }).click();
   await open();
   const reopened = browserReads;
-  await expect.poll(() => browserReads).toBeGreaterThan(reopened);
+  await page.waitForTimeout(2300);
+  expect(browserReads).toBe(reopened);
   await expect(page.getByText(message, { exact: true })).toHaveCount(0);
   // A new attempt must still report the same error.
   task.id = preparation.task_id = 'installation-retry';
+  await browserChanged(page, assistant.ID);
   await expect(toast).toHaveCount(1);
   await toast.getByRole('button', { name: 'Close', exact: true }).click();
   await page.getByRole('button', { name: 'Close browser panel', exact: true }).click();
@@ -382,6 +391,7 @@ test('browser installation failure uses one toast across task polling, panel reo
   task.id = preparation.task_id = 'installation-start'; task.state = 'succeeded'; task.error_code = '';
   preparation.error_code = 'browser_start_failed';
   await page.goto(`/#/assistants/${assistant.ID}`); await open();
+  await browserChanged(page, assistant.ID);
   await expect(page.locator('.ui-toast').filter({ hasText: 'Components are prepared, but the browser could not start.' })).toHaveCount(1);
   await expect(page.locator('.browser-drawer .ui-alert')).toHaveCount(0);
   await page.unrouteAll({ behavior: 'wait' });

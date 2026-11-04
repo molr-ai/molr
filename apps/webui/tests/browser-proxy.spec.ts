@@ -93,6 +93,8 @@ test('administrator saves browser proxy settings, keeps and clears credentials',
  await expect(form).not.toBeVisible();
  await expect(trigger).toBeFocused();
  if (viewport.width < 600) {
+  const original = await (await page.request.get('/api/settings')).json();
+  try {
   for (const method of ['Close','Escape','backdrop'] as const) {
    await trigger.click();
    await expect(form.getByRole('group',{name:'Connection mode'})).toBeVisible();
@@ -119,6 +121,13 @@ test('administrator saves browser proxy settings, keeps and clears credentials',
   await page.keyboard.press('Escape');
   await expect(form).toHaveCount(0);
   await expect(trigger).toBeFocused();
+  } finally {
+   await page.evaluate(async reducedMotion => {
+    const path = '/@id/@molr/sdk'; const { api } = await import(path);
+    const settings = await api.get('/api/settings');
+    await api.mutate('/api/settings', { Settings: { ...settings, ReducedMotion: reducedMotion } }, { idempotencyKey: crypto.randomUUID(), expectedVersion: settings.Version });
+   }, original.ReducedMotion);
+  }
  }
  await page.evaluate(async()=>{const path='/@id/@molr/sdk';const {api}=await import(path);await api.post('/api/auth/logout');});
 });

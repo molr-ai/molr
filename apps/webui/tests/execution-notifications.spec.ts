@@ -131,7 +131,8 @@ test('execution toast actions follow workbench settings and navigate to their ev
 test('dream timeout explains retained changes and opens the right assistant settings without workbench', async ({ page }, info) => {
   await login(page);
   const original = await (await page.request.get('/api/settings')).json();
-  await settings(page, { WorkbenchVisible: false });
+  // Exercise immediate panel teardown on mobile without leaking the preference.
+  await settings(page, { WorkbenchVisible: false, ReducedMotion: info.project.name === 'mobile' });
   try {
     const { assistant, notice } = await failure(page, `dream-${info.project.name}`);
     // Scheduler integration tests cover the persisted kind. This fixture isolates
@@ -221,11 +222,14 @@ test('dream timeout explains retained changes and opens the right assistant sett
     expect(assistantWrites).toBe(1);
     await expect.poll(async () => (await (await page.request.get(`/api/dreams/config?assistant_id=${assistant.ID}`)).json()).MaxDurationSeconds).toBe(1200);
     await page.locator('.chat-assistant-info').click();
+    await expect(input).toHaveValue('1200');
     await enabled.uncheck();
     await footer.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(form).toHaveCount(0);
     expect((await (await page.request.get(`/api/dreams/config?assistant_id=${assistant.ID}`)).json()).Enabled).toBe(false);
     await page.locator('.chat-assistant-info').click();
+    // Wait for the saved state, not the empty/loading form or a stale cache.
+    await expect(enabled).not.toBeChecked();
     await expect(input).toHaveCount(0);
     await enabled.check(); await expect(input).toHaveValue('1200');
     const other = await post(page, '/api/assistants', { Name: 'Independent dream settings', ModelID: assistant.ModelID, Budget: assistant.Budget });
@@ -262,5 +266,5 @@ test('dream timeout explains retained changes and opens the right assistant sett
     await expect(page.locator('.settings-rows').getByRole('button', { name: 'Empty directory', exact: true })).toBeVisible();
 
     await expect(page.getByRole('button', { name: 'Dream settings', exact: true })).toHaveCount(0);
-  } finally { await page.unrouteAll({ behavior: 'wait' }); await settings(page, { Language: original.Language, Timezone: original.Timezone, WorkbenchVisible: original.WorkbenchVisible }); }
+  } finally { await page.unrouteAll({ behavior: 'wait' }); await settings(page, { Language: original.Language, Timezone: original.Timezone, WorkbenchVisible: original.WorkbenchVisible, ReducedMotion: original.ReducedMotion }); }
 });

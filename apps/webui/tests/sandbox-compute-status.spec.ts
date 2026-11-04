@@ -24,8 +24,9 @@ test('compute status separates disabled, controlled execution, full access and o
   await expect(overview).toContainText('Controlled compute unavailable');
   await expect(overview).toContainText('Full access available');
   await expect(summary).toContainText('storage, compute and network');
-  await expect(page.locator('.sandbox-resource-heading')).toContainText('Unavailable');
-  await page.getByRole('button', { name: 'Grant assistant access', exact: true }).click();
+  const compute = page.locator('.sandbox-resource').filter({ has: page.getByRole('heading', { name: 'Local compute', exact: true }) });
+  await expect(compute.locator('.sandbox-resource-heading')).toContainText('Unavailable');
+  await compute.getByRole('button', { name: 'Grant assistant access', exact: true }).click();
   await expect(page.getByRole('dialog').getByRole('button', { name: 'Grant assistant access', exact: true })).toBeDisabled();
   await page.keyboard.press('Escape');
   await page.getByRole('tab', { name: /^(Full access|完全访问)$/ }).click();

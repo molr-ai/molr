@@ -1,3 +1,4 @@
+import { installRuntimeEvents, emitRuntimeEvent } from './runtime-events';
 import { channelSummaries } from './channel-summary';
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
@@ -11,6 +12,7 @@ async function post(page: Page, path: string, data: object) {
 // External platform callbacks are simulated. Authentication, assistant creation
 // and ordinary chat use the real isolated Runtime; Go tests cover Stream and routing.
 test('DingTalk pairing preserves WebUI input until bound and restores it on disconnect', async ({ page }, info) => {
+ await installRuntimeEvents(page);
  await page.goto('/');
  await page.getByLabel('Username', { exact: true }).fill('owner');
  await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!');
@@ -44,6 +46,7 @@ test('DingTalk pairing preserves WebUI input until bound and restores it on disc
   await page.screenshot({ path: test.info().outputPath(`dingtalk-${palette}-${theme}.png`) });
  }
  state = 'connected'; bound = true;
+ await emitRuntimeEvent(page, { Topic: 'dingtalk.changed', Object: { ID: assistant.ID } });
  await expect(page.getByRole('button', { name: 'Disconnect DingTalk', exact: true })).toBeVisible();
  await expect(page.getByRole('button', { name: 'Connect Weixin', exact: true })).toHaveCount(0);
  await expect(page.getByLabel('One-time pairing code', { exact: true })).toHaveCount(0);

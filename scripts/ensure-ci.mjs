@@ -3,7 +3,7 @@ import { appendFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-export const ciPolicy = 'v2';
+export const ciPolicy = 'v3';
 export const ciTitle = commit => `CI ${ciPolicy} ${commit}`;
 export const ciJob = () => `CI passed ${ciPolicy}`;
 export const ciStep = commit => `Validated ${commit}`;

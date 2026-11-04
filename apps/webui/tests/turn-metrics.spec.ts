@@ -36,6 +36,8 @@ test('turn info queries lazily, updates the whole turn and shares finalized cach
   const assistant = await post(page, '/api/assistants', { Name: name, ModelID: models.find((m: any) => m.ResourceID === resource.ID).ID, Budget: { Limit: { Currency: 'USD', Micros: 1000000 }, Period: 'daily' } });
   const born = await waitForBorn(page, assistant);
   await page.goto(`/#/assistants/${assistant.ID}`);
+  // Direct fixture writes do not invalidate the browser's settings cache.
+  await page.reload();
   let requests = 0; let final: any;
   page.on('request', request => { if (request.url().endsWith('/metrics')) requests++; });
   page.on('response', async response => { if (response.url().endsWith('/metrics') && response.ok()) { const body = await response.json(); if (body.Finalized) final = body; } });

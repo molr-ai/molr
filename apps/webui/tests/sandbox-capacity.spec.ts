@@ -17,6 +17,10 @@ test('sandbox capacity uses hardware bounds, quotas and separate GPU lines', asy
     const response = await route.fetch();
     const sandboxes = await response.json();
     for (const sandbox of sandboxes) {
+      sandbox.State = 'available';
+      sandbox.Info.Enabled = true;
+      sandbox.Info.Capabilities = { ...sandbox.Info.Capabilities, Shell: true, Reason: 'available' };
+      sandbox.Info.WorkspaceProjectQuotas = false;
       sandbox.Info.HostCapacity = { CPUPercent: 800, MemoryBytes: 16 * 2 ** 30, Processes: 2048, CPUUsagePercent: limited ? 25 : 0, MemoryUsedBytes: limited ? 8 * 2 ** 30 : null };
       sandbox.Info.AuthorizationCeilings = limited
         ? { CPUPercent: 250, MemoryBytes: 32 * 2 ** 30, Processes: 512 }
@@ -86,7 +90,9 @@ test('Windows compute includes shared GPUs without a separate device grant', asy
     for (const sandbox of sandboxes) {
       sandbox.Info.HostCapacity = { CPUPercent: 2800, CPUUsagePercent: 10, MemoryBytes: 64 * 2 ** 30, MemoryUsedBytes: 16 * 2 ** 30, Processes: 0,
         GPUs: [{ ID: 'GPU-00000000-0000-0000-0000-000000000001', Name: 'NVIDIA Fixture', Vendor: 'nvidia', MemoryBytes: 16 * 2 ** 30, UtilizationPercent: 20, MemoryUsedBytes: 4 * 2 ** 30, Available: false, Reason: 'gpu_platform_unsupported' }] };
-      sandbox.Info.Capabilities = { ...sandbox.Info.Capabilities, OS: 'windows', GPUAccessMode: 'shared', NetworkBackend: 'appcontainer-toggle', ResourceLimits: false };
+      sandbox.State = 'available';
+      sandbox.Info.Enabled = true;
+      sandbox.Info.Capabilities = { ...sandbox.Info.Capabilities, Shell: true, Reason: 'available', OS: 'windows', GPUAccessMode: 'shared', NetworkBackend: 'appcontainer-toggle', ResourceLimits: false };
       sandbox.Info.GPUs = [];
       sandbox.Info.AuthorizationCeilings = {};
     }
@@ -103,11 +109,12 @@ test('Windows compute includes shared GPUs without a separate device grant', asy
   await expect(summary).toContainText('64 GiB');
   await expect(summary).toContainText('NVIDIA Fixture');
   await expect(summary).toContainText(/shared with compute permission|随计算权限共享使用/);
-  await expect(page.locator('.sandbox-resource-description')).toContainText(/all GPUs|全部 GPU/);
+  const compute = page.locator('.sandbox-resource').filter({ has: page.getByRole('heading', { name: 'Local compute', exact: true }) });
+  await expect(compute.locator('.sandbox-resource-description')).toContainText(/all GPUs|全部 GPU/);
   await expect(summary.locator('.sandbox-gpu').getByRole('progressbar', { name: /^(GPU memory usage|显存占用)$/ })).toHaveAttribute('aria-valuenow', '25');
   await expect(page.getByRole('combobox', { name: /GPU devices|GPU 设备/ })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.getByRole('button', { name: /Grant assistant access|授权给助理/ }).first().click();
+  await compute.getByRole('button', { name: /Grant assistant access|授权给助理/ }).click();
   await page.getByRole('dialog').getByRole('button', { name: /Grant assistant access|授权给助理/ }).click();
   const editor = page.getByRole('dialog').last();
   await expect(editor).toContainText(/all GPUs|全部 GPU/);

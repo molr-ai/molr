@@ -49,7 +49,7 @@ test('a newer failure or cancellation cannot be hidden by an older successful ru
 test('repository, branch, event, source SHA and validation policy distinguish reusable runs', () => {
   for (const extra of [
     { head_repository: { full_name: 'fork/molr' } }, { head_branch: 'feature' },
-    { event: 'pull_request' }, { head_sha: 'b'.repeat(40) }, { display_title: 'CI v1 ' + commit },
+    { event: 'pull_request' }, { head_sha: 'b'.repeat(40) }, { display_title: 'CI v1 ' + commit }, { display_title: 'CI v2 ' + commit },
   ]) assert.equal(matchingCIRuns([run(extra)], repository, commit).length, 0);
 });
 test('dispatched validation uses the reported checked-out SHA rather than the workflow head SHA', async () => {
@@ -128,6 +128,7 @@ test('CI includes every native target, both browser platforms, and a non-skippab
   assert.deepEqual(ci.on.push.branches, ['main']);
   assert.equal(ci.on.pull_request?.paths, undefined);
   assert.deepEqual(ci.jobs.browser.strategy.matrix.runner, ['ubuntu-24.04', 'macos-15']);
+  assert.deepEqual(ci.jobs.browser.strategy.matrix.project, ['desktop', 'mobile']);
   for (const wf of [native, desktop]) {
     assert.equal(wf.jobs[wf === native ? 'native' : 'desktop'].strategy.matrix, '${{ fromJSON(inputs.matrix) }}');
     assert.deepEqual(nativeBuildMatrix().include.map(p => `${p.os}-${p.arch}`).sort(),
@@ -153,6 +154,38 @@ test('both CI providers exercise the PTY lifecycle on every native installer pla
     assert(regression >= 0 && regression < installation);
     assert.equal(job.steps[regression].if, undefined);
     assert.equal(job.steps[regression]['continue-on-error'], undefined);
+  }
+});
+
+test('both CI providers require complete browser suites and the WebUI special environments', () => {
+  for (const provider of ['github', 'gitea']) {
+    const ci = yaml.load(readFileSync(`.${provider}/workflows/ci.yml`, 'utf8'));
+    const browser = ci.jobs.browser;
+    assert(ci.jobs.passed.needs.includes('browser'));
+    assert(browser.needs.includes('assets'));
+    assert.equal(browser['continue-on-error'], undefined);
+    const required = new Map([
+      ['npm run test:website', {}],
+      ['npm run test:ui', {}],
+      ['npm run test:webui', { MOLR_E2E_SANDBOX_SERVICE: '1' }],
+      ['npm run test:webui -- mcp-tools.spec.ts', { MOLR_E2E_SANDBOX_SERVICE: '1', MOLR_E2E_MCP: '1' }],
+      ['npm run test:webui -- plugin-http.spec.ts', { MOLR_E2E_SANDBOX_SERVICE: '1', MOLR_E2E_PLUGIN_HTTP: '1' }],
+      ['npm run test:webui -- lazy-pages.spec.ts', { MOLR_E2E_SANDBOX_SERVICE: '1', MOLR_E2E_PREVIEW: '1' }],
+    ]);
+    for (const [command, env] of required) {
+      const projectCommand = command === 'npm run test:website' ? command : command + (command.includes(' -- ') ? ' --project=${{ matrix.project }}' : ' -- --project=${{ matrix.project }}');
+      const matching = browser.steps.filter(step => step.run === projectCommand);
+      assert.equal(matching.length, 1, `${provider}: missing browser suite ${command}`);
+      assert.equal(matching[0]['continue-on-error'], undefined);
+      assert.equal(matching[0].if, command.includes('test:webui') ? "runner.os == 'Linux'" : command === 'npm run test:website' ? "matrix.project == 'desktop'" : undefined);
+      assert.deepEqual(matching[0].env ?? {}, env);
+    }
+    assert(browser.steps.some(step => step.uses === `./.${provider}/actions/setup-build`));
+    assert(browser.steps.some(step => step.uses === './.github/actions/prepare-sandbox' && step.if === "runner.os == 'Linux'"));
+    assert(browser.steps.some(step => step.run === 'npx playwright install --with-deps chromium'));
+    const upload = browser.steps.at(-1);
+    assert.equal(upload.if, 'failure()');
+    for (const app of ['website', 'ui-design', 'webui']) assert(upload.with.path.includes(`apps/${app}/test-results/`));
   }
 });
 
@@ -217,7 +250,7 @@ test('Gitea validates selected native packages from shared assets and enforces t
   assert.equal(evaluations.length, 2);
   for (const step of evaluations) assert(nativeSteps.indexOf(step) > packageIndex);
   assert.equal(ci.jobs.browser.strategy.matrix, '${{ fromJSON(needs.source.outputs.browser_matrix) }}');
-  assert.deepEqual(plan.browser_matrix.include.map(p => p.runner), ['molr-linux-amd64', 'molr-macos-arm64']);
+  assert.deepEqual(plan.browser_matrix.include.map(p => [p.runner, p.project]), ['molr-linux-amd64', 'molr-macos-arm64'].flatMap(runner => ['desktop', 'mobile'].map(project => [runner, project])));
   assert.deepEqual(ci.jobs.installer.needs, ['source', 'native']);
   assert.equal(ci.jobs.installer.strategy.matrix, '${{ fromJSON(needs.source.outputs.installer_matrix) }}');
   assert.deepEqual(plan.installer_matrix.include.map(p => `${p.os}-${p.arch}`).sort(), platforms.map(p => p.id).sort());
@@ -287,7 +320,7 @@ test('Gitea selection filters every platform combination and never creates extra
       const install = installers === 'enabled' ? selected.filter(id => id !== 'windows-amd64') : [];
       assert.equal(plan.browser_enabled, String(browser.length > 0));
       assert.equal(plan.installer_enabled, String(install.length > 0));
-      if (browser.length) assert.deepEqual(plan.browser_matrix.include.map(p => p.runner).sort(), browser.map(id => 'molr-' + id).sort());
+      if (browser.length) assert.deepEqual(plan.browser_matrix.include.map(p => `${p.runner}/${p.project}`).sort(), browser.flatMap(id => ['desktop', 'mobile'].map(project => `molr-${id}/${project}`)).sort());
       if (install.length) assert.deepEqual(plan.installer_matrix.include.map(p => p.runner).sort(), install.map(id => 'molr-install-' + id).sort());
       assert(plan.browser_matrix.include.length > 0);
       assert(plan.installer_matrix.include.length > 0);

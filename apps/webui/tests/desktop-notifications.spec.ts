@@ -109,10 +109,15 @@ test('badge tracks real unread messages while hidden, persists and clears indepe
     const response = await page.request.post(path, { headers: { Origin: `http://127.0.0.1:${port}`, 'X-CSRF-Token': csrf }, data: mutation ? { ...data, Mutation: { IdempotencyKey: crypto.randomUUID(), ExpectedVersion: 0 } } : data });
     expect(response.ok(), await response.text()).toBe(true); return response.json();
   }
-  const chats = await (await page.request.get('/api/conversations')).json();
-  for (const chat of chats.Items) await post('/api/conversations/read', { ConversationID: chat.ID, ThroughSequence: chat.LastSequence }, false);
+  let cursor = '';
+  do {
+    const chats = await (await page.request.get(`/api/conversations${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`)).json();
+    for (const chat of chats.Items) await post('/api/conversations/read', { ConversationID: chat.ID, ThroughSequence: chat.LastSequence }, false);
+    cursor = chats.NextCursor ?? '';
+  } while (cursor);
   await page.getByRole('switch', { name: 'Desktop notifications', exact: true }).uncheck();
   await badge.check();
+  await expect.poll(count).toBe(0);
   await page.evaluate(() => {
     Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
     document.dispatchEvent(new Event('visibilitychange'));
@@ -121,6 +126,7 @@ test('badge tracks real unread messages while hidden, persists and clears indepe
   const resource = await post('/api/resources', { Name: `Badge ${Date.now()}`, Kind: 'model', Provider: 'openai-compatible', Binding: { Endpoint: origin, AllowedOrigins: [origin], Models: [{ Name: 'badge-fixture', ContextLimit: 32768, SupportsTools: true, Pricing: { Currency: 'USD', InputMicrosPerMillion: 0, OutputMicrosPerMillion: 0, CachedInputMicrosPerMillion: 0 } }] } });
   const models = await (await page.request.get('/api/models')).json();
   const assistant = await post('/api/assistants', { Name: 'Badge assistant', ModelID: models.find((m: any) => m.ResourceID === resource.ID).ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } });
+  await expect.poll(async () => (await (await page.request.get(`/api/conversations/${assistant.ConversationID}`)).json()).UnreadCount).toBe(1);
   await expect.poll(count).toBe(1);
   const chat = await (await page.request.get(`/api/conversations/${assistant.ConversationID}`)).json();
   await post('/api/conversations/read', { ConversationID: chat.ID, ThroughSequence: chat.LastSequence }, false);

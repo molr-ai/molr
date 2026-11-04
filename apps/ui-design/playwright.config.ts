@@ -3,6 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 const port = process.env.MOLR_TEST_PORT ?? process.env.MOLR_UI_DESIGN_TEST_PORT ?? '5188';
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${port}`;
 export default defineConfig({
+  forbidOnly: !!process.env.CI,
   testDir: './tests',
   fullyParallel: true,
   workers: process.env.CI ? 2 : 3,

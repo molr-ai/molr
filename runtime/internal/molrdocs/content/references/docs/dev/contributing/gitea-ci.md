@@ -2,6 +2,8 @@
 
 `.gitea/workflows/ci.yml` 在所有 PR、`main` 推送及手动触发时运行 CI，默认覆盖全部平台，也可按下文选择范围。源码检查执行一次，WebUI 与桌面前端产物构建一次，随后由五个平台的原生任务下载并校验版本、提交、依赖锁文件和内容摘要，再构建 Runtime、测试桌面、打包并验证最终安装包。Linux AMD64 和 macOS ARM64 分别执行浏览器测试，四个独立安装任务验证 Unix Runtime 包；本次选择的所有任务成功后 `Gitea CI passed` 才通过。共享前端、Runtime 安装包和桌面安装包保留七天。
 
+浏览器矩阵按平台和桌面／手机项目拆分，WebUI 任务各使用独立 Runtime 与数据。UI Design 在两个项目中执行，官网测试只在各平台的桌面任务执行一次。Linux 另执行完整 WebUI 桌面／手机套件，使用委派沙盒服务，并分别执行 MCP、插件 HTTP 专项及共享生产产物的懒加载测试。GPU 用例需要显式配置硬件。浏览器组被选中时属于必需门禁，断言失败会阻止最终检查通过。
+
 桌面验收已并入同一个工作流，不按 PR 路径跳过，也没有单独的 `desktop.yml` 入口。原生矩阵复用 `nativeBuildMatrix()`，按选择的平台过滤，并将 runner 名称转换为下表的本地标签。发布继续由 `.github/workflows/` 管理，其发布门禁仍检查 GitHub 自己的 CI 记录。
 
 ## 选择 CI 范围
@@ -93,11 +95,11 @@ Linux 独立安装验收会卸载 Bubblewrap、静态 BusyBox、AppArmor profile
 
 工作流使用普通 jobs，不依赖可复用 workflow；原生构建、浏览器和安装任务均检出源码任务记录的同一提交，安装验收下载同次运行的构建产物。共享工具准备位于 `.gitea/actions/setup-build/action.yml`，仍使用本地镜像的 v7 actions。Gitea 1.23 的服务器功能与新 runner 独立，不能通过升级 runner 假定 `permissions`、`concurrency` 或 GitHub 的 PR 合并预览语义生效。参见 [1.23 兼容差异](https://docs.gitea.com/1.23/usage/actions/comparison/)和 [PR 触发说明](https://docs.gitea.com/1.23/usage/actions/faq/)。
 
-浏览器任务失败时，将 `apps/website/test-results/` 上传为 `website-failure-<runner 标签>`，保留七天；没有诊断文件时跳过上传。文档导航和桌面下载测试会保存错误、页面地址、网络／页面异常、截图及 `trace.zip`。下载后可运行 `npx playwright show-trace <trace.zip>` 排查；这些测试只使用人工资料。断言失败仍会使任务及最终门禁失败，上传诊断不改变验证结果。
+浏览器任务失败时，将 `apps/website/test-results/`、`apps/ui-design/test-results/` 和 `apps/webui/test-results/` 上传为 `browser-failure-<runner 标签>-<project>`，保留七天；没有诊断文件时跳过上传。文档导航和桌面下载测试会保存错误、页面地址、网络／页面异常、截图及 `trace.zip`。下载后可运行 `npx playwright show-trace <trace.zip>` 排查；这些测试只使用人工资料。断言失败仍会使任务及最终门禁失败，上传诊断不改变验证结果。
 
 接入验收依次检查：
 
-1. 手动触发 `Gitea CI`，核对日志中的选择范围，确认源码检查、共享前端构建和所有选中的任务通过。全平台验收显式填写 `platforms=all`、`installers=enabled`，应包含五个原生任务、两个浏览器任务及四个独立安装任务；独立安装任务须完成 server、sandbox 两种模式验收。已选任务失败、取消或意外跳过时，最终门禁必须失败。
+1. 手动触发 `Gitea CI`，核对日志中的选择范围，确认源码检查、共享前端构建和所有选中的任务通过。全平台验收显式填写 `platforms=all`、`installers=enabled`，应包含五个原生任务、四个浏览器任务及四个独立安装任务；独立安装任务须完成 server、sandbox 两种模式验收。已选任务失败、取消或意外跳过时，最终门禁必须失败。
 2. 检查所选平台的桌面安装包均实际完成解包／安装、应用启动和包内 Runtime 生命周期验收，并能下载对应的 `ci-desktop-*` 和 Unix `ci-runtime-*` 产物。该流程固定构建 `0.1.0-local`：macOS 使用 ad-hoc 签名，Windows 不使用发布者签名，均直接完成打包，不执行 Apple 公证；无需签名证书或发布凭据。
 3. 用普通 PR 验证按仓库变量自动选择 CI 范围，不应出现按路径跳过桌面验收的情况。单机接入时验证未选平台不进入等待队列，独立安装组按配置跳过；增加其他 runner 后再扩大变量中的范围并验证。
 

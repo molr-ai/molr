@@ -2,21 +2,23 @@ import { test, expect } from '@playwright/test';
 
 test('admin count retention reclaims history without losing live context and rejects member changes', async ({ page, browser }, info) => {
   test.setTimeout(150_000);
-  const port = process.env.MOLR_TEST_PORT ?? '5193', base = `http://127.0.0.1:${port}`;
-  await page.goto('/');
-  await page.getByLabel('Username', { exact: true }).fill('owner');
-  await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!');
+  // Retention is Runtime-wide; do not prune the main suite's accumulated history.
+  const port = process.env.MOLR_TEST_SECOND_PORT ?? String(Number(process.env.MOLR_TEST_PORT ?? '5193') + 1), base = `http://127.0.0.1:${port}`;
+  const get = (path: string) => page.request.get(base + path);
+  await page.goto(base + '/');
+  await page.getByLabel('Username', { exact: true }).fill('second-owner');
+  await page.getByLabel('Password', { exact: true }).fill('second-webui-e2e-password-2026!');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('navigation', { name: 'Molr' })).toBeVisible();
   const post = async (path: string, data: object, version?: number) => {
     const csrf = (await page.context().cookies()).find(c => c.name === `molr_dev_csrf_p${port}`)!.value;
-    return page.request.post(path, { headers: { Origin: base, 'X-CSRF-Token': csrf }, data: { ...data, Mutation: { IdempotencyKey: crypto.randomUUID(), ExpectedVersion: version } } });
+    return page.request.post(base + path, { headers: { Origin: base, 'X-CSRF-Token': csrf }, data: { ...data, Mutation: { IdempotencyKey: crypto.randomUUID(), ExpectedVersion: version } } });
   };
   const mutate = async (path: string, data: object, version?: number) => { const response = await post(path, data, version); expect(response.status(), await response.text()).toBe(200); return response.json(); };
-  expect((await (await page.request.get('/api/sandbox')).json()).Capabilities.Reason).toBe('available');
-  const initial = await (await page.request.get('/api/admin/debug/retention')).json();
+  expect((await (await get('/api/sandbox')).json()).Capabilities.Reason).toBe('available');
+  const initial = await (await get('/api/admin/debug/retention')).json();
   try {
-    await page.goto('/#/settings/workbench');
+    await page.goto(base + '/#/settings/workbench');
     const count = page.getByLabel('Maximum executions', { exact: true });
     await expect(count).toHaveValue(''); await expect(count).toHaveAttribute('placeholder', '1000');
     await expect(page.getByLabel('Retention days', { exact: true })).toHaveCount(0);
@@ -25,44 +27,46 @@ test('admin count retention reclaims history without losing live context and rej
     await count.fill('2'); await page.getByRole('button', { name: 'Save retention policy', exact: true }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Retention policy saved' })).toBeVisible();
     await page.reload(); await expect(count).toHaveValue('2');
-    await expect.poll(async () => (await (await page.request.get('/api/admin/debug/retention')).json()).Configured).toEqual({ MaxRuns: 2 });
+    await expect.poll(async () => (await (await get('/api/admin/debug/retention')).json()).Configured).toEqual({ MaxRuns: 2 });
     expect((await post('/api/admin/debug/retention', { Policy: initial.Configured }, initial.Version)).status()).toBe(409);
-    const settings = await (await page.request.get('/api/settings')).json();
+    const settings = await (await get('/api/settings')).json();
     await mutate('/api/settings', { Settings: { ...settings, WorkbenchVisible: true } }, settings.Version);
+    await page.reload();
+    await expect(page.getByRole('navigation').getByRole('button', { name: 'Workbench', exact: true })).toBeVisible();
     const name = `Retention ${info.project.name}-${Date.now()}`, origin = `http://127.0.0.1:${process.env.MOLR_E2E_MODEL_PORT ?? 18882}`;
     const resource = await mutate('/api/resources', { Name: name, Kind: 'model', Provider: 'openai-compatible', Binding: { Endpoint: origin, AllowedOrigins: [origin], Models: [{ Name: name, ContextLimit: 32768, SupportsTools: true, Pricing: { Currency: 'USD', InputMicrosPerMillion: 0, CachedInputMicrosPerMillion: 0, OutputMicrosPerMillion: 0 } }] } });
-    const models = await (await page.request.get('/api/models')).json();
+    const models = await (await get('/api/models')).json();
     const assistant = await mutate('/api/assistants', { Name: name, ModelID: models.find((m: { ResourceID: string }) => m.ResourceID === resource.ID).ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } });
-    await page.goto(`/#/workbench/${assistant.ID}`);
+    await page.goto(base + `/#/workbench/${assistant.ID}`);
     await page.reload();
     await expect(page.locator('.trajectory-overview')).toBeVisible();
-    await expect(page.locator('.workbench-header + .trajectory-overview')).toBeVisible();
-    await expect(page.locator('.trajectory-overview ~ .trajectory-controls')).toBeVisible();
+    await expect(page.locator('.workbench-header + .trajectory-controls')).toBeVisible();
+    await expect(page.locator('.trajectory-controls + .trajectory-overview')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Duration axis', exact: true })).toBeVisible();
     await expect(page.locator('.trajectory-table-heading, .trajectory-time-labels, .workbench-retention, .trajectory-cleanup')).toHaveCount(0);
     await expect(page.locator('.trajectory-boundary[data-boundary="start"]')).toHaveText('No earlier events');
     await expect(page.locator('.workbench-view-heading, .trajectory-history')).toHaveCount(0);
     // Birth is a separate execution; wait for the exact user event in each iteration.
-    await expect.poll(async () => (await (await page.request.get(`/api/assistants/${assistant.ID}/status`)).json()).State).toBe('idle');
+    await expect.poll(async () => (await (await get(`/api/assistants/${assistant.ID}/status`)).json()).State).toBe('idle');
     const seen: string[] = [];
     for (let i = 0; i < 3; i++) {
       await mutate('/api/conversations/messages', { ConversationID: assistant.ConversationID, Content: { Kind: 'text', Text: `Retention event ${i}` } });
       await expect.poll(async () => {
-        const rows = (await (await page.request.get(`/api/debug/runs?assistant_id=${assistant.ID}`)).json()).Items;
+        const rows = (await (await get(`/api/debug/runs?assistant_id=${assistant.ID}`)).json()).Items;
         const fresh = rows.find((r: { ID: string; State: string; Source?: { Text?: string } }) => r.Source?.Text === `Retention event ${i}` && !seen.includes(r.ID) && r.State === 'succeeded');
         if (fresh) { seen.push(fresh.ID); return true; } return false;
       }, { timeout: 30_000 }).toBe(true);
     }
-    const runs = (await (await page.request.get(`/api/debug/runs?assistant_id=${assistant.ID}`)).json()).Items;
+    const runs = (await (await get(`/api/debug/runs?assistant_id=${assistant.ID}`)).json()).Items;
     expect(runs.map((r: { ID: string }) => r.ID)).toEqual(seen.slice(-2).reverse());
-    expect((await page.request.get(`/api/debug/runs/${seen[0]}`)).status()).toBe(404);
-    const latest = await (await page.request.get(`/api/debug/runs/${seen[2]}`)).json();
+    expect((await get(`/api/debug/runs/${seen[0]}`)).status()).toBe(404);
+    const latest = await (await get(`/api/debug/runs/${seen[2]}`)).json();
     const saved = latest.Steps.find((s: { Kind: string }) => s.Kind === 'checkpoint.saved');
-    const detail = await (await page.request.get(`/api/debug/runs/${latest.ID}/steps/${saved.Sequence}`)).json();
+    const detail = await (await get(`/api/debug/runs/${latest.ID}/steps/${saved.Sequence}`)).json();
     expect(detail.Data.ContextOmitted).toBe(true); expect(detail.Data.Checkpoint).toBeUndefined();
-    const checkpoint = await (await page.request.get(`/api/debug/assistants/${assistant.ID}/checkpoint`)).json();
+    const checkpoint = await (await get(`/api/debug/assistants/${assistant.ID}/checkpoint`)).json();
     expect(checkpoint.Data.Context.Inputs.length).toBeGreaterThan(0);
-    await page.goto(`/#/workbench/${assistant.ID}`);
+    await page.goto(base + `/#/workbench/${assistant.ID}`);
     await page.reload();
     const scroll = page.locator('.trajectory-scroll');
     await scroll.focus(); await page.keyboard.press('Home');
@@ -95,9 +99,9 @@ test('admin count retention reclaims history without losing live context and rej
       expect((await member.request.post(`${base}/api/admin/debug/retention`, { headers: { Origin: base, 'X-CSRF-Token': csrf }, data: { Policy: initial.Configured, Mutation: { IdempotencyKey: crypto.randomUUID(), ExpectedVersion: initial.Version + 1 } } })).status()).toBe(403);
     } finally { await memberContext.close(); }
   } finally {
-    const current = await (await page.request.get('/api/admin/debug/retention')).json();
+    const current = await (await get('/api/admin/debug/retention')).json();
     await mutate('/api/admin/debug/retention', { Policy: initial.Configured }, current.Version);
-    await page.goto('/#/settings/workbench'); await page.reload();
+    await page.goto(base + '/#/settings/workbench'); await page.reload();
     await expect(page.getByLabel('Maximum executions', { exact: true })).toHaveValue('');
     await expect(page.getByLabel('Maximum executions', { exact: true })).toHaveAttribute('placeholder', '1000');
   }

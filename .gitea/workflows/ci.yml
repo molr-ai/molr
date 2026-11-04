@@ -197,7 +197,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   browser:
-    needs: source
+    needs: [source, assets]
     if: ${{ needs.source.outputs.browser_enabled == 'true' }}
     strategy:
       fail-fast: false
@@ -208,10 +208,7 @@ jobs:
         with:
           ref: ${{ needs.source.outputs.commit }}
           persist-credentials: false
-      - uses: actions/setup-node@v7
-        with:
-          node-version: '22.21.0'
-          package-manager-cache: false
+      - uses: ./.gitea/actions/setup-build
       - name: Verify native runner platform
         env:
           MOLR_CI_RUNNER: ${{ matrix.runner }}
@@ -221,18 +218,56 @@ jobs:
           const arch = label.endsWith('-amd64') ? 'x64' : 'arm64';
           if (process.platform !== os || process.arch !== arch) throw new Error('Runner label does not match native platform: ' + label);
           console.log(process.platform, process.arch, process.version);"
-      - run: npm ci
-      - run: npx playwright install --with-deps --no-shell chromium
+      - run: npx playwright install --with-deps chromium
         env:
           PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: '120000'
-      - run: npm run test:website
-      - name: Upload website failure diagnostics
+      - if: runner.os == 'Linux'
+        uses: ./.github/actions/prepare-sandbox
+      - if: matrix.project == 'desktop'
+        run: npm run test:website
+      - name: UI Design browser tests
+        run: npm run test:ui -- --project=${{ matrix.project }}
+      - if: runner.os == 'Linux'
+        name: WebUI browser tests
+        run: npm run test:webui -- --project=${{ matrix.project }}
+        env:
+          MOLR_E2E_SANDBOX_SERVICE: '1'
+      - if: runner.os == 'Linux'
+        name: WebUI MCP integration
+        run: npm run test:webui -- mcp-tools.spec.ts --project=${{ matrix.project }}
+        env:
+          MOLR_E2E_SANDBOX_SERVICE: '1'
+          MOLR_E2E_MCP: '1'
+      - if: runner.os == 'Linux'
+        name: WebUI plugin HTTP integration
+        run: npm run test:webui -- plugin-http.spec.ts --project=${{ matrix.project }}
+        env:
+          MOLR_E2E_SANDBOX_SERVICE: '1'
+          MOLR_E2E_PLUGIN_HTTP: '1'
+      - if: runner.os == 'Linux'
+        uses: actions/gitea-download-artifact@v8
+        with:
+          name: ci-application-assets
+          path: .cache/assets-download
+      - if: runner.os == 'Linux'
+        name: Verify shared application assets for production tests
+        run: tar -xzf .cache/assets-download/application-assets.tar.gz && node scripts/build-assets.mjs --verify
+      - if: runner.os == 'Linux'
+        name: WebUI production lazy loading
+        run: npm run test:webui -- lazy-pages.spec.ts --project=${{ matrix.project }}
+        env:
+          MOLR_E2E_PREVIEW: '1'
+          MOLR_E2E_SANDBOX_SERVICE: '1'
+      - name: Upload browser failure diagnostics
         if: failure()
         uses: actions/gitea-upload-artifact@v7
         with:
           overwrite: true
-          name: website-failure-${{ matrix.runner }}
-          path: apps/website/test-results/
+          name: browser-failure-${{ matrix.runner }}-${{ matrix.project }}
+          path: |
+            apps/website/test-results/
+            apps/ui-design/test-results/
+            apps/webui/test-results/
           if-no-files-found: ignore
           retention-days: 7
   installer:

@@ -21,6 +21,7 @@ for (const manual of [false, true]) test(`hiring permission and unique conversat
  const parent = await post(page, '/api/assistants', { Name: name, ModelID: model.ID, Budget: { Limit: { Currency: 'USD', Micros: 10_000_000 }, Period: 'daily' } });
  const peer = await post(page, '/api/assistants', { Name: `Peer ${name}`, ModelID: model.ID, Budget: { Limit: { Currency: 'USD', Micros: 10_000_000 }, Period: 'daily' } });
  await page.goto(`/#/assistants/${parent.ID}`);
+ await page.reload();
  await page.locator('.chat-assistant-info').click();
  await page.getByRole('tab', { name: 'Permissions', exact: true }).click();
  const panel = page.locator('.assistant-info');

@@ -1,6 +1,13 @@
 import { test, expect, type Page } from '@playwright/test';
 const port = process.env.MOLR_TEST_PORT ?? process.env.MOLR_E2E_PORT ?? '5193';
 const base = `http://127.0.0.1:${port}`;
+async function login(page: Page, username: string) {
+  await page.goto('/');
+  await page.getByLabel('Username', { exact: true }).fill(username);
+  await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByRole('navigation', { name: 'Molr' })).toBeVisible();
+}
 async function post(page: Page, path: string, data: object) {
   const csrf = (await page.context().cookies()).find(c => c.name === `molr_dev_csrf_p${port}`)!.value;
   const reply = await page.request.post(path, { headers: { Origin: base, 'X-CSRF-Token': csrf }, data: { ...data, Mutation: { IdempotencyKey: crypto.randomUUID() } } });
@@ -10,11 +17,15 @@ async function post(page: Page, path: string, data: object) {
 test.skip(process.env.MOLR_E2E_SANDBOX_SERVICE !== '1', 'Requires delegated Linux sandbox services');
 test('grouped compute and network quotas preserve owner edits and fund automatic networking', async ({ page }, info) => {
   test.setTimeout(120_000);
-  await page.goto('/');
-  await page.getByLabel('Username', { exact: true }).fill('owner');
-  await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!');
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page.getByRole('navigation', { name: 'Molr' })).toBeVisible();
+  await login(page, 'owner');
+  // Other tests can fill the bounded permission catalog before network choices.
+  // Give this end-to-end quota scenario its own account and resource catalog.
+  const username = `quota-${info.project.name}-${Date.now()}`;
+  await post(page, '/api/admin/users', { Username: username, Password: 'webui-e2e-password-2026!', GroupID: 'administrators' });
+  await page.goto('/#/account/security');
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await expect(page.getByLabel('Username', { exact: true })).toBeVisible();
+  await login(page, username);
   const sandbox = await (await page.request.get('/api/sandbox')).json();
   expect(sandbox.Capabilities.Reason).toBe('available');
   const name = `Permission quota ${info.project.name} ${Date.now()}`;
@@ -58,6 +69,6 @@ test('grouped compute and network quotas preserve owner edits and fund automatic
   expect(usage.Network.Connections).toBe(0);
   await page.reload();
   await expect(card).toContainText('768 MiB');
-  await expect(card.locator('.permission-request-expiry')).toHaveCount(1);
+  await expect(card.locator('.permission-request-meta__expiry')).toHaveCount(1);
   await page.screenshot({ path: info.outputPath('quota-approved.png') });
 });

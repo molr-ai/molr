@@ -9,7 +9,7 @@ for (const panel of ['browser', 'terminal']) test(`${panel} start state keeps on
   await page.route('**/api/resources?*', route => route.fulfill({ json: { Items: [{ ID: 'compute', State: 'available', SandboxID: 'local', Name: 'Compute' }] } }));
   await page.route('**/api/grants?*', route => route.fulfill({ json: { Items: granted ? [{ ResourceID: 'compute', Scope: {}, Actions: ['execute'] }] : [] } }));
   await page.route('**/api/assistants/terminal-fixture/shell-tasks*', route => route.fulfill({ json: { Items: [] } }));
-  await page.route('**/api/assistants/terminal-fixture/browser', async route => {
+  await page.route(url => url.pathname === '/api/assistants/terminal-fixture/browser', async route => {
     if (route.request().method() === 'GET') return route.fulfill({ json: { Available: true, SandboxAvailable: true } });
     requests++; await pending; await route.fulfill({ status: 500, json: { code: 'internal' } });
   });

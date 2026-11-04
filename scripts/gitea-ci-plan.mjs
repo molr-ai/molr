@@ -29,7 +29,7 @@ export function giteaCIPlan({ platforms = '', installers = '' } = {}) {
     matrix: { include: native },
     // Keep matrices valid even on servers that expand them before evaluating job.if.
     // The corresponding enabled output prevents scheduling the placeholder job.
-    browser_matrix: { include: browsers.length ? browsers : [{ runner: 'molr-linux-amd64' }] },
+    browser_matrix: { include: browsers.length ? browsers.flatMap(target => ['desktop', 'mobile'].map(project => ({ ...target, project }))) : [{ runner: 'molr-linux-amd64', project: 'desktop' }] },
     installer_matrix: { include: installs.length ? installs : [{ runner: 'molr-install-linux-amd64' }] },
     browser_enabled: String(browsers.length > 0),
     installer_enabled: String(installs.length > 0),

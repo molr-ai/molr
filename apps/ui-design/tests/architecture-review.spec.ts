@@ -67,6 +67,7 @@ test('catalogs switch brand, product, hidden previews and parameterized copy tog
   const dialog = page.getByRole('dialog', { name: '克隆助理', exact: true });
   await expect(dialog).toContainText('确认克隆「Molr」？');
   await dialog.getByRole('button', { name: '取消', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
   await chooseOption(page.getByRole('combobox', { name: '语言', exact: true }), 'English');
   await expect(shell.getByRole('textbox', { name: 'Message your assistant' })).toBeVisible();
   await shell.locator('.conversation-header').getByRole('button', { name: 'More', exact: true }).click();

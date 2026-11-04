@@ -20,8 +20,7 @@ test('saved language cookie takes priority and persists after sign-out', async (
   await page.getByLabel('用户名', { exact: true }).fill('owner');
   await page.getByLabel('密码', { exact: true }).fill('webui-e2e-password-2026!');
   await page.getByRole('button', { name: '登录', exact: true }).click();
-  await page.getByRole('combobox', { name: 'Language', exact: true }).click();
-  await page.getByRole('option', { name: '简体中文', exact: true }).click();
+  await page.getByRole('group', { name: 'Language', exact: true }).getByRole('radio', { name: '简体中文', exact: true }).check();
   await expect.poll(async () => (await context.cookies()).find(cookie => cookie.name === name)?.value).toBe('zh');
   const cookie = (await context.cookies()).find(cookie => cookie.name === name)!;
   expect(cookie.expires).toBeGreaterThan(Date.now() / 1000 + 86400);
@@ -35,8 +34,7 @@ test('saved language cookie takes priority and persists after sign-out', async (
   await page.getByLabel('密码', { exact: true }).fill('webui-e2e-password-2026!');
   await page.getByRole('button', { name: '登录', exact: true }).click();
   await page.goto('/#/account/general');
-  await page.getByRole('combobox', { name: '语言', exact: true }).click();
-  await page.getByRole('option', { name: 'English', exact: true }).click();
+  await page.getByRole('group', { name: '语言', exact: true }).getByRole('radio', { name: 'English', exact: true }).check();
   await expect.poll(async () => (await context.cookies()).find(cookie => cookie.name === name)?.value).toBe('en');
 });
 

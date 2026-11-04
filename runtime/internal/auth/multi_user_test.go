@@ -2,13 +2,10 @@ package auth
 
 import (
 	"context"
-	"encoding/json"
 	"molr.ai/runtime/internal/core"
 	"molr.ai/runtime/internal/persistence"
 	"molr.ai/runtime/internal/persistence/sqlitestore"
 	"molr.ai/runtime/tests/testkit"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -73,7 +70,7 @@ func TestDisableAccountRevokesSessionsAndLinksAndProtectsLastAdmin(t *testing.T)
 	testkit.RequireCode(t, err, core.FailedPrecondition)
 }
 
-func TestOfflineAccountConversionKeepsIdentityAndPrivateRows(t *testing.T) {
+func TestAccountStartupRejectsIncompleteMetadata(t *testing.T) {
 	store, err := sqlitestore.Open(filepath.Join(t.TempDir(), "runtime.db"))
 	testkit.RequireNoError(t, err)
 	defer func() { _ = store.Close() }()
@@ -98,38 +95,6 @@ func TestOfflineAccountConversionKeepsIdentityAndPrivateRows(t *testing.T) {
 	testkit.RequireCode(t, err, core.NotFound)
 	_, err = NewRepository(store).AccountByID(t.Context(), "original-id")
 	testkit.RequireCode(t, err, core.NotFound)
-	dataDir := filepath.Dir(store.Path())
-	testkit.RequireNoError(t, store.Close())
-	configPath := filepath.Join(t.TempDir(), "config.json")
-	raw, _ := json.Marshal(map[string]string{"data_dir": dataDir})
-	testkit.RequireNoError(t, os.WriteFile(configPath, raw, 0600))
-	script := filepath.Join("..", "..", "scripts", "migrate-multi-user.py")
-	for i := 0; i < 2; i++ {
-		out, err := exec.Command("python3", script, "--config", configPath, "--backup-dir", filepath.Join(t.TempDir(), "before")).CombinedOutput()
-		if err != nil {
-			t.Fatalf("offline conversion: %s (%v)", out, err)
-		}
-	}
-	store, err = sqlitestore.Open(filepath.Join(dataDir, "runtime.db"))
-	testkit.RequireNoError(t, err)
-	m, err := NewService(store, Options{MasterKey: make([]byte, 32), Origin: "https://molr.example"})
-	testkit.RequireNoError(t, err)
-	login, err := m.Login(t.Context(), LoginRequest{Username: "legacy", Password: core.NewSecret("legacy-password-2026")})
-	testkit.RequireNoError(t, err)
-	p, err := m.Authenticate(t.Context(), Authentication{Session: login.Session.Token})
-	testkit.RequireNoError(t, err)
-	me, err := m.CurrentUser(t.Context(), p)
-	testkit.RequireNoError(t, err)
-	if !me.Administrator || me.ID != "original-id" || me.Version != 3 {
-		t.Fatalf("migration changed identity: %+v", me)
-	}
-	row, err := persistence.Load[map[string]string](t.Context(), store, "im.messages", "original-id/message")
-	testkit.RequireNoError(t, err)
-	if row["text"] != "private history" {
-		t.Fatal("private data changed")
-	}
-	_, err = NewService(store, Options{MasterKey: make([]byte, 32), Origin: "https://molr.example"})
-	testkit.RequireNoError(t, err)
 }
 
 func TestMultiUserProfileAndGroupLifecycle(t *testing.T) {

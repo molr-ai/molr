@@ -10,6 +10,7 @@ async function post(page: Page, path: string, data: object) {
   expect(response.status(), await response.text()).toBe(200); return response.json();
 }
 async function fixture(page: Page) {
+  test.setTimeout(90_000);
   await page.goto('/');
   await page.getByLabel('Username', { exact: true }).fill('owner');
   await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!');
@@ -22,8 +23,11 @@ async function fixture(page: Page) {
   await page.goto(`/#/assistants/${assistant.ID}`);
   const input = page.getByRole('textbox', { name: 'Message your assistant', exact: true }), send = page.getByRole('button', { name: 'Send', exact: true });
   await input.fill('Please request compute permission.'); await send.click();
-  await expect(page.locator('.permission-request-card')).toBeVisible();
   const path = `/api/permission-requests?assistant_id=${assistant.ID}`;
+  // A full catalog requires several tool-result file reads before the proposal.
+  // Wait for the real model fixture, then retain the normal UI assertion timeout.
+  await expect.poll(async () => (await (await page.request.get(path)).json()).length, { timeout: 60_000 }).toBeGreaterThan(0);
+  await expect(page.locator('.permission-request-card')).toBeVisible();
   const [proposal]: PermissionRequest[] = await (await page.request.get(path)).json();
   // Model/Runtime creation is real; controlled list/resolve responses exercise
   // concurrent arrivals and partial failures without timing-dependent scheduling.

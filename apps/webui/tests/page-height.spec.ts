@@ -3,6 +3,7 @@ import type { Assistant, Model, Resource, Settings } from '@molr/sdk';
 import type { PluginPackage } from '@molr/sdk/plugins';
 import type { RoutePage } from '../src/navigation';
 import { checkPageHeight, expectFitsWebView } from './viewport';
+import { selectPlanRange } from './plan-controls';
 
 const port = process.env.MOLR_TEST_PORT ?? '5193', base = `http://127.0.0.1:${port}`;
 const password = 'webui-e2e-password-2026!';
@@ -45,14 +46,14 @@ test('login, session restoration and invalid login links fit short WebViews', as
   await page.getByLabel('Username', { exact: true }).fill('not-a-user');
   await page.getByLabel('Password', { exact: true }).fill('invalid-password');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page.locator('.login-page').getByRole('alert')).toBeVisible();
+  await expect(page.getByText('Incorrect username or password. Please try again.', { exact: true })).toBeVisible();
   await checkPageHeight(page);
   await page.goto('/#/login?token=invalid');
   await expect(page.getByRole('button', { name: 'Sign in with password', exact: true })).toBeVisible();
   await checkPageHeight(page);
   await page.route('**/api/auth/me', route => route.abort('failed'));
   await page.goto('/');
-  await expect(page.locator('.session-page').getByRole('alert')).toBeVisible();
+  await expect(page.locator('.ui-toast--danger').getByRole('button', { name: 'Retry', exact: true })).toBeVisible();
   await checkPageHeight(page);
   await page.unroute('**/api/auth/me');
 });
@@ -118,16 +119,24 @@ test('every route and settings section stays within the WebView', async ({ page 
       await checkPageHeight(page);
     });
     await test.step('plan list and calendar', async () => {
-      await visit(page, 'plans', '.plan-row');
+      await visit(page, 'plans', '.plans-workspace');
+      await page.getByRole('button', { name: 'List', exact: true }).click();
+      await selectPlanRange(page, 'Upcoming');
       await expect(page.locator('.plan-row').filter({ hasText: title }).first()).toBeVisible();
       await page.getByRole('button', { name: 'Calendar', exact: true }).click();
+      await page.getByRole('button', { name: 'Month', exact: true }).click();
       await expect(page.locator('.plans-month-calendar')).toBeVisible();
       await checkPageHeight(page);
     });
     await test.step('resource categories and sandbox sections', async () => {
-      await visit(page, `resources/${resource.ID}`, '.resource-models-list');
+      await visit(page, `resources/${resource.ID}`, '.resources-workspace');
+      const provider = page.getByRole('dialog', { name: resource.Name, exact: true });
+      await expect(provider).toBeVisible();
+      await checkPageHeight(page);
+      await provider.getByRole('button', { name: 'Close', exact: true }).click();
+      await expect(provider).toHaveCount(0);
       const categories = page.locator('.resources-categories > [role="tablist"]').getByRole('tab');
-      await expect(categories).toHaveCount(3);
+      await expect(categories).toHaveText(['Models', 'Tools', 'Skills', 'Sandboxes']);
       for (const tab of await categories.all()) {
         await tab.click(); await expect(tab).toHaveAttribute('aria-selected', 'true');
         await checkPageHeight(page);

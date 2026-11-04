@@ -399,7 +399,7 @@ WebUI 支持上传 10 MB / 4000 万像素以内的 PNG、JPEG、WebP，浏览器
 
 ### 助理自改资料工具
 
-内置 `profile_update` 接收可选 `name`、`status`、`avatar` 和必填 `expected_version`；至少提供名称、状态或头像之一。头像对象的 `type` 为 `preset`（`id` 使用上述预设目录）、`file`（`path`，可选 `sandbox_id` / `resource_id`，与 `file_read` 路径规则一致）或 `clear`。省略字段保持不变，拒绝 `null`、未知参数、外部 URL 和 Base64。工具对象由执行身份确定，不接收 `assistant_id`。
+内置 `profile_update` 接收可选 `name`、`status`、`avatar` 和必填 `expected_version`；至少提供名称、状态或头像之一。头像对象的 `type` 为 `preset`（`avatar_id` 使用上述预设目录）、`file`（`path`，可选 `sandbox_id` / `resource_id`，与 `file_read` 路径规则一致）或 `clear`。省略字段保持不变，拒绝 `null`、未知参数、外部 URL 和 Base64。工具对象由执行身份确定，不接收 `assistant_id`。
 
 `assistant.Service.UpdateSelfProfile` 校验当前助理身份并在事务中校验版本，只写 `Name` / `Status` / `Avatar`，同时保存幂等回执和 `assistant.profile` 实时事件。图片读取支持本地及远程沙盒，使用原有读取授权、边界路径与符号链接检查；PNG/JPEG/WebP 限 10 MiB / 4000 万像素，由 Runtime 居中裁剪、缩放、重编码为 256 × 256 JPEG，再执行现有头像校验。处理图片不需要模型具备视觉输入能力。
 
