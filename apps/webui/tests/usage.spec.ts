@@ -55,7 +55,10 @@ test('member usage and admin statistics share actual call totals', async ({ page
     expect(row.Spent).toEqual(personal.Summary.Spent);
     expect(JSON.stringify(stats)).not.toContain('Private usage fixture message');
     expect((await member.request.get('/api/admin/usage')).status()).toBe(403);
-    const dates = '?from=' + new Date().getUTCFullYear() + '-01-01&until=' + (new Date().getUTCFullYear() + 1) + '-01-01&timezone=Asia%2FShanghai';
+    // Use the member's configured calendar, just as UsageAnalytics does.
+    const timezone = (await request(member, '/api/settings/currency')).Timezone;
+    const year = Number(new Intl.DateTimeFormat('en', { year: 'numeric', timeZone: timezone }).format(new Date()));
+    const dates = `?from=${year}-01-01&until=${year + 1}-01-01&timezone=${encodeURIComponent(timezone)}`;
     const analytics = await request(member, '/api/account/usage' + dates);
     expect(analytics.Summary.TotalTokens).toBe(analytics.Summary.ModelCalls * 40);
     expect(analytics.Summary.Spent).toEqual(personal.Summary.Spent);
