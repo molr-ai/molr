@@ -9,7 +9,6 @@ export function ModalPresence({ children }: { children: ReactNode }) {
   const parent = useContext(ModalPresenceContext);
   const present = Children.toArray(children).some(child => child !== '') && parent?.present !== false;
   const [retained, setRetained] = useState<ReactNode>(present ? children : null);
-  if (present && retained !== children) setRetained(children);
   const current = useRef(present);
   const registrations = useRef(new Set<symbol>());
   const lifecycle = useMemo(() => {
@@ -27,7 +26,13 @@ export function ModalPresence({ children }: { children: ReactNode }) {
       },
     };
   }, [parent?.register]);
-  useLayoutEffect(() => { current.current = present; if (!present) lifecycle.check(); }, [present, lifecycle]);
+  useLayoutEffect(() => {
+    current.current = present;
+    // Capture the committed subtree. A render-phase update can be lost when
+    // React rebases an earlier empty-presence cleanup during a rapid close.
+    if (present) setRetained(children);
+    else lifecycle.check();
+  }, [present, children, lifecycle]);
   const context = useMemo(() => ({ present, register: lifecycle.register }), [present, lifecycle]);
   return <ModalPresenceContext.Provider value={context}>{present ? children : retained}</ModalPresenceContext.Provider>;
 }

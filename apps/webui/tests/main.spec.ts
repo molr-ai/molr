@@ -2602,6 +2602,7 @@ test('sandbox access grants can be created edited and revoked from the resource'
     await expect(revoke).not.toBeVisible();
     await expect(access).toContainText('No assistants authorized');
     await expect.poll(async () => (await grants()).Items.filter((g: any) => !g.RevokedAt).length).toBe(0);
+    await closeToasts();
     await page.keyboard.press('Escape');
     const compute = (await (await page.request.get('/api/resources?kind=compute')).json()).Items.find((r: any) => r.State === 'available');
     await page.goto(`/#/resources/${compute.ID}`);
