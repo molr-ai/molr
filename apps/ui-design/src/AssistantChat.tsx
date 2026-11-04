@@ -23,7 +23,7 @@ export function AssistantChat({ demo, locale, openTasks, openAccess, openSchedul
     const el = log.current;
     if (!active || !documentVisible || !el) return;
     const follow = () => {
-      if (!el.clientHeight || el.closest('[hidden], [inert]')) return;
+      if (!el.clientHeight || el.closest('[hidden]')) return;
       viewportHeight.current = el.clientHeight;
       if (atBottom.current) { el.scrollTop = el.scrollHeight; demo.markAssistantRead(assistant.id); }
     };
@@ -55,7 +55,7 @@ export function AssistantChat({ demo, locale, openTasks, openAccess, openSchedul
     </header>
     <div className="assistant-chat__messages" ref={log} role="log" aria-label={t.assistantChat.assistantConversation} onScroll={() => {
       const el = log.current;
-      if (!el || !active || !documentVisible || !el.clientHeight || el.closest('[hidden], [inert]')) return;
+      if (!el || !active || !documentVisible || !el.clientHeight || el.closest('[hidden]')) return;
       if (el.clientHeight !== viewportHeight.current) {
         viewportHeight.current = el.clientHeight;
         if (atBottom.current) el.scrollTop = el.scrollHeight;
