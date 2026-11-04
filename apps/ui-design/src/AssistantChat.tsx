@@ -33,7 +33,7 @@ export function AssistantChat({ demo, locale, openTasks, openAccess, openSchedul
     const observer = new ResizeObserver(follow);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [active, documentVisible, assistant.id, assistant.messages.length]);
+  }, [active, documentVisible, assistant.id, assistant.messages.length, sidebar?.open]);
   return <div className="assistant-chat">
     <header className="conversation-header">
       {onBack && <IconButton className="conversation-back" size="sm" label={t.assistantChat.backToAssistants} onClick={onBack}><ArrowLeft size={18} /></IconButton>}

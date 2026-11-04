@@ -87,7 +87,11 @@ test('search quick navigation and result navigation open the existing preview pa
   await dialog.getByRole('searchbox').fill('travel');
   await dialog.getByRole('combobox', { name: 'Filter search types', exact: true }).click();
   await dialog.getByRole('listbox', { name: 'Filter search types', exact: true }).getByRole('option', { name: 'Resources', exact: true }).click();
-  await page.keyboard.press('Escape');
+  await expect(dialog.getByRole('region', { name: 'Resources', exact: true }).getByRole('button').first()).toContainText('Travel notes');
+  // Filtering can reposition the sheet and dismiss its popover. Focus the
+  // input directly instead of an Escape that could dismiss the search itself.
+  await dialog.getByRole('searchbox').focus();
+  await expect(dialog.getByRole('combobox', { name: 'Filter search types', exact: true })).toHaveAttribute('aria-expanded', 'false');
   await dialog.getByRole('searchbox').press('Enter');
   await expect(shell.locator('.ip-page-heading h3')).toHaveText('Travel notes');
   await shell.getByRole('navigation', { name: 'Workspace navigation' }).getByRole('button', { name: 'Assistant', exact: true }).click();

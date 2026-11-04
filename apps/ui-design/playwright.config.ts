@@ -11,6 +11,8 @@ export default defineConfig({
   timeout: 30_000,
   use: {
     baseURL,
+    // Match WebUI and local verification with Chromium's full headless browser.
+    channel: 'chromium',
     locale: 'en-US',
     timezoneId: 'Asia/Shanghai',
     launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined },
