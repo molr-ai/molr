@@ -3,6 +3,8 @@ import { chooseOption } from './select-helpers';
 
 const themes = [['forest', 'Forest'], ['ocean', 'Ocean'], ['iris', 'Iris'], ['sand', 'Sand'], ['rose', 'Rose'], ['monochrome', 'Monochrome']] as const;
 test('all palettes update real surfaces in both appearances and survive reload', async ({ page }, info) => {
+  // Twelve palette/appearance combinations, persistence, and a narrow layout.
+  test.setTimeout(60_000);
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/#colors');

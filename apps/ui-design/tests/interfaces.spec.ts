@@ -62,6 +62,7 @@ test('task revisions remain in the conversation and preserve previous deliverabl
 });
 
 test('unread counts stay isolated and hidden previews never mark a conversation read', async ({ page }) => {
+  const unread = () => page.evaluate(() => { const a = JSON.parse(localStorage.getItem('molr-assistant-prototype-v1')!).assistants[0]; return a.messages.filter((m: {role: string}) => m.role === 'assistant').length - a.readMessageCount; });
   const ui = await panel(page);
   const list = await assistantList(ui);
   await expect(list.getByRole('button', { name: 'Molr', exact: true }).locator('.assistant-unread')).toHaveCount(0);
@@ -73,10 +74,24 @@ test('unread counts stay isolated and hidden previews never mark a conversation 
   const cli = await panel(page, 'CLI');
   await cli.getByRole('textbox', { name: 'Terminal command' }).fill('say Hello while hidden');
   await cli.getByRole('textbox', { name: 'Terminal command' }).press('Enter');
-  await expect.poll(() => page.evaluate(() => { const a = JSON.parse(localStorage.getItem('molr-assistant-prototype-v1')!).assistants[0]; return a.messages.filter((m: {role: string}) => m.role === 'assistant').length - a.readMessageCount; })).toBe(1);
+  await expect.poll(unread).toBe(1);
   await chat(page);
+  await expect.poll(() => ui.getByRole('log').evaluate(el => el.scrollHeight - el.scrollTop - el.clientHeight)).toBeLessThan(2);
   await assistantList(ui);
   await expect(list.getByRole('button', { name: 'Molr', exact: true }).locator('.assistant-unread')).toHaveCount(0);
+  // Resizing and hiding must also preserve deliberate history reading.
+  await chat(page);
+  await ui.getByRole('log').evaluate(el => { el.scrollTop = 0; el.dispatchEvent(new Event('scroll')); });
+  await assistantList(ui);
+  await panel(page, 'CLI');
+  await cli.getByRole('textbox', { name: 'Terminal command' }).fill('say Another hidden reply');
+  await cli.getByRole('textbox', { name: 'Terminal command' }).press('Enter');
+  await expect.poll(unread).toBe(1);
+  await chat(page);
+  expect(await ui.getByRole('log').evaluate(el => el.scrollTop)).toBe(0);
+  expect(await unread()).toBe(1);
+  await ui.getByRole('log').evaluate(el => { el.scrollTop = el.scrollHeight; });
+  await expect.poll(unread).toBe(0);
   const mobile = await chat(page, 'Mobile', '旅行助理');
   await expect(mobile.locator('.conversation-status')).toHaveText('Idle');
 });

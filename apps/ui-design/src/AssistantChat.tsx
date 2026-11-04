@@ -1,6 +1,6 @@
 import { planMessages } from './plan-messages';
 import { productMessages } from './i18n';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowLeft, CalendarDays, Copy, Ellipsis, ListTodo, PanelLeft, Pencil, Pin, Shield, UserMinus, X } from 'lucide-react';
 import { Button, ChatCard, ChatStatus, DropdownMenu, IconButton } from '@molr/ui';
 import type { Locale } from './messages';
@@ -11,7 +11,7 @@ import { statusLabels } from './interface-demo';
 
 export function AssistantChat({ demo, locale, openTasks, openAccess, openSchedule, onRename, onPin, onClone, onDismiss, onBack, sidebar, active }: { demo: InterfaceDemo; locale: Locale; openTasks: () => void; openAccess: () => void; openSchedule: () => void; onRename: () => void; onPin: () => void; onClone: () => void; onDismiss: () => void; onBack?: () => void; sidebar?: { id: string; open: boolean; onToggle: () => void }; active: boolean }) {
   const t = productMessages[locale];
-  const log = useRef<HTMLDivElement>(null); const atBottom = useRef(true); const assistant = demo.activeAssistant;
+  const log = useRef<HTMLDivElement>(null); const atBottom = useRef(true); const viewportHeight = useRef(0); const assistant = demo.activeAssistant;
   const [documentVisible, setDocumentVisible] = useState(document.visibilityState !== 'hidden');
   const task = demo.works.find(item => item.id === assistant.reference);
   const running = demo.works.find(item => ['running', 'verifying'].includes(item.status));
@@ -19,7 +19,21 @@ export function AssistantChat({ demo, locale, openTasks, openAccess, openSchedul
   const status = !demo.connected ? t.assistantChat.disconnected : assistant.pendingReply ? t.assistantChat.typing : running ? running.status === 'verifying' ? t.assistantChat.verifyingResults : running.stage < 2 ? t.assistantChat.browsingFilesToolCall : t.assistantChat.preparingContent : waiting ? t.assistantChat.waitingForYou : t.common.idle;
   const statusKind = !demo.connected ? 'error' : assistant.pendingReply ? 'typing' : running ? (running.status === 'verifying' || running.stage < 2 ? 'acting' : 'thinking') : waiting ? 'waiting' : 'idle';
   useEffect(() => { const change = () => setDocumentVisible(document.visibilityState !== 'hidden'); document.addEventListener('visibilitychange', change); return () => document.removeEventListener('visibilitychange', change); }, []);
-  useEffect(() => { if (active && documentVisible && atBottom.current) { if (log.current) log.current.scrollTop = log.current.scrollHeight; demo.markAssistantRead(assistant.id); } }, [active, documentVisible, assistant.id, assistant.messages.length]);
+  useLayoutEffect(() => {
+    const el = log.current;
+    if (!active || !documentVisible || !el) return;
+    const follow = () => {
+      if (!el.clientHeight || el.closest('[hidden], [inert]')) return;
+      viewportHeight.current = el.clientHeight;
+      if (atBottom.current) { el.scrollTop = el.scrollHeight; demo.markAssistantRead(assistant.id); }
+    };
+    follow();
+    // Opening the compact sidebar shrinks the chat. Preserve following through
+    // that layout change instead of treating its scroll event as history reading.
+    const observer = new ResizeObserver(follow);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [active, documentVisible, assistant.id, assistant.messages.length]);
   return <div className="assistant-chat">
     <header className="conversation-header">
       {onBack && <IconButton className="conversation-back" size="sm" label={t.assistantChat.backToAssistants} onClick={onBack}><ArrowLeft size={18} /></IconButton>}
@@ -39,7 +53,17 @@ export function AssistantChat({ demo, locale, openTasks, openAccess, openSchedul
         ]} />
       </div>
     </header>
-    <div className="assistant-chat__messages" ref={log} role="log" aria-label={t.assistantChat.assistantConversation} onScroll={() => { const el = log.current; if (!el || !active || !documentVisible || !el.clientHeight) return; atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 36; if (atBottom.current) demo.markAssistantRead(assistant.id); }}>
+    <div className="assistant-chat__messages" ref={log} role="log" aria-label={t.assistantChat.assistantConversation} onScroll={() => {
+      const el = log.current;
+      if (!el || !active || !documentVisible || !el.clientHeight || el.closest('[hidden], [inert]')) return;
+      if (el.clientHeight !== viewportHeight.current) {
+        viewportHeight.current = el.clientHeight;
+        if (atBottom.current) el.scrollTop = el.scrollHeight;
+        return;
+      }
+      atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 36;
+      if (atBottom.current) demo.markAssistantRead(assistant.id);
+    }}>
       {!assistant.messages.length && <p className="assistant-empty">{t.assistantChat.sayHelloOrAskThisAssistantToHelpWith}</p>}
       {assistant.messages.map(message => {
         const related = demo.works.find(w => w.id === message.taskId);
