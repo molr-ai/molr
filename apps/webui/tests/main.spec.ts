@@ -1581,6 +1581,7 @@ test('fast pages skip skeletons, slow first reads show them, and revisits retain
   await quick.release(); await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
   await page.clock.runFor(500); await expect(page.locator('.ui-skeleton')).toHaveCount(0);
   await page.getByRole('navigation').getByRole('button', { name: 'Resources', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Resources', exact: true })).toBeVisible();
   const updatedTitle = `${title} updated`;
   await post(page, '/api/todos/update', { ID: todo.ID, Title: updatedTitle, Mutation: { ExpectedVersion: todo.Version, IdempotencyKey: crypto.randomUUID() } }, false);
   const revisit = await holdRead(page, '**/api/plans?*');
@@ -1605,6 +1606,7 @@ test('cached content is discarded on access denial and when signing out', async 
   await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await selectPlanRange(page, /^No date/);
   await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
   await page.getByRole('navigation').getByRole('button', { name: 'Resources', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Resources', exact: true })).toBeVisible();
   await page.route('**/api/plans?*', route => route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ code: 'forbidden' }) }));
   await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await selectPlanRange(page, /^No date/);
   await expect(page.getByRole('alert')).toContainText('Permission or security verification failed');
@@ -1612,6 +1614,7 @@ test('cached content is discarded on access denial and when signing out', async 
   await page.unroute('**/api/plans?*');
   await page.locator('.ui-toasts').getByRole('button', { name: 'Close', exact: true }).click();
   await page.getByRole('navigation').getByRole('button', { name: 'Resources', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Resources', exact: true })).toBeVisible();
   const denied = await holdRead(page, '**/api/plans?*');
   await page.getByRole('navigation').getByRole('button', { name: 'Plans', exact: true }).click(); await selectPlanRange(page, /^No date/); await denied.started;
   await expect(page.getByRole('heading', { name: title, exact: true })).toHaveCount(0);

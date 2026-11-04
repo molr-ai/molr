@@ -69,7 +69,9 @@ test('drawer has square edges and slides both ways before releasing the modal', 
 test('drawer reverses from its current position and cancels motion on unmount', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
-  await page.clock.install();
+  // Hold the reopen timer until the interrupted exit has been measured.
+  await page.clock.install({ time: new Date('2026-10-01T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-10-01T00:00:01Z'));
   const trigger = page.getByRole('button', { name: 'Open motion drawer' });
   const drawer = page.locator('.ui-drawer');
   await trigger.click();

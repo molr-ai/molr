@@ -11,30 +11,33 @@ async function pauseExit(dialog: Locator, button: string) {
   await finish(dialog);
   await dialog.evaluate(async (element, button) => {
     const animate = element.animate;
-    let slide: Animation | undefined;
+    let started!: () => void, disappeared!: () => void;
+    const exit = new Promise<void>((resolve, reject) => {
+      started = resolve;
+      disappeared = () => reject(new Error('Conditional modal unmounted before its exit animation started'));
+    });
     // Pause at creation: a busy runner can consume the entire 220ms exit
     // before a MutationObserver continuation gets back onto the main thread.
     element.animate = function(keyframes, options) {
       const animation = animate.call(this, keyframes, options);
-      if (animation.id === 'molr-drawer-slide' && this.getAttribute('data-state') === 'closed') {
-        slide = animation; animation.pause(); animation.currentTime = 110;
+      if (animation.id === 'molr-drawer-slide') {
+        animation.pause(); animation.currentTime = 110;
+        started();
       }
       return animation;
     };
-    let observer: MutationObserver;
-    const changed = new Promise<void>(resolve => {
-      observer = new MutationObserver(() => {
-        if (!element.isConnected || element.getAttribute('data-state') === 'closed') { observer.disconnect(); resolve(); }
-      });
-      observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-state'] });
+    const observer = new MutationObserver(() => {
+      if (!element.isConnected) disappeared();
     });
+    observer.observe(document.body, { subtree: true, childList: true });
     try {
       [...element.querySelectorAll('button')].find(item => item.textContent === button)!.click();
-      await changed;
-      if (!element.isConnected || !slide) throw new Error('Conditional modal disappeared before exit');
+      // A closed DOM attribute does not establish that the layout effect has
+      // created the animation. Synchronize with that animation itself.
+      await exit;
     } finally {
       element.animate = animate;
-      observer!.disconnect();
+      observer.disconnect();
     }
   }, button);
 }
@@ -88,7 +91,8 @@ test('nested presence closes independently and parent closure waits for all laye
 
 test('rapid reopening preserves draft and hard owner unmount cleans up', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
-  await page.clock.install();
+  await page.clock.install({ time: new Date('2026-10-01T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-10-01T00:00:01Z'));
   const trigger = page.getByRole('button', { name: 'Open retained bottom', exact: true });
   const dialog = page.getByRole('dialog', { name: 'Retained details', exact: true });
   await trigger.click(); await dialog.getByLabel('Retained draft').fill('Keep during reversal');
@@ -132,7 +136,8 @@ test('controlled drawers keep selected content until exit then release it', asyn
 
 
 test('a late load cannot replace the closing modal', async ({ page }) => {
-  await page.clock.install();
+  await page.clock.install({ time: new Date('2026-10-01T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-10-01T00:00:01Z'));
   const trigger = page.getByRole('button', { name: 'Open loading modal' });
   await trigger.click();
   const dialog = page.getByRole('dialog', { name: 'Loading modal', exact: true });
