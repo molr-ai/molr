@@ -304,10 +304,10 @@
     {
       "file": "apps/webui/src/interfaces/official/features/ShellTasks.tsx",
       "reason": "A visible output archive may grow without a domain event for every byte.",
-      "budget": "Active visible output backs off from 1.5s to 15s when empty; stop at EOF, hide, or unmount.",
+      "budget": "Active visible output backs off from 1.5s to 15s when empty; stop at confirmed output EOF even before the task list refreshes, or on hide/unmount.",
       "tests": ["apps/webui/tests/shell-polling.spec.ts"],
       "sites": [
-        {"scope": "ShellTasks", "api": "poll", "delay": "async (signal) => { try { const data = await api.read<ShellTaskOutput>(path, { action: 'read', task_id: selected, cursor: cursor.current, stream }, signal); if (signal.aborted) return false; setError(false); cursor.current = data.NextCursor; setOutput(previous => (previous + plain(data.Output)).slice(-65536)); const finished = taskState.current && taskState.current.State !== 'running'; if (finished && data.Finished === true && !data.Output) { loop.stop(); return false; } idleDelay = data.Output ? 1500 : Math.min(15000, idleDelay * 2); return finished && !data.Finished && !data.Output ? 30000 : idleDelay; } catch (error) { if (!signal.aborted) setError(true); throw error; } }", "loops": 0}
+        {"scope": "ShellTasks", "api": "poll", "delay": "async (signal) => { try { const data = await api.read<ShellTaskOutput>(path, { action: 'read', task_id: selected, cursor: cursor.current, stream }, signal); if (signal.aborted) return false; setError(false); cursor.current = data.NextCursor; setOutput(previous => (previous + plain(data.Output)).slice(-65536)); const finished = taskState.current && taskState.current.State !== 'running'; if (data.Finished === true && !data.Output) { loop.stop(); return false; } idleDelay = data.Output ? 1500 : Math.min(15000, idleDelay * 2); return finished && !data.Finished && !data.Output ? 30000 : idleDelay; } catch (error) { if (!signal.aborted) setError(true); throw error; } }", "loops": 0}
       ]
     },
     {

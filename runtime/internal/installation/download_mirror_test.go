@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
@@ -121,27 +122,31 @@ func TestPackageMirrorRestartsPartialDownloadAndChecksDigest(t *testing.T) {
 }
 
 func TestDownloadLowSpeedWatchdog(t *testing.T) {
-	for _, stalled := range []bool{false, true} {
-		ctx, cancel := context.WithCancel(context.Background())
-		var received atomic.Int64
-		done := make(chan struct{})
-		go func() { watchDownload(ctx, cancel, &received, 40*time.Millisecond, 10); close(done) }()
-		if !stalled {
-			for i := 0; i < 12; i++ {
-				received.Add(20)
-				time.Sleep(10 * time.Millisecond)
+	synctest.Test(t, func(t *testing.T) {
+		for _, stalled := range []bool{false, true} {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			var received atomic.Int64
+			done := make(chan struct{})
+			go func() { watchDownload(ctx, cancel, &received, 40*time.Millisecond, 10); close(done) }()
+			synctest.Wait()
+			if !stalled {
+				for i := 0; i < 12; i++ {
+					received.Add(20)
+					time.Sleep(10 * time.Millisecond)
+				}
+				if ctx.Err() != nil {
+					t.Fatal("healthy download cancelled")
+				}
+				cancel()
 			}
-			if ctx.Err() != nil {
-				t.Fatal("healthy download cancelled")
+			select {
+			case <-done:
+			case <-time.After(time.Second):
+				t.Fatal("watchdog did not stop blocked download")
 			}
-			cancel()
 		}
-		select {
-		case <-done:
-		case <-time.After(time.Second):
-			t.Fatal("watchdog did not stop blocked download")
-		}
-	}
+	})
 }
 
 func TestDownloadAbortsStalledTLSAndBody(t *testing.T) {

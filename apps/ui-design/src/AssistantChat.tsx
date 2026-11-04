@@ -39,7 +39,7 @@ export function AssistantChat({ demo, locale, openTasks, openAccess, openSchedul
         ]} />
       </div>
     </header>
-    <div className="assistant-chat__messages" ref={log} role="log" aria-label={t.assistantChat.assistantConversation} onScroll={() => { const el = log.current; if (!el) return; atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 36; if (atBottom.current && active && documentVisible) demo.markAssistantRead(assistant.id); }}>
+    <div className="assistant-chat__messages" ref={log} role="log" aria-label={t.assistantChat.assistantConversation} onScroll={() => { const el = log.current; if (!el || !active || !documentVisible || !el.clientHeight) return; atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 36; if (atBottom.current) demo.markAssistantRead(assistant.id); }}>
       {!assistant.messages.length && <p className="assistant-empty">{t.assistantChat.sayHelloOrAskThisAssistantToHelpWith}</p>}
       {assistant.messages.map(message => {
         const related = demo.works.find(w => w.id === message.taskId);

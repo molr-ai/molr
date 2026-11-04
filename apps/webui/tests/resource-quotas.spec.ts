@@ -18,14 +18,9 @@ test.skip(process.env.MOLR_E2E_SANDBOX_SERVICE !== '1', 'Requires delegated Linu
 test('grouped compute and network quotas preserve owner edits and fund automatic networking', async ({ page }, info) => {
   test.setTimeout(120_000);
   await login(page, 'owner');
-  // Other tests can fill the bounded permission catalog before network choices.
-  // Give this end-to-end quota scenario its own account and resource catalog.
+  // An administrator sees every model created by the full suite. Restrict this
+  // account to its model and sandbox so the bounded permission catalog is stable.
   const username = `quota-${info.project.name}-${Date.now()}`;
-  await post(page, '/api/admin/users', { Username: username, Password: 'webui-e2e-password-2026!', GroupID: 'administrators' });
-  await page.goto('/#/account/security');
-  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
-  await expect(page.getByLabel('Username', { exact: true })).toBeVisible();
-  await login(page, username);
   const sandbox = await (await page.request.get('/api/sandbox')).json();
   expect(sandbox.Capabilities.Reason).toBe('available');
   const name = `Permission quota ${info.project.name} ${Date.now()}`;
@@ -33,7 +28,18 @@ test('grouped compute and network quotas preserve owner edits and fund automatic
   const provider = await post(page, '/api/resources', { Name: name, Kind: 'model', Provider: 'openai-compatible', Binding: { Endpoint: origin, AllowedOrigins: [origin], Models: [{ Name: name, ContextLimit: 65536, SupportsTools: true, Pricing: { Currency: 'USD', InputMicrosPerMillion: 0, CachedInputMicrosPerMillion: 0, OutputMicrosPerMillion: 0 } }] } });
   await post(page, '/api/sandboxes/resource', { SandboxID: 'local', Kind: 'network', SourceID: 'preset:host', Name: `Quota network ${info.project.name}` });
   const models = await (await page.request.get('/api/models')).json();
-  const assistant = await post(page, '/api/assistants', { Name: name, ModelID: models.find((m: { ResourceID: string }) => m.ResourceID === provider.ID).ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } });
+  const model = models.find((m: { ResourceID: string }) => m.ResourceID === provider.ID);
+  const group = await post(page, '/api/admin/groups', { Group: { Name: username, Administrator: false, Resources: [
+    { Kind: 'model', ID: model.ID, Quota: {} }, { Kind: 'sandbox', ID: 'local', Quota: {} },
+    ...['conversation_read', 'conversation_publish', 'permission_list', 'permission_request', 'shell_execute', 'shell_task', 'file_read'].map(ID => ({ Kind: 'tool', ID, Quota: {} })),
+  ] } });
+  await post(page, '/api/admin/users', { Username: username, Password: 'webui-e2e-password-2026!', GroupID: group.ID });
+  await page.goto('/#/account/security');
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await expect(page.getByLabel('Username', { exact: true })).toBeVisible();
+  await login(page, username);
+  expect((await (await page.request.get('/api/models')).json()).map((m: { ID: string }) => m.ID)).toEqual([model.ID]);
+  const assistant = await post(page, '/api/assistants', { Name: name, ModelID: model.ID, Budget: { Limit: { Currency: 'USD', Micros: 0 }, Period: 'daily' } });
   await page.goto(`/#/assistants/${assistant.ID}`);
   await page.getByRole('textbox', { name: 'Message your assistant', exact: true }).fill('Request compute and network quotas together.');
   await page.getByRole('button', { name: 'Send', exact: true }).click();

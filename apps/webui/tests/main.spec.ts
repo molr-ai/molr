@@ -627,7 +627,7 @@ test('model selector groups providers and automatically searches larger catalogs
   await dialog.getByRole('spinbutton', { name: 'Spending limit (USD)', exact: true }).fill('0');
   await dialog.getByRole('button', { name: 'Hire new assistant', exact: true }).click();
   await expect(dialog).not.toBeVisible();
-  const assistants = (await (await page.request.get('/api/assistants')).json()).Items;
+  const assistants = (await (await page.request.get(`/api/assistants?name=${encodeURIComponent(`Grouped assistant ${suffix}`)}`)).json()).Items;
   expect(assistants.find((assistant: { Name: string }) => assistant.Name === `Grouped assistant ${suffix}`).ModelID).toBe(catalog.find((model: { ResourceID: string; Name: string }) => model.ResourceID === providers[1].ID && model.Name === 'Shared chat').ID);
   await assistantMenu(page, 'Assistant information');
     await page.getByRole('dialog', { name: 'Assistant information', exact: true }).getByRole('tab', { name: 'Permissions', exact: true }).click();
@@ -2120,12 +2120,14 @@ test('chat sidebar animates layout both ways, reverses smoothly and respects red
   const slot = page.locator('.chat-side-panel');
   const panel = page.getByRole('complementary', { name: 'Assistant information', exact: true });
   const pause = async () => {
-    await page.waitForFunction(() => document.querySelector('.chat-side-panel')?.getAnimations().some(animation => animation.id === 'molr-chat-panel-size'));
-    return slot.evaluate(element => {
+    const width = await page.waitForFunction(() => {
+      const element = document.querySelector('.chat-side-panel');
+      if (!element?.getAnimations().some(animation => animation.id === 'molr-chat-panel-size')) return false;
       const animations = [...element.getAnimations(), ...Array.from(element.querySelectorAll('.ui-drawer')).flatMap(drawer => drawer.getAnimations())];
       for (const animation of animations) { animation.pause(); animation.currentTime = Number(animation.effect!.getTiming().duration) / 2; }
       return element.getBoundingClientRect().width;
     });
+    return Number(await width.jsonValue());
   };
   const finish = () => slot.evaluate(element => {
     for (const animation of [...element.getAnimations(), ...Array.from(element.querySelectorAll('.ui-drawer')).flatMap(drawer => drawer.getAnimations())]) animation.finish();

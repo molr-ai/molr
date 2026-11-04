@@ -63,7 +63,8 @@ export function ShellTasks({ assistantID, docked, onClose }: { assistantID: stri
         setError(false); cursor.current = data.NextCursor;
         setOutput(previous => (previous + plain(data.Output)).slice(-65536));
         const finished = taskState.current && taskState.current.State !== 'running';
-        if (finished && data.Finished === true && !data.Output) { loop.stop(); return false; }
+        // The output endpoint confirms EOF even if the list snapshot is still running.
+        if (data.Finished === true && !data.Output) { loop.stop(); return false; }
         idleDelay = data.Output ? 1500 : Math.min(15_000, idleDelay * 2);
         return finished && !data.Finished && !data.Output ? 30_000 : idleDelay;
       } catch (error) { if (!signal.aborted) setError(true); throw error; }

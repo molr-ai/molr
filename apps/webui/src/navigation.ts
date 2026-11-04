@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 export type RoutePage = 'plans' | 'assistants' | 'todos' | 'schedules' | 'resources' | 'settings' | 'workbench' | 'extensions' | 'account';
 const pages: RoutePage[] = ['plans', 'assistants', 'todos', 'schedules', 'resources', 'settings', 'workbench', 'extensions', 'account'];
-function readRoute() {
-  const [path, query = ''] = location.hash.replace(/^#\/?/, '').split('?');
+function readRoute(hash = location.hash) {
+  const [path, query = ''] = hash.replace(/^#\/?/, '').split('?');
   const [raw, rawID = '', contribution = ''] = path.split('/');
   let entry = contribution;
   try { entry = decodeURIComponent(contribution); } catch { entry = ''; }
@@ -22,9 +22,15 @@ function readRoute() {
 export function guardedNavigation(action: () => void) {
   if (window.dispatchEvent(new CustomEvent('molr:before-navigation', { cancelable: true, detail: action }))) action();
 }
+function subscribeRoute(changed: () => void) {
+  window.addEventListener('hashchange', changed);
+  return () => window.removeEventListener('hashchange', changed);
+}
+const routeSnapshot = () => location.hash;
 export function useNavigation() {
-  const [route, setRoute] = useState(readRoute);
-  useEffect(() => { const update = () => setRoute(readRoute()); window.addEventListener('hashchange', update); return () => window.removeEventListener('hashchange', update); }, []);
+  // Recheck the URL when a suspended page subscribes: a rapid navigation may
+  // have happened after render but before its effects were attached.
+  const route = readRoute(useSyncExternalStore(subscribeRoute, routeSnapshot));
   const navigate = useCallback((page: RoutePage, id = '', turnID = '', messageID = '') => guardedNavigation(() => {
     if (page === 'todos' || page === 'schedules') page = 'plans';
     if (page !== 'workbench') turnID = '';
@@ -33,7 +39,6 @@ export function useNavigation() {
     if (turnID) query.set('turn', turnID);
     if (messageID) query.set('message', messageID);
     location.hash = `/${page}${id ? `/${(page === 'extensions' ? id.split('/').map(encodeURIComponent).join('/') : encodeURIComponent(id))}` : ''}${query.size ? `?${query}` : ''}`;
-    setRoute({ page, id, turnID, eventID: '', messageID, panel: undefined, taskID: '' });
   }), []);
   const closePanel = useCallback(() => {
     if (!readRoute().panel) return;

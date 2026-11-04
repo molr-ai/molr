@@ -55,6 +55,9 @@ export function DropdownMenu({ trigger, label, items, align = 'start' }: Dropdow
       }}>
       {items.map((item, index) => {
         const button = <button type="button" role={item.selected === undefined ? "menuitem" : "menuitemradio"} aria-checked={item.selected} data-menu-index={index} tabIndex={open && index === active ? 0 : -1} aria-disabled={item.disabled || undefined} className={`ui-menu__item${item.danger ? ' ui-menu__item--danger' : ''}`}
+          // Native pointer focus can smoothly scroll the page between down/up,
+          // moving the anchored menu away from the click. Keyboard focus remains roving.
+          onMouseDown={event => { if (!item.disabled) event.preventDefault(); }}
           onFocus={() => { if (!item.disabled || item.disabledReason) setActive(index); }} onClick={() => { if (!item.disabled) { close(); item.onSelect(); } }}>
           {item.icon && <span aria-hidden="true">{item.icon}</span>}<span>{item.label}</span>{item.shortcut && <kbd>{item.shortcut}</kbd>}{item.selected && <UIIcon name="check" className="ui-menu__check" />}
         </button>;
