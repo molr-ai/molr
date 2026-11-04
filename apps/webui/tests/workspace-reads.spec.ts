@@ -34,7 +34,8 @@ test('workspace reads join background requests and cancel replaced or unmounted 
 });
 
 test('directory polling recovers recreated paths and resumes after an explicit access retry', async ({ page }) => {
-  await page.clock.install(); await page.clock.pauseAt(new Date());
+  await page.clock.install({ time: new Date('2026-10-01T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-10-01T00:00:01Z'));
   let status = 404, calls = 0;
   await page.route('**/api/assistants/reader/workspace?*', async route => {
     calls++;

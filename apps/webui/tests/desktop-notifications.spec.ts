@@ -177,8 +177,8 @@ test('badge shares foreground queries and hands off without stale counts or dupl
   await badge.check();
   await expect.poll(count).toBe(2);
   expect(requests).toBe(beforeEnable);
-  await page.clock.install();
-  await page.clock.pauseAt(new Date());
+  await page.clock.install({ time: new Date('2026-10-01T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-10-01T00:00:01Z'));
   hold = true;
   async function visibility(value: 'visible' | 'hidden') {
     await page.evaluate(value => {

@@ -64,7 +64,8 @@ test('workspace file lifecycle, draft conflicts, floating geometry and mobile na
   await create.getByRole('button', { name: 'Confirm', exact: true }).click();
   await expect(panel.getByRole('button', { name: 'Edit', exact: true })).toBeVisible();
   await panel.getByRole('button', { name: 'Edit', exact: true }).click();
-  await page.clock.install(); await page.clock.pauseAt(new Date());
+  await page.clock.install({ time: new Date('2026-10-01T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-10-01T00:00:01Z'));
   const counts = () => page.evaluate(() => ({ ...(window as unknown as { workspaceRenders: Record<string, number> }).workspaceRenders }));
   const beforeTyping = await counts();
   expect(beforeTyping.WorkspaceDirectory).toBeGreaterThan(0);
@@ -92,7 +93,7 @@ test('workspace file lifecycle, draft conflicts, floating geometry and mobile na
   await expect(page.getByRole('dialog', { name: 'Unsaved changes', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Keep working', exact: true }).click();
   // Delay a real version check: ticks and focus must not overlap file reads.
-  await page.clock.pauseAt(new Date());
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
   let statRequests = 0, contentRequests = 0;
   let release!: () => void;
   const held = new Promise<void>(resolve => { release = resolve; });

@@ -58,8 +58,8 @@ test('revoking a connected session returns to login without periodic polling', a
   await page.getByLabel('Password', { exact: true }).fill('webui-e2e-password-2026!');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect.poll(() => page.evaluate(() => (window as any).runtimeConnected)).toBe(true);
-  await page.clock.install();
-  await page.clock.pauseAt(new Date());
+  await page.clock.install({ time: new Date('2026-10-01T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-10-01T00:00:01Z'));
   const principal = await (await page.request.get('/api/auth/me')).json();
   const origin = new URL(page.url()).origin;
   const port = new URL(origin).port;

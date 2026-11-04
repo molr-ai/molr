@@ -2,8 +2,8 @@ import { test, expect } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
-  await page.clock.install();
-  await page.clock.pauseAt(new Date());
+  await page.clock.install({ time: new Date('2026-10-01T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-10-01T00:00:01Z'));
 });
 
 test('shared query polling serializes slow requests, shares the fastest cadence, and pauses hidden/offline', async ({ page }) => {
