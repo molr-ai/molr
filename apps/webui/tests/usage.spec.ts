@@ -168,6 +168,9 @@ test('usage omits empty model choices and labels unassigned history', async ({ p
   await expect(page.locator('.usage-table').getByRole('button', { name: 'Unknown model', exact: true })).toBeDisabled();
   await page.getByRole('combobox', { name: 'Model', exact: true }).click();
   await expect(page.getByRole('option')).toHaveText(['All models', 'Fixture model']);
+  // A background refresh can still be reading an intercepted response when
+  // assertions finish. Drain it before context teardown disposes that body.
+  await page.unrouteAll({ behavior: 'wait' });
 });
 
 test('usage and sandbox GET responses cache snapshots and explicit refresh replaces them', async ({ page }) => {
