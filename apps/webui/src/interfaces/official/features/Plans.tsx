@@ -75,10 +75,7 @@ export function Plans({ assistants: availableAssistants, assistantID, selectedID
       return;
     }
     detailRef.current?.scrollTo({ top: 0, behavior: 'instant' });
-    // Let the click and modal focus bookkeeping finish before moving focus
-    // away from the list that has just become inert.
-    const frame = requestAnimationFrame(() => backRef.current?.focus({ preventScroll: true }));
-    return () => cancelAnimationFrame(frame);
+    backRef.current?.focus({ preventScroll: true });
   }, [embedded && selected?.Ref.ID, selectedAt]);
   const hasFilters = !embedded && (owner !== (assistantID || 'all') || kind !== 'all' || status !== 'all');
   useEffect(() => {

@@ -108,7 +108,7 @@ await new Promise(resolve => model.listen(modelPort, '127.0.0.1', resolve));
 let pluginProvider;
 if (process.env.MOLR_E2E_PLUGIN_HTTP === '1' || process.env.MOLR_E2E_MCP === '1') {
   const cert = join(directory, 'plugin-cert.pem'), key = join(directory, 'plugin-key.pem');
-  await command('openssl', ['req', '-quiet', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', key, '-out', cert, '-days', '2', '-subj', '/CN=localhost', '-addext', 'subjectAltName=IP:127.0.0.1,DNS:localhost'], directory);
+  await command('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', key, '-out', cert, '-days', '2', '-subj', '/CN=localhost', '-addext', 'subjectAltName=IP:127.0.0.1,DNS:localhost'], directory);
   env.SSL_CERT_FILE = cert;
   pluginProvider = createHTTPSServer({ cert: await readFile(cert), key: await readFile(key) }, process.env.MOLR_E2E_MCP === '1' ? mcpProvider : pluginHTTPProvider);
   await new Promise(resolve => pluginProvider.listen(Number(process.env.MOLR_E2E_PLUGIN_PORT ?? 18886), '127.0.0.1', resolve));

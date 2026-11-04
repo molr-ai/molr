@@ -29,6 +29,7 @@ export function ModalPresenceFixture() {
 }
 function RetainedDrawer({ mode, onClose, onLive, onAction, onReopen, onUnmount }: { mode: Mode; onClose: () => void; onLive: (delta: number) => void; onAction: () => void; onReopen: () => void; onUnmount: () => void }) {
   const [draft, setDraft] = useState(''), [nested, setNested] = useState(false);
+  const [closedChild, setClosedChild] = useState(false);
   // The fixture deliberately keeps state/effects inside the conditionally mounted subtree.
   const live = useRef(onLive);
   useEffect(() => { live.current(1); return () => live.current(-1); }, []);
@@ -36,6 +37,8 @@ function RetainedDrawer({ mode, onClose, onLive, onAction, onReopen, onUnmount }
     <TextField label="Retained draft" value={draft} onChange={event => setDraft(event.target.value)} />
     <Button onClick={onAction}>Retained action</Button><Button onClick={onReopen}>Reverse retained exit</Button><Button onClick={onUnmount}>Unmount retained owner</Button>
     <Button onClick={() => setNested(true)}>Open retained child</Button>
+    <Button onClick={() => setClosedChild(value => !value)}>Toggle closed child</Button>
+    {closedChild && <Drawer open={false} title="Closed child" onOpenChange={() => {}}>Inactive contents</Drawer>}
     <ModalPresence>{nested && <Drawer open side="bottom" title="Retained child" onOpenChange={value => { if (!value) setNested(false); }}>
       <Button onClick={onClose}>Close retained family</Button><p>Child contents</p>
     </Drawer>}</ModalPresence>

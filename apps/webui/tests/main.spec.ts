@@ -219,16 +219,20 @@ test('feedback responds immediately, isolates pending writes and restores failur
   await page.goto(`/#/assistants/${assistant.ID}`);
   await post(page, '/api/conversations/messages', { ConversationID: assistant.ConversationID, Content: { Kind: 'text', Text: 'First feedback example' } });
   const replies = page.locator('.ui-chat-message--assistant');
-  await expect(replies).toHaveCount(1, { timeout: 20_000 });
+  await expect(replies.first()).toBeVisible({ timeout: 20_000 });
   await post(page, '/api/conversations/messages', { ConversationID: assistant.ConversationID, Content: { Kind: 'text', Text: 'Second feedback example' } });
-  await expect(replies).toHaveCount(2, { timeout: 20_000 });
-  const first = replies.first(), second = replies.last();
+  await expect(replies.nth(1)).toBeVisible({ timeout: 20_000 });
+  // A still-running turn can append another reply while feedback is pending.
+  // Keep both assertions attached to the messages that received the clicks.
+  const messageID = await replies.first().locator('..').getAttribute('data-message-id');
+  const secondID = await replies.nth(1).locator('..').getAttribute('data-message-id');
+  const first = page.locator(`[data-message-id="${messageID}"] .ui-chat-message--assistant`);
+  const second = page.locator(`[data-message-id="${secondID}"] .ui-chat-message--assistant`);
   const like = first.getByRole('button', { name: 'Like', exact: true });
   const dislike = first.getByRole('button', { name: 'Dislike', exact: true });
   let release!: () => void, entered!: () => void, firstWrites = 0;
   const gate = new Promise<void>(resolve => { release = resolve; });
   const started = new Promise<void>(resolve => { entered = resolve; });
-  const messageID = await first.locator('..').getAttribute('data-message-id');
   const feedbackPath = '**/api/conversations/feedback';
   await page.route(feedbackPath, async route => {
     if (route.request().postDataJSON().MessageID === messageID) { firstWrites++; entered(); await gate; }

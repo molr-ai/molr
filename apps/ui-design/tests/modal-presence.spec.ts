@@ -89,6 +89,21 @@ test('nested presence closes independently and parent closure waits for all laye
   await expect(page.locator('[inert]')).toHaveCount(0);
 });
 
+test('mounting and removing a closed child does not restore focus it never owned', async ({ page }) => {
+  const trigger = page.getByRole('button', { name: 'Open retained contained', exact: true });
+  const parent = page.getByRole('dialog', { name: 'Retained details', exact: true });
+  await trigger.click(); await finish(parent);
+  const toggle = parent.getByRole('button', { name: 'Toggle closed child', exact: true });
+  await toggle.click();
+  await expect(toggle).toBeFocused();
+  await expect(page.getByRole('dialog', { name: 'Closed child', exact: true, includeHidden: true })).not.toBeVisible();
+  await toggle.click();
+  await expect(toggle).toBeFocused();
+  await parent.getByRole('button', { name: 'Cancel retained form', exact: true }).click();
+  await expect(parent).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+});
+
 test('rapid reopening preserves draft and hard owner unmount cleans up', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.clock.install({ time: new Date('2026-10-01T00:00:00Z') });

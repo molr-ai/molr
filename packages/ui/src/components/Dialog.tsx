@@ -86,6 +86,9 @@ function ModalView({ open, onOpenChange, onAfterClose, title, description, child
   const interruptedMotion = useRef<{ transform: string; opacity: string } | null>(null);
   const { messages, reducedMotion: preferReducedMotion } = useUILocale();
   function restoreFocus() {
+    // A controlled dialog mounted closed never owned focus. Resolving a null
+    // origin through its scope would steal focus from an already-open parent.
+    if (!returnFocus.current) return;
     // A docked panel does not own focus outside itself while it collapses.
     if (docked && document.activeElement !== document.body && !ref.current?.contains(document.activeElement)) { returnFocus.current = null; return; }
     const target = scope ? scope.resolveFocus(returnFocus.current) : returnFocus.current;
