@@ -11,10 +11,12 @@ export async function compressionModel(input, response) {
     const event = start >= 0 ? JSON.parse(messages[start].content.split('\n')[0].slice('Runtime event: '.length)) : {};
     const results = messages.slice(start + 1).filter(m => m.role === 'tool');
     const call = (name, args) => { message.tool_calls = [{ id: randomUUID(), type: 'function', function: { name, arguments: JSON.stringify(args) } }]; finish = 'tool_calls'; };
-    if (!results.length) call('conversation_read', { conversation_id: event.conversation_id });
-    else if (results.length === 1) {
-      await new Promise(resolve => setTimeout(resolve, 600));
-      call('conversation_publish', { conversation_id: event.conversation_id, text: 'Message received. Context compression is available with /compress.' });
+    if (event.event?.Kind !== 'born') {
+      if (!results.length) call('conversation_read', { conversation_id: event.conversation_id });
+      else if (results.length === 1) {
+        await new Promise(resolve => setTimeout(resolve, 600));
+        call('conversation_publish', { conversation_id: event.conversation_id, text: 'Message received. Context compression is available with /compress.' });
+      }
     }
   }
   if (response.destroyed) return true;

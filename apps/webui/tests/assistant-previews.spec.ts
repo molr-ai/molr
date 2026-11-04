@@ -28,6 +28,12 @@ test('assistant previews and ordering follow historical and live messages with p
   const send = (assistant: any, text: string) => post(page, '/api/conversations/messages', { ConversationID: assistant.ConversationID, Content: { Kind: 'text', Text: text } });
   const pinned = await hire('pinned');
   await post(page, '/api/assistants/place', { ID: pinned.ID, Pinned: true, Mutation: { ExpectedVersion: pinned.Version } });
+  // The free fixture can greet during its born task. Establish the historical
+  // ordering only after that initialization has finished publishing messages.
+  await expect.poll(async () => {
+    const jobs = await (await page.request.get(`/api/jobs?assistant_id=${replying.ID}`)).json();
+    return jobs.Items.some((job: any) => job.Event.Kind === 'born' && job.State === 'done');
+  }, { timeout: 20000 }).toBe(true);
   const order = () => page.locator('.assistant-list button[data-assistant-id]').evaluateAll((buttons, ids) => buttons.map(button => button.getAttribute('data-assistant-id')).filter(id => ids.includes(id!)), [empty.ID, history.ID, replying.ID, pinned.ID]);
   await send(history, 'Older message');
   await send(history, 'Latest historical message\nwith another line');
