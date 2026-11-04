@@ -136,12 +136,28 @@ test('controlled drawers keep selected content until exit then release it', asyn
 
 
 test('a late load cannot replace the closing modal', async ({ page }) => {
+  await page.evaluate(() => {
+    const events: unknown[] = [];
+    (window as any).modalLifecycleTrace = events;
+    const record = (kind: string, element?: Element, extra?: unknown) => events.push({ kind, open: element?.hasAttribute('open'), connected: element?.isConnected, state: element?.getAttribute('data-state'), title: element?.querySelector('h2')?.textContent, extra, stack: new Error().stack });
+    for (const name of ['showModal', 'close'] as const) {
+      const original = HTMLDialogElement.prototype[name];
+      HTMLDialogElement.prototype[name] = function(...args: any[]) { record(name, this); return original.apply(this, args as []); };
+    }
+    const animate = Element.prototype.animate;
+    Element.prototype.animate = function(keyframes, options) { const animation = animate.call(this, keyframes, options); record('animate', this, { id: animation.id, keyframes, options }); return animation; };
+    for (const name of ['finish', 'cancel'] as const) {
+      const original = Animation.prototype[name];
+      Animation.prototype[name] = function() { record(name, (this.effect as KeyframeEffect | null)?.target ?? undefined, { id: this.id }); return original.call(this); };
+    }
+  });
   await page.clock.install({ time: new Date('2026-10-01T00:00:00Z') });
   await page.clock.pauseAt(new Date('2026-10-01T00:00:01Z'));
   const trigger = page.getByRole('button', { name: 'Open loading modal' });
   await trigger.click();
   const dialog = page.getByRole('dialog', { name: 'Loading modal', exact: true });
-  await pauseExit(dialog, 'Resolve during exit');
+  try { await pauseExit(dialog, 'Resolve during exit'); }
+  catch (error) { console.log('MODAL_LIFECYCLE_TRACE', JSON.stringify(await page.evaluate(() => (window as any).modalLifecycleTrace))); throw error; }
   await page.clock.runFor(40);
   await expect(dialog).toHaveAttribute('open');
   await expect(page.getByRole('dialog', { name: 'Loaded modal' })).toHaveCount(0);
