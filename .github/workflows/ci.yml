@@ -78,7 +78,7 @@ jobs:
       validate: true
       matrix: ${{ needs.prepare.outputs.matrix }}
   browser:
-    needs: [prepare, source, assets]
+    needs: [prepare, source]
     strategy:
       fail-fast: false
       matrix:
@@ -93,43 +93,10 @@ jobs:
       - run: npx playwright install --with-deps chromium
         env:
           PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: '120000'
-      - if: runner.os == 'Linux'
-        uses: ./.github/actions/prepare-sandbox
       - if: matrix.project == 'desktop'
         run: npm run test:website
       - name: UI Design browser tests
         run: npm run test:ui -- --project=${{ matrix.project }}
-      - if: runner.os == 'Linux'
-        name: WebUI browser tests
-        run: npm run test:webui -- --project=${{ matrix.project }}
-        env:
-          MOLR_E2E_SANDBOX_SERVICE: '1'
-      - if: runner.os == 'Linux'
-        name: WebUI MCP integration
-        run: npm run test:webui -- mcp-tools.spec.ts --project=${{ matrix.project }}
-        env:
-          MOLR_E2E_SANDBOX_SERVICE: '1'
-          MOLR_E2E_MCP: '1'
-      - if: runner.os == 'Linux'
-        name: WebUI plugin HTTP integration
-        run: npm run test:webui -- plugin-http.spec.ts --project=${{ matrix.project }}
-        env:
-          MOLR_E2E_SANDBOX_SERVICE: '1'
-          MOLR_E2E_PLUGIN_HTTP: '1'
-      - if: runner.os == 'Linux'
-        uses: actions/download-artifact@v8
-        with:
-          name: ci-application-assets
-          path: .cache/assets-download
-      - if: runner.os == 'Linux'
-        name: Verify shared application assets for production tests
-        run: tar -xzf .cache/assets-download/application-assets.tar.gz && node scripts/build-assets.mjs --verify
-      - if: runner.os == 'Linux'
-        name: WebUI production lazy loading
-        run: npm run test:webui -- lazy-pages.spec.ts --project=${{ matrix.project }}
-        env:
-          MOLR_E2E_PREVIEW: '1'
-          MOLR_E2E_SANDBOX_SERVICE: '1'
       - name: Upload browser failure diagnostics
         if: failure()
         uses: actions/upload-artifact@v7
@@ -138,7 +105,89 @@ jobs:
           path: |
             apps/website/test-results/
             apps/ui-design/test-results/
-            apps/webui/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+  webui:
+    needs: [prepare, source]
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [desktop, mobile]
+        shard: [1, 2, 3, 4]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+      - uses: ./.github/actions/setup-build
+      - run: npx playwright install --with-deps chromium
+        env:
+          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: '120000'
+      - uses: ./.github/actions/prepare-sandbox
+      - name: WebUI browser tests
+        run: npm run test:webui -- --project=${{ matrix.project }} --shard=${{ matrix.shard }}/4 --fully-parallel --workers=1 --reporter=line,json
+        env:
+          MOLR_E2E_SANDBOX_SERVICE: '1'
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/report.json
+      - name: Upload WebUI test timings
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: webui-report-${{ matrix.project }}-${{ matrix.shard }}
+          path: apps/webui/test-results/report.json
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Upload WebUI failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: webui-failure-${{ matrix.project }}-${{ matrix.shard }}
+          path: apps/webui/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+  webui-integration:
+    needs: [prepare, assets]
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [desktop, mobile]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+      - uses: ./.github/actions/setup-build
+      - run: npx playwright install --with-deps chromium
+        env:
+          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: '120000'
+      - uses: ./.github/actions/prepare-sandbox
+      - name: WebUI MCP integration
+        run: npm run test:webui -- mcp-tools.spec.ts --project=${{ matrix.project }}
+        env:
+          MOLR_E2E_SANDBOX_SERVICE: '1'
+          MOLR_E2E_MCP: '1'
+      - name: WebUI plugin HTTP integration
+        run: npm run test:webui -- plugin-http.spec.ts --project=${{ matrix.project }}
+        env:
+          MOLR_E2E_SANDBOX_SERVICE: '1'
+          MOLR_E2E_PLUGIN_HTTP: '1'
+      - uses: actions/download-artifact@v8
+        with:
+          name: ci-application-assets
+          path: .cache/assets-download
+      - name: Verify shared application assets for production tests
+        run: tar -xzf .cache/assets-download/application-assets.tar.gz && node scripts/build-assets.mjs --verify
+      - name: WebUI production lazy loading
+        run: npm run test:webui -- lazy-pages.spec.ts --project=${{ matrix.project }}
+        env:
+          MOLR_E2E_PREVIEW: '1'
+          MOLR_E2E_SANDBOX_SERVICE: '1'
+      - name: Upload integration failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: webui-integration-failure-${{ matrix.project }}
+          path: apps/webui/test-results/
           if-no-files-found: ignore
           retention-days: 7
   installer:
@@ -149,7 +198,7 @@ jobs:
       ref: ${{ needs.prepare.outputs.commit }}
   passed:
     name: CI passed v3
-    needs: [prepare, source, assets, native, browser, installer]
+    needs: [prepare, source, assets, native, browser, webui, webui-integration, installer]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     steps:

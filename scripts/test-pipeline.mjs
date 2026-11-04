@@ -136,7 +136,7 @@ test('CI includes every native target, both browser platforms, and a non-skippab
   }
   assert.equal(ci.jobs.native.with.matrix, '${{ needs.prepare.outputs.matrix }}');
   assert.equal(release.jobs.native.with.matrix, release.jobs.desktop.with.matrix);
-  assert.deepEqual(ci.jobs.passed.needs.sort(), ['prepare', 'source', 'assets', 'native', 'browser', 'installer'].sort());
+  assert.deepEqual(ci.jobs.passed.needs.sort(), ['prepare', 'source', 'assets', 'native', 'browser', 'webui', 'webui-integration', 'installer'].sort());
   assert.equal(ci.jobs.passed.name, ciJob());
   assert.equal(ci.jobs.passed.steps[0].name, ciStep('${{ needs.prepare.outputs.commit }}'));
   assert(release.jobs.assets.needs.includes('ci'));
@@ -160,33 +160,64 @@ test('both CI providers exercise the PTY lifecycle on every native installer pla
 test('both CI providers require complete browser suites and the WebUI special environments', () => {
   for (const provider of ['github', 'gitea']) {
     const ci = yaml.load(readFileSync(`.${provider}/workflows/ci.yml`, 'utf8'));
-    const browser = ci.jobs.browser;
-    assert(ci.jobs.passed.needs.includes('browser'));
-    assert(browser.needs.includes('assets'));
-    assert.equal(browser['continue-on-error'], undefined);
+    const github = provider === 'github';
     const required = new Map([
-      ['npm run test:website', {}],
-      ['npm run test:ui', {}],
-      ['npm run test:webui', { MOLR_E2E_SANDBOX_SERVICE: '1' }],
-      ['npm run test:webui -- mcp-tools.spec.ts', { MOLR_E2E_SANDBOX_SERVICE: '1', MOLR_E2E_MCP: '1' }],
-      ['npm run test:webui -- plugin-http.spec.ts', { MOLR_E2E_SANDBOX_SERVICE: '1', MOLR_E2E_PLUGIN_HTTP: '1' }],
-      ['npm run test:webui -- lazy-pages.spec.ts', { MOLR_E2E_SANDBOX_SERVICE: '1', MOLR_E2E_PREVIEW: '1' }],
+      ['npm run test:website', ['browser', {}]],
+      ['npm run test:ui', ['browser', {}]],
+      ['npm run test:webui', [github ? 'webui' : 'browser', { MOLR_E2E_SANDBOX_SERVICE: '1' }]],
+      ['npm run test:webui -- mcp-tools.spec.ts', [github ? 'webui-integration' : 'browser', { MOLR_E2E_SANDBOX_SERVICE: '1', MOLR_E2E_MCP: '1' }]],
+      ['npm run test:webui -- plugin-http.spec.ts', [github ? 'webui-integration' : 'browser', { MOLR_E2E_SANDBOX_SERVICE: '1', MOLR_E2E_PLUGIN_HTTP: '1' }]],
+      ['npm run test:webui -- lazy-pages.spec.ts', [github ? 'webui-integration' : 'browser', { MOLR_E2E_SANDBOX_SERVICE: '1', MOLR_E2E_PREVIEW: '1' }]],
     ]);
-    for (const [command, env] of required) {
-      const projectCommand = command === 'npm run test:website' ? command : command + (command.includes(' -- ') ? ' --project=${{ matrix.project }}' : ' -- --project=${{ matrix.project }}');
-      const matching = browser.steps.filter(step => step.run === projectCommand);
+    for (const [command, [jobName, env]] of required) {
+      const job = ci.jobs[jobName];
+      assert(ci.jobs.passed.needs.includes(jobName));
+      assert.equal(job['continue-on-error'], undefined);
+      let projectCommand = command === 'npm run test:website' ? command : command + (command.includes(' -- ') ? ' --project=${{ matrix.project }}' : ' -- --project=${{ matrix.project }}');
+      if (github && jobName === 'webui') projectCommand += ' --shard=${{ matrix.shard }}/4 --fully-parallel --workers=1 --reporter=line,json';
+      const matching = job.steps.filter(step => step.run === projectCommand);
       assert.equal(matching.length, 1, `${provider}: missing browser suite ${command}`);
       assert.equal(matching[0]['continue-on-error'], undefined);
-      assert.equal(matching[0].if, command.includes('test:webui') ? "runner.os == 'Linux'" : command === 'npm run test:website' ? "matrix.project == 'desktop'" : undefined);
-      assert.deepEqual(matching[0].env ?? {}, env);
+      assert.equal(matching[0].if, command === 'npm run test:website' ? "matrix.project == 'desktop'" : !github && command.includes('test:webui') ? "runner.os == 'Linux'" : undefined);
+      assert.deepEqual(matching[0].env ?? {}, github && jobName === 'webui' ? { ...env, PLAYWRIGHT_JSON_OUTPUT_NAME: 'test-results/report.json' } : env);
+      assert(job.steps.some(step => step.uses === `./.${provider}/actions/setup-build`));
+      assert(job.steps.some(step => step.run === 'npx playwright install --with-deps chromium'));
+      if (command.includes('test:webui')) assert(job.steps.some(step => step.uses === './.github/actions/prepare-sandbox'));
+      const upload = job.steps.at(-1);
+      assert.equal(upload.if, 'failure()');
+      const app = command.includes('test:webui') ? 'webui' : command.includes('test:website') ? 'website' : 'ui-design';
+      assert(upload.with.path.includes(`apps/${app}/test-results/`));
     }
-    assert(browser.steps.some(step => step.uses === `./.${provider}/actions/setup-build`));
-    assert(browser.steps.some(step => step.uses === './.github/actions/prepare-sandbox' && step.if === "runner.os == 'Linux'"));
-    assert(browser.steps.some(step => step.run === 'npx playwright install --with-deps chromium'));
-    const upload = browser.steps.at(-1);
-    assert.equal(upload.if, 'failure()');
-    for (const app of ['website', 'ui-design', 'webui']) assert(upload.with.path.includes(`apps/${app}/test-results/`));
+    if (github) {
+      assert.deepEqual(ci.jobs.webui.strategy.matrix, { project: ['desktop', 'mobile'], shard: [1, 2, 3, 4] });
+      assert.equal(ci.jobs.webui.strategy['fail-fast'], false);
+      assert.deepEqual(ci.jobs.webui.needs, ['prepare', 'source']);
+      assert.deepEqual(ci.jobs.browser.needs, ['prepare', 'source']);
+      assert(ci.jobs['webui-integration'].needs.includes('assets'));
+      assert.equal(ci.jobs.webui.steps.at(-1).with.name, 'webui-failure-${{ matrix.project }}-${{ matrix.shard }}');
+    }
   }
+});
+
+test('WebUI shards include every test exactly once in both viewports', () => {
+  const collect = shard => {
+    const args = ['node_modules/@playwright/test/cli.js', 'test', '--config=apps/webui/playwright.config.ts', '--list', '--reporter=json', '--fully-parallel', '--workers=1'];
+    if (shard) args.push(`--shard=${shard}/4`);
+    const result = spawnSync(process.execPath, args, { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, env: { ...process.env, PLAYWRIGHT_JSON_OUTPUT_NAME: '', PLAYWRIGHT_JSON_OUTPUT_FILE: '' } });
+    assert.equal(result.status, 0, result.stderr);
+    const report = JSON.parse(result.stdout), ids = [];
+    const visit = suite => {
+      for (const spec of suite.specs ?? []) for (const test of spec.tests) ids.push(`${spec.id}:${test.projectName}`);
+      for (const child of suite.suites ?? []) visit(child);
+    };
+    report.suites.forEach(visit);
+    return ids;
+  };
+  const complete = collect(), shards = [1, 2, 3, 4].map(collect), assigned = shards.flat();
+  assert(complete.length > 0);
+  assert(shards.every(ids => ids.length > 0));
+  assert.equal(new Set(assigned).size, assigned.length, 'a test is assigned to multiple shards');
+  assert.deepEqual(assigned.sort(), complete.sort(), 'sharding must not omit tests');
 });
 
 test('both CI providers require the live base version check in their source gate', () => {

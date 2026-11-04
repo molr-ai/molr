@@ -292,14 +292,19 @@ test('feedback responds immediately, isolates pending writes and restores failur
   let captured = false;
   const metadataHandler = async (route: import('@playwright/test').Route) => {
     if (captured || new URL(route.request().url()).searchParams.get('message_id') !== messageID) { await route.continue(); return; }
-    captured = true;
     const response = await route.fetch();
-    expect((await response.json()).Items[0].Feedback).toBe('dislike');
+    // An earlier refresh may still return the confirmed like. Only hold the
+    // acknowledged dislike snapshot that this part of the test makes stale.
+    if (captured || (await response.json()).Items[0].Feedback !== 'dislike') { await route.fulfill({ response }); return; }
+    captured = true;
     metadataFetched(); await metadataGate; await route.fulfill({ response }); metadataDelivered();
   };
   await page.route(metadataPattern, metadataHandler);
   let freshRead: Promise<unknown> | undefined;
   try {
+    // Reproduce a metadata read arriving before the next write is acknowledged.
+    const previous = await page.evaluate(url => fetch(url).then(response => response.json()), `/api/conversations/${assistant.ConversationID}/messages?message_id=${messageID}`);
+    expect(previous.Items[0].Feedback).toBe('like');
     await dislike.click();
     await expect(first.locator('.message-feedback')).toHaveAttribute('aria-busy', 'false');
     await staleRead;
