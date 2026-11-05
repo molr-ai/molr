@@ -444,7 +444,9 @@ test('waiting notices explain real pricing, permission and budget blockers', asy
       await page.reload();
       await expect(notice).toContainText('Model prices are not configured');
       await notice.getByRole('button', { name: 'Configure model prices', exact: true }).click();
-      await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
+      const pricing = page.getByRole('dialog', { name, exact: true });
+      await expect(pricing).toBeVisible();
+      await expect(pricing.getByRole('button', { name, exact: true })).toBeVisible();
     } else if (reason === 'model_not_authorized') {
       await expect(notice).toContainText('The assistant cannot call this model');
       await notice.getByRole('button', { name: 'Manage model access', exact: true }).click();
