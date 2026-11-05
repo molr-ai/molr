@@ -156,10 +156,15 @@ test('dialog handles validation, keyboard containment, Escape and focus restorat
   await dialog.getByRole('button', { name: 'Save changes' }).click();
   await expect(dialog.getByText('Please enter a project name.')).toBeVisible();
   await dialog.getByRole('textbox', { name: 'Project name', exact: true }).fill('Edited project');
+  // Keep the demo's save timer pending while checking Escape on a slow runner.
+  await page.clock.install({ time: new Date('2026-06-01T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-06-01T00:00:01Z'));
   await dialog.getByRole('button', { name: 'Save changes' }).click();
   await expect(dialog.getByRole('button', { name: 'Saving', exact: true })).toBeDisabled();
   await page.keyboard.press('Escape');
   await expect(dialog).toBeVisible();
+  await page.clock.runFor(1000);
+  await page.clock.resume();
   await expect(dialog).not.toBeVisible();
   await expect(trigger).toBeFocused();
   await trigger.click(); await page.keyboard.press('Escape');
