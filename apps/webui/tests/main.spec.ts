@@ -1141,6 +1141,7 @@ test('assistant pinning, clone, archive, rehire and search use persisted data', 
   await expect(page.locator('.chat-header h1')).toHaveText(cloneName);
   await dismissSaved(page);
   await assistantMenu(page, 'Dismiss assistant'); await page.getByRole('dialog', { name: 'Dismiss assistant', exact: true }).getByRole('button', { name: 'Confirm', exact: true }).click();
+  await dismissSaved(page);
   await openUserSettings(page); await openSettingsSection(page, 'Former assistants');
   const former = settingsPane(page).locator('.settings-row-item').filter({ hasText: cloneName });
   await former.getByRole('button', { name: 'Assistant conversation', exact: true }).click();

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"molr.ai/runtime/internal/core"
@@ -129,20 +130,31 @@ func TestRevocationFencesLateRequestsAndCancelsRunning(t *testing.T) {
 	}
 }
 func TestLeaseExpiryStopsWork(t *testing.T) {
-	b := &testBackend{started: make(chan struct{}, 1), release: make(chan struct{})}
-	m := managerFixture(t, b)
-	q := testRequest()
-	if _, err := m.Submit(t.Context(), q); err != nil {
-		t.Fatal(err)
-	}
-	<-b.started
-	m.mu.Lock()
-	m.active[operationKey(q.Identity)].lease = time.Now().Add(-time.Second)
-	m.mu.Unlock()
-	if r := awaitReply(t, m, q.Identity); r.State != "unknown" {
-		t.Fatal(r)
-	}
+	synctest.Test(t, func(t *testing.T) {
+		b := &testBackend{started: make(chan struct{}, 1), release: make(chan struct{})}
+		m := managerFixture(t, b)
+		q := testRequest()
+		if _, err := m.Submit(t.Context(), q); err != nil {
+			t.Fatal(err)
+		}
+		<-b.started
+		synctest.Wait()
+		// Exercise the real expiry timer, not an unsignalled change to its deadline.
+		time.Sleep(LeaseDuration - time.Nanosecond)
+		if r, err := m.Get(t.Context(), q.Identity); err != nil || r.State != "running" {
+			t.Fatal("work stopped before the lease expired", r, err)
+		}
+		time.Sleep(time.Nanosecond)
+		synctest.Wait()
+		if r, err := m.Get(t.Context(), q.Identity); err != nil || r.State != "unknown" || r.Code != core.Canceled {
+			t.Fatal("lease expiry did not cancel and persist the operation", r, err)
+		}
+		if b.calls.Load() != 1 {
+			t.Fatal("lease expiry replayed the operation")
+		}
+	})
 }
+
 func TestRecoveryNeverReplaysUnknownEffects(t *testing.T) {
 	b := &testBackend{}
 	m := managerFixture(t, b)
