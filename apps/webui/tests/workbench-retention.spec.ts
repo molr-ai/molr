@@ -32,7 +32,8 @@ test('admin count retention reclaims history without losing live context and rej
     const settings = await (await get('/api/settings')).json();
     await mutate('/api/settings', { Settings: { ...settings, WorkbenchVisible: true } }, settings.Version);
     await page.reload();
-    await expect(page.getByRole('navigation').getByRole('button', { name: 'Workbench', exact: true })).toBeVisible();
+    await expect(count).toHaveValue('2');
+    await expect(page.getByRole('navigation', { name: 'Molr', exact: true }).getByRole('button', { name: 'Workbench', exact: true })).toBeVisible();
     const name = `Retention ${info.project.name}-${Date.now()}`, origin = `http://127.0.0.1:${process.env.MOLR_E2E_MODEL_PORT ?? 18882}`;
     const resource = await mutate('/api/resources', { Name: name, Kind: 'model', Provider: 'openai-compatible', Binding: { Endpoint: origin, AllowedOrigins: [origin], Models: [{ Name: name, ContextLimit: 32768, SupportsTools: true, Pricing: { Currency: 'USD', InputMicrosPerMillion: 0, CachedInputMicrosPerMillion: 0, OutputMicrosPerMillion: 0 } }] } });
     const models = await (await get('/api/models')).json();

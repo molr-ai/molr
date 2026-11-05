@@ -1895,10 +1895,10 @@ test('developer workbench records hidden executions and only gates entry visibil
     await expect.poll(async () => (await (await page.request.get(`/api/debug/runs?assistant_id=${assistant.ID}`)).json()).Items.find((run: { Trigger: string }) => run.Trigger === 'born')?.State, { timeout: 15000 }).toBe('succeeded');
     await post(page, '/api/conversations/messages', { ConversationID: assistant.ConversationID, Content: { Kind: 'text', Text: 'Debug context source check' } });
     await expect.poll(async () => (await (await page.request.get(`/api/debug/runs?assistant_id=${assistant.ID}`)).json()).Items.find((run: { Trigger: string }) => run.Trigger === 'user_message')?.State, { timeout: 15000 }).toBe('succeeded');
-    await expect(page.getByRole('navigation').getByRole('button', { name: 'Workbench', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('navigation', { name: 'Molr', exact: true }).getByRole('button', { name: 'Workbench', exact: true })).toHaveCount(0);
     await page.getByRole('switch', { name: 'Show developer workbench', exact: true }).click();
     await expect.poll(async () => (await (await page.request.get('/api/settings')).json()).WorkbenchVisible).toBe(true);
-    await expect(page.getByRole('navigation').getByRole('button', { name: 'Workbench', exact: true })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Molr', exact: true }).getByRole('button', { name: 'Workbench', exact: true })).toBeVisible();
     await page.goto(`/#/assistants/${assistant.ID}`); await page.reload();
     await expect(page.locator('.chat-context-usage')).toHaveCount(0);
     await assistantMenu(page, 'Debug this assistant');
@@ -1986,7 +1986,7 @@ test('developer workbench records hidden executions and only gates entry visibil
     expect(await (await page.request.get(`/api/conversations/${assistant.ConversationID}/messages`)).json()).toEqual(messagesBefore);
 
     await setVisible(false);
-    await expect(page.getByRole('navigation').getByRole('button', { name: 'Workbench', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('navigation', { name: 'Molr', exact: true }).getByRole('button', { name: 'Workbench', exact: true })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Workbench', exact: true })).toBeVisible();
     await page.reload();
     await expect(page.getByRole('heading', { name: 'Workbench', exact: true })).toBeVisible();
