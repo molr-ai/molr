@@ -106,6 +106,8 @@ The browser defaults to docking or a drawer according to available space; phones
 
 `useBrowserView` handles dragging, proportional resizing, arrow-key adjustments and viewport bounds. The page maintains the remote 1280×800 aspect ratio while browser chrome stays at its normal size. Sizing subtracts the measured chrome height and rechecks bounds when auxiliary input expands or the viewport shrinks. Pointer input maps the displayed image back to remote coordinates. `browser-panel.spec.ts` covers floating/docked transitions, chat interaction, aspect ratio, coordinate mapping, bounds and the phone drawer.
 
+Browser tabs use a borderless style with no gaps. The active tab uses the selected background; a short, vertically centered divider appears only between adjacent inactive tabs.
+
 The bottom bar contains only connection status followed by the keyboard and end-session buttons. The bottom-right resize area is transparent, with no icon or hover background; it uses a resize cursor and retains an outline for keyboard focus.
 
 ## Workspace file explorer
