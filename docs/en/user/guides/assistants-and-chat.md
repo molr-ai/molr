@@ -94,7 +94,7 @@ If you need scheduled execution or to view deliverables, continue reading [Plans
 
 ## Workspace file explorer
 
-The folder button in the chat header opens the current assistant's file explorer. On desktop it opens as a movable window with independent width and height, with an option to dock on the right. Mobile uses a bottom drawer. Wide panels show the list and preview side by side; narrow panels switch between them. Reopening restores the assistant's directory, selection and scroll position within the current page.
+The folder button in the chat header opens the current assistant's file explorer. It defaults to a docked sidebar on wide screens, a right drawer when space is limited, and a bottom drawer on mobile. On desktop, you can switch to a movable floating window with independent width and height. Wide panels show the list and preview side by side; narrow panels switch between them. Reopening restores the assistant's directory, selection and scroll position within the current page.
 
 The explorer accesses this assistant's `/work`. Open folders or use breadcrumbs to navigate. Folders sort first; name, modification time and size sorting apply to loaded entries. Use “Load more” for large directories. “File options” can show hidden files. Links and unavailable entries display their names only.
 

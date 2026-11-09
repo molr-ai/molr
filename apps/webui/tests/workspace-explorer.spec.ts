@@ -48,9 +48,8 @@ test('workspace file lifecycle, draft conflicts, floating geometry and mobile na
   const panel = page.getByRole(info.project.name === 'desktop' ? 'complementary' : 'dialog', { name: `File explorer · ${name}`, exact: true });
   await expect(panel).toBeVisible();
   if (info.project.name === 'desktop') {
-    await expect(panel).toHaveClass(/files-drawer--floating/);
-    await page.getByRole('button', { name: 'Dock to sidebar', exact: true }).click();
     await expect(panel).not.toHaveClass(/files-drawer--floating/);
+    await expect(page.locator('.chat-side-panel')).toHaveAttribute('data-docked');
     await page.getByRole('button', { name: 'Floating window', exact: true }).click();
     const before = await panel.boundingBox();
     const handle = page.getByRole('button', { name: 'Resize file explorer (arrow keys)' });

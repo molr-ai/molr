@@ -61,10 +61,10 @@ export function AssistantsPage({ assistants, settings, workbenchVisible, memory,
   const [assistantQuery, setAssistantQuery] = useState(memory.query ?? '');
   const [chatWorkspace, setChatWorkspace] = useState<HTMLDivElement | null>(null);
   const panelDocked = usePanelDocking(chatWorkspace) && !mobile;
-  const [browserFloating, setBrowserFloating] = useState(memory.browserFloating ?? true);
-  const [terminalFloating, setTerminalFloating] = useState(memory.terminalFloating ?? true);
+  const [browserFloating, setBrowserFloating] = useState(memory.browserFloating ?? false);
+  const [terminalFloating, setTerminalFloating] = useState(memory.terminalFloating ?? false);
   const terminalBounds = useRef<FloatingBounds | null>(memory.terminalBounds ?? null);
-  const [filesFloating, setFilesFloating] = useState(memory.filesFloating ?? true);
+  const [filesFloating, setFilesFloating] = useState(memory.filesFloating ?? false);
   const filesBounds = useRef<FloatingBounds | null>(memory.filesBounds ?? null);
   const filesMemory = useRef(memory.files ?? new Map<string, ExplorerMemory>());
   function explorerMemory(id: string) { let value = filesMemory.current.get(id); if (!value) { value = { directory: '.', scroll: 0, hidden: false, sort: 'name' }; filesMemory.current.set(id, value); } return value; }

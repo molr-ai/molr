@@ -114,6 +114,8 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   const bareIcon = await iconPosition();
   await trigger.click();
   await expect(page.locator('.browser-window-heading')).toContainText('Browser');
+  await expect(page.locator('.browser-drawer')).not.toHaveClass(/browser-drawer--floating/);
+  if (info.project.name === 'desktop') await expect(page.locator('.chat-side-panel')).toHaveAttribute('data-docked');
   await expect(page.locator('.browser-proxy-badge')).toHaveCount(0);
   await expect(page.getByText(/Network settings/)).toHaveCount(0);
   await expect(page.getByRole('tablist', { name: 'Browser tabs' })).toHaveCount(0);
@@ -219,6 +221,7 @@ test('browser panel preserves control, commits IME once, closes the selected tab
   const panel = page.locator('.browser-drawer');
   const canvas = page.getByLabel('Live browser view');
   if (info.project.name === 'desktop') {
+    await page.getByRole('button', { name: 'Floating window', exact: true }).click();
     await expect(panel).toHaveClass(/browser-drawer--floating/);
     await expect(page.locator('.chat-side-panel')).not.toHaveAttribute('data-docked');
     expect(await panel.evaluate(el => el.matches(':modal'))).toBe(false);
