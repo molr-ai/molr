@@ -7,6 +7,9 @@
 .assistant-list__copy { flex: 1; min-width: 0; }
 .assistant-list__copy strong, .assistant-list__copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .assistant-list__copy strong { font-size: 12px; font-weight: 550; }
+@media not all and (--molr-mobile) {
+  .assistant-list:not(.assistant-list--mobile) button[data-assistant-id]:not([aria-current]):not(:hover) .assistant-list__copy strong { color: var(--color-text-muted); }
+}
 .assistant-list__copy small { margin-top: 2px; color: var(--color-text-muted); font-size: 10px; }
 .assistant-list__empty { padding: 12px; color: var(--color-text-muted); font-size: 11px; }
 .assistant-list.assistant-list--empty { display: flex; align-items: center; justify-content: center; }

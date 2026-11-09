@@ -13,6 +13,8 @@
 .settings-nav > :is(button, a)[aria-current] { background: var(--color-selected-bg); font-weight: 500; }
 .settings-nav > :is(button, a)[aria-current] .settings-nav-icon { color: var(--color-primary); }
 @media not all and (--molr-mobile) {
+  .settings-nav > :is(button, a):not([aria-current]):not(:hover) { color: var(--color-text-muted); }
+  .settings-nav > :is(button, a):hover .settings-nav-icon { color: var(--color-primary); }
   .settings-nav > :is(button, a):is(:hover, [aria-current]) { background: transparent; }
 }
 .settings-nav-icon { color: var(--color-text-muted); flex-shrink: 0; }

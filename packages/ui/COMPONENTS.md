@@ -252,9 +252,9 @@ npm run test:ui
 
 ## 助理列表与应用动效偏好
 
-`SlidingHighlight` 是共用背景滑块容器，助理列表与桌面用户设置、管理员设置侧栏均复用它。`as` 支持 `div`（默认）、`nav`、`ul`；`value` 对应子项的 `data-sliding-item`，`disabled` 关闭滑块而不禁用子项操作。容器保留调用方的列表／导航语义，点击、键盘操作和 `aria-current` 由调用方维护。默认颜色为 `--color-selected-bg`，可通过 `--sliding-highlight-background` 覆盖；使用 `ResizeObserver` 跟随条目尺寸及列表布局变化。
+`SlidingHighlight` 是共用背景滑块容器，助理列表、沙盒列表与桌面用户设置、管理员设置侧栏均复用它。`as` 支持 `div`（默认）、`nav`、`ul`；`value` 对应子项的 `data-sliding-item`，`disabled` 关闭滑块而不禁用子项操作。容器保留调用方的列表／导航语义，点击、键盘操作和 `aria-current` 由调用方维护。默认颜色为 `--color-navigation-highlight`（主题画布色 `--color-background`），可通过 `--sliding-highlight-background` 覆盖；使用 `ResizeObserver` 跟随条目尺寸及列表布局变化。滑块移动为 180ms ease，出现和隐藏的透明度过渡为 100ms ease；系统或应用启用减少动态效果时立即切换。桌面助理名称、沙盒名称和设置标题沿用 Tabs 的文字层次：未选中且未悬停时使用 `--color-text-muted`，选中或悬停时使用 `--color-text`；沙盒和设置图标悬停时也沿用选中配色，直接依据 `aria-current` / `aria-pressed` 和 `:hover` 更新；不透明度保持 1，不增加变色延迟或过渡逻辑。消息预览、连接状态、头像和徽标沿用原样式，不随滑块经过变化。移动端列表保持正常文字色。仅目标或布局变化时测量位置，不逐帧读取，也不设置计时器或发起存储、HTTP 请求。主菜单 active 使用主色及其前景色；所有列表的滑块共用 `--color-navigation-highlight`，映射主题画布色 `--color-background`。文字保留正文与辅助信息的层次，头像和未读徽标沿用原配色，随全部主题的浅色和深色模式切换。
 
-桌面侧栏使用单一背景滑块：悬停项优先于当前选中项，移出后返回选中项；两者均不存在时隐藏。从隐藏变为显示时直接定位，已显示时平滑移动；系统或应用要求减少动效时直接切换。移动端布局及手机宽度下始终隐藏背景滑块，包括鼠标悬停和触摸操作。
+桌面侧栏使用单一背景滑块：只跟随 `value` 对应的选中项；悬停、移出和单独聚焦不改变滑块位置，没有选中项时隐藏。从隐藏变为显示时直接定位并渐入，隐藏时原地渐出，已显示时平滑移动；系统或应用要求减少动效时直接切换。移动端布局及手机宽度下始终隐藏背景滑块，包括鼠标悬停和触摸操作。
 
 `AssistantList` 接受纯展示数据 `entries: AssistantListEntry[]`、`selectedID`、`onSelect` 和读屏标签。条目包含 `id/name/preview/unread/pinned`，组件不读取 demo store 或发起网络请求。`mobile` 控制移动端布局和选中表现，列表平铺展示、置顶优先；间距、头像、未读标记统一由组件样式提供。原型和真实 WebUI 共用这一实现，不提供助理分组展示。可传入 `emptyState` 复用 `EmptyState` 展示图标、说明和操作；未提供时回退到 `emptyLabel`。应用区分无助理的聘请引导和搜索无结果的清空操作。
 

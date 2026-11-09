@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type HTMLAttributes } from 'react';
+import { useLayoutEffect, useRef, type HTMLAttributes } from 'react';
 import { useUILocale } from '../locale';
 
 export type SlidingHighlightProps = Pick<HTMLAttributes<HTMLElement>, 'children' | 'className' | 'aria-label' | 'hidden' | 'style' | 'id'> & {
@@ -11,28 +11,32 @@ export type SlidingHighlightProps = Pick<HTMLAttributes<HTMLElement>, 'children'
 export function SlidingHighlight({ as: Tag = 'div', value, disabled = false, children, className = '', ...props }: SlidingHighlightProps) {
   const containerRef = useRef<HTMLElement | null>(null);
   const { reducedMotion } = useUILocale();
-  const [hovered, setHovered] = useState<string>();
 
   useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    const items = [...container.querySelectorAll<HTMLElement>('[data-sliding-item]')];
     if (disabled) {
       delete container.dataset.highlight;
-      setHovered(undefined);
       return;
     }
-    const items = [...container.querySelectorAll<HTMLElement>('[data-sliding-item]')];
-    const target = items.find(item => item.dataset.slidingItem === hovered) ?? items.find(item => item.dataset.slidingItem === value);
+    const target = items.find(item => item.dataset.slidingItem === value);
     const measure = () => {
       if (!target || !target.getClientRects().length) {
         delete container.dataset.highlight;
         return;
       }
+      const visible = container.hasAttribute('data-highlight');
+      container.toggleAttribute('data-highlight-moving', visible);
       const bounds = container.getBoundingClientRect(), rect = target.getBoundingClientRect();
-      container.style.setProperty('--sliding-highlight-x', `${rect.left - bounds.left + container.scrollLeft - container.clientLeft}px`);
-      container.style.setProperty('--sliding-highlight-y', `${rect.top - bounds.top + container.scrollTop - container.clientTop}px`);
+      const x = rect.left - bounds.left + container.scrollLeft - container.clientLeft;
+      const y = rect.top - bounds.top + container.scrollTop - container.clientTop;
+      container.style.setProperty('--sliding-highlight-x', `${x}px`);
+      container.style.setProperty('--sliding-highlight-y', `${y}px`);
       container.style.setProperty('--sliding-highlight-width', `${rect.width}px`);
       container.style.setProperty('--sliding-highlight-height', `${rect.height}px`);
+      // Establish the new position while invisible, then fade in without an entrance slide.
+      if (!visible) getComputedStyle(container, '::before').transform;
       container.dataset.highlight = '';
     };
     measure();
@@ -40,17 +44,7 @@ export function SlidingHighlight({ as: Tag = 'div', value, disabled = false, chi
     observer.observe(container);
     items.forEach(item => observer.observe(item));
     return () => observer.disconnect();
-  }, [children, value, hovered, disabled]);
+  }, [children, value, disabled, reducedMotion]);
 
-  return <Tag {...props} ref={(node: HTMLElement | null) => { containerRef.current = node; }} className={`ui-sliding-highlight ${className}`} data-reduced-motion={reducedMotion || undefined}
-    onPointerOver={event => {
-      if (disabled || event.pointerType === 'touch') return;
-      const item = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-sliding-item]') : null;
-      setHovered(item?.dataset.slidingItem);
-    }}
-    onPointerOut={event => {
-      const next = event.relatedTarget;
-      if (!(next instanceof Element) || !event.currentTarget.contains(next) || !next.closest('[data-sliding-item]')) setHovered(undefined);
-    }}
-    onPointerLeave={() => setHovered(undefined)} onPointerCancel={() => setHovered(undefined)}>{children}</Tag>;
+  return <Tag {...props} ref={(node: HTMLElement | null) => { containerRef.current = node; }} className={`ui-sliding-highlight ${className}`} data-reduced-motion={reducedMotion || undefined}>{children}</Tag>;
 }

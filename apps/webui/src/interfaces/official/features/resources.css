@@ -66,8 +66,10 @@
 .sandbox-item { display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: start; padding: 12px 8px; border: 0; border-radius: var(--radius-control); background: transparent; color: inherit; cursor: pointer; }
 .sandbox-item:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .sandbox-item > svg { flex-shrink: 0; margin-top: 2px; color: var(--color-text-muted); }
+.sandbox-item:is([aria-pressed='true'], :hover) > svg { color: var(--color-primary); }
+.sandbox-item:not([aria-pressed='true']):not(:hover) strong { color: var(--color-text-muted); }
 .sandbox-item-copy { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: 5px; }
-.sandbox-item strong { font-size: 13px; overflow-wrap: anywhere; }
+.sandbox-item strong { color: var(--color-text); font-size: 13px; overflow-wrap: anywhere; }
 .sandbox-item small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--color-text-muted); font-size: 11px; }
 .sandbox-connection-state { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--color-text-muted); }
 .sandbox-connection-state::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }

@@ -226,3 +226,10 @@
 }
 
 [data-ui-theme][data-theme='dark'] { --color-terminal-cyan: #79cbd2; }
+
+/* Menus use a solid primary fill; sliding lists use the theme canvas. */
+:root, [data-ui-theme], [data-palette] {
+  --color-navigation-active: var(--color-primary);
+  --color-on-navigation-active: var(--color-on-primary);
+  --color-navigation-highlight: var(--color-background);
+}
