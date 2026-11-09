@@ -7,6 +7,8 @@
 .assistant-avatar-field p { margin: 0; font-size: 12px; }
 .assistant-avatar-presets { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
 .assistant-avatar-presets button { min-width: 0; padding: 3px; border: 2px solid transparent; border-radius: 50%; background: transparent; cursor: pointer; aspect-ratio: 1; }
+/* Use the artwork's square ratio; WebKit over-resolves percentage height inside padded buttons. */
+.assistant-avatar-presets .assistant-avatar-art { height: auto; }
 .assistant-avatar-presets button:hover { background: var(--color-selected-bg); }
 .assistant-avatar-presets button[aria-pressed='true'] { border-color: var(--color-primary); }
 .assistant-avatar-presets button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }

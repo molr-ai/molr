@@ -62,6 +62,8 @@ html:has(.ui-dialog[open]:not([data-contained])) { overflow: hidden; }
 .ui-dialog::backdrop { background: var(--color-overlay); backdrop-filter: blur(3px); }
 .ui-dialog__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 24px 24px 20px; flex-shrink: 0; border-bottom: 1px solid var(--color-border); }
 .ui-dialog__header h2 { margin: 0; font-size: 20px; font-weight: 600; line-height: 1.4; letter-spacing: -0.03em; }
+/* Static titles receive programmatic focus for announcements, not interaction. */
+.ui-dialog__header h2[tabindex='-1']:focus { outline: none; }
 .ui-dialog__header p { margin: 8px 0 0; font-size: var(--text-sm); color: var(--color-text-muted); line-height: 1.6; }
 .ui-dialog__header .ui-icon-button { margin: -4px -6px 0 0; }
 .ui-dialog__body { min-height: 0; padding: 24px; overflow-y: auto; overscroll-behavior: contain; font-size: var(--text-sm); line-height: 1.65; }

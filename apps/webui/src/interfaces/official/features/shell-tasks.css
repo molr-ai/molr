@@ -1,5 +1,6 @@
 .shell-tasks-content { min-width: 0; display: grid; gap: 24px; }
 .shell-tasks-content h3, .shell-tasks-content h4, .shell-tasks-content p { margin: 0; }
+.shell-tasks-content [data-task-heading][tabindex='-1']:focus { outline: none; }
 .shell-task-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .shell-task-section-heading h3 { display: flex; align-items: baseline; gap: 12px; font-size: 16px; font-weight: 600; }
 .shell-task-section-heading p { margin-top: 4px; font-size: 12px; color: var(--color-text-muted); }
