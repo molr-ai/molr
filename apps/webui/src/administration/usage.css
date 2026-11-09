@@ -39,8 +39,14 @@
 .usage-storage-overview { grid-template-columns: repeat(4,minmax(0,1fr)); }
 @media (--molr-mobile) {
  .usage-storage-overview { grid-template-columns: repeat(2,minmax(0,1fr)); }
- .usage-storage-table .ui-table { min-width: 0; table-layout: fixed; }
- .usage-storage-table .ui-table th,.usage-storage-table .ui-table td { padding: var(--space-3) var(--space-2); overflow-wrap: anywhere; }
- .usage-storage-table .ui-table th:first-child { width: 40%; }
- .usage-storage-table .usage-share .ui-progress { display: none; }
 }
+
+.usage-storage-shares { min-width: 0; }
+.usage-storage-bar { display: flex; gap: 4px; height: 8px; margin-top: var(--space-3); overflow: hidden; border-radius: var(--radius-pill); }
+.usage-storage-bar:empty { background: var(--color-border); }
+.usage-storage-bar > span { flex-basis: 0; min-width: 0.5%; border-radius: var(--radius-pill); }
+.usage-storage-legend { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--space-3) var(--space-4); margin: var(--space-3) 0 0; font-size: var(--text-xs); line-height: 1.6; }
+.usage-storage-legend > div { min-width: 0; }
+.usage-storage-legend dt { display: flex; align-items: baseline; gap: 6px; color: var(--color-text); }
+.usage-storage-dot { flex: 0 0 8px; height: 8px; border-radius: 50%; }
+.usage-storage-legend dd { margin: 2px 0 0 14px; color: var(--color-text-muted); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }

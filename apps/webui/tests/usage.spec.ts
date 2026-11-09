@@ -51,12 +51,12 @@ test('member usage and admin statistics share actual call totals', async ({ page
     await expect(member.getByRole('combobox', { name: 'Date range' })).toBeHidden();
     await member.getByRole('tab', { name: 'Storage', exact: true }).click();
     await member.getByRole('tabpanel', { name: 'Storage', exact: true }).getByRole('button', { name: 'Refresh', exact: true }).click();
-    await expect(member.getByRole('table', { name: 'Storage breakdown' })).toContainText('Message content');
+    await expect(member.getByRole('region', { name: 'Storage breakdown' })).toContainText('Message content');
     const personal = await request(member, '/api/account/quotas');
     const stats = await request(page, '/api/admin/usage'), row = stats.Users.find((u: any) => u.UserID === user.ID);
     expect(personal.Summary.Attachments).toEqual([{ Kind: 'text', Bytes: 13, Files: 1 }]);
-    await expect(member.getByRole('table', { name: 'Storage breakdown' })).toContainText('Text files');
-    await expect(member.getByRole('table', { name: 'Storage breakdown' })).toContainText('13 B');
+    await expect(member.getByRole('region', { name: 'Storage breakdown' })).toContainText('Text files');
+    await expect(member.getByRole('region', { name: 'Storage breakdown' })).toContainText('13 B');
     expect(personal.ContextStorage.Bytes).toBeGreaterThan(0);
     expect(personal.ContextStorage.Messages).toBeGreaterThan(0);
     expect(stats.ContextStorage.Bytes).toBeGreaterThanOrEqual(personal.ContextStorage.Bytes);
@@ -241,5 +241,5 @@ test('tool and storage failures offer refresh without showing empty totals', asy
   }
   await page.unroute('**/api/account/quotas*');
   await page.getByRole('tabpanel', { name: 'Storage', exact: true }).getByRole('button', { name: 'Refresh', exact: true }).click();
-  await expect(page.getByRole('table', { name: 'Storage breakdown' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Storage breakdown' })).toBeVisible();
 });

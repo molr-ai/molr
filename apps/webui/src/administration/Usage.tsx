@@ -125,12 +125,19 @@ function StorageDetails({ context, attachments, global = false }: { context: Con
       <Metric label={zh ? '附件与文件' : 'Attachments and files'}>{bytes(fileBytes)}</Metric>
       <Metric label={zh ? '文件数量' : 'File count'}>{fileCount.toLocaleString(locale)}</Metric>
     </dl>
-    <Table className="usage-storage-table" caption={zh ? '存储构成' : 'Storage breakdown'} rows={rows} rowKey={row => row.Kind} columns={[
-      { key: 'name', header: zh ? '数据类型' : 'Data type', cell: row => row.Name },
-      { key: 'size', header: zh ? '大小' : 'Size', align: 'end', cell: row => bytes(row.Bytes) },
-      { key: 'count', header: zh ? '对象数' : 'Count', align: 'end', cell: row => row.Count.toLocaleString(locale) },
-      { key: 'share', header: zh ? '占比' : 'Share', align: 'end', cell: row => <div className="usage-share"><Progress label={row.Name} value={total ? row.Bytes / total * 100 : 0} showValue={false} /><span>{(total ? row.Bytes / total * 100 : 0).toFixed(1)}%</span></div> },
-    ]} />
+    <section className="usage-storage-shares" aria-label={zh ? '存储构成' : 'Storage breakdown'}>
+      <div className="usage-section-heading"><h3>{zh ? '存储构成' : 'Storage breakdown'}</h3></div>
+      <div className="usage-storage-bar" aria-hidden="true">
+        {rows.filter(row => row.Bytes > 0).map(row => <span key={row.Kind} style={{ flexGrow: row.Bytes, background: `var(--color-storage-${row.Kind})` }} />)}
+      </div>
+      <dl className="usage-storage-legend">{rows.map(row => {
+        const share = total ? row.Bytes / total * 100 : 0;
+        return <div key={row.Kind}>
+          <dt><span className="usage-storage-dot" style={{ background: `var(--color-storage-${row.Kind})` }} aria-hidden="true" />{row.Name}</dt>
+          <dd>{share > 0 && share < 0.1 ? '<0.1' : share.toFixed(1)}% · {bytes(row.Bytes)} · {row.Count.toLocaleString(locale)} {zh ? '个对象' : row.Count === 1 ? 'object' : 'objects'}</dd>
+        </div>;
+      })}</dl>
+    </section>
     <p className="usage-note">{zh ? '附件按已就绪的文件计量，按媒体类型归类。以上不含助理工作区、接入目录、数据库索引、日志和缓存，因此不代表磁盘总占用。工作区实时用量可在助理权限详情中查看。' : 'Attachments count ready files, grouped by media type. Assistant workspaces, connected directories, database indexes, logs and caches are excluded; this is not total disk usage. Live workspace usage is available in assistant permission details.'}</p>
     <ContextStorage global={global} />
   </div>;
