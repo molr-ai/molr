@@ -108,12 +108,14 @@ function StorageDetails({ admin = false, children }: { admin?: boolean; children
     { key: 'database', name: zh ? '数据库' : 'Database', value: data.Database, description: data.DatabasePhysical ? zh ? '全部账号的数据文件，包含索引与数据库预留空间。' : 'Data files across all accounts, including indexes and allocated database space.' : zh ? '聊天记录、账号资料和设置等账号数据，不分摊共享索引。' : 'Your chat records, account data and settings; shared indexes are excluded.', files: false },
     { key: 'attachments', name: zh ? '消息附件' : 'Message attachments', value: data.Attachments, description: zh ? '上传的图片、文件与助理交付物。' : 'Uploaded images, files and assistant deliverables.', files: true },
     { key: 'workspaces', name: zh ? '助理工作区' : 'Assistant workspaces', value: data.Workspaces, description: zh ? '本机托管工作区中的文件、技能与缓存。' : 'Files, skills and caches in locally managed workspaces.', files: true },
+    { key: 'shared', name: zh ? '共享资料' : 'Shared data', value: data.Shared, description: zh ? '账号内共享的记忆、技能与指令。' : 'Memories, skills and instructions shared within each account.', files: true },
+    ...(admin && data.System ? [{ key: 'system', name: zh ? '系统与运行文件' : 'System and runtime files', value: data.System, description: zh ? '可识别的服务日志、缓存、组件、程序配置及临时残留文件。' : 'Identified service logs, caches, components, program/configuration files and temporary leftovers.', files: true }] : []),
   ] : [];
   const total = rows.reduce((sum, row) => sum + (row.value.Available ? row.value.Bytes : 0), 0);
   const complete = rows.every(row => row.value.Available);
   return <div className="usage-tab-content usage-storage" aria-busy={query.loading}>
     <div className="usage-storage-heading">
-      <dl className="usage-storage-total"><Metric label={data && !complete ? zh ? '已统计空间' : 'Measured storage' : admin ? zh ? '服务存储用量' : 'Service storage usage' : zh ? '账号存储用量' : 'Account storage usage'}>{rows.some(row => row.value.Available) ? bytes(total) : '—'}</Metric></dl>
+      <dl className="usage-storage-total"><Metric label={zh ? '已统计用量' : 'Measured storage'}>{rows.some(row => row.value.Available) ? bytes(total) : '—'}</Metric></dl>
       <Button size="sm" variant="secondary" disabled={query.loading} onClick={query.reload}><RefreshCw size={14} />{t.refresh}</Button>
     </div>
     {!data ? query.loading ? <Loading /> : <Empty title={zh ? '存储用量暂时无法加载' : 'Storage usage is temporarily unavailable'} action={<Button variant="secondary" size="sm" onClick={query.reload}>{zh ? '重试' : 'Retry'}</Button>} /> : <>
@@ -123,7 +125,7 @@ function StorageDetails({ admin = false, children }: { admin?: boolean; children
         </div>
         <dl className="usage-storage-categories">{rows.map(row => {
           const share = total ? row.value.Bytes / total * 100 : 0;
-          return <div key={row.key}>
+          return <div key={row.key} data-kind={row.key}>
             <dt><span className="usage-storage-dot" style={{ background: `var(--color-storage-${row.key})` }} aria-hidden="true" /><span>{row.name}</span><small>{!row.value.Available ? '—' : `${share > 0 && share < 0.1 ? '<0.1' : share.toFixed(1)}%`}</small></dt>
             <dd><strong>{row.value.Available ? bytes(row.value.Bytes) : zh ? '暂无法统计' : 'Unavailable'}</strong>{row.files && row.value.Available && <small>{row.value.Files.toLocaleString(locale)} {zh ? '个文件' : row.value.Files === 1 ? 'file' : 'files'}</small>}</dd>
             <p>{row.description}</p>
@@ -131,7 +133,7 @@ function StorageDetails({ admin = false, children }: { admin?: boolean; children
         })}</dl>
       </section>
       {!complete && <p className="usage-note" role="status">{zh ? '部分用量暂无法统计，总量与占比仅包含已统计部分，可刷新重试。' : 'Some usage is unavailable. Totals and shares cover measured categories only; refresh to retry.'}</p>}
-      <p className="usage-note">{zh ? '统计数据库、消息附件和本机托管工作区，不含外部接入目录及服务日志。' : 'Covers the database, message attachments and locally managed workspaces; excludes connected directories and service logs.'}</p>
+      <p className="usage-note">{admin ? zh ? '按文件大小统计本机可识别的实例数据、安装和组件文件；外部接入目录、远程节点、外置备份与系统日志服务托管的日志不计入。' : 'Measures file sizes in identified local instance, installation and component locations; excludes connected directories, remote nodes, external backups and logs held by the system journal.' : zh ? '数据库按账号数据量统计，其余按文件大小统计；不含系统文件、外部接入目录和远程节点。' : 'Database usage measures account data; other categories use file sizes. System files, connected directories and remote nodes are excluded.'}</p>
       {children}
       <AsOf value={data.AsOf} />
     </>}

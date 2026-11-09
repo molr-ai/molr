@@ -35,6 +35,7 @@ func storageUsage(ctx context.Context, store persistence.Store, identity *auth.M
 		owner = ""
 	}
 	var assistants []struct{ ID core.ID }
+	readyFiles := map[string]bool{}
 	err := store.Read(ctx, func(ctx context.Context, tx persistence.Tx) error {
 		if !admin {
 			if reader, ok := store.(interface {
@@ -72,6 +73,19 @@ func storageUsage(ctx context.Context, store persistence.Store, identity *auth.M
 			return err
 		}
 		out.Attachments = accountview.StorageSize{Bytes: bytes, Files: count, Available: true}
+		if admin {
+			q.Fields = []string{"ID"}
+			files, err := persistence.Select[struct{ ID core.ID }](ctx, tx.Store(), "storage.files", q)
+			if err != nil {
+				return err
+			}
+			for _, file := range files {
+				if file.ID.Validate() != nil {
+					return core.NewError(core.Internal, "invalid stored file identity")
+				}
+				readyFiles[filepath.Join(cfg.DataDir, "files", "objects", string(file.ID))] = true
+			}
+		}
 		return nil
 	})
 	if err != nil {
@@ -87,7 +101,19 @@ func storageUsage(ctx context.Context, store persistence.Store, identity *auth.M
 			root = filepath.Join(cfg.DataDir, "sandbox", "work")
 		}
 		out.Workspaces = directoryStorage(ctx, root)
+		out.Shared = sharedStorage(ctx, cfg.DataDir)
+		databasePath := filepath.Join(cfg.DataDir, "runtime.db")
+		if database, ok := store.(interface{ Path() string }); ok {
+			databasePath = database.Path()
+		}
+		executable, err := os.Executable()
+		if err != nil {
+			return out, err
+		}
+		system := systemStorage(ctx, cfg, databasePath, readyFiles, storageSystemPaths(cfg, executable))
+		out.System = &system
 	} else {
+		out.Shared = directoryStorage(ctx, platform.UserGlobal(cfg.DataDir, owner))
 		out.Workspaces.Available = true
 		for _, assistant := range assistants {
 			if err := assistant.ID.Validate(); err != nil {
@@ -128,6 +154,10 @@ func databaseFileUsage(path string) accountview.StorageSize {
 // The request context bounds runtime; a large/incomplete scan is unavailable,
 // not a misleading partial total. The HTTP snapshot is cached for five minutes.
 func directoryStorage(ctx context.Context, root string) accountview.StorageSize {
+	return directoryStorageExcept(ctx, root, nil)
+}
+
+func directoryStorageExcept(ctx context.Context, root string, excluded func(string) bool) accountview.StorageSize {
 	out := accountview.StorageSize{Available: true}
 	pending := []string{"."}
 	visited := 0
@@ -160,6 +190,9 @@ func directoryStorage(ctx context.Context, root string) accountview.StorageSize 
 				if visited > 1000000 {
 					complete = false
 					break
+				}
+				if excluded != nil && excluded(filepath.Join(root, name, info.Name())) {
+					continue
 				}
 				if info.Mode()&os.ModeSymlink != 0 {
 					continue

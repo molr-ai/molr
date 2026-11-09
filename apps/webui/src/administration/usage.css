@@ -44,8 +44,9 @@
 .usage-storage-bar { display: flex; gap: 4px; height: 8px; overflow: hidden; border-radius: var(--radius-pill); }
 .usage-storage-bar:empty { background: var(--color-border); }
 .usage-storage-bar > span { flex-basis: 0; min-width: 0.5%; border-radius: var(--radius-pill); }
-.usage-storage-categories { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: var(--space-5); margin: var(--space-5) 0 0; }
+.usage-storage-categories { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--space-5); margin: var(--space-5) 0 0; }
 .usage-storage-categories > div { min-width: 0; }
+.usage-storage-categories > [data-kind="system"] { grid-column: 1 / -1; border-top: 1px solid var(--color-border); padding-top: var(--space-4); }
 .usage-storage-categories dt { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); font-weight: 500; }
 .usage-storage-categories dt > span:nth-child(2) { flex: 1; }
 .usage-storage-dot { flex: 0 0 8px; height: 8px; border-radius: 50%; }

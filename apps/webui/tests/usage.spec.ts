@@ -66,6 +66,11 @@ test('member usage and admin statistics share actual call totals', async ({ page
     expect(storageUsage.Database.Bytes).toBeGreaterThan(personal.ContextStorage.Bytes);
     expect(storageUsage.Attachments).toEqual({ Bytes: 13, Files: 1, Available: true });
     expect(storageUsage.Workspaces.Available).toBe(true);
+    expect(storageUsage.Shared.Available).toBe(true);
+    expect(storageUsage).not.toHaveProperty('System');
+    await expect(member.locator('.usage-storage-categories > div')).toHaveCount(4);
+    await expect(member.getByRole('region', { name: 'Storage breakdown' })).toContainText('Shared data');
+    await expect(member.getByText('Measured storage', { exact: true })).toBeVisible();
     expect((await member.request.get('/api/admin/storage')).status()).toBe(403);
     await expect(member.getByRole('region', { name: 'Storage breakdown' })).toContainText('Assistant workspaces');
     expect(personal.ContextStorage.MessageBytes + personal.ContextStorage.ValueBytes + personal.ContextStorage.DocumentBytes).toBe(personal.ContextStorage.Bytes);
@@ -104,6 +109,8 @@ test('member usage and admin statistics share actual call totals', async ({ page
     await page.getByRole('tab', { name: 'Storage', exact: true }).click();
     const storage = page.getByRole('region', { name: 'Storage breakdown', exact: true });
     await expect(storage).toContainText('Data files across all accounts');
+    await expect(storage).toContainText('System and runtime files');
+    await expect(storage.locator('.usage-storage-categories > div')).toHaveCount(5);
     const globalText = await storage.textContent();
     await page.getByRole('tab', { name: 'Models', exact: true }).click();
     const totalMessages = stats.Users.reduce((sum: number, user: any) => sum + user.UserMessages, 0);

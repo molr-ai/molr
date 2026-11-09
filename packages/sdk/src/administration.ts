@@ -14,4 +14,4 @@ export type ContextStorageUsage = { Bytes: number; Messages: number; MessageByte
 export type AdminUsageView = { AsOf: string; Users: UsageSummary[]; ContextStorage: ContextStorageUsage };
 export type AccountQuotas = { ContextStorage: ContextStorageUsage; Group: UserGroup; Summary: UsageSummary; AsOf: string; Resources: { Kind: string; ID: string; Name: string; Calls: number; Active: number; Unknown: number; Carried: number; PeriodStart: string; PeriodEnd: string | null; Spent: Money[]; Reserved: Money[] }[] };
 export type StorageSize = { Bytes: number; Files: number; Available: boolean };
-export type StorageUsage = { Database: StorageSize; Attachments: StorageSize; Workspaces: StorageSize; DatabasePhysical: boolean; AsOf: string };
+export type StorageUsage = { Database: StorageSize; Attachments: StorageSize; Workspaces: StorageSize; Shared: StorageSize; System?: StorageSize; DatabasePhysical: boolean; AsOf: string };

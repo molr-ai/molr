@@ -67,9 +67,10 @@ type StorageSize struct {
 }
 
 type StorageUsage struct {
-	Database, Attachments, Workspaces StorageSize
-	DatabasePhysical                  bool
-	AsOf                              time.Time
+	Database, Attachments, Workspaces, Shared StorageSize
+	System                                    *StorageSize `json:",omitempty"`
+	DatabasePhysical                          bool
+	AsOf                                      time.Time
 }
 
 type UsageSummary struct {

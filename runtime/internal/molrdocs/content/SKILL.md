@@ -7,7 +7,7 @@ description: >
   implicit questions about this platform. 用户询问 Molr 自身的功能、使用、配置、部署或故障时使用。
   Ordinary tasks merely performed inside Molr do not need this skill.
 metadata:
-  bundle-revision: 36521262ad4e07cf84af756b8de8d02874c1b99744744f7697644fefce930d32
+  bundle-revision: 7d262fa463a6ef16d5c1e39178753b43cb7524120cd64ffebd822ecd4a3d6c5c
 ---
 
 # Molr documentation

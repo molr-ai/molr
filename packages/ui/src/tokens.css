@@ -93,6 +93,8 @@
   --color-storage-database: #3b82f7;
   --color-storage-attachments: #ea8732;
   --color-storage-workspaces: #50a77a;
+  --color-storage-shared: #b85cfa;
+  --color-storage-system: #64748b;
 
   --color-context-system: #b85cfa;
   --color-context-tool: #71d1a3;
@@ -138,6 +140,8 @@
   --color-storage-database: #6aa3ff;
   --color-storage-attachments: #ffb35e;
   --color-storage-workspaces: #83ddb4;
+  --color-storage-shared: #cb83ff;
+  --color-storage-system: #94a3b8;
 
   --color-context-system: #cb83ff;
   --color-context-tool: #83ddb4;
