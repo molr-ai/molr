@@ -1,3 +1,4 @@
+import { chatPanel } from './chat-panel';
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
@@ -84,7 +85,7 @@ test('assistant status is self-authored, live, persistent and cleared back to id
   await page.reload();
   await expect(label).toHaveText(status);
   await page.locator('.chat-assistant-info').click();
-  const dialog = page.getByRole('dialog', { name: 'Assistant information', exact: true });
+  const dialog = chatPanel(page, 'Assistant information');
   await expect(dialog).toBeVisible();
   await expect(page.locator('.assistant-profile-status')).toHaveCount(0);
   await expect(page.locator('.assistant-profile-status input, .assistant-profile-status textarea')).toHaveCount(0);

@@ -1,3 +1,4 @@
+import { chatPanel } from './chat-panel';
 import { test, expect, type Page } from '@playwright/test';
 import type { Assistant, Model, Resource, Settings } from '@molr/sdk';
 import type { PluginPackage } from '@molr/sdk/plugins';
@@ -107,15 +108,15 @@ test('every route and settings section stays within the WebView', async ({ page 
     await test.step('selected chat, assistant information and plans', async () => {
       await visit(page, `assistants/${assistant.ID}`, '.chat-history .ui-chat-message--assistant');
       await page.locator('.chat-assistant-info').click();
-      const panel = page.getByRole('dialog');
+      const panel = chatPanel(page, 'Assistant information');
       await expect(panel).toBeVisible();
       for (const tab of await panel.getByRole('tab').all()) {
         await tab.click(); await expect(tab).toHaveAttribute('aria-selected', 'true');
         await checkPageHeight(page);
       }
-      await page.keyboard.press('Escape');
+      await panel.getByRole('button', { name: 'Close', exact: true }).click();
       await page.locator('.chat-header').getByRole('button', { name: 'Plans', exact: true }).click();
-      await expect(page.getByRole('dialog', { name: 'Plans', exact: true })).toBeVisible();
+      await expect(chatPanel(page, 'Plans')).toBeVisible();
       await checkPageHeight(page);
     });
     await test.step('plan list and calendar', async () => {

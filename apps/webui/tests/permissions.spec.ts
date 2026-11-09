@@ -1,3 +1,4 @@
+import { chatPanel } from './chat-panel';
 import { test, expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
@@ -134,7 +135,7 @@ test('task, resource, schedule and permission cards share layout and display rea
   expect(await all.evaluateAll(elements => elements.every(el => el.scrollWidth <= el.clientWidth + 1 && el.getBoundingClientRect().right <= innerWidth))).toBe(true);
   await page.screenshot({ path: info.outputPath('unified-message-cards.png') });
   await taskCard.getByRole('button', { name: 'View task', exact: true }).click();
-  const taskDetails = page.getByRole('dialog', { name: 'Plan details', exact: true });
+  const taskDetails = chatPanel(page, 'Plan details');
   await expect(taskDetails.getByRole('region', { name: `${task.Goal} · Plan details`, exact: true })).toBeVisible();
   await expect(taskDetails.locator('.plan-execution[open] .plan-instructions')).toHaveText(task.Goal);
   await page.keyboard.press('Escape');

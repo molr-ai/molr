@@ -58,6 +58,9 @@ test('login link deadlines advance pending and used links without waiting for a 
   await page.route(url => url.pathname === '/api/auth/login-links', route => route.fulfill({ json: { Items: links, NextCursor: '' } }));
   await openSecurity(page);
   await page.clock.pauseAt(new Date(now));
+  // Reschedule under the paused clock: real time can advance between reading
+  // Date.now() and registering the original deadline timer during page startup.
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
   const first = linkRow(page, 'First'), second = linkRow(page, 'Second'), used = linkRow(page, 'Used');
   await expect(first).toContainText('Ready to use');
   await expect(used).toContainText('Used');

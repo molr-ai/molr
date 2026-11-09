@@ -1,3 +1,4 @@
+import { chatPanel } from './chat-panel';
 import { readLayout } from '../../../scripts/test-support/layout.ts';
 import { selectPlanRange } from './plan-controls';
 import { expectFitsWebView } from './viewport';
@@ -450,13 +451,13 @@ test('waiting notices explain real pricing, permission and budget blockers', asy
     } else if (reason === 'model_not_authorized') {
       await expect(notice).toContainText('The assistant cannot call this model');
       await notice.getByRole('button', { name: 'Manage model access', exact: true }).click();
-      await expect(page.getByRole('dialog', { name: 'Assistant information', exact: true })).toBeVisible();
+      await expect(chatPanel(page, 'Assistant information')).toBeVisible();
     } else {
       await expect(notice).toContainText('remaining allowance does not cover');
       await notice.getByRole('button', { name: 'Adjust budget', exact: true }).click();
-      await expect(page.getByRole('dialog', { name: 'Assistant information', exact: true })).toBeVisible();
+      await expect(chatPanel(page, 'Assistant information')).toBeVisible();
       await expect(page.getByRole('spinbutton', { name: 'Spending limit (USD)', exact: true })).toBeVisible();
-      await page.getByRole('dialog', { name: 'Assistant information', exact: true }).getByRole('button', { name: 'Cancel', exact: true }).click();
+      await chatPanel(page, 'Assistant information').getByRole('button', { name: 'Cancel', exact: true }).click();
     }
   }
 });
@@ -471,8 +472,8 @@ test('resource permissions follow capabilities and clear irrelevant scopes', asy
     await page.goto(`/#/assistants/${assistant.ID}`); await page.reload();
     await page.getByRole('textbox', { name: 'Message your assistant', exact: true }).fill('Draft remains while managing permissions');
     await assistantMenu(page, 'Assistant information');
-    await page.getByRole('dialog', { name: 'Assistant information', exact: true }).getByRole('tab', { name: 'Permissions', exact: true }).click();
-    const drawer = page.getByRole('dialog', { name: 'Assistant information', exact: true });
+    await chatPanel(page, 'Assistant information').getByRole('tab', { name: 'Permissions', exact: true }).click();
+    const drawer = chatPanel(page, 'Assistant information');
     await expect(drawer).toHaveClass(/ui-drawer/);
     await expect(drawer).toHaveAttribute('data-side', info.project.name === 'mobile' ? 'bottom' : 'right');
     await expect(drawer.locator('.ui-dialog__header')).toContainText(name);
@@ -641,7 +642,7 @@ test('model selector groups providers and automatically searches larger catalogs
   const assistants = (await (await page.request.get(`/api/assistants?name=${encodeURIComponent(`Grouped assistant ${suffix}`)}`)).json()).Items;
   expect(assistants.find((assistant: { Name: string }) => assistant.Name === `Grouped assistant ${suffix}`).ModelID).toBe(catalog.find((model: { ResourceID: string; Name: string }) => model.ResourceID === providers[1].ID && model.Name === 'Shared chat').ID);
   await assistantMenu(page, 'Assistant information');
-    await page.getByRole('dialog', { name: 'Assistant information', exact: true }).getByRole('tab', { name: 'Permissions', exact: true }).click();
+    await chatPanel(page, 'Assistant information').getByRole('tab', { name: 'Permissions', exact: true }).click();
   await page.getByRole('button', { name: 'Add permission', exact: true }).click();
   const grantDialog = page.getByRole('dialog', { name: 'Add permission', exact: true });
   await choose(page, 'Resource type', 'Models');
@@ -661,7 +662,7 @@ test('model selector groups providers and automatically searches larger catalogs
   expect(grant.Scope.ModelID).toBe(catalog.find((model: { ResourceID: string; Name: string }) => model.ResourceID === providers[0].ID && model.Name === 'Disabled chat').ID);
   expect(grant.Actions).toEqual(['read']);
   await expect(grantDialog).not.toBeVisible();
-  await expect(page.getByRole('dialog', { name: 'Assistant information', exact: true }).getByRole('button', { name: 'Disabled chat', exact: true })).toBeVisible();
+  await expect(chatPanel(page, 'Assistant information').getByRole('button', { name: 'Disabled chat', exact: true })).toBeVisible();
 });
 
 test('credential fields keep login autofill separate from provider secrets', async ({ page }) => {
@@ -1312,7 +1313,7 @@ test('search matches the shared design, filters real results and opens tasks', a
   await input.fill(name);
   await panel.getByRole('region', { name: 'Tasks', exact: true }).getByRole('button').click();
   await expect(panel).not.toBeVisible();
-  const tasks = page.getByRole('dialog', { name: 'Plan details', exact: true });
+  const tasks = chatPanel(page, 'Plan details');
   await expect(tasks.getByRole('heading', { name: task.Goal, exact: true })).toBeVisible();
   await expect(tasks.locator('.plan-execution[open]')).toContainText(task.Goal);
   await page.keyboard.press('Escape'); await expect(tasks).not.toBeVisible();
@@ -1769,7 +1770,7 @@ test('assistant budgets are set at hire and edited independently', async ({ page
   const usage = await (await page.request.get(`/api/usage?assistant_id=${assistant.ID}&current_period=true`)).json();
   expect(usage.Limit.Micros).toBe(2_000_000); expect(usage.PeriodEnd).toBeTruthy();
   await page.reload(); await assistantMenu(page, 'Assistant information');
-  const edit = page.getByRole('dialog', { name: 'Assistant information', exact: true });
+  const edit = chatPanel(page, 'Assistant information');
   await expect(edit.getByRole('spinbutton', { name: 'Spending limit (USD)', exact: true })).toHaveValue('2');
   await expect(edit.getByRole('combobox', { name: 'Reset period', exact: true })).toContainText('Weekly');
   await edit.getByRole('spinbutton', { name: 'Spending limit (USD)', exact: true }).fill('3');
@@ -1846,7 +1847,7 @@ test('currency preferences preserve native budgets and prices without assistant 
     await expect.poll(async () => (await (await page.request.get('/api/settings')).json()).Currency).toBe('USD');
     await page.goto(`/#/assistants/${assistant.ID}`); await page.reload();
     await assistantMenu(page, 'Assistant information');
-    const edit = page.getByRole('dialog', { name: 'Assistant information', exact: true });
+    const edit = chatPanel(page, 'Assistant information');
     await expect(edit.getByRole('combobox', { name: 'Currency', exact: true })).toContainText('Chinese yuan CNY');
     await expect(edit.getByRole('spinbutton', { name: 'Spending limit (CNY)', exact: true })).toHaveValue('7');
     await expect(edit.getByText('Saved spending limit', { exact: true })).toHaveCount(0);
@@ -2000,10 +2001,10 @@ test('assistant information unifies settings, real tools, permissions and Skills
   await page.goto(`/#/assistants/${assistant.ID}`); await page.reload();
   await page.getByRole('textbox', { name: 'Message your assistant', exact: true }).fill('Keep this chat draft');
   await page.getByRole('button', { name: `View information for ${assistant.Name}`, exact: true }).click();
-  const drawer = page.getByRole('dialog', { name: 'Assistant information', exact: true });
+  const drawer = chatPanel(page, 'Assistant information');
   await expect(drawer).toHaveClass(/ui-drawer/);
   await expect(drawer).toHaveAttribute('data-side', info.project.name === 'mobile' ? 'bottom' : 'right');
-  if (info.project.name === 'desktop') await expect(drawer).toHaveCSS('width', '600px');
+  if (info.project.name === 'desktop') await expect(drawer).toHaveAttribute('data-docked', 'true');
   await expect(drawer.getByRole('tab')).toHaveText(['Overview', 'Tools', 'Permissions', 'Conversations', 'Skills']);
   await expect(drawer.getByRole('combobox', { name: 'Model', exact: true })).toContainText(assistant.Name);
   await expect(drawer.getByText(`Model provider · ${assistant.Name}`, { exact: true })).toBeVisible();

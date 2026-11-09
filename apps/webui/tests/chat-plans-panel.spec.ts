@@ -46,6 +46,13 @@ test('chat plans show only ten nearest assistant items in a flat list and keep a
   await expect(panel.locator('.ui-dialog__header h2')).not.toHaveClass('ui-sr-only');
   const viewport = page.viewportSize()!;
   await page.setViewportSize({ width: info.project.name === 'desktop' ? 1100 : viewport.width, height: 420 });
+  // Resizing switches the docked panel to a drawer. Finish its entrance before
+  // measuring scroll position so the new layout and scroll range have settled.
+  await expect(panel).not.toHaveAttribute('data-docked', 'true');
+  await panel.evaluate(async element => {
+    await document.fonts.ready;
+    await Promise.all(element.getAnimations({ subtree: true }).map(animation => animation.finished.catch(() => {})));
+  });
   const list = panel.locator('.plans-master');
   await expect.poll(() => list.evaluate(e => e.scrollHeight > e.clientHeight)).toBe(true);
   await list.evaluate(e => { e.scrollTop = e.scrollHeight; });
