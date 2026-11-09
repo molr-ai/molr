@@ -20,12 +20,12 @@
 .browser-tab { position:relative; display:flex; align-items:center; width:180px; min-width:64px; height:34px; flex:0 1 180px; border:0; border-radius:7px; color:var(--color-text-muted); }
 .browser-tab[data-active] { color:var(--color-text); background:var(--color-selected-bg); }
 .browser-tab:not([data-active]) + .browser-tab:not([data-active])::before { content:""; position:absolute; left:0; top:50%; width:1px; height:16px; transform:translateY(-50%); background:var(--color-border); pointer-events:none; }
-.browser-tab > button[role='tab'] { flex:1; min-width:0; display:flex; align-items:center; gap:5px; padding:8px 5px; font:inherit; font-size:12px; color:inherit; background:transparent; border:0; text-align:left; cursor:pointer; }
+.browser-tab > button[role='tab'] { flex:1; min-width:0; display:flex; align-items:center; gap:5px; padding:8px 5px 8px 8px; font:inherit; font-size:12px; color:inherit; background:transparent; border:0; text-align:left; cursor:pointer; }
 .browser-tab > button[role='tab']:disabled { cursor:default; opacity:1; }
 .browser-tab > button span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.browser-tab svg { flex-shrink:0; }.browser-drawer .ui-dialog__header .browser-tab .ui-icon-button { width:20px; height:20px; min-height:0; border-radius:4px; margin-right:4px; flex-shrink:0; }
+.browser-tab svg { flex-shrink:0; }.browser-drawer .ui-dialog__header .browser-tab .ui-icon-button { width:20px; height:20px; min-height:0; border-radius:4px; margin-right:8px; flex-shrink:0; }
 .browser-tab .ui-icon-button > svg { width:14px; height:14px; }
-.browser-tab:not([data-active]):has(> button[role='tab']:enabled):hover { background:var(--color-page-background); }
+.browser-tab:not([data-active]):has(> button[role='tab']:enabled):hover { color:var(--color-text); background:var(--color-page-background); }
 .browser-tabstrip .ui-icon-button:disabled:hover, .browser-navigation .ui-icon-button:disabled:hover { background:transparent; }
 .browser-new-tab.ui-icon-button { width:28px; height:28px; flex-shrink:0; }
 .browser-navigation { display:flex; align-items:center; gap:4px; padding:8px 10px; border-bottom:1px solid var(--color-border); }
