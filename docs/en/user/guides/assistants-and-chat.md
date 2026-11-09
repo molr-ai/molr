@@ -4,7 +4,7 @@ Select an assistant from the assistant list to assign tasks, send attachments, a
 
 For terminal connections, chat, shortcuts, and permission approvals, see the [TUI user guide](tui.md).
 
-In the default desktop interface, drag the gaps between the assistant list, chat, and docked side panel to resize them. Focus a separator and use Left/Right to adjust it, Shift for larger steps, or Home/End for the current minimum/maximum width. Widths are saved for the current browser and account and restored after a reload. Assistant information, permissions, tasks, running tasks, browser, files, and terminal panels each keep their own width. Smaller windows constrain the displayed widths and use a drawer when docking cannot fit; enlarging the window restores the saved widths.
+In the default desktop interface, drag the gaps between the assistant list, chat, and docked side panel to resize them. Focus a separator and use Left/Right to adjust it, Shift for larger steps, or Home/End for the current minimum/maximum width. Widths are saved for the current browser and account and restored after a reload. Assistant information, permissions, tasks, running tasks, browser, files, and terminal panels each keep their own width. Smaller windows constrain the displayed widths and use a drawer when the available workspace is 1280 CSS pixels wide or less (excluding the main navigation and outer margins); enlarging the window restores the saved widths.
 
 ## Persistent Chat and Assistant Management
 
